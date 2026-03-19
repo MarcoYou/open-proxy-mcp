@@ -220,16 +220,17 @@ class DartClient:
 
     # ── 공시 본문 ──
 
-    async def get_document(self, rcept_no: str) -> str:
+    async def get_document(self, rcept_no: str) -> dict:
         """공시 본문 텍스트 가져오기
 
         document.xml API로 ZIP 다운로드 → XML 추출 → 텍스트 변환
+        이미지 파일명은 본문에서 제거하고 별도 목록으로 반환.
 
         Args:
             rcept_no: 접수번호
 
         Returns:
-            공시 본문 텍스트
+            {"text": 본문 텍스트, "images": [이미지 파일명 목록]}
         """
         import re
 
@@ -253,9 +254,16 @@ class DartClient:
         else:
             text_html = xml_content.decode("utf-8", errors="replace")
 
+        # 이미지 파일명 추출 (src 속성에서)
+        images = re.findall(r'[\w\-./]+\.(?:jpg|jpeg|png|gif|bmp)', text_html, re.IGNORECASE)
+        images = list(dict.fromkeys(images))  # 중복 제거, 순서 유지
+
         # HTML/XML 태그 제거 → 텍스트
         text = re.sub(r'<[^>]+>', ' ', text_html)
         text = re.sub(r'&[a-zA-Z]+;', ' ', text)
+        # 이미지 파일명 제거
+        for img in images:
+            text = text.replace(img, '')
         text = re.sub(r'\s+', ' ', text).strip()
 
-        return text
+        return {"text": text, "images": images}

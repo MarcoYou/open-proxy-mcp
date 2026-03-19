@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "open-proxy-dart": {
+      "command": "py",
+      "args": ["-m", "open_proxy_mcp"],
+      "cwd": "C:\\Users\\Owner\\OpenProxy_MCP"
+    }
+  }
+}
