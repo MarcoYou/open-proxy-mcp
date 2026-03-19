@@ -30,6 +30,17 @@ open_proxy_mcp/       # 메인 패키지
 - 입력값(날짜 형식 등) 검증 처리
 - 단일 파일 모놀리스 지양, 모듈 분리 유지
 
+## 개발 방식
+- **점진적 빌드**: 한 번에 하나씩 만들고 확인하고 넘어감
+- **Build → Check → Pass** 사이클:
+  1. 작은 단위 하나 구현 (build 1 case)
+  2. 실행/테스트로 동작 확인 (check)
+  3. 문제 있으면 수정, 통과하면 다음 단계로 (pass)
+- 유저가 각 단계를 이해하고 넘어가는 것이 우선 — 속도보다 이해
+- 새로운 개념이 나오면 설명 먼저, 코드 나중
+- DEVLOG.md에 날짜별 작업 내역을 지속적으로 기록 (뭘 했는지, 다음 단계는 뭔지)
+- 30분마다 자동으로 commit + push (유저가 별도 지시하지 않아도)
+
 ## 참고 프로젝트 (상세 → references.md)
 - **dart-mcp** — DART 재무제표 MCP. FastMCP 패턴/OpenDART 호출 구조 참고. 단일파일/캐싱없음은 개선 대상.
 - **Kensho (S&P Global)** — LLM 최적화 API 설계, 도메인별 tool 분리, dual transport(stdio+SSE) 참고.
