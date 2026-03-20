@@ -214,6 +214,14 @@ def _extract_agenda_zone(section: str) -> str | None:
         r'[■□○●▶]\s*경영\s*참고\s*사항',
         r'[■□○●▶]\s*전자\s*투표',
         r'[■□○●▶]\s*의결권',
+        # "N. 주주총회 소집통지/공고사항" 패턴
+        r'\d+[\.\s]*주주총회\s*소집\s*(?:통지|공고)',
+        # "N. 전자투표에 관한 사항" 패턴 (번호 뒤 마침표 없는 변형 포함)
+        r'\d+[\.\s]*전자\s*투표\s*에\s*관한',
+        # "N. 배당예정 내역" / "N. 이익배당 예정"
+        r'\d+[\.\s]*(?:배당\s*예정|이익\s*배당)',
+        # "N. 우선주의 의결권"
+        r'\d+[\.\s]*우선주의?\s*의결권',
     ]
     end_pos = len(section)
     for pat in end_patterns:
@@ -365,10 +373,11 @@ def _clean_title(title: str) -> str:
     title = re.sub(r'[□■○▶●①②③④⑤⑥⑦⑧⑨⑩]', '', title)  # 마커/기호/원문자 제거
     title = re.sub(r'[\s]*[ㆍ·\.\-]\s*$', '', title)
     title = re.sub(r'\s*[나다라마바사아]\s*$', '', title)  # 다음 안건의 가나다 접두사 잔류 제거
+    title = re.sub(r'\s*[ㄴㅇ]\s*$', '', title)  # 단일 자음 잔류 제거 (ㄴ, ㅇ)
     # 후행 "N)" 제거 — 단, 열린 괄호가 앞에 있으면(괄호 안이면) 제거하지 않음
     if re.search(r'\d+\)\s*$', title) and title.count('(') <= title.count(')') - 1:
         title = re.sub(r'\s*\d+\)\s*$', '', title)
-    title = re.sub(r'\s*\(\s*$', '', title)  # 끝에 매달린 여는 괄호 제거
+    title = re.sub(r'\s*[\(\[]\s*$', '', title)  # 끝에 매달린 여는 괄호/대괄호 제거
     return title.strip()
 
 
