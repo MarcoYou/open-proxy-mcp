@@ -495,15 +495,20 @@ def _format_financial_statements(result: dict) -> str:
                 lines.append(f"*(단위: {unit})*")
             lines.append("")
 
-            # 마크다운 테이블
+            # 마크다운 테이블 — 주석 컬럼 유무에 따라 동적
             cols = entry.get("columns", [])
-            header = ["과목", "주석", periods.get("current", "당기"), periods.get("prior", "전기")]
+            has_note = "note" in cols
+            if has_note:
+                header = ["과목", "주석", periods.get("current", "당기"), periods.get("prior", "전기")]
+            else:
+                header = ["과목", periods.get("current", "당기"), periods.get("prior", "전기")]
+            col_count = len(header)
+
             lines.append("| " + " | ".join(header) + " |")
             lines.append("| " + " | ".join("---" for _ in header) + " |")
 
             for row in entry.get("rows", []):
-                # 4컬럼으로 맞추기
-                padded = row[:4] if len(row) >= 4 else row + [""] * (4 - len(row))
+                padded = row[:col_count] if len(row) >= col_count else row + [""] * (col_count - len(row))
                 escaped = [c.replace("|", "\\|") for c in padded]
                 lines.append("| " + " | ".join(escaped) + " |")
 

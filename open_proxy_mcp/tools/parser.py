@@ -1064,14 +1064,22 @@ def parse_financial_statements(html: str) -> dict:
             # 컬럼 메타데이터 — 실제 헤더 기반
             columns = _build_column_meta(expanded_header)
 
-            # 정규화: 다양한 컬럼 패턴을 [account, note, current, prior]로 통일
+            # 정규화: 다양한 컬럼 패턴을 통일
+            has_note = "note" in columns
             normalized = _normalize_financial_rows(columns, data_rows)
+
+            if has_note:
+                out_columns = ["account", "note", "current", "prior"]
+            else:
+                out_columns = ["account", "current", "prior"]
+                # note 컬럼 제거
+                normalized = [[r[0], r[2], r[3]] for r in normalized]
 
             result[scope][current_stmt_type] = {
                 "unit": unit,
                 "period_labels": period_labels,
-                "columns": ["account", "note", "current", "prior"],
-                "column_count": 4,
+                "columns": out_columns,
+                "column_count": len(out_columns),
                 "rows": normalized,
                 "row_count": len(normalized),
             }
