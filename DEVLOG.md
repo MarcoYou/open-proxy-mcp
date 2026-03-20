@@ -132,3 +132,16 @@ get_meeting_agenda(rcept_no)
 **DLQ:** 로그만 남김 (별도 저장소 없음)
 
 **use_llm 옵션:** `get_meeting_agenda(rcept_no, use_llm=False)` 기본. True 시 fallback 활성화.
+
+### 오늘의 성과
+- 안건 파서를 섹션 기반으로 전면 리팩토링 — 정정공고 포맷 변형에 범용 대응
+- 155개 기업 대규모 테스트 완료, 정규식만으로 90% 처리율 달성
+- 하이브리드 LLM fallback 구현 (gpt-5.4-mini) — hard/soft fail 구분, use_llm 옵션
+- zone 끝점 패턴, _clean_title 잔류 문자 제거 등 반복 개선으로 처리율 점진적 상승
+
+### 오늘의 실패 / 한계
+- `제` 없는 비표준 하위안건 번호(`2-1호`, `3-1호`)는 정규식으로 안전하게 잡을 수 없음 — 오매치 위험
+- 후보자 테이블이 제목에 딸려오는 케이스도 정규식 경계로 분리 불가
+- section 추출 실패 3건(한국항공우주, 두산밥캣, HD현대마린엔진) — 문서 구조가 비표준
+- LLM fallback 실제 e2e 테스트는 OpenAI만 완료, Anthropic API는 미테스트
+- 터미널 강제 종료로 이전 대화 메모리 유실 — 작업 맥락 복구에 시간 소요
