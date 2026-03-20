@@ -24,10 +24,18 @@ logger = logging.getLogger(__name__)
 # ── 정규식 ──
 
 # 안건 번호 패턴: 제N호, 제N-M호, 제N-M-K호
+# 표준: 제N호 의안: 제목
 AGENDA_RE = re.compile(
     r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
     r'\s*(?:의안)?\s*[:：]\s*'
-    r'(.+?)(?=\s*(?:□?\s*제\s*\d+\s*(?:-\s*\d+)*\s*호|-\s*제\s*\d+\s*(?:-\s*\d+)*\s*호|\d+\)\s*제\s*\d+|※|$))'
+    r'(.+?)(?=\s*(?:□?\s*제\s*\d+\s*(?:-\s*\d+)*\s*호|-\s*제\s*\d+\s*(?:-\s*\d+)*\s*호|\d+\)\s*제\s*\d+|\(제\s*\d+|※|$))'
+)
+
+# 괄호형: (제N-M-K호) 제목 (콜론 없음)
+AGENDA_PAREN_RE = re.compile(
+    r'\(제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호\)'
+    r'\s*'
+    r'(.+?)(?=\s*(?:\(제\s*\d+|□?\s*제\s*\d+\s*(?:-\s*\d+)*\s*호|-\s*제\s*\d+|※|$))'
 )
 
 # 조건부 의안 ※
@@ -73,9 +81,17 @@ def parse_agenda_items(text: str) -> list[dict]:
     zone = re.sub(r'\n+', ' ', zone)
 
     conditionals = _extract_conditionals(zone)
-    flat = []
 
+    # 두 패턴(표준 + 괄호형)의 매치를 위치 순으로 합침
+    matches = []
     for m in AGENDA_RE.finditer(zone):
+        matches.append((m.start(), m))
+    for m in AGENDA_PAREN_RE.finditer(zone):
+        matches.append((m.start(), m))
+    matches.sort(key=lambda x: x[0])
+
+    flat = []
+    for _, m in matches:
         l1 = int(m.group(1))
         l2 = int(m.group(2)) if m.group(2) else None
         l3 = int(m.group(3)) if m.group(3) else None
