@@ -374,6 +374,7 @@ def _clean_title(title: str) -> str:
     title = re.sub(r'[\s]*[ㆍ·\.\-]\s*$', '', title)
     title = re.sub(r'\s*[나다라마바사아]\s*$', '', title)  # 다음 안건의 가나다 접두사 잔류 제거
     title = re.sub(r'\s*[ㄴㅇ]\s*$', '', title)  # 단일 자음 잔류 제거 (ㄴ, ㅇ)
+    title = re.sub(r'\s+o\s*$', '', title)  # 목록 마커 'o' 잔류 제거
     # 후행 "N)" 제거 — 단, 열린 괄호가 앞에 있으면(괄호 안이면) 제거하지 않음
     if re.search(r'\d+\)\s*$', title) and title.count('(') <= title.count(')') - 1:
         title = re.sub(r'\s*\d+\)\s*$', '', title)
