@@ -1064,13 +1064,16 @@ def parse_financial_statements(html: str) -> dict:
             # 컬럼 메타데이터 — 실제 헤더 기반
             columns = _build_column_meta(expanded_header)
 
+            # 정규화: 다양한 컬럼 패턴을 [account, note, current, prior]로 통일
+            normalized = _normalize_financial_rows(columns, data_rows)
+
             result[scope][current_stmt_type] = {
                 "unit": unit,
                 "period_labels": period_labels,
-                "columns": columns,
-                "column_count": actual_cols,
-                "rows": data_rows,
-                "row_count": len(data_rows),
+                "columns": ["account", "note", "current", "prior"],
+                "column_count": 4,
+                "rows": normalized,
+                "row_count": len(normalized),
             }
 
     # null 처리: 하나만 있으면 나머지에 scope 메타데이터 추가
@@ -1127,6 +1130,64 @@ def _build_column_meta(header_cells: list[str]) -> list[str]:
         else:
             columns.append("unknown")
     return columns
+
+
+def _normalize_financial_rows(columns: list[str], rows: list[list[str]]) -> list[list[str]]:
+    """다양한 컬럼 패턴을 [account, note, current, prior] 4컬럼으로 정규화
+
+    패턴 예시:
+    - KT&G:    [account, note, current, prior] → 그대로
+    - 삼성전자: [account, current, current_sub, prior, prior_sub] → 금액 병합
+    - LG화학:  [account, note, current, current_sub, prior, prior_sub] → 금액 병합
+    """
+    if not columns or not rows:
+        return rows
+
+    # 이미 4컬럼이고 [account, note, current, prior]면 그대로
+    if columns == ["account", "note", "current", "prior"]:
+        return rows
+
+    # 각 역할의 인덱스 찾기
+    account_idx = None
+    note_idx = None
+    current_idxs = []
+    prior_idxs = []
+
+    for i, col in enumerate(columns):
+        if col == "account" and account_idx is None:
+            account_idx = i
+        elif col == "note":
+            note_idx = i
+        elif col in ("current", "current_sub"):
+            current_idxs.append(i)
+        elif col in ("prior", "prior_sub"):
+            prior_idxs.append(i)
+
+    if account_idx is None:
+        return rows
+
+    normalized = []
+    for row in rows:
+        account = row[account_idx] if account_idx < len(row) else ""
+        note = row[note_idx] if note_idx is not None and note_idx < len(row) else ""
+
+        # current: 여러 컬럼 중 비어있지 않은 첫 번째 값
+        current = ""
+        for idx in current_idxs:
+            if idx < len(row) and row[idx].strip():
+                current = row[idx]
+                break
+
+        # prior: 여러 컬럼 중 비어있지 않은 첫 번째 값
+        prior = ""
+        for idx in prior_idxs:
+            if idx < len(row) and row[idx].strip():
+                prior = row[idx]
+                break
+
+        normalized.append([account, note, current, prior])
+
+    return normalized
 
 
 def _extract_period_labels(header_cells: list[str]) -> dict:
