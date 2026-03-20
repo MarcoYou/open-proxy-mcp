@@ -258,12 +258,16 @@ class DartClient:
         images = re.findall(r'[\w\-./]+\.(?:jpg|jpeg|png|gif|bmp)', text_html, re.IGNORECASE)
         images = list(dict.fromkeys(images))  # 중복 제거, 순서 유지
 
-        # HTML/XML 태그 제거 → 텍스트
-        text = re.sub(r'<[^>]+>', ' ', text_html)
+        # HTML/XML 태그 제거 → 텍스트 (블록 태그는 줄바꿈으로 보존)
+        text = re.sub(r'<(?:br|BR)\s*/?>', '\n', text_html)
+        text = re.sub(r'</(?:p|P|div|DIV|tr|TR|li|LI|h\d|H\d|table|TABLE)>', '\n', text)
+        text = re.sub(r'<[^>]+>', ' ', text)
         text = re.sub(r'&[a-zA-Z]+;', ' ', text)
         # 이미지 파일명 제거
         for img in images:
             text = text.replace(img, '')
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r'[^\S\n]+', ' ', text)    # 수평 공백만 정규화
+        text = re.sub(r'\n\s*\n+', '\n\n', text)  # 빈 줄 정리
+        text = text.strip()
 
         return {"text": text, "images": images}

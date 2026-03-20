@@ -2,7 +2,130 @@
 
 from datetime import datetime
 from open_proxy_mcp.dart.client import DartClient
+from open_proxy_mcp.tools.parser import parse_agenda_items, parse_meeting_info
 
+# ── 문서 캐시 (프로세스 레벨) ──
+
+_doc_cache: dict[str, dict] = {}
+_MAX_CACHE = 30
+
+
+async def _get_document_cached(rcept_no: str) -> dict:
+    """get_document 결과를 캐싱하여 중복 API 호출 방지"""
+    if rcept_no in _doc_cache:
+        return _doc_cache[rcept_no]
+    client = DartClient()
+    doc = await client.get_document(rcept_no)
+    if len(_doc_cache) >= _MAX_CACHE:
+        _doc_cache.pop(next(iter(_doc_cache)))
+    _doc_cache[rcept_no] = doc
+    return doc
+
+
+# ── 마크다운 포매터 ──
+
+def _format_agenda_tree(items: list[dict]) -> str:
+    """안건 트리를 마크다운으로 포매팅"""
+    if not items:
+        return "안건을 파싱할 수 없습니다."
+
+    # 루트 안건 수 (하위 제외)
+    total = len(items)
+    lines = [f"## 의안 목록 (총 {total}건)", ""]
+
+    for item in items:
+        lines.append(f"### {item['number']}: {item['title']}")
+        meta = []
+        if item.get("category"):
+            meta.append(f"카테고리: {item['category']}")
+        if item.get("source"):
+            meta.append(f"출처: {item['source']}")
+        if meta:
+            lines.append(f"- {' | '.join(meta)}")
+        if item.get("conditional"):
+            lines.append(f"- ※ {item['conditional']}")
+
+        # 하위 안건
+        for child in item.get("children", []):
+            lines.append(f"  - **{child['number']}**: {child['title']}")
+            if child.get("source"):
+                lines.append(f"    - 출처: {child['source']}")
+            if child.get("conditional"):
+                lines.append(f"    - ※ {child['conditional']}")
+            # 3단계
+            for gc in child.get("children", []):
+                lines.append(f"    - **{gc['number']}**: {gc['title']}")
+                if gc.get("conditional"):
+                    lines.append(f"      - ※ {gc['conditional']}")
+
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def _format_meeting_info(info: dict) -> str:
+    """비안건 정보를 마크다운으로 포매팅"""
+    lines = ["## 주주총회 개요", ""]
+
+    # 유형
+    type_str = ""
+    if info.get("meeting_term"):
+        type_str += info["meeting_term"] + " "
+    if info.get("meeting_type"):
+        type_str += info["meeting_type"] + "주주총회"
+    if type_str:
+        lines.append(f"- **유형**: {type_str}")
+
+    if info.get("is_correction"):
+        lines.append("- **정정공고**: 예")
+
+    if info.get("datetime"):
+        lines.append(f"- **일시**: {info['datetime']}")
+    if info.get("location"):
+        lines.append(f"- **장소**: {info['location']}")
+
+    # 보고사항
+    if info.get("report_items"):
+        lines.append("")
+        lines.append("## 보고사항")
+        for item in info["report_items"]:
+            lines.append(f"- {item}")
+
+    # 전자투표
+    if info.get("electronic_voting"):
+        lines.append("")
+        lines.append("## 전자투표")
+        lines.append(info["electronic_voting"])
+
+    # 의결권 행사
+    if info.get("proxy_voting"):
+        lines.append("")
+        lines.append("## 의결권 행사 방법")
+        lines.append(info["proxy_voting"])
+
+    # 온라인 중계
+    if info.get("online_broadcast"):
+        lines.append("")
+        lines.append("## 온라인 중계")
+        lines.append(info["online_broadcast"])
+
+    # 경영참고사항 비치
+    if info.get("reference_materials"):
+        lines.append("")
+        lines.append("## 경영참고사항 비치")
+        lines.append(info["reference_materials"])
+
+    # 문서 목차
+    if info.get("toc"):
+        lines.append("")
+        lines.append("## 문서 목차")
+        for item in info["toc"]:
+            lines.append(f"- {item}")
+
+    return "\n".join(lines)
+
+
+# ── Tool 등록 ──
 
 def register_tools(mcp):
     """FastMCP 서버에 주주총회 관련 tool 등록"""
@@ -70,8 +193,7 @@ def register_tools(mcp):
             rcept_no: 접수번호 (예: 20260225000123)
             max_length: 반환할 최대 글자 수 (기본 10000)
         """
-        client = DartClient()
-        doc = await client.get_document(rcept_no)
+        doc = await _get_document_cached(rcept_no)
         text = doc["text"]
         images = doc["images"]
 
@@ -88,3 +210,35 @@ def register_tools(mcp):
             result_lines.append(text)
 
         return "\n".join(result_lines)
+
+    @mcp.tool()
+    async def get_meeting_agenda(
+        rcept_no: str,
+    ) -> str:
+        """주주총회 소집공고에서 의안(안건) 목록을 구조화하여 반환합니다.
+
+        의안 번호, 제목, 상하위 관계(제2-1호는 제2호의 하위),
+        카테고리, 조건부 의안 여부를 파싱하여 트리 형태로 반환합니다.
+
+        Args:
+            rcept_no: 접수번호 (예: 20260225000123)
+        """
+        doc = await _get_document_cached(rcept_no)
+        agenda = parse_agenda_items(doc["text"])
+        return _format_agenda_tree(agenda)
+
+    @mcp.tool()
+    async def get_meeting_info(
+        rcept_no: str,
+    ) -> str:
+        """주주총회 소집공고에서 의안을 제외한 회의 정보를 반환합니다.
+
+        정기/임시 구분, 일시, 장소, 보고사항, 전자투표 안내,
+        의결권 행사 방법, 온라인 중계 등 비안건 정보를 반환합니다.
+
+        Args:
+            rcept_no: 접수번호 (예: 20260225000123)
+        """
+        doc = await _get_document_cached(rcept_no)
+        info = parse_meeting_info(doc["text"])
+        return _format_meeting_info(info)

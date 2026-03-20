@@ -17,7 +17,8 @@ open_proxy_mcp/       # 메인 패키지
   __init__.py
   server.py           # FastMCP 서버 진입점
   tools/              # MCP tool 정의 (도메인별 분리)
-    shareholder.py    # 주주총회 소집공고 관련
+    shareholder.py    # 주주총회 소집공고 관련 (4 tools + 캐시 + 포매터)
+    parser.py         # 소집공고 파싱 — 안건/비안건 분리 (순수 함수)
   dart/               # OpenDART API 클라이언트
     client.py         # API 호출 래퍼 (인증, 에러핸들링, 캐싱)
 ```
@@ -47,6 +48,16 @@ open_proxy_mcp/       # 메인 패키지
 - **Kensho (S&P Global)** — LLM 최적화 API 설계, 도메인별 tool 분리, dual transport(stdio+SSE) 참고.
 - **FactSet** — 엔터프라이즈 MCP 거버넌스 패턴(Central Registry, Proxied Access), 데이터셋별 tool 구조 참고.
 - 공통 교훈: raw API 그대로 노출하지 말고 LLM이 쓰기 쉽게 구조화, 도메인별 tool 분리, 캐싱 필수
+
+## 파서 테스트-개선 루프
+파서(`tools/parser.py`)는 소집공고 텍스트 패턴에 의존하므로 지속적 검증 필요.
+학습 셋(KT&G, LG화학, 삼성전자, 기아, NAVER, 고려아연, SK이노) 외 기업으로 테스트.
+
+1. 랜덤 기업의 소집공고 1건 가져오기
+2. `get_meeting_agenda` / `get_meeting_info` 실행
+3. 결과 검증 — 누락/오분류 확인
+4. `parser.py` 패턴 수정 및 폴백 보강
+5. 반복 (최소 3회)
 
 ## 주요 커맨드
 ```bash
