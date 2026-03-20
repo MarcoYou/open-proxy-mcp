@@ -25,6 +25,13 @@ warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 logger = logging.getLogger(__name__)
 
+# lxml이 있으면 사용 (30% 빠름), 없으면 html.parser fallback
+try:
+    import lxml  # noqa: F401
+    _BS4_PARSER = "lxml"
+except ImportError:
+    _BS4_PARSER = "html.parser"
+
 # ── 정규식 ──
 
 # 안건 번호 패턴: 제N호, 제N-M호, 제N-M-K호
@@ -190,7 +197,7 @@ def _extract_agenda_zone_html(html: str) -> str | None:
     bs4로 <section-1> 범위를 정확히 잡아서 _extract_agenda_zone에 넘김.
     text 방식보다 섹션 경계가 정확하여 end_pattern 오발동 방지.
     """
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, _BS4_PARSER)
 
     # '주주총회 소집공고' 섹션 찾기 — 마지막 매칭 선택 (정정 preamble 건너뜀)
     notice_section = None
@@ -535,7 +542,7 @@ def parse_agenda_details(html: str) -> list[dict]:
         [{"number": "제1호", "title": "...", "category": "...",
           "sections": [{"heading": "가. ...", "blocks": [...]}]}]
     """
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, _BS4_PARSER)
 
     # '목적사항별 기재사항' 섹션 찾기
     detail_section = None

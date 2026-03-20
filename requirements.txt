@@ -4,3 +4,4 @@ python-dotenv
 anthropic
 openai
 beautifulsoup4
+lxml
