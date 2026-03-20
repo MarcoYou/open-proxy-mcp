@@ -23,10 +23,11 @@ logger = logging.getLogger(__name__)
 # ── 정규식 ──
 
 # 안건 번호 패턴: 제N호, 제N-M호, 제N-M-K호
+# lookahead: 다음 안건번호, ※, 번호), □, - 제, 줄바꿈
 AGENDA_RE = re.compile(
     r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
     r'\s*(?:의안)?\s*[:：]\s*'
-    r'(.+?)(?=\s*(?:제\s*\d+\s*(?:-\s*\d+)*\s*호|※|\d+\)\s*제|\n|$))'
+    r'(.+?)(?=\s*(?:□?\s*제\s*\d+\s*(?:-\s*\d+)*\s*호|-\s*제\s*\d+|\d+\)\s*제|※|\n|$))'
 )
 
 # 조건부 의안 ※
@@ -262,8 +263,9 @@ def _format_number(l1: int, l2: int | None, l3: int | None) -> str:
 
 
 def _clean_title(title: str) -> str:
-    """제목 정리: 후행 기호, 번호 제거"""
+    """제목 정리: 후행 기호, 번호, □ 제거"""
     title = title.strip()
+    title = re.sub(r'[□■]', '', title)  # □■ 마커 제거
     title = re.sub(r'[\s]*[ㆍ·\.\-]\s*$', '', title)
     title = re.sub(r'\s*\d+\)\s*$', '', title)
     return title.strip()
