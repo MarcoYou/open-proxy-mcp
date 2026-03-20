@@ -235,15 +235,23 @@ def register_tools(mcp):
         agenda = parse_agenda_items(text)
 
         if not validate_agenda_result(agenda):
-            logger.warning(f"정규식 파싱 실패/의심 — LLM fallback 시도: {rcept_no}")
             import re
             section = _extract_notice_section(text)
             zone = _extract_agenda_zone(section) if section else None
-            if zone:
-                zone_clean = re.sub(r'\n+', ' ', zone)
-                agenda = await extract_agenda_with_llm(zone_clean)
+
+            if not zone:
+                # hard fail: 문서에서 안건 영역을 찾을 수 없음
+                logger.error(f"[HARD FAIL] section/zone 추출 실패: {rcept_no}")
+                return "안건을 파싱할 수 없습니다. (문서에서 안건 영역을 찾을 수 없음)"
+
+            # soft fail: 정규식 의심 → LLM fallback
+            logger.warning(f"[SOFT FAIL] 정규식 파싱 의심 — LLM fallback 시도: {rcept_no}")
+            zone_clean = re.sub(r'\n+', ' ', zone)
+            agenda = await extract_agenda_with_llm(zone_clean)
+
             if not validate_agenda_result(agenda):
-                logger.error(f"LLM fallback도 실패: {rcept_no}")
+                # soft fail → LLM도 실패 → hard fail로 전환
+                logger.error(f"[HARD FAIL] LLM fallback도 실패: {rcept_no}")
                 return "안건을 파싱할 수 없습니다. (정규식 + LLM 모두 실패)"
 
         return _format_agenda_tree(agenda)
