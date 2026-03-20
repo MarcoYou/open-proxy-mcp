@@ -573,8 +573,8 @@ def _extract_document_toc(text: str) -> list[str]:
 # ── 안건 상세 파싱 (HTML 기반) ──
 
 AGENDA_DETAIL_RE = re.compile(
-    r'[■□●▶]\s*제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
-    r'\s*(?:의안)?\s*[:：]?\s*(.+)',
+    r'[■□●▶(（]?\s*제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
+    r'\s*(?:의안|안건)?\s*[)）:：]?\s*(.+)',
     re.DOTALL,
 )
 
@@ -674,6 +674,10 @@ def _parse_library_block(lib) -> list[dict]:
                 )
             continue
 
+        # 안건 시작 전 요소는 무시
+        if current_section is None:
+            continue
+
         # <table> — 테이블 변환
         if child.name == 'table':
             md_table = _table_to_markdown(child)
@@ -684,10 +688,29 @@ def _parse_library_block(lib) -> list[dict]:
                 current_section["blocks"].append({"type": block_type, "content": md_table})
             continue
 
-        # 기타 블록 요소 (section-4 등 — 첨부 확인서 등)
+        # 기타 블록 요소 (section-4 등 — 첨부 확인서, 간혹 다음 안건이 포함됨)
         if child.name and child.name.startswith('section'):
             sub_text = child.get_text().strip()
-            if sub_text:
+            if not sub_text:
+                continue
+            # section-4 안에 다음 안건(제N호)이 포함된 경우 — 내부 자식을 개별 파싱
+            if re.search(r'제\s*\d+\s*호', sub_text):
+                for sub_child in child.children:
+                    if not hasattr(sub_child, 'name'):
+                        continue
+                    if sub_child.name == 'p':
+                        lines = _split_p_lines(sub_child)
+                        for line in lines:
+                            current_agenda, current_section = _process_text_line(
+                                line, current_agenda, current_section, agendas, category
+                            )
+                    elif sub_child.name == 'table' and current_section is not None:
+                        md_table = _table_to_markdown(sub_child)
+                        if md_table:
+                            is_md_table = md_table.startswith('|')
+                            block_type = "table" if is_md_table else "text"
+                            current_section["blocks"].append({"type": block_type, "content": md_table})
+            elif current_section is not None:
                 current_section["blocks"].append({"type": "text", "content": sub_text})
             continue
 
