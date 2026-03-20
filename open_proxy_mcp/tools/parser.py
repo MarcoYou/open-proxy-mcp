@@ -923,3 +923,225 @@ def validate_agenda_details(details: list[dict]) -> bool:
         return False
     # 최소 1개 안건에 sections이 있어야
     return any(d.get("sections") for d in details)
+
+
+# ── 재무제표 파싱 (HTML 기반) ──
+
+# 재무제표 테이블 식별 키워드
+_FS_BALANCE_SHEET = re.compile(r'재무상태표|대차대조표')
+_FS_INCOME_STMT = re.compile(r'손익계산서|포괄손익')
+_FS_CONSOLIDATED = re.compile(r'연결')
+_FS_SEPARATE = re.compile(r'별도|개별')
+_FS_UNIT = re.compile(r'\(단위\s*[:：]?\s*(.+?)\)')
+_FS_PERIOD = re.compile(r'(제\s*\d+\s*\(?\s*(?:당|전)\s*\)?\s*기|(?:20)?\d{2,4}\s*년)')
+
+
+def parse_financial_statements(html: str) -> dict:
+    """HTML에서 재무제표(재무상태표, 손익계산서) 구조화 추출
+
+    목적사항별 기재사항 > 재무제표 영역에서:
+    - 연결/별도 구분
+    - 재무상태표, 손익계산서 테이블 추출
+    - 단위, 기간 라벨 메타데이터 포함
+
+    Returns:
+        {"consolidated": {"balance_sheet": {...}, "income_statement": {...}},
+         "separate": {"balance_sheet": {...}, "income_statement": {...}}}
+    """
+    soup = BeautifulSoup(html, _BS4_PARSER)
+
+    # 목적사항별 기재사항 섹션 찾기
+    detail_section = None
+    for el in soup.find_all('title'):
+        if '목적사항별' in (el.get_text() or ''):
+            detail_section = el.parent
+            break
+
+    if not detail_section:
+        logger.warning("재무제표 파싱: 목적사항별 기재사항 섹션을 찾을 수 없음")
+        return _empty_financial_result()
+
+    # 재무제표 library 찾기 (보통 첫 번째 library)
+    fs_container = None
+    for lib in detail_section.find_all('library'):
+        text = lib.get_text()[:200]
+        if _FS_BALANCE_SHEET.search(text) or '재무제표' in text:
+            fs_container = lib.find('section-3') or lib
+            break
+
+    if not fs_container:
+        logger.warning("재무제표 파싱: 재무제표 library를 찾을 수 없음")
+        return _empty_financial_result()
+
+    # 데이터 테이블 수집 — 행 5개 이상, 첫 행에 '과목' 포함
+    result = {
+        "consolidated": {"balance_sheet": None, "income_statement": None},
+        "separate": {"balance_sheet": None, "income_statement": None},
+    }
+
+    # 현재 컨텍스트 추적
+    is_consolidated = True  # 기본값: 연결
+    current_stmt_type = None  # 'balance_sheet' or 'income_statement'
+
+    for child in fs_container.descendants:
+        if not hasattr(child, 'name') or not child.name:
+            continue
+
+        text = child.get_text().strip()
+
+        # <p> 헤딩으로 컨텍스트 갱신
+        if child.name == 'p' and text:
+            if _FS_SEPARATE.search(text):
+                is_consolidated = False
+            elif _FS_CONSOLIDATED.search(text) and '별도' not in text:
+                is_consolidated = True
+
+            if _FS_BALANCE_SHEET.search(text):
+                current_stmt_type = 'balance_sheet'
+            elif _FS_INCOME_STMT.search(text):
+                current_stmt_type = 'income_statement'
+            continue
+
+        # 제목 테이블에서도 컨텍스트 갱신 (단일 셀 테이블)
+        if child.name == 'table':
+            rows = child.find_all('tr')
+            if len(rows) <= 4:
+                # 제목/메타 테이블 — 컨텍스트 갱신
+                table_text = child.get_text()
+                if _FS_SEPARATE.search(table_text):
+                    is_consolidated = False
+                if _FS_BALANCE_SHEET.search(table_text):
+                    current_stmt_type = 'balance_sheet'
+                elif _FS_INCOME_STMT.search(table_text):
+                    current_stmt_type = 'income_statement'
+                continue
+
+            # 데이터 테이블 판별: 행 5개+, 첫 행에 '과목'
+            first_cells = [c.get_text().strip() for c in rows[0].find_all(['td', 'th'])]
+            if not any('과' in c and '목' in c for c in first_cells):
+                continue
+            if current_stmt_type is None:
+                continue
+
+            # 이미 채워진 슬롯이면 스킵 (중복 방지)
+            scope = "consolidated" if is_consolidated else "separate"
+            if result[scope][current_stmt_type] is not None:
+                continue
+
+            # 단위 추출 — 바로 앞 테이블에서
+            unit = _extract_unit_from_siblings(child)
+
+            # 헤더 colspan 반영한 실제 컬럼 수
+            header_cells_raw = rows[0].find_all(['td', 'th'])
+            expanded_header = []
+            for c in header_cells_raw:
+                val = c.get_text().strip()
+                colspan = int(c.get('colspan', 1) or 1)
+                expanded_header.append(val)
+                for _ in range(colspan - 1):
+                    expanded_header.append('')
+            actual_cols = len(expanded_header)
+
+            # 기간 라벨 추출
+            period_labels = _extract_period_labels(expanded_header)
+
+            # 행 데이터 추출
+            data_rows = []
+            for row in rows[1:]:  # 헤더 제외
+                cells = row.find_all(['td', 'th'])
+                expanded = []
+                for c in cells:
+                    val = c.get_text().strip().replace('\n', ' ')
+                    colspan = int(c.get('colspan', 1) or 1)
+                    expanded.append(val)
+                    for _ in range(colspan - 1):
+                        expanded.append('')
+                # 컬럼 수 맞추기
+                while len(expanded) < actual_cols:
+                    expanded.append('')
+                data_rows.append(expanded[:actual_cols])
+
+            # 컬럼 메타데이터 — 실제 헤더 기반
+            columns = _build_column_meta(expanded_header)
+
+            result[scope][current_stmt_type] = {
+                "unit": unit,
+                "period_labels": period_labels,
+                "columns": columns,
+                "column_count": actual_cols,
+                "rows": data_rows,
+                "row_count": len(data_rows),
+            }
+
+    # null 처리: 하나만 있으면 나머지에 scope 메타데이터 추가
+    for scope in ["consolidated", "separate"]:
+        for stmt in ["balance_sheet", "income_statement"]:
+            entry = result[scope][stmt]
+            if entry is not None:
+                entry["scope"] = scope
+
+    return result
+
+
+def _empty_financial_result() -> dict:
+    return {
+        "consolidated": {"balance_sheet": None, "income_statement": None},
+        "separate": {"balance_sheet": None, "income_statement": None},
+    }
+
+
+def _extract_unit_from_siblings(table_el) -> str:
+    """테이블 바로 앞 형제 요소들에서 (단위: ...) 추출"""
+    count = 0
+    for sib in table_el.previous_siblings:
+        if hasattr(sib, 'get_text'):
+            text = sib.get_text()
+            m = _FS_UNIT.search(text)
+            if m:
+                return m.group(1).strip()
+        count += 1
+        if count >= 5:
+            break
+    return ""
+
+
+def _build_column_meta(header_cells: list[str]) -> list[str]:
+    """헤더 셀로부터 컬럼 의미 추론"""
+    columns = []
+    for cell in header_cells:
+        clean = re.sub(r'\s+', '', cell)
+        if '과' in clean and '목' in clean:
+            columns.append("account")
+        elif '주석' in clean:
+            columns.append("note")
+        elif '당' in clean:
+            columns.append("current")
+        elif '전' in clean:
+            columns.append("prior")
+        elif not clean:
+            # 빈 셀 — colspan 확장분, 앞 컬럼의 서브컬럼
+            if columns and columns[-1] in ("current", "prior"):
+                columns.append(f"{columns[-1]}_sub")
+            else:
+                columns.append("unknown")
+        else:
+            columns.append("unknown")
+    return columns
+
+
+def _extract_period_labels(header_cells: list[str]) -> dict:
+    """헤더 셀에서 당기/전기 라벨 추출"""
+    labels = {"current": "", "prior": ""}
+    for cell in header_cells:
+        cell_clean = re.sub(r'\s+', '', cell)
+        if '당' in cell_clean:
+            labels["current"] = cell.strip()
+        elif '전' in cell_clean:
+            labels["prior"] = cell.strip()
+        elif re.match(r'(?:20)?\d{2,4}년', cell_clean):
+            # 연도 기반 — 큰 연도가 당기
+            if not labels["current"]:
+                labels["current"] = cell.strip()
+            else:
+                labels["prior"] = cell.strip()
+    return labels

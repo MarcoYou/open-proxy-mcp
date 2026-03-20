@@ -8,6 +8,7 @@ from open_proxy_mcp.tools.parser import (
     parse_agenda_items, parse_meeting_info,
     validate_agenda_result, _extract_notice_section, _extract_agenda_zone,
     parse_agenda_details, validate_agenda_details,
+    parse_financial_statements,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
 
@@ -430,3 +431,82 @@ def register_tools(mcp):
             return json.dumps(details, ensure_ascii=False, indent=2)
 
         return _format_agenda_details(details)
+
+    @mcp.tool()
+    async def get_financial_statements(
+        rcept_no: str,
+        format: str = "json",
+    ) -> str:
+        """주주총회 소집공고에서 재무제표를 구조화하여 반환합니다.
+
+        재무상태표(대차대조표)와 손익계산서를 연결/별도 구분하여
+        당기/전기 데이터를 구조화된 형태로 반환합니다.
+
+        Args:
+            rcept_no: 접수번호 (예: 20260225000123)
+            format: 반환 형식. "json" (기본, 구조화) 또는 "md" (마크다운 테이블)
+        """
+        doc = await _get_document_cached(rcept_no)
+        html = doc.get("html", "")
+        if not html:
+            return "재무제표를 파싱할 수 없습니다. (HTML 없음)"
+
+        result = parse_financial_statements(html)
+
+        # 빈 결과 체크
+        has_data = any(
+            result[scope][stmt] is not None
+            for scope in ["consolidated", "separate"]
+            for stmt in ["balance_sheet", "income_statement"]
+        )
+        if not has_data:
+            return "재무제표를 찾을 수 없습니다. (목적사항별 기재사항에 재무제표 없음)"
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+
+        return _format_financial_statements(result)
+
+
+def _format_financial_statements(result: dict) -> str:
+    """재무제표를 마크다운으로 포매팅"""
+    lines = []
+    stmt_names = {
+        "balance_sheet": "재무상태표",
+        "income_statement": "손익계산서",
+    }
+    scope_names = {
+        "consolidated": "연결",
+        "separate": "별도",
+    }
+
+    for scope in ["consolidated", "separate"]:
+        for stmt in ["balance_sheet", "income_statement"]:
+            entry = result[scope][stmt]
+            if entry is None:
+                continue
+
+            title = f"{scope_names[scope]} {stmt_names[stmt]}"
+            unit = entry.get("unit", "")
+            periods = entry.get("period_labels", {})
+
+            lines.append(f"## {title}")
+            if unit:
+                lines.append(f"*(단위: {unit})*")
+            lines.append("")
+
+            # 마크다운 테이블
+            cols = entry.get("columns", [])
+            header = ["과목", "주석", periods.get("current", "당기"), periods.get("prior", "전기")]
+            lines.append("| " + " | ".join(header) + " |")
+            lines.append("| " + " | ".join("---" for _ in header) + " |")
+
+            for row in entry.get("rows", []):
+                # 4컬럼으로 맞추기
+                padded = row[:4] if len(row) >= 4 else row + [""] * (4 - len(row))
+                escaped = [c.replace("|", "\\|") for c in padded]
+                lines.append("| " + " | ".join(escaped) + " |")
+
+            lines.append("")
+
+    return "\n".join(lines)
