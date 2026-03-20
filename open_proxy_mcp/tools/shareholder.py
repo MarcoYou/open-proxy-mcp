@@ -7,6 +7,7 @@ from open_proxy_mcp.dart.client import DartClient
 from open_proxy_mcp.tools.parser import (
     parse_agenda_items, parse_meeting_info,
     validate_agenda_result, _extract_notice_section, _extract_agenda_zone,
+    parse_agenda_details, validate_agenda_details,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
 
@@ -129,6 +130,38 @@ def _format_meeting_info(info: dict) -> str:
         lines.append("## 문서 목차")
         for item in info["toc"]:
             lines.append(f"- {item}")
+
+    return "\n".join(lines)
+
+
+def _format_agenda_details(details: list[dict]) -> str:
+    """안건 상세를 마크다운으로 포매팅"""
+    lines = []
+    for agenda in details:
+        lines.append(f"## {agenda['number']}: {agenda['title']}")
+        if agenda.get("category"):
+            lines.append(f"*카테고리: {agenda['category']}*")
+        lines.append("")
+
+        for sec in agenda.get("sections", []):
+            if sec.get("heading"):
+                lines.append(f"### {sec['heading']}")
+                lines.append("")
+
+            for block in sec.get("blocks", []):
+                content = block["content"]
+                if block["type"] == "table":
+                    lines.append(content)
+                    lines.append("")
+                elif block["type"] == "note":
+                    lines.append(f"> {content}")
+                    lines.append("")
+                else:
+                    lines.append(content)
+                    lines.append("")
+
+        lines.append("---")
+        lines.append("")
 
     return "\n".join(lines)
 
@@ -344,3 +377,43 @@ def register_tools(mcp):
         doc = await _get_document_cached(rcept_no)
         info = parse_meeting_info(doc["text"])
         return _format_meeting_info(info)
+
+    @mcp.tool()
+    async def get_agenda_detail(
+        rcept_no: str,
+        agenda_no: str = "",
+        format: str = "md",
+    ) -> str:
+        """주주총회 소집공고의 안건별 상세 내용을 반환합니다.
+
+        '목적사항별 기재사항' 섹션에서 각 안건의 상세 내용을 파싱합니다.
+        재무제표, 정관변경 비교표, 이사 후보 정보 등 테이블은
+        마크다운 테이블로, 텍스트는 그대로 반환합니다.
+
+        Args:
+            rcept_no: 접수번호 (예: 20260225000123)
+            agenda_no: 안건 번호 (예: "1", "2"). 미입력 시 전체 안건 반환.
+                       "2" 입력 시 제2호 + 하위(제2-1호~) 전체 반환.
+            format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
+        """
+        doc = await _get_document_cached(rcept_no)
+        details = parse_agenda_details(doc["html"])
+
+        if not validate_agenda_details(details):
+            return "안건 상세를 파싱할 수 없습니다. (목적사항별 기재사항 섹션을 찾을 수 없음)"
+
+        # agenda_no 필터
+        if agenda_no:
+            filtered = [
+                d for d in details
+                if d["number"].startswith(f"제{agenda_no}호")
+                or d["number"].startswith(f"제{agenda_no}-")
+            ]
+            if not filtered:
+                return f"제{agenda_no}호 안건을 찾을 수 없습니다."
+            details = filtered
+
+        if format == "json":
+            return json.dumps(details, ensure_ascii=False, indent=2)
+
+        return _format_agenda_details(details)

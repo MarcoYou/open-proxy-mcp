@@ -9,6 +9,7 @@ DART(전자공시시스템) 데이터를 MCP 프로토콜로 제공하는 Python
 - FastMCP (`mcp.server.fastmcp`) — 데코레이터 기반 MCP 서버 프레임워크
 - httpx — async HTTP 클라이언트
 - python-dotenv — 환경변수 관리
+- BeautifulSoup4 — DART 문서 HTML/XML 파싱 (테이블 구조 보존)
 - OpenDART API (https://opendart.fss.or.kr/)
 
 ## 프로젝트 구조

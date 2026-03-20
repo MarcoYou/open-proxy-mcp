@@ -3,3 +3,4 @@ httpx
 python-dotenv
 anthropic
 openai
+beautifulsoup4

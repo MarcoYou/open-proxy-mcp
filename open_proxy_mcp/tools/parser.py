@@ -13,11 +13,15 @@
   ※ 참고사항
 
 안건 트리는 '주주총회 소집공고' 섹션의 회의목적사항에서 추출.
-안건 상세는 'III > 2. 목적사항별 기재사항'에 있으나 별도 tool로 분리 예정.
+안건 상세는 'III > 2. 목적사항별 기재사항'에서 BeautifulSoup으로 파싱.
 """
 
 import re
 import logging
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+import warnings
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -443,3 +447,335 @@ def _extract_document_toc(text: str) -> list[str]:
         toc.append("※ 참고사항")
 
     return toc
+
+
+# ── 안건 상세 파싱 (HTML 기반) ──
+
+AGENDA_DETAIL_RE = re.compile(
+    r'[■□●▶]\s*제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
+    r'\s*(?:의안)?\s*[:：]?\s*(.+)',
+    re.DOTALL,
+)
+
+SUBSECTION_RE = re.compile(
+    r'^([가나다라마바사아자차카타파하])\.\s*(.+)'
+)
+
+
+def parse_agenda_details(html: str) -> list[dict]:
+    """HTML에서 '목적사항별 기재사항' 섹션의 안건별 상세를 파싱
+
+    DART 문서 XML 구조:
+      <section-2>  (목적사항별 기재사항)
+        <library>  (카테고리별 묶음)
+          <section-3>
+            <title> □ 카테고리명
+            <p> ■ 제N호 : 제목
+            <p> 가. 서브섹션
+            <table> 테이블 데이터
+            ...
+
+    Returns:
+        [{"number": "제1호", "title": "...", "category": "...",
+          "sections": [{"heading": "가. ...", "blocks": [...]}]}]
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # '목적사항별 기재사항' 섹션 찾기
+    detail_section = None
+    for el in soup.find_all('title'):
+        if '목적사항별' in (el.get_text() or ''):
+            detail_section = el.parent
+            break
+
+    if not detail_section:
+        logger.warning("'목적사항별 기재사항' 섹션을 찾을 수 없음")
+        return []
+
+    # library 태그들에서 안건 파싱
+    agendas = []
+    for lib in detail_section.find_all('library'):
+        parsed = _parse_library_block(lib)
+        agendas.extend(parsed)
+
+    return agendas
+
+
+def _parse_library_block(lib) -> list[dict]:
+    """하나의 <library> 블록에서 안건들을 추출
+
+    하나의 library에 여러 안건이 있을 수 있음 (예: 제5호, 제6호가 같은 카테고리)
+    """
+    # section-3 이 있으면 그 안에서, 없으면 library 직접
+    container = lib.find('section-3') or lib
+
+    category = None
+    title_el = container.find('title')
+    if title_el:
+        cat_text = title_el.get_text().strip()
+        cat_text = re.sub(r'^[□■○●▶]\s*', '', cat_text)
+        category = cat_text
+
+    # 자식 요소들을 순회하면서 안건별로 분리
+    agendas = []
+    current_agenda = None
+    current_section = None
+
+    for child in container.children:
+        if not hasattr(child, 'name'):
+            # NavigableString — 의미 있는 텍스트면 처리
+            text = child.strip()
+            if text and current_section is not None:
+                # ※ 조건부 의안 등
+                if text.startswith('※'):
+                    current_section["blocks"].append({"type": "note", "content": text})
+                elif text:
+                    current_section["blocks"].append({"type": "text", "content": text})
+            continue
+
+        if child.name == 'title':
+            continue
+
+        if child.name == 'pgbrk':
+            continue
+
+        text = child.get_text().strip()
+        if not text:
+            continue
+
+        # <p> 태그 처리 — 내부에 여러 논리 요소가 합쳐질 수 있으므로
+        # 줄 단위로 분리하여 각각 처리
+        if child.name == 'p':
+            lines = _split_p_lines(child)
+            for line in lines:
+                current_agenda, current_section = _process_text_line(
+                    line, current_agenda, current_section, agendas, category
+                )
+            continue
+
+        # <table> — 테이블 변환
+        if child.name == 'table':
+            md_table = _table_to_markdown(child)
+            if md_table:
+                # 단일 셀 테이블은 _table_to_markdown이 plain text로 반환
+                is_md_table = md_table.startswith('|')
+                block_type = "table" if is_md_table else "text"
+                current_section["blocks"].append({"type": block_type, "content": md_table})
+            continue
+
+        # 기타 블록 요소 (section-4 등 — 첨부 확인서 등)
+        if child.name and child.name.startswith('section'):
+            sub_text = child.get_text().strip()
+            if sub_text:
+                current_section["blocks"].append({"type": "text", "content": sub_text})
+            continue
+
+    # 빈 섹션 정리
+    for agenda in agendas:
+        agenda["sections"] = [
+            s for s in agenda["sections"]
+            if s["blocks"] or s["heading"]
+        ]
+
+    return agendas
+
+
+def _table_to_markdown(table_el) -> str:
+    """<table> 요소를 마크다운 테이블로 변환
+
+    단일 셀 테이블(텍스트 블록을 테이블로 감싼 경우)은 텍스트로 반환.
+    """
+    rows = table_el.find_all('tr')
+    if not rows:
+        return ""
+
+    # 행/열 데이터 추출
+    table_data = []
+    for row in rows:
+        cells = row.find_all(['td', 'th'])
+        row_data = []
+        for cell in cells:
+            text = cell.get_text().strip()
+            # 셀 내 줄바꿈을 공백으로
+            text = re.sub(r'\s*\n\s*', ' ', text)
+            # colspan 처리
+            colspan = int(cell.get('colspan', 1) or 1)
+            row_data.append(text)
+            for _ in range(colspan - 1):
+                row_data.append('')
+        table_data.append(row_data)
+
+    if not table_data:
+        return ""
+
+    # 단일 셀 테이블 → 텍스트 반환 (테이블로 감싼 텍스트 블록)
+    if len(table_data) == 1 and len(table_data[0]) == 1:
+        return table_data[0][0]
+
+    # 열 수 통일
+    max_cols = max(len(row) for row in table_data)
+    for row in table_data:
+        while len(row) < max_cols:
+            row.append('')
+
+    # 빈 열 제거
+    non_empty_cols = []
+    for col_idx in range(max_cols):
+        if any(row[col_idx].strip() for row in table_data):
+            non_empty_cols.append(col_idx)
+
+    if not non_empty_cols:
+        return ""
+
+    table_data = [[row[i] for i in non_empty_cols] for row in table_data]
+    max_cols = len(non_empty_cols)
+
+    # 마크다운 테이블 생성
+    # 파이프 내 | 이스케이프
+    def escape_pipe(s):
+        return s.replace('|', '\\|')
+
+    lines = []
+    # 헤더 (첫 행)
+    header = table_data[0]
+    lines.append('| ' + ' | '.join(escape_pipe(c) for c in header) + ' |')
+    lines.append('| ' + ' | '.join('---' for _ in header) + ' |')
+
+    # 데이터 행
+    for row in table_data[1:]:
+        lines.append('| ' + ' | '.join(escape_pipe(c) for c in row) + ' |')
+
+    return '\n'.join(lines)
+
+
+def _split_p_lines(p_el) -> list[str]:
+    """<p> 요소 내부를 논리적 줄로 분리
+
+    DART 문서에서 하나의 <p> 안에 여러 항목이 합쳐지는 경우 처리:
+    - ■ 제N호 뒤에 - 제N-1호가 이어지는 경우
+    - 여러 - 제N-M호가 한 <p>에 합쳐진 경우
+    - 가. 서브섹션이 <p> 끝에 붙어있는 경우
+    """
+    # get_text의 separator로 줄바꿈 보존
+    raw = p_el.get_text(separator='\n').strip()
+    if not raw:
+        return []
+
+    # ■ 제N호 패턴 뒤의 줄바꿈을 공백으로 합침 (제목이 여러 줄에 걸치는 경우)
+    raw = re.sub(
+        r'([■□●▶]\s*제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안)?\s*[:：]?)\s*\n\s*\n?\s*',
+        r'\1 ', raw
+    )
+
+    lines = []
+    for line in raw.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+
+        # "... - 제N호" 패턴이 중간에 있으면 분리
+        # 예: "- 제2-6호 : 퇴직금규정- 제2-7호 : 자기주식"
+        parts = re.split(r'(?=-\s*제\s*\d+)', line)
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+            # ■ 제N호 뒤에 - 제N-M호가 이어지는 경우 분리
+            agenda_then_sub = re.match(
+                r'([■□●▶]\s*제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안)?\s*[:：]?\s*.+?)'
+                r'\s*(-\s*제\s*\d+.+)',
+                part
+            )
+            if agenda_then_sub:
+                lines.append(agenda_then_sub.group(1).strip())
+                # 나머지 부분 재귀적 분리
+                remainder = agenda_then_sub.group(2).strip()
+                for sub in re.split(r'(?=-\s*제\s*\d+)', remainder):
+                    sub = sub.strip()
+                    if sub:
+                        lines.append(sub)
+            else:
+                # ※ 가 중간에 나오면 분리
+                note_split = re.split(r'(?=※)', part)
+                for ns in note_split:
+                    ns = ns.strip()
+                    if not ns:
+                        continue
+                    # 가. 나. 등이 끝에 붙어있으면 분리
+                    sub_heading = re.search(r'([가나다라마바사아자차카타파하])\.\s+(.+)$', ns)
+                    if sub_heading and not SUBSECTION_RE.match(ns):
+                        before = ns[:sub_heading.start()].strip()
+                        if before:
+                            lines.append(before)
+                        lines.append(sub_heading.group(0).strip())
+                    else:
+                        lines.append(ns)
+
+    return lines
+
+
+def _process_text_line(
+    line: str,
+    current_agenda: dict | None,
+    current_section: dict | None,
+    agendas: list[dict],
+    category: str | None,
+) -> tuple[dict | None, dict | None]:
+    """한 줄의 텍스트를 처리하여 안건/섹션 상태를 업데이트"""
+
+    # ■ 제N호 — 새 안건 시작
+    agenda_match = AGENDA_DETAIL_RE.match(line)
+    if agenda_match:
+        l1 = int(agenda_match.group(1))
+        l2 = int(agenda_match.group(2)) if agenda_match.group(2) else None
+        l3 = int(agenda_match.group(3)) if agenda_match.group(3) else None
+        number = _format_number(l1, l2, l3)
+        title = agenda_match.group(4).strip()
+
+        current_agenda = {
+            "number": number,
+            "title": title,
+            "category": category,
+            "sections": [],
+        }
+        agendas.append(current_agenda)
+        current_section = {"heading": None, "blocks": []}
+        current_agenda["sections"].append(current_section)
+        return current_agenda, current_section
+
+    if current_agenda is None:
+        return current_agenda, current_section
+
+    # 가. 나. 다. — 서브섹션
+    sub_match = SUBSECTION_RE.match(line)
+    if sub_match:
+        current_section = {
+            "heading": line,
+            "blocks": [],
+        }
+        current_agenda["sections"].append(current_section)
+        return current_agenda, current_section
+
+    # ※ 노트
+    if line.startswith('※'):
+        current_section["blocks"].append({"type": "note", "content": line})
+        return current_agenda, current_section
+
+    # 하위 안건 목록 (- 제2-1호 : ...)
+    if re.match(r'^-\s*제\s*\d+', line):
+        current_section["blocks"].append({"type": "text", "content": line})
+        return current_agenda, current_section
+
+    # 일반 텍스트
+    if line:
+        current_section["blocks"].append({"type": "text", "content": line})
+
+    return current_agenda, current_section
+
+
+def validate_agenda_details(details: list[dict]) -> bool:
+    """상세 파싱 결과 유효성 검사"""
+    if not details:
+        return False
+    # 최소 1개 안건에 sections이 있어야
+    return any(d.get("sections") for d in details)

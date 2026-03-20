@@ -270,4 +270,4 @@ class DartClient:
         text = re.sub(r'\n\s*\n+', '\n\n', text)  # 빈 줄 정리
         text = text.strip()
 
-        return {"text": text, "images": images}
+        return {"text": text, "html": text_html, "images": images}
