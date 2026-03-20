@@ -1,7 +1,7 @@
-# OpenProxy MCP
+# OPM (OpenProxy MCP)
 
 ## 프로젝트 개요
-DART(전자공시시스템) 데이터를 MCP 프로토콜로 제공하는 Python 서버.
+DART(전자공시시스템) 데이터를 MCP 프로토콜로 제공하는 Python 서버. 약칭 **OPM**.
 주주총회 소집공고를 시작으로, 재무정보 등 DART 전체 공시 데이터로 확장 예정.
 
 ## 기술 스택
