@@ -1,8 +1,9 @@
 """주주총회 소집공고 파싱 — 안건/비안건 분리
 
 문서 구조:
-  주주총회소집공고          ← 간략 요약
-  주주총회 소집공고         ← 상세 (일시, 장소, 회의목적사항=안건목차, 전자투표 등)
+  정 정 신 고 (보고)           ← 정정공고인 경우만
+  주주총회소집공고              ← 간략 요약
+  주주총회 소집공고             ← 상세 (일시, 장소, 회의목적사항=안건목차, 전자투표 등)
   I. 사외이사 등의 활동내역
   II. 최대주주등과의 거래내역
   III. 경영참고사항
@@ -23,9 +24,6 @@ logger = logging.getLogger(__name__)
 # ── 정규식 ──
 
 # 안건 번호 패턴: 제N호, 제N-M호, 제N-M-K호
-# lookahead: 다음 안건번호, ※, □, - 제, 줄바꿈
-# \d+\)\s*제 는 "1) 제1호" 패턴 대응이지만, "2026.3.26)" 같은 날짜 오매치 방지를 위해
-# \d+\) 뒤에 \s*제\s*\d+ 까지 확인
 AGENDA_RE = re.compile(
     r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
     r'\s*(?:의안)?\s*[:：]\s*'
@@ -36,6 +34,19 @@ AGENDA_RE = re.compile(
 CONDITIONAL_RE = re.compile(
     r'※\s*(제\s*\d+(?:\s*-\s*\d+)*\s*호\s*(?:의안\s*)?(?:은|는)\s*.+?)(?=\s*(?:\d+\)\s*제|제\s*\d+|※|\n|$))'
 )
+
+# '주주총회 소집공고' 섹션 끝 경계 — 다음 대섹션 시작
+SECTION_END_PATTERNS = [
+    r'I\s*\.\s*사외이사',
+    r'Ⅰ\s*\.\s*사외이사',
+    r'II\s*\.\s*최대주주',
+    r'Ⅱ\s*\.\s*최대주주',
+    r'III\s*\.\s*경영\s*참고',
+    r'Ⅲ\s*\.\s*경영\s*참고',
+    r'IV\s*\.\s*사업보고서',
+    r'Ⅳ\s*\.\s*사업보고서',
+    r'※\s*참고\s*사항',
+]
 
 
 # ── 안건 파싱 ──
@@ -48,8 +59,12 @@ def parse_agenda_items(text: str) -> list[dict]:
           "title": "...", "source": "이사회안"|"주주제안"|None,
           "conditional": "..."|None, "children": [...]}]
     """
-    text = _strip_correction_preamble(text)
-    zone = _extract_agenda_zone(text)
+    section = _extract_notice_section(text)
+    if not section:
+        logger.warning("'주주총회 소집공고' 섹션을 찾을 수 없음")
+        return []
+
+    zone = _extract_agenda_zone(section)
     if not zone:
         logger.warning("안건 영역(회의목적사항/결의사항/부의안건)을 찾을 수 없음")
         return []
@@ -90,13 +105,46 @@ def parse_agenda_items(text: str) -> list[dict]:
     return _build_tree(flat)
 
 
-def _extract_agenda_zone(text: str) -> str | None:
-    """'주주총회 소집공고' 섹션에서 안건이 나열된 영역 추출
+def _extract_notice_section(text: str) -> str | None:
+    """문서에서 '주주총회 소집공고' 본문 섹션만 추출
+
+    실제 본문 헤더 판별: '주주총회 소집공고' 뒤에 '(제N기' 또는 기수/정기/임시 표현이 따라옴.
+    인라인 언급('소집공고로 갈음', '소집공고 조직도' 등)은 제외.
+    """
+    # 본문 헤더 후보: 뒤에 (제N기, 정기, 임시 등이 따라오는 것
+    body_header = re.search(
+        r'주주총회\s*소집\s*공고\s*\(?\s*(?:제\s*\d+\s*기|정기|임시)',
+        text,
+    )
+
+    if body_header:
+        section_start = body_header.start()
+    else:
+        # fallback: '주주총회 소집공고' 뒤에 일시/장소/회의목적사항이 나오는 것
+        for m in re.finditer(r'주주총회\s*소집\s*공고', text):
+            after = text[m.end():m.end()+500]
+            if re.search(r'일\s*시|장\s*소|회의\s*(?:의?\s*)?목적\s*사항|부의\s*안건', after):
+                section_start = m.start()
+                break
+        else:
+            return None
+
+    # 끝: 다음 대섹션
+    section_end = len(text)
+    for pat in SECTION_END_PATTERNS:
+        em = re.search(pat, text[section_start:])
+        if em and section_start + em.start() < section_end:
+            section_end = section_start + em.start()
+
+    return text[section_start:section_end]
+
+
+def _extract_agenda_zone(section: str) -> str | None:
+    """'주주총회 소집공고' 섹션 내에서 안건 나열 영역만 추출
 
     시작: 회의목적사항 / 결의사항 / 부의안건 / 의결사항
-    끝: 'N. 경영참고사항' / 'N. 전자투표' / 'N. 의결권' / 'I.' / 문서 끝
+    끝: 섹션 끝 (이미 대섹션 경계로 잘려 있음) 또는 세부 끝점
     """
-    # 시작점
     start_patterns = [
         r'회의\s*(?:의?\s*)?목적\s*사항',
         r'결의\s*사항',
@@ -105,7 +153,7 @@ def _extract_agenda_zone(text: str) -> str | None:
     ]
     start_pos = None
     for pat in start_patterns:
-        m = re.search(pat, text)
+        m = re.search(pat, section)
         if m:
             if start_pos is None or m.start() < start_pos:
                 start_pos = m.start()
@@ -113,10 +161,8 @@ def _extract_agenda_zone(text: str) -> str | None:
     if start_pos is None:
         return None
 
-    # 끝점: 안건 나열 직후의 다음 섹션
-    # 줄바꿈 유무와 무관하게 잡기 위해 다양한 패턴 사용
+    # 세부 끝점: 전자투표, 의결권 등 소섹션
     end_patterns = [
-        # "N. 섹션명" — 줄바꿈/공백 유무 무관
         r'\d+\.\s*경영\s*참고\s*사항',
         r'\d+\.\s*전자\s*투표',
         r'\d+\.\s*전자\s*증권',
@@ -126,22 +172,17 @@ def _extract_agenda_zone(text: str) -> str | None:
         r'\d+\.\s*기\s*타\b',
         r'\d+\.\s*배당금\s*지급',
         r'\d+\.\s*제\d+기\s*(?:기말)?배당',
-        # 특수문자로 시작하는 섹션 (■□○ 등)
         r'[■□○●▶]\s*경영\s*참고\s*사항',
         r'[■□○●▶]\s*전자\s*투표',
         r'[■□○●▶]\s*의결권',
-        # 로마 숫자 섹션
-        r'\nI\.\s',
-        r'\nI\s*\.\s*사외이사',
-        r'Ⅰ\.\s*사외이사',
     ]
-    end_pos = len(text)
+    end_pos = len(section)
     for pat in end_patterns:
-        em = re.search(pat, text[start_pos:])
+        em = re.search(pat, section[start_pos:])
         if em and start_pos + em.start() < end_pos:
             end_pos = start_pos + em.start()
 
-    return text[start_pos:end_pos]
+    return section[start_pos:end_pos]
 
 
 def _build_tree(flat_items: list[dict]) -> list[dict]:
@@ -254,38 +295,6 @@ def parse_meeting_info(text: str) -> dict:
 
 
 # ── 유틸리티 ──
-
-def _strip_correction_preamble(text: str) -> str:
-    """정정공고인 경우, 정정 전/후 비교 영역을 건너뛰고 정정 후 본문만 반환
-
-    정정공고 구조:
-      정 정 신 고 (보고)
-      3. 정정사항 (정정 전/후 테이블)
-        주1) 정정 전 ...
-        주2) 정정 후 ...
-        ...
-      [여기서부터 실제 정정 후 본문 = '주주총회 소집공고' 또는 'N. 회의목적사항']
-
-    마지막 '정정 후' 블록의 시작점을 찾아 그 이후만 반환.
-    """
-    if not re.search(r'정\s*정\s*신\s*고|기재\s*정정', text[:500]):
-        return text
-
-    # '주N) 정정 후' 패턴의 마지막 매치를 찾음
-    correction_markers = list(re.finditer(r'주\d+\)\s*정정\s*후', text))
-    if not correction_markers:
-        return text
-
-    last_marker = correction_markers[-1]
-    after = text[last_marker.start():]
-
-    # 정정 후 블록 뒤에 오는 실제 본문 시작점 ('주주총회소집공고' 또는 '주주총회 소집공고')
-    body_start = re.search(r'주주총회\s*소집\s*공고', after)
-    if body_start:
-        return after[body_start.start():]
-
-    return after
-
 
 def _extract_conditionals(text: str) -> dict[str, str]:
     """※ 조건부 의안 텍스트를 의안 번호별로 매핑"""
