@@ -261,7 +261,7 @@ def register_tools(mcp):
     """FastMCP 서버에 주주총회 관련 tool 등록"""
 
     @mcp.tool()
-    async def search_shareholder_meetings(
+    async def agm_search(
         ticker: str,
         bgn_de: str = "",
         end_de: str = "",
@@ -326,7 +326,7 @@ def register_tools(mcp):
         return "\n".join(lines)
 
     @mcp.tool()
-    async def get_shareholder_meeting_document(
+    async def agm_document(
         rcept_no: str,
         max_length: int = 10000,
     ) -> str:
@@ -358,7 +358,7 @@ def register_tools(mcp):
         return "\n".join(result_lines)
 
     @mcp.tool()
-    async def get_meeting_agenda(
+    async def agm_agenda(
         rcept_no: str,
         use_llm: bool = False,
         format: str = "md",
@@ -405,7 +405,7 @@ def register_tools(mcp):
         return _format_agenda_tree(agenda)
 
     @mcp.tool()
-    async def get_meeting_info(
+    async def agm_info(
         rcept_no: str,
     ) -> str:
         """주주총회 소집공고에서 의안을 제외한 회의 정보를 반환합니다.
@@ -434,7 +434,7 @@ def register_tools(mcp):
         return _format_meeting_info(info)
 
     @mcp.tool()
-    async def get_agenda_detail(
+    async def agm_items(
         rcept_no: str,
         agenda_no: str = "",
         format: str = "md",
@@ -474,7 +474,7 @@ def register_tools(mcp):
         return _format_agenda_details(details)
 
     @mcp.tool()
-    async def get_financial_statements(
+    async def agm_financials(
         rcept_no: str,
         format: str = "json",
     ) -> str:
@@ -540,7 +540,7 @@ def register_tools(mcp):
         return _format_financial_statements(result)
 
     @mcp.tool()
-    async def get_correction_details(
+    async def agm_corrections(
         rcept_no: str,
         format: str = "md",
     ) -> str:
@@ -566,6 +566,88 @@ def register_tools(mcp):
             return json.dumps(result, ensure_ascii=False, indent=2)
 
         return _format_correction_details(result)
+
+    @mcp.tool()
+    async def agm_tldr(
+        ticker: str,
+        bgn_de: str = "",
+        end_de: str = "",
+    ) -> str:
+        """주주총회 소집공고 종합 브리핑 — 한 번에 핵심 정보를 반환합니다.
+
+        종목코드 또는 회사명으로 최신 소집공고를 찾아서
+        일시/장소, 안건 트리, 정정 사항을 한 덩어리로 반환합니다.
+
+        Args:
+            ticker: 종목코드 또는 회사명
+            bgn_de: 검색 시작일 (YYYYMMDD). 미입력 시 올해 1월 1일
+            end_de: 검색 종료일 (YYYYMMDD). 미입력 시 오늘
+        """
+        if not bgn_de:
+            bgn_de = f"{datetime.now().year}0101"
+        if not end_de:
+            end_de = datetime.now().strftime("%Y%m%d")
+
+        client = DartClient()
+        result = await client.search_filings_by_ticker(
+            ticker=ticker, bgn_de=bgn_de, end_de=end_de, pblntf_ty="E",
+        )
+
+        corp_info = result.get("corp_info", {})
+        filings = [
+            item for item in result.get("list", [])
+            if "소집" in item.get("report_nm", "")
+        ]
+
+        if not filings:
+            return f"{corp_info.get('corp_name', ticker)}의 주주총회 소집공고가 없습니다."
+
+        # 최신 공시 선택 (날짜순 마지막)
+        filings.sort(key=lambda x: x.get("rcept_dt", ""))
+        latest = filings[-1]
+        rcept_no = latest["rcept_no"]
+
+        doc = await _get_document_cached(rcept_no)
+        text = doc["text"]
+        html = doc.get("html", "")
+
+        # 1. 회의 정보
+        info = parse_meeting_info(text, html=html)
+
+        # 2. 안건 트리
+        agenda = parse_agenda_items(text, html=html)
+
+        # 3. 정정 요약
+        correction = parse_correction_details(html) if html else None
+        if correction:
+            info["correction_summary"] = {
+                "date": correction.get("date"),
+                "original_date": correction.get("original_date"),
+                "items": [
+                    {"section": i["section"][:60], "reason": i["reason"][:80]}
+                    for i in correction.get("items", [])
+                ],
+            }
+
+        # 포매팅
+        lines = [
+            f"# {corp_info.get('corp_name', ticker)} 주주총회 TL;DR",
+            "",
+        ]
+
+        # 공시 이력
+        if len(filings) > 1:
+            lines.append(f"*공시 {len(filings)}건 중 최신 사용 (접수번호: {rcept_no})*")
+            lines.append("")
+
+        # 회의 정보
+        lines.append(_format_meeting_info(info))
+        lines.append("")
+
+        # 안건 트리
+        lines.append(_format_agenda_tree(agenda))
+
+        return "\n".join(lines)
 
 
 def _format_correction_details(result: dict) -> str:
