@@ -961,12 +961,21 @@ def parse_financial_statements(html: str) -> dict:
         logger.warning("재무제표 파싱: 목적사항별 기재사항 섹션을 찾을 수 없음")
         return _empty_financial_result()
 
-    # 재무제표 library 찾기 (보통 첫 번째 library)
+    # 재무제표 library 찾기 — 카테고리 title 또는 본문에서 재무제표 키워드
     fs_container = None
     for lib in detail_section.find_all('library'):
-        text = lib.get_text()[:200]
+        container = lib.find('section-3') or lib
+        # 카테고리 title 확인 (□ 재무제표의 승인)
+        title_el = container.find('title')
+        if title_el:
+            title_text = re.sub(r'\s+', '', title_el.get_text())
+            if '재무제표' in title_text or '재무상태표' in title_text or '대차대조표' in title_text:
+                fs_container = container
+                break
+        # title 없으면 본문 첫 500자에서 확인
+        text = re.sub(r'\s+', '', lib.get_text()[:500])
         if _FS_BALANCE_SHEET.search(text) or '재무제표' in text:
-            fs_container = lib.find('section-3') or lib
+            fs_container = container
             break
 
     if not fs_container:
@@ -1051,12 +1060,21 @@ def parse_financial_statements(html: str) -> dict:
                             is_consolidated = False
                 continue
 
-            # 데이터 테이블 판별: 행 5개+, 첫 행에 '과목' 또는 '구분'
+            # 데이터 테이블 판별: 행 5개+, 첫 행에 '과목'/'구분' 또는 기간 라벨
             first_cells = [c.get_text().strip() for c in rows[0].find_all(['td', 'th'])]
+            first_cells_clean = [re.sub(r'\s+', '', c) for c in first_cells]
             is_data_table = any(
                 ('과' in c and '목' in c) or ('구' in c and '분' in c)
-                for c in first_cells
+                for c in first_cells_clean
             )
+            # 빈 첫 셀 + 기간 라벨(제N기, 당기, 전기) → 데이터 테이블
+            if not is_data_table and len(first_cells_clean) >= 2:
+                has_period = any(
+                    re.match(r'제?\d+기', c) or c in ('당기', '전기', '당기말', '전기말')
+                    for c in first_cells_clean
+                )
+                if has_period:
+                    is_data_table = True
             if not is_data_table:
                 continue
 
@@ -1129,8 +1147,9 @@ def parse_financial_statements(html: str) -> dict:
                 out_columns = ["account", "note", "current", "prior"]
             else:
                 out_columns = ["account", "current", "prior"]
-                # note 컬럼 제거
-                normalized = [[r[0], r[2], r[3]] for r in normalized]
+                # note 컬럼 제거 — normalized가 4컬럼이면 [0,2,3], 3컬럼이면 그대로
+                if normalized and len(normalized[0]) == 4:
+                    normalized = [[r[0], r[2], r[3]] for r in normalized]
 
             result[scope][current_stmt_type] = {
                 "unit": unit,
