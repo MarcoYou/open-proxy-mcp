@@ -784,6 +784,31 @@ def _format_financial_statements(result: dict) -> str:
 
             lines.append("")
 
+    # 자본변동표
+    for scope in ["consolidated", "separate"]:
+        eq = result[scope].get("equity_changes")
+        if eq is None:
+            continue
+        title = f"{scope_names[scope]} 자본변동표"
+        flags = []
+        if eq.get("has_treasury_acquisition"): flags.append("자사주 취득")
+        if eq.get("has_treasury_disposal"): flags.append("자사주 소각/처분")
+        flag_str = f" ({', '.join(flags)})" if flags else ""
+
+        lines.append(f"## {title}{flag_str}")
+        if eq.get("unit"):
+            lines.append(f"*(단위: {eq['unit']})*")
+        lines.append("")
+
+        cols = eq.get("columns", [])
+        lines.append("| " + " | ".join(c.replace("|", "\\|")[:15] for c in cols) + " |")
+        lines.append("| " + " | ".join("---" for _ in cols) + " |")
+        for row in eq.get("rows", []):
+            padded = row[:len(cols)] if len(row) >= len(cols) else row + [""] * (len(cols) - len(row))
+            escaped = [c.replace("|", "\\|")[:15] for c in padded]
+            lines.append("| " + " | ".join(escaped) + " |")
+        lines.append("")
+
     # 이익잉여금처분계산서
     re_stmt = result.get("retained_earnings")
     if re_stmt:

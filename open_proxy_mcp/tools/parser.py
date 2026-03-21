@@ -1298,8 +1298,13 @@ def parse_financial_statements(html: str) -> dict:
             if entry is not None:
                 entry["scope"] = scope
 
-    # 배당 정보 — 이익잉여금처분계산서에서 추출
+    # 이익잉여금처분계산서
     result["retained_earnings"] = _extract_retained_earnings(fs_container)
+
+    # 자본변동표 — 연결/별도 각각
+    result["consolidated"]["equity_changes"] = None
+    result["separate"]["equity_changes"] = None
+    _extract_equity_changes(fs_container, result)
 
     return result
 
@@ -1341,6 +1346,103 @@ def _infer_statement_type(table_el) -> str | None:
         return 'income_statement'
 
     return None
+
+
+def _extract_equity_changes(container, result: dict) -> None:
+    """자본변동표 추출 — 연결/별도 각각
+
+    자본변동표 테이블 식별: 헤더에 '자본금' + '잉여금' 포함, 행 10개+
+    자사주 취득/소각 플래그도 추출.
+    """
+    is_consolidated = True
+    found_scopes = set()
+
+    for child in container.descendants:
+        if not hasattr(child, 'name') or not child.name:
+            continue
+
+        # <p> 또는 제목 테이블에서 연결/별도 컨텍스트
+        if child.name == 'p':
+            text_clean = re.sub(r'\s+', '', child.get_text())
+            if _FS_SEPARATE.search(text_clean):
+                is_consolidated = False
+            elif _FS_CONSOLIDATED.search(text_clean) and '별도' not in text_clean:
+                is_consolidated = True
+            # 자본변동표 제목 감지
+            if re.search(r'자본변동', text_clean):
+                pass  # 컨텍스트 유지
+            continue
+
+        if child.name != 'table':
+            continue
+
+        rows = child.find_all('tr')
+        if len(rows) < 8:
+            # 제목 테이블에서 컨텍스트 갱신
+            table_text = re.sub(r'\s+', '', child.get_text())
+            if _FS_SEPARATE.search(table_text):
+                is_consolidated = False
+            elif _FS_CONSOLIDATED.search(table_text):
+                is_consolidated = True
+            continue
+
+        # 자본변동표 판별: 헤더에 '자본금' + '잉여금'
+        header_cells = rows[0].find_all(['td', 'th'])
+        headers = [re.sub(r'\s+', '', c.get_text()) for c in header_cells]
+        if not (any('자본금' in h for h in headers) and any('잉여금' in h for h in headers)):
+            continue
+
+        scope = "consolidated" if is_consolidated else "separate"
+        if scope in found_scopes:
+            # 이미 이 scope에서 찾았으면 다음 scope로
+            is_consolidated = not is_consolidated
+            scope = "consolidated" if is_consolidated else "separate"
+            if scope in found_scopes:
+                continue
+        found_scopes.add(scope)
+
+        # 단위 추출
+        unit = _extract_unit_from_siblings(child)
+
+        # 컬럼 메타데이터
+        columns = [h for h in headers]
+
+        # 행 데이터 추출
+        data_rows = []
+        has_treasury_acquisition = False
+        has_treasury_disposal = False
+
+        for row in rows[1:]:
+            cells = row.find_all(['td', 'th'])
+            expanded = []
+            for c in cells:
+                val = c.get_text().strip().replace('\n', ' ')
+                colspan = int(c.get('colspan', 1) or 1)
+                expanded.append(val)
+                for _ in range(colspan - 1):
+                    expanded.append('')
+            # 컬럼 수 맞추기
+            while len(expanded) < len(columns):
+                expanded.append('')
+            data_rows.append(expanded[:len(columns)])
+
+            # 자사주 플래그
+            first = re.sub(r'\s+', '', expanded[0]) if expanded else ''
+            if '자기주식' in first and '취득' in first:
+                has_treasury_acquisition = True
+            if '자기주식' in first and ('소각' in first or '처분' in first):
+                has_treasury_disposal = True
+
+        result[scope]["equity_changes"] = {
+            "unit": unit,
+            "columns": columns,
+            "column_count": len(columns),
+            "rows": data_rows,
+            "row_count": len(data_rows),
+            "has_treasury_acquisition": has_treasury_acquisition,
+            "has_treasury_disposal": has_treasury_disposal,
+            "scope": scope,
+        }
 
 
 def _extract_retained_earnings(container) -> dict | None:
