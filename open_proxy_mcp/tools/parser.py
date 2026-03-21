@@ -1414,9 +1414,14 @@ def _extract_dividends(container) -> dict | None:
                 })
 
         if items:
+            # 배당 실시 여부 판단 — 배당금 행에 금액이 있는지
+            div_items = [i for i in items if '배당금' in i['account'] or '현금배당' in i['account']]
+            has_dividend = any(i['current'] and '해당사항' not in i['account'] for i in div_items)
+
             return {
                 "unit": unit,
                 "disposal_date": disposal_date,
+                "has_dividend": has_dividend,
                 "items": items,
             }
 

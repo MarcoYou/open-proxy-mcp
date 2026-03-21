@@ -787,7 +787,8 @@ def _format_financial_statements(result: dict) -> str:
     # 배당 정보
     div = result.get("dividends")
     if div:
-        lines.append("## 배당")
+        has_div = div.get("has_dividend", False)
+        lines.append(f"## 배당 {'(실시)' if has_div else '(미실시)'}")
         if div.get("unit"):
             lines.append(f"*(단위: {div['unit']})*")
         if div.get("disposal_date"):
