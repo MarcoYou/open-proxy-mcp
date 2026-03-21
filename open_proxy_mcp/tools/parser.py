@@ -1409,17 +1409,38 @@ def parse_aoi(html: str, sub_agendas: list[dict] | None = None) -> dict:
         if "정관" not in title and "정관" not in category:
             continue
 
-        # 비교 테이블에서 세부의안 추출
+        # 섹션 블록을 순서대로 순회 — text에서 세부의안 헤더 감지, table에서 내용 추출
+        pending_sub_id = ""
+        pending_label = ""
+
         for sec in d.get("sections", []):
+            # 섹션 헤딩에서도 세부의안 감지 (가. 나. 아래에 제N-M호가 있는 경우)
+            heading = sec.get("heading") or ""
+            heading_m = re.search(r'제\s*(\d+-\d+)\s*호\s*(?:\([^)]*\))?\s*[：:]?\s*(.*)', heading)
+            if heading_m:
+                pending_sub_id = heading_m.group(1)
+                pending_label = heading_m.group(2).strip()
+
             for block in sec.get("blocks", []):
+                # text 블록에서 세부의안 헤더 감지
+                if block["type"] == "text":
+                    txt = block["content"].strip()
+                    m = re.search(r'제\s*(\d+-\d+)\s*호\s*(?:\([^)]*\))?\s*[：:]?\s*(.*)', txt)
+                    if m:
+                        pending_sub_id = m.group(1)
+                        pending_label = m.group(2).strip()
+                        # 소스 태그 제거
+                        pending_label = re.sub(r'^\(?\s*(?:이사회안|주주제안)[^)]*\)?\s*[：:]?\s*', '', pending_label).strip()
+                    continue
+
                 if block["type"] != "table":
                     continue
+
                 rows = _parse_md_table(block["content"])
                 if len(rows) < 2:
                     continue
 
                 headers = rows[0]
-                # 4컬럼 비교 테이블인지 확인 (구분/의안번호 + 변경전 + 변경후 + 사유)
                 headers_clean = [re.sub(r'\s+', '', h) for h in headers]
                 has_before = any('변경전' in h or '현행' in h for h in headers_clean)
                 has_after = any('변경후' in h or '개정' in h for h in headers_clean)
@@ -1432,7 +1453,8 @@ def parse_aoi(html: str, sub_agendas: list[dict] | None = None) -> dict:
                 after_idx = next((i for i, h in enumerate(headers_clean) if '변경후' in h or '개정' in h), 2)
                 reason_idx = next((i for i, h in enumerate(headers_clean) if '목적' in h or '사유' in h), 3)
 
-                last_sub_id = ""
+                # 이 테이블의 모든 행을 하나의 amendment로 묶음 (pending_sub_id 사용)
+                table_amendments = []
                 for row in rows[1:]:
                     if not row or not row[0].strip():
                         continue
@@ -1440,56 +1462,79 @@ def parse_aoi(html: str, sub_agendas: list[dict] | None = None) -> dict:
                     if not col0 or col0 == '-':
                         continue
 
-                    # 세부의안 번호 + 라벨 추출
+                    # 테이블 내부에서 세부의안 번호 있는지 확인
                     m = re.match(r'(?:제\s*)?(\d+-\d+)\s*호?\s*(?:의안)?\s*[：:]?\s*(.*)', col0)
                     if m:
                         sub_id = m.group(1)
                         label = m.group(2).strip()
-                        last_sub_id = sub_id
                     else:
                         sub_id = ""
-                        # label: 조항명(제N조) 추출 시도, 없으면 col0 truncate
-                        clause_in_col0 = re.search(r'(제\d+(?:조의?\d*)?(?:\([^)]+\))?)', col0)
-                        if clause_in_col0:
-                            label = clause_in_col0.group(1)
-                        elif col0 == '(신설)' or col0 == '<신 설>':
-                            label = '(신설)'
-                        else:
-                            label = col0[:30]
+                        label = ""
 
                     before = row[before_idx].strip() if before_idx < len(row) else ""
                     after = row[after_idx].strip() if after_idx < len(row) else ""
                     reason = row[reason_idx].strip() if reason_idx < len(row) else ""
 
-                    # 조항명 추출 — before 또는 after에서 제N조(제목)
                     clause = ""
-                    for text in [before, after]:
-                        clause_m = re.search(r'(제\d+(?:조의?\d*)?(?:\([^)]+\))?)', text)
+                    for txt in [before, after]:
+                        clause_m = re.search(r'(제\d+(?:조의?\d*)?(?:\([^)]+\))?)', txt)
                         if clause_m:
                             clause = clause_m.group(1)
                             break
 
-                    # 세부의안 번호 없는 행 → 직전 세부의안에 병합
-                    if not sub_id and last_sub_id and amendments:
-                        # 직전 세부의안 찾아서 clauses 리스트에 추가
-                        last = amendments[-1]
-                        if "additionalClauses" not in last:
-                            last["additionalClauses"] = []
-                        last["additionalClauses"].append({
-                            "clause": clause,
-                            "before": before,
-                            "after": after,
-                            "reason": reason,
-                        })
-                    else:
-                        amendments.append({
-                            "subAgendaId": sub_id,
-                            "label": label,
-                            "clause": clause,
-                            "before": before,
-                            "after": after,
-                            "reason": reason,
-                        })
+                    table_amendments.append({
+                        "sub_id": sub_id, "label": label,
+                        "clause": clause, "before": before, "after": after, "reason": reason,
+                    })
+
+                if not table_amendments:
+                    continue
+
+                # 테이블 내부에 세부의안 번호가 있으면 기존 로직 (KT&G/삼성 패턴)
+                has_internal_ids = any(a["sub_id"] for a in table_amendments)
+
+                if has_internal_ids:
+                    last_sub_id = ""
+                    for ta in table_amendments:
+                        if ta["sub_id"]:
+                            last_sub_id = ta["sub_id"]
+                            amendments.append({
+                                "subAgendaId": ta["sub_id"],
+                                "label": ta["label"],
+                                "clause": ta["clause"],
+                                "before": ta["before"],
+                                "after": ta["after"],
+                                "reason": ta["reason"],
+                            })
+                        elif last_sub_id and amendments:
+                            last = amendments[-1]
+                            if "additionalClauses" not in last:
+                                last["additionalClauses"] = []
+                            last["additionalClauses"].append({
+                                "clause": ta["clause"],
+                                "before": ta["before"],
+                                "after": ta["after"],
+                                "reason": ta["reason"],
+                            })
+                else:
+                    # 테이블 외부에서 감지한 pending_sub_id 사용 (LG화학 패턴)
+                    first = table_amendments[0]
+                    main_amendment = {
+                        "subAgendaId": pending_sub_id,
+                        "label": pending_label or first["clause"],
+                        "clause": first["clause"],
+                        "before": first["before"],
+                        "after": first["after"],
+                        "reason": first["reason"],
+                    }
+                    if len(table_amendments) > 1:
+                        main_amendment["additionalClauses"] = [
+                            {"clause": ta["clause"], "before": ta["before"], "after": ta["after"], "reason": ta["reason"]}
+                            for ta in table_amendments[1:]
+                        ]
+                    amendments.append(main_amendment)
+                    pending_sub_id = ""
+                    pending_label = ""
 
     # 세부의안 매핑: subAgendaId가 없는 amendments에 agm_agenda 세부의안 번호 부여
     if sub_agendas and any(not a.get("subAgendaId") for a in amendments):
