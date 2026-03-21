@@ -979,8 +979,10 @@ def parse_financial_statements(html: str) -> dict:
         "separate": {"balance_sheet": None, "income_statement": None},
     }
 
-    # 현재 컨텍스트 추적
-    is_consolidated = True  # 기본값: 연결
+    # 현재 컨텍스트 추적 — 문서에 "연결" 키워드가 있으면 연결부터, 없으면 별도
+    fs_text = re.sub(r'\s+', '', fs_container.get_text()[:3000])
+    has_consolidated = bool(_FS_CONSOLIDATED.search(fs_text))
+    is_consolidated = has_consolidated  # "연결" 없으면 기본값 = 별도
     current_stmt_type = None  # 'balance_sheet' or 'income_statement'
 
     for child in fs_container.descendants:
