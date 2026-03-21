@@ -441,6 +441,8 @@ def register_tools(mcp):
     async def agm_items(
         rcept_no: str,
         agenda_no: str = "",
+        use_llm: bool = False,
+        max_fallback_length: int = 3000,
         format: str = "md",
     ) -> str:
         """주주총회 소집공고의 안건별 상세 내용을 반환합니다.
@@ -453,12 +455,33 @@ def register_tools(mcp):
             rcept_no: 접수번호 (예: 20260225000123)
             agenda_no: 안건 번호 (예: "1", "2"). 미입력 시 전체 안건 반환.
                        "2" 입력 시 제2호 + 하위(제2-1호~) 전체 반환.
+            use_llm: True면 파싱 실패 시 LLM fallback 사용 (기본: False)
+            max_fallback_length: LLM fallback 시 원문 최대 글자 수 (기본 3000, 0이면 제한 없음)
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
         doc = await _get_document_cached(rcept_no)
-        details = parse_agenda_details(doc["html"])
+        html = doc.get("html", "")
+        text = doc["text"]
+
+        if not html:
+            return "안건 상세를 파싱할 수 없습니다. (HTML 없음)"
+
+        details = parse_agenda_details(html)
 
         if not validate_agenda_details(details):
+            if use_llm:
+                logger.warning(f"[SOFT FAIL] 안건 상세 파싱 실패 — LLM fallback: {rcept_no}")
+                # 목적사항별 기재사항 영역 원문 추출
+                fallback_text = ""
+                match = re.search(r'목적사항별\s*기재사항', text)
+                if match:
+                    if max_fallback_length > 0:
+                        fallback_text = text[match.start():match.start()+max_fallback_length]
+                    else:
+                        fallback_text = text[match.start():]
+                    return f"[LLM fallback] 안건 상세 파싱에 실패하여 원문을 반환합니다:\n\n{fallback_text}"
+
+                logger.error(f"[HARD FAIL] 목적사항별 기재사항 영역도 찾을 수 없음: {rcept_no}")
             return "안건 상세를 파싱할 수 없습니다. (목적사항별 기재사항 섹션을 찾을 수 없음)"
 
         # agenda_no 필터
