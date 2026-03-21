@@ -1105,9 +1105,30 @@ def _extract_candidates(agenda_detail: dict) -> list[dict]:
                 if len(rows) < 2:
                     continue
                 headers = rows[0]
+
+                # 세부경력 컬럼 인덱스 찾기
+                career_idx = None
+                career_content_idx = None
+                for hi, h in enumerate(headers):
+                    hc = re.sub(r'\s+', '', h)
+                    if '세부경력' in hc:
+                        career_idx = hi
+                        # 다음 빈 컬럼이 내용
+                        if hi + 1 < len(headers) and not headers[hi + 1].strip():
+                            career_content_idx = hi + 1
+
+                period_idx = career_idx
+                content_idx = career_content_idx
+
                 for row in rows[1:]:
                     if not row or not row[0].strip():
                         continue
+
+                    # "기간 | 내용" 헤더 행 스킵
+                    row0 = re.sub(r'\s+', '', row[0])
+                    if row0 in ('기간', '내용', '총', ''):
+                        continue
+
                     name = row[0].strip()
                     for c in candidates:
                         if c["name"] == name:
@@ -1117,19 +1138,33 @@ def _extract_candidates(agenda_detail: dict) -> list[dict]:
                                 h = re.sub(r'\s+', '', header)
                                 val = row[ci].strip()
                                 if '주된직업' in h:
-                                    c["main_career"] = val
-                                elif '세부경력' in h or '내용' in h:
-                                    c.setdefault("career_detail", [])
-                                    if val:
-                                        c["career_detail"].append(val)
-                                elif '기간' in h:
-                                    c.setdefault("career_periods", [])
-                                    if val:
-                                        c["career_periods"].append(val)
+                                    c["mainJob"] = val
                                 elif '거래내역' in h:
-                                    c["transaction_history"] = val
+                                    c["recent3yTransactions"] = val if val and val != '없음' else None
 
-        # 다. 체납사실 — 기존 후보자에 매칭
+                            # 세부경력 기간/내용 분리
+                            periods_raw = row[period_idx].strip() if period_idx is not None and period_idx < len(row) else ""
+                            contents_raw = row[content_idx].strip() if content_idx is not None and content_idx < len(row) else ""
+
+                            # 기간 패턴 분리: "2021~현재 2022~2024" → ["2021~현재", "2022~2024"]
+                            periods = re.findall(r'\d{4}\s*~\s*(?:현재|\d{4})', periods_raw)
+                            # 내용 패턴 분리: "現) ... 前) ..." 또는 줄바꿈
+                            contents = re.split(r'(?=(?:現|前|현|전)\)\s)', contents_raw)
+                            contents = [x.strip() for x in contents if x.strip()]
+
+                            career_details = []
+                            for i in range(max(len(periods), len(contents))):
+                                p = periods[i] if i < len(periods) else ""
+                                ct = contents[i] if i < len(contents) else ""
+                                if p or ct:
+                                    career_details.append({"period": p, "content": ct})
+
+                            if career_details:
+                                c["careerDetails"] = career_details
+                            elif periods_raw or contents_raw:
+                                c["careerDetails"] = [{"period": periods_raw, "content": contents_raw}]
+
+        # 다. 체납사실 — 기존 후보자에 매칭 (3개 필드 분리)
         if heading.startswith("다.") or '체납' in heading:
             for block in sec.get("blocks", []):
                 if block["type"] != "table":
@@ -1137,38 +1172,55 @@ def _extract_candidates(agenda_detail: dict) -> list[dict]:
                 rows = _parse_md_table(block["content"])
                 if len(rows) < 2:
                     continue
+                headers = rows[0]
                 for row in rows[1:]:
                     if not row or not row[0].strip():
                         continue
                     name = row[0].strip()
                     for c in candidates:
                         if c["name"] == name:
-                            c["disqualification"] = "해당사항 없음" if any(
-                                '해당' in cell and '없' in cell for cell in row[1:]
-                            ) else " / ".join(cell.strip() for cell in row[1:] if cell.strip())
+                            eligibility = {}
+                            for ci, header in enumerate(headers):
+                                if ci >= len(row):
+                                    break
+                                h = re.sub(r'\s+', '', header)
+                                val = row[ci].strip() if row[ci].strip() else None
+                                if '체납' in h:
+                                    eligibility["taxDelinquency"] = val
+                                elif '부실' in h:
+                                    eligibility["insolventMgmt"] = val
+                                elif '결격' in h:
+                                    eligibility["legalDisqualification"] = val
+                            c["eligibility"] = eligibility
 
         # 라. 직무수행계획 — 텍스트 블록
         if heading.startswith("라.") or '직무수행' in heading:
             texts = []
             for block in sec.get("blocks", []):
                 if block["type"] == "text" and block["content"].strip():
-                    texts.append(block["content"].strip())
+                    content = block["content"].strip()
+                    # 확인서 텍스트 제거
+                    content = re.sub(r'확인서\s*\n*.*?\.(?:jpeg|jpg|png).*$', '', content, flags=re.DOTALL).strip()
+                    if content:
+                        texts.append(content)
             if texts and candidates:
-                # 마지막 후보자 또는 전체에 할당
                 plan_text = "\n".join(texts)
                 for c in candidates:
-                    c["duty_plan"] = plan_text
+                    c["dutyPlan"] = plan_text
 
         # 마. 추천 사유 — 텍스트 블록
         if heading.startswith("마.") or '추천' in heading:
             texts = []
             for block in sec.get("blocks", []):
                 if block["type"] == "text" and block["content"].strip():
-                    texts.append(block["content"].strip())
+                    content = block["content"].strip()
+                    content = re.sub(r'확인서\s*\n*.*?\.(?:jpeg|jpg|png).*$', '', content, flags=re.DOTALL).strip()
+                    if content:
+                        texts.append(content)
             if texts and candidates:
                 reason_text = "\n".join(texts)
                 for c in candidates:
-                    c["recommendation_reason"] = reason_text
+                    c["recommendationReason"] = reason_text
 
     return candidates
 

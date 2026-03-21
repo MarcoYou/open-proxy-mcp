@@ -958,20 +958,29 @@ def _format_personnel(result: dict) -> str:
                 lines.append(f"  - 추천인: {c['recommender']}")
             if c.get("relationship_with_major_shareholder"):
                 lines.append(f"  - 최대주주 관계: {c['relationship_with_major_shareholder']}")
-            if c.get("main_career"):
-                lines.append(f"  - 주요경력: {c['main_career']}")
-            if c.get("career_detail"):
+            if c.get("mainJob"):
+                lines.append(f"  - 주요경력: {c['mainJob']}")
+            if c.get("careerDetails"):
                 lines.append(f"  - 세부경력:")
-                for detail in c["career_detail"]:
-                    lines.append(f"    - {detail[:80]}")
-            if c.get("transaction_history"):
-                lines.append(f"  - 법인 거래내역: {c['transaction_history']}")
-            if c.get("disqualification"):
-                lines.append(f"  - 결격사유: {c['disqualification']}")
-            if c.get("duty_plan"):
-                lines.append(f"  - 직무수행계획: {c['duty_plan'][:200]}...")
-            if c.get("recommendation_reason"):
-                lines.append(f"  - 추천사유: {c['recommendation_reason'][:200]}...")
+                for cd in c["careerDetails"]:
+                    period = cd.get("period", "")
+                    content = cd.get("content", "")
+                    if period and content:
+                        lines.append(f"    - {period}: {content}")
+                    elif content:
+                        lines.append(f"    - {content}")
+            if c.get("recent3yTransactions"):
+                lines.append(f"  - 법인 거래내역: {c['recent3yTransactions']}")
+            if c.get("eligibility"):
+                el = c["eligibility"]
+                lines.append(f"  - 결격사유:")
+                lines.append(f"    - 체납: {el.get('taxDelinquency', '해당사항 없음')}")
+                lines.append(f"    - 부실기업: {el.get('insolventMgmt', '해당사항 없음')}")
+                lines.append(f"    - 법령상: {el.get('legalDisqualification', '해당사항 없음')}")
+            if c.get("dutyPlan"):
+                lines.append(f"  - 직무수행계획: {c['dutyPlan']}")
+            if c.get("recommendationReason"):
+                lines.append(f"  - 추천사유: {c['recommendationReason']}")
         lines.append("")
 
     return "\n".join(lines)
