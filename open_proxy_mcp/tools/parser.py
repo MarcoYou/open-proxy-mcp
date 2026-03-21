@@ -1040,13 +1040,31 @@ def parse_financial_statements(html: str) -> dict:
             )
             if not is_data_table:
                 continue
+
+            # stmt_type이 None이면 내용 기반 추론
+            if current_stmt_type is None:
+                current_stmt_type = _infer_statement_type(child)
             if current_stmt_type is None:
                 continue
 
-            # 이미 채워진 슬롯이면 스킵 (중복 방지)
+            # 이미 채워진 슬롯이면 → 다음 stmt_type 또는 다음 scope
             scope = "consolidated" if is_consolidated else "separate"
             if result[scope][current_stmt_type] is not None:
-                continue
+                # 같은 scope에서 다음 statement type 시도
+                other = "income_statement" if current_stmt_type == "balance_sheet" else "balance_sheet"
+                if result[scope][other] is None:
+                    inferred = _infer_statement_type(child)
+                    if inferred and inferred == other:
+                        current_stmt_type = other
+                    else:
+                        continue
+                else:
+                    # 이 scope 다 채워짐 → 다음 scope로
+                    is_consolidated = not is_consolidated
+                    scope = "consolidated" if is_consolidated else "separate"
+                    current_stmt_type = _infer_statement_type(child)
+                    if current_stmt_type is None or result[scope][current_stmt_type] is not None:
+                        continue
 
             # 단위 추출 — 바로 앞 테이블에서
             unit = _extract_unit_from_siblings(child)
@@ -1112,6 +1130,41 @@ def parse_financial_statements(html: str) -> dict:
                 entry["scope"] = scope
 
     return result
+
+
+def _infer_statement_type(table_el) -> str | None:
+    """데이터 테이블의 내용을 보고 재무상태표/손익계산서 추론
+
+    첫 5행의 과목명으로 판별:
+    - 자산 + (유동자산 or 비유동자산) → balance_sheet
+    - 매출 or 영업이익 → income_statement
+    - 자본금 + 자본잉여금 → equity_changes (스킵 대상)
+    """
+    rows = table_el.find_all('tr')
+    first_cells = []
+    for row in rows[:7]:
+        cell = row.find(['td', 'th'])
+        if cell:
+            first_cells.append(re.sub(r'\s+', '', cell.get_text()))
+
+    sample = ' '.join(first_cells)
+
+    # 자본변동표 제외: 첫 컬럼이 "과목"이고 나머지 헤더에 "자본금", "자본잉여금" 등
+    header_row = rows[0] if rows else None
+    if header_row:
+        all_headers = [re.sub(r'\s+', '', c.get_text()) for c in header_row.find_all(['td', 'th'])]
+        if any('자본금' in h for h in all_headers) and any('잉여금' in h for h in all_headers):
+            return None  # 자본변동표 → 스킵
+
+    # 재무상태표: 첫 행들에 "자산" + "유동자산"/"비유동자산"/"현금"
+    if re.search(r'자산', sample) and re.search(r'유동자산|비유동자산|현금|총계', sample):
+        return 'balance_sheet'
+
+    # 손익계산서: "매출" 또는 "영업이익"/"영업손익"
+    if re.search(r'매출|영업이익|영업손익|영업수익|계속영업', sample):
+        return 'income_statement'
+
+    return None
 
 
 def _empty_financial_result() -> dict:
