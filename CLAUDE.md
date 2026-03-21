@@ -48,6 +48,12 @@ blueprint.md          # tool 체계 + 데이터 흐름 다이어그램
 - v3 JSON 스키마 변경 → `OpenProxy/frontend/src/data/schema.ts` + `mockData.ts` 동시 수정
 - OpenProxy는 별도 git repo (HojiPark/openproxy) — 서브디렉토리로 클론한 것
 
+## DART API 호출 규칙
+- **일일 한도**: 2만 건/일. 배치 테스트 시 반드시 호출 수 사전 계산.
+- **속도 제한**: 너무 빠르게 연속 호출하면 IP 차단됨 (BadZipFile 에러로 나타남). 배치 호출 시 **최소 0.5~1초 간격** 유지.
+- **캐싱 활용**: `_doc_cache` (30건 LRU)가 동일 rcept_no 중복 호출을 방지. 같은 문서에 여러 파서를 돌릴 때는 반드시 캐시를 통해 호출.
+- **배치 테스트 시**: 10건당 1~2초 sleep, 전체 소요 시간 사전 추정 후 진행.
+
 ## 설계 원칙
 - 각 DART API 도메인(공시, 재무, 지분 등)은 `dart/` 하위 모듈로 분리
 - MCP tool은 `tools/` 하위에 도메인별로 분리
@@ -89,14 +95,15 @@ blueprint.md          # tool 체계 + 데이터 흐름 다이어그램
 2. `parser.py` — bs4(lxml)로 HTML 섹션 경계 추출 → regex로 안건 패턴 매치
 3. 실패 시 text-only regex fallback → 그래도 실패 시 LLM fallback
 
-**현재 처리율:** 250건 기준 93% (bs4+regex), 나머지 7%는 LLM fallback 대상.
+**현재 처리율:** 811건 기준 93%→97~98% (bs4+regex), count=0 실패 16건은 LLM fallback 대상.
 
 ## 파서 테스트-개선 루프
-1. 전체 소집공고 검색 (250건+)
+1. 소집공고 검색 (811건, `test_batch.py` 사용)
 2. `parse_agenda_items()` 실행, `validate_agenda_result()` 체크
 3. 실패 케이스 zone 텍스트 확인 → 패턴 추가
-4. **250건 전수 regression 테스트** — 기존 성공 깨짐 없는지 반드시 확인
+4. **전수 regression 테스트** — 기존 성공 깨짐 없는지 반드시 확인
 5. 반복
+6. ⚠️ DART API 속도 제한 주의 — 위 "DART API 호출 규칙" 참조
 
 ## 주요 커맨드
 ```bash
