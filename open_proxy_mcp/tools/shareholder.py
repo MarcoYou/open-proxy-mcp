@@ -79,6 +79,7 @@ from open_proxy_mcp.tools.parser import (
     parse_financial_statements,
     parse_correction_details,
     parse_personnel,
+    parse_aoi,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
 
@@ -727,6 +728,35 @@ def register_tools(mcp):
         return _format_personnel(result)
 
     @mcp.tool()
+    async def agm_aoi(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """주주총회 소집공고에서 정관변경 사항을 반환합니다.
+
+        세부의안별로 변경전/변경후 조문 전문과 변경 사유를
+        구조화하여 반환합니다.
+
+        Args:
+            rcept_no: 접수번호 (예: 20260225000123)
+            format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
+        """
+        doc = await _get_document_cached(rcept_no)
+        html = doc.get("html", "")
+        if not html:
+            return "정관변경 사항을 파싱할 수 없습니다. (HTML 없음)"
+
+        result = parse_aoi(html)
+
+        if not result.get("amendments"):
+            return "정관변경 안건이 없습니다."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+
+        return _format_aoi(result)
+
+    @mcp.tool()
     async def agm_steward(
         ticker: str,
         bgn_de: str = "",
@@ -926,6 +956,35 @@ def _build_financial_highlight(fs: dict) -> list[dict] | None:
             break
 
     return highlights if highlights else None
+
+
+def _format_aoi(result: dict) -> str:
+    """정관변경을 마크다운으로 포매팅"""
+    lines = ["## 정관변경 사항", ""]
+    s = result.get("summary", {})
+    lines.append(f"*총 {s.get('totalAmendments', 0)}건*")
+    lines.append("")
+
+    for a in result.get("amendments", []):
+        sub_id = a.get("subAgendaId", "")
+        label = a.get("label", "")
+        header = f"### {sub_id}: {label}" if sub_id else f"### {label}"
+        lines.append(header)
+        if a.get("clause"):
+            lines.append(f"*조항: {a['clause']}*")
+        if a.get("reason"):
+            lines.append(f"*사유: {a['reason']}*")
+        lines.append("")
+        if a.get("before"):
+            lines.append(f"**변경전**")
+            lines.append(f"> {a['before']}")
+            lines.append("")
+        if a.get("after"):
+            lines.append(f"**변경후**")
+            lines.append(f"> {a['after']}")
+            lines.append("")
+
+    return "\n".join(lines)
 
 
 def _format_personnel(result: dict) -> str:

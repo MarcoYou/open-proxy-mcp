@@ -1368,6 +1368,98 @@ def _empty_personnel_summary() -> dict:
     }
 
 
+# ── 정관변경 파싱 ──
+
+def parse_aoi(html: str) -> dict:
+    """정관변경 안건에서 세부의안별 변경전/변경후/사유를 구조화 추출
+
+    Returns:
+        {"amendments": [...], "summary": {...}}
+    """
+    details = parse_agenda_details(html)
+    if not details:
+        return {"amendments": [], "summary": _empty_aoi_summary()}
+
+    amendments = []
+
+    for d in details:
+        title = d.get("title", "")
+        category = d.get("category", "")
+        if "정관" not in title and "정관" not in category:
+            continue
+
+        # 비교 테이블에서 세부의안 추출
+        for sec in d.get("sections", []):
+            for block in sec.get("blocks", []):
+                if block["type"] != "table":
+                    continue
+                rows = _parse_md_table(block["content"])
+                if len(rows) < 2:
+                    continue
+
+                headers = rows[0]
+                # 4컬럼 비교 테이블인지 확인 (구분/의안번호 + 변경전 + 변경후 + 사유)
+                headers_clean = [re.sub(r'\s+', '', h) for h in headers]
+                has_before = any('변경전' in h or '현행' in h for h in headers_clean)
+                has_after = any('변경후' in h or '개정' in h for h in headers_clean)
+                if not (has_before and has_after):
+                    continue
+
+                # 컬럼 인덱스 매핑
+                id_idx = 0
+                before_idx = next((i for i, h in enumerate(headers_clean) if '변경전' in h or '현행' in h), 1)
+                after_idx = next((i for i, h in enumerate(headers_clean) if '변경후' in h or '개정' in h), 2)
+                reason_idx = next((i for i, h in enumerate(headers_clean) if '목적' in h or '사유' in h), 3)
+
+                for row in rows[1:]:
+                    if not row or not row[0].strip():
+                        continue
+                    col0 = row[id_idx].strip() if id_idx < len(row) else ""
+                    if not col0 or col0 == '-':
+                        continue
+
+                    # 세부의안 번호 + 라벨 추출
+                    m = re.match(r'(?:제\s*)?(\d+-\d+)\s*호?\s*(?:의안)?\s*[：:]?\s*(.*)', col0)
+                    if m:
+                        sub_id = m.group(1)
+                        label = m.group(2).strip()
+                    else:
+                        sub_id = ""
+                        label = col0
+
+                    before = row[before_idx].strip() if before_idx < len(row) else ""
+                    after = row[after_idx].strip() if after_idx < len(row) else ""
+                    reason = row[reason_idx].strip() if reason_idx < len(row) else ""
+
+                    # 조항명 추출 — before 또는 after에서 제N조(제목)
+                    clause = ""
+                    for text in [before, after]:
+                        clause_m = re.search(r'(제\d+(?:조의?\d*)?(?:\([^)]+\))?)', text)
+                        if clause_m:
+                            clause = clause_m.group(1)
+                            break
+
+                    amendments.append({
+                        "subAgendaId": sub_id,
+                        "label": label,
+                        "clause": clause,
+                        "before": before,
+                        "after": after,
+                        "reason": reason,
+                    })
+
+    summary = {
+        "totalAmendments": len(amendments),
+        "categories": list(dict.fromkeys(a["label"] for a in amendments if a["label"])),
+    }
+
+    return {"amendments": amendments, "summary": summary}
+
+
+def _empty_aoi_summary() -> dict:
+    return {"totalAmendments": 0, "categories": []}
+
+
 # ── 정정공고 파싱 (HTML 기반) ──
 
 def parse_correction_details(html: str) -> dict | None:
