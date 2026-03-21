@@ -102,7 +102,7 @@
 ### 파서 개선
 - [x] 811건 배치 테스트 + 5가지 개선 (93%→97~98% 예상)
   - ※ 비고 필터링, 보고사항 필터링, 중복 번호 dedup, boundary 패턴 4종, 연속 공백 정리
-- [ ] 811건 전수 regression 테스트 (DART API rate limit 해제 후)
+- [ ] 811건 전수 regression 테스트 (다음 파서 수정 시 겸사겸사)
 - [ ] Claude API (Anthropic) fallback 추가 (현재 OpenAI만 테스트 완료)
 
 ### 프론트엔드 연동

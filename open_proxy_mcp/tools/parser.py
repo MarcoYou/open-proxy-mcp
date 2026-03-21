@@ -1229,11 +1229,18 @@ def _extract_candidates(agenda_detail: dict) -> list[dict]:
                                     contents = [contents_raw.strip()] if contents_raw.strip() else []
 
                             career_details = []
-                            for i in range(max(len(periods), len(contents))):
-                                p = periods[i] if i < len(periods) else ""
-                                ct = contents[i] if i < len(contents) else ""
-                                if p or ct:
-                                    career_details.append({"period": p, "content": ct})
+                            if len(periods) > 1 and len(contents) <= 1:
+                                # 기간은 여러 개인데 내용이 1개 → 기간별 매핑 불가
+                                # 전체 기간 범위 + 전체 내용을 하나로 합침
+                                full_period = f"{periods[0].split('~')[0].strip()} ~ {periods[-1].split('~')[-1].strip()}"
+                                full_content = contents[0] if contents else contents_raw.strip()
+                                career_details.append({"period": full_period, "content": full_content})
+                            else:
+                                for i in range(max(len(periods), len(contents))):
+                                    p = periods[i] if i < len(periods) else ""
+                                    ct = contents[i] if i < len(contents) else ""
+                                    if p or ct:
+                                        career_details.append({"period": p, "content": ct})
 
                             if career_details:
                                 c["careerDetails"] = career_details
