@@ -72,8 +72,16 @@
 
 ## 해야 할 일
 
+### agm_aoi ✓ (기본 구현 완료, 개선 필요)
+- [x] 정관변경 비교 테이블 파싱 (변경전/변경후/사유)
+- [x] 세부의안 병합 (additionalClauses)
+- [x] 프론트엔드 접이식 카드 UI
+- [ ] 세부의안 번호 ↔ charterChanges 매핑 (LG화학 등 테이블에 번호 없는 케이스)
+- [ ] agm_agenda 세부의안과 charterChanges 1:1 연결
+
 ### agm_personnel 개선
 - [ ] careerCompanyGroups 회사명 분리 정확도 개선 (부서명이 회사명에 포함되는 이슈)
+- [ ] 경력 기간/내용 분리 — HTML <table> 행 단위 직접 추출 (마크다운 변환 시 합쳐지는 이슈)
 
 ### 이미지 인덱싱 + OCR 파이프라인
 - [ ] parse_agenda_details에서 이미지 메타데이터 인덱싱 (파일명, 위치, 카테고리)
@@ -93,7 +101,12 @@
 - [x] OpenProxy 프론트엔드에 JSON 연결 (KT&G MCP v3)
 - [x] 재무제표 로우 데이터 테이블 + 하이라이트 카드
 - [x] 단위 변환 표시 (백만원 × 값 → 억/조, 단위:원 유지)
-- [ ] KT&G mock 데이터 실제 데이터로 대체
-  - [ ] DART `company.json` API로 CEO/회계월 가져오기
-  - [ ] DART `majorstock.json` API로 최대주주 가져오기
-  - [ ] mockData.ts에서 하드코딩 제거 → MCP 또는 API 데이터로 교체
+- [x] KT&G/삼성전자/NAVER/LG화학 실데이터 반영 (company.json + hyslrSttus.json)
+- [x] 재무 계층 트리 (인덴트 + 접이식)
+- [x] 변화율 컬럼 (초록/빨강)
+- [x] 계정명 접두사 제거 (Ⅰ. 1. l.)
+- [x] 주석 컬럼 숨김
+- [x] 정관변경 접이식 카드 UI
+- [x] 주총 종료 자동 감지
+- [ ] 주총 이력 관리 (정기/임시, 연도별) — DB에서 처리
+- [ ] mockData.ts 자동화 (수동 JSON 생성 → API 자동)
