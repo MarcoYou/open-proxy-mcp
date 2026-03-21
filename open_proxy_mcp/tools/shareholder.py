@@ -453,14 +453,39 @@ def register_tools(mcp):
 
         result = parse_financial_statements(html)
 
-        # 빈 결과 체크
+        # 빈 결과 체크 — 안건 트리에서 이유 파악
         has_data = any(
             result[scope][stmt] is not None
             for scope in ["consolidated", "separate"]
             for stmt in ["balance_sheet", "income_statement"]
         )
         if not has_data:
-            return "재무제표를 찾을 수 없습니다. (목적사항별 기재사항에 재무제표 없음)"
+            text = doc["text"]
+            agenda = parse_agenda_items(text, html=html)
+            info = parse_meeting_info(text, html=html)
+
+            # 재무제표 승인 안건 존재 여부
+            fs_agenda = [a for a in agenda if any(
+                kw in a.get("title", "") for kw in ["재무제표", "재무상태표", "대차대조표"]
+            )]
+            # 철회/보고 전환 여부
+            fs_withdrawn = [a for a in agenda if any(
+                kw in a.get("title", "") for kw in ["철회", "보고사항으로 변경", "보고안건"]
+            )]
+            # 보고사항에 재무제표/감사 관련 항목
+            report_items = info.get("report_items", [])
+            fs_in_report = [r for r in report_items if any(
+                kw in r for kw in ["재무", "감사", "결산"]
+            )]
+
+            if fs_withdrawn:
+                return "재무제표 승인 안건이 철회되어 보고사항으로 전환되었습니다."
+            elif not fs_agenda and fs_in_report:
+                return f"재무제표 승인 안건이 없고, 보고사항으로만 존재합니다. (보고: {', '.join(fs_in_report)})"
+            elif not fs_agenda:
+                return "이번 주주총회에 재무제표 승인 안건이 없습니다."
+            else:
+                return "재무제표 승인 안건이 있으나 파싱에 실패했습니다. (비표준 문서 구조)"
 
         if format == "json":
             return json.dumps(result, ensure_ascii=False, indent=2)
