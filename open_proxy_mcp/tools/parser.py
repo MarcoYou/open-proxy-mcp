@@ -1150,7 +1150,7 @@ def _extract_candidates(agenda_detail: dict) -> list[dict]:
                             periods = re.findall(r'\d{4}\s*~\s*(?:현재|\d{4})', periods_raw)
                             # 내용 패턴 분리: "現) ... 前) ..." 또는 줄바꿈
                             contents = re.split(r'(?=(?:現|前|현|전)\)\s)', contents_raw)
-                            contents = [x.strip() for x in contents if x.strip()]
+                            contents = [re.sub(r'^(?:現|前|현|전)\)\s*', '', x).strip() for x in contents if x.strip()]
 
                             career_details = []
                             for i in range(max(len(periods), len(contents))):
