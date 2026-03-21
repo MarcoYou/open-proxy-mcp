@@ -476,6 +476,7 @@ def register_tools(mcp):
     @mcp.tool()
     async def agm_financials(
         rcept_no: str,
+        use_llm: bool = False,
         format: str = "json",
     ) -> str:
         """주주총회 소집공고에서 재무제표를 구조화하여 반환합니다.
@@ -485,6 +486,7 @@ def register_tools(mcp):
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
+            use_llm: True면 파싱 실패 시 LLM fallback 사용 (기본: False)
             format: 반환 형식. "json" (기본, 구조화) 또는 "md" (마크다운 테이블)
         """
         doc = await _get_document_cached(rcept_no)
@@ -532,6 +534,22 @@ def register_tools(mcp):
             elif not fs_agenda:
                 return "이번 주주총회에 재무제표 승인 안건이 없습니다."
             else:
+                if use_llm:
+                    logger.warning(f"[SOFT FAIL] 재무제표 파싱 실패 — LLM fallback 시도: {rcept_no}")
+                    try:
+                        from open_proxy_mcp.llm.client import extract_agenda_with_llm
+                        # 재무제표 영역 텍스트를 LLM에 전달
+                        fs_text = ""
+                        for a in fs_agenda:
+                            fs_text += f"{a.get('title', '')}\n"
+                        # 본문에서 재무 관련 부분 추출 (최대 3000자)
+                        import re as _re
+                        fs_match = _re.search(r'재무상태표|대차대조표', text)
+                        if fs_match:
+                            fs_text = text[fs_match.start():fs_match.start()+3000]
+                        return f"[LLM fallback] 재무제표 파싱에 실패하여 원문 일부를 반환합니다:\n\n{fs_text}"
+                    except Exception as e:
+                        logger.error(f"[HARD FAIL] LLM fallback도 실패: {rcept_no} — {e}")
                 return "재무제표 승인 안건이 있으나 파싱에 실패했습니다. (비표준 문서 구조)"
 
         if format == "json":
