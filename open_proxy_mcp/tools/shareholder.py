@@ -102,6 +102,16 @@ def _format_meeting_info(info: dict) -> str:
 
     if info.get("is_correction"):
         lines.append("- **정정공고**: 예")
+        cs = info.get("correction_summary")
+        if cs:
+            if cs.get("date"):
+                lines.append(f"- **정정일**: {cs['date']}")
+            if cs.get("original_date"):
+                lines.append(f"- **최초제출일**: {cs['original_date']}")
+            if cs.get("items"):
+                lines.append("- **정정 항목**:")
+                for item in cs["items"]:
+                    lines.append(f"  - {item['section']} — {item['reason']}")
 
     if info.get("datetime"):
         lines.append(f"- **일시**: {info['datetime']}")
@@ -288,14 +298,30 @@ def register_tools(mcp):
         if not filings:
             return f"{corp_info.get('corp_name', ticker)}의 주주총회 소집공고가 없습니다. (검색기간: {bgn_de}~{end_de})"
 
+        # 원본/정정 관계 태깅 — 날짜순 정렬
+        filings.sort(key=lambda x: x.get("rcept_dt", ""))
+        has_correction = any("정정" in f.get("report_nm", "") for f in filings)
+
         lines = [
             f"## {corp_info.get('corp_name', '')} ({corp_info.get('stock_code', '')}) 주주총회 소집공고",
             f"검색기간: {bgn_de} ~ {end_de}",
             f"총 {len(filings)}건",
             "",
         ]
-        for item in filings:
-            lines.append(f"- **{item['report_nm']}** | 접수일: {item['rcept_dt']} | 접수번호: {item['rcept_no']}")
+
+        for i, item in enumerate(filings):
+            report_nm = item["report_nm"]
+            if "정정" in report_nm:
+                tag = "[정정]"
+            elif has_correction:
+                tag = "[원본]"
+            else:
+                tag = ""
+
+            line = f"- {tag} **{report_nm}** | 접수일: {item['rcept_dt']} | 접수번호: {item['rcept_no']}"
+            if i == len(filings) - 1 and has_correction:
+                line += " ← 최신"
+            lines.append(line)
 
         return "\n".join(lines)
 
@@ -392,6 +418,19 @@ def register_tools(mcp):
         """
         doc = await _get_document_cached(rcept_no)
         info = parse_meeting_info(doc["text"], html=doc.get("html", ""))
+
+        # 정정공고 메타데이터 추가
+        correction = parse_correction_details(doc.get("html", ""))
+        if correction:
+            info["correction_summary"] = {
+                "date": correction.get("date"),
+                "original_date": correction.get("original_date"),
+                "items": [
+                    {"section": item["section"][:60], "reason": item["reason"][:80]}
+                    for item in correction.get("items", [])
+                ],
+            }
+
         return _format_meeting_info(info)
 
     @mcp.tool()
