@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from datetime import datetime
 from open_proxy_mcp.dart.client import DartClient
 from open_proxy_mcp.tools.parser import (
@@ -468,14 +469,20 @@ def register_tools(mcp):
             fs_agenda = [a for a in agenda if any(
                 kw in a.get("title", "") for kw in ["재무제표", "재무상태표", "대차대조표"]
             )]
-            # 철회/보고 전환 여부
+            # 철회/보고 전환 여부 — 안건 제목 또는 문서 전체에서 감지
             fs_withdrawn = [a for a in agenda if any(
                 kw in a.get("title", "") for kw in ["철회", "보고사항으로 변경", "보고안건"]
             )]
+            # 이사회 승인 → 보고 전환 패턴 (정정공고에서 흔함)
+            if not fs_withdrawn and re.search(
+                r'이사회에서\s*승인|이사회\s*승인에\s*따라|보고사항\s*으로\s*변경',
+                text[:3000]
+            ):
+                fs_withdrawn = True
             # 보고사항에 재무제표/감사 관련 항목
             report_items = info.get("report_items", [])
             fs_in_report = [r for r in report_items if any(
-                kw in r for kw in ["재무", "감사", "결산"]
+                kw in r for kw in ["재무", "감사", "결산", "승인보고"]
             )]
 
             if fs_withdrawn:
