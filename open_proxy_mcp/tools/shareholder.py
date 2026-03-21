@@ -10,6 +10,7 @@ from open_proxy_mcp.tools.parser import (
     validate_agenda_result, _extract_notice_section, _extract_agenda_zone,
     parse_agenda_details, validate_agenda_details,
     parse_financial_statements,
+    parse_correction_details,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
 
@@ -498,6 +499,60 @@ def register_tools(mcp):
             return json.dumps(result, ensure_ascii=False, indent=2)
 
         return _format_financial_statements(result)
+
+    @mcp.tool()
+    async def get_correction_details(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """주주총회 소집공고의 정정 사항을 반환합니다.
+
+        정정공고인 경우 정정 전/후 비교, 정정 사유를 구조화하여 반환합니다.
+        정정공고가 아닌 경우 정정 사항이 없다고 반환합니다.
+
+        Args:
+            rcept_no: 접수번호 (예: 20260225000123)
+            format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
+        """
+        doc = await _get_document_cached(rcept_no)
+        html = doc.get("html", "")
+        if not html:
+            return "정정 사항을 확인할 수 없습니다. (HTML 없음)"
+
+        result = parse_correction_details(html)
+        if not result:
+            return "정정공고가 아닙니다. (정정 사항 없음)"
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+
+        return _format_correction_details(result)
+
+
+def _format_correction_details(result: dict) -> str:
+    """정정 사항을 마크다운으로 포매팅"""
+    lines = ["## 정정 사항", ""]
+
+    if result.get("date"):
+        lines.append(f"- **정정일**: {result['date']}")
+    if result.get("target_document"):
+        lines.append(f"- **정정대상**: {result['target_document']}")
+    if result.get("original_date"):
+        lines.append(f"- **최초제출일**: {result['original_date']}")
+    lines.append("")
+
+    for i, item in enumerate(result.get("items", []), 1):
+        lines.append(f"### 정정 {i}: {item['section'][:60]}")
+        lines.append(f"**정정사유**: {item['reason']}")
+        lines.append("")
+        lines.append(f"**정정 전**:")
+        lines.append(f"> {item['before'][:300]}")
+        lines.append("")
+        lines.append(f"**정정 후**:")
+        lines.append(f"> {item['after'][:300]}")
+        lines.append("")
+
+    return "\n".join(lines)
 
 
 def _format_financial_statements(result: dict) -> str:

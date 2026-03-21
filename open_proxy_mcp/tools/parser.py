@@ -925,6 +925,90 @@ def validate_agenda_details(details: list[dict]) -> bool:
     return any(d.get("sections") for d in details)
 
 
+# ── 정정공고 파싱 (HTML 기반) ──
+
+def parse_correction_details(html: str) -> dict | None:
+    """정정공고의 정정 사항을 파싱
+
+    DART 정정공고 구조:
+      <section-1>
+        <title>정 정 신 고 (보고)</title>
+        <table> 정정일
+        <table> 1. 정정대상 공시서류
+        <table> 2. 최초제출일
+        <table> 3. 정정사항
+        <table> [항목 | 정정사유 | 정정 전 | 정정 후]  ← 핵심
+
+    Returns:
+        {"is_correction": True, "date": "...", "target_document": "...",
+         "original_date": "...", "items": [{"section": "...", "reason": "...",
+         "before": "...", "after": "..."}]}
+        또는 None (정정공고가 아닌 경우)
+    """
+    soup = BeautifulSoup(html, _BS4_PARSER)
+
+    # 정정신고 섹션 찾기
+    correction_section = None
+    for el in soup.find_all('title'):
+        t = re.sub(r'\s+', '', el.get_text())
+        if '정정신고' in t or '기재정정' in t:
+            correction_section = el.parent
+            break
+
+    if not correction_section:
+        return None
+
+    result = {
+        "is_correction": True,
+        "date": None,
+        "target_document": None,
+        "original_date": None,
+        "items": [],
+    }
+
+    tables = correction_section.find_all('table')
+    for table in tables:
+        rows = table.find_all('tr')
+        if not rows:
+            continue
+        first_cells = [re.sub(r'\s+', '', c.get_text()) for c in rows[0].find_all(['td', 'th'])]
+
+        # 정정일 — 단일 셀, 날짜 패턴
+        if len(rows) == 2 and len(first_cells) == 1:
+            date_text = rows[1].get_text().strip()
+            if re.search(r'\d{4}', date_text):
+                result["date"] = date_text
+
+        # 정정대상 공시서류
+        if any('정정대상' in c for c in first_cells):
+            cells = [c.get_text().strip() for c in rows[0].find_all(['td', 'th'])]
+            if len(cells) >= 2:
+                result["target_document"] = cells[-1]
+
+        # 최초제출일
+        if any('최초제출' in c for c in first_cells):
+            cells = [c.get_text().strip() for c in rows[0].find_all(['td', 'th'])]
+            if len(cells) >= 2:
+                result["original_date"] = cells[-1]
+
+        # 정정사항 테이블 — [항목 | 정정사유 | 정정 전 | 정정 후]
+        if any('항' in c and '목' in c for c in first_cells) and any('정정' in c for c in first_cells):
+            for row in rows[1:]:
+                cells = row.find_all(['td', 'th'])
+                if len(cells) < 4:
+                    continue
+                cell_texts = [c.get_text().strip() for c in cells]
+                item = {
+                    "section": cell_texts[0].replace('\n', ' '),
+                    "reason": cell_texts[1].replace('\n', ' '),
+                    "before": cell_texts[2].replace('\n', ' ')[:500],
+                    "after": cell_texts[3].replace('\n', ' ')[:500],
+                }
+                result["items"].append(item)
+
+    return result if result["items"] else None
+
+
 # ── 재무제표 파싱 (HTML 기반) ──
 
 # 재무제표 테이블 식별 키워드
