@@ -721,6 +721,53 @@ def _parse_library_block(lib) -> list[dict]:
             if s["blocks"] or s["heading"]
         ]
 
+    # Fallback: 안건 마커(■제N호)가 없지만 서브섹션/테이블이 있는 경우
+    # → 카테고리 제목을 안건으로 사용
+    if not agendas and category:
+        fallback_sections = []
+        current_section = None
+        for child in container.children:
+            if not hasattr(child, 'name') or not child.name:
+                continue
+            if child.name in ('title', 'pgbrk'):
+                continue
+            text = child.get_text().strip()
+            if not text:
+                continue
+
+            if child.name == 'p':
+                lines = _split_p_lines(child)
+                for line in lines:
+                    sub_match = SUBSECTION_RE.match(line)
+                    if sub_match:
+                        current_section = {"heading": line, "blocks": []}
+                        fallback_sections.append(current_section)
+                    elif current_section is not None:
+                        if line.startswith('※'):
+                            current_section["blocks"].append({"type": "note", "content": line})
+                        elif line:
+                            current_section["blocks"].append({"type": "text", "content": line})
+                    elif not current_section:
+                        current_section = {"heading": None, "blocks": []}
+                        fallback_sections.append(current_section)
+                        current_section["blocks"].append({"type": "text", "content": line})
+
+            elif child.name == 'table' and current_section is not None:
+                md_table = _table_to_markdown(child)
+                if md_table:
+                    is_md_table = md_table.startswith('|')
+                    block_type = "table" if is_md_table else "text"
+                    current_section["blocks"].append({"type": block_type, "content": md_table})
+
+        fallback_sections = [s for s in fallback_sections if s["blocks"] or s["heading"]]
+        if fallback_sections:
+            agendas.append({
+                "number": "",
+                "title": category,
+                "category": category,
+                "sections": fallback_sections,
+            })
+
     return agendas
 
 
