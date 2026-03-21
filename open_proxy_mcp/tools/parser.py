@@ -151,11 +151,24 @@ def parse_agenda_items(text: str, html: str = "") -> list[dict]:
         l1 = int(m.group(1))
         l2 = int(m.group(2)) if m.group(2) else None
         l3 = int(m.group(3)) if m.group(3) else None
-        title = _clean_title(m.group(4))
+        raw_title = m.group(4)
+        title = _clean_title(raw_title)
 
         source = _detect_source(title)
         if source:
             title = _remove_source_tag(title)
+
+        # 소스 태그 제거 후 제목이 비거나 콜론으로 시작하면 재추출
+        title = re.sub(r'^[:：]\s*', '', title).strip()
+        if not title.strip():
+            colon_match = re.search(r'[:：]\s*(.+)', raw_title)
+            if colon_match:
+                title = _clean_title(colon_match.group(1))
+            else:
+                title = _clean_title(raw_title)
+            # 소스 태그가 남아있으면 다시 제거
+            if source:
+                title = _remove_source_tag(title)
 
         number = _format_number(l1, l2, l3)
 
@@ -495,6 +508,7 @@ def _format_number(l1: int, l2: int | None, l3: int | None) -> str:
 def _clean_title(title: str) -> str:
     """제목 정리: 후행 기호, 번호, 특수문자 제거"""
     title = title.strip()
+    title = re.sub(r'^[:：]\s*', '', title)  # 선행 콜론 제거
     title = re.sub(r'[□■○▶●①②③④⑤⑥⑦⑧⑨⑩]', '', title)  # 마커/기호/원문자 제거
     title = re.sub(r'[\s]*[ㆍ·\.\-]\s*$', '', title)
     title = re.sub(r'\s*[나다라마바사아]\s*$', '', title)  # 다음 안건의 가나다 접두사 잔류 제거
@@ -516,8 +530,9 @@ def _detect_source(text: str) -> str | None:
 
 
 def _remove_source_tag(title: str) -> str:
-    title = re.sub(r'\s*\(?\s*주주\s*제안[^)]*\)?\s*', '', title)
-    title = re.sub(r'\s*\(?\s*이사회\s*안[^)]*\)?\s*', '', title)
+    # 괄호로 감싼 소스 태그만 제거: (주주제안), (이사회안), (주주 제안) 등
+    title = re.sub(r'\s*\(\s*주주\s*제안[^)]*\)\s*', '', title)
+    title = re.sub(r'\s*\(\s*이사회\s*안[^)]*\)\s*', '', title)
     return title.strip()
 
 
