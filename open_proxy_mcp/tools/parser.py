@@ -1051,6 +1051,67 @@ _CATEGORY_MAP = [
 ]
 
 
+def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | None:
+    """HTML에서 후보자의 경력 <p> 태그를 직접 파싱하여 period/content 쌍 반환
+
+    마크다운 테이블 변환 시 <p> 구분이 사라지는 문제의 fallback.
+    경력 테이블의 <td> 안 <p> 태그들을 기간/내용 컬럼별로 추출합니다.
+    """
+    soup = BeautifulSoup(html, 'lxml')
+    for table in soup.find_all('table'):
+        table_text = table.get_text()
+        if candidate_name not in table_text:
+            continue
+        if '세부경력' not in table_text and '주된직업' not in table_text:
+            continue
+
+        for tr in table.find_all('tr'):
+            tds = tr.find_all(['td', 'th'])
+            # 후보자 이름이 첫 번째 셀에 있는 행 찾기
+            if not tds or candidate_name not in tds[0].get_text(strip=True):
+                continue
+
+            # 기간/내용 셀 위치 찾기 — 헤더 행에서 세부경력 컬럼 위치 확인
+            # 보통 세부경력이 2개 컬럼(기간, 내용)을 차지
+            # 테이블에서 기간 패턴이 있는 셀과 그 다음 셀을 찾기
+            period_td = None
+            content_td = None
+            for i, td in enumerate(tds):
+                td_text = td.get_text(strip=True)
+                if re.search(r'\d{4}\s*~', td_text):
+                    period_td = td
+                    if i + 1 < len(tds):
+                        content_td = tds[i + 1]
+                    break
+
+            if not period_td:
+                continue
+
+            # <p> 태그별로 기간/내용 분리
+            period_ps = [p.get_text(strip=True) for p in period_td.find_all('p') if p.get_text(strip=True)]
+            content_ps = [p.get_text(strip=True) for p in content_td.find_all('p') if p.get_text(strip=True)] if content_td else []
+
+            if not period_ps:
+                continue
+
+            # 기간과 내용 매핑
+            result = []
+            for i in range(max(len(period_ps), len(content_ps))):
+                p = period_ps[i] if i < len(period_ps) else ""
+                ct = content_ps[i] if i < len(content_ps) else ""
+                if p or ct:
+                    # 기간 없는 내용은 직전 항목에 합침 (같은 기간에 여러 직책)
+                    if not p and result:
+                        result[-1]["content"] += ", " + ct
+                    else:
+                        result.append({"period": p, "content": ct})
+
+            if result:
+                return result
+
+    return None
+
+
 def parse_personnel(html: str) -> dict:
     """선임/해임 안건에서 후보자/대상자 정보를 정규화 추출
 
@@ -1090,7 +1151,7 @@ def parse_personnel(html: str) -> dict:
                 break
 
         # 후보자 정보 추출 — 가. 서브섹션의 테이블
-        candidates = _extract_candidates(d)
+        candidates = _extract_candidates(d, html)
 
         # 후보자 없으면 제목에서 이름 추출 시도
         if not candidates:
@@ -1113,7 +1174,7 @@ def parse_personnel(html: str) -> dict:
     return {"appointments": appointments, "summary": summary}
 
 
-def _extract_candidates(agenda_detail: dict) -> list[dict]:
+def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
     """안건 상세의 가. 서브섹션 테이블에서 후보자 정보 추출"""
     candidates = []
 
@@ -1232,11 +1293,15 @@ def _extract_candidates(agenda_detail: dict) -> list[dict]:
 
                             career_details = []
                             if len(periods) > 1 and len(contents) <= 1:
-                                # 기간은 여러 개인데 내용이 1개 → 기간별 매핑 불가
-                                # 전체 기간 범위 + 전체 내용을 하나로 합침
-                                full_period = f"{periods[0].split('~')[0].strip()} ~ {periods[-1].split('~')[-1].strip()}"
-                                full_content = contents[0] if contents else contents_raw.strip()
-                                career_details.append({"period": full_period, "content": full_content})
+                                # 기간은 여러 개인데 내용이 1개 → HTML <p> 태그에서 직접 분리 시도
+                                html_career = _extract_career_from_html(html, name)
+                                if html_career and len(html_career) >= len(periods):
+                                    career_details = html_career
+                                else:
+                                    # HTML fallback 실패 → 전체 기간 범위 + 전체 내용을 하나로 합침
+                                    full_period = f"{periods[0].split('~')[0].strip()} ~ {periods[-1].split('~')[-1].strip()}"
+                                    full_content = contents[0] if contents else contents_raw.strip()
+                                    career_details.append({"period": full_period, "content": full_content})
                             else:
                                 for i in range(max(len(periods), len(contents))):
                                     p = periods[i] if i < len(periods) else ""
