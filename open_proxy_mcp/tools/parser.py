@@ -1137,9 +1137,32 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
                         result.append({"period": p, "content": ct})
 
             if result:
-                return result
+                return _clean_career_details(result, candidate_name)
 
     return None
+
+
+def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
+    """경력 리스트 정리: 빈 content 제거, 역순 기간 검증"""
+    cleaned = []
+    for d in details:
+        period = d.get("period", "").strip()
+        content = d.get("content", "").strip()
+        # 빈 content ("-" 또는 빈 문자열) 제거
+        if not content or content == "-":
+            continue
+        # 역순 기간 검증
+        years = re.findall(r'\d{4}', period)
+        if len(years) == 2 and int(years[0]) > int(years[1]):
+            logger.warning(f"[CAREER] 역순 기간: '{period}' — {name}")
+            period = f"{years[1]} ~ {years[0]}"  # 자동 보정
+            d["period"] = period
+        # 비정상 연도
+        if years and not all(1950 <= int(y) <= 2030 for y in years):
+            logger.warning(f"[CAREER] 비정상 기간: '{period}' — {name}")
+            d["period"] = ""
+        cleaned.append(d)
+    return cleaned
 
 
 def parse_personnel(html: str) -> dict:
@@ -1365,10 +1388,14 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                                     career_details.append({"period": p, "content": ct})
 
                         if career_details:
+                            career_details = _clean_career_details(career_details, name)
+                        if career_details:
                             c["careerDetails"] = career_details
                             c["careerCompanyGroups"] = _build_career_company_groups(career_details)
                         elif periods_raw or contents_raw:
-                            c["careerDetails"] = [{"period": periods_raw, "content": contents_raw}]
+                            c["careerDetails"] = _clean_career_details(
+                                [{"period": periods_raw, "content": contents_raw}], name
+                            )
                         break
 
         # 다. 체납사실 — 기존 후보자에 매칭 (3개 필드 분리)
