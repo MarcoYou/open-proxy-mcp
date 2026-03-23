@@ -1076,34 +1076,70 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
         if '세부경력' not in table_text and '주된직업' not in table_text:
             continue
 
-        for tr in table.find_all('tr'):
+        all_rows = table.find_all('tr')
+        for row_idx, tr in enumerate(all_rows):
             tds = tr.find_all(['td', 'th'])
             if not tds or candidate_name not in tds[0].get_text(strip=True):
                 continue
 
-            # 기간 셀 찾기: 숫자~숫자 또는 숫자~현 패턴이 있는 셀
-            period_td = None
-            content_td = None
+            # rowspan 확인 — 이름 셀이 rowspan이면 다음 행들도 수집
+            name_td = tds[0]
+            rowspan = int(name_td.get('rowspan', 1))
+
+            # 기간/내용 셀 위치 찾기 (이름 행에서)
+            period_col = None
+            content_col = None
             for i, td in enumerate(tds):
                 td_text = td.get_text(strip=True)
                 if re.search(r'\d{4}\s*(?:년|[-~.])', td_text):
-                    period_td = td
-                    if i + 1 < len(tds):
-                        content_td = tds[i + 1]
+                    period_col = i
+                    content_col = i + 1
                     break
 
-            if not period_td:
+            if period_col is None:
                 continue
 
-            # <p> 태그별로 분리
+            # rowspan > 1: 각 행에서 기간/내용 수집
+            if rowspan > 1:
+                result = []
+                for r_offset in range(rowspan):
+                    r_idx = row_idx + r_offset
+                    if r_idx >= len(all_rows):
+                        break
+                    r_tds = all_rows[r_idx].find_all(['td', 'th'])
+                    if r_offset == 0:
+                        # 첫 행: 이름/주된직업 셀 포함
+                        p_td = r_tds[period_col] if period_col < len(r_tds) else None
+                        c_td = r_tds[content_col] if content_col and content_col < len(r_tds) else None
+                    else:
+                        # 이후 행: rowspan 셀이 빠져서 기간=첫 셀, 내용=두 번째 셀
+                        p_td = r_tds[0] if len(r_tds) >= 1 else None
+                        c_td = r_tds[1] if len(r_tds) >= 2 else None
+
+                    if p_td:
+                        period = p_td.get_text(strip=True)
+                        content = c_td.get_text(strip=True) if c_td else ""
+                        if period or content:
+                            result.append({"period": period, "content": content})
+
+                if result:
+                    # 기간 전처리
+                    for r in result:
+                        parsed = _parse_period_raw(r["period"])
+                        r["period"] = parsed[0] if parsed else r["period"]
+                    return _clean_career_details(result, candidate_name)
+                continue
+
+            # rowspan=1: 기존 로직 (단일 행, <p> 분리)
+            period_td = tds[period_col]
+            content_td = tds[content_col] if content_col and content_col < len(tds) else None
+
             period_ps = [p.get_text(strip=True) for p in period_td.find_all('p') if p.get_text(strip=True)]
             content_ps = [p.get_text(strip=True) for p in content_td.find_all('p') if p.get_text(strip=True)] if content_td else []
 
-            # <p> 태그가 없으면 bs4 파싱 실패 → regex fallback
             if not period_ps and not content_ps:
                 return None
 
-            # <p>가 기간 쪽에 없지만 내용 쪽에는 있는 경우 → 기간은 regex, 내용은 <p> 활용
             if not period_ps:
                 period_raw = period_td.get_text(strip=True)
                 periods = _parse_period_raw(period_raw)
@@ -1112,7 +1148,6 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
                         [{"period": p, "content": c} for p, c in zip(periods, content_ps)],
                         candidate_name,
                     )
-                # 기간/내용 수 불일치 → content_ps만이라도 활용
                 result = []
                 for i, ct in enumerate(content_ps):
                     p = periods[i] if i < len(periods) else ""
@@ -1121,8 +1156,6 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
                     return _clean_career_details(result, candidate_name)
                 return None
 
-            # 양쪽 다 <p> 있음 → 1:1 매핑
-            # 기간 <p>에 년/월 형식이 있으면 전처리
             period_ps = [re.sub(r'(\d{4})년\s*(\d{1,2})월', r'\1.\2', p).replace('년', '') for p in period_ps]
             result = []
             for i in range(max(len(period_ps), len(content_ps))):
