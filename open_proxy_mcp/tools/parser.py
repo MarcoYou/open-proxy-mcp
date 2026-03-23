@@ -1143,15 +1143,15 @@ def _parse_period_raw(period_raw: str) -> list[str]:
     """
     # 전처리: 現→현재, ~현→~현재, 아포스트로피
     period_raw = re.sub(r'現', '현재', period_raw)
-    period_raw = re.sub(r'~\s*현(?!재)', '~현재', period_raw)
+    period_raw = re.sub(r'[-~]\s*현(?!재)', '~현재', period_raw)
     period_raw = re.sub(r'(현재)(\d)', r'\1 \2', period_raw)
     period_raw = re.sub(r"[''`](\d{2})", lambda m: f"20{m.group(1)}" if int(m.group(1)) <= 30 else f"19{m.group(1)}", period_raw)
     # 붙어있는 4자리 연도 분리
     period_raw = re.sub(r'(\d{4})(\d{4})', r'\1 \2', period_raw)
     period_raw = re.sub(r'(\d{4})(\d{4})', r'\1 \2', period_raw)
 
-    # 1차: 4자리 연도 매치
-    periods = re.findall(r'\d{4}\s*~\s*(?:현재|\d{4})|\d{4}', period_raw)
+    # 1차: 4자리 연도 매치 (~와 - 모두 기간 구분자로 인식)
+    periods = re.findall(r'\d{4}\s*[-~]\s*(?:현재|\d{4})|\d{4}', period_raw)
 
     # 4자리 매치가 전부 비정상 연도면 무효화 → 2자리로 재시도
     if periods:
@@ -1169,7 +1169,7 @@ def _parse_period_raw(period_raw: str) -> list[str]:
         def _yy(yy: str) -> str:
             return f"20{yy}" if int(yy) <= 30 else f"19{yy}"
         # 2자리~현재
-        pairs_2d = re.findall(r'(\d{2})~(현재|\d{2})', period_raw)
+        pairs_2d = re.findall(r'(\d{2})[-~](현재|\d{2})', period_raw)
         if pairs_2d:
             for start, end in pairs_2d:
                 if end == '현재':
