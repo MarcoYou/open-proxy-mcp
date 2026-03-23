@@ -1086,7 +1086,7 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
             content_td = None
             for i, td in enumerate(tds):
                 td_text = td.get_text(strip=True)
-                if re.search(r'\d{2,4}\s*(?:년\s*\d{1,2}\s*월\s*)?[-~]', td_text):
+                if re.search(r'\d{4}\s*(?:년|[-~.])', td_text):
                     period_td = td
                     if i + 1 < len(tds):
                         content_td = tds[i + 1]
@@ -1122,6 +1122,8 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
                 return None
 
             # 양쪽 다 <p> 있음 → 1:1 매핑
+            # 기간 <p>에 년/월 형식이 있으면 전처리
+            period_ps = [re.sub(r'(\d{4})년\s*(\d{1,2})월', r'\1.\2', p).replace('년', '') for p in period_ps]
             result = []
             for i in range(max(len(period_ps), len(content_ps))):
                 p = period_ps[i] if i < len(period_ps) else ""
