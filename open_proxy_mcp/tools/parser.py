@@ -997,11 +997,19 @@ def _process_text_line(
         current_agenda["sections"].append(current_section)
         return current_agenda, current_section
 
+    # 가. 나. 다. — 서브섹션 (안건 마커 없이 바로 시작하는 경우 fallback)
+    sub_match = SUBSECTION_RE.match(line)
+    if current_agenda is None and sub_match and category:
+        current_agenda = {
+            "number": "",
+            "title": category,
+            "category": category,
+            "sections": [],
+        }
+        agendas.append(current_agenda)
+
     if current_agenda is None:
         return current_agenda, current_section
-
-    # 가. 나. 다. — 서브섹션
-    sub_match = SUBSECTION_RE.match(line)
     if sub_match:
         current_section = {
             "heading": line,
