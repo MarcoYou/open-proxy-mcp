@@ -30,9 +30,47 @@
 - checklist 필드 optional 처리 (null이면 미표시)
 - MCP 서버 `.mcp.json` 설정 (gitignore)
 
+### 파서 개선 (추가)
+
+**5. bs4 1단계 경력 파싱 + regex 2단계 fallback**
+- `_extract_career_from_html`을 1단계로 승격, 기존 마크다운 경유를 2단계로
+- 코웨이: 기간+내용 `<p>` 매핑 성공 (방준혁 3건, 서장원 6건)
+
+**6. 2자리 연도 기간 파싱**
+- 4자리 매치 전부 비정상이면 2자리(`YY~YY`) 자동 전환
+- 고려아연 최윤범: `22~현21~22` → `2022~현재, 2021~2022` 분리 성공
+
+**7. 기간 구분자 하이픈(-) 지원**
+- DB손해보험: `2026-현재2025-2025` → 10개 기간 분리 성공
+
+**8. 아포스트로피 연도, 역순 기간 보정, 빈 content 제거**
+- `'20` → 2020, 역순(2010~2007) → 자동 보정, content="-" 제거
+
+**9. agenda details fallback — 안건 마커 없는 섹션**
+- DB손해보험: `■ 제3호` 마커 없이 `가.` 서브섹션만 시작하는 경우
+- 카테고리 타이틀로 임시 안건 생성 → 8명 후보자 추출
+
+**10. _request_binary XML 에러 처리**
+- 정정공고로 rcept_no 무효화 시 BadZipFile 대신 명확한 DartClientError
+
+### KOSPI 200 검증 (189개)
+
+| 항목 | 결과 | 비율 |
+|------|------|------|
+| agenda valid | 186/189 | 98.4% |
+| financials | 183/189 | 96.8% |
+| personnel | 180/189, 814 candidates | 95.2% |
+| 경력 이슈 | 46/189 기업 | 24.3% |
+
+- agenda invalid 3건: KB금융(dup), DL이앤씨(dup), 호텔신라(count=0)
+- financials 실패 6건: 문서 구조 비표준 (한국금융지주, KCC, 한솔케미칼, 농심, 대한유화, 세방전지)
+- 경력 이슈 46건: content>100자(한 줄 합쳐짐) 또는 빈 기간 — DART 원본 한계, LLM fallback 대상
+
 ### 인프라
-- DART API 차단 해제 확인 (3/22 차단 → 3/23 복구)
-- OpenProxy 서브모듈 재초기화 (feat/unified-schema 브랜치)
+- 디스크 캐시 추가 (cache/ 디렉토리, 세션 간 API 재사용)
+- DART API 차단 원인 규명: IP 차단이 아닌 rcept_no 만료 (정정공고 대체)
+- KRX Open API 키 저장
+- `/ship` 커맨드 서브모듈 경로 규칙 추가
 
 ## 2026-03-22
 
