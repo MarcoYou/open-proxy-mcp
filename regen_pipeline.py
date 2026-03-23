@@ -62,14 +62,28 @@ def _update_charter_changes(agenda: dict, aoi_result: dict, parsed_items: list):
         kd["charterChanges"] = amendments
 
 
+def _snake_to_camel(d):
+    """dict 키를 snake_case → camelCase로 재귀 변환"""
+    if isinstance(d, dict):
+        out = {}
+        for k, v in d.items():
+            parts = k.split("_")
+            camel = parts[0] + "".join(p.capitalize() for p in parts[1:])
+            out[camel] = _snake_to_camel(v)
+        return out
+    if isinstance(d, list):
+        return [_snake_to_camel(item) for item in d]
+    return d
+
+
 def _update_financials(agenda: dict, fin_result: dict):
-    """financial 파서 결과를 agenda.keyData.financialStatements에 반영"""
+    """financial 파서 결과를 agenda.keyData.financialStatements에 반영 (camelCase 변환)"""
     kd = agenda.get("keyData", {})
     title = agenda.get("title", "")
     if "재무" not in title and "대차" not in title and "손익" not in title:
         return
     if fin_result.get("consolidated", {}).get("balance_sheet") or fin_result.get("separate", {}).get("balance_sheet"):
-        kd["financialStatements"] = fin_result
+        kd["financialStatements"] = _snake_to_camel(fin_result)
 
 
 async def process_company(client: DartClient, name: str, ticker: str, json_file: str):
