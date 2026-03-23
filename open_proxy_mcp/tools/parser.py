@@ -1104,25 +1104,19 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
             # <p>가 기간 쪽에 없지만 내용 쪽에는 있는 경우 → 기간은 regex, 내용은 <p> 활용
             if not period_ps:
                 period_raw = period_td.get_text(strip=True)
-                # 기간 전처리
-                period_raw = re.sub(r'現', '현재', period_raw)
-                period_raw = re.sub(r'~\s*현(?!재)', '~현재', period_raw)
-                period_raw = re.sub(r'(현재)(\d)', r'\1 \2', period_raw)
-                # 아포스트로피 2자리 연도: '20 → 2020, '14 → 2014
-                period_raw = re.sub(r"[''`](\d{2})", lambda m: f"20{m.group(1)}" if int(m.group(1)) <= 30 else f"19{m.group(1)}", period_raw)
-                # 붙어있는 4자리 연도 분리
-                period_raw = re.sub(r'(\d{4})(\d{4})', r'\1 \2', period_raw)
-                period_raw = re.sub(r'(\d{4})(\d{4})', r'\1 \2', period_raw)
-                periods = re.findall(r'\d{4}\s*~\s*(?:현재|\d{4})|\d{4}', period_raw)
+                periods = _parse_period_raw(period_raw)
                 if len(periods) == len(content_ps):
-                    return [{"period": p, "content": c} for p, c in zip(periods, content_ps)]
+                    return _clean_career_details(
+                        [{"period": p, "content": c} for p, c in zip(periods, content_ps)],
+                        candidate_name,
+                    )
                 # 기간/내용 수 불일치 → content_ps만이라도 활용
                 result = []
                 for i, ct in enumerate(content_ps):
                     p = periods[i] if i < len(periods) else ""
                     result.append({"period": p, "content": ct})
                 if result:
-                    return result
+                    return _clean_career_details(result, candidate_name)
                 return None
 
             # 양쪽 다 <p> 있음 → 1:1 매핑
@@ -1140,6 +1134,50 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
                 return _clean_career_details(result, candidate_name)
 
     return None
+
+
+def _parse_period_raw(period_raw: str) -> list[str]:
+    """기간 원본 문자열에서 기간 리스트 추출
+
+    4자리 연도 우선, 0개면 2자리 연도(YY~YY) 시도.
+    """
+    # 전처리: 現→현재, ~현→~현재, 아포스트로피
+    period_raw = re.sub(r'現', '현재', period_raw)
+    period_raw = re.sub(r'~\s*현(?!재)', '~현재', period_raw)
+    period_raw = re.sub(r'(현재)(\d)', r'\1 \2', period_raw)
+    period_raw = re.sub(r"[''`](\d{2})", lambda m: f"20{m.group(1)}" if int(m.group(1)) <= 30 else f"19{m.group(1)}", period_raw)
+    # 붙어있는 4자리 연도 분리
+    period_raw = re.sub(r'(\d{4})(\d{4})', r'\1 \2', period_raw)
+    period_raw = re.sub(r'(\d{4})(\d{4})', r'\1 \2', period_raw)
+
+    # 1차: 4자리 연도 매치
+    periods = re.findall(r'\d{4}\s*~\s*(?:현재|\d{4})|\d{4}', period_raw)
+
+    # 4자리 매치가 전부 비정상 연도면 무효화 → 2자리로 재시도
+    if periods:
+        all_invalid = True
+        for p in periods:
+            years = re.findall(r'\d{4}', p)
+            if all(1950 <= int(y) <= 2030 for y in years):
+                all_invalid = False
+                break
+        if all_invalid:
+            periods = []
+
+    # 4자리 유효 매치 0개 → 2자리 연도 시도 (고려아연 패턴: 22~현21~2219~21)
+    if not periods:
+        def _yy(yy: str) -> str:
+            return f"20{yy}" if int(yy) <= 30 else f"19{yy}"
+        # 2자리~현재
+        pairs_2d = re.findall(r'(\d{2})~(현재|\d{2})', period_raw)
+        if pairs_2d:
+            for start, end in pairs_2d:
+                if end == '현재':
+                    periods.append(f"{_yy(start)}~현재")
+                else:
+                    periods.append(f"{_yy(start)}~{_yy(end)}")
+
+    return periods
 
 
 def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
@@ -1343,24 +1381,7 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         periods_raw = row[career_idx].strip() if career_idx < len(row) else ""
                         contents_raw = row[career_content_idx].strip() if career_content_idx is not None and career_content_idx < len(row) else ""
 
-                        # 기간 전처리
-                        periods_raw = re.sub(r'現', '현재', periods_raw)
-                        periods_raw = re.sub(r'~\s*현(?!재)', '~현재', periods_raw)
-                        periods_raw = re.sub(r'(현재)(\d)', r'\1 \2', periods_raw)
-                        periods_raw = re.sub(r'(\d{4})(\d{4})', r'\1 \2', periods_raw)
-                        periods_raw = re.sub(r'(\d{4})(\d{4})', r'\1 \2', periods_raw)
-                        periods = re.findall(r'\d{4}\s*~\s*(?:현재|\d{4})|\d{4}', periods_raw)
-                        # 비정상 연도 검증
-                        valid_periods = []
-                        for p in periods:
-                            years = re.findall(r'\d{4}', p)
-                            if not all(1950 <= int(y) <= 2030 for y in years):
-                                logger.warning(f"[CAREER] 비정상 기간: '{p}' from '{periods_raw}' — {name}")
-                            elif len(years) == 2 and int(years[0]) > int(years[1]):
-                                logger.warning(f"[CAREER] 역순 기간: '{p}' — {name}")
-                            else:
-                                valid_periods.append(p)
-                        periods = valid_periods
+                        periods = _parse_period_raw(periods_raw)
 
                         # 내용 분리
                         if re.search(r'(?:現|前|현|전)\)', contents_raw):
