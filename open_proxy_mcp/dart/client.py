@@ -201,6 +201,16 @@ class DartClient:
 
         return None
 
+    # ── 기업 기본정보 ──
+
+    async def get_company_info(self, corp_code: str) -> dict:
+        """기업 기본정보 (company.json) — 대표이사, 결산월 등
+
+        Returns:
+            {"corp_name": ..., "ceo_nm": ..., "fiscal_month": ..., ...}
+        """
+        return await self._request("company.json", {"corp_code": corp_code})
+
     # ── 공시 검색 ──
 
     async def search_filings(

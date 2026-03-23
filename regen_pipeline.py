@@ -463,8 +463,21 @@ async def process_company(client: DartClient, name: str, ticker: str, json_file:
     rcept_no = latest["rcept_no"]
     rcept_dt = latest.get("rcept_dt", "")  # YYYYMMDD
     is_correction = "정정" in latest.get("report_nm", "")
-    # 공고일 포맷: YYYYMMDD → YYYY-MM-DD
     notice_date = f"{rcept_dt[:4]}-{rcept_dt[4:6]}-{rcept_dt[6:8]}" if len(rcept_dt) == 8 else None
+
+    # 기업 기본정보 (CEO, 결산월)
+    corp_code = result.get("corp_info", {}).get("corp_code", "")
+    ceo = "-"
+    fiscal_month = "12월"
+    if corp_code:
+        try:
+            company_info = await client.get_company_info(corp_code)
+            ceo = company_info.get("ceo_nm", "-") or "-"
+            fm = company_info.get("acc_mt", "12")
+            fiscal_month = f"{fm}월" if fm else "12월"
+        except Exception:
+            pass
+
     await asyncio.sleep(1.5)
 
     # 문서 가져오기
@@ -499,9 +512,11 @@ async def process_company(client: DartClient, name: str, ticker: str, json_file:
             _update_charter_changes(agenda, aoi, parsed_items)
             _update_financials(agenda, fin)
 
-    # 공고일/정정 여부
+    # 공고일/정정/CEO/결산월
     data["meetingInfo"]["noticeDate"] = notice_date
     data["meetingInfo"]["isCorrected"] = is_correction
+    data["meetingInfo"]["ceo"] = ceo
+    data["meetingInfo"]["fiscalMonth"] = fiscal_month
 
     # 분석 상태: 정상 / 검토 필요 / 실패
     data["analysisStatus"] = _compute_analysis_status(parsed_items, fin, pers, aoi)
