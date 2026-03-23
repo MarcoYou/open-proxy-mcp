@@ -107,6 +107,16 @@ blueprint.md          # tool 체계 + 데이터 흐름 다이어그램
 5. 반복
 6. ⚠️ DART API 속도 제한 주의 — 위 "DART API 호출 규칙" 참조
 
+## 개발 환경
+- **집**: Mac (Darwin) — 주 개발 환경
+- **직장**: Windows — 보조 개발 환경
+- 두 환경을 번갈아가며 작업함. 환경 전환 시 seamless하게 이어갈 수 있도록:
+  - git pull/push로 항상 최신 상태 유지
+  - `.env`는 각 환경에서 별도 관리 (gitignore됨)
+  - `.mcp.json`도 환경별 경로가 다르므로 gitignore됨
+  - 대화 시작 시 `git status`로 현재 상태 확인하고 이전 작업 이어갈 것
+  - Windows에서는 Python/Node 경로가 다를 수 있으니 주의
+
 ## 로컬 셋업
 
 ### 1. OPM (백엔드)
