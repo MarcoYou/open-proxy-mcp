@@ -1270,18 +1270,15 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                             contents_raw = row[content_idx].strip() if content_idx is not None and content_idx < len(row) else ""
 
                             # 기간 패턴 분리: "2021~현재 2022~2024" → ["2021~현재", "2022~2024"]
-                            periods = re.findall(r'\d{4}\s*~\s*(?:현재|\d{4})', periods_raw)
+                            # 범위(YYYY~YYYY/현재) 우선, 단독 연도(YYYY)도 포함
+                            periods = re.findall(r'\d{4}\s*~\s*(?:현재|\d{4})|\d{4}', periods_raw)
                             # 내용 패턴 분리: "現) ..." / "前) ..." / "- (주)회사명..."
                             if re.search(r'(?:現|前|현|전)\)', contents_raw):
                                 contents = re.split(r'(?=(?:現|前|현|전)\)\s)', contents_raw)
                                 contents = [re.sub(r'^(?:現|前|현|전)\)\s*', '', x).strip() for x in contents if x.strip()]
-                            elif re.search(r'-\s*\(', contents_raw):
-                                # "- (주)LG화학 CEO... - (주)LG화학 부사장..." 패턴
-                                contents = re.split(r'(?=-\s*\()', contents_raw)
-                                contents = [re.sub(r'^-\s*', '', x).strip() for x in contents if x.strip()]
-                            elif re.search(r'-\s*[가-힣]', contents_raw):
-                                # "- 서울대학교 교수- 서울대학교 부교수..." 패턴
-                                contents = re.split(r'(?=-\s*[가-힣])', contents_raw)
+                            elif re.search(r'-\s*[\(\(가-힣A-Z]', contents_raw):
+                                # "- (주)LG화학...- 서울대학교...- NHN(NAVER)..." 통합 패턴
+                                contents = re.split(r'(?=-\s*[\(\(가-힣A-Z])', contents_raw)
                                 contents = [re.sub(r'^-\s*', '', x).strip() for x in contents if x.strip()]
                             else:
                                 # 법인격 패턴으로 분리: (주)/(재)/(사)/법무법인 앞에서
