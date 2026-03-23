@@ -43,8 +43,31 @@ def _update_candidates(agenda: dict, personnel_result: dict):
     """personnel 파서 결과를 agenda.keyData.candidates에 반영"""
     kd = agenda.get("keyData", {})
     title = agenda.get("title", "")
+    label = agenda.get("agendaLabel", "")
+
+    # 선임/해임 안건인지 확인
+    if not any(kw in title for kw in ("선임", "해임", "중임", "연임", "재선임")):
+        return
+
     for appt in personnel_result.get("appointments", []):
-        if appt.get("title", "") == title or appt.get("number", "") == agenda.get("agendaLabel", ""):
+        appt_title = appt.get("title", "")
+        appt_number = appt.get("number", "")
+        # 매칭: 번호 일치 or 제목 일치 or 제목 키워드 포함
+        matched = False
+        if appt_number and appt_number == label:
+            matched = True
+        elif appt_title == title:
+            matched = True
+        elif appt_title and appt_title in title:
+            matched = True
+        elif "이사" in title and "이사" in appt_title and "감사" not in title and "감사" not in appt_title:
+            matched = True
+        elif "감사위원" in title and "감사위원" in appt_title:
+            matched = True
+        elif "감사" in title and "감사" in appt_title and "위원" not in title:
+            matched = True
+
+        if matched:
             cands = appt.get("candidates", [])
             if cands:
                 kd["candidates"] = cands
