@@ -85,21 +85,54 @@ from open_proxy_mcp.llm.client import extract_agenda_with_llm
 
 logger = logging.getLogger(__name__)
 
-# ── 문서 캐시 (프로세스 레벨) ──
+# ── 문서 캐시 (메모리 + 디스크) ──
+
+import os as _os
+import hashlib as _hashlib
 
 _doc_cache: dict[str, dict] = {}
 _MAX_CACHE = 30
+_DISK_CACHE_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(__file__))), "cache")
+
+
+def _disk_cache_path(rcept_no: str) -> str:
+    return _os.path.join(_DISK_CACHE_DIR, f"{rcept_no}.json")
+
+
+def _load_from_disk(rcept_no: str) -> dict | None:
+    path = _disk_cache_path(rcept_no)
+    if _os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def _save_to_disk(rcept_no: str, doc: dict):
+    _os.makedirs(_DISK_CACHE_DIR, exist_ok=True)
+    path = _disk_cache_path(rcept_no)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False)
 
 
 async def _get_document_cached(rcept_no: str) -> dict:
-    """get_document 결과를 캐싱하여 중복 API 호출 방지"""
+    """get_document 결과를 캐싱하여 중복 API 호출 방지 (메모리 + 디스크)"""
+    # 1. 메모리 캐시
     if rcept_no in _doc_cache:
         return _doc_cache[rcept_no]
+    # 2. 디스크 캐시
+    disk_doc = _load_from_disk(rcept_no)
+    if disk_doc:
+        if len(_doc_cache) >= _MAX_CACHE:
+            _doc_cache.pop(next(iter(_doc_cache)))
+        _doc_cache[rcept_no] = disk_doc
+        return disk_doc
+    # 3. API 호출
     client = DartClient()
     doc = await client.get_document(rcept_no)
     if len(_doc_cache) >= _MAX_CACHE:
         _doc_cache.pop(next(iter(_doc_cache)))
     _doc_cache[rcept_no] = doc
+    _save_to_disk(rcept_no, doc)
 
     # 이미지 기반 공고 감지 — 소집공고 본문이 이미지에만 있는 경우
     images = doc.get("images", [])

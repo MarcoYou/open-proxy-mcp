@@ -23,3 +23,6 @@ Thumbs.db
 # Test artifacts
 test_batch*.py
 test_batch*.json
+
+# Document cache (DART API)
+cache/
