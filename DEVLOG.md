@@ -15,6 +15,20 @@
 - 공고일/정정 칩 표시 (DART 최신 접수일 기준)
 - 분석상태: 정상/검토필요/실패 + Radix Tooltip 호버
 - checklist=null 크래시 수정
+- 경력 레이아웃 폭 100→130px + whitespace-nowrap
+
+### 경력 content 분리 패턴
+- 소프트: 영문)+한글 경계 (13건, 오분리 0)
+- 소프트: 한글+㈜ 경계
+- 하드: 직책 뒤 대기업 그룹명 분리 (한화, 삼성 등 20개)
+- PATTERN_ARCHIVE.md 생성 — 소프트/하드/미해결 아카이브 + LLM fallback 설계
+
+### 인프라
+- SSE transport 지원 (`--sse` 옵션) — Claude 웹 Cowork 커넥터 연결 성공
+- ngrok으로 외부 URL 노출
+- venv 환경 구축 (.venv — anaconda 충돌 해결)
+- DART company.json API 추가 (get_company_info)
+- 후보자 매칭 개선 — 제목 내 이름 우선 매칭 (한화/오리온홀딩스 섞임 수정)
 - 법인명 정리 ((주)/주식회사 제거)
 
 ## 2026-03-23
