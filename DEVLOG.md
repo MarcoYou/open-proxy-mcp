@@ -1,5 +1,40 @@
 # Dev Log
 
+## 2026-03-28
+
+### agm_compensation 신규 tool
+- parse_compensation() 구현 — DART 표준 서식 (당기 한도/전기 실지급) 파싱
+- _parse_krw_amount() — 억원/백만원/천원 → 원 단위 변환
+- KOSPI 200 배치 테스트: 188/191 (98.4%)
+- 실패 3건 (기업은행/한국금융지주/현대백화점) — parse_agenda_details 비표준 구조
+
+### PDF 다운로드 인프라
+- get_document_pdf(rcept_no) — DART 웹에서 dcm_no 추출 → PDF 다운로드
+- Rate limiter 추가 (API 0.1초, 웹 2초 최소 간격)
+- CLAUDE.md에 웹 스크래핑 안전 규칙 명시
+
+### opendataloader PDF 파싱 테스트
+- 10건 샘플 → 60건 fallback 대상 전체 다운로드 + 파싱 완료
+- **핵심 발견**: XML 실패 케이스에서 PDF가 유효 데이터 추출 성공
+  - 기업은행: XML parse_agenda_details 완전 실패 → PDF에서 재무제표/보수한도/정관변경 전부 정상
+  - 미래에셋증권: XML 경력 245자 병합 → PDF에서 기간/내용 17건 개별 분리
+- opendataloader `table_method="cluster"` + `keep_line_breaks=True` 조합이 DART 테이블에 적합
+
+### CASE_DEFINITION.md 작성
+- 5개 파서별 성공 기준 정의 (SUCCESS/SOFT_FAIL/HARD_FAIL)
+- LLM fallback용 도메인 설명 + 실제 파싱 예시 포함
+- Fallback Decision Matrix (HARD→PDF→LLM, SOFT→PDF 보강)
+
+### fallback 대상 정리
+- KOSPI 200 pipeline JSON에서 파서별 실패 추출 → fallback_targets.json
+- 61개 기업, HARD 53건, SOFT 112건 (대부분 personnel 경력 이슈)
+
+### 기타
+- agm_aoi → agm_aoi_change 리네임
+- blueprint.md → README.md 통합 (관리 포인트 축소)
+- TO_DO.md 재구성 (미완료 상단, 완료 strikeout 하단)
+- Claude API fallback 이미 구현돼 있었음 확인 → TODO 체크
+
 ## 2026-03-25
 
 ### 전수점검
