@@ -1,0 +1,905 @@
+"""PDF 마크다운 파서 — opendataloader 출력물에서 AGM 데이터 구조화
+
+opendataloader가 DART PDF를 마크다운으로 변환한 결과를 파싱합니다.
+XML 파서(parser.py)의 보조 소스로 사용:
+  - XML 파서 실패 시 PDF 결과로 대체
+  - XML SOFT_FAIL 시 PDF 결과로 보강
+
+마크다운 구조:
+  - 테이블: | col1 | col2 | ... | 형식 (구분선 |---|---|)
+  - 헤딩: #, ##, ###, ...
+  - 텍스트: 일반 줄, - 리스트
+  - <br> 태그가 셀 내 줄바꿈으로 사용됨
+"""
+
+import re
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+# ── 유틸리티 ──
+
+def _parse_md_table_rows(lines: list[str], start: int) -> tuple[list[list[str]], int]:
+    """마크다운 테이블을 행 리스트로 파싱. (rows, end_index) 반환.
+
+    빈 줄을 만나면 테이블 종료. 연속된 | 행만 하나의 테이블로 인식.
+    """
+    rows = []
+    i = start
+    in_table = False
+    while i < len(lines):
+        line = lines[i].strip()
+
+        # 빈 줄: 테이블 시작 전이면 스킵, 시작 후면 종료
+        if not line:
+            if in_table:
+                i += 1
+                break
+            i += 1
+            continue
+
+        if line.startswith('|') and line.endswith('|'):
+            in_table = True
+            if '---' in line:
+                i += 1
+                continue
+            cells = [c.strip() for c in line[1:-1].split('|')]
+            cells = [re.sub(r'<br\s*/?>', '\n', c).strip() for c in cells]
+            rows.append(cells)
+            i += 1
+        elif in_table:
+            # 테이블 행이 아닌 줄 → 종료
+            break
+        else:
+            i += 1
+    return rows, i
+
+
+def _find_section(lines: list[str], keywords: list[str], start: int = 0) -> int:
+    """키워드가 포함된 줄의 인덱스 반환. 없으면 -1."""
+    for i in range(start, len(lines)):
+        line = lines[i]
+        if all(kw in line for kw in keywords):
+            return i
+    return -1
+
+
+def _clean_br(text: str) -> str:
+    """<br> 태그를 줄바꿈으로 변환."""
+    return re.sub(r'<br\s*/?>', '\n', text).strip()
+
+
+# ── 보수한도 파서 ──
+
+def parse_compensation_from_pdf(md_text: str) -> dict:
+    """PDF 마크다운에서 보수한도 정보 추출
+
+    패턴:
+      (당 기) 또는 당기 또는 제N기(YYYY년) 텍스트 다음에
+      | 이사의 수 (사외이사수) | N(M) |
+      | 보수총액 또는 최고한도액 | XXX억원 |
+
+      (전 기) 또는 전기 텍스트 다음에
+      | 이사의 수 (사외이사수) | N(M) |
+      | 실제 지급된 보수총액 | XXX억원 |
+      | 최고한도액 | XXX억원 |
+    """
+    lines = md_text.split('\n')
+    items = []
+
+    # 보수한도 본문 섹션 찾기: "가. 이사의 수" 패턴이 가장 정확
+    # 목차나 정정사항이 아닌 본문의 실제 테이블 영역만 잡기
+    comp_starts = []
+    for i, line in enumerate(lines):
+        line_clean = line.strip()
+        # "가. 이사의 수ㆍ보수총액" 패턴 (본문 시작점)
+        if re.search(r'가\.\s*(?:이사|감사)의?\s*수', line_clean):
+            comp_starts.append(i)
+
+    if not comp_starts:
+        # fallback: 테이블에서 "보수총액 또는 최고한도액" 행을 직접 찾기
+        seen_positions = set()
+        for i, line in enumerate(lines):
+            if '보수총액또는최고한도액' in line.replace(' ', '') and '|' in line:
+                # 중복 방지 (같은 테이블 근처에 있으면 스킵)
+                if any(abs(i - p) < 20 for p in seen_positions):
+                    continue
+                seen_positions.add(i)
+                # 위로 올라가서 당기/전기 텍스트 찾기
+                for j in range(max(0, i-8), i):
+                    if re.search(r'당\s*기|당기|\d{4}\s*년', lines[j]):
+                        comp_starts.append(j)
+                        break
+                else:
+                    comp_starts.append(max(0, i-3))
+
+    if not comp_starts:
+        return {"items": [], "summary": _empty_compensation_summary()}
+
+    # 각 보수한도 섹션에서 당기/전기 테이블 추출
+    for sec_start in comp_starts:
+        # 대상 분류 (이사/감사)
+        target = "이사"
+        sec_line = lines[sec_start].strip()
+        if '감사' in sec_line and '감사위원' not in sec_line:
+            target = "감사"
+
+        # 당기/전기 phase 감지 + 테이블 파싱
+        current = {}
+        prior = {}
+        notes = []
+        phase = None
+        title = f"{'감사' if target == '감사' else '이사'} 보수한도 승인"
+
+        search_end = min(len(lines), sec_start + 50)
+        i = sec_start
+        while i < search_end:
+            line = lines[i].strip()
+
+            # 다음 섹션 시작이면 종료
+            if i > sec_start + 5 and (
+                line.startswith('##### □') or
+                line.startswith('###### 제') or
+                (line.startswith('가.') and '이사' in line and i > sec_start + 10)
+            ):
+                break
+
+            # phase 감지
+            line_nospace = line.replace(' ', '')
+            if re.search(r'당\s*기', line) or '(당기)' in line_nospace:
+                phase = "current"
+            elif re.search(r'전\s*기', line) or '(전기)' in line_nospace:
+                phase = "prior"
+            elif re.match(r'[\(（]?\s*\d{4}\s*년?\s*[\)）]?$', line):
+                if not current:
+                    phase = "current"
+                elif not prior:
+                    phase = "prior"
+            elif re.match(r'(?:#*\s*)?제?\s*\d+\s*기', line):
+                if not current:
+                    phase = "current"
+                elif not prior:
+                    phase = "prior"
+
+            # 테이블 감지
+            if '|' in line and ('이사의 수' in line or '감사의 수' in line or '보수총액' in line or '최고한도' in line):
+                rows, end_i = _parse_md_table_rows(lines, i)
+                if rows:
+                    if not phase:
+                        phase = "current" if not current else "prior"
+                    parsed = _parse_comp_kv_table(rows)
+                    if phase == "current" and not current:
+                        current = parsed
+                    elif phase == "prior" and not prior:
+                        prior = parsed
+                    elif current and not prior and parsed.get('actualPaid'):
+                        prior = parsed
+                    i = end_i  # end_i는 테이블 다음 줄 — while 루프에서 다시 처리
+                    continue  # i += 1 건너뛰고 end_i 줄부터 재처리
+
+            # 주석
+            if line.startswith('※') or (line.startswith('*') and '이사' not in line):
+                notes.append(line)
+
+            i += 1
+
+        if current or prior:
+            item = {
+                "number": "",
+                "title": title or f"{'감사' if target == '감사' else '이사'} 보수한도 승인",
+                "target": target,
+                "current": current,
+                "prior": prior,
+                "notes": notes,
+            }
+            items.append(item)
+
+    summary = _build_comp_summary(items)
+    return {"items": items, "summary": summary}
+
+
+def _parse_comp_kv_table(rows: list[list[str]]) -> dict:
+    """보수한도 key-value 테이블 파싱 (2컬럼)"""
+    result = {}
+    for row in rows:
+        if len(row) < 2:
+            continue
+        key = row[0].replace(' ', '').strip()
+        val = row[1].strip()
+
+        if any(kw in key for kw in ['이사의수', '이사수', '감사의수', '감사수']):
+            result['headcount'] = re.sub(r'\s+', '', val)
+            m = re.search(r'(\d+)\s*[\(（]\s*(\d+)\s*[\)）]', val)
+            if m:
+                result['totalDirectors'] = int(m.group(1))
+                result['outsideDirectors'] = int(m.group(2))
+            else:
+                m2 = re.search(r'(\d+)', val)
+                if m2:
+                    result['totalDirectors'] = int(m2.group(1))
+
+        elif '최고한도' in key or '보수총액또는' in key or '한도액' in key:
+            result['limit'] = val.split('\n')[0]  # 첫 줄만 (KB금융처럼 서술형일 수 있음)
+            result['limitAmount'] = _parse_krw(val)
+
+        elif '실제지급' in key or '지급된보수' in key:
+            result['actualPaid'] = val
+            result['actualPaidAmount'] = _parse_krw(val)
+
+        elif '보수총액' in key and '최고' not in key and '한도' not in key:
+            result['actualPaid'] = val
+            result['actualPaidAmount'] = _parse_krw(val)
+
+    return result
+
+
+def _parse_krw(text: str) -> int | None:
+    """금액 문자열 → 원 단위 정수"""
+    if not text:
+        return None
+    text = re.split(r'[+＋]', text)[0].strip()
+    text = text.replace(',', '').replace(' ', '')
+
+    m = re.search(r'([\d.]+)\s*억\s*원?', text)
+    if m:
+        return int(float(m.group(1)) * 100_000_000)
+
+    m = re.search(r'([\d.]+)\s*백만\s*원?', text)
+    if m:
+        return int(float(m.group(1)) * 1_000_000)
+
+    m = re.search(r'([\d.]+)\s*천\s*원?', text)
+    if m:
+        return int(float(m.group(1)) * 1_000)
+
+    m = re.search(r'(\d+)\s*원?$', text)
+    if m:
+        return int(m.group(1))
+
+    return None
+
+
+def _build_comp_summary(items: list[dict]) -> dict:
+    total_limit = 0
+    total_prior_paid = 0
+    total_prior_limit = 0
+
+    for item in items:
+        cur = item.get("current", {})
+        pri = item.get("prior", {})
+        if cur.get("limitAmount"):
+            total_limit += cur["limitAmount"]
+        if pri.get("actualPaidAmount"):
+            total_prior_paid += pri["actualPaidAmount"]
+        if pri.get("limitAmount"):
+            total_prior_limit += pri["limitAmount"]
+
+    utilization = None
+    if total_prior_limit > 0 and total_prior_paid > 0:
+        utilization = round(total_prior_paid / total_prior_limit * 100, 1)
+
+    return {
+        "totalItems": len(items),
+        "currentTotalLimit": total_limit if total_limit else None,
+        "priorTotalPaid": total_prior_paid if total_prior_paid else None,
+        "priorTotalLimit": total_prior_limit if total_prior_limit else None,
+        "priorUtilization": utilization,
+    }
+
+
+# ── 인사(선임/해임) 파서 ──
+
+_PERSONNEL_KEYWORDS = ['선임', '해임', '중임', '연임', '재선임']
+_CATEGORY_MAP = [
+    ('감사위원', '감사위원회'),
+    ('사외이사', '사외이사'),
+    ('독립이사', '독립이사'),
+    ('사내이사', '사내이사'),
+    ('기타비상무', '기타비상무이사'),
+    ('상임이사', '상임이사'),
+    ('상근감사', '감사'),
+    ('비상근감사', '감사'),
+    ('감사', '감사'),
+    ('이사', '이사'),
+]
+
+
+def parse_personnel_from_pdf(md_text: str) -> dict:
+    """PDF 마크다운에서 이사/감사 선임 후보자 정보 추출
+
+    패턴:
+      |후보자성명|주된직업|세부경력|세부경력|해당법인과의 최근3년간 거래내역|
+      |---|---|---|---|---|
+      |후보자성명|주된직업|기간|내용|해당법인과의 최근3년간 거래내역|
+      |이름|직업|기간1<br>기간2|내용1<br>내용2|거래내역|
+    """
+    lines = md_text.split('\n')
+    appointments = []
+
+    # 1. 안건 제목에서 선임/해임 안건 찾기
+    agenda_sections = []
+    for i, line in enumerate(lines):
+        if re.search(r'제\s*\d+(?:-\d+)*\s*호\s*(?:의안)?[)）:\s]', line):
+            title = re.sub(r'^[#\s\-□●◆▶]+', '', line).strip()
+            title = re.sub(r'^제\s*\d+(?:-\d+)*\s*호\s*(?:의안)?[)）:\s]*', '', title).strip()
+            if any(kw in title for kw in _PERSONNEL_KEYWORDS):
+                agenda_sections.append((i, title))
+
+    # 2. 후보자 경력 테이블 찾기 (기간|내용 헤더)
+    career_tables = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # 경력 테이블 헤더: |후보자성명|주된직업|기간|내용|
+        if '후보자성명' in line and '주된직업' in line and '기간' in line and '|' in line:
+            # 다음 행부터 데���터 행
+            i += 1
+            candidates = _parse_career_table(lines, i)
+            if candidates:
+                career_tables.append(candidates)
+                i += len(candidates) * 3  # 대략적 스킵
+                continue
+        i += 1
+
+    # 3. 안건-후보자 매핑
+    # 간단한 방식: 경력 테이블 순서대로 안건에 매핑
+    all_candidates = []
+    for ct in career_tables:
+        all_candidates.extend(ct)
+
+    if agenda_sections:
+        # 안건별로 후보자 배분 (제목에서 이름 매칭)
+        used = set()
+        for idx, (line_no, title) in enumerate(agenda_sections):
+            action = "선임"
+            if '해임' in title:
+                action = "해임"
+            elif '재선임' in title:
+                action = "재선임"
+            elif '중임' in title:
+                action = "중임"
+
+            category = "이사"
+            for keyword, cat in _CATEGORY_MAP:
+                if keyword in title:
+                    category = cat
+                    break
+
+            # 제목에서 이름 추출 시도
+            name_in_title = None
+            m = re.search(r'(?:사외이사|사내이사|이사|감사위원|감사)\s+(\S{2,5})\s', title)
+            if m:
+                name_in_title = m.group(1)
+
+            matched = []
+            for ci, c in enumerate(all_candidates):
+                if ci in used:
+                    continue
+                if name_in_title and c['name'] == name_in_title:
+                    matched.append(c)
+                    used.add(ci)
+                    break
+
+            # 이름 매칭 안 되면 아직 미배분 후보자 중 순서대로
+            if not matched:
+                for ci, c in enumerate(all_candidates):
+                    if ci not in used:
+                        matched.append(c)
+                        used.add(ci)
+                        # 안건당 후보자 수 불명확 — 다음 안건까지만
+                        break
+
+            appointments.append({
+                "number": "",
+                "title": title,
+                "action": action,
+                "category": category,
+                "candidates": matched,
+            })
+    elif all_candidates:
+        # 안건 구분 없이 후보자만 있는 경우
+        appointments.append({
+            "number": "",
+            "title": "이사/감사 선임",
+            "action": "선임",
+            "category": "이사",
+            "candidates": all_candidates,
+        })
+
+    summary = {
+        "total_appointments": len(appointments),
+        "total_candidates": len(all_candidates),
+    }
+
+    return {"appointments": appointments, "summary": summary}
+
+
+def _parse_career_table(lines: list[str], start: int) -> list[dict]:
+    """경력 테이블 데이터 행에서 후보자 정보 추출
+
+    테이블 구조:
+      |이름|주된직업|기간1<br>기간2|내용1<br>내용2|거래내역|
+    기간/내용은 <br> 또는 줄바꿈으로 분리
+    """
+    candidates = []
+    i = start
+
+    while i < len(lines):
+        line = lines[i].strip()
+
+        # 테이블 끝
+        if not line or (line.startswith('#') or line.startswith('- ') and '후보자' not in line):
+            break
+
+        # 구분선 스킵
+        if '---' in line and '|' in line:
+            i += 1
+            # 구분선 다음에 이어지는 행 (동일 후보자의 추가 경력)
+            continue
+
+        if not line.startswith('|'):
+            # 이전 후보자의 경력이 줄바꿈으로 이어지는 경우
+            if candidates and line and not line.startswith('('):
+                # 기간 패턴인지 확인
+                if re.match(r"(?:'\d{2}|\d{4})", line):
+                    # 이전 후보자의 기간에 추가
+                    last = candidates[-1]
+                    if last.get('_raw_periods'):
+                        last['_raw_periods'] += '\n' + line
+                elif candidates[-1].get('_raw_contents'):
+                    candidates[-1]['_raw_contents'] += '\n' + line
+            i += 1
+            continue
+
+        if not line.endswith('|'):
+            i += 1
+            continue
+
+        cells = [c.strip() for c in line[1:-1].split('|')]
+        if len(cells) < 4:
+            i += 1
+            continue
+
+        # 헤더 행 스킵
+        if cells[0] in ['후보자성명', '총'] or '총 (' in cells[0]:
+            i += 1
+            continue
+
+        name = _clean_br(cells[0]).strip()
+        if not name or len(name) < 2:
+            # 이전 후보자의 추가 경력 행 (이름 셀이 비어있음)
+            if candidates:
+                last = candidates[-1]
+                periods_raw = _clean_br(cells[2]) if len(cells) > 2 else ''
+                contents_raw = _clean_br(cells[3]) if len(cells) > 3 else ''
+                if periods_raw:
+                    last['_raw_periods'] = (last.get('_raw_periods', '') + '\n' + periods_raw).strip()
+                if contents_raw:
+                    last['_raw_contents'] = (last.get('_raw_contents', '') + '\n' + contents_raw).strip()
+            i += 1
+            continue
+
+        main_job = _clean_br(cells[1]) if len(cells) > 1 else ''
+        periods_raw = _clean_br(cells[2]) if len(cells) > 2 else ''
+        contents_raw = _clean_br(cells[3]) if len(cells) > 3 else ''
+        transactions = _clean_br(cells[4]) if len(cells) > 4 else ''
+
+        candidates.append({
+            'name': name,
+            'mainJob': main_job.replace('\n', ' '),
+            '_raw_periods': periods_raw,
+            '_raw_contents': contents_raw,
+            'recent3yTransactions': transactions if transactions and transactions != '해당사항 없음' else None,
+        })
+
+        i += 1
+
+    # 기간/내용 분리 → careerDetails 구축
+    for c in candidates:
+        c['careerDetails'] = _split_career_details(
+            c.pop('_raw_periods', ''),
+            c.pop('_raw_contents', '')
+        )
+
+    return candidates
+
+
+def _split_career_details(periods_raw: str, contents_raw: str) -> list[dict]:
+    """기간 문자열과 내용 문자열을 매칭하여 careerDetails 리스트 생성"""
+    if not periods_raw and not contents_raw:
+        return []
+
+    # 줄바꿈으로 분리
+    periods = [p.strip() for p in periods_raw.split('\n') if p.strip()]
+    contents = [c.strip() for c in contents_raw.split('\n') if c.strip()]
+
+    # 학력 헤더 제거
+    periods = [p for p in periods if p not in ['<학력사항>', '<경력사항>']]
+    contents = [c for c in contents if c not in ['<학력사항>', '<경력사항>']]
+
+    details = []
+    for idx in range(max(len(periods), len(contents))):
+        period = periods[idx] if idx < len(periods) else ''
+        content = contents[idx] if idx < len(contents) else ''
+        if period or content:
+            details.append({
+                'period': period,
+                'content': content,
+            })
+
+    return details
+
+
+def _empty_compensation_summary() -> dict:
+    return {
+        "totalItems": 0,
+        "currentTotalLimit": None,
+        "priorTotalPaid": None,
+        "priorTotalLimit": None,
+        "priorUtilization": None,
+    }
+
+
+# ── 재무제표 파서 ──
+
+def parse_financials_from_pdf(md_text: str) -> dict:
+    """PDF 마크다운에서 재무상태표/손익계산서 추출
+
+    패턴:
+      (단위 : 백만원)
+      |과 목|제 N (당) 기|제 N (당) 기|제 N-1 (전) 기|제 N-1 (전) 기|
+      |---|---|---|---|---|
+      |자 산| | | | |
+      |Ⅰ. 유동자산| |247,684,612| |227,062,266|
+      ...
+
+    개선 필요:
+      - [ ] 연결/별도 구분 (현재 첫 번째 테이블만 잡음)
+      - [ ] 4컬럼(소계 포함) vs 2컬럼(계정+금액) 구조 대응
+      - [ ] 손익계산서 별도 감지 (현재 BS 이후 연속 테이블로 잡을 수 있음)
+      - [ ] periodLabels 추출 (제N기 → 당기/전기 라벨)
+    """
+    lines = md_text.split('\n')
+    result = {
+        "consolidated": {"balance_sheet": None, "income_statement": None},
+        "separate": {"balance_sheet": None, "income_statement": None},
+    }
+
+    # 단위 + 재무 테이블 영역 찾기
+    unit = None
+    bs_start = None
+    is_start = None
+
+    for i, line in enumerate(lines):
+        # 단위 감지
+        m = re.search(r'단위\s*[：:]\s*(백만원|천원|억원|원)', line)
+        if m:
+            unit_candidate = m.group(1)
+            # 다음 20줄 내에 자산/매출 테이블이 있는지
+            nearby = ''.join(lines[i:min(len(lines), i+25)])
+            if ('자산' in nearby or '자 산' in nearby) and '|' in nearby:
+                unit = unit_candidate
+                # 테이블 시작점 찾기
+                for j in range(i, min(len(lines), i+10)):
+                    if '|' in lines[j] and ('과' in lines[j] or '자산' in lines[j] or '자 산' in lines[j]):
+                        bs_start = j
+                        break
+                if bs_start:
+                    break
+
+    if not bs_start or not unit:
+        return result
+
+    # BS 테이블 파싱
+    bs_rows, bs_end = _parse_financial_table(lines, bs_start)
+    if bs_rows:
+        result["consolidated"]["balance_sheet"] = {
+            "unit": unit,
+            "columns": ["account", "current", "prior"],
+            "rows": bs_rows,
+        }
+
+    # IS 찾기: BS 다음에 손익계산서/포괄손익계산서
+    for i in range(bs_end, min(len(lines), bs_end + 30)):
+        line = lines[i]
+        if '손익계산서' in line or '포괄손익' in line:
+            # 단위 재확인
+            for j in range(i, min(len(lines), i+5)):
+                m2 = re.search(r'단위\s*[：:]\s*(백만원|천원|억원|원)', lines[j])
+                if m2:
+                    unit = m2.group(1)
+                    break
+            # 테이블 시작
+            for j in range(i, min(len(lines), i+10)):
+                if '|' in lines[j] and ('과' in lines[j] or '매출' in lines[j] or '영업' in lines[j]):
+                    is_start = j
+                    break
+            break
+
+    if is_start:
+        is_rows, _ = _parse_financial_table(lines, is_start)
+        if is_rows:
+            result["consolidated"]["income_statement"] = {
+                "unit": unit,
+                "columns": ["account", "current", "prior"],
+                "rows": is_rows,
+            }
+
+    return result
+
+
+def _parse_financial_table(lines: list[str], start: int) -> tuple[list[list[str]], int]:
+    """재무제표 테이블을 [계정명, 당기, 전기] 행으로 정규화
+
+    컬럼 구조 다양:
+      - 4컬럼: |과목|당기소계|당기합계|전기소계|전기합계| → 합계 컬럼 사용
+      - 2컬럼: |과목|당기|전기|
+      - 주석컬럼 포함: |과목|주석|당기|전기|
+    """
+    rows = []
+    i = start
+    col_count = 0
+
+    while i < len(lines):
+        line = lines[i].strip()
+
+        if not line:
+            if rows:  # 테이블 중이면 빈 줄에서 종료
+                i += 1
+                break
+            i += 1
+            continue
+
+        if '---' in line and '|' in line:
+            i += 1
+            continue
+
+        if line.startswith('#'):
+            break
+
+        if not line.startswith('|'):
+            if rows:
+                break
+            i += 1
+            continue
+
+        cells = [c.strip() for c in line[1:-1].split('|') if line.endswith('|')]
+        if not cells:
+            i += 1
+            continue
+
+        # 헤더 행 감지 (과 목, 제 N 기 등)
+        if any(kw in cells[0] for kw in ['과', '항목', '구분']) and any('기' in c for c in cells[1:]):
+            col_count = len(cells)
+            i += 1
+            continue
+
+        # 데이터 행
+        account = re.sub(r'<br\s*/?>', ' ', cells[0]).strip()
+        if not account:
+            i += 1
+            continue
+
+        # 숫자 셀 추출
+        nums = []
+        for c in cells[1:]:
+            c_clean = re.sub(r'<br\s*/?>', '', c).strip()
+            c_clean = c_clean.replace('=', '').strip()
+            nums.append(c_clean)
+
+        # 당기/전기 추출 (합계 컬럼 우선)
+        current = ''
+        prior = ''
+        if len(nums) >= 4:
+            # 4컬럼: [소계, 합계, 소계, 합계] — 합계(인덱스 1, 3) 사용
+            current = nums[1] if nums[1] else nums[0]
+            prior = nums[3] if nums[3] else nums[2]
+        elif len(nums) >= 2:
+            # 주석 컬럼 감지
+            if nums[0] and not re.search(r'[\d,]', nums[0]) and len(nums) >= 3:
+                # 첫 번째가 주석번호
+                current = nums[1]
+                prior = nums[2] if len(nums) > 2 else ''
+            else:
+                current = nums[0]
+                prior = nums[1] if len(nums) > 1 else ''
+
+        rows.append([account, current, prior])
+        i += 1
+
+    return rows, i
+
+
+# ── 정관변경 파서 ──
+
+def parse_aoi_from_pdf(md_text: str) -> dict:
+    """PDF 마크다운에서 정관변경 비교 테이블 추출
+
+    패턴:
+      |변경전 내용|변경후 내용|변경의 목적|
+      |---|---|---|
+      |제21조 (총회의 소집) ...|제21조 (총회의 소집) ...|전자주주총회 도입|
+
+    또는:
+      |현행|변경(안)|비고|
+
+    개선 필요:
+      - [ ] 세부의안 번호 매핑 (제3-1호, 제3-2호)
+      - [ ] 여러 테이블에 걸친 변경사항 병합
+      - [ ] 셀 내 줄바꿈(<br>)으로 인한 긴 조문 처리
+      - [ ] "(생 략)" / "(현행과 같음)" 패턴 처리
+    """
+    lines = md_text.split('\n')
+    amendments = []
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+
+        # 변경전/변경후 테이블 헤더 감지
+        is_header = False
+        before_col = -1
+        after_col = -1
+        reason_col = -1
+
+        if '|' in line:
+            cells = [c.strip().replace(' ', '') for c in line.split('|') if c.strip()]
+            for ci, cell in enumerate(cells):
+                if '변경전' in cell or '현행' == cell:
+                    before_col = ci
+                    is_header = True
+                if '변경후' in cell or '변경(안)' in cell.replace(' ', ''):
+                    after_col = ci
+                    is_header = True
+                if '목적' in cell or '비고' in cell or '사유' in cell:
+                    reason_col = ci
+
+        if not is_header or before_col < 0 or after_col < 0:
+            i += 1
+            continue
+
+        # 구분선 스킵
+        i += 1
+        if i < len(lines) and '---' in lines[i]:
+            i += 1
+
+        # 데이터 행 파싱
+        while i < len(lines):
+            row_line = lines[i].strip()
+            if not row_line or not row_line.startswith('|'):
+                break
+            if '---' in row_line:
+                i += 1
+                continue
+
+            cells = [c.strip() for c in row_line[1:-1].split('|')] if row_line.endswith('|') else []
+            if not cells or len(cells) <= max(before_col, after_col):
+                i += 1
+                continue
+
+            before_text = _clean_br(cells[before_col]) if before_col < len(cells) else ''
+            after_text = _clean_br(cells[after_col]) if after_col < len(cells) else ''
+            reason = _clean_br(cells[reason_col]) if reason_col >= 0 and reason_col < len(cells) else ''
+
+            # 빈 행이나 "해당없음" 스킵
+            if before_text in ['-', ''] and after_text in ['-', ''] :
+                i += 1
+                continue
+            if '해당없음' in before_text.replace(' ', '') and '해당없음' in after_text.replace(' ', ''):
+                i += 1
+                continue
+
+            # 조항 추출
+            clause = ''
+            for text in [before_text, after_text]:
+                m = re.search(r'제\s*\d+\s*조\s*(?:\([^)]*\))?', text)
+                if m:
+                    clause = m.group(0).strip()
+                    break
+
+            amendments.append({
+                "subAgendaId": "",
+                "label": reason or clause,
+                "clause": clause,
+                "before": before_text,
+                "after": after_text,
+                "reason": reason,
+            })
+            i += 1
+
+        i += 1
+
+    summary = {"totalAmendments": len(amendments)}
+    return {"amendments": amendments, "summary": summary}
+
+
+# ── 안건 목록 파서 ──
+
+def parse_agenda_from_pdf(md_text: str) -> list[dict]:
+    """PDF 마크다운에서 안건 트리 추출
+
+    패턴 (소집공고 본문의 회의목적사항):
+      □ 제1호: 정관 일부 변경의 건
+        - 제1-1호: 집중투표제 배제 조항 삭제
+        - 제1-2호: 개정 상법 반영
+      □ 제2호: 재무제표 승인의 건
+      ○ 제3호 의안: 사내이사 김용관 선임의 건
+
+    개선 필요:
+      - [ ] 보고사항 vs 결의사항 구분
+      - [ ] 조건부 안건 감지 (제2-7호 인가되는 경우)
+      - [ ] 정정공고에서 정정 전/후 안건 변경 처리
+      - [ ] 목차의 안건 vs 본문의 안건 중복 제거
+    """
+    lines = md_text.split('\n')
+    items = []
+    seen_numbers = set()
+
+    # 소집공고 영역 찾기 (주주총회 소집공고 헤딩 이후)
+    notice_start = 0
+    for i, line in enumerate(lines):
+        if re.search(r'주\s*주\s*총\s*회\s*소\s*집\s*공\s*고', line):
+            notice_start = i
+            break
+
+    # 회의목적사항 영역 찾기
+    agenda_start = notice_start
+    for i in range(notice_start, min(len(lines), notice_start + 200)):
+        if re.search(r'회의.*목적|목적사항|결의사항|부의안건', lines[i]):
+            agenda_start = i
+            break
+
+    # 안건 번호 패턴으로 추출
+    agenda_pattern = re.compile(
+        r'(?:□|○|◆|▶|\-\s*)?'          # 앞 장식
+        r'제\s*(\d+(?:-\d+)*)\s*호'      # 안건 번호
+        r'\s*(?:의안)?[)）:\s]*'          # 구분자
+        r'(.+)'                           # 제목
+    )
+
+    for i in range(agenda_start, min(len(lines), agenda_start + 150)):
+        line = lines[i].strip()
+        line = re.sub(r'^[-\s*□○◆▶]+', '', line)
+
+        m = agenda_pattern.match(line)
+        if not m:
+            continue
+
+        number_str = m.group(1)
+        title = m.group(2).strip()
+        # 제목 끝의 잡음 제거
+        title = re.sub(r'\s*\.{3,}.*$', '', title)  # ... 이후 제거
+        title = re.sub(r'\s*\|.*$', '', title)       # | 이후 제거
+        title = title.strip()
+
+        if not title or len(title) > 200:
+            continue
+
+        full_number = f"제{number_str}호"
+        if full_number in seen_numbers:
+            continue
+        seen_numbers.add(full_number)
+
+        # depth 판정
+        parts = number_str.split('-')
+        is_sub = len(parts) > 1
+
+        item = {
+            "number": full_number,
+            "title": title,
+            "children": [],
+        }
+
+        if is_sub:
+            # 부모 찾아서 children에 추가
+            parent_num = f"제{parts[0]}호"
+            parent = next((it for it in items if it['number'] == parent_num), None)
+            if parent:
+                parent['children'].append(item)
+            else:
+                items.append(item)
+        else:
+            items.append(item)
+
+    return items
