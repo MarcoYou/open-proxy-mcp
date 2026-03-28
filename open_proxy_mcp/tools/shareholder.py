@@ -80,6 +80,7 @@ from open_proxy_mcp.tools.parser import (
     parse_correction_details,
     parse_personnel,
     parse_aoi,
+    parse_compensation,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
 
@@ -761,7 +762,7 @@ def register_tools(mcp):
         return _format_personnel(result)
 
     @mcp.tool()
-    async def agm_aoi(
+    async def agm_aoi_change(
         rcept_no: str,
         format: str = "md",
     ) -> str:
@@ -796,7 +797,36 @@ def register_tools(mcp):
         if format == "json":
             return json.dumps(result, ensure_ascii=False, indent=2)
 
-        return _format_aoi(result)
+        return _format_aoi_change(result)
+
+    @mcp.tool()
+    async def agm_compensation(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """주주총회 소집공고에서 이사/감사 보수한도 승인 정보를 반환합니다.
+
+        당기 보수한도(요청액), 전기 실제 지급액 및 한도액,
+        이사 수(���외이사 수), 보수 산정 기준 등을 구조화하여 반환합니다.
+
+        Args:
+            rcept_no: 접수번호 (예: 20260225000123)
+            format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
+        """
+        doc = await _get_document_cached(rcept_no)
+        html = doc.get("html", "")
+        if not html:
+            return "보수한도 정보를 파싱할 수 없습니다. (HTML 없음)"
+
+        result = parse_compensation(html)
+
+        if not result.get("items"):
+            return "보수한도 승인 안건이 없습니다."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+
+        return _format_compensation(result)
 
     @mcp.tool()
     async def agm_steward(
@@ -1000,7 +1030,55 @@ def _build_financial_highlight(fs: dict) -> list[dict] | None:
     return highlights if highlights else None
 
 
-def _format_aoi(result: dict) -> str:
+def _format_compensation(result: dict) -> str:
+    """보수한도를 마크다운으로 포매팅"""
+    lines = ["## 보수한도 승인", ""]
+    s = result.get("summary", {})
+
+    # 요약
+    if s.get("currentTotalLimit"):
+        lines.append(f"**당기 한도 총액**: {_format_won(s['currentTotalLimit'])}")
+    if s.get("priorTotalPaid"):
+        lines.append(f"**전기 실제 지급**: {_format_won(s['priorTotalPaid'])}")
+    if s.get("priorTotalLimit"):
+        lines.append(f"**전기 한도**: {_format_won(s['priorTotalLimit'])}")
+    if s.get("priorUtilization") is not None:
+        lines.append(f"**전기 한도 소진율**: {s['priorUtilization']}%")
+    lines.append("")
+
+    for item in result.get("items", []):
+        lines.append(f"### {item['number']}: {item['title']}")
+        lines.append("")
+
+        cur = item.get("current", {})
+        pri = item.get("prior", {})
+
+        if cur:
+            lines.append("**당기**")
+            if cur.get("headcount"):
+                lines.append(f"- 이사의 수 (사외이사수): {cur['headcount']}")
+            if cur.get("limit"):
+                lines.append(f"- 보수 최고한도액: {cur['limit']}")
+            lines.append("")
+
+        if pri:
+            lines.append("**전기**")
+            if pri.get("headcount"):
+                lines.append(f"- 이사의 수 (사외이사수): {pri['headcount']}")
+            if pri.get("actualPaid"):
+                lines.append(f"- 실제 지급된 보수총액: {pri['actualPaid']}")
+            if pri.get("limit"):
+                lines.append(f"- 최고한도액: {pri['limit']}")
+            lines.append("")
+
+        for note in item.get("notes", []):
+            lines.append(f"> {note}")
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+def _format_aoi_change(result: dict) -> str:
     """정관변경을 마크다운으로 포매팅"""
     lines = ["## 정관변경 사항", ""]
     s = result.get("summary", {})

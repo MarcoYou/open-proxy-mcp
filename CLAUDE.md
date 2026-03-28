@@ -34,7 +34,7 @@ OpenProxy/            # 프론트엔드 (React/Vite) — git clone from HojiPark
       AgendaAnalysis.tsx  # 안건 상세 렌더링 (재무 테이블, 후보자 등)
 
 samples/              # 로컬 샘플 (gitignore)
-blueprint.md          # tool 체계 + 데이터 흐름 다이어그램
+README.md             # tool 체계 + 데이터 흐름 다이어그램
 ```
 
 ## 출력 포맷
@@ -55,6 +55,15 @@ blueprint.md          # tool 체계 + 데이터 흐름 다이어그램
 - **안전 호출**: 배치 테스트 시 **매 호출 1초 이상 간격**, 50건마다 10초 대기. 사전에 총 호출 수 계산.
 - **캐싱 활용**: `_doc_cache` (30건 LRU)가 동일 rcept_no 중복 호출 방지. 같은 문서에 여러 파서 돌릴 때 반드시 캐시 통해 호출.
 - **키 전환**: `.env`에 `OPENDART_API_KEY_2` 설정 시, 에러 발생하면 자동으로 보조 키로 전환 (단 IP 차단은 키 전환으로 해결 불가).
+- **Rate Limiter**: `client.py`에 자동 throttle 적용 — API 0.1초, 웹 2초 최소 간격.
+
+## DART 웹 스크래핑 규칙 (PDF 다운로드 등)
+- ⚠️ **공식 API가 아님** — 과도한 요청은 DDoS로 오해받을 수 있음. IP 차단 시 해제 불가.
+- **최소 2초 간격**: `_MIN_INTERVAL_WEB = 2.0` (client.py에서 강제 적용)
+- **배치 금지**: PDF 다운로드는 한 번에 1건씩, 필요할 때만. 절대 루프로 대량 다운로드하지 않을 것.
+- **User-Agent 명시**: 프로젝트 정보를 User-Agent에 포함하여 봇 목적을 투명하게 밝힘.
+- **PDF 경로**: `get_document_pdf(rcept_no)` → 웹에서 dcm_no 추출 → PDF 다운로드 (총 2회 요청, 4초+ 소요).
+- **용도**: XML 파싱 실패 시 보조 소스, LLM fallback 품질 향상. 1차 소스는 항상 OpenDART API(document.xml).
 
 ## 설계 원칙
 - 각 DART API 도메인(공시, 재무, 지분 등)은 `dart/` 하위 모듈로 분리
@@ -97,7 +106,7 @@ blueprint.md          # tool 체계 + 데이터 흐름 다이어그램
 2. `parser.py` — bs4(lxml)로 HTML 섹션 경계 추출 → regex로 안건 패턴 매치
 3. 실패 시 text-only regex fallback → 그래도 실패 시 LLM fallback
 
-**현재 처리율:** 811건 기준 93%→97~98% (bs4+regex), count=0 실패 16건은 LLM fallback 대상.
+**현재 처리율:** 811건 기준 93%→97-98% (bs4+regex), count=0 실패 16건은 LLM fallback 대상.
 
 ## 파서 테스트-개선 루프
 1. 소집공고 검색 (811건, `test_batch.py` 사용)

@@ -2625,3 +2625,236 @@ def _extract_period_labels(header_cells: list[str]) -> dict:
         labels["prior"] = period_candidates[1][1]
 
     return labels
+
+
+# ── 보수한도 파싱 ──
+
+_COMPENSATION_KEYWORDS = ['보수한도', '보수 한도', '보수의 한도', '보수액한도', '보수액 한도']
+
+
+def parse_compensation(html: str) -> dict:
+    """보수한도 안건에서 당기/전기 보수 정보를 정규화 추출
+
+    DART 표준 서식:
+      가. 이사의 수ㆍ보수총액 내지 최고 한도액
+        (당기) 이사의 수(사외이사수) / 보수총액 또는 최고한도액
+        (전기) 이사의 수(사외이사수) / 실제 지급된 보수총액 / 최고한도액
+
+    Returns:
+        {"items": [...], "summary": {...}}
+        각 item: {"number", "title", "target", "current", "prior", "notes"}
+    """
+    details = parse_agenda_details(html)
+    if not details:
+        return {"items": [], "summary": _empty_compensation_summary()}
+
+    items = []
+
+    for d in details:
+        title = d.get("title", "")
+        if not any(kw in title for kw in _COMPENSATION_KEYWORDS):
+            continue
+
+        # 대상 분류: 이사 / 감사
+        target = "이사"
+        if '감사' in title and '감사위원' not in title:
+            target = "감사"
+
+        current = {}  # 당기
+        prior = {}    # 전기
+        notes = []
+        extra_tables = []  # 보수 산정 기준, 지급 내역 등
+
+        # 섹션 순회 — 당기/전기 테이블 추출
+        phase = None  # "current" or "prior"
+        for sec in d.get("sections", []):
+            for block in sec.get("blocks", []):
+                btype = block["type"]
+                content = block["content"].strip()
+
+                if btype == "text":
+                    text_lower = content.replace(" ", "")
+                    if "당기" in text_lower or "당 기" in content:
+                        phase = "current"
+                    elif "전기" in text_lower or "전 기" in content:
+                        phase = "prior"
+                    # 기수 패턴 (제N기)
+                    elif re.match(r'제?\s*\d+\s*기', content):
+                        if not current:
+                            phase = "current"
+                        elif not prior:
+                            phase = "prior"
+                    # 연도 패턴 (2026년) / (2025년) — 최신 연도가 당기
+                    elif re.match(r'[\(（]?\s*\d{4}\s*년?\s*[\)）]?$', content.strip()):
+                        if not current:
+                            phase = "current"
+                        elif not prior:
+                            phase = "prior"
+
+                elif btype == "note":
+                    notes.append(content)
+
+                elif btype == "table":
+                    rows = _parse_md_table(content)
+                    if len(rows) < 2:
+                        continue
+
+                    # 핵심 테이블 (이사의 수 / 보수총액) vs 부가 테이블 구분
+                    first_cell = rows[0][0].replace(" ", "") if rows[0] else ""
+                    is_core = any(kw in first_cell for kw in [
+                        "이사의수", "이사수", "감사의수", "감사수", "보수총액",
+                    ])
+
+                    if is_core and not phase:
+                        # phase 미감지 상태에서 핵심 테이블 등장 → 순서로 추론
+                        phase = "current" if not current else "prior"
+
+                    if is_core and phase:
+                        parsed = _parse_compensation_table(rows)
+                        if phase == "current":
+                            current = parsed
+                        elif phase == "prior":
+                            prior = parsed
+                    elif not is_core and rows[0] and len(rows[0]) >= 2:
+                        # 보수 산정 기준, 지급 내역 등 부가 테이블
+                        extra_tables.append({
+                            "headers": rows[0],
+                            "rows": rows[1:],
+                        })
+
+        item = {
+            "number": d.get("number", ""),
+            "title": title,
+            "target": target,
+            "current": current,
+            "prior": prior,
+            "notes": notes,
+        }
+        if extra_tables:
+            item["extraTables"] = extra_tables
+        items.append(item)
+
+    summary = _build_compensation_summary(items)
+    return {"items": items, "summary": summary}
+
+
+def _parse_compensation_table(rows: list[list[str]]) -> dict:
+    """보수한도 핵심 테이블 파싱 (key-value 2컬럼 구조)
+
+    | 이사의 수 (사외이사수) | 8(5) |
+    | 보수총액 또는 최고한도액 | 450억원 |
+    """
+    result = {}
+    for row in rows:
+        if len(row) < 2:
+            continue
+        key = row[0].replace(" ", "").strip()
+        val = row[1].strip()
+
+        if any(kw in key for kw in ["이사의수", "이사수", "감사의수", "감사수"]):
+            # 공백 정리
+            result["headcount"] = re.sub(r'\s+', '', val)
+            # 사외이사수 추출
+            m = re.search(r'(\d+)\s*[\(（]\s*(\d+)\s*[\)）]', val)
+            if m:
+                result["totalDirectors"] = int(m.group(1))
+                result["outsideDirectors"] = int(m.group(2))
+            else:
+                m2 = re.search(r'(\d+)', val)
+                if m2:
+                    result["totalDirectors"] = int(m2.group(1))
+
+        elif "최고한도" in key or "보수총액또는" in key or "한도액" in key:
+            result["limit"] = val
+            result["limitAmount"] = _parse_krw_amount(val)
+
+        elif "실제지급" in key or "지급된보수" in key:
+            result["actualPaid"] = val
+            result["actualPaidAmount"] = _parse_krw_amount(val)
+
+        elif "보수총액" in key:
+            # "보수총액 또는 최고한도액" 과 구별
+            if "최고" not in key and "한도" not in key:
+                result["actualPaid"] = val
+                result["actualPaidAmount"] = _parse_krw_amount(val)
+
+    return result
+
+
+def _parse_krw_amount(text: str) -> int | None:
+    """금액 문자열을 원 단위 정수로 변환
+
+    Examples:
+        "450억원" → 45_000_000_000
+        "6,000백만원" → 6_000_000_000
+        "15,000백만원+30,000주" → 15_000_000_000  (주식 부분 무시)
+        "100억원" → 10_000_000_000
+    """
+    if not text:
+        return None
+
+    # 주식 부분 제거
+    text = re.split(r'[+＋]', text)[0].strip()
+    # 콤마 제거
+    text = text.replace(",", "")
+
+    # 억원
+    m = re.search(r'([\d.]+)\s*억\s*원?', text)
+    if m:
+        return int(float(m.group(1)) * 100_000_000)
+
+    # 백만원
+    m = re.search(r'([\d.]+)\s*백만\s*원?', text)
+    if m:
+        return int(float(m.group(1)) * 1_000_000)
+
+    # 천원
+    m = re.search(r'([\d.]+)\s*천\s*원?', text)
+    if m:
+        return int(float(m.group(1)) * 1_000)
+
+    # 원 (단위 없이 숫자만)
+    m = re.search(r'(\d+)\s*원?$', text)
+    if m:
+        return int(m.group(1))
+
+    return None
+
+
+def _build_compensation_summary(items: list[dict]) -> dict:
+    """보수한도 요약"""
+    total_limit = 0
+    total_prior_paid = 0
+    total_prior_limit = 0
+
+    for item in items:
+        cur = item.get("current", {})
+        pri = item.get("prior", {})
+        if cur.get("limitAmount"):
+            total_limit += cur["limitAmount"]
+        if pri.get("actualPaidAmount"):
+            total_prior_paid += pri["actualPaidAmount"]
+        if pri.get("limitAmount"):
+            total_prior_limit += pri["limitAmount"]
+
+    utilization = None
+    if total_prior_limit > 0 and total_prior_paid > 0:
+        utilization = round(total_prior_paid / total_prior_limit * 100, 1)
+
+    return {
+        "totalItems": len(items),
+        "currentTotalLimit": total_limit if total_limit else None,
+        "priorTotalPaid": total_prior_paid if total_prior_paid else None,
+        "priorTotalLimit": total_prior_limit if total_prior_limit else None,
+        "priorUtilization": utilization,
+    }
+
+
+def _empty_compensation_summary() -> dict:
+    return {
+        "totalItems": 0,
+        "currentTotalLimit": None,
+        "priorTotalPaid": None,
+        "priorTotalLimit": None,
+        "priorUtilization": None,
+    }

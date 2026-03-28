@@ -1,7 +1,19 @@
-"""OpenDART API 클라이언트 — API 호출을 한 곳에서 관리"""
+"""OpenDART API 클라이언트 — API 호출을 한 곳에서 관리
+
+⚠️ DART 접근 시 주의사항 (API + 웹 공통):
+  - OpenDART API: 분당 1,000회 초과 시 24시간 IP 차단. 일일 20,000회 한도.
+  - DART 웹 스크래핑: 공식 API가 아니므로 더 보수적으로 접근.
+    과도한 요청은 DDoS로 오해받을 수 있음.
+  - 모든 요청에 최소 간격(API: 0.1초, 웹: 2초) 강제 적용.
+  - 배치 작업 시 CLAUDE.md의 "DART API 호출 규칙" 반드시 참조.
+"""
 
 import os
 import io
+import re
+import time
+import asyncio
+import logging
 import zipfile
 import xml.etree.ElementTree as ET
 import httpx
@@ -9,7 +21,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 OPENDART_BASE_URL = "https://opendart.fss.or.kr/api"
+DART_WEB_BASE_URL = "https://dart.fss.or.kr"
+
+# ── Rate Limiting ──
+# API와 웹 스크래핑에 각각 다른 최소 간격 적용
+_MIN_INTERVAL_API = 0.1     # API: 최소 0.1초 간격 (분당 600회 이하)
+_MIN_INTERVAL_WEB = 2.0     # 웹: 최소 2초 간격 (DDoS 오해 방지)
 
 
 class DartClientError(Exception):
@@ -45,6 +65,9 @@ class DartClient:
             raise ValueError("OPENDART_API_KEY가 .env에 설정되어 있지 않습니다.")
         self._key_index = 0
         self.api_key = self._api_keys[0]
+        # Rate limiting — 마지막 요청 시각 추적
+        self._last_api_request = 0.0
+        self._last_web_request = 0.0
 
     def _rotate_key(self) -> bool:
         """다음 API 키로 전환. 전환 가능하면 True, 더 없으면 False."""
@@ -64,6 +87,7 @@ class DartClient:
         Returns:
             API 응답 JSON (dict)
         """
+        await self._throttle_api()
         params["crtfc_key"] = self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"
 
@@ -97,6 +121,7 @@ class DartClient:
         1. XML 에러면 DartClientError 발생 (접수번호 오류 등)
         2. ZIP도 XML도 아니면 보조 키로 전환 후 재시도
         """
+        await self._throttle_api()
         params["crtfc_key"] = self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"
 
@@ -340,3 +365,94 @@ class DartClient:
         text = text.strip()
 
         return {"text": text, "html": text_html, "images": images}
+
+    # ── Rate Limiting ──
+
+    async def _throttle_api(self):
+        """API 요청 간격 강제 (최소 _MIN_INTERVAL_API 초)"""
+        elapsed = time.monotonic() - self._last_api_request
+        if elapsed < _MIN_INTERVAL_API:
+            await asyncio.sleep(_MIN_INTERVAL_API - elapsed)
+        self._last_api_request = time.monotonic()
+
+    async def _throttle_web(self):
+        """웹 스크래핑 요청 간격 강제 (최소 _MIN_INTERVAL_WEB 초)
+
+        ⚠️ DART 웹사이트는 공식 API가 아닙니다.
+        과도한 요청은 IP 차단 또는 법적 문제를 야기할 수 있으므로
+        반드시 보수적인 간격을 유지합니다.
+        """
+        elapsed = time.monotonic() - self._last_web_request
+        if elapsed < _MIN_INTERVAL_WEB:
+            wait = _MIN_INTERVAL_WEB - elapsed
+            logger.debug(f"[DART 웹] {wait:.1f}초 대기 (rate limit)")
+            await asyncio.sleep(wait)
+        self._last_web_request = time.monotonic()
+
+    # ── DART 웹 스크래핑 (PDF 다운로드용) ──
+
+    async def _fetch_dcm_no(self, rcept_no: str) -> str:
+        """DART 웹에서 dcm_no(문서번호)를 추출
+
+        PDF 다운로드에 필요한 dcm_no를 공시 뷰어 페이지의
+        JavaScript(makeToc)에서 regex로 추출합니다.
+
+        ⚠️ 웹 스크래핑이므로 rate limit 엄격 적용.
+        """
+        await self._throttle_web()
+        url = f"{DART_WEB_BASE_URL}/dsaf001/main.do?rcpNo={rcept_no}"
+
+        async with httpx.AsyncClient() as http:
+            response = await http.get(url, timeout=30, headers={
+                "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+            })
+            response.raise_for_status()
+
+        html = response.text
+        # makeToc() 안의 node1['dcmNo'] = "XXXXXXXX"; 패턴
+        m = re.search(r"\['dcmNo'\]\s*=\s*\"(\d+)\"", html)
+        if not m:
+            raise DartClientError("NO_DCM", f"dcm_no를 찾을 수 없습니다. (rcept_no={rcept_no})")
+
+        dcm_no = m.group(1)
+        logger.info(f"[DART 웹] dcm_no={dcm_no} 추출 완료 (rcept_no={rcept_no})")
+        return dcm_no
+
+    async def get_document_pdf(self, rcept_no: str) -> bytes:
+        """공시 본문 PDF 다운로드
+
+        ⚠️ DART 웹 스크래핑 기반 — 공식 API가 아닙니다.
+        - 요청 간격: 최소 2초 (dcm_no 조회 + PDF 다운로드 각각)
+        - 배치 사용 금지: 한 번에 1건씩만, 필요할 때만 호출
+        - User-Agent에 프로젝트 정보 명시
+
+        Args:
+            rcept_no: 접수번호
+
+        Returns:
+            PDF 바이너리 (bytes)
+        """
+        dcm_no = await self._fetch_dcm_no(rcept_no)
+
+        await self._throttle_web()
+        url = f"{DART_WEB_BASE_URL}/pdf/download/pdf.do"
+
+        async with httpx.AsyncClient() as http:
+            response = await http.get(
+                url,
+                params={"rcp_no": rcept_no, "dcm_no": dcm_no},
+                timeout=60,
+                headers={
+                    "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+                },
+            )
+            response.raise_for_status()
+
+        content = response.content
+
+        # PDF 매직 넘버 확인 (%PDF)
+        if not content[:4] == b'%PDF':
+            raise DartClientError("NO_PDF", f"PDF가 아닌 응답 수신 (rcept_no={rcept_no}, size={len(content)})")
+
+        logger.info(f"[DART 웹] PDF 다운로드 완료: {len(content):,} bytes (rcept_no={rcept_no})")
+        return content
