@@ -17,7 +17,7 @@ DART(전자공시시스템) 데이터를 MCP 프로토콜로 제공하는 Python
 open_proxy_mcp/       # MCP 서버 (Python)
   server.py           # FastMCP 서버 진입점
   tools/
-    shareholder.py    # MCP tool 23개 (agm_*) + 포매터 + format_krw
+    shareholder.py    # MCP tool 31개 (agm_*) + 포매터 + format_krw
     parser.py         # XML 파서 (bs4+regex) — parse_*_xml()
     pdf_parser.py     # PDF 파서 (opendataloader md) — parse_*_pdf() + Upstage OCR fallback
   dart/
@@ -35,7 +35,8 @@ OpenProxy/            # 프론트엔드 (React/Vite) — git clone from HojiPark
       AgendaAnalysis.tsx  # 안건 상세 렌더링 (재무 테이블, 후보자 등)
 
 samples/              # 로컬 샘플 (gitignore)
-README.md             # tool 체계 + 데이터 흐름 다이어그램
+README.md             # 영문 — tool 체계 + 데이터 흐름
+README_KR.md          # 한국어 — 상세 설명
 ```
 
 ## 출력 포맷
