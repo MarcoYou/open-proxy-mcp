@@ -39,14 +39,23 @@ def _parse_md_table_rows(lines: list[str], start: int) -> tuple[list[list[str]],
             i += 1
             continue
 
-        if line.startswith('|') and line.endswith('|'):
+        if line.startswith('|'):
             in_table = True
-            if '---' in line:
+            if '---' in line and line.endswith('|'):
                 i += 1
                 continue
-            cells = [c.strip() for c in line[1:-1].split('|')]
-            cells = [re.sub(r'<br\s*/?>', '\n', c).strip() for c in cells]
-            rows.append(cells)
+            # 멀티라인 합치기: |로 시작하지만 끝나지 않으면 다음 줄 합침
+            full_line = line
+            while not full_line.rstrip().endswith('|') and i + 1 < len(lines):
+                i += 1
+                next_l = lines[i].strip()
+                if not next_l:
+                    break
+                full_line += ' ' + next_l
+            if full_line.rstrip().endswith('|'):
+                cells = [c.strip() for c in full_line[1:-1].split('|')]
+                cells = [re.sub(r'<br\s*/?>', '\n', c).strip() for c in cells]
+                rows.append(cells)
             i += 1
         elif in_table:
             # 테이블 행이 아닌 줄 → 종료

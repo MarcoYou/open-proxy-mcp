@@ -1542,7 +1542,7 @@
   {
     "company": "하나금융지주",
     "comp_items": 1,
-    "comp_limit": null,
+    "comp_limit": 4000000000,
     "pers_unique": 2,
     "fin_bs": 26,
     "fin_is": 22,
