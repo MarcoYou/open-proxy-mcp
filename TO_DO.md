@@ -20,7 +20,7 @@
 - [ ] 프록시 파이트 분석 연계
 
 ### paid-open-proxy 파이프라인
-- [ ] run_pipeline.py에 PDF/OCR fallback 통합 (XML → PDF → OCR → LLM 자동 체이닝)
+- [x] ~~run_pipeline.py에 PDF/OCR fallback 통합 (XML → PDF → OCR 자동 체이닝)~~
 - [ ] 파서별 품질 판정 함수 (CASE_DEFINITION 기준)
 - [ ] 최선 결과 선택 로직 (XML vs PDF 비교)
 - [ ] DB 스키마 설계 (향후, PostgreSQL)
@@ -29,7 +29,7 @@
 ### free-open-proxy 개선
 - [x] ~~23개 MCP tool 등록 (_xml/_pdf/_ocr + guide)~~
 - [x] ~~agm_guide tool — AI용 사용 가이드~~
-- [ ] CASE_DEFINITION을 agm_guide 응답에 포함 (AI 판단 기준)
+- [x] ~~CASE_DEFINITION을 agm_guide 응답에 포함 (AI 판단 기준)~~
 - [ ] LLM fallback tool — XML 원문 + CASE_DEFINITION으로 AI 보강 (향후)
 
 ### PDF 파싱 보조 소스
