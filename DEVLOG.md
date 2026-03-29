@@ -2,6 +2,13 @@
 
 ## 2026-03-29
 
+### free-open-proxy end-to-end 완료
+- agm_guide → CASE_DEFINITION 읽기 → tool 호출 → 결과 검증 → fallback 안내 흐름 확인
+- SUCCESS: 삼성전자 comp (450억원 바로 답변)
+- HARD_FAIL: 기업은행 pers (XML 0명 → PDF fallback)
+- SOFT_FAIL: 한화 pers (XML 270자 병합 → PDF 6건 분리)
+- AI 검증 + 포맷 보정 지시 agm_guide에 추가
+
 ### Upstage OCR fallback
 - opendataloader 실패 시 → 키워드로 페이지 특정 → Upstage OCR → 재파싱
 - 11건 실패 케이스 전부 OCR에서 성공 (100%)
