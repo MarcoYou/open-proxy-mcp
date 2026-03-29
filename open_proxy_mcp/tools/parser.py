@@ -2884,11 +2884,14 @@ def parse_treasury_share_xml(html: str) -> dict:
         # 제목 매칭 또는 본문에 자기주식 키워드
         title_match = any(kw in title for kw in _TREASURY_KEYWORDS)
         if not title_match:
+            # 다른 유형 안건은 제외 (본문에 '자기주식' 단어가 있어도)
+            if any(kw in title for kw in ['재무제표', '재무상태표', '대차대조표', '보수한도', '보수 한도', '선임', '해임', '정관']):
+                continue
             # "기타 주주총회의 목적사항" 안에 자기주식 내용이 있는지
             body_text = ' '.join(
-                block.get('content', '')
+                block.get('content', '')[:500]
                 for sec in d.get('sections', [])
-                for block in sec.get('blocks', [])
+                for block in sec.get('blocks', [])[:5]
             )
             if not any(kw in body_text for kw in ['자기주식', '자사주']):
                 continue
