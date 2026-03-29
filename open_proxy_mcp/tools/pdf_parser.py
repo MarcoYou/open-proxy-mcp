@@ -585,17 +585,23 @@ def parse_financials_pdf(md_text: str) -> dict:
         m = re.search(r'단위\s*[：:]\s*(백만원|천원|억원|원)', line)
         if m:
             unit_candidate = m.group(1)
-            # 다음 20줄 내에 자산/매출 테이블이 있는지
-            nearby = ''.join(lines[i:min(len(lines), i+25)])
-            if ('자산' in nearby or '자 산' in nearby) and '|' in nearby:
-                unit = unit_candidate
-                # 테이블 시작점 찾기
-                for j in range(i, min(len(lines), i+10)):
-                    if '|' in lines[j] and ('과' in lines[j] or '자산' in lines[j] or '자 산' in lines[j]):
-                        bs_start = j
-                        break
-                if bs_start:
+            # 다음 15줄 내에 BS 테이블 헤더/첫 행이 있는지
+            # 거래내역 테이블이 아닌 재무제표 테이블만 잡기
+            for j in range(i, min(len(lines), i+15)):
+                jline = lines[j].strip()
+                if '|' not in jline:
+                    continue
+                jline_ns = jline.replace(' ', '')
+                # 거래내역 테이블 제외
+                if re.search(r'거래종류|거래상대|거래금액|거래기간', jline_ns):
                     break
+                # BS 헤더/첫 행: 자산, 과목, 유동자산
+                if re.search(r'자산|자 산|과\s*목|유동자산', jline):
+                    unit = unit_candidate
+                    bs_start = j
+                    break
+            if bs_start:
+                break
 
     if not bs_start or not unit:
         return result
@@ -794,16 +800,38 @@ def parse_aoi_pdf(md_text: str) -> dict:
         if i < len(lines) and '---' in lines[i]:
             i += 1
 
-        # 데이터 행 파싱
+        # 데이터 행 파싱 (멀티라인 셀 대응)
         while i < len(lines):
             row_line = lines[i].strip()
-            if not row_line or not row_line.startswith('|'):
-                break
+
+            # 빈 줄은 스킵 (테이블 내 빈 줄 허용)
+            if not row_line:
+                i += 1
+                # 빈 줄 2개 연속이면 테이블 끝
+                if i < len(lines) and not lines[i].strip():
+                    # 다음이 또 헤더일 수 있으니 break하지 않고 continue
+                    i += 1
+                continue
+
+            if not row_line.startswith('|'):
+                # 멀티라인: 이전 행의 연속일 수 있음 — 그냥 스킵
+                i += 1
+                continue
+
             if '---' in row_line:
                 i += 1
                 continue
 
-            cells = [c.strip() for c in row_line[1:-1].split('|')] if row_line.endswith('|') else []
+            # |로 시작하는 행 — |로 끝날 때까지 줄 합치기
+            full_line = row_line
+            while not full_line.rstrip().endswith('|') and i + 1 < len(lines):
+                i += 1
+                next_line = lines[i].strip()
+                if next_line.startswith('|') and '---' in next_line:
+                    break  # 다음 구분선
+                full_line += ' ' + next_line
+
+            cells = [c.strip() for c in full_line[1:-1].split('|')] if full_line.rstrip().endswith('|') else []
             if not cells or len(cells) <= max(before_col, after_col):
                 i += 1
                 continue

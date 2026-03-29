@@ -6,7 +6,7 @@
     "pers_candidates": 0,
     "fin_bs": 2,
     "fin_is": 41,
-    "aoi_count": 0,
+    "aoi_count": 41,
     "agenda_count": 13
   },
   {
@@ -16,7 +16,7 @@
     "pers_candidates": 1,
     "fin_bs": 20,
     "fin_is": 24,
-    "aoi_count": 3,
+    "aoi_count": 106,
     "agenda_count": 0
   },
   {
@@ -26,7 +26,7 @@
     "pers_candidates": 1,
     "fin_bs": 34,
     "fin_is": 5,
-    "aoi_count": 6,
+    "aoi_count": 34,
     "agenda_count": 7
   },
   {
@@ -36,7 +36,7 @@
     "pers_candidates": 6,
     "fin_bs": 8,
     "fin_is": 19,
-    "aoi_count": 4,
+    "aoi_count": 284,
     "agenda_count": 5
   },
   {
@@ -46,7 +46,7 @@
     "pers_candidates": 4,
     "fin_bs": 1,
     "fin_is": 42,
-    "aoi_count": 3,
+    "aoi_count": 53,
     "agenda_count": 6
   },
   {
@@ -56,7 +56,7 @@
     "pers_candidates": 6,
     "fin_bs": 9,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 82,
     "agenda_count": 6
   },
   {
@@ -66,7 +66,7 @@
     "pers_candidates": 3,
     "fin_bs": 42,
     "fin_is": 19,
-    "aoi_count": 0,
+    "aoi_count": 44,
     "agenda_count": 5
   },
   {
@@ -76,7 +76,7 @@
     "pers_candidates": 6,
     "fin_bs": 17,
     "fin_is": 19,
-    "aoi_count": 0,
+    "aoi_count": 37,
     "agenda_count": 5
   },
   {
@@ -86,7 +86,7 @@
     "pers_candidates": 7,
     "fin_bs": 23,
     "fin_is": 1,
-    "aoi_count": 1,
+    "aoi_count": 64,
     "agenda_count": 10
   },
   {
@@ -96,7 +96,7 @@
     "pers_candidates": 1,
     "fin_bs": 32,
     "fin_is": 26,
-    "aoi_count": 2,
+    "aoi_count": 30,
     "agenda_count": 10
   },
   {
@@ -116,7 +116,7 @@
     "pers_candidates": 6,
     "fin_bs": 4,
     "fin_is": 25,
-    "aoi_count": 0,
+    "aoi_count": 35,
     "agenda_count": 5
   },
   {
@@ -126,7 +126,7 @@
     "pers_candidates": 1,
     "fin_bs": 36,
     "fin_is": 23,
-    "aoi_count": 1,
+    "aoi_count": 38,
     "agenda_count": 11
   },
   {
@@ -136,7 +136,7 @@
     "pers_candidates": 6,
     "fin_bs": 28,
     "fin_is": 8,
-    "aoi_count": 1,
+    "aoi_count": 41,
     "agenda_count": 0
   },
   {
@@ -144,9 +144,9 @@
     "comp_items": 1,
     "comp_limit": 4500,
     "pers_candidates": 11,
-    "fin_bs": 9,
-    "fin_is": 0,
-    "aoi_count": 2,
+    "fin_bs": 28,
+    "fin_is": 32,
+    "aoi_count": 76,
     "agenda_count": 4
   },
   {
@@ -156,7 +156,7 @@
     "pers_candidates": 4,
     "fin_bs": 15,
     "fin_is": 1,
-    "aoi_count": 0,
+    "aoi_count": 49,
     "agenda_count": 0
   },
   {
@@ -166,7 +166,7 @@
     "pers_candidates": 8,
     "fin_bs": 27,
     "fin_is": 10,
-    "aoi_count": 5,
+    "aoi_count": 59,
     "agenda_count": 4
   },
   {
@@ -176,7 +176,7 @@
     "pers_candidates": 4,
     "fin_bs": 23,
     "fin_is": 32,
-    "aoi_count": 0,
+    "aoi_count": 38,
     "agenda_count": 5
   },
   {
@@ -186,7 +186,7 @@
     "pers_candidates": 4,
     "fin_bs": 13,
     "fin_is": 21,
-    "aoi_count": 7,
+    "aoi_count": 64,
     "agenda_count": 2
   },
   {
@@ -196,7 +196,7 @@
     "pers_candidates": 8,
     "fin_bs": 19,
     "fin_is": 0,
-    "aoi_count": 3,
+    "aoi_count": 52,
     "agenda_count": 4
   },
   {
@@ -206,7 +206,7 @@
     "pers_candidates": 1,
     "fin_bs": 1,
     "fin_is": 4,
-    "aoi_count": 0,
+    "aoi_count": 42,
     "agenda_count": 17
   },
   {
@@ -216,7 +216,7 @@
     "pers_candidates": 3,
     "fin_bs": 1,
     "fin_is": 42,
-    "aoi_count": 3,
+    "aoi_count": 45,
     "agenda_count": 3
   },
   {
@@ -226,7 +226,7 @@
     "pers_candidates": 20,
     "fin_bs": 26,
     "fin_is": 17,
-    "aoi_count": 7,
+    "aoi_count": 100,
     "agenda_count": 8
   },
   {
@@ -234,9 +234,9 @@
     "comp_items": 1,
     "comp_limit": 5000,
     "pers_candidates": 3,
-    "fin_bs": 4,
-    "fin_is": 0,
-    "aoi_count": 0,
+    "fin_bs": 22,
+    "fin_is": 17,
+    "aoi_count": 48,
     "agenda_count": 5
   },
   {
@@ -246,7 +246,7 @@
     "pers_candidates": 8,
     "fin_bs": 26,
     "fin_is": 25,
-    "aoi_count": 1,
+    "aoi_count": 129,
     "agenda_count": 13
   },
   {
@@ -256,7 +256,7 @@
     "pers_candidates": 0,
     "fin_bs": 0,
     "fin_is": 0,
-    "aoi_count": 0,
+    "aoi_count": 162,
     "agenda_count": 7
   },
   {
@@ -266,7 +266,7 @@
     "pers_candidates": 0,
     "fin_bs": 43,
     "fin_is": 33,
-    "aoi_count": 1,
+    "aoi_count": 43,
     "agenda_count": 0
   },
   {
@@ -276,7 +276,7 @@
     "pers_candidates": 4,
     "fin_bs": 43,
     "fin_is": 17,
-    "aoi_count": 0,
+    "aoi_count": 56,
     "agenda_count": 21
   },
   {
@@ -286,7 +286,7 @@
     "pers_candidates": 0,
     "fin_bs": 33,
     "fin_is": 19,
-    "aoi_count": 3,
+    "aoi_count": 67,
     "agenda_count": 6
   },
   {
@@ -294,9 +294,9 @@
     "comp_items": 1,
     "comp_limit": 4000000000,
     "pers_candidates": 10,
-    "fin_bs": 5,
-    "fin_is": 0,
-    "aoi_count": 10,
+    "fin_bs": 29,
+    "fin_is": 6,
+    "aoi_count": 70,
     "agenda_count": 13
   },
   {
@@ -306,7 +306,7 @@
     "pers_candidates": 0,
     "fin_bs": 22,
     "fin_is": 19,
-    "aoi_count": 10,
+    "aoi_count": 36,
     "agenda_count": 11
   },
   {
@@ -316,7 +316,7 @@
     "pers_candidates": 5,
     "fin_bs": 31,
     "fin_is": 10,
-    "aoi_count": 3,
+    "aoi_count": 54,
     "agenda_count": 14
   },
   {
@@ -326,7 +326,7 @@
     "pers_candidates": 8,
     "fin_bs": 34,
     "fin_is": 18,
-    "aoi_count": 4,
+    "aoi_count": 61,
     "agenda_count": 12
   },
   {
@@ -336,7 +336,7 @@
     "pers_candidates": 15,
     "fin_bs": 3,
     "fin_is": 21,
-    "aoi_count": 0,
+    "aoi_count": 80,
     "agenda_count": 15
   },
   {
@@ -344,9 +344,9 @@
     "comp_items": 1,
     "comp_limit": 6000000000,
     "pers_candidates": 2,
-    "fin_bs": 3,
+    "fin_bs": 31,
     "fin_is": 20,
-    "aoi_count": 1,
+    "aoi_count": 56,
     "agenda_count": 8
   },
   {
@@ -356,7 +356,7 @@
     "pers_candidates": 1,
     "fin_bs": 39,
     "fin_is": 15,
-    "aoi_count": 10,
+    "aoi_count": 66,
     "agenda_count": 12
   },
   {
@@ -366,7 +366,7 @@
     "pers_candidates": 1,
     "fin_bs": 44,
     "fin_is": 25,
-    "aoi_count": 7,
+    "aoi_count": 65,
     "agenda_count": 6
   },
   {
@@ -376,7 +376,7 @@
     "pers_candidates": 0,
     "fin_bs": 26,
     "fin_is": 29,
-    "aoi_count": 3,
+    "aoi_count": 49,
     "agenda_count": 6
   },
   {
@@ -386,7 +386,7 @@
     "pers_candidates": 1,
     "fin_bs": 33,
     "fin_is": 8,
-    "aoi_count": 16,
+    "aoi_count": 57,
     "agenda_count": 13
   },
   {
@@ -396,7 +396,7 @@
     "pers_candidates": 5,
     "fin_bs": 27,
     "fin_is": 0,
-    "aoi_count": 2,
+    "aoi_count": 56,
     "agenda_count": 15
   },
   {
@@ -404,9 +404,9 @@
     "comp_items": 1,
     "comp_limit": 10000000000,
     "pers_candidates": 3,
-    "fin_bs": 1,
-    "fin_is": 0,
-    "aoi_count": 14,
+    "fin_bs": 13,
+    "fin_is": 34,
+    "aoi_count": 312,
     "agenda_count": 2
   },
   {
@@ -416,7 +416,7 @@
     "pers_candidates": 0,
     "fin_bs": 29,
     "fin_is": 27,
-    "aoi_count": 2,
+    "aoi_count": 42,
     "agenda_count": 3
   },
   {
@@ -426,7 +426,7 @@
     "pers_candidates": 2,
     "fin_bs": 22,
     "fin_is": 18,
-    "aoi_count": 2,
+    "aoi_count": 94,
     "agenda_count": 10
   },
   {
@@ -436,7 +436,7 @@
     "pers_candidates": 13,
     "fin_bs": 42,
     "fin_is": 27,
-    "aoi_count": 2,
+    "aoi_count": 95,
     "agenda_count": 15
   },
   {
@@ -446,7 +446,7 @@
     "pers_candidates": 5,
     "fin_bs": 35,
     "fin_is": 26,
-    "aoi_count": 3,
+    "aoi_count": 60,
     "agenda_count": 10
   },
   {
@@ -456,7 +456,7 @@
     "pers_candidates": 1,
     "fin_bs": 10,
     "fin_is": 0,
-    "aoi_count": 3,
+    "aoi_count": 52,
     "agenda_count": 8
   },
   {
@@ -466,7 +466,7 @@
     "pers_candidates": 4,
     "fin_bs": 27,
     "fin_is": 0,
-    "aoi_count": 2,
+    "aoi_count": 38,
     "agenda_count": 5
   },
   {
@@ -474,9 +474,9 @@
     "comp_items": 1,
     "comp_limit": null,
     "pers_candidates": 3,
-    "fin_bs": 8,
-    "fin_is": 0,
-    "aoi_count": 3,
+    "fin_bs": 17,
+    "fin_is": 29,
+    "aoi_count": 87,
     "agenda_count": 12
   },
   {
@@ -486,7 +486,7 @@
     "pers_candidates": 1,
     "fin_bs": 37,
     "fin_is": 4,
-    "aoi_count": 0,
+    "aoi_count": 41,
     "agenda_count": 8
   },
   {
@@ -496,7 +496,7 @@
     "pers_candidates": 2,
     "fin_bs": 22,
     "fin_is": 32,
-    "aoi_count": 0,
+    "aoi_count": 46,
     "agenda_count": 2
   },
   {
@@ -506,7 +506,7 @@
     "pers_candidates": 17,
     "fin_bs": 1,
     "fin_is": 0,
-    "aoi_count": 4,
+    "aoi_count": 83,
     "agenda_count": 12
   },
   {
@@ -516,7 +516,7 @@
     "pers_candidates": 8,
     "fin_bs": 13,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 52,
     "agenda_count": 9
   },
   {
@@ -536,7 +536,7 @@
     "pers_candidates": 4,
     "fin_bs": 40,
     "fin_is": 27,
-    "aoi_count": 0,
+    "aoi_count": 62,
     "agenda_count": 5
   },
   {
@@ -546,7 +546,7 @@
     "pers_candidates": 22,
     "fin_bs": 27,
     "fin_is": 5,
-    "aoi_count": 5,
+    "aoi_count": 612,
     "agenda_count": 11
   },
   {
@@ -556,7 +556,7 @@
     "pers_candidates": 6,
     "fin_bs": 2,
     "fin_is": 31,
-    "aoi_count": 0,
+    "aoi_count": 66,
     "agenda_count": 14
   },
   {
@@ -566,7 +566,7 @@
     "pers_candidates": 4,
     "fin_bs": 20,
     "fin_is": 19,
-    "aoi_count": 1,
+    "aoi_count": 70,
     "agenda_count": 5
   },
   {
@@ -576,7 +576,7 @@
     "pers_candidates": 0,
     "fin_bs": 44,
     "fin_is": 3,
-    "aoi_count": 1,
+    "aoi_count": 13,
     "agenda_count": 4
   },
   {
@@ -586,7 +586,7 @@
     "pers_candidates": 5,
     "fin_bs": 15,
     "fin_is": 1,
-    "aoi_count": 15,
+    "aoi_count": 106,
     "agenda_count": 45
   },
   {
@@ -596,7 +596,7 @@
     "pers_candidates": 4,
     "fin_bs": 41,
     "fin_is": 18,
-    "aoi_count": 3,
+    "aoi_count": 66,
     "agenda_count": 5
   },
   {
@@ -606,7 +606,7 @@
     "pers_candidates": 3,
     "fin_bs": 31,
     "fin_is": 15,
-    "aoi_count": 1,
+    "aoi_count": 20,
     "agenda_count": 0
   },
   {
@@ -616,7 +616,7 @@
     "pers_candidates": 3,
     "fin_bs": 38,
     "fin_is": 15,
-    "aoi_count": 1,
+    "aoi_count": 62,
     "agenda_count": 15
   },
   {
@@ -626,7 +626,7 @@
     "pers_candidates": 0,
     "fin_bs": 31,
     "fin_is": 17,
-    "aoi_count": 0,
+    "aoi_count": 19,
     "agenda_count": 4
   },
   {
@@ -636,7 +636,7 @@
     "pers_candidates": 3,
     "fin_bs": 2,
     "fin_is": 36,
-    "aoi_count": 7,
+    "aoi_count": 84,
     "agenda_count": 16
   },
   {
@@ -644,9 +644,9 @@
     "comp_items": 1,
     "comp_limit": 4000000000,
     "pers_candidates": 8,
-    "fin_bs": 27,
-    "fin_is": 6,
-    "aoi_count": 4,
+    "fin_bs": 5,
+    "fin_is": 4,
+    "aoi_count": 96,
     "agenda_count": 8
   },
   {
@@ -656,7 +656,7 @@
     "pers_candidates": 2,
     "fin_bs": 5,
     "fin_is": 12,
-    "aoi_count": 5,
+    "aoi_count": 36,
     "agenda_count": 6
   },
   {
@@ -666,7 +666,7 @@
     "pers_candidates": 3,
     "fin_bs": 0,
     "fin_is": 0,
-    "aoi_count": 3,
+    "aoi_count": 39,
     "agenda_count": 10
   },
   {
@@ -676,7 +676,7 @@
     "pers_candidates": 24,
     "fin_bs": 27,
     "fin_is": 13,
-    "aoi_count": 63,
+    "aoi_count": 730,
     "agenda_count": 20
   },
   {
@@ -686,7 +686,7 @@
     "pers_candidates": 0,
     "fin_bs": 20,
     "fin_is": 18,
-    "aoi_count": 5,
+    "aoi_count": 45,
     "agenda_count": 5
   },
   {
@@ -696,7 +696,7 @@
     "pers_candidates": 1,
     "fin_bs": 14,
     "fin_is": 39,
-    "aoi_count": 2,
+    "aoi_count": 47,
     "agenda_count": 8
   },
   {
@@ -706,7 +706,7 @@
     "pers_candidates": 4,
     "fin_bs": 14,
     "fin_is": 4,
-    "aoi_count": 3,
+    "aoi_count": 91,
     "agenda_count": 15
   },
   {
@@ -716,7 +716,7 @@
     "pers_candidates": 2,
     "fin_bs": 0,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 32,
     "agenda_count": 9
   },
   {
@@ -726,7 +726,7 @@
     "pers_candidates": 3,
     "fin_bs": 20,
     "fin_is": 32,
-    "aoi_count": 1,
+    "aoi_count": 38,
     "agenda_count": 11
   },
   {
@@ -736,7 +736,7 @@
     "pers_candidates": 3,
     "fin_bs": 33,
     "fin_is": 2,
-    "aoi_count": 4,
+    "aoi_count": 70,
     "agenda_count": 14
   },
   {
@@ -746,7 +746,7 @@
     "pers_candidates": 0,
     "fin_bs": 16,
     "fin_is": 26,
-    "aoi_count": 1,
+    "aoi_count": 39,
     "agenda_count": 9
   },
   {
@@ -756,7 +756,7 @@
     "pers_candidates": 1,
     "fin_bs": 1,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 99,
     "agenda_count": 4
   },
   {
@@ -766,7 +766,7 @@
     "pers_candidates": 2,
     "fin_bs": 39,
     "fin_is": 30,
-    "aoi_count": 2,
+    "aoi_count": 3196,
     "agenda_count": 7
   },
   {
@@ -776,7 +776,7 @@
     "pers_candidates": 3,
     "fin_bs": 1,
     "fin_is": 41,
-    "aoi_count": 3,
+    "aoi_count": 42,
     "agenda_count": 10
   },
   {
@@ -786,7 +786,7 @@
     "pers_candidates": 0,
     "fin_bs": 48,
     "fin_is": 20,
-    "aoi_count": 3,
+    "aoi_count": 53,
     "agenda_count": 5
   },
   {
@@ -796,7 +796,7 @@
     "pers_candidates": 4,
     "fin_bs": 6,
     "fin_is": 31,
-    "aoi_count": 1,
+    "aoi_count": 39,
     "agenda_count": 6
   },
   {
@@ -804,9 +804,9 @@
     "comp_items": 1,
     "comp_limit": 8000000000,
     "pers_candidates": 2,
-    "fin_bs": 10,
-    "fin_is": 14,
-    "aoi_count": 4,
+    "fin_bs": 9,
+    "fin_is": 18,
+    "aoi_count": 45,
     "agenda_count": 10
   },
   {
@@ -816,7 +816,7 @@
     "pers_candidates": 1,
     "fin_bs": 22,
     "fin_is": 21,
-    "aoi_count": 3,
+    "aoi_count": 73,
     "agenda_count": 5
   },
   {
@@ -826,7 +826,7 @@
     "pers_candidates": 4,
     "fin_bs": 16,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 48,
     "agenda_count": 0
   },
   {
@@ -836,7 +836,7 @@
     "pers_candidates": 7,
     "fin_bs": 23,
     "fin_is": 8,
-    "aoi_count": 3,
+    "aoi_count": 91,
     "agenda_count": 13
   },
   {
@@ -844,9 +844,9 @@
     "comp_items": 1,
     "comp_limit": 6000000000,
     "pers_candidates": 3,
-    "fin_bs": 1,
-    "fin_is": 0,
-    "aoi_count": 0,
+    "fin_bs": 30,
+    "fin_is": 15,
+    "aoi_count": 47,
     "agenda_count": 6
   },
   {
@@ -856,7 +856,7 @@
     "pers_candidates": 7,
     "fin_bs": 16,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 51,
     "agenda_count": 12
   },
   {
@@ -866,7 +866,7 @@
     "pers_candidates": 2,
     "fin_bs": 4,
     "fin_is": 46,
-    "aoi_count": 9,
+    "aoi_count": 48,
     "agenda_count": 9
   },
   {
@@ -876,7 +876,7 @@
     "pers_candidates": 4,
     "fin_bs": 40,
     "fin_is": 35,
-    "aoi_count": 18,
+    "aoi_count": 79,
     "agenda_count": 21
   },
   {
@@ -886,7 +886,7 @@
     "pers_candidates": 4,
     "fin_bs": 17,
     "fin_is": 6,
-    "aoi_count": 0,
+    "aoi_count": 53,
     "agenda_count": 7
   },
   {
@@ -894,9 +894,9 @@
     "comp_items": 1,
     "comp_limit": 10000000000,
     "pers_candidates": 2,
-    "fin_bs": 1,
-    "fin_is": 0,
-    "aoi_count": 2,
+    "fin_bs": 29,
+    "fin_is": 42,
+    "aoi_count": 101,
     "agenda_count": 11
   },
   {
@@ -904,9 +904,9 @@
     "comp_items": 2,
     "comp_limit": null,
     "pers_candidates": 2,
-    "fin_bs": 2,
-    "fin_is": 0,
-    "aoi_count": 3,
+    "fin_bs": 34,
+    "fin_is": 30,
+    "aoi_count": 62,
     "agenda_count": 8
   },
   {
@@ -916,7 +916,7 @@
     "pers_candidates": 2,
     "fin_bs": 5,
     "fin_is": 0,
-    "aoi_count": 0,
+    "aoi_count": 36,
     "agenda_count": 4
   },
   {
@@ -926,7 +926,7 @@
     "pers_candidates": 6,
     "fin_bs": 23,
     "fin_is": 0,
-    "aoi_count": 0,
+    "aoi_count": 54,
     "agenda_count": 7
   },
   {
@@ -936,7 +936,7 @@
     "pers_candidates": 2,
     "fin_bs": 2,
     "fin_is": 41,
-    "aoi_count": 2,
+    "aoi_count": 1282,
     "agenda_count": 6
   },
   {
@@ -946,7 +946,7 @@
     "pers_candidates": 4,
     "fin_bs": 47,
     "fin_is": 19,
-    "aoi_count": 4,
+    "aoi_count": 353,
     "agenda_count": 7
   },
   {
@@ -956,7 +956,7 @@
     "pers_candidates": 4,
     "fin_bs": 20,
     "fin_is": 31,
-    "aoi_count": 7,
+    "aoi_count": 69,
     "agenda_count": 6
   },
   {
@@ -966,7 +966,7 @@
     "pers_candidates": 13,
     "fin_bs": 42,
     "fin_is": 33,
-    "aoi_count": 8,
+    "aoi_count": 797,
     "agenda_count": 14
   },
   {
@@ -976,7 +976,7 @@
     "pers_candidates": 4,
     "fin_bs": 13,
     "fin_is": 40,
-    "aoi_count": 16,
+    "aoi_count": 79,
     "agenda_count": 5
   },
   {
@@ -986,7 +986,7 @@
     "pers_candidates": 1,
     "fin_bs": 29,
     "fin_is": 7,
-    "aoi_count": 2,
+    "aoi_count": 46,
     "agenda_count": 6
   },
   {
@@ -996,7 +996,7 @@
     "pers_candidates": 3,
     "fin_bs": 34,
     "fin_is": 21,
-    "aoi_count": 0,
+    "aoi_count": 302,
     "agenda_count": 5
   },
   {
@@ -1006,7 +1006,7 @@
     "pers_candidates": 8,
     "fin_bs": 32,
     "fin_is": 6,
-    "aoi_count": 2,
+    "aoi_count": 78,
     "agenda_count": 7
   },
   {
@@ -1016,7 +1016,7 @@
     "pers_candidates": 1,
     "fin_bs": 30,
     "fin_is": 18,
-    "aoi_count": 2,
+    "aoi_count": 757,
     "agenda_count": 10
   },
   {
@@ -1026,7 +1026,7 @@
     "pers_candidates": 3,
     "fin_bs": 6,
     "fin_is": 8,
-    "aoi_count": 1,
+    "aoi_count": 43,
     "agenda_count": 5
   },
   {
@@ -1034,9 +1034,9 @@
     "comp_items": 1,
     "comp_limit": 11500000000,
     "pers_candidates": 2,
-    "fin_bs": 1,
-    "fin_is": 0,
-    "aoi_count": 1,
+    "fin_bs": 25,
+    "fin_is": 21,
+    "aoi_count": 60,
     "agenda_count": 9
   },
   {
@@ -1044,9 +1044,9 @@
     "comp_items": 1,
     "comp_limit": 11000000000,
     "pers_candidates": 2,
-    "fin_bs": 2,
-    "fin_is": 0,
-    "aoi_count": 1,
+    "fin_bs": 22,
+    "fin_is": 38,
+    "aoi_count": 32,
     "agenda_count": 7
   },
   {
@@ -1056,7 +1056,7 @@
     "pers_candidates": 3,
     "fin_bs": 9,
     "fin_is": 0,
-    "aoi_count": 2,
+    "aoi_count": 973,
     "agenda_count": 10
   },
   {
@@ -1066,7 +1066,7 @@
     "pers_candidates": 2,
     "fin_bs": 44,
     "fin_is": 25,
-    "aoi_count": 0,
+    "aoi_count": 33,
     "agenda_count": 5
   },
   {
@@ -1076,7 +1076,7 @@
     "pers_candidates": 6,
     "fin_bs": 18,
     "fin_is": 9,
-    "aoi_count": 6,
+    "aoi_count": 73,
     "agenda_count": 24
   },
   {
@@ -1086,7 +1086,7 @@
     "pers_candidates": 5,
     "fin_bs": 4,
     "fin_is": 41,
-    "aoi_count": 3,
+    "aoi_count": 79,
     "agenda_count": 11
   },
   {
@@ -1096,7 +1096,7 @@
     "pers_candidates": 1,
     "fin_bs": 2,
     "fin_is": 41,
-    "aoi_count": 1,
+    "aoi_count": 24,
     "agenda_count": 6
   },
   {
@@ -1106,7 +1106,7 @@
     "pers_candidates": 51,
     "fin_bs": 7,
     "fin_is": 19,
-    "aoi_count": 4,
+    "aoi_count": 135,
     "agenda_count": 21
   },
   {
@@ -1116,7 +1116,7 @@
     "pers_candidates": 3,
     "fin_bs": 41,
     "fin_is": 19,
-    "aoi_count": 3,
+    "aoi_count": 46,
     "agenda_count": 4
   },
   {
@@ -1126,7 +1126,7 @@
     "pers_candidates": 6,
     "fin_bs": 8,
     "fin_is": 0,
-    "aoi_count": 0,
+    "aoi_count": 60,
     "agenda_count": 17
   },
   {
@@ -1136,7 +1136,7 @@
     "pers_candidates": 3,
     "fin_bs": 30,
     "fin_is": 8,
-    "aoi_count": 7,
+    "aoi_count": 44,
     "agenda_count": 5
   },
   {
@@ -1146,7 +1146,7 @@
     "pers_candidates": 4,
     "fin_bs": 29,
     "fin_is": 32,
-    "aoi_count": 0,
+    "aoi_count": 45,
     "agenda_count": 13
   },
   {
@@ -1156,7 +1156,7 @@
     "pers_candidates": 4,
     "fin_bs": 48,
     "fin_is": 31,
-    "aoi_count": 1,
+    "aoi_count": 55,
     "agenda_count": 16
   },
   {
@@ -1176,7 +1176,7 @@
     "pers_candidates": 4,
     "fin_bs": 7,
     "fin_is": 14,
-    "aoi_count": 7,
+    "aoi_count": 2628,
     "agenda_count": 9
   },
   {
@@ -1186,7 +1186,7 @@
     "pers_candidates": 4,
     "fin_bs": 30,
     "fin_is": 19,
-    "aoi_count": 10,
+    "aoi_count": 64,
     "agenda_count": 17
   },
   {
@@ -1196,7 +1196,7 @@
     "pers_candidates": 3,
     "fin_bs": 15,
     "fin_is": 17,
-    "aoi_count": 3,
+    "aoi_count": 40,
     "agenda_count": 9
   },
   {
@@ -1206,7 +1206,7 @@
     "pers_candidates": 15,
     "fin_bs": 5,
     "fin_is": 0,
-    "aoi_count": 0,
+    "aoi_count": 56,
     "agenda_count": 16
   },
   {
@@ -1214,9 +1214,9 @@
     "comp_items": 0,
     "comp_limit": null,
     "pers_candidates": 3,
-    "fin_bs": 3,
-    "fin_is": 3,
-    "aoi_count": 3,
+    "fin_bs": 6,
+    "fin_is": 20,
+    "aoi_count": 61,
     "agenda_count": 16
   },
   {
@@ -1226,7 +1226,7 @@
     "pers_candidates": 2,
     "fin_bs": 29,
     "fin_is": 16,
-    "aoi_count": 10,
+    "aoi_count": 273,
     "agenda_count": 13
   },
   {
@@ -1236,7 +1236,7 @@
     "pers_candidates": 3,
     "fin_bs": 19,
     "fin_is": 9,
-    "aoi_count": 2,
+    "aoi_count": 50,
     "agenda_count": 12
   },
   {
@@ -1246,7 +1246,7 @@
     "pers_candidates": 6,
     "fin_bs": 32,
     "fin_is": 17,
-    "aoi_count": 2,
+    "aoi_count": 74,
     "agenda_count": 10
   },
   {
@@ -1256,7 +1256,7 @@
     "pers_candidates": 4,
     "fin_bs": 18,
     "fin_is": 18,
-    "aoi_count": 0,
+    "aoi_count": 54,
     "agenda_count": 14
   },
   {
@@ -1266,7 +1266,7 @@
     "pers_candidates": 2,
     "fin_bs": 27,
     "fin_is": 13,
-    "aoi_count": 14,
+    "aoi_count": 66,
     "agenda_count": 21
   },
   {
@@ -1276,7 +1276,7 @@
     "pers_candidates": 2,
     "fin_bs": 44,
     "fin_is": 28,
-    "aoi_count": 4,
+    "aoi_count": 361,
     "agenda_count": 5
   },
   {
@@ -1286,7 +1286,7 @@
     "pers_candidates": 10,
     "fin_bs": 15,
     "fin_is": 31,
-    "aoi_count": 0,
+    "aoi_count": 377,
     "agenda_count": 8
   },
   {
@@ -1296,7 +1296,7 @@
     "pers_candidates": 2,
     "fin_bs": 33,
     "fin_is": 30,
-    "aoi_count": 2,
+    "aoi_count": 58,
     "agenda_count": 10
   },
   {
@@ -1306,7 +1306,7 @@
     "pers_candidates": 1,
     "fin_bs": 41,
     "fin_is": 36,
-    "aoi_count": 0,
+    "aoi_count": 32,
     "agenda_count": 5
   },
   {
@@ -1316,7 +1316,7 @@
     "pers_candidates": 3,
     "fin_bs": 43,
     "fin_is": 30,
-    "aoi_count": 1,
+    "aoi_count": 36,
     "agenda_count": 5
   },
   {
@@ -1326,7 +1326,7 @@
     "pers_candidates": 5,
     "fin_bs": 16,
     "fin_is": 33,
-    "aoi_count": 13,
+    "aoi_count": 53,
     "agenda_count": 7
   },
   {
@@ -1336,7 +1336,7 @@
     "pers_candidates": 1,
     "fin_bs": 31,
     "fin_is": 21,
-    "aoi_count": 4,
+    "aoi_count": 51,
     "agenda_count": 0
   },
   {
@@ -1346,7 +1346,7 @@
     "pers_candidates": 1,
     "fin_bs": 12,
     "fin_is": 16,
-    "aoi_count": 3,
+    "aoi_count": 45,
     "agenda_count": 14
   },
   {
@@ -1356,7 +1356,7 @@
     "pers_candidates": 10,
     "fin_bs": 5,
     "fin_is": 0,
-    "aoi_count": 0,
+    "aoi_count": 23,
     "agenda_count": 11
   },
   {
@@ -1366,7 +1366,7 @@
     "pers_candidates": 1,
     "fin_bs": 8,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 31,
     "agenda_count": 5
   },
   {
@@ -1376,7 +1376,7 @@
     "pers_candidates": 2,
     "fin_bs": 21,
     "fin_is": 18,
-    "aoi_count": 0,
+    "aoi_count": 40,
     "agenda_count": 10
   },
   {
@@ -1396,7 +1396,7 @@
     "pers_candidates": 2,
     "fin_bs": 11,
     "fin_is": 0,
-    "aoi_count": 18,
+    "aoi_count": 97,
     "agenda_count": 20
   },
   {
@@ -1406,7 +1406,7 @@
     "pers_candidates": 2,
     "fin_bs": 28,
     "fin_is": 3,
-    "aoi_count": 2,
+    "aoi_count": 57,
     "agenda_count": 15
   },
   {
@@ -1416,7 +1416,7 @@
     "pers_candidates": 4,
     "fin_bs": 28,
     "fin_is": 32,
-    "aoi_count": 2,
+    "aoi_count": 87,
     "agenda_count": 8
   },
   {
@@ -1426,7 +1426,7 @@
     "pers_candidates": 1,
     "fin_bs": 12,
     "fin_is": 30,
-    "aoi_count": 3,
+    "aoi_count": 35,
     "agenda_count": 8
   },
   {
@@ -1436,7 +1436,7 @@
     "pers_candidates": 3,
     "fin_bs": 37,
     "fin_is": 19,
-    "aoi_count": 0,
+    "aoi_count": 58,
     "agenda_count": 0
   },
   {
@@ -1446,7 +1446,7 @@
     "pers_candidates": 2,
     "fin_bs": 20,
     "fin_is": 1,
-    "aoi_count": 3,
+    "aoi_count": 50,
     "agenda_count": 0
   },
   {
@@ -1456,7 +1456,7 @@
     "pers_candidates": 6,
     "fin_bs": 25,
     "fin_is": 2,
-    "aoi_count": 10,
+    "aoi_count": 78,
     "agenda_count": 35
   },
   {
@@ -1466,7 +1466,7 @@
     "pers_candidates": 3,
     "fin_bs": 21,
     "fin_is": 28,
-    "aoi_count": 32,
+    "aoi_count": 4133,
     "agenda_count": 9
   },
   {
@@ -1476,7 +1476,7 @@
     "pers_candidates": 48,
     "fin_bs": 9,
     "fin_is": 32,
-    "aoi_count": 4,
+    "aoi_count": 130,
     "agenda_count": 28
   },
   {
@@ -1486,7 +1486,7 @@
     "pers_candidates": 4,
     "fin_bs": 31,
     "fin_is": 4,
-    "aoi_count": 3,
+    "aoi_count": 46,
     "agenda_count": 20
   },
   {
@@ -1496,7 +1496,7 @@
     "pers_candidates": 2,
     "fin_bs": 20,
     "fin_is": 8,
-    "aoi_count": 7,
+    "aoi_count": 425,
     "agenda_count": 9
   },
   {
@@ -1506,7 +1506,7 @@
     "pers_candidates": 0,
     "fin_bs": 29,
     "fin_is": 24,
-    "aoi_count": 6,
+    "aoi_count": 42,
     "agenda_count": 10
   },
   {
@@ -1516,7 +1516,7 @@
     "pers_candidates": 9,
     "fin_bs": 18,
     "fin_is": 4,
-    "aoi_count": 1,
+    "aoi_count": 79,
     "agenda_count": 9
   },
   {
@@ -1526,7 +1526,7 @@
     "pers_candidates": 24,
     "fin_bs": 8,
     "fin_is": 38,
-    "aoi_count": 5,
+    "aoi_count": 87,
     "agenda_count": 16
   },
   {
@@ -1536,7 +1536,7 @@
     "pers_candidates": 19,
     "fin_bs": 23,
     "fin_is": 35,
-    "aoi_count": 8,
+    "aoi_count": 85,
     "agenda_count": 11
   },
   {
@@ -1546,7 +1546,7 @@
     "pers_candidates": 2,
     "fin_bs": 20,
     "fin_is": 22,
-    "aoi_count": 3,
+    "aoi_count": 68,
     "agenda_count": 12
   },
   {
@@ -1556,7 +1556,7 @@
     "pers_candidates": 8,
     "fin_bs": 35,
     "fin_is": 29,
-    "aoi_count": 2,
+    "aoi_count": 75,
     "agenda_count": 12
   },
   {
@@ -1566,7 +1566,7 @@
     "pers_candidates": 7,
     "fin_bs": 31,
     "fin_is": 30,
-    "aoi_count": 1,
+    "aoi_count": 38,
     "agenda_count": 3
   },
   {
@@ -1576,7 +1576,7 @@
     "pers_candidates": 4,
     "fin_bs": 13,
     "fin_is": 11,
-    "aoi_count": 1,
+    "aoi_count": 49,
     "agenda_count": 7
   },
   {
@@ -1586,7 +1586,7 @@
     "pers_candidates": 12,
     "fin_bs": 30,
     "fin_is": 31,
-    "aoi_count": 2,
+    "aoi_count": 127,
     "agenda_count": 9
   },
   {
@@ -1596,7 +1596,7 @@
     "pers_candidates": 3,
     "fin_bs": 21,
     "fin_is": 2,
-    "aoi_count": 6,
+    "aoi_count": 58,
     "agenda_count": 17
   },
   {
@@ -1606,7 +1606,7 @@
     "pers_candidates": 0,
     "fin_bs": 22,
     "fin_is": 38,
-    "aoi_count": 3,
+    "aoi_count": 12,
     "agenda_count": 3
   },
   {
@@ -1616,7 +1616,7 @@
     "pers_candidates": 1,
     "fin_bs": 25,
     "fin_is": 0,
-    "aoi_count": 0,
+    "aoi_count": 38,
     "agenda_count": 13
   },
   {
@@ -1626,7 +1626,7 @@
     "pers_candidates": 0,
     "fin_bs": 10,
     "fin_is": 0,
-    "aoi_count": 0,
+    "aoi_count": 54,
     "agenda_count": 8
   },
   {
@@ -1636,7 +1636,7 @@
     "pers_candidates": 26,
     "fin_bs": 30,
     "fin_is": 10,
-    "aoi_count": 7,
+    "aoi_count": 48,
     "agenda_count": 13
   },
   {
@@ -1646,7 +1646,7 @@
     "pers_candidates": 3,
     "fin_bs": 32,
     "fin_is": 29,
-    "aoi_count": 3,
+    "aoi_count": 2559,
     "agenda_count": 9
   },
   {
@@ -1656,7 +1656,7 @@
     "pers_candidates": 0,
     "fin_bs": 34,
     "fin_is": 26,
-    "aoi_count": 0,
+    "aoi_count": 28,
     "agenda_count": 0
   },
   {
@@ -1666,7 +1666,7 @@
     "pers_candidates": 0,
     "fin_bs": 36,
     "fin_is": 21,
-    "aoi_count": 1,
+    "aoi_count": 30,
     "agenda_count": 5
   },
   {
@@ -1676,7 +1676,7 @@
     "pers_candidates": 3,
     "fin_bs": 39,
     "fin_is": 38,
-    "aoi_count": 0,
+    "aoi_count": 63,
     "agenda_count": 7
   },
   {
@@ -1686,7 +1686,7 @@
     "pers_candidates": 5,
     "fin_bs": 5,
     "fin_is": 33,
-    "aoi_count": 0,
+    "aoi_count": 55,
     "agenda_count": 12
   },
   {
@@ -1696,7 +1696,7 @@
     "pers_candidates": 2,
     "fin_bs": 24,
     "fin_is": 39,
-    "aoi_count": 10,
+    "aoi_count": 317,
     "agenda_count": 0
   },
   {
@@ -1706,7 +1706,7 @@
     "pers_candidates": 5,
     "fin_bs": 13,
     "fin_is": 27,
-    "aoi_count": 4,
+    "aoi_count": 37,
     "agenda_count": 7
   },
   {
@@ -1716,7 +1716,7 @@
     "pers_candidates": 3,
     "fin_bs": 4,
     "fin_is": 43,
-    "aoi_count": 0,
+    "aoi_count": 51,
     "agenda_count": 9
   },
   {
@@ -1724,9 +1724,9 @@
     "comp_items": 1,
     "comp_limit": 8000000000,
     "pers_candidates": 2,
-    "fin_bs": 9,
+    "fin_bs": 27,
     "fin_is": 17,
-    "aoi_count": 2,
+    "aoi_count": 67,
     "agenda_count": 7
   },
   {
@@ -1746,7 +1746,7 @@
     "pers_candidates": 0,
     "fin_bs": 42,
     "fin_is": 10,
-    "aoi_count": 20,
+    "aoi_count": 735,
     "agenda_count": 4
   },
   {
@@ -1756,7 +1756,7 @@
     "pers_candidates": 9,
     "fin_bs": 13,
     "fin_is": 21,
-    "aoi_count": 2,
+    "aoi_count": 80,
     "agenda_count": 13
   },
   {
@@ -1764,9 +1764,9 @@
     "comp_items": 1,
     "comp_limit": 14000000000,
     "pers_candidates": 1,
-    "fin_bs": 12,
+    "fin_bs": 10,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 59,
     "agenda_count": 7
   },
   {
@@ -1774,9 +1774,9 @@
     "comp_items": 1,
     "comp_limit": 6000000000,
     "pers_candidates": 6,
-    "fin_bs": 1,
+    "fin_bs": 2,
     "fin_is": 0,
-    "aoi_count": 3,
+    "aoi_count": 81,
     "agenda_count": 6
   },
   {
@@ -1786,7 +1786,7 @@
     "pers_candidates": 14,
     "fin_bs": 9,
     "fin_is": 39,
-    "aoi_count": 5,
+    "aoi_count": 111,
     "agenda_count": 17
   },
   {
@@ -1796,7 +1796,7 @@
     "pers_candidates": 2,
     "fin_bs": 24,
     "fin_is": 23,
-    "aoi_count": 1,
+    "aoi_count": 48,
     "agenda_count": 0
   },
   {
@@ -1806,7 +1806,7 @@
     "pers_candidates": 5,
     "fin_bs": 2,
     "fin_is": 0,
-    "aoi_count": 1,
+    "aoi_count": 81,
     "agenda_count": 0
   },
   {
@@ -1816,7 +1816,7 @@
     "pers_candidates": 12,
     "fin_bs": 4,
     "fin_is": 17,
-    "aoi_count": 6,
+    "aoi_count": 353,
     "agenda_count": 0
   },
   {
@@ -1826,7 +1826,7 @@
     "pers_candidates": 11,
     "fin_bs": 1,
     "fin_is": 19,
-    "aoi_count": 0,
+    "aoi_count": 86,
     "agenda_count": 9
   },
   {
@@ -1836,7 +1836,7 @@
     "pers_candidates": 11,
     "fin_bs": 3,
     "fin_is": 45,
-    "aoi_count": 6,
+    "aoi_count": 74,
     "agenda_count": 6
   },
   {
@@ -1846,7 +1846,7 @@
     "pers_candidates": 5,
     "fin_bs": 27,
     "fin_is": 8,
-    "aoi_count": 11,
+    "aoi_count": 73,
     "agenda_count": 12
   },
   {
@@ -1856,7 +1856,7 @@
     "pers_candidates": 9,
     "fin_bs": 7,
     "fin_is": 37,
-    "aoi_count": 0,
+    "aoi_count": 61,
     "agenda_count": 5
   },
   {
@@ -1866,7 +1866,7 @@
     "pers_candidates": 30,
     "fin_bs": 24,
     "fin_is": 18,
-    "aoi_count": 8,
+    "aoi_count": 101,
     "agenda_count": 19
   },
   {
@@ -1876,7 +1876,7 @@
     "pers_candidates": 24,
     "fin_bs": 14,
     "fin_is": 18,
-    "aoi_count": 3,
+    "aoi_count": 71,
     "agenda_count": 10
   },
   {
@@ -1886,7 +1886,7 @@
     "pers_candidates": 3,
     "fin_bs": 5,
     "fin_is": 0,
-    "aoi_count": 3,
+    "aoi_count": 55,
     "agenda_count": 11
   },
   {
@@ -1896,7 +1896,7 @@
     "pers_candidates": 8,
     "fin_bs": 38,
     "fin_is": 16,
-    "aoi_count": 2,
+    "aoi_count": 53,
     "agenda_count": 11
   },
   {
@@ -1906,7 +1906,7 @@
     "pers_candidates": 2,
     "fin_bs": 30,
     "fin_is": 5,
-    "aoi_count": 4,
+    "aoi_count": 378,
     "agenda_count": 12
   },
   {
@@ -1916,7 +1916,7 @@
     "pers_candidates": 4,
     "fin_bs": 46,
     "fin_is": 31,
-    "aoi_count": 5,
+    "aoi_count": 64,
     "agenda_count": 5
   },
   {
@@ -1926,7 +1926,7 @@
     "pers_candidates": 11,
     "fin_bs": 19,
     "fin_is": 28,
-    "aoi_count": 12,
+    "aoi_count": 105,
     "agenda_count": 19
   },
   {
@@ -1936,7 +1936,7 @@
     "pers_candidates": 2,
     "fin_bs": 7,
     "fin_is": 35,
-    "aoi_count": 0,
+    "aoi_count": 57,
     "agenda_count": 6
   },
   {
@@ -1956,7 +1956,7 @@
     "pers_candidates": 13,
     "fin_bs": 1,
     "fin_is": 18,
-    "aoi_count": 3,
+    "aoi_count": 68,
     "agenda_count": 11
   },
   {
@@ -1966,7 +1966,7 @@
     "pers_candidates": 16,
     "fin_bs": 17,
     "fin_is": 18,
-    "aoi_count": 2,
+    "aoi_count": 89,
     "agenda_count": 10
   },
   {
@@ -1974,9 +1974,9 @@
     "comp_items": 2,
     "comp_limit": 400000000,
     "pers_candidates": 1,
-    "fin_bs": 2,
-    "fin_is": 0,
-    "aoi_count": 0,
+    "fin_bs": 39,
+    "fin_is": 29,
+    "aoi_count": 20,
     "agenda_count": 5
   }
 ]
