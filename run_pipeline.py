@@ -1,9 +1,17 @@
-"""Pipeline JSON 재생성 — 파서 결과로 keyData 업데이트 (기존 구조 유지)"""
+"""Pipeline JSON 생성 — XML → PDF → OCR 자동 fallback으로 최선 데이터 구축
+
+paid-open-proxy용 배치 파이프라인:
+  1. DART API에서 XML 파싱 (기본)
+  2. 품질 부족 시 PDF 다운로드 + opendataloader 파싱
+  3. 여전히 부족 시 Upstage OCR
+  4. 최선 결과를 pipeline JSON으로 저장
+"""
 
 import asyncio
 import json
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -16,8 +24,88 @@ from open_proxy_mcp.tools.parser import (
     parse_personnel_xml,
     parse_aoi_xml,
 )
+from open_proxy_mcp.tools.pdf_parser import (
+    parse_financials_pdf,
+    parse_personnel_pdf,
+    parse_aoi_pdf,
+    parse_compensation_pdf,
+    parse_agenda_pdf,
+    ocr_fallback_for_parser,
+)
 
 PIPELINE_DIR = "OpenProxy/frontend/src/data/pipeline"
+
+PDF_CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "pdf")
+PDF_MD_CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "pdf_parsed")
+
+
+def _needs_pdf_fallback(agenda, fin, pers, aoi) -> bool:
+    """XML 결과가 PDF 보강이 필요한지 판정"""
+    # HARD: 결과 없음
+    if not fin.get("consolidated", {}).get("balance_sheet") and not fin.get("separate", {}).get("balance_sheet"):
+        return True
+    if not pers.get("appointments"):
+        return True
+    if not aoi.get("amendments"):
+        return True
+    # SOFT: 경력 병합
+    for apt in pers.get("appointments", []):
+        for c in apt.get("candidates", []):
+            for cd in c.get("careerDetails", []):
+                if len(cd.get("content", "")) > 100:
+                    return True
+    return False
+
+
+def _needs_ocr_fallback(agenda, fin, pers, aoi) -> bool:
+    """PDF 결과도 부족한지 판정"""
+    if not fin.get("consolidated", {}).get("balance_sheet") and not fin.get("separate", {}).get("balance_sheet"):
+        return True
+    if not pers.get("appointments"):
+        return True
+    if not aoi.get("amendments"):
+        return True
+    return False
+
+
+def _get_or_parse_pdf_markdown(rcept_no: str, pdf_bytes: bytes) -> str:
+    """PDF 마크다운 캐시 확인 or opendataloader로 새로 파싱"""
+    os.makedirs(PDF_MD_CACHE_DIR, exist_ok=True)
+    md_path = os.path.join(PDF_MD_CACHE_DIR, f"{rcept_no}.md")
+
+    if os.path.exists(md_path):
+        with open(md_path, "r") as f:
+            return f.read()
+
+    from opendataloader_pdf import convert
+    import glob
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(pdf_bytes)
+        tmp_path = tmp.name
+
+    try:
+        convert(
+            input_path=[tmp_path],
+            output_dir=PDF_MD_CACHE_DIR,
+            format="markdown",
+            quiet=True,
+            keep_line_breaks=True,
+            table_method="cluster",
+        )
+        # opendataloader 출력 파일명 → rcept_no.md로 rename
+        generated = glob.glob(os.path.join(PDF_MD_CACHE_DIR, "tmp*.md"))
+        for g in generated:
+            os.rename(g, md_path)
+            break
+    finally:
+        os.unlink(tmp_path)
+
+    if os.path.exists(md_path):
+        with open(md_path, "r") as f:
+            return f.read()
+    return ""
+
 
 KOSPI200_RAW = """005930    삼성전자
 000660    SK하이닉스
@@ -505,7 +593,7 @@ async def process_company(client: DartClient, name: str, ticker: str, json_file:
     html = doc["html"]
     text = doc["text"]
 
-    # 파서 실행
+    # ── 1단계: XML 파서 ──
     parsed_items = parse_agenda_xml(text, html)
     meeting_info = parse_meeting_info_xml(text, html)
     fin = parse_financials_xml(html)
@@ -515,6 +603,78 @@ async def process_company(client: DartClient, name: str, ticker: str, json_file:
         for item in parsed_items
         for child in [item] + item.get("children", [])
     ] if parsed_items else None)
+
+    # ── 2단계: PDF fallback (XML 품질 부족 시) ──
+    needs_pdf = _needs_pdf_fallback(parsed_items, fin, pers, aoi)
+    pdf_md = None
+    pdf_bytes = None
+
+    if needs_pdf:
+        try:
+            pdf_bytes = await client.get_document_pdf(rcept_no)
+            pdf_md = _get_or_parse_pdf_markdown(rcept_no, pdf_bytes)
+        except Exception as e:
+            print(f"    PDF 다운로드 실패: {e}", flush=True)
+
+    if pdf_md:
+        # 파서별 PDF 보강
+        if not fin.get("consolidated", {}).get("balance_sheet") and not fin.get("separate", {}).get("balance_sheet"):
+            pdf_fin = parse_financials_pdf(pdf_md)
+            if pdf_fin.get("consolidated", {}).get("balance_sheet") or pdf_fin.get("separate", {}).get("balance_sheet"):
+                fin = pdf_fin
+                print(f"    ↑ fin: PDF fallback 성공", flush=True)
+
+        if not pers.get("appointments"):
+            pdf_pers = parse_personnel_pdf(pdf_md)
+            if pdf_pers.get("appointments"):
+                pers = pdf_pers
+                print(f"    ↑ pers: PDF fallback 성공", flush=True)
+        else:
+            # SOFT_FAIL: 경력 병합 체크
+            has_merged = any(
+                len(cd.get("content", "")) > 100
+                for apt in pers.get("appointments", [])
+                for c in apt.get("candidates", [])
+                for cd in c.get("careerDetails", [])
+            )
+            if has_merged:
+                pdf_pers = parse_personnel_pdf(pdf_md)
+                if pdf_pers.get("appointments"):
+                    pers = pdf_pers
+                    print(f"    ↑ pers: PDF 경력 분리 보강", flush=True)
+
+        if not aoi.get("amendments"):
+            pdf_aoi = parse_aoi_pdf(pdf_md)
+            if pdf_aoi.get("amendments"):
+                aoi = pdf_aoi
+                print(f"    ↑ aoi: PDF fallback 성공", flush=True)
+
+    # ── 3단계: OCR fallback (PDF도 부족 시) ──
+    if pdf_bytes and pdf_md:
+        needs_ocr = _needs_ocr_fallback(parsed_items, fin, pers, aoi)
+        if needs_ocr:
+            for parser_type, parser_fn, result_ref, check_key in [
+                ("fin", parse_financials_pdf, "fin", "consolidated"),
+                ("pers", parse_personnel_pdf, "pers", "appointments"),
+                ("aoi", parse_aoi_pdf, "aoi", "amendments"),
+            ]:
+                current = locals()[result_ref]
+                if parser_type == "fin" and (current.get("consolidated", {}).get("balance_sheet") or current.get("separate", {}).get("balance_sheet")):
+                    continue
+                if parser_type != "fin" and current.get(check_key):
+                    continue
+
+                ocr_result = ocr_fallback_for_parser(
+                    pdf_bytes, pdf_md, parser_type, parser_fn, f"{name}.pdf"
+                )
+                if ocr_result:
+                    if parser_type == "fin":
+                        fin = ocr_result
+                    elif parser_type == "pers":
+                        pers = ocr_result
+                    elif parser_type == "aoi":
+                        aoi = ocr_result
+                    print(f"    ↑ {parser_type}: OCR fallback 성공", flush=True)
 
     if is_new:
         data = _build_new_json(name, ticker, rcept_no, parsed_items, meeting_info, fin, pers, aoi)
