@@ -937,12 +937,8 @@ def parse_agenda_pdf(md_text: str) -> list[dict]:
     agenda_start = -1
     for i, line in enumerate(lines):
         line_strip = line.strip()
-        # "4. 회의목적사항" 또는 "3. 회의 목적사항" (본문 시작)
-        if re.match(r'^-?\s*[34]\.\s*회의\s*목적\s*사항', line_strip):
-            agenda_start = i
-            break
-        # "회의의 목적사항" (일부 기업)
-        if re.match(r'^-?\s*[34]\.\s*회의의?\s*목적', line_strip):
+        # "4. 회의목적사항", "3. 회의 목적사항", "4. 회의의 목적사항"
+        if re.match(r'^-?\s*[34]\.\s*회의의?\s*목적\s*사항', line_strip):
             agenda_start = i
             break
 
@@ -962,9 +958,15 @@ def parse_agenda_pdf(md_text: str) -> list[dict]:
 
     # 안건 번호 패턴
     agenda_pattern = re.compile(
-        r'(?:□|○|◆|▶|\-\s*○?\s*)?'     # 앞 장식
+        r'(?:□|○|●|◆|▶|■|\-\s*[○●]?\s*)?'  # 앞 장식
+        r'(?:\d+\)\s*)?'                  # 번호 (1), 2)
+        r'(?:\(\d+\)\s*)?'               # 괄호 번호 (1), (2)
+        r'(?:[①②③④⑤⑥⑦⑧⑨⑩]\s*)?'     # 원문자 번호
+        r'(?:[가나다라마바사아자차카타파하]\.\s*)?'  # 한글 번호 가. 나.
+        r'(?:·\s*)?'                      # · prefix (세부의안)
+        r'(?:\(?\s*)?'                    # 여는 괄호 (제1호 의안)
         r'제\s*(\d+(?:-\d+)*)\s*호'      # 안건 번호
-        r'\s*(?:의안)?[)）:\s]*'          # 구분자
+        r'\s*(?:의안)?[)）:\s]*'          # 구분자 + 닫는 괄호
         r'(.+)'                           # 제목
     )
 
