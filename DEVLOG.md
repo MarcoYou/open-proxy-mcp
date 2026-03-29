@@ -25,7 +25,7 @@
 
 **paid-open-proxy (API + Frontend)**:
 - XML → PDF → OCR → LLM(provider API 토큰) 자동 체이닝
-- 배치 파이프라인(regen_pipeline.py)으로 미리 최선 데이터 생성
+- 배치 파이프라인(run_pipeline.py)으로 미리 최선 데이터 생성
 - DB 저장, 프론트엔드에서 조회만
 
 **공유 레이어**: parser.py, pdf_parser.py, dart/client.py, CASE_DEFINITION.md
@@ -95,7 +95,7 @@
 ### 프론트엔드
 - DART 원문 보기 버튼 추가 (개요탭 테이블 우측 하단, rceptNo 직링크)
 - pipeline JSON 198개에 rceptNo 패치
-- regen_pipeline.py에 rceptNo 저장 로직 추가
+- run_pipeline.py에 rceptNo 저장 로직 추가
 
 ### PDF 전체 다운로드 + 파싱
 - KOSPI 200 전체 198개 PDF 다운로드 (랜덤 간격 2-5초, 배치 15-30초)
@@ -248,7 +248,7 @@
 
 ### KOSPI 200 전체 FE 반영
 
-- `regen_pipeline.py` 확장: 새 기업 골격 생성(`_build_new_json`) + 기존 업데이트 통합
+- `run_pipeline.py` 확장: 새 기업 골격 생성(`_build_new_json`) + 기존 업데이트 통합
 - 199개 pipeline JSON 생성 (기존 10개 UPD + 신규 189개 NEW)
 - `mockData.ts` → pipeline 자동 로드 전환 필요 (다음 작업)
 

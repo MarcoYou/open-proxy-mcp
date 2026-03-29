@@ -20,7 +20,7 @@
 - [ ] 프록시 파이트 분석 연계
 
 ### paid-open-proxy 파이프라인
-- [ ] regen_pipeline.py에 PDF/OCR fallback 통합 (XML → PDF → OCR → LLM 자동 체이닝)
+- [ ] run_pipeline.py에 PDF/OCR fallback 통합 (XML → PDF → OCR → LLM 자동 체이닝)
 - [ ] 파서별 품질 판정 함수 (CASE_DEFINITION 기준)
 - [ ] 최선 결과 선택 로직 (XML vs PDF 비교)
 - [ ] DB 스키마 설계 (향후, PostgreSQL)
