@@ -251,6 +251,9 @@ def _parse_krw(text: str) -> int | None:
     if re.search(r'\d\.\d{3}\.', text):
         text = re.sub(r'\.(?=\d{3})', '', text)
 
+    # 괄호 안 단위 처리: "7,000(백만원)" → "7000백만원"
+    text = re.sub(r'\((\s*(?:백만원|천원|억원|원)\s*)\)', r'\1', text)
+
     m = re.search(r'([\d.]+)\s*억\s*원?', text)
     if m:
         return int(float(m.group(1)) * 100_000_000)
@@ -973,8 +976,31 @@ def parse_agenda_pdf(md_text: str) -> list[dict]:
     # 검색 범위: 목적사항부터 100줄 (안건 목록은 보통 한 페이지)
     for i in range(agenda_start, min(len(lines), agenda_start + 100)):
         raw_line = lines[i].strip()
-        # 테이블 행에서 안건 번호를 잡지 않기 (정관변경 테이블 등)
-        if raw_line.startswith('|') or raw_line.count('|') >= 2:
+        # 테이블 행 처리
+        if raw_line.startswith('|') and raw_line.count('|') >= 2:
+            # 안건 테이블인 경우만 허용 (|제N호 의안:|제목| 형태)
+            cells = [c.strip() for c in raw_line.split('|') if c.strip()]
+            if cells and re.match(r'제\s*\d+(?:-\d+)*\s*호', cells[0]):
+                # 테이블 셀에서 안건 추출
+                number_m = re.match(r'제\s*(\d+(?:-\d+)*)\s*호', cells[0])
+                if number_m and len(cells) >= 2:
+                    title = cells[1].strip()
+                    title = re.sub(r'<br\s*/?>', ' ', title).strip()
+                    if title and len(title) >= 2 and len(title) <= 200:
+                        full_number = f"제{number_m.group(1)}호"
+                        if full_number not in seen_numbers:
+                            seen_numbers.add(full_number)
+                            parts = number_m.group(1).split('-')
+                            item = {"number": full_number, "title": title, "children": []}
+                            if len(parts) > 1:
+                                parent_num = f"제{parts[0]}호"
+                                parent = next((it for it in items if it['number'] == parent_num), None)
+                                if parent:
+                                    parent['children'].append(item)
+                                else:
+                                    items.append(item)
+                            else:
+                                items.append(item)
             continue
         line = re.sub(r'^[-\s*□○◆▶]+', '', raw_line)
 

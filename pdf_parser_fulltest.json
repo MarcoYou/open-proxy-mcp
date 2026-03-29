@@ -417,7 +417,7 @@
     "fin_bs": 32,
     "fin_is": 29,
     "aoi_count": 42,
-    "agenda_count": 7
+    "agenda_count": 11
   },
   {
     "company": "OCI홀딩스",
@@ -627,7 +627,7 @@
     "fin_bs": 34,
     "fin_is": 36,
     "aoi_count": 19,
-    "agenda_count": 4
+    "agenda_count": 6
   },
   {
     "company": "넷마블",
@@ -767,7 +767,7 @@
     "fin_bs": 65,
     "fin_is": 30,
     "aoi_count": 3196,
-    "agenda_count": 7
+    "agenda_count": 12
   },
   {
     "company": "동원시스템즈",
@@ -902,7 +902,7 @@
   {
     "company": "미스토홀딩스",
     "comp_items": 2,
-    "comp_limit": null,
+    "comp_limit": 7120000000,
     "pers_unique": 1,
     "fin_bs": 55,
     "fin_is": 30,
@@ -1657,7 +1657,7 @@
     "fin_bs": 44,
     "fin_is": 26,
     "aoi_count": 28,
-    "agenda_count": 0
+    "agenda_count": 5
   },
   {
     "company": "한미사이언스",
