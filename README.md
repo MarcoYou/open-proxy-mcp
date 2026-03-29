@@ -6,9 +6,13 @@ AI-powered MCP (Model Context Protocol) server that structures Korean AGM (Annua
 
 > **OpenProxy brings institutional-grade AGM intelligence to every investor — parsing shareholder meeting filings into structured, AI-ready data in seconds, not hours.**
 
+![OpenProxy MCP Comparison](test_screenshots/openproxy_mcp_compare.png)
+
 ## Why OpenProxy?
 
-The world's largest asset managers are building proprietary AI systems for proxy voting analysis. OpenProxy democratizes this capability — any AI assistant connected via MCP can instantly access structured AGM data: agenda trees, financial statements, director candidates with career histories, charter amendments, and executive compensation analysis.
+The rise of passive investing is concentrating ownership in permanent, price-insensitive strategies — making proxy voting a critical mechanism for governance and long-term value creation. Yet the process remains manual, fragmented, and inaccessible. Institutional investors rely on costly internal teams and third-party advisors, while most market participants lack access to structured, decision-ready information.
+
+OpenProxy bridges this gap. By transforming unstructured AGM disclosures into AI-ready structured data via MCP, it enables any investor or analyst to make informed, consistent proxy voting decisions at scale — without proprietary infrastructure or advisory dependencies.
 
 ## Data Source
 

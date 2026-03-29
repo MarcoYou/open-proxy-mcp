@@ -30,4 +30,5 @@ test_kospi200*.json
 cache/
 test_screenshots/*.key
 test_screenshots/Compare/
-test_screenshots/
+test_screenshots/*.png
+!test_screenshots/openproxy_mcp_compare.png
