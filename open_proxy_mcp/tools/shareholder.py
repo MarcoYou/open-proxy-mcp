@@ -1046,15 +1046,23 @@ OCR fallback tool (PDF도 실패 시, 가장 느림, UPSTAGE_API_KEY 필요):
   agm_agenda_ocr, agm_financials_ocr, agm_personnel_ocr
   agm_aoi_change_ocr, agm_compensation_ocr
 
-## Fallback 흐름
+## 결과 검증 + Fallback 흐름
 
 1. 기본 _xml tool 호출 (예: agm_personnel_xml)
-2. 결과 확인 — 아래 Case Definitions의 판정 기준 참고
-3. 정상이면 → 사용자에게 답변
-4. 불완전하면 → 사용자에게 "파싱이 불완전합니다. PDF로 재시도할까요?" 안내
+2. **결과 검증**: 아래 Case Definitions의 성공 예시와 비교
+   - 구조가 예시와 일치하는가? (필드 존재, 값 형태)
+   - 내용이 사람이 보기에 말이 되는가? (이름이 실제 사람 이름인지, 숫자가 합리적인지)
+   - 경력이 깔끔하게 분리되어 있는가? (100자+ 한 줄이면 병합 의심)
+3. **검증 통과** → 사용자에게 답변
+   - 단, 포맷이 예시와 다르면 당신(AI)이 직접 보정하여 제공
+   - 예: 계정명 공백 정리 ("자          산" → "자산"), 단위 변환 표시 등
+4. **불완전하면** → 사용자에게 "파싱이 불완전합니다. PDF로 재시도할까요?" 안내
 5. 사용자 동의 → _pdf tool 호출 (예: agm_personnel_pdf)
 6. 여전히 실패 → "OCR로 한번 더 시도해볼까요?" 안내
 7. 사용자 동의 → _ocr tool 호출 (예: agm_personnel_ocr)
+
+**중요**: 파서가 SUCCESS를 반환해도 당신이 직접 결과를 읽고 검증하세요.
+Case Definitions의 성공 예시가 "이렇게 생겨야 한다"의 기준입니다.
 
 ## 주의사항
 - _pdf tool은 DART 웹에서 PDF를 다운로드하므로 시간이 걸립니다 (4초+)
