@@ -185,14 +185,27 @@ cp .env.example .env
 ## 사용법
 
 ```bash
-# MCP 서버 실행 (stdio)
+# MCP 서버 실행 (stdio — Claude Code/Desktop)
 python -m open_proxy_mcp
 
-# SSE 모드 (웹 클라이언트 연동)
+# SSE 모드 (웹 연동, 기본 port 9000)
 python -m open_proxy_mcp --sse
+
+# 커스텀 포트
+python -m open_proxy_mcp --sse 8080
 ```
 
-### MCP 클라이언트 설정 (.mcp.json)
+### 환경변수 (.env)
+
+```
+OPENDART_API_KEY=...          # 필수 — DART API 키
+OPENDART_API_KEY_2=...        # 선택 — 보조 키 (속도 제한 시 자동 전환)
+ANTHROPIC_API_KEY=...         # 선택 — LLM fallback (Claude)
+OPENAI_API_KEY=...            # 선택 — LLM fallback (OpenAI)
+UPSTAGE_API_KEY=...           # 선택 — OCR fallback (Upstage Document Parse)
+```
+
+### Claude Code 설정 (.mcp.json)
 
 ```json
 {
@@ -205,6 +218,22 @@ python -m open_proxy_mcp --sse
   }
 }
 ```
+
+### Claude 웹 연결 (SSE + ngrok)
+
+```bash
+# 터미널 1: MCP SSE 서버
+python -m open_proxy_mcp --sse
+
+# 터미널 2: ngrok 터널
+ngrok http 9000
+```
+
+ngrok URL + `/sse`를 Claude 웹 Integrations에서 MCP Server로 등록.
+
+### 첫 사용 시
+
+AI에게: "먼저 `agm_guide`를 호출해서 사용법을 읽어줘"
 
 ## 라이선스
 
