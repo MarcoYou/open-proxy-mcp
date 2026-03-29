@@ -2990,29 +2990,21 @@ def parse_capital_reserve_xml(html: str) -> dict:
                 elif block["type"] == "note":
                     notes.append(content)
 
-        # 감액배당(비과세 배당) 플래그
-        # 자본준비금 감소 → 이익잉여금 전입 → 비과세 배당 재원
-        all_text = purpose + ' '.join(notes)
-        is_tax_free = any(kw in all_text for kw in ['비과세', '배당가능이익', '배당 재원', '배당금 재원'])
-
         item = {
             "number": d.get("number", ""),
             "title": title,
             "amount": amount,
             "purpose": purpose,
-            "isTaxFreeDividend": is_tax_free,
+            "reducedCapital": True,
             "notes": notes,
         }
         items.append(item)
 
-    # 자본준비금 감소 자체가 감액배당 가능성 시사
-    has_tax_free = any(i.get("isTaxFreeDividend") for i in items)
     return {
         "items": items,
         "summary": {
             "totalItems": len(items),
-            "hasTaxFreeDividendPotential": len(items) > 0,
-            "confirmedTaxFreeDividend": has_tax_free,
+            "reducedCapital": len(items) > 0,
         },
     }
 
