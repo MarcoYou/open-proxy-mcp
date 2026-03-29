@@ -2,6 +2,18 @@
 
 ## 2026-03-29
 
+### 자기주식/자본준비금/퇴직금 파서 + 침범 방지
+- parse_treasury_share_xml: 보유/처분/소각 (93.6%, 침범 1건)
+- parse_capital_reserve_xml: 감소 금액 + reducedCapital 플래그 (100%, 침범 0건)
+- parse_retirement_pay_xml: 현행/개정안 테이블 (93.3%, 침범 0건)
+- 31개 MCP tool (_xml/_pdf/_ocr)
+- 전수 침범 검사 실시 — 본문 fallback 제거로 침범 최소화
+- 감액배당: reducedCapital 플래그 (17개 기업 자본준비금 감소)
+
+### README 영문/한국어 분리
+- README.md: 영문 (홍보용, 31 tools, 3-tier fallback)
+- README_KR.md: 한국어 (상세 설명)
+
 ### free-open-proxy end-to-end 완료
 - agm_guide → CASE_DEFINITION 읽기 → tool 호출 → 결과 검증 → fallback 안내 흐름 확인
 - SUCCESS: 삼성전자 comp (450억원 바로 답변)
