@@ -15,11 +15,21 @@
 - CASE_DEFINITION 업데이트: 해당 안건 없으면 실패 아님
 - 실제 성공률 재계산: comp 99.5%, pers 97.9%, BS 97.9%, IS 95.7%, aoi 99.0%, agenda 98.0%
 
-### 아키텍처 결정
-- `parse_with_fallback()` 단일 함수로 XML→PDF→OCR 체이닝
-- MCP/Pipeline 모드 분리 불필요 — 항상 최선 결과 반환
-- 로컬 SQLite DB로 캐싱 (rcept_no별 XML/PDF/OCR 결과 + 소스 태깅)
-- 다음 단계: parse_with_fallback 구현 + SQLite 스키마 설계
+### 아키텍처 결정 — free/paid 분리
+
+**free-open-proxy (MCP only)**:
+- XML → LLM 보강(유저 AI 토큰) → PDF → OCR 순서
+- AI가 유저와 대화하면서 점진적으로 fallback
+- agm_guide + CASE_DEFINITION이 AI 판단 기준
+- 23개 MCP tool (_xml/_pdf/_ocr + guide)
+
+**paid-open-proxy (API + Frontend)**:
+- XML → PDF → OCR → LLM(provider API 토큰) 자동 체이닝
+- 배치 파이프라인(regen_pipeline.py)으로 미리 최선 데이터 생성
+- DB 저장, 프론트엔드에서 조회만
+
+**공유 레이어**: parser.py, pdf_parser.py, dart/client.py, CASE_DEFINITION.md
+**DB/캐시**: free는 파일캐시, paid는 DB (나중에 PostgreSQL)
 
 ### PDF 파서 3회 개선 루프 (pdf_parser.py)
 - 5개 파서 구현: parse_compensation_pdf, parse_personnel_pdf, parse_financials_pdf, parse_aoi_pdf, parse_agenda_pdf

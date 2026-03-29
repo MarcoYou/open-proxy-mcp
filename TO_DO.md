@@ -19,17 +19,18 @@
 - [ ] 권고적 주주제안 구조 (LG화학 제3호 — 팰리서 등 행동주의 펀드)
 - [ ] 프록시 파이트 분석 연계
 
-### parse_with_fallback 통합
-- [ ] parse_with_fallback() 구현 — XML → validate → PDF → OCR 체이닝
-- [ ] SOFT_FAIL 판정 함수 (파서별 품질 체크)
-- [ ] XML vs PDF 비교 함수 (파서별 better 판정)
-- [ ] shareholder.py tool에서 parse_with_fallback 호출로 전환
-- [ ] LLM fallback (CASE_DEFINITION 예시 기반, 향후)
+### paid-open-proxy 파이프라인
+- [ ] regen_pipeline.py에 PDF/OCR fallback 통합 (XML → PDF → OCR → LLM 자동 체이닝)
+- [ ] 파서별 품질 판정 함수 (CASE_DEFINITION 기준)
+- [ ] 최선 결과 선택 로직 (XML vs PDF 비교)
+- [ ] DB 스키마 설계 (향후, PostgreSQL)
+- [ ] API 서버 (향후, FastAPI)
 
-### 로컬 DB (SQLite 캐싱)
-- [ ] 스키마 설계 (rcept_no별 XML/PDF/OCR 결과 + 소스 태깅)
-- [ ] 기존 파일 캐시(cache/pdf, cache/pdf_parsed) → DB 마이그레이션
-- [ ] _doc_cache (LRU 30건) → DB 전환
+### free-open-proxy 개선
+- [x] ~~23개 MCP tool 등록 (_xml/_pdf/_ocr + guide)~~
+- [x] ~~agm_guide tool — AI용 사용 가이드~~
+- [ ] CASE_DEFINITION을 agm_guide 응답에 포함 (AI 판단 기준)
+- [ ] LLM fallback tool — XML 원문 + CASE_DEFINITION으로 AI 보강 (향후)
 
 ### PDF 파싱 보조 소스
 - [x] ~~opendataloader-pdf 설치 + DART PDF 파싱 품질 테스트~~
