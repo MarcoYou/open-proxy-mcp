@@ -83,8 +83,79 @@ from open_proxy_mcp.tools.parser import (
     parse_compensation_xml,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
+from open_proxy_mcp.tools.pdf_parser import (
+    parse_compensation_pdf, parse_personnel_pdf,
+    parse_financials_pdf, parse_aoi_pdf, parse_agenda_pdf,
+    ocr_fallback_for_parser,
+)
 
 logger = logging.getLogger(__name__)
+
+
+# ── PDF 캐시 (디스크) ──
+
+import os as _os_module
+_PDF_CACHE_DIR = _os_module.path.join(
+    _os_module.path.dirname(_os_module.path.dirname(_os_module.path.dirname(__file__))), "cache", "pdf"
+)
+_PDF_MD_CACHE_DIR = _os_module.path.join(
+    _os_module.path.dirname(_os_module.path.dirname(_os_module.path.dirname(__file__))), "cache", "pdf_parsed"
+)
+
+
+async def _get_pdf_cached(rcept_no: str) -> bytes:
+    """PDF 바이너리를 디스크 캐시에서 가져오거나 다운로드"""
+    _os_module.makedirs(_PDF_CACHE_DIR, exist_ok=True)
+    path = _os_module.path.join(_PDF_CACHE_DIR, f"{rcept_no}.pdf")
+    if _os.path.exists(path):
+        with open(path, "rb") as f:
+            return f.read()
+    client = DartClient()
+    pdf_bytes = await client.get_document_pdf(rcept_no)
+    with open(path, "wb") as f:
+        f.write(pdf_bytes)
+    return pdf_bytes
+
+
+def _get_pdf_markdown_cached(rcept_no: str, pdf_bytes: bytes) -> str:
+    """opendataloader 마크다운을 디스크 캐시에서 가져오거나 파싱"""
+    _os_module.makedirs(_PDF_MD_CACHE_DIR, exist_ok=True)
+    md_path = _os_module.path.join(_PDF_MD_CACHE_DIR, f"{rcept_no}.md")
+    if _os.path.exists(md_path):
+        with open(md_path, "r") as f:
+            return f.read()
+
+    # opendataloader로 파싱
+    import tempfile
+    from opendataloader_pdf import convert
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        tmp.write(pdf_bytes)
+        tmp_path = tmp.name
+
+    try:
+        convert(
+            input_path=[tmp_path],
+            output_dir=_PDF_MD_CACHE_DIR,
+            format="markdown",
+            quiet=True,
+            keep_line_breaks=True,
+            table_method="cluster",
+        )
+        # opendataloader는 입력 파일명 기준으로 출력 — rename 필요
+        import glob
+        generated = glob.glob(_os.path.join(_PDF_MD_CACHE_DIR, "*.md"))
+        for g in generated:
+            if _os.path.basename(g).startswith("tmp"):
+                _os_module.rename(g, md_path)
+                break
+    finally:
+        _os_module.unlink(tmp_path)
+
+    if _os.path.exists(md_path):
+        with open(md_path, "r") as f:
+            return f.read()
+    return ""
 
 # ── 문서 캐시 (메모리 + 디스크) ──
 
@@ -109,7 +180,7 @@ def _load_from_disk(rcept_no: str) -> dict | None:
 
 
 def _save_to_disk(rcept_no: str, doc: dict):
-    _os.makedirs(_DISK_CACHE_DIR, exist_ok=True)
+    _os_module.makedirs(_DISK_CACHE_DIR, exist_ok=True)
     path = _disk_cache_path(rcept_no)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(doc, f, ensure_ascii=False)
@@ -949,6 +1020,319 @@ def register_tools(mcp):
             lines.append("")
 
         return "\n".join(lines)
+
+    # ── PDF fallback tools ──
+
+    @mcp.tool()
+    async def agm_guide() -> str:
+        """이 MCP 서버 사용 가이드. 처음 사용 시 먼저 호출하세요.
+
+        tool 구조, fallback 흐름, 성공 판정 기준을 반환합니다.
+        AI 어시스턴트가 이 가이드를 읽고 적절한 tool을 선택하도록 돕습니다.
+        """
+        return """# OpenProxy MCP 사용 가이드
+
+## Tool 구조
+
+기본 tool (XML 파싱, 빠름):
+  agm_search → agm_agenda, agm_info, agm_items
+  agm_financials, agm_personnel, agm_aoi_change, agm_compensation
+  agm_steward (종합 오케스트레이터)
+
+PDF fallback tool (XML 실패 시, 느림 4초+):
+  agm_agenda_pdf, agm_financials_pdf, agm_personnel_pdf
+  agm_aoi_change_pdf, agm_compensation_pdf
+
+OCR fallback tool (PDF도 실패 시, 가장 느림, UPSTAGE_API_KEY 필요):
+  agm_agenda_ocr, agm_financials_ocr, agm_personnel_ocr
+  agm_aoi_change_ocr, agm_compensation_ocr
+
+## Fallback 흐름
+
+1. 기본 tool 호출 (예: agm_personnel)
+2. 결과 확인:
+   - 정상이면 → 사용자에게 답변
+   - 비어있거나 품질 이슈 → 사용자에게 "XML 파싱이 불완전합니다. PDF로 재시도할까요?" 안내
+3. 사용자 동의 → _pdf tool 호출 (예: agm_personnel_pdf)
+4. 여전히 실패 → "OCR로 한번 더 시도해볼까요?" 안내
+5. 사용자 동의 → _ocr tool 호출 (예: agm_personnel_ocr)
+
+## 품질 판정 기준
+
+### agm_personnel
+- 정상: appointments >= 1, 후보자 이름 2-10자, 경력 1건 이상
+- 불완전: 경력이 100자 이상 한 줄로 병합, 경력 0건
+- 실패: appointments 비어있음, 이름이 "제N조" 형태
+
+### agm_financials
+- 정상: BS 5행 이상 + IS 3행 이상
+- 실패: BS/IS 모두 없음
+
+### agm_aoi_change
+- 정상: amendments >= 1, 변경전/변경후 텍스트 있음
+- 실패: amendments 비어있음
+
+### agm_compensation
+- 정상: items >= 1, limitAmount > 0
+- 불완전: items 있지만 limitAmount 없음
+- 실패: items 비어있음
+
+## 주의사항
+- _pdf tool은 DART 웹에서 PDF를 다운로드하므로 시간이 걸립니다 (4초+)
+- _ocr tool은 Upstage API를 호출하므로 UPSTAGE_API_KEY가 필요합니다
+- 해당 안건 자체가 없는 경우 빈 결과는 정상입니다 (예: 보수한도 안건이 없는 기업)
+"""
+
+    @mcp.tool()
+    async def agm_personnel_pdf(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """이사/감사 선임 정보 (PDF 파싱). XML 파싱 실패 시 사용하세요.
+
+        DART 웹에서 PDF를 다운로드하여 파싱합니다. 4초+ 소요.
+        여전히 실패하면 agm_personnel_ocr을 시도하세요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+        if not md_text:
+            return "PDF 파싱에 실패했습니다."
+
+        result = parse_personnel_pdf(md_text)
+        if not result.get("appointments"):
+            return "PDF에서도 선임/해임 안건을 찾을 수 없습니다. agm_personnel_ocr을 시도하세요."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_personnel(result)
+
+    @mcp.tool()
+    async def agm_personnel_ocr(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """이사/감사 선임 정보 (OCR, 최후 수단). PDF도 실패 시 사용하세요.
+
+        Upstage OCR API로 PDF 이미지를 분석합니다. UPSTAGE_API_KEY 필요.
+        가장 느리지만 가장 정확합니다.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+
+        result = ocr_fallback_for_parser(
+            pdf_bytes, md_text, "pers", parse_personnel_pdf, f"{rcept_no}.pdf"
+        )
+        if not result or not result.get("appointments"):
+            return "OCR로도 선임/해임 정보를 추출할 수 없습니다."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_personnel(result)
+
+    @mcp.tool()
+    async def agm_financials_pdf(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """재무제표 (PDF 파싱). XML 파싱 실패 시 사용하세요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+        if not md_text:
+            return "PDF 파싱에 실패했습니다."
+
+        result = parse_financials_pdf(md_text)
+        has_data = any(
+            result[scope][stmt] is not None
+            for scope in ["consolidated", "separate"]
+            for stmt in ["balance_sheet", "income_statement"]
+        )
+        if not has_data:
+            return "PDF에서도 재무제표를 찾을 수 없습니다. agm_financials_ocr을 시도하세요."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_financial_statements(result)
+
+    @mcp.tool()
+    async def agm_financials_ocr(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """재무제표 (OCR, 최후 수단). UPSTAGE_API_KEY 필요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+
+        result = ocr_fallback_for_parser(
+            pdf_bytes, md_text, "fin", parse_financials_pdf, f"{rcept_no}.pdf"
+        )
+        if not result:
+            return "OCR로도 재무제표를 추출할 수 없습니다."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_financial_statements(result)
+
+    @mcp.tool()
+    async def agm_aoi_change_pdf(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """정관변경 사항 (PDF 파싱). XML 파싱 실패 시 사용하세요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+        if not md_text:
+            return "PDF 파싱에 실패했습니다."
+
+        result = parse_aoi_pdf(md_text)
+        if not result.get("amendments"):
+            return "PDF에서도 정관변경 사항을 찾을 수 없습니다. agm_aoi_change_ocr을 시도하세요."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_aoi_change(result)
+
+    @mcp.tool()
+    async def agm_aoi_change_ocr(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """정관변경 사항 (OCR, 최후 수단). UPSTAGE_API_KEY 필요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+
+        result = ocr_fallback_for_parser(
+            pdf_bytes, md_text, "aoi", parse_aoi_pdf, f"{rcept_no}.pdf"
+        )
+        if not result or not result.get("amendments"):
+            return "OCR로도 정관변경 사항을 추출할 수 없습니다."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_aoi_change(result)
+
+    @mcp.tool()
+    async def agm_compensation_pdf(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """보수한도 (PDF 파싱). XML 파싱 실패 시 사용하세요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+        if not md_text:
+            return "PDF 파싱에 실패했습니다."
+
+        result = parse_compensation_pdf(md_text)
+        if not result.get("items"):
+            return "PDF에서도 보수한도 안건을 찾을 수 없습니다. agm_compensation_ocr을 시도하세요."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_compensation(result)
+
+    @mcp.tool()
+    async def agm_compensation_ocr(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """보수한도 (OCR, 최후 수단). UPSTAGE_API_KEY 필요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+
+        result = ocr_fallback_for_parser(
+            pdf_bytes, md_text, "comp", parse_compensation_pdf, f"{rcept_no}.pdf"
+        )
+        if not result or not result.get("items"):
+            return "OCR로도 보수한도 정보를 추출할 수 없습니다."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_compensation(result)
+
+    @mcp.tool()
+    async def agm_agenda_pdf(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """안건 목록 (PDF 파싱). XML 파싱 실패 시 사용하세요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+        if not md_text:
+            return "PDF 파싱에 실패했습니다."
+
+        result = parse_agenda_pdf(md_text)
+        if not result:
+            return "PDF에서도 안건을 찾을 수 없습니다. agm_agenda_ocr을 시도하세요."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_agenda_tree(result)
+
+    @mcp.tool()
+    async def agm_agenda_ocr(
+        rcept_no: str,
+        format: str = "md",
+    ) -> str:
+        """안건 목록 (OCR, 최후 수단). UPSTAGE_API_KEY 필요.
+
+        Args:
+            rcept_no: 접수번호
+            format: "md" (기본) 또는 "json"
+        """
+        pdf_bytes = await _get_pdf_cached(rcept_no)
+        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
+
+        result = ocr_fallback_for_parser(
+            pdf_bytes, md_text, "agenda", parse_agenda_pdf, f"{rcept_no}.pdf"
+        )
+        if not result:
+            return "OCR로도 안건을 추출할 수 없습니다."
+
+        if format == "json":
+            return json.dumps(result, ensure_ascii=False, indent=2)
+        return _format_agenda_tree(result)
 
 
 def _build_financial_highlight(fs: dict) -> list[dict] | None:
