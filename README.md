@@ -62,7 +62,18 @@ XML 파싱 실패 시 AI가 자율적으로 호출하는 fallback tool:
 | `agm_*_pdf` | opendataloader | PDF 다운로드 + 파싱 (4초+). XML 실패 시 시도. |
 | `agm_*_ocr` | Upstage OCR | PDF 이미지 OCR (가장 느림). PDF도 실패 시 시도. UPSTAGE_API_KEY 필요. |
 
-대상: `agm_agenda`, `agm_financials`, `agm_personnel`, `agm_aoi_change`, `agm_compensation`
+대상: `agm_agenda_xml`, `agm_financials_xml`, `agm_personnel_xml`, `agm_aoi_change_xml`, `agm_compensation_xml`
+
+### Fallback 흐름
+
+```
+AI가 agm_personnel_xml(rcept_no) 호출
+  → 정상 결과 → 답변
+  → 빈 결과 or 품질 이슈
+  → AI: "PDF로 재시도할게요" → agm_personnel_pdf(rcept_no)
+      → 정상 → 답변
+      → 실패 → AI: "OCR로 시도할게요" → agm_personnel_ocr(rcept_no)
+```
 
 ### 공통 옵션
 
@@ -74,69 +85,63 @@ XML 파싱 실패 시 AI가 자율적으로 호출하는 fallback tool:
 ## 데이터 흐름
 
 ```
-DART API (document.xml ZIP)
-  │
-  ▼
-get_document(rcept_no)
-  │ {text, html, images}
-  │ (캐싱: _doc_cache, 30건 LRU)
-  ▼
-┌────────────────────────────────────────────────────┐
-│  parser.py — 파싱 레이어                            │
-│                                                     │
-│  [공통 소스]                                        │
-│  ├─ parse_agenda_items(text, html) → 안건 트리      │
-│  ├─ parse_meeting_info(text, html) → 회의 정보      │
-│  └─ parse_agenda_details(html)     → 안건 상세 블록 │
-│                                                     │
-│  [특화 파서] — 각각 HTML에서 독립적으로 파싱         │
-│  ├─ parse_financial_statements(html) → 재무제표     │
-│  ├─ parse_personnel(html)            → 인사 정보    │
-│  ├─ parse_aoi(html)                  → 정관변경     │
-│  ├─ parse_compensation(html)         → 보수한도     │
-│  └─ parse_correction_details(html)   → 정정 사항    │
-│                                                     │
-│  모든 파서: bs4(lxml) 우선 → text regex fallback     │
-└────────────────────────────────────────────────────┘
-  │
-  ▼
-┌────────────────────────────────────────────────────┐
-│  shareholder.py — MCP tool 레이어                   │
-│                                                     │
-│  각 tool은 parser 결과를 포매팅                     │
-│  format="md" → LLM용 마크다운                       │
-│  format="json" → 프론트엔드용 v3 스키마             │
-│                                                     │
-│  format_krw() — 단위 변환 유틸 (백만원→조/억)       │
-│  use_llm / max_fallback_length — fallback 옵션      │
-└────────────────────────────────────────────────────┘
-  │
-  ▼
-┌────────────────────────────────────────────────────┐
-│  프론트엔드 (OpenProxy/frontend)                    │
-│                                                     │
-│  pipeline/*.json — MCP에서 생성한 v3 JSON           │
-│  mockData.ts — JSON → Company 객체 변환             │
-│  AgendaAnalysis.tsx — 렌더링                        │
-│    ├─ FinancialTable (계층 트리, 변화율)             │
-│    ├─ CharterChangesSection (접이식 카드)            │
-│    ├─ CandidatesSection (후보자 정보)                │
-│    └─ RetainedEarningsTable (처분계산서)             │
-└────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  1단계: XML 파싱 (기본, 빠름)                            │
+│                                                          │
+│  DART API (document.xml ZIP)                             │
+│    → get_document(rcept_no)  {text, html, images}        │
+│    → parser.py (XML 파서)                                │
+│       ├─ parse_agenda_xml         안건 트리               │
+│       ├─ parse_financials_xml     재무제표                │
+│       ├─ parse_personnel_xml      인사 정보               │
+│       ├─ parse_aoi_xml            정관변경                │
+│       ├─ parse_compensation_xml   보수한도                │
+│       └─ bs4(lxml) 우선 → text regex fallback            │
+└──────────────────────────┬──────────────────────────────┘
+                           │ 실패 시
+┌──────────────────────────▼──────────────────────────────┐
+│  2단계: PDF 파싱 (느림, 4초+)                            │
+│                                                          │
+│  DART 웹 → PDF 다운로드 → opendataloader → 마크다운      │
+│    → pdf_parser.py (PDF 파서)                            │
+│       ├─ parse_agenda_pdf                                │
+│       ├─ parse_financials_pdf                            │
+│       ├─ parse_personnel_pdf                             │
+│       ├─ parse_aoi_pdf                                   │
+│       └─ parse_compensation_pdf                          │
+└──────────────────────────┬──────────────────────────────┘
+                           │ 실패 시
+┌──────────────────────────▼──────────────────────────────┐
+│  3단계: OCR (가장 느림, UPSTAGE_API_KEY 필요)            │
+│                                                          │
+│  키워드로 페이지 특정 → PDF 페이지 추출                   │
+│    → Upstage OCR API → 마크다운 → PDF 파서 재실행        │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│  shareholder.py — MCP tool 레이어 (23개)                 │
+│                                                          │
+│  agm_*_xml  — 1단계 호출                                 │
+│  agm_*_pdf  — 2단계 호출 (AI가 자율 판단)                │
+│  agm_*_ocr  — 3단계 호출 (AI가 자율 판단)                │
+│  agm_guide  — AI용 사용 가이드                           │
+│                                                          │
+│  format="md" → LLM용 마크다운                            │
+│  format="json" → 프론트엔드용 v3 스키마                  │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## 파싱 성능 (KOSPI 200 기준)
+## 파싱 성능 (KOSPI 200, 안건 tree 기반 실제 성공률)
 
-| 파서 | 성공률 |
-|------|--------|
-| agenda (안건 트리) | 99.5% |
-| financials (재무제표) | 97.4% |
-| personnel (인사) | 98.9% |
-| aoi (정관변경) | 97.8% |
-| compensation (보수한도) | 98.4% |
-
-- **LLM fallback**: Claude Sonnet / OpenAI — hard fail / soft fail 구분
-- **PDF 보조 소스**: `get_document_pdf(rcept_no)` — XML 파싱 실패 시 보강용 (향후)
+| 파서 | XML | PDF | OCR |
+|------|-----|-----|-----|
+| agenda | 99.5% | 98.0% | 100% |
+| financials BS | 97.4% | 97.9% | 100% |
+| financials IS | - | 95.7% | 100% |
+| personnel | 98.9% | 97.9% | 100% |
+| aoi (정관변경) | 97.8% | 99.0% | 100% |
+| compensation | 98.4% | 99.5% | 100% |
 
 ## 프로젝트 구조
 
@@ -145,7 +150,8 @@ open_proxy_mcp/
   server.py           # FastMCP 서버 진입점 (stdio + SSE)
   tools/
     shareholder.py    # MCP tool 23개 + 포매터 + format_krw
-    parser.py         # 파서 (bs4+regex) — 안건/재무/인사/정관/보수/정정
+    parser.py         # XML 파서 — parse_*_xml()
+    pdf_parser.py     # PDF 파서 — parse_*_pdf() + Upstage OCR fallback
   dart/
     client.py         # OpenDART API + 웹 PDF 다운로드 (rate limiter 내장)
   llm/
