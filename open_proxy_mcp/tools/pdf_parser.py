@@ -5,6 +5,11 @@ XML 파서(parser.py)의 보조 소스로 사용:
   - XML 파서 실패 시 PDF 결과로 대체
   - XML SOFT_FAIL 시 PDF 결과로 보강
 
+3단계 fallback:
+  1. opendataloader 마크다운 → current 파서
+  2. 실패 시 → 키워드로 페이지 특정 → Upstage OCR → 재파싱
+  3. 여전히 실패 → LLM fallback (CASE_DEFINITION 예시)
+
 마크다운 구조:
   - 테이블: | col1 | col2 | ... | 형식 (구분선 |---|---|)
   - 헤딩: #, ##, ###, ...
@@ -12,10 +17,146 @@ XML 파서(parser.py)의 보조 소스로 사용:
   - <br> 태그가 셀 내 줄바꿈으로 사용됨
 """
 
+import os
 import re
+import io
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# ── Upstage OCR fallback ──
+
+# 파서 타입별 키워드 (페이지 특정용)
+_PARSER_KEYWORDS = {
+    "comp": ['보수총액', '최고한도', '보수한도'],
+    "pers": ['후보자성명', '세부경력', '주된직업'],
+    "fin": ['자산총계', '유동자산', '재무상태표'],
+    "aoi": ['변경전', '변경후', '현행', '개정'],
+}
+
+
+def find_pages_by_keywords(paged_md: str, keywords: list[str]) -> list[int]:
+    """페이지 구분자가 있는 마크다운에서 키워드 포함 페이지 번호 추출"""
+    pages = paged_md.split("<!-- PAGE ")
+    found = []
+    for i, page in enumerate(pages[1:], 1):
+        page_text = page.split(" -->")[1] if " -->" in page else page
+        if any(kw in page_text for kw in keywords):
+            found.append(i)
+    return found
+
+
+def extract_pdf_pages(pdf_bytes: bytes, page_list: list[int]) -> bytes:
+    """PDF에서 특정 페이지만 추출하여 새 PDF 바이트 반환"""
+    try:
+        from PyPDF2 import PdfReader, PdfWriter
+    except ImportError:
+        logger.warning("PyPDF2 미설치 — 페이지 추출 불가")
+        return pdf_bytes
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    writer = PdfWriter()
+    for p in page_list:
+        if 0 < p <= len(reader.pages):
+            writer.add_page(reader.pages[p - 1])
+    buf = io.BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
+
+
+def upstage_ocr_parse(pdf_bytes: bytes, filename: str = "document.pdf") -> str | None:
+    """Upstage Document Parse API로 PDF → 마크다운 변환
+
+    ⚠️ 파일 크기 제한 있음 (약 50MB). 페이지 추출 후 호출 권장.
+    """
+    api_key = os.getenv("UPSTAGE_API_KEY")
+    if not api_key:
+        logger.warning("UPSTAGE_API_KEY 미설정 — OCR fallback 불가")
+        return None
+
+    try:
+        import httpx
+    except ImportError:
+        logger.warning("httpx 미설치 — OCR fallback 불가")
+        return None
+
+    url = "https://api.upstage.ai/v1/document-ai/document-parse"
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    try:
+        files = {"document": (filename, io.BytesIO(pdf_bytes), "application/pdf")}
+        data = {"output_formats": '["markdown"]'}
+        response = httpx.post(url, headers=headers, files=files, data=data, timeout=180)
+
+        if response.status_code != 200:
+            logger.warning(f"Upstage API 에러: {response.status_code}")
+            return None
+
+        result = response.json()
+        content = result.get('content', '')
+        if isinstance(content, dict):
+            return content.get('markdown', '')
+        return str(content) if content else None
+
+    except Exception as e:
+        logger.warning(f"Upstage OCR 실패: {e}")
+        return None
+
+
+def ocr_fallback_for_parser(
+    pdf_bytes: bytes,
+    paged_md: str,
+    parser_type: str,
+    parser_fn,
+    filename: str = "document.pdf",
+) -> dict | list | None:
+    """opendataloader 파서 실패 시 Upstage OCR fallback
+
+    Args:
+        pdf_bytes: 원본 PDF 바이너리
+        paged_md: opendataloader 페이지 구분자 포함 마크다운
+        parser_type: "comp", "pers", "fin", "aoi", "agenda"
+        parser_fn: 해당 파서 함수 (parse_compensation_pdf 등)
+        filename: PDF 파일명 (로깅용)
+
+    Returns:
+        파서 결과 또는 None (OCR도 실패 시)
+    """
+    keywords = _PARSER_KEYWORDS.get(parser_type, [])
+    if not keywords:
+        return None
+
+    # 1. 키워드로 페이지 특정
+    target_pages = find_pages_by_keywords(paged_md, keywords)
+    if not target_pages:
+        logger.info(f"[OCR fallback] {filename}/{parser_type}: 키워드 페이지 없음")
+        return None
+
+    # 앞뒤 1페이지 포함 (컨텍스트)
+    expanded = set()
+    for p in target_pages[:5]:
+        for pp in [p - 1, p, p + 1]:
+            if pp > 0:
+                expanded.add(pp)
+    page_list = sorted(expanded)[:10]  # 최대 10페이지
+
+    logger.info(f"[OCR fallback] {filename}/{parser_type}: 페이지 {page_list}")
+
+    # 2. 페이지 추출 + Upstage OCR
+    extracted_pdf = extract_pdf_pages(pdf_bytes, page_list)
+    ocr_md = upstage_ocr_parse(extracted_pdf, filename)
+    if not ocr_md:
+        return None
+
+    # 3. OCR 마크다운에 파서 재실행
+    try:
+        result = parser_fn(ocr_md)
+        logger.info(f"[OCR fallback] {filename}/{parser_type}: 성공")
+        return result
+    except Exception as e:
+        logger.warning(f"[OCR fallback] {filename}/{parser_type}: 재파싱 실패 — {e}")
+        return None
 
 
 # ── 유틸리티 ──
@@ -140,6 +281,7 @@ def parse_compensation_pdf(md_text: str) -> dict:
         prior = {}
         notes = []
         phase = None
+        comp_unit = ""  # 테이블 근처 단위 (단위:억원 등)
         title = f"{'감사' if target == '감사' else '이사'} 보수한도 승인"
 
         search_end = min(len(lines), sec_start + 50)
@@ -154,6 +296,11 @@ def parse_compensation_pdf(md_text: str) -> dict:
                 (line.startswith('가.') and '이사' in line and i > sec_start + 10)
             ):
                 break
+
+            # 단위 감지 (테이블 바깥: "(단위:억원)" 등)
+            unit_m = re.search(r'단위\s*[：:]\s*(억원|백만원|천원|원)', line)
+            if unit_m:
+                comp_unit = unit_m.group(1)
 
             # phase 감지
             line_nospace = line.replace(' ', '')
@@ -199,6 +346,14 @@ def parse_compensation_pdf(md_text: str) -> dict:
                 notes.append(line)
 
             i += 1
+
+        # 단위 보정: limitAmount가 없고 comp_unit이 있으면 fallback_unit으로 재시도
+        if comp_unit:
+            for d in [current, prior]:
+                if d.get('limit') and not d.get('limitAmount'):
+                    d['limitAmount'] = _parse_krw(d['limit'], fallback_unit=comp_unit)
+                if d.get('actualPaid') and not d.get('actualPaidAmount'):
+                    d['actualPaidAmount'] = _parse_krw(d['actualPaid'], fallback_unit=comp_unit)
 
         if current or prior:
             item = {
@@ -250,8 +405,13 @@ def _parse_comp_kv_table(rows: list[list[str]]) -> dict:
     return result
 
 
-def _parse_krw(text: str) -> int | None:
-    """금액 문자열 → 원 단위 정수"""
+def _parse_krw(text: str, fallback_unit: str = "") -> int | None:
+    """금액 문자열 → 원 단위 정수
+
+    Args:
+        text: 금액 문자열 (예: "450억원", "7,000(백만원)", "100")
+        fallback_unit: 텍스트에 단위 없을 때 사용할 단위 (예: "억원")
+    """
     if not text:
         return None
     text = re.split(r'[+＋]', text)[0].strip()
@@ -278,6 +438,13 @@ def _parse_krw(text: str) -> int | None:
     m = re.search(r'(\d+)\s*원?$', text)
     if m:
         return int(m.group(1))
+
+    # 단위 없는 숫자 + fallback_unit
+    if fallback_unit:
+        m = re.match(r'([\d.]+)', text)
+        if m:
+            val = m.group(1)
+            return _parse_krw(val + fallback_unit)
 
     return None
 
