@@ -87,6 +87,8 @@ from open_proxy_mcp.tools.parser import (
     parse_treasury_share_xml,
     parse_capital_reserve_xml,
     parse_retirement_pay_xml,
+    extract_structural_elements,
+    get_agenda_contents,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
 from open_proxy_mcp.tools.pdf_parser import (
@@ -1108,6 +1110,66 @@ def register_tools(mcp):
             if names:
                 lines.append(f"- **후보자**: {', '.join(names)}")
             lines.append("")
+
+        return "\n".join(lines)
+
+    # ── 범용 추출 tool ──
+
+    @mcp.tool()
+    async def agm_extract(
+        rcept_no: str,
+        agenda_no: str = "",
+    ) -> str:
+        """안건의 원문(마크다운) + 핵심 데이터 포인트를 추출합니다.
+
+        파서가 없는 안건(스톡옵션, 주주제안 등)이나,
+        파서 결과를 원문과 함께 확인하고 싶을 때 사용하세요.
+
+        금액, 날짜, 인명, 법령 참조, 비율, 테이블을 자동 추출합니다.
+
+        Args:
+            rcept_no: 접수번호
+            agenda_no: 안건 번호 (예: "제3호"). 빈 문자열이면 전체 안건.
+        """
+        doc = await _get_document_cached(rcept_no)
+        html = doc.get("html", "")
+        if not html:
+            return "문서를 파싱할 수 없습니다. (HTML 없음)"
+
+        contents = get_agenda_contents(html, agenda_no=agenda_no)
+        extracted = extract_structural_elements(html, agenda_no=agenda_no)
+
+        lines = []
+
+        # mdContents
+        if contents.get("mdContents"):
+            lines.append("## 원문")
+            lines.append(contents["mdContents"][:3000])
+            if len(contents["mdContents"]) > 3000:
+                lines.append(f"\n... ({len(contents['mdContents'])}자 중 3000자 표시)")
+            lines.append("")
+
+        # extracted
+        lines.append("## 핵심 데이터 추출")
+        if extracted["amounts"]:
+            lines.append(f"**금액**: {', '.join(extracted['amounts'][:10])}")
+        if extracted["names"]:
+            lines.append(f"**인명**: {', '.join(extracted['names'][:10])}")
+        if extracted["dates"]:
+            lines.append(f"**날짜**: {', '.join(extracted['dates'][:5])}")
+        if extracted["legalRefs"]:
+            lines.append(f"**법령**: {', '.join(extracted['legalRefs'][:5])}")
+        if extracted["percentages"]:
+            lines.append(f"**비율**: {', '.join(extracted['percentages'][:5])}")
+        if extracted["tables"]:
+            lines.append(f"**테이블**: {len(extracted['tables'])}개")
+            for t in extracted["tables"][:3]:
+                lines.append(f"  헤더: {t['headers'][:5]}")
+                for row in t["rows"][:2]:
+                    lines.append(f"  {[c[:20] for c in row[:5]]}")
+
+        if not any([extracted["amounts"], extracted["names"], extracted["tables"]]):
+            lines.append("추출된 데이터가 없습니다.")
 
         return "\n".join(lines)
 
