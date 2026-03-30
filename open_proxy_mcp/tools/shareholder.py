@@ -542,7 +542,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 의안(안건) 목록을 구조화하여 반환합니다.
-        정상: 안건 1개+, 제목 2-150자. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_agenda_pdf -> agm_agenda_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: 안건 1개+, 제목 2-150자, 제N호/제N-M호 형식.
+        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
+        그래도 부족하면 agm_agenda_pdf -> agm_agenda_ocr -> AI가 원문 기반 재구성.
+        agm_agenda_xml 결과의 안건 목록에 없는 안건 유형이면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -680,7 +683,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 재무제표를 구조화하여 반환합니다.
-        정상: BS 5행+, IS 3행+. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_financials_pdf -> agm_financials_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: BS에 자산(유동/비유동), 부채(유동/비유동), 자본 구조 + 자산=부채+자본. IS에 매출, 매출원가, 매출총이익, 판관비, 영업이익, 당기순이익, 주당이익. 단위(천원/백만원/억원) 반드시 포함.
+        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
+        그래도 부족하면 agm_financials_pdf -> agm_financials_ocr -> AI가 원문 기반 재구성.
+        agm_agenda_xml 결과에 재무제표 안건이 없으면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -801,7 +807,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 이사/감사 선임/해임 정보를 반환합니다.
-        정상: 이름: 한글 2-5자 (영문 병기 시 더 길 수 있음), 경력 1건+, 각 100자 이내. 불완전: 경력 100자+ 병합 -> AI가 직접 분리 시도 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_personnel_pdf -> agm_personnel_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: 후보자 이름(한글 2-5자, 영문 병기 가능), 경력(기간+내용 분리, 각 100자 이내), 결격사유, 추천사유.
+        불완전: 경력 100자+ 한 줄 병합 -> AI가 직접 분리 시도 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
+        그래도 부족하면 agm_personnel_pdf -> agm_personnel_ocr -> AI가 원문 기반 재구성.
+        agm_agenda_xml 결과에 선임/해임 안건이 없으면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -828,7 +837,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 정관변경 사항을 반환합니다.
-        정상: amendments 1건+, 변경전/변경후 텍스트 존재 (------생략 표기도 정상). 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_aoi_change_pdf -> agm_aoi_change_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: amendments 1건+, 변경전/변경후 조문 텍스트 존재. ------생략 표기는 정상(변경 없는 부분 생략). <삭제>도 정상.
+        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
+        그래도 부족하면 agm_aoi_change_pdf -> agm_aoi_change_ocr -> AI가 원문 기반 재구성.
+        agm_agenda_xml 결과에 정관변경 안건이 없으면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -864,7 +876,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 이사/감사 보수한도 승인 정보를 반환합니다.
-        정상: limitAmount > 0. 불완전: limitAmount 없음 -> AI가 원문에서 추출 시도 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_compensation_pdf -> agm_compensation_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: 당기 limitAmount > 0, headcount(이사수/사외이사수), 전기 실지급액+한도액. 소진율(전기지급/전기한도) 자동 계산.
+        불완전: limitAmount 없음 -> AI가 원문에서 추출 시도 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
+        그래도 부족하면 agm_compensation_pdf -> agm_compensation_ocr -> AI가 원문 기반 재구성.
+        agm_agenda_xml 결과에 보수한도 안건이 없으면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -891,7 +906,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 자기주식 보유/처분/소각 정보를 반환합니다.
-        정상: items 1개+. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_treasury_share_pdf -> agm_treasury_share_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: items 1개+, type(hold_dispose/cancel), 주식수/취득방법/보유기간 정보.
+        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
+        그래도 부족하면 agm_treasury_share_pdf -> agm_treasury_share_ocr -> AI가 원문 기반 재구성.
+        agm_agenda_xml 결과에 자기주식 안건이 없으면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -918,7 +936,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 자본준비금 감소/이익잉여금 전입 정보를 반환합니다.
-        정상: amount 추출됨. reducedCapital=true면 감액배당 전제 조건 충족 기업. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_capital_reserve_pdf -> agm_capital_reserve_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: amount(감소 금액) 추출됨, reducedCapital=true. 자본준비금 감소는 감액배당(비과세 배당)의 전제 조건이지 확정이 아님.
+        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
+        그래도 부족하면 agm_capital_reserve_pdf -> agm_capital_reserve_ocr -> AI가 원문 기반 재구성.
+        agm_agenda_xml 결과에 자본준비금 안건이 없으면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -945,7 +966,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 임원 퇴직금 규정 개정 정보를 반환합니다.
-        정상: 현행/개정안 비교 1건+. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_retirement_pay_pdf -> agm_retirement_pay_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: 현행/개정안 비교 1건+, 조항별 변경전/변경후 텍스트.
+        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
+        그래도 부족하면 agm_retirement_pay_pdf -> agm_retirement_pay_ocr -> AI가 원문 기반 재구성.
+        agm_agenda_xml 결과에 퇴직금 안건이 없으면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
