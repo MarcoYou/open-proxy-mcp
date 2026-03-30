@@ -510,10 +510,7 @@ def register_tools(mcp):
         rcept_no: str,
         max_length: int = 10000,
     ) -> str:
-        """주주총회 소집공고 본문을 가져옵니다.
-
-        agm_search에서 얻은 접수번호(rcept_no)로
-        공시 본문 텍스트를 반환합니다.
+        """주주총회 소집공고 전체 원문 텍스트를 반환합니다. 특정 안건만 보려면 agm_extract 사용.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -545,7 +542,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 의안(안건) 목록을 구조화하여 반환합니다.
-        정상: 안건 1개+, 제목 2-150자. 불완전하면 AI가 직접 보정 가능. 그래도 부족하면 agm_agenda_pdf -> agm_agenda_ocr.
+        정상: 안건 1개+, 제목 2-150자. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_agenda_pdf -> agm_agenda_ocr.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -623,11 +620,8 @@ def register_tools(mcp):
         max_fallback_length: int = 3000,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고의 안건별 상세 내용을 반환합니다.
-
-        '목적사항별 기재사항' 섹션에서 각 안건의 상세 내용을 파싱합니다.
-        재무제표, 정관변경 비교표, 이사 후보 정보 등 테이블은
-        마크다운 테이블로, 텍스트는 그대로 반환합니다.
+        """안건별 상세 내용 (raw 블록). 특화 파서(financials, personnel 등)가 없는 안건의 상세를 볼 때 사용.
+        테이블은 마크다운, 텍스트는 그대로 반환. 구조화된 추출이 필요하면 agm_extract 사용.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -686,7 +680,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 재무제표를 구조화하여 반환합니다.
-        정상: BS 5행+, IS 3행+. 불완전하면 AI가 직접 보정 가능. 그래도 부족하면 agm_financials_pdf -> agm_financials_ocr.
+        정상: BS 5행+, IS 3행+. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_financials_pdf -> agm_financials_ocr.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -781,10 +775,7 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고의 정정 사항을 반환합니다.
-
-        정정공고인 경우 정정 전/후 비교, 정정 사유를 구조화하여 반환합니다.
-        정정공고가 아닌 경우 정정 사항이 없다고 반환합니다.
+        """정정공고의 정정 전/후 비교 + 정정 사유. 정정공고가 아닌 경우 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -810,7 +801,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 이사/감사 선임/해임 정보를 반환합니다.
-        정상: 이름: 한글 2-5자 (영문 병기 시 더 길 수 있음), 경력 1건+, 각 100자 이내. 불완전: 경력 100자+ 병합 -> AI가 직접 분리 시도 가능. 그래도 부족하면 agm_personnel_pdf -> agm_personnel_ocr.
+        정상: 이름: 한글 2-5자 (영문 병기 시 더 길 수 있음), 경력 1건+, 각 100자 이내. 불완전: 경력 100자+ 병합 -> AI가 직접 분리 시도 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_personnel_pdf -> agm_personnel_ocr.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -837,7 +828,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 정관변경 사항을 반환합니다.
-        정상: amendments 1건+, 변경전/변경후 텍스트 존재 (------생략 표기도 정상). 불완전하면 AI가 직접 보정 가능. 그래도 부족하면 agm_aoi_change_pdf -> agm_aoi_change_ocr.
+        정상: amendments 1건+, 변경전/변경후 텍스트 존재 (------생략 표기도 정상). 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_aoi_change_pdf -> agm_aoi_change_ocr.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -873,7 +864,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 이사/감사 보수한도 승인 정보를 반환합니다.
-        정상: limitAmount > 0. 불완전: limitAmount 없음 -> AI가 원문에서 추출 시도 가능. 그래도 부족하면 agm_compensation_pdf -> agm_compensation_ocr. 해당 안건 없으면 빈 결과는 정상.
+        정상: limitAmount > 0. 불완전: limitAmount 없음 -> AI가 원문에서 추출 시도 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_compensation_pdf -> agm_compensation_ocr. 해당 안건 없으면 빈 결과는 정상.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -900,7 +891,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 자기주식 보유/처분/소각 정보를 반환합니다.
-        정상: items 1개+. 불완전하면 AI가 직접 보정 가능. 그래도 부족하면 agm_treasury_share_pdf -> agm_treasury_share_ocr.
+        정상: items 1개+. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_treasury_share_pdf -> agm_treasury_share_ocr.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -927,7 +918,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 자본준비금 감소/이익잉여금 전입 정보를 반환합니다.
-        정상: amount 추출됨. reducedCapital=true면 감액배당 전제 조건 충족 기업. 불완전하면 AI가 직접 보정 가능. 그래도 부족하면 agm_capital_reserve_pdf -> agm_capital_reserve_ocr.
+        정상: amount 추출됨. reducedCapital=true면 감액배당 전제 조건 충족 기업. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_capital_reserve_pdf -> agm_capital_reserve_ocr.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -954,7 +945,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """주주총회 소집공고에서 임원 퇴직금 규정 개정 정보를 반환합니다.
-        정상: 현행/개정안 비교 1건+. 불완전하면 AI가 직접 보정 가능. 그래도 부족하면 agm_retirement_pay_pdf -> agm_retirement_pay_ocr.
+        정상: 현행/개정안 비교 1건+. 불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용. 그래도 부족하면 agm_retirement_pay_pdf -> agm_retirement_pay_ocr.
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -1104,9 +1095,9 @@ def register_tools(mcp):
         rcept_no: str,
         agenda_no: str = "",
     ) -> str:
-        """안건의 원문(마크다운) + 핵심 데이터 포인트를 추출합니다. 파서 없는 안건(스톡옵션, 주주제안 등)에 사용.
-
-        금액, 날짜, 인명, 법령 참조, 비율, 테이블을 자동 추출합니다.
+        """안건별 원문(마크다운) + 핵심 수치(금액/인명/날짜/법령/비율/테이블) 추출.
+        파서 없는 안건(스톡옵션, 주주제안 등)이나, _xml 결과가 이상할 때 원문 확인용.
+        전체 문맥이 필요하면 agm_items 사용.
 
         Args:
             rcept_no: 접수번호
