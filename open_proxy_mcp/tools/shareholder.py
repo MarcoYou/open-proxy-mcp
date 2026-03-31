@@ -991,7 +991,7 @@ def register_tools(mcp):
         return _format_retirement_pay(result)
 
     @mcp.tool()
-    async def agm_steward(
+    async def agm(
         ticker: str,
         bgn_de: str = "",
         end_de: str = "",
@@ -1182,7 +1182,7 @@ def register_tools(mcp):
   agm_search → agm_agenda_xml, agm_info, agm_items
   agm_financials_xml, agm_personnel_xml, agm_aoi_change_xml, agm_compensation_xml
   agm_treasury_share_xml, agm_capital_reserve_xml, agm_retirement_pay_xml
-  agm_steward (종합 오케스트레이터)
+  agm (종합 오케스트레이터)
 
 PDF fallback tool (XML 실패 시, 느림 4초+):
   agm_agenda_pdf, agm_financials_pdf, agm_personnel_pdf

@@ -49,7 +49,7 @@ API 한 번 호출. 구조화 완료. 바로 분석 가능.
 ## MCP Tool (31개)
 
 ```
-agm_steward(ticker)          <- 종합 오케스트레이터
+agm(ticker)                  <- 종합 오케스트레이터
 |
 +-- agm_search(ticker)            소집공고 검색
 +-- agm_info(rcept_no)            회의 정보 (일시/장소)

@@ -49,7 +49,7 @@ One API call. Structured. Ready for analysis.
 ## MCP Tools (31 tools)
 
 ```
-agm_steward(ticker)          <- Orchestrator (one-call summary)
+agm(ticker)                  <- Orchestrator (one-call summary)
 |
 +-- agm_search(ticker)            Search AGM notices
 +-- agm_info(rcept_no)            Meeting info (date/location)
