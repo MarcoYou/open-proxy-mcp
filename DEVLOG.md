@@ -1,5 +1,13 @@
 # Dev Log
 
+## 2026-03-31
+
+### _pdf/_ocr docstring 보강
+- _pdf 8개: "정상 기준은 _xml과 동일" 참조 문구 추가
+- _ocr 8개: "UPSTAGE_API_KEY가 .env에 없으면 에러" 명시
+- _ocr 8개: fallback 체인 끝 안내 — "OCR도 실패하면 AI가 원문 기반으로 직접 재구성"
+- 32개 tool docstring 전체 보강 완료
+
 ## 2026-03-30
 
 ### _xml 파서 docstring 품질 기준 구체화
