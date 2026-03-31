@@ -291,6 +291,7 @@ def _format_block_holders(data: dict, purposes: dict[str, str] | None = None) ->
     purposes = purposes or {}
 
     lines = ["## 5% 대량보유 상황보고\n"]
+    lines.append("*보유비율은 보고자+특별관계자 합산 기준*\n")
     lines.append("| 접수일 | 보고자 | 보유주식수 | 보유비율 | 증감 | 보유목적 | 보고사유 |")
     lines.append("|--------|--------|----------|---------|------|---------|---------|")
 
@@ -781,30 +782,54 @@ def register_tools(mcp):
         # ── 마크다운 종합 ──
         sections = [f"# {corp_name} 지분 구조\n"]
 
-        # 최대주주 + 특관인 합계
+        # 최대주주 + 특관인 합계 (사업보고서 기준)
         major_items = major.get("list", [])
         if major_items:
             stlm_dt = major_items[0].get("stlm_dt", "")
-            top = major_items[0]
-            top_name = top.get("nm", "")
-            top_rt = top.get("trmend_posesn_stock_qota_rt", "")
 
-            # 특관인 합계 (보통주만)
+            # 보통주만 집계
+            top_name = ""
+            top_rt = ""
             total_rt = 0.0
             related_count = 0
-            for item in major_items:
-                if "보통" in item.get("stock_knd", "보통"):
-                    try:
-                        rt = float(item.get("trmend_posesn_stock_qota_rt", "0") or "0")
-                        total_rt += rt
-                        if item.get("relate", "") != "본인":
-                            related_count += 1
-                    except ValueError:
-                        pass
+            shareholder_details: list[tuple[str, str, float]] = []  # (name, relate, pct)
 
-            sections.append(f"**최대주주**: {top_name} {_pct(top_rt)}")
+            for item in major_items:
+                if "보통" not in item.get("stock_knd", "보통"):
+                    continue
+                name = item.get("nm", "").strip()
+                relate = item.get("relate", "").strip()
+                try:
+                    rt = float(item.get("trmend_posesn_stock_qota_rt", "0") or "0")
+                except ValueError:
+                    rt = 0.0
+
+                # "계" 행 스킵
+                if name == "계":
+                    continue
+
+                total_rt += rt
+                if "본인" in relate or "최대주주" in relate:
+                    if not top_name:
+                        top_name = name
+                        top_rt = item.get("trmend_posesn_stock_qota_rt", "")
+                else:
+                    related_count += 1
+
+                if rt >= 1.0:
+                    shareholder_details.append((name, relate, rt))
+
+            sections.append(f"**최대주주 (사업보고서 신고 기준)**: {top_name} {_pct(top_rt)}")
             if related_count > 0:
                 sections.append(f"**특수관계인 포함 합계**: {total_rt:.2f}% ({related_count}명)")
+
+            # 1% 이상 특관인 상세
+            others = [(n, r, p) for n, r, p in shareholder_details if n != top_name]
+            if others:
+                sections.append("**주요 특수관계인 (보통주 1%+)**:")
+                for name, relate, pct in sorted(others, key=lambda x: x[2], reverse=True):
+                    sections.append(f"  - {name} ({relate}): {pct:.2f}%")
+
             sections.append(f"*기준: {bsns_year} 사업보고서 ({stlm_dt})*\n")
 
         # 주식총수 + 자사주 비율
@@ -836,7 +861,7 @@ def register_tools(mcp):
 
         # 5% 대량보유 (보유목적 포함)
         if latest_by_reporter:
-            sections.append("**5% 대량보유**:")
+            sections.append("**5% 대량보유 (보고자+특별관계자 합산 기준)**:")
             for name, item in sorted(
                 latest_by_reporter.items(),
                 key=lambda x: float(x[1].get("stkrt", 0) or 0),
