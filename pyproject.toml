@@ -7,4 +7,13 @@ dependencies = [
     "mcp[cli]>=1.6.0",
     "httpx>=0.28.1",
     "python-dotenv>=1.0.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.0.0",
+    "anthropic>=0.40.0",
+    "openai>=1.50.0",
+    "opendataloader-pdf>=0.1.0",
+    "PyPDF2>=3.0.0",
 ]
+
+[project.license]
+text = "CC-BY-NC-4.0"

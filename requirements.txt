@@ -1,9 +1,0 @@
-mcp
-httpx
-python-dotenv
-anthropic
-openai
-beautifulsoup4
-lxml
-opendataloader-pdf
-PyPDF2
