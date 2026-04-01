@@ -21,6 +21,7 @@ Thumbs.db
 .mcp.json
 
 # Test artifacts
+test/
 test_batch*.py
 test_batch*.json
 test_kospi200*.py
