@@ -456,3 +456,223 @@ class DartClient:
 
         logger.info(f"[DART 웹] PDF 다운로드 완료: {len(content):,} bytes (rcept_no={rcept_no})")
         return content
+
+    # ── Ownership API (DS002 정기보고서) ──
+
+    async def get_major_shareholders(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """최대주주 현황 (hyslrSttus) — 최대주주+특수관계인 지분
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("hyslrSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_major_shareholder_changes(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """최대주주 변동현황 (hyslrChgSttus)
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("hyslrChgSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_minority_shareholders(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """소액주주 현황 (mrhlSttus)
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("mrhlSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_stock_total(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """주식의 총수 현황 (stockTotqySttus) — 발행총수, 자기주식수, 유통주식수
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("stockTotqySttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_treasury_stock(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """자기주식 취득 및 처분 현황 (tesstkAcqsDspsSttus) — 기초/취득/처분/소각/기말
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("tesstkAcqsDspsSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    # ── Ownership API (DS004 수시보고) ──
+
+    async def get_block_holders(self, corp_code: str) -> dict:
+        """5% 대량보유 상황보고 (majorstock) — 전체 이력 반환, 날짜 필터 없음
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+        """
+        return await self._request("majorstock.json", {
+            "corp_code": corp_code,
+        })
+
+    async def get_executive_holdings(self, corp_code: str) -> dict:
+        """임원/주요주주 소유보고 (elestock) — 전체 이력 반환, 대량 데이터 주의
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+        """
+        return await self._request("elestock.json", {
+            "corp_code": corp_code,
+        })
+
+    # ── Ownership API (DS005 주요사항보고서) ──
+
+    async def get_treasury_acquisition(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """자기주식 취득 결정 (tsstkAqDecsn)
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bgn_de: 검색 시작일 (YYYYMMDD)
+            end_de: 검색 종료일 (YYYYMMDD)
+        """
+        return await self._request("tsstkAqDecsn.json", {
+            "corp_code": corp_code,
+            "bgn_de": bgn_de,
+            "end_de": end_de,
+        })
+
+    async def get_treasury_disposal(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """자기주식 처분 결정 (tsstkDpDecsn)
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bgn_de: 검색 시작일 (YYYYMMDD)
+            end_de: 검색 종료일 (YYYYMMDD)
+        """
+        return await self._request("tsstkDpDecsn.json", {
+            "corp_code": corp_code,
+            "bgn_de": bgn_de,
+            "end_de": end_de,
+        })
+
+    async def get_treasury_trust_contract(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """자기주식취득 신탁계약 체결 결정 (tsstkAqTrctrCnsDecsn)
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bgn_de: 검색 시작일 (YYYYMMDD)
+            end_de: 검색 종료일 (YYYYMMDD)
+        """
+        return await self._request("tsstkAqTrctrCnsDecsn.json", {
+            "corp_code": corp_code,
+            "bgn_de": bgn_de,
+            "end_de": end_de,
+        })
+
+    async def get_treasury_trust_termination(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """자기주식취득 신탁계약 해지 결정 (tsstkAqTrctrCcDecsn)
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bgn_de: 검색 시작일 (YYYYMMDD)
+            end_de: 검색 종료일 (YYYYMMDD)
+        """
+        return await self._request("tsstkAqTrctrCcDecsn.json", {
+            "corp_code": corp_code,
+            "bgn_de": bgn_de,
+            "end_de": end_de,
+        })
+
+    # ── KRX KIND 크롤링 ──
+
+    async def _throttle_kind(self):
+        """KIND 웹 요청 간격 강제 (1-3초 랜덤)"""
+        import random
+        elapsed = time.monotonic() - self._last_web_request
+        wait = random.uniform(1.0, 3.0)
+        if elapsed < wait:
+            await asyncio.sleep(wait - elapsed)
+        self._last_web_request = time.monotonic()
+
+    async def kind_fetch_document(self, acptno: str) -> str:
+        """KIND에서 공시 본문 HTML 가져오기 (3단계 iframe 크롤링)
+
+        1. 메인 페이지에서 docNo 추출
+        2. searchContents에서 본문 URL 추출
+        3. 본문 HTML 다운로드
+
+        Args:
+            acptno: 접수번호 (예: "20260130000495")
+
+        Returns:
+            본문 HTML 텍스트
+        """
+        kind_base = "https://kind.krx.co.kr"
+        headers = {
+            "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+        }
+
+        # Step 1: 메인 페이지 → docNo 추출
+        await self._throttle_kind()
+        url1 = f"{kind_base}/common/disclsviewer.do"
+        async with httpx.AsyncClient() as http:
+            resp1 = await http.get(url1, params={
+                "method": "search", "acptno": acptno,
+            }, timeout=30, headers=headers)
+            resp1.raise_for_status()
+
+        # <select id="mainDoc"> 안의 <option value="docNo|Y">
+        m = re.search(r"<option[^>]+value=['\"](\d+)\|?[^'\"]*['\"]", resp1.text)
+        if not m:
+            raise DartClientError("KIND_NO_DOC", f"KIND에서 docNo를 찾을 수 없습니다 (acptno={acptno})")
+        doc_no = m.group(1)
+
+        # Step 2: searchContents → 본문 URL 추출
+        await self._throttle_kind()
+        async with httpx.AsyncClient() as http:
+            resp2 = await http.get(url1, params={
+                "method": "searchContents", "docNo": doc_no,
+            }, timeout=30, headers=headers)
+            resp2.raise_for_status()
+
+        # setPath('목차URL', '본문URL') — 두 번째 인자가 본문 (목차가 빈 문자열일 수 있음)
+        m2 = re.search(r"setPath\s*\(\s*'([^']*)'\s*,\s*'([^']+)'", resp2.text)
+        if not m2:
+            raise DartClientError("KIND_NO_PATH", f"KIND에서 본문 URL을 찾을 수 없습니다 (docNo={doc_no})")
+        body_path = m2.group(2)
+
+        # Step 3: 본문 HTML 다운로드
+        await self._throttle_kind()
+        body_url = f"{kind_base}{body_path}" if body_path.startswith("/") else body_path
+        async with httpx.AsyncClient() as http:
+            resp3 = await http.get(body_url, timeout=30, headers=headers)
+            resp3.raise_for_status()
+
+        logger.info(f"[KIND] 본문 다운로드 완료: {len(resp3.text):,} chars (acptno={acptno})")
+        return resp3.text

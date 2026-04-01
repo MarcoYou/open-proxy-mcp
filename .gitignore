@@ -25,6 +25,8 @@ test_batch*.py
 test_batch*.json
 test_kospi200*.py
 test_kospi200*.json
+test_own_survey*.py
+test_own_survey*.json
 
 # Document cache (DART API)
 cache/

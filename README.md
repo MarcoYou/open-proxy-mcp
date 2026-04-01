@@ -46,10 +46,10 @@ One API call. Structured. Ready for analysis.
 
 - [OpenDART API](https://opendart.fss.or.kr/) — Korea Financial Supervisory Service Electronic Disclosure System
 
-## MCP Tools (31 tools)
+## MCP Tools (40 tools)
 
 ```
-agm_steward(ticker)          <- Orchestrator (one-call summary)
+agm(ticker)                  <- Orchestrator (one-call summary)
 |
 +-- agm_search(ticker)            Search AGM notices
 +-- agm_info(rcept_no)            Meeting info (date/location)
@@ -77,6 +77,15 @@ Agenda type -> Tool mapping:
   Capital reserve         -> agm_capital_reserve_xml
   Retirement regulations  -> agm_retirement_pay_xml
   Other                   -> agm_items (raw blocks)
+
+own(ticker)                  <- Ownership orchestrator
+|
++-- own_major(ticker, year)       Largest shareholder + related parties
++-- own_total(ticker, year)       Total shares / treasury / float / minority
++-- own_treasury(ticker, year)    Treasury stock baseline (annual report)
++-- own_treasury_tx(ticker)       Acquisition/disposal/trust decisions
++-- own_block(ticker)             5% block holders (purpose from filing)
++-- own_latest(ticker)            All shareholders latest snapshot
 ```
 
 ### 3-Tier Fallback (XML -> PDF -> OCR)
@@ -139,7 +148,7 @@ AI calls agm_personnel_xml(rcept_no)
                              |
                              v
 +---------------------------------------------------------+
-|  shareholder.py - MCP Tool Layer (31 tools)              |
+|  shareholder.py - MCP Tool Layer (40 tools)              |
 |                                                          |
 |  agm_*_xml  - Tier 1                                     |
 |  agm_*_pdf  - Tier 2 (AI decides autonomously)           |
@@ -154,7 +163,8 @@ AI calls agm_personnel_xml(rcept_no)
 open_proxy_mcp/
   server.py           # FastMCP server entry point (stdio + SSE)
   tools/
-    shareholder.py    # 31 MCP tools + formatters
+    shareholder.py    # 33 AGM tools + formatters (incl. agm_result)
+    ownership.py      # 7 ownership tools + formatters
     parser.py         # XML parsers - parse_*_xml()
     pdf_parser.py     # PDF parsers - parse_*_pdf() + Upstage OCR fallback
   dart/

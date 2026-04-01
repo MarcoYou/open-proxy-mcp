@@ -36,10 +36,19 @@
 - [ ] DB 스키마 설계 (향후, PostgreSQL)
 - [ ] API 서버 (향후, FastAPI)
 
+### ownership tool 개선
+- [ ] own_major에 최대주주등소유주식변동신고서 연동 (KIND 크롤링, ticker 기반 검색)
+- [ ] own_block 보유목적 변경 시계열 추적 (동일 보고자 이력 비교)
+- [ ] own_latest에 3대 주체 분류 태깅 (최대주주+특관인 / 국민연금 / 기관투자자)
+- [ ] 집중투표 분석 tool 체이닝 (agm + own 연계, 의결권 시뮬레이션)
+
 ### free-open-proxy 개선
 - [x] ~~23개 MCP tool 등록 (_xml/_pdf/_ocr + guide)~~
 - [x] ~~agm_guide tool — AI용 사용 가이드~~
 - [x] ~~CASE_DEFINITION을 agm_guide 응답에 포함 (AI 판단 기준)~~
+- [x] ~~own_* 지분 구조 tool 7개 (총 39개 tool, KOSPI 200 전수조사 199/199 OK)~~
+- [x] ~~agm_result tool — KIND 크롤링 기반 주총 투표결과 + 추정참석률 (총 40개 tool)~~
+- [x] ~~KOSPI 200 주총결과 전수 크롤링 → pipeline_result/ 199개 JSON~~
 - [ ] LLM fallback tool — XML 원문 + CASE_DEFINITION으로 AI 보강 (향후)
 
 ### PDF 파싱 보조 소스

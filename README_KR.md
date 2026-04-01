@@ -46,10 +46,10 @@ API 한 번 호출. 구조화 완료. 바로 분석 가능.
 
 - [OpenDART API](https://opendart.fss.or.kr/) - 금융감독원 전자공시시스템
 
-## MCP Tool (31개)
+## MCP Tool (40개)
 
 ```
-agm_steward(ticker)          <- 종합 오케스트레이터
+agm(ticker)                  <- 종합 오케스트레이터
 |
 +-- agm_search(ticker)            소집공고 검색
 +-- agm_info(rcept_no)            회의 정보 (일시/장소)
@@ -77,6 +77,15 @@ agm_steward(ticker)          <- 종합 오케스트레이터
   자본준비금 감소     -> agm_capital_reserve_xml
   퇴직금 규정       -> agm_retirement_pay_xml
   기타             -> agm_items (raw 블록)
+
+own(ticker)                      <- 지분 구조 오케스트레이터
+|
++-- own_major(ticker, year)           최대주주 + 특수관계인 + 변동이력
++-- own_total(ticker, year)           주식총수 / 자사주 / 유통주식 / 소액주주
++-- own_treasury(ticker, year)        자기주식 기말 보유 (사업보고서 기준)
++-- own_treasury_tx(ticker)           취득결정 / 처분결정 / 신탁체결 / 해지
++-- own_block(ticker)                 5% 대량보유 (보유목적 원문 파싱)
++-- own_latest(ticker)                전 주주 최신 스냅샷
 ```
 
 ### 3단계 Fallback (XML -> PDF -> OCR)
@@ -140,7 +149,7 @@ AI가 agm_personnel_xml(rcept_no) 호출
                              |
                              v
 +---------------------------------------------------------+
-|  shareholder.py - MCP Tool 레이어 (31개)                  |
+|  shareholder.py - MCP Tool 레이어 (40개)                  |
 |                                                          |
 |  agm_*_xml  - 1단계                                      |
 |  agm_*_pdf  - 2단계 (AI 자율 판단)                        |
@@ -155,7 +164,8 @@ AI가 agm_personnel_xml(rcept_no) 호출
 open_proxy_mcp/
   server.py           # FastMCP 서버 진입점 (stdio + SSE)
   tools/
-    shareholder.py    # MCP tool 31개 + 포매터
+    shareholder.py    # AGM tool 33개 + 포매터 (agm_result 포함)
+    ownership.py      # 지분 구조 tool 7개 + 포매터
     parser.py         # XML 파서 - parse_*_xml()
     pdf_parser.py     # PDF 파서 - parse_*_pdf() + Upstage OCR fallback
   dart/

@@ -17,7 +17,8 @@ DART(전자공시시스템) 데이터를 MCP 프로토콜로 제공하는 Python
 open_proxy_mcp/       # MCP 서버 (Python)
   server.py           # FastMCP 서버 진입점
   tools/
-    shareholder.py    # MCP tool 31개 (agm_*) + 포매터 + format_krw
+    shareholder.py    # AGM tool 32개 (agm_*) + 포매터 + format_krw
+    ownership.py      # 지분 구조 tool 7개 (own_*) + 포매터
     parser.py         # XML 파서 (bs4+regex) — parse_*_xml()
     pdf_parser.py     # PDF 파서 (opendataloader md) — parse_*_pdf() + Upstage OCR fallback
   dart/
