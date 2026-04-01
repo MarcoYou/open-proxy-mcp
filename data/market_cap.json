@@ -1,0 +1,1395 @@
+{
+  "282330": {
+    "name": "BGF리테일",
+    "market_cap_raw": "2조 3,783억",
+    "market_cap_display": "2.38조",
+    "market_cap_won": 2378300000000,
+    "close_price": "139,300"
+  },
+  "138930": {
+    "name": "BNK금융지주",
+    "market_cap_raw": "5조 6,573억",
+    "market_cap_display": "5.66조",
+    "market_cap_won": 5657300000000,
+    "close_price": "17,890"
+  },
+  "001040": {
+    "name": "CJ",
+    "market_cap_raw": "5조 8,646억",
+    "market_cap_display": "5.86조",
+    "market_cap_won": 5864600000000,
+    "close_price": "189,000"
+  },
+  "000120": {
+    "name": "CJ대한통운",
+    "market_cap_raw": "2조 4,843억",
+    "market_cap_display": "2.48조",
+    "market_cap_won": 2484300000000,
+    "close_price": "103,400"
+  },
+  "097950": {
+    "name": "CJ제일제당",
+    "market_cap_raw": "3조 3,119억",
+    "market_cap_display": "3.31조",
+    "market_cap_won": 3311900000000,
+    "close_price": "216,500"
+  },
+  "005830": {
+    "name": "DB손해보험",
+    "market_cap_raw": "11조 6,565억",
+    "market_cap_display": "11.7조",
+    "market_cap_won": 11656500000000,
+    "close_price": "163,800"
+  },
+  "000210": {
+    "name": "DL",
+    "market_cap_raw": "1조 3,139억",
+    "market_cap_display": "1.31조",
+    "market_cap_won": 1313900000000,
+    "close_price": "60,400"
+  },
+  "375500": {
+    "name": "DL이앤씨",
+    "market_cap_raw": "2조 8,053억",
+    "market_cap_display": "2.81조",
+    "market_cap_won": 2805300000000,
+    "close_price": "66,800"
+  },
+  "007340": {
+    "name": "DN오토모티브",
+    "market_cap_raw": "2조 3,814억",
+    "market_cap_display": "2.38조",
+    "market_cap_won": 2381400000000,
+    "close_price": "38,150"
+  },
+  "383220": {
+    "name": "F&F",
+    "market_cap_raw": "2조 4,402억",
+    "market_cap_display": "2.44조",
+    "market_cap_won": 2440200000000,
+    "close_price": "61,300"
+  },
+  "114090": {
+    "name": "GKL",
+    "market_cap_raw": "7,342억",
+    "market_cap_display": "7,342억",
+    "market_cap_won": 734200000000,
+    "close_price": "11,500"
+  },
+  "078930": {
+    "name": "GS",
+    "market_cap_raw": "6조 2,439억",
+    "market_cap_display": "6.24조",
+    "market_cap_won": 6243900000000,
+    "close_price": "63,800"
+  },
+  "006360": {
+    "name": "GS건설",
+    "market_cap_raw": "2조 4,006억",
+    "market_cap_display": "2.40조",
+    "market_cap_won": 2400600000000,
+    "close_price": "25,100"
+  },
+  "007070": {
+    "name": "GS리테일",
+    "market_cap_raw": "1조 8,644억",
+    "market_cap_display": "1.86조",
+    "market_cap_won": 1864400000000,
+    "close_price": "21,900"
+  },
+  "009540": {
+    "name": "HD한국조선해양",
+    "market_cap_raw": "26조 3,630억",
+    "market_cap_display": "26.4조",
+    "market_cap_won": 26363000000000,
+    "close_price": "344,000"
+  },
+  "267250": {
+    "name": "HD현대",
+    "market_cap_raw": "19조 5,113억",
+    "market_cap_display": "19.5조",
+    "market_cap_won": 19511300000000,
+    "close_price": "239,000"
+  },
+  "443060": {
+    "name": "HD현대마린솔루션",
+    "market_cap_raw": "8조 4,104억",
+    "market_cap_display": "8.41조",
+    "market_cap_won": 8410400000000,
+    "close_price": "179,600"
+  },
+  "071970": {
+    "name": "HD현대마린엔진",
+    "market_cap_raw": "2조 4,220억",
+    "market_cap_display": "2.42조",
+    "market_cap_won": 2422000000000,
+    "close_price": "68,700"
+  },
+  "267260": {
+    "name": "HD현대일렉트릭",
+    "market_cap_raw": "32조 5,145억",
+    "market_cap_display": "32.5조",
+    "market_cap_won": 32514500000000,
+    "close_price": "832,000"
+  },
+  "329180": {
+    "name": "HD현대중공업",
+    "market_cap_raw": "47조 3,900억",
+    "market_cap_display": "47.4조",
+    "market_cap_won": 47390000000000,
+    "close_price": "465,000"
+  },
+  "204320": {
+    "name": "HL만도",
+    "market_cap_raw": "2조 3,948억",
+    "market_cap_display": "2.39조",
+    "market_cap_won": 2394800000000,
+    "close_price": "49,050"
+  },
+  "011200": {
+    "name": "HMM",
+    "market_cap_raw": "19조 1,949억",
+    "market_cap_display": "19.2조",
+    "market_cap_won": 19194900000000,
+    "close_price": "19,570"
+  },
+  "298050": {
+    "name": "HS효성첨단소재",
+    "market_cap_raw": "9,923억",
+    "market_cap_display": "9,923억",
+    "market_cap_won": 992300000000,
+    "close_price": "220,000"
+  },
+  "175330": {
+    "name": "JB금융지주",
+    "market_cap_raw": "5조 7,417억",
+    "market_cap_display": "5.74조",
+    "market_cap_won": 5741700000000,
+    "close_price": "29,700"
+  },
+  "105560": {
+    "name": "KB금융",
+    "market_cap_raw": "55조 2,937억",
+    "market_cap_display": "55.3조",
+    "market_cap_won": 55293700000000,
+    "close_price": "141,900"
+  },
+  "002380": {
+    "name": "KCC",
+    "market_cap_raw": "4조 4,788억",
+    "market_cap_display": "4.48조",
+    "market_cap_won": 4478800000000,
+    "close_price": "482,000"
+  },
+  "030200": {
+    "name": "KT",
+    "market_cap_raw": "15조 4,741억",
+    "market_cap_display": "15.5조",
+    "market_cap_won": 15474100000000,
+    "close_price": "60,400"
+  },
+  "003550": {
+    "name": "LG",
+    "market_cap_raw": "13조 4,481억",
+    "market_cap_display": "13.4조",
+    "market_cap_won": 13448100000000,
+    "close_price": "82,800"
+  },
+  "034220": {
+    "name": "LG디스플레이",
+    "market_cap_raw": "5조 7,000억",
+    "market_cap_display": "5.70조",
+    "market_cap_won": 5700000000000,
+    "close_price": "10,850"
+  },
+  "051900": {
+    "name": "LG생활건강",
+    "market_cap_raw": "3조 8,792억",
+    "market_cap_display": "3.88조",
+    "market_cap_won": 3879200000000,
+    "close_price": "247,000"
+  },
+  "064400": {
+    "name": "LG씨엔에스",
+    "market_cap_raw": "5조 7,647억",
+    "market_cap_display": "5.76조",
+    "market_cap_won": 5764700000000,
+    "close_price": "55,800"
+  },
+  "373220": {
+    "name": "LG에너지솔루션",
+    "market_cap_raw": "95조 2,380억",
+    "market_cap_display": "95.2조",
+    "market_cap_won": 95238000000000,
+    "close_price": "394,500"
+  },
+  "032640": {
+    "name": "LG유플러스",
+    "market_cap_raw": "6조 7,225억",
+    "market_cap_display": "6.72조",
+    "market_cap_won": 6722500000000,
+    "close_price": "15,530"
+  },
+  "011070": {
+    "name": "LG이노텍",
+    "market_cap_raw": "8조 1,178억",
+    "market_cap_display": "8.12조",
+    "market_cap_won": 8117800000000,
+    "close_price": "293,500"
+  },
+  "066570": {
+    "name": "LG전자",
+    "market_cap_raw": "18조 3,247억",
+    "market_cap_display": "18.3조",
+    "market_cap_won": 18324700000000,
+    "close_price": "105,600"
+  },
+  "051910": {
+    "name": "LG화학",
+    "market_cap_raw": "22조 601억",
+    "market_cap_display": "22.1조",
+    "market_cap_won": 22060100000000,
+    "close_price": "299,000"
+  },
+  "079550": {
+    "name": "LIG넥스원",
+    "market_cap_raw": "17조 4,680억",
+    "market_cap_display": "17.5조",
+    "market_cap_won": 17468000000000,
+    "close_price": "611,000"
+  },
+  "010120": {
+    "name": "LS ELECTRIC",
+    "market_cap_raw": "23조 8,200억",
+    "market_cap_display": "23.8조",
+    "market_cap_won": 23820000000000,
+    "close_price": "718,000"
+  },
+  "006260": {
+    "name": "LS",
+    "market_cap_raw": "8조 6,892억",
+    "market_cap_display": "8.69조",
+    "market_cap_won": 8689200000000,
+    "close_price": "256,000"
+  },
+  "035420": {
+    "name": "NAVER",
+    "market_cap_raw": "32조 9,391억",
+    "market_cap_display": "32.9조",
+    "market_cap_won": 32939100000000,
+    "close_price": "201,500"
+  },
+  "005940": {
+    "name": "NH투자증권",
+    "market_cap_raw": "11조 3,496억",
+    "market_cap_display": "11.3조",
+    "market_cap_won": 11349600000000,
+    "close_price": "29,600"
+  },
+  "010060": {
+    "name": "OCI홀딩스",
+    "market_cap_raw": "3조 6,127억",
+    "market_cap_display": "3.61조",
+    "market_cap_won": 3612700000000,
+    "close_price": "187,800"
+  },
+  "005490": {
+    "name": "POSCO홀딩스",
+    "market_cap_raw": "28조 28억",
+    "market_cap_display": "28.0조",
+    "market_cap_won": 28002800000000,
+    "close_price": "332,500"
+  },
+  "010950": {
+    "name": "S-Oil",
+    "market_cap_raw": "12조 7,331억",
+    "market_cap_display": "12.7조",
+    "market_cap_won": 12733100000000,
+    "close_price": "105,300"
+  },
+  "011790": {
+    "name": "SKC",
+    "market_cap_raw": "3조 7,300억",
+    "market_cap_display": "3.73조",
+    "market_cap_won": 3730000000000,
+    "close_price": "91,300"
+  },
+  "034730": {
+    "name": "SK",
+    "market_cap_raw": "23조 2,734억",
+    "market_cap_display": "23.3조",
+    "market_cap_won": 23273400000000,
+    "close_price": "301,000"
+  },
+  "302440": {
+    "name": "SK바이오사이언스",
+    "market_cap_raw": "3조 4,237억",
+    "market_cap_display": "3.42조",
+    "market_cap_won": 3423700000000,
+    "close_price": "41,700"
+  },
+  "326030": {
+    "name": "SK바이오팜",
+    "market_cap_raw": "7조 7,530억",
+    "market_cap_display": "7.75조",
+    "market_cap_won": 7753000000000,
+    "close_price": "94,800"
+  },
+  "402340": {
+    "name": "SK스퀘어",
+    "market_cap_raw": "66조 1,756억",
+    "market_cap_display": "66.2조",
+    "market_cap_won": 66175600000000,
+    "close_price": "466,500"
+  },
+  "361610": {
+    "name": "SK아이이테크놀로지",
+    "market_cap_raw": "1조 8,239억",
+    "market_cap_display": "1.82조",
+    "market_cap_won": 1823900000000,
+    "close_price": "21,250"
+  },
+  "096770": {
+    "name": "SK이노베이션",
+    "market_cap_raw": "19조 3,565억",
+    "market_cap_display": "19.4조",
+    "market_cap_won": 19356500000000,
+    "close_price": "108,700"
+  },
+  "285130": {
+    "name": "SK케미칼",
+    "market_cap_raw": "9,411억",
+    "market_cap_display": "9,411억",
+    "market_cap_won": 941100000000,
+    "close_price": "52,600"
+  },
+  "017670": {
+    "name": "SK텔레콤",
+    "market_cap_raw": "16조 8,610억",
+    "market_cap_display": "16.9조",
+    "market_cap_won": 16861000000000,
+    "close_price": "76,400"
+  },
+  "000660": {
+    "name": "SK하이닉스",
+    "market_cap_raw": "636조 4,432억",
+    "market_cap_display": "636조",
+    "market_cap_won": 636443200000000,
+    "close_price": "807,000"
+  },
+  "069260": {
+    "name": "TKG휴켐스",
+    "market_cap_raw": "7,334억",
+    "market_cap_display": "7,334억",
+    "market_cap_won": 733400000000,
+    "close_price": "17,970"
+  },
+  "139130": {
+    "name": "iM금융지주",
+    "market_cap_raw": "2조 7,595억",
+    "market_cap_display": "2.76조",
+    "market_cap_won": 2759500000000,
+    "close_price": "16,710"
+  },
+  "035250": {
+    "name": "강원랜드",
+    "market_cap_raw": "3조 6,712억",
+    "market_cap_display": "3.67조",
+    "market_cap_won": 3671200000000,
+    "close_price": "16,890"
+  },
+  "010130": {
+    "name": "고려아연",
+    "market_cap_raw": "31조 6,643억",
+    "market_cap_display": "31.7조",
+    "market_cap_won": 31664300000000,
+    "close_price": "1,422,000"
+  },
+  "011780": {
+    "name": "금호석유화학",
+    "market_cap_raw": "3조 1,889억",
+    "market_cap_display": "3.19조",
+    "market_cap_won": 3188900000000,
+    "close_price": "117,900"
+  },
+  "073240": {
+    "name": "금호타이어",
+    "market_cap_raw": "1조 7,810억",
+    "market_cap_display": "1.78조",
+    "market_cap_won": 1781000000000,
+    "close_price": "5,950"
+  },
+  "000270": {
+    "name": "기아",
+    "market_cap_raw": "60조 6,311억",
+    "market_cap_display": "60.6조",
+    "market_cap_won": 60631100000000,
+    "close_price": "145,200"
+  },
+  "024110": {
+    "name": "기업은행",
+    "market_cap_raw": "17조 5,434억",
+    "market_cap_display": "17.5조",
+    "market_cap_won": 17543400000000,
+    "close_price": "21,350"
+  },
+  "251270": {
+    "name": "넷마블",
+    "market_cap_raw": "4조 2,128억",
+    "market_cap_display": "4.21조",
+    "market_cap_won": 4212800000000,
+    "close_price": "49,200"
+  },
+  "006280": {
+    "name": "녹십자",
+    "market_cap_raw": "1조 7,308억",
+    "market_cap_display": "1.73조",
+    "market_cap_won": 1730800000000,
+    "close_price": "142,900"
+  },
+  "005250": {
+    "name": "녹십자홀딩스",
+    "market_cap_raw": "6,570억",
+    "market_cap_display": "6,570억",
+    "market_cap_won": 657000000000,
+    "close_price": "13,330"
+  },
+  "004370": {
+    "name": "농심",
+    "market_cap_raw": "2조 3,084억",
+    "market_cap_display": "2.31조",
+    "market_cap_won": 2308400000000,
+    "close_price": "367,000"
+  },
+  "001680": {
+    "name": "대상",
+    "market_cap_raw": "7,051억",
+    "market_cap_display": "7,051억",
+    "market_cap_won": 705100000000,
+    "close_price": "19,900"
+  },
+  "047040": {
+    "name": "대우건설",
+    "market_cap_raw": "8조 755억",
+    "market_cap_display": "8.08조",
+    "market_cap_won": 8075500000000,
+    "close_price": "15,550"
+  },
+  "003090": {
+    "name": "대웅",
+    "market_cap_raw": "1조 4,419억",
+    "market_cap_display": "1.44조",
+    "market_cap_won": 1441900000000,
+    "close_price": "23,300"
+  },
+  "069620": {
+    "name": "대웅제약",
+    "market_cap_raw": "1조 9,732억",
+    "market_cap_display": "1.97조",
+    "market_cap_won": 1973200000000,
+    "close_price": "160,000"
+  },
+  "006650": {
+    "name": "대한유화",
+    "market_cap_raw": "8,756억",
+    "market_cap_display": "8,756억",
+    "market_cap_won": 875600000000,
+    "close_price": "130,000"
+  },
+  "001440": {
+    "name": "대한전선",
+    "market_cap_raw": "5조 6,027억",
+    "market_cap_display": "5.60조",
+    "market_cap_won": 5602700000000,
+    "close_price": "26,700"
+  },
+  "003490": {
+    "name": "대한항공",
+    "market_cap_raw": "9조 951억",
+    "market_cap_display": "9.10조",
+    "market_cap_won": 9095100000000,
+    "close_price": "23,550"
+  },
+  "192080": {
+    "name": "더블유게임즈",
+    "market_cap_raw": "1조 756억",
+    "market_cap_display": "1.08조",
+    "market_cap_won": 1075600000000,
+    "close_price": "49,700"
+  },
+  "026960": {
+    "name": "동서",
+    "market_cap_raw": "2조 7,816억",
+    "market_cap_display": "2.78조",
+    "market_cap_won": 2781600000000,
+    "close_price": "27,350"
+  },
+  "006040": {
+    "name": "동원산업",
+    "market_cap_raw": "1조 7,262억",
+    "market_cap_display": "1.73조",
+    "market_cap_won": 1726200000000,
+    "close_price": "37,900"
+  },
+  "014820": {
+    "name": "동원시스템즈",
+    "market_cap_raw": "7,335억",
+    "market_cap_display": "7,335억",
+    "market_cap_won": 733500000000,
+    "close_price": "24,950"
+  },
+  "000150": {
+    "name": "두산",
+    "market_cap_raw": "18조 561억",
+    "market_cap_display": "18.1조",
+    "market_cap_won": 18056100000000,
+    "close_price": "1,026,000"
+  },
+  "454910": {
+    "name": "두산로보틱스",
+    "market_cap_raw": "5조 4,838억",
+    "market_cap_display": "5.48조",
+    "market_cap_won": 5483800000000,
+    "close_price": "79,500"
+  },
+  "241560": {
+    "name": "두산밥캣",
+    "market_cap_raw": "6조 6억",
+    "market_cap_display": "6.00조",
+    "market_cap_won": 6000600000000,
+    "close_price": "56,900"
+  },
+  "034020": {
+    "name": "두산에너빌리티",
+    "market_cap_raw": "63조 7,999억",
+    "market_cap_display": "63.8조",
+    "market_cap_won": 63799900000000,
+    "close_price": "91,800"
+  },
+  "023530": {
+    "name": "롯데쇼핑",
+    "market_cap_raw": "2조 9,986억",
+    "market_cap_display": "3조",
+    "market_cap_won": 2998600000000,
+    "close_price": "108,200"
+  },
+  "280360": {
+    "name": "롯데웰푸드",
+    "market_cap_raw": "1조 598억",
+    "market_cap_display": "1.06조",
+    "market_cap_won": 1059800000000,
+    "close_price": "111,100"
+  },
+  "004000": {
+    "name": "롯데정밀화학",
+    "market_cap_raw": "1조 2,900억",
+    "market_cap_display": "1.29조",
+    "market_cap_won": 1290000000000,
+    "close_price": "48,850"
+  },
+  "004990": {
+    "name": "롯데지주",
+    "market_cap_raw": "3조 4억",
+    "market_cap_display": "3.00조",
+    "market_cap_won": 3000400000000,
+    "close_price": "27,300"
+  },
+  "005300": {
+    "name": "롯데칠성",
+    "market_cap_raw": "1조 912억",
+    "market_cap_display": "1.09조",
+    "market_cap_won": 1091200000000,
+    "close_price": "114,000"
+  },
+  "011170": {
+    "name": "롯데케미칼",
+    "market_cap_raw": "3조 5,076억",
+    "market_cap_display": "3.51조",
+    "market_cap_won": 3507600000000,
+    "close_price": "80,600"
+  },
+  "138040": {
+    "name": "메리츠금융지주",
+    "market_cap_raw": "19조 5,534억",
+    "market_cap_display": "19.6조",
+    "market_cap_won": 19553400000000,
+    "close_price": "111,400"
+  },
+  "006800": {
+    "name": "미래에셋증권",
+    "market_cap_raw": "36조 9,841억",
+    "market_cap_display": "37조",
+    "market_cap_won": 36984100000000,
+    "close_price": "61,600"
+  },
+  "081660": {
+    "name": "미스토홀딩스",
+    "market_cap_raw": "2조 2,219억",
+    "market_cap_display": "2.22조",
+    "market_cap_won": 2221900000000,
+    "close_price": "41,000"
+  },
+  "002840": {
+    "name": "미원상사",
+    "market_cap_raw": "6,470억",
+    "market_cap_display": "6,470억",
+    "market_cap_won": 647000000000,
+    "close_price": "134,800"
+  },
+  "268280": {
+    "name": "미원에스씨",
+    "market_cap_raw": "6,070억",
+    "market_cap_display": "6,070억",
+    "market_cap_won": 607000000000,
+    "close_price": "122,900"
+  },
+  "062040": {
+    "name": "산일전기",
+    "market_cap_raw": "4조 3,374억",
+    "market_cap_display": "4.34조",
+    "market_cap_won": 4337400000000,
+    "close_price": "134,900"
+  },
+  "028050": {
+    "name": "삼성E&A",
+    "market_cap_raw": "7조 4,284억",
+    "market_cap_display": "7.43조",
+    "market_cap_won": 7428400000000,
+    "close_price": "35,700"
+  },
+  "006400": {
+    "name": "삼성SDI",
+    "market_cap_raw": "34조 8,129억",
+    "market_cap_display": "34.8조",
+    "market_cap_won": 34812900000000,
+    "close_price": "408,000"
+  },
+  "028260": {
+    "name": "삼성물산",
+    "market_cap_raw": "44조 2,721억",
+    "market_cap_display": "44.3조",
+    "market_cap_won": 44272100000000,
+    "close_price": "253,500"
+  },
+  "207940": {
+    "name": "삼성바이오로직스",
+    "market_cap_raw": "72조 7,694억",
+    "market_cap_display": "72.8조",
+    "market_cap_won": 72769400000000,
+    "close_price": "1,504,000"
+  },
+  "032830": {
+    "name": "삼성생명",
+    "market_cap_raw": "45조 4,000억",
+    "market_cap_display": "45.4조",
+    "market_cap_won": 45400000000000,
+    "close_price": "210,500"
+  },
+  "018260": {
+    "name": "삼성에스디에스",
+    "market_cap_raw": "12조 787억",
+    "market_cap_display": "12.1조",
+    "market_cap_won": 12078700000000,
+    "close_price": "150,100"
+  },
+  "009150": {
+    "name": "삼성전기",
+    "market_cap_raw": "33조 2,013억",
+    "market_cap_display": "33.2조",
+    "market_cap_won": 33201300000000,
+    "close_price": "407,500"
+  },
+  "005930": {
+    "name": "삼성전자",
+    "market_cap_raw": "1,122조 3,634억",
+    "market_cap_display": "1,122조",
+    "market_cap_won": 1122363400000000,
+    "close_price": "167,200"
+  },
+  "010140": {
+    "name": "삼성중공업",
+    "market_cap_raw": "23조 7,600억",
+    "market_cap_display": "23.8조",
+    "market_cap_won": 23760000000000,
+    "close_price": "24,450"
+  },
+  "016360": {
+    "name": "삼성증권",
+    "market_cap_raw": "8조 7,871억",
+    "market_cap_display": "8.79조",
+    "market_cap_won": 8787100000000,
+    "close_price": "92,400"
+  },
+  "029780": {
+    "name": "삼성카드",
+    "market_cap_raw": "6조 1,637억",
+    "market_cap_display": "6.16조",
+    "market_cap_won": 6163700000000,
+    "close_price": "53,100"
+  },
+  "000810": {
+    "name": "삼성화재",
+    "market_cap_raw": "20조 8,891억",
+    "market_cap_display": "20.9조",
+    "market_cap_won": 20889100000000,
+    "close_price": "440,500"
+  },
+  "003230": {
+    "name": "삼양식품",
+    "market_cap_raw": "9조 9,134억",
+    "market_cap_display": "9.91조",
+    "market_cap_won": 9913400000000,
+    "close_price": "1,200,000"
+  },
+  "004490": {
+    "name": "세방전지",
+    "market_cap_raw": "8,510억",
+    "market_cap_display": "8,510억",
+    "market_cap_won": 851000000000,
+    "close_price": "59,500"
+  },
+  "001430": {
+    "name": "세아베스틸지주",
+    "market_cap_raw": "2조 5,462억",
+    "market_cap_display": "2.55조",
+    "market_cap_won": 2546200000000,
+    "close_price": "64,400"
+  },
+  "003030": {
+    "name": "세아제강지주",
+    "market_cap_raw": "9,112억",
+    "market_cap_display": "9,112억",
+    "market_cap_won": 911200000000,
+    "close_price": "190,600"
+  },
+  "068270": {
+    "name": "셀트리온",
+    "market_cap_raw": "47조 5,959억",
+    "market_cap_display": "47.6조",
+    "market_cap_won": 47595900000000,
+    "close_price": "197,200"
+  },
+  "004170": {
+    "name": "신세계",
+    "market_cap_raw": "3조 527억",
+    "market_cap_display": "3.05조",
+    "market_cap_won": 3052700000000,
+    "close_price": "300,500"
+  },
+  "055550": {
+    "name": "신한지주",
+    "market_cap_raw": "44조 2,853억",
+    "market_cap_display": "44.3조",
+    "market_cap_won": 44285300000000,
+    "close_price": "87,700"
+  },
+  "112610": {
+    "name": "씨에스윈드",
+    "market_cap_raw": "2조 6,863억",
+    "market_cap_display": "2.69조",
+    "market_cap_won": 2686300000000,
+    "close_price": "59,600"
+  },
+  "090430": {
+    "name": "아모레퍼시픽",
+    "market_cap_raw": "8조 3,411억",
+    "market_cap_display": "8.34조",
+    "market_cap_won": 8341100000000,
+    "close_price": "137,200"
+  },
+  "002790": {
+    "name": "아모레퍼시픽홀딩스",
+    "market_cap_raw": "2조 2,135억",
+    "market_cap_display": "2.21조",
+    "market_cap_won": 2213500000000,
+    "close_price": "27,650"
+  },
+  "002030": {
+    "name": "아세아",
+    "market_cap_raw": "5,845억",
+    "market_cap_display": "5,845억",
+    "market_cap_won": 584500000000,
+    "close_price": "279,500"
+  },
+  "137310": {
+    "name": "에스디바이오센서",
+    "market_cap_raw": "9,509억",
+    "market_cap_display": "9,509억",
+    "market_cap_won": 950900000000,
+    "close_price": "7,650"
+  },
+  "005850": {
+    "name": "에스엘",
+    "market_cap_raw": "2조 7,219억",
+    "market_cap_display": "2.72조",
+    "market_cap_won": 2721900000000,
+    "close_price": "55,400"
+  },
+  "012750": {
+    "name": "에스원",
+    "market_cap_raw": "3조 2,755억",
+    "market_cap_display": "3.28조",
+    "market_cap_won": 3275500000000,
+    "close_price": "85,700"
+  },
+  "278470": {
+    "name": "에이피알",
+    "market_cap_raw": "12조 8,974억",
+    "market_cap_display": "12.9조",
+    "market_cap_won": 12897400000000,
+    "close_price": "337,000"
+  },
+  "450080": {
+    "name": "에코프로머티",
+    "market_cap_raw": "5조 1,226억",
+    "market_cap_display": "5.12조",
+    "market_cap_won": 5122600000000,
+    "close_price": "67,000"
+  },
+  "036570": {
+    "name": "엔씨소프트",
+    "market_cap_raw": "4조 9,444억",
+    "market_cap_display": "4.94조",
+    "market_cap_won": 4944400000000,
+    "close_price": "224,000"
+  },
+  "066970": {
+    "name": "엘앤에프",
+    "market_cap_raw": "5조 9,439억",
+    "market_cap_display": "5.94조",
+    "market_cap_won": 5943900000000,
+    "close_price": "143,900"
+  },
+  "111770": {
+    "name": "영원무역",
+    "market_cap_raw": "3조 6,291억",
+    "market_cap_display": "3.63조",
+    "market_cap_won": 3629100000000,
+    "close_price": "78,500"
+  },
+  "009970": {
+    "name": "영원무역홀딩스",
+    "market_cap_raw": "3조 373억",
+    "market_cap_display": "3.04조",
+    "market_cap_won": 3037300000000,
+    "close_price": "219,000"
+  },
+  "000670": {
+    "name": "영풍",
+    "market_cap_raw": "1조 576억",
+    "market_cap_display": "1.06조",
+    "market_cap_won": 1057600000000,
+    "close_price": "55,600"
+  },
+  "007310": {
+    "name": "오뚜기",
+    "market_cap_raw": "1조 4,669억",
+    "market_cap_display": "1.47조",
+    "market_cap_won": 1466900000000,
+    "close_price": "359,500"
+  },
+  "271560": {
+    "name": "오리온",
+    "market_cap_raw": "5조 2,109억",
+    "market_cap_display": "5.21조",
+    "market_cap_won": 5210900000000,
+    "close_price": "128,000"
+  },
+  "001800": {
+    "name": "오리온홀딩스",
+    "market_cap_raw": "1조 5,192억",
+    "market_cap_display": "1.52조",
+    "market_cap_won": 1519200000000,
+    "close_price": "23,000"
+  },
+  "316140": {
+    "name": "우리금융지주",
+    "market_cap_raw": "24조 1,511억",
+    "market_cap_display": "24.2조",
+    "market_cap_won": 24151100000000,
+    "close_price": "32,050"
+  },
+  "000100": {
+    "name": "유한양행",
+    "market_cap_raw": "7조 9,249억",
+    "market_cap_display": "7.92조",
+    "market_cap_won": 7924900000000,
+    "close_price": "94,800"
+  },
+  "008730": {
+    "name": "율촌화학",
+    "market_cap_raw": "6,150억",
+    "market_cap_display": "6,150억",
+    "market_cap_won": 615000000000,
+    "close_price": "23,300"
+  },
+  "139480": {
+    "name": "이마트",
+    "market_cap_raw": "2조 6,768억",
+    "market_cap_display": "2.68조",
+    "market_cap_won": 2676800000000,
+    "close_price": "95,700"
+  },
+  "457190": {
+    "name": "이수스페셜티케미컬",
+    "market_cap_raw": "2조 8,738억",
+    "market_cap_display": "2.87조",
+    "market_cap_won": 2873800000000,
+    "close_price": "89,300"
+  },
+  "007660": {
+    "name": "이수페타시스",
+    "market_cap_raw": "7조 9,796억",
+    "market_cap_display": "7.98조",
+    "market_cap_won": 7979600000000,
+    "close_price": "98,000"
+  },
+  "030000": {
+    "name": "제일기획",
+    "market_cap_raw": "2조 2,191억",
+    "market_cap_display": "2.22조",
+    "market_cap_won": 2219100000000,
+    "close_price": "18,970"
+  },
+  "185750": {
+    "name": "종근당",
+    "market_cap_raw": "1조 2,561억",
+    "market_cap_display": "1.26조",
+    "market_cap_won": 1256100000000,
+    "close_price": "89,100"
+  },
+  "071320": {
+    "name": "지역난방공사",
+    "market_cap_raw": "8,754억",
+    "market_cap_display": "8,754억",
+    "market_cap_won": 875400000000,
+    "close_price": "72,200"
+  },
+  "035720": {
+    "name": "카카오",
+    "market_cap_raw": "21조 3,635억",
+    "market_cap_display": "21.4조",
+    "market_cap_won": 21363500000000,
+    "close_price": "45,800"
+  },
+  "323410": {
+    "name": "카카오뱅크",
+    "market_cap_raw": "11조 7,830억",
+    "market_cap_display": "11.8조",
+    "market_cap_won": 11783000000000,
+    "close_price": "23,950"
+  },
+  "377300": {
+    "name": "카카오페이",
+    "market_cap_raw": "6조 8,829억",
+    "market_cap_display": "6.88조",
+    "market_cap_won": 6882900000000,
+    "close_price": "48,850"
+  },
+  "033780": {
+    "name": "KT&G",
+    "market_cap_raw": "18조 3,483억",
+    "market_cap_display": "18.3조",
+    "market_cap_won": 18348300000000,
+    "close_price": "159,200"
+  },
+  "192820": {
+    "name": "코스맥스",
+    "market_cap_raw": "2조 2,699억",
+    "market_cap_display": "2.27조",
+    "market_cap_won": 2269900000000,
+    "close_price": "196,500"
+  },
+  "005420": {
+    "name": "코스모화학",
+    "market_cap_raw": "5,942억",
+    "market_cap_display": "5,942억",
+    "market_cap_won": 594200000000,
+    "close_price": "14,870"
+  },
+  "120110": {
+    "name": "코오롱인더",
+    "market_cap_raw": "2조 2,841억",
+    "market_cap_display": "2.28조",
+    "market_cap_won": 2284100000000,
+    "close_price": "73,000"
+  },
+  "021240": {
+    "name": "코웨이",
+    "market_cap_raw": "5조 811억",
+    "market_cap_display": "5.08조",
+    "market_cap_won": 5081100000000,
+    "close_price": "72,200"
+  },
+  "259960": {
+    "name": "크래프톤",
+    "market_cap_raw": "12조 4,204억",
+    "market_cap_display": "12.4조",
+    "market_cap_won": 12420400000000,
+    "close_price": "255,000"
+  },
+  "039490": {
+    "name": "키움증권",
+    "market_cap_raw": "11조 4,676억",
+    "market_cap_display": "11.5조",
+    "market_cap_won": 11467600000000,
+    "close_price": "410,500"
+  },
+  "003240": {
+    "name": "태광산업",
+    "market_cap_raw": "1조 2,593억",
+    "market_cap_display": "1.26조",
+    "market_cap_won": 1259300000000,
+    "close_price": "1,085,000"
+  },
+  "034230": {
+    "name": "파라다이스",
+    "market_cap_raw": "1조 5,654억",
+    "market_cap_display": "1.57조",
+    "market_cap_won": 1565400000000,
+    "close_price": "16,100"
+  },
+  "028670": {
+    "name": "팬오션",
+    "market_cap_raw": "2조 7,049억",
+    "market_cap_display": "2.70조",
+    "market_cap_won": 2704900000000,
+    "close_price": "4,895"
+  },
+  "022100": {
+    "name": "포스코DX",
+    "market_cap_raw": "4조 7,891억",
+    "market_cap_display": "4.79조",
+    "market_cap_won": 4789100000000,
+    "close_price": "29,450"
+  },
+  "047050": {
+    "name": "포스코인터내셔널",
+    "market_cap_raw": "13조 3,174억",
+    "market_cap_display": "13.3조",
+    "market_cap_won": 13317400000000,
+    "close_price": "71,500"
+  },
+  "003670": {
+    "name": "포스코퓨처엠",
+    "market_cap_raw": "18조 8,121억",
+    "market_cap_display": "18.8조",
+    "market_cap_won": 18812100000000,
+    "close_price": "203,500"
+  },
+  "103140": {
+    "name": "풍산",
+    "market_cap_raw": "2조 6,203억",
+    "market_cap_display": "2.62조",
+    "market_cap_won": 2620300000000,
+    "close_price": "86,700"
+  },
+  "086790": {
+    "name": "하나금융지주",
+    "market_cap_raw": "31조 3,952억",
+    "market_cap_display": "31.4조",
+    "market_cap_won": 31395200000000,
+    "close_price": "106,600"
+  },
+  "352820": {
+    "name": "하이브",
+    "market_cap_raw": "12조 4,681억",
+    "market_cap_display": "12.5조",
+    "market_cap_won": 12468100000000,
+    "close_price": "299,000"
+  },
+  "000080": {
+    "name": "하이트진로",
+    "market_cap_raw": "1조 1,881억",
+    "market_cap_display": "1.19조",
+    "market_cap_won": 1188100000000,
+    "close_price": "16,720"
+  },
+  "036460": {
+    "name": "한국가스공사",
+    "market_cap_raw": "3조 3,048억",
+    "market_cap_display": "3.30조",
+    "market_cap_won": 3304800000000,
+    "close_price": "34,950"
+  },
+  "071050": {
+    "name": "한국금융지주",
+    "market_cap_raw": "12조 4,826억",
+    "market_cap_display": "12.5조",
+    "market_cap_won": 12482600000000,
+    "close_price": "202,500"
+  },
+  "000240": {
+    "name": "한국앤컴퍼니",
+    "market_cap_raw": "2조 3,544억",
+    "market_cap_display": "2.35조",
+    "market_cap_won": 2354400000000,
+    "close_price": "24,000"
+  },
+  "015760": {
+    "name": "한국전력",
+    "market_cap_raw": "28조 538억",
+    "market_cap_display": "28.1조",
+    "market_cap_won": 28053800000000,
+    "close_price": "41,650"
+  },
+  "017960": {
+    "name": "한국카본",
+    "market_cap_raw": "2조 1,386억",
+    "market_cap_display": "2.14조",
+    "market_cap_won": 2138600000000,
+    "close_price": "38,850"
+  },
+  "161890": {
+    "name": "한국콜마",
+    "market_cap_raw": "1조 8,554억",
+    "market_cap_display": "1.86조",
+    "market_cap_won": 1855400000000,
+    "close_price": "76,000"
+  },
+  "161390": {
+    "name": "한국타이어앤테크놀로지",
+    "market_cap_raw": "6조 9,866억",
+    "market_cap_display": "6.99조",
+    "market_cap_won": 6986600000000,
+    "close_price": "54,100"
+  },
+  "047810": {
+    "name": "한국항공우주",
+    "market_cap_raw": "18조 3,156억",
+    "market_cap_display": "18.3조",
+    "market_cap_won": 18315600000000,
+    "close_price": "164,700"
+  },
+  "042700": {
+    "name": "한미반도체",
+    "market_cap_raw": "26조 679억",
+    "market_cap_display": "26.1조",
+    "market_cap_won": 26067900000000,
+    "close_price": "251,000"
+  },
+  "008930": {
+    "name": "한미사이언스",
+    "market_cap_raw": "2조 5,989억",
+    "market_cap_display": "2.60조",
+    "market_cap_won": 2598900000000,
+    "close_price": "37,100"
+  },
+  "128940": {
+    "name": "한미약품",
+    "market_cap_raw": "7조 845억",
+    "market_cap_display": "7.08조",
+    "market_cap_won": 7084500000000,
+    "close_price": "515,000"
+  },
+  "009240": {
+    "name": "한샘",
+    "market_cap_raw": "9,696억",
+    "market_cap_display": "9,696억",
+    "market_cap_won": 969600000000,
+    "close_price": "41,250"
+  },
+  "014680": {
+    "name": "한솔케미칼",
+    "market_cap_raw": "3조 2,291억",
+    "market_cap_display": "3.23조",
+    "market_cap_won": 3229100000000,
+    "close_price": "252,500"
+  },
+  "018880": {
+    "name": "한온시스템",
+    "market_cap_raw": "4조 383억",
+    "market_cap_display": "4.04조",
+    "market_cap_won": 4038300000000,
+    "close_price": "3,740"
+  },
+  "009420": {
+    "name": "한올바이오파마",
+    "market_cap_raw": "3조 561억",
+    "market_cap_display": "3.06조",
+    "market_cap_won": 3056100000000,
+    "close_price": "55,300"
+  },
+  "300720": {
+    "name": "한일시멘트",
+    "market_cap_raw": "1조 2,201억",
+    "market_cap_display": "1.22조",
+    "market_cap_won": 1220100000000,
+    "close_price": "16,060"
+  },
+  "051600": {
+    "name": "한전KPS",
+    "market_cap_raw": "2조 6,325억",
+    "market_cap_display": "2.63조",
+    "market_cap_won": 2632500000000,
+    "close_price": "55,500"
+  },
+  "052690": {
+    "name": "한전기술",
+    "market_cap_raw": "6조 3,942억",
+    "market_cap_display": "6.39조",
+    "market_cap_won": 6394200000000,
+    "close_price": "151,300"
+  },
+  "180640": {
+    "name": "한진칼",
+    "market_cap_raw": "7조 8,112억",
+    "market_cap_display": "7.81조",
+    "market_cap_won": 7811200000000,
+    "close_price": "107,800"
+  },
+  "000880": {
+    "name": "한화",
+    "market_cap_raw": "8조 5,303억",
+    "market_cap_display": "8.53조",
+    "market_cap_won": 8530300000000,
+    "close_price": "107,100"
+  },
+  "088350": {
+    "name": "한화생명",
+    "market_cap_raw": "4조 1,255억",
+    "market_cap_display": "4.13조",
+    "market_cap_won": 4125500000000,
+    "close_price": "4,430"
+  },
+  "009830": {
+    "name": "한화솔루션",
+    "market_cap_raw": "6조 4,546억",
+    "market_cap_display": "6.45조",
+    "market_cap_won": 6454600000000,
+    "close_price": "37,150"
+  },
+  "272210": {
+    "name": "한화시스템",
+    "market_cap_raw": "24조 3,328억",
+    "market_cap_display": "24.3조",
+    "market_cap_won": 24332800000000,
+    "close_price": "114,100"
+  },
+  "012450": {
+    "name": "한화에어로스페이스",
+    "market_cap_raw": "68조 7,340억",
+    "market_cap_display": "68.7조",
+    "market_cap_won": 68734000000000,
+    "close_price": "1,249,000"
+  },
+  "082740": {
+    "name": "한화엔진",
+    "market_cap_raw": "3조 7,301억",
+    "market_cap_display": "3.73조",
+    "market_cap_won": 3730100000000,
+    "close_price": "43,550"
+  },
+  "042660": {
+    "name": "한화오션",
+    "market_cap_raw": "38조 9,145억",
+    "market_cap_display": "38.9조",
+    "market_cap_won": 38914500000000,
+    "close_price": "120,200"
+  },
+  "000720": {
+    "name": "현대건설",
+    "market_cap_raw": "17조 8,058억",
+    "market_cap_display": "17.8조",
+    "market_cap_won": 17805800000000,
+    "close_price": "142,100"
+  },
+  "086280": {
+    "name": "현대글로비스",
+    "market_cap_raw": "16조 4,250억",
+    "market_cap_display": "16.4조",
+    "market_cap_won": 16425000000000,
+    "close_price": "207,500"
+  },
+  "064350": {
+    "name": "현대로템",
+    "market_cap_raw": "20조 6,061억",
+    "market_cap_display": "20.6조",
+    "market_cap_won": 20606100000000,
+    "close_price": "169,500"
+  },
+  "012330": {
+    "name": "현대모비스",
+    "market_cap_raw": "37조 1,096억",
+    "market_cap_display": "37.1조",
+    "market_cap_won": 37109600000000,
+    "close_price": "378,000"
+  },
+  "069960": {
+    "name": "현대백화점",
+    "market_cap_raw": "1조 8,442억",
+    "market_cap_display": "1.84조",
+    "market_cap_won": 1844200000000,
+    "close_price": "79,200"
+  },
+  "017800": {
+    "name": "현대엘리베이터",
+    "market_cap_raw": "3조 4,284억",
+    "market_cap_display": "3.43조",
+    "market_cap_won": 3428400000000,
+    "close_price": "83,300"
+  },
+  "307950": {
+    "name": "현대오토에버",
+    "market_cap_raw": "10조 7,228억",
+    "market_cap_display": "10.7조",
+    "market_cap_won": 10722800000000,
+    "close_price": "358,500"
+  },
+  "011210": {
+    "name": "현대위아",
+    "market_cap_raw": "2조 1,919억",
+    "market_cap_display": "2.19조",
+    "market_cap_won": 2191900000000,
+    "close_price": "77,100"
+  },
+  "004020": {
+    "name": "현대제철",
+    "market_cap_raw": "4조 7,640억",
+    "market_cap_display": "4.76조",
+    "market_cap_won": 4764000000000,
+    "close_price": "33,650"
+  },
+  "005380": {
+    "name": "현대차",
+    "market_cap_raw": "99조 9,218억",
+    "market_cap_display": "99.9조",
+    "market_cap_won": 99921800000000,
+    "close_price": "445,500"
+  },
+  "001450": {
+    "name": "현대해상",
+    "market_cap_raw": "2조 8,116억",
+    "market_cap_display": "2.81조",
+    "market_cap_won": 2811600000000,
+    "close_price": "30,150"
+  },
+  "008770": {
+    "name": "호텔신라",
+    "market_cap_raw": "1조 7,348억",
+    "market_cap_display": "1.73조",
+    "market_cap_won": 1734800000000,
+    "close_price": "44,000"
+  },
+  "298040": {
+    "name": "효성중공업",
+    "market_cap_raw": "24조 7,380억",
+    "market_cap_display": "24.7조",
+    "market_cap_won": 24738000000000,
+    "close_price": "2,456,000"
+  },
+  "298020": {
+    "name": "효성티앤씨",
+    "market_cap_raw": "1조 7,311억",
+    "market_cap_display": "1.73조",
+    "market_cap_won": 1731100000000,
+    "close_price": "379,000"
+  },
+  "093370": {
+    "name": "후성",
+    "market_cap_raw": "7,937억",
+    "market_cap_display": "7,937억",
+    "market_cap_won": 793700000000,
+    "close_price": "7,020"
+  }
+}
