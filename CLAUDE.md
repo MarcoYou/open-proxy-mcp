@@ -15,16 +15,23 @@ DART(전자공시시스템) 데이터를 MCP 프로토콜로 제공하는 Python
 ## 프로젝트 구조
 ```
 open_proxy_mcp/       # MCP 서버 (Python)
-  server.py           # FastMCP 서버 진입점
+  server.py           # FastMCP 진입점 (auto-discovery)
+  CASE_DEFINITION.md  # 파서 성공 기준 + LLM few-shot 예시
   tools/
-    shareholder.py    # AGM tool 32개 (agm_*) + 포매터 + format_krw
-    ownership.py      # 지분 구조 tool 7개 (own_*) + 포매터
+    __init__.py       # register_all_tools() — tool 자동 탐색
+    shareholder.py    # AGM tool 33개 (agm_*)
+    ownership.py      # 지분 구조 tool 7개 (own_*)
+    formatters.py     # 포매터 27개 함수 (shareholder + ownership 공용)
+    errors.py         # 공통 에러 헬퍼 (tool_error, tool_not_found)
     parser.py         # XML 파서 (bs4+regex) — parse_*_xml()
     pdf_parser.py     # PDF 파서 (opendataloader md) — parse_*_pdf() + Upstage OCR fallback
   dart/
-    client.py         # OpenDART API + 웹 PDF 다운로드 (rate limiter 내장)
+    client.py         # OpenDART API + KIND 크롤링 + 싱글턴 (get_dart_client)
   llm/
     client.py         # LLM fallback (Claude Sonnet / OpenAI)
+data/
+  filing_tracker.json # KOSPI 200 소집공고 이력 트래킹
+test/                 # 테스트 스크립트 + 데이터 (gitignore)
 
 OpenProxy/            # 프론트엔드 (React/Vite) — git clone from HojiPark/openproxy
   frontend/
@@ -79,10 +86,10 @@ README_KR.md          # 한국어 — 상세 설명
 ## CLAUDE.md 작성 원칙
 **이 파일은 가볍게 유지할 것.** 상세 내용을 여기에 직접 쓰지 않고, 특정 케이스에 어떤 문서를 참고해야 하는지 포인터로 안내하는 방식으로 작성한다.
 - 파서 상세/벤치마크/실패 케이스 → `DEVLOG.md` 참조
-- 참고 프로젝트 상세 → `references.md` 참조
 - 미완료 작업 → `TO_DO.md` 참조
-- 파서 성공 기준 / LLM fallback 예시 → `CASE_DEFINITION.md` 참조
+- 파서 성공 기준 / LLM fallback 예시 → `open_proxy_mcp/CASE_DEFINITION.md` 참조
 - fallback 대상 기업 목록 → `test/fallback_targets.json` 참조
+- 소집공고 이력 트래킹 → `data/filing_tracker.json` 참조
 - 프로젝트 히스토리 → `git log` 참조
 
 ## 개발 방식
@@ -96,12 +103,6 @@ README_KR.md          # 한국어 — 상세 설명
 - DEVLOG.md에 날짜별 작업 내역을 지속적으로 기록 (뭘 했는지, 다음 단계는 뭔지). 작업 중간중간 꾸준히 업데이트할 것. 하루 끝에 **오늘의 성과**와 **오늘의 실패/한계**를 반드시 기록.
 - commit + push를 자주, 꾸준히 할 것 (유저가 별도 지시하지 않아도). 의미 있는 변경이 생길 때마다 커밋.
 - TO_DO.md를 확인하고 대화 시작 시 미완료 항목을 유저에게 리마인드. 완료된 항목은 제거.
-
-## 참고 프로젝트 (상세 → references.md)
-- **dart-mcp** — DART 재무제표 MCP. FastMCP 패턴/OpenDART 호출 구조 참고. 단일파일/캐싱없음은 개선 대상.
-- **Kensho (S&P Global)** — LLM 최적화 API 설계, 도메인별 tool 분리, dual transport(stdio+SSE) 참고.
-- **FactSet** — 엔터프라이즈 MCP 거버넌스 패턴(Central Registry, Proxied Access), 데이터셋별 tool 구조 참고.
-- 공통 교훈: raw API 그대로 노출하지 말고 LLM이 쓰기 쉽게 구조화, 도메인별 tool 분리, 캐싱 필수
 
 ## 파서 아키텍처
 파서 상세(패턴 목록, 실패 케이스 분류, 벤치마크 결과 등)는 **DEVLOG.md**의 해당 날짜 항목 참조.

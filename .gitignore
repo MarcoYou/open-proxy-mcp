@@ -29,6 +29,10 @@ test_kospi200*.json
 test_own_survey*.py
 test_own_survey*.json
 
+# Screenshots
+screenshot/*.key
+screenshot/Compare/
+
 # Document cache (DART API)
 cache/
 test_screenshots/*.key

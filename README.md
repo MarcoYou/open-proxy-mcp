@@ -6,7 +6,7 @@ AI-powered MCP (Model Context Protocol) server that structures Korean AGM (Annua
 
 > **OpenProxy brings institutional-grade AGM intelligence to every investor — parsing shareholder meeting filings into structured, AI-ready data in seconds, not hours.**
 
-![OpenProxy MCP Comparison](test_screenshots/openproxy_mcp_compare_v2.png)
+![OpenProxy MCP Comparison](screenshot/openproxy_mcp_compare_v2.png)
 
 ## Why OpenProxy?
 
