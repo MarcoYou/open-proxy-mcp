@@ -661,8 +661,8 @@ class DartClient:
             }, timeout=30, headers=headers)
             resp2.raise_for_status()
 
-        # setPath('목차URL', '본문URL') — 두 번째 인자가 본문
-        m2 = re.search(r"setPath\s*\(\s*'([^']+)'\s*,\s*'([^']+)'", resp2.text)
+        # setPath('목차URL', '본문URL') — 두 번째 인자가 본문 (목차가 빈 문자열일 수 있음)
+        m2 = re.search(r"setPath\s*\(\s*'([^']*)'\s*,\s*'([^']+)'", resp2.text)
         if not m2:
             raise DartClientError("KIND_NO_PATH", f"KIND에서 본문 URL을 찾을 수 없습니다 (docNo={doc_no})")
         body_path = m2.group(2)
