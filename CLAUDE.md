@@ -82,7 +82,7 @@ README_KR.md          # 한국어 — 상세 설명
 - 참고 프로젝트 상세 → `references.md` 참조
 - 미완료 작업 → `TO_DO.md` 참조
 - 파서 성공 기준 / LLM fallback 예시 → `CASE_DEFINITION.md` 참조
-- fallback 대상 기업 목록 → `fallback_targets.json` 참조
+- fallback 대상 기업 목록 → `test/fallback_targets.json` 참조
 - 프로젝트 히스토리 → `git log` 참조
 
 ## 개발 방식
