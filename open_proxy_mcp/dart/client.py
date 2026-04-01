@@ -11,6 +11,7 @@
 import os
 import io
 import re
+import json
 import time
 import asyncio
 import logging
@@ -68,6 +69,10 @@ class DartClient:
         # Rate limiting — 마지막 요청 시각 추적
         self._last_api_request = 0.0
         self._last_web_request = 0.0
+        # Document caching (메모리 + 디스크)
+        self._doc_cache: dict[str, dict] = {}
+        self._MAX_CACHE = 30
+        self._disk_cache_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "cache")
 
     def _rotate_key(self) -> bool:
         """다음 API 키로 전환. 전환 가능하면 True, 더 없으면 False."""
@@ -676,3 +681,60 @@ class DartClient:
 
         logger.info(f"[KIND] 본문 다운로드 완료: {len(resp3.text):,} chars (acptno={acptno})")
         return resp3.text
+
+    # ── Document Caching ──
+
+    def _disk_cache_path(self, rcept_no: str) -> str:
+        return os.path.join(self._disk_cache_dir, f"{rcept_no}.json")
+
+    def _load_from_disk(self, rcept_no: str) -> dict | None:
+        path = self._disk_cache_path(rcept_no)
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return None
+
+    def _save_to_disk(self, rcept_no: str, doc: dict):
+        os.makedirs(self._disk_cache_dir, exist_ok=True)
+        path = self._disk_cache_path(rcept_no)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(doc, f, ensure_ascii=False)
+
+    async def get_document_cached(self, rcept_no: str) -> dict:
+        """get_document 결과를 캐싱 (메모리 + 디스크). 중복 API 호출 방지."""
+        if rcept_no in self._doc_cache:
+            return self._doc_cache[rcept_no]
+        disk_doc = self._load_from_disk(rcept_no)
+        if disk_doc:
+            if len(self._doc_cache) >= self._MAX_CACHE:
+                self._doc_cache.pop(next(iter(self._doc_cache)))
+            self._doc_cache[rcept_no] = disk_doc
+            return disk_doc
+        doc = await self.get_document(rcept_no)
+        if len(self._doc_cache) >= self._MAX_CACHE:
+            self._doc_cache.pop(next(iter(self._doc_cache)))
+        self._doc_cache[rcept_no] = doc
+        self._save_to_disk(rcept_no, doc)
+        # 이미지 기반 공고 감지
+        images = doc.get("images", [])
+        notice_images = [img for img in images if any(
+            kw in img for kw in ["소집", "통지", "주총", "공고"]
+        )]
+        if notice_images:
+            logger.warning(
+                f"[IMAGE_NOTICE] 소집공고 본문이 이미지에 포함된 것으로 추정: "
+                f"{rcept_no} | images={notice_images}"
+            )
+        return doc
+
+
+# ── Singleton ──
+
+_instance: "DartClient | None" = None
+
+def get_dart_client() -> DartClient:
+    """DartClient 싱글턴 — 전 tool에서 throttle 공유"""
+    global _instance
+    if _instance is None:
+        _instance = DartClient()
+    return _instance
