@@ -178,8 +178,7 @@ open_proxy_mcp/
 ```bash
 git clone https://github.com/MarcoYou/open-proxy-mcp.git
 cd open-proxy-mcp
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync                    # creates .venv + installs dependencies
 cp .env.example .env
 ```
 

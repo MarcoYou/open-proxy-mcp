@@ -131,8 +131,8 @@ README_KR.md          # 한국어 — 상세 설명
 ```bash
 # OPM (백엔드)
 git clone https://github.com/MarcoYou/open-proxy-mcp.git
-cd open-proxy-mcp && git checkout feat/mcp-driven
-pip install -r requirements.txt
+cd open-proxy-mcp
+uv sync
 cp .env.example .env               # OPENDART_API_KEY 설정
 
 # OpenProxy (프론트엔드)
@@ -162,6 +162,6 @@ OPENAI_API_KEY=your_key             # LLM fallback용, 선택사항
 
 ## 주요 커맨드
 ```bash
-pip install -r requirements.txt    # 의존성 설치
+uv sync    # 의존성 설치
 python -m open_proxy_mcp           # 서버 실행
 ```
