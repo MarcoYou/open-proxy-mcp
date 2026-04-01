@@ -36,9 +36,12 @@ test/                 # 테스트 스크립트 + 데이터 (gitignore)
 OpenProxy/            # 프론트엔드 (React/Vite) — git clone from HojiPark/openproxy
   frontend/
     src/data/
-      schema.ts       # v3 통합 스키마 타입
+      schema.ts       # v4 통합 스키마 타입 (v3 호환)
       mockData.ts     # JSON → 프론트엔드 데이터 변환
-      pipeline/       # MCP에서 생성한 v3 JSON 파일
+      market_cap.json # 시가총액 (네이버 금융, 별도 갱신)
+      pipeline/       # v4 parsed JSON (199개, 공고+투표결과 통합)
+      pipeline_result/# KIND 투표결과 원본 (v4에 통합됨, 참조용)
+      old_version/    # v3 백업
     src/components/
       AgendaAnalysis.tsx  # 안건 상세 렌더링 (재무 테이블, 후보자 등)
 
@@ -49,13 +52,23 @@ README_KR.md          # 한국어 — 상세 설명
 
 ## 출력 포맷
 - **Markdown (md)**: LLM이 MCP 연결해서 사용할 때의 출력. 사람이 읽기 좋은 형태.
-- **JSON**: 프론트엔드에 붙이는 용도. v3 스키마(`schema.ts`) 호환.
+- **JSON**: 프론트엔드에 붙이는 용도. v4 스키마(`schema.ts`) 호환.
 - 모든 tool은 `format="md"` (기본) / `format="json"` 선택 가능.
+
+## v4 스키마 (현재)
+v3 대비 추가: compensation(보수한도), treasuryStock(자사주), voteResults(투표결과), noticeDate/meetingDate.
+상세 → `memory/project_schema_versions.md` 참조.
+
+## 파이프라인 규칙
+- **전체 재실행 금지**: 누락분만 처리. 스키마 구조 변경 시에만 전체 재실행.
+- **캐시 활용**: XML/PDF 캐시(`cache/`)로 DART API 호출 0회 가능.
+- **실행**: `python test/run_pipeline_v4.py` (filing_tracker.json 기반)
+- **백그라운드 실행 금지**: 인라인으로만. 좀비 프로세스 방지.
 
 ## 프론트엔드 수정 가이드
 - display/UI 관련 수정 → `OpenProxy/frontend/src/` 안의 파일 수정
 - 데이터/파싱 관련 수정 → `open_proxy_mcp/tools/` 안의 파일 수정
-- v3 JSON 스키마 변경 → `OpenProxy/frontend/src/data/schema.ts` + `mockData.ts` 동시 수정
+- v4 JSON 스키마 변경 → `OpenProxy/frontend/src/data/schema.ts` + `mockData.ts` 동시 수정
 - OpenProxy는 별도 git repo (HojiPark/openproxy) — 서브디렉토리로 클론한 것
 
 ## DART API 호출 규칙
