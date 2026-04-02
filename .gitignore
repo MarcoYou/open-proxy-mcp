@@ -31,6 +31,9 @@ test_own_survey*.json
 
 # Screenshots
 screenshot/*.key
+screenshot/*.png
+!screenshot/openproxy_mcp_compare.png
+!screenshot/openproxy_mcp_compare_v2.png
 screenshot/Compare/
 
 # Document cache (DART API)
