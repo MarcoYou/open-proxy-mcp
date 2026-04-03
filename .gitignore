@@ -36,6 +36,9 @@ screenshot/*.png
 !screenshot/openproxy_mcp_compare_v2.png
 screenshot/Compare/
 
+# Paid pipeline data
+data/
+
 # Document cache (DART API)
 cache/
 test_screenshots/*.key
