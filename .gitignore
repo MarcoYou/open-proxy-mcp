@@ -45,3 +45,6 @@ test_screenshots/*.key
 test_screenshots/Compare/
 test_screenshots/*.png
 !test_screenshots/openproxy_mcp_compare.png
+*.egg-info/
+samples/
+.omc/
