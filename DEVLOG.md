@@ -1,5 +1,26 @@
 # Dev Log
 
+## 2026-04-04
+
+### free/paid 2-repo 분리
+- open-proxy-mcp (public): 40개 MCP tool + 파서 + API 클라이언트
+- open-proxy-ai (private): 파이프라인 + 프론트엔드 + 데이터
+- run_pipeline_v4.py, data/ git에서 제거 (paid 전용)
+- pyproject.toml optional deps 분리 (llm, pdf)
+- OpenProxy 서브모듈 제거
+
+### 아키텍처 정리
+- .omc/, egg-info/, samples/ gitignore
+- 프로젝트 레벨 ship.md 제거 (글로벌만 유지)
+- OPA: run_pipeline_v4.py -> run_pipeline.py (버전 번호 파일명에서 제거)
+- OPA: 레거시 문서/빌드 아티팩트 제거
+
+### OMC (oh-my-claudecode) 플러그인 설치
+- HUD 상태바 설정 (5h/wk 사용량, ctx%, session)
+- Context7 + Exa + Filesystem MCP 서버 추가
+- Agent Teams 활성화 (3 agents, executor)
+- 이후 기본 비활성화 (필요시 수동 활성화)
+
 ## 2026-04-01
 
 ### agm_result tool + KIND 크롤링 기반 주총결과 파싱
