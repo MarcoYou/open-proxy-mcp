@@ -8,7 +8,7 @@ XML 파서(parser.py)의 보조 소스로 사용:
 3단계 fallback:
   1. opendataloader 마크다운 → current 파서
   2. 실패 시 → 키워드로 페이지 특정 → Upstage OCR → 재파싱
-  3. 여전히 실패 → LLM fallback (CASE_DEFINITION 예시)
+  3. 여전히 실패 → LLM fallback (CASE_RULE 예시)
 
 마크다운 구조:
   - 테이블: | col1 | col2 | ... | 형식 (구분선 |---|---|)

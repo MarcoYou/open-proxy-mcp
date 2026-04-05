@@ -66,7 +66,7 @@ agm(ticker)                  <- 종합 오케스트레이터
 |   +-- agm_retirement_pay_xml    퇴직금 규정 개정
 |
 +-- agm_document(rcept_no)        원문 텍스트
-+-- agm_guide()                   AI 사용 가이드
++-- agm_manual()                   AI 사용 가이드
 
 안건 유형별 tool 매핑:
   재무제표 승인      -> agm_financials_xml
@@ -154,7 +154,7 @@ AI가 agm_personnel_xml(rcept_no) 호출
 |  agm_*_xml  - 1단계                                      |
 |  agm_*_pdf  - 2단계 (AI 자율 판단)                        |
 |  agm_*_ocr  - 3단계 (AI 자율 판단)                        |
-|  agm_guide  - AI 사용 가이드 + 성공 기준                   |
+|  agm_manual - AI 사용 가이드 + 성공 기준                   |
 +---------------------------------------------------------+
 ```
 
@@ -205,7 +205,7 @@ OPENDART_API_KEY=발급받은_키
 }
 ```
 
-Claude Desktop 재시작 후 새 대화에서: **"agm_guide를 먼저 호출해줘"**
+Claude Desktop 재시작 후 새 대화에서: **"agm_manual을 먼저 호출해줘"**
 
 ### Claude Code 연결
 

@@ -1138,6 +1138,57 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
             content_ps = [p.get_text(strip=True) for p in content_td.find_all('p') if p.get_text(strip=True)] if content_td else []
 
             if not period_ps and not content_ps:
+                # <p> 태그 없이 순수 텍스트인 경우 — 現/前 구분자로 content 먼저 분리, period는 연도 패턴으로 분리
+                period_raw = period_td.get_text(strip=True) if period_td else ""
+                content_raw = content_td.get_text(strip=True) if content_td else ""
+                if period_raw and content_raw:
+                    # content 분리 + 現/前 마커 보존
+                    contents = []
+                    is_current = []  # True=現(현재 진행중, 토큰 1개), False=前(종료, 토큰 2개)
+                    if re.search(r'(?:現|前|현|전)(?:\)|\s)', content_raw):
+                        parts = re.split(r'(?=(?:現|前|현|전)(?:\)|\s))', content_raw)
+                        for x in parts:
+                            if not x.strip():
+                                continue
+                            cur = bool(re.match(r'(?:現|현)', x))
+                            is_current.append(cur)
+                            cleaned = re.sub(r'^(?:現|前|현|전)(?:\)\s*|\s+)', '', x).strip()
+                            if cleaned:
+                                contents.append(cleaned)
+                            else:
+                                is_current.pop()
+                    else:
+                        contents = [content_raw]
+                        is_current = [True]
+                    # 연도 토큰 추출 + 現/前 기반 할당
+                    if len(contents) >= 2:
+                        year_tokens = re.findall(r'\d{4}(?:\.\d{1,2})?', period_raw)
+                        periods = []
+                        ti = 0
+                        for ci in range(len(contents)):
+                            if ci < len(is_current) and is_current[ci]:
+                                # 現: 시작만 (1 토큰)
+                                if ti < len(year_tokens):
+                                    periods.append(f"{year_tokens[ti]} ~ 현재")
+                                    ti += 1
+                                else:
+                                    periods.append("")
+                            else:
+                                # 前: 시작~끝 (2 토큰)
+                                if ti + 1 < len(year_tokens):
+                                    periods.append(f"{year_tokens[ti]} ~ {year_tokens[ti+1]}")
+                                    ti += 2
+                                elif ti < len(year_tokens):
+                                    periods.append(f"{year_tokens[ti]} ~")
+                                    ti += 1
+                                else:
+                                    periods.append("")
+                        result = []
+                        for i in range(len(contents)):
+                            p = periods[i] if i < len(periods) else ""
+                            result.append({"period": p, "content": contents[i]})
+                        if result:
+                            return _clean_career_details(result, candidate_name)
                 return None
 
             if not period_ps:
@@ -1442,9 +1493,9 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         periods = _parse_period_raw(periods_raw)
 
                         # 내용 분리
-                        if re.search(r'(?:現|前|현|전)\)', contents_raw):
-                            contents = re.split(r'(?=(?:現|前|현|전)\)\s)', contents_raw)
-                            contents = [re.sub(r'^(?:現|前|현|전)\)\s*', '', x).strip() for x in contents if x.strip()]
+                        if re.search(r'(?:現|前|현|전)(?:\)|\s)', contents_raw):
+                            contents = re.split(r'(?=(?:現|前|현|전)(?:\)|\s))', contents_raw)
+                            contents = [re.sub(r'^(?:現|前|현|전)(?:\)\s*|\s+)', '', x).strip() for x in contents if x.strip()]
                         elif re.search(r'-\s*[\(\(가-힣A-Z]', contents_raw):
                             contents = re.split(r'(?=-\s*[\(\(가-힣A-Z])', contents_raw)
                             contents = [re.sub(r'^-\s*', '', x).strip() for x in contents if x.strip()]

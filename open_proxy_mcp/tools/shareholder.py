@@ -915,65 +915,20 @@ def register_tools(mcp):
     # ── PDF fallback tools ──
 
     @mcp.tool()
-    async def agm_guide() -> str:
-        """상세 판정 기준과 성공 예시 JSON. 판단이 어려울 때 호출하세요."""
-        guide = """# OpenProxy MCP 사용 가이드
-
-## Tool 구조
-
-기본 tool (XML 파싱, 빠름):
-  agm_search → agm_agenda_xml, agm_info, agm_items
-  agm_financials_xml, agm_personnel_xml, agm_aoi_change_xml, agm_compensation_xml
-  agm_treasury_share_xml, agm_capital_reserve_xml, agm_retirement_pay_xml
-  agm (종합 오케스트레이터)
-
-PDF fallback tool (XML 실패 시, 느림 4초+):
-  agm_agenda_pdf, agm_financials_pdf, agm_personnel_pdf
-  agm_aoi_change_pdf, agm_compensation_pdf
-  agm_treasury_share_pdf, agm_capital_reserve_pdf, agm_retirement_pay_pdf
-
-OCR fallback tool (PDF도 실패 시, 가장 느림, UPSTAGE_API_KEY 필요):
-  agm_agenda_ocr, agm_financials_ocr, agm_personnel_ocr
-  agm_aoi_change_ocr, agm_compensation_ocr
-  agm_treasury_share_ocr, agm_capital_reserve_ocr, agm_retirement_pay_ocr
-
-## 결과 검증 + Fallback 흐름
-
-1. 기본 _xml tool 호출 (예: agm_personnel_xml)
-2. **결과 검증**: 아래 Case Definitions의 성공 예시와 비교
-   - 구조가 예시와 일치하는가? (필드 존재, 값 형태)
-   - 내용이 사람이 보기에 말이 되는가? (이름이 실제 사람 이름인지, 숫자가 합리적인지)
-   - 경력이 깔끔하게 분리되어 있는가? (100자+ 한 줄이면 병합 의심)
-3. **검증 통과** → 사용자에게 답변
-   - 단, 포맷이 예시와 다르면 당신(AI)이 직접 보정하여 제공
-   - 예: 계정명 공백 정리 ("자          산" → "자산"), 단위 변환 표시 등
-4. **불완전하면** → 사용자에게 "파싱이 불완전합니다. PDF로 재시도할까요?" 안내
-5. 사용자 동의 → _pdf tool 호출 (예: agm_personnel_pdf)
-6. 여전히 실패 → "OCR로 한번 더 시도해볼까요?" 안내
-7. 사용자 동의 → _ocr tool 호출 (예: agm_personnel_ocr)
-
-**중요**: 파서가 SUCCESS를 반환해도 당신이 직접 결과를 읽고 검증하세요.
-Case Definitions의 성공 예시가 "이렇게 생겨야 한다"의 기준입니다.
-
-## 주의사항
-- _pdf tool은 DART 웹에서 PDF를 다운로드하므로 시간이 걸립니다 (4초+)
-- _ocr tool은 Upstage API를 호출하므로 UPSTAGE_API_KEY가 필요합니다
-- 해당 안건 자체가 없는 경우 빈 결과는 정상입니다 (예: 보수한도 안건이 없는 기업)
-
----
-
-"""
-        # CASE_DEFINITION.md 내용 포함 (성공 예시 + 판정 기준)
-        case_def_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "CASE_DEFINITION.md"
-        )
-        try:
-            with open(case_def_path, "r") as f:
-                case_def = f.read()
-            return guide + case_def
-        except FileNotFoundError:
-            return guide + "\n(CASE_DEFINITION.md를 찾을 수 없습니다)"
+    async def agm_manual() -> str:
+        """desc: 전체 tool 구조, fallback 흐름, 파서별 성공/실패 판정 기준.
+        when: 첫 호출 시 또는 파싱 결과 품질 판단이 필요할 때.
+        ref: TOOL_RULE.md, CASE_RULE.md"""
+        pkg_dir = os.path.dirname(os.path.dirname(__file__))
+        parts = []
+        for fname in ("TOOL_RULE.md", "CASE_RULE.md"):
+            fpath = os.path.join(pkg_dir, fname)
+            try:
+                with open(fpath, "r") as f:
+                    parts.append(f.read())
+            except FileNotFoundError:
+                parts.append(f"\n({fname}를 찾을 수 없습니다)")
+        return "\n\n---\n\n".join(parts)
 
     @mcp.tool()
     async def agm_personnel_pdf(

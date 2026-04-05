@@ -65,7 +65,7 @@ agm(ticker)                      <- Orchestrator (one-call summary)
 |
 +-- agm_extract(rcept_no)             Raw text + structural extraction
 +-- agm_document(rcept_no)            Raw document text
-+-- agm_guide()                       AI assistant usage guide
++-- agm_manual()                       AI assistant usage guide
 
 Each parser has _xml, _pdf, _ocr variants (8 parsers x 3 tiers = 24 tools)
 ```
@@ -163,7 +163,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop. Start a new chat and say: **"Call agm_guide first."**
+Restart Claude Desktop. Start a new chat and say: **"Call agm_manual first."**
 
 ### Connect to Claude Code
 
