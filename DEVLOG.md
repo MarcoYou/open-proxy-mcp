@@ -1,5 +1,29 @@
 # Dev Log
 
+## 2026-04-06
+
+### 문서 구조 개편
+- CASE_DEFINITION.md → CASE_RULE.md (파서별 성공/실패 판정 기준, 실데이터 예시)
+- AGM_MANUAL.md → TOOL_RULE.md (tool 구조, fallback 흐름, 공통 규칙)
+- agm_guide() → agm_manual() 리네임 (TOOL_RULE + CASE_RULE 반환)
+- docstring 포맷 통일: desc/when/rule/ref 4필드
+- CLAUDE.md 경량화 (프론트엔드/파이프라인 → OPA CLAUDE.md로 분리)
+- TO_DO.md: OPA 소관 항목 제거, 완료 섹션 9줄 요약으로 압축
+
+### 경력 파서 개선
+- `<p>` 태그 없는 경력 테이블 분리 — 現/前 구분자 + 연도 토큰 할당 (現=1토큰, 前=2토큰)
+- KCC 손준성: 278자 1줄 병합 → 11건 period/content 완벽 분리
+- regex fallback: `前)` 뿐 아니라 `前 ` (괄호 없는 패턴)도 매칭
+- 삼성전자 등 기존 `<p>` 기업 regression 없음
+- KOSPI 200 벤치마크: 878명 중 697 SUCCESS / 103 SOFT_FAIL / 78 HARD_FAIL
+- DART 웹 크롤링 경로 확인: rcept_no → makeToc() JS → eleId/offset/length → viewer.do
+
+### KIND/DART 크롤링 조사
+- KIND 공고의 acptno는 DART rcept_no와 별개 번호체계 — 직접 변환 불가
+- KIND details.do + searchDetailsMainSub + reportNm=주주총회소집공고 검색 가능
+- DART 웹 뷰어 viewer.do도 같은 HTML 반환 → 별도 소스 아님
+- KIND는 세션/쿠키 필요, rate limit 엄격 — Selenium 방식이 안정적
+
 ## 2026-04-04
 
 ### free/paid 2-repo 분리
