@@ -27,7 +27,7 @@
 - [ ] 집중투표 분석 tool 체이닝 (agm + own 연계, 의결권 시뮬레이션)
 
 ### LLM fallback
-- [ ] LLM fallback tool — XML 원문 + CASE_RULE로 AI 보강 (향후)
+- [ ] LLM fallback tool — XML 원문 + AGM_CASE_RULE로 AI 보강 (향후)
 
 ### DXT 패키징 (배포)
 - [ ] manifest.json 작성 (user_config: DART API 키, Upstage API 키)

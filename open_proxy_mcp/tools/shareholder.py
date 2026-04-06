@@ -916,12 +916,12 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_manual() -> str:
-        """desc: 전체 tool 구조, fallback 흐름, 파서별 성공/실패 판정 기준.
+        """desc: AGM tool 구조, fallback 흐름, 파서별 성공/실패 판정 기준.
         when: 첫 호출 시 또는 파싱 결과 품질 판단이 필요할 때.
-        ref: TOOL_RULE.md, CASE_RULE.md"""
+        ref: AGM_TOOL_RULE.md, AGM_CASE_RULE.md"""
         pkg_dir = os.path.dirname(os.path.dirname(__file__))
         parts = []
-        for fname in ("TOOL_RULE.md", "CASE_RULE.md"):
+        for fname in ("AGM_TOOL_RULE.md", "AGM_CASE_RULE.md"):
             fpath = os.path.join(pkg_dir, fname)
             try:
                 with open(fpath, "r") as f:

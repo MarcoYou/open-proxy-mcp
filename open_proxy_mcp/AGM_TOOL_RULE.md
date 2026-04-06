@@ -13,7 +13,7 @@
 - `agm_items(rcept_no, agenda_no)` — 안건 상세 블록 (원문)
 - `agm_extract(rcept_no)` — 원문 + 핵심 데이터 추출
 - `agm_corrections(rcept_no)` — 정정 전/후 비교
-- `agm_manual()` — 이 문서 + CASE_RULE.md 반환
+- `agm_manual()` — 이 문서 + AGM_CASE_RULE.md 반환
 
 ### 8 Parsers x 3 Tiers (24 tools)
 
@@ -43,7 +43,7 @@
 
 ```
 1. agm_*_xml 호출 (빠름)
-2. AI가 결과를 CASE_RULE 기준으로 검증
+2. AI가 결과를 AGM_CASE_RULE 기준으로 검증
 3. SUCCESS → 답변 (AI가 포맷 보정 가능: 공백 정리, 단위 변환 등)
 4. SOFT_FAIL → AI가 자체 보정 시도 (구분자 분리, 누락 필드 추론 등)
    - 보정 성공 → 보정된 결과로 답변
@@ -54,7 +54,7 @@
 ```
 
 **중요**: 파서가 SUCCESS를 반환해도 AI가 직접 결과를 읽고 검증할 것.
-CASE_RULE의 성공 예시가 "이렇게 생겨야 한다"의 기준.
+AGM_CASE_RULE의 성공 예시가 "이렇게 생겨야 한다"의 기준.
 
 ## 안건 유형별 파서 매핑
 

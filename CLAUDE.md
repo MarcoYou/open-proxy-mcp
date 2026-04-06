@@ -14,7 +14,10 @@ DART(전자공시시스템) 데이터를 MCP 프로토콜로 제공하는 Python
 ```
 open_proxy_mcp/
   server.py           # FastMCP 진입점 (auto-discovery)
-  CASE_RULE.md  # 파서 성공 기준 + LLM few-shot 예시
+  AGM_TOOL_RULE.md  # AGM tool 구조 + fallback 흐름
+  AGM_CASE_RULE.md  # AGM 파서 성공 기준
+  OWN_TOOL_RULE.md  # 지분 출력 형태 + 컬럼 매핑
+  OWN_CASE_RULE.md  # 지분 tool 판정 기준
   tools/
     __init__.py       # register_all_tools() — tool 자동 탐색
     shareholder.py    # AGM tool 33개 (agm_*)
@@ -70,7 +73,8 @@ open_proxy_mcp/
 ## 문서 포인터
 - 파서 상세/벤치마크 → `DEVLOG.md`
 - 미완료 작업 → `TO_DO.md`
-- 파서 성공 기준 → `open_proxy_mcp/CASE_RULE.md`
+- AGM 파서 성공 기준 → `open_proxy_mcp/AGM_CASE_RULE.md`
+- 지분 출력 형태 → `open_proxy_mcp/OWN_TOOL_RULE.md`
 - fallback 대상 기업 → `test/fallback_targets.json`
 - 소집공고 이력 → `data/filing_tracker.json`
 

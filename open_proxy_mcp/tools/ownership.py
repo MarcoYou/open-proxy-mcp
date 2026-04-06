@@ -1,6 +1,7 @@
 """지분 구조 관련 MCP tools (own_*)"""
 
 import json
+import os
 import re
 import logging
 from datetime import datetime
@@ -499,3 +500,19 @@ def register_tools(mcp):
         sections.append(f"*API 호출: {api_calls}회*")
 
         return "\n".join(sections)
+
+    @mcp.tool()
+    async def own_manual() -> str:
+        """desc: ownership tool 구조, 출력 형태 가이드, 컬럼별 소스 매핑, 판정 기준.
+        when: 지분 구조 분석 시 또는 출력 형태 판단이 필요할 때.
+        ref: OWN_TOOL_RULE.md, OWN_CASE_RULE.md"""
+        pkg_dir = os.path.dirname(os.path.dirname(__file__))
+        parts = []
+        for fname in ("OWN_TOOL_RULE.md", "OWN_CASE_RULE.md"):
+            fpath = os.path.join(pkg_dir, fname)
+            try:
+                with open(fpath, "r") as f:
+                    parts.append(f.read())
+            except FileNotFoundError:
+                parts.append(f"\n({fname}를 찾을 수 없습니다)")
+        return "\n\n---\n\n".join(parts)
