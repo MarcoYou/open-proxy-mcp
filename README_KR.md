@@ -6,7 +6,7 @@ DART 주주총회 소집공고를 AI가 바로 활용할 수 있는 구조화된
 
 > **주주총회 공시 문서를 몇 초 만에 구조화된 데이터로 — 수작업 분석이 아닌 AI 자동 파싱.**
 
-![OpenProxy MCP 비교](screenshot/openproxy_mcp_compare.png)
+![OpenProxy MCP 비교](screenshot/openproxy_mcp_compare_v2.png)
 
 ## 왜 OpenProxy인가?
 
