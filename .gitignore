@@ -34,6 +34,8 @@ screenshot/*.key
 screenshot/*.png
 !screenshot/openproxy_mcp_compare.png
 !screenshot/openproxy_mcp_compare_v2.png
+!screenshot/samsung_ownership_en.png
+!screenshot/samsung_ownership_kr.png
 screenshot/Compare/
 
 # Paid pipeline data
