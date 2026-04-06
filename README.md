@@ -85,6 +85,10 @@ own(ticker)                      <- Ownership orchestrator
 +-- own_latest(ticker)                All shareholders latest snapshot
 ```
 
+**Example: Samsung Electronics ownership structure via `own("삼성전자")`**
+
+![Samsung Ownership](screenshot/samsung_ownership_en.png)
+
 ### 3-Tier Fallback (XML -> PDF -> OCR)
 
 ```

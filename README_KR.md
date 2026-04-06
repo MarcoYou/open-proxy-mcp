@@ -88,6 +88,10 @@ own(ticker)                      <- 지분 구조 오케스트레이터
 +-- own_latest(ticker)                전 주주 최신 스냅샷
 ```
 
+**예시: `own("삼성전자")` 지분 구조 조회**
+
+![삼성전자 지분 구조](screenshot/samsung_ownership_kr.png)
+
 ### 3단계 Fallback (XML -> PDF -> OCR)
 
 각 파서 tool에 `_xml`, `_pdf`, `_ocr` 변형이 있으며, AI가 자율적으로 판단하여 단계를 올립니다:
