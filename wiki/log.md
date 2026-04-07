@@ -5,6 +5,11 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-08] lint | 고립 노드 수정 + disclosure 카테고리 추가
+- 34개 페이지에 본문 wikilink 추가 (고립 해소)
+- disclosures/ 신규: 11개 공시 유형 페이지
+- index.md 업데이트
+
 ## [2026-04-07] lint | 건강 점검 + 수정
 - broken link 수정: v4-스키마, 소진율 페이지 생성
 - cross-ref 불일치 11개 수정 (8개 페이지 related 필드 업데이트)

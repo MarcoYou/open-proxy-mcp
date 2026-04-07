@@ -9,7 +9,7 @@ related: [KRX-KIND, 네이버-금융, OpenProxy-MCP, alotMatter]
 
 ## 개요
 
-금융감독원 전자공시시스템(dart.fss.or.kr)의 오픈 API. 한국 상장기업의 공시 정보를 프로그래매틱하게 조회할 수 있는 핵심 데이터 소스.
+금융감독원 전자공시시스템(dart.fss.or.kr)의 오픈 API. [[OpenProxy-MCP]]의 핵심 데이터 소스로, [[3-tier-fallback]]의 XML tier에서 document.xml을 가져오는 데 사용된다. [[KRX-KIND]]와 함께 한국 공시 데이터의 양대 소스.
 
 홈페이지: https://opendart.fss.or.kr/
 
@@ -26,7 +26,7 @@ related: [KRX-KIND, 네이버-금융, OpenProxy-MCP, alotMatter]
 - stockTotqySttus: 주식총수
 
 ### DS003 - 사업보고서 (배당)
-- alotMatter: 배당 상세 (DPS, 총액, 성향, 수익률)
+- alotMatter: 배당 상세 (DPS, 총액, [[배당성향]], [[배당수익률]])
 
 ### DS004 - 수시보고 (지분)
 - majorstock: 5% 대량보유자
@@ -47,6 +47,6 @@ related: [KRX-KIND, 네이버-금융, OpenProxy-MCP, alotMatter]
 
 ## 특이사항
 
-- majorstock API에 보유목적 필드 없음 -> document.xml PUR_OWN 태그로 해결
+- majorstock API에 보유목적 필드 없음 -> document.xml PUR_OWN 태그로 해결 ([[5%-대량보유]] 참조)
 - rcept_no: 정정공고 발행 시 기존 번호 무효화
 - DART rcept_no와 KIND acptno는 별개 번호체계

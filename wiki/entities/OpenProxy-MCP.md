@@ -17,13 +17,13 @@ GitHub: https://github.com/MarcoYou/open-proxy-mcp
 
 - Python + [[FastMCP]] + httpx
 - BeautifulSoup (lxml 파서) + regex
-- OpenDART API + KIND 크롤링
+- [[DART-OpenAPI]] + [[KRX-KIND]] 크롤링
 
 ## Tool 구성 (40개)
 
-- AGM 33개: 오케스트레이터 + 8 Parsers x 3 Tiers + Search/Meta + 결과
-- Ownership 7개: 지분구조 분석
-- DIV 5개: 배당 분석 (추가 예정)
+- AGM 33개: 오케스트레이터 + 8 Parsers x 3 Tiers + Search/Meta + 결과. [[agm-tool-rule]] 참조
+- Ownership 7개: [[지분구조]] 분석. [[own-tool-rule]] 참조
+- DIV 5개: 배당 분석 (추가 예정). [[div-tool-rule]] 참조
 
 ## 프로젝트 구조
 

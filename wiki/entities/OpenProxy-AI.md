@@ -13,7 +13,7 @@ related: [OpenProxy-MCP, v4-스키마, 파이프라인-아키텍처]
 
 ## 구성
 
-- **pipeline/**: run_pipeline.py - XML -> PDF -> OCR 자동 체이닝, 199개 기업 v4 JSON 생성
+- **pipeline/**: run_pipeline.py - [[3-tier-fallback]] 자동 체이닝, 199개 기업 [[v4-스키마]] JSON 생성. [[파이프라인-아키텍처]] 참조
 - **frontend/**: React + Vite 대시보드, 의안분석 + 주총결과 탭
 - **data/**: filing_tracker.json, market_cap.json
 

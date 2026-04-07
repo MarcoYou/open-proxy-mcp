@@ -10,7 +10,7 @@ related: [OpenProxy-MCP, OpenProxy-AI, 3-tier-fallback]
 
 ## 결정 (2026-04-04)
 
-OPM 프로젝트를 공개(free)와 비공개(paid) 2개 저장소로 분리.
+OPM 프로젝트를 공개(free)와 비공개(paid) 2개 저장소로 분리. [[OpenProxy-MCP]]와 [[OpenProxy-AI]]의 역할 분담.
 
 ## 구조
 
@@ -25,7 +25,7 @@ OPM 프로젝트를 공개(free)와 비공개(paid) 2개 저장소로 분리.
 - 파이프라인 + 프론트엔드 + 데이터
 - XML -> PDF -> OCR -> LLM 자동 체이닝
 - 배치 파이프라인으로 미리 최선 데이터 생성
-- v4 JSON 199개 기업
+- [[v4-스키마]] JSON 199개 기업
 
 ## 공유 레이어
 

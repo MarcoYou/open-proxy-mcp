@@ -20,4 +20,4 @@ Python 기반 MCP(Model Context Protocol) 서버 프레임워크. [[OpenProxy-MC
 
 ## 선택 이유 (DEVLOG 2026-03-19)
 
-dart-mcp, Kensho, FactSet 등 참고 프로젝트 리서치 후 결정. LLM 친화적 구조화, 도메인별 tool 분리, 캐싱 필수가 공통 교훈.
+dart-mcp, Kensho, FactSet 등 참고 프로젝트 리서치 후 결정 ([[devlog]] 2026-03-19 참조). LLM 친화적 구조화, 도메인별 tool 분리, 캐싱 필수가 공통 교훈.

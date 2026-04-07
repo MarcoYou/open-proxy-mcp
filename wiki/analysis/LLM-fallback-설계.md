@@ -10,7 +10,7 @@ related: [3-tier-fallback, 파서-판정-등급]
 
 ## 개요
 
-정규식 파서가 실패한 경우, LLM을 활용하여 안건을 구조화하는 하이브리드 fallback 전략.
+정규식 파서가 실패한 경우, LLM을 활용하여 안건을 구조화하는 하이브리드 fallback 전략. [[3-tier-fallback]]의 보조 메커니즘으로, [[파서-판정-등급]]에서 FAIL 판정된 결과를 보정.
 
 ## 흐름
 
@@ -47,5 +47,5 @@ validate_agenda_result()
 
 ## free vs paid
 
-- **free (MCP)**: use_llm=False 기본, 유저 AI 토큰으로 보정
-- **paid (Pipeline)**: 자동 체이닝, provider API 토큰 사용
+- **free ([[OpenProxy-MCP]])**: use_llm=False 기본, 유저 AI 토큰으로 보정
+- **paid ([[OpenProxy-AI]])**: 자동 체이닝, provider API 토큰 사용. [[free-paid-분리]] 설계에 따른 차이

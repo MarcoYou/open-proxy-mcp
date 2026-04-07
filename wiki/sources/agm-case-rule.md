@@ -11,7 +11,7 @@ related: [3-tier-fallback, 파서-판정-등급, agm-tool-rule]
 
 ## 핵심 내용
 
-8개 AGM 파서의 성공/실패 판정 기준을 실데이터 예시와 함께 정의. AI가 파서 결과를 검증하고 fallback 여부를 결정하는 기준.
+8개 AGM 파서의 성공/실패 판정 기준을 실데이터 예시와 함께 정의. AI가 파서 결과를 검증하고 [[3-tier-fallback]] 여부를 결정하는 기준. [[agm-tool-rule]]과 쌍으로 동작.
 
 ## 파싱 성능 (KOSPI 200)
 

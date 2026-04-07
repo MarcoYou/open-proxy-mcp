@@ -11,12 +11,12 @@ related: [OpenProxy-MCP, OpenProxy-AI, 3-tier-fallback, 파서-성능-추이, Be
 
 ## 핵심 내용
 
-2026-03-19부터 2026-04-06까지의 OPM 개발 히스토리. 프로젝트 초기 설정부터 KOSPI 200 전수 파싱 완료까지.
+2026-03-19부터 2026-04-06까지의 [[OpenProxy-MCP]] 개발 히스토리. 프로젝트 초기 설정부터 KOSPI 200 전수 파싱 완료까지. [[파서-성능-추이]]의 시간별 근거 데이터.
 
 ## 주요 마일스톤 (시간순)
 
 ### 2026-03-19 - 프로젝트 초기 설정
-- GitHub 레포 생성, FastMCP + httpx + OpenDART 스택 결정
+- GitHub 레포 생성, [[FastMCP]] + httpx + [[DART-OpenAPI|OpenDART]] 스택 결정
 - dart-mcp, Kensho, FactSet 참고 프로젝트 리서치
 - DartClient 구현, corpCode.xml 캐싱
 

@@ -10,7 +10,7 @@ related: [3-tier-fallback, opendataloader]
 
 ## 결론
 
-**XML 1차 + PDF 보강이 최적 전략.** PDF-only 전환은 financials/agenda에서 역효과.
+**XML 1차 + PDF 보강이 최적 전략.** PDF-only 전환은 financials/agenda에서 역효과. [[3-tier-fallback]] 아키텍처의 핵심 근거.
 
 ## 비교 데이터 (KOSPI 200, 198개)
 
@@ -35,4 +35,4 @@ related: [3-tier-fallback, opendataloader]
 
 ## 아키텍처 결정
 
-XML을 기본으로 사용하되, XML SOFT_FAIL/HARD_FAIL 시 PDF로 보강. PDF-only로 전환하면 XML이 잘 되는 영역에서 오히려 성능 하락.
+XML을 기본으로 사용하되, XML SOFT_FAIL/HARD_FAIL 시 PDF로 보강 ([[파서-판정-등급]] 기준). PDF-only로 전환하면 XML이 잘 되는 영역에서 오히려 성능 하락. PDF tier는 [[opendataloader]]로 변환.

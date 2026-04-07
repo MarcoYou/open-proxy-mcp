@@ -11,14 +11,14 @@ related: [지분구조, 최대주주, 5%-대량보유, 자사주, DART-OpenAPI]
 
 ## 핵심 내용
 
-지분구조 분석을 위한 7개 MCP tool의 구조, 출력 형태, 데이터 소스 우선순위를 정의.
+[[지분구조]] 분석을 위한 7개 MCP tool의 구조, 출력 형태, 데이터 소스 우선순위를 정의. [[DART-OpenAPI]]와 [[own-case-rule]]의 판정 기준에 따라 동작.
 
 ## Tool 구조 (7개)
 
 - `own(ticker)` - 오케스트레이터
-- `own_major(ticker, year)` - 최대주주 + 특수관계인
-- `own_total(ticker, year)` - 발행주식 / 자사주 / 유통주식 / 소액주주
-- `own_treasury(ticker, year)` - 자사주 취득방법별 기초-취득-처분-소각-기말
+- `own_major(ticker, year)` - [[최대주주]] + [[특수관계인]]
+- `own_total(ticker, year)` - 발행주식 / [[자사주]] / 유통주식 / [[소액주주]]
+- `own_treasury(ticker, year)` - [[자사주]] 취득방법별 기초-취득-처분-소각-기말
 - `own_treasury_tx(ticker)` - 자사주 이벤트
 - `own_block(ticker)` - [[5%-대량보유]]자 (보유목적 포함)
 - `own_latest(ticker, year)` - 통합 스냅샷

@@ -13,14 +13,14 @@ PDF를 마크다운으로 변환하는 라이브러리. [[3-tier-fallback]]의 2
 
 ## OPM에서의 활용
 
-- DART에서 다운로드한 PDF를 마크다운 테이블로 변환
+- [[DART-OpenAPI]]에서 다운로드한 PDF를 마크다운 테이블로 변환
 - 최적 설정: `table_method="cluster"` + `keep_line_breaks=True`
 - pdf_parser.py에서 호출
 
 ## 성능
 
 - KOSPI 200 전체 198개 PDF 다운로드 + 파싱 완료
-- XML 실패 케이스에서 PDF가 유효 데이터 추출 성공 (예: 기업은행, 미래에셋증권)
+- XML 실패 케이스에서 PDF가 유효 데이터 추출 성공 (예: 기업은행, 미래에셋증권). [[XML-vs-PDF]] 분석 참조
 
 ## 한계
 
