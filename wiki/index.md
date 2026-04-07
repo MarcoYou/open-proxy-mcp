@@ -1,0 +1,70 @@
+---
+type: index
+title: OPM Wiki Index
+updated: 2026-04-05
+---
+
+# OPM Wiki Index
+
+## Concepts
+
+- [[3-tier-fallback]] - XML -> PDF -> OCR 3단계 파싱 전략
+- [[집중투표]] - N명 선출 시 1주 N표, 소수주주 대표 선출 장치
+- [[의결권]] - 주주총회 의사결정 권리, 1주 1표 원칙과 예외
+- [[배당성향]] - 배당금 총액 / 지배주주 귀속 당기순이익 (연결 기준)
+- [[배당수익률]] - 주가 대비 배당금 비율, DART vs 자체 계산
+- [[시가배당률]] - DART 공식 배당수익률, 1주일 평균 종가 기준
+- [[분기배당]] - 연 1회 외 분기별 중간배당, DPS 합산 주의
+- [[특별배당]] - 일회성 배당, 추이 분석 시 정기배당과 분리
+- [[프록시-파이트]] - 위임장 대결, 경영권 쟁탈 메커니즘
+- [[위임장-권유]] - 의결권 위임 확보 행위, 프록시 파이트의 실행 수단
+- [[지분구조]] - 최대주주/기관/자사주/소액주주 분포
+- [[최대주주]] - 본인+특관인 합산 최다 보유자
+- [[특수관계인]] - 최대주주와 혈연/계열 연결된 자
+- [[5%-대량보유]] - 5% 이상 보유 시 보유목적 공시 의무
+- [[자사주]] - 의결권 없는 자기주식, 경영권 방어 수단
+- [[소액주주]] - 유통주식 대부분 보유, 위임장 표밭
+- [[감사위원-의결권-제한]] - 감사위원 선임 시 3% 초과 지분 의결권 제한
+- [[참석률]] - KIND 투표결과 역산, KOSPI 200 평균 73.3%
+- [[파서-판정-등급]] - SUCCESS / SOFT_FAIL / HARD_FAIL 3등급 체계
+- [[보수한도]] - 이사/감사 보수 최고 한도, 소진율 분석
+- [[정관변경]] - 정관 변경 안건, 하위 안건 분할 빈번
+- [[주주제안]] - 소수주주가 직접 안건 제안하는 권리
+- [[감액배당]] - 자본준비금 감소 -> 이익잉여금 전입 -> 배당
+- [[시간순서-규칙]] - 공고->결과 참조 OK, 결과->공고 금지
+
+## Entities
+
+- [[DART-OpenAPI]] - 금감원 전자공시 오픈 API, OPM 핵심 데이터 소스
+- [[KRX-KIND]] - 한국거래소 기업공시채널, 주총결과 크롤링
+- [[네이버-금융]] - 주가/시가총액 데이터, 배당수익률 종가 소스
+- [[Upstage-OCR]] - PDF OCR 서비스, 3-tier fallback 최종 tier
+- [[OpenProxy-MCP]] - 공개 MCP 서버, 40개 tool, CC BY-NC 4.0
+- [[OpenProxy-AI]] - 비공개 파이프라인+프론트엔드, KOSPI 200 대시보드
+- [[국민연금]] - 한국 최대 기관투자자, 5% 대량보유 다수
+- [[FastMCP]] - Python MCP 서버 프레임워크
+- [[opendataloader]] - PDF 마크다운 변환 라이브러리, _pdf tier 백엔드
+
+## Analysis
+
+- [[경력-파서-벤치마크-2026-04]] - personnel XML 878명 전수 벤치마크 (SUCCESS 79.4%)
+- [[XML-vs-PDF]] - XML 1차 + PDF 보강이 최적, PDF-only는 역효과
+- [[BeautifulSoup-파서-선택]] - lxml 채택 (30% 빠름, 결과 동일)
+- [[LLM-fallback-설계]] - 정규식 -> zone 추출 -> LLM 하이브리드 전략
+- [[free-paid-분리]] - MCP(public) + Pipeline(private) 2-repo 구조
+- [[파서-성능-추이]] - 2026-03-20부터 04-06까지 8개 파서 개선 이력
+- [[파이프라인-아키텍처]] - 199개 기업 v4 JSON 생성 배치 파이프라인
+- [[KIND-주총결과]] - KIND 크롤링 기반 투표결과+참석률 역산 분석
+
+## Sources
+
+- [[agm-tool-rule]] - AGM 40개 tool 구조, fallback 흐름, 파싱 한계
+- [[agm-case-rule]] - AGM 8개 파서 성공/실패 판정 기준 + 실데이터 예시
+- [[div-tool-rule]] - 배당 5개 tool 구조, 연산 규칙 (성향/수익률)
+- [[div-case-rule]] - 배당 tool 판정 기준
+- [[own-tool-rule]] - 지분 7개 tool 구조, 출력 형태, 데이터 소스 우선순위
+- [[own-case-rule]] - 지분 tool 판정 기준
+- [[opm-readme]] - OpenProxy MCP 공개 README 요약
+- [[opa-readme]] - OpenProxy AI 비공개 README 요약
+- [[devlog]] - 2026-03-19부터 04-06 개발 히스토리 요약
+- [[benchmark-personnel-results]] - personnel XML 벤치마크 JSON 요약

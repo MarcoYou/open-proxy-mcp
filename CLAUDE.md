@@ -77,6 +77,7 @@ open_proxy_mcp/
 - 지분 출력 형태 → `open_proxy_mcp/OWN_TOOL_RULE.md`
 - fallback 대상 기업 → `test/fallback_targets.json`
 - 소집공고 이력 → `data/filing_tracker.json`
+- 도메인 지식 위키 → `wiki/index.md` (Karpathy LLM-wiki, 스키마: `wiki/WIKI_SCHEMA.md`)
 
 ## 로컬 셋업
 ```bash
