@@ -63,24 +63,32 @@ def _safe_float(val) -> float:
 
 
 def _parse_dividend_items(data: dict) -> list[dict]:
-    """alotMatter API 응답 → 정규화된 배당 항목 리스트"""
+    """alotMatter API 응답 → 정규화된 배당 항목 리스트
+
+    DART alotMatter 필드:
+      se: 항목명 (주당액면가액, 당기순이익, 현금배당금총액, 배당성향, 배당수익률, 주당 현금배당금 등)
+      stock_knd: 주식 종류 (보통주/우선주, 일부 항목에만 있음)
+      thstrm: 당기, frmtrm: 전기, lwfr: 전전기
+      stlm_dt: 결산일 (배당 기준일/지급일 아님)
+    """
     items = data.get("list", [])
     if not items:
         return []
 
     results = []
     for item in items:
-        se = item.get("se", "")  # 구분 (현금배당, 주식배당 등)
-        stock_knd = item.get("stock_knd", "")  # 주식 종류
+        se = item.get("se", "")
+        stock_knd = item.get("stock_knd", "")
 
         parsed = {
             "category": se,
             "stock_type": stock_knd,
-            "current": item.get("thstrm", ""),          # 당기
-            "previous": item.get("frmtrm", ""),          # 전기
-            "before_previous": item.get("lwfr", ""),     # 전전기
+            "current": item.get("thstrm", ""),
+            "previous": item.get("frmtrm", ""),
+            "before_previous": item.get("lwfr", ""),
+            "stlm_dt": item.get("stlm_dt", ""),
             "is_special": "특별" in se,
-            "is_stock_dividend": "주식" in se,
+            "is_stock_dividend": "주식배당" in se or "주당 주식배당" in se,
         }
         results.append(parsed)
 
@@ -88,53 +96,89 @@ def _parse_dividend_items(data: dict) -> list[dict]:
 
 
 def _build_dividend_summary(items: list[dict], reprt_label: str) -> dict:
-    """배당 항목 리스트 → 요약 구조체"""
-    cash_dps = 0  # 현금 주당배당금
-    stock_dps = 0  # 주식 주당배당금
-    special_dps = 0  # 특별배당 주당배당금
-    total_amount = 0  # 배당금 총액
-    payout_ratio_dart = None  # DART 제공 배당성향
-    yield_dart = None  # DART 제공 시가배당률
+    """배당 항목 리스트 → 요약 구조체
+
+    alotMatter 실제 항목명 기준:
+      - "주당 현금배당금(원)" + stock_knd="보통주" → 현금 DPS
+      - "현금배당금총액(백만원)" → 총액 (백만원 단위)
+      - "(연결)현금배당성향(%)" → 배당성향 (연결 기준)
+      - "현금배당수익률(%)" + stock_knd="보통주" → 배당수익률
+      - "(연결)당기순이익(백만원)" → 연결 당기순이익
+      - "주당 주식배당(주)" → 주식배당
+    """
+    cash_dps = 0
+    cash_dps_pref = 0  # 우선주 DPS
+    stock_dps = 0
+    special_dps = 0
+    total_amount = 0  # 백만원 단위
+    payout_ratio_dart = None
+    yield_dart = None
+    yield_pref_dart = None
+    net_income_consolidated = 0  # 연결 당기순이익 (백만원)
+    stlm_dt = ""
 
     for item in items:
-        category = item.get("category", "")
-        current = item.get("current", "")
+        cat = item.get("category", "")
+        cur = item.get("current", "")
+        sknd = item.get("stock_type", "")
 
-        # 주당배당금 행
-        if "주당" in category and "배당금" in category:
-            val = _safe_int(current)
+        if not stlm_dt and item.get("stlm_dt"):
+            stlm_dt = item["stlm_dt"]
+
+        # 주당 현금배당금
+        if "주당 현금배당금" in cat or ("주당" in cat and "현금배당금" in cat):
+            val = _safe_int(cur)
             if item.get("is_special"):
                 special_dps += val
-            elif item.get("is_stock_dividend"):
-                stock_dps += val
+            elif "우선주" in sknd:
+                cash_dps_pref = val
             else:
-                cash_dps += val
+                cash_dps = val
 
-        # 배당금총액 행
-        if "배당금총액" in category or "총액" in category:
-            total_amount = _safe_int(current)
+        # 주당 주식배당
+        if "주당 주식배당" in cat:
+            stock_dps = _safe_int(cur)
 
-        # 배당성향 행
-        if "배당성향" in category:
-            val = _safe_float(current)
+        # 현금배당금총액
+        if "현금배당금총액" in cat:
+            total_amount = _safe_int(cur)  # 백만원 단위
+
+        # 배당성향 (연결 기준 우선)
+        if "현금배당성향" in cat and "연결" in cat:
+            val = _safe_float(cur)
+            if val > 0:
+                payout_ratio_dart = val
+        elif "현금배당성향" in cat and payout_ratio_dart is None:
+            val = _safe_float(cur)
             if val > 0:
                 payout_ratio_dart = val
 
-        # 시가배당률 행
-        if "시가배당률" in category or "배당수익률" in category:
-            val = _safe_float(current)
+        # 현금배당수익률
+        if "현금배당수익률" in cat:
+            val = _safe_float(cur)
             if val > 0:
-                yield_dart = val
+                if "우선주" in sknd:
+                    yield_pref_dart = val
+                else:
+                    yield_dart = val
+
+        # 연결 당기순이익
+        if "연결" in cat and "당기순이익" in cat:
+            net_income_consolidated = _safe_int(cur)
 
     return {
         "period": reprt_label,
+        "stlm_dt": stlm_dt,
         "cash_dps": cash_dps,
+        "cash_dps_preferred": cash_dps_pref,
         "stock_dps": stock_dps,
         "special_dps": special_dps,
         "total_dps": cash_dps + special_dps,
-        "total_amount": total_amount,
+        "total_amount_mil": total_amount,
         "payout_ratio_dart": payout_ratio_dart,
         "yield_dart": yield_dart,
+        "yield_preferred_dart": yield_pref_dart,
+        "net_income_consolidated_mil": net_income_consolidated,
         "items": items,
     }
 
@@ -229,29 +273,39 @@ def register_tools(mcp):
             return json.dumps({"corp_name": corp_name, "bsns_year": bsns_year, **summary}, ensure_ascii=False, indent=2)
 
         # Markdown
+        stlm = summary.get("stlm_dt", "")
         lines = [
-            f"# {corp_name} 배당 ({bsns_year} {reprt_label})\n",
+            f"# {corp_name} 배당 ({bsns_year} {reprt_label})",
+            f"*결산일: {stlm}*\n",
             f"| 항목 | 당기 | 전기 | 전전기 |",
             f"|------|------|------|--------|",
         ]
         for item in items:
             lines.append(
-                f"| {item['category']} | {item['current']} | {item['previous']} | {item['before_previous']} |"
+                f"| {item['category']}{' (' + item['stock_type'] + ')' if item.get('stock_type') else ''} "
+                f"| {item['current']} | {item['previous']} | {item['before_previous']} |"
             )
 
         lines.append("")
         if summary["cash_dps"]:
-            lines.append(f"**현금배당 DPS**: {summary['cash_dps']:,}원")
+            lines.append(f"**현금배당 DPS (보통주)**: {summary['cash_dps']:,}원")
+        if summary["cash_dps_preferred"]:
+            lines.append(f"**현금배당 DPS (우선주)**: {summary['cash_dps_preferred']:,}원")
         if summary["special_dps"]:
             lines.append(f"**특별배당 DPS**: {summary['special_dps']:,}원")
         if summary["stock_dps"]:
-            lines.append(f"**주식배당 DPS**: {summary['stock_dps']:,}원 (주)")
-        if summary["total_amount"]:
-            lines.append(f"**배당금 총액**: {summary['total_amount']:,}원")
+            lines.append(f"**주식배당**: {summary['stock_dps']:,}주")
+        if summary["total_amount_mil"]:
+            lines.append(f"**배당금 총액**: {summary['total_amount_mil']:,}백만원")
         if summary["payout_ratio_dart"] is not None:
-            lines.append(f"**배당성향 (DART)**: {summary['payout_ratio_dart']}%")
+            lines.append(f"**배당성향 (연결)**: {summary['payout_ratio_dart']}%")
         if summary["yield_dart"] is not None:
-            lines.append(f"**시가배당률 (DART)**: {summary['yield_dart']}%")
+            lines.append(f"**배당수익률 (보통주)**: {summary['yield_dart']}%")
+        if summary.get("yield_preferred_dart") is not None:
+            lines.append(f"**배당수익률 (우선주)**: {summary['yield_preferred_dart']}%")
+
+        lines.append("")
+        lines.append("*배당 기준일/지급일은 주요사항보고서(현금배당 결정) 공시 참조. div_search로 검색 가능.*")
 
         return "\n".join(lines)
 
@@ -308,17 +362,14 @@ def register_tools(mcp):
             for q in quarterly_dps:
                 annual_dps += q["dps"]
 
-            # KRX 종가 조회 (배당기준일 = 결산일 기준, 12/31 또는 직전 거래일)
+            # 종가 조회 (배당기준일 = 결산일 기준, 12/31 또는 직전 거래일)
             closing_price = None
             calc_yield = None
             if stock_code and annual_dps > 0:
-                # 결산일 기준 (12월 결산 기업 기준)
-                for dd in [f"{year}1230", f"{year}1229", f"{year}1228", f"{year}1227"]:
-                    price_data = await client.get_krx_stock_price(stock_code, dd)
-                    if price_data and price_data.get("closing_price", 0) > 0:
-                        closing_price = price_data["closing_price"]
-                        calc_yield = round(annual_dps / closing_price * 100, 2)
-                        break
+                price_data = await client.get_stock_price(stock_code, f"{year}1230")
+                if price_data and price_data.get("closing_price", 0) > 0:
+                    closing_price = price_data["closing_price"]
+                    calc_yield = round(annual_dps / closing_price * 100, 2)
 
             yearly_data.append({
                 "year": year_str,

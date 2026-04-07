@@ -630,49 +630,102 @@ class DartClient:
             "reprt_code": reprt_code,
         })
 
-    # ── KRX Open API ──
+    # ── 주가 시세 조회 (네이버 금융 → KRX fallback) ──
 
-    async def get_krx_stock_price(self, stock_code: str, base_date: str) -> dict | None:
-        """KRX Open API — 특정 종목의 일별 시세 (종가, 시가총액, 상장주식수)
+    async def get_stock_price(self, stock_code: str, base_date: str) -> dict | None:
+        """특정 종목의 일별 시세 (종가). 네이버 금융 우선, KRX Open API fallback.
 
         Args:
             stock_code: 종목코드 6자리 (예: "005930")
             base_date: 기준일 YYYYMMDD (예: "20260404")
 
         Returns:
-            {"closing_price": int, "market_cap": int, "listed_shares": int, "stock_name": str}
+            {"closing_price": int, "base_date": str, "source": str}
             또는 None (데이터 없음)
         """
+        # 1차: 네이버 금융 시세 API
+        result = await self._naver_stock_price(stock_code, base_date)
+        if result:
+            return result
+
+        # 2차: KRX Open API (승인된 경우)
+        result = await self._krx_stock_price(stock_code, base_date)
+        if result:
+            return result
+
+        return None
+
+    async def _naver_stock_price(self, stock_code: str, base_date: str) -> dict | None:
+        """네이버 금융 시세 API — 일별 종가"""
+        try:
+            await self._throttle_api()
+            url = "https://api.finance.naver.com/siseJson.naver"
+            params = {
+                "symbol": stock_code,
+                "requestType": "1",
+                "startTime": base_date,
+                "endTime": base_date,
+                "timeframe": "day",
+            }
+            async with httpx.AsyncClient() as http:
+                resp = await http.get(url, params=params, timeout=15,
+                                       headers={"User-Agent": "Mozilla/5.0"})
+                if resp.status_code != 200:
+                    return None
+
+                # 응답 파싱: [["날짜","시가","고가","저가","종가","거래량","외국인소진율"],\n["20251230",119100,121200,118700,119900,...]]
+                import re as _re
+                rows = _re.findall(r'\["(\d{8})",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', resp.text)
+                if rows:
+                    date_str, open_p, high, low, close = rows[0]
+                    return {
+                        "closing_price": int(close),
+                        "base_date": date_str,
+                        "source": "naver",
+                    }
+
+                # 해당 날짜 데이터 없으면 (비거래일) — 범위 넓혀서 직전 거래일
+                start = str(int(base_date) - 7)  # 7일 전부터
+                params["startTime"] = start
+                resp2 = await http.get(url, params=params, timeout=15,
+                                        headers={"User-Agent": "Mozilla/5.0"})
+                rows2 = _re.findall(r'\["(\d{8})",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', resp2.text)
+                if rows2:
+                    # 마지막 행이 가장 최근
+                    date_str, open_p, high, low, close = rows2[-1]
+                    return {
+                        "closing_price": int(close),
+                        "base_date": date_str,
+                        "source": "naver",
+                    }
+                return None
+        except Exception as e:
+            logger.warning(f"[네이버] 시세 조회 실패: {e}")
+            return None
+
+    async def _krx_stock_price(self, stock_code: str, base_date: str) -> dict | None:
+        """KRX Open API — 일별 시세 (서비스 승인 필요)"""
         import os
         api_key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
         if not api_key:
-            logger.warning("[KRX] API 키가 설정되지 않았습니다 (KRX_API_KEY)")
             return None
 
-        await self._throttle_api()
-        url = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
-        params = {"AUTH_KEY": api_key, "basDd": base_date}
-
         try:
+            await self._throttle_api()
+            url = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
+            params = {"AUTH_KEY": api_key, "basDd": base_date}
             async with httpx.AsyncClient() as http:
                 resp = await http.get(url, params=params, timeout=30)
                 if resp.status_code != 200:
-                    logger.warning(f"[KRX] HTTP {resp.status_code}: {resp.text[:200]}")
                     return None
-
                 data = resp.json()
-                items = data.get("OutBlock_1", [])
-                # 종목코드(ISU_SRT_CD)로 필터
-                for item in items:
-                    isin = item.get("ISU_CD", "")
+                for item in data.get("OutBlock_1", []):
                     short_code = item.get("ISU_SRT_CD", "")
-                    if short_code == stock_code or (len(stock_code) == 6 and stock_code in isin):
+                    if short_code == stock_code:
                         return {
                             "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
-                            "market_cap": int(str(item.get("MKTCAP", "0")).replace(",", "") or "0"),
-                            "listed_shares": int(str(item.get("LIST_SHRS", "0")).replace(",", "") or "0"),
-                            "stock_name": item.get("ISU_NM", ""),
                             "base_date": item.get("BAS_DD", base_date),
+                            "source": "krx",
                         }
                 return None
         except Exception as e:
