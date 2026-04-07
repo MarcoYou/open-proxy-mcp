@@ -62,6 +62,114 @@ def _safe_float(val) -> float:
         return 0.0
 
 
+def _parse_dividend_decision(text: str) -> dict | None:
+    """현금ㆍ현물배당결정 공시 본문 파싱 (거래소 표준 서식)
+
+    표준 필드:
+      1. 배당구분 (결산배당/중간배당/분기배당)
+      2. 배당종류 (현금배당/현물배당)
+      3. 1주당 배당금(원) — 보통주식/종류주식
+      4. 시가배당율(%) — 보통주식/종류주식
+      5. 배당금총액(원)
+      6. 배당기준일 (YYYY-MM-DD)
+      7. 배당금지급 예정일자 (YYYY-MM-DD 또는 -)
+      8. 주주총회 개최여부
+      9. 주주총회 예정일자
+     10. 이사회결의일(결정일)
+     11. 기타 투자판단과 관련한 중요사항
+    """
+    if not text:
+        return None
+
+    # CSS 제거
+    clean = re.sub(r'\.xforms[^}]+\}', '', text).strip()
+    # 연속 공백/개행 → 단일 공백
+    clean = re.sub(r'\s+', ' ', clean)
+
+    result = {}
+
+    # 1. 배당구분
+    m = re.search(r'1\.\s*배당구분\s*(결산배당|중간배당|분기배당)', clean)
+    result["dividend_type"] = m.group(1) if m else None
+
+    # 2. 배당종류
+    m = re.search(r'2\.\s*배당종류\s*(현금배당|현물배당|주식배당)', clean)
+    result["dividend_method"] = m.group(1) if m else None
+
+    # 3. 1주당 배당금
+    m = re.search(r'3\.\s*1주당\s*배당금\s*\(원\)\s*보통주식\s*([\d,]+)', clean)
+    result["dps_common"] = _safe_int(m.group(1)) if m else 0
+    m = re.search(r'종류주식\s*([\d,]+)', clean[clean.find("1주당 배당금"):clean.find("4.")] if "1주당 배당금" in clean and "4." in clean else "")
+    result["dps_preferred"] = _safe_int(m.group(1)) if m else 0
+
+    # 차등배당
+    m = re.search(r'차등배당\s*여부\s*(해당|미해당)', clean)
+    result["differential_dividend"] = m.group(1) == "해당" if m else False
+
+    # 4. 시가배당율
+    m = re.search(r'4\.\s*시가배당율\s*\(%\)\s*보통주식\s*([\d.]+)', clean)
+    result["yield_common"] = _safe_float(m.group(1)) if m else 0.0
+    m = re.search(r'4\.\s*시가배당율.*?종류주식\s*([\d.]+)', clean)
+    result["yield_preferred"] = _safe_float(m.group(1)) if m else 0.0
+
+    # 5. 배당금총액
+    m = re.search(r'5\.\s*배당금총액\s*\(원\)\s*([\d,]+)', clean)
+    result["total_amount"] = _safe_int(m.group(1)) if m else 0
+
+    # 6. 배당기준일
+    m = re.search(r'6\.\s*배당기준일\s*(\d{4}-\d{2}-\d{2})', clean)
+    result["record_date"] = m.group(1) if m else None
+
+    # 7. 배당금지급 예정일자
+    m = re.search(r'7\.\s*배당금지급\s*예정일자\s*(\d{4}-\d{2}-\d{2})', clean)
+    result["payment_date"] = m.group(1) if m else None
+
+    # 8. 주주총회 개최여부
+    m = re.search(r'8\.\s*주주총회\s*개최여부\s*(개최|미개최|미해당)', clean)
+    result["agm_required"] = m.group(1) if m else None
+
+    # 9. 주주총회 예정일자
+    m = re.search(r'9\.\s*주주총회\s*예정일자\s*(\d{4}-\d{2}-\d{2})', clean)
+    result["agm_date"] = m.group(1) if m else None
+
+    # 10. 이사회결의일
+    m = re.search(r'10\.\s*이사회결의일\s*\(결정일\)\s*(\d{4}-\d{2}-\d{2})', clean)
+    result["board_date"] = m.group(1) if m else None
+
+    # 11. 기타 — 특별배당 감지
+    m = re.search(r'11\.\s*기타\s*투자판단과\s*관련한\s*중요사항\s*(.*?)(?:※|【|\Z)', clean)
+    remarks = m.group(1).strip() if m else ""
+    result["remarks"] = remarks
+
+    # 특별배당 감지
+    result["has_special"] = bool(re.search(r'특별|추가.*배당|추가하여', remarks))
+    # 특별배당 금액 추출 시도
+    if result["has_special"]:
+        m = re.search(r'([\d,.]+)\s*조원을?\s*추가', remarks)
+        if m:
+            result["special_amount_description"] = f"{m.group(1)}조원 추가"
+
+    # 종류주식 상세
+    pref_match = re.search(
+        r'【종류주식[^】]*】.*?(\S+)\s+(우선주)\s+([\d,]+)\s+([\d.]+)\s+([\d,]+)',
+        clean
+    )
+    if pref_match:
+        result["preferred_detail"] = {
+            "name": pref_match.group(1),
+            "type": pref_match.group(2),
+            "dps": _safe_int(pref_match.group(3)),
+            "yield_pct": _safe_float(pref_match.group(4)),
+            "total_amount": _safe_int(pref_match.group(5)),
+        }
+
+    # 유효성 체크
+    if not result.get("dps_common") and not result.get("total_amount"):
+        return None
+
+    return result
+
+
 def _parse_dividend_items(data: dict) -> list[dict]:
     """alotMatter API 응답 → 정규화된 배당 항목 리스트
 
@@ -269,17 +377,41 @@ def register_tools(mcp):
         reprt_label = _REPRT_LABELS.get(reprt_code, reprt_code)
         summary = _build_dividend_summary(items, reprt_label)
 
+        # 현금배당결정 공시에서 기준일/지급일/특별배당 파싱
+        decisions = []
+        try:
+            filings = await client.search_filings(
+                corp_code=corp_code, bgn_de=f"{bsns_year}0101",
+                end_de=f"{int(bsns_year)+1}1231", pblntf_ty="I",
+            )
+            for item in filings.get("list", []):
+                if "현금" in item.get("report_nm", "") and "배당결정" in item.get("report_nm", ""):
+                    doc = await client.get_document_cached(item["rcept_no"])
+                    parsed = _parse_dividend_decision(doc.get("text", ""))
+                    if parsed:
+                        parsed["rcept_no"] = item["rcept_no"]
+                        parsed["rcept_dt"] = item.get("rcept_dt", "")
+                        decisions.append(parsed)
+        except (DartClientError, Exception):
+            pass
+
         if format == "json":
-            return json.dumps({"corp_name": corp_name, "bsns_year": bsns_year, **summary}, ensure_ascii=False, indent=2)
+            return json.dumps({
+                "corp_name": corp_name, "bsns_year": bsns_year,
+                **summary, "decisions": decisions,
+            }, ensure_ascii=False, indent=2)
 
         # Markdown
         stlm = summary.get("stlm_dt", "")
         lines = [
             f"# {corp_name} 배당 ({bsns_year} {reprt_label})",
             f"*결산일: {stlm}*\n",
-            f"| 항목 | 당기 | 전기 | 전전기 |",
-            f"|------|------|------|--------|",
         ]
+
+        # alotMatter 테이블 (연간 요약)
+        lines.append("## 연간 요약 (사업보고서)")
+        lines.append(f"| 항목 | 당기 | 전기 | 전전기 |")
+        lines.append(f"|------|------|------|--------|")
         for item in items:
             lines.append(
                 f"| {item['category']}{' (' + item['stock_type'] + ')' if item.get('stock_type') else ''} "
@@ -288,24 +420,49 @@ def register_tools(mcp):
 
         lines.append("")
         if summary["cash_dps"]:
-            lines.append(f"**현금배당 DPS (보통주)**: {summary['cash_dps']:,}원")
+            lines.append(f"**연간 DPS (보통주)**: {summary['cash_dps']:,}원")
         if summary["cash_dps_preferred"]:
-            lines.append(f"**현금배당 DPS (우선주)**: {summary['cash_dps_preferred']:,}원")
-        if summary["special_dps"]:
-            lines.append(f"**특별배당 DPS**: {summary['special_dps']:,}원")
-        if summary["stock_dps"]:
-            lines.append(f"**주식배당**: {summary['stock_dps']:,}주")
+            lines.append(f"**연간 DPS (우선주)**: {summary['cash_dps_preferred']:,}원")
         if summary["total_amount_mil"]:
             lines.append(f"**배당금 총액**: {summary['total_amount_mil']:,}백만원")
         if summary["payout_ratio_dart"] is not None:
             lines.append(f"**배당성향 (연결)**: {summary['payout_ratio_dart']}%")
         if summary["yield_dart"] is not None:
-            lines.append(f"**배당수익률 (보통주)**: {summary['yield_dart']}%")
+            lines.append(f"**시가배당률 (보통주, DART 공식)**: {summary['yield_dart']}%")
         if summary.get("yield_preferred_dart") is not None:
-            lines.append(f"**배당수익률 (우선주)**: {summary['yield_preferred_dart']}%")
+            lines.append(f"**시가배당률 (우선주, DART 공식)**: {summary['yield_preferred_dart']}%")
 
-        lines.append("")
-        lines.append("*배당 기준일/지급일은 주요사항보고서(현금배당 결정) 공시 참조. div_search로 검색 가능.*")
+        # 현금배당결정 공시 (회차별 상세)
+        if decisions:
+            lines.append("")
+            lines.append("## 배당 결정 내역 (거래소 공시)")
+            lines.append("")
+            lines.append("| 배당구분 | DPS(보통) | DPS(우선) | 배당총액 | 기준일 | 지급예정일 | 결의일 | 시가배당률 |")
+            lines.append("|---------|----------|----------|---------|--------|----------|--------|----------|")
+            for d in decisions:
+                pay_date = d.get("payment_date") or "-"
+                lines.append(
+                    f"| {d.get('dividend_type', '-')} "
+                    f"| {d.get('dps_common', 0):,}원 "
+                    f"| {d.get('dps_preferred', 0):,}원 "
+                    f"| {d.get('total_amount', 0):,}원 "
+                    f"| {d.get('record_date', '-')} "
+                    f"| {pay_date} "
+                    f"| {d.get('board_date', '-')} "
+                    f"| {d.get('yield_common', 0)}% |"
+                )
+
+            # 특별배당 표시
+            for d in decisions:
+                if d.get("has_special"):
+                    desc = d.get("special_amount_description", "특별배당 포함")
+                    lines.append(f"\n**특별배당**: {desc}")
+                if d.get("remarks"):
+                    # 핵심 비고만 (200자 이내)
+                    remark = d["remarks"][:200]
+                    if len(d["remarks"]) > 200:
+                        remark += "..."
+                    lines.append(f"*비고: {remark}*")
 
         return "\n".join(lines)
 
