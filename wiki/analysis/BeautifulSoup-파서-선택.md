@@ -10,7 +10,7 @@ related: [OpenProxy-MCP, XML-vs-PDF]
 
 ## 결론
 
-**lxml 채택.** html.parser 대비 30% 빠르고 결과 동일. html5lib은 79% 느림.
+**lxml 채택.** html.parser 대비 30% 빠르고 결과 동일. html5lib은 79% 느림. [[OpenProxy-MCP]]의 전 파서에서 사용하며, [[XML-vs-PDF]] 비교 분석의 XML tier 성능 기반.
 
 ## 벤치마크 (250건 전수)
 
@@ -29,4 +29,4 @@ related: [OpenProxy-MCP, XML-vs-PDF]
 
 ## lxml-xml 파서
 
-DART 문서의 대소문자 혼용으로 사용 불가. HTML 모드의 lxml이 더 관대.
+[[DART-OpenAPI]] 문서의 대소문자 혼용으로 사용 불가. HTML 모드의 lxml이 더 관대.
