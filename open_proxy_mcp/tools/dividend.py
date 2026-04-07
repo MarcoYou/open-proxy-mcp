@@ -346,21 +346,36 @@ def register_tools(mcp):
                            "special_dps": 0, "stock_dps": 0, "period": "기말", "items": []}
 
             # 분기배당 체크 (1Q, 반기, 3Q)
-            quarterly_dps = []
+            # alotMatter의 분기 DPS는 **누적값** (1Q=1Q, 반기=1Q+2Q, 3Q=1Q+2Q+3Q)
+            # 기말 DPS는 연간 합산 (1Q+2Q+3Q+4Q)
+            # 개별 분기 DPS = 해당 분기 누적 - 이전 분기 누적
+            cumulative = {}  # label → 누적 DPS
             for rc, label in [("11013", "1Q"), ("11012", "반기"), ("11014", "3Q")]:
                 try:
                     qdata = await client.get_dividend_info(corp_code, year_str, rc)
                     qitems = _parse_dividend_items(qdata)
                     qsummary = _build_dividend_summary(qitems, label)
                     if qsummary["cash_dps"] > 0:
-                        quarterly_dps.append({"period": label, "dps": qsummary["cash_dps"]})
+                        cumulative[label] = qsummary["cash_dps"]
                 except DartClientError:
                     pass
 
-            # 연간 합산 DPS
-            annual_dps = summary["cash_dps"]
-            for q in quarterly_dps:
-                annual_dps += q["dps"]
+            # 누적 → 개별 변환
+            quarterly_dps = []
+            q1_cum = cumulative.get("1Q", 0)
+            half_cum = cumulative.get("반기", 0)
+            q3_cum = cumulative.get("3Q", 0)
+
+            if q1_cum > 0:
+                quarterly_dps.append({"period": "1Q", "dps": q1_cum})
+            if half_cum > q1_cum:
+                quarterly_dps.append({"period": "2Q", "dps": half_cum - q1_cum})
+            if q3_cum > half_cum:
+                quarterly_dps.append({"period": "3Q", "dps": q3_cum - half_cum})
+
+            # 기말 DPS는 연간 합산이므로, 결산분 = 기말 - 3Q누적
+            annual_dps = summary["cash_dps"]  # alotMatter 기말 = 연간 합산
+            final_only = annual_dps - q3_cum if q3_cum > 0 else annual_dps
 
             # 종가 조회 (배당기준일 = 결산일 기준, 12/31 또는 직전 거래일)
             closing_price = None
@@ -374,7 +389,7 @@ def register_tools(mcp):
             yearly_data.append({
                 "year": year_str,
                 "annual_dps": annual_dps,
-                "final_dps": summary["cash_dps"],
+                "final_dps": final_only,
                 "special_dps": summary["special_dps"],
                 "stock_dps": summary["stock_dps"],
                 "quarterly": quarterly_dps,
