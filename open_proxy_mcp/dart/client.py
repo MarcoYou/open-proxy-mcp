@@ -614,6 +614,71 @@ class DartClient:
             "end_de": end_de,
         })
 
+    # ── Dividend API (DS002 정기보고서) ──
+
+    async def get_dividend_info(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """배당에 관한 사항 (alotMatter) — 배당금, 배당률, 기준일
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("alotMatter.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    # ── KRX Open API ──
+
+    async def get_krx_stock_price(self, stock_code: str, base_date: str) -> dict | None:
+        """KRX Open API — 특정 종목의 일별 시세 (종가, 시가총액, 상장주식수)
+
+        Args:
+            stock_code: 종목코드 6자리 (예: "005930")
+            base_date: 기준일 YYYYMMDD (예: "20260404")
+
+        Returns:
+            {"closing_price": int, "market_cap": int, "listed_shares": int, "stock_name": str}
+            또는 None (데이터 없음)
+        """
+        import os
+        api_key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
+        if not api_key:
+            logger.warning("[KRX] API 키가 설정되지 않았습니다 (KRX_API_KEY)")
+            return None
+
+        await self._throttle_api()
+        url = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
+        params = {"AUTH_KEY": api_key, "basDd": base_date}
+
+        try:
+            async with httpx.AsyncClient() as http:
+                resp = await http.get(url, params=params, timeout=30)
+                if resp.status_code != 200:
+                    logger.warning(f"[KRX] HTTP {resp.status_code}: {resp.text[:200]}")
+                    return None
+
+                data = resp.json()
+                items = data.get("OutBlock_1", [])
+                # 종목코드(ISU_SRT_CD)로 필터
+                for item in items:
+                    isin = item.get("ISU_CD", "")
+                    short_code = item.get("ISU_SRT_CD", "")
+                    if short_code == stock_code or (len(stock_code) == 6 and stock_code in isin):
+                        return {
+                            "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
+                            "market_cap": int(str(item.get("MKTCAP", "0")).replace(",", "") or "0"),
+                            "listed_shares": int(str(item.get("LIST_SHRS", "0")).replace(",", "") or "0"),
+                            "stock_name": item.get("ISU_NM", ""),
+                            "base_date": item.get("BAS_DD", base_date),
+                        }
+                return None
+        except Exception as e:
+            logger.warning(f"[KRX] 시세 조회 실패: {e}")
+            return None
+
     # ── KRX KIND 크롤링 ──
 
     async def _throttle_kind(self):
