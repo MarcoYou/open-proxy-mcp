@@ -26,6 +26,21 @@
 - [ ] own_latest에 3대 주체 분류 태깅 (최대주주+특관인 / 국민연금 / 기관투자자)
 - [ ] 집중투표 분석 tool 체이닝 (agm + own 연계, 의결권 시뮬레이션)
 
+### div_* 배당 tool 개선
+- [ ] 현금배당결정 본문 파서 — KOSPI 200 전수 테스트 + 엣지케이스 처리
+- [ ] 분기배당 기업 전수 식별 + 분기별 개별 DPS 검증
+- [ ] KRX Open API 서비스 승인 후 네이버 → KRX 전환 테스트
+- [ ] 배당수익률: DART 시가배당률(공식) 기본 표시, 현재가 기준은 유저 요청 시 계산
+- [ ] 특별배당 감지 정확도 개선 (기타 항목 텍스트 패턴 다양화)
+- [ ] 주식배당결정 공시 파서 (후순위)
+
+### prx_* 위임장 권유 tool (향후)
+- [ ] prx_search — 위임장 권유 참고서류 검색
+- [ ] prx_detail — 권유자 + 방법 + 비용
+- [ ] prx_direction — 안건별 의결권 행사 방향
+- [ ] prx_fight — 프록시 파이트 감지 (양측 비교)
+- [ ] prx_manual — PRX_TOOL_RULE + PRX_CASE_RULE
+
 ### LLM fallback
 - [ ] LLM fallback tool — XML 원문 + AGM_CASE_RULE로 AI 보강 (향후)
 
