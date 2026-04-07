@@ -4,7 +4,7 @@ title: DIV_CASE_RULE.md 요약
 source_path: raw/rules/DIV_CASE_RULE.md
 ingested: 2026-04-05
 tags: [dividend, case-rule, parser]
-related: [배당성향, 배당수익률, 파서-판정-등급, div-tool-rule]
+related: [배당성향, 배당수익률, 파서-판정-등급, div-tool-rule, 특별배당]
 ---
 
 # DIV_CASE_RULE.md 요약

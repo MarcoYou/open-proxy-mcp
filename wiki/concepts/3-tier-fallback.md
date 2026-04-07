@@ -2,7 +2,7 @@
 type: concept
 title: 3-Tier Fallback
 tags: [architecture, parser, fallback]
-related: [DART-OpenAPI, Upstage-OCR, 파서-판정-등급, XML-vs-PDF]
+related: [DART-OpenAPI, Upstage-OCR, 파서-판정-등급, XML-vs-PDF, agm-case-rule]
 ---
 
 # 3-Tier Fallback

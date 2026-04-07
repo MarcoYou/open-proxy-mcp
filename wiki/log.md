@@ -5,6 +5,10 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-07] lint | 건강 점검 + 수정
+- broken link 수정: v4-스키마, 소진율 페이지 생성
+- cross-ref 불일치 11개 수정 (8개 페이지 related 필드 업데이트)
+
 ## [2026-04-07] init | Wiki 초기화
 - 디렉토리 구조 생성 (raw/ + wiki/)
 - CLAUDE.md(schema) 작성

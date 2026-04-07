@@ -4,7 +4,7 @@ title: AGM_TOOL_RULE.md 요약
 source_path: raw/rules/AGM_TOOL_RULE.md
 ingested: 2026-04-05
 tags: [agm, tools, fallback, parser, mcp]
-related: [3-tier-fallback, 집중투표, KIND-주총결과, agm-case-rule]
+related: [3-tier-fallback, 집중투표, KIND-주총결과, agm-case-rule, 감사위원-의결권-제한]
 ---
 
 # AGM_TOOL_RULE.md 요약

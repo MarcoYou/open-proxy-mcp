@@ -4,7 +4,7 @@ title: DEVLOG.md 요약
 source_path: raw/devlog/DEVLOG.md
 ingested: 2026-04-05
 tags: [devlog, history, architecture, parser]
-related: [OpenProxy-MCP, OpenProxy-AI, 3-tier-fallback, 파서-성능-추이]
+related: [OpenProxy-MCP, OpenProxy-AI, 3-tier-fallback, 파서-성능-추이, BeautifulSoup-파서-선택, LLM-fallback-설계, XML-vs-PDF, free-paid-분리]
 ---
 
 # DEVLOG.md 요약
