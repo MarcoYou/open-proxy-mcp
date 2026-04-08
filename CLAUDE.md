@@ -45,7 +45,7 @@ wiki/                  # LLM 도메인 지식 위키 (Karpathy 아키텍처)
 - 공시 유형 → `wiki/disclosures/`
 
 ## 문서 포인터
-- 미완료 작업 → `TO_DO.md`
+- 미완료 작업 → `TO_DO.md` — **완료된 항목은 즉시 삭제. 완료 섹션 없음. 미완료만 유지.**
 - 개발 히스토리 → `DEVLOG.md`
 - tool 규칙 → `open_proxy_mcp/*_RULE.md`
 
