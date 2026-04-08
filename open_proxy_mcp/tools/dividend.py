@@ -488,29 +488,30 @@ def register_tools(mcp):
         current_year = datetime.now().year
         start_year = current_year - years
 
-        # 1. 현금배당결정 공시 전체 수집 (건별 파싱)
+        # 1. 현금배당결정 공시 연도별 수집 (페이지네이션 방지)
         all_decisions = []
-        try:
-            filings = await client.search_filings(
-                corp_code=corp_code,
-                bgn_de=f"{start_year}0101",
-                end_de=f"{current_year}1231",
-                pblntf_ty="I",
-            )
-            for item in filings.get("list", []):
-                nm = item.get("report_nm", "")
-                if "현금" in nm and "배당결정" in nm:
-                    try:
-                        doc = await client.get_document_cached(item["rcept_no"])
-                        parsed = _parse_dividend_decision(doc.get("text", ""))
-                        if parsed:
-                            parsed["rcept_no"] = item["rcept_no"]
-                            parsed["rcept_dt"] = item.get("rcept_dt", "")
-                            all_decisions.append(parsed)
-                    except Exception:
-                        pass
-        except DartClientError:
-            pass
+        for search_year in range(start_year, current_year + 1):
+            try:
+                filings = await client.search_filings(
+                    corp_code=corp_code,
+                    bgn_de=f"{search_year}0101",
+                    end_de=f"{search_year}1231",
+                    pblntf_ty="I",
+                )
+                for item in filings.get("list", []):
+                    nm = item.get("report_nm", "")
+                    if "현금" in nm and "배당결정" in nm:
+                        try:
+                            doc = await client.get_document_cached(item["rcept_no"])
+                            parsed = _parse_dividend_decision(doc.get("text", ""))
+                            if parsed:
+                                parsed["rcept_no"] = item["rcept_no"]
+                                parsed["rcept_dt"] = item.get("rcept_dt", "")
+                                all_decisions.append(parsed)
+                        except Exception:
+                            pass
+            except DartClientError:
+                pass
 
         # 2. 연도별 그룹핑 (배당기준일 기준)
         by_year = {}
