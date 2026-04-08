@@ -99,7 +99,11 @@ def _parse_dividend_decision(text: str) -> dict | None:
     # 3. 1주당 배당금
     m = re.search(r'3\.\s*1주당\s*배당금\s*\(원\)\s*보통주식\s*([\d,]+)', clean)
     result["dps_common"] = _safe_int(m.group(1)) if m else 0
-    m = re.search(r'종류주식\s*([\d,]+)', clean[clean.find("1주당 배당금"):clean.find("4.")] if "1주당 배당금" in clean and "4." in clean else "")
+    # 종류주식 DPS: "1주당 배당금" ~ "4. 시가배당율" 사이에서 추출
+    dps_start = clean.find("1주당 배당금")
+    dps_end = clean.find("4.", dps_start) if dps_start >= 0 else -1
+    dps_segment = clean[dps_start:dps_end] if dps_start >= 0 and dps_end > dps_start else ""
+    m = re.search(r'종류주식\s*([\d,]+)', dps_segment)
     result["dps_preferred"] = _safe_int(m.group(1)) if m else 0
 
     # 차등배당
