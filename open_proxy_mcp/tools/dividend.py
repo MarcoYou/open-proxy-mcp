@@ -153,19 +153,51 @@ def _parse_dividend_decision(text: str) -> dict | None:
         if m:
             result["special_amount_description"] = f"{m.group(1)}조원 추가"
 
-    # 종류주식 상세
-    pref_match = re.search(
-        r'【종류주식[^】]*】.*?(\S+)\s+(우선주)\s+([\d,]+)\s+([\d.]+)\s+([\d,]+)',
-        clean
-    )
-    if pref_match:
-        result["preferred_detail"] = {
-            "name": pref_match.group(1),
-            "type": pref_match.group(2),
-            "dps": _safe_int(pref_match.group(3)),
-            "yield_pct": _safe_float(pref_match.group(4)),
-            "total_amount": _safe_int(pref_match.group(5)),
-        }
+    # 종류주식 상세 (복수 우선주 지원)
+    kind_match = re.search(r'【종류주식[^】]*】\s*(.*?)$', clean)
+    preferred_stocks = []
+    if kind_match:
+        pref_text = kind_match.group(1)
+        # 각 우선주 행: 종류주식명 종류주식구분 DPS 시가배당율 배당금총액
+        rows = re.findall(
+            r'(\S+)\s+(우선주|전환우선주|종류주식)\s+([\d,.]+)\s+([\d.]+|-)\s+([\d,.]+)',
+            pref_text
+        )
+        for raw_name, ptype, dps, yld, total_amt in rows:
+            # 이름 정규화: 괄호 제거, 종목코드 제거
+            name_clean = re.sub(r'^\(|\)$', '', raw_name)  # 앞뒤 괄호
+            name_clean = re.sub(r'^\d{6}\)?$', '', name_clean)  # 순수 종목코드
+            if not name_clean:
+                continue
+
+            # 우선주 종류 판별
+            # 2우B, 3우B = 신형우선주
+            # N우(전환) = 전환우선주
+            # {회사}우, 우선주, 1우선주 = 구형우선주 (단독이면 그냥 "우선주")
+            if re.search(r'\d우B', name_clean):
+                stock_class = "신형우선주"
+            elif "전환" in ptype or "전환" in name_clean:
+                stock_class = "전환우선주"
+            elif re.match(r'제?\d차', name_clean):
+                stock_class = "전환우선주"  # 키움증권 제3차/제4차
+            elif re.search(r'2우선주|2우$', name_clean):
+                stock_class = "신형우선주"
+            else:
+                stock_class = "우선주"  # 구형 또는 단독
+
+            preferred_stocks.append({
+                "name": name_clean,
+                "raw_type": ptype,
+                "stock_class": stock_class,
+                "dps": _safe_int(dps),
+                "yield_pct": _safe_float(yld),
+                "total_amount": _safe_int(total_amt),
+            })
+
+    result["preferred_stocks"] = preferred_stocks
+    # 하위 호환: 첫 번째 우선주를 preferred_detail로
+    if preferred_stocks:
+        result["preferred_detail"] = preferred_stocks[0]
 
     # 유효성 체크
     if not result.get("dps_common") and not result.get("total_amount"):
