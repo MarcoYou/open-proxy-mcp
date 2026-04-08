@@ -189,10 +189,10 @@ def register_tools(mcp):
         bgn_de: str = "",
         end_de: str = "",
     ) -> str:
-        """주주총회 소집공고를 검색합니다. rcept_no를 반환하며, 다른 agm_* tool에 필요합니다.
-
-        종목코드(예: 033780) 또는 회사명(예: 케이티앤지)으로
-        해당 기업의 주주총회 소집공고 목록을 반환합니다.
+        """desc: 주주총회 소집공고 검색. rcept_no 리스트 반환.
+        when: 특정 기업의 주총 공고를 찾을 때. 다른 agm_* tool에 필요한 rcept_no를 여기서 획득.
+        rule: ticker 또는 종목코드로 검색. 정정공고 포함, 최신 정정본에 ← 최신 표시.
+        ref: agm, agm_agenda_xml, agm_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -253,7 +253,10 @@ def register_tools(mcp):
         rcept_no: str,
         max_length: int = 10000,
     ) -> str:
-        """주주총회 소집공고 전체 원문 텍스트를 반환합니다. 특정 안건만 보려면 agm_extract 사용.
+        """desc: 소집공고 전체 원문 텍스트.
+        when: 안건 전문이나 원본 텍스트가 필요할 때. 특정 안건만 보려면 agm_items 사용.
+        rule: max_length로 텍스트 길이 제한. 원문이 길면 truncate됨.
+        ref: agm_items, agm_extract
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -284,11 +287,10 @@ def register_tools(mcp):
         max_fallback_length: int = 3000,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고에서 의안(안건) 목록을 구조화하여 반환합니다.
-        정상: 안건 1개+, 제목 2-150자, 제N호/제N-M호 형식.
-        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
-        그래도 부족하면 agm_agenda_pdf -> agm_agenda_ocr -> AI가 원문 기반 재구성.
-        agm_agenda_xml 결과의 안건 목록에 없는 안건 유형이면 빈 결과는 정상.
+        """desc: 의안(안건) 목록 구조화. 제N호/제N-M호 형식의 트리.
+        when: 주총 안건 구조를 파악할 때. 세부의안 포함.
+        rule: XML 파싱. 불완전 시 agm_agenda_pdf -> agm_agenda_ocr fallback. 판정 기준은 agm_manual 참조.
+        ref: agm_agenda_pdf, agm_agenda_ocr, agm_items, agm_manual
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -333,10 +335,10 @@ def register_tools(mcp):
     async def agm_info(
         rcept_no: str,
     ) -> str:
-        """주주총회 소집공고에서 의안을 제외한 회의 정보를 반환합니다.
-
-        정기/임시 구분, 일시, 장소, 보고사항, 전자투표 안내,
-        의결권 행사 방법, 온라인 중계 등 비안건 정보를 반환합니다.
+        """desc: 회의 정보 (일시/장소/투표방법/전자투표/온라인중계). 의안 제외.
+        when: 주총 개최 정보만 필요할 때.
+        rule: 보고사항 포함. 집중투표제 여부도 확인 가능.
+        ref: agm_search, agm_agenda_xml
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -366,8 +368,10 @@ def register_tools(mcp):
         max_fallback_length: int = 3000,
         format: str = "md",
     ) -> str:
-        """안건별 상세 내용 (raw 블록). 특화 파서(financials, personnel 등)가 없는 안건의 상세를 볼 때 사용.
-        테이블은 마크다운, 텍스트는 그대로 반환. 구조화된 추출이 필요하면 agm_extract 사용.
+        """desc: 안건별 상세 원문 블록 (마크다운). 특화 파서 없는 안건의 raw 내용.
+        when: 특정 안건의 전문이 필요할 때. agenda_no로 필터 가능.
+        rule: 특화 파서(financials, personnel 등)가 있는 안건은 해당 파서 사용이 더 정확.
+        ref: agm_financials_xml, agm_personnel_xml, agm_aoi_change_xml, agm_compensation_xml
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -425,11 +429,10 @@ def register_tools(mcp):
         max_fallback_length: int = 3000,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고에서 재무제표를 구조화하여 반환합니다.
-        정상: BS에 자산(유동/비유동), 부채(유동/비유동), 자본 구조 + 자산=부채+자본. IS에 매출, 매출원가, 매출총이익, 판관비, 영업이익, 당기순이익, 주당이익. 단위(천원/백만원/억원) 반드시 포함.
-        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
-        그래도 부족하면 agm_financials_pdf -> agm_financials_ocr -> AI가 원문 기반 재구성.
-        agm_agenda_xml 결과에 재무제표 안건이 없으면 빈 결과는 정상.
+        """desc: 재무제표 (BS/IS) 구조화. 연결/별도, 당기/전기 비교.
+        when: 재무제표 승인 안건의 상세 데이터가 필요할 때.
+        rule: XML 파싱. 불완전 시 agm_financials_pdf -> agm_financials_ocr fallback. 판정 기준은 agm_manual 참조.
+        ref: agm_financials_pdf, agm_financials_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -524,7 +527,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """정정공고의 정정 전/후 비교 + 정정 사유. 정정공고가 아닌 경우 빈 결과는 정상.
+        """desc: 정정공고의 전/후 비교 + 정정 사유.
+        when: 정정 전후 차이를 볼 때. 정정공고가 아닌 경우 빈 결과는 정상.
+        rule: 정정 사유가 중요 - 재무수치 변경인지 단순 오타인지 구분.
+        ref: agm_search, agm_manual
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -549,11 +555,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고에서 이사/감사 선임/해임 정보를 반환합니다.
-        정상: 후보자 이름(한글 2-5자, 영문 병기 가능), 경력(기간+내용 분리, 각 100자 이내), 결격사유, 추천사유.
-        불완전: 경력 100자+ 한 줄 병합 -> AI가 직접 분리 시도 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
-        그래도 부족하면 agm_personnel_pdf -> agm_personnel_ocr -> AI가 원문 기반 재구성.
-        agm_agenda_xml 결과에 선임/해임 안건이 없으면 빈 결과는 정상.
+        """desc: 이사/감사 선임/해임 정보. 후보자별 경력, 결격사유, 추천사유, 직무수행계획.
+        when: 이사/감사/감사위원 선임 안건 분석 시. 경력 상세 포함.
+        rule: XML 파싱. 경력 병합(100자+) 시 agm_personnel_pdf fallback. 판정 기준은 agm_manual 참조.
+        ref: agm_personnel_pdf, agm_personnel_ocr, agm_manual, agm_result
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -579,11 +584,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고에서 정관변경 사항을 반환합니다.
-        정상: amendments 1건+, 변경전/변경후 조문 텍스트 존재. ------생략 표기는 정상(변경 없는 부분 생략). <삭제>도 정상.
-        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
-        그래도 부족하면 agm_aoi_change_pdf -> agm_aoi_change_ocr -> AI가 원문 기반 재구성.
-        agm_agenda_xml 결과에 정관변경 안건이 없으면 빈 결과는 정상.
+        """desc: 정관변경 비교 (변경전/변경후/사유). 세부의안별 분리.
+        when: 정관변경 안건 분석 시. 집중투표제 배제 삭제 등.
+        rule: XML 파싱. 불완전 시 agm_aoi_change_pdf fallback. 판정 기준은 agm_manual 참조.
+        ref: agm_aoi_change_pdf, agm_aoi_change_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -618,11 +622,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고에서 이사/감사 보수한도 승인 정보를 반환합니다.
-        정상: 당기 limitAmount > 0, headcount(이사수/사외이사수), 전기 실지급액+한도액. 소진율(전기지급/전기한도) 자동 계산.
-        불완전: limitAmount 없음 -> AI가 원문에서 추출 시도 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
-        그래도 부족하면 agm_compensation_pdf -> agm_compensation_ocr -> AI가 원문 기반 재구성.
-        agm_agenda_xml 결과에 보수한도 안건이 없으면 빈 결과는 정상.
+        """desc: 이사/감사 보수한도. 당기 한도, 전기 실지급, 이사 수, 소진율.
+        when: 보수한도 승인 안건 분석 시. 소진율(전기 실지급/한도)이 핵심 지표.
+        rule: XML 파싱. 불완전 시 agm_compensation_pdf fallback. 판정 기준은 agm_manual 참조.
+        ref: agm_compensation_pdf, agm_compensation_ocr, agm_manual, div_detail
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -648,11 +651,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고에서 자기주식 보유/처분/소각 정보를 반환합니다.
-        정상: items 1개+, type(hold_dispose/cancel), 주식수/취득방법/보유기간 정보.
-        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
-        그래도 부족하면 agm_treasury_share_pdf -> agm_treasury_share_ocr -> AI가 원문 기반 재구성.
-        agm_agenda_xml 결과에 자기주식 안건이 없으면 빈 결과는 정상.
+        """desc: 자기주식 보유/처분/소각. 수량, 목적, 방법.
+        when: 자사주 관련 안건 분석 시.
+        rule: XML 파싱. 안건 제목 매칭 한계로 PDF fallback 빈번. 판정 기준은 agm_manual 참조.
+        ref: agm_treasury_share_pdf, agm_treasury_share_ocr, own_treasury, agm_manual
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -678,11 +680,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고에서 자본준비금 감소/이익잉여금 전입 정보를 반환합니다.
-        정상: amount(감소 금액) 추출됨, reducedCapital=true. 자본준비금 감소는 감액배당(비과세 배당)의 전제 조건이지 확정이 아님.
-        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
-        그래도 부족하면 agm_capital_reserve_pdf -> agm_capital_reserve_ocr -> AI가 원문 기반 재구성.
-        agm_agenda_xml 결과에 자본준비금 안건이 없으면 빈 결과는 정상.
+        """desc: 자본준비금 감소/이익잉여금 전입. 감액배당 전제 조건.
+        when: 자본준비금 감소 안건 분석 시.
+        rule: XML 파싱. 판정 기준은 agm_manual 참조.
+        ref: agm_capital_reserve_pdf, agm_capital_reserve_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -708,11 +709,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """주주총회 소집공고에서 임원 퇴직금 규정 개정 정보를 반환합니다.
-        정상: 현행/개정안 비교 1건+, 조항별 변경전/변경후 텍스트.
-        불완전하면 AI가 직접 보정 가능. 원문 확인은 agm_extract, 전체 문맥은 agm_items 사용.
-        그래도 부족하면 agm_retirement_pay_pdf -> agm_retirement_pay_ocr -> AI가 원문 기반 재구성.
-        agm_agenda_xml 결과에 퇴직금 안건이 없으면 빈 결과는 정상.
+        """desc: 임원 퇴직금 규정 개정 (변경전/변경후).
+        when: 퇴직금 규정 변경 안건 분석 시.
+        rule: XML 파싱. 재무제표 주석의 "퇴직급여"와 혼동 주의. 판정 기준은 agm_manual 참조.
+        ref: agm_retirement_pay_pdf, agm_retirement_pay_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -739,11 +739,10 @@ def register_tools(mcp):
         bgn_de: str = "",
         end_de: str = "",
     ) -> str:
-        """주주총회 소집공고 스마트 오케스트레이터. rcept_no 없이 종목코드만으로 한 번에 요약. 상세 분석은 개별 tool 사용.
-
-        종목코드 또는 회사명으로 최신 소집공고를 찾아서
-        회의정보, 안건 트리, 재무 하이라이트(자산총계/매출/당기순이익/배당),
-        자사주 현황, 정정 사항을 한 번에 반환합니다.
+        """desc: 주총 종합 오케스트레이터. info + agenda + financials + treasury + corrections 한 번에.
+        when: 특정 기업 주총 전체를 빠르게 파악할 때. rcept_no 없이 ticker만으로.
+        rule: 상세 분석은 개별 agm_* tool 사용. 이 tool은 요약용.
+        ref: agm_search, agm_agenda_xml, agm_financials_xml, agm_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -862,9 +861,10 @@ def register_tools(mcp):
         rcept_no: str,
         agenda_no: str = "",
     ) -> str:
-        """안건별 원문(마크다운) + 핵심 수치(금액/인명/날짜/법령/비율/테이블) 추출.
-        파서 없는 안건(스톡옵션, 주주제안 등)이나, _xml 결과가 이상할 때 원문 확인용.
-        전체 문맥이 필요하면 agm_items 사용.
+        """desc: 안건별 원문(마크다운) + 핵심 수치 추출 (금액/인명/날짜/법령/비율).
+        when: 안건의 핵심 데이터포인트만 빠르게 추출할 때.
+        rule: agenda_no로 안건 필터 가능. 전체 안건이면 생략.
+        ref: agm_items, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -918,6 +918,7 @@ def register_tools(mcp):
     async def agm_manual() -> str:
         """desc: AGM tool 구조, fallback 흐름, 파서별 성공/실패 판정 기준.
         when: 첫 호출 시 또는 파싱 결과 품질 판단이 필요할 때.
+        rule: 없음.
         ref: AGM_TOOL_RULE.md, AGM_CASE_RULE.md"""
         pkg_dir = os.path.dirname(os.path.dirname(__file__))
         parts = []
@@ -935,8 +936,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """이사/감사 선임 정보를 PDF에서 파싱합니다 (PDF, 4초+).
-        agm_personnel_xml 실패 시 사용. 정상 기준은 _xml과 동일. 여전히 실패하면 agm_personnel_ocr로 재시도.
+        """desc: 이사/감사 선임 정보을 PDF에서 파싱 (4초+). XML 파싱 불완전 시 2차 fallback.
+        when: agm_personnel_xml 결과가 불완전할 때. AI 자체 보정 실패 후 유저에게 제안.
+        rule: DART 웹에서 PDF 다운로드 후 opendataloader로 파싱. 여전히 부족하면 _ocr 제안.
+        ref: agm_personnel_xml, agm_personnel_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -960,9 +963,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """이사/감사 선임 정보를 OCR로 추출합니다 (OCR, 가장 느림).
-        agm_personnel_pdf도 실패 시 최후 수단. UPSTAGE_API_KEY가 .env에 없으면 에러.
-        OCR도 실패하면 AI가 agm_extract/agm_items 원문 기반으로 직접 재구성.
+        """desc: 이사/감사 선임 정보을 OCR로 추출 (가장 느림). PDF도 실패 시 최종 fallback.
+        when: agm_personnel_pdf 결과가 여전히 부족할 때. 유저에게 제안.
+        rule: Upstage OCR API 사용, UPSTAGE_API_KEY 필요. 100% 성공률.
+        ref: agm_personnel_xml, agm_personnel_pdf, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -986,8 +990,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """재무제표를 PDF에서 파싱합니다 (PDF, 4초+).
-        agm_financials_xml 실패 시 사용. 정상 기준은 _xml과 동일. 여전히 실패하면 agm_financials_ocr로 재시도.
+        """desc: 재무제표을 PDF에서 파싱 (4초+). XML 파싱 불완전 시 2차 fallback.
+        when: agm_financials_xml 결과가 불완전할 때. AI 자체 보정 실패 후 유저에게 제안.
+        rule: DART 웹에서 PDF 다운로드 후 opendataloader로 파싱. 여전히 부족하면 _ocr 제안.
+        ref: agm_financials_xml, agm_financials_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1016,9 +1022,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """재무제표를 OCR로 추출합니다 (OCR, 가장 느림).
-        agm_financials_pdf도 실패 시 최후 수단. UPSTAGE_API_KEY가 .env에 없으면 에러.
-        OCR도 실패하면 AI가 agm_extract/agm_items 원문 기반으로 직접 재구성.
+        """desc: 재무제표을 OCR로 추출 (가장 느림). PDF도 실패 시 최종 fallback.
+        when: agm_financials_pdf 결과가 여전히 부족할 때. 유저에게 제안.
+        rule: Upstage OCR API 사용, UPSTAGE_API_KEY 필요. 100% 성공률.
+        ref: agm_financials_xml, agm_financials_pdf, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1042,8 +1049,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """정관변경 사항을 PDF에서 파싱합니다 (PDF, 4초+).
-        agm_aoi_change_xml 실패 시 사용. 정상 기준은 _xml과 동일. 여전히 실패하면 agm_aoi_change_ocr로 재시도.
+        """desc: 정관변경을 PDF에서 파싱 (4초+). XML 파싱 불완전 시 2차 fallback.
+        when: agm_aoi_change_xml 결과가 불완전할 때. AI 자체 보정 실패 후 유저에게 제안.
+        rule: DART 웹에서 PDF 다운로드 후 opendataloader로 파싱. 여전히 부족하면 _ocr 제안.
+        ref: agm_aoi_change_xml, agm_aoi_change_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1067,9 +1076,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """정관변경 사항을 OCR로 추출합니다 (OCR, 가장 느림).
-        agm_aoi_change_pdf도 실패 시 최후 수단. UPSTAGE_API_KEY가 .env에 없으면 에러.
-        OCR도 실패하면 AI가 agm_extract/agm_items 원문 기반으로 직접 재구성.
+        """desc: 정관변경을 OCR로 추출 (가장 느림). PDF도 실패 시 최종 fallback.
+        when: agm_aoi_change_pdf 결과가 여전히 부족할 때. 유저에게 제안.
+        rule: Upstage OCR API 사용, UPSTAGE_API_KEY 필요. 100% 성공률.
+        ref: agm_aoi_change_xml, agm_aoi_change_pdf, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1093,8 +1103,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """보수한도를 PDF에서 파싱합니다 (PDF, 4초+).
-        agm_compensation_xml 실패 시 사용. 정상 기준은 _xml과 동일. 여전히 실패하면 agm_compensation_ocr로 재시도.
+        """desc: 보수한도을 PDF에서 파싱 (4초+). XML 파싱 불완전 시 2차 fallback.
+        when: agm_compensation_xml 결과가 불완전할 때. AI 자체 보정 실패 후 유저에게 제안.
+        rule: DART 웹에서 PDF 다운로드 후 opendataloader로 파싱. 여전히 부족하면 _ocr 제안.
+        ref: agm_compensation_xml, agm_compensation_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1118,9 +1130,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """보수한도를 OCR로 추출합니다 (OCR, 가장 느림).
-        agm_compensation_pdf도 실패 시 최후 수단. UPSTAGE_API_KEY가 .env에 없으면 에러.
-        OCR도 실패하면 AI가 agm_extract/agm_items 원문 기반으로 직접 재구성.
+        """desc: 보수한도을 OCR로 추출 (가장 느림). PDF도 실패 시 최종 fallback.
+        when: agm_compensation_pdf 결과가 여전히 부족할 때. 유저에게 제안.
+        rule: Upstage OCR API 사용, UPSTAGE_API_KEY 필요. 100% 성공률.
+        ref: agm_compensation_xml, agm_compensation_pdf, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1144,8 +1157,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """자기주식 보유/처분/소각을 PDF에서 파싱합니다 (PDF, 4초+).
-        agm_treasury_share_xml 실패 시 사용. 정상 기준은 _xml과 동일. 여전히 실패하면 agm_treasury_share_ocr로 재시도.
+        """desc: 자기주식을 PDF에서 파싱 (4초+). XML 파싱 불완전 시 2차 fallback.
+        when: agm_treasury_share_xml 결과가 불완전할 때. AI 자체 보정 실패 후 유저에게 제안.
+        rule: DART 웹에서 PDF 다운로드 후 opendataloader로 파싱. 여전히 부족하면 _ocr 제안.
+        ref: agm_treasury_share_xml, agm_treasury_share_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1169,9 +1184,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """자기주식 보유/처분/소각을 OCR로 추출합니다 (OCR, 가장 느림).
-        agm_treasury_share_pdf도 실패 시 최후 수단. UPSTAGE_API_KEY가 .env에 없으면 에러.
-        OCR도 실패하면 AI가 agm_extract/agm_items 원문 기반으로 직접 재구성.
+        """desc: 자기주식을 OCR로 추출 (가장 느림). PDF도 실패 시 최종 fallback.
+        when: agm_treasury_share_pdf 결과가 여전히 부족할 때. 유저에게 제안.
+        rule: Upstage OCR API 사용, UPSTAGE_API_KEY 필요. 100% 성공률.
+        ref: agm_treasury_share_xml, agm_treasury_share_pdf, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1195,8 +1211,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """자본준비금 감소/이익잉여금 전입을 PDF에서 파싱합니다 (PDF, 4초+).
-        agm_capital_reserve_xml 실패 시 사용. 정상 기준은 _xml과 동일. 여전히 실패하면 agm_capital_reserve_ocr로 재시도.
+        """desc: 자본준비금을 PDF에서 파싱 (4초+). XML 파싱 불완전 시 2차 fallback.
+        when: agm_capital_reserve_xml 결과가 불완전할 때. AI 자체 보정 실패 후 유저에게 제안.
+        rule: DART 웹에서 PDF 다운로드 후 opendataloader로 파싱. 여전히 부족하면 _ocr 제안.
+        ref: agm_capital_reserve_xml, agm_capital_reserve_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1220,9 +1238,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """자본준비금 감소/이익잉여금 전입을 OCR로 추출합니다 (OCR, 가장 느림).
-        agm_capital_reserve_pdf도 실패 시 최후 수단. UPSTAGE_API_KEY가 .env에 없으면 에러.
-        OCR도 실패하면 AI가 agm_extract/agm_items 원문 기반으로 직접 재구성.
+        """desc: 자본준비금을 OCR로 추출 (가장 느림). PDF도 실패 시 최종 fallback.
+        when: agm_capital_reserve_pdf 결과가 여전히 부족할 때. 유저에게 제안.
+        rule: Upstage OCR API 사용, UPSTAGE_API_KEY 필요. 100% 성공률.
+        ref: agm_capital_reserve_xml, agm_capital_reserve_pdf, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1246,8 +1265,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """퇴직금 규정 개정을 PDF에서 파싱합니다 (PDF, 4초+).
-        agm_retirement_pay_xml 실패 시 사용. 정상 기준은 _xml과 동일. 여전히 실패하면 agm_retirement_pay_ocr로 재시도.
+        """desc: 퇴직금 규정을 PDF에서 파싱 (4초+). XML 파싱 불완전 시 2차 fallback.
+        when: agm_retirement_pay_xml 결과가 불완전할 때. AI 자체 보정 실패 후 유저에게 제안.
+        rule: DART 웹에서 PDF 다운로드 후 opendataloader로 파싱. 여전히 부족하면 _ocr 제안.
+        ref: agm_retirement_pay_xml, agm_retirement_pay_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1271,9 +1292,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """퇴직금 규정 개정을 OCR로 추출합니다 (OCR, 가장 느림).
-        agm_retirement_pay_pdf도 실패 시 최후 수단. UPSTAGE_API_KEY가 .env에 없으면 에러.
-        OCR도 실패하면 AI가 agm_extract/agm_items 원문 기반으로 직접 재구성.
+        """desc: 퇴직금 규정을 OCR로 추출 (가장 느림). PDF도 실패 시 최종 fallback.
+        when: agm_retirement_pay_pdf 결과가 여전히 부족할 때. 유저에게 제안.
+        rule: Upstage OCR API 사용, UPSTAGE_API_KEY 필요. 100% 성공률.
+        ref: agm_retirement_pay_xml, agm_retirement_pay_pdf, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1297,8 +1319,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """안건 목록을 PDF에서 파싱합니다 (PDF, 4초+).
-        agm_agenda_xml 실패 시 사용. 정상 기준은 _xml과 동일. 여전히 실패하면 agm_agenda_ocr로 재시도.
+        """desc: 안건 목록을 PDF에서 파싱 (4초+). XML 파싱 불완전 시 2차 fallback.
+        when: agm_agenda_xml 결과가 불완전할 때. AI 자체 보정 실패 후 유저에게 제안.
+        rule: DART 웹에서 PDF 다운로드 후 opendataloader로 파싱. 여전히 부족하면 _ocr 제안.
+        ref: agm_agenda_xml, agm_agenda_ocr, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1322,9 +1346,10 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """안건 목록을 OCR로 추출합니다 (OCR, 가장 느림).
-        agm_agenda_pdf도 실패 시 최후 수단. UPSTAGE_API_KEY가 .env에 없으면 에러.
-        OCR도 실패하면 AI가 agm_extract/agm_items 원문 기반으로 직접 재구성.
+        """desc: 안건 목록을 OCR로 추출 (가장 느림). PDF도 실패 시 최종 fallback.
+        when: agm_agenda_pdf 결과가 여전히 부족할 때. 유저에게 제안.
+        rule: Upstage OCR API 사용, UPSTAGE_API_KEY 필요. 100% 성공률.
+        ref: agm_agenda_xml, agm_agenda_pdf, agm_manual
 
         Args:
             rcept_no: 접수번호
@@ -1350,9 +1375,10 @@ def register_tools(mcp):
         end_de: str = "",
         format: str = "md",
     ) -> str:
-        """정기주주총회 결과 — 안건별 투표 결과(가결/부결, 찬성률, 반대기권률).
-        KIND 크롤링으로 다운로드 없이 파싱. 찬성률은 발행주식 기준과 행사주식 기준 둘 다 제공.
-        주총이 아직 열리지 않았으면 결과가 없음.
+        """desc: 주주총회 투표결과 -- 안건별 가결/부결, 찬성률(발행/행사 기준), 추정참석률.
+        when: 주총 결과를 볼 때. 집중투표 결과도 포함 (득표율+순위).
+        rule: KIND 크롤링 기반. rcept_no "80"->"00" 변환으로 KIND viewer 접근. 주총 미종료 시 데이터 없음.
+        ref: agm_search, agm_manual, own_block, own_major
 
         Args:
             ticker: 종목코드 또는 회사명

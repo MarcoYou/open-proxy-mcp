@@ -30,10 +30,10 @@ def register_tools(mcp):
         year: str = "",
         format: str = "md",
     ) -> str:
-        """최대주주+특수관계인 지분 현황 + 변동이력.
-        사업보고서 기준 보통주 기말수량/지분율. 최대주주 변경 시 이전→현재 이력 포함.
-        최대주주는 사업보고서 신고 기준이므로 실질 최다보유자와 다를 수 있음 (대량보유는 own_block 참조).
-        데이터 없으면 해당 연도 사업보고서가 아직 공시되지 않은 것.
+        """desc: 최대주주 + 특수관계인 지분 현황 (사업보고서 기준). 보통주 기준 지분율 + 변동이력.
+        when: 최대주주가 누구인지, 특관인 포함 합산 지분율을 볼 때.
+        rule: 사업보고서 신고 기준. 실질 최다보유자와 다를 수 있음 (대량보유는 own_block 참조). 우선주 별도 표시.
+        ref: own_block, own_latest, own_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -70,9 +70,10 @@ def register_tools(mcp):
         year: str = "",
         format: str = "md",
     ) -> str:
-        """주식 총수 + 자기주식 + 유통주식 + 소액주주 현황.
-        사업보고서 기준 발행주식 총수, 자기주식수, 유통주식수. 소액주주 수와 보유비율 포함.
-        자기주식은 의결권 없음. 수시 자사주 거래는 own_treasury_tx 참조.
+        """desc: 발행주식 총수, 자기주식, 유통주식, 소액주주 현황.
+        when: 발행주식수/자사주/유통비율을 볼 때.
+        rule: 사업보고서 기준. 보통주/우선주 각각 표시.
+        ref: own_treasury, own_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -109,9 +110,10 @@ def register_tools(mcp):
         year: str = "",
         format: str = "md",
     ) -> str:
-        """자기주식 기말 보유수량 (사업보고서 baseline).
-        취득방법별(직접취득/신탁 등) 기초/취득/처분/소각/기말 수량.
-        사업보고서 이후 자사주 거래 이벤트는 own_treasury_tx 참조.
+        """desc: 자기주식 취득방법별 기초-취득-처분-소각-기말 잔액.
+        when: 자사주 보유 현황 상세를 볼 때. 직접취득/신탁계약 구분.
+        rule: 사업보고서 기준 연간 baseline. 최신 이벤트는 own_treasury_tx 참조.
+        ref: own_treasury_tx, own_total, own_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -143,9 +145,10 @@ def register_tools(mcp):
         end_de: str = "",
         format: str = "md",
     ) -> str:
-        """자사주 취득결정/처분결정/신탁체결/해지 이벤트 (이사회 결정 공시 기반).
-        4개 API를 한 번에 조회. API 4회 사용.
-        기말 보유수량 기준은 own_treasury, 사업보고서 기반 현황은 own_total 참조.
+        """desc: 자사주 이벤트 - 취득결정, 처분결정, 신탁계약 체결, 신탁계약 해지.
+        when: 자사주 취득/처분/신탁 의사결정을 볼 때. 수시 공시 기반.
+        rule: 4개 DART API 호출 (취득+처분+신탁체결+해지). 경영권 방어/주주환원 시그널.
+        ref: own_treasury, own_manual, div_detail
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -200,10 +203,10 @@ def register_tools(mcp):
         ticker: str,
         format: str = "md",
     ) -> str:
-        """5% 대량보유 상황보고 — 보유목적(단순투자/일반투자/경영참여) + 목적변경 감지.
-        보유비율은 보고자+특별관계자 합산 기준 (사업보고서 개별 지분율과 다를 수 있음).
-        보고자별 최신 보고서 원문에서 보유목적 파싱. API 1회 + 보고자 수만큼 원문 다운로드.
-        여러 기업 연속 조회 시 rate limit 주의.
+        """desc: 5% 대량보유 상황보고. 보유목적(단순투자/일반투자/경영참여) + 목적변경 감지.
+        when: 5% 이상 대량보유자와 보유목적을 볼 때. 프록시 파이트 감지.
+        rule: 수시 공시 기반. 보유목적은 원문 파싱 (report_resn + document.xml). 보고자+특별관계자 합산.
+        ref: own_major, own_latest, own_manual, agm_result
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -270,10 +273,10 @@ def register_tools(mcp):
         year: str = "",
         format: str = "md",
     ) -> str:
-        """전 주주 최신 스냅샷 + 변동 집계.
-        사업보고서 기준 최대주주 + 5% 대량보유(수시) + 임원소유(수시)를 합쳐서
-        사업보고서 이후 어떻게 달라졌는지 주체별로 반환. API 3회 사용.
-        임원소유 데이터는 대형주의 경우 수천 건일 수 있음 (최근 5건만 표시).
+        """desc: 전 주주 최신 스냅샷 - 사업보고서(최대주주) + 수시(5% 대량보유 + 임원소유) 통합.
+        when: 특정 기업의 현재 주주 구성을 종합적으로 볼 때.
+        rule: 3개 API 호출. 사업보고서 기준일과 수시 공시일이 다를 수 있음 - 기준일 확인 필요.
+        ref: own_major, own_block, own_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -316,10 +319,10 @@ def register_tools(mcp):
         ticker: str,
         format: str = "md",
     ) -> str:
-        """지분 구조 종합 오케스트레이터.
-        사업보고서 기준 지분 구조(최대주주, 주식총수, 자사주, 소액주주)를 baseline으로,
-        5% 대량보유(수시 공시)로 최신 변동을 반영하여 한 번에 반환.
-        상세 분석은 개별 own_* tool 사용. API 6회 + 보고자 수만큼 원문 다운로드.
+        """desc: 지분 구조 종합 오케스트레이터. 최대주주, 주식총수, 자사주, 소액주주, 5% 대량보유 한 번에.
+        when: 특정 기업 지분 구조를 빠르게 파악할 때. 상세 분석은 개별 own_* tool.
+        rule: 5+ API 호출 + 보고자 수만큼 원문 다운로드. 보유목적까지 파싱.
+        ref: own_major, own_total, own_block, own_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -505,6 +508,7 @@ def register_tools(mcp):
     async def own_manual() -> str:
         """desc: ownership tool 구조, 출력 형태 가이드, 컬럼별 소스 매핑, 판정 기준.
         when: 지분 구조 분석 시 또는 출력 형태 판단이 필요할 때.
+        rule: 없음.
         ref: OWN_TOOL_RULE.md, OWN_CASE_RULE.md"""
         pkg_dir = os.path.dirname(os.path.dirname(__file__))
         parts = []
