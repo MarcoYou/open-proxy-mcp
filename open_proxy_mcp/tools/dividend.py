@@ -488,6 +488,25 @@ def register_tools(mcp):
                     f"| {d.get('yield_common', 0)}% |"
                 )
 
+            # 우선주 상세 (복수 우선주 포함)
+            has_pref = any(d.get("preferred_stocks") for d in decisions)
+            if has_pref:
+                lines.append("")
+                lines.append("### 종류주식(우선주) 상세")
+                lines.append("")
+                lines.append("| 배당구분 | 종류주식명 | 분류 | DPS | 시가배당률 | 배당총액 |")
+                lines.append("|---------|----------|------|-----|----------|---------|")
+                for d in decisions:
+                    for ps in d.get("preferred_stocks", []):
+                        lines.append(
+                            f"| {d.get('dividend_type', '-')} "
+                            f"| {ps['name']} "
+                            f"| {ps['stock_class']} "
+                            f"| {ps['dps']:,}원 "
+                            f"| {ps['yield_pct']}% "
+                            f"| {ps['total_amount']:,}원 |"
+                        )
+
             # 특별배당 표시
             for d in decisions:
                 if d.get("has_special"):
@@ -588,6 +607,8 @@ def register_tools(mcp):
                 decision_details.append({
                     "type": d.get("dividend_type", ""),
                     "dps": dps,
+                    "dps_preferred": d.get("dps_preferred", 0),
+                    "preferred_stocks": d.get("preferred_stocks", []),
                     "record_date": d.get("record_date"),
                     "payment_date": d.get("payment_date"),
                     "board_date": d.get("board_date"),
