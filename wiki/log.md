@@ -5,6 +5,12 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-09] ingest | docstring 전면 업그레이드 + cross-domain 체이닝
+- 46/46 tool desc/when/rule/ref 포맷 적용 (100%)
+- cross-domain ref 7개 추가 (AGM↔OWN↔DIV)
+- cross-domain-체이닝.md 신규: 도메인 간 tool 연결 맵 + 시나리오 3개
+- index.md 업데이트
+
 ## [2026-04-08] lint | 고립 노드 수정 + disclosure 카테고리 추가
 - 34개 페이지에 본문 wikilink 추가 (고립 해소)
 - disclosures/ 신규: 11개 공시 유형 페이지

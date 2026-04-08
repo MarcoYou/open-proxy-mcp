@@ -1,5 +1,45 @@
 # Dev Log
 
+## 2026-04-08 - 04-09
+
+### div_* 배당 tool 구현 + 전수조사
+- div tool 5개: div, div_search, div_detail, div_history, div_manual
+- DART alotMatter API + 현금배당결정 공시 본문 파서 (거래소 표준 서식)
+- 분기배당 누적→개별 변환 (alotMatter 누적값 → 공시 건별 집계로 전환)
+- 배당수익률: DART 시가배당률 우선 (기준일 전전거래일 1주간 평균)
+- KRX Open API 전 서비스 승인 + KRX 우선, 네이버 fallback
+- 특별배당 감지: KOSPI 200 전수 4건/4건 정확
+- 현금배당결정 파서: 99.3% (147/148, 실패 1건=보통주 없는 RCPS)
+- 분기배당 기업: 31개 식별
+- div_history: 연도별 분리 검색으로 페이지네이션 초과 방지
+
+### 우선주 배당 전수조사
+- KOSPI 200: 33개 기업, 37건 우선주 배당
+- 복수 우선주 7개: 녹십자홀딩스(1우+2우), 두산(우+2우B), 한화(우+3우B), 키움증권(제3차+제4차), CJ(우+4우전환), DL/DL이앤씨(우+2우전환), 현대차(우+2우+3우)
+- preferred_stocks 배열 파싱 + stock_class 분류 (우선주/신형/전환)
+- 우선주 DPS 파싱 버그 수정: find("4.") 위치 오인 (제목의 연도에서 "4." 잡힘)
+- DIV_TOOL_RULE: 우선주 네이밍 매핑 가이드 추가
+
+### KIND/DART 크롤링 규칙 확정
+- 거래소 공시(pblntf_ty=I): 100% "80"→"00" 변환으로 KIND viewer 접근 가능
+- DART 자체 공시(소집공고, 사업보고서): KIND 변환 불가
+- KIND 검색: httpx 봇 차단 (Selenium 필요), 포기
+- KRX-KIND wiki 업데이트
+
+### docstring 전면 업그레이드
+- 46/46 tool desc/when/rule/ref 포맷 (100%)
+- cross-domain ref 7개 추가 (AGM↔OWN↔DIV)
+- wiki: cross-domain-체이닝.md 문서
+
+### 인프라
+- CLAUDE.md wiki-first 슬림화 (116줄→55줄)
+- WIKI_SCHEMA.md self-learning 원칙 (자동학습/토큰절약/자기개선)
+- /ship 스킬: wiki 자동 업데이트 단계 추가
+- /elon CTO 에이전트 스킬 생성
+- wiki 65페이지 (Karpathy LLM-wiki) + disclosures 11개
+- MCP 서버 editable install (uv pip install -e .) — Claude Desktop cwd 이슈 해결
+- lookup_corp_code 이름 매칭 이슈 확인 (미래에셋증권 동명 2개, 영문명 4건)
+
 ## 2026-04-06
 
 ### 문서 구조 개편

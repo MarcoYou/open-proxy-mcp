@@ -55,6 +55,7 @@ updated: 2026-04-08
 - [[LLM-fallback-설계]] - 정규식 -> zone 추출 -> LLM 하이브리드 전략
 - [[free-paid-분리]] - MCP(public) + Pipeline(private) 2-repo 구조
 - [[파서-성능-추이]] - 2026-03-20부터 04-06까지 8개 파서 개선 이력
+- [[cross-domain-체이닝]] - AGM/OWN/DIV 도메인 간 tool 연결 맵 + 시나리오
 - [[파이프라인-아키텍처]] - 199개 기업 v4 JSON 생성 배치 파이프라인
 - [[KIND-주총결과]] - KIND 크롤링 기반 투표결과+참석률 역산 분석
 

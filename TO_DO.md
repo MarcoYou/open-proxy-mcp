@@ -26,8 +26,10 @@
 - [ ] own_latest에 3대 주체 분류 태깅 (최대주주+특관인 / 국민연금 / 기관투자자)
 - [ ] 집중투표 분석 tool 체이닝 (agm + own 연계, 의결권 시뮬레이션)
 
-### div_* 배당 tool 개선
-- [ ] div_history 실사용 테스트 (MCP 연결해서 "삼성전자 배당 이력" 질문 → 출력 검증)
+### 기업 검색 (lookup_corp_code) 개선
+- [ ] 동명 기업 이슈 (미래에셋증권 corp_code 2개 중 잘못된 것 매칭)
+- [ ] 영문/약칭 → DART 한글명 매칭 실패 4건 (LS ELECTRIC, SK바이오팜, TKG휴켐스, KT&G)
+- [ ] stock_code fallback (이름 실패 시 종목코드로 재검색)
 
 ### prx_* 위임장 권유 tool (향후)
 - [ ] prx_search — 위임장 권유 참고서류 검색
@@ -52,8 +54,6 @@
 - [ ] Tesseract + EasyOCR 벤치마크 (KT&G BSM으로)
 - [ ] 별도 OCR tool → 결과를 agenda detail에 병합
 
-### 기업 검색 개선
-- [ ] 영문 브랜드명(KT&G 등) → corp_code 매핑 지원 (별칭 또는 영문명 API)
 
 ### API 최적화
 - [ ] search_filings_by_ticker 결과 캐싱 (같은 ticker 중복 호출 방지)
