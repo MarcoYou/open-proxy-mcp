@@ -523,16 +523,29 @@ def register_tools(mcp):
             half_cum = cumulative.get("반기", 0)
             q3_cum = cumulative.get("3Q", 0)
 
-            if q1_cum > 0:
-                quarterly_dps.append({"period": "1Q", "dps": q1_cum})
-            if half_cum > q1_cum:
-                quarterly_dps.append({"period": "2Q", "dps": half_cum - q1_cum})
-            if q3_cum > half_cum:
-                quarterly_dps.append({"period": "3Q", "dps": q3_cum - half_cum})
+            # 엣지케이스 체크
+            # 1) 1Q=반기=3Q=기말 → 실질 연간배당 (분기배당 아님, 모든 보고서에 같은 값)
+            annual_dps = summary["cash_dps"]
+            all_same = (q1_cum > 0 and q1_cum == half_cum == q3_cum == annual_dps)
+            if all_same:
+                cumulative = {}  # 분기배당 아닌 것으로 처리
 
-            # 기말 DPS는 연간 합산이므로, 결산분 = 기말 - 3Q누적
-            annual_dps = summary["cash_dps"]  # alotMatter 기말 = 연간 합산
-            final_only = annual_dps - q3_cum if q3_cum > 0 else annual_dps
+            # 2) 기말 < 이전 분기 누적 → 누적 역전 (배당 삭감 또는 보고서 오류)
+            max_cum = max(q1_cum, half_cum, q3_cum)
+            if max_cum > 0 and annual_dps < max_cum:
+                # 누적 역전: 분기 개별 변환 불가. 기말 DPS를 연간으로 사용하되 경고
+                quarterly_dps = [{"period": "분기합산", "dps": max_cum, "warning": "누적 역전"}]
+                final_only = annual_dps
+            else:
+                if q1_cum > 0:
+                    quarterly_dps.append({"period": "1Q", "dps": q1_cum})
+                if half_cum > q1_cum:
+                    quarterly_dps.append({"period": "2Q", "dps": half_cum - q1_cum})
+                if q3_cum > half_cum:
+                    quarterly_dps.append({"period": "3Q", "dps": q3_cum - half_cum})
+
+                # 기말 DPS는 연간 합산이므로, 결산분 = 기말 - 3Q누적
+                final_only = annual_dps - q3_cum if q3_cum > 0 else (annual_dps - half_cum if half_cum > 0 else (annual_dps - q1_cum if q1_cum > 0 and cumulative else annual_dps))
 
             # 종가 조회 (배당기준일 = 결산일 기준, 12/31 또는 직전 거래일)
             closing_price = None
