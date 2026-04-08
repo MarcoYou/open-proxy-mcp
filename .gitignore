@@ -50,3 +50,4 @@ test_screenshots/*.png
 *.egg-info/
 samples/
 .omc/
+.obsidian/
