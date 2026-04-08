@@ -472,9 +472,9 @@ def register_tools(mcp):
         years: int = 3,
         format: str = "md",
     ) -> str:
-        """desc: 배당 이력 — 연도별 DPS, 배당성향, 배당수익률 추이. 배당성향은 지배주주 귀속 당기순이익 기준.
-        when: 배당 추이를 볼 때. 배당성향/수익률을 직접 계산.
-        rule: 배당성향 = 배당금총액 / 지배주주귀속 당기순이익 × 100 (별도 재무제표 순이익 사용 금지). 배당수익률 = DPS / 배당기준일 종가 × 100 (KRX API). 분기배당 시 연간 합산 DPS 산출. DART 제공 값이 있으면 우선 사용, 없으면 계산.
+        """desc: 배당 이력 — 공시 건별 집계. 배당구분(결산/분기/중간), DPS, 기준일, 지급일, 배당성향, 배당수익률.
+        when: 배당 추이/패턴을 볼 때. 분기배당 여부, 배당 시작/중단 시그널 감지.
+        rule: 현금배당결정 공시(거래소)를 건별로 파싱하여 집계. 배당구분은 공시 자체에 명시(결산배당/분기배당/중간배당). alotMatter는 연간 요약(배당성향/수익률)으로만 사용.
         ref: div_detail, div_manual"""
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
@@ -488,85 +488,108 @@ def register_tools(mcp):
         current_year = datetime.now().year
         start_year = current_year - years
 
-        yearly_data = []
+        # 1. 현금배당결정 공시 전체 수집 (건별 파싱)
+        all_decisions = []
+        try:
+            filings = await client.search_filings(
+                corp_code=corp_code,
+                bgn_de=f"{start_year}0101",
+                end_de=f"{current_year}1231",
+                pblntf_ty="I",
+            )
+            for item in filings.get("list", []):
+                nm = item.get("report_nm", "")
+                if "현금" in nm and "배당결정" in nm:
+                    try:
+                        doc = await client.get_document_cached(item["rcept_no"])
+                        parsed = _parse_dividend_decision(doc.get("text", ""))
+                        if parsed:
+                            parsed["rcept_no"] = item["rcept_no"]
+                            parsed["rcept_dt"] = item.get("rcept_dt", "")
+                            all_decisions.append(parsed)
+                    except Exception:
+                        pass
+        except DartClientError:
+            pass
+
+        # 2. 연도별 그룹핑 (배당기준일 기준)
+        by_year = {}
+        for d in all_decisions:
+            rd = d.get("record_date", "")
+            if rd:
+                yr = rd[:4]
+            else:
+                yr = d.get("rcept_dt", "")[:4]
+            if yr not in by_year:
+                by_year[yr] = []
+            by_year[yr].append(d)
+
+        # 3. alotMatter 연간 요약 (배당성향/수익률)
+        annual_summaries = {}
         for year in range(start_year, current_year):
             year_str = str(year)
-
-            # 기말(사업보고서) 배당 조회
             try:
                 data = await client.get_dividend_info(corp_code, year_str, "11011")
                 items = _parse_dividend_items(data)
-                summary = _build_dividend_summary(items, "기말")
+                annual_summaries[year_str] = _build_dividend_summary(items, "기말")
             except DartClientError:
-                summary = {"cash_dps": 0, "total_dps": 0, "total_amount": 0,
-                           "payout_ratio_dart": None, "yield_dart": None,
-                           "special_dps": 0, "stock_dps": 0, "period": "기말", "items": []}
+                pass
 
-            # 분기배당 체크 (1Q, 반기, 3Q)
-            # alotMatter의 분기 DPS는 **누적값** (1Q=1Q, 반기=1Q+2Q, 3Q=1Q+2Q+3Q)
-            # 기말 DPS는 연간 합산 (1Q+2Q+3Q+4Q)
-            # 개별 분기 DPS = 해당 분기 누적 - 이전 분기 누적
-            cumulative = {}  # label → 누적 DPS
-            for rc, label in [("11013", "1Q"), ("11012", "반기"), ("11014", "3Q")]:
-                try:
-                    qdata = await client.get_dividend_info(corp_code, year_str, rc)
-                    qitems = _parse_dividend_items(qdata)
-                    qsummary = _build_dividend_summary(qitems, label)
-                    if qsummary["cash_dps"] > 0:
-                        cumulative[label] = qsummary["cash_dps"]
-                except DartClientError:
-                    pass
+        # 4. 연도별 집계
+        yearly_data = []
+        for year in range(start_year, current_year):
+            year_str = str(year)
+            decisions = by_year.get(year_str, [])
+            summary = annual_summaries.get(year_str, {})
 
-            # 누적 → 개별 변환
-            quarterly_dps = []
-            q1_cum = cumulative.get("1Q", 0)
-            half_cum = cumulative.get("반기", 0)
-            q3_cum = cumulative.get("3Q", 0)
+            # 공시 건별 DPS 합산
+            annual_dps = 0
+            decision_details = []
+            for d in sorted(decisions, key=lambda x: x.get("record_date", "")):
+                dps = d.get("dps_common", 0)
+                annual_dps += dps
+                decision_details.append({
+                    "type": d.get("dividend_type", ""),
+                    "dps": dps,
+                    "record_date": d.get("record_date"),
+                    "payment_date": d.get("payment_date"),
+                    "board_date": d.get("board_date"),
+                    "yield_pct": d.get("yield_common", 0),
+                    "total_amount": d.get("total_amount", 0),
+                    "has_special": d.get("has_special", False),
+                    "special_desc": d.get("special_amount_description", ""),
+                })
 
-            # 엣지케이스 체크
-            # 1) 1Q=반기=3Q=기말 → 실질 연간배당 (분기배당 아님, 모든 보고서에 같은 값)
-            annual_dps = summary["cash_dps"]
-            all_same = (q1_cum > 0 and q1_cum == half_cum == q3_cum == annual_dps)
-            if all_same:
-                cumulative = {}  # 분기배당 아닌 것으로 처리
-
-            # 2) 기말 < 이전 분기 누적 → 누적 역전 (배당 삭감 또는 보고서 오류)
-            max_cum = max(q1_cum, half_cum, q3_cum)
-            if max_cum > 0 and annual_dps < max_cum:
-                # 누적 역전: 분기 개별 변환 불가. 기말 DPS를 연간으로 사용하되 경고
-                quarterly_dps = [{"period": "분기합산", "dps": max_cum, "warning": "누적 역전"}]
-                final_only = annual_dps
+            # 배당 패턴 분류
+            types = [d["type"] for d in decision_details]
+            if "분기배당" in types:
+                pattern = "분기배당"
+            elif "중간배당" in types:
+                pattern = "반기배당"
+            elif decisions:
+                pattern = "연간배당"
             else:
-                if q1_cum > 0:
-                    quarterly_dps.append({"period": "1Q", "dps": q1_cum})
-                if half_cum > q1_cum:
-                    quarterly_dps.append({"period": "2Q", "dps": half_cum - q1_cum})
-                if q3_cum > half_cum:
-                    quarterly_dps.append({"period": "3Q", "dps": q3_cum - half_cum})
+                pattern = "무배당"
 
-                # 기말 DPS는 연간 합산이므로, 결산분 = 기말 - 3Q누적
-                final_only = annual_dps - q3_cum if q3_cum > 0 else (annual_dps - half_cum if half_cum > 0 else (annual_dps - q1_cum if q1_cum > 0 and cumulative else annual_dps))
+            # 배당성향/수익률: alotMatter 우선
+            payout = summary.get("payout_ratio_dart")
+            yield_dart = summary.get("yield_dart")
 
-            # 종가 조회 (배당기준일 = 결산일 기준, 12/31 또는 직전 거래일)
-            closing_price = None
+            # KRX 종가 기반 배당수익률 (alotMatter 없을 때)
             calc_yield = None
-            if stock_code and annual_dps > 0:
+            if stock_code and annual_dps > 0 and not yield_dart:
                 price_data = await client.get_stock_price(stock_code, f"{year}1230")
                 if price_data and price_data.get("closing_price", 0) > 0:
-                    closing_price = price_data["closing_price"]
-                    calc_yield = round(annual_dps / closing_price * 100, 2)
+                    calc_yield = round(annual_dps / price_data["closing_price"] * 100, 2)
 
             yearly_data.append({
                 "year": year_str,
+                "pattern": pattern,
                 "annual_dps": annual_dps,
-                "final_dps": final_only,
-                "special_dps": summary["special_dps"],
-                "stock_dps": summary["stock_dps"],
-                "quarterly": quarterly_dps,
-                "total_amount": summary["total_amount"],
-                "payout_ratio_dart": summary["payout_ratio_dart"],
-                "yield_dart": summary["yield_dart"],
-                "closing_price": closing_price,
+                "decision_count": len(decisions),
+                "decisions": decision_details,
+                "payout_ratio_dart": payout,
+                "yield_dart": yield_dart,
                 "calc_yield": calc_yield,
             })
 
@@ -576,33 +599,39 @@ def register_tools(mcp):
         # Markdown
         lines = [f"# {corp_name} 배당 이력 ({start_year}-{current_year - 1})\n"]
 
-        # 요약 테이블
-        lines.append("| 연도 | 연간 DPS | 기말 DPS | 분기 DPS | 특별 | 배당성향 | 배당수익률 |")
-        lines.append("|------|----------|----------|----------|------|----------|------------|")
+        # 연도별 요약 테이블
+        lines.append("| 연도 | 패턴 | 연간 DPS | 공시 수 | 배당성향 | 배당수익률 |")
+        lines.append("|------|------|----------|--------|----------|------------|")
 
         for yd in yearly_data:
-            q_str = "+".join(f"{q['period']} {q['dps']:,}" for q in yd["quarterly"]) if yd["quarterly"] else "-"
-            special = f"{yd['special_dps']:,}" if yd["special_dps"] else "-"
-
-            # 배당성향: DART 값 우선, 없으면 빈칸 (지배순이익 데이터 없으므로 계산 불가)
             pr = f"{yd['payout_ratio_dart']}%" if yd["payout_ratio_dart"] else "-"
-
-            # 배당수익률: DART 값 우선, 없으면 KRX 계산값
             if yd["yield_dart"]:
                 dy = f"{yd['yield_dart']}%"
             elif yd["calc_yield"]:
-                dy = f"{yd['calc_yield']}% (계산)"
+                dy = f"{yd['calc_yield']}% (KRX)"
             else:
                 dy = "-"
-
             lines.append(
-                f"| {yd['year']} | {yd['annual_dps']:,}원 | {yd['final_dps']:,}원 | {q_str} | {special} | {pr} | {dy} |"
+                f"| {yd['year']} | {yd['pattern']} | {yd['annual_dps']:,}원 | {yd['decision_count']}건 | {pr} | {dy} |"
             )
 
+        # 건별 상세
+        lines.append("\n## 건별 상세\n")
+        lines.append("| 연도 | 구분 | DPS | 기준일 | 지급예정일 | 결의일 | 시가배당률 | 특별 |")
+        lines.append("|------|------|-----|--------|----------|--------|----------|------|")
+
+        for yd in yearly_data:
+            for d in yd["decisions"]:
+                pay = d.get("payment_date") or "-"
+                special = d.get("special_desc") or ("O" if d.get("has_special") else "-")
+                yld = f"{d['yield_pct']}%" if d.get("yield_pct") else "-"
+                lines.append(
+                    f"| {yd['year']} | {d['type']} | {d['dps']:,}원 | {d.get('record_date', '-')} | {pay} | {d.get('board_date', '-')} | {yld} | {special} |"
+                )
+
         lines.append("")
-        lines.append("*배당성향 = 배당금총액 / 지배주주귀속 당기순이익 × 100*")
-        lines.append("*배당수익률 = 연간 DPS / 배당기준일 종가 × 100*")
-        lines.append("*분기배당 기업은 연간 DPS = 기말 + 각 분기 합산*")
+        lines.append("*배당성향 = 배당금총액 / 지배주주귀속 당기순이익 × 100 (DART alotMatter)*")
+        lines.append("*배당수익률 = DART 시가배당률 우선, 없으면 연간 DPS / KRX 종가*")
 
         return "\n".join(lines)
 
