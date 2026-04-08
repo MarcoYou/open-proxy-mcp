@@ -63,19 +63,3 @@
 - [ ] search_filings_by_ticker 결과 캐싱 (같은 ticker 중복 호출 방지)
 - [ ] parse_agenda_items 결과를 _doc_cache에 저장 (CPU 중복 파싱 방지)
 
----
-
-## 완료 (요약)
-
-- ~~40개 MCP tool (AGM 33 + ownership 7) + 3-tier fallback (XML/PDF/OCR)~~
-- ~~9개 파서: agenda, financials, personnel, aoi, compensation, treasury, capital_reserve, retirement_pay, meeting_info~~
-- ~~KOSPI 200 전수 검증 (199개): XML 97-99%, PDF 97-100%, OCR 100%~~
-- ~~FastMCP 서버 + Claude Desktop/Code 연동~~
-- ~~2-repo 분리 (OPM public + OPA private)~~
-- ~~PDF 다운로드 + Upstage OCR fallback~~
-- ~~KIND 크롤링 (주총 투표결과, 추정참석률)~~
-- ~~문서 구조 개편: CASE_RULE.md + TOOL_RULE.md + agm_manual()~~
-- ~~경력 파서 개선: `<p>` 없는 테이블 現/前 분리 + 연도 토큰 할당 (KCC 11건 완벽 분리)~~
-- ~~div_* 배당 tool 5개 + 현금배당결정 파서 + 분기배당 누적→개별 변환~~
-- ~~배당수익률: DART 시가배당률 기본 표시 + 네이버 종가 fallback~~
-- ~~wiki 64페이지 (Karpathy LLM-wiki) + CLAUDE.md wiki-first 슬림화~~
