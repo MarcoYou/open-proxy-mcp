@@ -310,6 +310,15 @@ def _build_dividend_summary(items: list[dict], reprt_label: str) -> dict:
         if "연결" in cat and "당기순이익" in cat:
             net_income_consolidated = _safe_int(cur)
 
+    # 액면가 (당기/전기) — 액면분할 감지용
+    par_current = 0
+    par_previous = 0
+    for item in items:
+        if "액면가" in item.get("category", ""):
+            par_current = _safe_int(item.get("current", ""))
+            par_previous = _safe_int(item.get("previous", ""))
+            break
+
     return {
         "period": reprt_label,
         "stlm_dt": stlm_dt,
@@ -323,6 +332,8 @@ def _build_dividend_summary(items: list[dict], reprt_label: str) -> dict:
         "yield_dart": yield_dart,
         "yield_preferred_dart": yield_pref_dart,
         "net_income_consolidated_mil": net_income_consolidated,
+        "par_value_current": par_current,
+        "par_value_previous": par_previous,
         "items": items,
     }
 
@@ -591,7 +602,37 @@ def register_tools(mcp):
             except DartClientError:
                 pass
 
-        # 4. 연도별 집계
+        # 4. 액면분할 감지 — 수정DPS 계산용
+        # 최신 액면가를 기준으로 과거 DPS를 조정
+        split_adjustments = {}  # year → 누적 분할비율
+        par_values = {}
+        for year_str, summary in annual_summaries.items():
+            par_cur = summary.get("par_value_current", 0)
+            par_prev = summary.get("par_value_previous", 0)
+            if par_cur > 0:
+                par_values[year_str] = par_cur
+            if par_cur > 0 and par_prev > 0 and par_prev != par_cur:
+                split_adjustments[year_str] = par_prev / par_cur  # 예: 5000/100 = 50
+
+        # 최신 액면가
+        latest_par = 0
+        for yr in sorted(par_values.keys(), reverse=True):
+            latest_par = par_values[yr]
+            break
+
+        # 누적 분할비율 계산 (최신 기준으로 과거 조정)
+        cumulative_split = {}
+        cum = 1.0
+        for yr in sorted(annual_summaries.keys(), reverse=True):
+            cumulative_split[yr] = cum
+            if yr in split_adjustments:
+                cum *= split_adjustments[yr]
+        # split 이전 연도에도 적용
+        for yr in sorted(annual_summaries.keys()):
+            if yr not in cumulative_split:
+                cumulative_split[yr] = cum
+
+        # 5. 연도별 집계
         yearly_data = []
         for year in range(start_year, current_year):
             year_str = str(year)
@@ -640,10 +681,16 @@ def register_tools(mcp):
                 if price_data and price_data.get("closing_price", 0) > 0:
                     calc_yield = round(annual_dps / price_data["closing_price"] * 100, 2)
 
+            # 수정DPS (액면분할 조정)
+            split_ratio = cumulative_split.get(year_str, 1.0)
+            adjusted_dps = round(annual_dps / split_ratio) if split_ratio > 1.0 else annual_dps
+
             yearly_data.append({
                 "year": year_str,
                 "pattern": pattern,
                 "annual_dps": annual_dps,
+                "adjusted_dps": adjusted_dps,
+                "split_ratio": split_ratio if split_ratio > 1.0 else None,
                 "decision_count": len(decisions),
                 "decisions": decision_details,
                 "payout_ratio_dart": payout,
@@ -657,9 +704,16 @@ def register_tools(mcp):
         # Markdown
         lines = [f"# {corp_name} 배당 이력 ({start_year}-{current_year - 1})\n"]
 
+        # 액면분할 여부 확인
+        has_split = any(yd.get("split_ratio") for yd in yearly_data)
+
         # 연도별 요약 테이블
-        lines.append("| 연도 | 패턴 | 연간 DPS | 공시 수 | 배당성향 | 배당수익률 |")
-        lines.append("|------|------|----------|--------|----------|------------|")
+        if has_split:
+            lines.append("| 연도 | 패턴 | 연간 DPS | 수정 DPS | 공시 수 | 배당성향 | 배당수익률 |")
+            lines.append("|------|------|----------|----------|--------|----------|------------|")
+        else:
+            lines.append("| 연도 | 패턴 | 연간 DPS | 공시 수 | 배당성향 | 배당수익률 |")
+            lines.append("|------|------|----------|--------|----------|------------|")
 
         for yd in yearly_data:
             pr = f"{yd['payout_ratio_dart']}%" if yd["payout_ratio_dart"] else "-"
@@ -669,9 +723,16 @@ def register_tools(mcp):
                 dy = f"{yd['calc_yield']}% (KRX)"
             else:
                 dy = "-"
-            lines.append(
-                f"| {yd['year']} | {yd['pattern']} | {yd['annual_dps']:,}원 | {yd['decision_count']}건 | {pr} | {dy} |"
-            )
+            if has_split:
+                adj = f"{yd['adjusted_dps']:,}원" if yd.get("split_ratio") else f"{yd['annual_dps']:,}원"
+                split_note = f" (1:{yd['split_ratio']:.0f})" if yd.get("split_ratio") else ""
+                lines.append(
+                    f"| {yd['year']} | {yd['pattern']} | {yd['annual_dps']:,}원{split_note} | {adj} | {yd['decision_count']}건 | {pr} | {dy} |"
+                )
+            else:
+                lines.append(
+                    f"| {yd['year']} | {yd['pattern']} | {yd['annual_dps']:,}원 | {yd['decision_count']}건 | {pr} | {dy} |"
+                )
 
         # 건별 상세
         lines.append("\n## 건별 상세\n")
@@ -690,6 +751,8 @@ def register_tools(mcp):
         lines.append("")
         lines.append("*배당성향 = 배당금총액 / 지배주주귀속 당기순이익 × 100 (DART alotMatter)*")
         lines.append("*배당수익률 = DART 시가배당률 우선, 없으면 연간 DPS / KRX 종가*")
+        if has_split:
+            lines.append("*수정 DPS = 액면분할/병합 조정. 최신 액면가 기준으로 과거 DPS를 환산.*")
 
         return "\n".join(lines)
 

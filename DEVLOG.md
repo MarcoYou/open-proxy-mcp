@@ -31,6 +31,11 @@
 - cross-domain ref 7개 추가 (AGM↔OWN↔DIV)
 - wiki: cross-domain-체이닝.md 문서
 
+### 수정DPS (액면분할 조정)
+- alotMatter의 주당액면가액으로 액면분할 자동 감지 (전기/당기 비교)
+- 분할비율 계산 → 과거 DPS를 최신 액면가 기준으로 조정
+- 삼성전자: 2017 DPS 42,500원 → 수정DPS 850원 (50:1 분할)
+
 ### 인프라
 - CLAUDE.md wiki-first 슬림화 (116줄→55줄)
 - WIKI_SCHEMA.md self-learning 원칙 (자동학습/토큰절약/자기개선)
