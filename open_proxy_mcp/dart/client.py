@@ -643,13 +643,13 @@ class DartClient:
             {"closing_price": int, "base_date": str, "source": str}
             또는 None (데이터 없음)
         """
-        # 1차: 네이버 금융 시세 API
-        result = await self._naver_stock_price(stock_code, base_date)
+        # 1차: KRX Open API (공식)
+        result = await self._krx_stock_price(stock_code, base_date)
         if result:
             return result
 
-        # 2차: KRX Open API (승인된 경우)
-        result = await self._krx_stock_price(stock_code, base_date)
+        # 2차: 네이버 금융 (fallback)
+        result = await self._naver_stock_price(stock_code, base_date)
         if result:
             return result
 
@@ -720,8 +720,8 @@ class DartClient:
                     return None
                 data = resp.json()
                 for item in data.get("OutBlock_1", []):
-                    short_code = item.get("ISU_SRT_CD", "")
-                    if short_code == stock_code:
+                    isu_cd = item.get("ISU_CD", "")
+                    if isu_cd == stock_code or stock_code in isu_cd:
                         return {
                             "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
                             "base_date": item.get("BAS_DD", base_date),
