@@ -5,6 +5,11 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-09] ingest | news_check tool + decision tree
+- news_check: 네이버 뉴스 API 기반 후보자 부정 뉴스 검색 tool
+- Proxy Voting Decision Tree: AGM_TOOL_RULE에 6개 안건 판정 기준
+- 네이버-금융 entity: 뉴스 검색 API 섹션 추가
+
 ## [2026-04-05] lint | 누락 개념 4개 + broken ref 수정 + sources 필드 추가
 - concepts/ 4개 신규: 자본준비금, 당기순이익, 주주환원, 경영권-방어
 - DART-OpenAPI.md: related에서 alotMatter 제거, 배당성향/div-tool-rule로 교체

@@ -8,9 +8,9 @@ DART 데이터를 MCP로 제공하는 Python 서버. 약칭 **OPM**.
 **도메인 지식, 아키텍처 결정, 공시 유형 등 상세는 위키 참조.**
 위키는 LLM이 유지하며, 매 `/ship` 시 자동 업데이트.
 
-- **위키 인덱스**: `wiki/index.md` — 전체 64페이지 카탈로그. 여기서 시작.
+- **위키 인덱스**: `wiki/index.md` — 전체 68페이지 카탈로그. 여기서 시작.
 - **위키 스키마**: `wiki/WIKI_SCHEMA.md` — 페이지 타입, 워크플로우, 컨벤션.
-- **카테고리**: concepts(26) / entities(9) / analysis(8) / sources(10) / disclosures(11)
+- **카테고리**: concepts(30) / entities(9) / analysis(8) / sources(10) / disclosures(11)
 
 질문이 오면 `wiki/index.md`를 먼저 읽고, 관련 페이지만 선택적으로 읽을 것.
 전체 위키를 한 번에 로드하지 말 것.

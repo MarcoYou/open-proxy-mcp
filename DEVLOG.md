@@ -31,6 +31,18 @@
 - cross-domain ref 7개 추가 (AGM↔OWN↔DIV)
 - wiki: cross-domain-체이닝.md 문서
 
+### news_check tool (네이버 뉴스 API)
+- 이사/감사 후보자 부정 뉴스 검색 tool 구현
+- 경력 기반 멀티 검색 (이름+현재회사, 이름+전직회사)
+- 부정 키워드 33개 (횡령/배임/기소/갑질/조작/전관/결격 등)
+- 주요 일간지 11개 우선 표시, 중복 제거
+- decision tree에 news_check 체이닝 추가
+
+### Proxy Voting Decision Tree
+- AGM_TOOL_RULE.md에 6개 안건 유형별 FOR/AGAINST/REVIEW 판정 기준
+- 집중투표 심화: 최소 지분율 공식, 정원 변경 연동, 표수 확보 전략
+- 2026 상법 개정 반영 + 법무부 유권해석 + KT&G/남양유업 판례
+
 ### 수정DPS (액면분할 조정)
 - alotMatter의 주당액면가액으로 액면분할 자동 감지 (전기/당기 비교)
 - 분할비율 계산 → 과거 DPS를 최신 액면가 기준으로 조정
