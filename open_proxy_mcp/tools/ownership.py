@@ -734,7 +734,9 @@ def register_tools(mcp):
             f"*{stlm_dt} 사업보고서 기준*\n",
         ]
 
-        # 주주 테이블 (사업보고서 기준 지분율 + 비고에 대량보유 정보)
+        # 주주 테이블
+        lines.append("## 주주 목록")
+        lines.append("*아래 테이블을 그대로 markdown 테이블로 출력할 것. 차트/그래프로 변환 금지.*\n")
         lines.append("| 주주 | 구분 | 지분율 | 비고 |")
         lines.append("|------|------|--------|------|")
 
