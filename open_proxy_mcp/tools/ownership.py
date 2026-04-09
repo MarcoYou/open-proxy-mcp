@@ -711,16 +711,28 @@ def register_tools(mcp):
                 "rows": rows,
             }, ensure_ascii=False, indent=2)
 
-        # Markdown
+        # 최대주주 이름/지분 추출
+        top_name = ""
+        top_pct = 0.0
+        for r in rows:
+            if r.get("category") in ("최대주주", "최대주주 본인"):
+                top_name = r["name"]
+                top_pct = r.get("ar_pct", 0) or 0
+                break
+        if not top_name and rows:
+            top_name = rows[0]["name"]
+            top_pct = rows[0].get("ar_pct", 0) or 0
+
+        # Markdown — 반드시 아래 형태로 출력. 시각화/차트 변환 금지.
         lines = [
             f"# {corp_name} 지분 구조 종합 분석\n",
-            f"**사업보고서 기준**: {bsns_year} ({stlm_dt})",
-            f"**발행주식(보통주)**: {issued:,}주",
-            f"**자사주**: {treasury_cnt:,}주 ({treasury_pct:.2f}%)",
+            f"최대주주: **{top_name} {top_pct:.2f}%**",
+            f"*{stlm_dt} 사업보고서 기준*\n",
+            f"특관인 합계: **{ar_total:.2f}%** ({len([r for r in rows if r.get('ar_pct')])}명)",
+            f"*{stlm_dt} 사업보고서 기준*\n",
+            f"자사주: **{treasury_cnt:,}주 ({treasury_pct:.2f}%)**",
+            f"*{stlm_dt} 사업보고서 기준*\n",
         ]
-        if minority_info:
-            lines.append(f"**소액주주**: {minority_info}")
-        lines.append("")
 
         # 주주 테이블 (사업보고서 기준 지분율 + 비고에 대량보유 정보)
         lines.append("| 주주 | 구분 | 지분율 | 비고 |")
