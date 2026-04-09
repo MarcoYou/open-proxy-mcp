@@ -625,10 +625,8 @@ def register_tools(mcp):
                 purpose = purposes.get(name, "")
                 if purpose:
                     note = purpose
-                # 변동 감지
-                if latest_pct and abs(latest_pct - info["pct"]) > 0.01:
-                    diff = latest_pct - info["pct"]
-                    note += f" ({'+' if diff > 0 else ''}{diff:.2f}%p 변동)"
+                # 대량보유는 보고자+특별관계자 합산 → 사업보고서(개별)과 기준 다름
+                note += " (보고자+특관 합산)"
 
             rows.append({
                 "name": name,
