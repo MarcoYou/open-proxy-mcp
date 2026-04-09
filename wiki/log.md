@@ -5,6 +5,12 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-05] lint | 누락 개념 4개 + broken ref 수정 + sources 필드 추가
+- concepts/ 4개 신규: 자본준비금, 당기순이익, 주주환원, 경영권-방어
+- DART-OpenAPI.md: related에서 alotMatter 제거, 배당성향/div-tool-rule로 교체
+- analysis/ 4개: sources 필드 추가 (cross-domain-체이닝, proxy-voting-decision-tree, 상법개정-타임라인-2026, 주총방어-시나리오-4가지)
+- index.md 업데이트
+
 ## [2026-04-05] ingest | 외부 소스 3건 (JPM voting, 주총방어전략, 주총체크리스트)
 - raw/ 3건: J.P Morgan Asset Management Voting Process.md, 주총방어전략.pdf, 주주총회 체크리스트.pdf
 - sources/ 3개 신규: jpm-voting-process, 주총방어전략-2026, 주총체크리스트-2026
