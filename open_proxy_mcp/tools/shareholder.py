@@ -558,7 +558,7 @@ def register_tools(mcp):
         """desc: 이사/감사 선임/해임 정보. 후보자별 경력, 결격사유, 추천사유, 직무수행계획.
         when: 이사/감사/감사위원 선임 안건 분석 시. 경력 상세 포함.
         rule: XML 파싱. 경력 병합(100자+) 시 agm_personnel_pdf fallback. 판정 기준은 agm_manual 참조.
-        ref: agm_personnel_pdf, agm_personnel_ocr, agm_manual, agm_result
+        ref: agm_personnel_pdf, agm_personnel_ocr, agm_manual, agm_result, news_check
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
