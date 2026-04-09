@@ -708,28 +708,50 @@ def register_tools(mcp):
             lines.append(f"**소액주주**: {minority_info}")
         lines.append("")
 
-        # 주주 비교 테이블
-        lines.append("| 주주 | 구분 | 지분율(사업보고서) | 지분율(최신 공시) | 비고 |")
-        lines.append("|------|------|-----------------|---------------|------|")
+        # 주주 테이블 (사업보고서 기준 지분율 + 비고에 대량보유 정보)
+        lines.append("| 주주 | 구분 | 지분율 | 비고 |")
+        lines.append("|------|------|--------|------|")
 
         for r in rows:
-            ar = f"{r['ar_pct']:.2f}%" if r.get("ar_pct") else "-"
-            if r.get("latest_pct") is not None:
-                lt = f"{r['latest_pct']:.2f}%"
-                dt = r.get("latest_date", "")
-                if dt:
-                    lt_display = f"{lt} ({dt[:4]}.{dt[4:6]}.{dt[6:8]})"
-                else:
-                    lt_display = lt
+            # 지분율: 사업보고서 있으면 사업보고서, 없으면 대량보유 본인
+            if r.get("ar_pct"):
+                pct_display = f"{r['ar_pct']:.2f}%"
+            elif r.get("latest_pct") is not None:
+                pct_display = f"{r['latest_pct']:.2f}%"
             else:
-                lt_display = "-"
-            note = r.get("note", "")
-            if not note and r.get("latest_pct") is None:
-                note = "최신 공시 없음"
-            lines.append(f"| {r['name']} | {r['category']} | {ar} | {lt_display} | {note} |")
+                pct_display = "-"
+
+            # 비고 구성
+            notes = []
+            note_base = r.get("note", "")
+
+            if r.get("ar_pct") and r.get("latest_pct") is not None:
+                # 사업보고서에도 있고 대량보유에도 있음
+                dt = r.get("latest_date", "")
+                dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if dt and len(dt) >= 8 else ""
+                # stkrt (합산) 정보가 note에 포함돼있을 수 있음
+                if note_base:
+                    notes.append(f"대량보유: {note_base}")
+                if dt_fmt:
+                    notes.append(f"{dt_fmt} 기준")
+            elif not r.get("ar_pct") and r.get("latest_pct") is not None:
+                # 대량보유에만 있음
+                dt = r.get("latest_date", "")
+                dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if dt and len(dt) >= 8 else ""
+                notes.append("대량보유 공시 기준")
+                if note_base:
+                    notes.append(note_base)
+                if dt_fmt:
+                    notes.append(f"{dt_fmt}")
+            else:
+                if not note_base:
+                    notes.append("")
+
+            note_str = ", ".join(n for n in notes if n) if notes else ""
+            lines.append(f"| {r['name']} | {r['category']} | {pct_display} | {note_str} |")
 
         # 합계
-        lines.append(f"| **합계** | | **{ar_total:.2f}%** | | |")
+        lines.append(f"| **합계 (사업보고서)** | | **{ar_total:.2f}%** | |")
 
         lines.append("")
         lines.append(f"*사업보고서: {bsns_year} ({stlm_dt}) / 최신 공시: 5% 대량보유 수시 공시 기준*")
