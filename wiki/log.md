@@ -5,6 +5,12 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-10] refactor | Dispatch Table + Chain Tool + README 재작성
+- Dispatch Table: 16 PDF/OCR → agm_parse_fallback 1개 (48→32 tools)
+- Chain Tool: own_full_analysis (지분+배당+자사주+주주환원)
+- README.md 한국어 전면 재작성 + README_ENG.md 영어 신규
+- OpenProxy-MCP entity 업데이트 (33 tools, 아키텍처 패턴)
+
 ## [2026-04-09] ingest | news_check tool + decision tree
 - news_check: 네이버 뉴스 API 기반 후보자 부정 뉴스 검색 tool
 - Proxy Voting Decision Tree: AGM_TOOL_RULE에 6개 안건 판정 기준

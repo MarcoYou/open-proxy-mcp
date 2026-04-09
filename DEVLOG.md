@@ -1,5 +1,27 @@
 # Dev Log
 
+## 2026-04-10
+
+### Dispatch Table 적용 (48 → 32 tools)
+- 16개 PDF/OCR tool → agm_parse_fallback 1개로 통합
+- PARSER_DISPATCH dict: 8 파서의 pdf_parser/ocr_key/formatter/empty_check 매핑
+- XML tool body 변경 없음, ref만 업데이트
+- shareholder.py 1453줄 → 1124줄 (-329줄)
+
+### Chain Tool
+- own_full_analysis: 지분(own) + 배당(div_history 3년) + 자사주(treasury_acquisition) + 총 주주환원
+- cross-domain 체이닝: OWN + DIV 도메인 통합 분석
+
+### README 전면 재작성
+- README.md: 한국어 기본 (48→33 tools, 4 domains, decision tree, quick start)
+- README_ENG.md: 영어 신규 (Korean market glossary 포함)
+- README_KR.md: 삭제 (README.md로 통합)
+
+### 경쟁 repo 분석
+- korean-law-mcp: 89→14 tool 통합 (Dispatch Table, Meta-tool, Chain tool 패턴)
+- assembly-api-mcp: 15→10 tool 통합 (Profile, SWR 캐시, discover+execute)
+- 공통 교훈: tool 수 줄이고 각 tool 지능 높이기
+
 ## 2026-04-08 - 04-09
 
 ### div_* 배당 tool 구현 + 전수조사

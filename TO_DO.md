@@ -55,7 +55,16 @@
 - [ ] 별도 OCR tool → 결과를 agenda detail에 병합
 
 
+### Chain Tools (향후)
+- [ ] agm_full_analysis(ticker) — agenda → personnel → compensation → vote result → 종합 판정
+- [ ] governance_report(ticker) — agm + own + div 3개 도메인 한 번에
+
+### Meta Tool (향후, tool 40개+ 시)
+- [ ] discover_tools(category, keyword) — 카테고리/키워드로 tool 검색
+- [ ] execute_tool(name, params) — 내부 tool 프록시 호출
+
 ### API 최적화
 - [ ] search_filings_by_ticker 결과 캐싱 (같은 ticker 중복 호출 방지)
 - [ ] parse_agenda_items 결과를 _doc_cache에 저장 (CPU 중복 파싱 방지)
+- [ ] 응답 truncation (50KB 제한) — law-mcp 참고
 
