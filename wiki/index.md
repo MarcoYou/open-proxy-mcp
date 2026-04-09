@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-04-08
+updated: 2026-04-05
 ---
 
 # OPM Wiki Index
@@ -58,6 +58,9 @@ updated: 2026-04-08
 - [[cross-domain-체이닝]] - AGM/OWN/DIV 도메인 간 tool 연결 맵 + 시나리오
 - [[파이프라인-아키텍처]] - 199개 기업 v4 JSON 생성 배치 파이프라인
 - [[KIND-주총결과]] - KIND 크롤링 기반 투표결과+참석률 역산 분석
+- [[주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (미래에셋증권)
+- [[상법개정-타임라인-2026]] - 2025-2027 상법 개정 시행 일정
+- [[proxy-voting-decision-tree]] - 3개 소스 통합 의결권 행사 판단 프레임워크
 
 ## Disclosures
 
@@ -85,3 +88,6 @@ updated: 2026-04-08
 - [[opa-readme]] - OpenProxy AI 비공개 README 요약
 - [[devlog]] - 2026-03-19부터 04-06 개발 히스토리 요약
 - [[benchmark-personnel-results]] - personnel XML 벤치마크 JSON 요약
+- [[jpm-voting-process]] - JPMAM proxy voting 5단계 프로세스 (mermaid flowchart)
+- [[주총방어전략-2026]] - 주총 방어 시나리오 4가지 (미래에셋증권 리서치 2026.03.19)
+- [[주총체크리스트-2026]] - 주총 체크리스트 9개 + 상법 개정 타임라인 (미래에셋증권)

@@ -6,22 +6,32 @@ LLM이 작성/유지하고, 사용자는 소싱과 질문에 집중.
 OPM repo 안에 `wiki/` 디렉토리로 존재.
 
 ## 원본 소스 (raw)
-별도 raw/ 디렉토리 없음. OPM repo의 기존 파일이 원본:
-- `open_proxy_mcp/AGM_TOOL_RULE.md`, `AGM_CASE_RULE.md` — AGM 규칙
-- `open_proxy_mcp/OWN_TOOL_RULE.md`, `OWN_CASE_RULE.md` — 지분 규칙
-- `open_proxy_mcp/DIV_TOOL_RULE.md`, `DIV_CASE_RULE.md` — 배당 규칙
-- `DEVLOG.md` — 개발 히스토리
-- `README.md`, `README_KR.md` — 프로젝트 설명
+
+두 가지 원본 소스:
+
+### 1. OPM repo 기존 파일 (코드/문서)
+- `open_proxy_mcp/*_RULE.md` — AGM/OWN/DIV 규칙
+- `DEVLOG.md`, `README.md` — 프로젝트 문서
 - `test/benchmark_*.json` — 벤치마크 결과
 
-LLM은 이 파일들을 읽기만 하고 수정하지 않음.
+### 2. wiki/raw/ (외부 참고자료, 불변)
+- `wiki/raw/` — 외부 보고서, 논문, 가이드라인 등
+- **LLM은 절대 수정하지 않음** (Karpathy 원칙)
+- 새 자료 추가 시 → ingest → wiki/ 페이지 생성/업데이트
+
+현재 raw/:
+- `J.P Morgan Asset Management Voting Process.md` — 글로벌 기관 proxy voting 프로세스
+- `주총방어전략.pdf` — 2026 상장사 주총 방어 시나리오 4가지 (미래에셋증권 리서치)
+- `주주총회 체크리스트.pdf` — 2026 상법 개정 기반 주주 체크리스트 (미래에셋증권 리서치)
 
 ## 위키 구조
 ```
 wiki/
+  raw/            # 외부 참고자료 (불변, LLM 읽기만)
   concepts/       # 도메인 개념 (배당, 의결권, 프록시파이트, 집중투표 등)
   entities/       # 엔티티 (DART API, KRX, 삼성전자, 국민연금 등)
   analysis/       # 분석 (파서 성능, tool 비교, 아키텍처 결정 등)
+  disclosures/    # 공시 유형 (소집공고, 배당결정 등)
   sources/        # 원본 소스 요약 (1 소스 = 1 요약)
   index.md        # 전체 위키 인덱스
   log.md          # 작업 로그

@@ -5,6 +5,13 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-05] ingest | 외부 소스 3건 (JPM voting, 주총방어전략, 주총체크리스트)
+- raw/ 3건: J.P Morgan Asset Management Voting Process.md, 주총방어전략.pdf, 주주총회 체크리스트.pdf
+- sources/ 3개 신규: jpm-voting-process, 주총방어전략-2026, 주총체크리스트-2026
+- analysis/ 3개 신규: 주총방어-시나리오-4가지, 상법개정-타임라인-2026, proxy-voting-decision-tree
+- concepts/ 2개 업데이트: 프록시-파이트 (방어전술/글로벌 프로세스 추가), 위임장-권유 (글로벌 기관 구조 추가)
+- index.md, log.md 업데이트
+
 ## [2026-04-09] ingest | docstring 전면 업그레이드 + cross-domain 체이닝
 - 46/46 tool desc/when/rule/ref 포맷 적용 (100%)
 - cross-domain ref 7개 추가 (AGM↔OWN↔DIV)

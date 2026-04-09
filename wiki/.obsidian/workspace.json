@@ -11,10 +11,14 @@
             "id": "c3948d19ea5186b1",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "그래프 뷰"
+              "type": "markdown",
+              "state": {
+                "file": "index.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "index"
             }
           }
         ]
@@ -90,6 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "index.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -99,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "백링크"
+              "title": "index 의 백링크"
             }
           },
           {
@@ -108,11 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "index.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "나가는 링크"
+              "title": "index 의 나가는 링크"
             }
           },
           {
@@ -150,12 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "index.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "개요"
+              "title": "index 의 개요"
             }
           }
         ]
@@ -178,6 +185,16 @@
   },
   "active": "c3948d19ea5186b1",
   "lastOpenFiles": [
+    "analysis/proxy-voting-decision-tree.md",
+    "analysis/상법개정-타임라인-2026.md",
+    "analysis/주총방어-시나리오-4가지.md",
+    "sources/주총체크리스트-2026.md",
+    "sources/주총방어전략-2026.md",
+    "sources/jpm-voting-process.md",
+    "raw/주총방어전략.pdf",
+    "raw/주주총회 체크리스트 - 미래에셋증권 유건호.pdf",
+    "raw/J.P Morgan Asset Management Voting Process.md",
+    "raw",
     "analysis/cross-domain-체이닝.md",
     "analysis/KIND-검색-API-조사.md",
     "disclosures/정정공시.md",
