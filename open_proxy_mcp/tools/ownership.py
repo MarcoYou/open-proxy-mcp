@@ -618,19 +618,24 @@ def register_tools(mcp):
             if name in latest_by_reporter:
                 b_item = latest_by_reporter[name]
                 try:
-                    # ctr_stkrt = 보고자 본인 지분 (합산 아님)
                     latest_pct = float(b_item.get("ctr_stkrt", 0) or 0)
                     total_pct = float(b_item.get("stkrt", 0) or 0)
                 except ValueError:
                     latest_pct = None
                     total_pct = None
                 latest_date = b_item.get("rcept_dt", "")
+                # 날짜 포맷
+                dt_fmt = f"{latest_date[:4]}.{latest_date[4:6]}.{latest_date[6:8]}" if latest_date and len(latest_date) >= 8 else ""
+                # 비고: 대량보유 합산(보고자+특관) + 목적 + 날짜
+                parts = []
+                if total_pct and total_pct > 0.01:
+                    parts.append(f"대량보유 {total_pct:.2f}% (보고자+특관)")
                 purpose = purposes.get(name, "")
                 if purpose:
-                    note = purpose
-                # 본인+특관 합산도 표시
-                if total_pct and latest_pct and total_pct > latest_pct + 0.01:
-                    note += f" (특관 포함 {total_pct:.2f}%)"
+                    parts.append(purpose)
+                if dt_fmt:
+                    parts.append(dt_fmt)
+                note = ", ".join(parts)
 
             rows.append({
                 "name": name,
@@ -652,16 +657,25 @@ def register_tools(mcp):
                     total_pct = 0.0
                 pct = ctr_pct if ctr_pct > 0 else total_pct
                 if pct > 0:
-                    purpose = purposes.get(name, "")
-                    note = purpose
+                    dt = item.get("rcept_dt", "")
+                    dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if dt and len(dt) >= 8 else ""
+                    parts = []
                     if total_pct > ctr_pct + 0.01:
-                        note += f" (특관 포함 {total_pct:.2f}%)"
+                        parts.append(f"대량보유 {total_pct:.2f}% (보고자+특관)")
+                    else:
+                        parts.append("대량보유 공시 기준")
+                    purpose = purposes.get(name, "")
+                    if purpose:
+                        parts.append(purpose)
+                    if dt_fmt:
+                        parts.append(dt_fmt)
+                    note = ", ".join(parts)
                     rows.append({
                         "name": name,
                         "category": "5% 대량보유",
                         "ar_pct": None,
                         "latest_pct": pct,
-                        "latest_date": item.get("rcept_dt", ""),
+                        "latest_date": dt,
                         "note": note,
                     })
 
@@ -721,33 +735,8 @@ def register_tools(mcp):
             else:
                 pct_display = "-"
 
-            # 비고 구성
-            notes = []
-            note_base = r.get("note", "")
-
-            if r.get("ar_pct") and r.get("latest_pct") is not None:
-                # 사업보고서에도 있고 대량보유에도 있음
-                dt = r.get("latest_date", "")
-                dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if dt and len(dt) >= 8 else ""
-                # stkrt (합산) 정보가 note에 포함돼있을 수 있음
-                if note_base:
-                    notes.append(f"대량보유: {note_base}")
-                if dt_fmt:
-                    notes.append(f"{dt_fmt} 기준")
-            elif not r.get("ar_pct") and r.get("latest_pct") is not None:
-                # 대량보유에만 있음
-                dt = r.get("latest_date", "")
-                dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if dt and len(dt) >= 8 else ""
-                notes.append("대량보유 공시 기준")
-                if note_base:
-                    notes.append(note_base)
-                if dt_fmt:
-                    notes.append(f"{dt_fmt}")
-            else:
-                if not note_base:
-                    notes.append("")
-
-            note_str = ", ".join(n for n in notes if n) if notes else ""
+            # 비고: note에 이미 목적 + 특관 합산 정보 포함
+            note_str = r.get("note", "")
             lines.append(f"| {r['name']} | {r['category']} | {pct_display} | {note_str} |")
 
         # 합계
