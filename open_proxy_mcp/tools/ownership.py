@@ -618,15 +618,19 @@ def register_tools(mcp):
             if name in latest_by_reporter:
                 b_item = latest_by_reporter[name]
                 try:
-                    latest_pct = float(b_item.get("stkrt", 0) or 0)
+                    # ctr_stkrt = 보고자 본인 지분 (합산 아님)
+                    latest_pct = float(b_item.get("ctr_stkrt", 0) or 0)
+                    total_pct = float(b_item.get("stkrt", 0) or 0)
                 except ValueError:
                     latest_pct = None
+                    total_pct = None
                 latest_date = b_item.get("rcept_dt", "")
                 purpose = purposes.get(name, "")
                 if purpose:
                     note = purpose
-                # 대량보유는 보고자+특별관계자 합산 → 사업보고서(개별)과 기준 다름
-                note += " (보고자+특관 합산)"
+                # 본인+특관 합산도 표시
+                if total_pct and latest_pct and total_pct > latest_pct + 0.01:
+                    note += f" (특관 포함 {total_pct:.2f}%)"
 
             rows.append({
                 "name": name,
@@ -641,18 +645,24 @@ def register_tools(mcp):
         for name, item in latest_by_reporter.items():
             if name not in ar_shareholders:
                 try:
-                    pct = float(item.get("stkrt", 0) or 0)
+                    ctr_pct = float(item.get("ctr_stkrt", 0) or 0)
+                    total_pct = float(item.get("stkrt", 0) or 0)
                 except ValueError:
-                    pct = 0.0
+                    ctr_pct = 0.0
+                    total_pct = 0.0
+                pct = ctr_pct if ctr_pct > 0 else total_pct
                 if pct > 0:
                     purpose = purposes.get(name, "")
+                    note = purpose
+                    if total_pct > ctr_pct + 0.01:
+                        note += f" (특관 포함 {total_pct:.2f}%)"
                     rows.append({
                         "name": name,
                         "category": "5% 대량보유",
                         "ar_pct": None,
                         "latest_pct": pct,
                         "latest_date": item.get("rcept_dt", ""),
-                        "note": purpose,
+                        "note": note,
                     })
 
         # 지분율 내림차순 정렬
