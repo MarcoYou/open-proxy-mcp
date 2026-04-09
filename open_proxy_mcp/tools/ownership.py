@@ -509,117 +509,225 @@ def register_tools(mcp):
         ticker: str,
         format: str = "md",
     ) -> str:
-        """desc: 지분 구조 종합 분석 — 지분(own) + 배당(div_history) + 자사주 이벤트(own_treasury_tx) + 총 주주환원 규모.
-        when: 특정 기업의 지분/배당/주주환원을 한 번에 분석할 때. cross-domain chain tool.
-        rule: own + div_history + own_treasury_tx를 순차 호출 후 종합. API 10+회. 시간 소요.
-        ref: own, div_history, own_treasury_tx, own_manual, div_manual
+        """desc: 지분 구조 종합 분석 — 사업보고서 vs 최신 공시 지분율 비교 테이블.
+        when: 특정 기업 주주 구성을 사업보고서 기준과 최신 공시 기준으로 비교할 때.
+        rule: own_major(사업보고서) + own_block(수시 공시) 데이터를 통합. 변동 감지 + 보유목적 표시.
+        ref: own_major, own_block, own_total, own_manual
 
         Args:
             ticker: 종목코드 또는 회사명
             format: "md" (기본) 또는 "json"
         """
-        sections = []
+        client = get_dart_client()
+        corp = await client.lookup_corp_code(ticker)
+        if not corp:
+            return tool_not_found("기업", ticker)
 
-        # 1. 지분 구조 (own 오케스트레이터)
-        own_result = await own(ticker=ticker, format=format)
-        sections.append(own_result)
+        corp_code = corp["corp_code"]
+        corp_name = corp.get("corp_name", ticker)
+        bsns_year = str(datetime.now().year - 1)
 
-        # 2. 배당 이력 (div_history) — dividend.py에서 등록된 tool 호출
+        empty = {"list": []}
+
+        # 1. 사업보고서 기준 (최대주주 + 주식총수)
         try:
-            from open_proxy_mcp.tools.dividend import _parse_dividend_items, _build_dividend_summary, _parse_dividend_decision
-            client = get_dart_client()
-            corp = await client.lookup_corp_code(ticker)
-            if corp:
-                corp_code = corp["corp_code"]
-                corp_name = corp.get("corp_name", ticker)
-                stock_code = corp.get("stock_code", "")
+            major = await client.get_major_shareholders(corp_code, bsns_year)
+        except DartClientError:
+            major = empty
+        try:
+            stock_total = await client.get_stock_total(corp_code, bsns_year)
+        except DartClientError:
+            stock_total = empty
+        try:
+            minority = await client.get_minority_shareholders(corp_code, bsns_year)
+        except DartClientError:
+            minority = empty
 
-                # 최근 3년 alotMatter
-                current_year = datetime.now().year
-                div_sections = ["\n---\n\n# 배당 이력 (최근 3년)\n"]
-                for year in range(current_year - 3, current_year):
-                    try:
-                        data = await client.get_dividend_info(corp_code, str(year), "11011")
-                        items = _parse_dividend_items(data)
-                        summary = _build_dividend_summary(items, "기말")
-                        dps = summary.get("cash_dps", 0)
-                        payout = summary.get("payout_ratio_dart")
-                        yld = summary.get("yield_dart")
-                        if dps > 0:
-                            pr_str = f", 배당성향 {payout}%" if payout else ""
-                            dy_str = f", 시가배당률 {yld}%" if yld else ""
-                            div_sections.append(f"- **{year}**: DPS {dps:,}원{pr_str}{dy_str}")
-                    except Exception:
-                        div_sections.append(f"- **{year}**: 데이터 없음")
+        # 2. 최신 공시 (5% 대량보유)
+        try:
+            block = await client.get_block_holders(corp_code)
+        except DartClientError:
+            block = empty
 
-                # 배당 결정 공시 (최근 건)
+        # 3. 사업보고서 기준 주주 테이블 구성
+        major_items = major.get("list", [])
+        stlm_dt = major_items[0].get("stlm_dt", "") if major_items else ""
+
+        # 사업보고서 주주 (보통주만)
+        ar_shareholders = {}  # name → {relate, pct}
+        for item in major_items:
+            if "보통" not in item.get("stock_knd", "보통"):
+                continue
+            name = item.get("nm", "").strip()
+            if name == "계":
+                continue
+            relate = item.get("relate", "").strip()
+            try:
+                pct = float(item.get("trmend_posesn_stock_qota_rt", "0") or "0")
+            except ValueError:
+                pct = 0.0
+            if pct > 0:
+                ar_shareholders[name] = {"relate": relate, "pct": pct}
+
+        # 최신 공시 주주 (5% 대량보유)
+        block_items = block.get("list", [])
+        latest_by_reporter = {}
+        for item in block_items:
+            name = item.get("repror", "")
+            dt = item.get("rcept_dt", "")
+            if name and (name not in latest_by_reporter or dt > latest_by_reporter[name].get("rcept_dt", "")):
+                latest_by_reporter[name] = item
+
+        # 보유목적 파싱
+        purposes = {}
+        for name, item in latest_by_reporter.items():
+            rcept_no = item.get("rcept_no", "")
+            purpose = _parse_holding_purpose(item.get("report_tp", ""), item.get("report_resn", ""))
+            if purpose in ("불명", "단순투자/일반투자"):
                 try:
-                    filings = await client.search_filings(
-                        corp_code=corp_code, bgn_de=f"{current_year}0101",
-                        end_de=datetime.now().strftime("%Y%m%d"), pblntf_ty="I",
-                    )
-                    for item in filings.get("list", []):
-                        nm = item.get("report_nm", "")
-                        if "현금" in nm and "배당결정" in nm:
-                            doc = await client.get_document_cached(item["rcept_no"])
-                            parsed = _parse_dividend_decision(doc.get("text", ""))
-                            if parsed:
-                                div_sections.append(
-                                    f"- **최신 배당결정**: {parsed.get('dividend_type', '')} "
-                                    f"DPS {parsed.get('dps_common', 0):,}원, "
-                                    f"기준일 {parsed.get('record_date', '-')}"
-                                )
-                            break
+                    doc = await client.get_document(rcept_no)
+                    html = doc.get("html", "") or doc.get("full_text", "")
+                    parsed = _parse_holding_purpose_from_document(html)
+                    purposes[name] = parsed if parsed != "불명" else purpose
                 except Exception:
-                    pass
+                    purposes[name] = purpose
+            else:
+                purposes[name] = purpose
 
-                if len(div_sections) > 1:
-                    sections.append("\n".join(div_sections))
+        # 4. 통합 테이블 구성
+        rows = []  # [{name, category, ar_pct, latest_pct, latest_date, note}]
 
-                # 3. 총 주주환원 규모 (배당금 + 자사주 매입)
+        # 사업보고서 주주 추가
+        for name, info in ar_shareholders.items():
+            relate = info["relate"]
+            if "본인" in relate or "최대주주" in relate:
+                category = "최대주주"
+            elif "계열" in relate:
+                category = "계열사"
+            elif "특수" in relate or "관계" in relate:
+                category = "특수관계인"
+            elif "재단" in relate or "출연" in relate:
+                category = "재단"
+            else:
+                category = relate or "특수관계인"
+
+            # 최신 공시에도 있는지 확인
+            latest_pct = None
+            latest_date = None
+            note = ""
+            if name in latest_by_reporter:
+                b_item = latest_by_reporter[name]
                 try:
-                    tr_sections = ["\n# 총 주주환원 분석\n"]
-                    total_acq = 0
-                    # 자사주 이벤트
-                    bgn_de_tr = f"{current_year - 2}0101"
-                    end_de_tr = datetime.now().strftime("%Y%m%d")
-                    acq = await client.get_treasury_acquisition(corp_code, bgn_de_tr, end_de_tr)
-                    acq_items = acq.get("list", [])
-                    if acq_items:
-                        for a in acq_items:
-                            try:
-                                total_acq += int(re.sub(r'[^\d]', '', a.get("aq_dd_mkt_tot_amt", "0")) or "0")
-                            except:
-                                pass
-                        if total_acq > 0:
-                            tr_sections.append(f"- **자사주 매입 규모**: {total_acq:,}원")
+                    latest_pct = float(b_item.get("stkrt", 0) or 0)
+                except ValueError:
+                    latest_pct = None
+                latest_date = b_item.get("rcept_dt", "")
+                purpose = purposes.get(name, "")
+                if purpose:
+                    note = purpose
+                # 변동 감지
+                if latest_pct and abs(latest_pct - info["pct"]) > 0.01:
+                    diff = latest_pct - info["pct"]
+                    note += f" ({'+' if diff > 0 else ''}{diff:.2f}%p 변동)"
 
-                    # 최근 배당금 총액
-                    try:
-                        data = await client.get_dividend_info(corp_code, str(current_year - 1), "11011")
-                        items = _parse_dividend_items(data)
-                        summary = _build_dividend_summary(items, "기말")
-                        div_total = summary.get("total_amount_mil", 0)
-                        if div_total > 0:
-                            tr_sections.append(f"- **배당금 총액 ({current_year - 1})**: {div_total:,}백만원")
-                            if total_acq > 0:
-                                total_return = div_total * 1_000_000 + total_acq
-                                tr_sections.append(f"- **총 주주환원**: {total_return:,}원 (배당 + 자사주)")
-                    except:
-                        pass
+            rows.append({
+                "name": name,
+                "category": category,
+                "ar_pct": info["pct"],
+                "latest_pct": latest_pct,
+                "latest_date": latest_date,
+                "note": note,
+            })
 
-                    if len(tr_sections) > 1:
-                        sections.append("\n".join(tr_sections))
-                except Exception:
-                    pass
+        # 사업보고서에 없지만 5% 대량보유에만 있는 주주
+        for name, item in latest_by_reporter.items():
+            if name not in ar_shareholders:
+                try:
+                    pct = float(item.get("stkrt", 0) or 0)
+                except ValueError:
+                    pct = 0.0
+                if pct > 0:
+                    purpose = purposes.get(name, "")
+                    rows.append({
+                        "name": name,
+                        "category": "5% 대량보유",
+                        "ar_pct": None,
+                        "latest_pct": pct,
+                        "latest_date": item.get("rcept_dt", ""),
+                        "note": purpose,
+                    })
 
-        except Exception as e:
-            sections.append(f"\n*배당/주주환원 분석 실패: {e}*")
+        # 지분율 내림차순 정렬
+        rows.sort(key=lambda r: max(r.get("ar_pct") or 0, r.get("latest_pct") or 0), reverse=True)
+
+        # 합계 계산
+        ar_total = sum(r["ar_pct"] for r in rows if r.get("ar_pct"))
+
+        # 발행주식 / 자사주 / 소액주주
+        issued = 0
+        treasury_cnt = 0
+        for item in stock_total.get("list", []):
+            if "보통" in item.get("se", ""):
+                issued = int(re.sub(r'[^\d]', '', item.get("istc_totqy", "0")) or "0")
+                treasury_cnt = int(re.sub(r'[^\d]', '', item.get("tesstk_co", "0")) or "0")
+                break
+        treasury_pct = (treasury_cnt / issued * 100) if issued else 0
+
+        minority_items = minority.get("list", [])
+        minority_info = ""
+        if minority_items:
+            m = minority_items[0]
+            minority_info = f"{_format_number(m.get('shrholdr_co', ''))}명, {m.get('hold_stock_rate', '')}"
 
         if format == "json":
-            return json.dumps({"raw_sections": sections}, ensure_ascii=False, indent=2)
+            return json.dumps({
+                "corp_name": corp_name,
+                "bsns_year": bsns_year,
+                "stlm_dt": stlm_dt,
+                "issued_shares": issued,
+                "treasury_shares": treasury_cnt,
+                "rows": rows,
+            }, ensure_ascii=False, indent=2)
 
-        return "\n".join(sections)
+        # Markdown
+        lines = [
+            f"# {corp_name} 지분 구조 종합 분석\n",
+            f"**사업보고서 기준**: {bsns_year} ({stlm_dt})",
+            f"**발행주식(보통주)**: {issued:,}주",
+            f"**자사주**: {treasury_cnt:,}주 ({treasury_pct:.2f}%)",
+        ]
+        if minority_info:
+            lines.append(f"**소액주주**: {minority_info}")
+        lines.append("")
+
+        # 주주 비교 테이블
+        lines.append("| 주주 | 구분 | 지분율(사업보고서) | 지분율(최신 공시) | 비고 |")
+        lines.append("|------|------|-----------------|---------------|------|")
+
+        for r in rows:
+            ar = f"{r['ar_pct']:.2f}%" if r.get("ar_pct") else "-"
+            if r.get("latest_pct") is not None:
+                lt = f"{r['latest_pct']:.2f}%"
+                dt = r.get("latest_date", "")
+                if dt:
+                    lt_display = f"{lt} ({dt[:4]}.{dt[4:6]}.{dt[6:8]})"
+                else:
+                    lt_display = lt
+            else:
+                lt_display = "-"
+            note = r.get("note", "")
+            if not note and r.get("latest_pct") is None:
+                note = "최신 공시 없음"
+            lines.append(f"| {r['name']} | {r['category']} | {ar} | {lt_display} | {note} |")
+
+        # 합계
+        lines.append(f"| **합계** | | **{ar_total:.2f}%** | | |")
+
+        lines.append("")
+        lines.append(f"*사업보고서: {bsns_year} ({stlm_dt}) / 최신 공시: 5% 대량보유 수시 공시 기준*")
+        lines.append("*상세: own_major, own_total, own_block, own_treasury_tx*")
+
+        return "\n".join(lines)
 
     @mcp.tool()
     async def own_manual() -> str:
