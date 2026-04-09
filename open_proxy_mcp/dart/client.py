@@ -732,6 +732,46 @@ class DartClient:
             logger.warning(f"[KRX] 시세 조회 실패: {e}")
             return None
 
+    # ── 네이버 뉴스 검색 API ──
+
+    async def naver_news_search(self, query: str, display: int = 100, sort: str = "date") -> list[dict]:
+        """네이버 뉴스 검색 API
+
+        Args:
+            query: 검색어 (예: '"김용관" "삼성전자"')
+            display: 결과 수 (최대 100)
+            sort: "date" (최신순) 또는 "sim" (정확도순)
+
+        Returns:
+            [{"title", "link", "originallink", "description", "pubDate"}, ...]
+        """
+        import os
+        client_id = os.getenv("NAVER_SEARCH_API_CLIENT_ID")
+        client_secret = os.getenv("NAVER_SEARCH_API_CLIENT_SECRET")
+        if not client_id or not client_secret:
+            logger.warning("[네이버] 검색 API 키가 설정되지 않았습니다")
+            return []
+
+        await self._throttle_api()
+        url = "https://openapi.naver.com/v1/search/news.json"
+        params = {"query": query, "display": display, "sort": sort}
+        headers = {
+            "X-Naver-Client-Id": client_id,
+            "X-Naver-Client-Secret": client_secret,
+        }
+
+        try:
+            async with httpx.AsyncClient() as http:
+                resp = await http.get(url, params=params, headers=headers, timeout=15)
+                if resp.status_code != 200:
+                    logger.warning(f"[네이버] HTTP {resp.status_code}: {resp.text[:200]}")
+                    return []
+                data = resp.json()
+                return data.get("items", [])
+        except Exception as e:
+            logger.warning(f"[네이버] 뉴스 검색 실패: {e}")
+            return []
+
     # ── KRX KIND 크롤링 ──
 
     async def _throttle_kind(self):
