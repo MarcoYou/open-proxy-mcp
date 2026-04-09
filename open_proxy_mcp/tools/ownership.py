@@ -505,6 +505,123 @@ def register_tools(mcp):
         return "\n".join(sections)
 
     @mcp.tool()
+    async def own_full_analysis(
+        ticker: str,
+        format: str = "md",
+    ) -> str:
+        """desc: 지분 구조 종합 분석 — 지분(own) + 배당(div_history) + 자사주 이벤트(own_treasury_tx) + 총 주주환원 규모.
+        when: 특정 기업의 지분/배당/주주환원을 한 번에 분석할 때. cross-domain chain tool.
+        rule: own + div_history + own_treasury_tx를 순차 호출 후 종합. API 10+회. 시간 소요.
+        ref: own, div_history, own_treasury_tx, own_manual, div_manual
+
+        Args:
+            ticker: 종목코드 또는 회사명
+            format: "md" (기본) 또는 "json"
+        """
+        sections = []
+
+        # 1. 지분 구조 (own 오케스트레이터)
+        own_result = await own(ticker=ticker, format=format)
+        sections.append(own_result)
+
+        # 2. 배당 이력 (div_history) — dividend.py에서 등록된 tool 호출
+        try:
+            from open_proxy_mcp.tools.dividend import _parse_dividend_items, _build_dividend_summary, _parse_dividend_decision
+            client = get_dart_client()
+            corp = await client.lookup_corp_code(ticker)
+            if corp:
+                corp_code = corp["corp_code"]
+                corp_name = corp.get("corp_name", ticker)
+                stock_code = corp.get("stock_code", "")
+
+                # 최근 3년 alotMatter
+                current_year = datetime.now().year
+                div_sections = ["\n---\n\n# 배당 이력 (최근 3년)\n"]
+                for year in range(current_year - 3, current_year):
+                    try:
+                        data = await client.get_dividend_info(corp_code, str(year), "11011")
+                        items = _parse_dividend_items(data)
+                        summary = _build_dividend_summary(items, "기말")
+                        dps = summary.get("cash_dps", 0)
+                        payout = summary.get("payout_ratio_dart")
+                        yld = summary.get("yield_dart")
+                        if dps > 0:
+                            pr_str = f", 배당성향 {payout}%" if payout else ""
+                            dy_str = f", 시가배당률 {yld}%" if yld else ""
+                            div_sections.append(f"- **{year}**: DPS {dps:,}원{pr_str}{dy_str}")
+                    except Exception:
+                        div_sections.append(f"- **{year}**: 데이터 없음")
+
+                # 배당 결정 공시 (최근 건)
+                try:
+                    filings = await client.search_filings(
+                        corp_code=corp_code, bgn_de=f"{current_year}0101",
+                        end_de=datetime.now().strftime("%Y%m%d"), pblntf_ty="I",
+                    )
+                    for item in filings.get("list", []):
+                        nm = item.get("report_nm", "")
+                        if "현금" in nm and "배당결정" in nm:
+                            doc = await client.get_document_cached(item["rcept_no"])
+                            parsed = _parse_dividend_decision(doc.get("text", ""))
+                            if parsed:
+                                div_sections.append(
+                                    f"- **최신 배당결정**: {parsed.get('dividend_type', '')} "
+                                    f"DPS {parsed.get('dps_common', 0):,}원, "
+                                    f"기준일 {parsed.get('record_date', '-')}"
+                                )
+                            break
+                except Exception:
+                    pass
+
+                if len(div_sections) > 1:
+                    sections.append("\n".join(div_sections))
+
+                # 3. 총 주주환원 규모 (배당금 + 자사주 매입)
+                try:
+                    tr_sections = ["\n# 총 주주환원 분석\n"]
+                    total_acq = 0
+                    # 자사주 이벤트
+                    bgn_de_tr = f"{current_year - 2}0101"
+                    end_de_tr = datetime.now().strftime("%Y%m%d")
+                    acq = await client.get_treasury_acquisition(corp_code, bgn_de_tr, end_de_tr)
+                    acq_items = acq.get("list", [])
+                    if acq_items:
+                        for a in acq_items:
+                            try:
+                                total_acq += int(re.sub(r'[^\d]', '', a.get("aq_dd_mkt_tot_amt", "0")) or "0")
+                            except:
+                                pass
+                        if total_acq > 0:
+                            tr_sections.append(f"- **자사주 매입 규모**: {total_acq:,}원")
+
+                    # 최근 배당금 총액
+                    try:
+                        data = await client.get_dividend_info(corp_code, str(current_year - 1), "11011")
+                        items = _parse_dividend_items(data)
+                        summary = _build_dividend_summary(items, "기말")
+                        div_total = summary.get("total_amount_mil", 0)
+                        if div_total > 0:
+                            tr_sections.append(f"- **배당금 총액 ({current_year - 1})**: {div_total:,}백만원")
+                            if total_acq > 0:
+                                total_return = div_total * 1_000_000 + total_acq
+                                tr_sections.append(f"- **총 주주환원**: {total_return:,}원 (배당 + 자사주)")
+                    except:
+                        pass
+
+                    if len(tr_sections) > 1:
+                        sections.append("\n".join(tr_sections))
+                except Exception:
+                    pass
+
+        except Exception as e:
+            sections.append(f"\n*배당/주주환원 분석 실패: {e}*")
+
+        if format == "json":
+            return json.dumps({"raw_sections": sections}, ensure_ascii=False, indent=2)
+
+        return "\n".join(sections)
+
+    @mcp.tool()
     async def own_manual() -> str:
         """desc: ownership tool 구조, 출력 형태 가이드, 컬럼별 소스 매핑, 판정 기준.
         when: 지분 구조 분석 시 또는 출력 형태 판단이 필요할 때.
