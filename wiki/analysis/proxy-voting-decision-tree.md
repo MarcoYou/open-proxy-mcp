@@ -3,6 +3,7 @@ type: analysis
 title: Proxy Voting Decision Tree (통합 의결권 행사 판단 프레임워크)
 tags: [proxy-voting, governance, decision-tree, framework]
 related: [jpm-voting-process, 주총방어전략-2026, 주총체크리스트-2026, 주총방어-시나리오-4가지, 상법개정-타임라인-2026, 의결권, cross-domain-체이닝]
+sources: [jpm-voting-process, 주총방어전략-2026, 주총체크리스트-2026]
 ---
 
 # Proxy Voting Decision Tree

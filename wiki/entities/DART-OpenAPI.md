@@ -2,7 +2,7 @@
 type: entity
 title: DART OpenAPI
 tags: [api, data-source, dart, fss]
-related: [KRX-KIND, 네이버-금융, OpenProxy-MCP, alotMatter]
+related: [KRX-KIND, 네이버-금융, OpenProxy-MCP, 배당성향, div-tool-rule]
 ---
 
 # DART OpenAPI

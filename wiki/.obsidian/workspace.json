@@ -185,6 +185,10 @@
   },
   "active": "c3948d19ea5186b1",
   "lastOpenFiles": [
+    "concepts/경영권-방어.md",
+    "concepts/주주환원.md",
+    "concepts/당기순이익.md",
+    "concepts/자본준비금.md",
     "analysis/proxy-voting-decision-tree.md",
     "analysis/상법개정-타임라인-2026.md",
     "analysis/주총방어-시나리오-4가지.md",
@@ -210,10 +214,6 @@
     "disclosures/주주총회소집공고.md",
     "disclosures",
     "concepts/지분구조.md",
-    "concepts/소진율.md",
-    "concepts/v4-스키마.md",
-    "analysis/파서-성능-추이.md",
-    "index.md",
-    "WIKI_SCHEMA.md"
+    "concepts/소진율.md"
   ]
 }
