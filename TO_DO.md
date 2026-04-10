@@ -55,6 +55,10 @@
 - [ ] 별도 OCR tool → 결과를 agenda detail에 병합
 
 
+### own_full_analysis 추가 개선
+- [ ] ctr_stkrt와 사업보고서 지분율 차이 나는 케이스 조사 (기준 불일치 원인 파악)
+- [ ] 대량보유자 중 사업보고서에 없는 케이스 처리 개선 (국민연금 등)
+
 ### Chain Tools (향후)
 - [ ] agm_full_analysis(ticker) — agenda → personnel → compensation → vote result → 종합 판정
 - [ ] governance_report(ticker) — agm + own + div 3개 도메인 한 번에
