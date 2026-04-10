@@ -511,7 +511,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 지분 구조 종합 분석 — 사업보고서 vs 최신 공시 지분율 비교 테이블.
         when: 특정 기업 주주 구성을 사업보고서 기준과 최신 공시 기준으로 비교할 때.
-        rule: own_major(사업보고서) + own_block(수시 공시) 데이터를 통합. 반환된 markdown 테이블을 반드시 그대로 테이블 형식으로 출력할 것.
+        rule: own_major(사업보고서) + own_block(수시 공시) 데이터를 통합. 결과를 반드시 | 주주 | 구분 | 지분율 | 비고 | 형식의 4컬럼 markdown 테이블로 출력. 차트/시각화 사용 금지.
         ref: own_major, own_block, own_total, own_manual
 
         Args:
