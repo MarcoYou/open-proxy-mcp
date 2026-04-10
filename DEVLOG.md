@@ -2,6 +2,14 @@
 
 ## 2026-04-10
 
+### own_full_analysis 개선
+- 배당/주주환원 코드 제거 → 지분 전용
+- 사업보고서 vs 최신 공시 지분율 비교 테이블
+- 헤더 카드: 최대주주/특관인합계/자사주 (기준일 포함)
+- 비고: "대량보유 19.83% (보고자+특관), 경영참여, 2026.01.30"
+- ctr_stkrt(본인 지분) vs stkrt(합산) 구분
+- docstring rule에 "4컬럼 테이블 출력" 명시
+
 ### Dispatch Table 적용 (48 → 32 tools)
 - 16개 PDF/OCR tool → agm_parse_fallback 1개로 통합
 - PARSER_DISPATCH dict: 8 파서의 pdf_parser/ocr_key/formatter/empty_check 매핑

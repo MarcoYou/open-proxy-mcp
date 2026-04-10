@@ -5,6 +5,11 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-10] fix | own_full_analysis 테이블 포맷 + 대량보유 비교 기준 정리
+- 헤더 카드: 최대주주/특관합계/자사주
+- ctr_stkrt(본인) vs stkrt(합산) 구분, 비고에 합산 명시
+- docstring rule에 테이블 출력 형식 지시
+
 ## [2026-04-10] refactor | Dispatch Table + Chain Tool + README 재작성
 - Dispatch Table: 16 PDF/OCR → agm_parse_fallback 1개 (48→32 tools)
 - Chain Tool: own_full_analysis (지분+배당+자사주+주주환원)
