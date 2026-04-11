@@ -27,9 +27,7 @@
 - [ ] 집중투표 분석 tool 체이닝 (agm + own 연계, 의결권 시뮬레이션)
 
 ### 기업 검색 (lookup_corp_code) 개선
-- [ ] 동명 기업 이슈 (미래에셋증권 corp_code 2개 중 잘못된 것 매칭)
-- [ ] 영문/약칭 → DART 한글명 매칭 실패 4건 (LS ELECTRIC, SK바이오팜, TKG휴켐스, KT&G)
-- [ ] stock_code fallback (이름 실패 시 종목코드로 재검색)
+- [ ] alias dict 확장 — 새 브랜드명/영문명 발견 시 추가
 
 ### prx_* 위임장 권유 tool (향후)
 - [ ] prx_search — 위임장 권유 참고서류 검색

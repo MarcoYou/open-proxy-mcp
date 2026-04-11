@@ -43,6 +43,40 @@ class DartClientError(Exception):
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
 _corp_code_cache: list[dict] | None = None
 
+# 법인격 suffix 제거 패턴
+_CORP_SUFFIX_RE = re.compile(
+    r'\s*[\(（]?주[\)）]?\s*$'     # (주), ㈜, 주)
+    r'|\s*㈜\s*$'
+    r'|\s*주식회사\s*$'
+    r'|\s*co\.,?\s*ltd\.?\s*$'
+    r'|\s*inc\.?\s*$'
+    r'|\s*corp\.?\s*$',
+    re.IGNORECASE
+)
+
+# 알려진 약칭/영문명 → DART 정식 한글명 매핑 (lowercase key)
+_CORP_ALIASES: dict[str, str] = {
+    "ls electric": "엘에스일렉트릭",
+    "ls일렉트릭": "엘에스일렉트릭",
+    "sk바이오팜": "에스케이바이오팜",
+    "kt&g": "케이티앤지",
+    "ktng": "케이티앤지",
+    "tkg휴켐스": "티케이지휴켐스",
+    "휴켐스": "티케이지휴켐스",
+}
+
+def _normalize_corp_name(name: str) -> str:
+    """법인격 suffix 제거 후 소문자 변환 (매칭용)"""
+    name = _CORP_SUFFIX_RE.sub("", name.strip())
+    return name.strip().lower()
+
+def _sort_corp_results(corps: list[dict]) -> list[dict]:
+    """상장(stock_code 있음) 우선, 동점 시 modify_date 최신 순"""
+    return sorted(
+        corps,
+        key=lambda c: (0 if c.get("stock_code") else 1, -(int(c.get("modify_date") or "0"))),
+    )
+
 
 class DartClient:
     """OpenDART API 호출 래퍼
@@ -198,38 +232,103 @@ class DartClient:
         return corps
 
     async def lookup_corp_code(self, query: str) -> dict | None:
-        """종목코드(ticker) 또는 회사명으로 corp_code 조회
+        """종목코드/회사명/약칭/영문명으로 corp_code 조회 (단일 결과)
+
+        동명 기업이 있을 경우 modify_date 최신 + 상장 기업 우선.
+        여러 후보가 필요하면 lookup_corp_code_all() 사용.
 
         Args:
-            query: 종목코드 (예: "033780") 또는 회사명 (예: "KT&G", "삼성전자")
+            query: 종목코드(6자리), corp_code(8자리), 회사명, 약칭, 영문명
 
         Returns:
-            {"corp_code": "...", "corp_name": "...", "stock_code": "..."} 또는 None
+            {"corp_code": ..., "corp_name": ..., "stock_code": ..., "modify_date": ...} 또는 None
+        """
+        results = await self.lookup_corp_code_all(query)
+        if not results:
+            return None
+        return results[0]
+
+    async def lookup_corp_code_all(self, query: str) -> list[dict]:
+        """query에 매칭되는 기업 전체 목록 반환 (우선순위 정렬)
+
+        우선순위: 1) 정확매치 > 2) 정규화 매치 > 3) 부분 매치
+                  각 단계 내에서: 상장(stock_code 있음) 우선 → modify_date 최신 순
         """
         corps = await self._load_corp_codes()
+        query = query.strip()
 
-        # 1) 종목코드로 정확히 매치
-        for corp in corps:
-            if corp["stock_code"] == query:
-                return corp
+        # 1) 종목코드 6자리 정확 매치
+        if re.match(r'^\d{6}$', query):
+            exact = [c for c in corps if c["stock_code"] == query]
+            if exact:
+                return exact
 
-        # 2) 회사명 정확히 매치
-        for corp in corps:
-            if corp["corp_name"] == query:
-                return corp
+        # 2) corp_code 8자리 정확 매치
+        if re.match(r'^\d{8}$', query):
+            exact = [c for c in corps if c["corp_code"] == query]
+            if exact:
+                return exact
 
-        # 3) 회사명 부분 매치 (상장 기업 우선)
-        partial = []
-        for corp in corps:
-            if query in corp["corp_name"]:
-                partial.append(corp)
+        # 3) 알려진 alias → DART 정식명으로 변환
+        q_lower = query.lower()
+        if q_lower in _CORP_ALIASES:
+            query = _CORP_ALIASES[q_lower]
 
+        # 4) 회사명 정확 매치
+        exact = [c for c in corps if c["corp_name"] == query]
+        if exact:
+            return _sort_corp_results(exact)
+
+        # 5) 정규화 후 정확 매치 (법인격 제거)
+        q_norm = _normalize_corp_name(query)
+        norm_exact = [c for c in corps if _normalize_corp_name(c["corp_name"]) == q_norm]
+        if norm_exact:
+            return _sort_corp_results(norm_exact)
+
+        # 6) 부분 매치 (원본 query)
+        partial = [c for c in corps if query in c["corp_name"]]
         if partial:
-            # 상장 기업(stock_code 있는 것) 우선
-            listed = [c for c in partial if c["stock_code"]]
-            return listed[0] if listed else partial[0]
+            return _sort_corp_results(partial)
 
-        return None
+        # 7) 정규화 부분 매치
+        norm_partial = [c for c in corps if q_norm in _normalize_corp_name(c["corp_name"])]
+        if norm_partial:
+            return _sort_corp_results(norm_partial)
+
+        return []
+
+    async def get_naver_corp_profile(self, stock_code: str) -> dict:
+        """NAVER 금융에서 업종명 조회 (웹 스크래핑)
+
+        Returns:
+            {"sector_name": "반도체와반도체장비", "sector_code": "278"} 또는 {}
+        """
+        try:
+            async with httpx.AsyncClient() as http:
+                await asyncio.sleep(2.0)  # 웹 스크래핑 최소 간격
+                r = await http.get(
+                    f"https://finance.naver.com/item/coinfo.naver?code={stock_code}",
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=10,
+                )
+                # 업종 링크에서 no 추출
+                m = re.search(r'sise_group_detail\.naver\?type=upjong&no=(\d+)', r.text)
+                if not m:
+                    return {}
+                sector_code = m.group(1)
+
+                await asyncio.sleep(2.0)
+                r2 = await http.get(
+                    f"https://finance.naver.com/sise/sise_group_detail.naver?type=upjong&no={sector_code}",
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=10,
+                )
+                # title: "반도체와반도체장비 : Npay 증권"
+                m2 = re.search(r'<title>([^:]+)\s*:', r2.text)
+                sector_name = m2.group(1).strip() if m2 else ""
+                return {"sector_name": sector_name, "sector_code": sector_code}
+        except Exception:
+            return {}
 
     # ── 기업 기본정보 ──
 
