@@ -33,7 +33,7 @@ def register_tools(mcp):
         """desc: 최대주주 + 특수관계인 지분 현황 (사업보고서 기준). 보통주 기준 지분율 + 변동이력.
         when: 최대주주가 누구인지, 특관인 포함 합산 지분율을 볼 때.
         rule: 사업보고서 신고 기준. 실질 최다보유자와 다를 수 있음 (대량보유는 own_block 참조). 우선주 별도 표시.
-        ref: own_block, own_latest, own_manual
+        ref: corp_identifier, own_block, own_latest, own_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -206,7 +206,7 @@ def register_tools(mcp):
         """desc: 5% 대량보유 상황보고. 보유목적(단순투자/일반투자/경영참여) + 목적변경 감지.
         when: 5% 이상 대량보유자와 보유목적을 볼 때. 프록시 파이트 감지.
         rule: 수시 공시 기반. 보유목적은 원문 파싱 (report_resn + document.xml). 보고자+특별관계자 합산.
-        ref: own_major, own_latest, own_manual, agm_result
+        ref: corp_identifier, own_major, own_latest, own_manual, agm_result
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -512,7 +512,7 @@ def register_tools(mcp):
         """desc: 지분 구조 종합 분석 — 사업보고서 vs 최신 공시 지분율 비교 테이블.
         when: 특정 기업 주주 구성을 사업보고서 기준과 최신 공시 기준으로 비교할 때.
         rule: own_major(사업보고서) + own_block(수시 공시) 데이터를 통합. 결과를 반드시 | 주주 | 구분 | 지분율 | 비고 | 형식의 4컬럼 markdown 테이블로 출력. 차트/시각화 사용 금지.
-        ref: own_major, own_block, own_total, own_manual
+        ref: corp_identifier, own_major, own_block, own_total, own_manual
 
         Args:
             ticker: 종목코드 또는 회사명

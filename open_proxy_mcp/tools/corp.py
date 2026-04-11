@@ -1,4 +1,4 @@
-"""기업 식별자 통합 조회 tool (corp_resolve)"""
+"""기업 식별자 통합 조회 tool (corp_identifier)"""
 
 import json
 import asyncio
@@ -10,14 +10,14 @@ from open_proxy_mcp.tools.errors import tool_error, tool_not_found
 def register_tools(mcp):
 
     @mcp.tool()
-    async def corp_resolve(
+    async def corp_identifier(
         query: str,
         format: str = "md",
     ) -> str:
         """desc: 기업 통합 식별자 조회 — DART/NAVER 소스에서 가능한 모든 identifier + classification 수집.
-        when: 종목코드, 회사명, 영문명, 약칭 등 어떤 입력으로도 기업의 전체 식별자를 한 번에 조회할 때. 동명기업 확인, 영문/약칭 매칭 실패 디버깅에도 사용.
+        when: 종목코드, 회사명, 영문명, 약칭 등 어떤 입력으로도 기업의 전체 식별자를 한 번에 조회할 때. 동명기업 확인, 영문/약칭 매칭 실패 디버깅에도 사용. 다른 tool 호출 전 기업을 특정할 때 먼저 실행.
         rule: DART corpCode.xml(corp_code/stock_code) → DART company.json(법인번호/영문명/업종코드) → NAVER(업종명) 순서로 chain 조회. 동명기업 있으면 전체 목록 노출.
-        ref: own_major, own_block, agm_personnel_xml, div_search
+        ref: corp_manual, own_major, own_block, agm_personnel_xml, div_search
         """
         client = get_dart_client()
 
@@ -142,10 +142,10 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def corp_manual() -> str:
-        """desc: corp_resolve 사용 가이드 — 입력 타입별 동작, 동명기업 처리, 실패 케이스.
-        when: corp_resolve 사용법이 불명확할 때.
+        """desc: corp_identifier 사용 가이드 — 입력 타입별 동작, 동명기업 처리, alias 목록.
+        when: corp_identifier 사용법이 불명확하거나, 기업 검색이 실패할 때.
         rule: 이 tool 자체는 DART API를 호출하지 않음.
-        ref: corp_resolve
+        ref: corp_identifier
         """
         return """# corp_resolve 사용 가이드
 

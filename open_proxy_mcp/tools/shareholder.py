@@ -192,7 +192,7 @@ def register_tools(mcp):
         """desc: 주주총회 소집공고 검색. rcept_no 리스트 반환.
         when: 특정 기업의 주총 공고를 찾을 때. 다른 agm_* tool에 필요한 rcept_no를 여기서 획득.
         rule: ticker 또는 종목코드로 검색. 정정공고 포함, 최신 정정본에 ← 최신 표시.
-        ref: agm, agm_agenda_xml, agm_manual
+        ref: corp_identifier, agm, agm_agenda_xml, agm_manual
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -742,7 +742,7 @@ def register_tools(mcp):
         """desc: 주총 종합 오케스트레이터. info + agenda + financials + treasury + corrections 한 번에.
         when: 특정 기업 주총 전체를 빠르게 파악할 때. rcept_no 없이 ticker만으로.
         rule: 상세 분석은 개별 agm_* tool 사용. 이 tool은 요약용.
-        ref: agm_search, agm_agenda_xml, agm_financials_xml, agm_manual
+        ref: corp_identifier, agm_search, agm_agenda_xml, agm_financials_xml, agm_manual
 
         Args:
             ticker: 종목코드 또는 회사명

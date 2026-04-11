@@ -352,7 +352,7 @@ def register_tools(mcp):
         """desc: 배당 관련 공시 검색 (현금배당 결정, 중간배당 등).
         when: 특정 기업의 배당 공시를 찾을 때. ticker로 검색.
         rule: 검색 결과에서 rcept_no를 얻어 div_detail에 전달.
-        ref: div_detail, div_history, div_manual"""
+        ref: corp_identifier, div_detail, div_history, div_manual"""
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -764,7 +764,7 @@ def register_tools(mcp):
         """desc: 배당 종합 — 최근 배당 상세 + 3년 추이. 보통주/우선주 모두 포함.
         when: 기업의 배당 정책/현황을 종합적으로 볼 때.
         rule: div_detail(최신) + div_history(3년)를 합쳐서 반환.
-        ref: div_detail, div_history, div_manual"""
+        ref: corp_identifier, div_detail, div_history, div_manual"""
         # 최신 기말 배당
         detail = await div_detail(ticker=ticker, format=format)
         # 3년 이력
