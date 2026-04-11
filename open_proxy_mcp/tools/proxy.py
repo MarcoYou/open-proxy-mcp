@@ -14,26 +14,33 @@ from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
 # ── 내부 파서 ──
 
 _DIRECTION_PATTERNS = [
-    # "제3-1호 ... 에 찬성"
-    re.compile(r'제\s*(\d+(?:-\d+)?)\s*호[^.。\n]{0,80}?(찬성|반대|기권)', re.DOTALL),
-    # "찬성 ... 제3-1호"
-    re.compile(r'(찬성|반대|기권)[^.。\n]{0,80}?제\s*(\d+(?:-\d+)?)\s*호', re.DOTALL),
+    # "제3-1호 ... 에 찬성" (줄바꿈 포함)
+    re.compile(r'제\s*(\d+(?:-\d+)?)\s*호[\s\S]{0,200}?(찬성|반대|기권)', re.DOTALL),
+    # "찬성 ... 제3-1호" (줄바꿈 포함)
+    re.compile(r'(찬성|반대|기권)[\s\S]{0,200}?제\s*(\d+(?:-\d+)?)\s*호', re.DOTALL),
+    # "3-3\n호 ... 찬성" — "제" 없는 경우 (일부 주주측 서식)
+    re.compile(r'(\d+(?:-\d+)?)\s*\n?\s*호[\s\S]{0,200}?(찬성|반대|기권)', re.DOTALL),
+    # "찬성 ... 3-3호" — "제" 없는 경우
+    re.compile(r'(찬성|반대|기권)[\s\S]{0,200}?(\d+(?:-\d+)?)\s*\n?\s*호', re.DOTALL),
 ]
 
 def _parse_directions(text: str) -> dict[str, str]:
     """Section II-1 자유서술에서 안건별 행사방향 추출"""
     result: dict[str, str] = {}
 
-    # 패턴 1: 안건번호 먼저
-    for m in _DIRECTION_PATTERNS[0].finditer(text):
-        agno, direction = m.group(1), m.group(2)
-        result[agno] = direction
+    # 패턴 1, 3: 안건번호 먼저 ("제N호", "N호" 모두)
+    for pat in [_DIRECTION_PATTERNS[0], _DIRECTION_PATTERNS[2]]:
+        for m in pat.finditer(text):
+            agno, direction = m.group(1), m.group(2)
+            if agno not in result:
+                result[agno] = direction
 
-    # 패턴 2: 행사방향 먼저 (패턴 1로 못 잡은 것만)
-    for m in _DIRECTION_PATTERNS[1].finditer(text):
-        direction, agno = m.group(1), m.group(2)
-        if agno not in result:
-            result[agno] = direction
+    # 패턴 2, 4: 행사방향 먼저 (패턴 1,3으로 못 잡은 것만)
+    for pat in [_DIRECTION_PATTERNS[1], _DIRECTION_PATTERNS[3]]:
+        for m in pat.finditer(text):
+            direction, agno = m.group(1), m.group(2)
+            if agno not in result:
+                result[agno] = direction
 
     return result
 
