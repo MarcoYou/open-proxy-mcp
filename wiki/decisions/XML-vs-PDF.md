@@ -1,5 +1,5 @@
 ---
-type: analysis
+type: decision
 title: XML vs PDF 비교 분석
 tags: [parser, architecture, comparison]
 sources: [DEVLOG.md]

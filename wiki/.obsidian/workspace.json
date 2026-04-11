@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "index.md",
+                "file": "disclosures/반기보고서.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "index"
+              "title": "반기보고서"
             }
           }
         ]
@@ -183,8 +183,23 @@
       "bases:새 베이스 생성하기": false
     }
   },
-  "active": "c3948d19ea5186b1",
+  "active": "ff8d6a8adb2dac1f",
   "lastOpenFiles": [
+    "comparison/stkrt-vs-ctr_stkrt.md",
+    "decisions/파서-성능-추이.md",
+    "decisions/경력-파서-벤치마크-2026-04.md",
+    "decisions/cross-domain-체이닝.md",
+    "decisions/파이프라인-아키텍처.md",
+    "decisions/LLM-fallback-설계.md",
+    "decisions/free-paid-분리.md",
+    "decisions/BeautifulSoup-파서-선택.md",
+    "decisions/XML-vs-PDF.md",
+    "comparison",
+    "decisions",
+    "disclosures/대량보유상황보고서.md",
+    "disclosures/반기보고서.md",
+    "entities/네이버-금융.md",
+    "index.md",
     "concepts/경영권-방어.md",
     "concepts/주주환원.md",
     "concepts/당기순이익.md",
@@ -201,19 +216,6 @@
     "raw",
     "analysis/cross-domain-체이닝.md",
     "analysis/KIND-검색-API-조사.md",
-    "disclosures/정정공시.md",
-    "disclosures/위임장권유참고서류.md",
-    "disclosures/자기주식취득처분결정.md",
-    "disclosures/임원주요주주특정증권등소유상황보고서.md",
-    "disclosures/대량보유상황보고서.md",
-    "disclosures/현금배당결정.md",
-    "disclosures/분기보고서.md",
-    "disclosures/반기보고서.md",
-    "disclosures/사업보고서.md",
-    "disclosures/주주총회결과.md",
-    "disclosures/주주총회소집공고.md",
-    "disclosures",
-    "concepts/지분구조.md",
-    "concepts/소진율.md"
+    "disclosures"
   ]
 }

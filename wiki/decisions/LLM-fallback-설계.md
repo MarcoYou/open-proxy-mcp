@@ -1,5 +1,5 @@
 ---
-type: analysis
+type: decision
 title: LLM Fallback 설계
 tags: [llm, fallback, architecture]
 sources: [DEVLOG.md]

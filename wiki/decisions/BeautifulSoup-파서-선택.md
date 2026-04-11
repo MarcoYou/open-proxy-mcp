@@ -1,5 +1,5 @@
 ---
-type: analysis
+type: decision
 title: BeautifulSoup 파서 선택
 tags: [parser, benchmark, lxml, beautifulsoup]
 sources: [DEVLOG.md]

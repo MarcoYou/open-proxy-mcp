@@ -1,5 +1,5 @@
 ---
-type: analysis
+type: decision
 title: Cross-domain Tool 체이닝
 tags: [architecture, tool-chaining, agm, own, div]
 related: [OpenProxy-MCP, agm-tool-rule, own-tool-rule, div-tool-rule]

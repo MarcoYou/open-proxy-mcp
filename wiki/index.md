@@ -51,7 +51,7 @@ updated: 2026-04-05
 - [[FastMCP]] - Python MCP 서버 프레임워크
 - [[opendataloader]] - PDF 마크다운 변환 라이브러리, _pdf tier 백엔드
 
-## Analysis
+## Decisions
 
 - [[경력-파서-벤치마크-2026-04]] - personnel XML 878명 전수 벤치마크 (SUCCESS 79.4%)
 - [[XML-vs-PDF]] - XML 1차 + PDF 보강이 최적, PDF-only는 역효과
@@ -61,6 +61,13 @@ updated: 2026-04-05
 - [[파서-성능-추이]] - 2026-03-20부터 04-06까지 8개 파서 개선 이력
 - [[cross-domain-체이닝]] - AGM/OWN/DIV 도메인 간 tool 연결 맵 + 시나리오
 - [[파이프라인-아키텍처]] - 199개 기업 v4 JSON 생성 배치 파이프라인
+
+## Comparison
+
+- [[stkrt-vs-ctr_stkrt]] - DART 대량보유 API: stkrt(합산) vs ctr_stkrt(주요계약체결) 차이
+
+## Analysis
+
 - [[KIND-주총결과]] - KIND 크롤링 기반 투표결과+참석률 역산 분석
 - [[주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (미래에셋증권)
 - [[상법개정-타임라인-2026]] - 2025-2027 상법 개정 시행 일정

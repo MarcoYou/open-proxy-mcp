@@ -1,5 +1,5 @@
 ---
-type: analysis
+type: decision
 title: free/paid 2-repo 분리
 tags: [architecture, business-model]
 sources: [DEVLOG.md, OPA_README.md, OPM_README.md]
