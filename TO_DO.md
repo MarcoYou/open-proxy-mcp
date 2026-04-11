@@ -30,11 +30,12 @@
 - [ ] alias dict 확장 — 새 브랜드명/영문명 발견 시 추가
 
 ### prx_* 위임장 권유 tool (향후)
-- [ ] prx_search — 위임장 권유 참고서류 검색
-- [ ] prx_detail — 권유자 + 방법 + 비용
-- [ ] prx_direction — 안건별 의결권 행사 방향
-- [ ] prx_fight — 프록시 파이트 감지 (양측 비교)
-- [ ] prx_manual — PRX_TOOL_RULE + PRX_CASE_RULE
+- [x] prx_search — 위임장 권유 참고서류 검색
+- [x] prx_detail — 권유자 + 방법 (비용은 별도 공시 "의결권대리행사권유신고서"에 있음)
+- [x] prx_direction — 안건별 의결권 행사 방향
+- [x] prx_fight — 프록시 파이트 감지 (양측 비교)
+- [x] prx_manual — PRX_TOOL_RULE + PRX_CASE_RULE
+- [ ] prx_search 정정본 처리 — 주주측 초기 제출 시 후보자 미기재, 최신 정정본 rcept_no 자동 선택 필요
 
 ### LLM fallback
 - [ ] LLM fallback tool — XML 원문 + AGM_CASE_RULE로 AI 보강 (향후)

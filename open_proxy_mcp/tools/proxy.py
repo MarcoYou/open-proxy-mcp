@@ -153,7 +153,7 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """desc: 위임장 권유 상세 — 권유자 보유주식, 권유기간, 대리인, 전자위임장 방법.
+        """desc: 위임장 권유 상세 — 권유자 보유주식, 권유기간, 대리인, 전자위임장 방법. (비용은 별도 공시인 의결권대리행사권유신고서에 있음)
         when: 특정 위임장 공시(rcept_no)의 권유자 정보와 방법을 볼 때.
         rule: get_document()로 원문 파싱. Section I(권유자) + Section II-2(위임 방법) 추출.
         ref: prx_search, prx_direction, prx_manual
