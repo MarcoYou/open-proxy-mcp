@@ -51,3 +51,6 @@ test_screenshots/*.png
 samples/
 .omc/
 .obsidian/
+
+# Graphify (knowledge graph build artifacts — rebuilt from wiki/)
+graphify-out/
