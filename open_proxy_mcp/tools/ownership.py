@@ -618,10 +618,10 @@ def register_tools(mcp):
             if name in latest_by_reporter:
                 b_item = latest_by_reporter[name]
                 try:
-                    latest_pct = float(b_item.get("ctr_stkrt", 0) or 0)
+                    # stkrt = 보고자+특별관계자 합산 지분율 (보고서 표지 기준)
+                    # ctr_stkrt = 주요계약체결 주식 비율 (담보/신탁) — 지분율 아님, 사용 안 함
                     total_pct = float(b_item.get("stkrt", 0) or 0)
                 except ValueError:
-                    latest_pct = None
                     total_pct = None
                 latest_date = b_item.get("rcept_dt", "")
                 # 날짜 포맷
@@ -646,24 +646,19 @@ def register_tools(mcp):
                 "note": note,
             })
 
-        # 사업보고서에 없지만 5% 대량보유에만 있는 주주
+        # 사업보고서에 없지만 5% 대량보유에만 있는 주주 (국민연금, 외국계 기관 등)
         for name, item in latest_by_reporter.items():
             if name not in ar_shareholders:
                 try:
-                    ctr_pct = float(item.get("ctr_stkrt", 0) or 0)
+                    # stkrt = 보고자+특별관계자 합산. 개별 지분은 API 없음 (원문 파싱 필요)
                     total_pct = float(item.get("stkrt", 0) or 0)
                 except ValueError:
-                    ctr_pct = 0.0
                     total_pct = 0.0
-                pct = ctr_pct if ctr_pct > 0 else total_pct
-                if pct > 0:
+                if total_pct > 0:
                     dt = item.get("rcept_dt", "")
                     dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if dt and len(dt) >= 8 else ""
                     parts = []
-                    if total_pct > ctr_pct + 0.01:
-                        parts.append(f"대량보유 {total_pct:.2f}% (보고자+특관)")
-                    else:
-                        parts.append("대량보유 공시 기준")
+                    parts.append(f"대량보유 {total_pct:.2f}% (보고자+특관)")
                     purpose = purposes.get(name, "")
                     if purpose:
                         parts.append(purpose)
@@ -674,7 +669,7 @@ def register_tools(mcp):
                         "name": name,
                         "category": "5% 대량보유",
                         "ar_pct": None,
-                        "latest_pct": pct,
+                        "latest_pct": total_pct,
                         "latest_date": dt,
                         "note": note,
                     })
