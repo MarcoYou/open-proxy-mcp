@@ -17,7 +17,6 @@
 """
 
 import json
-import os
 import re
 import logging
 from datetime import datetime
@@ -335,9 +334,9 @@ def register_tools(mcp):
         end_de: str = "",
     ) -> str:
         """desc: 배당 관련 공시 검색 (현금배당 결정, 중간배당 등).
-        when: 특정 기업의 배당 공시를 찾을 때. ticker로 검색.
+        when: [tier-3 Search] 특정 기업의 배당 공시를 찾을 때. ticker로 검색.
         rule: 검색 결과에서 rcept_no를 얻어 div_detail에 전달.
-        ref: corp_identifier, div_detail, div_history, div_manual"""
+        ref: corp_identifier, div_detail, div_history"""
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -383,9 +382,9 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 배당 상세 — 보통주/우선주 DPS, 배당총액, 배당성향, 시가배당률, 특별배당, 종류주식(우선주) 상세.
-        when: 배당 내용을 볼 때. 우선주(2우B, 우선주) 배당도 이 tool로 조회. "삼성전자우" 질문 시 ticker="삼성전자"로 호출 후 preferred_stocks에서 확인.
+        when: [tier-5 Detail] 배당 내용을 볼 때. 우선주(2우B, 우선주) 배당도 이 tool로 조회. "삼성전자우" 질문 시 ticker="삼성전자"로 호출 후 preferred_stocks에서 확인.
         rule: 우선주는 보통주 공시 안에 포함. ticker는 보통주 기준으로 입력. reprt_code로 분기 선택 (11011=기말, 11012=반기, 11013=1Q, 11014=3Q). DART 제공 배당성향/시가배당률이 있으면 우선 사용.
-        ref: div_history, div_manual, own_total, agm_financials_xml"""
+        ref: div_history, own_total, agm_financials_xml"""
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -524,9 +523,9 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 배당 이력 — 공시 건별 집계. 보통주/우선주 DPS, 배당구분(결산/분기/중간), 기준일, 지급일, 배당성향, 배당수익률, 종류주식 상세.
-        when: 배당 추이/패턴을 볼 때. 분기배당 여부, 배당 시작/중단 시그널 감지.
+        when: [tier-5 Detail] 배당 추이/패턴을 볼 때. 분기배당 여부, 배당 시작/중단 시그널 감지.
         rule: 현금배당결정 공시(거래소)를 건별로 파싱하여 집계. 배당구분은 공시 자체에 명시(결산배당/분기배당/중간배당). alotMatter는 연간 요약(배당성향/수익률)으로만 사용.
-        ref: div_detail, div_manual, own_treasury_tx"""
+        ref: div_detail, own_treasury_tx"""
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -747,28 +746,12 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 배당 종합 — 최근 배당 상세 + 3년 추이. 보통주/우선주 모두 포함.
-        when: 기업의 배당 정책/현황을 종합적으로 볼 때.
+        when: [tier-4 Orchestrate] 기업의 배당 정책/현황을 종합적으로 볼 때.
         rule: div_detail(최신) + div_history(3년)를 합쳐서 반환.
-        ref: corp_identifier, div_detail, div_history, div_manual"""
+        ref: corp_identifier, div_detail, div_history"""
         # 최신 기말 배당
         detail = await div_detail(ticker=ticker, format=format)
         # 3년 이력
         history = await div_history(ticker=ticker, years=3, format=format)
 
         return f"{detail}\n\n---\n\n{history}"
-
-    @mcp.tool()
-    async def div_manual() -> str:
-        """desc: 배당 tool 구조, 출력 형태 가이드, 연산 규칙, 판정 기준.
-        when: 배당 분석 시 또는 연산 방법 확인이 필요할 때.
-        ref: DIV_TOOL_RULE.md, DIV_CASE_RULE.md"""
-        pkg_dir = os.path.dirname(os.path.dirname(__file__))
-        parts = []
-        for fname in ("DIV_TOOL_RULE.md", "DIV_CASE_RULE.md"):
-            fpath = os.path.join(pkg_dir, fname)
-            try:
-                with open(fpath, "r") as f:
-                    parts.append(f.read())
-            except FileNotFoundError:
-                parts.append(f"\n({fname}를 찾을 수 없습니다)")
-        return "\n\n---\n\n".join(parts)

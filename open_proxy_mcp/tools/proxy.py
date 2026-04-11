@@ -80,9 +80,9 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 위임장 권유 참고서류 검색 — 회사측/주주측 구분 + rcept_no 목록.
-        when: 특정 기업의 위임장 공시를 찾을 때. prx_detail/prx_direction에 필요한 rcept_no 획득.
+        when: [tier-3 Search] 특정 기업의 위임장 공시를 찾을 때. prx_detail/prx_direction에 필요한 rcept_no 획득.
         rule: DART list.json에서 corp_code + 날짜 범위 검색 후 report_nm으로 필터. flr_nm으로 회사측/주주측 구분.
-        ref: corp_identifier, prx_detail, prx_direction, prx_fight, prx_manual
+        ref: corp_identifier, prx_detail, prx_direction, prx_fight
         """
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
@@ -161,9 +161,9 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 위임장 권유 상세 — 권유자 보유주식, 권유기간, 대리인, 전자위임장 방법. (비용은 별도 공시인 의결권대리행사권유신고서에 있음)
-        when: 특정 위임장 공시(rcept_no)의 권유자 정보와 방법을 볼 때.
+        when: [tier-5 Detail] 특정 위임장 공시(rcept_no)의 권유자 정보와 방법을 볼 때.
         rule: get_document()로 원문 파싱. Section I(권유자) + Section II-2(위임 방법) 추출.
-        ref: prx_search, prx_direction, prx_manual
+        ref: prx_search, prx_direction
         """
         client = get_dart_client()
         try:
@@ -228,9 +228,9 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 안건별 의결권 행사방향 — 찬성/반대/기권 파싱.
-        when: 특정 위임장(rcept_no)에서 각 안건에 대한 권유자 입장을 볼 때.
+        when: [tier-5 Detail] 특정 위임장(rcept_no)에서 각 안건에 대한 권유자 입장을 볼 때.
         rule: get_document()로 원문 Section II-1 파싱. 자유서술이므로 정규식으로 추출 — 불명확한 경우 "불명" 반환.
-        ref: prx_search, prx_detail, prx_fight, prx_manual
+        ref: prx_search, prx_detail, prx_fight
         """
         client = get_dart_client()
         try:
@@ -293,9 +293,9 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 프록시 파이트 감지 + 양측 행사방향 비교.
-        when: 특정 기업/연도에 프록시 파이트가 있었는지 확인하고 회사측 vs 주주측 입장을 비교할 때.
+        when: [tier-4 Orchestrate] 특정 기업/연도에 프록시 파이트가 있었는지 확인하고 회사측 vs 주주측 입장을 비교할 때.
         rule: prx_search로 복수 제출 감지 → 각 rcept_no에 prx_direction 적용 → 안건별 대립 표시.
-        ref: corp_identifier, prx_search, prx_direction, prx_manual
+        ref: corp_identifier, prx_search, prx_direction
         """
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
@@ -412,49 +412,3 @@ def register_tools(mcp):
             lines.append(f"주주측 ({o['flr_nm']}): `{o['rcept_no']}` ({dt_fmt})")
 
         return "\n".join(lines)
-
-    @mcp.tool()
-    async def prx_manual() -> str:
-        """desc: prx_* tool 사용 가이드 — PRX_TOOL_RULE 요약, 검색 방법, 파싱 한계.
-        when: prx_* tool 사용법이 불명확하거나 파싱이 실패했을 때.
-        rule: DART API를 호출하지 않음.
-        ref: prx_search, prx_detail, prx_direction, prx_fight
-        """
-        return """# prx_* Tool 가이드
-
-## Tool 체계
-
-| Tool | 입력 | 출력 |
-|------|------|------|
-| `prx_search(ticker, year)` | 종목코드/회사명, 연도 | rcept_no 목록 + 회사측/주주측 구분 |
-| `prx_detail(rcept_no)` | rcept_no | 권유자 보유주식, 권유기간, 위임 방법 |
-| `prx_direction(rcept_no)` | rcept_no | 안건별 행사방향 (찬성/반대/기권) |
-| `prx_fight(ticker, year)` | 종목코드/회사명, 연도 | 프록시 파이트 감지 + 양측 비교 |
-
-## 사용 순서
-
-```
-prx_search → rcept_no 목록 확인
-    ↓
-prx_direction → 안건별 행사방향
-    or
-prx_detail → 권유자 상세 정보
-    ↓
-prx_fight → 복수 제출 시 양측 비교 (자동 체이닝)
-```
-
-## 검색 방법
-
-- DART API `pblntf_detail_ty` 위임장 파라미터 미지원
-- corp_code + 날짜 범위 전체 검색 후 `report_nm`에서 "의결권대리행사권유" 필터
-
-## 회사측 vs 주주측 구분
-
-`flr_nm`(제출인)이 corp_name과 같으면 회사측, 다르면 주주측.
-
-## 행사방향 파싱 한계
-
-- Section II-1 자유서술에서 정규식으로 추출
-- 패턴이 맞지 않으면 "불명" 반환
-- 불명확한 경우 `prx_detail`로 원문 직접 확인 후 AI가 판단
-"""

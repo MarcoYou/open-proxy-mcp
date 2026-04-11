@@ -31,8 +31,6 @@ from open_proxy_mcp.tools.parser import (
     parse_treasury_share_xml,
     parse_capital_reserve_xml,
     parse_retirement_pay_xml,
-    extract_structural_elements,
-    get_agenda_contents,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
 from open_proxy_mcp.tools.pdf_parser import (
@@ -249,38 +247,6 @@ def register_tools(mcp):
         return "\n".join(lines)
 
     @mcp.tool()
-    async def agm_document(
-        rcept_no: str,
-        max_length: int = 10000,
-    ) -> str:
-        """desc: 소집공고 전체 원문 텍스트.
-        when: 안건 전문이나 원본 텍스트가 필요할 때. 특정 안건만 보려면 agm_items 사용.
-        rule: max_length로 텍스트 길이 제한. 원문이 길면 truncate됨.
-        ref: agm_items, agm_extract
-
-        Args:
-            rcept_no: 접수번호 (예: 20260225000123)
-            max_length: 반환할 최대 글자 수 (기본 10000)
-        """
-        doc = await _get_document_cached(rcept_no)
-        text = doc["text"]
-        images = doc["images"]
-
-        result_lines = []
-
-        if images:
-            result_lines.append(f"[첨부 이미지 {len(images)}개: {', '.join(images)}]")
-            result_lines.append("")
-
-        if len(text) > max_length:
-            result_lines.append(text[:max_length])
-            result_lines.append(f"\n... (전체 {len(text):,}자 중 {max_length:,}자 표시)")
-        else:
-            result_lines.append(text)
-
-        return "\n".join(result_lines)
-
-    @mcp.tool()
     async def agm_agenda_xml(
         rcept_no: str,
         use_llm: bool = False,
@@ -330,35 +296,6 @@ def register_tools(mcp):
             return json.dumps(result, ensure_ascii=False, indent=2)
 
         return _format_agenda_tree(agenda)
-
-    @mcp.tool()
-    async def agm_info(
-        rcept_no: str,
-    ) -> str:
-        """desc: 회의 정보 (일시/장소/투표방법/전자투표/온라인중계). 의안 제외.
-        when: 주총 개최 정보만 필요할 때.
-        rule: 보고사항 포함. 집중투표제 여부도 확인 가능.
-        ref: agm_search, agm_agenda_xml
-
-        Args:
-            rcept_no: 접수번호 (예: 20260225000123)
-        """
-        doc = await _get_document_cached(rcept_no)
-        info = parse_meeting_info_xml(doc["text"], html=doc.get("html", ""))
-
-        # 정정공고 메타데이터 추가
-        correction = parse_corrections_xml(doc.get("html", ""))
-        if correction:
-            info["correction_summary"] = {
-                "date": correction.get("date"),
-                "original_date": correction.get("original_date"),
-                "items": [
-                    {"section": item["section"][:60], "reason": item["reason"][:80]}
-                    for item in correction.get("items", [])
-                ],
-            }
-
-        return _format_meeting_info(info)
 
     @mcp.tool()
     async def agm_items(
@@ -854,64 +791,6 @@ def register_tools(mcp):
 
         return "\n".join(lines)
 
-    # ── 범용 추출 tool ──
-
-    @mcp.tool()
-    async def agm_extract(
-        rcept_no: str,
-        agenda_no: str = "",
-    ) -> str:
-        """desc: 안건별 원문(마크다운) + 핵심 수치 추출 (금액/인명/날짜/법령/비율).
-        when: 안건의 핵심 데이터포인트만 빠르게 추출할 때.
-        rule: agenda_no로 안건 필터 가능. 전체 안건이면 생략.
-        ref: agm_items, agm_manual
-
-        Args:
-            rcept_no: 접수번호
-            agenda_no: 안건 번호 (예: "제3호"). 빈 문자열이면 전체 안건.
-        """
-        doc = await _get_document_cached(rcept_no)
-        html = doc.get("html", "")
-        if not html:
-            return "문서를 파싱할 수 없습니다. (HTML 없음)"
-
-        contents = get_agenda_contents(html, agenda_no=agenda_no)
-        extracted = extract_structural_elements(html, agenda_no=agenda_no)
-
-        lines = []
-
-        # mdContents
-        if contents.get("mdContents"):
-            lines.append("## 원문")
-            lines.append(contents["mdContents"][:3000])
-            if len(contents["mdContents"]) > 3000:
-                lines.append(f"\n... ({len(contents['mdContents'])}자 중 3000자 표시)")
-            lines.append("")
-
-        # extracted
-        lines.append("## 핵심 데이터 추출")
-        if extracted["amounts"]:
-            lines.append(f"**금액**: {', '.join(extracted['amounts'][:10])}")
-        if extracted["names"]:
-            lines.append(f"**인명**: {', '.join(extracted['names'][:10])}")
-        if extracted["dates"]:
-            lines.append(f"**날짜**: {', '.join(extracted['dates'][:5])}")
-        if extracted["legalRefs"]:
-            lines.append(f"**법령**: {', '.join(extracted['legalRefs'][:5])}")
-        if extracted["percentages"]:
-            lines.append(f"**비율**: {', '.join(extracted['percentages'][:5])}")
-        if extracted["tables"]:
-            lines.append(f"**테이블**: {len(extracted['tables'])}개")
-            for t in extracted["tables"][:3]:
-                lines.append(f"  헤더: {t['headers'][:5]}")
-                for row in t["rows"][:2]:
-                    lines.append(f"  {[c[:20] for c in row[:5]]}")
-
-        if not any([extracted["amounts"], extracted["names"], extracted["tables"]]):
-            lines.append("추출된 데이터가 없습니다.")
-
-        return "\n".join(lines)
-
     # ── PDF/OCR fallback (unified) ──
 
     PARSER_DISPATCH = {
@@ -1021,23 +900,6 @@ def register_tools(mcp):
         if format == "json":
             return json.dumps(result, ensure_ascii=False, indent=2)
         return config["formatter"](result)
-
-    @mcp.tool()
-    async def agm_manual() -> str:
-        """desc: AGM tool 구조, fallback 흐름, 파서별 성공/실패 판정 기준.
-        when: 첫 호출 시 또는 파싱 결과 품질 판단이 필요할 때.
-        rule: 없음.
-        ref: AGM_TOOL_RULE.md, AGM_CASE_RULE.md"""
-        pkg_dir = os.path.dirname(os.path.dirname(__file__))
-        parts = []
-        for fname in ("AGM_TOOL_RULE.md", "AGM_CASE_RULE.md"):
-            fpath = os.path.join(pkg_dir, fname)
-            try:
-                with open(fpath, "r") as f:
-                    parts.append(f.read())
-            except FileNotFoundError:
-                parts.append(f"\n({fname}를 찾을 수 없습니다)")
-        return "\n\n---\n\n".join(parts)
 
     @mcp.tool()
     async def agm_result(
