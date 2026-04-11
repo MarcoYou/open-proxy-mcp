@@ -24,6 +24,7 @@ from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClient, DartClientError, get_dart_client
 from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
+from open_proxy_mcp.tools.formatters import parse_kr_number, parse_kr_int
 
 logger = logging.getLogger(__name__)
 
@@ -37,29 +38,13 @@ _REPRT_LABELS = {
 
 
 def _safe_int(val) -> int:
-    """문자열 → 정수 변환 (쉼표, 공백, None 처리)"""
-    if val is None:
-        return 0
-    s = str(val).replace(",", "").replace(" ", "").strip()
-    if not s or s == "-":
-        return 0
-    try:
-        return int(float(s))
-    except ValueError:
-        return 0
+    """문자열 → 정수 변환 (괄호 음수, △ 음수, 단위 처리 포함)"""
+    return parse_kr_int(str(val) if val is not None else "")
 
 
 def _safe_float(val) -> float:
-    """문자열 → 실수 변환"""
-    if val is None:
-        return 0.0
-    s = str(val).replace(",", "").replace(" ", "").strip()
-    if not s or s == "-":
-        return 0.0
-    try:
-        return float(s)
-    except ValueError:
-        return 0.0
+    """문자열 → 실수 변환 (괄호 음수, △ 음수 처리 포함)"""
+    return parse_kr_number(str(val) if val is not None else "")
 
 
 def _parse_dividend_decision(text: str) -> dict | None:

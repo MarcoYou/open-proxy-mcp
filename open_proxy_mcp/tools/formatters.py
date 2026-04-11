@@ -5,6 +5,89 @@ import json
 from collections import Counter
 
 
+# ── 숫자 파싱 유틸 ──
+
+# 단위 → 원(KRW) 배수 (dart-fss 참고)
+_KR_UNIT_MULTIPLIER: dict[str, int] = {
+    "조원": 1_000_000_000_000,
+    "천억원": 100_000_000_000,
+    "백억원": 10_000_000_000,
+    "십억원": 1_000_000_000,
+    "억원": 100_000_000,
+    "천만원": 10_000_000,
+    "백만원": 1_000_000,
+    "십만원": 100_000,
+    "만원": 10_000,
+    "천원": 1_000,
+    "백원": 100,
+    "원": 1,
+    # 단축 표기
+    "조": 1_000_000_000_000,
+    "억": 100_000_000,
+    "만": 10_000,
+    "천": 1_000,
+    "백만": 1_000_000,
+}
+
+
+def parse_kr_number(text: str, unit: str = "") -> float:
+    """한국 재무제표 숫자 문자열 → float 변환.
+
+    처리 케이스:
+    - 괄호 음수: (1,234,567) → -1234567.0
+    - 삼각형 음수: △1,234 → -1234.0  (일부 DART 공시에서 사용)
+    - 단위 반영: "1,234" + unit="백만원" → 1234000000.0
+    - 단위 내장: "1,234억원" → 123400000000.0 (text 안에 단위 포함 시)
+    - 쉼표/공백: "1, 234 " → 1234.0
+    - 빈값/대시: "", "-", "N/A" → 0.0
+    """
+    if not text:
+        return 0.0
+    s = str(text).strip()
+    if s in ("", "-", "N/A", "n/a", "－"):
+        return 0.0
+
+    # 음수 감지 (괄호 또는 △)
+    is_negative = s.startswith("(") or "△" in s or (s.startswith("-") and len(s) > 1)
+
+    # text 안에 단위 내장된 경우 multiplier 추출
+    text_multiplier = 1
+    if not unit:
+        for k, v in sorted(_KR_UNIT_MULTIPLIER.items(), key=lambda x: -len(x[0])):
+            if k in s:
+                text_multiplier = v
+                break
+
+    # 숫자만 추출 (소수점 포함)
+    num_str = re.sub(r"[^\d.]", "", s)
+    if not num_str:
+        return 0.0
+
+    try:
+        value = float(num_str)
+    except ValueError:
+        return 0.0
+
+    # 단위 배수 적용 (명시적 unit 우선, 없으면 text 내장 단위)
+    unit_multiplier = 1
+    if unit:
+        unit_clean = re.sub(r"\s+", "", unit)
+        for k, v in sorted(_KR_UNIT_MULTIPLIER.items(), key=lambda x: -len(x[0])):
+            if k in unit_clean:
+                unit_multiplier = v
+                break
+    else:
+        unit_multiplier = text_multiplier
+
+    value = value * unit_multiplier
+    return -value if is_negative else value
+
+
+def parse_kr_int(text: str, unit: str = "") -> int:
+    """parse_kr_number의 int 버전"""
+    return int(parse_kr_number(text, unit))
+
+
 # ── 통화 포매터 (shareholder.py에서 이동) ──
 
 def format_krw(raw_value: str, unit: str = "") -> str:
@@ -21,27 +104,11 @@ def format_krw(raw_value: str, unit: str = "") -> str:
     if not raw_value or raw_value.strip() in ('', '-'):
         return raw_value
 
-    # 음수 감지
-    is_negative = '(' in raw_value or '-' in raw_value.replace(',', '')
-    # 숫자만 추출
-    num_str = re.sub(r'[^\d]', '', raw_value)
-    if not num_str:
+    value = parse_kr_number(raw_value, unit)
+    if value == 0.0 and re.sub(r'[^\d]', '', raw_value) == '':
         return raw_value
 
-    value = int(num_str)
-
-    # 단위 반영 → 원 단위로 변환
-    unit_clean = re.sub(r'\s+', '', unit)
-    if '백만' in unit_clean:
-        value *= 1_000_000
-    elif '천' in unit_clean:
-        value *= 1_000
-    # "원"이면 그대로
-
-    if is_negative:
-        value = -value
-
-    return _format_won(value)
+    return _format_won(int(value))
 
 
 def _format_won(value: int) -> str:
