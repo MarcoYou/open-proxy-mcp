@@ -65,6 +65,7 @@ updated: 2026-04-05
 ## Comparison
 
 - [[stkrt-vs-ctr_stkrt]] - DART 대량보유 API: stkrt(합산) vs ctr_stkrt(주요계약체결) 차이
+- [[회사측-vs-주주측-위임장]] - 위임장 문서 구조 차이, flr_nm 구분법, 행사방향 파싱 위치
 
 ## Analysis
 
@@ -95,6 +96,7 @@ updated: 2026-04-05
 - [[div-case-rule]] - 배당 tool 판정 기준
 - [[own-tool-rule]] - 지분 7개 tool 구조, 출력 형태, 데이터 소스 우선순위
 - [[own-case-rule]] - 지분 tool 판정 기준
+- [[prx-tool-rule]] - 위임장 5개 tool 구조, 검색/파싱 방법, 행사방향 추출 규칙
 - [[opm-readme]] - OpenProxy MCP 공개 README 요약
 - [[opa-readme]] - OpenProxy AI 비공개 README 요약
 - [[devlog]] - 2026-03-19부터 04-06 개발 히스토리 요약
