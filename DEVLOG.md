@@ -1,5 +1,28 @@
 # Dev Log
 
+## 2026-04-11
+
+### DART 대량보유 API 필드 오해 수정
+- ctr_stkrt = 주요계약체결 주식 비율 (담보/신탁), 보고자 본인 지분 아님
+- stkrt = 보고자+특별관계자 합산, 사업보고서 "계"와 일치
+- 보고자 개별 지분은 API 없음 → 원문 제2부 1항에서만 파싱 가능
+- 현대자동차→기아 원문 트리 전수 분석으로 확인
+
+### KOSPI 200 own_matching 전수조사
+- MATCH_DIFF 66개, NOT_IN_AR 130개, NO_BLOCK 2개
+- MATCH_DIFF 원인: 날짜 차이 + ctr_stkrt 필드 오해(주요계약체결) 복합
+
+### wiki 구조 재편
+- analysis/ → decisions/(기술결정 8개) + analysis/(외부소스+주총분석 4개) 분리
+- comparison/ 신규: 공시 간/공시 내 컨셉 비교 카테고리
+- comparison/stkrt-vs-ctr_stkrt.md: 오늘 발견 내용 첫 comparison 페이지
+- disclosures/ 10개 페이지에 전체 문서 구조 트리 + API 필드 대응 추가
+
+### graphify 도입
+- wiki/ 대상 knowledge graph 생성 (202 nodes, 360 edges, 14 communities)
+- 주요 발견: 루프가 아닌 개방형 그래프로 지식 확장하는 구조 채택
+- graphify-out/ gitignore 대상 (graph.json은 wiki에서 rebuild)
+
 ## 2026-04-10
 
 ### own_full_analysis 개선

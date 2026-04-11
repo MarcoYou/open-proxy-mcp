@@ -5,6 +5,13 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-11] docs | wiki 구조 재편 + disclosures 트리 + comparison 카테고리 신설
+- analysis/ → decisions/(기술결정) + analysis/(외부소스+주총분석) 분리
+- comparison/ 신규: 공시 간/내 컨셉 비교 카테고리
+- stkrt-vs-ctr_stkrt.md: DART 대량보유 필드 오해 정정 (ctr_stkrt = 주요계약체결, 보고자 직접보유 아님)
+- disclosures/ 10개 페이지 전체 문서 구조 트리 추가
+- graphify로 wiki knowledge graph 탐색 (202 nodes, 360 edges)
+
 ## [2026-04-10] fix | own_full_analysis 테이블 포맷 + 대량보유 비교 기준 정리
 - 헤더 카드: 최대주주/특관합계/자사주
 - ctr_stkrt(본인) vs stkrt(합산) 구분, 비고에 합산 명시
