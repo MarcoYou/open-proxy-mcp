@@ -45,6 +45,8 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY
 4. Click "Add" -> 33 tools auto-detected
 5. Go to the added connector's Configuration -> Permissions and select **"Always allow"** (tools run without per-call approval)
 
+> **Note**: You don't need to delete or reconnect the connector after server updates. Starting a new conversation will automatically load the latest tools. If tools still don't work as expected, delete the connector and reconnect.
+
 #### Option B: Local Installation
 
 Local installation lets you configure additional API keys beyond DART (news search, OCR fallback, etc.).
