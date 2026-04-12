@@ -68,7 +68,17 @@ def _is_company_side(flr_nm: str, corp_name: str) -> bool:
     return strip(flr_nm) == strip(corp_name) or strip(corp_name) in strip(flr_nm)
 
 
-_PROXY_KEYWORDS = ("의결권대리행사권유", "위임장권유참고서류", "의결권대리행사참고서류")
+_PROXY_KEYWORDS = (
+    # 위임장 관련
+    "의결권대리행사권유",      # 의결권대리행사권유참고서류 / 의견표명서
+    "위임장권유참고서류",
+    "의결권대리행사참고서류",
+    # 공개매수 관련 (프록시파이트 동반 발생)
+    "공개매수신고서",
+    "공개매수설명서",
+    "공개매수결과보고서",
+    "공개매수에관한의견표명서",
+)
 
 
 def register_tools(mcp):
