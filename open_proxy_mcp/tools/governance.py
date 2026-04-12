@@ -4,6 +4,7 @@ AGM + OWN + DIV 3개 도메인을 한 번에 조회하는 최상위 체인 tool.
 """
 
 import json
+from open_proxy_mcp.tools.formatters import resolve_ticker
 from open_proxy_mcp.tools.shareholder import register_tools as _reg_agm
 from open_proxy_mcp.tools.ownership import register_tools as _reg_own
 from open_proxy_mcp.tools.dividend import register_tools as _reg_div
@@ -40,6 +41,7 @@ def register_tools(mcp):
         rule: corp_identifier 실행 후 호출. agm_post_analysis + own_full_analysis + div_full_analysis 체이닝. 이 tool 하나로 충분하며 개별 domain tool 추가 호출 금지.
         ref: corp_identifier, agm_post_analysis, own_full_analysis, div_full_analysis
         """
+        ticker = await resolve_ticker(ticker)
         import asyncio
 
         _format = format

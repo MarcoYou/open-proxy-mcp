@@ -7,7 +7,7 @@ from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClient, DartClientError, get_dart_client
 from open_proxy_mcp.tools.formatters import (
-    _parse_holding_purpose, _parse_holding_purpose_from_document,
+    resolve_ticker, _parse_holding_purpose, _parse_holding_purpose_from_document,
     _normalize_purpose, _pct, _format_number,
     _format_major_shareholders, _format_stock_total, _format_treasury_stock,
     _format_treasury_tx, _format_block_holders,
@@ -39,6 +39,7 @@ def register_tools(mcp):
             year: 사업연도 (미입력 시 전년도)
             format: "md" (기본) 또는 "json"
         """
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -79,6 +80,7 @@ def register_tools(mcp):
             year: 사업연도 (미입력 시 전년도)
             format: "md" (기본) 또는 "json"
         """
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -119,6 +121,7 @@ def register_tools(mcp):
             year: 사업연도 (미입력 시 전년도)
             format: "md" (기본) 또는 "json"
         """
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -155,6 +158,7 @@ def register_tools(mcp):
             end_de: 검색 종료일 YYYYMMDD (미입력 시 오늘)
             format: "md" (기본) 또는 "json"
         """
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -211,6 +215,7 @@ def register_tools(mcp):
             ticker: 종목코드 또는 회사명
             format: "md" (기본) 또는 "json"
         """
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -280,6 +285,7 @@ def register_tools(mcp):
             ticker: 종목코드 또는 회사명
             format: "md" (기본) 또는 "json"
         """
+        ticker = await resolve_ticker(ticker)
         import asyncio as _asyncio
 
         client = get_dart_client()

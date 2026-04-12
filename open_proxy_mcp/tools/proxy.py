@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+from open_proxy_mcp.tools.formatters import resolve_ticker
 from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
 
 
@@ -94,6 +95,7 @@ def register_tools(mcp):
         rule: DART list.json에서 corp_code + 날짜 범위 검색 후 report_nm으로 필터. flr_nm으로 회사측/주주측 구분.
         ref: corp_identifier, prx_detail, prx_direction, prx_fight
         """
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -310,6 +312,7 @@ def register_tools(mcp):
         rule: prx_search → 회사측/주주측 분류 → prx_direction × N → 안건별 대립 표시.
         ref: corp_identifier, prx_search, prx_direction
         """
+        ticker = await resolve_ticker(ticker)
         # tier-3: 위임장 공시 목록 + 회사측/주주측 구분
         search_out = await prx_search(ticker=ticker, year=year, format="json")
         try:

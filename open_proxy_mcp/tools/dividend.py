@@ -23,7 +23,7 @@ from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClient, DartClientError, get_dart_client
 from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
-from open_proxy_mcp.tools.formatters import parse_kr_number, parse_kr_int
+from open_proxy_mcp.tools.formatters import resolve_ticker, parse_kr_number, parse_kr_int
 
 logger = logging.getLogger(__name__)
 
@@ -351,6 +351,7 @@ def register_tools(mcp):
         when: [tier-3 Search] 특정 기업의 배당 공시를 찾을 때. ticker로 검색.
         rule: 검색 결과에서 rcept_no를 얻어 div_detail에 전달.
         ref: corp_identifier, div_detail, div_history"""
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -401,6 +402,7 @@ def register_tools(mcp):
         when: [tier-5 Detail] 배당 내용을 볼 때. 우선주(2우B, 우선주) 배당도 이 tool로 조회. "삼성전자우" 질문 시 ticker="삼성전자"로 호출 후 preferred_stocks에서 확인.
         rule: 우선주는 보통주 공시 안에 포함. ticker는 보통주 기준으로 입력. reprt_code로 분기 선택 (11011=기말, 11012=반기, 11013=1Q, 11014=3Q). DART 제공 배당성향/시가배당률이 있으면 우선 사용.
         ref: div_history, own_total, agm_financials_xml"""
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -542,6 +544,7 @@ def register_tools(mcp):
         when: [tier-5 Detail] 배당 추이/패턴을 볼 때. 분기배당 여부, 배당 시작/중단 시그널 감지.
         rule: 현금배당결정 공시(거래소)를 건별로 파싱하여 집계. 배당구분은 공시 자체에 명시(결산배당/분기배당/중간배당). alotMatter는 연간 요약(배당성향/수익률)으로만 사용.
         ref: div_detail, own_treasury_tx"""
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -765,6 +768,7 @@ def register_tools(mcp):
         when: [tier-4 Orchestrate] 기업의 배당 정책/현황을 종합적으로 볼 것.
         rule: div_detail(최신) + div_history(3년)를 합쳐서 반환.
         ref: corp_identifier, div_detail, div_history"""
+        ticker = await resolve_ticker(ticker)
         if format == "json":
             import json as _json
             detail_raw = await div_detail(ticker=ticker, format="json")

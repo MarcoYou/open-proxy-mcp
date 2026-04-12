@@ -11,7 +11,7 @@ from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClient, DartClientError, get_dart_client
 from open_proxy_mcp.tools.formatters import (
-    format_krw, highlights_has,
+    resolve_ticker, format_krw, highlights_has,
     _format_agenda_tree, _format_meeting_info, _format_agenda_details,
     _format_financial_statements, _build_financial_highlight,
     _format_compensation, _format_aoi_change, _format_treasury_share,
@@ -199,6 +199,7 @@ def register_tools(mcp):
             bgn_de: 검색 시작일 (YYYYMMDD). 미입력 시 올해 1월 1일
             end_de: 검색 종료일 (YYYYMMDD). 미입력 시 오늘
         """
+        ticker = await resolve_ticker(ticker)
         if not bgn_de:
             bgn_de = f"{datetime.now().year}0101"
         if not end_de:
@@ -688,6 +689,7 @@ def register_tools(mcp):
             bgn_de: 검색 시작일 (YYYYMMDD). 미입력 시 올해 1월 1일
             end_de: 검색 종료일 (YYYYMMDD). 미입력 시 오늘
         """
+        ticker = await resolve_ticker(ticker)
         import asyncio as _asyncio
 
         if not bgn_de:
@@ -858,6 +860,7 @@ def register_tools(mcp):
         rule: agm_pre_analysis + agm_result 체이닝. 주총 미종료 시 투표결과 없음 안내. 이 tool 하나로 소집공고+투표결과 분석이 완성됨. agm_*_xml 개별 tool 추가 호출 금지.
         ref: corp_identifier, agm_pre_analysis, agm_result, agm_search
         """
+        ticker = await resolve_ticker(ticker)
         pre = await agm_pre_analysis(ticker=ticker, bgn_de=bgn_de, end_de=end_de)
         result = await agm_result(ticker=ticker, bgn_de=bgn_de, end_de=end_de)
         return f"{pre}\n\n---\n\n## 투표 결과\n\n{result}"
@@ -990,6 +993,7 @@ def register_tools(mcp):
             end_de: 검색 종료일 YYYYMMDD (미입력 시 오늘)
             format: "md" (기본) 또는 "json"
         """
+        ticker = await resolve_ticker(ticker)
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
