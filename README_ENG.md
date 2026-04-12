@@ -183,6 +183,12 @@ open-proxy-mcp/
 
 ---
 
+## Disclaimer
+
+OpenProxy is a tool that structures DART disclosure data and provides it to AI. AI can hallucinate and may produce inaccurate analysis. Please use the results for reference only. Always verify against original filings and consult professionals before making investment decisions or exercising voting rights.
+
+---
+
 ## License
 
 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) -- NonCommercial use only.
