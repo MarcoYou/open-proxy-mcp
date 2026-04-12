@@ -6,12 +6,12 @@
 - `own(ticker)` — 지분 종합 (major + total + treasury + block + latest)
 
 ### 개별 Tool
-- `own_major(ticker, year)` — 최대주주 + 특수관계인 (사업보고서 기준)
-- `own_total(ticker, year)` — 발행주식 / 자사주 / 유통주식 / 소액주주
-- `own_treasury(ticker, year)` — 자사주 취득방법별 기초-취득-처분-소각-기말
-- `own_treasury_tx(ticker)` — 자사주 이벤트 (취득결정/처분결정/신탁체결/해지)
-- `own_block(ticker)` — 5% 대량보유자 (보유목적 원문 파싱)
-- `own_latest(ticker, year)` — 통합 스냅샷 (major + block + 임원)
+- `ownership_major(ticker, year)` — 최대주주 + 특수관계인 (사업보고서 기준)
+- `ownership_total(ticker, year)` — 발행주식 / 자사주 / 유통주식 / 소액주주
+- `ownership_treasury(ticker, year)` — 자사주 취득방법별 기초-취득-처분-소각-기말
+- `ownership_treasury_tx(ticker)` — 자사주 이벤트 (취득결정/처분결정/신탁체결/해지)
+- `ownership_block(ticker)` — 5% 대량보유자 (보유목적 원문 파싱)
+- `ownership_latest(ticker, year)` — 통합 스냅샷 (major + block + 임원)
 
 ## 출력 형태
 
@@ -32,9 +32,9 @@
 
 | 항목 | 소스 |
 |------|------|
-| 최대주주 이름 + 지분율 | own_major → 최대주주 본인 |
-| 특관인 합계 + 인원수 | own_major → 보통주 합산 |
-| 자사주 수량 + 비율 | own_total → `tesstk_co` |
+| 최대주주 이름 + 지분율 | ownership_major → 최대주주 본인 |
+| 특관인 합계 + 인원수 | ownership_major → 보통주 합산 |
+| 자사주 수량 + 비율 | ownership_total → `tesstk_co` |
 
 ### 주주 테이블 (4컬럼)
 
@@ -49,16 +49,16 @@
 
 | 컬럼 | 소스 | 필드 |
 |------|------|------|
-| 주주 | own_major | `nm` (최대주주+특관인) |
-| | own_block | `repror` (5% 대량보유자) |
-| 관계 | own_major | `relate` (본인/특수관계인/계열사 등) |
-| | own_block | 보유목적에서 추론 (대주주/기관투자자) |
-| 지분율 | own_major | `trmend_posesn_stock_qota_rt` |
-| | own_block | `stkrt` |
-| 기준날짜 | own_major | `stlm_dt` (결산일, 사업보고서) |
-| | own_block | `rcept_dt` (공시일, 수시) |
-| 비고 | own_block | 보유목적 (경영권/단순투자/일반투자) |
-| | own_major | `incrs_dcrs_acqs_dsps` (변동 사유, 있을 때만) |
+| 주주 | ownership_major | `nm` (최대주주+특관인) |
+| | ownership_block | `repror` (5% 대량보유자) |
+| 관계 | ownership_major | `relate` (본인/특수관계인/계열사 등) |
+| | ownership_block | 보유목적에서 추론 (대주주/기관투자자) |
+| 지분율 | ownership_major | `trmend_posesn_stock_qota_rt` |
+| | ownership_block | `stkrt` |
+| 기준날짜 | ownership_major | `stlm_dt` (결산일, 사업보고서) |
+| | ownership_block | `rcept_dt` (공시일, 수시) |
+| 비고 | ownership_block | 보유목적 (경영권/단순투자/일반투자) |
+| | ownership_major | `incrs_dcrs_acqs_dsps` (변동 사유, 있을 때만) |
 
 ### 표시 규칙
 
@@ -92,9 +92,9 @@
 
 ## 데이터 소스 우선순위
 
-1. **사업보고서** (own_major, own_total, own_treasury) — 연 1회, 결산일 기준. baseline.
-2. **수시 공시** (own_block, own_treasury_tx) — 변동 시 즉시. 사업보고서 이후 변동 반영.
-3. **own_latest** — 1+2 합산 스냅샷.
+1. **사업보고서** (ownership_major, ownership_total, ownership_treasury) — 연 1회, 결산일 기준. baseline.
+2. **수시 공시** (ownership_block, ownership_treasury_tx) — 변동 시 즉시. 사업보고서 이후 변동 반영.
+3. **ownership_latest** — 1+2 합산 스냅샷.
 
 사업보고서와 수시 공시의 기준날짜가 다를 수 있으므로, 테이블에 기준날짜 컬럼으로 구분.
 
@@ -102,10 +102,10 @@
 
 | Tool | API 호출 수 |
 |------|------------|
-| own_major | 1 |
-| own_total | 1 |
-| own_treasury | 1 |
-| own_treasury_tx | 4 |
-| own_block | 1 + 보고자 수 (원문 파싱) |
-| own_latest | 3 |
-| own (종합) | 5 + 보고자 수 |
+| ownership_major | 1 |
+| ownership_total | 1 |
+| ownership_treasury | 1 |
+| ownership_treasury_tx | 4 |
+| ownership_block | 1 + 보고자 수 (원문 파싱) |
+| ownership_latest | 3 |
+| ownership (종합) | 5 + 보고자 수 |

@@ -17,7 +17,7 @@ def register_tools(mcp):
         """desc: 기업 통합 식별자 조회 — DART/NAVER 소스에서 가능한 모든 identifier + classification 수집.
         when: [tier-1 Entity] 종목코드, 회사명, 영문명, 약칭 등 어떤 입력으로도 기업의 전체 식별자를 한 번에 조회할 때. 동명기업 확인, 영문/약칭 매칭 실패 디버깅에도 사용. 다른 tool 호출 전 기업을 특정할 때 먼저 실행.
         rule: DART corpCode.xml(corp_code/stock_code) → DART company.json(법인번호/영문명/업종코드) → NAVER(업종명) 순서로 chain 조회. 동명기업 있으면 전체 목록 노출.
-        ref: own_major, own_block, agm_personnel_xml, div_search
+        ref: ownership_major, ownership_block, agm_personnel_xml, div_search
         """
         client = get_dart_client()
 

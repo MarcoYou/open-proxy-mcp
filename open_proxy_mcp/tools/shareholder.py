@@ -594,7 +594,7 @@ def register_tools(mcp):
         """desc: 자기주식 보유/처분/소각. 수량, 목적, 방법.
         when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 자사주 안건 상세를 요청했을 때만 사용.
         rule: XML 파싱. 안건 제목 매칭 한계로 PDF fallback 빈번. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, own_treasury, agm_manual
+        ref: agm_parse_fallback, ownership_treasury, agm_manual
 
         Args:
             rcept_no: 접수번호 (예: 20260225000123)
@@ -985,7 +985,7 @@ def register_tools(mcp):
         """desc: 주주총회 투표결과 -- 안건별 가결/부결, 찬성률(발행/행사 기준), 추정참석률.
         when: [tier-5 Detail] 주총 결과를 볼 때. agm_post_analysis가 이미 포함하므로 단독 호출은 투표결과만 필요할 때로 한정.
         rule: KIND 크롤링 기반. rcept_no "80"->"00" 변환으로 KIND viewer 접근. 주총 미종료 시 데이터 없음.
-        ref: agm_search, agm_manual, own_block, own_major
+        ref: agm_search, agm_manual, ownership_block, ownership_major
 
         Args:
             ticker: 종목코드 또는 회사명

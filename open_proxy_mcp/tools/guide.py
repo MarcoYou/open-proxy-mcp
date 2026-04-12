@@ -12,9 +12,9 @@ _GUIDE_TIER = """\
 |------|------|-------|
 | 1 Entity | 기업 특정 | `corp_identifier` |
 | 2 Context | 가이드 | `tool_guide` |
-| 3 Search | rcept_no 획득 | `agm_search`, `prx_search`, `div_search` |
-| 4 Orchestrate | 종합 분석 | `agm_pre_analysis`, `agm_post_analysis`, `own_full_analysis`, `div_full_analysis`, `prx_fight` |
-| 5 Detail | drill-down | `agm_*_xml`, `own_major`, `div_detail`, `prx_direction` … |
+| 3 Search | rcept_no 획득 | `agm_search`, `proxy_search`, `div_search` |
+| 4 Orchestrate | 종합 분석 | `agm_pre_analysis`, `agm_post_analysis`, `ownership_full_analysis`, `div_full_analysis`, `proxy_fight` |
+| 5 Detail | drill-down | `agm_*_xml`, `ownership_major`, `div_detail`, `proxy_direction` … |
 """
 
 _GUIDE_ORDER = """\
@@ -118,34 +118,34 @@ _GUIDE_OWN = """\
 
 ### Canonical Chain
 ```
-corp_identifier → own_full_analysis(ticker)  [종합 권장]
-               → own_major(ticker, year)     [최대주주+특관인]
-               → own_total(ticker, year)     [발행주식/자사주/소액주주]
-               → own_treasury(ticker, year)  [자사주 취득방법별]
-               → own_treasury_tx(ticker)     [자사주 이벤트]
-               → own_block(ticker)           [5% 대량보유]
-               → own_latest(ticker, year)    [통합 스냅샷]
+corp_identifier → ownership_full_analysis(ticker)  [종합 권장]
+               → ownership_major(ticker, year)     [최대주주+특관인]
+               → ownership_total(ticker, year)     [발행주식/자사주/소액주주]
+               → ownership_treasury(ticker, year)  [자사주 취득방법별]
+               → ownership_treasury_tx(ticker)     [자사주 이벤트]
+               → ownership_block(ticker)           [5% 대량보유]
+               → ownership_latest(ticker, year)    [통합 스냅샷]
 ```
 
 ### Tool 목록
 
 | Tool | 입력 | 출력 | API 호출 |
 |------|------|------|----------|
-| `own_full_analysis(ticker)` | 종목코드/회사명 | 사업보고서 vs 최신 공시 지분율 비교 | 5+ |
-| `own_major(ticker, year)` | 종목코드/회사명, 연도 | 최대주주+특관인 (보통주 기준) | 1 |
-| `own_total(ticker, year)` | 종목코드/회사명, 연도 | 발행주식/자사주/유통/소액주주 | 1 |
-| `own_treasury(ticker, year)` | 종목코드/회사명, 연도 | 자사주 기초-취득-처분-소각-기말 | 1 |
-| `own_treasury_tx(ticker)` | 종목코드/회사명 | 자사주 이벤트 (취득/처분/신탁) | 4 |
-| `own_block(ticker)` | 종목코드/회사명 | 5% 대량보유자 + 목적 | 1+보고자 수 |
-| `own_latest(ticker, year)` | 종목코드/회사명, 연도 | 통합 스냅샷 | 3 |
+| `ownership_full_analysis(ticker)` | 종목코드/회사명 | 사업보고서 vs 최신 공시 지분율 비교 | 5+ |
+| `ownership_major(ticker, year)` | 종목코드/회사명, 연도 | 최대주주+특관인 (보통주 기준) | 1 |
+| `ownership_total(ticker, year)` | 종목코드/회사명, 연도 | 발행주식/자사주/유통/소액주주 | 1 |
+| `ownership_treasury(ticker, year)` | 종목코드/회사명, 연도 | 자사주 기초-취득-처분-소각-기말 | 1 |
+| `ownership_treasury_tx(ticker)` | 종목코드/회사명 | 자사주 이벤트 (취득/처분/신탁) | 4 |
+| `ownership_block(ticker)` | 종목코드/회사명 | 5% 대량보유자 + 목적 | 1+보고자 수 |
+| `ownership_latest(ticker, year)` | 종목코드/회사명, 연도 | 통합 스냅샷 | 3 |
 
 ### 출력 형태 — 반드시 유지
 
 헤더 카드 3개:
 ```
-최대주주: **삼성생명보험㈜ 8.51%**    ← own_major
-특관인 합계: **19.84%** (15명)       ← own_major 보통주 합산
-자사주: **91,828,987주 (1.55%)**     ← own_total tesstk_co
+최대주주: **삼성생명보험㈜ 8.51%**    ← ownership_major
+특관인 합계: **19.84%** (15명)       ← ownership_major 보통주 합산
+자사주: **91,828,987주 (1.55%)**     ← ownership_total tesstk_co
 ```
 주주 테이블 (4컬럼): `주주 | 구분 | 지분율 | 비고`
 
@@ -155,19 +155,19 @@ corp_identifier → own_full_analysis(ticker)  [종합 권장]
 
 | 컬럼 | 소스 | 필드 |
 |------|------|------|
-| 주주 | own_major | `nm` |
-| | own_block | `repror` |
-| 관계 | own_major | `relate` |
-| 지분율 | own_major | `trmend_posesn_stock_qota_rt` |
-| | own_block | `stkrt` |
-| 기준날짜 | own_major | `stlm_dt` (결산일) |
-| | own_block | `rcept_dt` (공시일) |
-| 비고 | own_block | 보유목적 (경영권/단순투자/일반투자) |
+| 주주 | ownership_major | `nm` |
+| | ownership_block | `repror` |
+| 관계 | ownership_major | `relate` |
+| 지분율 | ownership_major | `trmend_posesn_stock_qota_rt` |
+| | ownership_block | `stkrt` |
+| 기준날짜 | ownership_major | `stlm_dt` (결산일) |
+| | ownership_block | `rcept_dt` (공시일) |
+| 비고 | ownership_block | 보유목적 (경영권/단순투자/일반투자) |
 
 ### 데이터 소스 우선순위
-1. 사업보고서 (own_major, own_total, own_treasury) — 연 1회, 결산일 baseline
-2. 수시공시 (own_block, own_treasury_tx) — 변동 시 즉시, 사업보고서 이후 변동 반영
-3. own_latest — 1+2 합산 스냅샷
+1. 사업보고서 (ownership_major, ownership_total, ownership_treasury) — 연 1회, 결산일 baseline
+2. 수시공시 (ownership_block, ownership_treasury_tx) — 변동 시 즉시, 사업보고서 이후 변동 반영
+3. ownership_latest — 1+2 합산 스냅샷
 
 기준날짜가 다른 데이터 혼합 시 반드시 기준날짜 컬럼으로 구분. 지분율 1% 미만 생략 가능.
 """
@@ -235,20 +235,20 @@ _GUIDE_PRX = """\
 
 ### Canonical Chain
 ```
-corp_identifier → prx_fight(ticker, year)      [프록시 파이트 감지 + 비교, 권장]
-               → prx_search(ticker, year)       [rcept_no 목록]
-                    → prx_direction(rcept_no)   [안건별 행사방향]
-                    → prx_detail(rcept_no)      [권유자 상세]
+corp_identifier → proxy_fight(ticker, year)      [프록시 파이트 감지 + 비교, 권장]
+               → proxy_search(ticker, year)       [rcept_no 목록]
+                    → proxy_direction(rcept_no)   [안건별 행사방향]
+                    → proxy_detail(rcept_no)      [권유자 상세]
 ```
 
 ### Tool 목록
 
 | Tool | 입력 | 출력 | API 호출 |
 |------|------|------|----------|
-| `prx_search(ticker, year)` | 종목코드/회사명, 연도 | rcept_no + 회사측/주주측 구분 | 1 |
-| `prx_detail(rcept_no)` | rcept_no | 권유자 보유주식, 권유기간, 전자위임장 | 1 |
-| `prx_direction(rcept_no)` | rcept_no | 안건별 찬성/반대/기권 | 1 |
-| `prx_fight(ticker, year)` | 종목코드/회사명, 연도 | 프록시 파이트 감지 + 양측 비교 | 1+권유자 수 |
+| `proxy_search(ticker, year)` | 종목코드/회사명, 연도 | rcept_no + 회사측/주주측 구분 | 1 |
+| `proxy_detail(rcept_no)` | rcept_no | 권유자 보유주식, 권유기간, 전자위임장 | 1 |
+| `proxy_direction(rcept_no)` | rcept_no | 안건별 찬성/반대/기권 | 1 |
+| `proxy_fight(ticker, year)` | 종목코드/회사명, 연도 | 프록시 파이트 감지 + 양측 비교 | 1+권유자 수 |
 
 ### 검색 방법
 OpenDART `list.json`에서 `pblntf_detail_ty` 파라미터 미지원.
@@ -260,7 +260,7 @@ OpenDART `list.json`에서 `pblntf_detail_ty` 파라미터 미지원.
 ### 행사방향 파싱 위치 및 한계
 - 위치: Section II-1 "의결권 대리행사의 권유를 하는 취지" (자유서술)
 - 정규식 패턴: `제N호 + 찬성/반대/기권` (양방향)
-- 불명확한 경우 "불명" 반환 → `prx_detail`로 원문 직접 확인 후 AI 판단
+- 불명확한 경우 "불명" 반환 → `proxy_detail`로 원문 직접 확인 후 AI 판단
 
 ### 문서 구조
 
@@ -268,13 +268,13 @@ OpenDART `list.json`에서 `pblntf_detail_ty` 파라미터 미지원.
 의결권대리행사권유참고서류
 ├── I. 권유에 관한 사항 (권유자 보유주식, 권유기간, 대리인)
 ├── II. 권유의 취지
-│   ├── 1. 권유 취지 ← prx_direction 파싱 위치
+│   ├── 1. 권유 취지 ← proxy_direction 파싱 위치
 │   └── 2. 위임 방법 (전자위임장/서면)
 └── III. 주총 목적사항별 기재사항
     └── 회사측: 재무제표 전문 + 후보자 경력 / 주주측: 제목만
 ```
 
-권유 비용은 별도 공시 "의결권대리행사권유신고서"에 있음 (prx_detail 범위 밖).
+권유 비용은 별도 공시 "의결권대리행사권유신고서"에 있음 (proxy_detail 범위 밖).
 """
 
 _GUIDE_CORP = """\

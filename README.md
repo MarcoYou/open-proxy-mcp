@@ -178,26 +178,26 @@ uv pip install -e ".[all]"               # 전부 설치
               ┌─────────────────────┼─────────────────────┐
               │                     │                     │
     ┌─────────▼────────┐ ┌─────────▼────────┐ ┌─────────▼────────┐
-    │   agm_search     │ │   div_search     │ │   prx_search     │  Tier 3
+    │   agm_search     │ │   div_search     │ │  proxy_search    │  Tier 3
     │   소집공고 검색   │ │   배당공시 검색   │ │  위임장공시 검색  │  Search
     └─────────┬────────┘ └─────────┬────────┘ └─────────┬────────┘
               │                    │                     │
-    ┌─────────▼────────┐ ┌────────▼─────────┐ ┌────────▼─────────┐
-    │ agm_pre_analysis │ │div_full_analysis │ │    prx_fight     │  Tier 4
-    │ agm_post_analysis│ │  배당 종합 분석   │ │ 프록시파이트 감지 │  Orchestrate
-    │own_full_analysis │ └────────┬─────────┘ └────────┬─────────┘
-    │governance_report │          │                     │
-    └─────────┬────────┘          │                     │
+    ┌────────────▼───────────┐ ┌────────▼─────────┐ ┌────────▼─────────┐
+    │   agm_pre_analysis     │ │div_full_analysis │ │   proxy_fight    │  Tier 4
+    │   agm_post_analysis    │ │  배당 종합 분석   │ │ 프록시파이트 감지 │  Orchestrate
+    │ownership_full_analysis │ └────────┬─────────┘ └────────┬─────────┘
+    │   governance_report    │          │                     │
+    └────────────┬───────────┘          │                     │
               │                   │                     │
     ┌─────────▼─────────────────────────────────────────▼────────┐
     │                        Tier 5 Detail                       │
     │                                                            │
-    │  AGM (12)           OWN (5)        DIV (2)    PRX (2)     │
-    │  ├ agenda_xml       ├ own_major    ├ detail   ├ detail    │
-    │  ├ financials_xml   ├ own_total    └ history  └ direction │
-    │  ├ personnel_xml    ├ own_treasury                        │
-    │  ├ aoi_change_xml   ├ own_block    NEWS (1)               │
-    │  ├ compensation_xml └ own_latest   └ news_check           │
+    │  AGM (12)           OWN (5)              DIV (2)    PRX (2)     │
+    │  ├ agenda_xml       ├ ownership_major    ├ detail   ├ detail    │
+    │  ├ financials_xml   ├ ownership_total    └ history  └ direction │
+    │  ├ personnel_xml    ├ ownership_treasury                        │
+    │  ├ aoi_change_xml   ├ ownership_block    NEWS (1)               │
+    │  ├ compensation_xml └ ownership_latest   └ news_check           │
     │  ├ treasury_share_xml                                     │
     │  ├ capital_reserve_xml                                    │
     │  ├ retirement_pay_xml                                     │

@@ -25,7 +25,7 @@ _reg_own(_null)
 _reg_div(_null)
 
 _agm_post_analysis = _domain_tools["agm_post_analysis"]
-_own_full_analysis = _domain_tools["own_full_analysis"]
+_ownership_full_analysis = _domain_tools["ownership_full_analysis"]
 _div_full_analysis = _domain_tools["div_full_analysis"]
 
 
@@ -38,8 +38,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 거버넌스 종합 보고서 — 주총(AGM) + 지분(OWN) + 배당(DIV) 3개 도메인 통합.
         when: [tier-4 Orchestrate] 특정 기업의 거버넌스 전체를 한 번에 파악할 때. 주총 안건/투표결과 + 지분구조 + 배당 이력을 종합적으로 볼 때.
-        rule: corp_identifier 실행 후 호출. agm_post_analysis + own_full_analysis + div_full_analysis 체이닝. 이 tool 하나로 충분하며 개별 domain tool 추가 호출 금지.
-        ref: corp_identifier, agm_post_analysis, own_full_analysis, div_full_analysis
+        rule: corp_identifier 실행 후 호출. agm_post_analysis + ownership_full_analysis + div_full_analysis 체이닝. 이 tool 하나로 충분하며 개별 domain tool 추가 호출 금지.
+        ref: corp_identifier, agm_post_analysis, ownership_full_analysis, div_full_analysis
         """
         ticker = await resolve_ticker(ticker)
         import asyncio
@@ -47,7 +47,7 @@ def register_tools(mcp):
         _format = format
         agm_out, own_out, div_out = await asyncio.gather(
             _agm_post_analysis(ticker=ticker),
-            _own_full_analysis(ticker=ticker, format=_format),
+            _ownership_full_analysis(ticker=ticker, format=_format),
             _div_full_analysis(ticker=ticker, format=_format),
         )
 
