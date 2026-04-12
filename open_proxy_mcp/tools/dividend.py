@@ -37,12 +37,12 @@ _REPRT_LABELS = {
 
 
 def _safe_int(val) -> int:
-    """문자열 → 정수 변환 (괄호 음수, △ 음수, 단위 처리 포함)"""
+    """문자열 → 정수 변환 (괄호 음수, 단위 처리 포함)"""
     return parse_kr_int(str(val) if val is not None else "")
 
 
 def _safe_float(val) -> float:
-    """문자열 → 실수 변환 (괄호 음수, △ 음수 처리 포함)"""
+    """문자열 → 실수 변환 (괄호 음수 처리 포함)"""
     return parse_kr_number(str(val) if val is not None else "")
 
 

@@ -1,4 +1,4 @@
-"""OPM 통합 가이드 tool (opm_guide)
+"""OPM 통합 가이드 tool (tool_guide)
 
 5개 도메인(AGM/OWN/DIV/PRX/CORP)의 tool 사용법과 규칙을 단일 진입점으로 통합.
 domain="" → 전체 가이드, domain="agm"|"own"|"div"|"prx"|"corp" → 해당 섹션만.
@@ -11,7 +11,7 @@ _GUIDE_TIER = """\
 | Tier | 역할 | Tools |
 |------|------|-------|
 | 1 Entity | 기업 특정 | `corp_identifier` |
-| 2 Context | 가이드 | `opm_guide` |
+| 2 Context | 가이드 | `tool_guide` |
 | 3 Search | rcept_no 획득 | `agm_search`, `prx_search`, `div_search` |
 | 4 Orchestrate | 종합 분석 | `agm_pre_analysis`, `agm_post_analysis`, `own_full_analysis`, `div_full_analysis`, `prx_fight` |
 | 5 Detail | drill-down | `agm_*_xml`, `own_major`, `div_detail`, `prx_direction` … |
@@ -21,7 +21,7 @@ _GUIDE_ORDER = """\
 ## 필수 실행 순서
 
 1. **corp_identifier** — 기업 특정. **항상 첫 번째.**
-2. **opm_guide** — 불명확하면 이 tool 읽기.
+2. **tool_guide** — 불명확하면 이 tool 읽기.
 3. **`*_search`** — rcept_no 획득.
 
 4. **오케스트레이터** — 종합 분석. 가능하면 여기서 끝내기.
@@ -340,7 +340,7 @@ _GUIDE_FULL = "# OPM Tool 실행 가이드\n\n" + "".join([
 def register_tools(mcp):
 
     @mcp.tool()
-    async def opm_guide(
+    async def tool_guide(
         domain: str = "",
     ) -> str:
         """desc: OPM tool 실행 가이드 — Tier 체계, 필수 실행 순서, 도메인별 Canonical Chain, 파싱 한계, 의결권 판단 기준.

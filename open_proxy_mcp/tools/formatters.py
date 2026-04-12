@@ -35,7 +35,6 @@ def parse_kr_number(text: str, unit: str = "") -> float:
 
     처리 케이스:
     - 괄호 음수: (1,234,567) → -1234567.0
-    - 삼각형 음수: △1,234 → -1234.0  (일부 DART 공시에서 사용)
     - 단위 반영: "1,234" + unit="백만원" → 1234000000.0
     - 단위 내장: "1,234억원" → 123400000000.0 (text 안에 단위 포함 시)
     - 쉼표/공백: "1, 234 " → 1234.0
@@ -47,8 +46,8 @@ def parse_kr_number(text: str, unit: str = "") -> float:
     if s in ("", "-", "N/A", "n/a", "－"):
         return 0.0
 
-    # 음수 감지 (괄호 또는 △)
-    is_negative = s.startswith("(") or "△" in s or (s.startswith("-") and len(s) > 1)
+    # 음수 감지 (괄호만. △는 문맥에 따라 변동/감소 의미라 음수 처리 안 함)
+    is_negative = s.startswith("(") or (s.startswith("-") and len(s) > 1)
 
     # text 안에 단위 내장된 경우 multiplier 추출
     text_multiplier = 1

@@ -15,17 +15,17 @@ date: 2026-04-11
 | `agm_extract` | `agm_items`와 기능 중복. 핵심 데이터포인트 추출이 `agm_items`에 포함됨. | `agm_items` |
 | `agm_info` | 공시 기본정보(회사명, 날짜, rcept_no)만 반환. `agm` 오케스트레이터가 동일 정보 포함. | `agm_pre_analysis` 또는 `agm_search` 결과 |
 
-## 통합된 Tool (manual → opm_guide)
+## 통합된 Tool (manual → tool_guide)
 
-5개 도메인 manual이 `opm_guide` 하나로 통합됨.
+5개 도메인 manual이 `tool_guide` 하나로 통합됨.
 
 | 제거된 Tool | 이유 | 통합된 곳 |
 |------------|------|-----------|
-| `agm_manual` | RULE.md 파일을 그대로 읽어서 반환만 함. `opm_guide`가 동일 정보를 더 구조적으로 제공. | `opm_guide(domain="agm")` |
-| `own_manual` | 동일 이유. | `opm_guide(domain="own")` |
-| `div_manual` | 동일 이유. | `opm_guide(domain="div")` |
-| `prx_manual` | 동일 이유. | `opm_guide(domain="prx")` |
-| `corp_manual` | 동일 이유. alias dict, 동명기업 처리 등 포함. | `opm_guide(domain="corp")` |
+| `agm_manual` | RULE.md 파일을 그대로 읽어서 반환만 함. `tool_guide`가 동일 정보를 더 구조적으로 제공. | `tool_guide(domain="agm")` |
+| `own_manual` | 동일 이유. | `tool_guide(domain="own")` |
+| `div_manual` | 동일 이유. | `tool_guide(domain="div")` |
+| `prx_manual` | 동일 이유. | `tool_guide(domain="prx")` |
+| `corp_manual` | 동일 이유. alias dict, 동명기업 처리 등 포함. | `tool_guide(domain="corp")` |
 
 ## 통합된 Tool (기능 통합)
 
@@ -46,7 +46,7 @@ date: 2026-04-11
 | Tool | 이유 |
 |------|------|
 | `agm_post_analysis` | 주총 종료 후 사전(소집공고)+사후(투표결과) 통합 분석. `agm_pre_analysis + agm_result` 체이닝. |
-| `opm_guide` | 5개 manual 통합. tier 체계 + canonical chain + 도메인 rule 한 곳에. |
+| `tool_guide` | 5개 manual 통합. tier 체계 + canonical chain + 도메인 rule 한 곳에. |
 
 ## 최종 Tool 수
 
