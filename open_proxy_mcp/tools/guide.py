@@ -13,7 +13,7 @@ _GUIDE_TIER = """\
 | 1 Entity | 기업 특정 | `corp_identifier` |
 | 2 Context | 가이드 | `opm_guide` |
 | 3 Search | rcept_no 획득 | `agm_search`, `prx_search`, `div_search` |
-| 4 Orchestrate | 종합 분석 | `agm`, `own_full_analysis`, `div`, `prx_fight` |
+| 4 Orchestrate | 종합 분석 | `agm_pre_analysis`, `agm_post_analysis`, `own_full_analysis`, `div_full_analysis`, `prx_fight` |
 | 5 Detail | drill-down | `agm_*_xml`, `own_major`, `div_detail`, `prx_direction` … |
 """
 
@@ -36,7 +36,8 @@ _GUIDE_AGM = """\
 
 ### Canonical Chain
 ```
-corp_identifier → agm_search(ticker) → agm(ticker)  [종합]
+corp_identifier → agm_search(ticker) → agm_pre_analysis(ticker)   [소집공고: 안건+재무+인사]
+                                      → agm_post_analysis(ticker)  [소집공고+투표결과 통합]
                                       → agm_agenda_xml(rcept_no)
                                       → agm_personnel_xml(rcept_no)
                                       → agm_financials_xml(rcept_no)
@@ -52,11 +53,10 @@ corp_identifier → agm_search(ticker) → agm(ticker)  [종합]
 
 | Tool | 입력 | 출력 |
 |------|------|------|
-| `agm(ticker)` | ticker | 종합 (info+agenda+fin+treasury+corrections) |
+| `agm_pre_analysis(ticker)` | ticker | 소집공고 기반 사전 분석 (안건+재무+인사) |
+| `agm_post_analysis(ticker)` | ticker | 소집공고+투표결과 통합 사후 분석 |
 | `agm_search(ticker)` | ticker, 기간 | rcept_no 목록 (정정공고 포함) |
-| `agm_document(rcept_no)` | rcept_no | 소집공고 전체 원문 |
 | `agm_agenda_xml(rcept_no)` | rcept_no | 의안 트리 (제N호/제N-M호) |
-| `agm_info(rcept_no)` | rcept_no | 회의 일시/장소/투표방법 |
 | `agm_items(rcept_no, agenda_no)` | rcept_no, 안건번호 | 안건 원문 블록 |
 | `agm_financials_xml(rcept_no)` | rcept_no | 재무제표 (BS/IS, 연결/별도) |
 | `agm_personnel_xml(rcept_no)` | rcept_no | 이사/감사 후보자 경력·결격사유 |
@@ -65,7 +65,6 @@ corp_identifier → agm_search(ticker) → agm(ticker)  [종합]
 | `agm_treasury_share_xml(rcept_no)` | rcept_no | 자기주식 수량/목적/방법 |
 | `agm_capital_reserve_xml(rcept_no)` | rcept_no | 자본준비금 감소 |
 | `agm_retirement_pay_xml(rcept_no)` | rcept_no | 퇴직금 규정 개정 |
-| `agm_extract(rcept_no)` | rcept_no | 핵심 수치 추출 (금액/인명/날짜) |
 | `agm_corrections(rcept_no)` | rcept_no | 정정 전/후 비교 |
 | `agm_parse_fallback(rcept_no, parser, tier)` | rcept_no, 파서명, pdf/ocr | XML 실패 시 PDF/OCR |
 | `agm_result(ticker)` | ticker | 투표결과 + 추정참석률 (KIND) |
@@ -178,7 +177,7 @@ _GUIDE_DIV = """\
 
 ### Canonical Chain
 ```
-corp_identifier → div(ticker)              [종합 = div_detail + 3년 추이]
+corp_identifier → div_full_analysis(ticker)  [종합 = div_detail + 3년 추이]
                → div_search(ticker)        [공시 검색 → rcept_no]
                → div_detail(ticker, year)  [특정 연도 상세]
                → div_history(ticker, years) [연도별 추이]
@@ -188,7 +187,7 @@ corp_identifier → div(ticker)              [종합 = div_detail + 3년 추이]
 
 | Tool | 입력 | 출력 | API 호출 |
 |------|------|------|----------|
-| `div(ticker)` | 종목코드/회사명 | 최신 상세 + 3년 추이 | div_detail + div_history |
+| `div_full_analysis(ticker)` | 종목코드/회사명 | 최신 상세 + 3년 추이 | div_detail + div_history |
 | `div_search(ticker)` | 종목코드/회사명 | 현금배당결정/중간배당 공시 목록 | 1 |
 | `div_detail(ticker, bsns_year, reprt_code)` | 종목코드/회사명, 연도, 보고서코드 | DPS/총액/배당성향/시가배당률 | 1 |
 | `div_history(ticker, years)` | 종목코드/회사명, 연수 | 연도별 DPS/성향/수익률 | years×4 + years |

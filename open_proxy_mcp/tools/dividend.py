@@ -741,11 +741,11 @@ def register_tools(mcp):
         return "\n".join(lines)
 
     @mcp.tool()
-    async def div(
+    async def div_full_analysis(
         ticker: str,
         format: str = "md",
     ) -> str:
-        """desc: 배당 종합 — 최근 배당 상세 + 3년 추이. 보통주/우선주 모두 포함.
+        """desc: 배당 종합 분석 — 최근 배당 상세 + 3년 추이. 보통주/우선주 모두 포함.
         when: [tier-4 Orchestrate] 기업의 배당 정책/현황을 종합적으로 볼 때.
         rule: div_detail(최신) + div_history(3년)를 합쳐서 반환.
         ref: corp_identifier, div_detail, div_history"""

@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "disclosures/반기보고서.md",
+                "file": "disclosures/현금배당결정.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "반기보고서"
+              "title": "현금배당결정"
             }
           }
         ]
@@ -183,8 +183,20 @@
       "bases:새 베이스 생성하기": false
     }
   },
-  "active": "ff8d6a8adb2dac1f",
+  "active": "c3948d19ea5186b1",
   "lastOpenFiles": [
+    "decisions/tool-changelog.md",
+    "comparison/회사측-vs-주주측-위임장.md",
+    "disclosures/주주총회소집공고.md",
+    "disclosures/주주총회결과.md",
+    "disclosures/정정공시.md",
+    "disclosures/자기주식취득처분결정.md",
+    "disclosures/위임장권유참고서류.md",
+    "disclosures/사업보고서.md",
+    "disclosures/분기보고서.md",
+    "disclosures/대량보유상황보고서.md",
+    "analysis/proxy-voting-decision-tree.md",
+    "disclosures/반기보고서.md",
     "comparison/stkrt-vs-ctr_stkrt.md",
     "decisions/파서-성능-추이.md",
     "decisions/경력-파서-벤치마크-2026-04.md",
@@ -196,26 +208,14 @@
     "decisions/XML-vs-PDF.md",
     "comparison",
     "decisions",
-    "disclosures/대량보유상황보고서.md",
-    "disclosures/반기보고서.md",
     "entities/네이버-금융.md",
     "index.md",
     "concepts/경영권-방어.md",
     "concepts/주주환원.md",
     "concepts/당기순이익.md",
-    "concepts/자본준비금.md",
-    "analysis/proxy-voting-decision-tree.md",
-    "analysis/상법개정-타임라인-2026.md",
-    "analysis/주총방어-시나리오-4가지.md",
-    "sources/주총체크리스트-2026.md",
-    "sources/주총방어전략-2026.md",
-    "sources/jpm-voting-process.md",
     "raw/주총방어전략.pdf",
     "raw/주주총회 체크리스트 - 미래에셋증권 유건호.pdf",
-    "raw/J.P Morgan Asset Management Voting Process.md",
     "raw",
-    "analysis/cross-domain-체이닝.md",
-    "analysis/KIND-검색-API-조사.md",
     "disclosures"
   ]
 }

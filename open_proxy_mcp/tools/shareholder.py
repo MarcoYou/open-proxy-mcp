@@ -671,15 +671,15 @@ def register_tools(mcp):
         return _format_retirement_pay(result)
 
     @mcp.tool()
-    async def agm(
+    async def agm_pre_analysis(
         ticker: str,
         bgn_de: str = "",
         end_de: str = "",
     ) -> str:
-        """desc: 주총 종합 오케스트레이터. info + agenda + financials + treasury + corrections 한 번에.
-        when: 특정 기업 주총 전체를 빠르게 파악할 때. rcept_no 없이 ticker만으로.
-        rule: 상세 분석은 개별 agm_* tool 사용. 이 tool은 요약용.
-        ref: corp_identifier, agm_search, agm_agenda_xml, agm_financials_xml, agm_manual
+        """desc: 주총 사전 분석 — 소집공고 기반 안건/재무/인사 요약. 투표결과 미포함.
+        when: [tier-4 Orchestrate] 주총 전 또는 소집공고만 있을 때. 안건 트리 + 재무 하이라이트 + 후보자 요약.
+        rule: 소집공고(DART) 기반. 투표결과 포함 분석은 agm_post_analysis 사용.
+        ref: corp_identifier, agm_search, agm_agenda_xml, agm_financials_xml, agm_post_analysis
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -790,6 +790,21 @@ def register_tools(mcp):
             lines.append("")
 
         return "\n".join(lines)
+
+    @mcp.tool()
+    async def agm_post_analysis(
+        ticker: str,
+        bgn_de: str = "",
+        end_de: str = "",
+    ) -> str:
+        """desc: 주총 사후 분석 — 소집공고(안건/재무/인사) + 투표결과(가결/부결/참석률) 통합.
+        when: [tier-4 Orchestrate] 주총 종료 후 전체 분석. 사전+사후 완전한 주총 그림이 필요할 때.
+        rule: agm_pre_analysis + agm_result 체이닝. 주총 미종료 시 투표결과 없음 안내.
+        ref: corp_identifier, agm_pre_analysis, agm_result, agm_search
+        """
+        pre = await agm_pre_analysis(ticker=ticker, bgn_de=bgn_de, end_de=end_de)
+        result = await agm_result(ticker=ticker, bgn_de=bgn_de, end_de=end_de)
+        return f"{pre}\n\n---\n\n## 투표 결과\n\n{result}"
 
     # ── PDF/OCR fallback (unified) ──
 

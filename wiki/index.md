@@ -53,6 +53,7 @@ updated: 2026-04-05
 
 ## Decisions
 
+- [[tool-changelog]] - Tool 제거/통합/리네임 이력 (41→32개, 이유 포함)
 - [[경력-파서-벤치마크-2026-04]] - personnel XML 878명 전수 벤치마크 (SUCCESS 79.4%)
 - [[XML-vs-PDF]] - XML 1차 + PDF 보강이 최적, PDF-only는 역효과
 - [[BeautifulSoup-파서-선택]] - lxml 채택 (30% 빠름, 결과 동일)
