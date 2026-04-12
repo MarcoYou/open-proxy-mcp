@@ -105,13 +105,13 @@ Tier 5  AGM (12)                OWNERSHIP (5)
         agm_retirement_pay_xml  div_detail
         agm_result              div_history
         agm_items
-        agm_corrections         PROXY (4)
+        agm_corrections         PROXY (3)
         agm_parse_fallback      proxy_detail
                                 proxy_direction
                                 proxy_litigation
-                                proxy_valuation_plan
         NEWS (1)
-        news_check
+        news_check              VALUE_UP (1)
+                                value_up_plan
 ```
 
 ### Domain Summary
@@ -121,7 +121,8 @@ Tier 5  AGM (12)                OWNERSHIP (5)
 | **AGM** | AGM notice parsing -- agenda, financials, directors, articles, compensation, treasury | 14 |
 | **OWNERSHIP** | Ownership structure -- largest shareholders, total shares, treasury, 5% block holders | 6 |
 | **DIVIDEND** | Dividends -- payout details, 3-year history, payout ratio/yield | 4 |
-| **PROXY** | Proxy fights -- solicitation, both-side comparison, litigation, value-up plans | 6 |
+| **PROXY** | Proxy fights -- solicitation, both-side comparison, litigation | 5 |
+| **VALUE_UP** | Corporate value-up plan disclosures | 1 |
 | **NEWS** | Negative news search for director/auditor candidates | 1 |
 | **CORP** | Company identification (ticker/corp_code resolution) | 1 |
 | **GUIDE** | Full tool usage guide | 1 |

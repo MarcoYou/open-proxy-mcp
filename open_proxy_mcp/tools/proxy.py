@@ -1,11 +1,10 @@
 """위임장 권유 + 경영권 분쟁 관련 MCP tools (proxy_*)
 
-위임장권유참고서류, 소송(경영권분쟁), 기업가치제고계획 공시 조회 및 파싱.
+위임장권유참고서류, 소송(경영권분쟁) 공시 조회 및 파싱.
 """
 
 import re
 import json
-import asyncio as _asyncio
 from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -416,12 +415,6 @@ def register_tools(mcp):
         "경영권분쟁소송",
     )
 
-    _VALUATION_KEYWORDS = (
-        "기업가치제고",
-        "기업가치 제고",
-        "밸류업",
-    )
-
     def _strip_css(text: str) -> str:
         """HTML + CSS 제거하고 텍스트만 추출"""
         text = re.sub(r'\.xforms[^}]*\}', '', text)
@@ -453,21 +446,16 @@ def register_tools(mcp):
         bgn_de = f"{int(bsns_year) - 1}0101"
         end_de = f"{bsns_year}1231"
 
-        try:
-            result_i, result_b = await _asyncio.gather(
-                client.search_filings(
+        all_items = []
+        for pty in ("I", "B"):
+            try:
+                result = await client.search_filings(
                     bgn_de=bgn_de, end_de=end_de,
-                    corp_code=corp_code, pblntf_ty="I", page_count=100,
-                ),
-                client.search_filings(
-                    bgn_de=bgn_de, end_de=end_de,
-                    corp_code=corp_code, pblntf_ty="B", page_count=100,
-                ),
-            )
-        except DartClientError as e:
-            return tool_error("소송 공시 검색", e, ticker=ticker)
-
-        all_items = result_i.get("list", []) + result_b.get("list", [])
+                    corp_code=corp_code, pblntf_ty=pty, page_count=100,
+                )
+                all_items.extend(result.get("list", []))
+            except DartClientError:
+                pass  # 해당 카테고리에 데이터 없음 (013)
         litigation_items = [
             item for item in all_items
             if any(kw in (item.get("report_nm") or "").replace(" ", "").replace("\u3165", "")
@@ -530,89 +518,3 @@ def register_tools(mcp):
 
         return "\n".join(lines)
 
-    @mcp.tool()
-    async def proxy_valuation_plan(
-        ticker: str,
-        year: str = "",
-        format: str = "md",
-    ) -> str:
-        """desc: 기업가치제고계획(밸류업) 공시 검색 -- 주주환원, ROE, 배당 목표 등.
-        when: [tier-4 Orchestrate] 기업가치제고, 밸류업, value-up, 주주환원 계획을 확인할 때. 경영권 분쟁에서 양측의 주주환원 공약 비교에도 활용.
-        rule: DART pblntf_ty=I(거래소공시)에서 기업가치제고 키워드 필터. 원문에서 핵심 지표 추출.
-        ref: corp_identifier, proxy_fight, div_full_analysis
-        """
-        ticker = await resolve_ticker(ticker)
-        client = get_dart_client()
-        corp = await client.lookup_corp_code(ticker)
-        if not corp:
-            return tool_not_found("기업", ticker)
-
-        corp_code = corp["corp_code"]
-        corp_name = corp["corp_name"]
-        now = datetime.now()
-        bsns_year = year or str(now.year)
-        bgn_de = f"{int(bsns_year) - 2}0101"
-        end_de = f"{bsns_year}1231"
-
-        try:
-            result = await client.search_filings(
-                bgn_de=bgn_de, end_de=end_de,
-                corp_code=corp_code, pblntf_ty="I", page_count=100,
-            )
-        except DartClientError as e:
-            return tool_error("기업가치제고계획 검색", e, ticker=ticker)
-
-        items = result.get("list", [])
-        vup_items = [
-            item for item in items
-            if any(kw in (item.get("report_nm") or "").replace(" ", "")
-                   for kw in _VALUATION_KEYWORDS)
-        ]
-
-        if not vup_items:
-            return tool_empty("기업가치제고계획", f"{ticker}")
-
-        vup_items.sort(key=lambda x: x.get("rcept_dt", ""), reverse=True)
-
-        parsed = []
-        for item in vup_items[:2]:
-            try:
-                doc = await client.get_document(item["rcept_no"])
-                text = _strip_css(doc.get("text", "") or "")
-                parsed.append({
-                    "rcept_no": item.get("rcept_no", ""),
-                    "rcept_dt": item.get("rcept_dt", ""),
-                    "report_nm": (item.get("report_nm") or "").strip(),
-                    "text": text,
-                })
-            except Exception:
-                pass
-
-        if format == "json":
-            return json.dumps({
-                "corp_name": corp_name,
-                "count": len(vup_items),
-                "items": [{
-                    "rcept_no": p["rcept_no"],
-                    "rcept_dt": p["rcept_dt"],
-                    "report_nm": p["report_nm"],
-                    "text": p["text"][:5000],
-                } for p in parsed],
-            }, ensure_ascii=False, indent=2)
-
-        lines = [
-            f"# {corp_name} 기업가치제고계획",
-            f"총 {len(vup_items)}건",
-            "",
-        ]
-
-        for p in parsed:
-            dt = p["rcept_dt"]
-            dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if len(dt) == 8 else dt
-            lines.append(f"## {p['report_nm']} ({dt_fmt})")
-            lines.append(f"rcept_no: `{p['rcept_no']}`")
-            lines.append("")
-            lines.append(p["text"][:4000])
-            lines.append("")
-
-        return "\n".join(lines)
