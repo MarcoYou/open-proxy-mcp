@@ -280,6 +280,8 @@ def register_tools(mcp):
             ticker: 종목코드 또는 회사명
             format: "md" (기본) 또는 "json"
         """
+        import asyncio as _asyncio
+
         client = get_dart_client()
         corp = await client.lookup_corp_code(ticker)
         if not corp:
@@ -289,27 +291,41 @@ def register_tools(mcp):
         corp_name = corp.get("corp_name", ticker)
         bsns_year = str(datetime.now().year - 1)
 
-        empty = {"list": []}
+        # tier-5 tool 병렬 체이닝
+        major_raw, total_raw, block_raw = await _asyncio.gather(
+            own_major(ticker=ticker, format="json"),
+            own_total(ticker=ticker, format="json"),
+            own_block(ticker=ticker, format="json"),
+        )
 
-        # 1. 사업보고서 기준 (최대주주 + 주식총수)
-        try:
-            major = await client.get_major_shareholders(corp_code, bsns_year)
-        except DartClientError:
-            major = empty
-        try:
-            stock_total = await client.get_stock_total(corp_code, bsns_year)
-        except DartClientError:
-            stock_total = empty
-        try:
-            minority = await client.get_minority_shareholders(corp_code, bsns_year)
-        except DartClientError:
-            minority = empty
+        empty_list = {"list": []}
 
-        # 2. 최신 공시 (5% 대량보유)
+        # own_major JSON 파싱
         try:
-            block = await client.get_block_holders(corp_code)
-        except DartClientError:
-            block = empty
+            major_data = json.loads(major_raw)
+            major = major_data.get("major", empty_list)
+        except (json.JSONDecodeError, TypeError):
+            major = empty_list
+
+        # own_total JSON 파싱
+        try:
+            total_data = json.loads(total_raw)
+            stock_total = total_data.get("stock_total", empty_list)
+            minority = total_data.get("minority") or empty_list
+        except (json.JSONDecodeError, TypeError):
+            stock_total = empty_list
+            minority = empty_list
+
+        # own_block JSON 파싱
+        try:
+            block_data = json.loads(block_raw)
+            block = block_data.get("data", empty_list)
+            # purposes: rcept_no → purpose (own_block이 rcept_no 키로 저장)
+            # own_full_analysis는 name → purpose 로 사용하므로 변환 필요
+            block_purposes_by_rcept = block_data.get("purposes", {})
+        except (json.JSONDecodeError, TypeError):
+            block = empty_list
+            block_purposes_by_rcept = {}
 
         # 3. 사업보고서 기준 주주 테이블 구성
         major_items = major.get("list", [])
@@ -331,7 +347,7 @@ def register_tools(mcp):
             if pct > 0:
                 ar_shareholders[name] = {"relate": relate, "pct": pct}
 
-        # 최신 공시 주주 (5% 대량보유)
+        # 최신 공시 주주 (5% 대량보유) — 보고자별 최신 1건
         block_items = block.get("list", [])
         latest_by_reporter = {}
         for item in block_items:
@@ -340,21 +356,17 @@ def register_tools(mcp):
             if name and (name not in latest_by_reporter or dt > latest_by_reporter[name].get("rcept_dt", "")):
                 latest_by_reporter[name] = item
 
-        # 보유목적 파싱
+        # 보유목적: own_block이 rcept_no 키로 반환 → name 키로 변환
         purposes = {}
         for name, item in latest_by_reporter.items():
             rcept_no = item.get("rcept_no", "")
-            purpose = _parse_holding_purpose(item.get("report_tp", ""), item.get("report_resn", ""))
-            if purpose in ("불명", "단순투자/일반투자"):
-                try:
-                    doc = await client.get_document(rcept_no)
-                    html = doc.get("html", "") or doc.get("full_text", "")
-                    parsed = _parse_holding_purpose_from_document(html)
-                    purposes[name] = parsed if parsed != "불명" else purpose
-                except Exception:
-                    purposes[name] = purpose
+            if rcept_no in block_purposes_by_rcept:
+                purposes[name] = block_purposes_by_rcept[rcept_no]
             else:
-                purposes[name] = purpose
+                # own_block이 캐시하지 못한 경우 report_resn 기반 폴백
+                purposes[name] = _parse_holding_purpose(
+                    item.get("report_tp", ""), item.get("report_resn", "")
+                )
 
         # 4. 통합 테이블 구성
         rows = []  # [{name, category, ar_pct, latest_pct, latest_date, note}]
@@ -517,7 +529,7 @@ def register_tools(mcp):
         lines.append(f"*사업보고서: {bsns_year} ({stlm_dt}) / 최신 공시: 5% 대량보유 수시 공시 기준*")
         lines.append("*상세: own_major, own_total, own_block, own_treasury_tx*")
 
-        # 임원 주식 보유현황 (own_latest에서 이전)
+        # 임원 주식 보유현황
         try:
             exec_data = await client.get_executive_holdings(corp_code)
             exec_items = exec_data.get("list", [])
