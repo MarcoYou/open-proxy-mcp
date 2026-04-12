@@ -86,18 +86,18 @@ Tier 4  agm_pre_analysis   div_full_analysis  proxy_fight
         |                  |                  |
         +------------------+------------------+
         |
-Tier 5  AGM (12)                OWN (5)
+Tier 5  AGM (12)                OWNERSHIP (5)
         agm_agenda_xml          ownership_major
         agm_financials_xml      ownership_total
         agm_personnel_xml       ownership_treasury
         agm_aoi_change_xml      ownership_treasury_tx
         agm_compensation_xml    ownership_block
         agm_treasury_share_xml
-        agm_capital_reserve_xml DIV (2)
+        agm_capital_reserve_xml DIVIDEND (2)
         agm_retirement_pay_xml  div_detail
         agm_result              div_history
         agm_items
-        agm_corrections         PRX (2)
+        agm_corrections         PROXY (2)
         agm_parse_fallback      proxy_detail
                                 proxy_direction
         NEWS (1)
@@ -109,9 +109,9 @@ Tier 5  AGM (12)                OWN (5)
 | 도메인 | 설명 | tool 수 |
 |--------|------|---------|
 | **AGM** | 주총 소집공고 파싱 -- 안건, 재무제표, 이사선임, 정관변경, 보수한도, 자기주식 등 | 14 |
-| **OWN** | 지분 구조 -- 최대주주, 주식총수, 자사주, 5% 대량보유자 | 6 |
-| **DIV** | 배당 분석 -- 배당 상세, 3개년 추이, 배당성향/수익률 | 4 |
-| **PRX** | 프록시파이트 -- 위임장 권유 검색, 양측 비교 | 4 |
+| **OWNERSHIP** | 지분 구조 -- 최대주주, 주식총수, 자사주, 5% 대량보유자 | 6 |
+| **DIVIDEND** | 배당 분석 -- 배당 상세, 3개년 추이, 배당성향/수익률 | 4 |
+| **PROXY** | 프록시파이트 -- 위임장 권유 검색, 양측 비교 | 4 |
 | **NEWS** | 후보자 부정 뉴스 검색 | 1 |
 | **CORP** | 기업 식별 (ticker/corp_code 변환) | 1 |
 | **GUIDE** | 전체 tool 사용 가이드 | 1 |

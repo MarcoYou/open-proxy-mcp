@@ -86,18 +86,18 @@ Tier 4  agm_pre_analysis   div_full_analysis  proxy_fight
         |                  |                  |
         +------------------+------------------+
         |
-Tier 5  AGM (12)                OWN (5)
+Tier 5  AGM (12)                OWNERSHIP (5)
         agm_agenda_xml          ownership_major
         agm_financials_xml      ownership_total
         agm_personnel_xml       ownership_treasury
         agm_aoi_change_xml      ownership_treasury_tx
         agm_compensation_xml    ownership_block
         agm_treasury_share_xml
-        agm_capital_reserve_xml DIV (2)
+        agm_capital_reserve_xml DIVIDEND (2)
         agm_retirement_pay_xml  div_detail
         agm_result              div_history
         agm_items
-        agm_corrections         PRX (2)
+        agm_corrections         PROXY (2)
         agm_parse_fallback      proxy_detail
                                 proxy_direction
         NEWS (1)
@@ -109,9 +109,9 @@ Tier 5  AGM (12)                OWN (5)
 | Domain | Description | Tools |
 |--------|-------------|-------|
 | **AGM** | AGM notice parsing -- agenda, financials, directors, articles, compensation, treasury | 14 |
-| **OWN** | Ownership structure -- largest shareholders, total shares, treasury, 5% block holders | 6 |
-| **DIV** | Dividends -- payout details, 3-year history, payout ratio/yield | 4 |
-| **PRX** | Proxy fights -- solicitation filings, both-side comparison | 4 |
+| **OWNERSHIP** | Ownership structure -- largest shareholders, total shares, treasury, 5% block holders | 6 |
+| **DIVIDEND** | Dividends -- payout details, 3-year history, payout ratio/yield | 4 |
+| **PROXY** | Proxy fights -- solicitation filings, both-side comparison | 4 |
 | **NEWS** | Negative news search for director/auditor candidates | 1 |
 | **CORP** | Company identification (ticker/corp_code resolution) | 1 |
 | **GUIDE** | Full tool usage guide | 1 |
