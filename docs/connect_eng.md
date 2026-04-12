@@ -30,7 +30,7 @@ UPSTAGE_API_KEY=upstage_key                         # OCR fallback (Tier 3)
 
 | API Key | Required | Where to Get | Purpose |
 |---------|----------|-------------|---------|
-| `OPENDART_API_KEY` | **Yes** | [DART OpenAPI](https://opendart.fss.or.kr/) -> Sign up -> Request API key | AGM/OWN/DIV (all core) |
+| `OPENDART_API_KEY` | **Yes** | [DART OpenAPI](https://englishdart.fss.or.kr/) -> Sign up -> Request API key | AGM/OWN/DIV (all core) |
 | `OPENDART_API_KEY_2` | No | Same (backup key) | Auto-switches on rate limit (1,000/min) |
 | `NAVER_SEARCH_API_CLIENT_ID` | No | [Naver Developers](https://developers.naver.com/) -> Register app -> Search API | Candidate news search |
 | `NAVER_SEARCH_API_CLIENT_SECRET` | No | Same | Same |

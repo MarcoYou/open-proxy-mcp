@@ -9,9 +9,9 @@
 
 ## Why OpenProxy?
 
-As passive investing grows, the concept of stock ownership is fading -- yet this is precisely when more active shareholder engagement and deeper analysis of management quality matters most. But AGM filing explanations are opaque, the content is overwhelming, and the expertise required to analyze them creates a high barrier to entry.
+At the heart of the Korea Discount lies governance risk. As passive investing grows and the meaning of stock ownership fades, this risk is only becoming sharper. Addressing it requires easy access to governance data and fast, in-depth analysis -- but parsing hundreds of pages of regulatory filings demands both time and expertise that most investors lack.
 
-**OpenProxy uses AI to break down that barrier.** It transforms 100+ page DART filings into structured data, enabling anyone to access institutional-grade proxy voting analysis in seconds.
+**OpenProxy breaks down that barrier with AI.** It transforms [DART](https://englishdart.fss.or.kr/) (Korea's electronic disclosure system, similar to SEC EDGAR) filings into structured data, making the full spectrum of governance analysis -- ownership structure, dividend history, AGM agendas, and proxy fights -- accessible to anyone in seconds.
 
 ![OpenProxy MCP Comparison](screenshot/open-proxy-mcp%20output%20eng.png)
 
@@ -23,7 +23,7 @@ As passive investing grows, the concept of stock ownership is fading -- yet this
 
 All data in OpenProxy comes from DART OpenAPI. **You need your own API key to use it.**
 
-1. Go to [DART OpenAPI](https://opendart.fss.or.kr/) -> Sign up
+1. Go to [DART OpenAPI](https://englishdart.fss.or.kr/) -> Sign up
 2. Request API key -> Issued instantly (free)
 
 ### Step 2: Connect
@@ -153,7 +153,7 @@ Structured voting recommendations based on parsed data:
 
 | Source | Usage | Note |
 |--------|-------|------|
-| [DART OpenAPI](https://opendart.fss.or.kr/) | AGM notices, annual reports, ownership filings | Required (free API key) |
+| [DART OpenAPI](https://englishdart.fss.or.kr/) | AGM notices, annual reports, ownership filings | Required (free API key) |
 | [KRX KIND](https://kind.krx.co.kr/) | AGM voting results | Web scraping |
 | [Naver News API](https://developers.naver.com/) | Candidate negative news search | Optional (free API key) |
 | [Naver Finance](https://finance.naver.com/) | Stock prices, sector, dividends | Web scraping |
