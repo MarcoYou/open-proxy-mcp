@@ -13,7 +13,7 @@ As passive investing grows, the concept of stock ownership is fading -- yet this
 
 **OpenProxy uses AI to break down that barrier.** It transforms 100+ page DART filings into structured data, enabling anyone to access institutional-grade proxy voting analysis in seconds.
 
-![OpenProxy MCP Comparison](screenshot/openproxy_mcp_compare_v2.png)
+![OpenProxy MCP Comparison](screenshot/open-proxy-mcp%20output%20eng.png)
 
 ---
 

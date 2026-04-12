@@ -13,7 +13,7 @@
 
 **OpenProxy는 AI를 활용해 이 장벽을 허뭅니다.** 100페이지가 넘는 DART 공시 문서를 구조화된 데이터로 변환하고, 누구나 몇 초 만에 기관투자자 수준의 의결권 분석에 접근할 수 있도록 만들었습니다.
 
-![OpenProxy MCP 비교](screenshot/openproxy_mcp_compare_v2.png)
+![OpenProxy MCP 비교](screenshot/open-proxy-mcp%20output%20kor.png)
 
 ---
 
