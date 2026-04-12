@@ -11,7 +11,7 @@
 
 At the heart of the Korea Discount lies governance risk. As passive investing grows and the meaning of stock ownership fades, this risk is only becoming sharper. Easy access to governance data and fast, in-depth analysis are essential -- but parsing hundreds of pages of regulatory filings takes both time and expertise that most investors don't have.
 
-**OpenProxy breaks down that barrier with AI.** It transforms [DART](https://englishdart.fss.or.kr/) (Korea's electronic disclosure system, similar to SEC EDGAR) filings into structured data, making the full spectrum of governance analysis -- ownership structure, dividend history, AGM agendas, and proxy fights -- accessible to anyone in seconds.
+**OpenProxy breaks down that barrier with AI.** It transforms [DART](https://engopendart.fss.or.kr/) (Korea's electronic disclosure system, similar to SEC EDGAR) filings into structured data, making the full spectrum of governance analysis -- ownership structure, dividend history, AGM agendas, and proxy fights -- accessible to anyone in seconds.
 
 ![OpenProxy MCP Comparison](screenshot/open-proxy-mcp%20output%20eng.png)
 
@@ -27,7 +27,7 @@ MCP connectors are only available to **Claude Pro, Max, or Teams** subscribers. 
 
 All data in OpenProxy comes from DART OpenAPI. **You'll need your own API key to get started.**
 
-1. Go to [DART OpenAPI](https://englishdart.fss.or.kr/) -> Sign up
+1. Go to [DART OpenAPI](https://engopendart.fss.or.kr/) -> Sign up
 2. Request API key -> Issued instantly (free)
 
 ### Step 2: Connect
@@ -152,7 +152,7 @@ For detailed criteria by agenda type, defense tactic detection, and 2026 Commerc
 
 | Source | Usage | Note |
 |--------|-------|------|
-| [DART OpenAPI](https://englishdart.fss.or.kr/) | AGM notices, annual reports, ownership filings | Required (free API key) |
+| [DART OpenAPI](https://engopendart.fss.or.kr/) | AGM notices, annual reports, ownership filings | Required (free API key) |
 | [KRX KIND](https://kind.krx.co.kr/) | AGM voting results | Web scraping |
 | [Naver News API](https://developers.naver.com/) | Candidate negative news search | Optional (free API key) |
 | [Naver Finance](https://finance.naver.com/) | Stock prices, sector, dividends | Web scraping |
