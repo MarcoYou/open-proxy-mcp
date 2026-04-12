@@ -17,10 +17,19 @@ import asyncio
 import logging
 import zipfile
 import xml.etree.ElementTree as ET
+from contextvars import ContextVar
 import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ── 요청별 API 키 (URL 쿼리 파라미터 → contextvar) ──
+_ctx_opendart_key: ContextVar[str | None] = ContextVar("opendart_key", default=None)
+
+
+def set_request_api_key(opendart: str):
+    """HTTP 요청의 쿼리 파라미터 ?opendart=키 값을 contextvar에 세팅"""
+    _ctx_opendart_key.set(opendart)
 
 logger = logging.getLogger(__name__)
 
@@ -108,16 +117,19 @@ class DartClient:
     - 종목코드/회사명 → corp_code 변환 (corpCode.xml 캐싱)
     """
 
-    def __init__(self):
+    def __init__(self, api_keys: list[str] | None = None):
         self._api_keys = []
-        primary = os.getenv("OPENDART_API_KEY")
-        if primary:
-            self._api_keys.append(primary)
-        secondary = os.getenv("OPENDART_API_KEY_2")
-        if secondary:
-            self._api_keys.append(secondary)
+        if api_keys:
+            self._api_keys = list(api_keys)
+        else:
+            primary = _ctx_opendart_key.get() or os.getenv("OPENDART_API_KEY")
+            if primary:
+                self._api_keys.append(primary)
+            secondary = os.getenv("OPENDART_API_KEY_2")
+            if secondary:
+                self._api_keys.append(secondary)
         if not self._api_keys:
-            raise ValueError("OPENDART_API_KEY가 .env에 설정되어 있지 않습니다.")
+            raise ValueError("OPENDART_API_KEY가 설정되어 있지 않습니다. 쿼리 파라미터(?opendart=키) 또는 .env에 설정하세요.")
         self._key_index = 0
         self.api_key = self._api_keys[0]
         # Rate limiting — 마지막 요청 시각 추적
@@ -864,7 +876,6 @@ class DartClient:
         Returns:
             [{"title", "link", "originallink", "description", "pubDate"}, ...]
         """
-        import os
         client_id = os.getenv("NAVER_SEARCH_API_CLIENT_ID")
         client_secret = os.getenv("NAVER_SEARCH_API_CLIENT_SECRET")
         if not client_id or not client_secret:
@@ -1005,13 +1016,14 @@ class DartClient:
         return doc
 
 
-# ── Singleton ──
+# ── Client Factory ──
 
-_instance: "DartClient | None" = None
+_instances: dict[str, "DartClient"] = {}
 
 def get_dart_client() -> DartClient:
-    """DartClient 싱글턴 — 전 tool에서 throttle 공유"""
-    global _instance
-    if _instance is None:
-        _instance = DartClient()
-    return _instance
+    """DartClient 팩토리 — API 키별 인스턴스 캐싱, 전 tool에서 throttle 공유"""
+    ctx_key = _ctx_opendart_key.get()
+    cache_key = ctx_key or os.getenv("OPENDART_API_KEY") or "__default__"
+    if cache_key not in _instances:
+        _instances[cache_key] = DartClient()
+    return _instances[cache_key]
