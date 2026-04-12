@@ -344,7 +344,7 @@ def register_tools(mcp):
         domain: str = "",
     ) -> str:
         """desc: OPM tool 실행 가이드 — Tier 체계, 필수 실행 순서, 도메인별 Canonical Chain, 파싱 한계, 의결권 판단 기준.
-        when: 어떤 tool을 어떤 순서로 써야 하는지 불명확할 때. 첫 호출 또는 에러 발생 시 먼저 읽기.
+        when: [tier-2 Context] 어떤 tool을 어떤 순서로 써야 하는지 불명확할 때. 첫 호출 또는 에러 발생 시 먼저 읽기.
         rule: DART API를 호출하지 않음. domain="" → 전체 가이드, domain="agm"|"own"|"div"|"prx"|"corp" → 해당 섹션만.
         ref: corp_identifier, agm_manual, own_manual, div_manual, prx_manual, corp_manual
 

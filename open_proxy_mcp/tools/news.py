@@ -102,7 +102,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 인물 부정 뉴스 검색. 이사/감사 후보자의 횡령, 배임, 기소 등 부정 뉴스 확인.
-        when: 이사/감사 선임 안건에서 후보자 리스크 확인 시. agm_personnel_xml 결과의 후보자별로 호출.
+        when: [tier-5 Detail] agm_personnel_xml 실행 후 특정 후보자의 부정 뉴스 리스크를 확인할 때만 사용. 단독 호출하지 말 것.
         rule: 경력 기반 멀티 검색 (이름+현재 회사 + 이름+전직 회사). 최근 5년 기본, 더 넓은 기간 가능. 주요 11개 일간지 우선 표시. 부정 키워드 매칭 기사만 필터.
         ref: agm_personnel_xml, agm_manual
 
