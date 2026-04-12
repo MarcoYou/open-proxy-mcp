@@ -171,6 +171,12 @@ open-proxy-mcp/
 
 ---
 
+## Disclaimer
+
+OpenProxy는 DART 공시 데이터를 구조화하여 AI에게 제공하는 도구예요. AI는 할루시네이션(hallucination)을 일으킬 수 있고, 부정확한 분석을 제공할 수도 있어요. 분석 결과는 참고 목적으로만 사용하시고, 투자 결정이나 의결권 행사의 최종 판단은 반드시 원문 공시와 전문가 검토를 거쳐주세요.
+
+---
+
 ## 라이선스
 
 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) -- 비상업적 사용만 허용
