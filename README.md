@@ -36,28 +36,18 @@ URL 끝에 발급받은 DART API 키를 붙여서 연결합니다. 키는 서버
 
 **claude.ai 웹:**
 
-1. [claude.ai](https://claude.ai) 접속 -> 채팅 입력창 하단 MCP 아이콘 클릭
+1. [claude.ai](https://claude.ai) 접속 -> 설정 -> 커넥터
 2. "커스텀 커넥터 추가" 선택
 3. 이름: `open-proxy-mcp`, URL 입력:
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 ```
 4. "추가" 클릭 -> 33개 tool 자동 인식
-5. 도구 권한에서 **"항상 허용"** 선택 (매번 승인 없이 tool 자동 실행)
+5. 추가된 커넥터의 구성 -> 권한에서 **"항상 허용"** 선택 (매번 승인 없이 tool 자동 실행)
 
-**Claude Desktop:**
+**Claude Desktop / Claude Code:**
 
-설정 > MCP 서버 추가 > URL 커넥터:
-
-```
-https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
-```
-
-**Claude Code:**
-
-```bash
-claude mcp add open-proxy-mcp --transport streamable-http "https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키"
-```
+[연결 가이드 문서](docs/connect.md) 참조
 
 #### 방법 B: 로컬 설치
 
