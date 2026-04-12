@@ -9,7 +9,7 @@
 
 ## Why OpenProxy?
 
-At the heart of the Korea Discount lies governance risk. As passive investing grows and the meaning of stock ownership fades, this risk is only becoming sharper. Addressing it requires easy access to governance data and fast, in-depth analysis -- but parsing hundreds of pages of regulatory filings demands both time and expertise that most investors lack.
+At the heart of the Korea Discount lies governance risk. As passive investing grows and the meaning of stock ownership fades, this risk is only becoming sharper. Easy access to governance data and fast, in-depth analysis are essential -- but parsing hundreds of pages of regulatory filings takes both time and expertise that most investors don't have.
 
 **OpenProxy breaks down that barrier with AI.** It transforms [DART](https://englishdart.fss.or.kr/) (Korea's electronic disclosure system, similar to SEC EDGAR) filings into structured data, making the full spectrum of governance analysis -- ownership structure, dividend history, AGM agendas, and proxy fights -- accessible to anyone in seconds.
 
@@ -19,20 +19,24 @@ At the heart of the Korea Discount lies governance risk. As passive investing gr
 
 ## Quick Start
 
+### Step 0: Claude Subscription (Required)
+
+MCP connectors are only available to **Claude Pro, Max, or Teams** subscribers. Check your subscription at [claude.ai](https://claude.ai).
+
 ### Step 1: Get a DART API Key (Required)
 
-All data in OpenProxy comes from DART OpenAPI. **You need your own API key to use it.**
+All data in OpenProxy comes from DART OpenAPI. **You'll need your own API key to get started.**
 
 1. Go to [DART OpenAPI](https://englishdart.fss.or.kr/) -> Sign up
 2. Request API key -> Issued instantly (free)
 
 ### Step 2: Connect
 
-Once you have your API key, choose one of the two methods below.
+Once you have your API key, pick one of the two methods below.
 
-#### Option A: Remote Server (No Install, 30 seconds)
+#### Option A: Remote Server (No install, 30 seconds)
 
-Append your DART API key to the URL. The key is used server-side only and never exposed to the AI.
+Just append your DART API key to the URL. The key is used server-side only and never exposed to the AI.
 
 **claude.ai web:**
 
@@ -42,10 +46,10 @@ Append your DART API key to the URL. The key is used server-side only and never 
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY
 ```
-4. Click "Add" -> 33 tools auto-detected
+4. Click "Add" -> 33 tools are auto-detected
 5. Go to the added connector's Configuration -> Permissions and select **"Always allow"** (tools run without per-call approval)
 
-> **Note**: You don't need to delete or reconnect the connector after server updates. Starting a new conversation will automatically load the latest tools. If tools still don't work as expected, delete the connector and reconnect.
+> **Note**: You don't need to reconnect the connector after server updates. Starting a new conversation will automatically load the latest tools. If tools still don't work as expected, try deleting the connector and reconnecting.
 
 #### Option B: Local Installation
 
@@ -55,7 +59,7 @@ See [local installation guide](docs/connect_eng.md)
 
 ### Usage Examples
 
-After connecting, just ask in natural language:
+Once connected, just ask in natural language:
 
 ```
 "Analyze Samsung Electronics AGM agenda"
@@ -72,7 +76,7 @@ After connecting, just ask in natural language:
 
 ## Tool Architecture (33 tools)
 
-33 tools are organized into 5 execution tiers. The AI calls from Tier 1 downward, descending into Detail tools as needed.
+33 tools are organized into 5 execution tiers. The AI calls from Tier 1 downward, descending into detail tools as needed.
 
 ```
 Tier 1  corp_identifier ............. "005930" / "Samsung"
@@ -187,4 +191,4 @@ open-proxy-mcp/
 
 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) -- NonCommercial use only.
 
-You are free to share and adapt this work for non-commercial purposes, provided you give appropriate credit.
+You're free to share and adapt this work for non-commercial purposes, as long as you give appropriate credit.
