@@ -15,6 +15,8 @@
 
 ![OpenProxy MCP 비교](screenshot/open-proxy-mcp%20output%20kor.png)
 
+[사용 예시 스크린샷 보기](docs/examples.md)
+
 ---
 
 ## 빠른 시작

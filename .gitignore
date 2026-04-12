@@ -40,6 +40,8 @@ screenshot/*.png
 !screenshot/open-proxy-mcp\ output\ eng.png
 screenshot/Compare/
 screenshot/readme/
+screenshot/pr_materials/*_combined.png
+screenshot/pr_materials/*.pdf
 
 # Paid pipeline data
 data/

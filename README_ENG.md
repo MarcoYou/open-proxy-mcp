@@ -15,6 +15,8 @@ At the heart of the Korea Discount lies governance risk. As passive investing gr
 
 ![OpenProxy MCP Comparison](screenshot/open-proxy-mcp%20output%20eng.png)
 
+[See Usage Examples (Screenshots)](docs/examples_eng.md)
+
 ---
 
 ## Quick Start
