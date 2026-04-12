@@ -19,8 +19,8 @@ def main():
     args = parser.parse_args()
 
     if args.transport in ("sse", "streamable-http"):
-        os.environ.setdefault("FASTMCP_HOST", "0.0.0.0")
-        os.environ.setdefault("FASTMCP_PORT", "8000")
+        mcp.settings.host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
+        mcp.settings.port = int(os.environ.get("FASTMCP_PORT", "8000"))
 
     mcp.run(transport=args.transport)
 
