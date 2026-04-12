@@ -71,45 +71,37 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 33개 tool은 5단계 Tier로 구성됩니다. AI는 Tier 1부터 순서대로 호출하며, 필요에 따라 하위 Detail tool로 내려갑니다.
 
 ```
-                            ┌──────────────────────┐
-                            │    corp_identifier    │  Tier 1 Entity
-                            │  기업명/ticker 식별    │  "삼성전자" -> 005930
-                            └──────────┬───────────┘
-                                       │
-                            ┌──────────▼───────────┐
-                            │      tool_guide      │  Tier 2 Context
-                            │   사용법 + 판단 기준   │
-                            └──────────┬───────────┘
-                                       │
-              ┌────────────────────────┼────────────────────────┐
-              │                        │                        │
-    ┌─────────▼─────────┐  ┌──────────▼──────────┐  ┌──────────▼──────────┐
-    │    agm_search      │  │     div_search      │  │    proxy_search     │  Tier 3
-    │   소집공고 검색     │  │    배당공시 검색     │  │   위임장공시 검색    │  Search
-    └─────────┬─────────┘  └──────────┬──────────┘  └──────────┬──────────┘
-              │                       │                        │
-    ┌─────────▼──────────────┐ ┌──────▼───────────┐ ┌──────────▼──────────┐
-    │ agm_pre_analysis       │ │div_full_analysis │ │    proxy_fight      │  Tier 4
-    │ agm_post_analysis      │ │  배당 종합 분석   │ │  프록시파이트 감지   │  Orchestrate
-    │ ownership_full_analysis│ └──────┬───────────┘ └──────────┬──────────┘
-    │ governance_report      │        │                        │
-    └─────────┬──────────────┘        │                        │
-              │                       │                        │
-    ┌─────────▼───────────────────────▼────────────────────────▼──────────┐
-    │                           Tier 5 Detail                            │
-    │                                                                    │
-    │  AGM (12)              OWN (5)               DIV (2)   PRX (2)    │
-    │  ├ agenda_xml          ├ ownership_major     ├ detail  ├ detail   │
-    │  ├ financials_xml      ├ ownership_total     └ history └ direction│
-    │  ├ personnel_xml       ├ ownership_treasury                       │
-    │  ├ aoi_change_xml      ├ ownership_block     NEWS (1)             │
-    │  ├ compensation_xml    └ ownership_treasury_tx└ news_check        │
-    │  ├ treasury_share_xml                                             │
-    │  ├ capital_reserve_xml                                            │
-    │  ├ retirement_pay_xml                                             │
-    │  ├ info / corrections / result / items                            │
-    │  └ 각 파서 _xml / _pdf / _ocr fallback                            │
-    └───────────────────────────────────────────────────────────────────┘
+Tier 1  corp_identifier ............. "005930" / "Samsung"
+        |
+Tier 2  tool_guide
+        |
+        +------------------+------------------+
+        |                  |                  |
+Tier 3  agm_search         div_search         proxy_search
+        |                  |                  |
+Tier 4  agm_pre_analysis   div_full_analysis  proxy_fight
+        agm_post_analysis
+        ownership_full_analysis
+        governance_report
+        |                  |                  |
+        +------------------+------------------+
+        |
+Tier 5  AGM (12)                OWN (5)
+        agm_agenda_xml          ownership_major
+        agm_financials_xml      ownership_total
+        agm_personnel_xml       ownership_treasury
+        agm_aoi_change_xml      ownership_treasury_tx
+        agm_compensation_xml    ownership_block
+        agm_treasury_share_xml
+        agm_capital_reserve_xml DIV (2)
+        agm_retirement_pay_xml  div_detail
+        agm_result              div_history
+        agm_items
+        agm_corrections         PRX (2)
+        agm_parse_fallback      proxy_detail
+                                proxy_direction
+        NEWS (1)
+        news_check
 ```
 
 ### 도메인별 요약

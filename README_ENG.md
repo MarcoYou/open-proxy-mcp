@@ -71,45 +71,37 @@ After connecting, just ask in natural language:
 33 tools are organized into 5 execution tiers. The AI calls from Tier 1 downward, descending into Detail tools as needed.
 
 ```
-                            ┌──────────────────────┐
-                            │    corp_identifier    │  Tier 1 Entity
-                            │  name/ticker lookup   │  "Samsung" -> 005930
-                            └──────────┬───────────┘
-                                       │
-                            ┌──────────▼───────────┐
-                            │      tool_guide      │  Tier 2 Context
-                            │   usage + decisions   │
-                            └──────────┬───────────┘
-                                       │
-              ┌────────────────────────┼────────────────────────┐
-              │                        │                        │
-    ┌─────────▼─────────┐  ┌──────────▼──────────┐  ┌──────────▼──────────┐
-    │    agm_search      │  │     div_search      │  │    proxy_search     │  Tier 3
-    │   AGM notices      │  │    dividends        │  │   proxy filings     │  Search
-    └─────────┬─────────┘  └──────────┬──────────┘  └──────────┬──────────┘
-              │                       │                        │
-    ┌─────────▼──────────────┐ ┌──────▼───────────┐ ┌──────────▼──────────┐
-    │ agm_pre_analysis       │ │div_full_analysis │ │    proxy_fight      │  Tier 4
-    │ agm_post_analysis      │ │  full dividend   │ │  proxy fight        │  Orchestrate
-    │ ownership_full_analysis│ └──────┬───────────┘ └──────────┬──────────┘
-    │ governance_report      │        │                        │
-    └─────────┬──────────────┘        │                        │
-              │                       │                        │
-    ┌─────────▼───────────────────────▼────────────────────────▼──────────┐
-    │                           Tier 5 Detail                            │
-    │                                                                    │
-    │  AGM (12)              OWN (5)               DIV (2)   PRX (2)    │
-    │  ├ agenda_xml          ├ ownership_major     ├ detail  ├ detail   │
-    │  ├ financials_xml      ├ ownership_total     └ history └ direction│
-    │  ├ personnel_xml       ├ ownership_treasury                       │
-    │  ├ aoi_change_xml      ├ ownership_block     NEWS (1)             │
-    │  ├ compensation_xml    └ ownership_treasury_tx└ news_check        │
-    │  ├ treasury_share_xml                                             │
-    │  ├ capital_reserve_xml                                            │
-    │  ├ retirement_pay_xml                                             │
-    │  ├ info / corrections / result / items                            │
-    │  └ each parser: _xml / _pdf / _ocr fallback                      │
-    └───────────────────────────────────────────────────────────────────┘
+Tier 1  corp_identifier ............. "005930" / "Samsung"
+        |
+Tier 2  tool_guide
+        |
+        +------------------+------------------+
+        |                  |                  |
+Tier 3  agm_search         div_search         proxy_search
+        |                  |                  |
+Tier 4  agm_pre_analysis   div_full_analysis  proxy_fight
+        agm_post_analysis
+        ownership_full_analysis
+        governance_report
+        |                  |                  |
+        +------------------+------------------+
+        |
+Tier 5  AGM (12)                OWN (5)
+        agm_agenda_xml          ownership_major
+        agm_financials_xml      ownership_total
+        agm_personnel_xml       ownership_treasury
+        agm_aoi_change_xml      ownership_treasury_tx
+        agm_compensation_xml    ownership_block
+        agm_treasury_share_xml
+        agm_capital_reserve_xml DIV (2)
+        agm_retirement_pay_xml  div_detail
+        agm_result              div_history
+        agm_items
+        agm_corrections         PRX (2)
+        agm_parse_fallback      proxy_detail
+                                proxy_direction
+        NEWS (1)
+        news_check
 ```
 
 ### Domain Summary
