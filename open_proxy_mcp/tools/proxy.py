@@ -96,10 +96,13 @@ def register_tools(mcp):
         end_de = f"{bsns_year}1231"
 
         try:
+            # pblntf_ty="D" (지분공시) — 위임장권유참고서류가 여기 속함
+            # 전체 공시를 순회하지 않고 지분공시 카테고리만 검색
             result = await client.search_filings(
                 bgn_de=bgn_de,
                 end_de=end_de,
                 corp_code=corp_code,
+                pblntf_ty="D",
                 page_count=100,
             )
         except DartClientError as e:
@@ -313,6 +316,7 @@ def register_tools(mcp):
                 bgn_de=bgn_de,
                 end_de=end_de,
                 corp_code=corp_code,
+                pblntf_ty="D",
                 page_count=100,
             )
         except DartClientError as e:
