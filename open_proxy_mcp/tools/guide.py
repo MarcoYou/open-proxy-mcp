@@ -124,7 +124,6 @@ corp_identifier → ownership_full_analysis(ticker)  [종합 권장]
                → ownership_treasury(ticker, year)  [자사주 취득방법별]
                → ownership_treasury_tx(ticker)     [자사주 이벤트]
                → ownership_block(ticker)           [5% 대량보유]
-               → ownership_latest(ticker, year)    [통합 스냅샷]
 ```
 
 ### Tool 목록
@@ -137,7 +136,6 @@ corp_identifier → ownership_full_analysis(ticker)  [종합 권장]
 | `ownership_treasury(ticker, year)` | 종목코드/회사명, 연도 | 자사주 기초-취득-처분-소각-기말 | 1 |
 | `ownership_treasury_tx(ticker)` | 종목코드/회사명 | 자사주 이벤트 (취득/처분/신탁) | 4 |
 | `ownership_block(ticker)` | 종목코드/회사명 | 5% 대량보유자 + 목적 | 1+보고자 수 |
-| `ownership_latest(ticker, year)` | 종목코드/회사명, 연도 | 통합 스냅샷 | 3 |
 
 ### 출력 형태 — 반드시 유지
 
@@ -167,7 +165,7 @@ corp_identifier → ownership_full_analysis(ticker)  [종합 권장]
 ### 데이터 소스 우선순위
 1. 사업보고서 (ownership_major, ownership_total, ownership_treasury) — 연 1회, 결산일 baseline
 2. 수시공시 (ownership_block, ownership_treasury_tx) — 변동 시 즉시, 사업보고서 이후 변동 반영
-3. ownership_latest — 1+2 합산 스냅샷
+3. ownership_full_analysis — 1+2 합산 종합 분석
 
 기준날짜가 다른 데이터 혼합 시 반드시 기준날짜 컬럼으로 구분. 지분율 1% 미만 생략 가능.
 """

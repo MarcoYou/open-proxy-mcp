@@ -679,10 +679,10 @@ def register_tools(mcp):
         bgn_de: str = "",
         end_de: str = "",
     ) -> str:
-        """desc: 주주총회/AGM 사전 분석 — 소집공고 기반 안건/재무/인사 요약. 투표결과 미포함.
-        when: [tier-4 Orchestrate] 주주총회, AGM, shareholder meeting 사전 분석. 안건 트리 + 재무 하이라이트 + 후보자 요약.
-        rule: 소집공고(DART) 기반. 투표결과 포함 분석은 agm_post_analysis 사용. 이 tool 하나로 충분하며 agm_*_xml 개별 tool은 사용자의 명시적 요청 없는 한 추가 호출 금지.
-        ref: corp_identifier, agm_search, agm_agenda_xml, agm_financials_xml, agm_post_analysis
+        """desc: 주주총회/AGM 사전 종합 분석 — 소집공고 기반 안건/재무/인사/보수/정관/자사주 + 의결권 행사 판단 기준. 투표결과 미포함.
+        when: [tier-4 Orchestrate] 주주총회, AGM, shareholder meeting 사전 분석, 의결권 행사, 투표 판단, FOR/AGAINST 판정이 필요할 때.
+        rule: 소집공고(DART) 기반 full analysis. 모든 agm_*_xml을 병렬 체이닝. 투표결과 포함 분석은 agm_post_analysis 사용. 이 tool 하나로 충분하며 agm_*_xml 개별 tool은 사용자의 명시적 요청 없는 한 추가 호출 금지.
+        ref: corp_identifier, agm_search, agm_post_analysis
 
         Args:
             ticker: 종목코드 또는 회사명
@@ -716,12 +716,19 @@ def register_tools(mcp):
         latest = filings[-1]
         rcept_no = latest["rcept_no"]
 
-        # tier-5 tool 병렬 체이닝
-        agenda_raw, fs_raw, personnel_raw, corrections_raw = await _asyncio.gather(
+        # tier-5 tool 병렬 체이닝 (전 안건 파서 일괄 호출)
+        (agenda_raw, fs_raw, personnel_raw, corrections_raw,
+         compensation_raw, aoi_raw, treasury_raw, capital_raw, retirement_raw,
+        ) = await _asyncio.gather(
             agm_agenda_xml(rcept_no=rcept_no, format="json"),
             agm_financials_xml(rcept_no=rcept_no, format="json"),
             agm_personnel_xml(rcept_no=rcept_no, format="json"),
             agm_corrections(rcept_no=rcept_no, format="json"),
+            agm_compensation_xml(rcept_no=rcept_no, format="json"),
+            agm_aoi_change_xml(rcept_no=rcept_no, format="json"),
+            agm_treasury_share_xml(rcept_no=rcept_no, format="json"),
+            agm_capital_reserve_xml(rcept_no=rcept_no, format="json"),
+            agm_retirement_pay_xml(rcept_no=rcept_no, format="json"),
         )
 
         # 1. 회의 정보 + 안건 트리 — agm_agenda_xml JSON에서 추출
@@ -846,6 +853,133 @@ def register_tools(mcp):
             if names:
                 lines.append(f"- **후보자**: {', '.join(names)}")
             lines.append("")
+
+        # 5. 보수한도 — agm_compensation_xml
+        try:
+            comp = json.loads(compensation_raw)
+            comp_items = comp.get("items", [])
+            if comp_items:
+                lines.append("## 보수한도")
+                lines.append("")
+                for item in comp_items:
+                    target = item.get("target", "이사")
+                    current = item.get("current", {})
+                    prior = item.get("prior", {})
+                    limit_str = current.get("limit", "")
+                    prior_limit = prior.get("limit", "")
+                    actual = prior.get("actualPaid", "")
+                    limit_amt = current.get("limitAmount", 0) or 0
+                    prior_limit_amt = prior.get("limitAmount", 0) or 0
+                    actual_amt = prior.get("actualPaidAmount", 0) or 0
+                    # 소진율 계산
+                    utilization = f"{actual_amt / prior_limit_amt * 100:.1f}%" if prior_limit_amt > 0 else "-"
+                    # 한도 변동
+                    change = ""
+                    if limit_amt and prior_limit_amt:
+                        if limit_amt > prior_limit_amt:
+                            pct = (limit_amt - prior_limit_amt) / prior_limit_amt * 100
+                            change = f" (전기 대비 +{pct:.0f}%)"
+                        elif limit_amt < prior_limit_amt:
+                            pct = (prior_limit_amt - limit_amt) / prior_limit_amt * 100
+                            change = f" (전기 대비 -{pct:.0f}%)"
+                        else:
+                            change = " (동결)"
+                    headcount = current.get("headcount", "")
+                    lines.append(f"- **{target}** ({headcount}명)")
+                    lines.append(f"  - 당기 한도: {limit_str}{change}")
+                    lines.append(f"  - 전기 실지급: {actual} / 한도 {prior_limit}")
+                    lines.append(f"  - 소진율: {utilization}")
+                lines.append("")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 6. 정관변경 — agm_aoi_change_xml
+        try:
+            aoi = json.loads(aoi_raw)
+            amendments = aoi.get("amendments", [])
+            if amendments:
+                lines.append("## 정관변경")
+                lines.append("")
+                for a in amendments[:10]:
+                    clause = a.get("clause") or a.get("label", "")
+                    reason = a.get("reason", "")
+                    sub_id = a.get("subAgendaId", "")
+                    prefix = f"제{sub_id}호 " if sub_id else ""
+                    lines.append(f"- {prefix}{clause}: {reason}" if reason else f"- {prefix}{clause}")
+                lines.append("")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 7. 자기주식 — agm_treasury_share_xml
+        try:
+            treasury = json.loads(treasury_raw)
+            treasury_items = treasury.get("items", [])
+            if treasury_items:
+                lines.append("## 자기주식")
+                lines.append("")
+                for item in treasury_items:
+                    title = item.get("title", "")
+                    purpose = item.get("purpose", "")
+                    shares_info = item.get("sharesInfo", [])
+                    lines.append(f"- **{title}**")
+                    if purpose:
+                        lines.append(f"  - 목적: {purpose[:150]}")
+                    for s in shares_info[:3]:
+                        lines.append(f"  - {s[:100]}" if isinstance(s, str) else f"  - {str(s)[:100]}")
+                lines.append("")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 8. 자본준비금 — agm_capital_reserve_xml
+        try:
+            capital = json.loads(capital_raw)
+            capital_items = capital.get("items", []) if isinstance(capital, dict) else []
+            if capital_items:
+                lines.append("## 자본준비금")
+                lines.append("")
+                for item in capital_items[:5]:
+                    title = item.get("title", "")
+                    amount = item.get("amount", "")
+                    lines.append(f"- {title}: {amount}" if amount else f"- {title}")
+                lines.append("")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 9. 퇴직금 — agm_retirement_pay_xml
+        try:
+            retirement = json.loads(retirement_raw)
+            ret_amendments = retirement.get("amendments", [])
+            if ret_amendments:
+                lines.append("## 퇴직금 규정 개정")
+                lines.append("")
+                for a in ret_amendments[:5]:
+                    clause = a.get("clause", "")
+                    before = a.get("before", "")[:60]
+                    after = a.get("after", "")[:60]
+                    reason = a.get("reason", "")
+                    if reason:
+                        lines.append(f"- {clause}: {reason}" if clause else f"- {reason}")
+                    elif before and after:
+                        lines.append(f"- {clause}: {before} -> {after}" if clause else f"- {before} -> {after}")
+                lines.append("")
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 의결권 행사 판단 기준
+        lines.append("---")
+        lines.append("")
+        lines.append("## 의결권 행사 판단 기준")
+        lines.append("")
+        lines.append("| 안건 유형 | FOR | AGAINST | REVIEW |")
+        lines.append("|-----------|-----|---------|--------|")
+        lines.append("| 재무제표 | 감사의견 적정 | 한정/부적정 | 배당성향 극단적 |")
+        lines.append("| 이사 선임 | 사외이사 독립성 충족 | 독립성 미달 (최대주주 관계) | 겸직 3개+, 부정 뉴스 |")
+        lines.append("| 보수한도 | 소진율 30-70% | 소진율 < 30%인데 인상 | 50%+ 대폭 인상 |")
+        lines.append("| 정관변경 | 법령 반영 (형식적) | 집중투표 배제 | 이사 정원 축소 |")
+        lines.append("| 자기주식 | 소각 목적 | 경영권 방어 목적 | 재단 출연 |")
+        lines.append("| 배당 | 업종 평균 이상 | 이익 증가인데 DPS 감소 | 감액배당 |")
+        lines.append("")
+        lines.append("위 데이터와 기준을 바탕으로 각 안건에 대해 FOR/AGAINST/REVIEW를 판정하고 근거를 제시하세요.")
 
         return "\n".join(lines)
 
