@@ -7,9 +7,13 @@
 
 [Korean README (default)](README.md)
 
-![OpenProxy MCP Comparison](screenshot/openproxy_mcp_compare_v2.png)
+## Why OpenProxy?
 
-> **100-page shareholder meeting filings into structured data in seconds -- institutional-grade proxy voting analysis for every investor.**
+As passive investing grows, the concept of stock ownership is fading -- yet this is precisely when more active shareholder engagement and deeper analysis of management quality matters most. But AGM filing explanations are opaque, the content is overwhelming, and the expertise required to analyze them creates a high barrier to entry.
+
+**OpenProxy uses AI to break down that barrier.** It transforms 100+ page DART filings into structured data, enabling anyone to access institutional-grade proxy voting analysis in seconds.
+
+![OpenProxy MCP Comparison](screenshot/openproxy_mcp_compare_v2.png)
 
 ---
 
@@ -129,35 +133,6 @@ After connecting, just ask in natural language:
 "Show Samsung Electronics ownership structure"
 "What's SK Hynix's dividend history?"
 "Analyze the Korea Zinc proxy fight"
-```
-
----
-
-## Why OpenProxy?
-
-Passive investing has made proxy voting a critical governance mechanism, yet the analysis process remains manual and inaccessible.
-
-- DART (Korea's SEC EDGAR) AGM filings are 100+ page unstructured HTML -- format varies by company
-- Institutional investors rely on expensive internal teams or advisory firms (ISS, Glass Lewis)
-- Individual investors and small asset managers are locked out of structured governance data
-
-**OpenProxy transforms raw DART filings into AI-ready structured data.** Through MCP, AI models directly query and analyze disclosures, enabling institutional-quality governance analysis for everyone.
-
-**Before -- raw DART filing:**
-```
-가. 이사의 수ㆍ보수총액 내지 최고 한도액
-당 기(제58기, 2026년)
-이사의 수 (사외이사수) 8(    5    )
-보수총액 또는 최고한도액 450억원 ...
-```
-
-**After -- OpenProxy:**
-```json
-{
-  "current": {"headcount": "8(5)", "limit": "450억원", "limitAmount": 45000000000},
-  "prior": {"actualPaid": "287억원", "limit": "360억원"},
-  "priorUtilization": 79.7
-}
 ```
 
 ---
