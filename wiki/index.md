@@ -84,24 +84,20 @@ updated: 2026-04-05
 - [[분기보고서]] - DART, 의무/정기(분기), 분기 재무/배당
 - [[현금배당결정]] - KRX, 의무/수시, DPS/기준일/지급일
 - [[대량보유상황보고서]] - DART, 의무/수시(5% 변동), 보유목적/보유량
-- [[임원주요주주특정증권등소유상황보고서]] - DART, 의무/수시, 내부자 거래
-- [[자기주식취득처분결정]] - DART, 의무/수시, 자사주 이벤트
 - [[위임장권유참고서류]] - DART, 의무(권유 시)/수시, 프록시 파이트 핵심
-- [[정정공시]] - DART, 수시, 기존 공시 수정
 
 ## Sources
 
 - [[agm-tool-rule]] - AGM 40개 tool 구조, fallback 흐름, 파싱 한계
-- [[agm-case-rule]] - AGM 8개 파서 성공/실패 판정 기준 + 실데이터 예시
 - [[div-tool-rule]] - 배당 5개 tool 구조, 연산 규칙 (성향/수익률)
-- [[div-case-rule]] - 배당 tool 판정 기준
 - [[own-tool-rule]] - 지분 7개 tool 구조, 출력 형태, 데이터 소스 우선순위
-- [[own-case-rule]] - 지분 tool 판정 기준
 - [[prx-tool-rule]] - 위임장 5개 tool 구조, 검색/파싱 방법, 행사방향 추출 규칙
-- [[opm-readme]] - OpenProxy MCP 공개 README 요약
-- [[opa-readme]] - OpenProxy AI 비공개 README 요약
 - [[devlog]] - 2026-03-19부터 04-06 개발 히스토리 요약
-- [[benchmark-personnel-results]] - personnel XML 벤치마크 JSON 요약
 - [[jpm-voting-process]] - JPMAM proxy voting 5단계 프로세스 (mermaid flowchart)
 - [[주총방어전략-2026]] - 주총 방어 시나리오 4가지 (미래에셋증권 리서치 2026.03.19)
 - [[주총체크리스트-2026]] - 주총 체크리스트 9개 + 상법 개정 타임라인 (미래에셋증권)
+
+## Archive
+
+- [opm-readme](archive/opm-readme.md), [opa-readme](archive/opa-readme.md), [benchmark](archive/benchmark-personnel-results.md), [agm-case-rule](archive/agm-case-rule.md), [own-case-rule](archive/own-case-rule.md), [div-case-rule](archive/div-case-rule.md) — sources 아카이브
+- [임원주요주주](archive/임원주요주주특정증권등소유상황보고서.md), [자기주식취득처분결정](archive/자기주식취득처분결정.md), [정정공시](archive/정정공시.md) — disclosures 아카이브
