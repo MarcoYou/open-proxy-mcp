@@ -754,7 +754,7 @@ def _format_agm_result(data: dict) -> str:
     if ordinary_att:
         most_common = Counter(ordinary_att).most_common(1)[0]
         lines.append(f"**추정 참석률**: {most_common[0]}% (보통결의 {most_common[1]}건 기준, 발행기준/행사기준 역산)")
-        lines.append(f"*최대주주 제외 참석률은 own_major 지분율과 조합하여 추정 가능*\n")
+        lines.append(f"*최대주주 제외 참석률은 ownership_major 지분율과 조합하여 추정 가능*\n")
 
     lines.append("| 번호 | 결의구분 | 안건 | 결과 | 찬성(발행기준) | 찬성(행사기준) | 반대/기권 | 추정참석률 |")
     lines.append("|------|---------|------|------|-------------|-------------|----------|----------|")

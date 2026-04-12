@@ -10,7 +10,7 @@
 
 ---
 
-## 1. own_major -- 최대주주 + 특수관계인
+## 1. ownership_major -- 최대주주 + 특수관계인
 
 ### SUCCESS 예시 — 삼성전자
 
@@ -34,7 +34,7 @@
 
 ---
 
-## 2. own_total -- 주식총수
+## 2. ownership_total -- 주식총수
 
 ### SUCCESS 예시
 
@@ -56,7 +56,7 @@
 
 ---
 
-## 3. own_treasury -- 자사주
+## 3. ownership_treasury -- 자사주
 
 ### 판정
 
@@ -68,7 +68,7 @@
 
 ---
 
-## 4. own_treasury_tx -- 자사주 이벤트
+## 4. ownership_treasury_tx -- 자사주 이벤트
 
 ### 판정
 
@@ -80,7 +80,7 @@
 
 ---
 
-## 5. own_block -- 5% 대량보유
+## 5. ownership_block -- 5% 대량보유
 
 ### SUCCESS 예시
 
@@ -104,9 +104,9 @@
 
 ---
 
-## 6. own_latest -- 통합 스냅샷
+## 6. ownership_latest -- 통합 스냅샷
 
-own_major + own_block + 임원 소유를 합산. 3개 API 호출.
+ownership_major + ownership_block + 임원 소유를 합산. 3개 API 호출.
 
 ### 판정
 

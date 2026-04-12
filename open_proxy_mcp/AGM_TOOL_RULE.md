@@ -32,12 +32,12 @@
 - `agm_result(ticker)` — KIND 크롤링 → 투표결과 + 추정참석률
 
 ### Ownership (6 tools)
-- `own_major(ticker, year)` — 최대주주 + 특관인
-- `own_total(ticker, year)` — 총주식수 / 자사주 / 유통 / 소액주주
-- `own_treasury(ticker, year)` — 자사주 취득방법별 잔액
-- `own_treasury_tx(ticker)` — 자사주 이벤트 (취득/처분/신탁)
-- `own_block(ticker)` — 5% 대량보유자 (보유목적 포함)
-- `own_latest(ticker, year)` — 통합 스냅샷
+- `ownership_major(ticker, year)` — 최대주주 + 특관인
+- `ownership_total(ticker, year)` — 총주식수 / 자사주 / 유통 / 소액주주
+- `ownership_treasury(ticker, year)` — 자사주 취득방법별 잔액
+- `ownership_treasury_tx(ticker)` — 자사주 이벤트 (취득/처분/신탁)
+- `ownership_block(ticker)` — 5% 대량보유자 (보유목적 포함)
+- `ownership_latest(ticker, year)` — 통합 스냅샷
 
 ## Fallback 흐름
 
@@ -174,7 +174,7 @@ AGM_CASE_RULE의 성공 예시가 "이렇게 생겨야 한다"의 기준.
 - 전기 대비 50%+ 한도 인상 → REVIEW
 - 이사인 대주주가 보수 의결에 참여 가능한 구조 → REVIEW (남양유업 판례, 시나리오 2)
 
-### 5. 자사주 (agm_treasury_share_xml + own_treasury_tx)
+### 5. 자사주 (agm_treasury_share_xml + ownership_treasury_tx)
 
 - 목적 = 소각 → FOR (주주환원)
 - 목적 = 경영권 방어 → REVIEW
@@ -199,9 +199,9 @@ N = 집중투표로 선임할 이사 수
 **데이터 소스:**
 - agm_personnel_xml → 선임할 이사 수 (N)
 - agm_aoi_change_xml → 정원 변경, 분리선출 변경
-- own_major → 최대주주+특관인 합산 지분율 (D%)
-- own_total → 발행주식수 (T), 자사주 (S)
-- own_block → 5% 대량보유자 지분
+- ownership_major → 최대주주+특관인 합산 지분율 (D%)
+- ownership_total → 발행주식수 (T), 자사주 (S)
+- ownership_block → 5% 대량보유자 지분
 
 **정원 변경 + 집중투표 연동:**
 ```
