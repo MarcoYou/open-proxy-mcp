@@ -306,9 +306,16 @@ open_proxy_mcp/
 
 OpenProxy is deployed on Fly.io. Connect via URL -- no local setup required.
 
-**Claude Desktop / claude.ai web:**
+**claude.ai web:**
 
-Add as MCP server with URL:
+1. Go to [claude.ai](https://claude.ai) -> click MCP icon at the bottom of chat input
+2. Select "Add custom connector"
+3. Name: `open-proxy-mcp`, URL: `https://open-proxy-mcp.fly.dev/mcp`
+4. Click "Add" -> 33 tools auto-detected
+
+**Claude Desktop:**
+
+Settings > MCP Servers > Add URL connector:
 
 ```
 https://open-proxy-mcp.fly.dev/mcp

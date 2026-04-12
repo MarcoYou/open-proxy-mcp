@@ -311,9 +311,16 @@ open-proxy-mcp/
 
 OpenProxy는 Fly.io에 배포되어 있어, URL만으로 바로 사용할 수 있습니다.
 
-**Claude Desktop / claude.ai 웹:**
+**claude.ai 웹:**
 
-설정에서 MCP 서버 추가 시 URL 입력:
+1. [claude.ai](https://claude.ai) 접속 -> 채팅 입력창 하단 MCP 아이콘 클릭
+2. "커스텀 커넥터 추가" 선택
+3. 이름: `open-proxy-mcp`, URL: `https://open-proxy-mcp.fly.dev/mcp` 입력
+4. "추가" 클릭 -> 33개 tool 자동 인식
+
+**Claude Desktop:**
+
+설정 > MCP 서버 추가 > URL 커넥터:
 
 ```
 https://open-proxy-mcp.fly.dev/mcp
