@@ -880,3 +880,36 @@ get_meeting_agenda(rcept_no)
 - 주총 이력 관리 (정기/임시, 연도별) — 프론트엔드/DB에서 처리 필요
 - mockData.ts 하드코딩 → API 자동화 미완 (수동 JSON 생성)
 - NAVER 최대주주 지분율 0.00% (DART API 한계)
+
+## 2026-04-12
+
+### Tool 체이닝 + 아키텍처 리팩토링
+- agm_pre_analysis + own_full_analysis → tier-5 asyncio.gather 병렬 체이닝 전환
+- own_full_analysis: 30% 속도 향상 (1.0s → 0.7s), agm_pre_analysis: 출력 풍부화 (105줄 → 259줄)
+- prx_fight: prx_search + prx_direction 체이닝 (중복 파싱 로직 제거)
+- div_full_analysis: format="json" 지원 추가
+
+### governance_report 신규
+- AGM + OWN + DIV 3도메인 asyncio.gather 병렬 체이닝
+- format="json" 지원
+- 모듈 레벨 _domain_tools 캐싱으로 재등록 오버헤드 제거
+- 총 33개 tool
+
+### Tool 구조 정리
+- tool 수: 41 → 33개 (wiki/decisions/tool-changelog.md 참조)
+- Tier 체계 32/32 완성 (tier-1~5 태그 + 명령형 when 필드)
+- opm_guide → tool_guide 리네임
+- agm → agm_pre_analysis, div → div_full_analysis 리네임
+- agm_post_analysis 신규 (소집공고 + 투표결과 통합)
+
+### 배당 공시 9종 + pblntf_ty 필터링
+- _DIV_KEYWORDS 상수 추가 (9종 공시명)
+- div_search, prx_search/fight, agm_search 모두 pblntf_ty 필터 적용
+- wiki/decisions/pblntf-ty-필터링.md: D/E/I 코드표 기록
+- wiki/disclosures/배당공시유형.md: 9종 문서 구조 트리
+
+### Wiki 구조 재편
+- analysis/ → decisions/ + analysis/ + comparison/ 3분리
+- archive/ 9개 페이지 이동 (미사용 sources/disclosures)
+- wiki/disclosures/ 10개 전체 문서 트리 추가
+- wiki/comparison/ 2개: stkrt-vs-ctr_stkrt, 회사측-vs-주주측-위임장

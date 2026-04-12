@@ -40,12 +40,10 @@
 ### LLM fallback
 - [ ] LLM fallback tool — XML 원문 + AGM_CASE_RULE로 AI 보강 (향후)
 
-### DXT 패키징 (배포)
-- [ ] manifest.json 작성 (user_config: DART API 키, Upstage API 키)
-- [ ] 프로젝트 구조를 DXT 형태로 재구성
-- [ ] icon.png 제작
-- [ ] DXT 빌드 + 테스트 (Claude Desktop 설치 확인)
-- [ ] 배포 (GitHub Release에 .dxt 파일 첨부)
+### 배포
+- [ ] Fly.io HTTP 배포 — Dockerfile + fly.toml + SSE transport (URL 커넥터로 Claude.ai 웹 연결)
+- [ ] DXT 패키징 — manifest.json + icon.png + Claude Desktop 원클릭 설치
+- [ ] pip 패키지 + setup wizard — uvx/pip install + claude_desktop_config.json 자동 설정
 
 ### 이미지 인덱싱 + OCR 파이프라인
 - [ ] parse_agenda_details에서 이미지 메타데이터 인덱싱 (파일명, 위치, 카테고리)
@@ -59,7 +57,7 @@
 
 ### Chain Tools (향후)
 - [ ] agm_full_analysis(ticker) — agenda → personnel → compensation → vote result → 종합 판정
-- [ ] governance_report(ticker) — agm + own + div 3개 도메인 한 번에
+- [x] governance_report(ticker) — agm + own + div 3개 도메인 한 번에
 
 ### Meta Tool (향후, tool 40개+ 시)
 - [ ] discover_tools(category, keyword) — 카테고리/키워드로 tool 검색

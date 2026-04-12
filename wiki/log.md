@@ -5,6 +5,15 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-12] refactor | tool 체이닝 + governance_report + tier 체계 완성 (33개)
+- agm_pre_analysis + own_full_analysis → tier-5 asyncio.gather 병렬 체이닝
+- prx_fight → prx_search + prx_direction 체이닝 (중복 제거)
+- governance_report: AGM + OWN + DIV 3도메인 통합 (33번째 tool)
+- div_full_analysis format="json" 추가 → 전 tool json 지원 완성
+- tier 태그 32/32 완성, tool_guide tier-2, news_check tier-5
+- pblntf_ty 필터링 전면 적용 (D/E/I), _DIV_KEYWORDS 상수화
+- wiki 정리: archive/ 9개, decisions/pblntf-ty-필터링.md, disclosures/배당공시유형.md
+
 ## [2026-04-11] docs | wiki 구조 재편 + disclosures 트리 + comparison 카테고리 신설
 - analysis/ → decisions/(기술결정) + analysis/(외부소스+주총분석) 분리
 - comparison/ 신규: 공시 간/내 컨셉 비교 카테고리

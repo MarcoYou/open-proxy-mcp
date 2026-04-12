@@ -22,7 +22,7 @@ In Korea -- one of Asia's largest equity markets -- Annual General Meeting (AGM)
 2. **Individual investors** are effectively locked out of governance analysis entirely.
 3. **AI tools** cannot consume raw DART filings without significant preprocessing -- the data is unstructured, inconsistent across companies, and buried in complex document hierarchies.
 
-**OpenProxy bridges this gap.** By exposing 48 MCP tools that transform raw DART disclosures into clean, structured JSON, OpenProxy enables any investor, analyst, or AI agent to perform institutional-quality governance analysis at scale. Whether you are evaluating director appointments, compensation limits, ownership concentration, or dividend adequacy, OpenProxy delivers the data in a format that both humans and AI can immediately act on.
+**OpenProxy bridges this gap.** By exposing 33 MCP tools that transform raw DART disclosures into clean, structured JSON, OpenProxy enables any investor, analyst, or AI agent to perform institutional-quality governance analysis at scale. Whether you are evaluating director appointments, compensation limits, ownership concentration, or dividend adequacy, OpenProxy delivers the data in a format that both humans and AI can immediately act on.
 
 ---
 
@@ -60,17 +60,21 @@ This transformation is not trivial. DART filings have no standardized schema -- 
 
 ## Key Features
 
-### AGM (Annual General Meeting) -- 34 tools
+### AGM (Annual General Meeting) -- 12 tools
 
-Full coverage of AGM notice analysis: agenda parsing, financial statement extraction, director/auditor appointments, articles of incorporation changes, executive compensation limits, treasury share operations, capital reserve reductions, and retirement pay regulations. Includes an orchestrator for one-call summaries and a built-in AI usage manual.
+Full coverage of AGM notice analysis: agenda parsing, financial statement extraction, director/auditor appointments, articles of incorporation changes, executive compensation limits, treasury share operations, capital reserve reductions, and retirement pay regulations. Each parser supports a 3-tier XML/PDF/OCR fallback.
 
-### OWN (Ownership Structure) -- 8 tools
+### OWN (Ownership Structure) -- 5 tools
 
 Comprehensive shareholder structure analysis: largest shareholders and related parties, total share breakdown (treasury/float/minority), treasury stock transactions (acquisition/disposal/trust), 5% block holder filings with purpose extraction, and a latest-snapshot aggregator across all shareholder types.
 
-### DIV (Dividends) -- 5 tools
+### DIV (Dividends) -- 2 tools
 
-Dividend decision analysis: search dividend-related disclosures, extract detailed payout structures (cash/stock, interim/annual), track multi-year dividend history with payout ratios and yield calculations, plus an orchestrator and AI usage manual.
+Dividend decision analysis: detailed payout structures (common/preferred shares), multi-year dividend history with payout ratios and yield calculations.
+
+### PRX (Proxy Fight) -- 2 tools
+
+Proxy solicitation analysis: search proxy-related filings and detect proxy fight situations. Compares company-side and shareholder-side candidate lists and voting direction.
 
 ### NEWS -- 1 tool
 
@@ -78,75 +82,100 @@ Real-time news monitoring via Naver News API for any listed Korean company, prov
 
 ---
 
-## Tool Tree (48 tools)
+## Tier Architecture
 
-### AGM Domain (34 tools)
+OPM's 33 tools are organized into 5 execution tiers. The AI calls from higher tiers downward, descending into Detail tools as needed.
 
-```
-agm(ticker)                          <- Orchestrator (one-call summary)
-|
-+-- agm_search(ticker)                    Search AGM notices by ticker
-+-- agm_info(rcept_no)                    Meeting info (date, location, quorum)
-+-- agm_agenda_xml(rcept_no)              Agenda tree with sub-items
-+-- agm_corrections(rcept_no)             Correction before/after diff
-+-- agm_result(ticker)                    Voting results (KRX KIND scraping)
-|
-+-- agm_items(rcept_no)                   Raw agenda detail blocks (generic)
-|   +-- agm_financials_xml                Financial statements (BS/IS)
-|   +-- agm_personnel_xml                 Director/auditor appointments
-|   +-- agm_aoi_change_xml               Articles of incorporation changes
-|   +-- agm_compensation_xml             Executive compensation limits
-|   +-- agm_treasury_share_xml           Treasury share hold/dispose/cancel
-|   +-- agm_capital_reserve_xml          Capital reserve reduction
-|   +-- agm_retirement_pay_xml           Retirement pay regulation changes
-|
-+-- agm_extract(rcept_no)                Raw text + structural extraction
-+-- agm_document(rcept_no)               Raw document text
-+-- agm_manual()                          AI assistant usage guide
+| Tier | Role | Tools |
+|------|------|-------|
+| **Tier 1 Entity** | Company identification (ticker lookup) | 1 |
+| **Tier 2 Context** | Full tool usage guide | 1 |
+| **Tier 3 Search** | Domain-level disclosure search (AGM/DIV/PRX) | 3 |
+| **Tier 4 Orchestrate** | Domain-level analysis + chain execution | 6 |
+| **Tier 5 Detail** | Per-agenda parsers + ownership/dividend/proxy details | 22 |
 
-Each item parser has _xml, _pdf, _ocr variants:
-  8 parsers x 3 tiers = 24 tools (included in count above)
+## Tool Tree (33 tools)
 
-Agenda type -> Tool mapping:
-  Financial statements       -> agm_financials_xml
-  Director/auditor election  -> agm_personnel_xml
-  Articles of incorporation  -> agm_aoi_change_xml
-  Compensation limits        -> agm_compensation_xml
-  Treasury shares            -> agm_treasury_share_xml
-  Capital reserve reduction  -> agm_capital_reserve_xml
-  Retirement pay             -> agm_retirement_pay_xml
-  Other                      -> agm_items (raw blocks)
-```
-
-### OWN Domain (8 tools)
+### Tier 1 -- Entity (1 tool)
 
 ```
-own(ticker)                              <- Ownership orchestrator
-|
-+-- own_major(ticker, year)                   Largest shareholder + related parties
-+-- own_total(ticker, year)                   Total shares / treasury / float / minority
-+-- own_treasury(ticker, year)                Treasury stock baseline (from annual report)
-+-- own_treasury_tx(ticker)                   Acquisition/disposal/trust decisions
-+-- own_block(ticker)                         5% block holders (purpose from filing)
-+-- own_latest(ticker)                        All shareholders latest snapshot
-+-- own_manual()                              AI assistant usage guide
+corp_identifier(name_or_ticker)         <- Company name/ticker -> corp_code resolution
 ```
 
-### DIV Domain (5 tools)
+### Tier 2 -- Context (1 tool)
 
 ```
-div(ticker)                              <- Dividend orchestrator
-|
-+-- div_search(ticker)                        Search dividend disclosures
-+-- div_detail(ticker)                        Detailed payout structure
-+-- div_history(ticker)                       Multi-year dividend history + ratios
-+-- div_manual()                              AI assistant usage guide
+tool_guide()                            <- Full tool usage guide + fallback strategy
 ```
 
-### NEWS Domain (1 tool)
+### Tier 3 -- Search (3 tools)
 
 ```
-news_check(ticker)                       <- Latest news headlines via Naver News API
+agm_search(ticker)                      <- Search AGM notices (year/rcept_no list)
+div_search(ticker)                      <- Search dividend disclosures
+prx_search(ticker)                      <- Search proxy solicitation filings
+```
+
+### Tier 4 -- Orchestrate (6 tools)
+
+```
+agm_pre_analysis(ticker)                <- Pre-AGM analysis (agenda summary + decisions)
+agm_post_analysis(ticker)               <- Post-AGM analysis (voting results + turnout)
+own_full_analysis(ticker)               <- Full ownership structure analysis
+div_full_analysis(ticker)               <- Full dividend analysis (history + adequacy)
+prx_fight(ticker)                       <- Proxy fight detection + both-side comparison
+governance_report(ticker)               <- Integrated AGM + OWN + DIV governance report
+```
+
+### Tier 5 -- Detail (22 tools)
+
+#### AGM Parsers (12 tools, _xml shown)
+
+```
+agm_agenda_xml(rcept_no)                Agenda tree with sub-items
+agm_financials_xml(rcept_no)            Financial statements (BS/IS)
+agm_personnel_xml(rcept_no)             Director/auditor appointments
+agm_aoi_change_xml(rcept_no)            Articles of incorporation changes
+agm_compensation_xml(rcept_no)          Compensation limits (current/prior + utilization)
+agm_treasury_share_xml(rcept_no)        Treasury share hold/dispose/cancel
+agm_capital_reserve_xml(rcept_no)       Capital reserve reduction
+agm_retirement_pay_xml(rcept_no)        Retirement pay regulation changes
+agm_info(rcept_no)                      Meeting info (date, location, quorum)
+agm_corrections(rcept_no)               Correction before/after diff
+agm_result(ticker)                      Voting results (KRX KIND scraping)
+agm_items(rcept_no)                     Raw agenda blocks (generic fallback)
+
+Each parser supports _xml / _pdf / _ocr 3-tier fallback
+```
+
+#### OWN Details (5 tools)
+
+```
+own_major(ticker, year)                 Largest shareholder + related parties + history
+own_total(ticker, year)                 Total shares / treasury / float / minority
+own_treasury_tx(ticker)                 Acquisition/disposal/trust decisions
+own_block(ticker)                       5% block holders (purpose from filing)
+own_latest(ticker)                      All shareholders latest snapshot
+```
+
+#### DIV Details (2 tools)
+
+```
+div_detail(ticker)                      Detailed payout structure (common/preferred)
+div_history(ticker)                     Multi-year dividend history + payout ratio/yield
+```
+
+#### PRX Details (2 tools)
+
+```
+prx_detail(rcept_no)                    Proxy filing detailed parse (candidates/agenda)
+prx_direction(rcept_no)                 Voting direction extraction (company vs. shareholder)
+```
+
+#### NEWS (1 tool)
+
+```
+news_check(name, company)               Negative news search for director/auditor candidates
 ```
 
 ---
@@ -254,10 +283,11 @@ open_proxy_mcp/
   server.py              # FastMCP server entry point (stdio + SSE)
   tools/
     __init__.py          # register_all_tools() - auto-discovery
-    shareholder.py       # 34 AGM tools (parsers + formatters)
-    ownership.py         # 8 OWN tools (DART API + formatters)
-    dividend.py          # 5 DIV tools (dividend disclosures)
-    news.py              # 1 NEWS tool (Naver News API)
+    shareholder.py       # AGM tools (parsers + formatters)
+    ownership.py         # OWN tools (DART API + formatters)
+    dividend.py          # DIV tools (dividend disclosures)
+    proxy.py             # PRX tools (proxy fight analysis)
+    news.py              # NEWS tool (Naver News API)
     formatters.py        # Shared formatter functions
     errors.py            # Common error helpers
     parser.py            # XML parsers (BeautifulSoup + regex fallback)

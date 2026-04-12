@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-48-orange.svg)](#mcp-tool-48개)
+[![Tools](https://img.shields.io/badge/tools-33-orange.svg)](#mcp-tool-33개)
 
 [English README](README_ENG.md)
 
@@ -64,17 +64,21 @@ API 한 번 호출. 구조화 완료. 바로 분석 가능.
 
 ## 주요 기능
 
-### AGM -- 주주총회 분석 (34 tools)
+### AGM -- 주주총회 분석 (12 tools)
 
 주주총회 소집공고를 안건 유형별로 자동 파싱합니다. 재무제표, 이사/감사 선임, 정관변경, 보수한도, 자기주식, 자본준비금, 퇴직금 규정까지 7개 안건 유형을 지원하며, 각 파서는 XML/PDF/OCR 3단계 fallback을 제공합니다. KIND 크롤링을 통한 주총 결과(의결권 행사 현황) 조회도 포함됩니다.
 
-### OWN -- 지분 구조 분석 (8 tools)
+### OWN -- 지분 구조 분석 (5 tools)
 
 최대주주 및 특수관계인, 주식총수/자사주/유통주식/소액주주, 자기주식 취득/처분/신탁 이력, 5% 대량보유자(보유목적 원문 파싱)까지 -- 기업의 지분 구조를 종합적으로 파악합니다. 사업보고서, 주요사항보고서, 대량보유 공시를 모두 활용합니다.
 
-### DIV -- 배당 분석 (5 tools)
+### DIV -- 배당 분석 (2 tools)
 
 배당 결정 공시 검색, 상세 내역(보통주/우선주 구분), 3개년 배당 추이를 제공합니다. 배당수익률, 배당성향, 주당배당금 등 투자자에게 필요한 지표를 구조화합니다.
+
+### PRX -- 프록시파이트 분석 (2 tools)
+
+위임장 권유 공시를 검색하고, 회사측·주주측 양측의 후보 목록과 의결권 행사 방향을 비교합니다. 프록시파이트 상황 감지 및 경영권 분쟁 현황 파악에 활용됩니다.
 
 ### NEWS -- 뉴스 검증 (1 tool)
 
@@ -82,65 +86,100 @@ API 한 번 호출. 구조화 완료. 바로 분석 가능.
 
 ---
 
-## MCP Tool (48개)
+## Tier 체계
 
-### AGM -- 주주총회 (34 tools)
+OPM의 33개 tool은 5단계 실행 계층으로 구성됩니다. AI는 상위 tier부터 순서대로 호출하며, 필요에 따라 하위 Detail tool로 내려갑니다.
 
-```
-agm(ticker)                          <- 종합 오케스트레이터 (원콜 요약)
-|
-+-- agm_search(ticker)                    소집공고 검색
-+-- agm_info(rcept_no)                    회의 정보 (일시/장소)
-+-- agm_agenda_xml(rcept_no)              안건 트리 (세부의안 포함)
-+-- agm_corrections(rcept_no)             정정 전/후 비교
-+-- agm_result(ticker)                    의결권 행사 결과 (KIND 크롤링)
-|
-+-- agm_items(rcept_no)                   안건 본문 블록 (범용)
-|   +-- agm_financials_xml                재무제표 (BS/IS)
-|   +-- agm_personnel_xml                 이사/감사 선임/해임
-|   +-- agm_aoi_change_xml                정관변경 (변경전/변경후)
-|   +-- agm_compensation_xml              보수한도 (당기/전기)
-|   +-- agm_treasury_share_xml            자기주식 보유/처분/소각
-|   +-- agm_capital_reserve_xml           자본준비금 감소
-|   +-- agm_retirement_pay_xml            퇴직금 규정 개정
-|
-+-- agm_extract(rcept_no)                 원문 텍스트 + 구조 추출
-+-- agm_document(rcept_no)                원문 텍스트
-+-- agm_manual()                          AI 사용 가이드
+| Tier | 역할 | tool 수 |
+|------|------|---------|
+| **Tier 1 Entity** | 기업 식별 (ticker 조회) | 1 |
+| **Tier 2 Context** | 전체 tool 사용 가이드 로드 | 1 |
+| **Tier 3 Search** | 도메인별 공시 검색 (AGM/DIV/PRX) | 3 |
+| **Tier 4 Orchestrate** | 도메인별 종합 분석 + 체인 실행 | 6 |
+| **Tier 5 Detail** | 안건별 세부 파서 + 지분/배당/프록시 상세 | 22 |
 
-각 파서(8개)에 _xml, _pdf, _ocr 변형 = 24 tools
-+ 비파서 tool 10개 = 34 tools
-```
+## MCP Tool (33개)
 
-### OWN -- 지분 구조 (8 tools)
+### Tier 1 -- Entity (1 tool)
 
 ```
-own(ticker)                              <- 지분 구조 오케스트레이터
-|
-+-- own_major(ticker, year)                   최대주주 + 특수관계인 + 변동이력
-+-- own_total(ticker, year)                   주식총수 / 자사주 / 유통주식 / 소액주주
-+-- own_treasury(ticker, year)                자기주식 기말 보유 (사업보고서 기준)
-+-- own_treasury_tx(ticker)                   취득결정 / 처분결정 / 신탁체결 / 해지
-+-- own_block(ticker)                         5% 대량보유 (보유목적 원문 파싱)
-+-- own_latest(ticker)                        전 주주 최신 스냅샷
-+-- own_manual()                              AI 사용 가이드
+corp_identifier(name_or_ticker)         <- 기업명/종목코드 → corp_code 변환
 ```
 
-### DIV -- 배당 (5 tools)
+### Tier 2 -- Context (1 tool)
 
 ```
-div(ticker)                              <- 배당 종합 오케스트레이터
-|
-+-- div_search(ticker)                        배당 결정 공시 검색
-+-- div_detail(ticker)                        배당 상세 (보통주/우선주)
-+-- div_history(ticker)                       배당 추이 (3개년)
-+-- div_manual()                              AI 사용 가이드
+tool_guide()                            <- 전체 tool 사용법 + fallback 전략 가이드
 ```
 
-### NEWS -- 뉴스 (1 tool)
+### Tier 3 -- Search (3 tools)
 
 ```
-news_check(name, company)               <- 후보자 부정 뉴스 검색
+agm_search(ticker)                      <- 소집공고 검색 (연도/rcept_no 목록)
+div_search(ticker)                      <- 배당 결정 공시 검색
+prx_search(ticker)                      <- 위임장 권유 공시 검색
+```
+
+### Tier 4 -- Orchestrate (6 tools)
+
+```
+agm_pre_analysis(ticker)                <- 주총 사전 분석 (안건 요약 + 판단)
+agm_post_analysis(ticker)               <- 주총 사후 분석 (결과 + 참석률)
+own_full_analysis(ticker)               <- 지분 구조 종합 분석
+div_full_analysis(ticker)               <- 배당 종합 분석 (추이 + 적정성)
+prx_fight(ticker)                       <- 프록시파이트 감지 + 양측 비교
+governance_report(ticker)               <- AGM + OWN + DIV 3도메인 통합 리포트
+```
+
+### Tier 5 -- Detail (22 tools)
+
+#### AGM 안건 파서 (12 tools, _xml 기준)
+
+```
+agm_agenda_xml(rcept_no)                안건 트리 (세부의안 포함)
+agm_financials_xml(rcept_no)            재무제표 (BS/IS)
+agm_personnel_xml(rcept_no)             이사/감사 선임/해임
+agm_aoi_change_xml(rcept_no)            정관변경 (변경전/변경후)
+agm_compensation_xml(rcept_no)          보수한도 (당기/전기 + 소진율)
+agm_treasury_share_xml(rcept_no)        자기주식 보유/처분/소각
+agm_capital_reserve_xml(rcept_no)       자본준비금 감소
+agm_retirement_pay_xml(rcept_no)        퇴직금 규정 개정
+agm_info(rcept_no)                      회의 정보 (일시/장소/정족수)
+agm_corrections(rcept_no)               정정 전/후 비교
+agm_result(ticker)                      의결권 행사 결과 (KIND 크롤링)
+agm_items(rcept_no)                     안건 본문 블록 (범용 fallback)
+
+각 파서에 _xml / _pdf / _ocr 3단계 fallback 지원
+```
+
+#### OWN 지분 상세 (5 tools)
+
+```
+own_major(ticker, year)                 최대주주 + 특수관계인 + 변동이력
+own_total(ticker, year)                 주식총수 / 자사주 / 유통주식 / 소액주주
+own_treasury_tx(ticker)                 취득결정 / 처분결정 / 신탁체결 / 해지
+own_block(ticker)                       5% 대량보유 (보유목적 원문 파싱)
+own_latest(ticker)                      전 주주 최신 스냅샷
+```
+
+#### DIV 배당 상세 (2 tools)
+
+```
+div_detail(ticker)                      배당 상세 (보통주/우선주)
+div_history(ticker)                     배당 추이 (3개년 + 성향/수익률)
+```
+
+#### PRX 프록시 상세 (2 tools)
+
+```
+prx_detail(rcept_no)                    위임장 공시 상세 파싱 (후보/안건)
+prx_direction(rcept_no)                 의결권 행사 방향 추출 (회사측/주주측)
+```
+
+#### NEWS (1 tool)
+
+```
+news_check(name, company)               후보자 부정 뉴스 검색
 ```
 
 ---
@@ -240,9 +279,10 @@ open-proxy-mcp/
     server.py              # FastMCP 서버 진입점 (stdio + SSE)
     tools/
       __init__.py          # register_all_tools() -- 자동 등록
-      shareholder.py       # AGM tool 34개
-      ownership.py         # OWN tool 8개
-      dividend.py          # DIV tool 5개
+      shareholder.py       # AGM tool (파서 + 포매터)
+      ownership.py         # OWN tool (DART API + 포매터)
+      dividend.py          # DIV tool (배당 공시)
+      proxy.py             # PRX tool (프록시파이트 분석)
       news.py              # NEWS tool 1개
       formatters.py        # 공유 포매터 함수
       errors.py            # 공통 에러 핸들러
