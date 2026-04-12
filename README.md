@@ -61,20 +61,25 @@ uv sync                    # .venv 생성 + 의존성 설치
 cp .env.example .env       # 환경변수 파일 생성
 ```
 
-#### 2. 환경변수 설정
+#### 2. API 키 발급 + 환경변수 설정
 
-`.env` 파일을 열고 API 키를 입력합니다. OPENDART_API_KEY만 있으면 핵심 기능 전부 사용 가능합니다.
+`.env` 파일을 열고 API 키를 입력합니다. **OPENDART_API_KEY만 있으면 핵심 기능 전부 사용 가능합니다.**
+
+| API 키 | 필수 여부 | 발급처 | 용도 |
+|--------|----------|--------|------|
+| `OPENDART_API_KEY` | **필수** | [DART OpenAPI](https://opendart.fss.or.kr/) 회원가입 -> 인증키 신청 | AGM/OWN/DIV 전체 |
+| `OPENDART_API_KEY_2` | 선택 | 동일 (보조 키) | 분당 1,000회 제한 도달 시 자동 전환 |
+| `NAVER_SEARCH_API_CLIENT_ID` | 선택 | [네이버 개발자센터](https://developers.naver.com/) -> 애플리케이션 등록 -> 검색 API | 후보자 뉴스 검색 |
+| `NAVER_SEARCH_API_CLIENT_SECRET` | 선택 | 동일 | 동일 |
+| `UPSTAGE_API_KEY` | 선택 | [Upstage AI](https://www.upstage.ai/) 회원가입 -> API 키 발급 | OCR fallback (Tier 3) |
 
 ```bash
-# 필수 -- opendart.fss.or.kr에서 무료 발급
+# .env
 OPENDART_API_KEY=발급받은_키
-
-# 선택
-OPENDART_API_KEY_2=보조_키              # 분당 1,000회 제한 도달 시 자동 전환
-UPSTAGE_API_KEY=업스테이지_키            # OCR fallback용
-KRX_API_KEY=KRX_키                     # 종목 코드, 시가총액
-NAVER_SEARCH_API_CLIENT_ID=네이버_ID     # 뉴스 검색
-NAVER_SEARCH_API_CLIENT_SECRET=네이버_시크릿
+OPENDART_API_KEY_2=보조_키
+NAVER_SEARCH_API_CLIENT_ID=네이버_클라이언트_ID
+NAVER_SEARCH_API_CLIENT_SECRET=네이버_클라이언트_시크릿
+UPSTAGE_API_KEY=업스테이지_키
 ```
 
 #### 3. Editable Install

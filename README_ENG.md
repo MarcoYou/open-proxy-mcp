@@ -61,18 +61,25 @@ uv sync                    # Creates .venv + installs all dependencies
 cp .env.example .env
 ```
 
-#### 2. Configure environment
+#### 2. Get API Keys + Configure Environment
 
-Edit `.env` and add your DART API key (free at [opendart.fss.or.kr](https://opendart.fss.or.kr)). This is the only required key.
+Edit `.env` and add your API keys. **Only `OPENDART_API_KEY` is required** -- all core features work with it alone.
+
+| API Key | Required | Where to Get | Purpose |
+|---------|----------|-------------|---------|
+| `OPENDART_API_KEY` | **Yes** | [DART OpenAPI](https://opendart.fss.or.kr/) -> Sign up -> Request API key | AGM/OWN/DIV (all core) |
+| `OPENDART_API_KEY_2` | No | Same (backup key) | Auto-switches on rate limit (1,000/min) |
+| `NAVER_SEARCH_API_CLIENT_ID` | No | [Naver Developers](https://developers.naver.com/) -> Register app -> Search API | Candidate news search |
+| `NAVER_SEARCH_API_CLIENT_SECRET` | No | Same | Same |
+| `UPSTAGE_API_KEY` | No | [Upstage AI](https://www.upstage.ai/) -> Sign up -> API key | OCR fallback (Tier 3) |
 
 ```bash
+# .env
 OPENDART_API_KEY=your_key_here
-
-# Optional
-OPENDART_API_KEY_2=backup_key              # Auto-switches on rate limit
-UPSTAGE_API_KEY=upstage_key                # OCR fallback
-NAVER_SEARCH_API_CLIENT_ID=naver_id        # News search
+OPENDART_API_KEY_2=backup_key
+NAVER_SEARCH_API_CLIENT_ID=naver_id
 NAVER_SEARCH_API_CLIENT_SECRET=naver_secret
+UPSTAGE_API_KEY=upstage_key
 ```
 
 #### 3. Editable install
