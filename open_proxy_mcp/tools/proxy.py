@@ -90,8 +90,8 @@ def register_tools(mcp):
         year: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 위임장 권유 참고서류 검색 — 회사측/주주측 구분 + rcept_no 목록.
-        when: [tier-3 Search] 특정 기업의 위임장 공시를 찾을 때. prx_detail/prx_direction에 필요한 rcept_no 획득.
+        """desc: 경영권 분쟁/프록시파이트 관련 위임장 공시 검색 — 회사측/주주측 구분 + rcept_no 목록.
+        when: [tier-3 Search] 경영권 분쟁, 프록시 파이트(proxy fight), 적대적 M&A, 위임장 권유 관련 공시를 찾을 때. prx_detail/prx_direction에 필요한 rcept_no 획득.
         rule: DART list.json에서 corp_code + 날짜 범위 검색 후 report_nm으로 필터. flr_nm으로 회사측/주주측 구분.
         ref: corp_identifier, prx_detail, prx_direction, prx_fight
         """
@@ -175,8 +175,8 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """desc: 위임장 권유 상세 — 권유자 보유주식, 권유기간, 대리인, 전자위임장 방법. (비용은 별도 공시인 의결권대리행사권유신고서에 있음)
-        when: [tier-5 Detail] 특정 위임장 공시(rcept_no)의 권유자 정보와 방법을 볼 때.
+        """desc: 경영권 분쟁 위임장 상세 — 권유자 보유주식, 권유기간, 대리인, 전자위임장 방법. (비용은 별도 공시인 의결권대리행사권유신고서에 있음)
+        when: [tier-5 Detail] 경영권 분쟁/프록시파이트에서 특정 위임장 공시(rcept_no)의 권유자 정보와 방법을 볼 때.
         rule: get_document()로 원문 파싱. Section I(권유자) + Section II-2(위임 방법) 추출.
         ref: prx_search, prx_direction
         """
@@ -242,8 +242,8 @@ def register_tools(mcp):
         rcept_no: str,
         format: str = "md",
     ) -> str:
-        """desc: 안건별 의결권 행사방향 — 찬성/반대/기권 파싱.
-        when: [tier-5 Detail] 특정 위임장(rcept_no)에서 각 안건에 대한 권유자 입장을 볼 때.
+        """desc: 경영권 분쟁 안건별 의결권 행사방향 — 찬성/반대/기권 파싱.
+        when: [tier-5 Detail] 경영권 분쟁/프록시파이트에서 특정 위임장(rcept_no)의 각 안건에 대한 권유자 입장을 볼 때.
         rule: get_document()로 원문 Section II-1 파싱. 자유서술이므로 정규식으로 추출 — 불명확한 경우 "불명" 반환.
         ref: prx_search, prx_detail, prx_fight
         """
@@ -307,8 +307,8 @@ def register_tools(mcp):
         year: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 프록시 파이트 감지 + 양측 행사방향 비교.
-        when: [tier-4 Orchestrate] 특정 기업/연도에 프록시 파이트가 있었는지 확인하고 회사측 vs 주주측 입장을 비교할 때.
+        """desc: 경영권 분쟁(proxy fight) 감지 + 회사측 vs 주주측 행사방향 비교. 고려아연 등 적대적 M&A/경영권 분쟁 분석용.
+        when: [tier-4 Orchestrate] 경영권 분쟁, 프록시 파이트, 적대적 M&A, 위임장 대결이 있었는지 확인하고 양측 입장을 비교할 때.
         rule: prx_search → 회사측/주주측 분류 → prx_direction × N → 안건별 대립 표시.
         ref: corp_identifier, prx_search, prx_direction
         """
