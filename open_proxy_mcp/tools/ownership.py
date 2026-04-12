@@ -277,9 +277,9 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 지분 구조/대주주/shareholder 종합 분석 — 사업보고서 vs 최신 공시 지분율 비교 테이블.
-        when: [tier-4 Orchestrate] 대주주, 최대주주, 지배구조, shareholder, 지분 구조, 주주 구성을 볼 때.
+        when: [tier-4 Orchestrate] 대주주, 최대주주, 지배구조, shareholder, 지분 구조, 주주 구성을 볼 때. 경영권 분쟁 맥락이면 proxy_fight도 함께 호출할 것.
         rule: ownership_major(사업보고서) + ownership_block(수시 공시) 데이터를 통합. 결과를 반드시 | 주주 | 구분 | 지분율 | 비고 | 형식의 4컬럼 markdown 테이블로 출력. 차트/시각화 사용 금지. 이 tool 하나로 지분 분석이 완성됨. ownership_major/ownership_block 개별 tool은 사용자의 명시적 요청 없는 한 추가 호출 금지.
-        ref: corp_identifier, ownership_major, ownership_block, ownership_total
+        ref: corp_identifier, ownership_major, ownership_block, ownership_total, proxy_fight
 
         Args:
             ticker: 종목코드 또는 회사명

@@ -11,21 +11,6 @@ from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.tools.formatters import resolve_ticker
 from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
 
-# ── ownership_block 참조 (proxy_fight 체이닝용) ──
-from open_proxy_mcp.tools.ownership import register_tools as _reg_own
-
-_dep_tools: dict = {}
-
-class _NullMCP:
-    def tool(self):
-        def d(fn):
-            _dep_tools[fn.__name__] = fn
-            return fn
-        return d
-
-_reg_own(_NullMCP())
-_ownership_block = _dep_tools["ownership_block"]
-
 
 # ── 내부 파서 ──
 
@@ -322,19 +307,14 @@ def register_tools(mcp):
         year: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 경영권/proxy 표대결 감지 + 회사측 vs 주주측 행사방향 비교 + 지분 변동 타임라인.
-        when: [tier-4 Orchestrate] 경영권, 위임장, proxy, dispute, M&A, 표대결, 프록시파이트, 경영권 분쟁, 지분 변화를 종합적으로 볼 때.
-        rule: proxy_search → 회사측/주주측 분류 → proxy_direction × N → 안건별 대립 표시. ownership_block 체이닝으로 5% 대량보유 지분 변동도 함께 출력.
+        """desc: 경영권/proxy 표대결 감지 + 회사측 vs 주주측 행사방향 비교.
+        when: [tier-4 Orchestrate] 경영권, 위임장, proxy, dispute, M&A, 표대결, 프록시파이트, 경영권 분쟁이 있었는지 확인하고 양측 입장을 비교할 때.
+        rule: proxy_search → 회사측/주주측 분류 → proxy_direction × N → 안건별 대립 표시. 경영권 분쟁 중 지분율 변화가 궁금하면 ownership_block을 함께 호출할 것.
         ref: corp_identifier, proxy_search, proxy_direction, ownership_block
         """
         ticker = await resolve_ticker(ticker)
-        import asyncio as _asyncio
-
-        # tier-3: 위임장 공시 목록 + 지분 변동을 병렬 조회
-        search_out, block_out = await _asyncio.gather(
-            proxy_search(ticker=ticker, year=year, format="json"),
-            _ownership_block(ticker=ticker, format="json"),
-        )
+        # tier-3: 위임장 공시 목록 + 회사측/주주측 구분
+        search_out = await proxy_search(ticker=ticker, year=year, format="json")
         try:
             search_data = json.loads(search_out)
         except json.JSONDecodeError:
@@ -382,15 +362,6 @@ def register_tools(mcp):
         for os in other_sides:
             all_agnos.update(os["directions"].keys())
 
-        # ownership_block 파싱 — 지분 변동 타임라인
-        block_items = []
-        try:
-            block_data = json.loads(block_out)
-            block_items = block_data.get("data", {}).get("list", [])
-            block_purposes = block_data.get("purposes", {})
-        except (json.JSONDecodeError, TypeError):
-            block_purposes = {}
-
         if format == "json":
             return json.dumps({
                 "corp_name": corp_name,
@@ -398,7 +369,6 @@ def register_tools(mcp):
                 "company_rcept_no": company_rcept,
                 "company_directions": company_dir,
                 "other_sides": other_sides,
-                "ownership_changes": block_items,
             }, ensure_ascii=False, indent=2)
 
         icon = {"찬성": "✅", "반대": "❌", "기권": "⬜", None: "-"}
@@ -432,24 +402,5 @@ def register_tools(mcp):
             dt = o["rcept_dt"]
             dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if len(dt) == 8 else dt
             lines.append(f"주주측 ({o['flr_nm']}): `{o['rcept_no']}` ({dt_fmt})")
-
-        # 지분 변동 타임라인 섹션 (ownership_block 데이터)
-        if block_items:
-            lines += ["", "---", "", "## 지분 변동 타임라인 (5% 대량보유)", ""]
-            lines.append("| 보고일 | 보고자 | 지분율 | 보고사유 |")
-            lines.append("|--------|--------|--------|----------|")
-            for item in sorted(block_items, key=lambda x: x.get("rcept_dt", "")):
-                dt = item.get("rcept_dt", "")
-                dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if dt and len(dt) >= 8 else dt
-                reporter = item.get("repror", "")
-                try:
-                    pct = f"{float(item.get('stkrt', 0) or 0):.2f}%"
-                except ValueError:
-                    pct = "-"
-                rcept_no = item.get("rcept_no", "")
-                purpose = block_purposes.get(rcept_no, "")
-                reason = item.get("report_resn", "").strip()
-                note = purpose if purpose else reason
-                lines.append(f"| {dt_fmt} | {reporter} | {pct} | {note} |")
 
         return "\n".join(lines)
