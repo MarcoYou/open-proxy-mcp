@@ -95,21 +95,21 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
     │ governance_report      │        │                        │
     └─────────┬──────────────┘        │                        │
               │                       │                        │
-    ┌─────────▼───────────────────────▼────────────────────────▼─────────┐
-    │                          Tier 5 Detail                             │
+    ┌─────────▼───────────────────────▼────────────────────────▼──────────┐
+    │                           Tier 5 Detail                            │
     │                                                                    │
-    │  AGM (12)             OWN (5)             DIV (2)     PRX (2)     │
-    │  ├ agenda_xml         ├ ownership_major   ├ detail    ├ detail    │
-    │  ├ financials_xml     ├ ownership_total   └ history   └ direction │
-    │  ├ personnel_xml      ├ ownership_treasury                        │
-    │  ├ aoi_change_xml     ├ ownership_block   NEWS (1)                │
-    │  ├ compensation_xml   └ ownership_latest  └ news_check            │
-    │  ├ treasury_share_xml                                              │
-    │  ├ capital_reserve_xml                                             │
-    │  ├ retirement_pay_xml                                              │
-    │  ├ info / corrections / result / items                             │
-    │  └ 각 파서 _xml / _pdf / _ocr fallback                             │
-    └────────────────────────────────────────────────────────────────────┘
+    │  AGM (12)              OWN (5)               DIV (2)   PRX (2)    │
+    │  ├ agenda_xml          ├ ownership_major     ├ detail  ├ detail   │
+    │  ├ financials_xml      ├ ownership_total     └ history └ direction│
+    │  ├ personnel_xml       ├ ownership_treasury                       │
+    │  ├ aoi_change_xml      ├ ownership_block     NEWS (1)             │
+    │  ├ compensation_xml    └ ownership_treasury_tx└ news_check        │
+    │  ├ treasury_share_xml                                             │
+    │  ├ capital_reserve_xml                                            │
+    │  ├ retirement_pay_xml                                             │
+    │  ├ info / corrections / result / items                            │
+    │  └ 각 파서 _xml / _pdf / _ocr fallback                            │
+    └───────────────────────────────────────────────────────────────────┘
 ```
 
 ### 도메인별 요약
@@ -130,34 +130,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 
 ## Fallback 파싱
 
-AGM 안건 파서는 대부분 XML 단계에서 정상 파싱됩니다 (KOSPI 200 기준 평균 97%+ 정확도). 비표준 형식의 공시에 한해 PDF, OCR 순서로 fallback합니다.
-
-```
-_xml (DART API, 무료, <1초)  ← 대부분 여기서 완료
-  ↓ 비표준 형식인 경우
-_pdf (PDF 다운로드, 무료, 4초+)
-  ↓ 그래도 안 되는 경우
-_ocr (Upstage OCR API, 유료, 8초+)  ← 100% 정확도
-```
-
-AI가 결과 품질을 보고 자율적으로 다음 단계로 넘어갑니다. 사용자 개입 불필요.
-
-<details>
-<summary>KOSPI 200 파서별 정확도 (클릭하여 펼치기)</summary>
-
-| 파서 | XML | PDF | OCR |
-|------|-----|-----|-----|
-| 안건 목록 | 99.5% | 98.0% | 100% |
-| 재무상태표 | 97.4% | 97.9% | 100% |
-| 손익계산서 | 100% | 95.7% | 100% |
-| 이사/감사 선임 | 98.9% | 97.9% | 100% |
-| 정관변경 | 97.8% | 99.0% | 100% |
-| 보수한도 | 98.4% | 99.5% | 100% |
-| 자기주식 | 93.6% | 100% | 100% |
-| 자본준비금 | 100% | 100% | 100% |
-| 퇴직금 | 93.3% | 86.7% | 86.7% |
-
-</details>
+원격 서버는 XML 파싱만 지원합니다. 로컬 설치 시 PDF/OCR fallback을 사용할 수 있습니다. 상세는 [로컬 설치 가이드](docs/connect.md#fallback-파싱)를 참조하세요.
 
 ---
 

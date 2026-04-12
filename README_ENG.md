@@ -49,7 +49,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY
 
 Local installation lets you configure additional API keys beyond DART (news search, OCR fallback, etc.).
 
-See [local installation guide](docs/connect.md)
+See [local installation guide](docs/connect_eng.md)
 
 ### Usage Examples
 
@@ -95,21 +95,21 @@ After connecting, just ask in natural language:
     │ governance_report      │        │                        │
     └─────────┬──────────────┘        │                        │
               │                       │                        │
-    ┌─────────▼───────────────────────▼────────────────────────▼─────────┐
-    │                          Tier 5 Detail                             │
+    ┌─────────▼───────────────────────▼────────────────────────▼──────────┐
+    │                           Tier 5 Detail                            │
     │                                                                    │
-    │  AGM (12)             OWN (5)             DIV (2)     PRX (2)     │
-    │  ├ agenda_xml         ├ ownership_major   ├ detail    ├ detail    │
-    │  ├ financials_xml     ├ ownership_total   └ history   └ direction │
-    │  ├ personnel_xml      ├ ownership_treasury                        │
-    │  ├ aoi_change_xml     ├ ownership_block   NEWS (1)                │
-    │  ├ compensation_xml   └ ownership_latest  └ news_check            │
-    │  ├ treasury_share_xml                                              │
-    │  ├ capital_reserve_xml                                             │
-    │  ├ retirement_pay_xml                                              │
-    │  ├ info / corrections / result / items                             │
-    │  └ each parser: _xml / _pdf / _ocr fallback                       │
-    └────────────────────────────────────────────────────────────────────┘
+    │  AGM (12)              OWN (5)               DIV (2)   PRX (2)    │
+    │  ├ agenda_xml          ├ ownership_major     ├ detail  ├ detail   │
+    │  ├ financials_xml      ├ ownership_total     └ history └ direction│
+    │  ├ personnel_xml       ├ ownership_treasury                       │
+    │  ├ aoi_change_xml      ├ ownership_block     NEWS (1)             │
+    │  ├ compensation_xml    └ ownership_treasury_tx└ news_check        │
+    │  ├ treasury_share_xml                                             │
+    │  ├ capital_reserve_xml                                            │
+    │  ├ retirement_pay_xml                                             │
+    │  ├ info / corrections / result / items                            │
+    │  └ each parser: _xml / _pdf / _ocr fallback                      │
+    └───────────────────────────────────────────────────────────────────┘
 ```
 
 ### Domain Summary
@@ -130,34 +130,7 @@ After connecting, just ask in natural language:
 
 ## Fallback Parsing
 
-AGM parsers resolve most filings at the XML tier (97%+ accuracy across KOSPI 200). PDF and OCR fallbacks are available for non-standard formats.
-
-```
-_xml (DART API, free, <1s)  <- most filings complete here
-  ↓ non-standard format
-_pdf (PDF download, free, 4s+)
-  ↓ still failing
-_ocr (Upstage OCR API, paid, 8s+)  <- 100% accuracy
-```
-
-The AI evaluates result quality and autonomously escalates to the next tier. No user intervention required.
-
-<details>
-<summary>KOSPI 200 parser accuracy (click to expand)</summary>
-
-| Parser | XML | PDF | OCR |
-|--------|-----|-----|-----|
-| Agenda list | 99.5% | 98.0% | 100% |
-| Balance Sheet | 97.4% | 97.9% | 100% |
-| Income Statement | 100% | 95.7% | 100% |
-| Director/Auditor | 98.9% | 97.9% | 100% |
-| Articles of Incorporation | 97.8% | 99.0% | 100% |
-| Compensation | 98.4% | 99.5% | 100% |
-| Treasury Shares | 93.6% | 100% | 100% |
-| Capital Reserve | 100% | 100% | 100% |
-| Retirement Pay | 93.3% | 86.7% | 86.7% |
-
-</details>
+The remote server supports XML parsing only. PDF/OCR fallback is available with local installation. See [local installation guide](docs/connect_eng.md#fallback-parsing) for details.
 
 ---
 
