@@ -36,28 +36,18 @@ Append your DART API key to the URL. The key is used server-side only and never 
 
 **claude.ai web:**
 
-1. Go to [claude.ai](https://claude.ai) -> click MCP icon at the bottom of chat input
+1. Go to [claude.ai](https://claude.ai) -> Settings -> Connectors
 2. Select "Add custom connector"
 3. Name: `open-proxy-mcp`, URL:
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY
 ```
 4. Click "Add" -> 33 tools auto-detected
-5. Set tool permissions to **"Always allow"** (tools run without per-call approval)
+5. Go to the added connector's Configuration -> Permissions and select **"Always allow"** (tools run without per-call approval)
 
-**Claude Desktop:**
+**Claude Desktop / Claude Code:**
 
-Settings > MCP Servers > Add URL connector:
-
-```
-https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY
-```
-
-**Claude Code:**
-
-```bash
-claude mcp add open-proxy-mcp --transport streamable-http "https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY"
-```
+See [connection guide](docs/connect.md)
 
 #### Option B: Local Installation
 
