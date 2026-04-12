@@ -128,15 +128,9 @@ Tier 5  AGM (12)                OWNERSHIP (5)
 
 ---
 
-## Fallback Parsing
-
-The remote server supports XML parsing only. PDF/OCR fallback is available with local installation. See [local installation guide](docs/connect_eng.md#fallback-parsing) for details.
-
----
-
 ## Proxy Voting Decisions
 
-Structured voting recommendations based on parsed data:
+When you ask for a voting recommendation on AGM agenda items, OpenProxy applies the following decision tree to suggest FOR / AGAINST / REVIEW opinions.
 
 | Agenda Type | FOR | AGAINST | REVIEW |
 |-------------|-----|---------|--------|
@@ -146,6 +140,8 @@ Structured voting recommendations based on parsed data:
 | Articles of Incorporation | Reflects statutory changes | Removes cumulative voting | Board size reduction |
 | Treasury Shares | Cancellation purpose | Entrenchment purpose | Foundation donation |
 | Dividends | At/above industry average | DPS decrease despite earnings growth | Reduced dividend |
+
+For detailed criteria by agenda type, defense tactic detection, and 2026 Commercial Act impact, see [Voting Criteria Details](docs/voting_criteria.md).
 
 ---
 
