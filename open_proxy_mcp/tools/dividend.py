@@ -347,8 +347,8 @@ def register_tools(mcp):
         bgn_de: str = "",
         end_de: str = "",
     ) -> str:
-        """desc: 배당 관련 공시 검색 (현금배당 결정, 중간배당 등).
-        when: [tier-3 Search] 특정 기업의 배당 공시를 찾을 때. ticker로 검색.
+        """desc: 배당/배당금/dividend/DPS 관련 공시 검색 (현금배당 결정, 중간배당 등).
+        when: [tier-3 Search] 배당, 배당금, dividend, DPS, 분배금, 주당배당 관련 공시를 찾을 때. ticker로 검색.
         rule: 검색 결과에서 rcept_no를 얻어 div_detail에 전달.
         ref: corp_identifier, div_detail, div_history"""
         ticker = await resolve_ticker(ticker)
@@ -398,8 +398,8 @@ def register_tools(mcp):
         reprt_code: str = "11011",
         format: str = "md",
     ) -> str:
-        """desc: 배당 상세 — 보통주/우선주 DPS, 배당총액, 배당성향, 시가배당률, 특별배당, 종류주식(우선주) 상세.
-        when: [tier-5 Detail] 배당 내용을 볼 때. 우선주(2우B, 우선주) 배당도 이 tool로 조회. "삼성전자우" 질문 시 ticker="삼성전자"로 호출 후 preferred_stocks에서 확인.
+        """desc: 배당 상세 — 보통주/우선주 DPS, 배당금, 배당총액, 배당성향, 시가배당률, dividend yield, 특별배당, 종류주식(우선주) 상세.
+        when: [tier-5 Detail] 배당, 배당금, dividend, DPS, 배당률 내용을 볼 때. 우선주(2우B, 우선주) 배당도 이 tool로 조회. "삼성전자우" 질문 시 ticker="삼성전자"로 호출 후 preferred_stocks에서 확인.
         rule: 우선주는 보통주 공시 안에 포함. ticker는 보통주 기준으로 입력. reprt_code로 분기 선택 (11011=기말, 11012=반기, 11013=1Q, 11014=3Q). DART 제공 배당성향/시가배당률이 있으면 우선 사용.
         ref: div_history, ownership_total, agm_financials_xml"""
         ticker = await resolve_ticker(ticker)
@@ -540,8 +540,8 @@ def register_tools(mcp):
         years: int = 3,
         format: str = "md",
     ) -> str:
-        """desc: 배당 이력 — 공시 건별 집계. 보통주/우선주 DPS, 배당구분(결산/분기/중간), 기준일, 지급일, 배당성향, 배당수익률, 종류주식 상세.
-        when: [tier-5 Detail] 배당 추이/패턴을 볼 때. 분기배당 여부, 배당 시작/중단 시그널 감지.
+        """desc: 배당 이력/추이 — 공시 건별 집계. 보통주/우선주 DPS, 배당금 변화, 배당구분(결산/분기/중간), 기준일, 지급일, 배당성향, 배당수익률, dividend history, 종류주식 상세.
+        when: [tier-5 Detail] 배당 추이, 배당 변화, 배당 증가/감소, DPS 변동, dividend history를 볼 때. 분기배당 여부, 배당 시작/중단 시그널 감지.
         rule: 현금배당결정 공시(거래소)를 건별로 파싱하여 집계. 배당구분은 공시 자체에 명시(결산배당/분기배당/중간배당). alotMatter는 연간 요약(배당성향/수익률)으로만 사용.
         ref: div_detail, ownership_treasury_tx"""
         ticker = await resolve_ticker(ticker)
@@ -764,8 +764,8 @@ def register_tools(mcp):
         ticker: str,
         format: str = "md",
     ) -> str:
-        """desc: 배당 종합 분석 — 최근 배당 상세 + 3년 추이. 보통주/우선주 모두 포함.
-        when: [tier-4 Orchestrate] 기업의 배당 정책/현황을 종합적으로 볼 것.
+        """desc: 배당 종합 분석 — 최근 배당금/DPS + 3년 추이 + 배당성향/수익률. 보통주/우선주 모두 포함.
+        when: [tier-4 Orchestrate] 배당, 배당금, dividend, DPS 정책/현황을 종합적으로 볼 때.
         rule: div_detail(최신) + div_history(3년)를 합쳐서 반환.
         ref: corp_identifier, div_detail, div_history"""
         ticker = await resolve_ticker(ticker)
