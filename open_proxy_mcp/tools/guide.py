@@ -275,6 +275,27 @@ OpenDART `list.json`에서 `pblntf_detail_ty` 파라미터 미지원.
 권유 비용은 별도 공시 "의결권대리행사권유신고서"에 있음 (proxy_detail 범위 밖).
 """
 
+_GUIDE_VUP = """\
+## VUP (기업가치제고) 도메인
+
+### Canonical Chain
+```
+corp_identifier → value_up_plan(ticker, year)   [기업가치제고계획 공시 검색 + 원문]
+```
+
+### Tool 목록
+
+| Tool | 입력 | 출력 | API 호출 |
+|------|------|------|----------|
+| `value_up_plan(ticker, year)` | 종목코드/회사명, 연도 | 기업가치제고계획 공시 목록 + 최신 2건 원문 | 1+2 |
+
+### 검색 방법
+DART pblntf_ty=I(거래소공시) 검색 후 "기업가치제고" / "밸류업" 키워드 필터.
+
+### 활용
+거버넌스 분석의 핵심 체인 중 하나. governance_report, div_full_analysis, ownership_full_analysis와 함께 사용하면 기업의 주주환원 의지와 실행력을 종합 평가할 수 있음.
+"""
+
 _GUIDE_CORP = """\
 ## CORP (기업 식별자) 도메인
 
@@ -321,6 +342,7 @@ _SECTION_MAP = {
     "own": _GUIDE_OWN,
     "div": _GUIDE_DIV,
     "prx": _GUIDE_PRX,
+    "vup": _GUIDE_VUP,
     "corp": _GUIDE_CORP,
 }
 
@@ -331,6 +353,7 @@ _GUIDE_FULL = "# OPM Tool 실행 가이드\n\n" + "".join([
     _GUIDE_OWN,
     _GUIDE_DIV,
     _GUIDE_PRX,
+    _GUIDE_VUP,
     _GUIDE_CORP,
 ])
 
@@ -343,7 +366,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: OPM tool 실행 가이드 — Tier 체계, 필수 실행 순서, 도메인별 Canonical Chain, 파싱 한계, 의결권 판단 기준.
         when: [tier-2 Context] 어떤 tool을 어떤 순서로 써야 하는지 불명확할 때. 첫 호출 또는 에러 발생 시 먼저 읽기.
-        rule: DART API를 호출하지 않음. domain="" → 전체 가이드, domain="agm"|"own"|"div"|"prx"|"corp" → 해당 섹션만.
+        rule: DART API를 호출하지 않음. domain="" → 전체 가이드, domain="agm"|"own"|"div"|"prx"|"vup"|"corp" → 해당 섹션만.
         ref: corp_identifier, agm_manual, own_manual, div_manual, prx_manual, corp_manual
 
         Args:
