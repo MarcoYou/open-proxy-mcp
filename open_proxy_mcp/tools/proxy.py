@@ -307,43 +307,25 @@ def register_tools(mcp):
     ) -> str:
         """desc: 프록시 파이트 감지 + 양측 행사방향 비교.
         when: [tier-4 Orchestrate] 특정 기업/연도에 프록시 파이트가 있었는지 확인하고 회사측 vs 주주측 입장을 비교할 때.
-        rule: prx_search로 복수 제출 감지 → 각 rcept_no에 prx_direction 적용 → 안건별 대립 표시.
+        rule: prx_search → 회사측/주주측 분류 → prx_direction × N → 안건별 대립 표시.
         ref: corp_identifier, prx_search, prx_direction
         """
-        client = get_dart_client()
-        corp = await client.lookup_corp_code(ticker)
-        if not corp:
-            return tool_not_found("기업", ticker)
-
-        corp_code = corp["corp_code"]
-        corp_name = corp["corp_name"]
-        bsns_year = year or str(datetime.now().year - 1)
-        bgn_de = f"{bsns_year}0101"
-        end_de = f"{bsns_year}1231"
-
+        # tier-3: 위임장 공시 목록 + 회사측/주주측 구분
+        search_out = await prx_search(ticker=ticker, year=year, format="json")
         try:
-            result = await client.search_filings(
-                bgn_de=bgn_de,
-                end_de=end_de,
-                corp_code=corp_code,
-                pblntf_ty="D",
-                page_count=100,
-            )
-        except DartClientError as e:
-            return tool_error("위임장 공시 검색", e, ticker=ticker)
+            search_data = json.loads(search_out)
+        except json.JSONDecodeError:
+            return search_out  # tool_empty 또는 tool_error 문자열 그대로 반환
 
-        items = result.get("list", [])
-        proxy_items = [
-            item for item in items
-            if any(kw in (item.get("report_nm") or "") for kw in _PROXY_KEYWORDS)
-        ]
+        corp_name = search_data.get("corp_name", ticker)
+        bsns_year = search_data.get("year", year or str(datetime.now().year - 1))
+        items = search_data.get("items", [])
 
-        if not proxy_items:
+        if not items:
             return tool_empty("위임장 공시", f"{ticker} {bsns_year}년")
 
-        # 회사측/주주측 분류
-        company_items = [i for i in proxy_items if _is_company_side(i.get("flr_nm",""), corp_name)]
-        other_items = [i for i in proxy_items if not _is_company_side(i.get("flr_nm",""), corp_name)]
+        company_items = [i for i in items if i.get("side") == "회사측"]
+        other_items = [i for i in items if i.get("side") == "주주측"]
 
         if not other_items:
             return (
@@ -351,27 +333,20 @@ def register_tools(mcp):
                 f"회사측 위임장 {len(company_items)}건만 제출됨."
             )
 
-        # 각 측 행사방향 파싱
-        async def get_directions(rcept_no: str) -> dict[str, str]:
+        # tier-5: 각 위임장 행사방향 파싱 (prx_direction 재사용 — 로직 일원화)
+        async def get_dir(rcept_no: str) -> dict[str, str]:
             try:
-                doc = await client.get_document(rcept_no)
-                text = doc.get("text", "") or ""
-                section = _extract_section(
-                    text,
-                    "1. 의결권 대리행사의 권유를 하는 취지",
-                    ["2. 의결권의 위임", "나. 전자위임장"],
-                )
-                return _parse_directions(section or text[:5000])
+                out = await prx_direction(rcept_no=rcept_no, format="json")
+                return json.loads(out).get("directions", {})
             except Exception:
                 return {}
 
         company_rcept = company_items[0]["rcept_no"] if company_items else None
-        company_dir = await get_directions(company_rcept) if company_rcept else {}
+        company_dir = await get_dir(company_rcept) if company_rcept else {}
 
-        # 주주측은 복수일 수 있음
         other_sides = []
         for item in other_items:
-            d = await get_directions(item["rcept_no"])
+            d = await get_dir(item["rcept_no"])
             other_sides.append({
                 "flr_nm": item.get("flr_nm", ""),
                 "rcept_no": item["rcept_no"],
