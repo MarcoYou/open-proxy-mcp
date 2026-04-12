@@ -762,9 +762,24 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 배당 종합 분석 — 최근 배당 상세 + 3년 추이. 보통주/우선주 모두 포함.
-        when: [tier-4 Orchestrate] 기업의 배당 정책/현황을 종합적으로 볼 때.
+        when: [tier-4 Orchestrate] 기업의 배당 정책/현황을 종합적으로 볼 것.
         rule: div_detail(최신) + div_history(3년)를 합쳐서 반환.
         ref: corp_identifier, div_detail, div_history"""
+        if format == "json":
+            import json as _json
+            detail_raw = await div_detail(ticker=ticker, format="json")
+            history_raw = await div_history(ticker=ticker, years=3, format="json")
+            try:
+                detail_data = _json.loads(detail_raw)
+            except Exception:
+                detail_data = {"raw": detail_raw}
+            try:
+                history_data = _json.loads(history_raw)
+            except Exception:
+                history_data = {"raw": history_raw}
+            return _json.dumps({"detail": detail_data, "history": history_data},
+                               ensure_ascii=False, indent=2)
+
         # 최신 기말 배당
         detail = await div_detail(ticker=ticker, format=format)
         # 3년 이력
