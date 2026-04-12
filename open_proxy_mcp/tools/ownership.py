@@ -206,10 +206,10 @@ def register_tools(mcp):
         ticker: str,
         format: str = "md",
     ) -> str:
-        """desc: 5% 대량보유/지분 변동/주식 매집 상황보고. 보유목적(단순투자/일반투자/경영참여) + 목적변경 감지.
-        when: [tier-5 Detail] 지분 변동, 주식 매집, 대량 매수, 5% 보고 상세를 요청했을 때. 프록시 파이트 감지 목적이면 proxy_fight 사용.
-        rule: 수시 공시 기반. 보유목적은 원문 파싱 (report_resn + document.xml). 보고자+특별관계자 합산.
-        ref: corp_identifier, ownership_major, ownership_full_analysis, agm_result
+        """desc: 5% 대량보유/지분 변동/주식 매집 상황보고. 보유목적(단순투자/일반투자/경영참여) + 목적변경 감지. 경영권 분쟁 과정의 지분율 변화 타임라인.
+        when: [tier-5 Detail] 지분 변동, 주식 매집, 대량 매수, 5% 보고, 경영권 분쟁 지분 변화, 지분율 추이를 볼 때. 독립 호출 가능.
+        rule: 수시 공시 기반. 보고자별 시계열 지분 변동을 보여줌. 보유목적은 원문 파싱 (report_resn + document.xml). 보고자+특별관계자 합산. proxy_fight와 함께 쓰면 경영권 분쟁의 전체 그림 파악 가능.
+        ref: corp_identifier, ownership_major, ownership_full_analysis, proxy_fight
 
         Args:
             ticker: 종목코드 또는 회사명
