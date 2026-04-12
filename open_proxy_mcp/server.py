@@ -32,7 +32,37 @@ def main():
             ],
         )
 
-    mcp.run(transport=args.transport)
+    if args.transport == "streamable-http":
+        import uvicorn
+        from starlette.middleware import Middleware
+        from starlette.types import ASGIApp, Receive, Scope, Send
+        from open_proxy_mcp.dart.client import set_request_api_key
+
+        class ApiKeyMiddleware:
+            """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅"""
+
+            def __init__(self, app: ASGIApp):
+                self.app = app
+
+            async def __call__(self, scope: Scope, receive: Receive, send: Send):
+                if scope["type"] == "http":
+                    from urllib.parse import parse_qs
+                    qs = parse_qs(scope.get("query_string", b"").decode())
+                    opendart = qs.get("opendart", [None])[0]
+                    if opendart:
+                        set_request_api_key(opendart)
+                await self.app(scope, receive, send)
+
+        app = mcp.streamable_http_app()
+        app.add_middleware(ApiKeyMiddleware)
+
+        uvicorn.run(
+            app,
+            host=mcp.settings.host,
+            port=mcp.settings.port,
+        )
+    else:
+        mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":

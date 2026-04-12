@@ -19,15 +19,29 @@ As passive investing grows, the concept of stock ownership is fading -- yet this
 
 ## Quick Start
 
-### Option A: Remote Server (No Install, 30 seconds)
+### Step 1: Get a DART API Key (Required)
 
-OpenProxy is deployed on Fly.io. Connect via URL -- no local setup required.
+All data in OpenProxy comes from DART OpenAPI. **You need your own API key to use it.**
+
+1. Go to [DART OpenAPI](https://opendart.fss.or.kr/) -> Sign up
+2. Request API key -> Issued instantly (free)
+
+### Step 2: Connect
+
+Once you have your API key, choose one of the two methods below.
+
+#### Option A: Remote Server (No Install, 30 seconds)
+
+Append your DART API key to the URL. The key is used server-side only and never exposed to the AI.
 
 **claude.ai web:**
 
 1. Go to [claude.ai](https://claude.ai) -> click MCP icon at the bottom of chat input
 2. Select "Add custom connector"
-3. Name: `open-proxy-mcp`, URL: `https://open-proxy-mcp.fly.dev/mcp`
+3. Name: `open-proxy-mcp`, URL:
+```
+https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY
+```
 4. Click "Add" -> 33 tools auto-detected
 5. Set tool permissions to **"Always allow"** (tools run without per-call approval)
 
@@ -36,18 +50,18 @@ OpenProxy is deployed on Fly.io. Connect via URL -- no local setup required.
 Settings > MCP Servers > Add URL connector:
 
 ```
-https://open-proxy-mcp.fly.dev/mcp
+https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY
 ```
 
 **Claude Code:**
 
 ```bash
-claude mcp add open-proxy-mcp --transport streamable-http https://open-proxy-mcp.fly.dev/mcp
+claude mcp add open-proxy-mcp --transport streamable-http "https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY"
 ```
 
-> The remote server uses a shared DART API key. For heavy usage, consider local installation to avoid rate limits (1,000 calls/min).
+#### Option B: Local Installation
 
-### Option B: Local Installation
+Local installation lets you configure additional API keys beyond DART (news search, OCR fallback, etc.).
 
 <details>
 <summary>Local installation guide (click to expand)</summary>
@@ -61,9 +75,20 @@ uv sync                    # Creates .venv + installs all dependencies
 cp .env.example .env
 ```
 
-#### 2. Get API Keys + Configure Environment
+#### 2. Configure environment
 
 Edit `.env` and add your API keys. **Only `OPENDART_API_KEY` is required** -- all core features work with it alone.
+
+```bash
+# .env (required)
+OPENDART_API_KEY=your_key_here
+
+# Optional — enables additional features
+OPENDART_API_KEY_2=backup_key                      # Auto-switches on rate limit (1,000/min)
+NAVER_SEARCH_API_CLIENT_ID=naver_id                # Candidate news search
+NAVER_SEARCH_API_CLIENT_SECRET=naver_secret         # Candidate news search
+UPSTAGE_API_KEY=upstage_key                         # OCR fallback (Tier 3)
+```
 
 | API Key | Required | Where to Get | Purpose |
 |---------|----------|-------------|---------|
@@ -72,15 +97,6 @@ Edit `.env` and add your API keys. **Only `OPENDART_API_KEY` is required** -- al
 | `NAVER_SEARCH_API_CLIENT_ID` | No | [Naver Developers](https://developers.naver.com/) -> Register app -> Search API | Candidate news search |
 | `NAVER_SEARCH_API_CLIENT_SECRET` | No | Same | Same |
 | `UPSTAGE_API_KEY` | No | [Upstage AI](https://www.upstage.ai/) -> Sign up -> API key | OCR fallback (Tier 3) |
-
-```bash
-# .env
-OPENDART_API_KEY=your_key_here
-OPENDART_API_KEY_2=backup_key
-NAVER_SEARCH_API_CLIENT_ID=naver_id
-NAVER_SEARCH_API_CLIENT_SECRET=naver_secret
-UPSTAGE_API_KEY=upstage_key
-```
 
 #### 3. Editable install
 
