@@ -280,7 +280,7 @@ With the 3-tier fallback, effective accuracy across all parser types reaches nea
 
 ```
 open_proxy_mcp/
-  server.py              # FastMCP server entry point (stdio + SSE)
+  server.py              # FastMCP server entry point (stdio + HTTP)
   tools/
     __init__.py          # register_all_tools() - auto-discovery
     shareholder.py       # AGM tools (parsers + formatters)
@@ -302,7 +302,31 @@ open_proxy_mcp/
 
 ## Quick Start
 
-### 1. Clone and install
+### Option A: Remote Server (No Installation)
+
+OpenProxy is deployed on Fly.io. Connect via URL -- no local setup required.
+
+**Claude Desktop / claude.ai web:**
+
+Add as MCP server with URL:
+
+```
+https://open-proxy-mcp.fly.dev/mcp
+```
+
+**Claude Code:**
+
+```bash
+claude mcp add open-proxy-mcp --transport streamable-http https://open-proxy-mcp.fly.dev/mcp
+```
+
+> The remote server uses a shared DART API key. For heavy usage, consider local installation to avoid rate limits (1,000 calls/min).
+
+---
+
+### Option B: Local Installation
+
+#### 1. Clone and install
 
 ```bash
 git clone https://github.com/MarcoYou/open-proxy-mcp.git
@@ -311,7 +335,7 @@ uv sync                    # Creates .venv + installs all dependencies
 cp .env.example .env
 ```
 
-### 2. Configure environment
+#### 2. Configure environment
 
 Edit `.env` and add your DART API key (free registration at [opendart.fss.or.kr](https://opendart.fss.or.kr)):
 
@@ -319,7 +343,7 @@ Edit `.env` and add your DART API key (free registration at [opendart.fss.or.kr]
 OPENDART_API_KEY=your_key_here
 ```
 
-### 3. Install as editable package (required for Claude Desktop)
+#### 3. Install as editable package (required for Claude Desktop)
 
 ```bash
 uv pip install -e .
@@ -327,7 +351,7 @@ uv pip install -e .
 
 This installs OpenProxy as an editable package so Claude Desktop can locate the module.
 
-### 4. Connect to Claude Desktop
+#### 4. Connect to Claude Desktop
 
 Add the following to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -343,13 +367,9 @@ Add the following to `~/Library/Application Support/Claude/claude_desktop_config
 }
 ```
 
-Replace `/path/to/open-proxy-mcp` with the actual absolute path to your cloned repository.
+Replace `/path/to/open-proxy-mcp` with the actual absolute path to your cloned repository. Restart Claude Desktop.
 
-Restart Claude Desktop. Start a new conversation and say: **"Call agm_manual first."**
-
-This loads the AI usage guide, which teaches the AI agent how to use the tools effectively, including quality criteria for the 3-tier fallback and agenda-type-to-tool mapping.
-
-### 5. Connect to Claude Code
+#### 5. Connect to Claude Code
 
 Add `.mcp.json` in your project root:
 
@@ -365,7 +385,7 @@ Add `.mcp.json` in your project root:
 }
 ```
 
-### 6. Optional dependencies
+#### 6. Optional dependencies
 
 ```bash
 uv sync                         # Core only (XML parsing)
@@ -374,7 +394,7 @@ pip install open-proxy-mcp[llm]  # + LLM fallback (Claude/OpenAI)
 pip install open-proxy-mcp[all]  # Everything
 ```
 
-### 7. API Keys (.env)
+#### 7. API Keys (.env)
 
 ```
 OPENDART_API_KEY=...          # Required - free at opendart.fss.or.kr
@@ -382,19 +402,15 @@ OPENDART_API_KEY_2=...        # Optional - backup key (auto-switches on rate lim
 UPSTAGE_API_KEY=...           # Optional - OCR fallback, Tier 3 (Upstage Document Parse)
 ```
 
-### 8. First use
+### First use
 
-After connecting to Claude Desktop or Claude Code, start every new session with:
+Start a new conversation and ask in natural language:
 
-> **"Call agm_manual first."**
-
-This is essential. The `agm_manual` tool returns a comprehensive guide that teaches the AI how to:
-- Map agenda types to the correct parser tools
-- Evaluate parsing quality and decide when to escalate tiers
-- Format results for human readability
-- Handle edge cases (corrections, split agendas, dual-class shares)
-
-Without calling `agm_manual` first, the AI may use tools suboptimally.
+- "Analyze Samsung Electronics AGM agenda"
+- "Show KB Financial's outside director candidates"
+- "Check Hyundai Motor's compensation limits"
+- "Show Samsung Electronics ownership structure"
+- "What's SK Hynix's dividend history?"
 
 ---
 
