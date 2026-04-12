@@ -1,10 +1,11 @@
-"""위임장 권유 관련 MCP tools (proxy_*)
+"""위임장 권유 + 경영권 분쟁 관련 MCP tools (proxy_*)
 
-위임장권유참고서류(의결권대리행사권유참고서류) 공시 조회 및 파싱.
+위임장권유참고서류, 소송(경영권분쟁), 기업가치제고계획 공시 조회 및 파싱.
 """
 
 import re
 import json
+import asyncio as _asyncio
 from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -402,5 +403,216 @@ def register_tools(mcp):
             dt = o["rcept_dt"]
             dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if len(dt) == 8 else dt
             lines.append(f"주주측 ({o['flr_nm']}): `{o['rcept_no']}` ({dt_fmt})")
+
+        return "\n".join(lines)
+
+    # ── 소송 / 기업가치제고 ──
+
+    _LITIGATION_KEYWORDS = (
+        "소송등의제기",
+        "소송등의신청",
+        "소송등의판결",
+        "소송등의결정",
+        "경영권분쟁소송",
+    )
+
+    _VALUATION_KEYWORDS = (
+        "기업가치제고",
+        "기업가치 제고",
+        "밸류업",
+    )
+
+    def _strip_css(text: str) -> str:
+        """HTML + CSS 제거하고 텍스트만 추출"""
+        text = re.sub(r'\.xforms[^}]*\}', '', text)
+        text = re.sub(r'<[^>]+>', '\n', text)
+        text = re.sub(r'\n\s*\n+', '\n', text)
+        return text.strip()
+
+    @mcp.tool()
+    async def proxy_litigation(
+        ticker: str,
+        year: str = "",
+        format: str = "md",
+    ) -> str:
+        """desc: 경영권 분쟁 소송 공시 검색 -- 소송등의제기/신청, 판결/결정 타임라인.
+        when: [tier-4 Orchestrate] 경영권 분쟁, 소송, 가처분, 판결, 법적 분쟁 현황을 파악할 때. proxy_fight와 함께 호출하면 분쟁의 전체 그림을 볼 수 있음.
+        rule: DART pblntf_ty=I(거래소공시) + B(주요사항)에서 소송 키워드 필터. 원문 최신 3건 파싱.
+        ref: corp_identifier, proxy_fight, proxy_search, ownership_block
+        """
+        ticker = await resolve_ticker(ticker)
+        client = get_dart_client()
+        corp = await client.lookup_corp_code(ticker)
+        if not corp:
+            return tool_not_found("기업", ticker)
+
+        corp_code = corp["corp_code"]
+        corp_name = corp["corp_name"]
+        now = datetime.now()
+        bsns_year = year or str(now.year)
+        bgn_de = f"{int(bsns_year) - 1}0101"
+        end_de = f"{bsns_year}1231"
+
+        try:
+            result_i, result_b = await _asyncio.gather(
+                client.search_filings(
+                    bgn_de=bgn_de, end_de=end_de,
+                    corp_code=corp_code, pblntf_ty="I", page_count=100,
+                ),
+                client.search_filings(
+                    bgn_de=bgn_de, end_de=end_de,
+                    corp_code=corp_code, pblntf_ty="B", page_count=100,
+                ),
+            )
+        except DartClientError as e:
+            return tool_error("소송 공시 검색", e, ticker=ticker)
+
+        all_items = result_i.get("list", []) + result_b.get("list", [])
+        litigation_items = [
+            item for item in all_items
+            if any(kw in (item.get("report_nm") or "").replace(" ", "").replace("\u3165", "")
+                   for kw in _LITIGATION_KEYWORDS)
+        ]
+
+        if not litigation_items:
+            return tool_empty("소송 공시", f"{ticker} {bsns_year}년")
+
+        litigation_items.sort(key=lambda x: x.get("rcept_dt", ""), reverse=True)
+
+        # 최신 3건 원문 파싱 (정정 제외)
+        detail_items = [i for i in litigation_items if "[기재정정]" not in (i.get("report_nm") or "")][:3]
+        details = {}
+        for item in detail_items:
+            try:
+                doc = await client.get_document(item["rcept_no"])
+                text = _strip_css(doc.get("text", "") or "")
+                details[item["rcept_no"]] = text[:3000]
+            except Exception:
+                pass
+
+        if format == "json":
+            return json.dumps({
+                "corp_name": corp_name,
+                "period": f"{bgn_de[:4]}-{end_de[:4]}",
+                "count": len(litigation_items),
+                "items": [{
+                    "rcept_no": i.get("rcept_no", ""),
+                    "rcept_dt": i.get("rcept_dt", ""),
+                    "report_nm": (i.get("report_nm") or "").strip(),
+                    "flr_nm": i.get("flr_nm", ""),
+                    "detail": details.get(i.get("rcept_no"), ""),
+                } for i in litigation_items],
+            }, ensure_ascii=False, indent=2)
+
+        lines = [
+            f"# {corp_name} 소송/분쟁 공시",
+            f"기간: {bgn_de[:4]}-{end_de[:4]} | 총 {len(litigation_items)}건",
+            "",
+            "| 날짜 | 공시명 | 제출인 | rcept_no |",
+            "|------|--------|--------|----------|",
+        ]
+        for item in litigation_items:
+            dt = item.get("rcept_dt", "")
+            dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if len(dt) == 8 else dt
+            rn = (item.get("report_nm") or "").strip()
+            lines.append(
+                f"| {dt_fmt} | {rn} | {item.get('flr_nm', '')} | `{item.get('rcept_no', '')}` |"
+            )
+
+        if details:
+            lines.append("")
+            lines.append("## 최신 공시 원문 (요약)")
+            for rcept_no, text in details.items():
+                lines.append(f"\n### `{rcept_no}`")
+                lines.append("```")
+                lines.append(text[:2000])
+                lines.append("```")
+
+        return "\n".join(lines)
+
+    @mcp.tool()
+    async def proxy_valuation_plan(
+        ticker: str,
+        year: str = "",
+        format: str = "md",
+    ) -> str:
+        """desc: 기업가치제고계획(밸류업) 공시 검색 -- 주주환원, ROE, 배당 목표 등.
+        when: [tier-4 Orchestrate] 기업가치제고, 밸류업, value-up, 주주환원 계획을 확인할 때. 경영권 분쟁에서 양측의 주주환원 공약 비교에도 활용.
+        rule: DART pblntf_ty=I(거래소공시)에서 기업가치제고 키워드 필터. 원문에서 핵심 지표 추출.
+        ref: corp_identifier, proxy_fight, div_full_analysis
+        """
+        ticker = await resolve_ticker(ticker)
+        client = get_dart_client()
+        corp = await client.lookup_corp_code(ticker)
+        if not corp:
+            return tool_not_found("기업", ticker)
+
+        corp_code = corp["corp_code"]
+        corp_name = corp["corp_name"]
+        now = datetime.now()
+        bsns_year = year or str(now.year)
+        bgn_de = f"{int(bsns_year) - 2}0101"
+        end_de = f"{bsns_year}1231"
+
+        try:
+            result = await client.search_filings(
+                bgn_de=bgn_de, end_de=end_de,
+                corp_code=corp_code, pblntf_ty="I", page_count=100,
+            )
+        except DartClientError as e:
+            return tool_error("기업가치제고계획 검색", e, ticker=ticker)
+
+        items = result.get("list", [])
+        vup_items = [
+            item for item in items
+            if any(kw in (item.get("report_nm") or "").replace(" ", "")
+                   for kw in _VALUATION_KEYWORDS)
+        ]
+
+        if not vup_items:
+            return tool_empty("기업가치제고계획", f"{ticker}")
+
+        vup_items.sort(key=lambda x: x.get("rcept_dt", ""), reverse=True)
+
+        parsed = []
+        for item in vup_items[:2]:
+            try:
+                doc = await client.get_document(item["rcept_no"])
+                text = _strip_css(doc.get("text", "") or "")
+                parsed.append({
+                    "rcept_no": item.get("rcept_no", ""),
+                    "rcept_dt": item.get("rcept_dt", ""),
+                    "report_nm": (item.get("report_nm") or "").strip(),
+                    "text": text,
+                })
+            except Exception:
+                pass
+
+        if format == "json":
+            return json.dumps({
+                "corp_name": corp_name,
+                "count": len(vup_items),
+                "items": [{
+                    "rcept_no": p["rcept_no"],
+                    "rcept_dt": p["rcept_dt"],
+                    "report_nm": p["report_nm"],
+                    "text": p["text"][:5000],
+                } for p in parsed],
+            }, ensure_ascii=False, indent=2)
+
+        lines = [
+            f"# {corp_name} 기업가치제고계획",
+            f"총 {len(vup_items)}건",
+            "",
+        ]
+
+        for p in parsed:
+            dt = p["rcept_dt"]
+            dt_fmt = f"{dt[:4]}.{dt[4:6]}.{dt[6:8]}" if len(dt) == 8 else dt
+            lines.append(f"## {p['report_nm']} ({dt_fmt})")
+            lines.append(f"rcept_no: `{p['rcept_no']}`")
+            lines.append("")
+            lines.append(p["text"][:4000])
+            lines.append("")
 
         return "\n".join(lines)
