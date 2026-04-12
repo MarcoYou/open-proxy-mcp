@@ -188,7 +188,7 @@ def register_tools(mcp):
         end_de: str = "",
     ) -> str:
         """desc: 주주총회 소집공고 검색. rcept_no 리스트 반환.
-        when: 특정 기업의 주총 공고를 찾을 때. 다른 agm_* tool에 필요한 rcept_no를 여기서 획득.
+        when: [tier-3 Search] 특정 기업의 주총 공고를 찾을 때. 다른 agm_* tool에 필요한 rcept_no를 여기서 획득. corp_identifier 실행 후 호출할 것.
         rule: ticker 또는 종목코드로 검색. 정정공고 포함, 최신 정정본에 ← 최신 표시.
         ref: corp_identifier, agm, agm_agenda_xml, agm_manual
 
@@ -254,7 +254,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 의안(안건) 목록 구조화. 제N호/제N-M호 형식의 트리.
-        when: 주총 안건 구조를 파악할 때. 세부의안 포함.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 안건 상세를 명시적으로 요청했을 때만 사용. agm_pre_analysis 없이 단독 호출하지 말 것.
         rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="agenda", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
         ref: agm_parse_fallback, agm_items, agm_manual
 
@@ -306,7 +306,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 안건별 상세 원문 블록 (마크다운). 특화 파서 없는 안건의 raw 내용.
-        when: 특정 안건의 전문이 필요할 때. agenda_no로 필터 가능.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 특정 안건의 원문이 필요할 때만 사용.
         rule: 특화 파서(financials, personnel 등)가 있는 안건은 해당 파서 사용이 더 정확.
         ref: agm_financials_xml, agm_personnel_xml, agm_aoi_change_xml, agm_compensation_xml
 
@@ -367,7 +367,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 재무제표 (BS/IS) 구조화. 연결/별도, 당기/전기 비교.
-        when: 재무제표 승인 안건의 상세 데이터가 필요할 때.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 재무제표 상세를 명시적으로 요청했을 때만 사용.
         rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="financials", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
         ref: agm_parse_fallback, agm_manual
 
@@ -465,7 +465,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 정정공고의 전/후 비교 + 정정 사유.
-        when: 정정 전후 차이를 볼 때. 정정공고가 아닌 경우 빈 결과는 정상.
+        when: [tier-5 Detail] 정정 전후 차이를 볼 때. 정정공고가 아닌 경우 빈 결과는 정상.
         rule: 정정 사유가 중요 - 재무수치 변경인지 단순 오타인지 구분.
         ref: agm_search, agm_manual
 
@@ -493,7 +493,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 이사/감사 선임/해임 정보. 후보자별 경력, 결격사유, 추천사유, 직무수행계획.
-        when: 이사/감사/감사위원 선임 안건 분석 시. 경력 상세 포함.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 이사/감사 후보자 경력 상세를 요청했을 때만 사용.
         rule: XML 파싱. 경력 병합(100자+) 시 agm_parse_fallback(parser="personnel", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
         ref: agm_parse_fallback, agm_manual, agm_result, news_check
 
@@ -522,7 +522,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 정관변경 비교 (변경전/변경후/사유). 세부의안별 분리.
-        when: 정관변경 안건 분석 시. 집중투표제 배제 삭제 등.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 정관변경 상세를 요청했을 때만 사용.
         rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="aoi_change", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
         ref: agm_parse_fallback, agm_manual
 
@@ -560,7 +560,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 이사/감사 보수한도. 당기 한도, 전기 실지급, 이사 수, 소진율.
-        when: 보수한도 승인 안건 분석 시. 소진율(전기 실지급/한도)이 핵심 지표.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 보수한도/소진율 상세를 요청했을 때만 사용.
         rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="compensation", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
         ref: agm_parse_fallback, agm_manual, div_detail
 
@@ -589,7 +589,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 자기주식 보유/처분/소각. 수량, 목적, 방법.
-        when: 자사주 관련 안건 분석 시.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 자사주 안건 상세를 요청했을 때만 사용.
         rule: XML 파싱. 안건 제목 매칭 한계로 PDF fallback 빈번. 판정 기준은 agm_manual 참조.
         ref: agm_parse_fallback, own_treasury, agm_manual
 
@@ -618,7 +618,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 자본준비금 감소/이익잉여금 전입. 감액배당 전제 조건.
-        when: 자본준비금 감소 안건 분석 시.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 자본준비금 안건 상세를 요청했을 때만 사용.
         rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="capital_reserve", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
         ref: agm_parse_fallback, agm_manual
 
@@ -647,7 +647,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 임원 퇴직금 규정 개정 (변경전/변경후).
-        when: 퇴직금 규정 변경 안건 분석 시.
+        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 퇴직금 규정 상세를 요청했을 때만 사용.
         rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="retirement_pay", tier="pdf") fallback. 재무제표 주석의 "퇴직급여"와 혼동 주의. 판정 기준은 agm_manual 참조.
         ref: agm_parse_fallback, agm_manual
 
@@ -678,7 +678,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 주총 사전 분석 — 소집공고 기반 안건/재무/인사 요약. 투표결과 미포함.
         when: [tier-4 Orchestrate] 주총 전 또는 소집공고만 있을 때. 안건 트리 + 재무 하이라이트 + 후보자 요약.
-        rule: 소집공고(DART) 기반. 투표결과 포함 분석은 agm_post_analysis 사용.
+        rule: 소집공고(DART) 기반. 투표결과 포함 분석은 agm_post_analysis 사용. 이 tool 하나로 충분하며 agm_*_xml 개별 tool은 사용자의 명시적 요청 없는 한 추가 호출 금지.
         ref: corp_identifier, agm_search, agm_agenda_xml, agm_financials_xml, agm_post_analysis
 
         Args:
@@ -799,7 +799,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 주총 사후 분석 — 소집공고(안건/재무/인사) + 투표결과(가결/부결/참석률) 통합.
         when: [tier-4 Orchestrate] 주총 종료 후 전체 분석. 사전+사후 완전한 주총 그림이 필요할 때.
-        rule: agm_pre_analysis + agm_result 체이닝. 주총 미종료 시 투표결과 없음 안내.
+        rule: agm_pre_analysis + agm_result 체이닝. 주총 미종료 시 투표결과 없음 안내. 이 tool 하나로 소집공고+투표결과 분석이 완성됨. agm_*_xml 개별 tool 추가 호출 금지.
         ref: corp_identifier, agm_pre_analysis, agm_result, agm_search
         """
         pre = await agm_pre_analysis(ticker=ticker, bgn_de=bgn_de, end_de=end_de)
@@ -879,7 +879,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: AGM 파서 PDF/OCR fallback. XML 파싱 불완전 시 대체 수단.
-        when: agm_*_xml 결과가 불완전할 때. tier="pdf"(4s+) 또는 tier="ocr"(UPSTAGE_API_KEY).
+        when: [tier-5 Detail] agm_*_xml 결과가 불완전할 때만 사용. tier="pdf"(4s+) 또는 tier="ocr"(UPSTAGE_API_KEY 필요).
         rule: parser 파라미터로 파서 선택 (personnel/financials/aoi_change/compensation/treasury_share/capital_reserve/retirement_pay/agenda). AI가 자체 보정 실패 후 유저에게 제안.
         ref: agm_personnel_xml, agm_financials_xml, agm_manual
 
@@ -924,7 +924,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 주주총회 투표결과 -- 안건별 가결/부결, 찬성률(발행/행사 기준), 추정참석률.
-        when: 주총 결과를 볼 때. 집중투표 결과도 포함 (득표율+순위).
+        when: [tier-5 Detail] 주총 결과를 볼 때. agm_post_analysis가 이미 포함하므로 단독 호출은 투표결과만 필요할 때로 한정.
         rule: KIND 크롤링 기반. rcept_no "80"->"00" 변환으로 KIND viewer 접근. 주총 미종료 시 데이터 없음.
         ref: agm_search, agm_manual, own_block, own_major
 

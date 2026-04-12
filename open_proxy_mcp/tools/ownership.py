@@ -30,7 +30,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 최대주주 + 특수관계인 지분 현황 (사업보고서 기준). 보통주 기준 지분율 + 변동이력.
-        when: 최대주주가 누구인지, 특관인 포함 합산 지분율을 볼 때.
+        when: [tier-5 Detail] own_full_analysis 실행 후 사용자가 최대주주/특관인 상세를 요청했을 때만 사용.
         rule: 사업보고서 신고 기준. 실질 최다보유자와 다를 수 있음 (대량보유는 own_block 참조). 우선주 별도 표시.
         ref: corp_identifier, own_block, own_full_analysis
 
@@ -70,7 +70,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 발행주식 총수, 자기주식, 유통주식, 소액주주 현황.
-        when: 발행주식수/자사주/유통비율을 볼 때.
+        when: [tier-5 Detail] own_full_analysis 실행 후 사용자가 발행주식/자사주/소액주주 상세를 요청했을 때만 사용.
         rule: 사업보고서 기준. 보통주/우선주 각각 표시.
         ref: own_treasury, own_full_analysis
 
@@ -110,7 +110,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 자기주식 취득방법별 기초-취득-처분-소각-기말 잔액.
-        when: 자사주 보유 현황 상세를 볼 때. 직접취득/신탁계약 구분.
+        when: [tier-5 Detail] own_full_analysis 실행 후 사용자가 자사주 취득방법별 상세를 요청했을 때만 사용.
         rule: 사업보고서 기준 연간 baseline. 최신 이벤트는 own_treasury_tx 참조.
         ref: own_treasury_tx, own_total, own_full_analysis
 
@@ -145,7 +145,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 자사주 이벤트 - 취득결정, 처분결정, 신탁계약 체결, 신탁계약 해지.
-        when: 자사주 취득/처분/신탁 의사결정을 볼 때. 수시 공시 기반.
+        when: [tier-5 Detail] own_full_analysis 실행 후 사용자가 자사주 이벤트 이력을 요청했을 때만 사용.
         rule: 4개 DART API 호출 (취득+처분+신탁체결+해지). 경영권 방어/주주환원 시그널.
         ref: own_treasury, own_full_analysis, div_detail
 
@@ -203,7 +203,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 5% 대량보유 상황보고. 보유목적(단순투자/일반투자/경영참여) + 목적변경 감지.
-        when: 5% 이상 대량보유자와 보유목적을 볼 때. 프록시 파이트 감지.
+        when: [tier-5 Detail] own_full_analysis 실행 후 사용자가 5% 대량보유 상세를 요청했을 때만 사용. 프록시 파이트 감지 목적이면 prx_fight 사용.
         rule: 수시 공시 기반. 보유목적은 원문 파싱 (report_resn + document.xml). 보고자+특별관계자 합산.
         ref: corp_identifier, own_major, own_full_analysis, agm_result
 
@@ -272,8 +272,8 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 지분 구조 종합 분석 — 사업보고서 vs 최신 공시 지분율 비교 테이블.
-        when: 특정 기업 주주 구성을 사업보고서 기준과 최신 공시 기준으로 비교할 때.
-        rule: own_major(사업보고서) + own_block(수시 공시) 데이터를 통합. 결과를 반드시 | 주주 | 구분 | 지분율 | 비고 | 형식의 4컬럼 markdown 테이블로 출력. 차트/시각화 사용 금지.
+        when: [tier-4 Orchestrate] 특정 기업 주주 구성을 사업보고서 기준과 최신 공시 기준으로 비교할 때.
+        rule: own_major(사업보고서) + own_block(수시 공시) 데이터를 통합. 결과를 반드시 | 주주 | 구분 | 지분율 | 비고 | 형식의 4컬럼 markdown 테이블로 출력. 차트/시각화 사용 금지. 이 tool 하나로 지분 분석이 완성됨. own_major/own_block 개별 tool은 사용자의 명시적 요청 없는 한 추가 호출 금지.
         ref: corp_identifier, own_major, own_block, own_total
 
         Args:
