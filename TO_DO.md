@@ -63,6 +63,11 @@
 - [ ] discover_tools(category, keyword) — 카테고리/키워드로 tool 검색
 - [ ] execute_tool(name, params) — 내부 tool 프록시 호출
 
+### 재무제표 분석 (향후)
+- [ ] DART 재무지표 API 연동 (매출, 영업이익, 순이익, ROE 등 주요 지표)
+- [ ] 재무제표 요약 tool — 3개년 추이 + 업종 평균 비교
+- [ ] agm_pre_analysis 재무 섹션 강화 (현재 감사의견만 표시, 지표 기반 판단 추가)
+
 ### API 최적화
 - [ ] search_filings_by_ticker 결과 캐싱 (같은 ticker 중복 호출 방지)
 - [ ] parse_agenda_items 결과를 _doc_cache에 저장 (CPU 중복 파싱 방지)

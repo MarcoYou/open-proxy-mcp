@@ -61,8 +61,10 @@ After connecting, just ask in natural language:
 "Check Hyundai Motor's compensation limits"
 "Show Samsung Electronics ownership structure"
 "What's SK Hynix's dividend history?"
-"Analyze the Korea Zinc proxy fight"
+"Analyze the Korea Zinc management dispute"
 ```
+
+\* OpenProxy does not currently analyze DART financial metrics (update planned)
 
 ---
 
