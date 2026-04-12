@@ -351,8 +351,10 @@ def register_tools(mcp):
             end_de = datetime.now().strftime("%Y%m%d")
 
         try:
+            # pblntf_ty="I" (거래소공시) — 현금배당결정은 여기 속함
             filings = await client.search_filings(
                 corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
+                pblntf_ty="I",
             )
         except DartClientError as e:
             return tool_error("배당 공시 검색", e, ticker=ticker)
