@@ -52,5 +52,11 @@ samples/
 .omc/
 .obsidian/
 
+# Dev log (personal, not project docs)
+DEVLOG.md
+
+# Wiki raw PDFs (binary + copyright)
+wiki/raw/*.pdf
+
 # Graphify (knowledge graph build artifacts — rebuilt from wiki/)
 graphify-out/

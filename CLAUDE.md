@@ -19,7 +19,7 @@ DART 데이터를 MCP로 제공하는 Python 서버. 약칭 **OPM**.
 ```
 open_proxy_mcp/        # MCP 서버 코드
   server.py            # FastMCP 진입점
-  tools/               # agm_*(34) + own_*(8) + div_*(5) = 47 tools
+  tools/               # 33 tools (AGM 14 + OWN 6 + DIV 4 + PRX 4 + CORP 1 + GUIDE 1 + GOV 1 + NEWS 1 + SEARCH 1)
   dart/client.py       # DART API + KIND + 네이버 시세
   *_RULE.md            # tool별 규칙 (AGM/OWN/DIV)
 wiki/                  # LLM 도메인 지식 위키 (Karpathy 아키텍처)
