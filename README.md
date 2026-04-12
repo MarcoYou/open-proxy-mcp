@@ -165,45 +165,45 @@ uv pip install -e ".[all]"               # 전부 설치
 33개 tool은 5단계 Tier로 구성됩니다. AI는 Tier 1부터 순서대로 호출하며, 필요에 따라 하위 Detail tool로 내려갑니다.
 
 ```
-                         ┌─────────────────────┐
-                         │   corp_identifier   │  Tier 1 Entity
-                         │  기업명/ticker 식별    │  "삼성전자" -> 005930
-                         └──────────┬──────────┘
-                                    │
-                         ┌──────────▼──────────┐
-                         │     tool_guide      │  Tier 2 Context
-                         │  사용법 + 판단 기준     │
-                         └──────────┬──────────┘
-                                    │
-              ┌─────────────────────┼─────────────────────┐
-              │                     │                     │
-    ┌─────────▼────────┐ ┌─────────▼────────┐ ┌─────────▼────────┐
-    │   agm_search     │ │   div_search     │ │  proxy_search    │  Tier 3
-    │   소집공고 검색   │ │   배당공시 검색        │ │  위임장공시 검색     │  Search
-    └─────────┬────────┘ └─────────┬────────┘ └─────────┬────────┘
-              │                    │                    │
-    ┌────────────▼───────────┐ ┌────────▼─────────┐ ┌────────▼─────────┐
-    │   agm_pre_analysis     │ │div_full_analysis │ │   proxy_fight    │  Tier 4
-    │   agm_post_analysis    │ │  배당 종합 분석     │ │ 프록시파이트 감지     │  Orchestrate
-    │ownership_full_analysis │ └────────┬─────────┘ └────────┬─────────┘
-    │   governance_report    │          │                     │
-    └────────────┬───────────┘          │                     │
-                 │                      │                     │
-    ┌─────────▼──────────────────────────────────────────────▼────────┐
-    │                        Tier 5 Detail                            │
-    │                                                                 │
-    │  AGM (12)           OWN (5)              DIV (2)    PRX (2)     │
-    │  ├ agenda_xml       ├ ownership_major    ├ detail   ├ detail    │
-    │  ├ financials_xml   ├ ownership_total    └ history  └ direction │
-    │  ├ personnel_xml    ├ ownership_treasury                        │
-    │  ├ aoi_change_xml   ├ ownership_block    NEWS (1)               │
-    │  ├ compensation_xml └ ownership_latest   └ news_check           │
-    │  ├ treasury_share_xml                                           │
-    │  ├ capital_reserve_xml                                          │
-    │  ├ retirement_pay_xml                                           │
-    │  ├ info / corrections / result / items                          │
-    │  └ 각 파서 _xml / _pdf / _ocr fallback                            │
-    └─────────────────────────────────────────────────────────────────┘
+                            ┌──────────────────────┐
+                            │    corp_identifier    │  Tier 1 Entity
+                            │  기업명/ticker 식별    │  "삼성전자" -> 005930
+                            └──────────┬───────────┘
+                                       │
+                            ┌──────────▼───────────┐
+                            │      tool_guide      │  Tier 2 Context
+                            │   사용법 + 판단 기준   │
+                            └──────────┬───────────┘
+                                       │
+              ┌────────────────────────┼────────────────────────┐
+              │                        │                        │
+    ┌─────────▼─────────┐  ┌──────────▼──────────┐  ┌──────────▼──────────┐
+    │    agm_search      │  │     div_search      │  │    proxy_search     │  Tier 3
+    │   소집공고 검색     │  │    배당공시 검색     │  │   위임장공시 검색    │  Search
+    └─────────┬─────────┘  └──────────┬──────────┘  └──────────┬──────────┘
+              │                       │                        │
+    ┌─────────▼──────────────┐ ┌──────▼───────────┐ ┌──────────▼──────────┐
+    │ agm_pre_analysis       │ │div_full_analysis │ │    proxy_fight      │  Tier 4
+    │ agm_post_analysis      │ │  배당 종합 분석   │ │  프록시파이트 감지   │  Orchestrate
+    │ ownership_full_analysis│ └──────┬───────────┘ └──────────┬──────────┘
+    │ governance_report      │        │                        │
+    └─────────┬──────────────┘        │                        │
+              │                       │                        │
+    ┌─────────▼───────────────────────▼────────────────────────▼─────────┐
+    │                          Tier 5 Detail                             │
+    │                                                                    │
+    │  AGM (12)             OWN (5)             DIV (2)     PRX (2)     │
+    │  ├ agenda_xml         ├ ownership_major   ├ detail    ├ detail    │
+    │  ├ financials_xml     ├ ownership_total   └ history   └ direction │
+    │  ├ personnel_xml      ├ ownership_treasury                        │
+    │  ├ aoi_change_xml     ├ ownership_block   NEWS (1)                │
+    │  ├ compensation_xml   └ ownership_latest  └ news_check            │
+    │  ├ treasury_share_xml                                              │
+    │  ├ capital_reserve_xml                                             │
+    │  ├ retirement_pay_xml                                              │
+    │  ├ info / corrections / result / items                             │
+    │  └ 각 파서 _xml / _pdf / _ocr fallback                             │
+    └────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 도메인별 요약
