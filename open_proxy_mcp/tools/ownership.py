@@ -206,8 +206,8 @@ def register_tools(mcp):
         ticker: str,
         format: str = "md",
     ) -> str:
-        """desc: 5% 대량보유 상황보고. 보유목적(단순투자/일반투자/경영참여) + 목적변경 감지.
-        when: [tier-5 Detail] ownership_full_analysis 실행 후 사용자가 5% 대량보유 상세를 요청했을 때만 사용. 프록시 파이트 감지 목적이면 proxy_fight 사용.
+        """desc: 5% 대량보유/지분 변동/주식 매집 상황보고. 보유목적(단순투자/일반투자/경영참여) + 목적변경 감지.
+        when: [tier-5 Detail] 지분 변동, 주식 매집, 대량 매수, 5% 보고 상세를 요청했을 때. 프록시 파이트 감지 목적이면 proxy_fight 사용.
         rule: 수시 공시 기반. 보유목적은 원문 파싱 (report_resn + document.xml). 보고자+특별관계자 합산.
         ref: corp_identifier, ownership_major, ownership_full_analysis, agm_result
 
@@ -276,8 +276,8 @@ def register_tools(mcp):
         ticker: str,
         format: str = "md",
     ) -> str:
-        """desc: 지분 구조 종합 분석 — 사업보고서 vs 최신 공시 지분율 비교 테이블.
-        when: [tier-4 Orchestrate] 특정 기업 주주 구성을 사업보고서 기준과 최신 공시 기준으로 비교할 때.
+        """desc: 지분 구조/대주주/shareholder 종합 분석 — 사업보고서 vs 최신 공시 지분율 비교 테이블.
+        when: [tier-4 Orchestrate] 대주주, 최대주주, 지배구조, shareholder, 지분 구조, 주주 구성을 볼 때.
         rule: ownership_major(사업보고서) + ownership_block(수시 공시) 데이터를 통합. 결과를 반드시 | 주주 | 구분 | 지분율 | 비고 | 형식의 4컬럼 markdown 테이블로 출력. 차트/시각화 사용 금지. 이 tool 하나로 지분 분석이 완성됨. ownership_major/ownership_block 개별 tool은 사용자의 명시적 요청 없는 한 추가 호출 금지.
         ref: corp_identifier, ownership_major, ownership_block, ownership_total
 

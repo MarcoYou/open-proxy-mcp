@@ -679,8 +679,8 @@ def register_tools(mcp):
         bgn_de: str = "",
         end_de: str = "",
     ) -> str:
-        """desc: 주총 사전 분석 — 소집공고 기반 안건/재무/인사 요약. 투표결과 미포함.
-        when: [tier-4 Orchestrate] 주총 전 또는 소집공고만 있을 때. 안건 트리 + 재무 하이라이트 + 후보자 요약.
+        """desc: 주주총회/AGM 사전 분석 — 소집공고 기반 안건/재무/인사 요약. 투표결과 미포함.
+        when: [tier-4 Orchestrate] 주주총회, AGM, shareholder meeting 사전 분석. 안건 트리 + 재무 하이라이트 + 후보자 요약.
         rule: 소집공고(DART) 기반. 투표결과 포함 분석은 agm_post_analysis 사용. 이 tool 하나로 충분하며 agm_*_xml 개별 tool은 사용자의 명시적 요청 없는 한 추가 호출 금지.
         ref: corp_identifier, agm_search, agm_agenda_xml, agm_financials_xml, agm_post_analysis
 
@@ -855,8 +855,8 @@ def register_tools(mcp):
         bgn_de: str = "",
         end_de: str = "",
     ) -> str:
-        """desc: 주총 사후 분석 — 소집공고(안건/재무/인사) + 투표결과(가결/부결/참석률) 통합.
-        when: [tier-4 Orchestrate] 주총 종료 후 전체 분석. 사전+사후 완전한 주총 그림이 필요할 때.
+        """desc: 주주총회/AGM 사후 분석 — 소집공고(안건/재무/인사) + 투표결과(가결/부결/참석률) 통합.
+        when: [tier-4 Orchestrate] 주주총회, AGM, shareholder meeting 결과/사후 분석. 사전+사후 완전한 주총 그림이 필요할 때.
         rule: agm_pre_analysis + agm_result 체이닝. 주총 미종료 시 투표결과 없음 안내. 이 tool 하나로 소집공고+투표결과 분석이 완성됨. agm_*_xml 개별 tool 추가 호출 금지.
         ref: corp_identifier, agm_pre_analysis, agm_result, agm_search
         """
