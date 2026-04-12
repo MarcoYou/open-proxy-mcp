@@ -158,6 +158,8 @@ def _build_agenda_json(
             "datetime": meeting_info.get("datetime"),
             "location": meeting_info.get("location"),
             "reportItems": meeting_info.get("report_items", []),
+            # 전체 파서 출력 보존 (orchestrator 체이닝용)
+            "rawMeetingInfo": meeting_info,
         },
         "agendas": agendas,
         "parseMeta": {
@@ -686,6 +688,8 @@ def register_tools(mcp):
             bgn_de: 검색 시작일 (YYYYMMDD). 미입력 시 올해 1월 1일
             end_de: 검색 종료일 (YYYYMMDD). 미입력 시 오늘
         """
+        import asyncio as _asyncio
+
         if not bgn_de:
             bgn_de = f"{datetime.now().year}0101"
         if not end_de:
@@ -710,35 +714,87 @@ def register_tools(mcp):
         latest = filings[-1]
         rcept_no = latest["rcept_no"]
 
-        doc = await _get_document_cached(rcept_no)
-        text = doc["text"]
-        html = doc.get("html", "")
+        # tier-5 tool 병렬 체이닝
+        agenda_raw, fs_raw, personnel_raw, corrections_raw = await _asyncio.gather(
+            agm_agenda_xml(rcept_no=rcept_no, format="json"),
+            agm_financials_xml(rcept_no=rcept_no, format="json"),
+            agm_personnel_xml(rcept_no=rcept_no, format="json"),
+            agm_corrections(rcept_no=rcept_no, format="json"),
+        )
 
-        # 1. 회의 정보
-        info = parse_meeting_info_xml(text, html=html)
+        # 1. 회의 정보 + 안건 트리 — agm_agenda_xml JSON에서 추출
+        agenda_data = {}
+        agenda = []
+        try:
+            agenda_data = json.loads(agenda_raw)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
-        # 2. 안건 트리
-        agenda = parse_agenda_xml(text, html=html)
+        meeting_info_json = agenda_data.get("meetingInfo", {})
 
-        # 3. 정정 요약
-        correction = parse_corrections_xml(html) if html else None
-        if correction:
-            info["correction_summary"] = {
-                "date": correction.get("date"),
-                "original_date": correction.get("original_date"),
-                "items": [
-                    {"section": i["section"][:60], "reason": i["reason"][:80]}
-                    for i in correction.get("items", [])
-                ],
+        # rawMeetingInfo가 있으면 파서 원본 사용, 없으면 meetingInfo에서 복원
+        raw = meeting_info_json.get("rawMeetingInfo")
+        if raw:
+            info = raw
+        else:
+            info = {
+                "meeting_type": meeting_info_json.get("meetingType", ""),
+                "meeting_term": meeting_info_json.get("fiscalTerm", ""),
+                "is_correction": meeting_info_json.get("isCorrection", False),
+                "datetime": meeting_info_json.get("datetime", ""),
+                "location": meeting_info_json.get("location", ""),
+                "report_items": meeting_info_json.get("reportItems", []),
             }
 
-        # 4. 재무 하이라이트
-        fs = parse_financials_xml(html) if html else None
-        fs_highlight = _build_financial_highlight(fs) if fs else None
+        # agenda 트리 재구성 (agendaId/number/title/children 구조)
+        def _rebuild_agenda_node(node: dict) -> dict:
+            return {
+                "number": node.get("number", ""),
+                "title": node.get("title", ""),
+                "source": node.get("source"),
+                "conditional": node.get("conditional"),
+                "children": [_rebuild_agenda_node(c) for c in node.get("children", [])],
+            }
 
-        # 5. 인사 하이라이트
-        personnel = parse_personnel_xml(html) if html else None
-        personnel_summary = personnel.get("summary") if personnel else None
+        agenda = [_rebuild_agenda_node(n) for n in agenda_data.get("agendas", [])]
+
+        # 2. 정정 요약 — agm_corrections JSON에서 추출
+        try:
+            correction = json.loads(corrections_raw)
+            if correction.get("is_correction"):
+                info["correction_summary"] = {
+                    "date": correction.get("date"),
+                    "original_date": correction.get("original_date"),
+                    "items": [
+                        {"section": i["section"][:60], "reason": i["reason"][:80]}
+                        for i in correction.get("items", [])
+                    ],
+                }
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 3. 재무 하이라이트 — agm_financials_xml JSON에서 추출
+        fs_highlight = None
+        try:
+            fs = json.loads(fs_raw)
+            has_data = any(
+                fs.get(scope, {}).get(stmt) is not None
+                for scope in ["consolidated", "separate"]
+                for stmt in ["balance_sheet", "income_statement"]
+            )
+            if has_data:
+                fs_highlight = _build_financial_highlight(fs)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        # 4. 인사 하이라이트 — agm_personnel_xml JSON에서 추출
+        personnel = None
+        personnel_summary = None
+        try:
+            personnel = json.loads(personnel_raw)
+            personnel_summary = personnel.get("summary")
+        except (json.JSONDecodeError, TypeError):
+            pass
 
         # 포매팅
         corp_name = corp_info.get('corp_name', ticker)
