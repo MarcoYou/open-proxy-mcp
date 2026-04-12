@@ -27,6 +27,20 @@ from open_proxy_mcp.tools.formatters import parse_kr_number, parse_kr_int
 
 logger = logging.getLogger(__name__)
 
+# 배당 관련 거래소공시(pblntf_ty="I") 키워드 목록
+# 전체 공시 순회 금지 — pblntf_ty="I"로 먼저 범위 한정 후 이 키워드로 필터
+_DIV_KEYWORDS = (
+    "현금ㆍ현물배당결정",                          # 결산/분기 현금배당
+    "현금배당결정",                                # 일부 기업 표기
+    "분기ㆍ중간배당결정",                           # 분기/중간배당
+    "주식배당결정",                                # 주식으로 배당
+    "현금ㆍ현물배당을위한주주명부폐쇄",               # 배당 기준일 설정
+    "중간(분기)배당을위한주주명부폐쇄",               # 중간/분기 기준일
+    "권리분기배당락",                              # KRX 배당락 공시
+    "권리중간배당락",
+    "배당락",
+)
+
 # 보고서 코드 → 라벨
 _REPRT_LABELS = {
     "11013": "1분기",
@@ -362,7 +376,7 @@ def register_tools(mcp):
         dividend_filings = []
         for item in filings.get("list", []):
             report_nm = item.get("report_nm", "")
-            if any(kw in report_nm for kw in ["배당", "현금ㆍ현물배당", "중간배당"]):
+            if any(kw in report_nm for kw in _DIV_KEYWORDS):
                 dividend_filings.append(item)
 
         if not dividend_filings:

@@ -185,6 +185,8 @@
   },
   "active": "c3948d19ea5186b1",
   "lastOpenFiles": [
+    "decisions/pblntf-ty-필터링.md",
+    "disclosures/배당공시유형.md",
     "archive/정정공시.md",
     "archive/자기주식취득처분결정.md",
     "archive/임원주요주주특정증권등소유상황보고서.md",
@@ -210,8 +212,6 @@
     "comparison/stkrt-vs-ctr_stkrt.md",
     "decisions/파서-성능-추이.md",
     "decisions/경력-파서-벤치마크-2026-04.md",
-    "decisions/cross-domain-체이닝.md",
-    "decisions/파이프라인-아키텍처.md",
     "comparison",
     "decisions",
     "raw/주총방어전략.pdf",
