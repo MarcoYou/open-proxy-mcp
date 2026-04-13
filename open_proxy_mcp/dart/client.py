@@ -15,6 +15,7 @@ import json
 import time
 import asyncio
 import logging
+import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
 from contextvars import ContextVar
@@ -138,7 +139,7 @@ class DartClient:
         # Document caching (메모리 + 디스크)
         self._doc_cache: dict[str, dict] = {}
         self._MAX_CACHE = 30
-        self._disk_cache_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "cache")
+        self._disk_cache_dir = os.path.join(tempfile.gettempdir(), "opm_cache")
 
     def _rotate_key(self) -> bool:
         """다음 API 키로 전환. 전환 가능하면 True, 더 없으면 False."""
