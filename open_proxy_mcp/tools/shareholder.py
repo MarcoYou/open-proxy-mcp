@@ -107,8 +107,37 @@ def _get_pdf_markdown_cached(rcept_no: str, pdf_bytes: bytes) -> str:
             return f.read()
     return ""
 
+def _is_kind_rcept_no(rcept_no: str) -> bool:
+    """주주총회결과 rcept_no(80 포맷)인지 판별."""
+    return len(rcept_no) == 14 and rcept_no[8:10] == "80"
+
+
+def _dart_result_to_kind_acptno(rcept_no: str) -> str:
+    """DART 주주총회결과 rcept_no(80) → KIND acptno(00) 변환.
+    예: 20260318801211 → 20260318001211"""
+    if _is_kind_rcept_no(rcept_no):
+        return rcept_no[:8] + "00" + rcept_no[10:]
+    return rcept_no
+
+
+def _kind_acptno_to_dart_result(acptno: str) -> str:
+    """KIND acptno(00) → DART 주주총회결과 rcept_no(80) 변환.
+    예: 20260318001211 → 20260318801211"""
+    if len(acptno) == 14 and acptno[8:10] == "00":
+        return acptno[:8] + "80" + acptno[10:]
+    return acptno
+
+
 async def _get_document_cached(rcept_no: str) -> dict:
-    """get_document_cached를 DartClient 싱글턴에 위임"""
+    """get_document_cached를 DartClient 싱글턴에 위임.
+    주주총회결과 rcept_no(80 포맷)가 들어오면 DartClientError를 발생시킨다."""
+    if _is_kind_rcept_no(rcept_no):
+        raise DartClientError(
+            "INVALID_RCEPT_NO",
+            f"rcept_no '{rcept_no}'는 주주총회결과(80 포맷)입니다. "
+            f"이 tool은 소집공고 rcept_no가 필요합니다. "
+            f"corp_identifier → agm_search 순서로 소집공고 rcept_no를 먼저 조회하세요."
+        )
     return await get_dart_client().get_document_cached(rcept_no)
 
 
@@ -1162,8 +1191,8 @@ def register_tools(mcp):
         rcept_no = result_filing["rcept_no"]
         rcept_dt = result_filing.get("rcept_dt", "")
 
-        # 2. KIND 크롤링 — rcept_no의 "80" → "00"으로 acptno 변환
-        acptno = rcept_no.replace("80", "00", 1) if "80" in rcept_no[8:12] else rcept_no
+        # 2. KIND 크롤링 — DART 결과 rcept_no → KIND acptno 변환
+        acptno = _dart_result_to_kind_acptno(rcept_no)
         try:
             html = await client.kind_fetch_document(acptno)
         except DartClientError:
