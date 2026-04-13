@@ -8,8 +8,50 @@ import json
 from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
-from open_proxy_mcp.tools.formatters import resolve_ticker
+from open_proxy_mcp.tools.formatters import resolve_ticker, resolve_to_ticker
 from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
+
+
+async def _resolve_proxy_rcept_no(ticker: str = "", rcept_no: str = "") -> str:
+    """ticker 또는 rcept_no 중 하나로 위임장 공시 rcept_no를 확정.
+
+    - ticker만 주어지면: proxy_search 로직으로 최신 위임장 rcept_no 자동 획득.
+    - rcept_no만 주어지면: 그대로 사용.
+    - 둘 다 주어지면: rcept_no 우선.
+    - 둘 다 없으면: ValueError.
+    """
+    if rcept_no:
+        return rcept_no
+    if not ticker:
+        raise ValueError("ticker 또는 rcept_no 중 하나는 필수입니다.")
+
+    ticker = await resolve_to_ticker(ticker)
+    client = get_dart_client()
+    corp = await client.lookup_corp_code(ticker)
+    if not corp:
+        raise ValueError(f"'{ticker}'에 해당하는 기업을 찾을 수 없습니다.")
+
+    corp_code = corp["corp_code"]
+    year = str(datetime.now().year)
+    bgn_de = f"{year}0101"
+    end_de = datetime.now().strftime("%Y%m%d")
+
+    try:
+        result = await client.search_filings(
+            bgn_de=bgn_de, end_de=end_de, corp_code=corp_code, pblntf_ty="D",
+        )
+    except DartClientError:
+        raise ValueError(f"'{ticker}'의 위임장 공시를 검색할 수 없습니다.")
+
+    filings = [
+        item for item in result.get("list", [])
+        if any(kw in item.get("report_nm", "") for kw in _PROXY_KEYWORDS)
+    ]
+    if not filings:
+        raise ValueError(f"'{ticker}'의 위임장 공시를 찾을 수 없습니다. ({bgn_de}~{end_de})")
+
+    filings.sort(key=lambda x: x.get("rcept_dt", ""))
+    return filings[-1]["rcept_no"]
 
 
 # ── 내부 파서 ──
@@ -172,14 +214,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def proxy_detail(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 위임장/proxy 상세 — 권유자 보유주식, 권유기간, 대리인, 전자위임장 방법.
-        when: [tier-5 Detail] 경영권, 위임장, proxy, M&A, 표대결에서 특정 공시(rcept_no)의 권유자 정보와 방법을 볼 때.
-        rule: get_document()로 원문 파싱. Section I(권유자) + Section II-2(위임 방법) 추출.
-        ref: proxy_search, proxy_direction
+        when: [tier-5 Detail] 위임장 권유자 정보가 필요할 때. ticker만 넣으면 최신 위임장 공시를 자동 탐색.
+        rule: get_document()로 원문 파싱. Section I(권유자) + Section II-2(위임 방법) 추출. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: proxy_search, proxy_direction, corp_identifier
+
+        Args:
+            ticker: 종목코드 또는 회사명 (예: "고려아연", "010130"). rcept_no 미입력 시 위임장 공시 자동 탐색.
+            rcept_no: 접수번호 직접 지정. 입력 시 ticker보다 우선.
+            format: "md" (기본) 또는 "json"
         """
+        rcept_no = await _resolve_proxy_rcept_no(ticker, rcept_no)
         client = get_dart_client()
         try:
             doc = await client.get_document(rcept_no)
@@ -239,14 +288,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def proxy_direction(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 안건별 의결권 행사방향 — 찬성/반대/기권 파싱.
-        when: [tier-5 Detail] 경영권, 위임장, proxy, M&A, 표대결에서 특정 공시(rcept_no)의 각 안건에 대한 권유자 입장을 볼 때.
-        rule: get_document()로 원문 Section II-1 파싱. 자유서술이므로 정규식으로 추출 — 불명확한 경우 "불명" 반환.
-        ref: proxy_search, proxy_detail, proxy_fight
+        when: [tier-5 Detail] 위임장 권유자의 안건별 입장이 필요할 때. ticker만 넣으면 최신 위임장 공시를 자동 탐색.
+        rule: get_document()로 원문 Section II-1 파싱. 자유서술이므로 정규식으로 추출 — 불명확한 경우 "불명" 반환. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: proxy_search, proxy_detail, proxy_fight, corp_identifier
+
+        Args:
+            ticker: 종목코드 또는 회사명 (예: "고려아연", "010130"). rcept_no 미입력 시 위임장 공시 자동 탐색.
+            rcept_no: 접수번호 직접 지정. 입력 시 ticker보다 우선.
+            format: "md" (기본) 또는 "json"
         """
+        rcept_no = await _resolve_proxy_rcept_no(ticker, rcept_no)
         client = get_dart_client()
         try:
             doc = await client.get_document(rcept_no)
