@@ -11,7 +11,7 @@ from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClient, DartClientError, get_dart_client
 from open_proxy_mcp.tools.formatters import (
-    resolve_ticker, format_krw, highlights_has,
+    resolve_ticker, resolve_to_ticker, format_krw, highlights_has,
     _format_agenda_tree, _format_meeting_info, _format_agenda_details,
     _format_financial_statements, _build_financial_highlight,
     _format_compensation, _format_aoi_change, _format_treasury_share,
@@ -126,6 +126,39 @@ def _kind_acptno_to_dart_result(acptno: str) -> str:
     if len(acptno) == 14 and acptno[8:10] == "00":
         return acptno[:8] + "80" + acptno[10:]
     return acptno
+
+
+async def _resolve_agm_rcept_no(ticker: str = "", rcept_no: str = "") -> str:
+    """ticker 또는 rcept_no 중 하나로 소집공고 rcept_no를 확정.
+
+    - ticker만 주어지면: agm_search 로직으로 최신 소집공고 rcept_no 자동 획득.
+    - rcept_no만 주어지면: 그대로 사용.
+    - 둘 다 주어지면: rcept_no 우선.
+    - 둘 다 없으면: ValueError.
+    """
+    if rcept_no:
+        return rcept_no
+    if not ticker:
+        raise ValueError("ticker 또는 rcept_no 중 하나는 필수입니다.")
+
+    ticker = await resolve_to_ticker(ticker)
+    client = get_dart_client()
+    bgn_de = f"{datetime.now().year}0101"
+    end_de = datetime.now().strftime("%Y%m%d")
+
+    result = await client.search_filings_by_ticker(
+        ticker=ticker, bgn_de=bgn_de, end_de=end_de, pblntf_ty="E",
+    )
+    filings = [
+        item for item in result.get("list", [])
+        if "소집" in item.get("report_nm", "")
+    ]
+    if not filings:
+        raise ValueError(f"'{ticker}'의 소집공고를 찾을 수 없습니다. ({bgn_de}~{end_de})")
+
+    # 최신(마지막) 공고 사용 — 정정공고가 있으면 정정본이 마지막
+    filings.sort(key=lambda x: x.get("rcept_dt", ""))
+    return filings[-1]["rcept_no"]
 
 
 async def _get_document_cached(rcept_no: str) -> dict:
@@ -272,22 +305,25 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_agenda_xml(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         use_llm: bool = False,
         max_fallback_length: int = 3000,
         format: str = "md",
     ) -> str:
         """desc: 의안(안건) 목록 구조화. 제N호/제N-M호 형식의 트리.
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 안건 상세를 명시적으로 요청했을 때만 사용. agm_pre_analysis 없이 단독 호출하지 말 것.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="agenda", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, agm_items, agm_manual
+        when: [tier-5 Detail] 사용자가 안건 상세를 명시적으로 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="agenda", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_parse_fallback, agm_items, agm_manual, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             use_llm: True면 파싱 실패/의심 시 LLM fallback 사용 (기본: False)
             max_fallback_length: LLM fallback 시 원문 최대 글자 수 (기본 3000, 0이면 제한 없음)
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json" (프론트엔드용)
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         text = doc["text"]
         html = doc.get("html", "")
@@ -323,25 +359,28 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_items(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         agenda_no: str = "",
         use_llm: bool = False,
         max_fallback_length: int = 3000,
         format: str = "md",
     ) -> str:
         """desc: 안건별 상세 원문 블록 (마크다운). 특화 파서 없는 안건의 raw 내용.
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 특정 안건의 원문이 필요할 때만 사용.
-        rule: 특화 파서(financials, personnel 등)가 있는 안건은 해당 파서 사용이 더 정확.
-        ref: agm_financials_xml, agm_personnel_xml, agm_aoi_change_xml, agm_compensation_xml
+        when: [tier-5 Detail] 특정 안건의 원문이 필요할 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: 특화 파서(financials, personnel 등)가 있는 안건은 해당 파서 사용이 더 정확. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_financials_xml, agm_personnel_xml, agm_aoi_change_xml, agm_compensation_xml, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             agenda_no: 안건 번호 (예: "1", "2"). 미입력 시 전체 안건 반환.
                        "2" 입력 시 제2호 + 하위(제2-1호~) 전체 반환.
             use_llm: True면 파싱 실패 시 LLM fallback 사용 (기본: False)
             max_fallback_length: LLM fallback 시 원문 최대 글자 수 (기본 3000, 0이면 제한 없음)
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         text = doc["text"]
@@ -385,22 +424,25 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_financials_xml(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         use_llm: bool = False,
         max_fallback_length: int = 3000,
         format: str = "md",
     ) -> str:
         """desc: 재무제표 (BS/IS) 구조화. 연결/별도, 당기/전기 비교.
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 재무제표 상세를 명시적으로 요청했을 때만 사용.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="financials", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, agm_manual
+        when: [tier-5 Detail] 사용자가 재무제표 상세를 명시적으로 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="financials", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_parse_fallback, agm_manual, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             use_llm: True면 파싱 실패 시 LLM fallback 사용 (기본: False)
             max_fallback_length: LLM fallback 시 원문 최대 글자 수 (기본 3000, 0이면 제한 없음)
             format: 반환 형식. "json" (기본, 구조화) 또는 "md" (마크다운 테이블)
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         if not html:
@@ -485,18 +527,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_corrections(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 정정공고의 전/후 비교 + 정정 사유.
-        when: [tier-5 Detail] 정정 전후 차이를 볼 때. 정정공고가 아닌 경우 빈 결과는 정상.
-        rule: 정정 사유가 중요 - 재무수치 변경인지 단순 오타인지 구분.
-        ref: agm_search, agm_manual
+        when: [tier-5 Detail] 정정 전후 차이를 볼 때. 정정공고가 아닌 경우 빈 결과는 정상. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: 정정 사유가 중요 - 재무수치 변경인지 단순 오타인지 구분. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_search, agm_manual, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         if not html:
@@ -513,18 +558,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_personnel_xml(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 이사/감사 선임/해임 정보. 후보자별 경력, 결격사유, 추천사유, 직무수행계획.
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 이사/감사 후보자 경력 상세를 요청했을 때만 사용.
-        rule: XML 파싱. 경력 병합(100자+) 시 agm_parse_fallback(parser="personnel", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, agm_manual, agm_result, news_check
+        when: [tier-5 Detail] 사용자가 이사/감사 후보자 경력 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: XML 파싱. 경력 병합(100자+) 시 agm_parse_fallback(parser="personnel", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_parse_fallback, agm_manual, agm_result, news_check, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         if not html:
@@ -542,18 +590,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_aoi_change_xml(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 정관변경 비교 (변경전/변경후/사유). 세부의안별 분리.
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 정관변경 상세를 요청했을 때만 사용.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="aoi_change", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, agm_manual
+        when: [tier-5 Detail] 사용자가 정관변경 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="aoi_change", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_parse_fallback, agm_manual, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         text = doc["text"]
@@ -580,18 +631,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_compensation_xml(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 이사/감사 보수한도. 당기 한도, 전기 실지급, 이사 수, 소진율.
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 보수한도/소진율 상세를 요청했을 때만 사용.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="compensation", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, agm_manual, div_detail
+        when: [tier-5 Detail] 보수한도/소진율 상세가 필요할 때. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="compensation", tier="pdf") fallback. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_parse_fallback, agm_manual, div_detail, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         if not html:
@@ -609,18 +663,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_treasury_share_xml(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 자기주식 보유/처분/소각. 수량, 목적, 방법.
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 자사주 안건 상세를 요청했을 때만 사용.
-        rule: XML 파싱. 안건 제목 매칭 한계로 PDF fallback 빈번. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, ownership_treasury, agm_manual
+        when: [tier-5 Detail] 사용자가 자사주 안건 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: XML 파싱. 안건 제목 매칭 한계로 PDF fallback 빈번. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_parse_fallback, ownership_treasury, agm_manual, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         if not html:
@@ -638,18 +695,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_capital_reserve_xml(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 자본준비금 감소/이익잉여금 전입. 감액배당 전제 조건.
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 자본준비금 안건 상세를 요청했을 때만 사용.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="capital_reserve", tier="pdf") fallback. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, agm_manual
+        when: [tier-5 Detail] 사용자가 자본준비금 안건 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="capital_reserve", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_parse_fallback, agm_manual, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         if not html:
@@ -667,18 +727,21 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def agm_retirement_pay_xml(
-        rcept_no: str,
+        ticker: str = "",
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 임원 퇴직금 규정 개정 (변경전/변경후).
-        when: [tier-5 Detail] agm_pre_analysis 실행 후 사용자가 퇴직금 규정 상세를 요청했을 때만 사용.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="retirement_pay", tier="pdf") fallback. 재무제표 주석의 "퇴직급여"와 혼동 주의. 판정 기준은 agm_manual 참조.
-        ref: agm_parse_fallback, agm_manual
+        when: [tier-5 Detail] 사용자가 퇴직금 규정 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
+        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="retirement_pay", tier="pdf") fallback. 재무제표 주석의 "퇴직급여"와 혼동 주의. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_parse_fallback, agm_manual, corp_identifier
 
         Args:
-            rcept_no: 접수번호 (예: 20260225000123)
+            ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
+            rcept_no: 접수번호 직접 지정 (예: 20260225000123). 입력 시 ticker보다 우선.
             format: 반환 형식. "md" (마크다운, 기본) 또는 "json"
         """
+        rcept_no = await _resolve_agm_rcept_no(ticker, rcept_no)
         doc = await _get_document_cached(rcept_no)
         html = doc.get("html", "")
         if not html:

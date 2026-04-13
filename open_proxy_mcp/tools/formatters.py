@@ -5,20 +5,29 @@ import json
 from collections import Counter
 
 
-# ── ticker 자동 변환 ──
+# ── 기업 식별 자동 변환 ──
 
-async def resolve_ticker(ticker: str) -> str:
-    """회사명/약칭이 들어오면 종목코드 6자리로 변환. 이미 6자리면 그대로 반환."""
-    ticker = ticker.strip()
-    if re.match(r'^\d{6}$', ticker):
-        return ticker
-    # 회사명 → ticker 변환
+async def resolve_to_ticker(query: str) -> str:
+    """어떤 입력이든 종목코드 6자리로 변환.
+
+    지원 입력: 회사명("삼성전자"), 약칭("KT&G"), 영문명("LS ELECTRIC"), 종목코드("005930").
+    종목코드 6자리가 이미 들어오면 그대로 반환.
+    매칭 실패 시 원본 반환 (downstream tool에서 에러 처리).
+    기업 식별이 불확실하면 corp_identifier tool을 먼저 호출할 것.
+    """
+    query = query.strip()
+    if re.match(r'^\d{6}$', query):
+        return query
     from open_proxy_mcp.dart.client import get_dart_client
     client = get_dart_client()
-    result = await client.lookup_corp_code(ticker)
+    result = await client.lookup_corp_code(query)
     if result and result.get("stock_code"):
         return result["stock_code"]
-    return ticker  # 변환 실패 시 원본 반환 (downstream에서 에러 처리)
+    return query
+
+
+# backward compat alias
+resolve_ticker = resolve_to_ticker
 
 
 # ── 숫자 파싱 유틸 ──
