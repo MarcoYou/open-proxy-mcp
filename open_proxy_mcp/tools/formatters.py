@@ -30,6 +30,16 @@ async def resolve_to_ticker(query: str) -> str:
 resolve_ticker = resolve_to_ticker
 
 
+# ── HTML/CSS 제거 ──
+
+def strip_css(text: str) -> str:
+    """HTML + CSS 제거하고 텍스트만 추출 (DART xforms 문서용)"""
+    text = re.sub(r'\.xforms[^}]*\}', '', text)
+    text = re.sub(r'<[^>]+>', '\n', text)
+    text = re.sub(r'\n\s*\n+', '\n', text)
+    return text.strip()
+
+
 # ── 숫자 파싱 유틸 ──
 
 # 단위 → 원(KRW) 배수 (dart-fss 참고)

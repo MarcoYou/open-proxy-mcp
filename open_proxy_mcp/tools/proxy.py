@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
-from open_proxy_mcp.tools.formatters import resolve_ticker, resolve_to_ticker
+from open_proxy_mcp.tools.formatters import resolve_ticker, resolve_to_ticker, strip_css
 from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
 
 
@@ -471,13 +471,6 @@ def register_tools(mcp):
         "경영권분쟁소송",
     )
 
-    def _strip_css(text: str) -> str:
-        """HTML + CSS 제거하고 텍스트만 추출"""
-        text = re.sub(r'\.xforms[^}]*\}', '', text)
-        text = re.sub(r'<[^>]+>', '\n', text)
-        text = re.sub(r'\n\s*\n+', '\n', text)
-        return text.strip()
-
     @mcp.tool()
     async def proxy_litigation(
         ticker: str,
@@ -485,7 +478,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 경영권 분쟁 소송 공시 검색 -- 소송등의제기/신청, 판결/결정 타임라인.
-        when: [tier-4 Orchestrate] 경영권 분쟁, 소송, 가처분, 판결, 법적 분쟁 현황을 파악할 때. proxy_fight와 함께 호출하면 분쟁의 전체 그림을 볼 수 있음.
+        when: [tier-4 Analysis] 경영권 분쟁, 소송, 가처분, 판결, 법적 분쟁 현황을 파악할 때. proxy_fight와 함께 호출하면 분쟁의 전체 그림을 볼 수 있음.
         rule: DART pblntf_ty=I(거래소공시) + B(주요사항)에서 소송 키워드 필터. 원문 최신 3건 파싱.
         ref: corp_identifier, proxy_fight, proxy_search, ownership_block
         """
@@ -529,7 +522,7 @@ def register_tools(mcp):
         for item in detail_items:
             try:
                 doc = await client.get_document(item["rcept_no"])
-                text = _strip_css(doc.get("text", "") or "")
+                text = strip_css(doc.get("text", "") or "")
                 details[item["rcept_no"]] = text[:3000]
             except Exception:
                 pass

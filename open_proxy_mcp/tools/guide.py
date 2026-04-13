@@ -265,6 +265,7 @@ corp_identifier → proxy_fight(ticker, year)      [프록시 파이트 감지 +
                → proxy_search(ticker, year)       [rcept_no 목록]
                     → proxy_direction(rcept_no)   [안건별 행사방향]
                     → proxy_detail(rcept_no)      [권유자 상세]
+               → proxy_litigation(ticker, year)   [소송/분쟁 타임라인]
 ```
 
 ### Tool 목록
@@ -275,6 +276,7 @@ corp_identifier → proxy_fight(ticker, year)      [프록시 파이트 감지 +
 | `proxy_detail(rcept_no)` | rcept_no | 권유자 보유주식, 권유기간, 전자위임장 | 1 |
 | `proxy_direction(rcept_no)` | rcept_no | 안건별 찬성/반대/기권 | 1 |
 | `proxy_fight(ticker, year)` | 종목코드/회사명, 연도 | 프록시 파이트 감지 + 양측 비교 | 1+권유자 수 |
+| `proxy_litigation(ticker, year)` | 종목코드/회사명, 연도 | 소송등의제기/판결 타임라인 + 원문 3건 | 2+3 |
 
 ### 검색 방법
 OpenDART `list.json`에서 `pblntf_detail_ty` 파라미터 미지원.

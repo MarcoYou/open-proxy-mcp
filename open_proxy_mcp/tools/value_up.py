@@ -4,25 +4,15 @@
 기업가치제고계획(밸류업) 공시를 DART에서 검색·파싱.
 """
 
-import re
 import json
-import asyncio as _asyncio
 from datetime import datetime
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
-from open_proxy_mcp.tools.formatters import resolve_ticker
+from open_proxy_mcp.tools.formatters import resolve_ticker, strip_css
 from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
 
 
 _VALUATION_KEYWORDS = ("기업가치제고", "기업가치 제고", "밸류업")
-
-
-def _strip_css(text: str) -> str:
-    """HTML + CSS 제거하고 텍스트만 추출"""
-    text = re.sub(r'\.xforms[^}]*\}', '', text)
-    text = re.sub(r'<[^>]+>', '\n', text)
-    text = re.sub(r'\n\s*\n+', '\n', text)
-    return text.strip()
 
 
 def register_tools(mcp):
@@ -34,7 +24,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 기업가치제고계획(밸류업) 공시 검색 및 원문 파싱.
-        when: [tier-4 Orchestrate] 기업가치제고, 밸류업, value-up 계획을 확인할 때. 배당·지분 분석과 함께 거버넌스 전체 그림 파악에 활용.
+        when: [tier-4 Analysis] 기업가치제고, 밸류업, value-up 계획을 확인할 때. 배당·지분 분석과 함께 거버넌스 전체 그림 파악에 활용.
         rule: DART pblntf_ty=I(거래소공시)에서 밸류업 키워드 필터. 원문 최신 2건 파싱.
         ref: corp_identifier, governance_report, div_full_analysis, ownership_full_analysis
         """
@@ -83,7 +73,7 @@ def register_tools(mcp):
         for item in detail_items:
             try:
                 doc = await client.get_document(item["rcept_no"])
-                text = _strip_css(doc.get("text", "") or "")
+                text = strip_css(doc.get("text", "") or "")
                 details[item["rcept_no"]] = text[:5000]
             except Exception:
                 pass
