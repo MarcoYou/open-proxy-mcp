@@ -129,15 +129,7 @@ def _kind_acptno_to_dart_result(acptno: str) -> str:
 
 
 async def _get_document_cached(rcept_no: str) -> dict:
-    """get_document_cached를 DartClient 싱글턴에 위임.
-    주주총회결과 rcept_no(80 포맷)가 들어오면 DartClientError를 발생시킨다."""
-    if _is_kind_rcept_no(rcept_no):
-        raise DartClientError(
-            "INVALID_RCEPT_NO",
-            f"rcept_no '{rcept_no}'는 주주총회결과(80 포맷)입니다. "
-            f"이 tool은 소집공고 rcept_no가 필요합니다. "
-            f"corp_identifier → agm_search 순서로 소집공고 rcept_no를 먼저 조회하세요."
-        )
+    """get_document_cached를 DartClient 싱글턴에 위임."""
     return await get_dart_client().get_document_cached(rcept_no)
 
 
