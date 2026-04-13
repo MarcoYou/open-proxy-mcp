@@ -1,7 +1,7 @@
 """OPM 통합 가이드 tool (tool_guide)
 
-5개 도메인(AGM/OWN/DIV/PRX/CORP)의 tool 사용법과 규칙을 단일 진입점으로 통합.
-domain="" → 전체 가이드, domain="agm"|"own"|"div"|"prx"|"corp" → 해당 섹션만.
+6개 도메인(AGM/OWN/DIV/PRX/CORP/GOV)의 tool 사용법과 규칙을 단일 진입점으로 통합.
+domain="" → 전체 가이드, domain="agm"|"own"|"div"|"prx"|"vup"|"corp"|"gov" → 해당 섹션만.
 """
 
 
@@ -13,7 +13,7 @@ _GUIDE_TIER = """\
 | 1 Entity | 기업 특정 | `corp_identifier` |
 | 2 Context | 가이드 | `tool_guide` |
 | 3 Search | rcept_no 획득 | `agm_search`, `proxy_search`, `div_search` |
-| 4 Orchestrate | 종합 분석 | `agm_pre_analysis`, `agm_post_analysis`, `ownership_full_analysis`, `div_full_analysis`, `proxy_fight` |
+| 4 Orchestrate | 종합 분석 | `agm_pre_analysis`, `agm_post_analysis`, `ownership_full_analysis`, `div_full_analysis`, `proxy_fight`, `proxy_full_analysis`, `governance_report` |
 | 5 Detail | drill-down | `agm_*_xml`, `ownership_major`, `div_detail`, `proxy_direction` … |
 """
 
@@ -261,7 +261,8 @@ _GUIDE_PRX = """\
 
 ### Canonical Chain
 ```
-corp_identifier → proxy_fight(ticker, year)      [프록시 파이트 감지 + 비교, 권장]
+corp_identifier → proxy_full_analysis(ticker, year)   [경영권 분쟁 종합, 권장]
+               → proxy_fight(ticker, year)      [프록시 파이트 감지 + 비교]
                → proxy_search(ticker, year)       [rcept_no 목록]
                     → proxy_direction(rcept_no)   [안건별 행사방향]
                     → proxy_detail(rcept_no)      [권유자 상세]
@@ -276,6 +277,7 @@ corp_identifier → proxy_fight(ticker, year)      [프록시 파이트 감지 +
 | `proxy_detail(rcept_no)` | rcept_no | 권유자 보유주식, 권유기간, 전자위임장 | 1 |
 | `proxy_direction(rcept_no)` | rcept_no | 안건별 찬성/반대/기권 | 1 |
 | `proxy_fight(ticker, year)` | 종목코드/회사명, 연도 | 프록시 파이트 감지 + 양측 비교 | 1+권유자 수 |
+| `proxy_full_analysis(ticker, year)` | 종목코드/회사명, 연도 | 파이트+소송+블록+결과 통합 | 복합 |
 | `proxy_litigation(ticker, year)` | 종목코드/회사명, 연도 | 소송등의제기/판결 타임라인 + 원문 3건 | 2+3 |
 
 ### 검색 방법
@@ -367,6 +369,24 @@ modify_date 최신 + 상장 기업 우선으로 첫 번째 선택. 결과 하단
 예: `미래에셋증권` → 2개 (006800이 최신 선택)
 """
 
+_GUIDE_GOV = """\
+## GOV (거버넌스 종합) 도메인
+
+### Canonical Chain
+```
+corp_identifier → governance_report(ticker)   [AGM + OWN + DIV + PRX + VUP 5개 통합]
+```
+
+### 구성
+| 섹션 | 담당 Tool | 비고 |
+|------|-----------|------|
+| AGM | agm_post_analysis | 소집공고 + 투표결과 |
+| OWN | ownership_full_analysis | 사업보고서 + 수시공시 |
+| DIV | div_full_analysis | 최신 + 3년 추이 |
+| PRX | proxy_full_analysis | 파이트+소송+블록 병렬 |
+| VUP | value_up_plan | 밸류업 공시 |
+"""
+
 _SECTION_MAP = {
     "agm": _GUIDE_AGM,
     "own": _GUIDE_OWN,
@@ -374,6 +394,7 @@ _SECTION_MAP = {
     "prx": _GUIDE_PRX,
     "vup": _GUIDE_VUP,
     "corp": _GUIDE_CORP,
+    "gov": _GUIDE_GOV,
 }
 
 _GUIDE_FULL = "# OPM Tool 실행 가이드\n\n" + "".join([
@@ -385,6 +406,7 @@ _GUIDE_FULL = "# OPM Tool 실행 가이드\n\n" + "".join([
     _GUIDE_PRX,
     _GUIDE_VUP,
     _GUIDE_CORP,
+    _GUIDE_GOV,
 ])
 
 
@@ -396,11 +418,11 @@ def register_tools(mcp):
     ) -> str:
         """desc: OPM tool 실행 가이드 — Tier 체계, 필수 실행 순서, 도메인별 Canonical Chain, 파싱 한계, 의결권 판단 기준.
         when: [tier-2 Context] 어떤 tool을 어떤 순서로 써야 하는지 불명확할 때. 첫 호출 또는 에러 발생 시 먼저 읽기.
-        rule: DART API를 호출하지 않음. domain="" → 전체 가이드, domain="agm"|"own"|"div"|"prx"|"vup"|"corp" → 해당 섹션만.
+        rule: DART API를 호출하지 않음. domain="" → 전체 가이드, domain="agm"|"own"|"div"|"prx"|"vup"|"corp"|"gov" → 해당 섹션만.
         ref: corp_identifier, agm_manual, own_manual, div_manual, prx_manual, corp_manual
 
         Args:
-            domain: 도메인 필터. "" (전체), "agm", "own", "div", "prx", "corp"
+            domain: 도메인 필터. "" (전체), "agm", "own", "div", "prx", "vup", "corp", "gov"
         """
         d = domain.lower().strip()
         if d in _SECTION_MAP:

@@ -11,6 +11,24 @@ from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.tools.formatters import resolve_ticker, resolve_to_ticker, strip_css
 from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
 
+from open_proxy_mcp.tools.ownership import register_tools as _reg_own
+from open_proxy_mcp.tools.shareholder import register_tools as _reg_agm
+
+_cross_tools: dict = {}
+
+class _CrossMCP:
+    def tool(self):
+        def d(fn):
+            _cross_tools[fn.__name__] = fn
+            return fn
+        return d
+
+_cross = _CrossMCP()
+_reg_own(_cross)
+_reg_agm(_cross)
+_ownership_block = _cross_tools["ownership_block"]
+_agm_result = _cross_tools["agm_result"]
+
 
 async def _resolve_proxy_rcept_no(ticker: str = "", rcept_no: str = "") -> str:
     """ticker 또는 rcept_no 중 하나로 위임장 공시 rcept_no를 확정.
@@ -567,3 +585,74 @@ def register_tools(mcp):
 
         return "\n".join(lines)
 
+    @mcp.tool()
+    async def proxy_full_analysis(
+        ticker: str,
+        year: str = "",
+        format: str = "md",
+    ) -> str:
+        """desc: 경영권 분쟁 종합 분석 -- 프록시 파이트 + 소송/가처분 + 5% 대량보유 + 투표결과 통합.
+        when: [tier-4 Orchestrate] 경영권 분쟁, 위임장 표대결, proxy fight 전체 그림이 필요할 때. governance_report의 PRX 섹션으로 자동 포함됨.
+        rule: fight+litigation+block 항상 병렬. agm_result는 fight 감지 시만 추가 호출. 전부 데이터 없으면 한 줄 반환.
+        ref: corp_identifier, proxy_fight, proxy_litigation, ownership_block, agm_result, governance_report
+        """
+        import asyncio as _asyncio
+
+        ticker = await resolve_ticker(ticker)
+
+        # 1단계: fight + litigation + block 병렬
+        fight_out, lit_out, block_out = await _asyncio.gather(
+            proxy_fight(ticker=ticker, year=year, format=format),
+            proxy_litigation(ticker=ticker, year=year, format=format),
+            _ownership_block(ticker=ticker, format=format),
+        )
+
+        # 전부 "데이터 없음" 판단
+        _NO_DATA = ("데이터가 없습니다", "찾을 수 없습니다", "프록시 파이트 없음")
+        fight_empty = any(m in fight_out for m in _NO_DATA)
+        lit_empty = any(m in lit_out for m in _NO_DATA)
+        block_empty = any(m in block_out for m in _NO_DATA)
+
+        if fight_empty and lit_empty and block_empty:
+            return "위임장 권유 및 경영권 분쟁 공시가 없습니다."
+
+        # 2단계: proxy_fight 감지 시 agm_result 추가
+        has_fight = not fight_empty
+        result_out = None
+        if has_fight:
+            _year = year or str(datetime.now().year)
+            result_out = await _agm_result(
+                ticker=ticker,
+                bgn_de=f"{_year}0101",
+                end_de=f"{_year}1231",
+                format=format,
+            )
+
+        if format == "json":
+            def _parse(s):
+                if s is None:
+                    return None
+                try:
+                    return json.loads(s)
+                except Exception:
+                    return {"raw": s}
+            return json.dumps({
+                "ticker": ticker,
+                "has_fight": has_fight,
+                "proxy_fight": _parse(fight_out),
+                "proxy_litigation": _parse(lit_out),
+                "ownership_block": _parse(block_out),
+                "agm_result": _parse(result_out),
+            }, ensure_ascii=False, indent=2)
+
+        # Markdown
+        sep = "\n\n" + "-" * 60 + "\n\n"
+        sections = [
+            f"## 위임장 표대결\n\n{fight_out}",
+            f"## 소송/분쟁\n\n{lit_out}",
+            f"## 5% 대량보유\n\n{block_out}",
+        ]
+        if result_out is not None:
+            sections.append(f"## 주주총회 투표결과\n\n{result_out}")
+
+        return sep.join(sections)

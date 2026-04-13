@@ -140,6 +140,9 @@ class DartClient:
         self._doc_cache: dict[str, dict] = {}
         self._MAX_CACHE = 30
         self._disk_cache_dir = os.path.join(tempfile.gettempdir(), "opm_cache")
+        # Search result caching (세션 기반, TTL 없음)
+        self._search_cache: dict[str, dict] = {}
+        self._MAX_SEARCH_CACHE = 50
 
     def _rotate_key(self) -> bool:
         """다음 API 키로 전환. 전환 가능하면 True, 더 없으면 False."""
@@ -399,6 +402,13 @@ class DartClient:
         Returns:
             {"list": [...], "total_count": ..., ...}
         """
+        # 캐싱: corp_code 있고 page_no==1, page_count==100일 때만
+        _cacheable = bool(corp_code) and not corp_name and page_no == 1 and page_count == 100
+        if _cacheable:
+            _cache_key = f"{corp_code}|{bgn_de}|{end_de}|{pblntf_ty}"
+            if _cache_key in self._search_cache:
+                return self._search_cache[_cache_key]
+
         params = {
             "bgn_de": bgn_de,
             "end_de": end_de,
@@ -412,7 +422,14 @@ class DartClient:
         if corp_name:
             params["corp_name"] = corp_name
 
-        return await self._request("list.json", params)
+        result = await self._request("list.json", params)
+
+        if _cacheable:
+            if len(self._search_cache) >= self._MAX_SEARCH_CACHE:
+                self._search_cache.pop(next(iter(self._search_cache)))
+            self._search_cache[_cache_key] = result
+
+        return result
 
     async def search_filings_by_ticker(
         self,

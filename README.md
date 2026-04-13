@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-35-orange.svg)](#tool-아키텍처-35개)
+[![Tools](https://img.shields.io/badge/tools-36-orange.svg)](#tool-아키텍처-36개)
 
 [English README](README_ENG.md)
 
@@ -48,10 +48,10 @@ URL 끝에 발급받은 DART API 키를 붙여서 연결해요. 키는 서버에
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 ```
-4. "추가" 클릭 -> 35개 tool이 자동으로 인식돼요
+4. "추가" 클릭 -> 36개 tool이 자동으로 인식돼요
 5. 추가된 커넥터의 구성 -> 권한에서 **"항상 허용"** 선택 (매번 승인 없이 tool이 자동 실행돼요)
 
-> **참고**: tool이 추가되거나 변경된 경우, 커넥터를 삭제한 뒤 다시 연결해야 최신 tool이 반영돼요. URL과 API 키는 동일하니 재연결만 하면 돼요.
+> **참고**: tool이 추가되거나 변경된 경우 커넥터 MCP 서버 업데이트에 시간이 걸릴 수 있어요. 커넥터를 삭제한 뒤 다시 연결하면 바로 최신 tool이 반영돼요. 재연결한 후 새 채팅을 열어서 다시 시도해주세요.
 
 #### 방법 B: 로컬 설치
 
@@ -77,9 +77,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 
 ---
 
-## Tool 아키텍처 (35개)
+## Tool 아키텍처 (36개)
 
-35개 tool은 5단계 Tier로 구성돼 있어요. AI가 Tier 1부터 순서대로 호출하고, 필요하면 하위 Detail tool로 내려가요.
+36개 tool은 5단계 Tier로 구성돼 있어요. AI가 Tier 1부터 순서대로 호출하고, 필요하면 하위 Detail tool로 내려가요.
 
 ```
 Tier 1  corp_identifier ............. "005930" / "Samsung"
@@ -108,8 +108,9 @@ Tier 5  AGM (12)                OWNERSHIP (5)
         agm_retirement_pay_xml  div_detail
         agm_result              div_history
         agm_items
-        agm_corrections         PROXY (3)
-        agm_parse_fallback      proxy_detail
+        agm_corrections         PROXY (4)
+        agm_parse_fallback      proxy_full_analysis
+                                proxy_detail
                                 proxy_direction
                                 proxy_litigation
         NEWS (1)
@@ -124,13 +125,13 @@ Tier 5  AGM (12)                OWNERSHIP (5)
 | **AGM** | 주총 소집공고 파싱 -- 안건, 재무제표, 이사선임, 정관변경, 보수한도, 자기주식 등 | 14 |
 | **OWNERSHIP** | 지분 구조 -- 최대주주, 주식총수, 자사주, 5% 대량보유자 | 6 |
 | **DIVIDEND** | 배당 분석 -- 배당 상세, 3개년 추이, 배당성향/수익률 | 4 |
-| **PROXY** | 경영권 분쟁 -- 위임장 권유, 양측 비교, 소송 | 5 |
+| **PROXY** | 경영권 분쟁 -- 종합 분석, 위임장 권유, 양측 비교, 소송 | 6 |
 | **VALUE_UP** | 기업가치제고계획(밸류업) 공시 | 1 |
 | **NEWS** | 후보자 부정 뉴스 검색 | 1 |
 | **CORP** | 기업 식별 (ticker/corp_code 변환) | 1 |
 | **GUIDE** | 전체 tool 사용 가이드 | 1 |
-| **GOV** | 거버넌스 종합 리포트 (AGM+OWN+DIV 통합) | 1 |
-| | **합계** | **35** |
+| **GOV** | 거버넌스 종합 리포트 (AGM+OWN+DIV+PRX+VUP 통합) | 1 |
+| | **합계** | **36** |
 
 ---
 
@@ -168,7 +169,7 @@ Tier 5  AGM (12)                OWNERSHIP (5)
 open-proxy-mcp/
   open_proxy_mcp/
     server.py              # FastMCP 서버 (stdio + HTTP)
-    tools/                 # 35개 tool (AGM/OWN/DIV/PRX/NEWS/CORP/GUIDE/GOV)
+    tools/                 # 36개 tool (AGM/OWN/DIV/PRX/NEWS/CORP/GUIDE/GOV)
     dart/client.py         # DART API + KIND 크롤링 + 네이버 + rate limiter
   Dockerfile               # Fly.io 배포용 컨테이너
   fly.toml                 # Fly.io 설정 (nrt 리전, auto-suspend)

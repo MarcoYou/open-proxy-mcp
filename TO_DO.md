@@ -30,18 +30,12 @@
 - [ ] alias dict 확장 — 새 브랜드명/영문명 발견 시 추가
 
 ### prx_* 위임장 권유 tool (향후)
-- [x] prx_search — 위임장 권유 참고서류 검색
-- [x] prx_detail — 권유자 + 방법 (비용은 별도 공시 "의결권대리행사권유신고서"에 있음)
-- [x] prx_direction — 안건별 의결권 행사 방향
-- [x] prx_fight — 프록시 파이트 감지 (양측 비교)
-- [x] prx_manual — PRX_TOOL_RULE + PRX_CASE_RULE
 - [ ] prx_search 정정본 처리 — 주주측 초기 제출 시 후보자 미기재, 최신 정정본 rcept_no 자동 선택 필요
 
 ### LLM fallback
 - [ ] LLM fallback tool — XML 원문 + AGM_CASE_RULE로 AI 보강 (향후)
 
 ### 배포
-- [ ] Fly.io HTTP 배포 — Dockerfile + fly.toml + SSE transport (URL 커넥터로 Claude.ai 웹 연결)
 - [ ] DXT 패키징 — manifest.json + icon.png + Claude Desktop 원클릭 설치
 - [ ] pip 패키지 + setup wizard — uvx/pip install + claude_desktop_config.json 자동 설정
 
@@ -57,7 +51,6 @@
 
 ### Chain Tools (향후)
 - [ ] agm_full_analysis(ticker) — agenda → personnel → compensation → vote result → 종합 판정
-- [x] governance_report(ticker) — agm + own + div 3개 도메인 한 번에
 
 ### Meta Tool (향후, tool 40개+ 시)
 - [ ] discover_tools(category, keyword) — 카테고리/키워드로 tool 검색
@@ -69,7 +62,6 @@
 - [ ] agm_pre_analysis 재무 섹션 강화 (현재 감사의견만 표시, 지표 기반 판단 추가)
 
 ### API 최적화
-- [ ] search_filings_by_ticker 결과 캐싱 (같은 ticker 중복 호출 방지)
 - [ ] parse_agenda_items 결과를 _doc_cache에 저장 (CPU 중복 파싱 방지)
 - [ ] 응답 truncation (50KB 제한) — law-mcp 참고
 
