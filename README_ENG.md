@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-35-orange.svg)](#tool-architecture-35-tools)
+[![Tools](https://img.shields.io/badge/tools-36-orange.svg)](#tool-architecture-36-tools)
 
 [Korean README (default)](README.md)
 
@@ -48,10 +48,10 @@ Just append your DART API key to the URL. The key is used server-side only and n
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_KEY
 ```
-4. Click "Add" -> 35 tools are auto-detected
+4. Click "Add" -> 36 tools are auto-detected
 5. Go to the added connector's Configuration -> Permissions and select **"Always allow"** (tools run without per-call approval)
 
-> **Note**: When tools are added or changed, you need to delete the connector and reconnect to load the latest tools. The URL and API key stay the same -- just reconnect.
+> **Note**: When tools are added or changed, it may take time for the connector MCP server to update. Delete the connector and reconnect to immediately load the latest tools. After reconnecting, open a new chat and try again.
 
 #### Option B: Local Installation
 
@@ -76,9 +76,9 @@ Once connected, just ask in natural language:
 
 ---
 
-## Tool Architecture (35 tools)
+## Tool Architecture (36 tools)
 
-35 tools are organized into 5 execution tiers. The AI calls from Tier 1 downward, descending into detail tools as needed.
+36 tools are organized into 5 execution tiers. The AI calls from Tier 1 downward, descending into detail tools as needed.
 
 ```
 Tier 1  corp_identifier ............. "005930" / "Samsung"
@@ -107,8 +107,9 @@ Tier 5  AGM (12)                OWNERSHIP (5)
         agm_retirement_pay_xml  div_detail
         agm_result              div_history
         agm_items
-        agm_corrections         PROXY (3)
-        agm_parse_fallback      proxy_detail
+        agm_corrections         PROXY (4)
+        agm_parse_fallback      proxy_full_analysis
+                                proxy_detail
                                 proxy_direction
                                 proxy_litigation
         NEWS (1)
@@ -123,13 +124,13 @@ Tier 5  AGM (12)                OWNERSHIP (5)
 | **AGM** | AGM notice parsing -- agenda, financials, directors, articles, compensation, treasury | 14 |
 | **OWNERSHIP** | Ownership structure -- largest shareholders, total shares, treasury, 5% block holders | 6 |
 | **DIVIDEND** | Dividends -- payout details, 3-year history, payout ratio/yield | 4 |
-| **PROXY** | Proxy fights -- solicitation, both-side comparison, litigation | 5 |
+| **PROXY** | Proxy fights -- full analysis, solicitation, both-side comparison, litigation | 6 |
 | **VALUE_UP** | Corporate value-up plan disclosures | 1 |
 | **NEWS** | Negative news search for director/auditor candidates | 1 |
 | **CORP** | Company identification (ticker/corp_code resolution) | 1 |
 | **GUIDE** | Full tool usage guide | 1 |
-| **GOV** | Integrated governance report (AGM+OWN+DIV) | 1 |
-| | **Total** | **35** |
+| **GOV** | Integrated governance report (AGM+OWN+DIV+PRX+VUP) | 1 |
+| | **Total** | **36** |
 
 ---
 
@@ -167,7 +168,7 @@ For detailed criteria by agenda type, defense tactic detection, and 2026 Commerc
 open-proxy-mcp/
   open_proxy_mcp/
     server.py              # FastMCP server (stdio + HTTP)
-    tools/                 # 35 tools (AGM/OWN/DIV/PRX/NEWS/CORP/GUIDE/GOV)
+    tools/                 # 36 tools (AGM/OWN/DIV/PRX/NEWS/CORP/GUIDE/GOV)
     dart/client.py         # DART API + KIND scraping + Naver + rate limiter
   Dockerfile               # Fly.io container
   fly.toml                 # Fly.io config (nrt region, auto-suspend)
