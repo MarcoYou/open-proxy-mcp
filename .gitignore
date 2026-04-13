@@ -57,8 +57,9 @@ samples/
 .omc/
 .obsidian/
 
-# Dev log (personal, not project docs)
+# Dev log & TODO (personal, not project docs)
 DEVLOG.md
+TO_DO.md
 
 # Wiki raw PDFs (binary + copyright)
 wiki/raw/*.pdf
