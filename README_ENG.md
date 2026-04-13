@@ -4,6 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-35-orange.svg)](#tool-architecture-35-tools)
+[![Glama MCP Server](https://glama.ai/mcp/servers/MarcoYou/open-proxy-mcp/badge)](https://glama.ai/mcp/servers/MarcoYou/open-proxy-mcp)
 
 [Korean README (default)](README.md)
 
