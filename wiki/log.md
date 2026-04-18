@@ -5,6 +5,109 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-18] feat | shareholder_meeting v2 2차 구현 (board, compensation, results, 시점 구분)
+- `services/shareholder_meeting.py` 확장:
+  - `scope=board|compensation|results` 추가
+  - `meeting_phase` 추가: `pre_meeting | post_meeting_pre_result | post_result | undetermined`
+  - `result_status` 추가: `not_due_yet | pending_or_missing | available | requires_review | unknown`
+  - 결과 공시는 DART `주주총회결과` 검색 후 `80 -> 00` 변환이 가능한 whitelist 건만 KIND HTML로 연결
+- `meeting_type=auto` 기본화:
+  - `annual` 최신 회차와 `extraordinary` 최신 회차를 후보로 생성
+  - 일반 조회는 정기/임시를 가리지 않고 가장 현재적인 회차 우선
+  - 결과 조회는 결과공시가 확인된 회차 중 최신 회차 우선
+  - `selection_basis`, `selected_meeting`, `alternative_meetings` 추가
+- 최근 12개월 커버리지 추가:
+  - 주총 관련 제목군(`주주총회소집공고`)만 대상으로 조사
+  - `annual_only | extraordinary_only | annual_and_extraordinary | none` 플래그 추가
+  - 선택된 회차 기준 최근 12개월 구간과 정기/임시 최신 회차 메타데이터 제공
+  - `auto` 후보도 최근 12개월 기준 `가장 최근 정기 1개 + 가장 최근 임시 1개`로 변경
+  - 교차연도 회차는 각 회차의 실제 회의연도로 결과공시 검색해 매핑
+- `tools_v2/shareholder_meeting.py` 확장:
+  - `summary`에 결과 시점 블록 추가
+  - `summary`에 회차 선택 근거와 대안 회차 블록 추가
+  - `summary`에 최근 12개월 커버리지 블록 추가
+  - `board`, `compensation`, `results` 출력면 추가
+  - 회의 전과 결과공시 후를 구분해 표시
+- 실조회:
+  - `KT&G`, `auto`, `2026`, `summary` → `meeting_type=annual`, `meeting_phase=post_result`, `result_status=available`
+  - `KT&G`, `annual`, `2026`, `board` → 후보 3명 확인
+  - `KT&G`, `annual`, `2026`, `compensation` → 당기 한도 `6,000백만원`, 전기 지급 `2,445백만원`
+  - `KT&G`, `auto`, `2026`, `results` → `rcept_no=20260326802654`, KIND `20260326002654`, 의결 결과 파싱 성공
+  - `한화`, `auto`, `2025`, `summary` → `meeting_type=extraordinary`, 대안으로 `annual` 표시
+  - `아시아나항공`, `auto`, `2025`, `summary` → `meeting_type=annual`, 대안으로 `extraordinary` 표시
+  - `KT&G`, `auto`, `2026`, `summary` → coverage `annual_only`
+  - `한화`, `auto`, `2025`, `summary` → coverage `annual_and_extraordinary`
+- sanity check:
+  - `python -m compileall open_proxy_mcp` 통과
+
+## [2026-04-18] feat | release_v2 scaffold + company facade 첫 구현
+- `open_proxy_mcp/tools_v2/` 신규: v2 public facade layer 시작
+- `open_proxy_mcp/services/` 신규: v2 공통 service layer 시작
+- `services/contracts.py` 신규: `AnalysisStatus`, `SourceType`, `ToolEnvelope`, `EvidenceRef` 정의
+- `server.py` 업데이트: `build_mcp(toolset)` 추가, `v1|v2|hybrid` 선택 지원
+- `__main__.py` 업데이트: `main()` 직접 호출 구조로 단순화
+- `tools_v2/company.py`, `services/company.py` 신규: `company` data tool 초안 구현
+- 정책 반영: partial match 자동선택 금지, exact가 아니면 `ambiguous`
+- `company` 현재 범위: 회사 식별 + 기본 카드 + 최근 공시 인덱스
+- sanity check:
+  - `python -m compileall open_proxy_mcp` 통과
+  - `build_mcp('v2')` 성공
+  - `build_company_payload('삼성전자')` → `exact`, `cmp_005930`
+
+## [2026-04-18] feat | shareholder_meeting v2 1차 구현 (summary, agenda)
+- `services/shareholder_meeting.py`, `tools_v2/shareholder_meeting.py` 신규
+- 정기/임시 주총을 하나의 public tool에서 `meeting_type=annual|extraordinary`로 처리
+- 현재 scope는 `summary`, `agenda`만 지원
+- 동작 원칙:
+  - 회사 식별 exact가 아니면 자동선택 금지
+  - 소스는 `DART list.json + DART XML`
+  - PDF fallback 없음
+  - 안건 파싱 신뢰도 낮으면 `requires_review`
+- 반환 범위:
+  - notice 메타데이터
+  - meeting_info
+  - agenda_summary
+  - agendas(scope=agenda)
+  - correction_summary
+  - DART XML evidence ref
+- 실조회:
+  - `KT&G` → alias로 `케이티앤지` 식별
+  - `2026 annual summary` → `exact`, `cmp_033780`, `rcept_no=20260225005779`, `agenda_total_count=15`
+  - `2026 annual agenda` → root 8건, 첫 안건 `제1호 제39기 재무제표 및 이익잉여금처분계산서 승인의 건`
+
+## [2026-04-18] feat | remaining v2 data tools 구현 (ownership_structure, dividend, value_up, proxy_contest, evidence)
+- 신규 service:
+  - `ownership_structure.py`
+  - `dividend_v2.py`
+  - `value_up_v2.py`
+  - `proxy_contest.py`
+  - `evidence.py`
+- 신규 public facade:
+  - `ownership_structure.py`
+  - `dividend.py`
+  - `value_up.py`
+  - `proxy_contest.py`
+  - `evidence.py`
+- 지원 범위
+  - `ownership_structure`: `summary`, `major_holders`, `blocks`, `treasury`, `control_map`, `timeline`
+  - `dividend`: `summary`, `detail`, `history`, `policy_signals`
+  - `value_up`: `summary`, `plan`, `commitments`, `timeline`
+  - `proxy_contest`: `summary`, `fight`, `litigation`, `signals`, `timeline`
+  - `evidence`: `evidence_id` 또는 `rcept_no` 기반 원문 발췌
+- 정책 반영
+  - partial match 자동선택 금지 유지
+  - PDF fallback 없음
+  - `proxy_contest.vote_math`는 아직 비공개 (`requires_review`)
+- sanity check
+  - `python -m compileall open_proxy_mcp` 통과
+  - `build_mcp('v2')` 성공
+- 샘플 실조회
+  - `ownership_structure('삼성전자', summary, 2025)` → `exact`, `cmp_005930`, 자사주 `1.55%`
+  - `dividend('삼성전자', summary, 2025)` → `exact`, `cmp_005930`, 연간 DPS `1668원`
+  - `value_up('KB금융', summary, 2026)` → `exact`, `cmp_105560`, 최신 `rcept_no=20260327802428`
+  - `proxy_contest('고려아연', summary, 2026)` → `exact`, `cmp_010130`, fight `7`, shareholder-side `4`, litigation `40`, active signals `4`
+  - `evidence(rcept_no='20260225005779')` → `exact`
+
 ## [2026-04-18] docs | 신규 tool 추가 검증 정책 + release_v2 소스 검증 기준 정리
 - `decisions/tool-추가-검증-정책.md` 신규: data/action tool 분류, 공시 매핑표, 화이트리스트 체크, 샘플 검증, 출시 게이트 정리
 - `DART-KIND-매핑-화이트리스트-2026-04`를 신규 tool 검증 정책의 기준 문서로 연결

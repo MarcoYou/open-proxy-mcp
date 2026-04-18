@@ -1,14 +1,7 @@
-"""python -m open_proxy_mcp 으로 서버 실행
+"""python -m open_proxy_mcp 으로 서버 실행."""
 
-Usage:
-    python -m open_proxy_mcp          # stdio (Claude Desktop/Code)
-    python -m open_proxy_mcp --sse    # SSE (웹 연결)
-"""
+from open_proxy_mcp.server import main
 
-import sys
-from open_proxy_mcp.server import mcp
 
-if "--sse" in sys.argv:
-    mcp.run(transport="sse")
-else:
-    mcp.run(transport="stdio")
+if __name__ == "__main__":
+    main()

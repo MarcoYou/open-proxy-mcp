@@ -1,0 +1,109 @@
+"""v2 dividend public tool."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.services.dividend_v2 import build_dividend_payload
+
+
+def _render_error(payload: dict[str, Any]) -> str:
+    lines = [f"# dividend: {payload.get('subject', '')}", "", "배당 데이터를 확정하지 못했다."]
+    for warning in payload.get("warnings", []):
+        lines.append(f"- {warning}")
+    return "\n".join(lines)
+
+
+def _render_ambiguous(payload: dict[str, Any]) -> str:
+    data = payload.get("data", {})
+    lines = [
+        f"# dividend: {data.get('query', payload.get('subject', ''))}",
+        "",
+        "회사 식별이 애매해 배당 데이터를 자동 선택하지 않았다.",
+        "",
+        "| 회사명 | ticker | corp_code | company_id |",
+        "|------|--------|-----------|------------|",
+    ]
+    for item in data.get("candidates", []):
+        lines.append(f"| {item['corp_name']} | `{item['ticker']}` | `{item['corp_code']}` | `{item['company_id']}` |")
+    return "\n".join(lines)
+
+
+def _render(payload: dict[str, Any], scope: str) -> str:
+    data = payload.get("data", {})
+    summary = data.get("summary", {})
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 배당", ""]
+    lines.append(f"- company_id: `{data.get('company_id', '')}`")
+    lines.append(f"- status: `{payload.get('status', '')}`")
+    lines.append("")
+    if payload.get("warnings"):
+        lines.append("## 유의사항")
+        for warning in payload["warnings"]:
+            lines.append(f"- {warning}")
+        lines.append("")
+
+    if summary:
+        lines.append("## 연간 요약")
+        lines.append(f"- 연간 DPS(보통주): {summary.get('cash_dps', 0):,}원")
+        if summary.get("cash_dps_preferred"):
+            lines.append(f"- 연간 DPS(우선주): {summary.get('cash_dps_preferred', 0):,}원")
+        lines.append(f"- 배당총액: {summary.get('total_amount_mil', 0):,}백만원")
+        if summary.get("payout_ratio_dart") is not None:
+            lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}%")
+        if summary.get("yield_dart") is not None:
+            lines.append(f"- 시가배당률: {summary.get('yield_dart')}%")
+
+    if scope in {"summary", "detail"}:
+        lines.extend(["", "## 최근 배당결정", "| 공시일 | 구분 | DPS(보통) | 기준일 | rcept_no |", "|--------|------|-----------|--------|----------|"])
+        for item in data.get("latest_decisions", [])[:10]:
+            lines.append(
+                f"| {item.get('rcept_dt', '')} | {item.get('dividend_type', '-') or '-'} | {item.get('dps_common', 0):,}원 | "
+                f"{item.get('record_date', '-') or '-'} | `{item.get('rcept_no', '')}` |"
+            )
+
+    if scope in {"summary", "policy_signals"}:
+        policy = data.get("policy_signals", {})
+        lines.extend([
+            "",
+            "## 정책 신호",
+            f"- 추세: {policy.get('trend', '-')}",
+            f"- 분기/중간배당 패턴: {'예' if policy.get('has_quarterly_pattern') else '아니오'}",
+            f"- 특별배당 이력: {'예' if policy.get('has_special_dividend') else '아니오'}",
+            f"- 최근 DPS 변화율: {str(policy.get('latest_change_pct')) + '%' if policy.get('latest_change_pct') is not None else '-'}",
+        ])
+
+    if scope == "history":
+        lines.extend(["", "## 최근 연도 추이", "| 연도 | 연간 DPS | 공시 수 | 배당성향 | 수익률 | 패턴 |", "|------|----------|--------|----------|--------|------|"])
+        for item in data.get("history", []):
+            payout = f"{item['payout_ratio']}%" if item.get("payout_ratio") is not None else "-"
+            yld = f"{item['yield_pct']}%" if item.get("yield_pct") is not None else "-"
+            lines.append(f"| {item['year']} | {item['annual_dps']:,}원 | {item['decision_count']} | {payout} | {yld} | {item['pattern']} |")
+
+    return "\n".join(lines)
+
+
+def register_tools(mcp):
+
+    @mcp.tool()
+    async def dividend(
+        company: str,
+        scope: str = "summary",
+        year: int = 0,
+        years: int = 3,
+        format: str = "md",
+    ) -> str:
+        """desc: 연간 배당 요약, 최근 배당결정, 추이, 정책 신호를 한 탭에서 보는 배당 tool.
+        when: DPS, 배당성향, 시가배당률, 최근 배당결정, 최근 3년 추이를 보고 싶을 때.
+        rule: 사업보고서 alotMatter를 기본으로 하고, 거래소 배당결정 공시를 보강한다. partial match는 자동 선택하지 않는다.
+        ref: company, ownership_structure, value_up, evidence
+        """
+        payload = await build_dividend_payload(company, scope=scope, year=year or None, years=years)
+        if format == "json":
+            return as_pretty_json(payload)
+        if payload.get("status") == "ambiguous":
+            return _render_ambiguous(payload)
+        if payload.get("status") == "error":
+            return _render_error(payload)
+        return _render(payload, scope)
+

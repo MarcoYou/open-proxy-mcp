@@ -5,9 +5,24 @@ import os
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.tools import register_all_tools
+from open_proxy_mcp.tools_v2 import register_all_tools_v2
 
-mcp = FastMCP("open-proxy-mcp")
-register_all_tools(mcp)
+
+def build_mcp(toolset: str) -> FastMCP:
+    """toolset별 MCP 인스턴스 생성."""
+
+    mcp = FastMCP("open-proxy-mcp")
+    if toolset == "v2":
+        register_all_tools_v2(mcp)
+    elif toolset == "hybrid":
+        register_all_tools(mcp)
+        register_all_tools_v2(mcp)
+    else:
+        register_all_tools(mcp)
+    return mcp
+
+
+mcp = build_mcp(os.environ.get("OPEN_PROXY_TOOLSET", "v1"))
 
 
 def main():
@@ -17,7 +32,20 @@ def main():
         choices=["stdio", "sse", "streamable-http"],
         default="stdio",
     )
+    parser.add_argument(
+        "--sse",
+        action="store_true",
+        help="하위호환 옵션: --transport sse 와 동일",
+    )
+    parser.add_argument(
+        "--toolset",
+        choices=["v1", "v2", "hybrid"],
+        default=os.environ.get("OPEN_PROXY_TOOLSET", "v1"),
+    )
     args = parser.parse_args()
+    if args.sse:
+        args.transport = "sse"
+    mcp = build_mcp(args.toolset)
 
     if args.transport in ("sse", "streamable-http"):
         mcp.settings.host = os.environ.get("FASTMCP_HOST", "0.0.0.0")

@@ -14,7 +14,6 @@ If you want the MCP as it exists today, use this documentation set.
 
 ## Quick Links
 
-- [Main README](../../README_ENG.md)
 - [Local Installation Guide](../connect_eng.md)
 - [Examples](../examples_eng.md)
 - [Current Architecture](../ARCHITECTURE.md)

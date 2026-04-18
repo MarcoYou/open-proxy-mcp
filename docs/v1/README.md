@@ -14,7 +14,6 @@
 
 ## 바로 가기
 
-- [메인 README](../../README.md)
 - [로컬 설치 가이드](../connect.md)
 - [사용 예시](../examples.md)
 - [의결권 행사 판단 기준](../voting_criteria.md)
