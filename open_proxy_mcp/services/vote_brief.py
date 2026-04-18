@@ -487,6 +487,18 @@ async def build_vote_brief_payload(
         "company_id": meeting_data.get("company_id", ""),
         "canonical_name": meeting_data.get("canonical_name", ""),
         "requested_window": meeting_data.get("requested_window", {}),
+        "quality": {
+            "meeting_summary_status": meeting_summary.get("status", ""),
+            "agenda_status": agenda_payload.get("status", ""),
+            "board_status": board_payload.get("status", ""),
+            "compensation_status": compensation_payload.get("status", ""),
+            "ownership_status": ownership_payload.get("status", ""),
+            "result_status": result_payload.get("status", "") if result_payload else "",
+            "vote_math_status": vote_math_payload.get("status", "") if vote_math_payload else "",
+            "notice_parse_source": meeting_data.get("notice_parse_source", ""),
+            "result_format": result_brief.get("result_format", ""),
+            "numerical_vote_table_available": result_brief.get("numerical_vote_table_available"),
+        },
         "meeting": {
             "requested_meeting_type": meeting_data.get("requested_meeting_type", ""),
             "selected_meeting": meeting_data.get("selected_meeting", {}),

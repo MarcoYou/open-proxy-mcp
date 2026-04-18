@@ -412,3 +412,12 @@ title: Operation Log
 - raw/benchmarks/benchmark_personnel_results.json
 - 생성: sources 10개, concepts 24개, entities 9개, analysis 8개 (총 51 페이지)
 - index.md 전체 업데이트
+
+## [2026-04-19] feat | action tool에 source quality 메타 전파
+- `prepare_vote_brief`, `prepare_engagement_case`, `build_campaign_brief`에 quality 블록 추가
+- 포함 항목:
+  - component status
+  - `notice_parse_source`
+  - `result_format`, `numerical_vote_table_available`
+- 목적:
+  - action memo를 볼 때 결론의 기반 소스 품질을 바로 판단하게 함
