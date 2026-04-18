@@ -25,6 +25,7 @@ def _render(payload: dict[str, Any]) -> str:
     comp_brief = data.get("compensation_brief", {})
     result_brief = data.get("result_brief", {})
     vote_math_brief = data.get("vote_math_brief", {})
+    cumulative_strategy = data.get("cumulative_voting_strategy", {})
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} vote brief", ""]
     lines.append(f"- company_id: `{data.get('company_id', '')}`")
@@ -117,6 +118,36 @@ def _render(payload: dict[str, Any]) -> str:
         if vote_math_brief.get("signal_level"):
             lines.append(f"- signal_level: `{vote_math_brief.get('signal_level')}`")
         for note in (vote_math_brief.get("notes", []) or [])[:5]:
+            lines.append(f"- {note}")
+        lines.append("")
+
+    if cumulative_strategy:
+        lines.append("## 집중투표 사전 전략")
+        lines.append(f"- 상태: `{cumulative_strategy.get('status', '-')}`")
+        lines.append(f"- 공시상 집중투표 명시 여부: `{cumulative_strategy.get('explicit_reference', False)}`")
+        lines.append(f"- 집중투표 대상 이사 수: {cumulative_strategy.get('seats_to_elect', 0)}명")
+        lines.append(f"- 전체 의결권 모수(자사주 차감 후, 발행주식수 대비): {cumulative_strategy.get('voting_base_pct_of_total_issued', 0)}%")
+        lines.append(f"- 100% 참석 가정 1석선")
+        lines.append(f"  - 의결권 모수 대비: {cumulative_strategy.get('full_turnout_one_seat_pct_of_voting_base', '-') }%")
+        lines.append(f"  - 발행주식수 대비: {cumulative_strategy.get('full_turnout_one_seat_pct_of_total_issued', '-') }%")
+        if cumulative_strategy.get("expected_turnout_pct_of_total_issued") is not None:
+            lines.append(f"- 예상 참석률(이전 참석률 참고): {cumulative_strategy.get('expected_turnout_pct_of_total_issued')}%")
+        if cumulative_strategy.get("expected_one_seat_pct_of_total_issued") is not None:
+            lines.append(f"- 예상 참석률 기준 1석선(발행주식수 대비): {cumulative_strategy.get('expected_one_seat_pct_of_total_issued')}%")
+        holder_context = cumulative_strategy.get("holder_context", {}) or {}
+        if holder_context:
+            lines.append(f"- 최대주주: {holder_context.get('top_holder_name', '-') or '-'} {holder_context.get('top_holder_pct', '-') if holder_context.get('top_holder_pct') is not None else '-'}%")
+            lines.append(f"- 특수관계인 합계: {holder_context.get('related_total_pct', 0)}%")
+            lines.append(f"- 외부 능동 블록 최대치: {holder_context.get('largest_external_active_block_pct', 0)}%")
+        gaps = cumulative_strategy.get("gaps", {}) or {}
+        if cumulative_strategy.get("expected_one_seat_pct_of_total_issued") is not None:
+            lines.append(f"- 외부 능동 블록의 1석선 부족분: {gaps.get('largest_external_block_gap_to_one_seat', '-') }%p")
+        related_agendas = cumulative_strategy.get("related_agendas", []) or []
+        if related_agendas:
+            lines.append("- 관련 안건")
+            for title in related_agendas[:10]:
+                lines.append(f"  - {title}")
+        for note in (cumulative_strategy.get("notes", []) or [])[:6]:
             lines.append(f"- {note}")
         lines.append("")
 
