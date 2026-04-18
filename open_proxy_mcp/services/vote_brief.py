@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
@@ -167,6 +167,163 @@ def _agenda_titles(agenda_payload: dict[str, Any]) -> list[str]:
     return titles
 
 
+def _cumulative_board_seats(board_payload: dict[str, Any]) -> int:
+    appointments = board_payload.get("data", {}).get("board", {}).get("appointments", []) or []
+    seats = 0
+    for appointment in appointments:
+        category = (appointment.get("category") or "").strip()
+        if "감사위원" in category or "감사" == category:
+            continue
+        if "이사" in category:
+            seats += max(len(appointment.get("candidates", []) or []), 1)
+    return seats
+
+
+def _cumulative_signal(agenda_payload: dict[str, Any], board_payload: dict[str, Any]) -> dict[str, Any]:
+    agenda_titles = _agenda_titles(agenda_payload)
+    seats = _cumulative_board_seats(board_payload)
+    explicit_reference = any("집중투표" in title for title in agenda_titles)
+    related_agendas = [
+        title for title in agenda_titles
+        if "집중투표" in title or ("이사" in title and "선임" in title)
+    ]
+    return {
+        "relevant": seats >= 2 or explicit_reference,
+        "explicit_reference": explicit_reference,
+        "seats_to_elect": seats,
+        "related_agendas": related_agendas[:10],
+    }
+
+
+def _turnout_reference_brief(vote_math_payload: dict[str, Any] | None) -> dict[str, Any]:
+    brief = _vote_math_brief(vote_math_payload)
+    if not brief:
+        return {}
+    return {
+        "representative_pct": brief.get("representative_pct"),
+        "meeting_reference": brief.get("meeting_reference", {}),
+        "source_status": brief.get("status", ""),
+        "notes": brief.get("notes", []) or [],
+        "warnings": brief.get("warnings", []) or [],
+    }
+
+
+async def _cumulative_voting_strategy(
+    company_query: str,
+    *,
+    meeting_summary: dict[str, Any],
+    agenda_payload: dict[str, Any],
+    board_payload: dict[str, Any],
+    ownership_payload: dict[str, Any],
+    current_vote_math_payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    signal = _cumulative_signal(agenda_payload, board_payload)
+    if not signal.get("relevant"):
+        return {}
+
+    seats_to_elect = signal.get("seats_to_elect", 0)
+    if seats_to_elect < 2:
+        return {
+            "relevant": True,
+            "status": AnalysisStatus.PARTIAL,
+            "reason": "집중투표 관련 문구는 보이지만 실제 집중투표 대상 이사 수가 2명 이상으로 확인되지 않았다.",
+            "seats_to_elect": seats_to_elect,
+            "related_agendas": signal.get("related_agendas", []),
+        }
+
+    ownership_summary = ownership_payload.get("data", {}).get("summary", {}) or {}
+    treasury_pct = float(ownership_summary.get("treasury_pct", 0) or 0)
+    related_total_pct = float(ownership_summary.get("related_total_pct", 0) or 0)
+    top_holder = ownership_summary.get("top_holder", {}) or {}
+    control_map = ownership_payload.get("data", {}).get("control_map", {}) or {}
+    active_external_blocks = control_map.get("active_non_overlap_blocks", []) or []
+    active_overlap_blocks = control_map.get("active_overlap_blocks", []) or []
+
+    voting_base_pct = round(max(100.0 - treasury_pct, 0.0), 2)
+    full_turnout_one_seat_pct_of_voting_base = round(100.0 / (seats_to_elect + 1), 1)
+    full_turnout_one_seat_pct_of_total_issued = round(voting_base_pct / (seats_to_elect + 1), 1)
+
+    turnout_reference = _turnout_reference_brief(current_vote_math_payload)
+    turnout_reference_type = ""
+
+    if not turnout_reference.get("representative_pct"):
+        selected_meeting = (meeting_summary.get("data", {}) or {}).get("selected_meeting", {}) or {}
+        meeting_date_raw = selected_meeting.get("meeting_date")
+        prior_end = ""
+        if meeting_date_raw:
+            try:
+                prior_end = (date.fromisoformat(meeting_date_raw) - timedelta(days=1)).isoformat()
+            except ValueError:
+                prior_end = ""
+        if prior_end:
+            prior_vote_math = await build_proxy_contest_payload(
+                company_query,
+                scope="vote_math",
+                start_date=(date.fromisoformat(prior_end) - timedelta(days=365 * 3)).isoformat(),
+                end_date=prior_end,
+                lookback_months=36,
+            )
+            turnout_reference = _turnout_reference_brief(prior_vote_math)
+            turnout_reference_type = "previous_result"
+    else:
+        turnout_reference_type = "selected_meeting_result"
+
+    expected_turnout_pct = turnout_reference.get("representative_pct")
+    expected_one_seat_pct = None
+    if expected_turnout_pct is not None:
+        expected_one_seat_pct = round(float(expected_turnout_pct) / (seats_to_elect + 1), 1)
+
+    largest_external_block_pct = max(
+        [float(row.get("ownership_pct", 0) or 0) for row in active_external_blocks],
+        default=0.0,
+    )
+    largest_overlap_block_pct = max(
+        [float(row.get("ownership_pct", 0) or 0) for row in active_overlap_blocks],
+        default=0.0,
+    )
+
+    notes = [
+        "집중투표 1석선은 이론적으로 1/(N+1)이다.",
+        "자사주는 의결권이 없어 전체 의결권 모수에서 차감했다.",
+        "감사위원/분리선출은 집중투표 대상 이사 수에서 제외하는 보수적 기준을 사용했다.",
+    ]
+    status = AnalysisStatus.EXACT if expected_one_seat_pct is not None else AnalysisStatus.PARTIAL
+    if not signal.get("explicit_reference"):
+        status = AnalysisStatus.PARTIAL
+        notes.append("공시에 집중투표가 명시되진 않았고 복수 이사 선임만 확인돼, 잠재적 전략 계산으로만 봐야 한다.")
+    if turnout_reference_type == "previous_result":
+        notes.append("예상 참석률은 이전 회차의 대표 추정참석률을 참고했다.")
+    elif turnout_reference_type == "selected_meeting_result":
+        notes.append("이미 결과가 나온 회차라 실제 대표 추정참석률을 참고치로 제시한다.")
+
+    return {
+        "relevant": True,
+        "status": status,
+        "explicit_reference": signal.get("explicit_reference", False),
+        "seats_to_elect": seats_to_elect,
+        "related_agendas": signal.get("related_agendas", []),
+        "voting_base_pct_of_total_issued": voting_base_pct,
+        "full_turnout_one_seat_pct_of_voting_base": full_turnout_one_seat_pct_of_voting_base,
+        "full_turnout_one_seat_pct_of_total_issued": full_turnout_one_seat_pct_of_total_issued,
+        "expected_turnout_pct_of_total_issued": expected_turnout_pct,
+        "expected_one_seat_pct_of_total_issued": expected_one_seat_pct,
+        "turnout_reference_type": turnout_reference_type,
+        "turnout_reference": turnout_reference,
+        "holder_context": {
+            "top_holder_name": top_holder.get("name", ""),
+            "top_holder_pct": top_holder.get("ownership_pct"),
+            "related_total_pct": related_total_pct,
+            "largest_external_active_block_pct": round(largest_external_block_pct, 2),
+            "largest_overlap_active_block_pct": round(largest_overlap_block_pct, 2),
+        },
+        "gaps": {
+            "largest_external_block_gap_to_one_seat": round(max((expected_one_seat_pct or full_turnout_one_seat_pct_of_total_issued) - largest_external_block_pct, 0.0), 2),
+            "largest_overlap_block_gap_to_one_seat": round(max((expected_one_seat_pct or full_turnout_one_seat_pct_of_total_issued) - largest_overlap_block_pct, 0.0), 2),
+        },
+        "notes": notes,
+    }
+
+
 async def build_vote_brief_payload(
     company_query: str,
     *,
@@ -270,6 +427,19 @@ async def build_vote_brief_payload(
         vote_math_payload.get("status") if vote_math_payload else AnalysisStatus.EXACT,
     )
 
+    cumulative_voting_strategy = await _cumulative_voting_strategy(
+        company_query,
+        meeting_summary=meeting_summary,
+        agenda_payload=agenda_payload,
+        board_payload=board_payload,
+        ownership_payload=ownership_payload,
+        current_vote_math_payload=vote_math_payload,
+    )
+    merged_status = _merge_status(
+        merged_status,
+        cumulative_voting_strategy.get("status", AnalysisStatus.EXACT) if cumulative_voting_strategy else AnalysisStatus.EXACT,
+    )
+
     control_map = ownership_payload.get("data", {}).get("control_map", {}) or {}
     summary = {
         "meeting_type": meeting_data.get("meeting_type", ""),
@@ -302,6 +472,7 @@ async def build_vote_brief_payload(
             *(vote_math_payload.get("warnings", []) if vote_math_payload else []),
             *(control_map.get("observations", []) or []),
             result_quality_note,
+            "집중투표 사전 전략 계산을 포함했다." if cumulative_voting_strategy else "",
         ]
     )
     if meeting_data.get("correction_summary"):
@@ -344,6 +515,7 @@ async def build_vote_brief_payload(
         "compensation_brief": _compensation_brief(compensation_payload),
         "result_brief": result_brief,
         "vote_math_brief": vote_math_brief,
+        "cumulative_voting_strategy": cumulative_voting_strategy,
         "key_flags": key_flags[:20],
     }
 
