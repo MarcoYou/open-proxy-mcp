@@ -92,6 +92,7 @@ def _render_summary(payload: dict[str, Any]) -> str:
     result_reference = data.get("result_reference", {})
     alternatives = data.get("alternative_meetings", [])
     coverage_12m = data.get("meeting_coverage_12m", {})
+    requested_window = data.get("requested_window", {})
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 주주총회"]
     lines.append("")
@@ -101,6 +102,10 @@ def _render_summary(payload: dict[str, Any]) -> str:
     lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
     lines.append(f"- result_status: {_result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
     lines.append(f"- status: `{payload.get('status', '')}`")
+    if requested_window:
+        lines.append(
+            f"- requested_window: `{requested_window.get('start_date', '')}` ~ `{requested_window.get('end_date', '')}`"
+        )
     lines.append("")
 
     lines.extend(_warning_block(payload))
@@ -117,7 +122,7 @@ def _render_summary(payload: dict[str, Any]) -> str:
         lines.append("")
 
     if coverage_12m:
-        lines.append("## 최근 12개월 커버리지")
+        lines.append("## 조회 구간 커버리지")
         lines.append(f"- 플래그: {_presence_flag_label(coverage_12m.get('presence_flag', ''))} (`{coverage_12m.get('presence_flag', '')}`)")
         lines.append(f"- 조사 구간: {coverage_12m.get('window_start', '-')} ~ {coverage_12m.get('window_end', '-')}")
         lines.append(f"- 정기주총 공시 수: {coverage_12m.get('annual_count', 0)}")
@@ -357,6 +362,9 @@ def register_tools(mcp):
         meeting_type: str = "auto",
         scope: str = "summary",
         year: int = 0,
+        start_date: str = "",
+        end_date: str = "",
+        lookback_months: int = 12,
         format: str = "md",
     ) -> str:
         """desc: 정기주총/임시주총 데이터 탭. 기본은 `meeting_type=auto`이며, 정기 최신 회차와 임시 최신 회차를 비교해 가장 대표성 높은 회차를 자동 선택한다.
@@ -369,6 +377,9 @@ def register_tools(mcp):
             meeting_type=meeting_type,
             scope=scope,
             year=year or None,
+            start_date=start_date,
+            end_date=end_date,
+            lookback_months=lookback_months,
         )
         if format == "json":
             return as_pretty_json(payload)

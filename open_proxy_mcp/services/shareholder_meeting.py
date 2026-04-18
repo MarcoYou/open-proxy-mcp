@@ -16,6 +16,7 @@ from open_proxy_mcp.services.contracts import (
     SourceType,
     ToolEnvelope,
 )
+from open_proxy_mcp.services.date_utils import parse_date_param, resolve_date_window
 from open_proxy_mcp.tools.formatters import _parse_agm_result_table
 from open_proxy_mcp.tools.parser import (
     parse_agenda_xml,
@@ -313,6 +314,30 @@ def _auto_window_end(target_year: int | None) -> date:
     return today
 
 
+def _selection_window(
+    target_year: int | None,
+    *,
+    start_date: str = "",
+    end_date: str = "",
+    lookback_months: int = 12,
+) -> tuple[date, date, list[str]]:
+    if start_date or end_date:
+        return resolve_date_window(
+            start_date=start_date,
+            end_date=end_date,
+            default_end=date.today(),
+            lookback_months=lookback_months,
+        )
+    if target_year:
+        return date(target_year, 1, 1), date(target_year, 12, 31), []
+    return resolve_date_window(
+        start_date="",
+        end_date="",
+        default_end=date.today(),
+        lookback_months=lookback_months,
+    )
+
+
 def _auto_selection_basis(candidate: dict[str, Any], scope: str, candidates: list[dict[str, Any]]) -> str:
     if len(candidates) == 1:
         return "후보가 1개라 해당 회차를 자동 선택했다."
@@ -377,13 +402,21 @@ async def _build_candidate(
 
 async def _select_notice_candidate(
     corp_code: str,
-    target_year: int,
+    target_year: int | None,
     requested_meeting_type: str,
     scope: str,
+    *,
+    start_date: str = "",
+    end_date: str = "",
+    lookback_months: int = 12,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], str | None, str | None]:
+    window_start, window_end, _ = _selection_window(
+        target_year,
+        start_date=start_date,
+        end_date=end_date,
+        lookback_months=lookback_months,
+    )
     if requested_meeting_type == "auto":
-        window_end = _auto_window_end(target_year)
-        window_start = window_end - timedelta(days=365)
         annual_notices, extraordinary_notices = await asyncio.gather(
             _candidate_notices_in_meeting_window(
                 corp_code,
@@ -406,10 +439,10 @@ async def _select_notice_candidate(
         if extraordinary_latest:
             latest_by_type.append(("extraordinary", extraordinary_latest))
         if not latest_by_type:
-            return None, [], None, f"최근 12개월 내 정기/임시 주주총회 소집공고를 찾지 못했다."
+            return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 정기/임시 주주총회 소집공고를 찾지 못했다."
 
         candidates = await asyncio.gather(*[
-            _build_candidate(corp_code, meeting_type, target_year, notice)
+            _build_candidate(corp_code, meeting_type, target_year or window_end.year, notice)
             for meeting_type, notice in latest_by_type
         ])
         selected = sorted(candidates, key=lambda row: _auto_rank_key(row, scope), reverse=True)[0]
@@ -418,22 +451,26 @@ async def _select_notice_candidate(
         return selected, alternatives, basis, None
 
     meeting_type_label = _MEETING_TYPE_MAP[requested_meeting_type]
-    notices = await _candidate_notices(corp_code, meeting_type_label, target_year)
+    notices = await _candidate_notices_in_meeting_window(
+        corp_code,
+        meeting_type_label,
+        window_start,
+        window_end,
+    )
     latest_notice = _pick_latest_notice(notices)
     if not latest_notice:
-        return None, [], None, f"{target_year}년 {meeting_type_label} 주주총회 소집공고를 찾지 못했다."
-    selected = await _build_candidate(corp_code, requested_meeting_type, target_year, latest_notice)
+        return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 {meeting_type_label} 주주총회 소집공고를 찾지 못했다."
+    selected = await _build_candidate(corp_code, requested_meeting_type, target_year or window_end.year, latest_notice)
     basis = f"사용자가 {meeting_type_label} 주주총회를 명시해 해당 회차를 선택했다."
     return selected, [], basis, None
 
 
 async def _meeting_window_coverage(
     corp_code: str,
-    anchor_date: date,
+    start_date: date,
+    end_date: date,
     months: int = 12,
 ) -> dict[str, Any]:
-    end_date = anchor_date
-    start_date = anchor_date - timedelta(days=365)
     annual_notices, extraordinary_notices = await asyncio.gather(
         _candidate_notices_in_meeting_window(
             corp_code,
@@ -537,6 +574,9 @@ async def build_shareholder_meeting_payload(
     meeting_type: str = "auto",
     scope: str = "summary",
     year: int | None = None,
+    start_date: str = "",
+    end_date: str = "",
+    lookback_months: int = 12,
 ) -> dict[str, Any]:
     """주총 summary/agenda facade."""
 
@@ -589,8 +629,14 @@ async def build_shareholder_meeting_payload(
         )
         return envelope.to_dict()
 
-    target_year = year or date.today().year
+    target_year = year
     selected = resolution.selected
+    requested_window_start, requested_window_end, window_warnings = _selection_window(
+        target_year,
+        start_date=start_date,
+        end_date=end_date,
+        lookback_months=lookback_months,
+    )
 
     try:
         selected_candidate, alternative_meetings, selection_basis, candidate_error = await _select_notice_candidate(
@@ -598,6 +644,9 @@ async def build_shareholder_meeting_payload(
             target_year,
             meeting_type,
             scope,
+            start_date=start_date,
+            end_date=end_date,
+            lookback_months=lookback_months,
         )
     except DartClientError as exc:
         envelope = ToolEnvelope(
@@ -620,7 +669,12 @@ async def build_shareholder_meeting_payload(
                 "company_id": _company_id(selected),
                 "requested_meeting_type": meeting_type,
                 "scope": scope,
-                "year": target_year,
+                "year": target_year or requested_window_end.year,
+                "requested_window": {
+                    "start_date": requested_window_start.isoformat(),
+                    "end_date": requested_window_end.isoformat(),
+                    "lookback_months": lookback_months,
+                },
             },
             next_actions=["meeting_type 또는 year를 바꿔 재조회"],
         )
@@ -633,10 +687,13 @@ async def build_shareholder_meeting_payload(
     result_status = selected_candidate["result_status"]
     result_reference = selected_candidate["result_reference"]
     result_filing_warning = selected_candidate["result_filing_warning"]
+    coverage_anchor_end = requested_window_end if (start_date or end_date or not target_year) else (selected_meeting_date or date.today())
+    coverage_anchor_start = requested_window_start if (start_date or end_date or not target_year) else (coverage_anchor_end - timedelta(days=365))
     coverage_12m = await _meeting_window_coverage(
         selected["corp_code"],
-        selected_meeting_date or date.today(),
-        months=12,
+        coverage_anchor_start,
+        coverage_anchor_end,
+        months=lookback_months if (start_date or end_date or not target_year) else 12,
     )
 
     client = get_dart_client()
@@ -649,7 +706,7 @@ async def build_shareholder_meeting_payload(
     board = parse_personnel_xml(html) if html else {"appointments": [], "summary": {}}
     compensation = parse_compensation_xml(html) if html else {"items": [], "summary": {}}
 
-    warnings: list[str] = []
+    warnings: list[str] = list(window_warnings)
     status = AnalysisStatus.EXACT
     if not agenda_valid:
         status = AnalysisStatus.REQUIRES_REVIEW
@@ -680,7 +737,12 @@ async def build_shareholder_meeting_payload(
         "requested_meeting_type": meeting_type,
         "meeting_type": selected_meeting_type,
         "selection_basis": selection_basis,
-        "year": target_year,
+        "year": target_year or requested_window_end.year,
+        "requested_window": {
+            "start_date": requested_window_start.isoformat(),
+            "end_date": requested_window_end.isoformat(),
+            "lookback_months": lookback_months,
+        },
         "notice": latest_notice,
         "meeting_info": meeting_info,
         "meeting_phase": meeting_phase,

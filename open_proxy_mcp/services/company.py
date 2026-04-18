@@ -15,6 +15,7 @@ from open_proxy_mcp.dart.client import (
     get_dart_client,
 )
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
+from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
 
 _RECENT_LOOKBACK_DAYS = 180
 
@@ -124,19 +125,29 @@ async def _safe_naver_profile(stock_code: str) -> tuple[dict[str, Any], str | No
         return {}, "NAVER 업종 보강 실패"
 
 
-async def _safe_recent_filings(corp_code: str, max_items: int) -> tuple[list[dict[str, Any]], str | None]:
+async def _safe_recent_filings(
+    corp_code: str,
+    max_items: int,
+    *,
+    start_date: str = "",
+    end_date: str = "",
+) -> tuple[list[dict[str, Any]], dict[str, str], str | None]:
     client = get_dart_client()
-    end_date = date.today()
-    begin_date = end_date - timedelta(days=_RECENT_LOOKBACK_DAYS)
+    begin_date, finish_date, window_warnings = resolve_date_window(
+        start_date=start_date,
+        end_date=end_date,
+        default_end=date.today(),
+        lookback_days=_RECENT_LOOKBACK_DAYS,
+    )
     try:
         result = await client.search_filings(
             corp_code=corp_code,
-            bgn_de=begin_date.strftime("%Y%m%d"),
-            end_de=end_date.strftime("%Y%m%d"),
+            bgn_de=format_yyyymmdd(begin_date),
+            end_de=format_yyyymmdd(finish_date),
             page_count=min(max(max_items * 3, 20), 100),
         )
     except DartClientError as exc:
-        return [], f"최근 공시 인덱스 조회 실패: {exc.status}"
+        return [], {"start_date": format_yyyymmdd(begin_date), "end_date": format_yyyymmdd(finish_date)}, f"최근 공시 인덱스 조회 실패: {exc.status}"
 
     filings: list[dict[str, Any]] = []
     for item in result.get("list", [])[:max_items]:
@@ -148,7 +159,8 @@ async def _safe_recent_filings(corp_code: str, max_items: int) -> tuple[list[dic
             "filer_name": item.get("flr_nm", ""),
             "pblntf_ty": item.get("pblntf_ty", ""),
         })
-    return filings, None
+    warning = " / ".join(window_warnings) if window_warnings else None
+    return filings, {"start_date": format_yyyymmdd(begin_date), "end_date": format_yyyymmdd(finish_date)}, warning
 
 
 def _candidate_row(corp: dict[str, Any]) -> dict[str, Any]:
@@ -165,6 +177,8 @@ async def build_company_payload(
     query: str,
     *,
     max_recent_filings: int = 10,
+    start_date: str = "",
+    end_date: str = "",
 ) -> dict[str, Any]:
     """회사 식별 + 최근 공시 인덱스."""
 
@@ -199,9 +213,14 @@ async def build_company_payload(
 
     company_info_task = _safe_company_info(selected["corp_code"])
     naver_task = _safe_naver_profile(selected.get("stock_code", ""))
-    filings_task = _safe_recent_filings(selected["corp_code"], max_recent_filings)
+    filings_task = _safe_recent_filings(
+        selected["corp_code"],
+        max_recent_filings,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
-    (company_info, company_warn), (naver, naver_warn), (recent_filings, filings_warn) = await asyncio.gather(
+    (company_info, company_warn), (naver, naver_warn), (recent_filings, filings_window, filings_warn) = await asyncio.gather(
         company_info_task,
         naver_task,
         filings_task,
@@ -250,6 +269,7 @@ async def build_company_payload(
             "address": company_info.get("adres", ""),
             "established_date": company_info.get("est_dt", ""),
         },
+        "recent_filings_window": filings_window,
         "recent_filings": recent_filings,
     }
 

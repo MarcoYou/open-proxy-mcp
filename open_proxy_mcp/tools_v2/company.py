@@ -53,6 +53,7 @@ def _render_exact(payload: dict[str, Any]) -> str:
     names = data.get("names", {})
     basic_info = data.get("basic_info", {})
     filings = data.get("recent_filings", [])
+    filings_window = data.get("recent_filings_window", {})
     warnings = payload.get("warnings", [])
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))}"]
@@ -105,6 +106,7 @@ def _render_exact(payload: dict[str, Any]) -> str:
 
     lines.extend([
         "## 최근 공시 인덱스",
+        f"- 조사 구간: {filings_window.get('start_date', '-') } ~ {filings_window.get('end_date', '-')}",
         "| 날짜 | 분류 | 공시명 | 제출인 | rcept_no |",
         "|------|------|--------|--------|----------|",
     ])
@@ -124,6 +126,8 @@ def register_tools(mcp):
     async def company(
         query: str,
         max_recent_filings: int = 10,
+        start_date: str = "",
+        end_date: str = "",
         format: str = "md",
     ) -> str:
         """desc: 기업 식별 + 최근 공시 인덱스 허브. 회사명, ticker, corp_code 입력을 받아 v2 data tool의 공통 입구 역할을 한다.
@@ -134,6 +138,8 @@ def register_tools(mcp):
         payload = await build_company_payload(
             query,
             max_recent_filings=max(1, min(max_recent_filings, 20)),
+            start_date=start_date,
+            end_date=end_date,
         )
 
         if format == "json":

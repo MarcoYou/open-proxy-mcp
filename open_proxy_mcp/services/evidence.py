@@ -31,6 +31,8 @@ async def build_evidence_payload(
     evidence_id: str = "",
     rcept_no: str = "",
     keyword: str = "",
+    start_date: str = "",
+    end_date: str = "",
 ) -> dict:
     target_rcept_no = rcept_no or _extract_rcept_no(evidence_id)
     if not target_rcept_no:
@@ -39,7 +41,7 @@ async def build_evidence_payload(
             status=AnalysisStatus.REQUIRES_REVIEW,
             subject=evidence_id or "evidence",
             warnings=["rcept_no가 포함되지 않은 evidence_id는 아직 원문으로 직접 펼칠 수 없다. rcept_no를 함께 넣어야 한다."],
-            data={"evidence_id": evidence_id, "rcept_no": "", "keyword": keyword},
+            data={"evidence_id": evidence_id, "rcept_no": "", "keyword": keyword, "requested_window": {"start_date": start_date, "end_date": end_date}},
         ).to_dict()
 
     client = get_dart_client()
@@ -51,7 +53,7 @@ async def build_evidence_payload(
             status=AnalysisStatus.ERROR,
             subject=target_rcept_no,
             warnings=[f"원문 조회 실패: {exc.status}"],
-            data={"evidence_id": evidence_id, "rcept_no": target_rcept_no, "keyword": keyword},
+            data={"evidence_id": evidence_id, "rcept_no": target_rcept_no, "keyword": keyword, "requested_window": {"start_date": start_date, "end_date": end_date}},
         ).to_dict()
 
     snippet = _build_snippet(doc.get("text", ""), keyword)
@@ -68,6 +70,10 @@ async def build_evidence_payload(
             "evidence_id": evidence_id or f"ev_manual_{target_rcept_no}",
             "rcept_no": target_rcept_no,
             "keyword": keyword,
+            "requested_window": {
+                "start_date": start_date,
+                "end_date": end_date,
+            },
             "snippet": snippet,
             "html_available": bool(doc.get("html")),
             "images": doc.get("images", []),

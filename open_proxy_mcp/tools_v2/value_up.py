@@ -26,9 +26,12 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     latest = data.get("latest", {})
+    window = data.get("window", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 밸류업", ""]
     lines.append(f"- company_id: `{data.get('company_id', '')}`")
     lines.append(f"- status: `{payload.get('status', '')}`")
+    if window:
+        lines.append(f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
     lines.append("")
     if payload.get("warnings"):
         lines.append("## 유의사항")
@@ -65,6 +68,8 @@ def register_tools(mcp):
         company: str,
         scope: str = "summary",
         year: int = 0,
+        start_date: str = "",
+        end_date: str = "",
         format: str = "md",
     ) -> str:
         """desc: 기업가치제고계획(밸류업) 공시와 핵심 commitment 문장을 한 탭에서 보여주는 tool.
@@ -72,7 +77,13 @@ def register_tools(mcp):
         rule: 거래소 공시(I)에서 밸류업 키워드를 찾고, 원문은 DART XML만 사용한다. partial match는 자동 선택하지 않는다.
         ref: company, dividend, ownership_structure, evidence
         """
-        payload = await build_value_up_payload(company, scope=scope, year=year or None)
+        payload = await build_value_up_payload(
+            company,
+            scope=scope,
+            year=year or None,
+            start_date=start_date,
+            end_date=end_date,
+        )
         if format == "json":
             return as_pretty_json(payload)
         if payload.get("status") == "ambiguous":
@@ -80,4 +91,3 @@ def register_tools(mcp):
         if payload.get("status") == "error":
             return _render_error(payload)
         return _render(payload, scope)
-

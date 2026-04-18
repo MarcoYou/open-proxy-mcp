@@ -40,6 +40,100 @@ title: Operation Log
 - sanity check:
   - `python -m compileall open_proxy_mcp` 통과
 
+## [2026-04-18] feat | ownership_structure control_map 고도화
+- `services/ownership_structure.py` 확장:
+  - `control_map`를 단순 raw dump에서 해석 가능한 블록 구조로 재편
+  - `core_holder_block`, `treasury_block`, `overlap_blocks`, `non_overlap_blocks`, `active_non_overlap_blocks`, `flags`, `observations`, `notes`
+  - 최대주주 명부와 5% 블록의 이름 겹침 여부를 `registry_overlap`으로 표시
+  - 관찰 포인트는 의미 있는 5% 이상 능동 블록만 기준으로 생성
+- `tools_v2/ownership_structure.py` 확장:
+  - `control_map` 전용 출력면 추가
+  - 명부상 특수관계인 합계, 자사주, 겹치지 않는 능동 5% 블록, 겹치는 5% 블록을 분리 표시
+- 실조회:
+  - `삼성전자`, `control_map` → `삼성물산` 블록은 명부와 겹치는 능동 블록으로 표시
+  - `고려아연`, `control_map` → `한국기업투자홀딩스`, `최윤범`, `크루시블제이브이`를 겹치지 않는 능동 블록으로 표시
+  - `한화`, `control_map` → 명부상 특수관계인 50% 이상 + 자사주 5% 이상 플래그 확인
+- sanity check:
+  - `python -m compileall open_proxy_mcp` 통과
+
+## [2026-04-18] feat | proxy_contest를 control_map과 최근 12개월 기준으로 재정렬
+- `services/proxy_contest.py` 확장:
+  - 최근 12개월 조사구간(`window_start`, `window_end`)을 공시 검색 기본 단위로 추가
+  - 위임장/공개매수, 소송/분쟁은 제목군만 타깃해서 최근 12개월 안에서 조회
+  - `ownership_structure`의 `control_map`을 가져와서 분쟁 문서와 5% 블록을 같은 판에서 해석
+  - `players` 추가:
+    - `company_side_filers`
+    - `shareholder_side_filers`
+    - `active_external_blocks`
+    - `active_overlap_blocks`
+  - `fight`에 `actor_group` 추가:
+    - `company`
+    - `external_active_block`
+    - `registry_overlap`
+    - `shareholder`
+  - `signals`에 `actor_side` 추가:
+    - `external_active_block`
+    - `registry_overlap`
+    - `external_or_passive`
+  - `timeline`에도 `actor`, `side`를 넣어 누가 어떤 문서를 냈는지 바로 읽히게 변경
+  - 5% 시그널은 최근 12개월 밖 공시가 섞이지 않도록 window 필터 적용
+- `tools_v2/proxy_contest.py` 확장:
+  - `summary`에 조사구간, 최대주주/특수관계인 합계/자사주 비중 추가
+  - `판 구조` 블록 추가: 회사측 제출인, 주주측 제출인, 외부 능동 블록, 명부 겹침 블록
+  - `fight`, `signals`, `timeline` 표에 플레이어 분류 열 추가
+- 실조회:
+  - `고려아연`, `summary`, `2026`
+    - 회사측 제출인 `고려아연`
+    - 주주측 제출인 `영풍`
+    - 명부와 안 겹치는 능동 5% 블록 `최윤범`, `크루시블제이브이`, `한국기업투자홀딩스`
+    - 명부와 겹치는 능동 블록 `영풍`
+  - `한화`, `summary`, `2026`
+    - 회사측 제출인 `한화`
+    - 명부상 특수관계인 합계 `55.84%`
+    - 자사주 `7.45%`
+    - 최근 12개월 시그널은 `김승연` 1건으로 정리
+- sanity check:
+  - `python -m compileall open_proxy_mcp` 통과
+
+## [2026-04-18] feat | v2 public tool 날짜 파라미터 표준화
+- `services/date_utils.py` 신규:
+  - `start_date`, `end_date` 파싱
+  - 기본 조회구간 계산
+  - 날짜 역전 시 자동 보정
+- `company`
+  - `start_date`, `end_date` 추가
+  - 최근 공시 인덱스를 지정 구간으로 조회
+- `shareholder_meeting`
+  - `start_date`, `end_date`, `lookback_months` 추가
+  - 지정 구간 또는 롤링 구간에서 정기/임시 최신 회차를 고름
+  - 응답에 `requested_window` 추가
+- `ownership_structure`
+  - `as_of_date`, `start_date`, `end_date` 추가
+  - 스냅샷 기준 연도는 `as_of_date`의 직전 사업연도로 연결
+  - 5% 블록/타임라인은 지정 구간으로 필터
+- `dividend`
+  - `start_date`, `end_date` 추가
+  - 배당결정 공시와 history 구간을 날짜 기준으로 제한
+- `proxy_contest`
+  - `start_date`, `end_date`, `lookback_months` 추가
+  - 분쟁 공시/시그널 window를 명시적으로 제어
+- `value_up`
+  - `start_date`, `end_date` 추가
+  - 밸류업 공시 검색 구간을 날짜 기준으로 제어
+- `evidence`
+  - `start_date`, `end_date`를 받도록 시그니처 통일
+  - 현재는 `rcept_no` 직접 조회가 우선이라 window는 메타데이터로만 저장
+- 실조회:
+  - `company('삼성전자', 2026-03-01~2026-04-18)` → recent filings window 반영
+  - `shareholder_meeting('한화', 2025-12-01~2026-04-18)` → `annual` 선택, `annual_and_extraordinary`
+  - `ownership_structure('한화', as_of=2026-04-18, 2026-01-01~2026-04-18)` → `exact`, timeline 4건
+  - `dividend('삼성전자', 2024-01-01~2025-12-31)` → `exact`, 최근 결정 5건
+  - `proxy_contest('고려아연', 2025-12-01~2026-04-18)` → `exact`, 능동 시그널 4건
+  - `value_up('KB금융', 2025-01-01~2026-04-18)` → `exact`, timeline 3건
+  - `evidence(rcept_no=20260225005779, keyword='제39기', 2026-01-01~2026-12-31)` → `exact`
+- sanity check:
+  - `python -m compileall open_proxy_mcp` 통과
+
 ## [2026-04-18] feat | release_v2 scaffold + company facade 첫 구현
 - `open_proxy_mcp/tools_v2/` 신규: v2 public facade layer 시작
 - `open_proxy_mcp/services/` 신규: v2 공통 service layer 시작

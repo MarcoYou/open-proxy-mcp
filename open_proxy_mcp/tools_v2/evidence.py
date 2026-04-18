@@ -8,8 +8,11 @@ from open_proxy_mcp.services.evidence import build_evidence_payload
 
 def _render(payload: dict) -> str:
     data = payload.get("data", {})
+    requested_window = data.get("requested_window", {})
     lines = [f"# evidence {data.get('rcept_no', payload.get('subject', ''))}", ""]
     lines.append(f"- status: `{payload.get('status', '')}`")
+    if requested_window and (requested_window.get("start_date") or requested_window.get("end_date")):
+        lines.append(f"- requested_window: `{requested_window.get('start_date', '')}` ~ `{requested_window.get('end_date', '')}`")
     if payload.get("warnings"):
         lines.append("")
         for warning in payload["warnings"]:
@@ -36,6 +39,8 @@ def register_tools(mcp):
         evidence_id: str = "",
         rcept_no: str = "",
         keyword: str = "",
+        start_date: str = "",
+        end_date: str = "",
         format: str = "md",
     ) -> str:
         """desc: 결과 뒤에 붙은 evidence_id 또는 rcept_no로 원문 발췌를 다시 여는 근거 tool.
@@ -43,7 +48,13 @@ def register_tools(mcp):
         rule: 현재는 DART XML 기반 evidence를 우선 지원한다. evidence_id에 rcept_no가 없으면 직접 원문으로 펼치지 못할 수 있다.
         ref: company, shareholder_meeting, ownership_structure, dividend, proxy_contest, value_up
         """
-        payload = await build_evidence_payload(evidence_id=evidence_id, rcept_no=rcept_no, keyword=keyword)
+        payload = await build_evidence_payload(
+            evidence_id=evidence_id,
+            rcept_no=rcept_no,
+            keyword=keyword,
+            start_date=start_date,
+            end_date=end_date,
+        )
         if format == "json":
             return as_pretty_json(payload)
         return _render(payload)

@@ -9,6 +9,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.date_utils import format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
 
 _SUPPORTED_SCOPES = {
@@ -61,6 +62,102 @@ def _top_holder_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _related_total(rows: list[dict[str, Any]]) -> float:
     return round(sum(row["ownership_pct"] for row in rows), 2)
+
+
+def _normalize_entity_name(name: str) -> str:
+    normalized = (name or "").strip()
+    normalized = normalized.replace("\n", " ")
+    normalized = re.sub(r"\(주\)|㈜|주식회사|유한회사|유한책임회사|\(유\)|\(유한\)", "", normalized)
+    normalized = re.sub(r"[^\w가-힣]", "", normalized)
+    return normalized.lower()
+
+
+def _is_active_purpose(purpose: str) -> bool:
+    return purpose not in ("단순투자", "단순투자/일반투자", "일반투자", "불명")
+
+
+def _is_material_block(row: dict[str, Any]) -> bool:
+    return _to_float(row.get("ownership_pct", 0)) >= 5.0
+
+
+def _build_control_map(
+    major_rows: list[dict[str, Any]],
+    latest_blocks: list[dict[str, Any]],
+    treasury_snapshot: dict[str, Any],
+) -> dict[str, Any]:
+    major_name_map = {
+        _normalize_entity_name(row["name"]): row
+        for row in major_rows
+        if _normalize_entity_name(row["name"])
+    }
+
+    overlap_blocks: list[dict[str, Any]] = []
+    non_overlap_blocks: list[dict[str, Any]] = []
+    active_non_overlap_blocks: list[dict[str, Any]] = []
+    active_overlap_blocks: list[dict[str, Any]] = []
+
+    for row in latest_blocks:
+        reporter_key = _normalize_entity_name(row.get("reporter", ""))
+        matched_major = major_name_map.get(reporter_key)
+        enriched = {
+            **row,
+            "registry_overlap": bool(matched_major),
+            "matched_major_holder": matched_major.get("name") if matched_major else None,
+            "active_purpose": _is_active_purpose(row.get("purpose", "")),
+        }
+        if enriched["registry_overlap"]:
+            overlap_blocks.append(enriched)
+            if enriched["active_purpose"] and _is_material_block(enriched):
+                active_overlap_blocks.append(enriched)
+        else:
+            non_overlap_blocks.append(enriched)
+            if enriched["active_purpose"] and _is_material_block(enriched):
+                active_non_overlap_blocks.append(enriched)
+
+    related_total_pct = _related_total(major_rows)
+    treasury_pct = treasury_snapshot["treasury_pct"]
+
+    flags = {
+        "registry_majority": related_total_pct >= 50,
+        "registry_over_30pct": related_total_pct >= 30,
+        "treasury_over_5pct": treasury_pct >= 5,
+        "active_non_overlap_block_exists": bool(active_non_overlap_blocks),
+        "active_overlap_block_exists": bool(active_overlap_blocks),
+    }
+
+    observations: list[str] = []
+    if flags["registry_majority"]:
+        observations.append("명부상 특수관계인 합계가 50% 이상이다.")
+    elif flags["registry_over_30pct"]:
+        observations.append("명부상 특수관계인 합계가 30% 이상이다.")
+    if flags["treasury_over_5pct"]:
+        observations.append("자사주 비중이 5% 이상이다.")
+    if flags["active_non_overlap_block_exists"]:
+        observations.append("명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다.")
+    elif flags["active_overlap_block_exists"]:
+        observations.append("능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다.")
+
+    return {
+        "core_holder_block": {
+            "top_holder": _top_holder_summary(major_rows),
+            "related_total_pct": related_total_pct,
+            "holder_count": len(major_rows),
+        },
+        "treasury_block": {
+            "shares": treasury_snapshot["treasury_shares"],
+            "pct": treasury_pct,
+        },
+        "overlap_blocks": overlap_blocks,
+        "active_overlap_blocks": active_overlap_blocks,
+        "non_overlap_blocks": non_overlap_blocks,
+        "active_non_overlap_blocks": active_non_overlap_blocks,
+        "flags": flags,
+        "observations": observations,
+        "notes": [
+            "5% 블록은 최대주주 명부와 단순 합산하지 않는다.",
+            "registry_overlap은 같은 이름이 최대주주 명부에 있는지를 뜻하며, 현재 이해관계가 완전히 같다는 의미는 아니다.",
+        ],
+    }
 
 
 async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
@@ -163,6 +260,9 @@ async def build_ownership_structure_payload(
     *,
     scope: str = "summary",
     year: int | None = None,
+    as_of_date: str = "",
+    start_date: str = "",
+    end_date: str = "",
 ) -> dict[str, Any]:
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
@@ -199,9 +299,17 @@ async def build_ownership_structure_payload(
         ).to_dict()
 
     selected = resolution.selected
-    bsns_year = str(year or (date.today().year - 1))
+    as_of = parse_date_param(as_of_date)
+    as_of_year = (as_of.year - 1) if as_of else None
+    bsns_year = str(year or as_of_year or (date.today().year - 1))
+    window_start, window_end, window_warnings = resolve_date_window(
+        start_date=start_date,
+        end_date=end_date,
+        default_end=as_of or date.today(),
+        lookback_months=12,
+    )
     client = get_dart_client()
-    warnings: list[str] = []
+    warnings: list[str] = list(window_warnings)
 
     try:
         major = await client.get_major_shareholders(selected["corp_code"], bsns_year)
@@ -230,6 +338,16 @@ async def build_ownership_structure_payload(
     latest_blocks, timeline_rows, block_warning = await _latest_block_rows(selected["corp_code"])
     if block_warning:
         warnings.append(block_warning)
+    start_ymd = format_yyyymmdd(window_start)
+    end_ymd = format_yyyymmdd(window_end)
+    latest_blocks = [
+        row for row in latest_blocks
+        if start_ymd <= row.get("report_date", "").replace("-", "") <= end_ymd
+    ]
+    timeline_rows = [
+        row for row in timeline_rows
+        if start_ymd <= row.get("report_date", "").replace("-", "") <= end_ymd
+    ]
 
     top_holder = _top_holder_summary(major_rows)
     treasury_snapshot = _treasury_snapshot(stock_total, treasury_data)
@@ -247,6 +365,11 @@ async def build_ownership_structure_payload(
             "corp_code": selected.get("corp_code", ""),
         },
         "year": bsns_year,
+        "as_of_date": as_of.isoformat() if as_of else "",
+        "window": {
+            "start_date": start_ymd,
+            "end_date": end_ymd,
+        },
         "summary": {
             "top_holder": top_holder,
             "related_total_pct": _related_total(major_rows),
@@ -266,14 +389,7 @@ async def build_ownership_structure_payload(
     if scope == "timeline":
         data["timeline"] = timeline_rows[:50]
     if scope == "control_map":
-        data["control_map"] = {
-            "major_holders": major_rows,
-            "external_blocks": latest_blocks,
-            "treasury": {
-                "shares": treasury_snapshot["treasury_shares"],
-                "pct": treasury_snapshot["treasury_pct"],
-            },
-        }
+        data["control_map"] = _build_control_map(major_rows, latest_blocks, treasury_snapshot)
 
     evidence_refs: list[EvidenceRef] = [
         EvidenceRef(
@@ -313,4 +429,3 @@ async def build_ownership_structure_payload(
             "blocks scope로 5% 대량보유 최신 보고 확인" if scope == "summary" else "proxy_contest와 함께 보면 분쟁 맥락이 더 잘 보인다.",
         ],
     ).to_dict()
-
