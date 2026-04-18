@@ -365,6 +365,32 @@ title: Operation Log
   - 공시에 집중투표가 명시되지 않고 복수 이사 선임만 있는 경우 `partial`
   - 감사위원/분리선출은 집중투표 대상 수에서 제외하는 보수적 기준 사용
 
+## [2026-04-18] feat | shareholder_meeting에 DART viewer HTML crawl fallback 추가
+- 원칙 반영:
+  - `document.xml` 기반 파싱이 약하면 DART `main.do -> report/viewer.do` HTML crawl로 재시도
+  - 자동 fallback은 `shareholder_meeting` notice 파싱에만 제한적으로 적용
+- 구현:
+  - `DartClient.get_viewer_document()` 추가
+  - `shareholder_meeting`가 `meeting_type/datetime/agenda` 품질이 낮을 때 viewer HTML로 재파싱
+  - `notice_parse_source=dart_xml|dart_html` 메타 추가
+- 의도:
+  - 공식 API/XML을 기본으로 유지
+  - 구조가 깨질 때만 웹 크롤링을 2차 경로로 사용
+
+## [2026-04-18] feat | KT&G 2024 구형 요약형 결과공시 파서 보강
+- 샘플:
+  - KT&G 2024 정기주총 결과 `20240328801345`
+- 문제:
+  - KIND 본문이 `주주총회 안건 세부내역` 표가 없는 구형 요약형
+  - `- 제1호 : ...`, `☞ 제3-1호 및 제3-3호 가결, 제3-2호 부결` 패턴
+- 보강:
+  - `의안` 없는 구형 제목형 파싱
+  - `내지`, `및`이 섞인 하위호안 outcome line 분해
+  - 후보자 출처 괄호 문장을 안건 제목에 이어붙이기
+- 결과:
+  - `shareholder_meeting(results)`가 KT&G 2024를 `summary` 형식으로 구조화
+  - `vote_math`는 여전히 `numerical unavailable`로 보수적으로 유지
+
 ## [2026-04-08] lint | 고립 노드 수정 + disclosure 카테고리 추가
 - 34개 페이지에 본문 wikilink 추가 (고립 해소)
 - disclosures/ 신규: 11개 공시 유형 페이지

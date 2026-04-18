@@ -877,9 +877,50 @@ def _normalize_vote_outcome(raw: str) -> str:
 
 def _extract_vote_outcome(text: str) -> str:
     normalized = (text or "").replace("-->", "→").replace("->", "→")
+    if not any(token in normalized for token in ("→", "가결", "부결", "승인")):
+        return ""
     if "→" in normalized:
         normalized = normalized.split("→", 1)[1]
     return _normalize_vote_outcome(normalized)
+
+
+def _expand_vote_number_expr(expr: str) -> list[str]:
+    expr = re.sub(r"\s+", " ", (expr or "").strip())
+    if not expr:
+        return []
+
+    range_match = re.search(r"제(\d+)-(\d+)호\s*내지\s*제(?:\1-)?(\d+)호", expr)
+    if range_match:
+        major = range_match.group(1)
+        start = int(range_match.group(2))
+        end = int(range_match.group(3))
+        return [f"제{major}-{num}호" for num in range(start, end + 1)]
+
+    range_match = re.search(r"제(\d+)호\s*내지\s*제(\d+)호", expr)
+    if range_match:
+        start = int(range_match.group(1))
+        end = int(range_match.group(2))
+        return [f"제{num}호" for num in range(start, end + 1)]
+
+    return re.findall(r"제\d+(?:-\d+)?호", expr)
+
+
+def _parse_summary_outcome_targets(line: str) -> list[tuple[list[str], str]]:
+    normalized = re.sub(r"\s+", " ", (line or "").strip())
+    if not normalized:
+        return []
+
+    pairs: list[tuple[list[str], str]] = []
+    pattern = re.compile(
+        r"(제\d+(?:-\d+)?호(?:\s*(?:및|,)\s*제\d+(?:-\d+)?호)*|제\d+(?:-\d+)?호\s*내지\s*제(?:\d+-)?\d+호)"
+        r"\s*(원안대로 승인|원안대로 가결|원안가결|수정가결|가결|부결)"
+    )
+    for match in pattern.finditer(normalized):
+        numbers = _expand_vote_number_expr(match.group(1))
+        outcome = _normalize_vote_outcome(match.group(2))
+        if numbers and outcome:
+            pairs.append((numbers, outcome))
+    return pairs
 
 
 def _parse_agm_result_summary(soup) -> list[dict]:
@@ -897,11 +938,26 @@ def _parse_agm_result_summary(soup) -> list[dict]:
 
     started = False
     current: dict[str, str] | None = None
+    current_children: dict[str, dict[str, str]] = {}
+    last_child_number: str | None = None
     items: list[dict] = []
 
     def flush_current() -> None:
-        nonlocal current
-        if current and current.get("passed"):
+        nonlocal current, current_children, last_child_number
+        if current_children:
+            for child in current_children.values():
+                if child.get("passed"):
+                    items.append({
+                        "number": child.get("number", ""),
+                        "resolution_type": "",
+                        "agenda": child.get("agenda", ""),
+                        "passed": child.get("passed", ""),
+                        "approval_rate_issued": "",
+                        "approval_rate_voted": "",
+                        "opposition_rate": "",
+                        "estimated_attendance": None,
+                    })
+        elif current and current.get("passed"):
             items.append({
                 "number": current.get("number", ""),
                 "resolution_type": "",
@@ -911,8 +967,10 @@ def _parse_agm_result_summary(soup) -> list[dict]:
                 "approval_rate_voted": "",
                 "opposition_rate": "",
                 "estimated_attendance": None,
-            })
+                    })
         current = None
+        current_children = {}
+        last_child_number = None
 
     for line in lines:
         if not started:
@@ -929,7 +987,36 @@ def _parse_agm_result_summary(soup) -> list[dict]:
             flush_current()
             break
 
-        match = re.search(r"(?:○\s*)?(?:\d+\)\s*)?(제\d+(?:-\d+)?호)\s*의안\s*[:：]?\s*(.*)", line)
+        if current:
+            targeted_outcomes = _parse_summary_outcome_targets(line)
+            if targeted_outcomes:
+                for numbers, outcome in targeted_outcomes:
+                    for number in numbers:
+                        if number in current_children:
+                            current_children[number]["passed"] = outcome
+                        elif current and current.get("number") == number:
+                            current["passed"] = outcome
+                if current_children and all(child.get("passed") for child in current_children.values()):
+                    flush_current()
+                elif current and current.get("passed"):
+                    flush_current()
+                continue
+
+        child_match = re.search(r"(?:[ㆍ•\-]\s*)?(제\d+(?:-\d+)?호)\s*[:：]?\s*(.*)", line)
+        if child_match and current:
+            number = child_match.group(1)
+            remainder = child_match.group(2).strip()
+            passed = _extract_vote_outcome(remainder) if any(token in remainder for token in ("→", "가결", "부결", "승인")) else ""
+            agenda = remainder.split("→", 1)[0].strip() if "→" in remainder else remainder
+            current_children[number] = {
+                "number": number,
+                "agenda": agenda.strip(" -"),
+                "passed": passed,
+            }
+            last_child_number = number
+            continue
+
+        match = re.search(r"(?:[-•○]\s*)?(?:\d+\)\s*)?(제\d+(?:-\d+)?호)\s*(?:의안)?\s*[:：]?\s*(.*)", line)
         if match:
             flush_current()
             number = match.group(1)
@@ -946,9 +1033,18 @@ def _parse_agm_result_summary(soup) -> list[dict]:
             continue
 
         if current:
+            if last_child_number and line.startswith("(") and not any(token in line for token in ("가결", "부결", "승인")):
+                current_children[last_child_number]["agenda"] = (
+                    current_children[last_child_number]["agenda"] + " " + line
+                ).strip()
+                continue
             outcome = _extract_vote_outcome(line)
             if outcome:
-                current["passed"] = outcome
+                if current_children:
+                    for child in current_children.values():
+                        child["passed"] = outcome
+                else:
+                    current["passed"] = outcome
                 flush_current()
 
     flush_current()
