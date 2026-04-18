@@ -1,0 +1,154 @@
+{
+  "version": "2026-04-18",
+  "policy": {
+    "pdf_download": false,
+    "base_priority": [
+      "dart_api",
+      "dart_document_xml",
+      "kind_html_whitelist_only",
+      "naver_supplement",
+      "requires_review"
+    ],
+    "kind_raw_rcept_allowed": false,
+    "kind_title_validation_required": true
+  },
+  "kind_mapping_whitelist": [
+    {
+      "key": "agm_result",
+      "display_name": "주주총회결과",
+      "dart_selector": {
+        "pblntf_ty": ["I"],
+        "report_nm_contains": ["주주총회결과"]
+      },
+      "kind_mapping": {
+        "rule": "80_to_00",
+        "title_contains_any": ["정기주주총회 결과", "임시주주총회 결과", "주주총회 결과"]
+      }
+    },
+    {
+      "key": "dividend_decision",
+      "display_name": "현금ㆍ현물배당결정",
+      "dart_selector": {
+        "pblntf_ty": ["I"],
+        "report_nm_contains": ["현금ㆍ현물배당결정", "현금배당결정", "분기ㆍ중간배당결정"]
+      },
+      "kind_mapping": {
+        "rule": "80_to_00",
+        "title_contains_any": ["현금ㆍ현물배당 결정", "현금·현물배당 결정"]
+      }
+    },
+    {
+      "key": "value_up",
+      "display_name": "기업가치제고계획",
+      "dart_selector": {
+        "pblntf_ty": ["I"],
+        "report_nm_contains": ["기업가치제고", "기업가치 제고", "밸류업"]
+      },
+      "kind_mapping": {
+        "rule": "80_to_00",
+        "title_contains_any": ["기업가치 제고 계획(자율공시)", "기업가치 제고 계획"]
+      }
+    },
+    {
+      "key": "litigation_exchange_style",
+      "display_name": "소송/분쟁",
+      "dart_selector": {
+        "pblntf_ty": ["B", "I"],
+        "report_nm_contains": ["소송등의제기", "소송등의신청", "소송등의판결", "소송등의결정", "경영권분쟁소송"]
+      },
+      "kind_mapping": {
+        "rule": "80_to_00_preferred",
+        "title_contains_any": ["소송 등의 판결ㆍ결정", "소송 등의 제기ㆍ신청", "소송 등의 판결", "소송 등의 제기", "경영권분쟁소송"]
+      }
+    }
+  ],
+  "non_whitelist": [
+    "agm_notice",
+    "proxy_or_tob",
+    "majorstock",
+    "elestock",
+    "treasury_event"
+  ],
+  "extra_verified_samples": [
+    {
+      "category": "agm_result",
+      "company": "KB금융",
+      "stock_code": "105560",
+      "rcept_no": "20260326803383",
+      "kind_acptno": "20260326003383",
+      "kind_title": ":: 91482_정기주주총회 결과"
+    },
+    {
+      "category": "agm_result",
+      "company": "하나금융지주",
+      "stock_code": "086790",
+      "rcept_no": "20260324801626",
+      "kind_acptno": "20260324001626",
+      "kind_title": ":: 91482_정기주주총회 결과"
+    },
+    {
+      "category": "agm_result",
+      "company": "우리금융지주",
+      "stock_code": "316140",
+      "rcept_no": "20260323801888",
+      "kind_acptno": "20260323001888",
+      "kind_title": ":: 91482_정기주주총회 결과"
+    },
+    {
+      "category": "dividend_decision",
+      "company": "KB금융",
+      "stock_code": "105560",
+      "rcept_no": "20260205800620",
+      "kind_acptno": "20260205000620",
+      "kind_title": ":: 61500_현금ㆍ현물배당 결정"
+    },
+    {
+      "category": "dividend_decision",
+      "company": "하나금융지주",
+      "stock_code": "086790",
+      "rcept_no": "20260130800542",
+      "kind_acptno": "20260130000542",
+      "kind_title": ":: 61500_현금ㆍ현물배당 결정"
+    },
+    {
+      "category": "dividend_decision",
+      "company": "POSCO홀딩스",
+      "stock_code": "005490",
+      "rcept_no": "20260203801053",
+      "kind_acptno": "20260203001053",
+      "kind_title": ":: 61500_현금ㆍ현물배당 결정"
+    },
+    {
+      "category": "value_up",
+      "company": "우리금융지주",
+      "stock_code": "316140",
+      "rcept_no": "20260323801851",
+      "kind_acptno": "20260323001851",
+      "kind_title": ":: 68961_기업가치 제고 계획(자율공시)"
+    },
+    {
+      "category": "value_up",
+      "company": "신한지주",
+      "stock_code": "055550",
+      "rcept_no": "20260326803139",
+      "kind_acptno": "20260326003139",
+      "kind_title": ":: 68961_기업가치 제고 계획(자율공시)"
+    },
+    {
+      "category": "value_up",
+      "company": "삼성생명",
+      "stock_code": "032830",
+      "rcept_no": "20260319801509",
+      "kind_acptno": "20260319001509",
+      "kind_title": ":: 68961_기업가치 제고 계획(자율공시)"
+    },
+    {
+      "category": "litigation_exchange_style",
+      "company": "LG화학",
+      "stock_code": "051910",
+      "rcept_no": "20260225801485",
+      "kind_acptno": "20260225001485",
+      "kind_title": ":: 61222_소송 등의 판결ㆍ결정"
+    }
+  ]
+}

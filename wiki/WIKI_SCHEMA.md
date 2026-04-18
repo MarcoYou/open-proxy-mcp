@@ -31,6 +31,7 @@ wiki/
   concepts/       # 도메인 개념 (배당, 의결권, 프록시파이트, 집중투표 등)
   entities/       # 엔티티 (DART API, KRX, 삼성전자, 국민연금 등)
   analysis/       # 분석 (파서 성능, tool 비교, 아키텍처 결정 등)
+  templates/      # 반복적으로 재사용하는 제안/검증 템플릿
   disclosures/    # 공시 유형 (소집공고, 배당결정 등)
   sources/        # 원본 소스 요약 (1 소스 = 1 요약)
   index.md        # 전체 위키 인덱스
@@ -75,6 +76,16 @@ tags: [parser, personnel, benchmark]
 type: source
 title: AGM_TOOL_RULE.md 요약
 source_path: open_proxy_mcp/AGM_TOOL_RULE.md
+---
+```
+
+### template (재사용 템플릿)
+```yaml
+---
+type: template
+title: 신규 tool 제안 및 검증 템플릿
+tags: [template, validation]
+related: [tool-추가-검증-정책]
 ---
 ```
 

@@ -5,6 +5,19 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-18] docs | 신규 tool 추가 검증 정책 + release_v2 소스 검증 기준 정리
+- `decisions/tool-추가-검증-정책.md` 신규: data/action tool 분류, 공시 매핑표, 화이트리스트 체크, 샘플 검증, 출시 게이트 정리
+- `DART-KIND-매핑-화이트리스트-2026-04`를 신규 tool 검증 정책의 기준 문서로 연결
+- `index.md` 업데이트: release_v2 정책 문서 카탈로그 반영
+- `templates/tool-추가-검증-템플릿.md` 신규: 제안서, data/action 검증, whitelist extension, release gate 복붙 템플릿 추가
+- `WIKI_SCHEMA.md` 업데이트: templates/ 디렉토리와 `type: template` 정의 추가
+- `analysis/shareholder_meeting-tool-검증-예시.md` 신규: 실제 `rcept_no` 샘플로 `shareholder_meeting` data tool 검증 예시 작성
+- `analysis/release_v2-public-tool-검증-매트릭스.md` 신규: release_v2 공개 data/action tool 전체 판정 요약
+- `analysis/company/ownership/dividend/proxy_contest/value_up/evidence` 검증 예시 추가
+- `analysis/release_v2-action-tool-검증-초안.md` 신규: action tool 3종을 phase-2 검증 대상으로 정리
+- `analysis/release_v2-tool-아키텍처.md` 신규: `company -> data tools -> evidence -> action tools` 구조를 도식화
+- `contestation` 명칭을 `proxy_contest`로 통일
+
 ## [2026-04-12] refactor | tool 체이닝 + governance_report + tier 체계 완성 (33개)
 - agm_pre_analysis + own_full_analysis → tier-5 asyncio.gather 병렬 체이닝
 - prx_fight → prx_search + prx_direction 체이닝 (중복 제거)

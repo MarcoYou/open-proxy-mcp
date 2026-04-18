@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-04-11
+updated: 2026-04-18
 ---
 
 # OPM Wiki Index
@@ -61,9 +61,15 @@ updated: 2026-04-11
 - [[BeautifulSoup-파서-선택]] - lxml 채택 (30% 빠름, 결과 동일)
 - [[LLM-fallback-설계]] - 정규식 -> zone 추출 -> LLM 하이브리드 전략
 - [[free-paid-분리]] - MCP(public) + Pipeline(private) 2-repo 구조
+- [[DART-KIND-매핑-화이트리스트-2026-04]] - KIND 병행 허용 공시 화이트리스트 + false match 사례
+- [[tool-추가-검증-정책]] - release_v2 신규 tool 추가 시 action/data별 검증 매뉴얼 + 화이트리스트 체크
 - [[파서-성능-추이]] - 2026-03-20부터 04-06까지 8개 파서 개선 이력
 - [[cross-domain-체이닝]] - AGM/OWN/DIV 도메인 간 tool 연결 맵 + 시나리오
 - [[파이프라인-아키텍처]] - 199개 기업 v4 JSON 생성 배치 파이프라인
+
+## Templates
+
+- [[tool-추가-검증-템플릿]] - 신규 data/action tool 제안, 화이트리스트 확장, 출시 게이트 복붙 템플릿
 
 ## Comparison
 
@@ -73,6 +79,16 @@ updated: 2026-04-11
 ## Analysis
 
 - [[KIND-주총결과]] - KIND 크롤링 기반 투표결과+참석률 역산 분석
+- [[release_v2-tool-아키텍처]] - release_v2 공개 tool 표면과 내부 source flow를 도식화한 문서
+- [[release_v2-public-tool-검증-매트릭스]] - release_v2 공개 표면 전체의 소스/화이트리스트/출시 판정 요약표
+- [[company-tool-검증-예시]] - company data tool 제안/검증 예시
+- [[shareholder_meeting-tool-검증-예시]] - shareholder_meeting data tool 제안/검증을 실제 샘플로 채운 예시
+- [[ownership_structure-tool-검증-예시]] - ownership_structure data tool 제안/검증 예시
+- [[dividend-tool-검증-예시]] - dividend data tool 제안/검증 예시
+- [[proxy_contest-tool-검증-예시]] - proxy_contest data tool 제안/검증 예시
+- [[value_up-tool-검증-예시]] - value_up data tool 제안/검증 예시
+- [[evidence-tool-검증-예시]] - evidence data tool 제안/검증 예시
+- [[release_v2-action-tool-검증-초안]] - action tool 3종의 phase-2 검증 초안
 - [[주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (미래에셋증권)
 - [[상법개정-타임라인-2026]] - 2025-2027 상법 개정 시행 일정
 - [[proxy-voting-decision-tree]] - 3개 소스 통합 의결권 행사 판단 프레임워크

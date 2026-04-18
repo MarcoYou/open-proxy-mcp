@@ -7,6 +7,15 @@
 
 [Korean README (default)](README.md)
 
+## Documentation Tracks
+
+The documentation should now be read in two tracks:
+
+- `v1 (current stable / production-facing)`: [docs/v1/README_ENG.md](docs/v1/README_ENG.md)
+- `v2 (release_v2.0.0 design / next public surface)`: [docs/v2/README_ENG.md](docs/v2/README_ENG.md)
+
+This README currently belongs to the `v1` track.
+
 ## Why OpenProxy?
 
 At the heart of the Korea Discount lies governance risk. As passive investing grows and the meaning of stock ownership fades, this risk is only becoming sharper. Easy access to governance data and fast, in-depth analysis are essential -- but parsing hundreds of pages of regulatory filings takes both time and expertise that most investors don't have.
