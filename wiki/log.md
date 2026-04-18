@@ -134,6 +134,30 @@ title: Operation Log
 - sanity check:
   - `python -m compileall open_proxy_mcp` 통과
 
+## [2026-04-18] feat | prepare_vote_brief 1차 구현
+- `services/vote_brief.py` 신규:
+  - `shareholder_meeting`의 `summary/agenda/board/compensation/results`와
+    `ownership_structure control_map`을 묶어 한 장 메모 payload 생성
+  - 추천 찬반을 단정하지 않고, 회차/판 구조/안건/후보자/보수/결과/체크포인트 중심으로 정리
+  - `meeting_date`를 `ownership as_of_date`로 넘겨 같은 회차 기준 스냅샷을 맞춤
+  - evidence는 하위 data tool의 evidence를 합쳐 dedupe
+- `tools_v2/prepare_vote_brief.py` 신규:
+  - `prepare_vote_brief` public action tool 추가
+  - 기본 파라미터: `company`, `meeting_type`, `year`, `start_date`, `end_date`, `lookback_months`
+  - markdown 출력은 `회차`, `판 구조`, `안건`, `후보자`, `보수`, `결과`, `체크 포인트`, `근거` 순으로 정리
+- 실조회:
+  - `KT&G`, `2026`
+    - `annual`, `post_result`, agenda 15건, 후보 3명, 보수안건 1건
+    - 결과 안건 14건 모두 가결
+    - 체크 포인트: 자사주 5% 이상
+  - `한화`, `2025-12-01 ~ 2026-04-18`
+    - `annual`, `post_result`, agenda 17건, 후보 5명, 보수안건 1건
+    - 반대율 10% 이상 안건: 정관 일부 변경(이사 임기 변경), 이사 보수 한도 승인
+    - 체크 포인트: 정정공고 반영, 특수관계인 50%+, 자사주 5%+, 명부 겹침 능동 블록
+- sanity check:
+  - `python -m compileall open_proxy_mcp` 통과
+  - `build_mcp('v2')`에서 `prepare_vote_brief` 등록 확인
+
 ## [2026-04-18] feat | release_v2 scaffold + company facade 첫 구현
 - `open_proxy_mcp/tools_v2/` 신규: v2 public facade layer 시작
 - `open_proxy_mcp/services/` 신규: v2 공통 service layer 시작
