@@ -158,6 +158,27 @@ title: Operation Log
   - `python -m compileall open_proxy_mcp` 통과
   - `build_mcp('v2')`에서 `prepare_vote_brief` 등록 확인
 
+## [2026-04-18] feat | prepare_engagement_case + build_campaign_brief 추가
+- `services/engagement_case.py`, `tools_v2/prepare_engagement_case.py` 신규:
+  - `ownership_structure(control_map)`, `proxy_contest(summary)`, `value_up(summary)`를 합쳐 engagement memo 생성
+  - 출력은 `쟁점 프레이밍`, `지배구조 맥락`, `분쟁 신호`, `밸류업/주주환원 맥락`, `체크 포인트`, `근거`
+  - 자동 추천이나 처방은 넣지 않고 fact-first 구조 유지
+- `services/campaign_brief.py`, `tools_v2/build_campaign_brief.py` 신규:
+  - `shareholder_meeting(summary/agenda/board)`, `ownership_structure(control_map)`, `proxy_contest(timeline)`를 합쳐 campaign fact brief 생성
+  - 출력은 `회의 맥락`, `플레이어`, `지배구조`, `분쟁 개요`, `타임라인`, `핵심 플래그`, `근거`
+  - `brief_note`로 vote math/추천 부재를 명시
+- 실조회:
+  - `prepare_engagement_case('KT&G', 2025-12-01~2026-04-18)` → `exact`, `cmp_033780`
+    - 최대주주 `중소기업은행 8.06%`
+    - 자사주 `12.03%`
+    - engagement용 쟁점 프레이밍/분쟁 신호/밸류업 맥락 정상 생성
+  - `build_campaign_brief('KT&G', 2026)` → `exact`, `cmp_033780`
+    - `meeting_type=annual`
+    - timeline 3건
+    - 플레이어/지배구조/회의 맥락 정상 생성
+- sanity check:
+  - `python -m compileall open_proxy_mcp/services/engagement_case.py open_proxy_mcp/tools_v2/prepare_engagement_case.py open_proxy_mcp/services/campaign_brief.py open_proxy_mcp/tools_v2/build_campaign_brief.py` 통과
+
 ## [2026-04-18] feat | release_v2 scaffold + company facade 첫 구현
 - `open_proxy_mcp/tools_v2/` 신규: v2 public facade layer 시작
 - `open_proxy_mcp/services/` 신규: v2 공통 service layer 시작
