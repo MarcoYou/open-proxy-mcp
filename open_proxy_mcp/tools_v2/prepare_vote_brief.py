@@ -24,6 +24,7 @@ def _render(payload: dict[str, Any]) -> str:
     board_brief = data.get("board_brief", {})
     comp_brief = data.get("compensation_brief", {})
     result_brief = data.get("result_brief", {})
+    vote_math_brief = data.get("vote_math_brief", {})
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} vote brief", ""]
     lines.append(f"- company_id: `{data.get('company_id', '')}`")
@@ -92,11 +93,31 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("## 결과")
         lines.append(f"- 의결 결과 확보 안건 수: {result_brief.get('agenda_count', 0)}")
         lines.append(f"- 가결 안건 수: {result_brief.get('passed_count', 0)}")
+        if result_brief.get("result_format"):
+            lines.append(f"- 결과공시 형식: `{result_brief.get('result_format')}`")
+        if result_brief.get("numerical_vote_table_available") is not None:
+            lines.append(f"- 수치표 제공 여부: `{result_brief.get('numerical_vote_table_available')}`")
         high_opp = result_brief.get("high_opposition_items", [])
         if high_opp:
             lines.append("- 반대율이 높았던 안건")
             for item in high_opp[:10]:
                 lines.append(f"  - {item.get('number', '')} {item.get('agenda', '')} / 반대율 {item.get('opposition_rate', 0):.2f}%")
+        lines.append("")
+
+    if vote_math_brief:
+        lines.append("## vote_math")
+        lines.append(f"- vote_math status: `{vote_math_brief.get('status', '-')}`")
+        if vote_math_brief.get("representative_pct") is not None:
+            lines.append(f"- 대표 추정참석률: {vote_math_brief.get('representative_pct')}%")
+        lines.append(f"- 비교 가능한 보통결의 안건 수: {vote_math_brief.get('comparable_item_count', 0)}건")
+        if vote_math_brief.get("contestable_turnout_pct") is not None:
+            lines.append(f"- 특수관계인 제외 추정 참석분: {vote_math_brief.get('contestable_turnout_pct')}%")
+        if vote_math_brief.get("ex_related_turnout_pct") is not None:
+            lines.append(f"- 특수관계인 제외 추정 참석률: {vote_math_brief.get('ex_related_turnout_pct')}%")
+        if vote_math_brief.get("signal_level"):
+            lines.append(f"- signal_level: `{vote_math_brief.get('signal_level')}`")
+        for note in (vote_math_brief.get("notes", []) or [])[:5]:
+            lines.append(f"- {note}")
         lines.append("")
 
     flags = data.get("key_flags", []) or []

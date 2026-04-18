@@ -340,6 +340,19 @@ title: Operation Log
   - 찬성률/반대율/추정참석률은 비제공
   - `vote_math`는 계속 `requires_review`
 
+## [2026-04-18] feat | prepare_vote_brief에 결과 품질과 vote_math 연결
+- `prepare_vote_brief`가 이제 결과공시 품질을 같이 보여줌
+- 결과가 세부표형이면:
+  - `result_format=table`
+  - 수치표 제공 여부 표시
+  - `vote_math` 요약(대표 추정참석률, signal_level, 특수관계인 제외 추정 참석분) 포함
+- 결과가 요약형이면:
+  - `result_format=summary`
+  - 안건별 가결/부결만 사용
+  - `vote_math`는 비활성
+- 목적:
+  - “결과 확인 가능”과 “숫자 분석 가능”을 분리해서 읽히게 함
+
 ## [2026-04-08] lint | 고립 노드 수정 + disclosure 카테고리 추가
 - 34개 페이지에 본문 wikilink 추가 (고립 해소)
 - disclosures/ 신규: 11개 공시 유형 페이지

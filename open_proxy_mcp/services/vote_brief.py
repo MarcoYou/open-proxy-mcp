@@ -8,6 +8,7 @@ from typing import Any
 
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
+from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 
 
@@ -63,7 +64,8 @@ def _meeting_date_for_asof(meeting_summary_payload: dict[str, Any], end_date: st
 
 
 def _result_highlights(result_payload: dict[str, Any]) -> dict[str, Any]:
-    items = result_payload.get("data", {}).get("results", {}).get("items", []) or []
+    result_data = result_payload.get("data", {}).get("results", {}) or {}
+    items = result_data.get("items", []) or []
     if not items:
         return {}
 
@@ -86,6 +88,39 @@ def _result_highlights(result_payload: dict[str, Any]) -> dict[str, Any]:
         "agenda_count": len(items),
         "passed_count": passed,
         "high_opposition_items": opposed,
+        "result_format": result_data.get("result_format", ""),
+        "numerical_vote_table_available": result_data.get("numerical_vote_table_available"),
+    }
+
+
+def _result_quality_note(result_brief: dict[str, Any]) -> str:
+    result_format = result_brief.get("result_format", "")
+    numerical_available = result_brief.get("numerical_vote_table_available")
+    if result_format == "table" and numerical_available:
+        return "세부표형 결과공시라 안건별 찬성률과 추정참석률까지 확인 가능하다."
+    if result_format == "summary":
+        return "요약형 결과공시라 안건별 가결·부결은 확인되지만 찬성률/참석률 수치는 제공되지 않는다."
+    return ""
+
+
+def _vote_math_brief(vote_math_payload: dict[str, Any] | None) -> dict[str, Any]:
+    if not vote_math_payload:
+        return {}
+    data = vote_math_payload.get("data", {}).get("vote_math", {}) or {}
+    attendance = data.get("attendance_estimate", {}) or {}
+    capital = data.get("capital_structure", {}) or {}
+    interpretation = data.get("interpretation", {}) or {}
+    meeting_ref = data.get("meeting_reference", {}) or {}
+    return {
+        "status": vote_math_payload.get("status", ""),
+        "meeting_reference": meeting_ref,
+        "representative_pct": attendance.get("representative_pct"),
+        "comparable_item_count": attendance.get("comparable_item_count", 0),
+        "signal_level": interpretation.get("signal_level", ""),
+        "contestable_turnout_pct": capital.get("contestable_turnout_pct"),
+        "ex_related_turnout_pct": capital.get("ex_related_turnout_pct"),
+        "notes": interpretation.get("notes", []) or [],
+        "warnings": vote_math_payload.get("warnings", []) or [],
     }
 
 
@@ -203,6 +238,7 @@ async def build_vote_brief_payload(
     )
 
     result_payload = None
+    vote_math_payload = None
     if meeting_data.get("result_status") == "available":
         result_payload = await build_shareholder_meeting_payload(
             company_query,
@@ -213,6 +249,16 @@ async def build_vote_brief_payload(
             end_date=end_date,
             lookback_months=lookback_months,
         )
+        result_brief_for_quality = _result_highlights(result_payload)
+        if result_brief_for_quality.get("numerical_vote_table_available"):
+            vote_math_payload = await build_proxy_contest_payload(
+                company_query,
+                scope="vote_math",
+                year=year,
+                start_date=start_date,
+                end_date=end_date,
+                lookback_months=lookback_months,
+            )
 
     merged_status = _merge_status(
         meeting_summary.get("status"),
@@ -221,6 +267,7 @@ async def build_vote_brief_payload(
         compensation_payload.get("status"),
         ownership_payload.get("status"),
         result_payload.get("status") if result_payload else AnalysisStatus.EXACT,
+        vote_math_payload.get("status") if vote_math_payload else AnalysisStatus.EXACT,
     )
 
     control_map = ownership_payload.get("data", {}).get("control_map", {}) or {}
@@ -240,6 +287,10 @@ async def build_vote_brief_payload(
         "compensation_items": compensation_payload.get("data", {}).get("compensation_summary", {}).get("totalItems", 0),
     }
 
+    result_brief = _result_highlights(result_payload or {})
+    result_quality_note = _result_quality_note(result_brief)
+    vote_math_brief = _vote_math_brief(vote_math_payload)
+
     key_flags = _dedupe_strings(
         [
             *meeting_summary.get("warnings", []),
@@ -248,7 +299,9 @@ async def build_vote_brief_payload(
             *compensation_payload.get("warnings", []),
             *ownership_payload.get("warnings", []),
             *(result_payload.get("warnings", []) if result_payload else []),
+            *(vote_math_payload.get("warnings", []) if vote_math_payload else []),
             *(control_map.get("observations", []) or []),
+            result_quality_note,
         ]
     )
     if meeting_data.get("correction_summary"):
@@ -289,7 +342,8 @@ async def build_vote_brief_payload(
             "candidates": _board_candidates(board_payload)[:20],
         },
         "compensation_brief": _compensation_brief(compensation_payload),
-        "result_brief": _result_highlights(result_payload or {}),
+        "result_brief": result_brief,
+        "vote_math_brief": vote_math_brief,
         "key_flags": key_flags[:20],
     }
 
@@ -300,11 +354,13 @@ async def build_vote_brief_payload(
         *(compensation_payload.get("evidence_refs", []) or []),
         *(ownership_payload.get("evidence_refs", []) or []),
         *((result_payload.get("evidence_refs", []) or []) if result_payload else []),
+        *((vote_math_payload.get("evidence_refs", []) or []) if vote_math_payload else []),
     ])
 
     next_actions = [
         "evidence tool로 핵심 공시 원문을 다시 열어 확인",
         "shareholder_meeting results scope로 실제 의결 결과 재확인" if meeting_data.get("result_status") == "available" else "회의 이후 결과공시가 나오면 results scope로 다시 확인",
+        "결과가 요약형이면 vote_math 대신 안건별 가결·부결 중심으로 해석",
         "ownership_structure control_map과 함께 보면 표 대결 구도가 더 선명하다.",
     ]
 
