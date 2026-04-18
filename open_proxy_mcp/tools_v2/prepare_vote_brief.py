@@ -26,6 +26,7 @@ def _render(payload: dict[str, Any]) -> str:
     result_brief = data.get("result_brief", {})
     vote_math_brief = data.get("vote_math_brief", {})
     cumulative_strategy = data.get("cumulative_voting_strategy", {})
+    quality = data.get("quality", {})
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} vote brief", ""]
     lines.append(f"- company_id: `{data.get('company_id', '')}`")
@@ -34,6 +35,25 @@ def _render(payload: dict[str, Any]) -> str:
     if requested_window:
         lines.append(f"- 조사 구간: `{requested_window.get('start_date', '')}` ~ `{requested_window.get('end_date', '')}`")
     lines.append("")
+
+    if quality:
+        lines.append("## 품질")
+        if quality.get("notice_parse_source"):
+            lines.append(f"- notice_parse_source: `{quality.get('notice_parse_source')}`")
+        if quality.get("result_format"):
+            lines.append(f"- result_format: `{quality.get('result_format')}`")
+        if quality.get("numerical_vote_table_available") is not None:
+            lines.append(f"- numerical_vote_table_available: `{quality.get('numerical_vote_table_available')}`")
+        lines.append(f"- meeting_summary_status: `{quality.get('meeting_summary_status', '')}`")
+        lines.append(f"- agenda_status: `{quality.get('agenda_status', '')}`")
+        lines.append(f"- board_status: `{quality.get('board_status', '')}`")
+        lines.append(f"- compensation_status: `{quality.get('compensation_status', '')}`")
+        lines.append(f"- ownership_status: `{quality.get('ownership_status', '')}`")
+        if quality.get("result_status"):
+            lines.append(f"- result_scope_status: `{quality.get('result_status')}`")
+        if quality.get("vote_math_status"):
+            lines.append(f"- vote_math_status: `{quality.get('vote_math_status')}`")
+        lines.append("")
 
     lines.append("## 회차")
     lines.append(f"- 선택 회차: {meeting_summary.get('meeting_type', '-')}")

@@ -29,6 +29,16 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
     lines.append("")
 
+    quality = data.get("quality", {})
+    if quality:
+        lines.append("## 품질")
+        lines.append(f"- ownership_status: `{quality.get('ownership_status', '')}`")
+        lines.append(f"- proxy_status: `{quality.get('proxy_status', '')}`")
+        lines.append(f"- value_up_status: `{quality.get('value_up_status', '')}`")
+        lines.append(f"- proxy_has_contest_signal: `{quality.get('proxy_has_contest_signal', False)}`")
+        lines.append(f"- value_up_filing_count: `{quality.get('value_up_filing_count', 0)}`")
+        lines.append("")
+
     if payload.get("warnings"):
         lines.append("## 유의사항")
         for warning in payload["warnings"]:

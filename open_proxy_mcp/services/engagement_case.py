@@ -181,6 +181,13 @@ async def build_engagement_case_payload(
                 "anchor_year": window_end.year,
                 "lookback_months": lookback_months,
             },
+            "quality": {
+                "ownership_status": ownership_payload.get("status", ""),
+                "proxy_status": proxy_payload.get("status", ""),
+                "value_up_status": value_payload.get("status", ""),
+                "proxy_has_contest_signal": proxy_summary.get("has_contest_signal", False),
+                "value_up_filing_count": value_snapshot.get("filing_count", 0),
+            },
             "issue_framing": {
                 "points": _dedupe_strings(issue_points)[:15],
                 "control_flags": control_map.get("flags", {}),

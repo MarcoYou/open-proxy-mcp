@@ -300,6 +300,16 @@ async def build_campaign_brief_payload(
         "canonical_name": meeting_data.get("canonical_name", ""),
         "brief_note": "이 brief는 사실 브리프이며 자동 추천이나 vote math를 포함하지 않는다.",
         "requested_window": meeting_data.get("requested_window", {}),
+        "quality": {
+            "meeting_summary_status": meeting_summary.get("status", ""),
+            "agenda_status": agenda_payload.get("status", ""),
+            "board_status": board_payload.get("status", ""),
+            "ownership_status": ownership_payload.get("status", ""),
+            "proxy_status": proxy_payload.get("status", ""),
+            "notice_parse_source": meeting_data.get("notice_parse_source", ""),
+            "meeting_phase": meeting_data.get("meeting_phase", ""),
+            "result_status": meeting_data.get("result_status", ""),
+        },
         "meeting_context": meeting_context,
         "players": {
             "company_side_filers": proxy_players.get("company_side_filers", []),

@@ -46,6 +46,19 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"- 조사 구간: `{requested_window.get('start_date', '')}` ~ `{requested_window.get('end_date', '')}`")
     lines.append("")
 
+    quality = data.get("quality", {})
+    if quality:
+        lines.append("## 품질")
+        lines.append(f"- notice_parse_source: `{quality.get('notice_parse_source', '')}`")
+        lines.append(f"- meeting_summary_status: `{quality.get('meeting_summary_status', '')}`")
+        lines.append(f"- agenda_status: `{quality.get('agenda_status', '')}`")
+        lines.append(f"- board_status: `{quality.get('board_status', '')}`")
+        lines.append(f"- ownership_status: `{quality.get('ownership_status', '')}`")
+        lines.append(f"- proxy_status: `{quality.get('proxy_status', '')}`")
+        lines.append(f"- meeting_phase: `{quality.get('meeting_phase', '')}`")
+        lines.append(f"- result_status: `{quality.get('result_status', '')}`")
+        lines.append("")
+
     lines.append("## 회의 맥락")
     lines.append(f"- 선택 회차: {meeting.get('summary', {}).get('meeting_type', '-')}")
     lines.append(f"- 회의일: {meeting.get('summary', {}).get('meeting_date') or '-'}")
