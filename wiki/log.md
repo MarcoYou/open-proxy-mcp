@@ -311,6 +311,35 @@ title: Operation Log
 - cross-domain-체이닝.md 신규: 도메인 간 tool 연결 맵 + 시나리오 3개
 - index.md 업데이트
 
+## [2026-04-18] feat | v2 proxy_contest vote_math 추가
+- `proxy_contest(scope="vote_math")` 공개
+- 기준:
+  - `shareholder_meeting(results)`의 KIND 결과표 사용
+  - 안건별 추정참석률 = 발행기준 찬성률 / 행사기준 찬성률
+  - 보통결의 안건 최빈값을 대표 추정참석률로 사용
+  - 감사위원/집중투표/비교 불가 안건은 제외
+- 출력:
+  - 대표 추정참석률
+  - 특수관계인/자사주/능동 5% 블록
+  - 특수관계인 제외 추정 참석분
+  - 고반대율/부결 안건
+  - signal_level (`stable` / `watch` / `contestable`)
+- 원칙:
+  - 승패 예측 아님
+  - 결과공시 없거나 비교 가능한 보통결의 안건이 없으면 `requires_review`
+
+## [2026-04-18] feat | 요약형 KIND 주총결과 파서 추가
+- `shareholder_meeting(results)`가 세부표형뿐 아니라 요약형 결과공시도 읽도록 확장
+- 지원 패턴:
+  - `○ 제1호 의안 : ... → 원안가결`
+  - `제2-1호 의안 : ...` 다음 줄 `→ 부결`
+  - `1) 제1호 의안: ... → 원안대로 승인`
+- 출력에 `result_format=table|summary`, `numerical_vote_table_available` 추가
+- 요약형이면:
+  - 안건별 가결/부결은 제공
+  - 찬성률/반대율/추정참석률은 비제공
+  - `vote_math`는 계속 `requires_review`
+
 ## [2026-04-08] lint | 고립 노드 수정 + disclosure 카테고리 추가
 - 34개 페이지에 본문 wikilink 추가 (고립 해소)
 - disclosures/ 신규: 11개 공시 유형 페이지

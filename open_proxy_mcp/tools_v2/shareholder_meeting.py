@@ -334,6 +334,10 @@ def _render_results(payload: dict[str, Any]) -> str:
     lines.append(f"- result rcept_no: `{result_reference.get('rcept_no', '')}`" if result_reference else "- result rcept_no: -")
     if result_reference.get("kind_acptno"):
         lines.append(f"- KIND acptno: `{result_reference.get('kind_acptno')}`")
+    if results.get("result_format"):
+        lines.append(f"- result_format: `{results.get('result_format')}`")
+    if results.get("numerical_vote_table_available") is not None:
+        lines.append(f"- numerical_vote_table_available: `{results.get('numerical_vote_table_available')}`")
     lines.append("")
 
     lines.append("## 의결 결과")

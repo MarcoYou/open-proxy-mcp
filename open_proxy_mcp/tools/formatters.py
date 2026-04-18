@@ -860,6 +860,101 @@ def _parse_agm_result_table(soup) -> list[dict]:
     return []
 
 
+def _normalize_vote_outcome(raw: str) -> str:
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    if "부결" in text:
+        return "부결"
+    if "수정가결" in text:
+        return "수정가결"
+    if "원안가결" in text or "원안대로 가결" in text:
+        return "가결"
+    if "원안대로 승인" in text or "승인" in text or "가결" in text:
+        return "가결"
+    return text
+
+
+def _extract_vote_outcome(text: str) -> str:
+    normalized = (text or "").replace("-->", "→").replace("->", "→")
+    if "→" in normalized:
+        normalized = normalized.split("→", 1)[1]
+    return _normalize_vote_outcome(normalized)
+
+
+def _parse_agm_result_summary(soup) -> list[dict]:
+    """주주총회결과 HTML의 요약형 결과공시 파싱.
+
+    패턴 예시:
+    - ○ 제1호 의안 : ... → 원안가결
+    - 제2-1호 의안 : ...
+      → 부결
+    - 1) 제1호 의안: ... → 원안대로 승인
+    """
+    text = soup.get_text("\n", strip=True)
+    lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
+    lines = [line for line in lines if line]
+
+    started = False
+    current: dict[str, str] | None = None
+    items: list[dict] = []
+
+    def flush_current() -> None:
+        nonlocal current
+        if current and current.get("passed"):
+            items.append({
+                "number": current.get("number", ""),
+                "resolution_type": "",
+                "agenda": current.get("agenda", ""),
+                "passed": current.get("passed", ""),
+                "approval_rate_issued": "",
+                "approval_rate_voted": "",
+                "opposition_rate": "",
+                "estimated_attendance": None,
+            })
+        current = None
+
+    for line in lines:
+        if not started:
+            if "의결사항" in line or "결의사항" in line:
+                started = True
+            continue
+
+        if (
+            re.match(r"^\d+\.\s*(주주총회 ?일자|의결권행사기준일|기타 투자판단)", line)
+            or "※ 관련공시" in line
+            or line.startswith("[")
+            or line.startswith("〖")
+        ):
+            flush_current()
+            break
+
+        match = re.search(r"(?:○\s*)?(?:\d+\)\s*)?(제\d+(?:-\d+)?호)\s*의안\s*[:：]?\s*(.*)", line)
+        if match:
+            flush_current()
+            number = match.group(1)
+            remainder = match.group(2).strip()
+            passed = _extract_vote_outcome(remainder) if "→" in remainder or "가결" in remainder or "부결" in remainder or "승인" in remainder else ""
+            agenda = remainder
+            if "→" in agenda:
+                agenda = agenda.split("→", 1)[0].strip()
+            current = {
+                "number": number,
+                "agenda": agenda.strip(" -"),
+                "passed": passed,
+            }
+            continue
+
+        if current:
+            outcome = _extract_vote_outcome(line)
+            if outcome:
+                current["passed"] = outcome
+                flush_current()
+
+    flush_current()
+    return items
+
+
 # ── Ownership 포매터 (ownership.py에서 이동) ──
 
 def _parse_holding_purpose(report_tp: str, report_resn: str) -> str:

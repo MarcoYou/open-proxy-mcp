@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from datetime import date, timedelta
 import re
 from typing import Any
@@ -19,6 +20,7 @@ from open_proxy_mcp.services.ownership_structure import (
     _top_holder_summary,
     _treasury_snapshot,
 )
+from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
 
 _SUPPORTED_SCOPES = {"summary", "fight", "litigation", "signals", "timeline", "vote_math"}
@@ -250,14 +252,6 @@ def _fight_actor_group(row: dict[str, Any], active_external_names: set[str], ove
 
 
 def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]:
-    if scope == "vote_math":
-        return ToolEnvelope(
-            tool="proxy_contest",
-            status=AnalysisStatus.REQUIRES_REVIEW,
-            subject=company_query,
-            warnings=["vote_math는 release_v2 후반 단계에서 열 예정이다. 현재는 fight/litigation/signals만 지원한다."],
-            data={"query": company_query, "scope": scope},
-        ).to_dict()
     return ToolEnvelope(
         tool="proxy_contest",
         status=AnalysisStatus.REQUIRES_REVIEW,
@@ -265,6 +259,232 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
         warnings=[f"`{scope}` scope는 아직 지원하지 않는다."],
         data={"query": company_query, "scope": scope},
     ).to_dict()
+
+
+def _to_float(value: Any) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _vote_math_exclusion_reason(item: dict[str, Any]) -> str | None:
+    resolution_type = (item.get("resolution_type") or "").strip()
+    agenda = (item.get("agenda") or "").strip()
+    attendance = item.get("estimated_attendance")
+
+    if attendance in (None, ""):
+        return "참석률 역산이 불가능하다."
+    if "보통" not in resolution_type:
+        return "보통결의 안건이 아니다."
+    if "감사" in resolution_type or "감사위원" in agenda or "감사위원" in resolution_type:
+        return "감사·감사위원 안건은 3% 제한으로 분모가 다를 수 있다."
+    if "집중" in resolution_type or "집중투표" in agenda:
+        return "집중투표 안건은 일반 찬성률 구조와 다르다."
+    return None
+
+
+def _representative_attendance(items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], float | None]:
+    comparable: list[dict[str, Any]] = []
+    excluded: list[dict[str, Any]] = []
+
+    for item in items:
+        exclusion = _vote_math_exclusion_reason(item)
+        normalized = {
+            "number": item.get("number", ""),
+            "agenda": item.get("agenda", ""),
+            "resolution_type": item.get("resolution_type", ""),
+            "passed": item.get("passed", ""),
+            "approval_rate_issued": _to_float(item.get("approval_rate_issued")),
+            "approval_rate_voted": _to_float(item.get("approval_rate_voted")),
+            "opposition_rate": _to_float(item.get("opposition_rate")),
+            "estimated_attendance": round(_to_float(item.get("estimated_attendance")), 1) if item.get("estimated_attendance") is not None else None,
+        }
+        if exclusion:
+            excluded.append({**normalized, "reason": exclusion})
+            continue
+        comparable.append(normalized)
+
+    if not comparable:
+        return comparable, excluded, None
+
+    counts = Counter(item["estimated_attendance"] for item in comparable if item.get("estimated_attendance") is not None)
+    representative = counts.most_common(1)[0][0] if counts else None
+    return comparable, excluded, representative
+
+
+def _high_opposition_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in items:
+        opposition = _to_float(item.get("opposition_rate"))
+        if opposition >= 10:
+            rows.append({
+                "number": item.get("number", ""),
+                "agenda": item.get("agenda", ""),
+                "opposition_rate": round(opposition, 1),
+                "passed": item.get("passed", ""),
+            })
+    return rows
+
+
+def _failed_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in items:
+        passed = (item.get("passed") or "").strip()
+        if "부결" in passed:
+            rows.append({
+                "number": item.get("number", ""),
+                "agenda": item.get("agenda", ""),
+                "passed": passed,
+            })
+    return rows
+
+
+def _signal_level(
+    shareholder_side_count: int,
+    litigation_count: int,
+    active_external_total_pct: float,
+    active_overlap_total_pct: float,
+    high_opposition_count: int,
+    failed_count: int,
+) -> str:
+    if failed_count > 0:
+        return "contestable"
+    if shareholder_side_count > 0 and (active_external_total_pct >= 5 or high_opposition_count > 0):
+        return "contestable"
+    if litigation_count > 0 or active_external_total_pct >= 5 or active_overlap_total_pct >= 5 or high_opposition_count > 0:
+        return "watch"
+    return "stable"
+
+
+async def _vote_math_scope_data(
+    company_query: str,
+    *,
+    year: int | None,
+    start_date: str,
+    end_date: str,
+    lookback_months: int,
+    summary: dict[str, Any],
+    players: dict[str, Any],
+    control_map: dict[str, Any],
+) -> tuple[dict[str, Any], str, list[str], list[dict[str, Any]], list[str]]:
+    warnings: list[str] = []
+    result_payload = await build_shareholder_meeting_payload(
+        company_query,
+        meeting_type="auto",
+        scope="results",
+        year=year,
+        start_date=start_date,
+        end_date=end_date,
+        lookback_months=lookback_months,
+    )
+
+    warnings.extend(result_payload.get("warnings", []))
+    result_data = result_payload.get("data", {})
+    meeting_ref = {
+        "meeting_type": result_data.get("meeting_type", ""),
+        "meeting_phase": result_data.get("meeting_phase", ""),
+        "result_status": result_data.get("result_status", ""),
+        "meeting_date": (result_data.get("selected_meeting") or {}).get("meeting_date"),
+        "notice_rcept_no": (result_data.get("selected_meeting") or {}).get("notice_rcept_no", ""),
+        "result_rcept_no": (result_data.get("result_reference") or {}).get("rcept_no", ""),
+        "result_date": (result_data.get("result_reference") or {}).get("disclosure_date", ""),
+    }
+
+    result_items = (result_data.get("results") or {}).get("items", []) or []
+    comparable_items, excluded_items, representative_attendance = _representative_attendance(result_items)
+    high_opposition_items = _high_opposition_items(result_items)
+    failed_items = _failed_items(result_items)
+
+    related_total_pct = _to_float(summary.get("related_total_pct"))
+    treasury_pct = _to_float(summary.get("treasury_pct"))
+    voting_share_base_pct = round(max(100.0 - treasury_pct, 0.0), 2)
+    active_external_total_pct = round(sum(_to_float(row.get("ownership_pct")) for row in control_map.get("active_non_overlap_blocks", [])), 2)
+    active_overlap_total_pct = round(sum(_to_float(row.get("ownership_pct")) for row in control_map.get("active_overlap_blocks", [])), 2)
+
+    contestable_turnout_pct = None
+    ex_related_turnout_pct = None
+    if representative_attendance is not None:
+        contestable_turnout_pct = round(max(representative_attendance - related_total_pct, 0.0), 1)
+        free_float_base_pct = max(voting_share_base_pct - related_total_pct, 0.0)
+        if free_float_base_pct > 0:
+            ex_related_turnout_pct = round(contestable_turnout_pct / free_float_base_pct * 100, 1)
+
+    status = AnalysisStatus.EXACT
+    interpretation_notes: list[str] = [
+        "vote_math는 승패 예측이 아니라 표 구조 신호를 보는 참고 지표다.",
+        "대표 추정참석률은 보통결의 안건의 발행기준/행사기준 찬성률 역산값 최빈값을 사용한다.",
+    ]
+    if result_payload.get("status") == AnalysisStatus.ERROR or result_data.get("result_status") != "available":
+        status = AnalysisStatus.REQUIRES_REVIEW
+        warnings.append("결과공시가 확보되지 않아 vote_math를 계산하지 못했다.")
+    elif representative_attendance is None:
+        status = AnalysisStatus.REQUIRES_REVIEW
+        warnings.append("비교 가능한 보통결의 안건이 없어 대표 추정참석률을 만들지 못했다.")
+    else:
+        attendance_values = [item["estimated_attendance"] for item in comparable_items if item.get("estimated_attendance") is not None]
+        if len(comparable_items) == 1:
+            status = AnalysisStatus.PARTIAL
+            warnings.append("비교 가능한 보통결의 안건이 1건뿐이라 대표 추정참석률 신뢰도가 낮다.")
+        elif attendance_values and (max(attendance_values) - min(attendance_values)) > 10:
+            status = AnalysisStatus.PARTIAL
+            warnings.append("보통결의 안건 간 추정참석률 편차가 커 대표값 해석에 주의가 필요하다.")
+        if excluded_items:
+            interpretation_notes.append("감사위원·집중투표 등 분모가 달라질 수 있는 안건은 대표 참석률 계산에서 제외했다.")
+
+    signal_level = _signal_level(
+        shareholder_side_count=summary.get("shareholder_side_count", 0),
+        litigation_count=summary.get("litigation_count", 0),
+        active_external_total_pct=active_external_total_pct,
+        active_overlap_total_pct=active_overlap_total_pct,
+        high_opposition_count=len(high_opposition_items),
+        failed_count=len(failed_items),
+    )
+
+    if signal_level == "contestable":
+        interpretation_notes.append("주주측 문서, 능동적 블록, 반대율 신호가 겹쳐 표 대결 가능성을 봐야 한다.")
+    elif signal_level == "watch":
+        interpretation_notes.append("즉각적인 표 대결 예측보다는 관찰이 필요한 신호가 있다.")
+    else:
+        interpretation_notes.append("현재 공시 기준으로는 표 계산상 급한 경합 신호는 제한적이다.")
+
+    data = {
+        "meeting_reference": meeting_ref,
+        "attendance_estimate": {
+            "representative_pct": representative_attendance,
+            "comparable_item_count": len(comparable_items),
+            "excluded_item_count": len(excluded_items),
+            "min_pct": min((item["estimated_attendance"] for item in comparable_items), default=None),
+            "max_pct": max((item["estimated_attendance"] for item in comparable_items), default=None),
+            "methodology": "보통결의 안건의 발행기준 찬성률 / 출석주식수 기준 찬성률 역산값 최빈값",
+            "items": comparable_items[:10],
+            "excluded_items": excluded_items[:10],
+        },
+        "capital_structure": {
+            "related_total_pct": related_total_pct,
+            "treasury_pct": treasury_pct,
+            "voting_share_base_pct": voting_share_base_pct,
+            "contestable_turnout_pct": contestable_turnout_pct,
+            "ex_related_turnout_pct": ex_related_turnout_pct,
+            "active_external_block_total_pct": active_external_total_pct,
+            "active_overlap_block_total_pct": active_overlap_total_pct,
+        },
+        "pressure_signals": {
+            "shareholder_side_filers": players.get("shareholder_side_filers", []),
+            "shareholder_side_count": summary.get("shareholder_side_count", 0),
+            "litigation_count": summary.get("litigation_count", 0),
+            "active_external_blocks": players.get("active_external_blocks", []),
+            "active_overlap_blocks": players.get("active_overlap_blocks", []),
+            "high_opposition_items": high_opposition_items[:10],
+            "failed_items": failed_items[:10],
+        },
+        "interpretation": {
+            "signal_level": signal_level,
+            "notes": interpretation_notes,
+        },
+    }
+
+    return data, status, warnings, result_payload.get("evidence_refs", []), result_payload.get("next_actions", [])
 
 
 async def build_proxy_contest_payload(
@@ -277,8 +497,6 @@ async def build_proxy_contest_payload(
     lookback_months: int = 12,
 ) -> dict[str, Any]:
     if scope not in _SUPPORTED_SCOPES:
-        return _unsupported_scope_payload(company_query, scope)
-    if scope == "vote_math":
         return _unsupported_scope_payload(company_query, scope)
 
     resolution = await resolve_company_query(company_query)
@@ -441,7 +659,7 @@ async def build_proxy_contest_payload(
             "active_overlap_blocks": overlap_blocks,
         },
         "control_context": control_map,
-        "available_scopes": ["summary", "fight", "litigation", "signals", "timeline"],
+        "available_scopes": ["summary", "fight", "litigation", "signals", "timeline", "vote_math"],
     }
     if scope in {"summary", "fight"}:
         data["fight"] = enriched_proxy_rows
@@ -487,8 +705,29 @@ async def build_proxy_contest_payload(
             )
         )
 
+    next_actions = [
+        "timeline scope로 전체 이벤트 순서 확인" if scope == "summary" else "shareholder_meeting, ownership_structure와 함께 보면 표대결 맥락이 더 선명해진다.",
+    ]
     status = AnalysisStatus.EXACT if (enriched_proxy_rows or litigation_rows or activist_signals) else AnalysisStatus.PARTIAL
-    if status == AnalysisStatus.PARTIAL:
+    if scope == "vote_math":
+        vote_math, vote_math_status, vote_math_warnings, vote_math_evidence, vote_math_actions = await _vote_math_scope_data(
+            company_query,
+            year=year,
+            start_date=start_date,
+            end_date=end_date,
+            lookback_months=lookback_months,
+            summary=data["summary"],
+            players=data["players"],
+            control_map=control_map,
+        )
+        data["vote_math"] = vote_math
+        warnings.extend(vote_math_warnings)
+        for ref in vote_math_evidence:
+            evidence_refs.append(ref)
+        if vote_math_actions:
+            next_actions = vote_math_actions
+        status = vote_math_status
+    elif status == AnalysisStatus.PARTIAL:
         warnings.append("분쟁 관련 공시가 없거나 충분하지 않아 partial 상태로 표시한다.")
 
     return ToolEnvelope(
@@ -498,7 +737,5 @@ async def build_proxy_contest_payload(
         warnings=warnings,
         data=data,
         evidence_refs=evidence_refs,
-        next_actions=[
-            "timeline scope로 전체 이벤트 순서 확인" if scope == "summary" else "shareholder_meeting, ownership_structure와 함께 보면 표대결 맥락이 더 선명해진다.",
-        ],
+        next_actions=next_actions,
     ).to_dict()

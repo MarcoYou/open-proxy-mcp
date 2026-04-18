@@ -17,7 +17,7 @@ from open_proxy_mcp.services.contracts import (
     ToolEnvelope,
 )
 from open_proxy_mcp.services.date_utils import parse_date_param, resolve_date_window
-from open_proxy_mcp.tools.formatters import _parse_agm_result_table
+from open_proxy_mcp.tools.formatters import _parse_agm_result_summary, _parse_agm_result_table
 from open_proxy_mcp.tools.parser import (
     parse_agenda_xml,
     parse_compensation_xml,
@@ -539,9 +539,13 @@ async def _meeting_result_data(
         return None, f"KIND 결과 본문 조회 실패: {exc.status}"
 
     soup = BeautifulSoup(html, "lxml")
+    result_format = "table"
     items = _parse_agm_result_table(soup)
     if not items:
-        return None, "KIND 결과 표를 찾지 못했다."
+        items = _parse_agm_result_summary(soup)
+        result_format = "summary"
+    if not items:
+        return None, "KIND 결과 본문에서 안건 결과를 찾지 못했다."
 
     return {
         "corp_name": corp_name,
@@ -549,6 +553,8 @@ async def _meeting_result_data(
         "kind_acptno": kind_acptno,
         "rcept_dt": result_reference.get("disclosure_date", ""),
         "report_name": result_reference.get("report_name", ""),
+        "result_format": result_format,
+        "numerical_vote_table_available": result_format == "table",
         "items": items,
     }, None
 
@@ -783,6 +789,8 @@ async def build_shareholder_meeting_payload(
                 status = AnalysisStatus.REQUIRES_REVIEW
             if result_data:
                 data["results"] = result_data
+                if result_data.get("result_format") == "summary":
+                    warnings.append("요약형 결과공시라 안건별 가결·부결은 확인되지만 찬성률/참석률 수치는 제공되지 않는다.")
     elif result_filing_warning and meeting_phase != "pre_meeting":
         warnings.append(result_filing_warning)
 
