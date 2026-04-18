@@ -26,9 +26,14 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     summary = data.get("summary", {})
+    players = data.get("players", {})
+    control_context = data.get("control_context", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} proxy contest", ""]
     lines.append(f"- company_id: `{data.get('company_id', '')}`")
     lines.append(f"- status: `{payload.get('status', '')}`")
+    window = data.get("window", {})
+    if window:
+        lines.append(f"- 최근 12개월 조사구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
     lines.append("")
     if payload.get("warnings"):
         lines.append("## 유의사항")
@@ -42,11 +47,24 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append(f"- 주주측 문서: {summary.get('shareholder_side_count', 0)}건")
         lines.append(f"- 소송/분쟁 공시: {summary.get('litigation_count', 0)}건")
         lines.append(f"- 능동적 5% 시그널: {summary.get('active_signal_count', 0)}건")
+        top_holder = summary.get("top_holder", {})
+        if top_holder:
+            lines.append(f"- 명부상 최대주주: {top_holder.get('name', '')} {top_holder.get('ownership_pct', 0):.2f}%")
+        lines.append(f"- 명부상 특수관계인 합계: {summary.get('related_total_pct', 0):.2f}%")
+        lines.append(f"- 자사주: {summary.get('treasury_pct', 0):.2f}%")
+        lines.extend(["", "## 판 구조", f"- 회사측 제출인: {', '.join(players.get('company_side_filers', [])) or '없음'}"])
+        lines.append(f"- 주주측 제출인: {', '.join(players.get('shareholder_side_filers', [])) or '없음'}")
+        lines.append(f"- 명부와 안 겹치는 능동 5% 블록: {', '.join(players.get('active_external_blocks', [])) or '없음'}")
+        lines.append(f"- 명부와 겹치는 능동 5% 블록: {', '.join(players.get('active_overlap_blocks', [])) or '없음'}")
+        if control_context.get("observations"):
+            lines.extend(["", "## 관찰 포인트"])
+            for item in control_context.get("observations", []):
+                lines.append(f"- {item}")
 
     if scope in {"summary", "fight"}:
-        lines.extend(["", "## fight", "| 날짜 | 구분 | 제출인 | 공시명 | rcept_no |", "|------|------|--------|--------|----------|"])
+        lines.extend(["", "## fight", "| 날짜 | 구분 | 플레이어 분류 | 제출인 | 공시명 | rcept_no |", "|------|------|---------------|--------|--------|----------|"])
         for row in data.get("fight", [])[:20]:
-            lines.append(f"| {row['disclosure_date']} | {row['side']} | {row['filer_name']} | {row['report_name']} | `{row['rcept_no']}` |")
+            lines.append(f"| {row['disclosure_date']} | {row['side']} | {row.get('actor_group', '')} | {row['filer_name']} | {row['report_name']} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "litigation"}:
         lines.extend(["", "## litigation", "| 날짜 | 제출인 | 공시명 | rcept_no |", "|------|--------|--------|----------|"])
@@ -54,14 +72,14 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"| {row['disclosure_date']} | {row['filer_name']} | {row['report_name']} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "signals"}:
-        lines.extend(["", "## 5% signals", "| 날짜 | 보고자 | 지분율 | 목적 | rcept_no |", "|------|--------|--------|------|----------|"])
+        lines.extend(["", "## 5% signals", "| 날짜 | 보고자 | 분류 | 지분율 | 목적 | rcept_no |", "|------|--------|------|--------|------|----------|"])
         for row in data.get("signals", [])[:20]:
-            lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
+            lines.append(f"| {row['report_date']} | {row['reporter']} | {row.get('actor_side', '')} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
     if scope == "timeline":
-        lines.extend(["", "## timeline", "| 날짜 | 카테고리 | 이벤트 | rcept_no |", "|------|----------|--------|----------|"])
+        lines.extend(["", "## timeline", "| 날짜 | 카테고리 | 주체 | 분류 | 이벤트 | rcept_no |", "|------|----------|------|------|--------|----------|"])
         for row in data.get("timeline", [])[:30]:
-            lines.append(f"| {row['date']} | {row['category']} | {row['title']} | `{row['rcept_no']}` |")
+            lines.append(f"| {row['date']} | {row['category']} | {row.get('actor', '')} | {row.get('side', '')} | {row['title']} | `{row['rcept_no']}` |")
 
     return "\n".join(lines)
 
@@ -73,6 +91,9 @@ def register_tools(mcp):
         company: str,
         scope: str = "summary",
         year: int = 0,
+        start_date: str = "",
+        end_date: str = "",
+        lookback_months: int = 12,
         format: str = "md",
     ) -> str:
         """desc: 위임장, 공개매수, 소송, 5% 경영참여 시그널을 한 탭에서 모아보는 분쟁 tool.
@@ -80,7 +101,14 @@ def register_tools(mcp):
         rule: DART D/B/I 공시만 사용한다. vote_math는 아직 열지 않고, 싸움이 있었는지와 어떤 문서가 나왔는지를 우선 보여준다.
         ref: company, shareholder_meeting, ownership_structure, evidence
         """
-        payload = await build_proxy_contest_payload(company, scope=scope, year=year or None)
+        payload = await build_proxy_contest_payload(
+            company,
+            scope=scope,
+            year=year or None,
+            start_date=start_date,
+            end_date=end_date,
+            lookback_months=lookback_months,
+        )
         if format == "json":
             return as_pretty_json(payload)
         if payload.get("status") == "ambiguous":
@@ -90,4 +118,3 @@ def register_tools(mcp):
         if payload.get("status") == "error":
             return _render_error(payload)
         return _render(payload, scope)
-

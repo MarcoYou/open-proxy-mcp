@@ -9,6 +9,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
 
 _SUPPORTED_SCOPES = {"summary", "plan", "commitments", "timeline"}
 _VALUATION_KEYWORDS = ("기업가치제고", "기업가치 제고", "밸류업")
@@ -44,6 +45,8 @@ async def build_value_up_payload(
     *,
     scope: str = "summary",
     year: int | None = None,
+    start_date: str = "",
+    end_date: str = "",
 ) -> dict[str, Any]:
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
@@ -80,14 +83,21 @@ async def build_value_up_payload(
 
     selected = resolution.selected
     target_year = year or date.today().year
+    default_end = date(target_year, 12, 31) if year else date.today()
+    window_start, window_end, window_warnings = resolve_date_window(
+        start_date=start_date,
+        end_date=end_date,
+        default_end=default_end,
+        lookback_months=12,
+    )
     client = get_dart_client()
-    warnings: list[str] = []
+    warnings: list[str] = list(window_warnings)
 
     try:
         result = await client.search_filings(
             corp_code=selected["corp_code"],
-            bgn_de=f"{target_year - 1}0101",
-            end_de=f"{target_year}1231",
+            bgn_de=format_yyyymmdd(window_start),
+            end_de=format_yyyymmdd(window_end),
             pblntf_ty="I",
             page_count=100,
         )
@@ -116,6 +126,10 @@ async def build_value_up_payload(
                 "query": company_query,
                 "company_id": _company_id(selected),
                 "year": target_year,
+                "window": {
+                    "start_date": format_yyyymmdd(window_start),
+                    "end_date": format_yyyymmdd(window_end),
+                },
                 "items": [],
             },
         ).to_dict()
@@ -136,6 +150,10 @@ async def build_value_up_payload(
             "corp_code": selected.get("corp_code", ""),
         },
         "year": target_year,
+        "window": {
+            "start_date": format_yyyymmdd(window_start),
+            "end_date": format_yyyymmdd(window_end),
+        },
         "latest": {
             "rcept_no": latest.get("rcept_no", ""),
             "disclosure_date": latest.get("rcept_dt", ""),
@@ -178,4 +196,3 @@ async def build_value_up_payload(
             "commitments scope로 주주환원/ROE 관련 문장 확인" if scope == "summary" else "dividend, ownership_structure와 함께 보면 주주환원 맥락이 더 잘 보인다.",
         ],
     ).to_dict()
-

@@ -33,9 +33,12 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     summary = data.get("summary", {})
+    window = data.get("window", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 배당", ""]
     lines.append(f"- company_id: `{data.get('company_id', '')}`")
     lines.append(f"- status: `{payload.get('status', '')}`")
+    if window:
+        lines.append(f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
     lines.append("")
     if payload.get("warnings"):
         lines.append("## 유의사항")
@@ -91,6 +94,8 @@ def register_tools(mcp):
         scope: str = "summary",
         year: int = 0,
         years: int = 3,
+        start_date: str = "",
+        end_date: str = "",
         format: str = "md",
     ) -> str:
         """desc: 연간 배당 요약, 최근 배당결정, 추이, 정책 신호를 한 탭에서 보는 배당 tool.
@@ -98,7 +103,14 @@ def register_tools(mcp):
         rule: 사업보고서 alotMatter를 기본으로 하고, 거래소 배당결정 공시를 보강한다. partial match는 자동 선택하지 않는다.
         ref: company, ownership_structure, value_up, evidence
         """
-        payload = await build_dividend_payload(company, scope=scope, year=year or None, years=years)
+        payload = await build_dividend_payload(
+            company,
+            scope=scope,
+            year=year or None,
+            years=years,
+            start_date=start_date,
+            end_date=end_date,
+        )
         if format == "json":
             return as_pretty_json(payload)
         if payload.get("status") == "ambiguous":
@@ -106,4 +118,3 @@ def register_tools(mcp):
         if payload.get("status") == "error":
             return _render_error(payload)
         return _render(payload, scope)
-

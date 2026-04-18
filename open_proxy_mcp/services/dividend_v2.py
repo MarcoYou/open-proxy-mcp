@@ -8,6 +8,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.date_utils import format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.tools.dividend import (
     _DIV_KEYWORDS,
     _build_dividend_summary,
@@ -41,6 +42,11 @@ async def _search_dividend_filings(corp_code: str, start_year: int, end_year: in
     ]
     filings.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
     return filings, None
+
+
+def _in_window(date_value: str, start_ymd: str, end_ymd: str) -> bool:
+    digits = "".join(ch for ch in (date_value or "") if ch.isdigit())
+    return bool(digits) and start_ymd <= digits <= end_ymd
 
 
 async def _decision_details(filings: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -141,6 +147,8 @@ async def build_dividend_payload(
     scope: str = "summary",
     year: int | None = None,
     years: int = 3,
+    start_date: str = "",
+    end_date: str = "",
 ) -> dict[str, Any]:
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
@@ -176,9 +184,24 @@ async def build_dividend_payload(
         ).to_dict()
 
     selected = resolution.selected
-    target_year = year or (date.today().year - 1)
-    year_list = _year_window(target_year, max(1, years))
-    warnings: list[str] = []
+    explicit_start = parse_date_param(start_date)
+    explicit_end = parse_date_param(end_date)
+    if year:
+        target_year = year
+    elif explicit_end:
+        target_year = explicit_end.year
+    else:
+        target_year = date.today().year - 1
+    default_end = date(target_year, 12, 31)
+    window_start, window_end, window_warnings = resolve_date_window(
+        start_date=start_date,
+        end_date=end_date,
+        default_end=default_end,
+        lookback_months=max(12, years * 12),
+    )
+    warnings: list[str] = list(window_warnings)
+    history_start_year = window_start.year if (explicit_start or explicit_end) else (target_year - max(1, years) + 1)
+    year_list = list(range(history_start_year, target_year + 1))
 
     latest_summary, summary_warning = await _annual_summary(selected["corp_code"], target_year)
     if summary_warning:
@@ -189,6 +212,12 @@ async def build_dividend_payload(
         warnings.append(filing_warning)
         filings = []
     details = await _decision_details(filings[:20]) if filings else []
+    start_ymd = format_yyyymmdd(window_start)
+    end_ymd = format_yyyymmdd(window_end)
+    details = [
+        item for item in details
+        if _in_window(item.get("rcept_dt", ""), start_ymd, end_ymd)
+    ]
 
     annual_summaries: dict[int, dict[str, Any]] = {}
     for y in year_list:
@@ -211,6 +240,10 @@ async def build_dividend_payload(
             "corp_code": selected.get("corp_code", ""),
         },
         "year": target_year,
+        "window": {
+            "start_date": start_ymd,
+            "end_date": end_ymd,
+        },
         "summary": latest_summary,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
@@ -267,4 +300,3 @@ async def build_dividend_payload(
             "history scope로 최근 3년 배당 추이 확인" if scope == "summary" else "ownership_structure와 함께 보면 주주환원 맥락이 더 잘 보인다.",
         ],
     ).to_dict()
-

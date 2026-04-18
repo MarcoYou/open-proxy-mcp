@@ -35,9 +35,14 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     summary = data.get("summary", {})
+    window = data.get("window", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 지분 구조", ""]
     lines.append(f"- company_id: `{data.get('company_id', '')}`")
     lines.append(f"- status: `{payload.get('status', '')}`")
+    if data.get("as_of_date"):
+        lines.append(f"- as_of_date: `{data.get('as_of_date', '')}`")
+    if window:
+        lines.append(f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
     lines.append("")
     if payload.get("warnings"):
         lines.append("## 유의사항")
@@ -72,6 +77,52 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         for row in data.get("timeline", [])[:30]:
             lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
+    if scope == "control_map":
+        control_map = data.get("control_map", {})
+        core = control_map.get("core_holder_block", {})
+        top = core.get("top_holder") or {}
+        treasury = control_map.get("treasury_block", {})
+        flags = control_map.get("flags", {})
+
+        lines.extend([
+            "",
+            "## control_map 요약",
+            f"- 명부상 최대주주: {top.get('name', '-') or '-'} {top.get('ownership_pct', 0):.2f}%",
+            f"- 명부상 특수관계인 합계: {core.get('related_total_pct', 0):.2f}%",
+            f"- 자사주: {treasury.get('shares', 0):,}주 ({treasury.get('pct', 0):.2f}%)",
+            f"- 비중 플래그: 50% 이상={flags.get('registry_majority', False)}, 30% 이상={flags.get('registry_over_30pct', False)}, 자사주 5% 이상={flags.get('treasury_over_5pct', False)}",
+        ])
+
+        observations = control_map.get("observations", [])
+        if observations:
+            lines.extend(["", "## 관찰 포인트"])
+            for item in observations:
+                lines.append(f"- {item}")
+
+        lines.extend(["", "## 명부와 겹치지 않는 능동적 5% 블록", "| 보고자 | 지분율 | 목적 | 날짜 |", "|--------|--------|------|------|"])
+        active_non_overlap_blocks = control_map.get("active_non_overlap_blocks", [])
+        if active_non_overlap_blocks:
+            for row in active_non_overlap_blocks[:10]:
+                lines.append(f"| {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | {row['report_date']} |")
+        else:
+            lines.append("| - | - | - | - |")
+
+        lines.extend(["", "## 명부와 이름이 겹치는 5% 블록", "| 보고자 | 지분율 | 목적 | 명부상 이름 | 날짜 |", "|--------|--------|------|-------------|------|"])
+        overlap_blocks = control_map.get("overlap_blocks", [])
+        if overlap_blocks:
+            for row in overlap_blocks[:10]:
+                lines.append(
+                    f"| {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | {row.get('matched_major_holder') or '-'} | {row['report_date']} |"
+                )
+        else:
+            lines.append("| - | - | - | - | - |")
+
+        notes = control_map.get("notes", [])
+        if notes:
+            lines.extend(["", "## 해석 유의사항"])
+            for note in notes:
+                lines.append(f"- {note}")
+
     return "\n".join(lines)
 
 
@@ -82,6 +133,9 @@ def register_tools(mcp):
         company: str,
         scope: str = "summary",
         year: int = 0,
+        as_of_date: str = "",
+        start_date: str = "",
+        end_date: str = "",
         format: str = "md",
     ) -> str:
         """desc: 최대주주, 특수관계인, 5% 대량보유, 자사주를 한 탭에서 보는 지분 구조 tool.
@@ -89,7 +143,14 @@ def register_tools(mcp):
         rule: 사업보고서 기반 공식 API를 먼저 쓰고, 5% 대량보유의 목적은 최신 원문으로만 보강한다. partial match는 자동 선택하지 않는다.
         ref: company, proxy_contest, evidence
         """
-        payload = await build_ownership_structure_payload(company, scope=scope, year=year or None)
+        payload = await build_ownership_structure_payload(
+            company,
+            scope=scope,
+            year=year or None,
+            as_of_date=as_of_date,
+            start_date=start_date,
+            end_date=end_date,
+        )
         if format == "json":
             return as_pretty_json(payload)
         if payload.get("status") == "ambiguous":
@@ -97,4 +158,3 @@ def register_tools(mcp):
         if payload.get("status") == "error":
             return _render_error(payload)
         return _render(payload, scope)
-
