@@ -1,0 +1,68 @@
+---
+type: analysis
+title: ownership_structure tool 검증 예시
+tags: [release-v2, tool, validation, ownership]
+date: 2026-04-18
+related: [tool-추가-검증-템플릿, tool-추가-검증-정책, own-tool-rule, 대량보유상황보고서]
+---
+
+# ownership_structure tool 검증 예시
+
+## 목적
+
+`ownership_structure`는 지분 구조, 5% 보유, 자사주, 지배력 변화를 한 화면에서 보는 도구다.
+
+## 제안 요약
+
+- tool type: `data`
+- 핵심 질문:
+  - 최대주주와 특수관계인 지분은 얼마인가
+  - 5% 보고자의 목적과 변화는 무엇인가
+  - 자사주와 자사주 이벤트는 어떤 신호를 주는가
+- 권장 scope:
+  - `summary`
+  - `major_holders`
+  - `blocks`
+  - `treasury`
+  - `control_map`
+  - `timeline`
+
+## 소스 정책
+
+| field | disclosure/source | primary source | secondary source | note |
+|---|---|---|---|---|
+| major holders | 사업보고서 | DART major shareholders API | 없음 | 사업연도 기준 |
+| stock total / minority | 사업보고서 | DART stock/minority API | 없음 | 보통주/우선주 구분 |
+| treasury balance | 사업보고서 | DART treasury stock API | 없음 | 연말 잔액 |
+| treasury events | 주요사항보고 | DART treasury event APIs | 없음 | 취득/처분/신탁 |
+| block holders | 5% 대량보유 | DART majorstock API | `document.xml` 목적 파싱 | 보유목적 보강 필요 |
+| control map | derived | upstream 조합 | 없음 | release_v2 내부 정규화 필요 |
+
+## 샘플 확인
+
+| company | subdomain | rcept_no | primary result | secondary result | 판정 | note |
+|---|---|---|---|---|---|---|
+| 고려아연 | block holders | `20260414001999` | majorstock API 확보 | 목적 원문 파싱 가능 | exact | 경영참여/일반투자 해석 중요 |
+| 한진칼 | block holders | `20251022000208` | majorstock API 확보 | 원문 보강 필요 | exact | timeline 축으로 유용 |
+| 카카오 | block holders | `20260401003804` | majorstock API 확보 | 원문 보강 필요 | exact | 대량보유 변화 감시용 |
+| 삼성전자 | elestock | `20260417000440` | 임원·주요주주 API 확보 | 없음 | exact | DART-only |
+| SK하이닉스 | elestock | `20260407002972` | 임원·주요주주 API 확보 | 없음 | exact | DART-only |
+| 삼성전자 | treasury event | `20260318001203` | 자기주식 이벤트 API 확보 | 없음 | exact | KIND 비허용 |
+
+## requires_review 조건
+
+- 5% 보유목적이 `불명`으로 남는 경우
+- 보고자명 정규화가 불완전해 control map이 찢어지는 경우
+- 사업보고서 기준 지분과 최신 5% 공시가 비정상적으로 충돌하는 경우
+
+## release_v2 판정
+
+- `go`
+- 이유:
+  - 대부분이 공식 DART API 기반이라 소스 안정성이 높다
+  - KIND 의존도가 없고 false match 리스크가 낮다
+
+## 실무 해석
+
+이 도구는 `공격/방어`보다 먼저 `현재 판의 구조`를 보여준다.  
+특히 `blocks`와 `control_map`은 액티비스트나 스튜어드십 담당자가 가장 자주 되돌아보는 탭이 된다.

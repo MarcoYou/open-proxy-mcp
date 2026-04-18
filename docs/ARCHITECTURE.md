@@ -1,4 +1,7 @@
-# Architecture
+# Architecture (v1 stable)
+
+> This document describes the current stable architecture.  
+> For the next-release tool surface and validation model, see [docs/v2/README.md](v2/README.md).
 
 ## System Overview
 
