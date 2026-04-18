@@ -109,8 +109,9 @@ async def _candidate_notices_range(
     for item, doc in zip(filings, docs):
         text = doc.get("text", "")
         html = doc.get("html", "")
-        info = parse_meeting_info_xml(text, html=html)
+        info, info_source = await _notice_info_with_fallback(item["rcept_no"], text, html)
         normalized = _normalize_notice_row(item, info)
+        normalized["notice_source"] = info_source
         if normalized["meeting_type"] == meeting_type_label:
             matched.append(normalized)
     return matched
@@ -188,6 +189,136 @@ def _parse_notice_meeting_date(datetime_text: str) -> date | None:
         return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
     except ValueError:
         return None
+
+
+def _parse_notice_bundle(text: str, html: str) -> dict[str, Any]:
+    meeting_info = parse_meeting_info_xml(text, html=html)
+    agenda = parse_agenda_xml(text, html=html)
+    board = parse_personnel_xml(html) if html else {"appointments": [], "summary": {}}
+    compensation = parse_compensation_xml(html) if html else {"items": [], "summary": {}}
+    return {
+        "text": text,
+        "html": html,
+        "meeting_info": meeting_info,
+        "agenda": agenda,
+        "agenda_valid": validate_agenda_result(agenda),
+        "board": board,
+        "compensation": compensation,
+        "correction": _correction_summary(html) if html else None,
+    }
+
+
+def _agenda_titles(items: list[dict[str, Any]]) -> list[str]:
+    titles: list[str] = []
+    for item in items:
+        title = (item.get("title") or "").strip()
+        if title:
+            titles.append(title)
+        titles.extend(_agenda_titles(item.get("children", [])))
+    return titles
+
+
+def _needs_notice_viewer_fallback(parsed: dict[str, Any], *, scope: str) -> list[str]:
+    reasons: list[str] = []
+    meeting_info = parsed["meeting_info"]
+    if not parsed["html"]:
+        reasons.append("api_html_missing")
+    if not meeting_info.get("meeting_type"):
+        reasons.append("meeting_type_missing")
+    if not meeting_info.get("datetime"):
+        reasons.append("meeting_datetime_missing")
+    if not parsed["agenda_valid"]:
+        reasons.append("agenda_parse_low_confidence")
+
+    agenda_titles = _agenda_titles(parsed["agenda"])
+    board_expected = any(("선임" in title or "해임" in title) and ("이사" in title or "감사" in title) for title in agenda_titles)
+    compensation_expected = any("보수" in title and "한도" in title for title in agenda_titles)
+
+    if scope == "board" and board_expected and not parsed["board"].get("appointments"):
+        reasons.append("board_parse_empty")
+    if scope == "compensation" and compensation_expected and not parsed["compensation"].get("items"):
+        reasons.append("compensation_parse_empty")
+    return reasons
+
+
+async def _load_notice_bundle_with_fallback(
+    rcept_no: str,
+    *,
+    scope: str,
+) -> tuple[dict[str, Any], list[str], str]:
+    client = get_dart_client()
+    doc = await client.get_document_cached(rcept_no)
+    parsed = _parse_notice_bundle(doc.get("text", ""), doc.get("html", ""))
+    reasons = _needs_notice_viewer_fallback(parsed, scope=scope)
+    warnings: list[str] = []
+    source_used = "dart_xml"
+
+    if not reasons:
+        return parsed, warnings, source_used
+
+    section_keywords = ["주주총회 소집공고", "주주총회소집공고"]
+    if scope in {"board", "compensation"}:
+        section_keywords.extend(["목적사항별 기재사항", "주주총회 목적사항별 기재사항"])
+
+    warnings.append(f"API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. ({', '.join(reasons)})")
+    try:
+        viewer_doc = await client.get_viewer_document(rcept_no, section_keywords=section_keywords)
+    except Exception as exc:
+        warnings.append(f"DART viewer HTML crawl fallback도 실패했다: {exc}")
+        return parsed, warnings, source_used
+
+    viewer_parsed = _parse_notice_bundle(viewer_doc.get("text", ""), viewer_doc.get("html", ""))
+    improved = False
+
+    if (not parsed["meeting_info"].get("meeting_type")) and viewer_parsed["meeting_info"].get("meeting_type"):
+        parsed["meeting_info"] = viewer_parsed["meeting_info"]
+        improved = True
+    if (not parsed["meeting_info"].get("datetime")) and viewer_parsed["meeting_info"].get("datetime"):
+        parsed["meeting_info"] = viewer_parsed["meeting_info"]
+        improved = True
+    if (not parsed["agenda_valid"]) and viewer_parsed["agenda_valid"]:
+        parsed["agenda"] = viewer_parsed["agenda"]
+        parsed["agenda_valid"] = True
+        parsed["text"] = viewer_parsed["text"]
+        parsed["html"] = viewer_parsed["html"]
+        improved = True
+    if scope == "board" and len(viewer_parsed["board"].get("appointments", [])) > len(parsed["board"].get("appointments", [])):
+        parsed["board"] = viewer_parsed["board"]
+        improved = True
+    if scope == "compensation" and len(viewer_parsed["compensation"].get("items", [])) > len(parsed["compensation"].get("items", [])):
+        parsed["compensation"] = viewer_parsed["compensation"]
+        improved = True
+
+    if improved:
+        source_used = "dart_html"
+        warnings.append("DART viewer HTML crawl 결과를 반영해 notice 파싱 품질을 보정했다.")
+    else:
+        warnings.append("DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.")
+    return parsed, warnings, source_used
+
+
+async def _notice_info_with_fallback(
+    rcept_no: str,
+    text: str,
+    html: str,
+) -> tuple[dict[str, Any], str]:
+    meeting_info = parse_meeting_info_xml(text, html=html)
+    if meeting_info.get("meeting_type") and meeting_info.get("datetime"):
+        return meeting_info, "dart_xml"
+
+    client = get_dart_client()
+    try:
+        viewer_doc = await client.get_viewer_document(
+            rcept_no,
+            section_keywords=["주주총회 소집공고", "주주총회소집공고"],
+        )
+    except Exception:
+        return meeting_info, "dart_xml"
+
+    viewer_info = parse_meeting_info_xml(viewer_doc.get("text", ""), html=viewer_doc.get("html", ""))
+    if viewer_info.get("meeting_type") or viewer_info.get("datetime"):
+        return viewer_info, "dart_html"
+    return meeting_info, "dart_xml"
 
 
 async def _find_meeting_result_filing(
@@ -702,17 +833,20 @@ async def build_shareholder_meeting_payload(
         months=lookback_months if (start_date or end_date or not target_year) else 12,
     )
 
-    client = get_dart_client()
-    doc = await client.get_document_cached(latest_notice["rcept_no"])
-    text = doc.get("text", "")
-    html = doc.get("html", "")
-    meeting_info = parse_meeting_info_xml(text, html=html)
-    agenda = parse_agenda_xml(text, html=html)
-    agenda_valid = validate_agenda_result(agenda)
-    board = parse_personnel_xml(html) if html else {"appointments": [], "summary": {}}
-    compensation = parse_compensation_xml(html) if html else {"items": [], "summary": {}}
+    parsed_notice, parse_warnings, notice_parse_source = await _load_notice_bundle_with_fallback(
+        latest_notice["rcept_no"],
+        scope=scope,
+    )
+    text = parsed_notice["text"]
+    html = parsed_notice["html"]
+    meeting_info = parsed_notice["meeting_info"]
+    agenda = parsed_notice["agenda"]
+    agenda_valid = parsed_notice["agenda_valid"]
+    board = parsed_notice["board"]
+    compensation = parsed_notice["compensation"]
+    correction = parsed_notice["correction"]
 
-    warnings: list[str] = list(window_warnings)
+    warnings: list[str] = list(window_warnings) + parse_warnings
     status = AnalysisStatus.EXACT
     if not agenda_valid:
         status = AnalysisStatus.REQUIRES_REVIEW
@@ -721,7 +855,6 @@ async def build_shareholder_meeting_payload(
         status = AnalysisStatus.REQUIRES_REVIEW
         warnings.append("HTML 구조를 확보하지 못해 XML 텍스트 기준으로만 파싱했다.")
 
-    correction = _correction_summary(html) if html else None
     agenda_nodes = _agenda_nodes(agenda)
     flat_agendas = _flatten_agendas(agenda)
     agenda_summary = {
@@ -750,6 +883,7 @@ async def build_shareholder_meeting_payload(
             "lookback_months": lookback_months,
         },
         "notice": latest_notice,
+        "notice_parse_source": notice_parse_source,
         "meeting_info": meeting_info,
         "meeting_phase": meeting_phase,
         "result_status": result_status,
@@ -797,33 +931,33 @@ async def build_shareholder_meeting_payload(
     evidence_refs = [
         EvidenceRef(
             evidence_id=f"ev_notice_{latest_notice['rcept_no']}",
-            source_type=SourceType.DART_XML,
+            source_type=SourceType.DART_HTML if notice_parse_source == "dart_html" else SourceType.DART_XML,
             rcept_no=latest_notice["rcept_no"],
             section="주주총회 소집공고",
             snippet=f"{latest_notice.get('report_name', '')} / {meeting_info.get('datetime') or ''}",
-            parser="parse_meeting_info_xml+parse_agenda_xml",
+            parser="parse_meeting_info_xml+parse_agenda_xml" + ("+viewer_fallback" if notice_parse_source == "dart_html" else ""),
         )
     ]
     if scope == "board":
         evidence_refs.append(
             EvidenceRef(
                 evidence_id=f"ev_board_{latest_notice['rcept_no']}",
-                source_type=SourceType.DART_XML,
+                source_type=SourceType.DART_HTML if notice_parse_source == "dart_html" else SourceType.DART_XML,
                 rcept_no=latest_notice["rcept_no"],
                 section="후보자/이사 선임",
                 snippet=f"후보자 {board_summary.get('total_candidates', 0)}명",
-                parser="parse_personnel_xml",
+                parser="parse_personnel_xml" + ("+viewer_fallback" if notice_parse_source == "dart_html" else ""),
             )
         )
     if scope == "compensation":
         evidence_refs.append(
             EvidenceRef(
                 evidence_id=f"ev_comp_{latest_notice['rcept_no']}",
-                source_type=SourceType.DART_XML,
+                source_type=SourceType.DART_HTML if notice_parse_source == "dart_html" else SourceType.DART_XML,
                 rcept_no=latest_notice["rcept_no"],
                 section="보수한도 승인",
                 snippet=f"보수 안건 {len(compensation.get('items', []))}건",
-                parser="parse_compensation_xml",
+                parser="parse_compensation_xml" + ("+viewer_fallback" if notice_parse_source == "dart_html" else ""),
             )
         )
     if scope == "results" and data.get("results"):

@@ -101,6 +101,7 @@ def _render_summary(payload: dict[str, Any]) -> str:
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
     lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
     lines.append(f"- result_status: {_result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
+    lines.append(f"- notice_parse_source: `{data.get('notice_parse_source', '')}`")
     lines.append(f"- status: `{payload.get('status', '')}`")
     if requested_window:
         lines.append(

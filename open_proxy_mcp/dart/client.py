@@ -138,6 +138,7 @@ class DartClient:
         self._last_web_request = 0.0
         # Document caching (메모리 + 디스크)
         self._doc_cache: dict[str, dict] = {}
+        self._viewer_doc_cache: dict[str, dict] = {}
         self._MAX_CACHE = 30
         self._disk_cache_dir = os.path.join(tempfile.gettempdir(), "opm_cache")
         # Search result caching (세션 기반, TTL 없음)
@@ -506,19 +507,23 @@ class DartClient:
         images = re.findall(r'[\w\-./]+\.(?:jpg|jpeg|png|gif|bmp)', text_html, re.IGNORECASE)
         images = list(dict.fromkeys(images))  # 중복 제거, 순서 유지
 
-        # HTML/XML 태그 제거 → 텍스트 (블록 태그는 줄바꿈으로 보존)
-        text = re.sub(r'<(?:br|BR)\s*/?>', '\n', text_html)
-        text = re.sub(r'</(?:p|P|div|DIV|tr|TR|li|LI|h\d|H\d|table|TABLE)>', '\n', text)
-        text = re.sub(r'<[^>]+>', ' ', text)
-        text = re.sub(r'&[a-zA-Z]+;', ' ', text)
-        # 이미지 파일명 제거
-        for img in images:
-            text = text.replace(img, '')
-        text = re.sub(r'[^\S\n]+', ' ', text)    # 수평 공백만 정규화
-        text = re.sub(r'\n\s*\n+', '\n\n', text)  # 빈 줄 정리
-        text = text.strip()
+        text = self._html_to_text(text_html, images=images)
 
         return {"text": text, "html": text_html, "images": images}
+
+    def _html_to_text(self, html: str, images: list[str] | None = None) -> str:
+        """HTML/XML을 파서 친화적인 평문으로 정규화."""
+        text = re.sub(r'<(?:br|BR)\s*/?>', '\n', html)
+        text = re.sub(r'</(?:p|P|div|DIV|tr|TR|li|LI|h\d|H\d|table|TABLE|td|TD|th|TH)>', '\n', text)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r'&nbsp;', ' ', text)
+        text = re.sub(r'&[a-zA-Z]+;', ' ', text)
+        if images:
+            for img in images:
+                text = text.replace(img, '')
+        text = re.sub(r'[^\S\n]+', ' ', text)
+        text = re.sub(r'\n\s*\n+', '\n\n', text)
+        return text.strip()
 
     # ── Rate Limiting ──
 
@@ -571,6 +576,121 @@ class DartClient:
         dcm_no = m.group(1)
         logger.info(f"[DART 웹] dcm_no={dcm_no} 추출 완료 (rcept_no={rcept_no})")
         return dcm_no
+
+    async def _fetch_viewer_main_html(self, rcept_no: str) -> str:
+        """DART 메인 viewer 페이지 HTML을 가져온다."""
+        await self._throttle_web()
+        url = f"{DART_WEB_BASE_URL}/dsaf001/main.do?rcpNo={rcept_no}"
+
+        async with httpx.AsyncClient() as http:
+            response = await http.get(
+                url,
+                timeout=30,
+                headers={
+                    "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+                },
+            )
+            response.raise_for_status()
+        return response.text
+
+    def _extract_viewer_nodes(self, main_html: str) -> list[dict]:
+        """main.do의 목차 treeData 정의에서 viewer section 메타를 추출한다."""
+        blocks = re.findall(
+            r"var\s+node1\s*=\s*\{\};(.*?)treeData\.push\(node1\);",
+            main_html,
+            re.S,
+        )
+        nodes: list[dict] = []
+        for block in blocks:
+            values = {}
+            for field in ("text", "rcpNo", "dcmNo", "eleId", "offset", "length", "dtd", "tocNo"):
+                match = re.search(rf"\['{field}'\]\s*=\s*\"([^\"]*)\"", block)
+                if match:
+                    values[field] = match.group(1)
+            if {"text", "rcpNo", "dcmNo", "eleId", "offset", "length", "dtd"} <= values.keys():
+                nodes.append(values)
+        return nodes
+
+    async def _fetch_viewer_section_html(self, node: dict[str, str]) -> str:
+        """report/viewer.do로 개별 section HTML을 가져온다."""
+        await self._throttle_web()
+        params = {
+            "rcpNo": node["rcpNo"],
+            "dcmNo": node["dcmNo"],
+            "eleId": node["eleId"],
+            "offset": node["offset"],
+            "length": node["length"],
+            "dtd": node["dtd"],
+        }
+        async with httpx.AsyncClient() as http:
+            response = await http.get(
+                f"{DART_WEB_BASE_URL}/report/viewer.do",
+                params=params,
+                timeout=30,
+                headers={
+                    "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+                },
+            )
+            response.raise_for_status()
+        return response.text
+
+    async def get_viewer_document(
+        self,
+        rcept_no: str,
+        section_keywords: list[str] | None = None,
+    ) -> dict:
+        """DART viewer HTML 크롤링 기반 본문.
+
+        API/XML 구조가 깨졌을 때만 2차 경로로 사용한다.
+        """
+        keywords = tuple(section_keywords or [])
+        cache_key = f"{rcept_no}|{'|'.join(keywords)}"
+        if cache_key in self._viewer_doc_cache:
+            return self._viewer_doc_cache[cache_key]
+
+        main_html = await self._fetch_viewer_main_html(rcept_no)
+        nodes = self._extract_viewer_nodes(main_html)
+        if not nodes:
+            raise DartClientError("NO_VIEWER_NODES", f"DART viewer 목차를 찾지 못했습니다. (rcept_no={rcept_no})")
+
+        selected_nodes = nodes
+        if keywords:
+            lowered = [keyword.lower() for keyword in keywords]
+            selected_nodes = [
+                node for node in nodes
+                if any(keyword in node.get("text", "").lower() for keyword in lowered)
+            ] or nodes
+
+        parts = []
+        for node in selected_nodes:
+            try:
+                parts.append(await self._fetch_viewer_section_html(node))
+            except Exception as exc:
+                logger.warning(
+                    f"[DART 웹] viewer section 조회 실패: rcept_no={rcept_no} "
+                    f"eleId={node.get('eleId')} text={node.get('text')} err={exc}"
+                )
+        if not parts:
+            raise DartClientError("NO_VIEWER_BODY", f"DART viewer 본문을 가져오지 못했습니다. (rcept_no={rcept_no})")
+
+        html = "\n".join(parts)
+        payload = {
+            "text": self._html_to_text(html),
+            "html": html,
+            "nodes": [
+                {
+                    "text": node.get("text", ""),
+                    "eleId": node.get("eleId", ""),
+                    "tocNo": node.get("tocNo", ""),
+                }
+                for node in selected_nodes
+            ],
+            "source": "viewer_html",
+        }
+        if len(self._viewer_doc_cache) >= self._MAX_CACHE:
+            self._viewer_doc_cache.pop(next(iter(self._viewer_doc_cache)))
+        self._viewer_doc_cache[cache_key] = payload
+        return payload
 
     async def get_document_pdf(self, rcept_no: str) -> bytes:
         """공시 본문 PDF 다운로드
