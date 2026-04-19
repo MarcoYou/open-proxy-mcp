@@ -17,6 +17,7 @@ from open_proxy_mcp.services.contracts import (
     ToolEnvelope,
 )
 from open_proxy_mcp.services.date_utils import parse_date_param, resolve_date_window
+from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.tools.formatters import _parse_agm_result_summary, _parse_agm_result_table
 from open_proxy_mcp.tools.parser import (
     parse_agenda_xml,
@@ -84,22 +85,20 @@ async def _candidate_notices_range(
     meeting_type_label: str,
     bgn_de: str,
     end_de: str,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     client = get_dart_client()
-    result = await client.search_filings(
+    filings, notices, error = await search_filings_by_report_name(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_ty="E",
-        page_count=100,
+        pblntf_tys="E",
+        keywords=("소집",),
     )
-    filings = [
-        item for item in result.get("list", [])
-        if "소집" in (item.get("report_nm") or "")
-    ]
+    if error:
+        raise DartClientError(error, "주총 소집공고 검색 실패")
     filings.sort(key=lambda row: row.get("rcept_dt", ""))
     if not filings:
-        return []
+        return [], notices
 
     docs = await asyncio.gather(*[
         client.get_document_cached(item["rcept_no"]) for item in filings
@@ -114,14 +113,14 @@ async def _candidate_notices_range(
         normalized["notice_source"] = info_source
         if normalized["meeting_type"] == meeting_type_label:
             matched.append(normalized)
-    return matched
+    return matched, notices
 
 
 async def _candidate_notices(
     corp_code: str,
     meeting_type_label: str,
     year: int,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     return await _candidate_notices_in_meeting_window(
         corp_code,
         meeting_type_label,
@@ -135,9 +134,9 @@ async def _candidate_notices_in_meeting_window(
     meeting_type_label: str,
     meeting_start: date,
     meeting_end: date,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[str]]:
     search_start = meeting_start - timedelta(days=_NOTICE_LEAD_BUFFER_DAYS)
-    notices = await _candidate_notices_range(
+    notices, search_notices = await _candidate_notices_range(
         corp_code,
         meeting_type_label,
         search_start.strftime("%Y%m%d"),
@@ -148,7 +147,7 @@ async def _candidate_notices_in_meeting_window(
         meeting_date = _parse_notice_meeting_date(notice.get("datetime", ""))
         if meeting_date and meeting_start <= meeting_date <= meeting_end:
             matched.append(notice)
-    return matched
+    return matched, search_notices
 
 
 def _pick_latest_notice(notices: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -325,25 +324,18 @@ async def _find_meeting_result_filing(
     corp_code: str,
     target_year: int,
     notice: dict[str, Any],
-) -> tuple[dict[str, Any] | None, str | None]:
-    client = get_dart_client()
-    try:
-        filings = await client.search_filings(
-            corp_code=corp_code,
-            bgn_de=f"{target_year}0101",
-            end_de=f"{target_year}1231",
-            pblntf_ty="I",
-            page_count=100,
-        )
-    except DartClientError as exc:
-        return None, f"주주총회결과 공시 검색 실패: {exc.status}"
-
-    result_items = [
-        item for item in filings.get("list", [])
-        if "주주총회결과" in (item.get("report_nm") or "")
-    ]
+) -> tuple[dict[str, Any] | None, str | None, list[str]]:
+    result_items, notices, error = await search_filings_by_report_name(
+        corp_code=corp_code,
+        bgn_de=f"{target_year}0101",
+        end_de=f"{target_year}1231",
+        pblntf_tys="I",
+        keywords=("주주총회결과",),
+    )
+    if error:
+        return None, f"주주총회결과 공시 검색 실패: {error}", notices
     if not result_items:
-        return None, "주주총회결과 공시를 찾지 못했다."
+        return None, "주주총회결과 공시를 찾지 못했다.", notices
 
     meeting_date = _parse_notice_meeting_date(notice.get("datetime", ""))
 
@@ -360,7 +352,7 @@ async def _find_meeting_result_filing(
         return (distance, rcept_dt)
 
     result_items.sort(key=sort_key)
-    return result_items[0], None
+    return result_items[0], None, notices
 
 
 def _result_reference(result_filing: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -510,7 +502,7 @@ async def _build_candidate(
 ) -> dict[str, Any]:
     meeting_date = _parse_notice_meeting_date(notice.get("datetime", ""))
     result_search_year = meeting_date.year if meeting_date else target_year
-    result_filing, result_filing_warning = await _find_meeting_result_filing(
+    result_filing, result_filing_warning, result_search_notices = await _find_meeting_result_filing(
         corp_code,
         result_search_year,
         notice,
@@ -528,6 +520,7 @@ async def _build_candidate(
         "result_reference": result_reference,
         "meeting_phase": meeting_phase,
         "result_status": result_status,
+        "search_notices": result_search_notices,
     }
 
 
@@ -540,7 +533,8 @@ async def _select_notice_candidate(
     start_date: str = "",
     end_date: str = "",
     lookback_months: int = 12,
-) -> tuple[dict[str, Any] | None, list[dict[str, Any]], str | None, str | None]:
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]], str | None, str | None, list[str]]:
+    search_notices: list[str] = []
     window_start, window_end, _ = _selection_window(
         target_year,
         start_date=start_date,
@@ -548,7 +542,7 @@ async def _select_notice_candidate(
         lookback_months=lookback_months,
     )
     if requested_meeting_type == "auto":
-        annual_notices, extraordinary_notices = await asyncio.gather(
+        annual_result, extraordinary_result = await asyncio.gather(
             _candidate_notices_in_meeting_window(
                 corp_code,
                 _MEETING_TYPE_MAP["annual"],
@@ -562,6 +556,10 @@ async def _select_notice_candidate(
                 window_end,
             ),
         )
+        annual_notices, annual_search_notices = annual_result
+        extraordinary_notices, extraordinary_search_notices = extraordinary_result
+        search_notices.extend(annual_search_notices)
+        search_notices.extend(extraordinary_search_notices)
         latest_by_type: list[tuple[str, dict[str, Any]]] = []
         annual_latest = _pick_latest_notice(annual_notices)
         extraordinary_latest = _pick_latest_notice(extraordinary_notices)
@@ -570,30 +568,34 @@ async def _select_notice_candidate(
         if extraordinary_latest:
             latest_by_type.append(("extraordinary", extraordinary_latest))
         if not latest_by_type:
-            return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 정기/임시 주주총회 소집공고를 찾지 못했다."
+            return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 정기/임시 주주총회 소집공고를 찾지 못했다.", search_notices
 
         candidates = await asyncio.gather(*[
             _build_candidate(corp_code, meeting_type, target_year or window_end.year, notice)
             for meeting_type, notice in latest_by_type
         ])
+        for candidate in candidates:
+            search_notices.extend(candidate.get("search_notices", []))
         selected = sorted(candidates, key=lambda row: _auto_rank_key(row, scope), reverse=True)[0]
         alternatives = [_candidate_meta(candidate) for candidate in candidates if candidate is not selected]
         basis = _auto_selection_basis(selected, scope, candidates)
-        return selected, alternatives, basis, None
+        return selected, alternatives, basis, None, search_notices
 
     meeting_type_label = _MEETING_TYPE_MAP[requested_meeting_type]
-    notices = await _candidate_notices_in_meeting_window(
+    notices, notice_search_notices = await _candidate_notices_in_meeting_window(
         corp_code,
         meeting_type_label,
         window_start,
         window_end,
     )
+    search_notices.extend(notice_search_notices)
     latest_notice = _pick_latest_notice(notices)
     if not latest_notice:
-        return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 {meeting_type_label} 주주총회 소집공고를 찾지 못했다."
+        return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 {meeting_type_label} 주주총회 소집공고를 찾지 못했다.", search_notices
     selected = await _build_candidate(corp_code, requested_meeting_type, target_year or window_end.year, latest_notice)
+    search_notices.extend(selected.get("search_notices", []))
     basis = f"사용자가 {meeting_type_label} 주주총회를 명시해 해당 회차를 선택했다."
-    return selected, [], basis, None
+    return selected, [], basis, None, search_notices
 
 
 async def _meeting_window_coverage(
@@ -602,7 +604,7 @@ async def _meeting_window_coverage(
     end_date: date,
     months: int = 12,
 ) -> dict[str, Any]:
-    annual_notices, extraordinary_notices = await asyncio.gather(
+    annual_result, extraordinary_result = await asyncio.gather(
         _candidate_notices_in_meeting_window(
             corp_code,
             _MEETING_TYPE_MAP["annual"],
@@ -616,6 +618,8 @@ async def _meeting_window_coverage(
             end_date,
         ),
     )
+    annual_notices, _ = annual_result
+    extraordinary_notices, _ = extraordinary_result
 
     annual_latest = _pick_latest_notice(annual_notices)
     extraordinary_latest = _pick_latest_notice(extraordinary_notices)
@@ -776,7 +780,7 @@ async def build_shareholder_meeting_payload(
     )
 
     try:
-        selected_candidate, alternative_meetings, selection_basis, candidate_error = await _select_notice_candidate(
+        selected_candidate, alternative_meetings, selection_basis, candidate_error, candidate_notices = await _select_notice_candidate(
             selected["corp_code"],
             target_year,
             meeting_type,
@@ -800,7 +804,7 @@ async def build_shareholder_meeting_payload(
             tool="shareholder_meeting",
             status=AnalysisStatus.ERROR,
             subject=selected.get("corp_name", company_query),
-            warnings=[candidate_error or "주주총회 소집공고를 찾지 못했다."],
+            warnings=[*(candidate_notices or []), candidate_error or "주주총회 소집공고를 찾지 못했다."],
             data={
                 "query": company_query,
                 "company_id": _company_id(selected),
@@ -846,7 +850,7 @@ async def build_shareholder_meeting_payload(
     compensation = parsed_notice["compensation"]
     correction = parsed_notice["correction"]
 
-    warnings: list[str] = list(window_warnings) + parse_warnings
+    warnings: list[str] = list(window_warnings) + list(candidate_notices) + parse_warnings
     status = AnalysisStatus.EXACT
     if not agenda_valid:
         status = AnalysisStatus.REQUIRES_REVIEW

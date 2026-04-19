@@ -19,6 +19,7 @@ import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
 from contextvars import ContextVar
+from html import unescape
 import httpx
 from dotenv import load_dotenv
 
@@ -41,6 +42,8 @@ DART_WEB_BASE_URL = "https://dart.fss.or.kr"
 # API와 웹 스크래핑에 각각 다른 최소 간격 적용
 _MIN_INTERVAL_API = 0.1     # API: 최소 0.1초 간격 (분당 600회 이하)
 _MIN_INTERVAL_WEB = 2.0     # 웹: 최소 2초 간격 (DDoS 오해 방지)
+
+_KIND_VALUE_UP_DISCLOSURE_CODE = "0184"
 
 
 class DartClientError(Exception):
@@ -1107,6 +1110,119 @@ class DartClient:
 
         logger.info(f"[KIND] 본문 다운로드 완료: {len(resp3.text):,} chars (acptno={acptno})")
         return resp3.text
+
+    @staticmethod
+    def _kind_strip_html(fragment: str) -> str:
+        text = re.sub(r"<br\s*/?>", "\n", fragment, flags=re.IGNORECASE)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = unescape(text)
+        text = re.sub(r"\s+", " ", text)
+        return text.strip()
+
+    def _parse_kind_disclosure_rows(self, html: str) -> list[dict]:
+        rows: list[dict] = []
+        for match in re.finditer(r"<tr[^>]*>(.*?)</tr>", html, re.IGNORECASE | re.DOTALL):
+            row_html = match.group(1)
+            acptno_match = re.search(
+                r"openDisclsViewer\('(\d+)'\s*,\s*''\)",
+                row_html,
+                re.IGNORECASE,
+            )
+            if not acptno_match:
+                continue
+            acptno = acptno_match.group(1)
+            td_matches = re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.IGNORECASE | re.DOTALL)
+            cells = [self._kind_strip_html(cell) for cell in td_matches]
+            if len(cells) < 5:
+                continue
+            company_match = re.search(
+                r"id=['\"]companysum['\"][^>]*title=['\"]([^'\"]+)['\"]",
+                row_html,
+                re.IGNORECASE,
+            )
+            report_match = re.search(
+                r"openDisclsViewer\('\d+'\s*,\s*''\)[^>]*title=['\"]([^'\"]+)['\"]",
+                row_html,
+                re.IGNORECASE,
+            )
+            company_name = company_match.group(1).strip() if company_match else cells[2]
+            report_name = report_match.group(1).strip() if report_match else cells[3]
+            rows.append({
+                "acptno": acptno,
+                "disclosure_datetime": cells[1],
+                "disclosure_date": cells[1][:10].replace("-", ""),
+                "corp_name": company_name,
+                "report_name": report_name,
+                "filer_name": cells[4],
+            })
+        return rows
+
+    async def kind_search_disclosures(
+        self,
+        *,
+        stock_code: str,
+        corp_name: str,
+        from_date: str,
+        to_date: str,
+        disclosure_type_code: str,
+    ) -> list[dict]:
+        """KIND 상세검색에서 특정 공시분류를 검색.
+
+        Args:
+            stock_code: 종목코드 6자리
+            corp_name: 회사명
+            from_date: YYYY-MM-DD
+            to_date: YYYY-MM-DD
+            disclosure_type_code: KIND 공시세부코드 (예: 0184=기업가치 제고 계획)
+        """
+        kind_base = "https://kind.krx.co.kr"
+        headers = {
+            "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+        }
+        payload = {
+            "method": "searchDetailsSub",
+            "forward": "details_sub",
+            "searchCorpName": corp_name,
+            "oldSearchCorpName": corp_name,
+            "repIsuSrtCd": f"A{stock_code}" if stock_code else "",
+            "allRepIsuSrtCd": f"A{stock_code}" if stock_code else "",
+            "fromDate": from_date,
+            "toDate": to_date,
+            "currentPageSize": "100",
+            "pageIndex": "1",
+            "disclosureType01": disclosure_type_code,
+            "pDisclosureType01": disclosure_type_code,
+            "disclosureTypeArr01": disclosure_type_code,
+        }
+
+        await self._throttle_kind()
+        async with httpx.AsyncClient() as http:
+            response = await http.post(
+                f"{kind_base}/disclosure/details.do",
+                data=payload,
+                timeout=30,
+                headers=headers,
+            )
+            response.raise_for_status()
+
+        return self._parse_kind_disclosure_rows(response.text)
+
+    async def kind_search_value_up(
+        self,
+        *,
+        stock_code: str,
+        corp_name: str,
+        from_date: str,
+        to_date: str,
+    ) -> list[dict]:
+        """KIND에서 기업가치 제고 계획 공시 검색."""
+        return await self.kind_search_disclosures(
+            stock_code=stock_code,
+            corp_name=corp_name,
+            from_date=from_date,
+            to_date=to_date,
+            disclosure_type_code=_KIND_VALUE_UP_DISCLOSURE_CODE,
+        )
 
     # ── Document Caching ──
 

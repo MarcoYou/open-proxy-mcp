@@ -9,6 +9,7 @@ from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, parse_date_param, resolve_date_window
+from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.tools.dividend import (
     _DIV_KEYWORDS,
     _build_dividend_summary,
@@ -23,25 +24,17 @@ def _year_window(end_year: int, years: int) -> list[int]:
     return list(range(end_year - years + 1, end_year + 1))
 
 
-async def _search_dividend_filings(corp_code: str, start_year: int, end_year: int) -> tuple[list[dict[str, Any]], str | None]:
-    client = get_dart_client()
-    try:
-        result = await client.search_filings(
-            corp_code=corp_code,
-            bgn_de=f"{start_year}0101",
-            end_de=f"{end_year + 1}1231",
-            pblntf_ty="I",
-            page_count=100,
-        )
-    except DartClientError as exc:
-        return [], f"배당결정 공시 검색 실패: {exc.status}"
-
-    filings = [
-        item for item in result.get("list", [])
-        if any(keyword in (item.get("report_nm") or "") for keyword in _DIV_KEYWORDS)
-    ]
-    filings.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
-    return filings, None
+async def _search_dividend_filings(corp_code: str, start_year: int, end_year: int) -> tuple[list[dict[str, Any]], list[str], str | None]:
+    filings, notices, error = await search_filings_by_report_name(
+        corp_code=corp_code,
+        bgn_de=f"{start_year}0101",
+        end_de=f"{end_year + 1}1231",
+        pblntf_tys="I",
+        keywords=_DIV_KEYWORDS,
+    )
+    if error:
+        return [], notices, f"배당결정 공시 검색 실패: {error}"
+    return filings, notices, None
 
 
 def _in_window(date_value: str, start_ymd: str, end_ymd: str) -> bool:
@@ -102,6 +95,17 @@ def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], de
             "pattern": "분기/중간 포함" if len(yearly) > 1 else ("연간배당" if yearly else "무배당"),
         })
     return history
+
+
+def _select_history_years(
+    annual_summaries: dict[int, dict[str, Any]],
+    *,
+    requested_years: int,
+) -> list[int]:
+    available_years = sorted(annual_summaries.keys())
+    if not available_years:
+        return []
+    return available_years[-requested_years:]
 
 
 def _policy_signals(history: list[dict[str, Any]]) -> dict[str, Any]:
@@ -201,13 +205,17 @@ async def build_dividend_payload(
     )
     warnings: list[str] = list(window_warnings)
     history_start_year = window_start.year if (explicit_start or explicit_end) else (target_year - max(1, years) + 1)
+    # 최근 N개 완료 사업연도를 보여주기 위해 한 해 더 넓게 본다.
+    if scope == "history":
+        history_start_year = min(history_start_year, target_year - max(1, years))
     year_list = list(range(history_start_year, target_year + 1))
 
     latest_summary, summary_warning = await _annual_summary(selected["corp_code"], target_year)
     if summary_warning:
         warnings.append(summary_warning)
 
-    filings, filing_warning = await _search_dividend_filings(selected["corp_code"], year_list[0], target_year)
+    filings, filing_notices, filing_warning = await _search_dividend_filings(selected["corp_code"], year_list[0], target_year)
+    warnings.extend(filing_notices)
     if filing_warning:
         warnings.append(filing_warning)
         filings = []
@@ -227,7 +235,15 @@ async def build_dividend_payload(
         if summary:
             annual_summaries[y] = summary
 
-    history = _history_rows(target_year, annual_summaries, details)
+    history_years = _select_history_years(
+        annual_summaries,
+        requested_years=max(1, years) if scope == "history" else len(annual_summaries),
+    )
+    selected_annual_summaries = {
+        y: annual_summaries[y]
+        for y in history_years
+    } if history_years else annual_summaries
+    history = _history_rows(target_year, selected_annual_summaries, details)
     policy = _policy_signals(history)
 
     latest_decision = details[0] if details else None
@@ -243,6 +259,12 @@ async def build_dividend_payload(
         "window": {
             "start_date": start_ymd,
             "end_date": end_ymd,
+        },
+        "history_selection": {
+            "requested_years": years,
+            "selected_years": history_years,
+            "available_years": sorted(annual_summaries.keys()),
+            "selection_basis": "recent_completed_years" if scope == "history" else "window",
         },
         "summary": latest_summary,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
@@ -288,6 +310,8 @@ async def build_dividend_payload(
     status = AnalysisStatus.EXACT if latest_summary or details else AnalysisStatus.PARTIAL
     if status == AnalysisStatus.PARTIAL:
         warnings.append("사업보고서 요약이나 배당결정 공시 일부가 비어 있어 partial 상태로 표시한다.")
+    elif scope == "history" and len(history) < max(1, years):
+        warnings.append("요청한 연수보다 완료 사업연도 수가 적어, 조회 가능한 최근 완료 사업연도만 반환한다.")
 
     return ToolEnvelope(
         tool="dividend",

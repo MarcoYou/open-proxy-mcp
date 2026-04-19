@@ -11,6 +11,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import (
     _CORP_ALIASES,
     _normalize_corp_name,
+    _sort_corp_results,
     DartClientError,
     get_dart_client,
 )
@@ -55,7 +56,16 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
     if len(exact) == 1:
         return AnalysisStatus.EXACT, exact[0], matches
     if len(exact) > 1:
-        return AnalysisStatus.AMBIGUOUS, None, exact
+        ranked = _sort_corp_results(exact)
+        top = ranked[0]
+        second = ranked[1] if len(ranked) > 1 else None
+        if top.get("stock_code") and (
+            second is None
+            or not second.get("stock_code")
+            or (top.get("modify_date") or "") > (second.get("modify_date") or "")
+        ):
+            return AnalysisStatus.EXACT, top, ranked
+        return AnalysisStatus.AMBIGUOUS, None, ranked
 
     norm_query = _normalize_corp_name(alias_query)
     normalized = [
@@ -65,7 +75,16 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
     if len(normalized) == 1:
         return AnalysisStatus.EXACT, normalized[0], matches
     if len(normalized) > 1:
-        return AnalysisStatus.AMBIGUOUS, None, normalized
+        ranked = _sort_corp_results(normalized)
+        top = ranked[0]
+        second = ranked[1] if len(ranked) > 1 else None
+        if top.get("stock_code") and (
+            second is None
+            or not second.get("stock_code")
+            or (top.get("modify_date") or "") > (second.get("modify_date") or "")
+        ):
+            return AnalysisStatus.EXACT, top, ranked
+        return AnalysisStatus.AMBIGUOUS, None, ranked
 
     return AnalysisStatus.AMBIGUOUS, None, matches
 

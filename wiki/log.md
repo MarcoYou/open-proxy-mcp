@@ -421,3 +421,69 @@ title: Operation Log
   - `result_format`, `numerical_vote_table_available`
 - 목적:
   - action memo를 볼 때 결론의 기반 소스 품질을 바로 판단하게 함
+
+## [2026-04-19] fix | v1-v2 실패 원인 구분 보강
+- `value_up_v2`
+  - `availability_status` 추가
+  - `search_diagnostics` 추가
+  - 요청 구간에 공시가 없는지, v1 호환 진단 구간(`전년도 1월 1일 ~ 대상연도 12월 31일`)에도 없는지 구분
+- `dividend_v2`
+  - `history_selection` 추가
+  - `history` scope는 미완료 사업연도를 제외하고 최근 완료 사업연도 기준으로 3개년을 고르도록 보강
+- 확인:
+  - `현대자동차 value_up`: 요청 구간에도 없고 v1 호환 진단 구간에도 공시 없음
+  - `삼성전자 dividend history`: 2026 미완료 사업연도 대신 2023/2024/2025 완료 3개년 반환
+
+## [2026-04-19] fix | value_up KIND fallback + 현대자동차 pagination 보정
+- `현대자동차` 사례로 기존 `공시 없음` 판정을 정정
+  - DART 웹과 DART API 모두 공시가 존재
+  - 예: `rcept_no=20240828800218`
+  - 이전 누락 원인은 `2024~2026`처럼 구간이 길 때 `list.json` 첫 100건만 보고 pagination을 넘기지 않아 예전 공시가 밀린 것
+- KIND fallback은 유지
+  - DART가 진짜 비는 거래소 자율공시를 대비한 보조 경로로 유지
+  - 다만 `현대자동차`는 `KIND-only`가 아니라 `DART pagination 누락` 사례로 재분류
+- `dart/client.py`
+  - KIND 상세검색 기반 `kind_search_disclosures()` 추가
+  - `기업가치 제고 계획(0184)` 전용 `kind_search_value_up()` 추가
+- `value_up_v2`
+  - DART search에서 pagination 처리 추가
+  - DART에서 못 찾으면 KIND `기업가치 제고 계획(0184)` 검색으로 재시도
+  - 진단 구간을 `최근 3개 연도`로 확대해, 최근 12개월 밖에 있는 기존 계획도 `요청구간 밖 존재`로 구분
+  - `availability_status=exists_outside_requested_window`에서 DART/KIND 샘플 공시를 함께 노출
+  - `primary_source=dart|kind` 추가
+  - 최신 공시 메타에 `rcept_no` 또는 `KIND acptno`, `source_type` 반영
+- `company` 식별 보정
+  - 동일 회사명 이력 중 현재 상장 엔티티가 명확할 때는 최신 상장 엔티티를 우선 선택
+  - `기아`, `우리금융지주` 같은 케이스를 exact로 연결
+
+## [2026-04-19] verify | value_up 10개 추가 검증
+- 검증 구간: `2024-01-01 ~ 2026-04-19`
+- 결과:
+  - `현대자동차`: `exact`, DART, `rcept_no=20240828800218`
+  - `기아`: `exact`, DART
+  - `현대모비스`: `exact`, DART
+  - `KB금융`: `exact`, DART
+  - `하나금융지주`: `exact`, DART
+  - `신한지주`: `exact`, DART
+  - `우리금융지주`: `exact`, DART
+  - `메리츠금융지주`: `exact`, DART
+  - `삼성생명`: `exact`, DART
+  - `POSCO홀딩스`: `exact`, DART
+  - `삼성전자`: `exact`, DART
+- 해석:
+  - 현재 검증 샘플 기준 11개 전부 DART 경로로 정상 조회
+  - 현대자동차는 `KIND-only`가 아니라 `DART pagination` 처리 부족이 원인이었음
+
+## [2026-04-19] fix | 제목 타깃 검색 경고 전파 + taxonomy wiki 반영
+- `filing_search` 경고 문구를 구체화
+  - 단순히 `몇 페이지까지만 확인`이 아니라
+  - `어느 기간`, `어떤 pblntf_ty`, `어떤 제목군`을 기준으로 확인했는지 같이 남기도록 수정
+- `proxy_contest`
+  - 위임장/공개매수, 소송/분쟁 검색에서 제목 타깃 helper가 내는 경고를 실제 warnings에 반영
+  - 앞으로 `정해진 기간 내 일부 페이지만 확인`한 경우 analyst가 바로 알 수 있게 됨
+- `shareholder_meeting`
+  - notice/result 검색에서도 helper 경고를 warnings에 반영
+  - `소집공고 없음`과 `검색 범위를 제한해 확인함`을 분리해서 볼 수 있게 됨
+- `dart-kind-disclosure-taxonomy.md`
+  - wiki source 문서 `[[dart-kind-disclosure-taxonomy]]`로 반영
+  - v2 소스 정책과 공시군 분류 기준 문서로 재사용 시작

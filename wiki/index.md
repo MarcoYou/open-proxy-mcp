@@ -111,6 +111,7 @@ updated: 2026-04-18
 - [[div-tool-rule]] - 배당 5개 tool 구조, 연산 규칙 (성향/수익률)
 - [[own-tool-rule]] - 지분 7개 tool 구조, 출력 형태, 데이터 소스 우선순위
 - [[prx-tool-rule]] - 위임장 5개 tool 구조, 검색/파싱 방법, 행사방향 추출 규칙
+- [[dart-kind-disclosure-taxonomy]] - DART A~J / KIND 공시군 매핑과 v2 소스 정책 기준
 - [[devlog]] - 2026-03-19부터 04-06 개발 히스토리 요약
 - [[jpm-voting-process]] - JPMAM proxy voting 5단계 프로세스 (mermaid flowchart)
 - [[주총방어전략-2026]] - 주총 방어 시나리오 4가지 (미래에셋증권 리서치 2026.03.19)

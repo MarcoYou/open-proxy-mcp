@@ -11,6 +11,7 @@ from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
+from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.services.ownership_structure import (
     _build_control_map,
     _latest_block_rows,
@@ -98,22 +99,21 @@ def _in_window(value: str, bgn_de: str, end_de: str) -> bool:
     return bool(date_key) and bgn_de <= date_key <= end_de
 
 
-async def _proxy_items(corp_code: str, corp_name: str, bgn_de: str, end_de: str) -> tuple[list[dict[str, Any]], str | None]:
-    client = get_dart_client()
-    try:
-        result = await client.search_filings(
-            corp_code=corp_code,
-            bgn_de=bgn_de,
-            end_de=end_de,
-            pblntf_ty="D",
-            page_count=100,
-        )
-    except DartClientError as exc:
-        return [], f"위임장/공개매수 공시 조회 실패: {exc.status}"
-    items = [
-        item for item in result.get("list", [])
-        if any(keyword in (item.get("report_nm") or "") for keyword in _PROXY_KEYWORDS)
-    ]
+async def _proxy_items(
+    corp_code: str,
+    corp_name: str,
+    bgn_de: str,
+    end_de: str,
+) -> tuple[list[dict[str, Any]], list[str], str | None]:
+    items, notices, error = await search_filings_by_report_name(
+        corp_code=corp_code,
+        bgn_de=bgn_de,
+        end_de=end_de,
+        pblntf_tys="D",
+        keywords=_PROXY_KEYWORDS,
+    )
+    if error:
+        return [], notices, f"위임장/공개매수 공시 조회 실패: {error}"
     rows = []
     for item in items:
         rows.append({
@@ -124,33 +124,34 @@ async def _proxy_items(corp_code: str, corp_name: str, bgn_de: str, end_de: str)
             "side": "company" if _is_company_side(item.get("flr_nm", ""), corp_name) else "shareholder",
         })
     rows.sort(key=lambda row: (row["disclosure_date"], row["rcept_no"]), reverse=True)
-    return rows, None
+    return rows, notices, None
 
 
-async def _litigation_items(corp_code: str, bgn_de: str, end_de: str) -> tuple[list[dict[str, Any]], str | None]:
-    client = get_dart_client()
+async def _litigation_items(
+    corp_code: str,
+    bgn_de: str,
+    end_de: str,
+) -> tuple[list[dict[str, Any]], list[str], str | None]:
+    items, notices, error = await search_filings_by_report_name(
+        corp_code=corp_code,
+        bgn_de=bgn_de,
+        end_de=end_de,
+        pblntf_tys=("I", "B"),
+        keywords=_LITIGATION_KEYWORDS,
+        strip_spaces=True,
+    )
+    if error:
+        return [], notices, f"소송/분쟁 공시 조회 실패: {error}"
     all_rows: list[dict[str, Any]] = []
-    for pblntf_ty in ("I", "B"):
-        try:
-            result = await client.search_filings(
-                corp_code=corp_code,
-                bgn_de=bgn_de,
-                end_de=end_de,
-                pblntf_ty=pblntf_ty,
-                page_count=100,
-            )
-        except DartClientError:
-            continue
-        for item in result.get("list", []):
-            if any(keyword in (item.get("report_nm") or "").replace(" ", "") for keyword in _LITIGATION_KEYWORDS):
-                all_rows.append({
-                    "rcept_no": item.get("rcept_no", ""),
-                    "disclosure_date": item.get("rcept_dt", ""),
-                    "report_name": item.get("report_nm", ""),
-                    "filer_name": item.get("flr_nm", ""),
-                })
+    for item in items:
+        all_rows.append({
+            "rcept_no": item.get("rcept_no", ""),
+            "disclosure_date": item.get("rcept_dt", ""),
+            "report_name": item.get("report_nm", ""),
+            "filer_name": item.get("flr_nm", ""),
+        })
     all_rows.sort(key=lambda row: (row["disclosure_date"], row["rcept_no"]), reverse=True)
-    return all_rows, None
+    return all_rows, notices, None
 
 
 async def _block_signals(corp_code: str) -> tuple[list[dict[str, Any]], str | None]:
@@ -538,10 +539,13 @@ async def build_proxy_contest_payload(
     )
     warnings: list[str] = list(window_warnings)
 
-    proxy_rows, proxy_warning = await _proxy_items(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de)
-    litigation_rows, lit_warning = await _litigation_items(selected["corp_code"], bgn_de, end_de)
+    proxy_rows, proxy_notices, proxy_warning = await _proxy_items(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de)
+    litigation_rows, litigation_notices, lit_warning = await _litigation_items(selected["corp_code"], bgn_de, end_de)
     signal_rows, signal_warning = await _block_signals(selected["corp_code"])
     control_context, control_warnings = await _control_context(selected["corp_code"], company_query, window_year)
+
+    warnings.extend(proxy_notices)
+    warnings.extend(litigation_notices)
 
     for warning in (proxy_warning, lit_warning, signal_warning, *control_warnings):
         if warning:
