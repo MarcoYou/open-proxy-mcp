@@ -867,9 +867,11 @@ async def build_shareholder_meeting_payload(
 
     warnings: list[str] = list(window_warnings) + list(candidate_notices) + parse_warnings
     status = AnalysisStatus.EXACT
+    parsing_failed = False
     if not agenda_valid:
         status = AnalysisStatus.REQUIRES_REVIEW
-        warnings.append("안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다.")
+        parsing_failed = True
+        warnings.append("안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.")
     if not html:
         status = AnalysisStatus.REQUIRES_REVIEW
         warnings.append("HTML 구조를 확보하지 못해 XML 텍스트 기준으로만 파싱했다.")
@@ -918,6 +920,13 @@ async def build_shareholder_meeting_payload(
         data["result_reference"] = result_reference
     if correction:
         data["correction_summary"] = correction
+    if parsing_failed:
+        # Structured 파싱이 실패한 경우 DART 원문 텍스트를 직접 노출해 LLM/애널리스트가 해석할 수 있게 한다.
+        # PDF 다운로드 없이 raw text fallback. 길이 제한으로 context 부담 완화.
+        raw = (text or "").strip()
+        if raw:
+            data["raw_text_excerpt"] = raw[:6000]
+            data["raw_text_full_length"] = len(raw)
     include_agenda = scope in {"agenda", "full"}
     include_board = scope in {"board", "full"}
     include_compensation = scope in {"compensation", "full"}

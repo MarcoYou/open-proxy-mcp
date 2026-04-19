@@ -191,6 +191,14 @@ def _render_summary(payload: dict[str, Any]) -> str:
         if correction.get("reason"):
             lines.append(f"- 정정 사유: {correction.get('reason')}")
 
+    if data.get("raw_text_excerpt"):
+        lines.append("")
+        lines.append("## 원문 발췌 (DART 본문, 구조 파싱 실패 fallback)")
+        lines.append(f"- 원문 총 길이: {data.get('raw_text_full_length', 0):,}자 (최대 6000자만 표시)")
+        lines.append("```")
+        lines.append(data["raw_text_excerpt"])
+        lines.append("```")
+
     lines.append("")
     lines.append("다음 단계:")
     lines.append("- `scope=\"agenda\"`로 전체 안건 트리 확인")
