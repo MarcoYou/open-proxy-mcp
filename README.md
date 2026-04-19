@@ -49,10 +49,6 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 4. "추가" 클릭 -> 11개 tool이 자동으로 인식돼요
 5. 추가된 커넥터의 구성 -> 권한에서 **"항상 허용"** 선택 (매번 승인 없이 tool이 자동 실행돼요)
 
-![커스텀 커넥터 추가](screenshot/readme/add_custom_connector%20kor.png)
-
-![도구 권한 허용](screenshot/readme/authorize_tool%20kor.png)
-
 > **참고**: tool이 추가되거나 변경된 경우 커넥터 MCP 서버 업데이트에 시간이 걸릴 수 있어요. 커넥터를 삭제한 뒤 다시 연결하면 바로 최신 tool이 반영돼요. 재연결한 후 새 채팅을 열어서 다시 시도해주세요.
 
 #### 방법 B: 로컬 설치

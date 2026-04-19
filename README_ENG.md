@@ -49,10 +49,6 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 4. Click "Add" → 11 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
-![Add custom connector](screenshot/readme/add_custom_connector%20kor.png)
-
-![Authorize tool](screenshot/readme/authorize_tool%20kor.png)
-
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
 
 #### Option B: Local installation
