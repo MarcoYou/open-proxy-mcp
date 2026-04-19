@@ -9,9 +9,9 @@ primary_region = 'iad'
 [build]
 
 [env]
-  # v1 (36 tool) + v2 (11 tool) 병행 노출. 무충돌(이름 겹침 없음).
-  # 필요시 'v2'로 전환하면 v2만, 'v1'이면 v1만 노출.
-  OPEN_PROXY_TOOLSET = 'hybrid'
+  # v2 (11 tool) 운영 기본. v1은 opm_v1 브랜치에 보존.
+  # 필요시 'hybrid'(v1+v2) 또는 'v1'(36 tool)으로 전환 가능.
+  OPEN_PROXY_TOOLSET = 'v2'
 
 [http_service]
   internal_port = 8000
