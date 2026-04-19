@@ -3,325 +3,179 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Branch](https://img.shields.io/badge/branch-release_v2.0.0-blue.svg)](https://github.com/MarcoYou/open-proxy-mcp/tree/release_v2.0.0)
+[![Tools](https://img.shields.io/badge/tools-11-orange.svg)](#tool-structure-11-tools)
 
 [Korean README](README.md)
 
-> This README is for the `release_v2.0.0` branch.  
-> It describes the **next public surface (v2)**. For the current stable/production-facing docs, see [docs/v1/README_ENG.md](docs/v1/README_ENG.md).
+## Why OpenProxy?
 
-## What v2 is trying to fix
+Governance risk is at the heart of the Korea Discount. As passive investing grows, the meaning of share ownership is fading — yet the risk itself is becoming sharper. Accessing and analyzing governance data quickly should be easy, but reading through hundreds of pages of regulatory filings takes more time and expertise than most people have.
 
-OpenProxy previously exposed many low-level tools directly. Coverage was strong, but the user-facing surface was too close to the internal implementation:
+**OpenProxy breaks down that barrier using AI.** It converts DART filings into structured data, so anyone can analyze ownership structure, dividend history, AGM agendas, and proxy contests in seconds.
 
-- it was not always obvious where to start
-- AGM, ownership, dividends, and contest signals were exposed as low-level tool units
-- conclusions and evidence were not clearly separated
-- source policy across DART, KIND, and Naver was not visible enough
+![OpenProxy MCP comparison](screenshot/open-proxy-mcp%20output%20eng.png)
 
-v2 changes that into:
+---
 
-```text
-company identification
--> data tabs
--> evidence review
--> action outputs
+## Quick Start
+
+### Step 0: Check your Claude subscription (required)
+
+MCP connectors are available for **Claude Pro, Max, and Teams** subscribers only. Check your plan at [claude.ai](https://claude.ai).
+
+### Step 1: Get a DART API key (required)
+
+All data in OpenProxy comes from DART OpenAPI. **You need your own API key to use it.**
+
+1. Go to [DART OpenAPI](https://opendart.fss.or.kr/) and create an account
+2. Request an authentication key — it's free and issued immediately
+
+### Step 2: Connect
+
+Once you have the API key, choose one of the two options below.
+
+#### Option A: Remote server (no installation, takes 30 seconds)
+
+Append your DART API key to the URL. The key is only used server-side and is never exposed to the AI.
+
+**claude.ai web:**
+
+1. Go to [claude.ai](https://claude.ai) → Settings → Connectors
+2. Select "Add custom connector"
+3. Name: `open-proxy-mcp`, enter the URL:
+```
+https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
+```
+4. Click "Add" → 11 tools are automatically recognized
+5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
+
+![Add custom connector](screenshot/readme/add_custom_connector%20kor.png)
+
+![Authorize tool](screenshot/readme/authorize_tool%20kor.png)
+
+> **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
+
+#### Option B: Local installation
+
+Running locally lets you configure additional API keys beyond DART (candidate news search, OCR fallback, etc.).
+
+See the [local installation guide](docs/connect.md).
+
+### Usage examples
+
+Once connected, just ask in natural language:
+
+```
+"Summarize Samsung Electronics' AGM agenda items"
+"Review the independence of KB Financial's outside director candidates"
+"Is Hyundai Motor's compensation limit reasonable?"
+"Show me Samsung Electronics' ownership structure"
+"What is SK Hynix's dividend history?"
+"Analyze the Korea Zinc proxy contest"
 ```
 
-## Documentation Tracks
+\* OpenProxy does not currently analyze DART financial metrics (planned for a future update)
 
-- `v1 (current stable / production-facing)`: [docs/v1/README_ENG.md](docs/v1/README_ENG.md)
-- `v2 (release_v2.0.0 design / next public surface)`: [docs/v2/README_ENG.md](docs/v2/README_ENG.md)
+---
 
-## At a Glance
+## Tool Structure (11 tools)
 
-```text
-OpenProxy MCP v2
-├─ company
-│  ├─ company identification
-│  ├─ ticker / corp_code / ISIN
-│  └─ recent filings index
+11 tools are divided into **data tabs** and **action outputs**.
+
+```
+company                      # Entry point — company ID + recent filings index
 │
-├─ Data Tools
-│  ├─ shareholder_meeting
-│  ├─ ownership_structure
-│  ├─ dividend
-│  ├─ proxy_contest
-│  ├─ value_up
-│  └─ evidence
+├─ Data Tools (7)
+│  ├─ shareholder_meeting    # AGM/EGM (agendas / candidates / compensation / results)
+│  ├─ ownership_structure    # Ownership (largest shareholders / 5% blocks / treasury / control map)
+│  ├─ dividend               # Dividend facts (DPS / payout ratio / history)
+│  ├─ treasury_share         # Treasury events (acquisition / disposal / cancellation / trust)
+│  ├─ proxy_contest          # Proxy contest (solicitations / litigation / 5% signals)
+│  ├─ value_up               # Value-up plan (commitments / implementation)
+│  └─ evidence               # Filing source links (rcept_no → viewer_url)
 │
-└─ Action Tools
-   ├─ prepare_vote_brief
-   ├─ prepare_engagement_case
-   └─ build_campaign_brief
+└─ Action Tools (3)
+   ├─ prepare_vote_brief      # Vote memo
+   ├─ prepare_engagement_case # Shareholder engagement memo
+   └─ build_campaign_brief    # Campaign brief
 ```
 
 In one line:
 
-```text
-Start with the company name,
-inspect the data tabs,
-verify the evidence,
-then generate action-ready outputs.
+```
+Start with the company name
+-> check the facts in data tabs
+-> verify the source via evidence
+-> generate action-ready outputs
 ```
 
-## Public Data Tools
+### Domain summary
 
-### 1. `company`
+| Domain | Description | Tools |
+|--------|-------------|-------|
+| **Company** | Company ID + recent filings index | 1 |
+| **AGM** | Agendas, board candidates, compensation, articles, results | 1 |
+| **Ownership** | Largest shareholders, block holders, treasury, control map | 1 |
+| **Dividend** | Actual dividend payouts, DPS, payout ratio, history | 1 |
+| **Treasury** | Acquisition, disposal, cancellation, trust events | 1 |
+| **Proxy** | Proxy solicitations, litigation, 5% signals | 1 |
+| **Value-up** | Corporate value-up plans, implementation | 1 |
+| **Evidence** | Filing source links | 1 |
+| **Action** | Vote memo, engagement case, campaign brief | 3 |
+| | **Total** | **11** |
 
-The shared entry point.
+---
 
-- resolves company name / English name / alias / ticker
-- normalizes `ticker / corp_code / ISIN`
-- acts as a filing index hub for downstream tools
+## Voting Criteria
 
-### 2. `shareholder_meeting`
+When you ask for a voting recommendation on an AGM agenda item, OpenProxy follows the criteria below to return FOR / AGAINST / REVIEW.
 
-The AGM/EGM tab.
+| Agenda type | FOR | AGAINST | REVIEW |
+|-------------|-----|---------|--------|
+| Financial statements | Clean audit opinion | Qualified / adverse | Extreme payout ratio |
+| Director election | Outside director independence met | Independence not met | 3+ concurrent roles, adverse news |
+| Compensation limit | Utilization rate reasonable | Rate < 30% yet proposed increase | 50%+ large increase |
+| Articles amendment | Statutory update (formal) | Removes cumulative voting | Reduces board size |
+| Treasury shares | Cancellation purpose | Entrenchment purpose | Foundation donation |
+| Dividend | Above sector average | EPS up but DPS down | Dividend cut |
 
-- annual / extraordinary meetings
-- agendas
-- board candidates
-- compensation limits
-- articles amendments
-- vote results
-- corrected filings
+---
 
-Recommended scopes:
+## Data Sources
 
-```text
-summary
-agenda
-board
-compensation
-aoi_change
-results
-corrections
-evidence
+| Source | Use | Notes |
+|--------|-----|-------|
+| [DART OpenAPI](https://opendart.fss.or.kr/) | AGM notices, annual reports, large-holding reports | Required (free API key) |
+| [KRX KIND](https://kind.krx.co.kr/) | AGM voting results | Web crawl |
+| [Naver News API](https://developers.naver.com/) | Candidate adverse news search | Optional (free API key) |
+| [Naver Finance](https://finance.naver.com/) | Stock price, sector, dividend yield | Web crawl |
+
+---
+
+## Project Structure
+
+```
+open-proxy-mcp/
+  open_proxy_mcp/
+    server.py              # FastMCP server (stdio + HTTP)
+    tools_v2/              # 11 tools
+    services/              # Domain logic layer (separated from tools)
+    dart/client.py         # DART API + KIND crawl + Naver + rate limiter
+  Dockerfile               # Container for Fly.io deployment
+  fly.toml                 # Fly.io config (nrt region, auto-suspend)
+  wiki/                    # Domain knowledge wiki
 ```
 
-### 3. `ownership_structure`
-
-The ownership tab.
-
-- largest shareholders
-- 5% block holders
-- treasury shares
-- control map
-- timeline
-
-Recommended scopes:
-
-```text
-summary
-major_holders
-blocks
-treasury
-control_map
-timeline
-```
-
-### 4. `dividend`
-
-The dividend tab.
-
-- dividend decisions
-- DPS
-- payout ratio
-- dividend yield
-- dividend history
-- special / quarterly dividend signals
-
-Recommended scopes:
-
-```text
-summary
-detail
-history
-policy_signals
-evidence
-```
-
-### 5. `proxy_contest`
-
-The contest/dispute tab.
-
-- proxy solicitation
-- litigation / rulings / filings
-- 5% ownership-purpose changes
-- contest signals
-- timeline
-- vote math
-
-Recommended scopes:
-
-```text
-summary
-fight
-litigation
-signals
-timeline
-vote_math
-evidence
-```
-
-### 6. `value_up`
-
-The value-up tab.
-
-- corporate value-up plans
-- re-filings
-- implementation updates
-- commitments
-- timeline
-
-Recommended scopes:
-
-```text
-summary
-plan
-commitments
-timeline
-evidence
-```
-
-### 7. `evidence`
-
-The source verification tab.
-
-- `rcept_no`
-- `source_type`
-- `section`
-- `snippet`
-- `confidence`
-
-This is the answer to: “Where exactly did this statement come from?”
-
-## Action Tools
-
-Action tools are output-oriented tools.  
-The design direction for v2 is to stabilize the data layer first, then layer these on top:
-
-```text
-prepare_vote_brief
-prepare_engagement_case
-build_campaign_brief
-```
-
-Summary:
-
-- `data tools` = facts, filings, structured retrieval
-- `action tools` = vote memos, engagement memos, campaign briefs
-
-## Source Policy
-
-The default v2 source policy is:
-
-1. `DART API`
-2. `DART document.xml`
-3. `KIND HTML` (`whitelist only`)
-4. `Naver` reference only
-5. `requires_review`
-
-Core principles:
-
-- `DART` is the base
-- `KIND` is not used for every disclosure type
-- `Naver` never overrides official values
-- `PDF download` is removed from the default path
-- if the result is weak or conflicted, return `requires_review`
-
-Related docs:
-
-- [DART-KIND Mapping Whitelist](wiki/decisions/DART-KIND-매핑-화이트리스트-2026-04.md)
-- [New Tool Validation Policy](wiki/decisions/tool-추가-검증-정책.md)
-
-## How `shareholder_meeting` works
-
-Example:
-
-```text
-shareholder_meeting(company="Samsung Electronics", meeting_type="annual", scope="summary")
-```
-
-Internally this is roughly:
-
-```text
-1. company resolution
-2. annual notice search
-   └─ pblntf_ty=E / AGM notice / corrected notices included
-3. correction resolver
-4. DART XML fetch
-5. meeting_info parser
-6. agenda parser (top-level only)
-7. evidence refs
-```
-
-Then scopes open additional components only when needed:
-
-- `board`
-  - add the personnel parser
-- `compensation`
-  - add the compensation parser
-- `aoi_change`
-  - add the articles parser
-- `results`
-  - result filing search
-  - whitelist check
-  - KIND fetch
-  - result parser
-
-So `summary` is not meant to run every sub-parser by default.  
-It should first show the structure of the meeting, then open the deeper tabs only when needed.
-
-## Release Priority
-
-```text
-Phase 1
-  company
-  shareholder_meeting
-  ownership_structure
-  dividend
-  value_up
-
-Phase 1.5
-  proxy_contest
-  evidence
-
-Phase 2
-  prepare_vote_brief
-  prepare_engagement_case
-  build_campaign_brief
-```
-
-The reasoning is simple:
-
-- first: fast, accurate data access
-- second: evidence visibility
-- third: action-ready output generation
-
-## Implementation / Validation Docs
-
-- [v2 Docs Index](docs/v2/README_ENG.md)
-- [release_v2 Tool Architecture](wiki/analysis/release_v2-tool-아키텍처.md)
-- [release_v2 Public Tool Validation Matrix](wiki/analysis/release_v2-public-tool-검증-매트릭스.md)
-- [New Tool Validation Policy](wiki/decisions/tool-추가-검증-정책.md)
-- [New Tool Validation Template](wiki/templates/tool-추가-검증-템플릿.md)
-
-## If you need the current stable product
-
-For the currently deployed/publicly stable structure, follow the v1 docs:
-
-- [v1 docs](docs/v1/README_ENG.md)
-- [Local installation guide](docs/connect_eng.md)
-- [Current architecture (v1)](docs/ARCHITECTURE.md)
+---
 
 ## Disclaimer
 
-OpenProxy structures disclosure data for AI use. AI can hallucinate and may produce inaccurate analysis.  
-This branch is specifically for `release_v2.0.0` design and transition work, so final investment or voting decisions should always be verified against the original filings and expert review.
+OpenProxy structures DART filing data for AI use. AI can hallucinate and may produce inaccurate analysis. The views expressed by the AI do not represent those of the developer or any affiliated organization. Use analysis results for reference only — final investment decisions and voting judgments must always be verified against the original filings and expert review.
+
+---
 
 ## License
 
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)  
-Non-commercial use only.
+[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) -- Non-commercial use only
+
+Please credit the source when using this project's code or data. Commercial use is not permitted.

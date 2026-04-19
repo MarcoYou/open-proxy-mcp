@@ -13,15 +13,7 @@
 
 **OpenProxy는 AI로 이 장벽을 허물어요.** DART 공시를 구조화된 데이터로 바꿔서, 지분 구조부터 배당 이력, 주총 안건, 경영권 분쟁까지 -- 거버넌스 분석 전반을 누구나 몇 초 만에 할 수 있게 만들었어요.
 
-![OpenProxy MCP 비교](screenshot/Compare/Compare.001.jpeg)
-
-![출력 예시 - 삼성전자 지분구조](screenshot/pr_materials/openproxy_01_samsung_ownership_KR.png)
-
-![출력 예시 - 삼성전자 배당](screenshot/pr_materials/openproxy_02_samsung_dividend_KR.png)
-
-![출력 예시 - LG화학 주총](screenshot/pr_materials/openproxy_03_lgchem_agm_KR.png)
-
-![출력 예시 - 고려아연 의결권](screenshot/pr_materials/openproxy_04_koreazinc_voting_KR.png)
+![OpenProxy MCP 비교](screenshot/open-proxy-mcp%20output%20kor.png)
 
 ---
 
