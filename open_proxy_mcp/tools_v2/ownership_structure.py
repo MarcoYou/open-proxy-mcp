@@ -77,6 +77,42 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         for row in data.get("timeline", [])[:30]:
             lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
+    if scope == "changes":
+        change_filings = data.get("change_filings", [])
+        lines.extend(["", "## 최대주주등 소유주식 변동신고서"])
+        if not change_filings:
+            lines.append("- 조사 구간 내 변동신고서 없음")
+        for filing in change_filings:
+            rcept_dt = filing.get("rcept_dt", "")
+            rcept_no = filing.get("rcept_no", "")
+            ov = filing.get("overview", {})
+            lines.append(f"\n### {rcept_dt} ({rcept_no})")
+            if filing.get("parse_error"):
+                lines.append(f"- 파싱 오류: {filing['parse_error']}")
+                continue
+            if ov:
+                before_pct = ov.get("before_pct", 0)
+                after_pct = ov.get("after_pct", 0)
+                before_shares = ov.get("before_shares", 0)
+                after_shares = ov.get("after_shares", 0)
+                delta_pct = round(after_pct - before_pct, 2)
+                lines.append(f"- 직전: {before_shares:,}주 ({before_pct:.2f}%) → 금번: {after_shares:,}주 ({after_pct:.2f}%) / 순변동: {delta_pct:+.2f}%p")
+            for holder in filing.get("individual_changes", []):
+                name = holder.get("holder_name", "")
+                changes = holder.get("changes", [])
+                if not changes:
+                    continue
+                lines.append(f"\n**{name}** 개인별 변동")
+                lines.append("| 변경일 | 변경원인 | 주식종류 | 변경전 | 증감 | 변경후 |")
+                lines.append("|--------|----------|----------|--------|------|--------|")
+                for row in changes:
+                    lines.append(f"| {row['date']} | {row['reason']} | {row['stock_type']} | {row['before']:,} | {row['delta']:+,} | {row['after']:,} |")
+            total_holders = filing.get("total_holders", [])
+            if total_holders:
+                lines.extend(["\n**총괄현황** (금번 기준)", "| 성명 | 관계 | 보통주수 | 비율 |", "|------|------|---------|------|"])
+                for th in total_holders:
+                    lines.append(f"| {th['name']} | {th['relation'] or '-'} | {th['shares']:,} | {th['pct']:.2f}% |")
+
     if scope == "control_map":
         control_map = data.get("control_map", {})
         core = control_map.get("core_holder_block", {})
@@ -141,7 +177,7 @@ def register_tools(mcp):
         """desc: 최대주주·특수관계인·5% 대량보유·자사주를 한 탭에서 보는 지분 구조 tool. 판의 구조(who holds what)를 그린다.
         when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 자사주 규모, 5% 활성 시그널을 보고 싶을 때.
         rule: 사업보고서 기반 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문(document.xml)으로 보강. KIND 비사용 (false match 위험). partial match 자동 확정 안 함.
-        scope: `summary`(기본) / `major_holders`(최대주주+특수관계인) / `blocks`(5% 대량보유 최신) / `treasury`(자사주) / `control_map`(3대 카테고리 정리: 명부 등재/외부 능동/수동) / `timeline`(5% 보고 이력).
+        scope: `summary`(기본) / `major_holders`(최대주주+특수관계인) / `blocks`(5% 대량보유 최신) / `treasury`(자사주) / `control_map`(3대 카테고리 정리: 명부 등재/외부 능동/수동) / `timeline`(5% 보고 이력) / `changes`(최대주주등소유주식변동신고서, KIND 원문 파싱).
         ref: company, proxy_contest (분쟁 맥락), evidence
         """
         payload = await build_ownership_structure_payload(
