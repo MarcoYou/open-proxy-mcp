@@ -2,6 +2,13 @@
 
 ## 2026-04-19
 
+### ownership_structure scope=changes 추가
+
+- `_parse_change_filing()`: KIND HTML 5개 테이블 파싱 (보고개요 직전/금번, 개인별변동, 총괄현황)
+- `_fetch_change_filings()`: DART pblntf_ty=I 검색 → rcept_no 80→00 변환 → kind_fetch_document() 크롤링
+- `tools_v2/ownership_structure.py`: changes scope 렌더러 추가, docstring 업데이트
+- `wiki/disclosures/최대주주등소유주식변동신고서.md` 신규 작성 (섹션 구조, 파싱 전략)
+
 ### v2.0.0 릴리즈
 
 - `release_v2.0.0` → `main` fast-forward 머지

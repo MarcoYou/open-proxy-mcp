@@ -5,6 +5,13 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-19] feat | ownership_structure scope=changes 추가 (최대주주등소유주식변동신고서)
+- `_parse_change_filing()`: KIND HTML 5개 테이블 파싱 (보고개요 직전/금번, 개인별변동, 총괄현황)
+- `_fetch_change_filings()`: DART pblntf_ty=I 검색 → rcept_no 80→00 변환 → kind_fetch_document() 최대 5건
+- `build_ownership_structure_payload()`: scope=changes 처리 + KIND_HTML evidence_refs
+- `tools_v2/ownership_structure.py`: changes scope 렌더러, docstring 업데이트
+- `wiki/disclosures/최대주주등소유주식변동신고서.md` 신규, `wiki/index.md` disclosures 항목 추가
+
 ## [2026-04-18] feat | shareholder_meeting v2 2차 구현 (board, compensation, results, 시점 구분)
 - `services/shareholder_meeting.py` 확장:
   - `scope=board|compensation|results` 추가
