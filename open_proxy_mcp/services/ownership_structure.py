@@ -6,6 +6,8 @@ from datetime import date
 import re
 from typing import Any
 
+from bs4 import BeautifulSoup
+
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
@@ -19,6 +21,7 @@ _SUPPORTED_SCOPES = {
     "treasury",
     "control_map",
     "timeline",
+    "changes",
 }
 
 
@@ -244,6 +247,142 @@ def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any
     }
 
 
+def _parse_change_filing(html: str, rcept_no: str, rcept_dt: str) -> dict[str, Any]:
+    """KIND HTML에서 최대주주등소유주식변동신고서 파싱."""
+    soup = BeautifulSoup(html, "lxml")
+    tables = soup.find_all("table")
+
+    if len(tables) < 4:
+        return {"rcept_no": rcept_no, "rcept_dt": rcept_dt, "parse_error": f"테이블 {len(tables)}개 (최소 4개 필요)"}
+
+    def cell_texts(table) -> list[list[str]]:
+        return [
+            [td.get_text(" ", strip=True) for td in row.find_all(["td", "th"])]
+            for row in table.find_all("tr")
+            if row.find_all(["td", "th"])
+        ]
+
+    # 섹션 3 (index 2): 보고의 개요 - 직전/금번 주식수+비율
+    overview: dict[str, Any] = {}
+    try:
+        for cells in cell_texts(tables[2]):
+            joined = "".join(cells)
+            nums = [_to_float(re.sub(r"[^\d.]", "", c)) for c in cells if re.sub(r"[^\d.]", "", c)]
+            if "직전" in joined and nums:
+                overview["before_shares"] = int(nums[0]) if nums else 0
+                overview["before_pct"] = nums[1] if len(nums) > 1 else 0.0
+            elif "금번" in joined and nums:
+                overview["after_shares"] = int(nums[0]) if nums else 0
+                overview["after_pct"] = nums[1] if len(nums) > 1 else 0.0
+    except Exception:
+        pass
+
+    # 섹션 4~N-1 (index 3 to -2): 개인별 세부변동사항
+    individual_changes: list[dict[str, Any]] = []
+    for t in tables[3:-1]:
+        # 주주명은 테이블 직전 bold span에서 추출
+        holder_name = ""
+        prev_span = t.find_previous("span")
+        if prev_span:
+            holder_name = prev_span.get_text(strip=True)
+
+        change_rows: list[dict[str, Any]] = []
+        header_found = False
+        for cells in cell_texts(t):
+            joined = "".join(cells)
+            if not header_found:
+                if "변경일" in joined or "변경원인" in joined:
+                    header_found = True
+                continue
+            if len(cells) >= 5:
+                change_rows.append({
+                    "date": cells[0],
+                    "reason": cells[1],
+                    "stock_type": cells[2] if len(cells) > 2 else "",
+                    "before": _to_int(cells[3]) if len(cells) > 3 else 0,
+                    "delta": _to_int(cells[4]) if len(cells) > 4 else 0,
+                    "after": _to_int(cells[5]) if len(cells) > 5 else 0,
+                })
+        individual_changes.append({"holder_name": holder_name, "changes": change_rows})
+
+    # 마지막 테이블: 최대주주등 주식소유현황 (총괄)
+    total_holders: list[dict[str, Any]] = []
+    try:
+        header_found = False
+        for cells in cell_texts(tables[-1]):
+            joined = "".join(cells)
+            if not header_found:
+                if "성명" in joined or "관계" in joined:
+                    header_found = True
+                continue
+            if not cells[0] or cells[0] in ("계", "합계", "소계"):
+                continue
+            if len(cells) >= 3:
+                # 컬럼: 성명 / 관계 / 보통주수 / 보통주비율 / ... / 합계수 / 합계비율
+                total_holders.append({
+                    "name": cells[0],
+                    "relation": cells[1] if len(cells) > 1 else "",
+                    "shares": _to_int(cells[2]) if len(cells) > 2 else 0,
+                    "pct": _to_float(cells[3]) if len(cells) > 3 else 0.0,
+                })
+    except Exception:
+        pass
+
+    return {
+        "rcept_no": rcept_no,
+        "rcept_dt": rcept_dt,
+        "overview": overview,
+        "individual_changes": individual_changes,
+        "total_holders": total_holders,
+    }
+
+
+async def _fetch_change_filings(
+    corp_code: str,
+    window_start: date,
+    window_end: date,
+    client,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """DART 검색 → KIND 크롤링 → 변동신고서 리스트 반환."""
+    warnings: list[str] = []
+    try:
+        result = await client.search_filings(
+            bgn_de=format_yyyymmdd(window_start),
+            end_de=format_yyyymmdd(window_end),
+            pblntf_ty="I",
+            corp_code=corp_code,
+            page_count=20,
+        )
+    except DartClientError as exc:
+        return [], [f"변동신고서 DART 검색 실패: {exc.status}"]
+
+    filings_raw = [
+        item for item in result.get("list", [])
+        if "최대주주등소유주식변동신고서" in item.get("report_nm", "")
+    ]
+    if not filings_raw:
+        return [], []
+
+    filings: list[dict[str, Any]] = []
+    for item in filings_raw[:5]:
+        rcept_no = item.get("rcept_no", "")
+        rcept_dt = item.get("rcept_dt", "")
+        if not (rcept_no and len(rcept_no) == 14 and rcept_no[8:10] == "80"):
+            warnings.append(f"변동신고서 rcept_no 포맷 불일치: {rcept_no}")
+            continue
+        acptno = rcept_no[:8] + "00" + rcept_no[10:]
+        try:
+            html = await client.kind_fetch_document(acptno)
+            parsed = _parse_change_filing(html, rcept_no, rcept_dt)
+            parsed["report_nm"] = item.get("report_nm", "최대주주등소유주식변동신고서")
+            parsed["acptno"] = acptno
+            filings.append(parsed)
+        except DartClientError as exc:
+            warnings.append(f"KIND 변동신고서 본문 조회 실패 ({rcept_no}): {exc.status}")
+
+    return filings, warnings
+
+
 def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]:
     envelope = ToolEnvelope(
         tool="ownership_structure",
@@ -390,6 +529,12 @@ async def build_ownership_structure_payload(
         data["timeline"] = timeline_rows[:50]
     if scope == "control_map":
         data["control_map"] = _build_control_map(major_rows, latest_blocks, treasury_snapshot)
+    if scope == "changes":
+        change_filings, change_warnings = await _fetch_change_filings(
+            selected["corp_code"], window_start, window_end, client
+        )
+        data["change_filings"] = change_filings
+        warnings.extend(change_warnings)
 
     evidence_refs: list[EvidenceRef] = [
         EvidenceRef(
@@ -411,6 +556,19 @@ async def build_ownership_structure_payload(
                     report_nm=first.get("report_name", ""),
                     section="대량보유 상황보고",
                     note=f"{first['reporter']} / {first['ownership_pct']}% / {first['purpose']}",
+                )
+            )
+    for filing in data.get("change_filings", []):
+        if filing.get("rcept_no") and not filing.get("parse_error"):
+            evidence_refs.append(
+                EvidenceRef(
+                    evidence_id=f"ev_change_{filing['rcept_no']}",
+                    source_type=SourceType.KIND_HTML,
+                    rcept_no=filing["rcept_no"],
+                    rcept_dt=format_iso_date(filing.get("rcept_dt", "")),
+                    report_nm="최대주주등소유주식변동신고서",
+                    section="최대주주등 소유주식 변동",
+                    note=f"acptno={filing.get('acptno', '')}",
                 )
             )
 
