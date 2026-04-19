@@ -128,6 +128,16 @@ def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], de
     for year, summary in sorted(annual_summaries.items()):
         yearly = decisions_by_year.get(year, [])
         annual_dps = summary.get("total_dps", 0)
+        if len(yearly) > 1:
+            pattern = "분기/중간 포함"
+        elif yearly:
+            pattern = "연간배당"
+        elif annual_dps:
+            # alotMatter에 DPS가 잡혔으나 결정 공시가 해당 연도에 없는 경우
+            # (사업보고서에만 반영된 배당이거나 결정공시 기준일이 다른 연도로 이월된 케이스)
+            pattern = "연간배당 (결정 공시 없음)"
+        else:
+            pattern = "무배당"
         history.append({
             "year": year,
             "annual_dps": annual_dps,
@@ -135,7 +145,7 @@ def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], de
             "payout_ratio": summary.get("payout_ratio_dart"),
             "yield_pct": summary.get("yield_dart"),
             "has_special": any(item.get("has_special") for item in yearly),
-            "pattern": "분기/중간 포함" if len(yearly) > 1 else ("연간배당" if yearly else "무배당"),
+            "pattern": pattern,
         })
     return history
 

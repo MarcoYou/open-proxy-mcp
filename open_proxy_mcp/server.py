@@ -50,14 +50,18 @@ def main():
     if args.transport in ("sse", "streamable-http"):
         mcp.settings.host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
         mcp.settings.port = int(os.environ.get("FASTMCP_PORT", "8000"))
+        allowed_hosts = [
+            "open-proxy-mcp.fly.dev",
+            "localhost:8000",
+            "127.0.0.1:8000",
+            "0.0.0.0:8000",
+        ]
+        extra_hosts = os.environ.get("FASTMCP_ALLOWED_HOSTS", "").strip()
+        if extra_hosts:
+            allowed_hosts.extend([h.strip() for h in extra_hosts.split(",") if h.strip()])
         mcp.settings.transport_security = TransportSecuritySettings(
             enable_dns_rebinding_protection=True,
-            allowed_hosts=[
-                "open-proxy-mcp.fly.dev",
-                "localhost:8000",
-                "127.0.0.1:8000",
-                "0.0.0.0:8000",
-            ],
+            allowed_hosts=allowed_hosts,
         )
 
     if args.transport == "streamable-http":

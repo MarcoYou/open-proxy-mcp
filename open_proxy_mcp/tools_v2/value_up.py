@@ -89,6 +89,17 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     if scope == "plan":
         lines.extend(["", "## 원문 발췌", "```", data.get("latest_excerpt", "")[:1800], "```"])
 
+    cross = data.get("treasury_cross_ref")
+    if cross:
+        lines.extend(["", "## 자사주 이행 교차참조 (최근 24개월)"])
+        lines.append(f"- 자기주식 소각결정 공시: {cross.get('retirement_decision_count_24m', 0)}건")
+        lines.append(f"- 취득결정 공시: {cross.get('acquisition_count_24m', 0)}건 (소각 목적 {cross.get('acquisition_for_retirement_count_24m', 0)}건)")
+        amt = cross.get("acquisition_for_retirement_amount_krw_24m", 0)
+        if amt:
+            lines.append(f"- 소각 목적 취득 총액: {amt:,}원")
+        lines.append(f"- 신탁계약 체결: {cross.get('trust_contract_count_24m', 0)}건")
+        lines.append(f"- 상세: `treasury_share(scope=\"retirement\")` 또는 `scope=\"acquisition\"`")
+
     return "\n".join(lines)
 
 
@@ -103,11 +114,11 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 기업가치제고계획(밸류업) 공시 + 핵심 commitment 문장. 주주환원 **정책·미래 약속** 탭. `dividend`(실지급 사실)과 대응.
-        when: 밸류업 계획, 주주환원 commitment, ROE/PBR/배당성향 목표, 자사주 소각 계획 등 **미래 약속**을 확인할 때.
-        rule: DART 거래소 공시(I) 밸류업 키워드 검색 → 없으면 KIND `기업가치 제고 계획(0184)` 재시도. 공시 카테고리 자동 분류 — `plan`(원본 계획)/`progress`(이행현황)/`meta_amendment`(고배당기업 형식 재공시). 최신이 meta_amendment면 실계획 본문을 `latest_plan`으로 별도 노출. text_length<500이면 PDF 첨부 중심 공시 가능성 경고.
-        scope: `summary`(기본) / `plan`(원문 발췌 포함) / `commitments`(핵심 약속 문장) / `timeline`(공시 이력).
-        ref: dividend (실지급 사실), ownership_structure, company, evidence
+        """desc: 기업가치제고계획(밸류업) 공시 + 핵심 commitment 문장. 주주환원 **정책·미래 약속** 탭. 자사주 소각 이행 교차참조 포함.
+        when: 밸류업 계획, 주주환원 commitment, ROE/PBR/배당성향 목표, 자사주 소각 계획 등 **미래 약속**을 확인할 때. 실제 배당은 `dividend`, 자사주 소각 사실은 `treasury_share`에서 교차 확인.
+        rule: DART 거래소 공시(I) 밸류업 키워드 검색 → 없으면 KIND `기업가치 제고 계획(0184)` 재시도. 공시 카테고리 자동 분류 — `plan`(원본 계획)/`progress`(이행현황)/`meta_amendment`(고배당기업 형식 재공시). 최신이 meta_amendment면 실계획 본문을 `latest_plan`으로 별도 노출. summary/commitments scope에 최근 24개월 자사주 이벤트 교차참조(`treasury_cross_ref`) 포함.
+        scope: `summary`(기본) / `plan`(원문 발췌 포함) / `commitments`(핵심 약속 + 이행 교차참조) / `timeline`(공시 이력).
+        ref: dividend (실지급 배당), treasury_share (자사주 이벤트), ownership_structure, company, evidence
         """
         payload = await build_value_up_payload(
             company,
