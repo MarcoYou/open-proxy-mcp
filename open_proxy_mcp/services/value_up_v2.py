@@ -403,6 +403,41 @@ async def build_value_up_payload(
     highlight_source_text = best_plan_text or latest_text
     highlight_source_length = len(highlight_source_text)
     highlights = _extract_highlights(highlight_source_text, _COMMITMENT_KEYWORDS)
+
+    # 자사주 소각 교차참조: 정책 tool이라도 최근 소각 건수·규모를 함께 보여줘
+    # "약속 vs 이행"의 한 축을 드러낸다.
+    treasury_cross_ref: dict[str, Any] = {}
+    try:
+        from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
+        ts_payload = await build_treasury_share_payload(
+            selected.get("corp_name", company_query),
+            scope="retirement",
+            lookback_months=24,
+        )
+        ts_data = ts_payload.get("data", {})
+        ts_summary = ts_data.get("summary", {}) or {}
+        ts_events = ts_data.get("events", []) or []
+        # retirement_count는 별도 "자기주식소각결정" 공시 건수. 일부 기업은 별도 공시 없이
+        # 취득결정 공시의 `aq_pp`(취득목적)에 "소각"을 명시하므로 `acquisition_for_retirement_count`도 함께 노출.
+        full_summary = ts_payload.get("data", {}).get("summary", {}) if ts_payload else {}
+        if not full_summary:
+            # scope=retirement는 retirement 관련만 집계하므로 summary scope로 다시 가져옴
+            ts_payload_full = await build_treasury_share_payload(
+                selected.get("corp_name", company_query),
+                scope="summary",
+                lookback_months=24,
+            )
+            full_summary = ts_payload_full.get("data", {}).get("summary", {})
+        treasury_cross_ref = {
+            "retirement_decision_count_24m": full_summary.get("retirement_count", 0),
+            "acquisition_count_24m": full_summary.get("acquisition_count", 0),
+            "acquisition_for_retirement_count_24m": full_summary.get("acquisition_for_retirement_count", 0),
+            "acquisition_for_retirement_amount_krw_24m": full_summary.get("acquisition_for_retirement_amount_total_krw", 0),
+            "trust_contract_count_24m": full_summary.get("trust_contract_count", 0),
+            "note": "최근 24개월 자사주 이벤트 요약. 상세는 `treasury_share`로 확인.",
+        }
+    except Exception:
+        pass
     if not highlights:
         if highlight_source_length < 500:
             warnings.append(f"원본 공시 본문이 매우 얇다(text_length={highlight_source_length}). PDF 첨부 중심 공시일 가능성이 높으니 viewer_url로 DART/KIND 뷰어에서 직접 확인한다.")
@@ -479,6 +514,8 @@ async def build_value_up_payload(
         data["latest_excerpt"] = latest_excerpt
         data["highlights"] = highlights
         data["highlight_source_text_length"] = highlight_source_length
+    if scope in {"summary", "commitments"} and treasury_cross_ref:
+        data["treasury_cross_ref"] = treasury_cross_ref
 
     return ToolEnvelope(
         tool="value_up",
