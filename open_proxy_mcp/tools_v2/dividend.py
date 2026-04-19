@@ -98,10 +98,10 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 연간 배당 요약, 최근 배당결정, 추이, 정책 신호를 한 탭에서 보는 배당 tool.
-        when: DPS, 배당성향, 시가배당률, 최근 배당결정, 최근 3년 추이를 보고 싶을 때.
-        rule: 사업보고서 alotMatter를 기본으로 하고, 거래소 배당결정 공시를 보강한다. partial match는 자동 선택하지 않는다.
-        ref: company, ownership_structure, value_up, evidence
+        """desc: 실지급 기준 배당 사실 탭. DPS·총액·배당성향·시가배당률·추이만 제공한다.
+        when: 이번 기 실제 지급(또는 확정 결정)된 배당을 확인할 때. 미래 주주환원 정책/약속은 `value_up`에서 본다.
+        rule: source of truth 2개 — (1) 사업보고서 alotMatter (2) 확정된 배당결정 공시. alotMatter가 비어 있거나 0이면 해당 연도 배당결정 공시를 합산해 summary 구성. 정책 예측·미래 약속은 포함하지 않는다.
+        ref: company, value_up (주주환원 정책), ownership_structure, evidence
         """
         payload = await build_dividend_payload(
             company,

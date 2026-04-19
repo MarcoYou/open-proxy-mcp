@@ -37,11 +37,18 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, div-tool-rule
 
 ## 샘플 확인 (2026-04-19 실행, scope=summary)
 
-| company | status | cash_dps | payout_ratio_dart | yield_dart | decisions | note |
-|---|---|---|---|---|---|---|
-| 삼성전자 | exact | 1,668원 | 25.1% | 1.5% | 5건 | 분기 고정 배당, alotMatter + 결정공시 정상 |
-| KT&G | exact | 6,000원 | 57.6% | 4.1% | 5건 | 고배당 대표주, 배당성향 매우 높음 |
-| 메리츠금융지주 (엣지) | exact | 0원 | null | null | 5건 | DART alotMatter 요약은 비어있으나 결정공시 5건 존재 → 특별배당/자사주 소각 중심 정책이라 일반 배당 요약 공란. scope=`detail`/`policy_signals`로 보완 필요 |
+| company | status | source | cash_dps | total_amount_mil | payout | yield | note |
+|---|---|---|---|---|---|---|---|
+| 삼성전자 | exact | alotMatter | 1,668원 | 11,107,906 | 25.1% | 1.5% | 분기 고정, 사업보고서 정상 |
+| KT&G | exact | alotMatter | 6,000원 | 627,428 | 57.6% | 4.1% | 고배당 대표주 |
+| 메리츠금융지주 (엣지) | exact | **decisions** | 11,429원 | 1,797,880 | null | null | alotMatter 요약 공란 → 배당결정 공시 6건 합산으로 fallback. 주주환원 정책은 `value_up`에서 교차 확인 |
+
+### source of truth 우선순위
+
+1. `alotMatter` (사업보고서 배당 요약) — 완료 사업연도에 확정된 공식 값
+2. `decisions` (현금ㆍ현물배당결정 공시 합산) — 사업보고서 미제출 또는 특별배당·분기배당만 공시한 기업 대상 fallback
+
+미래 주주환원 정책·약속은 dividend에 포함하지 않음. `value_up`에서 확인.
 
 ## requires_review 조건
 

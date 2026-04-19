@@ -69,7 +69,50 @@ async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], st
     items = _parse_dividend_items(data)
     if not items:
         return {}, None
-    return _build_dividend_summary(items, "사업보고서(기말)"), None
+    summary = _build_dividend_summary(items, "사업보고서(기말)")
+    if summary:
+        summary["source"] = "alotMatter"
+    return summary, None
+
+
+def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> dict[str, Any]:
+    """해당 연도 배당결정 공시를 합산해 summary 형식으로 반환.
+
+    `alotMatter`가 비어 있을 때(사업보고서 미제출 또는 무배당 회사가 특별배당·분기배당
+    결정만 공시한 경우) 확정된 배당 결정을 source of truth로 사용하기 위한 fallback.
+    """
+
+    year_decisions: list[dict[str, Any]] = []
+    for item in decisions:
+        base = item.get("record_date") or item.get("rcept_dt", "")
+        digits = "".join(ch for ch in (base or "") if ch.isdigit())
+        if len(digits) >= 4 and int(digits[:4]) == year:
+            year_decisions.append(item)
+
+    if not year_decisions:
+        return {}
+
+    cash_dps_total = sum(int(d.get("dps_common") or 0) for d in year_decisions)
+    cash_dps_pref_total = sum(int(d.get("dps_preferred") or 0) for d in year_decisions)
+    total_amount_mil = sum(int((d.get("total_amount") or 0)) for d in year_decisions) // 1_000_000
+    special_dps = sum(int(d.get("dps_common") or 0) for d in year_decisions if d.get("has_special") or d.get("dividend_type") == "특별배당")
+
+    return {
+        "period": f"{year} 배당결정 공시 합산",
+        "stlm_dt": f"{year}-12-31",
+        "cash_dps": cash_dps_total,
+        "cash_dps_preferred": cash_dps_pref_total,
+        "stock_dps": 0,
+        "special_dps": special_dps,
+        "total_dps": cash_dps_total,
+        "total_amount_mil": total_amount_mil,
+        "payout_ratio_dart": None,
+        "yield_dart": None,
+        "yield_preferred_dart": None,
+        "net_income_consolidated_mil": 0,
+        "decision_count": len(year_decisions),
+        "source": "decisions",
+    }
 
 
 def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -220,6 +263,13 @@ async def build_dividend_payload(
         warnings.append(filing_warning)
         filings = []
     details = await _decision_details(filings[:20]) if filings else []
+
+    # alotMatter가 비어있거나 cash_dps=0이면 해당 연도 배당결정 공시 합산을 source of truth로 대체.
+    if (not latest_summary or int(latest_summary.get("cash_dps") or 0) == 0) and details:
+        fallback = _decisions_summary_for_year(details, target_year)
+        if fallback and fallback.get("cash_dps", 0) > 0:
+            latest_summary = fallback
+            warnings.append(f"{target_year}년 사업보고서 배당 요약이 비어 있어 해당 연도 배당결정 공시 {fallback.get('decision_count', 0)}건을 합산해 summary를 구성했다.")
     start_ymd = format_yyyymmdd(window_start)
     end_ymd = format_yyyymmdd(window_end)
     details = [
@@ -232,6 +282,10 @@ async def build_dividend_payload(
         summary, warning = await _annual_summary(selected["corp_code"], y)
         if warning:
             warnings.append(f"{y}년 {warning}")
+        if (not summary or int(summary.get("cash_dps") or 0) == 0):
+            fallback = _decisions_summary_for_year(details, y)
+            if fallback and fallback.get("cash_dps", 0) > 0:
+                summary = fallback
         if summary:
             annual_summaries[y] = summary
 
@@ -286,14 +340,25 @@ async def build_dividend_payload(
 
     evidence_refs: list[EvidenceRef] = []
     if latest_summary:
-        evidence_refs.append(
-            EvidenceRef(
-                evidence_id=f"ev_dividend_api_{selected['corp_code']}_{target_year}",
-                source_type=SourceType.DART_API,
-                section="alotMatter",
-                note=f"{selected.get('corp_name', '')} {target_year}년 사업보고서 배당 요약 (DART OpenAPI)",
+        src = latest_summary.get("source")
+        if src == "alotMatter":
+            evidence_refs.append(
+                EvidenceRef(
+                    evidence_id=f"ev_dividend_api_{selected['corp_code']}_{target_year}",
+                    source_type=SourceType.DART_API,
+                    section="alotMatter",
+                    note=f"{selected.get('corp_name', '')} {target_year}년 사업보고서 배당 요약 (DART OpenAPI)",
+                )
             )
-        )
+        elif src == "decisions":
+            evidence_refs.append(
+                EvidenceRef(
+                    evidence_id=f"ev_dividend_decisions_{selected['corp_code']}_{target_year}",
+                    source_type=SourceType.DART_XML,
+                    section="현금ㆍ현물배당결정 합산",
+                    note=f"{target_year}년 배당결정 공시 {latest_summary.get('decision_count', 0)}건 합산",
+                )
+            )
     if latest_decision and latest_decision.get("rcept_no"):
         evidence_refs.append(
             EvidenceRef(
