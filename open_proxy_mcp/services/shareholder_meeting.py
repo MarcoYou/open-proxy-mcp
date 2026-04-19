@@ -149,6 +149,19 @@ async def _candidate_notices_in_meeting_window(
         meeting_date = _parse_notice_meeting_date(notice.get("datetime", ""))
         if meeting_date and meeting_start <= meeting_date <= meeting_end:
             matched.append(notice)
+            continue
+        # 회의일자 파싱 실패 케이스(예: CJ ENM 공시 본문 구조 불일치) fallback:
+        # 공시 접수일(rcept_dt)이 meeting window 안에 있고 NOTICE_LEAD_BUFFER_DAYS 이내이면 포함.
+        # 실제 회의일은 후속 파싱 단계에서 확보할 수 있으며, 여기서 버리면 아예 공시를 놓친다.
+        if not meeting_date:
+            disclosure_date = notice.get("disclosure_date", "")
+            if len(disclosure_date) >= 8 and disclosure_date[:8].isdigit():
+                try:
+                    rcept = date(int(disclosure_date[:4]), int(disclosure_date[4:6]), int(disclosure_date[6:8]))
+                    if search_start <= rcept <= meeting_end:
+                        matched.append(notice)
+                except ValueError:
+                    pass
     return matched, search_notices
 
 
