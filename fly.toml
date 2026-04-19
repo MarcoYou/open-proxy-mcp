@@ -8,6 +8,11 @@ primary_region = 'iad'
 
 [build]
 
+[env]
+  # v1 (36 tool) + v2 (11 tool) 병행 노출. 무충돌(이름 겹침 없음).
+  # 필요시 'v2'로 전환하면 v2만, 'v1'이면 v1만 노출.
+  OPEN_PROXY_TOOLSET = 'hybrid'
+
 [http_service]
   internal_port = 8000
   force_https = true
