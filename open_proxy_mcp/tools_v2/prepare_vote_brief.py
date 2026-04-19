@@ -200,9 +200,10 @@ def register_tools(mcp):
         lookback_months: int = 12,
         format: str = "md",
     ) -> str:
-        """desc: 이번 주총에서 봐야 할 회차, 지분 구조, 핵심 안건, 후보자, 보수, 결과를 한 장 메모로 묶는 action tool.
-        when: 의결권 행사 준비, 내부 투자위원회 보고, 주총 전후 핵심 쟁점을 빠르게 정리할 때.
-        rule: 현재는 추천 찬반을 단정하지 않고, 사실과 근거를 묶은 vote brief를 만든다. 회차 선택은 shareholder_meeting 규칙을 그대로 따른다.
+        """desc: 투표 메모 action tool. 주총 회차 + 지분 구조 + 핵심 안건 + 후보자 + 보수 + 결과를 한 장으로 묶음. **새 사실 생성 X, 근거만 재구성**.
+        when: 의결권 행사 준비, 내부 투자위원회 보고, 주총 전후 쟁점 정리.
+        rule: 찬반 추천 단정 금지. upstream의 `partial`/`conflict`/`requires_review` 상태 그대로 전파. 회차 선택은 shareholder_meeting의 `_auto_rank_key` 규칙 적용. 모든 결론 evidence_refs로 추적 가능해야 함.
+        upstream: shareholder_meeting + ownership_structure + evidence.
         ref: shareholder_meeting, ownership_structure, evidence
         """
         payload = await build_vote_brief_payload(

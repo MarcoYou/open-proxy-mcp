@@ -103,10 +103,11 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 기업가치제고계획(밸류업) 공시와 핵심 commitment 문장을 한 탭에서 보여주는 주주환원 정책 tool. `dividend`가 "실지급 사실"이라면 `value_up`은 "미래 약속·정책".
-        when: 밸류업 계획, 주주환원 commitment, ROE/PBR 관련 약속을 확인하고 싶을 때. 실제 지급된 배당은 `dividend`에서 교차 확인.
-        rule: DART 거래소 공시(I)에서 밸류업 키워드 검색 → 없으면 KIND `기업가치 제고 계획(0184)`로 재시도. 최신 공시가 "고배당기업 표시" 같은 형식 재공시(meta_amendment)면 실계획 본문 공시를 `latest_plan`으로 별도 노출. partial match는 자동 선택하지 않는다.
-        ref: dividend (실지급), company, ownership_structure, evidence
+        """desc: 기업가치제고계획(밸류업) 공시 + 핵심 commitment 문장. 주주환원 **정책·미래 약속** 탭. `dividend`(실지급 사실)과 대응.
+        when: 밸류업 계획, 주주환원 commitment, ROE/PBR/배당성향 목표, 자사주 소각 계획 등 **미래 약속**을 확인할 때.
+        rule: DART 거래소 공시(I) 밸류업 키워드 검색 → 없으면 KIND `기업가치 제고 계획(0184)` 재시도. 공시 카테고리 자동 분류 — `plan`(원본 계획)/`progress`(이행현황)/`meta_amendment`(고배당기업 형식 재공시). 최신이 meta_amendment면 실계획 본문을 `latest_plan`으로 별도 노출. text_length<500이면 PDF 첨부 중심 공시 가능성 경고.
+        scope: `summary`(기본) / `plan`(원문 발췌 포함) / `commitments`(핵심 약속 문장) / `timeline`(공시 이력).
+        ref: dividend (실지급 사실), ownership_structure, company, evidence
         """
         payload = await build_value_up_payload(
             company,

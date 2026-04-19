@@ -130,9 +130,10 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 기업 식별 + 최근 공시 인덱스 허브. 회사명, ticker, corp_code 입력을 받아 v2 data tool의 공통 입구 역할을 한다.
-        when: 회사 이름으로 검색을 시작하고, 뒤에서 shareholder_meeting/dividend/ownership_structure에 넘길 식별자와 최근 공시 목록을 먼저 확인할 때.
-        rule: partial match를 자동 확정하지 않는다. exact가 아니면 ambiguous로 멈추고 후보를 반환한다. 최근 공시는 DART list.json 기준이며, NAVER는 업종 보강 용도로만 사용한다.
+        """desc: 기업 식별 + 최근 공시 인덱스 허브. 모든 v2 data tool의 공통 입구. 회사명/ticker/corp_code → 시장·업종·최근 공시 확인.
+        when: 회사명으로 검색 시작 → ticker/corp_code 확정 → 후속 tool에 넘길 때. 또는 최근 공시 종류/빈도만 빠르게 훑을 때.
+        rule: **비상장 법인 자동 제외** (OPM은 상장사 전용). exact 매치 아니면 자동 확정 안 함, ambiguous로 후보 반환. NAVER는 업종·섹터 보강 보조 소스로만 사용, DART 공식값 덮어쓰기 금지.
+        params: query(회사명/ticker/corp_code), max_recent_filings(1-20), start_date/end_date(YYYYMMDD).
         ref: shareholder_meeting, ownership_structure, dividend, proxy_contest, value_up
         """
         payload = await build_company_payload(

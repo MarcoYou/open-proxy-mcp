@@ -123,9 +123,10 @@ def register_tools(mcp):
         lookback_months: int = 12,
         format: str = "md",
     ) -> str:
-        """desc: 지배구조, 분쟁 신호, 밸류업/주주환원 맥락을 한 장의 engagement memo로 묶는 action tool.
-        when: 투자자 대화, 경영진 접촉, engagement case 초안, 내부 메모가 필요할 때.
-        rule: 추천이나 처방을 만들지 않고, 사실과 근거만 정리한다. ownership_structure, proxy_contest, value_up의 요약과 evidence를 우선 사용한다.
+        """desc: engagement 메모 action tool. 지배구조 + 분쟁 신호 + 밸류업/주주환원 맥락을 한 장으로 묶음. **추천·처방 생성 X, 사실·근거만**.
+        when: 투자자 대화 준비, 경영진 접촉, engagement case 초안, 내부 메모.
+        rule: 단정적 결론 문구 금지. upstream evidence 범위를 넘어가는 판단 금지. upstream이 `partial`/`requires_review`이면 그대로 반영.
+        upstream: ownership_structure + proxy_contest + value_up + evidence.
         ref: ownership_structure, proxy_contest, value_up, evidence
         """
         payload = await build_engagement_case_payload(

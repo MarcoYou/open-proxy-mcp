@@ -157,9 +157,10 @@ def register_tools(mcp):
         lookback_months: int = 12,
         format: str = "md",
     ) -> str:
-        """desc: 위임장, 소송, 5% 시그널, 주총 회차, 지배구조를 묶어 캠페인 사실 브리프를 만드는 action tool.
-        when: 주주활동 맥락을 빠르게 파악하고, 누가 언제 어떤 문서를 냈는지 정리할 때.
-        rule: 자동 추천이나 vote math는 하지 않는다. timeline, players, control context, meeting context, key flags만 정리하는 fact brief다.
+        """desc: 캠페인 사실 브리프 action tool. 위임장 + 소송 + 5% 시그널 + 주총 회차 + 지배구조를 timeline/players/key_flags로 정리.
+        when: 주주활동 맥락을 빠르게 파악, 누가 언제 어떤 문서를 냈는지 이벤트 시퀀스 정리.
+        rule: **fact brief 전용** — 자동 추천, vote math 예측 금지. timeline, players, control_context, meeting_context, key_flags만 정리. upstream의 retail_activism 분리와 교차 힌트 그대로 노출.
+        upstream: proxy_contest + ownership_structure + shareholder_meeting + evidence.
         ref: proxy_contest, ownership_structure, shareholder_meeting, evidence
         """
         payload = await build_campaign_brief_payload(

@@ -56,10 +56,10 @@ def register_tools(mcp):
         rcept_no: str = "",
         format: str = "md",
     ) -> str:
-        """desc: data tool 결과에 붙은 evidence_id 또는 rcept_no로 "언제 어떤 공시를 참조했는지" 인용 정보를 확인한다. 원문은 viewer_url로 DART/KIND 뷰어에서 직접 열 수 있다.
-        when: 배당, 주총, 분쟁, 밸류업 결과에 붙은 evidence_refs의 출처를 재확인하거나, 특정 rcept_no의 공시일/공시명을 빠르게 확인하고 싶을 때.
-        rule: evidence tool은 원문도 공시명도 직접 조회하지 않는다. rcept_no 앞 8자리에서 공시일을, 9~10자리로 DART(00)/KIND(80) 소스를 판단하고 viewer_url을 생성한다. 공시명은 upstream evidence_refs에 이미 있거나, viewer_url로 직접 확인한다.
-        ref: company, shareholder_meeting, ownership_structure, dividend, proxy_contest, value_up
+        """desc: 인용 정보 제공자. rcept_no 문자열만으로 공시일·소스·뷰어 URL 유도. **API 호출 없음, 원문 스니펫 추출 없음** — 순수 메타 가공기.
+        when: data tool 결과 evidence_refs의 출처 재확인. 또는 raw rcept_no의 공시일/소스를 빠르게 판단.
+        rule: rcept_no 앞 8자리 → `rcept_dt`(YYYY-MM-DD). 9~10자리 → `source_type` (`80`=KIND, 그 외=DART). `viewer_url` 자동 생성 (DART: `dart.fss.or.kr/dsaf001/main.do?rcpNo=`, KIND: `kind.krx.co.kr/common/disclsviewer.do?method=search&acptno=`). 공시명(`report_nm`)은 upstream evidence_refs에만 있음. 14자리 숫자 아니면 `requires_review`.
+        ref: 모든 data/action tool
         """
         payload = await build_evidence_payload(
             evidence_id=evidence_id,

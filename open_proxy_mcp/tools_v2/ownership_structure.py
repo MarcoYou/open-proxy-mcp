@@ -138,10 +138,11 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 최대주주, 특수관계인, 5% 대량보유, 자사주를 한 탭에서 보는 지분 구조 tool.
-        when: 지배력 구조, 최대주주 비중, 자사주 규모, 5% 시그널을 빠르게 보고 싶을 때.
-        rule: 사업보고서 기반 공식 API를 먼저 쓰고, 5% 대량보유의 목적은 최신 원문으로만 보강한다. partial match는 자동 선택하지 않는다.
-        ref: company, proxy_contest, evidence
+        """desc: 최대주주·특수관계인·5% 대량보유·자사주를 한 탭에서 보는 지분 구조 tool. 판의 구조(who holds what)를 그린다.
+        when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 자사주 규모, 5% 활성 시그널을 보고 싶을 때.
+        rule: 사업보고서 기반 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문(document.xml)으로 보강. KIND 비사용 (false match 위험). partial match 자동 확정 안 함.
+        scope: `summary`(기본) / `major_holders`(최대주주+특수관계인) / `blocks`(5% 대량보유 최신) / `treasury`(자사주) / `control_map`(3대 카테고리 정리: 명부 등재/외부 능동/수동) / `timeline`(5% 보고 이력).
+        ref: company, proxy_contest (분쟁 맥락), evidence
         """
         payload = await build_ownership_structure_payload(
             company,

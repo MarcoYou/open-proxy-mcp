@@ -98,10 +98,11 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 실지급 기준 배당 사실 탭. DPS·총액·배당성향·시가배당률·추이만 제공한다.
-        when: 이번 기 실제 지급(또는 확정 결정)된 배당을 확인할 때. 미래 주주환원 정책/약속은 `value_up`에서 본다.
-        rule: source of truth 2개 — (1) 사업보고서 alotMatter (2) 확정된 배당결정 공시. alotMatter가 비어 있거나 0이면 해당 연도 배당결정 공시를 합산해 summary 구성. 정책 예측·미래 약속은 포함하지 않는다.
-        ref: company, value_up (주주환원 정책), ownership_structure, evidence
+        """desc: 실지급·확정된 배당 **사실** 탭. DPS, 총액, 배당성향, 시가배당률, 추이. 미래 정책·약속은 포함 X.
+        when: 이번 기 실제 지급된 배당 또는 결정 공시로 확정된 지급 수치를 확인할 때. 미래 환원 정책/약속은 `value_up`에서 교차 확인.
+        rule: source of truth 2단 — (1) 사업보고서 `alotMatter` (완료 사업연도 공식값) (2) `현금ㆍ현물배당결정` 공시 합산 (alotMatter가 비거나 cash_dps=0일 때 fallback). summary의 `source` 필드로 출처 표기. **정책 예측·미래 약속 추가 금지**.
+        scope: `summary`(기본) / `detail`(요약+최근 결정 10건) / `history`(최근 N년 추이) / `policy_signals`(분기배당·특별배당 등 패턴).
+        ref: value_up (주주환원 정책·약속), company, ownership_structure, evidence
         """
         payload = await build_dividend_payload(
             company,

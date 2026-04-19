@@ -444,10 +444,13 @@ def register_tools(mcp):
         lookback_months: int = 12,
         format: str = "md",
     ) -> str:
-        """desc: 정기주총/임시주총 데이터 탭. 기본은 `meeting_type=auto`이며, 정기 최신 회차와 임시 최신 회차를 비교해 가장 대표성 높은 회차를 자동 선택한다.
-        when: 주총 일정, 안건, 후보자, 보수한도, 실제 의결 결과가 필요할 때. 사용자는 보통 회사명으로 질문하므로 company 입력을 먼저 식별한 뒤 같은 탭 안에서 원하는 scope를 읽는다.
-        rule: 회사 식별이 exact가 아니면 자동 선택하지 않는다. 기본 소스는 DART 공시검색 + DART XML이며, 결과는 KIND whitelist만 사용한다. auto 선택 시 선택 근거와 대안 회차를 함께 보여주며, PDF 다운로드는 사용하지 않는다.
-        ref: company, evidence
+        """desc: 정기주총/임시주총 데이터 탭. 안건·이사 후보·보수한도·정관변경·결과를 scope별로 점진 로드한다.
+        when: 주총 일정, 안건, 후보자, 보수한도, 정관변경, 실제 의결 결과가 필요할 때.
+        rule: 회사 식별이 exact가 아니면 자동 선택 안 함. 정정공시 있으면 최신 정정본 자동 선택(_auto_rank_key). 소스는 DART 공시검색 + DART XML, 결과공시는 KIND whitelist(80→00 변환). PDF 다운로드 미사용.
+        meeting_type: `auto`=정기/임시 최신 회차 비교 후 대표성 높은 쪽 선택 / `annual`=정기만 / `extraordinary`=임시만 (임시주총 명시적으로 찾을 때)
+        scope: `summary`(기본, 정정공시 포함 메타) / `agenda`(안건 트리) / `board`(이사·감사 후보 경력) / `compensation`(보수한도) / `aoi_change`(정관변경 변경전/후/사유) / `results`(KIND 투표결과) / `full`(모든 scope 병렬)
+        year: 미지정 시 현재 기준 최근 12개월 window. 과거 연도 조사 시 year 명시 권장
+        ref: company, ownership_structure, proxy_contest, evidence
         """
         payload = await build_shareholder_meeting_payload(
             company,
