@@ -51,12 +51,6 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
 
-#### Option B: Local installation
-
-Running locally lets you configure additional API keys beyond DART (candidate news search, OCR fallback, etc.).
-
-See the [local installation guide](docs/connect.md).
-
 ### Usage examples
 
 Once connected, just ask in natural language:
