@@ -196,8 +196,10 @@ def _render_summary(payload: dict[str, Any]) -> str:
     lines.append("- `scope=\"agenda\"`로 전체 안건 트리 확인")
     lines.append("- `scope=\"board\"`로 이사/감사 후보 확인")
     lines.append("- `scope=\"compensation\"`로 보수한도 확인")
+    lines.append("- `scope=\"aoi_change\"`로 정관변경 상세 (변경전/후/사유) 확인")
     if data.get("result_status") == "available":
         lines.append("- `scope=\"results\"`로 실제 의결 결과 확인")
+    lines.append("- `scope=\"full\"`로 모든 scope 한 번에 보기")
     return "\n".join(lines)
 
 
@@ -317,6 +319,76 @@ def _render_compensation(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _render_aoi(payload: dict[str, Any]) -> str:
+    data = payload.get("data", {})
+    aoi = data.get("aoi_change", {}) or {}
+    amendments = aoi.get("amendments", [])
+    summary = aoi.get("summary", {}) or {}
+
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 정관변경 상세", ""]
+    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
+    lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
+    lines.append(f"- status: `{payload.get('status', '')}`")
+    lines.append("")
+    lines.extend(_warning_block(payload))
+
+    lines.append("## 요약")
+    lines.append(f"- 정관변경 안건 수: {len(amendments)}건")
+    if summary.get("category_count"):
+        lines.append(f"- 카테고리 수: {summary.get('category_count')}")
+    lines.append("")
+
+    if not amendments:
+        lines.append("확인된 정관변경 안건이 없다.")
+        return "\n".join(lines)
+
+    lines.append("## 세부의안")
+    for item in amendments:
+        sub_id = item.get("subAgendaId") or ""
+        label = item.get("label") or item.get("clause", "")
+        header = f"제{sub_id}호 {label}".strip() if sub_id else label or "-"
+        lines.append(f"### {header}")
+        before = (item.get("before") or "").strip()
+        after = (item.get("after") or "").strip()
+        reason = (item.get("reason") or "").strip()
+        if before:
+            lines.append("**변경 전**")
+            lines.append(f"> {before}")
+        if after:
+            lines.append("**변경 후**")
+            lines.append(f"> {after}")
+        if reason:
+            lines.append(f"**사유**: {reason}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _render_full(payload: dict[str, Any]) -> str:
+    sections = [
+        _render_summary(payload),
+        "",
+        "---",
+        "",
+        _render_agenda(payload),
+        "",
+        "---",
+        "",
+        _render_board(payload),
+        "",
+        "---",
+        "",
+        _render_compensation(payload),
+        "",
+        "---",
+        "",
+        _render_aoi(payload),
+    ]
+    data = payload.get("data", {})
+    if data.get("results"):
+        sections.extend(["", "---", "", _render_results(payload)])
+    return "\n".join(sections)
+
+
 def _render_results(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     result_reference = data.get("result_reference", {})
@@ -397,8 +469,12 @@ def register_tools(mcp):
             return _render_board(payload)
         if scope == "compensation":
             return _render_compensation(payload)
+        if scope == "aoi_change":
+            return _render_aoi(payload)
         if scope == "results":
             return _render_results(payload)
+        if scope == "full":
+            return _render_full(payload)
         if status in {"exact", "partial", "requires_review", "conflict"}:
             return _render_summary(payload)
         return _render_error(payload)

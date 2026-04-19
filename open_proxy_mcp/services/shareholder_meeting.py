@@ -16,11 +16,13 @@ from open_proxy_mcp.services.contracts import (
     SourceType,
     ToolEnvelope,
 )
-from open_proxy_mcp.services.date_utils import parse_date_param, resolve_date_window
+from open_proxy_mcp.services.date_utils import format_iso_date, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.tools.formatters import _parse_agm_result_summary, _parse_agm_result_table
 from open_proxy_mcp.tools.parser import (
+    parse_agenda_details_xml,
     parse_agenda_xml,
+    parse_aoi_xml,
     parse_compensation_xml,
     parse_corrections_xml,
     parse_meeting_info_xml,
@@ -29,7 +31,7 @@ from open_proxy_mcp.tools.parser import (
 )
 
 
-_SUPPORTED_SCOPES = {"summary", "agenda", "board", "compensation", "results"}
+_SUPPORTED_SCOPES = {"summary", "agenda", "board", "compensation", "aoi_change", "results", "full"}
 _MEETING_TYPE_MAP = {
     "annual": "정기",
     "extraordinary": "임시",
@@ -233,9 +235,9 @@ def _needs_notice_viewer_fallback(parsed: dict[str, Any], *, scope: str) -> list
     board_expected = any(("선임" in title or "해임" in title) and ("이사" in title or "감사" in title) for title in agenda_titles)
     compensation_expected = any("보수" in title and "한도" in title for title in agenda_titles)
 
-    if scope == "board" and board_expected and not parsed["board"].get("appointments"):
+    if scope in {"board", "full"} and board_expected and not parsed["board"].get("appointments"):
         reasons.append("board_parse_empty")
-    if scope == "compensation" and compensation_expected and not parsed["compensation"].get("items"):
+    if scope in {"compensation", "full"} and compensation_expected and not parsed["compensation"].get("items"):
         reasons.append("compensation_parse_empty")
     return reasons
 
@@ -256,7 +258,7 @@ async def _load_notice_bundle_with_fallback(
         return parsed, warnings, source_used
 
     section_keywords = ["주주총회 소집공고", "주주총회소집공고"]
-    if scope in {"board", "compensation"}:
+    if scope in {"board", "compensation", "aoi_change", "full"}:
         section_keywords.extend(["목적사항별 기재사항", "주주총회 목적사항별 기재사항"])
 
     warnings.append(f"API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. ({', '.join(reasons)})")
@@ -281,10 +283,10 @@ async def _load_notice_bundle_with_fallback(
         parsed["text"] = viewer_parsed["text"]
         parsed["html"] = viewer_parsed["html"]
         improved = True
-    if scope == "board" and len(viewer_parsed["board"].get("appointments", [])) > len(parsed["board"].get("appointments", [])):
+    if scope in {"board", "full"} and len(viewer_parsed["board"].get("appointments", [])) > len(parsed["board"].get("appointments", [])):
         parsed["board"] = viewer_parsed["board"]
         improved = True
-    if scope == "compensation" and len(viewer_parsed["compensation"].get("items", [])) > len(parsed["compensation"].get("items", [])):
+    if scope in {"compensation", "full"} and len(viewer_parsed["compensation"].get("items", [])) > len(parsed["compensation"].get("items", [])):
         parsed["compensation"] = viewer_parsed["compensation"]
         improved = True
 
@@ -894,7 +896,7 @@ async def build_shareholder_meeting_payload(
         "agenda_summary": agenda_summary,
         "board_summary": board_summary,
         "compensation_summary": compensation_summary,
-        "available_scopes": ["summary", "agenda", "board", "compensation", "results"],
+        "available_scopes": ["summary", "agenda", "board", "compensation", "aoi_change", "results", "full"],
         "selected_meeting": _candidate_meta(selected_candidate),
         "alternative_meetings": alternative_meetings,
         "meeting_coverage_12m": coverage_12m,
@@ -903,20 +905,41 @@ async def build_shareholder_meeting_payload(
         data["result_reference"] = result_reference
     if correction:
         data["correction_summary"] = correction
-    if scope == "agenda":
+    include_agenda = scope in {"agenda", "full"}
+    include_board = scope in {"board", "full"}
+    include_compensation = scope in {"compensation", "full"}
+    include_aoi = scope in {"aoi_change", "full"}
+    include_results = scope in {"results", "full"}
+
+    if include_agenda:
         data["agendas"] = agenda_nodes
-    if scope == "board":
+    if include_board:
         data["board"] = board
         if not board.get("appointments"):
             warnings.append("선임/해임 인사 안건이 없거나 파싱되지 않았다.")
-    if scope == "compensation":
+    if include_compensation:
         data["compensation"] = compensation
         if not compensation.get("items"):
             warnings.append("보수한도 안건이 없거나 파싱되지 않았다.")
-    if scope == "results":
+    if include_aoi:
+        if not html:
+            warnings.append("HTML을 확보하지 못해 정관변경 상세를 파싱할 수 없다.")
+            data["aoi_change"] = {"amendments": [], "summary": {}}
+        else:
+            charter_subs: list[dict] = []
+            for item in agenda:
+                if "정관" in (item.get("title") or ""):
+                    charter_subs = item.get("children", [])
+                    break
+            aoi_result = parse_aoi_xml(html, sub_agendas=charter_subs if charter_subs else None)
+            data["aoi_change"] = aoi_result
+            if not aoi_result.get("amendments"):
+                warnings.append("정관변경 안건이 없거나 파싱되지 않았다.")
+    if include_results:
         if meeting_phase == "pre_meeting":
             warnings.append("회의일 전이라 아직 주주총회결과 공시가 나올 시점이 아니다.")
-            status = AnalysisStatus.PARTIAL
+            if scope == "results":
+                status = AnalysisStatus.PARTIAL
         else:
             result_data, result_warning = await _meeting_result_data(
                 selected.get("corp_name", company_query),
@@ -924,7 +947,8 @@ async def build_shareholder_meeting_payload(
             )
             if result_warning:
                 warnings.append(result_warning)
-                status = AnalysisStatus.REQUIRES_REVIEW
+                if scope == "results":
+                    status = AnalysisStatus.REQUIRES_REVIEW
             if result_data:
                 data["results"] = result_data
                 if result_data.get("result_format") == "summary":
@@ -932,47 +956,69 @@ async def build_shareholder_meeting_payload(
     elif result_filing_warning and meeting_phase != "pre_meeting":
         warnings.append(result_filing_warning)
 
+    notice_source_type = SourceType.DART_HTML if notice_parse_source == "dart_html" else SourceType.DART_XML
+    notice_rcept_dt = format_iso_date(latest_notice.get("disclosure_date", ""))
+    notice_report_nm = latest_notice.get("report_name", "")
+
     evidence_refs = [
         EvidenceRef(
             evidence_id=f"ev_notice_{latest_notice['rcept_no']}",
-            source_type=SourceType.DART_HTML if notice_parse_source == "dart_html" else SourceType.DART_XML,
+            source_type=notice_source_type,
             rcept_no=latest_notice["rcept_no"],
+            rcept_dt=notice_rcept_dt,
+            report_nm=notice_report_nm,
             section="주주총회 소집공고",
-            snippet=f"{latest_notice.get('report_name', '')} / {meeting_info.get('datetime') or ''}",
-            parser="parse_meeting_info_xml+parse_agenda_xml" + ("+viewer_fallback" if notice_parse_source == "dart_html" else ""),
+            note=f"회의일 {meeting_info.get('datetime') or '미확정'}",
         )
     ]
-    if scope == "board":
+    if include_board:
         evidence_refs.append(
             EvidenceRef(
                 evidence_id=f"ev_board_{latest_notice['rcept_no']}",
-                source_type=SourceType.DART_HTML if notice_parse_source == "dart_html" else SourceType.DART_XML,
+                source_type=notice_source_type,
                 rcept_no=latest_notice["rcept_no"],
+                rcept_dt=notice_rcept_dt,
+                report_nm=notice_report_nm,
                 section="후보자/이사 선임",
-                snippet=f"후보자 {board_summary.get('total_candidates', 0)}명",
-                parser="parse_personnel_xml" + ("+viewer_fallback" if notice_parse_source == "dart_html" else ""),
+                note=f"후보자 {board_summary.get('total_candidates', 0)}명",
             )
         )
-    if scope == "compensation":
+    if include_compensation:
         evidence_refs.append(
             EvidenceRef(
                 evidence_id=f"ev_comp_{latest_notice['rcept_no']}",
-                source_type=SourceType.DART_HTML if notice_parse_source == "dart_html" else SourceType.DART_XML,
+                source_type=notice_source_type,
                 rcept_no=latest_notice["rcept_no"],
+                rcept_dt=notice_rcept_dt,
+                report_nm=notice_report_nm,
                 section="보수한도 승인",
-                snippet=f"보수 안건 {len(compensation.get('items', []))}건",
-                parser="parse_compensation_xml" + ("+viewer_fallback" if notice_parse_source == "dart_html" else ""),
+                note=f"보수 안건 {len(compensation.get('items', []))}건",
             )
         )
-    if scope == "results" and data.get("results"):
+    if include_aoi and data.get("aoi_change"):
+        aoi_meta = data["aoi_change"]
         evidence_refs.append(
             EvidenceRef(
-                evidence_id=f"ev_result_{data['results']['rcept_no']}",
+                evidence_id=f"ev_aoi_{latest_notice['rcept_no']}",
+                source_type=notice_source_type,
+                rcept_no=latest_notice["rcept_no"],
+                rcept_dt=notice_rcept_dt,
+                report_nm=notice_report_nm,
+                section="정관변경 상세",
+                note=f"정관변경 안건 {len(aoi_meta.get('amendments', []))}건",
+            )
+        )
+    if include_results and data.get("results"):
+        result_meta = data["results"]
+        evidence_refs.append(
+            EvidenceRef(
+                evidence_id=f"ev_result_{result_meta['rcept_no']}",
                 source_type=SourceType.KIND_HTML,
-                rcept_no=data["results"]["rcept_no"],
+                rcept_no=result_meta["rcept_no"],
+                rcept_dt=format_iso_date(result_meta.get("rcept_dt", "")),
+                report_nm=result_meta.get("report_name", ""),
                 section="주주총회결과",
-                snippet=f"투표 결과 {len(data['results'].get('items', []))}건",
-                parser="kind_vote_table",
+                note=f"투표 결과 {len(result_meta.get('items', []))}건",
             )
         )
 

@@ -27,38 +27,41 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, shareholder_m
   - `snippet`
   - `confidence`
 
-## 소스 정책
+## 소스 정책 (v2 재설계)
 
-`evidence`는 새 외부 소스를 붙이지 않는다.  
-이미 검증된 upstream data tool의 evidence pointer만 조회한다.
+evidence tool은 외부 소스 조회를 하지 않는다. rcept_no 문자열만으로 즉시 유도 가능한 정보만 반환한다.
 
-| field | primary source | note |
-|---|---|---|
-| snippet | upstream stored snippet | 새 추론 없음 |
-| rcept_no | upstream filing id | source lineage 유지 |
-| source_type | upstream enum | `dart_xml`, `kind_html` 등 |
-| confidence | upstream parser result | derived |
+| field | 도출 방법 |
+|---|---|
+| `rcept_no` | 입력값 그대로 |
+| `rcept_dt` | `rcept_no[:8]`에서 `YYYY-MM-DD` |
+| `source_type` | `rcept_no[8:10] == "80"` → KIND, 그 외 → DART |
+| `viewer_url` | source별 패턴 (DART: `dart.fss.or.kr/dsaf001/main.do?rcpNo=`, KIND: `kind.krx.co.kr/common/disclsviewer.do?method=search&acptno=`) |
+| `report_nm` | upstream evidence_refs에 이미 있으면 그대로 전달. 생 rcept_no 입력 시에는 공란 (viewer_url로 사용자가 직접 확인) |
 
-## 샘플 설계
+## 샘플 확인 (2026-04-19 실행)
 
-| origin tool | example filing | expected evidence |
-|---|---|---|
-| shareholder_meeting | `20260312000987` | 안건 section snippet |
-| dividend | `20260129800004` | DPS / record date snippet |
-| value_up | `20260327802428` | 밸류업 약속 문장 snippet |
+| rcept_no | status | rcept_dt | source_type | viewer_url | note |
+|---|---|---|---|---|---|
+| `20260305001616` | exact | 2026-03-05 | dart_xml | `dart.fss.or.kr/.../rcpNo=20260305001616` | 고려아연 정기주총 정정공고 (DART XML 경로) |
+| `20260213800001` | exact | 2026-02-13 | kind_html | `kind.krx.co.kr/.../acptno=20260213800001` | KIND 형식 (9~10자리 `80`) 정상 분류 |
+| `ABC` (엣지) | requires_review | - | - | - | 14자리 숫자 아님 → requires_review + 경고 문구 |
+
+- DART/KIND 분기 규칙이 rcept_no 구조만으로 결정됨 (API 호출 0)
+- viewer_url은 자동 생성, 사용자가 클릭해 원문 확인
 
 ## requires_review 조건
 
-- upstream tool이 evidence를 충분히 남기지 않은 경우
-- section/snippet이 비어 있는데 결과만 남아 있는 경우
-- source_type이 혼재돼 lineage가 끊기는 경우
+- rcept_no가 14자리 숫자가 아닌 경우
+- evidence_id만 있고 내부에 rcept_no 패턴이 없는 경우
 
 ## release_v2 판정
 
-- `conditional`
+- `go`
 - 이유:
-  - 개념적으로는 바로 필요하다
-  - 하지만 공개 전에 `evidence_id`, `item_id`, `source_type`, `confidence` 스키마를 먼저 고정해야 한다
+  - API 호출 없는 순수 문자열 가공이라 실패 지점이 없다
+  - upstream evidence_refs가 `rcept_dt`/`report_nm`을 이미 채우고 있어 tool 호출 없이도 인용 정보 확보 가능
+  - 원문 본문은 viewer_url 클릭으로 DART/KIND 뷰어에서 보는 게 더 정확 (표·각주 포함)
 
 ## 실무 해석
 

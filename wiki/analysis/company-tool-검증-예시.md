@@ -37,13 +37,13 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, DART-OpenAPI,
 | sector name | NAVER profile | 없음 | 보조 분류 |
 | recent filings | DART `list.json` | 없음 | release_v2 추가 과제 |
 
-## 샘플 확인
+## 샘플 확인 (2026-04-19 실행)
 
-| query | corp_code | stock_code | corp_name | 판정 | note |
+| query | status | corp_code | stock_code | canonical_name | note |
 |---|---|---|---|---|---|
-| 삼성전자 | `00126380` | `005930` | 삼성전자 | exact | 현재 corp_identifier 경로 존재 |
-| 케이티앤지 / KT&G | `00244455` | `033780` | 케이티앤지 | exact | 약칭 추가 검증 필요 |
-| 고려아연 | `00102858` | `010130` | 고려아연 | exact | 이후 AGM/ownership 샘플과 연결 가능 |
+| 삼성전자 | exact | `00126380` | `005930` | 삼성전자(주) | 표준 케이스 |
+| KT&G | exact | `00244455` | `033780` | (주)케이티앤지 | 약칭 + special char 매칭 |
+| 삼성 (엣지) | error | - | - | - | 동명 비상장 법인 자동 제외, 상장사 후보 없음 → error 반환. 워닝 문구로 상장사 명/코드 재입력 유도 |
 
 ## requires_review 조건
 

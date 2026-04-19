@@ -34,13 +34,16 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, DART-KIND-매
 | plan text | value-up document | DART `document.xml` | KIND whitelist 가능 | 본문 추출 |
 | timeline | multiple value-up filings | DART `list.json` | KIND 선택적 | 재공시/이행현황 추적 |
 
-## 샘플 확인
+## 샘플 확인 (2026-04-19 실행, scope=summary)
 
-| company | report_name | rcept_no | primary result | secondary result | 판정 | note |
-|---|---|---|---|---|---|---|
-| KB금융 | 기업가치제고계획(자율공시) | `20260327802428` | DART XML 확보 | KIND `20260327002428` 가능 | exact | whitelist 대상 |
-| 하나금융지주 | [기재정정]기업가치제고계획(자율공시) | `20260331801627` | DART XML 확보 | KIND `20260331001627` 가능 | exact | 재공시 |
-| 메리츠금융지주 | 기업가치제고계획(자율공시) | `20260211800942` | DART XML 확보 | KIND `20260211000942` 가능 | exact | 이행현황형 |
+| company | status | latest_rcept_no | source | note |
+|---|---|---|---|---|
+| KB금융 | exact | `20260327802428` | KIND (rcept_no 중 `80`) | 최초 기업가치제고계획 공시. whitelist 매핑 정상 |
+| 하나금융지주 | exact | `20260331801627` | KIND | 재공시 케이스 |
+| LG에너지솔루션 (엣지) | exact | `20251128800104` | KIND | "밸류업 미공시 대조군"으로 시도했으나 실제로는 공시 존재 (2025-11-28). LG에너지솔루션도 밸류업 계획을 냈음을 확인 |
+
+- 3개 모두 `source_type=kind_html`. 최신 공시 rcept_no의 9~10자리 `80`으로 KIND 경로 식별
+- 엣지로 택한 LG에너지솔루션이 실제로는 밸류업 공시 존재 → 진짜 미공시 기업은 별도 조사 필요
 
 ## requires_review 조건
 

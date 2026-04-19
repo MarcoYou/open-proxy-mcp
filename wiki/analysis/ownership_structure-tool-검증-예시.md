@@ -38,16 +38,16 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, own-tool-rule
 | block holders | 5% 대량보유 | DART majorstock API | `document.xml` 목적 파싱 | 보유목적 보강 필요 |
 | control map | derived | upstream 조합 | 없음 | release_v2 내부 정규화 필요 |
 
-## 샘플 확인
+## 샘플 확인 (2026-04-19 실행, scope=summary)
 
-| company | subdomain | rcept_no | primary result | secondary result | 판정 | note |
-|---|---|---|---|---|---|---|
-| 고려아연 | block holders | `20260414001999` | majorstock API 확보 | 목적 원문 파싱 가능 | exact | 경영참여/일반투자 해석 중요 |
-| 한진칼 | block holders | `20251022000208` | majorstock API 확보 | 원문 보강 필요 | exact | timeline 축으로 유용 |
-| 카카오 | block holders | `20260401003804` | majorstock API 확보 | 원문 보강 필요 | exact | 대량보유 변화 감시용 |
-| 삼성전자 | elestock | `20260417000440` | 임원·주요주주 API 확보 | 없음 | exact | DART-only |
-| SK하이닉스 | elestock | `20260407002972` | 임원·주요주주 API 확보 | 없음 | exact | DART-only |
-| 삼성전자 | treasury event | `20260318001203` | 자기주식 이벤트 API 확보 | 없음 | exact | KIND 비허용 |
+| company | status | major_holders | blocks | treasury_pct | note |
+|---|---|---|---|---|---|
+| 삼성전자 | exact | 19 | 1 | 보유 | 표준 케이스, 다수 특수관계인 |
+| 고려아연 | exact | 16 | 5 | - | 5% 대량보유 다수 보고자 (MBK, 영풍, Palisade 등) |
+| KT&G (엣지) | exact | 1 | 1 | 자사주 이벤트 | 자사주 소각 이력 있는 기업, block은 외국인 |
+
+- 3개 전부 DART 공식 API 경로로 `exact` 판정
+- 대량보유 수(blocks)로 분쟁/액티비스트 진입 밀도 비교 가능 (고려아연 5건 > 삼성전자 1건)
 
 ## requires_review 조건
 

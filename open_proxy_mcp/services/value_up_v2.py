@@ -10,7 +10,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
-from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
+from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 _SUPPORTED_SCOPES = {"summary", "plan", "commitments", "timeline"}
@@ -364,9 +364,10 @@ async def build_value_up_payload(
                 evidence_id=f"ev_valueup_{latest.get('rcept_no') or latest.get('acptno', '')}",
                 source_type=source_type,
                 rcept_no=latest.get("rcept_no", latest.get("acptno", "")),
+                rcept_dt=format_iso_date(latest.get("rcept_dt", latest.get("disclosure_date", ""))),
+                report_nm=latest.get("report_nm", latest.get("report_name", "")),
                 section="기업가치제고계획",
-                snippet=latest.get("report_nm", latest.get("report_name", "")),
-                parser="document_excerpt" if latest_source == "dart" else "kind_search_document",
+                note=f"소스: {'DART' if latest_source == 'dart' else 'KIND'}",
             )
         ],
         next_actions=[

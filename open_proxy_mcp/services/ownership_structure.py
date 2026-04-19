@@ -9,7 +9,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
-from open_proxy_mcp.services.date_utils import format_yyyymmdd, parse_date_param, resolve_date_window
+from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
 
 _SUPPORTED_SCOPES = {
@@ -396,8 +396,7 @@ async def build_ownership_structure_payload(
             evidence_id=f"ev_ownership_api_{selected['corp_code']}_{bsns_year}",
             source_type=SourceType.DART_API,
             section="hyslrSttus/stockTotqySttus",
-            snippet=f"{selected.get('corp_name', '')} {bsns_year}년 정기보고서 기준 최대주주/주식총수",
-            parser="dart_api",
+            note=f"{selected.get('corp_name', '')} {bsns_year}년 정기보고서 기준 최대주주/주식총수",
         )
     ]
     if latest_blocks:
@@ -408,9 +407,10 @@ async def build_ownership_structure_payload(
                     evidence_id=f"ev_block_{first['rcept_no']}",
                     source_type=SourceType.DART_XML,
                     rcept_no=first["rcept_no"],
+                    rcept_dt=format_iso_date(first.get("report_date", "")),
+                    report_nm=first.get("report_name", ""),
                     section="대량보유 상황보고",
-                    snippet=f"{first['reporter']} / {first['ownership_pct']}% / {first['purpose']}",
-                    parser="majorstock+document",
+                    note=f"{first['reporter']} / {first['ownership_pct']}% / {first['purpose']}",
                 )
             )
 

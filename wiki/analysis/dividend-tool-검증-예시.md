@@ -35,13 +35,13 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, div-tool-rule
 | historical timeline | 거래소 배당공시 | DART search + XML | KIND whitelist 선택적 | 연도별 추이 |
 | price fallback | 일별 종가 | KRX Open API | NAVER | DART yield 부재 시만 |
 
-## 샘플 확인
+## 샘플 확인 (2026-04-19 실행, scope=summary)
 
-| company | report_name | rcept_no | primary result | secondary result | 판정 | note |
+| company | status | cash_dps | payout_ratio_dart | yield_dart | decisions | note |
 |---|---|---|---|---|---|---|
-| 삼성전자 | 현금ㆍ현물배당결정 | `20260129800004` | DART XML 확보 | KIND `20260129000004` 가능 | exact | whitelist 대상 |
-| SK하이닉스 | 현금ㆍ현물배당결정 | `20260128800597` | DART XML 확보 | KIND `20260128000597` 가능 | exact | whitelist 대상 |
-| 케이티앤지 | [기재정정]현금ㆍ현물배당결정 | `20260226800305` | DART XML 확보 | KIND `20260226000305` 가능 | exact | 정정공시 처리 필요 |
+| 삼성전자 | exact | 1,668원 | 25.1% | 1.5% | 5건 | 분기 고정 배당, alotMatter + 결정공시 정상 |
+| KT&G | exact | 6,000원 | 57.6% | 4.1% | 5건 | 고배당 대표주, 배당성향 매우 높음 |
+| 메리츠금융지주 (엣지) | exact | 0원 | null | null | 5건 | DART alotMatter 요약은 비어있으나 결정공시 5건 존재 → 특별배당/자사주 소각 중심 정책이라 일반 배당 요약 공란. scope=`detail`/`policy_signals`로 보완 필요 |
 
 ## requires_review 조건
 

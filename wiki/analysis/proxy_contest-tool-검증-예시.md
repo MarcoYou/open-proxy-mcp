@@ -38,16 +38,16 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, prx-tool-rule
 | ownership signals | 5% 보유 | DART majorstock API | XML 목적 파싱 | campaign signal |
 | vote_math | AGM result | KIND HTML | DART list | AGM result whitelist 필요 |
 
-## 샘플 확인
+## 샘플 확인 (2026-04-19 실행, scope=summary)
 
-| company | subdomain | rcept_no | primary result | secondary result | 판정 | note |
-|---|---|---|---|---|---|---|
-| 고려아연 | proxy | `20260309001811` | DART 위임장 공시 확보 | 없음 | exact | DART-only |
-| 한진칼 | proxy | `20260225005188` | DART 위임장 공시 확보 | 없음 | exact | DART-only |
-| 영풍 | proxy | `20260312001045` | DART 위임장 공시 확보 | 없음 | exact | raw KIND false match 위험 |
-| 고려아연 | litigation | `20260417800134` | DART 공시 확보 | KIND `20260417000134` 가능 | exact | whitelist 제한적 허용 |
-| LG화학 | litigation | `20260225801485` | DART 공시 확보 | KIND `20260225001485` 가능 | exact | whitelist 검증됨 |
-| 고려아연 | ownership signal | `20260414001999` | majorstock API 확보 | XML 목적 파싱 가능 | exact | signal layer |
+| company | status | shareholder_side | litigation | signals | note |
+|---|---|---|---|---|---|
+| 고려아연 | exact | 4 | 22 | 4 | 진행중 경영권 분쟁 — 위임장/소송/5% 보유 전방위 신호 |
+| 한진칼 | exact | 0 | 0 | 1 | 조현아/조원태 사건 이후 조용함. 현재 signal 1건만 잔존 |
+| 삼성전자 (대조군) | exact | 3 | 0 | 1 | 분쟁 없음 예상이었으나 주주제안 성격 shareholder_side 3건 카운트됨. 분쟁이 아닌 일반 주주제안도 같은 지표에 잡힐 수 있음 → `requires_review` 트리거 보강 필요 |
+
+- 고려아연은 tool이 포착해야 할 핵심 케이스. 전 subdomain 데이터 확보
+- 대조군 케이스에서 shareholder_side=3이 나와 지표 해석 규칙 재점검 필요 (분쟁 vs 일반 주주제안 분리 필요)
 
 ## requires_review 조건
 

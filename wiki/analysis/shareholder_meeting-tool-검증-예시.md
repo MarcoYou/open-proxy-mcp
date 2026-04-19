@@ -44,7 +44,8 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, DART-KIND-매
 - user-facing company input: 회사명 한글/영문/약칭/티커
 - optional filters:
   - `meeting_type=annual|extraordinary`
-  - `scope=summary|agenda|board|compensation|aoi_change|results|corrections|evidence`
+  - `scope=summary|agenda|board|compensation|aoi_change|results|full`
+  - `corrections`는 제외(summary의 `correction_summary`로 충분)
   - `year`
 - expected internal identifiers:
   - `ticker`
@@ -154,16 +155,29 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, DART-KIND-매
 - 내부 식별자 체인:
   - `company name -> ticker -> corp_code -> rcept_no -> KIND acptno(결과 공시만)`
 
-### 5. 샘플 검증
+### 5. 샘플 검증 (2026-04-19 실행)
 
-| company | report_name | date | rcept_no | primary result | secondary result | final status | note |
-|---|---|---|---|---|---|---|---|
-| 삼성전자 | [기재정정]주주총회소집공고 | 2026-03-12 | `20260312000987` | DART XML 확보 | 없음 | exact | notice는 DART-only |
-| 삼성전자 | 정기주주총회결과 | 2026-03-18 | `20260318801211` | DART list 확보 | KIND `20260318001211` 성공 | exact | results whitelist |
-| 케이티앤지 | 주주총회소집공고 | 2026-02-25 | `20260225005779` | DART XML 확보 | 없음 | exact | notice는 DART-only |
-| 케이티앤지 | 정기주주총회결과 | 2026-03-26 | `20260326802654` | DART list 확보 | KIND `20260326002654` 성공 | exact | results whitelist |
-| 고려아연 | [기재정정]주주총회소집공고 | 2026-03-05 | `20260305001616` | DART XML 확보 | 없음 | exact | notice raw KIND는 false match 위험 |
-| 고려아연 | 정기주주총회결과 | 2026-03-25 | `20260325800010` | DART list 확보 | KIND `20260325000010` 성공 | exact | results whitelist |
+#### 정기주총 (annual) — 6개 기업
+
+| company | year | rcept_no | rcept_dt | report_name | is_correction | meeting_phase | final status | note |
+|---|---|---|---|---|---|---|---|---|
+| 삼성전자 | 2026 | `20260312000987` | 2026-03-12 | [기재정정]주주총회소집공고 | true | post_result | exact | 원본(0213) + 정정(0225, 0312). 최신 정정본 자동 선택 |
+| 고려아연 | 2026 | `20260305001616` | 2026-03-05 | [기재정정]주주총회소집공고 | true | post_result | exact | 원본(0223) + 정정(0225, 0305). 주주제안 + 경영권 분쟁 케이스 |
+| KB금융 | 2026 | `20260306000847` | 2026-03-06 | 주주총회소집공고 | false | post_result | exact | 금융사 표준, 정정 없음 |
+| 삼성바이오로직스 | 2026 | `20260305001125` | 2026-03-05 | [기재정정]주주총회소집공고 | true | post_result | exact | 정정 존재, 최신본 선택 |
+| KT&G | 2026 | `20260225005779` | 2026-02-25 | 주주총회소집공고 | false | post_result | exact | 정정 없음 |
+| LG화학 | 2026 | `20260224004273` | 2026-02-24 | 주주총회소집공고 | false | post_result | exact | 2026 주총에서 주주제안 있는 기업 |
+
+#### 임시주총 (extraordinary) — 3개 기업
+
+| company | year | rcept_no | rcept_dt | report_name | is_correction | meeting_phase | final status | note |
+|---|---|---|---|---|---|---|---|---|
+| 고려아연 | 2025 | `20250318000004` | 2025-03-18 | [기재정정]주주총회소집공고 | true | post_result | exact | MBK vs 최윤범 경영권 분쟁 관련 임시주총 |
+| 두산에너빌리티 | 2024 | `20241210000310` | 2024-12-10 | [기재정정]주주총회소집공고 | true | post_result | exact | 두산로보틱스 합병 관련 임시주총, 정정 존재 |
+| 한미약품 | 2024 | `20241127000821` | 2024-11-27 | 주주총회소집공고 | false | post_result | exact | 경영권 분쟁 임시주총 |
+
+- 9개 모두 `meeting_phase=post_result`, DART XML fallback 없이 API 기본 경로로 처리됨
+- 정정공시 있는 6건 모두 최신 정정본 자동 선택 (`_auto_rank_key` 검증 통과)
 
 ### 6. evidence 설계
 

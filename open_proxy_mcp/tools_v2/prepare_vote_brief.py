@@ -6,6 +6,7 @@ from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.vote_brief import build_vote_brief_payload
+from open_proxy_mcp.tools_v2._shared import _format_evidence_line
 
 
 def _render_error(payload: dict[str, Any]) -> str:
@@ -182,13 +183,7 @@ def _render(payload: dict[str, Any]) -> str:
     if evidence_refs:
         lines.append("## 근거")
         for ref in evidence_refs[:10]:
-            snippet = ref.get("snippet", "")
-            label = f"{ref.get('section', '-')}"
-            rcept_no = ref.get("rcept_no", "")
-            if rcept_no:
-                lines.append(f"- `{rcept_no}` {label}: {snippet}")
-            else:
-                lines.append(f"- {label}: {snippet}")
+            lines.append(_format_evidence_line(ref))
 
     return "\n".join(lines)
 

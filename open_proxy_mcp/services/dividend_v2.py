@@ -8,7 +8,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
-from open_proxy_mcp.services.date_utils import format_yyyymmdd, parse_date_param, resolve_date_window
+from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.tools.dividend import (
     _DIV_KEYWORDS,
@@ -291,8 +291,7 @@ async def build_dividend_payload(
                 evidence_id=f"ev_dividend_api_{selected['corp_code']}_{target_year}",
                 source_type=SourceType.DART_API,
                 section="alotMatter",
-                snippet=f"{selected.get('corp_name', '')} {target_year}년 사업보고서 배당 요약",
-                parser="dart_api",
+                note=f"{selected.get('corp_name', '')} {target_year}년 사업보고서 배당 요약 (DART OpenAPI)",
             )
         )
     if latest_decision and latest_decision.get("rcept_no"):
@@ -301,9 +300,10 @@ async def build_dividend_payload(
                 evidence_id=f"ev_dividend_{latest_decision['rcept_no']}",
                 source_type=SourceType.DART_XML,
                 rcept_no=latest_decision["rcept_no"],
+                rcept_dt=format_iso_date(latest_decision.get("rcept_dt", "")),
+                report_nm=latest_decision.get("report_name", ""),
                 section="현금ㆍ현물배당결정",
-                snippet=f"{latest_decision.get('dividend_type', '')} / DPS {latest_decision.get('dps_common', 0):,}원",
-                parser="decision_parser",
+                note=f"{latest_decision.get('dividend_type', '')} / DPS {latest_decision.get('dps_common', 0):,}원",
             )
         )
 

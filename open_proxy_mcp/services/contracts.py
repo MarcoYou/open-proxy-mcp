@@ -35,30 +35,50 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+_DART_VIEWER_URL = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
+_KIND_VIEWER_URL = "https://kind.krx.co.kr/common/disclsviewer.do?method=search&acptno={rcept_no}"
+
+
+def _build_viewer_url(source_type: SourceType | str, rcept_no: str) -> str:
+    if not rcept_no:
+        return ""
+    source_value = getattr(source_type, "value", source_type)
+    if source_value == SourceType.KIND_HTML.value:
+        return _KIND_VIEWER_URL.format(rcept_no=rcept_no)
+    if source_value in {SourceType.DART_XML.value, SourceType.DART_HTML.value, SourceType.DART_API.value}:
+        return _DART_VIEWER_URL.format(rcept_no=rcept_no)
+    return ""
+
+
 @dataclass(slots=True)
 class EvidenceRef:
-    """핵심 필드 근거."""
+    """핵심 필드 근거.
+
+    애널리스트가 "어느 공시를 언제 참조했는지"를 즉시 확인할 수 있도록
+    rcept_no + rcept_dt + report_nm + viewer_url 중심 스키마.
+    """
 
     evidence_id: str
     source_type: SourceType | str
     rcept_no: str = ""
+    rcept_dt: str = ""
+    report_nm: str = ""
+    viewer_url: str = ""
     section: str = ""
-    snippet: str = ""
-    parser: str = ""
-    confidence: float | None = None
+    note: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        payload = {
+        viewer_url = self.viewer_url or _build_viewer_url(self.source_type, self.rcept_no)
+        return {
             "evidence_id": self.evidence_id,
             "source_type": getattr(self.source_type, "value", self.source_type),
             "rcept_no": self.rcept_no,
+            "rcept_dt": self.rcept_dt,
+            "report_nm": self.report_nm,
+            "viewer_url": viewer_url,
             "section": self.section,
-            "snippet": self.snippet,
-            "parser": self.parser,
+            "note": self.note,
         }
-        if self.confidence is not None:
-            payload["confidence"] = self.confidence
-        return payload
 
 
 @dataclass(slots=True)
