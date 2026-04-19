@@ -54,6 +54,21 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, prx-tool-rule
 - `registry_overlap`: 회사 등재자(계열사/현 경영진)의 5% 신고 — 분쟁 아님
 - `has_contest_signal` = `shareholder_side OR litigation OR external_active` (retail_activism, overlap 제외)
 
+### 교차 참조 힌트 (fight scope)
+
+각 shareholder-side / retail_activism 위임장 행에 주체 중심 플래그 추가:
+
+- `filer_has_5pct_active_block`: 같은 filer가 5% 대량보유 경영참여 신고도 했는지 (overlap/external 무관)
+- `filer_in_litigation`: 같은 filer가 소송/가처분 공시의 제출인으로 잡혔는지
+
+**자동 분류는 하지 않는다.** 애널리스트/LLM이 아래 신호 조합으로 판단:
+
+| 힌트 조합 | 해석 |
+|---|---|
+| 5%경영참여 ✓ + 소송 ✓ | proxy_fight (경영권 분쟁 주체) — 예: 고려아연 영풍 |
+| 5%경영참여 - + 소송 - | proxy_campaign (주주제안/캠페인) — 예: LG화학 Palliser Capital |
+| retail_activism side | 소액주주 집단 위임 — 예: 삼성전자 컨두잇(ACT) |
+
 ## requires_review 조건
 
 - 위임장 본문에서 행사방향이 정규식으로 안 잡히는 경우

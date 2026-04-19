@@ -65,9 +65,11 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 lines.append(f"- {item}")
 
     if scope in {"summary", "fight"}:
-        lines.extend(["", "## fight", "| 날짜 | 구분 | 플레이어 분류 | 제출인 | 공시명 | rcept_no |", "|------|------|---------------|--------|--------|----------|"])
+        lines.extend(["", "## fight", "| 날짜 | 구분 | 플레이어 분류 | 제출인 | 5%경영참여 | 소송연관 | 공시명 | rcept_no |", "|------|------|---------------|--------|-----------|----------|--------|----------|"])
         for row in data.get("fight", [])[:20]:
-            lines.append(f"| {row['disclosure_date']} | {row['side']} | {row.get('actor_group', '')} | {row['filer_name']} | {row['report_name']} | `{row['rcept_no']}` |")
+            has_5pct = "✓" if row.get("filer_has_5pct_active_block") else "-"
+            in_lit = "✓" if row.get("filer_in_litigation") else "-"
+            lines.append(f"| {row['disclosure_date']} | {row['side']} | {row.get('actor_group', '')} | {row['filer_name']} | {has_5pct} | {in_lit} | {row['report_name']} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "litigation"}:
         lines.extend(["", "## litigation", "| 날짜 | 제출인 | 공시명 | rcept_no |", "|------|--------|--------|----------|"])

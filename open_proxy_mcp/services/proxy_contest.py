@@ -587,11 +587,30 @@ async def build_proxy_contest_payload(
         if _normalize_entity_name(row.get("reporter", ""))
     }
 
+    # 교차 참조 힌트 — 주체(filer) 중심 annotation.
+    # 자동 binary 분류(proxy_fight/proxy_campaign) 대신 사실 플래그만 제공하고
+    # 애널리스트가 종합 판단하도록 한다.
+    litigation_filer_keys = {
+        _normalize_entity_name(row.get("filer_name", ""))
+        for row in litigation_rows
+        if _normalize_entity_name(row.get("filer_name", ""))
+    }
+    # filer가 5% 경영참여 신고한 주체인지 (external / overlap 여부 무관).
+    # 영풍처럼 과거 계열사 이력으로 registry_overlap에 남아있지만 현재는 분쟁 주체인 경우도 포함.
+    active_block_all_names = {
+        _normalize_entity_name(row.get("reporter", ""))
+        for row in (control_map.get("active_non_overlap_blocks", []) + control_map.get("active_overlap_blocks", []))
+        if _normalize_entity_name(row.get("reporter", ""))
+    }
+
     enriched_proxy_rows: list[dict[str, Any]] = []
     for row in proxy_rows:
+        filer_key = _normalize_entity_name(row.get("filer_name", ""))
         enriched_proxy_rows.append({
             **row,
             "actor_group": _fight_actor_group(row, active_external_names, overlap_names),
+            "filer_has_5pct_active_block": filer_key in active_block_all_names,
+            "filer_in_litigation": filer_key in litigation_filer_keys,
         })
 
     enriched_signal_rows: list[dict[str, Any]] = []
