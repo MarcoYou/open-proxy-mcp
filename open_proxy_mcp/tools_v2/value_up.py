@@ -92,13 +92,13 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     cross = data.get("treasury_cross_ref")
     if cross:
         lines.extend(["", "## 자사주 이행 교차참조 (최근 24개월)"])
-        lines.append(f"- 자기주식 소각결정 공시: {cross.get('retirement_decision_count_24m', 0)}건")
-        lines.append(f"- 취득결정 공시: {cross.get('acquisition_count_24m', 0)}건 (소각 목적 {cross.get('acquisition_for_retirement_count_24m', 0)}건)")
-        amt = cross.get("acquisition_for_retirement_amount_krw_24m", 0)
+        lines.append(f"- 자기주식 소각결정 공시: {cross.get('cancelation_decision_count_24m', 0)}건")
+        lines.append(f"- 취득결정 공시: {cross.get('acquisition_count_24m', 0)}건 (소각 목적 {cross.get('acquisition_for_cancelation_count_24m', 0)}건)")
+        amt = cross.get("acquisition_for_cancelation_amount_krw_24m", 0)
         if amt:
             lines.append(f"- 소각 목적 취득 총액: {amt:,}원")
         lines.append(f"- 신탁계약 체결: {cross.get('trust_contract_count_24m', 0)}건")
-        lines.append(f"- 상세: `treasury_share(scope=\"retirement\")` 또는 `scope=\"acquisition\"`")
+        lines.append(f"- 상세: `treasury_share(scope=\"cancelation\")` 또는 `scope=\"acquisition\"`")
 
     return "\n".join(lines)
 

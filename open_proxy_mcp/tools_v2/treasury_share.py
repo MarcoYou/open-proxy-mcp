@@ -13,7 +13,7 @@ _EVENT_LABELS = {
     "disposal_decision": "처분결정",
     "trust_contract": "신탁체결",
     "trust_termination": "신탁해지",
-    "retirement_decision": "소각결정",
+    "cancelation_decision": "소각결정",
 }
 
 
@@ -50,11 +50,11 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         "## 이벤트 집계",
         "| 유형 | 건수 |",
         "|------|------|",
-        f"| 취득결정 | {s.get('acquisition_count', 0)} (소각목적 **{s.get('acquisition_for_retirement_count', 0)}**) |",
+        f"| 취득결정 | {s.get('acquisition_count', 0)} (소각목적 **{s.get('acquisition_for_cancelation_count', 0)}**) |",
         f"| 처분결정 | {s.get('disposal_count', 0)} |",
         f"| 신탁체결 | {s.get('trust_contract_count', 0)} |",
         f"| 신탁해지 | {s.get('trust_termination_count', 0)} |",
-        f"| 소각결정 (별도) | {s.get('retirement_count', 0)} |",
+        f"| 소각결정 (별도) | {s.get('cancelation_count', 0)} |",
         f"| **합계** | **{s.get('total_event_count', 0)}** |",
         "",
     ])
@@ -63,8 +63,8 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append(f"- 취득결정 총 수량: {s['acquisition_shares_total']:,}주")
     if s.get("acquisition_amount_total_krw"):
         lines.append(f"- 취득결정 총 금액: {s['acquisition_amount_total_krw']:,}원")
-    if s.get("acquisition_for_retirement_amount_total_krw"):
-        lines.append(f"- **소각목적 취득 총 금액: {s['acquisition_for_retirement_amount_total_krw']:,}원**")
+    if s.get("acquisition_for_cancelation_amount_total_krw"):
+        lines.append(f"- **소각목적 취득 총 금액: {s['acquisition_for_cancelation_amount_total_krw']:,}원**")
     if s.get("trust_contract_amount_total_krw"):
         lines.append(f"- 신탁체결 총 규모: {s['trust_contract_amount_total_krw']:,}원")
 
@@ -115,7 +115,7 @@ def register_tools(mcp):
         """desc: 자기주식 이벤트 전용 tool. 취득·처분·소각·신탁 결정 공시를 한 탭에서 집계. `value_up`(정책)과 `ownership_structure(scope=treasury)`(잔고)와 함께 주주환원 분석의 사실 축.
         when: 자사주 취득·소각·신탁 이력·규모를 확인할 때. 특히 소각 규모로 실제 주주환원 여부를 검증할 때.
         rule: 5개 DART 공시를 모아서 병렬 조회 — (1) `tsstkAqDecsn` 취득결정 (2) `tsstkDpDecsn` 처분결정 (3) `tsstkAqTrctrCnsDecsn` 신탁체결 (4) `tsstkAqTrctrCcDecsn` 신탁해지 (5) `list.json` keyword="자기주식소각결정" 소각결정 (별도 API 없음). 연간 누적은 `scope=annual`에서 사업보고서 기반 `tesstkAcqsDspsSttus`를 재사용.
-        scope: `summary`(기본, 집계 + 최신 5건) / `events`(전 이벤트 타임라인) / `acquisition`(취득·신탁체결만) / `disposal`(처분·신탁해지만) / `retirement`(소각만) / `annual`(연간 누적 잔고/소각).
+        scope: `summary`(기본, 집계 + 최신 5건) / `events`(전 이벤트 타임라인) / `acquisition`(취득·신탁체결만) / `disposal`(처분·신탁해지만) / `cancelation`(소각만) / `annual`(연간 누적 잔고/소각).
         ref: value_up (주주환원 정책), ownership_structure (현재 잔고), dividend (배당과 합친 총 환원), evidence
         """
         payload = await build_treasury_share_payload(

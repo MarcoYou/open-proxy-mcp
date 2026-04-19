@@ -84,9 +84,8 @@ def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> d
 
     year_decisions: list[dict[str, Any]] = []
     for item in decisions:
-        base = item.get("record_date") or item.get("rcept_dt", "")
-        digits = "".join(ch for ch in (base or "") if ch.isdigit())
-        if len(digits) >= 4 and int(digits[:4]) == year:
+        bucket_year = _bucket_fiscal_year(item)
+        if bucket_year == year:
             year_decisions.append(item)
 
     if not year_decisions:
@@ -115,13 +114,48 @@ def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> d
     }
 
 
+def _bucket_fiscal_year(item: dict[str, Any]) -> int | None:
+    """해당 배당결정 공시를 어느 사업연도로 집계할지 결정.
+
+    한국 결산배당은 사업연도 말일에 귀속되지만 공시는 다음 해 2-3월에 제출된다.
+    또한 2024년 이후 시행된 기준일 분리형은 record_date도 다음 해 1-4월로 밀릴 수 있다.
+
+    규칙:
+    - dividend_type == "결산배당": 사업연도 = rcept_dt 연도 - 1
+      (예: rcept_dt=2024-02-22 결산배당 → 2023 사업연도)
+    - 중간배당/분기배당: record_date가 사업연도 안에 있으므로 record_date 기준 연도
+    - record_date와 rcept_dt 모두 없으면 None (버킷 불가)
+    """
+
+    rcept_dt = (item.get("rcept_dt") or "").strip()
+    record_date = (item.get("record_date") or "").strip()
+    dtype = (item.get("dividend_type") or "").strip()
+
+    if dtype == "결산배당":
+        if rcept_dt and len(rcept_dt) >= 4 and rcept_dt[:4].isdigit():
+            return int(rcept_dt[:4]) - 1
+        if record_date:
+            # 기준일이 1-4월이면 전년도 결산으로 보정, 그 외에는 record_date 연도 사용
+            digits = "".join(ch for ch in record_date if ch.isdigit())
+            if len(digits) >= 6:
+                year, month = int(digits[:4]), int(digits[4:6])
+                return year - 1 if month <= 4 else year
+
+    base = record_date or rcept_dt
+    if not base:
+        return None
+    digits = "".join(ch for ch in base if ch.isdigit())
+    if len(digits) < 4:
+        return None
+    return int(digits[:4])
+
+
 def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     decisions_by_year: dict[int, list[dict[str, Any]]] = {}
     for item in decisions:
-        base = item.get("record_date") or item.get("rcept_dt", "")
-        if not base:
+        year = _bucket_fiscal_year(item)
+        if year is None:
             continue
-        year = int(base[:4])
         decisions_by_year.setdefault(year, []).append(item)
 
     history: list[dict[str, Any]] = []

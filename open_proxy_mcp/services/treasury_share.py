@@ -34,8 +34,8 @@ from open_proxy_mcp.services.date_utils import (
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 
-_SUPPORTED_SCOPES = {"summary", "events", "acquisition", "disposal", "retirement", "annual"}
-_RETIREMENT_KEYWORDS = ("자기주식소각결정", "자사주소각결정", "자기주식소각")
+_SUPPORTED_SCOPES = {"summary", "events", "acquisition", "disposal", "cancelation", "annual"}
+_CANCELATION_KEYWORDS = ("자기주식소각결정", "자사주소각결정", "자기주식소각")
 
 
 def _to_int(value: Any) -> int:
@@ -54,14 +54,14 @@ def _rcept_dt_from_no(rcept_no: str) -> str:
 def _normalize_acquisition(item: dict[str, Any]) -> dict[str, Any]:
     """자기주식 취득결정 (tsstkAqDecsn) — 보통주+우선주 수량·금액 합산.
 
-    `aq_pp`(취득목적)에 "소각" 포함 시 `for_retirement=True` — 소각결정 별도 공시 없이
+    `aq_pp`(취득목적)에 "소각" 포함 시 `for_cancelation=True` — 소각결정 별도 공시 없이
     취득 단계에서 소각 의도를 밝히는 케이스(예: 미래에셋증권)를 잡아낸다.
     """
 
     shares = _to_int(item.get("aqpln_stk_ostk")) + _to_int(item.get("aqpln_stk_estk"))
     amount = _to_int(item.get("aqpln_prc_ostk")) + _to_int(item.get("aqpln_prc_estk"))
     purpose = (item.get("aq_pp") or "").strip()
-    for_retirement = "소각" in purpose
+    for_cancelation = "소각" in purpose
     return {
         "event": "acquisition_decision",
         "rcept_no": item.get("rcept_no", ""),
@@ -75,7 +75,7 @@ def _normalize_acquisition(item: dict[str, Any]) -> dict[str, Any]:
         "start_date": (item.get("aqexpd_bgd") or "").strip(),
         "end_date": (item.get("aqexpd_edd") or "").strip(),
         "board_date": (item.get("aq_dd") or "").strip(),
-        "for_retirement": for_retirement,
+        "for_cancelation": for_cancelation,
     }
 
 
@@ -122,11 +122,11 @@ def _normalize_trust(item: dict[str, Any], event: str, label: str) -> dict[str, 
     }
 
 
-def _normalize_retirement_row(item: dict[str, Any]) -> dict[str, Any]:
+def _normalize_cancelation_row(item: dict[str, Any]) -> dict[str, Any]:
     """자기주식 소각결정은 list.json 기반이라 본문 상세가 아닌 메타만 포함."""
 
     return {
-        "event": "retirement_decision",
+        "event": "cancelation_decision",
         "rcept_no": item.get("rcept_no", ""),
         "rcept_dt": item.get("rcept_dt", ""),
         "report_nm": item.get("report_nm", ""),
@@ -152,13 +152,13 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
     trc_task = safe(client.get_treasury_trust_contract(corp_code, bgn_de, end_de), "신탁계약 체결결정")
     trt_task = safe(client.get_treasury_trust_termination(corp_code, bgn_de, end_de), "신탁계약 해지결정")
 
-    async def retire_search():
+    async def cancelation_search():
         items, _notices, error = await search_filings_by_report_name(
             corp_code=corp_code,
             bgn_de=bgn_de,
             end_de=end_de,
             pblntf_tys=("B", "I"),
-            keywords=_RETIREMENT_KEYWORDS,
+            keywords=_CANCELATION_KEYWORDS,
             strip_spaces=True,
         )
         if error:
@@ -166,7 +166,7 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
         return items, None
 
     (acq, w1), (dsp, w2), (trc, w3), (trt, w4), (ret, w5) = await asyncio.gather(
-        acq_task, dsp_task, trc_task, trt_task, retire_search()
+        acq_task, dsp_task, trc_task, trt_task, cancelation_search()
     )
     warnings = [w for w in (w1, w2, w3, w4, w5) if w]
 
@@ -175,13 +175,13 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
         "disposal": [_normalize_disposal(i) for i in dsp],
         "trust_contract": [_normalize_trust(i, "trust_contract", "자기주식 취득 신탁계약 체결 결정") for i in trc],
         "trust_termination": [_normalize_trust(i, "trust_termination", "자기주식 취득 신탁계약 해지 결정") for i in trt],
-        "retirement": [_normalize_retirement_row(i) for i in ret],
+        "cancelation": [_normalize_cancelation_row(i) for i in ret],
     }, warnings
 
 
 def _combined_events(bundles: dict[str, list[dict]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for key in ("acquisition", "disposal", "trust_contract", "trust_termination", "retirement"):
+    for key in ("acquisition", "disposal", "trust_contract", "trust_termination", "cancelation"):
         rows.extend(bundles.get(key, []))
     rows.sort(key=lambda r: (r.get("rcept_dt", ""), r.get("rcept_no", "")), reverse=True)
     return rows
@@ -190,19 +190,19 @@ def _combined_events(bundles: dict[str, list[dict]]) -> list[dict[str, Any]]:
 def _summary_counts(bundles: dict[str, list[dict]]) -> dict[str, Any]:
     acq = bundles.get("acquisition", [])
     # 취득목적에 "소각" 명시된 건. 별도 소각결정 공시 없는 기업(예: 미래에셋증권)에서 주주환원 신호로 쓰임.
-    acq_for_retirement = [r for r in acq if r.get("for_retirement")]
+    acq_for_cancelation = [r for r in acq if r.get("for_cancelation")]
     return {
         "acquisition_count": len(acq),
-        "acquisition_for_retirement_count": len(acq_for_retirement),
+        "acquisition_for_cancelation_count": len(acq_for_cancelation),
         "disposal_count": len(bundles.get("disposal", [])),
         "trust_contract_count": len(bundles.get("trust_contract", [])),
         "trust_termination_count": len(bundles.get("trust_termination", [])),
-        "retirement_count": len(bundles.get("retirement", [])),
-        "total_event_count": sum(len(bundles.get(k, [])) for k in ("acquisition", "disposal", "trust_contract", "trust_termination", "retirement")),
+        "cancelation_count": len(bundles.get("cancelation", [])),
+        "total_event_count": sum(len(bundles.get(k, [])) for k in ("acquisition", "disposal", "trust_contract", "trust_termination", "cancelation")),
         "acquisition_shares_total": sum(r.get("shares", 0) for r in acq),
         "acquisition_amount_total_krw": sum(r.get("amount_krw", 0) for r in acq),
-        "acquisition_for_retirement_shares_total": sum(r.get("shares", 0) for r in acq_for_retirement),
-        "acquisition_for_retirement_amount_total_krw": sum(r.get("amount_krw", 0) for r in acq_for_retirement),
+        "acquisition_for_cancelation_shares_total": sum(r.get("shares", 0) for r in acq_for_cancelation),
+        "acquisition_for_cancelation_amount_total_krw": sum(r.get("amount_krw", 0) for r in acq_for_cancelation),
         "disposal_shares_total": sum(r.get("shares", 0) for r in bundles.get("disposal", [])),
         "trust_contract_amount_total_krw": sum(r.get("amount_krw", 0) for r in bundles.get("trust_contract", [])),
     }
@@ -297,8 +297,8 @@ async def build_treasury_share_payload(
         data["events"] = bundles.get("acquisition", []) + bundles.get("trust_contract", [])
     if scope == "disposal":
         data["events"] = bundles.get("disposal", []) + bundles.get("trust_termination", [])
-    if scope == "retirement":
-        data["events"] = bundles.get("retirement", [])
+    if scope == "cancelation":
+        data["events"] = bundles.get("cancelation", [])
     if scope == "summary":
         data["latest_events"] = events[:5]
     if scope == "annual":
@@ -315,7 +315,7 @@ async def build_treasury_share_payload(
         evidence_refs.append(
             EvidenceRef(
                 evidence_id=f"ev_treasury_{ev['event']}_{ev['rcept_no']}",
-                source_type=SourceType.DART_API if ev["event"] != "retirement_decision" else SourceType.DART_XML,
+                source_type=SourceType.DART_API if ev["event"] != "cancelation_decision" else SourceType.DART_XML,
                 rcept_no=ev["rcept_no"],
                 rcept_dt=format_iso_date(ev.get("rcept_dt", "")),
                 report_nm=ev.get("report_nm", ""),
@@ -336,7 +336,7 @@ async def build_treasury_share_payload(
         data=data,
         evidence_refs=evidence_refs,
         next_actions=[
-            "scope=`retirement`으로 소각결정만 확인" if scope == "summary" else "value_up 교차 참조로 주주환원 정책 신호 함께 해석",
+            "scope=`cancelation`으로 소각결정만 확인" if scope == "summary" else "value_up 교차 참조로 주주환원 정책 신호 함께 해석",
             "scope=`annual`로 사업보고서 기준 연간 잔고·소각 누적 확인",
         ],
     ).to_dict()
