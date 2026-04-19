@@ -45,11 +45,25 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append("## 최신 공시")
         lines.append(f"- 공시일: {latest.get('disclosure_date', '-')}")
         lines.append(f"- 공시명: {latest.get('report_name', '-')}")
+        if latest.get("category"):
+            lines.append(f"- 카테고리: `{latest.get('category')}`")
         lines.append(f"- 소스: `{latest.get('source_type', '-')}`")
         if latest.get("rcept_no"):
             lines.append(f"- rcept_no: `{latest.get('rcept_no', '')}`")
         if latest.get("acptno"):
             lines.append(f"- KIND acptno: `{latest.get('acptno', '')}`")
+
+    latest_plan = data.get("latest_plan")
+    if latest_plan:
+        lines.append("")
+        lines.append("## 실계획 본문 공시 (commitment 추출용)")
+        lines.append(f"- 공시일: {latest_plan.get('disclosure_date', '-')}")
+        lines.append(f"- 공시명: {latest_plan.get('report_name', '-')}")
+        lines.append(f"- 카테고리: `{latest_plan.get('category', '-')}`")
+        if latest_plan.get("rcept_no"):
+            lines.append(f"- rcept_no: `{latest_plan.get('rcept_no', '')}`")
+        if latest_plan.get("note"):
+            lines.append(f"- note: {latest_plan.get('note')}")
     else:
         diagnostic = data.get("search_diagnostics", {}).get("diagnostic_window", {})
         sample_filings = diagnostic.get("sample_filings", [])
@@ -89,10 +103,10 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 기업가치제고계획(밸류업) 공시와 핵심 commitment 문장을 한 탭에서 보여주는 tool.
-        when: 밸류업 계획, 주주환원 commitment, ROE/PBR 관련 문구를 확인하고 싶을 때.
-        rule: 먼저 DART 거래소 공시(I)에서 밸류업 키워드를 찾고, 없으면 KIND `기업가치 제고 계획(0184)` 검색으로 재시도한다. partial match는 자동 선택하지 않는다.
-        ref: company, dividend, ownership_structure, evidence
+        """desc: 기업가치제고계획(밸류업) 공시와 핵심 commitment 문장을 한 탭에서 보여주는 주주환원 정책 tool. `dividend`가 "실지급 사실"이라면 `value_up`은 "미래 약속·정책".
+        when: 밸류업 계획, 주주환원 commitment, ROE/PBR 관련 약속을 확인하고 싶을 때. 실제 지급된 배당은 `dividend`에서 교차 확인.
+        rule: DART 거래소 공시(I)에서 밸류업 키워드 검색 → 없으면 KIND `기업가치 제고 계획(0184)`로 재시도. 최신 공시가 "고배당기업 표시" 같은 형식 재공시(meta_amendment)면 실계획 본문 공시를 `latest_plan`으로 별도 노출. partial match는 자동 선택하지 않는다.
+        ref: dividend (실지급), company, ownership_structure, evidence
         """
         payload = await build_value_up_payload(
             company,

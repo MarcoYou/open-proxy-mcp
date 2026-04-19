@@ -36,14 +36,28 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, DART-KIND-매
 
 ## 샘플 확인 (2026-04-19 실행, scope=summary)
 
-| company | status | latest_rcept_no | source | note |
-|---|---|---|---|---|
-| KB금융 | exact | `20260327802428` | KIND (rcept_no 중 `80`) | 최초 기업가치제고계획 공시. whitelist 매핑 정상 |
-| 하나금융지주 | exact | `20260331801627` | KIND | 재공시 케이스 |
-| LG에너지솔루션 (엣지) | exact | `20251128800104` | KIND | "밸류업 미공시 대조군"으로 시도했으나 실제로는 공시 존재 (2025-11-28). LG에너지솔루션도 밸류업 계획을 냈음을 확인 |
+| company | status | latest.category | latest_plan | highlights | text_length | note |
+|---|---|---|---|---|---|---|
+| KB금융 | exact | meta_amendment (고배당표시) | plan (2025-04-24 원본) | 0 | 1584 | 원본 본문 텍스트 짧음 (PDF 첨부 중심). viewer_url로 직접 확인 |
+| 하나금융지주 | exact | meta_amendment (고배당표시) | progress (2026-03-25 이행현황) | 5 | 2259 | meta → progress fallback 작동, commitment 5문장 추출 |
+| LG에너지솔루션 | exact | progress | (자신이 progress) | 0 | 1926 | 이행현황 본문 있으나 `_COMMITMENT_KEYWORDS` 매칭 문장 없음 (키워드 튜닝 여지) |
+| 메리츠금융지주 | exact | progress | (자신이 progress) | 2 | 2166 | 이행현황에서 commitment 2건 추출 |
 
-- 3개 모두 `source_type=kind_html`. 최신 공시 rcept_no의 9~10자리 `80`으로 KIND 경로 식별
-- 엣지로 택한 LG에너지솔루션이 실제로는 밸류업 공시 존재 → 진짜 미공시 기업은 별도 조사 필요
+### 카테고리 분류
+
+| 카테고리 | 감지 조건 | 설명 |
+|---|---|---|
+| `meta_amendment` | report_name에 "고배당기업" / "고배당법인" 포함 | 조세특례제한법 고배당기업 표시 위한 형식 재공시. 실제 계획 본문은 원본에 있음. |
+| `progress` | report_name에 "이행현황" 포함 | 전년도 이행현황 공시 (commitment 표현이 있을 수 있음) |
+| `plan` | 그 외 | 원본 계획 또는 개정 계획 |
+
+최신 공시가 `meta_amendment`이면 `latest_plan`으로 실제 계획 본문 공시를 별도 노출.
+
+### dividend와의 역할 분리
+
+- `dividend`: 실지급된/확정된 배당 **사실** (DPS, 총액, 배당성향)
+- `value_up`: 주주환원 **정책·약속** (ROE 목표, 자사주 소각 계획, 중장기 배당성향 가이드 등)
+- 두 tool을 교차 참조해 "약속한 수준"과 "실제 지급 수준"의 갭 파악
 
 ## requires_review 조건
 

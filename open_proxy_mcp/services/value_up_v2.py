@@ -18,14 +18,31 @@ _VALUATION_KEYWORDS = ("기업가치제고", "기업가치 제고", "밸류업")
 _COMMITMENT_KEYWORDS = ("주주환원", "자사주", "배당", "ROE", "ROIC", "PBR", "가이드", "중장기")
 
 
+_NOISE_PATTERNS: tuple[re.Pattern, ...] = (
+    re.compile(r"\.xforms|font-family|font-size|padding|margin|\{[^}]*\}"),
+    re.compile(r"<[^>]+>"),
+    re.compile(r"&(?:nbsp|amp|lt|gt|quot|apos);"),
+)
+
+
+def _is_noise(chunk: str) -> bool:
+    for pattern in _NOISE_PATTERNS:
+        if pattern.search(chunk):
+            return True
+    alnum = sum(1 for ch in chunk if ch.isalnum())
+    return alnum < 10
+
+
 def _extract_highlights(text: str, keywords: tuple[str, ...], limit: int = 6) -> list[str]:
     clean = re.sub(r"\s+", " ", text or "")
     chunks = re.split(r"(?<=[.!?])\s+|(?<=다\.)\s+", clean)
     hits: list[str] = []
     for chunk in chunks:
-        if any(keyword in chunk for keyword in keywords):
-            trimmed = chunk.strip()
-            if trimmed and trimmed not in hits:
+        trimmed = chunk.strip()
+        if not trimmed or _is_noise(trimmed):
+            continue
+        if any(keyword in trimmed for keyword in keywords):
+            if trimmed not in hits:
                 hits.append(trimmed[:240])
         if len(hits) >= limit:
             break
@@ -67,6 +84,44 @@ def _filter_value_up_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return filtered
 
 
+def _classify_value_up_item(report_name: str) -> str:
+    """기업가치제고 공시를 카테고리로 분류.
+
+    - meta_amendment: "고배당기업 표시" 같은 형식 재공시 (실제 본문 계획은 원본에 있음)
+    - progress: "이행현황" 관련 재공시
+    - plan: 실제 계획 본문 (원본 또는 개정)
+    """
+
+    name = (report_name or "").replace(" ", "")
+    if "고배당기업" in name or "고배당법인" in name:
+        return "meta_amendment"
+    if "이행현황" in name:
+        return "progress"
+    return "plan"
+
+
+def _item_report_name(item: dict[str, Any]) -> str:
+    """DART item은 report_nm, KIND item은 report_name."""
+
+    return item.get("report_nm") or item.get("report_name") or ""
+
+
+def _select_latest_plan_item(items: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """items 중 실제 계획 본문을 담은 최신 항목 선택.
+
+    meta_amendment(고배당기업 형식 재공시)는 실제 계획 본문이 없으므로 제외한다.
+    plan 카테고리가 없으면 progress도 허용, 그것도 없으면 None.
+    """
+
+    plan_items = [it for it in items if _classify_value_up_item(_item_report_name(it)) == "plan"]
+    if plan_items:
+        return plan_items[0]
+    progress_items = [it for it in items if _classify_value_up_item(_item_report_name(it)) == "progress"]
+    if progress_items:
+        return progress_items[0]
+    return None
+
+
 async def _search_value_up_items(
     corp_code: str,
     *,
@@ -101,6 +156,40 @@ async def _search_kind_value_up_items(
     except Exception as exc:  # KIND는 공식 API가 아니므로 에러 문자열 그대로 진단
         return [], str(exc)
     return result, None
+
+
+def _build_value_up_evidence(
+    latest: dict[str, Any],
+    latest_source: str,
+    source_type: SourceType,
+    best_plan_item: dict[str, Any] | None,
+) -> list[EvidenceRef]:
+    refs = [
+        EvidenceRef(
+            evidence_id=f"ev_valueup_{latest.get('rcept_no') or latest.get('acptno', '')}",
+            source_type=source_type,
+            rcept_no=latest.get("rcept_no", latest.get("acptno", "")),
+            rcept_dt=format_iso_date(latest.get("rcept_dt", latest.get("disclosure_date", ""))),
+            report_nm=latest.get("report_nm", latest.get("report_name", "")),
+            section="기업가치제고계획",
+            note=f"최신 공시 ({'DART' if latest_source == 'dart' else 'KIND'})",
+        )
+    ]
+    if best_plan_item and best_plan_item is not latest:
+        plan_rcept = best_plan_item.get("rcept_no") or best_plan_item.get("acptno", "")
+        plan_src_type = SourceType.DART_XML if best_plan_item.get("rcept_no") else SourceType.KIND_HTML
+        refs.append(
+            EvidenceRef(
+                evidence_id=f"ev_valueup_plan_{plan_rcept}",
+                source_type=plan_src_type,
+                rcept_no=plan_rcept,
+                rcept_dt=format_iso_date(best_plan_item.get("rcept_dt", best_plan_item.get("disclosure_date", ""))),
+                report_nm=_item_report_name(best_plan_item),
+                section="기업가치제고계획 원본/이행현황",
+                note="commitment 문장 추출에 사용한 실계획 본문",
+            )
+        )
+    return refs
 
 
 async def build_value_up_payload(
@@ -289,9 +378,36 @@ async def build_value_up_payload(
             warnings.append(f"KIND 본문 조회 실패: {exc.status}")
         source_type = SourceType.KIND_HTML
 
-    highlights = _extract_highlights(latest_text, _COMMITMENT_KEYWORDS)
+    latest_category = _classify_value_up_item(_item_report_name(latest))
+    # 최신 공시가 meta_amendment(고배당기업 형식 재공시)이면 실제 계획 본문이 없으므로
+    # plan 또는 progress 카테고리의 최신 항목을 별도로 fetch해서 commitment 문장 추출에 사용.
+    best_plan_item = None
+    best_plan_text = ""
+    if latest_category == "meta_amendment":
+        candidates = items + kind_items
+        best_plan_item = _select_latest_plan_item(candidates)
+        if best_plan_item and best_plan_item is not latest:
+            if best_plan_item.get("rcept_no"):
+                try:
+                    doc = await client.get_document_cached(best_plan_item["rcept_no"])
+                    best_plan_text = doc.get("text", "")
+                except DartClientError as exc:
+                    warnings.append(f"실계획 본문 조회 실패: {exc.status}")
+            elif best_plan_item.get("acptno"):
+                try:
+                    html = await client.kind_fetch_document(best_plan_item["acptno"])
+                    best_plan_text = _kind_html_to_text(html)
+                except DartClientError as exc:
+                    warnings.append(f"실계획 KIND 본문 조회 실패: {exc.status}")
+
+    highlight_source_text = best_plan_text or latest_text
+    highlight_source_length = len(highlight_source_text)
+    highlights = _extract_highlights(highlight_source_text, _COMMITMENT_KEYWORDS)
     if not highlights:
-        warnings.append("원문에서 핵심 commitment 문장을 충분히 뽑지 못했다.")
+        if highlight_source_length < 500:
+            warnings.append(f"원본 공시 본문이 매우 얇다(text_length={highlight_source_length}). PDF 첨부 중심 공시일 가능성이 높으니 viewer_url로 DART/KIND 뷰어에서 직접 확인한다.")
+        else:
+            warnings.append("원문 텍스트는 확보됐으나 commitment 키워드 매칭 문장이 없다. viewer_url로 원문 구조 확인 필요.")
 
     data: dict[str, Any] = {
         "query": company_query,
@@ -323,9 +439,19 @@ async def build_value_up_payload(
             "report_name": latest.get("report_nm", latest.get("report_name", "")),
             "filer_name": latest.get("flr_nm", latest.get("filer_name", "")),
             "source_type": getattr(source_type, "value", source_type),
+            "category": latest_category,
         },
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
+    if best_plan_item and best_plan_item is not latest:
+        data["latest_plan"] = {
+            "rcept_no": best_plan_item.get("rcept_no", ""),
+            "acptno": best_plan_item.get("acptno", ""),
+            "disclosure_date": best_plan_item.get("rcept_dt", best_plan_item.get("disclosure_date", "")),
+            "report_name": _item_report_name(best_plan_item),
+            "category": _classify_value_up_item(_item_report_name(best_plan_item)),
+            "note": "최신 공시가 고배당기업 표시 등 형식 재공시라 실제 계획 본문을 담은 가장 최신 공시를 별도 표시한다.",
+        }
     if scope in {"summary", "timeline"}:
         data["items"] = [
             {
@@ -352,6 +478,7 @@ async def build_value_up_payload(
     if scope in {"summary", "plan", "commitments"}:
         data["latest_excerpt"] = latest_excerpt
         data["highlights"] = highlights
+        data["highlight_source_text_length"] = highlight_source_length
 
     return ToolEnvelope(
         tool="value_up",
@@ -359,17 +486,7 @@ async def build_value_up_payload(
         subject=selected.get("corp_name", company_query),
         warnings=warnings,
         data=data,
-        evidence_refs=[
-            EvidenceRef(
-                evidence_id=f"ev_valueup_{latest.get('rcept_no') or latest.get('acptno', '')}",
-                source_type=source_type,
-                rcept_no=latest.get("rcept_no", latest.get("acptno", "")),
-                rcept_dt=format_iso_date(latest.get("rcept_dt", latest.get("disclosure_date", ""))),
-                report_nm=latest.get("report_nm", latest.get("report_name", "")),
-                section="기업가치제고계획",
-                note=f"소스: {'DART' if latest_source == 'dart' else 'KIND'}",
-            )
-        ],
+        evidence_refs=_build_value_up_evidence(latest, latest_source, source_type, best_plan_item),
         next_actions=[
             "commitments scope로 주주환원/ROE 관련 문장 확인" if scope == "summary" else "dividend, ownership_structure와 함께 보면 주주환원 맥락이 더 잘 보인다.",
         ],
