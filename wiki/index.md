@@ -53,6 +53,7 @@ updated: 2026-04-18
 
 ## Decisions
 
+- [[MCP-개발-lessons-learned]] - MCP 개발 7가지 핵심 교훈 (v1→v2 회고, 2026-04-19)
 - [[tool-changelog]] - Tool 제거/통합/리네임 이력 (41→32개, 이유 포함)
 - [[pblntf-ty-필터링]] - DART 검색 시 pblntf_ty 필수 지정, 전체 순회 금지 (D/E/I 코드표)
 - [[배당공시유형]] - 배당 관련 거래소공시 9종 문서 구조 트리
