@@ -53,6 +53,21 @@ def _is_company_side(filer_name: str, corp_name: str) -> bool:
     return bool(left and right and (left == right or right in left))
 
 
+# 소액주주 집단 위임 플랫폼 운영사. 이들이 제출하는 `의결권대리행사권유참고서류`는
+# 경영권 분쟁(proxy_fight)도 주주제안 지지(proxy_campaign)도 아닌 소액주주 반대·찬성 집단
+# 위임 캠페인(retail_activism)이며, shareholder_side_count / has_contest_signal 판정에서 분리한다.
+_RETAIL_ACTIVISM_PLATFORMS: frozenset[str] = frozenset({
+    "컨두잇",        # ACT (act.ag)
+    "헤이홀더",      # heyholder.com
+    "비사이드코리아",  # bside.ai
+})
+
+
+def _is_retail_activism_side(filer_name: str) -> bool:
+    normalized = _strip_corp_name(filer_name)
+    return normalized in _RETAIL_ACTIVISM_PLATFORMS
+
+
 def _window_bounds(
     target_year: int | None,
     *,
@@ -116,12 +131,19 @@ async def _proxy_items(
         return [], notices, f"위임장/공개매수 공시 조회 실패: {error}"
     rows = []
     for item in items:
+        filer = item.get("flr_nm", "")
+        if _is_company_side(filer, corp_name):
+            side = "company"
+        elif _is_retail_activism_side(filer):
+            side = "retail_activism"
+        else:
+            side = "shareholder"
         rows.append({
             "rcept_no": item.get("rcept_no", ""),
             "disclosure_date": item.get("rcept_dt", ""),
             "report_name": item.get("report_nm", ""),
-            "filer_name": item.get("flr_nm", ""),
-            "side": "company" if _is_company_side(item.get("flr_nm", ""), corp_name) else "shareholder",
+            "filer_name": filer,
+            "side": side,
         })
     rows.sort(key=lambda row: (row["disclosure_date"], row["rcept_no"]), reverse=True)
     return rows, notices, None
@@ -244,6 +266,8 @@ def _signal_actor_side(row: dict[str, Any]) -> str:
 def _fight_actor_group(row: dict[str, Any], active_external_names: set[str], overlap_names: set[str]) -> str:
     if row.get("side") == "company":
         return "company"
+    if row.get("side") == "retail_activism":
+        return "retail_activism"
     filer_key = _normalize_entity_name(row.get("filer_name", ""))
     if filer_key in active_external_names:
         return "external_active_block"
@@ -627,8 +651,17 @@ async def build_proxy_contest_payload(
 
     company_side_filers = _unique_nonempty([row["filer_name"] for row in enriched_proxy_rows if row["side"] == "company"])
     shareholder_side_filers = _unique_nonempty([row["filer_name"] for row in enriched_proxy_rows if row["side"] == "shareholder"])
+    retail_activism_filers = _unique_nonempty([row["filer_name"] for row in enriched_proxy_rows if row["side"] == "retail_activism"])
     active_external_blocks = _unique_nonempty([row["reporter"] for row in activist_signals if row.get("actor_side") == "external_active_block"])
     overlap_blocks = _unique_nonempty([row["reporter"] for row in activist_signals if row.get("actor_side") == "registry_overlap"])
+
+    shareholder_side_rows = [row for row in enriched_proxy_rows if row["side"] == "shareholder"]
+    retail_activism_rows = [row for row in enriched_proxy_rows if row["side"] == "retail_activism"]
+    # has_contest_signal: 실제 경영권 분쟁 신호만 (주주측 위임장 / 소송 / 외부 활성 5%).
+    # retail_activism(소액주주 집단 위임 플랫폼)과 registry_overlap(회사 측 계열사 경영참여 신고)은
+    # 분쟁이 아니므로 제외한다.
+    external_active_signals = [row for row in activist_signals if row.get("actor_side") == "external_active_block"]
+    has_contest_signal = bool(shareholder_side_rows or litigation_rows or external_active_signals)
 
     data: dict[str, Any] = {
         "query": company_query,
@@ -646,10 +679,11 @@ async def build_proxy_contest_payload(
         },
         "summary": {
             "proxy_filing_count": len(enriched_proxy_rows),
-            "shareholder_side_count": len([row for row in enriched_proxy_rows if row["side"] == "shareholder"]),
+            "shareholder_side_count": len(shareholder_side_rows),
+            "retail_activism_count": len(retail_activism_rows),
             "litigation_count": len(litigation_rows),
             "active_signal_count": len(activist_signals),
-            "has_contest_signal": bool(enriched_proxy_rows or litigation_rows or activist_signals),
+            "has_contest_signal": has_contest_signal,
             "top_holder": control_context.get("top_holder", {}),
             "related_total_pct": control_context.get("related_total_pct", 0.0),
             "treasury_pct": control_context.get("treasury_pct", 0.0),
@@ -659,6 +693,7 @@ async def build_proxy_contest_payload(
         "players": {
             "company_side_filers": company_side_filers,
             "shareholder_side_filers": shareholder_side_filers,
+            "retail_activism_filers": retail_activism_filers,
             "active_external_blocks": active_external_blocks,
             "active_overlap_blocks": overlap_blocks,
         },

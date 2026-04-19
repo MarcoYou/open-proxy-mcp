@@ -40,14 +40,19 @@ related: [tool-추가-검증-템플릿, tool-추가-검증-정책, prx-tool-rule
 
 ## 샘플 확인 (2026-04-19 실행, scope=summary)
 
-| company | status | shareholder_side | litigation | signals | note |
-|---|---|---|---|---|---|
-| 고려아연 | exact | 4 | 22 | 4 | 진행중 경영권 분쟁 — 위임장/소송/5% 보유 전방위 신호 |
-| 한진칼 | exact | 0 | 0 | 1 | 조현아/조원태 사건 이후 조용함. 현재 signal 1건만 잔존 |
-| 삼성전자 (대조군) | exact | 3 | 0 | 1 | 분쟁 없음 예상이었으나 주주제안 성격 shareholder_side 3건 카운트됨. 분쟁이 아닌 일반 주주제안도 같은 지표에 잡힐 수 있음 → `requires_review` 트리거 보강 필요 |
+| company | contest_signal | shareholder | retail_activism | litigation | external_active | overlap | 해석 |
+|---|---|---|---|---|---|---|---|
+| 고려아연 | **True** | 4 (영풍) | 0 | 22 | 3 (최윤범/크루시블/한국기업투자홀딩스) | 1 (영풍) | 진행중 경영권 분쟁 — 위임장·소송·5% 보유 전방위 |
+| 한진칼 | False | 0 | 0 | 0 | 0 | 1 (조원태) | 과거 조현아 사건 이후 지배 안정. 현 회장 5% 신고만 잔존 |
+| 삼성전자 (대조군) | False | 0 | 3 (**컨두잇**) | 0 | 0 | 1 (삼성물산) | 소액주주 집단 위임 플랫폼 ACT(컨두잇) 캠페인은 retail_activism으로 분리. 삼성물산 "경영참여" 신고는 계열사 등재(registry_overlap) → 분쟁 아님 |
 
-- 고려아연은 tool이 포착해야 할 핵심 케이스. 전 subdomain 데이터 확보
-- 대조군 케이스에서 shareholder_side=3이 나와 지표 해석 규칙 재점검 필요 (분쟁 vs 일반 주주제안 분리 필요)
+### 지표 정의
+
+- `shareholder_side_count`: 주주측 위임장 권유 (실제 경영권 분쟁 주체)
+- `retail_activism_count`: 소액주주 집단 위임 플랫폼 (ACT/컨두잇, 헤이홀더, 비사이드코리아)
+- `external_active_block`: 외부 5% 대량보유 + 경영참여 목적
+- `registry_overlap`: 회사 등재자(계열사/현 경영진)의 5% 신고 — 분쟁 아님
+- `has_contest_signal` = `shareholder_side OR litigation OR external_active` (retail_activism, overlap 제외)
 
 ## requires_review 조건
 
