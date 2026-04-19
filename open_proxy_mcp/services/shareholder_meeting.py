@@ -307,7 +307,15 @@ async def _load_notice_bundle_with_fallback(
         source_used = "dart_html"
         warnings.append("DART viewer HTML crawl 결과를 반영해 notice 파싱 품질을 보정했다.")
     else:
-        warnings.append("DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.")
+        # viewer HTML은 확보했지만 구조 파싱 개선 안 된 경우.
+        # viewer text가 XML text보다 풍부하면(표·섹션 구조 보존) raw text fallback에 쓸 수 있게 교체.
+        viewer_text = (viewer_parsed.get("text") or "").strip()
+        xml_text = (parsed.get("text") or "").strip()
+        if len(viewer_text) > len(xml_text):
+            parsed["text"] = viewer_text
+            warnings.append("DART viewer HTML crawl 결과의 원문 텍스트가 XML 텍스트보다 풍부해 raw text fallback 소스로 교체했다.")
+        else:
+            warnings.append("DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.")
     return parsed, warnings, source_used
 
 
@@ -921,8 +929,9 @@ async def build_shareholder_meeting_payload(
     if correction:
         data["correction_summary"] = correction
     if parsing_failed:
-        # Structured 파싱이 실패한 경우 DART 원문 텍스트를 직접 노출해 LLM/애널리스트가 해석할 수 있게 한다.
-        # PDF 다운로드 없이 raw text fallback. 길이 제한으로 context 부담 완화.
+        # 구조 파싱이 두 단계(API/XML + viewer HTML) 모두 실패한 경우 raw text fallback.
+        # `text`는 viewer HTML이 더 풍부했으면 그 text로 교체돼 있음 (_load_notice_bundle_with_fallback 참조).
+        # LLM/애널리스트가 원문을 직접 해석. PDF 다운로드 없이 종료.
         raw = (text or "").strip()
         if raw:
             data["raw_text_excerpt"] = raw[:6000]
