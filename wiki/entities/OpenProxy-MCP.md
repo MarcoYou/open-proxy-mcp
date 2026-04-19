@@ -13,51 +13,61 @@ AI 기반 MCP(Model Context Protocol) 서버. DART 주주총회 공시를 구조
 
 GitHub: https://github.com/MarcoYou/open-proxy-mcp
 
+현재 버전: **v2.0.0** (2026-04-19 릴리즈). v1은 `open-proxy-mcp-v1.3.0` 브랜치에 보존.
+
 ## 기술 스택
 
 - Python + [[FastMCP]] + httpx
-- BeautifulSoup (lxml 파서) + regex
 - [[DART-OpenAPI]] + [[KRX-KIND]] 크롤링
+- Fly.io (nrt 리전, streamable-http)
 
-## Tool 구성 (33개)
+## Tool 구성 (11개, v2)
 
-- AGM 18개: 8 XML 파서 + agm_parse_fallback(Dispatch Table) + 오케스트레이터/검색/메타. [[agm-tool-rule]] 참조
-- OWN 9개: [[지분구조]] 분석 + own_full_analysis(Chain Tool). [[own-tool-rule]] 참조
-- DIV 5개: [[배당성향|배당]] 분석. [[div-tool-rule]] 참조
-- NEWS 1개: [[news_check]] 후보자 부정 뉴스 검색 (네이버 API)
+```
+company                    # 진입점
+├─ Data Tools (7)
+│  ├─ shareholder_meeting  # 주총 (안건/후보/보수/정관/결과)
+│  ├─ ownership_structure  # 지분 구조 + control map
+│  ├─ dividend             # 배당 사실
+│  ├─ treasury_share       # 자사주 이벤트
+│  ├─ proxy_contest        # 경영권 분쟁
+│  ├─ value_up             # 밸류업 계획
+│  └─ evidence             # 공시 원문 링크
+└─ Action Tools (3)
+   ├─ prepare_vote_brief
+   ├─ prepare_engagement_case
+   └─ build_campaign_brief
+```
 
-### 아키텍처 패턴
-- **Dispatch Table**: 16 PDF/OCR tool → agm_parse_fallback 1개로 통합 (parser+tier 파라미터)
-- **Chain Tool**: own_full_analysis = own + div_history + treasury_tx 체이닝
-- **[[3-tier-fallback]]**: XML → PDF → OCR
-- **[[proxy-voting-decision-tree]]**: FOR/AGAINST/REVIEW 판정
+### 아키텍처 패턴 (v2)
+
+- **tools_v2 / services 분리**: tool은 MCP 인터페이스, services는 도메인 분석 로직
+- **scope 기반 drill-down**: summary → board/compensation/results 순차 확장
+- **3-tier fallback 제거**: XML + KIND Viewer 기반, PDF 다운로드 기본 경로 제외
+- **[[proxy-voting-decision-tree]]**: prepare_vote_brief에서 FOR/AGAINST/REVIEW 판정
+
+### v1 vs v2
+
+| | v1 | v2 |
+|--|----|----|
+| Tool 수 | 36개 | 11개 |
+| 구조 | 5-Tier | Data + Action |
+| 파싱 레이어 | tool 내부 | services/ 분리 |
 
 ## 프로젝트 구조
 
 ```
 open_proxy_mcp/
-  server.py           # FastMCP entry point
-  tools/
-    shareholder.py    # AGM 18 tools (Dispatch Table)
-    ownership.py      # OWN 9 tools (Chain Tool)
-    dividend.py       # DIV 5 tools
-    news.py           # NEWS 1 tool (Naver API)
-    parser.py         # XML parsers
-    pdf_parser.py     # PDF + OCR fallback
-    formatters.py     # 27 shared formatters
+  server.py           # FastMCP entry point (OPEN_PROXY_TOOLSET 분기)
+  tools_v2/           # 11개 MCP tool (v2)
+  services/           # 도메인 분석 로직
+  tools/              # 36개 tool (v1, 보존)
   dart/client.py      # DART + KRX + Naver API client
-  llm/client.py       # LLM fallback
-```
-
-## 설치
-
-```bash
-pip install open-proxy-mcp          # Core (XML)
-pip install open-proxy-mcp[pdf]     # + PDF/OCR
-pip install open-proxy-mcp[llm]     # + LLM
-pip install open-proxy-mcp[all]     # Everything
 ```
 
 ## 연결
 
-Claude Desktop, Claude Code 모두 지원 (.mcp.json 또는 claude_desktop_config.json).
+Claude.ai 웹 커넥터 (streamable-http):
+```
+https://open-proxy-mcp.fly.dev/mcp?opendart=API_KEY
+```

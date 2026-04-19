@@ -45,7 +45,7 @@ updated: 2026-04-18
 - [[KRX-KIND]] - 한국거래소 기업공시채널, 주총결과 크롤링
 - [[네이버-금융]] - 주가/시가총액 데이터, 배당수익률 종가 소스
 - [[Upstage-OCR]] - PDF OCR 서비스, 3-tier fallback 최종 tier
-- [[OpenProxy-MCP]] - 공개 MCP 서버, 40개 tool, CC BY-NC 4.0
+- [[OpenProxy-MCP]] - 공개 MCP 서버, 11개 tool (v2.0.0), CC BY-NC 4.0
 - [[OpenProxy-AI]] - 비공개 파이프라인+프론트엔드, KOSPI 200 대시보드
 - [[국민연금]] - 한국 최대 기관투자자, 5% 대량보유 다수
 - [[FastMCP]] - Python MCP 서버 프레임워크
