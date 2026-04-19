@@ -203,14 +203,29 @@ async def build_company_payload(
 
     client = get_dart_client()
     matches = await client.lookup_corp_code_all(query)
+
+    raw = (query or "").strip()
+    numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
+    unlisted_only = False
+    if not numeric_query and matches:
+        listed = [m for m in matches if (m.get("stock_code") or "").strip()]
+        if listed:
+            matches = listed
+        else:
+            unlisted_only = True
+            matches = []
+
     status, selected, candidates = _resolve_match(query, matches)
 
     if status == AnalysisStatus.ERROR:
+        warnings = [f"'{query}'에 해당하는 회사를 찾지 못했다."]
+        if unlisted_only:
+            warnings.append("입력에 일치하는 법인은 비상장이어서 OPM 분석 대상(상장사)에서 제외했다. 정확한 상장사 종목명/종목코드로 다시 조회한다.")
         envelope = ToolEnvelope(
             tool="company",
             status=AnalysisStatus.ERROR,
             subject=query,
-            warnings=[f"'{query}'에 해당하는 회사를 찾지 못했다."],
+            warnings=warnings,
             data={"query": query, "candidates": []},
             next_actions=["정확한 회사명, 종목코드, corp_code 중 하나로 다시 조회"],
         )
@@ -306,10 +321,30 @@ async def build_company_payload(
 
 
 async def resolve_company_query(query: str) -> CompanyResolution:
-    """회사 입력을 exact/ambiguous/error 상태로 정규화."""
+    """회사 입력을 exact/ambiguous/error 상태로 정규화.
+
+    OPM은 상장사(주총/배당/지분) 분석 도구이므로 stock_code가 없는 비상장 법인은
+    후보에서 제외한다. 단, corp_code/stock_code를 숫자로 직접 입력한 경우는 예외.
+    """
 
     client = get_dart_client()
     matches = await client.lookup_corp_code_all(query)
+
+    raw = (query or "").strip()
+    numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
+    if not numeric_query:
+        listed = [m for m in matches if (m.get("stock_code") or "").strip()]
+        if listed:
+            matches = listed
+        elif matches:
+            # 상장사 후보가 없고 비상장만 남은 경우: OPM 유니버스 밖이므로 error로 유도
+            return CompanyResolution(
+                status=AnalysisStatus.ERROR,
+                query=query,
+                selected=None,
+                candidates=[],
+            )
+
     status, selected, candidates = _resolve_match(query, matches)
     return CompanyResolution(
         status=status,

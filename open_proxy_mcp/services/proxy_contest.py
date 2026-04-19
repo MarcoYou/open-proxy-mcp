@@ -10,7 +10,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
-from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
+from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.services.ownership_structure import (
     _build_control_map,
@@ -676,36 +676,42 @@ async def build_proxy_contest_payload(
 
     evidence_refs: list[EvidenceRef] = []
     if enriched_proxy_rows:
+        top_proxy = enriched_proxy_rows[0]
         evidence_refs.append(
             EvidenceRef(
-                evidence_id=f"ev_proxy_{enriched_proxy_rows[0]['rcept_no']}",
+                evidence_id=f"ev_proxy_{top_proxy['rcept_no']}",
                 source_type=SourceType.DART_XML,
-                rcept_no=enriched_proxy_rows[0]["rcept_no"],
+                rcept_no=top_proxy["rcept_no"],
+                rcept_dt=format_iso_date(top_proxy.get("disclosure_date", "")),
+                report_nm=top_proxy.get("report_name", ""),
                 section="위임장/공개매수 공시",
-                snippet=f"{enriched_proxy_rows[0]['report_name']} / {enriched_proxy_rows[0]['filer_name']}",
-                parser="filing_search",
+                note=f"{top_proxy.get('filer_name', '')}",
             )
         )
     if litigation_rows:
+        top_lit = litigation_rows[0]
         evidence_refs.append(
             EvidenceRef(
-                evidence_id=f"ev_litigation_{litigation_rows[0]['rcept_no']}",
+                evidence_id=f"ev_litigation_{top_lit['rcept_no']}",
                 source_type=SourceType.DART_XML,
-                rcept_no=litigation_rows[0]["rcept_no"],
+                rcept_no=top_lit["rcept_no"],
+                rcept_dt=format_iso_date(top_lit.get("disclosure_date", "")),
+                report_nm=top_lit.get("report_name", ""),
                 section="소송/분쟁 공시",
-                snippet=litigation_rows[0]["report_name"],
-                parser="filing_search",
+                note=top_lit.get("filer_name", ""),
             )
         )
     if activist_signals and activist_signals[0].get("rcept_no"):
+        top_signal = activist_signals[0]
         evidence_refs.append(
             EvidenceRef(
-                evidence_id=f"ev_signal_{activist_signals[0]['rcept_no']}",
+                evidence_id=f"ev_signal_{top_signal['rcept_no']}",
                 source_type=SourceType.DART_XML,
-                rcept_no=activist_signals[0]["rcept_no"],
+                rcept_no=top_signal["rcept_no"],
+                rcept_dt=format_iso_date(top_signal.get("report_date", "")),
+                report_nm=top_signal.get("report_name", ""),
                 section="대량보유 상황보고",
-                snippet=f"{activist_signals[0]['reporter']} / {activist_signals[0]['purpose']}",
-                parser="majorstock",
+                note=f"{top_signal.get('reporter', '')} / {top_signal.get('purpose', '')}",
             )
         )
 

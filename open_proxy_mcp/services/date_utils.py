@@ -25,6 +25,17 @@ def format_yyyymmdd(value: date) -> str:
     return value.strftime("%Y%m%d")
 
 
+def format_iso_date(value: str) -> str:
+    """YYYYMMDD 또는 YYYY.MM.DD 등 혼합 포맷을 YYYY-MM-DD로 정규화."""
+
+    if not value:
+        return ""
+    digits = re.sub(r"[^\d]", "", value)
+    if len(digits) < 8:
+        return ""
+    return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+
+
 def resolve_date_window(
     *,
     start_date: str = "",
