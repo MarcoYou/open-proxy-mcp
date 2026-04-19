@@ -25,6 +25,20 @@ Claude에게 "삼성전자 올해 주총 안건 알려줘"라고 물으면, DART
 | "LG화학 밸류업 계획 핵심 내용이 뭐야?" | `value_up` |
 | "이 주총 안건에 어떻게 투표할지 브리프 만들어줘" | `prepare_vote_brief` |
 
+## 왜 MCP가 필요한가요?
+
+같은 질문을 세 가지 방식으로 물어봤을 때 차이예요.
+
+![MCP vs 웹검색 비교](screenshot/Compare/Compare.001.jpeg)
+
+- **웹검색 OFF**: DART에 접근 못 해서 답변 실패
+- **웹검색 ON**: 뉴스 기사 기반으로 부정확하게 답변
+- **MCP 연결**: DART 공시 원문에서 직접 정확하게 답변
+
+---
+
+## 출력 예시
+
 ![출력 예시 - 삼성전자 지분구조](screenshot/pr_materials/openproxy_01_samsung_ownership_KR.png)
 
 ![출력 예시 - 삼성전자 배당](screenshot/pr_materials/openproxy_02_samsung_dividend_KR.png)
