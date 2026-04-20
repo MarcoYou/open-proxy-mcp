@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-11-orange.svg)](#tool-structure-11-tools)
+[![Tools](https://img.shields.io/badge/tools-12-orange.svg)](#tool-structure-12-tools)
 
 [Korean README](README.md)
 
@@ -46,7 +46,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 11 tools are automatically recognized
+4. Click "Add" → 12 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -62,22 +62,27 @@ Once connected, just ask in natural language:
 "Show me Samsung Electronics' ownership structure"
 "What is SK Hynix's dividend history?"
 "Analyze the Korea Zinc proxy contest"
+"Find KOSPI companies that disclosed treasury share cancellations in the last 30 days"
+"List companies that called an extraordinary general meeting in the past 60 days"
 ```
 
 \* OpenProxy does not currently analyze DART financial metrics (planned for a future update)
 
 ---
 
-## Tool Structure (11 tools)
+## Tool Structure (12 tools)
 
-11 tools are divided into **data tabs** and **action outputs**.
+12 tools are organized into **discovery → data tabs → action outputs**.
 
 ```
 company                      # Entry point — company ID + recent filings index
 │
+├─ Discovery Tool (1)
+│  └─ screen_events          # Find companies by recent event (14 event_types, KOSPI+KOSDAQ)
+│
 ├─ Data Tools (7)
 │  ├─ shareholder_meeting    # AGM/EGM (agendas / candidates / compensation / results)
-│  ├─ ownership_structure    # Ownership (largest shareholders / 5% blocks / treasury / control map)
+│  ├─ ownership_structure    # Ownership (largest shareholders / 5% blocks / treasury / change filings)
 │  ├─ dividend               # Dividend facts (DPS / payout ratio / history)
 │  ├─ treasury_share         # Treasury events (acquisition / disposal / cancellation / trust)
 │  ├─ proxy_contest          # Proxy contest (solicitations / litigation / 5% signals)
@@ -90,29 +95,41 @@ company                      # Entry point — company ID + recent filings index
    └─ build_campaign_brief    # Campaign brief
 ```
 
-In one line:
+Two usage patterns:
 
 ```
-Start with the company name
--> check the facts in data tabs
--> verify the source via evidence
--> generate action-ready outputs
+Pattern A (company → analysis):  start with `company` → confirm facts via data tabs → generate action outputs
+Pattern B (event → companies):   start with `screen_events` → drill down into each company
 ```
+
+### Supported events in `screen_events` (14 types)
+
+| Category | event_type |
+|---------|-----------|
+| AGM | `shareholder_meeting_notice` |
+| Ownership | `major_shareholder_change`, `ownership_change_filing`, `block_holding_5pct`, `executive_ownership` |
+| Treasury | `treasury_acquire`, `treasury_dispose`, `treasury_retire` |
+| Contest | `proxy_solicit`, `litigation`, `management_dispute` |
+| Value-up | `value_up_plan` |
+| Dividend | `cash_dividend`, `stock_dividend` |
+
+Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a clickable link to the original DART viewer.
 
 ### Domain summary
 
 | Domain | Description | Tools |
 |--------|-------------|-------|
+| **Discovery** | Event → company lookup | 1 |
 | **Company** | Company ID + recent filings index | 1 |
 | **AGM** | Agendas, board candidates, compensation, articles, results | 1 |
-| **Ownership** | Largest shareholders, block holders, treasury, control map | 1 |
+| **Ownership** | Largest shareholders, block holders, treasury, control map, change filings | 1 |
 | **Dividend** | Actual dividend payouts, DPS, payout ratio, history | 1 |
 | **Treasury** | Acquisition, disposal, cancellation, trust events | 1 |
 | **Proxy** | Proxy solicitations, litigation, 5% signals | 1 |
 | **Value-up** | Corporate value-up plans, implementation | 1 |
 | **Evidence** | Filing source links | 1 |
 | **Action** | Vote memo, engagement case, campaign brief | 3 |
-| | **Total** | **11** |
+| | **Total** | **12** |
 
 ---
 
@@ -148,7 +165,7 @@ When you ask for a voting recommendation on an AGM agenda item, OpenProxy follow
 open-proxy-mcp/
   open_proxy_mcp/
     server.py              # FastMCP server (stdio + HTTP)
-    tools_v2/              # 11 tools
+    tools_v2/              # 12 tools
     services/              # Domain logic layer (separated from tools)
     dart/client.py         # DART API + KIND crawl + Naver + rate limiter
   Dockerfile               # Container for Fly.io deployment
