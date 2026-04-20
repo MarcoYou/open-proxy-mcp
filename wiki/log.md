@@ -5,6 +5,18 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-19] feat | screen_events UX 보강 (사용량 노출, 원문 링크, market 축소)
+- `services/screen_events.py`:
+  - market 3종(`kospi`/`kosdaq`/`all=KOSPI+KOSDAQ`)으로 축소 — KONEX/기타 제거
+  - `_search_market_wide()`: `corp_clses` 튜플 지원 (all은 Y→K 순차 호출로 구현)
+  - api_calls/truncated/pages_cut_off stats 반환
+  - 결과가 max_results 도달하면 별도 truncation warning 추가
+- `tools_v2/screen_events.py`:
+  - 렌더러에 `## 사용량` 블록 추가 (DART API 호출 수, MCP tool 호출 수, 분당 한도)
+  - 결과 테이블 `rcept_no` → 클릭 가능한 원문 링크로 변경
+  - docstring market 옵션 업데이트
+- `wiki/analysis/screen_events-design.md`: 사용량 추적/market 설계 섹션 보강
+
 ## [2026-04-19] feat | screen_events discovery tool 추가 (14 event_type, market-wide 역조회)
 - `dart/client.py::search_filings()`: `corp_cls` 파라미터 추가 (Y/K/N/E 시장 필터)
 - `services/screen_events.py` 신규:

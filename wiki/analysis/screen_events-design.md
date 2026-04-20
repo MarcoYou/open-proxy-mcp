@@ -97,6 +97,23 @@ screen_events(event_type="ownership_change_filing",
 - **페이지 상한**: 각 pblntf_ty당 20페이지까지만 확인 (= 최대 2000건 검토). 초과 시 warning.
 - **검색 키워드 정확성**: DART report_nm 패턴이 바뀌면 매칭률이 떨어질 수 있음. 주기적 재검증 필요.
 
+## 사용량 추적 (2026-04-19 업데이트)
+
+응답 payload의 `data.usage`에서 다음을 노출:
+- `dart_api_calls`: 이번 호출에서 소진한 DART list.json 호출 횟수
+- `mcp_tool_calls`: 이번 호출의 MCP tool 호출 횟수 (항상 1)
+- `dart_daily_limit_per_minute`: 1000 (DART 공개 한도 고정값)
+
+**truncation 경고**: 결과가 `max_results`에 도달해 페이지 순회를 중단한 경우 별도 warning 반환. 사용자는 기간을 좁히거나 `max_results`를 올려 재조회 가능.
+
+## market 설계 (2026-04-19 업데이트)
+
+초기 5종(`kospi`/`kosdaq`/`konex`/`etc`/`all=전체`)에서 **3종(`kospi`/`kosdaq`/`all=KOSPI+KOSDAQ`)으로 축소**.
+
+이유: KOSPI와 KOSDAQ이 분석 유니버스의 실질 대상. KONEX(~130사)와 기타(비상장)는 거버넌스 분석 대상이 아니므로 제거. `all`의 의미도 "DART 전체 공시"가 아니라 "**KOSPI+KOSDAQ 통합**"으로 명확화.
+
+구현상 `all`은 내부에서 corp_cls="Y" 호출 후 "K" 호출을 순차 수행해 합치기 때문에, 단일 시장 쿼리 대비 API 호출 수가 2배 정도 증가.
+
 ## next action
 
 - 실사용 피드백으로 자주 쓰이는 조합(예: `market=kospi` + `value_up_plan`) alias 화 검토

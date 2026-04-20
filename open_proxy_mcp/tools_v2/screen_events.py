@@ -31,6 +31,7 @@ def _render_error(payload: dict[str, Any]) -> str:
 def _render(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     window = data.get("window", {})
+    usage = data.get("usage", {})
     lines = [
         f"# screen_events: {data.get('event_description', data.get('event_type', ''))}",
         "",
@@ -39,6 +40,10 @@ def _render(payload: dict[str, Any]) -> str:
         f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`",
         f"- 결과: {data.get('result_count', 0)}건 / 상한 {data.get('max_results', 0)}",
         f"- status: `{payload.get('status', '')}`",
+        "",
+        "## 사용량",
+        f"- DART API 호출: {usage.get('dart_api_calls', 0)}회 (분당 한도 {usage.get('dart_daily_limit_per_minute', 1000)}회)",
+        f"- MCP tool 호출: {usage.get('mcp_tool_calls', 1)}회",
         "",
     ]
     if payload.get("warnings"):
@@ -54,12 +59,14 @@ def _render(payload: dict[str, Any]) -> str:
 
     lines.extend([
         "## 결과",
-        "| 기업명 | ticker | 시장 | 공시명 | 날짜 | rcept_no |",
-        "|--------|--------|------|--------|------|----------|",
+        "| 기업명 | ticker | 시장 | 공시명 | 날짜 | 원문 |",
+        "|--------|--------|------|--------|------|------|",
     ])
     for row in results:
+        viewer = row.get("dart_viewer", "")
+        link = f"[{row['rcept_no']}]({viewer})" if viewer else f"`{row['rcept_no']}`"
         lines.append(
-            f"| {row['corp_name']} | `{row['ticker'] or '-'}` | {row['market']} | {row['report_nm']} | {row['rcept_dt']} | `{row['rcept_no']}` |"
+            f"| {row['corp_name']} | `{row['ticker'] or '-'}` | {row['market']} | {row['report_nm']} | {row['rcept_dt']} | {link} |"
         )
     return "\n".join(lines)
 
@@ -79,7 +86,7 @@ def register_tools(mcp):
         when: "최근 임시주총 소집한 기업", "최근 30일 자사주 소각 결정한 기업", "최근 60일 대량보유 보고한 기업" 등 이벤트 → 기업 탐색이 필요할 때. 개별 기업 분석은 기존 data tool로 drill-down.
         rule: DART list.json을 pblntf_ty + report_nm 키워드 + corp_cls(market)로 필터. page_count=100, max_pages=20/ty까지 순회 후 중단. 결과는 rcept_dt 내림차순. 기본 lookback 1개월, 최대 max_results=100.
         event_type: `shareholder_meeting_notice` / `major_shareholder_change` / `ownership_change_filing` / `block_holding_5pct` / `executive_ownership` / `treasury_acquire` / `treasury_dispose` / `treasury_retire` / `proxy_solicit` / `litigation` / `management_dispute` / `value_up_plan` / `cash_dividend` / `stock_dividend` (총 14종).
-        market: `kospi` / `kosdaq` / `konex` / `etc` / `all`(기본). DART corp_cls 값으로 매핑 (Y/K/N/E).
+        market: `kospi` / `kosdaq` / `all`(기본, KOSPI+KOSDAQ). KONEX/기타는 분석 유니버스에서 제외.
         ref: company (개별 식별), shareholder_meeting / ownership_structure / treasury_share / proxy_contest / value_up / dividend (drill-down)
         """
         payload = await build_screen_events_payload(
