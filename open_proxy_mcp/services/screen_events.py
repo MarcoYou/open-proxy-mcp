@@ -15,12 +15,12 @@ from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, Sourc
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
 
 
-_MARKET_MAP = {
-    "kospi": "Y",
-    "kosdaq": "K",
-    "konex": "N",
-    "etc": "E",
-    "all": "",
+# market → DART corp_cls
+# "all" 은 KOSPI + KOSDAQ 만 포함 (KONEX/기타는 분석 유니버스 제외)
+_MARKET_MAP: dict[str, tuple[str, ...]] = {
+    "kospi": ("Y",),
+    "kosdaq": ("K",),
+    "all": ("Y", "K"),
 }
 
 _MARKET_LABEL = {"Y": "KOSPI", "K": "KOSDAQ", "N": "KONEX", "E": "기타"}
@@ -130,77 +130,92 @@ async def _search_market_wide(
     bgn_de: str,
     end_de: str,
     pblntf_tys: Iterable[str],
-    corp_cls: str,
+    corp_clses: tuple[str, ...],
     keywords: Iterable[str],
     strip_spaces: bool,
     max_results: int,
     max_pages_per_ty: int = 20,
     page_count: int = 100,
-) -> tuple[list[dict[str, Any]], list[str], str | None]:
-    """기간 내 전체 시장 대상으로 공시 검색 (corp_code 없이).
+) -> tuple[list[dict[str, Any]], list[str], dict[str, Any], str | None]:
+    """기간 내 시장 대상으로 공시 검색 (corp_code 없이).
 
-    각 pblntf_ty별로 페이지 순회하며, report_nm 키워드 매칭만 수집.
+    각 (corp_cls, pblntf_ty) 조합별로 페이지 순회하며 report_nm 키워드 매칭 수집.
     매칭 수가 max_results 도달하면 중단.
+
+    Returns:
+        (matched, warnings, stats, error)
+        stats = {"api_calls": int, "truncated": bool, "pages_cut_off": bool}
     """
     client = get_dart_client()
     warnings: list[str] = []
     matched: list[dict[str, Any]] = []
     seen_rcept: set[str] = set()
+    api_calls = 0
+    truncated = False
+    pages_cut_off = False
 
-    for pblntf_ty in pblntf_tys:
-        if len(matched) >= max_results:
-            break
-        try:
-            first = await client.search_filings(
-                bgn_de=bgn_de,
-                end_de=end_de,
-                pblntf_ty=pblntf_ty,
-                corp_cls=corp_cls,
-                page_no=1,
-                page_count=page_count,
-            )
-        except DartClientError as exc:
-            return matched, warnings, exc.status
-
-        items = list(first.get("list", []))
-        total_count = int(first.get("total_count", len(items)) or 0)
-        total_pages = max(1, math.ceil(total_count / page_count)) if total_count else 1
-        fetched_pages = min(total_pages, max_pages_per_ty)
-
-        for page_no in range(2, fetched_pages + 1):
+    for corp_cls in corp_clses:
+        for pblntf_ty in pblntf_tys:
             if len(matched) >= max_results:
+                truncated = True
                 break
             try:
-                page = await client.search_filings(
+                first = await client.search_filings(
                     bgn_de=bgn_de,
                     end_de=end_de,
                     pblntf_ty=pblntf_ty,
                     corp_cls=corp_cls,
-                    page_no=page_no,
+                    page_no=1,
                     page_count=page_count,
                 )
+                api_calls += 1
             except DartClientError as exc:
-                return matched, warnings, exc.status
-            items.extend(page.get("list", []))
+                return matched, warnings, {"api_calls": api_calls, "truncated": truncated, "pages_cut_off": pages_cut_off}, exc.status
 
-        if total_pages > max_pages_per_ty:
-            warnings.append(
-                f"{bgn_de}~{end_de} 기간 {pblntf_ty} 공시가 {total_pages}페이지 있었으나 {max_pages_per_ty}페이지까지만 확인했다."
-            )
+            items = list(first.get("list", []))
+            total_count = int(first.get("total_count", len(items)) or 0)
+            total_pages = max(1, math.ceil(total_count / page_count)) if total_count else 1
+            fetched_pages = min(total_pages, max_pages_per_ty)
 
-        for item in items:
-            if len(matched) >= max_results:
-                break
-            if not _name_matches(item.get("report_nm", ""), keywords, strip_spaces):
-                continue
-            rcept_no = item.get("rcept_no", "")
-            if rcept_no in seen_rcept:
-                continue
-            seen_rcept.add(rcept_no)
-            matched.append(item)
+            for page_no in range(2, fetched_pages + 1):
+                if len(matched) >= max_results:
+                    break
+                try:
+                    page = await client.search_filings(
+                        bgn_de=bgn_de,
+                        end_de=end_de,
+                        pblntf_ty=pblntf_ty,
+                        corp_cls=corp_cls,
+                        page_no=page_no,
+                        page_count=page_count,
+                    )
+                    api_calls += 1
+                except DartClientError as exc:
+                    return matched, warnings, {"api_calls": api_calls, "truncated": truncated, "pages_cut_off": pages_cut_off}, exc.status
+                items.extend(page.get("list", []))
+
+            if total_pages > max_pages_per_ty:
+                pages_cut_off = True
+                market_label = _MARKET_LABEL.get(corp_cls, corp_cls or "전체")
+                warnings.append(
+                    f"{market_label} {pblntf_ty} 공시가 {total_pages}페이지였으나 {max_pages_per_ty}페이지까지만 봤다 (일부 누락 가능)."
+                )
+
+            for item in items:
+                if len(matched) >= max_results:
+                    truncated = True
+                    break
+                if not _name_matches(item.get("report_nm", ""), keywords, strip_spaces):
+                    continue
+                rcept_no = item.get("rcept_no", "")
+                if rcept_no in seen_rcept:
+                    continue
+                seen_rcept.add(rcept_no)
+                matched.append(item)
 
     matched.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
-    return matched, warnings, None
+    stats = {"api_calls": api_calls, "truncated": truncated, "pages_cut_off": pages_cut_off}
+    return matched, warnings, stats, None
 
 
 def _unsupported_event_payload(event_type: str) -> dict[str, Any]:
@@ -255,21 +270,27 @@ async def build_screen_events_payload(
 
     bgn_de = format_yyyymmdd(window_start)
     end_de = format_yyyymmdd(window_end)
-    corp_cls = _MARKET_MAP[market]
+    corp_clses = _MARKET_MAP[market]
 
     config = _EVENT_TYPES[event_type]
     warnings = list(window_warnings)
 
-    matched, search_warnings, error = await _search_market_wide(
+    matched, search_warnings, stats, error = await _search_market_wide(
         bgn_de=bgn_de,
         end_de=end_de,
         pblntf_tys=config["pblntf_tys"],
-        corp_cls=corp_cls,
+        corp_clses=corp_clses,
         keywords=config["keywords"],
         strip_spaces=config.get("strip_spaces", False),
         max_results=max_results,
     )
     warnings.extend(search_warnings)
+
+    usage = {
+        "dart_api_calls": stats.get("api_calls", 0),
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000,
+    }
 
     if error:
         return ToolEnvelope(
@@ -281,8 +302,14 @@ async def build_screen_events_payload(
                 "event_type": event_type,
                 "market": market,
                 "window": {"start_date": bgn_de, "end_date": end_de},
+                "usage": usage,
             },
         ).to_dict()
+
+    if stats.get("truncated"):
+        warnings.append(
+            f"결과가 max_results({max_results})에 도달해 중단 — 기간 내 추가 매칭이 있을 수 있다. 기간을 좁히거나 max_results를 올려라."
+        )
 
     rows: list[dict[str, Any]] = []
     for item in matched:
@@ -312,6 +339,7 @@ async def build_screen_events_payload(
         "max_results": max_results,
         "result_count": len(rows),
         "results": rows,
+        "usage": usage,
         "supported_event_types": list(SUPPORTED_EVENT_TYPES),
     }
 
