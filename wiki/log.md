@@ -5,6 +5,22 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-21] feat | corporate_restructuring data tool 추가 (합병/분할/분할합병/주식교환·이전 4종 통합)
+- `dart/client.py`: DART 주요사항보고서(DS005) 4개 메서드 신규
+  - `get_merger_decision()` → cmpMgDecsn.json
+  - `get_division_decision()` → cmpDvDecsn.json
+  - `get_division_merger_decision()` → cmpDvmgDecsn.json
+  - `get_stock_exchange_decision()` → stkExtrDecsn.json
+- `services/corporate_restructuring.py` 신규:
+  - 4개 API 병렬 호출 (asyncio.gather), summary scope에서 통합 timeline
+  - 정규화: 합병비율, 상대방 재무, 외부평가, 매수청구권, 일정 등 핵심 필드 추출
+  - 기본 lookback 24개월 (M&A는 빈도 낮음)
+- `tools_v2/corporate_restructuring.py` 신규: 4 scope 렌더러 (summary/merger/split/share_exchange) + 사용량 표시
+- 전수조사: 7개 회사 케이스 (온코크로스/일동제약/감성코퍼레이션/이마트/신세계푸드/두나무/삼성전자) — 5/5 통과 (비상장+사건없음 케이스 제외)
+- wiki 추가: `disclosures/회사합병결정.md`, `disclosures/회사분할결정.md`, `disclosures/주식교환·이전결정.md`, `analysis/corporate_restructuring-design.md`
+- `wiki/entities/OpenProxy-MCP.md`: 12 → 13 tool 반영
+- README/README_ENG: 12 → 13 tool, 사용 예시 2개 추가
+
 ## [2026-04-21] fix | 공시 viewer_url을 DART로 통일 (KIND URL 404 해결)
 - 문제: KIND 원문 URL(`kind.krx.co.kr/common/disclsviewer.do?acptno=...`)이 직접 접근 시 404
 - `services/contracts.py::_build_viewer_url()`: source_type=KIND_HTML도 DART 뷰어 URL 반환

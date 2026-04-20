@@ -912,6 +912,32 @@ class DartClient:
             "end_de": end_de,
         })
 
+    # ── Corporate Restructuring API (DS005 주요사항보고서) ──
+
+    async def get_merger_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """회사합병결정 (cmpMgDecsn) — 합병비율, 상대방, 신주, 외부평가, 매수청구권."""
+        return await self._request("cmpMgDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
+    async def get_division_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """회사분할결정 (cmpDvDecsn) — 분할방법, 분할비율, 신설/존속회사, 재상장 여부."""
+        return await self._request("cmpDvDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
+    async def get_division_merger_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """회사분할합병결정 (cmpDvmgDecsn) — 분할 후 합병 동시 결정."""
+        return await self._request("cmpDvmgDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
+    async def get_stock_exchange_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """주식교환·이전 결정 (stkExtrDecsn) — 교환종류, 비율, 대상회사, 일정, 매수청구권."""
+        return await self._request("stkExtrDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
     # ── Dividend API (DS002 정기보고서) ──
 
     async def get_dividend_info(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:

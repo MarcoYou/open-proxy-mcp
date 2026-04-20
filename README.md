@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-12-orange.svg)](#tool-구조-12개)
+[![Tools](https://img.shields.io/badge/tools-13-orange.svg)](#tool-구조-13개)
 
 [English README](README_ENG.md)
 
@@ -46,7 +46,7 @@ URL 끝에 발급받은 DART API 키를 붙여서 연결해요. 키는 서버에
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 ```
-4. "추가" 클릭 -> 12개 tool이 자동으로 인식돼요
+4. "추가" 클릭 -> 13개 tool이 자동으로 인식돼요
 5. 추가된 커넥터의 구성 -> 권한에서 **"항상 허용"** 선택 (매번 승인 없이 tool이 자동 실행돼요)
 
 > **참고**: tool이 추가되거나 변경된 경우 커넥터 MCP 서버 업데이트에 시간이 걸릴 수 있어요. 커넥터를 삭제한 뒤 다시 연결하면 바로 최신 tool이 반영돼요. 재연결한 후 새 채팅을 열어서 다시 시도해주세요.
@@ -64,35 +64,38 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 "고려아연 경영권 분쟁 분석해줘"
 "최근 30일 자사주 소각 결정한 KOSPI 기업 찾아줘"
 "최근 60일 임시주총 소집한 기업 리스트업해줘"
+"이마트 최근 주식교환·이전 결정 분석해줘"
+"감성코퍼레이션 분할결정 상대방·일정 보여줘"
 ```
 
 \* OpenProxy는 현재 DART의 재무지표를 분석하지 않으니 주의해주세요 (업데이트 예정)
 
 ---
 
-## Tool 구조 (12개)
+## Tool 구조 (13개)
 
-12개 tool은 **발견 → 데이터 탭 → 결과물 생성** 세 단계로 나뉘어요.
+13개 tool은 **발견 → 데이터 탭 → 결과물 생성** 세 단계로 나뉘어요.
 
 ```
-company                      # 기업 진입점 — 1개 기업 식별 + 최근 공시 인덱스
+company                        # 기업 진입점 — 1개 기업 식별 + 최근 공시 인덱스
 │
 ├─ Discovery Tool (1)
-│  └─ screen_events          # 이벤트로 기업 찾기 (14종 event_type, KOSPI+KOSDAQ)
+│  └─ screen_events            # 이벤트로 기업 찾기 (14종 event_type, KOSPI+KOSDAQ)
 │
-├─ Data Tools (7)
-│  ├─ shareholder_meeting    # 주총 (안건 / 이사후보 / 보수한도 / 결과)
-│  ├─ ownership_structure    # 지분 구조 (최대주주 / 5% 블록 / 자사주 / 변동신고서)
-│  ├─ dividend               # 배당 사실 (DPS / 배당성향 / 추이)
-│  ├─ treasury_share         # 자사주 이벤트 (취득 / 처분 / 소각 / 신탁)
-│  ├─ proxy_contest          # 경영권 분쟁 (위임장 / 소송 / 5% 시그널)
-│  ├─ value_up               # 밸류업 계획 (약속 / 이행현황)
-│  └─ evidence               # 공시 원문 링크 (rcept_no → viewer_url)
+├─ Data Tools (8)
+│  ├─ shareholder_meeting      # 주총 (안건 / 이사후보 / 보수한도 / 결과)
+│  ├─ ownership_structure      # 지분 구조 (최대주주 / 5% 블록 / 자사주 / 변동신고서)
+│  ├─ dividend                 # 배당 사실 (DPS / 배당성향 / 추이)
+│  ├─ treasury_share           # 자사주 이벤트 (취득 / 처분 / 소각 / 신탁)
+│  ├─ proxy_contest            # 경영권 분쟁 (위임장 / 소송 / 5% 시그널)
+│  ├─ value_up                 # 밸류업 계획 (약속 / 이행현황)
+│  ├─ corporate_restructuring  # 지배구조 재편 (합병 / 분할 / 분할합병 / 주식교환·이전)
+│  └─ evidence                 # 공시 원문 링크 (rcept_no → viewer_url)
 │
 └─ Action Tools (3)
-   ├─ prepare_vote_brief      # 의결권 행사 메모
-   ├─ prepare_engagement_case # 주주관여 케이스 메모
-   └─ build_campaign_brief    # 캠페인 브리프
+   ├─ prepare_vote_brief        # 의결권 행사 메모
+   ├─ prepare_engagement_case   # 주주관여 케이스 메모
+   └─ build_campaign_brief      # 캠페인 브리프
 ```
 
 두 가지 사용 패턴이 있어요:
@@ -127,9 +130,10 @@ company                      # 기업 진입점 — 1개 기업 식별 + 최근 
 | **자사주** | 취득·처분·소각·신탁 이벤트 | 1 |
 | **분쟁** | 위임장 경쟁, 소송, 5% 시그널 | 1 |
 | **밸류업** | 기업가치 제고 계획, 이행현황 | 1 |
+| **재편** | 합병·분할·분할합병·주식교환·이전 결정 | 1 |
 | **근거** | 공시 원문 링크 제공 | 1 |
 | **액션** | 의결권 메모, 주주관여 케이스, 캠페인 브리프 | 3 |
-| | **합계** | **12** |
+| | **합계** | **13** |
 
 ---
 
@@ -165,7 +169,7 @@ company                      # 기업 진입점 — 1개 기업 식별 + 최근 
 open-proxy-mcp/
   open_proxy_mcp/
     server.py              # FastMCP 서버 (stdio + HTTP)
-    tools_v2/              # 12개 tool
+    tools_v2/              # 13개 tool
     services/              # 도메인별 분석 로직 (tool과 분리)
     dart/client.py         # DART API + KIND 크롤링 + 네이버 + rate limiter
   Dockerfile               # Fly.io 배포용 컨테이너

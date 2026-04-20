@@ -94,6 +94,7 @@ updated: 2026-04-18
 - [[상법개정-타임라인-2026]] - 2025-2027 상법 개정 시행 일정
 - [[proxy-voting-decision-tree]] - 3개 소스 통합 의결권 행사 판단 프레임워크
 - [[screen_events-design]] - screen_events discovery tool 설계 + 14 event_type 전수조사
+- [[corporate_restructuring-design]] - 합병/분할/주식교환 통합 data tool (4 scope, DS005 4종 API 병렬)
 
 ## Disclosures
 
@@ -107,6 +108,9 @@ updated: 2026-04-18
 - [[대량보유상황보고서]] - DART, 의무/수시(5% 변동), 보유목적/보유량
 - [[위임장권유참고서류]] - DART, 의무(권유 시)/수시, 프록시 파이트 핵심
 - [[최대주주등소유주식변동신고서]] - KRX KIND, 의무/수시, 최대주주+특관인 지분 변동 (ownership_structure scope=changes)
+- [[회사합병결정]] - DART, 의무/수시(DS005), 합병비율·상대방·매수청구권 (corporate_restructuring scope=merger)
+- [[회사분할결정]] - DART, 의무/수시(DS005), 분할형태·신설/존속회사 (corporate_restructuring scope=split)
+- [[주식교환·이전결정]] - DART, 의무/수시(DS005), 지주회사 전환 도구 (corporate_restructuring scope=share_exchange)
 
 ## Sources
 

@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-12-orange.svg)](#tool-structure-12-tools)
+[![Tools](https://img.shields.io/badge/tools-13-orange.svg)](#tool-structure-13-tools)
 
 [Korean README](README.md)
 
@@ -46,7 +46,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 12 tools are automatically recognized
+4. Click "Add" → 13 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -64,35 +64,38 @@ Once connected, just ask in natural language:
 "Analyze the Korea Zinc proxy contest"
 "Find KOSPI companies that disclosed treasury share cancellations in the last 30 days"
 "List companies that called an extraordinary general meeting in the past 60 days"
+"Analyze E-Mart's recent share exchange / transfer decision"
+"Show the split decision details and counterparty for Gamsung Corporation"
 ```
 
 \* OpenProxy does not currently analyze DART financial metrics (planned for a future update)
 
 ---
 
-## Tool Structure (12 tools)
+## Tool Structure (13 tools)
 
-12 tools are organized into **discovery → data tabs → action outputs**.
+13 tools are organized into **discovery → data tabs → action outputs**.
 
 ```
-company                      # Entry point — company ID + recent filings index
+company                        # Entry point — company ID + recent filings index
 │
 ├─ Discovery Tool (1)
-│  └─ screen_events          # Find companies by recent event (14 event_types, KOSPI+KOSDAQ)
+│  └─ screen_events            # Find companies by recent event (14 event_types, KOSPI+KOSDAQ)
 │
-├─ Data Tools (7)
-│  ├─ shareholder_meeting    # AGM/EGM (agendas / candidates / compensation / results)
-│  ├─ ownership_structure    # Ownership (largest shareholders / 5% blocks / treasury / change filings)
-│  ├─ dividend               # Dividend facts (DPS / payout ratio / history)
-│  ├─ treasury_share         # Treasury events (acquisition / disposal / cancellation / trust)
-│  ├─ proxy_contest          # Proxy contest (solicitations / litigation / 5% signals)
-│  ├─ value_up               # Value-up plan (commitments / implementation)
-│  └─ evidence               # Filing source links (rcept_no → viewer_url)
+├─ Data Tools (8)
+│  ├─ shareholder_meeting      # AGM/EGM (agendas / candidates / compensation / results)
+│  ├─ ownership_structure      # Ownership (largest shareholders / 5% blocks / treasury / change filings)
+│  ├─ dividend                 # Dividend facts (DPS / payout ratio / history)
+│  ├─ treasury_share           # Treasury events (acquisition / disposal / cancellation / trust)
+│  ├─ proxy_contest            # Proxy contest (solicitations / litigation / 5% signals)
+│  ├─ value_up                 # Value-up plan (commitments / implementation)
+│  ├─ corporate_restructuring  # Restructuring (merger / split / division-merger / share exchange)
+│  └─ evidence                 # Filing source links (rcept_no → viewer_url)
 │
 └─ Action Tools (3)
-   ├─ prepare_vote_brief      # Vote memo
-   ├─ prepare_engagement_case # Shareholder engagement memo
-   └─ build_campaign_brief    # Campaign brief
+   ├─ prepare_vote_brief        # Vote memo
+   ├─ prepare_engagement_case   # Shareholder engagement memo
+   └─ build_campaign_brief      # Campaign brief
 ```
 
 Two usage patterns:
@@ -127,9 +130,10 @@ Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a c
 | **Treasury** | Acquisition, disposal, cancellation, trust events | 1 |
 | **Proxy** | Proxy solicitations, litigation, 5% signals | 1 |
 | **Value-up** | Corporate value-up plans, implementation | 1 |
+| **Restructuring** | Merger / split / division-merger / share exchange decisions | 1 |
 | **Evidence** | Filing source links | 1 |
 | **Action** | Vote memo, engagement case, campaign brief | 3 |
-| | **Total** | **12** |
+| | **Total** | **13** |
 
 ---
 
@@ -165,7 +169,7 @@ When you ask for a voting recommendation on an AGM agenda item, OpenProxy follow
 open-proxy-mcp/
   open_proxy_mcp/
     server.py              # FastMCP server (stdio + HTTP)
-    tools_v2/              # 12 tools
+    tools_v2/              # 13 tools
     services/              # Domain logic layer (separated from tools)
     dart/client.py         # DART API + KIND crawl + Naver + rate limiter
   Dockerfile               # Container for Fly.io deployment
