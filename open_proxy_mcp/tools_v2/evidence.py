@@ -58,7 +58,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 인용 정보 제공자. rcept_no 문자열만으로 공시일·소스·뷰어 URL 유도. **API 호출 없음, 원문 스니펫 추출 없음** — 순수 메타 가공기.
         when: data tool 결과 evidence_refs의 출처 재확인. 또는 raw rcept_no의 공시일/소스를 빠르게 판단.
-        rule: rcept_no 앞 8자리 → `rcept_dt`(YYYY-MM-DD). 9~10자리 → `source_type` (`80`=KIND, 그 외=DART). `viewer_url` 자동 생성 (DART: `dart.fss.or.kr/dsaf001/main.do?rcpNo=`, KIND: `kind.krx.co.kr/common/disclsviewer.do?method=search&acptno=`). 공시명(`report_nm`)은 upstream evidence_refs에만 있음. 14자리 숫자 아니면 `requires_review`.
+        rule: rcept_no 앞 8자리 → `rcept_dt`(YYYY-MM-DD). 9~10자리 → `source_type` (`80`=KIND 수시공시, 그 외=DART). `viewer_url`은 DART 뷰어로 통일 (`dart.fss.or.kr/dsaf001/main.do?rcpNo=`) — 80 포맷도 DART 뷰어에서 정상 렌더링됨. 공시명(`report_nm`)은 upstream evidence_refs에만 있음. 14자리 숫자 아니면 `requires_review`.
         ref: 모든 data/action tool
         """
         payload = await build_evidence_payload(

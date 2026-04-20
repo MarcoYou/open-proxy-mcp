@@ -36,16 +36,24 @@ def _utc_now_iso() -> str:
 
 
 _DART_VIEWER_URL = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
-_KIND_VIEWER_URL = "https://kind.krx.co.kr/common/disclsviewer.do?method=search&acptno={rcept_no}"
 
 
 def _build_viewer_url(source_type: SourceType | str, rcept_no: str) -> str:
+    """viewer_url은 DART만 사용.
+
+    KIND 전용 원문 URL(disclsviewer.do?acptno=...)은 직접 접근 시 404가 나오기 때문에
+    KIND_HTML 출처여도 DART 뷰어 URL을 반환한다. DART 뷰어는 rcept_no가 80(거래소
+    수시공시) 포맷이어도 정상 동작한다.
+    """
     if not rcept_no:
         return ""
     source_value = getattr(source_type, "value", source_type)
-    if source_value == SourceType.KIND_HTML.value:
-        return _KIND_VIEWER_URL.format(rcept_no=rcept_no)
-    if source_value in {SourceType.DART_XML.value, SourceType.DART_HTML.value, SourceType.DART_API.value}:
+    if source_value in {
+        SourceType.KIND_HTML.value,
+        SourceType.DART_XML.value,
+        SourceType.DART_HTML.value,
+        SourceType.DART_API.value,
+    }:
         return _DART_VIEWER_URL.format(rcept_no=rcept_no)
     return ""
 
