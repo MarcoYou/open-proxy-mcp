@@ -93,6 +93,7 @@ updated: 2026-04-18
 - [[주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (미래에셋증권)
 - [[상법개정-타임라인-2026]] - 2025-2027 상법 개정 시행 일정
 - [[proxy-voting-decision-tree]] - 3개 소스 통합 의결권 행사 판단 프레임워크
+- [[screen_events-design]] - screen_events discovery tool 설계 + 14 event_type 전수조사
 
 ## Disclosures
 

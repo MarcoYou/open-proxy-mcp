@@ -5,6 +5,18 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-19] feat | screen_events discovery tool 추가 (14 event_type, market-wide 역조회)
+- `dart/client.py::search_filings()`: `corp_cls` 파라미터 추가 (Y/K/N/E 시장 필터)
+- `services/screen_events.py` 신규:
+  - 14 event_type 카탈로그 + (pblntf_tys, keywords, strip_spaces) 매핑
+  - `_search_market_wide()`: corp_code 없이 시장 전체 대상 페이지 순회 (max 20페이지/ty)
+  - `build_screen_events_payload()`: market→corp_cls 변환, rcept_dt 내림차순, max_results=1-100
+- `tools_v2/screen_events.py` 신규: MCP 인터페이스, compact 테이블 렌더러
+- 전수조사 (최근 30일, market=all): **14/14 통과**
+  - 초기 설계에서 `annual_meeting`/`extraordinary_meeting` 분리 시도 → DART report_nm이 "주주총회소집공고" 단일 포맷이라 구분 불가능 → `shareholder_meeting_notice` 단일로 통합 (15→14)
+  - `treasury_retire` 키워드 오류 발견 → 실제 제목은 "주식소각결정" + pblntf_ty=I로 수정
+- `wiki/analysis/screen_events-design.md` 신규, `wiki/entities/OpenProxy-MCP.md` (11→12 tool) 업데이트
+
 ## [2026-04-19] feat | ownership_structure scope=changes 추가 (최대주주등소유주식변동신고서)
 - `_parse_change_filing()`: KIND HTML 5개 테이블 파싱 (보고개요 직전/금번, 개인별변동, 총괄현황)
 - `_fetch_change_filings()`: DART pblntf_ty=I 검색 → rcept_no 80→00 변환 → kind_fetch_document() 최대 5건

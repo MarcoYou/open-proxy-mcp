@@ -411,6 +411,7 @@ class DartClient:
         pblntf_ty: str = "",
         corp_code: str = "",
         corp_name: str = "",
+        corp_cls: str = "",
         page_no: int = 1,
         page_count: int = 100,
     ) -> dict:
@@ -422,6 +423,7 @@ class DartClient:
             pblntf_ty: 공시유형 (A=정기, B=주요사항, E=기타공시 등)
             corp_code: DART 기업코드 (8자리)
             corp_name: 회사명 (부분 매치)
+            corp_cls: 법인구분 (Y=유가, K=코스닥, N=코넥스, E=기타)
             page_no: 페이지 번호
             page_count: 페이지당 건수 (최대 100)
 
@@ -429,7 +431,7 @@ class DartClient:
             {"list": [...], "total_count": ..., ...}
         """
         # 캐싱: corp_code 있고 page_no==1, page_count==100일 때만
-        _cacheable = bool(corp_code) and not corp_name and page_no == 1 and page_count == 100
+        _cacheable = bool(corp_code) and not corp_name and not corp_cls and page_no == 1 and page_count == 100
         if _cacheable:
             _cache_key = f"{corp_code}|{bgn_de}|{end_de}|{pblntf_ty}"
             if _cache_key in self._search_cache:
@@ -447,6 +449,8 @@ class DartClient:
             params["corp_code"] = corp_code
         if corp_name:
             params["corp_name"] = corp_name
+        if corp_cls:
+            params["corp_cls"] = corp_cls
 
         result = await self._request("list.json", params)
 

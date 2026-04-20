@@ -21,13 +21,15 @@ GitHub: https://github.com/MarcoYou/open-proxy-mcp
 - [[DART-OpenAPI]] + [[KRX-KIND]] 크롤링
 - Fly.io (nrt 리전, streamable-http)
 
-## Tool 구성 (11개, v2)
+## Tool 구성 (12개, v2)
 
 ```
-company                    # 진입점
+company                    # 진입점 (1개 기업 식별)
+├─ Discovery Tool (1)
+│  └─ screen_events        # 이벤트 → N개 기업 역조회 (14 event_type)
 ├─ Data Tools (7)
 │  ├─ shareholder_meeting  # 주총 (안건/후보/보수/정관/결과)
-│  ├─ ownership_structure  # 지분 구조 + control map
+│  ├─ ownership_structure  # 지분 구조 + control map + changes
 │  ├─ dividend             # 배당 사실
 │  ├─ treasury_share       # 자사주 이벤트
 │  ├─ proxy_contest        # 경영권 분쟁
@@ -50,7 +52,7 @@ company                    # 진입점
 
 | | v1 | v2 |
 |--|----|----|
-| Tool 수 | 36개 | 11개 |
+| Tool 수 | 36개 | 12개 |
 | 구조 | 5-Tier | Data + Action |
 | 파싱 레이어 | tool 내부 | services/ 분리 |
 
@@ -59,7 +61,7 @@ company                    # 진입점
 ```
 open_proxy_mcp/
   server.py           # FastMCP entry point (OPEN_PROXY_TOOLSET 분기)
-  tools_v2/           # 11개 MCP tool (v2)
+  tools_v2/           # 12개 MCP tool (v2)
   services/           # 도메인 분석 로직
   tools/              # 36개 tool (v1, 보존)
   dart/client.py      # DART + KRX + Naver API client
