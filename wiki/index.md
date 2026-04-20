@@ -110,7 +110,14 @@ updated: 2026-04-18
 - [[최대주주등소유주식변동신고서]] - KRX KIND, 의무/수시, 최대주주+특관인 지분 변동 (ownership_structure scope=changes)
 - [[회사합병결정]] - DART, 의무/수시(DS005), 합병비율·상대방·매수청구권 (corporate_restructuring scope=merger)
 - [[회사분할결정]] - DART, 의무/수시(DS005), 분할형태·신설/존속회사 (corporate_restructuring scope=split)
+- [[회사분할합병결정]] - DART, 의무/수시(DS005), 분할 + 합병 동시 결정 (corporate_restructuring scope=split)
 - [[주식교환·이전결정]] - DART, 의무/수시(DS005), 지주회사 전환 도구 (corporate_restructuring scope=share_exchange)
+- [[자기주식결정]] - DART, 의무/수시(DS005·I), 취득·처분·소각·신탁 5종 통합 (treasury_share)
+- [[기업가치제고계획]] - DART+KIND, 자율/수시, 밸류업 본계획·이행점검 (value_up)
+- [[최대주주변경]] - DART, 의무/수시, 주식양수도·담보·합병 등 (screen_events major_shareholder_change)
+- [[임원·주요주주특정증권등소유상황보고서]] - DART, 의무/수시(DS004), 임원·10%+ 주주 보유 변동 (elestock)
+- [[소송등의제기]] - DART, 의무/수시, 회사 당사자 소송·가처분 (proxy_contest litigation)
+- [[경영권분쟁소송]] - DART, 의무/수시, 경영권 분쟁 명시 분류 (proxy_contest management_dispute)
 
 ## Sources
 

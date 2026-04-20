@@ -5,6 +5,20 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-21] docs | disclosure 페이지 일관성 정비 + 누락 7종 신규 작성
+- 신버전 3개 페이지를 구버전 양식(트리 + API필드대응 + OPM활용)으로 보강
+  - 회사합병결정.md, 회사분할결정.md, 주식교환·이전결정.md
+- 신규 disclosure 페이지 7종:
+  - 회사분할합병결정.md (cmpDvmgDecsn — 표본 적어 합병/분할 superset 표기)
+  - 자기주식결정.md (취득/처분/소각/신탁 5종 통합)
+  - 기업가치제고계획.md (DART+KIND 자율공시, 3단계 분류)
+  - 최대주주변경.md (양수도·담보·합병·단순변경 4형태)
+  - 임원·주요주주특정증권등소유상황보고서.md (elestock DS004)
+  - 소송등의제기.md (4종 + 거버넌스 시그널 매트릭스)
+  - 경영권분쟁소송.md (분쟁 단계별 사건 유형 + 후속 신호)
+- index.md disclosures 섹션에 9개 신규 항목 추가 (총 22 → 23개)
+- 표준 양식: frontmatter / 개요 / 소스 / 전체 문서 구조 (트리) / API 필드 vs 원문 대응 / OPM에서의 활용 / 거버넌스 분석 포인트 / 관련 / 샘플 rcept_no
+
 ## [2026-04-21] feat | corporate_restructuring data tool 추가 (합병/분할/분할합병/주식교환·이전 4종 통합)
 - `dart/client.py`: DART 주요사항보고서(DS005) 4개 메서드 신규
   - `get_merger_decision()` → cmpMgDecsn.json
