@@ -5,6 +5,15 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-21] fix | 공시 viewer_url을 DART로 통일 (KIND URL 404 해결)
+- 문제: KIND 원문 URL(`kind.krx.co.kr/common/disclsviewer.do?acptno=...`)이 직접 접근 시 404
+- `services/contracts.py::_build_viewer_url()`: source_type=KIND_HTML도 DART 뷰어 URL 반환
+  - DART 뷰어(`dart.fss.or.kr/dsaf001/main.do?rcpNo=`)는 80 포맷(거래소 수시공시) rcept_no도 정상 렌더링
+- `tools_v2/evidence.py`: docstring에서 KIND URL 언급 제거
+- `wiki/analysis/evidence-tool-검증-예시.md`: viewer_url 매핑 설명 + 샘플 테이블 수정
+- 영향: ownership_structure(changes), shareholder_meeting(results), value_up 등 KIND-HTML 사용 tool의 evidence viewer_url이 DART로 자동 전환
+- 내부 KIND 크롤링(`kind_fetch_document()`, 3단계 iframe)은 그대로 유지 — 사용자 노출 URL만 변경
+
 ## [2026-04-19] feat | screen_events UX 보강 (사용량 노출, 원문 링크, market 축소)
 - `services/screen_events.py`:
   - market 3종(`kospi`/`kosdaq`/`all=KOSPI+KOSDAQ`)으로 축소 — KONEX/기타 제거

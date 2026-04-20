@@ -36,7 +36,7 @@ evidence tool은 외부 소스 조회를 하지 않는다. rcept_no 문자열만
 | `rcept_no` | 입력값 그대로 |
 | `rcept_dt` | `rcept_no[:8]`에서 `YYYY-MM-DD` |
 | `source_type` | `rcept_no[8:10] == "80"` → KIND, 그 외 → DART |
-| `viewer_url` | source별 패턴 (DART: `dart.fss.or.kr/dsaf001/main.do?rcpNo=`, KIND: `kind.krx.co.kr/common/disclsviewer.do?method=search&acptno=`) |
+| `viewer_url` | DART 뷰어로 통일 (`dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}`) — 80 포맷(거래소 수시공시)도 DART 뷰어에서 정상 렌더링. KIND 원문 URL은 직접 접근 시 404 오류가 나서 2026-04-21부터 사용 중단 |
 | `report_nm` | upstream evidence_refs에 이미 있으면 그대로 전달. 생 rcept_no 입력 시에는 공란 (viewer_url로 사용자가 직접 확인) |
 
 ## 샘플 확인 (2026-04-19 실행)
@@ -44,7 +44,7 @@ evidence tool은 외부 소스 조회를 하지 않는다. rcept_no 문자열만
 | rcept_no | status | rcept_dt | source_type | viewer_url | note |
 |---|---|---|---|---|---|
 | `20260305001616` | exact | 2026-03-05 | dart_xml | `dart.fss.or.kr/.../rcpNo=20260305001616` | 고려아연 정기주총 정정공고 (DART XML 경로) |
-| `20260213800001` | exact | 2026-02-13 | kind_html | `kind.krx.co.kr/.../acptno=20260213800001` | KIND 형식 (9~10자리 `80`) 정상 분류 |
+| `20260213800001` | exact | 2026-02-13 | kind_html | `dart.fss.or.kr/.../rcpNo=20260213800001` | 80 포맷(KRX 수시공시)이지만 viewer_url은 DART로 통일 |
 | `ABC` (엣지) | requires_review | - | - | - | 14자리 숫자 아님 → requires_review + 경고 문구 |
 
 - DART/KIND 분기 규칙이 rcept_no 구조만으로 결정됨 (API 호출 0)
