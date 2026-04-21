@@ -142,6 +142,43 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 lines.append(f"\n**{i}. {p.get('principle_snippet', '')[:100]}**")
                 lines.append(f"→ {p.get('response', '')[:200]}")
 
+    if scope == "timeline":
+        reports = sorted(data.get("timeline", []), key=lambda r: r.get("rcept_dt", ""), reverse=True)
+        transitions = data.get("transitions", [])
+        if not reports:
+            lines.append("연도별 이력 없음.")
+        else:
+            lines.extend([
+                "## 연도별 준수율 추이",
+                "| 제출일 | 준수율 | 원문 | 정정? |",
+                "|--------|--------|------|-------|",
+            ])
+            for r in reports:
+                cr = r.get("compliance_rate")
+                cr_str = f"{cr}%" if cr is not None else "-"
+                corr = "✓" if r.get("is_correction") else "-"
+                lines.append(f"| {r.get('rcept_dt', '')} | {cr_str} | {_link(r.get('rcept_no', ''))} | {corr} |")
+
+            if transitions:
+                lines.extend(["", "## 지표 전환 (연도간 변화)"])
+                improved = [t for t in transitions if t.get("direction") == "improved"]
+                regressed = [t for t in transitions if t.get("direction") == "regressed"]
+                changed = [t for t in transitions if t.get("direction") == "changed"]
+                if improved:
+                    lines.append(f"\n### ✅ 개선 ({len(improved)})")
+                    for t in improved:
+                        lines.append(f"- **{t['label'][:60]}** | {t['from_dt']} `{t['from_val']}` → {t['to_dt']} `{t['to_val']}`")
+                if regressed:
+                    lines.append(f"\n### ❌ 후퇴 ({len(regressed)})")
+                    for t in regressed:
+                        lines.append(f"- **{t['label'][:60]}** | {t['from_dt']} `{t['from_val']}` → {t['to_dt']} `{t['to_val']}`")
+                if changed:
+                    lines.append(f"\n### — 기타 변동 ({len(changed)})")
+                    for t in changed:
+                        lines.append(f"- {t['label'][:60]} | {t['from_dt']} `{t['from_val']}` → {t['to_dt']} `{t['to_val']}`")
+            else:
+                lines.append("\n지표 전환 없음 (연도간 동일 유지)")
+
     return "\n".join(lines)
 
 
@@ -154,10 +191,10 @@ def register_tools(mcp):
         year: int = 0,
         format: str = "md",
     ) -> str:
-        """desc: 기업지배구조보고서(거버넌스 종합 평가) data tool. 최대주주/지분율/소액주주 + 15개 핵심지표 준수 여부(O/X) + 세부원칙 응답 + 제출 이력 제공. 2024 사업연도부터 전체 KOSPI 상장사 의무공시, KOSDAQ은 자율공시.
-        when: 거버넌스 종합 평가, 23개 핵심원칙(한국거래소 기준 15 지표) 준수 현황, ISS·Glass Lewis 수준 배경자료, 연도별 준수율 변화 추적. prepare_vote_brief/engagement_case에 거시 컨텍스트 추가.
-        rule: DART 전용 구조화 API 없음 — `list.json`(pblntf_ty=I) + 키워드("기업지배구조보고서") + 원문 다운로드·파싱. 기본 lookback 4년. 최신 보고서의 원문을 BeautifulSoup으로 파싱하여 기업개요표(표 1-0-0) + 지배구조 핵심지표 15개 표 + 세부원칙 응답을 추출. 표본 서식 차이 발생 시 `requires_review`로 graceful degrade.
-        scope: `summary`(기본, 기업개요 + 준수율 + 15지표 ✅/❌ 요약) / `metrics`(15 지표 당기·직전기 O/X + 100자 비고 전수) / `principles`(세부원칙별 응답 텍스트) / `filings`(최근 4년 제출 이력).
+        """desc: 기업지배구조보고서(거버넌스 종합 평가) data tool. 최대주주/지분율/소액주주 + 15개 핵심지표 준수 여부(O/X) + 세부원칙 응답 + 제출 이력 + 연도별 추이 제공. **2026년 제출분부터 KOSPI 전체 의무** (이전: 2024=자산 5천억+, 2022=자산 1조+, 2019=자산 2조+), KOSDAQ은 자율공시. 제출 시한 매년 5월말, 연중 `[기재정정]` 재제출 빈번.
+        when: 거버넌스 종합 평가, 15개 지표 준수 현황, **연도별 준수율 변화 추적**, ISS·Glass Lewis 수준 배경자료. prepare_vote_brief/engagement_case에 거시 컨텍스트 추가.
+        rule: DART 전용 구조화 API 없음 — `list.json`(pblntf_ty=I) + 키워드 `"기업지배구조보고서공시"` (금융지주 "연차보고서" 등 다른 서식 제외) + 원문 다운로드·파싱. 기본 lookback 4년. 파싱 원리: 15개 표준 지표 라벨 prefix 매칭으로 위치 찾고 블록별로 O/X 2개(당기·직전) + 비고 텍스트 추출. 비고 없는 서식(삼성) / 일부만 비고(SK하이닉스) / 매건 비고(현대차) 모두 지원.
+        scope: `summary`(기본, 기업개요 + 준수율 + 15지표 ✅/❌) / `metrics`(15 지표 당기·직전기 + 비고 상세) / `principles`(세부원칙별 응답 텍스트) / `filings`(제출 이력) / `timeline`(연도별 준수율 추이 + 지표 전환: improved / regressed / changed).
         year: 특정 사업연도 지정(예: 2023). 기본 0이면 최신 보고서.
         ref: ownership_structure (지배구조), shareholder_meeting (주총 운영), proxy_contest (분쟁 맥락), evidence (원문)
         """
