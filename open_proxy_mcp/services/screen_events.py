@@ -113,6 +113,56 @@ _EVENT_TYPES: dict[str, dict[str, Any]] = {
         "strip_spaces": True,
         "description": "주식 배당결정",
     },
+    # --- 희석성 증권 발행 (dilutive_issuance) ---
+    "rights_offering": {
+        "pblntf_tys": ("B",),
+        "keywords": ("유상증자결정",),
+        "strip_spaces": True,
+        "description": "유상증자 결정 (주주배정/3자배정/일반공모)",
+    },
+    "convertible_bond": {
+        "pblntf_tys": ("B",),
+        "keywords": ("전환사채권발행결정", "전환사채발행결정"),
+        "strip_spaces": True,
+        "description": "전환사채(CB) 발행결정",
+    },
+    "warrant_bond": {
+        "pblntf_tys": ("B",),
+        "keywords": ("신주인수권부사채권발행결정", "신주인수권부사채발행결정"),
+        "strip_spaces": True,
+        "description": "신주인수권부사채(BW) 발행결정",
+    },
+    "capital_reduction": {
+        "pblntf_tys": ("B", "I"),
+        "keywords": ("감자결정",),
+        "strip_spaces": True,
+        "description": "감자 결정 (주식병합, 자본금 감소)",
+    },
+    # --- 내부거래 (related_party_transaction) ---
+    "equity_deal_acquire": {
+        "pblntf_tys": ("B", "I"),
+        "keywords": ("타법인주식및출자증권양수결정", "타법인주식및출자증권취득결정"),
+        "strip_spaces": True,
+        "description": "타법인주식·출자증권 양수/취득 결정",
+    },
+    "equity_deal_dispose": {
+        "pblntf_tys": ("B", "I"),
+        "keywords": ("타법인주식및출자증권양도결정", "타법인주식및출자증권처분결정"),
+        "strip_spaces": True,
+        "description": "타법인주식·출자증권 양도/처분 결정",
+    },
+    "supply_contract_conclude": {
+        "pblntf_tys": ("I",),
+        "keywords": ("단일판매ㆍ공급계약체결", "단일판매·공급계약체결"),
+        "strip_spaces": True,
+        "description": "단일판매·공급계약 체결 (매출 5%+ 대형 수주)",
+    },
+    "supply_contract_terminate": {
+        "pblntf_tys": ("I",),
+        "keywords": ("단일판매ㆍ공급계약해지", "단일판매·공급계약해지"),
+        "strip_spaces": True,
+        "description": "단일판매·공급계약 해지",
+    },
 }
 
 

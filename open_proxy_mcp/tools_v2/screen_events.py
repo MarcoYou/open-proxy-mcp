@@ -85,7 +85,7 @@ def register_tools(mcp):
         """desc: 이벤트 기반 기업 discovery tool. 특정 공시 유형(이벤트)을 최근에 제출한 기업 목록을 역조회. company-centric인 기존 data tool과 달리 N개 기업을 한 번에 추려낸다.
         when: "최근 임시주총 소집한 기업", "최근 30일 자사주 소각 결정한 기업", "최근 60일 대량보유 보고한 기업" 등 이벤트 → 기업 탐색이 필요할 때. 개별 기업 분석은 기존 data tool로 drill-down.
         rule: DART list.json을 pblntf_ty + report_nm 키워드 + corp_cls(market)로 필터. page_count=100, max_pages=20/ty까지 순회 후 중단. 결과는 rcept_dt 내림차순. 기본 lookback 1개월, 최대 max_results=100.
-        event_type: `shareholder_meeting_notice` / `major_shareholder_change` / `ownership_change_filing` / `block_holding_5pct` / `executive_ownership` / `treasury_acquire` / `treasury_dispose` / `treasury_retire` / `proxy_solicit` / `litigation` / `management_dispute` / `value_up_plan` / `cash_dividend` / `stock_dividend` (총 14종).
+        event_type: [주총] `shareholder_meeting_notice` / [지분] `major_shareholder_change` `ownership_change_filing` `block_holding_5pct` `executive_ownership` / [자사주] `treasury_acquire` `treasury_dispose` `treasury_retire` / [분쟁] `proxy_solicit` `litigation` `management_dispute` / [밸류업] `value_up_plan` / [배당] `cash_dividend` `stock_dividend` / [희석] `rights_offering` `convertible_bond` `warrant_bond` `capital_reduction` / [내부거래] `equity_deal_acquire` `equity_deal_dispose` `supply_contract_conclude` `supply_contract_terminate` (총 22종).
         market: `kospi` / `kosdaq` / `all`(기본, KOSPI+KOSDAQ). KONEX/기타는 분석 유니버스에서 제외.
         ref: company (개별 식별), shareholder_meeting / ownership_structure / treasury_share / proxy_contest / value_up / dividend (drill-down)
         """

@@ -5,6 +5,26 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-21] feat | screen_events 22 event_type 확장 + rpt 원문 파싱 + audit 매트릭스
+### Phase 1: screen_events event_type 14 → 22
+- 희석성 증권 4종 (rights_offering / convertible_bond / warrant_bond / capital_reduction)
+- 내부거래 4종 (equity_deal_acquire / equity_deal_dispose / supply_contract_conclude / supply_contract_terminate)
+- 전수조사 8/8 exact 통과 (market=all, 최근 30일)
+
+### Phase 2: related_party_transaction 원문 파싱 보강
+- 새 tool 파라미터: `include_details`, `details_limit`
+- 타법인주식 거래: 거래 상대방/관계/금액/자기자본대비/자산대비/취득후 지분/방법/목적/풋옵션/최대주주관계 추출
+- 단일공급계약: 계약 종류/명/금액/최근매출/매출대비비율/상대방/관계/기간 추출
+- `_extract_relationship()` 헬퍼: 정해진 관계 값 후보만 허용 (자회사/계열회사/관계회사 등)
+- 실측: POSCO홀딩스/성호전자/현대건설/삼성전자 80-90% 정확도
+
+### Phase 3: 파싱 audit 매트릭스
+- 20 회사(대형5+분쟁5+지주3+M&A 3+중소4) × 10 data tool 병렬 호출
+- 결과: 에러 0건 / company·shareholder·dividend·proxy_contest 100% exact / ownership·treasury·rpt 85-90% exact
+- partial 많은 tool (corp_restructuring, dilutive_issuance, value_up)은 "사건 없음" 케이스로 정상 해석
+- 평균 응답시간: 1.2s (가벼운 tool) ~ 6.4s (dividend 등 무거운 tool)
+- wiki/analysis/parsing-audit-2026-04-21.md 저장
+
 ## [2026-04-21] feat | dilutive_issuance + related_party_transaction data tool 2종 추가 (13→15 tool)
 - **dilutive_issuance** (희석성 증권 발행 4종 통합):
   - `dart/client.py`: 4개 메서드 (piicDecsn / cvbdIsDecsn / bdwtIsDecsn / crDecsn)

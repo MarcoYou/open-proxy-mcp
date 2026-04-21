@@ -97,6 +97,7 @@ updated: 2026-04-18
 - [[corporate_restructuring-design]] - 합병/분할/주식교환 통합 data tool (4 scope, DS005 4종 API 병렬)
 - [[dilutive_issuance-design]] - 유상증자/CB/BW/감자 희석성 증권 발행 통합 data tool
 - [[related_party_transaction-design]] - 타법인주식 거래 + 단일공급계약 통합 data tool (list.json + 키워드)
+- [[parsing-audit-2026-04-21]] - 10 data tool × 20 회사 파싱 건강도 audit (exact/partial/error 분포, 속도, API 호출 수)
 
 ## Disclosures
 
