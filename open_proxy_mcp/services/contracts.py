@@ -35,6 +35,15 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def build_usage(api_calls: int) -> dict[str, int]:
+    """모든 v2 data tool이 data.usage로 노출하는 공통 블록."""
+    return {
+        "dart_api_calls": api_calls,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000,
+    }
+
+
 _DART_VIEWER_URL = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
 
 

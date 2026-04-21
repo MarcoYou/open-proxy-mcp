@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope, build_usage
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
 
@@ -406,6 +406,8 @@ async def build_ownership_structure_payload(
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
+    client = get_dart_client()
+    _calls_start = client.api_call_snapshot()
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(
@@ -413,7 +415,11 @@ async def build_ownership_structure_payload(
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
-            data={"query": company_query, "scope": scope},
+            data={
+                "query": company_query,
+                "scope": scope,
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
+            },
             next_actions=["company tool로 회사 식별 확인"],
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
@@ -434,6 +440,7 @@ async def build_ownership_structure_payload(
                     }
                     for corp in resolution.candidates[:10]
                 ],
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
             },
         ).to_dict()
 
@@ -447,7 +454,6 @@ async def build_ownership_structure_payload(
         default_end=as_of or date.today(),
         lookback_months=12,
     )
-    client = get_dart_client()
     warnings: list[str] = list(window_warnings)
 
     try:
@@ -458,7 +464,12 @@ async def build_ownership_structure_payload(
             status=AnalysisStatus.ERROR,
             subject=selected.get("corp_name", company_query),
             warnings=[f"최대주주 API 조회 실패: {exc.status}"],
-            data={"query": company_query, "scope": scope, "year": bsns_year},
+            data={
+                "query": company_query,
+                "scope": scope,
+                "year": bsns_year,
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
+            },
         ).to_dict()
 
     try:
@@ -575,6 +586,8 @@ async def build_ownership_structure_payload(
     status = AnalysisStatus.EXACT if major_rows else AnalysisStatus.PARTIAL
     if not major_rows:
         warnings.append("최대주주 구조를 충분히 읽지 못해 partial 상태로 표시한다.")
+
+    data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
 
     return ToolEnvelope(
         tool="ownership_structure",

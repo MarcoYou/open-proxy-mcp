@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-15-orange.svg)](#tool-structure-15-tools)
+[![Tools](https://img.shields.io/badge/tools-16-orange.svg)](#tool-structure-16-tools)
 
 [Korean README](README.md)
 
@@ -46,7 +46,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 15 tools are automatically recognized
+4. Click "Add" → 16 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -70,23 +70,25 @@ Once connected, just ask in natural language:
 "List EDGC's rights offerings and capital reductions over the last two years"
 "POSCO Holdings — show recent subsidiary equity deal disclosures"
 "Hyundai E&C — single supply contract pattern for the last 2 years"
+"Show KT&G's corporate governance report compliance rate"
+"Hyundai Motor — all 15 governance core principles with notes"
 ```
 
 \* OpenProxy does not currently analyze DART financial metrics (planned for a future update)
 
 ---
 
-## Tool Structure (15 tools)
+## Tool Structure (16 tools)
 
-15 tools are organized into **discovery → data tabs → action outputs**.
+16 tools are organized into **discovery → data tabs → action outputs**.
 
 ```
 company                            # Entry point — company ID + recent filings index
 │
 ├─ Discovery Tool (1)
-│  └─ screen_events                # Find companies by recent event (14 event_types, KOSPI+KOSDAQ)
+│  └─ screen_events                # Find companies by recent event (22 event_types, KOSPI+KOSDAQ)
 │
-├─ Data Tools (10)
+├─ Data Tools (11)
 │  ├─ shareholder_meeting          # AGM/EGM (agendas / candidates / compensation / results)
 │  ├─ ownership_structure          # Ownership (largest shareholders / 5% blocks / treasury / change filings)
 │  ├─ dividend                     # Dividend facts (DPS / payout ratio / history)
@@ -96,6 +98,7 @@ company                            # Entry point — company ID + recent filings
 │  ├─ corporate_restructuring      # Restructuring (merger / split / division-merger / share exchange)
 │  ├─ dilutive_issuance            # Dilutive issuance (rights offering / CB / BW / capital reduction)
 │  ├─ related_party_transaction    # Related-party deals (equity deals + single supply contracts)
+│  ├─ corp_gov_report              # Corporate governance report (15 KRX core principles)
 │  └─ evidence                     # Filing source links (rcept_no → viewer_url)
 │
 └─ Action Tools (3)
@@ -103,6 +106,8 @@ company                            # Entry point — company ID + recent filings
    ├─ prepare_engagement_case       # Shareholder engagement memo
    └─ build_campaign_brief          # Campaign brief
 ```
+
+**Every data tool returns `data.usage`**: DART API call count + MCP tool call count, so you can track how much of the 1,000/min DART limit each query consumes.
 
 Two usage patterns:
 
@@ -139,9 +144,10 @@ Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a c
 | **Restructuring** | Merger / split / division-merger / share exchange decisions | 1 |
 | **Dilution** | Rights offering / CB / BW / capital reduction | 1 |
 | **Related-party** | Equity deals + single supply contracts | 1 |
+| **Governance** | Corporate governance report (15 core principles) | 1 |
 | **Evidence** | Filing source links | 1 |
 | **Action** | Vote memo, engagement case, campaign brief | 3 |
-| | **Total** | **15** |
+| | **Total** | **16** |
 
 ---
 
@@ -177,7 +183,7 @@ When you ask for a voting recommendation on an AGM agenda item, OpenProxy follow
 open-proxy-mcp/
   open_proxy_mcp/
     server.py              # FastMCP server (stdio + HTTP)
-    tools_v2/              # 15 tools
+    tools_v2/              # 16 tools
     services/              # Domain logic layer (separated from tools)
     dart/client.py         # DART API + KIND crawl + Naver + rate limiter
   Dockerfile               # Container for Fly.io deployment

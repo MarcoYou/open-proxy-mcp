@@ -7,7 +7,7 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope, build_usage
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.tools.dividend import (
@@ -244,6 +244,8 @@ async def build_dividend_payload(
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
+    client = get_dart_client()
+    _calls_start = client.api_call_snapshot()
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(
@@ -251,7 +253,11 @@ async def build_dividend_payload(
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
-            data={"query": company_query, "scope": scope},
+            data={
+                "query": company_query,
+                "scope": scope,
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
+            },
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
@@ -271,6 +277,7 @@ async def build_dividend_payload(
                     }
                     for corp in resolution.candidates[:10]
                 ],
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
             },
         ).to_dict()
 
@@ -421,6 +428,8 @@ async def build_dividend_payload(
         warnings.append("사업보고서 요약이나 배당결정 공시 일부가 비어 있어 partial 상태로 표시한다.")
     elif scope == "history" and len(history) < max(1, years):
         warnings.append("요청한 연수보다 완료 사업연도 수가 적어, 조회 가능한 최근 완료 사업연도만 반환한다.")
+
+    data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
 
     return ToolEnvelope(
         tool="dividend",

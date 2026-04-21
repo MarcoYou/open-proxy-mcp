@@ -15,7 +15,7 @@ from open_proxy_mcp.dart.client import (
     DartClientError,
     get_dart_client,
 )
-from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
+from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope, build_usage
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
 
 _RECENT_LOOKBACK_DAYS = 180
@@ -202,6 +202,7 @@ async def build_company_payload(
     """회사 식별 + 최근 공시 인덱스."""
 
     client = get_dart_client()
+    _calls_start = client.api_call_snapshot()
     matches = await client.lookup_corp_code_all(query)
 
     raw = (query or "").strip()
@@ -226,7 +227,11 @@ async def build_company_payload(
             status=AnalysisStatus.ERROR,
             subject=query,
             warnings=warnings,
-            data={"query": query, "candidates": []},
+            data={
+                "query": query,
+                "candidates": [],
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
+            },
             next_actions=["정확한 회사명, 종목코드, corp_code 중 하나로 다시 조회"],
         )
         return envelope.to_dict()
@@ -240,6 +245,7 @@ async def build_company_payload(
             data={
                 "query": query,
                 "candidates": [_candidate_row(corp) for corp in candidates[:10]],
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
             },
             next_actions=["ticker 또는 corp_code를 직접 넣어 재조회"],
         )
@@ -305,6 +311,7 @@ async def build_company_payload(
         },
         "recent_filings_window": filings_window,
         "recent_filings": recent_filings,
+        "usage": build_usage(client.api_call_snapshot() - _calls_start),
     }
 
     envelope = ToolEnvelope(

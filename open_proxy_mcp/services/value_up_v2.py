@@ -9,7 +9,7 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope, build_usage
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
@@ -203,6 +203,8 @@ async def build_value_up_payload(
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
+    client = get_dart_client()
+    _calls_start = client.api_call_snapshot()
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(
@@ -210,7 +212,11 @@ async def build_value_up_payload(
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
-            data={"query": company_query, "scope": scope},
+            data={
+                "query": company_query,
+                "scope": scope,
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
+            },
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
@@ -230,6 +236,7 @@ async def build_value_up_payload(
                     }
                     for corp in resolution.candidates[:10]
                 ],
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
             },
         ).to_dict()
 
@@ -259,7 +266,12 @@ async def build_value_up_payload(
             status=AnalysisStatus.ERROR,
             subject=selected.get("corp_name", company_query),
             warnings=[f"기업가치제고 공시 검색 실패: {search_error}"],
-            data={"query": company_query, "scope": scope, "year": target_year},
+            data={
+                "query": company_query,
+                "scope": scope,
+                "year": target_year,
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
+            },
         ).to_dict()
 
     kind_items: list[dict[str, Any]] = []
@@ -353,10 +365,10 @@ async def build_value_up_payload(
                 "availability_status": availability_status,
                 "search_diagnostics": diagnostics,
                 "items": [],
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
             },
         ).to_dict()
 
-    client = get_dart_client()
     latest_source = "dart"
     latest = items[0] if items else kind_items[0]
     availability_status = "found_in_requested_window" if items else "found_in_requested_window_kind_only"
@@ -505,6 +517,8 @@ async def build_value_up_payload(
         data["highlight_source_text_length"] = highlight_source_length
     if scope in {"summary", "commitments"} and treasury_cross_ref:
         data["treasury_cross_ref"] = treasury_cross_ref
+
+    data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
 
     return ToolEnvelope(
         tool="value_up",

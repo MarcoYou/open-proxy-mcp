@@ -25,6 +25,7 @@ from open_proxy_mcp.services.contracts import (
     EvidenceRef,
     SourceType,
     ToolEnvelope,
+    build_usage,
 )
 from open_proxy_mcp.services.date_utils import (
     format_iso_date,
@@ -226,6 +227,8 @@ async def build_treasury_share_payload(
             data={"query": company_query, "scope": scope},
         ).to_dict()
 
+    client = get_dart_client()
+    _calls_start = client.api_call_snapshot()
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(
@@ -233,7 +236,11 @@ async def build_treasury_share_payload(
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}'에 해당하는 상장사를 찾지 못했다."],
-            data={"query": company_query, "scope": scope},
+            data={
+                "query": company_query,
+                "scope": scope,
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
+            },
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
@@ -253,6 +260,7 @@ async def build_treasury_share_payload(
                     }
                     for corp in resolution.candidates[:10]
                 ],
+                "usage": build_usage(client.api_call_snapshot() - _calls_start),
             },
         ).to_dict()
 
@@ -327,6 +335,8 @@ async def build_treasury_share_payload(
     status = AnalysisStatus.EXACT if events else AnalysisStatus.PARTIAL
     if not events:
         warnings.append("요청 구간에 자사주 이벤트 공시가 확인되지 않았다. 연간 누적은 `scope='annual'`로 확인할 수 있다.")
+
+    data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
 
     return ToolEnvelope(
         tool="treasury_share",

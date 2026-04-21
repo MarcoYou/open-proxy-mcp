@@ -15,6 +15,7 @@ from open_proxy_mcp.services.contracts import (
     EvidenceRef,
     SourceType,
     ToolEnvelope,
+    build_usage,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
@@ -747,6 +748,8 @@ async def build_shareholder_meeting_payload(
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
+    _client = get_dart_client()
+    _calls_start = _client.api_call_snapshot()
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         envelope = ToolEnvelope(
@@ -754,7 +757,12 @@ async def build_shareholder_meeting_payload(
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
-            data={"query": company_query, "meeting_type": meeting_type, "scope": scope},
+            data={
+                "query": company_query,
+                "meeting_type": meeting_type,
+                "scope": scope,
+                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+            },
             next_actions=["company tool로 먼저 회사 식별 확인"],
         )
         return envelope.to_dict()
@@ -778,6 +786,7 @@ async def build_shareholder_meeting_payload(
                     }
                     for corp in resolution.candidates[:10]
                 ],
+                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
             },
             next_actions=["ticker 또는 corp_code로 다시 조회"],
         )
@@ -789,7 +798,12 @@ async def build_shareholder_meeting_payload(
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"meeting_type=`{meeting_type}`는 지원하지 않는다. auto, annual, extraordinary만 사용 가능하다."],
-            data={"query": company_query, "meeting_type": meeting_type, "scope": scope},
+            data={
+                "query": company_query,
+                "meeting_type": meeting_type,
+                "scope": scope,
+                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+            },
         )
         return envelope.to_dict()
 
@@ -818,7 +832,13 @@ async def build_shareholder_meeting_payload(
             status=AnalysisStatus.ERROR,
             subject=selected.get("corp_name", company_query),
             warnings=[f"DART 공시 검색 실패: {exc.status}"],
-            data={"query": company_query, "meeting_type": meeting_type, "scope": scope, "year": target_year},
+            data={
+                "query": company_query,
+                "meeting_type": meeting_type,
+                "scope": scope,
+                "year": target_year,
+                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+            },
         )
         return envelope.to_dict()
 
@@ -839,6 +859,7 @@ async def build_shareholder_meeting_payload(
                     "end_date": requested_window_end.isoformat(),
                     "lookback_months": lookback_months,
                 },
+                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
             },
             next_actions=["meeting_type 또는 year를 바꿔 재조회"],
         )
@@ -1052,6 +1073,8 @@ async def build_shareholder_meeting_payload(
                 note=f"투표 결과 {len(result_meta.get('items', []))}건",
             )
         )
+
+    data["usage"] = build_usage(_client.api_call_snapshot() - _calls_start)
 
     envelope = ToolEnvelope(
         tool="shareholder_meeting",

@@ -169,6 +169,12 @@ class DartClient:
         # Search result caching (세션 기반, TTL 없음)
         self._search_cache: dict[str, dict] = {}
         self._MAX_SEARCH_CACHE = 50
+        # 사용량 추적 (각 service가 snapshot으로 차이 계산)
+        self._request_counter = 0
+
+    def api_call_snapshot(self) -> int:
+        """현재까지 누적된 DART API 호출 수. service가 시작·종료 시점에 찍어 차이를 계산."""
+        return self._request_counter
 
     def _rotate_key(self) -> bool:
         """다음 API 키로 전환. 전환 가능하면 True, 더 없으면 False."""
@@ -188,6 +194,7 @@ class DartClient:
         Returns:
             API 응답 JSON (dict)
         """
+        self._request_counter += 1
         await self._throttle_api()
         params["crtfc_key"] = self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"

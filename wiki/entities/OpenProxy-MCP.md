@@ -21,13 +21,13 @@ GitHub: https://github.com/MarcoYou/open-proxy-mcp
 - [[DART-OpenAPI]] + [[KRX-KIND]] 크롤링
 - Fly.io (nrt 리전, streamable-http)
 
-## Tool 구성 (15개, v2)
+## Tool 구성 (16개, v2)
 
 ```
 company                           # 진입점 (1개 기업 식별)
 ├─ Discovery Tool (1)
-│  └─ screen_events               # 이벤트 → N개 기업 역조회 (14 event_type)
-├─ Data Tools (10)
+│  └─ screen_events               # 이벤트 → N개 기업 역조회 (22 event_type)
+├─ Data Tools (11)
 │  ├─ shareholder_meeting         # 주총 (안건/후보/보수/정관/결과)
 │  ├─ ownership_structure         # 지분 구조 + control map + changes
 │  ├─ dividend                    # 배당 사실
@@ -36,7 +36,8 @@ company                           # 진입점 (1개 기업 식별)
 │  ├─ value_up                    # 밸류업 계획
 │  ├─ corporate_restructuring     # 합병/분할/분할합병/주식교환·이전
 │  ├─ dilutive_issuance           # 유상증자/CB/BW/감자 희석성 증권 발행
-│  ├─ related_party_transaction   # 타법인주식 거래 + 단일공급계약 (내부거래)
+│  ├─ related_party_transaction   # 타법인주식 거래 + 단일공급계약
+│  ├─ corp_gov_report             # 기업지배구조보고서 (15 핵심지표, KOSPI 전체 의무)
 │  └─ evidence                    # 공시 원문 링크
 └─ Action Tools (3)
    ├─ prepare_vote_brief
@@ -55,7 +56,7 @@ company                           # 진입점 (1개 기업 식별)
 
 | | v1 | v2 |
 |--|----|----|
-| Tool 수 | 36개 | 15개 |
+| Tool 수 | 36개 | 16개 |
 | 구조 | 5-Tier | Data + Action |
 | 파싱 레이어 | tool 내부 | services/ 분리 |
 
@@ -64,7 +65,7 @@ company                           # 진입점 (1개 기업 식별)
 ```
 open_proxy_mcp/
   server.py           # FastMCP entry point (OPEN_PROXY_TOOLSET 분기)
-  tools_v2/           # 15개 MCP tool (v2)
+  tools_v2/           # 16개 MCP tool (v2)
   services/           # 도메인 분석 로직
   tools/              # 36개 tool (v1, 보존)
   dart/client.py      # DART + KRX + Naver API client

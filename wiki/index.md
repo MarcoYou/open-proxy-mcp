@@ -98,6 +98,8 @@ updated: 2026-04-18
 - [[dilutive_issuance-design]] - 유상증자/CB/BW/감자 희석성 증권 발행 통합 data tool
 - [[related_party_transaction-design]] - 타법인주식 거래 + 단일공급계약 통합 data tool (list.json + 키워드)
 - [[parsing-audit-2026-04-21]] - 10 data tool × 20 회사 파싱 건강도 audit (exact/partial/error 분포, 속도, API 호출 수)
+- [[parsing-audit-2026-04-22]] - 확장 audit: 14 scope × 15 회사 + 필드 채움률 + corp_gov_report 포함
+- [[corp_gov_report-design]] - 기업지배구조보고서 파서 설계 (15 핵심지표, 준수율, 원문 파싱)
 
 ## Disclosures
 
@@ -127,6 +129,7 @@ updated: 2026-04-18
 - [[감자결정]] - DART, 의무/수시(DS005), 감자비율·사유·일정 (dilutive_issuance capital_reduction)
 - [[타법인주식및출자증권거래]] - DART, 의무/수시(B+I), 양수·양도·취득·처분 4형태 (related_party_transaction equity_deal)
 - [[단일판매공급계약체결]] - DART+KIND, 의무/수시(I), 매출 5%+ 단일계약 체결·해지 (related_party_transaction supply_contract)
+- [[기업지배구조보고서]] - DART+KIND, KOSPI 전체 의무(2024년~) / KOSDAQ 자율, 15 핵심지표 준수 (corp_gov_report)
 
 ## Sources
 

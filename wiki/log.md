@@ -5,6 +5,38 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-22] feat | 4-phase 릴리스: usage 표준화 / 확장 audit / corp_gov_report / 원문파싱 보강
+### Phase 1: data.usage 표준화 (7 → 모든 data tool)
+- `dart/client.py`: `_request_counter` 추가, 매 `_request()`에서 +1
+- `services/contracts.py`: `build_usage(api_calls)` 공통 헬퍼 추가
+- 7개 service(`company`, `shareholder_meeting`, `ownership_structure`, `dividend_v2`, `treasury_share`, `proxy_contest`, `value_up_v2`) 각 payload에 `data.usage` 주입 — ERROR/AMBIGUOUS/성공 경로 모두 포함
+- 검증: 7 tool 모두 `{dart_api_calls, mcp_tool_calls, dart_daily_limit_per_minute}` 노출 확인
+
+### Phase 2+3: 확장 audit (scope × 필드 채움률)
+- 15 회사 × 14 tool.scope = 210 호출 병렬
+- 매트릭스: status 분포 + 필드 채움률 + avg_s + avg_api
+- 에러 3건 (0.8%): shareholder_meeting 2건, dilutive 1건 (이상치)
+- 필드 채움률: 86% 수준. shareholder_meeting.summary 0/15은 audit checker 버그 (tool 정상)
+- 결과: `wiki/analysis/parsing-audit-2026-04-22.md` 저장
+
+### Phase 4: corp_gov_report tool 신규 (15 → 16 tool)
+- **의무 범위 정정**: 2024 사업연도부터 KOSPI 전체 의무 / KOSDAQ 자율공시
+- `services/corp_gov_report.py`: list.json + 키워드 "기업지배구조보고서" → 최신 원문 다운로드 → BeautifulSoup 파싱
+- 4 scope: `summary` / `metrics` / `principles` / `filings`
+- 파싱 필드:
+  - **기업개요** (표 1-0-0): 최대주주, 지분율, 소액주주, 업종, 기업집단, 요약재무
+  - **준수율** (%)
+  - **15 핵심지표**: 지표명 + 당기 O/X + 직전기 O/X + 비고
+  - **세부원칙 응답** 최대 30건
+- 전수조사 10개 회사: 7개 완벽 파싱 (15/15), 3개 서식 차이로 7-8지표만 (파서 보강 필요)
+- KT&G 100% 준수율, 에이피알 66.7%, NAVER 86.7% 등 정확 추출
+- wiki 신규: `disclosures/기업지배구조보고서.md`, `analysis/corp_gov_report-design.md`
+
+### 문서
+- README / README_ENG: 15 → 16 tool, 거버넌스 카테고리 추가, 사용 예시 2종 추가
+- wiki/entities/OpenProxy-MCP.md: 15 → 16 tool, screen_events 14 → 22 event_type
+- disclosure 페이지 총 26 → 27개
+
 ## [2026-04-21] feat | screen_events 22 event_type 확장 + rpt 원문 파싱 + audit 매트릭스
 ### Phase 1: screen_events event_type 14 → 22
 - 희석성 증권 4종 (rights_offering / convertible_bond / warrant_bond / capital_reduction)
