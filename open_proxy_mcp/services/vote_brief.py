@@ -358,6 +358,22 @@ async def build_vote_brief_payload(
     meeting_data = meeting_summary.get("data", {})
     ownership_as_of = _meeting_date_for_asof(meeting_summary, end_date)
 
+    async def _safe_governance() -> dict[str, Any]:
+        """corp_gov_report fetch (10초 timeout, 실패 시 graceful skip)."""
+        try:
+            return await asyncio.wait_for(
+                build_corp_gov_report_payload(company_query, scope="summary"),
+                timeout=10.0,
+            )
+        except (asyncio.TimeoutError, Exception) as exc:
+            return {
+                "tool": "corp_gov_report",
+                "status": AnalysisStatus.PARTIAL,
+                "data": {},
+                "warnings": [f"거버넌스 보고서 조회 생략 (timeout/error): {type(exc).__name__}"],
+                "evidence_refs": [],
+            }
+
     agenda_payload, board_payload, compensation_payload, ownership_payload, governance_payload = await asyncio.gather(
         build_shareholder_meeting_payload(
             company_query,
@@ -393,10 +409,7 @@ async def build_vote_brief_payload(
             start_date=start_date,
             end_date=end_date,
         ),
-        build_corp_gov_report_payload(
-            company_query,
-            scope="summary",
-        ),
+        _safe_governance(),
     )
 
     result_payload = None
