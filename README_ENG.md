@@ -98,7 +98,7 @@ company                            # Entry point — company ID + recent filings
 │  ├─ corporate_restructuring      # Restructuring (merger / split / division-merger / share exchange)
 │  ├─ dilutive_issuance            # Dilutive issuance (rights offering / CB / BW / capital reduction)
 │  ├─ related_party_transaction    # Related-party deals (equity deals + single supply contracts)
-│  ├─ corp_gov_report              # Corporate governance report (15 KRX core principles)
+│  ├─ corp_gov_report              # Corporate governance report (15 KRX principles + year-over-year)
 │  └─ evidence                     # Filing source links (rcept_no → viewer_url)
 │
 └─ Action Tools (3)
@@ -144,7 +144,7 @@ Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a c
 | **Restructuring** | Merger / split / division-merger / share exchange decisions | 1 |
 | **Dilution** | Rights offering / CB / BW / capital reduction | 1 |
 | **Related-party** | Equity deals + single supply contracts | 1 |
-| **Governance** | Corporate governance report (15 core principles) | 1 |
+| **Governance** | Corporate governance report (15 core principles, full KOSPI mandatory from 2026) | 1 |
 | **Evidence** | Filing source links | 1 |
 | **Action** | Vote memo, engagement case, campaign brief | 3 |
 | | **Total** | **16** |

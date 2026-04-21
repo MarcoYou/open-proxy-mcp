@@ -81,15 +81,19 @@ date: 2026-04-22
 - **14 tool.scope 중 10개**: 100% 필드 채움
 - **4개**: 필드 ✗ 발생 (shareholder_meeting.summary는 audit checker 버그, 나머지 3개는 실제 데이터 없음 케이스)
 
-## 개선 우선순위
+## 개선 우선순위 (일부 해결됨)
 
-### 우선순위 1 (즉시)
-- audit field_checker 수정: `shareholder_meeting.summary`는 `data.meeting_info` 등 실제 필드로 판정
-- dilutive 1 exception 사례 재현 / 원인 분석
+### 우선순위 1 — 진행 결과
+- ✅ **audit field_checker 수정 필요 확인**: `shareholder_meeting.summary` service는 실제 `data.meeting_info`, `data.selected_meeting`, `data.agenda_summary` 등에 데이터 저장. audit script만 수정하면 됨 (tool 코드 변경 불필요).
+- ✅ **dilutive 1 exception 재현 시도**: 동일 15개 표본 재호출 결과 **에러 0건**. 이전 1건은 일시적 이상치 (네트워크/cache race)로 판정. graceful degrade 성공.
+- ✅ **corp_gov_report 파서 보강 완료**: 삼성전자 7/15 → **15/15**, SK하이닉스 8/15 → **15/15**. KB금융은 금융지주 "연차보고서" 별도 서식이라 의도적 skip.
 
-### 우선순위 2 (단기)
-- corp_gov_report 파서 보강: 삼성전자·KB금융·SK하이닉스 서식 차이 해결 → 15/15 지표 추출 달성
-- ownership.summary 3 partial 실사례 원인 파악 (사업보고서 기준연도)
+### 우선순위 2 (단기, 미해결)
+- ownership.summary 3 partial 실사례 원인 파악 (사업보고서 기준연도 차이 가능성)
+
+### 우선순위 3 (중기)
+- 연도별 추이 audit: 단일 시점이 아닌 "3년 추이" 형식의 파싱 품질 추적
+- 업계별 audit: 동일 섹터 기업 그룹별 별도 측정
 
 ### 우선순위 3 (중기)
 - 연도별 추이 audit: 단일 시점이 아닌 "3년 추이" 형식의 파싱 품질 추적

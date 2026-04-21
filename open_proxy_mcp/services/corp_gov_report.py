@@ -28,9 +28,11 @@ from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 
-_SUPPORTED_SCOPES = {"summary", "metrics", "principles", "filings"}
+_SUPPORTED_SCOPES = {"summary", "metrics", "principles", "filings", "timeline"}
 
-_GOV_KEYWORDS = ("기업지배구조보고서공시", "기업지배구조보고서")
+# "기업지배구조보고서공시"만 대상. KB금융 등 금융지주의 "연차보고서" 형식은 제외.
+_GOV_KEYWORDS = ("기업지배구조보고서공시",)
+_EXCLUDE_REPORT_SUBSTR = ("연차보고서",)
 
 # 15개 핵심지표 표준 라벨(원문 변형 허용)
 _METRIC_LABELS = [
@@ -100,70 +102,76 @@ def _parse_company_summary(text: str) -> dict[str, Any]:
     return out
 
 
+_COMPLIANCE_VALUES = {"O", "X", "○", "×", "해당없음", "해당 없음"}
+
+
+def _is_compliance_val(s: str) -> bool:
+    return s in _COMPLIANCE_VALUES
+
+
 def _parse_metrics(text: str) -> list[dict[str, Any]]:
-    """15개 핵심지표 표 파싱.
+    """15개 핵심지표 표 파싱 (서식 차이 대응).
 
-    원문 패턴 (현대차 2024 기준):
-      핵심지표
-      (공시대상기간)준수여부
-      (직전 공시대상기간)준수여부
-      비고
-      [지표명]
-      [O/X/해당없음]
-      [O/X/해당없음]
-      [비고 최대 100자]
+    표준 지표 라벨을 기준으로 본문에서 위치를 찾고, 각 지표 블록에서 O/X 패턴 2개와
+    비고(선택)를 추출. 삼성(비고 전혀 없음), SK하이닉스(일부만 비고), 현대차(매건 비고)
+    모두 지원.
     """
-    # 지표 표 블록 찾기
-    start_idx = text.find("핵심지표\n(공시대상기간)")
-    if start_idx == -1:
-        start_idx = text.find("지배구조핵심지표 준수 현황")
-    if start_idx == -1:
-        return []
-    # XBRL 태그 시작 또는 II. 다음 섹션으로 끝
-    end_idx = text.find("krx-cg_", start_idx)
-    if end_idx == -1:
-        end_idx = text.find("II.", start_idx + 50)
-    if end_idx == -1:
-        end_idx = start_idx + 5000
-    block = text[start_idx:end_idx]
-    lines = [l.strip() for l in block.split("\n") if l.strip()]
+    # XBRL 태그 시작 전까지 유효
+    end_idx = text.find("krx-cg_")
+    scan_text = text[:end_idx] if end_idx != -1 else text
 
-    # 헤더 이후 4줄씩 반복
-    metrics: list[dict[str, Any]] = []
-    i = 0
-    header_found = False
-    while i < len(lines):
-        if not header_found:
-            if lines[i].startswith("비고"):
-                header_found = True
-            i += 1
-            continue
-        # 4줄: 지표명, 당기 준수, 전기 준수, 비고
-        if i + 3 >= len(lines):
-            break
-        label = lines[i]
-        current = lines[i + 1]
-        prior = lines[i + 2]
-        note = lines[i + 3]
-        # 라벨이 _METRIC_LABELS의 prefix와 매칭되면 수집
-        matched = False
-        for known in _METRIC_LABELS:
-            if known[:15] in label or label[:15] in known:
-                matched = True
+    # 각 지표의 시작 위치 찾기 (prefix 25자 매칭)
+    metric_starts: list[tuple[int, str]] = []
+    for label in _METRIC_LABELS:
+        key = label[:25]
+        idx = scan_text.find(key)
+        if idx != -1:
+            metric_starts.append((idx, label))
+    metric_starts.sort()
+    if not metric_starts:
+        return []
+
+    results: list[dict[str, Any]] = []
+    for i, (idx, label) in enumerate(metric_starts):
+        # 다음 지표의 시작 또는 XBRL 태그 시작까지를 블록 범위로
+        next_idx = metric_starts[i + 1][0] if i + 1 < len(metric_starts) else len(scan_text)
+        block = scan_text[idx:next_idx]
+        block_lines = [l.strip() for l in block.split("\n") if l.strip()]
+        # 첫 줄: 라벨의 첫 줄 (또는 라벨이 한 줄이면 그대로)
+        # 라벨이 여러 줄에 걸친 경우도 있으므로 라벨의 "끝"을 찾음
+        # 전체 라벨과 매칭되는 누적 줄 건너뛰기
+        joined = ""
+        start_idx_in_block = 0
+        for k, line in enumerate(block_lines):
+            joined += line
+            if label[:30].replace(" ", "") in joined.replace(" ", ""):
+                start_idx_in_block = k + 1
                 break
-        # 준수값이 O/X/해당없음 형식이어야 유효
-        valid_val = lambda v: v in ("O", "X", "○", "×", "해당없음", "해당 없음") or re.match(r"^(준수|미준수)$", v)
-        if matched or (valid_val(current) and valid_val(prior)):
-            metrics.append({
+
+        current = ""
+        prior = ""
+        note_lines: list[str] = []
+        for line in block_lines[start_idx_in_block:]:
+            if _is_compliance_val(line):
+                if not current:
+                    current = line
+                elif not prior:
+                    prior = line
+                else:
+                    # 다음 지표 구간으로 넘어감 (방어)
+                    break
+            else:
+                if current and prior:
+                    note_lines.append(line)
+                # current만 있고 prior 없는데 텍스트면 — 비고로 오탐 방지 차 skip
+        if current:
+            results.append({
                 "label": label,
                 "current": current,
-                "prior": prior,
-                "note": note[:200],
+                "prior": prior or "",
+                "note": " ".join(note_lines)[:200],
             })
-            i += 4
-        else:
-            i += 1
-    return metrics
+    return results
 
 
 def _parse_principles(text: str) -> list[dict[str, Any]]:
@@ -204,14 +212,18 @@ async def _fetch_latest_reports(
     if error:
         warnings.append(f"기업지배구조보고서 검색 실패: {error}")
         return [], warnings, api_calls
-    rows = [
-        {
+    rows: list[dict[str, Any]] = []
+    for it in items:
+        nm = it.get("report_nm", "")
+        # 금융지주 "연차보고서" 등 다른 서식 제외
+        if any(excl in nm for excl in _EXCLUDE_REPORT_SUBSTR):
+            continue
+        rows.append({
             "rcept_no": it.get("rcept_no", ""),
             "rcept_dt": it.get("rcept_dt", ""),
-            "report_nm": it.get("report_nm", ""),
-        }
-        for it in items
-    ]
+            "report_nm": nm,
+            "is_correction": nm.startswith("[기재정정]"),
+        })
     return rows, warnings, api_calls
 
 
@@ -401,6 +413,66 @@ async def build_corp_gov_report_payload(
         data["metrics"] = metrics
     if scope == "principles":
         data["principles"] = principles[:30]  # 최대 30개
+    if scope == "timeline":
+        # 최근 N개 filings(최대 5개) 각각 원문 파싱 → 연도별 비교
+        timeline_reports: list[dict[str, Any]] = []
+        for f in filings[:5]:
+            if f.get("rcept_no") == rcept_no and metrics:
+                # 최신 건은 이미 파싱했으므로 재사용
+                timeline_reports.append({
+                    "rcept_no": rcept_no,
+                    "rcept_dt": f.get("rcept_dt", ""),
+                    "report_nm": f.get("report_nm", ""),
+                    "is_correction": f.get("is_correction", False),
+                    "compliance_rate": compliance_rate,
+                    "metrics": {m["label"]: m["current"] for m in metrics},
+                })
+                continue
+            try:
+                d = await client.get_document_cached(f["rcept_no"])
+                h = d.get("html", "") if isinstance(d, dict) else ""
+            except DartClientError as exc:
+                warnings.append(f"{f.get('rcept_dt', '')} 원문 조회 실패: {exc.status}")
+                continue
+            t = _extract_text(h) if h else ""
+            if not t:
+                continue
+            cr = _parse_compliance_rate(t)
+            m_list = _parse_metrics(t)
+            timeline_reports.append({
+                "rcept_no": f.get("rcept_no", ""),
+                "rcept_dt": f.get("rcept_dt", ""),
+                "report_nm": f.get("report_nm", ""),
+                "is_correction": f.get("is_correction", False),
+                "compliance_rate": cr,
+                "metrics": {m["label"]: m["current"] for m in m_list},
+            })
+        # 연도별 지표 전환 탐지 (newer → older)
+        transitions: list[dict[str, Any]] = []
+        sorted_reports = sorted(timeline_reports, key=lambda r: r.get("rcept_dt", ""))
+        for idx in range(1, len(sorted_reports)):
+            older = sorted_reports[idx - 1]
+            newer = sorted_reports[idx]
+            for label in _METRIC_LABELS:
+                old_v = older.get("metrics", {}).get(label)
+                new_v = newer.get("metrics", {}).get(label)
+                if old_v and new_v and old_v != new_v:
+                    if old_v in ("X", "×") and new_v in ("O", "○"):
+                        direction = "improved"
+                    elif old_v in ("O", "○") and new_v in ("X", "×"):
+                        direction = "regressed"
+                    else:
+                        direction = "changed"
+                    transitions.append({
+                        "label": label,
+                        "from_dt": older.get("rcept_dt", ""),
+                        "from_val": old_v,
+                        "to_dt": newer.get("rcept_dt", ""),
+                        "to_val": new_v,
+                        "direction": direction,
+                    })
+        data["timeline"] = timeline_reports
+        data["transitions"] = transitions
 
     data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
 

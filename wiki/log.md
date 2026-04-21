@@ -5,6 +5,27 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-22] fix | corp_gov_report 파서 보강 + timeline scope + 의무화 연도 정정
+- **의무화 연도 정정** (사용자 지적 반영, WebSearch 소스 재확인):
+  - 잘못된 기재: "2024 사업연도부터 전체 KOSPI 의무"
+  - 정정: "2019 자산2조 → 2022 자산1조 → 2024 자산5천억 → **2026년 제출분부터 KOSPI 전체**"
+  - 제출 시한 5월말, 연중 [기재정정] 재제출 빈번
+  - wiki/disclosures/기업지배구조보고서.md, wiki/analysis/corp_gov_report-design.md, tool docstring, README 모두 정정
+- **파서 보강**:
+  - v1 문제: 4줄 고정 패턴 가정 → 비고 없는 서식(삼성) 실패
+  - v2 해결: 15 표준 지표 라벨 prefix(25자)로 위치 찾고 각 블록에서 O/X 동적 수집
+  - 삼성전자 7/15 → **15/15**, SK하이닉스 8/15 → **15/15**
+  - 키워드 `"기업지배구조보고서"` → `"기업지배구조보고서공시"` 엄격화
+  - `"연차보고서"` 명시 제외 → KB금융 같은 금융지주 별도 서식 skip
+- **timeline scope 신규**:
+  - 최근 5년 filings 각 원문 파싱 → 연도별 준수율 + 15지표 O/X 수집
+  - `transitions` 필드: 지표별 improved / regressed / changed 자동 감지
+  - 렌더러에 ✅ 개선 / ❌ 후퇴 / — 변동 카테고리 표시
+- **audit 해석 정정**:
+  - shareholder_meeting.summary 필드체커 0/15: tool 코드는 정상, 실제 data는 `meeting_info`/`selected_meeting`/`agenda_summary` 등에 저장. audit script만 수정 필요
+  - dilutive 1 exception 재현 시도: 에러 0건 → 일시적 이상치로 판정
+- README: 의무화 연도 "2026년부터 KOSPI 전체" 반영, timeline scope 예시 추가
+
 ## [2026-04-22] feat | 4-phase 릴리스: usage 표준화 / 확장 audit / corp_gov_report / 원문파싱 보강
 ### Phase 1: data.usage 표준화 (7 → 모든 data tool)
 - `dart/client.py`: `_request_counter` 추가, 매 `_request()`에서 +1
