@@ -5,6 +5,29 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-22] feat | prepare_vote_brief에 corp_gov_report 통합 + 세부원칙 파서 수정
+### prepare_vote_brief 거버넌스 통합
+- `services/vote_brief.py`:
+  - `build_corp_gov_report_payload` import
+  - asyncio.gather에 `governance_payload` 추가 (shareholder_meeting × 3 + ownership + **governance**)
+  - `governance_brief` 블록 신규: 준수율 / 준수·미준수 지표 수 / 미준수 라벨 상위 10개 / 의무여부 / 시장 / 최신 보고서 날짜
+  - key_flags 자동 생성: 준수율 60%↓="낮다", 80%↓="보통", 95%↑="우수"
+  - 구조적 약점 감지(집중투표/사외이사 의장/독립 내부감사 미준수 → structural 플래그)
+  - quality.governance_status + evidence_refs에 governance 건 병합
+- `tools_v2/prepare_vote_brief.py`:
+  - 렌더러에 `## 거버넌스 (기업지배구조보고서)` 섹션 추가
+  - docstring: upstream에 corp_gov_report 명시 / 자동 플래그 규칙 기술
+- 검증: KT&G → 준수율 100% / 미준수 0개 / "우수" 자동 플래그 + evidence 삽입
+
+### 세부원칙 파서 수정 (0건 → 6-7건)
+- 정규식 문자 클래스에 하이픈·마침표 빠져서 모든 기업 principles=0건이었음
+- `\(세부원칙 X-Y\)` 명시 매칭 + DOTALL로 설명 캡처
+- 스키마 변경: `principle_snippet` → `principle_number` + `principle_description`
+- 검증: 현대차 7건, 삼성 7건, KT&G/SK하이닉스/NAVER 각 6건 (원문 세부원칙 수와 일치)
+
+### 문서
+- README / README_ENG: Action Tool 설명에 "거버넌스 준수율 자동 포함" 표기
+
 ## [2026-04-22] fix | corp_gov_report 파서 보강 + timeline scope + 의무화 연도 정정
 - **의무화 연도 정정** (사용자 지적 반영, WebSearch 소스 재확인):
   - 잘못된 기재: "2024 사업연도부터 전체 KOSPI 의무"

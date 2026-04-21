@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
+from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
@@ -357,7 +358,7 @@ async def build_vote_brief_payload(
     meeting_data = meeting_summary.get("data", {})
     ownership_as_of = _meeting_date_for_asof(meeting_summary, end_date)
 
-    agenda_payload, board_payload, compensation_payload, ownership_payload = await asyncio.gather(
+    agenda_payload, board_payload, compensation_payload, ownership_payload, governance_payload = await asyncio.gather(
         build_shareholder_meeting_payload(
             company_query,
             meeting_type=meeting_type,
@@ -392,6 +393,10 @@ async def build_vote_brief_payload(
             start_date=start_date,
             end_date=end_date,
         ),
+        build_corp_gov_report_payload(
+            company_query,
+            scope="summary",
+        ),
     )
 
     result_payload = None
@@ -423,6 +428,7 @@ async def build_vote_brief_payload(
         board_payload.get("status"),
         compensation_payload.get("status"),
         ownership_payload.get("status"),
+        governance_payload.get("status"),
         result_payload.get("status") if result_payload else AnalysisStatus.EXACT,
         vote_math_payload.get("status") if vote_math_payload else AnalysisStatus.EXACT,
     )
@@ -439,6 +445,23 @@ async def build_vote_brief_payload(
         merged_status,
         cumulative_voting_strategy.get("status", AnalysisStatus.EXACT) if cumulative_voting_strategy else AnalysisStatus.EXACT,
     )
+
+    # 거버넌스 브리프 (corp_gov_report summary)
+    gov_data = governance_payload.get("data", {}) or {}
+    gov_meta = gov_data.get("report_meta", {}) or {}
+    gov_metrics_summary = gov_data.get("metrics_summary", []) or []
+    gov_non_compliant = [m for m in gov_metrics_summary if m.get("current") in ("X", "×", "미준수")]
+    governance_brief = {
+        "compliance_rate": gov_meta.get("compliance_rate"),
+        "metrics_compliant": gov_meta.get("metrics_compliant", 0),
+        "metrics_non_compliant": gov_meta.get("metrics_non_compliant", 0),
+        "metrics_parsed_count": gov_meta.get("metrics_parsed_count", 0),
+        "report_rcept_dt": gov_meta.get("rcept_dt", ""),
+        "report_rcept_no": gov_meta.get("rcept_no", ""),
+        "non_compliant_labels": [m.get("label", "") for m in gov_non_compliant][:10],
+        "mandatory": gov_data.get("mandatory", False),
+        "market": gov_data.get("market", ""),
+    }
 
     control_map = ownership_payload.get("data", {}).get("control_map", {}) or {}
     summary = {
@@ -461,6 +484,24 @@ async def build_vote_brief_payload(
     result_quality_note = _result_quality_note(result_brief)
     vote_math_brief = _vote_math_brief(vote_math_payload)
 
+    # 거버넌스 기반 추가 key_flags
+    governance_flags: list[str] = []
+    if governance_brief["compliance_rate"] is not None:
+        rate = governance_brief["compliance_rate"]
+        nc = governance_brief["metrics_non_compliant"]
+        total = governance_brief["metrics_parsed_count"]
+        if rate < 60:
+            governance_flags.append(f"지배구조 핵심지표 준수율 {rate}%로 낮다 (미준수 {nc}/{total}).")
+        elif rate < 80:
+            governance_flags.append(f"지배구조 준수율 {rate}% — 보통 수준 (미준수 {nc}/{total}).")
+        elif rate >= 95:
+            governance_flags.append(f"지배구조 준수율 {rate}% — 우수.")
+    if governance_brief["non_compliant_labels"]:
+        structural = [lbl for lbl in governance_brief["non_compliant_labels"]
+                      if any(k in lbl for k in ("집중투표", "사외이사가 이사회 의장", "독립적인 내부감사"))]
+        if structural:
+            governance_flags.append(f"구조적 거버넌스 약점 미준수 지표: {', '.join(s[:30] for s in structural[:3])}")
+
     key_flags = _dedupe_strings(
         [
             *meeting_summary.get("warnings", []),
@@ -468,9 +509,11 @@ async def build_vote_brief_payload(
             *board_payload.get("warnings", []),
             *compensation_payload.get("warnings", []),
             *ownership_payload.get("warnings", []),
+            *governance_payload.get("warnings", []),
             *(result_payload.get("warnings", []) if result_payload else []),
             *(vote_math_payload.get("warnings", []) if vote_math_payload else []),
             *(control_map.get("observations", []) or []),
+            *governance_flags,
             result_quality_note,
             "집중투표 사전 전략 계산을 포함했다." if cumulative_voting_strategy else "",
         ]
@@ -493,6 +536,7 @@ async def build_vote_brief_payload(
             "board_status": board_payload.get("status", ""),
             "compensation_status": compensation_payload.get("status", ""),
             "ownership_status": ownership_payload.get("status", ""),
+            "governance_status": governance_payload.get("status", ""),
             "result_status": result_payload.get("status", "") if result_payload else "",
             "vote_math_status": vote_math_payload.get("status", "") if vote_math_payload else "",
             "notice_parse_source": meeting_data.get("notice_parse_source", ""),
@@ -525,6 +569,7 @@ async def build_vote_brief_payload(
             "candidates": _board_candidates(board_payload)[:20],
         },
         "compensation_brief": _compensation_brief(compensation_payload),
+        "governance_brief": governance_brief,
         "result_brief": result_brief,
         "vote_math_brief": vote_math_brief,
         "cumulative_voting_strategy": cumulative_voting_strategy,
@@ -537,6 +582,7 @@ async def build_vote_brief_payload(
         *(board_payload.get("evidence_refs", []) or []),
         *(compensation_payload.get("evidence_refs", []) or []),
         *(ownership_payload.get("evidence_refs", []) or []),
+        *(governance_payload.get("evidence_refs", []) or []),
         *((result_payload.get("evidence_refs", []) or []) if result_payload else []),
         *((vote_math_payload.get("evidence_refs", []) or []) if vote_math_payload else []),
     ])

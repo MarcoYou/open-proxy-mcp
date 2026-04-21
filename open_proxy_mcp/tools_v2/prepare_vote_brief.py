@@ -24,6 +24,7 @@ def _render(payload: dict[str, Any]) -> str:
     control_map = ownership_context.get("control_map", {})
     board_brief = data.get("board_brief", {})
     comp_brief = data.get("compensation_brief", {})
+    governance_brief = data.get("governance_brief", {})
     result_brief = data.get("result_brief", {})
     vote_math_brief = data.get("vote_math_brief", {})
     cumulative_strategy = data.get("cumulative_voting_strategy", {})
@@ -110,6 +111,28 @@ def _render(payload: dict[str, Any]) -> str:
     if comp_brief.get("prior_utilization") is not None:
         lines.append(f"- 전기 소진율: {comp_brief.get('prior_utilization')}%")
     lines.append("")
+
+    # 거버넌스 (corp_gov_report 참조)
+    if governance_brief:
+        lines.append("## 거버넌스 (기업지배구조보고서)")
+        rate = governance_brief.get("compliance_rate")
+        if rate is not None:
+            lines.append(f"- **준수율: {rate}%** (준수 {governance_brief.get('metrics_compliant', 0)} / 미준수 {governance_brief.get('metrics_non_compliant', 0)} / 파싱 {governance_brief.get('metrics_parsed_count', 0)})")
+        else:
+            mandatory = governance_brief.get("mandatory")
+            market = governance_brief.get("market", "")
+            if not mandatory:
+                lines.append(f"- 준수율 없음 — {market} 자율공시 대상이거나 미제출")
+            else:
+                lines.append("- 준수율 추출 실패 (서식 차이 또는 파서 미지원)")
+        if governance_brief.get("report_rcept_dt"):
+            lines.append(f"- 최신 보고서 제출일: {governance_brief.get('report_rcept_dt')}")
+        non_compliant = governance_brief.get("non_compliant_labels", [])
+        if non_compliant:
+            lines.append("- 미준수 지표:")
+            for lbl in non_compliant:
+                lines.append(f"  - {lbl[:80]}")
+        lines.append("")
 
     if result_brief:
         lines.append("## 결과")
@@ -200,11 +223,11 @@ def register_tools(mcp):
         lookback_months: int = 12,
         format: str = "md",
     ) -> str:
-        """desc: 투표 메모 action tool. 주총 회차 + 지분 구조 + 핵심 안건 + 후보자 + 보수 + 결과를 한 장으로 묶음. **새 사실 생성 X, 근거만 재구성**.
-        when: 의결권 행사 준비, 내부 투자위원회 보고, 주총 전후 쟁점 정리.
-        rule: 찬반 추천 단정 금지. upstream의 `partial`/`conflict`/`requires_review` 상태 그대로 전파. 회차 선택은 shareholder_meeting의 `_auto_rank_key` 규칙 적용. 모든 결론 evidence_refs로 추적 가능해야 함.
-        upstream: shareholder_meeting + ownership_structure + evidence.
-        ref: shareholder_meeting, ownership_structure, evidence
+        """desc: 투표 메모 action tool. 주총 회차 + 지분 구조 + 핵심 안건 + 후보자 + 보수 + **거버넌스 준수율** + 결과를 한 장으로 묶음. **새 사실 생성 X, 근거만 재구성**.
+        when: 의결권 행사 준비, 내부 투자위원회 보고, 주총 전후 쟁점 정리. 거시 거버넌스 맥락(기업지배구조보고서 준수율 + 미준수 지표)이 자동 포함돼 structural 약점이 있는 기업은 key_flags로 노출.
+        rule: 찬반 추천 단정 금지. upstream의 `partial`/`conflict`/`requires_review` 상태 그대로 전파. 회차 선택은 shareholder_meeting의 `_auto_rank_key` 규칙 적용. 모든 결론 evidence_refs로 추적 가능해야 함. 거버넌스 준수율 60% 미만이면 "낮다", 95%+ "우수" 자동 플래그.
+        upstream: shareholder_meeting + ownership_structure + corp_gov_report + evidence.
+        ref: shareholder_meeting, ownership_structure, corp_gov_report, evidence
         """
         payload = await build_vote_brief_payload(
             company,

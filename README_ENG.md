@@ -102,7 +102,7 @@ company                            # Entry point — company ID + recent filings
 │  └─ evidence                     # Filing source links (rcept_no → viewer_url)
 │
 └─ Action Tools (3)
-   ├─ prepare_vote_brief            # Vote memo
+   ├─ prepare_vote_brief            # Vote memo (auto-includes governance compliance rate)
    ├─ prepare_engagement_case       # Shareholder engagement memo
    └─ build_campaign_brief          # Campaign brief
 ```
