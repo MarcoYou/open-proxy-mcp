@@ -137,10 +137,13 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if not pl:
             lines.append("세부원칙 응답 추출 실패.")
         else:
-            lines.append("## 세부원칙 준수 응답 (최대 30)")
+            lines.append(f"## 세부원칙 준수 응답 ({len(pl)}건)")
             for i, p in enumerate(pl, start=1):
-                lines.append(f"\n**{i}. {p.get('principle_snippet', '')[:100]}**")
-                lines.append(f"→ {p.get('response', '')[:200]}")
+                num = p.get("principle_number", "?")
+                desc = p.get("principle_description", "") or p.get("principle_snippet", "")
+                resp = p.get("response", "") or "-"
+                lines.append(f"\n**{i}. (세부원칙 {num}) {desc[:200]}**")
+                lines.append(f"→ {resp[:300]}")
 
     if scope == "timeline":
         reports = sorted(data.get("timeline", []), key=lambda r: r.get("rcept_dt", ""), reverse=True)
