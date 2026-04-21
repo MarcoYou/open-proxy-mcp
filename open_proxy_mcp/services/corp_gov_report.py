@@ -175,18 +175,42 @@ def _parse_metrics(text: str) -> list[dict[str, Any]]:
 
 
 def _parse_principles(text: str) -> list[dict[str, Any]]:
-    """세부원칙별 준수여부 텍스트(100자 이내) 추출."""
+    """세부원칙별 준수여부 텍스트 추출.
+
+    실제 원문 패턴:
+      [201100] (세부원칙 1-1) - 기업은 주주에게 주주총회의 일시, 장소 및 의안...
+      상기 세부원칙에 대한 준수여부를 간략하게 기술한다. (100자 이내)
+      당사는 주주총회 관련 정보를...
+
+    세부원칙 마커(`(세부원칙 X-Y)`)를 찾고 → 그 원칙 설명 → 응답 순서로 추출.
+    """
     principles: list[dict[str, Any]] = []
-    for m in re.finditer(
-        r"([가-힣A-Za-z0-9\s·ㆍ\(\)]+?)[\n]+상기 세부원칙에 대한 준수여부를[^\n]*\n+([^\n]{5,300})",
-        text,
-    ):
-        principle_desc = m.group(1).strip().split("\n")[-1][:120]
-        response = m.group(2).strip()[:200]
+
+    # '(세부원칙 X-Y)' ~ '상기 세부원칙에 대한 준수여부를' 사이를 원칙 설명, 그 다음 줄이 응답
+    # DOTALL 아님, 줄 단위 DOTALL: 원칙 설명은 여러 줄 가능 (실제로는 1-2줄)
+    pattern = re.compile(
+        r"\(\s*세부원칙\s+([\d\-]+)\s*\)\s*"     # 원칙 번호 (X-Y)
+        r"[-\s]*"                                  # 선택적 하이픈
+        r"(.+?)"                                   # 원칙 설명 (DOTALL)
+        r"\s*상기 세부원칙에 대한 준수여부를[^\n]*"  # 응답 전 안내문
+        r"\s*\n+"                                  # 줄바꿈
+        r"([^\n]{5,400})",                         # 응답 텍스트 (1줄)
+        re.DOTALL,
+    )
+
+    for m in pattern.finditer(text):
+        principle_num = m.group(1).strip()
+        principle_desc = re.sub(r"\s+", " ", m.group(2).strip())[:300]
+        response = m.group(3).strip()[:300]
+        # 응답이 "당사는", "본 회사는", "회사는" 등으로 시작하는지로 유효성 검증
+        if response in ("-", "해당사항없음"):
+            response = ""
         principles.append({
-            "principle_snippet": principle_desc,
+            "principle_number": principle_num,
+            "principle_description": principle_desc,
             "response": response,
         })
+
     return principles
 
 
