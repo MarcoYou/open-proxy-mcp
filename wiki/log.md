@@ -28,6 +28,11 @@ title: Operation Log
 ### 문서
 - README / README_ENG: Action Tool 설명에 "거버넌스 준수율 자동 포함" 표기
 
+### 후속 fix (timeout)
+- 웹 커넥터에서 prepare_vote_brief 호출 시 일부 회사 실패 (응답 20s+ 누적 → MCP timeout 도달 추정)
+- `_safe_governance()` 헬퍼 추가: corp_gov_report fetch에 `asyncio.wait_for(timeout=10)` 래핑 + 실패 시 빈 payload 반환
+- 거버넌스 fetch 실패해도 vote brief 자체는 항상 생성됨
+
 ## [2026-04-22] fix | corp_gov_report 파서 보강 + timeline scope + 의무화 연도 정정
 - **의무화 연도 정정** (사용자 지적 반영, WebSearch 소스 재확인):
   - 잘못된 기재: "2024 사업연도부터 전체 KOSPI 의무"
