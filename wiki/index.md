@@ -95,6 +95,8 @@ updated: 2026-04-18
 - [[proxy-voting-decision-tree]] - 3개 소스 통합 의결권 행사 판단 프레임워크
 - [[screen_events-design]] - screen_events discovery tool 설계 + 14 event_type 전수조사
 - [[corporate_restructuring-design]] - 합병/분할/주식교환 통합 data tool (4 scope, DS005 4종 API 병렬)
+- [[dilutive_issuance-design]] - 유상증자/CB/BW/감자 희석성 증권 발행 통합 data tool
+- [[related_party_transaction-design]] - 타법인주식 거래 + 단일공급계약 통합 data tool (list.json + 키워드)
 
 ## Disclosures
 
@@ -118,6 +120,12 @@ updated: 2026-04-18
 - [[임원·주요주주특정증권등소유상황보고서]] - DART, 의무/수시(DS004), 임원·10%+ 주주 보유 변동 (elestock)
 - [[소송등의제기]] - DART, 의무/수시, 회사 당사자 소송·가처분 (proxy_contest litigation)
 - [[경영권분쟁소송]] - DART, 의무/수시, 경영권 분쟁 명시 분류 (proxy_contest management_dispute)
+- [[유상증자결정]] - DART, 의무/수시(DS005), 배정방식·신주 수·희석률 (dilutive_issuance rights_offering)
+- [[전환사채발행결정]] - DART, 의무/수시(DS005), 전환가·잠재 희석·refixing (dilutive_issuance convertible_bond)
+- [[신주인수권부사채발행결정]] - DART, 의무/수시(DS005), 행사가·분리형·대용납입 (dilutive_issuance warrant_bond)
+- [[감자결정]] - DART, 의무/수시(DS005), 감자비율·사유·일정 (dilutive_issuance capital_reduction)
+- [[타법인주식및출자증권거래]] - DART, 의무/수시(B+I), 양수·양도·취득·처분 4형태 (related_party_transaction equity_deal)
+- [[단일판매공급계약체결]] - DART+KIND, 의무/수시(I), 매출 5%+ 단일계약 체결·해지 (related_party_transaction supply_contract)
 
 ## Sources
 

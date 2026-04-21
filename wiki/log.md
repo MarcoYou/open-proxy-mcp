@@ -5,6 +5,22 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-21] feat | dilutive_issuance + related_party_transaction data tool 2종 추가 (13→15 tool)
+- **dilutive_issuance** (희석성 증권 발행 4종 통합):
+  - `dart/client.py`: 4개 메서드 (piicDecsn / cvbdIsDecsn / bdwtIsDecsn / crDecsn)
+  - `services/dilutive_issuance.py`: 4개 API 병렬, scope별 정규화, 희석률 근사 계산
+  - `tools_v2/dilutive_issuance.py`: 5 scope (summary/rights_offering/convertible_bond/warrant_bond/capital_reduction), headline_metric 기반 timeline
+  - 전수조사: EDGC(7건)/하이퍼코퍼레이션(CB 4건)/나무기술(BW 2건)/감자(EDGC 83.33%) 5/5 통과
+- **related_party_transaction** (내부거래 모니터링):
+  - `services/related_party_transaction.py`: DART 전용 API 없어 list.json + 키워드 방식. filing_search.search_filings_by_report_name 재사용
+  - scope: summary / equity_deal / supply_contract
+  - 플래그: subsidiary_report(자회사주요경영사항), autonomous_disclosure(자율공시), is_correction([기재정정])
+  - 전수조사: POSCO홀딩스(3건 모두 자회사)/삼성전자(2건 공급계약)/현대건설(72건 supply)/성호전자(9건 equity_deal acquire) 5/5 통과
+- wiki 신규 disclosure 페이지 6종: 유상증자결정/전환사채발행결정/신주인수권부사채발행결정/감자결정/타법인주식및출자증권거래/단일판매공급계약체결
+- wiki analysis 2종: dilutive_issuance-design.md, related_party_transaction-design.md
+- README / README_ENG / entities/OpenProxy-MCP / index.md / log.md 업데이트 (13→15 tool)
+- disclosure 페이지 총 20 → 26개
+
 ## [2026-04-21] docs | disclosure 페이지 일관성 정비 + 누락 7종 신규 작성
 - 신버전 3개 페이지를 구버전 양식(트리 + API필드대응 + OPM활용)으로 보강
   - 회사합병결정.md, 회사분할결정.md, 주식교환·이전결정.md

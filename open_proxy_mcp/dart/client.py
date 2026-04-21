@@ -938,6 +938,32 @@ class DartClient:
             "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
         })
 
+    # ── Dilutive Issuance API (DS005 주요사항보고서) ──
+
+    async def get_rights_offering_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """유상증자 결정 (piicDecsn) — 발행주식수, 배정방식, 자금조달 목적."""
+        return await self._request("piicDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
+    async def get_convertible_bond_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """전환사채 발행결정 (cvbdIsDecsn) — 전환가, 전환비율, 잠재희석, 만기, 풋옵션."""
+        return await self._request("cvbdIsDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
+    async def get_warrant_bond_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """신주인수권부사채 발행결정 (bdwtIsDecsn) — 행사가, 분리/비분리, 신주 발행 조건."""
+        return await self._request("bdwtIsDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
+    async def get_capital_reduction_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """감자결정 (crDecsn) — 감자비율, 자본금 전/후, 감자 방법·사유, 일정."""
+        return await self._request("crDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
     # ── Dividend API (DS002 정기보고서) ──
 
     async def get_dividend_info(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
