@@ -5,6 +5,16 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-24] fix | agenda 파서 boundary 보강 (공공기관·전각ｏ 마커 대응)
+- 한국전력공사 임시주총 안건 title이 후보 테이블까지 길게 잡히는 현상 발견 (commit `6fe44d2`)
+  - `_AGENDA_BOUNDARY`에 추가: `-\s*후보에\s*관한\s*사항`, `의안\s+후보자\s+임기`
+  - 결과: "상임이사 선임의 건 - 후보에 관한 사항 의안 후보자..." → "상임이사 선임의 건"
+- 강원랜드 임시주총 title에 "ｏ 후보 최우식" 잔류 발견 (commit `c22aa95`)
+  - 원인: 전각 ｏ(U+FF4F) 마커가 boundary 미지원 (반각 ○과 다른 글자)
+  - 마커 클래스 `[□◎●○▶·ㆍ]` → `[□◎●○▶·ㆍｏ]` 확장
+  - boundary에 `ｏ\s*(?:제\s*\d+|후보)` 추가
+- 8개 회사 회귀 테스트 통과: 한전·강원랜드·KT&G·한국가스공사·현대차
+
 ## [2026-04-22] feat | prepare_vote_brief에 corp_gov_report 통합 + 세부원칙 파서 수정
 ### prepare_vote_brief 거버넌스 통합
 - `services/vote_brief.py`:
