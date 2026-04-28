@@ -67,6 +67,9 @@ updated: 2026-04-18
 - [[파서-성능-추이]] - 2026-03-20부터 04-06까지 8개 파서 개선 이력
 - [[cross-domain-체이닝]] - AGM/OWN/DIV 도메인 간 tool 연결 맵 + 시나리오
 - [[파이프라인-아키텍처]] - 199개 기업 v4 JSON 생성 배치 파이프라인
+- [[open-proxy-guideline]] - OPM 자체 의결권 행사 정책 v1.2 (12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting)
+- [[decision-matrix-design]] - 12 카테고리 의사결정 매트릭스 (100 dim, 76 빙고 패턴 — OPM 단독 다차원 평가 시스템)
+- [[opm-guideline-debate-transcript]] - 7 전문가 토론 + v1.0 → v1.1 → v1.2 결정 transcript
 
 ## Templates
 
@@ -100,6 +103,7 @@ updated: 2026-04-18
 - [[parsing-audit-2026-04-21]] - 10 data tool × 20 회사 파싱 건강도 audit (exact/partial/error 분포, 속도, API 호출 수)
 - [[parsing-audit-2026-04-22]] - 확장 audit: 14 scope × 15 회사 + 필드 채움률 + corp_gov_report 포함
 - [[corp_gov_report-design]] - 기업지배구조보고서 파서 설계 (15 핵심지표, 준수율, 원문 파싱)
+- [[voting-policy-consensus-matrix]] - 7 운용사 의결권 정책 합의/이견 매트릭스 (79 토픽, 12 카테고리)
 
 ## Disclosures
 

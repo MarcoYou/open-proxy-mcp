@@ -5,6 +5,33 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-29] feat | proxy_guideline tool + Open Proxy Guideline v1.2 + 12 의사결정 매트릭스
+### Phase A: 7 운용사 데이터 파싱
+- 정책 5건: opendataloader-pdf (samsung·samsung_active·truston·kim·align_partners 1-4초)
+- 미래에셋: vector glyph PDF → PyMuPDF DPI 120 raster + JPEG 70% → Upstage OCR 우회 (35KB md)
+- 베어링: ISS Korea 2026 Voting Guidelines 직접 채택 발견 → `policy_classification: foreign_manager_iss_reference`
+- 행사내역 15 xlsx → 통일 schema JSON (총 17,900 votes)
+### Phase B-C: 합의 매트릭스 + Open Proxy Guideline v1.2
+- `_consensus_matrix.json`: 7 운용사 79 토픽, consensus + majority 62%
+- 7 페르소나 토론 (학자·운용사출신·소수주주활동가·자본시장변호사·상법변호사·글로벌ESG·법안리서처) + 모더레이터 통합
+- v1.0 → v1.1 (베어링 ISS + 얼라인 행동주의) → v1.2 (ISS 다운그레이드)
+- v1.2: 12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting
+- 12 의사결정 매트릭스 (100 dim, 76 빙고 패턴) — 운용사·자문사 단독 차별화
+### Phase D: proxy_guideline tool (6 scope)
+- `services/proxy_guideline.py` + `tools_v2/proxy_guideline.py`
+- scopes: policy / record / predict / compare / consensus / audit
+- audit가 정책-실제 갭 자동 검출 (samsung director_election 4.3% — `policy_strict_practice_lenient`)
+- DART API 호출 0회 (정적 데이터, <100ms 응답)
+### Phase E: prepare_vote_brief 통합
+- `vote_style` 인자 (default `open_proxy`, 7 운용사 선택)
+- `_build_proxy_guideline_brief()` — 안건 → 카테고리 분류 → 정책 룰 매핑
+- 새 출력 블록 `## OPM 정책 권고`
+### 산출물
+- `wiki/decisions/`: open-proxy-guideline.md, decision-matrix-design.md, opm-guideline-debate-transcript.md
+- `wiki/analysis/voting-policy-consensus-matrix.md`
+- `open_proxy_mcp/data/asset_managers/` 14MB JSON
+- `.gitignore`: open_proxy_mcp/data/ 예외 + wiki/sources/binary 무시
+
 ## [2026-04-24] fix | agenda 파서 boundary 보강 (공공기관·전각ｏ 마커 대응)
 - 한국전력공사 임시주총 안건 title이 후보 테이블까지 길게 잡히는 현상 발견 (commit `6fe44d2`)
   - `_AGENDA_BOUNDARY`에 추가: `-\s*후보에\s*관한\s*사항`, `의안\s+후보자\s+임기`
