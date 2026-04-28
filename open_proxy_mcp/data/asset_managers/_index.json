@@ -1,0 +1,211 @@
+{
+  "schema_version": "v2",
+  "generated_at": "2026-04-28",
+  "categories": [
+    "financial_statements",
+    "cash_dividend",
+    "articles_amendment",
+    "director_election",
+    "audit_committee_election",
+    "director_compensation",
+    "treasury_share",
+    "merger",
+    "spin_off",
+    "capital_increase_decrease",
+    "cb_bw",
+    "shareholder_proposal"
+  ],
+  "managers": {
+    "align_partners": {
+      "name": "얼라인파트너스",
+      "type": "asset_manager",
+      "classification": "active_engagement_activist",
+      "external_advisor": null,
+      "latest_policy": "2024.10.10",
+      "policy_file": "policies/align_partners_2025-04.json",
+      "records": [
+        {
+          "period": "2024-04",
+          "total_votes": 79,
+          "for_count": 58,
+          "against_count": 5,
+          "against_rate_pct": 6.3
+        },
+        {
+          "period": "2025-04",
+          "total_votes": 75,
+          "for_count": 59,
+          "against_count": 13,
+          "against_rate_pct": 17.3
+        }
+      ],
+      "categories_covered": 12,
+      "extraction_confidence": "high"
+    },
+    "baring": {
+      "name": "[운용사G]",
+      "type": "asset_manager",
+      "classification": "global_advisor_adoption",
+      "external_advisor": "ISS Korea 2026 Voting Guidelines (Published Dec 16, 2025; Effective Feb 1, 2026)",
+      "latest_policy": "2025.04 (ISS Korea 2026 v1.1)",
+      "policy_file": "policies/baring_2025-04.json",
+      "records": [
+        {
+          "period": "2024-04",
+          "total_votes": 403,
+          "for_count": 348,
+          "against_count": 54,
+          "against_rate_pct": 13.4
+        },
+        {
+          "period": "2025-04",
+          "total_votes": 422,
+          "for_count": 374,
+          "against_count": 47,
+          "against_rate_pct": 11.1
+        },
+        {
+          "period": "2026-04",
+          "total_votes": 657,
+          "for_count": 604,
+          "against_count": 51,
+          "against_rate_pct": 7.8
+        }
+      ],
+      "categories_covered": 12,
+      "extraction_confidence": "high"
+    },
+    "kim": {
+      "name": "[운용사A]",
+      "type": "asset_manager",
+      "classification": "",
+      "external_advisor": "",
+      "latest_policy": "2024.04.25",
+      "policy_file": "policies/kim_2025-04.json",
+      "records": [
+        {
+          "period": "2024-04",
+          "total_votes": 2237,
+          "for_count": 2075,
+          "against_count": 147,
+          "against_rate_pct": 6.6
+        },
+        {
+          "period": "2025-04",
+          "total_votes": 2163,
+          "for_count": 1981,
+          "against_count": 167,
+          "against_rate_pct": 7.7
+        }
+      ],
+      "categories_covered": 12,
+      "extraction_confidence": "high"
+    },
+    "mirae_asset": {
+      "name": "[운용사B]",
+      "type": "asset_manager",
+      "classification": "",
+      "external_advisor": "",
+      "latest_policy": "2024.09.20",
+      "policy_file": "policies/mirae_asset_2025-04.json",
+      "records": [
+        {
+          "period": "2024-04",
+          "total_votes": 1325,
+          "for_count": 1139,
+          "against_count": 146,
+          "against_rate_pct": 11.0
+        },
+        {
+          "period": "2025-04",
+          "total_votes": 1642,
+          "for_count": 1348,
+          "against_count": 263,
+          "against_rate_pct": 16.0
+        }
+      ],
+      "categories_covered": 12,
+      "extraction_confidence": "high"
+    },
+    "samsung": {
+      "name": "[운용사D]",
+      "type": "asset_manager",
+      "classification": "",
+      "external_advisor": "",
+      "latest_policy": "2025.02.27",
+      "policy_file": "policies/samsung_2025-04.json",
+      "records": [
+        {
+          "period": "2024-04",
+          "total_votes": 2438,
+          "for_count": 2126,
+          "against_count": 211,
+          "against_rate_pct": 8.7
+        },
+        {
+          "period": "2025-04",
+          "total_votes": 2405,
+          "for_count": 2046,
+          "against_count": 239,
+          "against_rate_pct": 9.9
+        }
+      ],
+      "categories_covered": 12,
+      "extraction_confidence": "high"
+    },
+    "samsung_active": {
+      "name": "[운용사D2]",
+      "type": "asset_manager",
+      "classification": "",
+      "external_advisor": "",
+      "latest_policy": "2025.04.10",
+      "policy_file": "policies/samsung_active_2025-04.json",
+      "records": [
+        {
+          "period": "2024-04",
+          "total_votes": 911,
+          "for_count": 795,
+          "against_count": 72,
+          "against_rate_pct": 7.9
+        },
+        {
+          "period": "2025-04",
+          "total_votes": 890,
+          "for_count": 776,
+          "against_count": 89,
+          "against_rate_pct": 10.0
+        }
+      ],
+      "categories_covered": 12,
+      "extraction_confidence": "high"
+    },
+    "truston": {
+      "name": "[운용사C]",
+      "type": "asset_manager",
+      "classification": "",
+      "external_advisor": "",
+      "latest_policy": "2023.12.12",
+      "policy_file": "policies/truston_2025-04.json",
+      "records": [
+        {
+          "period": "2024-04",
+          "total_votes": 1297,
+          "for_count": 1206,
+          "against_count": 87,
+          "against_rate_pct": 6.7
+        },
+        {
+          "period": "2025-04",
+          "total_votes": 956,
+          "for_count": 901,
+          "against_count": 55,
+          "against_rate_pct": 5.8
+        }
+      ],
+      "categories_covered": 12,
+      "extraction_confidence": "high"
+    }
+  },
+  "open_proxy_default": "open_proxy_v1",
+  "open_proxy_file": "policies/open_proxy_v1.json"
+}

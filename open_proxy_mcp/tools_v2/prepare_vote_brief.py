@@ -112,6 +112,32 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"- 전기 소진율: {comp_brief.get('prior_utilization')}%")
     lines.append("")
 
+    # OPM 정책 권고 (proxy_guideline 참조)
+    proxy_guideline_brief = data.get("proxy_guideline_brief", {})
+    if proxy_guideline_brief and proxy_guideline_brief.get("status") == "ok":
+        pgb_meta = proxy_guideline_brief.get("policy_meta", {})
+        lines.append(f"## OPM 정책 권고 (vote_style: `{proxy_guideline_brief.get('vote_style', '?')}`)")
+        lines.append(f"- 정책: {pgb_meta.get('manager_name', '?')} `{pgb_meta.get('version', '?')}` (`{pgb_meta.get('type', '?')}`)")
+        cats = proxy_guideline_brief.get("categories_in_agenda", [])
+        if cats:
+            lines.append(f"- 안건 카테고리: {', '.join(cats[:8])}")
+        recs = proxy_guideline_brief.get("agenda_recommendations", [])
+        if recs:
+            lines.append("- 안건별 정책 권고:")
+            for r in recs[:10]:
+                line = f"  - **{r.get('agenda_no', '')}**. [{r.get('category_ko', '')}] `{r.get('policy_default', '?')}` (정책 against {r.get('policy_against_count', 0)}건)"
+                lines.append(line)
+                lines.append(f"    - {r.get('agenda_title', '')}")
+                if r.get("key_against_criteria"):
+                    for crit in r["key_against_criteria"][:2]:
+                        lines.append(f"    - ⚠ 반대 기준: {crit}")
+        lines.append(f"- _{proxy_guideline_brief.get('evaluation_note', '')}_")
+        lines.append("")
+    elif proxy_guideline_brief and proxy_guideline_brief.get("status") == "policy_not_found":
+        lines.append(f"## OPM 정책 권고")
+        lines.append(f"- vote_style `{proxy_guideline_brief.get('vote_style', '?')}` 정책 미발견. 가능: {', '.join(proxy_guideline_brief.get('available_policies', []))}")
+        lines.append("")
+
     # 거버넌스 (corp_gov_report 참조)
     if governance_brief:
         lines.append("## 거버넌스 (기업지배구조보고서)")
@@ -221,13 +247,15 @@ def register_tools(mcp):
         start_date: str = "",
         end_date: str = "",
         lookback_months: int = 12,
+        vote_style: str = "open_proxy",
         format: str = "md",
     ) -> str:
-        """desc: 투표 메모 action tool. 주총 회차 + 지분 구조 + 핵심 안건 + 후보자 + 보수 + **거버넌스 준수율** + 결과를 한 장으로 묶음. **새 사실 생성 X, 근거만 재구성**.
-        when: 의결권 행사 준비, 내부 투자위원회 보고, 주총 전후 쟁점 정리. 거시 거버넌스 맥락(기업지배구조보고서 준수율 + 미준수 지표)이 자동 포함돼 structural 약점이 있는 기업은 key_flags로 노출.
-        rule: 찬반 추천 단정 금지. upstream의 `partial`/`conflict`/`requires_review` 상태 그대로 전파. 회차 선택은 shareholder_meeting의 `_auto_rank_key` 규칙 적용. 모든 결론 evidence_refs로 추적 가능해야 함. 거버넌스 준수율 60% 미만이면 "낮다", 95%+ "우수" 자동 플래그.
-        upstream: shareholder_meeting + ownership_structure + corp_gov_report + evidence.
-        ref: shareholder_meeting, ownership_structure, corp_gov_report, evidence
+        """desc: 투표 메모 action tool. 주총 회차 + 지분 구조 + 핵심 안건 + 후보자 + 보수 + **거버넌스 준수율** + **OPM 정책 권고** + 결과를 한 장으로 묶음. **새 사실 생성 X, 근거만 재구성**.
+        when: 의결권 행사 준비, 내부 투자위원회 보고, 주총 전후 쟁점 정리. vote_style로 OPM 자체 정책 또는 특정 운용사 정책 적용 가능 (default open_proxy).
+        rule: 찬반 추천 단정 금지. upstream의 `partial`/`conflict`/`requires_review` 상태 그대로 전파. OPM 정책 권고는 안건 카테고리 분류 + 정책 룰 매칭만 자동, 매트릭스 8 dim 자동 채점은 v1.3 예정. 모든 결론 evidence_refs로 추적 가능.
+        vote_style: open_proxy (default OPM 자체 정책) / mirae_asset / samsung / samsung_active / truston / kim / align_partners (행동주의) / baring (외국계 ISS 참조).
+        upstream: shareholder_meeting + ownership_structure + corp_gov_report + proxy_guideline + evidence.
+        ref: shareholder_meeting, ownership_structure, corp_gov_report, proxy_guideline, evidence
         """
         payload = await build_vote_brief_payload(
             company,
@@ -236,6 +264,7 @@ def register_tools(mcp):
             start_date=start_date,
             end_date=end_date,
             lookback_months=lookback_months,
+            vote_style=vote_style,
         )
         if format == "json":
             return as_pretty_json(payload)

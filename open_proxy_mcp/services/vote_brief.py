@@ -10,6 +10,11 @@ from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload
+from open_proxy_mcp.services.proxy_guideline import (
+    _CATEGORY_KO,
+    classify_agenda,
+    load_policy,
+)
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 
 
@@ -325,6 +330,70 @@ async def _cumulative_voting_strategy(
     }
 
 
+def _build_proxy_guideline_brief(
+    vote_style: str,
+    agenda_titles: list[str],
+) -> dict[str, Any]:
+    """안건 목록을 OPM 정책에 매핑하여 카테고리별 권고 생성.
+
+    매트릭스 자동 채점은 미구현 (v1.3 예정). 현재는:
+    - 안건마다 카테고리 분류 (classify_agenda)
+    - 해당 정책 룰 카운트 (for/against/review)
+    - 매트릭스 메타 (dim 개수, 빙고 패턴 수)
+    - 수동 검토 권고 + 핵심 against criteria 상위 3건
+    """
+    pol = load_policy(vote_style)
+    if not pol:
+        return {
+            "vote_style": vote_style,
+            "status": "policy_not_found",
+            "available_policies": ["open_proxy", "mirae_asset", "samsung", "samsung_active",
+                                   "truston", "kim", "align_partners", "baring"],
+            "agenda_recommendations": [],
+        }
+
+    rules = pol.get("voting_rules", {})
+    pol_meta = pol.get("policy_meta", {})
+
+    recommendations = []
+    seen_categories = []
+    for idx, title in enumerate(agenda_titles[:30]):
+        cat = classify_agenda(title)
+        rule = rules.get(cat, {})
+        against_top3 = [a.get("criterion", "")[:80] for a in rule.get("against", [])[:3]]
+        for_top2 = [f.get("criterion", "")[:80] for f in rule.get("for", [])[:2]]
+
+        recommendations.append({
+            "agenda_no": str(idx + 1),
+            "agenda_title": title[:120],
+            "category": cat,
+            "category_ko": _CATEGORY_KO.get(cat, cat),
+            "policy_default": rule.get("default", "not_specified"),
+            "policy_for_count": len(rule.get("for", [])),
+            "policy_against_count": len(rule.get("against", [])),
+            "policy_review_count": len(rule.get("review", [])),
+            "key_against_criteria": against_top3,
+            "key_for_criteria": for_top2,
+        })
+        if cat not in seen_categories:
+            seen_categories.append(cat)
+
+    return {
+        "vote_style": vote_style,
+        "status": "ok",
+        "policy_meta": {
+            "manager_name": pol_meta.get("manager_name", vote_style),
+            "version": pol_meta.get("version", ""),
+            "type": pol_meta.get("type", ""),
+            "effective_date": pol_meta.get("effective_date", ""),
+        },
+        "agenda_recommendations": recommendations,
+        "categories_in_agenda": seen_categories,
+        "policy_general_principles": pol.get("general_principles", [])[:5],
+        "evaluation_note": "매트릭스 8 dim 자동 채점은 v1.3 예정. 현재는 정책 룰 + 카테고리 분류만 자동, 매트릭스 채점은 사람 검토 input 필요.",
+    }
+
+
 async def build_vote_brief_payload(
     company_query: str,
     *,
@@ -333,6 +402,7 @@ async def build_vote_brief_payload(
     start_date: str = "",
     end_date: str = "",
     lookback_months: int = 12,
+    vote_style: str = "open_proxy",
 ) -> dict[str, Any]:
     meeting_summary = await build_shareholder_meeting_payload(
         company_query,
@@ -583,6 +653,10 @@ async def build_vote_brief_payload(
         },
         "compensation_brief": _compensation_brief(compensation_payload),
         "governance_brief": governance_brief,
+        "proxy_guideline_brief": _build_proxy_guideline_brief(
+            vote_style=vote_style,
+            agenda_titles=_agenda_titles(agenda_payload),
+        ),
         "result_brief": result_brief,
         "vote_math_brief": vote_math_brief,
         "cumulative_voting_strategy": cumulative_voting_strategy,

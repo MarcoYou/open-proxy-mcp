@@ -45,6 +45,14 @@ screenshot/pr_materials/*.pdf
 
 # Paid pipeline data
 data/
+# 단 OPM 코드 안 정적 데이터(자산운용사 정책+행사내역+OPM Guideline)는 트래킹
+!open_proxy_mcp/data/
+
+# 운용사 정책/행사내역 원본 (parsed JSON만 commit, PDF/xlsx는 로컬 보관)
+wiki/sources/*.pdf
+wiki/sources/*.xlsx
+wiki/sources/*.doc
+wiki/sources/*.docx
 
 # Document cache (DART API)
 cache/
