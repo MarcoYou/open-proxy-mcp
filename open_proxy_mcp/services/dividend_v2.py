@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 from typing import Any
 
@@ -304,11 +305,14 @@ async def build_dividend_payload(
         history_start_year = min(history_start_year, target_year - max(1, years))
     year_list = list(range(history_start_year, target_year + 1))
 
-    latest_summary, summary_warning = await _annual_summary(selected["corp_code"], target_year)
+    # latest_summary와 filings 검색은 independent — 병렬 호출.
+    latest_summary_task = _annual_summary(selected["corp_code"], target_year)
+    filings_task = _search_dividend_filings(selected["corp_code"], year_list[0], target_year)
+    (latest_summary, summary_warning), (filings, filing_notices, filing_warning) = await asyncio.gather(
+        latest_summary_task, filings_task,
+    )
     if summary_warning:
         warnings.append(summary_warning)
-
-    filings, filing_notices, filing_warning = await _search_dividend_filings(selected["corp_code"], year_list[0], target_year)
     warnings.extend(filing_notices)
     if filing_warning:
         warnings.append(filing_warning)
@@ -328,9 +332,19 @@ async def build_dividend_payload(
         if _in_window(item.get("rcept_dt", ""), start_ymd, end_ymd)
     ]
 
+    # 연도별 alotMatter 호출을 병렬화 (각 연도 독립).
+    # target_year는 위에서 이미 호출했으므로 latest_summary 재사용해 중복 호출 방지.
     annual_summaries: dict[int, dict[str, Any]] = {}
+    pending_years = [y for y in year_list if y != target_year]
+    pending_results = await asyncio.gather(*[
+        _annual_summary(selected["corp_code"], y) for y in pending_years
+    ]) if pending_years else []
+    year_to_result: dict[int, tuple[dict[str, Any], str | None]] = {target_year: (latest_summary, None)}
+    for y, res in zip(pending_years, pending_results):
+        year_to_result[y] = res
+
     for y in year_list:
-        summary, warning = await _annual_summary(selected["corp_code"], y)
+        summary, warning = year_to_result[y]
         if warning:
             warnings.append(f"{y}년 {warning}")
         if (not summary or int(summary.get("cash_dps") or 0) == 0):

@@ -5,6 +5,26 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-04-29] docs | 배당·자사주 공시 10종 + 2026.03 신법 wiki 정밀 분류
+### 신규 disclosures 페이지 (9종)
+- **배당 4 신규**: 주식배당결정.md, 배당기준일결정.md, 분기배당결정.md, 감액배당결정.md
+- **자사주 5 신규**: 자기주식취득결정.md, 자기주식처분결정.md, 자기주식소각결정.md, 자기주식신탁결정.md (체결+해지 통합), 자기주식의무소각-2026신법.md
+### 업데이트 (1종)
+- **현금배당결정.md**: 트리/필드 통합, 자회사판 중복 제거 명시, 11개 핵심 데이터 항목 표 추가
+### 통합 비교표 (1신규)
+- **comparison/배당-자사주-공시-종합.md**: 10종 + 2026.03 신법 종합 (의무/소스/필드/OPM tool/신법 영향/거버넌스 시나리오 4종)
+### 핵심 발견
+- **2026.03 신법 영향 정량화**: 소각결정 빈도 50건/년 → 200건+ 예상, 자사주 비중 7% → 1-2% 정상화
+- **자사주 마법 차단 메커니즘**: `dpptncmp_cmpnm` 채워짐 + 분쟁 중 → against 절대
+- **선배당-후결의 (2024 개정) 추적**: 분기마다 [[배당기준일결정]]+[[분기배당결정]] 2종 동시 제출 패턴
+- **report_nm 함정**: 자기주식소각결정의 실제 등록명은 "주식소각결정" (자기주식 prefix 없음)
+### 인덱스 업데이트
+- index.md: Disclosures 섹션 (배당 5 + 자사주 5 신규), Comparison 섹션 (배당-자사주-공시-종합 신규)
+### TODO
+- treasury_share tool에 `scope=commitment_check` 신규 (1년 시점 자동 알람)
+- `screen_events(treasury_pending_cancelation)` 신규 이벤트 타입
+- 기존 자사주 보유분 2027.09까지 처리 추적 자동화
+
 ## [2026-04-29] feat | proxy_guideline tool + Open Proxy Guideline v1.2 + 12 의사결정 매트릭스
 ### Phase A: 7 운용사 데이터 파싱
 - 정책 5건: opendataloader-pdf (samsung·samsung_active·truston·kim·align_partners 1-4초)

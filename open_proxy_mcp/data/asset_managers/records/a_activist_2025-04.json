@@ -1,8 +1,8 @@
 {
-  "manager_id": "align_partners",
-  "manager_name": "얼라인파트너스",
+  "manager_id": "a_activist",
+  "manager_name": "A행동주의",
   "period_label": "2025.04",
-  "source_file": "2025.04 얼라인파트너스 의결권 행사내역.xlsx",
+  "source_file": "2025.04 A행동주의 의결권 행사내역.xlsx",
   "votes": [
     {
       "market": "KOSDAQ",
@@ -1169,7 +1169,7 @@
       "ticker": null,
       "meeting_date": "2025-03-31",
       "agenda_no": null,
-      "agenda_title": "사외이사 선임(후보자: 이남우) 주주제안_얼라인파트너스 → 이남우 후보자 자진 사퇴에 따라 폐기",
+      "agenda_title": "사외이사 선임(후보자: 이남우) 주주제안_A행동주의 → 이남우 후보자 자진 사퇴에 따라 폐기",
       "agenda_type_raw": "이사의 선임 및 해임",
       "agenda_category": "director_election",
       "relationship": "-",
@@ -1226,7 +1226,7 @@
       "ticker": null,
       "meeting_date": "2025-03-31",
       "agenda_no": null,
-      "agenda_title": "사외이사인 감사위원회 위원 선임(후보자: 이남우) 주주제안_얼라인파트너스 → 이남우 후보자 자진 사퇴에 따라 폐기",
+      "agenda_title": "사외이사인 감사위원회 위원 선임(후보자: 이남우) 주주제안_A행동주의 → 이남우 후보자 자진 사퇴에 따라 폐기",
       "agenda_type_raw": "감사 또는 감사위원의 선임 및 해임",
       "agenda_category": "audit_committee_election",
       "relationship": "-",

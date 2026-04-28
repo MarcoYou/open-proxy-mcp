@@ -1,8 +1,8 @@
 {
-  "manager_id": "mirae_asset",
-  "manager_name": "[운용사B]",
+  "manager_id": "m_legacy",
+  "manager_name": "M레거시",
   "period_label": "2025.04",
-  "source_file": "2025.04 [운용사B] 의결권 행사내역.xlsx",
+  "source_file": "2025.04 M레거시 의결권 행사내역.xlsx",
   "votes": [
     {
       "market": "KOSPI",

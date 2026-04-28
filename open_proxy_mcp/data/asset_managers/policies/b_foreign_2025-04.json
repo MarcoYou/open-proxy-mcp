@@ -1,13 +1,13 @@
 {
-  "policy_id": "baring",
+  "policy_id": "b_foreign",
   "policy_meta": {
     "type": "asset_manager",
-    "manager_id": "baring",
-    "manager_name": "[운용사G]",
+    "manager_id": "b_foreign",
+    "manager_name": "B외국계",
     "version": "2025.04 (ISS Korea 2026 v1.1)",
     "effective_date": "2026-02-01",
-    "source_file": "2025.04 [운용사G] 의결권행사 내부지침.pdf",
-    "source_md": "/tmp/policy_parse/baring/2025.04 [운용사G] 의결권행사 내부지침.md",
+    "source_file": "2025.04 B외국계 의결권행사 내부지침.pdf",
+    "source_md": "/tmp/policy_parse/baring/2025.04 B외국계 의결권행사 내부지침.md",
     "external_advisor": "ISS Korea 2026 Voting Guidelines (Published Dec 16, 2025; Effective Feb 1, 2026)",
     "policy_classification": "foreign_manager_iss_reference",
     "note": "[v1.2 (2026-04-29)] OPM은 ISS를 벤치마크로 사용하지 않음 (ISS 추천 퀄리티/논란 우려). 베어링은 외국계 운용사가 ISS를 어떻게 활용하는지의 데이터 reference로만 보존. voting_rules 본문은 비교/조사 목적 그대로 유지 (compare scope에서 정상 비교 가능). OPM 의결권 결정 로직은 한국 7 운용사 합의 + 한국 법령 + OPM 4 기준에 따름.",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 from html import unescape
 import re
@@ -287,18 +288,22 @@ async def build_value_up_payload(
     if not items and not kind_items:
         diagnostic_bgn = f"{target_year - 2}0101"
         diagnostic_end = f"{target_year}1231"
-        diagnostic_items, diagnostic_notices, diagnostic_error = await _search_value_up_items(
+        # DART 진단검색과 KIND 진단검색은 independent → 병렬.
+        diag_dart_task = _search_value_up_items(
             selected["corp_code"],
             bgn_de=diagnostic_bgn,
             end_de=diagnostic_end,
         )
-        warnings.extend(diagnostic_notices)
-        diagnostic_kind_items, diagnostic_kind_error = await _search_kind_value_up_items(
+        diag_kind_task = _search_kind_value_up_items(
             selected.get("stock_code", ""),
             selected.get("corp_name", company_query),
             bgn_de=diagnostic_bgn,
             end_de=diagnostic_end,
         )
+        (diagnostic_items, diagnostic_notices, diagnostic_error), (diagnostic_kind_items, diagnostic_kind_error) = await asyncio.gather(
+            diag_dart_task, diag_kind_task,
+        )
+        warnings.extend(diagnostic_notices)
         diagnostics = {
             "requested_window": {
                 "start_date": requested_bgn,

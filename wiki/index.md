@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-04-18
+updated: 2026-04-29
 ---
 
 # OPM Wiki Index
@@ -70,6 +70,7 @@ updated: 2026-04-18
 - [[open-proxy-guideline]] - OPM 자체 의결권 행사 정책 v1.2 (12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting)
 - [[decision-matrix-design]] - 12 카테고리 의사결정 매트릭스 (100 dim, 76 빙고 패턴 — OPM 단독 다차원 평가 시스템)
 - [[opm-guideline-debate-transcript]] - 7 전문가 토론 + v1.0 → v1.1 → v1.2 결정 transcript
+- [[turnkey-improvement-2026-04-29]] - 11 agent 병렬 작업 통합 (G1-G4 + 7 페르소나 + 모더레이터 결정)
 
 ## Templates
 
@@ -79,6 +80,7 @@ updated: 2026-04-18
 
 - [[stkrt-vs-ctr_stkrt]] - DART 대량보유 API: stkrt(합산) vs ctr_stkrt(주요계약체결) 차이
 - [[회사측-vs-주주측-위임장]] - 위임장 문서 구조 차이, flr_nm 구분법, 행사방향 파싱 위치
+- [[배당-자사주-공시-종합]] - 배당 5종 + 자사주 5종 + 2026.03 신법 통합 비교 (의무/소스/필드/OPM tool 매핑)
 
 ## Analysis
 
@@ -104,6 +106,8 @@ updated: 2026-04-18
 - [[parsing-audit-2026-04-22]] - 확장 audit: 14 scope × 15 회사 + 필드 채움률 + corp_gov_report 포함
 - [[corp_gov_report-design]] - 기업지배구조보고서 파서 설계 (15 핵심지표, 준수율, 원문 파싱)
 - [[voting-policy-consensus-matrix]] - 7 운용사 의결권 정책 합의/이견 매트릭스 (79 토픽, 12 카테고리)
+- [[parsing-audit-2026-04-29]] - 196 기업 (KOSPI 100 + KOSDAQ 96) × 11 tool 전수 audit (exact 66.9%, error 1.16%, regression 0)
+- [[speed-optimization-2026-04-29]] - 9건 sequential → asyncio.gather 적용 (proxy_contest 4x, ownership 3x, dividend 3x, regression PASS)
 
 ## Disclosures
 
@@ -112,8 +116,12 @@ updated: 2026-04-18
 - [[사업보고서]] - DART, 의무/정기(연 1회), 재무/지분/배당 종합
 - [[반기보고서]] - DART, 의무/정기(반기), 중간 재무/배당
 - [[분기보고서]] - DART, 의무/정기(분기), 분기 재무/배당
-- [[현금배당결정]] - KRX, 의무/수시, DPS/기준일/지급일
-- [[배당공시유형]] - 배당 관련 공시 6종 원문 트리 (현금배당결정/기준일결정/주식배당결정 등)
+- [[현금배당결정]] - KRX+DART(I), 의무/수시, DPS/기준일/지급일/시가배당률 (dividend)
+- [[주식배당결정]] - KRX+DART(I), 의무/수시, 1주당 배당주식수(소수 7자리)/배당주식 총수 (dividend)
+- [[배당기준일결정]] - KRX+DART(I), 의무/수시, 2024 자본시장법 개정 후 선배당-후결의 가능 (dividend)
+- [[분기배당결정]] - KRX+DART(I), 의무(정관)/수시 분기별, 연간 DPS = 1Q+반기+3Q+결산 (dividend)
+- [[감액배당결정]] - DART(B), 의무/수시, 자본준비금 감소 → 이익잉여금 전입 → 배당, 주총 특별결의
+- [[배당공시유형]] - 배당 관련 거래소공시 6종 원문 트리 (자회사판 포함, 통합 인덱스)
 - [[대량보유상황보고서]] - DART, 의무/수시(5% 변동), 보유목적/보유량
 - [[위임장권유참고서류]] - DART, 의무(권유 시)/수시, 프록시 파이트 핵심
 - [[최대주주등소유주식변동신고서]] - KRX KIND, 의무/수시, 최대주주+특관인 지분 변동 (ownership_structure scope=changes)
@@ -121,7 +129,12 @@ updated: 2026-04-18
 - [[회사분할결정]] - DART, 의무/수시(DS005), 분할형태·신설/존속회사 (corporate_restructuring scope=split)
 - [[회사분할합병결정]] - DART, 의무/수시(DS005), 분할 + 합병 동시 결정 (corporate_restructuring scope=split)
 - [[주식교환·이전결정]] - DART, 의무/수시(DS005), 지주회사 전환 도구 (corporate_restructuring scope=share_exchange)
-- [[자기주식결정]] - DART, 의무/수시(DS005·I), 취득·처분·소각·신탁 5종 통합 (treasury_share)
+- [[자기주식결정]] - DART, 의무/수시(DS005·I), 취득·처분·소각·신탁 5종 통합 인덱스 (treasury_share)
+- [[자기주식취득결정]] - DART(DS005), 의무/수시, `tsstkAqDecsn` API, 2026.03 신법 — `aq_pp` "소각" 명시 필수
+- [[자기주식처분결정]] - DART(DS005), 의무/수시, `tsstkDpDecsn` API, 자사주 마법 대상 (`dpptncmp_cmpnm`)
+- [[자기주식소각결정]] - DART(I), 의무/수시, list.json+키워드, report_nm "주식소각결정" (자기주식 X)
+- [[자기주식신탁결정]] - DART(DS005), 의무/수시, `tsstkAqTrctrCnsDecsn`(체결)+`tsstkAqTrctrCcDecsn`(해지)
+- [[자기주식의무소각-2026신법]] - 신법(상법 §341/§342 개정 2026.03.06), 1년 내 의무소각, 한국 자사주 정책 전면 재설계
 - [[기업가치제고계획]] - DART+KIND, 자율/수시, 밸류업 본계획·이행점검 (value_up)
 - [[최대주주변경]] - DART, 의무/수시, 주식양수도·담보·합병 등 (screen_events major_shareholder_change)
 - [[임원·주요주주특정증권등소유상황보고서]] - DART, 의무/수시(DS004), 임원·10%+ 주주 보유 변동 (elestock)
@@ -146,6 +159,7 @@ updated: 2026-04-18
 - [[jpm-voting-process]] - JPMAM proxy voting 5단계 프로세스 (mermaid flowchart)
 - [[주총방어전략-2026]] - 주총 방어 시나리오 4가지 (미래에셋증권 리서치 2026.03.19)
 - [[주총체크리스트-2026]] - 주총 체크리스트 9개 + 상법 개정 타임라인 (미래에셋증권)
+- [[data-collection-architecture]] - OPM 전수 데이터 수집 entry point + 파싱 방법 (DART/KIND/Naver/Upstage/정적 JSON, 14 섹션 639줄)
 
 ## Archive
 

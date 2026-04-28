@@ -1,13 +1,13 @@
 {
-  "policy_id": "kim",
+  "policy_id": "k_legacy",
   "policy_meta": {
     "type": "asset_manager",
-    "manager_id": "kim",
-    "manager_name": "[운용사A]",
+    "manager_id": "k_legacy",
+    "manager_name": "K레거시",
     "version": "2024.04.25",
     "effective_date": "2024-04-25",
-    "source_file": "2025.04 [운용사A] 의결권행사 내부지침.pdf",
-    "source_md": "/tmp/policy_parse/kim/2025.04 [운용사A] 의결권행사 내부지침.md"
+    "source_file": "2025.04 K레거시 의결권행사 내부지침.pdf",
+    "source_md": "/tmp/policy_parse/kim/2025.04 K레거시 의결권행사 내부지침.md"
   },
   "general_principles": [
     "투자자 보호",

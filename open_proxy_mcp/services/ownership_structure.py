@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 import re
 from typing import Any
@@ -456,14 +457,20 @@ async def build_ownership_structure_payload(
     )
     warnings: list[str] = list(window_warnings)
 
-    try:
-        major = await client.get_major_shareholders(selected["corp_code"], bsns_year)
-    except DartClientError as exc:
+    # 3개 정기보고서 API는 같은 corp_code/bsns_year로 병렬 호출 가능 (independent).
+    # major는 실패 시 즉시 ERROR return하던 기존 동작 유지(asyncio.gather + return_exceptions).
+    major_task = client.get_major_shareholders(selected["corp_code"], bsns_year)
+    stock_total_task = client.get_stock_total(selected["corp_code"], bsns_year)
+    treasury_task = client.get_treasury_stock(selected["corp_code"], bsns_year)
+    major_res, stock_total_res, treasury_res = await asyncio.gather(
+        major_task, stock_total_task, treasury_task, return_exceptions=True,
+    )
+    if isinstance(major_res, DartClientError):
         return ToolEnvelope(
             tool="ownership_structure",
             status=AnalysisStatus.ERROR,
             subject=selected.get("corp_name", company_query),
-            warnings=[f"최대주주 API 조회 실패: {exc.status}"],
+            warnings=[f"최대주주 API 조회 실패: {major_res.status}"],
             data={
                 "query": company_query,
                 "scope": scope,
@@ -471,18 +478,25 @@ async def build_ownership_structure_payload(
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
             },
         ).to_dict()
+    if isinstance(major_res, BaseException):
+        raise major_res
+    major = major_res
 
-    try:
-        stock_total = await client.get_stock_total(selected["corp_code"], bsns_year)
-    except DartClientError as exc:
+    if isinstance(stock_total_res, DartClientError):
         stock_total = {"list": []}
-        warnings.append(f"주식총수 API 조회 실패: {exc.status}")
+        warnings.append(f"주식총수 API 조회 실패: {stock_total_res.status}")
+    elif isinstance(stock_total_res, BaseException):
+        raise stock_total_res
+    else:
+        stock_total = stock_total_res
 
-    try:
-        treasury_data = await client.get_treasury_stock(selected["corp_code"], bsns_year)
-    except DartClientError as exc:
+    if isinstance(treasury_res, DartClientError):
         treasury_data = {"list": []}
-        warnings.append(f"자사주 API 조회 실패: {exc.status}")
+        warnings.append(f"자사주 API 조회 실패: {treasury_res.status}")
+    elif isinstance(treasury_res, BaseException):
+        raise treasury_res
+    else:
+        treasury_data = treasury_res
 
     major_rows = _major_holders_rows(major)
     latest_blocks, timeline_rows, block_warning = await _latest_block_rows(selected["corp_code"])

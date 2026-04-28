@@ -72,10 +72,10 @@ Once connected, just ask in natural language:
 "Hyundai E&C — single supply contract pattern for the last 2 years"
 "Show KT&G's corporate governance report compliance rate"
 "Hyundai Motor — all 15 governance core principles with notes"
-"KT&G AGM vote brief (Align Partners style)"
-"Compare 7 asset managers' director compensation voting policies"
-"Audit Samsung Asset Management's policy vs actual voting gap"
-"Show Mirae Asset Management's 2025 voting record on Samsung Electronics"
+"KT&G AGM vote brief (activist manager style)"
+"Compare 8 asset managers' director compensation voting policies"
+"Audit S-legacy (large manager) policy vs actual voting gap"
+"Show M-legacy 2025 voting record on Samsung Electronics"
 "Show Open Proxy Guideline 12-category policy"
 ```
 
@@ -91,7 +91,7 @@ Once connected, just ask in natural language:
 company                            # Entry point — company ID + recent filings index
 │
 ├─ Discovery Tool (1)
-│  └─ screen_events                # Find companies by recent event (22 event_types, KOSPI+KOSDAQ)
+│  └─ screen_events                # Find companies by recent event (21 event_types, KOSPI+KOSDAQ)
 │
 ├─ Data Tools (11)
 │  ├─ shareholder_meeting          # AGM/EGM (agendas / candidates / compensation / results)
@@ -120,10 +120,12 @@ company                            # Entry point — company ID + recent filings
 
 ### 🆕 proxy_guideline tool
 
-**7 asset managers' policy data** (parsed JSON, 14MB static):
-- Mirae Asset · Samsung · Samsung Active · Truston · Korea Investment Trust (5 Korean)
-- Align Partners (activist)
-- Baring (foreign — references ISS Korea 2026)
+**8 asset managers' policy data** (parsed JSON, 14MB+ static, anonymized):
+- M-legacy / S-legacy / SA-active / K-legacy (4 large legacy managers)
+- T-activist / A-activist / C-activist (3 activist managers)
+- B-foreign (references ISS Korea 2026 — but OPM does NOT use ISS as benchmark)
+
+> Note: Real manager names are kept internal-only (gitignored mapping file). External docs use anonymized initials + classification.
 
 **Open Proxy Guideline v1.2** (OPM proprietary best-practice policy):
 - 12 categories × 116 rules + 11 novel topics + **7 new 2026 Korea laws** (5 managers haven't reflected yet)
@@ -173,7 +175,7 @@ Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a c
 | **Related-party** | Equity deals + single supply contracts | 1 |
 | **Governance** | Corporate governance report (15 core principles, full KOSPI mandatory from 2026) | 1 |
 | **Evidence** | Filing source links | 1 |
-| **Policy & Matrix** | 7 manager policies + Open Proxy Guideline + 12 decision matrices | 1 |
+| **Policy & Matrix** | 8 manager policies (anonymized) + Open Proxy Guideline + 12 decision matrices | 1 |
 | **Action** | Vote memo (with OPM policy guidance auto), engagement case, campaign brief | 3 |
 | | **Total** | **17** |
 
@@ -202,7 +204,7 @@ When you ask for a voting recommendation on an AGM agenda item, OpenProxy follow
 | [KRX KIND](https://kind.krx.co.kr/) | AGM voting results | Web crawl |
 | [Naver News API](https://developers.naver.com/) | Candidate adverse news search | Optional (free API key) |
 | [Naver Finance](https://finance.naver.com/) | Stock price, sector, dividend yield | Web crawl |
-| Asset manager voting disclosures | 7 manager policies + voting records (17,900 votes total) | Static parsed JSON (proxy_guideline tool) |
+| Asset manager voting disclosures | 8 manager policies + voting records (17,900+ votes total, anonymized) | Static parsed JSON (proxy_guideline tool) |
 
 ---
 
@@ -215,7 +217,7 @@ open-proxy-mcp/
     tools_v2/              # 17 tools
     services/              # Domain logic layer (separated from tools)
     dart/client.py         # DART API + KIND crawl + Naver + rate limiter
-    data/asset_managers/   # 7 manager policies + records + Open Proxy Guideline + 12 matrices
+    data/asset_managers/   # 8 manager policies (anonymized) + records + Open Proxy Guideline + 12 matrices
   Dockerfile               # Container for Fly.io deployment
   fly.toml                 # Fly.io config (nrt region, auto-suspend)
   wiki/                    # Domain knowledge wiki

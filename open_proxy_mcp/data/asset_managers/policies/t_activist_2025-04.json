@@ -1,13 +1,13 @@
 {
-  "policy_id": "truston",
+  "policy_id": "t_activist",
   "policy_meta": {
     "type": "asset_manager",
-    "manager_id": "truston",
-    "manager_name": "[운용사C]",
+    "manager_id": "t_activist",
+    "manager_name": "T행동주의",
     "version": "2023.12.12",
     "effective_date": "2023-12-12",
-    "source_file": "2025.04 [운용사C] 의결권행사 내부지침.pdf",
-    "source_md": "/tmp/policy_parse/truston/2025.04 [운용사C] 의결권행사 내부지침.md"
+    "source_file": "2025.04 T행동주의 의결권행사 내부지침.pdf",
+    "source_md": "/tmp/policy_parse/truston/2025.04 T행동주의 의결권행사 내부지침.md"
   },
   "general_principles": [
     "투자자 보호",

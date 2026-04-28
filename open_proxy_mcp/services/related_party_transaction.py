@@ -252,28 +252,40 @@ async def _enrich_with_document_details(
     rows: list[dict[str, Any]],
     max_docs: int = 5,
 ) -> tuple[list[dict[str, Any]], list[str], int]:
-    """rows의 앞쪽 N개에 원문 파싱 결과 details 추가."""
+    """rows의 앞쪽 N개에 원문 파싱 결과 details 추가.
+
+    각 문서는 독립적으로 fetch 가능 — asyncio.gather 병렬 실행.
+    DART rate limit은 client._throttle_api에서 0.1초 간격을 강제하므로
+    동시 실행되더라도 실제로는 순차 throttle된다.
+    """
     client = get_dart_client()
     warnings: list[str] = []
-    doc_calls = 0
-    for row in rows[:max_docs]:
-        rcept_no = row.get("rcept_no", "")
-        if not rcept_no:
-            continue
+    targets = [row for row in rows[:max_docs] if row.get("rcept_no")]
+    if not targets:
+        return rows, warnings, 0
+
+    async def _safe_fetch(rcept_no: str) -> tuple[str, str | None]:
         try:
             doc = await client.get_document_cached(rcept_no)
-            doc_calls += 1
-            html = doc.get("html", "") if isinstance(doc, dict) else ""
-            if not html:
-                continue
-            if row.get("type") == "equity_deal":
-                row["details"] = _parse_equity_deal_document(html)
-            elif row.get("type") == "supply_contract":
-                row["details"] = _parse_supply_contract_document(html)
+            return (doc.get("html", "") if isinstance(doc, dict) else ""), None
         except DartClientError as exc:
-            warnings.append(f"원문 조회 실패 ({rcept_no}): {exc.status}")
+            return "", f"원문 조회 실패 ({rcept_no}): {exc.status}"
         except Exception as exc:
-            warnings.append(f"원문 파싱 실패 ({rcept_no}): {exc}")
+            return "", f"원문 파싱 실패 ({rcept_no}): {exc}"
+
+    results = await asyncio.gather(*[_safe_fetch(row["rcept_no"]) for row in targets])
+    doc_calls = 0
+    for row, (html, err) in zip(targets, results):
+        if err:
+            warnings.append(err)
+            continue
+        doc_calls += 1
+        if not html:
+            continue
+        if row.get("type") == "equity_deal":
+            row["details"] = _parse_equity_deal_document(html)
+        elif row.get("type") == "supply_contract":
+            row["details"] = _parse_supply_contract_document(html)
     return rows, warnings, doc_calls
 
 

@@ -1,8 +1,8 @@
 {
-  "manager_id": "samsung",
-  "manager_name": "[운용사D]",
+  "manager_id": "s_legacy",
+  "manager_name": "S레거시",
   "period_label": "2024.04",
-  "source_file": "2024.04 [운용사D] 의결권 행사내역.xlsx",
+  "source_file": "2024.04 S레거시 의결권 행사내역.xlsx",
   "votes": [
     {
       "market": "KOSPI",

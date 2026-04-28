@@ -53,6 +53,9 @@ wiki/sources/*.pdf
 wiki/sources/*.xlsx
 wiki/sources/*.doc
 wiki/sources/*.docx
+wiki/sources/2024.*
+wiki/sources/2025.*
+wiki/sources/2026.*
 
 # Document cache (DART API)
 cache/
@@ -74,3 +77,6 @@ wiki/raw/*.pdf
 
 # Graphify (knowledge graph build artifacts — rebuilt from wiki/)
 graphify-out/
+
+# 운용사 실명-익명 매핑 (개발자 internal only, 외부 노출 금지)
+manager_aliases.json

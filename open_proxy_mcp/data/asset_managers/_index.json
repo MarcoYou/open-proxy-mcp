@@ -16,13 +16,13 @@
     "shareholder_proposal"
   ],
   "managers": {
-    "align_partners": {
-      "name": "얼라인파트너스",
+    "a_activist": {
+      "name": "A행동주의",
       "type": "asset_manager",
       "classification": "active_engagement_activist",
       "external_advisor": null,
       "latest_policy": "2024.10.10",
-      "policy_file": "policies/align_partners_2025-04.json",
+      "policy_file": "policies/a_activist_2025-04.json",
       "records": [
         {
           "period": "2024-04",
@@ -42,13 +42,13 @@
       "categories_covered": 12,
       "extraction_confidence": "high"
     },
-    "baring": {
-      "name": "[운용사G]",
+    "b_foreign": {
+      "name": "B외국계",
       "type": "asset_manager",
       "classification": "global_advisor_adoption",
       "external_advisor": "ISS Korea 2026 Voting Guidelines (Published Dec 16, 2025; Effective Feb 1, 2026)",
       "latest_policy": "2025.04 (ISS Korea 2026 v1.1)",
-      "policy_file": "policies/baring_2025-04.json",
+      "policy_file": "policies/b_foreign_2025-04.json",
       "records": [
         {
           "period": "2024-04",
@@ -75,13 +75,13 @@
       "categories_covered": 12,
       "extraction_confidence": "high"
     },
-    "kim": {
-      "name": "[운용사A]",
+    "k_legacy": {
+      "name": "K레거시",
       "type": "asset_manager",
       "classification": "",
       "external_advisor": "",
       "latest_policy": "2024.04.25",
-      "policy_file": "policies/kim_2025-04.json",
+      "policy_file": "policies/k_legacy_2025-04.json",
       "records": [
         {
           "period": "2024-04",
@@ -101,13 +101,13 @@
       "categories_covered": 12,
       "extraction_confidence": "high"
     },
-    "mirae_asset": {
-      "name": "[운용사B]",
+    "m_legacy": {
+      "name": "M레거시",
       "type": "asset_manager",
       "classification": "",
       "external_advisor": "",
       "latest_policy": "2024.09.20",
-      "policy_file": "policies/mirae_asset_2025-04.json",
+      "policy_file": "policies/m_legacy_2025-04.json",
       "records": [
         {
           "period": "2024-04",
@@ -127,13 +127,13 @@
       "categories_covered": 12,
       "extraction_confidence": "high"
     },
-    "samsung": {
-      "name": "[운용사D]",
+    "s_legacy": {
+      "name": "S레거시",
       "type": "asset_manager",
       "classification": "",
       "external_advisor": "",
       "latest_policy": "2025.02.27",
-      "policy_file": "policies/samsung_2025-04.json",
+      "policy_file": "policies/s_legacy_2025-04.json",
       "records": [
         {
           "period": "2024-04",
@@ -153,13 +153,13 @@
       "categories_covered": 12,
       "extraction_confidence": "high"
     },
-    "samsung_active": {
-      "name": "[운용사D2]",
+    "sa_active": {
+      "name": "SA액티브",
       "type": "asset_manager",
       "classification": "",
       "external_advisor": "",
       "latest_policy": "2025.04.10",
-      "policy_file": "policies/samsung_active_2025-04.json",
+      "policy_file": "policies/sa_active_2025-04.json",
       "records": [
         {
           "period": "2024-04",
@@ -179,13 +179,13 @@
       "categories_covered": 12,
       "extraction_confidence": "high"
     },
-    "truston": {
-      "name": "[운용사C]",
+    "t_activist": {
+      "name": "T행동주의",
       "type": "asset_manager",
       "classification": "",
       "external_advisor": "",
       "latest_policy": "2023.12.12",
-      "policy_file": "policies/truston_2025-04.json",
+      "policy_file": "policies/t_activist_2025-04.json",
       "records": [
         {
           "period": "2024-04",
@@ -200,6 +200,25 @@
           "for_count": 901,
           "against_count": 55,
           "against_rate_pct": 5.8
+        }
+      ],
+      "categories_covered": 12,
+      "extraction_confidence": "high"
+    },
+    "c_activist": {
+      "name": "C행동주의",
+      "type": "asset_manager",
+      "classification": "active_engagement_activist",
+      "external_advisor": null,
+      "latest_policy": "2024.01.15",
+      "policy_file": "policies/c_activist_2026-04.json",
+      "records": [
+        {
+          "period": "2026-04",
+          "total_votes": 69,
+          "for_count": 50,
+          "against_count": 19,
+          "against_rate_pct": 27.5
         }
       ],
       "categories_covered": 12,

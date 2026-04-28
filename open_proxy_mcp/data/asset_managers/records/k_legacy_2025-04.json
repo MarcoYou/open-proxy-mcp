@@ -1,8 +1,8 @@
 {
-  "manager_id": "kim",
-  "manager_name": "[운용사A]",
+  "manager_id": "k_legacy",
+  "manager_name": "K레거시",
   "period_label": "2025.04",
-  "source_file": "2025.04 [운용사A] 의결권 행사내역.xlsx",
+  "source_file": "2025.04 K레거시 의결권 행사내역.xlsx",
   "votes": [
     {
       "market": "KOSDAQ",

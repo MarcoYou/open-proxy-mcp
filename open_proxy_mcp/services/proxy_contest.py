@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections import Counter
 from datetime import date, timedelta
 import re
@@ -216,10 +217,18 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
     warnings: list[str] = []
     bsns_year = str((target_year or date.today().year) - 1)
 
-    try:
-        major = await client.get_major_shareholders(corp_code, bsns_year)
-    except DartClientError as exc:
-        warnings.append(f"지분 명부 API 조회 실패: {exc.status}")
+    # 3개 정기보고서 + 5% 블록 API를 병렬 호출 (independent endpoints).
+    major_task = client.get_major_shareholders(corp_code, bsns_year)
+    stock_total_task = client.get_stock_total(corp_code, bsns_year)
+    treasury_task = client.get_treasury_stock(corp_code, bsns_year)
+    blocks_task = _latest_block_rows(corp_code)
+    major_res, stock_total_res, treasury_res, blocks_res = await asyncio.gather(
+        major_task, stock_total_task, treasury_task, blocks_task,
+        return_exceptions=True,
+    )
+
+    if isinstance(major_res, DartClientError):
+        warnings.append(f"지분 명부 API 조회 실패: {major_res.status}")
         return {
             "year": bsns_year,
             "top_holder": {},
@@ -227,21 +236,32 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
             "treasury_pct": 0.0,
             "control_map": {},
         }, warnings
+    if isinstance(major_res, BaseException):
+        raise major_res
+    major = major_res
 
-    try:
-        stock_total = await client.get_stock_total(corp_code, bsns_year)
-    except DartClientError as exc:
+    if isinstance(stock_total_res, DartClientError):
         stock_total = {"list": []}
-        warnings.append(f"주식총수 API 조회 실패: {exc.status}")
+        warnings.append(f"주식총수 API 조회 실패: {stock_total_res.status}")
+    elif isinstance(stock_total_res, BaseException):
+        raise stock_total_res
+    else:
+        stock_total = stock_total_res
 
-    try:
-        treasury_data = await client.get_treasury_stock(corp_code, bsns_year)
-    except DartClientError as exc:
+    if isinstance(treasury_res, DartClientError):
         treasury_data = {"list": []}
-        warnings.append(f"자사주 API 조회 실패: {exc.status}")
+        warnings.append(f"자사주 API 조회 실패: {treasury_res.status}")
+    elif isinstance(treasury_res, BaseException):
+        raise treasury_res
+    else:
+        treasury_data = treasury_res
 
     major_rows = _major_holders_rows(major)
-    latest_blocks, _, block_warning = await _latest_block_rows(corp_code)
+    if isinstance(blocks_res, BaseException):
+        latest_blocks: list[dict[str, Any]] = []
+        block_warning = f"5% 블록 조회 실패: {blocks_res}"
+    else:
+        latest_blocks, _, block_warning = blocks_res
     if block_warning:
         warnings.append(block_warning)
     treasury_snapshot = _treasury_snapshot(stock_total, treasury_data)
@@ -570,10 +590,17 @@ async def build_proxy_contest_payload(
     )
     warnings: list[str] = list(window_warnings)
 
-    proxy_rows, proxy_notices, proxy_warning = await _proxy_items(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de)
-    litigation_rows, litigation_notices, lit_warning = await _litigation_items(selected["corp_code"], bgn_de, end_de)
-    signal_rows, signal_warning = await _block_signals(selected["corp_code"])
-    control_context, control_warnings = await _control_context(selected["corp_code"], company_query, window_year)
+    # 4개 fetch를 병렬화 (각각 endpoint가 다르고 독립적)
+    proxy_task = _proxy_items(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de)
+    litigation_task = _litigation_items(selected["corp_code"], bgn_de, end_de)
+    signal_task = _block_signals(selected["corp_code"])
+    control_task = _control_context(selected["corp_code"], company_query, window_year)
+    (
+        (proxy_rows, proxy_notices, proxy_warning),
+        (litigation_rows, litigation_notices, lit_warning),
+        (signal_rows, signal_warning),
+        (control_context, control_warnings),
+    ) = await asyncio.gather(proxy_task, litigation_task, signal_task, control_task)
 
     warnings.extend(proxy_notices)
     warnings.extend(litigation_notices)

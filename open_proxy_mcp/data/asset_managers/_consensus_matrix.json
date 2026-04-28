@@ -2,22 +2,22 @@
   "schema_version": "v3",
   "generated_at": "2026-04-29",
   "managers": [
-    "mirae_asset",
-    "samsung",
-    "samsung_active",
-    "truston",
-    "kim",
-    "baring",
-    "align_partners"
+    "m_legacy",
+    "s_legacy",
+    "sa_active",
+    "t_activist",
+    "k_legacy",
+    "b_foreign",
+    "a_activist"
   ],
   "manager_names": {
-    "mirae_asset": "[운용사B]",
-    "samsung": "[운용사D]",
-    "samsung_active": "[운용사D2]",
-    "truston": "[운용사C]",
-    "kim": "[운용사A]",
-    "baring": "[운용사G] (ISS Korea 2026 직접 채택)",
-    "align_partners": "얼라인파트너스 (행동주의 펀드)"
+    "m_legacy": "M레거시",
+    "s_legacy": "S레거시",
+    "sa_active": "SA액티브",
+    "t_activist": "T행동주의",
+    "k_legacy": "K레거시",
+    "b_foreign": "B외국계 (ISS Korea 2026 직접 채택)",
+    "a_activist": "A행동주의 (행동주의 펀드)"
   },
   "agreement_levels": {
     "consensus": "7 운용사 중 6+ 같은 입장 (강한 합의)",
@@ -34,47 +34,47 @@
           "topic_id": "non_qualified_audit_opinion",
           "topic_label": "외부감사인 '적정' 외 의견 시 반대",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "외부감사인의 감사의견이 '적정'이 아닌 경우",
               "section": "[별표1] I-1①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "외부감사인의 감사의견 '적정' 이외의 의견",
               "section": "[별첨] Ⅰ-1"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "외부감사인의 감사의견 '적정' 이외의 의견 시 기권 또는 반대",
               "section": "제2장 1"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "외부감사인의 감사의견이 '적정'이 아닌 경우 반대",
               "section": "3.3-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "외부감사인의 감사의견이 '적정'이 아닌 경우 반대",
               "section": "[별표] A-1.14-3)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 회계 또는 감사 절차에 우려가 있는 경우 반대",
               "section": "ISS 2026 Ch.1 Operational Items"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "외부감사인의 감사의견이 '적정'이 아닌 경우에는 반대 투표한다.",
               "section": "[별지] Ⅰ-1"
             }
@@ -87,22 +87,22 @@
           "topic_id": "non_audit_service_prohibition",
           "topic_label": "외부감사인 비감사 자문 서비스 금지",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "피감사회사가 외부감사인으로부터 감사 외에 경영자문서비스 등을 제공받는 것을 금지하는 안",
               "section": "[별표1] I-1②"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "외부감사인의 감사 외 자문서비스 제공 금지 안 찬성",
               "section": "[별표] A-3.4"
             }
@@ -115,22 +115,22 @@
           "topic_id": "board_approval_of_financials",
           "topic_label": "재무제표 이사회 승인 (상법 449의2) 절차",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "review",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "review",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "재무제표 승인을 이사회에서 하도록 변경 (주주 보호방안 명시 안 한 경우 반대)",
               "section": "1.15-1"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대 — 주주 배당 결정권 박탈",
               "section": "ISS 2026 Ch.6 Routine"
             }
@@ -155,42 +155,42 @@
           "topic_id": "appropriate_dividend_policy",
           "topic_label": "적정 배당정책에 의한 배당 찬성",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "for",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "for",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "회사의 적정 배당정책에 의한 배당",
               "section": "[별표1] I-2①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "적정 배당정책에 의한 배당 찬성",
               "section": "[별첨] Ⅰ-2"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "회사의 적정 배당 정책에 의한 배당 찬성",
               "section": "제2장 2①"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "회사가 합리적 배당 정책 공개 + 정책에 의해 배당 시 찬성",
               "section": "14.1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "회사의 적정 배당정책에 의한 배당 찬성",
               "section": "[별표] B-14.1"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 이익배분(현금배당/주식배당) 일반 찬성",
               "section": "ISS 2026 Ch.1 Operational Items"
             }
@@ -203,37 +203,37 @@
           "topic_id": "interim_quarterly_dividend",
           "topic_label": "중간/분기 배당 허용",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "중간 또는 분기 배당 허용",
               "section": "[별표1] II-10②"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "중간/분기 배당 허용 안 찬성",
               "section": "[별첨] Ⅱ-18①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "중간/반기 배당 허용",
               "section": "제2장 2③"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "중간 또는 분기 배당 허용",
               "section": "14.3"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "중간 또는 분기 배당을 허용하는 안 찬성",
               "section": "[별표] B-14.2"
             }
@@ -246,32 +246,32 @@
           "topic_id": "dividend_record_date_change",
           "topic_label": "배당기준일을 배당결의일 이후로 변경 (선배당-후결의)",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "silent",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "silent",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "배당기준일을 배당결의일 이후로 변경",
               "section": "[별표1] II-10①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "배당기준일을 배당결의일 이후로 변경 찬성",
               "section": "[별첨] Ⅱ-18②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "배당기준일 배당결의일 이후로 변경 찬성",
               "section": "1.16-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "배당기준일을 배당결의일 이후로 변경 찬성",
               "section": "[별표] A-1.15-4)"
             }
@@ -284,32 +284,32 @@
           "topic_id": "dividend_policy_disclosure",
           "topic_label": "배당정책 공시 의무화 (원칙·기준·절차 명시)",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "silent",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "배당정책 공시 의무화 (배당 원칙·기준·절차 명시)",
               "section": "[별표1] I-2③"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "배당정책 공시 의무화",
               "section": "[별첨] Ⅰ-3"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "배당정책 공시 의무화",
               "section": "제2장 2⑤"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "배당정책 공시 의무화 (배당 원칙·기준·절차 명시)",
               "section": "14.6"
             }
@@ -322,42 +322,42 @@
           "topic_id": "excessive_or_insufficient_dividend",
           "topic_label": "주주가치 훼손 정도의 과소·과다 배당",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "배당금 지급 수준이 주주가치 훼손할 정도로 과소·과다",
               "section": "[별표1] I-2①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "배당금 지급 수준이 주주가치 훼손할 정도로 과소·과다",
               "section": "[별첨] Ⅰ-2"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "주주활동에도 개선 무 또는 배당금이 주주가치 훼손할 정도로 과소·과다",
               "section": "제2장 2②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "주주활동 개선 무 + 총주주환원률이 주주가치 훼손할 정도로 과소·과다",
               "section": "14.2"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 배당성향이 적절한 정당화 없이 지속적으로 낮은 경우 반대. 회사 재무상황 대비 과도한 배당 시 반대",
               "section": "ISS 2026 Ch.1 Allocation of Income"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의 핵심] 배당금이 회사 이익규모·재무상황 대비 주주가치 훼손할 정도로 과소한 경우 반대",
               "section": "[별지] Ⅰ-2 배당정책"
             }
@@ -370,32 +370,32 @@
           "topic_id": "board_dividend_decision",
           "topic_label": "이사회 결의로 배당 결정 (주총 → 이사회 이관)",
           "positions": {
-            "mirae_asset": "review",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "review",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "review",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "review",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "이사회 결의로 배당 결정 (배당정책 공시 시에만 찬성)",
               "section": "[별표1] I-2②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "이사회 결의로 배당 결정 (배당정책 공시 시에만 찬성 가능)",
               "section": "14.5"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "이사회 결의로 배당 결정: 배당정책 공시 시에만 찬성",
               "section": "[별표] B-14.4"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 이사회에 배당 승인 권한 부여 조항 도입 반대 — 주주 배당 결정권 박탈",
               "section": "ISS 2026 Ch.6 Routine"
             }
@@ -420,47 +420,47 @@
           "topic_id": "outside_director_ratio_increase",
           "topic_label": "사외이사 비중 확대",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "for",
-            "align_partners": "for"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "for",
+            "a_activist": "for"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "사외이사의 비중을 높이는 안에 찬성",
               "section": "[별표1] II-2"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "사외이사 비중 확대",
               "section": "[별첨] Ⅱ-13"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "사외이사 비중 확대",
               "section": "제3장 13"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "사외이사 비중 확대",
               "section": "2.9-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "사외이사 비중 확대",
               "section": "[별표] A-2.9"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대 — 사외이사 비중 확대 권장",
               "section": "ISS 2026 Ch.2 Board / INDEPENDENCE"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의] 정당 사유 없는 사외이사 비중 축소 반대 (확대 찬성)",
               "section": "[별지] Ⅱ-2 (9) 사외이사 비중"
             }
@@ -473,37 +473,37 @@
           "topic_id": "ceo_chairman_separation",
           "topic_label": "이사회 의장-CEO/CFO 직책 분리",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "이사회 의장과 CEO/CFO 직책 분리",
               "section": "[별표1] II-15①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "이사회 의장-CEO 분리",
               "section": "[별첨] Ⅱ-14"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "이사회 의장과 CEO 직책 분리",
               "section": "제3장 14"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "이사회 의장과 CEO 직책 분리",
               "section": "2.16-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "이사회 의장과 CEO의 분리",
               "section": "[별표] A-2.16"
             }
@@ -516,47 +516,47 @@
           "topic_id": "cumulative_voting_exclusion_removal",
           "topic_label": "집중투표제 배제 조항 삭제",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "for",
-            "align_partners": "for"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "for",
+            "a_activist": "for"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "정관에서 집중투표제를 배제하는 안에 반대, 배제 조항 삭제 안에 찬성",
               "section": "[별표1] II-19"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "집중투표제 배제 조항 삭제",
               "section": "[별첨] Ⅱ-16"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "집중투표제 배제 삭제",
               "section": "제3장 17"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "집중투표제 배제 조항 삭제",
               "section": "2.11-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "집중투표제 배제조항을 삭제하는 안건 찬성",
               "section": "[별표] A-2.11"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 집중투표 사용 금지 조항 도입 반대 (집중투표제 보호)",
               "section": "ISS 2026 Ch.2 Board / Cumulative Voting"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "이사후보 일괄투표 방식 반대 (개별 투표 찬성) — 집중투표 정신 부합",
               "section": "[별지] Ⅱ-2 (12)"
             }
@@ -569,47 +569,47 @@
           "topic_id": "staggered_terms",
           "topic_label": "시차임기제(Staggered Terms)",
           "positions": {
-            "mirae_asset": "against_for_introduction",
-            "samsung": "against_for_introduction",
-            "samsung_active": "against_for_introduction",
-            "truston": "against_for_introduction",
-            "kim": "for_for_introduction",
-            "baring": "against_for_introduction",
-            "align_partners": "against_for_introduction"
+            "m_legacy": "against_for_introduction",
+            "s_legacy": "against_for_introduction",
+            "sa_active": "against_for_introduction",
+            "t_activist": "against_for_introduction",
+            "k_legacy": "for_for_introduction",
+            "b_foreign": "against_for_introduction",
+            "a_activist": "against_for_introduction"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "시차임기제 폐지 찬성, 도입 반대",
               "section": "[별표1] II-16"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "시차임기제 폐지",
               "section": "[별첨] Ⅱ-15"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "시차임기제 폐지 찬성, 도입 반대",
               "section": "제3장 14"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "시차임기제 도입 반대(합리적 사유 외), 폐지 찬성",
               "section": "2.12-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "시차임기제의 도입 찬성",
               "section": "[별표] A-2.12"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 분류이사회제(Classified board) 및 강제 정년제 도입 반대",
               "section": "ISS 2026 Ch.2 Board / Board Structure"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "시차임기제 도입 (이사회 권한 약화/집중투표 무력화/경영권 방어 활용 시) 반대",
               "section": "[별지] Ⅱ-2 (11)"
             }
@@ -622,47 +622,47 @@
           "topic_id": "supermajority_voting",
           "topic_label": "초다수의결 조항 신설",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "초다수의결조항 신설 반대, 제한 찬성",
               "section": "[별표1] II-1, 4"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "주총 결의요건 변경 원칙적 반대, 초다수의결 강화",
               "section": "[별첨] Ⅱ-5"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "초다수결 등 결의요건 강화 반대",
               "section": "제3장 5"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "초다수의결 신설 반대, 제한 찬성",
               "section": "6.7-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "초다수의결 반대",
               "section": "[별표] A-6.7"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 이사·내부감사인 해임 위한 초다수 의결권 요건 도입 반대",
               "section": "ISS 2026 Ch.6 Routine"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "주총 의결정족수 변경: 합리적·정당한 근거 미제시 시 반대",
               "section": "[별지] Ⅱ-4"
             }
@@ -675,47 +675,47 @@
           "topic_id": "golden_parachute",
           "topic_label": "황금낙하산 (정관 도입)",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "황금낙하산 등 경영진 과도한 퇴직금에 원칙 반대",
               "section": "[별표1] II-22"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "황금낙하산 도입 일반 반대(예외 외)",
               "section": "[별첨] Ⅱ-17"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "황금낙하산 등 경영진 과도한 퇴직금 정당 사유 외 반대",
               "section": "제5장 25②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "황금낙하산 일반 반대",
               "section": "6.6-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "황금낙하산 반대",
               "section": "[별표] A-6.6"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 황금낙하산 (해임·퇴직 시 과도 보수) 일반 반대",
               "section": "ISS 2026 Ch.5 Compensation / Golden Parachute Clause"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "황금낙하산 일반 반대 (주주 장기이익+이해충돌 없음+적정성 충족 외)",
               "section": "[별지] Ⅳ-3"
             }
@@ -728,42 +728,42 @@
           "topic_id": "electronic_written_voting",
           "topic_label": "전자/서면 투표 허용",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "for"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "for"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "전자/서면 투표 허용",
               "section": "[별표1] II-1, 5"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "전자/서면 투표 허용",
               "section": "[별첨] Ⅱ-9"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "전자/서면투표 가능",
               "section": "제3장 13"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "주주의 서면/전자 투표 허용 찬성",
               "section": "[별표] A-1.2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "주주의 서면/전자투표 허용",
               "section": "[별표] A-1.2"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "전자투표/서면투표 허용 안은 일반적 찬성 (전적 전자수단만 개최 외)",
               "section": "[별지] Ⅱ-6"
             }
@@ -776,37 +776,37 @@
           "topic_id": "shareholder_rights_restriction",
           "topic_label": "주주의결권 행사 어렵게 하거나 권리 축소",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "주주의 의결권 행사를 어렵게 하거나 주주의 권리를 축소하는 안",
               "section": "[별표1] II-1, 3"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "주주 임시주총 소집청구권한 제한 반대",
               "section": "[별표] A-1.2-3"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "주주의 임시주주총회 소집청구권한 제한",
               "section": "[별표] A-1.4"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 경영권 분쟁 상황에서 이사회 구조·규모 변경 반대 (주주권 축소 효과)",
               "section": "ISS 2026 Ch.2 Board / Board Structure"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "소수주주권 행사 어렵게 하는 안: 합리적·정당 사유 미제시 시 반대. 의결권 대리행사자 자격을 주주로 제한 시 반대",
               "section": "[별지] Ⅱ-5, Ⅱ-7"
             }
@@ -819,27 +819,27 @@
           "topic_id": "pre_disclosure_5days",
           "topic_label": "5영업일 전 사전 공시 안 한 안건",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "5영업일 전까지 사전 공시 안 한 안건 (이사·감사 선임, 보수한도, 임원퇴직금 승인)",
               "section": "제3장 9"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "사전 공시되지 않은 안건 상정 (이익배당, 정관변경, 이사·감사 선임, 보수한도)",
               "section": "1.4-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "사전에 공개되지 않은 안건의 총회 상정",
               "section": "[별표] A-1.4"
             }
@@ -852,42 +852,42 @@
           "topic_id": "company_name_change",
           "topic_label": "회사명 변경",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "review",
-            "kim": "review",
-            "baring": "silent",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "review",
+            "k_legacy": "review",
+            "b_foreign": "silent",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "회사명 변경으로 인지도 하락 등 주주가치 훼손 우려 시 반대",
               "section": "[별표1] II-1, 8"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "회사명칭 변경: 인지도 하락 등 주주가치 중대 훼손 없는 한 찬성",
               "section": "[별첨] Ⅱ-1"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "회사명 변경: 인지도 하락 등으로 주주가치 훼손하지 않는 한 찬성",
               "section": "제3장 3"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "회사명칭 변경: 주주가치 훼손 가능성 높은 경우 반대",
               "section": "1.9-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "회사명칭 변경: 주주가치 훼손 가능성 높은 경우 반대",
               "section": "[별표] A-1.9"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "회사명 변경: 인지도 하락 등 주주가치 훼손 가능성 높은 경우 반대",
               "section": "[별지] Ⅱ-1"
             }
@@ -900,32 +900,32 @@
           "topic_id": "agm_to_board_resolution_shift",
           "topic_label": "주총 결의사항 → 이사회 결의사항으로 변경",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "법령상 이사회 결의 가능 사항을 주주총회 결의 사항으로 변경하는 안 찬성 (주총→이사회는 반대 함의)",
               "section": "[별표1] II-1, 6②"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "주총 결의사항을 합리적 사유 없이 이사회 결의사항으로 변경 반대",
               "section": "[별첨] Ⅱ-7"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "정당한 사유 없이 주총 결의사항을 이사회 결의사항으로 변경 반대",
               "section": "제3장 8"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대",
               "section": "ISS 2026 Ch.6 Routine"
             }
@@ -938,27 +938,27 @@
           "topic_id": "board_size_limit",
           "topic_label": "이사회 규모 제한 (위원회 활동 제약 / 영향력 무력화)",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "silent",
-            "align_partners": "against"
+            "m_legacy": "silent",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "이사회 규모: 위원회 활동 제약/개별이사 영향력 무력화 정도",
               "section": "[별첨] Ⅱ-11"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "이사회 규모: 위원회 활동 제약/개별이사 영향력 무력화 정도",
               "section": "제3장 11"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "이사회 규모: 위원회 활동 제약/개별이사 영향력 무력화 정도의 이사 수 반대",
               "section": "[별지] Ⅱ-2 (8)"
             }
@@ -983,47 +983,47 @@
           "topic_id": "outside_director_independence_5year",
           "topic_label": "사외이사 독립성 (5년 내 임직원/특수관계인)",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "사외이사 독립성 결여 (5년내 상근임직원, 3년내 거래·경쟁·협력관계 등)",
               "section": "[별표1] III-24"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "사외이사 독립성 결여 (5년 내 전직 임직원 등)",
               "section": "[별첨] Ⅲ-2"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "사외이사 독립성 결여 (최대주주/특수관계인, 5년내 임직원, 3년내 거래·경쟁·협력관계)",
               "section": "제4장 21③"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "사외이사 독립성 결여 (5년내 임직원, 5년내 최대주주 특수관계인 등)",
               "section": "2.9-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "사외이사 독립성 결여 (5년내 임직원, 5년내 최대주주 특수관계인 등)",
               "section": "[별표] A-2.9-2)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS — 5년 룰 명시] 회사 또는 계열사의 직원·임원이거나 5년 내 직원·임원이었던 자는 비독립으로 분류 (NED). 창업자/창업가족도 비독립",
               "section": "ISS 2026 Ch.2 Board / Classification of Director"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의] 사외이사로서 독립성이 훼손된다고 판단되는 자에 대해 반대 투표한다.",
               "section": "[별지] Ⅲ-2 사외이사의 선임"
             }
@@ -1036,27 +1036,27 @@
           "topic_id": "outside_director_term_6years",
           "topic_label": "사외이사 6년 초과 재직",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "재직연수가 당해기업 및 그 계열회사를 포함하여 6년 초과",
               "section": "제4장 21③"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "해당 회사에서 6년 이상 사외이사 재직 또는 계열사 합산 9년 이상",
               "section": "2.9-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "6년 초과 사외이사 재직",
               "section": "[별표] A-2.9-2)"
             }
@@ -1069,47 +1069,47 @@
           "topic_id": "concurrent_positions",
           "topic_label": "이사 과도 겸임",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "과도한 겸임으로 충실한 의무 수행이 어려운 자",
               "section": "[별표1] III-23①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "과도한 겸임으로 인해 이사로서 충실한 의무수행이 어려운 경우",
               "section": "[별첨] Ⅲ-1①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "과도한 겸임으로 충실한 의무 수행이 어려운 자",
               "section": "제4장 20②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "사업성 연관이 없는 회사의 과도한 겸임으로 인해 충실한 의무수행이 어려운 경우",
               "section": "[별표] A-2.4-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "사업성 연관이 없는 회사의 과도한 겸임",
               "section": "[별표] A-2.4-2)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS — 명시적 정량] 사외이사가 2개 초과 상장사 이사 겸임 시 반대 (상법·시행령 위반). 단 CEO/MD/EC/창업자 적정 공시 시 예외",
               "section": "ISS 2026 Ch.2 Board / COMPOSITION / Overboarded Outside Directors"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[사내이사] 과도한 겸임으로 충실 의무 불가 시 반대",
               "section": "[별지] Ⅲ-1"
             }
@@ -1122,42 +1122,42 @@
           "topic_id": "attendance_rate_75",
           "topic_label": "이사회 출석률 75% (3/4) 미만",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "직전 임기 이사회 참석률이 75% 미만",
               "section": "[별표1] III-23①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "이사회 또는 주요 위원회에 3/4 이상 출석을 하지 못한 경우",
               "section": "[별첨] Ⅲ-1①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "이사회 및 위원회 참석률이 직전 임기동안 75% 미만",
               "section": "제4장 21③"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "이사회나 이사회의 주요위원회에 3/4 이상 출석을 하지 못한 경우",
               "section": "[별표] A-2.4-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "이사회나 이사회의 주요위원회에 3/4 이상 출석을 하지 못한 경우",
               "section": "[별표] A-2.4-2)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 사외이사가 최근 회계연도 이사회·핵심위원회 출석률 75% 미만 + 합당 사유 미제시 시 반대",
               "section": "ISS 2026 Ch.2 Board / COMPOSITION / Attendance"
             }
@@ -1170,47 +1170,47 @@
           "topic_id": "company_value_damage_history",
           "topic_label": "기업가치 훼손/주주권익 침해 이력",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "기업가치의 훼손 내지 주주 권익의 침해 이력",
               "section": "[별표1] III-23①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "기업가치의 훼손 내지 주주 권익의 침해 이력",
               "section": "[별첨] Ⅲ-1①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "기업가치의 훼손 내지 주주 권익의 침해의 이력",
               "section": "제4장 20②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "회사 가치의 훼손, 주주 권익의 침해에 책임이 있는 경우",
               "section": "[별표] A-2.4-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "회사 가치의 훼손, 주주 권익의 침해에 책임이 있는 경우",
               "section": "[별표] A-2.4-2)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 거버넌스 실패(횡령/뇌물/제재/판결), 임원 미해임, 다른 회사 이사로서 부적절 행위 시 반대",
               "section": "ISS 2026 Ch.2 Board / ACCOUNTABILITY / Governance Failures"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[사내이사] 기업가치 훼손/주주권익 침해 이력자 반대",
               "section": "[별지] Ⅲ-1"
             }
@@ -1223,37 +1223,37 @@
           "topic_id": "board_diversity",
           "topic_label": "이사회 다양성 (성별, 경력, 전문분야)",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "silent",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "for",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "silent",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "for",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "이사회 구성의 다양성 제고",
               "section": "[별표1] II-2, 20②"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "이사회 구성의 다양성 제고",
               "section": "제4장 20①③"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "이사회 다양성 제고 (성별, 경력, 능력)",
               "section": "2.4-12"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "이사회 다양성 (성별, 경력)",
               "section": "[별표] A-2.4-4)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 이사회 성다양성 규정 미준수 시 추천위원장 반대 (다양성 강화)",
               "section": "ISS 2026 Ch.2 Board / COMPOSITION / Board Gender Diversity"
             }
@@ -1266,37 +1266,37 @@
           "topic_id": "specific_shareholder_interest",
           "topic_label": "특정 주주의 이익 추구 후보",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "against"
+            "m_legacy": "silent",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "주주 전체의 이익이 아닌 특정주주의 이익을 지속적으로 추구하는 경우",
               "section": "[별첨] Ⅲ-1①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "주주 전체의 이익이 아닌 특정 주주의 이익을 지속적으로 추구하는 자",
               "section": "제4장 20②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "특정주주 집단의 이익을 지속적으로 추구하는 경우",
               "section": "[별표] A-2.4-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "특정주주 집단의 이익을 지속적으로 추구하는 경우",
               "section": "[별표] A-2.4-2)"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "기업가치 훼손/주주권익 침해 이력자, 특정 주주 이익 추구 후보 반대 (행동주의 적극 적용)",
               "section": "[별지] Ⅲ-1, 일반원칙 제3조 ②"
             }
@@ -1309,22 +1309,22 @@
           "topic_id": "premature_dismissal",
           "topic_label": "임기 중 해임",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "against",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "against",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "임기 중 해임 (불법행위·법령 정관 위반·직무 부적임 사유 없는 한 반대)",
               "section": "[별첨] Ⅲ-4"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "임원 임기 중 해임 - 불법행위·법령 정관 위반·직무 부적임 외 반대",
               "section": "[별표] A-2.10"
             }
@@ -1337,27 +1337,27 @@
           "topic_id": "climate_responsibility_director",
           "topic_label": "기후변화 대응 미이행 책임 이사 재선임",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "against",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "탄소중립법 관련 적절한 조치 미이행 책임 이사 재선임",
               "section": "[별표1] III-23③"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "탄소중립 관리업체 등에서 기후변화 대응 미이행 책임 이사 재선임",
               "section": "2.4-11"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS — Climate Accountability 명시] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
               "section": "ISS 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
             }
@@ -1370,42 +1370,42 @@
           "topic_id": "candidates_exceeding_seats",
           "topic_label": "이사 후보 수가 선임 예정 수 초과",
           "positions": {
-            "mirae_asset": "review",
-            "samsung": "review",
-            "samsung_active": "review",
-            "truston": "review",
-            "kim": "review",
-            "baring": "review",
-            "align_partners": "silent"
+            "m_legacy": "review",
+            "s_legacy": "review",
+            "sa_active": "review",
+            "t_activist": "review",
+            "k_legacy": "review",
+            "b_foreign": "review",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "장기적 주주가치 증대에 더 적합한 후보에 찬성",
               "section": "[별표1] III-23②"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "장기적 주주가치 증대에 더 적합한 후보 찬성",
               "section": "[별첨] Ⅲ-1②③"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "장기 주주가치 증대 적합 후보 찬성",
               "section": "제4장 20⑤⑥"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "과반수 득표 + 최다 득표 순 선임",
               "section": "[별표] A-2.4-6"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "과반수 득표 + 최다 득표 순 선임",
               "section": "[별표] A-2.4-6)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 경쟁 선임은 사안별. (1) 이사회 변경 정당성 + (2) 반대측 후보가 긍정적 변화 가능성 두 질문 중심",
               "section": "ISS 2026 Ch.2 Board / VOTING ON DIRECTOR NOMINEES IN CONTESTED ELECTIONS"
             }
@@ -1418,17 +1418,17 @@
           "topic_id": "director_liability_reduction",
           "topic_label": "이사 손해배상책임 감면 (상법 400조 2항 단서)",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "이사 손해배상책임 일부 감면 안 반대 (4가지 사항 명시 시 찬성 가능)",
               "section": "[별표] A-2.4-3)"
             }
@@ -1441,17 +1441,17 @@
           "topic_id": "climate_accountability_iss",
           "topic_label": "[ISS Climate Accountability] 중대 GHG 배출 기업 + TCFD/Net Zero 미공시 책임 이사 반대",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS — Climate Accountability 신규 명시] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 (이사회 거버넌스/전략/위험관리/지표 및 목표) + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
               "section": "ISS 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
             }
@@ -1464,17 +1464,17 @@
           "topic_id": "discharge_of_director_iss",
           "topic_label": "[ISS Discharge of Director — 한국 미적용 글로벌 개념] 이사 책임 면제 일반 찬성, 신탁의무 미이행 시 반대",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "for",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "for",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS — Discharge of Director] 이사 면책은 일반 찬성, 다만 신탁의무 미이행 의혹·법적 절차·중대 거버넌스 이슈 시 반대",
               "section": "ISS 2026 Ch.2 Board / Discharge of Director"
             }
@@ -1487,22 +1487,22 @@
           "topic_id": "bundled_slate_against_iss",
           "topic_label": "[ISS Bundled Slate] 다수 이사 묶음 선임 시 한 명이라도 거버넌스 우려 시 슬레이트 전체 반대",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 묶음 선임 시 한 명이라도 거버넌스 문제 있으면 슬레이트 전체 반대",
               "section": "ISS 2026 Ch.2 Board / ACCOUNTABILITY"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "이사후보 일괄투표 방식 반대 (개별 투표 찬성)",
               "section": "[별지] Ⅱ-2 (12)"
             }
@@ -1515,17 +1515,17 @@
           "topic_id": "director_accountability_extension_iss",
           "topic_label": "[ISS Director Accountability Extension] 거버넌스 실패 책임 이사 미해임 시 그가 재직하는 모든 이사회에서 반대",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 한 이사가 거버넌스 책임 실패 + 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대 (책임 확장)",
               "section": "ISS 2026 Ch.2 Board / ACCOUNTABILITY"
             }
@@ -1538,17 +1538,17 @@
           "topic_id": "two_tier_governance_iss",
           "topic_label": "[ISS Two-Tier] 자산 2조원+ 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 반대",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS — 한국 상법 정합] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대 (한국 상법 §542의8 ① 정밀 적용)",
               "section": "ISS 2026 Ch.2 Board / INDEPENDENCE"
             }
@@ -1573,37 +1573,37 @@
           "topic_id": "audit_committee_3pct_evasion",
           "topic_label": "상법 409조 2항 (3% 의결권 제한) 회피 목적 감사위원회 도입",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "감사위원회 도입이 상법 제409조 제2항 의결권 제한 회피 목적인 경우",
               "section": "[별표1] III-26"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "감사위원회 도입이 상법 제409조 제2항 회피 목적 명백한 경우",
               "section": "[별첨] Ⅱ-20"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "상법 제409조 제2항 회피 목적 명백한 감사위원회 도입",
               "section": "제4장 22③④"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "상법 제409조 제2항 회피 목적 감사위원회 도입",
               "section": "3.1-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "상법 제409조 제2항 회피 목적 명백한 감사위원회 도입",
               "section": "[별표] A-3.1"
             }
@@ -1616,42 +1616,42 @@
           "topic_id": "audit_committee_setup_for_small",
           "topic_label": "자산 2조원 미만 회사 감사위원회 설치 (사외이사 2/3)",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "for",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "for",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "감사위원회 사외이사 2/3 충원 (자산 2조원 미만)",
               "section": "[별표1] III-26①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "감사위원회 설치 의무 없는 회사가 감사 대신 감사위원회 설치 안",
               "section": "[별첨] Ⅱ-20"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "자산 2조원 미만 회사 감사위원회 설치 + 사외이사 2/3 충원",
               "section": "제4장 22③"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "감사위원회 설치의무 없는 회사가 감사 대신 감사위원회 설치",
               "section": "3.1-1, 3.1-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "감사위원회 설치의무 없는 회사가 감사 대신 감사위원회 설치",
               "section": "[별표] A-3.1"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 감사위원회를 내부감사인 시스템 대체로 설치 일반 찬성",
               "section": "ISS 2026 Ch.3 / Establishment of Audit Committee"
             }
@@ -1664,42 +1664,42 @@
           "topic_id": "non_qualified_audit_history",
           "topic_label": "5년 내 적정 외 외부감사 의견/제재 받은 회사 감사 후보",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "감사 재직 중 회사가 적정 외 감사의견 받거나 비감사용역 보수 초과",
               "section": "[별표1] III-25"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "최근 5년 이내 적정 이외의 외부감사 의견 또는 중요 제재",
               "section": "[별첨] Ⅲ-3②"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "5년 내 적정 외 외부감사 의견",
               "section": "제4장 22②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "최근 5년 이내 적정 이외의 외부감사 의견",
               "section": "3.2-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "5년 내 적정 외 외부감사 의견",
               "section": "[별표] A-3.2-2)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 법정 보고/감사 절차 중대 우려, 실패 회사 관여 이력 시 감사위원 반대",
               "section": "ISS 2026 Ch.3 / Election of Audit Committee Member"
             }
@@ -1712,32 +1712,32 @@
           "topic_id": "non_audit_fee_exceeds_audit",
           "topic_label": "비감사용역 보수가 감사용역 보수 초과",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "silent",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "against",
+            "s_legacy": "silent",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "비감사 용역 보수가 감사 용역 보수를 넘는 경우",
               "section": "[별표1] III-25"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "비감사용역 보수가 감사용역 보수 현저히 초과",
               "section": "제4장 22②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "비감사용역 보수가 감사용역 보수 초과",
               "section": "3.2-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "비감사용역 보수가 감사용역 보수 초과",
               "section": "[별표] A-3.2-2)"
             }
@@ -1750,27 +1750,27 @@
           "topic_id": "separate_election_audit_committee",
           "topic_label": "감사위원 분리 선출",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "against"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "이사 선임 시 감사위원회 위원이 되는 이사와 다른 이사를 분리 선출",
               "section": "3.2-5"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "감사위원 분리 선출",
               "section": "[별표] A-3.2-5)"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "감사위원회 사외이사 비중 낮추는 안 반대 — 분리선출 정신 일치",
               "section": "[별지] Ⅱ-3 (13)"
             }
@@ -1795,47 +1795,47 @@
           "topic_id": "compensation_limit_appropriate",
           "topic_label": "이사 보수한도가 회사·이사회 규모, 경영성과 대비 과도하지 않은 경우",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "review",
-            "baring": "for",
-            "align_partners": "for"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "review",
+            "b_foreign": "for",
+            "a_activist": "for"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "보수한도가 회사·이사회 규모 등 대비 과도하지 않은 경우",
               "section": "[별표1] IV-27"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "보수한도가 회사·이사회 규모 등 대비 과도하지 않은 경우",
               "section": "[별첨] Ⅳ-1①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "이사회 제시 보수한도 안 원칙적 찬성",
               "section": "제5장 23①④"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "보수한도가 주주가치 훼손 정도 과도하지 않은 경우",
               "section": "4.1-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "보수한도 회사·이사회 규모, 경영성과 고려 과도하지 않은 경우",
               "section": "[별표] A-4.12-1)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 이사 보수한도 일반 찬성 (피어 대비 과도/정당화 없는 인상 외)",
               "section": "ISS 2026 Ch.5 Compensation / Remuneration Cap for Directors"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "이사 보수한도: 회사·이사회 규모/경영성과 대비 과도하지 않으면 찬성",
               "section": "[별지] Ⅳ-1"
             }
@@ -1848,32 +1848,32 @@
           "topic_id": "deficit_company_compensation_increase",
           "topic_label": "적자/순이익 감소 기업 인당·총 보수한도 증액",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "silent",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "적자/순이익 감소 기업의 인당·총 보수한도 증액 원칙 반대",
               "section": "[별첨] Ⅳ-1①②"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "적자/순이익 감소 기업 인당·총 보수한도 증액",
               "section": "제5장 23②"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 보수한도가 피어 대비 과도하고 합리적 정당화 없는 경우 반대 — 적자 기업 인상 정당화 부족 추정",
               "section": "ISS 2026 Ch.5 / Remuneration Cap for Directors"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의] 성과 미연계 경영진 보상체계 반대 (적자 회사 보상 인상 정당화 어려움)",
               "section": "[별지] Ⅱ-4 (14)"
             }
@@ -1886,47 +1886,47 @@
           "topic_id": "performance_linked_compensation",
           "topic_label": "성과-보상 연계 (성과 미연계 보상체계 반대)",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "against_unlinked",
-            "samsung_active": "for",
-            "truston": "against_unlinked",
-            "kim": "against_unlinked",
-            "baring": "for",
-            "align_partners": "against_unlinked"
+            "m_legacy": "for",
+            "s_legacy": "against_unlinked",
+            "sa_active": "for",
+            "t_activist": "against_unlinked",
+            "k_legacy": "against_unlinked",
+            "b_foreign": "for",
+            "a_activist": "against_unlinked"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "임원 성과-보상 연계, 부당 보상 환수(Clawback)",
               "section": "[별표1] II-21①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "성과 미연계 경영진 보상체계 반대",
               "section": "[별첨] Ⅳ-2"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "성과-보상 연계, 부당 보상 환수(Clawback)",
               "section": "제5장 27"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "성과 미연계 경영진 보상체계 반대",
               "section": "4.4-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "성과 미연계 경영진 보상체계 반대",
               "section": "[별표] A-4.4"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 보수 정당화 + 성과 연계 권장. 사후 행사가격 조정 등 성과 미연계 보상 변경 반대",
               "section": "ISS 2026 Ch.5"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의] 성과에 연계되지 않는 경영진 보상체계 반대",
               "section": "[별지] Ⅱ-4 (14)"
             }
@@ -1939,32 +1939,32 @@
           "topic_id": "clawback_policy",
           "topic_label": "부당 보상 환수 (Clawback) 정책",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "silent",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "silent",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "부당 보상 환수(Clawback)",
               "section": "[별표1] II-21①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "부당 보상 환수(Clawback)",
               "section": "제5장 27"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "부당 보상 환수(Clawback) 정책 도입",
               "section": "4.7-6"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "부당 보상 환수(Clawback)",
               "section": "[별표] A-4.8-6)"
             }
@@ -1977,32 +1977,32 @@
           "topic_id": "outside_director_retirement_benefit",
           "topic_label": "사외이사 퇴직혜택",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "사외이사에게 퇴직 혜택을 부여하는 안",
               "section": "[별표1] II-22"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "사외이사 퇴직혜택",
               "section": "[별첨] Ⅳ-3②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "사외이사 퇴직혜택 부여, 사외이사에 성과급/스톡옵션 부여",
               "section": "4.10-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "사외이사 퇴직혜택",
               "section": "[별표] A-4.10"
             }
@@ -2015,42 +2015,42 @@
           "topic_id": "stock_option_repricing",
           "topic_label": "스톡옵션 사후 행사가격 조정/재발행",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "스톡옵션 사후 행사가격 조정·재발행",
               "section": "[별표1] V-28③④"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "스톡옵션 사후 재조정·재발행",
               "section": "[별첨] Ⅴ-1③⑤⑥"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "스톡옵션 사후 행사가격 재조정",
               "section": "제6장 28①③⑤"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "스톡옵션 사후 행사가격 재조정/재발행",
               "section": "4.6-5"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "스톡옵션 사후 행사가격 조정/재발행",
               "section": "[별표] A-4.6-4)"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "주식매수선택권 권리유보기간 단축 또는 사후 행사가격 조정 반대",
               "section": "[별지] Ⅱ-4 (15)"
             }
@@ -2063,42 +2063,42 @@
           "topic_id": "stock_option_exercise_period_shortening",
           "topic_label": "스톡옵션 권리행사 유보기간 단축",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "스톡옵션 권리행사 유보 기간 단축",
               "section": "[별표1] V-28③④"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "행사기간 단축",
               "section": "[별첨] Ⅴ-1③⑤⑥"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "행사 유보기간 단축",
               "section": "제6장 28①③⑤"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "스톡옵션 행사유보기간 단축",
               "section": "4.6-6"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "스톡옵션 행사유보기간 단축",
               "section": "[별표] A-4.6-5)"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "스톡옵션 행사기간 단축 안에 반대 투표한다.",
               "section": "[별지] Ⅴ-1, Ⅱ-4 (15)"
             }
@@ -2111,47 +2111,47 @@
           "topic_id": "stock_option_size_threshold",
           "topic_label": "스톡옵션 규모 과도 (총 발행주식 2-3% 또는 희석 10% 이상)",
           "positions": {
-            "mirae_asset": "case_by_case",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "case_by_case",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "연간 주식연계보상 물량 3% 미만 시 찬성",
               "section": "[별표1] V-28①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "규모 3% 이상 또는 희석 10% 이상 일반 반대",
               "section": "[별첨] Ⅴ-1③⑤⑥"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "규모 3% 이상 또는 희석 10% 이상 반대",
               "section": "제6장 28①"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "스톡옵션 희석 10% 이상 또는 규모 2% 초과 반대",
               "section": "4.6-3"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "스톡옵션 발행규모 2% 초과 또는 전체 10% 초과 반대",
               "section": "[별표] A-4.6-3)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 스톡옵션 희석률 성숙기업 5% / 성장기업 10% 초과 시 반대",
               "section": "ISS 2026 Ch.5 / Stock Option Grants"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "스톡옵션 부여: 희석 10% 이상 또는 규모 2% 초과 시 반대",
               "section": "[별지] Ⅴ-1"
             }
@@ -2164,27 +2164,27 @@
           "topic_id": "compensation_committee_setup",
           "topic_label": "보상위원회 설치 (전원 사외이사)",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "보상위원회 설치 + 전원 사외이사 구성",
               "section": "제5장 26"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "보상위원회 설치, 전원 독립적 사외이사 구성",
               "section": "4.2-1, 4.2-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "보상위원회 설치 + 전원 독립 사외이사 구성",
               "section": "[별표] A-4.2"
             }
@@ -2197,27 +2197,27 @@
           "topic_id": "deferred_compensation_60pct_3yr",
           "topic_label": "성과연동보상 60% 이상 3년 이상 이연 지급",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "성과연동보상 60% 이상 3년 이상 이연 지급",
               "section": "제5장 27"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "성과연동보상 60% 이상 3년 이상 이연 지급",
               "section": "4.7-5"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "성과연동 보상 60% 이상 3년 이상 이연 지급",
               "section": "[별표] A-4.8-5)"
             }
@@ -2242,42 +2242,42 @@
           "topic_id": "treasury_share_acquisition_with_reason",
           "topic_label": "자기주식 취득 (합리적·정당한 사유 제시 시)",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "case_by_case",
-            "baring": "for",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "case_by_case",
+            "b_foreign": "for",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "자기주식 취득: 합리적·정당한 사유 제시 시 찬성",
               "section": "[별표1] VII-34①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "자기주식 취득: 합리적·정당한 사유 제시 시",
               "section": "[별첨] Ⅶ-5①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "자기주식 취득: 합리적·정당한 사유 제시 시",
               "section": "제8장 39"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "자기주식 취득: 합리적·정당한 사유 제시 시",
               "section": "5.1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "자기주식 취득안 반대 - 합리적·정당한 사유 제시 시 외",
               "section": "[별표] B-5.1"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 자사주 매입 대체용 현금 동반 자본 감소 — 비례적 진행이라 주주가치 변화 없으므로 일반 찬성",
               "section": "ISS 2026 Ch.4 / Reduction in Capital Accompanied by Cash Consideration"
             }
@@ -2290,32 +2290,32 @@
           "topic_id": "treasury_share_disposal_3rd_party",
           "topic_label": "자기주식 처분 (제3자 배정/경영권 방어)",
           "positions": {
-            "mirae_asset": "against_no_reason",
-            "samsung": "review",
-            "samsung_active": "silent",
-            "truston": "for_with_3rd_party_review",
-            "kim": "silent",
-            "baring": "silent",
-            "align_partners": "for"
+            "m_legacy": "against_no_reason",
+            "s_legacy": "review",
+            "sa_active": "silent",
+            "t_activist": "for_with_3rd_party_review",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "for"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "자기주식 처분이 합리적 사유 없이 새로운 사업 투자에 사용되는 경우 반대",
               "section": "[별표1] VII-34③"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "신주 제3자 배정: 발행목적·규모·대상 합리적·공정·주주가치 훼손하지 않는 경우 review",
               "section": "[별첨] Ⅶ-4②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "자기주식 처분 결과 주총 보고/처분 상대방·방법 제한/처분 주총 승인",
               "section": "5.5, 5.7"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "자기주식 처분 시 주주평등 원칙 훼손/경영권 방어 부적절 이용 방지 위해 처분 상대방·방법 제한 안 찬성",
               "section": "[별지] Ⅶ-4"
             }
@@ -2328,32 +2328,32 @@
           "topic_id": "treasury_share_disposal_to_market",
           "topic_label": "자기주식 처분 결과 주총 보고 / 처분 주총 승인",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "for"
+            "m_legacy": "for",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "for"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "자기주식 취득·처분 결과 주총 보고, 처분 상대방·방법 제한, 처분 주총 승인",
               "section": "[별표1] VII-34④⑤⑥"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "공개시장 자기주식 매입 제도화, 자기주식 처분 결과 주총 보고/처분 주총 승인",
               "section": "5.2, 5.5, 5.7"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "공개시장 자기주식 매입 제도화, 자기주식 처분 결과 주총 보고, 자기주식 처분 주총 승인",
               "section": "[별표] B-5.2, 5.4, 5.6"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "자기주식 처분 상대방·방법 제한 안 찬성 (주총 승인 정신)",
               "section": "[별지] Ⅶ-4"
             }
@@ -2366,27 +2366,27 @@
           "topic_id": "treasury_share_acquisition_for_management_defense",
           "topic_label": "경영권 보호 목적 자기주식 취득",
           "positions": {
-            "mirae_asset": "review",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "review",
-            "kim": "silent",
-            "baring": "silent",
-            "align_partners": "against"
+            "m_legacy": "review",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "review",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "경영권 보호 목적 자기주식 취득은 주주가치 훼손하지 않는 정당한 사유 제시 시에만 찬성",
               "section": "[별표1] VII-34②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "경영권 보호 목적 자기주식 취득: 주주가치 부당 훼손하지 않는 합리적 사유 제시 시",
               "section": "5.4"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "자본금을 증가시켜 외부 기업인수 시도를 무력화하려는 의도가 명백한 경우에는 반대 (자사주 동일 정신)",
               "section": "[별지] Ⅶ-3"
             }
@@ -2411,47 +2411,47 @@
           "topic_id": "merger_shareholder_value_damage",
           "topic_label": "주주가치 훼손 시 합병/인수/영업양수도 반대",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "for_with_long_term",
-            "kim": "review",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "for_with_long_term",
+            "k_legacy": "review",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "주주가치 훼손 판단 시 반대",
               "section": "[별표1] VI-30①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "중장기 관점에서 명백한 주주가치 훼손이 있을 것으로 판단되는 합병/인수/분할합병 반대",
               "section": "[별첨] Ⅵ-1①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "사안별 검토 후 주주가치 훼손 시 반대",
               "section": "제7장 29, 30①"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "인수합병: 결합 회사 전망/재무영업 이점/합병대금 적정성 종합 시 장기 주주가치 제고 가능 경우 찬성",
               "section": "6.1-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "인수합병/법정자본금 증가/신주발행 review",
               "section": "[별표] A-6.1-1)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 합병/매각/지주회사: (1) 클래스 간 의결권·이익 불비례 (2) 거래 후 거버넌스 악화 (3) 협상 우려 (4) 정보 부족 (5) 매수가 trading opportunity 시 반대",
               "section": "ISS 2026 Ch.4 / Merger Agreement"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의] 재무적·사회적·환경적 위험·책임 수반 인수합병/구조조정 안 일반 반대. 주주가치 훼손 우려 영업양수도 반대",
               "section": "[별지] Ⅵ-1, Ⅵ-2"
             }
@@ -2464,32 +2464,32 @@
           "topic_id": "share_purchase_right_secure",
           "topic_label": "주식매수청구권 확보 시 반대 또는 기권",
           "positions": {
-            "mirae_asset": "review",
-            "samsung": "review",
-            "samsung_active": "review",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "review",
-            "align_partners": "silent"
+            "m_legacy": "review",
+            "s_legacy": "review",
+            "sa_active": "review",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "review",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "주식매수청구권 확보를 위한 경우 반대 또는 기권",
               "section": "[별표1] VI-30③"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "주식매수청구권 확보 시 반대 또는 기권",
               "section": "[별첨] Ⅵ-1②"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "주식매수청구권 확보 시 반대 또는 기권",
               "section": "제7장 30②, 31②, 32②"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] dissident's right (주식매수청구권) 매수가가 프리미엄 보일 때 trading opportunity 평가 — 6요소 중 하나",
               "section": "ISS 2026 Ch.4 / Merger Agreement / Discussion"
             }
@@ -2502,37 +2502,37 @@
           "topic_id": "ma_long_term_holistic_review",
           "topic_label": "M&A 시 장기 회사·주주가치 + 종업원·서플라이체인·국가경제·사회 영향 종합",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "review",
-            "samsung_active": "review",
-            "truston": "review",
-            "kim": "review",
-            "baring": "review",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "review",
+            "sa_active": "review",
+            "t_activist": "review",
+            "k_legacy": "review",
+            "b_foreign": "review",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "기업인수 및 인수방어: 장기적 회사·주주가치 + 종업원·서플라이체인·국가경제·사회 영향 종합",
               "section": "[별첨] Ⅵ-3"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "적대적 인수 합병 및 위임장 대결: 회사·주주 가치 + 종업원·서플라이체인 종합",
               "section": "제7장 33"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "위임장 대결: 경영실적, 이사회 조치, 후보 능력, 인수방어 적정성 등 종합",
               "section": "6.2-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "위임장 대결: 경영실적, 이사회 조치, 경영고착화 정도, 인수방어전략 적정성 등 종합",
               "section": "[별표] A-6.2-1)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] Valuation/Market Reaction/Strategic Rationale/Conflicts/Governance/Trading Opportunity 6가지 종합 검토",
               "section": "ISS 2026 Ch.4 / Merger Agreement / Discussion"
             }
@@ -2545,22 +2545,22 @@
           "topic_id": "voluntary_delisting",
           "topic_label": "비공개기업 전환 (자진 상장폐지)",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "against_unfair",
-            "kim": "review",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "against_unfair",
+            "k_legacy": "review",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "비공개기업 전환(자진 상장폐지) - 소액주주 보호 미비/절차 문제/보상 불합리 시 반대",
               "section": "6.3-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "비공개기업으로의 전환(Going Private): 적정 가치 가져다준다는 것이 확실한 경우 찬성",
               "section": "[별표] A-6.3"
             }
@@ -2573,22 +2573,22 @@
           "topic_id": "crown_jewel_greenmail",
           "topic_label": "왕관보석 방어전략 / 그린메일",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "against",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "왕관보석 방어전략, 그린메일 제공 반대",
               "section": "6.4-1, 6.5-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "왕관보석 방어전략, 그린메일",
               "section": "[별표] A-6.4, A-6.5"
             }
@@ -2613,47 +2613,47 @@
           "topic_id": "spin_off_long_term_value_review",
           "topic_label": "회사분할 사안별 검토 (장기 주주가치 제고 시 찬성)",
           "positions": {
-            "mirae_asset": "against_if_damage",
-            "samsung": "for_if_long_term_value",
-            "samsung_active": "against_if_damage",
-            "truston": "for_if_long_term_value",
-            "kim": "review",
-            "baring": "review",
-            "align_partners": "review"
+            "m_legacy": "against_if_damage",
+            "s_legacy": "for_if_long_term_value",
+            "sa_active": "against_if_damage",
+            "t_activist": "for_if_long_term_value",
+            "k_legacy": "review",
+            "b_foreign": "review",
+            "a_activist": "review"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "회사 분할/분할합병 주주가치 훼손 시 반대 (합병과 동일 기준)",
               "section": "[별표1] VI-30①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "회사분할 중장기 주주가치 제고 가능 시 찬성",
               "section": "[별첨] Ⅵ-2"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "회사분할 사안별 검토, 주주가치 훼손 시 반대",
               "section": "제7장 31①"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "회사분할: 분할방식, 가치평가, 공정성, 경영자 인센티브, 지배구조 변화 등 고려 장기 주주가치 제고 가능 시 찬성",
               "section": "5.7-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "회사분할: 분할방식, 가치평가, 공정성, 경영자 인센티브, 지배구조 변화 등 고려",
               "section": "[별표] A-5.8"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 분할 일반 찬성. 단 (1) 클래스 간 영향 불비례 (2) 분할 후 거버넌스 악화 (3) 협상 과정 우려 (4) 정보 부족 (5) 동반 자본 감소 시 반대",
               "section": "ISS 2026 Ch.4 / Spin-off Agreement"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "회사분할: 분할방식·가치평가·공정성·이해상충·경영자 인센티브·지배구조·자본구조 변화 종합 + 장기 주주가치 제고 가능 시 찬성",
               "section": "[별지] Ⅵ-3"
             }
@@ -2666,42 +2666,42 @@
           "topic_id": "holding_company_setup",
           "topic_label": "지주회사 설립",
           "positions": {
-            "mirae_asset": "review",
-            "samsung": "for_if_long_term_value",
-            "samsung_active": "review",
-            "truston": "for_if_long_term_value",
-            "kim": "review",
-            "baring": "silent",
-            "align_partners": "against"
+            "m_legacy": "review",
+            "s_legacy": "for_if_long_term_value",
+            "sa_active": "review",
+            "t_activist": "for_if_long_term_value",
+            "k_legacy": "review",
+            "b_foreign": "silent",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "지주회사 설립: 설립목적, 지배구조·자본구조·재무영향 종합 검토",
               "section": "[별표1] VIII-37"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "지주회사 설립 장기적 주주가치 제고 가능 시 찬성",
               "section": "[별첨] Ⅷ-1"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "지주회사 설립 위한 기업분할/주식교환: 사안별 검토",
               "section": "제9장 41"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "지주회사 설립: 설립목적, 지배구조·자본구조·재무영향 종합 고려 장기 주주가치 제고 가능 시 찬성",
               "section": "5.4-1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "지주회사 설립: 설립목적, 지배구조·자본구조·재무영향 종합 고려",
               "section": "[별표] A-5.5"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "지주회사 설립: 주주가치 훼손 가능 시 반대",
               "section": "[별지] Ⅷ-3"
             }
@@ -2726,47 +2726,47 @@
           "topic_id": "capital_decrease_principle_against",
           "topic_label": "자본감소 원칙 반대 (예외 조건 있음)",
           "positions": {
-            "mirae_asset": "against_with_exceptions",
-            "samsung": "for_in_exceptions",
-            "samsung_active": "against_with_exceptions",
-            "truston": "against_with_exceptions",
-            "kim": "against_with_exceptions",
-            "baring": "for_in_exceptions",
-            "align_partners": "against_with_exceptions"
+            "m_legacy": "against_with_exceptions",
+            "s_legacy": "for_in_exceptions",
+            "sa_active": "against_with_exceptions",
+            "t_activist": "against_with_exceptions",
+            "k_legacy": "against_with_exceptions",
+            "b_foreign": "for_in_exceptions",
+            "a_activist": "against_with_exceptions"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "자본감소 원칙 반대 (회생/자본조달/구조조정/사업축소·폐업/자사주 소각/유상감자 예외 찬성)",
               "section": "[별표1] VII-31"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "자본감소 예외 찬성 (회생/자본조달/구조조정/상장폐지 회피/유상감자/자사주 소각)",
               "section": "[별첨] Ⅶ-1①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "자본감소 원칙 반대 (회생/자본조달/구조조정/사업축소·폐업/상장폐지 회피/자사주 소각/유상감자 예외)",
               "section": "제8장 35"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "자본감소 예외 찬성 (회생/자본조달/구조조정/상장폐지 회피/유상감자/자사주 소각)",
               "section": "3.1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "자본금 감소 원칙 반대 (예외: 회생/자본조달/구조조정/상장폐지 회피/유상감자)",
               "section": "[별표] B-3"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 회계 목적 자본금 감소 일반 찬성 (조건이 주주 불리하지 않을 때). 현금 환원 미동반 자본 감소 일반 찬성 (회계 routine)",
               "section": "ISS 2026 Ch.4 / Reduction in Capital"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "자본금 감소: 소각 위한 자사주 매입(주주가치 미훼손)/구조조정 자구안 외 원칙 반대",
               "section": "[별지] Ⅶ-1"
             }
@@ -2779,37 +2779,37 @@
           "topic_id": "issued_shares_2x_increase",
           "topic_label": "발행예정주식수 2배 이상 (또는 100% 이상) 증가",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "review",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "review",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "발행예정주식수 2배 이상 증가",
               "section": "[별표1] VII-33①②"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "두 배 이상 발행예정주식수를 증가시키고자 할 경우 일반 반대",
               "section": "[별첨] Ⅶ-3①②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "100% 이상 법정발행주식수 증가 일반 반대",
               "section": "2.2, 2.3"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "100% 이상 증가시키고자 할 경우 반대",
               "section": "[별표] B-2-2)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 수권자본 증가가 현재 100% 초과 + 정당화 없을 때 반대",
               "section": "ISS 2026 Ch.4 / Increase in Authorized Capital"
             }
@@ -2822,42 +2822,42 @@
           "topic_id": "anti_takeover_capital_increase",
           "topic_label": "외부 기업인수 무력화 의도 자본금 증가",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "against",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against",
+            "s_legacy": "against",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "외부 기업인수 무력화 의도가 명백한 자본금 증가",
               "section": "[별표1] VII-33①②"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "외부 기업인수 무력화 의도가 중장기 주주가치 훼손",
               "section": "[별첨] Ⅶ-3①②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "외부 기업인수 무력화 의도 명백 자본금 증가",
               "section": "2.2, 2.3"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "적대적 기업인수 시도 무력화 목적 신주발행/자사주 매각",
               "section": "[별표] B-4-2)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 경영권 분쟁 시 이사회 구조·규모 변경 반대 (anti-takeover 정신 — 경영권 방어용 자본증가도 같은 맥락)",
               "section": "ISS 2026 Ch.2 Board / Board Structure"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의] 자본금 증가로 외부 기업인수 시도 무력화 의도 명백 시 반대. 우선주 발행이 적대적 기업인수 방해 수단 이용 시 정당 사유 없는 한 원칙 반대",
               "section": "[별지] Ⅶ-3, Ⅱ-5 (19)"
             }
@@ -2870,42 +2870,42 @@
           "topic_id": "preemptive_right_exclusion",
           "topic_label": "신주인수권 배제·제한 (제3자 배정)",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "against",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "silent",
+            "s_legacy": "against",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "신주인수권 배제·제한 (합리적/공정 절차 외)",
               "section": "[별첨] Ⅵ-6①"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "주식 제3자 배정 원칙 반대, 신주인수권 약화 안 원칙적 반대",
               "section": "제8장 38, 제7장 34"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "신주인수권 배제·제한 (합리적·공정 절차 외)",
               "section": "6.1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "주주의 신주인수권 배제·제한, 신주 제3자 배정 (합리적·공정 절차 외)",
               "section": "[별표] B-6"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS — 명시적 20% 정량] 신주인수권 배제 발행이 희석 또는 한도 20% 초과 시 반대",
               "section": "ISS 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "신주우선인수권을 약화시키는 안에 반대. 신주 제3자 배정 원칙 반대",
               "section": "[별지] Ⅱ-5 (18), Ⅷ-2"
             }
@@ -2918,37 +2918,37 @@
           "topic_id": "stock_split_merge_proportional",
           "topic_label": "비례 주식분할/주식병합",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "silent",
-            "kim": "for",
-            "baring": "for",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "silent",
+            "k_legacy": "for",
+            "b_foreign": "for",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "비례적 주식분할/주식병합",
               "section": "[별표1] VII-32, 33"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "비례 주식분할/주식병합",
               "section": "[별첨] Ⅶ-2"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "비례 주식분할/주식병합",
               "section": "제8장 36①②"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "주식분할 및 주식배당 찬성",
               "section": "[별표] B-13"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 주식분할/병합 일반 찬성 (희석 우려 없을 때)",
               "section": "ISS 2026 Ch.4 / Stock Split"
             }
@@ -2961,37 +2961,37 @@
           "topic_id": "capital_increase_for_stock_option_or_delisting_risk",
           "topic_label": "스톡옵션 행사 대비 또는 상장폐지 위험 회피 자본 증가",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "silent",
-            "baring": "for",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "silent",
+            "b_foreign": "for",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "상장폐지 위험 회피 자본증가, 스톡옵션 행사 대비 자본증가",
               "section": "[별표1] VII-32, 33"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "상장폐지 회피 주식병합, 스톡옵션 행사 대비 자본금 증가",
               "section": "[별첨] Ⅶ-3③"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "스톡옵션 행사 대비/경영상 위험 회피",
               "section": "제8장 37①"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "상장폐지 위험 회피, 스톡옵션 행사 대비 자본증가",
               "section": "2.4, 2.6"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 수권자본 증가 일반 찬성 (현재 100% 초과 정당화 없거나 30% 미만 발행 외)",
               "section": "ISS 2026 Ch.4 / Increase in Authorized Capital"
             }
@@ -3016,27 +3016,27 @@
           "topic_id": "agm_resolution_for_cb_bw",
           "topic_label": "CB/BW 발행을 주총 결의로 결정 (정관 변경)",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "for",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "CB/BW 발행을 주총 결의로 결정하도록 정관 변경",
               "section": "[별표1] VII-35③"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "CB/BW 발행을 주총 결의로 결정하도록 정관 변경",
               "section": "15.4"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "CB/BW 발행을 주총 결의로 결정하도록 정관 변경",
               "section": "[별표] B-15-4)"
             }
@@ -3049,37 +3049,37 @@
           "topic_id": "cb_bw_dilution_threshold",
           "topic_label": "CB/BW 발행 시 발행주식수 증가 한도 (50% / 20% 룰)",
           "positions": {
-            "mirae_asset": "against_if_dilution",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "against"
+            "m_legacy": "against_if_dilution",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "against"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "채권 전환·신주인수 행사로 발행주식수 증가하여 주주가치 훼손 우려",
               "section": "[별표1] VII-35④"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "주주 우선인수권 있는 CB/BW 발행으로 50% 이상 증가, 우선인수권 없는 CB/BW 20% 이상 증가 반대",
               "section": "15.5, 15.6"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "주주 우선인수권 있는 CB/BW 50% 이상 증가, 우선인수권 없는 CB/BW 20% 이상 증가 반대",
               "section": "[별표] B-15-5), 6)"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] CB/BW 등 주식연계증권 발행 — 희석/한도 둘 중 하나라도 20% 초과 반대 (신주발행과 동일 기준)",
               "section": "ISS 2026 Ch.4 / Issuance"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "채무재조정 위해 보통주/우선주 신주 발행: 기존 주주 권리 희석 과도하여 주주이익 침해 명백 시 반대. 증권의 전환: 기존 주주 권리 희석 과도하여 주주이익 침해 명백 시 반대",
               "section": "[별지] Ⅱ-5 (16), (17)"
             }
@@ -3092,37 +3092,37 @@
           "topic_id": "third_party_cb_bw_review",
           "topic_label": "특정주주·제3자 배정 주식연계채권 review (목적/규모/이해상충)",
           "positions": {
-            "mirae_asset": "review",
-            "samsung": "silent",
-            "samsung_active": "review",
-            "truston": "review",
-            "kim": "review",
-            "baring": "silent",
-            "align_partners": "review"
+            "m_legacy": "review",
+            "s_legacy": "silent",
+            "sa_active": "review",
+            "t_activist": "review",
+            "k_legacy": "review",
+            "b_foreign": "silent",
+            "a_activist": "review"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "특정주주·제3자 배정 주식연계채권: 발행목적/규모/유동성/이해상충/시장반응 고려",
               "section": "[별표1] VII-35②"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "주식연계채권: 중장기 회사 가치 영향 최우선 + 발행목적/규모/희석/전환가/이해상충 사안별 판단",
               "section": "제9장 44"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "특정주주·제3자 배정 주식연계채권: 발행목적·규모 적정/이해상충 적음/시장반응 부정적 아닌 경우",
               "section": "15.2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "특정주주 및 제3자 배정 주식연계채권 발행 안: 발행목적·규모 적정/이해상충 소지 작음/시장반응 부정적 아닌 경우",
               "section": "[별표] B-15-2)"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "신주 제3자 배정: 원칙 반대, 단 발행사유·가격·규모·유동성 검토 후 주주가치 이득 시 찬성 가능",
               "section": "[별지] Ⅷ-2"
             }
@@ -3147,42 +3147,42 @@
           "topic_id": "esg_shareholder_proposal_for",
           "topic_label": "ESG/지속가능성 강화 주주제안 (부정적 측면 크지 않은 경우)",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "for",
-            "samsung_active": "for",
-            "truston": "for",
-            "kim": "for",
-            "baring": "review",
-            "align_partners": "silent"
+            "m_legacy": "for",
+            "s_legacy": "for",
+            "sa_active": "for",
+            "t_activist": "for",
+            "k_legacy": "for",
+            "b_foreign": "review",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "ESG 지속가능성 강화 주주제안",
               "section": "[별표1] VIII-38④"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "환경경영체계 구축 또는 강화 요구 안건 + 협력사 ESG 리스크 관리방안 구축",
               "section": "[별첨] Ⅷ-6"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "환경/사회 이슈 관련 리스크 방지·제거 또는 공시 강화 안건",
               "section": "제9장 46②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "ESG 지속가능성 강화 주주제안",
               "section": "라.1.2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "환경/사회/지배구조 관련 주주제안 다수 항목 찬성",
               "section": "[별표] C-1, C-2, C-3, C-4"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] ESG 주주제안 case-by-case (입법/규제 처리, 회사 대응, 부담스러운 정도, 산업표준, 논쟁/제재, 정보 가용성, 기밀 노출, 주주 이해 영향 등 8가지 종합)",
               "section": "ISS 2026 Ch.8 Social and Environmental"
             }
@@ -3195,42 +3195,42 @@
           "topic_id": "shareholder_value_damage_proposal_against",
           "topic_label": "주주가치 훼손 우려 있는 주주제안",
           "positions": {
-            "mirae_asset": "against",
-            "samsung": "review",
-            "samsung_active": "against",
-            "truston": "against",
-            "kim": "review",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "against",
+            "s_legacy": "review",
+            "sa_active": "against",
+            "t_activist": "against",
+            "k_legacy": "review",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "주주가치 훼손 우려가 있다고 판단되는 주주제안",
               "section": "[별표1] VIII-38①"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "주주제안 사안별 판단, 주주가치 훼손하지 않는 방향으로 투표",
               "section": "[별첨] Ⅷ-5"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "주주가치 훼손 우려 판단 시 반대",
               "section": "제9장 45②"
             },
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "주주가치 훼손 우려 시 반대",
               "section": "라.1.1"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "주주제안 사안별 검토",
               "section": "[별표] C 전체"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 회사 사업활동을 잠재적 제한, 또는 효익 대비 큰 비용 발생 주주제안 일반 반대",
               "section": "ISS 2026 Ch.7 Shareholder Proposals"
             }
@@ -3243,32 +3243,32 @@
           "topic_id": "board_vs_shareholder_proposal_competition",
           "topic_label": "이사회안과 주주제안 경합 시 처리",
           "positions": {
-            "mirae_asset": "review",
-            "samsung": "review",
-            "samsung_active": "review",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "review",
-            "align_partners": "silent"
+            "m_legacy": "review",
+            "s_legacy": "review",
+            "sa_active": "review",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "review",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "이사회안과 주주제안 경합 시 장기적 주주가치 제고에 더 부합하는 안건",
               "section": "[별표1] VIII-38③"
             },
             {
-              "manager": "samsung",
+              "manager": "s_legacy",
               "criterion": "이사회안과 주주제안이 경합하는 경우 장기적 주주가치 제고에 더 부합하는 안건 찬성",
               "section": "[별첨] Ⅷ-5"
             },
             {
-              "manager": "samsung_active",
+              "manager": "sa_active",
               "criterion": "이사회 안과 주주제안 경합 시 장기적 주주가치 제고에 더 부합하는 안건 찬성",
               "section": "제9장 45③"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 회사 거버넌스 또는 사업 프로필을 합리적 비용으로 개선하는 주주제안 일반 찬성 (vs 사업활동 제한 반대 — 경합 시 case_by_case)",
               "section": "ISS 2026 Ch.7 Shareholder Proposals"
             }
@@ -3281,27 +3281,27 @@
           "topic_id": "agm_approval_for_3rd_party_issuance_in_dispute",
           "topic_label": "경영권 분쟁 시 신주발행/자사주 매각 주총 승인 요구 주주제안",
           "positions": {
-            "mirae_asset": "for",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "for",
-            "baring": "silent",
-            "align_partners": "for"
+            "m_legacy": "for",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "for",
+            "b_foreign": "silent",
+            "a_activist": "for"
           },
           "evidence": [
             {
-              "manager": "mirae_asset",
+              "manager": "m_legacy",
               "criterion": "경영권 분쟁 시 신주발행/자사주 매각 주총 승인 요구 주주제안",
               "section": "[별표1] VIII-38⑤"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "경영권 분쟁 시 신주의 발행이나 자사주의 매각은 주총의 승인을 받도록 요구하는 주주제안",
               "section": "[별표] B-4-1)"
             },
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의 일반원칙 제3조 ②] 합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사",
               "section": "[일반원칙 제3조 ②]"
             }
@@ -3314,27 +3314,27 @@
           "topic_id": "non_implementation_director_reelection",
           "topic_label": "주주 다수가 승인한 주주제안 미시행 이사 재선임",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "against",
-            "kim": "against",
-            "baring": "against",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "against",
+            "k_legacy": "against",
+            "b_foreign": "against",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "truston",
+              "manager": "t_activist",
               "criterion": "이사가 전년도 주주 다수에 의해 채택된 제안에 대해 별다른 조치를 취하지 않고 적절한 이유 미제시",
               "section": "[별표] A-2.4-2"
             },
             {
-              "manager": "kim",
+              "manager": "k_legacy",
               "criterion": "주주 다수가 승인한 주주의 제안을 시행하지 않는 이사의 연임 반대",
               "section": "[별표] A-1.3"
             },
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS] 거버넌스 책임 실패자 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대 (responsiveness 강력)",
               "section": "ISS 2026 Ch.2 Board / ACCOUNTABILITY"
             }
@@ -3347,17 +3347,17 @@
           "topic_id": "say_on_climate_iss",
           "topic_label": "[ISS Say on Climate] 회사 기후 전환 행동 계획 case-by-case (TCFD 정렬도/감축목표/2050 Net Zero/제3자 보증 등 9요소)",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "review",
-            "align_partners": "silent"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "review",
+            "a_activist": "silent"
           },
           "evidence": [
             {
-              "manager": "baring",
+              "manager": "b_foreign",
               "criterion": "[ISS — Say on Climate 신규] Management Proposals 회사 기후 전환 행동 계획 case-by-case (TCFD 정렬도, Scope 1·2·3 GHG 공시, 단기·중기·장기 감축 목표, science-based 검증, 2050 Net Zero 약속, 후속 보고 약속, 제3자 보증, 로비/CapEx 전략 정렬, 산업 탈탄소 도전, 피어 비교 9요소). Shareholder Proposals — GHG 공시·감축계획 보고 요구 case-by-case (4요소)",
               "section": "ISS 2026 ESG Topics / Say on Climate"
             }
@@ -3370,17 +3370,17 @@
           "topic_id": "active_engagement_principle_align",
           "topic_label": "[얼라인 행동주의 일반원칙] 합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사",
           "positions": {
-            "mirae_asset": "silent",
-            "samsung": "silent",
-            "samsung_active": "silent",
-            "truston": "silent",
-            "kim": "silent",
-            "baring": "silent",
-            "align_partners": "for"
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "for"
           },
           "evidence": [
             {
-              "manager": "align_partners",
+              "manager": "a_activist",
               "criterion": "[행동주의 핵심 일반원칙] 합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사",
               "section": "일반원칙 제3조 ②"
             }

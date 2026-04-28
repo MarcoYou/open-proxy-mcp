@@ -1,8 +1,8 @@
 {
-  "manager_id": "align_partners",
-  "manager_name": "얼라인파트너스",
+  "manager_id": "a_activist",
+  "manager_name": "A행동주의",
   "period_label": "2024.04",
-  "source_file": "2024.04 얼라인파트너스 의결권 행사내역.xlsx",
+  "source_file": "2024.04 A행동주의 의결권 행사내역.xlsx",
   "votes": [
     {
       "market": "KOSPI",

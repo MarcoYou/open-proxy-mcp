@@ -1,13 +1,13 @@
 {
-  "policy_id": "align_partners",
+  "policy_id": "a_activist",
   "policy_meta": {
     "type": "asset_manager",
-    "manager_id": "align_partners",
-    "manager_name": "얼라인파트너스",
+    "manager_id": "a_activist",
+    "manager_name": "A행동주의",
     "version": "2024.10.10",
     "effective_date": "2024-10-10",
-    "source_file": "2025.04 얼라인파트너스 의결권행사 내부지침.pdf",
-    "source_md": "/tmp/policy_parse/align_partners/2025.04 얼라인파트너스 의결권행사 내부지침.md",
+    "source_file": "2025.04 A행동주의 의결권행사 내부지침.pdf",
+    "source_md": "/tmp/policy_parse/align_partners/2025.04 A행동주의 의결권행사 내부지침.md",
     "external_advisor": null,
     "policy_classification": "active_engagement_activist"
   },

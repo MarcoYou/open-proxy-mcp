@@ -73,10 +73,10 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 "KT&G 기업지배구조보고서 준수율 보여줘"
 "현대자동차 15개 지배구조 핵심지표 상세"
 "삼성전자 지배구조 연도별 준수율 추이 (timeline)"
-"KT&G 의결권 메모 만들어줘 (얼라인파트너스 스타일로)"
-"7개 자산운용사 이사 보수한도 의결권 정책 비교해줘"
-"[운용사D] 의결권 행사 정책 vs 실제 갭 분석해줘"
-"[운용사B] 2025년 삼성전자 의결권 행사 내역 보여줘"
+"KT&G 의결권 메모 만들어줘 (행동주의 운용사 스타일로)"
+"8개 자산운용사 이사 보수한도 의결권 정책 비교해줘"
+"S레거시(대형 운용사) 의결권 행사 정책 vs 실제 갭 분석해줘"
+"M레거시(대형 운용사) 2025년 삼성전자 의결권 행사 내역 보여줘"
 "Open Proxy Guideline 12 카테고리 정책 보여줘"
 ```
 
@@ -92,7 +92,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 company                            # 기업 진입점 — 1개 기업 식별 + 최근 공시 인덱스
 │
 ├─ Discovery Tool (1)
-│  └─ screen_events                # 이벤트로 기업 찾기 (22종 event_type, KOSPI+KOSDAQ)
+│  └─ screen_events                # 이벤트로 기업 찾기 (21종 event_type, KOSPI+KOSDAQ)
 │
 ├─ Data Tools (11)
 │  ├─ shareholder_meeting          # 주총 (안건 / 이사후보 / 보수한도 / 결과)
@@ -121,10 +121,10 @@ company                            # 기업 진입점 — 1개 기업 식별 + �
 
 ### 🆕 proxy_guideline tool 상세
 
-**7 운용사 정책 데이터** (parsed JSON 정적 보존, 14MB):
-- 미래에셋·삼성·삼성액티브·트러스톤·[운용사A] (한국 5)
-- 얼라인파트너스 (행동주의)
-- 베어링 (외국계 — ISS Korea 2026 참조)
+**8 운용사 정책 데이터** (parsed JSON 정적 보존, 14MB+ — 익명화):
+- M레거시 / S레거시 / SA액티브 / K레거시 (대형 레거시 4)
+- T행동주의 / A행동주의 / C행동주의 (행동주의 3)
+- B외국계 (외국계 — ISS Korea 2026 참조 사례, OPM은 ISS를 벤치마크로 사용 X)
 
 **Open Proxy Guideline v1.2** (OPM 자체 모범 정책):
 - 12 카테고리 116 룰 + 11 novel topics + **2026 신법 7개 즉시 반영** (5 운용사 미반영)
@@ -145,16 +145,18 @@ DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 
 패턴 B (이벤트 → 기업):   screen_events로 최근 이벤트 낸 기업 찾기 → 각 기업 drill-down
 ```
 
-### screen_events가 지원하는 이벤트 (14종)
+### screen_events가 지원하는 이벤트 (21종)
 
-| 카테고리 | event_type |
-|---------|-----------|
-| 주총 | `shareholder_meeting_notice` |
-| 지분 | `major_shareholder_change`, `ownership_change_filing`, `block_holding_5pct`, `executive_ownership` |
-| 자사주 | `treasury_acquire`, `treasury_dispose`, `treasury_retire` |
-| 분쟁 | `proxy_solicit`, `litigation`, `management_dispute` |
-| 밸류업 | `value_up_plan` |
-| 배당 | `cash_dividend`, `stock_dividend` |
+| 카테고리 | event_type | 수 |
+|---------|-----------|---|
+| 주총 | `shareholder_meeting_notice` | 1 |
+| 지분 | `major_shareholder_change`, `ownership_change_filing`, `executive_ownership` | 3 |
+| 자사주 | `treasury_acquire`, `treasury_dispose`, `treasury_retire` | 3 |
+| 분쟁 | `proxy_solicit`, `litigation`, `management_dispute` | 3 |
+| 밸류업 | `value_up_plan` | 1 |
+| 배당 | `cash_dividend`, `stock_dividend` | 2 |
+| 희석성 증권 | `rights_offering`, `convertible_bond`, `warrant_bond`, `capital_reduction` | 4 |
+| 내부거래 | `equity_deal_acquire`, `equity_deal_dispose`, `supply_contract_conclude`, `supply_contract_terminate` | 4 |
 
 기본 조회 구간은 최근 30일, market은 KOSPI+KOSDAQ. 결과 각 행마다 DART 원문 뷰어 링크가 포함돼요.
 
@@ -175,7 +177,7 @@ DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 
 | **내부거래** | 타법인주식 거래 + 단일공급계약 | 1 |
 | **거버넌스** | 기업지배구조보고서 (15 핵심지표, 2026년부터 KOSPI 전체 의무) | 1 |
 | **근거** | 공시 원문 링크 제공 | 1 |
-| **정책·매트릭스** | 7 운용사 정책 + Open Proxy Guideline + 12 의사결정 매트릭스 | 1 |
+| **정책·매트릭스** | 8 운용사 정책 (익명화) + Open Proxy Guideline + 12 의사결정 매트릭스 | 1 |
 | **액션** | 의결권 메모 (OPM 정책 권고 자동 포함), 주주관여 케이스, 캠페인 브리프 | 3 |
 | | **합계** | **17** |
 
@@ -204,7 +206,7 @@ DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 
 | [KRX KIND](https://kind.krx.co.kr/) | 주총 의결권 행사 결과 | 웹 크롤링 |
 | [네이버 뉴스 API](https://developers.naver.com/) | 후보자 부정 뉴스 검색 | 선택 (무료 API 키) |
 | [네이버 금융](https://finance.naver.com/) | 주가, 업종명, 배당 시세 | 웹 크롤링 |
-| 자산운용사 의결권 행사 공시 | 7 운용사 정책 + 행사내역 (총 17,900 votes) | parsed JSON 정적 보존 (proxy_guideline tool) |
+| 자산운용사 의결권 행사 공시 | 8 운용사 정책 + 행사내역 (총 17,900+ votes, 익명화) | parsed JSON 정적 보존 (proxy_guideline tool) |
 
 ---
 
@@ -217,7 +219,7 @@ open-proxy-mcp/
     tools_v2/              # 17개 tool
     services/              # 도메인별 분석 로직 (tool과 분리)
     dart/client.py         # DART API + KIND 크롤링 + 네이버 + rate limiter
-    data/asset_managers/   # 7 운용사 정책 + 행사내역 + Open Proxy Guideline + 12 매트릭스
+    data/asset_managers/   # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
   Dockerfile               # Fly.io 배포용 컨테이너
   fly.toml                 # Fly.io 설정 (nrt 리전, auto-suspend)
   wiki/                    # 도메인 지식 위키

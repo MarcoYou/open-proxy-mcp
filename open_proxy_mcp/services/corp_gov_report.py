@@ -317,16 +317,26 @@ async def build_corp_gov_report_payload(
     selected = resolution.selected
     corp_code = selected["corp_code"]
 
-    filings, fetch_warnings, _ = await _fetch_latest_reports(corp_code, years=4)
+    # filings 검색과 company_info 조회는 independent — 병렬 실행.
+    filings_task = _fetch_latest_reports(corp_code, years=4)
+    info_task = client.get_company_info(corp_code)
+    filings_result, info_result = await asyncio.gather(
+        filings_task, info_task, return_exceptions=True,
+    )
+
+    if isinstance(filings_result, BaseException):
+        raise filings_result
+    filings, fetch_warnings, _ = filings_result
     warnings: list[str] = list(fetch_warnings)
 
     # 시장 구분 힌트 (KOSDAQ은 자율공시)
     corp_cls = ""
-    try:
-        info = await client.get_company_info(corp_code)
-        corp_cls = (info.get("corp_cls") or "").strip()
-    except DartClientError:
+    if isinstance(info_result, dict):
+        corp_cls = (info_result.get("corp_cls") or "").strip()
+    elif isinstance(info_result, DartClientError):
         pass
+    elif isinstance(info_result, BaseException):
+        raise info_result
     market_label = {"Y": "KOSPI", "K": "KOSDAQ", "N": "KONEX", "E": "기타"}.get(corp_cls, corp_cls or "미상")
     if corp_cls == "K" and not filings:
         warnings.append("KOSDAQ은 기업지배구조보고서 자율공시 — 제출되지 않았을 수 있음.")
@@ -439,7 +449,22 @@ async def build_corp_gov_report_payload(
         data["principles"] = principles[:30]  # 최대 30개
     if scope == "timeline":
         # 최근 N개 filings(최대 5개) 각각 원문 파싱 → 연도별 비교
+        # 최신 건은 이미 위에서 파싱됐으므로 그대로 재사용, 나머지는 병렬 fetch.
         timeline_reports: list[dict[str, Any]] = []
+        pending = [f for f in filings[:5] if not (f.get("rcept_no") == rcept_no and metrics)]
+
+        async def _safe_doc(rcpt: str) -> tuple[str, str | None]:
+            try:
+                d = await client.get_document_cached(rcpt)
+                return (d.get("html", "") if isinstance(d, dict) else ""), None
+            except DartClientError as exc:
+                return "", exc.status
+
+        doc_results = await asyncio.gather(*[_safe_doc(f["rcept_no"]) for f in pending]) if pending else []
+        doc_by_rcpt: dict[str, tuple[str, str | None]] = {
+            f["rcept_no"]: res for f, res in zip(pending, doc_results)
+        }
+
         for f in filings[:5]:
             if f.get("rcept_no") == rcept_no and metrics:
                 # 최신 건은 이미 파싱했으므로 재사용
@@ -452,11 +477,9 @@ async def build_corp_gov_report_payload(
                     "metrics": {m["label"]: m["current"] for m in metrics},
                 })
                 continue
-            try:
-                d = await client.get_document_cached(f["rcept_no"])
-                h = d.get("html", "") if isinstance(d, dict) else ""
-            except DartClientError as exc:
-                warnings.append(f"{f.get('rcept_dt', '')} 원문 조회 실패: {exc.status}")
+            h, err = doc_by_rcpt.get(f["rcept_no"], ("", None))
+            if err:
+                warnings.append(f"{f.get('rcept_dt', '')} 원문 조회 실패: {err}")
                 continue
             t = _extract_text(h) if h else ""
             if not t:
