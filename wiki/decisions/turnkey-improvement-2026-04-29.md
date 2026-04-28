@@ -50,12 +50,32 @@ related: [open-proxy-guideline, decision-matrix-design, opm-guideline-debate-tra
 - **DART API**: 약 102,919 회
 - **평균 응답**: 2.76초
 
-### 성공률
+### 성공률 (1차 raw status)
 | 등급 | 건수 | 비율 |
 |---|---|---|
 | **exact** | 1,442 | **66.9%** |
 | **partial** | 685 | 31.8% |
 | **error** | 25 | **1.16%** |
+
+### 성공률 (2차 재분류 — partial을 "사건 없음" vs "일부 데이터" 분리)
+`field_filled` 메타로 partial 재분류:
+
+| 카테고리 | 건수 | % |
+|---|---|---|
+| **exact** (실제 데이터 정상) | 1,442 | **67.0%** |
+| **no_filing** (사건 없음 — 정상) | 83 | 3.9% |
+| **partial_with_data** (일부 데이터 또는 메타만) | 602 | 28.0% |
+| **error** (실제 오류) | 25 | 1.2% |
+
+**실질 성공률 (exact + no_filing) ≈ 70.9%**, **실제 오류 1.2%**.
+
+### 분리의 한계
+`partial_with_data` 28%가 실은 대부분 "사건 없음 정상"이나 audit script가 명확히 분리 못함. 이유: 11 service의 응답에 명시적 `no_filing` 메타 없음. 예 — `corp_restructuring` partial 165건은 메타 필드(`no_recent_decisions`)가 채워져 field_filled=True지만 실제 합병 결정 0건.
+
+### 다음 Phase Fix (Tier 1 격상)
+- `AnalysisStatus`에 `NO_FILING` enum 추가
+- 11 service에 `data.no_filing: bool` + `data.filing_count: int` 명시 메타 도입
+- audit script이 이 필드 직접 사용 → partial 정확 분리
 
 ### Tool별 정확도 (상위)
 | Tool | exact% | 비고 |
