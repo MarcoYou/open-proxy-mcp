@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-16-orange.svg)](#tool-구조-16개)
+[![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-구조-17개)
 
 [English README](README_ENG.md)
 
@@ -73,15 +73,20 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 "KT&G 기업지배구조보고서 준수율 보여줘"
 "현대자동차 15개 지배구조 핵심지표 상세"
 "삼성전자 지배구조 연도별 준수율 추이 (timeline)"
+"KT&G 의결권 메모 만들어줘 (얼라인파트너스 스타일로)"
+"7개 자산운용사 이사 보수한도 의결권 정책 비교해줘"
+"[운용사D] 의결권 행사 정책 vs 실제 갭 분석해줘"
+"[운용사B] 2025년 삼성전자 의결권 행사 내역 보여줘"
+"Open Proxy Guideline 12 카테고리 정책 보여줘"
 ```
 
 \* OpenProxy는 현재 DART의 재무지표를 분석하지 않으니 주의해주세요 (업데이트 예정)
 
 ---
 
-## Tool 구조 (16개)
+## Tool 구조 (17개)
 
-16개 tool은 **발견 → 데이터 탭 → 결과물 생성** 세 단계로 나뉘어요.
+17개 tool은 **발견 → 데이터 탭 → 정책/매트릭스 → 결과물 생성** 네 단계로 나뉘어요.
 
 ```
 company                            # 기업 진입점 — 1개 기업 식별 + 최근 공시 인덱스
@@ -102,11 +107,33 @@ company                            # 기업 진입점 — 1개 기업 식별 + �
 │  ├─ corp_gov_report              # 기업지배구조보고서 (15 핵심지표 + 연도별 추이)
 │  └─ evidence                     # 공시 원문 링크 (rcept_no → viewer_url)
 │
+├─ Policy & Matrix Tool (1)        ★ NEW
+│  └─ proxy_guideline              # 7 운용사 정책 + Open Proxy Guideline + 12 의사결정 매트릭스
+│                                   #   scopes: policy / record / predict / compare / consensus / audit
+│                                   #   외부 API 호출 0회 (정적 데이터, <100ms 응답)
+│
 └─ Action Tools (3)
-   ├─ prepare_vote_brief            # 의결권 행사 메모 (+ 거버넌스 준수율 자동 포함)
+   ├─ prepare_vote_brief            # 의결권 행사 메모 (거버넌스 준수율 + ★ OPM 정책 권고 자동 포함)
+   │                                #   vote_style 인자로 7 운용사 정책 선택 가능 (default: open_proxy)
    ├─ prepare_engagement_case       # 주주관여 케이스 메모
    └─ build_campaign_brief          # 캠페인 브리프
 ```
+
+### 🆕 proxy_guideline tool 상세
+
+**7 운용사 정책 데이터** (parsed JSON 정적 보존, 14MB):
+- 미래에셋·삼성·삼성액티브·트러스톤·[운용사A] (한국 5)
+- 얼라인파트너스 (행동주의)
+- 베어링 (외국계 — ISS Korea 2026 참조)
+
+**Open Proxy Guideline v1.2** (OPM 자체 모범 정책):
+- 12 카테고리 116 룰 + 11 novel topics + **2026 신법 7개 즉시 반영** (5 운용사 미반영)
+- 4 기준: 소수주주 보호 우선 / 거버넌스 투명성 / 장기 가치 관점 / 추적 가능성
+- §382의3 (2025) 충실의무 모든 카테고리 cross-cutting
+
+**12 카테고리 의사결정 매트릭스** (운용사·자문사 단독 차별화):
+- 카테고리별 8 dim (사외이사 독립성 / 이해상충 / 보수 적정성 / 정보 공개 / 보고서 준수율 / 일관성 / 절차 적법성 / ESG)
+- 총 100 dim + 76 빙고 패턴 (특정 조합 자동 결정)
 
 **모든 data tool 응답에 `data.usage` 블록**:
 DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 한도 1,000회 대비 여유 확인 가능).
@@ -148,8 +175,9 @@ DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 
 | **내부거래** | 타법인주식 거래 + 단일공급계약 | 1 |
 | **거버넌스** | 기업지배구조보고서 (15 핵심지표, 2026년부터 KOSPI 전체 의무) | 1 |
 | **근거** | 공시 원문 링크 제공 | 1 |
-| **액션** | 의결권 메모, 주주관여 케이스, 캠페인 브리프 | 3 |
-| | **합계** | **16** |
+| **정책·매트릭스** | 7 운용사 정책 + Open Proxy Guideline + 12 의사결정 매트릭스 | 1 |
+| **액션** | 의결권 메모 (OPM 정책 권고 자동 포함), 주주관여 케이스, 캠페인 브리프 | 3 |
+| | **합계** | **17** |
 
 ---
 
@@ -176,6 +204,7 @@ DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 
 | [KRX KIND](https://kind.krx.co.kr/) | 주총 의결권 행사 결과 | 웹 크롤링 |
 | [네이버 뉴스 API](https://developers.naver.com/) | 후보자 부정 뉴스 검색 | 선택 (무료 API 키) |
 | [네이버 금융](https://finance.naver.com/) | 주가, 업종명, 배당 시세 | 웹 크롤링 |
+| 자산운용사 의결권 행사 공시 | 7 운용사 정책 + 행사내역 (총 17,900 votes) | parsed JSON 정적 보존 (proxy_guideline tool) |
 
 ---
 
@@ -185,9 +214,10 @@ DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 
 open-proxy-mcp/
   open_proxy_mcp/
     server.py              # FastMCP 서버 (stdio + HTTP)
-    tools_v2/              # 16개 tool
+    tools_v2/              # 17개 tool
     services/              # 도메인별 분석 로직 (tool과 분리)
     dart/client.py         # DART API + KIND 크롤링 + 네이버 + rate limiter
+    data/asset_managers/   # 7 운용사 정책 + 행사내역 + Open Proxy Guideline + 12 매트릭스
   Dockerfile               # Fly.io 배포용 컨테이너
   fly.toml                 # Fly.io 설정 (nrt 리전, auto-suspend)
   wiki/                    # 도메인 지식 위키

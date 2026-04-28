@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-16-orange.svg)](#tool-structure-16-tools)
+[![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-structure-17-tools)
 
 [Korean README](README.md)
 
@@ -72,15 +72,20 @@ Once connected, just ask in natural language:
 "Hyundai E&C — single supply contract pattern for the last 2 years"
 "Show KT&G's corporate governance report compliance rate"
 "Hyundai Motor — all 15 governance core principles with notes"
+"KT&G AGM vote brief (Align Partners style)"
+"Compare 7 asset managers' director compensation voting policies"
+"Audit Samsung Asset Management's policy vs actual voting gap"
+"Show Mirae Asset Management's 2025 voting record on Samsung Electronics"
+"Show Open Proxy Guideline 12-category policy"
 ```
 
 \* OpenProxy does not currently analyze DART financial metrics (planned for a future update)
 
 ---
 
-## Tool Structure (16 tools)
+## Tool Structure (17 tools)
 
-16 tools are organized into **discovery → data tabs → action outputs**.
+17 tools are organized into **discovery → data tabs → policy/matrix → action outputs**.
 
 ```
 company                            # Entry point — company ID + recent filings index
@@ -101,11 +106,33 @@ company                            # Entry point — company ID + recent filings
 │  ├─ corp_gov_report              # Corporate governance report (15 KRX principles + year-over-year)
 │  └─ evidence                     # Filing source links (rcept_no → viewer_url)
 │
+├─ Policy & Matrix Tool (1)        ★ NEW
+│  └─ proxy_guideline              # 7 asset managers' policies + Open Proxy Guideline + 12 decision matrices
+│                                   #   scopes: policy / record / predict / compare / consensus / audit
+│                                   #   0 external API calls (static data, <100ms response)
+│
 └─ Action Tools (3)
-   ├─ prepare_vote_brief            # Vote memo (auto-includes governance compliance rate)
+   ├─ prepare_vote_brief            # Vote memo (auto-includes governance compliance rate + ★ OPM policy guidance)
+   │                                #   vote_style param selects from 7 managers (default: open_proxy)
    ├─ prepare_engagement_case       # Shareholder engagement memo
    └─ build_campaign_brief          # Campaign brief
 ```
+
+### 🆕 proxy_guideline tool
+
+**7 asset managers' policy data** (parsed JSON, 14MB static):
+- Mirae Asset · Samsung · Samsung Active · Truston · Korea Investment Trust (5 Korean)
+- Align Partners (activist)
+- Baring (foreign — references ISS Korea 2026)
+
+**Open Proxy Guideline v1.2** (OPM proprietary best-practice policy):
+- 12 categories × 116 rules + 11 novel topics + **7 new 2026 Korea laws** (5 managers haven't reflected yet)
+- 4 principles: minority shareholder protection / governance transparency / long-term value / traceability
+- Commercial Law §382의3 (2025) fiduciary duty cross-cutting
+
+**12 decision matrices** (unique to OPM, no asset manager or proxy advisor offers this):
+- 8 dim per category (independence / conflict / compensation / disclosure / compliance rate / consistency / legal procedure / ESG)
+- Total 100 dim + 76 bingo patterns (specific combinations auto-trigger decisions)
 
 **Every data tool returns `data.usage`**: DART API call count + MCP tool call count, so you can track how much of the 1,000/min DART limit each query consumes.
 
@@ -146,8 +173,9 @@ Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a c
 | **Related-party** | Equity deals + single supply contracts | 1 |
 | **Governance** | Corporate governance report (15 core principles, full KOSPI mandatory from 2026) | 1 |
 | **Evidence** | Filing source links | 1 |
-| **Action** | Vote memo, engagement case, campaign brief | 3 |
-| | **Total** | **16** |
+| **Policy & Matrix** | 7 manager policies + Open Proxy Guideline + 12 decision matrices | 1 |
+| **Action** | Vote memo (with OPM policy guidance auto), engagement case, campaign brief | 3 |
+| | **Total** | **17** |
 
 ---
 
@@ -174,6 +202,7 @@ When you ask for a voting recommendation on an AGM agenda item, OpenProxy follow
 | [KRX KIND](https://kind.krx.co.kr/) | AGM voting results | Web crawl |
 | [Naver News API](https://developers.naver.com/) | Candidate adverse news search | Optional (free API key) |
 | [Naver Finance](https://finance.naver.com/) | Stock price, sector, dividend yield | Web crawl |
+| Asset manager voting disclosures | 7 manager policies + voting records (17,900 votes total) | Static parsed JSON (proxy_guideline tool) |
 
 ---
 
@@ -183,9 +212,10 @@ When you ask for a voting recommendation on an AGM agenda item, OpenProxy follow
 open-proxy-mcp/
   open_proxy_mcp/
     server.py              # FastMCP server (stdio + HTTP)
-    tools_v2/              # 16 tools
+    tools_v2/              # 17 tools
     services/              # Domain logic layer (separated from tools)
     dart/client.py         # DART API + KIND crawl + Naver + rate limiter
+    data/asset_managers/   # 7 manager policies + records + Open Proxy Guideline + 12 matrices
   Dockerfile               # Container for Fly.io deployment
   fly.toml                 # Fly.io config (nrt region, auto-suspend)
   wiki/                    # Domain knowledge wiki
