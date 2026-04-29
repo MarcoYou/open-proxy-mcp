@@ -111,14 +111,22 @@ NO_FILING은 PARTIAL보다 높은 등급(EXACT 동급) — 모든 입력이 NO_F
 
 ## 진짜 partial_failure 33건 상세
 
-### corp_gov_report 18건 (모두 KOSPI 금융지주/은행/증권/보험)
+### corp_gov_report 18건 (모두 KOSPI 금융지주/은행/증권/보험) — FIXED 2026-04-29
+
+[[parsing-fix-2026-04-29-cgr-financial]] 으로 해결.
+
 KB금융, 삼성생명, 신한지주, 미래에셋증권, 하나금융지주, 우리금융지주, 삼성화재,
 메리츠금융지주, 기업은행, 한국금융지주, 등 (모두 filing_count=3, parsing_failures=1).
 
-원인: 의무공시는 했으나 metrics 표 파싱 실패. 금융지주 구조의 보고서는 일반 형식과 다름.
-대부분 filing_count=3 → 1개 파싱 실패는 최신만 또는 일부 회차만.
+**원인 (확정)**: 18 회사 모두 「금융회사의 지배구조에 관한 법률」에 따른
+"금융회사 지배구조 연차보고서"를 제출. DART HTML 본문은 메타데이터만(500-800자),
+실제 내용은 PDF 첨부 → 일반 KOSPI 15-metric 표 파싱이 본질적으로 불가능.
 
-**개선 우선순위**: 중. KOSPI 의무공시이므로 진짜 누락이지만, 원문 수동 확인은 evidence tool로 가능.
+**Fix**: 본문에서 "금융회사 지배구조 연차보고서" / "지배구조 및 보수체계 연차보고서"
+마커 감지 시 NO_FILING으로 분류 (다른 법률·다른 서식이므로 자본시장법 거버넌스 보고서가
+없는 것으로 처리). `data.report_format = "financial_holding_annual"` 메타 부착.
+
+**결과**: 18 partial_failure -> **0** (regression 0).
 
 ### ownership_structure 15건 (모두 KOSPI 대형주)
 SK하이닉스, 현대차, 한화에어로스페이스, SK스퀘어, 한화시스템, SK, HD현대, LG전자,
@@ -201,7 +209,8 @@ NO_FILING이 EXACT 동급으로 처리됨. 기존 PARTIAL/AMBIGUOUS/CONFLICT/REQ
 ## 향후 작업
 
 ### 단기
-- corp_gov_report: 금융지주 보고서 형식 fallback 파서 추가 → partial_failure 18건 감소 가능
+- ~~corp_gov_report: 금융지주 보고서 형식 fallback 파서 추가 → partial_failure 18건 감소 가능~~
+  → **2026-04-29 완료** [[parsing-fix-2026-04-29-cgr-financial]] (18 -> 0)
 - ownership_structure: hyslrSttus 빈 응답 시 5% 블록 + 자사주로 control_map 보강 → partial_failure 15건 처리
 
 ### 중기

@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-04-29
+updated: 2026-04-27
 ---
 
 # OPM Wiki Index
@@ -20,6 +20,8 @@ updated: 2026-04-29
 - [[위임장-권유]] - 의결권 위임 확보 행위, 프록시 파이트의 실행 수단
 - [[지분구조]] - 최대주주/기관/자사주/소액주주 분포
 - [[최대주주]] - 본인+특관인 합산 최다 보유자
+- [[대주주]] - 1%+ 또는 시총 10억+ 보유자, 양도세·신고 trigger
+- [[동일인]] - 재벌 그룹 정점 인물·회사, 공정위 지정
 - [[특수관계인]] - 최대주주와 혈연/계열 연결된 자
 - [[5%-대량보유]] - 5% 이상 보유 시 보유목적 공시 의무
 - [[자사주]] - 의결권 없는 자기주식, 경영권 방어 수단
@@ -107,6 +109,9 @@ updated: 2026-04-29
 - [[corp_gov_report-design]] - 기업지배구조보고서 파서 설계 (15 핵심지표, 준수율, 원문 파싱)
 - [[voting-policy-consensus-matrix]] - 7 운용사 의결권 정책 합의/이견 매트릭스 (79 토픽, 12 카테고리)
 - [[parsing-audit-2026-04-29]] - 196 기업 (KOSPI 100 + KOSDAQ 96) × 11 tool 전수 audit (exact 66.9%, error 1.16%, regression 0)
+- [[parsing-audit-2026-04-29-v2]] - audit v2: no_filing 분리 + 진짜 partial 측정 (4-class, 진짜 partial 1.5%)
+- [[parsing-fix-2026-04-29-cgr-financial]] - corp_gov_report 금융지주 18건 partial → 0 fix (financial_form 감지, regression 0)
+- [[parsing-fix-2026-04-27-ownership-stockknd]] - ownership_structure 17건 partial → 0 fix (stock_knd 변형 positive matching + 3-tier fallback, regression 0)
 - [[speed-optimization-2026-04-29]] - 9건 sequential → asyncio.gather 적용 (proxy_contest 4x, ownership 3x, dividend 3x, regression PASS)
 
 ## Disclosures

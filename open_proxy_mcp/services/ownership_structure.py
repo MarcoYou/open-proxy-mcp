@@ -33,37 +33,219 @@ _SUPPORTED_SCOPES = {
     "changes",
 }
 
+# 정기보고서 reprt_code: 사업보고서가 가장 정식이지만, 시기에 따라 미공시일 수 있어
+# (사업 → 3분기 → 반기 → 1분기) 순으로 fallback. 모두 빈 응답이면 직전 사업연도까지 시도.
+_REPRT_CODE_FALLBACK = ["11011", "11014", "11012", "11013"]
+
+_SUBTOTAL_NAMES = {"계", "합계", "소계", "총계", "총합계"}
+
 
 def _to_float(value: Any) -> float:
+    """문자열/숫자 → 실수 (괄호 음수 처리 포함, 한국 회계 관행 대응)."""
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if not text:
+        return 0.0
+    is_negative = text.startswith("(") and text.endswith(")")
+    if is_negative:
+        text = text[1:-1]
     try:
-        return float(value or 0)
+        result = float(text.replace(",", ""))
+        return -result if is_negative else result
     except (TypeError, ValueError):
         return 0.0
 
 
 def _to_int(value: Any) -> int:
+    """문자열 → 정수 (괄호 음수 처리 포함).
+
+    delta 필드 등 음수 발생 가능 영역에서 일관성 보장.
+    """
+    if value is None:
+        return 0
+    if isinstance(value, (int, float)):
+        return int(value)
+    text = str(value).strip()
+    if not text:
+        return 0
+    is_negative = text.startswith("(") and text.endswith(")")
+    if is_negative:
+        text = text[1:-1]
     try:
-        return int(re.sub(r"[^\d-]", "", str(value or "0")) or "0")
+        digits = re.sub(r"[^\d-]", "", text) or "0"
+        result = int(digits)
+        return -result if is_negative else result
     except ValueError:
         return 0
 
 
+def _normalize_stock_label(value: str) -> str:
+    """공백·개행 제거. stock_knd / nm 변형 비교용."""
+    return re.sub(r"\s+", "", (value or "").strip())
+
+
+def _is_voting_common_stock(stock_kind: str) -> bool:
+    """`최대주주` 합산 대상이 되는 보통주(=의결권 있는 주식) 여부 판정.
+
+    DART hyslrSttus의 `stock_knd`는 회사·시기에 따라 표기가 매우 다양하다:
+      - "보통주", "보통주식", " 보통주" (공백 변형)
+      - "의결권 있는 주식", "의결권있는 주식", "의결권이 있는 주식"
+      - "의결권 있는 주식\\n(보통주)", "의결권\\n있는 주식" (개행 포함)
+    공통점: "보통" 혹은 "있는"을 포함. 반대로 우선/없는/기타/-/종류/합계는 제외.
+
+    빈 stock_knd는 보수적으로 보통주로 간주(과거 일부 회사가 빈 값으로 보고하는 케이스).
+    """
+    norm = _normalize_stock_label(stock_kind)
+    if not norm:
+        return True
+    if "없는" in norm:
+        return False
+    return ("보통" in norm) or ("있는" in norm)
+
+
+def _is_subtotal_row(name: str) -> bool:
+    """`계`, `합계`, `소계` 등 합계 행 판별 (공백·개행 무시)."""
+    return _normalize_stock_label(name) in _SUBTOTAL_NAMES
+
+
+def _clean_name(name: str) -> str:
+    """이름에서 줄바꿈·중복 공백을 정리한다."""
+    return re.sub(r"\s+", " ", (name or "").strip())
+
+
 def _major_holders_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """hyslrSttus list → 본인+특수관계인 의결권 보통주 행만 추출.
+
+    legacy 필터 ``("보통" not in stock_kind and stock_kind)``는 SK하이닉스/현대차/LG전자
+    등 ``의결권 있는 주식`` 표기를 사용하는 회사를 모두 누락시켰다.
+    실표기 변형을 분석해 normalize 후 positive matching으로 교체.
+    """
     rows: list[dict[str, Any]] = []
     for item in data.get("list", []):
-        stock_kind = item.get("stock_knd", "보통")
-        name = item.get("nm", "").strip()
-        if not name or name == "계" or ("보통" not in stock_kind and stock_kind):
+        stock_kind = item.get("stock_knd", "")
+        name = _clean_name(item.get("nm", ""))
+        if not name or _is_subtotal_row(name):
+            continue
+        if not _is_voting_common_stock(stock_kind):
             continue
         rows.append({
             "name": name,
-            "relation": item.get("relate", "").strip(),
+            "relation": _clean_name(item.get("relate", "")),
             "shares": _to_int(item.get("trmend_posesn_stock_co", "0")),
             "ownership_pct": _to_float(item.get("trmend_posesn_stock_qota_rt", "0")),
             "settlement_date": item.get("stlm_dt", ""),
         })
     rows.sort(key=lambda row: row["ownership_pct"], reverse=True)
     return rows
+
+
+async def _fetch_major_with_fallback(
+    client,
+    corp_code: str,
+    bsns_year: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any], list[str]]:
+    """hyslrSttus를 다중 (year, reprt_code) 조합으로 시도.
+
+    1) 요청된 bsns_year의 (사업 → 3분기 → 반기 → 1분기) 순회
+    2) 모두 빈 응답이면 직전 사업연도 사업보고서 시도
+    3) 모두 실패면 빈 list 반환 (호출자가 5% 보고서 fallback 결정)
+
+    Returns:
+        (major_rows, source_meta, warnings)
+        - source_meta: {"endpoint", "bsns_year", "reprt_code", "fallback_used", "no_data"}
+    """
+    warnings: list[str] = []
+    attempts: list[tuple[str, str]] = [(bsns_year, code) for code in _REPRT_CODE_FALLBACK]
+    try:
+        prev_year = str(int(bsns_year) - 1)
+        attempts.append((prev_year, "11011"))
+    except ValueError:
+        pass
+
+    last_status: str | None = None
+    for try_year, try_code in attempts:
+        try:
+            data = await client.get_major_shareholders(corp_code, try_year, try_code)
+        except DartClientError as exc:
+            last_status = exc.status
+            if exc.status != "013":
+                warnings.append(
+                    f"hyslrSttus 호출 실패 ({try_year}/{try_code}): {exc.status}"
+                )
+            continue
+        rows = _major_holders_rows(data)
+        if rows:
+            source_meta = {
+                "endpoint": "hyslrSttus",
+                "bsns_year": try_year,
+                "reprt_code": try_code,
+                "raw_count": len(data.get("list", [])),
+                "parsed_count": len(rows),
+                "fallback_used": (try_year, try_code) != (bsns_year, "11011"),
+            }
+            if source_meta["fallback_used"]:
+                warnings.append(
+                    f"최대주주: bsns_year={try_year} reprt_code={try_code} fallback 사용"
+                )
+            return rows, source_meta, warnings
+
+    source_meta = {
+        "endpoint": "hyslrSttus",
+        "bsns_year": bsns_year,
+        "reprt_code": "11011",
+        "raw_count": 0,
+        "parsed_count": 0,
+        "fallback_used": False,
+        "no_data": True,
+        "last_status": last_status,
+    }
+    return [], source_meta, warnings
+
+
+async def _fetch_largest_shareholder_from_blocks(
+    client,
+    corp_code: str,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """5% 대량보유(majorstock)에서 최대주주 후보를 추정.
+
+    hyslrSttus가 비어 있는 ‘ownerless’(국민연금 6%대만 있는 회사 등) 또는
+    미공개 케이스의 보조 source. 5% 보고는 ‘외부 주주 시점’이라
+    본인+특수관계인 합산 개념과 다르므로 추정치임을 명시한다.
+
+    KT&G 같은 회사도 hyslrSttus에 본인 7%대 데이터가 있어 1차 fallback이
+    먼저 처리하는 것이 정상. 이 함수는 그것마저 실패한 잔여 케이스용.
+    """
+    warnings: list[str] = []
+    try:
+        data = await client.get_block_holders(corp_code)
+    except DartClientError as exc:
+        if exc.status != "013":
+            warnings.append(f"5% 대량보유 fallback 실패: {exc.status}")
+        return [], warnings
+
+    latest_by_reporter: dict[str, dict[str, Any]] = {}
+    for item in data.get("list", []):
+        reporter = (item.get("repror", "") or "").strip()
+        if not reporter:
+            continue
+        rcept_dt = item.get("rcept_dt", "")
+        if reporter not in latest_by_reporter or rcept_dt > latest_by_reporter[reporter].get("rcept_dt", ""):
+            latest_by_reporter[reporter] = item
+
+    rows: list[dict[str, Any]] = []
+    for reporter, item in latest_by_reporter.items():
+        rows.append({
+            "name": _clean_name(reporter),
+            "relation": "5% 보유자(추정)",
+            "shares": _to_int(item.get("stkqy", 0)),
+            "ownership_pct": _to_float(item.get("stkrt", 0)),
+            "settlement_date": item.get("rcept_dt", ""),
+        })
+    rows.sort(key=lambda row: row["ownership_pct"], reverse=True)
+    return rows, warnings
 
 
 def _top_holder_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -473,22 +655,37 @@ async def build_ownership_structure_payload(
     major_res, stock_total_res, treasury_res = await asyncio.gather(
         major_task, stock_total_task, treasury_task, return_exceptions=True,
     )
+
+    # 1차: 사업보고서 hyslrSttus.
+    # 빈 응답(013)은 ERROR가 아니라 fallback 경로로 보낸다 — KOSPI 대형주 다수가 정기보고서
+    # 표기 형식 변형(의결권 있는 주식 등)으로 legacy 파서에서 0건이었기 때문.
+    major_source: dict[str, Any] = {
+        "endpoint": "hyslrSttus",
+        "bsns_year": bsns_year,
+        "reprt_code": "11011",
+        "fallback_used": False,
+    }
     if isinstance(major_res, DartClientError):
-        return ToolEnvelope(
-            tool="ownership_structure",
-            status=AnalysisStatus.ERROR,
-            subject=selected.get("corp_name", company_query),
-            warnings=[f"최대주주 API 조회 실패: {major_res.status}"],
-            data={
-                "query": company_query,
-                "scope": scope,
-                "year": bsns_year,
-                "usage": build_usage(client.api_call_snapshot() - _calls_start),
-            },
-        ).to_dict()
-    if isinstance(major_res, BaseException):
+        if major_res.status != "013":
+            return ToolEnvelope(
+                tool="ownership_structure",
+                status=AnalysisStatus.ERROR,
+                subject=selected.get("corp_name", company_query),
+                warnings=[f"최대주주 API 조회 실패: {major_res.status}"],
+                data={
+                    "query": company_query,
+                    "scope": scope,
+                    "year": bsns_year,
+                    "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                },
+            ).to_dict()
+        major = {"list": []}
+        major_source["last_status"] = "013"
+    elif isinstance(major_res, BaseException):
         raise major_res
-    major = major_res
+    else:
+        major = major_res
+        major_source["raw_count"] = len(major.get("list", []))
 
     if isinstance(stock_total_res, DartClientError):
         stock_total = {"list": []}
@@ -507,9 +704,40 @@ async def build_ownership_structure_payload(
         treasury_data = treasury_res
 
     major_rows = _major_holders_rows(major)
+    major_source["parsed_count"] = len(major_rows)
+
+    # 2차 fallback: 1차에서 0건 → 다른 reprt_code (반기/분기) + 직전연도 사업 시도.
+    if not major_rows:
+        fb_rows, fb_source, fb_warnings = await _fetch_major_with_fallback(
+            client, selected["corp_code"], bsns_year
+        )
+        warnings.extend(fb_warnings)
+        if fb_rows:
+            major_rows = fb_rows
+            major_source = fb_source
+
     latest_blocks, timeline_rows, block_warning = await _latest_block_rows(selected["corp_code"])
     if block_warning:
         warnings.append(block_warning)
+
+    # 3차 fallback: 정기보고서 모두 빈 응답 → 5% 대량보유에서 추정.
+    # ‘본인+특수관계인 합산’ 개념과는 다르므로 추정치임을 명시한다.
+    if not major_rows:
+        block_fb_rows, block_fb_warnings = await _fetch_largest_shareholder_from_blocks(
+            client, selected["corp_code"]
+        )
+        warnings.extend(block_fb_warnings)
+        if block_fb_rows:
+            major_rows = block_fb_rows
+            major_source = {
+                "endpoint": "majorstock",
+                "fallback_used": True,
+                "estimated_from_5pct": True,
+                "parsed_count": len(block_fb_rows),
+            }
+            warnings.append(
+                "최대주주를 5% 대량보유 보고에서 추정 — 본인+특수관계인 합산이 아니므로 정확도 제한"
+            )
     start_ymd = format_yyyymmdd(window_start)
     end_ymd = format_yyyymmdd(window_end)
     latest_blocks = [
@@ -563,6 +791,7 @@ async def build_ownership_structure_payload(
             "treasury_pct": treasury_snapshot["treasury_pct"],
             "active_signal_count": len(active_signals),
         },
+        "largest_shareholder_source": major_source,
         **filing_meta,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }

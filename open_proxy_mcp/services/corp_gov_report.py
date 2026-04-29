@@ -32,9 +32,26 @@ from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 _SUPPORTED_SCOPES = {"summary", "metrics", "principles", "filings", "timeline"}
 
-# "기업지배구조보고서공시"만 대상. KB금융 등 금융지주의 "연차보고서" 형식은 제외.
+# "기업지배구조보고서공시"만 대상. 다음 서식들은 일반 KOSPI 거버넌스 보고서 표가 없어 제외:
+# - "연차보고서": 금융지주/은행/보험/증권 등이 「금융회사의 지배구조에 관한 법률」에 따라 제출.
+#   본문은 단순 메타데이터(500-800자)이고 실제 내용은 PDF 첨부에 있어 표 파싱 불가.
+# - "(자율공시)": 자회사의 주요경영사항 신고 형태로 지주회사가 자회사 보고서를 대신 공시.
+# - "[첨부정정]"/"[첨부추가]": 본문 014 (파일 없음) 에러 케이스가 다수.
 _GOV_KEYWORDS = ("기업지배구조보고서공시",)
-_EXCLUDE_REPORT_SUBSTR = ("연차보고서",)
+_EXCLUDE_REPORT_SUBSTR = (
+    "연차보고서",
+    "(자율공시)",
+    "[첨부정정]",
+    "[첨부추가]",
+)
+
+# 본문에서 금융회사 지배구조 연차보고서 형식임을 식별하는 마커 (suffix 없는 옛 보고서 대응).
+# 이 마커가 본문에 있으면 일반 거버넌스 보고서 형식이 아니라 PDF 첨부 메타에 본문이 있어
+# 표 파싱이 불가능. partial_failure가 아니라 "다른 서식" (NO_FILING)으로 분류.
+_FINANCIAL_FORM_MARKERS = (
+    "금융회사 지배구조 연차보고서",
+    "지배구조 및 보수체계 연차보고서",
+)
 
 # 15개 핵심지표 표준 라벨(원문 변형 허용)
 _METRIC_LABELS = [
@@ -59,6 +76,18 @@ _METRIC_LABELS = [
 def _extract_text(html: str) -> str:
     soup = BeautifulSoup(html or "", "lxml")
     return soup.get_text("\n", strip=True)
+
+
+def _is_financial_form(text: str) -> bool:
+    """본문이 금융회사 지배구조 연차보고서 형식인지 식별.
+
+    KB금융/신한지주/삼성생명/하나금융/카카오뱅크 등 18개 금융지주/은행/보험/증권사는
+    「금융회사의 지배구조에 관한 법률」에 따라 별도 서식으로 제출. 본문은 메타데이터만
+    있고(약 500-800자) 실제 내용은 PDF 첨부 → 일반 KOSPI 15-metric 표 파싱 불가.
+    """
+    if not text:
+        return False
+    return any(marker in text for marker in _FINANCIAL_FORM_MARKERS)
 
 
 def _parse_compliance_rate(text: str) -> float | None:
@@ -438,6 +467,50 @@ async def build_corp_gov_report_payload(
         html = ""
 
     text = _extract_text(html) if html else ""
+
+    # 금융회사 지배구조 연차보고서 형식 감지 (KB금융/신한지주/삼성생명 등 18개 금융지주류).
+    # 본문이 PDF 첨부 메타데이터만 포함되어 일반 15-metric 표 파싱이 불가능.
+    # 일반 거버넌스 보고서 형식과는 본질적으로 다른 서식이므로, 일반 보고서 미제출
+    # (NO_FILING)로 분류하고 evidence는 보존.
+    is_financial_form = _is_financial_form(text)
+    if is_financial_form:
+        financial_meta = build_filing_meta(filing_count=0, parsing_failures=0)
+        data.update(financial_meta)
+        data["report_format"] = "financial_holding_annual"
+        data["report_meta"] = {
+            "rcept_no": rcept_no,
+            "rcept_dt": target_filing.get("rcept_dt", ""),
+            "report_nm": target_filing.get("report_nm", ""),
+            "format_note": "금융회사 지배구조 연차보고서 (PDF 첨부 형식, 일반 거버넌스 표 없음)",
+        }
+        data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
+        warnings.append(
+            "금융회사 지배구조 연차보고서 형식 (「금융회사의 지배구조에 관한 법률」 제출). "
+            "본문은 PDF 첨부에 있어 일반 15-metric 표 파싱 불가. 원문 첨부 PDF 직접 확인 필요."
+        )
+        return ToolEnvelope(
+            tool="corp_gov_report",
+            status=status_from_filing_meta(financial_meta),
+            subject=selected.get("corp_name", company_query),
+            warnings=warnings,
+            data=data,
+            evidence_refs=[
+                EvidenceRef(
+                    evidence_id=f"ev_cgr_fin_{rcept_no}",
+                    source_type=SourceType.DART_API,
+                    rcept_no=rcept_no,
+                    rcept_dt=format_iso_date(target_filing.get("rcept_dt", "")),
+                    report_nm=target_filing.get("report_nm", "기업지배구조보고서"),
+                    section="금융회사 지배구조 연차보고서 (PDF 첨부)",
+                    note="본문은 첨부 PDF — DART 뷰어에서 직접 확인",
+                )
+            ],
+            next_actions=[
+                "DART 뷰어에서 첨부 PDF 직접 확인",
+                "scope=filings로 제출 이력 확인",
+            ],
+        ).to_dict()
+
     compliance_rate = _parse_compliance_rate(text) if text else None
     summary_block = _parse_company_summary(text) if text else {}
     metrics = _parse_metrics(text) if text else []

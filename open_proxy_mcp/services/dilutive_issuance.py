@@ -49,15 +49,39 @@ def _truncate(value: Any, limit: int = 200) -> str:
 
 
 def _to_int(value: Any) -> int:
+    """문자열 → 정수 (괄호 음수 처리 포함, 한국 회계 관행 대응).
+
+    예: "(500)" → -500, "1,000" → 1000, "-500" → -500.
+    DART API는 음수를 일반적으로 -500 형식으로 반환하지만, OCR/HTML
+    fallback 경로에서 괄호 음수가 들어올 수 있어 일관 처리한다.
+    """
+    text = str(value or "0").strip()
+    if not text:
+        return 0
+    # 괄호 음수: (500) → -500
+    is_negative = text.startswith("(") and text.endswith(")")
+    if is_negative:
+        text = text[1:-1]
     try:
-        return int(re.sub(r"[^\d-]", "", str(value or "0")) or "0")
+        digits = re.sub(r"[^\d-]", "", text) or "0"
+        result = int(digits)
+        return -result if is_negative else result
     except ValueError:
         return 0
 
 
 def _to_float(value: Any) -> float:
+    """문자열 → 실수 (괄호 음수 처리 포함)."""
+    text = str(value or "0").strip()
+    if not text:
+        return 0.0
+    is_negative = text.startswith("(") and text.endswith(")")
+    if is_negative:
+        text = text[1:-1]
     try:
-        return float(re.sub(r"[^\d.-]", "", str(value or "0")) or "0")
+        digits = re.sub(r"[^\d.-]", "", text) or "0"
+        result = float(digits)
+        return -result if is_negative else result
     except ValueError:
         return 0.0
 
