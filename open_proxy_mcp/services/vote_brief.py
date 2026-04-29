@@ -19,6 +19,12 @@ from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meetin
 
 
 def _merge_status(*statuses: str) -> str:
+    """Action tool용 status 합산.
+
+    NO_FILING은 정상(사건 없음)이므로 PARTIAL보다 높은 등급(EXACT 동급)으로 본다.
+    구체적으로 모든 입력이 NO_FILING이면 NO_FILING, 일부라도 EXACT가 섞이면 EXACT.
+    PARTIAL/CONFLICT/REQUIRES_REVIEW/ERROR는 기존과 동일하게 우선.
+    """
     if any(status == AnalysisStatus.ERROR for status in statuses):
         return AnalysisStatus.ERROR
     if any(status == AnalysisStatus.REQUIRES_REVIEW for status in statuses):
@@ -29,6 +35,8 @@ def _merge_status(*statuses: str) -> str:
         return AnalysisStatus.PARTIAL
     if any(status == AnalysisStatus.AMBIGUOUS for status in statuses):
         return AnalysisStatus.AMBIGUOUS
+    if statuses and all(status == AnalysisStatus.NO_FILING for status in statuses):
+        return AnalysisStatus.NO_FILING
     return AnalysisStatus.EXACT
 
 

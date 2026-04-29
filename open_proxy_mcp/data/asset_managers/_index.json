@@ -223,6 +223,27 @@
       ],
       "categories_covered": 12,
       "extraction_confidence": "high"
+    },
+    "nps": {
+      "name": "국민연금기금운용본부 (NPS)",
+      "type": "pension_fund",
+      "classification": "stewardship_code_signatory",
+      "external_advisor": null,
+      "latest_policy": "2025.03.01 국민연금기금 수탁자 책임 활동에 관한 지침",
+      "policy_file": "policies/nps_2025-03.json",
+      "categories_covered": 12,
+      "extraction_confidence": "high",
+      "data_source": "fund.nps.or.kr 직접 크롤링 + 정적 JSON 캐싱 (하이브리드)",
+      "endpoints": {
+        "init_get": "https://fund.nps.or.kr/impa/edwmpblnt/getOHEF0007M0.do",
+        "list_post": "https://fund.nps.or.kr/impa/edwmpblnt/empty/getOHEF0007M0.do",
+        "detail_post": "https://fund.nps.or.kr/impa/edwmpblnt/getOHEF0010M0.do"
+      },
+      "ticker_mapping": "NPS 종목코드 5자리 + '0' = 한국 표준 6자리 티커 (검증 100%)",
+      "use_case": "최대 기관투자자 의결권 행사 패턴 — 캠페인 표 예측 핵심 변수, KOSPI 200 대다수 5%+ 보유",
+      "scope_id": "nps_record",
+      "records_dir": "nps_records/",
+      "details_dir": "nps_records/details/"
     }
   },
   "open_proxy_default": "open_proxy_v1",

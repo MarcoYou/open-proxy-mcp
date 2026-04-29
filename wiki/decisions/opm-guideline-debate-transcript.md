@@ -512,3 +512,135 @@ related: [open-proxy-guideline, decision-matrix-design]
 - v1.0 (코붕이 + 7 전문가) 결정: 모두 보존
 - v1.1 align_partners 행동주의 7건: 모두 보존
 - v1.1 baring (ISS) 12건: voting_rules 본문은 한국 운용사·법령 source로 재정렬 후 보존 (ISS는 보조 참조), novel_topics 2건 (say_on_climate, discharge) 삭제, climate_accountability는 tier 다운그레이드
+
+---
+
+## v1.3 (2026-04-29) — c_activist (차파트너스) 통합
+
+**코붕이**: 차파트너스 정책 (행동주의 펀드, 자본시장 표준 가이드라인 + 본문 행동주의 적극 행사 원칙) 추가했으니 8 운용사 매트릭스 재계산하자.
+
+**모더레이터 결정**:
+- 행동주의 3사 (T/A/C) 일치 영역을 합의 강화 영역으로 표시
+- c_activist 단독 명시 신규 토픽 17건은 한국 silent 영역 추가 차단 영역으로 채택
+- v1.0/v1.1/v1.2 결정 모두 보존, 강화/통합만
+
+### v1.3 입장 분포 분석
+
+#### 차파트너스 정책 특징
+
+- **자본시장 표준 가이드라인 (별첨 #1)**: 다른 7 운용사와 같은 의안분석연구원/자본시장연구원 표준 따라 — 코어 룰은 거의 같음
+- **본문 제3조 ②**: 합병/영업양수도/임원 임면/정관변경 등 중대 사항 적극 행사 (a_activist 일반원칙 제3조 ②와 동일 표현)
+- **별첨 #1 추가 항목 풍부**: 7 운용사보다 세부 영역 더 광범위 (집행임원/내부거래위/LID/매년 독립성 공시 등)
+- **ESG 사례 A-H**: 환경/근로자/협력사/제품/인권/지배구조 8개 영역 명시 — ESG 종합 입장
+- **against rate 27.5%** (a_activist 17.3%, 5 운용사 평균 9.4%) — 가장 강한 행동주의
+
+#### 8 운용사 합의 매트릭스 통계 (v4)
+
+| 항목 | v3 (7 운용사) | v4 (8 운용사) | 변화 |
+| --- | --- | --- | --- |
+| 총 토픽 | 79 | 96 | +17 (c_activist 단독) |
+| consensus | 22 | 22 | ±0 (count 7→8 강화) |
+| majority | 27 | 26 | -1 |
+| divergence | 7 | 21 | +14 |
+| minority | 23 | 27 | +4 |
+| consensus rate | 27.8% | 22.9% | -4.9%p (8 운용사 확대 자연 감소) |
+| majority+ rate | 62.0% | 50.0% | -12.0%p (silent 운용사 정량적 영향) |
+
+**유의**: consensus rate 하락은 c_activist 단독 신규 토픽 17건이 minority로 추가된 것 때문. 7 운용사 합의 영역에서 c_activist가 동조하면 consensus count는 7→8로 강화 (이는 만장일치 영역 8건 발견에 반영).
+
+#### 8/8 만장일치 토픽 8건 (v1.3 핵심)
+
+| Category | Topic ID | 입장 |
+| --- | --- | --- |
+| financial_statements | non_qualified_audit_opinion | against |
+| articles_amendment | outside_director_ratio_increase | for |
+| articles_amendment | cumulative_voting_exclusion_removal | for |
+| articles_amendment | supermajority_voting | against |
+| articles_amendment | golden_parachute | against |
+| director_election | outside_director_independence_5year | against |
+| director_election | concurrent_positions | against |
+| director_election | company_value_damage_history | against |
+
+#### 행동주의 3사 (T/A/C) 일치 토픽 24건
+
+행동주의 강화 영역 — c_activist 통합으로 강도 명확:
+
+| Category | 토픽 | 입장 |
+| --- | --- | --- |
+| financial_statements | non_qualified_audit_opinion | against |
+| cash_dividend | excessive_or_insufficient_dividend | against |
+| articles_amendment | outside_director_ratio_increase | for |
+| articles_amendment | cumulative_voting_exclusion_removal | for |
+| articles_amendment | staggered_terms (도입 against) | against_for_introduction |
+| articles_amendment | supermajority_voting | against |
+| articles_amendment | golden_parachute | against |
+| articles_amendment | electronic_written_voting | for |
+| articles_amendment | shareholder_rights_restriction | against |
+| director_election | outside_director_independence_5year | against |
+| director_election | concurrent_positions | against |
+| director_election | company_value_damage_history | against |
+| director_election | specific_shareholder_interest | against |
+| director_compensation | compensation_limit_appropriate | for |
+| director_compensation | performance_linked_compensation (미연계) | against_unlinked |
+| director_compensation | stock_option_repricing | against |
+| director_compensation | stock_option_exercise_period_shortening | against |
+| director_compensation | stock_option_size_threshold | against |
+| treasury_share | treasury_share_disposal_to_market | for |
+| capital_increase_decrease | capital_decrease_principle_against | against_with_exceptions |
+| capital_increase_decrease | anti_takeover_capital_increase | against |
+| capital_increase_decrease | preemptive_right_exclusion | against |
+| cb_bw | cb_bw_dilution_threshold | against |
+| cb_bw | third_party_cb_bw_review | review |
+
+#### c_activist 단독 신규 토픽 17건 (한국 silent 영역 차단)
+
+| Category | Topic ID | 입장 |
+| --- | --- | --- |
+| treasury_share | treasury_share_burnout_for_value | for |
+| treasury_share | treasury_share_disposal_for_new_investment | against |
+| capital_increase_decrease | forfeited_shares_to_insider_against | for |
+| director_election | executive_officer_system_for | for |
+| director_election | ceo_3rd_term_supermajority | for |
+| director_election | board_evaluation_disclosure | for |
+| director_compensation | outside_director_stock_lock_until_retirement | for |
+| director_compensation | compensation_disclosure_below_5억 | for |
+| director_compensation | stock_purchase_loan_against | against |
+| director_compensation | hedging_derivatives_prohibition | for |
+| articles_amendment | internal_trade_committee_setup | for |
+| articles_amendment | outside_director_independence_annual | for |
+| articles_amendment | nominating_committee_majority_outside | for |
+| articles_amendment | lead_independent_director_intro | for |
+| cb_bw | cb_bw_for_distressed_restructuring | for |
+| shareholder_proposal | political_donation_blanket_ban_against | against |
+| shareholder_proposal | charity_donation_restriction_against | against |
+
+### v1.3 OPM 강화 결정 5건
+
+1. **8/8 만장일치 영역 8건 명시** — 외감/사외이사/거버넌스 핵심 룰의 합의 강도 강화 (v1_3_note 마킹)
+2. **행동주의 3사 (T/A/C) 일치 24건 명시** — 한국 silent 영역 차단 강화 (a_activist 단독 → 2사 합의로 강화)
+3. **c_activist 단독 신규 17 토픽 채택** — 새 novel_topics 5개 추가 (executive_officer_system, internal_trade_committee, outside_director_independence_annual_disclosure, compensation_disclosure_below_500m, executive_hedging_prohibition)
+4. **bundled_slate_against / lead_independent_director / overboarded_directors** novel_topics 강화 — c_activist 동조 명시
+5. **active_engagement_principle 강화** — a_activist 단독 → 2사 (a_activist + c_activist) 일치로 채택
+
+### v1.3 통계
+
+- voting_rules: 17건 신규 c_activist criteria + 14건 기존 source 보강 (v1_3_note 마킹)
+- novel_topics: 11 → 16 (5건 신규)
+- 8 운용사 합의 매트릭스: 96 topics (consensus 22 + majority 26 = 50%)
+- 행동주의 3사 (T/A/C) 일치 24건
+- 8/8 만장일치 8건
+- c_activist 단독 신규 17건
+
+### v1.0/v1.1/v1.2 결정 보존 여부
+
+- v1.0 (코붕이 + 7 전문가) 결정: 모두 보존
+- v1.1 align_partners 행동주의 7건: 모두 보존, c_activist 동조로 강화
+- v1.2 ISS 다운그레이드: 모두 유지 (베어링은 외국계 ISS 참조 사례로 보존)
+- v1.3 c_activist 통합: 강화/통합만, 뒤집기 X
+
+### v1.3 핵심 원칙
+
+- **OPM은 8 운용사 평균 X**. 행동주의 2사 (a_activist + c_activist) 적극 행사 원칙 양 축으로 한국 silent 영역 추가 차단
+- **c_activist 단독 명시 영역**은 한국 운용사 silent 영역에 한해 채택 (한국 법령·KCGS 모범규준·KRX 핵심지표 정합 우선)
+- **신규 dim 추가는 보류** — c_activist 입장은 기존 dim 강화로 통합 (matrix design 안정성 우선)
+- **v1.0/v1.1/v1.2 결정 모두 보존** — v1.3은 강화/통합만

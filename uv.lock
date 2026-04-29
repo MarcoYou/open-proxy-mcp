@@ -635,31 +635,45 @@ wheels = [
 [[package]]
 name = "open-proxy-mcp"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
-    { name = "anthropic" },
     { name = "beautifulsoup4" },
     { name = "httpx" },
     { name = "lxml" },
     { name = "mcp", extra = ["cli"] },
+    { name = "python-dotenv" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "anthropic" },
     { name = "openai" },
     { name = "opendataloader-pdf" },
     { name = "pypdf2" },
-    { name = "python-dotenv" },
+]
+llm = [
+    { name = "anthropic" },
+    { name = "openai" },
+]
+pdf = [
+    { name = "opendataloader-pdf" },
+    { name = "pypdf2" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "anthropic", marker = "extra == 'llm'", specifier = ">=0.40.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "lxml", specifier = ">=5.0.0" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
-    { name = "openai", specifier = ">=1.50.0" },
-    { name = "opendataloader-pdf", specifier = ">=0.1.0" },
-    { name = "pypdf2", specifier = ">=3.0.0" },
+    { name = "open-proxy-mcp", extras = ["llm", "pdf"], marker = "extra == 'all'" },
+    { name = "openai", marker = "extra == 'llm'", specifier = ">=1.50.0" },
+    { name = "opendataloader-pdf", marker = "extra == 'pdf'", specifier = ">=0.1.0" },
+    { name = "pypdf2", marker = "extra == 'pdf'", specifier = ">=3.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
+provides-extras = ["llm", "pdf", "all"]
 
 [[package]]
 name = "openai"

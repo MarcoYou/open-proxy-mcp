@@ -13,7 +13,14 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.contracts import (
+    AnalysisStatus,
+    EvidenceRef,
+    SourceType,
+    ToolEnvelope,
+    build_filing_meta,
+    status_from_filing_meta,
+)
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 
 
@@ -328,6 +335,13 @@ async def build_dilutive_issuance_payload(
         "dart_daily_limit_per_minute": 1000,
     }
 
+    # 사건 발견 vs 진짜 partial 분리.
+    # 4개 결정 API 모두 DART 구조화 응답이라 결과 0건은 사건 자체가 없는 정상 케이스.
+    filing_meta = build_filing_meta(
+        filing_count=len(rows),
+        parsing_failures=0,
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -345,6 +359,7 @@ async def build_dilutive_issuance_payload(
             "warrant_bond": len(by_type.get("warrant_bond", [])),
             "capital_reduction": len(by_type.get("capital_reduction", [])),
         },
+        **filing_meta,
         "usage": usage,
         "supported_scopes": sorted(_SUPPORTED_SCOPES),
     }
@@ -386,9 +401,9 @@ async def build_dilutive_issuance_payload(
                 )
             )
 
-    status = AnalysisStatus.EXACT if rows else AnalysisStatus.PARTIAL
-    if not rows:
-        warnings.append("조사 구간 내 희석성 증권 발행 공시 없음")
+    status = status_from_filing_meta(filing_meta)
+    if filing_meta["no_filing"]:
+        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 희석성 증권(유증/CB/BW/감자) 발행 공시 없음 (정상)")
 
     return ToolEnvelope(
         tool="dilutive_issuance",

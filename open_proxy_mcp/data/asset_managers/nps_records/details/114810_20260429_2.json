@@ -1,0 +1,34 @@
+{
+  "nps_code": "11481",
+  "ticker": "114810",
+  "gmos_ymd": "20260429",
+  "gmos_date": "2026-04-29",
+  "gmos_kind_cd": "2",
+  "gmos_kind": "extra",
+  "company_name": "한솔아이원스(주)",
+  "items": [
+    {
+      "agenda_no": "제1호",
+      "agenda_title": "정관변경",
+      "decision_label": "반대",
+      "decision": "against",
+      "against_reason": "회사의 지분구조상 최대주주 등의 찬성만으로 자기주식보유처분계획이 주주총회에서 승인될 수 있으며, 기타 일반주주의 의견을 반영할 수 있는 방안은 확인되지 않아, 개정상법의 예외를 인정하는 것이 주주가치의 감소를 초래할 수 있어 반대",
+      "rule_clause": "행사지침 10조"
+    },
+    {
+      "agenda_no": "제2호",
+      "agenda_title": "자기주식 보유·처분 계획 승인의 건",
+      "decision_label": "반대",
+      "decision": "against",
+      "against_reason": "자기주식 취득 당시에 공시한 목적은 ‘주가 안정 및 주주가치 제고’인 반면, ‘임직원 보상’ 목적으로 자기주식을 보유처분할 계획으로서, 자기주식 취득 당시 공시한 내용과 일관되지 않아 반대",
+      "rule_clause": "행사지침 10조"
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "for": 0,
+    "against": 2,
+    "abstain": 0,
+    "not_voted": 0
+  }
+}

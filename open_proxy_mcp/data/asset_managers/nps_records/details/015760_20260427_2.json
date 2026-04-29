@@ -1,0 +1,26 @@
+{
+  "nps_code": "01576",
+  "ticker": "015760",
+  "gmos_ymd": "20260427",
+  "gmos_date": "2026-04-27",
+  "gmos_kind_cd": "2",
+  "gmos_kind": "extra",
+  "company_name": "한국전력공사(주)",
+  "items": [
+    {
+      "agenda_no": "제1호",
+      "agenda_title": "상임이사 선임",
+      "decision_label": "찬성",
+      "decision": "for",
+      "against_reason": "",
+      "rule_clause": ""
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "for": 1,
+    "against": 0,
+    "abstain": 0,
+    "not_voted": 0
+  }
+}

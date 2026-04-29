@@ -46,6 +46,14 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"- {w}")
         lines.append("")
 
+    if data.get("no_filing"):
+        lines.extend([
+            "## 공시 없음",
+            "- 조사 구간 내 자사주 이벤트 공시 없음 (정상 NO_FILING).",
+            f"- 연간 누적은 `scope='annual'`로 확인할 수 있다.",
+            "",
+        ])
+
     lines.extend([
         "## 이벤트 집계",
         "| 유형 | 건수 |",

@@ -13,6 +13,7 @@ from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meetin
 
 
 def _merge_status(*statuses: str) -> str:
+    """NO_FILING은 EXACT 동급(PARTIAL 아래)."""
     if any(status == AnalysisStatus.ERROR for status in statuses):
         return AnalysisStatus.ERROR
     if any(status == AnalysisStatus.REQUIRES_REVIEW for status in statuses):
@@ -23,6 +24,8 @@ def _merge_status(*statuses: str) -> str:
         return AnalysisStatus.PARTIAL
     if any(status == AnalysisStatus.AMBIGUOUS for status in statuses):
         return AnalysisStatus.AMBIGUOUS
+    if statuses and all(status == AnalysisStatus.NO_FILING for status in statuses):
+        return AnalysisStatus.NO_FILING
     return AnalysisStatus.EXACT
 
 

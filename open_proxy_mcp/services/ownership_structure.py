@@ -11,7 +11,15 @@ from bs4 import BeautifulSoup
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope, build_usage
+from open_proxy_mcp.services.contracts import (
+    AnalysisStatus,
+    EvidenceRef,
+    SourceType,
+    ToolEnvelope,
+    build_filing_meta,
+    build_usage,
+    status_from_filing_meta,
+)
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
 
@@ -520,6 +528,20 @@ async def build_ownership_structure_payload(
         if row["purpose"] not in ("단순투자", "단순투자/일반투자", "불명")
     ]
 
+    # 사건 발견 vs 진짜 partial 분리.
+    # ownership은 두 종류 — 정기보고서(major_holders)는 대부분 항상 있고
+    # 5% 보고서·변동신고서는 회사·구간에 따라 없을 수 있다.
+    # filing_count = major_holders rows + latest_blocks (5% 보고).
+    filing_count = len(major_rows) + len(latest_blocks)
+    parsing_failures = 0
+    # major_rows가 비어 있으면 정기보고서 파싱 실패 = 진짜 partial.
+    if not major_rows:
+        parsing_failures += 1
+    filing_meta = build_filing_meta(
+        filing_count=filing_count,
+        parsing_failures=parsing_failures,
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -541,6 +563,7 @@ async def build_ownership_structure_payload(
             "treasury_pct": treasury_snapshot["treasury_pct"],
             "active_signal_count": len(active_signals),
         },
+        **filing_meta,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
@@ -597,8 +620,10 @@ async def build_ownership_structure_payload(
                 )
             )
 
-    status = AnalysisStatus.EXACT if major_rows else AnalysisStatus.PARTIAL
-    if not major_rows:
+    status = status_from_filing_meta(filing_meta)
+    if filing_meta["no_filing"]:
+        warnings.append(f"조사 구간 ({start_ymd}~{end_ymd}) 내 정기보고서/5% 대량보유 공시 없음 (정상)")
+    elif filing_meta["parsing_failures"] > 0 and not major_rows:
         warnings.append("최대주주 구조를 충분히 읽지 못해 partial 상태로 표시한다.")
 
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)

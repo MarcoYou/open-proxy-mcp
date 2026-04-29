@@ -15,7 +15,12 @@ from open_proxy_mcp.dart.client import (
     DartClientError,
     get_dart_client,
 )
-from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope, build_usage
+from open_proxy_mcp.services.contracts import (
+    AnalysisStatus,
+    ToolEnvelope,
+    build_filing_meta,
+    build_usage,
+)
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
 
 _RECENT_LOOKBACK_DAYS = 180
@@ -279,6 +284,14 @@ async def build_company_payload(
     if not company_info.get("jurir_no"):
         warnings.append("ISIN은 아직 v2 company tool에 연결되지 않았다.")
 
+    # company tool은 회사 정보가 항상 있어 no_filing 케이스가 거의 없다.
+    # 다만 recent_filings 0건은 NO_FILING으로 표시 (정상). company_info 자체가
+    # 없는 경우 (corp_code 미등록)는 위에서 ERROR로 분기되어 여기 도달 안 함.
+    filing_meta = build_filing_meta(
+        filing_count=len(recent_filings),
+        parsing_failures=0,
+    )
+
     payload = {
         "query": query,
         "company_id": _company_id(selected),
@@ -311,6 +324,7 @@ async def build_company_payload(
         },
         "recent_filings_window": filings_window,
         "recent_filings": recent_filings,
+        **filing_meta,
         "usage": build_usage(client.api_call_snapshot() - _calls_start),
     }
 

@@ -15,7 +15,9 @@ from open_proxy_mcp.services.contracts import (
     EvidenceRef,
     SourceType,
     ToolEnvelope,
+    build_filing_meta,
     build_usage,
+    status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
@@ -843,11 +845,14 @@ async def build_shareholder_meeting_payload(
         return envelope.to_dict()
 
     if not selected_candidate:
+        # 회사 식별이 정상이고 DART 검색이 성공했지만 주총 소집공고가 없는 경우는
+        # 사건 자체가 없는 정상 케이스 (NO_FILING). 호출이 실제 실패한 경우는 ERROR.
+        no_filing_meta = build_filing_meta(filing_count=0, parsing_failures=0)
         envelope = ToolEnvelope(
             tool="shareholder_meeting",
-            status=AnalysisStatus.ERROR,
+            status=AnalysisStatus.NO_FILING,
             subject=selected.get("corp_name", company_query),
-            warnings=[*(candidate_notices or []), candidate_error or "주주총회 소집공고를 찾지 못했다."],
+            warnings=[*(candidate_notices or []), candidate_error or f"조사 구간 ({requested_window_start.isoformat()}~{requested_window_end.isoformat()}) 내 주주총회 소집공고 없음 (정상)"],
             data={
                 "query": company_query,
                 "company_id": _company_id(selected),
@@ -859,6 +864,7 @@ async def build_shareholder_meeting_payload(
                     "end_date": requested_window_end.isoformat(),
                     "lookback_months": lookback_months,
                 },
+                **no_filing_meta,
                 "usage": build_usage(_client.api_call_snapshot() - _calls_start),
             },
             next_actions=["meeting_type 또는 year를 바꿔 재조회"],
@@ -895,6 +901,13 @@ async def build_shareholder_meeting_payload(
     correction = parsed_notice["correction"]
 
     warnings: list[str] = list(window_warnings) + list(candidate_notices) + parse_warnings
+    # 사건은 발견됨 (소집공고 1건 이상). 파싱 신뢰도는 별도 카운트.
+    parse_failure_count = 0
+    if not agenda_valid:
+        parse_failure_count += 1
+    if not html:
+        parse_failure_count += 1
+    # scope별 추가 카운트는 아래 include_* 분기에서 보강.
     status = AnalysisStatus.EXACT
     parsing_failed = False
     if not agenda_valid:
@@ -914,6 +927,12 @@ async def build_shareholder_meeting_payload(
     }
     board_summary = board.get("summary", {})
     compensation_summary = compensation.get("summary", {})
+
+    # filing_meta — 소집공고 1건 발견. 파싱 실패는 위 parse_failure_count로 누적.
+    filing_meta = build_filing_meta(
+        filing_count=1,
+        parsing_failures=parse_failure_count,
+    )
 
     data: dict[str, Any] = {
         "query": company_query,
@@ -940,6 +959,7 @@ async def build_shareholder_meeting_payload(
         "agenda_summary": agenda_summary,
         "board_summary": board_summary,
         "compensation_summary": compensation_summary,
+        **filing_meta,
         "available_scopes": ["summary", "agenda", "board", "compensation", "aoi_change", "results", "full"],
         "selected_meeting": _candidate_meta(selected_candidate),
         "alternative_meetings": alternative_meetings,

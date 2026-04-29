@@ -1,0 +1,50 @@
+{
+  "nps_code": "00015",
+  "ticker": "000150",
+  "gmos_ymd": "20240328",
+  "gmos_date": "2024-03-28",
+  "gmos_kind_cd": "1",
+  "gmos_kind": "annual",
+  "company_name": "(주)두산",
+  "items": [
+    {
+      "agenda_no": "제1호",
+      "agenda_title": "재무제표승인",
+      "decision_label": "찬성",
+      "decision": "for",
+      "against_reason": "",
+      "rule_clause": ""
+    },
+    {
+      "agenda_no": "제2호",
+      "agenda_title": "사내이사 선임",
+      "decision_label": "찬성",
+      "decision": "for",
+      "against_reason": "",
+      "rule_clause": ""
+    },
+    {
+      "agenda_no": "제3호",
+      "agenda_title": "감사위원인 사외이사 선임",
+      "decision_label": "찬성",
+      "decision": "for",
+      "against_reason": "",
+      "rule_clause": ""
+    },
+    {
+      "agenda_no": "제4호",
+      "agenda_title": "이사 보수한도액 승인",
+      "decision_label": "찬성",
+      "decision": "for",
+      "against_reason": "",
+      "rule_clause": ""
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "for": 4,
+    "against": 0,
+    "abstain": 0,
+    "not_voted": 0
+  }
+}

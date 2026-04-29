@@ -13,7 +13,14 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.contracts import (
+    AnalysisStatus,
+    EvidenceRef,
+    SourceType,
+    ToolEnvelope,
+    build_filing_meta,
+    status_from_filing_meta,
+)
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 
 
@@ -268,6 +275,14 @@ async def build_corporate_restructuring_payload(
         "dart_daily_limit_per_minute": 1000,
     }
 
+    # 사건 발견 vs 진짜 partial 분리 메타.
+    # corporate_restructuring은 모든 fetch가 DART API 구조화 응답이라
+    # API가 "결과 없음(013)"으로 응답하면 사건 자체가 없는 정상 케이스다.
+    filing_meta = build_filing_meta(
+        filing_count=len(rows),
+        parsing_failures=0,
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -285,6 +300,7 @@ async def build_corporate_restructuring_payload(
             "division_merger": len(by_type.get("division_merger", [])),
             "share_exchange": len(by_type.get("share_exchange", [])),
         },
+        **filing_meta,
         "usage": usage,
         "supported_scopes": sorted(_SUPPORTED_SCOPES),
     }
@@ -330,9 +346,9 @@ async def build_corporate_restructuring_payload(
                 )
             )
 
-    status = AnalysisStatus.EXACT if rows else AnalysisStatus.PARTIAL
-    if not rows:
-        warnings.append("조사 구간 내 지배구조 재편(합병/분할/주식교환) 공시 없음")
+    status = status_from_filing_meta(filing_meta)
+    if filing_meta["no_filing"]:
+        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 지배구조 재편(합병/분할/주식교환) 공시 없음 (정상)")
 
     return ToolEnvelope(
         tool="corporate_restructuring",

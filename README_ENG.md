@@ -46,7 +46,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 16 tools are automatically recognized
+4. Click "Add" → 17 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -107,13 +107,13 @@ company                            # Entry point — company ID + recent filings
 │  └─ evidence                     # Filing source links (rcept_no → viewer_url)
 │
 ├─ Policy & Matrix Tool (1)        ★ NEW
-│  └─ proxy_guideline              # 7 asset managers' policies + Open Proxy Guideline + 12 decision matrices
+│  └─ proxy_guideline              # 8 asset managers' policies + Open Proxy Guideline + 12 decision matrices
 │                                   #   scopes: policy / record / predict / compare / consensus / audit
 │                                   #   0 external API calls (static data, <100ms response)
 │
 └─ Action Tools (3)
    ├─ prepare_vote_brief            # Vote memo (auto-includes governance compliance rate + ★ OPM policy guidance)
-   │                                #   vote_style param selects from 7 managers (default: open_proxy)
+   │                                #   vote_style param selects from 8 managers (default: open_proxy)
    ├─ prepare_engagement_case       # Shareholder engagement memo
    └─ build_campaign_brief          # Campaign brief
 ```
@@ -145,16 +145,18 @@ Pattern A (company → analysis):  start with `company` → confirm facts via da
 Pattern B (event → companies):   start with `screen_events` → drill down into each company
 ```
 
-### Supported events in `screen_events` (14 types)
+### Supported events in `screen_events` (21 types)
 
-| Category | event_type |
-|---------|-----------|
-| AGM | `shareholder_meeting_notice` |
-| Ownership | `major_shareholder_change`, `ownership_change_filing`, `block_holding_5pct`, `executive_ownership` |
-| Treasury | `treasury_acquire`, `treasury_dispose`, `treasury_retire` |
-| Contest | `proxy_solicit`, `litigation`, `management_dispute` |
-| Value-up | `value_up_plan` |
-| Dividend | `cash_dividend`, `stock_dividend` |
+| Category | event_type | Count |
+|---------|-----------|---|
+| AGM | `shareholder_meeting_notice` | 1 |
+| Ownership | `major_shareholder_change`, `ownership_change_filing`, `executive_ownership` | 3 |
+| Treasury | `treasury_acquire`, `treasury_dispose`, `treasury_retire` | 3 |
+| Contest | `proxy_solicit`, `litigation`, `management_dispute` | 3 |
+| Value-up | `value_up_plan` | 1 |
+| Dividend | `cash_dividend`, `stock_dividend` | 2 |
+| Dilutive | `rights_offering`, `convertible_bond`, `warrant_bond`, `capital_reduction` | 4 |
+| Related-party | `equity_deal_acquire`, `equity_deal_dispose`, `supply_contract_conclude`, `supply_contract_terminate` | 4 |
 
 Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a clickable link to the original DART viewer.
 

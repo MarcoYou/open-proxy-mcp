@@ -1,5 +1,5 @@
 {
-  "schema_version": "v3",
+  "schema_version": "v4",
   "generated_at": "2026-04-29",
   "managers": [
     "m_legacy",
@@ -8,7 +8,8 @@
     "t_activist",
     "k_legacy",
     "b_foreign",
-    "a_activist"
+    "a_activist",
+    "c_activist"
   ],
   "manager_names": {
     "m_legacy": "M레거시",
@@ -17,14 +18,15 @@
     "t_activist": "T행동주의",
     "k_legacy": "K레거시",
     "b_foreign": "B외국계 (ISS Korea 2026 직접 채택)",
-    "a_activist": "A행동주의 (행동주의 펀드)"
+    "a_activist": "A행동주의 (행동주의 펀드)",
+    "c_activist": "C행동주의 (행동주의 펀드)"
   },
   "agreement_levels": {
-    "consensus": "7 운용사 중 6+ 같은 입장 (강한 합의)",
-    "majority": "7 운용사 중 4-5 같은 입장 (다수 의견)",
-    "divergence": "분기 (3:3 또는 비슷)",
-    "minority": "1-3 운용사만 별도 입장",
-    "universal_silent": "모든 운용사가 미언급 (분석 제외)"
+    "consensus": "8 운용사 중 7+ 같은 입장 (강한 합의)",
+    "majority": "8 운용사 중 5-6 같은 입장 (다수 의견)",
+    "divergence": "8 운용사 중 3-4 같은 입장 (분기)",
+    "minority": "8 운용사 중 1-2 같은 입장",
+    "universal_silent": "모든 운용사 미언급 (분석 제외)"
   },
   "categories": {
     "financial_statements": {
@@ -40,7 +42,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -77,10 +80,15 @@
               "manager": "a_activist",
               "criterion": "외부감사인의 감사의견이 '적정'이 아닌 경우에는 반대 투표한다.",
               "section": "[별지] Ⅰ-1"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "외부감사인의 감사의견이 '적정'이 아닌 경우 반대 투표",
+              "section": "[별첨 #1] Ⅲ-1.1.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 7,
+          "agreement_count": 8,
           "opm_seed": "외부감사인 감사의견이 '적정' 외(한정·부적정·의견거절)인 경우 against — 5 운용사 100% 합의 (코어 룰)"
         },
         {
@@ -93,7 +101,8 @@
             "t_activist": "silent",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -105,10 +114,15 @@
               "manager": "k_legacy",
               "criterion": "외부감사인의 감사 외 자문서비스 제공 금지 안 찬성",
               "section": "[별표] A-3.4"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "피감사회사가 외부감사인으로부터 회계감사 외 다른 경영자문서비스 등 제공받는 것 원칙적 금지 안 찬성",
+              "section": "[별첨 #1] Ⅲ-1.1.3)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 2,
+          "agreement_level": "divergence",
+          "agreement_count": 3,
           "opm_seed": "외부감사인의 감사 외 자문 제공 금지 안 for — 2 운용사 (미래에셋, 한투신탁) 명시. 글로벌 모범사례(Sarbanes-Oxley)와 일치 → OPM은 for 채택"
         },
         {
@@ -121,7 +135,8 @@
             "t_activist": "review",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "review"
           },
           "evidence": [
             {
@@ -133,10 +148,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대 — 주주 배당 결정권 박탈",
               "section": "ISS 2026 Ch.6 Routine"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "재무제표 승인을 이사회로 이관 (상법 §449의2) — 주주 권리 보호방안 미명시 시 반대",
+              "section": "[별첨 #1] Ⅲ-2.7.1)"
             }
           ],
           "agreement_level": "minority",
-          "agreement_count": 1,
+          "agreement_count": 2,
           "opm_seed": "재무제표 이사회 승인은 주주 권리 보호 방안 명시 시에만 for, 미명시 시 against — 트러스톤만 명시. 한국 특수성(상법 449의2 2012 신설). OPM은 review 채택 (소수주주 보호)"
         }
       ],
@@ -144,8 +164,8 @@
         "total_topics": 3,
         "consensus_count": 1,
         "majority_count": 0,
-        "divergence_count": 0,
-        "minority_count": 2
+        "divergence_count": 1,
+        "minority_count": 1
       }
     },
     "cash_dividend": {
@@ -161,7 +181,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -193,10 +214,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 이익배분(현금배당/주식배당) 일반 찬성",
               "section": "ISS 2026 Ch.1 Operational Items"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "회사의 적정 배당정책에 의한 배당 찬성",
+              "section": "[별첨 #1] Ⅲ-1.2.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "회사 성과·재무 상황과 연계된 합리적 배당정책에 의한 배당 for — 5 운용사 합의"
         },
         {
@@ -209,7 +235,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -236,10 +263,15 @@
               "manager": "k_legacy",
               "criterion": "중간 또는 분기 배당을 허용하는 안 찬성",
               "section": "[별표] B-14.2"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "중간 또는 분기 배당 허용 안 찬성",
+              "section": "[별첨 #1] Ⅲ-1.2.2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "중간/분기 배당 허용 정관 변경 for — 5 운용사 합의"
         },
         {
@@ -252,7 +284,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -274,10 +307,15 @@
               "manager": "k_legacy",
               "criterion": "배당기준일을 배당결의일 이후로 변경 찬성",
               "section": "[별표] A-1.15-4)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "배당기준일을 배당결의일 이후로 변경 찬성 (선배당-후결의 표준)",
+              "section": "[별첨 #1] Ⅲ-2.8.1)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "배당기준일을 배당결의일 이후로 변경 (선배당-후결의 표준) for — 4/5 합의 (한국 특수성: 2024 정부 권고)"
         },
         {
@@ -290,7 +328,8 @@
             "t_activist": "for",
             "k_legacy": "silent",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -312,10 +351,15 @@
               "manager": "t_activist",
               "criterion": "배당정책 공시 의무화 (배당 원칙·기준·절차 명시)",
               "section": "14.6"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "배당정책 공시 의무화 (원칙·기준·절차 명시) 찬성",
+              "section": "[별첨 #1] Ⅲ-1.2.5)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "배당정책 공시 의무화 (원칙·기준·절차 명시) for — 4/5 합의 (한투신탁 silent)"
         },
         {
@@ -328,7 +372,8 @@
             "t_activist": "against",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -360,10 +405,15 @@
               "manager": "a_activist",
               "criterion": "[행동주의 핵심] 배당금이 회사 이익규모·재무상황 대비 주주가치 훼손할 정도로 과소한 경우 반대",
               "section": "[별지] Ⅰ-2 배당정책"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] 주주활동 후 미개선 또는 배당금 수준이 주주가치 훼손할 정도로 과소·과다할 경우 반대",
+              "section": "[별첨 #1] Ⅲ-1.2.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "주주가치 훼손할 정도의 과소·과다 배당 against — 4/5 합의. OPM은 동종업계 평균 배당성향 비교 기준 명시 권장"
         },
         {
@@ -376,7 +426,8 @@
             "t_activist": "against",
             "k_legacy": "review",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "review"
           },
           "evidence": [
             {
@@ -398,10 +449,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 이사회에 배당 승인 권한 부여 조항 도입 반대 — 주주 배당 결정권 박탈",
               "section": "ISS 2026 Ch.6 Routine"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사회 결의로 배당 결정: 배당정책 공시 시에만 찬성",
+              "section": "[별첨 #1] Ⅲ-1.2.4)"
             }
           ],
           "agreement_level": "divergence",
-          "agreement_count": 2,
+          "agreement_count": 3,
           "opm_seed": "이사회 결의 배당 결정은 배당정책 공시 시에만 review/for, 미공시 시 against — 3/5 명시 (트러스톤은 against, 미래·한투는 review). OPM은 review 채택"
         }
       ],
@@ -426,7 +482,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
-            "a_activist": "for"
+            "a_activist": "for",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -463,10 +520,15 @@
               "manager": "a_activist",
               "criterion": "[행동주의] 정당 사유 없는 사외이사 비중 축소 반대 (확대 찬성)",
               "section": "[별지] Ⅱ-2 (9) 사외이사 비중"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "사외이사 비중 확대 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.15.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 7,
+          "agreement_count": 8,
           "opm_seed": "사외이사 비중 확대 for, 정당한 사유 없이 낮추는 안 against — 5 운용사 합의"
         },
         {
@@ -479,7 +541,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -506,10 +569,15 @@
               "manager": "k_legacy",
               "criterion": "이사회 의장과 CEO의 분리",
               "section": "[별표] A-2.16"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사회 의장-CEO/CFO 직책 분리 일반 찬성",
+              "section": "[별첨 #1] Ⅲ-2.17.1)~2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "이사회 의장-CEO 직책 분리 for — 5 운용사 합의 (한국 특수성: 재벌 총수의 이사회 의장 겸직 견제)"
         },
         {
@@ -522,7 +590,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
-            "a_activist": "for"
+            "a_activist": "for",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -559,10 +628,15 @@
               "manager": "a_activist",
               "criterion": "이사후보 일괄투표 방식 반대 (개별 투표 찬성) — 집중투표 정신 부합",
               "section": "[별지] Ⅱ-2 (12)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "집중투표제 배제조항 삭제 안 찬성 (집중투표제 보호)",
+              "section": "[별첨 #1] Ⅲ-2.20.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 7,
+          "agreement_count": 8,
           "opm_seed": "집중투표제 배제조항 삭제 for, 배제 신설 against — 5 운용사 합의 (한국 상법 §542의7, 소수주주 이사 선임권 보장)"
         },
         {
@@ -575,7 +649,8 @@
             "t_activist": "against_for_introduction",
             "k_legacy": "for_for_introduction",
             "b_foreign": "against_for_introduction",
-            "a_activist": "against_for_introduction"
+            "a_activist": "against_for_introduction",
+            "c_activist": "against_for_introduction"
           },
           "evidence": [
             {
@@ -612,10 +687,15 @@
               "manager": "a_activist",
               "criterion": "시차임기제 도입 (이사회 권한 약화/집중투표 무력화/경영권 방어 활용 시) 반대",
               "section": "[별지] Ⅱ-2 (11)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "시차임기제 도입 (이사회 권한 약화/집중투표 무력화/경영권 방어 목적) 반대, 폐지 찬성",
+              "section": "[별첨 #1] Ⅲ-2.18.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "시차임기제 도입 against, 폐지 for — 4/5 합의 (한투신탁 단독 도입 찬성, 적대적 인수 방어 시각). OPM은 against 채택 (이사회 책임성·교체 가능성 우선)"
         },
         {
@@ -628,7 +708,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -665,10 +746,15 @@
               "manager": "a_activist",
               "criterion": "주총 의결정족수 변경: 합리적·정당한 근거 미제시 시 반대",
               "section": "[별지] Ⅱ-4"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "초다수의결(Super-majority) 조항 제한 안 찬성 (신설 반대)",
+              "section": "[별첨 #1] Ⅲ-2.5.2)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 7,
+          "agreement_count": 8,
           "opm_seed": "초다수의결 조항 신설 against, 제한 for — 5 운용사 합의 (적대적 인수 방어 차단, 주주 권리 보호)"
         },
         {
@@ -681,7 +767,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -718,10 +805,15 @@
               "manager": "a_activist",
               "criterion": "황금낙하산 일반 반대 (주주 장기이익+이해충돌 없음+적정성 충족 외)",
               "section": "[별지] Ⅳ-3"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "황금낙하산 일반 반대 (주주 장기이익+이해충돌 없음+적정성 충족 외)",
+              "section": "[별첨 #1] Ⅲ-2.29.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 7,
+          "agreement_count": 8,
           "opm_seed": "황금낙하산 정관 도입 against (정당 사유 외) — 5 운용사 합의"
         },
         {
@@ -734,7 +826,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "for"
+            "a_activist": "for",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -766,10 +859,15 @@
               "manager": "a_activist",
               "criterion": "전자투표/서면투표 허용 안은 일반적 찬성 (전적 전자수단만 개최 외)",
               "section": "[별지] Ⅱ-6"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "서면/전자투표 허용 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.6.3)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "전자/서면 투표 허용 for — 5 운용사 합의 (주주권 행사 용이성)"
         },
         {
@@ -782,7 +880,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -809,10 +908,15 @@
               "manager": "a_activist",
               "criterion": "소수주주권 행사 어렵게 하는 안: 합리적·정당 사유 미제시 시 반대. 의결권 대리행사자 자격을 주주로 제한 시 반대",
               "section": "[별지] Ⅱ-5, Ⅱ-7"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "소수주주권 행사 어렵게 하는 안 / 의결권 대리 자격 제한 / 과도 대리권 증명 요구 반대",
+              "section": "[별첨 #1] Ⅲ-2.10.1), Ⅲ-2.12)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "주주권 행사 제한 정관 변경 against — 3/5 명시. OPM은 against 채택 (소수주주 보호 핵심)"
         },
         {
@@ -825,7 +929,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -842,10 +947,15 @@
               "manager": "k_legacy",
               "criterion": "사전에 공개되지 않은 안건의 총회 상정",
               "section": "[별표] A-1.4"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "주요 안건 (이익배당/정관변경/이사·감사 선임/보수한도) 사전 공시 안 한 안건 반대",
+              "section": "[별첨 #1] Ⅲ-2.11.1)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 3,
+          "agreement_level": "divergence",
+          "agreement_count": 4,
           "opm_seed": "사전 공시 안 한 주요 안건(이사·감사 선임, 보수한도) against — 3/5 합의. OPM은 against 채택 (정보 공개 우선, 한국 특수성)"
         },
         {
@@ -858,7 +968,8 @@
             "t_activist": "review",
             "k_legacy": "review",
             "b_foreign": "silent",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -890,10 +1001,15 @@
               "manager": "a_activist",
               "criterion": "회사명 변경: 인지도 하락 등 주주가치 훼손 가능성 높은 경우 반대",
               "section": "[별지] Ⅱ-1"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "회사명 변경: 인지도 하락 등 주주가치 훼손 가능성 높은 경우 반대",
+              "section": "[별첨 #1] Ⅲ-2.1.1)"
             }
           ],
           "agreement_level": "divergence",
-          "agreement_count": 2,
+          "agreement_count": 3,
           "opm_seed": "회사명 변경: 인지도 하락 등 주주가치 훼손 시 against, 그 외 case_by_case — 5 운용사 분기. OPM은 review 채택 (주주가치 훼손 여부 case_by_case 판단)"
         },
         {
@@ -906,7 +1022,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -928,10 +1045,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대",
               "section": "ISS 2026 Ch.6 Routine"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "법령상 주총 결의 가능 사항을 합리적 사유 없이 이사회 결의사항으로 제한 반대 (반대로 이사회→주총 변경 찬성)",
+              "section": "[별첨 #1] Ⅲ-2.9.1)~2)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 3,
+          "agreement_level": "divergence",
+          "agreement_count": 4,
           "opm_seed": "주총 결의사항을 합리적 사유 없이 이사회 결의사항으로 변경 against — 3/5 명시. OPM은 against 채택 (주주 권한 축소 차단)"
         },
         {
@@ -944,7 +1066,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -961,19 +1084,120 @@
               "manager": "a_activist",
               "criterion": "이사회 규모: 위원회 활동 제약/개별이사 영향력 무력화 정도의 이사 수 반대",
               "section": "[별지] Ⅱ-2 (8)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사회 규모: 위원회 활동 제약/개별이사 영향력 무력화 정도 반대",
+              "section": "[별첨 #1] Ⅲ-2.14.1)"
+            }
+          ],
+          "agreement_level": "divergence",
+          "agreement_count": 4,
+          "opm_seed": "이사회 규모가 위원회 활동 제약 또는 영향력 무력화 정도인 경우 against — 2 운용사 (삼성 그룹) 명시. OPM은 review 채택"
+        },
+        {
+          "topic_id": "internal_trade_committee_setup",
+          "topic_label": "내부거래위원회 설치 + 사외이사 전원 + 일정규모 내부거래 주총 승인",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "계열회사 및 특수관계인 등과의 거래 적절성 판단·투명성 제고 위해 이사회 내에 내부거래위원회를 설치 + 일정규모 이상 내부거래를 주주총회 승인 사항으로 하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.24.1)~3)"
             }
           ],
           "agreement_level": "minority",
-          "agreement_count": 3,
-          "opm_seed": "이사회 규모가 위원회 활동 제약 또는 영향력 무력화 정도인 경우 against — 2 운용사 (삼성 그룹) 명시. OPM은 review 채택"
+          "agreement_count": 1,
+          "opm_seed": "내부거래위원회 설치 + 사외이사 전원 + 일정규모 내부거래 주총 승인 for — 차파트너스 단독 명시 (한국 운용사 silent). 한국 재벌 일감몰아주기 차단 핵심. OPM은 for 채택"
+        },
+        {
+          "topic_id": "outside_director_independence_annual",
+          "topic_label": "사외이사 독립성 요건 매년 확인·검토 후 공시 의무화",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "사외이사의 독립성 요건 충족여부를 매년 확인 및 검토하여 공시하도록 하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.15.2)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "사외이사 독립성 요건 매년 확인·공시 의무화 for — 차파트너스 단독 명시 (한국 운용사 silent). KCGS 모범규준·KRX 핵심지표 정합. OPM은 for 채택"
+        },
+        {
+          "topic_id": "nominating_committee_majority_outside",
+          "topic_label": "사외이사 과반수 이사후보추천위원회 설치",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "사외이사가 과반수로 구성된 이사후보추천위원회를 설치하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.22.1)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "사외이사 과반 이사후보추천위원회 설치 for — 차파트너스 단독 명시 (한국 운용사 silent). 상법 §542의8 ⑤ 강화 정신. OPM은 for 채택"
+        },
+        {
+          "topic_id": "lead_independent_director_intro",
+          "topic_label": "선임사외이사(Lead Director) 제도 도입 (의장-CEO 분리 미실시 시)",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "이사회 의장과 최고경영자의 직책 분리가 이루어지지 않을 경우 사외이사 회의를 주재하고 사외이사를 대표하는 선임사외이사(lead director)제도를 도입하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.17.3)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "선임사외이사(LID) 도입 for — 차파트너스 단독 명시 (한국 운용사 silent). OPM novel topic lead_independent_director와 정합. 한국 자율 도입 회사 우호 평가"
         }
       ],
       "summary": {
-        "total_topics": 12,
+        "total_topics": 16,
         "consensus_count": 6,
         "majority_count": 2,
-        "divergence_count": 1,
-        "minority_count": 3
+        "divergence_count": 4,
+        "minority_count": 4
       }
     },
     "director_election": {
@@ -989,7 +1213,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1026,10 +1251,15 @@
               "manager": "a_activist",
               "criterion": "[행동주의] 사외이사로서 독립성이 훼손된다고 판단되는 자에 대해 반대 투표한다.",
               "section": "[별지] Ⅲ-2 사외이사의 선임"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[사외이사] 5년 cooling-off / 최대주주·특수관계인 / 외부감사회사 5년 / 3년 내 거래·협력관계 / 6년·9년 재직 시 원칙 반대",
+              "section": "[별첨 #1] Ⅲ-3.3.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 7,
+          "agreement_count": 8,
           "opm_seed": "사외이사 5년 내 전직 임직원, 5년 내 최대주주 특수관계인, 3년 내 거래·경쟁·협력관계 시 against — 5 운용사 합의 (코어 룰)"
         },
         {
@@ -1042,7 +1272,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1059,10 +1290,15 @@
               "manager": "k_legacy",
               "criterion": "6년 초과 사외이사 재직",
               "section": "[별표] A-2.9-2)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[사외이사] 당해 회사에서 6년 이상 사외이사 재직 또는 계열사 합산 9년 이상 시 원칙 반대",
+              "section": "[별첨 #1] Ⅲ-3.3.1)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 3,
+          "agreement_level": "divergence",
+          "agreement_count": 4,
           "opm_seed": "사외이사 6년 초과 재직 against — 3/5 합의. OPM은 against 채택 (한국 자본시장 공통 기준, 한투/트러스톤/삼성액티브 명시)"
         },
         {
@@ -1075,7 +1311,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1112,10 +1349,15 @@
               "manager": "a_activist",
               "criterion": "[사내이사] 과도한 겸임으로 충실 의무 불가 시 반대",
               "section": "[별지] Ⅲ-1"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[사내이사] 과도한 겸임으로 인해 이사로서 충실한 의무수행이 어려운 경우 반대",
+              "section": "[별첨 #1] Ⅲ-3.1.2)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 7,
+          "agreement_count": 8,
           "opm_seed": "과도 겸임 사외이사 against — 5 운용사 합의. OPM은 한투신탁 명시 기준 (사외이사 3개 회사 이상 겸임) 차용 권장"
         },
         {
@@ -1128,7 +1370,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1160,10 +1403,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 사외이사가 최근 회계연도 이사회·핵심위원회 출석률 75% 미만 + 합당 사유 미제시 시 반대",
               "section": "ISS 2026 Ch.2 Board / COMPOSITION / Attendance"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사회나 이사회의 주요 위원회에 3/4 이상 출석을 하지 못한 경우 반대",
+              "section": "[별첨 #1] Ⅲ-3.1.2)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "이사회 출석률 75% 미만 against — 5 운용사 합의 (코어 룰)"
         },
         {
@@ -1176,7 +1424,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1213,10 +1462,15 @@
               "manager": "a_activist",
               "criterion": "[사내이사] 기업가치 훼손/주주권익 침해 이력자 반대",
               "section": "[별지] Ⅲ-1"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "법령 위반으로 회사에 행정·형사 제재 부과 등 재임 중 손해 책임 이사 재선임 반대 / 기업가치 훼손/주주권익 침해 이력자 반대",
+              "section": "[별첨 #1] Ⅲ-3.1.4), 3.3.3)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 7,
+          "agreement_count": 8,
           "opm_seed": "기업가치 훼손/주주권익 침해 이력 있는 후보 against — 5 운용사 합의 (코어 룰)"
         },
         {
@@ -1229,7 +1483,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -1256,10 +1511,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 이사회 성다양성 규정 미준수 시 추천위원장 반대 (다양성 강화)",
               "section": "ISS 2026 Ch.2 Board / COMPOSITION / Board Gender Diversity"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "다양성(성별·경력·능력) 확대 안 찬성 — 다양성 제한 안 정당사유 미제시 시 반대",
+              "section": "[별첨 #1] Ⅲ-3.1.5)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "이사회 다양성 제고 (성별, 경력, 전문분야) for — 4/5 합의 (삼성 silent)"
         },
         {
@@ -1272,7 +1532,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1299,10 +1560,15 @@
               "manager": "a_activist",
               "criterion": "기업가치 훼손/주주권익 침해 이력자, 특정 주주 이익 추구 후보 반대 (행동주의 적극 적용)",
               "section": "[별지] Ⅲ-1, 일반원칙 제3조 ②"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "전체 주주의 이익이 아니라 특정주주 집단의 이익을 지속적으로 추구하는 경우 반대",
+              "section": "[별첨 #1] Ⅲ-3.1.2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "특정주주의 이익을 지속적으로 추구하는 후보 against — 4/5 합의 (한국 특수성: 재벌 총수 일가 영향력)"
         },
         {
@@ -1315,7 +1581,8 @@
             "t_activist": "silent",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1327,10 +1594,15 @@
               "manager": "k_legacy",
               "criterion": "임원 임기 중 해임 - 불법행위·법령 정관 위반·직무 부적임 외 반대",
               "section": "[별표] A-2.10"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "임기 중 해임 안: 불법행위/법령·정관 위반 중대 사실/직무 수행 부적임 사유 없는 한 반대",
+              "section": "[별첨 #1] Ⅲ-3.8.1)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 2,
+          "agreement_level": "divergence",
+          "agreement_count": 3,
           "opm_seed": "정당한 사유 없는 임기 중 해임 against — 2 운용사 (삼성, 한투) 명시. OPM은 against 채택 (이사회 안정성)"
         },
         {
@@ -1343,7 +1615,8 @@
             "t_activist": "against",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1360,10 +1633,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS — Climate Accountability 명시] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
               "section": "ISS 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[ESG] 기후변화 관련 적절한 조치 미실시 책임 이사 재선임 반대 (TCFD/감축목표/거버넌스)",
+              "section": "[별첨 #1] Ⅲ-3.1.3)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 3,
+          "agreement_level": "divergence",
+          "agreement_count": 4,
           "opm_seed": "탄소중립법상 관리업체에서 기후 대응 미이행 책임 이사 재선임 against — 2 운용사 (미래에셋, 트러스톤) 명시. OPM은 against 채택 (장기 가치 관점, ESG 트렌드)"
         },
         {
@@ -1376,7 +1654,8 @@
             "t_activist": "review",
             "k_legacy": "review",
             "b_foreign": "review",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "review"
           },
           "evidence": [
             {
@@ -1408,10 +1687,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 경쟁 선임은 사안별. (1) 이사회 변경 정당성 + (2) 반대측 후보가 긍정적 변화 가능성 두 질문 중심",
               "section": "ISS 2026 Ch.2 Board / VOTING ON DIRECTOR NOMINEES IN CONTESTED ELECTIONS"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "독립 이사후보추천위원회 추천 + 가이드라인 미위배 + 장기성과 만족 시 일반 찬성. 위임장 대결 시 주주이익 극대화 후보에 찬성",
+              "section": "[별첨 #1] Ⅲ-3.1.1), 3.1.6)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "이사 후보 초과 시 review (장기 주주가치 증대 적합 후보) — 5 운용사 합의"
         },
         {
@@ -1424,13 +1708,19 @@
             "t_activist": "silent",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "review"
           },
           "evidence": [
             {
               "manager": "k_legacy",
               "criterion": "이사 손해배상책임 일부 감면 안 반대 (4가지 사항 명시 시 찬성 가능)",
               "section": "[별표] A-2.4-3)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사·사외이사 손해배상책임 일부 감면: 4가지 전제 충족 시에만 찬성",
+              "section": "[별첨 #1] Ⅲ-2.16.1)"
             }
           ],
           "agreement_level": "minority",
@@ -1447,7 +1737,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "silent"
           },
           "evidence": [
             {
@@ -1470,7 +1761,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "for",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "silent"
           },
           "evidence": [
             {
@@ -1493,7 +1785,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1505,10 +1798,15 @@
               "manager": "a_activist",
               "criterion": "이사후보 일괄투표 방식 반대 (개별 투표 찬성)",
               "section": "[별지] Ⅱ-2 (12)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사후보 일괄투표 방식 반대 (개별 투표 찬성)",
+              "section": "[별첨 #1] Ⅲ-2.19.1)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 2,
+          "agreement_level": "divergence",
+          "agreement_count": 3,
           "opm_seed": "[한국 운용사 silent 영역] 베어링(ISS) + 얼라인 합의. 한국 5 운용사는 묶음 선임 자체에 silent. OPM은 bundled_slate_against novel topic으로 채택 (default=against, 한국 묶음 선임 안건에서 한 명 우려 시 전체 against)"
         },
         {
@@ -1521,7 +1819,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "silent"
           },
           "evidence": [
             {
@@ -1544,26 +1843,104 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
               "manager": "b_foreign",
               "criterion": "[ISS — 한국 상법 정합] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대 (한국 상법 §542의8 ① 정밀 적용)",
               "section": "ISS 2026 Ch.2 Board / INDEPENDENCE"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "사외이사 비중 확대 안 찬성 (한국 상법 §542의8 ① 정량 정합)",
+              "section": "[별첨 #1] Ⅲ-2.15.1)"
             }
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
           "opm_seed": "[정량 강화] 베어링이 한국 상법 §542의8 ①을 ISS 정량 기준으로 명시 (대형사 50% / 소형사 25%). 한국 5 운용사는 정량 기준 silent. OPM은 director_election against criteria 강화 (사외이사 비중 미달 시 비독립이사 against)"
+        },
+        {
+          "topic_id": "executive_officer_system_for",
+          "topic_label": "상법상 집행임원제도 도입",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "상법상 집행임원제도를 도입하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-3.5.1)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "상법 §408의2 집행임원제도 도입 for — 차파트너스 단독 명시 (한국 운용사 silent). 글로벌 모범사례 (감독·집행 분리). OPM은 for 채택"
+        },
+        {
+          "topic_id": "ceo_3rd_term_supermajority",
+          "topic_label": "대표이사 3기 이상 연임 시 이사회 결의요건 강화 또는 주총 결의사항 전환",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "대표이사의 3기 이상 연임시 이사회 결의 요건을 강화하거나 주주총회 결의사항이 아닌 경우 주주총회 결의사항으로 전환하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-3.4.2)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "대표이사 3기+ 연임 시 결의요건 강화 또는 주총 결의사항 전환 for — 차파트너스 단독 명시 (한국 운용사 silent). 장기 권력집중 견제. OPM은 for 채택"
+        },
+        {
+          "topic_id": "board_evaluation_disclosure",
+          "topic_label": "이사회 정기 평가 + 주총 보고/사업보고서 공시 의무화",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "정기적으로 이사회를 평가하고 이사회 평가 기준과 평가 결과를 주주총회에 보고하고 사업보고서를 통해 공시하도록 하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-3.2.1)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "이사회 정기 평가 + 주총 보고/사업보고서 공시 안 for — 차파트너스 단독 명시 (한국 운용사 silent). KCGS 모범규준·KRX 핵심지표 정합. OPM은 for 채택"
         }
       ],
       "summary": {
-        "total_topics": 16,
+        "total_topics": 19,
         "consensus_count": 5,
         "majority_count": 2,
-        "divergence_count": 0,
-        "minority_count": 9
+        "divergence_count": 4,
+        "minority_count": 8
       }
     },
     "audit_committee_election": {
@@ -1579,7 +1956,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -1606,6 +1984,11 @@
               "manager": "k_legacy",
               "criterion": "상법 제409조 제2항 회피 목적 명백한 감사위원회 도입",
               "section": "[별표] A-3.1"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "감사 대신 감사위원회 설치 안 찬성 (상법 §409② 회피 목적인 경우 반대)",
+              "section": "[별첨 #1] Ⅲ-3.7.1)"
             }
           ],
           "agreement_level": "majority",
@@ -1622,7 +2005,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -1654,10 +2038,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 감사위원회를 내부감사인 시스템 대체로 설치 일반 찬성",
               "section": "ISS 2026 Ch.3 / Establishment of Audit Committee"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "감사위원회 설치 의무 없는 회사가 감사 대신 감사위원회 설치 안 찬성",
+              "section": "[별첨 #1] Ⅲ-3.7.1)~2)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "자산 2조원 미만 회사 감사위원회 설치 + 사외이사 2/3 충원 for — 5 운용사 합의 (단, 3% 회피 목적 외)"
         },
         {
@@ -1670,7 +2059,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1702,10 +2092,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 법정 보고/감사 절차 중대 우려, 실패 회사 관여 이력 시 감사위원 반대",
               "section": "ISS 2026 Ch.3 / Election of Audit Committee Member"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "감사위원·감사 결격사유 — 5년 이내 회사가 적정 외 외부감사 의견 또는 중요 행정·사법 제재 받은 경우 반대",
+              "section": "[별첨 #1] Ⅲ-3.6.2)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "최근 5년 내 적정 외 외부감사 의견 또는 중요 제재 받은 회사 감사 후보 against — 5 운용사 합의 (코어 룰)"
         },
         {
@@ -1718,7 +2113,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1740,10 +2136,15 @@
               "manager": "k_legacy",
               "criterion": "비감사용역 보수가 감사용역 보수 초과",
               "section": "[별표] A-3.2-2)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "감사위원·감사 결격사유 — 5년 이내 비감사용역 보수가 감사 보수를 넘는 경우 반대",
+              "section": "[별첨 #1] Ⅲ-3.6.2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "비감사용역 보수가 감사용역 보수 초과 회사 감사 후보 against — 4/5 합의 (삼성 silent). OPM은 against 채택 (감사 독립성)"
         },
         {
@@ -1756,7 +2157,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -1773,10 +2175,15 @@
               "manager": "a_activist",
               "criterion": "감사위원회 사외이사 비중 낮추는 안 반대 — 분리선출 정신 일치",
               "section": "[별지] Ⅱ-3 (13)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "감사위원 분리선출 (감사위원이 되는 이사와 다른 이사 분리) 안 찬성",
+              "section": "[별첨 #1] Ⅲ-3.6.5)"
             }
           ],
           "agreement_level": "divergence",
-          "agreement_count": 2,
+          "agreement_count": 3,
           "opm_seed": "감사위원 분리 선출 (상법 §542의12 ④) for — 2 운용사 (트러스톤, 한투) 명시. 한국 특수성. OPM은 for 채택 (3% 룰 강화)"
         }
       ],
@@ -1801,7 +2208,8 @@
             "t_activist": "for",
             "k_legacy": "review",
             "b_foreign": "for",
-            "a_activist": "for"
+            "a_activist": "for",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -1838,10 +2246,15 @@
               "manager": "a_activist",
               "criterion": "이사 보수한도: 회사·이사회 규모/경영성과 대비 과도하지 않으면 찬성",
               "section": "[별지] Ⅳ-1"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사·감사 보수한도가 회사·이사회 규모/경영 성과 대비 과도하지 않으면 찬성",
+              "section": "[별첨 #1] Ⅲ-4.1.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "보수한도가 회사·이사회 규모, 경영성과 대비 과도하지 않은 경우 for — 5 운용사 합의"
         },
         {
@@ -1854,7 +2267,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -1876,10 +2290,15 @@
               "manager": "a_activist",
               "criterion": "[행동주의] 성과 미연계 경영진 보상체계 반대 (적자 회사 보상 인상 정당화 어려움)",
               "section": "[별지] Ⅱ-4 (14)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] 성과에 연계되지 않는 경영진 보상체계 반대 (적자 회사 보상 인상 정당화 어려움)",
+              "section": "[별첨 #1] Ⅲ-2.27.2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "적자/순이익 감소 기업의 인당·총 보수한도 증액 against — 2 운용사 (삼성 그룹) 명시. OPM은 against 채택 (성과-보상 연계 원칙)"
         },
         {
@@ -1892,7 +2311,8 @@
             "t_activist": "against_unlinked",
             "k_legacy": "against_unlinked",
             "b_foreign": "for",
-            "a_activist": "against_unlinked"
+            "a_activist": "against_unlinked",
+            "c_activist": "against_unlinked"
           },
           "evidence": [
             {
@@ -1929,10 +2349,15 @@
               "manager": "a_activist",
               "criterion": "[행동주의] 성과에 연계되지 않는 경영진 보상체계 반대",
               "section": "[별지] Ⅱ-4 (14)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] 성과에 연계되지 않는 경영진 보상체계 반대",
+              "section": "[별첨 #1] Ⅲ-2.27.2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "성과-보상 연계 for, 성과 미연계 보상체계 against — 5 운용사 합의 (코어 룰)"
         },
         {
@@ -1945,7 +2370,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -1967,10 +2393,15 @@
               "manager": "k_legacy",
               "criterion": "부당 보상 환수(Clawback)",
               "section": "[별표] A-4.8-6)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "성과 왜곡 시 환수(Clawback) 정책 도입 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.26.6)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "부당 보상 환수(Clawback) 정책 도입 for — 4/5 합의 (삼성 silent)"
         },
         {
@@ -1983,7 +2414,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -2005,10 +2437,15 @@
               "manager": "k_legacy",
               "criterion": "사외이사 퇴직혜택",
               "section": "[별표] A-4.10"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "사외이사 퇴직 혜택 부여 안 반대",
+              "section": "[별첨 #1] Ⅲ-2.28.2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "사외이사 퇴직혜택 부여 against — 4/5 합의 (삼성액티브 silent). 사외이사 독립성 원칙"
         },
         {
@@ -2021,7 +2458,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -2053,10 +2491,15 @@
               "manager": "a_activist",
               "criterion": "주식매수선택권 권리유보기간 단축 또는 사후 행사가격 조정 반대",
               "section": "[별지] Ⅱ-4 (15)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "사후 행사가격 조정 또는 기발행 스톡옵션 취소 후 재발행 일반 반대",
+              "section": "[별첨 #1] Ⅲ-5.1.3)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "스톡옵션 사후 행사가격 조정/재발행 against — 5 운용사 합의 (코어 룰)"
         },
         {
@@ -2069,7 +2512,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -2101,10 +2545,15 @@
               "manager": "a_activist",
               "criterion": "스톡옵션 행사기간 단축 안에 반대 투표한다.",
               "section": "[별지] Ⅴ-1, Ⅱ-4 (15)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "스톡옵션 행사기간 단축 안 반대",
+              "section": "[별첨 #1] Ⅲ-5.1.5)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "스톡옵션 권리행사 유보기간 단축 against — 5 운용사 합의 (코어 룰)"
         },
         {
@@ -2117,7 +2566,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -2154,10 +2604,15 @@
               "manager": "a_activist",
               "criterion": "스톡옵션 부여: 희석 10% 이상 또는 규모 2% 초과 시 반대",
               "section": "[별지] Ⅴ-1"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "스톡옵션 부여: 희석 10% 이상 또는 규모 2% 초과 시 반대",
+              "section": "[별첨 #1] Ⅲ-5.1.2)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "스톡옵션 규모 발행주식 2-3% 초과 또는 희석률 10% 이상 against — 4/5 합의. OPM은 트러스톤·한투의 더 엄격한 기준(2%) 채택 권장 (소수주주 보호)"
         },
         {
@@ -2170,7 +2625,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -2187,10 +2643,15 @@
               "manager": "k_legacy",
               "criterion": "보상위원회 설치 + 전원 독립 사외이사 구성",
               "section": "[별표] A-4.2"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "보상위원회 설치 + 사외이사 전원 구성 + 대표이사·최대주주 관여 금지 찬성",
+              "section": "[별첨 #1] Ⅲ-2.23.1)~2)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 3,
+          "agreement_level": "divergence",
+          "agreement_count": 4,
           "opm_seed": "보상위원회 설치 + 전원 사외이사 구성 for — 3/5 명시. 한국 자본시장 모범사례. OPM은 for 채택"
         },
         {
@@ -2203,7 +2664,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -2220,19 +2682,120 @@
               "manager": "k_legacy",
               "criterion": "성과연동 보상 60% 이상 3년 이상 이연 지급",
               "section": "[별표] A-4.8-5)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "성과보상 60% 이상 3년+ 이연 지급 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.26.5)"
+            }
+          ],
+          "agreement_level": "divergence",
+          "agreement_count": 4,
+          "opm_seed": "성과연동보상 60% 이상 3년 이상 이연 지급 for — 3/5 명시. OPM은 for 채택 (장기 가치 관점)"
+        },
+        {
+          "topic_id": "outside_director_stock_lock_until_retirement",
+          "topic_label": "사외이사 주식·옵션 연계 보상 퇴직 전 매도/행사 금지",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "사외이사에게 급여 등 보상의 일부를 주식 또는 주식매수선택권 등 주가와 연계된 보상으로 부여하는 경우 퇴직 전에 매도 또는 행사할 수 없도록 하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.26.7)"
             }
           ],
           "agreement_level": "minority",
-          "agreement_count": 3,
-          "opm_seed": "성과연동보상 60% 이상 3년 이상 이연 지급 for — 3/5 명시. OPM은 for 채택 (장기 가치 관점)"
+          "agreement_count": 1,
+          "opm_seed": "사외이사 주식 연계 보상 퇴직 전 매도/행사 금지 for — 차파트너스 단독 명시 (한국 운용사 silent). 사외이사 독립성 강화. OPM은 for 채택"
+        },
+        {
+          "topic_id": "compensation_disclosure_below_5억",
+          "topic_label": "개별 임원 5억원 미만 이사 보수 공개 또는 공시기준 낮춤",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "개별 임원의 보수가 5억원 미만이더라도 대표이사를 포함하여 보수 수준이 가장 높은 일정 수 이상의 이사보수를 공개하거나, 개별 임원의 보수 공시 기준을 5억원 미만으로 낮추는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.25.1)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "5억원 미만 이사 보수 공개 또는 공시기준 인하 for — 차파트너스 단독 명시 (한국 운용사 silent). 자본시장법 §159 ② 강화 정신. OPM은 for 채택"
+        },
+        {
+          "topic_id": "stock_purchase_loan_against",
+          "topic_label": "임직원 자사주 구입 대출 (우리사주조합 등 법률 외)",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "against"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "임직원들에게 자사주 구입을 위해 대출해 주는 안에 대해서는 우리사주조합 등 법률에서 규정하는 경우를 제외하고는 반대",
+              "section": "[별첨 #1] Ⅲ-5.3.1)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "임직원 자사주 구입 대출 (우리사주 외) against — 차파트너스 단독 명시 (한국 운용사 silent). 미국 SOX §402 정신. OPM은 against 채택"
+        },
+        {
+          "topic_id": "hedging_derivatives_prohibition",
+          "topic_label": "임원 주식 연계 보상 위험회피 목적 파생상품 계약 금지",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "임원이 주식과 연계한 보상의 위험을 회피할 목적으로 파생상품 관련 계약을 체결하는 것을 금지하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-2.26.4)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "임원 주식 연계 보상 위험회피 파생상품 계약 금지 for — 차파트너스 단독 명시 (한국 운용사 silent). 미국 SOX hedging policy. OPM은 for 채택"
         }
       ],
       "summary": {
-        "total_topics": 10,
+        "total_topics": 14,
         "consensus_count": 4,
         "majority_count": 4,
-        "divergence_count": 0,
-        "minority_count": 2
+        "divergence_count": 2,
+        "minority_count": 4
       }
     },
     "treasury_share": {
@@ -2248,7 +2811,8 @@
             "t_activist": "for",
             "k_legacy": "case_by_case",
             "b_foreign": "for",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -2280,10 +2844,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 자사주 매입 대체용 현금 동반 자본 감소 — 비례적 진행이라 주주가치 변화 없으므로 일반 찬성",
               "section": "ISS 2026 Ch.4 / Reduction in Capital Accompanied by Cash Consideration"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "자기주식 취득안: 회사 이익규모/재무상황/과거 적정성/경영권 관련 사항 고려 합리적·정당한 사유 제시 시 찬성",
+              "section": "[별첨 #1] Ⅲ-7.6.1)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "자기주식 취득은 합리적·정당한 사유(이익규모, 재무상황, 경영권 관련) 제시 시 for, 미제시 시 against — 5 운용사 합의. 한투는 default-against 표현"
         },
         {
@@ -2296,7 +2865,8 @@
             "t_activist": "for_with_3rd_party_review",
             "k_legacy": "silent",
             "b_foreign": "silent",
-            "a_activist": "for"
+            "a_activist": "for",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -2318,9 +2888,14 @@
               "manager": "a_activist",
               "criterion": "자기주식 처분 시 주주평등 원칙 훼손/경영권 방어 부적절 이용 방지 위해 처분 상대방·방법 제한 안 찬성",
               "section": "[별지] Ⅶ-4"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "자기주식 처분 시 처분 상대방·방법 제한 (주주평등 훼손/경영권 방어 부적절 이용 방지) 안 찬성",
+              "section": "[별첨 #1] Ⅲ-7.6.7)"
             }
           ],
-          "agreement_level": "divergence",
+          "agreement_level": "minority",
           "agreement_count": 2,
           "opm_seed": "자기주식 처분 시 처분 상대방·방법 제한, 주총 승인 안 for — 3/5 명시. OPM은 for 채택 (한국 특수성: 자사주 마법 차단, 주주평등 원칙)"
         },
@@ -2334,7 +2909,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "for"
+            "a_activist": "for",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -2356,10 +2932,15 @@
               "manager": "a_activist",
               "criterion": "자기주식 처분 상대방·방법 제한 안 찬성 (주총 승인 정신)",
               "section": "[별지] Ⅶ-4"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "자기주식 처분 결과 주총 보고 안 찬성. 자기주식 처분을 주총 승인 사항으로 변경 안 찬성",
+              "section": "[별첨 #1] Ⅲ-7.6.6), 7.6.8)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "자기주식 처분 결과 주총 보고 + 처분 주총 승인 for — 3/5 명시. OPM은 for 채택 (한국 자사주 마법 차단)"
         },
         {
@@ -2372,7 +2953,8 @@
             "t_activist": "review",
             "k_legacy": "silent",
             "b_foreign": "silent",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "review"
           },
           "evidence": [
             {
@@ -2389,19 +2971,72 @@
               "manager": "a_activist",
               "criterion": "자본금을 증가시켜 외부 기업인수 시도를 무력화하려는 의도가 명백한 경우에는 반대 (자사주 동일 정신)",
               "section": "[별지] Ⅶ-3"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "경영권 보호 목적 자기주식 취득: 주주가치 부당 미훼손 합리적·정당 사유 제시 시에만 찬성",
+              "section": "[별첨 #1] Ⅲ-7.6.4)"
             }
           ],
           "agreement_level": "divergence",
-          "agreement_count": 2,
+          "agreement_count": 3,
           "opm_seed": "경영권 보호 목적 자기주식 취득은 주주가치 훼손 없는 합리적 사유 제시 시에만 review — 2 운용사 (미래에셋, 트러스톤) 명시. OPM은 review 채택"
+        },
+        {
+          "topic_id": "treasury_share_burnout_for_value",
+          "topic_label": "자기주식 매입을 통한 소각 (주주가치 훼손되지 않는 경우)",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] 자사주 매입을 통한 소각으로 주주가치가 훼손되지 않는 경우 자본금 감소 예외로 인정 (찬성)",
+              "section": "[별첨 #1] Ⅲ-7.1.1) 4호"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "자사주 매입 후 소각으로 주주가치 미훼손 시 for — 차파트너스 단독 명시 (한국 운용사 silent). 한국 자사주 마법 차단 정신과 정합. OPM은 for 채택 (2026.03 신법 1년 의무소각과 정합)"
+        },
+        {
+          "topic_id": "treasury_share_disposal_for_new_investment",
+          "topic_label": "신사업투자 필요 시 합리적 사유 없는 자기주식 처분",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "against"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] 회사가 새로운 사업투자가 필요한 경우에 실행하는 자기주식 처분은 합리적인 사유가 없는 경우 반대",
+              "section": "[별첨 #1] Ⅲ-7.6.5)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "신사업투자 명목 자기주식 처분이 합리적 사유 미제시 시 against — 차파트너스 단독 명시 (한국 운용사 silent). 미래에셋 against_no_reason과 정합. OPM은 against 채택"
         }
       ],
       "summary": {
-        "total_topics": 4,
+        "total_topics": 6,
         "consensus_count": 0,
         "majority_count": 2,
-        "divergence_count": 2,
-        "minority_count": 0
+        "divergence_count": 1,
+        "minority_count": 3
       }
     },
     "merger": {
@@ -2417,7 +3052,8 @@
             "t_activist": "for_with_long_term",
             "k_legacy": "review",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "for_with_long_term"
           },
           "evidence": [
             {
@@ -2454,6 +3090,11 @@
               "manager": "a_activist",
               "criterion": "[행동주의] 재무적·사회적·환경적 위험·책임 수반 인수합병/구조조정 안 일반 반대. 주주가치 훼손 우려 영업양수도 반대",
               "section": "[별지] Ⅵ-1, Ⅵ-2"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] 결합회사 전망/합병대가 적정성/시장반응/협상절차/지배구조·자본구조 변화/이해상충 종합 + 장기 주주가치 제고 가능 시 찬성",
+              "section": "[별첨 #1] Ⅲ-6.2.1)"
             }
           ],
           "agreement_level": "majority",
@@ -2470,7 +3111,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "review",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "silent"
           },
           "evidence": [
             {
@@ -2494,7 +3136,7 @@
               "section": "ISS 2026 Ch.4 / Merger Agreement / Discussion"
             }
           ],
-          "agreement_level": "majority",
+          "agreement_level": "divergence",
           "agreement_count": 4,
           "opm_seed": "주식매수청구권 확보 시 against 또는 abstain (한국 특수성: 상법 §374의2) — 3/5 명시. OPM은 review 채택 (전술적 활용)"
         },
@@ -2508,7 +3150,8 @@
             "t_activist": "review",
             "k_legacy": "review",
             "b_foreign": "review",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "review"
           },
           "evidence": [
             {
@@ -2535,10 +3178,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] Valuation/Market Reaction/Strategic Rationale/Conflicts/Governance/Trading Opportunity 6가지 종합 검토",
               "section": "ISS 2026 Ch.4 / Merger Agreement / Discussion"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "위임장 대결시 현직 경영자 vs 도전자 — 8요인(경영실적/이사회조치/주주제안 대응/지배전략 차이/도전자 영향/후보 경험·능력/경영고착화/인수방어전략 적정성) 충분 고려 사안별 투표",
+              "section": "[별첨 #1] Ⅲ-6.3.1)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "M&A 및 인수방어 시 장기 회사·주주가치 + 종업원·서플라이체인·국가경제·사회 종합 review — 4/5 합의 (미래에셋 silent)"
         },
         {
@@ -2551,7 +3199,8 @@
             "t_activist": "against_unfair",
             "k_legacy": "review",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "silent"
           },
           "evidence": [
             {
@@ -2579,7 +3228,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -2591,19 +3241,24 @@
               "manager": "k_legacy",
               "criterion": "왕관보석 방어전략, 그린메일",
               "section": "[별표] A-6.4, A-6.5"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "왕관보석(Crown Jewel) 방어전략: 주주에게 적정 가치 미가져다주는 한 반대 / 그린메일 제공 반대",
+              "section": "[별첨 #1] Ⅲ-6.2.4)~5)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 2,
+          "agreement_level": "divergence",
+          "agreement_count": 3,
           "opm_seed": "왕관보석 방어전략(Crown Jewel) 및 그린메일 against — 2 운용사 (트러스톤, 한투) 명시. OPM은 against 채택 (글로벌 모범사례)"
         }
       ],
       "summary": {
         "total_topics": 5,
         "consensus_count": 0,
-        "majority_count": 3,
-        "divergence_count": 0,
-        "minority_count": 2
+        "majority_count": 2,
+        "divergence_count": 2,
+        "minority_count": 1
       }
     },
     "spin_off": {
@@ -2619,7 +3274,8 @@
             "t_activist": "for_if_long_term_value",
             "k_legacy": "review",
             "b_foreign": "review",
-            "a_activist": "review"
+            "a_activist": "review",
+            "c_activist": "for_if_long_term_value"
           },
           "evidence": [
             {
@@ -2656,6 +3312,11 @@
               "manager": "a_activist",
               "criterion": "회사분할: 분할방식·가치평가·공정성·이해상충·경영자 인센티브·지배구조·자본구조 변화 종합 + 장기 주주가치 제고 가능 시 찬성",
               "section": "[별지] Ⅵ-3"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "회사분할: 분할방식/가치평가/공정성/이해상충/경영자 인센티브/지배구조·자본구조 변화 종합 + 장기 주주가치 제고 시 찬성",
+              "section": "[별첨 #1] Ⅲ-6.4.1)"
             }
           ],
           "agreement_level": "divergence",
@@ -2672,7 +3333,8 @@
             "t_activist": "for_if_long_term_value",
             "k_legacy": "review",
             "b_foreign": "silent",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "for_if_long_term_value"
           },
           "evidence": [
             {
@@ -2704,6 +3366,11 @@
               "manager": "a_activist",
               "criterion": "지주회사 설립: 주주가치 훼손 가능 시 반대",
               "section": "[별지] Ⅷ-3"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "지주회사 설립: 설립목적/지배구조·경영권 영향/자본구조·재무상황/기업가치 영향 종합 + 장기 주주가치 제고 시 찬성",
+              "section": "[별첨 #1] Ⅲ-8.2.1)"
             }
           ],
           "agreement_level": "divergence",
@@ -2732,7 +3399,8 @@
             "t_activist": "against_with_exceptions",
             "k_legacy": "against_with_exceptions",
             "b_foreign": "for_in_exceptions",
-            "a_activist": "against_with_exceptions"
+            "a_activist": "against_with_exceptions",
+            "c_activist": "against_with_exceptions"
           },
           "evidence": [
             {
@@ -2769,10 +3437,15 @@
               "manager": "a_activist",
               "criterion": "자본금 감소: 소각 위한 자사주 매입(주주가치 미훼손)/구조조정 자구안 외 원칙 반대",
               "section": "[별지] Ⅶ-1"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] 자본금 감소: 기업회생/상장폐지 회피/주주가치 미훼손 유상감자/소각 위한 자사주 매입 외 반대",
+              "section": "[별첨 #1] Ⅲ-7.1.1)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "자본감소 원칙 against, 예외(회생, 자본조달, 구조조정, 상장폐지 회피, 자사주 소각, 유상감자로 주주가치 훼손 없음) for — 5 운용사 합의"
         },
         {
@@ -2785,7 +3458,8 @@
             "t_activist": "against",
             "k_legacy": "review",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -2812,10 +3486,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 수권자본 증가가 현재 100% 초과 + 정당화 없을 때 반대",
               "section": "ISS 2026 Ch.4 / Increase in Authorized Capital"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "발행예정주식수 증가: 이미 많은 발행가능주식수 또는 두 배 이상 증가 시 일반 반대 (독약증권/인수방어 우려)",
+              "section": "[별첨 #1] Ⅲ-7.3.2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "발행예정주식수 2배 이상(100% 이상) 증가 against — 4/5 합의 (삼성액티브 silent)"
         },
         {
@@ -2828,7 +3507,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -2860,10 +3540,15 @@
               "manager": "a_activist",
               "criterion": "[행동주의] 자본금 증가로 외부 기업인수 시도 무력화 의도 명백 시 반대. 우선주 발행이 적대적 기업인수 방해 수단 이용 시 정당 사유 없는 한 원칙 반대",
               "section": "[별지] Ⅶ-3, Ⅱ-5 (19)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의 — 핵심] 자본금 증가로 외부 기업인수 시도 무력화 의도 명백 시 반대 / 신주발행/자사주 매각으로 적대적 인수 무력화 의도 명백 시 반대",
+              "section": "[별첨 #1] Ⅲ-7.3.1), 7.4.1)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "외부 기업인수 무력화 의도 명백한 자본금 증가/신주발행/자사주 매각 against — 4/5 합의 (삼성액티브 silent)"
         },
         {
@@ -2876,7 +3561,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -2908,10 +3594,15 @@
               "manager": "a_activist",
               "criterion": "신주우선인수권을 약화시키는 안에 반대. 신주 제3자 배정 원칙 반대",
               "section": "[별지] Ⅱ-5 (18), Ⅷ-2"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "신주인수권 배제·제한: 합리적·공정 방법·절차 미준수 시 반대 / 신주 제3자 배정: 합리적·공정 + 주주가치 미훼손 시에만 review",
+              "section": "[별첨 #1] Ⅲ-6.8.1)~2)"
             }
           ],
           "agreement_level": "consensus",
-          "agreement_count": 6,
+          "agreement_count": 7,
           "opm_seed": "신주인수권 배제·제한 (제3자 배정) against, 단 발행목적·규모·가격·대상이 합리적·공정·주주가치 훼손하지 않는 경우 review — 4/5 합의"
         },
         {
@@ -2924,7 +3615,8 @@
             "t_activist": "silent",
             "k_legacy": "for",
             "b_foreign": "for",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -2951,10 +3643,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 주식분할/병합 일반 찬성 (희석 우려 없을 때)",
               "section": "ISS 2026 Ch.4 / Stock Split"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "발행주식수가 주주평등의 원칙에 따라 비례적으로 감소(증가)하는 주식병합(주식분할) 안 찬성",
+              "section": "[별첨 #1] Ⅲ-7.2.1)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "주주평등 원칙에 따른 비례적 주식분할/주식병합 for — 4/5 합의 (트러스톤 silent)"
         },
         {
@@ -2967,7 +3664,8 @@
             "t_activist": "for",
             "k_legacy": "silent",
             "b_foreign": "for",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -2994,19 +3692,48 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 수권자본 증가 일반 찬성 (현재 100% 초과 정당화 없거나 30% 미만 발행 외)",
               "section": "ISS 2026 Ch.4 / Increase in Authorized Capital"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "상장폐지 위험 회피 또는 영업 지속 위한 자본금 증가 / 스톡옵션 행사 대비 법정자본금 증가 찬성",
+              "section": "[별첨 #1] Ⅲ-7.3.3)~4)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "스톡옵션 행사 대비 또는 상장폐지 위험 회피 자본 증가 for — 4/5 합의 (한투 silent)"
+        },
+        {
+          "topic_id": "forfeited_shares_to_insider_against",
+          "topic_label": "실권주를 최대주주·특수관계인·임직원·사외이사 배정 금지",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "실권주를 최대주주, 특수관계인, 임직원, 사외이사 등에 배정하는 것을 금지하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-7.5.1)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "실권주 최대주주·특수관계인 배정 금지 안 for — 차파트너스 단독 명시 (한국 운용사 silent). 한국 사익편취 차단 정신과 정합. OPM은 for 채택"
         }
       ],
       "summary": {
-        "total_topics": 6,
+        "total_topics": 7,
         "consensus_count": 2,
         "majority_count": 4,
         "divergence_count": 0,
-        "minority_count": 0
+        "minority_count": 1
       }
     },
     "cb_bw": {
@@ -3022,7 +3749,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -3039,10 +3767,15 @@
               "manager": "k_legacy",
               "criterion": "CB/BW 발행을 주총 결의로 결정하도록 정관 변경",
               "section": "[별표] B-15-4)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "전환사채/신주인수권부사채 발행을 정관에서 주총 결의 사항으로 정하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-8.9.4)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 3,
+          "agreement_level": "divergence",
+          "agreement_count": 4,
           "opm_seed": "CB/BW 발행을 주총 결의로 결정하도록 정관 변경 for — 3/5 명시. OPM은 for 채택 (한국 특수성: 사모 CB/BW 남용 방지)"
         },
         {
@@ -3055,7 +3788,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "against"
+            "a_activist": "against",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -3082,6 +3816,11 @@
               "manager": "a_activist",
               "criterion": "채무재조정 위해 보통주/우선주 신주 발행: 기존 주주 권리 희석 과도하여 주주이익 침해 명백 시 반대. 증권의 전환: 기존 주주 권리 희석 과도하여 주주이익 침해 명백 시 반대",
               "section": "[별지] Ⅱ-5 (16), (17)"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "주주 우선인수권 있는 CB/BW 50%+ 증가 일반 반대. 주주 우선인수권 없는 CB/BW 20%+ 증가 반대",
+              "section": "[별첨 #1] Ⅲ-8.9.5)~6)"
             }
           ],
           "agreement_level": "majority",
@@ -3098,7 +3837,8 @@
             "t_activist": "review",
             "k_legacy": "review",
             "b_foreign": "silent",
-            "a_activist": "review"
+            "a_activist": "review",
+            "c_activist": "review"
           },
           "evidence": [
             {
@@ -3125,18 +3865,47 @@
               "manager": "a_activist",
               "criterion": "신주 제3자 배정: 원칙 반대, 단 발행사유·가격·규모·유동성 검토 후 주주가치 이득 시 찬성 가능",
               "section": "[별지] Ⅷ-2"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "특정주주·제3자 배정 주식연계채권: 발행목적·규모 적정 + 이해상충 작음 + 시장반응 비부정적 시에만 찬성",
+              "section": "[별첨 #1] Ⅲ-8.9.2)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "특정주주·제3자 배정 주식연계채권 review (발행목적, 규모, 이해상충, 시장반응) — 4/5 합의 (삼성 silent)"
+        },
+        {
+          "topic_id": "cb_bw_for_distressed_restructuring",
+          "topic_label": "채무재조정 (파산회피) 시 주식연계채권 발행 (제3자 배정 포함)",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "for"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "채무재조정이 이루어지지 않으면 파산신청을 해야 하는 상황에서 제3자 배정을 통한 주식연계채권 발행을 확대하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-8.9.3)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "채무재조정 회생 목적 주식연계채권 발행 for — 차파트너스 단독 명시 (한국 운용사 silent). 한국 회생절차 정합. OPM은 for 채택"
         }
       ],
       "summary": {
-        "total_topics": 3,
+        "total_topics": 4,
         "consensus_count": 0,
         "majority_count": 2,
-        "divergence_count": 0,
+        "divergence_count": 1,
         "minority_count": 1
       }
     },
@@ -3153,7 +3922,8 @@
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "review",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -3185,10 +3955,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] ESG 주주제안 case-by-case (입법/규제 처리, 회사 대응, 부담스러운 정도, 산업표준, 논쟁/제재, 정보 가용성, 기밀 노출, 주주 이해 영향 등 8가지 종합)",
               "section": "ISS 2026 Ch.8 Social and Environmental"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] ESG 지속가능성 강화 주주제안 (부정 측면 작은 경우) 찬성. 환경/근로자/협력사 ESG/뇌물·부패 등 다양한 이슈별 주주제안 찬성",
+              "section": "[별첨 #1] Ⅲ-8.10.4), 사례 A-H"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 5,
+          "agreement_count": 6,
           "opm_seed": "ESG/지속가능성 강화 주주제안 for (부정적 측면 크지 않은 경우) — 5 운용사 합의"
         },
         {
@@ -3201,7 +3976,8 @@
             "t_activist": "against",
             "k_legacy": "review",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -3233,10 +4009,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 회사 사업활동을 잠재적 제한, 또는 효익 대비 큰 비용 발생 주주제안 일반 반대",
               "section": "ISS 2026 Ch.7 Shareholder Proposals"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "주주제안: 주주가치 훼손 우려 시 반대 (취지/타당성/위법성/리스크/이해상충/회사 대응 종합)",
+              "section": "[별첨 #1] Ⅲ-8.10.1)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "주주가치 훼손 우려 있는 주주제안 against, 검토 시 review — 5 운용사 합의 (3 against + 2 review = 모두 case_by_case 정신)"
         },
         {
@@ -3249,7 +4030,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "review",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "review"
           },
           "evidence": [
             {
@@ -3271,10 +4053,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 회사 거버넌스 또는 사업 프로필을 합리적 비용으로 개선하는 주주제안 일반 찬성 (vs 사업활동 제한 반대 — 경합 시 case_by_case)",
               "section": "ISS 2026 Ch.7 Shareholder Proposals"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사회안 vs 주주제안 경합: 장기 주주가치 제고에 더 부합하는 안 찬성",
+              "section": "[별첨 #1] Ⅲ-8.10.3)"
             }
           ],
           "agreement_level": "majority",
-          "agreement_count": 4,
+          "agreement_count": 5,
           "opm_seed": "이사회안과 주주제안 경합 시 review (장기 주주가치 제고에 더 부합하는 안건 for) — 3/5 명시. OPM은 review 채택"
         },
         {
@@ -3287,7 +4074,8 @@
             "t_activist": "silent",
             "k_legacy": "for",
             "b_foreign": "silent",
-            "a_activist": "for"
+            "a_activist": "for",
+            "c_activist": "for"
           },
           "evidence": [
             {
@@ -3304,10 +4092,15 @@
               "manager": "a_activist",
               "criterion": "[행동주의 일반원칙 제3조 ②] 합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사",
               "section": "[일반원칙 제3조 ②]"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의] 경영권 분쟁 시 신주발행/자사주 매각 주총 승인 요구 주주제안 찬성",
+              "section": "[별첨 #1] Ⅲ-8.10.6)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 3,
+          "agreement_level": "divergence",
+          "agreement_count": 4,
           "opm_seed": "경영권 분쟁 시 신주발행/자사주 매각 주총 승인 요구 주주제안 for — 2 운용사 (미래에셋, 한투) 명시. 한국 특수성. OPM은 for 채택 (소수주주 보호)"
         },
         {
@@ -3320,7 +4113,8 @@
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "against"
           },
           "evidence": [
             {
@@ -3337,10 +4131,15 @@
               "manager": "b_foreign",
               "criterion": "[ISS] 거버넌스 책임 실패자 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대 (responsiveness 강력)",
               "section": "ISS 2026 Ch.2 Board / ACCOUNTABILITY"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "이사가 주총에서 승인된 주주제안 사항을 이행하지 않고 그 적절한 이유를 제시하지 않은 경우 반대",
+              "section": "[별첨 #1] Ⅲ-3.1.2)"
             }
           ],
-          "agreement_level": "minority",
-          "agreement_count": 3,
+          "agreement_level": "divergence",
+          "agreement_count": 4,
           "opm_seed": "주주 다수가 승인한 주주제안 미시행 이사 재선임 against — 2 운용사 (트러스톤, 한투) 명시. OPM은 against 채택 (주주민주주의)"
         },
         {
@@ -3353,7 +4152,8 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "review",
-            "a_activist": "silent"
+            "a_activist": "silent",
+            "c_activist": "silent"
           },
           "evidence": [
             {
@@ -3376,37 +4176,91 @@
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
-            "a_activist": "for"
+            "a_activist": "for",
+            "c_activist": "for"
           },
           "evidence": [
             {
               "manager": "a_activist",
               "criterion": "[행동주의 핵심 일반원칙] 합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사",
               "section": "일반원칙 제3조 ②"
+            },
+            {
+              "manager": "c_activist",
+              "criterion": "[행동주의 핵심 일반원칙 제3조 ②] 합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사",
+              "section": "본문 제3조 ②"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 2,
+          "opm_seed": "[행동주의 입장 신규] 얼라인 단독 — 정책에 명시된 적극 행사 원칙. against 86%의 근거. OPM은 active_engagement_principle을 정책 선언으로 채택 — 주주 이익 직결 안건은 silent 금지"
+        },
+        {
+          "topic_id": "political_donation_blanket_ban_against",
+          "topic_label": "기업 정치 기부금 포괄적 금지 제안 반대 (입법활동 지원 인정)",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "against"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "기업의 정치 기부금을 포괄적으로 금지하는 제안에는 반대 (기업 성장에 도움이 될 수 있는 입법활동 지원을 위한 기부금의 경우 기업의 경쟁력 제고로 이어질 수 있기 때문)",
+              "section": "[별첨 #1] Ⅲ-8.10 사례 C.2)"
             }
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[행동주의 입장 신규] 얼라인 단독 — 정책에 명시된 적극 행사 원칙. against 86%의 근거. OPM은 active_engagement_principle을 정책 선언으로 채택 — 주주 이익 직결 안건은 silent 금지"
+          "opm_seed": "정치 기부금 포괄 금지 제안 against — 차파트너스 단독 명시 (한국 운용사 silent). 글로벌 ESG 컨센서스(공시 우선·금지 반대)와 정합. OPM은 against 채택"
+        },
+        {
+          "topic_id": "charity_donation_restriction_against",
+          "topic_label": "기업 자선 기부금 제한 제안 반대",
+          "positions": {
+            "m_legacy": "silent",
+            "s_legacy": "silent",
+            "sa_active": "silent",
+            "t_activist": "silent",
+            "k_legacy": "silent",
+            "b_foreign": "silent",
+            "a_activist": "silent",
+            "c_activist": "against"
+          },
+          "evidence": [
+            {
+              "manager": "c_activist",
+              "criterion": "기업의 자선 기부금을 제한하는 제안에 반대",
+              "section": "[별첨 #1] Ⅲ-8.10 사례 C.4)"
+            }
+          ],
+          "agreement_level": "minority",
+          "agreement_count": 1,
+          "opm_seed": "기업 자선 기부금 제한 against — 차파트너스 단독 명시 (한국 운용사 silent). OPM은 against 채택 (CSR/ESG 정신)"
         }
       ],
       "summary": {
-        "total_topics": 7,
+        "total_topics": 9,
         "consensus_count": 0,
         "majority_count": 3,
-        "divergence_count": 0,
+        "divergence_count": 2,
         "minority_count": 4
       }
     }
   },
   "global_summary": {
-    "total_topics": 79,
+    "total_topics": 96,
     "consensus_topics": 22,
-    "majority_topics": 27,
-    "divergence_topics": 7,
-    "minority_topics": 23,
-    "consensus_rate": 0.278,
-    "majority_or_better_rate": 0.62,
+    "majority_topics": 26,
+    "divergence_topics": 21,
+    "minority_topics": 27,
+    "consensus_rate": 0.229,
+    "majority_or_better_rate": 0.5,
     "category_with_most_consensus": "정관 변경/이사 선임 (사외이사 5년 룰·집중투표 배제 삭제·황금낙하산 등 ISS+한국 운용사 합의)",
     "category_with_most_divergence": "이사 보수·자기주식 (행동주의 vs 글로벌 ISS vs 한국 운용사 분기)",
     "v1_1_changes": [
@@ -3430,6 +4284,18 @@
       "[ISS 단독 신규] Discharge of Director — 한국 미적용 글로벌 개념",
       "[얼라인 단독] 행동주의 일반원칙 제3조 ② — 중대 사안 적극 행사 (5 운용사 + 베어링 모두 silent)",
       "[얼라인 단독] 배당 과소 반대 (행동주의 핵심 — 5 운용사도 against지만 강도 차이)"
+    ],
+    "v1_3_changes": [
+      "8 운용사 매트릭스 재계산 — c_activist (차파트너스) 통합",
+      "신규 c_activist 단독 토픽: 17건 (자사주 매입 후 소각, 신사업투자 자사주 처분, 실권주 최대주주 배정 금지, 집행임원제도, CEO 3기+ 연임, 이사회 평가 공시, LID, 사외이사 매년 독립성 공시, 추천위 사외이사 과반, 내부거래위, 주식보상 매도금지·hedging 금지, 5억원 미만 보수공개, 자사주구입 대출 금지, 채무재조정 CB/BW, 정치/자선 기부금)",
+      "기존 79 토픽에 c_activist 입장 추가 (silent 포함)",
+      "행동주의 3사 (T/A/C) 일치 영역 확인"
+    ],
+    "v1_3_korea_specific_findings": [
+      "행동주의 3사 (T/A/C) 적극 행사 합의 — 사외이사 비중 축소 against, 일괄투표 against, 외부 인수 자본증가 against, 성과 미연계 보상 against, 배당 과소 against",
+      "8 운용사 만장일치 신규 강화 — 외감의견 적정 외 against (8/8), 사외이사 5년/6년 룰 against (8/8 합의), 황금낙하산 against (8/8), 집중투표 배제 삭제 for (8/8)",
+      "차파트너스 단독 신규 토픽 — 집행임원제도, 내부거래위, LID, 사외이사 독립성 매년 공시, 5억원 미만 보수공개, hedging 금지, CEO 3기+ 연임 봉쇄",
+      "한국 운용사 silent 영역 차파트너스 채택 — 정치/자선 기부금 (포괄 금지·제한 반대), 임직원 자사주 대출 금지, 채무재조정 시 CB/BW 우호"
     ]
   }
 }

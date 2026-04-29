@@ -10,7 +10,15 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope, build_usage
+from open_proxy_mcp.services.contracts import (
+    AnalysisStatus,
+    EvidenceRef,
+    SourceType,
+    ToolEnvelope,
+    build_filing_meta,
+    build_usage,
+    status_from_filing_meta,
+)
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.services.ownership_structure import (
@@ -716,6 +724,14 @@ async def build_proxy_contest_payload(
     external_active_signals = [row for row in activist_signals if row.get("actor_side") == "external_active_block"]
     has_contest_signal = bool(shareholder_side_rows or litigation_rows or external_active_signals)
 
+    # 사건 발견 vs 진짜 partial 분리.
+    # 위임장(proxy_filing) + 소송(litigation) + 5% 활성 시그널 합산.
+    total_signal_filings = len(enriched_proxy_rows) + len(litigation_rows) + len(activist_signals)
+    filing_meta = build_filing_meta(
+        filing_count=total_signal_filings,
+        parsing_failures=0,
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -743,6 +759,7 @@ async def build_proxy_contest_payload(
             "active_external_block_count": len(active_external_blocks),
             "active_overlap_block_count": len(overlap_blocks),
         },
+        **filing_meta,
         "players": {
             "company_side_filers": company_side_filers,
             "shareholder_side_filers": shareholder_side_filers,
@@ -806,7 +823,7 @@ async def build_proxy_contest_payload(
     next_actions = [
         "timeline scope로 전체 이벤트 순서 확인" if scope == "summary" else "shareholder_meeting, ownership_structure와 함께 보면 표대결 맥락이 더 선명해진다.",
     ]
-    status = AnalysisStatus.EXACT if (enriched_proxy_rows or litigation_rows or activist_signals) else AnalysisStatus.PARTIAL
+    status = status_from_filing_meta(filing_meta)
     if scope == "vote_math":
         vote_math, vote_math_status, vote_math_warnings, vote_math_evidence, vote_math_actions = await _vote_math_scope_data(
             company_query,
@@ -825,8 +842,8 @@ async def build_proxy_contest_payload(
         if vote_math_actions:
             next_actions = vote_math_actions
         status = vote_math_status
-    elif status == AnalysisStatus.PARTIAL:
-        warnings.append("분쟁 관련 공시가 없거나 충분하지 않아 partial 상태로 표시한다.")
+    elif status == AnalysisStatus.NO_FILING:
+        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 위임장/소송/5% 활성 시그널 없음 (정상)")
 
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
 

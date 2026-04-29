@@ -8,7 +8,15 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope, build_usage
+from open_proxy_mcp.services.contracts import (
+    AnalysisStatus,
+    EvidenceRef,
+    SourceType,
+    ToolEnvelope,
+    build_filing_meta,
+    build_usage,
+    status_from_filing_meta,
+)
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.tools.dividend import (
@@ -366,6 +374,18 @@ async def build_dividend_payload(
     policy = _policy_signals(history)
 
     latest_decision = details[0] if details else None
+    # 사건 발견 vs 진짜 partial 분리.
+    # filing_count = 배당 결정 공시 수 + alotMatter 연간 요약 수.
+    # 둘 다 0이면 진짜 무배당(no_filing) — 다만 dividend는 "사건 없음 = 무배당"이므로
+    # latest_summary가 있어도 cash_dps=0이면 사실상 no_filing 신호.
+    has_dividend_signal = bool(details) or bool(
+        latest_summary and int(latest_summary.get("cash_dps") or 0) > 0
+    )
+    filing_meta = build_filing_meta(
+        filing_count=len(details) + (1 if (latest_summary and int(latest_summary.get("cash_dps") or 0) > 0) else 0),
+        parsing_failures=0,
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -386,6 +406,7 @@ async def build_dividend_payload(
             "selection_basis": "recent_completed_years" if scope == "history" else "window",
         },
         "summary": latest_summary,
+        **filing_meta,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
     if scope in {"summary", "detail"}:
@@ -437,10 +458,10 @@ async def build_dividend_payload(
             )
         )
 
-    status = AnalysisStatus.EXACT if latest_summary or details else AnalysisStatus.PARTIAL
-    if status == AnalysisStatus.PARTIAL:
-        warnings.append("사업보고서 요약이나 배당결정 공시 일부가 비어 있어 partial 상태로 표시한다.")
-    elif scope == "history" and len(history) < max(1, years):
+    status = status_from_filing_meta(filing_meta)
+    if filing_meta["no_filing"]:
+        warnings.append(f"조사 구간 ({start_ymd}~{end_ymd}) 내 배당결정 공시 없음 + 사업보고서 배당 요약도 비어 있어 무배당으로 본다 (정상)")
+    if scope == "history" and len(history) < max(1, years):
         warnings.append("요청한 연수보다 완료 사업연도 수가 적어, 조회 가능한 최근 완료 사업연도만 반환한다.")
 
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)

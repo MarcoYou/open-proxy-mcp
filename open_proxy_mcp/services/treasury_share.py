@@ -25,7 +25,9 @@ from open_proxy_mcp.services.contracts import (
     EvidenceRef,
     SourceType,
     ToolEnvelope,
+    build_filing_meta,
     build_usage,
+    status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import (
     format_iso_date,
@@ -282,6 +284,13 @@ async def build_treasury_share_payload(
     counts = _summary_counts(bundles)
     events = _combined_events(bundles)
 
+    # 사건 발견 vs 진짜 partial 분리.
+    # 4개 결정 API + cancellation list.json 모두 결과 0건은 사건 없음 = 정상.
+    filing_meta = build_filing_meta(
+        filing_count=len(events),
+        parsing_failures=0,
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -296,6 +305,7 @@ async def build_treasury_share_payload(
             "lookback_months": lookback_months,
         },
         "summary": counts,
+        **filing_meta,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
@@ -332,9 +342,9 @@ async def build_treasury_share_payload(
             )
         )
 
-    status = AnalysisStatus.EXACT if events else AnalysisStatus.PARTIAL
-    if not events:
-        warnings.append("요청 구간에 자사주 이벤트 공시가 확인되지 않았다. 연간 누적은 `scope='annual'`로 확인할 수 있다.")
+    status = status_from_filing_meta(filing_meta)
+    if filing_meta["no_filing"]:
+        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 자사주 이벤트 공시 없음 (정상). 연간 누적은 `scope='annual'`로 확인할 수 있다.")
 
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
 

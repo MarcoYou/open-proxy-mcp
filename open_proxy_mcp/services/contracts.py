@@ -10,14 +10,68 @@ from typing import Any
 
 
 class AnalysisStatus(str, Enum):
-    """분석 결과 상태."""
+    """분석 결과 상태.
+
+    - EXACT: 사건 발견 + 모든 필드 정상 파싱
+    - NO_FILING: 조회 구간에 사건 자체가 없는 정상 케이스 (PARTIAL과 분리)
+    - PARTIAL: 사건은 발견됐으나 일부 필드 파싱 실패 (진짜 부분 실패)
+    - AMBIGUOUS: 회사 식별 등 입력 모호
+    - CONFLICT: 둘 이상의 소스 결과가 충돌
+    - REQUIRES_REVIEW: 자동 판정 불가, 사람 검토 필요
+    - ERROR: 호출 실패 / 데이터 자체 미존재
+    """
 
     EXACT = "exact"
     AMBIGUOUS = "ambiguous"
     PARTIAL = "partial"
+    NO_FILING = "no_filing"
     CONFLICT = "conflict"
     REQUIRES_REVIEW = "requires_review"
     ERROR = "error"
+
+
+def build_filing_meta(
+    *,
+    filing_count: int,
+    parsed_count: int | None = None,
+    parsing_failures: int = 0,
+) -> dict[str, Any]:
+    """11 data tool 공통 filing 메타.
+
+    - no_filing: 조사 구간 사건 0건 (정상)
+    - filing_count: 발견된 공시/이벤트 수
+    - parsed_count: 정상 파싱된 수 (None이면 filing_count - parsing_failures)
+    - parsing_failures: 진짜 partial failure (필드 누락 등)
+    - filing_status: "no_filing" | "all_parsed" | "partial_failure"
+    """
+
+    if parsed_count is None:
+        parsed_count = max(filing_count - parsing_failures, 0)
+
+    if filing_count <= 0:
+        filing_status = "no_filing"
+    elif parsing_failures > 0:
+        filing_status = "partial_failure"
+    else:
+        filing_status = "all_parsed"
+
+    return {
+        "no_filing": filing_count <= 0,
+        "filing_count": int(filing_count),
+        "parsed_count": int(parsed_count),
+        "parsing_failures": int(parsing_failures),
+        "filing_status": filing_status,
+    }
+
+
+def status_from_filing_meta(meta: dict[str, Any]) -> "AnalysisStatus":
+    """filing 메타에서 표준 status 도출 (data tool 공통)."""
+
+    if meta.get("no_filing"):
+        return AnalysisStatus.NO_FILING
+    if int(meta.get("parsing_failures", 0)) > 0:
+        return AnalysisStatus.PARTIAL
+    return AnalysisStatus.EXACT
 
 
 class SourceType(str, Enum):

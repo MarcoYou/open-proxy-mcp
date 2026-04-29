@@ -136,7 +136,11 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     if scope == "summary":
         timeline = data.get("events_timeline", [])
         if not timeline:
-            lines.append("조사 구간 내 희석성 증권 발행 사건 없음.")
+            if data.get("no_filing"):
+                lines.append("## 공시 없음")
+                lines.append("- 조사 구간 내 희석성 증권 발행 사건 없음 (정상 NO_FILING).")
+            else:
+                lines.append("조사 구간 내 희석성 증권 발행 사건 없음.")
             return "\n".join(lines)
         lines.extend([
             "## 사건 타임라인",

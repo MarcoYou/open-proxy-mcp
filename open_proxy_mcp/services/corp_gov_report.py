@@ -22,7 +22,9 @@ from open_proxy_mcp.services.contracts import (
     EvidenceRef,
     SourceType,
     ToolEnvelope,
+    build_filing_meta,
     build_usage,
+    status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
@@ -370,11 +372,22 @@ async def build_corp_gov_report_payload(
     }
 
     if scope == "filings":
+        # filings_filing_meta: 기업지배구조보고서 list 자체를 사건 단위로 본다.
+        # KOSDAQ + filings 0건 = 자율공시 미제출 (NO_FILING 정상).
+        # KOSPI + filings 0건 = 의무 미준수 (PARTIAL — 진짜 누락).
+        filings_meta = build_filing_meta(
+            filing_count=len(filings),
+            parsing_failures=(1 if (corp_cls == "Y" and not filings) else 0),
+        )
         data["filings"] = filings[:10]
+        data.update(filings_meta)
         data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
-        status = AnalysisStatus.EXACT if filings else AnalysisStatus.PARTIAL
-        if not filings:
-            warnings.append("조회된 기업지배구조보고서 없음")
+        status = status_from_filing_meta(filings_meta)
+        if filings_meta["no_filing"]:
+            if corp_cls == "K":
+                warnings.append("KOSDAQ 자율공시 — 기업지배구조보고서 미제출 (정상 NO_FILING)")
+            else:
+                warnings.append("조회된 기업지배구조보고서 없음")
         return ToolEnvelope(
             tool="corp_gov_report",
             status=status,
@@ -395,11 +408,20 @@ async def build_corp_gov_report_payload(
         ).to_dict()
 
     if not target_filing:
+        # KOSDAQ 자율공시는 NO_FILING 정상, KOSPI 의무공시는 PARTIAL.
+        no_target_meta = build_filing_meta(
+            filing_count=0,
+            parsing_failures=(1 if corp_cls == "Y" else 0),
+        )
+        data.update(no_target_meta)
         data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
-        warnings.append("기업지배구조보고서 원문을 찾지 못함")
+        if corp_cls == "K":
+            warnings.append("KOSDAQ 자율공시 — 기업지배구조보고서 미제출 (정상 NO_FILING)")
+        else:
+            warnings.append("기업지배구조보고서 원문을 찾지 못함")
         return ToolEnvelope(
             tool="corp_gov_report",
-            status=AnalysisStatus.PARTIAL,
+            status=status_from_filing_meta(no_target_meta),
             subject=selected.get("corp_name", company_query),
             warnings=warnings,
             data=data,
@@ -535,9 +557,17 @@ async def build_corp_gov_report_payload(
         )
     ]
 
+    # 사건은 발견됨(target_filing 있음). 파싱 실패만 PARTIAL로 처리.
+    parse_failed = 1 if not metrics else 0
+    final_meta = build_filing_meta(
+        filing_count=len(filings),  # 보고서 수
+        parsed_count=len(filings) - parse_failed,
+        parsing_failures=parse_failed,
+    )
+    data.update(final_meta)
     if len(metrics) < 10:
         warnings.append(f"핵심지표 파싱 {len(metrics)}개만 추출됨 — 원문 서식 차이 가능성")
-    status = AnalysisStatus.EXACT if metrics else AnalysisStatus.PARTIAL
+    status = status_from_filing_meta(final_meta)
 
     return ToolEnvelope(
         tool="corp_gov_report",

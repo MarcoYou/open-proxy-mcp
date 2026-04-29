@@ -160,6 +160,7 @@ updated: 2026-04-29
 - [[주총방어전략-2026]] - 주총 방어 시나리오 4가지 (미래에셋증권 리서치 2026.03.19)
 - [[주총체크리스트-2026]] - 주총 체크리스트 9개 + 상법 개정 타임라인 (미래에셋증권)
 - [[data-collection-architecture]] - OPM 전수 데이터 수집 entry point + 파싱 방법 (DART/KIND/Naver/Upstage/정적 JSON, 14 섹션 639줄)
+- [[nps-voting-disclosure]] - 국민연금 의결권 행사내역 크롤링 (fund.nps.or.kr 직접) + 정적 캐싱 + scope=nps_record
 
 ## Archive
 

@@ -10,7 +10,15 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope, build_usage
+from open_proxy_mcp.services.contracts import (
+    AnalysisStatus,
+    EvidenceRef,
+    SourceType,
+    ToolEnvelope,
+    build_filing_meta,
+    build_usage,
+    status_from_filing_meta,
+)
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
@@ -354,9 +362,16 @@ async def build_value_up_payload(
                 warnings.append("요청 구간에는 관련 공시가 없고, DART/KIND 진단 구간에서도 공시를 찾지 못했다.")
             else:
                 warnings.append("요청 구간과 DART/KIND 진단 구간 모두에서 기업가치제고 공시를 찾지 못했다.")
+        # availability_status가 "exists_outside_requested_window"인 경우는 진짜 partial.
+        # "no_filing_found"인 경우는 사건 자체가 없는 정상 케이스 = NO_FILING.
+        no_filing_meta = build_filing_meta(filing_count=0, parsing_failures=0)
+        if availability_status == "exists_outside_requested_window":
+            response_status = AnalysisStatus.PARTIAL
+        else:
+            response_status = AnalysisStatus.NO_FILING
         return ToolEnvelope(
             tool="value_up",
-            status=AnalysisStatus.PARTIAL,
+            status=response_status,
             subject=selected.get("corp_name", company_query),
             warnings=warnings,
             data={
@@ -370,6 +385,7 @@ async def build_value_up_payload(
                 "availability_status": availability_status,
                 "search_diagnostics": diagnostics,
                 "items": [],
+                **no_filing_meta,
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
             },
         ).to_dict()
@@ -450,6 +466,18 @@ async def build_value_up_payload(
         else:
             warnings.append("원문 텍스트는 확보됐으나 commitment 키워드 매칭 문장이 없다. viewer_url로 원문 구조 확인 필요.")
 
+    # 사건 발견 + 파싱 결과 메타.
+    # latest 본문 텍스트가 비어 있거나 highlight 추출 실패면 partial 신호로 간주.
+    parsing_failures = 0
+    if items or kind_items:
+        # 본문 텍스트가 너무 얇으면 파싱 실패로 카운트
+        if highlight_source_length < 500 and not highlights:
+            parsing_failures = 1
+    filing_meta = build_filing_meta(
+        filing_count=len(items) + len(kind_items),
+        parsing_failures=parsing_failures,
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -465,6 +493,7 @@ async def build_value_up_payload(
         },
         "availability_status": availability_status,
         "primary_source": latest_source,
+        **filing_meta,
         "search_diagnostics": {
             "requested_window": {
                 "start_date": requested_bgn,
@@ -527,7 +556,7 @@ async def build_value_up_payload(
 
     return ToolEnvelope(
         tool="value_up",
-        status=AnalysisStatus.EXACT,
+        status=status_from_filing_meta(filing_meta),
         subject=selected.get("corp_name", company_query),
         warnings=warnings,
         data=data,

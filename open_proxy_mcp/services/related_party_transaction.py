@@ -17,7 +17,14 @@ from bs4 import BeautifulSoup
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
-from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, SourceType, ToolEnvelope
+from open_proxy_mcp.services.contracts import (
+    AnalysisStatus,
+    EvidenceRef,
+    SourceType,
+    ToolEnvelope,
+    build_filing_meta,
+    status_from_filing_meta,
+)
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
@@ -474,6 +481,20 @@ async def build_related_party_transaction_payload(
         "dart_daily_limit_per_minute": 1000,
     }
 
+    # 사건 발견 vs 진짜 partial 분리.
+    # include_details=True면 원문 파싱 시도 — `details` 필드가 비어 있으면 partial 실패.
+    parsing_failures = 0
+    if include_details:
+        for row in all_rows[:details_limit]:
+            details = row.get("details") or {}
+            # details가 dict면 OK, 빈 dict이면 파싱 실패
+            if not details:
+                parsing_failures += 1
+    filing_meta = build_filing_meta(
+        filing_count=len(all_rows),
+        parsing_failures=parsing_failures,
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -495,6 +516,7 @@ async def build_related_party_transaction_payload(
             "subsidiary_reports": subsidiary_count,
             "autonomous_disclosures": autonomous_count,
         },
+        **filing_meta,
         "usage": usage,
         "supported_scopes": sorted(_SUPPORTED_SCOPES),
     }
@@ -534,9 +556,11 @@ async def build_related_party_transaction_payload(
                 )
             )
 
-    status = AnalysisStatus.EXACT if all_rows else AnalysisStatus.PARTIAL
-    if not all_rows:
-        warnings.append("조사 구간 내 타법인주식 거래·단일공급계약 공시 없음")
+    status = status_from_filing_meta(filing_meta)
+    if filing_meta["no_filing"]:
+        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 타법인주식 거래·단일공급계약 공시 없음 (정상)")
+    elif filing_meta["parsing_failures"] > 0:
+        warnings.append(f"원문 파싱 실패 {filing_meta['parsing_failures']}건 — details 필드 비어 있음")
 
     return ToolEnvelope(
         tool="related_party_transaction",
