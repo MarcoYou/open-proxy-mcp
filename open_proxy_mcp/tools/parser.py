@@ -1071,10 +1071,15 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
     <table> 안 <td>의 <p> 태그로 기간/내용을 분리합니다.
     <p> 구분이 없거나 기간 패턴이 없으면 None 반환 → regex fallback으로.
     """
+    # 공백 무시 매칭 (TKG휴켐스 '허   융' = '허융')
+    name_norm = re.sub(r'\s+', '', candidate_name)
+    if not name_norm:
+        return None
+
     soup = BeautifulSoup(html, _BS4_PARSER)
     for table in soup.find_all('table'):
         table_text = table.get_text()
-        if candidate_name not in table_text:
+        if name_norm not in re.sub(r'\s+', '', table_text):
             continue
         if '세부경력' not in table_text and '주된직업' not in table_text:
             continue
@@ -1082,19 +1087,66 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
         all_rows = table.find_all('tr')
         for row_idx, tr in enumerate(all_rows):
             tds = tr.find_all(['td', 'th'])
-            if not tds or candidate_name not in tds[0].get_text(strip=True):
+            if not tds:
                 continue
+            # 첫 td 또는 두 번째 td(`| 의안 | 후보자성명 |` 패턴)에서 매칭 시도
+            cell_texts = [re.sub(r'\s+', '', td.get_text(strip=True)) for td in tds[:3]]
+            # 매칭된 셀 인덱스 찾기:
+            # 1) 정확 매칭 우선
+            # 2) substring 매칭이지만 의안번호로 시작하지 않는 셀 (제N호 의안 셀 제외)
+            # 3) 임기/재선임 등 부가 텍스트가 따라붙는 셀도 허용 (예: "최재홍(재선임)임기1년")
+            name_cell_idx = None
+            for ci, ct in enumerate(cell_texts):
+                if name_norm == ct:
+                    name_cell_idx = ci
+                    break
+            if name_cell_idx is None:
+                for ci, ct in enumerate(cell_texts):
+                    if name_norm in ct:
+                        # 의안번호 셀은 제외 ("제N-M호" 또는 "제N호의안" 시작)
+                        if re.match(r'^제?\d+(?:-\d+)*호', ct):
+                            continue
+                        # 이름이 셀 시작에 있어야 함 (셀 끝에 있으면 다른 사람일 수 있음)
+                        if not ct.startswith(name_norm):
+                            continue
+                        # 셀이 이름+부가텍스트(임기, 재선임 등) 패턴인지 확인
+                        suffix = ct[len(name_norm):]
+                        if not suffix or re.match(r'^[\(임기재선중연신년임]', suffix):
+                            name_cell_idx = ci
+                            break
+            if name_cell_idx is None:
+                continue
+            # 이름 셀이 row[0]이 아니면 의안번호가 row[0]인 구조 — 이 행에서 이름 컬럼부터 처리
+            tds_for_cols = tds[name_cell_idx:]
+            full_row_offset = name_cell_idx
+            tds = tds_for_cols  # 이후 로직은 이름 셀=tds[0] 기준
 
             # rowspan 확인 — 이름 셀이 rowspan이면 다음 행들도 수집
             name_td = tds[0]
             rowspan = int(name_td.get('rowspan', 1))
 
             # 기간/내용 셀 위치 찾기 (이름 행에서)
+            # 4자리 연도 또는 2자리 연도+년 패턴 또는 연도 시퀀스 (201520182022) 모두 인식
             period_col = None
             content_col = None
             for i, td in enumerate(tds):
                 td_text = td.get_text(strip=True)
+                # 4자리 연도 + 년/구분자
                 if re.search(r'\d{4}\s*(?:년|[-~.])', td_text):
+                    period_col = i
+                    content_col = i + 1
+                    break
+                # 2자리 연도 + 년
+                if re.search(r"['\u2018\u2019]?\d{2}\s*년", td_text):
+                    period_col = i
+                    content_col = i + 1
+                    break
+                # 4자리 연도 시퀀스 — "201520182022"같은 패턴 (한국항공우주 등)
+                # 4자리 숫자 2개 이상 연속이고 그 외 글자 거의 없음
+                year_seq = re.findall(r'\d{4}', td_text)
+                # td_text의 80% 이상이 숫자/공백/구분자 (즉, 연도 토큰만 있는 셀)
+                non_num_chars = re.sub(r'[\d\s\-~.\u00a0]', '', td_text)
+                if len(year_seq) >= 2 and len(non_num_chars) <= 4:
                     period_col = i
                     content_col = i + 1
                     break
@@ -1111,9 +1163,11 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
                         break
                     r_tds = all_rows[r_idx].find_all(['td', 'th'])
                     if r_offset == 0:
-                        # 첫 행: 이름/주된직업 셀 포함
-                        p_td = r_tds[period_col] if period_col < len(r_tds) else None
-                        c_td = r_tds[content_col] if content_col and content_col < len(r_tds) else None
+                        # 첫 행: 이름/주된직업 셀 포함 (full_row_offset 적용)
+                        p_idx = period_col + full_row_offset
+                        c_idx = content_col + full_row_offset if content_col else None
+                        p_td = r_tds[p_idx] if p_idx < len(r_tds) else None
+                        c_td = r_tds[c_idx] if c_idx is not None and c_idx < len(r_tds) else None
                     else:
                         # 이후 행: rowspan 셀이 빠져서 기간=첫 셀, 내용=두 번째 셀
                         p_td = r_tds[0] if len(r_tds) >= 1 else None
@@ -1148,24 +1202,55 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
                     # content 분리 + 現/前 마커 보존
                     contents = []
                     is_current = []  # True=現(현재 진행중, 토큰 1개), False=前(종료, 토큰 2개)
-                    if re.search(r'(?:現|前|현|전)(?:\)|\s)', content_raw):
-                        parts = re.split(r'(?=(?:現|前|현|전)(?:\)|\s))', content_raw)
-                        for x in parts:
-                            if not x.strip():
-                                continue
-                            cur = bool(re.match(r'(?:現|현)', x))
-                            is_current.append(cur)
-                            cleaned = re.sub(r'^(?:現|前|현|전)(?:\)\s*|\s+)', '', x).strip()
-                            if cleaned:
-                                contents.append(cleaned)
-                            else:
-                                is_current.pop()
+                    # 現/前/(현)/(전)/(現)/(前) 형태 매칭 — prefix 또는 suffix 위치
+                    pat_check = r'(?:現|前)|\(?(?:현|전)\)'
+                    if re.search(pat_check, content_raw):
+                        # Suffix 형태 우선 시도: "...(現)" 또는 "...(前)" 단위로 분리
+                        # 패턴: [Hangul/A-Z][...]\((?:現|前|현|전)\)
+                        suffix_pattern = re.compile(r'(.+?\((?:現|前|현|전)\))', re.S)
+                        suffix_matches = suffix_pattern.findall(content_raw)
+                        if suffix_matches and len(suffix_matches) >= 2:
+                            for x in suffix_matches:
+                                x = x.strip()
+                                if not x:
+                                    continue
+                                # marker 추출 후 제거
+                                m_marker = re.search(r'\((現|前|현|전)\)\s*$', x)
+                                cur = False
+                                if m_marker:
+                                    cur = m_marker.group(1) in ('現', '현')
+                                cleaned = re.sub(r'\s*\((?:現|前|현|전)\)\s*$', '', x).strip()
+                                if cleaned:
+                                    is_current.append(cur)
+                                    contents.append(cleaned)
+                        else:
+                            # Prefix 형태: "現 ..." 또는 "(現) ..." 단위로 분리
+                            pat_split = r'(?=(?:現|前)(?:\)|\s)|\(?(?:현|전)\))'
+                            parts = re.split(pat_split, content_raw)
+                            for x in parts:
+                                if not x.strip():
+                                    continue
+                                x = re.sub(r'^\s*\(?\s*', '', x)
+                                cur = bool(re.match(r'(?:現|현)', x))
+                                cleaned = re.sub(r'^(?:現|前|현|전)\)?\s*', '', x).strip()
+                                if cleaned:
+                                    is_current.append(cur)
+                                    contents.append(cleaned)
                     else:
                         contents = [content_raw]
                         is_current = [True]
                     # 연도 토큰 추출 + 現/前 기반 할당
                     if len(contents) >= 2:
-                        year_tokens = re.findall(r'\d{4}(?:\.\d{1,2})?', period_raw)
+                        # period_raw 전처리 — 2자리 연도 → 4자리
+                        pr = period_raw
+                        pr = re.sub(r'(\d{4})년\s*(\d{1,2})월', r'\1.\2', pr)
+                        pr = re.sub(
+                            r"(?<![\d])['\u2018\u2019]?(\d{2})\s*년",
+                            lambda m: f"20{m.group(1)}" if int(m.group(1)) <= 30 else f"19{m.group(1)}",
+                            pr
+                        )
+                        pr = re.sub(r"[''`](\d{2})", lambda m: f"20{m.group(1)}" if int(m.group(1)) <= 30 else f"19{m.group(1)}", pr)
+                        year_tokens = re.findall(r'\d{4}(?:\.\d{1,2})?', pr)
                         periods = []
                         ti = 0
                         for ci in range(len(contents)):
@@ -1210,7 +1295,17 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
                     return _clean_career_details(result, candidate_name)
                 return None
 
-            period_ps = [re.sub(r'(\d{4})년\s*(\d{1,2})월', r'\1.\2', p).replace('년', '') for p in period_ps]
+            # period 정규화: YYYY년 M월 → YYYY.MM, 2자리 '17년' → '2017', 그 외 '년' 제거
+            def _normalize_period(p: str) -> str:
+                p = re.sub(r'(\d{4})년\s*(\d{1,2})월', r'\1.\2', p)
+                p = re.sub(
+                    r"(?<![\d])['\u2018\u2019]?(\d{2})\s*년",
+                    lambda m: f"20{m.group(1)}" if int(m.group(1)) <= 30 else f"19{m.group(1)}",
+                    p
+                )
+                p = p.replace('現', '현재').replace('년', '')
+                return p
+            period_ps = [_normalize_period(p) for p in period_ps]
             result = []
             for i in range(max(len(period_ps), len(content_ps))):
                 p = period_ps[i] if i < len(period_ps) else ""
@@ -1235,10 +1330,25 @@ def _parse_period_raw(period_raw: str) -> list[str]:
     # 전처리
     # YYYY년 M월 → YYYY.MM
     period_raw = re.sub(r'(\d{4})년\s*(\d{1,2})월', r'\1.\2', period_raw)
+    # 4자리 연도+년 → 4자리 연도 (불필요한 '년' 제거): "2025년~현재" → "2025~현재"
+    period_raw = re.sub(r'(\d{4})년', r'\1', period_raw)
+    # 2자리 연도+년: '17년' → '2017' (롯데지주 패턴)
+    period_raw = re.sub(
+        r"(?<![\d])['\u2018\u2019]?(\d{2})\s*년",
+        lambda m: f"20{m.group(1)}" if int(m.group(1)) <= 30 else f"19{m.group(1)}",
+        period_raw
+    )
     period_raw = re.sub(r'現', '현재', period_raw)
     period_raw = re.sub(r'[-~]\s*현(?!재)', '~현재', period_raw)
-    # YYYY.MM~ 또는 YYYY~ (종료일 없이 끝남) → ~현재
-    period_raw = re.sub(r'(\d{4}(?:\.\d{1,2})?)~(?=\d{4}[^.]|\s|$)', r'\1~현재 ', period_raw)
+    # YYYY~ (종료 없음, 문자열 끝 또는 공백) → YYYY~현재 + space
+    # 단, "YYYY~YYYY" (다음이 4-digit 연도)는 그대로 둠 (정상 range)
+    period_raw = re.sub(r'(\d{4}(?:\.\d{1,2})?)~(?=\s|$|[^\d])', r'\1~현재 ', period_raw)
+    # "YYYY~YYYY~" (range + 추가 ~) → "YYYY~YYYY YYYY~현재"
+    # ex: "2009~2022~" → "2009~2022 2022~현재"
+    period_raw = re.sub(
+        r'(\d{4}(?:\.\d{1,2})?)~(\d{4}(?:\.\d{1,2})?)~',
+        r'\1~\2 \2~현재 ', period_raw
+    )
     period_raw = re.sub(r'(현재)(\d)', r'\1 \2', period_raw)
     period_raw = re.sub(r"[''`](\d{2})", lambda m: f"20{m.group(1)}" if int(m.group(1)) <= 30 else f"19{m.group(1)}", period_raw)
     # 붙어있는 연도 분리: YYYY.MMYYYY → YYYY.MM YYYY, YYYYYYYY → YYYY YYYY
@@ -1278,14 +1388,151 @@ def _parse_period_raw(period_raw: str) -> list[str]:
     return periods
 
 
+def _split_merged_content(content: str) -> list[str]:
+    """긴 content를 개별 경력 단위로 분할 (가독성 + 100자 chunk)"""
+    # 소프트: 영문) + 한글/㈜ 경계
+    parts = re.split(r'(?<=[a-zA-Z]\))(?=[가-힣㈜])', content)
+    content = "\n".join(p.strip() for p in parts if p.strip())
+    # 소프트: 한글 + ㈜ 경계
+    content = re.sub(r'(?<=[가-힣])(?=㈜)', '\n', content)
+    # 소프트: 직책/부서 끝 단어 패턴 — 다음에 한글 회사명+(주)가 오면 분리
+    # "...실[운용사B](주) 기획실..." 패턴 잡기 (실, 부, 팀, 본부장 등)
+    _role_or_dept = (
+        r'대표이사|기타비상무이사|비상무이사|비상임이사|사외이사|사내이사|이사장|'
+        r'회장|부회장|사장|부사장|상무|전무|'
+        r'본부장|부문장|사업부장|담당장|팀장|실장|센터장|부장|소장|'
+        r'(?:기획|영업|마케팅|재무|경영|전략|총무|인사|법무|관리|개발|연구|투자|글로벌|국제|구매|생산|품질|기술)?'
+        r'(?:실|부|팀|담당|본부)|'
+        r'감사|위원장|교수|고문|담당|위원|책임|자문|법무팀|매니저|연구원'
+    )
+    # 1. (주) 직후 직책+다음회사명 분리
+    content = re.sub(
+        rf'(\(주\)\s*[가-힣A-Za-z\s/&,\.\(\)]{{1,50}}?'
+        rf'(?:{_role_or_dept}))'
+        r'(?=[가-힣A-Z])',
+        r'\1\n', content
+    )
+    # 2. 직책 뒤 즉시 한글 회사명+(주) 시작 ("...대표이사지에스건설(주) ...")
+    content = re.sub(
+        rf'((?:{_role_or_dept}))'
+        r'(?=[가-힣]{2,10}\(주\))',
+        r'\1\n', content
+    )
+    # 하드: 직책 뒤에 대기업 그룹명이 붙는 경우 (공백 허용)
+    _CONGLOMERATES = r'한화|삼성|LG|SK|현대|롯데|CJ|두산|포스코|GS|LS|HD|네이버|카카오|신세계|이마트|코웨이|셀트리온|대한항공|아시아나'
+    # 직책+회사명 (공백 없이)
+    content = re.sub(
+        rf'((?:대표)?이사|사장|부사장|상무|전무|본부장|팀장|실장|교수|위원장?|고문)(?=(?:{_CONGLOMERATES})[가-힣A-Za-z]*)',
+        r'\1\n', content
+    )
+    # 직책+공백+동일 conglomerate (반복 패턴: "LG전자 CEO 사장 LG전자 HS...")
+    content = re.sub(
+        rf'((?:대표)?이사|사장|부사장|상무|전무|본부장|부문장|사업부장|담당장|팀장|실장|이사장|회장|부회장|교수|고문|위원장?)'
+        rf'\s+(?=(?:{_CONGLOMERATES})[가-힣A-Za-z]*\s+)',
+        r'\1\n', content
+    )
+    # 추가 패턴 1: 직책 뒤 영문 회사명 시작 (Accenture, Bain, Goldman 등 대문자 시작)
+    content = re.sub(
+        r'((?:대표)?이사|사장|부사장|상무|전무|본부장|팀장|실장|이사장|회장|부회장|교수|고문|위원|위원장|Manager|Director|Partner|Consultant|Vice\s*President)'
+        r'(?=[A-Z][A-Za-z][A-Za-z\s\.&,]{2,})',
+        r'\1\n', content
+    )
+    # 추가 패턴 2: 영문 직책 뒤 한글 회사명/대문자 회사명
+    content = re.sub(
+        r'(Manager|Director|Partner|Consultant|Vice\s*President|Senior\s*\w+|President|CEO|CFO|COO|CTO)'
+        r'(?=[가-힣A-Z])',
+        r'\1\n', content
+    )
+    # 추가 패턴 3: ", Position" 끝나면 줄바꿈
+    content = re.sub(r',\s*([A-Z][a-zA-Z\s]{2,30})(?=[가-힣A-Z][가-힣A-Za-z]{1,30})', r', \1\n', content)
+    # 추가 패턴 4: 같은 회사명 반복 — 직책 뒤 한글 회사명+직책 시작
+    content = re.sub(
+        r'((?:대표)?이사|사장|부사장|상무|전무|본부장|부문장|사업부장|담당장|팀장|실장|교수|고문|위원|위원장)'
+        r'(?=[가-힣]{2,6}\s+(?:CEO|사장|부사장|상무|전무|본부장|부문장|이사|위원|교수))',
+        r'\1\n', content
+    )
+    # 추가 패턴 5: 직책/위원 뒤 한글 기관명 시작 (일반 패턴)
+    # 한글기관 키워드: ~대학교, ~연구원, ~병원, ~공사, ~공단, ~협회, ~연합회, ~위원회, ~학회, ~재단, ~기금, ~은행, ~증권, ~보험, ~생명, ~건설, ~산업, ~전자, ~기업, ~그룹, ~지주, ~홀딩스
+    _ORG_SUFFIX = (
+        r'대학교|대학원|연구원|연구소|병원|공사|공단|협회|연합회|위원회|학회|재단|기금|'
+        r'은행|증권|보험|생명|건설|산업|전자|화학|중공업|반도체|디스플레이|모빌리티|'
+        r'기업|그룹|지주|홀딩스|회사|상사|에너지|금융지주|자산운용|투자|자본|캐피탈|'
+        r'법인|법무|회계법인|컨설팅|진흥원|진흥회|공제회|공제조합|진흥공단|평가원|관리원|'
+        r'청와대|국가정보원|국세청|관세청|감사원|기획재정부|산업통상자원부|환경부|법무부|국방부|외교부|보건복지부|'
+        r'금융위원회|금융감독원|공정거래위원회'
+    )
+    # 직책 + 한글 기관 시작 패턴
+    content = re.sub(
+        rf'((?:대표)?이사|사장|부사장|상무|전무|본부장|부문장|사업부장|담당장|팀장|실장|이사장|회장|부회장|교수|고문|위원|위원장)'
+        rf'(?=[가-힣]{{2,15}}(?:{_ORG_SUFFIX}))',
+        r'\1\n', content
+    )
+    # 추가 패턴 6: ~위원회 뒤 즉시 다음 회사명/기관명
+    content = re.sub(
+        rf'(위원회|연합회|학회|재단|기금|협회|공제회|공제조합)'
+        rf'(?=[가-힣]{{2,15}}(?:{_ORG_SUFFIX}|회|장|위원))',
+        r'\1\n', content
+    )
+    # 추가 패턴 7: 학위/학력 뒤 다음 학교/회사 시작
+    # 예: "한양대학교 식품영양학 학사서울대학교 MBA..." → "...학사" + "서울대학교..."
+    content = re.sub(
+        r'(학사|석사|박사|졸업|MBA|EMBA|Ph\.?D)'
+        r'(?=[가-힣A-Z][가-힣A-Za-z]{1,30}(?:대학교|대학원|회사|증권|은행|보험|연구|투자|운용|화학|전자|모빌리티|반도체|디스플레이))',
+        r'\1\n', content
+    )
+    # 추가 패턴 8: 직책 끝 (사외이사, 사내이사 등) 뒤 다음 회사 시작
+    content = re.sub(
+        r'(사외이사|사내이사|기타비상무이사|비상무이사|비상임이사|독립이사)'
+        r'(?=[가-힣A-Z][가-힣A-Za-z]{1,30})',
+        r'\1\n', content
+    )
+    # 추가 패턴 9: 영문 직책+회사 끝 뒤 다음 한글 회사
+    # 예: "...Senior Manager한국..."
+    content = re.sub(
+        r'((?:Manager|Director|Partner|Consultant|Analyst|Specialist|Officer|Engineer|Lead|Head)\s*[A-Za-z\(\)\s,\.\&]*?)'
+        r'(?=[가-힣]{2,})',
+        r'\1\n', content
+    )
+    # 추가 패턴 10: 정부 부처/청와대 패턴 — "부+직책+다음회사" 또는 "장+다음 부처"
+    content = re.sub(
+        r'((?:부|처|청|원|위원회)\s*[가-힣\s]{2,30}(?:비서관|장|단장|국장|실장|관|관실)(?:실|단)?)'
+        r'(?=[가-힣]{2,15}(?:부|처|청|원|위원회|회)\s)',
+        r'\1\n', content
+    )
+    # 추가 패턴 11: 정부직책 뒤 (비서관, 행정관, 국장 등) + 다음 기관/회사
+    content = re.sub(
+        r'((?:비서관|행정관|국장|실장|단장|관실|참사관|주재관|공사참사관)(?:\s*\([^)]+\))?)'
+        r'(?=[가-힣]{2,15}(?:부|처|청|원|위원회|회|회사|은행|증권|보험|대학|연구|투자|운용|화학|전자|병원|법인|법원))',
+        r'\1\n', content
+    )
+    # 라인별 분리 후 trim
+    return [line.strip() for line in content.split('\n') if line.strip()]
+
+
 def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
-    """경력 리스트 정리: 빈 content 제거, 역순 기간 검증, 합쳐진 content 분리"""
+    """경력 리스트 정리: 빈 content 제거, 역순 기간 검증, 합쳐진 content 분리
+
+    100자 초과 content는 split 시도. 분리되면 동일 period로 여러 엔트리 생성.
+    """
     cleaned = []
     for d in details:
         period = d.get("period", "").strip()
         content = d.get("content", "").strip()
-        # 빈 content ("-" 또는 빈 문자열) 제거
-        if not content or content == "-":
+        # content 정리: 잔여 구분자/괄호/bullet 제거
+        # 시작: `-`, `o`, `*`, `•`, `·`, `ㆍ` 등 (공백 또는 단어 시작)
+        content = re.sub(r'^\s*[-—–·ㆍ・*•▪]\s+', '', content).strip()
+        content = re.sub(r'^\s*[oO]\s+', '', content).strip()
+        # 끝: `-`, `o`, `*`, `(`, 닫는괄호 없는 `(`
+        content = re.sub(r'\s*[-—–·ㆍ・*•▪]\s*\(?\s*$', '', content).strip()
+        # 끝 'o' 단독 (e.g., "...사장o" → "...사장")
+        content = re.sub(r'(?<=[가-힣A-Za-z])\s*[oO]\s*$', '', content).strip()
+        content = re.sub(r'^\(\s*$', '', content).strip()
+        content = re.sub(r'\s*[-—–]\s*\(\s*$', '', content).strip()
+        # 단독 bullet 제거 ("o", "・" 등 1글자)
+        if content in ('o', 'O', '*', '•', '・', 'ㆍ', '·', '-'):
+            continue
+        # 빈 content ("-", "(", 빈 문자열) 제거
+        if not content or content in ('-', '(', ')', '()', '・'):
             continue
         # 역순 기간 검증
         years = re.findall(r'\d{4}', period)
@@ -1297,22 +1544,49 @@ def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
         if years and not all(1950 <= int(y) <= 2030 for y in years):
             logger.warning(f"[CAREER] 비정상 기간: '{period}' — {name}")
             d["period"] = ""
-        # 합쳐진 content 분리 — 소프트 + 하드 패턴
-        if len(content) > 80:
-            # 소프트: 영문) + 한글/㈜ 경계
-            parts = re.split(r'(?<=[a-zA-Z]\))(?=[가-힣㈜])', content)
-            content = "\n".join(p.strip() for p in parts if p.strip())
-            # 소프트: 한글 + ㈜ 경계
-            content = re.sub(r'(?<=[가-힣])(?=㈜)', '\n', content)
-            # 하드: 직책 뒤에 대기업 그룹명이 붙는 경우
-            _CONGLOMERATES = r'한화|삼성|LG|SK|현대|롯데|CJ|두산|포스코|GS|LS|HD|네이버|카카오|신세계|이마트|코웨이|셀트리온|대한항공|아시아나'
-            content = re.sub(
-                rf'((?:대표)?이사|사장|부사장|상무|전무|본부장|팀장|실장|교수|위원장?|고문)(?=(?:{_CONGLOMERATES})[가-힣A-Za-z]*)',
-                r'\1\n', content
-            )
-            d["content"] = content
+        # 합쳐진 content 분리 — 100자 초과면 split 시도
+        if len(content) > 100:
+            sub_lines = _split_merged_content(content)
+            if len(sub_lines) > 1:
+                # 분리 성공 — 각각을 별도 entry로 (동일 period)
+                for line in sub_lines:
+                    if line:
+                        new_d = dict(d)
+                        new_d["period"] = period
+                        new_d["content"] = line
+                        cleaned.append(new_d)
+                continue
+            # 분리 실패 — 그래도 \n 형태로 보존 (기존 동작 유지)
+            d["content"] = sub_lines[0] if sub_lines else content
         cleaned.append(d)
     return cleaned
+
+
+def _is_personnel_title(title: str) -> bool:
+    """제목이 인사 안건인지 판정
+
+    선임/해임 키워드가 있어도 정관변경/보수/감액 등이면 인사 안건 아님.
+    """
+    if not any(kw in title for kw in _PERSONNEL_KEYWORDS):
+        return False
+    # 인사가 아닌 안건 키워드 (정관변경, 보수, 자본 등)
+    excludes = [
+        '정관', '한도', '보수', '자본', '감액', '발행', '주식병합', '주식분할',
+        '제도 도입', '제도도입', '명칭 변경', '명칭변경', '변경의 건',
+        '강화의 건', '추가의 건',
+    ]
+    # "선임" 또는 "해임"이 포함된 안건이 정관변경 안건일 수 있음
+    # 단, "이사 선임의 건", "감사위원 선임의 건" 등은 인사 안건
+    has_clear_appt = bool(re.search(
+        r'(?:이사|감사|감사위원|위원|독립이사|사외이사|사내이사|기타비상무이사|상임이사|상근감사|비상근감사)'
+        r'(?:[가-힣A-Za-z\s\(\)·]*?)(?:선임|해임|재선임|중임|연임)',
+        title
+    ))
+    # 정관/보수 키워드가 있는데 "이사 선임" 등이 명확하지 않으면 제외
+    if any(kw in title for kw in excludes):
+        if not has_clear_appt:
+            return False
+    return True
 
 
 def parse_personnel_xml(html: str) -> dict:
@@ -1331,8 +1605,12 @@ def parse_personnel_xml(html: str) -> dict:
         title = d.get("title", "")
         number = d.get("number", "")
 
-        # 선임/해임 안건인지 확인
-        if not any(kw in title for kw in _PERSONNEL_KEYWORDS):
+        # 선임/해임 안건인지 확인 (정관변경/보수 제외)
+        if not _is_personnel_title(title):
+            continue
+
+        # 철회 안건 스킵
+        if '철회' in title:
             continue
 
         # 액션 분류
@@ -1371,21 +1649,172 @@ def parse_personnel_xml(html: str) -> dict:
         }
         appointments.append(appointment)
 
+    # ── Post-processing: cross-appointment career back-fill ──
+    # 부모-자식 안건 구조 (제3호 → 제3-1호, 제3-2호) 또는 같은 회의에서
+    # 후보자 테이블이 마지막 자식 안건에만 있는 케이스 (한화솔루션, 셀트리온 등)에서
+    # 조기 안건의 후보가 동일 이름으로 후속 안건에 careerDetails와 함께 등장하면
+    # 조기 안건에도 채워준다.
+    name_to_careers: dict[str, dict] = {}
+    for appt in appointments:
+        for c in appt.get('candidates', []):
+            name = c.get('name', '')
+            if not name:
+                continue
+            cd = c.get('careerDetails') or []
+            if cd and name not in name_to_careers:
+                name_to_careers[name] = {
+                    'careerDetails': cd,
+                    'careerCompanyGroups': c.get('careerCompanyGroups'),
+                    'mainJob': c.get('mainJob'),
+                    'birthDate': c.get('birthDate'),
+                    'roleType': c.get('roleType'),
+                    'recommender': c.get('recommender'),
+                    'majorShareholderRelation': c.get('majorShareholderRelation'),
+                    'eligibility': c.get('eligibility'),
+                    'recent3yTransactions': c.get('recent3yTransactions'),
+                }
+
+    for appt in appointments:
+        for c in appt.get('candidates', []):
+            name = c.get('name', '')
+            if not name or name not in name_to_careers:
+                continue
+            src = name_to_careers[name]
+            if not (c.get('careerDetails') or []) and src.get('careerDetails'):
+                c['careerDetails'] = src['careerDetails']
+                if src.get('careerCompanyGroups'):
+                    c['careerCompanyGroups'] = src['careerCompanyGroups']
+            for k in ('mainJob', 'birthDate', 'eligibility', 'recent3yTransactions'):
+                if c.get(k) in (None, '') and src.get(k):
+                    c[k] = src[k]
+
     # 요약
     summary = _build_personnel_summary(appointments)
 
     return {"appointments": appointments, "summary": summary}
 
 
+def _is_candidate_table(headers: list[str]) -> bool:
+    """헤더가 후보자 테이블인지 판정
+
+    후보자성명/성명 컬럼이 있으면 후보자 테이블로 판단.
+    정관변경(변경전/변경후), 보수(보수총액) 등은 후보자 테이블 아님.
+    """
+    h_concat = ''.join(re.sub(r'\s+', '', h) for h in headers)
+    # 명백한 비-후보자 테이블 키워드 (정관변경, 보수)
+    if any(kw in h_concat for kw in ['변경전', '변경후', '병합전', '병합후', '구분변경', '보수총액', '실제지급', '최고한도']):
+        return False
+    # 후보자 테이블 키워드
+    if '후보자성명' in h_concat or '후보자\u2027성명' in h_concat:
+        return True
+    if '성명' in h_concat and any(kw in h_concat for kw in ['생년월일', '출생', '추천인', '사외이사후보', '주된직업']):
+        return True
+    return False
+
+
+def _find_name_column(headers: list[str]) -> int:
+    """후보자성명 컬럼 인덱스 반환. 없으면 0."""
+    for i, h in enumerate(headers):
+        hc = re.sub(r'\s+', '', h)
+        if '후보자성명' in hc or '성명' == hc or hc.endswith('성명'):
+            return i
+    return 0
+
+
+def _is_valid_candidate_name(name: str) -> bool:
+    """후보자 이름 검증
+    - 한글 2-5자, 영문 5-30자, 또는 한글+영문 혼합 허용
+    - 조문번호/안건번호/정관텍스트/footnote/플레이스홀더 거부
+    """
+    name = name.strip()
+    if not name or len(name) > 60:
+        return False
+    # 플레이스홀더
+    if name in ('-', '_', '미정', '신규', '없음', '해당없음', '해당사항없음', '분리'):
+        return False
+    # 조문번호 (제N조)
+    if re.search(r'제\s*\d+\s*조', name):
+        return False
+    # 안건번호 (제N호 / N-M호 / 제N호 의안 / 제N-M호 의안)
+    if re.fullmatch(r'제?\s*\d+(?:\s*-\s*\d+)*\s*호(?:\s*의안)?', name):
+        return False
+    # ① 등 항목 마커
+    if re.search(r'[①②③④⑤⑥⑦⑧⑨⑩]', name):
+        return False
+    # footnote (주1), 주2))
+    if re.fullmatch(r'주\s*\d+\s*\)', name):
+        return False
+    # 부 칙 / 신 설 / (신설)
+    if re.search(r'부\s*칙|신\s*설|개\s*정|시\s*행', name):
+        return False
+    # 보수 테이블 헤더 텍스트
+    if any(kw in name for kw in ['보수총액', '최고한도', '실제지급', '주식의종류', '주식의 종류']):
+        return False
+    # 정관 텍스트 패턴 (일반적인 본문성 텍스트)
+    if len(name) > 30:
+        # 20자 초과면 일반적인 사람 이름 아님 (영어 풀네임은 30자까지 허용)
+        # 한글 + 영문 mix가 아니면 기각
+        return False
+    # 한글 이름 (2-5자, 한글만, 공백 허용)
+    if re.fullmatch(r'[가-힣]{2}(?:\s*[가-힣]{1,3})?', name):
+        return True
+    # 영문 이름 (대문자 시작, 알파벳/공백/점/대시 허용, 5-30자)
+    if re.fullmatch(r'[A-Z][A-Za-z\.\s\-]{3,29}', name):
+        return True
+    # 한글+영문 (혼합, 일본/중국 이름 등)
+    if 2 <= len(name) <= 30 and re.search(r'[가-힣A-Za-z]', name) and not re.search(r'\d', name.replace(' ', '')):
+        # 너무 많은 공백 — 본문 텍스트일 가능성
+        if name.count(' ') > 4:
+            return False
+        return True
+    return False
+
+
+def _normalize_candidate_name(name: str) -> str:
+    """후보자 이름 정규화
+    - 안건번호 prefix 제거: '제3-1호고흥석' → '고흥석'
+    - 부가 텍스트 제거: '채 규 하 (중임, 임기 3년)' → '채 규 하'
+    - 임기 텍스트 제거: '최재홍(재선임)임기 1년' → '최재홍'
+    - 다중 공백 정리: '허   융' → '허 융'
+    """
+    name = name.strip()
+    # 안건번호 prefix 제거 (제3-1호 + 이름)
+    name = re.sub(r'^제?\s*\d+(?:\s*-\s*\d+)*\s*호(?:\s*의안)?\s*', '', name).strip()
+    # 괄호 안 부가 텍스트 제거 (재선임, 임기 등)
+    name = re.sub(r'\s*\([^)]*(?:선임|임기|중임|연임|년|신규|기존|신임)[^)]*\)\s*', '', name).strip()
+    # 임기/년수 텍스트 제거 (괄호 없이 붙은 경우): "임기 1년", "임기 3년"
+    name = re.sub(r'\s*임기\s*\d+\s*년\s*', '', name).strip()
+    # "신규선임", "재선임", "중임" 등 직접 붙은 경우
+    name = re.sub(r'\s*(?:재선임|신규선임|신임|연임|중임)\s*$', '', name).strip()
+    # 다중 공백 → 단일 공백
+    name = re.sub(r'\s+', ' ', name).strip()
+    return name
+
+
 def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
     """안건 상세의 가. 서브섹션 테이블에서 후보자 정보 추출"""
     candidates = []
+    title = agenda_detail.get("title", "") or ""
+    # 정관변경 안건은 후보자 정보 없음
+    is_charter_amendment = (
+        ('정관' in title and ('변경' in title or '도입' in title))
+        or ('명칭' in title and '변경' in title)
+        or ('제도' in title and '도입' in title)
+        or ('전자주주총회' in title)
+        or ('집중투표' in title and '배제' in title)
+    )
 
     for sec in agenda_detail.get("sections", []):
         heading = sec.get("heading") or ""
 
         # 가. 후보자의 성명ㆍ생년월일... 테이블
         if heading.startswith("가.") or '성명' in heading:
+            # 정관변경 안건은 가. 가 있어도 후보자 테이블 아님
+            if is_charter_amendment:
+                continue
+            # 가. 헤더 자체가 정관변경/보수 관련이면 스킵
+            if any(kw in heading for kw in ['정관', '변경', '보수', '한도', '발행']):
+                continue
             for block in sec.get("blocks", []):
                 if block["type"] != "table":
                     continue
@@ -1394,14 +1823,32 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                     continue
 
                 headers = rows[0]
+                # 후보자 테이블 검증
+                if not _is_candidate_table(headers):
+                    continue
+
+                # 이름 컬럼 동적 탐지
+                name_col = _find_name_column(headers)
+
                 for row in rows[1:]:
-                    if not row or not row[0].strip():
+                    if not row or len(row) <= name_col:
+                        continue
+                    raw_name = (row[name_col] or '').strip()
+                    if not raw_name:
                         continue
                     # "총 ( N ) 명" 행 스킵
-                    if '총' in row[0] and '명' in row[0]:
+                    if '총' in raw_name and '명' in raw_name:
+                        continue
+                    # "기간"/"내용" 등 sub-header 행 스킵
+                    if re.sub(r'\s+', '', raw_name) in ('기간', '내용', '구분', '의안'):
                         continue
 
-                    candidate = {"name": row[0].strip()}
+                    # 이름 정규화 + 검증
+                    name = _normalize_candidate_name(raw_name)
+                    if not _is_valid_candidate_name(name):
+                        continue
+
+                    candidate = {"name": name}
 
                     # 헤더 매핑
                     for ci, header in enumerate(headers):
@@ -1420,10 +1867,15 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         elif '추천인' in h:
                             candidate["recommender"] = val
 
-                    candidates.append(candidate)
+                    # 중복 제거 (같은 안건 안에서 동일 이름 1번)
+                    if not any(c["name"] == name for c in candidates):
+                        candidates.append(candidate)
 
         # 나. 주된직업ㆍ세부경력 — 기존 후보자에 매칭
         if heading.startswith("나.") or '주된직업' in heading:
+            # 정관변경/보수 가짜 매칭 방지
+            if is_charter_amendment:
+                continue
             # 주된직업/거래내역은 마크다운 테이블에서 추출 (단순 필드)
             for block in sec.get("blocks", []):
                 if block["type"] != "table":
@@ -1432,24 +1884,40 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                 if len(rows) < 2:
                     continue
                 headers = rows[0]
+                # 보수/정관 테이블이면 스킵
+                h_concat = ''.join(re.sub(r'\s+', '', h) for h in headers)
+                if any(kw in h_concat for kw in ['보수총액', '변경전', '변경후']):
+                    continue
+                # 이름 컬럼 동적 탐지 (보통 0)
+                name_col_b = _find_name_column(headers)
                 for row in rows[1:]:
-                    if not row or not row[0].strip():
+                    if not row or len(row) <= name_col_b:
                         continue
-                    row0 = re.sub(r'\s+', '', row[0])
-                    if row0 in ('기간', '내용', '총', ''):
+                    raw0 = (row[name_col_b] or '').strip()
+                    if not raw0:
                         continue
-                    name = row[0].strip()
+                    row0 = re.sub(r'\s+', '', raw0)
+                    if row0 in ('기간', '내용', '총', '구분', '의안', ''):
+                        continue
+                    name = _normalize_candidate_name(raw0)
+                    # 한글 공백 정규화 후 매칭
+                    name_norm = re.sub(r'\s+', '', name)
+                    matched = None
                     for c in candidates:
-                        if c["name"] == name:
-                            for ci, header in enumerate(headers):
-                                if ci >= len(row):
-                                    break
-                                h = re.sub(r'\s+', '', header)
-                                val = row[ci].strip()
-                                if '주된직업' in h:
-                                    c["mainJob"] = re.sub(r'^\(?\s*(?:現|現|현)\)?\s*', '', val).strip()
-                                elif '거래내역' in h:
-                                    c["recent3yTransactions"] = val if val and val != '없음' else None
+                        if re.sub(r'\s+', '', c["name"]) == name_norm:
+                            matched = c
+                            break
+                    if matched is None:
+                        continue
+                    for ci, header in enumerate(headers):
+                        if ci >= len(row):
+                            break
+                        h = re.sub(r'\s+', '', header)
+                        val = row[ci].strip()
+                        if '주된직업' in h:
+                            matched["mainJob"] = re.sub(r'^\(?\s*(?:現|現|현)\)?\s*', '', val).strip()
+                        elif '거래내역' in h:
+                            matched["recent3yTransactions"] = val if val and val != '없음' else None
 
             # 세부경력: bs4 직접 파싱 (1단계) → regex fallback (2단계)
             for c in candidates:
@@ -1469,6 +1937,10 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                     if len(rows) < 2:
                         continue
                     headers = rows[0]
+                    # 보수/정관 테이블 스킵
+                    h_concat_b = ''.join(re.sub(r'\s+', '', h) for h in headers)
+                    if any(kw in h_concat_b for kw in ['보수총액', '변경전', '변경후']):
+                        continue
                     career_idx = None
                     career_content_idx = None
                     for hi, h in enumerate(headers):
@@ -1481,13 +1953,20 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                     if career_idx is None:
                         continue
 
+                    name_col_b2 = _find_name_column(headers)
+                    name_norm_b = re.sub(r'\s+', '', name)
                     for row in rows[1:]:
-                        if not row or not row[0].strip():
+                        if not row or len(row) <= name_col_b2:
                             continue
-                        row0 = re.sub(r'\s+', '', row[0])
-                        if row0 in ('기간', '내용', '총', ''):
+                        raw0 = (row[name_col_b2] or '').strip()
+                        if not raw0:
                             continue
-                        if row[0].strip() != name:
+                        row0 = re.sub(r'\s+', '', raw0)
+                        if row0 in ('기간', '내용', '총', '구분', '의안', ''):
+                            continue
+                        # 공백 제거 후 매칭 (TKG휴켐스 '허   융' = '허융')
+                        row_name = _normalize_candidate_name(raw0)
+                        if re.sub(r'\s+', '', row_name) != name_norm_b:
                             continue
 
                         periods_raw = row[career_idx].strip() if career_idx < len(row) else ""
@@ -1495,15 +1974,21 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
 
                         periods = _parse_period_raw(periods_raw)
 
-                        # 내용 분리
-                        if re.search(r'(?:現|前|현|전)(?:\)|\s)', contents_raw):
-                            contents = re.split(r'(?=(?:現|前|현|전)(?:\)|\s))', contents_raw)
-                            contents = [re.sub(r'^(?:現|前|현|전)(?:\)\s*|\s+)', '', x).strip() for x in contents if x.strip()]
+                        # 내용 분리: 現/前 한자, 또는 (현)/(전)/현)/전) 형태 매칭
+                        if re.search(r'(?:現|前)|\(?(?:현|전)\)', contents_raw):
+                            contents = re.split(r'(?=(?:現|前)(?:\)|\s)|\(?(?:현|전)\))', contents_raw)
+                            contents = [
+                                re.sub(r'^\s*\(?\s*(?:現|前|현|전)\)?\s*', '', x).strip()
+                                for x in contents if x.strip()
+                            ]
                         elif re.search(r'-\s*[\(\(가-힣A-Z]', contents_raw):
                             contents = re.split(r'(?=-\s*[\(\(가-힣A-Z])', contents_raw)
                             contents = [re.sub(r'^-\s*', '', x).strip() for x in contents if x.strip()]
                         elif re.search(r'(?:\(주\)|\(재\)|\(사\)|법무법인)', contents_raw):
-                            contents = re.split(r'(?=\(주\)|\(재\)|\(사\)|법무법인)', contents_raw)
+                            # `(주)` 뒤에서 분리 (회사명+(주) 보존). 직책+다음회사 구분.
+                            # 1. 법무법인은 시작 boundary (다른 회사 끝난 후)
+                            # 2. (주)+직책 뒤 다음 시작 (한글/영문 회사명) — _split_merged_content 후처리에 위임
+                            contents = re.split(r'(?=법무법인)', contents_raw)
                             contents = [x.strip() for x in contents if x.strip()]
                         else:
                             contents = [contents_raw.strip()] if contents_raw.strip() else []
@@ -1540,12 +2025,21 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                 if len(rows) < 2:
                     continue
                 headers = rows[0]
+                # 보수/정관 테이블 스킵
+                h_concat_c = ''.join(re.sub(r'\s+', '', h) for h in headers)
+                if any(kw in h_concat_c for kw in ['보수총액', '변경전', '변경후']):
+                    continue
+                name_col_c = _find_name_column(headers)
                 for row in rows[1:]:
-                    if not row or not row[0].strip():
+                    if not row or len(row) <= name_col_c:
                         continue
-                    name = row[0].strip()
+                    raw0 = (row[name_col_c] or '').strip()
+                    if not raw0:
+                        continue
+                    name = _normalize_candidate_name(raw0)
+                    name_norm_c = re.sub(r'\s+', '', name)
                     for c in candidates:
-                        if c["name"] == name:
+                        if re.sub(r'\s+', '', c["name"]) == name_norm_c:
                             eligibility = {}
                             for ci, header in enumerate(headers):
                                 if ci >= len(row):
@@ -1559,6 +2053,7 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                                 elif '결격' in h:
                                     eligibility["legalDisqualification"] = val
                             c["eligibility"] = eligibility
+                            break
 
         # 라. 직무수행계획 — 텍스트 블록
         if heading.startswith("라.") or '직무수행' in heading:
@@ -1643,24 +2138,33 @@ def _split_company_role(content: str) -> tuple[str, str]:
     return content, ""
 
 
+_TITLE_NAME_BLACKLIST = {'분리', '신규', '재', '중임', '연임', '신임', '해당', '없음', '대상', '추가'}
+
+
 def _extract_name_from_title(title: str) -> str | None:
     """안건 제목에서 이름 추출: '사내이사 김용관 선임의 건' → '김용관'"""
+    def _check(n: str) -> str | None:
+        n = n.strip()
+        if not n or n in _TITLE_NAME_BLACKLIST:
+            return None
+        return n
+
     # 한글 이름 (2~4자)
     m = re.search(r'(?:이사|감사)\s+([가-힣]{2,4})\s+(?:선임|해임|재선임|중임|연임)', title)
-    if m:
-        return m.group(1)
+    if m and (n := _check(m.group(1))):
+        return n
     # 영문 이름
     m = re.search(r'(?:이사|감사)\s+([A-Za-z\s]+?)\s+(?:선임|해임)', title)
-    if m:
-        return m.group(1).strip()
+    if m and (n := _check(m.group(1))):
+        return n
     # 후보자: 형태
     m = re.search(r'후보자?\s*[:：]?\s*([가-힣]{2,4}|[A-Za-z\s]+)', title)
-    if m:
-        return m.group(1).strip()
+    if m and (n := _check(m.group(1))):
+        return n
     # 후보 형태
     m = re.search(r'후보\s+([가-힣]{2,4})', title)
-    if m:
-        return m.group(1)
+    if m and (n := _check(m.group(1))):
+        return n
     return None
 
 

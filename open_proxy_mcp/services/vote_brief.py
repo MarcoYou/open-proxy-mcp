@@ -342,13 +342,9 @@ def _build_proxy_guideline_brief(
     vote_style: str,
     agenda_titles: list[str],
 ) -> dict[str, Any]:
-    """안건 목록을 OPM 정책에 매핑하여 카테고리별 권고 생성.
+    """안건 목록을 OPM 정책에 매핑하여 카테고리별 권고 생성 (정책 룰 + 카테고리만, 매트릭스 채점 X).
 
-    매트릭스 자동 채점은 미구현 (v1.3 예정). 현재는:
-    - 안건마다 카테고리 분류 (classify_agenda)
-    - 해당 정책 룰 카운트 (for/against/review)
-    - 매트릭스 메타 (dim 개수, 빙고 패턴 수)
-    - 수동 검토 권고 + 핵심 against criteria 상위 3건
+    auto_score 통합 버전은 _build_proxy_guideline_brief_with_auto_score 참조.
     """
     pol = load_policy(vote_style)
     if not pol:
@@ -398,8 +394,88 @@ def _build_proxy_guideline_brief(
         "agenda_recommendations": recommendations,
         "categories_in_agenda": seen_categories,
         "policy_general_principles": pol.get("general_principles", [])[:5],
-        "evaluation_note": "매트릭스 8 dim 자동 채점은 v1.3 예정. 현재는 정책 룰 + 카테고리 분류만 자동, 매트릭스 채점은 사람 검토 input 필요.",
+        "evaluation_note": "매트릭스 자동 채점은 proxy_guideline scope=predict (auto_score=True)에서 호출.",
     }
+
+
+async def _augment_recommendations_with_auto_score(
+    recommendations: list[dict[str, Any]],
+    *,
+    company_query: str,
+    meeting_date: str,
+    notice_disclosure_date: str,
+    agenda_titles_full: list[str],
+    max_agendas: int = 5,
+) -> list[dict[str, Any]]:
+    """매트릭스 자동 채점 결과를 recommendations에 추가.
+
+    상위 max_agendas건만 자동 채점 (data tool 호출 cost 보호).
+    실패 시 graceful — 기존 recommendation 그대로 유지.
+    """
+    try:
+        from open_proxy_mcp.services.proxy_guideline_scoring import (
+            aggregate_score_to_decision,
+            auto_score_matrix,
+            evaluate_all_bingo_patterns,
+        )
+        from open_proxy_mcp.services.proxy_guideline import load_decision_matrices
+    except Exception as exc:
+        return recommendations
+
+    matrices = load_decision_matrices().get("matrices", {})
+    seen_cats: set[str] = set()
+    augmented: list[dict[str, Any]] = []
+    for rec in recommendations:
+        cat = rec.get("category", "")
+        # 카테고리당 1번만 채점 (cost 절감)
+        if cat in seen_cats or cat == "other":
+            augmented.append(rec)
+            continue
+        if len([a for a in augmented if a.get("auto_score")]) >= max_agendas:
+            augmented.append(rec)
+            continue
+        seen_cats.add(cat)
+        try:
+            matrix_id = f"matrix_{cat}"
+            matrix = matrices.get(matrix_id, {})
+            if not matrix:
+                augmented.append(rec)
+                continue
+            score_result = await auto_score_matrix(
+                company_query,
+                cat,
+                agenda_titles=agenda_titles_full,
+                meeting_date=meeting_date,
+                notice_disclosure_date=notice_disclosure_date,
+            )
+            scores = score_result.get("scores", {}) or {}
+            valid = {k: v for k, v in scores.items() if v is not None}
+            bingo = evaluate_all_bingo_patterns(
+                matrix, valid,
+                agenda_date=meeting_date or None, agenda_category=cat,
+            )
+            decision_meta = aggregate_score_to_decision(scores, matrix, bingo)
+            rec_aug = dict(rec)
+            rec_aug["auto_score"] = {
+                "decision": decision_meta.get("decision"),
+                "decision_source": decision_meta.get("decision_source"),
+                "raw_score": decision_meta.get("raw_score"),
+                "max_score": decision_meta.get("max_score"),
+                "red_count": decision_meta.get("red_count", 0),
+                "yellow_count": decision_meta.get("yellow_count", 0),
+                "green_count": decision_meta.get("green_count", 0),
+                "unknown_count": decision_meta.get("unknown_count", 0),
+                "triggered_pattern_ids": decision_meta.get("triggered_pattern_ids", []),
+                "dimensions_scored": scores,
+                "manual_dims": score_result.get("manual_dims", []),
+                "data_calls": score_result.get("data_calls", {}),
+            }
+            augmented.append(rec_aug)
+        except Exception as exc:
+            rec_aug = dict(rec)
+            rec_aug["auto_score_error"] = f"{type(exc).__name__}: {str(exc)[:100]}"
+            augmented.append(rec_aug)
+    return augmented
 
 
 async def build_vote_brief_payload(
@@ -411,6 +487,7 @@ async def build_vote_brief_payload(
     end_date: str = "",
     lookback_months: int = 12,
     vote_style: str = "open_proxy",
+    auto_score_matrix: bool = False,
 ) -> dict[str, Any]:
     meeting_summary = await build_shareholder_meeting_payload(
         company_query,
@@ -670,6 +747,30 @@ async def build_vote_brief_payload(
         "cumulative_voting_strategy": cumulative_voting_strategy,
         "key_flags": key_flags[:20],
     }
+
+    # 자동 매트릭스 채점 통합 (옵션)
+    if auto_score_matrix:
+        meeting_date_for_score = (meeting_data.get("selected_meeting") or {}).get("meeting_date") or ""
+        notice_disclosure_for_score = (meeting_data.get("selected_meeting") or {}).get("notice_disclosure_date") or ""
+        try:
+            augmented = await _augment_recommendations_with_auto_score(
+                data["proxy_guideline_brief"].get("agenda_recommendations", []),
+                company_query=company_query,
+                meeting_date=meeting_date_for_score,
+                notice_disclosure_date=notice_disclosure_for_score,
+                agenda_titles_full=_agenda_titles(agenda_payload),
+                max_agendas=5,
+            )
+            data["proxy_guideline_brief"]["agenda_recommendations"] = augmented
+            data["proxy_guideline_brief"]["auto_score_enabled"] = True
+            data["proxy_guideline_brief"]["disclaimer"] = (
+                "자동 채점 결과는 참고용 — 최종 판단은 사용자가 검토 후 결정. "
+                "데이터 부족 dim은 manual input으로 보정 가능."
+            )
+        except Exception as exc:
+            data["proxy_guideline_brief"]["auto_score_error"] = (
+                f"{type(exc).__name__}: {str(exc)[:200]}"
+            )
 
     evidence_refs = _dedupe_evidence([
         *(meeting_summary.get("evidence_refs", []) or []),

@@ -116,7 +116,12 @@ def _render(payload: dict[str, Any]) -> str:
     proxy_guideline_brief = data.get("proxy_guideline_brief", {})
     if proxy_guideline_brief and proxy_guideline_brief.get("status") == "ok":
         pgb_meta = proxy_guideline_brief.get("policy_meta", {})
-        lines.append(f"## OPM 정책 권고 (vote_style: `{proxy_guideline_brief.get('vote_style', '?')}`)")
+        auto_enabled = proxy_guideline_brief.get("auto_score_enabled", False)
+        title = f"## OPM 정책 권고 (vote_style: `{proxy_guideline_brief.get('vote_style', '?')}`"
+        if auto_enabled:
+            title += " | 자동 매트릭스 채점 ON"
+        title += ")"
+        lines.append(title)
         lines.append(f"- 정책: {pgb_meta.get('manager_name', '?')} `{pgb_meta.get('version', '?')}` (`{pgb_meta.get('type', '?')}`)")
         cats = proxy_guideline_brief.get("categories_in_agenda", [])
         if cats:
@@ -125,12 +130,32 @@ def _render(payload: dict[str, Any]) -> str:
         if recs:
             lines.append("- 안건별 정책 권고:")
             for r in recs[:10]:
-                line = f"  - **{r.get('agenda_no', '')}**. [{r.get('category_ko', '')}] `{r.get('policy_default', '?')}` (정책 against {r.get('policy_against_count', 0)}건)"
+                auto_score = r.get("auto_score", {})
+                auto_decision_str = ""
+                if auto_score:
+                    decision = auto_score.get("decision", "?")
+                    raw = auto_score.get("raw_score", "?")
+                    mx = auto_score.get("max_score", "?")
+                    red = auto_score.get("red_count", 0)
+                    auto_decision_str = f" | **자동: {decision.upper()}** ({raw}/{mx}, red={red})"
+                line = (
+                    f"  - **{r.get('agenda_no', '')}**. [{r.get('category_ko', '')}] "
+                    f"`{r.get('policy_default', '?')}` (정책 against {r.get('policy_against_count', 0)}건)"
+                    f"{auto_decision_str}"
+                )
                 lines.append(line)
                 lines.append(f"    - {r.get('agenda_title', '')}")
+                if auto_score and auto_score.get("triggered_pattern_ids"):
+                    lines.append(f"    - 트리거 빙고: `{', '.join(auto_score['triggered_pattern_ids'])}`")
+                if auto_score and auto_score.get("manual_dims"):
+                    lines.append(f"    - manual 입력 권장 dim: `{', '.join(auto_score['manual_dims'])}`")
                 if r.get("key_against_criteria"):
                     for crit in r["key_against_criteria"][:2]:
-                        lines.append(f"    - ⚠ 반대 기준: {crit}")
+                        lines.append(f"    - 반대 기준: {crit}")
+                if r.get("auto_score_error"):
+                    lines.append(f"    - 자동 채점 오류: {r['auto_score_error']}")
+        if proxy_guideline_brief.get("disclaimer"):
+            lines.append(f"- _{proxy_guideline_brief['disclaimer']}_")
         lines.append(f"- _{proxy_guideline_brief.get('evaluation_note', '')}_")
         lines.append("")
     elif proxy_guideline_brief and proxy_guideline_brief.get("status") == "policy_not_found":
@@ -248,14 +273,15 @@ def register_tools(mcp):
         end_date: str = "",
         lookback_months: int = 12,
         vote_style: str = "open_proxy",
+        auto_score_matrix: bool = False,
         format: str = "md",
     ) -> str:
-        """desc: 투표 메모 action tool. 주총 회차 + 지분 구조 + 핵심 안건 + 후보자 + 보수 + **거버넌스 준수율** + **OPM 정책 권고** + 결과를 한 장으로 묶음. **새 사실 생성 X, 근거만 재구성**.
+        """desc: 투표 메모 action tool. 주총 회차 + 지분 구조 + 핵심 안건 + 후보자 + 보수 + **거버넌스 준수율** + **OPM 정책 권고** + 결과를 한 장으로 묶음. auto_score_matrix=True 시 안건별 12 매트릭스 100 dim 중 ~85 dim 자동 채점 + 빙고 평가. **새 사실 생성 X, 근거만 재구성**.
         when: 의결권 행사 준비, 내부 투자위원회 보고, 주총 전후 쟁점 정리. vote_style로 OPM 자체 정책 또는 특정 운용사 정책 적용 가능 (default open_proxy).
-        rule: 찬반 추천 단정 금지. upstream의 `partial`/`conflict`/`requires_review` 상태 그대로 전파. OPM 정책 권고는 안건 카테고리 분류 + 정책 룰 매칭만 자동, 매트릭스 8 dim 자동 채점은 v1.3 예정. 모든 결론 evidence_refs로 추적 가능.
+        rule: 찬반 추천 단정 금지 (자동 채점 결정도 disclaimer 포함하여 사용자 최종 검토 권유). upstream의 `partial`/`conflict`/`requires_review` 상태 그대로 전파. auto_score_matrix는 추가 data tool 호출 (cost). 모든 결론 evidence_refs로 추적 가능.
         vote_style: open_proxy (default OPM 자체 정책) / mirae_asset / samsung / samsung_active / truston / kim / align_partners (행동주의) / baring (외국계 ISS 참조).
         upstream: shareholder_meeting + ownership_structure + corp_gov_report + proxy_guideline + evidence.
-        ref: shareholder_meeting, ownership_structure, corp_gov_report, proxy_guideline, evidence
+        ref: shareholder_meeting, ownership_structure, corp_gov_report, proxy_guideline, matrix-auto-scoring-2026-04-29, evidence
         """
         payload = await build_vote_brief_payload(
             company,
@@ -265,6 +291,7 @@ def register_tools(mcp):
             end_date=end_date,
             lookback_months=lookback_months,
             vote_style=vote_style,
+            auto_score_matrix=auto_score_matrix,
         )
         if format == "json":
             return as_pretty_json(payload)

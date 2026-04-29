@@ -38,7 +38,7 @@ updated: 2026-04-27
 - [[소진율]] - 보수한도 대비 실지급 비율, compensation 핵심 지표
 - [[자본준비금]] - 자본준비금 감소 -> 이익잉여금 전입, 감액배당 전제 조건
 - [[당기순이익]] - 배당성향 계산 기준, 반드시 연결 지배주주 귀속
-- [[주주환원]] - 배당 + 자사주 매입 = 총 주주환원 규모
+- [[주주환원]] - CSR(한국식 배당+자사주 매입/지배순이익) vs TSR(글로벌 주가변동+배당/시작주가) 정의 분리
 - [[경영권-방어]] - 프록시 파이트 대응 전술, 4가지 방어 시나리오
 
 ## Entities
@@ -71,6 +71,7 @@ updated: 2026-04-27
 - [[파이프라인-아키텍처]] - 199개 기업 v4 JSON 생성 배치 파이프라인
 - [[open-proxy-guideline]] - OPM 자체 의결권 행사 정책 v1.2 (12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting)
 - [[decision-matrix-design]] - 12 카테고리 의사결정 매트릭스 (100 dim, 76 빙고 패턴 — OPM 단독 다차원 평가 시스템)
+- [[matrix-auto-scoring-2026-04-29]] - 매트릭스 자동 채점 시스템 v1.3 (proxy_guideline_scoring.py: ~71 dim auto + 빙고 인터프리터 + KT&G/삼성전자 검증)
 - [[opm-guideline-debate-transcript]] - 7 전문가 토론 + v1.0 → v1.1 → v1.2 결정 transcript
 - [[turnkey-improvement-2026-04-29]] - 11 agent 병렬 작업 통합 (G1-G4 + 7 페르소나 + 모더레이터 결정)
 
@@ -113,6 +114,8 @@ updated: 2026-04-27
 - [[parsing-fix-2026-04-29-cgr-financial]] - corp_gov_report 금융지주 18건 partial → 0 fix (financial_form 감지, regression 0)
 - [[parsing-fix-2026-04-27-ownership-stockknd]] - ownership_structure 17건 partial → 0 fix (stock_knd 변형 positive matching + 3-tier fallback, regression 0)
 - [[speed-optimization-2026-04-29]] - 9건 sequential → asyncio.gather 적용 (proxy_contest 4x, ownership 3x, dividend 3x, regression PASS)
+- [[cash-shareholder-return-2026-04-29]] - dividend tool CSR(한국식 배당+자사주 매입/지배순이익) — T22 소각→매입 정정 (KT&G 92.21%, 삼성전자 2024 38.10% / 2025 40.71% 검증)
+- [[total-shareholder-return-2026-04-29]] - dividend tool TSR(글로벌 주가변동+배당/시작주가) 신규 (KT&G 25.98%, 삼성전자 2024 -31.35% / 2025 +127.66% 검증)
 
 ## Disclosures
 
