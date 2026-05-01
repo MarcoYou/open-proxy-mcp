@@ -294,6 +294,11 @@ async def build_advise_vote_payload(
     agenda_data = (meeting_agenda.get("data") or {})
     agenda_summary = agenda_data.get("agenda_summary", {}) or {}
     agenda_titles = agenda_summary.get("titles", []) or []
+    # shareholder_meeting v2 agenda 미검출 시 director_evaluation의 본문 agenda fallback
+    if not agenda_titles:
+        fallback_titles = (director_eval.get("data") or {}).get("agenda_titles_fallback", []) or []
+        if fallback_titles:
+            agenda_titles = fallback_titles
 
     # 후보 평가 dict — name → eval
     director_data = (director_eval.get("data") or {})

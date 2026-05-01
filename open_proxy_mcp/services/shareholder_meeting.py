@@ -101,6 +101,20 @@ async def _candidate_notices_range(
     )
     if error:
         raise DartClientError(error, "주총 소집공고 검색 실패")
+    # E type 결과 부족 시 모든 type fallback (에스엠/고려아연 등 누락 대응).
+    if not filings:
+        try:
+            data = await client.search_filings(
+                corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
+                pblntf_ty=None,  # 전 type
+            )
+            all_items = data.get("list", []) or []
+            filings = [
+                i for i in all_items
+                if "주주총회소집공고" in i.get("report_nm", "") or "소집" in i.get("report_nm", "")
+            ]
+        except Exception:
+            pass
     filings.sort(key=lambda row: row.get("rcept_dt", ""))
     if not filings:
         return [], notices

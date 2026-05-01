@@ -88,7 +88,14 @@ async def fetch_appointments(
 
     parsed = parse_personnel_xml(text)
     appointments = parsed.get("appointments", []) or []
-    return appointments, rcept_no, [{"rcept_no": rcept_no, "report_nm": notice.get("report_nm")}]
+    # 안건 titles 추출 (advise_vote fallback용 — shareholder_meeting v2 검색 누락 시)
+    try:
+        from open_proxy_mcp.tools.parser import parse_agenda_xml
+        agenda_items = parse_agenda_xml(text, html=text)
+        agenda_titles = [a.get("title") for a in (agenda_items or []) if a.get("title")]
+    except Exception:
+        agenda_titles = []
+    return appointments, rcept_no, [{"rcept_no": rcept_no, "report_nm": notice.get("report_nm"), "agenda_titles": agenda_titles}]
 
 
 # ── 독립성 평가 (모두 success — DART 정형 필드) ──
@@ -703,6 +710,7 @@ async def build_director_evaluation_payload(
             "candidates_count": candidate_count,
             "evaluations": evaluations,
             "rcept_no": rcept_no,
+            "agenda_titles_fallback": (meta[0].get("agenda_titles") if meta and meta[0].get("agenda_titles") else []),
             **filing_meta,
             "usage": build_usage(client.api_call_snapshot() - calls_start),
         },
