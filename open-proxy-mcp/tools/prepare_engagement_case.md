@@ -87,6 +87,39 @@ prepare_engagement_case(
 - DART/KIND 직접 호출은 upstream tool에서 처리.
 - 외부 호출: 5-7회 (병렬).
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as prepare_engagement_case
+    participant OS as ownership_structure
+    participant PC as proxy_contest
+    participant VU as value_up
+    U->>T: company="고려아연", lookback_months=12
+    T->>T: window 결정 (resolve_date_window, default end=오늘 또는 12.31)
+    par 3-way 병렬 (asyncio.gather)
+        T->>OS: ownership_structure(scope=control_map, as_of=window_end)
+    and
+        T->>PC: proxy_contest(scope=summary, lookback_months=12)
+    and
+        T->>VU: value_up(scope=summary, year=window_end.year)
+    end
+    OS-->>T: control_map (flags + observations + active blocks)
+    PC-->>T: summary (proxy/litigation/active_signal counts + players)
+    VU-->>T: latest + highlights (commitment 문장)
+    alt ownership status=ERROR/AMBIGUOUS
+        T-->>U: pass-through (회사 식별 안내)
+    end
+    T->>T: issue_framing 조립 (control_flags + control_observations)
+    T->>T: contest_signals 조립 (players 4 그룹 + has_contest_signal)
+    T->>T: return_context 조립 (value_up highlights)
+    T->>T: status merge + evidence_refs 통합
+    T-->>U: ToolEnvelope (사실/근거만, 추천 X)
+```
+
+호출 횟수: 3개 upstream tool 병렬 (외부 DART API 합산 7-15회).
+
 ## 파싱 전략
 - 단정적 결론 문구 금지.
 - upstream evidence 범위를 넘어가는 판단 금지.

@@ -90,6 +90,47 @@ scope:
 - **KIND**: vote_math만 (주총 결과 화이트리스트, rcept_no 80→00 변환)
 - 외부 호출: scope별 2-4회. summary/fight 병렬 (asyncio.gather 4x).
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as proxy_contest
+    participant R as resolve_company_query
+    participant DL as DART list.json (D/B/I)
+    participant DX as DART document.xml (위임장 본문)
+    participant DM as DART majorstock (5%)
+    participant DH as DART hyslrSttus (정기 대주주)
+    participant K as KIND HTML (vote_math)
+    U->>T: company="고려아연", scope="summary", lookback_months=12
+    T->>R: company_query → corp_code
+    par 4-way 병렬 (asyncio.gather)
+        T->>DL: list.json (위임장권유 D, _proxy_items)
+        T->>DX: document.xml (filer 본문 정규식)
+    and
+        T->>DL: list.json (소송/경영권분쟁 I,B, _litigation_items)
+    and
+        T->>DM: majorstock (5% 신호 _block_signals)
+    and
+        Note over T: _control_context (내부 4-way 추가)
+        par 정기보고서 + 5% 병렬
+            T->>DH: hyslrSttus (정기 대주주)
+            T->>DM: stkSttus + tesstkAcqsDspsSttus
+            T->>DM: latest_block_rows (5%)
+        end
+    end
+    T->>T: filer 3-way 분류 (company/shareholder/retail_activism)
+    T->>T: 교차 힌트 enrich (filer_has_5pct_active_block, filer_in_litigation)
+    T->>T: control_map 빌드 (overlap/external/active 분류)
+    opt scope=vote_math (주총 결과 있을 때)
+        T->>K: KIND 주총결과 HTML (whitelist 검증)
+        K-->>T: vote table → attendance_estimate + signal_level
+    end
+    T-->>U: ToolEnvelope (summary + players + scope별 data)
+```
+
+호출 횟수: scope별 4-7회 (4-way + control_context 4-way). vote_math는 +KIND 1회.
+
 ## 파싱 전략
 - DART D/B/I 공시만 사용 (KIND false match 위험).
 - 위임장 filer 3-way 분류 (회사측 / 주주측 / retail_activism).

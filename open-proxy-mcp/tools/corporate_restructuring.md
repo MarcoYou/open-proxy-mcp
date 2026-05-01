@@ -81,6 +81,39 @@ scope:
 - KIND/Naver 미사용. PDF/원문 파싱 없음 (API 응답만 정규화).
 - 외부 호출: 4-5회 (asyncio.gather 병렬). 기본 lookback 24개월.
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as corporate_restructuring
+    participant R as resolve_company_query
+    participant M as DART cmpMgDecsn (합병)
+    participant D as DART cmpDvDecsn (분할)
+    participant DM as DART cmpDvmgDecsn (분할합병)
+    participant SE as DART stkExtrDecsn (주식교환·이전)
+    U->>T: company="이마트", scope="share_exchange"
+    T->>R: company_query → corp_code
+    T->>T: window 결정 (lookback 24개월)
+    par scope별 4-way 병렬 (asyncio.gather)
+        opt scope in {summary, merger}
+            T->>M: cmpMgDecsn(corp_code, bgn_de, end_de)
+        end
+        opt scope in {summary, split}
+            T->>D: cmpDvDecsn(corp_code, bgn_de, end_de)
+            T->>DM: cmpDvmgDecsn(corp_code, bgn_de, end_de)
+        end
+        opt scope in {summary, share_exchange}
+            T->>SE: stkExtrDecsn(corp_code, bgn_de, end_de)
+        end
+    end
+    T->>T: 각 응답 normalize (-/해당사항없음 → 빈 문자열, 200자 cap)
+    T->>T: events_timeline 결합 + sort (rcept_dt desc)
+    T-->>U: ToolEnvelope (event_count + scope별 events)
+```
+
+호출 횟수: scope=summary는 4회 병렬. scope=split만 2회 (분할+분할합병). 본문 파싱 없음.
+
 ## 파싱 전략
 - DART 주요사항보고서(DS005) 4개 구조화 API 사용. 모두 병렬 호출.
 - API 응답 정규화: `-`, `해당사항없음` → 빈 문자열.

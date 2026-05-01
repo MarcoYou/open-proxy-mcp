@@ -87,6 +87,48 @@ scope:
 - **사업보고서**: `tesstkAcqsDspsSttus` (annual scope, 잔고 + 변동 5컬럼)
 - 외부 호출: 5-7회 (asyncio.gather 병렬). KIND/Naver 미사용.
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as treasury_share
+    participant R as resolve_company_query
+    participant A as DART tsstkAqDecsn (취득)
+    participant D as DART tsstkDpDecsn (처분)
+    participant TC as DART tsstkAqTrctrCnsDecsn (신탁체결)
+    participant TT as DART tsstkAqTrctrCcDecsn (신탁해지)
+    participant L as DART list.json (소각 keyword)
+    participant DX as DART document.xml (소각 본문)
+    U->>T: company="삼성전자", scope="annual", year=2024
+    T->>R: company_query → corp_code
+    T->>T: window 결정 (lookback 24개월)
+    par 5-way 병렬 (asyncio.gather)
+        T->>A: tsstkAqDecsn(corp_code, bgn_de, end_de)
+    and
+        T->>D: tsstkDpDecsn(corp_code, bgn_de, end_de)
+    and
+        T->>TC: tsstkAqTrctrCnsDecsn(corp_code, bgn_de, end_de)
+    and
+        T->>TT: tsstkAqTrctrCcDecsn(corp_code, bgn_de, end_de)
+    and
+        T->>L: list.json (자기주식소각결정 keyword)
+    end
+    A-->>T: 취득결정 list
+    L-->>T: 소각 후보 rcept_no list
+    loop 각 소각 rcept_no
+        T->>DX: document.xml (소각 주식수/금액 추출)
+    end
+    T->>T: [기재정정] dedupe (board_date+amount+shares)
+    opt scope=annual
+        T->>T: 사업보고서 tesstkAcqsDspsSttus 재사용 (잔고)
+    end
+    T->>T: 5종 normalize + counts + events 결합
+    T-->>U: ToolEnvelope (summary + scope별 events)
+```
+
+호출 횟수: 5회 (병렬) + 소각 본문 N회 (cancelation 건당 1회).
+
 ## 파싱 전략
 - 5개 DART 공시를 모아서 병렬 조회.
 - 소각결정은 별도 API 없음 → `list.json` + 키워드 "자기주식소각결정" + report_nm 필터링.

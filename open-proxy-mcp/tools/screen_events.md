@@ -71,6 +71,29 @@ screen_events(
 - **외부 호출**: KIND/Naver/Upstage 사용 안 함. DART list.json 단일 소스.
 - 키워드 매칭은 응답의 `report_nm` 후처리 (strip_spaces=True 옵션).
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as screen_events
+    participant D as DART list.json
+    U->>T: event_type="treasury_retire", market="kospi", max_results=50
+    T->>T: event_type 검증 (22 enum 중 1개)
+    T->>T: market 검증 + corp_clses 매핑 (Y/K/all)
+    T->>T: window 결정 (resolve_date_window, 기본 30일)
+    loop corp_cls x pblntf_ty 조합 (각 ty당 max 20 페이지)
+        T->>D: list.json (bgn_de, end_de, pblntf_ty, corp_cls, page_no, page_count=100)
+        D-->>T: items + total_count
+        T->>T: report_nm 키워드 매칭 (strip_spaces) + dedupe
+    end
+    T->>T: matched 정렬 (rcept_dt desc) + truncation 체크
+    T->>T: rows 변환 (corp_name/ticker/market/dart_viewer URL 부착)
+    T-->>U: ToolEnvelope (results + usage.dart_api_calls + warnings)
+```
+
+호출 횟수: pblntf_ty 수 x corp_cls 수 x 페이지 수 = 보통 1-40회. max_results 도달 시 조기 중단.
+
 ## 파싱 전략
 - event_type → (pblntf_tys, keywords) 매핑 (서비스 코드 `SUPPORTED_EVENT_TYPES`).
 - market="all"이면 corp_cls="Y" 호출 후 "K" 호출을 순차 수행해 합치기 (API 호출 약 2배).
