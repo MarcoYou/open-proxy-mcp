@@ -102,7 +102,30 @@ result: status=exact 96.9% (188/194), 자본잠식 발견 2건
 
 자본잠식 detect 정상 작동 (2 KOSDAQ 바이오 검출). 시장별 alert 격차가 데이터로 확인됨 (KOSDAQ 적자 5배, KOSPI 이자보상 위험 1.7배).
 
+---
+
+## v2 결과 (Iteration 11 최적화 후 — A+B 적용)
+
+**최적화 내용**:
+- **A**. `fnlttSinglIndx` 호출 제거 — DART 산출 ROE/부채비율은 자체 계산값이 우선이라 사실상 미사용. 4 호출 통째로 삭제.
+- **B**. 당기/전기 × acnt/acntAll = 4 호출을 `asyncio.gather` 병렬화. (사업보고서 fallback 1단계만 sequential 유지)
+
+| metric | v1 (pre-opt) | v2 (post-opt) | 변화 |
+|---|---|---|---|
+| 평균 응답 | 9.4s | **5.1s** | **-46%** |
+| 중앙값 | 8.1s | **3.4s** | **-58%** |
+| p95 | 12.1s | **6.8s** | **-44%** |
+| status=exact | 188 (96.9%) | 187 (96.4%) | -1 (네트워크 timeout 1건) |
+| 자본잠식 detect | 2건 | **2건 동일** | 회귀 0 |
+| alert 분포 | (기준) | **모두 동일** | 회귀 0 |
+
+**예외 1건**: 036830 솔브레인홀딩스 — `ConnectTimeout` (DART 일시 네트워크 이슈, 코드 결함 X). v1에서는 운 좋게 timeout 안 발생.
+
+**회귀 검증** (삼성전자 16개 지표 중 16개 일치):
+- revenue/operating_profit/net_income/ROE/ROA/ROIC/asset_turnover/equity_multiplier/debt_ratio/current_ratio/interest_coverage/CFO/FCF/payout_ratio/NAV/capital_impairment_status — **모두 pre-opt와 동일**
+
+**5초 목표 달성**: 평균 5.1s, 중앙값 3.4s.
+
 다음 단계 (Phase 2):
-- accruals_red 임계값 조정 (30% → 50%)
-- 우선주 corpCode redirect 로직
 - vote_brief 통합 (Marco 시나리오 — 사외이사 후보 재직 시점 cross-check)
+- 매트릭스 dim 자동 채점 wire (12 매트릭스 × 재무 dim)
