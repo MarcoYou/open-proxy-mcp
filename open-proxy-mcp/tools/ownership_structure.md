@@ -85,6 +85,49 @@ scope:
 - **KIND**: 미사용 (false match 위험) — 단, `changes` scope만 원문 파싱
 - 외부 호출: scope별 1-3회, control_map은 5-7회 (asyncio.gather 병렬)
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as ownership_structure
+    participant R as resolve_company_query
+    participant DH as DART hyslrSttus (사업보고서 대주주)
+    participant DS as DART stkSttus (지분총수)
+    participant DT as DART tesstkAcqsDspsSttus (자사주)
+    participant DM as DART majorstock (5%)
+    participant DD as DART document.xml (5% 보유목적)
+    U->>T: company="고려아연", scope="control_map", year=2025
+    T->>R: company_query → corp_code
+    par 정기보고서 3개 API 병렬 (asyncio.gather, return_exceptions=True)
+        T->>DH: hyslrSttus(corp_code, bsns_year, 11011)
+    and
+        T->>DS: stkSttus(corp_code, bsns_year)
+    and
+        T->>DT: tesstkAcqsDspsSttus(corp_code, bsns_year)
+    end
+    DH-->>T: 최대주주 raw
+    alt 1차 0건 (status 013 등)
+        T->>DH: 반기/3분기/직전연도 사업보고서 fallback
+    end
+    alt 여전히 0건
+        T->>DM: majorstock(corp_code) (5% 보고서에서 추정 — 정확도 제한)
+    end
+    T->>DM: majorstock(corp_code) (latest_blocks + timeline)
+    loop 5% 블록별 (보유목적 보강)
+        T->>DD: document.xml(rcept_no)
+        DD-->>T: 보유목적 텍스트
+    end
+    opt scope=changes
+        T->>DM: 최대주주등소유주식변동신고서 (KIND 80→00 변환)
+    end
+    T->>T: control_map 빌드 (3대 카테고리: 명부 등재 / 외부 능동 / 명부 겹침)
+    T->>T: filing_meta + active_signal_count 조립
+    T-->>U: ToolEnvelope (scope별 data)
+```
+
+호출 횟수: scope별 1-3회 (summary), control_map은 5-7회. fallback 발생 시 +2-3회.
+
 ## 파싱 전략
 - 사업보고서 기반 DART 공식 API 우선.
 - 5% 대량보유 목적은 최신 원문(document.xml)으로 보강.

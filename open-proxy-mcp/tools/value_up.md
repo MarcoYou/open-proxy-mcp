@@ -84,6 +84,44 @@ scope:
 - **treasury_share**: 24개월 cross-ref (별도 호출)
 - 외부 호출: 2-4회 (commitments scope는 treasury cross-ref 추가)
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as value_up
+    participant R as resolve_company_query
+    participant DL as DART list.json (I)
+    participant DX as DART document.xml
+    participant K as KIND 0184 (밸류업 카테고리)
+    participant TS as treasury_share API
+    U->>T: company="KB금융", scope="commitments"
+    T->>R: company_query → corp_code
+    T->>DL: list.json (pblntf_ty=I, "기업가치 제고" keyword, requested window)
+    DL-->>T: items (밸류업 공시 후보)
+    alt items 0건
+        T->>K: KIND 0184 카테고리 검색 (fallback)
+    end
+    alt 둘 다 0건
+        par 진단 검색 병렬 (2-year window)
+            T->>DL: DART 진단 (target_year-2 ~ target_year)
+        and
+            T->>K: KIND 진단 (같은 window)
+        end
+    end
+    loop 매칭된 공시 본문
+        T->>DX: document.xml (highlights 키워드 매칭)
+    end
+    T->>T: category 분류 (plan/progress/meta_amendment)
+    T->>T: latest_plan fallback (meta_amendment면 실계획 본문 별도 노출)
+    opt scope in {summary, commitments}
+        T->>TS: treasury_share (24개월 acquire/cancelation cross-ref)
+    end
+    T-->>U: ToolEnvelope (latest + highlights + treasury_cross_ref)
+```
+
+호출 횟수: 2-4회 (DART list + 본문). KIND fallback +1, 진단검색 +2, treasury cross-ref +1.
+
 ## 파싱 전략
 - DART 거래소 공시(I) 밸류업 키워드 검색.
 - 카테고리 자동 분류:

@@ -69,6 +69,40 @@ company(
 - **Naver profile**: 업종·섹터 보강 보조 소스 (DART 공식값 덮어쓰기 금지).
 - 외부 호출: 보통 2-4회 (corpCode 캐시 적중 시 1-2회).
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as company
+    participant DC as DART corpCode
+    participant DI as DART company.json
+    participant DL as DART list.json
+    participant N as Naver profile
+    U->>T: query="삼성전자", max_recent_filings=10
+    T->>DC: lookup_corp_code_all(query) (캐시 적중 시 0회)
+    DC-->>T: matches list
+    T->>T: 비상장 필터 + _resolve_match (exact/ambiguous/error)
+    alt status=ambiguous or error
+        T-->>U: candidates list (다시 ticker/corp_code로 재조회 안내)
+    else status=exact
+        par 병렬 호출 (asyncio.gather)
+            T->>DI: company.json(corp_code)
+        and
+            T->>N: naver corp_profile(stock_code)
+        and
+            T->>DL: list.json(corp_code, 최근 180일)
+        end
+        DI-->>T: 영문명/법인번호/업종
+        N-->>T: 섹터 (보강)
+        DL-->>T: recent_filings (각 _classify_filing으로 타입 부여)
+        T->>T: payload 조립 (identifiers + classification + recent_filings + filing_meta)
+        T-->>U: ToolEnvelope (status=exact + data + next_actions)
+    end
+```
+
+호출 횟수: corpCode 캐시 적중 시 2-3회 (company.json + naver + list.json). 캐시 미스 시 +1.
+
 ## 파싱 전략
 - exact match 아니면 자동 확정 안 함 → `ambiguous` 반환 (사용자가 명확화).
 - 동명 비상장 법인은 자동 제외 (warning).

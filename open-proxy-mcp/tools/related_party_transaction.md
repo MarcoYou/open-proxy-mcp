@@ -100,6 +100,41 @@ scope:
   - 기본 (메타만): 4-6회
   - include_details=True: 추가 N회 (details_limit 기본 5)
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as related_party_transaction
+    participant R as resolve_company_query
+    participant DL as DART list.json (B/I)
+    participant DX as DART document.xml (본문)
+    U->>T: company="POSCO홀딩스", scope="summary", include_details=True
+    T->>R: company_query → corp_code
+    T->>T: window 결정 (lookback 24개월)
+    par scope별 2-way 병렬 (asyncio.gather)
+        opt scope in {summary, equity_deal}
+            T->>DL: list.json (타법인주식 4종 키워드, pblntf=B,I)
+        end
+        opt scope in {summary, supply_contract}
+            T->>DL: list.json (단일공급계약 2종 키워드, pblntf=I)
+        end
+    end
+    DL-->>T: rows (subsidiary_report/autonomous_disclosure/correction 플래그 포함)
+    T->>T: events_timeline 결합 + sort (rcept_dt desc)
+    opt include_details=True
+        par 최근 N건 본문 N-way 병렬 (asyncio.gather)
+            T->>DX: document.xml (각 rcept_no, details_limit=5 기본)
+        end
+        DX-->>T: counterparty + amount + ratio + 특수관계 힌트
+        T->>T: details enrich (각 row에 details 부착)
+    end
+    T->>T: counts 집계 (acquire/dispose/conclude/terminate/subsidiary/autonomous)
+    T-->>U: ToolEnvelope (event_count + scope별 events)
+```
+
+호출 횟수: list 4-6회. include_details=True 시 +N (details_limit, 기본 5).
+
 ## 파싱 전략
 - DART list.json + 제목 키워드 (구조화 API 없음).
 - 키워드:

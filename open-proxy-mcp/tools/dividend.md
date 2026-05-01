@@ -93,6 +93,49 @@ scope:
 - **KRX Open API**: 시세 fallback
 - 외부 호출: scope별 1-3회. CSR은 4-5회 (treasury 합산), TSR은 3-4회 (Naver 시세)
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as dividend
+    participant R as resolve_company_query
+    participant DA as DART alotMatter (사업보고서)
+    participant DD as DART 배당결정 list
+    participant TS as treasury_share API
+    participant N as Naver siseJson
+    U->>T: company="KT&G", scope="cash_shareholder_return", year=2024
+    T->>R: company_query → corp_code
+    par 1단계 병렬
+        T->>DA: alotMatter(target_year)
+    and
+        T->>DD: list.json (현금배당결정 keyword, year_list 범위)
+    end
+    DA-->>T: latest_summary (cash_dps 등)
+    DD-->>T: filings (배당결정 공시들)
+    T->>DD: document.xml (각 결정 공시 details enrich)
+    alt alotMatter 비거나 cash_dps=0
+        T->>T: _decisions_summary_for_year (배당결정 합산으로 fallback)
+    end
+    par 과거 N년 alotMatter 병렬
+        T->>DA: alotMatter(year_list 각 연도)
+    end
+    opt scope in {summary, CSR, TSR}
+        T->>DD: 배당기준일 공시 검색 (선배당-후결의 메타)
+        T->>DD: 정관변경 검색 (감액배당 메타)
+    end
+    opt scope=cash_shareholder_return
+        T->>TS: treasury_share (acquire 쪽 합산 — CSR 분자)
+    end
+    opt scope=total_shareholder_return
+        T->>N: siseJson (P_start, P_end, 7일 비거래일 폴백)
+    end
+    T->>T: history + policy_signals + ratio 계산
+    T-->>U: ToolEnvelope (scope별 data + meta_signals)
+```
+
+호출 횟수: scope별 2-7회. CSR은 +treasury_share, TSR은 +Naver 시세 2회.
+
 ## 파싱 전략
 - source of truth 2단:
   1. `alotMatter` (사업보고서 배당 요약) — 완료 사업연도 공식 값

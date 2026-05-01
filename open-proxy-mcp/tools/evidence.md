@@ -56,6 +56,25 @@ evidence(rcept_no="20260312000987")
 - DART 뷰어 URL 자동 생성 (`dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}`)
 - KIND 원문 URL은 직접 접근 시 404 오류 → 2026-04-21부터 사용 중단, DART 뷰어로 통일
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as evidence
+    U->>T: evidence_id="ev_..." 또는 rcept_no="20260312000987"
+    T->>T: rcept_no 추출 (evidence_id 정규식 r"\d{14}")
+    alt 14자리 숫자 아님
+        T-->>U: REQUIRES_REVIEW + 경고
+    end
+    T->>T: rcept_dt 유도 (rcept_no[:8] → YYYY-MM-DD)
+    T->>T: source_type 판별 (rcept_no[8:10]==80 → KIND, 그 외 → DART)
+    T->>T: viewer_url 조립 (dart.fss.or.kr/dsaf001/main.do?rcpNo=...)
+    T-->>U: ToolEnvelope (evidence_id + rcept_dt + source_type + viewer_url)
+```
+
+호출 횟수: 0회 (외부 호출 없음, 순수 문자열 가공).
+
 ## 파싱 전략
 - rcept_no 문자열만으로 즉시 유도 가능한 정보만 반환.
 - evidence_id에 rcept_no 패턴 (14자리 숫자) 포함 시 자동 추출.

@@ -95,6 +95,52 @@ scope:
 - **NPS scope**: `fund.nps.or.kr` 직접 크롤링 (정적 캐싱). NPS 코드 5자리 + '0' = 표준 6자리 티커.
 - **predict + auto_score=True**: 추가 data tool 호출 (board, corp_gov, ownership 등) → ~85 dim 자동 채점
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as proxy_guideline
+    participant J as 정적 JSON (data/asset_managers/)
+    participant DT as Data tools (board/cgr/own/...)
+    participant N as fund.nps.or.kr
+    U->>T: scope="predict", policy_id="open_proxy", company="삼성전자", agenda_title="...", auto_score=True
+    T->>T: scope 검증 (7종)
+    alt scope=policy
+        T->>J: load policy.json (policy_id) → 12 카테고리 룰 요약
+    else scope=record
+        T->>J: load votes.json (manager) → 행사내역 필터
+    else scope=consensus
+        T->>J: 7운용사 정책 비교 매트릭스 (79 토픽)
+    else scope=compare
+        T->>J: load 각 policy.json → 카테고리별 비교
+    else scope=audit
+        T->>J: load policy + votes → 정책 vs 행사 갭 계산
+    else scope=predict
+        T->>T: agenda → category 매핑
+        opt auto_score=True
+            par data tool 병렬 호출
+                T->>DT: shareholder_meeting (board, compensation)
+                T->>DT: corp_gov_report (governance)
+                T->>DT: ownership_structure (control_map)
+            end
+            DT-->>T: facts → ~71-85 dim 자동 채점 (0/1/2/null)
+        end
+        T->>J: load matrix/{category}.json (빙고 패턴)
+        T->>T: 빙고 매칭 + score_threshold → auto_decision (for/against/review)
+    else scope=nps_record
+        T->>N: fund.nps.or.kr 크롤링 (캐시 적중 시 0회)
+        N-->>T: NPS 행사내역
+        opt fetch_detail=True
+            T->>N: 안건별 상세 (max_details개)
+        end
+    end
+    T->>T: data dict 조립 (DART API 호출 0회 baseline)
+    T-->>U: ToolEnvelope (scope별 data + disclaimer)
+```
+
+호출 횟수: scope별 0회 (정적). predict + auto_score=True는 +5-10 data tool 호출. nps_record는 NPS 1-N회.
+
 ## 파싱 전략
 - 정적 JSON 기반 (12 카테고리 룰 요약 + novel topics + Korea-specific).
 - predict scope의 12 매트릭스 100 dim 중 ~71-85 dim 자동 채점:

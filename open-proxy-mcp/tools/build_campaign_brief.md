@@ -93,6 +93,41 @@ build_campaign_brief(
 - DART/KIND 직접 호출은 upstream tool에서 처리.
 - 외부 호출: 5-8회 (병렬).
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as build_campaign_brief
+    participant SM as shareholder_meeting
+    participant OS as ownership_structure
+    participant PC as proxy_contest
+    U->>T: company="고려아연", meeting_type="extraordinary", lookback_months=12
+    T->>SM: shareholder_meeting(scope=summary) (회차 확정)
+    SM-->>T: meeting_data (meeting_phase + as_of)
+    alt status=ERROR/AMBIGUOUS
+        T-->>U: pass-through (회차 확정 안내)
+    end
+    par 4-way 병렬 (asyncio.gather)
+        T->>SM: shareholder_meeting(scope=agenda)
+    and
+        T->>SM: shareholder_meeting(scope=board)
+    and
+        T->>OS: ownership_structure(scope=control_map, as_of=meeting_date)
+    and
+        T->>PC: proxy_contest(scope=timeline, lookback_months=12)
+    end
+    T->>T: meeting_context 조립 (summary + agenda titles + board candidates)
+    T->>T: control_context 조립 (top_holder + control_map flags)
+    T->>T: proxy_context 조립 (counts + has_contest_signal)
+    T->>T: players 4 그룹 분리 (회사측/주주측/외부 능동/명부 겹침, retail_activism 별도)
+    T->>T: timeline 결합 + sort (위임장/소송/5%/주총 통합, 30건 cap)
+    T->>T: key_flags + brief_note 추출 + evidence_refs 통합
+    T-->>U: ToolEnvelope (timeline + players, vote 예측 X)
+```
+
+호출 횟수: 4개 upstream tool 병렬 + 사전 SM summary 1회 = 5호출. 외부 DART API 합산 12-25회.
+
 ## 파싱 전략
 - **fact brief 전용** — 자동 추천, vote math 예측 금지 (vote_math는 `proxy_contest(scope="vote_math")`에서 별도).
 - timeline / players / control_context / meeting_context / key_flags만 정리.

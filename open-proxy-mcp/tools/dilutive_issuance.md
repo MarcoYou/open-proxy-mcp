@@ -88,6 +88,42 @@ scope:
 - KIND/Naver 미사용. 본문 파싱 없음 (API 응답만 정규화).
 - 외부 호출: 4-5회 (asyncio.gather 병렬). 기본 lookback 24개월.
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as dilutive_issuance
+    participant R as resolve_company_query
+    participant P as DART piicDecsn (유상증자)
+    participant CB as DART cvbdIsDecsn (전환사채)
+    participant BW as DART bdwtIsDecsn (신주인수권부사채)
+    participant CR as DART crDecsn (감자)
+    U->>T: company="EDGC", scope="summary"
+    T->>R: company_query → corp_code
+    T->>T: window 결정 (lookback 24개월)
+    par scope별 4-way 병렬 (asyncio.gather)
+        opt scope in {summary, rights_offering}
+            T->>P: piicDecsn(corp_code, bgn_de, end_de)
+        end
+        opt scope in {summary, convertible_bond}
+            T->>CB: cvbdIsDecsn(corp_code, bgn_de, end_de)
+        end
+        opt scope in {summary, warrant_bond}
+            T->>BW: bdwtIsDecsn(corp_code, bgn_de, end_de)
+        end
+        opt scope in {summary, capital_reduction}
+            T->>CR: crDecsn(corp_code, bgn_de, end_de)
+        end
+    end
+    T->>T: 각 normalize (- → 빈 문자열, 200자 cap)
+    T->>T: dilution_pct_approx 계산 (유상증자 신주/기존 비율)
+    T->>T: events_timeline 결합 + sort
+    T-->>U: ToolEnvelope (event_count + scope별 events)
+```
+
+호출 횟수: scope=summary는 4회 병렬. 단일 scope는 1회. 본문 파싱 없음.
+
 ## 파싱 전략
 - DART 주요사항보고서(DS005) 4개 구조화 API. 모두 병렬 호출.
 - API 응답 정규화: `-`, `해당사항 없음` → 빈 문자열.

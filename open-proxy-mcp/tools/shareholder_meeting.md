@@ -87,6 +87,47 @@ scope:
 - **PDF**: 미사용 (v2 기본 경로에서 PDF 제외)
 - 외부 호출: scope별 1-3회, full scope는 5-8회
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as shareholder_meeting
+    participant R as resolve_company_query
+    participant DL as DART list.json
+    participant DX as DART document.xml
+    participant DH as DART viewer HTML
+    participant K as KIND HTML
+    U->>T: company="삼성전자", scope="agenda", year=2026
+    T->>R: company_query → corp_code
+    R-->>T: selected (또는 ambiguous candidates)
+    par 후보 선정 (annual + extraordinary 병렬)
+        T->>DL: list.json (pblntf_ty=E, 정기 keyword)
+    and
+        T->>DL: list.json (pblntf_ty=E, 임시 keyword)
+    end
+    DL-->>T: notice candidates → _select_notice_candidate (정정공시 자동 최신본)
+    T->>T: meeting_window_coverage 12개월 범위 체크
+    T->>DX: document.xml(notice rcept_no) → text + html
+    DX-->>T: parsed (meeting_info + agenda + board + compensation)
+    alt agenda_valid=false 또는 html 비음
+        T->>DH: get_viewer_document (DART viewer crawl fallback)
+        DH-->>T: 보강 데이터 (있으면 교체)
+    end
+    alt 여전히 파싱 실패
+        T->>T: raw_text_excerpt 6000자 발췌 (LLM 직접 해석)
+    end
+    opt scope=results 또는 full
+        T->>DL: list.json (pblntf_ty=I, 주주총회결과 keyword)
+        T->>K: KIND result HTML (rcept_no 80→00 변환, whitelist 검증)
+        K-->>T: vote results
+    end
+    T->>T: filing_meta + agenda_summary + board_summary 조립
+    T-->>U: ToolEnvelope (notice_parse_source: dart_xml/dart_html, scope별 data)
+```
+
+호출 횟수: scope별 1-3회 (summary), full scope는 5-8회 (results 포함). PDF/OCR fallback 미사용 (v2는 XML+HTML viewer까지만).
+
 ## 파싱 전략
 - 우선순위: DART list+XML (notice/agenda/board/compensation/aoi_change) → KIND HTML (results, whitelist 검증)
 - 정정공시 있으면 최종본 자동 선택. 원본·정정 모두 추적 (alternative_meetings).

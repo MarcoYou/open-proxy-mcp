@@ -103,6 +103,53 @@ prepare_vote_brief(
 - DART/KIND 직접 호출은 upstream tool에서 처리 (이 tool은 oracle합산).
 - 외부 호출: scope당 5-10회 (auto_score_matrix=True면 추가 N회).
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as prepare_vote_brief
+    participant SM as shareholder_meeting
+    participant OS as ownership_structure
+    participant CGR as corp_gov_report
+    participant PG as proxy_guideline
+    participant PC as proxy_contest
+    U->>T: company="삼성전자", vote_style="open_proxy", auto_score_matrix=True
+    T->>SM: shareholder_meeting(scope=summary) (메타 + 회차 확정)
+    SM-->>T: meeting_data (meeting_phase, result_status)
+    alt status=ERROR/AMBIGUOUS
+        T-->>U: pass-through (회차 확정 안내)
+    end
+    par 5-way 병렬 (asyncio.gather)
+        T->>SM: shareholder_meeting(scope=agenda)
+    and
+        T->>SM: shareholder_meeting(scope=board)
+    and
+        T->>SM: shareholder_meeting(scope=compensation)
+    and
+        T->>OS: ownership_structure(scope=control_map, as_of=meeting_date)
+    and
+        T->>CGR: corp_gov_report(scope=summary) (10s timeout, graceful skip)
+    end
+    opt result_status=available
+        T->>SM: shareholder_meeting(scope=results)
+        opt 표 numeric 가능
+            T->>PC: proxy_contest(scope=vote_math)
+        end
+    end
+    opt auto_score_matrix=True
+        loop 각 안건
+            T->>PG: proxy_guideline(scope=predict, vote_style=..., auto_score=True)
+            PG-->>T: auto_decision + 빙고 매칭 + manual_dims
+        end
+    end
+    T->>T: brief 조립 (meeting/ownership/agenda/board/compensation/governance/proxy_guideline/result/vote_math/cumulative_voting_strategy)
+    T->>T: status merge (upstream partial/conflict 전파) + evidence_refs 통합
+    T-->>U: ToolEnvelope (사용자 최종 검토 disclaimer 포함)
+```
+
+호출 횟수: 5-7개 upstream tool 병렬 (각 tool 자체 호출 합산 시 외부 DART API 15-30회). auto_score_matrix=True 시 안건당 +1 PG predict.
+
 ## 파싱 전략
 - 단정적 추천 금지 (자동 채점 결정도 disclaimer 포함, 사용자 최종 검토 권유).
 - upstream의 `partial`/`conflict`/`requires_review` 상태 그대로 전파.

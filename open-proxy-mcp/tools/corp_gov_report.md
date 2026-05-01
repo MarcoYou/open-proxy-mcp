@@ -92,6 +92,46 @@ scope:
 - KIND/Naver 미사용. PDF 미수행 (HTML 본문만).
 - 외부 호출: 1-2회 (timeline은 최근 5건 순차).
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as corp_gov_report
+    participant R as resolve_company_query
+    participant DL as DART list.json (I)
+    participant DI as DART company.json
+    participant DX as DART document.xml
+    U->>T: company="KT&G", scope="summary", year=0
+    T->>R: company_query → corp_code
+    par filings + 회사정보 병렬 (asyncio.gather)
+        T->>DL: _fetch_latest_reports (4년 lookback, "기업지배구조보고서공시" keyword)
+    and
+        T->>DI: company.json(corp_code) (corp_cls 시장 구분)
+    end
+    DL-->>T: filings (최근 5건)
+    DI-->>T: corp_cls (Y=KOSPI 의무, K=KOSDAQ 자율)
+    alt scope=filings
+        T-->>U: filings list만 반환 (no body fetch)
+    end
+    T->>T: target_filing 선정 (year 우선, 없으면 최신)
+    T->>DX: get_document_cached(rcept_no) → html
+    DX-->>T: html → text
+    alt 금융지주 형식 (financial_form_markers 감지)
+        T-->>U: NO_FILING + report_format=financial_holding_annual + viewer 안내
+    end
+    T->>T: _parse_metrics(15 지표) + _parse_principles + compliance_rate 계산
+    opt scope=timeline
+        par 과거 N건 본문 병렬
+            T->>DX: get_document_cached (각 과거 filing)
+        end
+        T->>T: transitions 감지 (improved/regressed/changed)
+    end
+    T-->>U: ToolEnvelope (report_meta + scope별 data)
+```
+
+호출 횟수: summary는 3-4회 (list + company + document). timeline은 +N (과거 filing 본문). filings scope는 2회만.
+
 ## 파싱 전략
 - 키워드 엄격화: `"기업지배구조보고서공시"` (금융지주 "연차보고서" 등 다른 서식 제외)
 - 15개 표준 지표 라벨 prefix(25자) 매칭 → 블록별 O/X 2개(당기·직전) + 비고 텍스트 동적 수집
