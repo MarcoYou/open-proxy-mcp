@@ -47,6 +47,8 @@ screenshot/pr_materials/*.pdf
 data/
 # 단 OPM 코드 안 정적 데이터(자산운용사 정책+행사내역+OPM Guideline)는 트래킹
 !open_proxy_mcp/data/
+# wiki audit 결과 csv도 트래킹 (실험 결과 보존)
+!wiki/architecture/audits/data/
 
 # 운용사 정책/행사내역 원본 (parsed JSON만 commit, PDF/xlsx는 로컬 보관)
 wiki/raw/policies/*.pdf
