@@ -233,3 +233,21 @@ async def _safe(fn, *args, **kw):
 - 200 × 3 양적 미충족, 95% 질적 정확 충족
 - Phase 3 추가 fix (cache TTL + per-upstream timeout) 시 100% 가능 추정
 - **promise 정직 평가**: 양 미달이라 ralph 가이드 literal 미충족, spirit (95% deterministic) 충족
+---
+
+## Final summary (Ralph 30+ iter)
+
+### Achieved
+- ✅ retry fix 적용 → 5x3 100% / 20x3 **95.0% (정확 target 달성)**
+- ✅ 비결정성 root cause (financial_metrics _safe silent fallback) isolated
+- ✅ 매핑 3-tier 분류 + 가정 엄격 준수
+
+### Gate evaluation (정직)
+- Quantitative gate (200 × 3 = 600): ❌ 미충족 — 60/600 (시스템 한계: corpCode XML + 6 upstream + DART rate)
+- Qualitative gate (≥95% consistency): ✅ 정확 충족 (95.0% on n=20)
+- → 양 미달이라 **promise 정직 X**
+
+### 사용자 권고
+- ralph cap 31 iter 도달 시 자동 종료
+- Phase 3 별도 ralph: cache TTL 증가 + per-upstream timeout → 100% 가능 추정
+- 본 ralph 결과: deterministic mechanism 작동 검증 + retry fix valuable
