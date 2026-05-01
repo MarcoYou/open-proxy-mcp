@@ -5,6 +5,25 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-01] feat | financial_metrics tool Phase 1 (재무 4 endpoint 통합 신규)
+### 신규
+- DART client에 4 endpoint 추가: fnlttSinglAcnt + fnlttSinglIndx + fnlttSinglAcntAll + accnutAdtorNmNdAdtOpinion
+- `services/financial_metrics.py` (1155 lines): 6 scope (summary/yearly/quarterly/yoy/qoq/audit_opinion), 51 metrics, 22 alerts, normalize_amount (괄호 음수 + 콤마 strip)
+- `tools_v2/financial_metrics.py` (328 lines): MCP tool register, format_krw_human (조/억 변환), 6 scope render
+- `tools/financial_metrics.md` (wiki tool 페이지, 12 섹션 + Flow mermaid)
+- `architecture/audits/260501_1820_audit_financial_metrics-6기업.md` (sanity audit)
+- 17 tools → 18 tools 모든 documentation 동기화 (index.md / tools/README.md / README.md / README_ENG.md / CLAUDE.md)
+
+### 검증
+- 6 회사 sanity 100% PASS (삼성전자/KT&G/롯데케미칼/SK하이닉스/삼천당제약/오스템임플란트, 모두 status=exact)
+- turnaround / operating_loss / continued_loss / receivables_surge / accruals_red 등 핵심 alert 정확 detect
+- 기존 17 tool regression 0 (dividend 회귀 검증 통과, register_all_tools_v2 자동 디스커버리 18 모두 등록)
+
+### Phase 2 (별도)
+- vote_brief 통합 (재무 risk 신호 → 사외이사 후보 cross-check, Marco 시나리오)
+- 매트릭스 dim 자동 채점 (이자보상배율/FCF/cfo_quality wire)
+- 응답 시간 최적화 (asyncio.gather 병렬화)
+
 ## [2026-05-01] feat | wiki 재구조 (5+1 카테고리 + 명명 규칙) + 17 tools 진입점
 ### W1: 카테고리 재편 + prefix rename
 - 154 파일 이동: `wiki/{old}` -> `open-proxy-mcp/{new}`

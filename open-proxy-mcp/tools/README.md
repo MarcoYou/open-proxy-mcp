@@ -1,29 +1,30 @@
 ---
 type: readme
-title: tools/ — Tool 카탈로그 (17 tool 진입점)
+title: tools/ — Tool 카탈로그 (18 tool 진입점)
 updated: 2026-05-01
 ---
 
 # tools/ — Tool 카탈로그
 
-> OPM v2 의 17 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
+> OPM v2 의 18 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
 > 각 tool 1 페이지, 통일 schema (frontmatter + 한 줄 요약 + 사용법 + 입력 인자 + 출력 schema + Data sources + 파싱 전략 + 관련 공시/개념/결정/audit + 알려진 issue + 변경 이력).
 > 도메인 개념 / 공시 본문 / 정책 결정 정보는 본 폴더에 중복 X. `rules/concepts/`, `rules/disclosures/`, `decisions/`, `architecture/audits/` 로 link만 한다.
 
-## 빠른 진입표 (17 tool)
+## 빠른 진입표 (18 tool)
 
 ### Discovery (1)
 | tool | 한 줄 |
 |------|------|
 | [[screen_events]] | 22종 이벤트 → N개 기업 역조회 (filing-centric) |
 
-### Data — 회사·주총·지분 (4)
+### Data — 회사·주총·지분·재무 (5)
 | tool | 한 줄 |
 |------|------|
 | [[company]] | 기업 식별 + 최근 공시 인덱스 (모든 data tool 공통 입구) |
 | [[shareholder_meeting]] | 정기/임시 주총 안건/이사/보수/정관/결과 (7 scope) |
 | [[ownership_structure]] | 최대주주/특수관계인/5%/자사주/control_map (7 scope) |
 | [[corp_gov_report]] | 기업지배구조보고서 15지표 + 연도별 추이 (5 scope) |
+| [[financial_metrics]] | DART 재무 4 endpoint 통합: 수익성/안정성/현금흐름/회계risk + 듀퐁/감사의견 (6 scope) **NEW** |
 
 ### Data — 환원·재편 (4)
 | tool | 한 줄 |
@@ -89,7 +90,7 @@ created: 2026-05-01
 | 도메인 | tool 수 | 평균 line | 호출 패턴 |
 |--------|---------|----------|---------|
 | Discovery | 1 | 137 | DART list.json 1-40회 (event_type x 페이지) |
-| Data | 11 | 145 | DART API 1-7회 (병렬), 일부 KIND/Naver 보강 |
+| Data | 12 | 148 | DART API 1-14회 (병렬), 일부 KIND/Naver 보강 |
 | Policy & Matrix | 1 | 165 | 정적 JSON (DART 호출 0회), NPS 크롤링 옵션 |
 | Action | 3 | 152 | upstream 5-10회 (병렬), auto_score_matrix는 추가 |
 
@@ -102,6 +103,7 @@ created: 2026-05-01
 | shareholder_meeting | ✅ list/document | ✅ results whitelist | - | - | - |
 | ownership_structure | ✅ 사업보고서/majorstock | ✅ changes scope | - | - | - |
 | dividend | ✅ alotMatter | - | ✅ TSR price | - | - |
+| financial_metrics | ✅ fnlttSinglAcnt + Indx + AcntAll + audit | - | - | - | - |
 | treasury_share | ✅ DS005 5종 | - | - | - | - |
 | value_up | ✅ list/document | ✅ 0184 fallback | - | - | - |
 | corp_gov_report | ✅ list/원문 | - | - | - | - |
@@ -139,3 +141,4 @@ created: 2026-05-01
 
 ## 변경 이력
 - 2026-05-01: W2 작업 — 17 tool 페이지 일괄 작성, README catalog 업데이트
+- 2026-05-01: financial_metrics tool Phase 1 신규 (DART 재무 4 endpoint), 17 → 18 tool

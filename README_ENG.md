@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-structure-17-tools)
+[![Tools](https://img.shields.io/badge/tools-18-orange.svg)](#tool-structure-18-tools)
 
 [Korean README](README.md)
 
@@ -46,7 +46,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 17 tools are automatically recognized
+4. Click "Add" → 18 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -77,15 +77,19 @@ Once connected, just ask in natural language:
 "Audit S-legacy (large manager) policy vs actual voting gap"
 "Show M-legacy 2025 voting record on Samsung Electronics"
 "Show Open Proxy Guideline 12-category policy"
+"Lotte Chemical 2024 consolidated YoY + accounting risk alerts"
+"SK Hynix 2024 turnaround validation (loss → profit, DuPont split)"
+"Osstem Implant 5-year audit opinion timeline"
+"Samsung Electronics DuPont 3-step decomposition — what drove ROE 13.07%"
 ```
 
-\* OpenProxy does not currently analyze DART financial metrics (planned for a future update)
+\* Financial metrics analysis is now available via the `financial_metrics` tool (Phase 1: DART 4-endpoint integration — 51 core indicators + 22 alerts + audit opinion timeline)
 
 ---
 
-## Tool Structure (17 tools)
+## Tool Structure (18 tools)
 
-17 tools are organized into **discovery → data tabs → policy/matrix → action outputs**.
+18 tools are organized into **discovery → data tabs → policy/matrix → action outputs**.
 
 ```
 company                            # Entry point — company ID + recent filings index
@@ -93,10 +97,11 @@ company                            # Entry point — company ID + recent filings
 ├─ Discovery Tool (1)
 │  └─ screen_events                # Find companies by recent event (21 event_types, KOSPI+KOSDAQ)
 │
-├─ Data Tools (11)
+├─ Data Tools (12)
 │  ├─ shareholder_meeting          # AGM/EGM (agendas / candidates / compensation / results)
 │  ├─ ownership_structure          # Ownership (largest shareholders / 5% blocks / treasury / change filings)
 │  ├─ dividend                     # Dividend facts (DPS / payout ratio / history)
+│  ├─ financial_metrics            # ★ NEW — DART 4-endpoint financials (51 metrics + DuPont + FCF + NWC + accounting risk + 3-yr audit opinion)
 │  ├─ treasury_share               # Treasury events (acquisition / disposal / cancellation / trust)
 │  ├─ proxy_contest                # Proxy contest (solicitations / litigation / 5% signals)
 │  ├─ value_up                     # Value-up plan (commitments / implementation)
@@ -176,10 +181,11 @@ Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a c
 | **Dilution** | Rights offering / CB / BW / capital reduction | 1 |
 | **Related-party** | Equity deals + single supply contracts | 1 |
 | **Governance** | Corporate governance report (15 core principles, full KOSPI mandatory from 2026) | 1 |
+| **Financials** | DART 4-endpoint integration — 51 metrics + DuPont + FCF + NWC + accounting risk + 3-yr audit opinion (★ NEW) | 1 |
 | **Evidence** | Filing source links | 1 |
 | **Policy & Matrix** | 8 manager policies (anonymized) + Open Proxy Guideline + 12 decision matrices | 1 |
 | **Action** | Vote memo (with OPM policy guidance auto), engagement case, campaign brief | 3 |
-| | **Total** | **17** |
+| | **Total** | **18** |
 
 ---
 

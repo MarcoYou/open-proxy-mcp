@@ -9,7 +9,7 @@ DART 데이터를 MCP로 제공하는 Python 서버. 약칭 **OPM**.
 위키는 LLM이 유지하며, 매 `/ship` 시 자동 업데이트.
 
 - **위키 인덱스**: `open-proxy-mcp/index.md` — 전체 페이지 카탈로그. 여기서 시작.
-- **첫 진입은 [[tools/README]]**: 17 tool 카탈로그가 사용자 입장 시작점.
+- **첫 진입은 [[tools/README]]**: 18 tool 카탈로그가 사용자 입장 시작점.
 - **위키 스키마**: `open-proxy-mcp/WIKI_SCHEMA.md` — 카테고리 정의 + 명명 규칙 + frontmatter schema + 신규 페이지 워크플로우.
 - **카테고리 (5+1)**: `raw / tools / architecture / decisions / rules(concepts+disclosures+laws) / archive`
 
@@ -30,7 +30,7 @@ LLM도 사람도 절대 수정 X. 분석/요약은 별도 페이지에 작성 (`
 ```
 open_proxy_mcp/        # MCP 서버 코드
   server.py            # FastMCP 진입점
-  tools_v2/            # 17 public tools (v2)
+  tools_v2/            # 18 public tools (v2)
   services/            # 도메인별 분석 로직 (tool과 분리)
   dart/client.py       # DART API + KIND + 네이버 시세
   data/asset_managers/ # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스

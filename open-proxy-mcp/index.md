@@ -10,11 +10,11 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
 ### 도메인별
 - **Discovery (1)**: [[screen_events]]
-- **Data (11)**: [[company]] · [[shareholder_meeting]] · [[ownership_structure]] · [[dividend]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]] · [[evidence]]
+- **Data (12)**: [[company]] · [[shareholder_meeting]] · [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]] · [[evidence]]
 - **Policy & Matrix (1)**: [[proxy_guideline]]
 - **Action (3)**: [[prepare_vote_brief]] · [[prepare_engagement_case]] · [[build_campaign_brief]]
 
@@ -23,8 +23,8 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | 카테고리 | 목적 | 페이지 수 | 수정 가능 |
 |---|---|---|---|
 | **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 17 tool 진입점 (사용자 입장) | 17 + README | YES (tool 변경 시) |
-| **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 7 + fixes 3 | YES |
+| **tools/** | 18 tool 진입점 (사용자 입장) | 18 + README | YES (tool 변경 시) |
+| **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 8 + fixes 3 | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 14 | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 31 + 36 + 3 = 70 | YES (사실 update 시) |
 | **archive/** | 흡수된 페이지 (역사 보존) | 48 | WARN (단순 보존) |
@@ -78,18 +78,19 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Tools (17 진입점) - `tools/`
+## Tools (18 진입점) - `tools/`
 
 전체 카탈로그 + 통계 + 흡수된 archive 매핑은 [[tools/README]].
 
 ### Discovery (1)
 - [[screen_events]] - 22종 이벤트 -> N개 기업 역조회 (filing-centric)
 
-### Data - 회사·주총·지분 (4)
+### Data - 회사·주총·지분·재무 (5)
 - [[company]] - 기업 식별 + 최근 공시 인덱스 (모든 data tool 공통 입구)
 - [[shareholder_meeting]] - 정기/임시 주총 안건/이사/보수/정관/결과 (7 scope)
 - [[ownership_structure]] - 최대주주/특수관계인/5%/자사주/control_map (7 scope)
 - [[corp_gov_report]] - 기업지배구조보고서 15지표 + 연도별 추이 (5 scope)
+- [[financial_metrics]] - DART 재무 4 endpoint 통합: 수익성/안정성/현금흐름/회계risk + 듀퐁/감사의견 (6 scope) **NEW**
 
 ### Data - 환원·재편 (4)
 - [[dividend]] - 배당 사실 + CSR(한국식) + TSR(글로벌) (6 scope)
@@ -123,7 +124,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[architecture/pipeline-architecture]] - 199개 기업 v4 JSON 생성 배치 파이프라인
 - [[architecture/lessons-learned]] - MCP 개발 7가지 핵심 교훈 (v1->v2 회고, 2026-04-19)
 
-### audits/ (7 시점별)
+### audits/ (8 시점별)
 - [[260411_2023_audit_personnel-벤치마크-v1]] - personnel XML 878명 전수 벤치마크 (SUCCESS 79.4%)
 - [[260421_2308_audit_parsing-10tool-20기업]] - 10 data tool × 20 회사 파싱 건강도 audit
 - [[260422_0005_audit_parsing-14scope-15기업]] - 확장 audit: 14 scope × 15 회사 + 필드 채움률 + corp_gov_report 포함
@@ -131,6 +132,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] - audit v2: no_filing 분리 + 진짜 partial 측정 (4-class)
 - [[260429_0942_audit_arithmetic-21지표]] - 산술 정확성 audit (21 지표)
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
+- [[260501_1820_audit_financial_metrics-6기업]] - financial_metrics Phase 1 sanity (6/6 PASS, status=exact 100%)
 
 ### fixes/ (3 시점별)
 - [[260427_1145_fix_ownership-stockknd]] - ownership_structure 17건 partial -> 0 fix (stock_knd 변형 positive matching + 3-tier fallback, regression 0)
