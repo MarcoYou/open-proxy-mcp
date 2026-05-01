@@ -84,6 +84,16 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
     lines.append(f"- 부채비율(부채/자본): {_pct(s.get('debt_ratio_pct'))}  /  유동비율: {_pct(s.get('current_ratio_pct'))}")
     lines.append(f"- 이자보상배율(영업이익/이자비용): {_ratio(s.get('interest_coverage_ratio'))}배  /  차입금의존도: {_pct(s.get('debt_dependency_pct'))}")
     lines.append(f"- 총차입금: {_format_krw_human(s.get('total_debt_krw'))}  /  순현금(현금-차입): {_format_krw_human(s.get('net_cash_krw'))}")
+    cap_status = s.get("capital_impairment_status")
+    cap_ratio = s.get("capital_impairment_ratio_pct")
+    if cap_status:
+        status_label = {
+            "normal": "정상",
+            "partial": "부분 자본잠식 (조기 경고)",
+            "partial_50plus": "**자본잠식 50%+ (KOSDAQ 관리종목 사유)**",
+            "full": "**완전 자본잠식 (KOSDAQ 상장폐지 사유)**",
+        }.get(cap_status, cap_status)
+        lines.append(f"- 자본잠식 상태: {status_label}  /  잠식률: {_pct(cap_ratio)}  /  자본금: {_format_krw_human(s.get('capital_stock_krw'))}")
     lines.append("")
     lines.append("## 현금흐름 (코리아 디스카운트 핵심)")
     lines.append(f"- CFO(영업CF): {_format_krw_human(s.get('cfo_krw'))}  /  CapEx(유형자산취득): {_format_krw_human(s.get('capex_krw'))}")

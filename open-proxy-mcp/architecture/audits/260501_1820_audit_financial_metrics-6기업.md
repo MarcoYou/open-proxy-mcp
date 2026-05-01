@@ -92,18 +92,32 @@ DART OpenAPI `fnlttSinglAcnt` / `fnlttSinglAcntAll` 응답을 5개 회사 (KOSPI
 - 별도 unit 필드 (백만원/천원) **없음** — `currency` 필드만 KRW/USD/EUR 표기
 - 결론: `normalize_amount`는 콤마 strip + 괄호 음수만 처리하면 충분. 별도 unit 곱셈 불필요.
 
-## 분모 음수 (채무초과) 처리 검증
+## 분모 음수 (자본잠식) 처리 검증
 
 Iteration 5에서 추가:
 - `_safe_div`/`_safe_pct`/`_safe_ratio`에 `positive_denom_only` 옵션 도입.
 - ROE / ROA / ROIC / 부채비율 / equity_multiplier에 `True` 적용 → 자본 음수 시 None 반환.
-- 합성 채무초과 회사 (자본 -1조, 적자 -2,000억) 단위 테스트:
+- 합성 완전 자본잠식 회사 (자본 -1조, 적자 -2,000억) 단위 테스트:
   - ROE = None ✓ (음수 분모 거부)
   - 부채비율 = None ✓
   - equity_multiplier = None ✓
   - ROA = -4% ✓ (자산 양수, 정상 음수 출력)
   - asset_turnover = 0.3 ✓
 - 회귀 검증: 삼성전자 2024 모든 지표 동일 (ROE 13.07 / 부채비율 27.93 / 이자보상 2.52 / asset_turnover 0.62 / equity_multiplier 1.27).
+
+## 자본잠식 detect (KOSDAQ 관리/폐지 사유)
+
+Iteration 9에서 추가 — 코붕이 피드백: "자본잠식 필터도 있어야할거고":
+- 한국 회계/거래소 정확 용어로 통일 (이전 audit의 "채무초과" → "자본잠식").
+- 잠식률 = (자본금 - 자본총계) / 자본금 × 100.
+- 3-tier 분류 (`capital_impairment_status`):
+  - `normal`: 자본총계 ≥ 자본금 (잠식률 음수)
+  - `partial`: 잠식률 0~50% (조기 경고)
+  - `partial_50plus`: 잠식률 50%↑ → KOSDAQ 관리종목 사유 (2년 연속 시 지정)
+  - `full`: 자본총계 ≤ 0 → KOSDAQ 상장폐지 사유
+- alerts 신규 3개: `capital_impairment_partial` / `capital_impairment_50plus` / `capital_impairment_full`
+- 단위 테스트 4 case 통과 (정상 / 부분 30% / 50%+ 60% / 완전잠식)
+- 6 회사 회귀: 모두 `normal` (예: 삼성 자본총계 402조 vs 자본금 0.9조 = 잠식률 -44711% — 자본총계가 자본금의 448배)
 
 ## reprt_code fallback (사업 → 분기) 검증
 

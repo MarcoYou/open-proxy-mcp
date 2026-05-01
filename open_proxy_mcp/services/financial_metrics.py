@@ -336,6 +336,27 @@ def _compute_metrics(
     current_assets = bs_is.get("current_assets")
     current_liabilities = bs_is.get("current_liabilities")
     retained_earnings = bs_is.get("retained_earnings")
+    capital_stock = bs_is.get("capital_stock")  # 자본금 (액면가 × 발행주식수)
+
+    # ── 자본잠식 (Capital Impairment) ──
+    # 잠식률 = (자본금 - 자본총계) / 자본금
+    # - 0% 미만: 정상 (자본총계 > 자본금)
+    # - 0~50%: 부분 자본잠식
+    # - 50%↑: KOSDAQ 관리종목 사유 / KOSPI 사업보고서 미공시 등 trigger
+    # - 100%↑ (자본총계 ≤ 0): 완전 자본잠식 = 상장폐지 사유
+    capital_impairment_ratio_pct = None  # 잠식률 (% — 양수 = 잠식 진행, 음수 = 정상)
+    capital_impairment_status = None  # "normal" / "partial" / "partial_50plus" / "full"
+    if capital_stock is not None and capital_stock > 0 and total_equity is not None:
+        ratio = (capital_stock - total_equity) / capital_stock * 100
+        capital_impairment_ratio_pct = round(ratio, 2)
+        if total_equity <= 0:
+            capital_impairment_status = "full"
+        elif ratio >= 50:
+            capital_impairment_status = "partial_50plus"
+        elif ratio > 0:
+            capital_impairment_status = "partial"
+        else:
+            capital_impairment_status = "normal"
 
     # 평균값 (BS 전기 데이터 있으면)
     avg_assets = _avg(total_assets, (bs_is_prev or {}).get("total_assets")) if bs_is_prev else total_assets
@@ -554,6 +575,10 @@ def _compute_metrics(
         # ── NAV/주식 ──
         "nav_krw": nav_krw,
         "bps_krw": bps_krw,  # Phase 2 — None until stockTotqySttus 통합
+        "capital_stock_krw": capital_stock,
+        # ── 자본잠식 (KOSDAQ 관리/폐지 사유 detect) ──
+        "capital_impairment_ratio_pct": capital_impairment_ratio_pct,
+        "capital_impairment_status": capital_impairment_status,
         # ── 지배구조 cross-check ──
         "subsidiary_count": subsidiary_count,  # Phase 2 — 사업보고서 본문 파싱 필요
         # ── DART 산출 지표 (보조) ──
@@ -600,6 +625,15 @@ def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
     icov = curr.get("interest_coverage_ratio")
     if icov is not None and icov < 2:
         alerts.append("interest_coverage_low")
+
+    # 자본잠식 (KOSDAQ 관리종목 / 상장폐지 사유 detect)
+    cap_status = curr.get("capital_impairment_status")
+    if cap_status == "full":
+        alerts.append("capital_impairment_full")  # 자본총계 ≤ 0, KOSDAQ 상장폐지 사유
+    elif cap_status == "partial_50plus":
+        alerts.append("capital_impairment_50plus")  # 잠식률 50%↑, KOSDAQ 관리종목 사유
+    elif cap_status == "partial":
+        alerts.append("capital_impairment_partial")  # 잠식률 0~50%, 조기 경고
 
     # 현금흐름
     cfo_quality = curr.get("cfo_to_op_ratio")

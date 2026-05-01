@@ -94,15 +94,25 @@ scope:
 - **연결 default**: 한국 표준 = 연결 지배주주 귀속. `consolidated=False` 옵션으로 별도 가능.
 - **분모 0/음수 graceful**: 적자 회사 ROE/배당성향 → None + warning. 분모 음수일 때 산출 안 함.
 
-## yoy_signals (22개 alerts)
+## yoy_signals (25개 alerts)
 - **수익성**: `loss_conversion`, `operating_loss`, `turnaround`, `continued_loss`, `revenue_decline`
 - **부채/유동성**: `debt_surge`, `interest_coverage_low`
+- **자본잠식 (KOSDAQ 관리/폐지 사유)**: `capital_impairment_partial` (잠식률 0~50%), `capital_impairment_50plus` (50%+, KOSDAQ 관리종목 사유), `capital_impairment_full` (완전 자본잠식, 상장폐지 사유)
 - **현금흐름**: `cfo_quality_red`, `negative_fcf`, `low_dividend_capacity_use`
 - **운전자본**: `nwc_surge`, `nwc_efficiency_low`
 - **듀퐁 분해**: `roe_driven_by_leverage`, `roe_decline_margin_driven`, `roe_decline_turnover_driven`
 - **회계 risk**: `accruals_red`, `receivables_surge`, `inventory_surge`
 - **감사의견**: `non_clean_audit_opinion`, `audit_opinion_change`
 - **배당**: `dividend_halt`
+
+### 자본잠식 정의 (한국 상법/거래소 기준)
+- **자본금**: 발행주식수 × 액면가 (회사 설립 + 증자로 들어온 원금)
+- **자본총계**: 자본금 + 자본잉여금 + 이익잉여금 (현재 회사가 보유한 순자산)
+- **자본잠식**: 누적 적자로 이익잉여금이 음수가 되어 자본총계가 자본금보다 작아진 상태
+- **잠식률**: (자본금 - 자본총계) / 자본금 × 100
+- **trigger**:
+  - 잠식률 50%↑ + 2년 연속: KOSDAQ 관리종목 지정
+  - 완전 자본잠식 (자본총계 ≤ 0): KOSDAQ 상장폐지 사유 (KOSPI는 사업보고서 미공시 등 다른 trigger)
 
 ## Data sources
 - **DART API 4 endpoint**:
