@@ -987,6 +987,95 @@ class DartClient:
             "reprt_code": reprt_code,
         })
 
+    # ── 재무제표 / 주요지표 / 감사의견 (DS003) ──
+
+    async def get_fnltt_singl_acnt(
+        self,
+        corp_code: str,
+        bsns_year: str,
+        reprt_code: str = "11011",
+        fs_div: str = "CFS",
+    ) -> dict:
+        """단일회사 주요계정 (fnlttSinglAcnt) — 재무상태표 + 손익계산서 핵심.
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+            fs_div: CFS(연결, 한국 표준 default) / OFS(별도)
+        """
+        return await self._request("fnlttSinglAcnt.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+            "fs_div": fs_div,
+        })
+
+    async def get_fnltt_singl_indx(
+        self,
+        corp_code: str,
+        bsns_year: str,
+        reprt_code: str = "11011",
+        idx_cl_code: str = "M210000",
+    ) -> dict:
+        """단일회사 주요 재무지표 (fnlttSinglIndx) — DART 산출 ROE/ROA/부채비율 등.
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+            idx_cl_code: 지표분류 — M210000(수익성), M220000(안정성), M230000(성장성), M240000(활동성)
+        """
+        return await self._request("fnlttSinglIndx.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+            "idx_cl_code": idx_cl_code,
+        })
+
+    async def get_fnltt_singl_acnt_all(
+        self,
+        corp_code: str,
+        bsns_year: str,
+        reprt_code: str = "11011",
+        fs_div: str = "CFS",
+    ) -> dict:
+        """단일회사 전체 재무제표 (fnlttSinglAcntAll) — 현금흐름표 + 자본변동표 포함.
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+            fs_div: CFS(연결, default) / OFS(별도)
+        """
+        return await self._request("fnlttSinglAcntAll.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+            "fs_div": fs_div,
+        })
+
+    async def get_audit_opinion(
+        self,
+        corp_code: str,
+        bsns_year: str,
+        reprt_code: str = "11011",
+    ) -> dict:
+        """회계감사인 + 감사의견 (accnutAdtorNmNdAdtOpinion) — 감사인/의견/강조사항/KAM.
+
+        사업보고서 기준만 의미 있음 (반기/분기는 감사 없음).
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업)이 표준. 반기/분기는 감사의견 없음.
+        """
+        return await self._request("accnutAdtorNmNdAdtOpinion.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
     # ── 주가 시세 조회 (네이버 금융 → KRX fallback) ──
 
     async def get_stock_price(self, stock_code: str, base_date: str) -> dict | None:
