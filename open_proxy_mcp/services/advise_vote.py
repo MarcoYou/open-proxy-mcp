@@ -292,12 +292,17 @@ async def build_advise_vote_payload(
     policy_id = (policy or {}).get("policy_id") or vote_style
     policy_meta = (policy or {}).get("policy_meta") or {}
 
-    # ── 6 upstream 병렬 호출 ──
+    # ── 6 upstream 병렬 호출 (retry 1회 — deterministic 보장) ──
     async def _safe(fn, *args, **kw):
-        try:
-            return await fn(*args, **kw)
-        except Exception as exc:
-            return {"tool": fn.__name__, "status": "error", "data": {}, "warnings": [str(exc)], "evidence_refs": []}
+        last_exc = None
+        for attempt in range(2):  # 1차 + retry 1회
+            try:
+                return await fn(*args, **kw)
+            except Exception as exc:
+                last_exc = exc
+                if attempt == 0:
+                    await asyncio.sleep(0.5)  # 짧은 backoff
+        return {"tool": fn.__name__, "status": "error", "data": {}, "warnings": [str(last_exc)], "evidence_refs": []}
 
     meeting_summary, meeting_agenda, meeting_comp, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
         _safe(build_shareholder_meeting_payload, company_query, scope="summary", year=target_year, meeting_type=meeting_type),

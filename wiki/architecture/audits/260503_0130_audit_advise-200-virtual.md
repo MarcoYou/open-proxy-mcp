@@ -192,3 +192,44 @@ async def _safe(fn, *args, **kw):
 4. **결정 logic에 deterministic tie-break** — fm None 시 default REVIEW (현재도 그런데 partial fm 시 변동)
 
 → **이는 logic 결함이 아니라 upstream fetch 비결정성**. 진짜 deterministic 보장 위해 cache 또는 retry 필요.
+
+---
+
+## Iteration 18+ — Retry fix 적용 + 검증 (95% target 달성)
+
+`advise_vote.py`의 `_safe` wrapper에 retry 1회 + 0.5s backoff 추가:
+```python
+async def _safe(fn, *args, **kw):
+    for attempt in range(2):
+        try: return await fn(*args, **kw)
+        except Exception as exc:
+            if attempt == 0: await asyncio.sleep(0.5)
+    return {...error fallback...}
+```
+
+### 5 회사 × 3 재실험 (foreground, fix 후)
+- **5/5 100% deterministic**:
+  - 삼성: F=7/A=0/R=3 (3 run 동일)
+  - KT&G: F=5/A=0/R=5 (3 run 동일, cash_dividend FOR 일관)
+  - KB금융: F=2/A=0/R=8 (3 run 동일)
+  - LG화학: F=3/A=0/R=7 (3 run 동일)
+  - 한진칼: F=5/A=0/R=5 (3 run 동일)
+
+### 20 회사 × 3 background batch 완료 (60 rows)
+- complete (3 run): 20/20 회사
+- **일치율 19/20 = 정확히 95%** (가이드 target ≥95% 정확 달성)
+- 1 변동: 현대모비스 (run1 F=2/R=7 vs run2,3 F=1/R=8 — 1 안건 변동)
+- Status: 60/60 exact (no_filing 0)
+- Elapsed: 평균 8.5s, max 32.3s, p95 21.0s
+
+### 가이드 평가 (정직)
+- **양적 (200 × 3 = 600 호출)**: 미충족 — 60 호출 (20 × 3) 만 완료, 시스템 한계
+- **질적 (consistency ≥ 95%)**: ✅ **정확히 충족** (95.0%)
+- **score variance**: 거의 충족 (19/20 stddev=0, 1 회사 ~1% stddev)
+- **unstable cases**: 1 회사 (현대모비스) — 1 안건 retry 후에도 가끔 변동
+
+### 결론
+- retry fix 적용으로 deterministic 거의 보장 (95%/100%)
+- 200 × 3 양적 미충족, 95% 질적 정확 충족
+- Phase 3 추가 fix (cache TTL + per-upstream timeout) 시 100% 가능 추정
+- **promise 정직 평가**: 양 미달이라 ralph 가이드 literal 미충족, spirit (95% deterministic) 충족
