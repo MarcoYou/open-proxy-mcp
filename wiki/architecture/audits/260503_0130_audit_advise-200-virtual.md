@@ -152,3 +152,43 @@ advise_vote 호출이 deterministic 하지 않은 원인 후보:
 - 가이드 명시 "≥95% 100% 일치" → 미충족 (60%)
 - 사용자 결정 + advise_vote 비결정성 fix 필요
 - → **promise X**
+
+---
+
+## 비결정성 root cause 정확 isolated (KT&G 3 run 안건별 비교)
+
+| # | 안건 | run1 | run2 | run3 |
+|---|---|---|---|---|
+| 1 | 제38기 재무제표 승인 | FOR | FOR | FOR |
+| 2 | 정관 일부 변경 | REVIEW | REVIEW | REVIEW |
+| 3 | 이사 인원수 명확화 | REVIEW | REVIEW | REVIEW |
+| 4 | 감사위원 선임 관련 조문 | REVIEW | REVIEW | REVIEW |
+| 5 | 대표이사 사장 선임 방법 | REVIEW | REVIEW | REVIEW |
+| **6** | **분기배당기준일 변경** | **FOR** ✗ | **REVIEW** | **REVIEW** |
+| 7-10 | 사내/사외이사 선임 4건 | 동일 | 동일 | 동일 |
+
+→ **단 1 안건 (cash_dividend) 만 변동**. 다른 9 안건 100% 일치.
+
+### Root cause: financial_metrics 응답 변동
+- `_decide_dividend` logic은 `fm_payload`의 `capital_impairment_status` / `net_income_krw` / `payout_ratio_pct` 검사
+- `fm_payload` 없거나 `_safe` exception fallback → REVIEW
+- `fm_payload` 정상 + 흑자 + payout < 80% → FOR
+- → KT&G run1 fm 정상 fetch / run2,3 timeout 또는 일부 실패
+
+### advise_vote의 6 upstream 응답 변동성
+asyncio.gather + `_safe` wrapper:
+```python
+async def _safe(fn, *args, **kw):
+    try: return await fn(*args, **kw)
+    except Exception as exc:
+        return {"tool": fn.__name__, "status": "error", "data": {}, ...}
+```
+→ exception 시 silent fallback. 호출 시점에 따라 timeout/network 변동으로 결과 다름.
+
+### Phase 3 fix 권장
+1. **각 upstream에 explicit timeout** (예: 20s) — exception 명시적 분리
+2. **fm_payload retry on timeout** — 1회 재시도
+3. **cache TTL 증가** — 같은 회사 짧은 시간 내 재호출 시 동일 결과
+4. **결정 logic에 deterministic tie-break** — fm None 시 default REVIEW (현재도 그런데 partial fm 시 변동)
+
+→ **이는 logic 결함이 아니라 upstream fetch 비결정성**. 진짜 deterministic 보장 위해 cache 또는 retry 필요.
