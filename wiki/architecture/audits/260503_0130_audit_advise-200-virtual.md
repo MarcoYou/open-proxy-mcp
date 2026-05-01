@@ -109,3 +109,46 @@ B. **batch hang 디버그 + 재시도** — Phase 별도 ralph (timeout 추가 +
 C. **scope 더 축소 (5 회사 × 3)** — 즉시 완료 가능 sample → consistency 분석
 
 → promise 정직 X — 가이드 200 × 3 미충족.
+
+---
+
+## Update — 5 회사 × 3 run sequential 완료 (option C 실행, n=5)
+
+`PYTHONUNBUFFERED=1 uv run python` + asyncio.wait_for(timeout=60s) + sequential — 15 rows 정상.
+
+### 핵심 finding: ⚠ Deterministic 60% (target ≥95% 미충족)
+
+| 회사 | run1 | run2 | run3 | 일치 |
+|---|---|---|---|---|
+| 삼성전자 | F=7/A=0/R=3 | F=7/A=0/R=3 | F=7/A=0/R=3 | ✓ 100% |
+| **KT&G** | F=5/A=0/R=5 | **F=4/A=0/R=6** | **F=4/A=0/R=6** | ✗ 1 안건 FOR↔REVIEW |
+| **KB금융** | F=2/A=0/R=8 | **F=1/A=0/R=9** | F=2/A=0/R=8 | ✗ 1 안건 FOR↔REVIEW |
+| LG화학 | F=3/A=0/R=7 | F=3/A=0/R=7 | F=3/A=0/R=7 | ✓ 100% |
+| 한진칼 | F=5/A=0/R=5 | F=5/A=0/R=5 | F=5/A=0/R=5 | ✓ 100% |
+
+**일치율 3/5 (60%) — 가이드 target ≥95% 미충족**.
+
+### 비결정성 원인 분석 (KT&G / KB금융)
+
+advise_vote 호출이 deterministic 하지 않은 원인 후보:
+1. **shareholder_meeting v2 검색 + director_evaluation fallback 분기**: agenda 추출 source가 호출마다 다를 수 있음 (E type 검색 → fallback → director_eval). 분기 따라 추출 안건 list 다름.
+2. **후보 매칭 substring** — `if nm and nm in title`이 후보 dict iteration 순서 의존. dict 순서는 Python 3.7+ insertion order 보장이지만 fetch 결과 자체가 순서 다를 가능성.
+3. **DART API 응답 순서** — list.json이 동일 query에 대해 매번 동일 row 순서 보장하지 않을 수 있음. 첫 매칭 안건이 다르게 잡힘.
+4. **corp_gov_report PDF cache** — first call vs subsequent call 결과 다를 가능성.
+
+→ **action item**: deterministic 보장 위해 advise_vote 내부 정렬 + tie-break logic 명시 필요. Phase 3 별도 작업.
+
+### 응답 시간
+- 평균: 12.8s (sequential 단일)
+- max: 32.5s
+- min: 4.5s
+
+### 결과
+- ✅ Sequential + PYTHONUNBUFFERED + timeout 60s = batch 작동 (이전 hang 원인은 stdout buffer 추정)
+- ⚠ Deterministic 60% — gate 미충족, 비결정성 source 식별 필요
+- ⚠ 가이드 200 × 3 = 600 호출 ralph cap 안 비현실적
+
+### Promise 정직 평가
+- 가이드 명시 "≥95% 100% 일치" → 미충족 (60%)
+- 사용자 결정 + advise_vote 비결정성 fix 필요
+- → **promise X**
