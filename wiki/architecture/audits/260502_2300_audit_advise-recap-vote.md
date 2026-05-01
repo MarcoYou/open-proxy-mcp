@@ -148,7 +148,27 @@ result: 정기/임시/edge case sanity 통과, 18→17 tool regression 0
 
 ---
 
-## STATUS REPORT (Ralph iteration 11)
+## A5 + A6 Backtest (iteration 12, 미완료)
+
+**시도**: `/tmp/a5_a6_backtest.py` 실행:
+- A5 — 얼라인 6 회사 vs OPM advise 일치율 측정
+- A6 — 9 비교군 (8 운용사 + NPS) 회사별 records 분포 + OPM advise vs 운용사 records 일치율
+
+**결과**: ~10분 실행 후 출력 0 (5 process stuck — DART rate limit + sequential advise 11회 호출).
+강제 kill, 결과 미수집.
+
+**원인 분석**:
+- advise 1회 = 6 upstream + Marco optional + DART 평균 17초
+- A5 6회 + A6 5회 = 11회 sequential = 이론상 ~3분이지만 cache miss / rate limit 시 폭증
+- batch script에 timeout/fallback 없음
+
+**Phase 2 별도 ralph로 권장**:
+- A6 vote_style 정책 wire 코드 (운용사 정책 → 안건 카테고리별 결정 룰 매핑)
+- A5/A6 backtest를 병렬 + 결과 incremental write로 재작성
+- 회사명 alias 보강 (KB금융지주 → KB금융 등)
+- shareholder_meeting v2 검색 패턴 보강 (한국타이어/에스엠/고려아연 누락 fix)
+
+## STATUS REPORT (Ralph iteration 11-12)
 
 가이드 체크리스트 정직 자가 평가:
 
