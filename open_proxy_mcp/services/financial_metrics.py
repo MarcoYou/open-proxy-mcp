@@ -251,26 +251,47 @@ def _build_account_map_all(
     return out
 
 
-def _safe_div(numer: int | float | None, denom: int | float | None) -> float | None:
-    """0 분모 / None graceful. denom 음수도 graceful (부호 보존)."""
+def _safe_div(
+    numer: int | float | None,
+    denom: int | float | None,
+    *,
+    positive_denom_only: bool = False,
+) -> float | None:
+    """0 분모 / None graceful.
+
+    positive_denom_only=True: 분모가 음수면 None 반환 (ROE/ROA/배당성향 등 — 자본 음수 = 채무초과 회사).
+    positive_denom_only=False (default): 분모 부호 보존 (이자보상배율 — 영업이익 음수면 음수 ratio가 의미 있음).
+    """
     if numer is None or denom is None:
         return None
     if denom == 0:
         return None
+    if positive_denom_only and denom < 0:
+        return None
     return numer / denom
 
 
-def _safe_pct(numer: int | float | None, denom: int | float | None) -> float | None:
+def _safe_pct(
+    numer: int | float | None,
+    denom: int | float | None,
+    *,
+    positive_denom_only: bool = False,
+) -> float | None:
     """비율을 % (×100) 로. round 2자리."""
-    r = _safe_div(numer, denom)
+    r = _safe_div(numer, denom, positive_denom_only=positive_denom_only)
     if r is None:
         return None
     return round(r * 100, 2)
 
 
-def _safe_ratio(numer: int | float | None, denom: int | float | None) -> float | None:
+def _safe_ratio(
+    numer: int | float | None,
+    denom: int | float | None,
+    *,
+    positive_denom_only: bool = False,
+) -> float | None:
     """비율을 decimal 그대로. round 4자리."""
-    r = _safe_div(numer, denom)
+    r = _safe_div(numer, denom, positive_denom_only=positive_denom_only)
     if r is None:
         return None
     return round(r, 4)
@@ -368,9 +389,10 @@ def _compute_metrics(
             ebitda_krw = None
     ebitda_margin_pct = _safe_pct(ebitda_krw, revenue)
 
-    # ROE / ROA — 평균자산/평균자본 (전기 없으면 기말 단독)
-    roe_pct = _safe_pct(net_income_controlling, avg_equity)
-    roa_pct = _safe_pct(net_income_controlling, avg_assets)
+    # ROE / ROA — 평균자산/평균자본 (전기 없으면 기말 단독).
+    # 분모 음수 (채무초과) 시 None — 적자 회사 ROE 부호 왜곡 방지.
+    roe_pct = _safe_pct(net_income_controlling, avg_equity, positive_denom_only=True)
+    roa_pct = _safe_pct(net_income_controlling, avg_assets, positive_denom_only=True)
 
     # ROIC = NOPAT / 투하자본. 단순 근사: 영업이익 × (1 - 0.22 평균법인세율) / (자본 + 총차입)
     nopat = None
@@ -380,11 +402,13 @@ def _compute_metrics(
         nopat = operating_profit * (1 - 0.22)  # 한국 평균 법인세 22%
     if total_equity is not None and total_debt is not None:
         invested_capital = total_equity + total_debt
-    roic_pct = _safe_pct(nopat, invested_capital)
+    # 투하자본도 음수면 None (자본+차입이 동시에 음수 = 비정상)
+    roic_pct = _safe_pct(nopat, invested_capital, positive_denom_only=True)
 
     # ── 듀퐁 3단 ──
-    asset_turnover_ratio = _safe_ratio(revenue, avg_assets)
-    equity_multiplier = _safe_ratio(avg_assets, avg_equity)
+    asset_turnover_ratio = _safe_ratio(revenue, avg_assets, positive_denom_only=True)
+    # 평균자본 음수 (채무초과) 시 equity_multiplier는 None — ROE 분해 의미 없음
+    equity_multiplier = _safe_ratio(avg_assets, avg_equity, positive_denom_only=True)
     # ROE 검증 (3단 곱)
     roe_dupont_pct = None
     if net_profit_margin_pct is not None and asset_turnover_ratio is not None and equity_multiplier is not None:
@@ -393,12 +417,14 @@ def _compute_metrics(
         )
 
     # ── 안정성 ──
-    debt_ratio_pct = _safe_pct(total_liabilities, total_equity)
-    current_ratio_pct = _safe_pct(current_assets, current_liabilities)
-    interest_coverage_ratio = _safe_ratio(operating_profit, interest_expense) if (
-        interest_expense is not None and interest_expense != 0
+    # 부채비율 — 분모 자본 양수 가정 (채무초과 시 비율 의미 X → None)
+    debt_ratio_pct = _safe_pct(total_liabilities, total_equity, positive_denom_only=True)
+    current_ratio_pct = _safe_pct(current_assets, current_liabilities, positive_denom_only=True)
+    # 이자보상배율 — 영업이익(분자) 음수면 ratio 음수가 의미 있음 (적자 가시성). 분모만 양수 요구.
+    interest_coverage_ratio = _safe_ratio(operating_profit, interest_expense, positive_denom_only=True) if (
+        interest_expense is not None and interest_expense > 0
     ) else None
-    debt_dependency_pct = _safe_pct(total_debt, total_assets)
+    debt_dependency_pct = _safe_pct(total_debt, total_assets, positive_denom_only=True)
 
     # ── 현금흐름 ──
     fcf_krw = None
