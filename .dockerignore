@@ -11,7 +11,9 @@ samples/
 screenshot/
 test_screenshots/
 graphify-out/
-wiki/raw/*.pdf
+open-proxy-mcp/raw/policies/*.pdf
+open-proxy-mcp/raw/records/*.xlsx
+open-proxy-mcp/raw/references/*.pdf
 .git
 .DS_Store
 .omc/

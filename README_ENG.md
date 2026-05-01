@@ -222,7 +222,7 @@ open-proxy-mcp/
     data/asset_managers/   # 8 manager policies (anonymized) + records + Open Proxy Guideline + 12 matrices
   Dockerfile               # Container for Fly.io deployment
   fly.toml                 # Fly.io config (nrt region, auto-suspend)
-  wiki/                    # Domain knowledge wiki
+  open-proxy-mcp/          # Domain knowledge wiki (formerly wiki/)
 ```
 
 ---

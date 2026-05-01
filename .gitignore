@@ -49,13 +49,17 @@ data/
 !open_proxy_mcp/data/
 
 # 운용사 정책/행사내역 원본 (parsed JSON만 commit, PDF/xlsx는 로컬 보관)
-wiki/sources/*.pdf
-wiki/sources/*.xlsx
-wiki/sources/*.doc
-wiki/sources/*.docx
-wiki/sources/2024.*
-wiki/sources/2025.*
-wiki/sources/2026.*
+open-proxy-mcp/raw/policies/*.pdf
+open-proxy-mcp/raw/records/*.xlsx
+open-proxy-mcp/raw/references/*.pdf
+open-proxy-mcp/raw/references/*.doc
+open-proxy-mcp/raw/references/*.docx
+open-proxy-mcp/raw/policies/2024.*
+open-proxy-mcp/raw/policies/2025.*
+open-proxy-mcp/raw/policies/2026.*
+open-proxy-mcp/raw/records/2024.*
+open-proxy-mcp/raw/records/2025.*
+open-proxy-mcp/raw/records/2026.*
 
 # Document cache (DART API)
 cache/
@@ -73,7 +77,7 @@ DEVLOG.md
 TO_DO.md
 
 # Wiki raw PDFs (binary + copyright)
-wiki/raw/*.pdf
+open-proxy-mcp/raw/references/*.pdf
 
 # Graphify (knowledge graph build artifacts — rebuilt from wiki/)
 graphify-out/

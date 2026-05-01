@@ -98,7 +98,7 @@ open-proxy-mcp/
       date_utils.py             # 날짜 유틸
       contracts.py              # 데이터 계약 (타입 정의)
     tools/                      # v1 tool (OPEN_PROXY_TOOLSET=v1 시 사용)
-  wiki/                         # 도메인 지식 위키
+  open-proxy-mcp/               # 도메인 지식 위키 (구 wiki/, 5 카테고리: raw/tools/architecture/decisions/rules)
   docs/                         # 사용자 문서
   Dockerfile
   fly.toml
