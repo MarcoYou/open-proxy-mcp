@@ -485,10 +485,16 @@ def _compute_metrics(
 
     # ── NAV / 주식 ──
     nav_krw = total_equity  # 자본총계 = 자산-부채
-    # BPS / EPS는 발행주식수 필요 — fnltt에는 없으므로 stockTotqySttus 별도 호출이 정확.
+    # BPS는 발행주식수 필요 — fnltt에는 없으므로 stockTotqySttus 별도 호출 필요 (Phase 2).
     # detail에 basic_eps_per_share / diluted_eps_per_share가 있으면 그대로 사용 (원/주).
     eps_krw = basic_eps_per_share
     diluted_eps_krw = diluted_eps_per_share
+    bps_krw = None  # Phase 2 — stockTotqySttus 호출 통합 시 채움
+
+    # ── 지배구조 cross-check ──
+    # subsidiary_count: 종속회사 수. DART OpenAPI 4 endpoint 어디에도 직접 반환 X.
+    # 사업보고서 본문 (XML/PDF) "종속회사 명단" 섹션 파싱 필요 — Phase 2 (3-tier fallback 추가).
+    subsidiary_count = None
 
     return {
         # ── 수익성 ──
@@ -547,6 +553,9 @@ def _compute_metrics(
         "retained_earnings_krw": retained_earnings,
         # ── NAV/주식 ──
         "nav_krw": nav_krw,
+        "bps_krw": bps_krw,  # Phase 2 — None until stockTotqySttus 통합
+        # ── 지배구조 cross-check ──
+        "subsidiary_count": subsidiary_count,  # Phase 2 — 사업보고서 본문 파싱 필요
         # ── DART 산출 지표 (보조) ──
         "dart_indx": indx_map,
     }
