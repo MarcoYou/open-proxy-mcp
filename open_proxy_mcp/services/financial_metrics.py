@@ -716,23 +716,58 @@ async def _safe_fetch_audit(corp_code: str, year: int) -> tuple[list[dict[str, A
 
 # ── scope dispatchers ──
 
+async def _fetch_acnt_with_fallback(
+    corp_code: str,
+    year: int,
+    fs_div: str,
+) -> tuple[list[dict[str, Any]], str, str | None]:
+    """사업보고서(11011) → 3분기(11014) → 반기(11012) → 1분기(11013) 순서로 fallback.
+
+    가장 최근에 가용한 분기 보고서를 사용 (사업보고서 미공시 시).
+
+    return (rows, used_reprt_code, warning_or_None)
+    """
+    fallback_order = ("11011", "11014", "11012", "11013")
+    last_err = None
+    for rc in fallback_order:
+        rows, err = await _safe_fetch_acnt(corp_code, year, rc, fs_div)
+        if rows:
+            return rows, rc, None
+        if err == "no_filing":
+            last_err = f"{year}년 reprt_code={rc} no_filing"
+            continue
+        if err:
+            last_err = err
+    return [], "11011", last_err or f"{year}년 모든 reprt_code (사업/반기/분기) 미공시"
+
+
 async def _fetch_year_metrics(
     corp_code: str,
     year: int,
     fs_div: str,
     *,
     include_prev: bool = True,
+    allow_quarterly_fallback: bool = True,
 ) -> tuple[dict[str, Any], list[str], int]:
     """단일 사업연도 metrics. 당기+전기 fnlttSinglAcnt를 모두 호출.
 
+    allow_quarterly_fallback=True (default): 사업보고서 미공시 시 분기/반기 보고서로 fallback.
     return (metrics, warnings, evidence_count)
     """
     warnings: list[str] = []
-    rows_curr, err_curr = await _safe_fetch_acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
-    if err_curr == "no_filing":
-        return {}, [f"{year}년 사업보고서 미공시 (fnlttSinglAcnt no_filing)"], 0
-    if err_curr:
-        warnings.append(err_curr)
+    if allow_quarterly_fallback:
+        rows_curr, used_rc, fb_err = await _fetch_acnt_with_fallback(corp_code, year, fs_div)
+        if not rows_curr:
+            return {}, [fb_err or f"{year}년 데이터 미공시"], 0
+        if used_rc != _REPRT_BUSINESS:
+            warnings.append(f"{year}년 사업보고서 미공시 — reprt_code={used_rc}로 fallback (반기/분기)")
+    else:
+        rows_curr, err_curr = await _safe_fetch_acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
+        if err_curr == "no_filing":
+            return {}, [f"{year}년 사업보고서 미공시 (fnlttSinglAcnt no_filing)"], 0
+        if err_curr:
+            warnings.append(err_curr)
+        used_rc = _REPRT_BUSINESS
     rows_prev: list[dict[str, Any]] = []
     if include_prev:
         rows_prev, err_prev = await _safe_fetch_acnt(corp_code, year - 1, _REPRT_BUSINESS, fs_div)
@@ -768,7 +803,7 @@ async def _fetch_year_metrics(
     )
     metrics["year"] = year
     metrics["fs_div"] = fs_div
-    metrics["reprt_code"] = _REPRT_BUSINESS
+    metrics["reprt_code"] = used_rc
     return metrics, warnings, 1
 
 
