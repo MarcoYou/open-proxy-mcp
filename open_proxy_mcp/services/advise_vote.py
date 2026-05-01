@@ -159,23 +159,28 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
 
 
 def _decide_compensation(comp_payload: dict[str, Any] | None) -> tuple[str, str]:
-    """보수한도 안건 → (decision, reason).
+    """보수한도 안건 — 보수화 (애매→REVIEW, 누가봐도 안좋음→AGAINST).
 
-    소진율 < 30%인데 인상 → AGAINST. 50%+ 대폭 인상 → REVIEW. 그 외 → FOR.
-    proxy_guideline director_compensation 룰 적용.
+    AGAINST: 소진율 < 30% + 인상 (남는데 더 늘림 — 명백한 주주가치 훼손).
+    REVIEW: 50%+ 대폭 인상 / 인상률 미명시 / 데이터 모호.
+    FOR: 동결 또는 -10% ~ +10% 소폭 변경 (명확).
     """
     if not comp_payload:
-        return "REVIEW", "보수 데이터 없음"
+        return "REVIEW", "보수 데이터 없음 — 본문 검토 필요"
     data = comp_payload.get("data", {})
     summary = data.get("summary", {}) or {}
-    util_rate = summary.get("utilization_rate_pct")  # 소진율
-    increase_rate = summary.get("increase_rate_pct")  # 전년 대비 증감률
+    util_rate = summary.get("utilization_rate_pct")
+    increase_rate = summary.get("increase_rate_pct")
 
     if util_rate is not None and util_rate < 30 and increase_rate and increase_rate > 0:
-        return "AGAINST", f"소진율 {util_rate:.0f}%인데 한도 인상 ({increase_rate:+.0f}%)"
-    if increase_rate and increase_rate >= 50:
+        return "AGAINST", f"소진율 {util_rate:.0f}%인데 한도 인상 ({increase_rate:+.0f}%) — 주주가치 훼손"
+    if increase_rate is not None and increase_rate >= 50:
         return "REVIEW", f"보수한도 대폭 인상 ({increase_rate:+.0f}%) — 사용자 검토"
-    return "FOR", "소진율 적정 범위 또는 동결/소폭 변경"
+    if increase_rate is None:
+        return "REVIEW", "보수한도 인상률 데이터 없음 — 본문 검토 필요"
+    if -10 <= increase_rate <= 10:
+        return "FOR", f"보수한도 소폭 변경 ({increase_rate:+.0f}%) 또는 동결"
+    return "REVIEW", f"보수한도 인상 ({increase_rate:+.0f}%) — 적정성 검토 필요"
 
 
 def _decide_financial_statements(fm_payload: dict[str, Any] | None) -> tuple[str, str]:
@@ -216,14 +221,28 @@ def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
 
 
 def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None) -> tuple[str, str]:
-    """배당 안건 — 분기/특별 등."""
+    """배당 안건 — 보수화 (애매→REVIEW).
+
+    AGAINST: 자본잠식 full + 배당 (명백한 주주가치 훼손).
+    REVIEW: 적자 (음수 순익) / 배당성향 80%+ / 재무 데이터 없음.
+    FOR: 흑자 + 배당성향 적정 (< 80%).
+    """
     if not fm_payload:
-        return "FOR", "배당 안건 — 정상 영업 가정 (재무 데이터 부족)"
+        return "REVIEW", "재무 데이터 없음 — 배당 적정성 본문 검토 필요"
     summary = (fm_payload.get("data") or {}).get("summary", {}) or {}
+    cap_status = summary.get("capital_impairment_status")
+    ni = summary.get("net_income_krw")
     payout = summary.get("payout_ratio_pct")
+
+    if cap_status == "full":
+        return "AGAINST", "완전 자본잠식 — 배당 결정은 주주가치 훼손"
+    if ni is not None and ni < 0:
+        return "REVIEW", f"적자 회사 (순이익 {ni:,}원) — 배당 재원 적정성 검토 필요"
     if payout is not None and payout > 80:
-        return "REVIEW", f"배당성향 {payout}% — 과도한 배당 가능성"
-    return "FOR", "배당 안건 — 재무 건전 + 배당성향 적정"
+        return "REVIEW", f"배당성향 {payout}% (>80%) — 과도한 배당 가능성"
+    if ni is not None and ni > 0 and (payout is None or payout <= 80):
+        return "FOR", "흑자 + 배당성향 적정 (<80%)"
+    return "REVIEW", "배당 적정성 본문 검토 필요"
 
 
 # ── 메인 advise builder ──
