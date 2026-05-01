@@ -213,16 +213,22 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
     }
 
     # 2. eligibility 필드 (taxDelinquency / insolventMgmt / legalDisqualification) → success
+    # "해당사항 없음(충족)" / "해당사항없음" 등 변형 모두 clean으로 인식.
     elig = candidate.get("eligibility") or {}
     elig_flags: dict[str, str | None] = {}
     has_red = False
     for k in ("taxDelinquency", "insolventMgmt", "legalDisqualification"):
         v = elig.get(k)
-        if v and v not in ("해당 사항 없음", "해당사항 없음", "없음", "-", None):
+        if not v or v in ("-", None):
+            elig_flags[k] = None
+            continue
+        v_norm = str(v).replace(" ", "")
+        # 부정 키워드 ("없음" / "충족" / "해당없음") 포함 시 clean
+        if any(kw in v_norm for kw in ("없음", "충족", "해당사항없음")):
+            elig_flags[k] = None
+        else:
             has_red = True
             elig_flags[k] = v
-        else:
-            elig_flags[k] = None
     out["sub_factors"]["eligibility"] = {
         "result": "red_flag" if has_red else "clean",
         "raw_flags": {k: v for k, v in elig_flags.items() if v},
@@ -236,20 +242,193 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
     return out
 
 
-# ── 충실성 placeholder (Phase 2에서 확장) ──
+# ── 충실성 — Marco 시나리오 (과거 회사 × 재직 기간 × 회계 risk overlap) ──
 
-def evaluate_faithfulness_basic(candidate: dict[str, Any]) -> dict[str, Any]:
-    """충실성 — Phase 1: dutyPlan + recommendationReason raw 노출 (soft-fail).
+# 한국 회사명 정규식 패턴 — careerCompanyGroups company 필드에서 추출.
+# 예: "삼성전자 사외이사", "KB금융 ESG위원장", "POSCO홀딩스 부사장"
+# 한국 회사 + 직책이 한 줄로 붙어 있는 케이스 대응.
+_KOREAN_CORP_SUFFIX_RE = re.compile(
+    r"([가-힣A-Za-z0-9&\(\)]+(?:홀딩스|금융지주|증권|건설|중공업|화학|전자|반도체|"
+    r"바이오|제약|텔레콤|에너지|화공|상사|글로벌|디스플레이|자동차|생명과학)?[가-힣A-Za-z0-9]*)"
+)
 
-    Phase 2: 출석률 (corp_gov_report) + Marco overlap (financial_metrics × careerDetails 회사명).
+
+def _extract_korean_corp_names(career_company_groups: list[dict[str, Any]] | None) -> list[str]:
+    """careerCompanyGroups → 한국 회사명 candidates list.
+
+    매핑: success (회사명 추출 성공) / soft-fail (정규식 실패 시 raw 그대로 노출)
     """
-    return {
-        "duty_plan_raw": candidate.get("dutyPlan") or None,  # soft-fail (자유 텍스트)
+    if not career_company_groups:
+        return []
+    names: list[str] = []
+    for grp in career_company_groups:
+        company = (grp.get("company") or "").strip()
+        if not company:
+            continue
+        # 첫 segment 추출 (콤마/공백 분리)
+        first = re.split(r"[,，\(]", company, maxsplit=1)[0].strip()
+        if first and len(first) >= 2:
+            names.append(first)
+    return names
+
+
+def _parse_career_period(period: str) -> tuple[int | None, int | None]:
+    """careerDetails.period → (start_year, end_year). "현재" → None (current).
+
+    매핑: success (정규식 매칭) / soft-fail (포맷 다른 케이스)
+    """
+    if not period:
+        return None, None
+    period = period.strip()
+    # "2013 ~ 현재" / "2013.01 ~ 2024.03" / "2013-2024"
+    m = re.match(r"(\d{4})", period)
+    if not m:
+        return None, None
+    start = int(m.group(1))
+    if "현재" in period:
+        return start, None
+    m2 = re.search(r"~\s*(\d{4})", period)
+    if m2:
+        return start, int(m2.group(1))
+    m3 = re.search(r"-\s*(\d{4})", period)
+    if m3:
+        return start, int(m3.group(1))
+    return start, None
+
+
+async def _check_marco_overlap(
+    corp_name: str,
+    period_start: int | None,
+    period_end: int | None,
+) -> dict[str, Any] | None:
+    """과거 회사 corp_code lookup → financial_metrics audit_opinion 호출.
+
+    재직 기간 (period_start ~ period_end) 안에 non_clean 감사의견 또는
+    capital_impairment_full 발생했는지 체크.
+
+    return: red_flag dict / None.
+    매핑: success (corp_code lookup OK) / soft-fail (회사명 매핑 실패 시 None)
+    """
+    if not corp_name or not period_start:
+        return None
+    client = get_dart_client()
+    try:
+        match = await client.lookup_corp_code(corp_name)
+    except Exception:
+        return None
+    if not match or not match.get("stock_code"):
+        # 한국 비상장 또는 매핑 실패 → soft-fail (None 반환, 메모에서 "raw text only")
+        return None
+    past_corp_code = match["corp_code"]
+    end_year = period_end or 2025  # 현재까지 재직이면 현재 연도까지 cross-check
+
+    # 재직 기간 동안의 financial_metrics yoy + audit_opinion 호출
+    from open_proxy_mcp.services.financial_metrics import _safe_fetch_audit, _fetch_year_metrics
+
+    red_flags: list[dict[str, Any]] = []
+    for y in range(max(period_start, 2020), min(end_year, 2025) + 1):
+        # audit opinion check
+        try:
+            rows, err = await _safe_fetch_audit(past_corp_code, y)
+            if rows:
+                for r in rows[:1]:  # 첫 row만 (당기)
+                    op = (r.get("adt_opinion") or "").strip()
+                    if op and "적정" not in op:
+                        red_flags.append({
+                            "type": "non_clean_audit_opinion",
+                            "year": y,
+                            "opinion": op,
+                            "company": corp_name,
+                            "rcept_no": r.get("rcept_no"),
+                        })
+        except Exception:
+            continue
+        # 자본잠식 체크 — yoy 호출 비싸므로 audit_opinion만 우선 (Phase 1 한계)
+        # 자본잠식은 다음 iteration에서 metrics summary로 추가 가능
+
+    if red_flags:
+        return {
+            "company": corp_name,
+            "corp_code": past_corp_code,
+            "tenure_start_year": period_start,
+            "tenure_end_year": period_end,
+            "red_flags": red_flags,
+        }
+    return None
+
+
+async def evaluate_faithfulness(
+    candidate: dict[str, Any],
+    *,
+    enable_marco: bool = False,
+) -> dict[str, Any]:
+    """충실성 평가.
+
+    Phase 1 기본:
+    - dutyPlan / recommendationReason → soft-fail (raw 노출, LLM 자연어 판단)
+    - mainJob / recommender / careerCompanyGroups → success (구조화)
+
+    enable_marco=True: 과거 회사 × 재직 기간 × 회계 risk overlap 자동 체크.
+    Marco 시나리오는 추가 DART 호출 발생 (cost) — 옵션.
+    """
+    out: dict[str, Any] = {
+        "duty_plan_raw": candidate.get("dutyPlan") or None,
         "recommendation_reason_raw": candidate.get("recommendationReason") or None,
-        "main_job": candidate.get("mainJob"),  # success
-        "recommender": candidate.get("recommender"),  # success
+        "main_job": candidate.get("mainJob"),
+        "recommender": candidate.get("recommender"),
         "career_company_groups": candidate.get("careerCompanyGroups") or [],
-        "marco_scenario_status": "phase_2_pending",  # 다음 iteration
+    }
+
+    # Marco 시나리오 — 과거 회사 × 재직 기간 cross-check
+    marco_red_flags: list[dict[str, Any]] = []
+    marco_status = "disabled"
+    if enable_marco:
+        marco_status = "checked"
+        career_details = candidate.get("careerDetails") or []
+        career_groups = candidate.get("careerCompanyGroups") or []
+        # career_groups의 company + items (period 리스트) 조합
+        for grp in career_groups:
+            company_raw = (grp.get("company") or "").strip()
+            if not company_raw:
+                continue
+            # 첫 segment만 corp_name으로 시도 (정규식 매칭)
+            first_segment = re.split(r"[,，\(]", company_raw, maxsplit=1)[0].strip()
+            # 첫 단어가 한국 회사 형태인지 확인 (한글/영문 mix)
+            corp_name_candidate = first_segment.split()[0] if first_segment else ""
+            if not corp_name_candidate or len(corp_name_candidate) < 2:
+                continue
+            for period in (grp.get("items") or []):
+                start, end = _parse_career_period(period)
+                if start is None:
+                    continue
+                overlap = await _check_marco_overlap(corp_name_candidate, start, end)
+                if overlap:
+                    marco_red_flags.append(overlap)
+
+    out["marco_scenario"] = {
+        "status": marco_status,
+        "red_flags": marco_red_flags,
+        "summary": "red_flag" if marco_red_flags else ("clean" if marco_status == "checked" else "not_checked"),
+    }
+
+    # 통합 summary
+    if marco_red_flags:
+        out["summary"] = "concerns"
+    else:
+        out["summary"] = "raw_disclosed" if marco_status != "checked" else "clean"
+    return out
+
+
+# 후방 호환 alias (Phase 1 코드 사용 중)
+def evaluate_faithfulness_basic(candidate: dict[str, Any]) -> dict[str, Any]:
+    """동기 alias — Marco 비활성. enable_marco 옵션 없는 호출처용."""
+    return {
+        "duty_plan_raw": candidate.get("dutyPlan") or None,
+        "recommendation_reason_raw": candidate.get("recommendationReason") or None,
+        "main_job": candidate.get("mainJob"),
+        "recommender": candidate.get("recommender"),
+        "career_company_groups": candidate.get("careerCompanyGroups") or [],
+        "marco_scenario": {"status": "disabled", "red_flags": [], "summary": "not_checked"},
         "summary": "raw_disclosed",
     }
 
@@ -257,7 +436,7 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any]) -> dict[str, Any]:
 # ── 후보 평가 통합 ──
 
 def evaluate_candidate(candidate: dict[str, Any], current_year: int) -> dict[str, Any]:
-    """단일 후보 → 3축 평가 dict."""
+    """단일 후보 → 3축 평가 dict (Marco 비활성, sync)."""
     return {
         "name": candidate.get("name"),  # success
         "birth_date": candidate.get("birthDate"),  # success
@@ -269,6 +448,24 @@ def evaluate_candidate(candidate: dict[str, Any], current_year: int) -> dict[str
     }
 
 
+async def evaluate_candidate_async(
+    candidate: dict[str, Any],
+    current_year: int,
+    *,
+    enable_marco: bool = False,
+) -> dict[str, Any]:
+    """단일 후보 평가 (async, Marco 옵션). Marco 활성 시 과거 회사 cross-check."""
+    return {
+        "name": candidate.get("name"),
+        "birth_date": candidate.get("birthDate"),
+        "role_type": candidate.get("roleType"),
+        "separate_election": candidate.get("separateElection"),
+        "independence": evaluate_independence(candidate, current_year),
+        "faithfulness": await evaluate_faithfulness(candidate, enable_marco=enable_marco),
+        "disqualification": evaluate_disqualification(candidate, current_year),
+    }
+
+
 # ── Public payload builder ──
 
 async def build_director_evaluation_payload(
@@ -276,6 +473,7 @@ async def build_director_evaluation_payload(
     *,
     year: int | None = None,
     meeting_type: str = "annual",
+    enable_marco: bool = False,
 ) -> dict[str, Any]:
     from open_proxy_mcp.services.company import _company_id, resolve_company_query
 
@@ -317,7 +515,7 @@ async def build_director_evaluation_payload(
     for ap in appointments:
         cands = ap.get("candidates") or []
         for c in cands:
-            ev = evaluate_candidate(c, target_year)
+            ev = await evaluate_candidate_async(c, target_year, enable_marco=enable_marco)
             ev["agenda_title"] = ap.get("title")
             ev["agenda_action"] = ap.get("action")
             ev["agenda_category"] = ap.get("category")
