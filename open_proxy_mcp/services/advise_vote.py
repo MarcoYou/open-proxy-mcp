@@ -20,7 +20,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import date
+from importlib.resources import files
 from typing import Any
 
 from open_proxy_mcp.dart.client import get_dart_client
@@ -39,6 +41,68 @@ from open_proxy_mcp.services.financial_metrics import build_financial_metrics_pa
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.proxy_guideline import build_proxy_guideline_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
+
+
+# ── vote_style 정책 로딩 (운용사별 voting_rules) ──
+
+# vote_style alias → policy JSON file ID
+_VOTE_STYLE_POLICY_FILE = {
+    "open_proxy": "open_proxy_v1",
+    "mirae_asset": "m_legacy_2026-04",  # 최신 2026 정책 우선
+    "m_legacy": "m_legacy_2026-04",
+    "samsung": "s_legacy_2025-04",
+    "s_legacy": "s_legacy_2025-04",
+    "samsung_active": "sa_active_2025-04",
+    "sa_active": "sa_active_2025-04",
+    "kim": "k_legacy_2025-04",
+    "k_legacy": "k_legacy_2025-04",
+    "truston": "t_activist_2025-04",
+    "t_activist": "t_activist_2025-04",
+    "align_partners": "a_activist_2025-04",
+    "a_activist": "a_activist_2025-04",
+    "baring": "b_foreign_2025-04",
+    "b_foreign": "b_foreign_2025-04",
+    "cha_partners": "c_activist_2026-04",
+    "c_activist": "c_activist_2026-04",
+    "nps": "nps_2025-03",
+}
+
+
+def _load_vote_style_policy(vote_style: str) -> dict[str, Any] | None:
+    """vote_style → policy JSON (voting_rules + meta).
+
+    매핑: success (file 존재) / soft-fail (file 없음 — None 반환, OPM default fallback).
+    """
+    file_id = _VOTE_STYLE_POLICY_FILE.get(vote_style)
+    if not file_id:
+        return None
+    try:
+        path = files("open_proxy_mcp.data.asset_managers") / "policies" / f"{file_id}.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, Exception):
+        return None
+
+
+def _policy_default(policy: dict[str, Any] | None, category: str) -> str | None:
+    """voting_rules[category]['default'] 값 (for/against/review/case_by_case/None)."""
+    if not policy:
+        return None
+    rules = policy.get("voting_rules") or {}
+    cat_rule = rules.get(category) or {}
+    return cat_rule.get("default")
+
+
+def _apply_policy_default(default_str: str | None, fallback_decision: str, fallback_reason: str) -> tuple[str, str]:
+    """운용사 정책 default → 결정 변환. case_by_case/None → 기존 OPM logic fallback."""
+    if not default_str or default_str == "case_by_case":
+        return fallback_decision, fallback_reason
+    if default_str == "for":
+        return "FOR", "운용사 정책상 default=FOR (case별 reverse 룰은 별도)"
+    if default_str == "against":
+        return "AGAINST", "운용사 정책상 default=AGAINST"
+    if default_str == "review":
+        return "REVIEW", "운용사 정책상 default=REVIEW (case별 검토)"
+    return fallback_decision, fallback_reason
 
 
 # ── 안건별 결정 logic ──
@@ -204,6 +268,11 @@ async def build_advise_vote_payload(
     selected = resolution.selected
     target_year = year or date.today().year - 1
 
+    # vote_style 정책 로딩 (success / soft-fail)
+    policy = _load_vote_style_policy(vote_style)
+    policy_id = (policy or {}).get("policy_id") or vote_style
+    policy_meta = (policy or {}).get("policy_meta") or {}
+
     # ── 6 upstream 병렬 호출 ──
     async def _safe(fn, *args, **kw):
         try:
@@ -235,15 +304,15 @@ async def build_advise_vote_payload(
         if nm:
             name_to_eval[nm] = ev
 
-    # 안건별 결정 + 사유
+    # 안건별 결정 + 사유 (vote_style 정책 wire 적용)
     agenda_decisions: list[dict[str, Any]] = []
     for title in agenda_titles:
         category = _classify_agenda(title)
         decision = "REVIEW"
         reason = "category 미분류"
 
+        # 1. OPM 기본 logic으로 fallback decision 산출
         if category == "director_election" or category == "audit_committee_election":
-            # 후보 이름 추출 시도 (title에 후보 이름 또는 director_evals와 매칭)
             matched_eval = None
             for nm, ev in name_to_eval.items():
                 if nm and nm in title:
@@ -264,14 +333,29 @@ async def build_advise_vote_payload(
             decision = "REVIEW"
             reason = f"안건 카테고리 '{category}' — 정책 미정의 또는 본문 검토 필요"
 
+        # 2. vote_style 정책 default가 명확하면 (for / against / review) 그걸 우선
+        # case_by_case면 OPM fallback 결정 유지.
+        policy_default = _policy_default(policy, category)
+        original_decision, original_reason = decision, reason
+        decision, reason = _apply_policy_default(policy_default, decision, reason)
+
+        # 3. 정책 근거 명시 (vote_style + 운용사명 + 카테고리 default)
+        policy_basis = f"{policy_id}"
+        if policy_meta.get("manager_name"):
+            policy_basis = f"{policy_meta['manager_name']} ({policy_id})"
+        if policy_default and policy_default != "case_by_case":
+            policy_basis += f" / {category}.default={policy_default}"
+        else:
+            policy_basis += f" / case_by_case → OPM fallback"
+
         agenda_decisions.append({
             "agenda_title": title,
             "agenda_category": category,
             "decision": decision,
             "reason": reason,
-            # 정책 근거 placeholder — Phase 2에서 proxy_guideline rule_id 추가
-            "policy_basis": f"Open Proxy Guideline / {vote_style}",
-            # 사실 근거 evidence
+            "policy_basis": policy_basis,
+            "policy_default": policy_default,
+            "opm_fallback_decision": original_decision if (policy_default and policy_default != "case_by_case") else None,
             "evidence_rcept_no": (meeting_summary.get("data") or {}).get("rcept_no") or director_data.get("rcept_no"),
         })
 
@@ -312,6 +396,9 @@ async def build_advise_vote_payload(
             "year": target_year,
             "meeting_type": meeting_type,
             "vote_style": vote_style,
+            "vote_style_policy_id": policy_id,
+            "vote_style_resolved": bool(policy),
+            "vote_style_manager_name": policy_meta.get("manager_name") if policy else None,
             "marco_enabled": enable_marco,
             "agenda_count": len(agenda_titles),
             "agenda_decisions": agenda_decisions,
