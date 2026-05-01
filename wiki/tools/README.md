@@ -6,11 +6,11 @@ updated: 2026-05-01
 
 # tools/ — Tool 카탈로그
 
-> OPM v2 의 18 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
+> OPM v2 의 17 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
 > 각 tool 1 페이지, 통일 schema (frontmatter + 한 줄 요약 + 사용법 + 입력 인자 + 출력 schema + Data sources + 파싱 전략 + 관련 공시/개념/결정/audit + 알려진 issue + 변경 이력).
 > 도메인 개념 / 공시 본문 / 정책 결정 정보는 본 폴더에 중복 X. `rules/concepts/`, `rules/disclosures/`, `decisions/`, `architecture/audits/` 로 link만 한다.
 
-## 빠른 진입표 (18 tool)
+## 빠른 진입표 (17 tool)
 
 ### Discovery (1)
 | tool | 한 줄 |
@@ -47,12 +47,13 @@ updated: 2026-05-01
 |------|------|
 | [[proxy_guideline]] | 7운용사 정책 + OPM Guideline + 12 매트릭스 자동 채점 + NPS (7 scope, 정적 데이터) |
 
-### Action (3)
+### Action (2) — 시점 분리 재편 (2026-05-02)
 | tool | 한 줄 |
 |------|------|
-| [[prepare_vote_brief]] | 투표 메모 (AGM + OWN + CGR + PG + auto_score_matrix) |
-| [[prepare_engagement_case]] | engagement 메모 (OWN + PRX + VUP, 사실·근거만) |
-| [[build_campaign_brief]] | 캠페인 사실 브리프 (PRX + OWN + AGM, timeline/players) |
+| [[advise_vote_before_meeting]] | 주총 **전** 의결권 행사 메모 (안건별 FOR/AGAINST + 결정 사유 + 후보 평가 3축) |
+| [[recap_vote_after_meeting]] | 주총 **후** 결과 보고 (가결/부결/찬반율 + 후속 공시 + 위임장 결과) |
+
+> 구 prepare_vote_brief / build_campaign_brief 흡수, prepare_engagement_case는 `_archive/` (Phase 3 부활 가능).
 
 ## 17 페이지 통일 schema
 
@@ -113,9 +114,8 @@ created: 2026-05-01
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
 | evidence | - | - | - | - | - (문자열 가공) |
 | proxy_guideline | - | - | - | - | ✅ 운용사 데이터 |
-| prepare_vote_brief | (upstream) | (upstream) | - | - | (upstream) |
-| prepare_engagement_case | (upstream) | (upstream) | - | - | - |
-| build_campaign_brief | (upstream) | (upstream) | - | - | - |
+| advise_vote_before_meeting | (6 upstream) | (upstream) | - | - | (proxy_guideline) |
+| recap_vote_after_meeting | (5 upstream) | (results) | - | - | - |
 
 ✅ = 1차 source / 🔧 = 보조
 

@@ -10,21 +10,21 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
 ### 도메인별
 - **Discovery (1)**: [[screen_events]]
 - **Data (12)**: [[company]] · [[shareholder_meeting]] · [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]] · [[evidence]]
 - **Policy & Matrix (1)**: [[proxy_guideline]]
-- **Action (3)**: [[prepare_vote_brief]] · [[prepare_engagement_case]] · [[build_campaign_brief]]
+- **Action (2)**: [[advise_vote_before_meeting]] · [[recap_vote_after_meeting]]
 
 ## 카테고리 구조
 
 | 카테고리 | 목적 | 페이지 수 | 수정 가능 |
 |---|---|---|---|
 | **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 18 tool 진입점 (사용자 입장) | 18 + README | YES (tool 변경 시) |
-| **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 8 + fixes 3 | YES |
+| **tools/** | 17 tool 진입점 (사용자 입장) | 17 + README | YES (tool 변경 시) |
+| **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 9+ fixes 3 | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 14 | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 31 + 36 + 3 = 70 | YES (사실 update 시) |
 | **archive/** | 흡수된 페이지 (역사 보존) | 48 | WARN (단순 보존) |
@@ -78,7 +78,7 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Tools (18 진입점) - `tools/`
+## Tools (17 진입점) - `tools/`
 
 전체 카탈로그 + 통계 + 흡수된 archive 매핑은 [[tools/README]].
 
@@ -107,10 +107,10 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ### Policy & Matrix (1)
 - [[proxy_guideline]] - 7운용사 정책 + OPM Guideline + 12 매트릭스 자동 채점 + NPS (7 scope, 정적 데이터)
 
-### Action (3)
-- [[prepare_vote_brief]] - 투표 메모 (AGM + OWN + CGR + PG + auto_score_matrix)
-- [[prepare_engagement_case]] - engagement 메모 (OWN + PRX + VUP, 사실·근거만)
-- [[build_campaign_brief]] - 캠페인 사실 브리프 (PRX + OWN + AGM, timeline/players)
+### Action (2) — 시점 분리 재편 (2026-05-02)
+- [[advise_vote_before_meeting]] - 주총 **전** 의결권 행사 메모 (안건별 FOR/AGAINST + 결정 사유 + 후보 평가 3축)
+- [[recap_vote_after_meeting]] - 주총 **후** 결과 보고 (가결/부결/찬반율 + 후속 공시 + 위임장 결과)
+- (구 prepare_vote_brief / build_campaign_brief 흡수, prepare_engagement_case는 _archive/)
 
 ---
 
@@ -124,7 +124,7 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[architecture/pipeline-architecture]] - 199개 기업 v4 JSON 생성 배치 파이프라인
 - [[architecture/lessons-learned]] - MCP 개발 7가지 핵심 교훈 (v1->v2 회고, 2026-04-19)
 
-### audits/ (9 시점별)
+### audits/ (10 시점별)
 - [[260411_2023_audit_personnel-벤치마크-v1]] - personnel XML 878명 전수 벤치마크 (SUCCESS 79.4%)
 - [[260421_2308_audit_parsing-10tool-20기업]] - 10 data tool × 20 회사 파싱 건강도 audit
 - [[260422_0005_audit_parsing-14scope-15기업]] - 확장 audit: 14 scope × 15 회사 + 필드 채움률 + corp_gov_report 포함
@@ -134,6 +134,7 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
 - [[260501_1820_audit_financial_metrics-6기업]] - financial_metrics Phase 1 sanity (6/6 PASS, status=exact 100%)
 - [[260501_2030_audit_financial_metrics-200기업]] - financial_metrics 전수 audit (KOSPI 100 + KOSDAQ 100, exact 96.9%, 자본잠식 2건 검출, 5분)
+- [[260502_2300_audit_advise-recap-vote]] - action tool 재편 sanity (advise/recap 신규 + 18→17 회귀 0 + 매핑 3-tier 분류)
 
 ### fixes/ (3 시점별)
 - [[260427_1145_fix_ownership-stockknd]] - ownership_structure 17건 partial -> 0 fix (stock_knd 변형 positive matching + 3-tier fallback, regression 0)
