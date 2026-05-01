@@ -84,6 +84,34 @@ result: 6/6 PASS (status=exact 100%)
 2. **EBITDA = 영업이익으로 fallback**: 감가상각비 (CF "비현금항목 가산") 패턴 매칭 실패 시. Phase 2에서 BS 유형자산 변동 + CF 비현금항목 통합 fallback.
 3. **롯데케미칼 `loss_conversion` 누락 (정상 동작)**: 전년도(2023)도 적자였기 때문에 `continued_loss`가 더 정확. 기대 누락은 시나리오 정의의 문제, alert 동작은 의도대로.
 
+## DART API 응답 단위 검증 (별도)
+
+DART OpenAPI `fnlttSinglAcnt` / `fnlttSinglAcntAll` 응답을 5개 회사 (KOSPI 대형/KOSDAQ) 샘플 점검:
+- 응답 키 일관됨 (`thstrm_amount`, `frmtrm_amount`, `bfefrmtrm_amount`, `currency`)
+- amount는 **원 단위 raw + 콤마 포맷** ("227,062,266,000,000" = 227조 원)
+- 별도 unit 필드 (백만원/천원) **없음** — `currency` 필드만 KRW/USD/EUR 표기
+- 결론: `normalize_amount`는 콤마 strip + 괄호 음수만 처리하면 충분. 별도 unit 곱셈 불필요.
+
+## 분모 음수 (채무초과) 처리 검증
+
+Iteration 5에서 추가:
+- `_safe_div`/`_safe_pct`/`_safe_ratio`에 `positive_denom_only` 옵션 도입.
+- ROE / ROA / ROIC / 부채비율 / equity_multiplier에 `True` 적용 → 자본 음수 시 None 반환.
+- 합성 채무초과 회사 (자본 -1조, 적자 -2,000억) 단위 테스트:
+  - ROE = None ✓ (음수 분모 거부)
+  - 부채비율 = None ✓
+  - equity_multiplier = None ✓
+  - ROA = -4% ✓ (자산 양수, 정상 음수 출력)
+  - asset_turnover = 0.3 ✓
+- 회귀 검증: 삼성전자 2024 모든 지표 동일 (ROE 13.07 / 부채비율 27.93 / 이자보상 2.52 / asset_turnover 0.62 / equity_multiplier 1.27).
+
+## reprt_code fallback (사업 → 분기) 검증
+
+Iteration 6에서 추가:
+- `_fetch_acnt_with_fallback`: 11011(사업) → 11014(3분기) → 11012(반기) → 11013(1분기) 순서.
+- 사업보고서 미공시(예: 결산 90일 이내 호출) 시 가장 최근 분기 데이터 surface, used_rc 메타 + warning 부착.
+- 회귀: 삼성전자 2024/2025 모두 11011 정상 사용 (사업보고서 공시 완료 → fallback 미발동).
+
 ## 결론
 
 ✅ **6/6 PASS** — financial_metrics Phase 1 ready for production.

@@ -116,6 +116,10 @@ def _strip(s: Any) -> str:
 def normalize_amount(raw: Any) -> int | None:
     """DART 응답 금액 → int (원).
 
+    DART OpenAPI fnlttSinglAcnt / fnlttSinglAcntAll 응답은 항상 **원 단위 raw + 콤마 포맷**
+    으로 표준화. 별도 unit 필드(백만원/천원)는 응답에 없음 (currency 필드만 KRW 표기).
+    → 콤마 strip + 괄호 음수 + None graceful만 처리하면 충분.
+
     처리:
     - None / "" / "-" → None
     - "227,062,266,000,000" → 227_062_266_000_000
