@@ -124,7 +124,7 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[architecture/pipeline-architecture]] - 199개 기업 v4 JSON 생성 배치 파이프라인
 - [[architecture/lessons-learned]] - MCP 개발 7가지 핵심 교훈 (v1->v2 회고, 2026-04-19)
 
-### audits/ (8 시점별)
+### audits/ (9 시점별)
 - [[260411_2023_audit_personnel-벤치마크-v1]] - personnel XML 878명 전수 벤치마크 (SUCCESS 79.4%)
 - [[260421_2308_audit_parsing-10tool-20기업]] - 10 data tool × 20 회사 파싱 건강도 audit
 - [[260422_0005_audit_parsing-14scope-15기업]] - 확장 audit: 14 scope × 15 회사 + 필드 채움률 + corp_gov_report 포함
@@ -133,6 +133,7 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[260429_0942_audit_arithmetic-21지표]] - 산술 정확성 audit (21 지표)
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
 - [[260501_1820_audit_financial_metrics-6기업]] - financial_metrics Phase 1 sanity (6/6 PASS, status=exact 100%)
+- [[260501_2030_audit_financial_metrics-200기업]] - financial_metrics 전수 audit (KOSPI 100 + KOSDAQ 100, exact 96.9%, 자본잠식 2건 검출, 5분)
 
 ### fixes/ (3 시점별)
 - [[260427_1145_fix_ownership-stockknd]] - ownership_structure 17건 partial -> 0 fix (stock_knd 변형 positive matching + 3-tier fallback, regression 0)
