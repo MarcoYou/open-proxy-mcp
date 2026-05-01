@@ -221,7 +221,7 @@ DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 
 ## 프로젝트 구조
 
 ```
-open-proxy-mcp/
+wiki/
   open_proxy_mcp/
     server.py              # FastMCP 서버 (stdio + HTTP)
     tools_v2/              # 17개 tool
@@ -230,7 +230,7 @@ open-proxy-mcp/
     data/asset_managers/   # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
   Dockerfile               # Fly.io 배포용 컨테이너
   fly.toml                 # Fly.io 설정 (nrt 리전, auto-suspend)
-  open-proxy-mcp/          # 도메인 지식 위키 (구 wiki/)
+  wiki/          # 도메인 지식 위키 (구 wiki/)
 ```
 
 ---

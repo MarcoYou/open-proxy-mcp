@@ -50,7 +50,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "open-proxy-mcp": {
-      "command": "/path/to/open-proxy-mcp/.venv/bin/python",
+      "command": "/path/to/wiki/.venv/bin/python",
       "args": ["-m", "open_proxy_mcp"],
       "cwd": "/path/to/open-proxy-mcp"
     }
@@ -65,7 +65,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "open-proxy-mcp": {
-      "command": "/path/to/open-proxy-mcp/.venv/bin/python",
+      "command": "/path/to/wiki/.venv/bin/python",
       "args": ["-m", "open_proxy_mcp"],
       "cwd": "/path/to/open-proxy-mcp"
     }

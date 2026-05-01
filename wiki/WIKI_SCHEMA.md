@@ -8,14 +8,14 @@ updated: 2026-05-01
 
 OpenProxy MCP(OPM) 도메인 지식 위키. Karpathy LLM-wiki 아키텍처 기반.
 LLM이 작성/유지하고, 사용자는 소싱과 질문에 집중.
-OPM repo 안에 `open-proxy-mcp/` 디렉토리로 존재 (구 `wiki/`).
+OPM repo 안에 `wiki/` 디렉토리로 존재 (구 `wiki/`).
 
 처음 방문하면 [[index]] -> [[tools/README]] 순서로 본다.
 
 ## 1. 카테고리 정의 (5+1)
 
 ```
-open-proxy-mcp/
+wiki/
   raw/            # 외부 source (PDF/xlsx/md). 절대 수정 금지
   tools/          # 17 tool 진입점 (사용자 입장)
   architecture/   # OPM 시스템 설계 + audits/ + fixes/

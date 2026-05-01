@@ -26,7 +26,7 @@ title: Operation Log
 
 ## [2026-05-01] feat | wiki 재구조 (5+1 카테고리 + 명명 규칙) + 17 tools 진입점
 ### W1: 카테고리 재편 + prefix rename
-- 154 파일 이동: `wiki/{old}` -> `open-proxy-mcp/{new}`
+- 154 파일 이동: `wiki/{old}` -> `wiki/{new}`
 - 13 prefix rename (audit/fix/decision/debate/improvement) -> `yymmdd_hhmm_{type}_{title}`
 - 1 통합: `architecture/matrix-system.md` (구 decision-matrix-design + matrix-auto-scoring)
 - `raw/` 신규 (구 sources + raw 합침, 수정 금지 명시)

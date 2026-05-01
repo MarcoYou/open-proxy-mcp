@@ -219,7 +219,7 @@ When you ask for a voting recommendation on an AGM agenda item, OpenProxy follow
 ## Project Structure
 
 ```
-open-proxy-mcp/
+wiki/
   open_proxy_mcp/
     server.py              # FastMCP server (stdio + HTTP)
     tools_v2/              # 17 tools
@@ -228,7 +228,7 @@ open-proxy-mcp/
     data/asset_managers/   # 8 manager policies (anonymized) + records + Open Proxy Guideline + 12 matrices
   Dockerfile               # Container for Fly.io deployment
   fly.toml                 # Fly.io config (nrt region, auto-suspend)
-  open-proxy-mcp/          # Domain knowledge wiki (formerly wiki/)
+  wiki/          # Domain knowledge wiki (formerly wiki/)
 ```
 
 ---

@@ -423,8 +423,8 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - a_activist (얼라인파트너스), b_foreign (베어링), c_activist (차파트너스), k_legacy ([운용사A]), m_legacy (미래에셋), s_legacy (삼성), sa_active (삼성액티브), t_activist (트러스톤), open_proxy_v1 (OPM 자체 정책 v1.2)
 
 원본 정적 데이터(엑셀·PDF):
-- `open-proxy-mcp/raw/records/2024.04~2026.04 *_의결권 행사내역.xlsx` (17건)
-- `open-proxy-mcp/raw/policies/2025.04~2026.04 *_의결권행사 내부지침.pdf` (9건, NPS 포함)
+- `wiki/raw/records/2024.04~2026.04 *_의결권 행사내역.xlsx` (17건)
+- `wiki/raw/policies/2025.04~2026.04 *_의결권행사 내부지침.pdf` (9건, NPS 포함)
 - 위 원본은 사전 수집·구조화되어 JSON으로 사내 보관
 
 ---
