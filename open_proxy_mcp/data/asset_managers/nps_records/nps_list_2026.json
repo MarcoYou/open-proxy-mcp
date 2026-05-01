@@ -1,0 +1,50 @@
+[
+  {
+    "nps_code": "07797",
+    "company_name": "STX엔진(주)",
+    "gmos_date": "2026-05-06",
+    "gmos_ymd": "20260506",
+    "gmos_kind_label": "",
+    "gmos_kind_cd": "5",
+    "gmos_kind": "5",
+    "edwm_vtrt_use_sn": "",
+    "data_pvsn_inst_cd_vl": "0095000",
+    "ticker": "077970"
+  },
+  {
+    "nps_code": "01117",
+    "company_name": "롯데케미칼(주)",
+    "gmos_date": "2026-04-30",
+    "gmos_ymd": "20260430",
+    "gmos_kind_label": "임시주총",
+    "gmos_kind_cd": "2",
+    "gmos_kind": "extra",
+    "edwm_vtrt_use_sn": "",
+    "data_pvsn_inst_cd_vl": "0095000",
+    "ticker": "011170"
+  },
+  {
+    "nps_code": "06496",
+    "company_name": "에스앤티모티브(주)",
+    "gmos_date": "2026-04-30",
+    "gmos_ymd": "20260430",
+    "gmos_kind_label": "임시주총",
+    "gmos_kind_cd": "2",
+    "gmos_kind": "extra",
+    "edwm_vtrt_use_sn": "",
+    "data_pvsn_inst_cd_vl": "0095000",
+    "ticker": "064960"
+  },
+  {
+    "nps_code": "11481",
+    "company_name": "한솔아이원스(주)",
+    "gmos_date": "2026-04-29",
+    "gmos_ymd": "20260429",
+    "gmos_kind_label": "임시주총",
+    "gmos_kind_cd": "2",
+    "gmos_kind": "extra",
+    "edwm_vtrt_use_sn": "",
+    "data_pvsn_inst_cd_vl": "0095000",
+    "ticker": "114810"
+  }
+]
