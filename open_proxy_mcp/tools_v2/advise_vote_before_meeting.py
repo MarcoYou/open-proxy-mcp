@@ -75,6 +75,36 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"| {c.get('name', '?')} | {c.get('role_type', '-')} | {indep} | {disq} | {marco} | {note} |")
         lines.append("")
 
+        # Marco red_flag detail (회사명 / 시점 / risk 유형 raw 노출)
+        marco_detail = []
+        for c in cands:
+            rfs = c.get("faithfulness", {}).get("marco_scenario", {}).get("red_flags", []) or []
+            for rf in rfs:
+                marco_detail.append((c.get("name", "?"), rf))
+        if marco_detail:
+            lines.append("### Marco 시나리오 — 과거 회사 회계 risk overlap (raw)")
+            lines.append("> 사외이사 충실의무 단정 X — 사용자 판단 위임. 본 시점에 후보가 그 회사에 재직 중이었음을 의미.")
+            lines.append("")
+            lines.append("| 후보 | 과거 회사 | 재직 기간 | risk 유형 | 시점 | detail |")
+            lines.append("|------|----------|----------|----------|------|--------|")
+            for cand_name, rf in marco_detail:
+                co = rf.get("company", "?")
+                tenure = f"{rf.get('tenure_start_year')} ~ {rf.get('tenure_end_year') or '현재'}"
+                for r in rf.get("red_flags", []):
+                    rtype = r.get("type")
+                    yr = r.get("year") or f"{r.get('year_from','?')}→{r.get('year_to','?')}"
+                    detail = ""
+                    if rtype == "non_clean_audit_opinion":
+                        detail = r.get("opinion", "")
+                    elif rtype == "capital_impairment_full":
+                        detail = f"잠식률 {r.get('ratio_pct')}%"
+                    elif rtype == "loss_continued_worsening":
+                        detail = f"순이익 {r.get('ni_from'):,} → {r.get('ni_to'):,}"
+                    elif rtype == "leverage_surge_op_worsening":
+                        detail = f"부채 +{r.get('debt_growth_pct')}% / 영업이익 {r.get('op_from'):,} → {r.get('op_to'):,}"
+                    lines.append(f"| {cand_name} | {co} | {tenure} | `{rtype}` | {yr} | {detail} |")
+            lines.append("")
+
     # 회사 펀더멘털 요약 (참고)
     fin = data.get("financial_summary") or {}
     if fin:

@@ -86,7 +86,9 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     if disq == "red_flag":
         return "AGAINST", f"결격사유 발견 (eligibility 또는 미성년)"
     if marco == "red_flag":
-        return "AGAINST", "Marco 시나리오 — 과거 회사 재직 시점 회계 risk 발생 (사외이사 충실의무 의심)"
+        # 코붕이 지시: Marco red flag = AGAINST 자동 X. REVIEW + 메모 raw 노출.
+        # 사외이사가 회계 risk를 막지 못한 게 본인 책임이라고 단정 어려움 — 사용자 판단 위임.
+        return "REVIEW", "Marco 시나리오 — 과거 재직 회사 회계 risk 발생 (raw 메모 참조 후 판단)"
     if indep == "concerns":
         return "REVIEW", "독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원 가능성)"
     return "FOR", "독립성/결격사유 모두 clean"
