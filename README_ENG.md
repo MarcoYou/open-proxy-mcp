@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-18-orange.svg)](#tool-structure-18-tools)
+[![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-structure-17-tools)
 
 [Korean README](README.md)
 
@@ -46,7 +46,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 18 tools are automatically recognized
+4. Click "Add" → 17 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -87,9 +87,9 @@ Once connected, just ask in natural language:
 
 ---
 
-## Tool Structure (18 tools)
+## Tool Structure (17 tools)
 
-18 tools are organized into **discovery → data tabs → policy/matrix → action outputs**.
+17 tools are organized into **discovery → data tabs → policy/matrix → action outputs**.
 
 ```
 company                            # Entry point — company ID + recent filings index
@@ -116,11 +116,11 @@ company                            # Entry point — company ID + recent filings
 │                                   #   scopes: policy / record / predict / compare / consensus / audit
 │                                   #   0 external API calls (static data, <100ms response)
 │
-└─ Action Tools (3)
-   ├─ prepare_vote_brief            # Vote memo (auto-includes governance compliance rate + ★ OPM policy guidance)
-   │                                #   vote_style param selects from 8 managers (default: open_proxy)
-   ├─ prepare_engagement_case       # Shareholder engagement memo
-   └─ build_campaign_brief          # Campaign brief
+└─ Action Tools (2) — Time-split refactor (2026-05-02)
+   ├─ advise_vote_before_meeting    # Pre-AGM vote memo (per-agenda FOR/AGAINST + decision reason)
+   │                                #   6 upstream + director 3-axis eval (independence/faithfulness/disqualification) + Marco scenario opt
+   │                                #   vote_style: open_proxy / mirae_asset / samsung / truston / align_partners / nps etc.
+   └─ recap_vote_after_meeting      # Post-AGM recap (passed/rejected + for/against% + 30-day follow-up + proxy contest result)
 ```
 
 ### 🆕 proxy_guideline tool
@@ -184,8 +184,8 @@ Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a c
 | **Financials** | DART 4-endpoint integration — 51 metrics + DuPont + FCF + NWC + accounting risk + 3-yr audit opinion (★ NEW) | 1 |
 | **Evidence** | Filing source links | 1 |
 | **Policy & Matrix** | 8 manager policies (anonymized) + Open Proxy Guideline + 12 decision matrices | 1 |
-| **Action** | Vote memo (with OPM policy guidance auto), engagement case, campaign brief | 3 |
-| | **Total** | **18** |
+| **Action** | advise_vote_before_meeting (pre-AGM) + recap_vote_after_meeting (post-AGM) — time-split | 2 |
+| | **Total** | **17** |
 
 ---
 

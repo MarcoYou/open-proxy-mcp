@@ -5,6 +5,35 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-02] feat | action tool 재편 (3 → 2, 시점 분리: advise/recap)
+### 신규 (3 service + 2 tools_v2)
+- `services/director_evaluation.py`: 후보 평가 3축 (독립성/충실성/결격사유) + Marco 시나리오
+- `services/advise_vote.py`: 6 upstream 통합 + 안건별 FOR/AGAINST/REVIEW + 결정 사유
+- `services/recap_vote.py`: 5 upstream + 후속 공시 30일 + gap 비교 X
+- `tools_v2/advise_vote_before_meeting.py`: 운용사 의결권 메모 render
+- `tools_v2/recap_vote_after_meeting.py`: 분기 보고서 render
+
+### 제거 / archive
+- 제거: `prepare_vote_brief` (advise 흡수), `build_campaign_brief` (advise/recap 분산)
+- archive: `prepare_engagement_case` → `_archive/`
+- 자동 디스커버리 18 → **17 tool**
+
+### 매핑 분류 (코붕이 명시 지시)
+- success: 정형 필드 직접 (안건/후보/지분/재무/감사의견)
+- soft-fail: raw text 노출 (careerDetails / dutyPlan / recommendationReason)
+- hard-fail: 메모/코드 모두 침묵 (형사/사적관계/동명이인/파산)
+
+### Sanity (7 iteration)
+- 정기: 삼성전자 / KT&G / KB금융 (Marco 활성)
+- 임시: HMM (정관변경 1 안건)
+- Edge: 알지노믹스 (자본잠식 회사)
+- 회귀: financial_metrics + dividend 변경 0
+
+### Phase 2 (별도)
+- A5 얼라인 12 회사 backtest
+- A6 9 비교군 (8 운용사 + NPS) backtest
+- vote_style 정책 wire + 매트릭스 자동 채점 통합
+
 ## [2026-05-01] feat | financial_metrics tool Phase 1 (재무 4 endpoint 통합 신규)
 ### 신규
 - DART client에 4 endpoint 추가: fnlttSinglAcnt + fnlttSinglIndx + fnlttSinglAcntAll + accnutAdtorNmNdAdtOpinion
