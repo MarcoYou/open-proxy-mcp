@@ -268,9 +268,20 @@ async def build_proxy_advise_payload(
     year: int | None = None,
     meeting_type: str = "annual",
     vote_style: str = "open_proxy",
+    scope: str = "decisions",
     enable_marco: bool = False,
 ) -> dict[str, Any]:
-    """proxy_advise_before_meeting payload."""
+    """proxy_advise_before_meeting payload.
+
+    scope (spec [[wiki/tools/proxy_advise_before_meeting]]):
+    - decisions (default): 안건별 FOR/AGAINST/REVIEW + 결정 사유 (모든 6 upstream)
+    - agenda / candidates / financial / governance / ownership: 단순 expose (raw upstream 노출)
+    - policy_basis / proxy_battle / engagement / evidence: 신규 logic (Step 4 별도 commit)
+    - all: 모든 scope 통합 (모든 raw + decisions)
+
+    Step 3 단순 expose: 6 upstream 항상 호출 (cache 효과로 후속 빠름).
+    scope param에 따라 data dict의 raw 노출 여부만 분기. logic 변경 X (regression 0).
+    """
     client = get_dart_client()
     calls_start = client.api_call_snapshot()
 
@@ -469,31 +480,50 @@ async def build_proxy_advise_payload(
     else:
         status = AnalysisStatus.EXACT
 
+    # ── data dict 구성 (Step 3: scope param 단순 expose) ──
+    # 모든 scope 공통 base
+    data: dict[str, Any] = {
+        "query": company_query,
+        "company_id": _company_id(selected),
+        "canonical_name": selected.get("corp_name"),
+        "year": target_year,
+        "meeting_type": meeting_type,
+        "vote_style": vote_style,
+        "vote_style_policy_id": policy_id,
+        "vote_style_resolved": bool(policy),
+        "vote_style_manager_name": policy_meta.get("manager_name") if policy else None,
+        "marco_enabled": enable_marco,
+        "scope": scope,
+        "agenda_count": len(agenda_titles),
+        "agenda_decisions": agenda_decisions,
+        "candidates_count": len(director_evals),
+        "candidates_evaluations": director_evals,
+        "ownership_summary": (ownership.get("data") or {}).get("summary"),
+        "governance_summary": (gov_report.get("data") or {}).get("summary"),
+        "financial_summary": (fin_metrics.get("data") or {}).get("summary"),
+        **filing_meta,
+        "usage": build_usage(client.api_call_snapshot() - calls_start),
+    }
+
+    # scope별 raw upstream 추가 노출 (Step 3)
+    if scope in ("agenda", "all"):
+        data["agenda_full"] = agenda_data  # 트리/카테고리 raw
+    if scope in ("candidates", "all"):
+        # candidates_evaluations 이미 base에 있음 — full director_data raw 추가
+        data["candidates_full"] = director_data
+    if scope in ("financial", "all"):
+        data["financial_full"] = fin_metrics.get("data")
+    if scope in ("governance", "all"):
+        data["governance_full"] = gov_report.get("data")
+    if scope in ("ownership", "all"):
+        data["ownership_full"] = ownership.get("data")
+    # policy_basis / proxy_battle / engagement / evidence — Step 4 별도 commit
+
     return ToolEnvelope(
         tool="proxy_advise_before_meeting",
         status=status,
         subject=selected.get("corp_name", company_query),
         warnings=[],
-        data={
-            "query": company_query,
-            "company_id": _company_id(selected),
-            "canonical_name": selected.get("corp_name"),
-            "year": target_year,
-            "meeting_type": meeting_type,
-            "vote_style": vote_style,
-            "vote_style_policy_id": policy_id,
-            "vote_style_resolved": bool(policy),
-            "vote_style_manager_name": policy_meta.get("manager_name") if policy else None,
-            "marco_enabled": enable_marco,
-            "agenda_count": len(agenda_titles),
-            "agenda_decisions": agenda_decisions,
-            "candidates_count": len(director_evals),
-            "candidates_evaluations": director_evals,
-            "ownership_summary": (ownership.get("data") or {}).get("summary"),
-            "governance_summary": (gov_report.get("data") or {}).get("summary"),
-            "financial_summary": (fin_metrics.get("data") or {}).get("summary"),
-            **filing_meta,
-            "usage": build_usage(client.api_call_snapshot() - calls_start),
-        },
+        data=data,
         evidence_refs=evidence,
     ).to_dict()
