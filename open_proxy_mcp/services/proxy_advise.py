@@ -176,15 +176,30 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     return "FOR", "독립성/결격사유 모두 clean"
 
 
-def _decide_compensation(comp_payload: dict[str, Any] | None) -> tuple[str, str]:
+def _decide_compensation(comp_payload: dict[str, Any] | None, fin_metrics_payload: dict[str, Any] | None = None) -> tuple[str, str]:
     """보수한도 안건 — 보수화 (애매→REVIEW, 누가봐도 안좋음→AGAINST).
 
     AGAINST: 소진율 < 30% + 인상 (남는데 더 늘림 — 명백한 주주가치 훼손).
     REVIEW: 50%+ 대폭 인상 / 인상률 미명시 / 데이터 모호.
     FOR: 동결 또는 -10% ~ +10% 소폭 변경 (명확).
+
+    ralph iter5 강화: 보수 데이터 부족 시 재무 양호 fallback (mainstream 운용사 패턴).
     """
+    def _fm_fallback() -> tuple[str, str] | None:
+        if not fin_metrics_payload:
+            return None
+        fm_summary = (fin_metrics_payload.get("data") or {}).get("summary", {}) or {}
+        ni = fm_summary.get("net_income_krw")
+        cap_status = fm_summary.get("capital_impairment_status")
+        if cap_status == "full":
+            return "AGAINST", "완전 자본잠식 — 보수한도 결정 부적절"
+        if ni is not None and ni > 0:
+            return "FOR", f"보수 데이터 부족이나 흑자 (순익 {ni:,}원) — 재무 양호 묵시 FOR"
+        return None
+
     if not comp_payload:
-        return "REVIEW", "보수 데이터 없음 — 본문 검토 필요"
+        fb = _fm_fallback()
+        return fb if fb else ("REVIEW", "보수 데이터 없음 — 본문 검토 필요")
     data = comp_payload.get("data", {})
     summary = data.get("summary", {}) or {}
     util_rate = summary.get("utilization_rate_pct")
@@ -195,7 +210,8 @@ def _decide_compensation(comp_payload: dict[str, Any] | None) -> tuple[str, str]
     if increase_rate is not None and increase_rate >= 50:
         return "REVIEW", f"보수한도 대폭 인상 ({increase_rate:+.0f}%) — 사용자 검토"
     if increase_rate is None:
-        return "REVIEW", "보수한도 인상률 데이터 없음 — 본문 검토 필요"
+        fb = _fm_fallback()
+        return fb if fb else ("REVIEW", "보수한도 인상률 데이터 없음 — 본문 검토 필요")
     if -10 <= increase_rate <= 10:
         return "FOR", f"보수한도 소폭 변경 ({increase_rate:+.0f}%) 또는 동결"
     return "REVIEW", f"보수한도 인상 ({increase_rate:+.0f}%) — 적정성 검토 필요"
@@ -443,7 +459,7 @@ async def build_proxy_advise_payload(
             else:
                 decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
-            decision, reason = _decide_compensation(meeting_comp)
+            decision, reason = _decide_compensation(meeting_comp, fin_metrics)
         elif category == "financial_statements":
             decision, reason = _decide_financial_statements(fin_metrics)
         elif category == "cash_dividend":
