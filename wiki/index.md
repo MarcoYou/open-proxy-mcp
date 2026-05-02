@@ -71,6 +71,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[rules/laws/상법개정-타임라인-2026]] - 2025-2027 상법 개정 일정
 
 ### 최근 audit / fix
+- [[260503_2304_audit_recap_pattern]] - recap_vote 패턴 적용 200×3 100% (multi-upstream-pattern 일반화 검증)
 - [[260503_1847_audit_phase4_final]] - advise_vote 200×3 deterministic 100% + regression 0 (Phase 4)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] - 196 기업 × 11 tool audit
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%

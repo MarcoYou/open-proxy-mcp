@@ -5,6 +5,11 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-03] fix | recap_vote multi-upstream-pattern 적용 + 100% 일치 검증
+- `services/recap_vote.py` 8 upstream gather에 5 요소 적용 (commit `21bdf58`)
+- 200×3 batch: 일치율 100.0% (195/195), timeout 0 ([[260503_2304_audit_recap_pattern]])
+- 패턴 일반화 입증 — advise_vote 특수 case가 아닌 OPM 표준
+
 ## [2026-05-03] fix + docs | advise_vote Phase 4 100% + multi-upstream 패턴 표준화
 - `dart/client.py` `_load_corp_codes`: asyncio.Lock + 3회 retry (1/2/4s) + corpCode timeout 60→120s
 - `services/advise_vote.py`: per-call wait_for(60s) + Semaphore(3) + process result cache + 명시 pre-warm
