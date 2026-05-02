@@ -1,0 +1,856 @@
+log_line,failure_type,detail1,detail2
+3,career_period_reverse,2019 ~ 1986,홍지훈
+4,career_period_reverse,2019 ~ 1986,홍지훈
+5,career_period_reverse,2019 ~ 1986,홍지훈
+6,career_period_reverse,2019 ~ 1986,홍지훈
+7,career_period_reverse,2019 ~ 1986,홍지훈
+8,career_period_reverse,2019 ~ 1986,홍지훈
+9,career_period_reverse,2019 ~ 1986,홍지훈
+10,career_period_reverse,2019 ~ 1986,홍지훈
+11,career_period_reverse,2019 ~ 1986,홍지훈
+12,career_period_reverse,2019 ~ 1986,홍지훈
+13,career_period_reverse,2019 ~ 1986,홍지훈
+14,career_period_reverse,2019 ~ 1986,홍지훈
+15,career_period_reverse,2019 ~ 1986,홍지훈
+16,career_period_reverse,2019 ~ 1986,홍지훈
+17,career_period_reverse,2019 ~ 1986,홍지훈
+18,career_period_reverse,2019 ~ 1986,홍지훈
+19,career_period_reverse,2019 ~ 1986,홍지훈
+20,career_period_reverse,2019 ~ 1986,홍지훈
+21,career_period_reverse,2019 ~ 1986,홍지훈
+22,career_period_reverse,2019 ~ 1986,홍지훈
+23,career_period_reverse,2019 ~ 1986,홍지훈
+24,career_period_reverse,2019 ~ 1986,홍지훈
+25,career_period_reverse,2019 ~ 1986,홍지훈
+26,career_period_reverse,2019 ~ 1986,홍지훈
+31,career_period_reverse,2020 ~ 2011,송호성
+32,career_period_reverse,2020 ~ 2009,정의선
+33,career_period_reverse,2024 ~ 2021,김승준
+35,career_period_reverse,2020 ~ 2011,송호성
+36,career_period_reverse,2020 ~ 2009,정의선
+37,career_period_reverse,2024 ~ 2021,김승준
+38,career_period_reverse,2020 ~ 2011,송호성
+39,career_period_reverse,2020 ~ 2009,정의선
+40,career_period_reverse,2024 ~ 2021,김승준
+41,career_period_reverse,2020 ~ 2011,송호성
+42,career_period_reverse,2020 ~ 2009,정의선
+43,career_period_reverse,2024 ~ 2021,김승준
+45,career_period_reverse,2020 ~ 2011,송호성
+46,career_period_reverse,2020 ~ 2009,정의선
+47,career_period_reverse,2024 ~ 2021,김승준
+48,career_period_reverse,2020 ~ 2011,송호성
+49,career_period_reverse,2020 ~ 2009,정의선
+50,career_period_reverse,2024 ~ 2021,김승준
+51,career_period_reverse,2020 ~ 2011,송호성
+52,career_period_reverse,2020 ~ 2009,정의선
+53,career_period_reverse,2024 ~ 2021,김승준
+54,career_period_reverse,2020 ~ 2011,송호성
+55,career_period_reverse,2020 ~ 2009,정의선
+56,career_period_reverse,2024 ~ 2021,김승준
+57,career_period_reverse,2020 ~ 2011,송호성
+58,career_period_reverse,2020 ~ 2009,정의선
+59,career_period_reverse,2024 ~ 2021,김승준
+60,career_period_reverse,2020 ~ 2011,송호성
+61,career_period_reverse,2020 ~ 2009,정의선
+62,career_period_reverse,2024 ~ 2021,김승준
+63,career_period_reverse,2020 ~ 2011,송호성
+64,career_period_reverse,2020 ~ 2009,정의선
+65,career_period_reverse,2024 ~ 2021,김승준
+66,career_period_reverse,2020 ~ 2011,송호성
+67,career_period_reverse,2020 ~ 2009,정의선
+68,career_period_reverse,2024 ~ 2021,김승준
+70,career_period_reverse,2024 ~ 2015.10,구윤철
+71,career_period_reverse,2024.12 ~ 2018.04,박준규
+72,career_period_reverse,2024.12 ~ 2018.02,이완삼
+73,career_period_reverse,2024 ~ 2015.10,구윤철
+74,career_period_reverse,2024 ~ 2015.10,구윤철
+75,career_period_reverse,2024.12 ~ 2018.04,박준규
+76,career_period_reverse,2024.12 ~ 2018.02,이완삼
+77,career_period_reverse,2024 ~ 2015.10,구윤철
+78,career_period_reverse,2024 ~ 2015.10,구윤철
+79,career_period_reverse,2024.12 ~ 2018.04,박준규
+80,career_period_reverse,2024.12 ~ 2018.02,이완삼
+81,career_period_reverse,2024 ~ 2015.10,구윤철
+85,career_period_reverse,2024 ~ 2015.10,구윤철
+86,career_period_reverse,2024.12 ~ 2018.04,박준규
+87,career_period_reverse,2024.12 ~ 2018.02,이완삼
+88,career_period_reverse,2024 ~ 2015.10,구윤철
+89,career_period_reverse,2024 ~ 2015.10,구윤철
+90,career_period_reverse,2024.12 ~ 2018.04,박준규
+91,career_period_reverse,2024.12 ~ 2018.02,이완삼
+92,career_period_reverse,2024 ~ 2015.10,구윤철
+93,career_period_reverse,2024 ~ 2015.10,구윤철
+94,career_period_reverse,2024.12 ~ 2018.04,박준규
+95,career_period_reverse,2024.12 ~ 2018.02,이완삼
+96,career_period_reverse,2024 ~ 2015.10,구윤철
+97,career_period_reverse,2024 ~ 2015.10,구윤철
+98,career_period_reverse,2024.12 ~ 2018.04,박준규
+99,career_period_reverse,2024.12 ~ 2018.02,이완삼
+100,career_period_reverse,2024 ~ 2015.10,구윤철
+101,career_period_reverse,2024 ~ 2015.10,구윤철
+102,career_period_reverse,2024.12 ~ 2018.04,박준규
+103,career_period_reverse,2024.12 ~ 2018.02,이완삼
+104,career_period_reverse,2024 ~ 2015.10,구윤철
+105,career_period_reverse,2024 ~ 2015.10,구윤철
+106,career_period_reverse,2024.12 ~ 2018.04,박준규
+107,career_period_reverse,2024.12 ~ 2018.02,이완삼
+108,career_period_reverse,2024 ~ 2015.10,구윤철
+109,career_period_reverse,2024 ~ 2015.10,구윤철
+110,career_period_reverse,2024.12 ~ 2018.04,박준규
+111,career_period_reverse,2024.12 ~ 2018.02,이완삼
+112,career_period_reverse,2024 ~ 2015.10,구윤철
+113,career_period_reverse,2024 ~ 2015.10,구윤철
+114,career_period_reverse,2024.12 ~ 2018.04,박준규
+115,career_period_reverse,2024.12 ~ 2018.02,이완삼
+116,career_period_reverse,2024 ~ 2015.10,구윤철
+117,career_period_reverse,2024 ~ 2015.10,구윤철
+118,career_period_reverse,2024.12 ~ 2018.04,박준규
+119,career_period_reverse,2024.12 ~ 2018.02,이완삼
+120,career_period_reverse,2024 ~ 2015.10,구윤철
+128,career_period_reverse,2025 ~ 2021,김보영
+129,career_period_reverse,2315 ~ 1813,James Andrew Murphy
+130,career_period_invalid,1813 ~ 2315,James Andrew Murphy
+131,career_period_reverse,2024 ~ 2023,김광일
+132,career_period_reverse,2021 ~ 2017,조영호
+133,career_period_reverse,2024 ~ 2019,김수진
+134,career_period_reverse,2024 ~ 2022,정창화
+135,career_period_reverse,2023 ~ 2018,서대원
+139,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+140,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+141,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+142,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+143,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+144,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+145,career_period_reverse,2025 ~ 2021,김보영
+146,career_period_reverse,2315 ~ 1813,James Andrew Murphy
+147,career_period_invalid,1813 ~ 2315,James Andrew Murphy
+148,career_period_reverse,2024 ~ 2023,김광일
+149,career_period_reverse,2021 ~ 2017,조영호
+150,career_period_reverse,2024 ~ 2019,김수진
+151,career_period_reverse,2024 ~ 2022,정창화
+152,career_period_reverse,2023 ~ 2018,서대원
+154,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+155,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+156,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+157,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+158,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+159,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+160,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+161,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+162,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+163,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+164,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+165,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+166,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+167,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+168,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+169,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+170,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+171,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+172,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+173,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+174,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+175,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+176,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+177,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+178,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+179,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+180,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+181,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+182,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+183,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+184,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+185,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+186,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+187,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+188,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+189,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+190,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+191,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+192,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+193,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+194,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+195,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+197,career_period_reverse,2025 ~ 2021,김보영
+198,career_period_reverse,2315 ~ 1813,James Andrew Murphy
+199,career_period_invalid,1813 ~ 2315,James Andrew Murphy
+200,career_period_reverse,2024 ~ 2023,김광일
+201,career_period_reverse,2021 ~ 2017,조영호
+202,career_period_reverse,2024 ~ 2019,김수진
+203,career_period_reverse,2024 ~ 2022,정창화
+204,career_period_reverse,2023 ~ 2018,서대원
+206,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+207,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+208,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+209,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+210,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+211,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+212,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+213,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+214,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+215,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+216,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+217,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+218,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+219,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+220,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+221,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+222,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+223,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+224,career_period_invalid,2022.10 ~ 2023.032023.03 ~ 현재2023.04 ~ 현재2023.05 ~ 현재,이준서
+225,career_period_invalid,2024.03 ~ 2025.022025.02 ~ 현재,이준서
+226,career_period_invalid,2006.02 ~ 2007.052007.06 ~ 2011.06,서영숙
+227,career_period_invalid,2023.03 ~ 2024.022024.03 ~ 현재,이승열
+228,career_period_invalid,2021.01 ~ 2023.122021.03 ~ 2024.03,이재민
+229,career_period_invalid,2022.11 ~ 2024.082024.03 ~ 현재,이재민
+232,career_period_reverse,2025.01 ~ 2018.12,채대석
+233,career_period_reverse,2019.09 ~ 2018.09,송원자
+234,career_period_reverse,2019.09 ~ 2018.09,송원자
+236,career_period_reverse,2025.01 ~ 2018.12,채대석
+237,career_period_reverse,2019.09 ~ 2018.09,송원자
+238,career_period_reverse,2019.09 ~ 2018.09,송원자
+239,career_period_reverse,2025.01 ~ 2018.12,채대석
+240,career_period_reverse,2019.09 ~ 2018.09,송원자
+241,career_period_reverse,2019.09 ~ 2018.09,송원자
+242,career_period_reverse,2025.01 ~ 2018.12,채대석
+243,career_period_reverse,2019.09 ~ 2018.09,송원자
+244,career_period_reverse,2019.09 ~ 2018.09,송원자
+246,career_period_reverse,2025.01 ~ 2018.12,채대석
+247,career_period_reverse,2019.09 ~ 2018.09,송원자
+248,career_period_reverse,2019.09 ~ 2018.09,송원자
+249,career_period_reverse,2025.01 ~ 2018.12,채대석
+250,career_period_reverse,2019.09 ~ 2018.09,송원자
+251,career_period_reverse,2019.09 ~ 2018.09,송원자
+252,career_period_reverse,2025.01 ~ 2018.12,채대석
+253,career_period_reverse,2019.09 ~ 2018.09,송원자
+254,career_period_reverse,2019.09 ~ 2018.09,송원자
+255,career_period_reverse,2025.01 ~ 2018.12,채대석
+256,career_period_reverse,2019.09 ~ 2018.09,송원자
+257,career_period_reverse,2019.09 ~ 2018.09,송원자
+259,career_period_reverse,2025.01 ~ 2018.12,채대석
+260,career_period_reverse,2019.09 ~ 2018.09,송원자
+261,career_period_reverse,2019.09 ~ 2018.09,송원자
+262,career_period_reverse,2025.01 ~ 2018.12,채대석
+263,career_period_reverse,2019.09 ~ 2018.09,송원자
+264,career_period_reverse,2019.09 ~ 2018.09,송원자
+265,career_period_reverse,2025.01 ~ 2018.12,채대석
+266,career_period_reverse,2019.09 ~ 2018.09,송원자
+267,career_period_reverse,2019.09 ~ 2018.09,송원자
+268,career_period_reverse,2025.01 ~ 2018.12,채대석
+269,career_period_reverse,2019.09 ~ 2018.09,송원자
+270,career_period_reverse,2019.09 ~ 2018.09,송원자
+283,career_period_reverse,2015 ~ 2010,허경욱
+284,career_period_reverse,2019 ~ 2017,윤웅걸
+285,career_period_reverse,2015 ~ 2010,허경욱
+286,career_period_reverse,2019 ~ 2017,윤웅걸
+288,career_period_reverse,2024.09 ~ 2012.08,정문기
+289,career_period_reverse,2024.09 ~ 2012.08,정문기
+291,career_period_reverse,2015 ~ 2010,허경욱
+292,career_period_reverse,2019 ~ 2017,윤웅걸
+293,career_period_reverse,2015 ~ 2010,허경욱
+294,career_period_reverse,2019 ~ 2017,윤웅걸
+295,career_period_reverse,2015 ~ 2010,허경욱
+296,career_period_reverse,2019 ~ 2017,윤웅걸
+297,career_period_reverse,2015 ~ 2010,허경욱
+298,career_period_reverse,2019 ~ 2017,윤웅걸
+299,career_period_reverse,2015 ~ 2010,허경욱
+300,career_period_reverse,2019 ~ 2017,윤웅걸
+301,career_period_reverse,2015 ~ 2010,허경욱
+302,career_period_reverse,2019 ~ 2017,윤웅걸
+303,career_period_reverse,2015 ~ 2010,허경욱
+304,career_period_reverse,2019 ~ 2017,윤웅걸
+305,career_period_reverse,2015 ~ 2010,허경욱
+306,career_period_reverse,2019 ~ 2017,윤웅걸
+308,career_period_reverse,2015 ~ 2010,허경욱
+309,career_period_reverse,2019 ~ 2017,윤웅걸
+310,career_period_reverse,2015 ~ 2010,허경욱
+311,career_period_reverse,2019 ~ 2017,윤웅걸
+312,career_period_reverse,2015 ~ 2010,허경욱
+313,career_period_reverse,2019 ~ 2017,윤웅걸
+314,career_period_reverse,2015 ~ 2010,허경욱
+315,career_period_reverse,2019 ~ 2017,윤웅걸
+316,career_period_reverse,2015 ~ 2010,허경욱
+317,career_period_reverse,2019 ~ 2017,윤웅걸
+318,career_period_reverse,2015 ~ 2010,허경욱
+319,career_period_reverse,2019 ~ 2017,윤웅걸
+320,career_period_reverse,2024.09 ~ 2012.08,정문기
+321,career_period_reverse,2024.09 ~ 2012.08,정문기
+322,career_period_reverse,2024.09 ~ 2012.08,정문기
+323,career_period_reverse,2024.09 ~ 2012.08,정문기
+324,career_period_reverse,2024.09 ~ 2012.08,정문기
+325,career_period_reverse,2024.09 ~ 2012.08,정문기
+326,career_period_reverse,2024.09 ~ 2012.08,정문기
+327,career_period_reverse,2024.09 ~ 2012.08,정문기
+328,career_period_reverse,2024.09 ~ 2012.08,정문기
+329,career_period_reverse,2024.09 ~ 2012.08,정문기
+331,career_period_reverse,2024.09 ~ 2012.08,정문기
+332,career_period_reverse,2024.09 ~ 2012.08,정문기
+333,career_period_reverse,2024.09 ~ 2012.08,정문기
+334,career_period_reverse,2024.09 ~ 2012.08,정문기
+335,career_period_reverse,2024.09 ~ 2012.08,정문기
+336,career_period_reverse,2024.09 ~ 2012.08,정문기
+337,career_period_reverse,2015 ~ 2010,허경욱
+338,career_period_reverse,2019 ~ 2017,윤웅걸
+339,career_period_reverse,2015 ~ 2010,허경욱
+340,career_period_reverse,2019 ~ 2017,윤웅걸
+342,career_period_reverse,2015 ~ 2010,허경욱
+343,career_period_reverse,2019 ~ 2017,윤웅걸
+344,career_period_reverse,2015 ~ 2010,허경욱
+345,career_period_reverse,2019 ~ 2017,윤웅걸
+346,career_period_reverse,2015 ~ 2010,허경욱
+347,career_period_reverse,2019 ~ 2017,윤웅걸
+348,career_period_reverse,2015 ~ 2010,허경욱
+349,career_period_reverse,2019 ~ 2017,윤웅걸
+350,career_period_reverse,2015 ~ 2010,허경욱
+351,career_period_reverse,2019 ~ 2017,윤웅걸
+352,career_period_reverse,2015 ~ 2010,허경욱
+353,career_period_reverse,2019 ~ 2017,윤웅걸
+354,career_period_reverse,2025 ~ 2018,강동수
+360,career_period_reverse,2025 ~ 2018,강동수
+361,career_period_reverse,2025 ~ 2018,강동수
+362,career_period_reverse,2025 ~ 2018,강동수
+363,career_period_reverse,2025 ~ 2018,강동수
+364,career_period_reverse,2025 ~ 2018,강동수
+365,career_period_reverse,2025 ~ 2018,강동수
+366,career_period_reverse,2025 ~ 2018,강동수
+367,career_period_reverse,2025 ~ 2018,강동수
+368,career_period_reverse,2025 ~ 2018,강동수
+369,career_period_reverse,2025 ~ 2018,강동수
+370,career_period_reverse,2025 ~ 2018,강동수
+378,agenda_section_missing,,
+379,agenda_section_missing,,
+380,agenda_section_missing,,
+381,agenda_section_missing,,
+386,agenda_section_missing,,
+387,agenda_section_missing,,
+388,agenda_section_missing,,
+389,agenda_section_missing,,
+390,agenda_section_missing,,
+391,agenda_section_missing,,
+393,agenda_section_missing,,
+394,agenda_section_missing,,
+395,agenda_section_missing,,
+396,agenda_section_missing,,
+397,agenda_section_missing,,
+398,agenda_section_missing,,
+400,agenda_section_missing,,
+401,agenda_section_missing,,
+402,agenda_section_missing,,
+403,agenda_section_missing,,
+404,agenda_section_missing,,
+405,agenda_section_missing,,
+409,agenda_section_missing,,
+410,agenda_section_missing,,
+414,career_period_reverse,2023.08 ~ 2015.12,김동찬
+415,career_period_reverse,2023.08 ~ 2015.12,김동찬
+416,career_period_reverse,2023.08 ~ 2015.12,김동찬
+417,career_period_reverse,2023.08 ~ 2015.12,김동찬
+418,career_period_reverse,2023.08 ~ 2015.12,김동찬
+419,career_period_reverse,2023.08 ~ 2015.12,김동찬
+420,career_period_reverse,2023.08 ~ 2015.12,김동찬
+421,career_period_reverse,2023.08 ~ 2015.12,김동찬
+423,career_period_reverse,2023.08 ~ 2015.12,김동찬
+425,career_period_reverse,2023.08 ~ 2015.12,김동찬
+426,career_period_reverse,2023.08 ~ 2015.12,김동찬
+427,career_period_reverse,2023.08 ~ 2015.12,김동찬
+429,career_period_reverse,2024 ~ 2019,배영
+430,career_period_reverse,2024 ~ 2019,배영
+434,career_period_reverse,2019-2012,장재수
+435,career_period_reverse,2024 ~ 2019,배영
+436,career_period_reverse,2024 ~ 2019,배영
+437,career_period_reverse,2024 ~ 2019,배영
+438,career_period_reverse,2024 ~ 2019,배영
+439,career_period_reverse,2024 ~ 2019,배영
+440,career_period_reverse,2024 ~ 2019,배영
+441,career_period_reverse,2024 ~ 2019,배영
+442,career_period_reverse,2024 ~ 2019,배영
+443,career_period_reverse,2024 ~ 2019,배영
+444,career_period_reverse,2024 ~ 2019,배영
+445,career_period_reverse,2024 ~ 2019,배영
+446,career_period_reverse,2024 ~ 2019,배영
+447,career_period_reverse,2024 ~ 2019,배영
+448,career_period_reverse,2024 ~ 2019,배영
+449,career_period_reverse,2019-2012,장재수
+450,career_period_reverse,2019-2012,장재수
+451,career_period_reverse,2019-2012,장재수
+452,career_period_reverse,2019-2012,장재수
+453,career_period_reverse,2019-2012,장재수
+454,career_period_reverse,2019-2012,장재수
+455,career_period_reverse,2019-2012,장재수
+456,career_period_reverse,2024 ~ 2019,배영
+457,career_period_reverse,2024 ~ 2019,배영
+459,career_period_reverse,2024 ~ 2019,배영
+460,career_period_reverse,2024 ~ 2019,배영
+461,career_period_reverse,2024 ~ 2019,배영
+462,career_period_reverse,2024 ~ 2019,배영
+463,career_period_reverse,2024 ~ 2019,배영
+464,career_period_reverse,2024 ~ 2019,배영
+465,career_period_reverse,2019-2012,장재수
+467,career_period_reverse,2019-2012,장재수
+468,career_period_reverse,2019-2012,장재수
+469,career_period_reverse,2019-2012,장재수
+470,career_period_reverse,2022.01 ~ 2020.12,조경선
+471,career_period_reverse,2022.01 ~ 2020.12,조경선
+475,career_period_reverse,2022.01 ~ 2020.12,조경선
+476,career_period_reverse,2022.01 ~ 2020.12,조경선
+477,career_period_reverse,2022.01 ~ 2020.12,조경선
+478,career_period_reverse,2022.01 ~ 2020.12,조경선
+479,career_period_reverse,2022.01 ~ 2020.12,조경선
+480,career_period_reverse,2022.01 ~ 2020.12,조경선
+481,career_period_reverse,2022.01 ~ 2020.12,조경선
+482,career_period_reverse,2022.01 ~ 2020.12,조경선
+484,career_period_reverse,2022.01 ~ 2020.12,조경선
+485,career_period_reverse,2022.01 ~ 2020.12,조경선
+486,career_period_reverse,2022.01 ~ 2020.12,조경선
+487,career_period_reverse,2022.01 ~ 2020.12,조경선
+488,career_period_reverse,2022.01 ~ 2020.12,조경선
+489,career_period_reverse,2022.01 ~ 2020.12,조경선
+490,career_period_reverse,2022.01 ~ 2020.12,조경선
+491,career_period_reverse,2022.01 ~ 2020.12,조경선
+492,career_period_reverse,2022.01 ~ 2020.12,조경선
+493,career_period_reverse,2022.01 ~ 2020.12,조경선
+494,career_period_reverse,2022.01 ~ 2020.12,조경선
+495,career_period_reverse,2022.01 ~ 2020.12,조경선
+496,career_period_reverse,2022.01 ~ 2020.12,조경선
+497,career_period_reverse,2022.01 ~ 2020.12,조경선
+500,career_period_reverse,2025 ~ 2015,이상우
+501,career_period_reverse,2023 ~ 2017,김정회
+502,career_period_reverse,2023 ~ 2017,김정회
+506,career_period_reverse,2025 ~ 2015,이상우
+507,career_period_reverse,2023 ~ 2017,김정회
+508,career_period_reverse,2023 ~ 2017,김정회
+509,career_period_reverse,2025 ~ 2015,이상우
+510,career_period_reverse,2023 ~ 2017,김정회
+511,career_period_reverse,2023 ~ 2017,김정회
+512,career_period_reverse,2025 ~ 2015,이상우
+513,career_period_reverse,2023 ~ 2017,김정회
+514,career_period_reverse,2023 ~ 2017,김정회
+515,career_period_reverse,2025 ~ 2015,이상우
+516,career_period_reverse,2023 ~ 2017,김정회
+517,career_period_reverse,2023 ~ 2017,김정회
+519,career_period_reverse,2025 ~ 2015,이상우
+520,career_period_reverse,2023 ~ 2017,김정회
+521,career_period_reverse,2023 ~ 2017,김정회
+522,career_period_reverse,2025 ~ 2015,이상우
+523,career_period_reverse,2023 ~ 2017,김정회
+524,career_period_reverse,2023 ~ 2017,김정회
+525,career_period_reverse,2025 ~ 2015,이상우
+526,career_period_reverse,2023 ~ 2017,김정회
+527,career_period_reverse,2023 ~ 2017,김정회
+529,career_period_reverse,2025 ~ 2015,이상우
+530,career_period_reverse,2023 ~ 2017,김정회
+531,career_period_reverse,2023 ~ 2017,김정회
+532,career_period_reverse,2025 ~ 2015,이상우
+533,career_period_reverse,2023 ~ 2017,김정회
+534,career_period_reverse,2023 ~ 2017,김정회
+535,career_period_reverse,2025 ~ 2015,이상우
+536,career_period_reverse,2023 ~ 2017,김정회
+537,career_period_reverse,2023 ~ 2017,김정회
+538,career_period_reverse,2025 ~ 2015,이상우
+539,career_period_reverse,2023 ~ 2017,김정회
+540,career_period_reverse,2023 ~ 2017,김정회
+546,career_period_reverse,2025.02 ~ 2018.01,김민표
+547,career_period_reverse,2021.07 ~ 2019.10,유혜련
+549,career_period_reverse,2021 ~ 2013,송종민
+550,career_period_reverse,2025 ~ 2010,김준석
+551,career_period_reverse,2020 ~ 2009,노상섭
+552,career_period_reverse,2017 ~ 2012,장경선
+553,career_period_reverse,2022 ~ 2014,조국환
+554,career_period_reverse,2020 ~ 2009,노상섭
+555,career_period_reverse,2017 ~ 2012,장경선
+558,career_period_reverse,2025.02 ~ 2018.01,김민표
+559,career_period_reverse,2021.07 ~ 2019.10,유혜련
+560,career_period_reverse,2025.02 ~ 2018.01,김민표
+561,career_period_reverse,2021.07 ~ 2019.10,유혜련
+562,career_period_reverse,2025.02 ~ 2018.01,김민표
+563,career_period_reverse,2021.07 ~ 2019.10,유혜련
+564,career_period_reverse,2012 ~ 2003,김태홍
+565,career_period_reverse,2012 ~ 2003,김태홍
+566,career_period_reverse,2025.02 ~ 2018.01,김민표
+567,career_period_reverse,2021.07 ~ 2019.10,유혜련
+568,career_period_reverse,2025.02 ~ 2018.01,김민표
+569,career_period_reverse,2021.07 ~ 2019.10,유혜련
+570,career_period_reverse,2025.02 ~ 2018.01,김민표
+571,career_period_reverse,2021.07 ~ 2019.10,유혜련
+572,career_period_reverse,2025.02 ~ 2018.01,김민표
+573,career_period_reverse,2021.07 ~ 2019.10,유혜련
+574,career_period_reverse,2021 ~ 2013,송종민
+575,career_period_reverse,2025 ~ 2010,김준석
+576,career_period_reverse,2020 ~ 2009,노상섭
+577,career_period_reverse,2017 ~ 2012,장경선
+578,career_period_reverse,2022 ~ 2014,조국환
+579,career_period_reverse,2020 ~ 2009,노상섭
+580,career_period_reverse,2017 ~ 2012,장경선
+581,career_period_reverse,2021 ~ 2013,송종민
+582,career_period_reverse,2025 ~ 2010,김준석
+583,career_period_reverse,2020 ~ 2009,노상섭
+584,career_period_reverse,2017 ~ 2012,장경선
+585,career_period_reverse,2022 ~ 2014,조국환
+586,career_period_reverse,2020 ~ 2009,노상섭
+587,career_period_reverse,2017 ~ 2012,장경선
+588,career_period_reverse,2021 ~ 2013,송종민
+589,career_period_reverse,2025 ~ 2010,김준석
+590,career_period_reverse,2020 ~ 2009,노상섭
+591,career_period_reverse,2017 ~ 2012,장경선
+592,career_period_reverse,2022 ~ 2014,조국환
+593,career_period_reverse,2020 ~ 2009,노상섭
+594,career_period_reverse,2017 ~ 2012,장경선
+595,career_period_reverse,2021 ~ 2013,송종민
+596,career_period_reverse,2025 ~ 2010,김준석
+597,career_period_reverse,2020 ~ 2009,노상섭
+598,career_period_reverse,2017 ~ 2012,장경선
+599,career_period_reverse,2022 ~ 2014,조국환
+600,career_period_reverse,2020 ~ 2009,노상섭
+601,career_period_reverse,2017 ~ 2012,장경선
+602,career_period_reverse,2021 ~ 2013,송종민
+603,career_period_reverse,2025 ~ 2010,김준석
+604,career_period_reverse,2020 ~ 2009,노상섭
+605,career_period_reverse,2017 ~ 2012,장경선
+606,career_period_reverse,2022 ~ 2014,조국환
+607,career_period_reverse,2020 ~ 2009,노상섭
+608,career_period_reverse,2017 ~ 2012,장경선
+609,career_period_reverse,2021 ~ 2013,송종민
+610,career_period_reverse,2025 ~ 2010,김준석
+611,career_period_reverse,2020 ~ 2009,노상섭
+612,career_period_reverse,2017 ~ 2012,장경선
+613,career_period_reverse,2022 ~ 2014,조국환
+614,career_period_reverse,2020 ~ 2009,노상섭
+615,career_period_reverse,2017 ~ 2012,장경선
+616,career_period_reverse,2021 ~ 2013,송종민
+617,career_period_reverse,2025 ~ 2010,김준석
+618,career_period_reverse,2020 ~ 2009,노상섭
+619,career_period_reverse,2017 ~ 2012,장경선
+620,career_period_reverse,2022 ~ 2014,조국환
+621,career_period_reverse,2020 ~ 2009,노상섭
+622,career_period_reverse,2017 ~ 2012,장경선
+623,career_period_reverse,2012 ~ 2003,김태홍
+624,career_period_reverse,2012 ~ 2003,김태홍
+625,career_period_reverse,2012 ~ 2003,김태홍
+626,career_period_reverse,2012 ~ 2003,김태홍
+627,career_period_reverse,2012 ~ 2003,김태홍
+628,career_period_reverse,2012 ~ 2003,김태홍
+629,career_period_reverse,2012 ~ 2003,김태홍
+630,career_period_reverse,2012 ~ 2003,김태홍
+631,career_period_reverse,2012 ~ 2003,김태홍
+632,career_period_reverse,2012 ~ 2003,김태홍
+633,career_period_reverse,2012 ~ 2003,김태홍
+634,career_period_reverse,2012 ~ 2003,김태홍
+635,career_period_reverse,2012 ~ 2003,김태홍
+636,career_period_reverse,2012 ~ 2003,김태홍
+637,career_period_reverse,2025.02 ~ 2018.01,김민표
+638,career_period_reverse,2021.07 ~ 2019.10,유혜련
+639,career_period_reverse,2025.02 ~ 2018.01,김민표
+640,career_period_reverse,2021.07 ~ 2019.10,유혜련
+641,career_period_reverse,2025.02 ~ 2018.01,김민표
+642,career_period_reverse,2021.07 ~ 2019.10,유혜련
+643,career_period_reverse,2025.02 ~ 2018.01,김민표
+644,career_period_reverse,2021.07 ~ 2019.10,유혜련
+645,career_period_reverse,2021 ~ 2013,송종민
+646,career_period_reverse,2025 ~ 2010,김준석
+647,career_period_reverse,2020 ~ 2009,노상섭
+648,career_period_reverse,2017 ~ 2012,장경선
+649,career_period_reverse,2022 ~ 2014,조국환
+650,career_period_reverse,2020 ~ 2009,노상섭
+651,career_period_reverse,2017 ~ 2012,장경선
+652,career_period_reverse,2021 ~ 2013,송종민
+653,career_period_reverse,2025 ~ 2010,김준석
+654,career_period_reverse,2020 ~ 2009,노상섭
+655,career_period_reverse,2017 ~ 2012,장경선
+656,career_period_reverse,2022 ~ 2014,조국환
+657,career_period_reverse,2020 ~ 2009,노상섭
+658,career_period_reverse,2017 ~ 2012,장경선
+659,career_period_reverse,2021 ~ 2013,송종민
+660,career_period_reverse,2025 ~ 2010,김준석
+661,career_period_reverse,2020 ~ 2009,노상섭
+662,career_period_reverse,2017 ~ 2012,장경선
+663,career_period_reverse,2022 ~ 2014,조국환
+664,career_period_reverse,2020 ~ 2009,노상섭
+665,career_period_reverse,2017 ~ 2012,장경선
+666,career_period_reverse,2021 ~ 2013,송종민
+667,career_period_reverse,2025 ~ 2010,김준석
+668,career_period_reverse,2020 ~ 2009,노상섭
+669,career_period_reverse,2017 ~ 2012,장경선
+670,career_period_reverse,2022 ~ 2014,조국환
+671,career_period_reverse,2020 ~ 2009,노상섭
+672,career_period_reverse,2017 ~ 2012,장경선
+674,career_period_reverse,2012 ~ 2003,김태홍
+675,career_period_reverse,2012 ~ 2003,김태홍
+676,career_period_reverse,2012 ~ 2003,김태홍
+677,career_period_reverse,2012 ~ 2003,김태홍
+678,career_period_reverse,2012 ~ 2003,김태홍
+679,career_period_reverse,2012 ~ 2003,김태홍
+680,career_period_reverse,2012 ~ 2003,김태홍
+681,career_period_reverse,2012 ~ 2003,김태홍
+686,career_period_reverse,2004 ~ 2002,최문호
+687,career_period_reverse,2022 ~ 2011,김장우
+688,career_period_reverse,2024 ~ 2021,조재정
+689,career_period_reverse,1994.3 ~ 1991.03,이화련
+690,career_period_reverse,2024 ~ 2021,조재정
+691,career_period_reverse,2018 ~ 2003,이기환
+694,career_period_reverse,2004 ~ 2002,최문호
+695,career_period_reverse,2022 ~ 2011,김장우
+696,career_period_reverse,2024 ~ 2021,조재정
+697,career_period_reverse,1994.3 ~ 1991.03,이화련
+698,career_period_reverse,2024 ~ 2021,조재정
+699,career_period_reverse,2018 ~ 2003,이기환
+700,career_period_reverse,2004 ~ 2002,최문호
+701,career_period_reverse,2022 ~ 2011,김장우
+702,career_period_reverse,2024 ~ 2021,조재정
+703,career_period_reverse,1994.3 ~ 1991.03,이화련
+704,career_period_reverse,2024 ~ 2021,조재정
+705,career_period_reverse,2018 ~ 2003,이기환
+706,career_period_reverse,2004 ~ 2002,최문호
+707,career_period_reverse,2022 ~ 2011,김장우
+708,career_period_reverse,2024 ~ 2021,조재정
+709,career_period_reverse,1994.3 ~ 1991.03,이화련
+710,career_period_reverse,2024 ~ 2021,조재정
+711,career_period_reverse,2018 ~ 2003,이기환
+712,career_period_reverse,2004 ~ 2002,최문호
+713,career_period_reverse,2022 ~ 2011,김장우
+714,career_period_reverse,2024 ~ 2021,조재정
+715,career_period_reverse,1994.3 ~ 1991.03,이화련
+716,career_period_reverse,2024 ~ 2021,조재정
+717,career_period_reverse,2018 ~ 2003,이기환
+718,career_period_reverse,2004 ~ 2002,최문호
+719,career_period_reverse,2022 ~ 2011,김장우
+720,career_period_reverse,2024 ~ 2021,조재정
+721,career_period_reverse,1994.3 ~ 1991.03,이화련
+722,career_period_reverse,2024 ~ 2021,조재정
+723,career_period_reverse,2018 ~ 2003,이기환
+724,career_period_reverse,2004 ~ 2002,최문호
+725,career_period_reverse,2022 ~ 2011,김장우
+726,career_period_reverse,2024 ~ 2021,조재정
+727,career_period_reverse,1994.3 ~ 1991.03,이화련
+728,career_period_reverse,2024 ~ 2021,조재정
+729,career_period_reverse,2018 ~ 2003,이기환
+730,career_period_reverse,2004 ~ 2002,최문호
+731,career_period_reverse,2022 ~ 2011,김장우
+732,career_period_reverse,2024 ~ 2021,조재정
+733,career_period_reverse,1994.3 ~ 1991.03,이화련
+734,career_period_reverse,2024 ~ 2021,조재정
+735,career_period_reverse,2018 ~ 2003,이기환
+736,career_period_reverse,2004 ~ 2002,최문호
+737,career_period_reverse,2022 ~ 2011,김장우
+738,career_period_reverse,2024 ~ 2021,조재정
+739,career_period_reverse,1994.3 ~ 1991.03,이화련
+740,career_period_reverse,2024 ~ 2021,조재정
+741,career_period_reverse,2018 ~ 2003,이기환
+742,career_period_reverse,2004 ~ 2002,최문호
+743,career_period_reverse,2022 ~ 2011,김장우
+744,career_period_reverse,2024 ~ 2021,조재정
+745,career_period_reverse,1994.3 ~ 1991.03,이화련
+746,career_period_reverse,2024 ~ 2021,조재정
+747,career_period_reverse,2018 ~ 2003,이기환
+748,career_period_reverse,2004 ~ 2002,최문호
+749,career_period_reverse,2022 ~ 2011,김장우
+750,career_period_reverse,2024 ~ 2021,조재정
+751,career_period_reverse,1994.3 ~ 1991.03,이화련
+752,career_period_reverse,2024 ~ 2021,조재정
+753,career_period_reverse,2018 ~ 2003,이기환
+754,career_period_reverse,2004 ~ 2002,최문호
+755,career_period_reverse,2022 ~ 2011,김장우
+756,career_period_reverse,2024 ~ 2021,조재정
+757,career_period_reverse,1994.3 ~ 1991.03,이화련
+758,career_period_reverse,2024 ~ 2021,조재정
+759,career_period_reverse,2018 ~ 2003,이기환
+760,agenda_section_missing,,
+761,agenda_section_missing,,
+762,agenda_section_missing,,
+763,agenda_section_missing,,
+766,agenda_section_missing,,
+767,agenda_section_missing,,
+772,agenda_section_missing,,
+773,agenda_section_missing,,
+774,agenda_section_missing,,
+775,agenda_section_missing,,
+776,agenda_section_missing,,
+777,agenda_section_missing,,
+778,agenda_section_missing,,
+779,agenda_section_missing,,
+780,agenda_section_missing,,
+781,agenda_section_missing,,
+782,agenda_section_missing,,
+783,agenda_section_missing,,
+785,agenda_section_missing,,
+786,agenda_section_missing,,
+787,agenda_section_missing,,
+788,agenda_section_missing,,
+789,agenda_section_missing,,
+790,agenda_section_missing,,
+791,agenda_section_missing,,
+792,agenda_section_missing,,
+793,agenda_section_missing,,
+794,agenda_section_missing,,
+795,agenda_section_missing,,
+796,agenda_section_missing,,
+797,agenda_section_missing,,
+798,agenda_section_missing,,
+803,agenda_section_missing,,
+804,agenda_section_missing,,
+805,agenda_section_missing,,
+806,agenda_section_missing,,
+807,agenda_section_missing,,
+808,agenda_section_missing,,
+809,agenda_section_missing,,
+810,agenda_section_missing,,
+813,career_period_reverse,2024 ~ 2021,유지한
+814,career_period_reverse,2025 ~ 2022,박진우
+815,career_period_reverse,2023 ~ 1993,조동일
+818,image_notice_ocr_needed,20250310000887,
+820,image_notice_ocr_needed,20250310000887,
+821,image_notice_ocr_needed,20250310000887,
+822,career_period_reverse,2024 ~ 2021,유지한
+823,career_period_reverse,2025 ~ 2022,박진우
+824,career_period_reverse,2023 ~ 1993,조동일
+825,career_period_reverse,2024 ~ 2021,유지한
+826,career_period_reverse,2025 ~ 2022,박진우
+827,career_period_reverse,2023 ~ 1993,조동일
+828,career_period_reverse,2024 ~ 2021,유지한
+829,career_period_reverse,2025 ~ 2022,박진우
+830,career_period_reverse,2023 ~ 1993,조동일
+831,career_period_reverse,2024 ~ 2021,유지한
+832,career_period_reverse,2025 ~ 2022,박진우
+833,career_period_reverse,2023 ~ 1993,조동일
+834,career_period_reverse,2024 ~ 2021,유지한
+835,career_period_reverse,2025 ~ 2022,박진우
+836,career_period_reverse,2023 ~ 1993,조동일
+837,career_period_reverse,2024 ~ 2021,유지한
+838,career_period_reverse,2025 ~ 2022,박진우
+839,career_period_reverse,2023 ~ 1993,조동일
+840,career_period_reverse,2024 ~ 2021,유지한
+841,career_period_reverse,2025 ~ 2022,박진우
+842,career_period_reverse,2023 ~ 1993,조동일
+844,career_period_reverse,2024 ~ 2021,유지한
+845,career_period_reverse,2025 ~ 2022,박진우
+846,career_period_reverse,2023 ~ 1993,조동일
+847,career_period_reverse,2024 ~ 2021,유지한
+848,career_period_reverse,2025 ~ 2022,박진우
+849,career_period_reverse,2023 ~ 1993,조동일
+850,career_period_reverse,2024 ~ 2021,유지한
+851,career_period_reverse,2025 ~ 2022,박진우
+852,career_period_reverse,2023 ~ 1993,조동일
+853,career_period_reverse,2024 ~ 2021,유지한
+854,career_period_reverse,2025 ~ 2022,박진우
+855,career_period_reverse,2023 ~ 1993,조동일
+860,career_period_invalid,94.11~96.0696.07~07.09,전동규
+864,career_period_invalid,94.11~96.0696.07~07.09,전동규
+865,career_period_invalid,94.11~96.0696.07~07.09,전동규
+867,career_period_invalid,94.11~96.0696.07~07.09,전동규
+868,career_period_invalid,94.11~96.0696.07~07.09,전동규
+869,career_period_invalid,94.11~96.0696.07~07.09,전동규
+870,career_period_invalid,94.11~96.0696.07~07.09,전동규
+871,career_period_invalid,94.11~96.0696.07~07.09,전동규
+873,career_period_invalid,94.11~96.0696.07~07.09,전동규
+874,career_period_invalid,94.11~96.0696.07~07.09,전동규
+875,career_period_invalid,94.11~96.0696.07~07.09,전동규
+876,career_period_invalid,94.11~96.0696.07~07.09,전동규
+883,image_notice_ocr_needed,20240308000793,
+884,image_notice_ocr_needed,20240308000793,
+890,image_notice_ocr_needed,20250312001021,
+891,image_notice_ocr_needed,20250312001021,
+892,image_notice_ocr_needed,20250312001021,
+893,image_notice_ocr_needed,20250312001021,
+899,career_period_reverse,2024.09 ~ 2010.02,강필성
+901,career_period_reverse,2024.09 ~ 2010.02,강필성
+903,career_period_reverse,2024.09 ~ 2010.02,강필성
+904,career_period_reverse,2024.09 ~ 2010.02,강필성
+905,career_period_reverse,2024.09 ~ 2010.02,강필성
+906,career_period_reverse,2024.09 ~ 2010.02,강필성
+907,career_period_reverse,2024.09 ~ 2010.02,강필성
+908,career_period_reverse,2024.09 ~ 2010.02,강필성
+909,career_period_reverse,2022 ~ 2019,김도원
+910,career_period_reverse,2022 ~ 2021,김윤건
+911,career_period_reverse,2024.09 ~ 2010.02,강필성
+912,career_period_reverse,2024.09 ~ 2010.02,강필성
+913,career_period_reverse,2024.09 ~ 2010.02,강필성
+914,career_period_reverse,2024.09 ~ 2010.02,강필성
+915,career_period_reverse,2022 ~ 2019,김도원
+916,career_period_reverse,2022 ~ 2021,김윤건
+917,career_period_reverse,- 2024 ~ 현재- 2021 ~ 현재,조남성
+918,career_period_reverse,2024 ~ 2021,임창빈
+919,career_period_reverse,2022 ~ 2019,김도원
+920,career_period_reverse,2022 ~ 2021,김윤건
+921,career_period_reverse,2022 ~ 2019,김도원
+922,career_period_reverse,2022 ~ 2021,김윤건
+923,career_period_reverse,2022 ~ 2019,김도원
+924,career_period_reverse,2022 ~ 2021,김윤건
+925,career_period_reverse,- 2024 ~ 현재- 2021 ~ 현재,조남성
+926,career_period_reverse,2024 ~ 2021,임창빈
+927,career_period_reverse,- 2024 ~ 현재- 2021 ~ 현재,조남성
+928,career_period_reverse,2024 ~ 2021,임창빈
+929,career_period_reverse,- 2024 ~ 현재- 2021 ~ 현재,조남성
+930,career_period_reverse,2024 ~ 2021,임창빈
+933,career_period_reverse,2022 ~ 2019,김도원
+934,career_period_reverse,2022 ~ 2021,김윤건
+936,career_period_reverse,2022 ~ 2019,김도원
+937,career_period_reverse,2022 ~ 2021,김윤건
+938,career_period_reverse,2022 ~ 2019,김도원
+939,career_period_reverse,2022 ~ 2021,김윤건
+940,career_period_reverse,2022 ~ 2019,김도원
+941,career_period_reverse,2022 ~ 2021,김윤건
+942,career_period_reverse,- 2024 ~ 현재- 2021 ~ 현재,조남성
+943,career_period_reverse,2024 ~ 2021,임창빈
+945,career_period_reverse,- 2024 ~ 현재- 2021 ~ 현재,조남성
+946,career_period_reverse,2024 ~ 2021,임창빈
+947,career_period_reverse,- 2024 ~ 현재- 2021 ~ 현재,조남성
+948,career_period_reverse,2024 ~ 2021,임창빈
+949,career_period_reverse,- 2024 ~ 현재- 2021 ~ 현재,조남성
+950,career_period_reverse,2024 ~ 2021,임창빈
+964,image_notice_ocr_needed,20250313000294,
+965,image_notice_ocr_needed,20250313000294,
+966,image_notice_ocr_needed,20250313000294,
+970,agenda_section_missing,,
+971,agenda_section_missing,,
+972,agenda_section_missing,,
+973,agenda_section_missing,,
+974,agenda_section_missing,,
+975,agenda_section_missing,,
+976,agenda_section_missing,,
+977,agenda_section_missing,,
+978,agenda_section_missing,,
+979,agenda_section_missing,,
+980,agenda_section_missing,,
+981,agenda_section_missing,,
+984,agenda_section_missing,,
+985,agenda_section_missing,,
+986,agenda_section_missing,,
+987,agenda_section_missing,,
+988,agenda_section_missing,,
+989,agenda_section_missing,,
+994,agenda_section_missing,,
+995,agenda_section_missing,,
+996,agenda_section_missing,,
+997,agenda_section_missing,,
+1000,agenda_section_missing,,
+1001,agenda_section_missing,,
+1002,agenda_section_missing,,
+1003,agenda_section_missing,,
+1004,agenda_section_missing,,
+1005,agenda_section_missing,,
+1006,agenda_section_missing,,
+1007,agenda_section_missing,,
+1009,agenda_section_missing,,
+1010,agenda_section_missing,,
+1011,agenda_section_missing,,
+1012,agenda_section_missing,,
+1013,agenda_section_missing,,
+1014,agenda_section_missing,,
+1029,agenda_section_missing,,
+1030,agenda_section_missing,,
+1032,agenda_section_missing,,
+1033,agenda_section_missing,,
+1038,image_notice_ocr_needed,20250311000207,
+1039,image_notice_ocr_needed,20250311000207,
+1040,image_notice_ocr_needed,20250311000207,
+1042,agenda_section_missing,,
+1043,agenda_section_missing,,
+1044,agenda_section_missing,,
+1045,agenda_section_missing,,
+1046,agenda_section_missing,,
+1047,agenda_section_missing,,
+1049,agenda_section_missing,,
+1050,agenda_section_missing,,
+1051,agenda_section_missing,,
+1052,agenda_section_missing,,
+1053,agenda_section_missing,,
+1054,agenda_section_missing,,
