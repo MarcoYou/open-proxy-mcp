@@ -154,13 +154,14 @@ def _classify_agenda(agenda_title: str) -> str:
 def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, str]:
     """이사/감사위원 선임 안건 → (decision, reason).
 
-    director_evaluation 결과로 결정:
-    - 결격사유 red_flag → AGAINST
-    - 독립성 concerns → REVIEW (사용자 판단)
-    - 모두 clean → FOR
+    director_evaluation 결과로 결정. ralph iter7 강화: 사내이사 vs 사외이사 분기.
+    - 사내이사: 회사 결정 영역 (오너 일가 등). 결격사유만 판단. 독립성 concerns 무시 (mainstream).
+    - 사외이사: 독립성 핵심. concerns 있으면 REVIEW.
     """
     if not eval_match:
         return "REVIEW", "후보 평가 데이터 없음 — 사용자 검토 필요"
+    role_type = eval_match.get("role_type") or ""
+    is_outside = "사외" in role_type or "outside" in role_type.lower() or "독립" in role_type
     disq = eval_match.get("disqualification", {}).get("summary", "")
     indep = eval_match.get("independence", {}).get("summary", "")
     marco = eval_match.get("faithfulness", {}).get("marco_scenario", {}).get("summary", "")
@@ -168,12 +169,13 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     if disq == "red_flag":
         return "AGAINST", f"결격사유 발견 (eligibility 또는 미성년)"
     if marco == "red_flag":
-        # 코붕이 지시: Marco red flag = AGAINST 자동 X. REVIEW + 메모 raw 노출.
-        # 사외이사가 회계 risk를 막지 못한 게 본인 책임이라고 단정 어려움 — 사용자 판단 위임.
         return "REVIEW", "Marco 시나리오 — 과거 재직 회사 회계 risk 발생 (raw 메모 참조 후 판단)"
-    if indep == "concerns":
-        return "REVIEW", "독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원 가능성)"
-    return "FOR", "독립성/결격사유 모두 clean"
+    if is_outside:
+        if indep == "concerns":
+            return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
+        return "FOR", f"사외이사 독립성/결격사유 모두 clean ({role_type})"
+    # 사내이사: 결격사유 외 통과 (회사 결정 영역, mainstream FOR)
+    return "FOR", f"사내이사 결격사유 없음 ({role_type}) — 회사 결정 영역, 독립성 concerns 무시"
 
 
 def _decide_compensation(comp_payload: dict[str, Any] | None, fin_metrics_payload: dict[str, Any] | None = None) -> tuple[str, str]:
@@ -284,10 +286,12 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None) -> tu
         return "AGAINST", "완전 자본잠식 — 배당 결정은 주주가치 훼손"
     if ni is not None and ni < 0:
         return "REVIEW", f"적자 회사 (순이익 {ni:,}원) — 배당 재원 적정성 검토 필요"
-    if payout is not None and payout > 80:
-        return "REVIEW", f"배당성향 {payout}% (>80%) — 과도한 배당 가능성"
-    if ni is not None and ni > 0 and (payout is None or payout <= 80):
-        return "FOR", "흑자 + 배당성향 적정 (<80%)"
+    # ralph iter7: 배당성향 80-150%는 흑자 + 자본 양호하면 FOR (mainstream).
+    # POSCO 등 안정 대기업은 80% 넘어도 9/9 운용사 FOR. 임계 150%로 상향.
+    if payout is not None and payout > 150:
+        return "REVIEW", f"배당성향 {payout}% (>150%) — 명백한 과도 배당"
+    if ni is not None and ni > 0 and cap_status != "partial":
+        return "FOR", f"흑자 + 자본 양호 (배당성향 {payout if payout is not None else '?'}%)"
     return "REVIEW", "배당 적정성 본문 검토 필요"
 
 
@@ -445,29 +449,38 @@ async def build_proxy_advise_payload(
                 if nm and nm in title:
                     matched_eval = ev
                     break
-            # ralph iter4 logic 강화: 매칭 안 됨 + 후보 평가 데이터 존재 →
+            # ralph iter4+7 logic 강화: 매칭 안 됨 + 후보 평가 데이터 존재 →
             # 모든 후보 평가 종합 (묶음 안건 패턴 — "이사 선임의 건" 같은 형식).
-            # 모두 clean이면 FOR, 한 명이라도 red_flag면 AGAINST, 아니면 REVIEW.
+            # iter7: 사내이사 (executive) vs 사외이사 (independent) 구분.
+            # - 사내이사: 회사 결정 영역 (오너 일가 등). 결격사유만 판단. mainstream FOR.
+            # - 사외이사: 독립성 핵심. concerns 있으면 REVIEW.
             if matched_eval is None and name_to_eval:
-                # 묶음 안건 fallback: 카테고리 매칭 — director_election이면 사외/사내 불문, audit이면 감사위원
                 relevant_evals = list(name_to_eval.values())
                 if category == "audit_committee_election":
-                    # 감사위원 안건은 audit committee 후보만
                     relevant_evals = [
                         ev for ev in name_to_eval.values()
                         if ("감사" in (ev.get("role_type") or "")) or ("audit" in (ev.get("role_type") or "").lower())
                     ] or list(name_to_eval.values())
+
+                def _is_outside(ev):
+                    rt = (ev.get("role_type") or "")
+                    return "사외" in rt or "outside" in rt.lower() or "독립" in rt
+
+                outside_evals = [ev for ev in relevant_evals if _is_outside(ev)]
+                # red_flag 검증은 모든 후보
                 disq_red = any((ev.get("disqualification") or {}).get("summary") == "red_flag" for ev in relevant_evals)
                 marco_red = any((ev.get("faithfulness") or {}).get("marco_scenario", {}).get("summary") == "red_flag" for ev in relevant_evals)
-                indep_concerns = any((ev.get("independence") or {}).get("summary") == "concerns" for ev in relevant_evals)
+                # 독립성 concerns은 사외이사에서만 의미 (사내이사 indep concerns는 자연 — 회사 결정 존중)
+                indep_concerns_outside = any((ev.get("independence") or {}).get("summary") == "concerns" for ev in outside_evals)
+
                 if disq_red:
                     decision, reason = "AGAINST", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 결격사유 발견"
                 elif marco_red:
                     decision, reason = "REVIEW", f"묶음 안건 — Marco 시나리오 red_flag (raw 메모 검토)"
-                elif indep_concerns:
-                    decision, reason = "REVIEW", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 독립성 concerns"
+                elif indep_concerns_outside:
+                    decision, reason = "REVIEW", f"묶음 안건 — 사외이사 후보 {len(outside_evals)}명 중 독립성 concerns"
                 else:
-                    decision, reason = "FOR", f"묶음 안건 — 후보 {len(relevant_evals)}명 모두 결격사유 없음"
+                    decision, reason = "FOR", f"묶음 안건 — 후보 {len(relevant_evals)}명 (사외 {len(outside_evals)}명) 결격사유 + 사외독립성 모두 clean"
             else:
                 decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
