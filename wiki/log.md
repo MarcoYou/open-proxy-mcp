@@ -5,6 +5,10 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-03] audit | ownership_structure baseline — 패턴 fix 불필요
+- 200×3: 100% 일치, max 1.8s, timeout 0 ([[260503_2345_audit_ownership_baseline]])
+- proxy_contest와 동일 결론: DART endpoint 직접 호출은 fix 효과 미미
+
 ## [2026-05-03] audit | proxy_contest baseline — 패턴 fix 불필요 결정
 - 200×3 baseline (fix 없이): 100% 일치, timeout 0, mean 1.09s ([[260503_2330_audit_proxy_contest_baseline]])
 - 적용 판단 기준 정립: build_*_payload 재귀(적용) vs DART endpoint 직접(불필요)
