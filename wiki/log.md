@@ -5,6 +5,14 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-04] docs | proxy_advise/proxy_result 신규 spec + 검증 ralph
+- [[proxy_advise_before_meeting]] (10 scope: decisions/agenda/candidates/financial/governance/ownership/policy_basis/proxy_battle/engagement/evidence)
+  - 옛 prepare_engagement_case + build_campaign_brief 사전 부분 흡수
+- [[proxy_result_after_meeting]] (2 scope: results/brief)
+  - 옛 prepare_vote_brief render 흡수, followup 30일 윈도우 제거 (의도적 단순)
+- [[260503_0002_ralph_proxy-advise-verification]] — 3 gate (일관성/정확도/사실정확성) 검증 ralph
+- index.md 갱신 (Action 2 tool rename 표기)
+
 ## [2026-05-03] fix | 정정공고 4건 items[0] fallback 적용
 - `value_up_v2.py:127, 130, 394`, `corp_gov_report.py:386`, `shareholder_meeting.py:395`, `tools/proxy.py:421`
 - 표준 패턴: 정정 제외 우선 + 빈 결과 fallback (`(non_corr or items)[0]`)

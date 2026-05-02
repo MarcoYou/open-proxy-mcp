@@ -16,7 +16,8 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - **Discovery (1)**: [[screen_events]]
 - **Data (12)**: [[company]] · [[shareholder_meeting]] · [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]] · [[evidence]]
 - **Policy & Matrix (1)**: [[proxy_guideline]]
-- **Action (2)**: [[advise_vote_before_meeting]] · [[recap_vote_after_meeting]]
+- **Action (2)**: [[proxy_advise_before_meeting]] · [[proxy_result_after_meeting]]
+  - 옛 [[advise_vote_before_meeting]] / [[recap_vote_after_meeting]]은 rename 진행 중 (코드 작업 후 archive)
 
 ## 카테고리 구조
 
