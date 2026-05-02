@@ -157,6 +157,28 @@ max_iterations: 25
 - **최종 산출물**: parser only (.py 코드, OCR runtime 호출 X)
 - image-only PDF 같은 edge case는 OCR로 패턴 study → parser에 코드 흡수 → 또는 정직히 status=no_filing 표기
 
+### Soft pattern 우선 / Hard pattern은 끝까지 노력 (코붕이 명시)
+
+**원칙**: parser는 **soft pattern** (유연 매칭) 우선. hard pattern이 absolutely needed해도 다층 fallback으로 끝까지.
+
+**Soft pattern 기법** (적용 의무):
+- 정규식 multiple alternatives (OR — "목적사항|결의사항|부의안건|회의 안건")
+- 키워드 substring 매칭 (정확 일치 X — "목적사항별 기재사항" → "목적사항" 포함만)
+- HTML 구조 다양 변형 (table / div / p / span 모두 시도)
+- normalized 비교 (whitespace / 대소문자 / 한자/영문 변형 / 전각/반각)
+- score-based ranking (가장 가까운 매칭 우선, threshold 통과 시)
+- substring + edit distance fuzzy 매칭
+
+**Hard pattern absolutely needed 케이스 (corp_code 8자리 등)**:
+- 직접 정확 일치 시도
+- alias dict 매핑 시도
+- normalize 후 재시도 (suffix 제거 / 영한 변환)
+- 부분 매칭 fuzzy (Levenshtein) → top-3 후보 ranking
+- DART corpCode.xml 전체 search → 가장 가까운 회사명
+- **마지막 fallback도 fail이면 status=requires_review** — 절대 silent X
+
+**실패 시 명시적 status 반환** — silent fallback (data 빈 dict) 금지. 정직 보고.
+
 ### ⚠ 막힘 발생 시
 - F2 cache 구현 후에도 변동 발생 (DART API row 순서 자체 비결정성) → CONFLICT 명시
 - F3b agenda 패턴 추가해도 일부 회사 본문 구조 매우 특이 → 개별 case STATUS REPORT
