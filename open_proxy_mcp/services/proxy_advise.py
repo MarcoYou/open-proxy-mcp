@@ -126,8 +126,15 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
 # ── 안건별 결정 logic ──
 
 def _classify_agenda(agenda_title: str) -> str:
-    """안건 제목 → category. proxy_guideline의 voting_rules 키와 매칭."""
+    """안건 제목 → category. proxy_guideline의 voting_rules 키와 매칭.
+
+    iter13 fix: 정관 안건이 "배당" 키워드 포함해도 articles_amendment 우선 분류.
+    예: "배당절차 개선에 따른 정관 변경의 건" → 실제 정관변경 (LG화학)
+    """
     t = (agenda_title or "").strip()
+    # 정관변경이 가장 우선 — "정관" 명시되면 그게 본질
+    if "정관" in t:
+        return "articles_amendment"
     if "재무제표" in t and "배당" not in t:
         return "financial_statements"
     if "배당" in t or "이익잉여금" in t:
@@ -197,6 +204,10 @@ def _decide_compensation(comp_payload: dict[str, Any] | None, fin_metrics_payloa
             return "AGAINST", "완전 자본잠식 — 보수한도 결정 부적절"
         if ni is not None and ni > 0:
             return "FOR", f"보수 데이터 부족이나 흑자 (순익 {ni:,}원) — 재무 양호 묵시 FOR"
+        # iter13: 적자라도 자본 normal이면 보수한도 승인은 mainstream FOR
+        # (SK이노 17/17, 삼성SDI 10/17 등 — 한도 자체 설정은 회사 결정)
+        if cap_status == "normal":
+            return "FOR", f"보수 데이터 부족 + 자본 양호 — 보수한도 설정은 회사 결정 영역 (mainstream FOR)"
         return None
 
     if not comp_payload:
