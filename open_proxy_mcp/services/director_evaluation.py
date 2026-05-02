@@ -217,9 +217,22 @@ def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[
     """
     out: dict[str, Any] = {"sub_factors": {}}
 
+    # ralph iter8 fix: 부정 표현 다양화 — "관계없음" / "해당없음" / "없습니다" 등
+    # 이전엔 ("없음", "-", "")만 negation 인식 → "관계없음" → "related" 잘못 분류 → 모든 후보 indep concerns
+    def _is_negation(s: str | None) -> bool:
+        if s is None:
+            return True
+        s = s.strip()
+        if s in ("", "-"):
+            return True
+        # "없" 포함 (관계없음 / 해당없음 / 거래 없음 / 없습니다 등) — soft pattern
+        if "없" in s and len(s) <= 12:  # 짧은 부정구만 (긴 본문은 raw 노출)
+            return True
+        return False
+
     # 1. 최대주주/특수관계인 여부 → success (DART 정형 필드)
     msr = (candidate.get("majorShareholderRelation") or "").strip()
-    is_independent_from_major = msr in ("없음", "-", "")
+    is_independent_from_major = _is_negation(msr)
     out["sub_factors"]["major_shareholder_relation"] = {
         "result": "independent" if is_independent_from_major else "related",
         "raw": msr,
@@ -228,7 +241,7 @@ def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[
 
     # 2. 회사와 거래 관계 (recent3yTransactions) → success
     rt = candidate.get("recent3yTransactions")
-    has_transactions = bool(rt) and rt not in ("없음", "-", None)
+    has_transactions = not _is_negation(rt)
     out["sub_factors"]["recent_3y_transactions"] = {
         "result": "no_transactions" if not has_transactions else "transactions_exist",
         "raw": rt if rt else None,
