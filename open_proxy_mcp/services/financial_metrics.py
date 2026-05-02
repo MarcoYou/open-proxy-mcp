@@ -1034,6 +1034,29 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
     ).to_dict()
 
 
+# ── Phase 3 F2 — 응답 caching (TTL 5분) ──
+# 같은 (company, scope, year, consolidated) 조합 재호출 시 동일 결과 보장.
+# advise_vote의 3 run 호출 시 모든 run에서 동일 fm_payload 반환 → cash_dividend 결정 결정성.
+import time as _time_mod
+_FM_CACHE: dict[tuple, tuple[float, dict[str, Any]]] = {}
+_FM_CACHE_TTL = 300.0  # 5분
+
+
+def _fm_cache_get(key: tuple) -> dict[str, Any] | None:
+    entry = _FM_CACHE.get(key)
+    if not entry:
+        return None
+    ts, payload = entry
+    if _time_mod.time() - ts > _FM_CACHE_TTL:
+        _FM_CACHE.pop(key, None)
+        return None
+    return payload
+
+
+def _fm_cache_set(key: tuple, payload: dict[str, Any]) -> None:
+    _FM_CACHE[key] = (_time_mod.time(), payload)
+
+
 async def build_financial_metrics_payload(
     company_query: str,
     *,
@@ -1044,6 +1067,12 @@ async def build_financial_metrics_payload(
 ) -> dict[str, Any]:
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
+
+    # F2 cache check
+    cache_key = (company_query, scope, year, years, consolidated)
+    cached = _fm_cache_get(cache_key)
+    if cached is not None:
+        return cached
 
     fs_div = "CFS" if consolidated else "OFS"
     client = get_dart_client()
@@ -1222,7 +1251,7 @@ async def build_financial_metrics_payload(
     data.update(filing_meta)
     data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
 
-    return ToolEnvelope(
+    payload = ToolEnvelope(
         tool="financial_metrics",
         status=status,
         subject=selected.get("corp_name", company_query),
@@ -1231,6 +1260,8 @@ async def build_financial_metrics_payload(
         evidence_refs=evidence_refs,
         next_actions=_next_actions(scope, data),
     ).to_dict()
+    _fm_cache_set(cache_key, payload)  # F2 — TTL 5분 cache
+    return payload
 
 
 def _detect_qoq_alerts(curr: dict[str, Any], prev: dict[str, Any]) -> list[str]:
