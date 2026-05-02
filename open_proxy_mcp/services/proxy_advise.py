@@ -295,12 +295,13 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None) -> tu
 
     if cap_status == "full":
         return "AGAINST", "완전 자본잠식 — 배당 결정은 주주가치 훼손"
+    # ralph iter9+15: 배당 절차 안건은 재무 (적자 등) 무관 자동 FOR.
+    # 분기/기준일/중간배당/동등배당/배당정책/절차 → 절차적 안건 (한화솔루션 4/4, POSCO 9/9 운용사 FOR)
+    procedural_kws = ("분기", "기준일", "중간배당", "동등배당", "배당정책", "배당절차", "절차")
+    if any(kw in agenda_title for kw in procedural_kws):
+        return "FOR", f"배당 절차 안건 (분기/기준일/동등배당/정책 등) — 재무 무관 mainstream FOR"
     if ni is not None and ni < 0:
         return "REVIEW", f"적자 회사 (순이익 {ni:,}원) — 배당 재원 적정성 검토 필요"
-    # ralph iter9: "분기 배당기준일" 같은 절차적 안건은 재무 무관 자동 FOR.
-    # POSCO 분기배당 9/9 운용사 FOR.
-    if any(kw in agenda_title for kw in ("분기", "기준일", "기준일 변경", "중간배당")):
-        return "FOR", f"분기/중간배당 절차 안건 — 자본 양호 시 FOR (배당성향 무관)"
     # 배당성향 200%+ 명백 과도 (이전엔 150%였으나 150-200%도 mainstream FOR)
     if payout is not None and payout > 200:
         return "REVIEW", f"배당성향 {payout}% (>200%) — 명백한 과도 배당"
