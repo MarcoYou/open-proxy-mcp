@@ -16,8 +16,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - **Discovery (1)**: [[screen_events]]
 - **Data (12)**: [[company]] · [[shareholder_meeting]] · [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]] · [[evidence]]
 - **Policy & Matrix (1)**: [[proxy_guideline]]
-- **Action (2)**: [[proxy_advise_before_meeting]] · [[proxy_result_after_meeting]]
-  - 옛 [[advise_vote_before_meeting]] / [[recap_vote_after_meeting]]은 rename 진행 중 (코드 작업 후 archive)
+- **Action (2)**: [[proxy_advise_before_meeting]] (10 scope, 다각도 심층) · [[proxy_result_after_meeting]] (2 scope, 결과 보고)
 
 ## 카테고리 구조
 
@@ -72,6 +71,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[rules/laws/상법개정-타임라인-2026]] - 2025-2027 상법 개정 일정
 
 ### 최근 audit / fix
+- [[260504_0028_audit_proxy_advise_rename_regression]] - proxy_advise rename + 9 scope 추가 — regression 0 + 100% 일관성
 - [[260503_2304_audit_recap_pattern]] - recap_vote 패턴 적용 200×3 100% (multi-upstream-pattern 일반화 검증)
 - [[260503_1847_audit_phase4_final]] - advise_vote 200×3 deterministic 100% + regression 0 (Phase 4)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] - 196 기업 × 11 tool audit

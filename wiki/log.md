@@ -5,6 +5,14 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-04] feat + audit | proxy_advise rename + 9 scope 추가 — regression 0
+- Step 1 rename: services/{advise_vote→proxy_advise, recap_vote→proxy_result} + tools_v2 + 옛 wiki archive (commit 7b06b75)
+- Step 3 단순 expose 5 scope (agenda/candidates/financial/governance/ownership) (commit 6711228)
+- Step 4a policy_basis — 모범 사례 + 특이 케이스 example 형태 (재설계, commit c937505)
+- Step 4b/c/d proxy_battle/engagement/evidence 추가 (commit 543293e)
+- Step 4e proxy_result.brief — vote_brief render 흡수 (commit 4a75b87)
+- 200×3 batch 결과: exact 492 / error 6 / no_filing 99 — Phase 4와 완전 동일, 일관성 100%, cross-match 197/197 ([[260504_0028_audit_proxy_advise_rename_regression]])
+
 ## [2026-05-04] docs | proxy_advise/proxy_result 신규 spec + 검증 ralph
 - [[proxy_advise_before_meeting]] (10 scope: decisions/agenda/candidates/financial/governance/ownership/policy_basis/proxy_battle/engagement/evidence)
   - 옛 prepare_engagement_case + build_campaign_brief 사전 부분 흡수
