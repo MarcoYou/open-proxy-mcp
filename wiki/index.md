@@ -62,6 +62,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[architecture/matrix-system]] - 12 매트릭스 + 자동 채점
 - [[architecture/proxy-voting-decision-tree]] - 의결권 판단 framework
 - [[architecture/pipeline-architecture]] - 199 기업 v4 JSON 배치 파이프라인
+- [[architecture/multi-upstream-pattern]] - asyncio.gather tool 표준 5 요소 (corpCode lock/retry/per-call timeout/semaphore/cache)
 - [[architecture/lessons-learned]] - MCP 개발 7가지 교훈
 
 ### 한국 자본시장 용어 모름
@@ -70,6 +71,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[rules/laws/상법개정-타임라인-2026]] - 2025-2027 상법 개정 일정
 
 ### 최근 audit / fix
+- [[260503_1847_audit_phase4_final]] - advise_vote 200×3 deterministic 100% + regression 0 (Phase 4)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] - 196 기업 × 11 tool audit
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
 - [[260429_0942_audit_arithmetic-21지표]] - 산술 정확성 audit

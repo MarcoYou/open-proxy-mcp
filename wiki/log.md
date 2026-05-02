@@ -5,6 +5,14 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-03] fix + docs | advise_vote Phase 4 100% + multi-upstream 패턴 표준화
+- `dart/client.py` `_load_corp_codes`: asyncio.Lock + 3회 retry (1/2/4s) + corpCode timeout 60→120s
+- `services/advise_vote.py`: per-call wait_for(60s) + Semaphore(3) + process result cache + 명시 pre-warm
+- `services/director_evaluation.py`: notices[0] → 시간 desc 최대 3개 fallback (정정공고 처리)
+- 200×3 batch: 91.9% → 100.0%, timeout 15→0, regression 0 ([[260503_1847_audit_phase4_final]])
+- 신규 [[architecture/multi-upstream-pattern]] — 5 요소 표준 + 적용 대상 체크리스트
+- TO_DO: recap_vote / proxy_contest / ownership_structure 같은 패턴 적용 대상 등록
+
 ## [2026-05-02] feat | action tool 재편 (3 → 2, 시점 분리: advise/recap)
 ### 신규 (3 service + 2 tools_v2)
 - `services/director_evaluation.py`: 후보 평가 3축 (독립성/충실성/결격사유) + Marco 시나리오
