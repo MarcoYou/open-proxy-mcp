@@ -42,19 +42,19 @@ from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 # ── F11: process-level result cache ([[architecture/multi-upstream-pattern]] 5 요소) ──
 # 같은 process 내 같은 (corp+tool+scope+year+meeting_type+start+end) 호출 결과 reuse.
 # status="error"는 cache X (재시도 기회 유지).
-_RECAP_RESULT_CACHE: dict[tuple, dict] = {}
+_PROXY_RESULT_CACHE: dict[tuple, dict] = {}
 
 
-def clear_recap_cache() -> None:
+def clear_proxy_result_cache() -> None:
     """test/diagnostic 용 cache reset"""
-    _RECAP_RESULT_CACHE.clear()
+    _PROXY_RESULT_CACHE.clear()
 
 
 def _format_iso(d: date) -> str:
     return d.strftime("%Y%m%d")
 
 
-async def build_recap_vote_payload(
+async def build_proxy_result_payload(
     company_query: str,
     *,
     year: int | None = None,
@@ -68,7 +68,7 @@ async def build_recap_vote_payload(
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(
-            tool="recap_vote_after_meeting",
+            tool="proxy_result_after_meeting",
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}' 회사 식별 실패"],
@@ -76,7 +76,7 @@ async def build_recap_vote_payload(
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
-            tool="recap_vote_after_meeting",
+            tool="proxy_result_after_meeting",
             status=AnalysisStatus.AMBIGUOUS,
             subject=company_query,
             warnings=["회사 식별 모호"],
@@ -114,7 +114,7 @@ async def build_recap_vote_payload(
             kw.get("start_date"),
             kw.get("end_date"),
         )
-        cached = _RECAP_RESULT_CACHE.get(cache_key)
+        cached = _PROXY_RESULT_CACHE.get(cache_key)
         if cached is not None:
             return cached
 
@@ -122,7 +122,7 @@ async def build_recap_vote_payload(
         for attempt in range(3):
             try:
                 result = await asyncio.wait_for(fn(*args, **kw), timeout=60.0)
-                _RECAP_RESULT_CACHE[cache_key] = result
+                _PROXY_RESULT_CACHE[cache_key] = result
                 return result
             except asyncio.TimeoutError as exc:
                 last_exc = exc
@@ -217,7 +217,7 @@ async def build_recap_vote_payload(
         status = AnalysisStatus.EXACT
 
     return ToolEnvelope(
-        tool="recap_vote_after_meeting",
+        tool="proxy_result_after_meeting",
         status=status,
         subject=selected.get("corp_name", company_query),
         warnings=[],

@@ -1,10 +1,10 @@
-"""advise_vote_before_meeting — 주총 전 의결권 행사 메모 (운용사 보고서 스타일)."""
+"""proxy_advise_before_meeting — 주총 전 의결권 행사 메모 (운용사 보고서 스타일)."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from open_proxy_mcp.services.advise_vote import build_advise_vote_payload
+from open_proxy_mcp.services.proxy_advise import build_proxy_advise_payload
 from open_proxy_mcp.services.contracts import as_pretty_json
 
 
@@ -128,7 +128,7 @@ def _render(payload: dict[str, Any]) -> str:
 def register_tools(mcp):
 
     @mcp.tool()
-    async def advise_vote_before_meeting(
+    async def proxy_advise_before_meeting(
         company: str,
         year: int = 0,
         meeting_type: str = "annual",
@@ -143,7 +143,7 @@ def register_tools(mcp):
         enable_marco: True 시 후보의 과거 회사 × 재직 기간 × 회계 risk overlap 자동 cross-check (추가 DART 호출 발생).
         ref: shareholder_meeting / ownership_structure / corp_gov_report / financial_metrics / proxy_guideline / director_evaluation, recap_vote_after_meeting (사후)
         """
-        payload = await build_advise_vote_payload(
+        payload = await build_proxy_advise_payload(
             company,
             year=year or None,
             meeting_type=meeting_type,

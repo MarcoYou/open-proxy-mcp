@@ -1,11 +1,11 @@
-"""recap_vote_after_meeting — 주총 후 결과 보고."""
+"""proxy_result_after_meeting — 주총 후 결과 보고."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
-from open_proxy_mcp.services.recap_vote import build_recap_vote_payload
+from open_proxy_mcp.services.proxy_result import build_proxy_result_payload
 
 
 def _render_error(payload: dict[str, Any]) -> str:
@@ -91,7 +91,7 @@ def _render(payload: dict[str, Any]) -> str:
 def register_tools(mcp):
 
     @mcp.tool()
-    async def recap_vote_after_meeting(
+    async def proxy_result_after_meeting(
         company: str,
         year: int = 0,
         meeting_type: str = "annual",
@@ -104,7 +104,7 @@ def register_tools(mcp):
         rule: 사전 추천 vs 실제 결과 비교 (gap) X — 운용사 보고서는 이미 행사한 결정 + 사유만 기록. 후속 공시 (배당/자사주/재편/희석) 주총 직후 30일 (`follow_up_days` 옵션) 윈도우.
         ref: shareholder_meeting (results) / proxy_contest / dividend / treasury_share / corporate_restructuring / dilutive_issuance / corp_gov_report, advise_vote_before_meeting (사전)
         """
-        payload = await build_recap_vote_payload(
+        payload = await build_proxy_result_payload(
             company,
             year=year or None,
             meeting_type=meeting_type,
