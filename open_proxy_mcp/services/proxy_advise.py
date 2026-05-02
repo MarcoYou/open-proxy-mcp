@@ -43,8 +43,10 @@ from open_proxy_mcp.services.director_evaluation import build_director_evaluatio
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.policy_comparison import build_policy_comparison
+from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload
 from open_proxy_mcp.services.proxy_guideline import build_proxy_guideline_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
+from open_proxy_mcp.services.value_up_v2 import build_value_up_payload
 
 
 # ── F11 (Phase 4): process-level result cache ──
@@ -531,7 +533,72 @@ async def build_proxy_advise_payload(
                 "error": f"policy_comparison 실패: {type(exc).__name__}: {exc}",
                 "comparison": [],
             }
-    # proxy_battle / engagement / evidence — Step 4b/4c/4d 별도 commit
+
+    # Step 4b: proxy_battle scope — 위임장 분쟁 + 5%블록 + 행동주의 신호 (campaign_brief 사전 흡수)
+    if scope in ("proxy_battle", "all"):
+        try:
+            pc = await asyncio.wait_for(
+                build_proxy_contest_payload(company_query, scope="summary"),
+                timeout=60.0,
+            )
+            pc_data = pc.get("data") or {}
+            ownership_data_dict = ownership.get("data") or {}
+            control_map_dict = ownership_data_dict.get("control_map") or {}
+            data["proxy_battle"] = {
+                "active_5pct_blocks": control_map_dict.get("active_non_overlap_blocks", []),
+                "active_overlap_blocks": control_map_dict.get("active_overlap_blocks", []),
+                "proxy_solicitation": pc_data.get("proxy_filings", []),
+                "litigation_signals": pc_data.get("litigation_filings", []),
+                "block_signals": pc_data.get("block_signals", []),
+                "campaign_targets_observed": pc_data.get("campaign_hints", []),
+            }
+        except Exception as exc:
+            data["proxy_battle"] = {
+                "error": f"proxy_contest 실패: {type(exc).__name__}: {exc}",
+            }
+
+    # Step 4c: engagement scope — 회사-운용사 IR 컨텍스트 (engagement_case 흡수)
+    if scope in ("engagement", "all"):
+        try:
+            vu = await asyncio.wait_for(
+                build_value_up_payload(company_query, scope="summary"),
+                timeout=60.0,
+            )
+            vu_data = vu.get("data") or {}
+            data["engagement"] = {
+                "value_up_plan": {
+                    "latest": vu_data.get("latest"),
+                    "items_count": len(vu_data.get("items", []) or []),
+                    "highlights": (vu_data.get("highlights") or [])[:6],
+                },
+                "ownership_summary": (ownership.get("data") or {}).get("summary"),
+                "ir_disclosure_history": [],  # 추후 KIND IR 통합 (TO_DO)
+            }
+        except Exception as exc:
+            data["engagement"] = {
+                "error": f"value_up 실패: {type(exc).__name__}: {exc}",
+            }
+
+    # Step 4d: evidence scope — 결정 근거 trace (모든 fact statement → source upstream + raw 인용)
+    if scope in ("evidence", "all"):
+        data["evidence_trace"] = [
+            {
+                "agenda_title": ad.get("agenda_title"),
+                "agenda_category": ad.get("agenda_category"),
+                "decision": ad.get("decision"),
+                "reason": ad.get("reason"),
+                "policy_basis": ad.get("policy_basis"),
+                "policy_default": ad.get("policy_default"),
+                "evidence_rcept_no": ad.get("evidence_rcept_no"),
+                "raw_sources": {
+                    "financial_summary": (fin_metrics.get("data") or {}).get("summary"),
+                    "ownership_summary": (ownership.get("data") or {}).get("summary"),
+                    "governance_summary": (gov_report.get("data") or {}).get("summary"),
+                    "compensation_summary": (meeting_comp.get("data") or {}).get("summary"),
+                },
+            }
+            for ad in agenda_decisions
+        ]
 
     return ToolEnvelope(
         tool="proxy_advise_before_meeting",
