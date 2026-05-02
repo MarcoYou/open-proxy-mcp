@@ -145,7 +145,7 @@ for idx, candidate in enumerate(notices[:3]):
 | `advise_vote_before_meeting` | 6 `build_*_payload` | ✅ Phase 4 적용 (commit `d949f68`) | - |
 | `recap_vote_after_meeting` | 8 `build_*_payload` (4+4) | ✅ 적용 (commit `21bdf58`) | - |
 | `proxy_contest` | 8 DART endpoint 직접 (4+4) | ⚪ baseline 100% — fix 불필요 ([[260503_2330_audit_proxy_contest_baseline]]) | - |
-| `ownership_structure` | 3 endpoint 직접 | ❓ baseline 측정 필요 (proxy_contest와 같은 가벼운 호출일 가능성) | 🟡 검증 |
+| `ownership_structure` | 3 endpoint 직접 | ⚪ baseline 100% (max 1.8s) — fix 불필요 ([[260503_2345_audit_ownership_baseline]]) | - |
 | `corp_gov_report` | 2 + N doc gather | ❌ 부분 (소량) | 🟢 낮음 |
 
 ### 적용 판단 기준 (proxy_contest baseline에서 도출)
