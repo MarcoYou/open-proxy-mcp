@@ -418,7 +418,13 @@ def register_tools(mcp):
             except Exception:
                 return {}
 
-        company_rcept = company_items[0]["rcept_no"] if company_items else None
+        # [기재정정] 제외 우선 — 정정 본문이 변경 부분만 담을 위험 회피.
+        # 비면 정정 포함 fallback ([[architecture/multi-upstream-pattern]]).
+        if company_items:
+            non_corr = [c for c in company_items if not (c.get("report_nm") or "").startswith("[기재정정]")]
+            company_rcept = (non_corr or company_items)[0]["rcept_no"]
+        else:
+            company_rcept = None
         company_dir = await get_dir(company_rcept) if company_rcept else {}
 
         other_sides = []

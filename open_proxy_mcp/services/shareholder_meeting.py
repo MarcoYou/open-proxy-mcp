@@ -392,7 +392,10 @@ async def _find_meeting_result_filing(
         return (distance, rcept_dt)
 
     result_items.sort(key=sort_key)
-    return result_items[0], None, notices
+    # [기재정정] 제외 우선 — 정정 본문이 변경 부분만 담을 위험 회피.
+    # 비면 정정 포함 fallback ([[architecture/multi-upstream-pattern]]).
+    non_corr = [it for it in result_items if not (it.get("report_nm") or "").startswith("[기재정정]")]
+    return (non_corr or result_items)[0], None, notices
 
 
 def _result_reference(result_filing: dict[str, Any] | None) -> dict[str, Any] | None:

@@ -5,6 +5,11 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-03] fix | 정정공고 4건 items[0] fallback 적용
+- `value_up_v2.py:127, 130, 394`, `corp_gov_report.py:386`, `shareholder_meeting.py:395`, `tools/proxy.py:421`
+- 표준 패턴: 정정 제외 우선 + 빈 결과 fallback (`(non_corr or items)[0]`)
+- multi-upstream-pattern 페이지 4 위치 ✅ 표시 + 표준 코드 스니펫 추가
+
 ## [2026-05-03] audit | ownership_structure baseline — 패턴 fix 불필요
 - 200×3: 100% 일치, max 1.8s, timeout 0 ([[260503_2345_audit_ownership_baseline]])
 - proxy_contest와 동일 결론: DART endpoint 직접 호출은 fix 효과 미미
