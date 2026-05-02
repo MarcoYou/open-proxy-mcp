@@ -6,6 +6,16 @@ completion_promise: PROXY_ADVISE_VERIFIED
 max_iterations: 30
 ---
 
+## Invoke (복붙해서 실행)
+
+```
+/ralph-loop:ralph-loop wiki/ralph/260503_0002_ralph_proxy-advise-verification.md 가이드 따라 3 gate 검증. archive 우선. soft pattern 우선 hard pattern 다층 fallback. OCR 진단 only parser final. G1 일관성 G2 정확도 95이상 G3 사실 100 regression 0 모두 충족 시 promise. --completion-promise PROXY_ADVISE_VERIFIED --max-iterations 10
+```
+
+> 🔧 iteration 수 등 파라미터는 위 라인에서 수정. md 본문은 변경 X.
+>
+> 셸 escape 회피: 한글 콤마 `,` / 슬래시 `/` 같은 특수문자가 args 파싱 깨뜨려 위 형태로 단순화함. 상세 archive path / fact-check 규칙은 본문 참조.
+
 # Ralph: proxy_advise_before_meeting 검증 — 3축 quality gate
 
 새 통합 action tool `proxy_advise_before_meeting`은 운용사가 **한 회사 보고 의결권 결정**할 때 사용. 결과를 신뢰하려면 3가지 모두 충족해야 함:
