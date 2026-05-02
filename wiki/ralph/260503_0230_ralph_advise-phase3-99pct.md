@@ -33,7 +33,21 @@ max_iterations: 25
 
 ## 성공 기준 (모두 충족 시 promise)
 
-### 코드 fix (Phase 2 audit에서 도출)
+### 코드 fix (Phase 2 audit + raw text 분석에서 도출)
+
+#### F0. alias 정확성 + lookup_corp_code 우선순위 (NEW)
+- `dart/client.py` `lookup_corp_code` / `_sort_corp_results`:
+  - 현재: 상장(stock_code 있음) 우선이지만 동명이인 같은 corp_name 시 매칭 첫 결과 = 잘못된 회사 선택
+  - 개선:
+    1. `_CORP_ALIASES` 직접 매핑 시 stock_code 명시 + 상장 corp_code 우선
+    2. 비상장 (stock_code "") 결과는 **deprioritize** (마지막 fallback)
+    3. ambiguous 약칭 ("LG", "SK", "GS") 시 사용자 명시 요청 (REQUIRES_REVIEW)
+- 신규 alias 명시 매핑:
+  - "엔씨소프트" → DART 정확 등록명 확인 후 alias
+  - "LIG넥스원" → DART 정확 등록명 확인 후 alias
+  - "현대글로비스" → 086280 (현대자동차 086280 X — 별도 정확)
+  - "카카오뱅크" → 323410
+- 영향: 8 error 회사 → 0 error
 
 #### F1. retry 강화 (1회 → 3회 + exponential backoff)
 - `advise_vote.py`의 `_safe` wrapper:
@@ -134,6 +148,42 @@ max_iterations: 25
 - "S2 200 × 3 재실행 + 일치율 측정"
 
 너무 큰 step (예: "F1+F2+F3 한 번에") 금지. 하나씩 검증.
+
+---
+
+## 사전 정리 (raw 본문 + alias + 17 spot 재검)
+
+### Pre-finding 1: 17 불일치 회사 spot 재실험 100% 일치
+17 회사 sequential 재실험 결과 변동 0건. logic은 deterministic.
+→ 200×3 batch 91.4%는 **6 worker race + 호출 누적**. F1 (retry 3회) + F4 (status caching)로 fix 가능.
+
+### Pre-finding 2: alias 매칭 bug (8 error 회사 모두)
+
+| 입력 | 잘못 매칭 | 진짜 정식명 |
+|---|---|---|
+| CJ | 씨제이 (비상장) | CJ제일제당 / CJ ENM |
+| LG | 엘지데이콤 (옛 합병) | 엘지 (003550) |
+| SK | 에스케이브로드밴드 | 에스케이 (034730) |
+| GS | 지에스 (비상장) | GS / GS건설 |
+| 엔씨소프트 | None | DART 등록명 |
+| LIG넥스원 | None | 정확명 |
+| 현대글로비스 | **현대자동차 본문 매칭** | 현대글로비스 corp_code |
+| 카카오뱅크 | corp_code 잘못 | 323410 |
+
+→ **F0 (신규) — alias 정확성 + lookup_corp_code stock_code "" 비상장 결과 deprioritize**.
+
+### Pre-finding 3: Parser 정규식 너무 narrow (116 agenda_section_missing)
+
+raw 본문 분석 (동진쎄미켐 / 원익홀딩스 / 현대글로비스):
+- 키워드 "목적사항" 2건, "결의사항" 1건, "안건" 1건, "회의의 목적" 1건, "부의안건" 1건 — **본문에 모두 존재**
+- parser는 "목적사항별 기재사항" 정확 매칭만 시도 → fail
+
+→ **F3b 강화** — 정규식 broader: "목적사항" / "결의사항" / "회의의 목적사항" / "부의안건" / "회의 안건" / "안건" 매칭.
+
+### Pre-finding 4: 본문 raw text n천자 fetch 가능
+- text len 30,000-60,000자 (정상)
+- html len 170,000-300,000자 (구조화 마크업)
+- → LLM에 raw 통째 던져 자연어 처리도 fallback 가능 (soft-fail layer)
 
 ---
 
