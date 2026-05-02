@@ -121,13 +121,26 @@ max_iterations: 25
 
 ## 종료 조건
 
-### ✅ promise 출력 조건
-1. 200 × 3 = 597 호출 완료 + **일치율 ≥99%** (불일치 ≤2 회사)
-2. 파싱 실패 reduce 통계 audit
-3. git push 완료
-4. 마지막 commit 메시지 명시
+### ✅ promise 출력 조건 (모두 충족 필수)
+1. **산출물 .py 코드 commit + push** (analysis만 X, 실제 fix가 코드에 들어가야 함):
+   - `dart/client.py` — alias dict + lookup_corp_code 정렬 fix
+   - `services/financial_metrics.py` — 응답 cache (TTL 5분)
+   - `services/advise_vote.py` — _safe retry 1→3, status caching
+   - `tools/parser.py` — career swap + agenda 패턴 다양화 + Upstage OCR fallback
+2. **200 × 3 = 597 호출 재실행 일치율 ≥99%** (불일치 ≤2 회사)
+3. **Regression 0** — Phase 2 정상 (exact) 158 회사 모두 결과 그대로 유지:
+   - Phase 2 csv (`260503_advise_200x3_final.csv`) 의 158 exact 회사 list 추출
+   - Phase 3 csv 와 cross-match: 같은 회사 같은 결정 (FOR/AGAINST/REVIEW count 동일)
+   - **regression 1건이라도 있으면 promise 출력 X** — fix가 기존 정상을 깨면 안 됨
+4. 파싱 실패 reduce 통계 audit + git push 완료
+5. 마지막 commit 메시지 명시 (Phase 3 완료)
 
 → **`<promise>ADVISE_PHASE3_99PCT_DONE</promise>` 출력**
+
+### Regression 검증 의무화
+- **Phase 2 baseline 158 exact 회사 → Phase 3 같은 결정 100% 보장**
+- 신규 fix가 alias 매칭/parser/cache 어느 부분에서든 기존 정상 회사를 깨지 말 것
+- regression test script (`/tmp/test_regression_158.py`) 작성 + 통과 확인 후 promise
 
 ### ⚠ 막힘 발생 시
 - F2 cache 구현 후에도 변동 발생 (DART API row 순서 자체 비결정성) → CONFLICT 명시
