@@ -76,12 +76,22 @@ max_iterations: 25
   - 추가: "회의의 목적사항", "결의사항", "안건", "의결사항", "회의 안건"
   - HTML/XML 다양 변형 대응 (table 구조 / div 구조 / p 구조 모두)
 
-**F3c. image_notice_ocr_needed Upstage fallback (15 → ≤3)**
-- 본문이 이미지 base64로만 있는 경우:
-  - `_ENV_LOCAL`의 `UPSTAGE_API_KEY` 사용
-  - Upstage Document AI OCR endpoint 호출
-  - 결과 텍스트로 parse_agenda_xml/parse_personnel_xml 재호출
-  - cost: ~10s 추가 (배치당)
+**F3c. image_notice 본문 패턴 study (진단 단계만 OCR, 최종 산출물은 parser)**
+
+**원칙 (코붕이 명시)**:
+- 진단 단계: PDF 다운로드 + opendataloader + Upstage OCR 사용 OK
+- 최종 산출물: **parser only** (정규식 / HTML / text 매칭). production runtime에 OCR 호출 X.
+
+진단 단계 (offline, study 목적):
+- image_notice 15 회사 본문 PDF 다운로드 (`get_document_pdf`)
+- opendataloader-pdf로 markdown 추출
+- 또는 Upstage OCR API로 텍스트 추출
+- → 어떤 패턴 (table 구조 / 이미지에 텍스트 있는지) 인지 학습
+
+최종 코드:
+- 학습한 패턴을 `tools/parser.py`에 정규식/HTML 매칭으로 흡수
+- production runtime은 DART text/HTML만으로 모든 cover (OCR 호출 X)
+- image-only PDF는 status=no_filing으로 명시 (silent fallback X) — partial이라도 정직히 표기
 
 #### F4. status no_filing/error 시 이전 결과 caching
 - 같은 process 내 동일 회사 호출이 fail이면 이전 정상 결과 reuse
@@ -141,6 +151,11 @@ max_iterations: 25
 - **Phase 2 baseline 158 exact 회사 → Phase 3 같은 결정 100% 보장**
 - 신규 fix가 alias 매칭/parser/cache 어느 부분에서든 기존 정상 회사를 깨지 말 것
 - regression test script (`/tmp/test_regression_158.py`) 작성 + 통과 확인 후 promise
+
+### 진단 vs 산출물 분리 (코붕이 명시)
+- **진단 단계 (offline, study 목적)**: PDF 다운로드 / opendataloader / Upstage OCR 사용 OK
+- **최종 산출물**: parser only (.py 코드, OCR runtime 호출 X)
+- image-only PDF 같은 edge case는 OCR로 패턴 study → parser에 코드 흡수 → 또는 정직히 status=no_filing 표기
 
 ### ⚠ 막힘 발생 시
 - F2 cache 구현 후에도 변동 발생 (DART API row 순서 자체 비결정성) → CONFLICT 명시
