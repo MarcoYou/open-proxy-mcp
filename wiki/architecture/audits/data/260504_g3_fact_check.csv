@@ -1,0 +1,35 @@
+ticker,company,agenda_title,decision,passed,message
+010120,LS ELECTRIC,제51기(2024.1.1 ~ 2024.12.31) 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의,FOR,True,no extractable facts
+010120,LS ELECTRIC,정관 일부 변경의 건,FOR,True,no extractable facts
+010120,LS ELECTRIC,"이사 선임의 건 (사내이사 1명, 사외이사 1명)",FOR,True,no extractable facts
+010120,LS ELECTRIC,사내이사 선임의 건 (채대석),FOR,True,no extractable facts
+010120,LS ELECTRIC,사외이사 선임의 건 (송원자),FOR,True,no extractable facts
+010120,LS ELECTRIC,감사위원회 위원 선임의 건(송원자),FOR,True,no extractable facts
+010120,LS ELECTRIC,이사보수한도 승인의 건,FOR,True,ok
+012450,한화에어로스페이스,제48기 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건,FOR,True,no extractable facts
+012450,한화에어로스페이스,정관 일부 변경의 건,FOR,True,no extractable facts
+012450,한화에어로스페이스,이사 수 상한 변경,FOR,True,no extractable facts
+012450,한화에어로스페이스,부칙 변경,FOR,True,no extractable facts
+012450,한화에어로스페이스,이사 선임의 건,FOR,True,no extractable facts
+012450,한화에어로스페이스,사내이사 선임의 건(김동관),FOR,True,no extractable facts
+012450,한화에어로스페이스,사내이사 선임의 건(안병철),FOR,True,no extractable facts
+012450,한화에어로스페이스,사 내이사 선임의 건(Michael Coulter),FOR,True,no extractable facts
+012450,한화에어로스페이스,사외이사 선임의 건(김현진),REVIEW,True,no extractable facts
+012450,한화에어로스페이스,사외이사 선임의 건(이정근),FOR,True,no extractable facts
+003230,삼양식품,제64기(2024.01.01 ~ 2024.12.31) 재무제표 (이익잉여금처분계산서 포함) 및 연결재무제표 ,FOR,True,no extractable facts
+003230,삼양식품,사내이사 김동찬 선임의 건,FOR,True,no extractable facts
+003230,삼양식품,이사 보수한도 승인의 건,FOR,True,ok
+005490,POSCO홀딩스,제57기(2024년 1월 1일 ~ 2024년 12월 31일) 재무제표 승인의 건,FOR,True,no extractable facts
+005490,POSCO홀딩스,정관 일부 변경의 건,FOR,True,no extractable facts
+005490,POSCO홀딩스,사채발행 위임의 근거조항 추가,FOR,True,no extractable facts
+005490,POSCO홀딩스,대표이사 회장 연임 후 재선임 시 주주총회 의결정족수 상향,FOR,True,no extractable facts
+005490,POSCO홀딩스,전문 삭제,FOR,True,no extractable facts
+005490,POSCO홀딩스,분기 배당기준일 변경,FOR,True,no extractable facts
+005490,POSCO홀딩스,사내이사 선임의 건,FOR,True,no extractable facts
+005490,POSCO홀딩스,사내이사 이주태 선임의 건,FOR,True,no extractable facts
+005490,POSCO홀딩스,사내이사 천성래 선임의 건,FOR,True,no extractable facts
+005490,POSCO홀딩스,사내이사 김기수 선임의 건,FOR,True,no extractable facts
+006400,삼성SDI,제55기(2024.1.1-2024.12.31) 재무제표 (이익잉여금처분계산서 포함) 및 연결재무제표 승인의 ,FOR,True,no extractable facts
+006400,삼성SDI,사내이사 최주선 선임의 건,FOR,True,no extractable facts
+006400,삼성SDI,이사 보수한도 승인의 건,REVIEW,True,no extractable facts
+006400,삼성SDI,정관 일부 변경의 건,FOR,True,no extractable facts
