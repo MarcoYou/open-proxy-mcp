@@ -133,21 +133,24 @@ def register_tools(mcp):
         year: int = 0,
         meeting_type: str = "annual",
         vote_style: str = "open_proxy",
+        scope: str = "decisions",
         enable_marco: bool = False,
         format: str = "md",
     ) -> str:
-        """desc: 주총 **전** 의결권 행사 메모 (운용사 보고서 스타일). 6 upstream 통합 — 주총/지분/거버넌스/재무/정책/후보 평가. 안건별 FOR/AGAINST/REVIEW + 1-2문장 결정 사유 (정책 근거 + 사실 근거 + rcept_no). 사외이사 후보 3축 (독립성 / 충실성 / 결격사유) 자동 평가.
-        when: 주총 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고용. recap_vote_after_meeting는 주총 후 결과 보고용 별도.
+        """desc: 주총 **소집 전** 다각도 심층 분석 + 안건별 의결권 권고. 10 scope (decisions/agenda/candidates/financial/governance/ownership/policy_basis/proxy_battle/engagement/evidence/all). 안건별 FOR/AGAINST/REVIEW + 1-2문장 결정 사유 (정책 근거 + 사실 근거 + rcept_no). 사외이사 후보 3축 (독립성 / 충실성 / 결격사유) 자동 평가.
+        when: 주총 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고용. proxy_result_after_meeting는 주총 후 결과 보고용 별도.
         rule: 운용사 의결권 행사 보고서 스타일 (회사명 / 주총일 / 안건별 표). hard-fail 항목 (형사 처벌 / 사적 관계 / 동명이인 등) 메모에서 침묵. 자동 검증 가능 항목만 표기. soft-fail 항목 (후보 약력 자유 텍스트 / 정관 본문) raw 노출 — LLM이 자연어로 추가 판단.
         vote_style: open_proxy (default OPM 자체 정책) / mirae_asset / samsung / samsung_active / kim / truston / align_partners / cha_partners / baring / nps (국민연금).
+        scope: decisions (default, 안건별 결정) / agenda (안건 트리) / candidates (후보 평가 raw) / financial (재무 진단) / governance (거버넌스 15지표) / ownership (지배구조) / all (모두 통합). policy_basis/proxy_battle/engagement/evidence는 별도 commit.
         enable_marco: True 시 후보의 과거 회사 × 재직 기간 × 회계 risk overlap 자동 cross-check (추가 DART 호출 발생).
-        ref: shareholder_meeting / ownership_structure / corp_gov_report / financial_metrics / proxy_guideline / director_evaluation, recap_vote_after_meeting (사후)
+        ref: shareholder_meeting / ownership_structure / corp_gov_report / financial_metrics / proxy_guideline / director_evaluation, proxy_result_after_meeting (사후)
         """
         payload = await build_proxy_advise_payload(
             company,
             year=year or None,
             meeting_type=meeting_type,
             vote_style=vote_style,
+            scope=scope,
             enable_marco=enable_marco,
         )
         if format == "json":

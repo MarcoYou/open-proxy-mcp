@@ -96,19 +96,22 @@ def register_tools(mcp):
         year: int = 0,
         meeting_type: str = "annual",
         vote_style: str = "open_proxy",
+        scope: str = "results",
         follow_up_days: int = 30,
         format: str = "md",
     ) -> str:
-        """desc: 주총 **후** 의결권 행사 결과 보고 (운용사 분기 보고서 스타일). 5 upstream — 주총 결과 (KIND) + 위임장 결과 + 후속 공시 4종 + 거버넌스 변화. 안건별 가결/부결/찬반율/출석률 + OPM 정책상 행사 사유 (gap 비교 X).
-        when: 주총 종료 후. 사후 결과 보고, 후속 공시 cross-link. 사전 추천은 advise_vote_before_meeting (별도).
-        rule: 사전 추천 vs 실제 결과 비교 (gap) X — 운용사 보고서는 이미 행사한 결정 + 사유만 기록. 후속 공시 (배당/자사주/재편/희석) 주총 직후 30일 (`follow_up_days` 옵션) 윈도우.
-        ref: shareholder_meeting (results) / proxy_contest / dividend / treasury_share / corporate_restructuring / dilutive_issuance / corp_gov_report, advise_vote_before_meeting (사전)
+        """desc: 주총 **소집 후** 결과 보고 (의도적 단순). 2 scope (results/brief/all). results: 안건별 가결/부결/찬반율 + 우리 행사 vs 결과 cross-match. brief: 분기 의결권 보고서 통합 render (옛 vote_brief 흡수, Step 4 별도).
+        when: 주총 종료 후. 결과 보고. 사전 결정은 proxy_advise_before_meeting (별도).
+        rule: 사후엔 단순 — 다각도 분석은 사전 proxy_advise에서 처리. 결과 + 우리 행사 비교만.
+        scope: results (default) / brief (분기 보고서) / all.
+        ref: shareholder_meeting (results) / proxy_contest / asset_managers/records, proxy_advise_before_meeting (사전)
         """
         payload = await build_proxy_result_payload(
             company,
             year=year or None,
             meeting_type=meeting_type,
             vote_style=vote_style,
+            scope=scope,
             follow_up_days=follow_up_days,
         )
         if format == "json":

@@ -60,8 +60,18 @@ async def build_proxy_result_payload(
     year: int | None = None,
     meeting_type: str = "annual",
     vote_style: str = "open_proxy",
+    scope: str = "results",
     follow_up_days: int = 30,
 ) -> dict[str, Any]:
+    """proxy_result_after_meeting payload.
+
+    scope (spec [[wiki/tools/proxy_result_after_meeting]]):
+    - results (default): 안건별 가결/부결 + 찬반율 + 우리 행사 vs 결과 cross-match
+    - brief: 분기 의결권 보고서 통합 render (vote_brief 흡수, Step 4 별도)
+    - all: 모두
+
+    Step 3 단순: scope param 추가. brief logic 본격 구현은 Step 4.
+    """
     client = get_dart_client()
     calls_start = client.api_call_snapshot()
 
