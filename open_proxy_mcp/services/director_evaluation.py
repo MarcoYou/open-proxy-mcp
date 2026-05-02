@@ -74,28 +74,69 @@ async def fetch_appointments(
     if not notices:
         return [], None, [{"info": f"{year} {meeting_type} 주총소집공고 미발견"}]
 
+    # F9 (Phase 4): 정정공고 처리.
+    # DART list.json은 rcept_dt desc 기본 정렬 → notices[0]가 [기재정정]이면
+    # 그 본문은 종종 변경 부분만 포함해 parse 실패. 전략:
+    #   1) 시간 desc 순서대로 시도 (정정 우선 — 최신 valid 정보 포함 가정)
+    #   2) appointments==0 + agenda==0 이면 다음 notice (보통 원본) 시도
+    #   3) 최대 3개 notice 시도 후 마지막 결과 반환
+    #
+    # 원본 우선이 아닌 정정 우선인 이유: 정정공고 본문이 full re-publish인 경우가 많고
+    # parse 성공 시 최신 안건/후보 정보 보장. parse 실패 시에만 원본 fallback.
     notice = notices[0]
     rcept_no = notice.get("rcept_no")
+    last_text = ""
+    last_meta: dict[str, Any] = {}
+    appointments: list[dict[str, Any]] = []
+    agenda_titles: list[str] = []
 
-    try:
-        doc = await client.get_document_cached(rcept_no)
-    except Exception as exc:
-        return [], rcept_no, [{"error": f"get_document 실패: {exc}"}]
+    for idx, candidate_notice in enumerate(notices[:3]):
+        candidate_rcept = candidate_notice.get("rcept_no")
+        try:
+            doc = await client.get_document_cached(candidate_rcept)
+        except Exception as exc:
+            if idx == 0:
+                return [], candidate_rcept, [{"error": f"get_document 실패: {exc}"}]
+            continue
 
-    text = doc.get("html") or doc.get("text") or ""
-    if not text:
+        text = doc.get("html") or doc.get("text") or ""
+        if not text:
+            continue
+
+        parsed = parse_personnel_xml(text)
+        candidate_appointments = parsed.get("appointments", []) or []
+        try:
+            from open_proxy_mcp.tools.parser import parse_agenda_xml
+            agenda_items = parse_agenda_xml(text, html=text)
+            candidate_agenda_titles = [a.get("title") for a in (agenda_items or []) if a.get("title")]
+        except Exception:
+            candidate_agenda_titles = []
+
+        is_correction = candidate_notice.get("report_nm", "").startswith("[기재정정]")
+
+        # 첫 시도이거나, 결과 있으면 채택
+        if idx == 0 or candidate_appointments or candidate_agenda_titles:
+            notice = candidate_notice
+            rcept_no = candidate_rcept
+            appointments = candidate_appointments
+            agenda_titles = candidate_agenda_titles
+            last_text = text
+            last_meta = {"is_correction": is_correction}
+            # 결과 충분하면 종료 (정정/원본 무관)
+            if candidate_appointments or candidate_agenda_titles:
+                break
+        # idx>0이고 빈 결과 → 다음 후보 시도
+
+    if not last_text:
         return [], rcept_no, [{"error": "본문 비어 있음"}]
 
-    parsed = parse_personnel_xml(text)
-    appointments = parsed.get("appointments", []) or []
-    # 안건 titles 추출 (advise_vote fallback용 — shareholder_meeting v2 검색 누락 시)
-    try:
-        from open_proxy_mcp.tools.parser import parse_agenda_xml
-        agenda_items = parse_agenda_xml(text, html=text)
-        agenda_titles = [a.get("title") for a in (agenda_items or []) if a.get("title")]
-    except Exception:
-        agenda_titles = []
-    return appointments, rcept_no, [{"rcept_no": rcept_no, "report_nm": notice.get("report_nm"), "agenda_titles": agenda_titles}]
+    return appointments, rcept_no, [{
+        "rcept_no": rcept_no,
+        "report_nm": notice.get("report_nm"),
+        "agenda_titles": agenda_titles,
+        "is_correction": last_meta.get("is_correction", False),
+        "fallback_attempts": min(len(notices), 3),
+    }]
 
 
 # ── 독립성 평가 (모두 success — DART 정형 필드) ──

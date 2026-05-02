@@ -55,6 +55,7 @@ class DartClientError(Exception):
 
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
 _corp_code_cache: list[dict] | None = None
+_corp_code_lock: asyncio.Lock | None = None  # lazy init (asyncio loop 필요)
 
 # 법인격 suffix 제거 패턴
 _CORP_SUFFIX_RE = re.compile(
@@ -273,8 +274,10 @@ class DartClient:
         params["crtfc_key"] = self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"
 
+        # corpCode.xml은 50MB라 cold start 시 60s 부족 → 120s
+        timeout = 120 if endpoint == "corpCode.xml" else 60
         async with httpx.AsyncClient() as http:
-            response = await http.get(url, params=params, timeout=60)
+            response = await http.get(url, params=params, timeout=timeout)
             response.raise_for_status()
 
         content = response.content
@@ -310,35 +313,58 @@ class DartClient:
     # ── 기업 코드 매핑 ──
 
     async def _load_corp_codes(self) -> list[dict]:
-        """corpCode.xml에서 전체 기업 코드 목록 로드 (캐싱)
+        """corpCode.xml에서 전체 기업 코드 목록 로드 (캐싱 + lock + retry)
+
+        F6/F7 (Phase 4): asyncio.Lock으로 동시 다운로드 race 제거 + httpx
+        ReadError/ConnectError 시 3회 retry (1/2/4s backoff). 50MB binary
+        다운로드는 cold start + 다중 worker 환경에서 빈번히 끊김.
 
         Returns:
             [{"corp_code": "00126380", "corp_name": "삼성전자",
               "stock_code": "005930", "modify_date": "20240101"}, ...]
         """
-        global _corp_code_cache
+        global _corp_code_cache, _corp_code_lock
         if _corp_code_cache is not None:
             return _corp_code_cache
 
-        # ZIP 다운로드
-        data = await self._request_binary("corpCode.xml", {})
-        z = zipfile.ZipFile(io.BytesIO(data))
-        xml_file = z.namelist()[0]
-        xml_content = z.read(xml_file)
+        if _corp_code_lock is None:
+            _corp_code_lock = asyncio.Lock()
 
-        # XML 파싱
-        root = ET.fromstring(xml_content)
-        corps = []
-        for item in root.findall("list"):
-            corps.append({
-                "corp_code": item.findtext("corp_code", ""),
-                "corp_name": item.findtext("corp_name", ""),
-                "stock_code": item.findtext("stock_code", "").strip(),
-                "modify_date": item.findtext("modify_date", ""),
-            })
+        async with _corp_code_lock:
+            # double-check (lock 대기 중 다른 task가 채웠을 수 있음)
+            if _corp_code_cache is not None:
+                return _corp_code_cache
 
-        _corp_code_cache = corps
-        return corps
+            last_exc: Exception | None = None
+            for attempt in range(3):
+                try:
+                    data = await self._request_binary("corpCode.xml", {})
+                    z = zipfile.ZipFile(io.BytesIO(data))
+                    xml_file = z.namelist()[0]
+                    xml_content = z.read(xml_file)
+                    root = ET.fromstring(xml_content)
+                    corps = []
+                    for item in root.findall("list"):
+                        corps.append({
+                            "corp_code": item.findtext("corp_code", ""),
+                            "corp_name": item.findtext("corp_name", ""),
+                            "stock_code": item.findtext("stock_code", "").strip(),
+                            "modify_date": item.findtext("modify_date", ""),
+                        })
+                    _corp_code_cache = corps
+                    return corps
+                except (httpx.ReadError, httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError) as exc:
+                    last_exc = exc
+                    if attempt < 2:
+                        wait = 1.0 * (2 ** attempt)  # 1s / 2s / 4s
+                        logger.warning(f"_load_corp_codes attempt {attempt+1} failed ({type(exc).__name__}): retry in {wait}s")
+                        await asyncio.sleep(wait)
+                except Exception as exc:
+                    # 다른 예외는 즉시 raise (DartClientError 등)
+                    raise
+
+            # 3회 모두 fail
+            raise DartClientError("CORPCODE_DOWNLOAD_FAILED", f"corpCode.xml 3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}")
 
     async def lookup_corp_code(self, query: str) -> dict | None:
         """종목코드/회사명/약칭/영문명으로 corp_code 조회 (단일 결과)

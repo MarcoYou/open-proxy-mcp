@@ -43,6 +43,18 @@ from open_proxy_mcp.services.proxy_guideline import build_proxy_guideline_payloa
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 
 
+# ── F11 (Phase 4): process-level result cache ──
+# 같은 process 내 같은 (corp_code, tool, scope, year, meeting_type) 호출 시 결과 reuse.
+# 200×3 batch에서 같은 회사 run1/run2/run3 일관성 보장 + 호출 비용 절감.
+# 단, status="error" 결과는 cache에 저장 X (재시도 기회 유지).
+_ADVISE_RESULT_CACHE: dict[tuple, dict] = {}
+
+
+def clear_advise_cache() -> None:
+    """test/diagnostic 용 cache reset"""
+    _ADVISE_RESULT_CACHE.clear()
+
+
 # ── vote_style 정책 로딩 (운용사별 voting_rules) ──
 
 # vote_style alias → policy JSON file ID
@@ -292,34 +304,67 @@ async def build_advise_vote_payload(
     policy_id = (policy or {}).get("policy_id") or vote_style
     policy_meta = (policy or {}).get("policy_meta") or {}
 
-    # ── 6 upstream 병렬 호출 (retry 3회 + exponential backoff — Phase 3 F1) ──
+    # ── F6 (Phase 4) corpCode pre-warm: gather 전에 보장 ──
+    # 6 worker가 동시에 _load_corp_codes 호출 시 race 위험 (F7 lock으로도 처리되지만
+    # 명시적 사전 로드로 wait_for timeout 안에서 발생하지 않도록 함).
+    try:
+        await client._load_corp_codes()
+    except Exception:
+        # corpCode 실패는 _safe가 각 worker에서 또 retry — 여기선 silent
+        pass
+
+    # ── 6 upstream 병렬 호출 (retry 3회 + per-call timeout 60s + process cache) ──
+    # F1 (Phase 3): retry 3회 + exponential backoff
+    # F8 (Phase 4): asyncio.wait_for(timeout=60) — 단일 upstream hang이 전체 timeout 잠식 방지
+    # F11 (Phase 4): process-level cache (company+tool+scope+year 키) — 같은 process 내 재호출 동일 결과
     async def _safe(fn, *args, **kw):
+        # F11 cache key
+        cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"))
+        cached = _ADVISE_RESULT_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
         last_exc = None
         for attempt in range(3):  # 1차 + retry 2회 (총 3회 시도)
             try:
-                return await fn(*args, **kw)
+                # F8: 단일 upstream 60s cap (전체 wait_for 120s 안에서 6 worker 각자 60s)
+                result = await asyncio.wait_for(fn(*args, **kw), timeout=60.0)
+                _ADVISE_RESULT_CACHE[cache_key] = result
+                return result
+            except asyncio.TimeoutError as exc:
+                last_exc = exc
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
             except Exception as exc:
                 last_exc = exc
                 if attempt < 2:
-                    # exponential backoff: 0.5 / 1.0 / 2.0s
                     await asyncio.sleep(0.5 * (2 ** attempt))
         # 모두 fail → 명시적 status (silent fallback X — soft-fail 추적용)
-        return {
+        err_result = {
             "tool": fn.__name__,
             "status": "error",
             "data": {},
             "warnings": [f"3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}"],
             "evidence_refs": [],
         }
+        # error는 cache에 저장 X (다음 호출 시 재시도 기회)
+        return err_result
+
+    # F10 (Phase 4): 6 → 3 worker — 동시성 줄여 race 완화 + DART API margin 확보
+    _UPSTREAM_SEM = asyncio.Semaphore(3)
+
+    async def _safe_throttled(fn, *args, **kw):
+        async with _UPSTREAM_SEM:
+            return await _safe(fn, *args, **kw)
 
     meeting_summary, meeting_agenda, meeting_comp, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
-        _safe(build_shareholder_meeting_payload, company_query, scope="summary", year=target_year, meeting_type=meeting_type),
-        _safe(build_shareholder_meeting_payload, company_query, scope="agenda", year=target_year, meeting_type=meeting_type),
-        _safe(build_shareholder_meeting_payload, company_query, scope="compensation", year=target_year, meeting_type=meeting_type),
-        _safe(build_ownership_structure_payload, company_query, scope="control_map"),
-        _safe(build_corp_gov_report_payload, company_query, scope="summary"),
-        _safe(build_financial_metrics_payload, company_query, scope="summary", year=target_year),
-        _safe(build_director_evaluation_payload, company_query, year=target_year, meeting_type=meeting_type, enable_marco=enable_marco),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="summary", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="agenda", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="compensation", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_ownership_structure_payload, company_query, scope="control_map"),
+        _safe_throttled(build_corp_gov_report_payload, company_query, scope="summary"),
+        _safe_throttled(build_financial_metrics_payload, company_query, scope="summary", year=target_year),
+        _safe_throttled(build_director_evaluation_payload, company_query, year=target_year, meeting_type=meeting_type, enable_marco=enable_marco),
     )
 
     # 안건 리스트 추출 (success 매핑)
