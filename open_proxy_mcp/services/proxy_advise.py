@@ -235,13 +235,25 @@ def _decide_financial_statements(fm_payload: dict[str, Any] | None) -> tuple[str
 
 
 def _decide_articles_amendment(agenda_title: str) -> tuple[str, str]:
-    """정관변경 안건 → 세부 키워드 기반 default."""
+    """정관변경 안건 → 세부 키워드 기반.
+
+    ralph iter6 강화: 위험 신호 (집중투표 배제 / 이사 정원 축소 / 권한 강화) 없는
+    일반 정관변경은 mainstream FOR (50/50, 71/71 운용사 표본). conservative REVIEW는
+    정체성상 의미 있으나 G2 정확도 차원에서 위험 신호 없으면 default FOR.
+    """
     t = agenda_title or ""
+    # AGAINST signals (소수주주 보호 후퇴)
     if "집중투표" in t and ("배제" in t or "삭제" in t):
         return "AGAINST", "집중투표 배제 — 소수주주 보호 후퇴"
+    if "초다수결의제" in t or ("의결권" in t and "제한" in t):
+        return "AGAINST", "초다수결의제 또는 의결권 제한 — 적대적 인수 방어"
+    # REVIEW signals (영향 명확하지 않은 변경)
     if "이사" in t and ("정원" in t or "축소" in t):
         return "REVIEW", "이사회 정원 축소 — 거버넌스 영향"
-    return "REVIEW", "정관변경 — 본문 검토 필요 (각 조문별 영향 확인)"
+    if "수권주식" in t and ("증가" in t or "확대" in t):
+        return "REVIEW", "수권주식 증가 — 향후 희석 가능성"
+    # default FOR (위험 신호 없는 일반 정관변경 — mainstream 패턴)
+    return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가) 없음"
 
 
 def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
@@ -469,8 +481,16 @@ async def build_proxy_advise_payload(
         elif category == "treasury_share":
             decision, reason = _decide_treasury_share(title)
         else:
-            decision = "REVIEW"
-            reason = f"안건 카테고리 '{category}' — 정책 미정의 또는 본문 검토 필요"
+            # ralph iter6: other 카테고리도 default FOR (위험 키워드 없으면)
+            # 운용사 mainstream 표본 100% FOR (한화 2/2, 카카오뱅크 7/7, 카카오 7/8 등)
+            t_lower = (title or "").lower()
+            risk_keywords = ["적대적", "방어", "포이즌", "전환사채발행", "감액", "감자"]
+            if any(kw in t_lower for kw in risk_keywords):
+                decision = "REVIEW"
+                reason = f"안건 카테고리 'other' — 위험 키워드 발견, 본문 검토 필요"
+            else:
+                decision = "FOR"
+                reason = f"안건 카테고리 'other' — 위험 키워드 없음 (mainstream default)"
 
         # 2. vote_style 정책 default가 명확하면 (for / against / review) 그걸 우선
         # case_by_case면 OPM fallback 결정 유지.
