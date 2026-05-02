@@ -251,3 +251,61 @@ async def _safe(fn, *args, **kw):
 - ralph cap 31 iter 도달 시 자동 종료
 - Phase 3 별도 ralph: cache TTL 증가 + per-upstream timeout → 100% 가능 추정
 - 본 ralph 결과: deterministic mechanism 작동 검증 + retry fix valuable
+
+---
+
+## 별도 실행 — 200 × 3 batch 완료 (38분, 597 rows)
+
+사용자 지시 "별도로 실행해봐" → ralph 외부 nohup background batch.
+
+### 실행
+- universe: 199 회사 × 3 run = 597 호출
+- 방식: nohup + asyncio.gather + sem(6) + asyncio.wait_for(timeout=90s) + 회사당 sequential 3 run + incremental csv write
+- 소요: 2258s = **37.6분**
+
+### Consistency 결과 (197 complete 회사)
+- **일치율 180/197 = 91.4%** ← gate ≥95% **3.6%p 미달**
+- KOSPI 95/106 = 89.6%
+- KOSDAQ 84/90 = 93.3%
+
+### 불일치 17 회사 분석
+| 회사 | 불일치 패턴 |
+|---|---|
+| HMM, 한전기술 | status no_filing↔exact 가끔 fail (재시도해도 일부 fail) |
+| 현대건설, JB금융지주, LG이노텍, 에스티팜, 피에스케이 | 1 안건 변동 (financial_metrics 응답 변동, 이전 KT&G 패턴) |
+| 휴젤, 두산테스나 | 큰 변동 (F=2↔8) — 일부 호출에서 검색/파싱 fail |
+| 카카오뱅크, BNK금융지주, LG디스플레이, 동진쎄미켐, 원익홀딩스, 오리온, 현대글로비스, 현대오토에버 | (0,0,0) ↔ 정상 결과 — status 변동 |
+
+### Status 분포 (598 호출)
+- exact: 468 (78%)
+- no_filing: 102 (17%)
+- error: 24 (4%)
+- timeout: 3 (0.5%)
+
+### Elapsed
+- 평균: 22.5s
+- p95: 58.5s
+- max: 90s (timeout cap)
+
+### 파싱 실패 855건 추출 (`260503_parsing_failures.csv`)
+- `career_period_reverse`: 637 — 후보 약력 기간 역순 ("2024 ~ 2021" 같이)
+- `agenda_section_missing`: 116 — 소집공고 본문에서 안건 섹션 못 찾음
+- `career_period_invalid`: 87 — 비정상 기간
+- `image_notice_ocr_needed`: 15 — 본문 이미지 (OCR 필요)
+
+### Gate 정직 평가
+- ✅ Quantitative (200 × 3 = 600): **충족** (597/600, 99.5%)
+- ❌ Qualitative (≥95% consistency): **미충족** (91.4%)
+- → quantitative 충족, qualitative 미달
+
+### Phase 3 fix 권장
+1. retry 횟수 증가 (1 → 2-3회) — 일시적 timeout 회수
+2. status no_filing/error 별도 보존 — 중간 fail 시 이전 정상 결과 caching
+3. financial_metrics 응답 caching (TTL 5분)
+4. parser 보강:
+   - career_period_reverse: 정규식 fallback (역순 자동 swap)
+   - agenda_section_missing: 본문 패턴 더 다양 추가
+   - image_notice: Upstage OCR fallback
+
+### Promise 정직
+- 양 ✅ + 질 ❌ → 가이드 둘 다 충족 아니라 **promise X**.
