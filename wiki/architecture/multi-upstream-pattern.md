@@ -158,13 +158,22 @@ upstream 종류로 판단:
 
 `notices[0]` / `items[0]` / `filings[0]` 패턴 (정정공고 미처리):
 
-| 위치 | 코드 | 위험 |
+| 위치 | 코드 | 상태 |
 |---|---|---|
-| `director_evaluation.py:86` | `notice = notices[0]` | ✅ Phase 4 fix됨 |
-| `value_up_v2.py:127, 130, 394` | `plan_items[0]` / `kind_items[0]` | 🟡 검증 |
-| `corp_gov_report.py:386` | `filings[0]  # 최신` | 🟡 검증 |
-| `shareholder_meeting.py:395` | `result_items[0]` | 🟡 검증 |
-| `proxy.py:421` | `company_items[0]` | 🟢 낮음 |
+| `director_evaluation.py:86` | `notice = notices[0]` | ✅ Phase 4 fix (3개 fallback 시도) |
+| `value_up_v2.py:127, 130, 394` | `plan_items[0]` / `kind_items[0]` | ✅ fix (정정 제외 우선 + fallback) |
+| `corp_gov_report.py:386` | `filings[0]  # 최신` | ✅ fix (정정 제외 우선 + fallback) |
+| `shareholder_meeting.py:395` | `result_items[0]` | ✅ fix (정정 제외 우선 + fallback) |
+| `tools/proxy.py:421` | `company_items[0]` | ✅ fix (정정 제외 우선 + fallback) |
+
+표준 패턴 (정정 제외 우선 + 빈 결과 fallback):
+
+```python
+non_corr = [it for it in items if not (it.get("report_nm") or "").startswith("[기재정정]")]
+selected = (non_corr or items)[0]
+```
+
+director_evaluation처럼 본문 parse 후 빈 결과 검증이 필요한 케이스는 시간 desc 최대 N개 시도 + parse fallback 사용.
 
 ## 신규 multi-upstream tool 만들 때
 

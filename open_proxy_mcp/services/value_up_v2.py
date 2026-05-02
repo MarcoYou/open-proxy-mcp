@@ -120,14 +120,20 @@ def _select_latest_plan_item(items: list[dict[str, Any]]) -> dict[str, Any] | No
 
     meta_amendment(고배당기업 형식 재공시)는 실제 계획 본문이 없으므로 제외한다.
     plan 카테고리가 없으면 progress도 허용, 그것도 없으면 None.
+
+    [기재정정] 제외 우선 — 정정 본문이 변경 부분만 담을 위험 회피.
+    제외 후 빈 결과면 정정 포함 첫 번째 fallback.
+    참조: [[architecture/multi-upstream-pattern]] (정정공고 처리 표준).
     """
 
     plan_items = [it for it in items if _classify_value_up_item(_item_report_name(it)) == "plan"]
     if plan_items:
-        return plan_items[0]
+        non_corr = [it for it in plan_items if not _item_report_name(it).startswith("[기재정정]")]
+        return (non_corr or plan_items)[0]
     progress_items = [it for it in items if _classify_value_up_item(_item_report_name(it)) == "progress"]
     if progress_items:
-        return progress_items[0]
+        non_corr = [it for it in progress_items if not _item_report_name(it).startswith("[기재정정]")]
+        return (non_corr or progress_items)[0]
     return None
 
 
@@ -391,7 +397,13 @@ async def build_value_up_payload(
         ).to_dict()
 
     latest_source = "dart"
-    latest = items[0] if items else kind_items[0]
+    # [기재정정] 제외 우선, 비면 정정 포함 fallback ([[architecture/multi-upstream-pattern]])
+    if items:
+        non_corr = [it for it in items if not _item_report_name(it).startswith("[기재정정]")]
+        latest = (non_corr or items)[0]
+    else:
+        non_corr_kind = [it for it in kind_items if not (it.get("report_nm") or "").startswith("[기재정정]")]
+        latest = (non_corr_kind or kind_items)[0]
     availability_status = "found_in_requested_window" if items else "found_in_requested_window_kind_only"
     latest_text = ""
     latest_excerpt = ""

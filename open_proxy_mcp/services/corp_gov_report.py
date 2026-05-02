@@ -383,7 +383,10 @@ async def build_corp_gov_report_payload(
                 target_filing = f
                 break
     if not target_filing and filings:
-        target_filing = filings[0]  # 최신
+        # [기재정정] 제외 우선 — 정정 본문이 변경 부분만 담을 위험 회피.
+        # KOSPI 의무 + 매년 5월말 제출 + 정정 빈번 ([[architecture/multi-upstream-pattern]]).
+        non_corr = [f for f in filings if not (f.get("report_nm") or "").startswith("[기재정정]")]
+        target_filing = (non_corr or filings)[0]  # 최신
 
     data: dict[str, Any] = {
         "query": company_query,
