@@ -55,23 +55,9 @@ async def fetch_appointments(
         bgn_de = f"{year}0101"
         end_de = f"{year}1231"
 
-    # F12 (ralph iter3): pblntf_ty 필터링 + page 2 fallback.
-    # 공시 수 많은 회사 (KOSPI 대형주, total_count>100)는 page 1만 보면
-    # 가장 최신 100건 (4월 분기보고서 등)에 묻혀 2-3월 주총소집공고 누락.
-    # 주총소집공고는 pblntf_ty="A"(정기공시) — 100건 내 안 들어가는 경우 적음.
-    # 안전하게: pblntf_ty="A" 1차 + 미발견 시 page 2 fallback.
-    try:
-        data = await client.search_filings(
-            corp_code=corp_code,
-            bgn_de=bgn_de,
-            end_de=end_de,
-            pblntf_ty="A",  # 정기공시 (주총소집공고 포함)
-        )
-    except DartClientError as exc:
-        return [], None, [{"error": f"search_filings 실패: {exc.status} {exc}"}]
-
-    items = data.get("list", []) or []
-
+    # F12 (ralph iter3) + iter12 정밀화: 주총소집공고 검색은 pblntf_ty=None (전체).
+    # 발견: 일부 회사 (셀트리온 등)는 주총소집공고가 pblntf_ty="A"로 분류 안 됨.
+    # 안전: pblntf_ty=None page 1 + page 2 모두 시도.
     def _filter(items: list) -> list:
         return [
             i for i in items
@@ -79,32 +65,27 @@ async def fetch_appointments(
             and (("임시" in i.get("report_nm", "")) if meeting_type == "extraordinary" else ("임시" not in i.get("report_nm", "")))
         ]
 
-    notices = _filter(items)
-
-    # page 2 fallback (정기공시도 100건 초과 회사 위해)
-    if not notices:
+    notices: list = []
+    for pg in (1, 2, 3):
         try:
-            data2 = await client.search_filings(
+            data = await client.search_filings(
                 corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
-                pblntf_ty="A", page_no=2, page_count=100,
+                pblntf_ty=None, page_no=pg, page_count=100,
             )
-            notices = _filter(data2.get("list", []) or [])
-        except DartClientError:
-            pass
-
-    # 마지막 fallback: 전체 pblntf 검색 (정기 외 카테고리에 잘못 분류된 케이스)
-    if not notices:
-        try:
-            data_all = await client.search_filings(
-                corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
-                pblntf_ty=None, page_no=2, page_count=100,
-            )
-            notices = _filter(data_all.get("list", []) or [])
-        except DartClientError:
-            pass
+        except DartClientError as exc:
+            if pg == 1:
+                return [], None, [{"error": f"search_filings 실패: {exc.status} {exc}"}]
+            break
+        items = data.get("list", []) or []
+        notices = _filter(items)
+        if notices:
+            break
+        # total_count 적으면 더 이상 페이지 없음
+        if pg * 100 >= int(data.get("total_count") or 0):
+            break
 
     if not notices:
-        return [], None, [{"info": f"{year} {meeting_type} 주총소집공고 미발견 (pblntf=A page 1+2 + all page 2 모두 시도)"}]
+        return [], None, [{"info": f"{year} {meeting_type} 주총소집공고 미발견 (pblntf=None page 1-3 모두 시도)"}]
 
     # F9 (Phase 4): 정정공고 처리.
     # DART list.json은 rcept_dt desc 기본 정렬 → notices[0]가 [기재정정]이면
