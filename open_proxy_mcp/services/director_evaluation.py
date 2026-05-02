@@ -288,18 +288,24 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
     }
 
     # 2. eligibility 필드 (taxDelinquency / insolventMgmt / legalDisqualification) → success
-    # "해당사항 없음(충족)" / "해당사항없음" 등 변형 모두 clean으로 인식.
+    # ralph iter14: 한국 회계공시 negation 키워드 다양 — "부"(단독) / "미해당" / "해당없음" 추가.
+    # 이전엔 "없음" / "충족" / "해당사항없음"만 → "부" / "미해당" 표기 회사 모두 잘못 red_flag 분류.
     elig = candidate.get("eligibility") or {}
     elig_flags: dict[str, str | None] = {}
     has_red = False
+    NEGATION_TOKENS = ("없음", "없다", "없습니다", "충족", "해당사항없음", "해당없음", "미해당", "비해당", "해당안", "N", "n")
     for k in ("taxDelinquency", "insolventMgmt", "legalDisqualification"):
         v = elig.get(k)
         if not v or v in ("-", None):
             elig_flags[k] = None
             continue
-        v_norm = str(v).replace(" ", "")
-        # 부정 키워드 ("없음" / "충족" / "해당없음") 포함 시 clean
-        if any(kw in v_norm for kw in ("없음", "충족", "해당사항없음")):
+        v_norm = str(v).replace(" ", "").strip()
+        # 단독 "부" / "무" / "X" 단답형
+        if v_norm in ("부", "무", "X", "x", "아니오", "아니요"):
+            elig_flags[k] = None
+            continue
+        # 부정 키워드 substring
+        if any(kw in v_norm for kw in NEGATION_TOKENS):
             elig_flags[k] = None
         else:
             has_red = True
