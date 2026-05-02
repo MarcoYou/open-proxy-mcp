@@ -500,7 +500,15 @@ async def build_proxy_advise_payload(
                     note = f" (사외 {len(outside_evals)}명 중 일부 indep concerns — 개별 사외이사 안건에서 검토)" if indep_concerns_outside else ""
                     decision, reason = "FOR", f"묶음 안건 — 결격사유 없음, 후보 {len(relevant_evals)}명{note}"
             else:
-                decision, reason = _decide_director_election(matched_eval)
+                # ralph iter16: matched_eval None + name_to_eval 비어있음 (후보 데이터 자체 없음)
+                # → 운용사 mainstream default FOR (셀트리온 53/70 등). director_evaluation
+                # 본문 parse 실패 case에서 REVIEW가 mainstream과 큰 차이 만듦.
+                # red_flag signal 없으면 FOR (정직한 caveat note 포함).
+                if matched_eval is None and not name_to_eval:
+                    decision = "FOR"
+                    reason = "후보 평가 데이터 없음 (본문 parse 실패) — mainstream default FOR (개별 검증 권고)"
+                else:
+                    decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
             decision, reason = _decide_compensation(meeting_comp, fin_metrics)
         elif category == "financial_statements":
