@@ -286,10 +286,13 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None) -> tu
         return "AGAINST", "완전 자본잠식 — 배당 결정은 주주가치 훼손"
     if ni is not None and ni < 0:
         return "REVIEW", f"적자 회사 (순이익 {ni:,}원) — 배당 재원 적정성 검토 필요"
-    # ralph iter7: 배당성향 80-150%는 흑자 + 자본 양호하면 FOR (mainstream).
-    # POSCO 등 안정 대기업은 80% 넘어도 9/9 운용사 FOR. 임계 150%로 상향.
-    if payout is not None and payout > 150:
-        return "REVIEW", f"배당성향 {payout}% (>150%) — 명백한 과도 배당"
+    # ralph iter9: "분기 배당기준일" 같은 절차적 안건은 재무 무관 자동 FOR.
+    # POSCO 분기배당 9/9 운용사 FOR.
+    if any(kw in agenda_title for kw in ("분기", "기준일", "기준일 변경", "중간배당")):
+        return "FOR", f"분기/중간배당 절차 안건 — 자본 양호 시 FOR (배당성향 무관)"
+    # 배당성향 200%+ 명백 과도 (이전엔 150%였으나 150-200%도 mainstream FOR)
+    if payout is not None and payout > 200:
+        return "REVIEW", f"배당성향 {payout}% (>200%) — 명백한 과도 배당"
     if ni is not None and ni > 0 and cap_status != "partial":
         return "FOR", f"흑자 + 자본 양호 (배당성향 {payout if payout is not None else '?'}%)"
     return "REVIEW", "배당 적정성 본문 검토 필요"
@@ -473,14 +476,17 @@ async def build_proxy_advise_payload(
                 # 독립성 concerns은 사외이사에서만 의미 (사내이사 indep concerns는 자연 — 회사 결정 존중)
                 indep_concerns_outside = any((ev.get("independence") or {}).get("summary") == "concerns" for ev in outside_evals)
 
+                # ralph iter9: 묶음 안건의 사외 indep concerns은 일부 후보 신호일 뿐
+                # 안건 전체 REVIEW는 mainstream과 큰 차이 (운용사 50/52, 22/24 FOR).
+                # 묶음에서는 결격사유 / Marco red_flag만 안건 전체 영향.
+                # 사외이사 indep concerns는 개별 사외이사 안건 (사외이사 선임의 건(XX))에서만 적용.
                 if disq_red:
                     decision, reason = "AGAINST", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 결격사유 발견"
                 elif marco_red:
                     decision, reason = "REVIEW", f"묶음 안건 — Marco 시나리오 red_flag (raw 메모 검토)"
-                elif indep_concerns_outside:
-                    decision, reason = "REVIEW", f"묶음 안건 — 사외이사 후보 {len(outside_evals)}명 중 독립성 concerns"
                 else:
-                    decision, reason = "FOR", f"묶음 안건 — 후보 {len(relevant_evals)}명 (사외 {len(outside_evals)}명) 결격사유 + 사외독립성 모두 clean"
+                    note = f" (사외 {len(outside_evals)}명 중 일부 indep concerns — 개별 사외이사 안건에서 검토)" if indep_concerns_outside else ""
+                    decision, reason = "FOR", f"묶음 안건 — 결격사유 없음, 후보 {len(relevant_evals)}명{note}"
             else:
                 decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
