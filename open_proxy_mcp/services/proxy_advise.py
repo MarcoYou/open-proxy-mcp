@@ -500,11 +500,16 @@ async def build_proxy_advise_payload(
         elif category == "treasury_share":
             decision, reason = _decide_treasury_share(title)
         else:
-            # ralph iter6: other 카테고리도 default FOR (위험 키워드 없으면)
-            # 운용사 mainstream 표본 100% FOR (한화 2/2, 카카오뱅크 7/7, 카카오 7/8 등)
-            t_lower = (title or "").lower()
-            risk_keywords = ["적대적", "방어", "포이즌", "전환사채발행", "감액", "감자"]
-            if any(kw in t_lower for kw in risk_keywords):
+            # ralph iter6/12: other 카테고리 default FOR (위험 키워드 없으면).
+            # 운용사 mainstream 표본 100% FOR (한화 2/2, 카카오뱅크 7/7 등).
+            # iter12 정밀화: "자본준비금 감액"(회계 평탄화) ≠ "자본금 감액/감자"(주주가치 영향)
+            t = (title or "")
+            risk_keywords = ["적대적", "방어", "포이즌", "전환사채발행"]
+            # "감자" 또는 "자본금 감액" (자본준비금 감액 제외 — mainstream FOR)
+            if "감자" in t or ("자본금" in t and "감액" in t):
+                decision = "REVIEW"
+                reason = f"안건 카테고리 'other' — 자본금 감액/감자 본문 검토 필요"
+            elif any(kw in t for kw in risk_keywords):
                 decision = "REVIEW"
                 reason = f"안건 카테고리 'other' — 위험 키워드 발견, 본문 검토 필요"
             else:
