@@ -39,6 +39,17 @@ from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meetin
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 
 
+# ── F11: process-level result cache ([[architecture/multi-upstream-pattern]] 5 요소) ──
+# 같은 process 내 같은 (corp+tool+scope+year+meeting_type+start+end) 호출 결과 reuse.
+# status="error"는 cache X (재시도 기회 유지).
+_RECAP_RESULT_CACHE: dict[tuple, dict] = {}
+
+
+def clear_recap_cache() -> None:
+    """test/diagnostic 용 cache reset"""
+    _RECAP_RESULT_CACHE.clear()
+
+
 def _format_iso(d: date) -> str:
     return d.strftime("%Y%m%d")
 
@@ -82,18 +93,66 @@ async def build_recap_vote_payload(
     selected = resolution.selected
     target_year = year or date.today().year - 1
 
-    async def _safe(fn, *args, **kw):
-        try:
-            return await fn(*args, **kw)
-        except Exception as exc:
-            return {"tool": fn.__name__, "status": "error", "data": {}, "warnings": [str(exc)], "evidence_refs": []}
+    # F6: corpCode pre-warm — gather 전 보장 (race 제거).
+    # F7 lock이 dart/client.py에 있어 race-safe하지만 명시적 사전 로드.
+    try:
+        await client._load_corp_codes()
+    except Exception:
+        pass  # 각 worker에서 또 retry
 
-    # 5 upstream 병렬 호출
+    # ── _safe wrapper ([[architecture/multi-upstream-pattern]] 5 요소) ──
+    # F1: retry 3회 + exponential backoff (0.5/1/2s)
+    # F8: per-call asyncio.wait_for(timeout=60s) — 단일 upstream hang 격리
+    # F11: process-level cache (status="error"는 cache X)
+    async def _safe(fn, *args, **kw):
+        cache_key = (
+            selected.get("corp_code") or company_query,
+            fn.__name__,
+            kw.get("scope"),
+            kw.get("year"),
+            kw.get("meeting_type"),
+            kw.get("start_date"),
+            kw.get("end_date"),
+        )
+        cached = _RECAP_RESULT_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
+        last_exc = None
+        for attempt in range(3):
+            try:
+                result = await asyncio.wait_for(fn(*args, **kw), timeout=60.0)
+                _RECAP_RESULT_CACHE[cache_key] = result
+                return result
+            except asyncio.TimeoutError as exc:
+                last_exc = exc
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+            except Exception as exc:
+                last_exc = exc
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+        return {
+            "tool": fn.__name__,
+            "status": "error",
+            "data": {},
+            "warnings": [f"3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}"],
+            "evidence_refs": [],
+        }
+
+    # F10: Semaphore(3) — DART API margin + race 완화
+    _UPSTREAM_SEM = asyncio.Semaphore(3)
+
+    async def _safe_throttled(fn, *args, **kw):
+        async with _UPSTREAM_SEM:
+            return await _safe(fn, *args, **kw)
+
+    # 4 upstream 병렬 호출 (1차)
     meeting_results, meeting_summary, proxy_contest, gov_report = await asyncio.gather(
-        _safe(build_shareholder_meeting_payload, company_query, scope="results", year=target_year, meeting_type=meeting_type),
-        _safe(build_shareholder_meeting_payload, company_query, scope="summary", year=target_year, meeting_type=meeting_type),
-        _safe(build_proxy_contest_payload, company_query, scope="summary"),
-        _safe(build_corp_gov_report_payload, company_query, scope="summary"),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="results", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="summary", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_proxy_contest_payload, company_query, scope="summary"),
+        _safe_throttled(build_corp_gov_report_payload, company_query, scope="summary"),
     )
 
     # 주총일 기준 ±30일 윈도우 후속 공시
@@ -105,11 +164,12 @@ async def build_recap_vote_payload(
     follow_start = _format_iso(mdate)
     follow_end = _format_iso(mdate + timedelta(days=follow_up_days))
 
+    # 4 upstream 병렬 호출 (2차 — 후속 공시)
     dividend_payload, treasury_payload, restructuring_payload, dilutive_payload = await asyncio.gather(
-        _safe(build_dividend_payload, company_query, scope="summary", year=target_year),
-        _safe(build_treasury_share_payload, company_query, scope="summary", start_date=follow_start, end_date=follow_end),
-        _safe(build_corporate_restructuring_payload, company_query, scope="summary", start_date=follow_start, end_date=follow_end),
-        _safe(build_dilutive_issuance_payload, company_query, scope="summary", start_date=follow_start, end_date=follow_end),
+        _safe_throttled(build_dividend_payload, company_query, scope="summary", year=target_year),
+        _safe_throttled(build_treasury_share_payload, company_query, scope="summary", start_date=follow_start, end_date=follow_end),
+        _safe_throttled(build_corporate_restructuring_payload, company_query, scope="summary", start_date=follow_start, end_date=follow_end),
+        _safe_throttled(build_dilutive_issuance_payload, company_query, scope="summary", start_date=follow_start, end_date=follow_end),
     )
 
     # 결과 안건별 정리
