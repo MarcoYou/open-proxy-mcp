@@ -1,4 +1,7 @@
-"""advise_vote — 주총 전 의결권 행사 메모 (운용사 보고서 스타일).
+"""proxy_advise — 주총 소집 전 다각도 심층 분석 + 안건별 의결권 권고.
+
+옛 advise_vote rename. spec: [[wiki/tools/proxy_advise_before_meeting]].
+검증 ralph: [[wiki/ralph/260503_0002_ralph_proxy-advise-verification]] (3 gate).
 
 핵심: 안건별 행사방향 (FOR / AGAINST / REVIEW) + 결정 사유 (정책 근거 + 사실 근거).
 **gap 비교 X, 검증 가능한 fact + 정책 근거만**.
@@ -47,12 +50,12 @@ from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meetin
 # 같은 process 내 같은 (corp_code, tool, scope, year, meeting_type) 호출 시 결과 reuse.
 # 200×3 batch에서 같은 회사 run1/run2/run3 일관성 보장 + 호출 비용 절감.
 # 단, status="error" 결과는 cache에 저장 X (재시도 기회 유지).
-_ADVISE_RESULT_CACHE: dict[tuple, dict] = {}
+_PROXY_ADVISE_CACHE: dict[tuple, dict] = {}
 
 
-def clear_advise_cache() -> None:
+def clear_proxy_advise_cache() -> None:
     """test/diagnostic 용 cache reset"""
-    _ADVISE_RESULT_CACHE.clear()
+    _PROXY_ADVISE_CACHE.clear()
 
 
 # ── vote_style 정책 로딩 (운용사별 voting_rules) ──
@@ -259,7 +262,7 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None) -> tu
 
 # ── 메인 advise builder ──
 
-async def build_advise_vote_payload(
+async def build_proxy_advise_payload(
     company_query: str,
     *,
     year: int | None = None,
@@ -267,14 +270,14 @@ async def build_advise_vote_payload(
     vote_style: str = "open_proxy",
     enable_marco: bool = False,
 ) -> dict[str, Any]:
-    """advise_vote_before_meeting payload."""
+    """proxy_advise_before_meeting payload."""
     client = get_dart_client()
     calls_start = client.api_call_snapshot()
 
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(
-            tool="advise_vote_before_meeting",
+            tool="proxy_advise_before_meeting",
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}' 회사 식별 실패"],
@@ -282,7 +285,7 @@ async def build_advise_vote_payload(
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
-            tool="advise_vote_before_meeting",
+            tool="proxy_advise_before_meeting",
             status=AnalysisStatus.AMBIGUOUS,
             subject=company_query,
             warnings=["회사 식별 모호"],
@@ -320,7 +323,7 @@ async def build_advise_vote_payload(
     async def _safe(fn, *args, **kw):
         # F11 cache key
         cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"))
-        cached = _ADVISE_RESULT_CACHE.get(cache_key)
+        cached = _PROXY_ADVISE_CACHE.get(cache_key)
         if cached is not None:
             return cached
 
@@ -329,7 +332,7 @@ async def build_advise_vote_payload(
             try:
                 # F8: 단일 upstream 60s cap (전체 wait_for 120s 안에서 6 worker 각자 60s)
                 result = await asyncio.wait_for(fn(*args, **kw), timeout=60.0)
-                _ADVISE_RESULT_CACHE[cache_key] = result
+                _PROXY_ADVISE_CACHE[cache_key] = result
                 return result
             except asyncio.TimeoutError as exc:
                 last_exc = exc
@@ -467,7 +470,7 @@ async def build_advise_vote_payload(
         status = AnalysisStatus.EXACT
 
     return ToolEnvelope(
-        tool="advise_vote_before_meeting",
+        tool="proxy_advise_before_meeting",
         status=status,
         subject=selected.get("corp_name", company_query),
         warnings=[],
