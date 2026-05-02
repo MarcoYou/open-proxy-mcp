@@ -417,7 +417,31 @@ async def build_proxy_advise_payload(
                 if nm and nm in title:
                     matched_eval = ev
                     break
-            decision, reason = _decide_director_election(matched_eval)
+            # ralph iter4 logic 강화: 매칭 안 됨 + 후보 평가 데이터 존재 →
+            # 모든 후보 평가 종합 (묶음 안건 패턴 — "이사 선임의 건" 같은 형식).
+            # 모두 clean이면 FOR, 한 명이라도 red_flag면 AGAINST, 아니면 REVIEW.
+            if matched_eval is None and name_to_eval:
+                # 묶음 안건 fallback: 카테고리 매칭 — director_election이면 사외/사내 불문, audit이면 감사위원
+                relevant_evals = list(name_to_eval.values())
+                if category == "audit_committee_election":
+                    # 감사위원 안건은 audit committee 후보만
+                    relevant_evals = [
+                        ev for ev in name_to_eval.values()
+                        if ("감사" in (ev.get("role_type") or "")) or ("audit" in (ev.get("role_type") or "").lower())
+                    ] or list(name_to_eval.values())
+                disq_red = any((ev.get("disqualification") or {}).get("summary") == "red_flag" for ev in relevant_evals)
+                marco_red = any((ev.get("faithfulness") or {}).get("marco_scenario", {}).get("summary") == "red_flag" for ev in relevant_evals)
+                indep_concerns = any((ev.get("independence") or {}).get("summary") == "concerns" for ev in relevant_evals)
+                if disq_red:
+                    decision, reason = "AGAINST", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 결격사유 발견"
+                elif marco_red:
+                    decision, reason = "REVIEW", f"묶음 안건 — Marco 시나리오 red_flag (raw 메모 검토)"
+                elif indep_concerns:
+                    decision, reason = "REVIEW", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 독립성 concerns"
+                else:
+                    decision, reason = "FOR", f"묶음 안건 — 후보 {len(relevant_evals)}명 모두 결격사유 없음"
+            else:
+                decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
             decision, reason = _decide_compensation(meeting_comp)
         elif category == "financial_statements":
