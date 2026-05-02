@@ -291,22 +291,31 @@ def _extract_agenda_zone_html(html: str) -> str | None:
 
 
 def _extract_notice_section(text: str) -> str | None:
-    """문서에서 '주주총회 소집공고' 본문 섹션만 추출
+    """문서에서 '주주총회 소집공고' 본문 섹션만 추출.
 
-    실제 본문 헤더 판별: '주주총회 소집공고' 뒤에 '(제N기' 또는 기수/정기/임시 표현이 따라옴.
-    인라인 언급('소집공고로 갈음', '소집공고 조직도' 등)은 제외.
+    F3b (Phase 3) — soft pattern 강화:
+    - 검색 범위 500 → 2000자 (회사별 본문 padding 다양 대응)
+    - 키워드 더 broad ("안건" 단독, "회의" 단순화)
+    - 본문 헤더 못 찾으면 전체 text fallback (silent X — caller가 zone fail 시 처리)
     """
-    # '주주총회 소집공고' 뒤에 일시/장소/회의목적사항이 나오는 것이 실제 본문 헤더
-    # 유효 후보: 뒤에 일시/장소/회의목적사항이 따라오는 헤더
-    # 여러 후보 중 마지막 것 선택 (정정 preamble 안 가짜 헤더는 앞쪽, 실제 본문은 뒤쪽)
     section_start = None
+    # 1차: '주주총회 소집공고' 뒤 2000자 안에 안건 관련 키워드 있는 헤더 (실제 본문)
     for m in re.finditer(r'주주총회\s*소집\s*공고', text):
-        after = text[m.end():m.end()+500]
-        if re.search(r'일\s*시|장\s*소|회의\s*(?:의?\s*)?목적\s*사항|부의\s*(?:안건|사항)', after):
+        after = text[m.end():m.end()+2000]
+        if re.search(
+            r'일\s*시|장\s*소|회의\s*(?:의?\s*)?(?:보고\s*)?목적\s*사항|'
+            r'부의\s*(?:안건|사항)|결의\s*사항|의결\s*사항|안건',
+            after
+        ):
             section_start = m.start()
 
+    # 2차 fallback: '주주총회 소집공고' 자체가 없거나 매칭 fail 시,
+    # text 전체에 안건 키워드 있으면 처음부터 사용 (soft pattern — silent X, 그냥 광범위)
     if section_start is None:
-        return None
+        if re.search(r'회의\s*(?:의?\s*)?(?:보고\s*)?목적\s*사항|부의\s*안건|결의\s*사항|의결\s*사항', text):
+            section_start = 0
+        else:
+            return None
 
     # 끝: 다음 대섹션
     section_end = len(text)
@@ -1534,15 +1543,15 @@ def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
         # 빈 content ("-", "(", 빈 문자열) 제거
         if not content or content in ('-', '(', ')', '()', '・'):
             continue
-        # 역순 기간 검증
+        # 역순 기간 — 자동 swap (F3a, log noise 줄이기 위해 debug level)
         years = re.findall(r'\d{4}', period)
         if len(years) == 2 and int(years[0]) > int(years[1]):
-            logger.warning(f"[CAREER] 역순 기간: '{period}' — {name}")
+            logger.debug(f"[CAREER] 역순 자동 swap: '{period}' — {name}")
             period = f"{years[1]} ~ {years[0]}"
             d["period"] = period
-        # 비정상 연도
+        # 비정상 연도 (1950 미만 / 2030 초과 — 1813, 2315 같은 OCR/typo)
         if years and not all(1950 <= int(y) <= 2030 for y in years):
-            logger.warning(f"[CAREER] 비정상 기간: '{period}' — {name}")
+            logger.debug(f"[CAREER] 비정상 연도 skip: '{period}' — {name}")
             d["period"] = ""
         # 합쳐진 content 분리 — 100자 초과면 split 시도
         if len(content) > 100:
