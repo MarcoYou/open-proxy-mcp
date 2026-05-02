@@ -142,11 +142,19 @@ for idx, candidate in enumerate(notices[:3]):
 
 | Tool | gather 수 | 상태 | TO_DO |
 |---|---|---|---|
-| `advise_vote_before_meeting` | 6 upstream | ✅ Phase 4 적용 (commit `d949f68`) | - |
-| `recap_vote_after_meeting` | 8 upstream (4+4) | ❌ 미적용 — advise_vote와 동일 위험 | 🔴 즉시 |
-| `proxy_contest` | 4+4 upstream | ❌ 미적용 | 🟡 검증 필요 |
-| `ownership_structure` | 3 upstream | ❌ 미적용 | 🟡 batch 시 위험 |
-| `corp_gov_report` | 2 upstream + N doc gather | ❌ 부분 (소량) | 🟢 낮음 |
+| `advise_vote_before_meeting` | 6 `build_*_payload` | ✅ Phase 4 적용 (commit `d949f68`) | - |
+| `recap_vote_after_meeting` | 8 `build_*_payload` (4+4) | ✅ 적용 (commit `21bdf58`) | - |
+| `proxy_contest` | 8 DART endpoint 직접 (4+4) | ⚪ baseline 100% — fix 불필요 ([[260503_2330_audit_proxy_contest_baseline]]) | - |
+| `ownership_structure` | 3 endpoint 직접 | ❓ baseline 측정 필요 (proxy_contest와 같은 가벼운 호출일 가능성) | 🟡 검증 |
+| `corp_gov_report` | 2 + N doc gather | ❌ 부분 (소량) | 🟢 낮음 |
+
+### 적용 판단 기준 (proxy_contest baseline에서 도출)
+
+upstream 종류로 판단:
+- **다른 service `build_*_payload` 재귀 호출**: 호출당 5-30s → race window 큼 → **패턴 적용**
+- **DART API endpoint 직접 호출**: 호출당 0.5-2s → race window 작음 → **불필요** (baseline 100% 일치)
+
+→ 신규 multi-upstream tool 만들 때 먼저 200×3 baseline 측정 후 결정. fix 적용은 무조건이 아니라 data-driven.
 
 `notices[0]` / `items[0]` / `filings[0]` 패턴 (정정공고 미처리):
 

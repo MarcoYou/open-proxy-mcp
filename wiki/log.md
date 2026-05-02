@@ -5,6 +5,11 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-03] audit | proxy_contest baseline — 패턴 fix 불필요 결정
+- 200×3 baseline (fix 없이): 100% 일치, timeout 0, mean 1.09s ([[260503_2330_audit_proxy_contest_baseline]])
+- 적용 판단 기준 정립: build_*_payload 재귀(적용) vs DART endpoint 직접(불필요)
+- multi-upstream-pattern 페이지 갱신 (체크리스트 + 기준 추가)
+
 ## [2026-05-03] fix | recap_vote multi-upstream-pattern 적용 + 100% 일치 검증
 - `services/recap_vote.py` 8 upstream gather에 5 요소 적용 (commit `21bdf58`)
 - 200×3 batch: 일치율 100.0% (195/195), timeout 0 ([[260503_2304_audit_recap_pattern]])
