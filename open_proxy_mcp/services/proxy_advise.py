@@ -42,6 +42,7 @@ from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payloa
 from open_proxy_mcp.services.director_evaluation import build_director_evaluation_payload
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
+from open_proxy_mcp.services.policy_comparison import build_policy_comparison
 from open_proxy_mcp.services.proxy_guideline import build_proxy_guideline_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 
@@ -517,7 +518,20 @@ async def build_proxy_advise_payload(
         data["governance_full"] = gov_report.get("data")
     if scope in ("ownership", "all"):
         data["ownership_full"] = ownership.get("data")
-    # policy_basis / proxy_battle / engagement / evidence — Step 4 별도 commit
+
+    # Step 4a: policy_basis scope — 7 운용사 + NPS history 비교
+    if scope in ("policy_basis", "all"):
+        try:
+            data["policy_basis"] = build_policy_comparison(
+                corp_name=selected.get("corp_name", ""),
+                agenda_decisions=agenda_decisions,
+            )
+        except Exception as exc:
+            data["policy_basis"] = {
+                "error": f"policy_comparison 실패: {type(exc).__name__}: {exc}",
+                "comparison": [],
+            }
+    # proxy_battle / engagement / evidence — Step 4b/4c/4d 별도 commit
 
     return ToolEnvelope(
         tool="proxy_advise_before_meeting",
