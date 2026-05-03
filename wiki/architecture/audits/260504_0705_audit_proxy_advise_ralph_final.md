@@ -63,7 +63,7 @@ result: G1 ✅ G2 ⚠ 98.35% (target 99%, batch v3 진행 중) G3 ✅ 100%
 |---|---|
 | G1 일관성 ≥99% | ✅ Phase 4 100% (200×3 baseline) |
 | G2 정확도 ≥99% | ⚠ batch v2 98.35% (78/154) — target 0.65%p 미달 |
-| G2 batch v3 (모든 fix) | (iter 20 도달, 진행 중 — 결과 미측정) |
+| G2 batch v3 (모든 fix iter12-18) | ⚠ 549/572 = **95.98%** (target 99% 미달 3.02%p) |
 | G3 사실 정확성 100% | ✅ 20 회사 / 164 entries / mismatch 0 |
 | regression 0 | ✅ Phase 4 baseline 197/197 |
 
@@ -88,11 +88,46 @@ batch v3 결과로 iter12-18 fix 효과 측정 후:
 - 99% 도달 시 promise (별도 iter)
 - 99% 미달 시 추가 ralph 또는 사용자 결정
 
-## 결론
+## batch v3 final (113 분 종료)
+
+- **n=572 entries / 149 회사**
+- follows_consensus 538 + weak_aligned 11 = 549 align
+- **G2 정확도 549/572 = 95.98%** (target 99% 미달)
+- unique 15 + aligns_with_outlier 8 = 23 잔여
+
+### 잔여 unique 패턴 (15)
+| 카테고리 | count | direction |
+|---|---|---|
+| audit_committee_election | 6 | 5 (FOR vs AGAINST) — 우리 false positive |
+| cash_dividend | 5 | 5 (REVIEW vs FOR) — 절차 키워드 미커버 |
+| director_election | 1 | AGAINST vs FOR (현대오토에버) |
+| financial_statements | 1 | (FOR vs AGAINST) |
+| 기타 | 2 | mixed |
+
+### 핵심 새 issue (이전 fix 부작용)
+
+iter14 + iter18 fix가 **너무 폭넓음** — 9건 (FOR vs AGAINST) false positive 발생:
+- audit_committee_election + role_type 빈 string → 사내이사 분기 → 자동 FOR
+- 상근감사 같은 audit는 strict 검증 필요한데 missed
+- 운용사가 AGAINST한 진짜 결격사유 case도 우리 FOR
+
+cash_dividend 5건 (REVIEW vs FOR) — iter15 절차 키워드 cover 못함:
+- "에코프로 / 리가켐바이오 / 펩트론 / 심텍 / 대신밸류리츠" cash_dividend REVIEW
+- 운용사 mainstream FOR (소수 표본 1-4명)
+
+## 결론 (정직 final)
 
 20 iter ralph 진행:
-- 32.4% → 98.35% (+66%p) 큰 진전
+- baseline 32.4% → batch v3 95.98% (+63.6%p) 큰 진전
 - G1 + G3 + regression 모두 충족
-- G2만 0.65%p 부족 (batch v3 모든 fix 적용 시 99% 가능성 높음)
+- **G2만 3.02%p 부족** (target 99% 미달)
+- iter14/iter18 fix 너무 폭넓음 — refine 필요 (audit_committee strict)
+- cash_dividend 절차 키워드 추가 cover 가능
 
-batch v3 진행 끝나면 사용자가 결과 확인 + promise 또는 추가 iter 결정.
+→ **promise 정직 출력 X**.
+
+## 다음 (사용자 결정)
+
+- 추가 ralph (5-10 iter) — audit_committee strict + cash_dividend 키워드 + false positive 분석
+- 또는 G2 95.98% 수용 + promise 부분 발행
+- 또는 G2 target 재정의 (mainstream majority가 OPM 정체성과 본질 차이 인정)
