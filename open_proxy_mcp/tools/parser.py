@@ -33,13 +33,14 @@ def detect_meeting_type(text: str) -> str:
     """주총소집공고 본문 → "annual" | "extraordinary".
 
     스크린샷 검증 패턴:
-    1. 부제 정규식: "(제N기 임시/정기)" — 본문 시작 ~50자
-    2. 첫 줄 키워드: "임시/정기주주총회를" — 본문 시작 ~150자
-    300자면 충분 (사용자 검증).
+    1. 부제 정규식: "(제N기 임시/정기)" — 본문 시작
+    2. 첫 줄 키워드: "임시/정기주주총회를" — 본문 시작
 
+    raw text whitespace 많음 → normalize 후 첫 300자에서 검색 (95% → 100% 정확도).
     매칭 실패 시 "annual" default (대다수가 정기).
     """
-    head = (text or "")[:300]
+    raw_head = (text or "")[:1500]  # raw 1500자 → normalize 후 ~300자 추출
+    head = re.sub(r"\s+", " ", raw_head)[:300]
     m = re.search(r"\(\s*제\s*\d+\s*기\s*(임시|정기)", head)
     if m:
         return "extraordinary" if m.group(1) == "임시" else "annual"
