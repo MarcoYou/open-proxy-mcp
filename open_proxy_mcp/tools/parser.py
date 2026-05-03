@@ -1806,8 +1806,11 @@ def _is_valid_candidate_name(name: str) -> bool:
     # 영문 이름 (대문자 시작, 알파벳/공백/점/대시 허용, 5-30자)
     if re.fullmatch(r'[A-Z][A-Za-z\.\s\-]{3,29}', name):
         return True
-    # 한글+영문 (혼합, 일본/중국 이름 등)
-    if 2 <= len(name) <= 30 and re.search(r'[가-힣A-Za-z]', name) and not re.search(r'\d', name.replace(' ', '')):
+    # 한자 단독 (鄭傳鈉 등 — 드물지만 옛 후보에 발견)
+    if re.fullmatch(r'[一-鿿]{2,5}', name):
+        return True
+    # 한글+영문+한자 (혼합, 일본/중국 이름 / 鄭傳鈉(정전환) 등)
+    if 2 <= len(name) <= 30 and re.search(r'[가-힣A-Za-z一-鿿]', name) and not re.search(r'\d', name.replace(' ', '')):
         # 너무 많은 공백 — 본문 텍스트일 가능성
         if name.count(' ') > 4:
             return False

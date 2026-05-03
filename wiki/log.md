@@ -5,6 +5,18 @@ title: Operation Log
 
 # Operation Log
 
+## [2026-05-04] fix + audit | parse_personnel ralph 7 iter — role 88.7→100% + regression 0
+- iter4 role normalize + title fallback (가장 큰 성공)
+  - `_normalize_role_value()` 노이즈 set 분류 + 표준 표기 (사외/사내/감사위원/상근감사 등)
+  - alg 알 수 없는 case → raw 보존 (silent fallback X)
+  - header 매칭 확장 ('이사구분/직위/구분/직책')
+- iter6 period 단일 연도 + content year extract (+0.3%p)
+- iter8 한자 이름 cover (`[一-鿿]`)
+- 영문 검증 통과: KIM JOONYOUNG / Takashi Abe / Edward Chin 등 정상
+- career_period 89.0% (target 95% 미달, 본문 데이터 한계 — parser fix 효과 X)
+- batch v8 regression: 4+ majority 99.36% 유지 ✅
+- audit: [[260504_0724_audit_parse_personnel_iter1-7]]
+
 ## [2026-05-04] feat + audit | proxy_advise rename + 9 scope 추가 — regression 0
 - Step 1 rename: services/{advise_vote→proxy_advise, recap_vote→proxy_result} + tools_v2 + 옛 wiki archive (commit 7b06b75)
 - Step 3 단순 expose 5 scope (agenda/candidates/financial/governance/ownership) (commit 6711228)

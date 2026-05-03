@@ -71,6 +71,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[rules/laws/상법개정-타임라인-2026]] - 2025-2027 상법 개정 일정
 
 ### 최근 audit / fix
+- [[260504_0724_audit_parse_personnel_iter1-7]] - parse_personnel ralph 7 iter — role 88.7→100% + regression 0 (G2 99.36% 유지)
 - [[260504_0028_audit_proxy_advise_rename_regression]] - proxy_advise rename + 9 scope 추가 — regression 0 + 100% 일관성
 - [[260503_2304_audit_recap_pattern]] - recap_vote 패턴 적용 200×3 100% (multi-upstream-pattern 일반화 검증)
 - [[260503_1847_audit_phase4_final]] - advise_vote 200×3 deterministic 100% + regression 0 (Phase 4)
