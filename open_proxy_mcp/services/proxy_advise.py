@@ -130,11 +130,16 @@ def _classify_agenda(agenda_title: str) -> str:
 
     iter13 fix: 정관 안건이 "배당" 키워드 포함해도 articles_amendment 우선 분류.
     예: "배당절차 개선에 따른 정관 변경의 건" → 실제 정관변경 (LG화학)
+    iter21 fix: "재무제표 승인" 안건이 배당 정보 포함해도 financial_statements 우선.
+    예: "재무제표 승인 (현금배당 ...)" → 재무제표 승인 (에코프로)
     """
     t = (agenda_title or "").strip()
     # 정관변경이 가장 우선 — "정관" 명시되면 그게 본질
     if "정관" in t:
         return "articles_amendment"
+    # iter21: "재무제표" 우선 (배당 정보 포함 케이스)
+    if "재무제표" in t and ("승인" in t or "확정" in t):
+        return "financial_statements"
     if "재무제표" in t and "배당" not in t:
         return "financial_statements"
     if "배당" in t or "이익잉여금" in t:
@@ -169,6 +174,10 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         return "REVIEW", "후보 평가 데이터 없음 — 사용자 검토 필요"
     role_type = eval_match.get("role_type") or ""
     is_outside = "사외" in role_type or "outside" in role_type.lower() or "독립" in role_type
+    is_audit = "감사" in role_type
+    # iter21: audit role 또는 audit-force는 사내이사 fallback X — strict 검증
+    if is_audit or eval_match.get("_audit_force_strict"):
+        is_outside = True
     disq = eval_match.get("disqualification", {}).get("summary", "")
     indep = eval_match.get("independence", {}).get("summary", "")
     marco = eval_match.get("faithfulness", {}).get("marco_scenario", {}).get("summary", "")
@@ -295,11 +304,12 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None) -> tu
 
     if cap_status == "full":
         return "AGAINST", "완전 자본잠식 — 배당 결정은 주주가치 훼손"
-    # ralph iter9+15: 배당 절차 안건은 재무 (적자 등) 무관 자동 FOR.
-    # 분기/기준일/중간배당/동등배당/배당정책/절차 → 절차적 안건 (한화솔루션 4/4, POSCO 9/9 운용사 FOR)
-    procedural_kws = ("분기", "기준일", "중간배당", "동등배당", "배당정책", "배당절차", "절차")
+    # ralph iter9+15+21: 배당 절차 안건은 재무 (적자 등) 무관 자동 FOR.
+    # iter21 추가: "자본준비금" / "이익잉여금 전입" — 회계 절차 (리가켐바이오 2/2 FOR)
+    procedural_kws = ("분기", "기준일", "중간배당", "동등배당", "배당정책", "배당절차", "절차",
+                      "자본준비금", "이익잉여금 전입", "이익잉여금전입")
     if any(kw in agenda_title for kw in procedural_kws):
-        return "FOR", f"배당 절차 안건 (분기/기준일/동등배당/정책 등) — 재무 무관 mainstream FOR"
+        return "FOR", f"배당 절차/회계 안건 — 재무 무관 mainstream FOR"
     if ni is not None and ni < 0:
         return "REVIEW", f"적자 회사 (순이익 {ni:,}원) — 배당 재원 적정성 검토 필요"
     # 배당성향 200%+ 명백 과도 (이전엔 150%였으나 150-200%도 mainstream FOR)
@@ -508,6 +518,15 @@ async def build_proxy_advise_payload(
                     decision = "FOR"
                     reason = "후보 평가 데이터 없음 (본문 parse 실패) — mainstream default FOR (개별 검증 권고)"
                 else:
+                    # iter21: audit_committee_election은 role_type 무관 strict 검증.
+                    # 상근감사 같은 case에서 role_type 빈 string → 사내이사 fallback (자동 FOR) 위험.
+                    if category == "audit_committee_election" and matched_eval is not None:
+                        rt = matched_eval.get("role_type") or ""
+                        if "사외" not in rt and "감사" not in rt:
+                            # role_type 빈 또는 사내이사 표기여도 audit는 strict
+                            matched_eval = {**matched_eval, "role_type": (rt or "") + " (audit-strict)"}
+                            # 강제 outside 처리 — _decide_director_election 안에 분기
+                            matched_eval["_audit_force_strict"] = True
                     decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
             decision, reason = _decide_compensation(meeting_comp, fin_metrics)
