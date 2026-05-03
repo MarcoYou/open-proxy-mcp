@@ -1547,6 +1547,16 @@ def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
     for d in details:
         period = d.get("period", "").strip()
         content = d.get("content", "").strip()
+        # iter27: period 빈 시 content에서 year 추출 → period 채움 (4-5% case 회수)
+        # 예: "2018~2024 한화 사장" content → period="2018 ~ 2024"
+        if not period and content:
+            yrs = re.findall(r'(?:19[5-9]\d|20[0-3]\d)', content)
+            if len(yrs) >= 2:
+                period = f"{yrs[0]} ~ {yrs[1]}" if int(yrs[0]) < int(yrs[1]) else f"{yrs[1]} ~ {yrs[0]}"
+                d["period"] = period
+            elif len(yrs) == 1:
+                period = f"{yrs[0]} ~ 현재"
+                d["period"] = period
         # content 정리: 잔여 구분자/괄호/bullet 제거
         # 시작: `-`, `o`, `*`, `•`, `·`, `ㆍ` 등 (공백 또는 단어 시작)
         content = re.sub(r'^\s*[-—–·ㆍ・*•▪]\s+', '', content).strip()
