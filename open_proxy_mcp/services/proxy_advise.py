@@ -150,7 +150,9 @@ def _classify_agenda(agenda_title: str) -> str:
         return "audit_committee_election"
     if "감사" in t and "선임" in t:
         return "audit_committee_election"
-    if "보수" in t or "보수한도" in t:
+    if "보수" in t or "보수한도" in t or "퇴직금" in t or "퇴임위로금" in t:
+        # iter26: 퇴직금/퇴임위로금 안건 → director_compensation 카테고리
+        # records 표본 373건 / 164 회사 / mainstream FOR 80% — 보수와 동일 logic
         return "director_compensation"
     if "정관" in t:
         return "articles_amendment"

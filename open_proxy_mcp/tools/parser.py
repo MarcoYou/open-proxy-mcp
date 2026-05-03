@@ -25,6 +25,30 @@ warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 logger = logging.getLogger(__name__)
 
+
+# ── 임시/정기 주총 detect (300자 본문 keyword) ──
+# DART 본문 "주주총회 소집공고" 섹션 상단 부제 또는 첫 줄에서 임시/정기 표기.
+# 예: "(제21기 임시주총)", "(제20기 정기)", "임시주주총회를 아래와 같이 개최"
+def detect_meeting_type(text: str) -> str:
+    """주총소집공고 본문 → "annual" | "extraordinary".
+
+    스크린샷 검증 패턴:
+    1. 부제 정규식: "(제N기 임시/정기)" — 본문 시작 ~50자
+    2. 첫 줄 키워드: "임시/정기주주총회를" — 본문 시작 ~150자
+    300자면 충분 (사용자 검증).
+
+    매칭 실패 시 "annual" default (대다수가 정기).
+    """
+    head = (text or "")[:300]
+    m = re.search(r"\(\s*제\s*\d+\s*기\s*(임시|정기)", head)
+    if m:
+        return "extraordinary" if m.group(1) == "임시" else "annual"
+    if "임시주주총회" in head or "임시 주주총회" in head:
+        return "extraordinary"
+    if "정기주주총회" in head or "정기 주주총회" in head:
+        return "annual"
+    return "annual"
+
 # lxml이 있으면 사용 (30% 빠름), 없으면 html.parser fallback
 try:
     import lxml  # noqa: F401
