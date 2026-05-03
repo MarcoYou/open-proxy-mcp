@@ -40,14 +40,23 @@ async def fetch_appointments(
 ) -> tuple[list[dict[str, Any]], str | None, list[dict[str, Any]]]:
     """주총소집공고 검색 + 후보 추출.
 
+    meeting_type:
+    - "annual": 정기주총만 (본문 detect == "annual" 인 첫 공고)
+    - "extraordinary": 임시주총만 (본문 detect == "extraordinary" 인 첫 공고)
+    - "auto": 가장 최신 주총소집공고 (분류 무관)
+
     매핑:
     - rcept_no, rcept_dt, report_nm → success (정형)
-    - 본문 personnel section → parse_personnel_xml로 success / soft-fail (파싱 실패 시)
+    - 본문 personnel section → parse_personnel_xml로 success / soft-fail
+    - meeting_type 매칭 실패 시 다음 공고 fallback (사용자 logic)
 
     return: (appointments, rcept_no, filings_meta)
     """
+    from open_proxy_mcp.tools.parser import detect_meeting_type
+
     client = get_dart_client()
-    # 정기는 보통 직전 12월 결산 이후 1-3월. 임시는 연중.
+    # 검색 범위: auto 또는 extraordinary는 연중, annual은 1-5월
+    # (본문 detect가 최종 판단이므로 search 범위는 넉넉히)
     if meeting_type == "annual":
         bgn_de = f"{year}0101"
         end_de = f"{year}0501"
@@ -55,18 +64,16 @@ async def fetch_appointments(
         bgn_de = f"{year}0101"
         end_de = f"{year}1231"
 
-    # F12 (ralph iter3) + iter12 정밀화: 주총소집공고 검색은 pblntf_ty=None (전체).
-    # 발견: 일부 회사 (셀트리온 등)는 주총소집공고가 pblntf_ty="A"로 분류 안 됨.
-    # 안전: pblntf_ty=None page 1 + page 2 모두 시도.
+    # report_nm 필터 — "주주총회소집공고" 포함 (정기/임시 구분은 본문 detect로)
     def _filter(items: list) -> list:
-        return [
-            i for i in items
-            if "주주총회소집공고" in (i.get("report_nm") or "")
-            and (("임시" in i.get("report_nm", "")) if meeting_type == "extraordinary" else ("임시" not in i.get("report_nm", "")))
-        ]
+        return [i for i in items if "주주총회소집공고" in (i.get("report_nm") or "")]
 
+    # auto/extraordinary는 연중 검색이라 KOSPI 대형주 (공시 400+건) page 5+ 까지 확장.
+    # annual은 1-5월 좁아 page 1-2 충분.
+    max_pages = 2 if meeting_type == "annual" else 6
     notices: list = []
-    for pg in (1, 2, 3):
+    accumulated: list = []  # 모든 페이지 누적 (가장 최신부터)
+    for pg in range(1, max_pages + 1):
         try:
             data = await client.search_filings(
                 corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
@@ -77,33 +84,33 @@ async def fetch_appointments(
                 return [], None, [{"error": f"search_filings 실패: {exc.status} {exc}"}]
             break
         items = data.get("list", []) or []
-        notices = _filter(items)
-        if notices:
-            break
+        page_notices = _filter(items)
+        accumulated.extend(page_notices)
         # total_count 적으면 더 이상 페이지 없음
         if pg * 100 >= int(data.get("total_count") or 0):
             break
 
+    notices = accumulated
     if not notices:
-        return [], None, [{"info": f"{year} {meeting_type} 주총소집공고 미발견 (pblntf=None page 1-3 모두 시도)"}]
+        return [], None, [{"info": f"{year} {meeting_type} 주총소집공고 미발견 (page 1-{max_pages} 모두 시도)"}]
 
-    # F9 (Phase 4): 정정공고 처리.
-    # DART list.json은 rcept_dt desc 기본 정렬 → notices[0]가 [기재정정]이면
-    # 그 본문은 종종 변경 부분만 포함해 parse 실패. 전략:
-    #   1) 시간 desc 순서대로 시도 (정정 우선 — 최신 valid 정보 포함 가정)
-    #   2) appointments==0 + agenda==0 이면 다음 notice (보통 원본) 시도
-    #   3) 최대 3개 notice 시도 후 마지막 결과 반환
-    #
-    # 원본 우선이 아닌 정정 우선인 이유: 정정공고 본문이 full re-publish인 경우가 많고
-    # parse 성공 시 최신 안건/후보 정보 보장. parse 실패 시에만 원본 fallback.
+    # 본문 detect 기반 meeting_type 매칭 + 정정공고 처리.
+    # 1) 시간 desc 순서대로 본문 fetch + detect_meeting_type
+    # 2) meeting_type=="auto" → 첫 번째 채택
+    #    meeting_type 명시 → detect 결과 매칭 시 채택, 아니면 다음 공고 fallback
+    # 3) 매칭 후 parse 결과 빈 경우 (정정 본문 등) 다음 공고 fallback
+    # 4) 최대 5개 notice 시도
     notice = notices[0]
     rcept_no = notice.get("rcept_no")
     last_text = ""
     last_meta: dict[str, Any] = {}
     appointments: list[dict[str, Any]] = []
     agenda_titles: list[str] = []
+    detected_type = None
+    matched = False
+    skipped_for_type: list[str] = []
 
-    for idx, candidate_notice in enumerate(notices[:3]):
+    for idx, candidate_notice in enumerate(notices[:5]):
         candidate_rcept = candidate_notice.get("rcept_no")
         try:
             doc = await client.get_document_cached(candidate_rcept)
@@ -114,6 +121,15 @@ async def fetch_appointments(
 
         text = doc.get("html") or doc.get("text") or ""
         if not text:
+            continue
+
+        # detect meeting_type from body
+        candidate_detected = detect_meeting_type(text)
+
+        # meeting_type 매칭 — auto면 모두 통과, 명시면 일치 필요
+        type_ok = (meeting_type == "auto") or (candidate_detected == meeting_type)
+        if not type_ok:
+            skipped_for_type.append(f"{candidate_rcept}({candidate_detected})")
             continue
 
         parsed = parse_personnel_xml(text)
@@ -127,28 +143,40 @@ async def fetch_appointments(
 
         is_correction = candidate_notice.get("report_nm", "").startswith("[기재정정]")
 
-        # 첫 시도이거나, 결과 있으면 채택
-        if idx == 0 or candidate_appointments or candidate_agenda_titles:
+        # 매칭된 첫 공고이거나, 결과 있으면 채택
+        if not matched or candidate_appointments or candidate_agenda_titles:
             notice = candidate_notice
             rcept_no = candidate_rcept
             appointments = candidate_appointments
             agenda_titles = candidate_agenda_titles
             last_text = text
             last_meta = {"is_correction": is_correction}
-            # 결과 충분하면 종료 (정정/원본 무관)
+            detected_type = candidate_detected
+            matched = True
             if candidate_appointments or candidate_agenda_titles:
                 break
-        # idx>0이고 빈 결과 → 다음 후보 시도
 
     if not last_text:
-        return [], rcept_no, [{"error": "본문 비어 있음"}]
+        # meeting_type 매칭 실패 시 명시
+        base_info = {
+            "requested_meeting_type": meeting_type,
+            "detected_meeting_type": None,
+            "skipped_for_type_count": len(skipped_for_type),
+            "skipped_for_type_sample": skipped_for_type[:3],
+        }
+        if skipped_for_type and meeting_type != "auto":
+            return [], rcept_no, [{"info": f"{year} {meeting_type} 매칭 공고 없음 (본문 detect 기준)", **base_info}]
+        return [], rcept_no, [{"error": "본문 비어 있음", **base_info}]
 
     return appointments, rcept_no, [{
         "rcept_no": rcept_no,
         "report_nm": notice.get("report_nm"),
         "agenda_titles": agenda_titles,
         "is_correction": last_meta.get("is_correction", False),
-        "fallback_attempts": min(len(notices), 3),
+        "detected_meeting_type": detected_type,
+        "requested_meeting_type": meeting_type,
+        "fallback_attempts": min(len(notices), 5),
+        "skipped_for_type_count": len(skipped_for_type),
     }]
 
 
