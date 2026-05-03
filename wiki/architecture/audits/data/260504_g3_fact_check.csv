@@ -31,5 +31,135 @@ ticker,company,agenda_title,decision,passed,message
 005490,POSCO홀딩스,사내이사 김기수 선임의 건,FOR,True,no extractable facts
 006400,삼성SDI,제55기(2024.1.1-2024.12.31) 재무제표 (이익잉여금처분계산서 포함) 및 연결재무제표 승인의 ,FOR,True,no extractable facts
 006400,삼성SDI,사내이사 최주선 선임의 건,FOR,True,no extractable facts
-006400,삼성SDI,이사 보수한도 승인의 건,REVIEW,True,no extractable facts
+006400,삼성SDI,이사 보수한도 승인의 건,FOR,True,no extractable facts
 006400,삼성SDI,정관 일부 변경의 건,FOR,True,no extractable facts
+005930,삼성전자,"제56기(2024.1.1. ~ 2024.12.31.) 재무상태표, 손익계산서 및 이익잉여금처분계산서 등 재무",FOR,True,no extractable facts
+005930,삼성전자,이사 선임의 건,FOR,True,no extractable facts
+005930,삼성전자,사외이사 선임의 건,FOR,True,no extractable facts
+005930,삼성전자,사외이사 김준성 선임의 건,FOR,True,no extractable facts
+005930,삼성전자,사외이사 허은녕 선임의 건,FOR,True,no extractable facts
+005930,삼성전자,사외이사 유명희 선임의 건,FOR,True,no extractable facts
+005930,삼성전자,사외이사 이혁재 선임의 건,FOR,True,no extractable facts
+005930,삼성전자,사내이사 선임의 건,FOR,True,no extractable facts
+005930,삼성전자,사내이사 전영현 선임의 건,FOR,True,no extractable facts
+005930,삼성전자,사내이사 노태문 선임의 건,FOR,True,no extractable facts
+000660,SK하이닉스,제77기(2024.1.1~2024.12.31) 재무제표 승인의 건,FOR,True,no extractable facts
+000660,SK하이닉스,사내이사 선임의 건 (후보: 곽노정),FOR,True,no extractable facts
+000660,SK하이닉스,기타비상무이사 선임의 건 (후보: 한명진),FOR,True,no extractable facts
+000660,SK하이닉스,이사 보수한도 승인의 건,FOR,True,ok
+005380,현대차,제57기 재무제표 승인의 건,FOR,True,no extractable facts
+005380,현대차,정관 일부 변경의 건,FOR,True,no extractable facts
+005380,현대차,사업목적 추가,FOR,True,no extractable facts
+005380,현대차,분기배당 개선,FOR,True,no extractable facts
+005380,현대차,부칙(2025.3.20),FOR,True,no extractable facts
+005380,현대차,이사 선임의 건,FOR,True,no extractable facts
+005380,현대차,사외이사 선임의 건,FOR,True,no extractable facts
+005380,현대차,사외이사 선임의 건(김수이),FOR,True,no extractable facts
+005380,현대차,사외이사 선임의 건(도진명),FOR,True,no extractable facts
+005380,현대차,사외이사 선임의 건(Benjamin Tan),FOR,True,no extractable facts
+035720,카카오,제 30기(2024.1.1~2024.12.31) 연결재무제표 및 별도재무제표 승인의 건 (이익잉여금처분계산서,FOR,True,ok
+035720,카카오,정관 일부 변경의 건,FOR,True,no extractable facts
+035720,카카오,사업의 목적 변경의 건 (제2 조),FOR,True,no extractable facts
+035720,카카오,주주총회 소집지 변경의 건 (제17 조),FOR,True,no extractable facts
+035720,카카오,기타 일부조항 변경의 건 (부칙),FOR,True,no extractable facts
+035720,카카오,"이사 선임의 건 (사외이사 2인, 사내이사 1인 )",FOR,True,no extractable facts
+035720,카카오,최세정 사외이사 선임의 건 (1년),FOR,True,no extractable facts
+035720,카카오,박새롬 사외이사 선임의 건 (1년),FOR,True,no extractable facts
+035720,카카오,신종환 사내이사 선임의 건 (2년),FOR,True,no extractable facts
+035720,카카오,"감사위원회 위원이 되는 사외이사 선임의 건 (김선욱, 2년)",FOR,True,no extractable facts
+323410,카카오뱅크,제9기(2024.1.1~2024.12.31) 재무제표(이익잉여금처분계산서(안) 포함)승인,FOR,True,no extractable facts
+323410,카카오뱅크,정관 일부 변경,FOR,True,no extractable facts
+323410,카카오뱅크,이사회 심의·의결 사항으로 '내부통제 및 위험관리 정책의 수립 및 감독에 관한 사항 '신설(정관 제 45 조,FOR,True,no extractable facts
+323410,카카오뱅크,이사회 소집 통지기간을 5 일에서 7 일로 변경 (정관 제 45 조 제 2 항),FOR,True,no extractable facts
+323410,카카오뱅크,주주의 배당 예측가능성 제고를 위해 분기배당의 배당기준일을 배당결정일 이후의 날로 정할 수 있도록 관련 조항,FOR,True,no extractable facts
+323410,카카오뱅크,"이사 선임 (사내이사 1명, 사외이사 2명)",FOR,True,no extractable facts
+323410,카카오뱅크,사내이사 후보 윤호영,FOR,True,no extractable facts
+323410,카카오뱅크,사외이사 후보 진웅섭,REVIEW,True,no extractable facts
+323410,카카오뱅크,사외이사 후보 유호석,FOR,True,no extractable facts
+323410,카카오뱅크,대표이사 선임 - 대표이사 후보 윤호영,FOR,True,no extractable facts
+207940,삼성바이오로직스,제14기(2024.1.1~12.31) 재무제표 승인의 건,FOR,True,no extractable facts
+207940,삼성바이오로직스,정관 변경의 건,FOR,True,no extractable facts
+207940,삼성바이오로직스,이사 선임의 건,FOR,True,no extractable facts
+207940,삼성바이오로직스,사내이사 유승호 선임의 건 (신규선임),FOR,True,no extractable facts
+207940,삼성바이오로직스,사외이사 이호승 선임의 건 (신규선임),FOR,True,no extractable facts
+207940,삼성바이오로직스,감사위원이 되는 사외이사 이창우 선임의 건 (재선임),REVIEW,True,no extractable facts
+207940,삼성바이오로직스,감사위원 이호승 선임의 건 (신규선임),FOR,True,no extractable facts
+207940,삼성바이오로직스,이사 보수한도 승인의 건,FOR,True,ok
+035420,NAVER,제26기(2024년) 재무제표(이익잉여금처분계산서 포함) 승인의 건,FOR,True,no extractable facts
+035420,NAVER,사내이사 선임의 건,FOR,True,no extractable facts
+035420,NAVER,사내이사 이해진 선임의 건,FOR,True,no extractable facts
+035420,NAVER,사내이사 최수연 재선임의 건,FOR,True,no extractable facts
+035420,NAVER,사외이사 선임의 건,FOR,True,no extractable facts
+035420,NAVER,사외이사 노혁준 재선임의 건,FOR,True,no extractable facts
+035420,NAVER,사외이사 김이배 선임의 건,FOR,True,no extractable facts
+035420,NAVER,감사위원회 위원 선임의 건,FOR,True,no extractable facts
+035420,NAVER,감사위원회 위원 노혁준 재선임의 건,FOR,True,no extractable facts
+035420,NAVER,감사위원회 위원 김이배 선임의 건,FOR,True,no extractable facts
+105560,KB금융,2024 회계연도(2024.1.1 ~ 2024.12.31) 재무제표(연결재무제표 포함) 및 이익배당(안) 승,FOR,True,ok
+105560,KB금융,정관 변경의 건,FOR,True,no extractable facts
+105560,KB금융,"이사 선임의 건(기타비상무이사 1명, 사외이사 4명 선임)",FOR,True,no extractable facts
+105560,KB금융,기타비상무이사 후보 이환주,FOR,True,no extractable facts
+105560,KB금융,사외이사 후보 여정성,FOR,True,no extractable facts
+105560,KB금융,사외이사 후보 최재홍,FOR,True,no extractable facts
+105560,KB금융,사외이사 후보 김성용,FOR,True,no extractable facts
+105560,KB금융,사외이사 후보 차은영,FOR,True,no extractable facts
+105560,KB금융,감사위원회 위원이 되는 사외이사 선임의 건 - 감사위원회 위원이 되는 사외이사 후보 조화준,FOR,True,no extractable facts
+105560,KB금융,감사위원회 위원이 되는 사외이사 선임의 건 - 감사위원회 위원이 되는 사외이사 후보 김선엽,FOR,True,no extractable facts
+055550,신한지주,제24기(2024.1.1~2024.12.31) 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건,FOR,True,no extractable facts
+055550,신한지주,정관 일부 변경의 건,FOR,True,no extractable facts
+055550,신한지주,분기배당 기준일 관련 정관 변경,FOR,True,no extractable facts
+055550,신한지주,"이사 선임의 건 (기타비상무이사 1명, 사외이사 6명)",FOR,True,no extractable facts
+055550,신한지주,이사후보(기타비상무이사) 정상혁,FOR,True,no extractable facts
+055550,신한지주,이사후보(사외이사) 김조설,FOR,True,no extractable facts
+055550,신한지주,이사후보(사외이사) 배 훈,FOR,True,no extractable facts
+055550,신한지주,이사후보(사외이사) 윤재원,FOR,True,no extractable facts
+055550,신한지주,이사후보(사외이사) 이용국,FOR,True,no extractable facts
+055550,신한지주,이사후보(사외이사) 양인집,FOR,True,no extractable facts
+086790,하나금융지주,제20기(2024년 1월1일~2024년12월31일) 재무제표(이익잉여금처분계산서(안)포함) 및 연결재무제표 ,FOR,True,no extractable facts
+086790,하나금융지주,정관 개정의 건,FOR,True,no extractable facts
+086790,하나금융지주,"이사 선임의 건 (사외이사 4명, 사내이사 3명 선임)",FOR,True,no extractable facts
+086790,하나금융지주,사외이사 (박동문) 선임의 건,FOR,True,no extractable facts
+086790,하나금융지주,사외이사 (이강원) 선임의 건,FOR,True,no extractable facts
+086790,하나금융지주,사외이사 (이준서) 선임의 건,FOR,True,no extractable facts
+086790,하나금융지주,사외이사 (서영숙) 선임의 건,FOR,True,no extractable facts
+086790,하나금융지주,사내이사 (함영주) 선임의 건,FOR,True,no extractable facts
+086790,하나금융지주,사내이사 (이승열) 선임의 건,FOR,True,no extractable facts
+086790,하나금융지주,사내이사 (강성묵) 선임의 건,FOR,True,no extractable facts
+011200,HMM,제49기 재무제표 및 연결재무제표 승인의 건,FOR,True,no extractable facts
+011200,HMM,이사 선임의 건,FOR,True,no extractable facts
+011200,HMM,사내이사 최원혁 선임의 건 (2년),FOR,True,no extractable facts
+011200,HMM,사내이사 이정엽 선임의 건 (2년),FOR,True,no extractable facts
+011200,HMM,감사위원회 위원이 되는 사외이사 선임의 건 - 사외이사 서근우 선임의 건 (2년),FOR,True,no extractable facts
+011200,HMM,이사보수한도 승인의 건,FOR,True,ok
+011200,HMM,임원 퇴직금 지급규정 일부 변경의 건,FOR,True,no extractable facts
+018260,삼성에스디에스,"제40기(2024.1.1~2024.12.31) 대차대조표, 손익계산서 및 이익잉여금처분계산서(안) 등 재무제",FOR,True,no extractable facts
+018260,삼성에스디에스,사내이사 선임의 건,FOR,True,no extractable facts
+018260,삼성에스디에스,사내이사 이준희 선임의 건,FOR,True,no extractable facts
+018260,삼성에스디에스,사내이사 이호준 선임의 건,FOR,True,no extractable facts
+018260,삼성에스디에스,정관 일부 변경의 건,FOR,True,no extractable facts
+018260,삼성에스디에스,이사 보수한도액 승인의 건,FOR,True,ok
+009830,한화솔루션,제51기 (2024.01.01~2024.12.31) 재무제표 (이익잉여금처분계산서(안) 포함) 및 연결재무제,FOR,True,no extractable facts
+009830,한화솔루션,정관 일부 변경의 건,FOR,True,no extractable facts
+009830,한화솔루션,목적사업 관련 정비의 건,FOR,True,no extractable facts
+009830,한화솔루션,동등배당 기준 반영의 건,FOR,True,no extractable facts
+009830,한화솔루션,주주총회 관련 정비의 건,FOR,True,no extractable facts
+009830,한화솔루션,상장회사 표준정관에 따른 정비의 건,FOR,True,no extractable facts
+009830,한화솔루션,기타비상무이사 김인환 선임의 건,FOR,True,no extractable facts
+009830,한화솔루션,감사위원회 위원이 되는 사외이사 장재수 선임의 건,FOR,True,no extractable facts
+009830,한화솔루션,이사 보수한도 승인의 건 5. 서면투표에 관한 사항당사의 정관 제27조의2 및 상법 제368조의3에 의거하여,FOR,True,no extractable facts
+003670,포스코퓨처엠,제54기(2024.1.1 ~ 2024.12.31) 재무제표 승인의 건,FOR,True,no extractable facts
+003670,포스코퓨처엠,이사 선임의 건,FOR,True,no extractable facts
+003670,포스코퓨처엠,사내이사 엄기천 선임의 건,FOR,True,no extractable facts
+003670,포스코퓨처엠,사내이사 정대형 선임의 건,FOR,True,no extractable facts
+003670,포스코퓨처엠,기타비상무이사 천성래 선임의 건,FOR,True,no extractable facts
+003670,포스코퓨처엠,사외이사 허경욱 선임의 건,FOR,True,no extractable facts
+003670,포스코퓨처엠,감사위원회 위원 허경욱 선임의 건,FOR,True,no extractable facts
+003670,포스코퓨처엠,이사 보수한도 승인의 건,FOR,True,ok
+000270,기아,제81기(2024.1.1 ~ 2024.12.31) 재무제표 승인의 건,FOR,True,no extractable facts
+000270,기아,정관 일부 변경 승인의 건,FOR,True,no extractable facts
+000270,기아,이사 선임의 건,FOR,True,no extractable facts
+000270,기아,사내이사 선임의 건 (송호성),FOR,True,no extractable facts
+000270,기아,사내이사 선임의 건 (정의선),FOR,True,no extractable facts
+000270,기아,사내이사 선임의 건 (김승준),FOR,True,no extractable facts
+000270,기아,사외이사 선임의 건 (신현정),REVIEW,True,no extractable facts
+000270,기아,이사 보수한도 승인의 건,FOR,True,ok
