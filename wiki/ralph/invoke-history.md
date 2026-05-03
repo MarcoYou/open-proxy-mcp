@@ -124,6 +124,28 @@ ralph plugin shell escape 회피 + iteration 한도 명시:
 
 ---
 
+## 6. parse-personnel-xml-verification (2026-05-04, 신규)
+
+**파일**: `260504_0014_ralph_parse-personnel-xml-verification.md`
+
+**목적**: proxy_advise ralph 잔여 unique 3건 root cause `parse_personnel_xml` 한계 fix.
+- 8 필드 검증: name / birthDate / 전현직 / role_type / period / 정렬 / 포맷 / 한자한글
+- 전수조사 500 회사 sample
+- careerDetails 비어 있는 비율 ≤10% target
+
+**invoke**:
+```
+/ralph-loop:ralph-loop wiki/ralph/260504_0014_ralph_parse-personnel-xml-verification.md 가이드 따라 parse_personnel_xml 8 필드 검증 + 강화. archive 우선. soft pattern 우선 hard pattern 다층 fallback. OCR 진단 only parser final. 전수조사 sample 500 회사 + 8 필드 success rate 95이상 + careerDetails 비어있는 비율 30이하 모두 충족 시 promise. --completion-promise PARSE_PERSONNEL_VERIFIED --max-iterations 20
+```
+
+**파라미터**:
+- max_iterations: 20
+- completion_promise: `PARSE_PERSONNEL_VERIFIED`
+
+**결과**: (진행 전)
+
+---
+
 ## 종합 통계
 
 | ralph | iter | 결과 | 핵심 finding |
@@ -133,5 +155,6 @@ ralph plugin shell escape 회피 + iteration 한도 명시:
 | advise-200기업-가상실험 | - | ⚠ 91.4% (target 95%) | 비결정성 root cause: financial_metrics race |
 | advise-phase3-99pct | - | ⚠ 91.9% + regression 6 | corpCode race + cache 부재 (Phase 4에서 해결) |
 | proxy-advise-verification | 27 | ✅ 99.36% (4+ majority) | birth_date age bug + 퇴직금 + wire |
+| parse-personnel-xml-verification | (진행 전) | (대기) | parse_personnel_xml 8 필드 강화 — 전수조사 500 회사 |
 
-총 5 ralph 작업, 마지막 1 promise 충족 (정직).
+총 6 ralph 작업, 5 완료 (1 promise 충족), 1 대기.
