@@ -47,13 +47,13 @@ updated: 2026-05-01
 |------|------|
 | [[proxy_guideline]] | 7운용사 정책 + OPM Guideline + 12 매트릭스 자동 채점 + NPS (7 scope, 정적 데이터) |
 
-### Action (2) — 시점 분리 재편 (2026-05-02)
+### Action (2) — rename + scope 확장 (2026-05-04)
 | tool | 한 줄 |
 |------|------|
-| [[advise_vote_before_meeting]] | 주총 **전** 의결권 행사 메모 (안건별 FOR/AGAINST + 결정 사유 + 후보 평가 3축) |
-| [[recap_vote_after_meeting]] | 주총 **후** 결과 보고 (가결/부결/찬반율 + 후속 공시 + 위임장 결과) |
+| [[proxy_advise_before_meeting]] | 주총 **소집 전** 다각도 분석 (10 scope) + 안건별 FOR/AGAINST/REVIEW + 후보 평가 3축. ralph 27 iter 검증 G2 99.36% (vs 7 운용사 majority) |
+| [[proxy_result_after_meeting]] | 주총 **소집 후** 결과 보고 (2 scope, 의도적 단순). vote_brief render 흡수 |
 
-> 구 prepare_vote_brief / build_campaign_brief 흡수, prepare_engagement_case는 `_archive/` (Phase 3 부활 가능).
+> 구 advise_vote_before_meeting / recap_vote_after_meeting rename. prepare_vote_brief / prepare_engagement_case / build_campaign_brief 신규 scope으로 흡수 (engagement / brief / proxy_battle).
 
 ## 17 페이지 통일 schema
 
@@ -114,8 +114,8 @@ created: 2026-05-01
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
 | evidence | - | - | - | - | - (문자열 가공) |
 | proxy_guideline | - | - | - | - | ✅ 운용사 데이터 |
-| advise_vote_before_meeting | (6 upstream) | (upstream) | - | - | (proxy_guideline) |
-| recap_vote_after_meeting | (5 upstream) | (results) | - | - | - |
+| proxy_advise_before_meeting | (6-9 upstream — scope별) | (upstream) | - | - | (proxy_guideline + records) |
+| proxy_result_after_meeting | (4 upstream) | (results) | - | - | (records) |
 
 ✅ = 1차 source / 🔧 = 보조
 

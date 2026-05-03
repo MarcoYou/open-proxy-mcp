@@ -116,11 +116,15 @@ company                            # Entry point — company ID + recent filings
 │                                   #   scopes: policy / record / predict / compare / consensus / audit
 │                                   #   0 external API calls (static data, <100ms response)
 │
-└─ Action Tools (2) — Time-split refactor (2026-05-02)
-   ├─ advise_vote_before_meeting    # Pre-AGM vote memo (per-agenda FOR/AGAINST + decision reason)
-   │                                #   6 upstream + director 3-axis eval (independence/faithfulness/disqualification) + Marco scenario opt
-   │                                #   vote_style: open_proxy / mirae_asset / samsung / truston / align_partners / nps etc.
-   └─ recap_vote_after_meeting      # Post-AGM recap (passed/rejected + for/against% + 30-day follow-up + proxy contest result)
+└─ Action Tools (2) — Rename + scope expansion (2026-05-04)
+   ├─ proxy_advise_before_meeting   # Pre-AGM multi-angle analysis + per-agenda FOR/AGAINST/REVIEW
+   │                                #   10 scope (decisions/agenda/candidates/financial/governance/
+   │                                #              ownership/policy_basis/proxy_battle/engagement/evidence)
+   │                                #   meeting_type: annual / extraordinary / auto (body-detect routing)
+   │                                #   vote_style: open_proxy / nps / a_activist / b_foreign / k_legacy etc.
+   │                                #   ralph 27-iter validation: G2 accuracy 99.36% (vs 7-manager majority, 4+ vote case)
+   └─ proxy_result_after_meeting    # Post-AGM result report (intentionally minimal)
+                                    #   2 scope (results / brief)
 ```
 
 ### 🆕 proxy_guideline tool
@@ -184,7 +188,7 @@ Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a c
 | **Financials** | DART 4-endpoint integration — 51 metrics + DuPont + FCF + NWC + accounting risk + 3-yr audit opinion (★ NEW) | 1 |
 | **Evidence** | Filing source links | 1 |
 | **Policy & Matrix** | 8 manager policies (anonymized) + Open Proxy Guideline + 12 decision matrices | 1 |
-| **Action** | advise_vote_before_meeting (pre-AGM) + recap_vote_after_meeting (post-AGM) — time-split | 2 |
+| **Action** | proxy_advise_before_meeting (pre-AGM, 10 scope, ralph-validated G2 99.36%) + proxy_result_after_meeting (post-AGM, 2 scope) — rename + scope expansion (2026-05-04) | 2 |
 | | **Total** | **17** |
 
 ---
