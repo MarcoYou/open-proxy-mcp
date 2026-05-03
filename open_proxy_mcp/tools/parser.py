@@ -1569,6 +1569,12 @@ def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
             logger.debug(f"[CAREER] 역순 자동 swap: '{period}' — {name}")
             period = f"{years[1]} ~ {years[0]}"
             d["period"] = period
+        # iter27: 단일 연도 ("1993", "2020.06" 등 시작만 명시) → "1993 ~ 현재" normalize
+        elif len(years) == 1 and 1950 <= int(years[0]) <= 2030:
+            # period에 "~" / "-" 같은 range 표시 없으면 시작만 → 현재까지 가정
+            if not re.search(r'[~\-–—]\s*(?:\d|현재|present|now)', period, re.IGNORECASE):
+                period = f"{years[0]} ~ 현재"
+                d["period"] = period
         # 비정상 연도 (1950 미만 / 2030 초과 — 1813, 2315 같은 OCR/typo)
         if years and not all(1950 <= int(y) <= 2030 for y in years):
             logger.debug(f"[CAREER] 비정상 연도 skip: '{period}' — {name}")
@@ -1880,6 +1886,28 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                     candidate = {"name": name}
 
                     # 헤더 매핑
+                    # role normalize: 노이즈 제거 + 표준 role 표기
+                    def _normalize_role_value(v: str) -> str | None:
+                        if not v:
+                            return None
+                        v = v.strip()
+                        v_norm = re.sub(r'\s+', '', v)
+                        # 노이즈 — 비-의미 cell 값
+                        if v_norm in ('-', '_', '해당없음', '미해당', '비해당', '해당안됨', '해당', '부', '무', '여', '유', 'X', 'x', 'N', 'O', 'Y'):
+                            return None
+                        # "사내이사 후보자(재선임)" / "사외이사후보자" → 표준 role
+                        if '사외이사' in v: return '사외이사'
+                        if '사내이사' in v: return '사내이사'
+                        if '비상무이사' in v or ('비상무' in v and '이사' in v): return '기타비상무이사'
+                        if '상근감사' in v: return '상근감사'
+                        if '비상근감사' in v: return '비상근감사'
+                        if '감사위원' in v: return '감사위원'
+                        if v == '감사': return '감사'
+                        # "예/Y/O" 같이 사외이사 여부 binary값일 때는 cat fallback (None 반환 → category 사용)
+                        if v_norm in ('예', 'YES', 'TRUE'):
+                            return None  # 실제 role은 안건 category에서
+                        return v  # 그 외 raw 보존
+
                     for ci, header in enumerate(headers):
                         if ci >= len(row):
                             break
@@ -1887,14 +1915,23 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         val = row[ci].strip()
                         if '생년월일' in h:
                             candidate["birthDate"] = val
-                        elif '사외이사' in h and '후보' in h:
-                            candidate["roleType"] = val if val else None
+                        elif ('사외이사' in h and '후보' in h) or '이사구분' in h or '직위' in h or h in ('구분', '직책'):
+                            candidate["roleType"] = _normalize_role_value(val)
                         elif '분리선출' in h:
                             candidate["separateElection"] = val
                         elif '최대주주' in h:
                             candidate["majorShareholderRelation"] = val
                         elif '추천인' in h:
                             candidate["recommender"] = val
+
+                    # roleType None or 비-의미 → 안건 title에서 category fallback
+                    if not candidate.get("roleType"):
+                        cat_from_title = "이사"
+                        for kw, cat in _CATEGORY_MAP:
+                            if kw in title:
+                                cat_from_title = cat
+                                break
+                        candidate["roleType"] = cat_from_title
 
                     # 중복 제거 (같은 안건 안에서 동일 이름 1번)
                     if not any(c["name"] == name for c in candidates):
