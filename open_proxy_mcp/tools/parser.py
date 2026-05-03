@@ -41,7 +41,8 @@ def detect_meeting_type(text: str) -> str:
     """
     raw_head = (text or "")[:1500]  # raw 1500자 → normalize 후 ~300자 추출
     head = re.sub(r"\s+", " ", raw_head)[:300]
-    m = re.search(r"\(\s*제\s*\d+\s*기\s*(임시|정기)", head)
+    # 부제 다양 변형: "(제N기 임시)", "(임시)", "(임시주주총회)" 모두 매칭
+    m = re.search(r"\(\s*(?:제\s*\d+\s*기\s*)?(임시|정기)", head)
     if m:
         return "extraordinary" if m.group(1) == "임시" else "annual"
     if "임시주주총회" in head or "임시 주주총회" in head:
