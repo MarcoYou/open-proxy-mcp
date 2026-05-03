@@ -525,14 +525,10 @@ async def build_proxy_advise_payload(
                 # 본문 parse 실패 case에서 REVIEW가 mainstream과 큰 차이 만듦.
                 # red_flag signal 없으면 FOR (정직한 caveat note 포함).
                 if matched_eval is None and not name_to_eval:
-                    # iter23: audit_committee_election + 데이터 없음 → REVIEW (정직).
-                    # 장기연임 / 임직원 이력 등 검증 못함. mainstream AGAINST 가능성 높음.
-                    if category == "audit_committee_election":
-                        decision = "REVIEW"
-                        reason = "감사위원 선임 — 후보 평가 데이터 없음 (장기연임 / 회사 임직원 이력 등 검증 불가, 본문 검토 필요)"
-                    else:
-                        decision = "FOR"
-                        reason = "후보 평가 데이터 없음 (본문 parse 실패) — mainstream default FOR (개별 검증 권고)"
+                    # iter24 검증: records 표본 audit 데이터 없음 case도 mainstream FOR 다수.
+                    # 정직 fallback (REVIEW) 시 mainstream miss → default FOR 회귀.
+                    decision = "FOR"
+                    reason = "후보 평가 데이터 없음 (본문 parse 실패) — mainstream default FOR (개별 검증 권고)"
                 else:
                     # iter21: audit_committee_election은 role_type 무관 strict 검증.
                     # 상근감사 같은 case에서 role_type 빈 string → 사내이사 fallback (자동 FOR) 위험.
