@@ -9,10 +9,10 @@ max_iterations: 30
 ## Invoke (복붙해서 실행)
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260503_0002_ralph_proxy-advise-verification.md 가이드 따라 3 gate 검증. archive 우선. soft pattern 우선 hard pattern 다층 fallback. OCR 진단 only parser final. G1 일관성 99이상 G2 정확도 99이상 G3 사실 100 regression 0 모두 충족 시 promise. --completion-promise PROXY_ADVISE_VERIFIED --max-iterations 10
+/ralph-loop:ralph-loop wiki/ralph/260503_0002_ralph_proxy-advise-verification.md 가이드 따라 3 gate 검증. archive 우선. soft pattern 우선 hard pattern 다층 fallback. OCR 진단 only parser final. G1 일관성 99이상 G2 정확도 99이상 G3 사실 100 regression 0 모두 충족 시 promise. --completion-promise PROXY_ADVISE_VERIFIED --max-iterations 20
 ```
 
-> 🔧 모든 gate 99% 이상 통일. iteration 수 등은 위 라인에서 수정.
+> 모든 ralph 작업 invoke history는 [[invoke-history]] 참조.
 
 # Ralph: proxy_advise_before_meeting 검증 — 3축 quality gate
 
