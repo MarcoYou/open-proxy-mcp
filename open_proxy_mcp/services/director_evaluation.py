@@ -277,13 +277,17 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
     out: dict[str, Any] = {"sub_factors": {}}
 
     # 1. 미성년 체크 → success (birthDate 정형)
+    # iter22 fix: birth_date format 다양 (1970-05-04 / 70.05.04 / 5378-05-04 잘못된 데이터 등).
+    # 1900-현재 범위만 허용 — 음수 나이 방지 (현대오토에버 -5378세 같은 case red_flag 잘못 분류).
     bd = (candidate.get("birthDate") or "").strip()
     age = None
     if bd:
         m = re.search(r"(\d{4})", bd)
         if m:
-            age = current_year - int(m.group(1))
-    is_minor = age is not None and age < 19
+            year = int(m.group(1))
+            if 1900 <= year <= current_year:
+                age = current_year - year
+    is_minor = age is not None and 0 < age < 19
     out["sub_factors"]["age"] = {
         "result": "minor" if is_minor else "adult",
         "age": age,
