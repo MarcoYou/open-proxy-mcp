@@ -283,10 +283,18 @@ def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[
     # mainstream "장기연임 → 독립성 훼손 → AGAINST" (서진/심텍/고영/펩트론 등 6 case 일치)
     # five_year_signal은 careerDetails에 "재선임/재임/연임/중임" 키워드 발견 시 True.
 
-    # ralph iter18: indep summary 약화 — major_shareholder_relation 단독은 약한 신호.
+    # ralph iter18 + iter27: indep summary 약화 — major_shareholder_relation 단독은 약한 신호.
+    # iter27 추가: 한자/한글 친족 키워드 — 최대주주의 자녀/배우자/형제 등은 strong relation
     strong_flags = has_transactions or employee_match
     msr_strong_keywords = ("현직", "재직중", "현재")
-    msr_now = (msr or "") and any(k in msr for k in msr_strong_keywords)
+    # 친족 표기 (한자/한글): 子(자) / 女(녀) / 父(부) / 母(모) / 兄(형) / 弟(제) / 姉/姊 / 妹 / 妻 / 夫
+    # 한글: 자녀/배우자/형제/자매/처/남편/딸/아들/모친/부친
+    msr_kinship_keywords = ("子", "女", "父", "母", "兄", "弟", "姉", "姊", "妹", "妻", "夫",
+                            "자녀", "배우자", "형제", "자매", "처(妻)", "남편", "딸", "아들", "모친", "부친", "친족")
+    msr_now = (msr or "") and (
+        any(k in msr for k in msr_strong_keywords)
+        or any(k in msr for k in msr_kinship_keywords)
+    )
     if five_year_signal:
         # 장기연임은 audit/사외이사 모두 strong concerns
         out["summary"] = "long_tenure_concerns"

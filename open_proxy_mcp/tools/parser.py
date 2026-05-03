@@ -1906,7 +1906,9 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         v = v.strip()
                         v_norm = re.sub(r'\s+', '', v)
                         # 노이즈 — 비-의미 cell 값
-                        if v_norm in ('-', '_', '해당없음', '미해당', '비해당', '해당안됨', '해당', '부', '무', '여', '유', 'X', 'x', 'N', 'O', 'Y'):
+                        # iter9: '해당사항없음' / '해당사항 없음' 등 추가 (200 sample 10건 미처리)
+                        if v_norm in ('-', '_', '해당없음', '미해당', '비해당', '해당안됨', '해당사항없음',
+                                      '해당', '부', '무', '여', '유', 'X', 'x', 'N', 'O', 'Y'):
                             return None
                         # "사내이사 후보자(재선임)" / "사외이사후보자" → 표준 role
                         if '사외이사' in v: return '사외이사'
