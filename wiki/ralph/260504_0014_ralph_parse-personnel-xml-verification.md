@@ -14,6 +14,28 @@ max_iterations: 30
 
 > 모든 ralph 작업 invoke history는 [[invoke-history]] 참조.
 
+## ⚠ Status (2026-05-04, iter 7 완료)
+
+**career_period 89.0% 한계 — 95% 도달 불가능 확정**:
+- 7 iter 진행 (iter4 role +11.3%p ✅, iter6 content year +0.3%p)
+- 78 fail 후보 본문 정밀 검증: HTML 본문에도 year 없는 case 다수
+- "(주)포스코엠텍 감사팀장(주)나눔테크 전무이사" 같은 단순 직책+회사명 — 시작 연도 본문에 X
+- parser fix 효과 없음 — **본문 데이터 자체 한계**
+
+**Promise 정직 X 유지** — 추가 iter 진행해도 95% 도달 불가능.
+
+### 사용자 cancel 권고
+```
+/ralph-loop:cancel-ralph
+```
+
+### 또는 acceptance 옵션
+- Option A: career_period target 95% → 90% relax (현재 89.0% 거의 도달)
+- Option B: 별도 ralph (본문 다른 section 보완 — value_up / corp_gov_report 등 cross-source)
+- Option C: 종료 (proxy_advise G2 99.36% 영향 없음)
+
+archive: `wiki/architecture/audits/data/260504_parse_personnel_failure_archive/iter07_data_limit_confirmed.md`
+
 # Ralph: parse_personnel_xml 강화 + 전수조사 검증
 
 proxy_advise ralph (260503_0002) 결과 G2 99.36% 충족. 잔여 unique 3건 핵심 root cause는 **`parse_personnel_xml`의 careerDetails / role_type / audit role 추출 실패**.
