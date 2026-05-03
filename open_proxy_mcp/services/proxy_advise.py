@@ -274,18 +274,14 @@ def _decide_articles_amendment(agenda_title: str) -> tuple[str, str]:
         return "AGAINST", "집중투표 배제 — 소수주주 보호 후퇴"
     if "초다수결의제" in t or ("의결권" in t and "제한" in t):
         return "AGAINST", "초다수결의제 또는 의결권 제한 — 적대적 인수 방어"
-    # iter23: 이사회 소집 통지기한 단축 — 주주권리 침해 (GST case)
-    if "통지기한" in t and ("단축" in t or "축소" in t):
-        return "AGAINST", "이사회 소집 통지기한 단축 — 주주 사전 검토 권리 침해"
-    if "소집 통지" in t and "단축" in t:
-        return "AGAINST", "소집 통지기한 단축 — 주주권리 침해"
+    # iter23+24 검증: "통지기한 단축" records 표본 0건 → over-fit fix 제거
     # REVIEW signals (영향 명확하지 않은 변경)
     if "이사" in t and ("정원" in t or "축소" in t):
         return "REVIEW", "이사회 정원 축소 — 거버넌스 영향"
     if "수권주식" in t and ("증가" in t or "확대" in t):
         return "REVIEW", "수권주식 증가 — 향후 희석 가능성"
     # default FOR (위험 신호 없는 일반 정관변경 — mainstream 패턴)
-    return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 / 통지기한 단축) 없음"
+    return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가) 없음"
 
 
 def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
@@ -549,13 +545,8 @@ async def build_proxy_advise_payload(
                             matched_eval["_audit_force_strict"] = True
                     decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
-            # iter23: 보수 결정 권한 이사회 위임 → AGAINST (주주 통제권 침해, 우리기술 case)
-            t_lower = (title or "").lower()
-            if any(kw in title for kw in ("위임", "이사회 결정", "이사회에 위임")):
-                decision = "AGAINST"
-                reason = "보수 결정 권한 이사회 위임 — 주주 통제권 침해"
-            else:
-                decision, reason = _decide_compensation(meeting_comp, fin_metrics)
+            # iter23+24 검증: "위임" records 표본 0건 → over-fit fix 제거
+            decision, reason = _decide_compensation(meeting_comp, fin_metrics)
         elif category == "financial_statements":
             decision, reason = _decide_financial_statements(fin_metrics)
         elif category == "cash_dividend":
