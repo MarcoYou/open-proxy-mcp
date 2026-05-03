@@ -187,6 +187,11 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     if marco == "red_flag":
         return "REVIEW", "Marco 시나리오 — 과거 재직 회사 회계 risk 발생 (raw 메모 참조 후 판단)"
     if is_outside:
+        # iter23: 장기연임 (5년 룰 위반) — audit는 AGAINST, 일반 사외이사는 REVIEW
+        if indep == "long_tenure_concerns":
+            if is_audit or eval_match.get("_audit_force_strict"):
+                return "AGAINST", "감사/audit 장기연임 — 독립성 훼손 (5년 룰 위반)"
+            return "REVIEW", "사외이사 장기연임 (재선임/연임/중임 키워드 발견) — 독립성 검토 필요"
         if indep == "concerns":
             return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
         return "FOR", f"사외이사 독립성/결격사유 모두 clean ({role_type})"
@@ -269,13 +274,18 @@ def _decide_articles_amendment(agenda_title: str) -> tuple[str, str]:
         return "AGAINST", "집중투표 배제 — 소수주주 보호 후퇴"
     if "초다수결의제" in t or ("의결권" in t and "제한" in t):
         return "AGAINST", "초다수결의제 또는 의결권 제한 — 적대적 인수 방어"
+    # iter23: 이사회 소집 통지기한 단축 — 주주권리 침해 (GST case)
+    if "통지기한" in t and ("단축" in t or "축소" in t):
+        return "AGAINST", "이사회 소집 통지기한 단축 — 주주 사전 검토 권리 침해"
+    if "소집 통지" in t and "단축" in t:
+        return "AGAINST", "소집 통지기한 단축 — 주주권리 침해"
     # REVIEW signals (영향 명확하지 않은 변경)
     if "이사" in t and ("정원" in t or "축소" in t):
         return "REVIEW", "이사회 정원 축소 — 거버넌스 영향"
     if "수권주식" in t and ("증가" in t or "확대" in t):
         return "REVIEW", "수권주식 증가 — 향후 희석 가능성"
     # default FOR (위험 신호 없는 일반 정관변경 — mainstream 패턴)
-    return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가) 없음"
+    return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 / 통지기한 단축) 없음"
 
 
 def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
@@ -288,13 +298,17 @@ def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
     return "REVIEW", "자사주 안건 본문 검토 필요"
 
 
-def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None) -> tuple[str, str]:
+def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, company_name: str = "") -> tuple[str, str]:
     """배당 안건 — 보수화 (애매→REVIEW).
 
     AGAINST: 자본잠식 full + 배당 (명백한 주주가치 훼손).
     REVIEW: 적자 (음수 순익) / 배당성향 80%+ / 재무 데이터 없음.
     FOR: 흑자 + 배당성향 적정 (< 80%).
     """
+    # iter23: 리츠 (REIT)는 배당 의무 90%+. 무조건 FOR. (사용자 명시)
+    if "리츠" in company_name or "REIT" in company_name.upper():
+        return "FOR", f"리츠 (REIT) — 의무배당 90%+ 회사 (회사명: {company_name})"
+
     if not fm_payload:
         return "REVIEW", "재무 데이터 없음 — 배당 적정성 본문 검토 필요"
     summary = (fm_payload.get("data") or {}).get("summary", {}) or {}
@@ -515,8 +529,14 @@ async def build_proxy_advise_payload(
                 # 본문 parse 실패 case에서 REVIEW가 mainstream과 큰 차이 만듦.
                 # red_flag signal 없으면 FOR (정직한 caveat note 포함).
                 if matched_eval is None and not name_to_eval:
-                    decision = "FOR"
-                    reason = "후보 평가 데이터 없음 (본문 parse 실패) — mainstream default FOR (개별 검증 권고)"
+                    # iter23: audit_committee_election + 데이터 없음 → REVIEW (정직).
+                    # 장기연임 / 임직원 이력 등 검증 못함. mainstream AGAINST 가능성 높음.
+                    if category == "audit_committee_election":
+                        decision = "REVIEW"
+                        reason = "감사위원 선임 — 후보 평가 데이터 없음 (장기연임 / 회사 임직원 이력 등 검증 불가, 본문 검토 필요)"
+                    else:
+                        decision = "FOR"
+                        reason = "후보 평가 데이터 없음 (본문 parse 실패) — mainstream default FOR (개별 검증 권고)"
                 else:
                     # iter21: audit_committee_election은 role_type 무관 strict 검증.
                     # 상근감사 같은 case에서 role_type 빈 string → 사내이사 fallback (자동 FOR) 위험.
@@ -529,11 +549,17 @@ async def build_proxy_advise_payload(
                             matched_eval["_audit_force_strict"] = True
                     decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
-            decision, reason = _decide_compensation(meeting_comp, fin_metrics)
+            # iter23: 보수 결정 권한 이사회 위임 → AGAINST (주주 통제권 침해, 우리기술 case)
+            t_lower = (title or "").lower()
+            if any(kw in title for kw in ("위임", "이사회 결정", "이사회에 위임")):
+                decision = "AGAINST"
+                reason = "보수 결정 권한 이사회 위임 — 주주 통제권 침해"
+            else:
+                decision, reason = _decide_compensation(meeting_comp, fin_metrics)
         elif category == "financial_statements":
             decision, reason = _decide_financial_statements(fin_metrics)
         elif category == "cash_dividend":
-            decision, reason = _decide_dividend(title, fin_metrics)
+            decision, reason = _decide_dividend(title, fin_metrics, selected.get("corp_name") or "")
         elif category == "articles_amendment":
             decision, reason = _decide_articles_amendment(title)
         elif category == "treasury_share":

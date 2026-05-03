@@ -251,16 +251,20 @@ def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[
         "mapping": "success",
     }
 
+    # iter23: 5년 룰 위반 — 장기연임 (9-13년 audit case) → strong signal.
+    # mainstream "장기연임 → 독립성 훼손 → AGAINST" (서진/심텍/고영/펩트론 등 6 case 일치)
+    # five_year_signal은 careerDetails에 "재선임/재임/연임/중임" 키워드 발견 시 True.
+
     # ralph iter18: indep summary 약화 — major_shareholder_relation 단독은 약한 신호.
-    # mainstream 운용사도 "계열사 임원" 같은 과거 이력은 5년 룰 충족 시 OK.
-    # major_related 단독으로는 concerns X. 강한 flag (회사 거래 / 최근 직원) 동반 시 concerns.
     strong_flags = has_transactions or employee_match
     msr_strong_keywords = ("현직", "재직중", "현재")
     msr_now = (msr or "") and any(k in msr for k in msr_strong_keywords)
-    if strong_flags or (not is_independent_from_major and msr_now):
+    if five_year_signal:
+        # 장기연임은 audit/사외이사 모두 strong concerns
+        out["summary"] = "long_tenure_concerns"
+    elif strong_flags or (not is_independent_from_major and msr_now):
         out["summary"] = "concerns"
     elif not is_independent_from_major:
-        # major_related 단독 (계열사 임원 같은 과거 이력) — 약한 caveat
         out["summary"] = "weak_concerns"
     else:
         out["summary"] = "independent"
