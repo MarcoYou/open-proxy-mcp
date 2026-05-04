@@ -12,7 +12,7 @@
 - corp_gov_report (summary)
 - financial_metrics (summary + audit_opinion)
 - proxy_guideline (predict scope — 안건별 정책 + 자동 채점)
-- director_evaluation (이사/감사 후보 평가, optional Marco)
+- director_evaluation (이사/감사 후보 평가, 이사 회계 risk 이력 옵션)
 
 매핑 분류:
 - 안건 리스트 / 후보 / 지분 / 재무 → success (정형)
@@ -182,12 +182,12 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         is_outside = True
     disq = eval_match.get("disqualification", {}).get("summary", "")
     indep = eval_match.get("independence", {}).get("summary", "")
-    marco = eval_match.get("faithfulness", {}).get("marco_scenario", {}).get("summary", "")
+    audit_history = eval_match.get("faithfulness", {}).get("audit_history_check", {}).get("summary", "")
 
     if disq == "red_flag":
         return "AGAINST", f"결격사유 발견 (eligibility 또는 미성년)"
-    if marco == "red_flag":
-        return "REVIEW", "Marco 시나리오 — 과거 재직 회사 회계 risk 발생 (raw 메모 참조 후 판단)"
+    if audit_history == "red_flag":
+        return "REVIEW", "이사 회계 risk 이력 검증 — 과거 재직 회사 회계 risk 발생 (raw 메모 참조 후 판단)"
     if is_outside:
         # iter23: 장기연임 (5년 룰 위반) — audit는 AGAINST, 일반 사외이사는 REVIEW
         if indep == "long_tenure_concerns":
@@ -341,7 +341,7 @@ async def build_proxy_advise_payload(
     meeting_type: str = "annual",
     vote_style: str = "open_proxy",
     scope: str = "decisions",
-    enable_marco: bool = False,
+    check_audit_history: bool = False,
 ) -> dict[str, Any]:
     """proxy_advise_before_meeting payload.
 
@@ -450,7 +450,7 @@ async def build_proxy_advise_payload(
         _safe_throttled(build_ownership_structure_payload, company_query, scope="control_map"),
         _safe_throttled(build_corp_gov_report_payload, company_query, scope="summary"),
         _safe_throttled(build_financial_metrics_payload, company_query, scope="summary", year=target_year),
-        _safe_throttled(build_director_evaluation_payload, company_query, year=target_year, meeting_type=meeting_type, enable_marco=enable_marco),
+        _safe_throttled(build_director_evaluation_payload, company_query, year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
     )
 
     # 안건 리스트 추출 (success 매핑)
@@ -506,18 +506,18 @@ async def build_proxy_advise_payload(
                 outside_evals = [ev for ev in relevant_evals if _is_outside(ev)]
                 # red_flag 검증은 모든 후보
                 disq_red = any((ev.get("disqualification") or {}).get("summary") == "red_flag" for ev in relevant_evals)
-                marco_red = any((ev.get("faithfulness") or {}).get("marco_scenario", {}).get("summary") == "red_flag" for ev in relevant_evals)
+                audit_history_red = any((ev.get("faithfulness") or {}).get("audit_history_check", {}).get("summary") == "red_flag" for ev in relevant_evals)
                 # 독립성 concerns은 사외이사에서만 의미 (사내이사 indep concerns는 자연 — 회사 결정 존중)
                 indep_concerns_outside = any((ev.get("independence") or {}).get("summary") == "concerns" for ev in outside_evals)
 
                 # ralph iter9: 묶음 안건의 사외 indep concerns은 일부 후보 신호일 뿐
                 # 안건 전체 REVIEW는 mainstream과 큰 차이 (운용사 50/52, 22/24 FOR).
-                # 묶음에서는 결격사유 / Marco red_flag만 안건 전체 영향.
+                # 묶음에서는 결격사유 / 회계 risk 이력 발견만 안건 전체 영향.
                 # 사외이사 indep concerns는 개별 사외이사 안건 (사외이사 선임의 건(XX))에서만 적용.
                 if disq_red:
                     decision, reason = "AGAINST", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 결격사유 발견"
-                elif marco_red:
-                    decision, reason = "REVIEW", f"묶음 안건 — Marco 시나리오 red_flag (raw 메모 검토)"
+                elif audit_history_red:
+                    decision, reason = "REVIEW", f"묶음 안건 — 이사 회계 risk 이력 검증 red_flag (raw 메모 검토)"
                 else:
                     note = f" (사외 {len(outside_evals)}명 중 일부 indep concerns — 개별 사외이사 안건에서 검토)" if indep_concerns_outside else ""
                     decision, reason = "FOR", f"묶음 안건 — 결격사유 없음, 후보 {len(relevant_evals)}명{note}"
@@ -633,7 +633,7 @@ async def build_proxy_advise_payload(
         "vote_style_policy_id": policy_id,
         "vote_style_resolved": bool(policy),
         "vote_style_manager_name": policy_meta.get("manager_name") if policy else None,
-        "marco_enabled": enable_marco,
+        "audit_history_enabled": check_audit_history,
         "scope": scope,
         "agenda_count": len(agenda_titles),
         "agenda_decisions": agenda_decisions,

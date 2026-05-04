@@ -9,7 +9,7 @@
 - hard-fail: 데이터 자체 미존재 — 메모/코드 모두 침묵 (코붕이 명시 지시)
 
 Phase 1: 독립성 + 결격사유 (기본 매핑) + 후보 추출.
-Phase 2 (다음 iteration): 충실성 — Marco 시나리오 (과거 회사 × 재직 기간 × 회계 risk).
+Phase 2 (다음 iteration): 충실성 — 이사 회계 risk 이력 검증 (과거 회사 × 재직 기간 × 회계 risk).
 """
 
 from __future__ import annotations
@@ -370,7 +370,7 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
     return out
 
 
-# ── 충실성 — Marco 시나리오 (과거 회사 × 재직 기간 × 회계 risk overlap) ──
+# ── 충실성 — 이사 회계 risk 이력 검증 (과거 회사 × 재직 기간 × 회계 risk overlap) ──
 
 # 한국 회사명 정규식 패턴 — careerCompanyGroups company 필드에서 추출.
 # 예: "삼성전자 사외이사", "KB금융 ESG위원장", "POSCO홀딩스 부사장"
@@ -424,7 +424,7 @@ def _parse_career_period(period: str) -> tuple[int | None, int | None]:
     return start, None
 
 
-# Marco 회사명 alias — 약칭 → DART 정식명. 매핑 실패 시 fallback 시도.
+# 이사 회계 risk 회사명 alias — 약칭 → DART 정식명. 매핑 실패 시 fallback 시도.
 _MARCO_ALIASES = {
     "KT": "케이티",
     "kt": "케이티",
@@ -467,7 +467,7 @@ def _candidate_corp_names(corp_name: str) -> list[str]:
     return out
 
 
-async def _resolve_marco_corp(corp_name: str) -> dict | None:
+async def _resolve_audit_history_corp(corp_name: str) -> dict | None:
     """corp_name → DART corp_code 매칭 (multi-alias fallback)."""
     client = get_dart_client()
     for cand in _candidate_corp_names(corp_name):
@@ -491,7 +491,7 @@ def _periods_overlap(p_start: int, p_end: int | None, risk_year: int) -> bool:
     return p_start <= risk_year <= actual_end
 
 
-async def _check_marco_overlap(
+async def _check_audit_history_overlap(
     corp_name: str,
     period_start: int | None,
     period_end: int | None,
@@ -510,7 +510,7 @@ async def _check_marco_overlap(
     if not corp_name or not period_start:
         return None
 
-    match = await _resolve_marco_corp(corp_name)
+    match = await _resolve_audit_history_corp(corp_name)
     if not match:
         return None  # soft-fail (코드 침묵, 메모에서 별도 raw 노출 — 호출자가 처리)
     past_corp_code = match["corp_code"]
@@ -630,7 +630,7 @@ async def _check_marco_overlap(
 async def evaluate_faithfulness(
     candidate: dict[str, Any],
     *,
-    enable_marco: bool = False,
+    check_audit_history: bool = False,
 ) -> dict[str, Any]:
     """충실성 평가.
 
@@ -638,8 +638,8 @@ async def evaluate_faithfulness(
     - dutyPlan / recommendationReason → soft-fail (raw 노출, LLM 자연어 판단)
     - mainJob / recommender / careerCompanyGroups → success (구조화)
 
-    enable_marco=True: 과거 회사 × 재직 기간 × 회계 risk overlap 자동 체크.
-    Marco 시나리오는 추가 DART 호출 발생 (cost) — 옵션.
+    check_audit_history=True: 과거 회사 × 재직 기간 × 회계 risk overlap 자동 체크.
+    이사 회계 risk 이력 검증는 추가 DART 호출 발생 (cost) — 옵션.
     """
     out: dict[str, Any] = {
         "duty_plan_raw": candidate.get("dutyPlan") or None,
@@ -649,11 +649,11 @@ async def evaluate_faithfulness(
         "career_company_groups": candidate.get("careerCompanyGroups") or [],
     }
 
-    # Marco 시나리오 — 과거 회사 × 재직 기간 cross-check
-    marco_red_flags: list[dict[str, Any]] = []
-    marco_status = "disabled"
-    if enable_marco:
-        marco_status = "checked"
+    # 이사 회계 risk 이력 검증 — 과거 회사 × 재직 기간 cross-check
+    audit_history_red_flags: list[dict[str, Any]] = []
+    audit_history_status = "disabled"
+    if check_audit_history:
+        audit_history_status = "checked"
         career_groups = candidate.get("careerCompanyGroups") or []
 
         # (corp_name, start, end) 튜플 list — 회사 + 기간 조합 모두 만들고 병렬 호출.
@@ -675,34 +675,34 @@ async def evaluate_faithfulness(
         # asyncio.gather로 N 회사 × 기간 동시 — 속도 핵심 (코붕이 5번 지시).
         if tasks_meta:
             overlaps = await asyncio.gather(*[
-                _check_marco_overlap(n, s, e) for n, s, e in tasks_meta
+                _check_audit_history_overlap(n, s, e) for n, s, e in tasks_meta
             ], return_exceptions=False)
-            marco_red_flags = [o for o in overlaps if o]
+            audit_history_red_flags = [o for o in overlaps if o]
 
-    out["marco_scenario"] = {
-        "status": marco_status,
-        "red_flags": marco_red_flags,
-        "summary": "red_flag" if marco_red_flags else ("clean" if marco_status == "checked" else "not_checked"),
+    out["audit_history_check"] = {
+        "status": audit_history_status,
+        "red_flags": audit_history_red_flags,
+        "summary": "red_flag" if audit_history_red_flags else ("clean" if audit_history_status == "checked" else "not_checked"),
     }
 
     # 통합 summary
-    if marco_red_flags:
+    if audit_history_red_flags:
         out["summary"] = "concerns"
     else:
-        out["summary"] = "raw_disclosed" if marco_status != "checked" else "clean"
+        out["summary"] = "raw_disclosed" if audit_history_status != "checked" else "clean"
     return out
 
 
 # 후방 호환 alias (Phase 1 코드 사용 중)
 def evaluate_faithfulness_basic(candidate: dict[str, Any]) -> dict[str, Any]:
-    """동기 alias — Marco 비활성. enable_marco 옵션 없는 호출처용."""
+    """동기 alias — 이사 회계 risk 이력 검증 비활성. check_audit_history 옵션 없는 호출처용."""
     return {
         "duty_plan_raw": candidate.get("dutyPlan") or None,
         "recommendation_reason_raw": candidate.get("recommendationReason") or None,
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
         "career_company_groups": candidate.get("careerCompanyGroups") or [],
-        "marco_scenario": {"status": "disabled", "red_flags": [], "summary": "not_checked"},
+        "audit_history_check": {"status": "disabled", "red_flags": [], "summary": "not_checked"},
         "summary": "raw_disclosed",
     }
 
@@ -710,7 +710,7 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any]) -> dict[str, Any]:
 # ── 후보 평가 통합 ──
 
 def evaluate_candidate(candidate: dict[str, Any], current_year: int) -> dict[str, Any]:
-    """단일 후보 → 3축 평가 dict (Marco 비활성, sync)."""
+    """단일 후보 → 3축 평가 dict (이사 회계 risk 이력 검증 비활성, sync)."""
     return {
         "name": candidate.get("name"),  # success
         "birth_date": candidate.get("birthDate"),  # success
@@ -726,16 +726,16 @@ async def evaluate_candidate_async(
     candidate: dict[str, Any],
     current_year: int,
     *,
-    enable_marco: bool = False,
+    check_audit_history: bool = False,
 ) -> dict[str, Any]:
-    """단일 후보 평가 (async, Marco 옵션). Marco 활성 시 과거 회사 cross-check."""
+    """단일 후보 평가 (async, 이사 회계 risk 이력 검증 옵션). 이사 회계 risk 이력 검증 활성 시 과거 회사 cross-check."""
     return {
         "name": candidate.get("name"),
         "birth_date": candidate.get("birthDate"),
         "role_type": candidate.get("roleType"),
         "separate_election": candidate.get("separateElection"),
         "independence": evaluate_independence(candidate, current_year),
-        "faithfulness": await evaluate_faithfulness(candidate, enable_marco=enable_marco),
+        "faithfulness": await evaluate_faithfulness(candidate, check_audit_history=check_audit_history),
         "disqualification": evaluate_disqualification(candidate, current_year),
     }
 
@@ -747,7 +747,7 @@ async def build_director_evaluation_payload(
     *,
     year: int | None = None,
     meeting_type: str = "annual",
-    enable_marco: bool = False,
+    check_audit_history: bool = False,
 ) -> dict[str, Any]:
     from open_proxy_mcp.services.company import _company_id, resolve_company_query
 
@@ -789,7 +789,7 @@ async def build_director_evaluation_payload(
     for ap in appointments:
         cands = ap.get("candidates") or []
         for c in cands:
-            ev = await evaluate_candidate_async(c, target_year, enable_marco=enable_marco)
+            ev = await evaluate_candidate_async(c, target_year, check_audit_history=check_audit_history)
             ev["agenda_title"] = ap.get("title")
             ev["agenda_action"] = ap.get("action")
             ev["agenda_category"] = ap.get("category")

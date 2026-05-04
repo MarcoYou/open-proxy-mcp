@@ -1294,7 +1294,7 @@ def _next_actions(scope: str, data: dict[str, Any]) -> list[str]:
     if scope == "audit_opinion":
         opinions = (data.get("audit_opinion", {}) or {}).get("opinions", [])
         if any("적정" not in o.get("adt_opinion", "") for o in opinions):
-            actions.append("non-clean 의견: 후보 사외이사 재직 시점 cross-check (Marco 시나리오)")
+            actions.append("non-clean 의견: 후보 사외이사 재직 시점 cross-check (이사 회계 risk 이력 검증)")
     return actions
 
 
