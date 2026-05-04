@@ -67,14 +67,20 @@ def _rcept_dt_from_no(rcept_no: str) -> str:
 
 
 def _normalize_acquisition(item: dict[str, Any]) -> dict[str, Any]:
-    """자기주식 취득결정 (tsstkAqDecsn) — 보통주+우선주 수량·금액 합산.
+    """자기주식 취득결정 (tsstkAqDecsn) — DART 구조화 API 필드 풍부 추출.
 
-    `aq_pp`(취득목적)에 "소각" 포함 시 `for_cancelation=True` — 소각결정 별도 공시 없이
-    취득 단계에서 소각 의도를 밝히는 케이스(예: 미래에셋증권)를 잡아낸다.
+    추출:
+    - 보통주/우선주 별도 수량·금액 + 합계
+    - 취득기간 / 보유예상기간 / 이사회결의일
+    - 취득방법 / 취득목적 / 위탁투자중개업자
+    - 사외이사 참석 (거버넌스 신호)
+    - for_cancelation flag — 취득목적에 "소각" 명시 시 (별도 소각결정 공시 없이 소각 의도)
     """
 
-    shares = _to_int(item.get("aqpln_stk_ostk")) + _to_int(item.get("aqpln_stk_estk"))
-    amount = _to_int(item.get("aqpln_prc_ostk")) + _to_int(item.get("aqpln_prc_estk"))
+    shares_common = _to_int(item.get("aqpln_stk_ostk"))
+    shares_pref = _to_int(item.get("aqpln_stk_estk"))
+    amount_common = _to_int(item.get("aqpln_prc_ostk"))
+    amount_pref = _to_int(item.get("aqpln_prc_estk"))
     purpose = (item.get("aq_pp") or "").strip()
     for_cancelation = "소각" in purpose
     return {
@@ -83,42 +89,93 @@ def _normalize_acquisition(item: dict[str, Any]) -> dict[str, Any]:
         "rcept_dt": _rcept_dt_from_no(item.get("rcept_no", "")),
         "corp_name": item.get("corp_name", ""),
         "report_nm": "자기주식 취득 결정",
-        "shares": shares,
-        "amount_krw": amount,
+        # 수량 (보통/우선/합계)
+        "shares_common": shares_common,
+        "shares_preferred": shares_pref,
+        "shares": shares_common + shares_pref,
+        # 금액 (보통/우선/합계)
+        "amount_common_krw": amount_common,
+        "amount_preferred_krw": amount_pref,
+        "amount_krw": amount_common + amount_pref,
+        # 결정 본질
         "purpose": purpose,
         "method": (item.get("aq_mth") or "").strip(),
         "start_date": (item.get("aqexpd_bgd") or "").strip(),
         "end_date": (item.get("aqexpd_edd") or "").strip(),
+        "holding_start_date": (item.get("hdex_bgd") or "").strip(),
+        "holding_end_date": (item.get("hdex_edd") or "").strip(),
         "board_date": (item.get("aq_dd") or "").strip(),
+        # 위탁기관
+        "broker_name": (item.get("iv_jdgh_idr") or "").strip(),
+        # 거버넌스 신호
+        "outside_director_attended": _to_int(item.get("od_a_at_t")),
+        "outside_director_absent": _to_int(item.get("od_a_at_b")),
+        "auditor_attended": (item.get("adt_a_atn") or "").strip(),
+        # 소각 의도
         "for_cancelation": for_cancelation,
     }
 
 
 def _normalize_disposal(item: dict[str, Any]) -> dict[str, Any]:
-    """자기주식 처분결정 (tsstkDpDecsn)."""
+    """자기주식 처분결정 (tsstkDpDecsn) — DART 구조화 API 풍부 추출.
 
-    shares = _to_int(item.get("dppln_stk_ostk")) + _to_int(item.get("dppln_stk_estk"))
-    amount = _to_int(item.get("dppln_prc_ostk")) + _to_int(item.get("dppln_prc_estk"))
+    추출:
+    - 보통주/우선주 별도 수량·금액 + 합계
+    - 처분 대상 주식가격 (시가, 처분결정 핵심)
+    - 처분기간 / 이사회결의일 / 처분방법
+    - 처분상대방 (직원 N명, 회사명, 3자배정 등)
+    - 위탁기관 / 사외이사 참석
+    """
+
+    shares_common = _to_int(item.get("dppln_stk_ostk"))
+    shares_pref = _to_int(item.get("dppln_stk_estk"))
+    amount_common = _to_int(item.get("dppln_prc_ostk"))
+    amount_pref = _to_int(item.get("dppln_prc_estk"))
     return {
         "event": "disposal_decision",
         "rcept_no": item.get("rcept_no", ""),
         "rcept_dt": _rcept_dt_from_no(item.get("rcept_no", "")),
         "corp_name": item.get("corp_name", ""),
         "report_nm": "자기주식 처분 결정",
-        "shares": shares,
-        "amount_krw": amount,
+        # 수량
+        "shares_common": shares_common,
+        "shares_preferred": shares_pref,
+        "shares": shares_common + shares_pref,
+        # 금액
+        "amount_common_krw": amount_common,
+        "amount_preferred_krw": amount_pref,
+        "amount_krw": amount_common + amount_pref,
+        # 단가 (처분 대상 주식가격 — 시가 기준)
+        "price_common_krw": _to_int(item.get("dpprc_ostk")),
+        "price_preferred_krw": _to_int(item.get("dpprc_estk")),
+        # 결정 본질
         "purpose": (item.get("dp_pp") or "").strip(),
+        "method": (item.get("dp_mth_oth") or item.get("dp_mth_kosdaq") or "").strip(),
         "start_date": (item.get("dpprpd_bgd") or "").strip(),
         "end_date": (item.get("dpprpd_edd") or "").strip(),
         "board_date": (item.get("dp_dd") or "").strip(),
+        # 처분상대방 (3자 매각, 직원 보상 등)
+        "counterparty": (item.get("dpst_at") or item.get("dp_t_oth") or "").strip(),
+        # 위탁/거버넌스
+        "broker_name": (item.get("iv_jdgh_idr") or "").strip(),
+        "outside_director_attended": _to_int(item.get("od_a_at_t")),
+        "outside_director_absent": _to_int(item.get("od_a_at_b")),
     }
 
 
 def _normalize_trust(item: dict[str, Any], event: str, label: str) -> dict[str, Any]:
-    """자기주식 신탁체결/해지 — DART 필드명 추정. 필드가 없어도 rcept_no 기준으로 노출."""
+    """자기주식 신탁체결/해지 (tsstkAqTrctrCnsDecsn / tsstkAqTrctrCcDecsn).
+
+    추출:
+    - 계약금액 (ctr_prc / ctr_prc_am / ctr_pr — 다양한 필드명 fallback)
+    - 계약기간 (시작·종료) / 계약체결기관 (수탁기관)
+    - 계약목적 / 위탁투자중개업자 (broker)
+    - 보유예상기간 / 사외이사 참석
+    - 해지 시: 해지일 / 해지사유
+    """
 
     amount = 0
-    for key in ("ctr_prc", "ctr_prc_am", "ctr_pr"):
+    for key in ("ctr_prc", "ctr_prc_am", "ctr_pr", "ctr_pric"):
         amount = _to_int(item.get(key, 0))
         if amount:
             break
@@ -134,6 +191,14 @@ def _normalize_trust(item: dict[str, Any], event: str, label: str) -> dict[str, 
         "start_date": (item.get("ctr_cns_prd_bgd") or item.get("ctr_prd_bgd") or "").strip(),
         "end_date": (item.get("ctr_cns_prd_edd") or item.get("ctr_prd_edd") or "").strip(),
         "board_date": (item.get("ctr_cns_dd") or item.get("ctr_cc_dd") or "").strip(),
+        # 신탁기관 (수탁기관 — 보통 증권사) / 위탁사
+        "trustee_name": (item.get("ctr_cns_inst") or item.get("ctr_inst") or "").strip(),
+        "broker_name": (item.get("iv_jdgh_idr") or "").strip(),
+        # 거버넌스
+        "outside_director_attended": _to_int(item.get("od_a_at_t")),
+        "outside_director_absent": _to_int(item.get("od_a_at_b")),
+        # 해지 시 추가
+        "termination_reason": (item.get("ctr_cc_rs") or "").strip() if event == "trust_termination" else "",
     }
 
 
