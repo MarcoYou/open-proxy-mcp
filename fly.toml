@@ -12,6 +12,12 @@ primary_region = 'iad'
   # v2 (11 tool) 운영 기본. v1은 opm_v1 브랜치에 보존.
   # 필요시 'hybrid'(v1+v2) 또는 'v1'(36 tool)으로 전환 가능.
   OPEN_PROXY_TOOLSET = 'v2'
+  # sqlite master cache (corpCode 영구화) — fly volume mount 위치
+  OPM_MASTER_DB_PATH = '/data/master.db'
+
+[mounts]
+  source = 'opm_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8000
