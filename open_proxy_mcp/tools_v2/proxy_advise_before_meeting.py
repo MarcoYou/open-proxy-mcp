@@ -34,6 +34,9 @@ def _render(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 의결권 행사 메모 (사전)"]
     lines.append("")
+    if data.get("scope_all_warning"):
+        lines.append(f"> ⚠ **{data['scope_all_warning']}**")
+        lines.append("")
     lines.append(f"- 회차: {data.get('year')}년 {data.get('meeting_type')} 주총")
     lines.append(f"- vote_style: `{data.get('vote_style')}` / 이사 회계 risk 이력 검증: {'활성' if data.get('audit_history_enabled') else '비활성'}")
     lines.append(f"- status: `{payload.get('status')}` / filing_status: `{data.get('filing_status', '-')}`")
@@ -137,12 +140,20 @@ def register_tools(mcp):
         check_audit_history: bool = False,
         format: str = "md",
     ) -> str:
-        """desc: 주총 **소집 전** 다각도 심층 분석 + 안건별 의결권 권고. 10 scope (decisions/agenda/candidates/financial/governance/ownership/policy_basis/proxy_battle/engagement/evidence/all). 안건별 FOR/AGAINST/REVIEW + 1-2문장 결정 사유 (정책 근거 + 사실 근거 + rcept_no). 사외이사 후보 3축 (독립성 / 충실성 / 결격사유) 자동 평가.
+        """desc: 주총 **소집 전** 다각도 심층 분석 + 안건별 의결권 권고. **default scope="decisions" 1회 호출만으로 핵심 정보 (안건별 FOR/AGAINST/REVIEW + 결정 사유 + 후보 평가 + 재무/거버넌스 summary) 모두 제공** — 일반적으로 추가 scope 호출 불필요.
         when: 주총 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고용. proxy_result_after_meeting는 주총 후 결과 보고용 별도.
         rule: 운용사 의결권 행사 보고서 스타일 (회사명 / 주총일 / 안건별 표). hard-fail 항목 (형사 처벌 / 사적 관계 / 동명이인 등) 메모에서 침묵. 자동 검증 가능 항목만 표기. soft-fail 항목 (후보 약력 자유 텍스트 / 정관 본문) raw 노출 — LLM이 자연어로 추가 판단.
         vote_style: open_proxy (default OPM 자체 정책) / mirae_asset / samsung / samsung_active / kim / truston / align_partners / cha_partners / baring / nps (국민연금).
-        scope: decisions (default, 안건별 결정) / agenda (안건 트리) / candidates (후보 평가 raw) / financial (재무 진단) / governance (거버넌스 15지표) / ownership (지배구조) / all (모두 통합). policy_basis/proxy_battle/engagement/evidence는 별도 commit.
-        check_audit_history: True 시 후보의 과거 회사 × 재직 기간 × 회계 risk overlap 자동 cross-check (추가 DART 호출 발생).
+        scope (사용 가이드 — Claude.ai timeout 60s 고려):
+          - **decisions (default, 90% 케이스)**: 안건별 결정 + 후보 평가 + 재무/거버넌스/지배구조 summary 모두 포함. 6 upstream. 일반 응답 시간 5-30s. **재호출 불필요** — 다른 scope은 raw upstream 추가일 뿐.
+          - agenda / candidates / financial / governance / ownership: 해당 영역 raw upstream payload 추가. base data는 decisions와 동일. 특정 영역 detail 필요한 specialized case에만 사용.
+          - policy_basis: 7 운용사 + NPS history 비교 examples (records 비교, 추가 호출 X, 빠름).
+          - proxy_battle: 위임장 분쟁 + 5%블록 (proxy_contest 추가 호출 — 비교적 빠름).
+          - engagement: 가치제고 plan + IR history (value_up 추가 호출).
+          - evidence: 결정 근거 trace (raw_sources 추가, 호출 X).
+          - **⚠ scope="all"**: 8 upstream 동시 호출 → 평균 30-60s, **Claude.ai timeout 60s 초과 자주 발생**. 사용 자제 권장. 필요 시 scope별 따로 호출.
+        check_audit_history: True 시 후보의 과거 회사 × 재직 기간 × 회계 risk overlap 자동 cross-check (추가 DART 호출 발생, +30s).
+        meeting_type: annual (default 정기) / extraordinary (임시) / auto (본문에서 자동 detect). 잘못된 meeting_type 입력 시 다음 공고 fallback.
         ref: shareholder_meeting / ownership_structure / corp_gov_report / financial_metrics / proxy_guideline / director_evaluation, proxy_result_after_meeting (사후)
         """
         payload = await build_proxy_advise_payload(

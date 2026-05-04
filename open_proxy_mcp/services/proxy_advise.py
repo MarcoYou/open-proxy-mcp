@@ -646,6 +646,13 @@ async def build_proxy_advise_payload(
         "usage": build_usage(client.api_call_snapshot() - calls_start),
     }
 
+    # scope=all 사용 자제 권고 (Claude.ai timeout 60s 위험)
+    if scope == "all":
+        data["scope_all_warning"] = (
+            "scope='all'은 8 upstream 동시 호출로 평균 30-60s 소요 — Claude.ai timeout 60s 자주 초과. "
+            "default scope='decisions'가 핵심 정보 모두 포함. 특정 영역 detail은 scope별 따로 호출 권장."
+        )
+
     # scope별 raw upstream 추가 노출 (Step 3)
     if scope in ("agenda", "all"):
         data["agenda_full"] = agenda_data  # 트리/카테고리 raw
