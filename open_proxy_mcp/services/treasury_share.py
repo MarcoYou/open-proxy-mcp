@@ -829,10 +829,32 @@ def _norm_date(s: str) -> str:
     return s
 
 
+def _date_within(a: str, b: str, days: int) -> bool:
+    """YYYY-MM-DD 두 날짜 차이 ±days 이내인지."""
+    if not a or not b:
+        return False
+    from datetime import date as _d
+    try:
+        ya, ma, da = a.split("-")
+        yb, mb, db = b.split("-")
+        d1 = _d(int(ya), int(ma), int(da))
+        d2 = _d(int(yb), int(mb), int(db))
+        return abs((d1 - d2).days) <= days
+    except (ValueError, AttributeError):
+        return False
+
+
 def _link_cycles(bundles: dict[str, list[dict]]) -> int:
     """결과보고서 본문의 main_report_date / trust_contract_date를 결정 rcept_dt와 매칭.
 
     실행 row에 linked_decision_rcept_no, 결정 row에 linked_execution_rcept_no 양방향 set.
+    매칭 fail 시 main_report_date는 hint로 노출 (key_date_hint).
+
+    매칭 우선순위:
+    1. 일자 정확 매칭
+    2. ±3일 허용 (이사회 → 다음 영업일 공시 패턴)
+    3. trust 사이클: 가장 최근 trust_contract fallback
+    4. lookback 밖 → key_date_hint만 노출 (linked X)
 
     Returns: 매칭 성공 execution 건수 (G2 metric).
     """
@@ -840,35 +862,45 @@ def _link_cycles(bundles: dict[str, list[dict]]) -> int:
     for exec_key, dec_key in _CYCLE_MAP.items():
         exec_rows = bundles.get(exec_key, []) or []
         dec_rows = bundles.get(dec_key, []) or []
-        if not exec_rows or not dec_rows:
-            continue
 
-        # 결정 rcept_dt → row index
+        # 결정 rcept_dt → row list
         dec_by_date: dict[str, list[dict]] = {}
         for dr in dec_rows:
             d = _norm_date(dr.get("rcept_dt", ""))
             if d:
                 dec_by_date.setdefault(d, []).append(dr)
+        all_decision_dates = sorted(dec_by_date.keys())
 
         for er in exec_rows:
-            # 1. 일자 매칭 — acq/dsp는 main_report_date, trust는 trust_contract_date
+            # 매칭 키 (acq/dsp는 main_report_date, trust는 trust_contract_date)
             key_date = ""
             if exec_key in ("acquisition_result", "disposal_result"):
                 key_date = _norm_date(er.get("main_report_date", "") or "")
             else:
                 key_date = _norm_date(er.get("trust_contract_date", "") or "")
 
-            matched_dec = None
+            # key_date hint로 노출 (매칭 fail이라도)
             if key_date:
-                candidates = dec_by_date.get(key_date, [])
-                if candidates:
-                    matched_dec = candidates[0]
+                er["key_date_hint"] = key_date
+                er["matched_decision_type"] = dec_key
 
-            # 2. trust fallback — date 매칭 fail 시 가장 최근 (rcept_dt 가장 큰) trust_contract와 매칭
-            # 신탁취득상황은 직전 신탁체결, 신탁해지결과는 같은 사이클의 신탁체결과 매칭
+            matched_dec = None
+
+            # 1. 정확 매칭
+            if key_date and dec_by_date.get(key_date):
+                matched_dec = dec_by_date[key_date][0]
+
+            # 2. ±3일 허용 (이사회→다음 영업일 공시)
+            if matched_dec is None and key_date and dec_rows:
+                for d in all_decision_dates:
+                    if _date_within(key_date, d, 3):
+                        matched_dec = dec_by_date[d][0]
+                        er["match_proximity_days"] = abs(int(d.replace("-", "")) - int(key_date.replace("-", "")))
+                        break
+
+            # 3. trust fallback — date 매칭 fail 시 가장 최근 trust_contract
             if matched_dec is None and exec_key in ("trust_acquisition_status", "trust_termination_result"):
                 er_dt = er.get("rcept_dt", "")
-                # er_dt 이전 (또는 같은) 신탁체결 중 가장 최근
                 prior_decs = sorted(
                     [d for d in dec_rows if d.get("rcept_dt", "") <= er_dt],
                     key=lambda x: x.get("rcept_dt", ""),
@@ -876,11 +908,18 @@ def _link_cycles(bundles: dict[str, list[dict]]) -> int:
                 )
                 if prior_decs:
                     matched_dec = prior_decs[0]
+                    er["match_via_trust_fallback"] = True
 
             if matched_dec is None:
+                # 매칭 실패 사유 분류 — lookback 밖
+                if key_date and (not all_decision_dates or key_date < all_decision_dates[0]):
+                    er["match_status"] = "out_of_lookback"
+                else:
+                    er["match_status"] = "no_match"
                 continue
 
             er["linked_decision_rcept_no"] = matched_dec.get("rcept_no", "")
+            er["match_status"] = "matched"
             matched_dec.setdefault("linked_execution_rcept_nos", []).append(er.get("rcept_no", ""))
             matched_count += 1
 
