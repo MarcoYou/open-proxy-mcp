@@ -68,14 +68,17 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         for row in data.get("blocks", [])[:15]:
             lines.append(f"| {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | {row['report_date']} | `{row['rcept_no']}` |")
 
-    if scope in {"summary", "treasury"}:
+    if scope == "summary":
         treasury = data.get("treasury", {})
-        lines.extend(["", "## 자사주", f"- 발행주식수: {treasury.get('issued_shares', 0):,}주", f"- 자사주: {treasury.get('treasury_shares', 0):,}주", f"- 자사주 비중: {treasury.get('treasury_pct', 0):.2f}%"])
+        lines.extend(["", "## 자사주 (가벼운 snapshot — detail은 treasury_share tool)", f"- 발행주식수: {treasury.get('issued_shares', 0):,}주", f"- 자사주: {treasury.get('treasury_shares', 0):,}주", f"- 자사주 비중: {treasury.get('treasury_pct', 0):.2f}%"])
 
-    if scope == "timeline":
-        lines.extend(["", "## 지분 변화 타임라인", "| 날짜 | 보고자 | 지분율 | 목적 | rcept_no |", "|------|--------|--------|------|----------|"])
-        for row in data.get("timeline", [])[:30]:
-            lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
+    if scope == "blocks":
+        # blocks scope에 timeline 통합 노출
+        timeline = data.get("timeline", []) or []
+        if timeline:
+            lines.extend(["", "## 5% 대량보유 이력 (timeline)", "| 날짜 | 보고자 | 지분율 | 목적 | rcept_no |", "|------|--------|--------|------|----------|"])
+            for row in timeline[:30]:
+                lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
     if scope == "changes":
         change_filings = data.get("change_filings", [])
@@ -174,11 +177,11 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 최대주주·특수관계인·5% 대량보유·자사주를 한 탭에서 보는 지분 구조 tool. 판의 구조(who holds what)를 그린다.
-        when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 자사주 규모, 5% 활성 시그널을 보고 싶을 때.
-        rule: 사업보고서 기반 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문(document.xml)으로 보강. KIND 비사용 (false match 위험). partial match 자동 확정 안 함.
-        scope: `summary`(기본) / `major_holders`(최대주주+특수관계인) / `blocks`(5% 대량보유 최신) / `treasury`(자사주) / `control_map`(3대 카테고리 정리: 명부 등재/외부 능동/수동) / `timeline`(5% 보고 이력) / `changes`(최대주주등소유주식변동신고서, KIND 원문 파싱).
-        ref: company, proxy_contest (분쟁 맥락), evidence
+        """desc: 최대주주·특수관계인·5% 대량보유 지분 구조. 판의 구조(who holds what). 자사주 detail은 treasury_share tool 별도.
+        when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널 분석.
+        rule: 사업보고서 기반 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문(document.xml)으로 보강. KIND 비사용 (false match 위험).
+        scope: `summary`(기본, 최대주주+5%블록+자사주 snapshot) / `major_holders`(최대주주+특수관계인 detail) / `blocks`(5% 대량보유 최신 + 이력) / `control_map`(3대 카테고리: 명부 등재/외부 능동/수동) / `changes`(최대주주등소유주식변동신고서 KIND 원문)
+        ref: treasury_share (자사주 detail), proxy_contest (분쟁 맥락), evidence
         """
         payload = await build_ownership_structure_payload(
             company,

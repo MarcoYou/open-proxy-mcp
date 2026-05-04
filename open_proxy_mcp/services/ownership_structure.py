@@ -26,12 +26,11 @@ from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holdi
 _SUPPORTED_SCOPES = {
     "summary",
     "major_holders",
-    "blocks",
-    "treasury",
+    "blocks",  # 5% 대량보유 — 최신 + history (이전 timeline 통합)
     "control_map",
-    "timeline",
     "changes",
 }
+# 폐기 scope: treasury (treasury_share tool 사용), timeline (blocks 안에 통합)
 
 # 정기보고서 reprt_code: 사업보고서가 가장 정식이지만, 시기에 따라 미공시일 수 있어
 # (사업 → 3분기 → 반기 → 1분기) 순으로 fallback. 모두 빈 응답이면 직전 사업연도까지 시도.
@@ -800,10 +799,12 @@ async def build_ownership_structure_payload(
         data["major_holders"] = major_rows
     if scope in {"summary", "blocks", "control_map"}:
         data["blocks"] = latest_blocks
-    if scope in {"summary", "treasury"}:
-        data["treasury"] = treasury_snapshot
-    if scope == "timeline":
+    if scope == "blocks":
+        # blocks scope에는 latest + 이력 timeline 통합 (timeline scope 폐지 흡수)
         data["timeline"] = timeline_rows[:50]
+    if scope == "summary":
+        # summary는 treasury 가벼운 snapshot만 (자사주 detail은 treasury_share tool)
+        data["treasury"] = treasury_snapshot
     if scope == "control_map":
         data["control_map"] = _build_control_map(major_rows, latest_blocks, treasury_snapshot)
     if scope == "changes":
