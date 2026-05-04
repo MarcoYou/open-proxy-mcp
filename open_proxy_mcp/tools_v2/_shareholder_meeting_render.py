@@ -1,11 +1,11 @@
-"""v2 shareholder_meeting public tool."""
+"""shareholder_meeting_notice / shareholder_meeting_results 공유 render helper.
+
+Note: 이 모듈은 `_` prefix → tools_v2 auto-discovery 제외 (register_tools 호출 X).
+"""
 
 from __future__ import annotations
 
 from typing import Any
-
-from open_proxy_mcp.services.contracts import as_pretty_json
-from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 
 
 _PHASE_LABELS = {
@@ -31,19 +31,19 @@ _PRESENCE_FLAG_LABELS = {
 }
 
 
-def _phase_label(value: str) -> str:
+def phase_label(value: str) -> str:
     return _PHASE_LABELS.get(value, value or "-")
 
 
-def _result_status_label(value: str) -> str:
+def result_status_label(value: str) -> str:
     return _RESULT_STATUS_LABELS.get(value, value or "-")
 
 
-def _presence_flag_label(value: str) -> str:
+def presence_flag_label(value: str) -> str:
     return _PRESENCE_FLAG_LABELS.get(value, value or "-")
 
 
-def _warning_block(payload: dict[str, Any]) -> list[str]:
+def warning_block(payload: dict[str, Any]) -> list[str]:
     warnings = payload.get("warnings", [])
     if not warnings:
         return []
@@ -54,22 +54,18 @@ def _warning_block(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _render_error(payload: dict[str, Any]) -> str:
-    lines = [
-        f"# shareholder_meeting: {payload.get('subject', '')}",
-        "",
-        "주총 공시를 확정하지 못했다.",
-    ]
-    for warning in payload.get("warnings", []):
-        lines.append(f"- {warning}")
+def render_error(payload: dict[str, Any], tool_label: str) -> str:
+    lines = [f"# {tool_label}: {payload.get('subject', '')}", "", "주총 공시를 확정하지 못했다."]
+    for w in payload.get("warnings", []):
+        lines.append(f"- {w}")
     return "\n".join(lines)
 
 
-def _render_ambiguous(payload: dict[str, Any]) -> str:
+def render_ambiguous(payload: dict[str, Any], tool_label: str) -> str:
     data = payload.get("data", {})
     candidates = data.get("candidates", [])
     lines = [
-        f"# shareholder_meeting: {data.get('query', payload.get('subject', ''))}",
+        f"# {tool_label}: {data.get('query', payload.get('subject', ''))}",
         "",
         "회사 식별이 애매해 주총 공시를 자동 선택하지 않았다.",
         "",
@@ -83,7 +79,7 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_summary(payload: dict[str, Any]) -> str:
+def render_summary(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     notice = data.get("notice", {})
     info = data.get("meeting_info", {})
@@ -94,13 +90,13 @@ def _render_summary(payload: dict[str, Any]) -> str:
     coverage_12m = data.get("meeting_coverage_12m", {})
     requested_window = data.get("requested_window", {})
 
-    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 주주총회"]
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 주주총회 소집공고"]
     lines.append("")
     lines.append(f"- company_id: `{data.get('company_id', '')}`")
     lines.append(f"- requested_meeting_type: `{data.get('requested_meeting_type', '')}`")
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- result_status: {_result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
+    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
+    lines.append(f"- result_status: {result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
     lines.append(f"- notice_parse_source: `{data.get('notice_parse_source', '')}`")
     lines.append(f"- status: `{payload.get('status', '')}`")
     if requested_window:
@@ -108,8 +104,7 @@ def _render_summary(payload: dict[str, Any]) -> str:
             f"- requested_window: `{requested_window.get('start_date', '')}` ~ `{requested_window.get('end_date', '')}`"
         )
     lines.append("")
-
-    lines.extend(_warning_block(payload))
+    lines.extend(warning_block(payload))
 
     if data.get("selection_basis"):
         lines.append("## 회차 선택")
@@ -124,20 +119,16 @@ def _render_summary(payload: dict[str, Any]) -> str:
 
     if coverage_12m:
         lines.append("## 조회 구간 커버리지")
-        lines.append(f"- 플래그: {_presence_flag_label(coverage_12m.get('presence_flag', ''))} (`{coverage_12m.get('presence_flag', '')}`)")
+        lines.append(f"- 플래그: {presence_flag_label(coverage_12m.get('presence_flag', ''))} (`{coverage_12m.get('presence_flag', '')}`)")
         lines.append(f"- 조사 구간: {coverage_12m.get('window_start', '-')} ~ {coverage_12m.get('window_end', '-')}")
         lines.append(f"- 정기주총 공시 수: {coverage_12m.get('annual_count', 0)}")
         lines.append(f"- 임시주총 공시 수: {coverage_12m.get('extraordinary_count', 0)}")
         latest_annual = coverage_12m.get("latest_annual")
         latest_extraordinary = coverage_12m.get("latest_extraordinary")
         if latest_annual:
-            lines.append(
-                f"- 최근 정기주총: {latest_annual.get('meeting_date') or '-'} / notice `{latest_annual.get('notice_rcept_no', '')}`"
-            )
+            lines.append(f"- 최근 정기주총: {latest_annual.get('meeting_date') or '-'} / notice `{latest_annual.get('notice_rcept_no', '')}`")
         if latest_extraordinary:
-            lines.append(
-                f"- 최근 임시주총: {latest_extraordinary.get('meeting_date') or '-'} / notice `{latest_extraordinary.get('notice_rcept_no', '')}`"
-            )
+            lines.append(f"- 최근 임시주총: {latest_extraordinary.get('meeting_date') or '-'} / notice `{latest_extraordinary.get('notice_rcept_no', '')}`")
         lines.append("")
 
     lines.extend([
@@ -160,8 +151,8 @@ def _render_summary(payload: dict[str, Any]) -> str:
         "## 결과 시점",
         "| 항목 | 값 |",
         "|------|----|",
-        f"| 현재 단계 | {_phase_label(data.get('meeting_phase', ''))} |",
-        f"| 결과 상태 | {_result_status_label(data.get('result_status', ''))} |",
+        f"| 현재 단계 | {phase_label(data.get('meeting_phase', ''))} |",
+        f"| 결과 상태 | {result_status_label(data.get('result_status', ''))} |",
         f"| 결과 공시일 | {result_reference.get('disclosure_date', '') or '-'} |",
         f"| 결과 rcept_no | `{result_reference.get('rcept_no', '')}` |" if result_reference else "| 결과 rcept_no | - |",
         "",
@@ -198,20 +189,10 @@ def _render_summary(payload: dict[str, Any]) -> str:
         lines.append("```")
         lines.append(data["raw_text_excerpt"])
         lines.append("```")
-
-    lines.append("")
-    lines.append("다음 단계:")
-    lines.append("- `scope=\"agenda\"`로 전체 안건 트리 확인")
-    lines.append("- `scope=\"board\"`로 이사/감사 후보 확인")
-    lines.append("- `scope=\"compensation\"`로 보수한도 확인")
-    lines.append("- `scope=\"aoi_change\"`로 정관변경 상세 (변경전/후/사유) 확인")
-    if data.get("result_status") == "available":
-        lines.append("- `scope=\"results\"`로 실제 의결 결과 확인")
-    lines.append("- `scope=\"full\"`로 모든 scope 한 번에 보기")
     return "\n".join(lines)
 
 
-def _render_agenda(payload: dict[str, Any]) -> str:
+def render_agenda(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     agendas = data.get("agendas", [])
     notice = data.get("notice", {})
@@ -229,11 +210,10 @@ def _render_agenda(payload: dict[str, Any]) -> str:
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 주총 안건", ""]
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
     lines.append(f"- rcept_no: `{notice.get('rcept_no', '')}`")
-    lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
+    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
     lines.append(f"- status: `{payload.get('status', '')}`")
     lines.append("")
-    lines.extend(_warning_block(payload))
-
+    lines.extend(warning_block(payload))
     lines.append("## 안건 트리")
     lines.extend(render_nodes(agendas))
     if not agendas:
@@ -241,7 +221,7 @@ def _render_agenda(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_board(payload: dict[str, Any]) -> str:
+def render_board(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     board = data.get("board", {})
     summary = data.get("board_summary", {})
@@ -249,11 +229,11 @@ def _render_board(payload: dict[str, Any]) -> str:
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 이사/감사 안건", ""]
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- result_status: {_result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
+    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
+    lines.append(f"- result_status: {result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
     lines.append(f"- status: `{payload.get('status', '')}`")
     lines.append("")
-    lines.extend(_warning_block(payload))
+    lines.extend(warning_block(payload))
 
     lines.append("## 요약")
     lines.append(f"- 총 인사 안건: {summary.get('total_appointments', 0)}건")
@@ -283,7 +263,7 @@ def _render_board(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_compensation(payload: dict[str, Any]) -> str:
+def render_compensation(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     compensation = data.get("compensation", {})
     summary = data.get("compensation_summary", {})
@@ -291,11 +271,11 @@ def _render_compensation(payload: dict[str, Any]) -> str:
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 보수한도 안건", ""]
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- result_status: {_result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
+    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
+    lines.append(f"- result_status: {result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
     lines.append(f"- status: `{payload.get('status', '')}`")
     lines.append("")
-    lines.extend(_warning_block(payload))
+    lines.extend(warning_block(payload))
 
     lines.append("## 요약")
     lines.append(f"- 안건 수: {summary.get('totalItems', 0)}건")
@@ -327,7 +307,7 @@ def _render_compensation(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_aoi(payload: dict[str, Any]) -> str:
+def render_aoi(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     aoi = data.get("aoi_change", {}) or {}
     amendments = aoi.get("amendments", [])
@@ -335,10 +315,10 @@ def _render_aoi(payload: dict[str, Any]) -> str:
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 정관변경 상세", ""]
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
+    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
     lines.append(f"- status: `{payload.get('status', '')}`")
     lines.append("")
-    lines.extend(_warning_block(payload))
+    lines.extend(warning_block(payload))
 
     lines.append("## 요약")
     lines.append(f"- 정관변경 안건 수: {len(amendments)}건")
@@ -371,33 +351,18 @@ def _render_aoi(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _render_full(payload: dict[str, Any]) -> str:
-    sections = [
-        _render_summary(payload),
-        "",
-        "---",
-        "",
-        _render_agenda(payload),
-        "",
-        "---",
-        "",
-        _render_board(payload),
-        "",
-        "---",
-        "",
-        _render_compensation(payload),
-        "",
-        "---",
-        "",
-        _render_aoi(payload),
-    ]
-    data = payload.get("data", {})
-    if data.get("results"):
-        sections.extend(["", "---", "", _render_results(payload)])
-    return "\n".join(sections)
+def render_full_notice(payload: dict[str, Any]) -> str:
+    """notice 전용 full = summary + agenda + board + compensation + aoi (results 제외)."""
+    return "\n".join([
+        render_summary(payload), "", "---", "",
+        render_agenda(payload), "", "---", "",
+        render_board(payload), "", "---", "",
+        render_compensation(payload), "", "---", "",
+        render_aoi(payload),
+    ])
 
 
-def _render_results(payload: dict[str, Any]) -> str:
+def render_results(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     result_reference = data.get("result_reference", {})
     results = data.get("results", {})
@@ -405,11 +370,11 @@ def _render_results(payload: dict[str, Any]) -> str:
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 주총 결과", ""]
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {_phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- result_status: {_result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
+    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
+    lines.append(f"- result_status: {result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
     lines.append(f"- status: `{payload.get('status', '')}`")
     lines.append("")
-    lines.extend(_warning_block(payload))
+    lines.extend(warning_block(payload))
 
     lines.append("## 결과 공시")
     lines.append(f"- result rcept_no: `{result_reference.get('rcept_no', '')}`" if result_reference else "- result rcept_no: -")
@@ -437,55 +402,3 @@ def _render_results(payload: dict[str, Any]) -> str:
         if item.get("opposition_rate"):
             lines.append(f"- 반대율: {item.get('opposition_rate')}%")
     return "\n".join(lines)
-
-
-def register_tools(mcp):
-
-    @mcp.tool()
-    async def shareholder_meeting(
-        company: str,
-        meeting_type: str = "auto",
-        scope: str = "summary",
-        year: int = 0,
-        start_date: str = "",
-        end_date: str = "",
-        lookback_months: int = 12,
-        format: str = "md",
-    ) -> str:
-        """desc: 정기주총/임시주총 데이터 탭. 안건·이사 후보·보수한도·정관변경·결과를 scope별로 점진 로드한다.
-        when: 주총 일정, 안건, 후보자, 보수한도, 정관변경, 실제 의결 결과가 필요할 때.
-        rule: 회사 식별이 exact가 아니면 자동 선택 안 함. 정정공시 있으면 최신 정정본 자동 선택(_auto_rank_key). 소스는 DART 공시검색 + DART XML, 결과공시는 KIND whitelist(80→00 변환). PDF 다운로드 미사용.
-        meeting_type: `auto`=정기/임시 최신 회차 비교 후 대표성 높은 쪽 선택 / `annual`=정기만 / `extraordinary`=임시만 (임시주총 명시적으로 찾을 때)
-        scope: `summary`(기본, 정정공시 포함 메타) / `agenda`(안건 트리) / `board`(이사·감사 후보 경력) / `compensation`(보수한도) / `aoi_change`(정관변경 변경전/후/사유) / `results`(KIND 투표결과) / `full`(모든 scope 병렬)
-        year: 미지정 시 현재 기준 최근 12개월 window. 과거 연도 조사 시 year 명시 권장
-        ref: company, ownership_structure, proxy_contest, evidence
-        """
-        payload = await build_shareholder_meeting_payload(
-            company,
-            meeting_type=meeting_type,
-            scope=scope,
-            year=year or None,
-            start_date=start_date,
-            end_date=end_date,
-            lookback_months=lookback_months,
-        )
-        if format == "json":
-            return as_pretty_json(payload)
-        status = payload.get("status")
-        if status == "ambiguous":
-            return _render_ambiguous(payload)
-        if scope == "agenda":
-            return _render_agenda(payload)
-        if scope == "board":
-            return _render_board(payload)
-        if scope == "compensation":
-            return _render_compensation(payload)
-        if scope == "aoi_change":
-            return _render_aoi(payload)
-        if scope == "results":
-            return _render_results(payload)
-        if scope == "full":
-            return _render_full(payload)
-        if status in {"exact", "partial", "requires_review", "conflict"}:
-            return _render_summary(payload)
-        return _render_error(payload)
