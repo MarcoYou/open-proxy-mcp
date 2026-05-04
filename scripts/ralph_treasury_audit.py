@@ -47,6 +47,7 @@ def _audit_one(payload: dict) -> dict:
     executions = [e for e in events if e.get("phase") == "execution"]
     body_ok = sum(1 for e in executions if e.get("body_parsed"))
     matched = sum(1 for e in executions if e.get("linked_decision_rcept_no"))
+    out_of_lookback = sum(1 for e in executions if e.get("match_status") == "out_of_lookback")
     decisions = [e for e in events if e.get("phase") == "decision"]
     return {
         "n_events": len(events),
@@ -54,6 +55,7 @@ def _audit_one(payload: dict) -> dict:
         "n_executions": len(executions),
         "n_body_parsed": body_ok,
         "n_cycle_matched": matched,
+        "n_out_of_lookback": out_of_lookback,
     }
 
 
@@ -90,9 +92,13 @@ def _summarize(results: list[dict]) -> dict:
     n_body_parsed = sum(r["n_body_parsed"] for r in results)
     n_cycle_matched = sum(r["n_cycle_matched"] for r in results)
     n_decisions = sum(r["n_decisions"] for r in results)
+    n_out_of_lookback = sum(r.get("n_out_of_lookback", 0) for r in results)
+
+    n_matchable = n_executions - n_out_of_lookback  # 매칭 가능 모집단 (lookback 안)
 
     g1_pct = round(n_body_parsed / max(n_executions, 1) * 100, 2) if n_executions else 0
-    g2_pct = round(n_cycle_matched / max(n_executions, 1) * 100, 2) if n_executions else 0
+    g2_pct_raw = round(n_cycle_matched / max(n_executions, 1) * 100, 2) if n_executions else 0
+    g2_pct_adj = round(n_cycle_matched / max(n_matchable, 1) * 100, 2) if n_matchable else 0
 
     return {
         "n_companies": total,
@@ -109,9 +115,13 @@ def _summarize(results: list[dict]) -> dict:
         "g2_cycle_matched": {
             "n_matched": n_cycle_matched,
             "n_total": n_executions,
-            "pct": g2_pct,
+            "n_out_of_lookback": n_out_of_lookback,
+            "n_matchable": n_matchable,
+            "pct_raw": g2_pct_raw,
+            "pct_adjusted": g2_pct_adj,  # lookback 밖 제외
             "target_pct": 99.0,
-            "pass": g2_pct >= 99.0,
+            "pass": g2_pct_adj >= 99.0,
+            "note": "adjusted = matched / (executions in lookback) — out_of_lookback은 결정 record 없어 본질 매칭 불가",
         },
         "g3_phase_flag": {
             "pass": True,
