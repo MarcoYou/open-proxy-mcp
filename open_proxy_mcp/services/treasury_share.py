@@ -417,11 +417,13 @@ def _parse_trust_acquisition_status_body(text: str, html: str = "") -> dict[str,
         result["trust_holding_pct"] = _extract_acode(html, "HLD_RATE2")
         result["trustee_corp_code"] = _extract_acode(html, "CNS_CRP")
 
-    # 신탁계약 체결일 — text fallback
+    # 신탁계약 체결일 — text fallback (라벨 변형: "신탁계약 체결일", "계약체결일자")
     clean = re.sub(r"\s+", " ", text)
-    m = re.search(r"신탁계약\s*체결일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
-    if m:
-        result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    for label in (r"신탁계약\s*체결일", r"계약체결일자"):
+        m = re.search(label + r"[\s\S]{0,150}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
+        if m:
+            result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            break
 
     return {k: v for k, v in result.items() if v is not None}
 
@@ -459,9 +461,11 @@ def _parse_trust_termination_result_body(text: str, html: str = "") -> dict[str,
         result["trustee_corp_code"] = _extract_acode(html, "CNCL_CRP")
 
     clean = re.sub(r"\s+", " ", text)
-    m = re.search(r"신탁계약\s*체결일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
-    if m:
-        result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    for label in (r"신탁계약\s*체결일", r"계약체결일자", r"신탁계약체결일"):
+        m = re.search(label + r"[\s\S]{0,150}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
+        if m:
+            result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            break
     m = re.search(r"해지일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
     if m:
         result["termination_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
@@ -805,6 +809,82 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
 _DECISION_KEYS = ("acquisition", "disposal", "trust_contract", "trust_termination", "cancelation")
 _EXECUTION_KEYS = ("acquisition_result", "disposal_result", "trust_acquisition_status", "trust_termination_result")
 
+# 결정 ↔ 결과 사이클 매칭 — execution event type → 매칭 대상 decision type
+_CYCLE_MAP: dict[str, str] = {
+    "acquisition_result": "acquisition",
+    "disposal_result": "disposal",
+    "trust_acquisition_status": "trust_contract",
+    "trust_termination_result": "trust_termination",
+}
+
+
+def _norm_date(s: str) -> str:
+    """YYYYMMDD or YYYY-MM-DD → YYYY-MM-DD."""
+    if not s:
+        return ""
+    digits = "".join(ch for ch in s if ch.isdigit())
+    if len(digits) >= 8:
+        return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+    return s
+
+
+def _link_cycles(bundles: dict[str, list[dict]]) -> int:
+    """결과보고서 본문의 main_report_date / trust_contract_date를 결정 rcept_dt와 매칭.
+
+    실행 row에 linked_decision_rcept_no, 결정 row에 linked_execution_rcept_no 양방향 set.
+
+    Returns: 매칭 성공 execution 건수 (G2 metric).
+    """
+    matched_count = 0
+    for exec_key, dec_key in _CYCLE_MAP.items():
+        exec_rows = bundles.get(exec_key, []) or []
+        dec_rows = bundles.get(dec_key, []) or []
+        if not exec_rows or not dec_rows:
+            continue
+
+        # 결정 rcept_dt → row index
+        dec_by_date: dict[str, list[dict]] = {}
+        for dr in dec_rows:
+            d = _norm_date(dr.get("rcept_dt", ""))
+            if d:
+                dec_by_date.setdefault(d, []).append(dr)
+
+        for er in exec_rows:
+            # 1. 일자 매칭 — acq/dsp는 main_report_date, trust는 trust_contract_date
+            key_date = ""
+            if exec_key in ("acquisition_result", "disposal_result"):
+                key_date = _norm_date(er.get("main_report_date", "") or "")
+            else:
+                key_date = _norm_date(er.get("trust_contract_date", "") or "")
+
+            matched_dec = None
+            if key_date:
+                candidates = dec_by_date.get(key_date, [])
+                if candidates:
+                    matched_dec = candidates[0]
+
+            # 2. trust fallback — date 매칭 fail 시 가장 최근 (rcept_dt 가장 큰) trust_contract와 매칭
+            # 신탁취득상황은 직전 신탁체결, 신탁해지결과는 같은 사이클의 신탁체결과 매칭
+            if matched_dec is None and exec_key in ("trust_acquisition_status", "trust_termination_result"):
+                er_dt = er.get("rcept_dt", "")
+                # er_dt 이전 (또는 같은) 신탁체결 중 가장 최근
+                prior_decs = sorted(
+                    [d for d in dec_rows if d.get("rcept_dt", "") <= er_dt],
+                    key=lambda x: x.get("rcept_dt", ""),
+                    reverse=True,
+                )
+                if prior_decs:
+                    matched_dec = prior_decs[0]
+
+            if matched_dec is None:
+                continue
+
+            er["linked_decision_rcept_no"] = matched_dec.get("rcept_no", "")
+            matched_dec.setdefault("linked_execution_rcept_nos", []).append(er.get("rcept_no", ""))
+            matched_count += 1
+
+    return matched_count
+
 
 def _combined_events(bundles: dict[str, list[dict]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
@@ -1145,6 +1225,8 @@ async def build_treasury_share_payload(
     warnings: list[str] = list(window_warnings)
 
     bundles, fetch_warnings = await _fetch_decisions(selected["corp_code"], bgn_de, end_de)
+    # 결정 ↔ 결과 사이클 매칭 — main_report_date / trust_contract_date 키
+    cycle_matched = _link_cycles(bundles)
     warnings.extend(fetch_warnings)
 
     counts = _summary_counts(bundles)
@@ -1171,6 +1253,7 @@ async def build_treasury_share_payload(
             "lookback_months": lookback_months,
         },
         "summary": counts,
+        "cycle_matched_count": cycle_matched,
         **filing_meta,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
