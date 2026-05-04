@@ -80,3 +80,28 @@ adjusted metric에서 제외 (97.69% adjusted).
 - iter07_kospi_30.json (±3일, G2 raw 90.76% / adjusted 96.43%)
 - iter08_kospi_100.json (G2 raw 90.56% / adjusted 97.69%)
 - iter09_*.json (DART 차단으로 무효 측정)
+
+## iter 10 (코드 변경, 측정 보류)
+
+### normalize 보강 (User 요구: API로 얻는 정보 품질 최대화)
+
+추가 필드:
+- 취득결정: 보통주/우선주 별도 + 보유예상기간 + 위탁사 + 사외이사 참석/감사 참석
+- 처분결정: 보통주/우선주 별도 + 단가(시가) + 처분상대방 + 위탁사 + 사외이사 참석
+- 신탁체결/해지: 신탁기관 + 위탁사 + 사외이사 + 해지사유
+
+User 제외 (수집 X): 1일 매수/매도 한도, 공정위 신고, 액면가 (treasury 공시에 없음)
+
+### 측정 보류 사유
+
+DART API IP 차단 (Connection reset by peer):
+- 두 키 모두 동일 에러 (키 문제 X — IP 차단)
+- ping opendart.fss.or.kr 100% packet loss
+- 보통 24시간 cool-down
+
+수정된 normalize는 syntax 검증만 (직접 측정 X).
+차단 풀린 후 별도 spot 검증 필요.
+
+## Ralph 종료 권고
+
+96.43~97.69% G2 adjusted는 99% target 미달. 코드 측면 개선 (iter 10 normalize 보강) 완료. 측정은 IP 차단으로 보류. parse_personnel_xml ralph 패턴 — 정직 fallback으로 ralph cancel + acceptance level 협상 권장.
