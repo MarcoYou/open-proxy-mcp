@@ -173,7 +173,7 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     - 사외이사: 독립성 핵심. concerns 있으면 REVIEW.
     """
     if not eval_match:
-        return "REVIEW", "후보 평가 데이터 없음 — 사용자 검토 필요"
+        return "NO_DATA", "후보 평가 데이터 없음 — 본문 검토 필요"
     role_type = eval_match.get("role_type") or ""
     is_outside = "사외" in role_type or "outside" in role_type.lower() or "독립" in role_type
     is_audit = "감사" in role_type
@@ -228,7 +228,7 @@ def _decide_compensation(comp_payload: dict[str, Any] | None, fin_metrics_payloa
 
     if not comp_payload:
         fb = _fm_fallback()
-        return fb if fb else ("REVIEW", "보수 데이터 없음 — 본문 검토 필요")
+        return fb if fb else ("NO_DATA", "보수 + 재무 데이터 둘 다 없음 — 본문 검토 필요")
     data = comp_payload.get("data", {})
     summary = data.get("summary", {}) or {}
     util_rate = summary.get("utilization_rate_pct")
@@ -240,16 +240,19 @@ def _decide_compensation(comp_payload: dict[str, Any] | None, fin_metrics_payloa
         return "REVIEW", f"보수한도 대폭 인상 ({increase_rate:+.0f}%) — 사용자 검토"
     if increase_rate is None:
         fb = _fm_fallback()
-        return fb if fb else ("REVIEW", "보수한도 인상률 데이터 없음 — 본문 검토 필요")
+        return fb if fb else ("NO_DATA", "보수한도 인상률 + 재무 데이터 둘 다 없음 — 본문 검토 필요")
     if -10 <= increase_rate <= 10:
         return "FOR", f"보수한도 소폭 변경 ({increase_rate:+.0f}%) 또는 동결"
     return "REVIEW", f"보수한도 인상 ({increase_rate:+.0f}%) — 적정성 검토 필요"
 
 
 def _decide_financial_statements(fm_payload: dict[str, Any] | None) -> tuple[str, str]:
-    """재무제표 승인 → 감사의견 적정이면 FOR, 한정/부적정이면 AGAINST."""
+    """재무제표 승인 → 감사의견 적정이면 FOR, 한정/부적정이면 AGAINST.
+
+    데이터 없음 (cap_status / audit 둘 다 None) 시 NO_DATA (잘못된 자동 FOR 방지).
+    """
     if not fm_payload:
-        return "REVIEW", "재무 데이터 없음"
+        return "NO_DATA", "재무 데이터 없음 — 사업보고서 본문 검토 필요"
     data = fm_payload.get("data", {})
     audit = data.get("audit_opinion", {}) or {}
     summary = data.get("summary", {}) or {}
@@ -260,7 +263,9 @@ def _decide_financial_statements(fm_payload: dict[str, Any] | None) -> tuple[str
         return "AGAINST", "완전 자본잠식 (KOSDAQ 상장폐지 사유)"
     if latest_op and "적정" not in latest_op:
         return "AGAINST", f"감사의견 {latest_op}"
-    return "FOR", "감사의견 적정 + 자본잠식 없음"
+    if latest_op or cap_status is not None:
+        return "FOR", "감사의견 적정 + 자본잠식 없음"
+    return "NO_DATA", "재무 fact (감사의견 / 자본잠식 status) 미확인 — 사업보고서 본문 검토 필요"
 
 
 def _decide_articles_amendment(agenda_title: str) -> tuple[str, str]:
@@ -293,7 +298,120 @@ def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
         return "FOR", "자사주 소각 — 주주환원"
     if "처분" in t:
         return "REVIEW", "자사주 처분 — 우호 지분 형성 가능성 검토"
-    return "REVIEW", "자사주 안건 본문 검토 필요"
+    return "NO_DATA", "자사주 안건 세부 (소각/처분/취득) 미식별 — 본문 검토 필요"
+
+
+_POLICY_CITATIONS = {
+    "financial_statements": "OPM Guideline §재무제표 — 감사의견 적정 + 자본잠식 없음 시 FOR",
+    "cash_dividend": "OPM Guideline §배당 — 흑자 + 배당성향 적정 시 FOR (200% 초과 시 REVIEW)",
+    "director_election": "OPM Guideline §이사선임 — 사내이사: 결격만 검증 / 사외이사: 독립성 + 결격",
+    "audit_committee_election": "OPM Guideline §감사위원 — strict 검증 (장기연임 5년 룰 + 독립성)",
+    "director_compensation": "OPM Guideline §보수 — 소진율 < 30% + 인상 시 AGAINST",
+    "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 없으면 FOR",
+    "treasury_share": "OPM Guideline §자사주 — 소각 FOR / 처분 REVIEW",
+    "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
+    "shareholder_proposal": "OPM Guideline §주주제안 — 본문 검토",
+    "other": "OPM Guideline §기타 — 위험 키워드 (감자/적대적/포이즌/CB) 없으면 mainstream FOR",
+}
+
+
+def _policy_citation(category: str) -> str:
+    return _POLICY_CITATIONS.get(category, _POLICY_CITATIONS["other"])
+
+
+def _extract_facts(
+    category: str,
+    title: str,
+    eval_match: dict[str, Any] | None,
+    fin_payload: dict[str, Any] | None,
+    comp_payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """카테고리별 검증 가능한 정량 fact dict (None 값은 제외)."""
+    fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
+    audit = ((fin_payload or {}).get("data") or {}).get("audit_opinion", {}) or {}
+    comp_summary = ((comp_payload or {}).get("data") or {}).get("summary", {}) or {}
+    facts: dict[str, Any] = {}
+
+    if category == "financial_statements":
+        latest_op = audit.get("summary", {}).get("latest_opinion") if "summary" in audit else None
+        facts["audit_opinion"] = latest_op
+        facts["net_income_krw"] = fin_summary.get("net_income_krw")
+        facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
+    elif category == "cash_dividend":
+        facts["payout_ratio_pct"] = fin_summary.get("payout_ratio_pct")
+        facts["net_income_krw"] = fin_summary.get("net_income_krw")
+        facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
+    elif category == "director_compensation":
+        facts["increase_rate_pct"] = comp_summary.get("increase_rate_pct")
+        facts["utilization_rate_pct"] = comp_summary.get("utilization_rate_pct")
+        facts["limit_krw"] = comp_summary.get("limit_krw")
+    elif category in ("director_election", "audit_committee_election") and eval_match:
+        facts["candidate_name"] = eval_match.get("name")
+        facts["role_type"] = eval_match.get("role_type")
+        facts["independence"] = (eval_match.get("independence") or {}).get("summary")
+        facts["disqualification"] = (eval_match.get("disqualification") or {}).get("summary")
+        ah = (eval_match.get("faithfulness") or {}).get("audit_history_check", {}).get("summary")
+        if ah:
+            facts["audit_history_check"] = ah
+
+    return {k: v for k, v in facts.items() if v is not None}
+
+
+def _extract_risks(
+    category: str,
+    eval_match: dict[str, Any] | None,
+    fin_payload: dict[str, Any] | None,
+    comp_payload: dict[str, Any] | None,
+    title: str,
+) -> list[str]:
+    """카테고리별 위험 신호 list (LLM/사용자 추가 검토 hint)."""
+    fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
+    comp_summary = ((comp_payload or {}).get("data") or {}).get("summary", {}) or {}
+    risks: list[str] = []
+
+    cap_status = fin_summary.get("capital_impairment_status")
+    if cap_status == "full":
+        risks.append("완전 자본잠식")
+    elif cap_status == "partial":
+        risks.append("부분 자본잠식")
+    ni = fin_summary.get("net_income_krw")
+    if ni is not None and ni < 0 and category in ("cash_dividend", "director_compensation"):
+        risks.append(f"적자 (순익 {ni:,}원)")
+
+    if category in ("director_election", "audit_committee_election") and eval_match:
+        disq = (eval_match.get("disqualification") or {}).get("summary")
+        indep = (eval_match.get("independence") or {}).get("summary")
+        ah = (eval_match.get("faithfulness") or {}).get("audit_history_check", {}).get("summary")
+        if disq == "red_flag":
+            risks.append("결격사유")
+        if indep == "concerns":
+            risks.append("독립성 우려 (최대주주 관계 / 회사 거래 / 이전 회사 직원)")
+        elif indep == "long_tenure_concerns":
+            risks.append("장기연임 (5년 룰)")
+        if ah == "red_flag":
+            risks.append("이사 회계 risk 이력 발견 (raw 메모 검토)")
+
+    if category == "director_compensation":
+        util = comp_summary.get("utilization_rate_pct")
+        inc = comp_summary.get("increase_rate_pct")
+        if util is not None and util < 30 and inc and inc > 0:
+            risks.append(f"소진율 {util:.0f}%인데 인상 {inc:+.0f}%")
+        elif inc is not None and inc >= 50:
+            risks.append(f"한도 대폭 인상 {inc:+.0f}%")
+
+    if category == "cash_dividend":
+        payout = fin_summary.get("payout_ratio_pct")
+        if payout is not None and payout > 200:
+            risks.append(f"배당성향 {payout}% (>200%)")
+
+    if category == "articles_amendment":
+        t = title or ""
+        if "집중투표" in t and ("배제" in t or "삭제" in t):
+            risks.append("집중투표 배제")
+        if "초다수결의제" in t:
+            risks.append("초다수결의제 도입")
+
+    return risks
 
 
 def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, company_name: str = "") -> tuple[str, str]:
@@ -308,7 +426,7 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
         return "FOR", f"리츠 (REIT) — 의무배당 90%+ 회사 (회사명: {company_name})"
 
     if not fm_payload:
-        return "REVIEW", "재무 데이터 없음 — 배당 적정성 본문 검토 필요"
+        return "NO_DATA", "재무 데이터 없음 — 배당 적정성 본문 검토 필요"
     summary = (fm_payload.get("data") or {}).get("summary", {}) or {}
     cap_status = summary.get("capital_impairment_status")
     ni = summary.get("net_income_krw")
@@ -329,6 +447,8 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
         return "REVIEW", f"배당성향 {payout}% (>200%) — 명백한 과도 배당"
     if ni is not None and ni > 0 and cap_status != "partial":
         return "FOR", f"흑자 + 자본 양호 (배당성향 {payout if payout is not None else '?'}%)"
+    if ni is None and cap_status is None and payout is None:
+        return "NO_DATA", "재무 fact 미확인 — 배당 적정성 본문 검토 필요"
     return "REVIEW", "배당 적정성 본문 검토 필요"
 
 
@@ -384,6 +504,22 @@ async def build_proxy_advise_payload(
 
     selected = resolution.selected
     target_year = year or date.today().year - 1
+    # 재무 fiscal year 매핑.
+    # 주총 N년 안건 = "FY(N-1) 재무제표 승인의 건" (소집공고에서 그대로 추출).
+    # 단, FY(N-1) 사업보고서는 주총 직전 막 공시된 신선한 데이터 — 분석 reference로 부적합.
+    # 직전 fully-audited 안정 데이터 = FY(N-2) 사업보고서 (작년 주총에서 이미 승인 완료).
+    # ex) 2026 주총 → 안건은 FY25 재무제표 승인 / 분석 reference는 FY24 지표.
+    fin_year = target_year - 2
+
+    # scope="all" auto fallback to "decisions" — 8 upstream 동시 호출은 Claude.ai timeout 60s 자주 초과.
+    # 사용자 효용 거의 동일 (decisions에 핵심 정보 모두 포함). warning은 data dict에 명시.
+    scope_all_warning: str | None = None
+    if scope == "all":
+        scope_all_warning = (
+            "scope='all'은 8 upstream 동시 호출로 timeout 위험이 커 자동으로 'decisions'로 전환됨. "
+            "특정 영역 detail이 필요하면 scope을 individually 호출 (proxy_battle / engagement / policy_basis 등)."
+        )
+        scope = "decisions"
 
     # vote_style 정책 로딩 (success / soft-fail)
     policy = _load_vote_style_policy(vote_style)
@@ -449,7 +585,7 @@ async def build_proxy_advise_payload(
         _safe_throttled(build_shareholder_meeting_payload, company_query, scope="compensation", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_ownership_structure_payload, company_query, scope="control_map"),
         _safe_throttled(build_corp_gov_report_payload, company_query, scope="summary"),
-        _safe_throttled(build_financial_metrics_payload, company_query, scope="summary", year=target_year),
+        _safe_throttled(build_financial_metrics_payload, company_query, scope="summary", year=fin_year),
         _safe_throttled(build_director_evaluation_payload, company_query, year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
     )
 
@@ -476,12 +612,12 @@ async def build_proxy_advise_payload(
     agenda_decisions: list[dict[str, Any]] = []
     for title in agenda_titles:
         category = _classify_agenda(title)
-        decision = "REVIEW"
-        reason = "category 미분류"
+        decision = "NO_DATA"
+        reason = "category 미분류 — 본문 검토 필요"
+        matched_eval: dict[str, Any] | None = None
 
         # 1. OPM 기본 logic으로 fallback decision 산출
         if category == "director_election" or category == "audit_committee_election":
-            matched_eval = None
             for nm, ev in name_to_eval.items():
                 if nm and nm in title:
                     matched_eval = ev
@@ -522,15 +658,11 @@ async def build_proxy_advise_payload(
                     note = f" (사외 {len(outside_evals)}명 중 일부 indep concerns — 개별 사외이사 안건에서 검토)" if indep_concerns_outside else ""
                     decision, reason = "FOR", f"묶음 안건 — 결격사유 없음, 후보 {len(relevant_evals)}명{note}"
             else:
-                # ralph iter16: matched_eval None + name_to_eval 비어있음 (후보 데이터 자체 없음)
-                # → 운용사 mainstream default FOR (셀트리온 53/70 등). director_evaluation
-                # 본문 parse 실패 case에서 REVIEW가 mainstream과 큰 차이 만듦.
-                # red_flag signal 없으면 FOR (정직한 caveat note 포함).
+                # 사용자 요구 (2026-05): 데이터/근거 없으면 NO_DATA 반환 (자동 FOR 금지).
+                # 이전 mainstream default FOR 로직 폐기 — 정직 fallback 우선.
                 if matched_eval is None and not name_to_eval:
-                    # iter24 검증: records 표본 audit 데이터 없음 case도 mainstream FOR 다수.
-                    # 정직 fallback (REVIEW) 시 mainstream miss → default FOR 회귀.
-                    decision = "FOR"
-                    reason = "후보 평가 데이터 없음 (본문 parse 실패) — mainstream default FOR (개별 검증 권고)"
+                    decision = "NO_DATA"
+                    reason = "후보 평가 데이터 없음 (본문 parse 실패) — 본문 검토 필요"
                 else:
                     # iter21: audit_committee_election은 role_type 무관 strict 검증.
                     # 상근감사 같은 case에서 role_type 빈 string → 사내이사 fallback (자동 FOR) 위험.
@@ -585,11 +717,19 @@ async def build_proxy_advise_payload(
         else:
             policy_basis += f" / case_by_case → OPM fallback"
 
+        # 4. 결정 근거 보강 — facts (정량) + risk_factors + policy_citation
+        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp)
+        risk_factors = _extract_risks(category, matched_eval, fin_metrics, meeting_comp, title)
+        policy_citation = _policy_citation(category)
+
         agenda_decisions.append({
             "agenda_title": title,
             "agenda_category": category,
             "decision": decision,
             "reason": reason,
+            "facts": facts,
+            "risk_factors": risk_factors,
+            "policy_citation": policy_citation,
             "policy_basis": policy_basis,
             "policy_default": policy_default,
             "opm_fallback_decision": original_decision if (policy_default and policy_default != "case_by_case") else None,
@@ -628,6 +768,7 @@ async def build_proxy_advise_payload(
         "company_id": _company_id(selected),
         "canonical_name": selected.get("corp_name"),
         "year": target_year,
+        "fin_reference_year": fin_year,
         "meeting_type": meeting_type,
         "vote_style": vote_style,
         "vote_style_policy_id": policy_id,
@@ -646,28 +787,25 @@ async def build_proxy_advise_payload(
         "usage": build_usage(client.api_call_snapshot() - calls_start),
     }
 
-    # scope=all 사용 자제 권고 (Claude.ai timeout 60s 위험)
-    if scope == "all":
-        data["scope_all_warning"] = (
-            "scope='all'은 8 upstream 동시 호출로 평균 30-60s 소요 — Claude.ai timeout 60s 자주 초과. "
-            "default scope='decisions'가 핵심 정보 모두 포함. 특정 영역 detail은 scope별 따로 호출 권장."
-        )
+    # scope="all" → "decisions" auto fallback warning (위에서 scope 변환 시 set)
+    if scope_all_warning:
+        data["scope_all_warning"] = scope_all_warning
 
     # scope별 raw upstream 추가 노출 (Step 3)
-    if scope in ("agenda", "all"):
+    if scope == "agenda":
         data["agenda_full"] = agenda_data  # 트리/카테고리 raw
-    if scope in ("candidates", "all"):
+    if scope == "candidates":
         # candidates_evaluations 이미 base에 있음 — full director_data raw 추가
         data["candidates_full"] = director_data
-    if scope in ("financial", "all"):
+    if scope == "financial":
         data["financial_full"] = fin_metrics.get("data")
-    if scope in ("governance", "all"):
+    if scope == "governance":
         data["governance_full"] = gov_report.get("data")
-    if scope in ("ownership", "all"):
+    if scope == "ownership":
         data["ownership_full"] = ownership.get("data")
 
     # Step 4a: policy_basis scope — 7 운용사 + NPS history 비교
-    if scope in ("policy_basis", "all"):
+    if scope == "policy_basis":
         try:
             data["policy_basis"] = build_policy_comparison(
                 corp_name=selected.get("corp_name", ""),

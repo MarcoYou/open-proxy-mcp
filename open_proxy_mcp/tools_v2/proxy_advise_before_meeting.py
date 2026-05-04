@@ -37,7 +37,9 @@ def _render(payload: dict[str, Any]) -> str:
     if data.get("scope_all_warning"):
         lines.append(f"> ⚠ **{data['scope_all_warning']}**")
         lines.append("")
-    lines.append(f"- 회차: {data.get('year')}년 {data.get('meeting_type')} 주총")
+    fin_ref = data.get("fin_reference_year")
+    fin_ref_note = f" (재무 reference: FY{fin_ref})" if fin_ref else ""
+    lines.append(f"- 회차: {data.get('year')}년 {data.get('meeting_type')} 주총{fin_ref_note}")
     lines.append(f"- vote_style: `{data.get('vote_style')}` / 이사 회계 risk 이력 검증: {'활성' if data.get('audit_history_enabled') else '비활성'}")
     lines.append(f"- status: `{payload.get('status')}` / filing_status: `{data.get('filing_status', '-')}`")
     lines.append(f"- 안건: {data.get('agenda_count')} / 후보: {data.get('candidates_count')}")
@@ -55,9 +57,41 @@ def _render(payload: dict[str, Any]) -> str:
             cat = ag.get("agenda_category", "-")
             decision = ag.get("decision", "-")
             reason = (ag.get("reason") or "")[:80]
-            decision_emoji = {"FOR": "✓ FOR", "AGAINST": "✗ AGAINST", "REVIEW": "? REVIEW"}.get(decision, decision)
+            decision_emoji = {
+                "FOR": "✓ FOR",
+                "AGAINST": "✗ AGAINST",
+                "REVIEW": "? REVIEW",
+                "NO_DATA": "— NO_DATA",
+            }.get(decision, decision)
             lines.append(f"| {i} | {title} | `{cat}` | **{decision_emoji}** | {reason} |")
         lines.append("")
+
+        # 안건별 결정 근거 detail (facts + risk + policy citation + 근거 공고)
+        lines.append("### 안건별 결정 근거 (사실 + 위험 + 정책 + 출처)")
+        lines.append("")
+        for i, ag in enumerate(decisions, 1):
+            title = (ag.get("agenda_title") or "")[:80]
+            facts = ag.get("facts") or {}
+            risks = ag.get("risk_factors") or []
+            citation = ag.get("policy_citation") or "-"
+            policy_basis = ag.get("policy_basis") or "-"
+            rcept_no = ag.get("evidence_rcept_no")
+            lines.append(f"**{i}. {title}** — {ag.get('decision','-')}")
+            if facts:
+                fact_str = ", ".join(f"{k}={v}" for k, v in facts.items())
+                lines.append(f"- 사실(facts): {fact_str}")
+            else:
+                lines.append("- 사실(facts): (해당 카테고리에 정량 fact 없음)")
+            if risks:
+                lines.append(f"- 위험 신호: {', '.join(risks)}")
+            else:
+                lines.append("- 위험 신호: 없음")
+            lines.append(f"- 정책 인용: {citation}")
+            lines.append(f"- 적용 정책: {policy_basis}")
+            if rcept_no:
+                viewer = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
+                lines.append(f"- 근거 공고: [주주총회소집공고 {rcept_no}]({viewer})")
+            lines.append("")
 
     # 후보 평가 (사외이사/감사위원 위주)
     cands = data.get("candidates_evaluations", []) or []
@@ -124,6 +158,17 @@ def _render(payload: dict[str, Any]) -> str:
         for r in refs[:5]:
             url = r.get("viewer_url") or "-"
             lines.append(f"- {r.get('section', '-')}: [{r.get('rcept_no', '-')}]({url}) — {r.get('note', '')}")
+        lines.append("")
+
+    # 추가 분석 영역 — 짧게. 사용자가 자연스럽게 후속 질문 유도 (도구는 Claude가 알아서 매칭)
+    decisions_local = data.get("agenda_decisions", []) or []
+    has_director = any(ad.get("agenda_category") in ("director_election", "audit_committee_election") for ad in decisions_local)
+    topics: list[str] = ["배당", "지분 구조·행동주의", "가치제고 plan", "운용사별 정책 비교", "재무 detail"]
+    if has_director:
+        topics.append("후보 회계 risk 이력 (`check_audit_history=True`)")
+
+    lines.append("---")
+    lines.append(f"_더 보고 싶은 영역: {' · '.join(topics)} — 이어서 물어보시면 영역별로 더 자세히 분석합니다._")
 
     return "\n".join(lines)
 
@@ -151,7 +196,7 @@ def register_tools(mcp):
           - proxy_battle: 위임장 분쟁 + 5%블록 (proxy_contest 추가 호출 — 비교적 빠름).
           - engagement: 가치제고 plan + IR history (value_up 추가 호출).
           - evidence: 결정 근거 trace (raw_sources 추가, 호출 X).
-          - **⚠ scope="all"**: 8 upstream 동시 호출 → 평균 30-60s, **Claude.ai timeout 60s 초과 자주 발생**. 사용 자제 권장. 필요 시 scope별 따로 호출.
+          - **⚠ scope="all"**: 자동으로 'decisions'로 fallback (8 upstream 호출 시 timeout 60s 빈번 — 사용자 효용도 거의 없음). 특정 영역 detail은 scope별 따로 호출.
         check_audit_history: True 시 후보의 과거 회사 × 재직 기간 × 회계 risk overlap 자동 cross-check (추가 DART 호출 발생, +30s).
         meeting_type: annual (default 정기) / extraordinary (임시) / auto (본문에서 자동 detect). 잘못된 meeting_type 입력 시 다음 공고 fallback.
         ref: shareholder_meeting / ownership_structure / corp_gov_report / financial_metrics / proxy_guideline / director_evaluation, proxy_result_after_meeting (사후)
