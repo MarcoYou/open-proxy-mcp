@@ -43,11 +43,10 @@ from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payloa
 from open_proxy_mcp.services.director_evaluation import build_director_evaluation_payload
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
-from open_proxy_mcp.services.policy_comparison import build_policy_comparison
-from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload
-from open_proxy_mcp.services.proxy_guideline import build_proxy_guideline_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
-from open_proxy_mcp.services.value_up_v2 import build_value_up_payload
+# Removed dead imports (archived at wiki/archive/services/):
+#   policy_comparison / proxy_guideline / proxy_guideline_scoring
+# Removed: proxy_contest / value_up — specialized scope 폐지로 더 이상 chain 안 함
 
 
 # ── F11 (Phase 4): process-level result cache ──
@@ -835,101 +834,12 @@ async def build_proxy_advise_payload(
         "usage": build_usage(client.api_call_snapshot() - calls_start),
     }
 
-    # scope="all" → "decisions" auto fallback warning (위에서 scope 변환 시 set)
-    if scope_all_warning:
-        data["scope_all_warning"] = scope_all_warning
-
-    # scope별 raw upstream 추가 노출 (Step 3)
-    if scope == "agenda":
-        data["agenda_full"] = agenda_data  # 트리/카테고리 raw
-    if scope == "candidates":
-        # candidates_evaluations 이미 base에 있음 — full director_data raw 추가
-        data["candidates_full"] = director_data
-    if scope == "financial":
-        data["financial_full"] = fin_metrics.get("data")
-    if scope == "governance":
-        data["governance_full"] = gov_report.get("data")
-    if scope == "ownership":
-        data["ownership_full"] = ownership.get("data")
-
-    # Step 4a: policy_basis scope — 7 운용사 + NPS history 비교
-    if scope == "policy_basis":
-        try:
-            data["policy_basis"] = build_policy_comparison(
-                corp_name=selected.get("corp_name", ""),
-                agenda_decisions=agenda_decisions,
-            )
-        except Exception as exc:
-            data["policy_basis"] = {
-                "error": f"policy_comparison 실패: {type(exc).__name__}: {exc}",
-                "comparison": [],
-            }
-
-    # Step 4b: proxy_battle scope — 위임장 분쟁 + 5%블록 + 행동주의 신호 (campaign_brief 사전 흡수)
-    if scope in ("proxy_battle", "all"):
-        try:
-            pc = await asyncio.wait_for(
-                build_proxy_contest_payload(company_query, scope="summary"),
-                timeout=60.0,
-            )
-            pc_data = pc.get("data") or {}
-            ownership_data_dict = ownership.get("data") or {}
-            control_map_dict = ownership_data_dict.get("control_map") or {}
-            data["proxy_battle"] = {
-                "active_5pct_blocks": control_map_dict.get("active_non_overlap_blocks", []),
-                "active_overlap_blocks": control_map_dict.get("active_overlap_blocks", []),
-                "proxy_solicitation": pc_data.get("proxy_filings", []),
-                "litigation_signals": pc_data.get("litigation_filings", []),
-                "block_signals": pc_data.get("block_signals", []),
-                "campaign_targets_observed": pc_data.get("campaign_hints", []),
-            }
-        except Exception as exc:
-            data["proxy_battle"] = {
-                "error": f"proxy_contest 실패: {type(exc).__name__}: {exc}",
-            }
-
-    # Step 4c: engagement scope — 회사-운용사 IR 컨텍스트 (engagement_case 흡수)
-    if scope in ("engagement", "all"):
-        try:
-            vu = await asyncio.wait_for(
-                build_value_up_payload(company_query, scope="summary"),
-                timeout=60.0,
-            )
-            vu_data = vu.get("data") or {}
-            data["engagement"] = {
-                "value_up_plan": {
-                    "latest": vu_data.get("latest"),
-                    "items_count": len(vu_data.get("items", []) or []),
-                    "highlights": (vu_data.get("highlights") or [])[:6],
-                },
-                "ownership_summary": (ownership.get("data") or {}).get("summary"),
-                "ir_disclosure_history": [],  # 추후 KIND IR 통합 (TO_DO)
-            }
-        except Exception as exc:
-            data["engagement"] = {
-                "error": f"value_up 실패: {type(exc).__name__}: {exc}",
-            }
-
-    # Step 4d: evidence scope — 결정 근거 trace (모든 fact statement → source upstream + raw 인용)
-    if scope in ("evidence", "all"):
-        data["evidence_trace"] = [
-            {
-                "agenda_title": ad.get("agenda_title"),
-                "agenda_category": ad.get("agenda_category"),
-                "decision": ad.get("decision"),
-                "reason": ad.get("reason"),
-                "policy_basis": ad.get("policy_basis"),
-                "policy_default": ad.get("policy_default"),
-                "evidence_rcept_no": ad.get("evidence_rcept_no"),
-                "raw_sources": {
-                    "financial_summary": (fin_metrics.get("data") or {}).get("summary"),
-                    "ownership_summary": (ownership.get("data") or {}).get("summary"),
-                    "governance_summary": (gov_report.get("data") or {}).get("summary"),
-                    "compensation_summary": (meeting_comp.get("data") or {}).get("summary"),
-                },
-            }
-            for ad in agenda_decisions
-        ]
+    # 단일 scope (decisions) — 모든 specialized scope 폐지.
+    # 사용자가 raw upstream 보고 싶으면 각 tool 직접 호출:
+    # - agenda → shareholder_meeting_notice(scope="agenda")
+    # - candidates → director_evaluation은 internal, 후보 detail은 본 응답의 candidates_evaluations 활용
+    # - financial / governance / ownership → financial_metrics / corp_gov_report / ownership_structure
+    # - policy_basis / proxy_battle / engagement → 별도 ralph 또는 사용 시 archive에서 부활
 
     return ToolEnvelope(
         tool="proxy_advise_before_meeting",
