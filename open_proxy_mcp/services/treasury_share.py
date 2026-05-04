@@ -648,6 +648,67 @@ async def _enrich_cancelation_with_body(rows: list[dict[str, Any]]) -> int:
     return failures
 
 
+def _normalize_result_report(item: dict[str, Any], event_type: str) -> dict[str, Any]:
+    """결과보고서 list.json item → 표준 row dict (body parse는 별도)."""
+    return {
+        "event": event_type,
+        "phase": "execution",
+        "rcept_no": item.get("rcept_no", ""),
+        "rcept_dt": item.get("rcept_dt", ""),
+        "report_name": item.get("report_nm", ""),
+        "corp_code": item.get("corp_code", ""),
+    }
+
+
+_RESULT_PARSER_MAP = {
+    "acquisition_result": _parse_acquisition_result_body,
+    "disposal_result": _parse_disposal_result_body,
+    "trust_acquisition_status": _parse_trust_acquisition_status_body,
+    "trust_termination_result": _parse_trust_termination_result_body,
+}
+
+
+async def _enrich_result_reports_with_body(*row_lists: list[dict[str, Any]]) -> int:
+    """결과보고서 4 type 본문 fetch + ACODE 기반 body parse + row enrich.
+
+    Returns: 본문 파싱 실패 건수.
+    """
+    all_rows: list[dict[str, Any]] = []
+    for lst in row_lists:
+        all_rows.extend(lst)
+    if not all_rows:
+        return 0
+    client = get_dart_client()
+
+    async def fetch(rcept_no: str):
+        if not rcept_no:
+            return None
+        try:
+            return await client.get_document_cached(rcept_no)
+        except Exception:
+            return None
+
+    docs = await asyncio.gather(*[fetch(r.get("rcept_no", "")) for r in all_rows])
+    failures = 0
+    for row, doc in zip(all_rows, docs):
+        if not doc:
+            failures += 1
+            continue
+        parser = _RESULT_PARSER_MAP.get(row.get("event"))
+        if parser is None:
+            failures += 1
+            continue
+        parsed = parser(doc.get("text", "") or "", html=doc.get("html", "") or "")
+        if not parsed:
+            failures += 1
+            continue
+        for k, v in parsed.items():
+            if v not in (None, "", 0):
+                row[k] = v
+        row["body_parsed"] = True
+    return failures
+
+
 async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[dict[str, list[dict]], list[str]]:
     """취득·처분·신탁체결·신탁해지 4개 API 병렬 호출 + 소각결정 list.json 검색."""
 
@@ -678,10 +739,29 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
             return [], f"자사주 소각결정 조회 실패: {error}"
         return items, None
 
-    (acq, w1), (dsp, w2), (trc, w3), (trt, w4), (ret, w5) = await asyncio.gather(
-        acq_task, dsp_task, trc_task, trt_task, cancelation_search()
+    async def keyword_search(keywords, label):
+        # 결과보고서는 list.json에서 pblntf_ty="" (빈 문자열, 분류 없음). 빈 문자열로 전체 검색.
+        items, _notices, error = await search_filings_by_report_name(
+            corp_code=corp_code,
+            bgn_de=bgn_de,
+            end_de=end_de,
+            pblntf_tys="",
+            keywords=keywords,
+            strip_spaces=True,
+        )
+        if error:
+            return [], f"{label} 조회 실패: {error}"
+        return items, None
+
+    (acq, w1), (dsp, w2), (trc, w3), (trt, w4), (ret, w5), \
+        (acq_res, w6), (dsp_res, w7), (trust_acq_status, w8), (trust_term_res, w9) = await asyncio.gather(
+        acq_task, dsp_task, trc_task, trt_task, cancelation_search(),
+        keyword_search(_ACQUISITION_RESULT_KEYWORDS, "자기주식취득결과보고서"),
+        keyword_search(_DISPOSAL_RESULT_KEYWORDS, "자기주식처분결과보고서"),
+        keyword_search(_TRUST_ACQ_STATUS_KEYWORDS, "신탁취득상황보고서"),
+        keyword_search(_TRUST_TERM_RESULT_KEYWORDS, "신탁해지결과보고서"),
     )
-    warnings = [w for w in (w1, w2, w3, w4, w5) if w]
+    warnings = [w for w in (w1, w2, w3, w4, w5, w6, w7, w8, w9) if w]
 
     cancelation_rows = [_normalize_cancelation_row(i) for i in ret]
     # 본문 파싱으로 소각 주식수·금액(KRW) 추출 — 자사주 소각 분석용. CSR 분자에는 사용하지 않음 (acquire 사용).
@@ -697,18 +777,43 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
             f"[기재정정] 중복 {raw_cnt - len(cancelation_rows)}건을 제거해 소각 합산했다."
         )
 
+    # 결과보고서 4종 — list.json 메타 → 본문 파싱 enrich
+    acq_res_rows = [_normalize_result_report(i, "acquisition_result") for i in acq_res]
+    dsp_res_rows = [_normalize_result_report(i, "disposal_result") for i in dsp_res]
+    trust_acq_status_rows = [_normalize_result_report(i, "trust_acquisition_status") for i in trust_acq_status]
+    trust_term_res_rows = [_normalize_result_report(i, "trust_termination_result") for i in trust_term_res]
+
+    fail_count = await _enrich_result_reports_with_body(
+        acq_res_rows, dsp_res_rows, trust_acq_status_rows, trust_term_res_rows
+    )
+    if fail_count:
+        warnings.append(f"결과보고서 본문 파싱 실패 {fail_count}건 — 합계가 0으로 보일 수 있다.")
+
     return {
         "acquisition": [_normalize_acquisition(i) for i in acq],
         "disposal": [_normalize_disposal(i) for i in dsp],
         "trust_contract": [_normalize_trust(i, "trust_contract", "자기주식 취득 신탁계약 체결 결정") for i in trc],
         "trust_termination": [_normalize_trust(i, "trust_termination", "자기주식 취득 신탁계약 해지 결정") for i in trt],
         "cancelation": cancelation_rows,
+        "acquisition_result": acq_res_rows,
+        "disposal_result": dsp_res_rows,
+        "trust_acquisition_status": trust_acq_status_rows,
+        "trust_termination_result": trust_term_res_rows,
     }, warnings
+
+
+_DECISION_KEYS = ("acquisition", "disposal", "trust_contract", "trust_termination", "cancelation")
+_EXECUTION_KEYS = ("acquisition_result", "disposal_result", "trust_acquisition_status", "trust_termination_result")
 
 
 def _combined_events(bundles: dict[str, list[dict]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for key in ("acquisition", "disposal", "trust_contract", "trust_termination", "cancelation"):
+    for key in _DECISION_KEYS:
+        for r in bundles.get(key, []):
+            r.setdefault("phase", "decision")
+            rows.append(r)
+    for key in _EXECUTION_KEYS:
+        # _normalize_result_report에서 phase=execution 이미 set
         rows.extend(bundles.get(key, []))
     rows.sort(key=lambda r: (r.get("rcept_dt", ""), r.get("rcept_no", "")), reverse=True)
     return rows
