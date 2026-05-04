@@ -9,11 +9,21 @@ from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 
 
 _EVENT_LABELS = {
+    # decisions
     "acquisition_decision": "취득결정",
     "disposal_decision": "처분결정",
     "trust_contract": "신탁체결",
     "trust_termination": "신탁해지",
     "cancelation_decision": "소각결정",
+    # 일부 코드는 event 키가 없거나 다른 string — fallback
+    "acquisition": "취득결정",
+    "disposal": "처분결정",
+    "cancelation": "소각결정",
+    # executions (NEW)
+    "acquisition_result": "취득결과",
+    "disposal_result": "처분결과",
+    "trust_acquisition_status": "신탁취득상황",
+    "trust_termination_result": "신탁해지결과",
 }
 
 
@@ -78,17 +88,32 @@ def _render(payload: dict[str, Any], scope: str) -> str:
 
     events_to_show = data.get("events") or data.get("latest_events") or []
     if events_to_show:
+        cycle_matched = data.get("cycle_matched_count")
+        cycle_note = f" (사이클 매칭 {cycle_matched}건)" if cycle_matched else ""
         lines.extend([
             "",
-            "## 이벤트 타임라인",
-            "| 공시일 | 유형 | 주식수 | 금액(원) | 공시명 | rcept_no |",
-            "|--------|------|--------|---------|--------|----------|",
+            f"## 이벤트 타임라인{cycle_note}",
+            "| 공시일 | phase | 유형 | 주식수 | 금액(원) | 사이클 link | rcept_no |",
+            "|--------|-------|------|--------|---------|-------------|----------|",
         ])
-        for ev in events_to_show[:30]:
+        for ev in events_to_show[:40]:
             ev_type = _EVENT_LABELS.get(ev.get("event", ""), ev.get("event", ""))
-            shares = f"{ev.get('shares', 0):,}" if ev.get("shares") else "-"
-            amount = f"{ev.get('amount_krw', 0):,}" if ev.get("amount_krw") else "-"
-            lines.append(f"| {ev.get('rcept_dt', '-')} | {ev_type} | {shares} | {amount} | {ev.get('report_nm', '')} | `{ev.get('rcept_no', '')}` |")
+            phase = (ev.get("phase") or "-")
+            phase_mark = "[D]" if phase == "decision" else ("[E]" if phase == "execution" else "")
+            # decisions: shares/amount_krw, executions: actual_shares/actual_amount_krw 또는 acquired_shares/acquired_amount_krw
+            shares = ev.get("shares") or ev.get("actual_shares") or ev.get("acquired_shares") or 0
+            amount = (ev.get("amount_krw") or ev.get("actual_amount_krw")
+                      or ev.get("total_amount_krw") or ev.get("acquired_amount_krw") or 0)
+            shares_str = f"{shares:,}" if shares else "-"
+            amount_str = f"{amount:,}" if amount else "-"
+            link = ""
+            if ev.get("linked_decision_rcept_no"):
+                link = f"→ {ev['linked_decision_rcept_no']}"
+            elif ev.get("linked_execution_rcept_nos"):
+                link = f"← {','.join(ev['linked_execution_rcept_nos'][:2])}"
+            lines.append(f"| {ev.get('rcept_dt', '-')} | {phase_mark} | {ev_type} | {shares_str} | {amount_str} | {link} | `{ev.get('rcept_no', '')}` |")
+        lines.append("")
+        lines.append("> [D]=결정 (사전 의도) / [E]=결과보고서 (사후 집행). 사이클 link로 결정↔결과 매칭.")
 
     if scope == "annual" and data.get("annual"):
         annual = data["annual"]
@@ -120,11 +145,14 @@ def register_tools(mcp):
         lookback_months: int = 24,
         format: str = "md",
     ) -> str:
-        """desc: 자기주식 이벤트 전용 tool. 취득·처분·소각·신탁 결정 공시를 한 탭에서 집계. `value_up`(정책)과 `ownership_structure(scope=treasury)`(잔고)와 함께 주주환원 분석의 사실 축.
-        when: 자사주 취득·소각·신탁 이력·규모를 확인할 때. 특히 소각 규모로 실제 주주환원 여부를 검증할 때.
-        rule: 5개 DART 공시를 모아서 병렬 조회 — (1) `tsstkAqDecsn` 취득결정 (2) `tsstkDpDecsn` 처분결정 (3) `tsstkAqTrctrCnsDecsn` 신탁체결 (4) `tsstkAqTrctrCcDecsn` 신탁해지 (5) `list.json` keyword="자기주식소각결정" 소각결정 (별도 API 없음). 연간 누적은 `scope=annual`에서 사업보고서 기반 `tesstkAcqsDspsSttus`를 재사용.
-        scope: `summary`(기본, 집계 + 최신 5건) / `events`(전 이벤트 타임라인) / `acquisition`(취득·신탁체결만) / `disposal`(처분·신탁해지만) / `cancelation`(소각만) / `annual`(연간 누적 잔고/소각).
-        ref: value_up (주주환원 정책), ownership_structure (현재 잔고), dividend (배당과 합친 총 환원), evidence
+        """desc: 자기주식 이벤트 통합. **결정 5종 (decisions, 사전 의도) + 결과보고서 4종 (executions, 사후 집행)** 한 탭에서 집계. 주주환원 검증 = 결정만 X, 실제 집행 결과까지 cross-check.
+        when: 자사주 취득·처분·소각·신탁 이력·규모 확인. 결정↔결과 사이클 매칭으로 "정말 집행했나?" 검증.
+        rule: 9 source 병렬 조회 —
+          [Decisions] (1) tsstkAqDecsn 취득결정 (2) tsstkDpDecsn 처분결정 (3) tsstkAqTrctrCnsDecsn 신탁체결 (4) tsstkAqTrctrCcDecsn 신탁해지 (5) list.json keyword 소각결정
+          [Executions, NEW] (6) 자기주식취득결과보고서 (7) 자기주식처분결과보고서 (8) 신탁계약에의한취득상황보고서 (9) 신탁계약해지결과보고서
+          모두 list.json + DART 표준 서식 ACODE 본문 파싱 (자본시장법 시행령 별지). 사이클 매칭은 본문 "주요사항보고서 제출일" / "신탁계약 체결일" ↔ decision rcept_dt.
+        scope: `summary`(기본, 모든 events + type별 breakdown + cycle 매칭) / `annual`(사업보고서 기반 연간 누적 잔고).
+        ref: value_up (주주환원 정책), ownership_structure (5%블록·최대주주), dividend (배당), evidence
         """
         payload = await build_treasury_share_payload(
             company,

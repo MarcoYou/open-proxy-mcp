@@ -41,7 +41,8 @@ from open_proxy_mcp.services.date_utils import (
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 
-_SUPPORTED_SCOPES = {"summary", "events", "acquisition", "disposal", "cancelation", "annual"}
+_SUPPORTED_SCOPES = {"summary", "annual"}
+# 폐기 scope: events / acquisition / disposal / cancelation — summary가 모든 type breakdown 포함
 _CANCELATION_KEYWORDS = ("자기주식소각결정", "자사주소각결정", "자기주식소각", "주식소각결정")
 
 # 결과 보고서 4종 keyword (별도 구조화 API 없음 — list.json + 본문 파싱)
@@ -1258,16 +1259,20 @@ async def build_treasury_share_payload(
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
-    if scope == "events":
-        data["events"] = events
-    if scope == "acquisition":
-        data["events"] = bundles.get("acquisition", []) + bundles.get("trust_contract", [])
-    if scope == "disposal":
-        data["events"] = bundles.get("disposal", []) + bundles.get("trust_termination", [])
-    if scope == "cancelation":
-        data["events"] = bundles.get("cancelation", [])
+    # 단일 통합 — events 전체 (decisions + executions, phase flag 포함) + type별 breakdown
     if scope == "summary":
-        data["latest_events"] = events[:5]
+        data["events"] = events  # 전체 timeline (phase=decision/execution 모두)
+        data["type_breakdown"] = {
+            "acquisition": bundles.get("acquisition", []),
+            "disposal": bundles.get("disposal", []),
+            "trust_contract": bundles.get("trust_contract", []),
+            "trust_termination": bundles.get("trust_termination", []),
+            "cancelation": bundles.get("cancelation", []),
+            "acquisition_result": bundles.get("acquisition_result", []),
+            "disposal_result": bundles.get("disposal_result", []),
+            "trust_acquisition_status": bundles.get("trust_acquisition_status", []),
+            "trust_termination_result": bundles.get("trust_termination_result", []),
+        }
     if scope == "annual":
         # 연간 누적은 ownership_structure(scope="summary")에서 가져온다 (summary에 treasury snapshot 포함).
         # 이전 ownership scope="treasury" 폐지로 summary로 전환.
