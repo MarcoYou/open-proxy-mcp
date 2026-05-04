@@ -274,6 +274,28 @@ def _parse_cancelation_body(text: str) -> dict[str, Any]:
     return result
 
 
+def _extract_acode(html: str, code: str) -> str | None:
+    """DART 표준 서식 ACODE semantic marker 추출 — 99% 안정 anchor.
+
+    ACODE는 자본시장법 시행령 별지 표준 서식의 system field id로 모든 회사 동일.
+    예: <TE ACODE="ACQ_AMT" ...>7,174,299,854,900</TE>
+    """
+    if not html or not code:
+        return None
+    m = re.search(rf'<T[EDH]\s+[^>]*ACODE="{re.escape(code)}"[^>]*>([\s\S]*?)</T[EDH]>', html)
+    if not m:
+        return None
+    val = re.sub(r"<[^>]+>", "", m.group(1)).strip()
+    return val or None
+
+
+def _acode_int(html: str, code: str) -> int | None:
+    val = _extract_acode(html, code)
+    if not val or val in ("-", "—"):
+        return None
+    return _to_int(val)
+
+
 def _parse_main_report_date(text: str) -> str | None:
     """결과 보고서 본문에서 '주요사항보고서 제출일' 추출 — 결정-결과 사이클 매칭 키."""
     if not text:
@@ -285,140 +307,166 @@ def _parse_main_report_date(text: str) -> str | None:
     return None
 
 
-def _parse_acquisition_result_body(text: str) -> dict[str, Any]:
-    """자기주식 취득결과보고서 본문 파싱 — 일자별 매입 raw + 합계 + 미달사유.
+def _parse_acquisition_result_body(text: str, html: str = "") -> dict[str, Any]:
+    """자기주식 취득결과보고서 본문 파싱 — DART ACODE 기반 안정 추출.
 
-    표준 서식 (자본시장법 시행령):
-      - 발행인 명칭/주소
-      - 주요사항보고서 제출일 (↔ 취득결정 매칭 키)
-      - 취득기간 (시작·종료)
-      - 일자별 표: 일자 / 주식종류 / 취득수량(이전·당일·누적) / 평균단가 / 취득금액 / 위탁증권사
-      - 합계: 총 취득수량 / 총 취득금액 / 평균단가
-      - 취득예정금액 미달 여부 + 미달 사유
-      - 보유 자기주식 현황 (직접취득)
+    핵심 ACODE:
+      ACQ_AMT     — 취득가액 총액 (실제)
+      SCH_SLT_MN  — 취득예정 금액 (계획)
+      SEL_SLT_MN  — 취득가액 총액 (실제 — ACQ_AMT와 동일 cell 다른 위치)
+      SUM_ACT_CNT — 누적 취득수량
+      AGR_MN_YSN  — 일치여부 (일치/여 등)
+      DIF_MN_CAS  — 미달 사유
+      CNS_NM      — 위탁투자중개업자명
+      HLD_CNT3 / HLD_AMT3 — 보유 자기주식 합계
     """
     if not text:
         return {}
-    clean = re.sub(r"\s+", " ", text)
     result: dict[str, Any] = {}
 
     main_date = _parse_main_report_date(text)
     if main_date:
         result["main_report_date"] = main_date
 
+    if html:
+        result["actual_amount_krw"] = _acode_int(html, "ACQ_AMT")
+        result["planned_amount_krw"] = _acode_int(html, "SCH_SLT_MN")
+        result["cumulative_shares"] = _acode_int(html, "SUM_ACT_CNT")
+        result["holding_shares_total"] = _acode_int(html, "HLD_CNT3")
+        result["holding_amount_total_krw"] = _acode_int(html, "HLD_AMT3")
+        result["agreement_status"] = _extract_acode(html, "AGR_MN_YSN")
+        result["shortfall_reason"] = _extract_acode(html, "DIF_MN_CAS")
+        result["broker_name"] = _extract_acode(html, "CNS_NM")
+        # 미달 = AGR_MN_YSN이 "일치"가 아니거나 actual < planned
+        if result.get("planned_amount_krw") and result.get("actual_amount_krw"):
+            result["shortfall"] = result["actual_amount_krw"] < result["planned_amount_krw"]
+
+    # 취득기간 (text fallback — XML에 직접 ACODE 없을 수 있음)
+    clean = re.sub(r"\s+", " ", text)
     m = re.search(r"취득기간[\s\S]{0,80}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})[일\s]*부터[\s\S]{0,30}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", text)
     if m:
         result["period_start"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
         result["period_end"] = f"{m.group(4)}-{int(m.group(5)):02d}-{int(m.group(6)):02d}"
 
-    # 합계 — 취득가액총액 (마지막 합계 row)
-    m = re.search(r"취득가액?\s*총액\s*\(?\s*원\s*\)?[\s\S]{0,30}?([\d,]{8,})", clean)
-    if m:
-        result["total_amount_krw"] = _to_int(m.group(1))
-    # 합계 수량 — 취득예정주식수 vs 실제 (미달여부)
-    m = re.search(r"취득예정주식수[\s\S]{0,40}?([\d,]{4,})[\s\S]{0,80}?취득주식수[\s\S]{0,40}?([\d,]{4,})", clean)
-    if m:
-        result["planned_shares"] = _to_int(m.group(1))
-        result["actual_shares"] = _to_int(m.group(2))
-
-    # 미달 여부 + 사유
-    m = re.search(r"미달[\s\S]{0,15}?(여|예|미달)[\s\S]{0,5}?(?:사유|원인)?[:\s]*([^.]{0,100})", clean)
-    if m:
-        result["shortfall"] = True
-        result["shortfall_reason"] = m.group(2).strip()[:80] if m.group(2) else ""
-    else:
-        result["shortfall"] = False
-
-    return result
+    return {k: v for k, v in result.items() if v is not None}
 
 
-def _parse_disposal_result_body(text: str) -> dict[str, Any]:
-    """자기주식 처분결과보고서 본문 파싱 — 일자별 처분 raw + 합계 + 상대방."""
+def _parse_disposal_result_body(text: str, html: str = "") -> dict[str, Any]:
+    """자기주식 처분결과보고서 — DART ACODE 기반.
+
+    핵심 ACODE:
+      DSP_AMT  — 처분가액 총액
+      SCH_SLT  — 처분예정 주식수
+      SEL_SLT  — 처분 주식수 (실제)
+      OBJ_OTH  — 처분상대방 (직원/회사명 등)
+      AGR_YSN  — 일치여부
+      DIF_CAS  — 미달 사유
+      HLD_CNT3 / HLD_AMT3 — 처분 후 보유 자기주식
+    """
     if not text:
         return {}
-    clean = re.sub(r"\s+", " ", text)
     result: dict[str, Any] = {}
 
     main_date = _parse_main_report_date(text)
     if main_date:
         result["main_report_date"] = main_date
+
+    if html:
+        result["actual_amount_krw"] = _acode_int(html, "DSP_AMT")
+        result["planned_shares"] = _acode_int(html, "SCH_SLT")
+        result["actual_shares"] = _acode_int(html, "SEL_SLT")
+        result["counterparty"] = _extract_acode(html, "OBJ_OTH")
+        result["agreement_status"] = _extract_acode(html, "AGR_YSN")
+        result["shortfall_reason"] = _extract_acode(html, "DIF_CAS")
+        result["broker_name"] = _extract_acode(html, "CNS_NM")
+        result["holding_shares_total"] = _acode_int(html, "HLD_CNT3")
+        result["holding_amount_total_krw"] = _acode_int(html, "HLD_AMT3")
 
     m = re.search(r"처분기간[\s\S]{0,80}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})[일\s]*부터[\s\S]{0,30}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", text)
     if m:
         result["period_start"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
         result["period_end"] = f"{m.group(4)}-{int(m.group(5)):02d}-{int(m.group(6)):02d}"
 
-    m = re.search(r"처분가액?\s*총액\s*\(?\s*원\s*\)?[\s\S]{0,30}?([\d,]{8,})", clean)
-    if m:
-        result["total_amount_krw"] = _to_int(m.group(1))
-    m = re.search(r"처분예정주식수[\s\S]{0,40}?([\d,]{4,})[\s\S]{0,80}?처분주식수[\s\S]{0,40}?([\d,]{4,})", clean)
-    if m:
-        result["planned_shares"] = _to_int(m.group(1))
-        result["actual_shares"] = _to_int(m.group(2))
-
-    # 처분상대방
-    m = re.search(r"처분\s*상대방[:\s]*([^.\n]{2,80})", clean)
-    if m:
-        result["counterparty"] = m.group(1).strip()[:80]
-
-    return result
+    return {k: v for k, v in result.items() if v is not None}
 
 
-def _parse_trust_acquisition_status_body(text: str) -> dict[str, Any]:
-    """신탁계약에 의한 취득상황보고서 본문 파싱 — 분기 보고 (월별 raw + 누적 + 잔여한도)."""
+def _parse_trust_acquisition_status_body(text: str, html: str = "") -> dict[str, Any]:
+    """신탁계약에 의한 취득상황보고서 — DART ACODE 기반.
+
+    핵심 ACODE:
+      STK_VAL_TOT — 취득금액 (분기 누적)
+      STK_VAL     — 1주당 평균단가
+      ACQ_CNT     — 취득수량 (월간/누적)
+      DSP_CNT     — 처분수량
+      HLD_AMT2    — 신탁계약금액 (계)
+      HLD_CNT2    — 신탁 보유 주식수
+      HLD_RATE2   — 신탁 보유 비율
+      CNS_CRP     — 신탁사 corp_code
+    """
     if not text:
         return {}
-    clean = re.sub(r"\s+", " ", text)
     result: dict[str, Any] = {}
 
-    # 신탁계약 체결일 (사이클 매칭 키)
+    if html:
+        result["acquired_amount_krw"] = _acode_int(html, "STK_VAL_TOT")
+        result["avg_price_krw"] = _acode_int(html, "STK_VAL")
+        result["acquired_shares"] = _acode_int(html, "ACQ_CNT")
+        result["disposed_shares"] = _acode_int(html, "DSP_CNT")
+        result["trust_contract_amount_krw"] = _acode_int(html, "HLD_AMT2")
+        result["trust_holding_shares"] = _acode_int(html, "HLD_CNT2")
+        result["trust_holding_pct"] = _extract_acode(html, "HLD_RATE2")
+        result["trustee_corp_code"] = _extract_acode(html, "CNS_CRP")
+
+    # 신탁계약 체결일 — text fallback
+    clean = re.sub(r"\s+", " ", text)
     m = re.search(r"신탁계약\s*체결일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
     if m:
         result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
 
-    # 보고기간
-    m = re.search(r"보고기간[\s\S]{0,40}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})[\s\S]{0,15}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
-    if m:
-        result["report_period_start"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-        result["report_period_end"] = f"{m.group(4)}-{int(m.group(5)):02d}-{int(m.group(6)):02d}"
-
-    # 누적 취득
-    m = re.search(r"누적\s*취득[\s\S]{0,80}?([\d,]{6,})", clean)
-    if m:
-        result["cumulative_amount_krw"] = _to_int(m.group(1))
-    # 신탁계약금액 + 잔여한도
-    m = re.search(r"신탁계약금액?\s*\(?\s*원\s*\)?[\s\S]{0,30}?([\d,]{8,})", clean)
-    if m:
-        result["trust_contract_amount_krw"] = _to_int(m.group(1))
-
-    return result
+    return {k: v for k, v in result.items() if v is not None}
 
 
-def _parse_trust_termination_result_body(text: str) -> dict[str, Any]:
-    """신탁계약 해지결과보고서 본문 파싱 — 총 취득실적 + 해지 후 보유현황."""
+def _parse_trust_termination_result_body(text: str, html: str = "") -> dict[str, Any]:
+    """신탁계약 해지결과보고서 — DART ACODE 기반.
+
+    핵심 ACODE:
+      ACQ_AMT     — 취득가액 총액 (사이클 합계)
+      ACQ_CNT     — 취득 수량 (합계)
+      ACQ_RT      — 취득률(%)
+      CTR_CNC_AMT — 신탁계약금액 (계약상)
+      MONTH_AMT   — 월별 합계
+      SCH_SLT_MN  — 취득예정금액 (계획)
+      SEL_SLT_MN  — 취득가액 총액 (실제)
+      AGR_MN_YSN  — 일치여부
+      DIF_MN_CAS  — 미달 사유 (예: "주가단차에 따른 발생")
+      HLD_CNT3 / HLD_AMT3 — 해지 후 보유 합계
+      CNCL_CRP    — 신탁사 corp_code
+    """
     if not text:
         return {}
-    clean = re.sub(r"\s+", " ", text)
     result: dict[str, Any] = {}
 
+    if html:
+        result["actual_amount_krw"] = _acode_int(html, "ACQ_AMT")
+        result["actual_shares"] = _acode_int(html, "ACQ_CNT")
+        result["acquisition_rate_pct"] = _extract_acode(html, "ACQ_RT")
+        result["contract_amount_krw"] = _acode_int(html, "CTR_CNC_AMT")
+        result["planned_amount_krw"] = _acode_int(html, "SCH_SLT_MN")
+        result["agreement_status"] = _extract_acode(html, "AGR_MN_YSN")
+        result["shortfall_reason"] = _extract_acode(html, "DIF_MN_CAS")
+        result["post_termination_shares"] = _acode_int(html, "HLD_CNT3")
+        result["post_termination_amount_krw"] = _acode_int(html, "HLD_AMT3")
+        result["trustee_corp_code"] = _extract_acode(html, "CNCL_CRP")
+
+    clean = re.sub(r"\s+", " ", text)
     m = re.search(r"신탁계약\s*체결일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
     if m:
         result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-
     m = re.search(r"해지일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
     if m:
         result["termination_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
 
-    m = re.search(r"취득가액?\s*총액\s*\(?\s*원\s*\)?[\s\S]{0,30}?([\d,]{8,})", clean)
-    if m:
-        result["total_amount_krw"] = _to_int(m.group(1))
-
-    # 해지 후 보유현황 — 직접 + 신탁 계
-    m = re.search(r"해지\s*후[\s\S]{0,200}?보통주식[\s\S]{0,40}?([\d,]{4,})", clean)
-    if m:
-        result["post_termination_common_shares"] = _to_int(m.group(1))
-
-    return result
+    return {k: v for k, v in result.items() if v is not None}
 
 
 def _parse_acquisition_body(text: str) -> dict[str, Any]:
