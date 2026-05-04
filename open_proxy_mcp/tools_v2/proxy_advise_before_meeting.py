@@ -98,7 +98,7 @@ def _render(payload: dict[str, Any]) -> str:
     if cands:
         lines.append("## 이사/감사 후보 평가")
         lines.append("")
-        lines.append("> 신규 후보는 이 회사에 대한 직접 이력 부재 — 과거 다른 회사 데이터(회계 risk 이력 등)는 raw 참고일 뿐 단정 X. 연임/재선임 후보는 이 회사 재직 중 데이터 활용 가능.")
+        lines.append("> **판단 framework** — 신임: ① 과거 다른 회사에서의 행적 ② 결격사유 ③ 전문성 ④ 독립성·충실성. 연임: ① 재직 기간 ② 재직 중 회사 운영 성과 (이 회사 데이터 활용).")
         lines.append("")
         lines.append("| 후보 | 직책 | 선임유형 | 임기 | 독립성 | 결격사유 | 이사 회계 risk 이력 | 비고 |")
         lines.append("|------|------|---------|------|--------|---------|-------|------|")
@@ -115,6 +115,34 @@ def _render(payload: dict[str, Any]) -> str:
                 note = f"독립성 우려: {', '.join(concern_factors)}"
             lines.append(f"| {c.get('name', '?')} | {c.get('role_type', '-')} | {action} | {five_y} | {indep} | {disq} | {audit_history} | {note} |")
         lines.append("")
+
+        # 후보별 detail — 전문성 / 경력 / 과거 회사 행적 raw (framework 적용용)
+        lines.append("### 후보별 raw (전문성·경력·추천 사유)")
+        lines.append("")
+        for c in cands:
+            name = c.get("name", "?")
+            role = c.get("role_type", "-")
+            faith = c.get("faithfulness", {}) or {}
+            main_job = faith.get("main_job") or "-"
+            rec_reason = (faith.get("recommendation_reason_raw") or "").strip()
+            careers = faith.get("career_company_groups") or []
+            ah = faith.get("audit_history_check") or {}
+            ah_red = ah.get("red_flags") or []
+
+            lines.append(f"**{name}** ({role})")
+            lines.append(f"- 주요 직책: {main_job}")
+            if rec_reason:
+                lines.append(f"- 추천 사유 (raw): {rec_reason[:240]}{'…' if len(rec_reason) > 240 else ''}")
+            if careers:
+                lines.append("- 경력:")
+                for grp in careers[:6]:
+                    co = grp.get("company", "?")
+                    items = grp.get("items") or []
+                    items_str = " / ".join(items[:3])
+                    lines.append(f"  - {co} — {items_str}")
+            if ah_red:
+                lines.append(f"- 과거 회사 회계 risk 이력 (raw): {len(ah_red)}건 발견 — 본문 raw 메모 검토")
+            lines.append("")
 
         # 회계 risk 이력 발견 detail (회사명 / 시점 / risk 유형 raw 노출)
         audit_history_detail = []
