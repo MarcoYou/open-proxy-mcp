@@ -9,7 +9,7 @@ max_iterations: 15
 ## Invoke (복붙)
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260505_0051_ralph_treasury-execution-results.md 가이드 따라 treasury_share 결과보고서 4종 추가. 검증: KOSPI200 + KOSDAQ top50 표본 150 회사 × phase=execution 이벤트 추출 성공률 ≥80% + 결정↔결과 사이클 매칭률 ≥75% + scope 통합 (summary 단일) 모두 충족 시 promise. --completion-promise TREASURY_EXECUTION_VERIFIED --max-iterations 15
+/ralph-loop:ralph-loop wiki/ralph/260505_0051_ralph_treasury-execution-results.md 가이드 따라 treasury_share 결과보고서 4종 추가. 검증: KOSPI200 + KOSDAQ top50 표본 150 회사 × 결과보고서 본문 파싱 성공률 ≥99% + 결정↔결과 사이클 매칭률 ≥99% + phase flag + scope 통합 모두 충족 시 promise. --completion-promise TREASURY_EXECUTION_VERIFIED --max-iterations 15
 ```
 
 # Ralph: treasury_share 결과보고서 4종 추가
@@ -48,23 +48,27 @@ max_iterations: 15
 
 ## 성공 기준 (모두 충족 시 promise)
 
-### G1. 결과보고서 4종 list.json 검색 + 본문 파싱 ≥80%
+### G1. 결과보고서 4종 본문 파싱 ≥99%
 
-KOSPI 200 + KOSDAQ top50 = 150 회사 표본 중, **결과보고서 발생한 회사**에서:
-- 자기주식취득결과보고서 검색 + 본문 파싱 (일자별 raw + 합계) 성공률 ≥80%
+KOSPI 200 + KOSDAQ top50 = 150 회사 표본 중, list.json keyword로 발견된 결과보고서 전체에 대해:
+- 자기주식취득결과보고서 본문 파싱 (일자별 raw + 합계 + 미달사유) 성공률 ≥99%
 - 자기주식처분결과보고서 동일
-- 신탁계약 취득상황보고서 동일
-- 신탁계약 해지결과보고서 동일
+- 신탁계약에의한취득상황보고서 동일
+- 신탁계약해지결과보고서 동일
 
-부분 파싱 (raw 없으나 메타만)은 partial로 구분.
+**근거**: 자본시장법 시행령 별지 표준 서식 — 일자별 row + 합계 행 구조 강제. parse_personnel처럼 자유 텍스트 X.
 
-### G2. 결정 ↔ 결과 사이클 매칭률 ≥75%
+도달 못할 시 (≥99% fail): archive에 본문 raw + 실패 패턴 기록. 데이터 한계 (이미지 표 / PDF only / 정정공시 변형 등) 정직하게 audit.
 
-발견된 결과보고서의 "주요사항보고서 제출일" 필드 → 동일 회사 결정 공시 (취득/처분/신탁) `rcept_dt` 매칭 시도.
+### G2. 결정 ↔ 결과 사이클 매칭률 ≥99%
 
-매칭률 = 매칭 성공 결과보고서 / 전체 결과보고서 ≥75%.
+발견된 결과보고서의 "주요사항보고서 제출일" 필드 → 동일 회사 결정 공시 `rcept_dt` 매칭.
 
-매칭 실패는 결정 공시 미수집 또는 일자 mismatch — 별도 audit으로 분류.
+매칭률 = 매칭 성공 결과보고서 / 전체 결과보고서 ≥99%.
+
+**근거**: "주요사항보고서 제출일"은 결과보고서 본문 standard 필드 (자본시장법 강제). 일자 정확 매칭 가능.
+
+매칭 실패는 (a) 결정 공시 lookback 범위 밖 (b) 일자 표기 차이 — audit으로 분류 + window 보강.
 
 ### G3. event 필드에 phase 추가 + render 보강
 
