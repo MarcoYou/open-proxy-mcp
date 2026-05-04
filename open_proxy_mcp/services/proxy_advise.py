@@ -325,6 +325,7 @@ def _extract_facts(
     eval_match: dict[str, Any] | None,
     fin_payload: dict[str, Any] | None,
     comp_payload: dict[str, Any] | None,
+    all_evals: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """카테고리별 검증 가능한 정량 fact dict (None 값은 제외)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -345,14 +346,32 @@ def _extract_facts(
         facts["increase_rate_pct"] = comp_summary.get("increase_rate_pct")
         facts["utilization_rate_pct"] = comp_summary.get("utilization_rate_pct")
         facts["limit_krw"] = comp_summary.get("limit_krw")
-    elif category in ("director_election", "audit_committee_election") and eval_match:
-        facts["candidate_name"] = eval_match.get("name")
-        facts["role_type"] = eval_match.get("role_type")
-        facts["independence"] = (eval_match.get("independence") or {}).get("summary")
-        facts["disqualification"] = (eval_match.get("disqualification") or {}).get("summary")
-        ah = (eval_match.get("faithfulness") or {}).get("audit_history_check", {}).get("summary")
-        if ah:
-            facts["audit_history_check"] = ah
+    elif category in ("director_election", "audit_committee_election"):
+        if eval_match:
+            facts["candidate_name"] = eval_match.get("name")
+            facts["role_type"] = eval_match.get("role_type")
+            facts["agenda_action"] = eval_match.get("agenda_action")  # 선임/재선임/연임/신임 — 신규는 과거 데이터로 판단 X
+            five_y = ((eval_match.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {}).get("result")
+            if five_y:
+                facts["tenure_status"] = five_y
+            facts["independence"] = (eval_match.get("independence") or {}).get("summary")
+            facts["disqualification"] = (eval_match.get("disqualification") or {}).get("summary")
+            ah = (eval_match.get("faithfulness") or {}).get("audit_history_check", {}).get("summary")
+            if ah:
+                facts["audit_history_check"] = ah
+        elif all_evals:
+            # 묶음 안건 — 종합 fact (개별 매칭 X)
+            outsiders = sum(1 for e in all_evals if any(k in (e.get("role_type") or "") for k in ("사외", "독립")))
+            insiders = len(all_evals) - outsiders
+            new_count = sum(1 for e in all_evals if (e.get("agenda_action") or "") in ("선임", "신임"))
+            renewed_count = sum(1 for e in all_evals if any(k in (e.get("agenda_action") or "") for k in ("재선임", "연임", "중임")))
+            disq_red = sum(1 for e in all_evals if (e.get("disqualification") or {}).get("summary") == "red_flag")
+            facts["total_candidates"] = len(all_evals)
+            if insiders or outsiders:
+                facts["composition"] = f"사외/독립 {outsiders} + 사내 {insiders}"
+            if new_count or renewed_count:
+                facts["selection_breakdown"] = f"신규 {new_count} / 재선임·연임 {renewed_count}"
+            facts["disqualified_count"] = disq_red
 
     return {k: v for k, v in facts.items() if v is not None}
 
@@ -718,7 +737,8 @@ async def build_proxy_advise_payload(
             policy_basis += f" / case_by_case → OPM fallback"
 
         # 4. 결정 근거 보강 — facts (정량) + risk_factors + policy_citation
-        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp)
+        all_director_evals = list(name_to_eval.values()) if category in ("director_election", "audit_committee_election") else None
+        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, all_director_evals)
         risk_factors = _extract_risks(category, matched_eval, fin_metrics, meeting_comp, title)
         policy_citation = _policy_citation(category)
 

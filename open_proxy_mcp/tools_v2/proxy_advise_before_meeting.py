@@ -98,18 +98,22 @@ def _render(payload: dict[str, Any]) -> str:
     if cands:
         lines.append("## 이사/감사 후보 평가")
         lines.append("")
-        lines.append("| 후보 | 직책 | 독립성 | 결격사유 | 이사 회계 risk 이력 | 비고 |")
-        lines.append("|------|------|--------|---------|-------|------|")
+        lines.append("> 신규 후보는 이 회사에 대한 직접 이력 부재 — 과거 다른 회사 데이터(회계 risk 이력 등)는 raw 참고일 뿐 단정 X. 연임/재선임 후보는 이 회사 재직 중 데이터 활용 가능.")
+        lines.append("")
+        lines.append("| 후보 | 직책 | 선임유형 | 임기 | 독립성 | 결격사유 | 이사 회계 risk 이력 | 비고 |")
+        lines.append("|------|------|---------|------|--------|---------|-------|------|")
         for c in cands:
             indep = c.get("independence", {}).get("summary", "-")
             disq = c.get("disqualification", {}).get("summary", "-")
             audit_history = c.get("faithfulness", {}).get("audit_history_check", {}).get("summary", "-")
+            action = c.get("agenda_action", "-") or "-"
+            five_y = ((c.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {}).get("result", "-")
             note = ""
             if indep == "concerns":
                 ind_subs = c.get("independence", {}).get("sub_factors", {})
                 concern_factors = [k for k, v in ind_subs.items() if v.get("result") not in ("independent", "no_transactions", "outsider", "first_term_or_short")]
                 note = f"독립성 우려: {', '.join(concern_factors)}"
-            lines.append(f"| {c.get('name', '?')} | {c.get('role_type', '-')} | {indep} | {disq} | {audit_history} | {note} |")
+            lines.append(f"| {c.get('name', '?')} | {c.get('role_type', '-')} | {action} | {five_y} | {indep} | {disq} | {audit_history} | {note} |")
         lines.append("")
 
         # 회계 risk 이력 발견 detail (회사명 / 시점 / risk 유형 raw 노출)
