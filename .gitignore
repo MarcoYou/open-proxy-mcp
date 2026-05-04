@@ -86,3 +86,4 @@ graphify-out/
 
 # 운용사 실명-익명 매핑 (개발자 internal only, 외부 노출 금지)
 manager_aliases.json
+configs/master.db

@@ -15,11 +15,14 @@ import json
 import time
 import asyncio
 import logging
+import sqlite3
 import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
 from contextvars import ContextVar
+from datetime import datetime, timedelta
 from html import unescape
+from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
@@ -56,6 +59,13 @@ class DartClientError(Exception):
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
 _corp_code_cache: list[dict] | None = None
 _corp_code_lock: asyncio.Lock | None = None  # lazy init (asyncio loop 필요)
+
+# ── sqlite master cache (KIS 참고, iter27 ship) ──
+# corpCode.xml 50MB 영구 cache → cold start 6-15s → ms.
+# fly.io volume mount 시 machine restart에도 영구.
+# TTL 24h — 자동 update.
+_MASTER_DB_PATH = Path(os.environ.get("OPM_MASTER_DB_PATH", "configs/master.db"))
+_MASTER_DB_TTL_HOURS = 24
 
 # 법인격 suffix 제거 패턴
 _CORP_SUFFIX_RE = re.compile(
@@ -312,18 +322,81 @@ class DartClient:
 
     # ── 기업 코드 매핑 ──
 
+    @staticmethod
+    def _master_db_load() -> list[dict] | None:
+        """sqlite master.db에서 corp_codes 로드 (TTL 24h 검증).
+
+        Returns:
+            list[dict] (cache fresh) 또는 None (없거나 stale)
+        """
+        if not _MASTER_DB_PATH.exists():
+            return None
+        try:
+            conn = sqlite3.connect(_MASTER_DB_PATH)
+            cur = conn.cursor()
+            # _meta.last_updated 검증
+            cur.execute("CREATE TABLE IF NOT EXISTS _meta (key TEXT PRIMARY KEY, value TEXT)")
+            cur.execute("SELECT value FROM _meta WHERE key='last_updated'")
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return None
+            try:
+                last = datetime.fromisoformat(row[0])
+            except ValueError:
+                conn.close()
+                return None
+            if datetime.now() - last > timedelta(hours=_MASTER_DB_TTL_HOURS):
+                conn.close()
+                return None
+            cur.execute("SELECT corp_code, corp_name, stock_code, modify_date FROM corp_codes")
+            corps = [
+                {"corp_code": r[0], "corp_name": r[1], "stock_code": r[2] or "", "modify_date": r[3] or ""}
+                for r in cur.fetchall()
+            ]
+            conn.close()
+            return corps if corps else None
+        except sqlite3.Error as exc:
+            logger.warning(f"sqlite master load 실패 (download fallback): {exc}")
+            return None
+
+    @staticmethod
+    def _master_db_save(corps: list[dict]) -> None:
+        """sqlite master.db에 corp_codes 저장 + _meta.last_updated 갱신."""
+        try:
+            _MASTER_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+            conn = sqlite3.connect(_MASTER_DB_PATH)
+            cur = conn.cursor()
+            cur.execute("CREATE TABLE IF NOT EXISTS corp_codes (corp_code TEXT PRIMARY KEY, corp_name TEXT NOT NULL, stock_code TEXT, modify_date TEXT)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_stock_code ON corp_codes(stock_code) WHERE stock_code != ''")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_corp_name ON corp_codes(corp_name)")
+            cur.execute("CREATE TABLE IF NOT EXISTS _meta (key TEXT PRIMARY KEY, value TEXT)")
+            cur.execute("DELETE FROM corp_codes")  # 전체 reload
+            cur.executemany(
+                "INSERT INTO corp_codes (corp_code, corp_name, stock_code, modify_date) VALUES (?, ?, ?, ?)",
+                [(c["corp_code"], c["corp_name"], c["stock_code"], c["modify_date"]) for c in corps],
+            )
+            cur.execute("INSERT OR REPLACE INTO _meta (key, value) VALUES ('last_updated', ?)", (datetime.now().isoformat(),))
+            conn.commit()
+            conn.close()
+            logger.info(f"sqlite master saved: {len(corps)} corps → {_MASTER_DB_PATH}")
+        except sqlite3.Error as exc:
+            logger.warning(f"sqlite master save 실패 (memory cache만 사용): {exc}")
+
     async def _load_corp_codes(self) -> list[dict]:
-        """corpCode.xml에서 전체 기업 코드 목록 로드 (캐싱 + lock + retry)
+        """corpCode.xml 로드 — 3-layer cache: memory → sqlite (TTL 24h) → DART download.
 
         F6/F7 (Phase 4): asyncio.Lock으로 동시 다운로드 race 제거 + httpx
-        ReadError/ConnectError 시 3회 retry (1/2/4s backoff). 50MB binary
-        다운로드는 cold start + 다중 worker 환경에서 빈번히 끊김.
+        ReadError/ConnectError 시 3회 retry (1/2/4s backoff).
+        iter27 (KIS 참고): sqlite master cache (24h TTL) — cold start 6-15s → ms.
+        OPM_MASTER_DB_PATH env로 위치 변경 가능 (fly.io volume mount 등).
 
         Returns:
             [{"corp_code": "00126380", "corp_name": "삼성전자",
               "stock_code": "005930", "modify_date": "20240101"}, ...]
         """
         global _corp_code_cache, _corp_code_lock
+        # Layer 1: memory cache
         if _corp_code_cache is not None:
             return _corp_code_cache
 
@@ -331,10 +404,17 @@ class DartClient:
             _corp_code_lock = asyncio.Lock()
 
         async with _corp_code_lock:
-            # double-check (lock 대기 중 다른 task가 채웠을 수 있음)
             if _corp_code_cache is not None:
                 return _corp_code_cache
 
+            # Layer 2: sqlite cache (TTL 24h)
+            corps = self._master_db_load()
+            if corps:
+                logger.info(f"corp_codes loaded from sqlite master ({len(corps)} corps, fresh ≤24h)")
+                _corp_code_cache = corps
+                return corps
+
+            # Layer 3: DART download (3회 retry)
             last_exc: Exception | None = None
             for attempt in range(3):
                 try:
@@ -352,6 +432,8 @@ class DartClient:
                             "modify_date": item.findtext("modify_date", ""),
                         })
                     _corp_code_cache = corps
+                    # sqlite save (실패해도 memory cache로 계속)
+                    self._master_db_save(corps)
                     return corps
                 except (httpx.ReadError, httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError) as exc:
                     last_exc = exc
@@ -360,10 +442,8 @@ class DartClient:
                         logger.warning(f"_load_corp_codes attempt {attempt+1} failed ({type(exc).__name__}): retry in {wait}s")
                         await asyncio.sleep(wait)
                 except Exception as exc:
-                    # 다른 예외는 즉시 raise (DartClientError 등)
                     raise
 
-            # 3회 모두 fail
             raise DartClientError("CORPCODE_DOWNLOAD_FAILED", f"corpCode.xml 3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}")
 
     async def lookup_corp_code(self, query: str) -> dict | None:
