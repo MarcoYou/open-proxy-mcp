@@ -247,14 +247,22 @@ def _bucket_fiscal_year(item: dict[str, Any]) -> int | None:
     dtype = (item.get("dividend_type") or "").strip()
 
     if dtype == "결산배당":
-        if rcept_dt and len(rcept_dt) >= 4 and rcept_dt[:4].isdigit():
-            return int(rcept_dt[:4]) - 1
+        # record_date 우선 — 2024 신법 선배당-후결의 케이스 보강.
+        # record_date month=12면 그 해 사업연도 결산 (예: record_date 2025-12-31 → 2025년).
+        # record_date month=1-4면 전년도 결산 (예: record_date 2024-12-31 결의 다음 해 1-4월 공시 → 2024년).
         if record_date:
-            # 기준일이 1-4월이면 전년도 결산으로 보정, 그 외에는 record_date 연도 사용
             digits = "".join(ch for ch in record_date if ch.isdigit())
             if len(digits) >= 6:
                 year, month = int(digits[:4]), int(digits[4:6])
-                return year - 1 if month <= 4 else year
+                if month >= 12:
+                    return year  # 선배당-후결의 또는 12월 결의 → 그 해 사업연도
+                if month <= 4:
+                    return year - 1  # 다음 해 초 결의 → 전년 사업연도
+                # 기타 (5-11월) — 비정상이지만 record_date 연도 사용
+                return year
+        if rcept_dt and len(rcept_dt) >= 4 and rcept_dt[:4].isdigit():
+            # record_date 없을 때만 rcept_dt fallback (정정공시 패턴)
+            return int(rcept_dt[:4]) - 1
 
     base = record_date or rcept_dt
     if not base:
@@ -297,6 +305,62 @@ def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], de
             "pattern": pattern,
         })
     return history
+
+
+def _quarter_label(item: dict[str, Any]) -> str:
+    """배당결정 공시 → 분기 label (Q1/Q2/Q3/Q4 또는 결산/중간/특별)."""
+    dtype = (item.get("dividend_type") or "").strip()
+    if dtype == "결산배당":
+        return "결산"
+    record_date = (item.get("record_date") or "").strip()
+    digits = "".join(ch for ch in record_date if ch.isdigit())
+    if len(digits) >= 6:
+        month = int(digits[4:6])
+        if month <= 3:
+            return "Q1"
+        if month <= 6:
+            return "Q2 (중간)"
+        if month <= 9:
+            return "Q3"
+        return "Q4 (예비결산)"
+    return dtype or "기타"
+
+
+def _quarterly_breakdown(decisions: list[dict[str, Any]], year_list: list[int]) -> list[dict[str, Any]]:
+    """연도별 × 분기별 DPS breakdown — 분기배당 회사 (삼성전자 등) 검증용.
+
+    각 row: {year, quarter, dps, rcept_dt, rcept_no, base_date, type}
+    """
+    rows: list[dict[str, Any]] = []
+    for item in decisions:
+        bucket = _bucket_fiscal_year(item)
+        if bucket is None or (year_list and bucket not in year_list):
+            continue
+        rows.append({
+            "year": bucket,
+            "quarter": _quarter_label(item),
+            "dps_common_krw": int(item.get("dps_common") or 0),
+            "dps_preferred_krw": int(item.get("dps_preferred") or 0),
+            "total_amount_krw": int(item.get("total_amount") or 0),
+            "yield_common_pct": item.get("yield_common"),
+            "rcept_dt": item.get("rcept_dt", ""),
+            "rcept_no": item.get("rcept_no", ""),
+            "record_date": item.get("record_date", ""),
+            "type": item.get("dividend_type", ""),
+            "is_amendment": "정정" in (item.get("report_name", "") or ""),
+        })
+    rows.sort(key=lambda r: (r["year"], r["rcept_dt"]))
+    # dedupe: same (year, quarter, record_date) → keep latest (rcept_dt) only as effective.
+    # 나머지는 is_superseded=True 표시 (raw audit 보존, 합계는 effective만).
+    seen: dict[tuple, int] = {}
+    for i, r in enumerate(rows):
+        key = (r["year"], r["quarter"], r["record_date"])
+        if key in seen:
+            # 이전 entry는 superseded (later iteration이 latest)
+            rows[seen[key]]["is_superseded"] = True
+        seen[key] = i
+        r.setdefault("is_superseded", False)
+    return rows
 
 
 def _select_history_years(
@@ -617,12 +681,18 @@ async def build_dividend_payload(
         target_year = explicit_end.year
     else:
         target_year = date.today().year - 1
-    default_end = date(target_year, 12, 31)
+    # 결산배당 결정 공시는 보통 fiscal year 종료 후 다음 해 1-3월에 공시됨.
+    # window_end를 다음 해 6월까지 확장해 최신 결산 결정 빠짐 방지 (정기주총 시점까지 커버).
+    from datetime import date as _date_cls, timedelta as _td
+    today = _date_cls.today()
+    candidate_end = _date_cls(target_year + 1, 6, 30)
+    default_end = candidate_end if candidate_end <= today else today
     window_start, window_end, window_warnings = resolve_date_window(
         start_date=start_date,
         end_date=end_date,
         default_end=default_end,
-        lookback_months=max(12, years * 12),
+        # years × 12 + 6개월 buffer (분기배당 회사 첫 분기/중간 기준일 cut 방지)
+        lookback_months=max(18, years * 12 + 6),
     )
     warnings: list[str] = list(window_warnings)
     history_start_year = window_start.year if (explicit_start or explicit_end) else (target_year - max(1, years) + 1)
@@ -753,9 +823,12 @@ async def build_dividend_payload(
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
     if scope in {"summary", "detail"}:
-        data["latest_decisions"] = details[:5]
+        # 분기배당 회사 (삼성전자 등) 3년치 = 최대 12 quarters + 결산 + 정정 → 20건 노출 (이전 5건은 truncation 심각).
+        data["latest_decisions"] = details[:20]
     if scope == "history":
         data["history"] = history
+        # quarterly_breakdown: details에서 연도/분기별 grouping (분기배당 회사 분기별 검증용)
+        data["quarterly_breakdown"] = _quarterly_breakdown(details, history_years or year_list)
     if scope == "policy_signals":
         data["policy_signals"] = policy
         data["history"] = history
@@ -768,10 +841,19 @@ async def build_dividend_payload(
             "capital_reserve_agendas": capital_reserve_agendas,
         }
     if scope == "detail":
+        # detail scope는 모든 filings 노출 (limit 50 — 3년 × 4분기 + 결산 + 정정 충분).
         data["detail"] = {
             "annual_summary": latest_summary,
-            "latest_decisions": details[:10],
+            "latest_decisions": details[:50],
+            "decision_count": len(details),
         }
+        # alotMatter (사업보고서) vs filings 합산 mismatch warning
+        if latest_summary and latest_summary.get("source") == "alotMatter":
+            alot_dps = int(latest_summary.get("cash_dps") or 0)
+            # 해당 사업연도 bucket 결정 공시 합산 (정정공시는 최신만 카운트하기 어려워 단순 합산)
+            decisions_dps = sum(int(d.get("dps_common") or 0) for d in details if _bucket_fiscal_year(d) == target_year)
+            if alot_dps and decisions_dps and abs(alot_dps - decisions_dps) > max(1, alot_dps * 0.05):
+                warnings.append(f"⚠ {target_year}년 사업보고서 alotMatter DPS({alot_dps:,}원)와 배당결정 공시 합산 DPS({decisions_dps:,}원) 불일치 — 정정 또는 신규 결정 누락 가능성, latest_decisions raw 검토 권장.")
     if scope == "cash_shareholder_return":
         csr_data, csr_warnings = await _build_cash_shareholder_return(
             company_query,

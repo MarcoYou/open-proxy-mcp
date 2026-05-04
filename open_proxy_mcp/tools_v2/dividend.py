@@ -89,6 +89,18 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             payout = f"{item['payout_ratio']}%" if item.get("payout_ratio") is not None else "-"
             yld = f"{item['yield_pct']}%" if item.get("yield_pct") is not None else "-"
             lines.append(f"| {item['year']} | {item['annual_dps']:,}원 | {item['decision_count']} | {payout} | {yld} | {item['pattern']} |")
+        # 분기별 breakdown — 분기배당 회사 (삼성전자 등) 분기 디테일 검증
+        qb = data.get("quarterly_breakdown") or []
+        if qb:
+            lines.extend(["", "## 분기별 / 결산 breakdown", "| 연도 | 분기 | 보통주 DPS | 우선주 DPS | 시가배당률 | 기준일 | 공시 (rcept_no) |", "|------|------|------------|------------|------------|--------|------------------|"])
+            for r in qb:
+                amend = " [정정]" if r.get("is_amendment") else ""
+                supersed = " ~~superseded~~" if r.get("is_superseded") else ""
+                yc = r.get("yield_common_pct")
+                yc_str = f"{yc}%" if yc is not None else "-"
+                lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {r['dps_preferred_krw']:,}원 | {yc_str} | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
+            lines.append("")
+            lines.append("> 정정공시는 [정정] 표기, superseded는 같은 (연도/분기/기준일) 내 더 최신 결정으로 대체된 row.")
 
     if scope == "cash_shareholder_return":
         csr = data.get("cash_shareholder_return", {}) or {}
