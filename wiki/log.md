@@ -3,6 +3,40 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-05] refactor | proxy_advise scope 10→1 + dead service archive
+- proxy_advise: scope param 폐지, 항상 `decisions` 호출. specialized scope 9개 (agenda/candidates/financial/governance/ownership/policy_basis/proxy_battle/engagement/evidence/all) 폐지.
+- 사용자가 raw 보고 싶으면 각 tool 직접 호출 (shareholder_meeting_notice / financial_metrics / corp_gov_report / ownership_structure / proxy_contest / value_up).
+- decisions enrichment (facts / risk_factors / policy_citation / 근거 공고 / 후보 raw) 그대로 유지.
+- archive (`wiki/archive/services/`): `proxy_guideline.py`, `proxy_guideline_scoring.py`, `policy_comparison.py` — 12 매트릭스 logic은 호출 X (dead). ralph G2 99.36% 검증은 OPM 자체 logic + vote_style JSON으로 도달.
+- archive (`wiki/archive/tools/`): `screen_events.md`, `proxy_guideline.md`, `shareholder_meeting.md` (notice + results 분리됨).
+- index.md / tools/README.md 16 tool 반영.
+
+## [2026-05-04] feat | treasury_share 결과보고서 4종 ralph (iter 1~10)
+- 결정 5종 (decision) + 결과 보고서 4종 (execution) 통합.
+- ACODE 기반 본문 파싱 (DART 표준 서식 system field id) — G1 100% 안정성.
+- 결정↔결과 사이클 매칭: 본문 "주요사항보고서 제출일" / "신탁계약 체결일" ↔ decision rcept_dt.
+- scope 통합 6→2 (summary + annual). phase=decision/execution flag.
+- KOSPI 100 audit: G1 100% / G2 adjusted 97.69% (lookback 밖 17건 제외).
+- iter 10 normalize 보강: 보통/우선주 별도 + 위탁사 + 사외이사 + 보유예상기간 + 신탁기관 + 해지사유 + 처분상대방.
+- 측정 보류 사유: opendart.fss.or.kr API 차단 (24h cool-down) — dart.fss.or.kr 본문은 정상.
+- audit: [[260505_0530_audit_treasury_execution_iter1-8]]
+
+## [2026-05-04] feat | proxy_advise framework enrichment ralph
+- decisions 응답에 facts (정량 fact dict) + risk_factors + policy_citation + 근거 공고 (rcept_no) 추가.
+- 후보 평가 (candidates_evaluations) 4 dimension raw: 결격사유 / 독립성 / 전문성 (main_job + 추천사유) / 과거 행적 (career_company_groups + audit_history_check).
+- 신임/연임 auto detect (career_company_groups + main_job fallback).
+- 1번 안건 FY 본문 raw 추출 (`agm_first_agenda_fy`).
+- KOSPI 100 + KOSDAQ 50 검증: G1 100%, G2 0% FP, G3 99.5% classified, G4 98.6%.
+- audit: [[260504_2200_audit_proxy_advise_framework_iter1-8]]
+
+## [2026-05-04] refactor | tools_v2 정리 (17→16 + scope 통합)
+- screen_events drop (외부 호출 0).
+- proxy_guideline → internal (tools_v2 wrapper 삭제) — 후속 archive로.
+- shareholder_meeting → notice (DART) + results (KIND) 두 tool 분리.
+- dilutive_issuance / corporate_restructuring scope 단일화.
+- ownership_structure 7→5 (treasury 제거 → treasury_share 사용 권장, timeline → blocks 통합).
+- dividend CSR/TSR/policy_signals scope 폐지 (6→3).
+
 # Operation Log
 
 ## [2026-05-04] fix + audit | parse_personnel ralph 7 iter — role 88.7→100% + regression 0

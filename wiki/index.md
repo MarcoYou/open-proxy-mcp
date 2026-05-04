@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-05-01
+updated: 2026-05-05
 ---
 
 # OPM Wiki Index
@@ -10,20 +10,33 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별
-- **Discovery (1)**: [[screen_events]]
-- **Data (12)**: [[company]] · [[shareholder_meeting]] · [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]] · [[evidence]]
-- **Policy & Matrix (1)**: [[proxy_guideline]]
-- **Action (2)**: [[proxy_advise_before_meeting]] (10 scope, 다각도 심층) · [[proxy_result_after_meeting]] (2 scope, 결과 보고)
+### 도메인별 (16 tool, 2026-05-05 정리)
+- **Company (1)**: [[company]]
+- **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART) · [[shareholder_meeting_results]] (사후 — KIND)
+- **Data (10)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]]
+- **Evidence (1)**: [[evidence]]
+- **Action (2, 시점 분리)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합) · [[proxy_result_after_meeting]] (3 scope)
+
+### Internal services (MCP 노출 X — chain 전용)
+- `director_evaluation` — proxy_advise 후보 평가 chain
+- `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
+
+### 주요 변화 (2026-05-04 ~ 05-05)
+- 17 → 16 tool: `screen_events` drop, `proxy_guideline` archive, `shareholder_meeting` → notice + results 분리
+- proxy_advise scope **10 → 1** (`decisions`만, raw는 각 tool 직접 호출)
+- treasury_share scope **6 → 2** (summary + annual)
+- 자사주 결과보고서 **4종 추가** (취득결과/처분결과/신탁상황/신탁해지결과)
+- ralph proxy_advise framework 99% 검증 (KOSPI 100 + KOSDAQ 50, G1 100% / G2 0% FP / G3 100% / G4 100%)
+- archive: `wiki/archive/services/` (proxy_guideline / proxy_guideline_scoring / policy_comparison)
 
 ## 카테고리 구조
 
 | 카테고리 | 목적 | 페이지 수 | 수정 가능 |
 |---|---|---|---|
 | **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 17 tool 진입점 (사용자 입장) | 17 + README | YES (tool 변경 시) |
+| **tools/** | 16 tool 진입점 (사용자 입장) | 16 + README | YES (tool 변경 시) |
 | **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 9+ fixes 3 | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 14 | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 31 + 36 + 3 = 70 | YES (사실 update 시) |

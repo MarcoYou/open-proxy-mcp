@@ -1,59 +1,58 @@
 ---
 type: readme
-title: tools/ — Tool 카탈로그 (18 tool 진입점)
-updated: 2026-05-01
+title: tools/ — Tool 카탈로그 (16 tool 진입점)
+updated: 2026-05-05
 ---
 
 # tools/ — Tool 카탈로그
 
-> OPM v2 의 17 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
+> OPM v2 의 16 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
 > 각 tool 1 페이지, 통일 schema (frontmatter + 한 줄 요약 + 사용법 + 입력 인자 + 출력 schema + Data sources + 파싱 전략 + 관련 공시/개념/결정/audit + 알려진 issue + 변경 이력).
 > 도메인 개념 / 공시 본문 / 정책 결정 정보는 본 폴더에 중복 X. `rules/concepts/`, `rules/disclosures/`, `decisions/`, `architecture/audits/` 로 link만 한다.
 
-## 빠른 진입표 (17 tool)
+## 빠른 진입표 (16 tool)
 
-### Discovery (1)
-| tool | 한 줄 |
-|------|------|
-| [[screen_events]] | 22종 이벤트 → N개 기업 역조회 (filing-centric) |
-
-### Data — 회사·주총·지분·재무 (5)
+### Company (1)
 | tool | 한 줄 |
 |------|------|
 | [[company]] | 기업 식별 + 최근 공시 인덱스 (모든 data tool 공통 입구) |
-| [[shareholder_meeting]] | 정기/임시 주총 안건/이사/보수/정관/결과 (7 scope) |
-| [[ownership_structure]] | 최대주주/특수관계인/5%/자사주/control_map (7 scope) |
+
+### Meeting (2 — 시점 분리, 2026-05-04)
+| tool | 한 줄 |
+|------|------|
+| [[shareholder_meeting_notice]] | 주총 **소집공고** (사전 — DART API/XML, 0.5-1.5s, 6 scope) |
+| [[shareholder_meeting_results]] | 주총 **의결 결과** (사후 — KIND scraping, 4-5s, 단일) |
+
+### Data — 지분·재무·거버넌스 (3)
+| tool | 한 줄 |
+|------|------|
+| [[ownership_structure]] | 최대주주/특수관계인/5%/control_map (5 scope, treasury 제거) |
+| [[financial_metrics]] | DART 재무 4 endpoint 통합: 51 지표 + 듀퐁/감사의견 (6 scope) |
 | [[corp_gov_report]] | 기업지배구조보고서 15지표 + 연도별 추이 (5 scope) |
-| [[financial_metrics]] | DART 재무 4 endpoint 통합: 수익성/안정성/현금흐름/회계risk + 듀퐁/감사의견 (6 scope) **NEW** |
 
-### Data — 환원·재편 (4)
+### Data — 환원·이벤트 (5)
 | tool | 한 줄 |
 |------|------|
-| [[dividend]] | 배당 사실 + CSR(한국식) + TSR(글로벌) (6 scope) |
-| [[treasury_share]] | 자기주식 5종 이벤트 (취득/처분/소각/신탁/연간) (6 scope) |
+| [[dividend]] | 배당 사실 + 분기별 breakdown (3 scope: summary/detail/history, CSR/TSR drop) |
+| [[treasury_share]] | 자사주 9 source — 결정 5종 + 결과 4종 + 사이클 매칭 (2 scope: summary/annual) |
 | [[value_up]] | 기업가치제고계획 commitment + 자사주 이행 cross-ref (4 scope) |
-| [[corporate_restructuring]] | 합병/분할/주식교환·이전 4종 (DS005, 4 scope) |
+| [[corporate_restructuring]] | 합병/분할/주식교환·이전 4종 (DS005, 단일 통합) |
+| [[dilutive_issuance]] | 유상증자/CB/BW/감자 4종 (희석률·refixing, 단일 통합) |
 
-### Data — 분쟁·발행·내부거래·근거 (3)
+### Data — 분쟁·내부거래·근거 (3)
 | tool | 한 줄 |
 |------|------|
-| [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류, 6 scope) |
-| [[dilutive_issuance]] | 유상증자/CB/BW/감자 4종 (희석률, refixing, 5 scope) |
-| [[related_party_transaction]] | 타법인주식 + 단일공급계약 (일감몰아주기, 3 scope) |
+| [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류) |
+| [[related_party_transaction]] | 타법인주식 + 단일공급계약 (일감몰아주기) |
 | [[evidence]] | rcept_no → 공시일/소스/뷰어 URL (API 0회) |
 
-### Policy & Matrix (1)
+### Action (2 — 시점 분리)
 | tool | 한 줄 |
 |------|------|
-| [[proxy_guideline]] | 7운용사 정책 + OPM Guideline + 12 매트릭스 자동 채점 + NPS (7 scope, 정적 데이터) |
+| [[proxy_advise_before_meeting]] | 주총 **사전** 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts/risk/citation/근거공고/후보 raw (단일 결정 호출, ralph G2 99.36%) |
+| [[proxy_result_after_meeting]] | 주총 **사후** 결과 보고 (3 scope) |
 
-### Action (2) — rename + scope 확장 (2026-05-04)
-| tool | 한 줄 |
-|------|------|
-| [[proxy_advise_before_meeting]] | 주총 **소집 전** 다각도 분석 (10 scope) + 안건별 FOR/AGAINST/REVIEW + 후보 평가 3축. ralph 27 iter 검증 G2 99.36% (vs 7 운용사 majority) |
-| [[proxy_result_after_meeting]] | 주총 **소집 후** 결과 보고 (2 scope, 의도적 단순). vote_brief render 흡수 |
-
-> 구 advise_vote_before_meeting / recap_vote_after_meeting rename. prepare_vote_brief / prepare_engagement_case / build_campaign_brief 신규 scope으로 흡수 (engagement / brief / proxy_battle).
+> **2026-05-04~05-05 정리 변화**: screen_events drop, proxy_guideline → archive (internal로 만들었지만 호출 X 확인 후 archive), shareholder_meeting → notice + results 분리, proxy_advise scope 10→1 (specialized scope은 각 data tool 직접 호출).
 
 ## 17 페이지 통일 schema
 
