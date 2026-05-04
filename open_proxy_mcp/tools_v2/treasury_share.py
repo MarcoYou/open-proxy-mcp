@@ -8,6 +8,10 @@ from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 
 
+def _viewer(rcept_no: str) -> str:
+    return f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}" if rcept_no else "-"
+
+
 _EVENT_LABELS = {
     # decisions
     "acquisition_decision": "취득결정",
@@ -100,7 +104,6 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             ev_type = _EVENT_LABELS.get(ev.get("event", ""), ev.get("event", ""))
             phase = (ev.get("phase") or "-")
             phase_mark = "[D]" if phase == "decision" else ("[E]" if phase == "execution" else "")
-            # decisions: shares/amount_krw, executions: actual_shares/actual_amount_krw 또는 acquired_shares/acquired_amount_krw
             shares = ev.get("shares") or ev.get("actual_shares") or ev.get("acquired_shares") or 0
             amount = (ev.get("amount_krw") or ev.get("actual_amount_krw")
                       or ev.get("total_amount_krw") or ev.get("acquired_amount_krw") or 0)
@@ -114,6 +117,52 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"| {ev.get('rcept_dt', '-')} | {phase_mark} | {ev_type} | {shares_str} | {amount_str} | {link} | `{ev.get('rcept_no', '')}` |")
         lines.append("")
         lines.append("> [D]=결정 (사전 의도) / [E]=결과보고서 (사후 집행). 사이클 link로 결정↔결과 매칭.")
+        lines.append("")
+
+        # 결정 detail card — iter10 추가 normalize 필드 노출 (보통/우선주, 위탁사, 사외이사, 보유예상기간)
+        decisions = [e for e in events_to_show if e.get("phase") == "decision"]
+        if decisions:
+            lines.append("## 결정 detail")
+            for ev in decisions[:20]:
+                ev_type = _EVENT_LABELS.get(ev.get("event", ""), ev.get("event", ""))
+                lines.append(f"### {ev_type} — {ev.get('rcept_dt','-')} (`{ev.get('rcept_no','')}`)")
+                # 종류별 수량/금액
+                sc = ev.get("shares_common") or 0
+                sp = ev.get("shares_preferred") or 0
+                ac = ev.get("amount_common_krw") or 0
+                ap = ev.get("amount_preferred_krw") or 0
+                if sc or sp or ac or ap:
+                    if sc or ac:
+                        lines.append(f"- 보통주: {sc:,}주 / {ac:,}원" + (f" (단가 {ev.get('price_common_krw'):,}원)" if ev.get("price_common_krw") else ""))
+                    if sp or ap:
+                        lines.append(f"- 우선주(기타): {sp:,}주 / {ap:,}원" + (f" (단가 {ev.get('price_preferred_krw'):,}원)" if ev.get("price_preferred_krw") else ""))
+                # 기간
+                if ev.get("start_date") or ev.get("end_date"):
+                    lines.append(f"- 기간: {ev.get('start_date','-')} ~ {ev.get('end_date','-')}")
+                if ev.get("holding_start_date") or ev.get("holding_end_date"):
+                    lines.append(f"- 보유예상기간: {ev.get('holding_start_date','-')} ~ {ev.get('holding_end_date','-')}")
+                # 결정 본질
+                if ev.get("purpose"):
+                    lines.append(f"- 목적: {ev['purpose']}")
+                if ev.get("method"):
+                    lines.append(f"- 방법: {ev['method']}")
+                if ev.get("counterparty"):
+                    lines.append(f"- **상대방**: {ev['counterparty']}")
+                # 거버넌스
+                if ev.get("broker_name"):
+                    lines.append(f"- 위탁증권사: {ev['broker_name']}")
+                if ev.get("trustee_name"):
+                    lines.append(f"- 신탁기관: {ev['trustee_name']}")
+                attended = ev.get("outside_director_attended")
+                absent = ev.get("outside_director_absent")
+                if attended or absent:
+                    lines.append(f"- 사외이사 참석: {attended}명 (불참 {absent}명)")
+                if ev.get("termination_reason"):
+                    lines.append(f"- 해지사유: {ev['termination_reason']}")
+                if ev.get("for_cancelation"):
+                    lines.append(f"- ⚡ **소각 의도** (취득목적에 '소각' 명시)")
+                lines.append(f"- [DART 본문]({_viewer(ev.get('rcept_no',''))})")
+                lines.append("")
 
     if scope == "annual" and data.get("annual"):
         annual = data["annual"]
