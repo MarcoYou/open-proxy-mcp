@@ -108,7 +108,8 @@ def _render_capital_reduction_card(row: dict[str, Any]) -> list[str]:
     ]
 
 
-def _render(payload: dict[str, Any], scope: str) -> str:
+def _render(payload: dict[str, Any]) -> str:
+    """단일 통합 render — timeline + 4 type detail card 모두 노출."""
     data = payload.get("data", {})
     window = data.get("window", {})
     counts = data.get("event_count", {})
@@ -117,14 +118,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         f"# {data.get('canonical_name', payload.get('subject', ''))} 희석성 증권 발행 (dilutive_issuance)",
         "",
         f"- company_id: `{data.get('company_id', '')}`",
-        f"- scope: `{scope}`",
         f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`",
         f"- 사건 수: 유상증자 {counts.get('rights_offering', 0)} / CB {counts.get('convertible_bond', 0)} / BW {counts.get('warrant_bond', 0)} / 감자 {counts.get('capital_reduction', 0)}",
         f"- status: `{payload.get('status', '')}`",
-        "",
-        "## 사용량",
-        f"- DART API 호출: {usage.get('dart_api_calls', 0)}회 (분당 한도 {usage.get('dart_daily_limit_per_minute', 1000)}회)",
-        f"- MCP tool 호출: {usage.get('mcp_tool_calls', 1)}회",
         "",
     ]
     if payload.get("warnings"):
@@ -133,60 +129,50 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"- {warning}")
         lines.append("")
 
-    if scope == "summary":
-        timeline = data.get("events_timeline", [])
-        if not timeline:
-            if data.get("no_filing"):
-                lines.append("## 공시 없음")
-                lines.append("- 조사 구간 내 희석성 증권 발행 사건 없음 (정상 NO_FILING).")
-            else:
-                lines.append("조사 구간 내 희석성 증권 발행 사건 없음.")
-            return "\n".join(lines)
-        lines.extend([
-            "## 사건 타임라인",
-            "| 날짜 | 종류 | 핵심 지표 | 원문 |",
-            "|------|------|----------|------|",
-        ])
-        for ev in timeline:
-            lines.append(
-                f"| {ev.get('rcept_dt', '')} | {ev.get('event_label', '-')} | {ev.get('headline_metric', '-')} | {_link(ev.get('rcept_no', ''))} |"
-            )
-
-    if scope == "rights_offering":
-        events = data.get("rights_offering_events", [])
-        if not events:
-            lines.append("유상증자 결정 없음.")
+    timeline = data.get("events_timeline", [])
+    if not timeline:
+        if data.get("no_filing"):
+            lines.append("## 공시 없음")
+            lines.append("- 조사 구간 내 희석성 증권 발행 사건 없음 (정상 NO_FILING).")
         else:
-            lines.append("## 유상증자 결정 상세")
-            for row in events:
-                lines.extend(_render_rights_card(row))
+            lines.append("조사 구간 내 희석성 증권 발행 사건 없음.")
+        return "\n".join(lines)
 
-    if scope == "convertible_bond":
-        events = data.get("convertible_bond_events", [])
-        if not events:
-            lines.append("전환사채 발행결정 없음.")
-        else:
-            lines.append("## 전환사채 발행결정 상세")
-            for row in events:
-                lines.extend(_render_cb_card(row))
+    lines.extend([
+        "## 사건 타임라인",
+        "| 날짜 | 종류 | 핵심 지표 | 원문 |",
+        "|------|------|----------|------|",
+    ])
+    for ev in timeline:
+        lines.append(
+            f"| {ev.get('rcept_dt', '')} | {ev.get('event_label', '-')} | {ev.get('headline_metric', '-')} | {_link(ev.get('rcept_no', ''))} |"
+        )
+    lines.append("")
 
-    if scope == "warrant_bond":
-        events = data.get("warrant_bond_events", [])
-        if not events:
-            lines.append("신주인수권부사채 발행결정 없음.")
-        else:
-            lines.append("## 신주인수권부사채 발행결정 상세")
-            for row in events:
-                lines.extend(_render_bw_card(row))
+    # type별 detail card (있는 것만 노출)
+    rights = data.get("rights_offering_events") or []
+    if rights:
+        lines.append("## 유상증자 결정 상세")
+        for row in rights:
+            lines.extend(_render_rights_card(row))
 
-    if scope == "capital_reduction":
-        events = data.get("capital_reduction_events", [])
-        if not events:
-            lines.append("감자결정 없음.")
-        else:
-            lines.append("## 감자결정 상세")
-            for row in events:
-                lines.extend(_render_capital_reduction_card(row))
+    cb = data.get("convertible_bond_events") or []
+    if cb:
+        lines.append("## 전환사채 발행결정 상세")
+        for row in cb:
+            lines.extend(_render_cb_card(row))
+
+    bw = data.get("warrant_bond_events") or []
+    if bw:
+        lines.append("## 신주인수권부사채 발행결정 상세")
+        for row in bw:
+            lines.extend(_render_bw_card(row))
+
+    cr = data.get("capital_reduction_events") or []
+    if cr:
+        lines.append("## 감자결정 상세")
+        for row in cr:
+            lines.extend(_render_capital_reduction_card(row))
 
     return "\n".join(lines)
 
@@ -196,20 +182,18 @@ def register_tools(mcp):
     @mcp.tool()
     async def dilutive_issuance(
         company: str,
-        scope: str = "summary",
         start_date: str = "",
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 희석성 증권 발행 4종(유상증자/전환사채/신주인수권부사채/감자) 결정을 통합 제공. 발행조건, 잠재 희석률, 3자배정 여부, 풋옵션, refixing 조항 같은 분석 핵심 수치 정형화.
-        when: 행동주의 대응 자금조달, 경영권 방어용 우호 지분 확보, CB·BW 잠재 희석 평가, 유상증자 3자배정 대상 식별 등. ownership_structure와 교차 확인 권장.
-        rule: DART 주요사항보고서(DS005) 4개 구조화 API — `piicDecsn`(유상증자), `cvbdIsDecsn`(CB), `bdwtIsDecsn`(BW), `crDecsn`(감자). 모두 병렬 호출. 기본 lookback 24개월. dilution_pct_approx는 유상증자 신주/기존 단순 비율(근사), CB/BW의 pct_of_total_shares는 원본 공식 비율.
-        scope: `summary`(기본, 4종 통합 timeline) / `rights_offering`(유상증자 카드) / `convertible_bond`(CB 카드) / `warrant_bond`(BW 카드) / `capital_reduction`(감자 카드).
+        """desc: 희석성 증권 발행 4종(유상증자/전환사채/신주인수권부사채/감자) 결정 통합. 발행조건, 잠재 희석률, 3자배정 여부, 풋옵션, refixing 등 핵심 수치 + timeline + 4종 detail card 모두 한 번에 제공.
+        when: 행동주의 대응 자금조달, 경영권 방어용 우호 지분 확보, CB·BW 잠재 희석 평가, 유상증자 3자배정 대상 식별. ownership_structure 교차 권장.
+        rule: DART 주요사항보고서(DS005) 4 API 병렬 호출 — `piicDecsn`(유상증자), `cvbdIsDecsn`(CB), `bdwtIsDecsn`(BW), `crDecsn`(감자). 기본 lookback 24개월.
         ref: ownership_structure (3자배정 지분 변동), corporate_restructuring (M&A 맥락), proxy_contest (분쟁 자금조달), evidence
         """
         payload = await build_dilutive_issuance_payload(
             company,
-            scope=scope,
+            scope="summary",  # service에서 항상 4종 모두 fetch
             start_date=start_date,
             end_date=end_date,
         )
@@ -219,4 +203,4 @@ def register_tools(mcp):
             return _render_ambiguous(payload)
         if payload.get("status") == "error":
             return _render_error(payload)
-        return _render(payload, scope)
+        return _render(payload)

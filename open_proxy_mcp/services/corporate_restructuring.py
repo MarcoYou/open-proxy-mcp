@@ -305,30 +305,27 @@ async def build_corporate_restructuring_payload(
         "supported_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
-    if scope == "summary":
-        data["events_timeline"] = [
-            {
-                "type": row["type"],
-                "event_label": row.get("event_label", ""),
-                "rcept_dt": row.get("rcept_dt", ""),
-                "board_decision_date": row.get("board_decision_date", ""),
-                "counterparty_or_new_entity": (
-                    row.get("counterparty", {}).get("name")
-                    or row.get("target_company", {}).get("name")
-                    or row.get("new_company", {}).get("name")
-                    or ""
-                ),
-                "ratio": row.get("ratio", ""),
-                "rcept_no": row.get("rcept_no", ""),
-            }
-            for row in rows
-        ]
-    if scope == "merger":
-        data["merger_events"] = by_type.get("merger", [])
-    if scope == "split":
-        data["split_events"] = by_type.get("split", []) + by_type.get("division_merger", [])
-    if scope == "share_exchange":
-        data["share_exchange_events"] = by_type.get("share_exchange", [])
+    # 단일 통합 응답 — timeline + 4 type detail (scope 분기 폐지).
+    data["events_timeline"] = [
+        {
+            "type": row["type"],
+            "event_label": row.get("event_label", ""),
+            "rcept_dt": row.get("rcept_dt", ""),
+            "board_decision_date": row.get("board_decision_date", ""),
+            "counterparty_or_new_entity": (
+                row.get("counterparty", {}).get("name")
+                or row.get("target_company", {}).get("name")
+                or row.get("new_company", {}).get("name")
+                or ""
+            ),
+            "ratio": row.get("ratio", ""),
+            "rcept_no": row.get("rcept_no", ""),
+        }
+        for row in rows
+    ]
+    data["merger_events"] = by_type.get("merger", [])
+    data["split_events"] = by_type.get("split", []) + by_type.get("division_merger", [])
+    data["share_exchange_events"] = by_type.get("share_exchange", [])
 
     evidence_refs: list[EvidenceRef] = []
     for row in rows[:5]:

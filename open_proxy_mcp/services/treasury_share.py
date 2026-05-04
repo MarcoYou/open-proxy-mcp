@@ -880,9 +880,10 @@ async def build_treasury_share_payload(
     if scope == "summary":
         data["latest_events"] = events[:5]
     if scope == "annual":
-        # 연간 누적은 ownership_structure(scope="treasury")에서 가져온다.
+        # 연간 누적은 ownership_structure(scope="summary")에서 가져온다 (summary에 treasury snapshot 포함).
+        # 이전 ownership scope="treasury" 폐지로 summary로 전환.
         from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
-        own_payload = await build_ownership_structure_payload(company_query, scope="treasury", year=year)
+        own_payload = await build_ownership_structure_payload(company_query, scope="summary", year=year)
         data["annual"] = own_payload.get("data", {}).get("treasury", {})
 
     # evidence_refs — 최신 5건 이벤트의 공시

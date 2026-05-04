@@ -388,26 +388,22 @@ async def build_dilutive_issuance_payload(
         "supported_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
-    if scope == "summary":
-        data["events_timeline"] = [
-            {
-                "type": row.get("type", ""),
-                "event_label": row.get("event_label", ""),
-                "rcept_dt": row.get("rcept_dt", ""),
-                "board_decision_date": row.get("board_decision_date", ""),
-                "headline_metric": _summary_headline(row),
-                "rcept_no": row.get("rcept_no", ""),
-            }
-            for row in rows
-        ]
-    if scope == "rights_offering":
-        data["rights_offering_events"] = by_type.get("rights_offering", [])
-    if scope == "convertible_bond":
-        data["convertible_bond_events"] = by_type.get("convertible_bond", [])
-    if scope == "warrant_bond":
-        data["warrant_bond_events"] = by_type.get("warrant_bond", [])
-    if scope == "capital_reduction":
-        data["capital_reduction_events"] = by_type.get("capital_reduction", [])
+    # 단일 통합 응답 — timeline + 4 type detail 모두 노출 (scope 분기 폐지).
+    data["events_timeline"] = [
+        {
+            "type": row.get("type", ""),
+            "event_label": row.get("event_label", ""),
+            "rcept_dt": row.get("rcept_dt", ""),
+            "board_decision_date": row.get("board_decision_date", ""),
+            "headline_metric": _summary_headline(row),
+            "rcept_no": row.get("rcept_no", ""),
+        }
+        for row in rows
+    ]
+    data["rights_offering_events"] = by_type.get("rights_offering", [])
+    data["convertible_bond_events"] = by_type.get("convertible_bond", [])
+    data["warrant_bond_events"] = by_type.get("warrant_bond", [])
+    data["capital_reduction_events"] = by_type.get("capital_reduction", [])
 
     evidence_refs: list[EvidenceRef] = []
     for row in rows[:5]:
