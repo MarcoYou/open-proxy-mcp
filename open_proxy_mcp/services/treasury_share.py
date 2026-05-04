@@ -890,13 +890,30 @@ def _link_cycles(bundles: dict[str, list[dict]]) -> int:
             if key_date and dec_by_date.get(key_date):
                 matched_dec = dec_by_date[key_date][0]
 
-            # 2. ±3일 허용 (이사회→다음 영업일 공시)
+            # 2. ±7일 허용 (이사회→공시 지연 + 영업일 buffer + 정정공시 보정)
             if matched_dec is None and key_date and dec_rows:
-                for d in all_decision_dates:
-                    if _date_within(key_date, d, 3):
-                        matched_dec = dec_by_date[d][0]
-                        er["match_proximity_days"] = abs(int(d.replace("-", "")) - int(key_date.replace("-", "")))
-                        break
+                # 가장 가까운 결정 우선 (sort by abs distance)
+                from datetime import date as _d
+                try:
+                    ky, km, kd = key_date.split("-")
+                    key_dt_obj = _d(int(ky), int(km), int(kd))
+                except (ValueError, AttributeError):
+                    key_dt_obj = None
+                if key_dt_obj is not None:
+                    candidates = []
+                    for d in all_decision_dates:
+                        if _date_within(key_date, d, 7):
+                            try:
+                                dy, dm, dd = d.split("-")
+                                diff = abs((_d(int(dy), int(dm), int(dd)) - key_dt_obj).days)
+                                candidates.append((diff, d))
+                            except ValueError:
+                                continue
+                    if candidates:
+                        candidates.sort()
+                        chosen_d = candidates[0][1]
+                        matched_dec = dec_by_date[chosen_d][0]
+                        er["match_proximity_days"] = candidates[0][0]
 
             # 3. trust fallback — date 매칭 fail 시 가장 최근 trust_contract
             if matched_dec is None and exec_key in ("trust_acquisition_status", "trust_termination_result"):
