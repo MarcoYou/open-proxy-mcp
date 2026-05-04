@@ -709,6 +709,89 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any]) -> dict[str, Any]:
 
 # ── 후보 평가 통합 ──
 
+def detect_appointment_type(
+    candidate: dict[str, Any],
+    canonical_corp_name: str,
+    current_year: int,
+) -> dict[str, Any]:
+    """신임/연임 자동 분류.
+
+    - 'renewed' (연임): career_company_groups에 이 회사 entry 존재 + 시작 연도 < current_year
+    - 'new' (신임): 이 회사 entry 없음 (외부 회사만)
+    - 'ambiguous': career_company_groups 비어있거나 매칭 불가
+
+    이 회사 매칭: 정규화된 회사명 (괄호/(주)/주식회사 제거)이 entry company명에 prefix/contains.
+    """
+    careers = candidate.get("careerCompanyGroups") or []
+    if not careers:
+        return {"type": "ambiguous", "reason": "career_company_groups 비어있음", "matched_entries": []}
+
+    norm_name = _normalize_corp_name(canonical_corp_name)
+    if not norm_name:
+        return {"type": "ambiguous", "reason": "canonical_name 비어있음", "matched_entries": []}
+
+    matched: list[dict[str, Any]] = []
+    for grp in careers:
+        co = (grp.get("company") or "").strip()
+        if not co:
+            continue
+        norm_co = _normalize_corp_name(co)
+        if not norm_co:
+            continue
+        # 매칭: norm_name이 norm_co의 시작 또는 부분
+        if norm_co.startswith(norm_name) or norm_name in norm_co.split():
+            items = grp.get("items") or []
+            # 시작 연도 추출 (가장 빠른 시작 연도)
+            earliest = None
+            for it in items:
+                start, _end = _parse_career_period(str(it))
+                if start is not None and (earliest is None or start < earliest):
+                    earliest = start
+            matched.append({
+                "company_in_career": co,
+                "earliest_start": earliest,
+                "items_count": len(items),
+            })
+
+    if not matched:
+        return {"type": "new", "reason": "이 회사 entry 없음 — 외부 경력만", "matched_entries": []}
+
+    # 시작 연도 기준 — 과거 (current_year 이전) 시작이면 연임
+    earliest_overall = min((m["earliest_start"] for m in matched if m["earliest_start"] is not None), default=None)
+    if earliest_overall is not None and earliest_overall < current_year:
+        return {
+            "type": "renewed",
+            "reason": f"이 회사 재직 이력 {len(matched)}건 (최초 {earliest_overall}년)",
+            "matched_entries": matched,
+            "earliest_start": earliest_overall,
+        }
+    if earliest_overall is not None and earliest_overall >= current_year:
+        return {
+            "type": "new",
+            "reason": f"이 회사 entry 있으나 모두 미래 시작 ({earliest_overall}~)",
+            "matched_entries": matched,
+            "earliest_start": earliest_overall,
+        }
+    # entry 있는데 시작 연도 미상 — ambiguous
+    return {"type": "ambiguous", "reason": "이 회사 entry 있으나 시작 연도 미상", "matched_entries": matched}
+
+
+def _normalize_corp_name(name: str) -> str:
+    """회사명 정규화 — (주)/주식회사/괄호/공백 제거."""
+    if not name:
+        return ""
+    s = name.strip()
+    # 한국어 prefix 제거
+    for pref in ("(주)", "주식회사 ", "주식회사"):
+        if s.startswith(pref):
+            s = s[len(pref):].strip()
+    # 괄호 안 내용 제거 (예: "(전 LG상사)" → "")
+    import re
+    s = re.sub(r"\([^)]*\)", "", s)
+    s = s.strip()
+    return s
+
+
 def evaluate_candidate(candidate: dict[str, Any], current_year: int) -> dict[str, Any]:
     """단일 후보 → 3축 평가 dict (이사 회계 risk 이력 검증 비활성, sync)."""
     return {
@@ -782,6 +865,7 @@ async def build_director_evaluation_payload(
     appointments, rcept_no, meta = await fetch_appointments(
         selected["corp_code"], target_year, meeting_type
     )
+    canonical_corp_name = selected.get("corp_name", "") or ""
 
     # 후보별 평가
     evaluations: list[dict[str, Any]] = []
@@ -793,6 +877,7 @@ async def build_director_evaluation_payload(
             ev["agenda_title"] = ap.get("title")
             ev["agenda_action"] = ap.get("action")
             ev["agenda_category"] = ap.get("category")
+            ev["appointment_type"] = detect_appointment_type(c, canonical_corp_name, target_year)
             evaluations.append(ev)
             candidate_count += 1
 

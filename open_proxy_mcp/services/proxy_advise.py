@@ -350,7 +350,12 @@ def _extract_facts(
         if eval_match:
             facts["candidate_name"] = eval_match.get("name")
             facts["role_type"] = eval_match.get("role_type")
-            facts["agenda_action"] = eval_match.get("agenda_action")  # 선임/재선임/연임/신임 — 신규는 과거 데이터로 판단 X
+            facts["agenda_action"] = eval_match.get("agenda_action")
+            apt = eval_match.get("appointment_type") or {}
+            if isinstance(apt, dict) and apt.get("type"):
+                facts["appointment_type"] = apt.get("type")  # new / renewed / ambiguous
+                if apt.get("earliest_start"):
+                    facts["this_company_since"] = apt.get("earliest_start")
             five_y = ((eval_match.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {}).get("result")
             if five_y:
                 facts["tenure_status"] = five_y
@@ -363,14 +368,14 @@ def _extract_facts(
             # 묶음 안건 — 종합 fact (개별 매칭 X)
             outsiders = sum(1 for e in all_evals if any(k in (e.get("role_type") or "") for k in ("사외", "독립")))
             insiders = len(all_evals) - outsiders
-            new_count = sum(1 for e in all_evals if (e.get("agenda_action") or "") in ("선임", "신임"))
-            renewed_count = sum(1 for e in all_evals if any(k in (e.get("agenda_action") or "") for k in ("재선임", "연임", "중임")))
             disq_red = sum(1 for e in all_evals if (e.get("disqualification") or {}).get("summary") == "red_flag")
+            apt_new = sum(1 for e in all_evals if (e.get("appointment_type") or {}).get("type") == "new")
+            apt_renewed = sum(1 for e in all_evals if (e.get("appointment_type") or {}).get("type") == "renewed")
+            apt_amb = len(all_evals) - apt_new - apt_renewed
             facts["total_candidates"] = len(all_evals)
             if insiders or outsiders:
                 facts["composition"] = f"사외/독립 {outsiders} + 사내 {insiders}"
-            if new_count or renewed_count:
-                facts["selection_breakdown"] = f"신규 {new_count} / 재선임·연임 {renewed_count}"
+            facts["appointment_breakdown"] = f"신임 {apt_new} / 연임 {apt_renewed}" + (f" / 미상 {apt_amb}" if apt_amb else "")
             facts["disqualified_count"] = disq_red
 
     return {k: v for k, v in facts.items() if v is not None}

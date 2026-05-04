@@ -55,6 +55,7 @@ def _audit_payload(payload: dict) -> dict:
     decisions = data.get("agenda_decisions") or []
 
     # G1 — per candidate dimension
+    # G3 — appointment_type
     g1_records = []
     for c in cands:
         disq = (c.get("disqualification") or {}).get("summary")
@@ -65,6 +66,8 @@ def _audit_payload(payload: dict) -> dict:
         careers = faith.get("career_company_groups") or []
         ah = faith.get("audit_history_check") or {}
         ah_red = ah.get("red_flags") or []
+        apt = c.get("appointment_type") or {}
+        apt_type = apt.get("type") if isinstance(apt, dict) else None
 
         d_disq = bool(disq)
         d_indep = bool(indep)
@@ -75,6 +78,7 @@ def _audit_payload(payload: dict) -> dict:
             "name": c.get("name"),
             "role_type": c.get("role_type"),
             "agenda_action": c.get("agenda_action"),
+            "appointment_type": apt_type,
             "d_disqualification": d_disq,
             "d_independence": d_indep,
             "d_expertise": d_expertise,
@@ -175,12 +179,33 @@ def _summarize(results: list[dict]) -> dict:
         "pct_no_data_false_positive_of_no_data": round(n_no_data_fp / max(n_no_data, 1) * 100, 1) if n_no_data else 0,
     }
 
+    # G3 appointment_type breakdown
+    n_apt_new = sum(1 for c in cands_total if c["appointment_type"] == "new")
+    n_apt_renewed = sum(1 for c in cands_total if c["appointment_type"] == "renewed")
+    n_apt_amb = sum(1 for c in cands_total if c["appointment_type"] in (None, "ambiguous"))
+    # 사내이사 중 'new'로 잡힌 비율 (DART 부서명-only 케이스 — 잠재적 false-new)
+    n_inside_total = sum(1 for c in cands_total if any(k in (c.get("role_type") or "") for k in ("사내", "executive")))
+    n_inside_new = sum(1 for c in cands_total
+                       if any(k in (c.get("role_type") or "") for k in ("사내", "executive"))
+                       and c["appointment_type"] == "new")
+    g3_metrics = {
+        "n_candidates": n_cands,
+        "n_new": n_apt_new,
+        "n_renewed": n_apt_renewed,
+        "n_ambiguous": n_apt_amb,
+        "pct_classified": round((n_apt_new + n_apt_renewed) / max(n_cands, 1) * 100, 1),
+        "n_inside_total": n_inside_total,
+        "n_inside_new": n_inside_new,
+        "pct_inside_new_warn": round(n_inside_new / max(n_inside_total, 1) * 100, 1),  # 사내이사인데 new 비율 — 부서명-only false-new 의심
+    }
+
     return {
         "n_companies": total_companies,
         "n_ok": ok_companies,
         "pct_ok": round(ok_companies / max(total_companies, 1) * 100, 1),
         "g1": g1_metrics,
         "g2": g2_metrics,
+        "g3": g3_metrics,
     }
 
 
