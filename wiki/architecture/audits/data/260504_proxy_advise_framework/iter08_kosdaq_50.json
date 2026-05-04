@@ -1,0 +1,5834 @@
+{
+  "summary": {
+    "n_companies": 50,
+    "n_ok": 50,
+    "pct_ok": 100.0,
+    "g1": {
+      "n_candidates": 147,
+      "d_disqualification": 147,
+      "d_independence": 147,
+      "d_expertise": 147,
+      "d_past_career": 147,
+      "all_4": 147,
+      "pct_disqualification": 100.0,
+      "pct_independence": 100.0,
+      "pct_expertise": 100.0,
+      "pct_past_career": 100.0,
+      "pct_all_4": 100.0
+    },
+    "g2": {
+      "n_agenda": 381,
+      "n_no_data": 2,
+      "n_no_data_false_positive": 0,
+      "pct_no_data": 0.5,
+      "pct_no_data_false_positive_of_no_data": 0.0
+    },
+    "g3": {
+      "n_candidates": 147,
+      "n_new": 93,
+      "n_renewed": 51,
+      "n_ambiguous": 3,
+      "pct_classified": 98.0,
+      "n_inside_total": 37,
+      "n_inside_new": 0,
+      "pct_inside_new_warn": 0.0
+    },
+    "g4": {
+      "n_companies_with_fs_agenda": 49,
+      "n_fy_success_or_partial": 47,
+      "pct_fy_extracted": 95.9
+    }
+  },
+  "results": [
+    {
+      "ticker": "196170",
+      "name": "알테오젠",
+      "status": "exact",
+      "duration_s": 8.4,
+      "candidates_count": 5,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김항연",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김석기",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김석기",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "류성곤",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이상철",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제18기(2025.01.01~2025.12.31) 연결재무제표 및 재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "개정 상법 반영",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 설치 관련 정관 정비",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타 정관 정비",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김항연 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 김석기 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 류성곤 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원 이상철 선임의 건",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "298380",
+      "name": "에이비엘바이오",
+      "status": "exact",
+      "duration_s": 9.0,
+      "candidates_count": 2,
+      "agenda_count": 8,
+      "audit": {
+        "candidates": [
+          {
+            "name": "신재균",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "ambiguous",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "최주현",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "ambiguous",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제10기(2025.1.1.∼2025.12.31.) 재무제표 승인의 건 (결손금처리계산서 포함)",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원이 되는 사외이사 신재균 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원이 되는 사외이사 최주현 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사회 결의로 기 부여한 주식매수선택권 승인의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "주식매수선택권 부여의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "099230",
+      "name": "아이센스",
+      "status": "exact",
+      "duration_s": 9.1,
+      "candidates_count": 2,
+      "agenda_count": 5,
+      "audit": {
+        "candidates": [
+          {
+            "name": "신정섭",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이강세",
+            "role_type": "감사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제26기 (2025년 1월 1일 ~ 2025년 12월 31일) 재무제표, 연결재무제표 및 이익잉여금처분계산서",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사(사외이사 1인) 선임의 건 (후보자 약력 별첨 참조)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사(상근감사 1인) 선임의 건 (후보자 약력 별첨 참조)",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수 한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수 한도 승인의 건 4. 배당내역 : 보통주 1주당 예정 배당금 100원",
+            "agenda_category": "cash_dividend",
+            "decision": "REVIEW",
+            "fact_count": 2,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "403870",
+      "name": "HPSP",
+      "status": "exact",
+      "duration_s": 9.0,
+      "candidates_count": 3,
+      "agenda_count": 6,
+      "audit": {
+        "candidates": [
+          {
+            "name": "송종호",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "송종호",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이케빈기두",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제9기(2025.01.01~2025.12.31) 재무제표 (이익잉여금처분계산서(안)포함) 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건 (후보 : 송종호)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타비상무이사 선임의 건 (후보 : 이케빈기두)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "2026년 자기주식 보유 및 처분계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "145020",
+      "name": "휴젤",
+      "status": "exact",
+      "duration_s": 21.9,
+      "candidates_count": 4,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "나정인",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "나정인",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "나정인",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "나정인",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제25기(2025.01.01.~2025.12.31.) 재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (기타비상무이사 1인)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타비상무이사 줄리아 캐롤 스트롬 (Julia Carroll Strom) 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 독립이사 나정인 선임의 건",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "주식매수선택권 부여 승인의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "085660",
+      "name": "차바이오텍",
+      "status": "exact",
+      "duration_s": 22.4,
+      "candidates_count": 2,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "윤경욱",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이재호",
+            "role_type": "감사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제24기 재무제표 승인의 건(결손금처분계산서(안) 포함)",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 제23조(이사와 감사의 원수) 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 제23조(이사와 감사의 원수) 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 제32조 2(위원회) 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "부칙 추가의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 제10조의 5(신주발행의 제한) 신설의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 제17조의 2(권고적 주주제안) 신설의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 제21조(의결권) 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "263750",
+      "name": "펄어비스",
+      "status": "exact",
+      "duration_s": 22.2,
+      "candidates_count": 1,
+      "agenda_count": 5,
+      "audit": {
+        "candidates": [
+          {
+            "name": "이선희",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제17기 (2025.01.01~2025.12.31) 재무제표 및 연결재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 규정 신설",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 규정 신설",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 이선희 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "439090",
+      "name": "마녀공장",
+      "status": "exact",
+      "duration_s": 23.1,
+      "candidates_count": 0,
+      "agenda_count": 5,
+      "audit": {
+        "candidates": [],
+        "agenda": [
+          {
+            "agenda_title": "제14기(2025.01.01~2025.12.31) 별도 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 ",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수 한도액 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수 한도액 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자본준비금 이익잉여금 전입의 건",
+            "agenda_category": "cash_dividend",
+            "decision": "FOR",
+            "fact_count": 2,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 변경 승인의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "091700",
+      "name": "파트론",
+      "status": "exact",
+      "duration_s": 12.3,
+      "candidates_count": 2,
+      "agenda_count": 6,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김종구",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김원근",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제23기 별도 및 연결 재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자본금 감소(자기주식 소각)의 건",
+            "agenda_category": "treasury_share",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자본준비금의 이익잉여금 전입의 건",
+            "agenda_category": "cash_dividend",
+            "decision": "FOR",
+            "fact_count": 3,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (사내이사 2명)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "065350",
+      "name": "신성델타테크",
+      "status": "exact",
+      "duration_s": 12.1,
+      "candidates_count": 4,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "구자천",
+            "role_type": "기타비상무이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이서정",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이서정",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "은종규",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제39기(2025.01.01~2025.12.31) 재무제표 및 연결재무제표 승인의 건 - 현금배당 : 1주당",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "준비금 감소의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원 선임의 건",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "023910",
+      "name": "대한약품",
+      "status": "exact",
+      "duration_s": 12.5,
+      "candidates_count": 3,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "이승영",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "ambiguous",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "박환석",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김 광 희",
+            "role_type": "감사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제62기(2025.1.1 ~ 2025.12.31) 재무제표등의 승인의건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (사내이사 1명, 사외이사 1명)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 이승영 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 박환석 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 선임의 건 상근감사 김광희 선임의 건",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수 한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수 한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "028300",
+      "name": "HLB",
+      "status": "exact",
+      "duration_s": 11.7,
+      "candidates_count": 5,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "진양곤",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김태한",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김홍철",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "손도국",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이윤희",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제41기(2025.01.01~2025.12.31)연결 및 별도재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (사내이사 4명)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 진양곤 재선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김태한 신규선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김홍철 신규선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 손도국 신규선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원이 되는 사외이사 이윤희 신규 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사업목적 변경의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "종류주식 전환 조건 변경의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "140410",
+      "name": "메지온",
+      "status": "exact",
+      "duration_s": 7.8,
+      "candidates_count": 1,
+      "agenda_count": 6,
+      "audit": {
+        "candidates": [
+          {
+            "name": "오대식",
+            "role_type": "감사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제24기 재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 6,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 선임의 건",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "주 식매수선택권 부여의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사보수한도 승인의 건 - 10억원 및 미화 10만불",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사보수한도 승인의 건 - 1억원",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "partial"
+      }
+    },
+    {
+      "ticker": "093320",
+      "name": "케이아이엔엑스",
+      "status": "exact",
+      "duration_s": 17.7,
+      "candidates_count": 3,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김홍국",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "원종홍",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김상일",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제26기(2025.1.1~2025.12.31) 재무상태표, 손익계산서 및 이익잉여금처분계산서(안)(연결재무제",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "김홍국 기타비상무이사 재선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "원종홍 기타비상무이사 재선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "김상일 사외이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "현금 배당의 건(주당 600원)",
+            "agenda_category": "cash_dividend",
+            "decision": "FOR",
+            "fact_count": 3,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수 한도 승인의 건(20억원)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수 한도 승인의 건(1억원)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 보유주식 보유ㆍ처분 계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "293490",
+      "name": "카카오게임즈",
+      "status": "exact",
+      "duration_s": 20.6,
+      "candidates_count": 5,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "한상우",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "오명전",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "노정연",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "정선열",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "오명전",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제13기(2025년) 연결재무제표 및 별도재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건 └",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "주주총회 기준일 변경의 건 └",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "개정 상법 반영의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건(사내이사 1명, 사외이사 1명) └",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "한상우 사내이사 선임의 건 └",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "오명전 사외이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건(2명) └",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 노정연 사외이사 선임의 건 └",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 정선열 사외이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "108860",
+      "name": "셀바스AI",
+      "status": "exact",
+      "duration_s": 30.6,
+      "candidates_count": 2,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "곽영수",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "윤승현",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제27기(2025.1.1~2025.12.31) 연결 및 별도 재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "상법 개정사항 반영 및 기타 오기사항 정정",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사의 보수와 퇴직금 조항 개정",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "임원보수규정 개정의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 곽영수 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 윤승현 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 곽영수 이사보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "200130",
+      "name": "콜마비앤에이치",
+      "status": "exact",
+      "duration_s": 22.3,
+      "candidates_count": 1,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "조용한",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제12기 (2025.1.1~2025.12.31) 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 ",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건 ◆",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 조용한 선임의 건 ◆",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수 한도 승인의 건 ◆",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수 한도 승인의 건 ◆",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "임원 보수 규정 개정의 건 ◆",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 보유 및 처분계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "131970",
+      "name": "두산테스나",
+      "status": "exact",
+      "duration_s": 15.3,
+      "candidates_count": 2,
+      "agenda_count": 9,
+      "audit": {
+        "candidates": [
+          {
+            "name": "조훈",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "최지광",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제24기 재무제표 (이익잉여금처분계산서(안) 포함) 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사의 충실의무 확대의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "독립이사 제도 도입의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 구성 강화",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 선임의 건 (후보 : 조훈)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건 (후보 : 최지광)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 보유 및 처분 계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "289220",
+      "name": "자이언트스텝",
+      "status": "exact",
+      "duration_s": 12.3,
+      "candidates_count": 3,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "하승봉",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이지철",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김민석",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제18기(2025. 01. 01.~2025. 12. 31.) 연결 및 별도 재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 하승봉 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 이지철 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김민석 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "141080",
+      "name": "리가켐바이오",
+      "status": "exact",
+      "duration_s": 5.4,
+      "candidates_count": 1,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "권용수",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "별도 재무제표 및 연결 재무제표 승인의 건 (제20기 2025년 1월 1일∼12월 31일) ☞ 상기",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 6,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 변경 승인의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "(주주총회 부여분)주식매수선택권 부여 승인의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 (권용수) 선임의 건 (신규 선임)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수 한도액 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수 한도액 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 보유 및 처분계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "102940",
+      "name": "코오롱생명과학",
+      "status": "exact",
+      "duration_s": 6.5,
+      "candidates_count": 0,
+      "agenda_count": 5,
+      "audit": {
+        "candidates": [],
+        "agenda": [
+          {
+            "agenda_title": "제26기 (2025.01.01~2025.12.31) 재무제표 및 연결재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "NO_DATA",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": true,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "005290",
+      "name": "동진쎄미켐",
+      "status": "exact",
+      "duration_s": 6.5,
+      "candidates_count": 0,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [],
+        "agenda": [
+          {
+            "agenda_title": "제53기(2025.1.1-2025.12.31) 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 6,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "주식의 소각 조문 신설의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "상법 개정 반영의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "분기배당 기준 정비의 건",
+            "agenda_category": "cash_dividend",
+            "decision": "FOR",
+            "fact_count": 3,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "092040",
+      "name": "아미코젠",
+      "status": "exact",
+      "duration_s": 7.5,
+      "candidates_count": 0,
+      "agenda_count": 3,
+      "audit": {
+        "candidates": [],
+        "agenda": [
+          {
+            "agenda_title": "제26기 (2025.01.01 ~ 2025.12.31) 재무제표 승인의 건 *",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건 *",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "112040",
+      "name": "위메이드",
+      "status": "exact",
+      "duration_s": 9.0,
+      "candidates_count": 8,
+      "agenda_count": 8,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김영호",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김영호",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "유그레이스선혜(YOO GRACE SUN HAE)",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김기성",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이창희",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김영호",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김영호",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "유그레이스선혜(YOO GRACE SUN HAE)",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제26기(2025.01.01~2025.12.31) 별도 및 연결 재무제표 승인의 건 (이익배당 예정: 1주당",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 김영호 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 유그레이스선혜(YOO GRACE SUN HAE) 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김기성 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 이창희 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "237690",
+      "name": "에스티팜",
+      "status": "exact",
+      "duration_s": 6.5,
+      "candidates_count": 2,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "최용훈",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김철홍",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제18기(2025.1.1~2025.12.31) 재무제표 및 연결재무제표 승인의 건 - 1주당 500원 현금배",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관일부 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건(사내이사 후보자 최용훈)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건(후보자 김철홍)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "임원 퇴직금 지급 규정 변경의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "주식매수선택권 부여의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "215000",
+      "name": "골프존",
+      "status": "exact",
+      "duration_s": 9.1,
+      "candidates_count": 2,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "손장순",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "설정덕",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사의 충실의무 대상 확대 (제38조)",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "독립이사로 명칭 변경 및 이사회 내 독립이사 의무비율 상향 (제34조, 제38조의2, 제44조, 제47조)",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원 선ㆍ해임시 의결권 제한 및 분리선출 인원 상향 (제47조)",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "부칙",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (사내이사 1명)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 선임의 건 (후보자 손장순)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건 (후보자 설정덕)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사보수 한도액 승인의 건 (30억원)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 보유처분 계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": null
+      }
+    },
+    {
+      "ticker": "086520",
+      "name": "에코프로",
+      "status": "exact",
+      "duration_s": 19.0,
+      "candidates_count": 7,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "송호준",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "최상운",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "변정희",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "하종화",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "노상섭",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "하종화",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "노상섭",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제28기(2025.01.01 ~ 2025.12.31) 재무제표 승인의 건 (현금배당 보통주 1주당 150원)",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "집중투표 배제 조항 변경의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사업목적 추가의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임 및 보수관련 변경의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타 변경의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (3인)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 송호준 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 최상운 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 변정희 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "357780",
+      "name": "솔브레인",
+      "status": "exact",
+      "duration_s": 13.4,
+      "candidates_count": 2,
+      "agenda_count": 9,
+      "audit": {
+        "candidates": [
+          {
+            "name": "양길호",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "박덕현",
+            "role_type": "감사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제6기(2025.01.01~2025.12.31) 재무제표 승인의 건 (재무상태표, 손익계산서, 현금흐름표, ",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "상법 개정 반영의 건 (개정상법 정관 반영)",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타 조문 정비의 건 (지배구조 개선을 위한 재무제표 및 배당 주주총회 승인 명문화)",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 선임의 건 (재선임-양길호)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 선임의 건 (재선임 - 박덕현)",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "2026년 자기주식 보유 및 처분 계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "278280",
+      "name": "천보",
+      "status": "exact",
+      "duration_s": 17.3,
+      "candidates_count": 1,
+      "agenda_count": 4,
+      "audit": {
+        "candidates": [
+          {
+            "name": "이근필",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제19기(2025.01.01. - 2025.12.31.) 재무제표 및 연결재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 이근필 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건 (30억)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "056190",
+      "name": "에스에프에이",
+      "status": "exact",
+      "duration_s": 17.8,
+      "candidates_count": 1,
+      "agenda_count": 5,
+      "audit": {
+        "candidates": [
+          {
+            "name": "유윤상",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제28기(25/01/01~25/12/31) 재무제표(별도/연결) 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 1인(유윤상) 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식보유처분계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수 한도 및 사내이사에 대한 장기인센티브 자기주식 부여 한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "035900",
+      "name": "JYP Ent.",
+      "status": "exact",
+      "duration_s": 13.8,
+      "candidates_count": 3,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "정욱",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "변상봉",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "공태용",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제31기(2025.01.01~2025.12.31) 연결재무제표 및 별도재무제표 (이익잉여금 처분계산서(안)포",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (사내이사 2명, 독립이사 1명)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 정욱 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 변상봉 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "(감사위원이 되는) 독립이사 공태용 선임의 건 (의결권 3% 제한 적용)",
+            "agenda_category": "audit_committee_election",
+            "decision": "REVIEW",
+            "fact_count": 8,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건 (60억원)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "095500",
+      "name": "미래나노텍",
+      "status": "exact",
+      "duration_s": 12.5,
+      "candidates_count": 2,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김철영",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "송병두",
+            "role_type": "감사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제24기(2025년1월1일~2025년12월31일) 연결 및 별도재무제표 승인의 건 * 1주당 현금배당 : 7",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 6,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김철영 선임의 건(재선임)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 선임의 건",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "상근감사 송병두 선임의 건(재선임)",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건(30억)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건(5억)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "336370",
+      "name": "솔루스첨단소재",
+      "status": "exact",
+      "duration_s": 15.3,
+      "candidates_count": 3,
+      "agenda_count": 5,
+      "audit": {
+        "candidates": [
+          {
+            "name": "이남혁",
+            "role_type": "기타비상무이사",
+            "agenda_action": "재선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이상일",
+            "role_type": "기타비상무이사",
+            "agenda_action": "재선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "박해춘",
+            "role_type": "사외이사",
+            "agenda_action": "재선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제 7 기 재무제표 (이익잉여금처분계산서(안) 포함) 및 연결재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건(기타비상무이사 2인)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 이사 선임의 건(후보자 박해춘, 재선임)",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "240810",
+      "name": "원익IPS",
+      "status": "exact",
+      "duration_s": 5.7,
+      "candidates_count": 2,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "이용한",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김용길",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제10기(2025.1.1. ~ 2025.12.31.) 재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 이용한 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김용길 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "임원퇴직금지급규정 개정의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "383310",
+      "name": "에코프로에이치엔",
+      "status": "exact",
+      "duration_s": 6.3,
+      "candidates_count": 3,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김순주",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "진찬언",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김명선",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제5기(2025.01.01 ~ 2025.12.31) 재무제표 승인의 건 (현금배당 보통주 1주당 200원)",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사업목적 추가의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임 및 보수 관련 변경의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타 변경의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김순주 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 진찬언 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 김명선 선임의 건(분리선출)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "등기이사보수규정 제정의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "189300",
+      "name": "인텔리안테크",
+      "status": "exact",
+      "duration_s": 14.1,
+      "candidates_count": 0,
+      "agenda_count": 6,
+      "audit": {
+        "candidates": [],
+        "agenda": [
+          {
+            "agenda_title": "제22기(2025.1.1~2025.12.31) 연결 및 별도 재무제표 승인의 건 (이익잉여금처분계산서(안) ",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사업목적 추가의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "개정 상법 반영의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "임원보수지급규정 제정의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 보유ㆍ처분 계획 승인의 건 4. 배당내역 - 1주당 예정배당금 : 현금배당 200원",
+            "agenda_category": "cash_dividend",
+            "decision": "REVIEW",
+            "fact_count": 2,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "087010",
+      "name": "펩트론",
+      "status": "exact",
+      "duration_s": 25.7,
+      "candidates_count": 2,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김성원",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "박대련",
+            "role_type": "이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제29기(2025.1.1 ~ 2025.12.31) 재무제표(이익잉여금처분계산서 또는 결손금처리계산서 포함) ",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 선임 후보 김성원",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 선임 후보 박대련",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도액 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도액 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "주식매수선택권의 부여 4. 사업보고서 및 감사보고서 첨부 1) 감사보고서는 주주총회 1주전까지 전자공시시스템",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "041510",
+      "name": "에스엠",
+      "status": "exact",
+      "duration_s": 14.4,
+      "candidates_count": 4,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "장철혁",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "문정빈",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "임정하",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이종섭",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제31기 재무제표 및 이익배당 승인의 건 - 연결 및 별도 재무상태표, 손익계산서 및 이익잉여금처분계산서(안",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 장철혁 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 문정빈 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 임정하 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 이종섭 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타비상무이사 Tsai Chun Pan(潘才俊) 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건(60억원)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건(2억원)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "183300",
+      "name": "코미코",
+      "status": "exact",
+      "duration_s": 8.4,
+      "candidates_count": 0,
+      "agenda_count": 5,
+      "audit": {
+        "candidates": [],
+        "agenda": [
+          {
+            "agenda_title": "제13기 재무제표 (이익잉여금처분계산서 포함) 및연결 재무제표 승인의 건 (현금배당 보통주 1주당 1,400",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 2,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "NO_DATA",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": true,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건 (자세한 사항은 III. 경영참고사항의 [2. 주주총회 목적사항별 기재사항] 참고)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "no_data"
+      }
+    },
+    {
+      "ticker": "068760",
+      "name": "셀트리온제약",
+      "status": "exact",
+      "duration_s": 10.4,
+      "candidates_count": 13,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "기우성",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "고영혜",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "최원경",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "기우성",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "신민철",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "고영혜",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "최원경",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "최종문",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이중재",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "윤태화",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "고영혜",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "최원경",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "최종문",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제35기 (연결ㆍ별도) 재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "집중투표제 관련 정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사회 관련 정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 처분 계획 관련 정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타 정관 정비 관련 정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 기우성 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 신민철 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 고영혜 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "000250",
+      "name": "삼천당제약",
+      "status": "exact",
+      "duration_s": 22.9,
+      "candidates_count": 2,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "유연갑",
+            "role_type": "감사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "장병원",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제82기(2025.01.01~2025.12.31) 재무제표(이익잉여금 처분계산서(안) 포함) 및 연결재무제표",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 선임의 건 (상근감사 1명)",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사(상근) 유연갑 선임의 건 성명 생년월 주요약력 추천인 회사와의 최근3년간 거래내역 최대주주와의 관계 체",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (사외이사 1명)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 장병원 선임의 건 성명 생년월 주요약력 추천인 회사와의 최근3년간 거래내역 최대주주와의 관계 체납사",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사보수한도액 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "양도제한조건부주식(RSU, Restricted Stock Unit) 특별 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "192080",
+      "name": "더블유게임즈",
+      "status": "exact",
+      "duration_s": 10.1,
+      "candidates_count": 1,
+      "agenda_count": 9,
+      "audit": {
+        "candidates": [
+          {
+            "name": "최설지",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제14기 연결재무제표 및 재무제표 승인의 건 (배당금 : 주당 1,200원)",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "개정 상법 반영 관련 정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 보유 및 처분 관련 정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "자기주식 보유 및 처분 계획 승인의 건",
+            "agenda_category": "treasury_share",
+            "decision": "REVIEW",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원이 되는 사외이사 최설지 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "대표이사 김가람 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "대표이사 외 등기이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "039030",
+      "name": "이오테크닉스",
+      "status": "exact",
+      "duration_s": 3.5,
+      "candidates_count": 3,
+      "agenda_count": 6,
+      "audit": {
+        "candidates": [
+          {
+            "name": "성규동",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "손민우",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "정정주",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제32기(2025년 1월 1일 ~ 2025년 12월 31일) 재무제표 및 연결재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 2,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이익잉여금처분계산서 승인의 건 (현금배당 : 주당 1,200 원)",
+            "agenda_category": "cash_dividend",
+            "decision": "FOR",
+            "fact_count": 3,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 변경의 건 (별첨1참조)",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (별첨2참조)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사의 보수한도 승인의 건 (75억)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사의 보수한도 승인의 건 (2억)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "no_data"
+      }
+    },
+    {
+      "ticker": "032500",
+      "name": "케이엠더블유",
+      "status": "exact",
+      "duration_s": 9.6,
+      "candidates_count": 2,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김정욱",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "강신엽",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제32기(2025.01.01~2025.12.31) 연결 재무제표 및 재무제표(안) 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 김정욱 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 강신엽 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "122870",
+      "name": "와이지엔터테인먼트",
+      "status": "exact",
+      "duration_s": 9.3,
+      "candidates_count": 3,
+      "agenda_count": 8,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김성희",
+            "role_type": "사내이사",
+            "agenda_action": "재선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김동현",
+            "role_type": "사외이사",
+            "agenda_action": "재선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "오정식",
+            "role_type": "감사",
+            "agenda_action": "재선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제28기(2025년도) 별도 및 연결재무제표 승인의 건 (배당금: 주당 300원) ◇",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건 ◇",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 김성희 재선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 김동현 재선임의 건 ◇",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 오정식 재선임의 건 ◇",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건 ◇",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "247540",
+      "name": "에코프로비엠",
+      "status": "exact",
+      "duration_s": 9.1,
+      "candidates_count": 8,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김순주",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김순주",
+            "role_type": "기타비상무이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이완표",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "강기석",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이화련",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "조재정",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "이화련",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "조재정",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제 10기(2025.01.01 ~ 2025.12.31) 재무제표 승인의 건 (현금배당 보통주 1주당 100원",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타비상무이사 김순주 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 이완표 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 강기석 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 이화련 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 조재정 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수한도 승인의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "임원 퇴직금 지급규정 변경의 건",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 1,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "214450",
+      "name": "파마리서치",
+      "status": "exact",
+      "duration_s": 9.1,
+      "candidates_count": 4,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "밀리친 로만(Roman Militsin)",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "강성욱",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "Kim Michael James",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "강성욱",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제25기(2025.01.01~2025.12.31) 재무상태표, 손익계산서, 이익잉여금처분계산서(안) 등 재무",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "홈페이지 도메인 주소 및 공고방법 변경",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "개정 상법 반영",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "분기배당 기준일 설정 변경의 건",
+            "agenda_category": "cash_dividend",
+            "decision": "FOR",
+            "fact_count": 3,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건 (사내이사 1인, 사외이사 1인)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 Kim Michael James 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 밀리친 로만(Roman Militsin) 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 강성욱 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 보수 한도 승인의 건(오십억원)",
+            "agenda_category": "director_compensation",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "214150",
+      "name": "클래시스",
+      "status": "exact",
+      "duration_s": 6.6,
+      "candidates_count": 12,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "김동욱",
+            "role_type": "기타비상무이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김현승",
+            "role_type": "기타비상무이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "박완진",
+            "role_type": "기타비상무이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김동욱",
+            "role_type": "기타비상무이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김현승",
+            "role_type": "기타비상무이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "박완진",
+            "role_type": "기타비상무이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "신경자",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "권혁진",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "박준홍",
+            "role_type": "감사위원회",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "권혁진",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "박준홍",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "신경자",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제11기 연결 및 별도 재무제표 승인의 건(현금배당 1주당 1,000원)",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타비상무 이사 김동욱 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타비상무 이사 김현승 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타비상무 이사 박완진 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사외이사 신경자 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 권혁진 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 박준홍 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "058470",
+      "name": "리노공업",
+      "status": "exact",
+      "duration_s": 6.0,
+      "candidates_count": 5,
+      "agenda_count": 10,
+      "audit": {
+        "candidates": [
+          {
+            "name": "최용기",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "정병준",
+            "role_type": "사내이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "노의철",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김수락",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          },
+          {
+            "name": "김정수",
+            "role_type": "사외이사",
+            "agenda_action": "선임",
+            "appointment_type": "renewed",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제30기(2025.01.01.~2025.12.31.) 재무제표 (이익잉여금 처분계산서(안) 포함)승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 변경의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 도입을 위한 정관 변경(제33조,제35조,제37조, 제37조의2,제37조의3,제41조,제42조,제",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "표준정관 개정반영 등에 따른 정관 변경(제20조,제26조,제33조, 제34조의2,제47조,제50조,제51조,",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사 선임의 건(사내이사 2명)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 최용기 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "사내이사 정병준 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건(2명)",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 4,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 노의철 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 9,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사위원회 위원이 되는 사외이사 김수락 선임의 건",
+            "agenda_category": "director_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    },
+    {
+      "ticker": "118990",
+      "name": "모트렉스",
+      "status": "exact",
+      "duration_s": 6.8,
+      "candidates_count": 1,
+      "agenda_count": 7,
+      "audit": {
+        "candidates": [
+          {
+            "name": "정규일",
+            "role_type": "감사",
+            "agenda_action": "선임",
+            "appointment_type": "new",
+            "d_disqualification": true,
+            "d_independence": true,
+            "d_expertise": true,
+            "d_past_career": true,
+            "all_4": true
+          }
+        ],
+        "agenda": [
+          {
+            "agenda_title": "제25기(2025년1월1일~2025년12월31일) 연결/별도재무제표 승인의 건",
+            "agenda_category": "financial_statements",
+            "decision": "FOR",
+            "fact_count": 7,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "정관 일부 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "이사회 관련 정관 규정 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "기타 정관 규정 개정의 건",
+            "agenda_category": "articles_amendment",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "주식매수선택권 부여 승인의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "감사 정규일 신규 선임의 건",
+            "agenda_category": "audit_committee_election",
+            "decision": "FOR",
+            "fact_count": 8,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          },
+          {
+            "agenda_title": "임원 처우 규정 제정의 건",
+            "agenda_category": "other",
+            "decision": "FOR",
+            "fact_count": 0,
+            "risk_count": 0,
+            "no_data": false,
+            "no_data_false_positive": false
+          }
+        ],
+        "g4_fy_status": "success"
+      }
+    }
+  ]
+}

@@ -38,6 +38,8 @@ def _load_universe(name: str, sample: int) -> list[tuple[str, str]]:
     """(ticker, company_name) 리스트."""
     if name == "kospi200":
         path = ROOT / "wiki/architecture/audits/data/260503_universe_200.csv"
+    elif name == "kosdaq50":
+        path = ROOT / "wiki/architecture/audits/data/260504_proxy_advise_framework/kosdaq_top50.csv"
     else:
         raise ValueError(f"unknown universe: {name}")
     rows: list[tuple[str, str]] = []
