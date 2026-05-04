@@ -754,6 +754,34 @@ def detect_appointment_type(
             })
 
     if not matched:
+        # main_job fallback (1) — 정확한 회사명 prefix 매칭 (예: "삼성전자 DS부문 경영전략총괄")
+        main_job = (candidate.get("mainJob") or "").strip()
+        if main_job:
+            norm_mj = _normalize_corp_name(main_job)
+            if norm_mj and (norm_mj.startswith(norm_name) or norm_name in norm_mj.split()):
+                return {
+                    "type": "renewed",
+                    "reason": f"career 매칭 X but main_job 회사명 prefix 발견: {main_job[:60]}",
+                    "matched_entries": [],
+                    "earliest_start": None,
+                    "match_source": "main_job_prefix",
+                }
+
+        # main_job fallback (2) — 사내이사인데 main_job 있음 → renewed 추정.
+        # 사례: LS ELECTRIC 구자균 (canonical=엘에스일렉트릭 ↔ main_job=LS ELECTRIC 한글-영문 mismatch),
+        #      신한지주 진옥동 (canonical=신한지주 ↔ main_job=신한금융지주 명칭 차이).
+        # 외부 영입 신임 CEO는 드물어 false-renewed 위험 ~5-10% (수용).
+        role_type = (candidate.get("roleType") or "")
+        is_inside = "사내" in role_type and "사외" not in role_type
+        if is_inside and main_job:
+            return {
+                "type": "renewed",
+                "reason": f"사내이사 + main_job 있음 (한글-영문/약칭 mismatch 가능) — 사내이사 default renewed: {main_job[:60]}",
+                "matched_entries": [],
+                "earliest_start": None,
+                "match_source": "inside_director_default",
+            }
+
         return {"type": "new", "reason": "이 회사 entry 없음 — 외부 경력만", "matched_entries": []}
 
     # 시작 연도 기준 — 과거 (current_year 이전) 시작이면 연임

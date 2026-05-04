@@ -29,6 +29,7 @@ from importlib.resources import files
 from typing import Any
 
 from open_proxy_mcp.dart.client import get_dart_client
+from open_proxy_mcp.services.agm_first_agenda_fy import parse_fy_from_agm_doc
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
@@ -326,6 +327,7 @@ def _extract_facts(
     fin_payload: dict[str, Any] | None,
     comp_payload: dict[str, Any] | None,
     all_evals: list[dict[str, Any]] | None = None,
+    fy_raw_from_agenda: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """카테고리별 검증 가능한 정량 fact dict (None 값은 제외)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -336,8 +338,16 @@ def _extract_facts(
     if category == "financial_statements":
         latest_op = audit.get("summary", {}).get("latest_opinion") if "summary" in audit else None
         facts["audit_opinion"] = latest_op
-        facts["net_income_krw"] = fin_summary.get("net_income_krw")
+        facts["fy_prior_net_income_krw"] = fin_summary.get("net_income_krw")  # FY(N-2) sa-bun-bo-go-seo
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
+        # 1번 안건 본문 FY raw (당기/전기)
+        if fy_raw_from_agenda and fy_raw_from_agenda.get("extraction_status") in ("success", "partial"):
+            for k in ("fy_current_net_income_krw_mn", "fy_prior_net_income_krw_mn",
+                      "fy_current_revenue_krw_mn", "fy_current_operating_profit_krw_mn"):
+                v = fy_raw_from_agenda.get(k)
+                if v is not None:
+                    facts[k] = v
+            facts["fy_raw_extraction_status"] = fy_raw_from_agenda.get("extraction_status")
     elif category == "cash_dividend":
         facts["payout_ratio_pct"] = fin_summary.get("payout_ratio_pct")
         facts["net_income_krw"] = fin_summary.get("net_income_krw")
@@ -613,6 +623,18 @@ async def build_proxy_advise_payload(
         _safe_throttled(build_director_evaluation_payload, company_query, year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
     )
 
+    # 1번 안건 (재무제표 승인) FY 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
+    fy_raw_from_agenda: dict[str, Any] = {"extraction_status": "no_data", "matched_keywords": []}
+    notice_dict = ((meeting_summary.get("data") or {}).get("notice") or {})
+    agm_rcept = notice_dict.get("rcept_no") if isinstance(notice_dict, dict) else None
+    if agm_rcept:
+        try:
+            doc = await asyncio.wait_for(client.get_document_cached(agm_rcept), timeout=30.0)
+            text = (doc or {}).get("text") or ""
+            fy_raw_from_agenda = parse_fy_from_agm_doc(text)
+        except Exception:
+            fy_raw_from_agenda = {"extraction_status": "error", "matched_keywords": []}
+
     # 안건 리스트 추출 (success 매핑)
     agenda_data = (meeting_agenda.get("data") or {})
     agenda_summary = agenda_data.get("agenda_summary", {}) or {}
@@ -743,7 +765,8 @@ async def build_proxy_advise_payload(
 
         # 4. 결정 근거 보강 — facts (정량) + risk_factors + policy_citation
         all_director_evals = list(name_to_eval.values()) if category in ("director_election", "audit_committee_election") else None
-        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, all_director_evals)
+        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, all_director_evals,
+                                fy_raw_from_agenda=fy_raw_from_agenda)
         risk_factors = _extract_risks(category, matched_eval, fin_metrics, meeting_comp, title)
         policy_citation = _policy_citation(category)
 

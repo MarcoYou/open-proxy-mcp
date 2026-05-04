@@ -86,14 +86,14 @@ def _audit_payload(payload: dict) -> dict:
             "all_4": d_disq and d_indep and d_expertise and d_past_career,
         })
 
-    # G2 — NO_DATA breakdown
+    # G2 — NO_DATA breakdown + G4 — 1번 안건 FY raw
     g2_records = []
+    g4_status: str | None = None  # 회사 단위 (1번 안건 또는 financial_statements 안건의 fy_raw_extraction_status)
     for ad in decisions:
         decision = ad.get("decision")
         facts = ad.get("facts") or {}
         risks = ad.get("risk_factors") or []
         is_no_data = decision == "NO_DATA"
-        # false-positive proxy: NO_DATA 인데 facts non-empty 또는 risks 있음
         false_positive = is_no_data and (bool(facts) or bool(risks))
         g2_records.append({
             "agenda_title": (ad.get("agenda_title") or "")[:60],
@@ -104,6 +104,9 @@ def _audit_payload(payload: dict) -> dict:
             "no_data": is_no_data,
             "no_data_false_positive": false_positive,
         })
+        # G4 — financial_statements 안건의 fy_raw_extraction_status
+        if ad.get("agenda_category") == "financial_statements" and g4_status is None:
+            g4_status = facts.get("fy_raw_extraction_status") or "no_data"
 
     # G3 — appointment_type (currently not auto-detected, all are 'unknown')
     # G4 — FY agenda raw (currently not parsed, all 'unknown')
@@ -111,6 +114,7 @@ def _audit_payload(payload: dict) -> dict:
     return {
         "candidates": g1_records,
         "agenda": g2_records,
+        "g4_fy_status": g4_status,
     }
 
 
@@ -179,6 +183,15 @@ def _summarize(results: list[dict]) -> dict:
         "pct_no_data_false_positive_of_no_data": round(n_no_data_fp / max(n_no_data, 1) * 100, 1) if n_no_data else 0,
     }
 
+    # G4 — 회사 단위 fy_raw 추출률
+    g4_companies_with_fs = [r for r in results if r.get("audit", {}).get("g4_fy_status") is not None]
+    g4_success = sum(1 for r in g4_companies_with_fs if r["audit"]["g4_fy_status"] in ("success", "partial"))
+    g4_metrics = {
+        "n_companies_with_fs_agenda": len(g4_companies_with_fs),
+        "n_fy_success_or_partial": g4_success,
+        "pct_fy_extracted": round(g4_success / max(len(g4_companies_with_fs), 1) * 100, 1),
+    }
+
     # G3 appointment_type breakdown
     n_apt_new = sum(1 for c in cands_total if c["appointment_type"] == "new")
     n_apt_renewed = sum(1 for c in cands_total if c["appointment_type"] == "renewed")
@@ -206,6 +219,7 @@ def _summarize(results: list[dict]) -> dict:
         "g1": g1_metrics,
         "g2": g2_metrics,
         "g3": g3_metrics,
+        "g4": g4_metrics,
     }
 
 
