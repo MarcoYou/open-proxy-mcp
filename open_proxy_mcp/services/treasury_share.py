@@ -43,6 +43,12 @@ from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 _SUPPORTED_SCOPES = {"summary", "events", "acquisition", "disposal", "cancelation", "annual"}
 _CANCELATION_KEYWORDS = ("자기주식소각결정", "자사주소각결정", "자기주식소각", "주식소각결정")
+
+# 결과 보고서 4종 keyword (별도 구조화 API 없음 — list.json + 본문 파싱)
+_ACQUISITION_RESULT_KEYWORDS = ("자기주식취득결과보고서", "자기주식취득결과")
+_DISPOSAL_RESULT_KEYWORDS = ("자기주식처분결과보고서", "자기주식처분결과")
+_TRUST_ACQ_STATUS_KEYWORDS = ("신탁계약에의한취득상황보고서", "신탁계약에 의한 취득상황보고서", "신탁취득상황보고서")
+_TRUST_TERM_RESULT_KEYWORDS = ("신탁계약해지결과보고서", "신탁계약 해지 결과보고서", "신탁해지결과보고서")
 _ACQUISITION_KEYWORDS = ("자기주식취득결정", "자사주취득결정", "자기주식 취득 결정", "주식취득결정")
 
 
@@ -264,6 +270,153 @@ def _parse_cancelation_body(text: str) -> dict[str, Any]:
     m = re.search(r"이사회\s*결의일(?:\s*\(?결정일\)?)?\s*(\d{4}-?\d{2}-?\d{2})", clean)
     if m:
         result["board_date"] = m.group(1)
+
+    return result
+
+
+def _parse_main_report_date(text: str) -> str | None:
+    """결과 보고서 본문에서 '주요사항보고서 제출일' 추출 — 결정-결과 사이클 매칭 키."""
+    if not text:
+        return None
+    clean = re.sub(r"\s+", " ", text)
+    m = re.search(r"주요사항보고서\s*제출일[:\s]*(\d{4})\s*[년\-./]\s*(\d{1,2})\s*[월\-./]\s*(\d{1,2})", clean)
+    if m:
+        return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    return None
+
+
+def _parse_acquisition_result_body(text: str) -> dict[str, Any]:
+    """자기주식 취득결과보고서 본문 파싱 — 일자별 매입 raw + 합계 + 미달사유.
+
+    표준 서식 (자본시장법 시행령):
+      - 발행인 명칭/주소
+      - 주요사항보고서 제출일 (↔ 취득결정 매칭 키)
+      - 취득기간 (시작·종료)
+      - 일자별 표: 일자 / 주식종류 / 취득수량(이전·당일·누적) / 평균단가 / 취득금액 / 위탁증권사
+      - 합계: 총 취득수량 / 총 취득금액 / 평균단가
+      - 취득예정금액 미달 여부 + 미달 사유
+      - 보유 자기주식 현황 (직접취득)
+    """
+    if not text:
+        return {}
+    clean = re.sub(r"\s+", " ", text)
+    result: dict[str, Any] = {}
+
+    main_date = _parse_main_report_date(text)
+    if main_date:
+        result["main_report_date"] = main_date
+
+    m = re.search(r"취득기간[\s\S]{0,80}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})[일\s]*부터[\s\S]{0,30}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", text)
+    if m:
+        result["period_start"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        result["period_end"] = f"{m.group(4)}-{int(m.group(5)):02d}-{int(m.group(6)):02d}"
+
+    # 합계 — 취득가액총액 (마지막 합계 row)
+    m = re.search(r"취득가액?\s*총액\s*\(?\s*원\s*\)?[\s\S]{0,30}?([\d,]{8,})", clean)
+    if m:
+        result["total_amount_krw"] = _to_int(m.group(1))
+    # 합계 수량 — 취득예정주식수 vs 실제 (미달여부)
+    m = re.search(r"취득예정주식수[\s\S]{0,40}?([\d,]{4,})[\s\S]{0,80}?취득주식수[\s\S]{0,40}?([\d,]{4,})", clean)
+    if m:
+        result["planned_shares"] = _to_int(m.group(1))
+        result["actual_shares"] = _to_int(m.group(2))
+
+    # 미달 여부 + 사유
+    m = re.search(r"미달[\s\S]{0,15}?(여|예|미달)[\s\S]{0,5}?(?:사유|원인)?[:\s]*([^.]{0,100})", clean)
+    if m:
+        result["shortfall"] = True
+        result["shortfall_reason"] = m.group(2).strip()[:80] if m.group(2) else ""
+    else:
+        result["shortfall"] = False
+
+    return result
+
+
+def _parse_disposal_result_body(text: str) -> dict[str, Any]:
+    """자기주식 처분결과보고서 본문 파싱 — 일자별 처분 raw + 합계 + 상대방."""
+    if not text:
+        return {}
+    clean = re.sub(r"\s+", " ", text)
+    result: dict[str, Any] = {}
+
+    main_date = _parse_main_report_date(text)
+    if main_date:
+        result["main_report_date"] = main_date
+
+    m = re.search(r"처분기간[\s\S]{0,80}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})[일\s]*부터[\s\S]{0,30}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", text)
+    if m:
+        result["period_start"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        result["period_end"] = f"{m.group(4)}-{int(m.group(5)):02d}-{int(m.group(6)):02d}"
+
+    m = re.search(r"처분가액?\s*총액\s*\(?\s*원\s*\)?[\s\S]{0,30}?([\d,]{8,})", clean)
+    if m:
+        result["total_amount_krw"] = _to_int(m.group(1))
+    m = re.search(r"처분예정주식수[\s\S]{0,40}?([\d,]{4,})[\s\S]{0,80}?처분주식수[\s\S]{0,40}?([\d,]{4,})", clean)
+    if m:
+        result["planned_shares"] = _to_int(m.group(1))
+        result["actual_shares"] = _to_int(m.group(2))
+
+    # 처분상대방
+    m = re.search(r"처분\s*상대방[:\s]*([^.\n]{2,80})", clean)
+    if m:
+        result["counterparty"] = m.group(1).strip()[:80]
+
+    return result
+
+
+def _parse_trust_acquisition_status_body(text: str) -> dict[str, Any]:
+    """신탁계약에 의한 취득상황보고서 본문 파싱 — 분기 보고 (월별 raw + 누적 + 잔여한도)."""
+    if not text:
+        return {}
+    clean = re.sub(r"\s+", " ", text)
+    result: dict[str, Any] = {}
+
+    # 신탁계약 체결일 (사이클 매칭 키)
+    m = re.search(r"신탁계약\s*체결일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
+    if m:
+        result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+
+    # 보고기간
+    m = re.search(r"보고기간[\s\S]{0,40}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})[\s\S]{0,15}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
+    if m:
+        result["report_period_start"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        result["report_period_end"] = f"{m.group(4)}-{int(m.group(5)):02d}-{int(m.group(6)):02d}"
+
+    # 누적 취득
+    m = re.search(r"누적\s*취득[\s\S]{0,80}?([\d,]{6,})", clean)
+    if m:
+        result["cumulative_amount_krw"] = _to_int(m.group(1))
+    # 신탁계약금액 + 잔여한도
+    m = re.search(r"신탁계약금액?\s*\(?\s*원\s*\)?[\s\S]{0,30}?([\d,]{8,})", clean)
+    if m:
+        result["trust_contract_amount_krw"] = _to_int(m.group(1))
+
+    return result
+
+
+def _parse_trust_termination_result_body(text: str) -> dict[str, Any]:
+    """신탁계약 해지결과보고서 본문 파싱 — 총 취득실적 + 해지 후 보유현황."""
+    if not text:
+        return {}
+    clean = re.sub(r"\s+", " ", text)
+    result: dict[str, Any] = {}
+
+    m = re.search(r"신탁계약\s*체결일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
+    if m:
+        result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+
+    m = re.search(r"해지일[:\s]*(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
+    if m:
+        result["termination_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+
+    m = re.search(r"취득가액?\s*총액\s*\(?\s*원\s*\)?[\s\S]{0,30}?([\d,]{8,})", clean)
+    if m:
+        result["total_amount_krw"] = _to_int(m.group(1))
+
+    # 해지 후 보유현황 — 직접 + 신탁 계
+    m = re.search(r"해지\s*후[\s\S]{0,200}?보통주식[\s\S]{0,40}?([\d,]{4,})", clean)
+    if m:
+        result["post_termination_common_shares"] = _to_int(m.group(1))
 
     return result
 
