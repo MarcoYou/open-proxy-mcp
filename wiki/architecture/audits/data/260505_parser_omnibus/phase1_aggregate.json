@@ -1,0 +1,554 @@
+{
+  "totals": {
+    "n_records": 300,
+    "n_ok": 297,
+    "n_failed": 3,
+    "ok_pct": 99.0
+  },
+  "status_counts": {
+    "ok": 297,
+    "no_corp": 2,
+    "search_error": 1
+  },
+  "topic_frequency": {
+    "has_director": {
+      "n": 234,
+      "pct": 78.8
+    },
+    "has_audit": {
+      "n": 221,
+      "pct": 74.4
+    },
+    "has_compensation": {
+      "n": 279,
+      "pct": 93.9
+    },
+    "has_aoi": {
+      "n": 252,
+      "pct": 84.8
+    },
+    "has_retirement": {
+      "n": 30,
+      "pct": 10.1
+    },
+    "has_financials": {
+      "n": 215,
+      "pct": 72.4
+    }
+  },
+  "g1_overall": {
+    "meeting_info": {
+      "ok": 297,
+      "n": 297,
+      "pct": 100.0
+    },
+    "agenda": {
+      "ok": 296,
+      "n": 297,
+      "pct": 99.7
+    },
+    "agenda_details": {
+      "ok": 297,
+      "n": 297,
+      "pct": 100.0
+    },
+    "corrections": {
+      "ok": 297,
+      "n": 297,
+      "pct": 100.0
+    },
+    "personnel": {
+      "ok": 233,
+      "n": 234,
+      "pct": 99.6
+    },
+    "personnel_audit_topic": {
+      "ok": 220,
+      "n": 221,
+      "pct": 99.5
+    },
+    "aoi": {
+      "ok": 248,
+      "n": 252,
+      "pct": 98.4
+    },
+    "compensation": {
+      "ok": 275,
+      "n": 279,
+      "pct": 98.6
+    },
+    "retirement_pay_call": {
+      "ok": 30,
+      "n": 30,
+      "pct": 100.0
+    },
+    "provisional_fs_call": {
+      "ok": 215,
+      "n": 215,
+      "pct": 100.0
+    },
+    "provisional_fs_metrics_6plus": {
+      "ok": 196,
+      "n": 215,
+      "pct": 91.2
+    },
+    "provisional_fs_metrics_4plus": {
+      "ok": 198,
+      "n": 215,
+      "pct": 92.1
+    }
+  },
+  "g1_per_market": {
+    "kospi": {
+      "n_records": 200,
+      "n_ok": 198,
+      "agenda_ok_pct": 99.5,
+      "personnel_pct": 99.4,
+      "aoi_pct": 97.7,
+      "compensation_pct": 98.4,
+      "pfs_metrics_6plus_pct": 88.4
+    },
+    "kosdaq": {
+      "n_records": 100,
+      "n_ok": 99,
+      "agenda_ok_pct": 100.0,
+      "personnel_pct": 100.0,
+      "aoi_pct": 100.0,
+      "compensation_pct": 98.9,
+      "pfs_metrics_6plus_pct": 96.1
+    }
+  },
+  "fail_samples": {
+    "agenda": [
+      {
+        "ticker": "008770",
+        "name": "호텔신라",
+        "rcept_no": "20260303002845",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "root_count": 0,
+          "total_titles": 0,
+          "topics": {
+            "has_director": false,
+            "has_audit": false,
+            "has_compensation": false,
+            "has_aoi": false,
+            "has_retirement": false,
+            "has_financials": false
+          },
+          "titles_sample": []
+        }
+      }
+    ],
+    "personnel": [
+      {
+        "ticker": "138930",
+        "name": "BNK금융지주",
+        "rcept_no": "20260309001537",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "appointments_count": 0,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        }
+      }
+    ],
+    "personnel_audit_topic": [
+      {
+        "ticker": "138930",
+        "name": "BNK금융지주",
+        "rcept_no": "20260309001537",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "appointments_count": 0,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        }
+      }
+    ],
+    "aoi": [
+      {
+        "ticker": "024110",
+        "name": "기업은행",
+        "rcept_no": "20260311004141",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        }
+      },
+      {
+        "ticker": "071050",
+        "name": "한국금융지주",
+        "rcept_no": "20260312000993",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        }
+      },
+      {
+        "ticker": "267270",
+        "name": "HD건설기계",
+        "rcept_no": "20260225004969",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        }
+      },
+      {
+        "ticker": "138930",
+        "name": "BNK금융지주",
+        "rcept_no": "20260309001537",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        }
+      }
+    ],
+    "compensation": [
+      {
+        "ticker": "024110",
+        "name": "기업은행",
+        "rcept_no": "20260311004141",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        }
+      },
+      {
+        "ticker": "071050",
+        "name": "한국금융지주",
+        "rcept_no": "20260312000993",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        }
+      },
+      {
+        "ticker": "018880",
+        "name": "한온시스템",
+        "rcept_no": "20260311004210",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        }
+      },
+      {
+        "ticker": "263750",
+        "name": "펄어비스",
+        "rcept_no": "20260226005016",
+        "_universe": "kosdaq",
+        "parser_summary": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        }
+      }
+    ],
+    "provisional_fs_metrics_6plus": [
+      {
+        "ticker": "005380",
+        "name": "현대차",
+        "rcept_no": "20260305001412",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 61,
+          "consolidated_is_rows": 28,
+          "separate_bs_rows": 42,
+          "separate_is_rows": 20,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "034020",
+        "name": "두산에너빌리티",
+        "rcept_no": "20260312001003",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 72,
+          "consolidated_is_rows": 21,
+          "separate_bs_rows": 59,
+          "separate_is_rows": 15,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "068270",
+        "name": "셀트리온",
+        "rcept_no": "20260306000002",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 44,
+          "consolidated_is_rows": 19,
+          "separate_bs_rows": 24,
+          "separate_is_rows": 12,
+          "extraction_status": "no_data",
+          "scope_used": "separate",
+          "metric_keys_filled": 0
+        }
+      },
+      {
+        "ticker": "064350",
+        "name": "현대로템",
+        "rcept_no": "20260226002495",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 52,
+          "consolidated_is_rows": 29,
+          "separate_bs_rows": 50,
+          "separate_is_rows": 20,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "000720",
+        "name": "현대건설",
+        "rcept_no": "20260224003471",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 65,
+          "consolidated_is_rows": 31,
+          "separate_bs_rows": 9,
+          "separate_is_rows": 22,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "024110",
+        "name": "기업은행",
+        "rcept_no": "20260311004141",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 0,
+          "consolidated_is_rows": 0,
+          "separate_bs_rows": 34,
+          "separate_is_rows": 36,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "003550",
+        "name": "LG",
+        "rcept_no": "20260225005289",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 50,
+          "consolidated_is_rows": 23,
+          "separate_bs_rows": 10,
+          "separate_is_rows": 13,
+          "extraction_status": "no_data",
+          "scope_used": "separate",
+          "metric_keys_filled": 0
+        }
+      },
+      {
+        "ticker": "030200",
+        "name": "KT",
+        "rcept_no": "20260316001040",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 51,
+          "consolidated_is_rows": 17,
+          "separate_bs_rows": 44,
+          "separate_is_rows": 16,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      }
+    ],
+    "provisional_fs_metrics_4plus": [
+      {
+        "ticker": "005380",
+        "name": "현대차",
+        "rcept_no": "20260305001412",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 61,
+          "consolidated_is_rows": 28,
+          "separate_bs_rows": 42,
+          "separate_is_rows": 20,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "034020",
+        "name": "두산에너빌리티",
+        "rcept_no": "20260312001003",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 72,
+          "consolidated_is_rows": 21,
+          "separate_bs_rows": 59,
+          "separate_is_rows": 15,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "068270",
+        "name": "셀트리온",
+        "rcept_no": "20260306000002",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 44,
+          "consolidated_is_rows": 19,
+          "separate_bs_rows": 24,
+          "separate_is_rows": 12,
+          "extraction_status": "no_data",
+          "scope_used": "separate",
+          "metric_keys_filled": 0
+        }
+      },
+      {
+        "ticker": "064350",
+        "name": "현대로템",
+        "rcept_no": "20260226002495",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 52,
+          "consolidated_is_rows": 29,
+          "separate_bs_rows": 50,
+          "separate_is_rows": 20,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "000720",
+        "name": "현대건설",
+        "rcept_no": "20260224003471",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 65,
+          "consolidated_is_rows": 31,
+          "separate_bs_rows": 9,
+          "separate_is_rows": 22,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "024110",
+        "name": "기업은행",
+        "rcept_no": "20260311004141",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 0,
+          "consolidated_is_rows": 0,
+          "separate_bs_rows": 34,
+          "separate_is_rows": 36,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      },
+      {
+        "ticker": "003550",
+        "name": "LG",
+        "rcept_no": "20260225005289",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 50,
+          "consolidated_is_rows": 23,
+          "separate_bs_rows": 10,
+          "separate_is_rows": 13,
+          "extraction_status": "no_data",
+          "scope_used": "separate",
+          "metric_keys_filled": 0
+        }
+      },
+      {
+        "ticker": "030200",
+        "name": "KT",
+        "rcept_no": "20260316001040",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 51,
+          "consolidated_is_rows": 17,
+          "separate_bs_rows": 44,
+          "separate_is_rows": 16,
+          "extraction_status": "partial",
+          "scope_used": "separate",
+          "metric_keys_filled": 2
+        }
+      }
+    ]
+  },
+  "non_ok_records": [
+    {
+      "ticker": "0126Z0",
+      "name": "삼성에피스홀딩스",
+      "status": "no_corp",
+      "error": "",
+      "_source": "iter02b_kospi_45-60.json"
+    },
+    {
+      "ticker": "001720",
+      "name": "신영증권",
+      "status": "search_error",
+      "error": "013",
+      "_source": "iter03c_kospi_120-135.json"
+    },
+    {
+      "ticker": "0009K0",
+      "name": "에임드바이오",
+      "status": "no_corp",
+      "error": "",
+      "_source": "iter04e_kosdaq_15-30.json"
+    }
+  ]
+}
