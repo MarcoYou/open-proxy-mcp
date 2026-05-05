@@ -8,6 +8,62 @@ from open_proxy_mcp.services.proxy_advise import build_proxy_advise_payload
 from open_proxy_mcp.services.contracts import as_pretty_json
 
 
+# 사용자에게 노출되는 internal code → 한국어 자연어 라벨
+_INDEPENDENCE_LABELS = {
+    "independent": "독립적 (모든 sub-factor 충족)",
+    "weak_concerns": "약한 우려 (1개 sub-factor 위반)",
+    "concerns": "우려 (다수 sub-factor 위반)",
+    "long_tenure_concerns": "장기연임 우려 (5년 룰 위반)",
+    "no_data": "데이터 부족",
+    "-": "-",
+}
+
+_DISQUALIFICATION_LABELS = {
+    "clean": "결격사유 없음",
+    "red_flag": "결격사유 발견",
+    "not_evaluated": "평가 미실시",
+    "no_data": "데이터 부족",
+    "-": "-",
+}
+
+_AUDIT_HISTORY_LABELS = {
+    "not_checked": "미검증 (옵션 비활성)",
+    "no_red_flags": "이력 clean",
+    "red_flag": "과거 회사 회계 risk 발견",
+    "-": "-",
+}
+
+_FIVE_YEAR_LABELS = {
+    "first_term_or_short": "첫 임기 또는 단기 (5년 룰 통과)",
+    "long_tenure_concerns": "장기연임 (5년+, 독립성 훼손)",
+    "no_data": "데이터 부족",
+    "-": "-",
+}
+
+_SUB_FACTOR_LABELS = {
+    "major_shareholder_relation": "최대주주 관계",
+    "recent_3y_transactions": "최근 3년 거래",
+    "recent_2y_employee": "최근 2년 직원 이력",
+    "five_year_rule": "5년 임기 룰",
+}
+
+
+def _ind_label(code: str) -> str:
+    return _INDEPENDENCE_LABELS.get(code, code)
+
+
+def _disq_label(code: str) -> str:
+    return _DISQUALIFICATION_LABELS.get(code, code)
+
+
+def _audit_label(code: str) -> str:
+    return _AUDIT_HISTORY_LABELS.get(code, code)
+
+
+def _five_y_label(code: str) -> str:
+    return _FIVE_YEAR_LABELS.get(code, code)
+
+
 def _render_error(payload: dict[str, Any]) -> str:
     lines = [f"# advise_vote: {payload.get('subject', '')}", "", "메모 작성 불가."]
     for w in payload.get("warnings", []):
@@ -103,17 +159,26 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("| 후보 | 직책 | 선임유형 | 임기 | 독립성 | 결격사유 | 이사 회계 risk 이력 | 비고 |")
         lines.append("|------|------|---------|------|--------|---------|-------|------|")
         for c in cands:
-            indep = c.get("independence", {}).get("summary", "-")
-            disq = c.get("disqualification", {}).get("summary", "-")
-            audit_history = c.get("faithfulness", {}).get("audit_history_check", {}).get("summary", "-")
+            indep_code = c.get("independence", {}).get("summary", "-")
+            disq_code = c.get("disqualification", {}).get("summary", "-")
+            audit_code = c.get("faithfulness", {}).get("audit_history_check", {}).get("summary", "-")
             action = c.get("agenda_action", "-") or "-"
-            five_y = ((c.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {}).get("result", "-")
+            five_y_code = ((c.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {}).get("result", "-")
+            # 비고: independence concerns 시 어떤 sub-factor 위반했는지 한국어로
             note = ""
-            if indep == "concerns":
+            if indep_code in ("concerns", "weak_concerns"):
                 ind_subs = c.get("independence", {}).get("sub_factors", {})
-                concern_factors = [k for k, v in ind_subs.items() if v.get("result") not in ("independent", "no_transactions", "outsider", "first_term_or_short")]
-                note = f"독립성 우려: {', '.join(concern_factors)}"
-            lines.append(f"| {c.get('name', '?')} | {c.get('role_type', '-')} | {action} | {five_y} | {indep} | {disq} | {audit_history} | {note} |")
+                concern_kr = [
+                    _SUB_FACTOR_LABELS.get(k, k)
+                    for k, v in ind_subs.items()
+                    if v.get("result") not in ("independent", "no_transactions", "outsider", "first_term_or_short")
+                ]
+                if concern_kr:
+                    note = f"위반: {', '.join(concern_kr)}"
+            lines.append(
+                f"| {c.get('name', '?')} | {c.get('role_type', '-')} | {action} | {_five_y_label(five_y_code)} | "
+                f"{_ind_label(indep_code)} | {_disq_label(disq_code)} | {_audit_label(audit_code)} | {note} |"
+            )
         lines.append("")
 
         # 후보별 detail — 전문성 / 경력 / 과거 회사 행적 raw (framework 적용용)
