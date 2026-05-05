@@ -1,0 +1,395 @@
+{
+  "director_compensation": {
+    "신한지주|||이사보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "a_activist": "FOR",
+        "b_foreign": "FOR",
+        "s_legacy": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "JB금융지주|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "a_activist": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "우리금융지주|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 5,
+      "all_votes": {
+        "a_activist": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "AGAINST"
+      }
+    },
+    "코웨이|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "a_activist": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "DB손해보험|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "a_activist": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "SK하이닉스|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "키움증권|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "KT&G|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "KT|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "HD현대|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "현대모비스|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "현대글로비스|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "POSCO홀딩스|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "하나금융지주|||이사의 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "KB금융|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "LG화학|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "LG에너지솔루션|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 5,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "NAVER|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR"
+      }
+    },
+    "HD한국조선해양|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 5,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "AGAINST",
+        "t_activist": "FOR"
+      }
+    },
+    "티씨케이|||이사보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "포스코인터내셔널|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "k_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR"
+      }
+    },
+    "한화오션|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "k_legacy": "FOR",
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR"
+      }
+    },
+    "현대건설|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "메리츠금융지주|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "한화에어로스페이스|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "HD현대중공업|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "셀트리온|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "SK바이오팜|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "SK스퀘어|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "심텍|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "HD현대일렉트릭|||이사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    }
+  },
+  "audit_compensation": {
+    "티씨케이|||감사보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    },
+    "심텍|||감사 보수한도 승인의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "m_legacy": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    }
+  },
+  "retirement_pay": {
+    "SK하이닉스|||임원 퇴직금 지급 규정 개정의 건": {
+      "majority": "FOR",
+      "votes": 4,
+      "total": 4,
+      "all_votes": {
+        "b_foreign": "FOR",
+        "s_legacy": "FOR",
+        "sa_active": "FOR",
+        "t_activist": "FOR"
+      }
+    }
+  }
+}

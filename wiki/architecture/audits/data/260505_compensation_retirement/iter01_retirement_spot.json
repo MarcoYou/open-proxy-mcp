@@ -1,0 +1,170 @@
+[
+  {
+    "ticker": "000660",
+    "name": "SK하이닉스",
+    "rcept_no": "20260305001231",
+    "amendments": [
+      {
+        "clause": "제2조",
+        "before": "제2조 (임원의 정의) ②임원은 각 임원직책의 고유가치 및 중요도 차이 등을 단계화한 직위에 따라 Grade 부사장/사장/부회장/회장으로 구분한다.",
+        "after": "제2조 (임원의 정의) ②임원은 각 임원직책의 고유가치 및 중요도 차이 등을 단계화한 직위에 따라 Grade 부사장(자체임원)/부사장(연구위원)/ 부사장/사장/부회장/회장으로 구분한다.",
+        "reason": "자체임원과 연구위원도 미등기임원으로 공시함에 따라 임원의 Grade에 대한 사항 반영"
+      },
+      {
+        "clause": "제4조",
+        "before": "제4조 (퇴직금 산정 방법) <신  설>",
+        "after": "제4조 (퇴직금 산정 방법) ⑤회사는 임원의 퇴직금에 관하여 『확정급여형 퇴직연금제도 규약』, 『확정기여형 퇴직연금제도 규약』또는『혼합형 퇴직연금제도 규약』에 따라 퇴직급여(연금)제도를 설정하며, 각 규약에서 정하는 바에 따라 회사 부담금을 해당 퇴직연금계정에 납입한다.",
+        "reason": "경영성과금 DC(확정기여형 퇴직연금) 제도 도입을 위해 퇴직 연금 제도를 규정 내 명시"
+      },
+      {
+        "clause": "",
+        "before": "<신  설><별표> 지급률 Grade 지급률 사장 이상 4.0 부사장 3.0",
+        "after": "Grade",
+        "reason": "지급률"
+      },
+      {
+        "clause": "",
+        "before": "Grade",
+        "after": "지급률",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "사장 이상",
+        "after": "4.0",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "부사장",
+        "after": "3.0",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "Grade",
+        "after": "지급률",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "사장 이상",
+        "after": "4.0",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "부사장",
+        "after": "3.0",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "부사장(연구위원)",
+        "after": "2.0",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "부사장(자체임원)",
+        "after": "1.0",
+        "reason": ""
+      }
+    ],
+    "parser_miss": false
+  },
+  {
+    "ticker": "373220",
+    "name": "LG에너지솔루션",
+    "rcept_no": "20260213002143",
+    "amendments": [],
+    "parser_miss": true
+  },
+  {
+    "ticker": "207940",
+    "name": "삼성바이오로직스",
+    "rcept_no": "20260305001125",
+    "amendments": [],
+    "parser_miss": true
+  },
+  {
+    "ticker": "012450",
+    "name": "한화에어로스페이스",
+    "rcept_no": "20260309001870",
+    "amendments": [],
+    "parser_miss": true
+  },
+  {
+    "ticker": "032830",
+    "name": "삼성생명",
+    "rcept_no": "20260219002857",
+    "amendments": [],
+    "parser_miss": true
+  },
+  {
+    "ticker": "068270",
+    "name": "셀트리온",
+    "rcept_no": "20260306000002",
+    "amendments": [],
+    "parser_miss": true
+  },
+  {
+    "ticker": "042660",
+    "name": "한화오션",
+    "rcept_no": "20260304001631",
+    "amendments": [],
+    "parser_miss": true
+  },
+  {
+    "ticker": "012330",
+    "name": "현대모비스",
+    "rcept_no": "20260227008215",
+    "amendments": [],
+    "parser_miss": true
+  },
+  {
+    "ticker": "006800",
+    "name": "미래에셋증권",
+    "rcept_no": "20260316000579",
+    "amendments": [],
+    "parser_miss": true
+  },
+  {
+    "ticker": "010130",
+    "name": "고려아연",
+    "rcept_no": "20260305001616",
+    "amendments": [
+      {
+        "clause": "",
+        "before": "직위",
+        "after": "직위",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "회장(명예회장 포함 )",
+        "after": "회장(명예회장 불포함 )",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "부회장, 사장",
+        "after": "부회장, 사장",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "부사장",
+        "after": "부사장",
+        "reason": ""
+      },
+      {
+        "clause": "",
+        "before": "본부장, 담당",
+        "after": "본부장, 담당",
+        "reason": ""
+      }
+    ],
+    "parser_miss": false
+  }
+]

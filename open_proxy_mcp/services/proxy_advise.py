@@ -152,9 +152,12 @@ def _classify_agenda(agenda_title: str) -> str:
         return "audit_committee_election"
     if "감사" in t and "선임" in t:
         return "audit_committee_election"
-    if "보수" in t or "보수한도" in t or "퇴직금" in t or "퇴임위로금" in t:
-        # iter26: 퇴직금/퇴임위로금 안건 → director_compensation 카테고리
-        # records 표본 373건 / 164 회사 / mainstream FOR 80% — 보수와 동일 logic
+    # ralph 260505 17:50: 퇴직금 / 감사 보수한도 분리
+    if "퇴직금" in t or "퇴임위로금" in t:
+        return "retirement_pay"
+    if ("감사" in t and "감사위원" not in t) and ("보수" in t or "보수한도" in t):
+        return "audit_compensation"
+    if "보수" in t or "보수한도" in t:
         return "director_compensation"
     if "정관" in t:
         return "articles_amendment"
@@ -211,49 +214,307 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     return "FOR", f"사내이사 결격사유 없음 ({role_type}) — 신임 또는 평가 미실시"
 
 
-def _decide_compensation(comp_payload: dict[str, Any] | None, fin_metrics_payload: dict[str, Any] | None = None) -> tuple[str, str]:
-    """보수한도 안건 — 보수화 (애매→REVIEW, 누가봐도 안좋음→AGAINST).
-
-    AGAINST: 소진율 < 30% + 인상 (남는데 더 늘림 — 명백한 주주가치 훼손).
-    REVIEW: 50%+ 대폭 인상 / 인상률 미명시 / 데이터 모호.
-    FOR: 동결 또는 -10% ~ +10% 소폭 변경 (명확).
-
-    ralph iter5 강화: 보수 데이터 부족 시 재무 양호 fallback (mainstream 운용사 패턴).
-    """
-    def _fm_fallback() -> tuple[str, str] | None:
-        if not fin_metrics_payload:
-            return None
-        fm_summary = (fin_metrics_payload.get("data") or {}).get("summary", {}) or {}
-        ni = fm_summary.get("net_income_krw")
-        cap_status = fm_summary.get("capital_impairment_status")
-        if cap_status == "full":
-            return "AGAINST", "완전 자본잠식 — 보수한도 결정 부적절"
-        if ni is not None and ni > 0:
-            return "FOR", f"보수 데이터 부족이나 흑자 (순익 {ni:,}원) — 재무 양호 묵시 FOR"
-        # iter13: 적자라도 자본 normal이면 보수한도 승인은 mainstream FOR
-        # (SK이노 17/17, 삼성SDI 10/17 등 — 한도 자체 설정은 회사 결정)
-        if cap_status == "normal":
-            return "FOR", f"보수 데이터 부족 + 자본 양호 — 보수한도 설정은 회사 결정 영역 (mainstream FOR)"
+def _fm_yoy_pct(fm_payload: dict[str, Any] | None) -> float | None:
+    """financial_metrics yearly에서 순익 yoy 추출 (없으면 None)."""
+    if not fm_payload:
         return None
+    data = fm_payload.get("data") or {}
+    yearly = data.get("yearly") or data.get("yearly_metrics") or []
+    if isinstance(yearly, dict):
+        yearly = list(yearly.values()) if yearly else []
+    ni_series = []
+    for row in yearly:
+        if not isinstance(row, dict):
+            continue
+        ni = row.get("net_income_krw")
+        if ni is not None:
+            ni_series.append(ni)
+    if len(ni_series) < 2:
+        return None
+    cur, prev = ni_series[-1], ni_series[-2]
+    if not prev or prev == 0:
+        return None
+    return (cur - prev) / abs(prev) * 100
+
+
+def _decide_director_compensation(
+    comp_payload: dict[str, Any] | None,
+    fin_metrics_payload: dict[str, Any] | None = None,
+) -> tuple[str, str]:
+    """이사 보수한도 — 13 분기 (hard trigger → 자동 trigger → fallback).
+
+    정책 근거:
+    - OPM Open Proxy v1.3 #2 (적자/순익 감소 + 한도 증액 against)
+    - OPM #8 (50%+ 인상 against, 일회성 사유 외)
+    - NPS [별표 1] IV-33① (이사회 안 원칙적 찬성), IV-33② (한도 과다 against)
+    - mainstream FOR fallback (records 표본 82.5% FOR)
+    """
+    fm_summary = ((fin_metrics_payload or {}).get("data") or {}).get("summary", {}) or {}
+    cap_status = fm_summary.get("capital_impairment_status")
+    ni = fm_summary.get("net_income_krw")
+    yoy = _fm_yoy_pct(fin_metrics_payload)
 
     if not comp_payload:
-        fb = _fm_fallback()
-        return fb if fb else ("NO_DATA", "보수 + 재무 데이터 둘 다 없음 — 본문 검토 필요")
-    data = comp_payload.get("data", {})
-    summary = data.get("summary", {}) or {}
-    util_rate = summary.get("utilization_rate_pct")
-    increase_rate = summary.get("increase_rate_pct")
+        # 데이터 부족 fallback
+        if cap_status == "full":
+            return "AGAINST", "완전 자본잠식 — 보수한도 결정 부적절"  # 분기 12
+        if ni is not None and ni > 0:
+            return "FOR", f"보수 데이터 부족이나 흑자 (순익 {ni:,}원) — 재무 양호 묵시 FOR"  # 분기 11
+        if cap_status == "normal":
+            return "FOR", "보수 데이터 부족 + 자본 양호 — 보수한도 설정은 회사 결정 영역 (mainstream FOR)"
+        return "NO_DATA", "보수 + 재무 데이터 둘 다 없음 — 본문 검토 필요"  # 분기 13
 
-    if util_rate is not None and util_rate < 30 and increase_rate and increase_rate > 0:
-        return "AGAINST", f"소진율 {util_rate:.0f}%인데 한도 인상 ({increase_rate:+.0f}%) — 주주가치 훼손"
-    if increase_rate is not None and increase_rate >= 50:
-        return "REVIEW", f"보수한도 대폭 인상 ({increase_rate:+.0f}%) — 사용자 검토"
-    if increase_rate is None:
-        fb = _fm_fallback()
-        return fb if fb else ("NO_DATA", "보수한도 인상률 + 재무 데이터 둘 다 없음 — 본문 검토 필요")
-    if -10 <= increase_rate <= 10:
-        return "FOR", f"보수한도 소폭 변경 ({increase_rate:+.0f}%) 또는 동결"
-    return "REVIEW", f"보수한도 인상 ({increase_rate:+.0f}%) — 적정성 검토 필요"
+    summary = (comp_payload.get("data") or {}).get("summary", {}) or {}
+    util_rate = summary.get("utilization_rate_pct")
+    inc = summary.get("increase_rate_pct")
+
+    # 분기 1: 자본잠식 + 인상
+    if cap_status == "full" and inc is not None and inc > 0:
+        return "AGAINST", f"완전 자본잠식 + 한도 인상 ({inc:+.0f}%) — OPM Guideline (보수 결정 부적절)"
+    # 분기 2: 소진율 < 30% + 인상
+    if util_rate is not None and util_rate < 30 and inc is not None and inc > 0:
+        return "AGAINST", f"소진율 {util_rate:.0f}%인데 한도 인상 ({inc:+.0f}%) — 주주가치 훼손"
+    # 분기 3: 적자 OR 순익 감소 + 인상 (OPM #2 strict)
+    if inc is not None and inc > 0:
+        if (ni is not None and ni < 0) or (yoy is not None and yoy < 0):
+            ni_label = "적자" if (ni is not None and ni < 0) else f"순익 yoy {yoy:+.0f}%"
+            return "AGAINST", f"{ni_label} + 한도 인상 ({inc:+.0f}%) — OPM #2 (경영성과 대비 과다)"
+    # 분기 5: 50%+ 인상 (#8)
+    if inc is not None and inc >= 50:
+        return "REVIEW", f"보수한도 대폭 인상 ({inc:+.0f}%) — OPM #8 (50%+ 인상, 일회성 사유 외)"
+    # 분기 4: +10~+30% + 순익 yoy 둔화 (NPS IV-33② 보수)
+    if inc is not None and 10 < inc < 30 and yoy is not None and yoy < 5:
+        return "REVIEW", f"한도 +{inc:.0f}% + 순익 yoy {yoy:+.0f}% (둔화) — NPS IV-33② 보수적"
+    # 분기 6: +30~+50% 외 (#3-4 미해당)
+    if inc is not None and 30 <= inc < 50:
+        return "REVIEW", f"한도 +{inc:.0f}% 인상 — 적정성 검토"
+    # 분기 7: 소진율 ≥100% + 인상 (한도 부족 정당화)
+    if util_rate is not None and util_rate >= 100 and inc is not None and inc > 0:
+        return "FOR", f"소진율 {util_rate:.0f}% (한도 초과 사용) + 인상 ({inc:+.0f}%) — 한도 부족 정당화"
+    # 분기 8: 한도 감액
+    if inc is not None and inc < -10:
+        return "FOR", f"한도 감액 ({inc:+.0f}%) — 주주가치 우호"
+    # 분기 9: -10 ~ +10 (동결)
+    if inc is not None and -10 <= inc <= 10:
+        return "FOR", f"보수한도 소폭 변경 ({inc:+.0f}%) — NPS IV-33① 원칙적 찬성"
+    # 분기 10: +10~+30 + 순익 양호
+    if inc is not None and 10 < inc < 30 and (yoy is None or yoy >= 5):
+        return "FOR", f"한도 +{inc:.0f}% + 경영성과 양호 — NPS IV-33①"
+    # 분기 11/13: 인상률 None (compensation parsed but increase_rate missing)
+    if inc is None:
+        if cap_status == "full":
+            return "AGAINST", "완전 자본잠식 + 인상률 미파악 — OPM Guideline"
+        if ni is not None and ni > 0:
+            return "FOR", f"인상률 미파악이나 흑자 (순익 {ni:,}원) — mainstream fallback"
+        if cap_status == "normal":
+            return "FOR", "인상률 미파악 + 자본 정상 — mainstream fallback"
+        return "NO_DATA", "보수한도 인상률 + 재무 데이터 둘 다 없음 — 본문 검토 필요"
+    # default fallback (이론상 도달 X)
+    return "REVIEW", f"보수한도 변경 ({inc:+.0f}%) — 적정성 검토"
+
+
+# 하위 호환 alias (proxy_advise dispatch 등 기존 호출)
+_decide_compensation = _decide_director_compensation
+
+
+def _decide_audit_compensation(
+    comp_payload: dict[str, Any] | None,
+    fin_metrics_payload: dict[str, Any] | None = None,
+    *,
+    threshold_low_per_person: int = 50_000_000,   # NPS IV-34 과소 임계 (잠정 5천만원/인)
+    threshold_high_per_person: int = 100_000_000,  # 잠정 1억원/인
+) -> tuple[str, str]:
+    """감사 보수한도 — 11 분기.
+
+    정책 근거:
+    - NPS [별표 1] IV-34: 한도 과소 (감사 충실 업무 훼손) AGAINST
+    - s_legacy 패턴: 인상률 ≥+50% (감사 보수 급증 = 경영진 동조 인센티브) AGAINST
+    - mainstream FOR (records 11 majority case 모두 FOR)
+    """
+    fm_summary = ((fin_metrics_payload or {}).get("data") or {}).get("summary", {}) or {}
+    cap_status = fm_summary.get("capital_impairment_status")
+    ni = fm_summary.get("net_income_krw")
+
+    if not comp_payload:
+        if cap_status == "full":
+            return "AGAINST", "완전 자본잠식 — 감사 보수한도 결정 부적절"
+        if ni is not None and ni > 0:
+            return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — mainstream fallback"
+        if cap_status == "normal":
+            return "FOR", "감사 보수 데이터 부족 + 자본 양호 — mainstream fallback"
+        return "NO_DATA", "감사 보수 + 재무 데이터 둘 다 없음 — 본문 검토 필요"
+
+    data = comp_payload.get("data") or {}
+    items = data.get("items") or []
+    audit_items = [i for i in items if i.get("target") == "감사"]
+    summary = data.get("summary", {}) or {}
+    # 감사 분리 데이터 — items의 current.total_amount + current.count 활용 (parser 재집계)
+    audit_inc = None
+    audit_total = None
+    audit_count = None
+    audit_per_person = None
+    util_rate = None  # 감사 분리 소진율은 parser 추가 작업 필요 (Step 6)
+
+    for it in audit_items:
+        cur = it.get("current") or {}
+        prior = it.get("prior") or {}
+        if cur.get("total_amount"):
+            audit_total = cur["total_amount"]
+        if cur.get("count"):
+            audit_count = cur["count"]
+        if prior.get("total_amount") and cur.get("total_amount"):
+            try:
+                audit_inc = (cur["total_amount"] - prior["total_amount"]) / prior["total_amount"] * 100
+            except ZeroDivisionError:
+                pass
+    if audit_total and audit_count:
+        audit_per_person = audit_total / audit_count
+
+    # 분기 1: 자본잠식 + 인상
+    if cap_status == "full" and audit_inc is not None and audit_inc > 0:
+        return "AGAINST", f"완전 자본잠식 + 감사 한도 인상 ({audit_inc:+.0f}%) — 보수 결정 부적절"
+    # 분기 3: 1인당 평균 < threshold_low (NPS IV-34 과소)
+    if audit_per_person is not None and audit_per_person < threshold_low_per_person:
+        return "AGAINST", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (< {threshold_low_per_person/1e8:.1f}억) — NPS IV-34 (과소, 충실 업무 훼손)"
+    # 분기 4: 인상률 ≥+50% + 1인당 평균 > threshold_high (s_legacy 패턴)
+    if audit_inc is not None and audit_inc >= 50 and audit_per_person is not None and audit_per_person > threshold_high_per_person:
+        return "AGAINST", f"감사 한도 +{audit_inc:.0f}% + 1인당 평균 {audit_per_person/1e8:.2f}억 (>{threshold_high_per_person/1e8:.1f}억) — s_legacy 패턴 (경영진 동조 인센티브 우려)"
+    # 분기 5: 인상률 +30~+50% (s_legacy 보수)
+    if audit_inc is not None and 30 <= audit_inc < 50:
+        return "REVIEW", f"감사 한도 +{audit_inc:.0f}% 인상 — s_legacy 패턴 보수적 검토"
+    # 분기 6: 1인당 평균 경계
+    if audit_per_person is not None and threshold_low_per_person <= audit_per_person < threshold_high_per_person:
+        return "REVIEW", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (경계 — {threshold_low_per_person/1e8:.1f}~{threshold_high_per_person/1e8:.1f}억) — 사용자 노출"
+    # 분기 7: ±10% (동결)
+    if audit_inc is not None and -10 <= audit_inc <= 10:
+        return "FOR", f"감사 한도 소폭 변경 ({audit_inc:+.0f}%) — NPS IV-34 + mainstream FOR"
+    # 분기 8: 1인당 평균 ≥ threshold_high + +10~+30% 인상
+    if audit_per_person is not None and audit_per_person >= threshold_high_per_person and audit_inc is not None and 10 < audit_inc < 30:
+        return "FOR", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (≥{threshold_high_per_person/1e8:.1f}억) + 한도 +{audit_inc:.0f}% — NPS IV-34 + mainstream"
+    # 분기 9/10: 데이터 부족 fallback
+    if audit_inc is None and audit_per_person is None:
+        if cap_status == "full":
+            return "AGAINST", "감사 보수 데이터 부족 + 자본잠식 — 보수 결정 부적절"
+        if ni is not None and ni > 0:
+            return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — mainstream fallback"
+    # 분기 11: default
+    return "FOR", f"감사 보수한도 — 위험 신호 없음 (변경률 {audit_inc:+.0f}% 또는 1인당 {audit_per_person})"
+
+
+# 퇴직금 위험 키워드 (Step 0 sample 분석 + OPM Open Proxy v1.3 + NPS [별표 1] IV-35)
+_RETIREMENT_AGAINST_KEYWORDS_AFTER = (
+    "황금낙하산", "Golden Parachute", "golden parachute",
+    "경영권 변동", "경영권의 변동", "M&A시", "M&A 시",
+)
+_RETIREMENT_OUTSIDE_DIRECTOR_KEYWORDS = ("사외이사",)  # OPM #6
+_RETIREMENT_REVIEW_KEYWORDS_AFTER = (
+    "지급률", "배수", "확정기여형", "확정급여형", "퇴직연금",
+    "특별공로금", "명예퇴직", "전직", "신설", "비등기임원",
+)
+_RETIREMENT_FORMAL_KEYWORDS = (
+    "법령", "상법", "개정", "정비", "용어", "명칭", "공시", "반영",
+)
+
+
+def _decide_retirement_pay(
+    retirement_payload: dict[str, Any] | None,
+    fin_metrics_payload: dict[str, Any] | None = None,
+) -> tuple[str, str]:
+    """퇴직금 규정 변경 안건 — 12 분기.
+
+    정책 근거:
+    - NPS [별표 1] IV-35: 황금낙하산 원칙적 반대
+    - OPM Open Proxy v1.3 #6 (사외이사 퇴직혜택 부여 against)
+    - OPM #7 (황금낙하산 정관 도입 against)
+    - s_legacy 패턴 (퇴직금 31% AGAINST — 적자 case 등)
+    - mainstream FOR (records 표본 80% FOR)
+    """
+    if not retirement_payload:
+        return "NO_DATA", "퇴직금 변경 raw 추출 데이터 없음 — 본문 검토 필요"
+    data = retirement_payload.get("data") or retirement_payload  # 직접 dict 들어올 수도
+    amendments = data.get("amendments") or []
+    fm_summary = ((fin_metrics_payload or {}).get("data") or {}).get("summary", {}) or {}
+    cap_status = fm_summary.get("capital_impairment_status")
+
+    if not amendments:
+        return "NO_DATA", "퇴직금 안건 본문에서 amendments 추출 실패 (parser miss 또는 단순 정정)"
+
+    # 키워드 hit 검출
+    risk_against = []  # 황금낙하산 등
+    risk_outside_dir = []  # 사외이사 퇴직금
+    risk_review = []  # 지급률 등
+    formal_hits = []  # 법령 반영 등
+
+    for a in amendments:
+        after = (a.get("after") or "").strip()
+        before = (a.get("before") or "").strip()
+        reason = (a.get("reason") or "").strip()
+        # AGAINST hard trigger
+        for kw in _RETIREMENT_AGAINST_KEYWORDS_AFTER:
+            if kw in after:
+                risk_against.append({"clause": a.get("clause"), "kw": kw})
+        # 사외이사 퇴직금 신설 (after에 "사외이사" 등장 + before에 없음)
+        for kw in _RETIREMENT_OUTSIDE_DIRECTOR_KEYWORDS:
+            if kw in after and kw not in before:
+                risk_outside_dir.append({"clause": a.get("clause"), "kw": kw})
+        # REVIEW trigger
+        for kw in _RETIREMENT_REVIEW_KEYWORDS_AFTER:
+            if kw in after:
+                risk_review.append({"clause": a.get("clause"), "kw": kw})
+        # 형식적 변경
+        for kw in _RETIREMENT_FORMAL_KEYWORDS:
+            if kw in reason:
+                formal_hits.append({"clause": a.get("clause"), "kw": kw})
+
+    # 분기 1: 황금낙하산
+    if risk_against:
+        kws = ", ".join(sorted({h["kw"] for h in risk_against}))
+        return "AGAINST", f"퇴직금 위험 trigger ({kws}) 신설 — NPS IV-35 + OPM #7 (원칙적 반대)"
+    # 분기 2: 사외이사 퇴직금 신설
+    if risk_outside_dir:
+        return "AGAINST", "사외이사 퇴직금 신설 — OPM #6 (사외이사 퇴직혜택 부여 against)"
+    # 분기 3: 지급률 ≥2배수 인상 (sample-aware)
+    # SK하이닉스 sample: 사장 4.0배수, 부사장 3.0배수 — 신설인지 변경인지 판단
+    payment_multiplier_signal = False
+    for a in amendments:
+        after = a.get("after") or ""
+        before = a.get("before") or ""
+        # 배수 패턴 detect: "X배수" 또는 "X.X" 숫자
+        import re as _re
+        cur_multipliers = [float(m) for m in _re.findall(r"(\d+\.?\d*)\s*배수?", after)]
+        prev_multipliers = [float(m) for m in _re.findall(r"(\d+\.?\d*)\s*배수?", before)]
+        if cur_multipliers and prev_multipliers:
+            max_cur = max(cur_multipliers)
+            max_prev = max(prev_multipliers)
+            if max_prev > 0 and max_cur / max_prev >= 2:
+                payment_multiplier_signal = True
+                break
+        elif cur_multipliers and not prev_multipliers and max(cur_multipliers) >= 3:
+            # 신설 시 ≥3배수
+            payment_multiplier_signal = True
+            break
+    if payment_multiplier_signal:
+        return "AGAINST", "지급률 2배수 이상 인상 또는 신설 (≥3배수) — s_legacy strict 패턴"
+    # 분기 4: 자본잠식 + 변경
+    if cap_status == "full" and amendments:
+        return "REVIEW", f"완전 자본잠식 + 퇴직금 변경 {len(amendments)}건 — 보수적 검토"
+    # 분기 5: 퇴직금 한도/규정 신설 (없던 것 신설)
+    has_new_clause = any(("신  설" in (a.get("before") or "") or "신설" in (a.get("before") or "")) for a in amendments)
+    if has_new_clause:
+        # SK하이닉스 case: 퇴직금 산정 방법 신설 (확정급여형) — 이건 review
+        return "REVIEW", f"퇴직금 한도/규정 신설 (신설 조항 {sum(1 for a in amendments if '신설' in (a.get('before') or '') or '신  설' in (a.get('before') or ''))}건) — 경영진 보호 신호"
+    # 분기 9: 형식적 변경 (법령/상법/개정 등 reason hit + 위험 hit 0)
+    if formal_hits and not risk_review:
+        return "FOR", f"법령/표현 정비 ({', '.join(sorted({h['kw'] for h in formal_hits}))}) — 형식적 변경"
+    # 분기 8: 위험 키워드 hit
+    if risk_review:
+        kws = ", ".join(sorted({h["kw"] for h in risk_review})[:3])
+        return "REVIEW", f"퇴직금 변경 {len(amendments)}건, 위험 키워드 hit {len(risk_review)}건 ({kws}) — 사용자 검토"
+    # 분기 10: amendments ≥1, 위험 hit 0
+    if amendments:
+        return "REVIEW", f"퇴직금 변경 {len(amendments)}건 — 변경 raw 검토 권장"
+    # 분기 11: amendments 0
+    return "FOR", "퇴직금 단순 정정 (amendments 0건)"
 
 
 def _decide_financial_statements(fm_payload: dict[str, Any] | None) -> tuple[str, str]:
@@ -316,7 +577,9 @@ _POLICY_CITATIONS = {
     "cash_dividend": "OPM Guideline §배당 — 흑자 + 배당성향 적정 시 FOR (200% 초과 시 REVIEW)",
     "director_election": "OPM Guideline §이사선임 — 사내이사: 결격만 검증 / 사외이사: 독립성 + 결격",
     "audit_committee_election": "OPM Guideline §감사위원 — strict 검증 (장기연임 5년 룰 + 독립성)",
-    "director_compensation": "OPM Guideline §보수 — 소진율 < 30% + 인상 시 AGAINST",
+    "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 시 AGAINST / 적자+인상 시 AGAINST (#2) / 50% 이상 인상 시 REVIEW (#8)",
+    "audit_compensation": "NPS [별표 1] IV-34 + s_legacy 패턴 — 1인당 평균 과소 시 AGAINST / 50% 이상 인상 + 1인당 평균 과다 시 AGAINST",
+    "retirement_pay": "NPS [별표 1] IV-35 + OPM #6/#7 — 황금낙하산 신설 시 AGAINST / 사외이사 퇴직금 신설 시 AGAINST / 지급률 2배수 이상 인상 시 AGAINST",
     "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 없으면 FOR",
     "treasury_share": "OPM Guideline §자사주 — 소각 FOR / 처분 REVIEW",
     "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
@@ -633,14 +896,23 @@ async def build_proxy_advise_payload(
     )
 
     # 1번 안건 (재무제표 승인) FY 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
+    # ralph 260505 17:50: 같은 doc에서 퇴직금 amendments도 파싱 (extra DART 호출 없이)
     fy_raw_from_agenda: dict[str, Any] = {"extraction_status": "no_data", "matched_keywords": []}
+    retirement_payload: dict[str, Any] | None = None
     notice_dict = ((meeting_summary.get("data") or {}).get("notice") or {})
     agm_rcept = notice_dict.get("rcept_no") if isinstance(notice_dict, dict) else None
     if agm_rcept:
         try:
             doc = await asyncio.wait_for(client.get_document_cached(agm_rcept), timeout=30.0)
             text = (doc or {}).get("text") or ""
+            html = (doc or {}).get("html") or ""
             fy_raw_from_agenda = parse_fy_from_agm_doc(text)
+            # 퇴직금 amendments parse — 본문에 "퇴직금" 키워드 있을 때만
+            if html and ("퇴직금" in text or "퇴직금" in html or "퇴임위로금" in text or "퇴임위로금" in html):
+                from open_proxy_mcp.tools.parser import parse_retirement_pay_xml
+                _ret = parse_retirement_pay_xml(html)
+                if _ret and _ret.get("amendments"):
+                    retirement_payload = {"data": _ret, "status": "ok", "source_rcept_no": agm_rcept}
         except Exception:
             fy_raw_from_agenda = {"extraction_status": "error", "matched_keywords": []}
 
@@ -810,8 +1082,13 @@ async def build_proxy_advise_payload(
                             matched_eval["_audit_force_strict"] = True
                     decision, reason = _decide_director_election(matched_eval)
         elif category == "director_compensation":
-            # iter23+24 검증: "위임" records 표본 0건 → over-fit fix 제거
-            decision, reason = _decide_compensation(meeting_comp, fin_metrics)
+            decision, reason = _decide_director_compensation(meeting_comp, fin_metrics)
+        elif category == "audit_compensation":
+            # ralph 260505 17:50: 감사 보수한도 별도 분기 (NPS IV-34)
+            decision, reason = _decide_audit_compensation(meeting_comp, fin_metrics)
+        elif category == "retirement_pay":
+            # ralph 260505 17:50: 퇴직금 별도 분기 (NPS IV-35 + OPM #6/#7)
+            decision, reason = _decide_retirement_pay(retirement_payload, fin_metrics)
         elif category == "financial_statements":
             decision, reason = _decide_financial_statements(fin_metrics)
         elif category == "cash_dividend":

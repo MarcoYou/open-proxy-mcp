@@ -3,13 +3,13 @@ type: ralph
 title: 보수한도 / 퇴직금 안건 분리 — A 별도 함수 + B 이사·감사 분기 + 운용사·NPS 참조
 created: 2026-05-05 17:50
 completion_promise: COMPENSATION_RETIREMENT_SPLIT_VERIFIED
-max_iterations: 8
+max_iterations: 5
 ---
 
 ## Invoke (복붙)
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260505_1750_ralph_compensation-retirement-split.md 가이드 따라 A 퇴직금 별도 함수 신규 + B 보수한도 이사 감사 분기 추가 + 운용사 NPS reference. KOSPI 100 + KOSDAQ 50 표본 검증, 파싱 성공률 99 퍼센트 이상 + 이사 감사 분기 정확도 100 퍼센트 + 운용사 majority 정합도 90 퍼센트 이상 + NPS 정책 정합 100 퍼센트 모두 충족 시 promise. --completion-promise COMPENSATION_RETIREMENT_SPLIT_VERIFIED --max-iterations 8
+/ralph-loop:ralph-loop wiki/ralph/260505_1750_ralph_compensation-retirement-split.md 가이드 따라 A 퇴직금 별도 함수 신규 + B 보수한도 이사 감사 분기 추가 + 운용사 NPS reference. KOSPI 100 + KOSDAQ 50 표본 검증, 파싱 성공률 99 퍼센트 이상 + 이사 감사 분기 정확도 100 퍼센트 + 운용사 majority 정합도 90 퍼센트 이상 + NPS 정책 정합 100 퍼센트 모두 충족 시 promise. --completion-promise COMPENSATION_RETIREMENT_SPLIT_VERIFIED --max-iterations 5
 ```
 
 # Ralph: 보수한도 / 퇴직금 안건 분리
