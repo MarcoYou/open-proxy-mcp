@@ -195,26 +195,45 @@ threshold 조정 후 회귀 측정. distribution + 정합도 재확인.
 
 ## iteration log (작성하면서 update)
 
-### iter 1 — Step 1 batch 1-3 (KOSPI 50-140)
-(작성 예정)
+### iter 1 (T0~+30분) — 6 batch BG 시작 + Step 0 NO_DATA spot + parser fallback 1차
+- 6 batch chain BG: KOSPI 50-200 (5 batch × 30) + KOSDAQ 30-50 (1 batch × 20) = 169 회사
+- spot 4 회사 (에스티팜 / 원익IPS / 에코프로비엠 / SK하이닉스):
+  - 모두 본문에 "변경전"/"변경후" 표 있으나 parser miss (anchor "퇴직금" 안건 detect 실패)
+- `parse_retirement_pay_xml` fallback 추가 (commit `45c50d3`):
+  - `_extract_amendments_from_table_rows` helper 분리 (재사용)
+  - `_retirement_fallback_from_html` — BS4로 HTML 전체 표 스캔
+  - row-level strict — amendment의 before/after/reason에 "퇴직금" 직접 등장 시만
+- 검증 (4 회사):
+  - 원익IPS 0 → 4 amendments
+  - 에코프로비엠 0 → 1 amendment
+  - SK하이닉스 11 (변동 없음, primary 성공)
+  - 에스티팜 여전히 0 — 표 header가 "개정 전 내용" / "개정 후 내용" (다른 패턴)
 
-### iter 2 — Step 1 batch 4-6 (KOSPI 140-200 + KOSDAQ 30-50)
-(작성 예정)
+### iter 2 (T+30~+60분) — 에스티팜 분석 + 개정전/후 키워드 fix + batch 50-80 결과
+- 에스티팜 HTML structure: 47 tables, 표 head "개정 전 내용" / "개정 후 내용" — 현재 parser는 "개정"만 보고 둘 다 after_idx로 매칭 → before_idx -1 → skip
+- fix (commit `42a1b3a`): 키워드 정밀화 — `[변경전, 개정전, 현행]` vs `[변경후, 개정후, 개정안, 변경(안)]`. "개정"만으로는 매칭 X. elif로 충돌 방지.
+- 검증:
+  - 에스티팜 0 → 2 amendments ✓
+  - 에코프로비엠 1 → 8 amendments (정관변경 표 안에 퇴직금 row까지)
+  - 원익IPS 4 유지
+  - SK하이닉스 11 유지
+- batch 50-80 완료 (OLD parser 사용 — 시작 시점 parser 변경 전):
+  - director_compensation: 12 FOR (g3 100% 2/2)
+  - audit_compensation: 0
+  - retirement_pay: 3 (NO_DATA 1 — 카카오페이 / REVIEW 2 — SK바이오팜 한도/규정 신설, LIG넥스원 지급률 hit)
+- 카카오페이 spot — NEW parser로 amends=13 (50-80 batch는 OLD라 NO_DATA, NEW라면 정상)
 
-### iter 3 — Step 2 NO_DATA 분석
-(작성 예정)
+### iter 3 (T+60~+90분) — 80-110 진행 중 + 분석
+- batch 80-110 partial 10/30. NEW parser 적용 (process 시작 시점 = parser 변경 후)
+- 운용사 majority cache key 불일치 발견:
+  - 하이브 director 안건 title 다양 ("이사 보수한도 승인의 건" / "이사 보수한도액 승인" / "제5호. 이사 보수한도 승인의 건" 등)
+  - 운용사마다 title 표기 다름 → cache exact match fail → 4+ majority case 적게 잡힘
+  - 별도 작업 필요 (title normalize / fuzzy match)
 
-### iter 4 — Step 3 parser 강화
-(작성 예정)
+### iter 4 (T+90~+120분) — 진행 batch 결과 통합 대기
+- 80-110 ~10/30 / 110-140 / 140-170 / 170-200 / KOSDAQ 30-50 미시작
+- 5 iter 한정 — promise 발행 위한 4 기준 측정 시간 부족 가능성
+- Aggregate script 미리 준비 / wiki update 미리 준비
 
-### iter 5 — Step 4 threshold calibrate
-(작성 예정)
-
-### iter 6 — Step 5 통합 검증
-(작성 예정)
-
-### iter 7 — Step 6 회귀 / fix
-(작성 예정)
-
-### iter 8 — Step 7 문서화 + promise
-(작성 예정)
+### iter 5 (T+120분~) — 통합 결과 + 정직 종료
+(batch 끝까지 못 가면 부분 측정 + honest 종료)
