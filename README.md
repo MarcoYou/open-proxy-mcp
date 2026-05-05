@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-구조-17개)
+[![Tools](https://img.shields.io/badge/tools-16-orange.svg)](#tool-구조-16개)
 
 [English README](README_ENG.md)
 
@@ -46,7 +46,7 @@ URL 끝에 발급받은 DART API 키를 붙여서 연결해요. 키는 서버에
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 ```
-4. "추가" 클릭 -> 17개 tool이 자동으로 인식돼요
+4. "추가" 클릭 -> 16개 tool이 자동으로 인식돼요
 5. 추가된 커넥터의 구성 -> 권한에서 **"항상 허용"** 선택 (매번 승인 없이 tool이 자동 실행돼요)
 
 > **참고**: tool이 추가되거나 변경된 경우 커넥터 MCP 서버 업데이트에 시간이 걸릴 수 있어요. 커넥터를 삭제한 뒤 다시 연결하면 바로 최신 tool이 반영돼요. 재연결한 후 새 채팅을 열어서 다시 시도해주세요.
@@ -88,110 +88,85 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 
 ---
 
-## Tool 구조 (17개)
+## Tool 구조 (16개)
 
-17개 tool은 **발견 → 데이터 탭 → 정책/매트릭스 → 결과물 생성** 네 단계로 나뉘어요.
+16개 tool은 **회사 → 시점별 주총 → 데이터 탭 → 종합 분석** 으로 흐름.
 
 ```
 company                            # 기업 진입점 — 1개 기업 식별 + 최근 공시 인덱스
 │
-├─ Discovery Tool (1)
-│  └─ screen_events                # 이벤트로 기업 찾기 (21종 event_type, KOSPI+KOSDAQ)
+├─ Meeting Tools (2) — 시점 분리 (2026-05-04)
+│  ├─ shareholder_meeting_notice   # 주총 **소집공고** (사전, DART API/XML, 0.5-1.5s, 6 scope)
+│  └─ shareholder_meeting_results  # 주총 **의결 결과** (사후, KIND scraping, 4-5s)
 │
-├─ Data Tools (12)
-│  ├─ shareholder_meeting          # 주총 (안건 / 이사후보 / 보수한도 / 결과)
-│  ├─ ownership_structure          # 지분 구조 (최대주주 / 5% 블록 / 자사주 / 변동신고서)
-│  ├─ dividend                     # 배당 사실 (DPS / 배당성향 / 추이 / 총주주환원율 / 선배당-후결의 + 감액배당 메타)
-│  ├─ financial_metrics            # ★ NEW — DART 재무 4 endpoint 통합 (51 지표 + 듀퐁 + FCF + NWC + 회계 risk + 감사의견 3년)
-│  ├─ treasury_share               # 자사주 이벤트 (취득 / 처분 / 소각 [본문 파싱: 주식수·금액(KRW)] / 신탁)
+├─ Data Tools (10)
+│  ├─ ownership_structure          # 지분 구조 (최대주주 / 5% 블록 / control_map, 5 scope)
+│  ├─ dividend                     # 배당 사실 + 분기별 breakdown (3 scope: summary/detail/history)
+│  ├─ financial_metrics            # DART 재무 4 endpoint — 51 지표 + 듀퐁 + 회계 risk + 감사의견 3년
+│  ├─ treasury_share               # 자사주 9 source (결정 5종 + 결과 4종) + 사이클 매칭 (2 scope) ★ 결정↔실집행 검증
 │  ├─ proxy_contest                # 경영권 분쟁 (위임장 / 소송 / 5% 시그널)
 │  ├─ value_up                     # 밸류업 계획 (약속 / 이행현황)
-│  ├─ corporate_restructuring      # 지배구조 재편 (합병 / 분할 / 분할합병 / 주식교환·이전)
-│  ├─ dilutive_issuance            # 희석성 증권 발행 (유상증자 / CB / BW / 감자)
-│  ├─ related_party_transaction    # 내부거래 (타법인주식 거래 + 단일공급계약)
+│  ├─ corporate_restructuring      # 지배구조 재편 (합병 / 분할 / 주식교환) — 단일 통합
+│  ├─ dilutive_issuance            # 희석성 증권 발행 (유상증자 / CB / BW / 감자) — 단일 통합
+│  ├─ related_party_transaction    # 내부거래 (타법인주식 + 단일공급계약)
 │  ├─ corp_gov_report              # 기업지배구조보고서 (15 핵심지표 + 연도별 추이)
 │  └─ evidence                     # 공시 원문 링크 (rcept_no → viewer_url)
 │
-├─ Policy & Matrix Tool (1)        ★ NEW
-│  └─ proxy_guideline              # 7 운용사 정책 + Open Proxy Guideline + 12 의사결정 매트릭스 + 국민연금 행사내역
-│                                   #   scopes: policy / record / predict / compare / consensus / audit / nps_record
-│                                   #   외부 API 호출 0회 (정적 데이터, <100ms 응답)
-│                                   #   nps_record는 fund.nps.or.kr 직접 크롤링 + 정적 캐시 (하이브리드)
-│
-└─ Action Tools (2) — 시점 분리 + scope 확장 (2026-05-04 rename)
-   ├─ proxy_advise_before_meeting   # 주총 **소집 전** 다각도 분석 + 안건별 FOR/AGAINST/REVIEW
-   │                                #   10 scope (decisions / agenda / candidates / financial / governance /
-   │                                #              ownership / policy_basis / proxy_battle / engagement / evidence)
-   │                                #   meeting_type: annual / extraordinary / auto (본문 detect 자동 분기)
-   │                                #   vote_style: open_proxy / nps / a_activist / b_foreign / k_legacy 등
-   │                                #   ralph 27 iter 검증: G2 정확도 99.36% (vs 7 운용사 majority, 4+ vote case)
-   └─ proxy_result_after_meeting    # 주총 **소집 후** 결과 보고 (의도적 단순)
-                                    #   2 scope (results / brief)
+└─ Action Tools (2) — 시점 분리
+   ├─ proxy_advise_before_meeting   # 주총 **사전** 안건별 FOR/AGAINST/REVIEW/NO_DATA
+   │                                #   1회 호출 (decisions 단일) — facts + risk + policy_citation + 근거공고 + 후보 raw
+   │                                #   meeting_type: annual / extraordinary / auto
+   │                                #   vote_style: open_proxy / mirae_asset / samsung / samsung_active / kim
+   │                                #              / truston / align_partners / cha_partners / baring / nps
+   │                                #   ralph 27 iter 검증: G2 정확도 99.36%
+   │                                #   framework iter1~8: KOSPI 100 + KOSDAQ 50, 4 dimension 100% / NO_DATA FP 0%
+   └─ proxy_result_after_meeting    # 주총 **사후** 결과 보고 (3 scope: results / brief / all)
 ```
 
-### 🆕 proxy_guideline tool 상세
+### 주요 변화 (2026-05-04~05)
+- 17 → 16 tool: `screen_events` drop, `proxy_guideline` archive (internal로 만든 후 호출 X 확인), `shareholder_meeting` → notice + results 분리
+- proxy_advise scope **10 → 1** (`decisions`만, raw는 각 data tool 직접 호출)
+- treasury_share scope **6 → 2**, 결과 보고서 4종 추가, 결정↔결과 사이클 매칭
+- DART 분당 1000회 hard rule (rolling window rate limiter cap 900)
 
-**8 운용사 정책 데이터** (parsed JSON 정적 보존, 14MB+ — 익명화):
-- M레거시 / S레거시 / SA액티브 / K레거시 (대형 레거시 4)
-- T행동주의 / A행동주의 / C행동주의 (행동주의 3)
-- B외국계 (외국계 — ISS Korea 2026 참조 사례, OPM은 ISS를 벤치마크로 사용 X)
+### 의결권 정책 (vote_style)
 
-**Open Proxy Guideline v1.2** (OPM 자체 모범 정책):
-- 12 카테고리 116 룰 + 11 novel topics + **2026 신법 7개 즉시 반영** (5 운용사 미반영)
-- 4 기준: 소수주주 보호 우선 / 거버넌스 투명성 / 장기 가치 관점 / 추적 가능성
-- §382의3 (2025) 충실의무 모든 카테고리 cross-cutting
+`proxy_advise_before_meeting`의 `vote_style` 옵션으로 8 운용사 + NPS 정책에 맞춘 안건별 권고 가능:
 
-**12 카테고리 의사결정 매트릭스** (운용사·자문사 단독 차별화):
-- 카테고리별 8 dim (사외이사 독립성 / 이해상충 / 보수 적정성 / 정보 공개 / 보고서 준수율 / 일관성 / 절차 적법성 / ESG)
-- 총 100 dim + 76 빙고 패턴 (특정 조합 자동 결정)
-- **자동 채점 (v1.3, 2026-04-29)**: scope=predict의 `auto_score=True` (기본) 시 ~71 dim OPM data tool에서 자동 추출 + 빙고 평가 + for/against/review 자동 결정. ~29 dim은 manual input (adverse_news, peer 비교, 시너지 등 정성 영역). prepare_vote_brief의 `auto_score_matrix=True`로도 활성화 가능.
+| vote_style | 설명 |
+|---|---|
+| `open_proxy` (default) | OPM 자체 Open Proxy Guideline (12 카테고리, 4 기준: 소수주주 보호 / 거버넌스 투명성 / 장기 가치 / 추적 가능성) |
+| `mirae_asset` / `samsung` / `samsung_active` / `kim` | 대형 레거시 4 |
+| `truston` / `align_partners` / `cha_partners` | 행동주의 3 |
+| `baring` | 외국계 (ISS Korea 참조 사례) |
+| `nps` | 국민연금 |
 
-**모든 data tool 응답에 `data.usage` 블록**:
-DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 한도 1,000회 대비 여유 확인 가능).
-
-두 가지 사용 패턴이 있어요:
+**모든 응답에 `data.usage` 블록**: DART API 호출 수 + MCP tool 호출 수 노출 (분당 1000 한도 — `dart/client.py` rolling window cap 900으로 hard guard).
 
 ```
-패턴 A (기업 → 분석):     company로 시작 → 데이터 탭으로 사실 확인 → action tool로 결과물 생성
-패턴 B (이벤트 → 기업):   screen_events로 최근 이벤트 낸 기업 찾기 → 각 기업 drill-down
+사용 패턴:  company로 시작 → 데이터 탭으로 사실 확인 → action tool로 종합 분석
 ```
-
-### screen_events가 지원하는 이벤트 (21종)
-
-| 카테고리 | event_type | 수 |
-|---------|-----------|---|
-| 주총 | `shareholder_meeting_notice` | 1 |
-| 지분 | `major_shareholder_change`, `ownership_change_filing`, `executive_ownership` | 3 |
-| 자사주 | `treasury_acquire`, `treasury_dispose`, `treasury_retire` | 3 |
-| 분쟁 | `proxy_solicit`, `litigation`, `management_dispute` | 3 |
-| 밸류업 | `value_up_plan` | 1 |
-| 배당 | `cash_dividend`, `stock_dividend` | 2 |
-| 희석성 증권 | `rights_offering`, `convertible_bond`, `warrant_bond`, `capital_reduction` | 4 |
-| 내부거래 | `equity_deal_acquire`, `equity_deal_dispose`, `supply_contract_conclude`, `supply_contract_terminate` | 4 |
-
-기본 조회 구간은 최근 30일, market은 KOSPI+KOSDAQ. 결과 각 행마다 DART 원문 뷰어 링크가 포함돼요.
 
 ### 도메인별 요약
 
 | 도메인 | 설명 | tool 수 |
 |--------|------|---------|
-| **발견** | 이벤트 → 기업 역조회 | 1 |
 | **회사** | 기업 식별 + 최근 공시 인덱스 | 1 |
-| **주총** | 안건, 이사후보, 보수한도, 정관변경, 결과 | 1 |
-| **지분** | 최대주주, 대량보유, 자사주, control map, 변동신고서 | 1 |
-| **배당** | 실지급 배당 사실, DPS, 배당성향, 추이 | 1 |
-| **자사주** | 취득·처분·소각·신탁 이벤트 | 1 |
+| **주총 (사전)** | shareholder_meeting_notice — 안건·이사후보·보수한도·정관변경 (DART) | 1 |
+| **주총 (사후)** | shareholder_meeting_results — KIND 의결 결과 | 1 |
+| **지분** | 최대주주, 대량보유, control map, 변동신고서 | 1 |
+| **배당** | 실지급 배당 사실 + 분기별 breakdown | 1 |
+| **자사주** | 결정 5종 (사전) + 결과 4종 (실집행) + 사이클 매칭 (★ 결정-실집행 검증) | 1 |
 | **분쟁** | 위임장 경쟁, 소송, 5% 시그널 | 1 |
 | **밸류업** | 기업가치 제고 계획, 이행현황 | 1 |
 | **재편** | 합병·분할·분할합병·주식교환·이전 결정 | 1 |
 | **희석** | 유상증자·CB·BW·감자 발행 결정 | 1 |
 | **내부거래** | 타법인주식 거래 + 단일공급계약 | 1 |
 | **거버넌스** | 기업지배구조보고서 (15 핵심지표, 2026년부터 KOSPI 전체 의무) | 1 |
-| **재무** | DART 재무 4 endpoint 통합 — 51 지표 + 듀퐁 + FCF + NWC + 회계 risk + 감사의견 3년 추이 (★ NEW) | 1 |
+| **재무** | DART 재무 4 endpoint 통합 — 51 지표 + 듀퐁 + FCF + NWC + 회계 risk + 감사의견 3년 추이 | 1 |
 | **근거** | 공시 원문 링크 제공 | 1 |
-| **정책·매트릭스** | 8 운용사 정책 (익명화) + Open Proxy Guideline + 12 의사결정 매트릭스 + 국민연금(NPS) 행사내역 | 1 |
-| **액션** | proxy_advise_before_meeting (사전 다각도 분석, 10 scope) + proxy_result_after_meeting (사후 결과, 2 scope) — rename + scope 확장 (2026-05-04, ralph 27 iter 검증 G2 99.36%) | 2 |
-| | **합계** | **17** |
+| **액션** | proxy_advise_before_meeting (사전 안건별 결정 + facts/risk/citation/근거공고/후보 raw, ralph G2 99.36%) + proxy_result_after_meeting (사후 결과) | 2 |
+| | **합계** | **16** |
 
 ---
 
@@ -228,7 +203,7 @@ DART API 호출 수와 MCP tool 호출 수를 투명하게 노출해요 (분당 
 wiki/
   open_proxy_mcp/
     server.py              # FastMCP 서버 (stdio + HTTP)
-    tools_v2/              # 17개 tool
+    tools_v2/              # 16개 tool
     services/              # 도메인별 분석 로직 (tool과 분리)
     dart/client.py         # DART API + KIND 크롤링 + 네이버 + rate limiter
     data/asset_managers/   # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
