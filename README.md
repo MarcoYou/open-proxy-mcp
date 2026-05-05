@@ -205,11 +205,11 @@ KOSPI 100 + KOSDAQ 50 (n=128) 검증: G1 classification 노출률 100%, distribu
 
 | 소스 | 용도 | 비고 |
 |------|------|------|
-| [DART OpenAPI](https://opendart.fss.or.kr/) | 소집공고, 사업보고서, 대량보유 공시 | 필수 (무료 API 키) |
-| [KRX KIND](https://kind.krx.co.kr/) | 주총 의결권 행사 결과 | 웹 크롤링 |
-| [네이버 뉴스 API](https://developers.naver.com/) | 후보자 부정 뉴스 검색 | 선택 (무료 API 키) |
-| [네이버 금융](https://finance.naver.com/) | 주가, 업종명, 배당 시세 | 웹 크롤링 |
-| 자산운용사 의결권 행사 공시 | 8 운용사 정책 + 행사내역 (총 17,900+ votes, 익명화) | parsed JSON 정적 보존 (proxy_guideline tool) |
+| [DART OpenAPI](https://opendart.fss.or.kr/) (`opendart.fss.or.kr`) | 정기·주요 공시 메타 + 재무 endpoint + 배당/자사주/지분 등 모든 정형 데이터 | **필수** — 무료 API 키. 분당 1,000회 hard rule (cap 900) |
+| DART 웹 (`dart.fss.or.kr`) | 공시 본문 HTML 파싱 (주총소집공고 / 주요사항보고서 등 ACODE 기반) | 웹 스크래핑, `_throttle_web` rate-limited (2-5초) |
+| [KRX KIND](https://kind.krx.co.kr/) | 주총 의결 결과 (사후) | 웹 크롤링 |
+| [네이버 금융](https://finance.naver.com/) | 업종명 lookup (`company` tool) | 웹 스크래핑 |
+| 자산운용사 의결권 정책·행사내역 | 8 운용사 정책 + 행사내역 (총 17,900+ votes, 익명화) | parsed JSON 정적 보존 — `proxy_advise_before_meeting`의 `vote_style` 옵션 |
 
 ---
 

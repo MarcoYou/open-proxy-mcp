@@ -221,11 +221,11 @@ Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 classification coverage 100%, dis
 
 | Source | Use | Notes |
 |--------|-----|-------|
-| [DART OpenAPI](https://opendart.fss.or.kr/) | AGM notices, annual reports, large-holding reports | Required (free API key) |
-| [KRX KIND](https://kind.krx.co.kr/) | AGM voting results | Web crawl |
-| [Naver News API](https://developers.naver.com/) | Candidate adverse news search | Optional (free API key) |
-| [Naver Finance](https://finance.naver.com/) | Stock price, sector, dividend yield | Web crawl |
-| Asset manager voting disclosures | 8 manager policies + voting records (17,900+ votes total, anonymized) | Static parsed JSON (proxy_guideline tool) |
+| [DART OpenAPI](https://opendart.fss.or.kr/) (`opendart.fss.or.kr`) | All structured data: regular/major filings metadata, financial endpoints, dividends, treasury, ownership | **Required** — free API key. 1,000/min hard rule (cap 900) |
+| DART Web (`dart.fss.or.kr`) | Filing body HTML parsing (AGM notices, major-event reports — ACODE-based system fields) | Web scraping, `_throttle_web` rate-limited (2-5s) |
+| [KRX KIND](https://kind.krx.co.kr/) | AGM voting results (post-meeting) | Web crawl |
+| [Naver Finance](https://finance.naver.com/) | Sector name lookup (`company` tool) | Web scraping |
+| Asset manager voting policies & records | 8 manager policies + voting records (17,900+ votes total, anonymized) | Static parsed JSON — `proxy_advise_before_meeting`'s `vote_style` option |
 
 ---
 
