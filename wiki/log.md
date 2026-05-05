@@ -3,6 +3,26 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-06] fix | parser omnibus 검증 + DART 6컬럼 sub-column 처리 (PFS 100%)
+- ralph: `wiki/ralph/260505_2330_ralph_parser-omnibus-perf.md` (9 iter / promise 발행)
+- 300 회사 (KOSPI 200 + KOSDAQ 100) 통합 audit — Tier A 9 parser G1 ≥98.7% 모두 충족
+- **핵심 발견**: DART 잠정 재무제표 html 6컬럼 row 패턴 — `account/note/empty/current/empty/prior`
+  - 기존 `_build_column_meta` 가 `_period_by_num` 다음 colspan 확장 빈 셀을 "unknown"으로 분류 → row[2]/row[4] (empty)을 current/prior로 인식하여 모든 metric empty 추출
+  - 19개 KOSPI 회사 (현대차/셀트리온/두산/기업은행/LG/KT 등) sparse 원인
+  - 코붕이 피드백 "데이터 없는건지 잘못 검색한건지 별도 파서 필요인지 창의적으로 다시 생각" → raw html 직접 search → 매출액 186,254,472 명확 존재 → parser 버그 확인
+- fix: `services/provisional_financial_statement.py`
+  - `_build_column_meta`에 `_period_by_num_sub` 처리 (empty 셀이 `_period_by_num` 다음에 오면 sub-column 로 propagate)
+  - `_METRIC_KEYWORDS.net_income_krw`에 `지배기업소유주지분` 등 4 변형 추가 (보조)
+  - `_NON_FS_TABLE_HINTS` 추가 (영문 사명 ≥6 줄 — 종속회사 목록 reject)
+  - `extract_metrics` `scope_used` 보고 버그 fix
+- 19 sparse 100% PASS / 회귀 90 회사 PFS 100% / 최종 phase1 (n=357 OK) all G1 ≥98.7%
+- v1 dead parser archive 결정 (logical only — code 보존)
+- G4 layer 정합 검증 PASS — data tool 14 services + Tier A 9 parser decision 키워드 0건 / proxy_advise 8 `_decide_*` action layer
+- 17 tool scope inventory — 추가 폐지/신설 결정 없음
+- artifacts: `scripts/spot_parser_omnibus.py` / `scripts/spot_pfs_html_search.py` / `scripts/spot_pfs_sparse_recheck.py` / `scripts/agg_parser_omnibus.py` / `wiki/architecture/audits/data/260505_parser_omnibus/`
+- lesson: [[lessons/parser-omnibus-260506]]
+- decision: [[decisions/260506_2330_decision_v1-dead-parsers-archive]]
+
 ## [2026-05-06] feat | shareholder_meeting_notice scope 정리 + provisional_financial_statement 독립
 - `shareholder_meeting_notice` scope: 6 → 5 (`summary`/`board`/`compensation`/`aoi_change`/`prov_financials`)
   - 폐지: `agenda` (summary 흡수, hierarchy 통합) + `full` (병렬 wrapper, 종합 분석은 proxy_advise)
