@@ -250,17 +250,46 @@ if util_rate is not None and util_rate < 30:
 
 ## iteration log (작성하면서 update)
 
-### iter 1 — 피에스케이 spot + parser 강화
-(작성 예정)
+### iter 1 — 피에스케이 spot + parser 강화 (commit `782af95`)
+- 피에스케이/피에스케이홀딩스 본문 spot — table_headers 변경전/변경후 있으나 row text "퇴직금" 없음
+- parser fix:
+  - prev_text anchor 검출 (table 직전 ~600자에 "임원퇴직금" 등 안건 헤더) — table_has_retire 무관 항상 계산
+  - "퇴직" 단독 row 인정 — broad_match (table 키워드 3+ OR anchor) 시
+  - 표 head 키워드 확장: before "현재" / after "개정(안)"
+- 검증 8 회사 모두 amendments 추출 ✓ (피에스케이 0→1 / 피에스케이홀딩스 0→2 / 카카오페이 13)
 
-### iter 2 — financial_metrics prev/yoy 노출
-(작성 예정)
+### iter 2 — financial_metrics prev/yoy 노출 (commit `8fe8bff`)
+- `_compute_metrics`에 prev_revenue / prev_operating_profit / prev_net_income + revenue/operating/net_income_yoy_pct 추가
+- summary scope 결과 dict에 노출
+- `_fm_yoy_pct` 단순화: summary["net_income_yoy_pct"] 직접 사용
+- 검증:
+  - 하이브 2024 적자 (-3.4B) ← 흑자 (183B): yoy=-101.87% ✓
+  - 카카오페이 2024 적자 → 더 큰 적자: yoy=-816% ✓
+  - 두산에너빌리티 흑자 yoy +100% ✓
+- → 흑자+yoy<0 trigger 활성화 (코드 검증, batch 측정 미완)
 
-### iter 3 — 소진율 단독 강화
-(작성 예정)
+### iter 3 — 소진율 단독 강화 (commit `db44182`)
+- `_decide_director_compensation` 분기 2 강화:
+  - 소진율<30 + 인상>0 → AGAINST (기존)
+  - 소진율<30 + 인상률 미파악 → REVIEW (NEW)
+  - 소진율<30 + 동결/-10~0% → REVIEW (NEW)
+  - 소진율<30 + 감액 (-10% 미만) → FOR (분기 8 — 한도 줄이는 건 OK)
+- 검증 5 case smoke test 모두 정확 ✓
 
-### iter 4 — OLD parser batch 재측정
-(작성 예정)
+### iter 4 — OLD parser batch 재측정 (진행 중)
+- 4 batch chain BG 시작: KOSPI 0-30 / 30-50 / 50-80 / KOSDAQ 0-30 = 110 회사
+- iter 4 stop hook 시점 batch 1 (0-30) 11/30 진행 중
+- 시간 부족 — iter 5 final 전 batch 미완
 
-### iter 5 — 통합 측정 + promise
-(작성 예정)
+### iter 5 final — 정직 종료 (promise 미발행)
+- batch 미완 상태에서 promise 발행 불가
+- 코드 fix 모두 검증 완료 (iter 1-3 spot test 통과)
+- batch 결과는 background 계속 → `wiki/architecture/audits/data/260505_compensation_retirement_precision/iter04_*.json`
+- 다음 작업 (별도 ralph 또는 직접): batch 완료 후 G1-G4 측정 + spot 검증 + promise
+
+### 최종 push 상태
+- `782af95` parser 강화
+- `8fe8bff` yoy fix
+- `db44182` 소진율 단독 강화
+
+각 fix 모두 회귀 spot 통과. batch 결과 측정만 남음.
