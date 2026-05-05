@@ -20,7 +20,8 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - **Action (2, 시점 분리)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합) · [[proxy_result_after_meeting]] (3 scope)
 
 ### Internal services (MCP 노출 X — chain 전용)
-- `director_evaluation` — proxy_advise 후보 평가 chain
+- `director_evaluation` — proxy_advise 후보 평가 chain (결격 / 독립성 / 전문성 / 과거 행적)
+- `director_performance` — 사내이사 재직 중 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend) — proxy_advise 사내이사 분기에 wire
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
 ### 주요 변화 (2026-05-04 ~ 05-05)
@@ -29,6 +30,8 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - treasury_share scope **6 → 2** (summary + annual)
 - 자사주 결과보고서 **4종 추가** (취득결과/처분결과/신탁상황/신탁해지결과)
 - ralph proxy_advise framework 99% 검증 (KOSPI 100 + KOSDAQ 50, G1 100% / G2 0% FP / G3 100% / G4 100%)
+- 사내이사 **재직 중 성과 매트릭스 (2x3)** 도입 — status quo bias mitigation. ROE/부채비율/CSR × avg/trend, bad → AGAINST, weak → REVIEW. KOSPI 100 + KOSDAQ 50 검증 G1 100% / G4 dist 29.7/45.3/18.0/7.0 모두 target band 충족. ([[260505_1700_decision_inside-director-performance-matrix]])
+- proxy_advise render Korean label 자연화 (`weak_concerns` → "약한 우려" 등)
 - archive: `wiki/archive/services/` (proxy_guideline / proxy_guideline_scoring / policy_comparison)
 
 ## 카테고리 구조
@@ -40,7 +43,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 9+ fixes 3 | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 14 | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 31 + 36 + 3 = 70 | YES (사실 update 시) |
-| **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 7 (NEW) | YES (배운 것 추가 시) |
+| **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 8 | YES (배운 것 추가 시) |
 | **archive/** | 흡수된 페이지 (역사 보존) | 48 | WARN (단순 보존) |
 
 총 173 markdown + 29 binary.
@@ -85,6 +88,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[rules/laws/상법개정-타임라인-2026]] - 2025-2027 상법 개정 일정
 
 ### 최근 audit / fix
+- `260505_inside_director_performance/` — 사내이사 성과 매트릭스 KOSPI 100 + KOSDAQ 50 audit (n=128, G1 100%, dist 29.7/45.3/18.0/7.0 target band 모두 충족, threshold ≥9→≥7 calibration)
 - [[260504_0724_audit_parse_personnel_iter1-7]] - parse_personnel ralph 7 iter — role 88.7→100% + regression 0 (G2 99.36% 유지)
 - [[260504_0028_audit_proxy_advise_rename_regression]] - proxy_advise rename + 9 scope 추가 — regression 0 + 100% 일관성
 - [[260503_2304_audit_recap_pattern]] - recap_vote 패턴 적용 200×3 100% (multi-upstream-pattern 일반화 검증)
@@ -162,13 +166,14 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Decisions (14)
+## Decisions (15)
 
 ### 정책 + 매트릭스
 - [[open-proxy-guideline]] - OPM 자체 의결권 행사 정책 v1.2 (12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting)
 - [[260429_0059_decision_voting-policy-consensus-matrix]] - 7 운용사 의결권 정책 합의/이견 매트릭스 (79 토픽, 12 카테고리)
 - [[260429_0059_debate_opm-guideline-7전문가]] - 7 전문가 토론 + v1.0 -> v1.1 -> v1.2 결정 transcript
 - [[260429_0216_improvement_turnkey-11agent]] - 11 agent 병렬 작업 통합 (G1-G4 + 7 페르소나 + 모더레이터)
+- [[260505_1700_decision_inside-director-performance-matrix]] - 사내이사 재직 중 성과 매트릭스 2x3 도입 (status quo bias mitigation, KOSPI 100 + KOSDAQ 50 검증)
 
 ### Tool 정책 + 변경 이력
 - [[tool-changelog]] - Tool 제거/통합/리네임 이력 (41->32->17개, 이유 포함)

@@ -200,11 +200,29 @@ When you ask for a voting recommendation on an AGM agenda item, OpenProxy follow
 | Agenda type | FOR | AGAINST | REVIEW |
 |-------------|-----|---------|--------|
 | Financial statements | Clean audit opinion | Qualified / adverse | Extreme payout ratio |
-| Director election | Outside director independence met | Independence not met | 3+ concurrent roles, adverse news |
+| **Outside director election** | Independence + no disqualification | Independence not met / disqualifying issue | 3+ concurrent roles, adverse news |
+| **Inside director re-election** | No disqualification + tenure performance good/moderate | Tenure performance **bad** (capital impairment / loss + cumulative deterioration) | Tenure performance **weak** (user review) |
+| Inside director (new) | No disqualification (no tenure → performance N/A) | Disqualifying issue | — |
 | Compensation limit | Utilization rate reasonable | Rate < 30% yet proposed increase | 50%+ large increase |
 | Articles amendment | Statutory update (formal) | Removes cumulative voting | Reduces board size |
 | Treasury shares | Cancellation purpose | Entrenchment purpose | Foundation donation |
 | Dividend | Above sector average | EPS up but DPS down | Dividend cut |
+
+### Inside director tenure performance matrix (2x3)
+
+Auto-FOR for company-nominated inside directors (only checking disqualification) creates status-quo bias. To counter this, OpenProxy scores each inside director's **tenure-period operating performance** across 6 cells:
+
+| Metric | avg | trend |
+|---|---|---|
+| **ROE** | average score | trend score |
+| **Debt ratio** | average score | cumulative-change score over tenure |
+| **CSR** (dividend + cancellation / net income) | average score | trend score |
+
+Each cell: good +2 / moderate +1 / weak 0 / bad -1. Total ≥+7 = good / +3~+6 = moderate / 0~+2 = weak / <0 = bad.
+
+**Special rules**: capital impairment (full) auto-bads ROE/leverage avg / loss + return activity → CSR weak (accelerates impairment) / loss + no return → CSR moderate (conservatism).
+
+Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 classification coverage 100%, distribution good 29.7% / mod 45.3% / weak 18.0% / bad 7.0% (all within target bands).
 
 ---
 

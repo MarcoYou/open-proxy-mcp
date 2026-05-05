@@ -68,11 +68,12 @@ proxy_advise_before_meeting(
 
 | 필드 | 의미 |
 |---|---|
-| 독립성 / 결격사유 / 충실성 | 자동 판단 |
+| 독립성 / 결격사유 / 충실성 | 자동 판단 (Korean 자연 라벨: "독립적" / "약한 우려" / "우려" 등) |
 | main_job | 현 직책 (전문성 hint) |
 | recommendation_reason_raw | 추천사유 (회사 본문 raw) |
 | career_company_groups | 경력 (회사·기간) |
 | audit_history_check | 과거 회사 회계 risk overlap (옵션) |
+| **performance** | **사내이사 연임 후보 한정** — 재직 중 회사 운영 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend), 6 cell 점수, classification good/moderate/weak/bad, rationale 한국어 (자세히는 [[260505_1700_decision_inside-director-performance-matrix]]) |
 
 ## 6 upstream chain (병렬)
 
@@ -83,10 +84,15 @@ proxy_advise_before_meeting(
 5. director_evaluation (후보 평가)
 6. agm_first_agenda_fy (1번 안건 본문 FY raw 추출)
 
+**+ 사내이사 연임 후보 detect 시 추가 chain (회사 단위 1회)**:
+7. dividend (history, 10년) — CSR avg/trend 계산
+8. treasury_share (summary, 120개월) — 소각 events
+9. financial_metrics (yearly) — ROE/부채비율 시계열
+
 ## 결정 logic
 
 OPM 자체 함수들 + vote_style 정책 wire:
-- `_decide_director_election` (사외/사내·결격·독립성·장기연임)
+- `_decide_director_election` (사외/사내·결격·독립성·장기연임 + **사내이사 재직 성과 bad→AGAINST / weak→REVIEW**)
 - `_decide_financial_statements` (감사의견·자본잠식)
 - `_decide_compensation` (소진율·인상률)
 - `_decide_dividend` (배당성향·자본잠식·리츠 의무 90%)
@@ -102,6 +108,11 @@ OPM 자체 함수들 + vote_style 정책 wire:
   - G2 NO_DATA false-positive 0%
   - G3 신임/연임 classified 99.5%, 사내 false-new 0%
   - G4 1번 안건 FY raw 추출 98.6%
+- ralph 260505 사내이사 성과 매트릭스 (KOSPI 100 + KOSDAQ 50, n=128):
+  - G1 classification 노출률 100% (≥99%)
+  - G2 적자 16건 모두 special rule 작동, 자본잠식 0건
+  - G3 bad→AGAINST, weak→REVIEW 분기 작동 (한화오션 김희철, HD현대중공업 금석호 등)
+  - G4 distribution good 29.7 / mod 45.3 / weak 18.0 / bad 7.0 — 모든 target band 충족
 
 ## 미수집 (의도적 제외)
 

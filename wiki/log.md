@@ -3,6 +3,24 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-05] feat | 사내이사 재직 중 성과 매트릭스 (2x3) — status quo bias mitigation
+- 발단: 코붕이 고려아연 케이스 비판 — proxy_advise 사내이사 분기는 결격사유만 검증 → 회사 추천 후보 자동 FOR. status quo 무검증.
+- 해결: 재직 중 회사 운영 성과 axis 추가. 2x3 매트릭스 (ROE/부채비율/CSR × avg/trend), good +2 / mod +1 / weak 0 / bad -1.
+- Special rules: 자본잠식 ROE/leverage avg 자동 bad, 적자+환원 CSR weak (자본잠식 가속), 적자+환원 자제 CSR moderate (보수성).
+- decision branch: bad → AGAINST, weak → REVIEW, moderate/good/신임 → FOR. 묶음 안건도 동일.
+- 데이터 chain (회사당 +2 호출): `dividend(history, 10y)` + `treasury_share(summary, 120m)` + `financial_metrics(yearly)`.
+- threshold tune: ≥9→≥7 (KOSPI 100 baseline 7.7% 너무 보수적, ≥7로 26.4%·target 20-40% 충족).
+- 검증 (KOSPI 100 + KOSDAQ 50, n=128):
+  - G1 classification 노출률 **100%**
+  - G2 적자 16건 모두 special rule 작동, 자본잠식 0건
+  - G3 bad→AGAINST (한화오션 김희철, 삼성SDI 오재균), weak→REVIEW (HD현대중공업 금석호) 분기 작동
+  - G4 distribution good 29.7 / mod 45.3 / weak 18.0 / bad 7.0 — 모든 target band 충족
+- 추가 변경: Korean label 자연화 (weak_concerns → "약한 우려", concerns → "우려" 등 — `_INDEPENDENCE_LABELS` 등 dict)
+- ralph: [[260505_1611_ralph_inside-director-performance-matrix]]
+- decision: [[260505_1700_decision_inside-director-performance-matrix]]
+- lesson: [[distribution-calibrated-thresholds]] (8번째 lesson — 임계값은 prior가 아니라 audit posterior에서 정함)
+- audit: `wiki/architecture/audits/data/260505_inside_director_performance/` (KOSPI 4 + KOSDAQ 2 batch JSON)
+
 ## [2026-05-05] feat | DART OpenAPI 분당 1000회 hard rule 강제
 - `dart/client.py`에 rolling window rate limiter (60s deque + asyncio.Lock), cap **900/min** (10% buffer + race 방지). 모든 `_request` 자동 throttle.
 - 발단: treasury ralph 측정 중 KOSPI 100 batch (~1000 호출/min)로 두 차례 24h IP 차단 발생.
