@@ -102,11 +102,17 @@ def _normalize_acquisition(item: dict[str, Any]) -> dict[str, Any]:
         "method": (item.get("aq_mth") or "").strip(),
         "start_date": (item.get("aqexpd_bgd") or "").strip(),
         "end_date": (item.get("aqexpd_edd") or "").strip(),
-        "holding_start_date": (item.get("hdex_bgd") or "").strip(),
-        "holding_end_date": (item.get("hdex_edd") or "").strip(),
+        "holding_start_date": (item.get("hdexpd_bgd") or "").strip(),
+        "holding_end_date": (item.get("hdexpd_edd") or "").strip(),
         "board_date": (item.get("aq_dd") or "").strip(),
-        # 위탁기관
-        "broker_name": (item.get("iv_jdgh_idr") or "").strip(),
+        # 위탁기관 (실제 DART field name)
+        "broker_name": (item.get("cs_iv_bk") or "").strip(),
+        # 취득 전 자기주식 보유현황 (배당가능 + 기타)
+        "before_div_shares_common": _to_int(item.get("aq_wtn_div_ostk")),
+        "before_div_pct_common": item.get("aq_wtn_div_ostk_rt"),
+        "before_div_shares_preferred": _to_int(item.get("aq_wtn_div_estk")),
+        "before_other_shares_common": _to_int(item.get("eaq_ostk")),
+        "before_other_pct_common": item.get("eaq_ostk_rt"),
         # 거버넌스 신호
         "outside_director_attended": _to_int(item.get("od_a_at_t")),
         "outside_director_absent": _to_int(item.get("od_a_at_b")),
@@ -131,6 +137,14 @@ def _normalize_disposal(item: dict[str, Any]) -> dict[str, Any]:
     shares_pref = _to_int(item.get("dppln_stk_estk"))
     amount_common = _to_int(item.get("dppln_prc_ostk"))
     amount_pref = _to_int(item.get("dppln_prc_estk"))
+    # 처분방법 4 field 중 양수만 (시장/장외/시간외/기타)
+    method_parts = []
+    for label, key in [("시장매도", "dp_m_mkt"), ("시간외대량매매", "dp_m_ovtm"),
+                       ("장외처분", "dp_m_otc"), ("기타", "dp_m_etc")]:
+        n = _to_int(item.get(key))
+        if n:
+            method_parts.append(f"{label}({n:,}주)")
+    method_str = " + ".join(method_parts) if method_parts else ""
     return {
         "event": "disposal_decision",
         "rcept_no": item.get("rcept_no", ""),
@@ -145,21 +159,26 @@ def _normalize_disposal(item: dict[str, Any]) -> dict[str, Any]:
         "amount_common_krw": amount_common,
         "amount_preferred_krw": amount_pref,
         "amount_krw": amount_common + amount_pref,
-        # 단가 (처분 대상 주식가격 — 시가 기준)
-        "price_common_krw": _to_int(item.get("dpprc_ostk")),
-        "price_preferred_krw": _to_int(item.get("dpprc_estk")),
+        # 단가 (처분 대상 주식가격 — 시가 기준; 실제 DART field name)
+        "price_common_krw": _to_int(item.get("dpstk_prc_ostk")),
+        "price_preferred_krw": _to_int(item.get("dpstk_prc_estk")),
         # 결정 본질
         "purpose": (item.get("dp_pp") or "").strip(),
-        "method": (item.get("dp_mth_oth") or item.get("dp_mth_kosdaq") or "").strip(),
+        "method": method_str,
         "start_date": (item.get("dpprpd_bgd") or "").strip(),
         "end_date": (item.get("dpprpd_edd") or "").strip(),
         "board_date": (item.get("dp_dd") or "").strip(),
-        # 처분상대방 (3자 매각, 직원 보상 등)
-        "counterparty": (item.get("dpst_at") or item.get("dp_t_oth") or "").strip(),
-        # 위탁/거버넌스
-        "broker_name": (item.get("iv_jdgh_idr") or "").strip(),
+        # 처분 전 자기주식 보유현황 (배당가능 + 기타)
+        "before_div_shares_common": _to_int(item.get("aq_wtn_div_ostk")),
+        "before_div_pct_common": item.get("aq_wtn_div_ostk_rt"),
+        "before_div_shares_preferred": _to_int(item.get("aq_wtn_div_estk")),
+        "before_other_shares_common": _to_int(item.get("eaq_ostk")),
+        # 위탁/거버넌스 (실제 DART field name)
+        "broker_name": (item.get("cs_iv_bk") or "").strip(),
         "outside_director_attended": _to_int(item.get("od_a_at_t")),
         "outside_director_absent": _to_int(item.get("od_a_at_b")),
+        # 처분상대방 — DART API에 별도 field 없음. 본문 파싱 필요 (purpose에 자유 서술)
+        # 예: "직원 대상 자기주식 지급" / "RSU 지급" — purpose field 활용 권장
     }
 
 

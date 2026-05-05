@@ -3,6 +3,28 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-05] feat | DART OpenAPI 분당 1000회 hard rule 강제
+- `dart/client.py`에 rolling window rate limiter (60s deque + asyncio.Lock), cap **900/min** (10% buffer + race 방지). 모든 `_request` 자동 throttle.
+- 발단: treasury ralph 측정 중 KOSPI 100 batch (~1000 호출/min)로 두 차례 24h IP 차단 발생.
+- CLAUDE.md "hard rule, 절대 위반 X" 명시 + memory `feedback_dart_openapi_rate_limit.md` 강화.
+- 새 batch script: 회사수 × 평균 호출수 estimate, 최대 30 회사 단위 + offset arg + sleep.
+
+## [2026-05-05] feat | treasury ralph iter 13~15 — G2 사이클 매칭 100% 달성
+- iter 13 (rate-safe batch): 30 회사 batch + offset, KOSPI 100 G2 adj 98.16%, KOSDAQ 50 79.17% (합 91.40%)
+- iter 14 (trust fallback fix):
+  - `trust_termination_result` → `trust_contract` (사이클 시작 결정) fallback
+  - trust 사이클 out_of_lookback 분류 (er_dt < 가장 오래된 trust_contract decision)
+  - 신탁 본문 "체결일자" 라벨 추가 (휴젤 등에서 발견)
+  - KOSDAQ 79.17% → 97.32% (+18%p)
+- iter 15 (acq/dsp fallback + main_date noise):
+  - `_parse_main_report_date` 강화: "주요사항보고서 제출일 : 최초제출일: ..." noise 30자 cover
+  - "최초제출일" 라벨 단독 추가 (정정공시)
+  - acquisition/disposal result도 단일 결정 fallback
+  - KOSPI 100% (220/220), KOSDAQ 100% (112/112), 합산 100% (332/332)
+- 모든 gate (G1 본문 파싱 100% + G2 사이클 매칭 100% + G3 phase + G4 scope) 충족
+- normalize 보강 (iter10 fix): broker_name `cs_iv_bk`, price_*_krw `dpstk_prc_*`, holding_*_date `hdexpd_*`, before_div/before_other 보유현황 추가, 처분방법 4 field (dp_m_mkt/otc/ovtm/etc)
+- audit: [[260505_0530_audit_treasury_execution_iter1-8]] (iter 11~15 추가 update)
+
 ## [2026-05-05] refactor | proxy_advise scope 10→1 + dead service archive
 - proxy_advise: scope param 폐지, 항상 `decisions` 호출. specialized scope 9개 (agenda/candidates/financial/governance/ownership/policy_basis/proxy_battle/engagement/evidence/all) 폐지.
 - 사용자가 raw 보고 싶으면 각 tool 직접 호출 (shareholder_meeting_notice / financial_metrics / corp_gov_report / ownership_structure / proxy_contest / value_up).
