@@ -3,6 +3,25 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-05] feat | 보수한도 / 퇴직금 안건 분리 (이사·감사 + 정관 hybrid)
+- 발단: 코붕이 (이사·감사 보수한도 + 퇴직금이 어떻게 처리되는지 확인) → 갭 발견:
+  1. 퇴직금이 `_decide_compensation` 같이 처리 → 인상률 데이터 없으니 fm_fallback FOR (사실상 자동 FOR, status quo bias)
+  2. 이사/감사 분리 안 됨 (parser는 분리하나 결정은 합산)
+- 해결:
+  1. **카테고리 3 분리**: `director_compensation` (강화) / `audit_compensation` (NEW) / `retirement_pay` (NEW)
+  2. **Hybrid wire** (코붕이 의견): 한국 회사 관행상 퇴직금/보수 변경은 대부분 "정관 일부 변경" 형식.
+     `_decide_articles_amendment`에 retirement/comp helper 통합 — 같은 helper 재사용, 결정 logic 중복 X.
+  3. **결정 분기**: 이사 13 분기 / 감사 11 분기 / 퇴직금 12 분기. 정책 근거 (NPS [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #2/#6/#7/#8 + 운용사 패턴) 모두 wire.
+  4. **2 layer 원칙**: 정책 카탈로그 (정성+정량) + 결정 코드 (자동 trigger wire + 정성은 facts raw 노출).
+  5. **Step 0 sample**: KOSPI/KOSDAQ 10 회사 spot — SK하이닉스 11 amendments / 고려아연 5 (황금낙하산 sample 0)
+  6. **Step 0.5 운용사 majority cache**: 22 records 합산 → director 31 / audit 2 / retirement 1 4+ majority case (모두 FOR). AGAINST outlier: 하이브 (3대1) / 에코프로 (3대0).
+- iter02 KOSPI 0-50 baseline (정관 우선 fix 전): director 20 (모두 FOR, g3 정합 100%) / audit 2 (FOR) / retirement 2 (REVIEW — KT&G "퇴직연금 정비")
+- iter04 키워드 정밀화: "확정기여형/확정급여형/퇴직연금" 위험 → 형식적 (FOR) — KT&G false positive 회피
+- iter03 hybrid batch (KOSPI 50 + KOSDAQ 30): 진행 중. 결과 측정 후 G1-G4 검증 + promise 가능 여부 결정.
+- ralph: [[260505_1750_ralph_compensation-retirement-split]]
+- decision: [[260505_1900_decision_compensation-retirement-split]]
+- audit data: `wiki/architecture/audits/data/260505_compensation_retirement/`
+
 ## [2026-05-05] feat | 사내이사 재직 중 성과 매트릭스 (2x3) — status quo bias mitigation
 - 발단: 코붕이 고려아연 케이스 비판 — proxy_advise 사내이사 분기는 결격사유만 검증 → 회사 추천 후보 자동 FOR. status quo 무검증.
 - 해결: 재직 중 회사 운영 성과 axis 추가. 2x3 매트릭스 (ROE/부채비율/CSR × avg/trend), good +2 / mod +1 / weak 0 / bad -1.
