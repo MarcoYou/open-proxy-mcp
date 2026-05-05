@@ -600,6 +600,7 @@ def _extract_facts(
     comp_payload: dict[str, Any] | None,
     all_evals: list[dict[str, Any]] | None = None,
     fy_raw_from_agenda: dict[str, Any] | None = None,
+    retirement_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """카테고리별 검증 가능한 정량 fact dict (None 값은 제외)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -628,6 +629,38 @@ def _extract_facts(
         facts["increase_rate_pct"] = comp_summary.get("increase_rate_pct")
         facts["utilization_rate_pct"] = comp_summary.get("utilization_rate_pct")
         facts["limit_krw"] = comp_summary.get("limit_krw")
+        facts["net_income_krw"] = fin_summary.get("net_income_krw")
+        facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
+    elif category == "audit_compensation":
+        # 감사 분리 데이터 (items에서 target == "감사" filter)
+        items = ((comp_payload or {}).get("data") or {}).get("items") or []
+        audit_items = [i for i in items if i.get("target") == "감사"]
+        for it in audit_items[:1]:
+            cur = it.get("current") or {}
+            prior = it.get("prior") or {}
+            facts["audit_total_limit_krw"] = cur.get("total_amount")
+            facts["audit_count"] = cur.get("count")
+            if cur.get("total_amount") and cur.get("count"):
+                facts["audit_per_person_krw"] = cur["total_amount"] // cur["count"]
+            if prior.get("total_amount") and cur.get("total_amount"):
+                try:
+                    facts["audit_increase_rate_pct"] = round(
+                        (cur["total_amount"] - prior["total_amount"]) / prior["total_amount"] * 100, 1
+                    )
+                except ZeroDivisionError:
+                    pass
+        facts["net_income_krw"] = fin_summary.get("net_income_krw")
+        facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
+    elif category == "retirement_pay":
+        amends = ((retirement_payload or {}).get("data") or {}).get("amendments") or []
+        facts["amendments_count"] = len(amends)
+        if amends:
+            # raw 노출 (LLM 판단용) — 처음 5개
+            facts["amendments_sample"] = [
+                {"clause": a.get("clause"), "before": (a.get("before") or "")[:200], "after": (a.get("after") or "")[:200], "reason": (a.get("reason") or "")[:120]}
+                for a in amends[:5]
+            ]
+        facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
     elif category in ("director_election", "audit_committee_election"):
         if eval_match:
             facts["candidate_name"] = eval_match.get("name")
@@ -669,6 +702,7 @@ def _extract_risks(
     fin_payload: dict[str, Any] | None,
     comp_payload: dict[str, Any] | None,
     title: str,
+    retirement_payload: dict[str, Any] | None = None,
 ) -> list[str]:
     """카테고리별 위험 신호 list (LLM/사용자 추가 검토 hint)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -681,7 +715,7 @@ def _extract_risks(
     elif cap_status == "partial":
         risks.append("부분 자본잠식")
     ni = fin_summary.get("net_income_krw")
-    if ni is not None and ni < 0 and category in ("cash_dividend", "director_compensation"):
+    if ni is not None and ni < 0 and category in ("cash_dividend", "director_compensation", "audit_compensation", "retirement_pay"):
         risks.append(f"적자 (순익 {ni:,}원)")
 
     if category in ("director_election", "audit_committee_election") and eval_match:
@@ -704,6 +738,23 @@ def _extract_risks(
             risks.append(f"소진율 {util:.0f}%인데 인상 {inc:+.0f}%")
         elif inc is not None and inc >= 50:
             risks.append(f"한도 대폭 인상 {inc:+.0f}%")
+
+    if category == "retirement_pay":
+        amends = ((retirement_payload or {}).get("data") or {}).get("amendments") or []
+        if amends:
+            risks.append(f"퇴직금 변경 {len(amends)}건 — 변경 raw 검토 권장")
+        # 황금낙하산 / 사외이사 키워드 hit 탐지
+        for a in amends:
+            after = (a.get("after") or "")
+            if "황금낙하산" in after or "경영권 변동" in after:
+                risks.append("황금낙하산 또는 경영권 변동 special 가산 신설 (NPS IV-35 원칙적 반대)")
+                break
+        for a in amends:
+            after = a.get("after") or ""
+            before = a.get("before") or ""
+            if "사외이사" in after and "사외이사" not in before:
+                risks.append("사외이사 퇴직금 신설 (OPM #6 against)")
+                break
 
     if category == "cash_dividend":
         payout = fin_summary.get("payout_ratio_pct")
@@ -1131,9 +1182,9 @@ async def build_proxy_advise_payload(
 
         # 4. 결정 근거 보강 — facts (정량) + risk_factors + policy_citation
         all_director_evals = list(name_to_eval.values()) if category in ("director_election", "audit_committee_election") else None
-        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, all_director_evals,
+        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, all_director_evals, retirement_payload=retirement_payload,
                                 fy_raw_from_agenda=fy_raw_from_agenda)
-        risk_factors = _extract_risks(category, matched_eval, fin_metrics, meeting_comp, title)
+        risk_factors = _extract_risks(category, matched_eval, fin_metrics, meeting_comp, title, retirement_payload=retirement_payload)
         policy_citation = _policy_citation(category)
 
         agenda_decisions.append({
