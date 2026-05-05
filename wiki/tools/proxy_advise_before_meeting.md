@@ -94,7 +94,10 @@ proxy_advise_before_meeting(
 OPM 자체 함수들 + vote_style 정책 wire:
 - `_decide_director_election` (사외/사내·결격·독립성·장기연임 + **사내이사 재직 성과 bad→AGAINST / weak→REVIEW**)
 - `_decide_financial_statements` (감사의견·자본잠식)
-- `_decide_compensation` (소진율·인상률)
+- `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등)
+- `_decide_audit_compensation` (감사 보수한도 11 분기 — NPS IV-34 양방향: 1인당 평균 과소 + 인상률 과다)
+- `_decide_retirement_pay` (퇴직금 12 분기 — 황금낙하산·사외이사 퇴직금·지급률 2배수+ 등)
+- `_decide_articles_amendment` 안에서 정관변경에 묶인 퇴직금/보수한도 hybrid 처리
 - `_decide_dividend` (배당성향·자본잠식·리츠 의무 90%)
 - `_decide_articles_amendment` (집중투표 배제 등 위험 키워드)
 - `_decide_treasury_share` (소각 vs 처분)
@@ -113,6 +116,13 @@ OPM 자체 함수들 + vote_style 정책 wire:
   - G2 적자 16건 모두 special rule 작동, 자본잠식 0건
   - G3 bad→AGAINST, weak→REVIEW 분기 작동 (한화오션 김희철, HD현대중공업 금석호 등)
   - G4 distribution good 29.7 / mod 45.3 / weak 18.0 / bad 7.0 — 모든 target band 충족
+- ralph 260505 보수/퇴직 분기 정밀화 (KOSPI 200 + KOSDAQ 50, n=226):
+  - G1 파싱 성공률 director 99.2 / audit 100 / retirement 100
+  - G2 trigger 정확도 100% — AGAINST 5건 (피에스케이/피에스케이홀딩스/GST 지급률 2배수+ / 카카오페이 사외이사 퇴직금 / 퓨쳐메디신 자본잠식+인상)
+  - G3 운용사 4+ majority 정합 100% (director 11/11, audit 1/1)
+  - G4 NPS 정합 100% — 모든 AGAINST가 NPS [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치
+  - 정관 안에 묶인 퇴직금/보수 hybrid 통합 (코붕이 의견)
+  - financial_metrics summary에 prev_net_income/yoy 노출 → 흑자+yoy<0 trigger 활성화
 
 ## 미수집 (의도적 제외)
 

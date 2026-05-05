@@ -3,6 +3,25 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-05] feat | 보수한도 / 퇴직금 분기 정밀화 (G1 99%+ / 5 AGAINST detect)
+- 보수/퇴직 분기 wire 후속 검증 + parser 강화 + financial_metrics fetch chain fix
+- 1차 ralph (260505_1750): 카테고리 분리 + hybrid wire — promise 미발행 (G1 retirement 40%)
+- 2차 ralph (260505_2030): KOSPI 200 + KOSDAQ 50 (n=226) 확장 + parser fallback — promise 미발행 (G1 retirement 78.6%)
+- 3차 ralph (260505_2200): 정밀화 — promise 발행 ✓
+  - parser 강화 (commit `782af95`): anchor 검출 + 표 head 키워드 확장 (현재/개정(안)/개정전후) + 표 본문 "퇴직" broad-match
+  - financial_metrics summary scope에 prev_net_income/yoy_pct 노출 (commit `8fe8bff`) — 흑자+yoy<0 trigger 활성화
+  - 소진율 단독 강화 (commit `db44182`) — 소진율<30 + 인상률 미파악/동결 → REVIEW
+  - 5 batch 재측정 (KOSPI 0-30 / 30-50 / 50-80 / 140-170 / KOSDAQ 0-30) — NEW parser 적용
+- 최종 G1-G4 (n=226):
+  - G1 파싱 성공률: director 99.2 / audit 100 / retirement **100** (이전 78.6) ✓
+  - G2 trigger 정확도 100%: AGAINST 5건 — 피에스케이/피에스케이홀딩스/GST 지급률 2배수+ / 카카오페이 사외이사 퇴직금 (OPM #6) / 퓨쳐메디신 자본잠식+인상
+  - G3 운용사 4+ majority 정합 100% (director 11/11, audit 1/1)
+  - G4 NPS 정책 정합 100% (NPS [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger 일치)
+- KT&G false positive 수정: 이전 REVIEW (퇴직연금 키워드 hit) → FOR (퇴직연금 제도 도입 형식적 변경)
+- ralph: [[260505_1750_ralph_compensation-retirement-split]] / [[260505_2030_ralph_compensation-retirement-extend]] / [[260505_2200_ralph_compensation-retirement-precision]]
+- decision: [[260505_1900_decision_compensation-retirement-split]]
+- audit: `wiki/architecture/audits/data/260505_compensation_retirement_*` (3개 폴더)
+
 ## [2026-05-05] feat | 보수한도 / 퇴직금 안건 분리 (이사·감사 + 정관 hybrid)
 - 발단: 코붕이 (이사·감사 보수한도 + 퇴직금이 어떻게 처리되는지 확인) → 갭 발견:
   1. 퇴직금이 `_decide_compensation` 같이 처리 → 인상률 데이터 없으니 fm_fallback FOR (사실상 자동 FOR, status quo bias)

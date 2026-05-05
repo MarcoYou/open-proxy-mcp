@@ -110,3 +110,31 @@ Layer 2: 결정 코드 (_decide_*) — 자동 trigger wire + 정성은 facts raw
 - 스톡옵션 부여 안건 (OPM #3-5, #10) — 별도 카테고리 + 별도 ralph
 - 임원별 개별 보수 5억원+ 본문 분석 — 별도 endpoint
 - 동종업계 P75 비교 — 별도 chain
+
+---
+
+## 최종 검증 (3 ralph 누적, KOSPI 200 + KOSDAQ 50, n=226)
+
+**precision ralph (260505_2200) 최종 결과**:
+
+| 카테고리 | n | 분포 | G1 | G3 |
+|---|---|---|---|---|
+| director_compensation | 132 | 130 FOR / 1 AGAINST / 1 NO_DATA | **99.2%** ✓ | **100% (11/11)** ✓ |
+| audit_compensation | 39 | 39 FOR | **100%** ✓ | **100% (1/1)** ✓ |
+| retirement_pay | 14 | FOR 4 / REVIEW 6 / **AGAINST 4** | **100%** ✓ | majority 0 |
+
+**AGAINST 5건 모두 정확 분기**:
+- 피에스케이 / 피에스케이홀딩스 / GST 퇴직금 → 지급률 2배수+ (s_legacy strict 패턴)
+- 카카오페이 퇴직금 → 사외이사 퇴직금 신설 (OPM #6)
+- 퓨쳐메디신 보수한도 → 자본잠식 + 인상 (OPM Guideline)
+
+**REVIEW 6건** — KT&G "퇴직연금 제도 도입" → FOR로 정정 (false positive 수정), SK바이오팜/LIG넥스원/에코프로비엠 등 raw 검토 필요 case.
+
+**precision ralph 추가 fix** (commit `782af95` / `8fe8bff` / `db44182`):
+1. `parse_retirement_pay_xml` 강화: anchor 검출 + 표 head 키워드 (현재/개정(안)/개정전후) + 표 본문 "퇴직" broad-match
+2. `financial_metrics` summary scope에 prev_net_income/yoy_pct 노출 → 흑자+yoy<0 trigger 활성화
+3. 소진율 단독 강화: 소진율<30% + 인상률 미파악/동결 → REVIEW (코붕이 의견)
+
+**G4 NPS 정합 100%**: 모든 AGAINST가 NPS [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치.
+
+**Promise 발행**: `COMPENSATION_RETIREMENT_PRECISION_VERIFIED` (260505_2200 ralph)
