@@ -399,6 +399,69 @@ def render_aoi(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_provisional_financials(payload: dict[str, Any]) -> str:
+    """잠정 재무제표 4 quadrant raw 노출 (data tool — 판단 X)."""
+    data = payload.get("data", {})
+    pfs = data.get("prov_financials", {}) or {}
+    notice = data.get("notice", {})
+    metrics = pfs.get("metrics", {}) or {}
+
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 잠정 재무제표 (1호 안건 본문)", ""]
+    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
+    lines.append(f"- rcept_no: `{notice.get('rcept_no', '')}`")
+    lines.append(f"- status: `{payload.get('status', '')}`")
+    lines.append(f"- 출처: 주총 소집공고 1호 안건 본문 (사업보고서 제출 전 회사 자가 공시 — 잠정치)")
+    lines.append("")
+    lines.extend(warning_block(payload))
+
+    # 정량 metric summary
+    if metrics.get("extraction_status") in ("success", "partial"):
+        lines.append("## 정량 metric (flat)")
+        lines.append(f"- extraction_status: {metrics.get('extraction_status')} / scope: {metrics.get('scope_used')}")
+        for k in ("fy_current_revenue_krw", "fy_prior_revenue_krw",
+                  "fy_current_operating_profit_krw", "fy_prior_operating_profit_krw",
+                  "fy_current_net_income_krw", "fy_prior_net_income_krw",
+                  "fy_current_total_assets_krw", "fy_prior_total_assets_krw",
+                  "fy_current_total_liabilities_krw", "fy_prior_total_liabilities_krw",
+                  "fy_current_total_equity_krw", "fy_prior_total_equity_krw"):
+            v = metrics.get(k)
+            if v is not None:
+                lines.append(f"- {k}: {v:,}")
+        lines.append("")
+
+    # 4 quadrant 표
+    for scope_label, scope_key in (("연결", "consolidated"), ("별도", "separate")):
+        scope_data = pfs.get(scope_key) or {}
+        if not scope_data or (not scope_data.get("balance_sheet") and not scope_data.get("income_statement")):
+            continue
+        lines.append(f"## {scope_label} 재무제표")
+        for stmt_label, stmt_key in (("재무상태표", "balance_sheet"), ("손익계산서", "income_statement")):
+            stmt = scope_data.get(stmt_key)
+            if not stmt or not stmt.get("rows"):
+                continue
+            unit = stmt.get("unit") or "-"
+            period = stmt.get("period_labels") or {}
+            current_label = period.get("current") or "당기"
+            prior_label = period.get("prior") or "전기"
+            lines.append(f"### {stmt_label} (단위: {unit})")
+            lines.append(f"| 과목 | {current_label} | {prior_label} |")
+            lines.append("|------|----------|----------|")
+            for row in stmt["rows"]:
+                # row = [account, note, current, prior] or [account, current, prior]
+                if len(row) >= 4:
+                    acc, _, cur, prior = row[0], row[1], row[2], row[3]
+                else:
+                    acc, cur, prior = row[0], row[1] if len(row) > 1 else "", row[2] if len(row) > 2 else ""
+                lines.append(f"| {acc} | {cur or '-'} | {prior or '-'} |")
+            lines.append("")
+        lines.append("")
+
+    if not pfs.get("consolidated", {}).get("income_statement") and not pfs.get("separate", {}).get("income_statement"):
+        lines.append("잠정 재무제표 추출 실패 — 1호 안건 본문 비표준 형식.")
+
+    return "\n".join(lines)
+
+
 def render_results(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     result_reference = data.get("result_reference", {})
