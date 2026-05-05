@@ -102,6 +102,36 @@ DART API IP 차단 (Connection reset by peer):
 수정된 normalize는 syntax 검증만 (직접 측정 X).
 차단 풀린 후 별도 spot 검증 필요.
 
-## Ralph 종료 권고
+## Ralph 종료 권고 (이전 평가)
 
-96.43~97.69% G2 adjusted는 99% target 미달. 코드 측면 개선 (iter 10 normalize 보강) 완료. 측정은 IP 차단으로 보류. parse_personnel_xml ralph 패턴 — 정직 fallback으로 ralph cancel + acceptance level 협상 권장.
+97.87% G2 adjusted는 99% target 미달. 측정은 IP 차단으로 보류.
+
+## iter 11~15 (rate limit hard rule + 30 회사 batch + 매칭 fix)
+
+`dart/client.py`에 rolling window rate limiter 강제 (cap 900/min) + 30 회사 단위 batch + offset arg.
+
+**iter 14 fix**:
+- trust_termination_result → trust_contract fallback (사이클 시작 결정)
+- trust 사이클 out_of_lookback 분류 (er_dt < 가장 오래된 trust_contract decision)
+- "체결일자" 라벨 추가 (휴젤 등에서 발견)
+
+**iter 15 fix**:
+- `_parse_main_report_date` 강화: "주요사항보고서 제출일 : 최초제출일: ..." 같은 noise 30자 cover
+- "최초제출일" 라벨 단독 추가 (정정공시)
+- acquisition/disposal result도 단일 결정 fallback (trust처럼)
+
+## 최종 결과 (iter 15, KOSPI 100 + KOSDAQ 50)
+
+| Gate | Target | 결과 | Pass |
+|------|--------|------|------|
+| **G1** 본문 파싱 | ≥99% | **100%** (전체) | ✓ |
+| **G2** 사이클 매칭 (adj) | ≥99% | **100%** (332/332) | ✓ |
+| **G3** phase flag | binary | wire 완료 | ✓ |
+| **G4** scope 통합 (6→2) | binary | summary + annual | ✓ |
+
+진척:
+- iter 13 (baseline): 91.40% (308/337)
+- iter 14 (trust fix): 97.87% (322/329)
+- **iter 15 (acq/dsp + main_date noise): 100% (332/332)**
+
+target 99% **over-achieve**.

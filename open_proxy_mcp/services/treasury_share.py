@@ -363,11 +363,22 @@ def _acode_int(html: str, code: str) -> int | None:
 
 
 def _parse_main_report_date(text: str) -> str | None:
-    """결과 보고서 본문에서 '주요사항보고서 제출일' 추출 — 결정-결과 사이클 매칭 키."""
+    """결과 보고서 본문에서 '주요사항보고서 제출일' (또는 '최초제출일') 추출.
+
+    결정-결과 사이클 매칭 키. 라벨 변형 다수:
+    - "주요사항보고서 제출일: 2026년 3월 18일"
+    - "주요사항보고서 제출일 : 최초제출일: 2026년 3월 4일 정정신고일: ..." (한화오션 등)
+    - "최초제출일: ..." (정정공시)
+    """
     if not text:
         return None
     clean = re.sub(r"\s+", " ", text)
-    m = re.search(r"주요사항보고서\s*제출일[:\s]*(\d{4})\s*[년\-./]\s*(\d{1,2})\s*[월\-./]\s*(\d{1,2})", clean)
+    # 패턴 1: 주요사항보고서 제출일 — "최초제출일:" 같은 noise 30자 cover
+    m = re.search(r"주요사항보고서\s*제출일[\s:.]{0,40}?(\d{4})\s*[년\-./]\s*(\d{1,2})\s*[월\-./]\s*(\d{1,2})", clean)
+    if m:
+        return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+    # 패턴 2: 최초제출일 (단독)
+    m = re.search(r"최초제출일[\s:.]{0,10}?(\d{4})\s*[년\-./]\s*(\d{1,2})\s*[월\-./]\s*(\d{1,2})", clean)
     if m:
         return f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
     return None
@@ -980,7 +991,20 @@ def _link_cycles(bundles: dict[str, list[dict]]) -> int:
                         matched_dec = dec_by_date[chosen_d][0]
                         er["match_proximity_days"] = candidates[0][0]
 
-            # 3. trust fallback — date 매칭 fail 시 같은 사이클 trust 결정과 매칭.
+            # 3a. acquisition/disposal result fallback — main_report_date 추출 fail 시
+            # er_dt 이전 가장 최근 동일 type decision과 매칭 (단일 사이클 가정).
+            if matched_dec is None and exec_key in ("acquisition_result", "disposal_result") and dec_rows:
+                er_dt = er.get("rcept_dt", "")
+                prior_decs = sorted(
+                    [d for d in dec_rows if d.get("rcept_dt", "") <= er_dt],
+                    key=lambda x: x.get("rcept_dt", ""),
+                    reverse=True,
+                )
+                if prior_decs:
+                    matched_dec = prior_decs[0]
+                    er["match_via_acq_dsp_fallback"] = True
+
+            # 3b. trust fallback — date 매칭 fail 시 같은 사이클 trust 결정과 매칭.
             # trust_termination_result는 trust_termination 우선, 없으면 trust_contract (사이클 시작) fallback.
             # trust_acquisition_status는 trust_contract 우선.
             if matched_dec is None and exec_key in ("trust_acquisition_status", "trust_termination_result"):

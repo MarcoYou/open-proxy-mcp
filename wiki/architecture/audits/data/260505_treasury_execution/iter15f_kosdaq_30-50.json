@@ -1,0 +1,279 @@
+{
+  "summary": {
+    "n_companies": 20,
+    "n_ok": 20,
+    "n_decisions_total": 51,
+    "n_executions_total": 53,
+    "g1_body_parsed": {
+      "n_parsed": 53,
+      "n_total": 53,
+      "pct": 100.0,
+      "target_pct": 99.0,
+      "pass": true
+    },
+    "g2_cycle_matched": {
+      "n_matched": 50,
+      "n_total": 53,
+      "n_out_of_lookback": 3,
+      "n_matchable": 50,
+      "pct_raw": 94.34,
+      "pct_adjusted": 100.0,
+      "target_pct": 99.0,
+      "pass": true,
+      "note": "adjusted = matched / (executions in lookback) — out_of_lookback은 결정 record 없어 본질 매칭 불가"
+    },
+    "g3_phase_flag": {
+      "pass": true,
+      "note": "phase=decision/execution 통합 wire 완료"
+    },
+    "g4_scope_consolidated": {
+      "pass": true,
+      "scopes": [
+        "annual",
+        "summary"
+      ]
+    }
+  },
+  "results": [
+    {
+      "ticker": "108860",
+      "name": "셀바스AI",
+      "status": "no_filing",
+      "duration_s": 1.1,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "023910",
+      "name": "대한약품",
+      "status": "no_filing",
+      "duration_s": 1.9,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "093320",
+      "name": "케이아이엔엑스",
+      "status": "exact",
+      "duration_s": 2.8,
+      "n_events": 2,
+      "n_decisions": 1,
+      "n_executions": 1,
+      "n_body_parsed": 1,
+      "n_cycle_matched": 1,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "102940",
+      "name": "코오롱생명과학",
+      "status": "no_filing",
+      "duration_s": 2.0,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "215000",
+      "name": "골프존",
+      "status": "exact",
+      "duration_s": 2.0,
+      "n_events": 3,
+      "n_decisions": 1,
+      "n_executions": 2,
+      "n_body_parsed": 2,
+      "n_cycle_matched": 2,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "200130",
+      "name": "콜마비앤에이치",
+      "status": "exact",
+      "duration_s": 2.4,
+      "n_events": 4,
+      "n_decisions": 2,
+      "n_executions": 2,
+      "n_body_parsed": 2,
+      "n_cycle_matched": 2,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "092040",
+      "name": "아미코젠",
+      "status": "no_filing",
+      "duration_s": 2.9,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "278280",
+      "name": "천보",
+      "status": "exact",
+      "duration_s": 2.4,
+      "n_events": 2,
+      "n_decisions": 1,
+      "n_executions": 1,
+      "n_body_parsed": 1,
+      "n_cycle_matched": 1,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "336370",
+      "name": "솔루스첨단소재",
+      "status": "no_filing",
+      "duration_s": 1.0,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "056190",
+      "name": "에스에프에이",
+      "status": "exact",
+      "duration_s": 3.3,
+      "n_events": 25,
+      "n_decisions": 11,
+      "n_executions": 14,
+      "n_body_parsed": 14,
+      "n_cycle_matched": 12,
+      "n_out_of_lookback": 2
+    },
+    {
+      "ticker": "383310",
+      "name": "에코프로에이치엔",
+      "status": "exact",
+      "duration_s": 2.9,
+      "n_events": 6,
+      "n_decisions": 3,
+      "n_executions": 3,
+      "n_body_parsed": 3,
+      "n_cycle_matched": 3,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "183300",
+      "name": "코미코",
+      "status": "exact",
+      "duration_s": 2.4,
+      "n_events": 11,
+      "n_decisions": 4,
+      "n_executions": 7,
+      "n_body_parsed": 7,
+      "n_cycle_matched": 7,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "189300",
+      "name": "인텔리안테크",
+      "status": "exact",
+      "duration_s": 2.4,
+      "n_events": 29,
+      "n_decisions": 14,
+      "n_executions": 15,
+      "n_body_parsed": 15,
+      "n_cycle_matched": 14,
+      "n_out_of_lookback": 1
+    },
+    {
+      "ticker": "192080",
+      "name": "더블유게임즈",
+      "status": "exact",
+      "duration_s": 2.9,
+      "n_events": 9,
+      "n_decisions": 5,
+      "n_executions": 4,
+      "n_body_parsed": 4,
+      "n_cycle_matched": 4,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "214450",
+      "name": "파마리서치",
+      "status": "exact",
+      "duration_s": 2.4,
+      "n_events": 1,
+      "n_decisions": 1,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "032500",
+      "name": "케이엠더블유",
+      "status": "no_filing",
+      "duration_s": 2.0,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "118990",
+      "name": "모트렉스",
+      "status": "exact",
+      "duration_s": 2.0,
+      "n_events": 7,
+      "n_decisions": 4,
+      "n_executions": 3,
+      "n_body_parsed": 3,
+      "n_cycle_matched": 3,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "099230",
+      "name": "아이센스",
+      "status": "exact",
+      "duration_s": 2.4,
+      "n_events": 4,
+      "n_decisions": 3,
+      "n_executions": 1,
+      "n_body_parsed": 1,
+      "n_cycle_matched": 1,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "085660",
+      "name": "차바이오텍",
+      "status": "no_filing",
+      "duration_s": 2.9,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "439090",
+      "name": "마녀공장",
+      "status": "exact",
+      "duration_s": 1.4,
+      "n_events": 1,
+      "n_decisions": 1,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    }
+  ]
+}
