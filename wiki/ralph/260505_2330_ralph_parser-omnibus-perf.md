@@ -420,10 +420,22 @@ v1 mode 실제 retire 시점에 physical archive — 별도 결정 (이번 ralph
 
 → **G4 PASS**: data tool layer (parsing + computation) vs action tool layer (decision evidence) 정합 명확 ✓
 
-### iter 13 — fix list 우선순위 (예정)
-- **유일 미해결**: PFS metric extraction 91.2% (95% 미달 4 ppt)
-- 옵션 A: extract_metrics 강화 (지배기업소유주지분 keyword + 종속회사 list table reject)
-- 옵션 B: honest data limit 인정 (plan 허용)
+### iter 8 후반 (Phase 4 fix) — PFS extract_metrics 강화 + 회귀 ✓
+변경:
+- `_METRIC_KEYWORDS.net_income_krw`에 `지배기업소유주지분` 등 4 변형 추가
+- `_NON_FS_TABLE_HINTS` 추가 — 영문 사명 ≥6 줄 테이블 reject (종속회사 목록)
+- `scope_used` 보고 버그 fix — 실제 추출 scope만 기록
+
+19 sparse 재측정 (`scripts/spot_pfs_sparse_recheck.py` / 17.5s):
+- 1/19 추가 PASS (심텍 KOSDAQ — filled 4→6)
+- 18/19 여전히 sparse — **disclosure data limit** (잠정 재무제표 summary 라인 빈 값)
+
+PFS G1: 91.2% → 91.6% (한계 도달).
+
+### iter 13 — Phase 4 결정: honest data limit 인정 ✓
+- Plan 명시 "G1 ≥95% **또는 데이터 한계 정직 기록**" → 18 sparse 케이스는 정직히 기록
+- root cause: 일부 KOSPI 대형 기업의 잠정 재무제표 disclosure 본문에 summary 라인 (매출액/영업이익/당기순이익/자산총계/부채총계/자본총계) 자체가 비어있음
+- 해당 케이스: 현대차 / 두산에너빌리티 / 셀트리온 / 현대로템 / 현대건설 / 기업은행 / LG / KT / 대한항공 / LG이노텍 / 유한양행 / 두산밥캣 / 두산로보틱스 / OCI홀딩스 / 현대위아 / HDC / LS마린솔루션 / 현대바이오
 
 ### iter 14-16 — fix 적용 + smoke test
 (작성 예정)
