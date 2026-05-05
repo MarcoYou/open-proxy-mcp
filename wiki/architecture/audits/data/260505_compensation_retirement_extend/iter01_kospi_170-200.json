@@ -1,0 +1,498 @@
+{
+  "summary": {
+    "n_companies": 29,
+    "n_ok": 21,
+    "categories": {
+      "director_compensation": {
+        "n_decisions": 20,
+        "distribution": {
+          "FOR": 19,
+          "AGAINST": 1
+        },
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      },
+      "audit_compensation": {
+        "n_decisions": 8,
+        "distribution": {
+          "FOR": 8
+        },
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      },
+      "retirement_pay": {
+        "n_decisions": 1,
+        "distribution": {
+          "AGAINST": 1
+        },
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      }
+    }
+  },
+  "results": [
+    {
+      "ticker": "333620",
+      "name": "엔시스",
+      "status": "exact",
+      "duration_s": 7.6,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 9,984,931,301원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "064090",
+      "name": "인크레더블버즈",
+      "status": "exact",
+      "duration_s": 8.6,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "101670",
+      "name": "하이드로리튬",
+      "status": "exact",
+      "duration_s": 9.0,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "012160",
+      "name": "영흥",
+      "status": "exact",
+      "duration_s": 16.1,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "066790",
+      "name": "씨씨에스",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 31.9,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "900300",
+      "name": "오가닉티코스메틱",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 8.9,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "038870",
+      "name": "에코심플렉스",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 5.7,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "368770",
+      "name": "파이버프로",
+      "status": "exact",
+      "duration_s": 6.2,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 7,152,320,255원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 7,152,320,255원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "304840",
+      "name": "피플바이오",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 17.9,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "192440",
+      "name": "슈피겐코리아",
+      "status": "exact",
+      "duration_s": 9.8,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건(30억)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 27,895,303,691원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "177900",
+      "name": "쓰리에이로직스",
+      "status": "exact",
+      "duration_s": 8.4,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수 한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 8,561,586,080원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수 한도 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 8,561,586,080원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "230360",
+      "name": "에코마케팅",
+      "status": "exact",
+      "duration_s": 11.1,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건(5억)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 36,235,474,007원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건(1억)",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 36,235,474,007원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "210120",
+      "name": "캔버스엔",
+      "status": "exact",
+      "duration_s": 17.7,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "011200",
+      "name": "HMM",
+      "status": "exact",
+      "duration_s": 17.6,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 3,782,169,000,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "002200",
+      "name": "한국수출포장공업",
+      "status": "exact",
+      "duration_s": 9.7,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "091970",
+      "name": "나노캠텍",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 7.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "049080",
+      "name": "기가레인",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 6.5,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "215100",
+      "name": "로보로보",
+      "status": "exact",
+      "duration_s": 14.2,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사보수한도액 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악 + 자본 정상 — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "294090",
+      "name": "이오플로우",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 17.4,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "083450",
+      "name": "GST",
+      "status": "exact",
+      "duration_s": 8.2,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 45,862,225,124원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 45,862,225,124원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "retirement_pay",
+          "original_category": "retirement_pay",
+          "title": "임원퇴직금 지급규정 일부 변경의 건",
+          "decision": "AGAINST",
+          "reason": "지급률 2배수 이상 인상 또는 신설 (≥3배수) — s_legacy strict 패턴",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "015590",
+      "name": "DKME",
+      "status": "exact",
+      "duration_s": 8.5,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 2,281,787,710원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "085670",
+      "name": "뉴프렉스",
+      "status": "exact",
+      "duration_s": 14.1,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 16,094,565,582원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 16,094,565,582원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "059210",
+      "name": "메타바이오메드",
+      "status": "exact",
+      "duration_s": 7.7,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수 한도 승인의 건(전년과 동일 25억원)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 22,402,486,137원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수 한도 승인의 건(전년과 동일 1억원)",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 22,402,486,137원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "359090",
+      "name": "씨엔알리서치",
+      "status": "exact",
+      "duration_s": 6.3,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 3,358,854,699원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 3,358,854,699원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "0030R0",
+      "name": "대신밸류리츠",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 7.4,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "341170",
+      "name": "퓨쳐메디신",
+      "status": "exact",
+      "duration_s": 5.6,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사보수한도 승인의 건(6억원)",
+          "decision": "AGAINST",
+          "reason": "완전 자본잠식 + 인상률 미파악 — OPM Guideline",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "290660",
+      "name": "다이나믹솔루션",
+      "status": "exact",
+      "duration_s": 3.2,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "114840",
+      "name": "아이패밀리에스씨",
+      "status": "exact",
+      "duration_s": 4.8,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "900270",
+      "name": "헝셩그룹",
+      "status": "exact",
+      "duration_s": 17.9,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 12,358,665원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "후이만킷 사내이사 보수한도 승인의 건(950,000 CNY)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 12,358,665원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "후이훙위엔 사내이사 보수한도 승인의 건(1,000,000 CNY)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 12,358,665원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "수슈엔슈엔 사내이사 보수한도 승인의 건(150,000 CNY)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 12,358,665원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "천빈 사내이사 보수한도 승인의 건(200,000 CNY)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 12,358,665원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "천커원 독립이사 보수한도 승인의 건(100,000 CNY)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 12,358,665원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "후이판판 독립이사 보수한도 승인의 건(100,000 CNY)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 12,358,665원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건(180,000 CNY)",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 12,358,665원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    }
+  ]
+}
