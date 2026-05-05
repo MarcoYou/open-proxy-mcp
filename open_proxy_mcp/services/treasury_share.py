@@ -483,10 +483,10 @@ def _parse_trust_acquisition_status_body(text: str, html: str = "") -> dict[str,
         result["trust_holding_pct"] = _extract_acode(html, "HLD_RATE2")
         result["trustee_corp_code"] = _extract_acode(html, "CNS_CRP")
 
-    # 신탁계약 체결일 — text fallback (라벨 변형: "신탁계약 체결일", "계약체결일자")
+    # 신탁계약 체결일 — text fallback (라벨 변형 다수)
     clean = re.sub(r"\s+", " ", text)
-    for label in (r"신탁계약\s*체결일", r"계약체결일자"):
-        m = re.search(label + r"[\s\S]{0,150}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
+    for label in (r"신탁계약\s*체결일", r"계약체결일자", r"신탁계약체결일", r"체결일자"):
+        m = re.search(label + r"[\s\S]{0,200}?(\d{4})[년\.\-/\s]+(\d{1,2})[월\.\-/\s]+(\d{1,2})", clean)
         if m:
             result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
             break
@@ -527,8 +527,8 @@ def _parse_trust_termination_result_body(text: str, html: str = "") -> dict[str,
         result["trustee_corp_code"] = _extract_acode(html, "CNCL_CRP")
 
     clean = re.sub(r"\s+", " ", text)
-    for label in (r"신탁계약\s*체결일", r"계약체결일자", r"신탁계약체결일"):
-        m = re.search(label + r"[\s\S]{0,150}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", clean)
+    for label in (r"신탁계약\s*체결일", r"계약체결일자", r"신탁계약체결일", r"체결일자"):
+        m = re.search(label + r"[\s\S]{0,200}?(\d{4})[년\.\-/\s]+(\d{1,2})[월\.\-/\s]+(\d{1,2})", clean)
         if m:
             result["trust_contract_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
             break
@@ -980,20 +980,46 @@ def _link_cycles(bundles: dict[str, list[dict]]) -> int:
                         matched_dec = dec_by_date[chosen_d][0]
                         er["match_proximity_days"] = candidates[0][0]
 
-            # 3. trust fallback — date 매칭 fail 시 가장 최근 trust_contract
+            # 3. trust fallback — date 매칭 fail 시 같은 사이클 trust 결정과 매칭.
+            # trust_termination_result는 trust_termination 우선, 없으면 trust_contract (사이클 시작) fallback.
+            # trust_acquisition_status는 trust_contract 우선.
             if matched_dec is None and exec_key in ("trust_acquisition_status", "trust_termination_result"):
                 er_dt = er.get("rcept_dt", "")
-                prior_decs = sorted(
+                # primary: 매칭 type 동일 (trust_contract 또는 trust_termination)
+                primary_priors = sorted(
                     [d for d in dec_rows if d.get("rcept_dt", "") <= er_dt],
                     key=lambda x: x.get("rcept_dt", ""),
                     reverse=True,
                 )
-                if prior_decs:
-                    matched_dec = prior_decs[0]
+                if primary_priors:
+                    matched_dec = primary_priors[0]
                     er["match_via_trust_fallback"] = True
+                else:
+                    # trust_termination_result — primary (trust_termination) 없으면 trust_contract fallback
+                    if exec_key == "trust_termination_result":
+                        contract_decs = bundles.get("trust_contract", []) or []
+                        contract_priors = sorted(
+                            [d for d in contract_decs if d.get("rcept_dt", "") <= er_dt],
+                            key=lambda x: x.get("rcept_dt", ""),
+                            reverse=True,
+                        )
+                        if contract_priors:
+                            matched_dec = contract_priors[0]
+                            er["match_via_trust_contract_fallback"] = True
+                    # trust_acquisition_status — primary (trust_contract) 없으면 fail (사이클 자체 없음)
 
             if matched_dec is None:
-                # 매칭 실패 사유 분류 — lookback 밖
+                # trust 케이스: er_dt가 가장 오래된 trust_contract decision보다 이전이면 out_of_lookback
+                # (이전 사이클 결정 record가 lookback 24개월 밖)
+                if exec_key in ("trust_acquisition_status", "trust_termination_result"):
+                    contract_decs = bundles.get("trust_contract", []) or []
+                    if contract_decs:
+                        earliest = min((d.get("rcept_dt", "") for d in contract_decs if d.get("rcept_dt")), default="")
+                        er_dt = er.get("rcept_dt", "")
+                        if earliest and er_dt and er_dt < earliest:
+                            er["match_status"] = "out_of_lookback"
+                            continue
+                # 매칭 실패 사유 분류 — lookback 밖 (key_date 기준)
                 if key_date and (not all_decision_dates or key_date < all_decision_dates[0]):
                     er["match_status"] = "out_of_lookback"
                 else:
