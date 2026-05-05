@@ -437,11 +437,40 @@ PFS G1: 91.2% → 91.6% (한계 도달).
 - root cause: 일부 KOSPI 대형 기업의 잠정 재무제표 disclosure 본문에 summary 라인 (매출액/영업이익/당기순이익/자산총계/부채총계/자본총계) 자체가 비어있음
 - 해당 케이스: 현대차 / 두산에너빌리티 / 셀트리온 / 현대로템 / 현대건설 / 기업은행 / LG / KT / 대한항공 / LG이노텍 / 유한양행 / 두산밥캣 / 두산로보틱스 / OCI홀딩스 / 현대위아 / HDC / LS마린솔루션 / 현대바이오
 
-### iter 14-16 — fix 적용 + smoke test
-(작성 예정)
+### iter 9 — 코붕이 피드백 후 raw html 재조사 + root cause 발견 ✓
 
-### iter 17-18 — 회귀 spot (KOSPI 30 + KOSDAQ 30)
-(작성 예정)
+코붕이 피드백 (2026-05-06): "데이터가 없는건지, 잘못 검색한건지, 별도 파서가 필요한건지 창의적으로 다시 생각"
 
-### iter 19-20 — 문서화 + promise
-(작성 예정)
+raw html 직접 search → 현대차 매출액 186,254,472 명확히 존재. parser column-meta 버그 확인:
+- DART 잠정 재무제표 6컬럼 row 패턴 (account/note/empty/current/empty/prior)
+- 헤더는 4 TH + colspan="2" → 빈 셀이 `_period_by_num` 다음에 옴
+- 기존 로직: 빈 셀 → "unknown" → row[2]/row[4] (empty)을 current/prior로 인식 (실제 값 row[3]/row[5])
+
+### iter 9 후반 — Fix + 검증 ✓
+- `_build_column_meta`에 `_period_by_num_sub` 처리 추가 (핵심 fix)
+- 19 sparse 케이스 100% PASS (이전 1/19): 현대차/셀트리온/두산/기업은행/LG/KT 등
+- 회귀 90 회사 PFS 100% (Samsung 등 4컬럼 패턴도 정상)
+- 11 batch 전부 post-fix 재실행 → 최종 G1 ALL pass:
+
+| Parser | n | ok | pct |
+|---|---|---|---|
+| meeting_info | 357 | 357 | 100% |
+| agenda | 357 | 356 | 99.7% |
+| agenda_details | 357 | 357 | 100% |
+| corrections | 357 | 357 | 100% |
+| personnel(director) | 281 | 280 | 99.6% |
+| personnel(audit) | 267 | 266 | 99.6% |
+| aoi | 304 | 300 | 98.7% |
+| compensation | 336 | 332 | 98.8% |
+| retirement(call) | 38 | 38 | 100% |
+| pfs(call) | 264 | 264 | 100% |
+| **pfs metrics ≥6** | **264** | **264** | **100%** |
+
+→ **모든 Tier A G1 ≥98.7%** ✓
+
+### iter 9 마무리 — 문서화 + promise ✓
+- lesson: [[lessons/parser-omnibus-260506]]
+- decision: [[decisions/260506_2330_decision_v1-dead-parsers-archive]]
+- 17 tool scope inventory + G4 layer 정합 PASS (data tool 14 services + Tier A 9 parser decision 키워드 0 / proxy_advise 8 _decide_*)
+
+→ Promise 발행 가능
