@@ -121,33 +121,47 @@ NPS [별표 1] IV-33 / IV-34 / IV-35 명시 trigger와 OPM 결정이 일치.
 
 ### 1. 이사 보수한도 (`director_compensation`)
 
-| 지표 (parser/financial_metrics) | 정책 근거 | 결정 |
-|---|---|---|
-| 소진율 < 30% **AND** 인상률 > 0% | OPM Guideline (mainstream — "남는데 더 늘림") | **AGAINST** |
-| 인상률 ≥ +30% **AND** 순익 yoy < 0% | NPS IV-33② (보수금액이 경영성과 대비 과다) + s_legacy 패턴 | **AGAINST** |
-| 인상률 ≥ +50% (경영성과 무관) | OPM Guideline (대폭 인상 → 사용자 검토) | **REVIEW** |
-| 인상률 +30~50% **AND** 순익 yoy < +5% | NPS IV-33② 보수적 적용 (경계) | **REVIEW** |
-| 인상률 -10 ~ +10% (동결 or 소폭) | NPS IV-33① (이사회 안 원칙적 찬성) | **FOR** |
-| 인상률 데이터 부족 + 흑자 + 자본 정상 | NPS IV-33① + mainstream fallback | **FOR** |
-| 인상률 데이터 부족 + 자본잠식 | OPM Guideline (자본잠식 시 보수 결정 부적절) | **AGAINST** |
-| 모든 데이터 부족 (보수 + 재무 둘 다 X) | — | **NO_DATA** |
+분기 우선순위 (first-match): hard trigger → 자동 trigger → 데이터 부족 fallback.
+
+| # | 지표 (parser/financial_metrics) | 정책 근거 | 결정 |
+|---|---|---|---|
+| 1 | 자본잠식 full **AND** 인상률 > 0% | OPM Guideline (자본잠식 시 보수 결정 부적절) | **AGAINST** |
+| 2 | 소진율 < 30% **AND** 인상률 > 0% | OPM mainstream ("남는데 더 늘림") | **AGAINST** |
+| 3 | (적자 OR 순익 yoy < 0%) **AND** 인상률 > 0% | OPM #2 (적자/순익 감소 기업 한도 증액) — strict | **AGAINST** |
+| 4 | 순익 yoy < +5% **AND** 인상률 +10 ~ +30% | NPS IV-33② 보수적 (경영성과 둔화 + 인상) | **REVIEW** |
+| 5 | 인상률 ≥ +50% (경영성과 무관) | OPM #8 (50%+ 인상, 일회성 사유 외) | **REVIEW** |
+| 6 | 인상률 +30 ~ +50% (#3-4 미해당) | OPM Guideline (대폭 인상 우려) | **REVIEW** |
+| 7 | 소진율 ≥ 100% **AND** 인상률 > 0% | OPM Guideline (한도 부족 → 인상 정당화) | **FOR** |
+| 8 | 인상률 < -10% (한도 감액) | NPS IV-33① + 주주가치 관점 (보수적) | **FOR** |
+| 9 | 인상률 -10 ~ +10% (동결 or 소폭) | NPS IV-33① (이사회 안 원칙적 찬성) | **FOR** |
+| 10 | 인상률 +10 ~ +30% **AND** 순익 yoy ≥ +5% | NPS IV-33① + 경영성과 양호 | **FOR** |
+| 11 | 인상률 데이터 부족 + 흑자 + 자본 정상 | NPS IV-33① + mainstream fallback | **FOR** |
+| 12 | 인상률 데이터 부족 + 자본잠식 | OPM Guideline (자본잠식 시 보수 결정 부적절) | **AGAINST** |
+| 13 | 모든 데이터 부족 (보수 + 재무 둘 다 X) | — | **NO_DATA** |
 
 **필요 데이터 chain**:
 - `shareholder_meeting(scope=compensation)` → `compensation.summary.utilization_rate_pct` / `increase_rate_pct` / `current.total_amount` / `prior.total_amount`
-- `financial_metrics(scope=yearly)` → `net_income_yoy_pct` / `capital_impairment_status` (NEW: yoy 계산 필요)
+- `financial_metrics(scope=yearly)` → `net_income_yoy_pct` / `net_income_krw` (적자 detect) / `capital_impairment_status`
 
 ### 2. 감사 보수한도 (`audit_compensation` — NEW 카테고리)
 
 NPS IV-34는 운용사 mainstream과 결이 다름 (운용사: "과다" 우려, NPS: "과소" 우려). OPM은 둘 다 cover.
 
-| 지표 | 정책 근거 | 결정 |
-|---|---|---|
-| 1인당 평균 < threshold_low (sample-calibrated, 잠정 5천만원) | NPS IV-34 (과소 → 감사 충실 업무 훼손) | **AGAINST** |
-| 인상률 ≥ +50% **AND** 1인당 평균 > threshold_high | s_legacy 패턴 (감사 보수 급증 = 경영진 동조 인센티브) | **AGAINST** |
-| 인상률 +30~50% | s_legacy 패턴 보수적 적용 | **REVIEW** |
-| 1인당 평균 threshold_low ~ threshold_high (경계) | mainstream FOR이지만 사용자 노출 | **REVIEW** |
-| 1인당 평균 ≥ threshold_high **AND** 인상률 ±10% | NPS IV-34 + mainstream FOR | **FOR** |
-| 데이터 부족 + 흑자 + 자본 정상 | mainstream fallback | **FOR** |
+분기 우선순위: hard trigger → 자동 trigger → 데이터 부족 fallback.
+
+| # | 지표 | 정책 근거 | 결정 |
+|---|---|---|---|
+| 1 | 자본잠식 full **AND** 인상률 > 0% | OPM Guideline (자본잠식 시 보수 결정 부적절) | **AGAINST** |
+| 2 | 소진율 < 30% **AND** 인상률 > 0% | OPM mainstream ("남는데 더 늘림") | **AGAINST** |
+| 3 | 1인당 평균 < threshold_low (잠정 5천만원/인) | NPS IV-34 (과소 → 감사 충실 업무 훼손) | **AGAINST** |
+| 4 | 인상률 ≥ +50% **AND** 1인당 평균 > threshold_high | s_legacy 패턴 (감사 보수 급증 = 경영진 동조 인센티브) | **AGAINST** |
+| 5 | 인상률 +30 ~ +50% | s_legacy 패턴 보수적 적용 | **REVIEW** |
+| 6 | 1인당 평균 threshold_low ~ threshold_high (경계) | mainstream FOR이지만 사용자 노출 | **REVIEW** |
+| 7 | 인상률 -10 ~ +10% (동결 or 소폭) | NPS IV-34 + mainstream FOR | **FOR** |
+| 8 | 1인당 평균 ≥ threshold_high **AND** 인상률 +10 ~ +30% | NPS IV-34 + mainstream | **FOR** |
+| 9 | 데이터 부족 + 흑자 + 자본 정상 | mainstream fallback | **FOR** |
+| 10 | 데이터 부족 + 자본잠식 | OPM Guideline | **AGAINST** |
+| 11 | 모든 데이터 부족 | — | **NO_DATA** |
 
 **threshold 정의 (Step 6 calibrate)**:
 - `threshold_low`: KOSPI 200 표본 분포의 25 percentile 또는 5천만원/인 (잠정)
@@ -156,30 +170,51 @@ NPS IV-34는 운용사 mainstream과 결이 다름 (운용사: "과다" 우려, 
 **필요 데이터**:
 - `compensation.items[].target == "감사"` (parser 이미 분리됨)
 - `summary.auditor_count` + `summary.auditor_total_limit_krw` → 1인당 평균 계산 (parser 추가 필요 여부 Step 0에서 확인)
+- `compensation.summary.utilization_rate_pct` (감사 분리 필요 — Step 0에서 확인)
 
 ### 3. 퇴직금 (`retirement_pay` — NEW 카테고리)
 
 `parse_retirement_pay_xml(html)` → `amendments[]` (변경전/후 비교) 활용.
 
-| 지표 (Step 0 sample 결과로 최종) | 정책 근거 | 결정 |
-|---|---|---|
-| 황금낙하산 신설 (`황금낙하산` / `golden parachute` / `경영권 변동 시 특별 지급` 키워드 hit) | NPS IV-35① (원칙적 반대) | **AGAINST** |
-| 지급률 ≥ 2배수 인상 (예: 1배수 → 2배수, 또는 특정 임원 100% 인상) | s_legacy strict 패턴 (퇴직금 31% AGAINST) | **AGAINST** |
-| 지급 대상 확장 (등기임원 → 비등기임원 포함 등) | OPM Guideline (남용 우려) | **REVIEW** |
-| 가중치/배수 인상 (소폭, 1배수 → 1.5배수) | OPM Guideline (사용자 검토) | **REVIEW** |
-| 위험 키워드 hit 0건 + amendments ≥ 1건 | OPM Guideline (raw 노출 + 사용자 검토) | **REVIEW** |
-| amendments 0건 또는 단순 표현 정정 (조항번호/문구) | NPS IV-35 default + mainstream FOR | **FOR** |
-| parser 추출 실패 | — | **NO_DATA** |
+분기 우선순위: hard trigger → 키워드 → 일반 변경 → fallback.
+
+| # | 지표 (Step 0 sample 결과로 최종) | 정책 근거 | 결정 |
+|---|---|---|---|
+| 1 | 황금낙하산 신설 (`황금낙하산` / `경영권 변동 시 특별 지급` 키워드 hit) | NPS IV-35① + OPM #7, #9 (원칙적 반대) | **AGAINST** |
+| 2 | 사외이사 퇴직금 신설 (대상에 `사외이사` 포함된 신규 조항) | OPM #6 (사외이사 퇴직혜택·성과급·스톡옵션 부여 against) | **AGAINST** |
+| 3 | 지급률 ≥ 2배수 인상 (예: 1배수 → 2배수, 100% 인상) | s_legacy strict 패턴 (퇴직금 31% AGAINST) | **AGAINST** |
+| 4 | 자본잠식 full **AND** 변경 amendments ≥ 1 | OPM Guideline (자본잠식 시 결정 부적절) | **REVIEW** |
+| 5 | 퇴직금 한도/규정 신설 (없던 것을 신설) | OPM Guideline (경영진 보호 신호) | **REVIEW** |
+| 6 | 지급 대상 확장 (등기임원 → 비등기임원 포함 등) | OPM Guideline (남용 우려) | **REVIEW** |
+| 7 | 가중치/배수 인상 (소폭, 1배수 → 1.5배수) | OPM Guideline (사용자 검토) | **REVIEW** |
+| 8 | 위험 키워드 hit ≥ 1 | OPM Guideline | **REVIEW** |
+| 9 | 변경 사유 (reason 필드)에 `법령` / `상법` / `개정` hit **AND** 위험 hit 0 | NPS IV-35 default (형식적) | **FOR** |
+| 10 | 위험 키워드 hit 0건 + amendments ≥ 1건 + 위 #9 미해당 | OPM Guideline (raw 노출 + 사용자 검토) | **REVIEW** |
+| 11 | amendments 0건 또는 단순 표현 정정 (조항번호/문구) | NPS IV-35 default + mainstream FOR | **FOR** |
+| 12 | parser 추출 실패 | — | **NO_DATA** |
 
 **위험 키워드 list (Step 0 sample 결과로 확정)**:
-- 1차 후보: `황금낙하산`, `경영권`, `변경시`, `배수`, `지급률`, `퇴임위로금`, `특별공로금`, `명예퇴직`
-- 2차: 변경전/후 숫자 패턴 (예: `1배수` → `2배수`)
+- 1차 후보: `황금낙하산`, `경영권`, `변경시`, `배수`, `지급률`, `퇴임위로금`, `특별공로금`, `명예퇴직`, `사외이사`
+- 형식적 변경 키워드 (FOR 분류용): `법령`, `상법`, `개정`, `정비`, `용어`, `명칭`
+- 2차: 변경전/후 숫자 패턴 (예: `1배수` → `2배수`, 적용 범위 확장)
 
 **필요 데이터 chain**:
 - (NEW) `services/retirement_pay.py` → `build_retirement_pay_payload(company, year)` 
   - 안에서 소집공고 본문 fetch + `parse_retirement_pay_xml(html)` 호출
   - 안건 title에 "퇴직금" 또는 "퇴임위로금" 포함된 안건만 amendments 추출
 - proxy_advise chain에 1번 호출 (회사 단위, 퇴직금 안건 detect 시만)
+- `financial_metrics(yearly).capital_impairment_status` (이미 chain)
+
+### 4. 공통 — facts raw 노출 (정성 trigger LLM 판단용)
+
+자동 검증 안 되는 정성 trigger는 결정에 반영하지 않고 `facts` / `risk_factors`에 raw 노출 → LLM이 정책 카탈로그 보고 판단:
+
+| raw 항목 | 정책 trigger (정성) | 노출 source |
+|---|---|---|
+| 5억원+ 임원 보수 list (이름·직책·금액) | OPM review #1 (개인별 5억원 + 동종업계 P75 초과) | DART 사업보고서 임원 보수 endpoint (Step 7+ 별도 처리) |
+| 회사 규모 reference (시총/매출/자산) | OPM #1 (성과 미연계) — 규모 대비 적정성 | financial_metrics summary |
+| 동종업계 평균 보수 (가능 시) | OPM review #1 (P75 비교) | 별도 chain (이번 ralph X) |
+| 퇴직금 amendments raw 텍스트 (변경전/후) | NPS IV-35 + OPM #7 정성 부분 | parse_retirement_pay_xml 결과 |
 
 ---
 
