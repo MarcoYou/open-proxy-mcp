@@ -10,12 +10,13 @@ from open_proxy_mcp.tools_v2._shareholder_meeting_render import (
     render_compensation,
     render_ambiguous,
     render_error,
+    render_provisional_financials,
     render_summary,
 )
 
 
-# 260505 ralph: scope 정리 — full / agenda 폐지 (summary 흡수)
-_NOTICE_SCOPES = {"summary", "board", "compensation", "aoi_change"}
+# 260505 ralph: scope 정리 — full / agenda 폐지 (summary 흡수) + prov_financials 신설
+_NOTICE_SCOPES = {"summary", "board", "compensation", "aoi_change", "prov_financials"}
 _DEPRECATED_SCOPES = {"agenda", "full"}  # silent fallback to summary
 
 
@@ -36,7 +37,7 @@ def register_tools(mcp):
         when: 주총 일정, 안건, 후보자, 보수한도, 정관변경 확인. 주총 결과는 별도 `shareholder_meeting_results`. 종합 분석은 `proxy_advise_before_meeting`.
         rule: 회사 식별이 exact가 아니면 자동 선택 안 함. 정정공시 있으면 최신 정정본 자동 선택. 소스는 DART 공시검색 + DART XML. PDF 다운로드 미사용.
         meeting_type: `auto`=정기/임시 최신 회차 비교 후 대표성 높은 쪽 / `annual`=정기만 / `extraordinary`=임시만
-        scope: `summary`(기본, 메타+안건 hierarchy+1호 안건 메타) / `board`(이사·감사 후보 경력) / `compensation`(보수한도) / `aoi_change`(정관변경 변경전/후 + 퇴직금 변경 raw)
+        scope: `summary`(기본, 메타+안건 hierarchy+1호 안건 메타) / `board`(이사·감사 후보 경력) / `compensation`(보수한도) / `aoi_change`(정관변경 변경전/후 + 퇴직금 변경 raw) / `prov_financials`(잠정 재무제표 4 quadrant — consolidated/separate × balance/income, 1호 안건 본문 raw)
         ref: company, ownership_structure, proxy_contest, shareholder_meeting_results (사후 결과), proxy_advise_before_meeting (종합 분석), evidence
         """
         # 260505 ralph: deprecated scopes (agenda, full) — silent fallback to summary
@@ -64,6 +65,8 @@ def register_tools(mcp):
             return render_compensation(payload)
         if scope == "aoi_change":
             return render_aoi(payload)
+        if scope == "prov_financials":
+            return render_provisional_financials(payload)
         if status in {"exact", "partial", "requires_review", "conflict"}:
             return render_summary(payload)
         return render_error(payload, "shareholder_meeting_notice")

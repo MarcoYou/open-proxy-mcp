@@ -34,7 +34,7 @@ from open_proxy_mcp.tools.parser import (
 )
 
 
-_SUPPORTED_SCOPES = {"summary", "agenda", "board", "compensation", "aoi_change", "results", "full"}
+_SUPPORTED_SCOPES = {"summary", "agenda", "board", "compensation", "aoi_change", "prov_financials", "results", "full"}
 _MEETING_TYPE_MAP = {
     "annual": "정기",
     "extraordinary": "임시",
@@ -977,7 +977,7 @@ async def build_shareholder_meeting_payload(
         "board_summary": board_summary,
         "compensation_summary": compensation_summary,
         **filing_meta,
-        "available_scopes": ["summary", "agenda", "board", "compensation", "aoi_change", "results", "full"],
+        "available_scopes": ["summary", "board", "compensation", "aoi_change", "prov_financials"],
         "selected_meeting": _candidate_meta(selected_candidate),
         "alternative_meetings": alternative_meetings,
         "meeting_coverage_12m": coverage_12m,
@@ -999,6 +999,7 @@ async def build_shareholder_meeting_payload(
     include_board = scope in {"board", "full"}
     include_compensation = scope in {"compensation", "full"}
     include_aoi = scope in {"aoi_change", "full"}
+    include_prov_financials = scope in {"prov_financials", "full"}
     include_results = scope in {"results", "full"}
 
     if include_agenda:
@@ -1031,6 +1032,19 @@ async def build_shareholder_meeting_payload(
             data["aoi_change"] = aoi_result
             if not aoi_result.get("amendments") and not retire_amendments:
                 warnings.append("정관변경 / 퇴직금 변경 안건이 없거나 파싱되지 않았다.")
+    if include_prov_financials:
+        if not html:
+            warnings.append("HTML을 확보하지 못해 잠정 재무제표 표를 파싱할 수 없다.")
+            data["prov_financials"] = {"consolidated": {}, "separate": {}, "metrics": {"extraction_status": "no_data"}}
+        else:
+            from open_proxy_mcp.services.provisional_financial_statement import (
+                parse_provisional_financial_statement, extract_metrics
+            )
+            pfs = parse_provisional_financial_statement(html)
+            metrics = extract_metrics(pfs)
+            data["prov_financials"] = {**pfs, "metrics": metrics}
+            if metrics.get("extraction_status") == "no_data":
+                warnings.append("잠정 재무제표 추출 실패 — 1호 안건 본문 비표준 형식")
     if include_results:
         if meeting_phase == "pre_meeting":
             warnings.append("회의일 전이라 아직 주주총회결과 공시가 나올 시점이 아니다.")
