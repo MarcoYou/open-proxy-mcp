@@ -1,0 +1,599 @@
+{
+  "summary": {
+    "n_companies": 20,
+    "n_ok": 20,
+    "n_inside_renewed_total": 9,
+    "g1_classification": {
+      "n_with_classification": 9,
+      "n_with_matrix": 9,
+      "n_with_rationale": 9,
+      "n_total": 9,
+      "pct": 100.0,
+      "pass": true
+    },
+    "g2_special_rule": {
+      "n_capital_impairment": 0,
+      "n_loss": 2,
+      "note": "G2 정확도는 spot 검증 필요 (자본잠식 시 ROE/leverage avg=bad, 적자+환원 시 CSR=weak)"
+    },
+    "g3_decision_branch": {
+      "n_director_decisions": 38,
+      "n_with_perf_in_reason": 10
+    },
+    "g4_distribution": {
+      "good": 4,
+      "moderate": 1,
+      "weak": 3,
+      "bad": 1,
+      "n/a": 0,
+      "good_pct": 44.4,
+      "moderate_pct": 11.1,
+      "weak_pct": 33.3,
+      "bad_pct": 11.1
+    }
+  },
+  "results": [
+    {
+      "ticker": "092040",
+      "name": "아미코젠",
+      "status": "exact",
+      "duration_s": 14.0,
+      "n_candidates_total": 0,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 0,
+      "decision_records": []
+    },
+    {
+      "ticker": "336370",
+      "name": "솔루스첨단소재",
+      "status": "exact",
+      "duration_s": 13.7,
+      "n_candidates_total": 3,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 2,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건(기타비상무이사 2인)",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 3명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "감사위원회 위원이 되는 이사 선임의 건(후보자 박해춘, 재선임)",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "056190",
+      "name": "에스에프에이",
+      "status": "exact",
+      "duration_s": 4.2,
+      "n_candidates_total": 1,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 1,
+      "decision_records": [
+        {
+          "agenda_title": "감사위원회 위원이 되는 사외이사 1인(유윤상) 선임의 건",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "278280",
+      "name": "천보",
+      "status": "exact",
+      "duration_s": 33.6,
+      "n_candidates_total": 1,
+      "n_inside_renewed": 1,
+      "perf_records": [
+        {
+          "name": "이근필",
+          "tenure": "1996 ~ 2026 (31년)",
+          "classification": "bad",
+          "total_score": -3,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": -11649700245
+        }
+      ],
+      "n_director_decisions": 1,
+      "decision_records": [
+        {
+          "agenda_title": "사내이사 이근필 선임의 건",
+          "decision": "AGAINST",
+          "reason": "사내이사 재직 중 성과 bad — 자본잠식/적자 또는 누적 악화",
+          "has_perf_in_reason": true
+        }
+      ]
+    },
+    {
+      "ticker": "183300",
+      "name": "코미코",
+      "status": "exact",
+      "duration_s": 4.8,
+      "n_candidates_total": 0,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 1,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건",
+          "decision": "NO_DATA",
+          "reason": "후보 평가 데이터 없음 (본문 parse 실패) — 본문 검토 필요",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "189300",
+      "name": "인텔리안테크",
+      "status": "exact",
+      "duration_s": 7.8,
+      "n_candidates_total": 0,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 0,
+      "decision_records": []
+    },
+    {
+      "ticker": "192080",
+      "name": "더블유게임즈",
+      "status": "exact",
+      "duration_s": 3.8,
+      "n_candidates_total": 1,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 1,
+      "decision_records": [
+        {
+          "agenda_title": "감사위원이 되는 사외이사 최설지 선임의 건",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "383310",
+      "name": "에코프로에이치엔",
+      "status": "exact",
+      "duration_s": 19.1,
+      "n_candidates_total": 3,
+      "n_inside_renewed": 2,
+      "perf_records": [
+        {
+          "name": "김순주",
+          "tenure": "2006 ~ 2026 (21년)",
+          "classification": "good",
+          "total_score": 7,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": 29152599285
+        },
+        {
+          "name": "진찬언",
+          "tenure": "2005 ~ 2026 (22년)",
+          "classification": "good",
+          "total_score": 7,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": 29152599285
+        }
+      ],
+      "n_director_decisions": 5,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임 및 보수 관련 변경의 건",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 3명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "이사 선임의 건",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 3명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "사내이사 김순주 선임의 건",
+          "decision": "FOR",
+          "reason": "사내이사 결격 없음 + 재직 성과 good (사내이사)",
+          "has_perf_in_reason": true
+        },
+        {
+          "agenda_title": "사내이사 진찬언 선임의 건",
+          "decision": "FOR",
+          "reason": "사내이사 결격 없음 + 재직 성과 good (사내이사)",
+          "has_perf_in_reason": true
+        },
+        {
+          "agenda_title": "감사위원회 위원이 되는 사외이사 김명선 선임의 건(분리선출)",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "032500",
+      "name": "케이엠더블유",
+      "status": "exact",
+      "duration_s": 6.6,
+      "n_candidates_total": 2,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 3,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 2명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "사외이사 김정욱 선임의 건",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "사외이사 강신엽 선임의 건",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "118990",
+      "name": "모트렉스",
+      "status": "exact",
+      "duration_s": 6.9,
+      "n_candidates_total": 1,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 1,
+      "decision_records": [
+        {
+          "agenda_title": "감사 정규일 신규 선임의 건",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (감사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "214450",
+      "name": "파마리서치",
+      "status": "exact",
+      "duration_s": 42.3,
+      "n_candidates_total": 4,
+      "n_inside_renewed": 1,
+      "perf_records": [
+        {
+          "name": "Kim Michael James",
+          "tenure": "2021 ~ 2026 (6년)",
+          "classification": "good",
+          "total_score": 8,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": 69880597323
+        }
+      ],
+      "n_director_decisions": 4,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건 (사내이사 1인, 사외이사 1인)",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 3명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "사내이사 Kim Michael James 선임의 건",
+          "decision": "FOR",
+          "reason": "사내이사 결격 없음 + 재직 성과 good (사내이사)",
+          "has_perf_in_reason": true
+        },
+        {
+          "agenda_title": "사외이사 밀리친 로만(Roman Militsin) 선임의 건",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "감사위원회 위원이 되는 사외이사 강성욱 선임의 건",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "085660",
+      "name": "차바이오텍",
+      "status": "exact",
+      "duration_s": 29.2,
+      "n_candidates_total": 2,
+      "n_inside_renewed": 1,
+      "perf_records": [
+        {
+          "name": "윤경욱",
+          "tenure": "2006 ~ 2026 (21년)",
+          "classification": "weak",
+          "total_score": 2,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": -29923046086
+        }
+      ],
+      "n_director_decisions": 1,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건",
+          "decision": "REVIEW",
+          "reason": "묶음 안건 — 사내이사 재직 성과 weak (윤경욱) — 사용자 검토",
+          "has_perf_in_reason": true
+        }
+      ]
+    },
+    {
+      "ticker": "099230",
+      "name": "아이센스",
+      "status": "exact",
+      "duration_s": 3.9,
+      "n_candidates_total": 2,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 2,
+      "decision_records": [
+        {
+          "agenda_title": "이사(사외이사 1인) 선임의 건 (후보자 약력 별첨 참조)",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 2명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "감사(상근감사 1인) 선임의 건 (후보자 약력 별첨 참조)",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 1명",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "439090",
+      "name": "마녀공장",
+      "status": "exact",
+      "duration_s": 5.3,
+      "n_candidates_total": 0,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 0,
+      "decision_records": []
+    },
+    {
+      "ticker": "023910",
+      "name": "대한약품",
+      "status": "exact",
+      "duration_s": 8.4,
+      "n_candidates_total": 3,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 4,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건 (사내이사 1명, 사외이사 1명)",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 3명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "사내이사 이승영 선임의 건",
+          "decision": "FOR",
+          "reason": "사내이사 결격사유 없음 (이사) — 신임 또는 평가 미실시",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "사외이사 박환석 선임의 건",
+          "decision": "FOR",
+          "reason": "사내이사 결격사유 없음 (이사) — 신임 또는 평가 미실시",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "감사 선임의 건 상근감사 김광희 선임의 건",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 1명",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "108860",
+      "name": "셀바스AI",
+      "status": "exact",
+      "duration_s": 13.5,
+      "n_candidates_total": 2,
+      "n_inside_renewed": 2,
+      "perf_records": [
+        {
+          "name": "곽영수",
+          "tenure": "2020 ~ 2026 (7년)",
+          "classification": "weak",
+          "total_score": 1,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": 2193439054
+        },
+        {
+          "name": "윤승현",
+          "tenure": "2016 ~ 2026 (11년)",
+          "classification": "weak",
+          "total_score": 1,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": 2193439054
+        }
+      ],
+      "n_director_decisions": 3,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건",
+          "decision": "REVIEW",
+          "reason": "묶음 안건 — 사내이사 재직 성과 weak (곽영수, 윤승현) — 사용자 검토",
+          "has_perf_in_reason": true
+        },
+        {
+          "agenda_title": "사내이사 곽영수 선임의 건",
+          "decision": "REVIEW",
+          "reason": "사내이사 재직 중 성과 weak — 사용자 검토 필요",
+          "has_perf_in_reason": true
+        },
+        {
+          "agenda_title": "사내이사 윤승현 선임의 건",
+          "decision": "REVIEW",
+          "reason": "사내이사 재직 중 성과 weak — 사용자 검토 필요",
+          "has_perf_in_reason": true
+        }
+      ]
+    },
+    {
+      "ticker": "093320",
+      "name": "케이아이엔엑스",
+      "status": "exact",
+      "duration_s": 6.9,
+      "n_candidates_total": 3,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 4,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 3명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "김홍국 기타비상무이사 재선임의 건",
+          "decision": "FOR",
+          "reason": "사내이사 결격사유 없음 (이사) — 신임 또는 평가 미실시",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "원종홍 기타비상무이사 재선임의 건",
+          "decision": "FOR",
+          "reason": "사내이사 결격사유 없음 (이사) — 신임 또는 평가 미실시",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "김상일 사외이사 선임의 건",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "102940",
+      "name": "코오롱생명과학",
+      "status": "exact",
+      "duration_s": 6.2,
+      "n_candidates_total": 0,
+      "n_inside_renewed": 0,
+      "perf_records": [],
+      "n_director_decisions": 1,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건",
+          "decision": "NO_DATA",
+          "reason": "후보 평가 데이터 없음 (본문 parse 실패) — 본문 검토 필요",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "215000",
+      "name": "골프존",
+      "status": "exact",
+      "duration_s": 30.5,
+      "n_candidates_total": 2,
+      "n_inside_renewed": 1,
+      "perf_records": [
+        {
+          "name": "손장순",
+          "tenure": "2016 ~ 2026 (11년)",
+          "classification": "good",
+          "total_score": 7,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": 82899335719
+        }
+      ],
+      "n_director_decisions": 3,
+      "decision_records": [
+        {
+          "agenda_title": "이사 선임의 건 (사내이사 1명)",
+          "decision": "FOR",
+          "reason": "묶음 안건 — 결격사유 없음, 후보 2명",
+          "has_perf_in_reason": false
+        },
+        {
+          "agenda_title": "사내이사 선임의 건 (후보자 손장순)",
+          "decision": "FOR",
+          "reason": "사내이사 결격 없음 + 재직 성과 good (사내이사)",
+          "has_perf_in_reason": true
+        },
+        {
+          "agenda_title": "감사위원회 위원이 되는 사외이사 선임의 건 (후보자 설정덕)",
+          "decision": "FOR",
+          "reason": "사외이사 독립성/결격사유 모두 clean (사외이사)",
+          "has_perf_in_reason": false
+        }
+      ]
+    },
+    {
+      "ticker": "200130",
+      "name": "콜마비앤에이치",
+      "status": "exact",
+      "duration_s": 19.0,
+      "n_candidates_total": 1,
+      "n_inside_renewed": 1,
+      "perf_records": [
+        {
+          "name": "조용한",
+          "tenure": "2019 ~ 2026 (8년)",
+          "classification": "moderate",
+          "total_score": 5,
+          "has_matrix": true,
+          "has_rationale": true,
+          "capital_impairment_status": "normal",
+          "avg_net_income_krw": 25439765919
+        }
+      ],
+      "n_director_decisions": 1,
+      "decision_records": [
+        {
+          "agenda_title": "사내이사 조용한 선임의 건 ◆",
+          "decision": "FOR",
+          "reason": "사내이사 결격 없음 + 재직 성과 moderate (사내이사)",
+          "has_perf_in_reason": true
+        }
+      ]
+    }
+  ]
+}

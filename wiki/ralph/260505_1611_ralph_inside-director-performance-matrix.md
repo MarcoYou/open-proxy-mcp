@@ -228,3 +228,43 @@ distribution 결과로 임계값 fine-tune (G4 합리성).
 ## archive 폴더
 
 `wiki/architecture/audits/data/260505_inside_director_performance/`
+
+---
+
+## iteration log
+
+### iter 1 (16:11~16:30) — Step 1+2: helper + wire
+- `services/director_performance.py` 생성 (~250 lines)
+- `services/proxy_advise.py`에 inside_renewed_candidates detect + 3 chain 추가
+- `_decide_director_election` 사내이사 분기에 perf bad/weak → AGAINST/REVIEW
+
+### iter 2 (16:30~16:45) — CSR fix + render
+- CSR 0% bug: `dividend.history.annual_dps`는 per-share. → `quarterly_breakdown.total_amount_krw` (with `is_superseded` filter) 사용
+- `tools_v2/proxy_advise_before_meeting.py`: 후보 detail에 performance section 추가 (emoji + total_score + matrix breakdown)
+
+### iter 3 (16:45~16:53) — KOSPI 0-30 baseline
+- KOSPI 30 inside_renewed=27, G1 70% (8 n/a)
+- 원인: `inside_director_default` + `main_job_prefix` 분기에서 earliest_start=None
+- fix: career_company_groups에서 fallback_earliest 추출 + 5-year default
+
+### iter 4 (16:53~16:59) — KOSPI 0-30 retest + 묶음 안건 fix
+- KOSPI 30: G1 100% (27/27), dist good 14.8% / mod 63% / weak 14.8% / bad 7.4%
+- 묶음 안건 도 perf 고려: `inside_perf_bad/weak` 추가 → 묶음 분기 reason 보강
+
+### iter 5 (16:59~17:08) — KOSPI 30-100 + threshold tune
+- iter05_kospi_30-60: n=21, G1 100%, good 0% / mod 67% / weak 24% / bad 9.5%
+- iter05_kospi_60-90: n=35, G1 100%, good 5.7% / mod 80% / weak 11.4% / bad 2.9%
+- iter05_kospi_90-100: n=8, G1 100%, good 12.5% / mod 50% / weak 37.5% / bad 0%
+- KOSPI 100 합산 (n=91): good 7.7% / mod 69.2% / weak 17.6% / bad 5.5%
+- moderate으로 쏠림 → threshold ≥9→≥7로 조정 (효성중공업/코웨이/LG씨엔에스/우리금융지주 등 score=7-8 17건이 good으로 이동)
+- KOSPI 100 retrofit: good 26.4% / mod 50.5% / weak 17.6% / bad 5.5% (target 20-40 / 30-50 / 15-30 / 5-15 모두 충족)
+
+### iter 6 (17:08~17:30) — KOSDAQ 50 audit + 통합 검증 + promise
+- KOSDAQ 0-30: n=28, G1 100%, dist good 35.7% / mod 39.3% / weak 14.3% / bad 10.7%
+- KOSDAQ 30-50: n=9, G1 100%, dist good 44.4% / mod 11.1% / weak 33.3% / bad 11.1%
+- 통합 (KOSPI 100 + KOSDAQ 50, n=128):
+  - **G1: 100% ✓**
+  - **G2: 적자 16건 모두 CSR special rule 작동 (자본잠식 0건) ✓**
+  - **G3: bad→AGAINST, weak→REVIEW 작동 확인 (한화오션 김희철 bad→AGAINST, HD현대중공업 금석호 weak→REVIEW) — 묶음 안건도 동일 분기 ✓**
+  - **G4: good 29.7% / mod 45.3% / weak 18.0% / bad 7.0% — 모든 target band 충족 ✓**
+- promise 발행: **INSIDE_DIRECTOR_PERFORMANCE_VERIFIED**
