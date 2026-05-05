@@ -216,26 +216,16 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
 
 
 def _fm_yoy_pct(fm_payload: dict[str, Any] | None) -> float | None:
-    """financial_metrics yearly에서 순익 yoy 추출 (없으면 None)."""
+    """financial_metrics summary에서 순익 yoy 추출.
+
+    260505 ralph precision iter 2: financial_metrics summary scope에 net_income_yoy_pct 직접 노출.
+    이전엔 yearly scope만 봐서 summary scope (compensation chain default)에서는 항상 None이었음.
+    """
     if not fm_payload:
         return None
     data = fm_payload.get("data") or {}
-    yearly = data.get("yearly") or data.get("yearly_metrics") or []
-    if isinstance(yearly, dict):
-        yearly = list(yearly.values()) if yearly else []
-    ni_series = []
-    for row in yearly:
-        if not isinstance(row, dict):
-            continue
-        ni = row.get("net_income_krw")
-        if ni is not None:
-            ni_series.append(ni)
-    if len(ni_series) < 2:
-        return None
-    cur, prev = ni_series[-1], ni_series[-2]
-    if not prev or prev == 0:
-        return None
-    return (cur - prev) / abs(prev) * 100
+    summary = data.get("summary") or {}
+    return summary.get("net_income_yoy_pct")
 
 
 def _decide_director_compensation(

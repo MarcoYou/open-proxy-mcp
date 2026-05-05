@@ -393,6 +393,22 @@ def _compute_metrics(
     else:
         net_income_controlling = net_income
 
+    # ── prev year (yoy 계산용) — 260505 ralph precision iter 2 ──
+    prev_revenue = (bs_is_prev or {}).get("revenue") if bs_is_prev else None
+    prev_operating_profit = (bs_is_prev or {}).get("operating_profit") if bs_is_prev else None
+    prev_net_income_total = (bs_is_prev or {}).get("net_income") if bs_is_prev else None
+    prev_controlling_ni = (detail_prev or {}).get("controlling_interest_income") if detail_prev else None
+    prev_net_income_controlling = prev_controlling_ni if prev_controlling_ni is not None else prev_net_income_total
+
+    def _yoy_pct(curr, prev):
+        if curr is None or prev is None or prev == 0:
+            return None
+        return round((curr - prev) / abs(prev) * 100, 2)
+
+    revenue_yoy_pct = _yoy_pct(revenue, prev_revenue)
+    operating_profit_yoy_pct = _yoy_pct(operating_profit, prev_operating_profit)
+    net_income_yoy_pct = _yoy_pct(net_income_controlling, prev_net_income_controlling)
+
     # 총차입금 (단기 + 장기)
     total_debt = None
     if short_term_debt is not None or long_term_debt is not None:
@@ -529,6 +545,13 @@ def _compute_metrics(
         "net_income_krw": net_income_controlling,  # 지배주주 귀속 (한국 표준)
         "net_income_total_krw": net_income,  # 합계 (참고용)
         "net_profit_margin_pct": net_profit_margin_pct,
+        # ── prev year + yoy (260505 ralph precision iter 2 — 흑자+yoy<0 trigger 활성화용) ──
+        "prev_revenue_krw": prev_revenue,
+        "prev_operating_profit_krw": prev_operating_profit,
+        "prev_net_income_krw": prev_net_income_controlling,
+        "revenue_yoy_pct": revenue_yoy_pct,
+        "operating_profit_yoy_pct": operating_profit_yoy_pct,
+        "net_income_yoy_pct": net_income_yoy_pct,
         "eps_krw": eps_krw,
         "diluted_eps_krw": diluted_eps_krw,
         "roe_pct": roe_pct,
