@@ -262,9 +262,16 @@ def _decide_director_compensation(
     # 분기 1: 자본잠식 + 인상
     if cap_status == "full" and inc is not None and inc > 0:
         return "AGAINST", f"완전 자본잠식 + 한도 인상 ({inc:+.0f}%) — OPM Guideline (보수 결정 부적절)"
-    # 분기 2: 소진율 < 30% + 인상
-    if util_rate is not None and util_rate < 30 and inc is not None and inc > 0:
-        return "AGAINST", f"소진율 {util_rate:.0f}%인데 한도 인상 ({inc:+.0f}%) — 주주가치 훼손"
+    # 분기 2: 소진율 < 30% — 단독 강화 (코붕이 의견 260505 ralph precision iter 3)
+    # "오바해서 올리거나 사용 안하면서 늘리거나"는 인상 외에도 "남는데 한도 유지" 도 검토 대상
+    if util_rate is not None and util_rate < 30:
+        if inc is not None and inc > 0:
+            return "AGAINST", f"소진율 {util_rate:.0f}%인데 한도 인상 ({inc:+.0f}%) — 주주가치 훼손"
+        if inc is None:
+            return "REVIEW", f"소진율 {util_rate:.0f}% (낮음) + 인상률 미파악 — 한도 적정성 검토"
+        if inc == 0 or (-10 < inc < 0):
+            return "REVIEW", f"소진율 {util_rate:.0f}%인데 한도 동결/소폭 변경 ({inc:+.0f}%) — 한도 적정성 검토"
+        # inc <= -10 (감액)은 분기 8에서 처리 — 한도 줄이는 건 OK
     # 분기 3: 적자 OR 순익 감소 + 인상 (OPM #2 strict)
     if inc is not None and inc > 0:
         if (ni is not None and ni < 0) or (yoy is not None and yoy < 0):
