@@ -93,35 +93,31 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 16개 tool은 **회사 → 시점별 주총 → 데이터 탭 → 종합 분석** 으로 흐름.
 
 ```
-company                            # 기업 진입점 — 1개 기업 식별 + 최근 공시 인덱스
+company                            # 기업 식별 + 최근 공시 인덱스
 │
-├─ Meeting Tools (2) — 시점 분리 (2026-05-04)
-│  ├─ shareholder_meeting_notice   # 주총 **소집공고** (사전, DART API/XML, 0.5-1.5s, 6 scope)
-│  └─ shareholder_meeting_results  # 주총 **의결 결과** (사후, KIND scraping, 4-5s)
+├─ Meeting Tools (2)
+│  ├─ shareholder_meeting_notice   # 주총 소집공고 (사전, DART)
+│  └─ shareholder_meeting_results  # 주총 의결 결과 (사후, KIND)
 │
 ├─ Data Tools (10)
-│  ├─ ownership_structure          # 지분 구조 (최대주주 / 5% 블록 / control_map, 5 scope)
-│  ├─ dividend                     # 배당 사실 + 분기별 breakdown (3 scope: summary/detail/history)
-│  ├─ financial_metrics            # DART 재무 4 endpoint — 51 지표 + 듀퐁 + 회계 risk + 감사의견 3년
-│  ├─ treasury_share               # 자사주 9 source (결정 5종 + 결과 4종) + 사이클 매칭 (2 scope) ★ 결정↔실집행 검증
-│  ├─ proxy_contest                # 경영권 분쟁 (위임장 / 소송 / 5% 시그널)
-│  ├─ value_up                     # 밸류업 계획 (약속 / 이행현황)
-│  ├─ corporate_restructuring      # 지배구조 재편 (합병 / 분할 / 주식교환) — 단일 통합
-│  ├─ dilutive_issuance            # 희석성 증권 발행 (유상증자 / CB / BW / 감자) — 단일 통합
-│  ├─ related_party_transaction    # 내부거래 (타법인주식 + 단일공급계약)
-│  ├─ corp_gov_report              # 기업지배구조보고서 (15 핵심지표 + 연도별 추이)
-│  └─ evidence                     # 공시 원문 링크 (rcept_no → viewer_url)
+│  ├─ ownership_structure          # 지분 구조 (최대주주/5%/control_map)
+│  ├─ dividend                     # 배당 사실 + 분기별 breakdown
+│  ├─ financial_metrics            # DART 재무 4 endpoint — 51 지표 + 듀퐁
+│  ├─ treasury_share               # 자사주 결정 5종 + 결과 4종 + 사이클 매칭
+│  ├─ proxy_contest                # 경영권 분쟁 (위임장/소송/5%)
+│  ├─ value_up                     # 밸류업 계획 (약속/이행)
+│  ├─ corporate_restructuring      # 합병/분할/주식교환 통합
+│  ├─ dilutive_issuance            # 유상증자/CB/BW/감자 통합
+│  ├─ related_party_transaction    # 내부거래 (타법인주식 + 공급계약)
+│  ├─ corp_gov_report              # 기업지배구조보고서 15지표
+│  └─ evidence                     # 공시 원문 링크 (rcept_no → URL)
 │
-└─ Action Tools (2) — 시점 분리
-   ├─ proxy_advise_before_meeting   # 주총 **사전** 안건별 FOR/AGAINST/REVIEW/NO_DATA
-   │                                #   1회 호출 (decisions 단일) — facts + risk + policy_citation + 근거공고 + 후보 raw
-   │                                #   meeting_type: annual / extraordinary / auto
-   │                                #   vote_style: open_proxy / mirae_asset / samsung / samsung_active / kim
-   │                                #              / truston / align_partners / cha_partners / baring / nps
-   │                                #   ralph 27 iter 검증: G2 정확도 99.36%
-   │                                #   framework iter1~8: KOSPI 100 + KOSDAQ 50, 4 dimension 100% / NO_DATA FP 0%
-   └─ proxy_result_after_meeting    # 주총 **사후** 결과 보고 (3 scope: results / brief / all)
+└─ Action Tools (2)
+   ├─ proxy_advise_before_meeting  # 주총 사전 안건별 FOR/AGAINST/REVIEW/NO_DATA
+   └─ proxy_result_after_meeting   # 주총 사후 결과 보고
 ```
+
+> 각 tool의 scope·옵션·data source·검증 결과는 **[wiki/tools/README.md](wiki/tools/README.md)** 카탈로그 또는 개별 tool 페이지 (`wiki/tools/{name}.md`) 참조.
 
 ### 주요 변화 (2026-05-04~05)
 - 17 → 16 tool: `screen_events` drop, `proxy_guideline` archive (internal로 만든 후 호출 X 확인), `shareholder_meeting` → notice + results 분리

@@ -87,45 +87,36 @@ Once connected, just ask in natural language:
 
 ---
 
-## Tool Structure (17 tools)
+## Tool Structure (16 tools)
 
-17 tools are organized into **discovery → data tabs → policy/matrix → action outputs**.
+16 tools follow the flow **company → time-split AGM → data tabs → action analysis**.
 
 ```
-company                            # Entry point — company ID + recent filings index
+company                            # Company ID + recent filings index
 │
-├─ Discovery Tool (1)
-│  └─ screen_events                # Find companies by recent event (21 event_types, KOSPI+KOSDAQ)
+├─ Meeting Tools (2)
+│  ├─ shareholder_meeting_notice   # AGM convocation notice (pre-meeting, DART)
+│  └─ shareholder_meeting_results  # AGM voting results (post-meeting, KIND)
 │
-├─ Data Tools (12)
-│  ├─ shareholder_meeting          # AGM/EGM (agendas / candidates / compensation / results)
-│  ├─ ownership_structure          # Ownership (largest shareholders / 5% blocks / treasury / change filings)
-│  ├─ dividend                     # Dividend facts (DPS / payout ratio / history)
-│  ├─ financial_metrics            # ★ NEW — DART 4-endpoint financials (51 metrics + DuPont + FCF + NWC + accounting risk + 3-yr audit opinion)
-│  ├─ treasury_share               # Treasury events (acquisition / disposal / cancellation / trust)
-│  ├─ proxy_contest                # Proxy contest (solicitations / litigation / 5% signals)
+├─ Data Tools (10)
+│  ├─ ownership_structure          # Ownership (largest shareholders / 5% / control_map)
+│  ├─ dividend                     # Dividend facts + quarterly breakdown
+│  ├─ financial_metrics            # DART 4-endpoint — 51 metrics + DuPont
+│  ├─ treasury_share               # Treasury 5 decisions + 4 results + cycle matching
+│  ├─ proxy_contest                # Proxy contest (solicitation / litigation / 5%)
 │  ├─ value_up                     # Value-up plan (commitments / implementation)
-│  ├─ corporate_restructuring      # Restructuring (merger / split / division-merger / share exchange)
-│  ├─ dilutive_issuance            # Dilutive issuance (rights offering / CB / BW / capital reduction)
-│  ├─ related_party_transaction    # Related-party deals (equity deals + single supply contracts)
-│  ├─ corp_gov_report              # Corporate governance report (15 KRX principles + year-over-year)
-│  └─ evidence                     # Filing source links (rcept_no → viewer_url)
+│  ├─ corporate_restructuring      # Merger / split / share exchange (unified)
+│  ├─ dilutive_issuance            # Rights offering / CB / BW / capital reduction
+│  ├─ related_party_transaction    # Related-party (equity deals + supply contracts)
+│  ├─ corp_gov_report              # Corporate governance report (15 principles)
+│  └─ evidence                     # Filing source links (rcept_no → URL)
 │
-├─ Policy & Matrix Tool (1)        ★ NEW
-│  └─ proxy_guideline              # 8 asset managers' policies + Open Proxy Guideline + 12 decision matrices
-│                                   #   scopes: policy / record / predict / compare / consensus / audit
-│                                   #   0 external API calls (static data, <100ms response)
-│
-└─ Action Tools (2) — Rename + scope expansion (2026-05-04)
-   ├─ proxy_advise_before_meeting   # Pre-AGM multi-angle analysis + per-agenda FOR/AGAINST/REVIEW
-   │                                #   10 scope (decisions/agenda/candidates/financial/governance/
-   │                                #              ownership/policy_basis/proxy_battle/engagement/evidence)
-   │                                #   meeting_type: annual / extraordinary / auto (body-detect routing)
-   │                                #   vote_style: open_proxy / nps / a_activist / b_foreign / k_legacy etc.
-   │                                #   ralph 27-iter validation: G2 accuracy 99.36% (vs 7-manager majority, 4+ vote case)
-   └─ proxy_result_after_meeting    # Post-AGM result report (intentionally minimal)
-                                    #   2 scope (results / brief)
+└─ Action Tools (2)
+   ├─ proxy_advise_before_meeting  # Pre-AGM per-agenda FOR/AGAINST/REVIEW/NO_DATA
+   └─ proxy_result_after_meeting   # Post-AGM result report
 ```
+
+> Each tool's scope, options, data sources, and validation results: see catalog at **[wiki/tools/README.md](wiki/tools/README.md)** or per-tool pages (`wiki/tools/{name}.md`).
 
 ### 🆕 proxy_guideline tool
 
