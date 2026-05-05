@@ -33,6 +33,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - 사내이사 **재직 중 성과 매트릭스 (2x3)** 도입 — status quo bias mitigation. ROE/부채비율/CSR × avg/trend, bad → AGAINST, weak → REVIEW. KOSPI 100 + KOSDAQ 50 검증 G1 100% / G4 dist 29.7/45.3/18.0/7.0 모두 target band 충족. ([[260505_1700_decision_inside-director-performance-matrix]])
 - **보수한도 / 퇴직금 분기 정밀화** — 이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 hybrid 통합. KOSPI 200 + KOSDAQ 50 (n=226) G1 99-100% / G3 100% / G4 NPS 정합 100%. AGAINST 5건 (지급률 2배수+ × 3, 사외이사 퇴직금 × 1, 자본잠식+인상 × 1) 모두 정확 분기. ([[260505_1900_decision_compensation-retirement-split]])
 - **shareholder_meeting_notice scope 정리** — 6→5 (`agenda`/`full` 폐지, `prov_financials` 신설). summary 강화 (hierarchy + 1호 안건 메타) + aoi_change에 retirement raw 통합. `provisional_financial_statement.py` 독립 모듈 (parser.py 의존성 제거). ([[260506_0030_decision_notice-scope-cleanup-prov-financials]])
+- **parser omnibus 검증 + DART 6컬럼 sub-column fix** — KOSPI 200 + KOSDAQ 100 (300 회사) 통합 audit, 9 Tier A parser G1 ≥98.7% 모두 충족. PFS metric extraction 19 sparse 케이스 (현대차/셀트리온/두산 등) root cause = `_period_by_num` 다음 colspan 확장 빈 셀이 "unknown" 분류되던 것 → fix 후 100%. v1 dead 3 parser logical archive 결정 + G4 layer 정합 PASS. ([[lessons/parser-omnibus-260506]] / [[260506_2330_decision_v1-dead-parsers-archive]])
 - proxy_advise render Korean label 자연화 (`weak_concerns` → "약한 우려" 등)
 - archive: `wiki/archive/services/` (proxy_guideline / proxy_guideline_scoring / policy_comparison / agm_first_agenda_fy_v1_regex)
 
@@ -45,7 +46,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 9+ fixes 3 | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 14 | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 31 + 36 + 3 = 70 | YES (사실 update 시) |
-| **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 8 | YES (배운 것 추가 시) |
+| **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 9 | YES (배운 것 추가 시) |
 | **archive/** | 흡수된 페이지 (역사 보존) | 48 | WARN (단순 보존) |
 
 총 173 markdown + 29 binary.
@@ -168,7 +169,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Decisions (17)
+## Decisions (18)
 
 ### 정책 + 매트릭스
 - [[open-proxy-guideline]] - OPM 자체 의결권 행사 정책 v1.2 (12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting)
@@ -178,6 +179,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[260505_1700_decision_inside-director-performance-matrix]] - 사내이사 재직 중 성과 매트릭스 2x3 도입 (status quo bias mitigation, KOSPI 100 + KOSDAQ 50 검증)
 - [[260505_1900_decision_compensation-retirement-split]] - 보수한도/퇴직금 분리 (이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 hybrid + 3 ralph 검증 G1 모두 99%+/G3 100%/G4 100% — KOSPI 200+KOSDAQ 50 n=226)
 - [[260506_0030_decision_notice-scope-cleanup-prov-financials]] - shareholder_meeting_notice scope 정리 (6→5) + provisional_financial_statement 독립 모듈 + prov_financials scope 신설 (data/action layer 정합)
+- [[260506_2330_decision_v1-dead-parsers-archive]] - v1 dead 3 parser (treasury_share / capital_reserve / financials) logical archive (코드 보존, decision-only)
 
 ### Tool 정책 + 변경 이력
 - [[tool-changelog]] - Tool 제거/통합/리네임 이력 (41->32->17개, 이유 포함)
