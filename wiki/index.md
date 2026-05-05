@@ -40,6 +40,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 9+ fixes 3 | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 14 | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 31 + 36 + 3 = 70 | YES (사실 update 시) |
+| **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 7 (NEW) | YES (배운 것 추가 시) |
 | **archive/** | 흡수된 페이지 (역사 보존) | 48 | WARN (단순 보존) |
 
 총 173 markdown + 29 binary.
