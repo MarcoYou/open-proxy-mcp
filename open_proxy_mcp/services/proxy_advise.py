@@ -692,23 +692,16 @@ async def build_proxy_advise_payload(
             leverage_yearly[y] = row.get("debt_ratio_pct")
             net_income_yearly[y] = row.get("net_income_krw")
 
-        # 배당 yearly (history scope의 history rows)
+        # 배당 yearly — history scope의 quarterly_breakdown에서 total_amount_krw 연도별 합산
+        # (history scope이 latest_decisions[:20] 노출 + quarterly_breakdown 신규 — 사이클 dedup된 효과)
         dividend_yearly: dict[int, int] = {}
-        for h in ((perf_div.get("data") or {}).get("history") or []):
-            y = h.get("year")
-            if y is not None:
-                # history rows의 annual_dps × 발행주식수 추정 어려움 → cash_dividend 합산이 더 정확
-                # 임시: annual_dps 그대로 (per share, normalize 위해 사용 — 향후 보강)
-                dividend_yearly[y] = int(h.get("annual_dps") or 0)
-        # 더 정확한 배당총액: latest_decisions 합산 (연도별)
-        for d in ((perf_div.get("data") or {}).get("latest_decisions") or []):
-            y = d.get("rcept_dt", "")[:4] if d.get("rcept_dt") else None
-            if y and y.isdigit():
-                yi = int(y)
-                # total_amount 우선 (DPS × 발행주식수 = 배당총액)
-                amt = d.get("total_amount_krw") or 0
-                if amt:
-                    dividend_yearly[yi] = dividend_yearly.get(yi, 0) + amt
+        for q in ((perf_div.get("data") or {}).get("quarterly_breakdown") or []):
+            if q.get("is_superseded"):
+                continue  # 정정공시 superseded는 제외
+            y = q.get("year")
+            amt = q.get("total_amount_krw") or 0
+            if y and amt:
+                dividend_yearly[y] = dividend_yearly.get(y, 0) + amt
 
         # 소각 yearly (treasury_share events에서 cancelation_decision 합산)
         cancelation_yearly: dict[int, int] = {}

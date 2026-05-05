@@ -207,6 +207,24 @@ def _render(payload: dict[str, Any]) -> str:
                     lines.append(f"  - {co} — {items_str}")
             if ah_red:
                 lines.append(f"- 과거 회사 회계 risk 이력 (raw): {len(ah_red)}건 발견 — 본문 raw 메모 검토")
+            # 사내이사 재직 중 성과 (ralph 260505) — 사내이사 + renewed에만 부착됨
+            perf = c.get("performance") or {}
+            if perf.get("classification"):
+                cls = perf.get("classification", "n/a")
+                cls_emoji = {"good": "🟢", "moderate": "🟡", "weak": "🟠", "bad": "🔴"}.get(cls, "")
+                lines.append(f"- **재직 중 성과**: {cls_emoji} **{cls}** (총점 {perf.get('total_score')}/12, 재직 {perf.get('tenure_period', '-')})")
+                m = perf.get("matrix", {}) or {}
+                roe = m.get("roe", {}) or {}
+                lev = m.get("leverage", {}) or {}
+                csr = m.get("csr", {}) or {}
+                lines.append(f"  - ROE: 평균 {roe.get('avg', 0):.1f}% ({roe.get('avg_label')}) / 추세 {roe.get('trend_pp_per_year') or 0:+.2f}%p/년 ({roe.get('trend_label')})")
+                lines.append(f"  - 부채비율: 평균 {lev.get('avg', 0):.0f}% ({lev.get('avg_label')}) / 누적변화 {lev.get('delta_pp_total') or 0:+.0f}%p ({lev.get('trend_label')})")
+                csr_avg = csr.get('avg_pct')
+                csr_trend = csr.get('trend_pp_per_year')
+                lines.append(f"  - CSR 환원율: 평균 {csr_avg:.1f}%" if csr_avg is not None else "  - CSR 환원율: 데이터 부족" )
+                lines[-1] += f" ({csr.get('avg_label')}) / 추세 {csr_trend:+.1f}%p/년 ({csr.get('trend_label')})" if csr_trend is not None else f" ({csr.get('avg_label')})"
+                if perf.get("capital_impairment_status") == "full":
+                    lines.append(f"  - ⚠ 자본잠식 (ROE/부채 자동 bad)")
             lines.append("")
 
         # 회계 risk 이력 발견 detail (회사명 / 시점 / risk 유형 raw 노출)
