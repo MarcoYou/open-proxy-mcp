@@ -3650,76 +3650,113 @@ def parse_capital_reserve_xml(html: str) -> dict:
 
 # ── 퇴직금 규정 파싱 ──
 
-def parse_retirement_pay_xml(html: str) -> dict:
-    """임원 퇴직금 규정 개정 안건 파싱 (변경전/변경후 테이블)
+def _extract_amendments_from_table_rows(rows: list[list[str]]) -> list[dict]:
+    """변경전/변경후 컬럼 구조의 테이블에서 amendments 추출 (재사용 가능 helper)."""
+    if len(rows) < 2:
+        return []
+    headers = rows[0]
+    headers_clean = [re.sub(r'\s+', '', h) for h in headers]
 
-    정관변경(aoi)과 같은 패턴: 현행/개정안 비교 테이블
+    before_idx = -1
+    after_idx = -1
+    reason_idx = -1
+    for ci, h in enumerate(headers_clean):
+        if any(kw in h for kw in ['변경전', '현행']):
+            before_idx = ci
+        if any(kw in h for kw in ['변경후', '개정안', '개정', '변경(안)']):
+            after_idx = ci
+        if any(kw in h for kw in ['목적', '비고', '사유']):
+            reason_idx = ci
+    if before_idx < 0 or after_idx < 0:
+        return []
+
+    amendments = []
+    for row in rows[1:]:
+        if len(row) <= max(before_idx, after_idx):
+            continue
+        before = row[before_idx].strip()
+        after = row[after_idx].strip()
+        reason = row[reason_idx].strip() if reason_idx >= 0 and reason_idx < len(row) else ""
+        if not before and not after:
+            continue
+        clause = ""
+        for text in [before, after]:
+            m = re.search(r'제\s*\d+\s*조', text)
+            if m:
+                clause = m.group(0).strip()
+                break
+        amendments.append({
+            "clause": clause, "before": before, "after": after, "reason": reason,
+        })
+    return amendments
+
+
+def _retirement_fallback_from_html(html: str) -> list[dict]:
+    """details 추출 실패 시 fallback — HTML 전체에서 변경전/변경후 표 추출 + "퇴직금" 인접 검증.
+
+    KOSPI 200 + KOSDAQ 50 spot 결과 (260505 ralph 2030):
+    에스티팜 / 원익IPS / 에코프로비엠 — 안건 detail extraction fail이지만 본문에 표 존재.
+    """
+    if not html or "퇴직금" not in html and "퇴임위로금" not in html:
+        return []
+    try:
+        soup = BeautifulSoup(html, _BS4_PARSER)
+    except Exception:
+        return []
+
+    amendments = []
+    # 모든 표 순회 — strict: 표 본문에 "퇴직금" 또는 "퇴임위로금" 직접 등장 시만
+    for tbl in soup.find_all("table"):
+        tbl_text = tbl.get_text("\n", strip=True)
+        if "퇴직금" not in tbl_text and "퇴임위로금" not in tbl_text:
+            continue
+
+        # 표 row 추출
+        rows = []
+        for tr in tbl.find_all("tr"):
+            cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+            if cells:
+                rows.append(cells)
+        if len(rows) < 2:
+            continue
+
+        # row 단위 amendments 추출
+        all_amends = _extract_amendments_from_table_rows(rows)
+        # 추가 strict: 각 amendment의 before/after 텍스트 안에 "퇴직금"/"퇴임위로금" 등장 시만 (정관변경 표 over-catch 방지)
+        for a in all_amends:
+            text_check = (a.get("before") or "") + " " + (a.get("after") or "") + " " + (a.get("reason") or "")
+            if "퇴직금" in text_check or "퇴임위로금" in text_check:
+                amendments.append(a)
+
+    return amendments
+
+
+def parse_retirement_pay_xml(html: str) -> dict:
+    """임원 퇴직금 규정 개정 안건 파싱 (변경전/변경후 테이블).
+
+    Strategy:
+    1. parse_agenda_details_xml 결과에서 "퇴직금" title 안건 → 표 추출 (primary)
+    2. (NEW, 260505 ralph 2030 ext) details 안 잡힘 또는 amendments 0 시 — HTML 전체 스캔 fallback (에스티팜 / 원익IPS / 에코프로비엠 case)
+
     Returns:
         {"amendments": [...], "summary": {...}}
     """
-    details = parse_agenda_details_xml(html)
-    if not details:
-        return {"amendments": [], "summary": {"totalAmendments": 0}}
-
     amendments = []
-
+    details = parse_agenda_details_xml(html) or []
     for d in details:
         title = d.get("title", "")
         if "퇴직금" not in title and "퇴직위로금" not in title:
             continue
-
         for sec in d.get("sections", []):
             for block in sec.get("blocks", []):
                 if block["type"] != "table":
                     continue
-
                 rows = _parse_md_table(block["content"])
-                if len(rows) < 2:
-                    continue
+                amendments.extend(_extract_amendments_from_table_rows(rows))
 
-                headers = rows[0]
-                headers_clean = [re.sub(r'\s+', '', h) for h in headers]
-
-                # 현행/변경전 + 개정/변경후 컬럼 찾기
-                before_idx = -1
-                after_idx = -1
-                reason_idx = -1
-
-                for ci, h in enumerate(headers_clean):
-                    if any(kw in h for kw in ['변경전', '현행']):
-                        before_idx = ci
-                    if any(kw in h for kw in ['변경후', '개정안', '개정', '변경(안)']):
-                        after_idx = ci
-                    if any(kw in h for kw in ['목적', '비고', '사유']):
-                        reason_idx = ci
-
-                if before_idx < 0 or after_idx < 0:
-                    continue
-
-                for row in rows[1:]:
-                    if len(row) <= max(before_idx, after_idx):
-                        continue
-                    before = row[before_idx].strip()
-                    after = row[after_idx].strip()
-                    reason = row[reason_idx].strip() if reason_idx >= 0 and reason_idx < len(row) else ""
-
-                    if not before and not after:
-                        continue
-
-                    # 조항 추출
-                    clause = ""
-                    for text in [before, after]:
-                        m = re.search(r'제\s*\d+\s*조', text)
-                        if m:
-                            clause = m.group(0).strip()
-                            break
-
-                    amendments.append({
-                        "clause": clause,
-                        "before": before,
-                        "after": after,
-                        "reason": reason,
-                    })
+    # Fallback — primary 결과 0 시 HTML 전체 스캔
+    if not amendments:
+        amendments = _retirement_fallback_from_html(html)
 
     return {"amendments": amendments, "summary": {"totalAmendments": len(amendments)}}
 
