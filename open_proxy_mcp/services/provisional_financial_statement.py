@@ -319,8 +319,14 @@ def _build_column_meta(header_cells: list[str]) -> list[str]:
             columns.append("_period_by_num")
         elif not clean:
             # 빈 셀 — colspan 확장분, 앞 컬럼의 서브컬럼
+            # _period_by_num 다음 빈 셀도 sub-column 처리 (현대차 등 6컬럼 패턴 대응)
             if columns and columns[-1] in ("current", "prior"):
                 columns.append(f"{columns[-1]}_sub")
+            elif columns and columns[-1] == "_period_by_num":
+                columns.append("_period_by_num_sub")
+            elif columns and columns[-1] in ("current_sub", "prior_sub", "_period_by_num_sub"):
+                # 연속 빈 셀 — 동일 sub-column suffix 유지
+                columns.append(columns[-1])
             else:
                 columns.append("unknown")
         else:
@@ -341,6 +347,17 @@ def _build_column_meta(header_cells: list[str]) -> list[str]:
             columns[period_indices[1]] = "current"
     elif len(period_indices) == 1:
         columns[period_indices[0]] = "current"
+
+    # _period_by_num_sub → 직전 _period_by_num의 매핑에 따라 current_sub / prior_sub
+    for i, c in enumerate(columns):
+        if c == "_period_by_num_sub":
+            # 직전 non-sub label 찾기
+            for j in range(i - 1, -1, -1):
+                if columns[j] in ("current", "prior"):
+                    columns[i] = f"{columns[j]}_sub"
+                    break
+            else:
+                columns[i] = "unknown"
 
     return columns
 
