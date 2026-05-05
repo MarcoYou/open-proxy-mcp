@@ -430,13 +430,23 @@ def _extract_period_labels(header_cells: list[str]) -> dict:
 # ── 정량 metric 추출 (action tool facts evidence용) ──
 
 _METRIC_KEYWORDS = {
-    "net_income_krw": ("당기순이익(손실)", "당기순이익", "당기 순이익", "당기손익"),
-    "revenue_krw": ("매출액", "수익(매출액)", "영업수익"),
+    # 분리 보고 (현대차 등): IS 요약 라인 비어있고 sub-row에만 값.
+    # "지배기업소유주지분" 매칭으로 controlling-interest net income 추출.
+    "net_income_krw": (
+        "당기순이익(손실)", "당기순이익", "당기 순이익", "당기손익",
+        "지배기업소유주지분", "지배기업 소유주지분", "지배기업의 소유주지분", "지배지분 순이익",
+    ),
+    "revenue_krw": ("매출액", "수익(매출액)", "영업수익", "수익 (매출액)"),
     "operating_profit_krw": ("영업이익(손실)", "영업이익", "영업손익"),
     "total_assets_krw": ("자산총계", "자산 총계"),
     "total_liabilities_krw": ("부채총계", "부채 총계"),
     "total_equity_krw": ("자본총계", "자본 총계"),
 }
+
+# 잠정 재무제표에 잘못 끼는 비-FS 테이블 거부 패턴 (셀트리온 등).
+# account 컬럼 raw text에 영문 사명 라인 다수 (≥6) 있으면 종속회사 목록으로 판단 → reject.
+_NON_FS_TABLE_HINTS = ("Inc.", "Ltd.", "Pte.", "B.V.", "S.A.S.", "K.K.", "Co.,Ltd",
+                       "Limited", "Corporation", "PTE.", "LTD")
 
 
 def _parse_amount(text: str) -> int | None:
@@ -491,6 +501,7 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
     out: dict[str, Any] = {"extraction_status": "no_data", "scope_used": None}
 
     scope_order = (prefer, "separate" if prefer == "consolidated" else "consolidated")
+    last_extraction_scope: str | None = None
     for scope in scope_order:
         scope_data = parsed.get(scope, {}) or {}
         if not scope_data:
@@ -500,12 +511,20 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
         if not income and not balance:
             continue
 
-        out["scope_used"] = scope
         n_extracted = 0
 
         for table in (income, balance):
             if not table or not table.get("rows"):
                 continue
+            # 종속회사 목록 등 비-FS 테이블 거부 (account 영문 사명 ≥6 줄)
+            account_lines = [(r[0] if r else "") for r in table.get("rows", [])]
+            non_fs_hint_count = sum(
+                1 for a in account_lines
+                if any(hint in a for hint in _NON_FS_TABLE_HINTS)
+            )
+            if non_fs_hint_count >= 6:
+                continue
+
             unit = table.get("unit") or ""
             scale = _scale_factor(unit)
             cols = table.get("columns") or []
@@ -535,8 +554,13 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
                         if cur_val is not None:
                             out[cur_key] = cur_val * scale
                             n_extracted += 1
+                            last_extraction_scope = scope
                         if prior_val is not None:
                             out[prior_key] = prior_val * scale
+
+        # scope_used: 실제로 metric을 추출한 마지막 scope (현재 pass 또는 이전 pass)
+        if last_extraction_scope:
+            out["scope_used"] = last_extraction_scope
 
         if n_extracted >= 3:
             out["extraction_status"] = "success"
