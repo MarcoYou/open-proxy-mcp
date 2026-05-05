@@ -172,7 +172,16 @@ NPS IV-34는 운용사 mainstream과 결이 다름 (운용사: "과다" 우려, 
 - `summary.auditor_count` + `summary.auditor_total_limit_krw` → 1인당 평균 계산 (parser 추가 필요 여부 Step 0에서 확인)
 - `compensation.summary.utilization_rate_pct` (감사 분리 필요 — Step 0에서 확인)
 
-### 3. 퇴직금 (`retirement_pay` — NEW 카테고리)
+### 3. 퇴직금 — 정관 안에 묶인 case + 단독 case 분리 처리 (코붕이 의견, iter 3 hybrid)
+
+KOSPI 0-30 iter 2 baseline: retirement_pay 카테고리 0건 (모두 정관 안에 묶임). 한국 회사 관행상 퇴직금 변경은 대부분 "정관 일부 변경" 형식.
+
+→ **hybrid wire**:
+- 정관 안에 묶인 퇴직금 (예: "이사의 보수와 퇴직금에 관한 정관 일부 변경") → `_decide_articles_amendment` 안에서 `_decide_retirement_pay` helper 재사용
+- 정관 키워드 없는 단독 퇴직금 안건 (예: "임원 퇴직금 지급규정 개정의 건" — SK하이닉스 patten) → `retirement_pay` 카테고리 fallback
+- 같은 helper 함수 + 같은 위험 키워드 list 사용 (중복 X)
+
+(`retirement_pay` — fallback NEW 카테고리)
 
 `parse_retirement_pay_xml(html)` → `amendments[]` (변경전/후 비교) 활용.
 

@@ -136,7 +136,8 @@ def _classify_agenda(agenda_title: str) -> str:
     예: "재무제표 승인 (현금배당 ...)" → 재무제표 승인 (에코프로)
     """
     t = (agenda_title or "").strip()
-    # 정관변경이 가장 우선 — "정관" 명시되면 그게 본질
+    # ralph 260505 코붕이 의견: 한국 회사 관행상 퇴직금/보수는 대부분 정관 일부 변경 형태로 들어옴.
+    # → 정관이 본질, _decide_articles_amendment 안에서 amendments raw 보고 위험 detect.
     if "정관" in t:
         return "articles_amendment"
     # iter21: "재무제표" 우선 (배당 정보 포함 케이스)
@@ -539,7 +540,12 @@ def _decide_financial_statements(fm_payload: dict[str, Any] | None) -> tuple[str
     return "NO_DATA", "재무 fact (감사의견 / 자본잠식 status) 미확인 — 사업보고서 본문 검토 필요"
 
 
-def _decide_articles_amendment(agenda_title: str) -> tuple[str, str]:
+def _decide_articles_amendment(
+    agenda_title: str,
+    retirement_payload: dict[str, Any] | None = None,
+    comp_payload: dict[str, Any] | None = None,
+    fin_metrics_payload: dict[str, Any] | None = None,
+) -> tuple[str, str]:
     """정관변경 안건 → 세부 키워드 기반.
 
     ralph iter6 강화: 위험 신호 (집중투표 배제 / 이사 정원 축소 / 권한 강화) 없는
@@ -558,8 +564,19 @@ def _decide_articles_amendment(agenda_title: str) -> tuple[str, str]:
         return "REVIEW", "이사회 정원 축소 — 거버넌스 영향"
     if "수권주식" in t and ("증가" in t or "확대" in t):
         return "REVIEW", "수권주식 증가 — 향후 희석 가능성"
+    # ralph 260505 코붕이 의견: 정관 안에 묶인 퇴직금 변경은 amendments raw 보고 위험 detect
+    if "퇴직금" in t or "퇴임위로금" in t:
+        ret_decision, ret_reason = _decide_retirement_pay(retirement_payload, fin_metrics_payload)
+        return ret_decision, f"정관변경 (퇴직금) — {ret_reason}"
+    # 정관 안에 묶인 보수한도 변경
+    if "보수한도" in t or "보수의 한도" in t:
+        if "감사" in t and "감사위원" not in t:
+            comp_decision, comp_reason = _decide_audit_compensation(comp_payload, fin_metrics_payload)
+            return comp_decision, f"정관변경 (감사 보수한도) — {comp_reason}"
+        comp_decision, comp_reason = _decide_director_compensation(comp_payload, fin_metrics_payload)
+        return comp_decision, f"정관변경 (이사 보수한도) — {comp_reason}"
     # default FOR (위험 신호 없는 일반 정관변경 — mainstream 패턴)
-    return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가) 없음"
+    return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 / 퇴직금 / 보수한도) 없음"
 
 
 def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
@@ -1145,7 +1162,12 @@ async def build_proxy_advise_payload(
         elif category == "cash_dividend":
             decision, reason = _decide_dividend(title, fin_metrics, selected.get("corp_name") or "")
         elif category == "articles_amendment":
-            decision, reason = _decide_articles_amendment(title)
+            decision, reason = _decide_articles_amendment(
+                title,
+                retirement_payload=retirement_payload,
+                comp_payload=meeting_comp,
+                fin_metrics_payload=fin_metrics,
+            )
         elif category == "treasury_share":
             decision, reason = _decide_treasury_share(title)
         else:

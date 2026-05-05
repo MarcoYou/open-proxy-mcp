@@ -1,0 +1,384 @@
+{
+  "summary": {
+    "n_companies": 30,
+    "n_ok": 30,
+    "categories": {
+      "director_compensation": {
+        "n_decisions": 11,
+        "distribution": {
+          "FOR": 11
+        },
+        "n_with_4plus_majority": 4,
+        "n_match_majority": 4,
+        "match_pct": 100.0,
+        "mismatches": []
+      },
+      "audit_compensation": {
+        "n_decisions": 1,
+        "distribution": {
+          "FOR": 1
+        },
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      },
+      "retirement_pay": {
+        "n_decisions": 0,
+        "distribution": {},
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      }
+    }
+  },
+  "results": [
+    {
+      "ticker": "032830",
+      "name": "삼성생명",
+      "status": "exact",
+      "duration_s": 9.5,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 2,260,255,000,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "042700",
+      "name": "한미반도체",
+      "status": "exact",
+      "duration_s": 6.9,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 152,614,498,001원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 152,614,498,001원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "035420",
+      "name": "NAVER",
+      "status": "exact",
+      "duration_s": 28.7,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수 한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 2,561,162,590,080원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "012450",
+      "name": "한화에어로스페이스",
+      "status": "exact",
+      "duration_s": 33.5,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "068270",
+      "name": "셀트리온",
+      "status": "exact",
+      "duration_s": 28.1,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "267260",
+      "name": "HD현대일렉트릭",
+      "status": "exact",
+      "duration_s": 24.8,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 525,619,070,892원) — mainstream fallback",
+          "majority": {
+            "majority": "FOR",
+            "votes": 4,
+            "total": 4,
+            "all_votes": {
+              "m_legacy": "FOR",
+              "s_legacy": "FOR",
+              "sa_active": "FOR",
+              "t_activist": "FOR"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ticker": "005490",
+      "name": "POSCO홀딩스",
+      "status": "exact",
+      "duration_s": 28.6,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "005930",
+      "name": "삼성전자",
+      "status": "exact",
+      "duration_s": 29.3,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 50,048,199,000,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "034020",
+      "name": "두산에너빌리티",
+      "status": "exact",
+      "duration_s": 26.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "009150",
+      "name": "삼성전기",
+      "status": "exact",
+      "duration_s": 9.5,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 1,028,470,309,944원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "055550",
+      "name": "신한지주",
+      "status": "exact",
+      "duration_s": 29.0,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "009540",
+      "name": "HD한국조선해양",
+      "status": "exact",
+      "duration_s": 33.1,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 1,454,580,111,000원) — mainstream fallback",
+          "majority": {
+            "majority": "FOR",
+            "votes": 4,
+            "total": 5,
+            "all_votes": {
+              "b_foreign": "FOR",
+              "m_legacy": "FOR",
+              "s_legacy": "FOR",
+              "sa_active": "AGAINST",
+              "t_activist": "FOR"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ticker": "000660",
+      "name": "SK하이닉스",
+      "status": "exact",
+      "duration_s": 30.0,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "000270",
+      "name": "기아",
+      "status": "exact",
+      "duration_s": 29.5,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "042660",
+      "name": "한화오션",
+      "status": "exact",
+      "duration_s": 31.5,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "010130",
+      "name": "고려아연",
+      "status": "exact",
+      "duration_s": 28.8,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "010120",
+      "name": "LS ELECTRIC",
+      "status": "exact",
+      "duration_s": 20.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "005380",
+      "name": "현대차",
+      "status": "exact",
+      "duration_s": 10.8,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "105560",
+      "name": "KB금융",
+      "status": "exact",
+      "duration_s": 10.9,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "012330",
+      "name": "현대모비스",
+      "status": "exact",
+      "duration_s": 12.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "034730",
+      "name": "SK",
+      "status": "exact",
+      "duration_s": 31.5,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사보수한도 승인 (160억 원)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 532,788,000,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "006400",
+      "name": "삼성SDI",
+      "status": "exact",
+      "duration_s": 45.2,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "373220",
+      "name": "LG에너지솔루션",
+      "status": "exact",
+      "duration_s": 5.6,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "006800",
+      "name": "미래에셋증권",
+      "status": "exact",
+      "duration_s": 14.7,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "329180",
+      "name": "HD현대중공업",
+      "status": "exact",
+      "duration_s": 23.1,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 621,509,420,000원) — mainstream fallback",
+          "majority": {
+            "majority": "FOR",
+            "votes": 4,
+            "total": 4,
+            "all_votes": {
+              "m_legacy": "FOR",
+              "s_legacy": "FOR",
+              "sa_active": "FOR",
+              "t_activist": "FOR"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ticker": "402340",
+      "name": "SK스퀘어",
+      "status": "exact",
+      "duration_s": 18.7,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 3,650,515,000,000원) — mainstream fallback",
+          "majority": {
+            "majority": "FOR",
+            "votes": 4,
+            "total": 4,
+            "all_votes": {
+              "m_legacy": "FOR",
+              "s_legacy": "FOR",
+              "sa_active": "FOR",
+              "t_activist": "FOR"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ticker": "086790",
+      "name": "하나금융지주",
+      "status": "exact",
+      "duration_s": 28.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "015760",
+      "name": "한국전력",
+      "status": "error",
+      "duration_s": 0.1,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "028260",
+      "name": "삼성물산",
+      "status": "exact",
+      "duration_s": 31.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "207940",
+      "name": "삼성바이오로직스",
+      "status": "exact",
+      "duration_s": 28.2,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 1,074,183,649,673원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    }
+  ]
+}
