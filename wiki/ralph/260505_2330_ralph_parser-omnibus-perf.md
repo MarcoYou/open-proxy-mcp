@@ -373,8 +373,24 @@ Fix 방향 (Phase 4):
 v1 mode 실제 retire 시점에 physical archive — 별도 결정 (이번 ralph 범위 X)
 → 다음 작업: Phase 3 scope reorg 검토 시작
 
-### iter 9-13 — scope reorg 검토 + layer 정합 (대부분 정적 + 소량 spot)
-(작성 예정)
+### iter 8-9 — Phase 3 scope reorg 검토 시작 (정적, DART X) ✓ (부분)
+
+**dividend (3 scope)**:
+- `summary`: latest_decisions[:20] + policy_signals + meta_signals (선배당후결의 / 감액배당 signals)
+- `detail`: latest_decisions[:50] + decision_count + alotMatter vs decisions DPS mismatch warning
+- `history`: history(N years) + quarterly_breakdown + policy_signals
+- 관찰: detail vs summary `latest_decisions` raw 일부 중복 (20건은 50건의 부분집합). 그러나 detail은 more decisions + warning 추가, summary는 meta_signals 보유 — **각자 다른 derived 정보** → **유지 권고** (raw 완전 중복 X)
+
+**ownership_structure (5 scope)**:
+- `summary` / `major_holders` / `blocks` / `control_map` / `changes`
+- 이미 cleanup 완료 (treasury → treasury_share tool / timeline → blocks 통합)
+- 추가 reorg 불필요 ✓
+
+### iter 10-13 — Phase 3 추가 검토 (예정, DART X)
+- financial_metrics 6 scope (summary/yearly/quarterly/yoy/qoq/audit_opinion) raw 중복 check
+- proxy_contest / treasury_share / corp_gov_report / value_up scope 정적
+- layer 정합 (G4) — data tool 파서 decision logic 미포함 검증
+- fix list 우선순위 정리
 
 ### iter 14-16 — fix 적용 + smoke test
 (작성 예정)
