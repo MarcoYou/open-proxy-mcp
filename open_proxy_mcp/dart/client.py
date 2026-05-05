@@ -14,6 +14,7 @@ import re
 import json
 import time
 import asyncio
+import collections
 import logging
 import sqlite3
 import tempfile
@@ -43,8 +44,11 @@ DART_WEB_BASE_URL = "https://dart.fss.or.kr"
 
 # ── Rate Limiting ──
 # API와 웹 스크래핑에 각각 다른 최소 간격 적용
-_MIN_INTERVAL_API = 0.1     # API: 최소 0.1초 간격 (분당 600회 이하)
+_MIN_INTERVAL_API = 0.1     # API: 최소 0.1초 간격 (race 방지용)
 _MIN_INTERVAL_WEB = 2.0     # 웹: 최소 2초 간격 (DDoS 오해 방지)
+# DART OpenAPI 분당 한도 1000회 — 초과 시 24h IP 차단 정책.
+# 실제 cap을 900으로 둠 (10% buffer, batch 동시 호출 race도 cover).
+_API_RATE_LIMIT_PER_MINUTE = 900
 
 _KIND_VALUE_UP_DISCLOSURE_CODE = "0184"
 
@@ -212,6 +216,9 @@ class DartClient:
         # Rate limiting — 마지막 요청 시각 추적
         self._last_api_request = 0.0
         self._last_web_request = 0.0
+        # Rolling window rate limiter (분당 한도 강제) — DART 1000/min 정책 hard guard
+        self._api_call_timestamps: collections.deque[float] = collections.deque()
+        self._api_rate_lock = asyncio.Lock()
         # Document caching (메모리 + 디스크)
         self._doc_cache: dict[str, dict] = {}
         self._viewer_doc_cache: dict[str, dict] = {}
@@ -710,11 +717,39 @@ class DartClient:
     # ── Rate Limiting ──
 
     async def _throttle_api(self):
-        """API 요청 간격 강제 (최소 _MIN_INTERVAL_API 초)"""
-        elapsed = time.monotonic() - self._last_api_request
-        if elapsed < _MIN_INTERVAL_API:
-            await asyncio.sleep(_MIN_INTERVAL_API - elapsed)
-        self._last_api_request = time.monotonic()
+        """API 요청 분당 한도 hard guard (rolling window 60s).
+
+        DART OpenAPI 분당 1000회 초과 시 24시간 IP 차단 정책. 실제 cap을 _API_RATE_LIMIT_PER_MINUTE
+        (default 900)로 두어 10% buffer + batch 동시 호출 race 모두 cover.
+
+        구조:
+        1. 60s 윈도우 안의 timestamps deque 유지
+        2. 윈도우 가득 차면 oldest 만료까지 sleep (하나 expire 후 진행)
+        3. 그 외엔 _MIN_INTERVAL_API (race 방지) 만 강제
+        """
+        async with self._api_rate_lock:
+            now = time.monotonic()
+            # purge timestamps older than 60s
+            while self._api_call_timestamps and now - self._api_call_timestamps[0] > 60:
+                self._api_call_timestamps.popleft()
+            # rate window 가득 — oldest expire까지 wait
+            if len(self._api_call_timestamps) >= _API_RATE_LIMIT_PER_MINUTE:
+                wait = 60 - (now - self._api_call_timestamps[0]) + 0.05
+                if wait > 0:
+                    logger.warning(
+                        f"[DART API] rate limit window full ({_API_RATE_LIMIT_PER_MINUTE}/min) — wait {wait:.1f}s"
+                    )
+                    await asyncio.sleep(wait)
+                    now = time.monotonic()
+                    while self._api_call_timestamps and now - self._api_call_timestamps[0] > 60:
+                        self._api_call_timestamps.popleft()
+            # 최소 간격 (race 방지)
+            elapsed = now - self._last_api_request
+            if elapsed < _MIN_INTERVAL_API:
+                await asyncio.sleep(_MIN_INTERVAL_API - elapsed)
+                now = time.monotonic()
+            self._api_call_timestamps.append(now)
+            self._last_api_request = now
 
     async def _throttle_web(self):
         """웹 스크래핑 요청 간격 강제 (최소 _MIN_INTERVAL_WEB 초)
