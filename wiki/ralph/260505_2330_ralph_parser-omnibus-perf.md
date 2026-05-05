@@ -359,8 +359,19 @@ Fix 방향 (Phase 4):
 - (B) Table 본문 검증 강화 (account 컬럼에 영문/주석 다수면 FS 아님으로 reject)
 - (C) 또는 honest data limit 인정 + 91.2% 기록
 
-### iter 7-8 — v1 dead parser archive (정적, DART X)
-(작성 예정)
+### iter 7 — v1 dead parser 사용처 정적 분석 + archive 결정 (DART X) ✓
+- 3개 v1 dead parser 모두 v2 production 미사용 (grep evidence):
+  - `parse_treasury_share_xml` — tools/shareholder.py만 호출
+  - `parse_capital_reserve_xml` — tools/shareholder.py만 호출
+  - `parse_financials_xml` — tools/shareholder.py만 호출 (services/provisional_financial_statement.py 가 본체 흡수 완료)
+- production fly.toml `OPEN_PROXY_TOOLSET=v2` 확인
+- 결정: **logical archive** (코드 본체 보존 + decision 기록), physical archive 보류
+- 이유: parser.py 3974 라인, 다수 helper 가 active/dead parser 공유 — physical archive 시 regression 위험
+- decision doc: [[260506_2330_decision_v1-dead-parsers-archive]]
+
+### iter 8 — Phase 2 마무리 + Phase 3 사전 준비 (예정, DART X)
+v1 mode 실제 retire 시점에 physical archive — 별도 결정 (이번 ralph 범위 X)
+→ 다음 작업: Phase 3 scope reorg 검토 시작
 
 ### iter 9-13 — scope reorg 검토 + layer 정합 (대부분 정적 + 소량 spot)
 (작성 예정)
