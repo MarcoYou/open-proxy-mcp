@@ -5,7 +5,58 @@ Note: 이 모듈은 `_` prefix → tools_v2 auto-discovery 제외 (register_tool
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+
+def _render_agenda_node(node: dict[str, Any], indent: int = 0) -> list[str]:
+    """안건 트리 hierarchical render — number + title + 자식."""
+    lines: list[str] = []
+    prefix = "  " * indent
+    number = node.get("number", "") or ""
+    title = node.get("title", "") or ""
+    source = f" [{node['source']}]" if node.get("source") else ""
+    conditional = f" ({node['conditional']})" if node.get("conditional") else ""
+    bullet = f"- **{number}** {title}" if number else f"- {title}"
+    lines.append(f"{prefix}{bullet}{source}{conditional}")
+    for child in (node.get("children") or []):
+        lines.extend(_render_agenda_node(child, indent + 1))
+    return lines
+
+
+def _extract_fy_agenda_meta(agendas: list[dict[str, Any]]) -> dict[str, str]:
+    """재무제표 승인 안건 title에서 회기 / 기간 / 배당 예정액 regex 추출.
+
+    예: "제18기(2025.1.1~2025.12.31) 재무제표 승인의 건 (배당 예정액 보통주 1주당 500원)"
+    회사마다 1호/2호 위치 다름 (정관변경이 1호인 회사도 있음) → 모든 root 안건 검사.
+    """
+    if not agendas:
+        return {}
+    title = ""
+    for node in agendas:
+        t = node.get("title") or ""
+        if "재무제표" in t or "재무 상태표" in t or "재무상태표" in t:
+            title = t
+            break
+    if not title:
+        return {}
+    out: dict[str, str] = {}
+    # 회기 (예: 제18기, 제 18 기)
+    m = re.search(r"제\s*(\d+)\s*기", title)
+    if m:
+        out["회기"] = f"제{m.group(1)}기"
+    # 기간 (예: 2025.1.1~2025.12.31, 2025.01.01 ~ 2025.12.31, 2025.1.1.~2025.12.31. — trailing dot 포함)
+    m = re.search(r"(\d{4}[.\-/]\s*\d{1,2}[.\-/]\s*\d{1,2}\.?)\s*[~∼-]\s*(\d{4}[.\-/]\s*\d{1,2}[.\-/]\s*\d{1,2}\.?)", title)
+    if m:
+        s1 = m.group(1).replace(' ', '').rstrip('.')
+        s2 = m.group(2).replace(' ', '').rstrip('.')
+        out["사업연도"] = f"{s1} ~ {s2}"
+    # 배당 예정액 (예: 보통주 1주당 500원, 보통주 주당 500원)
+    m = re.search(r"(보통주|우선주)?\s*(?:1\s*)?주\s*당\s*(\d{1,3}(?:,\d{3})*|\d+)\s*원", title)
+    if m:
+        share_type = m.group(1) or "보통주"
+        out["배당 예정액"] = f"{share_type} 1주당 {m.group(2)}원"
+    return out
 
 
 _PHASE_LABELS = {
@@ -84,8 +135,8 @@ def render_summary(payload: dict[str, Any]) -> str:
     notice = data.get("notice", {})
     info = data.get("meeting_info", {})
     agenda_summary = data.get("agenda_summary", {})
+    agendas_tree = data.get("agendas", []) or []
     correction = data.get("correction_summary")
-    result_reference = data.get("result_reference", {})
     alternatives = data.get("alternative_meetings", [])
     coverage_12m = data.get("meeting_coverage_12m", {})
     requested_window = data.get("requested_window", {})
@@ -96,7 +147,7 @@ def render_summary(payload: dict[str, Any]) -> str:
     lines.append(f"- requested_meeting_type: `{data.get('requested_meeting_type', '')}`")
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
     lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- result_status: {result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
+    # 260505 ralph: result_status 제거 (사후 정보, 시점 분리 위반)
     lines.append(f"- notice_parse_source: `{data.get('notice_parse_source', '')}`")
     lines.append(f"- status: `{payload.get('status', '')}`")
     if requested_window:
@@ -148,24 +199,28 @@ def render_summary(payload: dict[str, Any]) -> str:
         f"| 일시 | {info.get('datetime', '') or '-'} |",
         f"| 장소 | {info.get('location', '') or '-'} |",
         "",
-        "## 결과 시점",
-        "| 항목 | 값 |",
-        "|------|----|",
-        f"| 현재 단계 | {phase_label(data.get('meeting_phase', ''))} |",
-        f"| 결과 상태 | {result_status_label(data.get('result_status', ''))} |",
-        f"| 결과 공시일 | {result_reference.get('disclosure_date', '') or '-'} |",
-        f"| 결과 rcept_no | `{result_reference.get('rcept_no', '')}` |" if result_reference else "| 결과 rcept_no | - |",
-        "",
-        "## 안건 요약",
-        f"- 루트 안건 수: {agenda_summary.get('root_count', 0)}",
-        f"- 전체 안건 수: {agenda_summary.get('total_count', 0)}",
+        # 260505 ralph: 결과 시점 표 제거 (사후 정보, shareholder_meeting_results tool 참조)
+        "## 안건",
+        f"- 루트 안건 수: {agenda_summary.get('root_count', 0)} / 전체 안건 수: {agenda_summary.get('total_count', 0)}",
     ])
 
-    titles = agenda_summary.get("titles") or []
-    if titles:
-        lines.append("- 상위 안건")
+    # 260505 ralph: agenda hierarchy 통합 (이전 agenda scope 흡수)
+    if agendas_tree:
+        for node in agendas_tree:
+            lines.extend(_render_agenda_node(node, indent=0))
+    else:
+        # fallback — agenda tree 없으면 flat titles
+        titles = agenda_summary.get("titles") or []
         for title in titles:
             lines.append(f"  - {title}")
+
+    # 1호 안건 메타 (회기 / 기간 / 배당 예정액) regex 추출 — 정기주총 표준
+    fy_meta = _extract_fy_agenda_meta(agendas_tree)
+    if fy_meta:
+        lines.append("")
+        lines.append("## 1호 안건 메타 (재무제표 승인)")
+        for k, v in fy_meta.items():
+            lines.append(f"- {k}: {v}")
 
     report_items = info.get("report_items") or []
     if report_items:
@@ -189,35 +244,6 @@ def render_summary(payload: dict[str, Any]) -> str:
         lines.append("```")
         lines.append(data["raw_text_excerpt"])
         lines.append("```")
-    return "\n".join(lines)
-
-
-def render_agenda(payload: dict[str, Any]) -> str:
-    data = payload.get("data", {})
-    agendas = data.get("agendas", [])
-    notice = data.get("notice", {})
-
-    def render_nodes(nodes: list[dict[str, Any]], indent: int = 0) -> list[str]:
-        lines: list[str] = []
-        prefix = "  " * indent
-        for node in nodes:
-            source = f" [{node['source']}]" if node.get("source") else ""
-            conditional = f" ({node['conditional']})" if node.get("conditional") else ""
-            lines.append(f"{prefix}- **{node.get('number', '')}** {node.get('title', '')}{source}{conditional}")
-            lines.extend(render_nodes(node.get("children", []), indent + 1))
-        return lines
-
-    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 주총 안건", ""]
-    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- rcept_no: `{notice.get('rcept_no', '')}`")
-    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- status: `{payload.get('status', '')}`")
-    lines.append("")
-    lines.extend(warning_block(payload))
-    lines.append("## 안건 트리")
-    lines.extend(render_nodes(agendas))
-    if not agendas:
-        lines.append("- 파싱된 안건이 없다")
     return "\n".join(lines)
 
 
@@ -311,9 +337,10 @@ def render_aoi(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     aoi = data.get("aoi_change", {}) or {}
     amendments = aoi.get("amendments", [])
+    retire_amendments = aoi.get("retirement_amendments", []) or []
     summary = aoi.get("summary", {}) or {}
 
-    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 정관변경 상세", ""]
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 정관변경 + 퇴직금 변경 raw", ""]
     lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
     lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
     lines.append(f"- status: `{payload.get('status', '')}`")
@@ -321,45 +348,55 @@ def render_aoi(payload: dict[str, Any]) -> str:
     lines.extend(warning_block(payload))
 
     lines.append("## 요약")
-    lines.append(f"- 정관변경 안건 수: {len(amendments)}건")
+    lines.append(f"- 정관변경 안건: {len(amendments)}건 / 퇴직금 변경: {len(retire_amendments)}건")
     if summary.get("category_count"):
         lines.append(f"- 카테고리 수: {summary.get('category_count')}")
     lines.append("")
 
-    if not amendments:
-        lines.append("확인된 정관변경 안건이 없다.")
+    if not amendments and not retire_amendments:
+        lines.append("확인된 정관변경 / 퇴직금 변경 안건이 없다.")
         return "\n".join(lines)
 
-    lines.append("## 세부의안")
-    for item in amendments:
-        sub_id = item.get("subAgendaId") or ""
-        label = item.get("label") or item.get("clause", "")
-        header = f"제{sub_id}호 {label}".strip() if sub_id else label or "-"
-        lines.append(f"### {header}")
-        before = (item.get("before") or "").strip()
-        after = (item.get("after") or "").strip()
-        reason = (item.get("reason") or "").strip()
-        if before:
-            lines.append("**변경 전**")
-            lines.append(f"> {before}")
-        if after:
-            lines.append("**변경 후**")
-            lines.append(f"> {after}")
-        if reason:
-            lines.append(f"**사유**: {reason}")
-        lines.append("")
+    if amendments:
+        lines.append("## 정관변경 세부의안")
+        for item in amendments:
+            sub_id = item.get("subAgendaId") or ""
+            label = item.get("label") or item.get("clause", "")
+            header = f"제{sub_id}호 {label}".strip() if sub_id else label or "-"
+            lines.append(f"### {header}")
+            before = (item.get("before") or "").strip()
+            after = (item.get("after") or "").strip()
+            reason = (item.get("reason") or "").strip()
+            if before:
+                lines.append("**변경 전**")
+                lines.append(f"> {before}")
+            if after:
+                lines.append("**변경 후**")
+                lines.append(f"> {after}")
+            if reason:
+                lines.append(f"**사유**: {reason}")
+            lines.append("")
+
+    # 260505 ralph: 퇴직금 변경 raw 통합 (data tool 원칙 — raw 노출만, 판단 X)
+    if retire_amendments:
+        lines.append("## 퇴직금 변경 raw")
+        for i, a in enumerate(retire_amendments, 1):
+            clause = (a.get("clause") or "").strip() or f"항목 {i}"
+            lines.append(f"### {clause}")
+            before = (a.get("before") or "").strip()
+            after = (a.get("after") or "").strip()
+            reason = (a.get("reason") or "").strip()
+            if before:
+                lines.append("**변경 전**")
+                lines.append(f"> {before[:500]}")
+            if after:
+                lines.append("**변경 후**")
+                lines.append(f"> {after[:500]}")
+            if reason:
+                lines.append(f"**사유**: {reason}")
+            lines.append("")
+
     return "\n".join(lines)
-
-
-def render_full_notice(payload: dict[str, Any]) -> str:
-    """notice 전용 full = summary + agenda + board + compensation + aoi (results 제외)."""
-    return "\n".join([
-        render_summary(payload), "", "---", "",
-        render_agenda(payload), "", "---", "",
-        render_board(payload), "", "---", "",
-        render_compensation(payload), "", "---", "",
-        render_aoi(payload),
-    ])
 
 
 def render_results(payload: dict[str, Any]) -> str:

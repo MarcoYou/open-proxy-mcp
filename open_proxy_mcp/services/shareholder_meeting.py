@@ -994,7 +994,8 @@ async def build_shareholder_meeting_payload(
         if raw:
             data["raw_text_excerpt"] = raw[:6000]
             data["raw_text_full_length"] = len(raw)
-    include_agenda = scope in {"agenda", "full"}
+    # 260505 ralph: agenda 트리는 summary에도 항상 포함 (parsing 이미 완료, 비용 0)
+    include_agenda = scope in {"agenda", "full", "summary"}
     include_board = scope in {"board", "full"}
     include_compensation = scope in {"compensation", "full"}
     include_aoi = scope in {"aoi_change", "full"}
@@ -1013,7 +1014,7 @@ async def build_shareholder_meeting_payload(
     if include_aoi:
         if not html:
             warnings.append("HTML을 확보하지 못해 정관변경 상세를 파싱할 수 없다.")
-            data["aoi_change"] = {"amendments": [], "summary": {}}
+            data["aoi_change"] = {"amendments": [], "retirement_amendments": [], "summary": {}}
         else:
             charter_subs: list[dict] = []
             for item in agenda:
@@ -1021,9 +1022,15 @@ async def build_shareholder_meeting_payload(
                     charter_subs = item.get("children", [])
                     break
             aoi_result = parse_aoi_xml(html, sub_agendas=charter_subs if charter_subs else None)
+            # 260505 ralph: aoi_change에 퇴직금 변경 raw도 통합 (data tool 원칙 — raw + 키워드 hit count, 판단 X)
+            from open_proxy_mcp.tools.parser import parse_retirement_pay_xml
+            retire_result = parse_retirement_pay_xml(html)
+            retire_amendments = retire_result.get("amendments") or []
+            aoi_result["retirement_amendments"] = retire_amendments
+            aoi_result.setdefault("summary", {})["retirement_amendments_count"] = len(retire_amendments)
             data["aoi_change"] = aoi_result
-            if not aoi_result.get("amendments"):
-                warnings.append("정관변경 안건이 없거나 파싱되지 않았다.")
+            if not aoi_result.get("amendments") and not retire_amendments:
+                warnings.append("정관변경 / 퇴직금 변경 안건이 없거나 파싱되지 않았다.")
     if include_results:
         if meeting_phase == "pre_meeting":
             warnings.append("회의일 전이라 아직 주주총회결과 공시가 나올 시점이 아니다.")
