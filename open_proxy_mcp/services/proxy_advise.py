@@ -29,7 +29,10 @@ from importlib.resources import files
 from typing import Any
 
 from open_proxy_mcp.dart.client import get_dart_client
-from open_proxy_mcp.services.agm_first_agenda_fy import parse_fy_from_agm_doc
+from open_proxy_mcp.services.provisional_financial_statement import (
+    parse_provisional_financial_statement,
+    extract_metrics as _extract_provisional_fs_metrics,
+)
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
@@ -654,16 +657,20 @@ def _extract_facts(
     if category == "financial_statements":
         latest_op = audit.get("summary", {}).get("latest_opinion") if "summary" in audit else None
         facts["audit_opinion"] = latest_op
-        facts["fy_prior_net_income_krw"] = fin_summary.get("net_income_krw")  # FY(N-2) sa-bun-bo-go-seo
+        facts["fy_prior_net_income_krw_dart"] = fin_summary.get("net_income_krw")  # DART API (확정치)
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
-        # 1번 안건 본문 FY raw (당기/전기)
+        # 1번 안건 본문 잠정 재무제표 (provisional, 표 raw에서 추출 — 사업보고서 제출 전)
         if fy_raw_from_agenda and fy_raw_from_agenda.get("extraction_status") in ("success", "partial"):
-            for k in ("fy_current_net_income_krw_mn", "fy_prior_net_income_krw_mn",
-                      "fy_current_revenue_krw_mn", "fy_current_operating_profit_krw_mn"):
+            for k in ("fy_current_net_income_krw", "fy_prior_net_income_krw",
+                      "fy_current_revenue_krw", "fy_prior_revenue_krw",
+                      "fy_current_operating_profit_krw", "fy_prior_operating_profit_krw",
+                      "fy_current_total_assets_krw", "fy_current_total_liabilities_krw",
+                      "fy_current_total_equity_krw"):
                 v = fy_raw_from_agenda.get(k)
                 if v is not None:
                     facts[k] = v
             facts["fy_raw_extraction_status"] = fy_raw_from_agenda.get("extraction_status")
+            facts["fy_raw_scope"] = fy_raw_from_agenda.get("scope_used")
     elif category == "cash_dividend":
         facts["payout_ratio_pct"] = fin_summary.get("payout_ratio_pct")
         facts["net_income_krw"] = fin_summary.get("net_income_krw")
@@ -989,9 +996,10 @@ async def build_proxy_advise_payload(
         _safe_throttled(build_director_evaluation_payload, company_query, year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
     )
 
-    # 1번 안건 (재무제표 승인) FY 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
-    # ralph 260505 17:50: 같은 doc에서 퇴직금 amendments도 파싱 (extra DART 호출 없이)
-    fy_raw_from_agenda: dict[str, Any] = {"extraction_status": "no_data", "matched_keywords": []}
+    # 1번 안건 (재무제표 승인) 잠정 FS 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
+    # 260505 ralph 17:50: 같은 doc에서 퇴직금 amendments도 파싱 (extra DART 호출 없이)
+    # 260505 ralph 23:30: parse_fy_from_agm_doc (정규식 텍스트) → parse_provisional_financial_statement (BS4 표) 교체
+    fy_raw_from_agenda: dict[str, Any] = {"extraction_status": "no_data"}
     retirement_payload: dict[str, Any] | None = None
     notice_dict = ((meeting_summary.get("data") or {}).get("notice") or {})
     agm_rcept = notice_dict.get("rcept_no") if isinstance(notice_dict, dict) else None
@@ -1000,7 +1008,10 @@ async def build_proxy_advise_payload(
             doc = await asyncio.wait_for(client.get_document_cached(agm_rcept), timeout=30.0)
             text = (doc or {}).get("text") or ""
             html = (doc or {}).get("html") or ""
-            fy_raw_from_agenda = parse_fy_from_agm_doc(text)
+            # 잠정 재무제표 표 파싱 (HTML 표 구조 그대로) + flat metrics 추출
+            if html:
+                pfs_parsed = parse_provisional_financial_statement(html)
+                fy_raw_from_agenda = _extract_provisional_fs_metrics(pfs_parsed)
             # 퇴직금 amendments parse — 본문에 "퇴직금" 키워드 있을 때만
             if html and ("퇴직금" in text or "퇴직금" in html or "퇴임위로금" in text or "퇴임위로금" in html):
                 from open_proxy_mcp.tools.parser import parse_retirement_pay_xml
@@ -1008,7 +1019,7 @@ async def build_proxy_advise_payload(
                 if _ret and _ret.get("amendments"):
                     retirement_payload = {"data": _ret, "status": "ok", "source_rcept_no": agm_rcept}
         except Exception:
-            fy_raw_from_agenda = {"extraction_status": "error", "matched_keywords": []}
+            fy_raw_from_agenda = {"extraction_status": "error"}
 
     # 안건 리스트 추출 (success 매핑)
     agenda_data = (meeting_agenda.get("data") or {})
