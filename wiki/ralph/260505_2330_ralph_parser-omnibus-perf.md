@@ -386,11 +386,44 @@ v1 mode 실제 retire 시점에 physical archive — 별도 결정 (이번 ralph
 - 이미 cleanup 완료 (treasury → treasury_share tool / timeline → blocks 통합)
 - 추가 reorg 불필요 ✓
 
-### iter 10-13 — Phase 3 추가 검토 (예정, DART X)
-- financial_metrics 6 scope (summary/yearly/quarterly/yoy/qoq/audit_opinion) raw 중복 check
-- proxy_contest / treasury_share / corp_gov_report / value_up scope 정적
-- layer 정합 (G4) — data tool 파서 decision logic 미포함 검증
-- fix list 우선순위 정리
+### iter 10-12 — Phase 3 잔여 tool scope + G4 layer 정합 (정적, DART X) ✓
+
+**모든 v2 production tool scope inventory**:
+| Tool | Scopes | 결정 |
+|---|---|---|
+| company | (single) | 유지 |
+| shareholder_meeting_notice | summary/board/compensation/aoi_change/prov_financials | 260506 정리 완료 |
+| shareholder_meeting_results | (single) | 유지 |
+| ownership_structure | summary/major_holders/blocks/control_map/changes | 이미 cleanup |
+| dividend | summary/detail/history | 일부 raw 중복 OK (derived 차이) |
+| financial_metrics | summary/yearly/quarterly/yoy/qoq/audit_opinion | 각자 다른 view (yoy/qoq computation) — 유지 |
+| treasury_share | summary/annual | minimal — 유지 |
+| corp_gov_report | summary/metrics/principles/filings/timeline | 각자 다른 view — 유지 |
+| value_up | summary/plan/commitments/timeline | 각자 다른 angle — 유지 |
+| corporate_restructuring | (single) | 유지 |
+| dilutive_issuance | (single) | 유지 |
+| proxy_contest | summary/fight/litigation/signals/timeline/vote_math | 각자 specific aspect — 유지 |
+| related_party_transaction | (single) | 유지 |
+| evidence | (string only) | 유지 |
+| proxy_guideline | (single) | 유지 |
+| proxy_advise_before_meeting | (single — 260504 폐지된 9 → 1) | 정리 완료 |
+| proxy_result_after_meeting | 3 scope | 유지 |
+
+→ **추가 폐지/신설 결정 없음** (이미 충분히 정리됨)
+
+**G4 layer 정합 검증 결과**:
+- `tools/parser.py` (Tier A 9 파서): decision 키워드 grep **0건** ✓ — 순수 parsing/computation
+- `services/provisional_financial_statement.py` (data tool helper): **0건** ✓ — 순수 parser
+- 14개 data tool services (dividend/ownership/financial_metrics/treasury_share/corp_gov_report/value_up/proxy_contest/shareholder_meeting/RPT/company/filing_search/dilutive_issuance/corporate_restructuring): 모두 **0건** ✓ (false positive 1개 — director_evaluation comment 내 예시 설명)
+- `services/proxy_advise.py` (action tool): **8개 `_decide_*` 함수** ✓ — director_election / director_compensation / audit_compensation / retirement_pay / financial_statements / articles_amendment / treasury_share / dividend
+- `services/director_evaluation.py` (action-tool internal helper): `evaluate_*` 함수들 — proxy_advise가 사용하는 candidate 평가 로직 (적절한 layer)
+
+→ **G4 PASS**: data tool layer (parsing + computation) vs action tool layer (decision evidence) 정합 명확 ✓
+
+### iter 13 — fix list 우선순위 (예정)
+- **유일 미해결**: PFS metric extraction 91.2% (95% 미달 4 ppt)
+- 옵션 A: extract_metrics 강화 (지배기업소유주지분 keyword + 종속회사 list table reject)
+- 옵션 B: honest data limit 인정 (plan 허용)
 
 ### iter 14-16 — fix 적용 + smoke test
 (작성 예정)
