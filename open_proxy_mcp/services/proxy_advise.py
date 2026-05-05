@@ -44,9 +44,11 @@ from open_proxy_mcp.services.director_evaluation import build_director_evaluatio
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
+from open_proxy_mcp.services.director_performance import compute_performance
+from open_proxy_mcp.services.dividend_v2 import build_dividend_payload
+from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 # Removed dead imports (archived at wiki/archive/services/):
 #   policy_comparison / proxy_guideline / proxy_guideline_scoring
-# Removed: proxy_contest / value_up — specialized scope 폐지로 더 이상 chain 안 함
 
 
 # ── F11 (Phase 4): process-level result cache ──
@@ -197,8 +199,16 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         if indep == "concerns":
             return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
         return "FOR", f"사외이사 독립성/결격사유 모두 clean ({role_type})"
-    # 사내이사: 결격사유 외 통과 (회사 결정 영역, mainstream FOR)
-    return "FOR", f"사내이사 결격사유 없음 ({role_type}) — 회사 결정 영역, 독립성 concerns 무시"
+    # 사내이사: 결격사유 외에 재직 중 회사 운영 성과 평가 (status quo 편향 mitigation, ralph 260505)
+    perf = (eval_match.get("performance") or {}).get("classification")
+    if perf == "bad":
+        return "AGAINST", f"사내이사 재직 중 성과 bad — 자본잠식/적자 또는 누적 악화"
+    if perf == "weak":
+        return "REVIEW", f"사내이사 재직 중 성과 weak — 사용자 검토 필요"
+    if perf in ("moderate", "good"):
+        return "FOR", f"사내이사 결격 없음 + 재직 성과 {perf} ({role_type})"
+    # performance 미평가 (신임 사내이사 — appointment_type=new) → 기존 logic
+    return "FOR", f"사내이사 결격사유 없음 ({role_type}) — 신임 또는 평가 미실시"
 
 
 def _decide_compensation(comp_payload: dict[str, Any] | None, fin_metrics_payload: dict[str, Any] | None = None) -> tuple[str, str]:
@@ -653,6 +663,80 @@ async def build_proxy_advise_payload(
         if nm:
             name_to_eval[nm] = ev
 
+    # ── 사내이사 재직 중 성과 매트릭스 (ralph 260505) ──
+    # 사내이사 + renewed (또는 inside_director_default fallback) 후보가 있으면
+    # 추가로 dividend + treasury_share + financial_metrics yearly fetch → performance compute
+    inside_renewed_candidates = [
+        ev for ev in director_evals
+        if "사내" in (ev.get("role_type") or "")
+        and (ev.get("appointment_type") or {}).get("type") == "renewed"
+    ]
+    if inside_renewed_candidates:
+        # 회사 단위 한 번 fetch (모든 사내이사 동일 source 공유)
+        # 추가 호출 ~3개 (dividend + treasury + financial yearly)
+        perf_div, perf_treas, perf_fin = await asyncio.gather(
+            _safe_throttled(build_dividend_payload, company_query, scope="history", years=10),
+            _safe_throttled(build_treasury_share_payload, company_query, scope="summary", lookback_months=120),
+            _safe_throttled(build_financial_metrics_payload, company_query, scope="yearly", year=fin_year),
+        )
+        # yearly 데이터 파싱
+        roe_yearly: dict[int, float | None] = {}
+        leverage_yearly: dict[int, float | None] = {}
+        net_income_yearly: dict[int, int | None] = {}
+        capital_impairment_status = ((fin_metrics.get("data") or {}).get("summary") or {}).get("capital_impairment_status")
+        for row in ((perf_fin.get("data") or {}).get("yearly") or []):
+            y = row.get("year")
+            if y is None:
+                continue
+            roe_yearly[y] = row.get("roe_pct")
+            leverage_yearly[y] = row.get("debt_ratio_pct")
+            net_income_yearly[y] = row.get("net_income_krw")
+
+        # 배당 yearly (history scope의 history rows)
+        dividend_yearly: dict[int, int] = {}
+        for h in ((perf_div.get("data") or {}).get("history") or []):
+            y = h.get("year")
+            if y is not None:
+                # history rows의 annual_dps × 발행주식수 추정 어려움 → cash_dividend 합산이 더 정확
+                # 임시: annual_dps 그대로 (per share, normalize 위해 사용 — 향후 보강)
+                dividend_yearly[y] = int(h.get("annual_dps") or 0)
+        # 더 정확한 배당총액: latest_decisions 합산 (연도별)
+        for d in ((perf_div.get("data") or {}).get("latest_decisions") or []):
+            y = d.get("rcept_dt", "")[:4] if d.get("rcept_dt") else None
+            if y and y.isdigit():
+                yi = int(y)
+                # total_amount 우선 (DPS × 발행주식수 = 배당총액)
+                amt = d.get("total_amount_krw") or 0
+                if amt:
+                    dividend_yearly[yi] = dividend_yearly.get(yi, 0) + amt
+
+        # 소각 yearly (treasury_share events에서 cancelation_decision 합산)
+        cancelation_yearly: dict[int, int] = {}
+        for e in ((perf_treas.get("data") or {}).get("events") or []):
+            if e.get("event") != "cancelation_decision":
+                continue
+            y = e.get("rcept_dt", "")[:4]
+            if y and y.isdigit():
+                yi = int(y)
+                cancelation_yearly[yi] = cancelation_yearly.get(yi, 0) + (e.get("amount_krw") or 0)
+
+        # 각 사내이사 renewed 후보별 performance compute
+        for ev in inside_renewed_candidates:
+            apt = ev.get("appointment_type") or {}
+            earliest = apt.get("earliest_start")
+            if not earliest:
+                continue
+            tenure_years = list(range(earliest, target_year + 1))
+            ev["performance"] = compute_performance(
+                tenure_years=tenure_years,
+                roe_yearly=roe_yearly,
+                leverage_yearly=leverage_yearly,
+                net_income_yearly=net_income_yearly,
+                dividend_yearly=dividend_yearly,
+                cancelation_yearly=cancelation_yearly,
+                capital_impairment_status=capital_impairment_status,
+            )
+
     # 안건별 결정 + 사유 (vote_style 정책 wire 적용)
     agenda_decisions: list[dict[str, Any]] = []
     for title in agenda_titles:
@@ -695,10 +779,21 @@ async def build_proxy_advise_payload(
                 # 안건 전체 REVIEW는 mainstream과 큰 차이 (운용사 50/52, 22/24 FOR).
                 # 묶음에서는 결격사유 / 회계 risk 이력 발견만 안건 전체 영향.
                 # 사외이사 indep concerns는 개별 사외이사 안건 (사외이사 선임의 건(XX))에서만 적용.
+                # 사내이사 renewed 후보 중 performance 평가 — bad/weak 1명이라도 있으면 안건 영향
+                inside_evals = [ev for ev in relevant_evals if "사내" in (ev.get("role_type") or "") and not _is_outside(ev)]
+                inside_perf_bad = any((ev.get("performance") or {}).get("classification") == "bad" for ev in inside_evals)
+                inside_perf_weak = any((ev.get("performance") or {}).get("classification") == "weak" for ev in inside_evals)
+
                 if disq_red:
                     decision, reason = "AGAINST", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 결격사유 발견"
+                elif inside_perf_bad:
+                    bad_names = [ev.get("name", "?") for ev in inside_evals if (ev.get("performance") or {}).get("classification") == "bad"]
+                    decision, reason = "AGAINST", f"묶음 안건 — 사내이사 재직 성과 bad ({', '.join(bad_names[:3])})"
                 elif audit_history_red:
                     decision, reason = "REVIEW", f"묶음 안건 — 이사 회계 risk 이력 검증 red_flag (raw 메모 검토)"
+                elif inside_perf_weak:
+                    weak_names = [ev.get("name", "?") for ev in inside_evals if (ev.get("performance") or {}).get("classification") == "weak"]
+                    decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 weak ({', '.join(weak_names[:3])}) — 사용자 검토"
                 else:
                     note = f" (사외 {len(outside_evals)}명 중 일부 indep concerns — 개별 사외이사 안건에서 검토)" if indep_concerns_outside else ""
                     decision, reason = "FOR", f"묶음 안건 — 결격사유 없음, 후보 {len(relevant_evals)}명{note}"

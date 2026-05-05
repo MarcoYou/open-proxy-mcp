@@ -9,7 +9,7 @@ max_iterations: 12
 ## Invoke (복붙)
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260505_1611_ralph_inside-director-performance-matrix.md 가이드 따라 사내이사 performance 매트릭스 (2x3) 구현 + proxy_advise wire. KOSPI200 표본 50 회사 검증 — 사내이사 평가 결과에 performance classification 노출률 ≥95% + 자본잠식/적자 special rule 정확도 100% + bad/weak 케이스 자동 REVIEW 분기 정확 + 분류 distribution (good/moderate/weak/bad) 합리성 확인 모두 충족 시 promise. --completion-promise INSIDE_DIRECTOR_PERFORMANCE_VERIFIED --max-iterations 12
+/ralph-loop:ralph-loop wiki/ralph/260505_1611_ralph_inside-director-performance-matrix.md 가이드 따라 사내이사 performance 매트릭스 2x3 구현하고 proxy_advise wire. KOSPI200 표본 50 + KOSDAQ 50 회사 opendart rate limit 안 넘게 30 단위 batch로 검증. classification 노출률 99% 이상 + 자본잠식/적자 special rule 정확도 100% + bad/weak REVIEW/AGAINST 분기 정확 + distribution 합리성 모두 충족 시 promise. --completion-promise INSIDE_DIRECTOR_PERFORMANCE_VERIFIED --max-iterations 5
 ```
 
 # Ralph: 사내이사 재직 중 성과 매트릭스
