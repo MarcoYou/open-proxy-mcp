@@ -166,7 +166,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Decisions (15)
+## Decisions (16)
 
 ### 정책 + 매트릭스
 - [[open-proxy-guideline]] - OPM 자체 의결권 행사 정책 v1.2 (12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting)
@@ -174,6 +174,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[260429_0059_debate_opm-guideline-7전문가]] - 7 전문가 토론 + v1.0 -> v1.1 -> v1.2 결정 transcript
 - [[260429_0216_improvement_turnkey-11agent]] - 11 agent 병렬 작업 통합 (G1-G4 + 7 페르소나 + 모더레이터)
 - [[260505_1700_decision_inside-director-performance-matrix]] - 사내이사 재직 중 성과 매트릭스 2x3 도입 (status quo bias mitigation, KOSPI 100 + KOSDAQ 50 검증)
+- [[260505_1900_decision_compensation-retirement-split]] - 보수한도/퇴직금 분리 (이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 안에 묶인 case는 articles_amendment hybrid 통합)
 
 ### Tool 정책 + 변경 이력
 - [[tool-changelog]] - Tool 제거/통합/리네임 이력 (41->32->17개, 이유 포함)

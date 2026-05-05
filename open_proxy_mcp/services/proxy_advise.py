@@ -598,6 +598,12 @@ def _decide_articles_amendment(
             return comp_decision, f"정관변경 (감사 보수한도) — {comp_reason}"
         comp_decision, comp_reason = _decide_director_compensation(comp_payload, fin_metrics_payload)
         return comp_decision, f"정관변경 (이사 보수한도) — {comp_reason}"
+    # iter 5 fix: title 키워드 없어도 본문에 퇴직금 amendments raw가 있으면 hybrid 처리
+    # (예: "정관 일부 변경의 건" — 모든 정관 변경 amendments 포함, 고려아연 case)
+    ret_amends = ((retirement_payload or {}).get("data") or {}).get("amendments") or []
+    if ret_amends:
+        ret_decision, ret_reason = _decide_retirement_pay(retirement_payload, fin_metrics_payload)
+        return ret_decision, f"정관변경 (본문 퇴직금 raw {len(ret_amends)}건 detect) — {ret_reason}"
     # default FOR (위험 신호 없는 일반 정관변경 — mainstream 패턴)
     return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 / 퇴직금 / 보수한도) 없음"
 
