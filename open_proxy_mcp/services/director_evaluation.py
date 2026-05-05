@@ -754,6 +754,15 @@ def detect_appointment_type(
             })
 
     if not matched:
+        # career_company_groups에서 가장 오래된 연도 추출 (회사명 mismatch라도 어느 entry든 시작 연도 사용)
+        # — fallback case에서 performance tenure 추정용
+        fallback_earliest = None
+        for grp in careers:
+            for it in (grp.get("items") or []):
+                start, _end = _parse_career_period(str(it))
+                if start is not None and (fallback_earliest is None or start < fallback_earliest):
+                    fallback_earliest = start
+
         # main_job fallback (1) — 정확한 회사명 prefix 매칭 (예: "삼성전자 DS부문 경영전략총괄")
         main_job = (candidate.get("mainJob") or "").strip()
         if main_job:
@@ -763,7 +772,7 @@ def detect_appointment_type(
                     "type": "renewed",
                     "reason": f"career 매칭 X but main_job 회사명 prefix 발견: {main_job[:60]}",
                     "matched_entries": [],
-                    "earliest_start": None,
+                    "earliest_start": fallback_earliest,  # career의 가장 오래된 연도 (어느 회사든)
                     "match_source": "main_job_prefix",
                 }
 
@@ -778,7 +787,7 @@ def detect_appointment_type(
                 "type": "renewed",
                 "reason": f"사내이사 + main_job 있음 (한글-영문/약칭 mismatch 가능) — 사내이사 default renewed: {main_job[:60]}",
                 "matched_entries": [],
-                "earliest_start": None,
+                "earliest_start": fallback_earliest,  # career fallback (없으면 None)
                 "match_source": "inside_director_default",
             }
 

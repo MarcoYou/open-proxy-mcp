@@ -714,11 +714,10 @@ async def build_proxy_advise_payload(
                 cancelation_yearly[yi] = cancelation_yearly.get(yi, 0) + (e.get("amount_krw") or 0)
 
         # 각 사내이사 renewed 후보별 performance compute
+        # earliest_start None (career detect fail) 시 default 5년 fallback (낮은 정확도)
         for ev in inside_renewed_candidates:
             apt = ev.get("appointment_type") or {}
-            earliest = apt.get("earliest_start")
-            if not earliest:
-                continue
+            earliest = apt.get("earliest_start") or (target_year - 5)  # fallback: 5년
             tenure_years = list(range(earliest, target_year + 1))
             ev["performance"] = compute_performance(
                 tenure_years=tenure_years,
@@ -729,6 +728,9 @@ async def build_proxy_advise_payload(
                 cancelation_yearly=cancelation_yearly,
                 capital_impairment_status=capital_impairment_status,
             )
+            if not apt.get("earliest_start"):
+                ev["performance"]["tenure_fallback"] = True
+                ev["performance"]["rationale"] = "(재직 시작 detect fail — 5년 default) " + ev["performance"].get("rationale", "")
 
     # 안건별 결정 + 사유 (vote_style 정책 wire 적용)
     agenda_decisions: list[dict[str, Any]] = []
