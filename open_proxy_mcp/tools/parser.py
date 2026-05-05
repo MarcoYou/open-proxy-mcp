@@ -3662,9 +3662,10 @@ def _extract_amendments_from_table_rows(rows: list[list[str]]) -> list[dict]:
     reason_idx = -1
     for ci, h in enumerate(headers_clean):
         # 더 specific 패턴 — "개정"만으로는 전/후 구분 불가 (에스티팜 "개정 전 내용" / "개정 후 내용")
-        if any(kw in h for kw in ['변경전', '개정전', '현행']):
+        # "현재" 추가 — 피에스케이홀딩스 "현 재" / "개정(안)" 형식
+        if any(kw in h for kw in ['변경전', '개정전', '현행', '현재']):
             before_idx = ci
-        elif any(kw in h for kw in ['변경후', '개정후', '개정안', '변경(안)']):
+        elif any(kw in h for kw in ['변경후', '개정후', '개정안', '개정(안)', '변경(안)']):
             after_idx = ci
         elif any(kw in h for kw in ['목적', '비고', '사유']):
             reason_idx = ci
@@ -3706,10 +3707,24 @@ def _retirement_fallback_from_html(html: str) -> list[dict]:
         return []
 
     amendments = []
-    # 모든 표 순회 — strict: 표 본문에 "퇴직금" 또는 "퇴임위로금" 직접 등장 시만
+    # 모든 표 순회
     for tbl in soup.find_all("table"):
         tbl_text = tbl.get_text("\n", strip=True)
-        if "퇴직금" not in tbl_text and "퇴임위로금" not in tbl_text:
+        table_has_retire = "퇴직" in tbl_text or "퇴임" in tbl_text
+        # 표 직전 인접 텍스트 — 안건 헤더 ("임원퇴직금지급규정 신구대조표" 등) 검출 (table_has_retire 무관 항상 계산)
+        prev_parts = []
+        for sib in tbl.previous_siblings:
+            t = getattr(sib, "get_text", lambda **kw: str(sib))(strip=True) if hasattr(sib, "get_text") else str(sib).strip()
+            if t:
+                prev_parts.append(t[-300:])
+            if sum(len(p) for p in prev_parts) > 600:
+                break
+        prev_text = "".join(reversed(prev_parts))
+        anchor_match = any(kw in prev_text for kw in (
+            "임원퇴직금", "퇴직금 지급규정", "퇴직금지급규정", "퇴직금규정",
+            "임원 퇴직금", "퇴직위로금", "퇴임위로금", "임원퇴직금 지급규정",
+        ))
+        if not table_has_retire and not anchor_match:
             continue
 
         # 표 row 추출
@@ -3723,10 +3738,15 @@ def _retirement_fallback_from_html(html: str) -> list[dict]:
 
         # row 단위 amendments 추출
         all_amends = _extract_amendments_from_table_rows(rows)
-        # 추가 strict: 각 amendment의 before/after 텍스트 안에 "퇴직금"/"퇴임위로금" 등장 시만 (정관변경 표 over-catch 방지)
+        # row 키워드 매칭 — 정관변경 표 over-catch 방지하면서 piesi-key 같은 case ("임원이 퇴직 시 합의금") catch
+        table_kw_count = tbl_text.count("퇴직") + tbl_text.count("퇴임")
+        # 표 전체가 퇴직 관련 (3회+) 또는 anchor 매칭 (안건 헤더가 퇴직금 명시) 시 row "퇴직" 단독 인정
+        broad_match = table_kw_count >= 3 or anchor_match
         for a in all_amends:
             text_check = (a.get("before") or "") + " " + (a.get("after") or "") + " " + (a.get("reason") or "")
-            if "퇴직금" in text_check or "퇴임위로금" in text_check:
+            if "퇴직금" in text_check or "퇴임위로금" in text_check or "퇴직위로금" in text_check:
+                amendments.append(a)
+            elif broad_match and ("퇴직" in text_check or "퇴임" in text_check):
                 amendments.append(a)
 
     return amendments
