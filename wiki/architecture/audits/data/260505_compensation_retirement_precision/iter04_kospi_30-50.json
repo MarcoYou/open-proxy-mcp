@@ -1,0 +1,318 @@
+{
+  "summary": {
+    "n_companies": 20,
+    "n_ok": 20,
+    "categories": {
+      "director_compensation": {
+        "n_decisions": 9,
+        "distribution": {
+          "FOR": 9
+        },
+        "n_with_4plus_majority": 3,
+        "n_match_majority": 3,
+        "match_pct": 100.0,
+        "mismatches": []
+      },
+      "audit_compensation": {
+        "n_decisions": 1,
+        "distribution": {
+          "FOR": 1
+        },
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      },
+      "retirement_pay": {
+        "n_decisions": 2,
+        "distribution": {
+          "FOR": 2
+        },
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      }
+    }
+  },
+  "results": [
+    {
+      "ticker": "024110",
+      "name": "기업은행",
+      "status": "exact",
+      "duration_s": 16.4,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 2,654,338,000,000원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 2,654,338,000,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "000150",
+      "name": "두산",
+      "status": "exact",
+      "duration_s": 18.4,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 302,227,000,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "064350",
+      "name": "현대로템",
+      "status": "exact",
+      "duration_s": 7.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "000720",
+      "name": "현대건설",
+      "status": "exact",
+      "duration_s": 11.2,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "000810",
+      "name": "삼성화재",
+      "status": "error",
+      "duration_s": 0.1,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "010140",
+      "name": "삼성중공업",
+      "status": "exact",
+      "duration_s": 23.7,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 63,876,253,559원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "096770",
+      "name": "SK이노베이션",
+      "status": "exact",
+      "duration_s": 27.2,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사보수한도 승인",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 12,151,857,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "003670",
+      "name": "포스코퓨처엠",
+      "status": "exact",
+      "duration_s": 25.6,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "035720",
+      "name": "카카오",
+      "status": "exact",
+      "duration_s": 27.5,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "066570",
+      "name": "LG전자",
+      "status": "exact",
+      "duration_s": 26.6,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "047810",
+      "name": "한국항공우주",
+      "status": "exact",
+      "duration_s": 34.0,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 170,895,410,977원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "051910",
+      "name": "LG화학",
+      "status": "exact",
+      "duration_s": 34.0,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "138040",
+      "name": "메리츠금융지주",
+      "status": "exact",
+      "duration_s": 7.7,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 2,333,433,638,351원) — mainstream fallback",
+          "majority": {
+            "majority": "FOR",
+            "votes": 4,
+            "total": 4,
+            "all_votes": {
+              "m_legacy": "FOR",
+              "s_legacy": "FOR",
+              "sa_active": "FOR",
+              "t_activist": "FOR"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ticker": "086280",
+      "name": "현대글로비스",
+      "status": "exact",
+      "duration_s": 7.7,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "298040",
+      "name": "효성중공업",
+      "status": "exact",
+      "duration_s": 19.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "267250",
+      "name": "HD현대",
+      "status": "exact",
+      "duration_s": 29.7,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 1,930,179,481,000원) — mainstream fallback",
+          "majority": {
+            "majority": "FOR",
+            "votes": 5,
+            "total": 5,
+            "all_votes": {
+              "b_foreign": "FOR",
+              "m_legacy": "FOR",
+              "s_legacy": "FOR",
+              "sa_active": "FOR",
+              "t_activist": "FOR"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ticker": "033780",
+      "name": "KT&G",
+      "status": "exact",
+      "duration_s": 11.2,
+      "relevant_decisions": [
+        {
+          "category": "retirement_pay",
+          "original_category": "retirement_pay",
+          "title": "사내이사 및 경영임원 퇴직금지급규정 정비",
+          "decision": "FOR",
+          "reason": "퇴직연금 제도 도입 (퇴직연금제도, 확정급여형, 확정기여형) — 형식적 변경",
+          "majority": null
+        },
+        {
+          "category": "retirement_pay",
+          "original_category": "retirement_pay",
+          "title": "사내이사의 퇴직금지급규정 개정의 건",
+          "decision": "FOR",
+          "reason": "퇴직연금 제도 도입 (퇴직연금제도, 확정급여형, 확정기여형) — 형식적 변경",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "011200",
+      "name": "HMM",
+      "status": "exact",
+      "duration_s": 18.0,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 3,782,169,000,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "272210",
+      "name": "한화시스템",
+      "status": "exact",
+      "duration_s": 35.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "316140",
+      "name": "우리금융지주",
+      "status": "exact",
+      "duration_s": 20.6,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 3,454,620,000,000원) — mainstream fallback",
+          "majority": {
+            "majority": "FOR",
+            "votes": 4,
+            "total": 5,
+            "all_votes": {
+              "a_activist": "FOR",
+              "m_legacy": "FOR",
+              "s_legacy": "FOR",
+              "sa_active": "FOR",
+              "t_activist": "AGAINST"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
