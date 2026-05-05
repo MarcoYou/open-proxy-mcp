@@ -24,3 +24,4 @@ updated: 2026-05-05
 5. [[ralph-threshold-realism]] — 표준 서식 99% / 자유 텍스트 90% — 데이터 자체 한계가 threshold 결정
 6. [[decision-vs-raw-separation]] — decision logic은 tool 안에서, raw expose는 외부 tool로
 7. [[enrichment-as-infrastructure]] — facts/risk/citation/근거공고 = 검증 가능한 응답의 핵심
+8. [[distribution-calibrated-thresholds]] — classification cutoff은 prior 직관이 아니라 audit 표본 분포 본 후 정함
