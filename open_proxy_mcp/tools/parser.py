@@ -3661,11 +3661,12 @@ def _extract_amendments_from_table_rows(rows: list[list[str]]) -> list[dict]:
     after_idx = -1
     reason_idx = -1
     for ci, h in enumerate(headers_clean):
-        if any(kw in h for kw in ['변경전', '현행']):
+        # 더 specific 패턴 — "개정"만으로는 전/후 구분 불가 (에스티팜 "개정 전 내용" / "개정 후 내용")
+        if any(kw in h for kw in ['변경전', '개정전', '현행']):
             before_idx = ci
-        if any(kw in h for kw in ['변경후', '개정안', '개정', '변경(안)']):
+        elif any(kw in h for kw in ['변경후', '개정후', '개정안', '변경(안)']):
             after_idx = ci
-        if any(kw in h for kw in ['목적', '비고', '사유']):
+        elif any(kw in h for kw in ['목적', '비고', '사유']):
             reason_idx = ci
     if before_idx < 0 or after_idx < 0:
         return []
