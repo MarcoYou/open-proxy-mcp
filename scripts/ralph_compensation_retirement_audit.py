@@ -26,6 +26,26 @@ from open_proxy_mcp.services.proxy_advise import build_proxy_advise_payload, cle
 
 CATEGORIES = ("director_compensation", "audit_compensation", "retirement_pay")
 
+# articles_amendment 안에 hybrid 처리되는 case들 (reason prefix로 detect)
+ARTICLES_HYBRID_REASONS = {
+    "정관변경 (퇴직금)": "retirement_pay",
+    "정관변경 (이사 보수한도)": "director_compensation",
+    "정관변경 (감사 보수한도)": "audit_compensation",
+}
+
+
+def _classify_via_reason(decision_dict: dict) -> str | None:
+    """decision의 effective category — articles_amendment hybrid 포함."""
+    cat = decision_dict.get("agenda_category")
+    if cat in CATEGORIES:
+        return cat
+    if cat == "articles_amendment":
+        reason = decision_dict.get("reason", "") or ""
+        for prefix, eff in ARTICLES_HYBRID_REASONS.items():
+            if reason.startswith(prefix):
+                return eff
+    return None
+
 
 def _load_universe(name: str, sample: int, offset: int = 0) -> list[tuple[str, str]]:
     if name == "kospi200":
@@ -55,11 +75,13 @@ def _audit_one(company: str, payload: dict, majority_cache: dict) -> dict:
 
     relevant = []
     for d in decisions:
-        cat = d.get("agenda_category")
-        if cat not in CATEGORIES:
+        eff_cat = _classify_via_reason(d)
+        if not eff_cat:
             continue
         title = (d.get("agenda_title") or "").strip()
         decision = d.get("decision")
+        cat = eff_cat
+        original_cat = d.get("agenda_category")
         # 운용사 majority 매칭
         majority_info = None
         cat_cache = majority_cache.get(cat, {})
@@ -70,6 +92,7 @@ def _audit_one(company: str, payload: dict, majority_cache: dict) -> dict:
                 break
         relevant.append({
             "category": cat,
+            "original_category": original_cat,
             "title": title,
             "decision": decision,
             "reason": (d.get("reason") or "")[:200],

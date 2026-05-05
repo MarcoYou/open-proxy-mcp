@@ -409,11 +409,18 @@ _RETIREMENT_AGAINST_KEYWORDS_AFTER = (
 )
 _RETIREMENT_OUTSIDE_DIRECTOR_KEYWORDS = ("사외이사",)  # OPM #6
 _RETIREMENT_REVIEW_KEYWORDS_AFTER = (
-    "지급률", "배수", "확정기여형", "확정급여형", "퇴직연금",
-    "특별공로금", "명예퇴직", "전직", "신설", "비등기임원",
+    # 진짜 위험 신호만 (sample 분석 결과)
+    "지급률", "배수", "특별공로금", "명예퇴직", "전직",
+    "비등기임원",  # 대상 확장
+    # NB "확정기여형/확정급여형/퇴직연금" 제외 — 단순 퇴직연금 제도 도입은 형식적 (KT&G case)
+    # NB "신설" 제외 — 단순 조항 신설 (예: 산정 방법 명시)은 위험 X. Step 5 has_new_clause logic으로 별도 처리.
 )
 _RETIREMENT_FORMAL_KEYWORDS = (
     "법령", "상법", "개정", "정비", "용어", "명칭", "공시", "반영",
+)
+_RETIREMENT_FORMAL_AFTER_KEYWORDS = (
+    # after 필드에 있어도 형식적 (제도 도입은 단순 정비)
+    "확정급여형", "확정기여형", "퇴직연금제도",
 )
 
 
@@ -499,12 +506,28 @@ def _decide_retirement_pay(
     # 분기 4: 자본잠식 + 변경
     if cap_status == "full" and amendments:
         return "REVIEW", f"완전 자본잠식 + 퇴직금 변경 {len(amendments)}건 — 보수적 검토"
-    # 분기 5: 퇴직금 한도/규정 신설 (없던 것 신설)
+    # 분기 5: 퇴직금 한도/규정 신설 (없던 것 신설) — 단, after에 형식적 키워드 (퇴직연금 등)만 있으면 분기 9a로 fall-through
     has_new_clause = any(("신  설" in (a.get("before") or "") or "신설" in (a.get("before") or "")) for a in amendments)
     if has_new_clause:
-        # SK하이닉스 case: 퇴직금 산정 방법 신설 (확정급여형) — 이건 review
-        return "REVIEW", f"퇴직금 한도/규정 신설 (신설 조항 {sum(1 for a in amendments if '신설' in (a.get('before') or '') or '신  설' in (a.get('before') or ''))}건) — 경영진 보호 신호"
-    # 분기 9: 형식적 변경 (법령/상법/개정 등 reason hit + 위험 hit 0)
+        # 신설 조항이 단순 퇴직연금 제도 도입이면 형식적 — 9a에서 처리
+        new_clauses_only_formal = all(
+            (("신  설" in (a.get("before") or "") or "신설" in (a.get("before") or ""))
+             and any(fkw in (a.get("after") or "") for fkw in _RETIREMENT_FORMAL_AFTER_KEYWORDS))
+            for a in amendments
+            if ("신  설" in (a.get("before") or "") or "신설" in (a.get("before") or ""))
+        )
+        if not new_clauses_only_formal:
+            return "REVIEW", f"퇴직금 한도/규정 신설 (신설 조항 {sum(1 for a in amendments if '신설' in (a.get('before') or '') or '신  설' in (a.get('before') or ''))}건) — 경영진 보호 신호"
+    # 분기 9a: 퇴직연금 제도 도입 (after 필드 hit + 위험 hit 0) — 형식적 변경
+    formal_after_hits = []
+    for a in amendments:
+        after = a.get("after") or ""
+        for kw in _RETIREMENT_FORMAL_AFTER_KEYWORDS:
+            if kw in after:
+                formal_after_hits.append(kw)
+    if formal_after_hits and not risk_review and not risk_against and not risk_outside_dir:
+        return "FOR", f"퇴직연금 제도 도입 ({', '.join(sorted(set(formal_after_hits)))}) — 형식적 변경"
+    # 분기 9b: 형식적 변경 (법령/상법/개정 등 reason hit + 위험 hit 0)
     if formal_hits and not risk_review:
         return "FOR", f"법령/표현 정비 ({', '.join(sorted({h['kw'] for h in formal_hits}))}) — 형식적 변경"
     # 분기 8: 위험 키워드 hit
