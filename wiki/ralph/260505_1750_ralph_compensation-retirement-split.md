@@ -34,7 +34,32 @@ max_iterations: 8
 
 → 절대 다수 FOR이지만 5번에 1번꼴로 AGAINST 발생. mainstream에 묻어가는 자동 FOR이 아니라 **변경 raw 노출 + REVIEW 기본**이 데이터 근거.
 
-### NPS 정책 (`nps_2025-03.json`, 별표 1)
+### 정책 카탈로그 (8 운용사 + NPS + OPM)
+
+`data/asset_managers/policies/`에 모두 보유 (records만 있는 게 아님):
+- 운용사 8: m_legacy / s_legacy / sa_active / k_legacy / t_activist / a_activist / c_activist / b_foreign
+- 공기관: nps
+- **OPM 자체**: `open_proxy_v1.json` (Open Proxy Guideline v1.3, 12 카테고리 116 룰 — 운용사 공통 모범 + 행동주의 + 신규 보강)
+
+#### OPM `open_proxy_v1` director_compensation — 11 against trigger
+
+```
+1.  성과 미연계 경영진 보상체계 (정성 — LLM)
+2.  적자/순익 감소 기업의 인당·총 보수한도 증액 (자동)
+3.  스톡옵션 사후 행사가격 조정·재발행 — Repricing (키워드, 별도 안건)
+4.  스톡옵션 권리행사 유보기간 단축 (2년 미만) (키워드, 별도 안건)
+5.  스톡옵션 규모 발행주식수 2% 초과 / 누적 희석률 5%+ (자동, 별도 안건)
+6.  사외이사 퇴직혜택·성과급·스톡옵션 부여 (키워드)
+7.  황금낙하산 — 연봉 3배 초과 (키워드, 퇴직금 안건)
+8.  보수한도 직전년 대비 50%+ 인상 — M&A·IPO 일회성 외 (자동)
+9.  [행동주의] 황금낙하산 일반 반대
+10. [정량] 스톡옵션 희석률 성숙 5% / 성장 10% 초과 (자동, 별도 안건)
+11. [c_activist 신규 v1.3] 임직원 자사주 구입 대출 (키워드)
+```
+
+→ **이번 ralph 범위**: 자동 검증 가능한 보수한도 trigger 2개 (#2, #8) + 퇴직금 키워드 trigger (#7, #9) wire. 스톡옵션 관련 5개 (#3-5, #6, #10)는 별도 ralph (스톡옵션 부여 안건 분리).
+
+#### NPS `nps_2025-03` 별표 1
 
 **이사 보수한도** (IV-33):
 - default 원칙 FOR
@@ -42,11 +67,21 @@ max_iterations: 8
 
 **감사 보수한도** (IV-34):
 - default 원칙 FOR
-- AGAINST: 한도가 **과소** (감사 충실 업무이행 유인 훼손) — *반대로 너무 적으면 반대*. 운용사 (s_legacy "과다" 기준)와 결 다름.
+- AGAINST: 한도가 **과소** (감사 충실 업무이행 유인 훼손) — *너무 적으면 반대*. 운용사 (s_legacy "과다" 기준)와 결 다름. → OPM은 양방향 cover.
 
 **퇴직금** (IV-35):
 - 황금낙하산(Golden Parachute) **원칙적 반대** (정당한 사유 없으면)
 - 중점관리사안 거부 시 반대
+
+### 정책-코드 wire 원칙 (2 layer)
+
+```
+Layer 1: 정책 (open_proxy_v1.json + 운용사 7 + nps) — 트리거 카탈로그
+Layer 2: 결정 코드 (_decide_*) — 자동 trigger wire + 정성은 facts raw 노출
+```
+
+- 자동 trigger: 결정 코드에 직접 wire (호출마다 정책 다시 파싱 X)
+- 정성 trigger: `facts` / `risk_factors`에 raw 노출 → LLM이 정책 카탈로그 보고 판단
 
 ## 가정
 - No conversation context / no web search / MCP only / deterministic
