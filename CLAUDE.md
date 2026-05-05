@@ -49,8 +49,11 @@ wiki/                  # LLM 도메인 지식 위키 (Karpathy 아키텍처)
 
 ## 핵심 규칙 (간략)
 - **데이터 접근 우선순위**: ① DART API (병렬 가능) → ② DART 웹 크롤링 (2초 간격) → ③ KIND 크롤링 (2초 간격). 상위에서 해결되면 하위 접근 금지.
-- **DART API**: 분당 1,000회 초과 시 24시간 IP 차단. Rate limiter 내장.
-  - **DART API 키 2개 fallback (ContextVar 자동)**: 사용자 요청별 키 격리, 한도 초과 시 자동 fallback.
+- **DART API**: 분당 1,000회 초과 시 24시간 IP 차단 — **hard rule, 절대 위반 X**.
+  - `dart/client.py`에 rolling window rate limiter (`_throttle_api`) 내장 — 분당 cap **900** (10% buffer + race 방지).
+  - 새 batch script 작성 시: 회사수 × 평균 호출수 estimate, **최대 30 회사 단위** + batch 사이 sleep. 100+ 회사 측정은 fly machine (다른 IP) 활용.
+  - 차단 시 키 회전 무효 (IP/fingerprint level 차단). 24h cool-down.
+  - **DART API 키 2개 fallback (ContextVar 자동)**: 사용자 요청별 키 격리.
 - **웹 스크래핑**: 최소 2초 간격. 배치 금지.
 - **3-tier fallback**: XML → PDF (4s+) → OCR (Upstage)
 - **rcept_no 포맷**: `00`=소집공고(DART 정기공시), `80`=주총결과(거래소 수시공시). agm_*_xml에는 반드시 `00` 포맷 사용.
