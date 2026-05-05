@@ -3,6 +3,24 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-06] feat | shareholder_meeting_notice scope 정리 + provisional_financial_statement 독립
+- `shareholder_meeting_notice` scope: 6 → 5 (`summary`/`board`/`compensation`/`aoi_change`/`prov_financials`)
+  - 폐지: `agenda` (summary 흡수, hierarchy 통합) + `full` (병렬 wrapper, 종합 분석은 proxy_advise)
+  - silent fallback to summary (caller 깨짐 방지)
+- `summary` 강화: agenda hierarchy + 1호 안건 메타 (회기/사업연도/배당 예정액) regex 추출
+- `aoi_change` 보강: parse_retirement_pay_xml raw 통합 (data tool 원칙 — 판단 X)
+- `prov_financials` 신설: 잠정 재무제표 4 quadrant raw (consolidated/separate × balance/income) + flat metrics
+- result_status / result_reference 제거 (사후 정보, 시점 분리 위반)
+- `services/provisional_financial_statement.py` 신규 (독립 모듈):
+  - `parse_financials_xml` 본체 + 의존 helper들 통째로 이동 (parser.py 의존성 제거)
+  - `parse_provisional_financial_statement(html)` + `extract_metrics(parsed)`
+  - data/action tool layer 분리 정합 — data tool은 raw 노출, action tool (proxy_advise)은 extract_metrics로 facts evidence
+- 구 `services/agm_first_agenda_fy.py` (정규식 텍스트 파서) archive
+- universe csv 신규 (`260506_universe_kospi_200.csv`, `260506_universe_kosdaq_100.csv`, `260506_universe_kosdaq_150.csv`, `260506_universe_kosdaq_300.csv`, `260506_universe.xlsx`)
+  - source: `esgQuant/.../멀티인덱스_dataguide.xlsx` (시총 내림차순, KOSPI 810 + KOSDAQ 1816 식별 가능)
+- 검증 (삼성전자 2026 AGM): prov_financials 12 metric 정확 (매출 333.6조 등) / summary hierarchy + 1호 메타 + 정정공시 detect / aoi_change 정관 4건
+- decision: [[260506_0030_decision_notice-scope-cleanup-prov-financials]]
+
 ## [2026-05-05] feat | 보수한도 / 퇴직금 분기 정밀화 (G1 99%+ / 5 AGAINST detect)
 - 보수/퇴직 분기 wire 후속 검증 + parser 강화 + financial_metrics fetch chain fix
 - 1차 ralph (260505_1750): 카테고리 분리 + hybrid wire — promise 미발행 (G1 retirement 40%)

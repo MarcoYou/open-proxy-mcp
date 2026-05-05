@@ -17,16 +17,24 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 
 → proxy_advise_before / proxy_result_after 분리 패턴과 consistency. KIND fragile 부분 격리. Claude.ai 동적 tool loading 부담 감소.
 
-## scope (6)
+## scope (5, 260506 정리)
 
 | scope | 데이터 | 시간 |
 |---|---|---|
-| `summary` (default) | 메타 + 정정공시 cover | 0.5s |
-| `agenda` | 안건 트리 (parent/child) | 0.5s |
+| `summary` (default) | 메타 + 정정공시 cover + **안건 hierarchy (number+title+children)** + **1호 안건 메타 (회기/사업연도/배당 예정액)** | 0.5s |
 | `board` | 이사·감사 후보 + 경력 (raw) | 0.5s |
 | `compensation` | 보수한도 안건 + 소진율 | 0.5s |
-| `aoi_change` | 정관변경 (변경 전/후/사유) | 0.5s |
-| `full` | summary+agenda+board+compensation+aoi 병렬 (~5s, results 제외) | 5-8s |
+| `aoi_change` | 정관변경 (변경 전/후/사유) **+ 퇴직금 변경 raw** (260505 통합) | 0.5s |
+| `prov_financials` (NEW 260506) | 잠정 재무제표 4 quadrant raw — consolidated/separate × balance_sheet/income_statement + flat metrics | 0.5s |
+
+### 폐지된 scope (260506)
+
+- `agenda` — summary에 hierarchy 통합 (silent fallback to summary)
+- `full` — 병렬 wrapper, 거의 사용 X. 종합 분석은 `proxy_advise_before_meeting` 호출 (silent fallback to summary)
+
+### 제거된 필드 (시점 분리)
+
+- `result_status` / `result_reference` — 사후 정보, `shareholder_meeting_results` tool 참조
 
 ## source
 
