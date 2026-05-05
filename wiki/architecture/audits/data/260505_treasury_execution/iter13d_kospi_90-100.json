@@ -1,0 +1,159 @@
+{
+  "summary": {
+    "n_companies": 10,
+    "n_ok": 10,
+    "n_decisions_total": 46,
+    "n_executions_total": 26,
+    "g1_body_parsed": {
+      "n_parsed": 26,
+      "n_total": 26,
+      "pct": 100.0,
+      "target_pct": 99.0,
+      "pass": true
+    },
+    "g2_cycle_matched": {
+      "n_matched": 22,
+      "n_total": 26,
+      "n_out_of_lookback": 4,
+      "n_matchable": 22,
+      "pct_raw": 84.62,
+      "pct_adjusted": 100.0,
+      "target_pct": 99.0,
+      "pass": true,
+      "note": "adjusted = matched / (executions in lookback) — out_of_lookback은 결정 record 없어 본질 매칭 불가"
+    },
+    "g3_phase_flag": {
+      "pass": true,
+      "note": "phase=decision/execution 통합 wire 완료"
+    },
+    "g4_scope_consolidated": {
+      "pass": true,
+      "scopes": [
+        "annual",
+        "summary"
+      ]
+    }
+  },
+  "results": [
+    {
+      "ticker": "036570",
+      "name": "엔씨소프트",
+      "status": "exact",
+      "duration_s": 2.5,
+      "n_events": 4,
+      "n_decisions": 2,
+      "n_executions": 2,
+      "n_body_parsed": 2,
+      "n_cycle_matched": 1,
+      "n_out_of_lookback": 1
+    },
+    {
+      "ticker": "454910",
+      "name": "두산로보틱스",
+      "status": "no_filing",
+      "duration_s": 2.9,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "271560",
+      "name": "오리온",
+      "status": "no_filing",
+      "duration_s": 2.7,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "001040",
+      "name": "CJ",
+      "status": "no_filing",
+      "duration_s": 2.6,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "001440",
+      "name": "대한전선",
+      "status": "no_filing",
+      "duration_s": 2.7,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "022100",
+      "name": "포스코DX",
+      "status": "no_filing",
+      "duration_s": 2.7,
+      "n_events": 0,
+      "n_decisions": 0,
+      "n_executions": 0,
+      "n_body_parsed": 0,
+      "n_cycle_matched": 0,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "138930",
+      "name": "BNK금융지주",
+      "status": "exact",
+      "duration_s": 3.8,
+      "n_events": 24,
+      "n_decisions": 16,
+      "n_executions": 8,
+      "n_body_parsed": 8,
+      "n_cycle_matched": 7,
+      "n_out_of_lookback": 1
+    },
+    {
+      "ticker": "175330",
+      "name": "JB금융지주",
+      "status": "exact",
+      "duration_s": 5.2,
+      "n_events": 28,
+      "n_decisions": 18,
+      "n_executions": 10,
+      "n_body_parsed": 10,
+      "n_cycle_matched": 10,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "021240",
+      "name": "코웨이",
+      "status": "exact",
+      "duration_s": 2.3,
+      "n_events": 7,
+      "n_decisions": 5,
+      "n_executions": 2,
+      "n_body_parsed": 2,
+      "n_cycle_matched": 2,
+      "n_out_of_lookback": 0
+    },
+    {
+      "ticker": "241560",
+      "name": "두산밥캣",
+      "status": "exact",
+      "duration_s": 2.0,
+      "n_events": 9,
+      "n_decisions": 5,
+      "n_executions": 4,
+      "n_body_parsed": 4,
+      "n_cycle_matched": 2,
+      "n_out_of_lookback": 2
+    }
+  ]
+}

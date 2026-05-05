@@ -26,7 +26,8 @@ sys.path.insert(0, str(ROOT))
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload, _SUPPORTED_SCOPES  # noqa: E402
 
 
-def _load_universe(name: str, sample: int) -> list[tuple[str, str]]:
+def _load_universe(name: str, sample: int, offset: int = 0) -> list[tuple[str, str]]:
+    """offset부터 sample개 회사. batch 단위 측정 시 활용 — DART 분당 1000 한도 안전."""
     if name == "kospi200":
         path = ROOT / "wiki/architecture/audits/data/260503_universe_200.csv"
     elif name == "kosdaq50":
@@ -38,7 +39,7 @@ def _load_universe(name: str, sample: int) -> list[tuple[str, str]]:
         reader = csv.DictReader(f)
         for row in reader:
             rows.append((row["ticker"], row["company"]))
-    return rows[:sample]
+    return rows[offset:offset + sample]
 
 
 def _audit_one(payload: dict) -> dict:
@@ -138,11 +139,12 @@ async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--universe", default="kospi200")
     parser.add_argument("--sample", type=int, default=50)
+    parser.add_argument("--offset", type=int, default=0, help="시작 index (batch split 시 활용)")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
-    universe = _load_universe(args.universe, args.sample)
+    universe = _load_universe(args.universe, args.sample, offset=args.offset)
     print(f"# treasury audit: {len(universe)} companies, concurrency={args.concurrency}", flush=True)
 
     sem = asyncio.Semaphore(args.concurrency)
