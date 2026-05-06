@@ -559,16 +559,35 @@ async def _build_candidate(
     meeting_type: str,
     target_year: int,
     notice: dict[str, Any],
+    *,
+    fetch_result_filing: bool = True,
 ) -> dict[str, Any]:
+    """notice candidate에 result_filing 정보 결합.
+
+    fetch_result_filing=False일 때 (예: scope=summary/board/compensation):
+    - DART 결과 공시 검색 생략 (5초+ 단축)
+    - meeting_phase는 meeting_date 기준 단순 분류 (pre/post)
+    - result_filing / result_reference 는 None (필요한 scope에서 별도 fetch)
+    """
     meeting_date = _parse_notice_meeting_date(notice.get("datetime", ""))
     result_search_year = meeting_date.year if meeting_date else target_year
-    result_filing, result_filing_warning, result_search_notices = await _find_meeting_result_filing(
-        corp_code,
-        result_search_year,
-        notice,
-    )
-    result_reference = _result_reference(result_filing)
-    meeting_phase, result_status = _meeting_phase(notice, result_filing, result_reference)
+
+    if fetch_result_filing:
+        result_filing, result_filing_warning, result_search_notices = await _find_meeting_result_filing(
+            corp_code,
+            result_search_year,
+            notice,
+        )
+        result_reference = _result_reference(result_filing)
+        meeting_phase, result_status = _meeting_phase(notice, result_filing, result_reference)
+    else:
+        # date 기반 단순 phase 판단 (DART 호출 0)
+        result_filing = None
+        result_filing_warning = None
+        result_search_notices = []
+        result_reference = None
+        meeting_phase, result_status = _meeting_phase(notice, None, None)
+
     return {
         "meeting_type": meeting_type,
         "meeting_type_label": _MEETING_TYPE_MAP[meeting_type],
@@ -630,8 +649,15 @@ async def _select_notice_candidate(
         if not latest_by_type:
             return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 정기/임시 주주총회 소집공고를 찾지 못했다.", search_notices
 
+        # results / full / auto-rank scope에서만 result_filing 검색.
+        # auto 모드는 candidate ranking에 result_filing 사용 → 항상 fetch.
+        # 다른 scope (summary/board/compensation/aoi_change/prov_financials)는 미사용.
+        fetch_result = scope in {"results", "full"} or requested_meeting_type == "auto"
         candidates = await asyncio.gather(*[
-            _build_candidate(corp_code, meeting_type, target_year or window_end.year, notice)
+            _build_candidate(
+                corp_code, meeting_type, target_year or window_end.year, notice,
+                fetch_result_filing=fetch_result,
+            )
             for meeting_type, notice in latest_by_type
         ])
         for candidate in candidates:
@@ -652,7 +678,11 @@ async def _select_notice_candidate(
     latest_notice = _pick_latest_notice(notices)
     if not latest_notice:
         return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 {meeting_type_label} 주주총회 소집공고를 찾지 못했다.", search_notices
-    selected = await _build_candidate(corp_code, requested_meeting_type, target_year or window_end.year, latest_notice)
+    fetch_result = scope in {"results", "full"}
+    selected = await _build_candidate(
+        corp_code, requested_meeting_type, target_year or window_end.year, latest_notice,
+        fetch_result_filing=fetch_result,
+    )
     search_notices.extend(selected.get("search_notices", []))
     basis = f"사용자가 {meeting_type_label} 주주총회를 명시해 해당 회차를 선택했다."
     return selected, [], basis, None, search_notices
