@@ -29,11 +29,15 @@ async def search_filings_by_report_name(
     strip_spaces: bool = False,
     max_pages: int = 10,
     page_count: int = 100,
+    last_reprt_at: str = "",
 ) -> tuple[list[dict[str, Any]], list[str], str | None]:
     """기간 내 공시를 제목 기준으로 타깃 검색.
 
     DART list.json은 제목 직접 검색이 약하므로, 기간/공시유형으로 조회한 뒤
     제목(report_nm) 필터를 적용한다. 페이지는 무한정 넘기지 않고 max_pages까지만 본다.
+
+    last_reprt_at='Y'를 넘기면 정정공시 자동 정리 (최종본만). caller가 원본+정정 모두
+    필요하면 ""로 둔다 (default).
     """
 
     client = get_dart_client()
@@ -51,6 +55,7 @@ async def search_filings_by_report_name(
                 pblntf_ty=pblntf_ty,
                 page_no=1,
                 page_count=page_count,
+                last_reprt_at=last_reprt_at,
             )
         except DartClientError as exc:
             return matched, notices, exc.status
@@ -69,6 +74,7 @@ async def search_filings_by_report_name(
                     pblntf_ty=pblntf_ty,
                     page_no=page_no,
                     page_count=page_count,
+                    last_reprt_at=last_reprt_at,
                 )
             except DartClientError as exc:
                 return matched, notices, exc.status

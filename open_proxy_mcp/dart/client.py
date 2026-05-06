@@ -574,6 +574,7 @@ class DartClient:
         corp_cls: str = "",
         page_no: int = 1,
         page_count: int = 100,
+        last_reprt_at: str = "",
     ) -> dict:
         """공시 검색 (list.json)
 
@@ -586,6 +587,8 @@ class DartClient:
             corp_cls: 법인구분 (Y=유가, K=코스닥, N=코넥스, E=기타)
             page_no: 페이지 번호
             page_count: 페이지당 건수 (최대 100)
+            last_reprt_at: "Y" 시 정정공시 자동 정리 (최종본만 반환).
+                "" 또는 "N"이면 원본 + 정정 모두 반환 (default).
 
         Returns:
             {"list": [...], "total_count": ..., ...}
@@ -593,7 +596,7 @@ class DartClient:
         # 캐싱: corp_code 있고 page_no==1, page_count==100일 때만
         _cacheable = bool(corp_code) and not corp_name and not corp_cls and page_no == 1 and page_count == 100
         if _cacheable:
-            _cache_key = f"{corp_code}|{bgn_de}|{end_de}|{pblntf_ty}"
+            _cache_key = f"{corp_code}|{bgn_de}|{end_de}|{pblntf_ty}|{last_reprt_at}"
             if _cache_key in self._search_cache:
                 return self._search_cache[_cache_key]
 
@@ -611,6 +614,8 @@ class DartClient:
             params["corp_name"] = corp_name
         if corp_cls:
             params["corp_cls"] = corp_cls
+        if last_reprt_at in ("Y", "N"):
+            params["last_reprt_at"] = last_reprt_at
 
         result = await self._request("list.json", params)
 
