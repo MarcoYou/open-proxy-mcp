@@ -92,12 +92,15 @@ async def _candidate_notices_range(
     end_de: str,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     client = get_dart_client()
+    # last_reprt_at='Y' — 정정공시 자동 정리 (최종본만). 정정 다수 회사
+    # (현대차/삼성전자 등)에서 candidate 개수 N=2-3 → 1로 줄어듦.
     filings, notices, error = await search_filings_by_report_name(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
         pblntf_tys="E",
         keywords=("소집",),
+        last_reprt_at="Y",
     )
     if error:
         raise DartClientError(error, "주총 소집공고 검색 실패")
@@ -107,6 +110,7 @@ async def _candidate_notices_range(
             data = await client.search_filings(
                 corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
                 pblntf_ty=None,  # 전 type
+                last_reprt_at="Y",
             )
             all_items = data.get("list", []) or []
             filings = [
