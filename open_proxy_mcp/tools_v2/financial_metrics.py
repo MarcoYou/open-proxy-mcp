@@ -316,11 +316,11 @@ def register_tools(mcp):
         consolidated: bool = True,
         format: str = "md",
     ) -> str:
-        """desc: DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk 지표. 한국 표준(연결, 지배주주 귀속). 듀퐁 3단 분해, FCF, NWC, accruals_gap, 감사의견 추이 자동 산출.
-        when: 회사의 재무 펀더멘탈 + 회계 risk 진단 / 적자전환·턴어라운드·이자보상배율·CFO quality 자동 alert / 사외이사 후보 cross-check (재직 시점 회계 사건 추적). vote_brief 보조.
-        rule: source = ① fnlttSinglAcnt (BS+IS 핵심 30행) ② fnlttSinglIndx (DART 산출 ROE/부채비율 등 보조) ③ fnlttSinglAcntAll (CF + 세부 IS/BS 213행) ④ accnutAdtorNmNdAdtOpinion (감사인+의견+KAM, 3년 추이). 모든 금액은 raw KRW int(_krw suffix), %는 float(_pct), 비율은 decimal(_ratio). 연결(CFS) default — 분모 0/음수 graceful, 적자 회사 ROE/배당성향 None 처리.
-        scope: `summary`(기본 51개 핵심 지표 1년) / `yearly`(최근 N년 추이) / `quarterly`(최근 12분기) / `yoy`(전년 대비 + 22개 alert + 감사의견 cross-check) / `qoq`(전분기 대비) / `audit_opinion`(감사의견 3년 추이 — 한정/부적정/감사인 변경 추적).
-        ref: dividend (DPS/CSR/TSR), corp_gov_report (15 거버넌스 원칙), shareholder_meeting (사외이사 후보), evidence
+        """desc: DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk. 한국 표준(연결, 지배주주 귀속). 듀퐁·FCF·NWC·accruals_gap·감사의견 자동 산출.
+        when: 재무 펀더멘탈 + 회계 risk 진단 / 적자전환·턴어라운드·이자보상배율 alert / 사외이사 후보 재직 시점 회계 사건 cross-check.
+        rule: source = fnlttSinglAcnt(BS+IS 30행) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 raw KRW int(_krw), %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful.
+        scope: `summary` 51 핵심 지표 1년 / `yearly` N년 추이 / `quarterly` 12분기 / `yoy` 전년+22 alert / `qoq` 전분기 / `audit_opinion` 3년 추이
+        ref: dividend, corp_gov_report, shareholder_meeting_notice, evidence
         """
         payload = await build_financial_metrics_payload(
             company,

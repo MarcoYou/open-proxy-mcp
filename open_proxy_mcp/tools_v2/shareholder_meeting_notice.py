@@ -33,12 +33,12 @@ def register_tools(mcp):
         lookback_months: int = 12,
         format: str = "md",
     ) -> str:
-        """desc: 주주총회 **소집공고** (사전) — DART 기반. 안건·이사 후보·보수한도·정관변경. 빠르고 안정적 (DART API/XML).
-        when: 주총 일정, 안건, 후보자, 보수한도, 정관변경 확인. 주총 결과는 별도 `shareholder_meeting_results`. 종합 분석은 `proxy_advise_before_meeting`.
-        rule: 회사 식별이 exact가 아니면 자동 선택 안 함. 정정공시 있으면 최신 정정본 자동 선택. 소스는 DART 공시검색 + DART XML. PDF 다운로드 미사용.
-        meeting_type: `auto`=정기/임시 최신 회차 비교 후 대표성 높은 쪽 / `annual`=정기만 / `extraordinary`=임시만
-        scope: `summary`(기본, 메타+안건 hierarchy+1호 안건 메타) / `board`(이사·감사 후보 경력) / `compensation`(보수한도) / `aoi_change`(정관변경 변경전/후 + 퇴직금 변경 raw) / `prov_financials`(잠정 재무제표 4 quadrant — consolidated/separate × balance/income, 1호 안건 본문 raw)
-        ref: company, ownership_structure, proxy_contest, shareholder_meeting_results (사후 결과), proxy_advise_before_meeting (종합 분석), evidence
+        """desc: 주주총회 **소집공고** (사전, DART API/XML). 안건·이사 후보·보수한도·정관변경.
+        when: 주총 일정·안건·후보·보수·정관 확인. 결과는 `shareholder_meeting_results`, 종합 분석은 `proxy_advise_before_meeting`.
+        rule: 회사 식별 exact만 자동 선택. 정정공시 있으면 최신 정정본 자동 선택.
+        meeting_type: `auto`(정기/임시 최신 회차 자동) / `annual` / `extraordinary`
+        scope: `summary` 메타+안건+1호 메타 / `board` 이사·감사 후보 / `compensation` 보수한도 / `aoi_change` 정관+퇴직금 변경 raw / `prov_financials` 잠정 재무제표 4 quadrant
+        ref: company, ownership_structure, proxy_contest, shareholder_meeting_results, proxy_advise_before_meeting, evidence
         """
         # 260505 ralph: deprecated scopes (agenda, full) — silent fallback to summary
         if scope in _DEPRECATED_SCOPES:

@@ -157,11 +157,11 @@ def register_tools(mcp):
         lookback_months: int = 12,
         format: str = "md",
     ) -> str:
-        """desc: 위임장·공개매수·소송·5% 경영참여 시그널을 모아 분쟁/액티비즘 탭을 구성. **자동 분류는 하지 않고 힌트만 제공** (filer_has_5pct_active_block, filer_in_litigation). 애널리스트가 종합 판단.
-        when: 경영권 분쟁 여부, 주주측 캠페인, 소송 이력, 능동적 5% 보유, 표 대결 신호를 함께 보고 싶을 때.
-        rule: DART D/B/I 공시만 사용 (KIND false match 위험). 위임장 filer 3-way 분류 — `company`(회사측)/`shareholder`(주주측)/`retail_activism`(소액주주 플랫폼: 컨두잇·헤이홀더·비사이드코리아). `has_contest_signal`은 shareholder OR litigation OR external_active_block만 반영 (retail_activism, registry_overlap 제외). vote_math는 주총 결과 있을 때 보수적으로, 승패 예측 X.
-        scope: `summary`(기본) / `fight`(위임장 + 교차 힌트) / `litigation`(소송) / `signals`(5% 대량보유) / `timeline`(전 이벤트) / `vote_math`(표 구조).
-        ref: shareholder_meeting, ownership_structure, company, evidence
+        """desc: 위임장·소송·5% 경영참여 시그널 통합. **자동 분류 X 힌트 제공** (filer_has_5pct_active_block 등). 애널리스트 종합 판단.
+        when: 경영권 분쟁, 주주 캠페인, 소송, 능동적 5% 보유, 표 대결 신호.
+        rule: DART D/B/I만 (KIND false match 위험). 위임장 filer 3-way: company/shareholder/retail_activism(컨두잇·헤이홀더 등). has_contest_signal은 shareholder OR litigation OR external_active_block만. vote_math는 보수적, 승패 예측 X.
+        scope: `summary` / `fight` 위임장+힌트 / `litigation` / `signals` 5% 대량보유 / `timeline` 전 이벤트 / `vote_math` 표 구조
+        ref: shareholder_meeting_notice, ownership_structure, company, evidence
         """
         payload = await build_proxy_contest_payload(
             company,

@@ -179,12 +179,12 @@ def register_tools(mcp):
         details_limit: int = 5,
         format: str = "md",
     ) -> str:
-        """desc: 타법인주식 거래(취득/처분) + 단일판매·공급계약(체결/해지) 공시 통합. 일감몰아주기·내부거래 모니터링. 기본은 list.json 메타, `include_details=True`면 원문 파싱으로 거래 상대방/금액/자산대비비율/특수관계 힌트까지 노출.
-        when: 타법인주식 빈번 매매(자회사·관계회사 출자 변경), 단일공급계약 체결 패턴(특정 거래처 의존도), 자회사 주요경영사항 공시 흐름 추적. 일감몰아주기 사전 신호. 깊은 분석이 필요하면 `include_details=True`.
-        rule: DART list.json + 제목 키워드 — 타법인주식: `B/I` pblntf_ty + ("타법인주식및출자증권양수/양도/취득/처분결정") / 공급계약: `I` pblntf_ty + ("단일판매ㆍ공급계약체결/해지"). 자회사 주요경영사항/자율공시/[기재정정] 플래그 별도 표시. 기본 lookback 24개월. include_details=True 시 최근 N건(기본 5) DART 원문 다운로드 + 파싱(상대방명, 관계, 금액, 자산/매출대비비율, 방법, 목적).
-        scope: `summary`(기본, 통합 timeline) / `equity_deal`(타법인주식 거래) / `supply_contract`(단일공급계약).
-        include_details: True면 원문 파싱 상세 추가 (DART API 호출 N회 증가). 기본 False.
-        details_limit: 원문 파싱 대상 건수 (기본 5, 최대 10 권장).
+        """desc: 타법인주식 거래(취득/처분) + 단일공급계약(체결/해지) 공시 통합. 일감몰아주기·내부거래 모니터링. include_details=True면 거래 상대방/금액/자산대비비율/특수관계 힌트.
+        when: 출자 변경, 단일공급계약 체결 패턴(거래처 의존도), 자회사 주요경영사항 흐름 추적. 일감몰아주기 신호.
+        rule: DART list.json — 타법인주식: B/I + 양수/양도/취득/처분결정 키워드 / 공급계약: I + 단일판매ㆍ공급계약체결/해지. 자회사 주요경영사항/자율공시/[기재정정] 플래그 별도 표시. 기본 lookback 24개월. include_details=True 시 최근 N건 원문 파싱(상대방·관계·금액·비율·목적).
+        scope: `summary` 통합 timeline / `equity_deal` 타법인주식 / `supply_contract` 단일공급계약
+        include_details: True면 원문 파싱 추가 (DART 호출 N회 증가).
+        details_limit: 원문 파싱 건수 (기본 5, 최대 10).
         ref: ownership_structure (지분 변화), corporate_restructuring (M&A 맥락), evidence (원문 확인)
         """
         payload = await build_related_party_transaction_payload(

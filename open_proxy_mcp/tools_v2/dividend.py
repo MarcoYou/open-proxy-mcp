@@ -117,11 +117,11 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 실지급·확정된 배당 **사실** 탭. DPS, 총액, 배당성향, 시가배당률, 분기별 추이. 미래 정책·약속 X.
-        when: 이번 기 실제 지급된 배당·확정 지급 수치 확인. 분기배당 회사는 scope=`history`로 분기별 breakdown 확인. 미래 정책/약속·환원율(CSR)은 `value_up`.
-        rule: source of truth 2단 — (1) 사업보고서 `alotMatter` (완료 사업연도 공식값) (2) `현금ㆍ현물배당결정` 공시 합산 (alotMatter가 비거나 cash_dps=0일 때 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법 cover). 정정공시 `is_superseded` 표시. **정책 예측·미래 약속 추가 금지**.
-        scope: `summary`(기본, 선배당-후결의 + 감액배당 메타 포함) / `detail`(요약+최근 결정 50건) / `history`(최근 N년 추이 + 분기별 breakdown + policy_signals).
-        ref: value_up (주주환원 정책·약속·CSR), treasury_share (자사주 매입/소각 결정), shareholder_meeting (감액배당 안건), company, ownership_structure, evidence
+        """desc: 실지급·확정된 배당 **사실**. DPS, 총액, 배당성향, 시가배당률, 분기별 추이. 미래 정책·약속 X.
+        when: 실제 지급된 배당 확인. 분기배당 회사는 `history`로 분기별 breakdown. 미래 정책/약속은 `value_up`.
+        rule: source 2단 — (1) 사업보고서 alotMatter(공식값) (2) 현금ㆍ현물배당결정 합산(alotMatter 빈 경우 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법). 정정공시 is_superseded 표시. 미래 약속 추가 금지.
+        scope: `summary` 선배당-후결의+감액배당 메타 / `detail` 요약+최근 결정 50건 / `history` N년 추이+분기 breakdown+policy_signals
+        ref: value_up, treasury_share, shareholder_meeting_notice, company, ownership_structure, evidence
         """
         payload = await build_dividend_payload(
             company,

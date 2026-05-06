@@ -194,14 +194,11 @@ def register_tools(mcp):
         lookback_months: int = 24,
         format: str = "md",
     ) -> str:
-        """desc: 자기주식 이벤트 통합. **결정 5종 (decisions, 사전 의도) + 결과보고서 4종 (executions, 사후 집행)** 한 탭에서 집계. 주주환원 검증 = 결정만 X, 실제 집행 결과까지 cross-check.
-        when: 자사주 취득·처분·소각·신탁 이력·규모 확인. 결정↔결과 사이클 매칭으로 "정말 집행했나?" 검증.
-        rule: 9 source 병렬 조회 —
-          [Decisions] (1) tsstkAqDecsn 취득결정 (2) tsstkDpDecsn 처분결정 (3) tsstkAqTrctrCnsDecsn 신탁체결 (4) tsstkAqTrctrCcDecsn 신탁해지 (5) list.json keyword 소각결정
-          [Executions, NEW] (6) 자기주식취득결과보고서 (7) 자기주식처분결과보고서 (8) 신탁계약에의한취득상황보고서 (9) 신탁계약해지결과보고서
-          모두 list.json + DART 표준 서식 ACODE 본문 파싱 (자본시장법 시행령 별지). 사이클 매칭은 본문 "주요사항보고서 제출일" / "신탁계약 체결일" ↔ decision rcept_dt.
-        scope: `summary`(기본, 모든 events + type별 breakdown + cycle 매칭) / `annual`(사업보고서 기반 연간 누적 잔고).
-        ref: value_up (주주환원 정책), ownership_structure (5%블록·최대주주), dividend (배당), evidence
+        """desc: 자기주식 이벤트 통합. **결정 5종(사전 의도) + 결과보고서 4종(사후 집행)** 통합 집계. 주주환원 검증 = 결정만 X, 실제 집행 cross-check.
+        when: 자사주 취득·처분·소각·신탁 이력·규모. 결정↔결과 사이클 매칭으로 집행 검증.
+        rule: 9 source 병렬 — Decisions: tsstkAqDecsn(취득)/tsstkDpDecsn(처분)/tsstkAqTrctrCnsDecsn(신탁체결)/tsstkAqTrctrCcDecsn(신탁해지)/소각결정. Executions: 취득결과/처분결과/신탁취득상황/신탁해지결과 보고서. ACODE 본문 파싱. 사이클 매칭은 "주요사항보고서 제출일" / "신탁계약 체결일" ↔ decision rcept_dt.
+        scope: `summary` 모든 events + breakdown + cycle 매칭 / `annual` 사업보고서 연간 누적 잔고
+        ref: value_up, ownership_structure, dividend, evidence
         """
         payload = await build_treasury_share_payload(
             company,

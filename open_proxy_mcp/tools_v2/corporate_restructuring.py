@@ -175,10 +175,10 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 지배구조 재편 4종(회사합병/분할/분할합병/주식교환·이전) 결정 통합. 합병비율, 상대방 재무, 신주발행, 외부평가, 주식매수청구권 등 timeline + 4종 detail card 한 번에 제공.
+        """desc: 지배구조 재편 4종(합병/분할/분할합병/주식교환·이전) 결정 통합. 합병비율·상대방 재무·신주발행·외부평가·주식매수청구권 + timeline + detail card.
         when: M&A·지주회사 전환·자회사 흡수 분석. 주식매수청구권 가격, 합병비율, 상대방 재무 비교.
-        rule: DART 주요사항보고서(DS005) 4 API 병렬 — `cmpMgDecsn`(합병), `cmpDvDecsn`(분할), `cmpDvmgDecsn`(분할합병), `stkExtrDecsn`(주식교환·이전). 기본 lookback 24개월.
-        ref: ownership_structure (지분 변화), shareholder_meeting_notice (관련 주총), evidence
+        rule: DART DS005 4 API 병렬 — cmpMgDecsn/cmpDvDecsn/cmpDvmgDecsn/stkExtrDecsn. 기본 lookback 24개월.
+        ref: ownership_structure, shareholder_meeting_notice, evidence
         """
         payload = await build_corporate_restructuring_payload(
             company,

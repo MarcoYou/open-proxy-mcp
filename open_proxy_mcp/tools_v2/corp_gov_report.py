@@ -194,12 +194,12 @@ def register_tools(mcp):
         year: int = 0,
         format: str = "md",
     ) -> str:
-        """desc: 기업지배구조보고서(거버넌스 종합 평가) data tool. 최대주주/지분율/소액주주 + 15개 핵심지표 준수 여부(O/X) + 세부원칙 응답 + 제출 이력 + 연도별 추이 제공. **2026년 제출분부터 KOSPI 전체 의무** (이전: 2024=자산 5천억+, 2022=자산 1조+, 2019=자산 2조+), KOSDAQ은 자율공시. 제출 시한 매년 5월말, 연중 `[기재정정]` 재제출 빈번.
-        when: 거버넌스 종합 평가, 15개 지표 준수 현황, **연도별 준수율 변화 추적**, ISS·Glass Lewis 수준 배경자료. prepare_vote_brief/engagement_case에 거시 컨텍스트 추가.
-        rule: DART 전용 구조화 API 없음 — `list.json`(pblntf_ty=I) + 키워드 `"기업지배구조보고서공시"` (금융지주 "연차보고서" 등 다른 서식 제외) + 원문 다운로드·파싱. 기본 lookback 4년. 파싱 원리: 15개 표준 지표 라벨 prefix 매칭으로 위치 찾고 블록별로 O/X 2개(당기·직전) + 비고 텍스트 추출. 비고 없는 서식(삼성) / 일부만 비고(SK하이닉스) / 매건 비고(현대차) 모두 지원.
-        scope: `summary`(기본, 기업개요 + 준수율 + 15지표 ✅/❌) / `metrics`(15 지표 당기·직전기 + 비고 상세) / `principles`(세부원칙별 응답 텍스트) / `filings`(제출 이력) / `timeline`(연도별 준수율 추이 + 지표 전환: improved / regressed / changed).
-        year: 특정 사업연도 지정(예: 2023). 기본 0이면 최신 보고서.
-        ref: ownership_structure (지배구조), shareholder_meeting (주총 운영), proxy_contest (분쟁 맥락), evidence (원문)
+        """desc: 기업지배구조보고서. 최대주주/지분율 + 15개 핵심지표 O/X + 세부원칙 응답 + 연도별 추이. **2026 제출분부터 KOSPI 전체 의무**, KOSDAQ 자율. 제출 시한 매년 5월말, 연중 정정 빈번.
+        when: 거버넌스 종합 평가, 15개 지표 준수 현황, 연도별 변화 추적. ISS·Glass Lewis 수준 배경자료.
+        rule: DART list.json + 키워드 "기업지배구조보고서공시" + 원문 파싱. 기본 lookback 4년. 15개 표준 지표 라벨 prefix 매칭으로 O/X 당기·직전기 + 비고 추출.
+        scope: `summary` 기업개요+준수율+15지표 / `metrics` 15지표 + 비고 상세 / `principles` 세부원칙 응답 / `filings` 제출 이력 / `timeline` 연도별 추이 + 지표 전환
+        year: 사업연도 지정 (0이면 최신).
+        ref: ownership_structure, shareholder_meeting_notice, proxy_contest, evidence
         """
         payload = await build_corp_gov_report_payload(
             company,

@@ -177,11 +177,11 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 최대주주·특수관계인·5% 대량보유 지분 구조. 판의 구조(who holds what). 자사주 detail은 treasury_share tool 별도.
-        when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널 분석.
-        rule: 사업보고서 기반 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문(document.xml)으로 보강. KIND 비사용 (false match 위험).
-        scope: `summary`(기본, 최대주주+5%블록+자사주 snapshot) / `major_holders`(최대주주+특수관계인 detail) / `blocks`(5% 대량보유 최신 + 이력) / `control_map`(3대 카테고리: 명부 등재/외부 능동/수동) / `changes`(최대주주등소유주식변동신고서 KIND 원문)
-        ref: treasury_share (자사주 detail), proxy_contest (분쟁 맥락), evidence
+        """desc: 최대주주·특수관계인·5% 대량보유 지분 구조. 자사주 detail은 `treasury_share` 별도.
+        when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널.
+        rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback.
+        scope: `summary` 최대주주+5%블록+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동) / `changes` 변동신고서
+        ref: treasury_share, proxy_contest, evidence
         """
         payload = await build_ownership_structure_payload(
             company,

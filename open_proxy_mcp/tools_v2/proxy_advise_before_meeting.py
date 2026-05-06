@@ -299,13 +299,13 @@ def register_tools(mcp):
         check_audit_history: bool = False,
         format: str = "md",
     ) -> str:
-        """desc: 주총 **소집 전** 안건별 의결권 권고. **1회 호출**로 핵심 모두: 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts + risk_factors + policy_citation + 근거 공고 + 후보 평가 (전문성·경력·추천사유) + 재무/거버넌스 summary.
-        when: 주총 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고용. 사후 결과는 `proxy_result_after_meeting` 별도.
-        rule: 운용사 의결권 행사 보고서 스타일. hard-fail 항목 (형사 처벌 / 사적 관계 / 동명이인) 메모에서 침묵. 자동 검증 가능 항목만 표기. soft-fail 항목 (후보 약력 / 정관 본문) raw 노출 — LLM이 자연어 판단.
-        vote_style: open_proxy (default OPM 자체 정책) / mirae_asset / samsung / samsung_active / kim / truston / align_partners / cha_partners / baring / nps (국민연금)
-        check_audit_history: True 시 후보 과거 회사 × 재직 기간 × 회계 risk overlap 자동 cross-check (추가 DART 호출, +30s)
-        meeting_type: annual (default 정기) / extraordinary (임시) / auto (본문 자동 detect)
-        ref: 영역별 raw — shareholder_meeting_notice (안건/이사후보) / financial_metrics (재무 51 지표) / corp_gov_report (거버넌스) / ownership_structure (지분) / proxy_contest (분쟁) / value_up (가치제고). 사후 결과: proxy_result_after_meeting
+        """desc: 주총 **소집 전** 안건별 의결권 권고. 1회 호출로: 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts + risk_factors + policy_citation + 근거 공고 + 후보 평가 + 재무/거버넌스 summary.
+        when: 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고. 사후 결과는 `proxy_result_after_meeting`.
+        rule: 운용사 의결권 행사 보고서 스타일. hard-fail(형사 처벌/사적 관계/동명이인) 자동 검증 가능 항목만 표기. soft-fail(후보 약력/정관 본문) raw 노출 — LLM 판단.
+        vote_style: open_proxy(default) / mirae_asset / samsung / samsung_active / kim / truston / align_partners / cha_partners / baring / nps
+        check_audit_history: True 시 후보 과거 회사 × 회계 risk overlap cross-check (+30s)
+        meeting_type: `annual`(default) / `extraordinary` / `auto`
+        ref: shareholder_meeting_notice, financial_metrics, corp_gov_report, ownership_structure, proxy_contest, value_up, proxy_result_after_meeting
         """
         payload = await build_proxy_advise_payload(
             company,

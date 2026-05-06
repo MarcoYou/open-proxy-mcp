@@ -186,10 +186,10 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 희석성 증권 발행 4종(유상증자/전환사채/신주인수권부사채/감자) 결정 통합. 발행조건, 잠재 희석률, 3자배정 여부, 풋옵션, refixing 등 핵심 수치 + timeline + 4종 detail card 모두 한 번에 제공.
-        when: 행동주의 대응 자금조달, 경영권 방어용 우호 지분 확보, CB·BW 잠재 희석 평가, 유상증자 3자배정 대상 식별. ownership_structure 교차 권장.
-        rule: DART 주요사항보고서(DS005) 4 API 병렬 호출 — `piicDecsn`(유상증자), `cvbdIsDecsn`(CB), `bdwtIsDecsn`(BW), `crDecsn`(감자). 기본 lookback 24개월.
-        ref: ownership_structure (3자배정 지분 변동), corporate_restructuring (M&A 맥락), proxy_contest (분쟁 자금조달), evidence
+        """desc: 희석성 증권 4종(유상증자/CB/BW/감자) 결정 통합. 발행조건·잠재 희석률·3자배정·풋옵션·refixing + timeline + detail card.
+        when: 행동주의 대응 자금조달, 경영권 방어 지분 확보, CB·BW 잠재 희석 평가, 3자배정 대상 식별. ownership_structure 교차 권장.
+        rule: DART DS005 4 API 병렬 — piicDecsn/cvbdIsDecsn/bdwtIsDecsn/crDecsn. 기본 lookback 24개월.
+        ref: ownership_structure, corporate_restructuring, proxy_contest, evidence
         """
         payload = await build_dilutive_issuance_payload(
             company,

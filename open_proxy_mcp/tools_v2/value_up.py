@@ -121,11 +121,11 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 기업가치제고계획(밸류업) 공시 + 핵심 commitment 문장. 주주환원 **정책·미래 약속** 탭. 자사주 소각 이행 교차참조 포함.
-        when: 밸류업 계획, 주주환원 commitment, ROE/PBR/배당성향 목표, 자사주 소각 계획 등 **미래 약속**을 확인할 때. 실제 배당은 `dividend`, 자사주 소각 사실은 `treasury_share`에서 교차 확인.
-        rule: DART 거래소 공시(I) 밸류업 키워드 검색 → 없으면 KIND `기업가치 제고 계획(0184)` 재시도. 공시 카테고리 자동 분류 — `plan`(원본 계획)/`progress`(이행현황)/`meta_amendment`(고배당기업 형식 재공시). 최신이 meta_amendment면 실계획 본문을 `latest_plan`으로 별도 노출. summary/commitments scope에 최근 24개월 자사주 이벤트 교차참조(`treasury_cross_ref`) 포함.
-        scope: `summary`(기본) / `plan`(원문 발췌 포함) / `commitments`(핵심 약속 + 이행 교차참조) / `timeline`(공시 이력).
-        ref: dividend (실지급 배당), treasury_share (자사주 이벤트), ownership_structure, company, evidence
+        """desc: 기업가치제고계획(밸류업) 공시 + commitment 문장. 주주환원 **정책·미래 약속**. 자사주 소각 이행 교차참조 포함.
+        when: 밸류업 계획, ROE/PBR/배당성향 목표, 자사주 소각 계획 등 미래 약속. 실제 배당은 `dividend`, 자사주 사실은 `treasury_share`.
+        rule: DART I 밸류업 키워드 → 없으면 KIND 0184 fallback. 공시 카테고리: plan/progress/meta_amendment(고배당기업 재공시). 최신이 meta_amendment면 실계획 본문을 latest_plan으로 별도. summary/commitments에 24개월 자사주 이벤트 treasury_cross_ref 포함.
+        scope: `summary` / `plan` 원문 발췌 / `commitments` 핵심 약속+이행 교차참조 / `timeline` 공시 이력
+        ref: dividend, treasury_share, ownership_structure, company, evidence
         """
         payload = await build_value_up_payload(
             company,

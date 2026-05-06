@@ -23,11 +23,11 @@ def register_tools(mcp):
         lookback_months: int = 12,
         format: str = "md",
     ) -> str:
-        """desc: 주주총회 **의결 결과** (사후) — KIND 기반. 안건별 가결/부결 + 찬반율. 4-5s (KIND 웹 스크래핑).
-        when: 주총 종료 후 실제 의결 결과 확인. 사전 안건은 `shareholder_meeting_notice`. 종합 결과 보고는 `proxy_result_after_meeting`.
-        rule: rcept_no 80→00 변환으로 KIND whitelist 매칭. PDF 다운로드 X. 결과 미공시 (가결 후 KIND 노출 지연) 시 status=pending_or_missing.
-        meeting_type: `auto`=대표성 높은 회차 자동 / `annual` / `extraordinary`
-        ref: shareholder_meeting_notice (사전 안건), proxy_result_after_meeting (종합 사후 보고), evidence
+        """desc: 주주총회 **의결 결과** (사후). 안건별 가결/부결 + 찬반율. DART API 우선, KIND fallback.
+        when: 주총 종료 후 실제 의결 결과 확인. 사전 안건은 `shareholder_meeting_notice`. 종합 보고는 `proxy_result_after_meeting`.
+        rule: rcept_no 80 prefix (수시공시) 본문 fetch. 결과 미공시(KIND 노출 지연) 시 status=pending_or_missing.
+        meeting_type: `auto` / `annual` / `extraordinary`
+        ref: shareholder_meeting_notice, proxy_result_after_meeting, evidence
         """
         payload = await build_shareholder_meeting_payload(
             company,
