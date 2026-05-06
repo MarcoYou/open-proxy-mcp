@@ -233,6 +233,17 @@ class DartClient:
         self._MAX_SEARCH_CACHE = 50
         # 사용량 추적 (각 service가 snapshot으로 차이 계산)
         self._request_counter = 0
+        # Persistent HTTP client — connection pool 재사용으로 TLS handshake 중복 제거.
+        # 매 요청마다 새 AsyncClient 생성 시 100-300ms TLS 비용 → 재사용 시 0ms.
+        # fly machine restart 시 OS가 자동 정리, leak 위험 최소.
+        self._http = httpx.AsyncClient(
+            timeout=httpx.Timeout(30.0, connect=10.0),
+            limits=httpx.Limits(
+                max_connections=20,
+                max_keepalive_connections=10,
+                keepalive_expiry=60.0,
+            ),
+        )
 
     def _doc_cache_get(self, cache: dict, key: str) -> dict | None:
         """LRU + TTL get. expired면 제거 + None 반환."""
@@ -283,10 +294,9 @@ class DartClient:
         params["crtfc_key"] = self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"
 
-        async with httpx.AsyncClient() as http:
-            response = await http.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
+        response = await self._http.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json()
 
         # DART API는 status "000"이 정상
         status = data.get("status", "")
@@ -294,10 +304,9 @@ class DartClient:
             # 속도 제한("020") 등 일시적 에러 시 보조 키로 재시도
             if self._rotate_key():
                 params["crtfc_key"] = self.api_key
-                async with httpx.AsyncClient() as http:
-                    response = await http.get(url, params=params, timeout=30)
-                    response.raise_for_status()
-                    data = response.json()
+                response = await self._http.get(url, params=params, timeout=30)
+                response.raise_for_status()
+                data = response.json()
                 status = data.get("status", "")
                 if status == "000":
                     return data
@@ -319,9 +328,8 @@ class DartClient:
 
         # corpCode.xml은 50MB라 cold start 시 60s 부족 → 120s
         timeout = 120 if endpoint == "corpCode.xml" else 60
-        async with httpx.AsyncClient() as http:
-            response = await http.get(url, params=params, timeout=timeout)
-            response.raise_for_status()
+        response = await self._http.get(url, params=params, timeout=timeout)
+        response.raise_for_status()
 
         content = response.content
 
@@ -340,9 +348,8 @@ class DartClient:
         # ZIP도 XML도 아닌 비정상 응답 → 보조 키로 재시도
         if self._rotate_key():
             params["crtfc_key"] = self.api_key
-            async with httpx.AsyncClient() as http:
-                response = await http.get(url, params=params, timeout=60)
-                response.raise_for_status()
+            response = await self._http.get(url, params=params, timeout=60)
+            response.raise_for_status()
             content = response.content
             if content[:5] == b'<?xml':
                 import re
@@ -552,29 +559,28 @@ class DartClient:
             {"sector_name": "반도체와반도체장비", "sector_code": "278"} 또는 {}
         """
         try:
-            async with httpx.AsyncClient() as http:
-                await asyncio.sleep(2.0)  # 웹 스크래핑 최소 간격
-                r = await http.get(
-                    f"https://finance.naver.com/item/coinfo.naver?code={stock_code}",
-                    headers={"User-Agent": "Mozilla/5.0"},
-                    timeout=10,
-                )
-                # 업종 링크에서 no 추출
-                m = re.search(r'sise_group_detail\.naver\?type=upjong&no=(\d+)', r.text)
-                if not m:
-                    return {}
-                sector_code = m.group(1)
+            await asyncio.sleep(2.0)  # 웹 스크래핑 최소 간격
+            r = await self._http.get(
+                f"https://finance.naver.com/item/coinfo.naver?code={stock_code}",
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10,
+            )
+            # 업종 링크에서 no 추출
+            m = re.search(r'sise_group_detail\.naver\?type=upjong&no=(\d+)', r.text)
+            if not m:
+                return {}
+            sector_code = m.group(1)
 
-                await asyncio.sleep(2.0)
-                r2 = await http.get(
-                    f"https://finance.naver.com/sise/sise_group_detail.naver?type=upjong&no={sector_code}",
-                    headers={"User-Agent": "Mozilla/5.0"},
-                    timeout=10,
-                )
-                # title: "반도체와반도체장비 : Npay 증권"
-                m2 = re.search(r'<title>([^:]+)\s*:', r2.text)
-                sector_name = m2.group(1).strip() if m2 else ""
-                return {"sector_name": sector_name, "sector_code": sector_code}
+            await asyncio.sleep(2.0)
+            r2 = await self._http.get(
+                f"https://finance.naver.com/sise/sise_group_detail.naver?type=upjong&no={sector_code}",
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10,
+            )
+            # title: "반도체와반도체장비 : Npay 증권"
+            m2 = re.search(r'<title>([^:]+)\s*:', r2.text)
+            sector_name = m2.group(1).strip() if m2 else ""
+            return {"sector_name": sector_name, "sector_code": sector_code}
         except Exception:
             return {}
 
@@ -809,11 +815,10 @@ class DartClient:
         await self._throttle_web()
         url = f"{DART_WEB_BASE_URL}/dsaf001/main.do?rcpNo={rcept_no}"
 
-        async with httpx.AsyncClient() as http:
-            response = await http.get(url, timeout=30, headers={
-                "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
-            })
-            response.raise_for_status()
+        response = await self._http.get(url, timeout=30, headers={
+            "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+        })
+        response.raise_for_status()
 
         html = response.text
         # makeToc() 안의 node1['dcmNo'] = "XXXXXXXX"; 패턴
@@ -830,15 +835,14 @@ class DartClient:
         await self._throttle_web()
         url = f"{DART_WEB_BASE_URL}/dsaf001/main.do?rcpNo={rcept_no}"
 
-        async with httpx.AsyncClient() as http:
-            response = await http.get(
-                url,
-                timeout=30,
-                headers={
-                    "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
-                },
-            )
-            response.raise_for_status()
+        response = await self._http.get(
+            url,
+            timeout=30,
+            headers={
+                "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+            },
+        )
+        response.raise_for_status()
         return response.text
 
     def _extract_viewer_nodes(self, main_html: str) -> list[dict]:
@@ -870,16 +874,15 @@ class DartClient:
             "length": node["length"],
             "dtd": node["dtd"],
         }
-        async with httpx.AsyncClient() as http:
-            response = await http.get(
-                f"{DART_WEB_BASE_URL}/report/viewer.do",
-                params=params,
-                timeout=30,
-                headers={
-                    "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
-                },
-            )
-            response.raise_for_status()
+        response = await self._http.get(
+            f"{DART_WEB_BASE_URL}/report/viewer.do",
+            params=params,
+            timeout=30,
+            headers={
+                "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+            },
+        )
+        response.raise_for_status()
         return response.text
 
     async def get_viewer_document(
@@ -958,16 +961,15 @@ class DartClient:
         await self._throttle_web()
         url = f"{DART_WEB_BASE_URL}/pdf/download/pdf.do"
 
-        async with httpx.AsyncClient() as http:
-            response = await http.get(
-                url,
-                params={"rcp_no": rcept_no, "dcm_no": dcm_no},
-                timeout=60,
-                headers={
-                    "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
-                },
-            )
-            response.raise_for_status()
+        response = await self._http.get(
+            url,
+            params={"rcp_no": rcept_no, "dcm_no": dcm_no},
+            timeout=60,
+            headers={
+                "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
+            },
+        )
+        response.raise_for_status()
 
         content = response.content
 
@@ -1324,38 +1326,37 @@ class DartClient:
                 "endTime": base_date,
                 "timeframe": "day",
             }
-            async with httpx.AsyncClient() as http:
-                resp = await http.get(url, params=params, timeout=15,
-                                       headers={"User-Agent": "Mozilla/5.0"})
-                if resp.status_code != 200:
-                    return None
-
-                # 응답 파싱: [["날짜","시가","고가","저가","종가","거래량","외국인소진율"],\n["20251230",119100,121200,118700,119900,...]]
-                import re as _re
-                rows = _re.findall(r'\["(\d{8})",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', resp.text)
-                if rows:
-                    date_str, open_p, high, low, close = rows[0]
-                    return {
-                        "closing_price": int(close),
-                        "base_date": date_str,
-                        "source": "naver",
-                    }
-
-                # 해당 날짜 데이터 없으면 (비거래일) — 범위 넓혀서 직전 거래일
-                start = str(int(base_date) - 7)  # 7일 전부터
-                params["startTime"] = start
-                resp2 = await http.get(url, params=params, timeout=15,
-                                        headers={"User-Agent": "Mozilla/5.0"})
-                rows2 = _re.findall(r'\["(\d{8})",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', resp2.text)
-                if rows2:
-                    # 마지막 행이 가장 최근
-                    date_str, open_p, high, low, close = rows2[-1]
-                    return {
-                        "closing_price": int(close),
-                        "base_date": date_str,
-                        "source": "naver",
-                    }
+            resp = await self._http.get(url, params=params, timeout=15,
+                                   headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code != 200:
                 return None
+
+            # 응답 파싱: [["날짜","시가","고가","저가","종가","거래량","외국인소진율"],\n["20251230",119100,121200,118700,119900,...]]
+            import re as _re
+            rows = _re.findall(r'\["(\d{8})",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', resp.text)
+            if rows:
+                date_str, open_p, high, low, close = rows[0]
+                return {
+                    "closing_price": int(close),
+                    "base_date": date_str,
+                    "source": "naver",
+                }
+
+            # 해당 날짜 데이터 없으면 (비거래일) — 범위 넓혀서 직전 거래일
+            start = str(int(base_date) - 7)  # 7일 전부터
+            params["startTime"] = start
+            resp2 = await self._http.get(url, params=params, timeout=15,
+                                    headers={"User-Agent": "Mozilla/5.0"})
+            rows2 = _re.findall(r'\["(\d{8})",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', resp2.text)
+            if rows2:
+                # 마지막 행이 가장 최근
+                date_str, open_p, high, low, close = rows2[-1]
+                return {
+                    "closing_price": int(close),
+                    "base_date": date_str,
+                    "source": "naver",
+                }
+            return None
         except Exception as e:
             logger.warning(f"[네이버] 시세 조회 실패: {e}")
             return None
@@ -1371,20 +1372,19 @@ class DartClient:
             await self._throttle_api()
             url = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
             params = {"AUTH_KEY": api_key, "basDd": base_date}
-            async with httpx.AsyncClient() as http:
-                resp = await http.get(url, params=params, timeout=30)
-                if resp.status_code != 200:
-                    return None
-                data = resp.json()
-                for item in data.get("OutBlock_1", []):
-                    isu_cd = item.get("ISU_CD", "")
-                    if isu_cd == stock_code or stock_code in isu_cd:
-                        return {
-                            "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
-                            "base_date": item.get("BAS_DD", base_date),
-                            "source": "krx",
-                        }
+            resp = await self._http.get(url, params=params, timeout=30)
+            if resp.status_code != 200:
                 return None
+            data = resp.json()
+            for item in data.get("OutBlock_1", []):
+                isu_cd = item.get("ISU_CD", "")
+                if isu_cd == stock_code or stock_code in isu_cd:
+                    return {
+                        "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
+                        "base_date": item.get("BAS_DD", base_date),
+                        "source": "krx",
+                    }
+            return None
         except Exception as e:
             logger.warning(f"[KRX] 시세 조회 실패: {e}")
             return None
@@ -1417,13 +1417,12 @@ class DartClient:
         }
 
         try:
-            async with httpx.AsyncClient() as http:
-                resp = await http.get(url, params=params, headers=headers, timeout=15)
-                if resp.status_code != 200:
-                    logger.warning(f"[네이버] HTTP {resp.status_code}: {resp.text[:200]}")
-                    return []
-                data = resp.json()
-                return data.get("items", [])
+            resp = await self._http.get(url, params=params, headers=headers, timeout=15)
+            if resp.status_code != 200:
+                logger.warning(f"[네이버] HTTP {resp.status_code}: {resp.text[:200]}")
+                return []
+            data = resp.json()
+            return data.get("items", [])
         except Exception as e:
             logger.warning(f"[네이버] 뉴스 검색 실패: {e}")
             return []
@@ -1460,11 +1459,10 @@ class DartClient:
         # Step 1: 메인 페이지 → docNo 추출
         await self._throttle_kind()
         url1 = f"{kind_base}/common/disclsviewer.do"
-        async with httpx.AsyncClient() as http:
-            resp1 = await http.get(url1, params={
-                "method": "search", "acptno": acptno,
-            }, timeout=30, headers=headers)
-            resp1.raise_for_status()
+        resp1 = await self._http.get(url1, params={
+            "method": "search", "acptno": acptno,
+        }, timeout=30, headers=headers)
+        resp1.raise_for_status()
 
         # <select id="mainDoc"> 안의 <option value="docNo|Y">
         m = re.search(r"<option[^>]+value=['\"](\d+)\|?[^'\"]*['\"]", resp1.text)
@@ -1474,11 +1472,10 @@ class DartClient:
 
         # Step 2: searchContents → 본문 URL 추출
         await self._throttle_kind()
-        async with httpx.AsyncClient() as http:
-            resp2 = await http.get(url1, params={
-                "method": "searchContents", "docNo": doc_no,
-            }, timeout=30, headers=headers)
-            resp2.raise_for_status()
+        resp2 = await self._http.get(url1, params={
+            "method": "searchContents", "docNo": doc_no,
+        }, timeout=30, headers=headers)
+        resp2.raise_for_status()
 
         # setPath('목차URL', '본문URL') — 두 번째 인자가 본문 (목차가 빈 문자열일 수 있음)
         m2 = re.search(r"setPath\s*\(\s*'([^']*)'\s*,\s*'([^']+)'", resp2.text)
@@ -1489,9 +1486,8 @@ class DartClient:
         # Step 3: 본문 HTML 다운로드
         await self._throttle_kind()
         body_url = f"{kind_base}{body_path}" if body_path.startswith("/") else body_path
-        async with httpx.AsyncClient() as http:
-            resp3 = await http.get(body_url, timeout=30, headers=headers)
-            resp3.raise_for_status()
+        resp3 = await self._http.get(body_url, timeout=30, headers=headers)
+        resp3.raise_for_status()
 
         logger.info(f"[KIND] 본문 다운로드 완료: {len(resp3.text):,} chars (acptno={acptno})")
         return resp3.text
@@ -1581,14 +1577,13 @@ class DartClient:
         }
 
         await self._throttle_kind()
-        async with httpx.AsyncClient() as http:
-            response = await http.post(
-                f"{kind_base}/disclosure/details.do",
-                data=payload,
-                timeout=30,
-                headers=headers,
-            )
-            response.raise_for_status()
+        response = await self._http.post(
+            f"{kind_base}/disclosure/details.do",
+            data=payload,
+            timeout=30,
+            headers=headers,
+        )
+        response.raise_for_status()
 
         return self._parse_kind_disclosure_rows(response.text)
 
