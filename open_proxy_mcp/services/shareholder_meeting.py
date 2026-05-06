@@ -649,10 +649,11 @@ async def _select_notice_candidate(
         if not latest_by_type:
             return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 정기/임시 주주총회 소집공고를 찾지 못했다.", search_notices
 
-        # results / full / auto-rank scope에서만 result_filing 검색.
-        # auto 모드는 candidate ranking에 result_filing 사용 → 항상 fetch.
-        # 다른 scope (summary/board/compensation/aoi_change/prov_financials)는 미사용.
-        fetch_result = scope in {"results", "full"} or requested_meeting_type == "auto"
+        # results / full scope에서만 result_filing 검색 (사후 결과 데이터가 핵심).
+        # notice tool (summary/board/compensation/aoi_change/prov_financials)은 미사용.
+        # auto 모드 ranking도 date 기반 phase로 충분 (post_meeting_pre_result rank 1 통합).
+        # 정기/임시 분류 자체는 _candidate_notices_in_meeting_window가 doc 파싱으로 결정 — result_filing 무관.
+        fetch_result = scope in {"results", "full"}
         candidates = await asyncio.gather(*[
             _build_candidate(
                 corp_code, meeting_type, target_year or window_end.year, notice,
