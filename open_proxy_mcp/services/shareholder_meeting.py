@@ -724,19 +724,40 @@ async def _meeting_result_data(
     if not rcept_no or len(rcept_no) != 14 or rcept_no[8:10] != "80":
         return None, "주주총회결과 공시가 whitelist 규칙에 맞는 DART 결과번호가 아니다."
 
+    # 1차: DART API로 본문 fetch (~0.5-1.5s, KIND scraping 4-5s 대비 빠름).
+    # html 구조가 KIND와 거의 동일해 기존 parser 호환.
+    source_used = "dart_api"
+    html = ""
     try:
-        html = await client.kind_fetch_document(kind_acptno)
-    except DartClientError as exc:
-        return None, f"KIND 결과 본문 조회 실패: {exc.status}"
+        doc = await client.get_document_cached(rcept_no)
+        html = doc.get("html") or ""
+    except DartClientError:
+        html = ""
 
-    soup = BeautifulSoup(html, "lxml")
-    result_format = "table"
-    items = _parse_agm_result_table(soup)
-    if not items:
+    soup = BeautifulSoup(html, "lxml") if html else None
+    items = _parse_agm_result_table(soup) if soup else []
+    result_format = "table" if items else None
+    if soup and not items:
         items = _parse_agm_result_summary(soup)
-        result_format = "summary"
+        if items:
+            result_format = "summary"
+
+    # 2차 fallback: DART에서 본문 빈 응답 또는 파싱 실패 시 KIND scraping.
     if not items:
-        return None, "KIND 결과 본문에서 안건 결과를 찾지 못했다."
+        try:
+            html = await client.kind_fetch_document(kind_acptno)
+        except DartClientError as exc:
+            return None, f"DART API + KIND fallback 모두 실패: {exc.status}"
+        soup = BeautifulSoup(html, "lxml")
+        items = _parse_agm_result_table(soup)
+        result_format = "table" if items else None
+        if not items:
+            items = _parse_agm_result_summary(soup)
+            if items:
+                result_format = "summary"
+        if not items:
+            return None, "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+        source_used = "kind_scraping"
 
     return {
         "corp_name": corp_name,
@@ -747,6 +768,7 @@ async def _meeting_result_data(
         "result_format": result_format,
         "numerical_vote_table_available": result_format == "table",
         "items": items,
+        "source": source_used,
     }, None
 
 
