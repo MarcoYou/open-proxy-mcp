@@ -220,10 +220,36 @@ class DartClient:
         self._api_call_timestamps: collections.deque[float] = collections.deque()
         self._api_rate_lock = asyncio.Lock()
         # Document caching (메모리 + 디스크)
-        self._doc_cache: dict[str, dict] = {}
-        self._viewer_doc_cache: dict[str, dict] = {}
-        self._MAX_CACHE = 30
+        # doc cache: rcept_no → (doc_dict, expires_at_unix). LRU + TTL.
+        # 200 entry × ~500KB = ~100MB, fly 1GB 메모리 충분 수용.
+        # TTL 24h: rcept_no 자체는 immutable이지만 메모리 영구 점유 방지.
+        self._doc_cache: dict[str, tuple[dict, float]] = {}
+        self._viewer_doc_cache: dict[str, tuple[dict, float]] = {}
+        self._MAX_CACHE = 200
+        self._DOC_CACHE_TTL_SEC = 24 * 60 * 60   # 24h
         self._disk_cache_dir = os.path.join(tempfile.gettempdir(), "opm_cache")
+
+    def _doc_cache_get(self, cache: dict, key: str) -> dict | None:
+        """LRU + TTL get. expired면 제거 + None 반환."""
+        entry = cache.get(key)
+        if entry is None:
+            return None
+        data, expires_at = entry
+        if time.time() >= expires_at:
+            cache.pop(key, None)
+            return None
+        # LRU touch: 최근 사용으로 이동
+        cache.pop(key)
+        cache[key] = entry
+        return data
+
+    def _doc_cache_put(self, cache: dict, key: str, data: dict) -> None:
+        """LRU + TTL put. 200 한계 초과 시 가장 오래된 entry evict."""
+        if key in cache:
+            cache.pop(key)
+        elif len(cache) >= self._MAX_CACHE:
+            cache.pop(next(iter(cache)))
+        cache[key] = (data, time.time() + self._DOC_CACHE_TTL_SEC)
         # Search result caching (세션 기반, TTL 없음)
         self._search_cache: dict[str, dict] = {}
         self._MAX_SEARCH_CACHE = 50
@@ -867,8 +893,9 @@ class DartClient:
         """
         keywords = tuple(section_keywords or [])
         cache_key = f"{rcept_no}|{'|'.join(keywords)}"
-        if cache_key in self._viewer_doc_cache:
-            return self._viewer_doc_cache[cache_key]
+        cached = self._doc_cache_get(self._viewer_doc_cache, cache_key)
+        if cached is not None:
+            return cached
 
         main_html = await self._fetch_viewer_main_html(rcept_no)
         nodes = self._extract_viewer_nodes(main_html)
@@ -909,9 +936,7 @@ class DartClient:
             ],
             "source": "viewer_html",
         }
-        if len(self._viewer_doc_cache) >= self._MAX_CACHE:
-            self._viewer_doc_cache.pop(next(iter(self._viewer_doc_cache)))
-        self._viewer_doc_cache[cache_key] = payload
+        self._doc_cache_put(self._viewer_doc_cache, cache_key, payload)
         return payload
 
     async def get_document_pdf(self, rcept_no: str) -> bytes:
@@ -1603,19 +1628,17 @@ class DartClient:
             json.dump(doc, f, ensure_ascii=False)
 
     async def get_document_cached(self, rcept_no: str) -> dict:
-        """get_document 결과를 캐싱 (메모리 + 디스크). 중복 API 호출 방지."""
-        if rcept_no in self._doc_cache:
-            return self._doc_cache[rcept_no]
+        """get_document 결과를 캐싱 (메모리 LRU 200 + TTL 24h, 디스크는 보조).
+        중복 API 호출 방지."""
+        cached = self._doc_cache_get(self._doc_cache, rcept_no)
+        if cached is not None:
+            return cached
         disk_doc = self._load_from_disk(rcept_no)
         if disk_doc:
-            if len(self._doc_cache) >= self._MAX_CACHE:
-                self._doc_cache.pop(next(iter(self._doc_cache)))
-            self._doc_cache[rcept_no] = disk_doc
+            self._doc_cache_put(self._doc_cache, rcept_no, disk_doc)
             return disk_doc
         doc = await self.get_document(rcept_no)
-        if len(self._doc_cache) >= self._MAX_CACHE:
-            self._doc_cache.pop(next(iter(self._doc_cache)))
-        self._doc_cache[rcept_no] = doc
+        self._doc_cache_put(self._doc_cache, rcept_no, doc)
         self._save_to_disk(rcept_no, doc)
         # 이미지 기반 공고 감지
         images = doc.get("images", [])
