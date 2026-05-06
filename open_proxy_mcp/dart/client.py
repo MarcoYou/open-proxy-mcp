@@ -228,6 +228,11 @@ class DartClient:
         self._MAX_CACHE = 200
         self._DOC_CACHE_TTL_SEC = 24 * 60 * 60   # 24h
         self._disk_cache_dir = os.path.join(tempfile.gettempdir(), "opm_cache")
+        # Search result caching (세션 기반, TTL 없음)
+        self._search_cache: dict[str, dict] = {}
+        self._MAX_SEARCH_CACHE = 50
+        # 사용량 추적 (각 service가 snapshot으로 차이 계산)
+        self._request_counter = 0
 
     def _doc_cache_get(self, cache: dict, key: str) -> dict | None:
         """LRU + TTL get. expired면 제거 + None 반환."""
@@ -250,11 +255,6 @@ class DartClient:
         elif len(cache) >= self._MAX_CACHE:
             cache.pop(next(iter(cache)))
         cache[key] = (data, time.time() + self._DOC_CACHE_TTL_SEC)
-        # Search result caching (세션 기반, TTL 없음)
-        self._search_cache: dict[str, dict] = {}
-        self._MAX_SEARCH_CACHE = 50
-        # 사용량 추적 (각 service가 snapshot으로 차이 계산)
-        self._request_counter = 0
 
     def api_call_snapshot(self) -> int:
         """현재까지 누적된 DART API 호출 수. service가 시작·종료 시점에 찍어 차이를 계산."""
