@@ -561,14 +561,31 @@ async def _fetch_change_filings(
             warnings.append(f"변동신고서 rcept_no 포맷 불일치: {rcept_no}")
             continue
         acptno = rcept_no[:8] + "00" + rcept_no[10:]
+
+        # 1차: DART API (~0.1-0.5s, KIND scraping 3-4s 대비 매우 빠름).
+        # html 구조가 KIND와 동일해 _parse_change_filing 호환.
+        html = ""
+        source_used = "dart_api"
         try:
-            html = await client.kind_fetch_document(acptno)
-            parsed = _parse_change_filing(html, rcept_no, rcept_dt)
-            parsed["report_nm"] = item.get("report_nm", "최대주주등소유주식변동신고서")
-            parsed["acptno"] = acptno
-            filings.append(parsed)
-        except DartClientError as exc:
-            warnings.append(f"KIND 변동신고서 본문 조회 실패 ({rcept_no}): {exc.status}")
+            doc = await client.get_document_cached(rcept_no)
+            html = doc.get("html") or ""
+        except DartClientError:
+            html = ""
+
+        # 2차 fallback: DART에서 빈 응답이면 KIND scraping.
+        if not html:
+            try:
+                html = await client.kind_fetch_document(acptno)
+                source_used = "kind_scraping"
+            except DartClientError as exc:
+                warnings.append(f"DART/KIND 변동신고서 모두 실패 ({rcept_no}): {exc.status}")
+                continue
+
+        parsed = _parse_change_filing(html, rcept_no, rcept_dt)
+        parsed["report_nm"] = item.get("report_nm", "최대주주등소유주식변동신고서")
+        parsed["acptno"] = acptno
+        parsed["source"] = source_used
+        filings.append(parsed)
 
     return filings, warnings
 
