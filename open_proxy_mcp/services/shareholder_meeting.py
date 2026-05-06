@@ -115,23 +115,36 @@ async def _candidate_notices_range(
             ]
         except Exception:
             pass
-    filings.sort(key=lambda row: row.get("rcept_dt", ""))
+    # 최신 정정공시 우선 (rcept_dt + rcept_no desc).
+    # 일반적으로 최신 1-2건이 사용자 의도와 일치 — 정기 1번 + 정정 1-2 또는 임시.
+    filings.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
     if not filings:
         return [], notices
 
-    docs = await asyncio.gather(*[
-        client.get_document_cached(item["rcept_no"]) for item in filings
-    ])
+    async def _resolve_batch(batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        docs = await asyncio.gather(*[
+            client.get_document_cached(item["rcept_no"]) for item in batch
+        ])
+        out: list[dict[str, Any]] = []
+        for item, doc in zip(batch, docs):
+            text = doc.get("text", "")
+            html = doc.get("html", "")
+            info, info_source = await _notice_info_with_fallback(item["rcept_no"], text, html)
+            normalized = _normalize_notice_row(item, info)
+            normalized["notice_source"] = info_source
+            if normalized["meeting_type"] == meeting_type_label:
+                out.append(normalized)
+        return out
 
-    matched: list[dict[str, Any]] = []
-    for item, doc in zip(filings, docs):
-        text = doc.get("text", "")
-        html = doc.get("html", "")
-        info, info_source = await _notice_info_with_fallback(item["rcept_no"], text, html)
-        normalized = _normalize_notice_row(item, info)
-        normalized["notice_source"] = info_source
-        if normalized["meeting_type"] == meeting_type_label:
-            matched.append(normalized)
+    # 1차: 상위 2건만 doc fetch (정기 + 정정 cover, LG화학 등 대형사 대응).
+    TOP_N = 2
+    matched = await _resolve_batch(filings[:TOP_N])
+
+    # 2차 fallback: 1차에서 meeting_type 일치 못 찾으면 나머지 전체 fetch.
+    # rare case (정기/임시 섞임 + 임시가 최신 + 사용자가 annual 요청 등).
+    if not matched and len(filings) > TOP_N:
+        matched = await _resolve_batch(filings[TOP_N:])
+
     return matched, notices
 
 
