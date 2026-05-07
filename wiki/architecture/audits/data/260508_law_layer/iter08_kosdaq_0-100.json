@@ -1,0 +1,1231 @@
+{
+  "meta": {
+    "start": 0,
+    "count": 100,
+    "duration_s": 131.6,
+    "generated_at": "2026-05-08"
+  },
+  "records": [
+    {
+      "ticker": "214150",
+      "name": "클래시스",
+      "status": "exact",
+      "duration_s": 1.92,
+      "corp_asset_won": 704649920208,
+      "is_2tril_plus": false,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "290650",
+      "name": "엘앤씨바이오",
+      "status": "exact",
+      "duration_s": 2.53,
+      "corp_asset_won": 456637114149,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "086520",
+      "name": "에코프로",
+      "status": "exact",
+      "duration_s": 2.82,
+      "corp_asset_won": 9778714530496,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "319660",
+      "name": "피에스케이",
+      "status": "exact",
+      "duration_s": 2.41,
+      "corp_asset_won": 645998217783,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "403870",
+      "name": "HPSP",
+      "status": "exact",
+      "duration_s": 1.23,
+      "corp_asset_won": 369707189477,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "048410",
+      "name": "현대바이오",
+      "status": "exact",
+      "duration_s": 2.01,
+      "corp_asset_won": 130738698532,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "085660",
+      "name": "차바이오텍",
+      "status": "exact",
+      "duration_s": 5.23,
+      "corp_asset_won": 2547575322447,
+      "is_2tril_plus": true,
+      "n_agendas": 19,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "247540",
+      "name": "에코프로비엠",
+      "status": "exact",
+      "duration_s": 5.77,
+      "corp_asset_won": 4882022445703,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "218410",
+      "name": "RFHIC",
+      "status": "exact",
+      "duration_s": 2.41,
+      "corp_asset_won": 546184500788,
+      "is_2tril_plus": false,
+      "n_agendas": 14,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "086450",
+      "name": "동국제약",
+      "status": "exact",
+      "duration_s": 1.89,
+      "corp_asset_won": 1062896288305,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "0009K0",
+      "name": "에임드바이오",
+      "status": "exact",
+      "duration_s": 1.72,
+      "corp_asset_won": 198968698743,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "101490",
+      "name": "에스앤에스텍",
+      "status": "exact",
+      "duration_s": 1.83,
+      "corp_asset_won": 393041682256,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "466100",
+      "name": "클로봇",
+      "status": "exact",
+      "duration_s": 2.13,
+      "corp_asset_won": 73041596641,
+      "is_2tril_plus": false,
+      "n_agendas": 23,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "196170",
+      "name": "알테오젠",
+      "status": "exact",
+      "duration_s": 2.08,
+      "corp_asset_won": 698742517170,
+      "is_2tril_plus": false,
+      "n_agendas": 14,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "347700",
+      "name": "스피어",
+      "status": "exact",
+      "duration_s": 1.92,
+      "corp_asset_won": 95356892120,
+      "is_2tril_plus": false,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "281740",
+      "name": "레이크머티리얼즈",
+      "status": "exact",
+      "duration_s": 1.82,
+      "corp_asset_won": 355838236186,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "043260",
+      "name": "성호전자",
+      "status": "exact",
+      "duration_s": 1.86,
+      "corp_asset_won": 581089727261,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "491000",
+      "name": "리브스메드",
+      "status": "exact",
+      "duration_s": 1.83,
+      "corp_asset_won": 201933050640,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "376900",
+      "name": "로킷헬스케어",
+      "status": "exact",
+      "duration_s": 1.96,
+      "corp_asset_won": 55028692350,
+      "is_2tril_plus": false,
+      "n_agendas": 13,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "131290",
+      "name": "티에스이",
+      "status": "exact",
+      "duration_s": 0.96,
+      "corp_asset_won": 608025581215,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "347850",
+      "name": "디앤디파마텍",
+      "status": "exact",
+      "duration_s": 0.96,
+      "corp_asset_won": 97539472152,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "323280",
+      "name": "태성",
+      "status": "exact",
+      "duration_s": 0.89,
+      "corp_asset_won": 172536488872,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "277810",
+      "name": "레인보우로보틱스",
+      "status": "exact",
+      "duration_s": 0.92,
+      "corp_asset_won": 143305317623,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "000250",
+      "name": "삼천당제약",
+      "status": "requires_review",
+      "duration_s": 6.08,
+      "corp_asset_won": 561231384431,
+      "is_2tril_plus": false,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "183300",
+      "name": "코미코",
+      "status": "no_filing",
+      "duration_s": 0.95,
+      "corp_asset_won": 1030236890259,
+      "is_2tril_plus": false,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "035900",
+      "name": "JYP Ent.",
+      "status": "exact",
+      "duration_s": 1.59,
+      "corp_asset_won": 851090190178,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "(감사위원이 되는) 독립이사 공태용 선임의 건 (의결권 3% 제한 적용)",
+          "parent_title": "이사 선임의 건 (사내이사 2명, 독립이사 1명)",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "214450",
+      "name": "파마리서치",
+      "status": "exact",
+      "duration_s": 2.1,
+      "corp_asset_won": 1043888016418,
+      "is_2tril_plus": false,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "437730",
+      "name": "삼현",
+      "status": "exact",
+      "duration_s": 1.84,
+      "corp_asset_won": 202098988834,
+      "is_2tril_plus": false,
+      "n_agendas": 4,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "298380",
+      "name": "에이비엘바이오",
+      "status": "exact",
+      "duration_s": 2.93,
+      "corp_asset_won": 280934191003,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "031980",
+      "name": "피에스케이홀딩스",
+      "status": "exact",
+      "duration_s": 3.11,
+      "corp_asset_won": 584879159412,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "328130",
+      "name": "루닛",
+      "status": "exact",
+      "duration_s": 2.07,
+      "corp_asset_won": 369911697195,
+      "is_2tril_plus": false,
+      "n_agendas": 13,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사의 독립이사로의 명칭 변경 및 의무 선임 비율 강화",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "145020",
+      "name": "휴젤",
+      "status": "exact",
+      "duration_s": 2.17,
+      "corp_asset_won": 1076837920124,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "010170",
+      "name": "대한광통신",
+      "status": "exact",
+      "duration_s": 2.34,
+      "corp_asset_won": 219015700323,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "030530",
+      "name": "원익홀딩스",
+      "status": "exact",
+      "duration_s": 1.55,
+      "corp_asset_won": 1969723238243,
+      "is_2tril_plus": false,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "189300",
+      "name": "인텔리안테크",
+      "status": "exact",
+      "duration_s": 0.87,
+      "corp_asset_won": 496458172495,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "237690",
+      "name": "에스티팜",
+      "status": "exact",
+      "duration_s": 0.87,
+      "corp_asset_won": 782566948564,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "038500",
+      "name": "삼표시멘트",
+      "status": "exact",
+      "duration_s": 4.39,
+      "corp_asset_won": 1446731199428,
+      "is_2tril_plus": false,
+      "n_agendas": 14,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "950160",
+      "name": "코오롱티슈진",
+      "status": "requires_review",
+      "duration_s": 9.45,
+      "corp_asset_won": 295484173,
+      "is_2tril_plus": false,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "058470",
+      "name": "리노공업",
+      "status": "exact",
+      "duration_s": 1.61,
+      "corp_asset_won": 791928165325,
+      "is_2tril_plus": false,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "041510",
+      "name": "에스엠",
+      "status": "exact",
+      "duration_s": 4.31,
+      "corp_asset_won": 2007711293863,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "397030",
+      "name": "에이프릴바이오",
+      "status": "exact",
+      "duration_s": 4.05,
+      "corp_asset_won": 97119844414,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "319400",
+      "name": "현대무벡스",
+      "status": "exact",
+      "duration_s": 1.75,
+      "corp_asset_won": 283436434561,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "003380",
+      "name": "하림지주",
+      "status": "exact",
+      "duration_s": 2.01,
+      "corp_asset_won": 17008288000000,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건 +",
+          "parent_title": "정관 변경 승인의 건 +",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "028300",
+      "name": "HLB",
+      "status": "exact",
+      "duration_s": 2.07,
+      "corp_asset_won": 930177639023,
+      "is_2tril_plus": false,
+      "n_agendas": 17,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "099320",
+      "name": "쎄트렉아이",
+      "status": "requires_review",
+      "duration_s": 7.75,
+      "corp_asset_won": 411001934412,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "357780",
+      "name": "솔브레인",
+      "status": "exact",
+      "duration_s": 1.33,
+      "corp_asset_won": 1446750282671,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "060370",
+      "name": "LS마린솔루션",
+      "status": "exact",
+      "duration_s": 1.17,
+      "corp_asset_won": 739037054373,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "141080",
+      "name": "리가켐바이오",
+      "status": "exact",
+      "duration_s": 0.9,
+      "corp_asset_won": 701814921209,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "035760",
+      "name": "CJ ENM",
+      "status": "exact",
+      "duration_s": 12.04,
+      "corp_asset_won": 8666766089199,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "067310",
+      "name": "하나마이크론",
+      "status": "exact",
+      "duration_s": 2.07,
+      "corp_asset_won": 2017838854218,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "166090",
+      "name": "하나머티리얼즈",
+      "status": "exact",
+      "duration_s": 2.06,
+      "corp_asset_won": 685606173112,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "084370",
+      "name": "유진테크",
+      "status": "exact",
+      "duration_s": 3.07,
+      "corp_asset_won": 580613743719,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "065350",
+      "name": "신성델타테크",
+      "status": "exact",
+      "duration_s": 3.09,
+      "corp_asset_won": 932560259261,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "131970",
+      "name": "두산테스나",
+      "status": "exact",
+      "duration_s": 2.07,
+      "corp_asset_won": 703775464000,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "096530",
+      "name": "씨젠",
+      "status": "exact",
+      "duration_s": 1.29,
+      "corp_asset_won": 1235797418831,
+      "is_2tril_plus": false,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "087010",
+      "name": "펩트론",
+      "status": "requires_review",
+      "duration_s": 5.88,
+      "corp_asset_won": 178979600822,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "036930",
+      "name": "주성엔지니어링",
+      "status": "exact",
+      "duration_s": 2.86,
+      "corp_asset_won": 887892914256,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "232140",
+      "name": "와이씨",
+      "status": "exact",
+      "duration_s": 3.23,
+      "corp_asset_won": 607188961441,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "214370",
+      "name": "케어젠",
+      "status": "exact",
+      "duration_s": 1.99,
+      "corp_asset_won": 231273422155,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "458870",
+      "name": "씨어스",
+      "status": "exact",
+      "duration_s": 1.91,
+      "corp_asset_won": 54204850237,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "388210",
+      "name": "씨엠티엑스",
+      "status": "exact",
+      "duration_s": 1.61,
+      "corp_asset_won": 275447075073,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "083650",
+      "name": "비에이치아이",
+      "status": "exact",
+      "duration_s": 4.3,
+      "corp_asset_won": 830757375864,
+      "is_2tril_plus": false,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "195940",
+      "name": "HK이노엔",
+      "status": "exact",
+      "duration_s": 4.48,
+      "corp_asset_won": 2096931315991,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭 변경 및 구성요건 상향",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "240810",
+      "name": "원익IPS",
+      "status": "exact",
+      "duration_s": 1.94,
+      "corp_asset_won": 1164636219440,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "039200",
+      "name": "오스코텍",
+      "status": "exact",
+      "duration_s": 3.49,
+      "corp_asset_won": 229853200876,
+      "is_2tril_plus": false,
+      "n_agendas": 13,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "정관 변경의 건- 상법개정에 의한 사외이사 명칭 수정",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "032500",
+      "name": "케이엠더블유",
+      "status": "exact",
+      "duration_s": 3.86,
+      "corp_asset_won": 247065548902,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "476830",
+      "name": "알지노믹스",
+      "status": "exact",
+      "duration_s": 2.7,
+      "corp_asset_won": 62833585186,
+      "is_2tril_plus": false,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "100790",
+      "name": "미래에셋벤처투자",
+      "status": "exact",
+      "duration_s": 2.56,
+      "corp_asset_won": 1100137937076,
+      "is_2tril_plus": false,
+      "n_agendas": 11,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "310210",
+      "name": "보로노이",
+      "status": "exact",
+      "duration_s": 2.42,
+      "corp_asset_won": 171234323350,
+      "is_2tril_plus": false,
+      "n_agendas": 11,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "독립이사 명칭변경 및 독립이사 구성요건에 관한 상법 개정사항 반영",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "222800",
+      "name": "심텍",
+      "status": "exact",
+      "duration_s": 2.24,
+      "corp_asset_won": 1620329743829,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "174900",
+      "name": "앱클론",
+      "status": "exact",
+      "duration_s": 1.89,
+      "corp_asset_won": 70746511792,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "178320",
+      "name": "서진시스템",
+      "status": "exact",
+      "duration_s": 1.83,
+      "corp_asset_won": 2306446623339,
+      "is_2tril_plus": true,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "115180",
+      "name": "큐리언트",
+      "status": "exact",
+      "duration_s": 2.08,
+      "corp_asset_won": 61994415890,
+      "is_2tril_plus": false,
+      "n_agendas": 11,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "095340",
+      "name": "ISC",
+      "status": "exact",
+      "duration_s": 1.92,
+      "corp_asset_won": 622420256911,
+      "is_2tril_plus": false,
+      "n_agendas": 17,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "078600",
+      "name": "대주전자재료",
+      "status": "exact",
+      "duration_s": 1.8,
+      "corp_asset_won": 660395440186,
+      "is_2tril_plus": false,
+      "n_agendas": 13,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "095610",
+      "name": "테스",
+      "status": "exact",
+      "duration_s": 2.92,
+      "corp_asset_won": 487468886334,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "140410",
+      "name": "메지온",
+      "status": "exact",
+      "duration_s": 3.31,
+      "corp_asset_won": 98024514218,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "417200",
+      "name": "LS머트리얼즈",
+      "status": "exact",
+      "duration_s": 2.24,
+      "corp_asset_won": 274526446057,
+      "is_2tril_plus": false,
+      "n_agendas": 11,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "098460",
+      "name": "고영",
+      "status": "exact",
+      "duration_s": 1.93,
+      "corp_asset_won": 410335212878,
+      "is_2tril_plus": false,
+      "n_agendas": 15,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "039030",
+      "name": "이오테크닉스",
+      "status": "no_filing",
+      "duration_s": 1.42,
+      "corp_asset_won": 777751432327,
+      "is_2tril_plus": false,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "137400",
+      "name": "피엔티",
+      "status": "exact",
+      "duration_s": 1.43,
+      "corp_asset_won": 1718145213481,
+      "is_2tril_plus": false,
+      "n_agendas": 2,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "440110",
+      "name": "파두",
+      "status": "exact",
+      "duration_s": 3.83,
+      "corp_asset_won": 122427167093,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "080220",
+      "name": "제주반도체",
+      "status": "exact",
+      "duration_s": 3.99,
+      "corp_asset_won": 335988104339,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "263750",
+      "name": "펄어비스",
+      "status": "exact",
+      "duration_s": 2.07,
+      "corp_asset_won": 1149099301311,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "082920",
+      "name": "비츠로셀",
+      "status": "exact",
+      "duration_s": 3.7,
+      "corp_asset_won": 370836626050,
+      "is_2tril_plus": false,
+      "n_agendas": 11,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 도입관련 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사의 명칭 변경 및 이사회 내 인원수 비율 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임 시 의결권 제한 강화 및 분리선출 인원 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "068760",
+      "name": "셀트리온제약",
+      "status": "exact",
+      "duration_s": 4.7,
+      "corp_asset_won": 759440541950,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "445680",
+      "name": "큐리옥스바이오시스템즈",
+      "status": "exact",
+      "duration_s": 2.8,
+      "corp_asset_won": 78027492351,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "108490",
+      "name": "로보티즈",
+      "status": "exact",
+      "duration_s": 1.94,
+      "corp_asset_won": 319708080737,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "140860",
+      "name": "파크시스템스",
+      "status": "exact",
+      "duration_s": 1.98,
+      "corp_asset_won": 349922446098,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "064760",
+      "name": "티씨케이",
+      "status": "exact",
+      "duration_s": 1.99,
+      "corp_asset_won": 567616557963,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "127120",
+      "name": "제이에스링크",
+      "status": "exact",
+      "duration_s": 3.77,
+      "corp_asset_won": 123036511340,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "226950",
+      "name": "올릭스",
+      "status": "exact",
+      "duration_s": 4.02,
+      "corp_asset_won": 195365962787,
+      "is_2tril_plus": false,
+      "n_agendas": 4,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "089030",
+      "name": "테크윙",
+      "status": "exact",
+      "duration_s": 2.07,
+      "corp_asset_won": 633699354109,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "257720",
+      "name": "실리콘투",
+      "status": "exact",
+      "duration_s": 1.95,
+      "corp_asset_won": 709448340772,
+      "is_2tril_plus": false,
+      "n_agendas": 20,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "상법 개정에 따른 독립이사 명칭 변경 및 인원 확대",
+          "parent_title": "정관변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "상법 개정에 따른 감사위원 의결권 제한 강화",
+          "parent_title": "정관변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "상법 개정에 따른 감사위원회 분리 선출 확대",
+          "parent_title": "정관변경의 건",
+          "rule_id": "B2-8",
+          "decision": "REVIEW",
+          "law_ref": "정관-우회 시나리오 1"
+        }
+      ]
+    },
+    {
+      "ticker": "082270",
+      "name": "젬백스",
+      "status": "exact",
+      "duration_s": 2.01,
+      "corp_asset_won": 158874710036,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "032820",
+      "name": "우리기술",
+      "status": "exact",
+      "duration_s": 1.87,
+      "corp_asset_won": 338455308703,
+      "is_2tril_plus": false,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "475830",
+      "name": "오름테라퓨틱",
+      "status": "exact",
+      "duration_s": 1.93,
+      "corp_asset_won": 169324738276,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "058610",
+      "name": "에스피지",
+      "status": "exact",
+      "duration_s": 1.9,
+      "corp_asset_won": 428472044456,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "090710",
+      "name": "휴림로봇",
+      "status": "exact",
+      "duration_s": 1.96,
+      "corp_asset_won": 276740783001,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "005290",
+      "name": "동진쎄미켐",
+      "status": "exact",
+      "duration_s": 1.37,
+      "corp_asset_won": 2006130721478,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    }
+  ]
+}
