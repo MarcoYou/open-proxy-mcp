@@ -1,0 +1,3624 @@
+{
+  "meta": {
+    "universe": "kospi200",
+    "start": 0,
+    "count": 30,
+    "concurrency": 2,
+    "duration_s": 39.7,
+    "generated_at": "2026-05-07"
+  },
+  "records": [
+    {
+      "ticker": "028260",
+      "name": "삼성물산",
+      "status": "exact",
+      "duration_s": 2.46,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제62기(2025.1.1 ~ 2025.12.31) 재무제표 및 연결재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "자기주식 소각의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "집중투표제 도입을 위한 정관 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "그 외 정관 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3호",
+          "title": "이사회내 위원회 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3-4호",
+          "title": "부칙",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제4호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "사외이사 이정식 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "사내이사 송규종 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-1호",
+          "title": "감사위원회 위원이 되는 사외이사 김경수 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-2호",
+          "title": "감사위원회 위원이 되는 사외이사 김민영 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "009150",
+      "name": "삼성전기",
+      "status": "exact",
+      "duration_s": 3.1,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제53기(2025.1.1 ~ 2025.12.31) 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "그 외의 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 (최종구)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 (김미영)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "사외이사 선임의 건 (이종훈)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "감사위원회 위원 선임의 건 (이종훈)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "373220",
+      "name": "LG에너지솔루션",
+      "status": "exact",
+      "duration_s": 1.05,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제6기 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 변경 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-6호",
+          "title": "기재)",
+          "parent_title": "정관 변경 승인의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제 배제 금지에 관한 정관 변경의 건",
+          "parent_title": "정관 변경 승인의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "전자주주총회에 관한 정관 변경의 건",
+          "parent_title": "정관 변경 승인의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-3호",
+          "title": "사외이사 명칭 변경에 관한 정관 변경의 건",
+          "parent_title": "정관 변경 승인의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-4호",
+          "title": "분리 선출 감사위원 수 변경에 따른 정관 변경의 건",
+          "parent_title": "정관 변경 승인의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-5호",
+          "title": "감사위원 선ㆍ해임 시 최대주주 의결권 제한에 따른 정관 변경의 건",
+          "parent_title": "정관 변경 승인의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "사외이사 이명규 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 박진규 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원 이명규 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "009540",
+      "name": "HD한국조선해양",
+      "status": "exact",
+      "duration_s": 2.84,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제52기(2025년 1월 1일 ~ 2025년 12월 31일) 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제가 배제된 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "그 밖의 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건 (사내이사 1인, 사외이사 1인)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 선임의 건 (김형관)",
+          "parent_title": "이사 선임의 건 (사내이사 1인, 사외이사 1인)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사외이사 선임의 건 (김홍기)",
+          "parent_title": "이사 선임의 건 (사내이사 1인, 사외이사 1인)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 이사 선임의 건 (사외이사 김세연)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원 선임의 건 (사외이사 김홍기)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "105560",
+      "name": "KB금융",
+      "status": "exact",
+      "duration_s": 2.78,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "2025 회계연도(2025.1.1 ~ 2025.12.31) 재무제표(연결재무제표 포함) 및 이익배당(안) 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "자본준비금 감소의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "이사 선임의 건(사외이사 3명 선임)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "사외이사 후보 최재홍",
+          "parent_title": "이사 선임의 건(사외이사 3명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "사외이사 후보 이명활",
+          "parent_title": "이사 선임의 건(사외이사 3명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-3호",
+          "title": "사외이사 후보 서정호",
+          "parent_title": "이사 선임의 건(사외이사 3명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 - 감사위원회 위원이 되는 사외이사 후보 조화준",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 - 감사위원회 위원이 되는 사외이사 후보 김성용",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "사외이사인 감사위원회 위원 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7-1호",
+          "title": "사외이사인 감사위원회 위원 후보 김선엽",
+          "parent_title": "사외이사인 감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7-2호",
+          "title": "사외이사인 감사위원회 위원 후보 서정호",
+          "parent_title": "사외이사인 감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제8호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "042660",
+      "name": "한화오션",
+      "status": "exact",
+      "duration_s": 3.06,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제26기('25.01.01~'25.12.31) 재무제표[이익잉여금 처분계산서포함] 및 연결재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "목적사항 추가의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "개최방식 추가의 건(전자주주총회 반영)",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-3호",
+          "title": "의결권 대리행사 추가의 건(대리권 증명방법 추가)",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-4호",
+          "title": "감사위원회 구성 변경의 건 (분리선임 인원 변경 및 의결권 제한)",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-5호",
+          "title": "사외이사 명칭 변경의 건(사외이사 → 독립이사)",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-6호",
+          "title": "이사의 임기 변경의 건(2년 → 3년)",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-7호",
+          "title": "부칙 변경(시행일)",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 김희철 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사외이사 김영삼 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 이효진 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원 김영삼 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "자기주식 보유ㆍ처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "086790",
+      "name": "하나금융지주",
+      "status": "exact",
+      "duration_s": 3.04,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제21기(2025년 1월1일~2025년12월31일) 재무제표(이익잉여금처분계산서(안)포함) 및 연결재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "자본준비금 감소의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "정관 개정의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "사외이사 (원숙연) 선임의 건",
+          "parent_title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "사외이사 (주영섭) 선임의 건",
+          "parent_title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-3호",
+          "title": "사외이사 (이재술) 선임의 건",
+          "parent_title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-4호",
+          "title": "사외이사 (윤 심) 선임의 건",
+          "parent_title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-5호",
+          "title": "사외이사 (이재민) 선임의 건",
+          "parent_title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-6호",
+          "title": "사외이사 (최현자) 선임의 건",
+          "parent_title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-7호",
+          "title": "사내이사 (이승열) 선임의 건",
+          "parent_title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-8호",
+          "title": "사내이사 (강성묵) 선임의 건",
+          "parent_title": "이사 선임의 건 (사외이사 6명, 사내이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-1호",
+          "title": "감사위원회 위원이 되는 사외이사 (박동문) 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-2호",
+          "title": "감사위원회 위원이 되는 사외이사 (이준서) 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "사외이사인 감사위원회 위원 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6-1호",
+          "title": "사외이사인 감사위원회 위원 (주영섭) 선임의 건",
+          "parent_title": "사외이사인 감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6-2호",
+          "title": "사외이사인 감사위원회 위원 (윤 심) 선임의 건",
+          "parent_title": "사외이사인 감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "이사의 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "272210",
+      "name": "한화시스템",
+      "status": "exact",
+      "duration_s": 2.52,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제26기 재무제표[이익잉여금처분계산서(안) 포함] 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-3호",
+          "title": "집중투표제 배제 조항 폐지",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-4호",
+          "title": "이사의 임기 변경",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-5호",
+          "title": "감사위원 분리 선임 인원 확대",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-6호",
+          "title": "감사위원 선·해임 의결권 제한 강화",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-7호",
+          "title": "부칙 변경",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 손재일 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "기타비상무이사 김승모 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 황형주 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사보수한도액 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "자기주식 보유 ㆍ 처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "207940",
+      "name": "삼성바이오로직스",
+      "status": "exact",
+      "duration_s": 1.82,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제15기(2025.1.1~12.31) 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제 배제 정비 건",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "상법 개정 반영 건",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 존림 (Rim John Chongbo) 선임의 건 (재선임)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사내이사 노균 선임의 건 (재선임)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원이 되는 사외이사 김정연 선임의 건 (신규 선임)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "329180",
+      "name": "HD현대중공업",
+      "status": "exact",
+      "duration_s": 2.37,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제7기(2025년 1월 1일 ~ 2025년 12월 31일) 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제가 배제된 정관의 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "그 밖의 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 선임의 건(이상균)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사내이사 선임의 건(금석호)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 이사 선임의 건(사외이사 박광우)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "006400",
+      "name": "삼성SDI",
+      "status": "exact",
+      "duration_s": 2.45,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제56기(2025.1.1-2025.12.31) 재무제표 (이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "그 외 상법 개정에 따른 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2-1호",
+          "title": "전자주주총회 도입 관련 정관 변경의 건",
+          "parent_title": "그 외 상법 개정에 따른 정관 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2-2호",
+          "title": "독립이사 명칭 관련 정관 변경의 건",
+          "parent_title": "그 외 상법 개정에 따른 정관 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2-3호",
+          "title": "감사위원회 위원 분리선임 인원 관련 정관 변경의 건",
+          "parent_title": "그 외 상법 개정에 따른 정관 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2-4호",
+          "title": "주식의 소각 관련 정관 변경의 건",
+          "parent_title": "그 외 상법 개정에 따른 정관 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사외이사 윤종원 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사내이사 오재균 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "감사위원회 위원이 되는 사외이사 이미경 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "감사위원회 위원이 되는 사외이사 유승원 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원 윤종원 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "035420",
+      "name": "NAVER",
+      "status": "exact",
+      "duration_s": 2.09,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제27기(2025년) 재무제표(이익잉여금처분계산서 포함) 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "기타 상법 개정 반영의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "사내이사 김희철 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원이 되는 사외이사 김이배 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사 보수 한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "042700",
+      "name": "한미반도체",
+      "status": "exact",
+      "duration_s": 1.92,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제46기 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "자기주식 보유 및 처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "012450",
+      "name": "한화에어로스페이스",
+      "status": "exact",
+      "duration_s": 3.32,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제49기 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "사업목적 추가",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "주주총회 개최방식 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-3호",
+          "title": "의결권 대리행사 방식 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-4호",
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-5호",
+          "title": "이사의 임기 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-6호",
+          "title": "감사위원 분리선임 인원 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-7호",
+          "title": "배당절차 개선 반영",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "cash_dividend",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-8호",
+          "title": "집중투표 배제조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-9호",
+          "title": "기타 부칙변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 선임의 건(손재일)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사내이사 선임의 건(김승모)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3호",
+          "title": "사외이사 선임의 건(전휴재)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건(전우홍)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원 선임의 건(전휴재)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "자기주식 보유ㆍ처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "068270",
+      "name": "셀트리온",
+      "status": "exact",
+      "duration_s": 4.67,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제35기 (연결ㆍ별도) 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제 관련 정관 일부 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "이사회 관련 정관 일부 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-3호",
+          "title": "자기주식 처분 계획 관련 정관 일부 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-4호",
+          "title": "기타 정관 정비 관련 정관 일부 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 기우성 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사내이사 신민철 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3호",
+          "title": "사외이사 고영혜 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-4호",
+          "title": "사외이사 최원경 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-5호",
+          "title": "사외이사 최종문 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "감사위원회 위원이 되는 사외이사 이중재 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "감사위원회 위원이 되는 사외이사 윤태화 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-1호",
+          "title": "감사위원회 위원 고영혜 선임의 건",
+          "parent_title": "감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-2호",
+          "title": "감사위원회 위원 최원경 선임의 건",
+          "parent_title": "감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-3호",
+          "title": "감사위원회 위원 최종문 선임의 건",
+          "parent_title": "감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "자기주식 보유ㆍ처분 계획 승인 및 자기주식 소각의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "012330",
+      "name": "현대모비스",
+      "status": "exact",
+      "duration_s": 3.73,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제49기 재무제표(이익잉여금처분계산서 제외)승인의 건 (2025년 1월 1일~ 12월 31일)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "이익잉여금처분계산서 승인의 건 - 결산배당금(1주당) : 보통주 5,000원, 우선주 5,050원 (예정)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "cash_dividend",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "이사의 충실의무 확대의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3-2호",
+          "title": "사외이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3-3호",
+          "title": "감사위원회 구성 강화의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3-4호",
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3-5호",
+          "title": "전자주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제4호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "사외이사 선임의 건(James Kim)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "사내이사 선임의 건(정의선)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-3호",
+          "title": "사외이사 선임의 건(박현주)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-4호",
+          "title": "사내이사 선임의 건(성낙섭)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-1호",
+          "title": "감사위원회 위원 선임의 건(James Kim)",
+          "parent_title": "감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-2호",
+          "title": "감사위원회 위원 선임의 건(박현주)",
+          "parent_title": "감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건(박현주)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제8호",
+          "title": "자기주식 보유 및 처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "010130",
+      "name": "고려아연",
+      "status": "exact",
+      "duration_s": 2.75,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제52기 연결 및 별도 재무제표 (이익잉여금처분계산서 포함) 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제1-1호",
+          "title": "제52기 연결 및 별도 재무제표(이익잉여금처분계산서 제외) 승인의 건",
+          "parent_title": "제52기 연결 및 별도 재무제표 (이익잉여금처분계산서 포함) 승인의 건",
+          "is_sub": true,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제1-2호",
+          "title": "제52기 이익배당 승인의 건(보통주 현금배당 주당 20,000원)",
+          "parent_title": "제52기 연결 및 별도 재무제표 (이익잉여금처분계산서 포함) 승인의 건",
+          "is_sub": true,
+          "category": "cash_dividend",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제1-3호",
+          "title": "제52기 이익잉여금처분계산서 승인의 건",
+          "parent_title": "제52기 연결 및 별도 재무제표 (이익잉여금처분계산서 포함) 승인의 건",
+          "is_sub": true,
+          "category": "cash_dividend",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제1-3-1호",
+          "title": "임의적립금 917,695,440,000원의 미처분이익잉여금 전환의 건",
+          "parent_title": "제52기 이익잉여금처분계산서 승인의 건",
+          "is_sub": true,
+          "category": "cash_dividend",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "소수주주에 대한 보호 관련 정관 명문화의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "전자주주총회 제도 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-3호",
+          "title": "오기 정정의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-4호",
+          "title": "이사회 내 독립이사 구성요건 명확화 및 독립이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-5호",
+          "title": "이사의 충실의무 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-6호",
+          "title": "분기배당 관련 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-7호",
+          "title": "감사위원 선·해임 시 의결권 제한 관련 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-8호",
+          "title": "분리선출 감사위원 확대를 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-9호",
+          "title": "발행주식 액면분할 및 액면분할을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-10호",
+          "title": "신주발행 시 이사의 충실의무 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-11호",
+          "title": "집행임원제도 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-12호",
+          "title": "주주총회 의장 변경을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-13호",
+          "title": "이사회 소집 절차 변경을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "집중투표에 의한 이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+          "parent_title": "집중투표에 의한 이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1-1호",
+          "title": "이사 5인 선임의 건",
+          "parent_title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1-2호",
+          "title": "이사 6인 선임의 건",
+          "parent_title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "집중투표에 의한 이사 5인 선임의 건",
+          "parent_title": "집중투표에 의한 이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-1호",
+          "title": "사내이사 최윤범 선임의 건",
+          "parent_title": "집중투표에 의한 이사 5인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-2호",
+          "title": "사외이사 황덕남 선임의 건",
+          "parent_title": "집중투표에 의한 이사 5인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-3호",
+          "title": "기타비상무이사 Walter Field McLallen 선임의 건",
+          "parent_title": "집중투표에 의한 이사 5인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-4호",
+          "title": "기타비상무이사 박병욱 선임의 건",
+          "parent_title": "집중투표에 의한 이사 5인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-5호",
+          "title": "기타비상무이사 최연석 선임의 건",
+          "parent_title": "집중투표에 의한 이사 5인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-6호",
+          "title": "사외이사 오영 선임의 건→ 오영 후보자 일신상의 사유로 자진 사퇴함에 따라 안건 폐기",
+          "parent_title": "집중투표에 의한 이사 5인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-7호",
+          "title": "사외이사 최병일 선임의 건",
+          "parent_title": "집중투표에 의한 이사 5인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-8호",
+          "title": "사외이사 이선숙 선임의 건",
+          "parent_title": "집중투표에 의한 이사 5인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3호",
+          "title": "집중투표에 의한 이사 6인 선임의 건",
+          "parent_title": "집중투표에 의한 이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3-1호",
+          "title": "사내이사 최윤범 선임의 건",
+          "parent_title": "집중투표에 의한 이사 6인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3-2호",
+          "title": "사외이사 황덕남 선임의 건",
+          "parent_title": "집중투표에 의한 이사 6인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3-3호",
+          "title": "기타비상무이사 Walter Field McLallen 선임의 건",
+          "parent_title": "집중투표에 의한 이사 6인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3-4호",
+          "title": "기타비상무이사 박병욱 선임의 건",
+          "parent_title": "집중투표에 의한 이사 6인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3-5호",
+          "title": "기타비상무이사 최연석 선임의 건",
+          "parent_title": "집중투표에 의한 이사 6인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3-6호",
+          "title": "사외이사 오영 선임의 건→ 오영 후보자 일신상의 사유로 자진 사퇴함에 따라 안건 폐기",
+          "parent_title": "집중투표에 의한 이사 6인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3-7호",
+          "title": "사외이사 최병일 선임의 건",
+          "parent_title": "집중투표에 의한 이사 6인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3-8호",
+          "title": "사외이사 이선숙 선임의 건",
+          "parent_title": "집중투표에 의한 이사 6인 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원 선임의 건(김보영)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건(이민호)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건(120억원)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "임원퇴직금 지급 규정 개정 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "retirement_pay",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "005930",
+      "name": "삼성전자",
+      "status": "exact",
+      "duration_s": 1.59,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제1-1호",
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제1-2호",
+          "title": "개정 상법 반영",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제1-3호",
+          "title": "이사의 임기 조문 정비",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제1-4호",
+          "title": "주식 소각 조문 정비",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2호",
+          "title": "제57기(2025.1.1. ~ 2025.12.31.) 재무상태표, 손익계산서 및 이익잉여금처분계산서 등 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "사내이사 김용관 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 허은녕 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "자기주식 보유ㆍ처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "010140",
+      "name": "삼성중공업",
+      "status": "exact",
+      "duration_s": 3.54,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제52기(2025.1.1~12.31) 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "사업목적 추가의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "상법 개정 등에 따른 정관 정비의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-3호",
+          "title": "집중투표제도 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "사내이사 최성안 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 이연승 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "402340",
+      "name": "SK스퀘어",
+      "status": "exact",
+      "duration_s": 2.17,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제5기 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 선임의 건(후보 : 김정규)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "기타비상무이사 선임의 건(후보 : 유영상)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건(후보 : 서영호)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "자본준비금 감소의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "자기주식 보유 및 처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "055550",
+      "name": "신한지주",
+      "status": "exact",
+      "duration_s": 2.61,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제25기(2025.1.1~2025.12.31) 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "자본준비금 감액 및 이익잉여금 전입의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "cash_dividend",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "이사 선임의 건 (사내이사 1명, 사외이사 5명 선임)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "이사후보(사내이사) 진옥동",
+          "parent_title": "이사 선임의 건 (사내이사 1명, 사외이사 5명 선임)",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "이사후보(사외이사) 김조설",
+          "parent_title": "이사 선임의 건 (사내이사 1명, 사외이사 5명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-3호",
+          "title": "이사후보(사외이사) 배 훈",
+          "parent_title": "이사 선임의 건 (사내이사 1명, 사외이사 5명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-4호",
+          "title": "이사후보(사외이사) 송성주",
+          "parent_title": "이사 선임의 건 (사내이사 1명, 사외이사 5명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-5호",
+          "title": "이사후보(사외이사) 최영권",
+          "parent_title": "이사 선임의 건 (사내이사 1명, 사외이사 5명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-6호",
+          "title": "이사후보(사외이사) 박종복",
+          "parent_title": "이사 선임의 건 (사내이사 1명, 사외이사 5명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 (사외이사 2명 선임)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-1호",
+          "title": "감사위원회 위원이 되는 사외이사 후보 곽수근",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건 (사외이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5-2호",
+          "title": "감사위원회 위원이 되는 사외이사 후보 임승연",
+          "parent_title": "감사위원회 위원이 되는 사외이사 선임의 건 (사외이사 2명 선임)",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "감사위원회 위원 선임의 건(감사위원 2명 선임)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6-1호",
+          "title": "감사위원후보 배 훈",
+          "parent_title": "감사위원회 위원 선임의 건(감사위원 2명 선임)",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6-2호",
+          "title": "감사위원후보 최영권",
+          "parent_title": "감사위원회 위원 선임의 건(감사위원 2명 선임)",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "이사보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "005490",
+      "name": "POSCO홀딩스",
+      "status": "exact",
+      "duration_s": 2.04,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제58기(2025년 1월 1일 ~ 2025년 12월 31일) 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "분리선출 감사위원 수 증원",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-3호",
+          "title": "감사위원 선ㆍ해임 시 의결권 제한범위 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-4호",
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-5호",
+          "title": "분리형 집중투표제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "사내이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 이주태 선임의 건",
+          "parent_title": "사내이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사내이사 김기수 선임의 건",
+          "parent_title": "사내이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3호",
+          "title": "사내이사 정석모 선임의 건",
+          "parent_title": "사내이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "기타비상무이사 이희근 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "사외이사 김주연 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "감사위원회 위원이 되는 사외이사 김준기 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "006800",
+      "name": "미래에셋증권",
+      "status": "exact",
+      "duration_s": 4.67,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제57기 재무제표 및 이익배당(안) 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 개정의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표 배제 관련 정관 변경의 건",
+          "parent_title": "정관 개정의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "집중투표 배제 이외 정관 변경의 건",
+          "parent_title": "정관 개정의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-3호",
+          "title": "이사회 산하 위원회 변경의 건",
+          "parent_title": "정관 개정의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 김미섭 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사내이사 허선호 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-3호",
+          "title": "사내이사 전경남 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-4호",
+          "title": "사외이사 석준희 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원이 되는 사외이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "감사위원 송재용 선임의 건",
+          "parent_title": "감사위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "감사위원 안수현 선임의 건",
+          "parent_title": "감사위원이 되는 사외이사 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "사외이사인 감사위원 선임의 건(후보 문홍성)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수 한도액 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "사내이사 주식매수선택권 부여 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제8호",
+          "title": "임직원 주식매수선택권 부여 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제8-1호",
+          "title": "임직원 주식매수선택권 부여 승인의 건",
+          "parent_title": "임직원 주식매수선택권 부여 승인의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제8-2호",
+          "title": "임직원 주식매수선택권 부여 승인의 건",
+          "parent_title": "임직원 주식매수선택권 부여 승인의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "000660",
+      "name": "SK하이닉스",
+      "status": "exact",
+      "duration_s": 3.64,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제78기(2025.1.1~2025.12.31) 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "그 외 개정 상법 반영",
+          "parent_title": "정관 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "사내이사 선임의 건 (후보: 차선용)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "사외이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-1호",
+          "title": "사외이사 선임의 건 (후보: 정덕균)",
+          "parent_title": "사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-2호",
+          "title": "사외이사 선임의 건 (후보: 김정원)",
+          "parent_title": "사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4-3호",
+          "title": "사외이사 선임의 건 (후보: 최강국)",
+          "parent_title": "사외이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "기타비상무이사 선임의 건 (후보: 김정규)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 (후보: 고승범)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "감사위원회 위원 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7-1호",
+          "title": "감사위원회 위원 선임의 건 (후보: 김정원)",
+          "parent_title": "감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7-2호",
+          "title": "감사위원회 위원 선임의 건 (후보: 최강국)",
+          "parent_title": "감사위원회 위원 선임의 건",
+          "is_sub": true,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제8호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제9호",
+          "title": "자본준비금 감소의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "other",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제10호",
+          "title": "임원 퇴직금 지급 규정 개정의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "retirement_pay",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제11호",
+          "title": "2026년 자기주식 보유 및 처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "034020",
+      "name": "두산에너빌리티",
+      "status": "exact",
+      "duration_s": 3.31,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제63기(2025.1.1~2025.12.31)재무제표(이익잉여금처분(결손금 처리)계산서(안) 포함) 및 연결재무제표승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "전자주주총회 도입의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "사외이사 명칭변경 및 감사위원회 구성 강화의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-3호",
+          "title": "서면에 의한 의결권 행사 폐지 및 전자투표제도 도입의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 선임의 건(사내이사 후보: 박지원)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사외이사 선임의 건(사외이사 후보: 민원기)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원 선임의 건(감사위원 후보: 민원기)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건(이은형)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "자기주식 보유 및 처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "032830",
+      "name": "삼성생명",
+      "status": "exact",
+      "duration_s": 2.38,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제70기(2025.1.1~2025.12.31) 재무제표 승인 및 이익배당 결의의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제 배제조항 삭제 및 부칙 신설의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "상법개정에 따른 표준정관 반영 및 부칙 신설의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "감사위원회 위원이 되는 사외이사 임채민 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "015760",
+      "name": "한국전력",
+      "status": "error",
+      "duration_s": 0.11,
+      "agendas": []
+    },
+    {
+      "ticker": "267260",
+      "name": "HD현대일렉트릭",
+      "status": "exact",
+      "duration_s": 2.11,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제9기 (2025.1.1~2025.12.31) 재무제표(이익잉여금 처분계산서 포함) 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "집중투표제가 배제된 정관의 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-2호",
+          "title": "그 외 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건 - 사내이사 남궁훈",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 - 사외이사 한찬식",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "005380",
+      "name": "현대차",
+      "status": "exact",
+      "duration_s": 1.8,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제58기 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "사업목적 추가",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "집중투표제 배제 문구 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-3호",
+          "title": "이사의 충실의무 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-4호",
+          "title": "감사위원회 위원 분리선출 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-5호",
+          "title": "전자주주총회 근거규정 신설",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-6호",
+          "title": "조문 정비",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-7호",
+          "title": "독립이사로의 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-8호",
+          "title": "부칙(2026.3.26)",
+          "parent_title": "정관 일부 변경의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사외이사 선임의 건 (최윤희)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사내이사 선임의 건",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-1호",
+          "title": "사내이사 선임의 건 (무뇨스 바르셀로 호세 안토니오)",
+          "parent_title": "사내이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-2호",
+          "title": "사내이사 선임의 건 (이승조)",
+          "parent_title": "사내이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2-3호",
+          "title": "사내이사 선임의 건 (최영일)",
+          "parent_title": "사내이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 (장승화)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "자기주식 보유ㆍ처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    },
+    {
+      "ticker": "000270",
+      "name": "기아",
+      "status": "exact",
+      "duration_s": 2.1,
+      "agendas": [
+        {
+          "number": "제1호",
+          "title": "제82기(2025.1.1 ~ 2025.12.31) 재무제표 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "financial_statements",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2호",
+          "title": "정관 일부 변경 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "articles_amendment",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제2-1호",
+          "title": "전자 주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-2호",
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-3호",
+          "title": "이사 충실의무 확대 관련 변경의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-4호",
+          "title": "감사위원회 구성 강화의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-5호",
+          "title": "사외이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제2-6호",
+          "title": "부칙 (2026.3.20)",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "is_sub": true,
+          "category": "other",
+          "parent_implies_articles": true,
+          "mismatch": true
+        },
+        {
+          "number": "제3호",
+          "title": "이사 선임의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-1호",
+          "title": "사내이사 선임의 건 (김승준)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제3-2호",
+          "title": "사외이사 선임의 건 (전찬혁)",
+          "parent_title": "이사 선임의 건",
+          "is_sub": true,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제4호",
+          "title": "감사위원회 위원 선임의 건 (전찬혁)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "audit_committee_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 (신재용)",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_election",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "director_compensation",
+          "parent_implies_articles": false
+        },
+        {
+          "number": "제7호",
+          "title": "자기주식 보유ㆍ처분 계획 승인의 건",
+          "parent_title": "",
+          "is_sub": false,
+          "category": "treasury_share",
+          "parent_implies_articles": false
+        }
+      ]
+    }
+  ]
+}

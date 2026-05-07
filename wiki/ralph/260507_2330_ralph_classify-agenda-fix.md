@@ -12,7 +12,7 @@ ref:
 ## Invoke (복붙)
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260507_2330_ralph_classify-agenda-fix.md 가이드 따라 _classify_agenda 분류 정확도 측정 + 패턴별 fix. KOSPI 200 + KOSDAQ 100 sample. NO_DATA 잘못 발생 비율 < 1% + 정관변경 sub-안건 100% + 회귀 0 시 promise. --completion-promise AGENDA_CLASSIFICATION_VERIFIED --max-iterations 7
+/ralph-loop:ralph-loop wiki/ralph/260507_2330_ralph_classify-agenda-fix.md 가이드 따라 안건 분류 함수 정확도 측정 후 패턴별로 fix. KOSPI 200, KOSDAQ 100 sample. NO_DATA 잘못 발생 비율 1퍼센트 미만, 정관변경 sub 안건 100퍼센트, 회귀 0 모두 충족 시 promise. --completion-promise AGENDA_CLASSIFICATION_VERIFIED --max-iterations 7
 ```
 
 # Ralph: _classify_agenda 분류 정확도 fix
