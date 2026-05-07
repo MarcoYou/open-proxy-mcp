@@ -76,7 +76,7 @@ async def _audit_one(ticker: str, name: str, sem: asyncio.Semaphore) -> dict:
             agendas_tree = data.get("agendas") or []
             flat = _flatten_agendas(agendas_tree)
             for entry in flat:
-                entry["category"] = _classify_agenda(entry["title"])
+                entry["category"] = _classify_agenda(entry["title"], parent_title=entry.get("parent_title", ""))
                 # parent 기반 expected (단순 rule): parent에 "정관" 있으면 articles_amendment
                 parent = entry.get("parent_title", "") or ""
                 if "정관" in parent and "정관" not in entry["title"]:

@@ -130,15 +130,24 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
 
 # ── 안건별 결정 logic ──
 
-def _classify_agenda(agenda_title: str) -> str:
+def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     """안건 제목 → category. proxy_guideline의 voting_rules 키와 매칭.
 
     iter13 fix: 정관 안건이 "배당" 키워드 포함해도 articles_amendment 우선 분류.
     예: "배당절차 개선에 따른 정관 변경의 건" → 실제 정관변경 (LG화학)
     iter21 fix: "재무제표 승인" 안건이 배당 정보 포함해도 financial_statements 우선.
     예: "재무제표 승인 (현금배당 ...)" → 재무제표 승인 (에코프로)
+    260507 fix: parent에 정관 키워드 있으면 sub 안건은 무조건 articles_amendment.
+    예: parent="정관 일부 변경의 건" / title="사외이사 명칭 변경" → director_election 오분류 방지.
+    300 회사 audit (KOSPI 200 + KOSDAQ 100)에서 mismatch 607건 (19.3%) 모두 이 패턴.
     """
     t = (agenda_title or "").strip()
+    parent = (parent_title or "").strip()
+    # 260507 단일 fix: parent가 정관변경이면 sub 안건도 articles_amendment.
+    # title 자체에 "정관" 없어도 (사외이사 명칭/감사위원 분리선임/위원회 명칭/배당절차 개선 등)
+    # 모두 정관변경 sub 안건이라 articles_amendment 처리.
+    if parent and "정관" in parent:
+        return "articles_amendment"
     # ralph 260505 코붕이 의견: 한국 회사 관행상 퇴직금/보수는 대부분 정관 일부 변경 형태로 들어옴.
     # → 정관이 본질, _decide_articles_amendment 안에서 amendments raw 보고 위험 detect.
     if "정관" in t:
@@ -1021,7 +1030,7 @@ async def build_proxy_advise_payload(
         except Exception:
             fy_raw_from_agenda = {"extraction_status": "error"}
 
-    # 안건 리스트 추출 (success 매핑)
+    # 안건 리스트 추출 (success 매핑) — 260507: parent_title 함께 추출 (정관 sub-안건 분류용)
     agenda_data = (meeting_agenda.get("data") or {})
     agenda_summary = agenda_data.get("agenda_summary", {}) or {}
     agenda_titles = agenda_summary.get("titles", []) or []
@@ -1030,6 +1039,16 @@ async def build_proxy_advise_payload(
         fallback_titles = (director_eval.get("data") or {}).get("agenda_titles_fallback", []) or []
         if fallback_titles:
             agenda_titles = fallback_titles
+
+    # parent_title map: title → parent_title (agenda tree에서 추출)
+    title_to_parent: dict[str, str] = {}
+    def _walk_agenda_tree(items: list, parent: str = "") -> None:
+        for it in items or []:
+            t = (it.get("title") or "").strip()
+            if t:
+                title_to_parent[t] = parent
+            _walk_agenda_tree(it.get("children", []), parent=t)
+    _walk_agenda_tree(agenda_data.get("agendas") or [])
 
     # 후보 평가 dict — name → eval
     director_data = (director_eval.get("data") or {})
@@ -1112,7 +1131,7 @@ async def build_proxy_advise_payload(
     # 안건별 결정 + 사유 (vote_style 정책 wire 적용)
     agenda_decisions: list[dict[str, Any]] = []
     for title in agenda_titles:
-        category = _classify_agenda(title)
+        category = _classify_agenda(title, parent_title=title_to_parent.get(title, ""))
         decision = "NO_DATA"
         reason = "category 미분류 — 본문 검토 필요"
         matched_eval: dict[str, Any] | None = None
