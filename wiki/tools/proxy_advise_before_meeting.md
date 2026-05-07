@@ -105,7 +105,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## 검증
 
-- ralph 27 iter G2 99.36% (vs 7 운용사 majority, 4+ vote case)
+- ralph 27 iter G2 99.36% (vs 8 운용사 majority, 4+ vote case)
 - ralph framework iter1~8 KOSPI 100 + KOSDAQ 50 (566 후보 / 1271 안건)
   - G1 4 dimension 노출률 100%
   - G2 NO_DATA false-positive 0%
