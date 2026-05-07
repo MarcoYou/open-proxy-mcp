@@ -69,7 +69,7 @@ _corp_code_lock: asyncio.Lock | None = None  # lazy init (asyncio loop 필요)
 # fly.io volume mount 시 machine restart에도 영구.
 # TTL 24h — 자동 update.
 _MASTER_DB_PATH = Path(os.environ.get("OPM_MASTER_DB_PATH", "configs/master.db"))
-_MASTER_DB_TTL_HOURS = 24
+_MASTER_DB_TTL_HOURS = 168   # 7d (corpCode 변경 빈도 낮음, 24h이었지만 idle 후 첫 호출마다 50MB 재다운로드 발생)
 
 # 법인격 suffix 제거 패턴
 _CORP_SUFFIX_RE = re.compile(
