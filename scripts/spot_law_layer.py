@@ -87,15 +87,25 @@ async def _audit_one(ticker: str, name: str, sem: asyncio.Semaphore) -> dict:
 
 
 async def _run(args):
-    # KOSPI 200 universe에서 상위 N (시총 기준 = 자산 2조+ 가능성 높음)
-    universe_path = ROOT / "wiki/architecture/audits/data/260506_universe_kospi_200.csv"
+    # universe 선택: kospi200 / kosdaq100 / 임의 csv 경로
+    universe_map = {
+        "kospi200": ROOT / "wiki/architecture/audits/data/260506_universe_kospi_200.csv",
+        "kosdaq100": ROOT / "wiki/architecture/audits/data/260506_universe_kosdaq_100.csv",
+        "kosdaq150": ROOT / "wiki/architecture/audits/data/260506_universe_kosdaq_150.csv",
+    }
+    if args.universe in universe_map:
+        universe_path = universe_map[args.universe]
+    elif Path(args.universe).is_file():
+        universe_path = Path(args.universe)
+    else:
+        raise SystemExit(f"unknown universe: {args.universe}. options: {list(universe_map)} or csv path")
     rows: list[tuple[str, str]] = []
     with universe_path.open(encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for r in reader:
             rows.append((r["ticker"], r["company"]))
     universe = rows[args.start:args.start + args.count]
-    print(f"[law_layer spot] universe=kospi200 range={args.start}:{args.start + args.count} resolved={len(universe)}", flush=True)
+    print(f"[law_layer spot] universe={args.universe} range={args.start}:{args.start + args.count} resolved={len(universe)}", flush=True)
 
     sem = asyncio.Semaphore(args.concurrency)
     t0 = time.time()
@@ -126,6 +136,7 @@ async def _run(args):
 
 def main() -> int:
     p = argparse.ArgumentParser()
+    p.add_argument("--universe", default="kospi200", help="kospi200 / kosdaq100 / kosdaq150 또는 csv 경로")
     p.add_argument("--start", type=int, default=0)
     p.add_argument("--count", type=int, default=30)
     p.add_argument("--concurrency", type=int, default=2)
