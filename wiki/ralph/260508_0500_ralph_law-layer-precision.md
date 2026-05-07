@@ -200,11 +200,35 @@ Ralph 3 (260508_0130_ralph_law-layer)에서 36 catalog + _law_layer 도입. prom
 
 **commit**: c2198a1
 
-### iter 3 — KOSPI 130-200 spot
-(작성 예정)
+### iter 3 — KOSPI 130-200 spot ✅
 
-### iter 4 — KOSDAQ 0-100 spot
-(작성 예정)
+70 회사 / 68 exact / 52 자산 2조+. 719 안건 / 67 hits (9.3%).
+
+**rule hits**: A1-5(21) / A1-1(17) / A1-7(15) / A1-4(10) / A1-2(1) / A1-6(1) / B2-8(1) / B1-4b(1)
+
+**핵심 발견**:
+- B1-4b 1건 (효성티앤씨 사내이사 유영환 임기 1년) — 정확 catch ✓
+- B1-8b 0건 — KT&G 사전 우회는 2026 sample엔 없음 (historical 한정 catch)
+- B2-8 첫 hit — B2 layer 작동 검증
+
+KOSPI 0-200 누적 200 회사 audit 완료.
+
+**commit**: b8f5983
+
+### iter 4 — KOSDAQ 0-100 spot ✅
+
+100 회사 / 94 exact / 10 자산 2조+ / **90 자산 2조 미만**. 894 안건 / 16 hits (1.8%, KOSPI 9.8% 대비 낮음).
+
+**rule hits**: A1-5(6) / A1-4(3) / A1-7(3) / A1-1(3) / B2-8(1)
+
+**핵심 발견**:
+- 자산 2조 미만 11 hits 전부 **자발 정합 (FOR)** — 의무 X 회사들이 1차 개정 정관 정비 (사외이사→독립이사 명칭, 전자주총, 의결권 제한 강화)
+- false positive 0건
+- B2-8 자발 강화 검증: 실리콘투 KOSDAQ 자산 미만 → 감사위원회 분리선출 확대 자발 ✓
+
+KOSPI 200 + KOSDAQ 100 누적 = 260 회사 audit 완료.
+
+**commit**: e700f51
 
 ### iter 5 — 분쟁 회사 spot
 (작성 예정)
