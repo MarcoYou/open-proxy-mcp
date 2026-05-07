@@ -3,6 +3,36 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-08] feat | 법령 layer 도입 — 1·2·3차 상법 개정 + 36 catalog (Ralph 3)
+- ralph: `wiki/ralph/260508_0130_ralph_law-layer.md` (7 iter / promise 발행)
+- 발견 (코붕이 review): LG화학 정관 sub 안건 잘못 분류 (운용사 정책 stale + hardcoded 키워드 stale)
+- 1·2·3차 상법 개정 web 검증 (김·장/신·김/지평/태평양/율촌/Deloitte/삼일/FNguide)
+  - 1차 (2025-07-22): 이사 충실의무 + 독립이사 + 3% 룰 + 전자주총
+  - 2차 (2025-09-09): 자산 2조+ 집중투표 의무화 + 분리선출 2명 이상
+  - 3차 (2026-02-25): 자사주 의무소각 + 합병/분할 신주 배정 금지
+- 36 catalog (코붕이 정밀화):
+  - A1 (FOR) 8 — 법 정합
+  - A2 (AGAINST) 5 — 법 위반
+  - B1·B2 (REVIEW) 19 — 법 테두리 안 우회 의심
+  - C (risk_factors) 4 — ownership 신호
+- 핵심 원칙: AGAINST는 명백한 법 위반만, REVIEW는 법 테두리 안 모든 의심 (B1·B2 둘 다 REVIEW)
+- 구조: `Layer 1 법령 → Layer 2 vote_style → Layer 3 hardcoded` 우선 적용
+- 검증:
+  - LG화학 5/5 핵심 안건 [법령 X-Y] tag 정확 분류
+  - 자산 2조+ 30 회사 spot 39 hits (A1-5 11 / A1-1 10 / A1-7 7 / A1-4 5 / A1-2 3 / B1-10 3)
+  - 새 패턴 발견 X
+- 운용사 7→8 표기 통일 (open_proxy_v1.json + open-proxy-guideline.md + wiki/index.md 등)
+- OPM 4 기준 → 5 기준 (5번째 = 법령 layer 우선 + 의무·우회 분기)
+- artifacts:
+  - `wiki/rules/laws/상법개정-2025-2026-통합본.md`
+  - `wiki/rules/laws/정관-우회-시나리오-2026.md`
+  - `wiki/rules/laws/law_layer_rules.json` (머신리더블 36 룰)
+  - `services/proxy_advise.py` `_law_layer()` 추가
+  - `scripts/spot_law_layer.py` 회귀 spot
+  - `wiki/architecture/audits/data/260508_law_layer/iter05_kospi_top30.json`
+- decision: [[260508_0200_decision_law-layer]]
+- lesson: [[lessons/law-layer-260508]]
+
 ## [2026-05-08] audit | high-impact 분류기 audit 결과 (fix 불필요 확정)
 - ralph: `wiki/ralph/260508_0030_ralph_classify-high-impact.md` (3 iter / promise 발행)
 - 대상: `_classify_value_up_item` (value_up) / `_is_company_side` / `_is_retail_activism_side` (proxy_contest filer)

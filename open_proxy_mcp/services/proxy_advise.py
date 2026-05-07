@@ -736,20 +736,13 @@ def _decide_articles_amendment(
     정체성상 의미 있으나 G2 정확도 차원에서 위험 신호 없으면 default FOR.
     """
     t = agenda_title or ""
-    # 법 정합 (2026 상법 개정) 우선 검사:
-    # - 2026-09-10 시행: 자산 2조+ 기업 집중투표 의무화 → 정관 "배제 조항 삭제"는 법 정합 (FOR)
-    # - 2026-07-23 시행: 감사위원 3% 룰 확대 → "감사위원 의결권 제한"은 법 정합 (FOR)
-    # 참조: wiki/rules/laws/상법개정-타임라인-2026.md
-    if "집중투표" in t and ("배제" in t) and ("삭제" in t or "폐지" in t or "제거" in t):
-        return "FOR", "집중투표 배제 조항 삭제 — 2026 상법 개정 (자산 2조+ 집중투표 의무화) 정합"
-    if "집중투표" in t and ("도입" in t or "의무" in t):
-        return "FOR", "집중투표 도입 — 소수주주 보호 강화"
-    if "감사위원" in t and ("의결권" in t and "제한" in t):
-        return "FOR", "감사위원 의결권 제한 — 2026 상법 개정 (감사위원 3% 룰 확대) 정합"
-
-    # AGAINST signals (소수주주 보호 후퇴)
+    # 260508: 법령 layer (1·2·3차 상법 개정 + 정관 우회 시나리오) 우선 적용으로 이동.
+    # 이 함수는 법령 layer 미매치 시 fallback (운용사 정책 hardcoded 분기).
+    # 참조: services/proxy_advise.py:_law_layer + wiki/rules/laws/law_layer_rules.json
+    #
+    # AGAINST signals (소수주주 보호 후퇴) — 법령 layer 미매치 fallback
     if "집중투표" in t and "배제" in t:
-        return "AGAINST", "집중투표 배제 — 소수주주 보호 후퇴 (단, 배제 조항 삭제 케이스는 위에서 FOR 처리)"
+        return "AGAINST", "집중투표 배제 — 소수주주 보호 후퇴 (법령 layer A2-1 미매치 fallback)"
     if "초다수결의제" in t or ("의결권" in t and "제한" in t):
         return "AGAINST", "초다수결의제 또는 의결권 제한 — 적대적 인수 방어"
     # iter23+24 검증: "통지기한 단축" records 표본 0건 → over-fit fix 제거
