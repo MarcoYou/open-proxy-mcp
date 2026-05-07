@@ -20,7 +20,7 @@
       "5 운용사 silent 영역 명시 (자사주 처분, MoM, LID, Say-on-Pay)",
       "물적분할 자회사 상장 = against 명시 (운용사 review 표류 차단)",
       "강행규정 위반 = against 절대 (자본시장법 공시 위반은 review로 분리)",
-      "한국 7 운용사 합의 + 한국 법령 + OPM 4 기준 중심",
+      "한국 8 운용사 합의 + NPS + 한국 법령 + OPM 4 기준 중심",
       "행동주의 적극 행사 원칙 (얼라인 + 차파트너스 통해 — 정책 엄격 + 정량 매트릭스 결합)"
     ],
     "source_inputs": [
@@ -625,7 +625,7 @@
         },
         {
           "criterion": "대형사 (자산 2조원+) 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대",
-          "source": "한국 상법 §542의8 ① + 한국 7 운용사 사외이사 비중 강화 합의",
+          "source": "한국 상법 §542의8 ① + 한국 8 운용사 사외이사 비중 강화 합의",
           "law": "상법 §542의8 ①",
           "foreign_reference_note": "외국계 운용사 (베어링) 동일 입장 — ISS 참조 사례 (Two-tier 정량은 한국 상법과 정합)",
           "evidence_refs": [
@@ -1695,7 +1695,7 @@
       "category": "director_election",
       "default": "for",
       "stage": "tier_2",
-      "korea_status": "상법 §408의2 (2011 도입). 한국 7 운용사 모두 silent. c_activist 단독 명시 채택",
+      "korea_status": "상법 §408의2 (2011 도입). 한국 8 운용사 모두 silent. c_activist 단독 명시 채택",
       "rationale": "감독·집행 분리는 글로벌 모범사례 (이사회 감독 기능 강화). c_activist 행동주의 입장 따라 자율 도입 회사 우호 평가",
       "implementation_note": "정관 자율 도입 회사 우호 평가. 도입 안건 for 채택",
       "evidence_refs": [
@@ -1708,7 +1708,7 @@
       "category": "articles_amendment",
       "default": "for",
       "stage": "tier_2",
-      "korea_status": "공정거래법 §47 (특수관계인 부당이익) 사후 처벌만 존재. 사전 위원회 미의무. 한국 7 운용사 모두 silent. c_activist 단독 명시",
+      "korea_status": "공정거래법 §47 (특수관계인 부당이익) 사후 처벌만 존재. 사전 위원회 미의무. 한국 8 운용사 모두 silent. c_activist 단독 명시",
       "rationale": "내부거래위원회 + 사외이사 전원 + 일정규모 내부거래 주총 승인은 한국 재벌 일감몰아주기 차단의 핵심 거버넌스 장치. c_activist 행동주의 입장 따라 채택",
       "implementation_note": "정관 도입 안건 for. 일정규모 (예: 자산 1% 또는 매출 10%) 이상 내부거래를 주총 승인 사항으로 변경 시 for. 미설치 회사는 review",
       "evidence_refs": [
@@ -1772,7 +1772,7 @@
     "한국 재벌 사익편취 (tunneling) — 일감몰아주기·물적분할 자회사 상장·삼성물산 합병·자사주 마법 차단",
     "[v1.2] 베어링은 외국계 운용사 ISS 참조 사례 데이터로만 보존 — OPM 벤치마크 X (ISS 추천 퀄리티/논란 우려)",
     "[v1.1] 행동주의 적극 행사 원칙 (얼라인) — 합병/영업양수도/임원 임면/정관변경 등 중대 사항 silent 금지 (제3조 ②)",
-    "[v1.1] 7 운용사 매트릭스 — 22 consensus + 27 majority = 49/79 (62%) 강한 합의. 한국 운용사 silent 영역에 한해 align_partners 동조 토픽 채택 (bundled_slate, active_engagement)",
+    "[v1.1] 8 운용사 매트릭스 — 22 consensus + 27 majority = 49/79 (62%) 강한 합의. 한국 운용사 silent 영역에 한해 align_partners 동조 토픽 채택 (bundled_slate, active_engagement)",
     "[v1.3] 8 운용사 매트릭스 — 22 consensus + 26 majority = 48/96 (50%). 8/8 만장일치 토픽 8건 (외감의견, 사외이사 5년 룰, 과도 겸임, 기업가치 훼손 이력, 사외이사 비중 확대, 집중투표 배제 삭제, 초다수의결, 황금낙하산)",
     "[v1.3] 행동주의 3사 (T/A/C) 일치 24건 — 외감/배당/사외이사 비중·5년 룰·과도 겸임/기업가치 훼손 이력/특정주주 이익 추구/성과 미연계 보상/스톡옵션 사후 조정·기간 단축·규모/자본 감소·외부 인수 자본 증가/신주인수권 배제·CB/BW 희석 한도/일괄투표 등",
     "[v1.3] c_activist 단독 신규 토픽 17건 — 집행임원제도, 내부거래위원회, 선임사외이사(LID), 사외이사 매년 독립성 공시, 추천위 사외이사 과반, 사외이사 주식보상 매도금지, 5억원 미만 보수공개, 임원 hedging 금지, 임직원 자사주 대출 금지, 자사주 매입 후 소각, 신사업투자 자사주 처분 사유 미제시 against, 실권주 최대주주 배정 금지, 채무재조정 CB/BW 우호, 이사회 평가 공시, CEO 3기+ 연임 봉쇄, 정치/자선 기부금 제한 against",
@@ -1892,11 +1892,11 @@
       "voting_rules 12 카테고리 모두 baring/align_partners 입장 추가 강화 (총 18건 새 criteria)",
       "novel_topics 5개 신규 추가 (climate_accountability, say_on_climate, discharge_of_director, overboarded_directors, bundled_slate_against)",
       "global_reference_topics 섹션 신규 — ISS Korea 2026 직접 reference 12건 + 행동주의 원칙 7건",
-      "korea_specific 3건 추가 — ISS·행동주의·7 운용사 매트릭스 명시"
+      "korea_specific 3건 추가 — ISS·행동주의·8 운용사 매트릭스 명시"
     ],
     "v1_2_changes": [
       "policy_meta.version → v1.2 — ISS 다운그레이드",
-      "differentiation: 'ISS Korea 2026 직접 reference' → '한국 7 운용사 합의 + 한국 법령 + OPM 4 기준 중심'",
+      "differentiation: 'ISS Korea 2026 직접 reference' → '한국 8 운용사 합의 + NPS + 한국 법령 + OPM 4 기준 중심'",
       "novel_topics 13 → 11 (say_on_climate, discharge_of_director 삭제)",
       "novel_topics climate_accountability tier_2 → tier_3_signal 다운그레이드 (한국 운용사 입장만 유지)",
       "voting_rules: ISS 직접 인용 ([ISS direct] 마킹) 모두 제거. 한국 운용사·법령 source로 재정렬, 베어링은 foreign_reference_note로 별도 보존",
@@ -1914,7 +1914,7 @@
     ]
   },
   "foreign_manager_iss_reference_data": {
-    "_note": "[v1.2] OPM은 ISS를 벤치마크로 사용하지 않는다 (ISS 추천 퀄리티/논란 우려). 베어링은 외국계 운용사가 ISS를 어떻게 활용하는지의 데이터 reference로만 보존됨. 이 섹션은 비교/조사 목적의 참조 데이터이며, OPM 의결권 결정 로직은 한국 7 운용사 합의 + 한국 법령 + OPM 4 기준에 따른다.",
+    "_note": "[v1.2] OPM은 ISS를 벤치마크로 사용하지 않는다 (ISS 추천 퀄리티/논란 우려). 베어링은 외국계 운용사가 ISS를 어떻게 활용하는지의 데이터 reference로만 보존됨. 이 섹션은 비교/조사 목적의 참조 데이터이며, OPM 의결권 결정 로직은 한국 8 운용사 합의 + NPS + 한국 법령 + OPM 4 기준에 따른다.",
     "baring_iss_topics_reference": [
       "Climate Accountability — 중대 GHG 배출 기업 + TCFD/Net Zero 미공시 책임 이사 against (OPM은 한국 운용사 입장 한정 적용)",
       "Say on Climate — 9 요소 case-by-case (OPM 미적용)",

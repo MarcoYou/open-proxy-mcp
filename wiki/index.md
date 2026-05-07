@@ -88,7 +88,9 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ### 한국 자본시장 용어 모름
 - [[rules/concepts/]] - 31 개념 (배당성향 / 최대주주 / 동일인 / 집중투표 등)
 - [[rules/disclosures/]] - 36 공시 유형 (현금배당결정 / 유상증자결정 / 자기주식취득결정 등)
-- [[rules/laws/상법개정-타임라인-2026]] - 2025-2027 상법 개정 일정
+- [[rules/laws/상법개정-2025-2026-통합본]] - 1·2·3차 상법 개정 통합본 (260508 신규 + web 검증)
+- [[rules/laws/정관-우회-시나리오-2026]] - 4 시나리오 + 36 항목 catalog (Layer A1/A2/B1/B2/C)
+- [[rules/laws/상법개정-타임라인-2026]] - 옛 타임라인 (보존)
 
 ### 최근 audit / fix
 - `260505_inside_director_performance/` — 사내이사 성과 매트릭스 KOSPI 100 + KOSDAQ 50 audit (n=128, G1 100%, dist 29.7/45.3/18.0/7.0 target band 모두 충족, threshold ≥9→≥7 calibration)
@@ -131,7 +133,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[evidence]] - rcept_no -> 공시일/소스/뷰어 URL (API 0회)
 
 ### Policy & Matrix (1)
-- [[proxy_guideline]] - 7운용사 정책 + OPM Guideline + 12 매트릭스 자동 채점 + NPS (7 scope, 정적 데이터)
+- [[proxy_guideline]] - 8 운용사 + NPS 정책 + OPM Guideline + 12 매트릭스 자동 채점 + NPS (7 scope, 정적 데이터)
 
 ### Action (2) — 시점 분리 재편 (2026-05-02)
 - [[advise_vote_before_meeting]] - 주총 **전** 의결권 행사 메모 (안건별 FOR/AGAINST + 결정 사유 + 후보 평가 3축)

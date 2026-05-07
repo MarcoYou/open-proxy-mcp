@@ -20,7 +20,7 @@ ISS 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우 있어
   - 유지: bundled_slate_against (얼라인 동조), overboarded_directors (한국 상법 §382의2 + 시행령 §34 + 한투 정량)
 - voting_rules 12 카테고리에서 `[ISS direct]` 직접 인용 제거, source/law/evidence_refs를 한국 운용사·법령 중심으로 재정렬. 베어링은 `foreign_reference_note` 필드로 별도 보존
 - _decision_matrices.json: ISS-only dim `climate_accountability_signal` 제거 (101 → 100 dim), bingo `climate_accountability_red` 제거 (77 → 76). `climate_disclosure`는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2, 2024) 기반으로 재정렬
-- OPM은 한국 7 운용사 합의 + 한국 법령 + OPM 4 기준 중심으로 운영
+- OPM은 한국 8 운용사 + NPS 합의 + 한국 법령 + OPM 5 기준 중심으로 운영
 
 ## 0. v1 → v1.1 변경 요약 (2026-04-29)
 
@@ -61,14 +61,15 @@ ISS 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우 있어
 
 **v1.1 추가**: 베어링 (ISS Korea 2026 직접) + 얼라인 (행동주의) 통합으로 글로벌 표준 + 행동주의 적극 행사 양 축 강화. 한국 5 운용사 silent 영역 (Climate Accountability, Bundled Slate, Two-tier 정량 등) 차단.
 
-OPM은 **7 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로벌 표준 + 행동주의 적극 행사 + 정량 매트릭스를 결합한 차별화된 정책을 제시한다.
+OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로벌 표준 + 행동주의 적극 행사 + 정량 매트릭스를 결합한 차별화된 정책을 제시한다.
 
-### 1.2 OPM 4 기준 (헌법)
+### 1.2 OPM 5 기준 (헌법)
 
 1. **소수주주 보호 우선** — 합의 없을 때 소수주주 유리 쪽
 2. **거버넌스 투명성** — 정보 부족 시 review (단 강행규정 위반은 against)
 3. **장기 가치 관점** — 단기 주가 부양보다 구조 안정
 4. **추적 가능성** — 모든 권고에 references (전문가 / 운용사 / 법령)
+5. **법령 layer 우선 + 의무·우회 분기** (260508 추가) — 법 정합 = FOR / 법 위반 = AGAINST / 법 테두리 안 우회 의심 = REVIEW. 운용사 정책 stale해도 강행규정 자동 반영. 의무 정확 충족(FOR) ≠ 의무 미달(AGAINST) ≠ 의무 초과 + 우회 의심(REVIEW) 명확 분기. 참조: [[law-layer-260508]] / [[정관-우회-시나리오-2026]]
 
 ### 1.3 차별화 포인트
 
@@ -577,4 +578,4 @@ OPM v1.1에서 베어링 (ISS) 입장은 voting_rules 항목에 `global_referenc
 
 ### 11.7 c_activist 단독 토픽 채택 원칙
 
-c_activist 단독 명시 영역은 한국 운용사 silent 영역에 한해 채택 (한국 법령·KCGS 모범규준·KRX 핵심지표 정합 우선). 행동주의 적극 행사 원칙 (silent 금지)을 a_activist + c_activist 2사 합의로 강화하되, OPM은 한국 7 운용사 + 한국 법령 + OPM 4 기준 중심을 유지한다.
+c_activist 단독 명시 영역은 한국 운용사 silent 영역에 한해 채택 (한국 법령·KCGS 모범규준·KRX 핵심지표 정합 우선). 행동주의 적극 행사 원칙 (silent 금지)을 a_activist + c_activist 2사 합의로 강화하되, OPM은 한국 8 운용사 + NPS + 한국 법령 + OPM 5 기준 중심을 유지한다.
