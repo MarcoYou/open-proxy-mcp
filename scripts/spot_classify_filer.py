@@ -48,22 +48,26 @@ async def _audit_one(ticker: str, name: str, sem: asyncio.Semaphore) -> dict:
                 timeout=60.0,
             )
             data = payload.get("data") or {}
-            fight = data.get("fight") or {}
-            filings = fight.get("proxy_filings") or []
+            # fight는 list of filings (직접 위임장 공시)
+            filings = data.get("fight") or []
+            if not isinstance(filings, list):
+                filings = []
             classifications = []
             for f in filings:
+                if not isinstance(f, dict):
+                    continue
                 filer = f.get("filer_name") or ""
                 computed_company = _is_company_side(filer, name)
                 computed_retail = _is_retail_activism_side(filer)
-                # 실제 service에서 부여한 side label
-                actual_side = f.get("filer_side") or ""
+                actual_side = f.get("side") or ""
                 classifications.append({
                     "filer_name": filer,
                     "computed_is_company": computed_company,
                     "computed_is_retail": computed_retail,
                     "actual_side": actual_side,
+                    "actor_group": f.get("actor_group") or "",
                     "rcept_no": f.get("rcept_no") or "",
-                    "report_name": f.get("report_nm") or "",
+                    "report_name": f.get("report_name") or f.get("report_nm") or "",
                 })
             return {
                 "ticker": ticker, "name": name, "status": payload.get("status"),
