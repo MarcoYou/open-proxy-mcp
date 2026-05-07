@@ -165,14 +165,41 @@ Ralph 4 발견: 룰 catalog 미사용 13개는 "패턴 부족"이 아니라 **"L
 
 (이건 파서 audit 외부, 별도 ralph)
 
-## 다음 ralph 후보 (우선순위)
+## Ralph 5 실측 결과 (2026-05-08 후속 검증)
+
+본 audit의 "보강 필요 두 파서" 결론을 Ralph 5 (260508_0207_ralph_parser-precision)에서 직접 검증한 결과:
+
+### parse_personnel_xml careerDetails 누락
+- 분쟁 14 회사 + KOSPI 30 회사 = **44 회사 / 225 후보** 광범위 sample
+- careerDetails 비어있음: **0건 (0.0%)**
+- careerCompanyGroups 비어있음: **0건**
+- → TO_DO의 "서진/펩트론/심텍/고영 careerDetails 누락" 가정은 stale 정보. 현재 시점에선 사실 아님.
+
+### parse_aoi_xml amendments 누락
+- KOSPI 200 전체 audit
+- 정관변경 안건 OK: **178**
+- 정관변경 안건 + amendments=[] (누락): **3 (1.66%)** — 기업은행 / 한국금융지주 / HD현대건설기계
+- 누락 3건 raw 분석: 모두 **source 본문에 정관변경 detail 없음** (별첨 PDF). parse_aoi_xml 한계가 아닌 source 한계 → PDF fallback 영역.
+
+### 결론 update
+
+| 파서 | 본 audit 결론 (초안) | Ralph 5 실측 결론 |
+|---|---|---|
+| parse_personnel_xml | "careerDetails fallback 추가 필요" | **현재 정밀도 충분, 보강 불필요** |
+| parse_aoi_xml | "amendments fallback 추가 필요" | **1.66% 누락은 source 한계, parser 보강 불필요** |
+
+→ 본 audit 1차 권장 (두 파서 보강)은 **실측 후 무효화**. 40 파서 모두 적정.
+
+## 다음 ralph 후보 (우선순위) — Ralph 5 후 update
+
+Ralph 5에서 두 파서 보강 ralph 후보 1, 2 실측 후 무효화 (현재 정밀도 충분). 새 우선순위:
 
 | 우선순위 | ralph | 영향 |
 |---|---|---|
-| 🔴 1 | `parse_aoi_xml` 정밀화 + raw 보존 강화 | B1/B2 모호 룰 LLM 판단 가능, KT&G 같은 본문 우회 자동 catch |
-| 🔴 2 | `parse_personnel_xml` careerDetails fallback + raw narrative | 5년 룰 작동, 후보 평가 정확도 |
-| 🟡 3 | `_law_layer` 룰 슬림화 + amendments raw 통합 | proxy_advise 응답에 본문 raw 노출 |
-| 🟢 4 | corp_gov_report _parse_principles raw narrative 보강 | comment raw 활용 ↑ |
+| 🟡 1 | `_law_layer` 룰 슬림화 + amendments raw 통합 | proxy_advise 응답에 본문 raw 노출 → LLM 판단 영역 명시화 (B1/B2 모호 룰 → "raw 검토" hint) |
+| 🟢 2 | parse_aoi_xml PDF fallback (3-tier 2단계) 검증 | 1.66% 누락 (기업은행 등 별첨 PDF 케이스) catch 가능 여부 |
+| 🟢 3 | corp_gov_report _parse_principles raw narrative 보강 | comment raw 활용 ↑ |
+| 🟢 4 | _classify_director_tenure logic 개선 (5년 룰) | careerDetails 정상 추출되지만 5년 룰 자체 logic 검토 필요 |
 
 ### 비목표
 

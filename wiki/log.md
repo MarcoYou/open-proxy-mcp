@@ -3,6 +3,25 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-08] audit | 파서 정밀화 검증 — 보강 불필요 (Ralph 5)
+- ralph: `wiki/ralph/260508_0207_ralph_parser-precision.md` (1+4 iter / promise 발행)
+- 발견 (parser audit follow-up):
+  - parse_personnel_xml careerDetails 누락 가설 부정확 (44회사/225후보 0% 누락)
+  - parse_aoi_xml amendments 누락 1.66% (KOSPI 200 / 3건 모두 source 한계 — 별첨 PDF)
+  - 두 파서 강화 ralph 불필요 결론
+- audit 자체 정확성 issue:
+  - parser audit (260508_parser_audit)는 코드 정적 분석 + TO_DO 정보 기반
+  - TO_DO 정보가 stale (옛 batch v7b 시점) → audit 결론 부정확
+  - audit는 가설, ralph가 실측 검증 — 두 단계 분리 패턴 재확인
+- 다음 후보 재정렬:
+  - 🟡 _law_layer 룰 슬림화 + amendments raw 통합 (LLM 판단 영역 명시화)
+  - 🟢 PDF fallback (3-tier 2단계) 검증
+  - 🟢 _classify_director_tenure logic (5년 룰)
+- artifacts:
+  - `wiki/lessons/parser-precision-260508.md`
+  - `wiki/architecture/audits/260508_parser_audit.md` (실측 결과 추가)
+- code 변경 X
+
 ## [2026-05-08] feat | 법령 layer 정밀화 — B1-4 분기 + B1-8b 신규 + B1-7 보강 (Ralph 4)
 - ralph: `wiki/ralph/260508_0500_ralph_law-layer-precision.md` (6 iter / promise 발행)
 - 발견 (Ralph 3 follow-up):
