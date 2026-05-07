@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from open_proxy_mcp.dart.client import get_dart_client  # noqa: E402
 from open_proxy_mcp.services.proxy_contest import (  # noqa: E402
     _is_company_side,
     _is_retail_activism_side,
@@ -43,12 +44,16 @@ async def _audit_one(ticker: str, name: str, sem: asyncio.Semaphore) -> dict:
     async with sem:
         t0 = time.time()
         try:
+            # DART 정식명 lookup — service와 동일 corp_name 비교
+            client = get_dart_client()
+            corp = await client.lookup_corp_code(ticker)
+            canonical_name = corp.get("corp_name", name) if corp else name
+
             payload = await asyncio.wait_for(
                 build_proxy_contest_payload(name, scope="fight"),
                 timeout=60.0,
             )
             data = payload.get("data") or {}
-            # fight는 list of filings (직접 위임장 공시)
             filings = data.get("fight") or []
             if not isinstance(filings, list):
                 filings = []
@@ -57,14 +62,25 @@ async def _audit_one(ticker: str, name: str, sem: asyncio.Semaphore) -> dict:
                 if not isinstance(f, dict):
                     continue
                 filer = f.get("filer_name") or ""
-                computed_company = _is_company_side(filer, name)
+                # service와 동일하게 DART canonical_name 사용
+                computed_company = _is_company_side(filer, canonical_name)
                 computed_retail = _is_retail_activism_side(filer)
                 actual_side = f.get("side") or ""
+                # 정합 분류: computed → expected_side 결정
+                if computed_company:
+                    expected = "company"
+                elif computed_retail:
+                    expected = "retail_activism"
+                else:
+                    expected = "shareholder"
                 classifications.append({
                     "filer_name": filer,
+                    "canonical_corp": canonical_name,
                     "computed_is_company": computed_company,
                     "computed_is_retail": computed_retail,
+                    "expected_side": expected,
                     "actual_side": actual_side,
+                    "match": expected == actual_side,
                     "actor_group": f.get("actor_group") or "",
                     "rcept_no": f.get("rcept_no") or "",
                     "report_name": f.get("report_name") or f.get("report_nm") or "",

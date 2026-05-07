@@ -3,6 +3,17 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-08] audit | high-impact 분류기 audit 결과 (fix 불필요 확정)
+- ralph: `wiki/ralph/260508_0030_ralph_classify-high-impact.md` (3 iter / promise 발행)
+- 대상: `_classify_value_up_item` (value_up) / `_is_company_side` / `_is_retail_activism_side` (proxy_contest filer)
+- 300 회사 sample (KOSPI 200 + KOSDAQ 100) 통합 audit
+- value_up: 127 items / 19 unique 패턴 / **mismatch 0** — 견고
+- filer 3-way: 255 filings / **99.22% 정확도** — 견고
+  - mismatch 2건은 filer 분류기 이슈 X — 회사 resolver 모호 매칭 (셀트리온제약 → 셀트리온 잘못 해석)
+- meta-lesson: audit script 측 버그 주의 (universe csv 약칭 vs DART 정식명 차이)
+- 분류기 코드 변경 0 (견고 확인)
+- lesson: [[lessons/classify-high-impact-260508]]
+
 ## [2026-05-08] fix | _classify_agenda 정관 sub-안건 분류 (mismatch 19.3% → 0%)
 - ralph: `wiki/ralph/260507_2330_ralph_classify-agenda-fix.md` (4 iter / promise 발행)
 - 발견 (코붕이 review): 롯데케미칼 proxy_advise 정관 sub-안건 NO_DATA

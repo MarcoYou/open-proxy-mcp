@@ -1,0 +1,1347 @@
+{
+  "meta": {
+    "universe": "kospi200",
+    "start": 0,
+    "count": 30,
+    "duration_s": 26.9,
+    "generated_at": "2026-05-07"
+  },
+  "records": [
+    {
+      "ticker": "032830",
+      "name": "삼성생명",
+      "status": "exact",
+      "duration_s": 1.92,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성생명",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312000859",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성생명",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260311004494",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성생명",
+          "canonical_corp": "삼성생명",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260219002861",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성생명",
+          "canonical_corp": "삼성생명",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20251021000407",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 4
+    },
+    {
+      "ticker": "006800",
+      "name": "미래에셋증권",
+      "status": "exact",
+      "duration_s": 3.24,
+      "classifications": [
+        {
+          "filer_name": "미래에셋증권",
+          "canonical_corp": "미래에셋증권",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260316000634",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "미래에셋증권",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001258",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "미래에셋증권",
+          "canonical_corp": "미래에셋증권",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260304001469",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 3
+    },
+    {
+      "ticker": "010130",
+      "name": "고려아연",
+      "status": "exact",
+      "duration_s": 0.92,
+      "classifications": [
+        {
+          "filer_name": "영풍",
+          "canonical_corp": "고려아연",
+          "computed_is_company": false,
+          "computed_is_retail": false,
+          "expected_side": "shareholder",
+          "actual_side": "shareholder",
+          "match": true,
+          "actor_group": "registry_overlap",
+          "rcept_no": "20260309001811",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "고려아연",
+          "canonical_corp": "고려아연",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260305001629",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "영풍",
+          "canonical_corp": "고려아연",
+          "computed_is_company": false,
+          "computed_is_retail": false,
+          "expected_side": "shareholder",
+          "actual_side": "shareholder",
+          "match": true,
+          "actor_group": "registry_overlap",
+          "rcept_no": "20260303002712",
+          "report_name": "[첨부정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "영풍",
+          "canonical_corp": "고려아연",
+          "computed_is_company": false,
+          "computed_is_retail": false,
+          "expected_side": "shareholder",
+          "actual_side": "shareholder",
+          "match": true,
+          "actor_group": "registry_overlap",
+          "rcept_no": "20260226006862",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "고려아연",
+          "canonical_corp": "고려아연",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260225005390",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "영풍",
+          "canonical_corp": "고려아연",
+          "computed_is_company": false,
+          "computed_is_retail": false,
+          "expected_side": "shareholder",
+          "actual_side": "shareholder",
+          "match": true,
+          "actor_group": "registry_overlap",
+          "rcept_no": "20260224004373",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "고려아연",
+          "canonical_corp": "고려아연",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260223004177",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 7
+    },
+    {
+      "ticker": "012450",
+      "name": "한화에어로스페이스",
+      "status": "exact",
+      "duration_s": 1.11,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "한화에어로스페이스",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001168",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "한화에어로스페이스",
+          "canonical_corp": "한화에어로스페이스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260309001880",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "한화에어로스페이스",
+          "canonical_corp": "한화에어로스페이스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260223004112",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 3
+    },
+    {
+      "ticker": "005930",
+      "name": "삼성전자",
+      "status": "exact",
+      "duration_s": 4.61,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성전자",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001411",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성전자",
+          "canonical_corp": "삼성전자",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260312001008",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성전자",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312000875",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성전자",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260311004601",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성전자",
+          "canonical_corp": "삼성전자",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260225001632",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성전자",
+          "canonical_corp": "삼성전자",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260213001129",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 6
+    },
+    {
+      "ticker": "042700",
+      "name": "한미반도체",
+      "status": "exact",
+      "duration_s": 0.99,
+      "classifications": [],
+      "n_filings": 0
+    },
+    {
+      "ticker": "329180",
+      "name": "HD현대중공업",
+      "status": "exact",
+      "duration_s": 1.56,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "HD현대중공업",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001213",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "HD현대중공업",
+          "canonical_corp": "HD현대중공업",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260303002422",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "HD현대중공업",
+          "canonical_corp": "HD현대중공업",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20251002000266",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "HD현대중공업",
+          "canonical_corp": "HD현대중공업",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20251002000088",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 4
+    },
+    {
+      "ticker": "028260",
+      "name": "삼성물산",
+      "status": "exact",
+      "duration_s": 1.62,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성물산",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312000693",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성물산",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260311004627",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성물산",
+          "canonical_corp": "삼성물산",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260227008673",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성물산",
+          "canonical_corp": "삼성물산",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260219000138",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 4
+    },
+    {
+      "ticker": "267260",
+      "name": "HD현대일렉트릭",
+      "status": "exact",
+      "duration_s": 1.67,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "HD현대일렉트릭",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260313000672",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "HD현대일렉트릭",
+          "canonical_corp": "HD현대일렉트릭",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260223002989",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 2
+    },
+    {
+      "ticker": "005490",
+      "name": "POSCO홀딩스",
+      "status": "exact",
+      "duration_s": 1.12,
+      "classifications": [
+        {
+          "filer_name": "POSCO홀딩스",
+          "canonical_corp": "POSCO홀딩스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260219002864",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 1
+    },
+    {
+      "ticker": "000660",
+      "name": "SK하이닉스",
+      "status": "exact",
+      "duration_s": 2.79,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "SK하이닉스",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001157",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "SK하이닉스",
+          "canonical_corp": "SK하이닉스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260305001262",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "SK하이닉스",
+          "canonical_corp": "SK하이닉스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260225005863",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 3
+    },
+    {
+      "ticker": "402340",
+      "name": "SK스퀘어",
+      "status": "exact",
+      "duration_s": 1.56,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "SK스퀘어",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001235",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "SK스퀘어",
+          "canonical_corp": "SK스퀘어",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260227006721",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "SK스퀘어",
+          "canonical_corp": "SK스퀘어",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260224004346",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 3
+    },
+    {
+      "ticker": "010140",
+      "name": "삼성중공업",
+      "status": "exact",
+      "duration_s": 1.63,
+      "classifications": [
+        {
+          "filer_name": "삼성중공업",
+          "canonical_corp": "삼성중공업",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260213002423",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 1
+    },
+    {
+      "ticker": "068270",
+      "name": "셀트리온",
+      "status": "exact",
+      "duration_s": 1.74,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "셀트리온",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001137",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "셀트리온",
+          "canonical_corp": "셀트리온",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260306000003",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "셀트리온",
+          "canonical_corp": "셀트리온",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260212000548",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 3
+    },
+    {
+      "ticker": "042660",
+      "name": "한화오션",
+      "status": "exact",
+      "duration_s": 2.53,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "한화오션",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312000920",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "한화오션",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260311004586",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "한화오션",
+          "canonical_corp": "한화오션",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260305000010",
+          "report_name": "[첨부정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "한화오션",
+          "canonical_corp": "한화오션",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260304001642",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "한화오션",
+          "canonical_corp": "한화오션",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260213002792",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 5
+    },
+    {
+      "ticker": "009150",
+      "name": "삼성전기",
+      "status": "exact",
+      "duration_s": 1.09,
+      "classifications": [
+        {
+          "filer_name": "삼성전기",
+          "canonical_corp": "삼성전기",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260212001727",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 1
+    },
+    {
+      "ticker": "015760",
+      "name": "한국전력",
+      "status": "error",
+      "duration_s": 0.13,
+      "classifications": [],
+      "n_filings": 0
+    },
+    {
+      "ticker": "034020",
+      "name": "두산에너빌리티",
+      "status": "exact",
+      "duration_s": 1.59,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "두산에너빌리티",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260313000665",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "두산에너빌리티",
+          "canonical_corp": "두산에너빌리티",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260312001042",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 2
+    },
+    {
+      "ticker": "055550",
+      "name": "신한지주",
+      "status": "exact",
+      "duration_s": 1.02,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "신한지주",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001145",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "신한지주",
+          "canonical_corp": "신한지주",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260303003275",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 2
+    },
+    {
+      "ticker": "005380",
+      "name": "현대차",
+      "status": "exact",
+      "duration_s": 3.84,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "현대자동차",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001188",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "현대자동차",
+          "canonical_corp": "현대자동차",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260305001545",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "현대자동차",
+          "canonical_corp": "현대자동차",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260225005573",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 3
+    },
+    {
+      "ticker": "006400",
+      "name": "삼성SDI",
+      "status": "exact",
+      "duration_s": 1.03,
+      "classifications": [
+        {
+          "filer_name": "삼성SDI",
+          "canonical_corp": "삼성SDI",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260219002719",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 1
+    },
+    {
+      "ticker": "086790",
+      "name": "하나금융지주",
+      "status": "exact",
+      "duration_s": 1.59,
+      "classifications": [
+        {
+          "filer_name": "하나금융지주",
+          "canonical_corp": "하나금융지주",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260227007856",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 1
+    },
+    {
+      "ticker": "373220",
+      "name": "LG에너지솔루션",
+      "status": "exact",
+      "duration_s": 1.63,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "LG에너지솔루션",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001126",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "LG에너지솔루션",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001124",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "LG에너지솔루션",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260311004554",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "LG에너지솔루션",
+          "canonical_corp": "LG에너지솔루션",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260213002193",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 4
+    },
+    {
+      "ticker": "009540",
+      "name": "HD한국조선해양",
+      "status": "exact",
+      "duration_s": 2.05,
+      "classifications": [
+        {
+          "filer_name": "HD한국조선해양",
+          "canonical_corp": "HD한국조선해양",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260227003892",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 1
+    },
+    {
+      "ticker": "000270",
+      "name": "기아",
+      "status": "exact",
+      "duration_s": 2.05,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "기아",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001130",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "기아",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260311004641",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "기아",
+          "canonical_corp": "기아",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260303002949",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "기아",
+          "canonical_corp": "기아",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260212001265",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 4
+    },
+    {
+      "ticker": "012330",
+      "name": "현대모비스",
+      "status": "exact",
+      "duration_s": 1.65,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "현대모비스",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312000947",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "현대모비스",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260311004402",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "현대모비스",
+          "canonical_corp": "현대모비스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260227008417",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "현대모비스",
+          "canonical_corp": "현대모비스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260210000912",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "현대모비스",
+          "canonical_corp": "현대모비스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20250723000338",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 5
+    },
+    {
+      "ticker": "035420",
+      "name": "NAVER",
+      "status": "exact",
+      "duration_s": 1.74,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "NAVER",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001241",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "NAVER",
+          "canonical_corp": "NAVER",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260305000837",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "NAVER",
+          "canonical_corp": "NAVER",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260224003141",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "NAVER",
+          "canonical_corp": "NAVER",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260220001714",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 4
+    },
+    {
+      "ticker": "207940",
+      "name": "삼성바이오로직스",
+      "status": "exact",
+      "duration_s": 1.7,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성바이오로직스",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312000726",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "삼성바이오로직스",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260311004633",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성바이오로직스",
+          "canonical_corp": "삼성바이오로직스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260305001150",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성바이오로직스",
+          "canonical_corp": "삼성바이오로직스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260225005232",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성바이오로직스",
+          "canonical_corp": "삼성바이오로직스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260212001106",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성바이오로직스",
+          "canonical_corp": "삼성바이오로직스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260211000794",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "삼성바이오로직스",
+          "canonical_corp": "삼성바이오로직스",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20251002000008",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 7
+    },
+    {
+      "ticker": "272210",
+      "name": "한화시스템",
+      "status": "exact",
+      "duration_s": 1.6,
+      "classifications": [
+        {
+          "filer_name": "한화시스템",
+          "canonical_corp": "한화시스템",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260306000242",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "한화시스템",
+          "canonical_corp": "한화시스템",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260223000439",
+          "report_name": "[기재정정]의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "한화시스템",
+          "canonical_corp": "한화시스템",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260220002431",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 3
+    },
+    {
+      "ticker": "105560",
+      "name": "KB금융",
+      "status": "exact",
+      "duration_s": 0.93,
+      "classifications": [
+        {
+          "filer_name": "컨두잇",
+          "canonical_corp": "KB금융",
+          "computed_is_company": false,
+          "computed_is_retail": true,
+          "expected_side": "retail_activism",
+          "actual_side": "retail_activism",
+          "match": true,
+          "actor_group": "retail_activism",
+          "rcept_no": "20260312001220",
+          "report_name": "의결권대리행사권유참고서류"
+        },
+        {
+          "filer_name": "KB금융",
+          "canonical_corp": "KB금융",
+          "computed_is_company": true,
+          "computed_is_retail": false,
+          "expected_side": "company",
+          "actual_side": "company",
+          "match": true,
+          "actor_group": "company",
+          "rcept_no": "20260306000856",
+          "report_name": "의결권대리행사권유참고서류"
+        }
+      ],
+      "n_filings": 2
+    }
+  ]
+}
