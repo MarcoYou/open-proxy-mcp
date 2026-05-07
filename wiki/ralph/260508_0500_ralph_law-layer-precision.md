@@ -13,8 +13,10 @@ ref:
 
 ## Invoke (복붙)
 
+특수문자 `&` 사용 금지 (zsh background 분리자). 회사명 한글로 풀어쓰기.
+
 ```
-/ralph-loop:ralph-loop wiki/ralph/260508_0500_ralph_law-layer-precision.md 가이드 따라 36 catalog 룰 정밀화 점검. 광범위 sample (KOSPI 200 + KOSDAQ 100 + 분쟁 회사 spot) 으로 false positive 와 false negative 식별 후 룰 fix. 새 패턴 발견 시 catalog 추가. B1-4 reason 정밀화, KT&G 종류별 정원 분리 같은 historical 케이스 검증 모두 충족 시 promise. --completion-promise LAW_LAYER_PRECISION_VERIFIED --max-iterations 8
+/ralph-loop:ralph-loop wiki/ralph/260508_0500_ralph_law-layer-precision.md 가이드 따라 36 catalog 룰 정밀화 점검. 광범위 sample 자산 2조 미만과 분쟁 회사 spot 으로 false positive 와 false negative 식별 후 룰 fix. 새 패턴 발견 시 catalog 추가. B1-4 reason 정밀화, 케이티앤지 종류별 정원 분리 같은 historical 케이스 검증 모두 충족 시 promise. --completion-promise LAW_LAYER_PRECISION_VERIFIED --max-iterations 8
 ```
 
 # Ralph: 법령 layer 정밀화 점검
