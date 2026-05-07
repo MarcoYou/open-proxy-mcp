@@ -26,6 +26,7 @@ import asyncio
 import json
 from datetime import date
 from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
 from open_proxy_mcp.dart.client import get_dart_client
@@ -126,6 +127,156 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
     if default_str == "review":
         return "REVIEW", "운용사 정책상 default=REVIEW (case별 검토)"
     return fallback_decision, fallback_reason
+
+
+# ── 법령 layer (1·2·3차 상법 개정 + 정관 우회 시나리오, 260508 신규) ──
+
+_LAW_LAYER_RULES_CACHE: list[dict[str, Any]] | None = None
+
+
+def _load_law_layer_rules() -> list[dict[str, Any]]:
+    """wiki/rules/laws/law_layer_rules.json 로드 (모듈 캐시).
+
+    36 룰 (A1=8 / A2=5 / B1=10 / B2=9 / C=4). priority 오름차순.
+    """
+    global _LAW_LAYER_RULES_CACHE
+    if _LAW_LAYER_RULES_CACHE is not None:
+        return _LAW_LAYER_RULES_CACHE
+    try:
+        # wiki는 repo 루트에 있어 상대 경로로 접근
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        path = repo_root / "wiki" / "rules" / "laws" / "law_layer_rules.json"
+        if not path.exists():
+            _LAW_LAYER_RULES_CACHE = []
+            return []
+        data = json.loads(path.read_text(encoding="utf-8"))
+        rules = data.get("rules", []) or []
+        rules.sort(key=lambda r: r.get("priority", 999))
+        _LAW_LAYER_RULES_CACHE = rules
+        return rules
+    except Exception:
+        _LAW_LAYER_RULES_CACHE = []
+        return []
+
+
+def _agenda_pattern_match(title: str, parent: str, pattern: dict[str, Any]) -> bool:
+    """agenda title + parent 결합 텍스트에서 pattern 매칭.
+
+    pattern keys:
+    - all_of: 전부 포함 (AND)
+    - any_of: 하나 이상 포함 (OR)
+    - secondary: any_of 안에서 추가 매치 필요 (AND with all_of)
+    - secondary_then: secondary 매치 후 추가 매치
+    - exclude: 매치하면 false
+    """
+    text = f"{parent} {title}".strip()
+    text_clean = text.replace(" ", "")
+
+    def _has_kw(keywords: list[str]) -> bool:
+        return any(kw.replace(" ", "") in text_clean for kw in keywords)
+
+    # all_of: 전부 포함
+    all_of = pattern.get("all_of") or []
+    if all_of and not all(kw.replace(" ", "") in text_clean for kw in all_of):
+        return False
+
+    # any_of: 하나 이상
+    any_of = pattern.get("any_of") or []
+    if any_of and not _has_kw(any_of):
+        return False
+
+    # secondary: 추가 매치 (AND)
+    secondary = pattern.get("secondary") or []
+    if secondary and not _has_kw(secondary):
+        return False
+
+    # secondary_then: secondary 매치 후 추가 매치
+    secondary_then = pattern.get("secondary_then") or []
+    if secondary_then and not _has_kw(secondary_then):
+        return False
+
+    # exclude: 매치하면 false
+    exclude = pattern.get("exclude") or []
+    if exclude and _has_kw(exclude):
+        return False
+
+    return True
+
+
+def _applies_to_match(rule: dict[str, Any], corp_total_asset_won: int | None,
+                      today_iso: str) -> bool:
+    """applies_to 조건 (자산 + 시행일) 매치."""
+    applies = rule.get("applies_to") or {}
+
+    # 자산 조건
+    min_asset = applies.get("min_asset_won", 0)
+    max_asset = applies.get("max_asset_won")
+    if min_asset > 0:
+        if corp_total_asset_won is None or corp_total_asset_won < min_asset:
+            return False
+    if max_asset is not None:
+        if corp_total_asset_won is None or corp_total_asset_won >= max_asset:
+            return False
+
+    # 시행일 조건
+    applies_after = applies.get("applies_after")
+    if applies_after and today_iso < applies_after:
+        return False
+    applies_before = applies.get("applies_before")
+    if applies_before and today_iso >= applies_before:
+        return False
+
+    return True
+
+
+def _law_layer(
+    agenda_title: str,
+    parent_title: str = "",
+    corp_total_asset_won: int | None = None,
+    today_iso: str | None = None,
+) -> tuple[str, str, str, str] | None:
+    """법령 layer 우선 적용 — vote_style 운용사 정책보다 먼저.
+
+    1차/2차/3차 상법 개정 (2025-2026) 강행규정 + 정관 우회 시나리오.
+
+    Returns:
+        (decision, reason, rule_id, law_reference) 또는 None (룰 hit 없음 → 운용사 정책 fallback)
+
+    decision:
+        FOR (Layer A1 법 정합)
+        AGAINST (Layer A2 법 위반)
+        REVIEW (Layer B1·B2 법 테두리 안 우회 의심)
+        risk_factors는 별도 처리 (정관 안건 X, ownership 신호)
+    """
+    if today_iso is None:
+        today_iso = date.today().isoformat()
+
+    rules = _load_law_layer_rules()
+    if not rules:
+        return None
+
+    # Layer C는 정관 안건 분류 X (ownership 신호) — skip
+    for rule in rules:
+        if rule.get("layer") == "C":
+            continue
+        if rule.get("decision") == "risk_factors":
+            continue
+
+        pattern = rule.get("agenda_pattern") or {}
+        if not _agenda_pattern_match(agenda_title, parent_title, pattern):
+            continue
+
+        if not _applies_to_match(rule, corp_total_asset_won, today_iso):
+            continue
+
+        return (
+            rule["decision"],
+            rule.get("reason_template", ""),
+            rule.get("id", ""),
+            rule.get("law_reference", ""),
+        )
+
+    return None
 
 
 # ── 안건별 결정 logic ──

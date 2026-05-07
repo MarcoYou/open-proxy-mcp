@@ -52,7 +52,8 @@
       "decision": "FOR",
       "agenda_pattern": {
         "all_of": ["집중투표"],
-        "any_of": ["도입", "신설", "의무"]
+        "any_of": ["도입", "의무 도입", "강제 도입"],
+        "exclude": ["배제"]
       },
       "applies_to": {"min_asset_won": 0, "applies_after": "2025-07-22"},
       "reason_template": "집중투표 도입 — 소수주주 보호 강화",
