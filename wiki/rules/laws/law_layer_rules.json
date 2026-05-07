@@ -1,7 +1,7 @@
 {
   "version": "v1",
   "effective_date": "2026-05-08",
-  "description": "법령 layer 룰 catalog — vote_style 위에 우선 적용. 1·2·3차 상법 개정 + 정관 우회 시나리오. 36 항목 (A1=8 / A2=5 / B1=10 / B2=9 / C=4).",
+  "description": "법령 layer 룰 catalog — vote_style 위에 우선 적용. 1·2·3차 상법 개정 + 정관 우회 시나리오. 38 항목 (A1=8 / A2=5 / B1=12 / B2=9 / C=4). Ralph 4 정밀화: B1-4 분기(B1-4b) + B1-8 보강(B1-8b).",
   "source_docs": [
     "wiki/rules/laws/상법개정-2025-2026-통합본.md",
     "wiki/rules/laws/정관-우회-시나리오-2026.md"
@@ -544,6 +544,25 @@
       "reason_template": "이사 종류별 정원 분리 — 집중투표 효과 종류 내 한정 (KT&G 2025 사례). 자산 2조+ 회사 위험 ↑",
       "law_reference": "정관-우회 시나리오 1",
       "priority": 30
+    },
+    {
+      "id": "B1-8b",
+      "layer": "B1",
+      "category": "articles_amendment",
+      "decision": "REVIEW",
+      "agenda_pattern": {
+        "parent_must_contain": ["정관"],
+        "all_of": ["이사"],
+        "any_of": ["선임 방법", "선임방법", "선임 절차", "선임절차", "선출 방법", "선출방법", "인원수", "정원"],
+        "exclude": ["보수", "경력", "후보"]
+      },
+      "applies_to": {
+        "min_asset_won": 2000000000000,
+        "applies_after": "2024-01-01"
+      },
+      "reason_template": "정관변경에서 이사 선임 방법/정원 관련 조항 변경 — 집중투표·분리선출 사전 우회 의심 (KT&G 2025 사례: 정관에 '대표이사-나머지 이사 별개의 조' 신설). 본문 변경 내용 직접 확인 필수",
+      "law_reference": "정관-우회 시나리오 1·2",
+      "priority": 31
     },
     {
       "id": "B1-9",
