@@ -505,20 +505,15 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": [
-          "이사",
-          "정수"
-        ],
-        "any_of": [
-          "축소",
-          "감축",
-          "감소"
-        ]
+        "parent_must_contain": ["정관"],
+        "all_of": ["이사"],
+        "any_of": ["정수", "정원"],
+        "secondary": ["축소", "감축", "감소", "상한", "줄"]
       },
       "applies_to": {
         "min_asset_won": 0
       },
-      "reason_template": "이사 정수 축소 정관변경 — 1/(N+1) 진입 허들 직접 상승. 행동주의 압박/주주제안 시점 확인 필요",
+      "reason_template": "이사 정수/정원 축소 정관변경 — 1/(N+1) 진입 허들 직접 상승. 행동주의 압박/주주제안 시점 확인 필요 (예: 하이브 2026 이사회 정원 상한 축소)",
       "law_reference": "정관-우회 시나리오 1",
       "priority": 30
     },
