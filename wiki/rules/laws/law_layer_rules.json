@@ -423,14 +423,41 @@
           "1년",
           "단축",
           "축소"
+        ],
+        "parent_must_contain": [
+          "정관"
         ]
       },
       "applies_to": {
         "min_asset_won": 0
       },
-      "reason_template": "이사 임기 단축 정관변경 — 주주제안 후보 활동 기간 제한 의도 가능. 시점/맥락 확인",
+      "reason_template": "정관변경에서 이사 임기 단축 (예: 3년→1년) — 주주제안 후보 활동 기간 제한 의도 가능. 본문 확인 필요",
       "law_reference": "정관-우회 시나리오 2",
       "priority": 30
+    },
+    {
+      "id": "B1-4b",
+      "layer": "B1",
+      "category": "director_election",
+      "decision": "REVIEW",
+      "agenda_pattern": {
+        "any_of": [
+          "선임"
+        ],
+        "secondary": [
+          "임기 1년",
+          "임기1년"
+        ],
+        "parent_excludes": [
+          "정관"
+        ]
+      },
+      "applies_to": {
+        "min_asset_won": 0
+      },
+      "reason_template": "이사/감사위원 후보 임기 1년 — 통상 3년 임기보다 짧음. 단기 보강 / 임시 후보 / 활동 제한 의도 등 case-by-case",
+      "law_reference": "정관-우회 시나리오 2",
+      "priority": 35
     },
     {
       "id": "B1-5",

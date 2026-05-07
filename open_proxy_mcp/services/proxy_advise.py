@@ -168,12 +168,18 @@ def _agenda_pattern_match(title: str, parent: str, pattern: dict[str, Any]) -> b
     - secondary: any_of 안에서 추가 매치 필요 (AND with all_of)
     - secondary_then: secondary 매치 후 추가 매치
     - exclude: 매치하면 false
+    - parent_must_contain: parent_title이 이 키워드 포함해야 함 (예: 정관변경 sub-agenda 한정)
+    - parent_excludes: parent_title에 이 키워드 있으면 false (예: 정관변경 sub-agenda 제외)
     """
     text = f"{parent} {title}".strip()
     text_clean = text.replace(" ", "")
+    parent_clean = (parent or "").replace(" ", "")
 
     def _has_kw(keywords: list[str]) -> bool:
         return any(kw.replace(" ", "") in text_clean for kw in keywords)
+
+    def _parent_has_kw(keywords: list[str]) -> bool:
+        return any(kw.replace(" ", "") in parent_clean for kw in keywords)
 
     # all_of: 전부 포함
     all_of = pattern.get("all_of") or []
@@ -198,6 +204,16 @@ def _agenda_pattern_match(title: str, parent: str, pattern: dict[str, Any]) -> b
     # exclude: 매치하면 false
     exclude = pattern.get("exclude") or []
     if exclude and _has_kw(exclude):
+        return False
+
+    # parent_must_contain: parent에 이 키워드 없으면 false
+    parent_must_contain = pattern.get("parent_must_contain") or []
+    if parent_must_contain and not _parent_has_kw(parent_must_contain):
+        return False
+
+    # parent_excludes: parent에 이 키워드 있으면 false
+    parent_excludes = pattern.get("parent_excludes") or []
+    if parent_excludes and _parent_has_kw(parent_excludes):
         return False
 
     return True
