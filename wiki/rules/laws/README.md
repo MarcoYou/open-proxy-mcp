@@ -13,7 +13,7 @@ updated: 2026-05-08
 | 파일 | 종류 | 용도 |
 |---|---|---|
 | **`상법-2025-2026-종합.md`** | 사람 가독 | 1·2·3차 상법 개정 + 정관 우회 시나리오 + 36 catalog. **유일 master** |
-| **`law_layer_rules.json`** | 머신리더블 | proxy_advise._law_layer 직접 로드. 36 룰 (A1=8 / A2=5 / B1=10 / B2=9 / C=4) |
+| **`law_layer_rules.json`** | 머신리더블 | proxy_advise._law_layer 직접 로드. **38 룰** (A1=8 / A2=5 / B1=12 / B2=9 / C=4). Ralph 4 정밀화: B1-4b + B1-8b 신규 + B1-7 보강 |
 
 ## 사용 흐름
 
@@ -41,7 +41,9 @@ updated: 2026-05-08
 - [[상법-2025-2026-종합]] (master)
 - `law_layer_rules.json` (master)
 - [[law-layer-260508]] (lesson — 도입 배경)
-- [[260508_0200_decision_law-layer]] (decision)
+- [[law-layer-precision-260508]] (lesson — Ralph 4 정밀화 280 회사 검증)
+- [[260508_0200_decision_law-layer]] (decision — 도입)
+- [[260508_0700_decision_law-layer-precision]] (decision — 정밀화)
 - [[open-proxy-guideline]] (OPM 5 기준 + voting_rules 12 카테고리)
 
 ## 신규 자료 추가 시

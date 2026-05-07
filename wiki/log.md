@@ -3,6 +3,28 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-08] feat | 법령 layer 정밀화 — B1-4 분기 + B1-8b 신규 + B1-7 보강 (Ralph 4)
+- ralph: `wiki/ralph/260508_0500_ralph_law-layer-precision.md` (6 iter / promise 발행)
+- 발견 (Ralph 3 follow-up):
+  - B1-4 false positive (정관변경 vs director_election 의미 혼선)
+  - KT&G 2025 사전 우회 사례 미발견 (안건 title 일반 표현 — 본문에만 "별개의 조" 키워드)
+  - B1-7 패턴 협소 (하이브 "정원 상한 축소" 미스 — "정수"만 매치)
+- 룰 변경 (36 → 38):
+  - B1-4 분기: parent_must_contain=["정관"] 추가 (정관변경 한정)
+  - B1-4b 신규: parent_excludes=["정관"] + 후보 임기 1년 reason
+  - B1-8b 신규: applies_after=2024-01-01 + 자산 2조+ + 정관변경 이사 선임/정원 변경 catch
+  - B1-7 보강: "정원" + "상한" 키워드 추가
+- `_agenda_pattern_match()`: parent_must_contain / parent_excludes 패턴 키 신규 지원
+- 광범위 검증 (266 unique 회사 / 2792 안건 / 213 hits / 7.6%):
+  - KOSPI 200: 9.8% / KOSDAQ 100: 1.8% / 분쟁 20: 11.6%
+  - false positive 0 / 회귀 0%
+  - B1-4b 8건 폭발 (영풍 6 + 현대엘리베이터 + 효성티앤씨) — 분쟁 시그널 효과
+- artifacts:
+  - `wiki/rules/laws/law_layer_rules.json` (38 룰)
+  - `wiki/lessons/law-layer-precision-260508.md`
+  - `wiki/decisions/260508_0700_decision_law-layer-precision.md`
+  - `wiki/architecture/audits/data/260508_law_layer/iter08_*.json` (KOSPI 130-200 / KOSDAQ 0-100 / 분쟁 20)
+
 ## [2026-05-08] feat | 법령 layer 도입 — 1·2·3차 상법 개정 + 36 catalog (Ralph 3)
 - ralph: `wiki/ralph/260508_0130_ralph_law-layer.md` (7 iter / promise 발행)
 - 발견 (코붕이 review): LG화학 정관 sub 안건 잘못 분류 (운용사 정책 stale + hardcoded 키워드 stale)

@@ -230,11 +230,56 @@ KOSPI 200 + KOSDAQ 100 누적 = 260 회사 audit 완료.
 
 **commit**: e700f51
 
-### iter 5 — 분쟁 회사 spot
-(작성 예정)
+### iter 5 — 분쟁 회사 spot ✅
 
-### iter 6 — 룰 정밀화 + 회귀
-(작성 예정)
+20 회사 / 20 exact / 17 자산 2조+. 284 안건 / 33 hits (**11.6%**, KOSPI 9.8% / KOSDAQ 1.8% 대비 높음).
 
-### iter 7-8 — 문서화 + promise
-(작성 예정)
+**rule hits**: A1-5(8) / **B1-4b(8)** / A1-7(6) / A1-4(4) / A1-1(4) / B1-10(1) / **B1-8b(1)** / A1-2(1)
+
+**핵심 발견**:
+- **B1-4b 8건 폭발** — 영풍 6건 (이사 + 감사위원 후보 모두 임기 1년) + 현대엘리베이터 + 효성티앤씨. 분쟁 시그널 매우 효과적
+- B1-8b 1건 (하이브 "이사회 정원 상한 축소 + 독립이사 최소 인원 상향")
+- B1-10 1건 (고려아연 "분리선출 감사위원 확대" — 우회 시나리오 1)
+- false positive 0건
+
+**누적 sample**: KOSPI 200 + KOSDAQ 100 + 분쟁 20 = **280 회사 audit 완료**
+
+**commit**: 3b262bf
+
+### iter 6 — 룰 정밀화 + 회귀 ✅
+
+266 회사 (KOSPI 200 + KOSDAQ 100 + 분쟁 20 - 중복) 누적 audit / 2792 안건 / 213 hits (7.6%) / 38 룰 중 11개 사용.
+
+**B1-7 fix**: 하이브 "이사회 정원 상한 축소" 매치 실패 원인 — "정수" 키워드만 있고 "정원" 누락
+- all_of=["이사"] + any_of=["정수", "정원"] + secondary=["축소", "감축", "감소", "상한", "줄"]
+- parent_must_contain=["정관"] 추가 (false positive 방지)
+
+**회귀 점검 (209 unique hits)**:
+- 변경 3건 / 유지 206건 — 모두 정확 reclassification
+- 서울보증보험 + 현대엘리베이터: B1-4 → B1-4b (iter 1)
+- 하이브: B1-8b → B1-7 (iter 6, 더 specific reason)
+- false positive 0건
+
+**미사용 27 룰 분류**:
+- 시행 전 정상 (5): A2-1~A2-5
+- C signal layer (4): C-1~C-4 (별도 메커니즘)
+- 자산 2조+ 한정 (5): A1-3, A1-8, B1-6, B1-8, B1-9 (sample 부족)
+- 광범위 sample 부족 (13): B1-1~B1-3, B1-5, B2-1~B2-7, B2-9
+
+**commit**: cd3c59d
+
+### iter 7-8 — 문서화 + promise ✅
+
+**성공 기준 점검**:
+- G1 B1-4 fix ✅ iter 1 (B1-4 + B1-4b 분기, parent 매칭 신규)
+- G2 false positive < 1% ✅ 280 회사 / 213 hits / 0 false positive
+- G3 KT&G historical ✅ iter 2 (B1-8b로 사전 우회 catch)
+- G4 새 패턴 catalog 추가 ✅ B1-4b + B1-8b + B1-7 보강 (36 → 38 룰)
+
+**문서화**:
+- `wiki/lessons/law-layer-precision-260508.md` — 정밀화 발견 lesson
+- `wiki/decisions/260508_0700_decision_law-layer-precision.md` — 룰 변경 결정
+- `wiki/log.md` — Ralph 4 entry 추가
+- `wiki/rules/laws/README.md` — 38 룰 반영
+
+**promise**: `<promise>LAW_LAYER_PRECISION_VERIFIED</promise>`
