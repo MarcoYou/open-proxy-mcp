@@ -160,11 +160,45 @@ Ralph 3 (260508_0130_ralph_law-layer)에서 36 catalog + _law_layer 도입. prom
 
 ## iteration log
 
-### iter 1 — B1-4 정밀화
-(작성 예정)
+### iter 1 — B1-4 정밀화 ✅
 
-### iter 2 — KT&G historical 검증
-(작성 예정)
+**문제**: B1-4 "임기 1년" 패턴이 정관변경 의도였으나 director_election 안건 (후보 임기 1년)도 매치하여 reason mismatched.
+
+**fix**:
+- B1-4: `parent_must_contain: ["정관"]` 추가 → 정관변경 sub-agenda 한정 + reason "정관변경에서 이사 임기 단축"
+- B1-4b 신규: `parent_excludes: ["정관"]` + reason "이사/감사위원 후보 임기 1년 — 통상 3년보다 짧음. case-by-case"
+- `_agenda_pattern_match()`에 `parent_must_contain` / `parent_excludes` 지원 추가
+
+**검증**:
+- 90 회사 audit 기존 B1-4 hits 2건 (서울보증보험 진호정 / 현대엘리베이터 김정호) 모두 B1-4b로 정확 분기
+- unit test 4/4 통과 (정관변경/director/평범한 3년)
+
+**총 룰**: 36 → 37
+
+**commit**: a89af7b
+
+### iter 2 — KT&G historical 검증 ✅
+
+**검증**: KT&G 2025 정기주총 (rcept_no=20250318000762) `shareholder_meeting_notice` 호출
+
+**발견**: 정관변경 본문 (aoi_change scope) 핵심 우회 조항 명확:
+- 제26조 신설: "집중투표의 방법에 의하여 이사를 선임하는 경우 **대표이사 사장과 그 외의 이사를 별개의 조로 구분한다**" → 2026-09-10 시행 집중투표 의무화 사전 우회
+- 제25조 변경: 이사 정원 + 사외이사 과반
+
+기존 B1-8 패턴은 본문 키워드 ("별개의 조", "조 분리") 매칭이지만 안건 title은 일반 표현 ("대표이사 사장 선임 방법 명확화" / "이사의 인원수 명확화")이라 catch 실패.
+
+**fix (B1-8b 신규)**:
+- `parent_must_contain: ["정관"]` + `all_of: ["이사"]` + `any_of: ["선임 방법", "인원수", "정원" ...]`
+- `applies_after: 2024-01-01` (1차 공포 전 사전 우회 대응)
+- 자산 2조+ 한정, exclude 보수/경력/후보
+
+**결과**: KT&G 2025 안건 12개 중 정확 2건 hit (이사 인원수 명확화 + 대표이사 사장 선임 방법 명확화).
+
+**총 룰**: 37 → 38
+
+**향후 backlog**: aoi_change 본문 매칭 추가 — 안건 title은 일반적이지만 본문에 "별개의 조" 등 우회 키워드 명시되는 케이스. 별도 ralph (큰 구조 변경 — _law_layer 호출자에 본문 전달 필요).
+
+**commit**: c2198a1
 
 ### iter 3 — KOSPI 130-200 spot
 (작성 예정)
