@@ -3,6 +3,30 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-08] fix | _classify_agenda 정관 sub-안건 분류 (mismatch 19.3% → 0%)
+- ralph: `wiki/ralph/260507_2330_ralph_classify-agenda-fix.md` (4 iter / promise 발행)
+- 발견 (코붕이 review): 롯데케미칼 proxy_advise 정관 sub-안건 NO_DATA
+- 300 회사 audit (KOSPI 200 + KOSDAQ 100): mismatch 607/3145 = 19.3% — **모두 정관 sub-안건이 다양한 카테고리로 잘못 분류** (other/director_election/audit_committee_election/treasury_share/retirement_pay/cash_dividend/director_compensation/merger/shareholder_proposal/financial_statements)
+- fix: `_classify_agenda(title, parent_title='')` 시그니처 추가 + parent에 정관 키워드 있으면 sub 안건 short-circuit articles_amendment
+- caller (`proxy_advise._run`): agenda tree 순회로 title→parent map 추출 + 전달
+- post-fix 검증 (300 회사 재 audit): mismatch 0.00% / 정관 sub 정확도 100% (607/607)
+- 롯데케미칼 회귀: NO_DATA 2건 → 0건
+- decision: [[260508_0030_decision_classify-agenda-parent-shortcircuit]]
+- lesson: [[lessons/agenda-classification-260507]]
+
+## [2026-05-07] perf | OPM 응답 속도 다수 단축 (10s → 4-6s 체감)
+- 코붕이 review: "옛날엔 잘 됐는데 왜 지금 10초?" 분석 흐름
+- fix: `auto_stop_machines = 'suspend'` (fly.toml, 04-13 자동 stop으로 덮어쓰여 cold start 5-15s 발생)
+- perf: shareholder_meeting candidate doc fetch TOP_N=2 + fallback (정정공시 누적 시 5-8 doc → 2 doc)
+- perf: 주총결과 KIND scraping → DART API 우선 (4-5s → 1.4-2s, ~3배 빠름)
+- perf: search_filings에 `last_reprt_at='Y'` 옵션 (정정공시 자동 정리, summary 0.2-0.5s 단축)
+- perf: ownership_structure 변동신고서 KIND → DART API (3.7s → 0.12s, 30배 빠름)
+- perf: doc cache LRU 30→200 + TTL 24h (메모리 only, 영구 저장 X 원칙 유지)
+- perf: tool description trim (-25%, 11,170 → 8,408 chars)
+- perf: notice tool path에서 `_find_meeting_result_filing` 완전 제거 (auto 모드에서도 skip, fly logs 5초 gap 제거)
+- perf: DartClient persistent httpx AsyncClient (16개 `async with httpx.AsyncClient()` → `self._http`, TLS handshake 200-400ms × N 절약)
+- decision: [[260507_2330_decision_httpx-connection-pool]]
+
 ## [2026-05-06] fix | parser omnibus 검증 + DART 6컬럼 sub-column 처리 (PFS 100%)
 - ralph: `wiki/ralph/260505_2330_ralph_parser-omnibus-perf.md` (9 iter / promise 발행)
 - 300 회사 (KOSPI 200 + KOSDAQ 100) 통합 audit — Tier A 9 parser G1 ≥98.7% 모두 충족
