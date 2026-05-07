@@ -27,7 +27,11 @@ primary_region = 'iad'
   # 2026-04-13 "Fly.io Launch" 자동 덮어쓰기로 stop이 됐었음 → suspend 복구 (260507).
   auto_stop_machines = 'suspend'
   auto_start_machines = true
-  min_machines_running = 0
+  # 1대 항상 가동 — cold start 페널티 (3-6s) 제거.
+  # 'suspend' 모드여도 idle 시 Firecracker VM 재시작 + Python boot + memory cache 휘발.
+  # min=1이면 corpCode sqlite/memory cache + doc LRU cache 영구 유지 → ms 응답.
+  # 비용: shared-cpu-1x 1GB 월 ~$2-3 (24/7 × 30d).
+  min_machines_running = 1
   processes = ['app']
 
 [[vm]]
