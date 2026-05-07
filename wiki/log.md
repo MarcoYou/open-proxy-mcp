@@ -24,8 +24,8 @@ title: Operation Log
 - 운용사 7→8 표기 통일 (open_proxy_v1.json + open-proxy-guideline.md + wiki/index.md 등)
 - OPM 4 기준 → 5 기준 (5번째 = 법령 layer 우선 + 의무·우회 분기)
 - artifacts:
-  - `wiki/rules/laws/상법개정-2025-2026-통합본.md`
-  - `wiki/rules/laws/정관-우회-시나리오-2026.md`
+  - `wiki/rules/laws/상법-2025-2026-종합.md`
+  - `wiki/rules/laws/상법-2025-2026-종합.md`
   - `wiki/rules/laws/law_layer_rules.json` (머신리더블 36 룰)
   - `services/proxy_advise.py` `_law_layer()` 추가
   - `scripts/spot_law_layer.py` 회귀 spot

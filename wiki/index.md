@@ -88,9 +88,9 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ### 한국 자본시장 용어 모름
 - [[rules/concepts/]] - 31 개념 (배당성향 / 최대주주 / 동일인 / 집중투표 등)
 - [[rules/disclosures/]] - 36 공시 유형 (현금배당결정 / 유상증자결정 / 자기주식취득결정 등)
-- [[rules/laws/상법개정-2025-2026-통합본]] - 1·2·3차 상법 개정 통합본 (260508 신규 + web 검증)
-- [[rules/laws/정관-우회-시나리오-2026]] - 4 시나리오 + 36 항목 catalog (Layer A1/A2/B1/B2/C)
-- [[rules/laws/상법개정-타임라인-2026]] - 옛 타임라인 (보존)
+- [[rules/laws/상법-2025-2026-종합]] - 1·2·3차 상법 개정 통합본 + 4 시나리오 + 36 catalog (master, 260508)
+- `wiki/rules/laws/law_layer_rules.json` - 머신리더블 36 룰 (proxy_advise._law_layer 직접 로드)
+- [[rules/laws/README]] - 법령 자료 입구 (옛 archive 안내)
 
 ### 최근 audit / fix
 - `260505_inside_director_performance/` — 사내이사 성과 매트릭스 KOSPI 100 + KOSDAQ 50 audit (n=128, G1 100%, dist 29.7/45.3/18.0/7.0 target band 모두 충족, threshold ≥9→≥7 calibration)
@@ -245,7 +245,7 @@ DART/KIND 공시 유형. 공시명 = 페이지명.
 - [[타법인주식및출자증권거래]] · [[단일판매공급계약체결]] · [[기업지배구조보고서]] · [[기업가치제고계획]]
 
 ### Laws (3) - `rules/laws/`
-- [[rules/laws/상법개정-타임라인-2026]] - 2025-2027 상법 개정 시행 일정
+- [[rules/laws/상법-2025-2026-종합]] - 2025-2027 상법 개정 시행 일정
 - [[rules/laws/주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (미래에셋증권)
 - [[rules/laws/주총체크리스트-2026]] - 주총 체크리스트 9개 + 상법 개정 타임라인
 

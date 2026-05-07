@@ -65,7 +65,7 @@ wiki/
 | `tool` | `tools/{name}.md` | `tools/shareholder_meeting.md` |
 | `concept` | `rules/concepts/{name}.md` | `rules/concepts/배당성향.md` |
 | `disclosure` | `rules/disclosures/{name}.md` | `rules/disclosures/현금배당결정.md` |
-| `law` | `rules/laws/{name}.md` | `rules/laws/상법개정-타임라인-2026.md` |
+| `law` | `rules/laws/{name}.md` | `rules/laws/상법-2025-2026-종합.md` |
 
 이유: tool 이름, 공시명, 개념명, 법령명은 정체성 자체가 이름. 시점 prefix 붙이면 검색·link·MCP 호출 시 마찰 발생.
 

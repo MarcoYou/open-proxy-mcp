@@ -5,7 +5,7 @@ created: 2026-05-08 01:30
 completion_promise: LAW_LAYER_VERIFIED
 max_iterations: 10
 ref:
-  - wiki/rules/laws/상법개정-타임라인-2026.md
+  - wiki/rules/laws/상법-2025-2026-종합.md
   - wiki/rules/laws/주총방어-시나리오-4가지.md
   - wiki/rules/laws/주총체크리스트-2026.md
   - wiki/decisions/open-proxy-guideline.md
@@ -83,14 +83,14 @@ ref:
 ### Phase 1 — wiki 보강 (iter 1-2, DART X)
 
 #### iter 1. 상법 개정 wiki 통합본
-- `wiki/rules/laws/상법개정-2025-2026-통합본.md` 신규
+- `wiki/rules/laws/상법-2025-2026-종합.md` 신규
   - 1·2·3차 통합 타임라인 (web 검증 반영)
   - 시행일별 표 + 적용 대상별 표
   - 법무법인 sources 인용
 - 기존 `상법개정-타임라인-2026.md` 업데이트 (혹은 archive + redirect)
 
 #### iter 2. 정관 우회 시나리오 wiki 보강
-- `wiki/rules/laws/정관-우회-시나리오-2026.md` 신규 (또는 주총방어-시나리오 보강)
+- `wiki/rules/laws/상법-2025-2026-종합.md` 신규 (또는 주총방어-시나리오 보강)
   - 시나리오 1·2·3·4 detail
   - 보고서 (FNguide rptId 1080969) 인용 + KT&G 사례
   - 36 항목 layer 분류 (A1/A2/B1/B2/C)
