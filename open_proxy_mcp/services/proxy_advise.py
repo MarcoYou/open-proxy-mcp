@@ -1290,13 +1290,34 @@ async def build_proxy_advise_payload(
                 ev["performance"]["tenure_fallback"] = True
                 ev["performance"]["rationale"] = "(재직 시작 detect fail — 5년 default) " + ev["performance"].get("rationale", "")
 
+    # 법령 layer (260508 신규) — 강행규정 + 정관 우회 시나리오. vote_style 위에 우선 적용.
+    # corp_total_asset_won: financial_metrics summary에서 자산 추출 (자산 2조+ 분기 등)
+    corp_total_asset_won: int | None = None
+    try:
+        fm_summary_for_law = ((fin_metrics or {}).get("data") or {}).get("summary") or {}
+        ta = fm_summary_for_law.get("total_assets_krw")
+        if isinstance(ta, (int, float)) and ta > 0:
+            corp_total_asset_won = int(ta)
+    except Exception:
+        corp_total_asset_won = None
+    today_iso_for_law = date.today().isoformat()
+
     # 안건별 결정 + 사유 (vote_style 정책 wire 적용)
     agenda_decisions: list[dict[str, Any]] = []
     for title in agenda_titles:
-        category = _classify_agenda(title, parent_title=title_to_parent.get(title, ""))
+        parent_for_title = title_to_parent.get(title, "")
+        category = _classify_agenda(title, parent_title=parent_for_title)
         decision = "NO_DATA"
         reason = "category 미분류 — 본문 검토 필요"
         matched_eval: dict[str, Any] | None = None
+        law_layer_hit: tuple[str, str, str, str] | None = None
+
+        # 0. 법령 layer 우선 적용 (1·2·3차 상법 개정 + 정관 우회 시나리오)
+        # hit 시 운용사 정책 / hardcoded _decide_* 모두 skip → 법 강행규정 일관 적용.
+        law_layer_hit = _law_layer(
+            title, parent_title=parent_for_title,
+            corp_total_asset_won=corp_total_asset_won, today_iso=today_iso_for_law,
+        )
 
         # 1. OPM 기본 logic으로 fallback decision 산출
         if category == "director_election" or category == "audit_committee_election":
@@ -1405,17 +1426,27 @@ async def build_proxy_advise_payload(
                 decision = "FOR"
                 reason = f"안건 카테고리 'other' — 위험 키워드 없음 (mainstream default)"
 
+        # 1.5. 법령 layer hit 시 우선 적용 — vote_style/hardcoded 위에 (260508)
+        if law_layer_hit is not None:
+            ll_decision, ll_reason, ll_id, ll_law_ref = law_layer_hit
+            decision = ll_decision
+            reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref})"
+
         # 2. vote_style 정책 default가 명확하면 (for / against / review) 그걸 우선
         # case_by_case면 OPM fallback 결정 유지.
+        # 단 법령 layer hit 시는 vote_style 무시 (강행규정 일관성).
         policy_default = _policy_default(policy, category)
         original_decision, original_reason = decision, reason
-        decision, reason = _apply_policy_default(policy_default, decision, reason)
+        if law_layer_hit is None:
+            decision, reason = _apply_policy_default(policy_default, decision, reason)
 
         # 3. 정책 근거 명시 (vote_style + 운용사명 + 카테고리 default)
         policy_basis = f"{policy_id}"
         if policy_meta.get("manager_name"):
             policy_basis = f"{policy_meta['manager_name']} ({policy_id})"
-        if policy_default and policy_default != "case_by_case":
+        if law_layer_hit is not None:
+            policy_basis = f"법령 layer (1·2·3차 상법 개정) — {law_layer_hit[2]}"
+        elif policy_default and policy_default != "case_by_case":
             policy_basis += f" / {category}.default={policy_default}"
         else:
             policy_basis += f" / case_by_case → OPM fallback"

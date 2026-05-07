@@ -27,20 +27,30 @@
     "law_reference": "근거 조문 / 개정차수",
     "priority": "낮을수록 우선 평가 (1=highest). A1=10, A2=20, B1=30, B2=40"
   },
-
   "rules": [
-
     {
       "id": "A1-1",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
       "agenda_pattern": {
-        "all_of": ["집중투표"],
-        "secondary": ["배제"],
-        "secondary_then": ["삭제", "폐지", "제거"]
+        "all_of": [
+          "집중투표"
+        ],
+        "secondary": [
+          "배제"
+        ],
+        "secondary_then": [
+          "삭제",
+          "폐지",
+          "제거"
+        ]
       },
-      "applies_to": {"min_asset_won": 2000000000000, "applies_after": "2026-09-10", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 2000000000000,
+        "applies_after": "2025-09-09",
+        "company_type": "listed"
+      },
       "reason_template": "집중투표 배제 조항 삭제 — 2026 상법 2차 개정 (자산 2조+ 집중투표 의무화, 정관 배제 불가) 정합",
       "law_reference": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)",
       "priority": 10
@@ -51,11 +61,22 @@
       "category": "articles_amendment",
       "decision": "FOR",
       "agenda_pattern": {
-        "all_of": ["집중투표"],
-        "any_of": ["도입", "의무 도입", "강제 도입"],
-        "exclude": ["배제"]
+        "all_of": [
+          "집중투표"
+        ],
+        "any_of": [
+          "도입",
+          "의무 도입",
+          "강제 도입"
+        ],
+        "exclude": [
+          "배제"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "applies_after": "2025-07-22"},
+      "applies_to": {
+        "min_asset_won": 0,
+        "applies_after": "2025-09-09"
+      },
       "reason_template": "집중투표 도입 — 소수주주 보호 강화",
       "law_reference": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)",
       "priority": 10
@@ -66,10 +87,21 @@
       "category": "audit_committee_election",
       "decision": "FOR",
       "agenda_pattern": {
-        "all_of": ["감사위원", "분리선출"],
-        "any_of": ["2명", "두 명", "기존 1명에서 2명"]
+        "all_of": [
+          "감사위원",
+          "분리선출"
+        ],
+        "any_of": [
+          "2명",
+          "두 명",
+          "기존 1명에서 2명"
+        ]
       },
-      "applies_to": {"min_asset_won": 2000000000000, "applies_after": "2026-09-10", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 2000000000000,
+        "applies_after": "2025-09-09",
+        "company_type": "listed"
+      },
       "reason_template": "감사위원 분리선출 2명 — 2026 상법 2차 개정 의무 충족 (기존 1명 → 2명 이상)",
       "law_reference": "상법 §542의12 + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)",
       "priority": 10
@@ -80,10 +112,21 @@
       "category": "articles_amendment",
       "decision": "FOR",
       "agenda_pattern": {
-        "all_of": ["감사위원"],
-        "any_of": ["의결권 제한", "3%", "합산 3%", "의결권 행사 제한"]
+        "all_of": [
+          "감사위원"
+        ],
+        "any_of": [
+          "의결권 제한",
+          "3%",
+          "합산 3%",
+          "의결권 행사 제한"
+        ]
       },
-      "applies_to": {"min_asset_won": 100000000000, "applies_after": "2026-07-23", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 100000000000,
+        "applies_after": "2025-07-22",
+        "company_type": "listed"
+      },
       "reason_template": "감사위원 합산 3% 룰 — 2026 상법 1·2차 개정 (사내·사외 무관, 자산 2조+ 또는 1천억-2조 감사위 설치사) 정합",
       "law_reference": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)",
       "priority": 10
@@ -94,10 +137,20 @@
       "category": "articles_amendment",
       "decision": "FOR",
       "agenda_pattern": {
-        "any_of": ["사외이사", "독립이사"],
-        "all_of": ["명칭", "변경"]
+        "any_of": [
+          "사외이사",
+          "독립이사"
+        ],
+        "all_of": [
+          "명칭",
+          "변경"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "applies_after": "2025-07-22", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 0,
+        "applies_after": "2025-07-22",
+        "company_type": "listed"
+      },
       "reason_template": "사외이사 → 독립이사 명칭 변경 — 2026 상법 1차 개정 (2025-07-22 시행) 정합",
       "law_reference": "상법 1차 개정 (2025-07-22)",
       "priority": 10
@@ -108,10 +161,20 @@
       "category": "articles_amendment",
       "decision": "FOR",
       "agenda_pattern": {
-        "all_of": ["독립이사"],
-        "any_of": ["1/3", "3분의 1", "비율"]
+        "all_of": [
+          "독립이사"
+        ],
+        "any_of": [
+          "1/3",
+          "3분의 1",
+          "비율"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "applies_after": "2026-07-23", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 0,
+        "applies_after": "2025-07-22",
+        "company_type": "listed"
+      },
       "reason_template": "독립이사 의무선임 비율 1/3 — 2026 상법 1차 개정 정합",
       "law_reference": "상법 1차 개정 (2025-07-22 공포, 2026-07-23 시행 + 1년 유예)",
       "priority": 10
@@ -122,10 +185,19 @@
       "category": "articles_amendment",
       "decision": "FOR",
       "agenda_pattern": {
-        "any_of": ["전자주주총회", "전자주총", "비대면 주주총회"],
-        "all_of": ["도입"]
+        "any_of": [
+          "전자주주총회",
+          "전자주총",
+          "비대면 주주총회"
+        ],
+        "all_of": [
+          "도입"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "applies_after": "2025-07-22"},
+      "applies_to": {
+        "min_asset_won": 0,
+        "applies_after": "2025-07-22"
+      },
       "reason_template": "전자주주총회 도입 — 2026 상법 1차 개정 (2027-01-01 의무) 선제 정합",
       "law_reference": "상법 1차 개정 (전자주주총회 2027-01-01 의무)",
       "priority": 10
@@ -136,25 +208,44 @@
       "category": "treasury_share",
       "decision": "FOR",
       "agenda_pattern": {
-        "all_of": ["자사주", "소각"],
-        "exclude": ["계획 승인", "보유처분"]
+        "all_of": [
+          "자사주",
+          "소각"
+        ],
+        "exclude": [
+          "계획 승인",
+          "보유처분"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "applies_after": "2026-09-10"},
+      "applies_to": {
+        "min_asset_won": 0,
+        "applies_after": "2026-02-25"
+      },
       "reason_template": "자사주 의무소각 — 2026 상법 3차 개정 정합 (취득 후 1년 내 소각 원칙)",
       "law_reference": "상법 3차 개정 (2026-02-25 통과, 2026-09-10 시행 예정)",
       "priority": 10
     },
-
     {
       "id": "A2-1",
       "layer": "A2",
       "category": "articles_amendment",
       "decision": "AGAINST",
       "agenda_pattern": {
-        "all_of": ["집중투표", "배제"],
-        "exclude": ["삭제", "폐지", "제거"]
+        "all_of": [
+          "집중투표",
+          "배제"
+        ],
+        "exclude": [
+          "삭제",
+          "폐지",
+          "제거"
+        ]
       },
-      "applies_to": {"min_asset_won": 2000000000000, "applies_after": "2026-09-10", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 2000000000000,
+        "applies_after": "2026-09-10",
+        "company_type": "listed"
+      },
       "reason_template": "집중투표 배제 조항 신설/유지 — 2026 상법 2차 개정 위반 (자산 2조+ 정관 배제 불가)",
       "law_reference": "상법 2차 개정 (2026-09-10 시행 — 정관 배제 불가)",
       "priority": 20
@@ -165,10 +256,21 @@
       "category": "audit_committee_election",
       "decision": "AGAINST",
       "agenda_pattern": {
-        "all_of": ["감사위원", "분리선출"],
-        "any_of": ["1명", "한 명", "축소"]
+        "all_of": [
+          "감사위원",
+          "분리선출"
+        ],
+        "any_of": [
+          "1명",
+          "한 명",
+          "축소"
+        ]
       },
-      "applies_to": {"min_asset_won": 2000000000000, "applies_after": "2026-09-10", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 2000000000000,
+        "applies_after": "2026-09-10",
+        "company_type": "listed"
+      },
       "reason_template": "감사위원 분리선출 1명 이하 — 2026 상법 2차 개정 의무 미달 (자산 2조+ 2명 이상 의무)",
       "law_reference": "상법 2차 개정 (2026-09-10 시행 — 2명 이상 의무)",
       "priority": 20
@@ -179,10 +281,20 @@
       "category": "audit_committee_election",
       "decision": "AGAINST",
       "agenda_pattern": {
-        "all_of": ["감사위원"],
-        "any_of": ["3% 룰 미적용", "사외 개별 3%", "합산 미적용"]
+        "all_of": [
+          "감사위원"
+        ],
+        "any_of": [
+          "3% 룰 미적용",
+          "사외 개별 3%",
+          "합산 미적용"
+        ]
       },
-      "applies_to": {"min_asset_won": 100000000000, "applies_after": "2026-07-23", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 100000000000,
+        "applies_after": "2026-07-23",
+        "company_type": "listed"
+      },
       "reason_template": "감사위원 합산 3% 룰 미적용 — 2026 상법 1·2차 개정 위반 (사내·사외 무관 합산)",
       "law_reference": "상법 1·2차 개정 (2026-07-23 시행)",
       "priority": 20
@@ -193,10 +305,20 @@
       "category": "articles_amendment",
       "decision": "AGAINST",
       "agenda_pattern": {
-        "all_of": ["독립이사"],
-        "any_of": ["1/3 미달", "축소", "비율 하향"]
+        "all_of": [
+          "독립이사"
+        ],
+        "any_of": [
+          "1/3 미달",
+          "축소",
+          "비율 하향"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "applies_after": "2026-07-23", "company_type": "listed"},
+      "applies_to": {
+        "min_asset_won": 0,
+        "applies_after": "2026-07-23",
+        "company_type": "listed"
+      },
       "reason_template": "독립이사 비율 1/3 미달 — 2026 상법 1차 개정 위반",
       "law_reference": "상법 1차 개정 (독립이사 비율 1/3 의무)",
       "priority": 20
@@ -207,24 +329,39 @@
       "category": "treasury_share",
       "decision": "AGAINST",
       "agenda_pattern": {
-        "all_of": ["자사주"],
-        "any_of": ["합병 신주 배정", "분할 신주 배정", "합병 시 자사주 배정"]
+        "all_of": [
+          "자사주"
+        ],
+        "any_of": [
+          "합병 신주 배정",
+          "분할 신주 배정",
+          "합병 시 자사주 배정"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "applies_after": "2026-09-10"},
+      "applies_to": {
+        "min_asset_won": 0,
+        "applies_after": "2026-09-10"
+      },
       "reason_template": "자사주 합병·분할 시 신주 배정 — 2026 상법 3차 개정 위반",
       "law_reference": "상법 3차 개정 (2026-09-10 — 합병·분할 시 신주 배정 금지)",
       "priority": 20
     },
-
     {
       "id": "B1-1",
       "layer": "B1",
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "any_of": ["시차임기제", "Staggered Terms", "임기 시차", "이사 임기 시차화"]
+        "any_of": [
+          "시차임기제",
+          "Staggered Terms",
+          "임기 시차",
+          "이사 임기 시차화"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "시차임기제 도입 의심 — 매년 교체 인원 구조적 최소화 효과 (한국 환경에서 정당 사유 제한적). 본문/시점 분석 필요",
       "law_reference": "정관-우회-시나리오-2026.md 시나리오 1",
       "priority": 30
@@ -235,10 +372,18 @@
       "category": "director_compensation",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "any_of": ["등기임원 → 미등기", "미등기 임원 전환", "임원 미등기 전환"],
-        "all_of": ["보수"]
+        "any_of": [
+          "등기임원 → 미등기",
+          "미등기 임원 전환",
+          "임원 미등기 전환"
+        ],
+        "all_of": [
+          "보수"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "등기 → 미등기 임원 전환 + 보수 인상 의심 — 주총 보수 승인 회피 (남양유업 판례 우회). 본문 확인 필요",
       "law_reference": "남양유업 대법원 판례 + 정관-우회 시나리오 2",
       "priority": 30
@@ -249,10 +394,18 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["보수"],
-        "any_of": ["정관 명시", "정관에 직접", "정관 규정"]
+        "all_of": [
+          "보수"
+        ],
+        "any_of": [
+          "정관 명시",
+          "정관에 직접",
+          "정관 규정"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "보수 규정 정관 직접 명시 — 매년 주총 결의 불필요화 우회 가능성. 정관변경 본문 확인 필요",
       "law_reference": "정관-우회 시나리오 2",
       "priority": 30
@@ -263,10 +416,18 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["임기"],
-        "any_of": ["1년", "단축", "축소"]
+        "all_of": [
+          "임기"
+        ],
+        "any_of": [
+          "1년",
+          "단축",
+          "축소"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "이사 임기 단축 정관변경 — 주주제안 후보 활동 기간 제한 의도 가능. 시점/맥락 확인",
       "law_reference": "정관-우회 시나리오 2",
       "priority": 30
@@ -277,10 +438,18 @@
       "category": "treasury_share",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["자사주"],
-        "any_of": ["재단 출연", "기금 출연", "비특수관계인 출연"]
+        "all_of": [
+          "자사주"
+        ],
+        "any_of": [
+          "재단 출연",
+          "기금 출연",
+          "비특수관계인 출연"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "자사주 재단·기금·비특수관계인 출연 — 일석이조 (3차 의무소각 회피 + 합산 3% 의결권 부활) 의심",
       "law_reference": "정관-우회 시나리오 3·4",
       "priority": 30
@@ -291,9 +460,14 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "any_of": ["상호주", "주식 맞교환"]
+        "any_of": [
+          "상호주",
+          "주식 맞교환"
+        ]
       },
-      "applies_to": {"min_asset_won": 2000000000000},
+      "applies_to": {
+        "min_asset_won": 2000000000000
+      },
       "reason_template": "상호주 형성 (대기업집단) — 공정거래법상 상호출자 위반 가능성. 자산 2조+ 회사는 위험 ↑",
       "law_reference": "공정거래법 + 정관-우회 시나리오 3",
       "priority": 30
@@ -304,10 +478,19 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["이사", "정수"],
-        "any_of": ["축소", "감축", "감소"]
+        "all_of": [
+          "이사",
+          "정수"
+        ],
+        "any_of": [
+          "축소",
+          "감축",
+          "감소"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "이사 정수 축소 정관변경 — 1/(N+1) 진입 허들 직접 상승. 행동주의 압박/주주제안 시점 확인 필요",
       "law_reference": "정관-우회 시나리오 1",
       "priority": 30
@@ -318,10 +501,19 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["이사"],
-        "any_of": ["종류별 정원", "정원 분리", "조 분리", "별개의 조"]
+        "all_of": [
+          "이사"
+        ],
+        "any_of": [
+          "종류별 정원",
+          "정원 분리",
+          "조 분리",
+          "별개의 조"
+        ]
       },
-      "applies_to": {"min_asset_won": 2000000000000},
+      "applies_to": {
+        "min_asset_won": 2000000000000
+      },
       "reason_template": "이사 종류별 정원 분리 — 집중투표 효과 종류 내 한정 (KT&G 2025 사례). 자산 2조+ 회사 위험 ↑",
       "law_reference": "정관-우회 시나리오 1",
       "priority": 30
@@ -332,10 +524,19 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["감사위원회"],
-        "any_of": ["정원 확대", "위원 수 확대", "5인", "5명"]
+        "all_of": [
+          "감사위원회"
+        ],
+        "any_of": [
+          "정원 확대",
+          "위원 수 확대",
+          "5인",
+          "5명"
+        ]
       },
-      "applies_to": {"min_asset_won": 2000000000000},
+      "applies_to": {
+        "min_asset_won": 2000000000000
+      },
       "reason_template": "감사위원회 정원 확대 (3→5) — 분리선출 2명 + 나머지 3명 과반 → 분리선출 무력화 가능",
       "law_reference": "정관-우회 시나리오 1",
       "priority": 30
@@ -346,26 +547,46 @@
       "category": "audit_committee_election",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["감사위원", "분리선출"],
-        "any_of": ["3명", "4명", "5명", "증원", "확대"],
-        "exclude": ["2명"]
+        "all_of": [
+          "감사위원",
+          "분리선출"
+        ],
+        "any_of": [
+          "3명",
+          "4명",
+          "5명",
+          "증원",
+          "확대"
+        ],
+        "exclude": [
+          "2명"
+        ]
       },
-      "applies_to": {"min_asset_won": 2000000000000},
+      "applies_to": {
+        "min_asset_won": 2000000000000
+      },
       "reason_template": "감사위원 분리선출 의무 초과 (2명 초과) — N 감소 → 진입 허들 상승 (예: N=9→7, 10%→12.5%). 자발 강화/행동주의 압박 case-by-case",
       "law_reference": "정관-우회 시나리오 1",
       "priority": 30
     },
-
     {
       "id": "B2-1",
       "layer": "B2",
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["임기"],
-        "any_of": ["3년 이내", "유연화", "범위"]
+        "all_of": [
+          "임기"
+        ],
+        "any_of": [
+          "3년 이내",
+          "유연화",
+          "범위"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "임기 '3년 이내' 유연화 — 회사 임의 단축 가능성. 정상 임기 유연성과 우회 의도 분석 필요",
       "law_reference": "정관-우회 시나리오 2",
       "priority": 40
@@ -376,10 +597,18 @@
       "category": "treasury_share",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["자사주"],
-        "any_of": ["예외 사유", "보유 예외", "예외 신설"]
+        "all_of": [
+          "자사주"
+        ],
+        "any_of": [
+          "예외 사유",
+          "보유 예외",
+          "예외 신설"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "자사주 정관 예외 사유 신설 — 법 인정 예외(임직원 보상/신기술/M&A) 정상, 폭넓게 신설 시 우회 의심",
       "law_reference": "정관-우회 시나리오 4",
       "priority": 40
@@ -390,10 +619,18 @@
       "category": "director_compensation",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["보수"],
-        "any_of": ["임직원 보상 연계", "ESOP 연계", "보상 프로그램 연계"]
+        "all_of": [
+          "보수"
+        ],
+        "any_of": [
+          "임직원 보상 연계",
+          "ESOP 연계",
+          "보상 프로그램 연계"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "임직원 보상 프로그램 연계 보수 안건 — 정상 ESOP vs 특별이해관계 회피 포장 분석",
       "law_reference": "남양유업 판례 + 정관-우회 시나리오 2",
       "priority": 40
@@ -404,10 +641,17 @@
       "category": "director_election",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "any_of": ["사임", "해임"],
-        "all_of": ["재선임"]
+        "any_of": [
+          "사임",
+          "해임"
+        ],
+        "all_of": [
+          "재선임"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "임기 미만료 이사 사임·재선임 — 정당 사유(경영진 교체) vs 사실상 시차임기제 의심",
       "law_reference": "정관-우회 시나리오 2",
       "priority": 40
@@ -418,10 +662,18 @@
       "category": "treasury_share",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["자사주", "우리사주"],
-        "any_of": ["출연", "양도"]
+        "all_of": [
+          "자사주",
+          "우리사주"
+        ],
+        "any_of": [
+          "출연",
+          "양도"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "자사주 우리사주(ESOP) 출연 — 정상 ESOP은 OK, 과도(>10%)하면 우회. 비율 분석 필요",
       "law_reference": "정관-우회 시나리오 4",
       "priority": 40
@@ -432,9 +684,14 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "any_of": ["상호주"]
+        "any_of": [
+          "상호주"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "max_asset_won": 2000000000000},
+      "applies_to": {
+        "min_asset_won": 0,
+        "max_asset_won": 2000000000000
+      },
       "reason_template": "상호주 형성 (소형 상장사) — 대기업집단 위반 X, 의도 분석 필요",
       "law_reference": "정관-우회 시나리오 3",
       "priority": 40
@@ -445,10 +702,18 @@
       "category": "articles_amendment",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["독립이사"],
-        "any_of": ["1/2", "절반", "과반"]
+        "all_of": [
+          "독립이사"
+        ],
+        "any_of": [
+          "1/2",
+          "절반",
+          "과반"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "독립이사 비율 1/2 이상 — 의무(1/3) 초과. 자발 강화 vs 특수 사정 분석",
       "law_reference": "상법 1차 개정 + 정관-우회",
       "priority": 40
@@ -459,10 +724,20 @@
       "category": "audit_committee_election",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["감사위원", "분리선출"],
-        "any_of": ["증원", "3명 이상", "확대"]
+        "all_of": [
+          "감사위원",
+          "분리선출"
+        ],
+        "any_of": [
+          "증원",
+          "3명 이상",
+          "확대"
+        ]
       },
-      "applies_to": {"min_asset_won": 0, "max_asset_won": 2000000000000},
+      "applies_to": {
+        "min_asset_won": 0,
+        "max_asset_won": 2000000000000
+      },
       "reason_template": "분리선출 감사위원 증원 (자산 2조 미만) — 의무 X, 자발 / 행동주의 압박 분석",
       "law_reference": "정관-우회 시나리오 1",
       "priority": 40
@@ -473,16 +748,24 @@
       "category": "treasury_share",
       "decision": "REVIEW",
       "agenda_pattern": {
-        "all_of": ["자사주"],
-        "any_of": ["신주 배정"],
-        "exclude": ["합병", "분할"]
+        "all_of": [
+          "자사주"
+        ],
+        "any_of": [
+          "신주 배정"
+        ],
+        "exclude": [
+          "합병",
+          "분할"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "자사주 합병/분할 외 신주 배정 (스톡옵션 등) — 정상 보상 vs 우회 분석",
       "law_reference": "정관-우회 시나리오 4",
       "priority": 40
     },
-
     {
       "id": "C-1",
       "layer": "C",
@@ -492,7 +775,10 @@
         "name": "총회 직전 1·2대 주주 지분 역전",
         "trigger_window_days": 90
       },
-      "applies_to": {"min_asset_won": 100000000000, "applies_after": "2026-07-23"},
+      "applies_to": {
+        "min_asset_won": 100000000000,
+        "applies_after": "2026-07-23"
+      },
       "reason_template": "총회 직전 최대주주-2대주주 지분 역전 — 합산 3% 회피 시도 의심 (시나리오 3)",
       "law_reference": "상법 1·2차 개정 + 정관-우회 시나리오 3",
       "priority": 50
@@ -504,9 +790,17 @@
       "decision": "risk_factors",
       "signal_pattern": {
         "name": "PRS/TRS 비공시 또는 공시",
-        "keywords": ["PRS", "TRS", "주가수익스왑", "총수익스왑", "주식 대차"]
+        "keywords": [
+          "PRS",
+          "TRS",
+          "주가수익스왑",
+          "총수익스왑",
+          "주식 대차"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "PRS/TRS 활용 의심 — 의결권 분산 (시나리오 3)",
       "law_reference": "정관-우회 시나리오 3",
       "priority": 50
@@ -518,9 +812,14 @@
       "decision": "risk_factors",
       "signal_pattern": {
         "name": "5% 보유목적 변경",
-        "keywords": ["단순투자 → 경영참여", "보유목적 변경"]
+        "keywords": [
+          "단순투자 → 경영참여",
+          "보유목적 변경"
+        ]
       },
-      "applies_to": {"min_asset_won": 0},
+      "applies_to": {
+        "min_asset_won": 0
+      },
       "reason_template": "5% 대량보유 보유목적 변경 (단순투자 → 경영참여) — 분쟁 전조",
       "law_reference": "자본시장법 §147",
       "priority": 50
@@ -532,13 +831,19 @@
       "decision": "risk_factors",
       "signal_pattern": {
         "name": "자사주 출연 공시 + 분리선출 임박",
-        "keywords": ["자사주 출연", "재단 출연", "기금 출연", "비특수관계인 출연"]
+        "keywords": [
+          "자사주 출연",
+          "재단 출연",
+          "기금 출연",
+          "비특수관계인 출연"
+        ]
       },
-      "applies_to": {"min_asset_won": 100000000000},
+      "applies_to": {
+        "min_asset_won": 100000000000
+      },
       "reason_template": "자사주 출연 공시 + 분리선출/3% 룰 임박 — 시나리오 3·4 동시 (일석이조)",
       "law_reference": "정관-우회 시나리오 3·4",
       "priority": 50
     }
-
   ]
 }
