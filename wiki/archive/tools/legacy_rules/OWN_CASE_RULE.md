@@ -87,7 +87,7 @@
 ```json
 {
   "list": [
-    {"repror": "국민연금공단", "stkrt": "11.52", "rcept_dt": "20260115", "report_resn": "주식등의 대량보유상황보고서"}
+    {"repror": "N연기금", "stkrt": "11.52", "rcept_dt": "20260115", "report_resn": "주식등의 대량보유상황보고서"}
   ]
 }
 ```

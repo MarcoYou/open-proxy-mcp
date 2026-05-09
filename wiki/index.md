@@ -31,7 +31,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - 자사주 결과보고서 **4종 추가** (취득결과/처분결과/신탁상황/신탁해지결과)
 - ralph proxy_advise framework 99% 검증 (KOSPI 100 + KOSDAQ 50, G1 100% / G2 0% FP / G3 100% / G4 100%)
 - 사내이사 **재직 중 성과 매트릭스 (2x3)** 도입 — status quo bias mitigation. ROE/부채비율/CSR × avg/trend, bad → AGAINST, weak → REVIEW. KOSPI 100 + KOSDAQ 50 검증 G1 100% / G4 dist 29.7/45.3/18.0/7.0 모두 target band 충족. ([[260505_1700_decision_inside-director-performance-matrix]])
-- **보수한도 / 퇴직금 분기 정밀화** — 이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 hybrid 통합. KOSPI 200 + KOSDAQ 50 (n=226) G1 99-100% / G3 100% / G4 NPS 정합 100%. AGAINST 5건 (지급률 2배수+ × 3, 사외이사 퇴직금 × 1, 자본잠식+인상 × 1) 모두 정확 분기. ([[260505_1900_decision_compensation-retirement-split]])
+- **보수한도 / 퇴직금 분기 정밀화** — 이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 hybrid 통합. KOSPI 200 + KOSDAQ 50 (n=226) G1 99-100% / G3 100% / G4 N연기금 정합 100%. AGAINST 5건 (지급률 2배수+ × 3, 사외이사 퇴직금 × 1, 자본잠식+인상 × 1) 모두 정확 분기. ([[260505_1900_decision_compensation-retirement-split]])
 - **shareholder_meeting_notice scope 정리** — 6→5 (`agenda`/`full` 폐지, `prov_financials` 신설). summary 강화 (hierarchy + 1호 안건 메타) + aoi_change에 retirement raw 통합. `provisional_financial_statement.py` 독립 모듈 (parser.py 의존성 제거). ([[260506_0030_decision_notice-scope-cleanup-prov-financials]])
 - **parser omnibus 검증 + DART 6컬럼 sub-column fix** — KOSPI 200 + KOSDAQ 100 (300 회사) 통합 audit, 9 Tier A parser G1 ≥98.7% 모두 충족. PFS metric extraction 19 sparse 케이스 (현대차/셀트리온/두산 등) root cause = `_period_by_num` 다음 colspan 확장 빈 셀이 "unknown" 분류되던 것 → fix 후 100%. v1 dead 3 parser logical archive 결정 + G4 layer 정합 PASS. ([[lessons/parser-omnibus-260506]] / [[260506_2330_decision_v1-dead-parsers-archive]])
 - **법령 layer 정밀화 (Ralph 4)** — Ralph 3 follow-up. 280 회사 광범위 검증 (KOSPI 200 + KOSDAQ 100 + 분쟁 20). B1-4 분기 (정관변경 vs 후보 임기) + B1-8b 신규 (KT&G 정관 사전 우회 catch) + B1-7 보강 (정원 키워드). `_agenda_pattern_match()`에 parent_must_contain/parent_excludes 패턴 키 신규. 36 → 38 룰. false positive 0 / 회귀 0. 분쟁 회사 hits 11.6% (KOSPI 9.8% / KOSDAQ 1.8%). ([[lessons/law-layer-precision-260508]] / [[260508_0700_decision_law-layer-precision]])
@@ -137,7 +137,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[evidence]] - rcept_no -> 공시일/소스/뷰어 URL (API 0회)
 
 ### Policy & Matrix (1)
-- [[proxy_guideline]] - 8 운용사 + NPS 정책 + OPM Guideline + 12 매트릭스 자동 채점 + NPS (7 scope, 정적 데이터)
+- [[proxy_guideline]] - 8 운용사 + N연기금 정책 + OPM Guideline + 12 매트릭스 자동 채점 + N연기금 (7 scope, 정적 데이터)
 
 ### Action (2) — 시점 분리 재편 (2026-05-02)
 - [[advise_vote_before_meeting]] - 주총 **전** 의결권 행사 메모 (안건별 FOR/AGAINST + 결정 사유 + 후보 평가 3축)
@@ -258,7 +258,7 @@ DART/KIND 공시 유형. 공시명 = 페이지명.
 
 ### Laws (3) - `rules/laws/`
 - [[rules/laws/상법-2025-2026-종합]] - 2025-2027 상법 개정 시행 일정
-- [[rules/laws/주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (미래에셋증권)
+- [[rules/laws/주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (M레거시증권)
 - [[rules/laws/주총체크리스트-2026]] - 주총 체크리스트 9개 + 상법 개정 타임라인
 
 ---
@@ -280,7 +280,7 @@ matrix-system.md 통합으로 흡수.
 
 ### archive/entities/ (9)
 DART/KIND/Upstage 등 외부 entity 페이지. CLAUDE.md path만 archive 보존.
-[[archive/entities/DART-OpenAPI]] · [[archive/entities/KRX-KIND]] · [[archive/entities/네이버-금융]] · [[archive/entities/Upstage-OCR]] · [[archive/entities/OpenProxy-MCP]] · [[archive/entities/OpenProxy-AI]] · [[archive/entities/국민연금]] · [[archive/entities/FastMCP]] · [[archive/entities/opendataloader]]
+[[archive/entities/DART-OpenAPI]] · [[archive/entities/KRX-KIND]] · [[archive/entities/네이버-금융]] · [[archive/entities/Upstage-OCR]] · [[archive/entities/OpenProxy-MCP]] · [[archive/entities/OpenProxy-AI]] · [[archive/entities/N연기금]] · [[archive/entities/FastMCP]] · [[archive/entities/opendataloader]]
 
 ### archive/sources/ (6)
 구 RULE 파일 요약 + taxonomy.

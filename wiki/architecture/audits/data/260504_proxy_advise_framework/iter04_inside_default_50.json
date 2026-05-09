@@ -4919,7 +4919,7 @@
     },
     {
       "ticker": "006800",
-      "name": "미래에셋증권",
+      "name": "M레거시증권",
       "status": "exact",
       "duration_s": 24.3,
       "candidates_count": 0,

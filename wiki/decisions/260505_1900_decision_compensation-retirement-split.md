@@ -46,19 +46,19 @@ if "보수한도" in t:
 1. 자본잠식 + 인상 → AGAINST (OPM)
 2. 소진율 30% 미만 + 인상 → AGAINST (OPM mainstream)
 3. 적자/순익 yoy < 0 + 인상 → AGAINST (OPM #2)
-4. +10~+30% + 순익 yoy < 5% → REVIEW (NPS IV-33②)
+4. +10~+30% + 순익 yoy < 5% → REVIEW (N연기금 IV-33②)
 5. ≥+50% → REVIEW (OPM #8)
 6. +30~+50% → REVIEW
 7. 소진율 ≥100% + 인상 → FOR (한도 부족 정당화)
 8. 한도 감액 (-10% 미만) → FOR
-9. -10~+10% (동결) → FOR (NPS IV-33①)
-10. +10~+30% + 순익 양호 → FOR (NPS IV-33①)
+9. -10~+10% (동결) → FOR (N연기금 IV-33①)
+10. +10~+30% + 순익 양호 → FOR (N연기금 IV-33①)
 11-13. 데이터 부족 fallback (자본 양호 → FOR / 잠식 → AGAINST / 둘 다 X → NO_DATA)
 
-#### 감사 보수한도 (11 분기) — NPS IV-34 양방향
+#### 감사 보수한도 (11 분기) — N연기금 IV-34 양방향
 1. 자본잠식 + 인상 → AGAINST
 2. 소진율 30% 미만 + 인상 → AGAINST
-3. 1인당 평균 < 5천만원 → AGAINST (NPS IV-34 과소)
+3. 1인당 평균 < 5천만원 → AGAINST (N연기금 IV-34 과소)
 4. ≥+50% + 1인당 평균 > 1억 → AGAINST (s_legacy 패턴, 경영진 동조 인센티브)
 5. +30~+50% → REVIEW
 6. 1인당 평균 5천~1억 → REVIEW (경계)
@@ -66,8 +66,8 @@ if "보수한도" in t:
 8. 1인당 평균 ≥1억 + +10~+30% → FOR
 9-11. 데이터 부족 fallback
 
-#### 퇴직금 (12 분기) — NPS IV-35 + OPM #6/#7
-1. 황금낙하산 / 경영권 변동 special 가산 → AGAINST (NPS IV-35①)
+#### 퇴직금 (12 분기) — N연기금 IV-35 + OPM #6/#7
+1. 황금낙하산 / 경영권 변동 special 가산 → AGAINST (N연기금 IV-35①)
 2. 사외이사 퇴직금 신설 → AGAINST (OPM #6)
 3. 지급률 ≥2배수 인상 → AGAINST (s_legacy strict)
 4. 자본잠식 + 변경 → REVIEW
@@ -92,7 +92,7 @@ Layer 2: 결정 코드 (_decide_*) — 자동 trigger wire + 정성은 facts raw
 - OPM #2 (적자 + 한도 증액): 결정 트리에 wire
 - OPM #7 (황금낙하산): 키워드 매칭 wire
 - OPM #8 (50%+ 인상): 결정 트리에 wire
-- NPS IV-33②, IV-34, IV-35: 결정 트리에 wire
+- N연기금 IV-33②, IV-34, IV-35: 결정 트리에 wire
 
 정성 trigger (facts raw 노출 → LLM 판단):
 - OPM #1 (성과 미연계 보상)
@@ -135,6 +135,6 @@ Layer 2: 결정 코드 (_decide_*) — 자동 trigger wire + 정성은 facts raw
 2. `financial_metrics` summary scope에 prev_net_income/yoy_pct 노출 → 흑자+yoy<0 trigger 활성화
 3. 소진율 단독 강화: 소진율<30% + 인상률 미파악/동결 → REVIEW (코붕이 의견)
 
-**G4 NPS 정합 100%**: 모든 AGAINST가 NPS [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치.
+**G4 N연기금 정합 100%**: 모든 AGAINST가 N연기금 [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치.
 
 **Promise 발행**: `COMPENSATION_RETIREMENT_PRECISION_VERIFIED` (260505_2200 ralph)

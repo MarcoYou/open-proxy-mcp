@@ -2,7 +2,7 @@
 
 주주총회 안건에 대한 의결권 행사 판단을 요청하면, OpenProxy는 아래의 결정 트리에 따라 **찬성(FOR) / 반대(AGAINST) / 검토(REVIEW)** 의견을 제시해요.
 
-판단의 근거는 DART 공시 데이터(소집공고, 사업보고서, 대량보유 공시)이며, 미래에셋증권 주총 체크리스트(2026)와 J.P. Morgan Asset Management의 Proxy Voting Process를 참고했어요.
+판단의 근거는 DART 공시 데이터(소집공고, 사업보고서, 대량보유 공시)이며, M레거시증권 주총 체크리스트(2026)와 J.P. Morgan Asset Management의 Proxy Voting Process를 참고했어요.
 
 ---
 
@@ -134,4 +134,4 @@
 
 ---
 
-*참고 자료: 미래에셋증권 주총 체크리스트(2026), J.P. Morgan Asset Management Proxy Voting Process, 2026 상법 개정안*
+*참고 자료: M레거시증권 주총 체크리스트(2026), J.P. Morgan Asset Management Proxy Voting Process, 2026 상법 개정안*

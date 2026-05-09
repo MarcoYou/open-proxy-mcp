@@ -70,9 +70,9 @@ ticker,company,agenda_category,our_decision,majority_decision,majority_strength,
 035420,NAVER,financial_statements,FOR,FOR,5/5,follows_consensus,exact
 035420,NAVER,director_election,FOR,FOR,29/29,follows_consensus,exact
 035420,NAVER,audit_committee_election,FOR,FOR,28/31,follows_consensus,exact
-006800,미래에셋증권,financial_statements,FOR,FOR,1/2,follows_consensus,exact
-006800,미래에셋증권,director_election,FOR,FOR,30/47,follows_consensus,exact
-006800,미래에셋증권,audit_committee_election,FOR,FOR,21/30,follows_consensus,exact
+006800,M레거시증권,financial_statements,FOR,FOR,1/2,follows_consensus,exact
+006800,M레거시증권,director_election,FOR,FOR,30/47,follows_consensus,exact
+006800,M레거시증권,audit_committee_election,FOR,FOR,21/30,follows_consensus,exact
 267260,HD현대일렉트릭,financial_statements,FOR,FOR,4/4,follows_consensus,exact
 267260,HD현대일렉트릭,director_election,FOR,FOR,13/13,follows_consensus,exact
 267260,HD현대일렉트릭,director_compensation,FOR,FOR,9/9,follows_consensus,exact

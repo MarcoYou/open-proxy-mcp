@@ -35,7 +35,7 @@ recap_vote_after_meeting(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 사업연도 | 0 (자동) |
 | meeting_type | str | no | "annual" / "extraordinary" | "annual" |
-| vote_style | str | no | open_proxy / mirae_asset / nps 등 | "open_proxy" |
+| vote_style | str | no | open_proxy / m_legacy / nps 등 | "open_proxy" |
 | follow_up_days | int | no | 주총 직후 후속 공시 윈도우 일수 | 30 |
 | format | str | no | "md" / "json" | "md" |
 

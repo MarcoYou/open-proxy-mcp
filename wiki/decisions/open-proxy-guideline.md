@@ -14,14 +14,14 @@ related_audits: [260508_parser_audit]
 
 ISS 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우 있어, OPM은 ISS를 벤치마크로 사용하지 않는다.
 
-- [운용사G]은 "외국계 운용사가 ISS 참조" 데이터 reference로만 보존 (벤치마크 X). policy_classification: `global_advisor_adoption` → `foreign_manager_iss_reference`
+- B외국계은 "외국계 운용사가 ISS 참조" 데이터 reference로만 보존 (벤치마크 X). policy_classification: `global_advisor_adoption` → `foreign_manager_iss_reference`
 - v1.1에서 추가했던 ISS-only novel topics 정리:
   - 삭제: say_on_climate, discharge_of_director
   - 다운그레이드: climate_accountability (한국 운용사 입장만, tier_2 → tier_3_signal)
-  - 유지: bundled_slate_against (얼라인 동조), overboarded_directors (한국 상법 §382의2 + 시행령 §34 + 한투 정량)
-- voting_rules 12 카테고리에서 `[ISS direct]` 직접 인용 제거, source/law/evidence_refs를 한국 운용사·법령 중심으로 재정렬. 베어링은 `foreign_reference_note` 필드로 별도 보존
+  - 유지: bundled_slate_against (A행동주의 동조), overboarded_directors (한국 상법 §382의2 + 시행령 §34 + 한투 정량)
+- voting_rules 12 카테고리에서 `[ISS direct]` 직접 인용 제거, source/law/evidence_refs를 한국 운용사·법령 중심으로 재정렬. B외국계은 `foreign_reference_note` 필드로 별도 보존
 - _decision_matrices.json: ISS-only dim `climate_accountability_signal` 제거 (101 → 100 dim), bingo `climate_accountability_red` 제거 (77 → 76). `climate_disclosure`는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2, 2024) 기반으로 재정렬
-- OPM은 한국 8 운용사 + NPS 합의 + 한국 법령 + OPM 5 기준 중심으로 운영
+- OPM은 한국 8 운용사 + N연기금 합의 + 한국 법령 + OPM 5 기준 중심으로 운영
 
 ## 0. v1 → v1.1 변경 요약 (2026-04-29)
 
@@ -29,20 +29,20 @@ ISS 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우 있어
 
 | 운용사 | 분류 | 영향 |
 | --- | --- | --- |
-| **[운용사G] (baring)** | global_advisor_adoption (ISS Korea 2026 v1.1 직접 채택) | 글로벌 표준 즉시 통합 — Climate Accountability·Say on Climate·Bundled Slate·Two-tier·Overboarded(>2)·Pre-emption 20% 정량 |
-| **얼라인파트너스 (align_partners)** | active_engagement_activist (행동주의 펀드, against 17.3%) | 적극 행사 원칙 정책 선언 — silent 금지·배당 과소 강화·성과 미연계 강화·외부 인수 자본증가 against |
+| **B외국계 (b_foreign)** | global_advisor_adoption (외국계 proxy advisor 2026 v1.1 직접 채택) | 글로벌 표준 즉시 통합 — Climate Accountability·Say on Climate·Bundled Slate·Two-tier·Overboarded(>2)·Pre-emption 20% 정량 |
+| **A행동주의 (a_activist)** | active_engagement_activist (행동주의 펀드, against 17.3%) | 적극 행사 원칙 정책 선언 — silent 금지·배당 과소 강화·성과 미연계 강화·외부 인수 자본증가 against |
 
 ### 0.2 v1.1 핵심 변경 5건
 
-1. **ISS Climate Accountability 채택** — 고배출 업종 (철강·석화·시멘트·정유) + Climate Action 100+ Focus 한정. matrix_director_election + matrix_financial_statements에 climate dim 신규 (5 운용사 중 미래/트러스톤 부분 합치)
+1. **ISS Climate Accountability 채택** — 고배출 업종 (철강·석화·시멘트·정유) + Climate Action 100+ Focus 한정. matrix_director_election + matrix_financial_statements에 climate dim 신규 (5 운용사 중 미래/T행동주의 부분 합치)
 2. **ISS Bundled Slate 채택** — 묶음 선임 시 한 명이라도 거버넌스 결격 시 슬레이트 전체 against. 한국 5 운용사 silent 영역 차단. matrix_director_election에 bundled_slate_signal dim 신규
 3. **ISS Two-tier Governance 정량 통합** — 한국 상법 §542의8 ① + ISS 50%/25% 정합. concurrent_positions dim 강화 (>2 boards)
-4. **얼라인 적극 행사 원칙 정책 선언** — 합병/영업양수도/임원 임면/정관변경 등 중대 사항 silent 금지. matrix_shareholder_proposal에 active_engagement_signal dim 신규
+4. **A행동주의 적극 행사 원칙 정책 선언** — 합병/영업양수도/임원 임면/정관변경 등 중대 사항 silent 금지. matrix_shareholder_proposal에 active_engagement_signal dim 신규
 5. **Discharge of Director 한국 미적용 명시** — 글로벌 reference만, default 적용 X
 
 ### 0.3 v1.1 통계
 
-- voting_rules: 18건 새 criteria 추가 (12 카테고리 모두 baring/align_partners 입장 강화)
+- voting_rules: 18건 새 criteria 추가 (12 카테고리 모두 b_foreign/a_activist 입장 강화)
 - novel_topics: 8 → 13 (5건 신규 — climate_accountability, say_on_climate, discharge_of_director, overboarded_directors, bundled_slate_against)
 - 매트릭스 dim: 96 → 101 (5건 신규)
 - 매트릭스 빙고: 67 → 77 (10건 신규)
@@ -53,14 +53,14 @@ ISS 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우 있어
 
 ### 1.1 작성 배경
 
-5개 한국 운용사(미래에셋·삼성·삼성액티브·트러스톤·[운용사A]) 정책 합의 매트릭스만으로는 부족하다. 이유:
+5개 한국 운용사(M레거시·삼성·삼성액티브·T행동주의·[운용사A]) 정책 합의 매트릭스만으로는 부족하다. 이유:
 
 - 운용사 평균 against rate 9.9% (5.8 - 16.0%)는 한국 재벌 친화 디폴트를 답습한다는 비판
 - 5 운용사 모두 silent한 영역(Say-on-Pay, LID, MoM, 자사주 처분 등) 존재
 - 2026 신법 7개 중 어느 것도 5 운용사 정책에 미반영
 - 상법 §382의3 (2025 강화 — 회사+주주 양방향 충실의무) 적용 미흡
 
-**v1.1 추가**: 베어링 (ISS Korea 2026 직접) + 얼라인 (행동주의) 통합으로 글로벌 표준 + 행동주의 적극 행사 양 축 강화. 한국 5 운용사 silent 영역 (Climate Accountability, Bundled Slate, Two-tier 정량 등) 차단.
+**v1.1 추가**: B외국계 (외국계 proxy advisor 2026 직접) + A행동주의 (행동주의) 통합으로 글로벌 표준 + 행동주의 적극 행사 양 축 강화. 한국 5 운용사 silent 영역 (Climate Accountability, Bundled Slate, Two-tier 정량 등) 차단.
 
 OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로벌 표준 + 행동주의 적극 행사 + 정량 매트릭스를 결합한 차별화된 정책을 제시한다.
 
@@ -170,7 +170,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
   - 성과 미연계 (5/5 코어 룰)
   - 적자/순이익 감소 + 보수한도 증액 (§382의3 위반)
   - 스톡옵션 repricing / 2년 vesting 단축 (강행 §340의2·§340의4)
-  - 스톡옵션 2% 초과 또는 누적 희석 5%+ (트러스톤·한투 + A3 강화)
+  - 스톡옵션 2% 초과 또는 누적 희석 5%+ (T행동주의·한투 + A3 강화)
   - 사외이사 퇴직혜택, 황금낙하산
   - 보수한도 50%+ 인상 (M&A·IPO 일회성 사유 외 — A3 강화)
 - **review**: 5억 초과 + 동종업계 P75 초과
@@ -231,7 +231,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
 
 - **for**: CB/BW 발행 주총 결의 정관 채택 (사모 CB/BW 남용 차단)
 - **against**:
-  - 우선인수권 50%/20% 초과 (트러스톤·한투 + A3 강화 30%/10%)
+  - 우선인수권 50%/20% 초과 (T행동주의·한투 + A3 강화 30%/10%)
   - **사후 리픽싱 조항** (한국 핵심 폐단 — A1+A3)
   - **1년 내 콜옵션** 행사 (지배주주 우호세력 양도 통로)
   - 특정주주·제3자 배정 (인수자 독립성 + 시장가 90% + 보호예수 1년 미충족)
@@ -377,7 +377,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
   - A6: research_law_amendments (2026 신법 7개)
   - A7: expert_corporate_lawyer (상법 §382의3 게임체인저)
 - 5 운용사 합의 매트릭스 (`open_proxy_mcp/data/asset_managers/_consensus_matrix.json`)
-- 5 운용사 정책 (`policies/{mirae_asset, samsung, samsung_active, truston, kim}_2025-04.json`)
+- 5 운용사 정책 (`policies/{m_legacy, s_legacy, sa_active, t_activist, kim}_2025-04.json`)
 - 5 운용사 의결권 행사 기록 (`records/`)
 
 ### 8.2 산출물
@@ -405,9 +405,9 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
 
 ### 9.2 v1.1 (2026-04-29)
 
-- [x] 7 운용사 매트릭스 재계산 (baring + align_partners 추가)
+- [x] 7 운용사 매트릭스 재계산 (b_foreign + a_activist 추가)
 - [x] novel_topics 13개 (5건 신규)
-- [x] ISS Korea 2026 직접 reference 12건 명시
+- [x] 외국계 proxy advisor 2026 직접 reference 12건 명시
 - [x] 행동주의 적극 행사 원칙 7건 채택
 - [x] 한국 5 운용사 silent 영역 9건 명시 채택
 - [x] global_reference 필드로 한국 미적용 (Discharge) 마킹
@@ -418,9 +418,9 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
 
 ## 10. v1.1 변경사항 상세 (2026-04-29)
 
-### 10.1 베어링 (ISS Korea 2026) 통합 영향
+### 10.1 B외국계 (외국계 proxy advisor 2026) 통합 영향
 
-**baring_2025-04.json** (`policy_classification: global_advisor_adoption`)는 자체 정책 없이 ISS Korea 2026 v1.1 Voting Guidelines (Effective 2026-02-01)를 그대로 적용. 이를 통해 **글로벌 표준 12건 직접 reference 통합**:
+**b_foreign_2025-04.json** (`policy_classification: global_advisor_adoption`)는 자체 정책 없이 외국계 proxy advisor 2026 v1.1 Voting Guidelines (Effective 2026-02-01)를 그대로 적용. 이를 통해 **글로벌 표준 12건 직접 reference 통합**:
 
 | ISS Topic | OPM v1.1 적용 |
 | --- | --- |
@@ -437,11 +437,11 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
 | **Pre-emption 20%** | tier_1 — preemptive_right dim 정량 (UK Pre-emption + ISS + 한국 상법 §418 ② 정합) |
 | **CB/BW Dilution 20%** | tier_1 — dilution_rate dim 강화 (신주발행과 동일 기준) |
 
-### 10.2 얼라인 (행동주의) 통합 영향
+### 10.2 A행동주의 (행동주의) 통합 영향
 
-**align_partners_2025-04.json** (`policy_classification: active_engagement_activist`)는 행동주의 펀드. 정책 일반원칙 제3조 ②에 "합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사" 명시. against 17.3% (5 운용사 평균 9.4% 대비 1.8배). 이를 통해 **행동주의 입장 7건 채택**:
+**a_activist_2025-04.json** (`policy_classification: active_engagement_activist`)는 행동주의 펀드. 정책 일반원칙 제3조 ②에 "합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사" 명시. against 17.3% (5 운용사 평균 9.4% 대비 1.8배). 이를 통해 **행동주의 입장 7건 채택**:
 
-| 얼라인 Topic | OPM v1.1 적용 |
+| A행동주의 Topic | OPM v1.1 적용 |
 | --- | --- |
 | **[일반원칙 제3조 ②] 적극 행사** | matrix_shareholder_proposal dim active_engagement_signal 신규. silent 금지 |
 | **[Ⅰ-2] 배당 과소 against** | matrix_cash_dividend payout_ratio_vs_industry 강화 |
@@ -455,21 +455,21 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
 
 | # | Novel Topic | Default | Stage | Source |
 | --- | --- | --- | --- | --- |
-| 9 | **climate_accountability** | review | tier_2 | baring (ISS) + 미래/트러스톤 통합 |
-| 10 | **say_on_climate** | review | tier_3 | baring (ISS) 단독 |
-| 11 | **discharge_of_director** | global_reference_only | tier_3_signal | baring (ISS) — 한국 미적용 |
-| 12 | **overboarded_directors** | against | tier_1 | baring (ISS) 정량 + 한국 상법 정합 |
-| 13 | **bundled_slate_against** | against | tier_2 | baring (ISS) + align_partners 합의 — 한국 silent 차단 |
+| 9 | **climate_accountability** | review | tier_2 | b_foreign (ISS) + 미래/T행동주의 통합 |
+| 10 | **say_on_climate** | review | tier_3 | b_foreign (ISS) 단독 |
+| 11 | **discharge_of_director** | global_reference_only | tier_3_signal | b_foreign (ISS) — 한국 미적용 |
+| 12 | **overboarded_directors** | against | tier_1 | b_foreign (ISS) 정량 + 한국 상법 정합 |
+| 13 | **bundled_slate_against** | against | tier_2 | b_foreign (ISS) + a_activist 합의 — 한국 silent 차단 |
 
 ### 10.4 새 매트릭스 dim 5건 (총 96 → 101)
 
 | Matrix | New Dim | Source |
 | --- | --- | --- |
-| matrix_director_election | bundled_slate_signal | ISS + align_partners |
+| matrix_director_election | bundled_slate_signal | ISS + a_activist |
 | matrix_director_election | climate_accountability_signal | ISS Climate Accountability |
 | matrix_financial_statements | climate_disclosure | ISS / TCFD |
 | matrix_articles_amendment | bundled_articles_signal | ISS Bundled Articles |
-| matrix_shareholder_proposal | active_engagement_signal | align_partners 일반원칙 제3조 ② |
+| matrix_shareholder_proposal | active_engagement_signal | a_activist 일반원칙 제3조 ② |
 
 ### 10.5 강화 매트릭스 dim 9건
 
@@ -477,13 +477,13 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
 | --- | --- | --- |
 | matrix_director_election | concurrent_positions | ISS >2 boards 정량 통합 |
 | matrix_director_compensation | performance_link | 행동주의 + ISS — 7/7 만장일치 against trigger |
-| matrix_articles_amendment | shareholder_rights_impact | 행동주의 (얼라인) + ISS (베어링) 통합 |
-| matrix_cash_dividend | payout_ratio_vs_industry | 행동주의 (얼라인) 배당 과소 강화 |
+| matrix_articles_amendment | shareholder_rights_impact | 행동주의 (A행동주의) + ISS (B외국계) 통합 |
+| matrix_cash_dividend | payout_ratio_vs_industry | 행동주의 (A행동주의) 배당 과소 강화 |
 | matrix_capital_increase_decrease | preemptive_right | ISS 20% 정량 통합 |
 | matrix_capital_increase_decrease | issuance_size | ISS 100% 초과 정당화 명시 |
-| matrix_capital_increase_decrease | anti_takeover_signal | 행동주의 (얼라인) 외부 인수 무력화 |
+| matrix_capital_increase_decrease | anti_takeover_signal | 행동주의 (A행동주의) 외부 인수 무력화 |
 | matrix_cb_bw | dilution_rate | ISS 신주발행 동일 기준 |
-| matrix_treasury_share | ownership_structure_signal | 행동주의 (얼라인) 외부 인수 무력화 정신 |
+| matrix_treasury_share | ownership_structure_signal | 행동주의 (A행동주의) 외부 인수 무력화 정신 |
 
 ### 10.6 7 운용사 합의 매트릭스 (v3) 통계
 
@@ -491,37 +491,37 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + ISS 글로�
 - consensus 22 (28%), majority 27 (34%), divergence 7 (9%), minority 23 (29%)
 - consensus + majority = 62% (강한 합의)
 - v1.1 신규 토픽 7건:
-  - climate_accountability_iss (베어링 단독)
-  - say_on_climate_iss (베어링 단독)
-  - discharge_of_director_iss (베어링 단독, 한국 미적용)
-  - bundled_slate_against_iss (베어링 + 얼라인)
-  - director_accountability_extension_iss (베어링 단독)
-  - two_tier_governance_iss (베어링 단독)
-  - active_engagement_principle_align (얼라인 단독)
+  - climate_accountability_iss (B외국계 단독)
+  - say_on_climate_iss (B외국계 단독)
+  - discharge_of_director_iss (B외국계 단독, 한국 미적용)
+  - bundled_slate_against_iss (B외국계 + A행동주의)
+  - director_accountability_extension_iss (B외국계 단독)
+  - two_tier_governance_iss (B외국계 단독)
+  - active_engagement_principle_align (A행동주의 단독)
 
 ### 10.7 ISS direct reference 마킹 규칙
 
-OPM v1.1에서 베어링 (ISS) 입장은 voting_rules 항목에 `global_reference` 필드로 명시:
+OPM v1.1에서 B외국계 (ISS) 입장은 voting_rules 항목에 `global_reference` 필드로 명시:
 
 ```json
 {
   "criterion": "[ISS direct] ...",
-  "source": "baring (ISS Korea 2026 ...)",
+  "source": "b_foreign (외국계 proxy advisor 2026 ...)",
   "law": "ISS 2026 / 한국 상법 ...",
-  "global_reference": "ISS Korea 2026 Voting Guidelines",
-  "evidence_refs": ["baring.section..."]
+  "global_reference": "외국계 proxy advisor 2026 Voting Guidelines",
+  "evidence_refs": ["b_foreign.section..."]
 }
 ```
 
 한국 미적용 글로벌 개념 (Discharge of Director)은 `default: "global_reference_only"`로 마킹되어 자동 적용 X.
 
-## 11. v1.3 변경 (2026-04-29) — c_activist (차파트너스) 통합
+## 11. v1.3 변경 (2026-04-29) — c_activist (C행동주의) 통합
 
 ### 11.1 추가 운용사 (7 → 8)
 
 | 운용사 | 분류 | against rate | 영향 |
 | --- | --- | --- | --- |
-| **c_activist (차파트너스)** | active_engagement_activist (행동주의 펀드, 자본시장 표준 가이드라인 + 본문 행동주의 적극 행사 원칙) | 27.5% (a_activist 17.3%, 5 운용사 평균 9.4% 대비 가장 강함) | 행동주의 3사 (T/A/C) 일치 영역 명확화 + c_activist 단독 17건 신규 토픽 (한국 silent 영역 추가 차단) |
+| **c_activist (C행동주의)** | active_engagement_activist (행동주의 펀드, 자본시장 표준 가이드라인 + 본문 행동주의 적극 행사 원칙) | 27.5% (a_activist 17.3%, 5 운용사 평균 9.4% 대비 가장 강함) | 행동주의 3사 (T/A/C) 일치 영역 명확화 + c_activist 단독 17건 신규 토픽 (한국 silent 영역 추가 차단) |
 
 ### 11.2 v1.3 핵심 변경 5건
 
@@ -557,7 +557,7 @@ OPM v1.1에서 베어링 (ISS) 입장은 voting_rules 항목에 `global_referenc
 
 ### 11.5 v1.3 강화 영역 (v1_3_note 마킹)
 
-- financial_statements: non_qualified_audit_opinion (8/8), non_audit_service_prohibition (3/8 — 차파트너스 명시 채택)
+- financial_statements: non_qualified_audit_opinion (8/8), non_audit_service_prohibition (3/8 — C행동주의 명시 채택)
 - cash_dividend: appropriate_dividend_policy (7/8), excessive_or_insufficient_dividend (행동주의 3사 일치 강화)
 - articles_amendment: outside_director_ratio_increase (8/8), cumulative_voting_exclusion_removal (8/8), supermajority_voting (8/8), golden_parachute (8/8), shareholder_rights_restriction (행동주의 3사 일치 강화)
 - director_election: outside_director_independence_5year (8/8), concurrent_positions (8/8), company_value_damage_history (8/8), bundled_slate_against (행동주의 2사 강화), executive_officer_system_for (신규), ceo_3rd_term_supermajority (신규), board_evaluation_disclosure (신규)
@@ -573,10 +573,10 @@ OPM v1.1에서 베어링 (ISS) 입장은 voting_rules 항목에 `global_referenc
 ### 11.6 v1.0/v1.1/v1.2 결정 보존 여부
 
 - v1.0 (코붕이 + 7 전문가) 결정: 모두 보존
-- v1.1 align_partners 행동주의 7건: 모두 보존, c_activist 동조로 강화
-- v1.2 ISS 다운그레이드: 모두 유지 (베어링은 외국계 ISS 참조 사례로 보존)
+- v1.1 a_activist 행동주의 7건: 모두 보존, c_activist 동조로 강화
+- v1.2 ISS 다운그레이드: 모두 유지 (B외국계은 외국계 ISS 참조 사례로 보존)
 - v1.3 c_activist 통합: 강화/통합만, 뒤집기 X
 
 ### 11.7 c_activist 단독 토픽 채택 원칙
 
-c_activist 단독 명시 영역은 한국 운용사 silent 영역에 한해 채택 (한국 법령·KCGS 모범규준·KRX 핵심지표 정합 우선). 행동주의 적극 행사 원칙 (silent 금지)을 a_activist + c_activist 2사 합의로 강화하되, OPM은 한국 8 운용사 + NPS + 한국 법령 + OPM 5 기준 중심을 유지한다.
+c_activist 단독 명시 영역은 한국 운용사 silent 영역에 한해 채택 (한국 법령·KCGS 모범규준·KRX 핵심지표 정합 우선). 행동주의 적극 행사 원칙 (silent 금지)을 a_activist + c_activist 2사 합의로 강화하되, OPM은 한국 8 운용사 + N연기금 + 한국 법령 + OPM 5 기준 중심을 유지한다.

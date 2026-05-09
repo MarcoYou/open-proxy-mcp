@@ -21,7 +21,7 @@ batch v7b (152 회사 / 566 entries) 결과:
 
 **운용사 reason (5/5)**:
 - M레거시: "감사로 9년 연임 + 재선임 시 12년 — 장기 연임 → 독립성 훼손 → AGAINST"
-- 삼성액티브 / 삼성자산 / S레거시 / 한국투자: 동일 (장기연임)
+- 삼성액티브 / S레거시 / S레거시 / 한국투자: 동일 (장기연임)
 
 **OPM 한계**:
 - iter23 `five_year_signal`: careerDetails에 "재선임/재임/연임/중임" 키워드 발견 시 long_tenure_concerns

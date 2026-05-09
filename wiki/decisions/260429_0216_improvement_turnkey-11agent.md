@@ -212,13 +212,13 @@ related: [open-proxy-guideline, decision-matrix-design, opm-guideline-debate-tra
 - 스튜어드십 7원칙 51/70 (73%)
 - **약점**: Engagement 4/10, 공시 5/10
 - **strength**: 정책 정교화 + 모니터링 + 2026 신법 즉시 반영
-- 국민연금 가이드라인 12 항목 중 8 OPM 우위
+- N연기금 가이드라인 12 항목 중 8 OPM 우위
 - `vote_style` 3단계 (passive/balanced/active) 권고
 
 ### P4 (행동주의) — 단독
 - vote_math scope = 강력한 자산 (자동 계산 도구)
 - **2 아픈 구멍**:
-  1. 국민연금/외국인 패시브 의결권 행사 데이터 미통합 (한국 캠페인 표 예측 핵심)
+  1. N연기금/외국인 패시브 의결권 행사 데이터 미통합 (한국 캠페인 표 예측 핵심)
   2. 거버넌스 100% / 밸류에이션 0% (캠페인 정당화 절반 수동)
 - screen_events에 주주제안서/임시주총 소집/5% 보유목적 변경 별도 event_type 부재
 

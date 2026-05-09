@@ -8,7 +8,7 @@ Real results from asking OpenProxy questions in natural language.
 
 > "Show Samsung Electronics ownership structure"
 
-![Samsung Ownership](../screenshot/pr_materials/openproxy_05_samsung_ownership_EN.png)
+![Samsung Ownership](../screenshot/pr_materials/openproxy_05_s_legacy_ownership_EN.png)
 
 View largest shareholders, treasury shares, and 5% block holders at a glance.
 
@@ -18,7 +18,7 @@ View largest shareholders, treasury shares, and 5% block holders at a glance.
 
 > "Tell me about Samsung Electronics dividends"
 
-![Samsung Dividend](../screenshot/pr_materials/openproxy_06_samsung_dividend_EN.png)
+![Samsung Dividend](../screenshot/pr_materials/openproxy_06_s_legacy_dividend_EN.png)
 
 Compare 3-year dividend trends, dividend yield, and payout ratio.
 

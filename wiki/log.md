@@ -228,7 +228,7 @@ title: Operation Log
   - G1 파싱 성공률: director 99.2 / audit 100 / retirement **100** (이전 78.6) ✓
   - G2 trigger 정확도 100%: AGAINST 5건 — 피에스케이/피에스케이홀딩스/GST 지급률 2배수+ / 카카오페이 사외이사 퇴직금 (OPM #6) / 퓨쳐메디신 자본잠식+인상
   - G3 운용사 4+ majority 정합 100% (director 11/11, audit 1/1)
-  - G4 NPS 정책 정합 100% (NPS [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger 일치)
+  - G4 N연기금 정책 정합 100% (N연기금 [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger 일치)
 - KT&G false positive 수정: 이전 REVIEW (퇴직연금 키워드 hit) → FOR (퇴직연금 제도 도입 형식적 변경)
 - ralph: [[260505_1750_ralph_compensation-retirement-split]] / [[260505_2030_ralph_compensation-retirement-extend]] / [[260505_2200_ralph_compensation-retirement-precision]]
 - decision: [[260505_1900_decision_compensation-retirement-split]]
@@ -242,7 +242,7 @@ title: Operation Log
   1. **카테고리 3 분리**: `director_compensation` (강화) / `audit_compensation` (NEW) / `retirement_pay` (NEW)
   2. **Hybrid wire** (코붕이 의견): 한국 회사 관행상 퇴직금/보수 변경은 대부분 "정관 일부 변경" 형식.
      `_decide_articles_amendment`에 retirement/comp helper 통합 — 같은 helper 재사용, 결정 logic 중복 X.
-  3. **결정 분기**: 이사 13 분기 / 감사 11 분기 / 퇴직금 12 분기. 정책 근거 (NPS [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #2/#6/#7/#8 + 운용사 패턴) 모두 wire.
+  3. **결정 분기**: 이사 13 분기 / 감사 11 분기 / 퇴직금 12 분기. 정책 근거 (N연기금 [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #2/#6/#7/#8 + 운용사 패턴) 모두 wire.
   4. **2 layer 원칙**: 정책 카탈로그 (정성+정량) + 결정 코드 (자동 trigger wire + 정성은 facts raw 노출).
   5. **Step 0 sample**: KOSPI/KOSDAQ 10 회사 spot — SK하이닉스 11 amendments / 고려아연 5 (황금낙하산 sample 0)
   6. **Step 0.5 운용사 majority cache**: 22 records 합산 → director 31 / audit 2 / retirement 1 4+ majority case (모두 FOR). AGAINST outlier: 하이브 (3대1) / 에코프로 (3대0).
@@ -409,8 +409,8 @@ title: Operation Log
 - 회귀: financial_metrics + dividend 변경 0
 
 ### Phase 2 (별도)
-- A5 얼라인 12 회사 backtest
-- A6 9 비교군 (8 운용사 + NPS) backtest
+- A5 A행동주의 12 회사 backtest
+- A6 9 비교군 (8 운용사 + N연기금) backtest
 - vote_style 정책 wire + 매트릭스 자동 채점 통합
 
 ## [2026-05-01] feat | financial_metrics tool Phase 1 (재무 4 endpoint 통합 신규)
@@ -479,20 +479,20 @@ title: Operation Log
 
 ## [2026-04-29] feat | proxy_guideline tool + Open Proxy Guideline v1.2 + 12 의사결정 매트릭스
 ### Phase A: 7 운용사 데이터 파싱
-- 정책 5건: opendataloader-pdf (samsung·samsung_active·truston·kim·align_partners 1-4초)
-- 미래에셋: vector glyph PDF → PyMuPDF DPI 120 raster + JPEG 70% → Upstage OCR 우회 (35KB md)
-- 베어링: ISS Korea 2026 Voting Guidelines 직접 채택 발견 → `policy_classification: foreign_manager_iss_reference`
+- 정책 5건: opendataloader-pdf (s_legacy·sa_active·t_activist·kim·a_activist 1-4초)
+- M레거시: vector glyph PDF → PyMuPDF DPI 120 raster + JPEG 70% → Upstage OCR 우회 (35KB md)
+- B외국계: 외국계 proxy advisor 2026 Voting Guidelines 직접 채택 발견 → `policy_classification: foreign_manager_iss_reference`
 - 행사내역 15 xlsx → 통일 schema JSON (총 17,900 votes)
 ### Phase B-C: 합의 매트릭스 + Open Proxy Guideline v1.2
 - `_consensus_matrix.json`: 7 운용사 79 토픽, consensus + majority 62%
 - 7 페르소나 토론 (학자·운용사출신·소수주주활동가·자본시장변호사·상법변호사·글로벌ESG·법안리서처) + 모더레이터 통합
-- v1.0 → v1.1 (베어링 ISS + 얼라인 행동주의) → v1.2 (ISS 다운그레이드)
+- v1.0 → v1.1 (B외국계 ISS + A행동주의 행동주의) → v1.2 (ISS 다운그레이드)
 - v1.2: 12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting
 - 12 의사결정 매트릭스 (100 dim, 76 빙고 패턴) — 운용사·자문사 단독 차별화
 ### Phase D: proxy_guideline tool (6 scope)
 - `services/proxy_guideline.py` + `tools_v2/proxy_guideline.py`
 - scopes: policy / record / predict / compare / consensus / audit
-- audit가 정책-실제 갭 자동 검출 (samsung director_election 4.3% — `policy_strict_practice_lenient`)
+- audit가 정책-실제 갭 자동 검출 (s_legacy director_election 4.3% — `policy_strict_practice_lenient`)
 - DART API 호출 0회 (정적 데이터, <100ms 응답)
 ### Phase E: prepare_vote_brief 통합
 - `vote_style` 인자 (default `open_proxy`, 7 운용사 선택)

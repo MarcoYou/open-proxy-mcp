@@ -76,7 +76,7 @@ related_decisions: [260508_0200_decision_law-layer]
 - 이전 잘못된 AGAINST (LG화학 제2-1호/제2-5호) 회복 확인
 
 ### G3. 운용사 표기 일관성
-- 코드 + wiki 모든 곳 "7 운용사" → "8 운용사 + NPS"
+- 코드 + wiki 모든 곳 "7 운용사" → "8 운용사 + N연기금"
 - `open_proxy_v1.json` policy_meta update
 
 ## 작업 plan (10 iter)
@@ -150,7 +150,7 @@ related_decisions: [260508_0200_decision_law-layer]
 ### Phase 6 — 부수 cleanup (iter 9, DART X)
 
 #### iter 9. 운용사 8 표기 통일
-- `open_proxy_v1.json` policy_meta: "7 운용사" → "8 운용사 + NPS"
+- `open_proxy_v1.json` policy_meta: "7 운용사" → "8 운용사 + N연기금"
 - `open-proxy-guideline.md` 본문 update
 - `wiki/index.md` / `wiki/log.md` / `wiki/tools/proxy_advise_before_meeting.md` update
 - archive는 그대로 (역사 보존)

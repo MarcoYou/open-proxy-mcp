@@ -50,9 +50,9 @@ ticker,company,market,meeting_type,run_no,status,elapsed,agenda,for,against,revi
 012330,현대모비스,KOSPI,annual,1,exact,23.9,9,2,0,7,4
 012330,현대모비스,KOSPI,annual,2,exact,21.0,9,1,0,8,4
 012330,현대모비스,KOSPI,annual,3,exact,15.8,9,1,0,8,4
-006800,미래에셋증권,KOSPI,annual,1,exact,6.6,10,1,0,9,0
-006800,미래에셋증권,KOSPI,annual,2,exact,8.7,10,1,0,9,0
-006800,미래에셋증권,KOSPI,annual,3,exact,8.9,10,1,0,9,0
+006800,M레거시증권,KOSPI,annual,1,exact,6.6,10,1,0,9,0
+006800,M레거시증권,KOSPI,annual,2,exact,8.7,10,1,0,9,0
+006800,M레거시증권,KOSPI,annual,3,exact,8.9,10,1,0,9,0
 035420,NAVER,KOSPI,annual,1,exact,4.7,10,1,0,9,0
 035420,NAVER,KOSPI,annual,2,exact,4.7,10,1,0,9,0
 035420,NAVER,KOSPI,annual,3,exact,4.0,10,1,0,9,0
