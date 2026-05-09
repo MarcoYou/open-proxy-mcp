@@ -103,17 +103,13 @@ company                            # 기업 식별 + 최근 공시 인덱스
 
 > 각 tool의 scope·옵션·data source·검증 결과는 **[wiki/tools/README.md](wiki/tools/README.md)** 카탈로그 또는 개별 tool 페이지 (`wiki/tools/{name}.md`) 참조.
 
-### 의결권 정책 (vote_style)
+### 의결권 정책 — Open Proxy Guideline
 
-`proxy_advise_before_meeting`의 `vote_style` 옵션으로 8 운용사 + NPS 정책에 맞춘 안건별 권고 가능:
-
-| vote_style | 설명 |
-|---|---|
-| `open_proxy` (default) | OPM 자체 Open Proxy Guideline (12 카테고리, 4 기준: 소수주주 보호 / 거버넌스 투명성 / 장기 가치 / 추적 가능성) |
-| `mirae_asset` / `samsung` / `samsung_active` / `kim` | 대형 레거시 4 |
-| `truston` / `align_partners` / `cha_partners` | 행동주의 3 |
-| `baring` | 외국계 (ISS Korea 참조 사례) |
-| `nps` | 국민연금 |
+`proxy_advise_before_meeting`의 default 정책은 **OPM 자체 Open Proxy Guideline** (v1.3):
+- **12 카테고리** × 116 룰 + 11 신규 토픽 + **2026 신법 7개 즉시 반영**
+- **4 기준**: 소수주주 보호 / 거버넌스 투명성 / 장기 가치 / 추적 가능성
+- **38 법령 layer 룰** (1·2·3차 상법 개정 + 정관 우회 시나리오)
+- 한국 8개 자산운용사 + 1 연기금 정책 + 한국 법령 cross-reference (internal)
 
 **모든 응답에 `data.usage` 블록**: DART API 호출 수 + MCP tool 호출 수 노출 (분당 1000 한도 — `dart/client.py` rolling window cap 900으로 hard guard).
 

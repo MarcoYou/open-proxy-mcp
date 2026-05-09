@@ -105,12 +105,13 @@ company                            # Company ID + recent filings index
 
 ### Internal policies & matrices
 
-**8 asset managers' policy data** (parsed JSON, 14MB+ static, anonymized):
+**8 asset managers + 1 pension fund policy data** (parsed JSON, 14MB+ static, fully anonymized):
 - M-legacy / S-legacy / SA-active / K-legacy (4 large legacy managers)
 - T-activist / A-activist / C-activist (3 activist managers)
-- B-foreign (references ISS Korea 2026 — but OPM does NOT use ISS as benchmark)
+- B-foreign (1 foreign manager — references external proxy advisor)
+- N-pension (1 national pension fund)
 
-> Note: Real manager names are kept internal-only (gitignored mapping file). External docs use anonymized initials + classification.
+> Note: Real names are kept internal-only (gitignored mapping file). External docs use anonymized initials + classification.
 
 **Open Proxy Guideline v1.2** (OPM proprietary best-practice policy):
 - 12 categories × 116 rules + 11 novel topics + **7 new 2026 Korea laws** (5 managers haven't reflected yet)
