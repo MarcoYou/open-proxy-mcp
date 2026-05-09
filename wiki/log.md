@@ -3,6 +3,44 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-10] feat | proxy_advise B1/B2 raw 첨부 + decision 시각 강조 + 운용사·NPS 익명화 4 Phase
+
+**LLM misread 방지 (LG화학 사례 trigger)**:
+- 사용자가 LG화학 호출 시 LLM이 proxy_advise FOR 응답 무시하고 안건명("집중투표 배제")만 보고 자체적으로 AGAINST 추측 → 잘못된 분석 제공
+- 원인: decision 시각 강조 부족 + reason truncate (80자) → 법령 [A1-1] tag 잘림
+
+**fix 1 (a87b0ab) — decision 시각 강조**:
+- ✓ FOR / ✗ AGAINST / ? REVIEW → ✅ / ❌ / ⚠️
+- 법령 layer marker: A1/A2 → 🛡️ 강행규정 정합/위반, B1/B2 → 🔍 우회 의심
+- reason truncate 80 → 250자
+- LLM 경고 박스: "법령 layer 태그는 강행규정 — LLM 자체 판단으로 뒤집지 말 것"
+
+**fix 2 (312d731) — B1/B2 raw 첨부**:
+- proxy_advise에 aoi_change scope 추가 호출 (cache hit으로 free)
+- B1/B2 hit 안건 reason에 정관 변경 본문 raw `[clause 변경 전/후]` 첨부
+- A1/A2는 결정 강제 유지, raw 추가 X (토큰 절약)
+- _find_amendment_for_title: label/clause + reason/before/after fuzzy 매칭 (≥2 키워드)
+- detail 섹션에 reason full 노출 (표는 250자)
+
+**검증 (5 회사)**:
+- LG화학: A1/A2 4건 / B1-10 1건 (raw ✓ — 분리선출 1명→2명 본문)
+- KT&G: A1/A2 2건 / B1-8b 1건 (raw ✓)
+- 현대차: A1/A2 2건 / B1 1건 (raw ✓)
+- Latency: 5-17s — 이전 대비 +1-2% (cache hit)
+- regression 0
+
+**운용사·NPS 익명화 4 Phase (보안 sweep, 9 commits)**:
+- Phase 1 (d015bfa): tool description vote_style 옵션 list 제거 + README 표 제거
+- Phase 2 (fdef0d1): `_VOTE_STYLE_POLICY_FILE` 실명 alias 9개 제거 (익명만)
+- Phase 3a (2d4e8ed): wiki/ + docs/ 124 파일 batch 익명화
+- Phase 3b (d882f87): open_proxy_mcp/ 27 파일
+- 추가 (2a81b8a): sa_active → sa_legacy (실제 운용 스타일)
+- 추가 (d5fb8b2 + 1c9dae7): ISS/BAMK 일반화 + 외부 advisor 항목 제거 (b_foreign에 흡수)
+
+**최종 익명 catalog**: m_legacy / s_legacy / sa_legacy / k_legacy / t_activist / a_activist / c_activist / b_foreign / n_pension (9개) — manager_aliases.json (gitignored, local) v4.
+
+**검증 sweep**: git tracked (raw 제외) 운용사 실명 / ISS / BAMK / iss_overseas 잔존 0.
+
 ## [2026-05-09] perf | financial_metrics yoy scope 병렬화 (3배 단축)
 
 **효율성 audit (Explore agent)**:
