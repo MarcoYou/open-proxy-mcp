@@ -118,7 +118,19 @@ company                            # Company ID + recent filings index
 
 > Each tool's scope, options, data sources, and validation results: see catalog at **[wiki/tools/README.md](wiki/tools/README.md)** or per-tool pages (`wiki/tools/{name}.md`).
 
-### 🆕 proxy_guideline tool
+### Recent changes (2026-05-04~09)
+
+- 17 → 16 tools: `screen_events` dropped, `proxy_guideline` archived (kept internal only), `shareholder_meeting` split → notice + results
+- proxy_advise scope **10 → 1** (`decisions` only; raw data via direct data-tool calls)
+- treasury_share scope **6 → 2**; 4 result reports added; decision↔execution cycle matching
+- DART 1,000/min hard rule (rolling-window rate limiter, cap 900)
+- **Inside director tenure performance matrix (2x3)** — auto-FOR for company-nominated inside directors creates status-quo bias. ROE / debt ratio / CSR × avg / trend, bad → AGAINST · weak → REVIEW. Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 100% / distribution within target bands.
+- **Compensation / retirement classification refinement** — director 13 / auditor 11 / retirement 12 branches + articles_amendment hybrid integration. KOSPI 200 + KOSDAQ 50 (n=226): G1 99-100% / G3 manager majority alignment 100% / G4 NPS policy alignment 100%.
+- **Law layer refinement (Ralph 4, 2026-05-08)** — 1st·2nd·3rd Commercial Law amendments + articles bypass scenarios → 38 rule catalog (A1=8 / A2=5 / B1=12 / B2=9 / C=4). Catches KT&G articles pre-bypass (B1-8b), 1-year director term in proxy contests (B1-4b), board-size reduction (B1-7). Validated on 280 companies (KOSPI 200 + KOSDAQ 100 + dispute 20) — false positive 0, regression 0%. proxy_advise responses now tag `[Law X-Y]`.
+- **Wiki tree policy + lint hook (2026-05-09)** — botanical metaphor (🌱root → 🪵trunk → 🌿main branch → 🌾sub-branch → 🍂fallen). Link policy (downward-only / bidirectional / free) + `scripts/wiki_lint.py` + GitHub Actions CI auto-validation.
+- **`financial_metrics` yoy parallelization (2026-05-09 perf)** — sequential 3 calls → `asyncio.gather`. Per-company ~3s → ~1s (2-3x faster).
+
+### Internal policies & matrices
 
 **8 asset managers' policy data** (parsed JSON, 14MB+ static, anonymized):
 - M-legacy / S-legacy / SA-active / K-legacy (4 large legacy managers)
@@ -138,49 +150,30 @@ company                            # Company ID + recent filings index
 
 **Every data tool returns `data.usage`**: DART API call count + MCP tool call count, so you can track how much of the 1,000/min DART limit each query consumes.
 
-Two usage patterns:
-
 ```
-Pattern A (company → analysis):  start with `company` → confirm facts via data tabs → generate action outputs
-Pattern B (event → companies):   start with `screen_events` → drill down into each company
+Usage pattern: start with `company` → confirm facts via data tabs → generate action outputs
 ```
-
-### Supported events in `screen_events` (21 types)
-
-| Category | event_type | Count |
-|---------|-----------|---|
-| AGM | `shareholder_meeting_notice` | 1 |
-| Ownership | `major_shareholder_change`, `ownership_change_filing`, `executive_ownership` | 3 |
-| Treasury | `treasury_acquire`, `treasury_dispose`, `treasury_retire` | 3 |
-| Contest | `proxy_solicit`, `litigation`, `management_dispute` | 3 |
-| Value-up | `value_up_plan` | 1 |
-| Dividend | `cash_dividend`, `stock_dividend` | 2 |
-| Dilutive | `rights_offering`, `convertible_bond`, `warrant_bond`, `capital_reduction` | 4 |
-| Related-party | `equity_deal_acquire`, `equity_deal_dispose`, `supply_contract_conclude`, `supply_contract_terminate` | 4 |
-
-Default window: last 30 days. Market: KOSPI+KOSDAQ. Each result row includes a clickable link to the original DART viewer.
 
 ### Domain summary
 
 | Domain | Description | Tools |
 |--------|-------------|-------|
-| **Discovery** | Event → company lookup | 1 |
 | **Company** | Company ID + recent filings index | 1 |
-| **AGM** | Agendas, board candidates, compensation, articles, results | 1 |
-| **Ownership** | Largest shareholders, block holders, treasury, control map, change filings | 1 |
-| **Dividend** | Actual dividend payouts, DPS, payout ratio, history | 1 |
-| **Treasury** | Acquisition, disposal, cancellation, trust events | 1 |
-| **Proxy** | Proxy solicitations, litigation, 5% signals | 1 |
+| **AGM (pre)** | shareholder_meeting_notice — agendas, board candidates, compensation, articles changes (DART) | 1 |
+| **AGM (post)** | shareholder_meeting_results — KIND voting results | 1 |
+| **Ownership** | Largest shareholders, block holders, control map, change filings | 1 |
+| **Dividend** | Actual dividend payouts + quarterly breakdown | 1 |
+| **Treasury** | 5 decisions (pre) + 4 result reports (executed) + cycle matching (★ decision-execution validation) | 1 |
+| **Proxy contest** | Proxy solicitations, litigation, 5% signals | 1 |
 | **Value-up** | Corporate value-up plans, implementation | 1 |
 | **Restructuring** | Merger / split / division-merger / share exchange decisions | 1 |
 | **Dilution** | Rights offering / CB / BW / capital reduction | 1 |
 | **Related-party** | Equity deals + single supply contracts | 1 |
 | **Governance** | Corporate governance report (15 core principles, full KOSPI mandatory from 2026) | 1 |
-| **Financials** | DART 4-endpoint integration — 51 metrics + DuPont + FCF + NWC + accounting risk + 3-yr audit opinion (★ NEW) | 1 |
+| **Financials** | DART 4-endpoint integration — 51 metrics + DuPont + FCF + NWC + accounting risk + 3-yr audit opinion | 1 |
 | **Evidence** | Filing source links | 1 |
-| **Policy & Matrix** | 8 manager policies (anonymized) + Open Proxy Guideline + 12 decision matrices | 1 |
-| **Action** | proxy_advise_before_meeting (pre-AGM, 10 scope, ralph-validated G2 99.36%) + proxy_result_after_meeting (post-AGM, 2 scope) — rename + scope expansion (2026-05-04) | 2 |
-| | **Total** | **17** |
+| **Action** | proxy_advise_before_meeting (per-agenda decisions + facts/risk/citation/source filings/candidate raw, ralph G2 99.36%) + proxy_result_after_meeting (post-AGM result) | 2 |
+| | **Total** | **16** |
 
 ---
 
@@ -232,16 +225,32 @@ Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 classification coverage 100%, dis
 ## Project Structure
 
 ```
-wiki/
-  open_proxy_mcp/
-    server.py              # FastMCP server (stdio + HTTP)
-    tools_v2/              # 17 tools
-    services/              # Domain logic layer (separated from tools)
-    dart/client.py         # DART API + KIND crawl + Naver + rate limiter
-    data/asset_managers/   # 8 manager policies (anonymized) + records + Open Proxy Guideline + 12 matrices
-  Dockerfile               # Container for Fly.io deployment
-  fly.toml                 # Fly.io config (nrt region, auto-suspend)
-  wiki/          # Domain knowledge wiki (formerly wiki/)
+open_proxy_mcp/
+  server.py                # FastMCP server (stdio + HTTP)
+  tools_v2/                # 16 tools (active)
+  services/                # Domain logic layer (separated from tools)
+  dart/client.py           # DART API + KIND crawl + Naver + rate limiter (cap 900/min)
+  data/asset_managers/     # 8 manager policies (anonymized) + records + Open Proxy Guideline + 12 matrices
+scripts/
+  wiki_lint.py             # Wiki link policy auto-validator (downward / bidirectional)
+  spot_*.py                # Regression spot scripts (KOSPI/KOSDAQ batch)
+wiki/                      # LLM domain knowledge — botanical tree order
+  raw/                     # 🌱 Root — external originals (read-only)
+  rules/                   # 🪵 Trunk — concepts/ + disclosures/ + laws/ (Korean capital market facts)
+  tools/                   # 🌿 Main branch — 16 tool catalog (user entry point)
+  decisions/               # 🌿 Main branch — OPM policy (open-proxy-guideline, etc.)
+  architecture/            # 🌿 Main branch (core) + 🌾 sub-branch (audits/ + fixes/)
+  ralph/                   # 🌾 Sub-branch — work plans (chronological)
+  lessons/                 # 🌾 Sub-branch — retrospectives
+  archive/                 # 🍂 Fallen — absorbed/superseded pages
+  index.md                 # Full index (entry point)
+  WIKI_SCHEMA.md           # Tree policy + categories + naming rules
+  log.md                   # Operation log
+.github/workflows/
+  wiki-lint.yml            # Auto lint --strict on wiki/ change (PR/push CI)
+  deploy.yml               # Fly.io deployment
+Dockerfile                 # Container for Fly.io deployment
+fly.toml                   # Fly.io config (nrt region, auto-suspend)
 ```
 
 ---
