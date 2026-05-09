@@ -139,23 +139,52 @@ Ralph 4 + 후속 audit (260510_law_layer_450)에서 발견:
 
 ## iteration log
 
-### iter 1 — 4 미매치 회사 본문 분석
-(작성 예정)
+### iter 1 — 4 미매치 회사 본문 분석 ✅
+4 회사 (에코프로비엠/카카오게임즈/에스엠/메리츠금융지주) aoi_change scope 호출. amendments[].before/after/reason 분석:
+- 에코프로비엠: 집중투표 적용 안 함 조항 삭제 → A1-1 본문
+- 카카오게임즈: 소집지+전자주총 도입 → A1-7 본문
+- 에스엠: 사외이사→독립이사 명칭 + 비율 강화 → A1-5 본문
+- 메리츠금융지주: 전자주총 도입 → A1-7 본문
 
-### iter 2 — _law_layer body 매칭 logic
-(작성 예정)
+→ 모두 강행규정 정합. title 매칭은 일반 표현 ("정관 일부 변경의 건")이라 catch X. body 매칭 필요.
 
-### iter 3 — KOSPI 200~300 spot
-(작성 예정)
+### iter 2 — _law_layer body 매칭 logic ❌ (Regression — Revert)
 
-### iter 4 — KOSDAQ 150~300 spot
-(작성 예정)
+**시도 1**: 모든 amendments 통합 body 검사 → LG화학 "정관 정비"/"권고적 주주제안"/"선임독립이사" 모두 A1-1 false positive (8 hits, 정상 5 → 잘못된 8).
 
-### iter 5 — 분쟁 회사 재spot + 통합
-(작성 예정)
+**시도 2**: title fuzzy 매칭 (≥2 키워드) + 자기 amendment body만 → LG화학 "정관 정비"가 임의 amendment 매칭, 또 false positive (6 hits).
 
-### iter 6 — 룰 정밀화 + 회귀
-(작성 예정)
+**근본 원인**: amendments는 통합본, sub-agenda hierarchy와 1:1 매칭 어려움. LG화학처럼 sub-agenda 명확한 회사 + 4 미매치 회사처럼 일반 표현 회사 — 같은 logic 적용 어려움.
 
-### iter 7 — 문서화 + promise
-(작성 예정)
+→ **Phase 1 보류** (revert), 별도 architect ralph 필요.
+
+### iter 3-4 — KOSDAQ 151~300 spot ✅
+
+기존 `universe_kosdaq_300.csv` 슬라이스 (150회사). KOSPI 201~300 universe 만들기 어려움 + 가치 한정 → skip.
+
+결과: 150 회사 / 12 hits
+
+### iter 5 — 분쟁 신규 10 + 통합 ✅
+
+신규 분쟁 universe (두산밥캣/태영건설/HYBE/SOOP/카카오/LS/두산/한화솔루션/삼성SDI/삼성E&A) spot.
+
+결과: 10 회사 / 16 hits / B1-7 (하이브 정원 축소) + A1-2 (삼성SDI 자발 도입) + 카카오 A1-1 "변경" 키워드 fix 검증 ✓
+
+### iter 6 — 룰 정밀화 + 회귀 (skip — body 매칭 미달)
+
+A1-1 "변경" 키워드 fix는 이미 commit (e98f515). 추가 룰 정밀화는 body 매칭 없으면 의미 적음.
+
+### iter 7 — 문서화 + promise ❌ (G1 미달)
+
+**성공 기준 검증**:
+- G1 body 매칭 추가 — **미달** (regression 위험으로 보류, 별도 ralph 필요)
+- G2 광범위 sample 추가 — **달성** (160 회사 = KOSDAQ 150 + 분쟁 10)
+- G3 미사용 룰 활성화 — **부분 달성** (B1-7 활성)
+- G4 회귀 0% — **달성** (revert로 회귀 0)
+
+→ G1 미달 → `LAW_LAYER_BODY_MATCHING_VERIFIED` promise 출력 **X** (false promise 거부).
+
+**lesson**: [[lessons/law-layer-body-260510]] 작성. 다음 ralph 후보:
+1. body 매칭 architect (amendments 별 가상 안건 노출 또는 raw 첨부 확장)
+2. A2 시행 후 자연 검증 (2026-07-23 / 09-10)
+3. 분쟁 회사 광범위 spot (60+ 회사)
