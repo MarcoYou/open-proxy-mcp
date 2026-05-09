@@ -144,7 +144,15 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Architecture (6 + audits 7 + fixes 3)
+## Architecture (6 + audits 23 + fixes 3 + data archive 8)
+
+### 시간순 인덱스 (READMEs)
+- [[architecture/audits/README]] — Audits 시간순 인덱스 (23 entries)
+- [[architecture/audits/data/README]] — Audit raw data 인덱스 (8 archives)
+- [[ralph/README]] — Ralph plans 시간순 인덱스 (19 plans)
+- [[lessons/README]] — Lessons 인덱스
+- [[decisions/README]] — Decisions 인덱스
+- [[tools/README]] — Tools 카탈로그 (사용자 진입점)
 
 ### 시스템 설계 (6)
 - [[architecture/data-collection]] - OPM 전수 데이터 수집 entry point + 파싱 방법 (DART/KIND/Naver/Upstage/정적 JSON, 14 섹션 639줄)
