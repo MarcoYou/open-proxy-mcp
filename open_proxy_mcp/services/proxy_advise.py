@@ -70,25 +70,18 @@ def clear_proxy_advise_cache() -> None:
 # ── vote_style 정책 로딩 (운용사별 voting_rules) ──
 
 # vote_style alias → policy JSON file ID
+# 익명 코드만 accept (운용사/연기금 실명 alias는 보안상 제거 — 2026-05-09)
 _VOTE_STYLE_POLICY_FILE = {
     "open_proxy": "open_proxy_v1",
-    "mirae_asset": "m_legacy_2026-04",  # 최신 2026 정책 우선
-    "m_legacy": "m_legacy_2026-04",
-    "samsung": "s_legacy_2025-04",
+    "m_legacy": "m_legacy_2026-04",  # 최신 2026 정책 우선
     "s_legacy": "s_legacy_2025-04",
-    "samsung_active": "sa_active_2025-04",
     "sa_active": "sa_active_2025-04",
-    "kim": "k_legacy_2025-04",
     "k_legacy": "k_legacy_2025-04",
-    "truston": "t_activist_2025-04",
     "t_activist": "t_activist_2025-04",
-    "align_partners": "a_activist_2025-04",
     "a_activist": "a_activist_2025-04",
-    "baring": "b_foreign_2025-04",
     "b_foreign": "b_foreign_2025-04",
-    "cha_partners": "c_activist_2026-04",
     "c_activist": "c_activist_2026-04",
-    "nps": "nps_2025-03",
+    "n_pension": "n_pension_2025-03",  # NPS rename (Phase 4)
 }
 
 
