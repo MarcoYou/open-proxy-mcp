@@ -2,6 +2,7 @@
 type: analysis
 title: OPM 속도 최적화 자동 적용 - 2026-04-29
 generated: 2026-04-29
+related_tools: [dividend, ownership_structure, proxy_contest, treasury_share]
 ---
 
 # 배경

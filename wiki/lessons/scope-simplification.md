@@ -3,6 +3,7 @@ type: lesson
 title: scope simplification — tool 안 specialized scope 폐지
 context: tools_v2 정리 (2026-05-04~05)
 date_learned: 2026-05-05
+related_decisions: [260506_0030_decision_notice-scope-cleanup-prov-financials]
 ---
 
 # scope simplification

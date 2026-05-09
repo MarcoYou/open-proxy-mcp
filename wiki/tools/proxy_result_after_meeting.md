@@ -7,7 +7,7 @@ data_source: [shareholder_meeting (results+summary, KIND), proxy_contest, asset_
 related_disclosures: [주주총회결과, 위임장권유참고서류]
 related_concepts: [의결권, 가결, 부결, 위임장, 찬반율]
 related_decisions: [open-proxy-guideline]
-related_audits: [260503_2304_audit_recap_pattern]
+related_audits: [260503_2304_audit_recap_pattern, 260504_0028_audit_proxy_advise_rename_regression]
 created: 2026-05-04
 ---
 

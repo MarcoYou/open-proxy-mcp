@@ -3,6 +3,7 @@ type: analysis
 title: 자산운용사 의결권 행사 정책 합의/이견 매트릭스 (5 운용사)
 generated: 2026-04-27
 related: [open-proxy-guideline, proxy-voting-decision-tree]
+related_ralph: [260503_0002_ralph_proxy-advise-verification]
 ---
 
 # 자산운용사 의결권 행사 정책 합의/이견 매트릭스

@@ -6,6 +6,7 @@ status: adopted
 related:
   - wiki/ralph/260505_2330_ralph_parser-omnibus-perf.md
   - wiki/decisions/260506_0030_decision_notice-scope-cleanup-prov-financials.md
+related_lessons: [parser-omnibus-260506]
 ---
 
 # v1 dead parsers archive 결정

@@ -7,6 +7,8 @@ related:
   - wiki/lessons/law-layer-260508.md
   - wiki/rules/laws/law_layer_rules.json
   - wiki/decisions/260508_0200_decision_law-layer.md
+related_audits: [260508_parser_audit]
+related_decisions: [260508_0700_decision_law-layer-precision]
 ---
 
 # 법령 layer 정밀화 — Ralph 4 발견

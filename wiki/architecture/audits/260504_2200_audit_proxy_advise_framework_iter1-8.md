@@ -5,6 +5,7 @@ created: 2026-05-04 22:00
 ralph_doc: wiki/ralph/260504_2118_ralph_proxy-advise-framework-enrichment.md
 promise: PROXY_ADVISE_FRAMEWORK_VERIFIED
 status: PASS
+related_tools: [proxy_advise_before_meeting]
 ---
 
 # proxy_advise framework enrichment — 최종 audit

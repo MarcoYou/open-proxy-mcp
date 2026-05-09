@@ -5,6 +5,7 @@ date: 2026-05-07
 related:
   - wiki/ralph/260507_2330_ralph_classify-agenda-fix.md
   - wiki/decisions/260507_xxxx_decision_classify-agenda-parent-shortcircuit.md
+related_decisions: [260508_0030_decision_classify-agenda-parent-shortcircuit]
 ---
 
 # _classify_agenda 정관 sub-안건 분류 fix (260507)

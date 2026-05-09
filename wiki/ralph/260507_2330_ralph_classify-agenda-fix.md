@@ -7,6 +7,7 @@ max_iterations: 7
 ref:
   - wiki/decisions/260507_2330_decision_httpx-connection-pool.md
   - feedback_data_action_tool_layers
+related_decisions: [260508_0030_decision_classify-agenda-parent-shortcircuit]
 ---
 
 ## Invoke (복붙)

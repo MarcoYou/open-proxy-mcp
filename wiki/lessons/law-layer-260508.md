@@ -8,6 +8,7 @@ related:
   - wiki/rules/laws/상법-2025-2026-종합.md
   - wiki/rules/laws/law_layer_rules.json
   - wiki/decisions/open-proxy-guideline.md
+related_decisions: [260508_0200_decision_law-layer, README]
 ---
 
 # 법령 layer 도입

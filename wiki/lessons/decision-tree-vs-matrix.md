@@ -3,6 +3,7 @@ type: lesson
 title: 안건 결정 — 결정 트리 vs 매트릭스 (2가지 패턴)
 context: 사내이사 성과 (매트릭스) + 보수한도/퇴직금 (결정 트리) 병존
 date_learned: 2026-05-05
+related_decisions: [260505_1900_decision_compensation-retirement-split]
 ---
 
 # 결정 트리 vs 매트릭스 — 두 가지 결정 방식

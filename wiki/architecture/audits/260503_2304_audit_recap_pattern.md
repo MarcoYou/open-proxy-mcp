@@ -2,9 +2,10 @@
 type: audit
 title: recap_vote multi-upstream-pattern 적용 + 200×3 검증 (100% 일치)
 date: 2026-05-03
-related_tools: [recap_vote_after_meeting]
+related_tools: [recap_vote_after_meeting, proxy_result_after_meeting]
 related_audits: [260503_1847_audit_phase4_final]
 result: 일치율 100.0% (195/195) + timeout 0 + cache 효과 검증
+related_ralph: [260503_0002_ralph_proxy-advise-verification]
 ---
 
 # recap_vote — multi-upstream-pattern 검증 audit

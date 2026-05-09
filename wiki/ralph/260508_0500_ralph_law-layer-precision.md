@@ -9,6 +9,7 @@ ref:
   - wiki/lessons/law-layer-260508.md
   - wiki/rules/laws/상법-2025-2026-종합.md
   - wiki/rules/laws/law_layer_rules.json
+related_decisions: [260508_0700_decision_law-layer-precision]
 ---
 
 ## Invoke (복붙)

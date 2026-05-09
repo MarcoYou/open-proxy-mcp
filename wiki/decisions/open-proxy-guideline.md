@@ -5,6 +5,7 @@ generated: 2026-04-28
 updated: 2026-04-29
 version: v1.2
 related: [voting-policy-consensus-matrix, decision-matrix-design, opm-guideline-debate-transcript, 2026 신법]
+related_audits: [260508_parser_audit]
 ---
 
 # Open Proxy Guideline v1.2 — OPM 자체 의결권 행사 정책

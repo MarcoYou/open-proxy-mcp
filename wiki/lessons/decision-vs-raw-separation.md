@@ -3,6 +3,7 @@ type: lesson
 title: decision logic은 안에, raw expose는 밖에
 context: proxy_guideline 12 매트릭스 dead 발견 (2026-05-05)
 date_learned: 2026-05-05
+related_decisions: [260505_1700_decision_inside-director-performance-matrix]
 ---
 
 # decision logic vs raw expose 분리
