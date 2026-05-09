@@ -9,18 +9,26 @@ DART 데이터를 MCP로 제공하는 Python 서버. 약칭 **OPM**.
 위키는 LLM이 유지하며, 매 `/ship` 시 자동 업데이트.
 
 - **위키 인덱스**: `wiki/index.md` — 전체 페이지 카탈로그. 여기서 시작.
-- **첫 진입은 [[tools/README]]**: 17 tool 카탈로그가 사용자 입장 시작점.
-- **위키 스키마**: `wiki/WIKI_SCHEMA.md` — 카테고리 정의 + 명명 규칙 + frontmatter schema + 신규 페이지 워크플로우.
-- **카테고리 (5+1)**: `raw / tools / architecture / decisions / rules(concepts+disclosures+laws) / archive`
+- **첫 진입은 [[tools/README]]**: 16 tool 카탈로그가 사용자 입장 시작점.
+- **위키 스키마**: `wiki/WIKI_SCHEMA.md` — 트리 정책 (Section 0) + 카테고리 정의 + 명명 규칙 + frontmatter schema + 신규 페이지 워크플로우.
+- **카테고리 (7+1)**: `raw / rules / tools / decisions / architecture / lessons / ralph / archive`
+- **트리 metaphor** (WIKI_SCHEMA Section 0):
+  - 🌱 뿌리 `raw/` → 🪵 줄기 `rules/` → 🌿 큰가지 `tools/decisions/architecture/core` → 🌾 잔가지 `ralph/audits/fixes/lessons` → 🍂 낙엽 `archive/`
+  - **Link 정책**: 뿌리→줄기→큰가지 단방향 / 큰가지↔잔가지 양방향 / 잎↔잎 자유
 
 질문이 오면 `wiki/index.md`를 먼저 읽고, 관련 페이지만 선택적으로 읽을 것.
 전체 위키를 한 번에 로드하지 말 것.
 
 ### 명명 규칙 (2026-05-01~)
-- **시점 있는 문서**: `yymmdd_hhmm_{type}_{title}.md` (audit / fix / decision / debate / improvement / changelog / release / log)
+- **시점 있는 문서**: `yymmdd_hhmm_{type}_{title}.md` (audit / fix / decision / debate / ralph / improvement / changelog / release / log)
 - **정체성 문서**: `{name}.md` (tool / concept / disclosure / law). 시점 prefix 안 붙임.
+- **lessons**: 혼합 (`{topic}-yymmdd.md` 또는 `{name}.md`). 정체성 위주.
 
 신규 페이지 추가 시 [[WIKI_SCHEMA]] 워크플로우 따를 것.
+
+### 시점 작업 4축
+
+ralph / audit / decision / lesson 신규 시 frontmatter `related:` 4축 명시 + 양방향 link 강제 (WIKI_SCHEMA Section 0.3).
 
 ### raw/ 절대 수정 금지
 `wiki/raw/`는 외부 원본 (운용사 정책 PDF, 행사내역 xlsx, 외부 reference markdown).
@@ -30,21 +38,29 @@ LLM도 사람도 절대 수정 X. 분석/요약은 별도 페이지에 작성 (`
 ```
 open_proxy_mcp/        # MCP 서버 코드
   server.py            # FastMCP 진입점
-  tools_v2/            # 17 public tools (v2)
+  tools_v2/            # 16 public tools (v2)
   services/            # 도메인별 분석 로직 (tool과 분리)
   dart/client.py       # DART API + KIND + 네이버 시세
   data/asset_managers/ # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
-  *_RULE.md            # 구 tool별 규칙 (AGM/OWN/DIV) — 흡수 진행 중
-wiki/                  # LLM 도메인 지식 위키 (Karpathy 아키텍처)
-  raw/                 # 외부 원본 (정책 PDF + 행사내역 xlsx + 외부 reference). 절대 수정 금지
-  tools/               # 17 tool 카탈로그 (사용자 진입점)
-  architecture/        # 시스템 설계 + audits/ + fixes/
-  decisions/           # OPM 정책/판단 (open-proxy-guideline 등)
-  rules/               # concepts/ + disclosures/ + laws/
-  archive/             # 흡수된 페이지 (역사 보존, 신규 X)
+  *_RULE.md            # 구 tool별 규칙 (AGM/OWN/DIV/PRX) — 흡수 진행 중 (7개 잔존)
+scripts/
+  wiki_lint.py         # wiki link 정책 자동 검증 (단방향/양방향)
+  spot_*.py            # 회귀 spot 스크립트
+wiki/                  # LLM 도메인 지식 위키 (Karpathy 아키텍처) — 트리 구조
+  raw/                 # 🌱 뿌리 — 외부 원본 (정책 PDF + xlsx + reference). 절대 수정 금지
+  rules/               # 🪵 줄기 — concepts/ + disclosures/ + laws/ (한국 자본시장 사실)
+  tools/               # 🌿 큰가지 — 16 tool 카탈로그 (사용자 진입점)
+  decisions/           # 🌿 큰가지 — OPM 정책/판단 (open-proxy-guideline 등)
+  architecture/        # 🌿 큰가지 (core) + 🌾 잔가지 (audits/ + fixes/)
+  ralph/               # 🌾 잔가지 — 작업 plan 시간순 (yymmdd_hhmm)
+  lessons/             # 🌾 잔가지 — 회고
+  archive/             # 🍂 낙엽 — 흡수/대체 페이지 보존 (신규 X)
   index.md             # 전체 인덱스 (여기서 시작)
-  WIKI_SCHEMA.md       # 카테고리 + 명명 규칙
+  WIKI_SCHEMA.md       # 트리 정책 + 카테고리 + 명명 규칙
   log.md               # 작업 로그
+.github/workflows/
+  wiki-lint.yml        # wiki/ 변경 시 lint --strict 자동 (PR/push)
+  deploy.yml           # fly.io 배포
 ```
 
 ## 핵심 규칙 (간략)
