@@ -1202,13 +1202,17 @@ async def build_financial_metrics_payload(
             ))
 
     elif scope == "yoy":
-        # 당기 + 전기 metrics → alerts.
-        curr, ws_curr, _ev1 = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True)
-        prev, ws_prev, _ev2 = await _fetch_year_metrics(corp_code, target_year - 1, fs_div, include_prev=True)
+        # 당기 + 전기 metrics + 감사의견 cross-check — 3 독립 호출 병렬화 (5-8초 ↓)
+        curr_t, prev_t, audit_t = await asyncio.gather(
+            _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True),
+            _fetch_year_metrics(corp_code, target_year - 1, fs_div, include_prev=True),
+            _build_audit_opinion_data(corp_code, target_year, years_back=2),
+        )
+        curr, ws_curr, _ev1 = curr_t
+        prev, ws_prev, _ev2 = prev_t
+        audit_data, audit_ws, _audit_ev = audit_t
         warnings.extend(ws_curr)
         warnings.extend(ws_prev)
-        # 감사의견도 cross-check
-        audit_data, audit_ws, _audit_ev = await _build_audit_opinion_data(corp_code, target_year, years_back=2)
         warnings.extend(audit_ws)
         audit_curr = audit_data.get("opinions", [{}])[0] if audit_data.get("opinions") else None
         audit_prev = audit_data.get("opinions", [{}, {}])[1] if len(audit_data.get("opinions", [])) >= 2 else None
