@@ -5,6 +5,7 @@ created: 2026-05-05 05:30
 ralph_doc: wiki/ralph/260505_0051_ralph_treasury-execution-results.md
 promise: TREASURY_EXECUTION_VERIFIED
 status: PARTIAL — G1 PASS, G2 미달 (97.69% vs target 99%)
+related_lessons: [acode-semantic-markers]
 ---
 
 # treasury 결과보고서 iter1~8 audit

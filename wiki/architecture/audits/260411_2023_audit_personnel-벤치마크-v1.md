@@ -4,6 +4,7 @@ title: 경력 파서 벤치마크 2026-04
 tags: [parser, personnel, benchmark, xml]
 sources: [benchmark_personnel_results.json]
 related: [3-tier-fallback, 파서-판정-등급, agm-case-rule]
+related_decisions: [파서-성능-추이]
 ---
 
 # 경력 파서 벤치마크 (2026-04)

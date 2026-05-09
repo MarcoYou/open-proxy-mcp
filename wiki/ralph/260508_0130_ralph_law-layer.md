@@ -9,6 +9,7 @@ ref:
   - wiki/rules/laws/주총방어-시나리오-4가지.md
   - wiki/rules/laws/주총체크리스트-2026.md
   - wiki/decisions/open-proxy-guideline.md
+related_decisions: [260508_0200_decision_law-layer]
 ---
 
 ## Invoke (복붙)

@@ -4,6 +4,7 @@ title: 사내이사 재직 중 성과 매트릭스 (2x3) — proxy_advise status
 created: 2026-05-05 16:11
 completion_promise: INSIDE_DIRECTOR_PERFORMANCE_VERIFIED
 max_iterations: 12
+related_decisions: [260505_1700_decision_inside-director-performance-matrix]
 ---
 
 ## Invoke (복붙)

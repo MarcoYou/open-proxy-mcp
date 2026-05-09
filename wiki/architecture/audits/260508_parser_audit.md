@@ -7,6 +7,7 @@ related:
   - wiki/lessons/law-layer-precision-260508.md
   - wiki/architecture/3-tier-fallback.md
   - wiki/decisions/open-proxy-guideline.md
+related_lessons: [parser-precision-260508]
 ---
 
 # 파서 전수조사 — 현상태 + 분류 + 권장 방향

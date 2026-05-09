@@ -7,7 +7,7 @@ data_source: [shareholder_meeting (notice), ownership_structure, corp_gov_report
 related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구조보고서]
 related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
 related_decisions: [open-proxy-guideline]
-related_audits: [260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final]
+related_audits: [260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final, 260504_0028_audit_proxy_advise_rename_regression, 260504_0705_audit_proxy_advise_ralph_final, 260504_0724_audit_parse_personnel_iter1-7]
 created: 2026-05-04
 updated: 2026-05-05
 ---

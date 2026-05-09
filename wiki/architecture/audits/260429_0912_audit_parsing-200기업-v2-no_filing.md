@@ -4,6 +4,7 @@ title: 파서 전수 audit v2 2026-04-29 — no_filing 분리 + 진짜 partial �
 tags: [audit, parsing, health-check, data-tool, regression, no_filing]
 related: [parsing-audit-2026-04-29, parsing-audit-2026-04-22, parsing-audit-2026-04-21]
 date: 2026-04-29
+related_tools: [company, corp_gov_report, corporate_restructuring, dilutive_issuance, dividend, evidence, ownership_structure, proxy_contest, related_party_transaction, treasury_share, value_up]
 ---
 
 # 파서 전수 audit v2 2026-04-29 — no_filing 분리

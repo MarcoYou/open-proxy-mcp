@@ -4,6 +4,7 @@ title: 확장 파싱 audit (2026-04-22) — scope × 필드 채움률
 tags: [audit, parsing, health-check, data-tool, field-completeness]
 related: [OpenProxy-MCP, parsing-audit-2026-04-21, 파서-판정-등급]
 date: 2026-04-22
+related_tools: [corp_gov_report]
 ---
 
 # 확장 파싱 audit (2026-04-22)
