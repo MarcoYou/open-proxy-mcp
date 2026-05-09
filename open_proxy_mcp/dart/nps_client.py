@@ -1,4 +1,4 @@
-"""국민연금기금운용본부 (NPS) 의결권 행사내역 크롤링 클라이언트.
+"""N연기금 의결권 행사내역 크롤링 클라이언트.
 
 엔드포인트
 - list  : POST https://fund.nps.or.kr/impa/edwmpblnt/empty/getOHEF0007M0.do (HTML body 반환)
@@ -9,7 +9,7 @@
 - httpx.AsyncClient 세션이 자동으로 보존
 
 핵심 매핑
-- NPS 종목코드 5자리 + "0" = KRX 6자리 티커 (검증 100%, 두산 00015 → 000150)
+- N연기금 종목코드 5자리 + "0" = KRX 6자리 티커 (검증 100%, 두산 00015 → 000150)
 
 부하 가이드
 - 페이지 사이 1초, detail 사이 2초 sleep (예의)
@@ -51,7 +51,7 @@ _GODETAIL_RE = re.compile(
 
 
 def nps_code_to_ticker(nps_code: str) -> str:
-    """NPS 5자리 코드 → KRX 6자리 티커 (단순 + '0')."""
+    """5자리 코드 → KRX 6자리 티커 (단순 + '0')."""
     if not nps_code:
         return ""
     code = str(nps_code).strip().zfill(5)

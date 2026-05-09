@@ -123,7 +123,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 3,
-          "opm_seed": "외부감사인의 감사 외 자문 제공 금지 안 for — 2 운용사 (미래에셋, 한투신탁) 명시. 글로벌 모범사례(Sarbanes-Oxley)와 일치 → OPM은 for 채택"
+          "opm_seed": "외부감사인의 감사 외 자문 제공 금지 안 for — 2 운용사 (M레거시, K레거시) 명시. 글로벌 모범사례(Sarbanes-Oxley)와 일치 → OPM은 for 채택"
         },
         {
           "topic_id": "board_approval_of_financials",
@@ -157,7 +157,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 2,
-          "opm_seed": "재무제표 이사회 승인은 주주 권리 보호 방안 명시 시에만 for, 미명시 시 against — 트러스톤만 명시. 한국 특수성(상법 449의2 2012 신설). OPM은 review 채택 (소수주주 보호)"
+          "opm_seed": "재무제표 이사회 승인은 주주 권리 보호 방안 명시 시에만 for, 미명시 시 against — T행동주의만 명시. 한국 특수성(상법 449의2 2012 신설). OPM은 review 채택 (소수주주 보호)"
         }
       ],
       "summary": {
@@ -360,7 +360,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 5,
-          "opm_seed": "배당정책 공시 의무화 (원칙·기준·절차 명시) for — 4/5 합의 (한투신탁 silent)"
+          "opm_seed": "배당정책 공시 의무화 (원칙·기준·절차 명시) for — 4/5 합의 (K레거시 silent)"
         },
         {
           "topic_id": "excessive_or_insufficient_dividend",
@@ -458,7 +458,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 3,
-          "opm_seed": "이사회 결의 배당 결정은 배당정책 공시 시에만 review/for, 미공시 시 against — 3/5 명시 (트러스톤은 against, 미래·한투는 review). OPM은 review 채택"
+          "opm_seed": "이사회 결의 배당 결정은 배당정책 공시 시에만 review/for, 미공시 시 against — 3/5 명시 (T행동주의은 against, 미래·K레거시는 review). OPM은 review 채택"
         }
       ],
       "summary": {
@@ -696,7 +696,7 @@
           ],
           "agreement_level": "consensus",
           "agreement_count": 7,
-          "opm_seed": "시차임기제 도입 against, 폐지 for — 4/5 합의 (한투신탁 단독 도입 찬성, 적대적 인수 방어 시각). OPM은 against 채택 (이사회 책임성·교체 가능성 우선)"
+          "opm_seed": "시차임기제 도입 against, 폐지 for — 4/5 합의 (K레거시 단독 도입 찬성, 적대적 인수 방어 시각). OPM은 against 채택 (이사회 책임성·교체 가능성 우선)"
         },
         {
           "topic_id": "supermajority_voting",
@@ -1117,7 +1117,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "내부거래위원회 설치 + 사외이사 전원 + 일정규모 내부거래 주총 승인 for — 차파트너스 단독 명시 (한국 운용사 silent). 한국 재벌 일감몰아주기 차단 핵심. OPM은 for 채택"
+          "opm_seed": "내부거래위원회 설치 + 사외이사 전원 + 일정규모 내부거래 주총 승인 for — C행동주의 단독 명시 (한국 운용사 silent). 한국 재벌 일감몰아주기 차단 핵심. OPM은 for 채택"
         },
         {
           "topic_id": "outside_director_independence_annual",
@@ -1141,7 +1141,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "사외이사 독립성 요건 매년 확인·공시 의무화 for — 차파트너스 단독 명시 (한국 운용사 silent). KCGS 모범규준·KRX 핵심지표 정합. OPM은 for 채택"
+          "opm_seed": "사외이사 독립성 요건 매년 확인·공시 의무화 for — C행동주의 단독 명시 (한국 운용사 silent). KCGS 모범규준·KRX 핵심지표 정합. OPM은 for 채택"
         },
         {
           "topic_id": "nominating_committee_majority_outside",
@@ -1165,7 +1165,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "사외이사 과반 이사후보추천위원회 설치 for — 차파트너스 단독 명시 (한국 운용사 silent). 상법 §542의8 ⑤ 강화 정신. OPM은 for 채택"
+          "opm_seed": "사외이사 과반 이사후보추천위원회 설치 for — C행동주의 단독 명시 (한국 운용사 silent). 상법 §542의8 ⑤ 강화 정신. OPM은 for 채택"
         },
         {
           "topic_id": "lead_independent_director_intro",
@@ -1189,7 +1189,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "선임사외이사(LID) 도입 for — 차파트너스 단독 명시 (한국 운용사 silent). OPM novel topic lead_independent_director와 정합. 한국 자율 도입 회사 우호 평가"
+          "opm_seed": "선임사외이사(LID) 도입 for — C행동주의 단독 명시 (한국 운용사 silent). OPM novel topic lead_independent_director와 정합. 한국 자율 도입 회사 우호 평가"
         }
       ],
       "summary": {
@@ -1299,7 +1299,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 4,
-          "opm_seed": "사외이사 6년 초과 재직 against — 3/5 합의. OPM은 against 채택 (한국 자본시장 공통 기준, 한투/트러스톤/삼성액티브 명시)"
+          "opm_seed": "사외이사 6년 초과 재직 against — 3/5 합의. OPM은 against 채택 (한국 자본시장 공통 기준, K레거시/T행동주의/SA액티브 명시)"
         },
         {
           "topic_id": "concurrent_positions",
@@ -1358,7 +1358,7 @@
           ],
           "agreement_level": "consensus",
           "agreement_count": 8,
-          "opm_seed": "과도 겸임 사외이사 against — 5 운용사 합의. OPM은 한투신탁 명시 기준 (사외이사 3개 회사 이상 겸임) 차용 권장"
+          "opm_seed": "과도 겸임 사외이사 against — 5 운용사 합의. OPM은 K레거시 명시 기준 (사외이사 3개 회사 이상 겸임) 차용 권장"
         },
         {
           "topic_id": "attendance_rate_75",
@@ -1603,7 +1603,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 3,
-          "opm_seed": "정당한 사유 없는 임기 중 해임 against — 2 운용사 (삼성, 한투) 명시. OPM은 against 채택 (이사회 안정성)"
+          "opm_seed": "정당한 사유 없는 임기 중 해임 against — 2 운용사 (삼성, K레거시) 명시. OPM은 against 채택 (이사회 안정성)"
         },
         {
           "topic_id": "climate_responsibility_director",
@@ -1642,7 +1642,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 4,
-          "opm_seed": "탄소중립법상 관리업체에서 기후 대응 미이행 책임 이사 재선임 against — 2 운용사 (미래에셋, 트러스톤) 명시. OPM은 against 채택 (장기 가치 관점, ESG 트렌드)"
+          "opm_seed": "탄소중립법상 관리업체에서 기후 대응 미이행 책임 이사 재선임 against — 2 운용사 (M레거시, T행동주의) 명시. OPM은 against 채택 (장기 가치 관점, ESG 트렌드)"
         },
         {
           "topic_id": "candidates_exceeding_seats",
@@ -1725,7 +1725,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "이사 손해배상책임 감면 안 against (4가지 명확 제시 시에만 review 가능) — 1 운용사 (한투신탁) 명시. 한국 특수성. OPM은 against 채택"
+          "opm_seed": "이사 손해배상책임 감면 안 against (4가지 명확 제시 시에만 review 가능) — 1 운용사 (K레거시) 명시. 한국 특수성. OPM은 against 채택"
         },
         {
           "topic_id": "climate_accountability_iss",
@@ -1749,7 +1749,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[글로벌 표준 신규] 베어링 단독 (ISS 직접) — 미래·트러스톤이 한국 탄소중립법 미이행 책임 이사 against (2/7 명시 — climate_responsibility_director 토픽)와 합치면 사실상 3/7 합의. OPM은 climate_accountability novel topic으로 채택 (default=review, 고배출 업종 한정 against)"
+          "opm_seed": "[글로벌 표준 신규] B외국계 단독 (ISS 직접) — 미래·T행동주의이 한국 탄소중립법 미이행 책임 이사 against (2/7 명시 — climate_responsibility_director 토픽)와 합치면 사실상 3/7 합의. OPM은 climate_accountability novel topic으로 채택 (default=review, 고배출 업종 한정 against)"
         },
         {
           "topic_id": "discharge_of_director_iss",
@@ -1773,7 +1773,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[글로벌 표준 — 한국 법령 미적용] 베어링 단독. 한국 상법은 이사 책임 면제 안건 자체가 거의 없음. OPM은 글로벌 reference로만 명시 (default 적용 X). 한국 안건 발생 시 ISS 정신 적용"
+          "opm_seed": "[글로벌 표준 — 한국 법령 미적용] B외국계 단독. 한국 상법은 이사 책임 면제 안건 자체가 거의 없음. OPM은 글로벌 reference로만 명시 (default 적용 X). 한국 안건 발생 시 ISS 정신 적용"
         },
         {
           "topic_id": "bundled_slate_against_iss",
@@ -1807,7 +1807,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 3,
-          "opm_seed": "[한국 운용사 silent 영역] 베어링(ISS) + 얼라인 합의. 한국 5 운용사는 묶음 선임 자체에 silent. OPM은 bundled_slate_against novel topic으로 채택 (default=against, 한국 묶음 선임 안건에서 한 명 우려 시 전체 against)"
+          "opm_seed": "[한국 운용사 silent 영역] B외국계(ISS) + A행동주의 합의. 한국 5 운용사는 묶음 선임 자체에 silent. OPM은 bundled_slate_against novel topic으로 채택 (default=against, 한국 묶음 선임 안건에서 한 명 우려 시 전체 against)"
         },
         {
           "topic_id": "director_accountability_extension_iss",
@@ -1831,7 +1831,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[글로벌 표준 신규] 베어링 단독. OPM은 reference로 명시 (search_naver_news와 fiduciary_duty_signal로 자동 검출 가능)"
+          "opm_seed": "[글로벌 표준 신규] B외국계 단독. OPM은 reference로 명시 (search_naver_news와 fiduciary_duty_signal로 자동 검출 가능)"
         },
         {
           "topic_id": "two_tier_governance_iss",
@@ -1860,7 +1860,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[정량 강화] 베어링이 한국 상법 §542의8 ①을 ISS 정량 기준으로 명시 (대형사 50% / 소형사 25%). 한국 5 운용사는 정량 기준 silent. OPM은 director_election against criteria 강화 (사외이사 비중 미달 시 비독립이사 against)"
+          "opm_seed": "[정량 강화] B외국계이 한국 상법 §542의8 ①을 ISS 정량 기준으로 명시 (대형사 50% / 소형사 25%). 한국 5 운용사는 정량 기준 silent. OPM은 director_election against criteria 강화 (사외이사 비중 미달 시 비독립이사 against)"
         },
         {
           "topic_id": "executive_officer_system_for",
@@ -1884,7 +1884,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "상법 §408의2 집행임원제도 도입 for — 차파트너스 단독 명시 (한국 운용사 silent). 글로벌 모범사례 (감독·집행 분리). OPM은 for 채택"
+          "opm_seed": "상법 §408의2 집행임원제도 도입 for — C행동주의 단독 명시 (한국 운용사 silent). 글로벌 모범사례 (감독·집행 분리). OPM은 for 채택"
         },
         {
           "topic_id": "ceo_3rd_term_supermajority",
@@ -1908,7 +1908,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "대표이사 3기+ 연임 시 결의요건 강화 또는 주총 결의사항 전환 for — 차파트너스 단독 명시 (한국 운용사 silent). 장기 권력집중 견제. OPM은 for 채택"
+          "opm_seed": "대표이사 3기+ 연임 시 결의요건 강화 또는 주총 결의사항 전환 for — C행동주의 단독 명시 (한국 운용사 silent). 장기 권력집중 견제. OPM은 for 채택"
         },
         {
           "topic_id": "board_evaluation_disclosure",
@@ -1932,7 +1932,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "이사회 정기 평가 + 주총 보고/사업보고서 공시 안 for — 차파트너스 단독 명시 (한국 운용사 silent). KCGS 모범규준·KRX 핵심지표 정합. OPM은 for 채택"
+          "opm_seed": "이사회 정기 평가 + 주총 보고/사업보고서 공시 안 for — C행동주의 단독 명시 (한국 운용사 silent). KCGS 모범규준·KRX 핵심지표 정합. OPM은 for 채택"
         }
       ],
       "summary": {
@@ -2184,7 +2184,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 3,
-          "opm_seed": "감사위원 분리 선출 (상법 §542의12 ④) for — 2 운용사 (트러스톤, 한투) 명시. 한국 특수성. OPM은 for 채택 (3% 룰 강화)"
+          "opm_seed": "감사위원 분리 선출 (상법 §542의12 ④) for — 2 운용사 (T행동주의, K레거시) 명시. 한국 특수성. OPM은 for 채택 (3% 룰 강화)"
         }
       ],
       "summary": {
@@ -2446,7 +2446,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 5,
-          "opm_seed": "사외이사 퇴직혜택 부여 against — 4/5 합의 (삼성액티브 silent). 사외이사 독립성 원칙"
+          "opm_seed": "사외이사 퇴직혜택 부여 against — 4/5 합의 (SA액티브 silent). 사외이사 독립성 원칙"
         },
         {
           "topic_id": "stock_option_repricing",
@@ -2613,7 +2613,7 @@
           ],
           "agreement_level": "consensus",
           "agreement_count": 7,
-          "opm_seed": "스톡옵션 규모 발행주식 2-3% 초과 또는 희석률 10% 이상 against — 4/5 합의. OPM은 트러스톤·한투의 더 엄격한 기준(2%) 채택 권장 (소수주주 보호)"
+          "opm_seed": "스톡옵션 규모 발행주식 2-3% 초과 또는 희석률 10% 이상 against — 4/5 합의. OPM은 T행동주의·K레거시의 더 엄격한 기준(2%) 채택 권장 (소수주주 보호)"
         },
         {
           "topic_id": "compensation_committee_setup",
@@ -2715,7 +2715,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "사외이사 주식 연계 보상 퇴직 전 매도/행사 금지 for — 차파트너스 단독 명시 (한국 운용사 silent). 사외이사 독립성 강화. OPM은 for 채택"
+          "opm_seed": "사외이사 주식 연계 보상 퇴직 전 매도/행사 금지 for — C행동주의 단독 명시 (한국 운용사 silent). 사외이사 독립성 강화. OPM은 for 채택"
         },
         {
           "topic_id": "compensation_disclosure_below_5억",
@@ -2739,7 +2739,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "5억원 미만 이사 보수 공개 또는 공시기준 인하 for — 차파트너스 단독 명시 (한국 운용사 silent). 자본시장법 §159 ② 강화 정신. OPM은 for 채택"
+          "opm_seed": "5억원 미만 이사 보수 공개 또는 공시기준 인하 for — C행동주의 단독 명시 (한국 운용사 silent). 자본시장법 §159 ② 강화 정신. OPM은 for 채택"
         },
         {
           "topic_id": "stock_purchase_loan_against",
@@ -2763,7 +2763,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "임직원 자사주 구입 대출 (우리사주 외) against — 차파트너스 단독 명시 (한국 운용사 silent). 미국 SOX §402 정신. OPM은 against 채택"
+          "opm_seed": "임직원 자사주 구입 대출 (우리사주 외) against — C행동주의 단독 명시 (한국 운용사 silent). 미국 SOX §402 정신. OPM은 against 채택"
         },
         {
           "topic_id": "hedging_derivatives_prohibition",
@@ -2787,7 +2787,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "임원 주식 연계 보상 위험회피 파생상품 계약 금지 for — 차파트너스 단독 명시 (한국 운용사 silent). 미국 SOX hedging policy. OPM은 for 채택"
+          "opm_seed": "임원 주식 연계 보상 위험회피 파생상품 계약 금지 for — C행동주의 단독 명시 (한국 운용사 silent). 미국 SOX hedging policy. OPM은 for 채택"
         }
       ],
       "summary": {
@@ -2853,7 +2853,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 6,
-          "opm_seed": "자기주식 취득은 합리적·정당한 사유(이익규모, 재무상황, 경영권 관련) 제시 시 for, 미제시 시 against — 5 운용사 합의. 한투는 default-against 표현"
+          "opm_seed": "자기주식 취득은 합리적·정당한 사유(이익규모, 재무상황, 경영권 관련) 제시 시 for, 미제시 시 against — 5 운용사 합의. K레거시는 default-against 표현"
         },
         {
           "topic_id": "treasury_share_disposal_3rd_party",
@@ -2980,7 +2980,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 3,
-          "opm_seed": "경영권 보호 목적 자기주식 취득은 주주가치 훼손 없는 합리적 사유 제시 시에만 review — 2 운용사 (미래에셋, 트러스톤) 명시. OPM은 review 채택"
+          "opm_seed": "경영권 보호 목적 자기주식 취득은 주주가치 훼손 없는 합리적 사유 제시 시에만 review — 2 운용사 (M레거시, T행동주의) 명시. OPM은 review 채택"
         },
         {
           "topic_id": "treasury_share_burnout_for_value",
@@ -3004,7 +3004,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "자사주 매입 후 소각으로 주주가치 미훼손 시 for — 차파트너스 단독 명시 (한국 운용사 silent). 한국 자사주 마법 차단 정신과 정합. OPM은 for 채택 (2026.03 신법 1년 의무소각과 정합)"
+          "opm_seed": "자사주 매입 후 소각으로 주주가치 미훼손 시 for — C행동주의 단독 명시 (한국 운용사 silent). 한국 자사주 마법 차단 정신과 정합. OPM은 for 채택 (2026.03 신법 1년 의무소각과 정합)"
         },
         {
           "topic_id": "treasury_share_disposal_for_new_investment",
@@ -3028,7 +3028,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "신사업투자 명목 자기주식 처분이 합리적 사유 미제시 시 against — 차파트너스 단독 명시 (한국 운용사 silent). 미래에셋 against_no_reason과 정합. OPM은 against 채택"
+          "opm_seed": "신사업투자 명목 자기주식 처분이 합리적 사유 미제시 시 against — C행동주의 단독 명시 (한국 운용사 silent). M레거시 against_no_reason과 정합. OPM은 against 채택"
         }
       ],
       "summary": {
@@ -3187,7 +3187,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 6,
-          "opm_seed": "M&A 및 인수방어 시 장기 회사·주주가치 + 종업원·서플라이체인·국가경제·사회 종합 review — 4/5 합의 (미래에셋 silent)"
+          "opm_seed": "M&A 및 인수방어 시 장기 회사·주주가치 + 종업원·서플라이체인·국가경제·사회 종합 review — 4/5 합의 (M레거시 silent)"
         },
         {
           "topic_id": "voluntary_delisting",
@@ -3216,7 +3216,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "자진 상장폐지: 소액주주 보호 절차 미비/보상 불합리 시 against — 2 운용사 (트러스톤, 한투) 명시. 한국 특수성. OPM은 against 채택 (소수주주 보호 우선)"
+          "opm_seed": "자진 상장폐지: 소액주주 보호 절차 미비/보상 불합리 시 against — 2 운용사 (T행동주의, K레거시) 명시. 한국 특수성. OPM은 against 채택 (소수주주 보호 우선)"
         },
         {
           "topic_id": "crown_jewel_greenmail",
@@ -3250,7 +3250,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 3,
-          "opm_seed": "왕관보석 방어전략(Crown Jewel) 및 그린메일 against — 2 운용사 (트러스톤, 한투) 명시. OPM은 against 채택 (글로벌 모범사례)"
+          "opm_seed": "왕관보석 방어전략(Crown Jewel) 및 그린메일 against — 2 운용사 (T행동주의, K레거시) 명시. OPM은 against 채택 (글로벌 모범사례)"
         }
       ],
       "summary": {
@@ -3495,7 +3495,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 5,
-          "opm_seed": "발행예정주식수 2배 이상(100% 이상) 증가 against — 4/5 합의 (삼성액티브 silent)"
+          "opm_seed": "발행예정주식수 2배 이상(100% 이상) 증가 against — 4/5 합의 (SA액티브 silent)"
         },
         {
           "topic_id": "anti_takeover_capital_increase",
@@ -3549,7 +3549,7 @@
           ],
           "agreement_level": "consensus",
           "agreement_count": 7,
-          "opm_seed": "외부 기업인수 무력화 의도 명백한 자본금 증가/신주발행/자사주 매각 against — 4/5 합의 (삼성액티브 silent)"
+          "opm_seed": "외부 기업인수 무력화 의도 명백한 자본금 증가/신주발행/자사주 매각 against — 4/5 합의 (SA액티브 silent)"
         },
         {
           "topic_id": "preemptive_right_exclusion",
@@ -3652,7 +3652,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 6,
-          "opm_seed": "주주평등 원칙에 따른 비례적 주식분할/주식병합 for — 4/5 합의 (트러스톤 silent)"
+          "opm_seed": "주주평등 원칙에 따른 비례적 주식분할/주식병합 for — 4/5 합의 (T행동주의 silent)"
         },
         {
           "topic_id": "capital_increase_for_stock_option_or_delisting_risk",
@@ -3701,7 +3701,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 6,
-          "opm_seed": "스톡옵션 행사 대비 또는 상장폐지 위험 회피 자본 증가 for — 4/5 합의 (한투 silent)"
+          "opm_seed": "스톡옵션 행사 대비 또는 상장폐지 위험 회피 자본 증가 for — 4/5 합의 (K레거시 silent)"
         },
         {
           "topic_id": "forfeited_shares_to_insider_against",
@@ -3725,7 +3725,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "실권주 최대주주·특수관계인 배정 금지 안 for — 차파트너스 단독 명시 (한국 운용사 silent). 한국 사익편취 차단 정신과 정합. OPM은 for 채택"
+          "opm_seed": "실권주 최대주주·특수관계인 배정 금지 안 for — C행동주의 단독 명시 (한국 운용사 silent). 한국 사익편취 차단 정신과 정합. OPM은 for 채택"
         }
       ],
       "summary": {
@@ -3825,7 +3825,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 5,
-          "opm_seed": "CB/BW 발행 후 우선인수권 있는 경우 50% 이상, 없는 경우 20% 이상 발행주식수 증가 against — 3/5 명시 (트러스톤·한투의 정량 기준 활용). OPM은 against 채택"
+          "opm_seed": "CB/BW 발행 후 우선인수권 있는 경우 50% 이상, 없는 경우 20% 이상 발행주식수 증가 against — 3/5 명시 (T행동주의·K레거시의 정량 기준 활용). OPM은 against 채택"
         },
         {
           "topic_id": "third_party_cb_bw_review",
@@ -3898,7 +3898,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "채무재조정 회생 목적 주식연계채권 발행 for — 차파트너스 단독 명시 (한국 운용사 silent). 한국 회생절차 정합. OPM은 for 채택"
+          "opm_seed": "채무재조정 회생 목적 주식연계채권 발행 for — C행동주의 단독 명시 (한국 운용사 silent). 한국 회생절차 정합. OPM은 for 채택"
         }
       ],
       "summary": {
@@ -4101,7 +4101,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 4,
-          "opm_seed": "경영권 분쟁 시 신주발행/자사주 매각 주총 승인 요구 주주제안 for — 2 운용사 (미래에셋, 한투) 명시. 한국 특수성. OPM은 for 채택 (소수주주 보호)"
+          "opm_seed": "경영권 분쟁 시 신주발행/자사주 매각 주총 승인 요구 주주제안 for — 2 운용사 (M레거시, K레거시) 명시. 한국 특수성. OPM은 for 채택 (소수주주 보호)"
         },
         {
           "topic_id": "non_implementation_director_reelection",
@@ -4140,7 +4140,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 4,
-          "opm_seed": "주주 다수가 승인한 주주제안 미시행 이사 재선임 against — 2 운용사 (트러스톤, 한투) 명시. OPM은 against 채택 (주주민주주의)"
+          "opm_seed": "주주 다수가 승인한 주주제안 미시행 이사 재선임 against — 2 운용사 (T행동주의, K레거시) 명시. OPM은 against 채택 (주주민주주의)"
         },
         {
           "topic_id": "say_on_climate_iss",
@@ -4164,11 +4164,11 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[글로벌 표준 신규] 베어링 단독. OPM은 say_on_climate novel topic으로 채택 (default=review, 자율 도입 회사 우호)"
+          "opm_seed": "[글로벌 표준 신규] B외국계 단독. OPM은 say_on_climate novel topic으로 채택 (default=review, 자율 도입 회사 우호)"
         },
         {
           "topic_id": "active_engagement_principle_align",
-          "topic_label": "[얼라인 행동주의 일반원칙] 합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사",
+          "topic_label": "[A행동주의 행동주의 일반원칙] 합병/영업양수도/임원 임면/정관변경 등 중대 사항에 대해 적극적으로 의결권 행사",
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
@@ -4193,7 +4193,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 2,
-          "opm_seed": "[행동주의 입장 신규] 얼라인 단독 — 정책에 명시된 적극 행사 원칙. against 86%의 근거. OPM은 active_engagement_principle을 정책 선언으로 채택 — 주주 이익 직결 안건은 silent 금지"
+          "opm_seed": "[행동주의 입장 신규] A행동주의 단독 — 정책에 명시된 적극 행사 원칙. against 86%의 근거. OPM은 active_engagement_principle을 정책 선언으로 채택 — 주주 이익 직결 안건은 silent 금지"
         },
         {
           "topic_id": "political_donation_blanket_ban_against",
@@ -4217,7 +4217,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "정치 기부금 포괄 금지 제안 against — 차파트너스 단독 명시 (한국 운용사 silent). 글로벌 ESG 컨센서스(공시 우선·금지 반대)와 정합. OPM은 against 채택"
+          "opm_seed": "정치 기부금 포괄 금지 제안 against — C행동주의 단독 명시 (한국 운용사 silent). 글로벌 ESG 컨센서스(공시 우선·금지 반대)와 정합. OPM은 against 채택"
         },
         {
           "topic_id": "charity_donation_restriction_against",
@@ -4241,7 +4241,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "기업 자선 기부금 제한 against — 차파트너스 단독 명시 (한국 운용사 silent). OPM은 against 채택 (CSR/ESG 정신)"
+          "opm_seed": "기업 자선 기부금 제한 against — C행동주의 단독 명시 (한국 운용사 silent). OPM은 against 채택 (CSR/ESG 정신)"
         }
       ],
       "summary": {
@@ -4264,7 +4264,7 @@
     "category_with_most_consensus": "정관 변경/이사 선임 (사외이사 5년 룰·집중투표 배제 삭제·황금낙하산 등 ISS+한국 운용사 합의)",
     "category_with_most_divergence": "이사 보수·자기주식 (행동주의 vs 글로벌 ISS vs 한국 운용사 분기)",
     "v1_1_changes": [
-      "7 운용사 매트릭스 재계산 — baring(ISS Korea 2026) + align_partners(행동주의) 추가",
+      "7 운용사 매트릭스 재계산 — b_foreign(ISS Korea 2026) + a_activist(행동주의) 추가",
       "신규 topics: 7건 (climate_accountability, say_on_climate, discharge, bundled_slate, accountability_extension, two_tier_governance, active_engagement_principle)",
       "기존 topics 입장 추가 업데이트: 72건",
       "ISS 직접 채택 영역: Climate Accountability, Say on Climate, Discharge of Director, Bundled Slate, 5-year cooling-off, Overboarded Outside Directors (>2 boards), Two-tier Governance",
@@ -4272,21 +4272,21 @@
     ],
     "korea_specific_findings": [
       "감사위원 선임 시 상법 §409②의 3% 의결권 제한 회피 목적 감사위원회 도입 against (5/7 한국 운용사 만장일치 — ISS는 글로벌 표준이라 silent)",
-      "집중투표제 배제 조항 삭제 for (5/7 한국 운용사 + ISS·얼라인 = 7/7 만장일치 — 상법 §542의7)",
+      "집중투표제 배제 조항 삭제 for (5/7 한국 운용사 + ISS·A행동주의 = 7/7 만장일치 — 상법 §542의7)",
       "사외이사 5년 내 전직 임직원/특수관계인 against (7/7 만장일치 — ISS는 5년 cooling-off로 명시)",
       "사외이사 6년 초과 재직 against (3/5 한국 + ISS는 silent — 한국 상법 §542의8 ② 7호 한국 특수)",
       "이사 과도 겸임 against (7/7 만장일치 — ISS 정량 >2 boards 명시, 한국 상법 동일)",
-      "출석률 75% 미만 against (5/5 한국 + ISS = 6/7 — 얼라인 silent)",
-      "황금낙하산 against (5/5 한국 + ISS + 얼라인 = 7/7 만장일치)",
-      "스톡옵션 사후 행사가격 조정 against (5/5 한국 + 얼라인 = 6/7 — ISS는 stock option grants에서 다룸)",
+      "출석률 75% 미만 against (5/5 한국 + ISS = 6/7 — A행동주의 silent)",
+      "황금낙하산 against (5/5 한국 + ISS + A행동주의 = 7/7 만장일치)",
+      "스톡옵션 사후 행사가격 조정 against (5/5 한국 + A행동주의 = 6/7 — ISS는 stock option grants에서 다룸)",
       "[ISS 단독 신규] Climate Accountability — TCFD/Net Zero 미공시 책임 이사 반대",
-      "[ISS 단독 신규] Bundled Slate — 묶음 선임 한 명 우려 시 전체 반대 (얼라인도 일괄투표 반대로 동조)",
+      "[ISS 단독 신규] Bundled Slate — 묶음 선임 한 명 우려 시 전체 반대 (A행동주의도 일괄투표 반대로 동조)",
       "[ISS 단독 신규] Discharge of Director — 한국 미적용 글로벌 개념",
-      "[얼라인 단독] 행동주의 일반원칙 제3조 ② — 중대 사안 적극 행사 (5 운용사 + 베어링 모두 silent)",
-      "[얼라인 단독] 배당 과소 반대 (행동주의 핵심 — 5 운용사도 against지만 강도 차이)"
+      "[A행동주의 단독] 행동주의 일반원칙 제3조 ② — 중대 사안 적극 행사 (5 운용사 + B외국계 모두 silent)",
+      "[A행동주의 단독] 배당 과소 반대 (행동주의 핵심 — 5 운용사도 against지만 강도 차이)"
     ],
     "v1_3_changes": [
-      "8 운용사 매트릭스 재계산 — c_activist (차파트너스) 통합",
+      "8 운용사 매트릭스 재계산 — c_activist (C행동주의) 통합",
       "신규 c_activist 단독 토픽: 17건 (자사주 매입 후 소각, 신사업투자 자사주 처분, 실권주 최대주주 배정 금지, 집행임원제도, CEO 3기+ 연임, 이사회 평가 공시, LID, 사외이사 매년 독립성 공시, 추천위 사외이사 과반, 내부거래위, 주식보상 매도금지·hedging 금지, 5억원 미만 보수공개, 자사주구입 대출 금지, 채무재조정 CB/BW, 정치/자선 기부금)",
       "기존 79 토픽에 c_activist 입장 추가 (silent 포함)",
       "행동주의 3사 (T/A/C) 일치 영역 확인"
@@ -4294,8 +4294,8 @@
     "v1_3_korea_specific_findings": [
       "행동주의 3사 (T/A/C) 적극 행사 합의 — 사외이사 비중 축소 against, 일괄투표 against, 외부 인수 자본증가 against, 성과 미연계 보상 against, 배당 과소 against",
       "8 운용사 만장일치 신규 강화 — 외감의견 적정 외 against (8/8), 사외이사 5년/6년 룰 against (8/8 합의), 황금낙하산 against (8/8), 집중투표 배제 삭제 for (8/8)",
-      "차파트너스 단독 신규 토픽 — 집행임원제도, 내부거래위, LID, 사외이사 독립성 매년 공시, 5억원 미만 보수공개, hedging 금지, CEO 3기+ 연임 봉쇄",
-      "한국 운용사 silent 영역 차파트너스 채택 — 정치/자선 기부금 (포괄 금지·제한 반대), 임직원 자사주 대출 금지, 채무재조정 시 CB/BW 우호"
+      "C행동주의 단독 신규 토픽 — 집행임원제도, 내부거래위, LID, 사외이사 독립성 매년 공시, 5억원 미만 보수공개, hedging 금지, CEO 3기+ 연임 봉쇄",
+      "한국 운용사 silent 영역 C행동주의 채택 — 정치/자선 기부금 (포괄 금지·제한 반대), 임직원 자사주 대출 금지, 채무재조정 시 CB/BW 우호"
     ]
   }
 }

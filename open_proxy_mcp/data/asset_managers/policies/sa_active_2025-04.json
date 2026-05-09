@@ -7,7 +7,7 @@
     "version": "2025.04.10",
     "effective_date": "2025-04-10",
     "source_file": "2025.04 SA액티브 의결권행사 내부지침.pdf",
-    "source_md": "/tmp/policy_parse/samsung_active/2025.04 SA액티브 의결권행사 내부지침.md"
+    "source_md": "/tmp/policy_parse/sa_active/2025.04 SA액티브 의결권행사 내부지침.md"
   },
   "general_principles": [
     "법과 원칙을 준수하고, 공정성과 투명성에 기반하여 행동",
@@ -396,6 +396,6 @@
     "categories_covered": 12,
     "categories_missing": [],
     "extraction_confidence": "high",
-    "notes": "지침 본문(제1조-제22조) + 의결권 행사 세부 기준(제1장-제9장, 1-46) 두 부분으로 구성. 12개 카테고리 모두 명시. 미래에셋과 유사한 구조. spin_off는 제7장 31 회사분할 + 제9장 41 지주회사 설립으로 통합."
+    "notes": "지침 본문(제1조-제22조) + 의결권 행사 세부 기준(제1장-제9장, 1-46) 두 부분으로 구성. 12개 카테고리 모두 명시. M레거시과 유사한 구조. spin_off는 제7장 31 회사분할 + 제9장 41 지주회사 설립으로 통합."
   }
 }

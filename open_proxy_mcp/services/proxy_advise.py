@@ -81,7 +81,7 @@ _VOTE_STYLE_POLICY_FILE = {
     "a_activist": "a_activist_2025-04",
     "b_foreign": "b_foreign_2025-04",
     "c_activist": "c_activist_2026-04",
-    "n_pension": "n_pension_2025-03",  # NPS rename (Phase 4)
+    "n_pension": "n_pension_2025-03",  # n_pension rename (Phase 4)
 }
 
 
@@ -409,7 +409,7 @@ def _decide_director_compensation(
     정책 근거:
     - OPM Open Proxy v1.3 #2 (적자/순익 감소 + 한도 증액 against)
     - OPM #8 (50%+ 인상 against, 일회성 사유 외)
-    - NPS [별표 1] IV-33① (이사회 안 원칙적 찬성), IV-33② (한도 과다 against)
+    - N연기금 [별표 1] IV-33① (이사회 안 원칙적 찬성), IV-33② (한도 과다 against)
     - mainstream FOR fallback (records 표본 82.5% FOR)
     """
     fm_summary = ((fin_metrics_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -452,9 +452,9 @@ def _decide_director_compensation(
     # 분기 5: 50%+ 인상 (#8)
     if inc is not None and inc >= 50:
         return "REVIEW", f"보수한도 대폭 인상 ({inc:+.0f}%) — OPM #8 (50%+ 인상, 일회성 사유 외)"
-    # 분기 4: +10~+30% + 순익 yoy 둔화 (NPS IV-33② 보수)
+    # 분기 4: +10~+30% + 순익 yoy 둔화 (N연기금 IV-33② 보수)
     if inc is not None and 10 < inc < 30 and yoy is not None and yoy < 5:
-        return "REVIEW", f"한도 +{inc:.0f}% + 순익 yoy {yoy:+.0f}% (둔화) — NPS IV-33② 보수적"
+        return "REVIEW", f"한도 +{inc:.0f}% + 순익 yoy {yoy:+.0f}% (둔화) — N연기금 IV-33② 보수적"
     # 분기 6: +30~+50% 외 (#3-4 미해당)
     if inc is not None and 30 <= inc < 50:
         return "REVIEW", f"한도 +{inc:.0f}% 인상 — 적정성 검토"
@@ -466,10 +466,10 @@ def _decide_director_compensation(
         return "FOR", f"한도 감액 ({inc:+.0f}%) — 주주가치 우호"
     # 분기 9: -10 ~ +10 (동결)
     if inc is not None and -10 <= inc <= 10:
-        return "FOR", f"보수한도 소폭 변경 ({inc:+.0f}%) — NPS IV-33① 원칙적 찬성"
+        return "FOR", f"보수한도 소폭 변경 ({inc:+.0f}%) — N연기금 IV-33① 원칙적 찬성"
     # 분기 10: +10~+30 + 순익 양호
     if inc is not None and 10 < inc < 30 and (yoy is None or yoy >= 5):
-        return "FOR", f"한도 +{inc:.0f}% + 경영성과 양호 — NPS IV-33①"
+        return "FOR", f"한도 +{inc:.0f}% + 경영성과 양호 — N연기금 IV-33①"
     # 분기 11/13: 인상률 None (compensation parsed but increase_rate missing)
     if inc is None:
         if cap_status == "full":
@@ -491,13 +491,13 @@ def _decide_audit_compensation(
     comp_payload: dict[str, Any] | None,
     fin_metrics_payload: dict[str, Any] | None = None,
     *,
-    threshold_low_per_person: int = 50_000_000,   # NPS IV-34 과소 임계 (잠정 5천만원/인)
+    threshold_low_per_person: int = 50_000_000,   # N연기금 IV-34 과소 임계 (잠정 5천만원/인)
     threshold_high_per_person: int = 100_000_000,  # 잠정 1억원/인
 ) -> tuple[str, str]:
     """감사 보수한도 — 11 분기.
 
     정책 근거:
-    - NPS [별표 1] IV-34: 한도 과소 (감사 충실 업무 훼손) AGAINST
+    - N연기금 [별표 1] IV-34: 한도 과소 (감사 충실 업무 훼손) AGAINST
     - s_legacy 패턴: 인상률 ≥+50% (감사 보수 급증 = 경영진 동조 인센티브) AGAINST
     - mainstream FOR (records 11 majority case 모두 FOR)
     """
@@ -543,9 +543,9 @@ def _decide_audit_compensation(
     # 분기 1: 자본잠식 + 인상
     if cap_status == "full" and audit_inc is not None and audit_inc > 0:
         return "AGAINST", f"완전 자본잠식 + 감사 한도 인상 ({audit_inc:+.0f}%) — 보수 결정 부적절"
-    # 분기 3: 1인당 평균 < threshold_low (NPS IV-34 과소)
+    # 분기 3: 1인당 평균 < threshold_low (N연기금 IV-34 과소)
     if audit_per_person is not None and audit_per_person < threshold_low_per_person:
-        return "AGAINST", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (< {threshold_low_per_person/1e8:.1f}억) — NPS IV-34 (과소, 충실 업무 훼손)"
+        return "AGAINST", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (< {threshold_low_per_person/1e8:.1f}억) — N연기금 IV-34 (과소, 충실 업무 훼손)"
     # 분기 4: 인상률 ≥+50% + 1인당 평균 > threshold_high (s_legacy 패턴)
     if audit_inc is not None and audit_inc >= 50 and audit_per_person is not None and audit_per_person > threshold_high_per_person:
         return "AGAINST", f"감사 한도 +{audit_inc:.0f}% + 1인당 평균 {audit_per_person/1e8:.2f}억 (>{threshold_high_per_person/1e8:.1f}억) — s_legacy 패턴 (경영진 동조 인센티브 우려)"
@@ -557,10 +557,10 @@ def _decide_audit_compensation(
         return "REVIEW", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (경계 — {threshold_low_per_person/1e8:.1f}~{threshold_high_per_person/1e8:.1f}억) — 사용자 노출"
     # 분기 7: ±10% (동결)
     if audit_inc is not None and -10 <= audit_inc <= 10:
-        return "FOR", f"감사 한도 소폭 변경 ({audit_inc:+.0f}%) — NPS IV-34 + mainstream FOR"
+        return "FOR", f"감사 한도 소폭 변경 ({audit_inc:+.0f}%) — N연기금 IV-34 + mainstream FOR"
     # 분기 8: 1인당 평균 ≥ threshold_high + +10~+30% 인상
     if audit_per_person is not None and audit_per_person >= threshold_high_per_person and audit_inc is not None and 10 < audit_inc < 30:
-        return "FOR", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (≥{threshold_high_per_person/1e8:.1f}억) + 한도 +{audit_inc:.0f}% — NPS IV-34 + mainstream"
+        return "FOR", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (≥{threshold_high_per_person/1e8:.1f}억) + 한도 +{audit_inc:.0f}% — N연기금 IV-34 + mainstream"
     # 분기 9/10: 데이터 부족 fallback
     if audit_inc is None and audit_per_person is None:
         if cap_status == "full":
@@ -571,7 +571,7 @@ def _decide_audit_compensation(
     return "FOR", f"감사 보수한도 — 위험 신호 없음 (변경률 {audit_inc:+.0f}% 또는 1인당 {audit_per_person})"
 
 
-# 퇴직금 위험 키워드 (Step 0 sample 분석 + OPM Open Proxy v1.3 + NPS [별표 1] IV-35)
+# 퇴직금 위험 키워드 (Step 0 sample 분석 + OPM Open Proxy v1.3 + N연기금 [별표 1] IV-35)
 _RETIREMENT_AGAINST_KEYWORDS_AFTER = (
     "황금낙하산", "Golden Parachute", "golden parachute",
     "경영권 변동", "경영권의 변동", "M&A시", "M&A 시",
@@ -600,7 +600,7 @@ def _decide_retirement_pay(
     """퇴직금 규정 변경 안건 — 12 분기.
 
     정책 근거:
-    - NPS [별표 1] IV-35: 황금낙하산 원칙적 반대
+    - N연기금 [별표 1] IV-35: 황금낙하산 원칙적 반대
     - OPM Open Proxy v1.3 #6 (사외이사 퇴직혜택 부여 against)
     - OPM #7 (황금낙하산 정관 도입 against)
     - s_legacy 패턴 (퇴직금 31% AGAINST — 적자 case 등)
@@ -646,7 +646,7 @@ def _decide_retirement_pay(
     # 분기 1: 황금낙하산
     if risk_against:
         kws = ", ".join(sorted({h["kw"] for h in risk_against}))
-        return "AGAINST", f"퇴직금 위험 trigger ({kws}) 신설 — NPS IV-35 + OPM #7 (원칙적 반대)"
+        return "AGAINST", f"퇴직금 위험 trigger ({kws}) 신설 — N연기금 IV-35 + OPM #7 (원칙적 반대)"
     # 분기 2: 사외이사 퇴직금 신설
     if risk_outside_dir:
         return "AGAINST", "사외이사 퇴직금 신설 — OPM #6 (사외이사 퇴직혜택 부여 against)"
@@ -797,8 +797,8 @@ _POLICY_CITATIONS = {
     "director_election": "OPM Guideline §이사선임 — 사내이사: 결격만 검증 / 사외이사: 독립성 + 결격",
     "audit_committee_election": "OPM Guideline §감사위원 — strict 검증 (장기연임 5년 룰 + 독립성)",
     "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 시 AGAINST / 적자+인상 시 AGAINST (#2) / 50% 이상 인상 시 REVIEW (#8)",
-    "audit_compensation": "NPS [별표 1] IV-34 + s_legacy 패턴 — 1인당 평균 과소 시 AGAINST / 50% 이상 인상 + 1인당 평균 과다 시 AGAINST",
-    "retirement_pay": "NPS [별표 1] IV-35 + OPM #6/#7 — 황금낙하산 신설 시 AGAINST / 사외이사 퇴직금 신설 시 AGAINST / 지급률 2배수 이상 인상 시 AGAINST",
+    "audit_compensation": "N연기금 [별표 1] IV-34 + s_legacy 패턴 — 1인당 평균 과소 시 AGAINST / 50% 이상 인상 + 1인당 평균 과다 시 AGAINST",
+    "retirement_pay": "N연기금 [별표 1] IV-35 + OPM #6/#7 — 황금낙하산 신설 시 AGAINST / 사외이사 퇴직금 신설 시 AGAINST / 지급률 2배수 이상 인상 시 AGAINST",
     "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 없으면 FOR",
     "treasury_share": "OPM Guideline §자사주 — 소각 FOR / 처분 REVIEW",
     "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
@@ -970,7 +970,7 @@ def _extract_risks(
         for a in amends:
             after = (a.get("after") or "")
             if "황금낙하산" in after or "경영권 변동" in after:
-                risks.append("황금낙하산 또는 경영권 변동 special 가산 신설 (NPS IV-35 원칙적 반대)")
+                risks.append("황금낙하산 또는 경영권 변동 special 가산 신설 (N연기금 IV-35 원칙적 반대)")
                 break
         for a in amends:
             after = a.get("after") or ""
@@ -1393,10 +1393,10 @@ async def build_proxy_advise_payload(
         elif category == "director_compensation":
             decision, reason = _decide_director_compensation(meeting_comp, fin_metrics)
         elif category == "audit_compensation":
-            # ralph 260505 17:50: 감사 보수한도 별도 분기 (NPS IV-34)
+            # ralph 260505 17:50: 감사 보수한도 별도 분기 (N연기금 IV-34)
             decision, reason = _decide_audit_compensation(meeting_comp, fin_metrics)
         elif category == "retirement_pay":
-            # ralph 260505 17:50: 퇴직금 별도 분기 (NPS IV-35 + OPM #6/#7)
+            # ralph 260505 17:50: 퇴직금 별도 분기 (N연기금 IV-35 + OPM #6/#7)
             decision, reason = _decide_retirement_pay(retirement_payload, fin_metrics)
         elif category == "financial_statements":
             decision, reason = _decide_financial_statements(fin_metrics)

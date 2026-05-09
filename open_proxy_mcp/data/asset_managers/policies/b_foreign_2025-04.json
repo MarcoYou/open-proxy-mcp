@@ -7,17 +7,17 @@
     "version": "2025.04 (ISS Korea 2026 v1.1)",
     "effective_date": "2026-02-01",
     "source_file": "2025.04 B외국계 의결권행사 내부지침.pdf",
-    "source_md": "/tmp/policy_parse/baring/2025.04 B외국계 의결권행사 내부지침.md",
+    "source_md": "/tmp/policy_parse/b_foreign/2025.04 B외국계 의결권행사 내부지침.md",
     "external_advisor": "ISS Korea 2026 Voting Guidelines (Published Dec 16, 2025; Effective Feb 1, 2026)",
     "policy_classification": "foreign_manager_iss_reference",
-    "note": "[v1.2 (2026-04-29)] OPM은 ISS를 벤치마크로 사용하지 않음 (ISS 추천 퀄리티/논란 우려). 베어링은 외국계 운용사가 ISS를 어떻게 활용하는지의 데이터 reference로만 보존. voting_rules 본문은 비교/조사 목적 그대로 유지 (compare scope에서 정상 비교 가능). OPM 의결권 결정 로직은 한국 7 운용사 합의 + 한국 법령 + OPM 4 기준에 따름.",
+    "note": "[v1.2 (2026-04-29)] OPM은 ISS를 벤치마크로 사용하지 않음 (ISS 추천 퀄리티/논란 우려). B외국계은 외국계 운용사가 ISS를 어떻게 활용하는지의 데이터 reference로만 보존. voting_rules 본문은 비교/조사 목적 그대로 유지 (compare scope에서 정상 비교 가능). OPM 의결권 결정 로직은 한국 7 운용사 합의 + 한국 법령 + OPM 4 기준에 따름.",
     "classification_history": [
       "v1.1 (2026-04-29): 'global_advisor_adoption' — ISS Korea 2026 직접 채택 운용사로 분류, OPM 글로벌 표준 reference로 통합",
       "v1.2 (2026-04-29): 'foreign_manager_iss_reference' — OPM은 ISS를 벤치마크로 사용하지 않음. 외국계 운용사 ISS 참조 사례 데이터로만 분류"
     ]
   },
   "general_principles": [
-    "[베어링 자체 원칙] 외부 리서치 제공자(ISS)의 추천에 따라 의결권 행사 (의결권 행사 규정 및 절차 제13조)",
+    "[B외국계 자체 원칙] 외부 리서치 제공자(ISS)의 추천에 따라 의결권 행사 (의결권 행사 규정 및 절차 제13조)",
     "추천 미준수 시 의결권행사위원회 승인 필요 (제15조)",
     "[ISS Independence] 이사회는 경영진 및 주요 주주로부터 충분히 독립",
     "[ISS Composition] 이사회는 다양성·전문성·독립성 균형, 적정 규모",
@@ -29,7 +29,7 @@
     "external_advisor": "ISS (Institutional Shareholder Services) Korea",
     "conflict_handling": "외부 리서치 제공사가 별첨 1)의 가이드라인을 준수한다고 판단. 별도 모니터링 미실시",
     "approach": "외부 리서치(ISS) 추천 원칙 따름. 추천 미준수 시 주식운용팀이 위원회에 사유 제시 후 승인 득함",
-    "summary": "베어링은 자체 정책 없이 ISS Korea 2026 Voting Guidelines (Effective Feb 1, 2026)를 그대로 적용. 의결권 행사는 ISS 추천 따르며 예외 시 위원회 승인 필요"
+    "summary": "B외국계은 자체 정책 없이 ISS Korea 2026 Voting Guidelines (Effective Feb 1, 2026)를 그대로 적용. 의결권 행사는 ISS 추천 따르며 예외 시 위원회 승인 필요"
   },
   "voting_rules": {
     "financial_statements": {
@@ -464,9 +464,9 @@
     "[과도겸임] 사외이사 상장사 2개 초과 겸임 금지 (상법 + 시행령)"
   ],
   "exceptions": [
-    "[베어링 자체] 의결권 행사 규정 및 절차 제13조 — 외부 리서치 추천 따름이 원칙",
-    "[베어링 자체] 제15조 — 추천 미준수 시 의결권행사위원회 승인 절차 필수",
-    "[베어링 자체] 의결권 행사 대상 기준: (1) 자본시장법 의무 — 자산총액 100분의 5 또는 100억원 이상 (2) 회사 판단 — 합산 5%/100억/1% (3) 주식운용팀 판단",
+    "[B외국계 자체] 의결권 행사 규정 및 절차 제13조 — 외부 리서치 추천 따름이 원칙",
+    "[B외국계 자체] 제15조 — 추천 미준수 시 의결권행사위원회 승인 절차 필수",
+    "[B외국계 자체] 의결권 행사 대상 기준: (1) 자본시장법 의무 — 자산총액 100분의 5 또는 100억원 이상 (2) 회사 판단 — 합산 5%/100억/1% (3) 주식운용팀 판단",
     "[ISS] CEO/MD/Executive Chairman/Founder 제거가 주주가치 부정 영향 큰 경우 출석률·과도겸임 정책 적용 예외 가능"
   ],
   "esg_topics": {
@@ -478,6 +478,6 @@
     "categories_covered": 12,
     "categories_missing": [],
     "extraction_confidence": "high",
-    "notes": "[베어링 = ISS Korea 2026 v1.1] 자체 정책 없이 ISS 그대로 적용. 영문 + 한국어 요약 dual 포맷. 8개 ISS 챕터를 12 카테고리로 매핑 (treasury_share는 자사주 매입 대체용 자본 감소 항목으로 매핑). ISS 특유의 디테일 풍부 — Climate Accountability (TCFD + GHG 감축), Say on Climate (Mgmt + Shareholder), 5년 cooling-off, 과도겸임 (Overboarded), 묶음 선임 슬레이트 반대, Discharge of Director 등. 한국 상법·자본시장법 컨텍스트 풍부 (Two-tier 대형/소형사, 정관 묶음 상정, dissident's right 등). 베어링 자체 운영 절차는 외부 자문 추천 원칙 + 위원회 승인 예외 처리만 명시."
+    "notes": "[B외국계 = ISS Korea 2026 v1.1] 자체 정책 없이 ISS 그대로 적용. 영문 + 한국어 요약 dual 포맷. 8개 ISS 챕터를 12 카테고리로 매핑 (treasury_share는 자사주 매입 대체용 자본 감소 항목으로 매핑). ISS 특유의 디테일 풍부 — Climate Accountability (TCFD + GHG 감축), Say on Climate (Mgmt + Shareholder), 5년 cooling-off, 과도겸임 (Overboarded), 묶음 선임 슬레이트 반대, Discharge of Director 등. 한국 상법·자본시장법 컨텍스트 풍부 (Two-tier 대형/소형사, 정관 묶음 상정, dissident's right 등). B외국계 자체 운영 절차는 외부 자문 추천 원칙 + 위원회 승인 예외 처리만 명시."
   }
 }

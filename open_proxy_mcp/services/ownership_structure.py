@@ -210,7 +210,7 @@ async def _fetch_largest_shareholder_from_blocks(
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """5% 대량보유(majorstock)에서 최대주주 후보를 추정.
 
-    hyslrSttus가 비어 있는 ‘ownerless’(국민연금 6%대만 있는 회사 등) 또는
+    hyslrSttus가 비어 있는 ‘ownerless’(N연기금 6%대만 있는 회사 등) 또는
     미공개 케이스의 보조 source. 5% 보고는 ‘외부 주주 시점’이라
     본인+특수관계인 합산 개념과 다르므로 추정치임을 명시한다.
 
