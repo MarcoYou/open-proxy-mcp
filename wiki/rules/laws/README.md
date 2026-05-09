@@ -40,11 +40,11 @@ updated: 2026-05-08
 
 - [[상법-2025-2026-종합]] (master)
 - `law_layer_rules.json` (master)
-- [[law-layer-260508]] (lesson — 도입 배경)
-- [[law-layer-precision-260508]] (lesson — Ralph 4 정밀화 280 회사 검증)
-- [[260508_0200_decision_law-layer]] (decision — 도입)
-- [[260508_0700_decision_law-layer-precision]] (decision — 정밀화)
-- [[open-proxy-guideline]] (OPM 5 기준 + voting_rules 12 카테고리)
+- law-layer-260508 (lesson — 도입 배경)
+- law-layer-precision-260508 (lesson — Ralph 4 정밀화 280 회사 검증)
+- 260508_0200_decision_law-layer (decision — 도입)
+- 260508_0700_decision_law-layer-precision (decision — 정밀화)
+- open-proxy-guideline (OPM 5 기준 + voting_rules 12 카테고리)
 
 ## 신규 자료 추가 시
 
