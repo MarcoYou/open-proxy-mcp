@@ -1,8 +1,8 @@
 {
-  "manager_id": "sa_active",
-  "manager_name": "SA액티브",
+  "manager_id": "sa_legacy",
+  "manager_name": "SA레거시",
   "period_label": "2026-04",
-  "source_file": "2026.04 SA액티브 의결권 행사내역.xlsx",
+  "source_file": "2026.04 SA레거시 의결권 행사내역.xlsx",
   "votes": [
     {
       "market": "KOSPI",

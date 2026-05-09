@@ -31,7 +31,7 @@
       "expert_global_esg (A5)",
       "research_law_amendments (A6 — 2026 신법 7개)",
       "expert_corporate_lawyer (A7 상법 §382의3 게임체인저)",
-      "5 운용사 합의 매트릭스 (m_legacy, s_legacy, sa_active, t_activist, k_legacy)",
+      "5 운용사 합의 매트릭스 (m_legacy, s_legacy, sa_legacy, t_activist, k_legacy)",
       "5 운용사 정책 (2025-04)",
       "5 운용사 의결권 행사 기록 (2024-04, 2025-04)",
       "b_foreign (외국계 운용사 ISS 참조 사례 — 데이터 reference 보존, OPM 벤치마크 X)",
@@ -41,7 +41,7 @@
     ],
     "updated_at": "2026-04-29",
     "update_history": [
-      "v1.0 (2026-04-28): 5 운용사 (m_legacy, s_legacy, sa_active, t_activist, k_legacy) 합의 매트릭스 + 7 전문가 토론 + 2026 신법 7개 + §382의3 (2025) 게임체인저 기반 초기 작성",
+      "v1.0 (2026-04-28): 5 운용사 (m_legacy, s_legacy, sa_legacy, t_activist, k_legacy) 합의 매트릭스 + 7 전문가 토론 + 2026 신법 7개 + §382의3 (2025) 게임체인저 기반 초기 작성",
       "v1.1 (2026-04-29): b_foreign (ISS Korea 2026 v1.1 직접 채택) + a_activist (행동주의 펀드) 통합. ISS Climate Accountability/Say on Climate/Discharge/Bundled Slate/Two-tier Governance 추가. 행동주의 적극 행사 원칙 정책 선언",
       "v1.2 (2026-04-29): ISS 다운그레이드 — B외국계은 외국계 ISS 참조 사례로만 보존, OPM 벤치마크 X. ISS 추천 퀄리티/논란 우려로 say_on_climate, discharge_of_director novel topics 삭제. climate_accountability는 한국 운용사 입장만 유지(tier_3_signal 다운그레이드). bundled_slate_against, overboarded_directors는 한국 운용사·상법 합치 영역으로 유지.",
       "v1.3 (2026-04-29): c_activist (C행동주의) 통합. 8 운용사 합의 매트릭스 재계산. 행동주의 3사 (T/A/C) 일치 영역 24건 확인 — 사외이사 비중 축소·일괄투표·외부 인수 자본증가·성과 미연계 보상·배당 과소 등 강화. 8/8 만장일치 토픽 8건 (외감의견 적정 외, 사외이사 5년 룰, 과도 겸임, 기업가치 훼손 이력, 사외이사 비중 확대, 집중투표 배제 삭제, 초다수의결, 황금낙하산). c_activist 단독 신규 토픽 17건 추가 — 집행임원제도, 내부거래위원회, 선임사외이사(LID) 도입, 사외이사 독립성 매년 공시, 5억원 미만 보수공개, 임원 hedging 금지, 임직원 자사주 대출 금지 등. 한국 silent 영역 C행동주의 채택으로 차단 영역 확장."
@@ -789,7 +789,7 @@
         },
         {
           "criterion": "성과연동보상 60% 이상 + 3년 이상 이연 지급",
-          "source": "4/8 명시 (sa_active·t_activist·k_legacy + c_activist v1.3 강화) + A1+A5 (UK IA Principles)",
+          "source": "4/8 명시 (sa_legacy·t_activist·k_legacy + c_activist v1.3 강화) + A1+A5 (UK IA Principles)",
           "law": "UK Investment Association Principles",
           "evidence_refs": [
             "consensus.director_compensation.deferred_compensation_60pct_3yr (v1.3: minority 4/8)"

@@ -479,7 +479,7 @@ title: Operation Log
 
 ## [2026-04-29] feat | proxy_guideline tool + Open Proxy Guideline v1.2 + 12 의사결정 매트릭스
 ### Phase A: 7 운용사 데이터 파싱
-- 정책 5건: opendataloader-pdf (s_legacy·sa_active·t_activist·kim·a_activist 1-4초)
+- 정책 5건: opendataloader-pdf (s_legacy·sa_legacy·t_activist·kim·a_activist 1-4초)
 - M레거시: vector glyph PDF → PyMuPDF DPI 120 raster + JPEG 70% → Upstage OCR 우회 (35KB md)
 - B외국계: 외국계 proxy advisor 2026 Voting Guidelines 직접 채택 발견 → `policy_classification: foreign_manager_iss_reference`
 - 행사내역 15 xlsx → 통일 schema JSON (총 17,900 votes)

@@ -1,13 +1,13 @@
 {
-  "policy_id": "sa_active",
+  "policy_id": "sa_legacy",
   "policy_meta": {
     "type": "asset_manager",
-    "manager_id": "sa_active",
-    "manager_name": "SA액티브",
+    "manager_id": "sa_legacy",
+    "manager_name": "SA레거시",
     "version": "2025.04.10",
     "effective_date": "2025-04-10",
-    "source_file": "2025.04 SA액티브 의결권행사 내부지침.pdf",
-    "source_md": "/tmp/policy_parse/sa_active/2025.04 SA액티브 의결권행사 내부지침.md"
+    "source_file": "2025.04 SA레거시 의결권행사 내부지침.pdf",
+    "source_md": "/tmp/policy_parse/sa_legacy/2025.04 SA레거시 의결권행사 내부지침.md"
   },
   "general_principles": [
     "법과 원칙을 준수하고, 공정성과 투명성에 기반하여 행동",

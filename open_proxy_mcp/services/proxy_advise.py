@@ -75,7 +75,7 @@ _VOTE_STYLE_POLICY_FILE = {
     "open_proxy": "open_proxy_v1",
     "m_legacy": "m_legacy_2026-04",  # 최신 2026 정책 우선
     "s_legacy": "s_legacy_2025-04",
-    "sa_active": "sa_active_2025-04",
+    "sa_legacy": "sa_legacy_2025-04",
     "k_legacy": "k_legacy_2025-04",
     "t_activist": "t_activist_2025-04",
     "a_activist": "a_activist_2025-04",

@@ -4,7 +4,7 @@
   "managers": [
     "m_legacy",
     "s_legacy",
-    "sa_active",
+    "sa_legacy",
     "t_activist",
     "k_legacy",
     "b_foreign",
@@ -14,7 +14,7 @@
   "manager_names": {
     "m_legacy": "M레거시",
     "s_legacy": "S레거시",
-    "sa_active": "SA액티브",
+    "sa_legacy": "SA레거시",
     "t_activist": "T행동주의",
     "k_legacy": "K레거시",
     "b_foreign": "B외국계 (ISS Korea 2026 직접 채택)",
@@ -38,7 +38,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -57,7 +57,7 @@
               "section": "[별첨] Ⅰ-1"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "외부감사인의 감사의견 '적정' 이외의 의견 시 기권 또는 반대",
               "section": "제2장 1"
             },
@@ -97,7 +97,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -131,7 +131,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "review",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -177,7 +177,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
@@ -196,7 +196,7 @@
               "section": "[별첨] Ⅰ-2"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "회사의 적정 배당 정책에 의한 배당 찬성",
               "section": "제2장 2①"
             },
@@ -231,7 +231,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -250,7 +250,7 @@
               "section": "[별첨] Ⅱ-18①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "중간/반기 배당 허용",
               "section": "제2장 2③"
             },
@@ -280,7 +280,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -324,7 +324,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -343,7 +343,7 @@
               "section": "[별첨] Ⅰ-3"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "배당정책 공시 의무화",
               "section": "제2장 2⑤"
             },
@@ -368,7 +368,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -387,7 +387,7 @@
               "section": "[별첨] Ⅰ-2"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "주주활동에도 개선 무 또는 배당금이 주주가치 훼손할 정도로 과소·과다",
               "section": "제2장 2②"
             },
@@ -422,7 +422,7 @@
           "positions": {
             "m_legacy": "review",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "review",
             "b_foreign": "against",
@@ -478,7 +478,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
@@ -497,7 +497,7 @@
               "section": "[별첨] Ⅱ-13"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "사외이사 비중 확대",
               "section": "제3장 13"
             },
@@ -537,7 +537,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -556,7 +556,7 @@
               "section": "[별첨] Ⅱ-14"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "이사회 의장과 CEO 직책 분리",
               "section": "제3장 14"
             },
@@ -586,7 +586,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
@@ -605,7 +605,7 @@
               "section": "[별첨] Ⅱ-16"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "집중투표제 배제 삭제",
               "section": "제3장 17"
             },
@@ -645,7 +645,7 @@
           "positions": {
             "m_legacy": "against_for_introduction",
             "s_legacy": "against_for_introduction",
-            "sa_active": "against_for_introduction",
+            "sa_legacy": "against_for_introduction",
             "t_activist": "against_for_introduction",
             "k_legacy": "for_for_introduction",
             "b_foreign": "against_for_introduction",
@@ -664,7 +664,7 @@
               "section": "[별첨] Ⅱ-15"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "시차임기제 폐지 찬성, 도입 반대",
               "section": "제3장 14"
             },
@@ -704,7 +704,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -723,7 +723,7 @@
               "section": "[별첨] Ⅱ-5"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "초다수결 등 결의요건 강화 반대",
               "section": "제3장 5"
             },
@@ -763,7 +763,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -782,7 +782,7 @@
               "section": "[별첨] Ⅱ-17"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "황금낙하산 등 경영진 과도한 퇴직금 정당 사유 외 반대",
               "section": "제5장 25②"
             },
@@ -822,7 +822,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -841,7 +841,7 @@
               "section": "[별첨] Ⅱ-9"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "전자/서면투표 가능",
               "section": "제3장 13"
             },
@@ -876,7 +876,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -925,7 +925,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -934,7 +934,7 @@
           },
           "evidence": [
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "5영업일 전까지 사전 공시 안 한 안건 (이사·감사 선임, 보수한도, 임원퇴직금 승인)",
               "section": "제3장 9"
             },
@@ -964,7 +964,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "review",
             "k_legacy": "review",
             "b_foreign": "silent",
@@ -983,7 +983,7 @@
               "section": "[별첨] Ⅱ-1"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "회사명 변경: 인지도 하락 등으로 주주가치 훼손하지 않는 한 찬성",
               "section": "제3장 3"
             },
@@ -1018,7 +1018,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -1037,7 +1037,7 @@
               "section": "[별첨] Ⅱ-7"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "정당한 사유 없이 주총 결의사항을 이사회 결의사항으로 변경 반대",
               "section": "제3장 8"
             },
@@ -1062,7 +1062,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -1076,7 +1076,7 @@
               "section": "[별첨] Ⅱ-11"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "이사회 규모: 위원회 활동 제약/개별이사 영향력 무력화 정도",
               "section": "제3장 11"
             },
@@ -1101,7 +1101,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -1125,7 +1125,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -1149,7 +1149,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -1173,7 +1173,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -1209,7 +1209,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -1228,7 +1228,7 @@
               "section": "[별첨] Ⅲ-2"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "사외이사 독립성 결여 (최대주주/특수관계인, 5년내 임직원, 3년내 거래·경쟁·협력관계)",
               "section": "제4장 21③"
             },
@@ -1268,7 +1268,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -1277,7 +1277,7 @@
           },
           "evidence": [
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "재직연수가 당해기업 및 그 계열회사를 포함하여 6년 초과",
               "section": "제4장 21③"
             },
@@ -1299,7 +1299,7 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 4,
-          "opm_seed": "사외이사 6년 초과 재직 against — 3/5 합의. OPM은 against 채택 (한국 자본시장 공통 기준, K레거시/T행동주의/SA액티브 명시)"
+          "opm_seed": "사외이사 6년 초과 재직 against — 3/5 합의. OPM은 against 채택 (한국 자본시장 공통 기준, K레거시/T행동주의/SA레거시 명시)"
         },
         {
           "topic_id": "concurrent_positions",
@@ -1307,7 +1307,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -1326,7 +1326,7 @@
               "section": "[별첨] Ⅲ-1①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "과도한 겸임으로 충실한 의무 수행이 어려운 자",
               "section": "제4장 20②"
             },
@@ -1366,7 +1366,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -1385,7 +1385,7 @@
               "section": "[별첨] Ⅲ-1①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "이사회 및 위원회 참석률이 직전 임기동안 75% 미만",
               "section": "제4장 21③"
             },
@@ -1420,7 +1420,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -1439,7 +1439,7 @@
               "section": "[별첨] Ⅲ-1①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "기업가치의 훼손 내지 주주 권익의 침해의 이력",
               "section": "제4장 20②"
             },
@@ -1479,7 +1479,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "silent",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
@@ -1493,7 +1493,7 @@
               "section": "[별표1] II-2, 20②"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "이사회 구성의 다양성 제고",
               "section": "제4장 20①③"
             },
@@ -1528,7 +1528,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -1542,7 +1542,7 @@
               "section": "[별첨] Ⅲ-1①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "주주 전체의 이익이 아닌 특정 주주의 이익을 지속적으로 추구하는 자",
               "section": "제4장 20②"
             },
@@ -1577,7 +1577,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "against",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -1611,7 +1611,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -1650,7 +1650,7 @@
           "positions": {
             "m_legacy": "review",
             "s_legacy": "review",
-            "sa_active": "review",
+            "sa_legacy": "review",
             "t_activist": "review",
             "k_legacy": "review",
             "b_foreign": "review",
@@ -1669,7 +1669,7 @@
               "section": "[별첨] Ⅲ-1②③"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "장기 주주가치 증대 적합 후보 찬성",
               "section": "제4장 20⑤⑥"
             },
@@ -1704,7 +1704,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -1733,7 +1733,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -1757,7 +1757,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "for",
@@ -1781,7 +1781,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -1815,7 +1815,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -1839,7 +1839,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -1868,7 +1868,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -1892,7 +1892,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -1916,7 +1916,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -1952,7 +1952,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -1971,7 +1971,7 @@
               "section": "[별첨] Ⅱ-20"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "상법 제409조 제2항 회피 목적 명백한 감사위원회 도입",
               "section": "제4장 22③④"
             },
@@ -2001,7 +2001,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "for",
@@ -2020,7 +2020,7 @@
               "section": "[별첨] Ⅱ-20"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "자산 2조원 미만 회사 감사위원회 설치 + 사외이사 2/3 충원",
               "section": "제4장 22③"
             },
@@ -2055,7 +2055,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -2074,7 +2074,7 @@
               "section": "[별첨] Ⅲ-3②"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "5년 내 적정 외 외부감사 의견",
               "section": "제4장 22②"
             },
@@ -2109,7 +2109,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "silent",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -2123,7 +2123,7 @@
               "section": "[별표1] III-25"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "비감사용역 보수가 감사용역 보수 현저히 초과",
               "section": "제4장 22②"
             },
@@ -2153,7 +2153,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -2204,7 +2204,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "review",
             "b_foreign": "for",
@@ -2223,7 +2223,7 @@
               "section": "[별첨] Ⅳ-1①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "이사회 제시 보수한도 안 원칙적 찬성",
               "section": "제5장 23①④"
             },
@@ -2263,7 +2263,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "against",
@@ -2277,7 +2277,7 @@
               "section": "[별첨] Ⅳ-1①②"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "적자/순이익 감소 기업 인당·총 보수한도 증액",
               "section": "제5장 23②"
             },
@@ -2307,7 +2307,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "against_unlinked",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "against_unlinked",
             "k_legacy": "against_unlinked",
             "b_foreign": "for",
@@ -2326,7 +2326,7 @@
               "section": "[별첨] Ⅳ-2"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "성과-보상 연계, 부당 보상 환수(Clawback)",
               "section": "제5장 27"
             },
@@ -2366,7 +2366,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "silent",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -2380,7 +2380,7 @@
               "section": "[별표1] II-21①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "부당 보상 환수(Clawback)",
               "section": "제5장 27"
             },
@@ -2410,7 +2410,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -2446,7 +2446,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 5,
-          "opm_seed": "사외이사 퇴직혜택 부여 against — 4/5 합의 (SA액티브 silent). 사외이사 독립성 원칙"
+          "opm_seed": "사외이사 퇴직혜택 부여 against — 4/5 합의 (SA레거시 silent). 사외이사 독립성 원칙"
         },
         {
           "topic_id": "stock_option_repricing",
@@ -2454,7 +2454,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -2473,7 +2473,7 @@
               "section": "[별첨] Ⅴ-1③⑤⑥"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "스톡옵션 사후 행사가격 재조정",
               "section": "제6장 28①③⑤"
             },
@@ -2508,7 +2508,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -2527,7 +2527,7 @@
               "section": "[별첨] Ⅴ-1③⑤⑥"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "행사 유보기간 단축",
               "section": "제6장 28①③⑤"
             },
@@ -2562,7 +2562,7 @@
           "positions": {
             "m_legacy": "case_by_case",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -2581,7 +2581,7 @@
               "section": "[별첨] Ⅴ-1③⑤⑥"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "규모 3% 이상 또는 희석 10% 이상 반대",
               "section": "제6장 28①"
             },
@@ -2621,7 +2621,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -2630,7 +2630,7 @@
           },
           "evidence": [
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "보상위원회 설치 + 전원 사외이사 구성",
               "section": "제5장 26"
             },
@@ -2660,7 +2660,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -2669,7 +2669,7 @@
           },
           "evidence": [
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "성과연동보상 60% 이상 3년 이상 이연 지급",
               "section": "제5장 27"
             },
@@ -2699,7 +2699,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -2723,7 +2723,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -2747,7 +2747,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -2771,7 +2771,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -2807,7 +2807,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "case_by_case",
             "b_foreign": "for",
@@ -2826,7 +2826,7 @@
               "section": "[별첨] Ⅶ-5①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "자기주식 취득: 합리적·정당한 사유 제시 시",
               "section": "제8장 39"
             },
@@ -2861,7 +2861,7 @@
           "positions": {
             "m_legacy": "against_no_reason",
             "s_legacy": "review",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "for_with_3rd_party_review",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -2905,7 +2905,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -2949,7 +2949,7 @@
           "positions": {
             "m_legacy": "review",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "review",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -2988,7 +2988,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -3012,7 +3012,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -3048,7 +3048,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "for_with_long_term",
             "k_legacy": "review",
             "b_foreign": "against",
@@ -3067,7 +3067,7 @@
               "section": "[별첨] Ⅵ-1①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "사안별 검토 후 주주가치 훼손 시 반대",
               "section": "제7장 29, 30①"
             },
@@ -3107,7 +3107,7 @@
           "positions": {
             "m_legacy": "review",
             "s_legacy": "review",
-            "sa_active": "review",
+            "sa_legacy": "review",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "review",
@@ -3126,7 +3126,7 @@
               "section": "[별첨] Ⅵ-1②"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "주식매수청구권 확보 시 반대 또는 기권",
               "section": "제7장 30②, 31②, 32②"
             },
@@ -3146,7 +3146,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "review",
-            "sa_active": "review",
+            "sa_legacy": "review",
             "t_activist": "review",
             "k_legacy": "review",
             "b_foreign": "review",
@@ -3160,7 +3160,7 @@
               "section": "[별첨] Ⅵ-3"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "적대적 인수 합병 및 위임장 대결: 회사·주주 가치 + 종업원·서플라이체인 종합",
               "section": "제7장 33"
             },
@@ -3195,7 +3195,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against_unfair",
             "k_legacy": "review",
             "b_foreign": "silent",
@@ -3224,7 +3224,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "silent",
@@ -3270,7 +3270,7 @@
           "positions": {
             "m_legacy": "against_if_damage",
             "s_legacy": "for_if_long_term_value",
-            "sa_active": "against_if_damage",
+            "sa_legacy": "against_if_damage",
             "t_activist": "for_if_long_term_value",
             "k_legacy": "review",
             "b_foreign": "review",
@@ -3289,7 +3289,7 @@
               "section": "[별첨] Ⅵ-2"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "회사분할 사안별 검토, 주주가치 훼손 시 반대",
               "section": "제7장 31①"
             },
@@ -3329,7 +3329,7 @@
           "positions": {
             "m_legacy": "review",
             "s_legacy": "for_if_long_term_value",
-            "sa_active": "review",
+            "sa_legacy": "review",
             "t_activist": "for_if_long_term_value",
             "k_legacy": "review",
             "b_foreign": "silent",
@@ -3348,7 +3348,7 @@
               "section": "[별첨] Ⅷ-1"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "지주회사 설립 위한 기업분할/주식교환: 사안별 검토",
               "section": "제9장 41"
             },
@@ -3395,7 +3395,7 @@
           "positions": {
             "m_legacy": "against_with_exceptions",
             "s_legacy": "for_in_exceptions",
-            "sa_active": "against_with_exceptions",
+            "sa_legacy": "against_with_exceptions",
             "t_activist": "against_with_exceptions",
             "k_legacy": "against_with_exceptions",
             "b_foreign": "for_in_exceptions",
@@ -3414,7 +3414,7 @@
               "section": "[별첨] Ⅶ-1①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "자본감소 원칙 반대 (회생/자본조달/구조조정/사업축소·폐업/상장폐지 회피/자사주 소각/유상감자 예외)",
               "section": "제8장 35"
             },
@@ -3454,7 +3454,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "review",
             "b_foreign": "against",
@@ -3495,7 +3495,7 @@
           ],
           "agreement_level": "majority",
           "agreement_count": 5,
-          "opm_seed": "발행예정주식수 2배 이상(100% 이상) 증가 against — 4/5 합의 (SA액티브 silent)"
+          "opm_seed": "발행예정주식수 2배 이상(100% 이상) 증가 against — 4/5 합의 (SA레거시 silent)"
         },
         {
           "topic_id": "anti_takeover_capital_increase",
@@ -3503,7 +3503,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "against",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -3549,7 +3549,7 @@
           ],
           "agreement_level": "consensus",
           "agreement_count": 7,
-          "opm_seed": "외부 기업인수 무력화 의도 명백한 자본금 증가/신주발행/자사주 매각 against — 4/5 합의 (SA액티브 silent)"
+          "opm_seed": "외부 기업인수 무력화 의도 명백한 자본금 증가/신주발행/자사주 매각 against — 4/5 합의 (SA레거시 silent)"
         },
         {
           "topic_id": "preemptive_right_exclusion",
@@ -3557,7 +3557,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "against",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -3571,7 +3571,7 @@
               "section": "[별첨] Ⅵ-6①"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "주식 제3자 배정 원칙 반대, 신주인수권 약화 안 원칙적 반대",
               "section": "제8장 38, 제7장 34"
             },
@@ -3611,7 +3611,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "silent",
             "k_legacy": "for",
             "b_foreign": "for",
@@ -3630,7 +3630,7 @@
               "section": "[별첨] Ⅶ-2"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "비례 주식분할/주식병합",
               "section": "제8장 36①②"
             },
@@ -3660,7 +3660,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "silent",
             "b_foreign": "for",
@@ -3679,7 +3679,7 @@
               "section": "[별첨] Ⅶ-3③"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "스톡옵션 행사 대비/경영상 위험 회피",
               "section": "제8장 37①"
             },
@@ -3709,7 +3709,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -3745,7 +3745,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -3784,7 +3784,7 @@
           "positions": {
             "m_legacy": "against_if_dilution",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -3833,7 +3833,7 @@
           "positions": {
             "m_legacy": "review",
             "s_legacy": "silent",
-            "sa_active": "review",
+            "sa_legacy": "review",
             "t_activist": "review",
             "k_legacy": "review",
             "b_foreign": "silent",
@@ -3847,7 +3847,7 @@
               "section": "[별표1] VII-35②"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "주식연계채권: 중장기 회사 가치 영향 최우선 + 발행목적/규모/희석/전환가/이해상충 사안별 판단",
               "section": "제9장 44"
             },
@@ -3882,7 +3882,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -3918,7 +3918,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "for",
-            "sa_active": "for",
+            "sa_legacy": "for",
             "t_activist": "for",
             "k_legacy": "for",
             "b_foreign": "review",
@@ -3937,7 +3937,7 @@
               "section": "[별첨] Ⅷ-6"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "환경/사회 이슈 관련 리스크 방지·제거 또는 공시 강화 안건",
               "section": "제9장 46②"
             },
@@ -3972,7 +3972,7 @@
           "positions": {
             "m_legacy": "against",
             "s_legacy": "review",
-            "sa_active": "against",
+            "sa_legacy": "against",
             "t_activist": "against",
             "k_legacy": "review",
             "b_foreign": "against",
@@ -3991,7 +3991,7 @@
               "section": "[별첨] Ⅷ-5"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "주주가치 훼손 우려 판단 시 반대",
               "section": "제9장 45②"
             },
@@ -4026,7 +4026,7 @@
           "positions": {
             "m_legacy": "review",
             "s_legacy": "review",
-            "sa_active": "review",
+            "sa_legacy": "review",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "review",
@@ -4045,7 +4045,7 @@
               "section": "[별첨] Ⅷ-5"
             },
             {
-              "manager": "sa_active",
+              "manager": "sa_legacy",
               "criterion": "이사회 안과 주주제안 경합 시 장기적 주주가치 제고에 더 부합하는 안건 찬성",
               "section": "제9장 45③"
             },
@@ -4070,7 +4070,7 @@
           "positions": {
             "m_legacy": "for",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "for",
             "b_foreign": "silent",
@@ -4109,7 +4109,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "against",
             "k_legacy": "against",
             "b_foreign": "against",
@@ -4148,7 +4148,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "review",
@@ -4172,7 +4172,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -4201,7 +4201,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",
@@ -4225,7 +4225,7 @@
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
-            "sa_active": "silent",
+            "sa_legacy": "silent",
             "t_activist": "silent",
             "k_legacy": "silent",
             "b_foreign": "silent",

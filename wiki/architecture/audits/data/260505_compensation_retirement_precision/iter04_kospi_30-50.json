@@ -192,7 +192,7 @@
             "all_votes": {
               "m_legacy": "FOR",
               "s_legacy": "FOR",
-              "sa_active": "FOR",
+              "sa_legacy": "FOR",
               "t_activist": "FOR"
             }
           }
@@ -233,7 +233,7 @@
               "b_foreign": "FOR",
               "m_legacy": "FOR",
               "s_legacy": "FOR",
-              "sa_active": "FOR",
+              "sa_legacy": "FOR",
               "t_activist": "FOR"
             }
           }
@@ -307,7 +307,7 @@
               "a_activist": "FOR",
               "m_legacy": "FOR",
               "s_legacy": "FOR",
-              "sa_active": "FOR",
+              "sa_legacy": "FOR",
               "t_activist": "AGAINST"
             }
           }

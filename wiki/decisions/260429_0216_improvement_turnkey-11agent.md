@@ -256,7 +256,7 @@ related: [open-proxy-guideline, decision-matrix-design, opm-guideline-debate-tra
 
 ### B. 익명화 (외부 노출 wiki + README)
 사용자 결정대로:
-- `m_legacy / s_legacy / sa_active / k_legacy / t_activist / a_activist / b_foreign / c_activist`
+- `m_legacy / s_legacy / sa_legacy / k_legacy / t_activist / a_activist / b_foreign / c_activist`
 - README 사용 예시 + proxy_guideline 섹션 운용사 list 익명
 - wiki/decisions/ 4 문서 익명 (이미 자동 처리됨, 재검증)
 

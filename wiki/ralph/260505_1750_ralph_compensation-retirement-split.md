@@ -38,7 +38,7 @@ related_decisions: [260505_1900_decision_compensation-retirement-split]
 ### 정책 카탈로그 (8 운용사 + N연기금 + OPM)
 
 `data/asset_managers/policies/`에 모두 보유 (records만 있는 게 아님):
-- 운용사 8: m_legacy / s_legacy / sa_active / k_legacy / t_activist / a_activist / c_activist / b_foreign
+- 운용사 8: m_legacy / s_legacy / sa_legacy / k_legacy / t_activist / a_activist / c_activist / b_foreign
 - 공기관: nps
 - **OPM 자체**: `open_proxy_v1.json` (Open Proxy Guideline v1.3, 12 카테고리 116 룰 — 운용사 공통 모범 + 행동주의 + 신규 보강)
 

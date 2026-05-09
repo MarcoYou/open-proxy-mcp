@@ -118,7 +118,7 @@
             "all_votes": {
               "m_legacy": "FOR",
               "s_legacy": "FOR",
-              "sa_active": "FOR",
+              "sa_legacy": "FOR",
               "t_activist": "FOR"
             }
           }
@@ -195,7 +195,7 @@
               "b_foreign": "FOR",
               "m_legacy": "FOR",
               "s_legacy": "FOR",
-              "sa_active": "AGAINST",
+              "sa_legacy": "AGAINST",
               "t_activist": "FOR"
             }
           }
@@ -312,7 +312,7 @@
             "all_votes": {
               "m_legacy": "FOR",
               "s_legacy": "FOR",
-              "sa_active": "FOR",
+              "sa_legacy": "FOR",
               "t_activist": "FOR"
             }
           }
@@ -337,7 +337,7 @@
             "all_votes": {
               "m_legacy": "FOR",
               "s_legacy": "FOR",
-              "sa_active": "FOR",
+              "sa_legacy": "FOR",
               "t_activist": "FOR"
             }
           }

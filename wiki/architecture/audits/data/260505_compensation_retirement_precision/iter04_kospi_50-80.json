@@ -350,7 +350,7 @@
             "all_votes": {
               "m_legacy": "FOR",
               "s_legacy": "FOR",
-              "sa_active": "FOR",
+              "sa_legacy": "FOR",
               "t_activist": "FOR"
             }
           }

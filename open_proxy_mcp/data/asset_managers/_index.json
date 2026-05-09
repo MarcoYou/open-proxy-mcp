@@ -153,13 +153,13 @@
       "categories_covered": 12,
       "extraction_confidence": "high"
     },
-    "sa_active": {
-      "name": "SA액티브",
+    "sa_legacy": {
+      "name": "SA레거시",
       "type": "asset_manager",
       "classification": "",
       "external_advisor": "",
       "latest_policy": "2025.04.10",
-      "policy_file": "policies/sa_active_2025-04.json",
+      "policy_file": "policies/sa_legacy_2025-04.json",
       "records": [
         {
           "period": "2024-04",

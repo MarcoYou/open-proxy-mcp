@@ -45,7 +45,7 @@ proxy_advise_before_meeting(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 주총 연도 (사업연도 X) | 자동 (전년) |
 | meeting_type | str | no | "annual" / "extraordinary" / "auto" | "annual" |
-| vote_style | str | no | open_proxy / m_legacy / s_legacy / sa_active / kim / t_activist / a_activist / c_activist / b_foreign / nps | "open_proxy" |
+| vote_style | str | no | open_proxy / m_legacy / s_legacy / sa_legacy / kim / t_activist / a_activist / c_activist / b_foreign / nps | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | format | str | no | "md" / "json" | "md" |
 

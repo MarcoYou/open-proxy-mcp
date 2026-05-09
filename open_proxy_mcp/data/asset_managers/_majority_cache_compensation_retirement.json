@@ -30,7 +30,7 @@
         "a_activist": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "AGAINST"
       }
     },
@@ -41,7 +41,7 @@
       "all_votes": {
         "a_activist": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -64,7 +64,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -76,7 +76,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -88,7 +88,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -100,7 +100,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -112,7 +112,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -124,7 +124,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -136,7 +136,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -148,7 +148,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -159,7 +159,7 @@
       "all_votes": {
         "b_foreign": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -171,7 +171,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -183,7 +183,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -195,7 +195,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -207,7 +207,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR"
+        "sa_legacy": "FOR"
       }
     },
     "HD한국조선해양|||이사 보수한도 승인의 건": {
@@ -218,7 +218,7 @@
         "b_foreign": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "AGAINST",
+        "sa_legacy": "AGAINST",
         "t_activist": "FOR"
       }
     },
@@ -229,7 +229,7 @@
       "all_votes": {
         "b_foreign": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -241,7 +241,7 @@
         "b_foreign": "FOR",
         "k_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR"
+        "sa_legacy": "FOR"
       }
     },
     "한화오션|||이사 보수한도 승인의 건": {
@@ -252,7 +252,7 @@
         "k_legacy": "FOR",
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR"
+        "sa_legacy": "FOR"
       }
     },
     "현대건설|||이사 보수한도 승인의 건": {
@@ -262,7 +262,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -273,7 +273,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -284,7 +284,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -295,7 +295,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -306,7 +306,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -317,7 +317,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -328,7 +328,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -339,7 +339,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -350,7 +350,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     }
@@ -363,7 +363,7 @@
       "all_votes": {
         "b_foreign": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     },
@@ -374,7 +374,7 @@
       "all_votes": {
         "m_legacy": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     }
@@ -387,7 +387,7 @@
       "all_votes": {
         "b_foreign": "FOR",
         "s_legacy": "FOR",
-        "sa_active": "FOR",
+        "sa_legacy": "FOR",
         "t_activist": "FOR"
       }
     }
