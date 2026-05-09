@@ -17,10 +17,10 @@ related_lessons: [law-layer-body-260510]
 특수문자 사용 금지. 한글로 풀어쓰기.
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260510_0823_ralph_agenda-hierarchy-virtual-sub.md 가이드 따라. iter 1 (호수 hierarchy 진단 + LG화학 미세 버그 fix) 완료. iter 2부터 D 패턴 한정 amendments body fallback 구현. 가상 sub 생성 X hierarchy 변경 X. children 0 + 정관변경 top + amendments 있음 조건 만족 시에만 body 매칭. 4 미매치 회사 catch + LG화학 regression 0 확인 + 510 회사 회귀 spot. 모두 충족 시 promise. --completion-promise AGENDA_HIERARCHY_EXTRACTION_VERIFIED --max-iterations 6
+/ralph-loop:ralph-loop wiki/ralph/260510_0823_ralph_agenda-hierarchy-body-fallback.md 가이드 따라 iter 2부터 진행. iter 1 완료 (parser fix commit be2e722). --completion-promise AGENDA_HIERARCHY_EXTRACTION_VERIFIED --max-iterations 6
 ```
 
-# Ralph 7: 안건 호수 hierarchy 정확 추출 + title 매칭
+# Ralph 7: 호수 hierarchy 정확 추출 + D 패턴 amendments body fallback
 
 ## Context
 
@@ -42,9 +42,9 @@ Ralph 6 (260510_0747)에서 _law_layer body 매칭 시도 → 회귀 (LG화학 s
 - `parse_agenda_details_xml`: 목적사항별 기재사항
 - `parse_aoi_xml(html, sub_agendas=...)`: amendments — sub_agendas 인자 받음
 
-**문제**:
-1. parser가 호수 hierarchy를 정확히 추출하나? → 검증 필요
-2. D 패턴 회사는 amendments[].label/clause로 가상 sub 생성 (Ralph 7 원안)
+**문제 + 진행 상태**:
+1. parser가 호수 hierarchy를 정확히 추출하나? → ✅ iter 1 검증 완료 (10/10 회사 거의 완벽, LG화학 미세 버그 1건만 fix)
+2. D 패턴 회사 (raw에 sub 자체 부재) catch 방법 → **amendments body fallback** (가상 sub 생성 X / hierarchy 변경 X)
 
 ## 가정
 
@@ -87,7 +87,7 @@ elif _is_charter_top(agenda) and not agenda.children and amendments:
 - `_is_charter_top(agenda)` 헬퍼 (top "정관" + "변경"/"개정")
 - `_law_layer_body(amendments, ...)` — amendments label+clause+before+after+reason 텍스트 합쳐 매칭
 - 진입 조건 strict (children == 0 + 정관변경 top + amendments 비어있지 않음)
-- _law_layer 시그니처 또는 호출부 변경 (호출부에서 fallback 추가가 더 격리됨)
+- **호출부에서 fallback 추가** (proxy_advise 안건 loop) — _law_layer 본 함수는 변경 X, 격리 유지
 
 ### G3. 4 미매치 회사 catch
 
