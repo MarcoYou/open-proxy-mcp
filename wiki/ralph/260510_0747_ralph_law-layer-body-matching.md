@@ -42,10 +42,16 @@ Ralph 4 + 후속 audit (260510_law_layer_450)에서 발견:
 - 4 미매치 회사 (에코프로비엠/카카오게임즈/에스엠/메리츠금융지주) catch
 - regression 0 (기존 title 매칭 유지)
 
-### G2. 광범위 sample 추가
-- KOSPI 200~300 spot (~100 회사) — 신규 universe csv 생성
-- KOSDAQ 150~300 spot (~150 회사)
-- 분쟁 회사 spot 재실행 (이전 20 + 신규 10)
+### G2. 광범위 sample 추가 (이미 검증한 KOSPI 1~200 + KOSDAQ 1~150 외 신규)
+
+이미 검증 (350 회사):
+- ✅ KOSPI 시총 1~200위 (kospi_200.json, 260510)
+- ✅ KOSDAQ 시총 1~150위 (kosdaq_150.json, 260510)
+
+신규 spot (Ralph 6에서 추가):
+- 🆕 KOSPI 시총 **201~300위** (~100 회사) — universe csv 신규 생성
+- 🆕 KOSDAQ 시총 **151~300위** (~150 회사) — 기존 universe_kosdaq_300.csv 활용 (151~300)
+- 🆕 분쟁 회사 신규 10개 추가 — 두산밥캣/태영건설/HYBE 등 (이전 20 + 신규 10 = 30)
 
 ### G3. 미사용 룰 활성화 시도
 - B1-1~B1-3, B1-5 (시차임기, 보수 정관 명시 등) — body 매칭으로 catch 가능 여부
@@ -73,16 +79,16 @@ Ralph 4 + 후속 audit (260510_law_layer_450)에서 발견:
 
 ### Phase 2 — 새 sample 광범위 (iter 3-5)
 
-#### iter 3. KOSPI 200~300 universe + spot
-- 시총 ranking으로 KOSPI 200~300 universe csv 생성
-- spot ~100 회사
+#### iter 3. KOSPI 시총 201~300위 신규 spot (~100 회사)
+- universe csv 신규 생성 (DART corpCode 시총 sort 또는 KRX ranking)
+- 이전 audit 미포함 회사들
 
-#### iter 4. KOSDAQ 150~300 spot
-- 기존 universe_kosdaq_300.csv 활용
-- 150~300 = 150 회사
+#### iter 4. KOSDAQ 시총 151~300위 신규 spot (~150 회사)
+- 기존 universe_kosdaq_300.csv 활용, 151~300 슬라이스
+- 이전 audit 미포함 회사들
 
-#### iter 5. 분쟁 회사 재spot + 통합
-- 분쟁 회사 universe 확장 (20 → 30, 신규 회사 추가)
+#### iter 5. 분쟁 회사 신규 10개 + 통합
+- 분쟁 universe 확장 (20 → 30, 두산밥캣/태영건설/HYBE 등 신규)
 - 통합 분석: 미사용 룰 활성화 (B1-1~B1-3 / B1-5 / B2-* 등)
 
 ### Phase 3 — 룰 정밀화 + 회귀 (iter 6)
