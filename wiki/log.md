@@ -3,6 +3,23 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-10] fix | production wiki/rules/laws/ 누락 — Dockerfile COPY 추가 (★ 중대)
+
+**핵심 발견**: production /app에 wiki/ 디렉토리 자체 없음 (Dockerfile COPY 누락).
+- `law_layer_rules.json` (38 룰) load 실패 → empty list
+- `_law_layer()` 항상 None → **38 법령 룰이 production에서 작동 X**
+- LG화학 misread 사례의 진짜 원인: LLM hallucination이 아니라 production 코드가 38 룰을 못 봄
+
+**fix (b5951a4)**:
+- Dockerfile에 `COPY wiki/rules/laws/ wiki/rules/laws/` 추가
+- v355 deploy 완료 (production /app/wiki/rules/laws/ 4 파일 활성)
+
+**llm_misread_patterns.json 신규 catalog (6 패턴)**:
+- M-1: 배제 조항 삭제 / M-2: 의결권 제한 강화 / M-3: 독립이사 명칭 / M-4: 전자주총 / M-5: 분리선출 / M-6: 자기주식 의무소각
+- proxy_advise._load_llm_misread_patterns + _find_misread_guard dynamic load
+- 새 misread 패턴 발견 시 JSON 한 줄 추가 — 코드 변경 X
+- Tool description (Layer 1)에 ⛔ CRITICAL 가이드 inline (Claude 매 호출 전 system prompt에 포함)
+
 ## [2026-05-10] feat | proxy_advise B1/B2 raw 첨부 + decision 시각 강조 + 운용사·NPS 익명화 4 Phase
 
 **LLM misread 방지 (LG화학 사례 trigger)**:
