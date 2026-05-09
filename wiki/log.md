@@ -3,6 +3,29 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-09] perf | financial_metrics yoy scope 병렬화 (3배 단축)
+
+**효율성 audit (Explore agent)**:
+- 37 파일 (services 21 + tools_v2 16) 중복 호출 / 비효율 패턴 점검
+- 6 발견 사항 (Sequential 1 / 중복 fetch 3 / parsing 중복 1 / scope 중복 1)
+- cache 인프라 견고 (memory LRU 200 + sqlite 24h + disk) → 실제 API 추가 제한적
+
+**진행한 fix (#1만)** — 다른 fix는 trade-off로 skip:
+- `services/financial_metrics.py:1206-1218` yoy scope:
+  - sequential `await x; await y; await z` (3-9초)
+  - → `asyncio.gather(curr, prev, audit)` 병렬 (1.0~1.4초)
+- 검증: LG화학/셀트리온/NAVER cold start 모두 1초대 / status=exact / curr+prev / alerts 정상
+- regression 위험 0 (read-only API + 독립 인자 + tuple unpacking만)
+
+**Skip 결정**:
+- #2 audit_opinion module cache: stale risk (사업보고서 신규 발행 시 옛 데이터)
+- #3 block_holders 인자 전달: 효과 작음 (fallback 발동 빈도 낮음)
+- #4 retirement parsing 통합: 호출 흐름 변경 → 다른 회귀 가능
+
+**효과**: 100 회사 배치 시 yoy scope 3-7분 단축.
+
+**commit**: 521b64b
+
 ## [2026-05-09] docs | wiki 트리 정책 명문화 + lint hook + CLAUDE.md 정리
 
 **Wiki 그래프 audit (260509_wiki_graph_audit)**:
