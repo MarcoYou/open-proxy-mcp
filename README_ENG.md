@@ -83,7 +83,7 @@ company                            # Company ID + recent filings index
 │  ├─ shareholder_meeting_notice   # AGM convocation notice (pre-meeting, DART)
 │  └─ shareholder_meeting_results  # AGM voting results (post-meeting, KIND)
 │
-├─ Data Tools (10)
+├─ Data Tools (11)
 │  ├─ ownership_structure          # Ownership (largest shareholders / 5% / control_map)
 │  ├─ dividend                     # Dividend facts + quarterly breakdown
 │  ├─ financial_metrics            # DART 4-endpoint — 51 metrics + DuPont

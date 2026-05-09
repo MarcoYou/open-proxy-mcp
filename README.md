@@ -83,7 +83,7 @@ company                            # 기업 식별 + 최근 공시 인덱스
 │  ├─ shareholder_meeting_notice   # 주총 소집공고 (사전, DART)
 │  └─ shareholder_meeting_results  # 주총 의결 결과 (사후, KIND)
 │
-├─ Data Tools (10)
+├─ Data Tools (11)
 │  ├─ ownership_structure          # 지분 구조 (최대주주/5%/control_map)
 │  ├─ dividend                     # 배당 사실 + 분기별 breakdown
 │  ├─ financial_metrics            # DART 재무 4 endpoint — 51 지표 + 듀퐁
