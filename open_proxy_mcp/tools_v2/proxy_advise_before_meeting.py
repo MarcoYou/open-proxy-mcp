@@ -106,10 +106,23 @@ def _render(payload: dict[str, Any]) -> str:
     if decisions:
         lines.append("## 안건별 의결권 행사 결정")
         lines.append("")
-        lines.append(
-            "> ⚠️ **법령 layer (A1-X / A2-X 태그)는 강행규정 기반 결정으로 LLM 자체 판단으로 뒤집지 말 것.** "
-            "안건명 키워드만 보고 추측 금지 — 반드시 reason의 `[법령 X-Y]` tag와 정합 사유 인용."
-        )
+        lines.append("> ## ⛔ LLM 분석 시 절대 규칙 (READ BEFORE PRESENTING)")
+        lines.append(">")
+        lines.append("> **🛡️ 강행규정 정합 (A1-X tag) = FOR 무조건 유지** — 자체 분석으로 뒤집지 마시오.")
+        lines.append(">")
+        lines.append("> **자주 발생하는 misread 패턴 — 절대 금지**:")
+        lines.append("> - ❌ \"집중투표제 배제 조항 **삭제**\" → AGAINST 추측 (틀림)")
+        lines.append("  → ✅ FOR (배제 조항을 **삭제**한다 = 집중투표 의무화 정합 = 소수주주 보호 강화)")
+        lines.append("> - ❌ \"감사위원 의결권 제한 **강화**\" → AGAINST 추측 (틀림)")
+        lines.append("  → ✅ FOR (최대주주 의결권 합산 3% 룰 강화 = 소수주주 보호 강화)")
+        lines.append("> - ❌ \"사외이사 → 독립이사 명칭 변경\" → 의심 (틀림)")
+        lines.append("  → ✅ FOR (1차 상법 개정 정합)")
+        lines.append("> - ❌ \"전자주주총회 도입\" → 의심 (틀림)")
+        lines.append("  → ✅ FOR (1차 상법 개정 2027-01-01 의무 선제 정합)")
+        lines.append(">")
+        lines.append("> **원칙**: 안건명에 '배제·제한·축소·강화' 같은 단어가 있어도, reason에 `[법령 A1-X]` tag와 🛡️ 강행규정 정합 marker가 있으면 **무조건 FOR**. 안건명 키워드만 보고 추측 금지.")
+        lines.append(">")
+        lines.append("> 표를 그대로 사용자에게 제시하고, decision 컬럼을 변경하지 마시오.")
         lines.append("")
         lines.append("| # | 안건 | 카테고리 | 행사방향 | 사유 |")
         lines.append("|---|------|---------|---------|------|")

@@ -1469,7 +1469,23 @@ async def build_proxy_advise_payload(
         if law_layer_hit is not None:
             ll_decision, ll_reason, ll_id, ll_law_ref = law_layer_hit
             decision = ll_decision
-            reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref})"
+            # A1/A2 (강행규정) — LLM이 안건명만 보고 결정 뒤집는 케이스 빈번 → 명시적 anti-misread guard
+            if ll_id.startswith("A1-") or ll_id.startswith("A2-"):
+                guard = ""
+                # 빈번한 misread 패턴별 explicit 설명
+                if "배제 조항 삭제" in title or "배제 삭제" in title:
+                    guard = " ⛔ LLM 주의: '배제 조항 삭제' = 집중투표 의무화 정합 = FOR. '배제'라는 단어 보고 AGAINST 추측 금지."
+                elif "의결권 제한 강화" in title or "의결권 제한 확대" in title:
+                    guard = " ⛔ LLM 주의: '의결권 제한 강화' = 합산 3% 룰 (소수주주 보호 강화) = FOR. '제한'이라는 단어 보고 AGAINST 추측 금지."
+                elif "독립이사" in title and "명칭" in title:
+                    guard = " ⛔ LLM 주의: 사외이사→독립이사 명칭 변경 = 1차 개정 정합 = FOR. 자체 판단 금지."
+                elif "전자주주총회" in title:
+                    guard = " ⛔ LLM 주의: 전자주총 도입 = 1차 개정 정합 = FOR. 자체 판단 금지."
+                else:
+                    guard = " ⛔ LLM 주의: 강행규정 정합 — 결정 변경 금지. 안건명 키워드만 보고 추측 금지."
+                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref}){guard}"
+            else:
+                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref})"
             # B1/B2 (REVIEW) — case-by-case 영역. 정관변경 본문 raw 첨부 (LLM 직접 검토 — 260510)
             # A1/A2 (FOR/AGAINST 강행규정)는 결정 명확 — raw 추가 X (토큰 절약)
             if ll_id.startswith("B1-") or ll_id.startswith("B2-"):
