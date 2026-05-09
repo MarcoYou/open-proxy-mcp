@@ -1159,10 +1159,12 @@ async def build_proxy_advise_payload(
         async with _UPSTREAM_SEM:
             return await _safe(fn, *args, **kw)
 
-    meeting_summary, meeting_agenda, meeting_comp, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
+    meeting_summary, meeting_agenda, meeting_comp, meeting_aoi, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
         _safe_throttled(build_shareholder_meeting_payload, company_query, scope="summary", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_shareholder_meeting_payload, company_query, scope="agenda", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_shareholder_meeting_payload, company_query, scope="compensation", year=target_year, meeting_type=meeting_type),
+        # aoi_change scope — B1/B2 hit 안건의 정관 변경 본문 raw (cache hit이라 free, parsing CPU만)
+        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="aoi_change", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_ownership_structure_payload, company_query, scope="control_map"),
         _safe_throttled(build_corp_gov_report_payload, company_query, scope="summary"),
         _safe_throttled(build_financial_metrics_payload, company_query, scope="summary", year=fin_year),
@@ -1304,6 +1306,41 @@ async def build_proxy_advise_payload(
         corp_total_asset_won = None
     today_iso_for_law = date.today().isoformat()
 
+    # aoi_change scope에서 amendments raw 추출 — B1/B2 hit 시 본문 인용용 (260510 raw 보강)
+    aoi_amendments: list[dict[str, Any]] = []
+    try:
+        aoi_data = (meeting_aoi or {}).get("data") or {}
+        aoi_change_raw = aoi_data.get("aoi_change") or {}
+        aoi_amendments = aoi_change_raw.get("amendments") or []
+    except Exception:
+        aoi_amendments = []
+
+    def _find_amendment_for_title(t: str) -> dict[str, Any] | None:
+        """안건 title에 해당하는 amendment 매칭. label/reason/before/after 키워드 fuzzy 매칭."""
+        if not aoi_amendments or not t:
+            return None
+        t_clean = t.strip().replace(" ", "")
+        # 1. label 직접 매칭
+        for am in aoi_amendments:
+            label = (am.get("label") or "").strip().replace(" ", "")
+            if label and label != "제" and (label in t_clean or t_clean in label):
+                return am
+        # 2. reason / before / after 본문에서 keyword overlap (3+자 substring)
+        # 안건 title의 의미 있는 키워드 추출 (제외: 의/건/안)
+        title_keywords = [w for w in t.replace("의 건", "").replace("의건", "").split() if len(w) >= 2]
+        if not title_keywords:
+            return None
+        best_score = 0
+        best_am = None
+        for am in aoi_amendments:
+            haystack = (am.get("reason", "") + " " + am.get("before", "") + " " + am.get("after", ""))
+            score = sum(1 for kw in title_keywords if kw in haystack)
+            if score > best_score:
+                best_score = score
+                best_am = am
+        # 최소 2 키워드 매칭 (집중투표 + 배제 / 의결권 + 제한 등)
+        return best_am if best_score >= 2 else None
+
     # 안건별 결정 + 사유 (vote_style 정책 wire 적용)
     agenda_decisions: list[dict[str, Any]] = []
     for title in agenda_titles:
@@ -1433,6 +1470,23 @@ async def build_proxy_advise_payload(
             ll_decision, ll_reason, ll_id, ll_law_ref = law_layer_hit
             decision = ll_decision
             reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref})"
+            # B1/B2 (REVIEW) — case-by-case 영역. 정관변경 본문 raw 첨부 (LLM 직접 검토 — 260510)
+            # A1/A2 (FOR/AGAINST 강행규정)는 결정 명확 — raw 추가 X (토큰 절약)
+            if ll_id.startswith("B1-") or ll_id.startswith("B2-"):
+                am = _find_amendment_for_title(title)
+                if am:
+                    before_raw = (am.get("before") or "").strip()
+                    after_raw = (am.get("after") or "").strip()
+                    if before_raw or after_raw:
+                        # raw 첨부 (LLM 본문 직접 검토용 — 결정은 REVIEW 유지)
+                        clause = am.get("clause") or "?"
+                        raw_excerpt = []
+                        if before_raw:
+                            raw_excerpt.append(f"[{clause} 변경 전] {before_raw[:400]}")
+                        if after_raw:
+                            raw_excerpt.append(f"[{clause} 변경 후] {after_raw[:400]}")
+                        if raw_excerpt:
+                            reason += "\n\n📄 정관 본문 raw (LLM 직접 검토):\n" + "\n".join(raw_excerpt)
 
         # 2. vote_style 정책 default가 명확하면 (for / against / review) 그걸 우선
         # case_by_case면 OPM fallback 결정 유지.

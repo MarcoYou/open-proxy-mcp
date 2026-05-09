@@ -147,7 +147,11 @@ def _render(payload: dict[str, Any]) -> str:
             citation = ag.get("policy_citation") or "-"
             policy_basis = ag.get("policy_basis") or "-"
             rcept_no = ag.get("evidence_rcept_no")
+            full_reason = ag.get("reason") or ""
             lines.append(f"**{i}. {title}** — {ag.get('decision','-')}")
+            # reason full (표는 250자 truncate, detail은 full — 정관 본문 raw 포함)
+            if full_reason:
+                lines.append(f"- 사유 (full): {full_reason}")
             if facts:
                 fact_str = ", ".join(f"{k}={v}" for k, v in facts.items())
                 lines.append(f"- 사실(facts): {fact_str}")
