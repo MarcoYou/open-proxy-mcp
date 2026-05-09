@@ -3,7 +3,7 @@ type: tool
 title: proxy_guideline
 domain: policy_matrix
 scope: [policy, record, predict, compare, consensus, audit, nps_record]
-data_source: [정적 JSON (open_proxy_mcp/data/asset_managers/) — 7 운용사 정책 + 행사내역 + OPM Guideline + 12 매트릭스, NPS는 fund.nps.or.kr 직접 크롤링]
+data_source: [정적 JSON (open_proxy_mcp/data/asset_managers/) — 7 운용사 정책 + 행사내역 + OPM Guideline + 12 매트릭스, N연기금는 fund.nps.or.kr 직접 크롤링]
 related_disclosures: []
 related_concepts: [의결권, 보수한도, 정관변경, 주주제안]
 related_decisions: [open-proxy-guideline, matrix-system, 260429_0059_debate_opm-guideline-7전문가, 260429_0216_improvement_turnkey-11agent, 260429_0059_decision_voting-policy-consensus-matrix]
@@ -14,7 +14,7 @@ created: 2026-05-01
 # proxy_guideline
 
 ## 한 줄 요약
-자산운용사 의결권 행사 정책 + 행사내역 + Open Proxy Guideline + 12 카테고리 매트릭스 자동 채점 + 국민연금(NPS) 통합 조회. **DART API 호출 0회** (정적 데이터).
+자산운용사 의결권 행사 정책 + 행사내역 + Open Proxy Guideline + 12 카테고리 매트릭스 자동 채점 + N연기금(N연기금) 통합 조회. **DART API 호출 0회** (정적 데이터).
 
 ## 사용법
 ```
@@ -29,8 +29,8 @@ proxy_guideline(
 
 자연어 예시:
 - "OPM 정책으로 삼성전자 안건 자동 채점" → `scope="predict", policy_id="open_proxy", auto_score=True`
-- "미래에셋 vs 삼성자산운용 정책 비교" → `scope="compare", compare_policies=["mirae_asset", "samsung"]`
-- "고려아연 NPS 의결권 행사내역" → `scope="nps_record", company="고려아연"`
+- "M레거시 vs S레거시 정책 비교" → `scope="compare", compare_policies=["m_legacy", "s_legacy"]`
+- "고려아연 N연기금 의결권 행사내역" → `scope="nps_record", company="고려아연"`
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
@@ -48,7 +48,7 @@ proxy_guideline(
 | meeting_date / notice_disclosure_date | str | no | predict scope 컨텍스트 | "" |
 | extra_agenda_titles | list[str] | no | 빙고 평가 보강 | None |
 | fetch_detail | bool | no | nps_record 상세 가져오기 | True |
-| force_refresh | bool | no | NPS 캐시 무효화 | False |
+| force_refresh | bool | no | N연기금 캐시 무효화 | False |
 | max_details | int | no | 상세 최대 개수 | 5 |
 | format | str | no | "md" / "json" | "md" |
 
@@ -59,7 +59,7 @@ scope:
 - `compare`: N개 정책 비교 매트릭스 (default 모든 운용사 + open_proxy)
 - `consensus`: 운용사 합의/이견 (79 토픽, 12 카테고리)
 - `audit`: 정책 vs 실제 행사내역 갭 (manager 필수)
-- `nps_record`: 국민연금 안건별 행사내역 (fund.nps.or.kr 직접 크롤링)
+- `nps_record`: N연기금 안건별 행사내역 (fund.nps.or.kr 직접 크롤링)
 
 ## 출력 schema (data dict, scope별 다름)
 ```json
@@ -86,13 +86,13 @@ scope:
 }
 ```
 
-지원 운용사: `mirae_asset` / `samsung` / `samsung_active` / `truston` / `kim` / `align_partners` (행동주의) / `baring` (외국계 ISS 참조)
+지원 운용사: `m_legacy` / `s_legacy` / `sa_active` / `t_activist` / `kim` / `a_activist` (행동주의) / `b_foreign` (외국계 ISS 참조)
 + `open_proxy` (OPM 자체 정책 v1.2)
 
 ## Data sources
 - **정적 JSON**: `open_proxy_mcp/data/asset_managers/{manager}/policy.json` + `votes.json` + `matrix/*.json`
 - **DART API 호출 0회** (정적 데이터)
-- **NPS scope**: `fund.nps.or.kr` 직접 크롤링 (정적 캐싱). NPS 코드 5자리 + '0' = 표준 6자리 티커.
+- **N연기금 scope**: `fund.nps.or.kr` 직접 크롤링 (정적 캐싱). N연기금 코드 5자리 + '0' = 표준 6자리 티커.
 - **predict + auto_score=True**: 추가 data tool 호출 (board, corp_gov, ownership 등) → ~85 dim 자동 채점
 
 ## Flow
@@ -130,7 +130,7 @@ sequenceDiagram
         T->>T: 빙고 매칭 + score_threshold → auto_decision (for/against/review)
     else scope=nps_record
         T->>N: fund.nps.or.kr 크롤링 (캐시 적중 시 0회)
-        N-->>T: NPS 행사내역
+        N-->>T: N연기금 행사내역
         opt fetch_detail=True
             T->>N: 안건별 상세 (max_details개)
         end
@@ -139,7 +139,7 @@ sequenceDiagram
     T-->>U: ToolEnvelope (scope별 data + disclaimer)
 ```
 
-호출 횟수: scope별 0회 (정적). predict + auto_score=True는 +5-10 data tool 호출. nps_record는 NPS 1-N회.
+호출 횟수: scope별 0회 (정적). predict + auto_score=True는 +5-10 data tool 호출. nps_record는 N연기금 1-N회.
 
 ## 파싱 전략
 - 정적 JSON 기반 (12 카테고리 룰 요약 + novel topics + Korea-specific).
@@ -148,7 +148,7 @@ sequenceDiagram
   - manual 입력 권장 dim (adverse_news 등): `matrix_dimensions={"dim_id": 0|1|2}` 형태
 - 빙고 패턴 인터프리터: 복합 조건 (예: 최대주주 50%+ AND 사외이사 미달) 매칭 시 자동 결정 override
 - 매트릭스 채점 오류 시 conservative review로 fallback
-- NPS 캐싱: force_refresh=True 시 무효화
+- N연기금 캐싱: force_refresh=True 시 무효화
 
 ## 관련 공시 (rules/disclosures/)
 - 해당 없음 (정책 매트릭스 — 공시 본문 비의존)
@@ -176,5 +176,5 @@ sequenceDiagram
 
 ## 변경 이력
 - 2026-04-29: open-proxy-guideline v1.2 + 12 매트릭스 (100 dim, 76 빙고) + 자동 채점 시스템 v1.3
-- 2026-04-29: NPS scope 추가 (fund.nps.or.kr 직접 크롤링)
+- 2026-04-29: N연기금 scope 추가 (fund.nps.or.kr 직접 크롤링)
 - 2026-05-01: tool wiki 페이지 작성

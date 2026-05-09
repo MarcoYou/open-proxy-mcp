@@ -402,7 +402,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 파일 크기 제한: 약 50MB → 페이지 추출 후 호출 권장 (`extract_pdf_pages` 헬퍼)
 - 처리 시간: 10초+ (3-tier에서 가장 느림)
 - 사용 흐름: opendataloader 마크다운 → 키워드로 페이지 특정(`_PARSER_KEYWORDS`) → 앞뒤 1페이지 포함 최대 10페이지 추출 → Upstage OCR → 동일 파서 재투입(`ocr_fallback_for_parser`)
-- 적용 대상: vector glyph PDF(미래에셋 정책 등), 이미지 공고
+- 적용 대상: vector glyph PDF(M레거시 정책 등), 이미지 공고
 - v2: 기본 미사용. v1 / open-proxy-ai 파이프라인에서 활용
 
 ---
@@ -433,11 +433,11 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 | `records/` | 운용사 행사내역 (period별) | 16 |
 
 운용사 8종 + OPM 1종(open_proxy):
-- a_activist (얼라인파트너스), b_foreign (베어링), c_activist (차파트너스), k_legacy (한국투자신탁), m_legacy (미래에셋), s_legacy (삼성), sa_active (삼성액티브), t_activist (트러스톤), open_proxy_v1 (OPM 자체 정책 v1.2)
+- a_activist (A행동주의), b_foreign (B외국계), c_activist (C행동주의), k_legacy (한국투자신탁), m_legacy (M레거시), s_legacy (삼성), sa_active (삼성액티브), t_activist (T행동주의), open_proxy_v1 (OPM 자체 정책 v1.2)
 
 원본 정적 데이터(엑셀·PDF):
 - `wiki/raw/records/2024.04~2026.04 *_의결권 행사내역.xlsx` (17건)
-- `wiki/raw/policies/2025.04~2026.04 *_의결권행사 내부지침.pdf` (9건, NPS 포함)
+- `wiki/raw/policies/2025.04~2026.04 *_의결권행사 내부지침.pdf` (9건, N연기금 포함)
 - 위 원본은 사전 수집·구조화되어 JSON으로 사내 보관
 
 ---

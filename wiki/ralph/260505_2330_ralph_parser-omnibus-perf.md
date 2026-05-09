@@ -27,7 +27,7 @@ ref:
 - aoi_change에 retirement raw 통합 (data tool 원칙)
 - **prov_financials scope 신설** — 잠정 재무제표 4 quadrant raw (parse_provisional_financial_statement)
 - `provisional_financial_statement.py` 독립 모듈 (parser.py 의존성 제거)
-- 보수/퇴직 분기 정밀화 (n=226, G1 99-100% / G3 100% / G4 NPS 정합 100%)
+- 보수/퇴직 분기 정밀화 (n=226, G1 99-100% / G3 100% / G4 N연기금 정합 100%)
 
 이번 ralph 목적:
 1. **모든 active 파서 G1 측정 + 강화** — 데이터 한계는 정직히 기록

@@ -68,9 +68,9 @@ ticker,company,agenda_category,our_decision,majority_decision,majority_strength,
 012330,현대모비스,audit_committee_election,FOR,FOR,35/37,follows_consensus,exact
 012330,현대모비스,director_compensation,FOR,FOR,18/18,follows_consensus,exact
 012330,현대모비스,articles_amendment,FOR,FOR,41/41,follows_consensus,exact
-006800,미래에셋증권,cash_dividend,FOR,FOR,6/8,follows_consensus,exact
-006800,미래에셋증권,director_election,REVIEW,FOR,30/47,weak_consensus_review_ok,exact
-006800,미래에셋증권,audit_committee_election,REVIEW,FOR,21/30,unique,exact
+006800,M레거시증권,cash_dividend,FOR,FOR,6/8,follows_consensus,exact
+006800,M레거시증권,director_election,REVIEW,FOR,30/47,weak_consensus_review_ok,exact
+006800,M레거시증권,audit_committee_election,REVIEW,FOR,21/30,unique,exact
 035420,NAVER,financial_statements,FOR,FOR,5/5,follows_consensus,exact
 035420,NAVER,director_election,FOR,FOR,29/29,follows_consensus,exact
 035420,NAVER,audit_committee_election,FOR,FOR,28/31,follows_consensus,exact

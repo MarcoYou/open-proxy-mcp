@@ -13,7 +13,7 @@ ref:
 ## Invoke (복붙)
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260505_2200_ralph_compensation-retirement-precision.md 가이드 따라 보수 퇴직금 분기 정밀화. financial_metrics summary에 prev year 노출하여 흑자 yoy 감소 trigger 작동 + 소진율 단독 강화 + 피에스케이 parser NO_DATA fix + OLD parser batch 재측정. 파싱 성공률 99 퍼센트 이상 + trigger 발생 시 정확도 100 퍼센트 + 운용사 majority 정합도 90 퍼센트 이상 + NPS 정책 정합 100 퍼센트 모두 충족 시 promise. --completion-promise COMPENSATION_RETIREMENT_PRECISION_VERIFIED --max-iterations 5
+/ralph-loop:ralph-loop wiki/ralph/260505_2200_ralph_compensation-retirement-precision.md 가이드 따라 보수 퇴직금 분기 정밀화. financial_metrics summary에 prev year 노출하여 흑자 yoy 감소 trigger 작동 + 소진율 단독 강화 + 피에스케이 parser NO_DATA fix + OLD parser batch 재측정. 파싱 성공률 99 퍼센트 이상 + trigger 발생 시 정확도 100 퍼센트 + 운용사 majority 정합도 90 퍼센트 이상 + N연기금 정책 정합 100 퍼센트 모두 충족 시 promise. --completion-promise COMPENSATION_RETIREMENT_PRECISION_VERIFIED --max-iterations 5
 ```
 
 # Ralph: 보수한도 / 퇴직금 분기 정밀화
@@ -59,7 +59,7 @@ ref:
 ### FOR — 정상 case (mainstream 운용사 패턴)
 
 **이사 보수한도**:
-- 인상률 -10 ~ +10% (동결 또는 소폭) — NPS IV-33① "이사회 안 원칙적 찬성"
+- 인상률 -10 ~ +10% (동결 또는 소폭) — N연기금 IV-33① "이사회 안 원칙적 찬성"
 - 한도 감액 (-10% 미만) — 주주가치 우호
 - 인상률 +10 ~ +30% **AND** 순익 yoy ≥ +5% (경영성과 양호)
 - 소진율 ≥100% **AND** 인상 (한도 부족 정당화)
@@ -81,18 +81,18 @@ ref:
 **이사 보수한도** — "오바해서 올리거나 / 사용 안하면서 늘리거나 / 잘 못하는데 인상":
 - **자본잠식 (full) + 인상** — 회사 위기인데 보수 늘림 (OPM Guideline)
 - **소진율 < 30% + 인상** — 남는데 더 (mainstream "남는데 더 늘림")
-- **적자 (ni<0) OR 순익 yoy<0 + 인상** — 잘 못하는데 인상 (OPM #2 / NPS IV-33②)
+- **적자 (ni<0) OR 순익 yoy<0 + 인상** — 잘 못하는데 인상 (OPM #2 / N연기금 IV-33②)
   - **🚧 현재 fetch chain miss로 yoy<0 trigger 미작동 — 이번 ralph 핵심 fix**
 - 데이터 부족 + 자본잠식 — 회사 위기
 
-**감사 보수한도** (NPS IV-34 양방향):
+**감사 보수한도** (N연기금 IV-34 양방향):
 - 자본잠식 + 인상
 - 소진율 < 30% + 인상 (이사와 동일)
-- **1인당 평균 < threshold_low (5천만)** — NPS IV-34 "과소" (감사 충실 업무 훼손)
+- **1인당 평균 < threshold_low (5천만)** — N연기금 IV-34 "과소" (감사 충실 업무 훼손)
 - **인상률 ≥ +50% AND 1인당 평균 > threshold_high (1억)** — s_legacy 패턴 (경영진 동조 인센티브)
 
-**퇴직금** (NPS IV-35 + OPM #6/#7):
-- **황금낙하산 / 경영권 변동 special 가산 신설** — NPS IV-35①
+**퇴직금** (N연기금 IV-35 + OPM #6/#7):
+- **황금낙하산 / 경영권 변동 special 가산 신설** — N연기금 IV-35①
 - **사외이사 퇴직금 신설** — OPM #6 (사외이사 퇴직혜택 부여 against)
 - **지급률 ≥ 2배수 인상** — s_legacy strict 패턴
 
@@ -150,9 +150,9 @@ KOSPI 200 + KOSDAQ 50 (n=226)에서:
 4+ majority case 기준. 현재 12/12 = 100% ✓ (단 표본 작음).
 재측정 후도 90%+ 유지.
 
-### G4. NPS 정책 정합 100%
-trigger 발생 case에서 NPS [별표 1] IV-33/34/35 와 일치:
-- AGAINST 결정이 NPS 정책 trigger와 매칭
+### G4. N연기금 정책 정합 100%
+trigger 발생 case에서 N연기금 [별표 1] IV-33/34/35 와 일치:
+- AGAINST 결정이 N연기금 정책 trigger와 매칭
 - 발생 안 하면 N/A (정상 case는 mainstream FOR)
 
 ---

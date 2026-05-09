@@ -1,11 +1,11 @@
 ticker,company,market,meeting_type,run_no,status,elapsed_s,canonical_name,agenda_count,for_count,against_count,review_count,candidates_count,revenue_krw,roe_pct,debt_ratio_pct,capital_impairment_status,audit_opinion_latest,score_for_pct,score_against_pct,score_review_pct,warnings_first
 005930,삼성전자,KOSPI,annual,1,exact,22.7,삼성전자,10,7,0,3,9,333605938000000,10.56,29.94,normal,,70.0,0.0,30.0,
-006800,미래에셋증권,KOSPI,annual,2,exact,26.3,미래에셋증권,10,1,0,9,0,29283028000000,12.3,1015.01,normal,,10.0,0.0,90.0,
+006800,M레거시증권,KOSPI,annual,2,exact,26.3,M레거시증권,10,1,0,9,0,29283028000000,12.3,1015.01,normal,,10.0,0.0,90.0,
 066430,아이로보틱스,KOSDAQ,extraordinary,3,exact,31.7,아이로보틱스,10,0,0,10,0,36426291956,3.93,15.88,normal,,0.0,0.0,100.0,
 207940,삼성바이오로직스,KOSPI,annual,3,exact,34.7,삼성바이오로직스,8,1,0,7,5,4556971695180,19.38,48.44,normal,,12.5,0.0,87.5,
 028260,삼성물산,KOSPI,annual,3,exact,35.9,삼성물산,7,1,0,6,0,40742240967149,40.72,50.5,normal,,14.3,0.0,85.7,
 000250,삼천당제약,KOSDAQ,annual,1,exact,42.4,삼천당제약,8,3,0,5,3,231805277738,3.37,54.36,normal,,37.5,0.0,62.5,
-006800,미래에셋증권,KOSPI,annual,3,exact,11.8,미래에셋증권,10,1,0,9,0,29283028000000,12.3,1015.01,normal,,10.0,0.0,90.0,
+006800,M레거시증권,KOSPI,annual,3,exact,11.8,M레거시증권,10,1,0,9,0,29283028000000,12.3,1015.01,normal,,10.0,0.0,90.0,
 086790,하나금융지주,KOSPI,annual,2,exact,22.0,하나금융지주,10,1,7,2,11,,8.8,1377.89,normal,,10.0,70.0,20.0,
 299660,셀리드,KOSDAQ,extraordinary,3,no_filing,15.6,셀리드,0,0,0,0,0,8841828282,-19.25,49.41,normal,,0,0,0,
 000250,삼천당제약,KOSDAQ,annual,2,exact,11.1,삼천당제약,8,3,0,5,3,231805277738,3.37,54.36,normal,,37.5,0.0,62.5,

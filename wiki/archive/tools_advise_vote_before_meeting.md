@@ -33,7 +33,7 @@ advise_vote_before_meeting(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 사업연도 | 0 (자동) |
 | meeting_type | str | no | "annual" / "extraordinary" | "annual" |
-| vote_style | str | no | open_proxy / mirae_asset / samsung / truston / align_partners / nps 등 | "open_proxy" |
+| vote_style | str | no | open_proxy / m_legacy / s_legacy / t_activist / a_activist / nps 등 | "open_proxy" |
 | enable_marco | bool | no | Marco 시나리오 활성 (과거 회사 cross-check) | False |
 | format | str | no | "md" / "json" | "md" |
 

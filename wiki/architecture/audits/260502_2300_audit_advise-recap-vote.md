@@ -83,8 +83,8 @@ result: 정기/임시/edge case sanity 통과, 18→17 tool regression 0
 - proxy_guideline 정책별 자동 채점 wire는 Phase 2 (현재 advise는 default rule 기반)
 
 ## A5 / A6 backtest (Phase 2 — 학습 데이터 활용)
-- A5: 얼라인파트너스 12 회사 records (2024+2025+2026, ~150 votes 학습) vs 우리 advise — 실행 미수행 (별도 검증 작업)
-- A6: 9 비교군 (8 운용사 + NPS) — 학습 데이터 준비 완료 (records 12,949 votes + NPS list 2024/2025/2026)
+- A5: A행동주의 12 회사 records (2024+2025+2026, ~150 votes 학습) vs 우리 advise — 실행 미수행 (별도 검증 작업)
+- A6: 9 비교군 (8 운용사 + N연기금) — 학습 데이터 준비 완료 (records 12,949 votes + N연기금 list 2024/2025/2026)
 - 실제 backtest 일치율 측정은 vote_style 매핑 wire 후 별도 ralph 또는 audit로 진행
 
 ## 결론
@@ -103,7 +103,7 @@ result: 정기/임시/edge case sanity 통과, 18→17 tool regression 0
 | 정기 일감 | 한국타이어앤테크놀로지 | 2025 | annual | no_filing | 0 | 0 | 43.5s |
 | 정기 분할 | LG화학 | 2025 | annual | exact | 10 | 6 | 24.4s |
 | 정기 금융 | KB금융 | 2025 | annual | exact | 10 | 9 | 12.9s |
-| 정기 두산+얼라인 | 두산밥캣 | 2025 | annual | exact | 5 | 2 | 11.0s |
+| 정기 두산+A행동주의 | 두산밥캣 | 2025 | annual | exact | 5 | 2 | 11.0s |
 | 정기 행동주의 | 에스엠엔터테인먼트 | 2025 | annual | no_filing | 0 | 1 | 27.1s |
 | 정기 의료기기 | 인바디 | 2025 | annual | exact | 10 | 3 | 15.7s |
 | 정기 합병 | 셀트리온 | 2025 | annual | exact | 5 | 0 | 17.2s |
@@ -115,16 +115,16 @@ result: 정기/임시/edge case sanity 통과, 18→17 tool regression 0
 | 임시 KOSDAQ | 아이로보틱스 | 2026 | extraordinary | no_filing | 0 | 0 | 10.4s |
 | 임시 KOSDAQ | 솔트룩스 | 2026 | extraordinary | exact | 3 | 0 | 10.5s |
 | 위임장 KCGI | 한진칼 | 2025 | annual | exact | 10 | 3 | 8.7s |
-| 위임장 얼라인 | JB금융지주 | 2025 | annual | exact | 7 | 6 | 6.7s |
+| 위임장 A행동주의 | JB금융지주 | 2025 | annual | exact | 7 | 6 | 6.7s |
 | Edge 자본잠식 | 알지노믹스 | 2025 | annual | no_filing | 0 | 0 | 2.1s |
 | Edge 자본잠식 | 지투지바이오 | 2025 | annual | no_filing | 0 | 0 | 2.6s |
 | Edge 신규 상장 | 리브스메드 | 2025 | annual | no_filing | 0 | 0 | 5.7s |
-| 얼라인 행사 | KB금융지주 | 2025 | annual | error | 0 | 0 | 0.3s |
-| 얼라인 행사 | 신한지주 | 2025 | annual | exact | 10 | 11 | 10.5s |
-| 얼라인 행사 | 우리금융지주 | 2025 | annual | exact | 10 | 8 | 13.3s |
-| 얼라인 행사 | 코웨이 | 2025 | annual | exact | 10 | 5 | 12.7s |
-| 얼라인 행사 | 덴티움 | 2025 | annual | exact | 10 | 5 | 16.9s |
-| 얼라인 KOSDAQ | 가비아 | 2025 | annual | exact | 9 | 2 | 13.2s |
+| A행동주의 행사 | KB금융지주 | 2025 | annual | error | 0 | 0 | 0.3s |
+| A행동주의 행사 | 신한지주 | 2025 | annual | exact | 10 | 11 | 10.5s |
+| A행동주의 행사 | 우리금융지주 | 2025 | annual | exact | 10 | 8 | 13.3s |
+| A행동주의 행사 | 코웨이 | 2025 | annual | exact | 10 | 5 | 12.7s |
+| A행동주의 행사 | 덴티움 | 2025 | annual | exact | 10 | 5 | 16.9s |
+| A행동주의 KOSDAQ | 가비아 | 2025 | annual | exact | 9 | 2 | 13.2s |
 
 **통계**:
 - status: exact 20 (71%) / no_filing 7 (25%) / error 1 (3.6%)
@@ -141,7 +141,7 @@ result: 정기/임시/edge case sanity 통과, 18→17 tool regression 0
 
 **핵심 검증 통과**:
 - 위임장 분쟁 (한진칼 / JB금융지주) 후보 추출 + 안건 결정 정상
-- 얼라인 행사 회사 5/6 exact (신한/우리/코웨이/덴티움/가비아)
+- A행동주의 행사 회사 5/6 exact (신한/우리/코웨이/덴티움/가비아)
 - 양년 비교 (KT&G 2025+2026, 고려아연 2026) 정상
 - 임시주총 (HMM, 한전기술, 진원생명과학, 솔트룩스) 정상
 - 자본잠식/신규상장 edge case → no_filing 정확 처리
@@ -157,18 +157,18 @@ result: 정기/임시/edge case sanity 통과, 18→17 tool regression 0
 | 비교군 | records | compared | match | rate |
 |---|---|---|---|---|
 | k_legacy (한국투자) | 12 | 4 | 4 | **100%** |
-| m_legacy (미래에셋) | 12 | 5 | 4 | **80%** |
+| m_legacy (M레거시) | 12 | 5 | 4 | **80%** |
 | s_legacy (삼성) | 12 | 5 | 5 | **100%** |
 | sa_active (삼성액티브) | 12 | 5 | 5 | **100%** |
-| t_activist (트러스톤) | 12 | 5 | 5 | **100%** |
-| b_foreign (베어링) | 12 | 6 | 6 | **100%** |
-| a_activist (얼라인) | 0 | — | — | 별도 (A5 — KB금융지주 alias) |
-| c_activist (차파트너스) | 0 | — | — | KB금융 행사 안 함 |
-| nps (국민연금) | — | — | — | schema 매칭 Phase 2 |
+| t_activist (T행동주의) | 12 | 5 | 5 | **100%** |
+| b_foreign (B외국계) | 12 | 6 | 6 | **100%** |
+| a_activist (A행동주의) | 0 | — | — | 별도 (A5 — KB금융지주 alias) |
+| c_activist (C행동주의) | 0 | — | — | KB금융 행사 안 함 |
+| nps (N연기금) | — | — | — | schema 매칭 Phase 2 |
 
 **6 비교군 평균 96.7% 일치** (29/30). vote_style 정책 wire 없이 default OPM 정책으로도 KB금융 안건에서 6 비교군과 96-100% 일치.
 
-### A5 — 얼라인파트너스 KB금융지주 records
+### A5 — A행동주의 KB금융지주 records
 
 - 2024-04 records: 11 votes 모두 **for** (찬성)
 - 안건 sample: 사내이사 양종희 선임 / 재무제표 승인 / 기타비상무이사 이재근 선임
@@ -177,7 +177,7 @@ result: 정기/임시/edge case sanity 통과, 18→17 tool regression 0
 
 ### 알려진 한계 (Phase 2 작업)
 - vote_style 정책 wire 미구현 → default 정책만 비교 (운용사별 정책 해석 정확성은 별도)
-- NPS records schema 매칭 (회사명 + 안건명 추정 logic)
+- N연기금 records schema 매칭 (회사명 + 안건명 추정 logic)
 - 회사명 alias (KB금융 ↔ KB금융지주 등)
 - shareholder_meeting v2 일부 회사 검색 누락
 
@@ -199,11 +199,11 @@ result: 정기/임시/edge case sanity 통과, 18→17 tool regression 0
 
 ### ⚠ 미충족 (Phase 2 작업)
 
-**A5 얼라인 단일 backtest** — sanity batch 진행 중 (background `bzwsekall`, 1:40min+ 소요),
+**A5 A행동주의 단일 backtest** — sanity batch 진행 중 (background `bzwsekall`, 1:40min+ 소요),
 회사+안건 매칭 + 일치율 측정 스크립트는 `/tmp/a5_align_backtest.py`에 작성됨.
 실제 실행 후 audit 페이지 추가 필요.
 
-**A6 9개 비교군 backtest (8 운용사 + NPS)** — **vote_style 정책 wire 미구현**.
+**A6 9개 비교군 backtest (8 운용사 + N연기금)** — **vote_style 정책 wire 미구현**.
 advise_vote는 vote_style 인자 받지만 현재 default OPM 정책만 사용.
 운용사별 정책 매핑 (proxy_guideline.policies → 안건 카테고리별 결정 룰) 코드 미작성.
 이건 Phase 2 별도 ralph 작업 (정책 해석 logic + records 매칭).
@@ -213,7 +213,7 @@ advise_vote는 vote_style 인자 받지만 현재 default OPM 정책만 사용.
 - A2 임시 20 중 1 (HMM)
 - A3 위임장 분쟁 3 중 0
 - A4 edge 5 중 1 (알지노믹스)
-- A5 얼라인 12 중 0 (script 준비, 미실행)
+- A5 A행동주의 12 중 0 (script 준비, 미실행)
 - B 시리즈 (recap) 중 1 (SK하이닉스)
 
 전체 batch (30 case)는 background 진행 중이지만 출력 대기.

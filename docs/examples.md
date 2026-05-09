@@ -8,7 +8,7 @@ OpenProxy에 자연어로 질문했을 때의 실제 결과예요.
 
 > "삼성전자 지분 구조 보여줘"
 
-![삼성전자 지분 구조](../screenshot/pr_materials/openproxy_01_samsung_ownership_KR.png)
+![삼성전자 지분 구조](../screenshot/pr_materials/openproxy_01_s_legacy_ownership_KR.png)
 
 최대주주 및 특수관계인, 자사주, 5% 대량보유자를 한눈에 확인할 수 있어요.
 
@@ -18,7 +18,7 @@ OpenProxy에 자연어로 질문했을 때의 실제 결과예요.
 
 > "삼성전자 배당 알려줘"
 
-![삼성전자 배당](../screenshot/pr_materials/openproxy_02_samsung_dividend_KR.png)
+![삼성전자 배당](../screenshot/pr_materials/openproxy_02_s_legacy_dividend_KR.png)
 
 3개년 배당금 추이, 시가배당률, 배당성향 등을 비교할 수 있어요.
 

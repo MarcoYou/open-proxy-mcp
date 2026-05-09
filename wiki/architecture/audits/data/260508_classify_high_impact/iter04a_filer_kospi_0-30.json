@@ -66,13 +66,13 @@
     },
     {
       "ticker": "006800",
-      "name": "미래에셋증권",
+      "name": "M레거시증권",
       "status": "exact",
       "duration_s": 3.24,
       "classifications": [
         {
-          "filer_name": "미래에셋증권",
-          "canonical_corp": "미래에셋증권",
+          "filer_name": "M레거시증권",
+          "canonical_corp": "M레거시증권",
           "computed_is_company": true,
           "computed_is_retail": false,
           "expected_side": "company",
@@ -84,7 +84,7 @@
         },
         {
           "filer_name": "컨두잇",
-          "canonical_corp": "미래에셋증권",
+          "canonical_corp": "M레거시증권",
           "computed_is_company": false,
           "computed_is_retail": true,
           "expected_side": "retail_activism",
@@ -95,8 +95,8 @@
           "report_name": "의결권대리행사권유참고서류"
         },
         {
-          "filer_name": "미래에셋증권",
-          "canonical_corp": "미래에셋증권",
+          "filer_name": "M레거시증권",
+          "canonical_corp": "M레거시증권",
           "computed_is_company": true,
           "computed_is_retail": false,
           "expected_side": "company",

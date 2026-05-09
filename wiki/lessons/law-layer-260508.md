@@ -155,7 +155,7 @@ vote_style 운용사 정책은 **운용사가 정책 PDF update 안 하면 stale
   - `상법-2025-2026-종합.md` 신규 (1·2·3차 통합)
   - `상법-2025-2026-종합.md` 신규 (4 시나리오 + 36 catalog)
   - `law_layer_rules.json` 신규 (머신리더블)
-- `data/asset_managers/policies/open_proxy_v1.json`: 운용사 7→8 + NPS 표기 통일
+- `data/asset_managers/policies/open_proxy_v1.json`: 운용사 7→8 + N연기금 표기 통일
 - `wiki/decisions/open-proxy-guideline.md`: OPM 4 → **5 기준** (5번째 = 법령 layer)
 - `scripts/spot_law_layer.py` 신규 (회귀 spot)
 

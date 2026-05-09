@@ -23,9 +23,9 @@ sources:
 
 기존 운용사 정책의 한계:
 
-- **단일 체크리스트**: "X면 against, Y면 for" 라인 단위 룰. ambiguous 룰은 실무자 재량 → case_by_case 표류 → 결국 default for. 트러스톤·한투의 정책 문구는 강하나 실행 against rate 5.5-7.7% (낮음)인 이유.
+- **단일 체크리스트**: "X면 against, Y면 for" 라인 단위 룰. ambiguous 룰은 실무자 재량 → case_by_case 표류 → 결국 default for. T행동주의·한투의 정책 문구는 강하나 실행 against rate 5.5-7.7% (낮음)인 이유.
 - **자문사 의존**: ISS·대신경제 권고 그대로 따르는 경향. 한국 특수성 누락 (5 운용사 silent 영역).
-- **이해상충 처리 부재**: 삼성 director_election against rate 3.0% vs 미래에셋 26.1%. 그룹사 안건에서 정책-실제 갭.
+- **이해상충 처리 부재**: 삼성 director_election against rate 3.0% vs M레거시 26.1%. 그룹사 안건에서 정책-실제 갭.
 
 OPM의 해결책:
 

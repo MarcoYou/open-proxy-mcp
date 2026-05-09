@@ -12,7 +12,7 @@ updated: 2026-05-08
 
 | 파일 | 용도 |
 |---|---|
-| **`open-proxy-guideline.md`** | OPM 자체 의결권 정책 v1.2 (12 카테고리 + OPM 5 기준 + 8 운용사 + NPS 통합). **유일 master** |
+| **`open-proxy-guideline.md`** | OPM 자체 의결권 정책 v1.2 (12 카테고리 + OPM 5 기준 + 8 운용사 + N연기금 통합). **유일 master** |
 | `260429_0059_decision_voting-policy-consensus-matrix.md` | 8 운용사 합의 매트릭스 (79 토픽). 매트릭스 형태 보존 (master 보조) |
 | `260429_0059_debate_opm-guideline-7전문가.md` | open-proxy-guideline 작성 토론 transcript (역사적 발전) |
 

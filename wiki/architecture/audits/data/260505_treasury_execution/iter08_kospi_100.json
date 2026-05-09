@@ -613,7 +613,7 @@
     },
     {
       "ticker": "006800",
-      "name": "미래에셋증권",
+      "name": "M레거시증권",
       "status": "exact",
       "duration_s": 7.2,
       "n_events": 11,

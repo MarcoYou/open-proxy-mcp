@@ -45,7 +45,7 @@ proxy_advise_before_meeting(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 주총 연도 (사업연도 X) | 자동 (전년) |
 | meeting_type | str | no | "annual" / "extraordinary" / "auto" | "annual" |
-| vote_style | str | no | open_proxy / mirae_asset / samsung / samsung_active / kim / truston / align_partners / cha_partners / baring / nps | "open_proxy" |
+| vote_style | str | no | open_proxy / m_legacy / s_legacy / sa_active / kim / t_activist / a_activist / c_activist / b_foreign / nps | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | format | str | no | "md" / "json" | "md" |
 
@@ -95,7 +95,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
 - `_decide_director_election` (사외/사내·결격·독립성·장기연임 + **사내이사 재직 성과 bad→AGAINST / weak→REVIEW**)
 - `_decide_financial_statements` (감사의견·자본잠식)
 - `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등)
-- `_decide_audit_compensation` (감사 보수한도 11 분기 — NPS IV-34 양방향: 1인당 평균 과소 + 인상률 과다)
+- `_decide_audit_compensation` (감사 보수한도 11 분기 — N연기금 IV-34 양방향: 1인당 평균 과소 + 인상률 과다)
 - `_decide_retirement_pay` (퇴직금 12 분기 — 황금낙하산·사외이사 퇴직금·지급률 2배수+ 등)
 - `_decide_articles_amendment` 안에서 정관변경에 묶인 퇴직금/보수한도 hybrid 처리
 - `_decide_dividend` (배당성향·자본잠식·리츠 의무 90%)
@@ -120,7 +120,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
   - G1 파싱 성공률 director 99.2 / audit 100 / retirement 100
   - G2 trigger 정확도 100% — AGAINST 5건 (피에스케이/피에스케이홀딩스/GST 지급률 2배수+ / 카카오페이 사외이사 퇴직금 / 퓨쳐메디신 자본잠식+인상)
   - G3 운용사 4+ majority 정합 100% (director 11/11, audit 1/1)
-  - G4 NPS 정합 100% — 모든 AGAINST가 NPS [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치
+  - G4 N연기금 정합 100% — 모든 AGAINST가 N연기금 [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치
   - 정관 안에 묶인 퇴직금/보수 hybrid 통합 (코붕이 의견)
   - financial_metrics summary에 prev_net_income/yoy 노출 → 흑자+yoy<0 trigger 활성화
 

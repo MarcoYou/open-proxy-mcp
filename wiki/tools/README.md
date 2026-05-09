@@ -91,7 +91,7 @@ created: 2026-05-01
 |--------|---------|----------|---------|
 | Discovery | 1 | 137 | DART list.json 1-40회 (event_type x 페이지) |
 | Data | 12 | 148 | DART API 1-14회 (병렬), 일부 KIND/Naver 보강 |
-| Policy & Matrix | 1 | 165 | 정적 JSON (DART 호출 0회), NPS 크롤링 옵션 |
+| Policy & Matrix | 1 | 165 | 정적 JSON (DART 호출 0회), N연기금 크롤링 옵션 |
 | Action | 3 | 152 | upstream 5-10회 (병렬), auto_score_matrix는 추가 |
 
 ## 데이터 소스 매트릭스

@@ -28,7 +28,7 @@ prepare_vote_brief(
 
 자연어 예시:
 - "삼성전자 2026 주총 vote brief (자동 채점 ON)" → `auto_score_matrix=True`
-- "고려아연 임시주총 vote brief (미래에셋 정책)" → `meeting_type="extraordinary", vote_style="mirae_asset"`
+- "고려아연 임시주총 vote brief (M레거시 정책)" → `meeting_type="extraordinary", vote_style="m_legacy"`
 - "KT&G OPM 정책 권고 (집중투표 사전 전략 포함)" → `vote_style="open_proxy"`
 
 ## 입력 인자
@@ -39,7 +39,7 @@ prepare_vote_brief(
 | year | int | no | 사업연도 | 0 |
 | start_date / end_date | str | no | YYYYMMDD | "" |
 | lookback_months | int | no | 조사 구간 (개월) | 12 |
-| vote_style | str | no | open_proxy / mirae_asset / samsung / samsung_active / truston / kim / align_partners / baring | "open_proxy" |
+| vote_style | str | no | open_proxy / m_legacy / s_legacy / sa_active / t_activist / kim / a_activist / b_foreign | "open_proxy" |
 | auto_score_matrix | bool | no | True 시 12 매트릭스 100 dim 중 ~85 dim 자동 채점 | False |
 | format | str | no | "md" / "json" | "md" |
 
@@ -157,9 +157,9 @@ sequenceDiagram
 - 모든 결론 evidence_refs로 추적 가능.
 - vote_style 매개:
   - `open_proxy` (default): OPM 자체 정책 v1.2
-  - `mirae_asset` / `samsung` / `samsung_active` / `truston` / `kim`: 국내 운용사
-  - `align_partners`: 행동주의
-  - `baring`: 외국계 (ISS Korea 글로벌 표준 직접 채택)
+  - `m_legacy` / `s_legacy` / `sa_active` / `t_activist` / `kim`: 국내 운용사
+  - `a_activist`: 행동주의
+  - `b_foreign`: 외국계 (외국계 proxy advisor 글로벌 표준 직접 채택)
 - 집중투표 사전 전략: 1석 확보를 위한 표 수치 + 외부 능동 블록의 부족분
 - regression 0 검증: 200기업 audit upstream tool 모두 통과.
 

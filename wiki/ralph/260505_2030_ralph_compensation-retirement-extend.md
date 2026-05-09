@@ -12,7 +12,7 @@ ref:
 ## Invoke (복붙)
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260505_2030_ralph_compensation-retirement-extend.md 가이드 따라 보수한도 퇴직금 분기를 KOSPI 200 KOSDAQ 50 안한 기업 169개로 확장 검증 + 퇴직금 parser NO_DATA 케이스 강화. 파싱 성공률 99 퍼센트 이상 + 운용사 majority 정합도 90 퍼센트 이상 + AGAINST REVIEW 트리거 분포 합리성 + NPS 정책 정합 100 퍼센트 모두 충족 시 promise. --completion-promise COMPENSATION_RETIREMENT_EXTENDED_VERIFIED --max-iterations 8
+/ralph-loop:ralph-loop wiki/ralph/260505_2030_ralph_compensation-retirement-extend.md 가이드 따라 보수한도 퇴직금 분기를 KOSPI 200 KOSDAQ 50 안한 기업 169개로 확장 검증 + 퇴직금 parser NO_DATA 케이스 강화. 파싱 성공률 99 퍼센트 이상 + 운용사 majority 정합도 90 퍼센트 이상 + AGAINST REVIEW 트리거 분포 합리성 + N연기금 정책 정합 100 퍼센트 모두 충족 시 promise. --completion-promise COMPENSATION_RETIREMENT_EXTENDED_VERIFIED --max-iterations 8
 ```
 
 # Ralph: 보수한도 / 퇴직금 분기 확장 검증 + parser 강화
@@ -79,8 +79,8 @@ AGAINST/REVIEW 분기가 실제로 작동하는지 검증. KOSPI 200 + KOSDAQ 50
 - 에코프로 retirement_pay 3대0 AGAINST (이전 cache에서 확인)
 - 위 outlier에서 OPM 결정 정합 검증
 
-### G4. NPS 정책 정합 100%
-NPS [별표 1] IV-33/34/35 trigger 발생 case에서 OPM 결정이 NPS 정책과 일치:
+### G4. N연기금 정책 정합 100%
+N연기금 [별표 1] IV-33/34/35 trigger 발생 case에서 OPM 결정이 N연기금 정책과 일치:
 - 이사 보수한도 한도 과다 (IV-33②) → AGAINST
 - 감사 보수한도 1인당 평균 과소 (IV-34) → AGAINST
 - 퇴직금 황금낙하산 / 경영권 변동 (IV-35①) → AGAINST
@@ -150,7 +150,7 @@ KOSPI 200 + KOSDAQ 50 (이전 + 신규) 데이터로:
 - G1 파싱 성공률 측정
 - G2 AGAINST/REVIEW 트리거 분포
 - G3 운용사 majority 정합도 (4+ majority case)
-- G4 NPS 정책 정합 spot 검증 (하이브 / 에코프로 outlier)
+- G4 N연기금 정책 정합 spot 검증 (하이브 / 에코프로 outlier)
 
 ### Step 6. 부족하면 추가 fix + 회귀 검증
 

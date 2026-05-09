@@ -8,8 +8,8 @@
   - _decision_matrices.json (12 카테고리 의사결정 매트릭스)
   - policies/{manager_id}_{version}.json (정책)
   - records/{manager_id}_{period}.json (행사내역)
-  - nps_records/nps_list_{period}.json (국민연금 list 캐시)
-  - nps_records/details/{ticker}_{gmos_ymd}_{kind}.json (국민연금 상세 캐시)
+  - nps_records/nps_list_{period}.json (N연기금 list 캐시)
+  - nps_records/details/{ticker}_{gmos_ymd}_{kind}.json (N연기금 상세 캐시)
 
 7 scope:
   - policy    : 정책 조회 (default policy_id=open_proxy)
@@ -18,7 +18,7 @@
   - compare   : N개 정책 비교 매트릭스
   - consensus : 운용사 합의/이견 분석
   - audit     : 정책 vs 실제 행사내역 갭
-  - nps_record: 국민연금 의결권 행사내역 (실시간 + 정적 캐시 하이브리드)
+  - nps_record: N연기금 의결권 행사내역 (실시간 + 정적 캐시 하이브리드)
 
 데이터는 정적 (실시간 호출 X). DART API 호출 0회 (cross-domain 시만).
 nps_record는 fund.nps.or.kr 직접 크롤링 + JSON 캐시.
@@ -46,11 +46,11 @@ _SUPPORTED_SCOPES = {
     "policy", "record", "predict", "compare", "consensus", "audit", "nps_record",
 }
 _DATA_ROOT = files("open_proxy_mcp.data.asset_managers")
-_NPS_RECORDS_DIR = _DATA_ROOT / "nps_records"
-_NPS_DETAIL_DIR = _NPS_RECORDS_DIR / "details"
+_N연기금_RECORDS_DIR = _DATA_ROOT / "nps_records"
+_N연기금_DETAIL_DIR = _N연기금_RECORDS_DIR / "details"
 
-# 최근 N일 안의 호출은 실시간 NPS 호출 (정적 캐시 무시)
-_NPS_REALTIME_WINDOW_DAYS = 30
+# 최근 N일 안의 호출은 실시간 N연기금 호출 (정적 캐시 무시)
+_N연기금_REALTIME_WINDOW_DAYS = 30
 
 
 # ── 데이터 로딩 ──
@@ -695,7 +695,7 @@ async def scope_predict(
     }
 
 
-# ── Scope: nps_record (국민연금) ──
+# ── Scope: nps_record (N연기금) ──
 
 
 def _nps_period_label(year: int) -> str:
@@ -709,7 +709,7 @@ def _nps_resolve_data_dir() -> Path | None:
     """importlib.resources Traversable → Path. 없으면 None."""
     try:
         # MultiplexedPath나 PosixPath 모두 .iterdir()는 동작하지만 mkdir/write가 필요
-        return Path(str(_NPS_RECORDS_DIR))
+        return Path(str(_N연기금_RECORDS_DIR))
     except Exception:
         return None
 
@@ -735,7 +735,7 @@ def _nps_load_static_list(year: int) -> list[dict[str, Any]] | None:
     try:
         return json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
-        logger.warning("NPS list cache 로드 실패: %s", e)
+        logger.warning("N연기금 list cache 로드 실패: %s", e)
         return None
 
 
@@ -748,7 +748,7 @@ def _nps_save_static_list(year: int, rows: list[dict[str, Any]]) -> bool:
         p.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         return True
     except Exception as e:
-        logger.warning("NPS list cache 저장 실패: %s", e)
+        logger.warning("N연기금 list cache 저장 실패: %s", e)
         return False
 
 
@@ -759,7 +759,7 @@ def _nps_load_static_detail(ticker: str, gmos_ymd: str, gmos_kind_cd: str) -> di
     try:
         return json.loads(p.read_text(encoding="utf-8"))
     except Exception as e:
-        logger.warning("NPS detail cache 로드 실패: %s", e)
+        logger.warning("N연기금 detail cache 로드 실패: %s", e)
         return None
 
 
@@ -772,11 +772,11 @@ def _nps_save_static_detail(ticker: str, gmos_ymd: str, gmos_kind_cd: str, paylo
         p.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return True
     except Exception as e:
-        logger.warning("NPS detail cache 저장 실패: %s", e)
+        logger.warning("N연기금 detail cache 저장 실패: %s", e)
         return False
 
 
-def _is_recent_meeting(gmos_date: str, days: int = _NPS_REALTIME_WINDOW_DAYS) -> bool:
+def _is_recent_meeting(gmos_date: str, days: int = _N연기금_REALTIME_WINDOW_DAYS) -> bool:
     """주총일이 오늘 기준 최근 days일 안이면 True (실시간 우선)."""
     if not gmos_date:
         return False
@@ -823,14 +823,14 @@ async def _nps_resolve_ticker(
     """입력 → (ticker, nps_code, company_resolved, warning).
 
     우선순위: nps_code > ticker > company → DART resolve_company_query.
-    NPS 코드 5자리 + '0' = 티커.
+    N연기금 코드 5자리 + '0' = 티커.
     """
     if nps_code:
         nc = str(nps_code).strip().zfill(5)
         return nc + "0", nc, company, ""
     if ticker:
         t = str(ticker).strip().zfill(6)
-        # 티커 마지막 자리가 '0'이어야 NPS 매핑 가능 (한국 표준)
+        # 티커 마지막 자리가 '0'이어야 N연기금 매핑 가능 (한국 표준)
         nc = t[:-1] if t.endswith("0") and len(t) == 6 else ""
         return t, nc, company, ""
     if company:
@@ -859,10 +859,10 @@ async def scope_nps_record(
     force_refresh: bool = False,
     max_details: int = 5,
 ) -> dict[str, Any]:
-    """국민연금 의결권 행사내역 조회.
+    """N연기금 의결권 행사내역 조회.
 
     Strategy:
-    1. company/ticker/nps_code 중 하나로 회사 식별 → ticker + NPS 코드
+    1. company/ticker/nps_code 중 하나로 회사 식별 → ticker + N연기금 코드
     2. year 기반 list 조회 (정적 캐시 우선, 미존재 또는 force_refresh면 실시간)
     3. ticker filter → 매칭 row만 반환
     4. fetch_detail=True 시 상위 max_details건의 detail 추가 호출
@@ -886,7 +886,7 @@ async def scope_nps_record(
         else:
             year = date.today().year
 
-    # NPS 사이트 기본 검색 윈도우: 4월말 ~ 다음해 4월말 (시즌 단위)
+    # N연기금 사이트 기본 검색 윈도우: 4월말 ~ 다음해 4월말 (시즌 단위)
     if not start_date:
         start_date = f"{year}-04-29"
     if not end_date:
@@ -897,8 +897,8 @@ async def scope_nps_record(
     rows = None if force_refresh else _nps_load_static_list(year)
     if rows is None:
         try:
-            from open_proxy_mcp.dart.nps_client import NPSClient
-            async with NPSClient() as nc:
+            from open_proxy_mcp.dart.nps_client import N연기금Client
+            async with N연기금Client() as nc:
                 # 회사명 직접 검색이 가능하면 그쪽이 더 빠름
                 search_company = company_label if company_label else (company or "")
                 rows = await nc.search_voting(start_date, end_date, company_name=search_company)
@@ -909,7 +909,7 @@ async def scope_nps_record(
         except Exception as e:
             return {
                 "status": "error",
-                "warning": f"NPS 조회 실패: {type(e).__name__}: {str(e)[:200]}",
+                "warning": f"N연기금 조회 실패: {type(e).__name__}: {str(e)[:200]}",
             }
 
     # 3. filter
@@ -928,9 +928,9 @@ async def scope_nps_record(
     detail_errors: list[str] = []
     if fetch_detail and filtered:
         try:
-            from open_proxy_mcp.dart.nps_client import NPSClient
+            from open_proxy_mcp.dart.nps_client import N연기금Client
             client_needed = False
-            async with NPSClient() as nc:
+            async with N연기금Client() as nc:
                 for r in filtered[:max_details]:
                     t = r.get("ticker") or ""
                     ymd = r.get("gmos_ymd") or ""
@@ -963,12 +963,12 @@ async def scope_nps_record(
                 # 모두 캐시에서 충당
                 pass
         except Exception as e:
-            detail_errors.append(f"NPSClient init 실패: {e}")
+            detail_errors.append(f"N연기금Client init 실패: {e}")
 
     status = "exact" if filtered else "partial"
     return {
         "status": status,
-        "manager": "국민연금기금운용본부",
+        "manager": "N연기금",
         "manager_id": "nps",
         "filters": {
             "company": company_label or company,
@@ -985,7 +985,7 @@ async def scope_nps_record(
         "details": details,
         "detail_sources": detail_source,
         "detail_errors": detail_errors,
-        "ticker_mapping_note": "NPS 종목코드 5자리 + '0' = KRX 표준 6자리 티커 (검증 100%)",
+        "ticker_mapping_note": "N연기금 종목코드 5자리 + '0' = KRX 표준 6자리 티커 (검증 100%)",
     }
 
 

@@ -50,9 +50,9 @@ ticker,company,market,meeting_type,run_no,status,elapsed_s,agendas,followup_coun
 042660,한화오션,KOSPI,annual,2,no_filing,0.0,0,0
 012330,현대모비스,KOSPI,annual,3,no_filing,0.0,0,0
 042660,한화오션,KOSPI,annual,3,no_filing,0.0,0,0
-006800,미래에셋증권,KOSPI,annual,1,no_filing,20.5,0,0
-006800,미래에셋증권,KOSPI,annual,2,no_filing,0.0,0,0
-006800,미래에셋증권,KOSPI,annual,3,no_filing,0.0,0,0
+006800,M레거시증권,KOSPI,annual,1,no_filing,20.5,0,0
+006800,M레거시증권,KOSPI,annual,2,no_filing,0.0,0,0
+006800,M레거시증권,KOSPI,annual,3,no_filing,0.0,0,0
 035420,NAVER,KOSPI,annual,1,no_filing,13.1,0,0
 035420,NAVER,KOSPI,annual,2,no_filing,0.1,0,0
 035420,NAVER,KOSPI,annual,3,no_filing,0.0,0,0
@@ -410,9 +410,9 @@ ticker,company,market,meeting_type,run_no,status,elapsed_s,agendas,followup_coun
 084370,유진테크,KOSDAQ,annual,1,no_filing,21.0,0,0
 084370,유진테크,KOSDAQ,annual,2,no_filing,0.1,0,0
 084370,유진테크,KOSDAQ,annual,3,no_filing,0.0,0,0
-100790,미래에셋벤처투자,KOSDAQ,annual,1,no_filing,10.4,0,0
-100790,미래에셋벤처투자,KOSDAQ,annual,2,no_filing,0.0,0,0
-100790,미래에셋벤처투자,KOSDAQ,annual,3,no_filing,0.0,0,0
+100790,M레거시벤처투자,KOSDAQ,annual,1,no_filing,10.4,0,0
+100790,M레거시벤처투자,KOSDAQ,annual,2,no_filing,0.0,0,0
+100790,M레거시벤처투자,KOSDAQ,annual,3,no_filing,0.0,0,0
 058610,에스피지,KOSDAQ,annual,1,no_filing,18.0,0,0
 058610,에스피지,KOSDAQ,annual,2,no_filing,0.0,0,0
 058610,에스피지,KOSDAQ,annual,3,no_filing,0.0,0,0

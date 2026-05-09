@@ -208,7 +208,7 @@ v1.2/v1.3 OPM Guideline + 8 운용사 정책 wire는 이전 작업 통과 ([[260
 - [[architecture/multi-upstream-pattern]] — 5 요소 표준 (corpCode lock/retry/per-call timeout/Semaphore/cache)
 - [[260503_1847_audit_phase4_final]] — Phase 4 일관성 100% 달성
 - [[260503_2304_audit_recap_pattern]] — recap_vote 패턴 일반화
-- [[260429_0059_decision_voting-policy-consensus-matrix]] — 7 운용사 + NPS 정책 매트릭스
+- [[260429_0059_decision_voting-policy-consensus-matrix]] — 7 운용사 + N연기금 정책 매트릭스
 
 ---
 

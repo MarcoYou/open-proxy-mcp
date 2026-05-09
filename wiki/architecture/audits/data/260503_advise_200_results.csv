@@ -1,9 +1,9 @@
 ticker,company,market,meeting_type,run_no,status,elapsed_s,canonical_name,agenda_count,for_count,against_count,review_count,candidates_count,revenue_krw,roe_pct,debt_ratio_pct,capital_impairment_status,audit_opinion_latest,score_for_pct,score_against_pct,score_review_pct,warnings_first
 064350,현대로템,KOSPI,annual,3,exact,19.5,현대로템,8,1,0,7,5,5839031553000,42.63,206.39,normal,,12.5,0.0,87.5,
-006800,미래에셋증권,KOSPI,annual,2,exact,21.8,미래에셋증권,10,1,0,9,0,29283028000000,12.3,1015.01,normal,,10.0,0.0,90.0,
+006800,M레거시증권,KOSPI,annual,2,exact,21.8,M레거시증권,10,1,0,9,0,29283028000000,12.3,1015.01,normal,,10.0,0.0,90.0,
 052690,한전기술,KOSPI,annual,2,exact,32.0,한전기술,4,1,1,2,1,518767621092,14.2,41.69,normal,,25.0,25.0,50.0,
 192250,케이사인,KOSDAQ,extraordinary,2,no_filing,16.8,케이사인,0,0,0,0,0,,,,,,0,0,0,
-006800,미래에셋증권,KOSPI,annual,3,exact,8.3,미래에셋증권,10,1,0,9,0,29283028000000,12.3,1015.01,normal,,10.0,0.0,90.0,
+006800,M레거시증권,KOSPI,annual,3,exact,8.3,M레거시증권,10,1,0,9,0,29283028000000,12.3,1015.01,normal,,10.0,0.0,90.0,
 012160,영흥,KOSPI,extraordinary,3,exact,23.5,영흥,1,0,0,1,0,,,,,,0.0,0.0,100.0,
 307950,현대오토에버,KOSPI,annual,1,exact,47.3,현대오토에버,10,3,4,3,6,4252067261000,10.57,92.31,normal,,30.0,40.0,30.0,
 084370,유진테크,KOSDAQ,annual,1,exact,48.1,유진테크,5,1,0,4,1,,,,,,20.0,0.0,80.0,

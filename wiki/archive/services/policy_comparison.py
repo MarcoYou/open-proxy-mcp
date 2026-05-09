@@ -1,4 +1,4 @@
-"""policy_comparison — 7 운용사 + NPS 행사내역에서 모범 사례 + 특이 케이스 추출.
+"""policy_comparison — 7 운용사 + N연기금 행사내역에서 모범 사례 + 특이 케이스 추출.
 
 proxy_advise_before_meeting의 policy_basis scope 백엔드.
 spec: [[wiki/tools/proxy_advise_before_meeting]] policy_basis scope.
@@ -67,7 +67,7 @@ def build_policy_comparison(
     corp_name: str,
     agenda_decisions: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """우리 결정 vs 7 운용사 + NPS — 모범 사례 + 특이 케이스 example 형태.
+    """우리 결정 vs 7 운용사 + N연기금 — 모범 사례 + 특이 케이스 example 형태.
 
     Args:
         corp_name: 회사 정식명 (DART corp_name)

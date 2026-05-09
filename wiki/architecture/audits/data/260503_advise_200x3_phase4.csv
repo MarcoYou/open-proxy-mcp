@@ -50,9 +50,9 @@ ticker,company,market,meeting_type,run_no,status,elapsed_s,agenda,for,against,re
 042660,한화오션,KOSPI,annual,2,exact,0.0,10,3,0,7,10
 012330,현대모비스,KOSPI,annual,3,exact,0.0,9,2,0,7,4
 042660,한화오션,KOSPI,annual,3,exact,0.0,10,3,0,7,10
-006800,미래에셋증권,KOSPI,annual,1,exact,14.8,10,1,0,9,0
-006800,미래에셋증권,KOSPI,annual,2,exact,0.0,10,1,0,9,0
-006800,미래에셋증권,KOSPI,annual,3,exact,0.0,10,1,0,9,0
+006800,M레거시증권,KOSPI,annual,1,exact,14.8,10,1,0,9,0
+006800,M레거시증권,KOSPI,annual,2,exact,0.0,10,1,0,9,0
+006800,M레거시증권,KOSPI,annual,3,exact,0.0,10,1,0,9,0
 035420,NAVER,KOSPI,annual,1,exact,10.6,10,1,0,9,0
 035420,NAVER,KOSPI,annual,2,exact,0.0,10,1,0,9,0
 035420,NAVER,KOSPI,annual,3,exact,0.0,10,1,0,9,0
@@ -413,9 +413,9 @@ ticker,company,market,meeting_type,run_no,status,elapsed_s,agenda,for,against,re
 058610,에스피지,KOSDAQ,annual,1,exact,8.8,6,1,2,3,2
 058610,에스피지,KOSDAQ,annual,2,exact,0.7,6,1,2,3,2
 058610,에스피지,KOSDAQ,annual,3,exact,0.6,6,1,2,3,2
-100790,미래에셋벤처투자,KOSDAQ,annual,1,exact,7.0,10,7,0,3,5
-100790,미래에셋벤처투자,KOSDAQ,annual,2,exact,0.0,10,7,0,3,5
-100790,미래에셋벤처투자,KOSDAQ,annual,3,exact,0.0,10,7,0,3,5
+100790,M레거시벤처투자,KOSDAQ,annual,1,exact,7.0,10,7,0,3,5
+100790,M레거시벤처투자,KOSDAQ,annual,2,exact,0.0,10,7,0,3,5
+100790,M레거시벤처투자,KOSDAQ,annual,3,exact,0.0,10,7,0,3,5
 098460,고영,KOSDAQ,annual,1,exact,9.2,8,2,0,6,3
 098460,고영,KOSDAQ,annual,2,exact,0.0,8,2,0,6,3
 098460,고영,KOSDAQ,annual,3,exact,0.0,8,2,0,6,3

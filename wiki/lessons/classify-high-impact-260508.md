@@ -35,7 +35,7 @@ related:
 255 위임장 filings 분포:
 - company: 218 (대부분 자기 회사 직접 위임장)
 - retail_activism: 31 (컨두잇 / 헤이홀더 / 비사이드코리아)
-- shareholder: 6 (영풍 4건 [고려아연 분쟁] / 얼라인파트너스 / Palliser Capital)
+- shareholder: 6 (영풍 4건 [고려아연 분쟁] / A행동주의 / Palliser Capital)
 
 **Mismatch 2건** — 분류기 이슈 아님:
 - 셀트리온제약 query → service가 canonical을 "셀트리온"으로 해석 (회사 모호 매칭)
