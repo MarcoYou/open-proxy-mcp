@@ -3,6 +3,51 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-09] docs | wiki 트리 정책 명문화 + lint hook + CLAUDE.md 정리
+
+**Wiki 그래프 audit (260509_wiki_graph_audit)**:
+- 252 페이지 × 1261 edges 분석
+- Orphan 26 (10.3%) / Weak 35 (13.9%) / Leaf 58 / Unresolved 57
+- rules/concepts hub 강건 (자사주 27 incoming) / 시점 페이지 외부 link 빈약 / decisions 명명 혼재
+
+**트리 metaphor 명문화 (WIKI_SCHEMA Section 0)**:
+- 🌱 뿌리 raw → 🪵 줄기 rules → 🌿 큰가지 (decisions/arch/tools) → 🌾 잔가지 (ralph/audits/fixes/lessons) → 🍂 낙엽 archive
+- Link 정책: 뿌리→줄기→큰가지 단방향 / 큰가지↔잔가지 양방향 / 잎↔잎 자유
+- 시점 작업 4축 표준 (ralph ↔ audit ↔ lesson ↔ decision)
+
+**ABCDE 정리 작업**:
+- A. rules → 큰가지 link 34건 제거 (단방향 정책 적용, 52 페이지 정리)
+- B. 큰가지 ↔ 가지 양방향 보강 (30 페이지, 단방향만 → 양방향 22쌍 추가)
+  - tools↔audit: 0 → 22 양방향 / decision↔ralph: 1 → 7 / audit↔lesson: 0 → 3
+  - 첫 시도 본문 손실 → revert 후 안전 검증선 95% 추가하여 재실행
+- C. scripts/wiki_lint.py 신규 + .github/workflows/wiki-lint.yml CI 통합
+  - 단방향 위반 + 양방향 결손 자동 검출 (--strict mode CI 차단)
+- D. orphan 17 정리 (24 → 7) — ralph/README + audits/README + audits/data/README 신규
+- E. CLAUDE.md 정리 + 구 *_RULE.md 7개 archive 이동
+  - 7+1 카테고리 / 트리 흐름 / 시점 4축 / MCP 호출 우선
+  - tools_v2 17 → 16 (실제), open_proxy_mcp/*_RULE.md → wiki/archive/tools/legacy_rules/
+  - 124 → 109 lines 가벼움화 (-15, -12%)
+
+**DART-OpenAPI 검증 + DS003 섹션 추가**:
+- archive 검증: wikilink resolve 7/7 ✓ / 기본 내용 정확
+- 13 API 누락 점검: 10개는 data-collection.md DS005에 있음 ✓
+- 누락 3개 추가 (DS003 — financial_metrics): get_audit_opinion / get_fnltt_singl_acnt / get_fnltt_singl_indx
+
+**최종 상태**:
+- Wiki 페이지: 252 → 264 (+12 README 등)
+- 총 edges: 1261 → 1558 (+297)
+- 단방향 위반: 34 → 0 / 양방향 결손: 44 → 0
+- lint --strict 통과 ✓
+
+**artifacts** (10 commits):
+- `wiki/architecture/audits/260509_wiki_graph_audit.md`
+- `wiki/WIKI_SCHEMA.md` (Section 0 트리 정책)
+- `scripts/wiki_lint.py`
+- `.github/workflows/wiki-lint.yml`
+- `wiki/ralph/README.md` / `wiki/architecture/audits/README.md` / `wiki/architecture/audits/data/README.md`
+- `wiki/archive/tools/legacy_rules/README.md` (구 *_RULE.md 7개 + 흡수 매핑)
+- CLAUDE.md / wiki/architecture/data-collection.md update
+
 ## [2026-05-08] audit | 파서 정밀화 검증 — 보강 불필요 (Ralph 5)
 - ralph: `wiki/ralph/260508_0207_ralph_parser-precision.md` (1+4 iter / promise 발행)
 - 발견 (parser audit follow-up):
