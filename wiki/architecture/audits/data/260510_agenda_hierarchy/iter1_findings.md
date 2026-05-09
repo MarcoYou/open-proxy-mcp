@@ -3,7 +3,7 @@ type: audit
 title: 안건 호수 hierarchy 추출 진단 — iter 1
 date: 2026-05-10
 related:
-  - wiki/ralph/260510_0823_ralph_agenda-hierarchy-virtual-sub.md
+  - wiki/ralph/260510_0823_ralph_agenda-hierarchy-body-fallback.md
   - wiki/lessons/law-layer-body-260510.md
 ---
 
