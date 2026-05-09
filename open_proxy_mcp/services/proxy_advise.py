@@ -152,6 +152,54 @@ def _load_law_layer_rules() -> list[dict[str, Any]]:
         return []
 
 
+_LLM_MISREAD_PATTERNS_CACHE: list[dict[str, Any]] | None = None
+
+
+def _load_llm_misread_patterns() -> list[dict[str, Any]]:
+    """wiki/rules/laws/llm_misread_patterns.json 로드 (모듈 캐시).
+
+    LLM이 안건명 키워드만 보고 자체 결정 변경하는 misread 패턴 catalog.
+    새 패턴 발견 시 본 JSON에만 추가 — 코드 변경 X.
+    """
+    global _LLM_MISREAD_PATTERNS_CACHE
+    if _LLM_MISREAD_PATTERNS_CACHE is not None:
+        return _LLM_MISREAD_PATTERNS_CACHE
+    try:
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        path = repo_root / "wiki" / "rules" / "laws" / "llm_misread_patterns.json"
+        if not path.exists():
+            _LLM_MISREAD_PATTERNS_CACHE = []
+            return []
+        data = json.loads(path.read_text(encoding="utf-8"))
+        patterns = [p for p in (data.get("patterns") or []) if p.get("active", True) is not False]
+        _LLM_MISREAD_PATTERNS_CACHE = patterns
+        return patterns
+    except Exception:
+        _LLM_MISREAD_PATTERNS_CACHE = []
+        return []
+
+
+def _find_misread_guard(title: str, law_layer_id: str | None) -> str:
+    """안건 title + 법령 ID 매칭 → anti-misread inline guard 메시지.
+
+    catalog (wiki/rules/laws/llm_misread_patterns.json)에서 dynamic load.
+    매칭 우선순위: trigger_keywords (title 포함) → law_layer_id 매칭 → 기본 guard.
+    """
+    patterns = _load_llm_misread_patterns()
+    if not patterns:
+        return ""
+    for p in patterns:
+        keywords = p.get("trigger_keywords") or []
+        if any(kw in title for kw in keywords):
+            return p.get("anti_misread_inline", "")
+    # 폴백: law_layer_id 매칭
+    if law_layer_id:
+        for p in patterns:
+            if p.get("law_layer_id") == law_layer_id:
+                return p.get("anti_misread_inline", "")
+    return ""
+
+
 def _agenda_pattern_match(title: str, parent: str, pattern: dict[str, Any]) -> bool:
     """agenda title + parent 결합 텍스트에서 pattern 매칭.
 
@@ -1469,21 +1517,13 @@ async def build_proxy_advise_payload(
         if law_layer_hit is not None:
             ll_decision, ll_reason, ll_id, ll_law_ref = law_layer_hit
             decision = ll_decision
-            # A1/A2 (강행규정) — LLM이 안건명만 보고 결정 뒤집는 케이스 빈번 → 명시적 anti-misread guard
+            # A1/A2 (강행규정) — LLM이 안건명만 보고 결정 뒤집는 케이스 빈번
+            # → catalog (wiki/rules/laws/llm_misread_patterns.json)에서 dynamic guard 매칭
             if ll_id.startswith("A1-") or ll_id.startswith("A2-"):
-                guard = ""
-                # 빈번한 misread 패턴별 explicit 설명
-                if "배제 조항 삭제" in title or "배제 삭제" in title:
-                    guard = " ⛔ LLM 주의: '배제 조항 삭제' = 집중투표 의무화 정합 = FOR. '배제'라는 단어 보고 AGAINST 추측 금지."
-                elif "의결권 제한 강화" in title or "의결권 제한 확대" in title:
-                    guard = " ⛔ LLM 주의: '의결권 제한 강화' = 합산 3% 룰 (소수주주 보호 강화) = FOR. '제한'이라는 단어 보고 AGAINST 추측 금지."
-                elif "독립이사" in title and "명칭" in title:
-                    guard = " ⛔ LLM 주의: 사외이사→독립이사 명칭 변경 = 1차 개정 정합 = FOR. 자체 판단 금지."
-                elif "전자주주총회" in title:
-                    guard = " ⛔ LLM 주의: 전자주총 도입 = 1차 개정 정합 = FOR. 자체 판단 금지."
-                else:
-                    guard = " ⛔ LLM 주의: 강행규정 정합 — 결정 변경 금지. 안건명 키워드만 보고 추측 금지."
-                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref}){guard}"
+                guard = _find_misread_guard(title, ll_id)
+                if not guard:
+                    guard = "⛔ LLM 주의: 강행규정 정합 — 결정 변경 금지. 안건명 키워드만 보고 추측 금지."
+                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref}) {guard}"
             else:
                 reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref})"
             # B1/B2 (REVIEW) — case-by-case 영역. 정관변경 본문 raw 첨부 (LLM 직접 검토 — 260510)

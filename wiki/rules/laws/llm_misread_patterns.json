@@ -1,0 +1,67 @@
+{
+  "version": "v1",
+  "effective_date": "2026-05-10",
+  "description": "LLM (Claude.ai 일반 환경)이 proxy_advise 응답을 받고 안건명 키워드만 보고 자체적으로 결정 변경하는 misread 패턴 catalog. proxy_advise._render에서 dynamic load — 새 패턴 발견 시 코드 변경 없이 본 JSON에만 추가.",
+  "schema": {
+    "id": "패턴 ID (M-XX 형식)",
+    "trigger_keywords": "안건 title에 포함되면 misread 위험 — guard 자동 적용",
+    "law_layer_id": "관련 법령 layer rule ID (A1-X / A2-X / B1-X / B2-X)",
+    "expected_decision": "올바른 결정 (FOR / AGAINST / REVIEW)",
+    "anti_misread_inline": "reason에 inline 추가될 ⛔ guard 메시지",
+    "summary_pattern": "응답 헤더의 misread 패턴 list에 추가될 한 줄"
+  },
+  "patterns": [
+    {
+      "id": "M-1",
+      "trigger_keywords": ["배제 조항 삭제", "배제 삭제"],
+      "law_layer_id": "A1-1",
+      "expected_decision": "FOR",
+      "anti_misread_inline": "⛔ LLM 주의: '배제 조항 삭제' = 집중투표 의무화 정합 = FOR. '배제'라는 단어 보고 AGAINST 추측 금지.",
+      "summary_pattern": "❌ \"집중투표제 배제 조항 **삭제**\" → AGAINST 추측 (틀림) → ✅ FOR (배제 조항을 **삭제**한다 = 집중투표 의무화 정합 = 소수주주 보호 강화)"
+    },
+    {
+      "id": "M-2",
+      "trigger_keywords": ["의결권 제한 강화", "의결권 제한 확대"],
+      "law_layer_id": "A1-4",
+      "expected_decision": "FOR",
+      "anti_misread_inline": "⛔ LLM 주의: '의결권 제한 강화' = 합산 3% 룰 (소수주주 보호 강화) = FOR. '제한'이라는 단어 보고 AGAINST 추측 금지.",
+      "summary_pattern": "❌ \"감사위원 의결권 제한 **강화**\" → AGAINST 추측 (틀림) → ✅ FOR (최대주주 의결권 합산 3% 룰 강화 = 소수주주 보호 강화)"
+    },
+    {
+      "id": "M-3",
+      "trigger_keywords": ["독립이사 명칭", "독립이사로 명칭", "사외이사 명칭"],
+      "law_layer_id": "A1-5",
+      "expected_decision": "FOR",
+      "anti_misread_inline": "⛔ LLM 주의: 사외이사→독립이사 명칭 변경 = 1차 개정 정합 = FOR. 자체 판단 금지.",
+      "summary_pattern": "❌ \"사외이사 → 독립이사 명칭 변경\" → 의심 (틀림) → ✅ FOR (1차 상법 개정 정합)"
+    },
+    {
+      "id": "M-4",
+      "trigger_keywords": ["전자주주총회 도입", "전자주총 도입"],
+      "law_layer_id": "A1-7",
+      "expected_decision": "FOR",
+      "anti_misread_inline": "⛔ LLM 주의: 전자주총 도입 = 1차 개정 정합 = FOR. 자체 판단 금지.",
+      "summary_pattern": "❌ \"전자주주총회 도입\" → 의심 (틀림) → ✅ FOR (1차 상법 개정 2027-01-01 의무 선제 정합)"
+    },
+    {
+      "id": "M-5",
+      "trigger_keywords": ["분리선출", "분리 선출"],
+      "law_layer_id": "A1-3",
+      "expected_decision": "FOR",
+      "anti_misread_inline": "⛔ LLM 주의: 감사위원 분리선출 2명 = 2차 개정 의무 정합 = FOR. (단 2명 초과는 B1-10 = REVIEW로 별도 분류)",
+      "summary_pattern": "❌ \"감사위원 분리선출 의무화\" → 의심 → ✅ FOR (2026 상법 2차 개정 의무)"
+    },
+    {
+      "id": "M-6",
+      "trigger_keywords": ["자기주식 의무소각", "자사주 의무소각"],
+      "law_layer_id": "A1-8",
+      "expected_decision": "FOR",
+      "anti_misread_inline": "⛔ LLM 주의: 자사주 의무소각 = 3차 개정 의무 정합 = FOR.",
+      "summary_pattern": "❌ \"자사주 의무소각\" → 의심 → ✅ FOR (3차 상법 개정 의무, 취득 후 1년 내 소각)"
+    }
+  ],
+  "policy": {
+    "add_new_pattern": "Claude misread 사례 발견 시: (1) trigger_keywords + (2) 정확한 결정 + (3) anti_misread_inline + (4) summary_pattern 한 줄 추가. 코드 변경 X.",
+    "remove_pattern": "결정 catalog 변경 시 (예: 법 개정으로 A1-1 폐지) 해당 pattern 비활성화 (active: false 추가)."
+  }
+}
