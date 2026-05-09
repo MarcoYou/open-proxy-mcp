@@ -103,18 +103,6 @@ company                            # 기업 식별 + 최근 공시 인덱스
 
 > 각 tool의 scope·옵션·data source·검증 결과는 **[wiki/tools/README.md](wiki/tools/README.md)** 카탈로그 또는 개별 tool 페이지 (`wiki/tools/{name}.md`) 참조.
 
-### 주요 변화 (2026-05-04~09)
-- 17 → 16 tool: `screen_events` drop, `proxy_guideline` archive (internal로 만든 후 호출 X 확인), `shareholder_meeting` → notice + results 분리
-- proxy_advise scope **10 → 1** (`decisions`만, raw는 각 data tool 직접 호출)
-- treasury_share scope **6 → 2**, 결과 보고서 4종 추가, 결정↔결과 사이클 매칭
-- DART 분당 1000회 hard rule (rolling window rate limiter cap 900)
-- **사내이사 재직 중 성과 매트릭스 (2x3)** 도입 — 회사 추천 사내이사 자동 FOR 방어 (status quo bias mitigation). ROE/부채비율/CSR × avg/trend 6 cell 채점, bad → AGAINST · weak → REVIEW. KOSPI 100 + KOSDAQ 50 (n=128) 검증 G1 100% / dist target band 충족.
-- **보수한도 / 퇴직금 분기 정밀화** — 이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 안에 묶인 case는 articles_amendment hybrid 통합. KOSPI 200 + KOSDAQ 50 (n=226) 검증: G1 99-100% / G3 운용사 majority 정합 100% / G4 NPS 정책 정합 100%. AGAINST 5건 (지급률 2배수+ × 3, 사외이사 퇴직금 신설 × 1, 자본잠식+인상 × 1) 모두 정확 분기.
-- proxy_advise 응답 한국어 자연화 (`weak_concerns` → "약한 우려" 등)
-- **법령 layer 정밀화 (Ralph 4, 2026-05-08)** — 1·2·3차 상법 개정 + 정관 우회 시나리오 38 룰 catalog (A1=8 / A2=5 / B1=12 / B2=9 / C=4). KT&G 정관 사전 우회 catch (B1-8b), 분쟁 회사 후보 임기 1년 catch (B1-4b), 하이브 이사회 정원 축소 catch (B1-7). KOSPI 200 + KOSDAQ 100 + 분쟁 20 = 280 회사 검증 / false positive 0 / 회귀 0%. proxy_advise 응답에 `[법령 X-Y]` tag.
-- **Wiki 트리 정책 + lint hook (2026-05-09)** — 식물학 metaphor (🌱뿌리→🪵줄기→🌿큰가지→🌾잔가지→🍂낙엽). Link 정책 (단방향/양방향/자유) + `scripts/wiki_lint.py` + GitHub Actions CI 자동 검증.
-- **`financial_metrics` yoy 병렬화 (2026-05-09 perf)** — sequential 3 호출 → `asyncio.gather`. 회사당 ~3초 → ~1초 (2-3배 단축).
-
 ### 의결권 정책 (vote_style)
 
 `proxy_advise_before_meeting`의 `vote_style` 옵션으로 8 운용사 + NPS 정책에 맞춘 안건별 권고 가능:

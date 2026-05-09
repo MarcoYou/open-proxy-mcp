@@ -103,18 +103,6 @@ company                            # Company ID + recent filings index
 
 > Each tool's scope, options, data sources, and validation results: see catalog at **[wiki/tools/README.md](wiki/tools/README.md)** or per-tool pages (`wiki/tools/{name}.md`).
 
-### Recent changes (2026-05-04~09)
-
-- 17 → 16 tools: `screen_events` dropped, `proxy_guideline` archived (kept internal only), `shareholder_meeting` split → notice + results
-- proxy_advise scope **10 → 1** (`decisions` only; raw data via direct data-tool calls)
-- treasury_share scope **6 → 2**; 4 result reports added; decision↔execution cycle matching
-- DART 1,000/min hard rule (rolling-window rate limiter, cap 900)
-- **Inside director tenure performance matrix (2x3)** — auto-FOR for company-nominated inside directors creates status-quo bias. ROE / debt ratio / CSR × avg / trend, bad → AGAINST · weak → REVIEW. Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 100% / distribution within target bands.
-- **Compensation / retirement classification refinement** — director 13 / auditor 11 / retirement 12 branches + articles_amendment hybrid integration. KOSPI 200 + KOSDAQ 50 (n=226): G1 99-100% / G3 manager majority alignment 100% / G4 NPS policy alignment 100%.
-- **Law layer refinement (Ralph 4, 2026-05-08)** — 1st·2nd·3rd Commercial Law amendments + articles bypass scenarios → 38 rule catalog (A1=8 / A2=5 / B1=12 / B2=9 / C=4). Catches KT&G articles pre-bypass (B1-8b), 1-year director term in proxy contests (B1-4b), board-size reduction (B1-7). Validated on 280 companies (KOSPI 200 + KOSDAQ 100 + dispute 20) — false positive 0, regression 0%. proxy_advise responses now tag `[Law X-Y]`.
-- **Wiki tree policy + lint hook (2026-05-09)** — botanical metaphor (🌱root → 🪵trunk → 🌿main branch → 🌾sub-branch → 🍂fallen). Link policy (downward-only / bidirectional / free) + `scripts/wiki_lint.py` + GitHub Actions CI auto-validation.
-- **`financial_metrics` yoy parallelization (2026-05-09 perf)** — sequential 3 calls → `asyncio.gather`. Per-company ~3s → ~1s (2-3x faster).
-
 ### Internal policies & matrices
 
 **8 asset managers' policy data** (parsed JSON, 14MB+ static, anonymized):
