@@ -1,7 +1,7 @@
 ---
 type: schema
 title: OPM Wiki Schema
-updated: 2026-05-01
+updated: 2026-05-09
 ---
 
 # OPM Wiki Schema
@@ -11,6 +11,68 @@ LLM이 작성/유지하고, 사용자는 소싱과 질문에 집중.
 OPM repo 안에 `wiki/` 디렉토리로 존재 (구 `wiki/`).
 
 처음 방문하면 [[index]] -> [[tools/README]] 순서로 본다.
+
+## 0. 트리 구조 (식물학 metaphor)
+
+Wiki는 **뿌리에서 잎까지의 트리**. 외부 source가 뿌리, 도메인 사실이 줄기, 시스템이 가지, 작업 흔적이 잔가지, 개별 페이지가 잎.
+
+```
+🌱 뿌리 (raw/)            외부 source — 무결성 base
+   │ ① 정리/요약 (단방향 ↓)
+🪵 줄기 (rules/)          한국 자본시장 사실 — 모든 layer 참조
+   │ ② OPM 정책 결정 (단방향 ↓)
+🌿 큰가지 (decisions/, architecture/core/, tools/)   시스템 형상
+   │ ③ 검증/회고 (양방향 ↕)
+🌾 가지 (ralph/, architecture/audits/, fixes/, lessons/)   시점 작업
+   │
+🍃 잎 (각 카테고리 안 개별 페이지)
+🍂 낙엽 (archive/)        흡수/대체된 페이지 보존
+```
+
+### 0.1 트리 layer 매핑
+
+| Layer | 위치 | 본질 | 명명 |
+|---|---|---|---|
+| 🌱 뿌리 | `raw/` | 외부 source 무결성 base | 원본 파일명 (수정 X) |
+| 🪵 줄기 | `rules/` (concepts/disclosures/laws) | 한국 자본시장 사실 | identity (`{name}.md`) |
+| 🌿 큰가지 | `decisions/`, `architecture/core/`, `tools/` | OPM 시스템 형상 (영구) | identity 위주 |
+| 🌾 가지 (잔가지) | `ralph/`, `architecture/audits/`, `architecture/fixes/`, `lessons/` | 시점 작업 흔적 | yymmdd_hhmm 위주 |
+| 🍃 잎 | 각 카테고리 안 개별 페이지 | tool / concept / audit 결과 / lesson 등 | 상위 카테고리 따라 |
+| 🍂 낙엽 | `archive/` | 흡수/대체된 페이지 보존 | identity 보존 |
+
+### 0.2 Link 방향 정책 (★ 핵심)
+
+| 구간 | 정책 | 의미 |
+|---|---|---|
+| **뿌리 → 줄기 → 큰가지** | **단방향 (위→아래만)** | 사실은 변하지 않음. 위로 link 금지 (rules가 decisions/tools 알면 안 됨) |
+| **큰가지 ↔ 가지 ↔ 잎** | **양방향 강제** | 시점 작업과 시스템은 서로 인지 (tool ↔ ralph ↔ audit ↔ lesson) |
+| **잎 ↔ 잎 / 잎 ↔ 낙엽** | **자유** | cross-talk 허용 (자사주 ↔ 의결권 등) |
+
+#### 함의
+
+- ✅ `tools/dividend.md` → `rules/disclosures/현금배당결정.md` (큰가지 → 줄기 잎): downward, OK
+- ❌ `rules/disclosures/현금배당결정.md` → `tools/dividend.md` (줄기 잎 → 큰가지): upward, **금지**
+- ✅ `tools/proxy_advise_before_meeting.md` ↔ `lessons/law-layer-precision-260508.md` (큰가지 ↔ 가지): **양방향 강제**
+- ✅ `rules/concepts/자사주.md` ↔ `rules/concepts/의결권.md` (잎 ↔ 잎): cross-talk OK
+- ✅ `tools/dividend.md` → `archive/analysis/dividend-tool-검증-예시.md` (잎 → 낙엽): 자유
+
+### 0.3 같은 시점 작업의 4축 표준
+
+시점 작업 (yymmdd_hhmm) 페이지는 다음 4축 충족 권장:
+
+```
+ralph (plan) ↔ audits (검증 결과) ↔ lessons (회고) ↔ decisions/single (단발 결정)
+                              모두 양방향 link
+```
+
+frontmatter `related:` 필드에 4축 모두 명시:
+```yaml
+related:
+  - wiki/ralph/yymmdd_xxx.md
+  - wiki/architecture/audits/yymmdd_xxx.md
+  - wiki/lessons/xxx-yymmdd.md
+  - wiki/decisions/yymmdd_xxx.md
+```
 
 ## 1. 카테고리 정의 (5+1)
 
@@ -186,7 +248,28 @@ updated: 2026-05-01
 - decision/debate: 배경 / 옵션 / 토론 / 결정 / 영향
 - concept/disclosure/law: 정의 / 핵심 필드 / OPM tool 매핑 / 관련 문서
 
-### Step 4: link 작성
+### Step 4: link 작성 (★ 트리 정책 준수)
+
+먼저 [[#0.2 Link 방향 정책]] 확인:
+- 줄기 (rules/) → 큰가지 link 금지
+- 큰가지 ↔ 가지 양방향 강제
+- 잎 ↔ 잎 자유
+
+#### 시점 작업 (yymmdd_hhmm) 신규 시 4축 충족
+
+ralph / audit / fix / lesson / decision-single 신규 시 frontmatter `related:`에 4축 모두 포함:
+
+```yaml
+related:
+  - wiki/ralph/yymmdd_xxx.md          # trigger ralph
+  - wiki/architecture/audits/yymmdd_xxx.md  # 검증 결과
+  - wiki/lessons/xxx-yymmdd.md        # 회고
+  - wiki/decisions/yymmdd_xxx.md      # 단발 결정
+```
+
+상대 페이지 frontmatter도 양방향으로 수정.
+
+#### Link 형식
 
 - 같은 vault 안: Obsidian wikilink `[[페이지명]]`
 - 폴더 구조 명시 필요할 때: `[[architecture/audits/...]]`
@@ -206,6 +289,25 @@ updated: 2026-05-01
 ```
 
 ## 5. Link 패턴
+
+### 0. 트리 link 방향 정책 (Section 0.2 참조)
+
+링크 작성 전 항상 두 페이지의 layer 확인:
+
+```
+뿌리 → 줄기 → 큰가지     단방향 (위→아래만)
+큰가지 ↔ 가지 ↔ 잎      양방향 강제
+잎 ↔ 잎 / 잎 ↔ 낙엽     자유
+```
+
+| 자주 하는 link | 정책 | 권장 패턴 |
+|---|---|---|
+| tool → 사용 disclosure | OK (큰가지 → 줄기 잎) | tool frontmatter `related_disclosures` |
+| disclosure → tool | **X 금지** (줄기 → 큰가지) | tool에서 disclosure로 link하면 충분 |
+| tool → audit/fix | OK + 양방향 강제 | tool frontmatter `related_audits` + audit `related_tools` |
+| audit → tool | OK + 양방향 강제 | 동일 (양방향 필수) |
+| ralph → lesson | 양방향 강제 | ralph 종료 시 lesson 작성 + 양쪽 related |
+| concept ↔ concept | 자유 | 자사주 ↔ 의결권 등 cross-link |
 
 ### Obsidian wikilink (1차)
 ```
@@ -294,3 +396,6 @@ archive 안 추가가 필요한 경우:
 | 외부 원본 | `raw/` (read-only) |
 | 작업 history | `log.md` |
 | 흡수된 페이지 | `archive/` |
+| **트리 구조 / link 정책** | [[#0. 트리 구조]] / [[#0.2 Link 방향 정책]] |
+| **신규 페이지 추가 4축** | [[#Step 4: link 작성]] |
+| **트리 그래프 audit** | [[architecture/audits/260509_wiki_graph_audit]] |
