@@ -83,3 +83,10 @@ uv sync && cp .env.example .env  # OPENDART_API_KEY 설정
 - Build → Check → Pass 사이클. 의미 있는 변경마다 커밋.
 - `/ship` 시 wiki 자동 업데이트 (코드 변경 → 관련 위키 페이지 갱신).
 - 신규 tool/공시/개념 추가 시 [[WIKI_SCHEMA]] 워크플로우 따라 명명 + frontmatter + index.md update.
+- **wiki 변경 시 link 정책 검증 필수**:
+  ```bash
+  python3 scripts/wiki_lint.py --strict
+  ```
+  - 단방향 위반 (rules → 큰가지) + 양방향 결손 (큰가지 ↔ 가지) 자동 검출
+  - GitHub Actions `wiki-lint.yml`이 PR/push 시 자동 실행
+  - 정책 상세: [[WIKI_SCHEMA#0.2 Link 방향 정책]]

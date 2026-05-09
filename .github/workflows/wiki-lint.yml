@@ -1,0 +1,25 @@
+name: Wiki Link Policy Lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+      - 'scripts/wiki_lint.py'
+      - '.github/workflows/wiki-lint.yml'
+  pull_request:
+    paths:
+      - 'wiki/**'
+      - 'scripts/wiki_lint.py'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run wiki_lint (strict)
+        run: python3 scripts/wiki_lint.py --strict
