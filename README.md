@@ -119,7 +119,7 @@ company                            # 기업 식별 + 최근 공시 인덱스
 
 > 각 tool의 scope·옵션·data source·검증 결과는 **[wiki/tools/README.md](wiki/tools/README.md)** 카탈로그 또는 개별 tool 페이지 (`wiki/tools/{name}.md`) 참조.
 
-### 주요 변화 (2026-05-04~05)
+### 주요 변화 (2026-05-04~09)
 - 17 → 16 tool: `screen_events` drop, `proxy_guideline` archive (internal로 만든 후 호출 X 확인), `shareholder_meeting` → notice + results 분리
 - proxy_advise scope **10 → 1** (`decisions`만, raw는 각 data tool 직접 호출)
 - treasury_share scope **6 → 2**, 결과 보고서 4종 추가, 결정↔결과 사이클 매칭
@@ -127,6 +127,9 @@ company                            # 기업 식별 + 최근 공시 인덱스
 - **사내이사 재직 중 성과 매트릭스 (2x3)** 도입 — 회사 추천 사내이사 자동 FOR 방어 (status quo bias mitigation). ROE/부채비율/CSR × avg/trend 6 cell 채점, bad → AGAINST · weak → REVIEW. KOSPI 100 + KOSDAQ 50 (n=128) 검증 G1 100% / dist target band 충족.
 - **보수한도 / 퇴직금 분기 정밀화** — 이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 안에 묶인 case는 articles_amendment hybrid 통합. KOSPI 200 + KOSDAQ 50 (n=226) 검증: G1 99-100% / G3 운용사 majority 정합 100% / G4 NPS 정책 정합 100%. AGAINST 5건 (지급률 2배수+ × 3, 사외이사 퇴직금 신설 × 1, 자본잠식+인상 × 1) 모두 정확 분기.
 - proxy_advise 응답 한국어 자연화 (`weak_concerns` → "약한 우려" 등)
+- **법령 layer 정밀화 (Ralph 4, 2026-05-08)** — 1·2·3차 상법 개정 + 정관 우회 시나리오 38 룰 catalog (A1=8 / A2=5 / B1=12 / B2=9 / C=4). KT&G 정관 사전 우회 catch (B1-8b), 분쟁 회사 후보 임기 1년 catch (B1-4b), 하이브 이사회 정원 축소 catch (B1-7). KOSPI 200 + KOSDAQ 100 + 분쟁 20 = 280 회사 검증 / false positive 0 / 회귀 0%. proxy_advise 응답에 `[법령 X-Y]` tag.
+- **Wiki 트리 정책 + lint hook (2026-05-09)** — 식물학 metaphor (🌱뿌리→🪵줄기→🌿큰가지→🌾잔가지→🍂낙엽). Link 정책 (단방향/양방향/자유) + `scripts/wiki_lint.py` + GitHub Actions CI 자동 검증.
+- **`financial_metrics` yoy 병렬화 (2026-05-09 perf)** — sequential 3 호출 → `asyncio.gather`. 회사당 ~3초 → ~1초 (2-3배 단축).
 
 ### 의결권 정책 (vote_style)
 
@@ -219,16 +222,32 @@ KOSPI 100 + KOSDAQ 50 (n=128) 검증: G1 classification 노출률 100%, distribu
 ## 프로젝트 구조
 
 ```
-wiki/
-  open_proxy_mcp/
-    server.py              # FastMCP 서버 (stdio + HTTP)
-    tools_v2/              # 16개 tool
-    services/              # 도메인별 분석 로직 (tool과 분리)
-    dart/client.py         # DART API + KIND 크롤링 + 네이버 + rate limiter
-    data/asset_managers/   # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
-  Dockerfile               # Fly.io 배포용 컨테이너
-  fly.toml                 # Fly.io 설정 (nrt 리전, auto-suspend)
-  wiki/          # 도메인 지식 위키 (구 wiki/)
+open_proxy_mcp/
+  server.py                # FastMCP 서버 (stdio + HTTP)
+  tools_v2/                # 16개 tool (active)
+  services/                # 도메인별 분석 로직 (tool과 분리)
+  dart/client.py           # DART API + KIND 크롤링 + 네이버 + rate limiter (cap 900/분)
+  data/asset_managers/     # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
+scripts/
+  wiki_lint.py             # wiki link 정책 자동 검증 (단방향/양방향)
+  spot_*.py                # 회귀 spot 스크립트 (KOSPI/KOSDAQ batch)
+wiki/                      # LLM 도메인 지식 — 트리 흐름순
+  raw/                     # 🌱 뿌리 — 외부 원본 (수정 X)
+  rules/                   # 🪵 줄기 — concepts/ + disclosures/ + laws/ (한국 자본시장 사실)
+  tools/                   # 🌿 큰가지 — 16 tool 카탈로그 (사용자 진입점)
+  decisions/               # 🌿 큰가지 — OPM 정책 (open-proxy-guideline 등)
+  architecture/            # 🌿 큰가지 (core) + 🌾 잔가지 (audits/ + fixes/)
+  ralph/                   # 🌾 잔가지 — 작업 plan 시간순
+  lessons/                 # 🌾 잔가지 — 회고
+  archive/                 # 🍂 낙엽 — 흡수/대체 보존
+  index.md                 # 전체 인덱스 (시작점)
+  WIKI_SCHEMA.md           # 트리 정책 + 카테고리 + 명명 규칙
+  log.md                   # 작업 로그
+.github/workflows/
+  wiki-lint.yml            # wiki/ 변경 시 lint --strict 자동 (PR/push CI)
+  deploy.yml               # Fly.io 배포
+Dockerfile                 # Fly.io 배포용 컨테이너
+fly.toml                   # Fly.io 설정 (nrt 리전, auto-suspend)
 ```
 
 ---
