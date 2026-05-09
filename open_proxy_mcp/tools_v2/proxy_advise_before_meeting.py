@@ -106,20 +106,35 @@ def _render(payload: dict[str, Any]) -> str:
     if decisions:
         lines.append("## 안건별 의결권 행사 결정")
         lines.append("")
+        lines.append(
+            "> ⚠️ **법령 layer (A1-X / A2-X 태그)는 강행규정 기반 결정으로 LLM 자체 판단으로 뒤집지 말 것.** "
+            "안건명 키워드만 보고 추측 금지 — 반드시 reason의 `[법령 X-Y]` tag와 정합 사유 인용."
+        )
+        lines.append("")
         lines.append("| # | 안건 | 카테고리 | 행사방향 | 사유 |")
         lines.append("|---|------|---------|---------|------|")
         for i, ag in enumerate(decisions, 1):
             title = (ag.get("agenda_title") or "")[:60]
             cat = ag.get("agenda_category", "-")
             decision = ag.get("decision", "-")
-            reason = (ag.get("reason") or "")[:80]
+            reason_full = ag.get("reason") or ""
+            # truncation 늘림: 법령 정합 사유 보존 (80 → 250)
+            reason = reason_full[:250]
             decision_emoji = {
-                "FOR": "✓ FOR",
-                "AGAINST": "✗ AGAINST",
-                "REVIEW": "? REVIEW",
+                "FOR": "✅ FOR",
+                "AGAINST": "❌ AGAINST",
+                "REVIEW": "⚠️ REVIEW",
                 "NO_DATA": "— NO_DATA",
             }.get(decision, decision)
-            lines.append(f"| {i} | {title} | `{cat}` | **{decision_emoji}** | {reason} |")
+            # 법령 layer 정합 시 강한 표시 추가
+            law_tag_marker = ""
+            if "[법령 A1-" in reason_full:
+                law_tag_marker = " 🛡️ 강행규정 정합"
+            elif "[법령 A2-" in reason_full:
+                law_tag_marker = " 🛡️ 강행규정 위반"
+            elif "[법령 B1-" in reason_full or "[법령 B2-" in reason_full:
+                law_tag_marker = " 🔍 우회 의심"
+            lines.append(f"| {i} | {title} | `{cat}` | **{decision_emoji}**{law_tag_marker} | {reason} |")
         lines.append("")
 
         # 안건별 결정 근거 detail (facts + risk + policy citation + 근거 공고)
