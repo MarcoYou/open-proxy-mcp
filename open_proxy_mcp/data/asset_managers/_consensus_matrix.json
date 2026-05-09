@@ -17,7 +17,7 @@
     "sa_legacy": "SA레거시",
     "t_activist": "T행동주의",
     "k_legacy": "K레거시",
-    "b_foreign": "B외국계 (외부 advisor 2026 직접 채택)",
+    "b_foreign": "B외국계 (B외국계 2026 직접 채택)",
     "a_activist": "A행동주의 (행동주의 펀드)",
     "c_activist": "C행동주의 (행동주의 펀드)"
   },
@@ -73,8 +73,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 회계 또는 감사 절차에 우려가 있는 경우 반대",
-              "section": "외부 advisor 2026 Ch.1 Operational Items"
+              "criterion": "[B외국계] 회계 또는 감사 절차에 우려가 있는 경우 반대",
+              "section": "B외국계 2026 Ch.1 Operational Items"
             },
             {
               "manager": "a_activist",
@@ -146,8 +146,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대 — 주주 배당 결정권 박탈",
-              "section": "외부 advisor 2026 Ch.6 Routine"
+              "criterion": "[B외국계] 이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대 — 주주 배당 결정권 박탈",
+              "section": "B외국계 2026 Ch.6 Routine"
             },
             {
               "manager": "c_activist",
@@ -212,8 +212,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 이익배분(현금배당/주식배당) 일반 찬성",
-              "section": "외부 advisor 2026 Ch.1 Operational Items"
+              "criterion": "[B외국계] 이익배분(현금배당/주식배당) 일반 찬성",
+              "section": "B외국계 2026 Ch.1 Operational Items"
             },
             {
               "manager": "c_activist",
@@ -398,8 +398,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 배당성향이 적절한 정당화 없이 지속적으로 낮은 경우 반대. 회사 재무상황 대비 과도한 배당 시 반대",
-              "section": "외부 advisor 2026 Ch.1 Allocation of Income"
+              "criterion": "[B외국계] 배당성향이 적절한 정당화 없이 지속적으로 낮은 경우 반대. 회사 재무상황 대비 과도한 배당 시 반대",
+              "section": "B외국계 2026 Ch.1 Allocation of Income"
             },
             {
               "manager": "a_activist",
@@ -447,8 +447,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 이사회에 배당 승인 권한 부여 조항 도입 반대 — 주주 배당 결정권 박탈",
-              "section": "외부 advisor 2026 Ch.6 Routine"
+              "criterion": "[B외국계] 이사회에 배당 승인 권한 부여 조항 도입 반대 — 주주 배당 결정권 박탈",
+              "section": "B외국계 2026 Ch.6 Routine"
             },
             {
               "manager": "c_activist",
@@ -513,8 +513,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대 — 사외이사 비중 확대 권장",
-              "section": "외부 advisor 2026 Ch.2 Board / INDEPENDENCE"
+              "criterion": "[B외국계] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대 — 사외이사 비중 확대 권장",
+              "section": "B외국계 2026 Ch.2 Board / INDEPENDENCE"
             },
             {
               "manager": "a_activist",
@@ -621,8 +621,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 집중투표 사용 금지 조항 도입 반대 (집중투표제 보호)",
-              "section": "외부 advisor 2026 Ch.2 Board / Cumulative Voting"
+              "criterion": "[B외국계] 집중투표 사용 금지 조항 도입 반대 (집중투표제 보호)",
+              "section": "B외국계 2026 Ch.2 Board / Cumulative Voting"
             },
             {
               "manager": "a_activist",
@@ -680,8 +680,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 분류이사회제(Classified board) 및 강제 정년제 도입 반대",
-              "section": "외부 advisor 2026 Ch.2 Board / Board Structure"
+              "criterion": "[B외국계] 분류이사회제(Classified board) 및 강제 정년제 도입 반대",
+              "section": "B외국계 2026 Ch.2 Board / Board Structure"
             },
             {
               "manager": "a_activist",
@@ -739,8 +739,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 이사·내부감사인 해임 위한 초다수 의결권 요건 도입 반대",
-              "section": "외부 advisor 2026 Ch.6 Routine"
+              "criterion": "[B외국계] 이사·내부감사인 해임 위한 초다수 의결권 요건 도입 반대",
+              "section": "B외국계 2026 Ch.6 Routine"
             },
             {
               "manager": "a_activist",
@@ -798,8 +798,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 황금낙하산 (해임·퇴직 시 과도 보수) 일반 반대",
-              "section": "외부 advisor 2026 Ch.5 Compensation / Golden Parachute Clause"
+              "criterion": "[B외국계] 황금낙하산 (해임·퇴직 시 과도 보수) 일반 반대",
+              "section": "B외국계 2026 Ch.5 Compensation / Golden Parachute Clause"
             },
             {
               "manager": "a_activist",
@@ -901,8 +901,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 경영권 분쟁 상황에서 이사회 구조·규모 변경 반대 (주주권 축소 효과)",
-              "section": "외부 advisor 2026 Ch.2 Board / Board Structure"
+              "criterion": "[B외국계] 경영권 분쟁 상황에서 이사회 구조·규모 변경 반대 (주주권 축소 효과)",
+              "section": "B외국계 2026 Ch.2 Board / Board Structure"
             },
             {
               "manager": "a_activist",
@@ -1043,8 +1043,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대",
-              "section": "외부 advisor 2026 Ch.6 Routine"
+              "criterion": "[B외국계] 이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대",
+              "section": "B외국계 2026 Ch.6 Routine"
             },
             {
               "manager": "c_activist",
@@ -1244,8 +1244,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor — 5년 룰 명시] 회사 또는 계열사의 직원·임원이거나 5년 내 직원·임원이었던 자는 비독립으로 분류 (NED). 창업자/창업가족도 비독립",
-              "section": "외부 advisor 2026 Ch.2 Board / Classification of Director"
+              "criterion": "[B외국계 — 5년 룰 명시] 회사 또는 계열사의 직원·임원이거나 5년 내 직원·임원이었던 자는 비독립으로 분류 (NED). 창업자/창업가족도 비독립",
+              "section": "B외국계 2026 Ch.2 Board / Classification of Director"
             },
             {
               "manager": "a_activist",
@@ -1342,8 +1342,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor — 명시적 정량] 사외이사가 2개 초과 상장사 이사 겸임 시 반대 (상법·시행령 위반). 단 CEO/MD/EC/창업자 적정 공시 시 예외",
-              "section": "외부 advisor 2026 Ch.2 Board / COMPOSITION / Overboarded Outside Directors"
+              "criterion": "[B외국계 — 명시적 정량] 사외이사가 2개 초과 상장사 이사 겸임 시 반대 (상법·시행령 위반). 단 CEO/MD/EC/창업자 적정 공시 시 예외",
+              "section": "B외국계 2026 Ch.2 Board / COMPOSITION / Overboarded Outside Directors"
             },
             {
               "manager": "a_activist",
@@ -1401,8 +1401,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 사외이사가 최근 회계연도 이사회·핵심위원회 출석률 75% 미만 + 합당 사유 미제시 시 반대",
-              "section": "외부 advisor 2026 Ch.2 Board / COMPOSITION / Attendance"
+              "criterion": "[B외국계] 사외이사가 최근 회계연도 이사회·핵심위원회 출석률 75% 미만 + 합당 사유 미제시 시 반대",
+              "section": "B외국계 2026 Ch.2 Board / COMPOSITION / Attendance"
             },
             {
               "manager": "c_activist",
@@ -1455,8 +1455,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 거버넌스 실패(횡령/뇌물/제재/판결), 임원 미해임, 다른 회사 이사로서 부적절 행위 시 반대",
-              "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY / Governance Failures"
+              "criterion": "[B외국계] 거버넌스 실패(횡령/뇌물/제재/판결), 임원 미해임, 다른 회사 이사로서 부적절 행위 시 반대",
+              "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY / Governance Failures"
             },
             {
               "manager": "a_activist",
@@ -1509,8 +1509,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 이사회 성다양성 규정 미준수 시 추천위원장 반대 (다양성 강화)",
-              "section": "외부 advisor 2026 Ch.2 Board / COMPOSITION / Board Gender Diversity"
+              "criterion": "[B외국계] 이사회 성다양성 규정 미준수 시 추천위원장 반대 (다양성 강화)",
+              "section": "B외국계 2026 Ch.2 Board / COMPOSITION / Board Gender Diversity"
             },
             {
               "manager": "c_activist",
@@ -1631,8 +1631,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor — Climate Accountability 명시] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
-              "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
+              "criterion": "[B외국계 — Climate Accountability 명시] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
+              "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
             },
             {
               "manager": "c_activist",
@@ -1685,8 +1685,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 경쟁 선임은 사안별. (1) 이사회 변경 정당성 + (2) 반대측 후보가 긍정적 변화 가능성 두 질문 중심",
-              "section": "외부 advisor 2026 Ch.2 Board / VOTING ON DIRECTOR NOMINEES IN CONTESTED ELECTIONS"
+              "criterion": "[B외국계] 경쟁 선임은 사안별. (1) 이사회 변경 정당성 + (2) 반대측 후보가 긍정적 변화 가능성 두 질문 중심",
+              "section": "B외국계 2026 Ch.2 Board / VOTING ON DIRECTOR NOMINEES IN CONTESTED ELECTIONS"
             },
             {
               "manager": "c_activist",
@@ -1729,7 +1729,7 @@
         },
         {
           "topic_id": "climate_accountability_iss",
-          "topic_label": "[외부 advisor Climate Accountability] 중대 GHG 배출 기업 + TCFD/Net Zero 미공시 책임 이사 반대",
+          "topic_label": "[B외국계 Climate Accountability] 중대 GHG 배출 기업 + TCFD/Net Zero 미공시 책임 이사 반대",
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
@@ -1743,17 +1743,17 @@
           "evidence": [
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor — Climate Accountability 신규 명시] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 (이사회 거버넌스/전략/위험관리/지표 및 목표) + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
-              "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
+              "criterion": "[B외국계 — Climate Accountability 신규 명시] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 (이사회 거버넌스/전략/위험관리/지표 및 목표) + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
+              "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
             }
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[글로벌 표준 신규] B외국계 단독 (외부 advisor 직접) — 미래·T행동주의이 한국 탄소중립법 미이행 책임 이사 against (2/7 명시 — climate_responsibility_director 토픽)와 합치면 사실상 3/7 합의. OPM은 climate_accountability novel topic으로 채택 (default=review, 고배출 업종 한정 against)"
+          "opm_seed": "[글로벌 표준 신규] B외국계 단독 (B외국계 직접) — 미래·T행동주의이 한국 탄소중립법 미이행 책임 이사 against (2/7 명시 — climate_responsibility_director 토픽)와 합치면 사실상 3/7 합의. OPM은 climate_accountability novel topic으로 채택 (default=review, 고배출 업종 한정 against)"
         },
         {
           "topic_id": "discharge_of_director_iss",
-          "topic_label": "[외부 advisor Discharge of Director — 한국 미적용 글로벌 개념] 이사 책임 면제 일반 찬성, 신탁의무 미이행 시 반대",
+          "topic_label": "[B외국계 Discharge of Director — 한국 미적용 글로벌 개념] 이사 책임 면제 일반 찬성, 신탁의무 미이행 시 반대",
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
@@ -1767,17 +1767,17 @@
           "evidence": [
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor — Discharge of Director] 이사 면책은 일반 찬성, 다만 신탁의무 미이행 의혹·법적 절차·중대 거버넌스 이슈 시 반대",
-              "section": "외부 advisor 2026 Ch.2 Board / Discharge of Director"
+              "criterion": "[B외국계 — Discharge of Director] 이사 면책은 일반 찬성, 다만 신탁의무 미이행 의혹·법적 절차·중대 거버넌스 이슈 시 반대",
+              "section": "B외국계 2026 Ch.2 Board / Discharge of Director"
             }
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[글로벌 표준 — 한국 법령 미적용] B외국계 단독. 한국 상법은 이사 책임 면제 안건 자체가 거의 없음. OPM은 글로벌 reference로만 명시 (default 적용 X). 한국 안건 발생 시 외부 advisor 정신 적용"
+          "opm_seed": "[글로벌 표준 — 한국 법령 미적용] B외국계 단독. 한국 상법은 이사 책임 면제 안건 자체가 거의 없음. OPM은 글로벌 reference로만 명시 (default 적용 X). 한국 안건 발생 시 B외국계 정신 적용"
         },
         {
           "topic_id": "bundled_slate_against_iss",
-          "topic_label": "[외부 advisor Bundled Slate] 다수 이사 묶음 선임 시 한 명이라도 거버넌스 우려 시 슬레이트 전체 반대",
+          "topic_label": "[B외국계 Bundled Slate] 다수 이사 묶음 선임 시 한 명이라도 거버넌스 우려 시 슬레이트 전체 반대",
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
@@ -1791,8 +1791,8 @@
           "evidence": [
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 묶음 선임 시 한 명이라도 거버넌스 문제 있으면 슬레이트 전체 반대",
-              "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY"
+              "criterion": "[B외국계] 묶음 선임 시 한 명이라도 거버넌스 문제 있으면 슬레이트 전체 반대",
+              "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY"
             },
             {
               "manager": "a_activist",
@@ -1807,11 +1807,11 @@
           ],
           "agreement_level": "divergence",
           "agreement_count": 3,
-          "opm_seed": "[한국 운용사 silent 영역] B외국계(외부 advisor) + A행동주의 합의. 한국 5 운용사는 묶음 선임 자체에 silent. OPM은 bundled_slate_against novel topic으로 채택 (default=against, 한국 묶음 선임 안건에서 한 명 우려 시 전체 against)"
+          "opm_seed": "[한국 운용사 silent 영역] B외국계(B외국계) + A행동주의 합의. 한국 5 운용사는 묶음 선임 자체에 silent. OPM은 bundled_slate_against novel topic으로 채택 (default=against, 한국 묶음 선임 안건에서 한 명 우려 시 전체 against)"
         },
         {
           "topic_id": "director_accountability_extension_iss",
-          "topic_label": "[외부 advisor Director Accountability Extension] 거버넌스 실패 책임 이사 미해임 시 그가 재직하는 모든 이사회에서 반대",
+          "topic_label": "[B외국계 Director Accountability Extension] 거버넌스 실패 책임 이사 미해임 시 그가 재직하는 모든 이사회에서 반대",
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
@@ -1825,8 +1825,8 @@
           "evidence": [
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 한 이사가 거버넌스 책임 실패 + 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대 (책임 확장)",
-              "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY"
+              "criterion": "[B외국계] 한 이사가 거버넌스 책임 실패 + 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대 (책임 확장)",
+              "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY"
             }
           ],
           "agreement_level": "minority",
@@ -1835,7 +1835,7 @@
         },
         {
           "topic_id": "two_tier_governance_iss",
-          "topic_label": "[외부 advisor Two-Tier] 자산 2조원+ 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 반대",
+          "topic_label": "[B외국계 Two-Tier] 자산 2조원+ 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 반대",
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
@@ -1849,8 +1849,8 @@
           "evidence": [
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor — 한국 상법 정합] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대 (한국 상법 §542의8 ① 정밀 적용)",
-              "section": "외부 advisor 2026 Ch.2 Board / INDEPENDENCE"
+              "criterion": "[B외국계 — 한국 상법 정합] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대 (한국 상법 §542의8 ① 정밀 적용)",
+              "section": "B외국계 2026 Ch.2 Board / INDEPENDENCE"
             },
             {
               "manager": "c_activist",
@@ -1860,7 +1860,7 @@
           ],
           "agreement_level": "minority",
           "agreement_count": 1,
-          "opm_seed": "[정량 강화] B외국계이 한국 상법 §542의8 ①을 외부 advisor 정량 기준으로 명시 (대형사 50% / 소형사 25%). 한국 5 운용사는 정량 기준 silent. OPM은 director_election against criteria 강화 (사외이사 비중 미달 시 비독립이사 against)"
+          "opm_seed": "[정량 강화] B외국계이 한국 상법 §542의8 ①을 B외국계 정량 기준으로 명시 (대형사 50% / 소형사 25%). 한국 5 운용사는 정량 기준 silent. OPM은 director_election against criteria 강화 (사외이사 비중 미달 시 비독립이사 against)"
         },
         {
           "topic_id": "executive_officer_system_for",
@@ -2036,8 +2036,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 감사위원회를 내부감사인 시스템 대체로 설치 일반 찬성",
-              "section": "외부 advisor 2026 Ch.3 / Establishment of Audit Committee"
+              "criterion": "[B외국계] 감사위원회를 내부감사인 시스템 대체로 설치 일반 찬성",
+              "section": "B외국계 2026 Ch.3 / Establishment of Audit Committee"
             },
             {
               "manager": "c_activist",
@@ -2090,8 +2090,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 법정 보고/감사 절차 중대 우려, 실패 회사 관여 이력 시 감사위원 반대",
-              "section": "외부 advisor 2026 Ch.3 / Election of Audit Committee Member"
+              "criterion": "[B외국계] 법정 보고/감사 절차 중대 우려, 실패 회사 관여 이력 시 감사위원 반대",
+              "section": "B외국계 2026 Ch.3 / Election of Audit Committee Member"
             },
             {
               "manager": "c_activist",
@@ -2239,8 +2239,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 이사 보수한도 일반 찬성 (피어 대비 과도/정당화 없는 인상 외)",
-              "section": "외부 advisor 2026 Ch.5 Compensation / Remuneration Cap for Directors"
+              "criterion": "[B외국계] 이사 보수한도 일반 찬성 (피어 대비 과도/정당화 없는 인상 외)",
+              "section": "B외국계 2026 Ch.5 Compensation / Remuneration Cap for Directors"
             },
             {
               "manager": "a_activist",
@@ -2283,8 +2283,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 보수한도가 피어 대비 과도하고 합리적 정당화 없는 경우 반대 — 적자 기업 인상 정당화 부족 추정",
-              "section": "외부 advisor 2026 Ch.5 / Remuneration Cap for Directors"
+              "criterion": "[B외국계] 보수한도가 피어 대비 과도하고 합리적 정당화 없는 경우 반대 — 적자 기업 인상 정당화 부족 추정",
+              "section": "B외국계 2026 Ch.5 / Remuneration Cap for Directors"
             },
             {
               "manager": "a_activist",
@@ -2342,8 +2342,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 보수 정당화 + 성과 연계 권장. 사후 행사가격 조정 등 성과 미연계 보상 변경 반대",
-              "section": "외부 advisor 2026 Ch.5"
+              "criterion": "[B외국계] 보수 정당화 + 성과 연계 권장. 사후 행사가격 조정 등 성과 미연계 보상 변경 반대",
+              "section": "B외국계 2026 Ch.5"
             },
             {
               "manager": "a_activist",
@@ -2597,8 +2597,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 스톡옵션 희석률 성숙기업 5% / 성장기업 10% 초과 시 반대",
-              "section": "외부 advisor 2026 Ch.5 / Stock Option Grants"
+              "criterion": "[B외국계] 스톡옵션 희석률 성숙기업 5% / 성장기업 10% 초과 시 반대",
+              "section": "B외국계 2026 Ch.5 / Stock Option Grants"
             },
             {
               "manager": "a_activist",
@@ -2842,8 +2842,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 자사주 매입 대체용 현금 동반 자본 감소 — 비례적 진행이라 주주가치 변화 없으므로 일반 찬성",
-              "section": "외부 advisor 2026 Ch.4 / Reduction in Capital Accompanied by Cash Consideration"
+              "criterion": "[B외국계] 자사주 매입 대체용 현금 동반 자본 감소 — 비례적 진행이라 주주가치 변화 없으므로 일반 찬성",
+              "section": "B외국계 2026 Ch.4 / Reduction in Capital Accompanied by Cash Consideration"
             },
             {
               "manager": "c_activist",
@@ -3083,8 +3083,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 합병/매각/지주회사: (1) 클래스 간 의결권·이익 불비례 (2) 거래 후 거버넌스 악화 (3) 협상 우려 (4) 정보 부족 (5) 매수가 trading opportunity 시 반대",
-              "section": "외부 advisor 2026 Ch.4 / Merger Agreement"
+              "criterion": "[B외국계] 합병/매각/지주회사: (1) 클래스 간 의결권·이익 불비례 (2) 거래 후 거버넌스 악화 (3) 협상 우려 (4) 정보 부족 (5) 매수가 trading opportunity 시 반대",
+              "section": "B외국계 2026 Ch.4 / Merger Agreement"
             },
             {
               "manager": "a_activist",
@@ -3132,8 +3132,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] dissident's right (주식매수청구권) 매수가가 프리미엄 보일 때 trading opportunity 평가 — 6요소 중 하나",
-              "section": "외부 advisor 2026 Ch.4 / Merger Agreement / Discussion"
+              "criterion": "[B외국계] dissident's right (주식매수청구권) 매수가가 프리미엄 보일 때 trading opportunity 평가 — 6요소 중 하나",
+              "section": "B외국계 2026 Ch.4 / Merger Agreement / Discussion"
             }
           ],
           "agreement_level": "divergence",
@@ -3176,8 +3176,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] Valuation/Market Reaction/Strategic Rationale/Conflicts/Governance/Trading Opportunity 6가지 종합 검토",
-              "section": "외부 advisor 2026 Ch.4 / Merger Agreement / Discussion"
+              "criterion": "[B외국계] Valuation/Market Reaction/Strategic Rationale/Conflicts/Governance/Trading Opportunity 6가지 종합 검토",
+              "section": "B외국계 2026 Ch.4 / Merger Agreement / Discussion"
             },
             {
               "manager": "c_activist",
@@ -3305,8 +3305,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 분할 일반 찬성. 단 (1) 클래스 간 영향 불비례 (2) 분할 후 거버넌스 악화 (3) 협상 과정 우려 (4) 정보 부족 (5) 동반 자본 감소 시 반대",
-              "section": "외부 advisor 2026 Ch.4 / Spin-off Agreement"
+              "criterion": "[B외국계] 분할 일반 찬성. 단 (1) 클래스 간 영향 불비례 (2) 분할 후 거버넌스 악화 (3) 협상 과정 우려 (4) 정보 부족 (5) 동반 자본 감소 시 반대",
+              "section": "B외국계 2026 Ch.4 / Spin-off Agreement"
             },
             {
               "manager": "a_activist",
@@ -3430,8 +3430,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 회계 목적 자본금 감소 일반 찬성 (조건이 주주 불리하지 않을 때). 현금 환원 미동반 자본 감소 일반 찬성 (회계 routine)",
-              "section": "외부 advisor 2026 Ch.4 / Reduction in Capital"
+              "criterion": "[B외국계] 회계 목적 자본금 감소 일반 찬성 (조건이 주주 불리하지 않을 때). 현금 환원 미동반 자본 감소 일반 찬성 (회계 routine)",
+              "section": "B외국계 2026 Ch.4 / Reduction in Capital"
             },
             {
               "manager": "a_activist",
@@ -3484,8 +3484,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 수권자본 증가가 현재 100% 초과 + 정당화 없을 때 반대",
-              "section": "외부 advisor 2026 Ch.4 / Increase in Authorized Capital"
+              "criterion": "[B외국계] 수권자본 증가가 현재 100% 초과 + 정당화 없을 때 반대",
+              "section": "B외국계 2026 Ch.4 / Increase in Authorized Capital"
             },
             {
               "manager": "c_activist",
@@ -3533,8 +3533,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 경영권 분쟁 시 이사회 구조·규모 변경 반대 (anti-takeover 정신 — 경영권 방어용 자본증가도 같은 맥락)",
-              "section": "외부 advisor 2026 Ch.2 Board / Board Structure"
+              "criterion": "[B외국계] 경영권 분쟁 시 이사회 구조·규모 변경 반대 (anti-takeover 정신 — 경영권 방어용 자본증가도 같은 맥락)",
+              "section": "B외국계 2026 Ch.2 Board / Board Structure"
             },
             {
               "manager": "a_activist",
@@ -3587,8 +3587,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor — 명시적 20% 정량] 신주인수권 배제 발행이 희석 또는 한도 20% 초과 시 반대",
-              "section": "외부 advisor 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
+              "criterion": "[B외국계 — 명시적 20% 정량] 신주인수권 배제 발행이 희석 또는 한도 20% 초과 시 반대",
+              "section": "B외국계 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
             },
             {
               "manager": "a_activist",
@@ -3641,8 +3641,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 주식분할/병합 일반 찬성 (희석 우려 없을 때)",
-              "section": "외부 advisor 2026 Ch.4 / Stock Split"
+              "criterion": "[B외국계] 주식분할/병합 일반 찬성 (희석 우려 없을 때)",
+              "section": "B외국계 2026 Ch.4 / Stock Split"
             },
             {
               "manager": "c_activist",
@@ -3690,8 +3690,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 수권자본 증가 일반 찬성 (현재 100% 초과 정당화 없거나 30% 미만 발행 외)",
-              "section": "외부 advisor 2026 Ch.4 / Increase in Authorized Capital"
+              "criterion": "[B외국계] 수권자본 증가 일반 찬성 (현재 100% 초과 정당화 없거나 30% 미만 발행 외)",
+              "section": "B외국계 2026 Ch.4 / Increase in Authorized Capital"
             },
             {
               "manager": "c_activist",
@@ -3809,8 +3809,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] CB/BW 등 주식연계증권 발행 — 희석/한도 둘 중 하나라도 20% 초과 반대 (신주발행과 동일 기준)",
-              "section": "외부 advisor 2026 Ch.4 / Issuance"
+              "criterion": "[B외국계] CB/BW 등 주식연계증권 발행 — 희석/한도 둘 중 하나라도 20% 초과 반대 (신주발행과 동일 기준)",
+              "section": "B외국계 2026 Ch.4 / Issuance"
             },
             {
               "manager": "a_activist",
@@ -3953,8 +3953,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] ESG 주주제안 case-by-case (입법/규제 처리, 회사 대응, 부담스러운 정도, 산업표준, 논쟁/제재, 정보 가용성, 기밀 노출, 주주 이해 영향 등 8가지 종합)",
-              "section": "외부 advisor 2026 Ch.8 Social and Environmental"
+              "criterion": "[B외국계] ESG 주주제안 case-by-case (입법/규제 처리, 회사 대응, 부담스러운 정도, 산업표준, 논쟁/제재, 정보 가용성, 기밀 노출, 주주 이해 영향 등 8가지 종합)",
+              "section": "B외국계 2026 Ch.8 Social and Environmental"
             },
             {
               "manager": "c_activist",
@@ -4007,8 +4007,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 회사 사업활동을 잠재적 제한, 또는 효익 대비 큰 비용 발생 주주제안 일반 반대",
-              "section": "외부 advisor 2026 Ch.7 Shareholder Proposals"
+              "criterion": "[B외국계] 회사 사업활동을 잠재적 제한, 또는 효익 대비 큰 비용 발생 주주제안 일반 반대",
+              "section": "B외국계 2026 Ch.7 Shareholder Proposals"
             },
             {
               "manager": "c_activist",
@@ -4051,8 +4051,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 회사 거버넌스 또는 사업 프로필을 합리적 비용으로 개선하는 주주제안 일반 찬성 (vs 사업활동 제한 반대 — 경합 시 case_by_case)",
-              "section": "외부 advisor 2026 Ch.7 Shareholder Proposals"
+              "criterion": "[B외국계] 회사 거버넌스 또는 사업 프로필을 합리적 비용으로 개선하는 주주제안 일반 찬성 (vs 사업활동 제한 반대 — 경합 시 case_by_case)",
+              "section": "B외국계 2026 Ch.7 Shareholder Proposals"
             },
             {
               "manager": "c_activist",
@@ -4129,8 +4129,8 @@
             },
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor] 거버넌스 책임 실패자 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대 (responsiveness 강력)",
-              "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY"
+              "criterion": "[B외국계] 거버넌스 책임 실패자 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대 (responsiveness 강력)",
+              "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY"
             },
             {
               "manager": "c_activist",
@@ -4144,7 +4144,7 @@
         },
         {
           "topic_id": "say_on_climate_iss",
-          "topic_label": "[외부 advisor Say on Climate] 회사 기후 전환 행동 계획 case-by-case (TCFD 정렬도/감축목표/2050 Net Zero/제3자 보증 등 9요소)",
+          "topic_label": "[B외국계 Say on Climate] 회사 기후 전환 행동 계획 case-by-case (TCFD 정렬도/감축목표/2050 Net Zero/제3자 보증 등 9요소)",
           "positions": {
             "m_legacy": "silent",
             "s_legacy": "silent",
@@ -4158,8 +4158,8 @@
           "evidence": [
             {
               "manager": "b_foreign",
-              "criterion": "[외부 advisor — Say on Climate 신규] Management Proposals 회사 기후 전환 행동 계획 case-by-case (TCFD 정렬도, Scope 1·2·3 GHG 공시, 단기·중기·장기 감축 목표, science-based 검증, 2050 Net Zero 약속, 후속 보고 약속, 제3자 보증, 로비/CapEx 전략 정렬, 산업 탈탄소 도전, 피어 비교 9요소). Shareholder Proposals — GHG 공시·감축계획 보고 요구 case-by-case (4요소)",
-              "section": "외부 advisor 2026 ESG Topics / Say on Climate"
+              "criterion": "[B외국계 — Say on Climate 신규] Management Proposals 회사 기후 전환 행동 계획 case-by-case (TCFD 정렬도, Scope 1·2·3 GHG 공시, 단기·중기·장기 감축 목표, science-based 검증, 2050 Net Zero 약속, 후속 보고 약속, 제3자 보증, 로비/CapEx 전략 정렬, 산업 탈탄소 도전, 피어 비교 9요소). Shareholder Proposals — GHG 공시·감축계획 보고 요구 case-by-case (4요소)",
+              "section": "B외국계 2026 ESG Topics / Say on Climate"
             }
           ],
           "agreement_level": "minority",
@@ -4261,27 +4261,27 @@
     "minority_topics": 27,
     "consensus_rate": 0.229,
     "majority_or_better_rate": 0.5,
-    "category_with_most_consensus": "정관 변경/이사 선임 (사외이사 5년 룰·집중투표 배제 삭제·황금낙하산 등 외부 advisor+한국 운용사 합의)",
-    "category_with_most_divergence": "이사 보수·자기주식 (행동주의 vs 외부 advisor (글로벌) vs 한국 운용사 분기)",
+    "category_with_most_consensus": "정관 변경/이사 선임 (사외이사 5년 룰·집중투표 배제 삭제·황금낙하산 등 B외국계+한국 운용사 합의)",
+    "category_with_most_divergence": "이사 보수·자기주식 (행동주의 vs B외국계 vs 한국 운용사 분기)",
     "v1_1_changes": [
-      "7 운용사 매트릭스 재계산 — b_foreign(외부 advisor 2026) + a_activist(행동주의) 추가",
+      "7 운용사 매트릭스 재계산 — b_foreign(B외국계 2026) + a_activist(행동주의) 추가",
       "신규 topics: 7건 (climate_accountability, say_on_climate, discharge, bundled_slate, accountability_extension, two_tier_governance, active_engagement_principle)",
       "기존 topics 입장 추가 업데이트: 72건",
-      "외부 advisor 직접 채택 영역: Climate Accountability, Say on Climate, Discharge of Director, Bundled Slate, 5-year cooling-off, Overboarded Outside Directors (>2 boards), Two-tier Governance",
+      "B외국계 직접 채택 영역: Climate Accountability, Say on Climate, Discharge of Director, Bundled Slate, 5-year cooling-off, Overboarded Outside Directors (>2 boards), Two-tier Governance",
       "행동주의 입장: 정책 선언적 적극 행사 (제3조 ②), 배당 과소 반대 (Ⅰ-2), 성과 미연계 보상 반대 (Ⅱ-4), 외부 인수 무력화 자본증가 반대 (Ⅶ-3), 사외이사 비중 축소 반대 (Ⅱ-2)"
     ],
     "korea_specific_findings": [
-      "감사위원 선임 시 상법 §409②의 3% 의결권 제한 회피 목적 감사위원회 도입 against (5/7 한국 운용사 만장일치 — 외부 advisor는 글로벌 표준이라 silent)",
-      "집중투표제 배제 조항 삭제 for (5/7 한국 운용사 + 외부 advisor·A행동주의 = 7/7 만장일치 — 상법 §542의7)",
-      "사외이사 5년 내 전직 임직원/특수관계인 against (7/7 만장일치 — 외부 advisor는 5년 cooling-off로 명시)",
-      "사외이사 6년 초과 재직 against (3/5 한국 + 외부 advisor는 silent — 한국 상법 §542의8 ② 7호 한국 특수)",
-      "이사 과도 겸임 against (7/7 만장일치 — 외부 advisor 정량 >2 boards 명시, 한국 상법 동일)",
-      "출석률 75% 미만 against (5/5 한국 + 외부 advisor = 6/7 — A행동주의 silent)",
-      "황금낙하산 against (5/5 한국 + 외부 advisor + A행동주의 = 7/7 만장일치)",
-      "스톡옵션 사후 행사가격 조정 against (5/5 한국 + A행동주의 = 6/7 — 외부 advisor는 stock option grants에서 다룸)",
-      "[외부 advisor 단독 신규] Climate Accountability — TCFD/Net Zero 미공시 책임 이사 반대",
-      "[외부 advisor 단독 신규] Bundled Slate — 묶음 선임 한 명 우려 시 전체 반대 (A행동주의도 일괄투표 반대로 동조)",
-      "[외부 advisor 단독 신규] Discharge of Director — 한국 미적용 글로벌 개념",
+      "감사위원 선임 시 상법 §409②의 3% 의결권 제한 회피 목적 감사위원회 도입 against (5/7 한국 운용사 만장일치 — B외국계는 글로벌 표준이라 silent)",
+      "집중투표제 배제 조항 삭제 for (5/7 한국 운용사 + B외국계·A행동주의 = 7/7 만장일치 — 상법 §542의7)",
+      "사외이사 5년 내 전직 임직원/특수관계인 against (7/7 만장일치 — B외국계는 5년 cooling-off로 명시)",
+      "사외이사 6년 초과 재직 against (3/5 한국 + B외국계는 silent — 한국 상법 §542의8 ② 7호 한국 특수)",
+      "이사 과도 겸임 against (7/7 만장일치 — B외국계 정량 >2 boards 명시, 한국 상법 동일)",
+      "출석률 75% 미만 against (5/5 한국 + B외국계 = 6/7 — A행동주의 silent)",
+      "황금낙하산 against (5/5 한국 + B외국계 + A행동주의 = 7/7 만장일치)",
+      "스톡옵션 사후 행사가격 조정 against (5/5 한국 + A행동주의 = 6/7 — B외국계는 stock option grants에서 다룸)",
+      "[B외국계 단독 신규] Climate Accountability — TCFD/Net Zero 미공시 책임 이사 반대",
+      "[B외국계 단독 신규] Bundled Slate — 묶음 선임 한 명 우려 시 전체 반대 (A행동주의도 일괄투표 반대로 동조)",
+      "[B외국계 단독 신규] Discharge of Director — 한국 미적용 글로벌 개념",
       "[A행동주의 단독] 행동주의 일반원칙 제3조 ② — 중대 사안 적극 행사 (5 운용사 + B외국계 모두 silent)",
       "[A행동주의 단독] 배당 과소 반대 (행동주의 핵심 — 5 운용사도 against지만 강도 차이)"
     ],

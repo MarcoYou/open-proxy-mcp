@@ -4,32 +4,32 @@
     "type": "asset_manager",
     "manager_id": "b_foreign",
     "manager_name": "B외국계",
-    "version": "2025.04 (외부 advisor 2026)",
+    "version": "2025.04 (B외국계 2026)",
     "effective_date": "2026-02-01",
     "source_file": "2025.04 B외국계 의결권행사 내부지침.pdf",
     "source_md": "/tmp/policy_parse/b_foreign/2025.04 B외국계 의결권행사 내부지침.md",
-    "external_advisor": "외부 advisor 가이드라인 (Published Dec 16, 2025; Effective Feb 1, 2026)",
-    "policy_classification": "foreign_manager_external_reference",
-    "note": "[v1.2 (2026-04-29)] OPM은 외부 advisor를 벤치마크로 사용하지 않음 (외부 advisor 추천 퀄리티/논란 우려). B외국계은 외국계 운용사가 외부 advisor를 어떻게 활용하는지의 데이터 reference로만 보존. voting_rules 본문은 비교/조사 목적 그대로 유지 (compare scope에서 정상 비교 가능). OPM 의결권 결정 로직은 한국 7 운용사 합의 + 한국 법령 + OPM 4 기준에 따름.",
+    "external_advisor": null,
+    "policy_classification": "b_foreign_self",
+    "note": "[v1.2 (2026-04-29)] OPM은 B외국계를 벤치마크로 사용하지 않음 (B외국계 추천 퀄리티/논란 우려). B외국계은 외국계 운용사가 B외국계를 어떻게 활용하는지의 데이터 reference로만 보존. voting_rules 본문은 비교/조사 목적 그대로 유지 (compare scope에서 정상 비교 가능). OPM 의결권 결정 로직은 한국 7 운용사 합의 + 한국 법령 + OPM 4 기준에 따름.",
     "classification_history": [
-      "v1.1 (2026-04-29): 'external_advisor_adoption' — 외부 advisor 2026 직접 채택 운용사로 분류, OPM 글로벌 표준 reference로 통합",
-      "v1.2 (2026-04-29): 'foreign_manager_external_reference' — OPM은 외부 advisor를 벤치마크로 사용하지 않음. 외국계 운용사 외부 advisor 참조 사례 데이터로만 분류"
+      "v1.1 (2026-04-29): 'b_foreign_policy' — B외국계 2026 직접 채택 운용사로 분류, OPM 글로벌 표준 reference로 통합",
+      "v1.2 (2026-04-29): 'b_foreign_self' — OPM은 B외국계를 벤치마크로 사용하지 않음. 외국계 운용사 B외국계 참조 사례 데이터로만 분류"
     ]
   },
   "general_principles": [
-    "[B외국계 자체 원칙] 외부 리서치 제공자(외부 advisor)의 추천에 따라 의결권 행사 (의결권 행사 규정 및 절차 제13조)",
+    "[B외국계 자체 원칙] 외부 리서치 제공자(B외국계)의 추천에 따라 의결권 행사 (의결권 행사 규정 및 절차 제13조)",
     "추천 미준수 시 의결권행사위원회 승인 필요 (제15조)",
-    "[외부 advisor Independence] 이사회는 경영진 및 주요 주주로부터 충분히 독립",
-    "[외부 advisor Composition] 이사회는 다양성·전문성·독립성 균형, 적정 규모",
-    "[외부 advisor Responsiveness] 이사는 투자자 의견(반대 다수, 주주제안 다수 지지, 공개매수 등)에 응답",
-    "[외부 advisor Accountability] 이사회는 거버넌스 투명성, 정기 선임, 충분한 정보 제공, 해임 가능성으로 주주에 책임"
+    "[B외국계 Independence] 이사회는 경영진 및 주요 주주로부터 충분히 독립",
+    "[B외국계 Composition] 이사회는 다양성·전문성·독립성 균형, 적정 규모",
+    "[B외국계 Responsiveness] 이사는 투자자 의견(반대 다수, 주주제안 다수 지지, 공개매수 등)에 응답",
+    "[B외국계 Accountability] 이사회는 거버넌스 투명성, 정기 선임, 충분한 정보 제공, 해임 가능성으로 주주에 책임"
   ],
   "decision_process": {
     "committee": "의결권행사위원회",
-    "external_advisor": "외부 advisor (글로벌)",
+    "external_advisor": null,
     "conflict_handling": "외부 리서치 제공사가 별첨 1)의 가이드라인을 준수한다고 판단. 별도 모니터링 미실시",
-    "approach": "외부 리서치(외부 advisor) 추천 원칙 따름. 추천 미준수 시 주식운용팀이 위원회에 사유 제시 후 승인 득함",
-    "summary": "B외국계은 자체 정책 없이 외부 advisor 가이드라인 (Effective Feb 1, 2026)를 그대로 적용. 의결권 행사는 외부 advisor 추천 따르며 예외 시 위원회 승인 필요"
+    "approach": "외부 리서치(B외국계) 추천 원칙 따름. 추천 미준수 시 주식운용팀이 위원회에 사유 제시 후 승인 득함",
+    "summary": "B외국계은 자체 정책 없이 B외국계 가이드라인 (Effective Feb 1, 2026)를 그대로 적용. 의결권 행사는 B외국계 추천 따르며 예외 시 위원회 승인 필요"
   },
   "voting_rules": {
     "financial_statements": {
@@ -37,15 +37,15 @@
       "for": [
         {
           "criterion": "재무제표/이사회보고서/감사보고서/사외이사보고서 일반 찬성 (회계 또는 감사 절차에 우려 없을 시)",
-          "source_text": "[외부 advisor] Generally vote for the approval of financial statements, report of board of directors, supervisors, and independent directors and other statutory reports unless there are concerns about the accounts presented or audit procedures used. | [요약] 재무제표 및 법정 보고서는 회계나 감사 절차에 우려가 없으면 일반적 찬성",
-          "section": "외부 advisor 2026 Ch.1 Operational Items / Approval of Financial Statements"
+          "source_text": "[B외국계] Generally vote for the approval of financial statements, report of board of directors, supervisors, and independent directors and other statutory reports unless there are concerns about the accounts presented or audit procedures used. | [요약] 재무제표 및 법정 보고서는 회계나 감사 절차에 우려가 없으면 일반적 찬성",
+          "section": "B외국계 2026 Ch.1 Operational Items / Approval of Financial Statements"
         }
       ],
       "against": [
         {
           "criterion": "회계 또는 감사 절차에 우려가 있는 경우 반대",
-          "source_text": "[외부 advisor] ...unless there are concerns about the accounts presented or audit procedures used. | [요약] 재무제표 자체에 우려나 감사 절차 문제 시 반대",
-          "section": "외부 advisor 2026 Ch.1 Operational Items / Approval of Financial Statements"
+          "source_text": "[B외국계] ...unless there are concerns about the accounts presented or audit procedures used. | [요약] 재무제표 자체에 우려나 감사 절차 문제 시 반대",
+          "section": "B외국계 2026 Ch.1 Operational Items / Approval of Financial Statements"
         }
       ],
       "review": [],
@@ -56,20 +56,20 @@
       "for": [
         {
           "criterion": "이익배분(현금배당/주식배당) 일반 찬성",
-          "source_text": "[외부 advisor] Generally vote for the approval of allocation of income (and declaration of cash or stock dividends), unless... | [요약] 이익배분 및 배당 일반 찬성",
-          "section": "외부 advisor 2026 Ch.1 Operational Items / Allocation of Income"
+          "source_text": "[B외국계] Generally vote for the approval of allocation of income (and declaration of cash or stock dividends), unless... | [요약] 이익배분 및 배당 일반 찬성",
+          "section": "B외국계 2026 Ch.1 Operational Items / Allocation of Income"
         }
       ],
       "against": [
         {
           "criterion": "배당성향이 적절한 정당화 없이 지속적으로 낮은 경우 반대",
-          "source_text": "[외부 advisor] The dividend payout ratio has been consistently low without adequate justification | [요약] 배당성향이 적절한 정당화 없이 지속적으로 낮은 경우 반대",
-          "section": "외부 advisor 2026 Ch.1 Operational Items / Allocation of Income"
+          "source_text": "[B외국계] The dividend payout ratio has been consistently low without adequate justification | [요약] 배당성향이 적절한 정당화 없이 지속적으로 낮은 경우 반대",
+          "section": "B외국계 2026 Ch.1 Operational Items / Allocation of Income"
         },
         {
           "criterion": "회사 재무상황 대비 배당이 과도한 경우 반대",
-          "source_text": "[외부 advisor] The payout is excessive given the company's financial position | [요약] 회사 재무상황 대비 과도한 배당 시 반대",
-          "section": "외부 advisor 2026 Ch.1 Operational Items / Allocation of Income"
+          "source_text": "[B외국계] The payout is excessive given the company's financial position | [요약] 회사 재무상황 대비 과도한 배당 시 반대",
+          "section": "B외국계 2026 Ch.1 Operational Items / Allocation of Income"
         }
       ],
       "review": [],
@@ -80,47 +80,47 @@
       "for": [
         {
           "criterion": "사업목적 추가·확장 안 일반 찬성 (위험성 높은 신사업 외)",
-          "source_text": "[외부 advisor] Generally vote for proposals to expand business objectives unless the new business takes the company into risky areas. | [요약] 사업목적 확장은 위험성 높은 영역 진입 외 일반 찬성",
-          "section": "외부 advisor 2026 Ch.6 Routine / Diversification of Business Objectives"
+          "source_text": "[B외국계] Generally vote for proposals to expand business objectives unless the new business takes the company into risky areas. | [요약] 사업목적 확장은 위험성 높은 영역 진입 외 일반 찬성",
+          "section": "B외국계 2026 Ch.6 Routine / Diversification of Business Objectives"
         },
         {
           "criterion": "집중투표 사용 금지 조항 도입 반대 (집중투표제 유지 찬성)",
-          "source_text": "[외부 advisor] Generally vote against proposals to introduce a provision that will prohibit the use of cumulative voting in director elections. | [요약] 집중투표 금지 도입 반대 — 집중투표제 보호",
-          "section": "외부 advisor 2026 Ch.2 Board / Cumulative Voting"
+          "source_text": "[B외국계] Generally vote against proposals to introduce a provision that will prohibit the use of cumulative voting in director elections. | [요약] 집중투표 금지 도입 반대 — 집중투표제 보호",
+          "section": "B외국계 2026 Ch.2 Board / Cumulative Voting"
         }
       ],
       "against": [
         {
           "criterion": "이사·내부감사인 해임 위한 초다수 의결권 요건 도입 반대",
-          "source_text": "[외부 advisor] Vote against proposals to adopt a supermajority voting requirement for the removal of directors or internal auditors. | [요약] 이사/감사 해임 위한 초다수 의결권 요건 도입 반대",
-          "section": "외부 advisor 2026 Ch.6 Routine / Amend Quorum Requirements"
+          "source_text": "[B외국계] Vote against proposals to adopt a supermajority voting requirement for the removal of directors or internal auditors. | [요약] 이사/감사 해임 위한 초다수 의결권 요건 도입 반대",
+          "section": "B외국계 2026 Ch.6 Routine / Amend Quorum Requirements"
         },
         {
           "criterion": "이사회에 재무제표·이익배분 승인 권한 부여 조항 도입 반대",
-          "source_text": "[외부 advisor] Generally vote against proposals to introduce a provision that gives the board of directors the authority to approve financial statements and income allocation (including dividend payout). Insertion of such a clause would potentially take away shareholders' right to approve the company's dividend payment decision without any countervailing benefits. | [요약] 이사회에 재무제표·배당 승인 권한 부여 조항 — 주주의 배당 결정권 박탈로 반대",
-          "section": "외부 advisor 2026 Ch.6 Routine / Authorizing Board to Approve FS and Income"
+          "source_text": "[B외국계] Generally vote against proposals to introduce a provision that gives the board of directors the authority to approve financial statements and income allocation (including dividend payout). Insertion of such a clause would potentially take away shareholders' right to approve the company's dividend payment decision without any countervailing benefits. | [요약] 이사회에 재무제표·배당 승인 권한 부여 조항 — 주주의 배당 결정권 박탈로 반대",
+          "section": "B외국계 2026 Ch.6 Routine / Authorizing Board to Approve FS and Income"
         },
         {
           "criterion": "분류이사회제(Classified board) 및 강제 정년제 도입 반대",
-          "source_text": "[외부 advisor] Vote against the introduction of classified boards and mandatory retirement ages for directors. | [요약] 분류이사회·강제 정년제 도입 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / Board Structure"
+          "source_text": "[B외국계] Vote against the introduction of classified boards and mandatory retirement ages for directors. | [요약] 분류이사회·강제 정년제 도입 반대",
+          "section": "B외국계 2026 Ch.2 Board / Board Structure"
         },
         {
           "criterion": "경영권 분쟁 상황에서 이사회 구조·규모 변경 반대",
-          "source_text": "[외부 advisor] Vote against proposals to alter board structure or size in the context of a fight for control of the company or the board. | [요약] 경영권 분쟁 시 이사회 구조 변경 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / Board Structure"
+          "source_text": "[B외국계] Vote against proposals to alter board structure or size in the context of a fight for control of the company or the board. | [요약] 경영권 분쟁 시 이사회 구조 변경 반대",
+          "section": "B외국계 2026 Ch.2 Board / Board Structure"
         },
         {
           "criterion": "한 안건 내 다수 정관변경 묶음 — 부정적 조항이 긍정적 조항보다 우세 시 안건 전체 반대",
-          "source_text": "[외부 advisor] In particular, the Amendment of Article of Incorporation proposals are always presented in a bundled manner. As such, in cases where the negative provisions proposed in a resolution outweigh any positive ones, vote against the whole resolution. | [요약] 한국에서 정관변경은 묶음 상정. 부정 조항이 긍정 조항보다 우세 시 전체 반대",
-          "section": "외부 advisor 2026 Overview"
+          "source_text": "[B외국계] In particular, the Amendment of Article of Incorporation proposals are always presented in a bundled manner. As such, in cases where the negative provisions proposed in a resolution outweigh any positive ones, vote against the whole resolution. | [요약] 한국에서 정관변경은 묶음 상정. 부정 조항이 긍정 조항보다 우세 시 전체 반대",
+          "section": "B외국계 2026 Overview"
         }
       ],
       "review": [
         {
           "criterion": "의결정족수 변경 사안별 검토",
-          "source_text": "[외부 advisor] Vote case-by-case on proposals to amend quorum requirements. | [요약] 의결정족수 변경은 사안별 결정",
-          "section": "외부 advisor 2026 Ch.6 Routine / Amend Quorum Requirements"
+          "source_text": "[B외국계] Vote case-by-case on proposals to amend quorum requirements. | [요약] 의결정족수 변경은 사안별 결정",
+          "section": "B외국계 2026 Ch.6 Routine / Amend Quorum Requirements"
         }
       ],
       "abstain": []
@@ -130,67 +130,67 @@
       "for": [
         {
           "criterion": "이사 (재)선임 일반 찬성 (예외 사유 외)",
-          "source_text": "[외부 advisor] Generally vote for re/election of directors, except under the following circumstances: | [요약] 이사 재선임/선임은 일반 찬성 (예외 시 반대)",
-          "section": "외부 advisor 2026 Ch.2 Board / Election of Director"
+          "source_text": "[B외국계] Generally vote for re/election of directors, except under the following circumstances: | [요약] 이사 재선임/선임은 일반 찬성 (예외 시 반대)",
+          "section": "B외국계 2026 Ch.2 Board / Election of Director"
         },
         {
           "criterion": "이사 면책(Discharge) 일반 찬성 (이사회 신뢰 훼손 통제 사항 외)",
-          "source_text": "[외부 advisor] Generally vote for the discharge of directors... unless there is reliable information about significant and compelling controversies as to whether the board is fulfilling its fiduciary duties... | [요약] 이사 면책은 일반 찬성, 다만 신탁의무 미이행 의혹·법적 절차·중대 거버넌스 이슈 시 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / Discharge of Director"
+          "source_text": "[B외국계] Generally vote for the discharge of directors... unless there is reliable information about significant and compelling controversies as to whether the board is fulfilling its fiduciary duties... | [요약] 이사 면책은 일반 찬성, 다만 신탁의무 미이행 의혹·법적 절차·중대 거버넌스 이슈 시 반대",
+          "section": "B외국계 2026 Ch.2 Board / Discharge of Director"
         }
       ],
       "against": [
         {
           "criterion": "[독립성] 대형사 사외이사 비중이 과반 미만 또는 소형사 25% 미만 시 비독립이사 반대",
-          "source_text": "[외부 advisor] Vote against non-independent director nominees (Executive Directors and Non-Independent Non-Executive Directors per external advisor classification) when Independent directors comprise less than majority of the board in the case of large companies, or less than 25 percent in the case of small companies. | [요약] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / INDEPENDENCE"
+          "source_text": "[B외국계] Vote against non-independent director nominees (Executive Directors and Non-Independent Non-Executive Directors per b_foreign classification) when Independent directors comprise less than majority of the board in the case of large companies, or less than 25 percent in the case of small companies. | [요약] 대형사 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대",
+          "section": "B외국계 2026 Ch.2 Board / INDEPENDENCE"
         },
         {
           "criterion": "[독립성 - 5년 룰] 회사 또는 계열사의 직원·임원이거나 5년 내 직원·임원이었던 자는 비독립으로 분류 (NED)",
-          "source_text": "[외부 advisor] Former employee or executive (five-year cooling off period); ... Founder/co-founder/member of founding family but not currently an employee or executive | [요약] 전직 임원·직원은 5년 cooling-off, 창업자/창업가족도 비독립",
-          "section": "외부 advisor 2026 Ch.2 Board / Classification of Director"
+          "source_text": "[B외국계] Former employee or executive (five-year cooling off period); ... Founder/co-founder/member of founding family but not currently an employee or executive | [요약] 전직 임원·직원은 5년 cooling-off, 창업자/창업가족도 비독립",
+          "section": "B외국계 2026 Ch.2 Board / Classification of Director"
         },
         {
           "criterion": "[출석률] 사외이사가 최근 회계연도 이사회·핵심위원회 출석률 75% 미만 + 합당 사유 미제시 시 반대",
-          "source_text": "[외부 advisor] Generally vote against an outside director who attended less than 75 percent of board and key committee meetings over the most recent fiscal year, without a satisfactory explanation. | [요약] 사외이사 75% 출석률 미만 시 반대 (의료/가족비상/임기1년 미만/총 3회 이하 회의 중 1회 결석 외)",
-          "section": "외부 advisor 2026 Ch.2 Board / COMPOSITION / Attendance"
+          "source_text": "[B외국계] Generally vote against an outside director who attended less than 75 percent of board and key committee meetings over the most recent fiscal year, without a satisfactory explanation. | [요약] 사외이사 75% 출석률 미만 시 반대 (의료/가족비상/임기1년 미만/총 3회 이하 회의 중 1회 결석 외)",
+          "section": "B외국계 2026 Ch.2 Board / COMPOSITION / Attendance"
         },
         {
           "criterion": "[과도겸임] 사외이사가 2개 초과 상장사 이사 겸임 시 반대 (상법·시행령 위반)",
-          "source_text": "[외부 advisor] Generally vote against an outside director who sits on more than two public company boards, in violation of the Commercial Act and accompanying presidential decree | [요약] 사외이사가 상장사 이사회 2개 초과 시 반대 (단 CEO/MD/EC/창업자 적정 공시 시 예외)",
-          "section": "외부 advisor 2026 Ch.2 Board / COMPOSITION / Overboarded Outside Directors"
+          "source_text": "[B외국계] Generally vote against an outside director who sits on more than two public company boards, in violation of the Commercial Act and accompanying presidential decree | [요약] 사외이사가 상장사 이사회 2개 초과 시 반대 (단 CEO/MD/EC/창업자 적정 공시 시 예외)",
+          "section": "B외국계 2026 Ch.2 Board / COMPOSITION / Overboarded Outside Directors"
         },
         {
           "criterion": "[성평등] 이사회 성다양성 규정 미준수 시 추천위원장 반대",
-          "source_text": "[외부 advisor] Generally vote against the chair of the nomination committee (or other senior members of the nomination committee on a case-by-case basis) up for election if the company is non-compliant with the board gender diversity regulation. | [요약] 이사회 성다양성 규정 미준수 시 추천위원장 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / COMPOSITION / Board Gender Diversity"
+          "source_text": "[B외국계] Generally vote against the chair of the nomination committee (or other senior members of the nomination committee on a case-by-case basis) up for election if the company is non-compliant with the board gender diversity regulation. | [요약] 이사회 성다양성 규정 미준수 시 추천위원장 반대",
+          "section": "B외국계 2026 Ch.2 Board / COMPOSITION / Board Gender Diversity"
         },
         {
           "criterion": "[기후 책임] 중대 GHG 배출 기업이 TCFD 공시 + 적절한 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
-          "source_text": "[외부 advisor] For companies that are significant greenhouse gas (GHG) emitters... generally vote against the responsible incumbent director(s)... where external advisor determines that the company is not taking the minimum steps needed to understand, assess, and mitigate risks related to climate change... | [요약] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 (이사회 거버넌스/전략/위험관리/지표 및 목표) + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
+          "source_text": "[B외국계] For companies that are significant greenhouse gas (GHG) emitters... generally vote against the responsible incumbent director(s)... where b_foreign determines that the company is not taking the minimum steps needed to understand, assess, and mitigate risks related to climate change... | [요약] 중대 GHG 배출 기업이 (1) TCFD 기반 기후 리스크 공시 (이사회 거버넌스/전략/위험관리/지표 및 목표) + (2) 적정 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
+          "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY / Climate Accountability"
         },
         {
           "criterion": "[거버넌스 실패] 적시 공시 미이행 시 이사 반대. 신탁/위험감독/감사 책임 중대 실패, 횡령·뇌물·중대 제재·임원 미해임·중대 거버넌스 실패 시 개별 이사·위원회·이사회 전체 반대",
-          "source_text": "[외부 advisor] Vote against the election of director if adequate disclosure has not been provided in a timely manner. Under extraordinary circumstances, vote against individual directors, members of committees, or the entire board, due to: Material failure of governance, stewardship, risk oversight, or fiduciary responsibilities at the company; Failure to replace management or directors as appropriate; or Egregious actions related to a director's service on other boards... | [요약] 적시 공시 미이행, 거버넌스 실패(횡령/뇌물/제재/판결), 임원 미해임, 다른 회사 이사로서 부적절 행위 시 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY / Governance Failures"
+          "source_text": "[B외국계] Vote against the election of director if adequate disclosure has not been provided in a timely manner. Under extraordinary circumstances, vote against individual directors, members of committees, or the entire board, due to: Material failure of governance, stewardship, risk oversight, or fiduciary responsibilities at the company; Failure to replace management or directors as appropriate; or Egregious actions related to a director's service on other boards... | [요약] 적시 공시 미이행, 거버넌스 실패(횡령/뇌물/제재/판결), 임원 미해임, 다른 회사 이사로서 부적절 행위 시 반대",
+          "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY / Governance Failures"
         },
         {
           "criterion": "[묶음 선임] 다수 이사 묶음 선임 시 한 명이라도 거버넌스 우려 시 슬레이트 전체 반대",
-          "source_text": "[외부 advisor] For cases where the election of multiple directors is presented as a bundled item, vote against the entire slate of directors if one of the nominees presents any of the governance concerns highlighted above. | [요약] 묶음 선임 시 한 명이라도 거버넌스 문제 있으면 슬레이트 전체 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY"
+          "source_text": "[B외국계] For cases where the election of multiple directors is presented as a bundled item, vote against the entire slate of directors if one of the nominees presents any of the governance concerns highlighted above. | [요약] 묶음 선임 시 한 명이라도 거버넌스 문제 있으면 슬레이트 전체 반대",
+          "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY"
         },
         {
           "criterion": "[책임 확장] 한 이사가 한 회사에서 책임을 다하지 않는 거버넌스 실패 보임 + 그 이사가 미해임된 경우 그가 재직하는 모든 이사회에서 반대",
-          "source_text": "[외부 advisor] Generally vote against directors from all boards on which the individual serves for failure to remove a director from the board who has demonstrated a serious failure of accountability due to his/her egregious actions. | [요약] 거버넌스 책임 실패자 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대",
-          "section": "외부 advisor 2026 Ch.2 Board / ACCOUNTABILITY"
+          "source_text": "[B외국계] Generally vote against directors from all boards on which the individual serves for failure to remove a director from the board who has demonstrated a serious failure of accountability due to his/her egregious actions. | [요약] 거버넌스 책임 실패자 미해임 시 그가 재직 중인 모든 이사회에서 그 인물 반대",
+          "section": "B외국계 2026 Ch.2 Board / ACCOUNTABILITY"
         }
       ],
       "review": [
         {
           "criterion": "[Contested Election] 사외이사 경쟁 선임은 case-by-case (장기 재무성과/경영진 트랙레코드/배경/후보 자격/반대측 전략/실현 가능성/주식 보유 등 종합 고려)",
-          "source_text": "[외부 advisor] external advisor will make its recommendation on a case-by-case basis, determining which directors are best suited to add value for shareholders. The analysis will generally be based on... Long-term financial performance... Management's track record... Background to the contested election... Nominee qualifications... Strategic plan of dissident slate... Likelihood that the proposed goals... Stock ownership positions. | [요약] 경쟁 선임은 사안별. (1) 이사회 변경 정당성 + (2) 반대측 후보가 긍정적 변화 가능성 두 질문 중심",
-          "section": "외부 advisor 2026 Ch.2 Board / VOTING ON DIRECTOR NOMINEES IN CONTESTED ELECTIONS"
+          "source_text": "[B외국계] b_foreign will make its recommendation on a case-by-case basis, determining which directors are best suited to add value for shareholders. The analysis will generally be based on... Long-term financial performance... Management's track record... Background to the contested election... Nominee qualifications... Strategic plan of dissident slate... Likelihood that the proposed goals... Stock ownership positions. | [요약] 경쟁 선임은 사안별. (1) 이사회 변경 정당성 + (2) 반대측 후보가 긍정적 변화 가능성 두 질문 중심",
+          "section": "B외국계 2026 Ch.2 Board / VOTING ON DIRECTOR NOMINEES IN CONTESTED ELECTIONS"
         }
       ],
       "abstain": []
@@ -200,42 +200,42 @@
       "for": [
         {
           "criterion": "감사위원회를 내부감사인 시스템 대체로 설치 일반 찬성",
-          "source_text": "[외부 advisor] Generally vote for the establishment of an audit committee as a replacement for the internal auditor system. | [요약] 감사위원회 설치(내부감사인 대체) 일반 찬성",
-          "section": "외부 advisor 2026 Ch.3 Audit-Related / Establishment of Audit Committee"
+          "source_text": "[B외국계] Generally vote for the establishment of an audit committee as a replacement for the internal auditor system. | [요약] 감사위원회 설치(내부감사인 대체) 일반 찬성",
+          "section": "B외국계 2026 Ch.3 Audit-Related / Establishment of Audit Committee"
         }
       ],
       "against": [
         {
           "criterion": "법정 보고 또는 감사 절차에 중대 우려",
-          "source_text": "[외부 advisor] There are serious concerns about the statutory reports presented or audit procedures used; | [요약] 법정 보고/감사 절차에 중대 우려",
-          "section": "외부 advisor 2026 Ch.3 / Election of Audit Committee Member"
+          "source_text": "[B외국계] There are serious concerns about the statutory reports presented or audit procedures used; | [요약] 법정 보고/감사 절차에 중대 우려",
+          "section": "B외국계 2026 Ch.3 / Election of Audit Committee Member"
         },
         {
           "criterion": "실패 회사와 중대한 관여 이력",
-          "source_text": "[외부 advisor] A director has had significant involvement with a failed company; | [요약] 실패 회사 관여 이력",
-          "section": "외부 advisor 2026 Ch.3 / Election of Audit Committee Member"
+          "source_text": "[B외국계] A director has had significant involvement with a failed company; | [요약] 실패 회사 관여 이력",
+          "section": "B외국계 2026 Ch.3 / Election of Audit Committee Member"
         },
         {
           "criterion": "과거 전체 주주 이익 미부합 행동 / 신탁의무 위반·고의적 위법·중대한 과실 / 검찰 기소·수사 진행 중 / 회사 및 계열사와 최근 3년간 중대 거래 (객관성·독립성 결여)",
-          "source_text": "[외부 advisor] A director has in the past appeared not to have acted in the best interests of all shareholders; A director has breached fiduciary duties or engaged in willful misconduct or gross negligence...; A director has been indicted by the Prosecutors' Office and there are pending investigations; A director has engaged in some significant transactions with the company and affiliates in the last three years and he/she cannot reasonably be seen to have the necessary objectivity and independence | [요약] 주주이익 미부합 이력/신탁의무 위반/검찰 수사 중/3년 내 중대 거래로 객관성 결여 시 반대",
-          "section": "외부 advisor 2026 Ch.3 / Election of Audit Committee Member"
+          "source_text": "[B외국계] A director has in the past appeared not to have acted in the best interests of all shareholders; A director has breached fiduciary duties or engaged in willful misconduct or gross negligence...; A director has been indicted by the Prosecutors' Office and there are pending investigations; A director has engaged in some significant transactions with the company and affiliates in the last three years and he/she cannot reasonably be seen to have the necessary objectivity and independence | [요약] 주주이익 미부합 이력/신탁의무 위반/검찰 수사 중/3년 내 중대 거래로 객관성 결여 시 반대",
+          "section": "B외국계 2026 Ch.3 / Election of Audit Committee Member"
         },
         {
           "criterion": "사외이사 출석률 75% 미만 + 합당 사유 미제시",
-          "source_text": "[외부 advisor] An outside director has attended less than 75 percent of board meetings in the most recent financial year, without a satisfactory explanation; | [요약] 출석률 75% 미만 (감사위원회 위원도 적용)",
-          "section": "외부 advisor 2026 Ch.3 / Election of Audit Committee Member"
+          "source_text": "[B외국계] An outside director has attended less than 75 percent of board meetings in the most recent financial year, without a satisfactory explanation; | [요약] 출석률 75% 미만 (감사위원회 위원도 적용)",
+          "section": "B외국계 2026 Ch.3 / Election of Audit Committee Member"
         },
         {
           "criterion": "비독립이사가 감사위원이 되려는 경우 (대형사). 소형사는 감사위원회 2/3 미만 독립 시 반대",
-          "source_text": "[외부 advisor] A non-independent director (under 외부 advisor classification) seeks to become an audit committee member (for large companies); A non-independent director (under 외부 advisor classification) seeks to become an audit committee member and the audit committee is less than two-thirds independent (for small companies); | [요약] 대형사 감사위원회는 비독립이사 불가. 소형사는 2/3 독립 안 될 때 비독립 추가 반대",
-          "section": "외부 advisor 2026 Ch.3 / Election of Audit Committee Member"
+          "source_text": "[B외국계] A non-independent director (under B외국계 classification) seeks to become an audit committee member (for large companies); A non-independent director (under B외국계 classification) seeks to become an audit committee member and the audit committee is less than two-thirds independent (for small companies); | [요약] 대형사 감사위원회는 비독립이사 불가. 소형사는 2/3 독립 안 될 때 비독립 추가 반대",
+          "section": "B외국계 2026 Ch.3 / Election of Audit Committee Member"
         }
       ],
       "review": [
         {
           "criterion": "내부감사인 선임 사안별 (감사위원회 위원과 유사 사유)",
-          "source_text": "[외부 advisor] Vote case-by-case on the election of internal auditor(s). Consider the history of a particular internal auditor when deciding whether to vote in favor of his or her (re)election. | [요약] 내부감사인 선임 사안별",
-          "section": "외부 advisor 2026 Ch.3 / Election of Internal Auditor"
+          "source_text": "[B외국계] Vote case-by-case on the election of internal auditor(s). Consider the history of a particular internal auditor when deciding whether to vote in favor of his or her (re)election. | [요약] 내부감사인 선임 사안별",
+          "section": "B외국계 2026 Ch.3 / Election of Internal Auditor"
         }
       ],
       "abstain": []
@@ -245,45 +245,45 @@
       "for": [
         {
           "criterion": "이사 보수한도 일반 찬성 (피어 비교 과도하지 않고 합리적 정당화 있는 경우)",
-          "source_text": "[외부 advisor] Generally vote for approval of the remuneration cap for directors, unless: The proposed cap on directors' remuneration is excessive relative to peer companies' remuneration without reasonable justification; or The company is asking for an increase in the remuneration cap where the company has not provided a reasonable justification for the proposed increase. | [요약] 이사 보수한도 일반 찬성 (피어 대비 과도/합리적 정당화 없는 인상 외)",
-          "section": "외부 advisor 2026 Ch.5 Compensation / Remuneration Cap for Directors"
+          "source_text": "[B외국계] Generally vote for approval of the remuneration cap for directors, unless: The proposed cap on directors' remuneration is excessive relative to peer companies' remuneration without reasonable justification; or The company is asking for an increase in the remuneration cap where the company has not provided a reasonable justification for the proposed increase. | [요약] 이사 보수한도 일반 찬성 (피어 대비 과도/합리적 정당화 없는 인상 외)",
+          "section": "B외국계 2026 Ch.5 Compensation / Remuneration Cap for Directors"
         },
         {
           "criterion": "내부감사인 보수한도 일반 찬성 (피어 대비 과도하지 않고 합당하면)",
-          "source_text": "[외부 advisor] Generally vote for the remuneration cap for internal auditors, unless: ... | [요약] 내부감사인 보수한도 일반 찬성 (과도/정당화 없는 인상/감사 절차 우려 외)",
-          "section": "외부 advisor 2026 Ch.5 Compensation / Remuneration Cap for Auditors"
+          "source_text": "[B외국계] Generally vote for the remuneration cap for internal auditors, unless: ... | [요약] 내부감사인 보수한도 일반 찬성 (과도/정당화 없는 인상/감사 절차 우려 외)",
+          "section": "B외국계 2026 Ch.5 Compensation / Remuneration Cap for Auditors"
         },
         {
           "criterion": "스톡옵션 부여 일반 찬성 (희석률 한도 내)",
-          "source_text": "[외부 advisor] Generally vote for a proposed stock option grant, unless: The maximum dilution level under the plan exceeds 5 percent of issued capital for a mature company; or The maximum dilution level under the plan exceeds 10 percent for a growth company. | [요약] 스톡옵션 부여 일반 찬성. 성숙기업 5% / 성장기업 10% 초과 희석 시 반대",
-          "section": "외부 advisor 2026 Ch.5 Compensation / Stock Option Grants"
+          "source_text": "[B외국계] Generally vote for a proposed stock option grant, unless: The maximum dilution level under the plan exceeds 5 percent of issued capital for a mature company; or The maximum dilution level under the plan exceeds 10 percent for a growth company. | [요약] 스톡옵션 부여 일반 찬성. 성숙기업 5% / 성장기업 10% 초과 희석 시 반대",
+          "section": "B외국계 2026 Ch.5 Compensation / Stock Option Grants"
         },
         {
           "criterion": "임원 퇴직금 변경 일반 찬성 (정보 미제공/부정조항 우세/사실상 황금낙하산 신설 외)",
-          "source_text": "[외부 advisor] Generally vote for the establishment of, or amendments, to executives' severance payment terms, unless: ... | [요약] 임원 퇴직금 변경 일반 찬성. (1) 정보 미제공 (2) 부정조항 우세 (3) 사실상 황금낙하산 신설 시 반대",
-          "section": "외부 advisor 2026 Ch.5 Compensation / Amendments to Severance Payments"
+          "source_text": "[B외국계] Generally vote for the establishment of, or amendments, to executives' severance payment terms, unless: ... | [요약] 임원 퇴직금 변경 일반 찬성. (1) 정보 미제공 (2) 부정조항 우세 (3) 사실상 황금낙하산 신설 시 반대",
+          "section": "B외국계 2026 Ch.5 Compensation / Amendments to Severance Payments"
         },
         {
           "criterion": "근로자스톡옵션제도(ESOP) 정관 개정 찬성 (주총 사전·사후 승인 필요 명시 + 희석률 5%/10% 한도)",
-          "source_text": "[외부 advisor] Generally vote for article amendments to establish stock option programs for the Employee Stock Ownership Plan if: The company explicitly states that shareholders' approval will be required... and The maximum dilution level under the program does not exceed 5 percent of issued capital for a mature company and 10 percent for a growth company. | [요약] ESOP 정관 개정 찬성 (1) 주총 사전·사후 승인 명시 + (2) 성숙기업 5% / 성장기업 10% 한도",
-          "section": "외부 advisor 2026 Ch.5 Compensation / Stock Option Programs for ESOP"
+          "source_text": "[B외국계] Generally vote for article amendments to establish stock option programs for the Employee Stock Ownership Plan if: The company explicitly states that shareholders' approval will be required... and The maximum dilution level under the program does not exceed 5 percent of issued capital for a mature company and 10 percent for a growth company. | [요약] ESOP 정관 개정 찬성 (1) 주총 사전·사후 승인 명시 + (2) 성숙기업 5% / 성장기업 10% 한도",
+          "section": "B외국계 2026 Ch.5 Compensation / Stock Option Programs for ESOP"
         }
       ],
       "against": [
         {
           "criterion": "이사 보수한도가 피어 대비 과도하고 합리적 정당화 없는 경우 반대",
-          "source_text": "[외부 advisor] The proposed cap on directors' remuneration is excessive relative to peer companies' remuneration without reasonable justification | [요약] 이사 보수한도 피어 대비 과도+정당화 없을 때 반대",
-          "section": "외부 advisor 2026 Ch.5 Compensation / Remuneration Cap for Directors"
+          "source_text": "[B외국계] The proposed cap on directors' remuneration is excessive relative to peer companies' remuneration without reasonable justification | [요약] 이사 보수한도 피어 대비 과도+정당화 없을 때 반대",
+          "section": "B외국계 2026 Ch.5 Compensation / Remuneration Cap for Directors"
         },
         {
           "criterion": "스톡옵션 희석률 성숙기업 5% / 성장기업 10% 초과 시 반대",
-          "source_text": "[외부 advisor] The maximum dilution level under the plan exceeds 5 percent of issued capital for a mature company; or The maximum dilution level under the plan exceeds 10 percent for a growth company. | [요약] 스톡옵션 희석률 성숙 5%/성장 10% 초과 반대",
-          "section": "외부 advisor 2026 Ch.5 Compensation / Stock Option Grants"
+          "source_text": "[B외국계] The maximum dilution level under the plan exceeds 5 percent of issued capital for a mature company; or The maximum dilution level under the plan exceeds 10 percent for a growth company. | [요약] 스톡옵션 희석률 성숙 5%/성장 10% 초과 반대",
+          "section": "B외국계 2026 Ch.5 Compensation / Stock Option Grants"
         },
         {
           "criterion": "황금낙하산 조항 (해임·퇴직 시 과도한 보수 부여) 도입 반대",
-          "source_text": "[외부 advisor] Generally vote against proposals to introduce a provision that entitles the company's directors to an excessive level of remuneration in the event that they are dismissed or terminated. | [요약] 황금낙하산 (해임·퇴직 시 과도 보수) 일반 반대",
-          "section": "외부 advisor 2026 Ch.5 Compensation / Golden Parachute Clause"
+          "source_text": "[B외국계] Generally vote against proposals to introduce a provision that entitles the company's directors to an excessive level of remuneration in the event that they are dismissed or terminated. | [요약] 황금낙하산 (해임·퇴직 시 과도 보수) 일반 반대",
+          "section": "B외국계 2026 Ch.5 Compensation / Golden Parachute Clause"
         }
       ],
       "review": [],
@@ -294,8 +294,8 @@
       "for": [
         {
           "criterion": "현금 환원 동반 자본금 감소 (자사주 매입/특별배당 대체) 일반 찬성 — 주주 가치 변화 미실질",
-          "source_text": "[외부 advisor] Generally vote for proposals to reduce a company's capital that accompany return of funds to shareholders and are part of a capital-management strategy and an alternative to a buyback or a special dividend. Such a resolution is normally implemented proportionately against all outstanding capital, and therefore do not involve any material change relative to shareholder value. | [요약] 자사주 매입/특별배당 대체용 현금 동반 자본 감소 — 비례적 진행이라 주주가치 변화 없으므로 일반 찬성",
-          "section": "외부 advisor 2026 Ch.4 Capital Structure / Reduction in Capital Accompanied by Cash Consideration"
+          "source_text": "[B외국계] Generally vote for proposals to reduce a company's capital that accompany return of funds to shareholders and are part of a capital-management strategy and an alternative to a buyback or a special dividend. Such a resolution is normally implemented proportionately against all outstanding capital, and therefore do not involve any material change relative to shareholder value. | [요약] 자사주 매입/특별배당 대체용 현금 동반 자본 감소 — 비례적 진행이라 주주가치 변화 없으므로 일반 찬성",
+          "section": "B외국계 2026 Ch.4 Capital Structure / Reduction in Capital Accompanied by Cash Consideration"
         }
       ],
       "against": [],
@@ -307,55 +307,55 @@
       "for": [
         {
           "criterion": "신주발행한도 신주인수권 배제 — 잠재 희석률 20% 이하 + 발행한도 20% 이하 시 찬성",
-          "source_text": "[외부 advisor] Vote for issuance requests without preemptive rights to a maximum of 20 percent of currently issued capital. ... Only vote for these article amendments if: The potential dilution ratio to existing shareholders does not exceed 20 percent; and The proposed issuance limit of new shares is set at no higher than 20 percent of issued shares. | [요약] 신주인수권 배제 발행은 (1) 희석률 20% 이하 + (2) 발행한도 20% 이하 시 찬성",
-          "section": "외부 advisor 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
+          "source_text": "[B외국계] Vote for issuance requests without preemptive rights to a maximum of 20 percent of currently issued capital. ... Only vote for these article amendments if: The potential dilution ratio to existing shareholders does not exceed 20 percent; and The proposed issuance limit of new shares is set at no higher than 20 percent of issued shares. | [요약] 신주인수권 배제 발행은 (1) 희석률 20% 이하 + (2) 발행한도 20% 이하 시 찬성",
+          "section": "B외국계 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
         },
         {
           "criterion": "수권자본 증가 일반 찬성 (현재 100% 초과 정당화 없거나 30% 미만 발행 외)",
-          "source_text": "[외부 advisor] Generally vote for increases in authorized capital, unless: The increase in authorized capital exceeds 100 percent of the current authorized capital without any justification; or The increase in the authorized capital results in less than 30 percent of the proposed authorized capital on issue. | [요약] 수권자본 증가 일반 찬성 (현재 100% 초과 정당화 무 / 발행 30% 미만 외)",
-          "section": "외부 advisor 2026 Ch.4 / Increase in Authorized Capital"
+          "source_text": "[B외국계] Generally vote for increases in authorized capital, unless: The increase in authorized capital exceeds 100 percent of the current authorized capital without any justification; or The increase in the authorized capital results in less than 30 percent of the proposed authorized capital on issue. | [요약] 수권자본 증가 일반 찬성 (현재 100% 초과 정당화 무 / 발행 30% 미만 외)",
+          "section": "B외국계 2026 Ch.4 / Increase in Authorized Capital"
         },
         {
           "criterion": "주식분할 일반 찬성 (희석 영향 없는 경우)",
-          "source_text": "[외부 advisor] Generally vote for stock splits or reverse stock splits unless there is potential dilution impact on existing shareholders as a result of stock split and/or reverse stock split. | [요약] 주식분할/병합 일반 찬성 (희석 우려 없을 때)",
-          "section": "외부 advisor 2026 Ch.4 / Stock Split"
+          "source_text": "[B외국계] Generally vote for stock splits or reverse stock splits unless there is potential dilution impact on existing shareholders as a result of stock split and/or reverse stock split. | [요약] 주식분할/병합 일반 찬성 (희석 우려 없을 때)",
+          "section": "B외국계 2026 Ch.4 / Stock Split"
         },
         {
           "criterion": "주식병합 — 수권주식수 비례 감소 또는 증가가 정책 한도 내인 경우 찬성",
-          "source_text": "[외부 advisor] Vote for a reverse stock split if: The number of authorized shares will be proportionately reduced; or The effective increase in authorized shares is equal to or less than the allowable increase calculated in accordance with Increase in Authorized Capital policy. | [요약] 주식병합 (1) 수권주식 비례 감소 또는 (2) 수권 증가가 한도 내",
-          "section": "외부 advisor 2026 Ch.4 / Reverse Stock Split"
+          "source_text": "[B외국계] Vote for a reverse stock split if: The number of authorized shares will be proportionately reduced; or The effective increase in authorized shares is equal to or less than the allowable increase calculated in accordance with Increase in Authorized Capital policy. | [요약] 주식병합 (1) 수권주식 비례 감소 또는 (2) 수권 증가가 한도 내",
+          "section": "B외국계 2026 Ch.4 / Reverse Stock Split"
         },
         {
           "criterion": "액면가 조정 찬성 (적대적 인수방어 또는 부정 거버넌스 외)",
-          "source_text": "[외부 advisor] Vote for requests to adjust the par value of common stock unless the action is being taken to facilitate an anti-takeover device or some other negative corporate governance action. | [요약] 액면가 조정 찬성 (인수방어 등 부정적 목적 외)",
-          "section": "외부 advisor 2026 Ch.4 / Adjustment of Par Value"
+          "source_text": "[B외국계] Vote for requests to adjust the par value of common stock unless the action is being taken to facilitate an anti-takeover device or some other negative corporate governance action. | [요약] 액면가 조정 찬성 (인수방어 등 부정적 목적 외)",
+          "section": "B외국계 2026 Ch.4 / Adjustment of Par Value"
         },
         {
           "criterion": "우선주/무의결권 보통주 신설 또는 발행 일반 찬성 (발행자본 50%까지, 기존 주주 권리 부정 영향 없을 때)",
-          "source_text": "[외부 advisor] Generally vote for the creation of a new class of preferred stock, or the issuance of preferred stock up to 50 percent of the issued capital, unless the terms of the preferred stock would adversely affect the rights of existing shareholders. | [요약] 우선주 신설/발행 발행자본 50%까지 찬성 (기존 주주 권리 부정 영향 외)",
-          "section": "외부 advisor 2026 Ch.4 / Preferred Stock / Non-voting Common Shares"
+          "source_text": "[B외국계] Generally vote for the creation of a new class of preferred stock, or the issuance of preferred stock up to 50 percent of the issued capital, unless the terms of the preferred stock would adversely affect the rights of existing shareholders. | [요약] 우선주 신설/발행 발행자본 50%까지 찬성 (기존 주주 권리 부정 영향 외)",
+          "section": "B외국계 2026 Ch.4 / Preferred Stock / Non-voting Common Shares"
         },
         {
           "criterion": "회계 목적 자본금 감소 일반 찬성 (조건이 주주 불리하지 않을 때)",
-          "source_text": "[외부 advisor] Generally vote for proposals to reduce capital for routine accounting purposes unless the terms are unfavorable to shareholders. | [요약] 회계 목적 자본금 감소 일반 찬성",
-          "section": "외부 advisor 2026 Ch.4 / Reduction in Capital"
+          "source_text": "[B외국계] Generally vote for proposals to reduce capital for routine accounting purposes unless the terms are unfavorable to shareholders. | [요약] 회계 목적 자본금 감소 일반 찬성",
+          "section": "B외국계 2026 Ch.4 / Reduction in Capital"
         },
         {
           "criterion": "현금 환원 미동반 자본금 감소 일반 찬성 (회계 routine)",
-          "source_text": "[외부 advisor] Generally vote for proposals to reduce capital that do not involve any funds being returned to shareholders. | [요약] 현금 환원 없는 자본 감소 일반 찬성 (회계 routine)",
-          "section": "외부 advisor 2026 Ch.4 / Reduction in Capital Not Accompanied by Cash"
+          "source_text": "[B외국계] Generally vote for proposals to reduce capital that do not involve any funds being returned to shareholders. | [요약] 현금 환원 없는 자본 감소 일반 찬성 (회계 routine)",
+          "section": "B외국계 2026 Ch.4 / Reduction in Capital Not Accompanied by Cash"
         }
       ],
       "against": [
         {
           "criterion": "신주인수권 배제 발행이 희석 또는 한도 20% 초과 시 반대",
-          "source_text": "[외부 advisor] Only vote for these article amendments if the potential dilution ratio to existing shareholders does not exceed 20 percent; and the proposed issuance limit of new shares is set at no higher than 20 percent of issued shares. | [요약] 잠재 희석 또는 발행한도 중 하나가 20% 초과 시 반대",
-          "section": "외부 advisor 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
+          "source_text": "[B외국계] Only vote for these article amendments if the potential dilution ratio to existing shareholders does not exceed 20 percent; and the proposed issuance limit of new shares is set at no higher than 20 percent of issued shares. | [요약] 잠재 희석 또는 발행한도 중 하나가 20% 초과 시 반대",
+          "section": "B외국계 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
         },
         {
           "criterion": "수권자본 증가가 현재 100% 초과 + 정당화 없을 때 반대",
-          "source_text": "[외부 advisor] The increase in authorized capital exceeds 100 percent of the current authorized capital without any justification | [요약] 수권자본 100% 초과 증가 + 정당화 없으면 반대",
-          "section": "외부 advisor 2026 Ch.4 / Increase in Authorized Capital"
+          "source_text": "[B외국계] The increase in authorized capital exceeds 100 percent of the current authorized capital without any justification | [요약] 수권자본 100% 초과 증가 + 정당화 없으면 반대",
+          "section": "B외국계 2026 Ch.4 / Increase in Authorized Capital"
         }
       ],
       "review": [],
@@ -366,15 +366,15 @@
       "for": [
         {
           "criterion": "전환사채 등 주식연계증권 발행 — 신주 발행과 동일 기준(희석/한도 20%) 적용",
-          "source_text": "[외부 advisor] Vote for issuance requests without preemptive rights to a maximum of 20 percent of currently issued capital. The most contentious aspect in this proposal pertains to articles that permit companies to issue new shares, convertible bonds, and/or bonds with warrants without triggering existing shareholders' preemptive rights. | [요약] 전환사채/신주인수권부사채 (CB/BW) 발행 — 희석률 20% 이하 + 발행한도 20% 이하 시 찬성 (신주발행과 동일 기준)",
-          "section": "외부 advisor 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
+          "source_text": "[B외국계] Vote for issuance requests without preemptive rights to a maximum of 20 percent of currently issued capital. The most contentious aspect in this proposal pertains to articles that permit companies to issue new shares, convertible bonds, and/or bonds with warrants without triggering existing shareholders' preemptive rights. | [요약] 전환사채/신주인수권부사채 (CB/BW) 발행 — 희석률 20% 이하 + 발행한도 20% 이하 시 찬성 (신주발행과 동일 기준)",
+          "section": "B외국계 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
         }
       ],
       "against": [
         {
           "criterion": "CB/BW 발행이 희석률 또는 한도 중 하나가 20% 초과 시 반대",
-          "source_text": "[외부 advisor] Only vote for these article amendments if: The potential dilution ratio to existing shareholders does not exceed 20 percent; and The proposed issuance limit of new shares is set at no higher than 20 percent of issued shares. | [요약] CB/BW 등 주식연계증권 발행 — 희석/한도 둘 중 하나라도 20% 초과 반대",
-          "section": "외부 advisor 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
+          "source_text": "[B외국계] Only vote for these article amendments if: The potential dilution ratio to existing shareholders does not exceed 20 percent; and The proposed issuance limit of new shares is set at no higher than 20 percent of issued shares. | [요약] CB/BW 등 주식연계증권 발행 — 희석/한도 둘 중 하나라도 20% 초과 반대",
+          "section": "B외국계 2026 Ch.4 / Issuance (limit) on new shares or convertible securities"
         }
       ],
       "review": [],
@@ -385,22 +385,22 @@
       "for": [
         {
           "criterion": "회사 자산 매각, 합병, 지주회사 설립 일반 찬성 (예외 사유 외)",
-          "source_text": "[외부 advisor] Generally vote for the approval of a sale of company assets, merger agreement, and/or formation of a holding company, unless: ... | [요약] 회사 자산 매각/합병/지주회사 설립 일반 찬성. 단 (1) 의결권/이익배분 불비례 영향 (2) 거래 후 거버넌스 악화 (3) 협상 과정 우려 (4) 정보 부족 (5) 매수가가 트레이딩 기회 제공 시 반대",
-          "section": "외부 advisor 2026 Ch.4 / Merger Agreement, Sales/Acquisition, Holding Company"
+          "source_text": "[B외국계] Generally vote for the approval of a sale of company assets, merger agreement, and/or formation of a holding company, unless: ... | [요약] 회사 자산 매각/합병/지주회사 설립 일반 찬성. 단 (1) 의결권/이익배분 불비례 영향 (2) 거래 후 거버넌스 악화 (3) 협상 과정 우려 (4) 정보 부족 (5) 매수가가 트레이딩 기회 제공 시 반대",
+          "section": "B외국계 2026 Ch.4 / Merger Agreement, Sales/Acquisition, Holding Company"
         }
       ],
       "against": [
         {
           "criterion": "합병/매각/지주회사: (1) 클래스 간 의결권·이익 불비례 (2) 거래 후 거버넌스 악화 (3) 협상 우려 (4) 정보 부족 (5) 매수가 trading opportunity 시 반대",
-          "source_text": "[외부 advisor] The impact on earnings or voting rights for one class of shareholders is disproportionate to the relative contributions of the group; The company's structure following such transactions does not reflect good corporate governance; There are concerns over the process of negotiation that may have had an adverse impact on the valuation of the terms of the offer; The company does not provide sufficient information upon request to make an informed voting decision; and/or The proposed buyback price carries a significant premium at the date of writing, conferring on shareholders a trading opportunity. | [요약] 5가지 사유 중 하나라도 해당 시 반대",
-          "section": "외부 advisor 2026 Ch.4 / Merger Agreement"
+          "source_text": "[B외국계] The impact on earnings or voting rights for one class of shareholders is disproportionate to the relative contributions of the group; The company's structure following such transactions does not reflect good corporate governance; There are concerns over the process of negotiation that may have had an adverse impact on the valuation of the terms of the offer; The company does not provide sufficient information upon request to make an informed voting decision; and/or The proposed buyback price carries a significant premium at the date of writing, conferring on shareholders a trading opportunity. | [요약] 5가지 사유 중 하나라도 해당 시 반대",
+          "section": "B외국계 2026 Ch.4 / Merger Agreement"
         }
       ],
       "review": [
         {
           "criterion": "[Discussion] Valuation/Market Reaction/Strategic Rationale/Conflicts/Governance/Trading Opportunity 6가지 종합 검토",
-          "source_text": "[외부 advisor] Valuation – Is the value to be received by the target shareholders... reasonable? ... Market reaction – How has the market responded? ... Strategic rationale – Does the deal make sense? ... Conflicts of interest – Are insiders benefiting disproportionately? ... Governance – Will the combined company have a better or worse governance profile? ... Trading opportunity from the dissident's right ... | [요약] 합병 분석 시 (1) 가치평가 (2) 시장반응 (3) 전략적 합리성 (4) 이해상충 (5) 거버넌스 (6) 주식매수청구권 trading opportunity 6요소 검토",
-          "section": "외부 advisor 2026 Ch.4 / Merger Agreement / Discussion"
+          "source_text": "[B외국계] Valuation – Is the value to be received by the target shareholders... reasonable? ... Market reaction – How has the market responded? ... Strategic rationale – Does the deal make sense? ... Conflicts of interest – Are insiders benefiting disproportionately? ... Governance – Will the combined company have a better or worse governance profile? ... Trading opportunity from the dissident's right ... | [요약] 합병 분석 시 (1) 가치평가 (2) 시장반응 (3) 전략적 합리성 (4) 이해상충 (5) 거버넌스 (6) 주식매수청구권 trading opportunity 6요소 검토",
+          "section": "B외국계 2026 Ch.4 / Merger Agreement / Discussion"
         }
       ],
       "abstain": []
@@ -410,15 +410,15 @@
       "for": [
         {
           "criterion": "분할(Spin-off) 일반 찬성 (예외 사유 외)",
-          "source_text": "[외부 advisor] Generally vote for the approval of a spinoff agreement, unless: ... | [요약] 분할 일반 찬성. 단 (1) 클래스 간 영향 불비례 (2) 분할 후 거버넌스 악화 (3) 협상 과정 우려 (4) 정보 부족 (5) 동반 자본 감소 시 반대",
-          "section": "외부 advisor 2026 Ch.4 / Spin-off Agreement"
+          "source_text": "[B외국계] Generally vote for the approval of a spinoff agreement, unless: ... | [요약] 분할 일반 찬성. 단 (1) 클래스 간 영향 불비례 (2) 분할 후 거버넌스 악화 (3) 협상 과정 우려 (4) 정보 부족 (5) 동반 자본 감소 시 반대",
+          "section": "B외국계 2026 Ch.4 / Spin-off Agreement"
         }
       ],
       "against": [
         {
           "criterion": "분할: (1) 클래스 간 의결권·이익 불비례 (2) 분할 후 거버넌스 미흡 (3) 협상 과정 우려 (4) 정보 미제공 (5) 동반 자본 감소 — 5가지 중 하나 시 반대",
-          "source_text": "[외부 advisor] The impact on earnings or voting rights for one class of shareholders is disproportionate to the relative contributions of the group; The company's structure following the spinoff does not reflect good corporate governance; There are concerns over the process of negotiation that may have had an adverse impact on the valuation of the terms of the offer; and/or The company does not provide sufficient information upon request to make an informed voting decision. There is an accompanying reduction in capital. | [요약] 5가지 사유 중 하나라도 해당 시 반대",
-          "section": "외부 advisor 2026 Ch.4 / Spin-off Agreement"
+          "source_text": "[B외국계] The impact on earnings or voting rights for one class of shareholders is disproportionate to the relative contributions of the group; The company's structure following the spinoff does not reflect good corporate governance; There are concerns over the process of negotiation that may have had an adverse impact on the valuation of the terms of the offer; and/or The company does not provide sufficient information upon request to make an informed voting decision. There is an accompanying reduction in capital. | [요약] 5가지 사유 중 하나라도 해당 시 반대",
+          "section": "B외국계 2026 Ch.4 / Spin-off Agreement"
         }
       ],
       "review": [],
@@ -429,22 +429,22 @@
       "for": [
         {
           "criterion": "회사 거버넌스 또는 사업 프로필을 합리적 비용으로 개선하는 주주제안 일반 찬성",
-          "source_text": "[외부 advisor] Generally vote for shareholder proposals that would improve the company's corporate governance or business profile at a reasonable cost. | [요약] 합리적 비용으로 거버넌스/사업 프로필 개선 주주제안 일반 찬성",
-          "section": "외부 advisor 2026 Ch.7 Shareholder Proposals"
+          "source_text": "[B외국계] Generally vote for shareholder proposals that would improve the company's corporate governance or business profile at a reasonable cost. | [요약] 합리적 비용으로 거버넌스/사업 프로필 개선 주주제안 일반 찬성",
+          "section": "B외국계 2026 Ch.7 Shareholder Proposals"
         }
       ],
       "against": [
         {
           "criterion": "회사 사업활동을 잠재적 제한, 또는 효익 대비 큰 비용 발생 주주제안 일반 반대",
-          "source_text": "[외부 advisor] Generally vote against proposals that potentially limit the company's business activities or capabilities or result in significant costs being incurred with little or no benefit. | [요약] 사업활동 제한/효익 적은 큰 비용 주주제안 일반 반대",
-          "section": "외부 advisor 2026 Ch.7 Shareholder Proposals"
+          "source_text": "[B외국계] Generally vote against proposals that potentially limit the company's business activities or capabilities or result in significant costs being incurred with little or no benefit. | [요약] 사업활동 제한/효익 적은 큰 비용 주주제안 일반 반대",
+          "section": "B외국계 2026 Ch.7 Shareholder Proposals"
         }
       ],
       "review": [
         {
           "criterion": "ESG 주주제안 case-by-case (입법/규제 처리 여부, 회사 대응, 부담스러운 정도, 산업표준, 논쟁/제재, 정보 가용성, 기밀 노출, 주주 이해 영향 등 종합 고려)",
-          "source_text": "[외부 advisor] Generally vote case-by-case, examining primarily whether implementation of the proposal is likely to enhance or protect shareholder value. The following factors will be considered: If the issues presented in the proposal are being appropriately or effectively dealt with through legislation or regulation; If the company has already responded in an appropriate and sufficient manner...; Whether the proposal's request is unduly burdensome (scope or timeframe) or overly prescriptive; The company's relevant practices compared with any industry standard practices...; Whether there are significant controversies, fines, penalties, or litigation associated with the company's practices...; If the proposal requests increased disclosure or greater transparency, whether reasonable and sufficient information is currently available...; If the proposal requests increased disclosure... whether implementation would reveal proprietary or confidential information...; Whether the proposal addresses substantive matters that may impact shareholders' interests... | [요약] E&S 주주제안은 8가지 요소 종합 case-by-case",
-          "section": "외부 advisor 2026 Ch.8 Social and Environmental / Global Approach E&S"
+          "source_text": "[B외국계] Generally vote case-by-case, examining primarily whether implementation of the proposal is likely to enhance or protect shareholder value. The following factors will be considered: If the issues presented in the proposal are being appropriately or effectively dealt with through legislation or regulation; If the company has already responded in an appropriate and sufficient manner...; Whether the proposal's request is unduly burdensome (scope or timeframe) or overly prescriptive; The company's relevant practices compared with any industry standard practices...; Whether there are significant controversies, fines, penalties, or litigation associated with the company's practices...; If the proposal requests increased disclosure or greater transparency, whether reasonable and sufficient information is currently available...; If the proposal requests increased disclosure... whether implementation would reveal proprietary or confidential information...; Whether the proposal addresses substantive matters that may impact shareholders' interests... | [요약] E&S 주주제안은 8가지 요소 종합 case-by-case",
+          "section": "B외국계 2026 Ch.8 Social and Environmental / Global Approach E&S"
         }
       ],
       "abstain": []
@@ -467,17 +467,17 @@
     "[B외국계 자체] 의결권 행사 규정 및 절차 제13조 — 외부 리서치 추천 따름이 원칙",
     "[B외국계 자체] 제15조 — 추천 미준수 시 의결권행사위원회 승인 절차 필수",
     "[B외국계 자체] 의결권 행사 대상 기준: (1) 자본시장법 의무 — 자산총액 100분의 5 또는 100억원 이상 (2) 회사 판단 — 합산 5%/100억/1% (3) 주식운용팀 판단",
-    "[외부 advisor] CEO/MD/Executive Chairman/Founder 제거가 주주가치 부정 영향 큰 경우 출석률·과도겸임 정책 적용 예외 가능"
+    "[B외국계] CEO/MD/Executive Chairman/Founder 제거가 주주가치 부정 영향 큰 경우 출석률·과도겸임 정책 적용 예외 가능"
   ],
   "esg_topics": {
     "climate": "[Say on Climate Management Proposals] 회사 기후 전환 행동 계획 case-by-case (TCFD 정렬도, Scope 1·2·3 GHG 공시, 단기·중기·장기 감축 목표, science-based 검증, 2050 Net Zero 약속, 후속 보고 약속, 제3자 보증, 로비/CapEx 전략 정렬, 산업 탈탄소 도전, 피어 비교 9요소). [Say on Climate Shareholder Proposals] GHG 공시·감축계획 보고 요구 주주제안 case-by-case (4요소). [Climate Accountability] 중대 GHG 배출 기업 (Climate Action 100+ Focus Group)이 (1) TCFD 공시 + (2) 적절한 GHG 감축 목표(Scope 1·2 + 2050 Net Zero) 미수립 시 책임 이사 반대",
     "social": "[Global E&S Proposals] 소비자/제품 안전, 환경/에너지, 노동/인권, 직장·이사회 다양성, 정치 이슈 등 — 일률적 글로벌 접근. 핵심 원칙은 단·장기 주주가치 증진/보호. [Board Gender Diversity] 한국 이사회 성다양성 규정 미준수 시 추천위원장 반대",
-    "governance": "[외부 advisor 4 fundamental principles] Independence + Composition + Responsiveness + Accountability. 사외이사 비중(대형 50%/소형 25%), 5년 cooling-off, 출석률 75%, 과도겸임 (>2개), 묶음 선임 시 한 명이라도 우려 시 슬레이트 전체 반대, 부적절 행위 이사 미해임 시 다른 모든 이사회에서도 반대"
+    "governance": "[B외국계 4 fundamental principles] Independence + Composition + Responsiveness + Accountability. 사외이사 비중(대형 50%/소형 25%), 5년 cooling-off, 출석률 75%, 과도겸임 (>2개), 묶음 선임 시 한 명이라도 우려 시 슬레이트 전체 반대, 부적절 행위 이사 미해임 시 다른 모든 이사회에서도 반대"
   },
   "completeness": {
     "categories_covered": 12,
     "categories_missing": [],
     "extraction_confidence": "high",
-    "notes": "[B외국계 = 외부 advisor 2026] 자체 정책 없이 외부 advisor 그대로 적용. 영문 + 한국어 요약 dual 포맷. 8개 외부 advisor 챕터를 12 카테고리로 매핑 (treasury_share는 자사주 매입 대체용 자본 감소 항목으로 매핑). 외부 advisor 특유의 디테일 풍부 — Climate Accountability (TCFD + GHG 감축), Say on Climate (Mgmt + Shareholder), 5년 cooling-off, 과도겸임 (Overboarded), 묶음 선임 슬레이트 반대, Discharge of Director 등. 한국 상법·자본시장법 컨텍스트 풍부 (Two-tier 대형/소형사, 정관 묶음 상정, dissident's right 등). B외국계 자체 운영 절차는 외부 자문 추천 원칙 + 위원회 승인 예외 처리만 명시."
+    "notes": "[B외국계 = B외국계 2026] 자체 정책 없이 B외국계 그대로 적용. 영문 + 한국어 요약 dual 포맷. 8개 B외국계 챕터를 12 카테고리로 매핑 (treasury_share는 자사주 매입 대체용 자본 감소 항목으로 매핑). B외국계 특유의 디테일 풍부 — Climate Accountability (TCFD + GHG 감축), Say on Climate (Mgmt + Shareholder), 5년 cooling-off, 과도겸임 (Overboarded), 묶음 선임 슬레이트 반대, Discharge of Director 등. 한국 상법·자본시장법 컨텍스트 풍부 (Two-tier 대형/소형사, 정관 묶음 상정, dissident's right 등). B외국계 자체 운영 절차는 외부 자문 추천 원칙 + 위원회 승인 예외 처리만 명시."
   }
 }

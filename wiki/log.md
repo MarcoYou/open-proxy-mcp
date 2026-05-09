@@ -481,12 +481,12 @@ title: Operation Log
 ### Phase A: 7 운용사 데이터 파싱
 - 정책 5건: opendataloader-pdf (s_legacy·sa_legacy·t_activist·kim·a_activist 1-4초)
 - M레거시: vector glyph PDF → PyMuPDF DPI 120 raster + JPEG 70% → Upstage OCR 우회 (35KB md)
-- B외국계: 외부 advisor 2026 Voting Guidelines 직접 채택 발견 → `policy_classification: foreign_manager_external_reference`
+- B외국계: B외국계 2026 Voting Guidelines 직접 채택 발견 → `policy_classification: b_foreign_self`
 - 행사내역 15 xlsx → 통일 schema JSON (총 17,900 votes)
 ### Phase B-C: 합의 매트릭스 + Open Proxy Guideline v1.2
 - `_consensus_matrix.json`: 7 운용사 79 토픽, consensus + majority 62%
 - 7 페르소나 토론 (학자·운용사출신·소수주주활동가·자본시장변호사·상법변호사·글로벌ESG·법안리서처) + 모더레이터 통합
-- v1.0 → v1.1 (B외국계 외부 advisor + A행동주의 행동주의) → v1.2 (외부 advisor 다운그레이드)
+- v1.0 → v1.1 (B외국계 B외국계 + A행동주의 행동주의) → v1.2 (B외국계 reference 다운그레이드)
 - v1.2: 12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting
 - 12 의사결정 매트릭스 (100 dim, 76 빙고 패턴) — 운용사·자문사 단독 차별화
 ### Phase D: proxy_guideline tool (6 scope)

@@ -18,7 +18,7 @@
   ],
   "decision_process": {
     "committee": "수탁자책임위원회",
-    "external_advisor": "의결권 자문기관, 회계법인, 법무법인 등 외부 기관",
+    "external_advisor": null,
     "conflict_handling": "외부 자문 활용 가능, 최종 의결권 행사 방향은 회사 책임하에 결정",
     "summary": "리서치센터장 의견 기초로 주식운용본부장 결정. 중요 사안 심의·의결 시 수탁자책임위원회 운영 (제7조)"
   },

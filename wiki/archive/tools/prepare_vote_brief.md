@@ -159,7 +159,7 @@ sequenceDiagram
   - `open_proxy` (default): OPM 자체 정책 v1.2
   - `m_legacy` / `s_legacy` / `sa_legacy` / `t_activist` / `kim`: 국내 운용사
   - `a_activist`: 행동주의
-  - `b_foreign`: 외국계 (외부 advisor 글로벌 표준 직접 채택)
+  - `b_foreign`: 외국계 (B외국계 글로벌 표준 직접 채택)
 - 집중투표 사전 전략: 1석 확보를 위한 표 수치 + 외부 능동 블록의 부족분
 - regression 0 검증: 200기업 audit upstream tool 모두 통과.
 

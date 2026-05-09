@@ -10,17 +10,17 @@ related_audits: [260508_parser_audit]
 
 # Open Proxy Guideline v1.2 — OPM 자체 의결권 행사 정책
 
-## v1.2 (2026-04-29) — 외부 advisor 다운그레이드
+## v1.2 (2026-04-29) — B외국계 reference 다운그레이드
 
-외부 advisor 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우 있어, OPM은 외부 advisor를 벤치마크로 사용하지 않는다.
+B외국계 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우 있어, OPM은 B외국계를 벤치마크로 사용하지 않는다.
 
-- B외국계은 "외국계 운용사가 외부 advisor 참조" 데이터 reference로만 보존 (벤치마크 X). policy_classification: `external_advisor_adoption` → `foreign_manager_external_reference`
-- v1.1에서 추가했던 외부 advisor-only novel topics 정리:
+- B외국계은 "외국계 운용사가 B외국계 참조" 데이터 reference로만 보존 (벤치마크 X). policy_classification: `b_foreign_policy` → `b_foreign_self`
+- v1.1에서 추가했던 B외국계-only novel topics 정리:
   - 삭제: say_on_climate, discharge_of_director
   - 다운그레이드: climate_accountability (한국 운용사 입장만, tier_2 → tier_3_signal)
   - 유지: bundled_slate_against (A행동주의 동조), overboarded_directors (한국 상법 §382의2 + 시행령 §34 + 한투 정량)
-- voting_rules 12 카테고리에서 `[외부 advisor direct]` 직접 인용 제거, source/law/evidence_refs를 한국 운용사·법령 중심으로 재정렬. B외국계은 `foreign_reference_note` 필드로 별도 보존
-- _decision_matrices.json: 외부 advisor-only dim `climate_accountability_signal` 제거 (101 → 100 dim), bingo `climate_accountability_red` 제거 (77 → 76). `climate_disclosure`는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2, 2024) 기반으로 재정렬
+- voting_rules 12 카테고리에서 `[B외국계 direct]` 직접 인용 제거, source/law/evidence_refs를 한국 운용사·법령 중심으로 재정렬. B외국계은 `foreign_reference_note` 필드로 별도 보존
+- _decision_matrices.json: B외국계-only dim `climate_accountability_signal` 제거 (101 → 100 dim), bingo `climate_accountability_red` 제거 (77 → 76). `climate_disclosure`는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2, 2024) 기반으로 재정렬
 - OPM은 한국 8 운용사 + N연기금 합의 + 한국 법령 + OPM 5 기준 중심으로 운영
 
 ## 0. v1 → v1.1 변경 요약 (2026-04-29)
@@ -29,14 +29,14 @@ related_audits: [260508_parser_audit]
 
 | 운용사 | 분류 | 영향 |
 | --- | --- | --- |
-| **B외국계 (b_foreign)** | external_advisor_adoption (외부 advisor 2026 v1.1 직접 채택) | 글로벌 표준 즉시 통합 — Climate Accountability·Say on Climate·Bundled Slate·Two-tier·Overboarded(>2)·Pre-emption 20% 정량 |
+| **B외국계 (b_foreign)** | b_foreign_policy (B외국계 2026 v1.1 직접 채택) | 글로벌 표준 즉시 통합 — Climate Accountability·Say on Climate·Bundled Slate·Two-tier·Overboarded(>2)·Pre-emption 20% 정량 |
 | **A행동주의 (a_activist)** | active_engagement_activist (행동주의 펀드, against 17.3%) | 적극 행사 원칙 정책 선언 — silent 금지·배당 과소 강화·성과 미연계 강화·외부 인수 자본증가 against |
 
 ### 0.2 v1.1 핵심 변경 5건
 
-1. **외부 advisor Climate Accountability 채택** — 고배출 업종 (철강·석화·시멘트·정유) + Climate Action 100+ Focus 한정. matrix_director_election + matrix_financial_statements에 climate dim 신규 (5 운용사 중 미래/T행동주의 부분 합치)
-2. **외부 advisor Bundled Slate 채택** — 묶음 선임 시 한 명이라도 거버넌스 결격 시 슬레이트 전체 against. 한국 5 운용사 silent 영역 차단. matrix_director_election에 bundled_slate_signal dim 신규
-3. **외부 advisor Two-tier Governance 정량 통합** — 한국 상법 §542의8 ① + 외부 advisor 50%/25% 정합. concurrent_positions dim 강화 (>2 boards)
+1. **B외국계 Climate Accountability 채택** — 고배출 업종 (철강·석화·시멘트·정유) + Climate Action 100+ Focus 한정. matrix_director_election + matrix_financial_statements에 climate dim 신규 (5 운용사 중 미래/T행동주의 부분 합치)
+2. **B외국계 Bundled Slate 채택** — 묶음 선임 시 한 명이라도 거버넌스 결격 시 슬레이트 전체 against. 한국 5 운용사 silent 영역 차단. matrix_director_election에 bundled_slate_signal dim 신규
+3. **B외국계 Two-tier Governance 정량 통합** — 한국 상법 §542의8 ① + B외국계 50%/25% 정합. concurrent_positions dim 강화 (>2 boards)
 4. **A행동주의 적극 행사 원칙 정책 선언** — 합병/영업양수도/임원 임면/정관변경 등 중대 사항 silent 금지. matrix_shareholder_proposal에 active_engagement_signal dim 신규
 5. **Discharge of Director 한국 미적용 명시** — 글로벌 reference만, default 적용 X
 
@@ -60,9 +60,9 @@ related_audits: [260508_parser_audit]
 - 2026 신법 7개 중 어느 것도 5 운용사 정책에 미반영
 - 상법 §382의3 (2025 강화 — 회사+주주 양방향 충실의무) 적용 미흡
 
-**v1.1 추가**: B외국계 (외부 advisor 2026 직접) + A행동주의 (행동주의) 통합으로 글로벌 표준 + 행동주의 적극 행사 양 축 강화. 한국 5 운용사 silent 영역 (Climate Accountability, Bundled Slate, Two-tier 정량 등) 차단.
+**v1.1 추가**: B외국계 (B외국계 2026 직접) + A행동주의 (행동주의) 통합으로 글로벌 표준 + 행동주의 적극 행사 양 축 강화. 한국 5 운용사 silent 영역 (Climate Accountability, Bundled Slate, Two-tier 정량 등) 차단.
 
-OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + 외부 advisor (글로벌) 표준 + 행동주의 적극 행사 + 정량 매트릭스를 결합한 차별화된 정책을 제시한다.
+OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + B외국계 표준 + 행동주의 적극 행사 + 정량 매트릭스를 결합한 차별화된 정책을 제시한다.
 
 ### 1.2 OPM 5 기준 (헌법)
 
@@ -157,7 +157,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + 외부 advis
 - **against**:
   - 3% 룰 회피 목적 감사위원회 도입 (강행 §409 ②) — 5/5 만장일치
   - 5년 내 적정 외 의견 또는 중요 제재 후보
-  - 비감사용역 보수 > 감사용역 보수 (또는 25% 초과 — 외부 advisor (글로벌))
+  - 비감사용역 보수 > 감사용역 보수 (또는 25% 초과 — B외국계)
   - 5년 내 임직원/특수관계인 (강행 §542의11)
 - **review**: 재무·회계 전문성 부족 (§542의11 ② 위반 우려)
 
@@ -261,7 +261,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + 외부 advis
 ### 3.2 Majority of Minority (MoM) — tier_2
 
 - **default**: for (자기거래 합병 시 강력 적용)
-- **한국 상태**: 법령 없음. 5 운용사 모두 silent. 외부 advisor (글로벌) Korea Policy 명시
+- **한국 상태**: 법령 없음. 5 운용사 모두 silent. B외국계 Korea Policy 명시
 - **근거**: A1+A3+A5+A7. UK Takeover Code Rule 16, 한국 §397의2 정신 확대
 - **구현**: 관계사 합병 안건에서 controlling shareholder 의결권 비율 + 소수주주 단독 의결 결과 분리. 50% 미만 동의 시 against trigger
 
@@ -407,7 +407,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + 외부 advis
 
 - [x] 7 운용사 매트릭스 재계산 (b_foreign + a_activist 추가)
 - [x] novel_topics 13개 (5건 신규)
-- [x] 외부 advisor 2026 직접 reference 12건 명시
+- [x] B외국계 2026 직접 reference 12건 명시
 - [x] 행동주의 적극 행사 원칙 7건 채택
 - [x] 한국 5 운용사 silent 영역 9건 명시 채택
 - [x] global_reference 필드로 한국 미적용 (Discharge) 마킹
@@ -418,11 +418,11 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + 외부 advis
 
 ## 10. v1.1 변경사항 상세 (2026-04-29)
 
-### 10.1 B외국계 (외부 advisor 2026) 통합 영향
+### 10.1 B외국계 (B외국계 2026) 통합 영향
 
-**b_foreign_2025-04.json** (`policy_classification: external_advisor_adoption`)는 자체 정책 없이 외부 advisor 2026 v1.1 Voting Guidelines (Effective 2026-02-01)를 그대로 적용. 이를 통해 **글로벌 표준 12건 직접 reference 통합**:
+**b_foreign_2025-04.json** (`policy_classification: b_foreign_policy`)는 자체 정책 없이 B외국계 2026 v1.1 Voting Guidelines (Effective 2026-02-01)를 그대로 적용. 이를 통해 **글로벌 표준 12건 직접 reference 통합**:
 
-| 외부 advisor Topic | OPM v1.1 적용 |
+| B외국계 Topic | OPM v1.1 적용 |
 | --- | --- |
 | **Climate Accountability** | tier_2 — 고배출 업종 + Climate Action 100+ Focus 한정. matrix_director_election dim climate_accountability_signal 신규 |
 | **Say on Climate** | tier_3 — 자율 도입 회사 우호. matrix_shareholder_proposal review |
@@ -434,7 +434,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + 외부 advis
 | **Overboarded Outside Directors (>2 boards)** | tier_1 — concurrent_positions dim 강화 (한국 상법과 동일) |
 | **5-year Cooling-off** | tier_1 — outside_director_independence_5year (한국 상법 §542의8 ② 정합) |
 | **Stock Option Dilution** | tier_1 — 성숙기업 5% / 성장기업 10% 정량 (matrix_director_compensation 강화) |
-| **Pre-emption 20%** | tier_1 — preemptive_right dim 정량 (UK Pre-emption + 외부 advisor + 한국 상법 §418 ② 정합) |
+| **Pre-emption 20%** | tier_1 — preemptive_right dim 정량 (UK Pre-emption + B외국계 + 한국 상법 §418 ② 정합) |
 | **CB/BW Dilution 20%** | tier_1 — dilution_rate dim 강화 (신주발행과 동일 기준) |
 
 ### 10.2 A행동주의 (행동주의) 통합 영향
@@ -448,41 +448,41 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + 외부 advis
 | **[Ⅱ-4] 성과 미연계 보상 against** | matrix_director_compensation performance_link 강화 (7/7 만장일치) |
 | **[Ⅶ-3] 외부 인수 무력화 자본증가 against** | matrix_capital_increase_decrease anti_takeover_signal 강화 |
 | **[Ⅱ-2 9] 사외이사 비중 축소 against** | matrix_articles_amendment shareholder_rights_impact 강화 |
-| **[Ⅱ-2 12] 일괄투표 방식 against** | matrix_director_election bundled_slate_signal 신규 (외부 advisor와 합치) |
+| **[Ⅱ-2 12] 일괄투표 방식 against** | matrix_director_election bundled_slate_signal 신규 (B외국계와 합치) |
 | **[Ⅱ-5, Ⅱ-7] 의결권 대리행사자 자격 주주 제한 against, 소수주주권 행사 어렵게 하는 안 against** | matrix_articles_amendment shareholder_rights_impact 강화 |
 
 ### 10.3 새 Novel Topics 5건 (총 8 → 13)
 
 | # | Novel Topic | Default | Stage | Source |
 | --- | --- | --- | --- | --- |
-| 9 | **climate_accountability** | review | tier_2 | b_foreign (외부 advisor) + 미래/T행동주의 통합 |
-| 10 | **say_on_climate** | review | tier_3 | b_foreign (외부 advisor) 단독 |
-| 11 | **discharge_of_director** | global_reference_only | tier_3_signal | b_foreign (외부 advisor) — 한국 미적용 |
-| 12 | **overboarded_directors** | against | tier_1 | b_foreign (외부 advisor) 정량 + 한국 상법 정합 |
-| 13 | **bundled_slate_against** | against | tier_2 | b_foreign (외부 advisor) + a_activist 합의 — 한국 silent 차단 |
+| 9 | **climate_accountability** | review | tier_2 | b_foreign (B외국계) + 미래/T행동주의 통합 |
+| 10 | **say_on_climate** | review | tier_3 | b_foreign (B외국계) 단독 |
+| 11 | **discharge_of_director** | global_reference_only | tier_3_signal | b_foreign (B외국계) — 한국 미적용 |
+| 12 | **overboarded_directors** | against | tier_1 | b_foreign (B외국계) 정량 + 한국 상법 정합 |
+| 13 | **bundled_slate_against** | against | tier_2 | b_foreign (B외국계) + a_activist 합의 — 한국 silent 차단 |
 
 ### 10.4 새 매트릭스 dim 5건 (총 96 → 101)
 
 | Matrix | New Dim | Source |
 | --- | --- | --- |
-| matrix_director_election | bundled_slate_signal | 외부 advisor + a_activist |
-| matrix_director_election | climate_accountability_signal | 외부 advisor Climate Accountability |
-| matrix_financial_statements | climate_disclosure | 외부 advisor / TCFD |
-| matrix_articles_amendment | bundled_articles_signal | 외부 advisor Bundled Articles |
+| matrix_director_election | bundled_slate_signal | B외국계 + a_activist |
+| matrix_director_election | climate_accountability_signal | B외국계 Climate Accountability |
+| matrix_financial_statements | climate_disclosure | B외국계 / TCFD |
+| matrix_articles_amendment | bundled_articles_signal | B외국계 Bundled Articles |
 | matrix_shareholder_proposal | active_engagement_signal | a_activist 일반원칙 제3조 ② |
 
 ### 10.5 강화 매트릭스 dim 9건
 
 | Matrix | Strengthened Dim | Reason |
 | --- | --- | --- |
-| matrix_director_election | concurrent_positions | 외부 advisor >2 boards 정량 통합 |
-| matrix_director_compensation | performance_link | 행동주의 + 외부 advisor — 7/7 만장일치 against trigger |
-| matrix_articles_amendment | shareholder_rights_impact | 행동주의 (A행동주의) + 외부 advisor (B외국계) 통합 |
+| matrix_director_election | concurrent_positions | B외국계 >2 boards 정량 통합 |
+| matrix_director_compensation | performance_link | 행동주의 + B외국계 — 7/7 만장일치 against trigger |
+| matrix_articles_amendment | shareholder_rights_impact | 행동주의 (A행동주의) + B외국계 (B외국계) 통합 |
 | matrix_cash_dividend | payout_ratio_vs_industry | 행동주의 (A행동주의) 배당 과소 강화 |
-| matrix_capital_increase_decrease | preemptive_right | 외부 advisor 20% 정량 통합 |
-| matrix_capital_increase_decrease | issuance_size | 외부 advisor 100% 초과 정당화 명시 |
+| matrix_capital_increase_decrease | preemptive_right | B외국계 20% 정량 통합 |
+| matrix_capital_increase_decrease | issuance_size | B외국계 100% 초과 정당화 명시 |
 | matrix_capital_increase_decrease | anti_takeover_signal | 행동주의 (A행동주의) 외부 인수 무력화 |
-| matrix_cb_bw | dilution_rate | 외부 advisor 신주발행 동일 기준 |
+| matrix_cb_bw | dilution_rate | B외국계 신주발행 동일 기준 |
 | matrix_treasury_share | ownership_structure_signal | 행동주의 (A행동주의) 외부 인수 무력화 정신 |
 
 ### 10.6 7 운용사 합의 매트릭스 (v3) 통계
@@ -499,16 +499,16 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + 외부 advis
   - two_tier_governance_iss (B외국계 단독)
   - active_engagement_principle_align (A행동주의 단독)
 
-### 10.7 외부 advisor direct reference 마킹 규칙
+### 10.7 B외국계 direct reference 마킹 규칙
 
-OPM v1.1에서 B외국계 (외부 advisor) 입장은 voting_rules 항목에 `global_reference` 필드로 명시:
+OPM v1.1에서 B외국계 (B외국계) 입장은 voting_rules 항목에 `global_reference` 필드로 명시:
 
 ```json
 {
-  "criterion": "[외부 advisor direct] ...",
-  "source": "b_foreign (외부 advisor 2026 ...)",
-  "law": "외부 advisor 2026 / 한국 상법 ...",
-  "global_reference": "외부 advisor 2026 Voting Guidelines",
+  "criterion": "[B외국계 direct] ...",
+  "source": "b_foreign (B외국계 2026 ...)",
+  "law": "B외국계 2026 / 한국 상법 ...",
+  "global_reference": "B외국계 2026 Voting Guidelines",
   "evidence_refs": ["b_foreign.section..."]
 }
 ```
@@ -574,7 +574,7 @@ OPM v1.1에서 B외국계 (외부 advisor) 입장은 voting_rules 항목에 `glo
 
 - v1.0 (코붕이 + 7 전문가) 결정: 모두 보존
 - v1.1 a_activist 행동주의 7건: 모두 보존, c_activist 동조로 강화
-- v1.2 외부 advisor 다운그레이드: 모두 유지 (B외국계은 외국계 외부 advisor 참조 사례로 보존)
+- v1.2 B외국계 reference 다운그레이드: 모두 유지 (B외국계은 외국계 B외국계 참조 사례로 보존)
 - v1.3 c_activist 통합: 강화/통합만, 뒤집기 X
 
 ### 11.7 c_activist 단독 토픽 채택 원칙

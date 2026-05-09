@@ -18,7 +18,7 @@
   ],
   "decision_process": {
     "committee": "수탁자 책임 위원회",
-    "external_advisor": "독립적인 의결권 자문기관",
+    "external_advisor": null,
     "conflict_handling": "이해상충 발생 소지가 높은 관리대상 기업은 의결권 미행사 원칙. 잠재적/실재 이해상충 시 준법감시인과 논의",
     "summary": "스튜어드십 업무 담당 부서가 최종 결정. 회사 보유 지분 3% 이상 종목, 주주제안, 합병/영업양수도 등 중요 사안은 수탁자 책임 위원회에서 결정 (제14조)"
   },

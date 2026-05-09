@@ -46,8 +46,8 @@
       "name": "B외국계",
       "type": "asset_manager",
       "classification": "global_advisor_adoption",
-      "external_advisor": "외부 advisor 가이드라인 (Published Dec 16, 2025; Effective Feb 1, 2026)",
-      "latest_policy": "2025.04 (외부 advisor 2026)",
+      "external_advisor": null,
+      "latest_policy": "2025.04 (B외국계 2026)",
       "policy_file": "policies/b_foreign_2025-04.json",
       "records": [
         {
@@ -79,7 +79,7 @@
       "name": "K레거시",
       "type": "asset_manager",
       "classification": "",
-      "external_advisor": "",
+      "external_advisor": null,
       "latest_policy": "2024.04.25",
       "policy_file": "policies/k_legacy_2025-04.json",
       "records": [
@@ -105,7 +105,7 @@
       "name": "M레거시",
       "type": "asset_manager",
       "classification": "",
-      "external_advisor": "",
+      "external_advisor": null,
       "latest_policy": "2024.09.20",
       "policy_file": "policies/m_legacy_2025-04.json",
       "records": [
@@ -131,7 +131,7 @@
       "name": "S레거시",
       "type": "asset_manager",
       "classification": "",
-      "external_advisor": "",
+      "external_advisor": null,
       "latest_policy": "2025.02.27",
       "policy_file": "policies/s_legacy_2025-04.json",
       "records": [
@@ -157,7 +157,7 @@
       "name": "SA레거시",
       "type": "asset_manager",
       "classification": "",
-      "external_advisor": "",
+      "external_advisor": null,
       "latest_policy": "2025.04.10",
       "policy_file": "policies/sa_legacy_2025-04.json",
       "records": [
@@ -183,7 +183,7 @@
       "name": "T행동주의",
       "type": "asset_manager",
       "classification": "",
-      "external_advisor": "",
+      "external_advisor": null,
       "latest_policy": "2023.12.12",
       "policy_file": "policies/t_activist_2025-04.json",
       "records": [

@@ -195,7 +195,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 기업지배구조보고서. 최대주주/지분율 + 15개 핵심지표 O/X + 세부원칙 응답 + 연도별 추이. **2026 제출분부터 KOSPI 전체 의무**, KOSDAQ 자율. 제출 시한 매년 5월말, 연중 정정 빈번.
-        when: 거버넌스 종합 평가, 15개 지표 준수 현황, 연도별 변화 추적. 외부 advisor (글로벌) 수준 배경자료.
+        when: 거버넌스 종합 평가, 15개 지표 준수 현황, 연도별 변화 추적. B외국계 수준 배경자료.
         rule: DART list.json + 키워드 "기업지배구조보고서공시" + 원문 파싱. 기본 lookback 4년. 15개 표준 지표 라벨 prefix 매칭으로 O/X 당기·직전기 + 비고 추출.
         scope: `summary` 기업개요+준수율+15지표 / `metrics` 15지표 + 비고 상세 / `principles` 세부원칙 응답 / `filings` 제출 이력 / `timeline` 연도별 추이 + 지표 전환
         year: 사업연도 지정 (0이면 최신).

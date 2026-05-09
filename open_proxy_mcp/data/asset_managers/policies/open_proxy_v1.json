@@ -34,7 +34,7 @@
       "5 운용사 합의 매트릭스 (m_legacy, s_legacy, sa_legacy, t_activist, k_legacy)",
       "5 운용사 정책 (2025-04)",
       "5 운용사 의결권 행사 기록 (2024-04, 2025-04)",
-      "b_foreign (외국계 운용사 외부 advisor 참조 사례 — 데이터 reference 보존, OPM 벤치마크 X)",
+      "b_foreign (외국계 운용사 B외국계 참조 사례 — 데이터 reference 보존, OPM 벤치마크 X)",
       "a_activist (행동주의 펀드, against 17.3% — 5 운용사 평균 9.4% 대비 강함)",
       "c_activist (행동주의 펀드 v1.3 신규 — against 27.5%, 자본시장 표준 가이드라인 + 행동주의 적극 행사 원칙)",
       "8 운용사 합의 매트릭스 (v4 — 96 topics, 22 consensus / 26 majority / 21 divergence / 27 minority)"
@@ -42,8 +42,8 @@
     "updated_at": "2026-04-29",
     "update_history": [
       "v1.0 (2026-04-28): 5 운용사 (m_legacy, s_legacy, sa_legacy, t_activist, k_legacy) 합의 매트릭스 + 7 전문가 토론 + 2026 신법 7개 + §382의3 (2025) 게임체인저 기반 초기 작성",
-      "v1.1 (2026-04-29): b_foreign (외부 advisor 2026 직접 채택) + a_activist (행동주의 펀드) 통합. 외부 advisor 5 신규 토픽 (Climate Accountability/Say on Climate/Discharge/Bundled Slate/Two-tier Governance) 추가. 행동주의 적극 행사 원칙 정책 선언",
-      "v1.2 (2026-04-29): 외부 advisor 다운그레이드 — B외국계은 외국계 외부 advisor 참조 사례로만 보존, OPM 벤치마크 X. 외부 advisor 추천 퀄리티/논란 우려로 say_on_climate, discharge_of_director novel topics 삭제. climate_accountability는 한국 운용사 입장만 유지(tier_3_signal 다운그레이드). bundled_slate_against, overboarded_directors는 한국 운용사·상법 합치 영역으로 유지.",
+      "v1.1 (2026-04-29): b_foreign (B외국계 2026 직접 채택) + a_activist (행동주의 펀드) 통합. B외국계 5 신규 토픽 (Climate Accountability/Say on Climate/Discharge/Bundled Slate/Two-tier Governance) 추가. 행동주의 적극 행사 원칙 정책 선언",
+      "v1.2 (2026-04-29): B외국계 reference 다운그레이드 — B외국계은 외국계 B외국계 참조 사례로만 보존, OPM 벤치마크 X. B외국계 추천 퀄리티/논란 우려로 say_on_climate, discharge_of_director novel topics 삭제. climate_accountability는 한국 운용사 입장만 유지(tier_3_signal 다운그레이드). bundled_slate_against, overboarded_directors는 한국 운용사·상법 합치 영역으로 유지.",
       "v1.3 (2026-04-29): c_activist (C행동주의) 통합. 8 운용사 합의 매트릭스 재계산. 행동주의 3사 (T/A/C) 일치 영역 24건 확인 — 사외이사 비중 축소·일괄투표·외부 인수 자본증가·성과 미연계 보상·배당 과소 등 강화. 8/8 만장일치 토픽 8건 (외감의견 적정 외, 사외이사 5년 룰, 과도 겸임, 기업가치 훼손 이력, 사외이사 비중 확대, 집중투표 배제 삭제, 초다수의결, 황금낙하산). c_activist 단독 신규 토픽 17건 추가 — 집행임원제도, 내부거래위원회, 선임사외이사(LID) 도입, 사외이사 독립성 매년 공시, 5억원 미만 보수공개, 임원 hedging 금지, 임직원 자사주 대출 금지 등. 한국 silent 영역 C행동주의 채택으로 차단 영역 확장."
     ]
   },
@@ -59,7 +59,7 @@
     "secondary": "12 카테고리별 매트릭스 8 dim 평가 → for/against/review 자동 결정",
     "tertiary": "사용자 또는 운용사 책임자 최종 검토 (높은 stake 안건)",
     "transparency": "모든 결정 evidence_refs 추적 가능 (전문가 / 운용사 / 법령)",
-    "external_advisor": "외부 advisor (글로벌/한국) 분석 권장 (참고용, OPM 매트릭스 우선)",
+    "external_advisor": null,
     "conflict_handling": "그룹사 안건 자동 conflict_of_interest_flag 부착, 별도 통계 기록"
   },
   "voting_rules": {
@@ -91,10 +91,10 @@
           "criterion": "재무제표/이사회보고서/감사보고서 일반 찬성 (회계 또는 감사 절차에 우려 없을 시)",
           "source": "5/5 운용사 합의 + A1+A4 (외감법 §10 정상 절차 기반)",
           "law": "외감법 §10, 상법 §449",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
             "consensus.financial_statements.appropriate_dividend_policy (cross-cat)",
-            "b_foreign.financial_statements.for (외국계 외부 advisor 참조 사례)"
+            "b_foreign.financial_statements.for (외국계 B외국계 참조 사례)"
           ]
         }
       ],
@@ -123,9 +123,9 @@
           "criterion": "[Bundled Approval] 한 안건 내 다수 정관변경 묶음 — 부정 조항이 긍정 조항보다 우세 시 안건 전체 반대",
           "source": "한국 상법 §433 정관 묶음 상정 관행 + A1+A4 (절차적 정합성)",
           "law": "상법 §433",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.articles_amendment.against[5] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.articles_amendment.against[5] (외국계 B외국계 참조 사례)"
           ]
         }
       ],
@@ -378,18 +378,18 @@
           "criterion": "분류이사회제(Classified board) 및 강제 정년제 도입 반대",
           "source": "한국 5 운용사 시차임기제 against 합의 정합 + A1+A3+A5",
           "law": "상법 §383 ②",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.articles_amendment.against[2] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.articles_amendment.against[2] (외국계 B외국계 참조 사례)"
           ]
         },
         {
           "criterion": "경영권 분쟁 상황에서 이사회 구조·규모 변경 반대",
           "source": "A7 §382의3 (충실의무 — 분쟁 중 구조 변경은 주주 동등 대우 위반)",
           "law": "상법 §382의3",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.articles_amendment.against[3] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.articles_amendment.against[3] (외국계 B외국계 참조 사례)"
           ]
         },
         {
@@ -503,9 +503,9 @@
           "criterion": "이사회 성다양성 규정 미준수 시 추천위원장 반대 (다양성 강화 정신)",
           "source": "한국 자본시장법 §165의20 ② (자산 2조원+ 의무) + A1+A5+A7",
           "law": "자본시장법 §165의20 ②",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.director_election.against[4] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.director_election.against[4] (외국계 B외국계 참조 사례)"
           ]
         },
         {
@@ -565,7 +565,7 @@
         },
         {
           "criterion": "이사회·주요 위원회 출석률 75% 미만",
-          "source": "5/5 만장일치 + 외부 advisor (글로벌) 글로벌 표준",
+          "source": "5/5 만장일치 + B외국계 글로벌 표준",
           "law": "상법 §382의3, §391, 자본시장법 §161의2 (출석률 공시)",
           "evidence_refs": [
             "consensus.director_election.attendance_rate_75"
@@ -627,30 +627,30 @@
           "criterion": "대형사 (자산 2조원+) 사외이사 50% 미만 또는 소형사 25% 미만 시 비독립이사 후보 반대",
           "source": "한국 상법 §542의8 ① + 한국 8 운용사 사외이사 비중 강화 합의",
           "law": "상법 §542의8 ①",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례 (Two-tier 정량은 한국 상법과 정합)",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례 (Two-tier 정량은 한국 상법과 정합)",
           "evidence_refs": [
-            "b_foreign.director_election.against[0] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.director_election.against[0] (외국계 B외국계 참조 사례)"
           ]
         },
         {
           "criterion": "[Climate Accountability — 한국 운용사 한정] 한국 탄소중립·녹색성장 기본법 §27 관리업체에서 기후 대응 미이행 책임 이사 재선임 반대 (미래·T행동주의 입장)",
           "source": "미래·T행동주의 (2/7) + A1+A5",
           "law": "탄소중립·녹색성장 기본법 §27",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 외부 advisor Climate Accountability — 데이터 reference로만 보존, OPM 벤치마크 X",
+          "foreign_reference_note": "외국계 운용사 (B외국계) B외국계 Climate Accountability — 데이터 reference로만 보존, OPM 벤치마크 X",
           "evidence_refs": [
             "consensus.director_election.climate_responsibility_director",
-            "b_foreign.director_election.against[5] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.director_election.against[5] (외국계 B외국계 참조 사례)"
           ]
         },
         {
           "criterion": "[Bundled Slate — 한국 silent 차단, v1.3 강화] 다수 이사 묶음 선임 시 한 명이라도 거버넌스 우려 시 슬레이트 전체 반대",
           "source": "a_activist (별지 Ⅱ-2 12) + c_activist ([별첨 #1] Ⅲ-2.19.1)) — 행동주의 2사 합의, 한국 5 운용사 silent",
           "law": "한국 5 운용사 silent → 행동주의 (a_activist + c_activist) 채택",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
             "a_activist.articles_amendment.against (Ⅱ-2 12)",
             "c_activist.articles_amendment.for (Ⅲ-2.19 개별투표 찬성)",
-            "b_foreign.director_election.against[7] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.director_election.against[7] (외국계 B외국계 참조 사례)"
           ],
           "v1_3_note": "v1.3 강화 — 행동주의 2사 (a_activist + c_activist) 모두 일괄투표 against / 개별투표 for 명시"
         }
@@ -724,8 +724,8 @@
           ]
         },
         {
-          "criterion": "비감사용역 보수가 감사용역 보수 초과 (또는 25% 초과 시 외부 advisor (글로벌))",
-          "source": "4/5 합의 + A5 (외부 advisor 25% 정량 기준)",
+          "criterion": "비감사용역 보수가 감사용역 보수 초과 (또는 25% 초과 시 B외국계)",
+          "source": "4/5 합의 + A5 (B외국계 25% 정량 기준)",
           "law": "외감법 §21, Sarbanes-Oxley §201",
           "evidence_refs": [
             "consensus.audit_committee_election.non_audit_fee_exceeds_audit"
@@ -893,19 +893,19 @@
           "criterion": "[행동주의] 황금낙하산 일반 반대 (주주 장기이익 + 이해충돌 없음 + 임직원 비교 적정성 충족 외)",
           "source": "a_activist (별지 Ⅳ-3) + 한국 5 운용사 황금낙하산 against 합의",
           "law": "상법 §388, §385",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
             "a_activist.director_compensation.against[2]",
-            "b_foreign.director_compensation.against[2] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.director_compensation.against[2] (외국계 B외국계 참조 사례)"
           ]
         },
         {
           "criterion": "[정량] 스톡옵션 희석률 성숙기업 5% / 성장기업 10% 초과 시 반대",
           "source": "한국 상법 §340의2 ③ + T행동주의·K레거시 정량 (2% 단일/5% 누적) 강화 + A3 활동가",
           "law": "상법 §340의2 ③",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.director_compensation.against[1] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.director_compensation.against[1] (외국계 B외국계 참조 사례)"
           ]
         },
         {
@@ -921,7 +921,7 @@
       "review": [
         {
           "criterion": "임원 개인별 보수 5억원 초과 + 동종업계 P75 초과",
-          "source": "A1 + A5 (외부 advisor (성과 보상))",
+          "source": "A1 + A5 (B외국계 (성과 보상))",
           "law": "자본시장법 §159 ②",
           "evidence_refs": [
             "A1.director_compensation.review[0]"
@@ -1069,7 +1069,7 @@
       "for": [
         {
           "criterion": "독립적 가치평가기관의 적정 평가 + 합병 비율 공정 + 시너지 명확 + 외부 페어니스 의견 사전 공개",
-          "source": "5/5 + A1+A3+A5 (외부 advisor (글로벌) 표준)",
+          "source": "5/5 + A1+A3+A5 (B외국계 표준)",
           "law": "자본시장법 §165-4, 상법 §523 (합병계약서)",
           "evidence_refs": [
             "A1.merger.for[0]"
@@ -1113,7 +1113,7 @@
         {
           "criterion": "Majority of Minority 미적용 자기거래 합병",
           "source": "A1+A3+A5+A7 (5 운용사 silent — OPM 차별화 핵심)",
-          "law": "한국 법령 미비, UK LR9.16, 외부 advisor M&A 가이드라인",
+          "law": "한국 법령 미비, UK LR9.16, B외국계 M&A 가이드라인",
           "evidence_refs": [
             "A3.novel_topics[0]",
             "A5.novel_topics_global_view[2]"
@@ -1123,9 +1123,9 @@
           "criterion": "합병/매각/지주회사: (1) 클래스 간 의결권·이익 불비례 (2) 거래 후 거버넌스 악화 (3) 협상 우려 (4) 정보 부족 (5) 매수가 trading opportunity 시 반대 — 5요소 중 하나라도",
           "source": "A1+A3+A5+A7 합의 (한국 5 운용사 합병비율 공정성 합의 정합)",
           "law": "상법 §523, §523의2",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.merger.against[0] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.merger.against[0] (외국계 B외국계 참조 사례)"
           ]
         },
         {
@@ -1292,7 +1292,7 @@
         {
           "criterion": "발행예정주식수 2배 이상 (100% 이상) 증가",
           "source": "4/5 합의 + A3 활동가 (자동 against)",
-          "law": "상법 §289 ① 3호, 외부 advisor (글로벌)",
+          "law": "상법 §289 ① 3호, B외국계",
           "evidence_refs": [
             "consensus.capital_increase_decrease.issued_shares_2x_increase"
           ]
@@ -1317,18 +1317,18 @@
           "criterion": "[정량] 신주인수권 배제 발행이 희석 또는 한도 20% 초과 시 반대",
           "source": "한국 상법 §418 ② (강행규정) + 한국 4/5 운용사 합의 + A5 (UK Pre-emption 정량 정합)",
           "law": "상법 §418 ②",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.capital_increase_decrease.against[0] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.capital_increase_decrease.against[0] (외국계 B외국계 참조 사례)"
           ]
         },
         {
           "criterion": "수권자본 증가가 현재 100% 초과 + 정당화 없을 때 반대",
           "source": "한국 4/5 운용사 합의 (백지수표 권한 against) + A1 학자",
           "law": "상법 §289 ① 3호",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.capital_increase_decrease.against[1] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.capital_increase_decrease.against[1] (외국계 B외국계 참조 사례)"
           ]
         }
       ],
@@ -1380,7 +1380,7 @@
         {
           "criterion": "CB/BW 발행 후 우선인수권 있는 경우 50% 이상, 없는 경우 20% 이상 발행주식수 증가",
           "source": "3/5 (T행동주의·K레거시 정량) + A4+A5",
-          "law": "상법 §513, §516의2, 외부 advisor CB/BW 가이드라인",
+          "law": "상법 §513, §516의2, B외국계 CB/BW 가이드라인",
           "evidence_refs": [
             "consensus.cb_bw.cb_bw_dilution_threshold"
           ]
@@ -1413,9 +1413,9 @@
           "criterion": "[정량] CB/BW 등 주식연계증권 발행 — 희석률 또는 한도 둘 중 하나라도 20% 초과 반대 (신주발행과 동일 기준)",
           "source": "T행동주의·K레거시 정량 (50%/20%) + A3 활동가 강화 (30%/10%)",
           "law": "상법 §513, §516의2",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
           "evidence_refs": [
-            "b_foreign.cb_bw.against[0] (외국계 외부 advisor 참조 사례)"
+            "b_foreign.cb_bw.against[0] (외국계 B외국계 참조 사례)"
           ]
         }
       ],
@@ -1558,7 +1558,7 @@
       "category": "merger",
       "default": "for",
       "stage": "tier_2",
-      "korea_status": "법령 없음. 5 운용사 모두 silent. 외부 advisor (글로벌) Korea Policy 명시",
+      "korea_status": "법령 없음. 5 운용사 모두 silent. B외국계 Korea Policy 명시",
       "rationale": "A1+A3+A5+A7 — 자기거래·관계사 합병에서 controlling shareholder 제외 과반 동의 요건. 한국 상법 §397의2 (자기거래) 정신 확대",
       "implementation_note": "관계사 합병/주식교환 안건 분석 시 controlling shareholder 의결권 비율 + 소수주주 단독 의결 결과 분리 제공. 소수주주 50% 미만 동의 시 against trigger",
       "evidence_refs": [
@@ -1642,23 +1642,23 @@
         "A2.novel_topics[2]",
         "A5.novel_topics_global_view[3]"
       ],
-      "v1_2_note": "v1.2: 외부 advisor 다운그레이드. b_foreign evidence_ref 제거 (외국계 운용사 외부 advisor 참조 사례로 별도 보존)"
+      "v1_2_note": "v1.2: B외국계 reference 다운그레이드. b_foreign evidence_ref 제거 (외국계 운용사 B외국계 참조 사례로 별도 보존)"
     },
     "climate_accountability": {
       "category": "director_election",
       "default": "tier_3_signal",
       "stage": "tier_3_signal",
       "korea_status": "한국 법령 미비 (탄소중립·녹색성장 기본법 §27 관리업체 한정). 미래·T행동주의 (2/7) climate_responsibility_director — 한국 운용사 입장 한정 적용",
-      "rationale": "[v1.2 다운그레이드] 한국 미래·T행동주의 입장만 유지. 외부 advisor Climate Accountability는 데이터 reference로만 보존 (OPM 벤치마크 X). default를 tier_3_signal로 다운그레이드",
+      "rationale": "[v1.2 다운그레이드] 한국 미래·T행동주의 입장만 유지. B외국계 Climate Accountability는 데이터 reference로만 보존 (OPM 벤치마크 X). default를 tier_3_signal로 다운그레이드",
       "implementation_note": "한국 탄소중립·녹색성장 기본법 §27 관리업체에 한정 적용 — 기후 대응 미이행 책임 이사 재선임 시 미래·T행동주의 입장 따라 against. 일반 회사는 review/silent",
       "korea_specific_note": "한국 탄소중립·녹색성장 기본법 §27 (관리업체) 위반 시 against (한국 운용사 합의 영역)",
-      "foreign_reference_note": "외국계 운용사 (B외국계) 외부 advisor Climate Accountability — 데이터 reference로만 보존, OPM 벤치마크 X",
+      "foreign_reference_note": "외국계 운용사 (B외국계) B외국계 Climate Accountability — 데이터 reference로만 보존, OPM 벤치마크 X",
       "evidence_refs": [
         "consensus.director_election.climate_responsibility_director",
         "A5.novel_topics_global_view[3]",
-        "b_foreign.director_election.against[5] (외국계 외부 advisor 참조 사례)"
+        "b_foreign.director_election.against[5] (외국계 B외국계 참조 사례)"
       ],
-      "v1_2_note": "v1.2: 외부 advisor 다운그레이드 — 한국 운용사 입장만 유지. tier_2 → tier_3_signal"
+      "v1_2_note": "v1.2: B외국계 reference 다운그레이드 — 한국 운용사 입장만 유지. tier_2 → tier_3_signal"
     },
     "overboarded_directors": {
       "category": "director_election",
@@ -1668,12 +1668,12 @@
       "rationale": "한국 상법 §382의3 + 한국 5/5 운용사 합의 (K레거시 정량 채택). 매트릭스 dim 'concurrent_positions'와 통합 보강",
       "implementation_note": "사외이사 후보가 사외이사 3개사 이상 또는 상장사 임원 2개사 이상 겸임 시 against (K레거시 정량 + 한국 상법 §382의3). 매트릭스 'concurrent_positions' dim red_0 기준과 정합",
       "korea_law_basis": "상법 §382의3 + 시행령 §34",
-      "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 (>2 boards) — 외부 advisor 참조 사례",
+      "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 (>2 boards) — B외국계 참조 사례",
       "evidence_refs": [
         "consensus.director_election.concurrent_positions",
-        "b_foreign.director_election.against[3] (외국계 외부 advisor 참조 사례)"
+        "b_foreign.director_election.against[3] (외국계 B외국계 참조 사례)"
       ],
-      "v1_2_note": "v1.2: 한국 상법 + 한국 운용사 합의 중심으로 재정렬. B외국계은 외국계 외부 advisor 참조 사례로만 표시"
+      "v1_2_note": "v1.2: 한국 상법 + 한국 운용사 합의 중심으로 재정렬. B외국계은 외국계 B외국계 참조 사례로만 표시"
     },
     "bundled_slate_against": {
       "category": "director_election",
@@ -1682,13 +1682,13 @@
       "korea_status": "한국 5 운용사 모두 silent. A행동주의 + C행동주의 (행동주의 2사) 동조 입장",
       "rationale": "한국 5 운용사 silent 영역을 행동주의 2사 (a_activist + c_activist)가 채택. 한국 운용사들이 묶음 선임 안건에 silent하여 거버넌스 결격 후보가 묶여 통과되는 폐단을 행동주의가 차단. OPM은 행동주의 입장 따라 against 채택",
       "implementation_note": "(1) 안건이 다수 이사 묶음 선임 (Bundled Slate)으로 상정된 경우. (2) 후보 중 한 명이라도 거버넌스 결격 (5년 룰·6년 룰·과도겸임·출석률 75% 미달·기업가치 훼손 이력 등) 있으면 슬레이트 전체 against. (3) 회사에 개별 표결 분리 요구",
-      "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+      "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — B외국계 참조 사례",
       "evidence_refs": [
         "a_activist.articles_amendment.against (Ⅱ-2 12)",
         "c_activist.articles_amendment.for (Ⅲ-2.19.1 개별 투표 찬성)",
-        "b_foreign.director_election.against[6] (외국계 외부 advisor 참조 사례)"
+        "b_foreign.director_election.against[6] (외국계 B외국계 참조 사례)"
       ],
-      "v1_2_note": "v1.2: A행동주의 행동주의 입장 중심으로 재정렬. B외국계은 외국계 외부 advisor 참조 사례로만 표시",
+      "v1_2_note": "v1.2: A행동주의 행동주의 입장 중심으로 재정렬. B외국계은 외국계 B외국계 참조 사례로만 표시",
       "v1_3_note": "v1.3 강화: c_activist도 동일 입장 명시 (행동주의 2사 합의)"
     },
     "executive_officer_system": {
@@ -1770,7 +1770,7 @@
     "KRX 기업지배구조보고서 핵심지표 15원칙 미준수 시 review 트리거",
     "한국 코리아 디스카운트 (P/B 1배 미만 60% 기업) → 주주환원율 50% 권고",
     "한국 재벌 사익편취 (tunneling) — 일감몰아주기·물적분할 자회사 상장·삼성물산 합병·자사주 마법 차단",
-    "[v1.2] B외국계은 외국계 운용사 외부 advisor 참조 사례 데이터로만 보존 — OPM 벤치마크 X (외부 advisor 추천 퀄리티/논란 우려)",
+    "[v1.2] B외국계은 외국계 운용사 B외국계 참조 사례 데이터로만 보존 — OPM 벤치마크 X (B외국계 추천 퀄리티/논란 우려)",
     "[v1.1] 행동주의 적극 행사 원칙 (A행동주의) — 합병/영업양수도/임원 임면/정관변경 등 중대 사항 silent 금지 (제3조 ②)",
     "[v1.1] 8 운용사 매트릭스 — 22 consensus + 27 majority = 49/79 (62%) 강한 합의. 한국 운용사 silent 영역에 한해 a_activist 동조 토픽 채택 (bundled_slate, active_engagement)",
     "[v1.3] 8 운용사 매트릭스 — 22 consensus + 26 majority = 48/96 (50%). 8/8 만장일치 토픽 8건 (외감의견, 사외이사 5년 룰, 과도 겸임, 기업가치 훼손 이력, 사외이사 비중 확대, 집중투표 배제 삭제, 초다수의결, 황금낙하산)",
@@ -1888,20 +1888,20 @@
     "case_law_referenced": 9,
     "v1_1_changes": [
       "policy_meta.version → v1.1, updated_at 2026-04-29",
-      "differentiation 추가 2건 (외부 advisor 2026 직접 reference + 행동주의 적극 행사 원칙)",
+      "differentiation 추가 2건 (B외국계 2026 직접 reference + 행동주의 적극 행사 원칙)",
       "voting_rules 12 카테고리 모두 b_foreign/a_activist 입장 추가 강화 (총 18건 새 criteria)",
       "novel_topics 5개 신규 추가 (climate_accountability, say_on_climate, discharge_of_director, overboarded_directors, bundled_slate_against)",
-      "global_reference_topics 섹션 신규 — 외부 advisor 2026 직접 reference 12건 + 행동주의 원칙 7건",
-      "korea_specific 3건 추가 — 외부 advisor·행동주의·8 운용사 매트릭스 명시"
+      "global_reference_topics 섹션 신규 — B외국계 2026 직접 reference 12건 + 행동주의 원칙 7건",
+      "korea_specific 3건 추가 — B외국계·행동주의·8 운용사 매트릭스 명시"
     ],
     "v1_2_changes": [
-      "policy_meta.version → v1.2 — 외부 advisor 다운그레이드",
-      "differentiation: '외부 advisor 2026 직접 reference' → '한국 8 운용사 합의 + N연기금 + 한국 법령 + OPM 4 기준 중심'",
+      "policy_meta.version → v1.2 — B외국계 reference 다운그레이드",
+      "differentiation: 'B외국계 2026 직접 reference' → '한국 8 운용사 합의 + N연기금 + 한국 법령 + OPM 4 기준 중심'",
       "novel_topics 13 → 11 (say_on_climate, discharge_of_director 삭제)",
       "novel_topics climate_accountability tier_2 → tier_3_signal 다운그레이드 (한국 운용사 입장만 유지)",
-      "voting_rules: 외부 advisor 직접 인용 ([외부 advisor direct] 마킹) 모두 제거. 한국 운용사·법령 source로 재정렬, B외국계은 foreign_reference_note로 별도 보존",
-      "shareholder_proposal review에서 외부 advisor Say on Climate review 항목 제거",
-      "global_reference_topics 섹션 → foreign_manager_external_reference_data 섹션 (참조 데이터로만 보존)"
+      "voting_rules: B외국계 직접 인용 ([B외국계 direct] 마킹) 모두 제거. 한국 운용사·법령 source로 재정렬, B외국계은 foreign_reference_note로 별도 보존",
+      "shareholder_proposal review에서 B외국계 Say on Climate review 항목 제거",
+      "global_reference_topics 섹션 → b_foreign_self_data 섹션 (참조 데이터로만 보존)"
     ],
     "v1_3_changes": [
       "policy_meta.version → v1.3 — c_activist (C행동주의) 통합",
@@ -1913,8 +1913,8 @@
       "c_activist 단독 신규 17 토픽 — 집행임원제도/내부거래위/LID/매년 독립성 공시/추천위 과반/주식보상 매도금지/5억원 보수공개/hedging 금지/자사주 대출 금지/매입후 소각/실권주 배정 금지/채무재조정 CB-BW/이사회 평가/CEO 3기 봉쇄/정치-자선 기부금 against"
     ]
   },
-  "foreign_manager_external_reference_data": {
-    "_note": "[v1.2] OPM은 외부 advisor를 벤치마크로 사용하지 않는다 (외부 advisor 추천 퀄리티/논란 우려). B외국계은 외국계 운용사가 외부 advisor를 어떻게 활용하는지의 데이터 reference로만 보존됨. 이 섹션은 비교/조사 목적의 참조 데이터이며, OPM 의결권 결정 로직은 한국 8 운용사 합의 + N연기금 + 한국 법령 + OPM 4 기준에 따른다.",
+  "b_foreign_self_data": {
+    "_note": "[v1.2] OPM은 B외국계를 벤치마크로 사용하지 않는다 (B외국계 추천 퀄리티/논란 우려). B외국계은 외국계 운용사가 B외국계를 어떻게 활용하는지의 데이터 reference로만 보존됨. 이 섹션은 비교/조사 목적의 참조 데이터이며, OPM 의결권 결정 로직은 한국 8 운용사 합의 + N연기금 + 한국 법령 + OPM 4 기준에 따른다.",
     "b_foreign_iss_topics_reference": [
       "Climate Accountability — 중대 GHG 배출 기업 + TCFD/Net Zero 미공시 책임 이사 against (OPM은 한국 운용사 입장 한정 적용)",
       "Say on Climate — 9 요소 case-by-case (OPM 미적용)",
