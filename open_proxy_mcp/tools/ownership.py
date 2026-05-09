@@ -426,7 +426,7 @@ def register_tools(mcp):
                 "note": note,
             })
 
-        # 사업보고서에 없지만 5% 대량보유에만 있는 주주 (국민연금, 외국계 기관 등)
+        # 사업보고서에 없지만 5% 대량보유에만 있는 주주 (N연기금, 외국계 기관 등)
         for name, item in latest_by_reporter.items():
             if name not in ar_shareholders:
                 try:

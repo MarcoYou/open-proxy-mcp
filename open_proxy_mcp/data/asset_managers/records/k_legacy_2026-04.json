@@ -1,8 +1,8 @@
 {
   "manager_id": "k_legacy",
-  "manager_name": "[운용사A]",
+  "manager_name": "K레거시",
   "period_label": "2026-04",
-  "source_file": "2026.04 [운용사A] 의결권 행사내역.xlsx",
+  "source_file": "2026.04 K레거시 의결권 행사내역.xlsx",
   "votes": [
     {
       "market": "KOSPI",
@@ -7819,7 +7819,7 @@
       "ticker": null,
       "meeting_date": "2026-03-20",
       "agenda_no": null,
-      "agenda_title": "제2-5호. 정관 변경 승인의 건 - 내부거래위원회 신설을 위한 정관 변경의 건(주주제안_얼라인파트너스)",
+      "agenda_title": "제2-5호. 정관 변경 승인의 건 - 내부거래위원회 신설을 위한 정관 변경의 건(주주제안_A행동주의)",
       "agenda_type_raw": "[20] 정관변경",
       "agenda_category": "articles_amendment",
       "relationship": "-",
@@ -7952,7 +7952,7 @@
       "ticker": null,
       "meeting_date": "2026-03-20",
       "agenda_no": null,
-      "agenda_title": "제4-3호. 감사위원회 위원이 되는 사외이사 분리 선임의 건 (2인 선임) - 후보 민수아(주주제안 얼라인파트너스)",
+      "agenda_title": "제4-3호. 감사위원회 위원이 되는 사외이사 분리 선임의 건 (2인 선임) - 후보 민수아(주주제안 A행동주의)",
       "agenda_type_raw": "[40] 감사또는 감사의원의선임및해임",
       "agenda_category": "audit_committee_election",
       "relationship": "-",
@@ -7971,7 +7971,7 @@
       "ticker": null,
       "meeting_date": "2026-03-20",
       "agenda_no": null,
-      "agenda_title": "제4-4호. 감사위원회 위원이 되는 사외이사 분리 선임의 건 (2인 선임) - 후보 최흥범(주주제안 얼라인파트너스)",
+      "agenda_title": "제4-4호. 감사위원회 위원이 되는 사외이사 분리 선임의 건 (2인 선임) - 후보 최흥범(주주제안 A행동주의)",
       "agenda_type_raw": "[40] 감사또는 감사의원의선임및해임",
       "agenda_category": "audit_committee_election",
       "relationship": "-",
