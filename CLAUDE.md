@@ -6,29 +6,44 @@ DART 데이터를 MCP로 제공하는 Python 서버. 약칭 **OPM**.
 ## 지식 체계 (wiki-first)
 
 **도메인 지식, 아키텍처 결정, 공시 유형 등 상세는 위키 참조.**
-위키는 LLM이 유지하며, 매 `/ship` 시 자동 업데이트.
+위키는 LLM이 유지하며, `/ship` 시 LLM이 영향 페이지 update + commit + push.
 
-- **위키 인덱스**: `wiki/index.md` — 전체 페이지 카탈로그. 여기서 시작.
-- **첫 진입은 [[tools/README]]**: 16 tool 카탈로그가 사용자 입장 시작점.
-- **위키 스키마**: `wiki/WIKI_SCHEMA.md` — 트리 정책 (Section 0) + 카테고리 정의 + 명명 규칙 + frontmatter schema + 신규 페이지 워크플로우.
-- **카테고리 (7+1)**: `raw / rules / tools / decisions / architecture / lessons / ralph / archive`
-- **트리 metaphor** (WIKI_SCHEMA Section 0):
-  - 🌱 뿌리 `raw/` → 🪵 줄기 `rules/` → 🌿 큰가지 `tools/decisions/architecture/core` → 🌾 잔가지 `ralph/audits/fixes/lessons` → 🍂 낙엽 `archive/`
-  - **Link 정책**: 뿌리→줄기→큰가지 단방향 / 큰가지↔잔가지 양방향 / 잎↔잎 자유
+질문이 오면 `wiki/index.md` (전체 카탈로그)를 먼저 읽고 관련 페이지만 선택 로드. 전체 wiki 한 번에 로드 X.
 
-질문이 오면 `wiki/index.md`를 먼저 읽고, 관련 페이지만 선택적으로 읽을 것.
-전체 위키를 한 번에 로드하지 말 것.
+- **첫 진입**: [[tools/README]] (16 tool 카탈로그)
+- **위키 스키마**: [[WIKI_SCHEMA]] — 트리 정책 (Section 0) + 카테고리 + 명명 + frontmatter + 워크플로우
+- **트리 카테고리 (흐름순)**:
+  - 🌱 뿌리 `raw/` (외부 source)
+  - 🪵 줄기 `rules/` (concepts/disclosures/laws — 한국 자본시장 사실)
+  - 🌿 큰가지 `tools/` + `decisions/` + `architecture/core/` (영구 시스템)
+  - 🌾 잔가지 `ralph/` + `architecture/audits/` + `architecture/fixes/` + `lessons/` (시점 작업)
+  - 🍂 낙엽 `archive/` (흡수/대체 보존)
+- **Link 정책**: 뿌리→줄기→큰가지 단방향 / 큰가지↔잔가지 양방향 / 잎↔잎 자유
 
 ### 명명 규칙 (2026-05-01~)
-- **시점 있는 문서**: `yymmdd_hhmm_{type}_{title}.md` (audit / fix / decision / debate / ralph / improvement / changelog / release / log)
-- **정체성 문서**: `{name}.md` (tool / concept / disclosure / law). 시점 prefix 안 붙임.
-- **lessons**: 혼합 (`{topic}-yymmdd.md` 또는 `{name}.md`). 정체성 위주.
+
+| 종류 | 패턴 | 예시 |
+|---|---|---|
+| 시점 작업 | `yymmdd_hhmm_{type}_{title}.md` | `260508_0700_decision_law-layer-precision.md` |
+| 정체성 | `{name}.md` | `shareholder_meeting_notice.md` / `자사주.md` |
+| lessons | 정체성 또는 `{topic}-yymmdd.md` | `parser-precision-260508.md` |
+
+시점 type: audit / fix / decision / debate / ralph / improvement / changelog / release / log (자세한 type 정의는 [[WIKI_SCHEMA]]).
 
 신규 페이지 추가 시 [[WIKI_SCHEMA]] 워크플로우 따를 것.
 
-### 시점 작업 4축
+### 시점 작업 4축 (양방향 link 강제)
 
-ralph / audit / decision / lesson 신규 시 frontmatter `related:` 4축 명시 + 양방향 link 강제 (WIKI_SCHEMA Section 0.3).
+ralph 신규 → audit (검증) → lesson (회고) → decision (채택) **모두 양방향 link**.
+
+```yaml
+# 예: lessons/parser-precision-260508.md frontmatter
+related_ralph: [260508_0207_ralph_parser-precision]
+related_audits: [260508_parser_audit]
+related_decisions: [260508_0700_decision_law-layer-precision]
+```
+
+상세: [[WIKI_SCHEMA#0.3 같은 시점 작업의 4축 표준]]
 
 ### raw/ 절대 수정 금지
 `wiki/raw/`는 외부 원본 (운용사 정책 PDF, 행사내역 xlsx, 외부 reference markdown).
@@ -38,24 +53,24 @@ LLM도 사람도 절대 수정 X. 분석/요약은 별도 페이지에 작성 (`
 ```
 open_proxy_mcp/        # MCP 서버 코드
   server.py            # FastMCP 진입점
-  tools_v2/            # 16 public tools (v2)
+  tools_v2/            # 16 public tools (v2 — active)
   services/            # 도메인별 분석 로직 (tool과 분리)
   dart/client.py       # DART API + KIND + 네이버 시세
   data/asset_managers/ # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
-  *_RULE.md            # 구 tool별 규칙 (AGM/OWN/DIV/PRX) — 흡수 진행 중 (7개 잔존)
 scripts/
   wiki_lint.py         # wiki link 정책 자동 검증 (단방향/양방향)
   spot_*.py            # 회귀 spot 스크립트
-wiki/                  # LLM 도메인 지식 위키 (Karpathy 아키텍처) — 트리 구조
+wiki/                  # LLM 도메인 지식 (Karpathy 아키텍처) — 트리 흐름순
   raw/                 # 🌱 뿌리 — 외부 원본 (정책 PDF + xlsx + reference). 절대 수정 금지
   rules/               # 🪵 줄기 — concepts/ + disclosures/ + laws/ (한국 자본시장 사실)
   tools/               # 🌿 큰가지 — 16 tool 카탈로그 (사용자 진입점)
-  decisions/           # 🌿 큰가지 — OPM 정책/판단 (open-proxy-guideline 등)
+  decisions/           # 🌿 큰가지 — OPM 정책 (open-proxy-guideline 등)
   architecture/        # 🌿 큰가지 (core) + 🌾 잔가지 (audits/ + fixes/)
-  ralph/               # 🌾 잔가지 — 작업 plan 시간순 (yymmdd_hhmm)
+  ralph/               # 🌾 잔가지 — 작업 plan (yymmdd_hhmm)
   lessons/             # 🌾 잔가지 — 회고
-  archive/             # 🍂 낙엽 — 흡수/대체 페이지 보존 (신규 X)
-  index.md             # 전체 인덱스 (여기서 시작)
+  archive/             # 🍂 낙엽 — 흡수/대체 보존 (신규 X)
+                       #   archive/tools/legacy_rules/ — 구 *_RULE.md 7개 (AGM/DIV/OWN/PRX)
+  index.md             # 전체 인덱스 (시작점)
   WIKI_SCHEMA.md       # 트리 정책 + 카테고리 + 명명 규칙
   log.md               # 작업 로그
 .github/workflows/
@@ -64,6 +79,7 @@ wiki/                  # LLM 도메인 지식 위키 (Karpathy 아키텍처) —
 ```
 
 ## 핵심 규칙 (간략)
+- **사용 호출 우선순위**: ① **MCP 호출** (default — production 동작 검증) → ② 직접 코드 import (단위 테스트 / 디버깅 시).
 - **데이터 접근 우선순위**: ① DART API (병렬 가능) → ② DART 웹 크롤링 (2초 간격) → ③ KIND 크롤링 (2초 간격). 상위에서 해결되면 하위 접근 금지.
 - **DART API**: 분당 1,000회 초과 시 24시간 IP 차단 — **hard rule, 절대 위반 X**.
   - `dart/client.py`에 rolling window rate limiter (`_throttle_api`) 내장 — 분당 cap **900** (10% buffer + race 방지).
