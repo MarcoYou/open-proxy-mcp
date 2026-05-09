@@ -110,19 +110,19 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(">")
         lines.append("> **🛡️ 강행규정 정합 (A1-X tag) = FOR 무조건 유지** — 자체 분석으로 뒤집지 마시오.")
         lines.append(">")
-        lines.append("> **자주 발생하는 misread 패턴 — 절대 금지**:")
-        lines.append("> - ❌ \"집중투표제 배제 조항 **삭제**\" → AGAINST 추측 (틀림)")
-        lines.append("  → ✅ FOR (배제 조항을 **삭제**한다 = 집중투표 의무화 정합 = 소수주주 보호 강화)")
-        lines.append("> - ❌ \"감사위원 의결권 제한 **강화**\" → AGAINST 추측 (틀림)")
-        lines.append("  → ✅ FOR (최대주주 의결권 합산 3% 룰 강화 = 소수주주 보호 강화)")
-        lines.append("> - ❌ \"사외이사 → 독립이사 명칭 변경\" → 의심 (틀림)")
-        lines.append("  → ✅ FOR (1차 상법 개정 정합)")
-        lines.append("> - ❌ \"전자주주총회 도입\" → 의심 (틀림)")
-        lines.append("  → ✅ FOR (1차 상법 개정 2027-01-01 의무 선제 정합)")
-        lines.append(">")
+        # catalog (wiki/rules/laws/llm_misread_patterns.json)에서 dynamic load
+        from open_proxy_mcp.services.proxy_advise import _load_llm_misread_patterns
+        patterns = _load_llm_misread_patterns()
+        if patterns:
+            lines.append("> **자주 발생하는 misread 패턴 — 절대 금지**:")
+            for p in patterns:
+                summary = p.get("summary_pattern", "")
+                if summary:
+                    lines.append(f"> - {summary}")
+            lines.append(">")
         lines.append("> **원칙**: 안건명에 '배제·제한·축소·강화' 같은 단어가 있어도, reason에 `[법령 A1-X]` tag와 🛡️ 강행규정 정합 marker가 있으면 **무조건 FOR**. 안건명 키워드만 보고 추측 금지.")
         lines.append(">")
-        lines.append("> 표를 그대로 사용자에게 제시하고, decision 컬럼을 변경하지 마시오.")
+        lines.append("> **표를 그대로 사용자에게 제시하고, decision 컬럼을 변경하지 마시오.**")
         lines.append("")
         lines.append("| # | 안건 | 카테고리 | 행사방향 | 사유 |")
         lines.append("|---|------|---------|---------|------|")
@@ -332,6 +332,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 주총 **소집 전** 안건별 의결권 권고. 1회 호출로: 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts + risk_factors + policy_citation + 근거 공고 + 후보 평가 + 재무/거버넌스 summary.
+        ⛔ CRITICAL: 응답의 decision 컬럼은 한국 상법 강행규정 (A1/A2 tag 🛡️) + 운용사 정책 (vote_style) + Open Proxy Guideline 통합 결과. 사용자에게 **그대로** 제시 — 안건명 키워드(배제·제한·축소·강화)만 보고 자체 판단으로 변경 금지. 자주 misread: '집중투표 배제 조항 삭제' = FOR(의무화 정합), '의결권 제한 강화' = FOR(합산 3% 룰).
         when: 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고. 사후 결과는 `proxy_result_after_meeting`.
         rule: 운용사 의결권 행사 보고서 스타일. hard-fail(형사 처벌/사적 관계/동명이인) 자동 검증 가능 항목만 표기. soft-fail(후보 약력/정관 본문) raw 노출 — LLM 판단.
         vote_style: `open_proxy` (default — OPM 자체 가이드라인). 다른 옵션은 internal cross-reference용
