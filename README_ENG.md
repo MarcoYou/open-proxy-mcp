@@ -56,34 +56,19 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 Once connected, just ask in natural language:
 
 ```
-"Summarize Samsung Electronics' AGM agenda items"
-"Review the independence of KB Financial's outside director candidates"
-"Is Hyundai Motor's compensation limit reasonable?"
-"Show me Samsung Electronics' ownership structure"
-"What is SK Hynix's dividend history?"
-"Analyze the Korea Zinc proxy contest"
-"Find KOSPI companies that disclosed treasury share cancellations in the last 30 days"
-"List companies that called an extraordinary general meeting in the past 60 days"
-"Analyze E-Mart's recent share exchange / transfer decision"
-"Show the split decision details and counterparty for Gamsung Corporation"
-"Calculate the potential dilution from Hyper Corp's recent convertible bond"
-"List EDGC's rights offerings and capital reductions over the last two years"
-"POSCO Holdings — show recent subsidiary equity deal disclosures"
-"Hyundai E&C — single supply contract pattern for the last 2 years"
-"Show KT&G's corporate governance report compliance rate"
-"Hyundai Motor — all 15 governance core principles with notes"
-"KT&G AGM vote brief (activist manager style)"
-"Compare 8 asset managers' director compensation voting policies"
-"Audit S-legacy (large manager) policy vs actual voting gap"
-"Show M-legacy 2025 voting record on Samsung Electronics"
-"Show Open Proxy Guideline 12-category policy"
-"Lotte Chemical 2024 consolidated YoY + accounting risk alerts"
-"SK Hynix 2024 turnaround validation (loss → profit, DuPont split)"
-"Osstem Implant 5-year audit opinion timeline"
-"Samsung Electronics DuPont 3-step decomposition — what drove ROE 13.07%"
+"Summarize Samsung Electronics' AGM agenda items"                # Integrated analysis (proxy_advise)
+"Review independence of KB Financial's outside director candidates"  # Candidate evaluation
+"Analyze the Korea Zinc proxy contest"                            # Contest signals
+"Show Samsung Electronics' ownership structure"                   # Ownership + control map
+"SK Hynix dividend history"                                       # Dividend + CSR
+"Find KOSPI companies that cancelled treasury shares in last 30 days"  # Treasury screening
+"Lotte Chemical 2024 YoY + accounting risk alerts"                # Financials + audit opinion
+"KT&G corporate governance report compliance rate"                # Governance 15 principles
+"KT&G AGM vote brief (activist manager style)"                    # vote_style option
+"Compare 8 asset managers' director compensation voting policies" # Manager policy compare
 ```
 
-\* Financial metrics analysis is now available via the `financial_metrics` tool (Phase 1: DART 4-endpoint integration — 51 core indicators + 22 alerts + audit opinion timeline)
+More usage patterns → [wiki/tools/README.md](wiki/tools/README.md) (16 tool catalog).
 
 ---
 
