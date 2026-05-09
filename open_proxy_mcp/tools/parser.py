@@ -177,9 +177,10 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
 
     # ※ 비고 문장에 있는 안건 번호 참조 위치 수집 (안건이 아닌 참조)
     # ※ 뒤에서 다음 안건 마커(□◎●제N호) 전까지만 note 범위로 잡음
+    # lookahead의 안건 마커 패턴은 AGENDA_RE와 정합 — 괄호 옵션 (예: "제N호 의안 (주주제안) :") 포함
     _note_spans: set[int] = set()
     for nm in re.finditer(
-        r'※.+?(?=\s*[□◎●]\s*제|\s*(?<![가-힣])제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안|안건)?\s*[:：]|$)',
+        r'※.+?(?=\s*[□◎●]\s*제|\s*(?<![가-힣])제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안|안건)?\s*(?:\([^)]*\))?\s*[:：]|$)',
         zone,
     ):
         note_start, note_end = nm.start(), nm.end()
