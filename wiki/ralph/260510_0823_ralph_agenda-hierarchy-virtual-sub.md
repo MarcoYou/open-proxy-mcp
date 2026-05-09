@@ -1,12 +1,12 @@
 ---
 type: ralph
-title: 안건 호수 hierarchy 정확 추출 + title 매칭 성공률 검증
+title: 호수 hierarchy 정확 추출 + D 패턴 amendments body fallback (가상 sub X)
 created: 2026-05-10 08:23
 completion_promise: AGENDA_HIERARCHY_EXTRACTION_VERIFIED
 max_iterations: 6
 ref:
   - wiki/lessons/law-layer-body-260510.md
-  - wiki/architecture/audits/data/260510_law_layer_body/
+  - wiki/architecture/audits/data/260510_agenda_hierarchy/
   - wiki/rules/laws/law_layer_rules.json
 related_decisions: [260508_0700_decision_law-layer-precision]
 related_lessons: [law-layer-body-260510]
@@ -17,7 +17,7 @@ related_lessons: [law-layer-body-260510]
 특수문자 사용 금지. 한글로 풀어쓰기.
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260510_0823_ralph_agenda-hierarchy-virtual-sub.md 가이드 따라. 안건 호수 hierarchy (1호 2호 2-1호 2-2호 등) 추출 정확도 먼저 검증. parser가 raw에서 sub-agenda 호수 누락하는지 확인 후 보강. title 매칭 성공률 측정. raw에 sub 자체 부재인 D 패턴 회사만 amendments fallback 검토. 모두 충족 시 promise. --completion-promise AGENDA_HIERARCHY_EXTRACTION_VERIFIED --max-iterations 6
+/ralph-loop:ralph-loop wiki/ralph/260510_0823_ralph_agenda-hierarchy-virtual-sub.md 가이드 따라. iter 1 (호수 hierarchy 진단 + LG화학 미세 버그 fix) 완료. iter 2부터 D 패턴 한정 amendments body fallback 구현. 가상 sub 생성 X hierarchy 변경 X. children 0 + 정관변경 top + amendments 있음 조건 만족 시에만 body 매칭. 4 미매치 회사 catch + LG화학 regression 0 확인 + 510 회사 회귀 spot. 모두 충족 시 promise. --completion-promise AGENDA_HIERARCHY_EXTRACTION_VERIFIED --max-iterations 6
 ```
 
 # Ralph 7: 안건 호수 hierarchy 정확 추출 + title 매칭
@@ -48,104 +48,115 @@ Ralph 6 (260510_0747)에서 _law_layer body 매칭 시도 → 회귀 (LG화학 s
 
 ## 가정
 
-- 안건 raw에 호수 (1호 / 2호 / 2-1호 / 2-2호 / 3호) 표기는 회사별 패턴 다름
-- parser가 호수 hierarchy를 정확히 추출 못하는 케이스 존재 가능 → 검증 필요
-- D 패턴 (raw에 sub 자체 부재)은 amendments fallback 외 catch 불가 (마지막 수단)
-- _law_layer 코드 변경 X (title 매칭만 유지)
-- shareholder_meeting/parser 수준에서 hierarchy 보강
+- iter 1 검증 결과: parser 호수 hierarchy 추출 정확도 매우 높음 (10/10 회사). LG화학 미세 버그 1건만 fix 완료
+- 4 미매치 회사 = **D 패턴** — raw에 sub-agenda 호수 자체 부재 + top title 일반 표현 ("정관 일부 변경의 건")
+- 정관변경 내용은 amendments[].label/clause/before/after에만 존재
+- → 호수 hierarchy 강화로 catch 불가, **amendments body fallback이 유일 해결**
+
+## 핵심 설계 — Ralph 6 회귀 회피
+
+**가상 sub-agenda 생성 X / hierarchy 변경 X**.
+title 매칭 fallback만 추가:
+
+```python
+title_hit = _law_layer(agenda.title, parent_title, ...)
+if title_hit:
+    record(title_hit)
+elif _is_charter_top(agenda) and not agenda.children and amendments:
+    # D 패턴 한정 (children 0 + 정관변경 top + amendments 있음)
+    body_hit = _law_layer_body(amendments, parent_title=agenda.title, ...)
+    if body_hit:
+        record(body_hit, source="amendments_body_fallback")
+```
+
+| 항목 | Ralph 6 시도 (회귀) | 이번 |
+|---|---|---|
+| 진입 조건 | 모든 회사 또는 fuzzy 매칭 | **children 0 + 정관변경 top** (D 패턴만) |
+| LG화학 영향 | sub 명확해도 amendments 검사 → false positive 8 hits | children > 0 → fallback **자동 제외** |
+| 가상 sub | (안 만듦) | 안 만듦 (hierarchy 변경 0) |
+| 결과 노출 | 본 안건 hit 추가 | 본 안건 hit 추가 (source marker) |
 
 ## 성공 기준
 
-### G1. 호수 hierarchy 추출 정확도 검증 (필수 — 다른 모든 것의 전제)
+### G1. 호수 hierarchy 정확 추출 검증 — ✅ 완료 (iter 1)
 
-10+ 회사 sample (LG화학 / 에코프로비엠 / 카카오게임즈 / 에스엠 / 메리츠금융지주 + KOSPI 5 추가) raw aoi_change scope 호출 후:
-- raw에 호수가 어떤 형태로 표기 (제2호/2호/제2-1호 등)
-- parser parse_agenda_xml 출력의 number / level1-3 / title / children이 raw와 일치하는가
-- 누락 / 오인식 케이스 cataloging
+10/10 회사 검증. parser 거의 완벽. LG화학 제3호 미세 버그 fix (commit be2e722, regression 0).
 
-### G2. parser 보강 (필요 시)
+### G2. D 패턴 amendments body fallback 구현
 
-G1에서 누락 / 오인식 발견 시:
-- 정규식 / 분리 로직 보강
-- LG화학 sub 명확한 회사 회귀 0
-- 보강 전후 510 회사 spot 비교
+- `_is_charter_top(agenda)` 헬퍼 (top "정관" + "변경"/"개정")
+- `_law_layer_body(amendments, ...)` — amendments label+clause+before+after+reason 텍스트 합쳐 매칭
+- 진입 조건 strict (children == 0 + 정관변경 top + amendments 비어있지 않음)
+- _law_layer 시그니처 또는 호출부 변경 (호출부에서 fallback 추가가 더 격리됨)
 
-### G3. title 매칭 성공률 측정 (Before vs After)
+### G3. 4 미매치 회사 catch
 
-Ralph 4 + 5 + 6 누적 audit 350 + 160 = 510 회사 spot 재실행:
-- Before (현 parser): hits 수 / catch 회사 수
-- After (G2 보강 후): hits 수 / catch 회사 수
-- 차이 = G2 효과 측정
+- 에코프로비엠: A1-1 (집중투표 적용 X 삭제)
+- 카카오게임즈: A1-7 (전자주총)
+- 에스엠: A1-5 (독립이사 명칭)
+- 메리츠금융지주: A1-7 (전자주총)
 
-### G4. D 패턴 회사 분류 (raw에 sub 진짜 없는 회사 식별)
+### G4. 510 회사 회귀 0%
 
-호수 hierarchy 정확 추출 후에도 catch X 회사 cataloging:
-- 4 미매치 회사 중 D 패턴 (raw에 sub 부재 + top title 일반 표현) 식별
-- D 패턴은 amendments fallback 검토 (별도 ralph 후보 또는 본 ralph G5)
+- LG화학 (sub 명확) → fallback 진입 X 확인
+- Ralph 4 + 5 + 6 누적 audit (350 + 160) 기존 hits 유지
+- 새 D 패턴 회사 catch가 늘어나는 건 OK (긍정 변화)
 
-### G5. (선택) D 패턴 amendments fallback
+### G5. (보너스) 추가 D 패턴 회사 식별
 
-D 패턴 회사가 G4에서 식별되면:
-- amendments[].label / clause / reason → 가상 sub-agenda 생성 (D 패턴 한정)
-- LG화학 같은 sub 명확 회사 절대 영향 X (조건: agenda hierarchy에 정관변경 sub 0개일 때만)
-- 4 회사 catch 검증
+510 회사 중 정관변경 안건이 sub 0개 + amendments 있는 회사 cataloging. 4 회사 외 추가 catch 가능 회사 측정.
 
 ## 작업 plan (6 iter)
 
-### Phase 1 — 호수 hierarchy 진단 (iter 1)
+### iter 1 — ✅ 완료 (호수 hierarchy 진단 + LG화학 미세 버그 fix)
 
-#### iter 1. 10+ 회사 raw vs parser 출력 비교
-- LG화학 / 에코프로비엠 / 카카오게임즈 / 에스엠 / 메리츠금융지주 + KOSPI 5 추가 (삼성전자 / SK하이닉스 / 현대차 / NAVER / 셀트리온 등)
-- aoi_change scope 호출 → 안건 list raw HTML/XML 보존
-- parse_agenda_xml 출력 dump
-- raw 호수 표기 vs parser number / hierarchy 표 작성
-- 누락 / 오인식 catalog
-- archive: `wiki/architecture/audits/data/260510_agenda_hierarchy/raw_vs_parser_10.md`
+10 회사 raw vs parser 비교. parser 거의 완벽 검증. LG화학 ※ note span lookahead 괄호 옵션 추가 (commit be2e722, regression 0).
 
-### Phase 2 — parser 보강 (iter 2-3)
+### iter 2 — body fallback 코드 구현
 
-#### iter 2. parser fix (필요 시)
-- iter 1 발견 누락 / 오인식 패턴별 정규식 / 분리 로직 보강
-- LG화학 + 10 sample 회귀
-- sub 명확 회사 영향 0 확인
+- `services/proxy_advise.py` 또는 호출부에서 amendments 접근 흐름 식별
+- `_is_charter_top()` 헬퍼 + `_law_layer_body()` 함수 추가
+- D 패턴 진입 조건 strict 적용 (children 0 + 정관변경 top + amendments 비어있지 않음)
+- 단위 검증 (4 미매치 + LG화학)
 
-#### iter 3. 510 회사 spot before vs after
-- Ralph 4 + 5 + 6 누적 audit data 활용 (kospi_200.json + kosdaq_150.json + kosdaq_151-300.json + dispute_30)
-- 보강 전 hits / 보강 후 hits 비교 표
+### iter 3 — 4 미매치 catch + LG화학 regression 검증
 
-### Phase 3 — D 패턴 식별 + (선택) fallback (iter 4-5)
+- proxy_advise 호출 후 4 회사 정확 룰 hit 확인
+- LG화학 hit 수 5 그대로 (false positive 0)
 
-#### iter 4. D 패턴 식별
-- G3 재spot 후 여전히 catch X 회사 list
-- raw aoi_change scope에서 sub-agenda 진짜 없는지 + amendments는 있는지 확인
-- D 패턴 회사 catalog (몇 개 / 어떤 미사용 룰 활성 가능한지)
+### iter 4 — 510 회사 회귀 spot
 
-#### iter 5. (선택) D 패턴 amendments fallback
-- D 패턴 회사 한정 가상 sub 생성 logic (sub 0개 + amendments 있을 때만)
-- 4 미매치 회사 catch 검증
-- LG화학 회귀 0 확인
+- Ralph 4 + 5 + 6 누적 audit data 활용 (kospi_200 + kosdaq_150 + kosdaq_151-300 + dispute_30)
+- before vs after hit 비교 표
+- 신규 catch 회사 (D 패턴) cataloging
 
-### Phase 4 — 문서화 + promise (iter 6)
+### iter 5 — D 패턴 회사 추가 catalog + 미사용 룰 활성
 
-- lesson 작성 (호수 hierarchy 발견)
-- decision 작성 (parser 변경 + D 패턴 정책)
+- 510 회사 중 D 패턴 회사 list
+- 활성된 미사용 룰 정리 (A1-8, B1-9 등)
+
+### iter 6 — 문서화 + promise
+
+- lesson 작성 (D 패턴 fallback design + Ralph 6 회피 logic)
+- decision 작성 (정관변경 fallback 정책)
 - log update
-- promise 발행 (G1-G4 충족 시 — G5는 선택)
+- promise 발행 (G1-G4 충족 시)
 
 ## 영향 범위
 
-- `open_proxy_mcp/tools/parser.py` — `parse_agenda_xml` 정규식 / 호수 분리 보강
-- `open_proxy_mcp/services/shareholder_meeting.py` — `_agenda_nodes` D 패턴 fallback (선택)
+- `open_proxy_mcp/tools/parser.py` — ✅ iter 1 fix 완료 (※ note span 정합)
+- `open_proxy_mcp/services/proxy_advise.py` — `_law_layer_body()` 추가, 호출부 fallback
+- `open_proxy_mcp/services/shareholder_meeting.py` — amendments 전달 path 보강 (필요 시)
 - `wiki/lessons/agenda-hierarchy-260510.md` — lesson
-- `wiki/decisions/260510_xxxx_decision_agenda-hierarchy-extraction.md` — decision
+- `wiki/decisions/260510_xxxx_decision_d-pattern-body-fallback.md` — decision
 - `wiki/architecture/audits/data/260510_agenda_hierarchy/` — audit data
 
 ## 비목표
 
-- _law_layer 변경 X (title 매칭만)
+- 가상 sub-agenda 생성 X (hierarchy 변경 X)
 - 룰 catalog 패턴 추가 X (기존 패턴 그대로)
 - B1/B2 case-by-case 영역 확장 X
-- body 키워드 매칭 X (Ralph 6 회귀로 폐기)
+- 모든 회사 body 매칭 X (D 패턴 한정 — Ralph 6 회귀 회피)
 
 ## archive
 
@@ -155,19 +166,22 @@ D 패턴 회사가 G4에서 식별되면:
 
 ## iteration log
 
-### iter 1 — 호수 hierarchy raw vs parser 비교
+### iter 1 — ✅ 완료 (260510_be2e722)
+
+10 회사 진단 + LG화학 ※ note span 미세 버그 fix. 9 회사 영향 0. parser 호수 hierarchy 정확도 검증.
+
+상세: `wiki/architecture/audits/data/260510_agenda_hierarchy/iter1_findings.md`
+
+### iter 2 — body fallback 코드 구현
 (작성 예정)
 
-### iter 2 — parser 보강
+### iter 3 — 4 미매치 catch + LG화학 regression
 (작성 예정)
 
-### iter 3 — 510 회사 before vs after
+### iter 4 — 510 회사 회귀 spot
 (작성 예정)
 
-### iter 4 — D 패턴 식별
-(작성 예정)
-
-### iter 5 — (선택) D 패턴 fallback
+### iter 5 — D 패턴 추가 catalog
 (작성 예정)
 
 ### iter 6 — 문서화 + promise
