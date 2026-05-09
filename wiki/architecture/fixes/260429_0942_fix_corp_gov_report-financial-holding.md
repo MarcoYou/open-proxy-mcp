@@ -4,6 +4,7 @@ title: corp_gov_report 금융지주 파싱 fix 2026-04-29
 tags: [audit, parsing, fix, corp_gov_report, financial-holding, regression-test]
 related: [parsing-audit-2026-04-29-v2, corp_gov_report-design]
 date: 2026-04-29
+related_tools: [corp_gov_report]
 ---
 
 # corp_gov_report 금융지주 파싱 fix 2026-04-29

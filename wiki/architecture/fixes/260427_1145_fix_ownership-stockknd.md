@@ -4,6 +4,7 @@ title: ownership_structure stock_knd 변형 파싱 fix 2026-04-27
 tags: [audit, parsing, fix, ownership_structure, regression-test]
 related: [parsing-audit-2026-04-29-v2, parsing-fix-2026-04-29-cgr-financial, 최대주주, 대주주, 동일인, 5%-대량보유]
 date: 2026-04-27
+related_tools: [ownership_structure]
 ---
 
 # ownership_structure stock_knd 변형 파싱 fix 2026-04-27

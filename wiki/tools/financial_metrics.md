@@ -7,7 +7,7 @@ data_source: [DART OpenAPI fnlttSinglAcnt (BS+IS 핵심 30행), fnlttSinglIndx (
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
 related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석, ROE, ROA, ROIC, FCF, NWC, 매출채권회전율, 재고자산회전율, 이자보상배율, 순현금]
 related_decisions: [open-proxy-guideline, free-paid-분리, cross-domain-체이닝]
-related_audits: [260501_1820_audit_financial_metrics-6기업]
+related_audits: [260501_1820_audit_financial_metrics-6기업, 260501_2030_audit_financial_metrics-200기업]
 created: 2026-05-01
 ---
 
