@@ -46,7 +46,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 17 tools are automatically recognized
+4. Click "Add" → 16 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
