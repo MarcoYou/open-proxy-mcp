@@ -46,8 +46,8 @@
       "name": "B외국계",
       "type": "asset_manager",
       "classification": "global_advisor_adoption",
-      "external_advisor": "ISS Korea 2026 Voting Guidelines (Published Dec 16, 2025; Effective Feb 1, 2026)",
-      "latest_policy": "2025.04 (ISS Korea 2026 v1.1)",
+      "external_advisor": "외부 advisor 가이드라인 (Published Dec 16, 2025; Effective Feb 1, 2026)",
+      "latest_policy": "2025.04 (외부 advisor 2026)",
       "policy_file": "policies/b_foreign_2025-04.json",
       "records": [
         {

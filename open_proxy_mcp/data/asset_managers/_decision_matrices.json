@@ -2,7 +2,7 @@
   "schema_version": "v2",
   "generated_at": "2026-04-29",
   "policy_id": "open_proxy",
-  "v1_2_note": "v1.2 (2026-04-29) — ISS 다운그레이드. ISS-only dim (climate_accountability_signal) 제거, climate_disclosure는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2) 기반으로만 유지. ISS-only bingo patterns 제거. bundled_slate_signal·bundled_articles_signal·overboarded(concurrent_positions)는 한국 운용사·상법 합치 영역으로 유지. adverse_news는 수동 채점 (향후 자동화 예정)",
+  "v1_2_note": "v1.2 (2026-04-29) — 외부 advisor 다운그레이드. 외부 advisor 전용 dim (climate_accountability_signal) 제거, climate_disclosure는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2) 기반으로만 유지. 외부 advisor 전용 bingo patterns 제거. bundled_slate_signal·bundled_articles_signal·overboarded(concurrent_positions)는 한국 운용사·상법 합치 영역으로 유지. adverse_news는 수동 채점 (향후 자동화 예정)",
   "philosophy": [
     "각 카테고리 8 dim — OPM data tool에서 자동 추출 가능해야 함",
     "각 dim 0/1/2 점수 (red/yellow/green) — 16점 만점",
@@ -66,8 +66,8 @@
             "agm_candidate_concurrent"
           ],
           "law_basis": "상법 §382의3 (충실의무), §397 (경업금지), 시행령 §34",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 (>2 boards) — ISS 참조 사례",
-          "v1_2_note": "v1.2: 한국 상법 + K레거시 정량 중심으로 재정렬. B외국계은 외국계 ISS 참조 사례로만 표시"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 (>2 boards) — 외부 advisor 참조 사례",
+          "v1_2_note": "v1.2: 한국 상법 + K레거시 정량 중심으로 재정렬. B외국계은 외국계 외부 advisor 참조 사례로만 표시"
         },
         {
           "dim_id": "attendance",
@@ -157,8 +157,8 @@
             "all other dims"
           ],
           "law_basis": "한국 5 운용사 silent + a_activist 별지 Ⅱ-2 (12)",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — ISS 참조 사례",
-          "v1_2_note": "v1.2: ISS 다운그레이드 후 a_activist (행동주의) 입장 중심으로 재정렬"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "v1_2_note": "v1.2: 외부 advisor 다운그레이드 후 a_activist (행동주의) 입장 중심으로 재정렬"
         }
       ],
       "scoring": {
@@ -284,8 +284,8 @@
           ],
           "law_basis": "기업공시서식 작성기준 (2026.05 시행)",
           "korea_2026_law": "임원보수 공시 시 TSR·영업이익 병기 (2026.05)",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 (ISS Stock Option Grants 성과 연계 권장) — ISS 참조 사례. Dodd-Frank §954 / SEC Clawback Rule (2023.10) / UK IA Principles는 글로벌 보조 reference",
-          "v1_2_note": "v1.2: ISS 다운그레이드 후 한국 5 운용사 + a_activist 6/7 against 중심으로 재정렬"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 (외부 advisor (스톡옵션) 성과 연계 권장) — 외부 advisor 참조 사례. Dodd-Frank §954 / SEC Clawback Rule (2023.10) / UK IA Principles는 글로벌 보조 reference",
+          "v1_2_note": "v1.2: 외부 advisor 다운그레이드 후 한국 5 운용사 + a_activist 6/7 against 중심으로 재정렬"
         },
         {
           "dim_id": "stock_option_dilution",
@@ -393,7 +393,7 @@
           "pattern_id": "perf_link_x_clawback_red",
           "condition": "performance_link=0 AND clawback_say_on_pay_signal=0",
           "decision": "against",
-          "rationale": "[v1.2] 성과 미연계 + Clawback 부재 — 한국 5 운용사 + 행동주의 6/7 (B외국계은 외국계 ISS 참조 사례)"
+          "rationale": "[v1.2] 성과 미연계 + Clawback 부재 — 한국 5 운용사 + 행동주의 6/7 (B외국계은 외국계 외부 advisor 참조 사례)"
         }
       ]
     },
@@ -413,8 +413,8 @@
             "agm_articles_change"
           ],
           "law_basis": "상법 §366 (강행규정), §369",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 경영권 분쟁 시 이사회 구조·규모 변경 against 동일 — ISS 참조 사례",
-          "v1_2_note": "v1.2: 행동주의 (A행동주의) 입장 중심으로 재정렬. B외국계은 외국계 ISS 참조 사례로만 표시"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 경영권 분쟁 시 이사회 구조·규모 변경 against 동일 — 외부 advisor 참조 사례",
+          "v1_2_note": "v1.2: 행동주의 (A행동주의) 입장 중심으로 재정렬. B외국계은 외국계 외부 advisor 참조 사례로만 표시"
         },
         {
           "dim_id": "board_independence",
@@ -524,8 +524,8 @@
             "agm_articles_change"
           ],
           "law_basis": "상법 §433 (한국 정관변경 묶음 상정 관행) + A1+A4 절차적 정합성",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — ISS 참조 사례",
-          "v1_2_note": "v1.2: 한국 상법 §433 + 한국 운용사 silent 영역으로 재정렬 (별도 채택). B외국계은 외국계 ISS 참조 사례로만 표시"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례",
+          "v1_2_note": "v1.2: 한국 상법 §433 + 한국 운용사 silent 영역으로 재정렬 (별도 채택). B외국계은 외국계 외부 advisor 참조 사례로만 표시"
         }
       ],
       "scoring": {
@@ -630,7 +630,7 @@
           "dim_id": "non_audit_fee_ratio",
           "label": "비감사용역 보수 / 감사용역 보수",
           "scoring": {
-            "green_2": "<25% (글로벌 ISS 표준)",
+            "green_2": "<25% (글로벌 외부 advisor 표준)",
             "yellow_1": "25-100%",
             "red_0": "비감사용역 보수 > 감사용역 보수 (Sarbanes-Oxley 정신)"
           },
@@ -921,8 +921,8 @@
             "industry_peer_data"
           ],
           "law_basis": "상법 §462, MSCI Korea Total Return",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 ('consistently low without justification') — ISS 참조 사례",
-          "v1_2_note": "v1.2: 행동주의 (A행동주의 별지 Ⅰ-2) + 한국 4/5 (K레거시 silent) 중심으로 재정렬. B외국계은 외국계 ISS 참조 사례로만 표시"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 ('consistently low without justification') — 외부 advisor 참조 사례",
+          "v1_2_note": "v1.2: 행동주의 (A행동주의 별지 Ⅰ-2) + 한국 4/5 (K레거시 silent) 중심으로 재정렬. B외국계은 외국계 외부 advisor 참조 사례로만 표시"
         },
         {
           "dim_id": "policy_disclosure",
@@ -1061,7 +1061,7 @@
           "pattern_id": "underpayment_activist",
           "condition": "payout_ratio_vs_industry=0 AND policy_disclosure ≤1",
           "decision": "against",
-          "rationale": "[v1.2] 과소 배당 + 정책 미공시 — 행동주의 (A행동주의) + 한국 4/5 운용사 against 통합 (B외국계은 외국계 ISS 참조 사례)"
+          "rationale": "[v1.2] 과소 배당 + 정책 미공시 — 행동주의 (A행동주의) + 한국 4/5 운용사 against 통합 (B외국계은 외국계 외부 advisor 참조 사례)"
         }
       ]
     },
@@ -1191,8 +1191,8 @@
             "ghg_emissions"
           ],
           "law_basis": "자본시장법 §161의2 (KOSPI 자산 2조원+ TCFD 의무화 2024) + 한국 탄소중립·녹색성장 기본법 §27 (관리업체)",
-          "foreign_reference_note": "외국계 운용사 (B외국계) ISS Climate Accountability — ISS 참조 사례. OPM은 한국 법령 기반 평가만 사용",
-          "v1_2_note": "v1.2: ISS Climate Accountability 다운그레이드. 한국 KOSPI 자산 2조원+ TCFD 의무화 (2024) 기반으로만 평가. default는 review/yellow"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 외부 advisor Climate Accountability — 외부 advisor 참조 사례. OPM은 한국 법령 기반 평가만 사용",
+          "v1_2_note": "v1.2: 외부 advisor Climate Accountability 다운그레이드. 한국 KOSPI 자산 2조원+ TCFD 의무화 (2024) 기반으로만 평가. default는 review/yellow"
         }
       ],
       "scoring": {
@@ -1299,7 +1299,7 @@
             "mom_simulation",
             "shareholder_voting_intent"
           ],
-          "law_basis": "한국 미비, UK Takeover Code Rule 16, ISS Korea M&A"
+          "law_basis": "한국 미비, UK Takeover Code Rule 16, 외부 advisor M&A"
         },
         {
           "dim_id": "synergy_clarity",
@@ -1581,8 +1581,8 @@
             "share_authorization_change"
           ],
           "law_basis": "상법 §289 ① 3호, §416",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 수권자본 증가 100% 초과 + 정당화 없을 시 against 동일 — ISS 참조 사례",
-          "v1_2_note": "v1.2: 한국 4/5 운용사 합의 (백지수표 권한 against) 중심으로 재정렬. B외국계은 외국계 ISS 참조 사례로만 표시"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 수권자본 증가 100% 초과 + 정당화 없을 시 against 동일 — 외부 advisor 참조 사례",
+          "v1_2_note": "v1.2: 한국 4/5 운용사 합의 (백지수표 권한 against) 중심으로 재정렬. B외국계은 외국계 외부 advisor 참조 사례로만 표시"
         },
         {
           "dim_id": "preemptive_right",
@@ -1597,7 +1597,7 @@
             "third_party_size"
           ],
           "law_basis": "상법 §418 (강행규정), UK Pre-emption 표준",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 정량 — ISS 참조 사례",
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 정량 — 외부 advisor 참조 사례",
           "v1_2_note": "v1.2: 한국 상법 §418 ② + 한국 4/5 운용사 합의 + UK Pre-emption 표준 중심으로 재정렬"
         },
         {
@@ -1752,8 +1752,8 @@
             "dilution_calculation"
           ],
           "law_basis": "상법 §513, §516의2",
-          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 기준 — ISS 참조 사례",
-          "v1_2_note": "v1.2: 한국 T행동주의·K레거시 정량 + A3 활동가 강화 중심으로 재정렬. B외국계은 외국계 ISS 참조 사례로만 표시"
+          "foreign_reference_note": "외국계 운용사 (B외국계) 동일 기준 — 외부 advisor 참조 사례",
+          "v1_2_note": "v1.2: 한국 T행동주의·K레거시 정량 + A3 활동가 강화 중심으로 재정렬. B외국계은 외국계 외부 advisor 참조 사례로만 표시"
         },
         {
           "dim_id": "refixing_clause",
@@ -2092,8 +2092,8 @@
         "financial_statements"
       ],
       "law_basis": "한국 자본시장법 §161의2 (KOSPI 자산 2조원+ TCFD 의무화 2024) + 탄소중립·녹색성장 기본법 §27",
-      "rationale": "[v1.2] 한국 KOSPI 자산 2조원+ TCFD 의무화 기반 평가만 사용. ISS Climate Accountability는 외국계 ISS 참조 사례로만 보존",
-      "foreign_reference_note": "외국계 운용사 (B외국계) ISS Climate Accountability — 데이터 reference로만 보존, OPM 벤치마크 X"
+      "rationale": "[v1.2] 한국 KOSPI 자산 2조원+ TCFD 의무화 기반 평가만 사용. 외부 advisor Climate Accountability는 외국계 외부 advisor 참조 사례로만 보존",
+      "foreign_reference_note": "외국계 운용사 (B외국계) 외부 advisor Climate Accountability — 데이터 reference로만 보존, OPM 벤치마크 X"
     },
     "bundled_signal": {
       "applicable_categories": [
@@ -2102,7 +2102,7 @@
       ],
       "law_basis": "한국 5 운용사 silent + a_activist 별지 Ⅱ-2 (12) + 한국 상법 §433",
       "rationale": "[v1.2] 한국 5 운용사 silent 영역. a_activist 행동주의 동조로 채택. 묶음 상정 관행에서 한 명/한 조항이라도 거버넌스 우려 시 슬레이트 전체 against",
-      "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — ISS 참조 사례"
+      "foreign_reference_note": "외국계 운용사 (B외국계) 동일 입장 — 외부 advisor 참조 사례"
     },
     "active_engagement_principle": {
       "applicable_categories": [
@@ -2169,32 +2169,32 @@
     "cross_cutting_dimensions": 7,
     "data_tool_categories": 12,
     "v1_1_changes": [
-      "matrix_director_election: dim 'concurrent_positions' 강화 (ISS >2 boards 정량) + dim 'bundled_slate_signal' 신규 + dim 'climate_accountability_signal' 신규 + bingo 2건 추가",
+      "matrix_director_election: dim 'concurrent_positions' 강화 (외부 advisor >2 boards 정량) + dim 'bundled_slate_signal' 신규 + dim 'climate_accountability_signal' 신규 + bingo 2건 추가",
       "matrix_financial_statements: dim 'climate_disclosure' 신규 (TCFD) + bingo 1건",
-      "matrix_director_compensation: dim 'performance_link' 강화 (행동주의 + ISS 통합) + bingo 1건",
-      "matrix_articles_amendment: dim 'bundled_articles_signal' 신규 (ISS) + 'shareholder_rights_impact' 강화 + bingo 1건",
+      "matrix_director_compensation: dim 'performance_link' 강화 (행동주의 + 외부 advisor 통합) + bingo 1건",
+      "matrix_articles_amendment: dim 'bundled_articles_signal' 신규 (외부 advisor) + 'shareholder_rights_impact' 강화 + bingo 1건",
       "matrix_cash_dividend: dim 'payout_ratio_vs_industry' 강화 (행동주의) + bingo 1건",
-      "matrix_capital_increase_decrease: 'preemptive_right'/'issuance_size'/'anti_takeover_signal' 강화 (ISS + 행동주의)",
-      "matrix_cb_bw: 'dilution_rate' 강화 (ISS)",
+      "matrix_capital_increase_decrease: 'preemptive_right'/'issuance_size'/'anti_takeover_signal' 강화 (외부 advisor + 행동주의)",
+      "matrix_cb_bw: 'dilution_rate' 강화 (외부 advisor)",
       "matrix_treasury_share: 'ownership_structure_signal' 강화 (행동주의)",
       "matrix_shareholder_proposal: dim 'active_engagement_signal' 신규 (A행동주의 행동주의) + bingo 1건",
       "cross_cutting_dimensions: climate_accountability_signal, bundled_signal, active_engagement_principle 3건 신규"
     ],
     "v1_2_changes": [
-      "matrix_director_election: dim 'climate_accountability_signal' 제거 (ISS-only) + bingo 'climate_accountability_red' 제거. dim 'concurrent_positions'·'bundled_slate_signal' 한국 상법 + a_activist 중심으로 재정렬",
-      "matrix_financial_statements: dim 'climate_disclosure' 한국 KOSPI 자산 2조원+ TCFD 의무화 (2024) 기반으로 재정렬. ISS 참조 노트로만 보존",
+      "matrix_director_election: dim 'climate_accountability_signal' 제거 (외부 advisor 전용) + bingo 'climate_accountability_red' 제거. dim 'concurrent_positions'·'bundled_slate_signal' 한국 상법 + a_activist 중심으로 재정렬",
+      "matrix_financial_statements: dim 'climate_disclosure' 한국 KOSPI 자산 2조원+ TCFD 의무화 (2024) 기반으로 재정렬. 외부 advisor 참조 노트로만 보존",
       "matrix_director_compensation: dim 'performance_link' bingo 'perf_link_x_clawback_red_v1_1' → 'perf_link_x_clawback_red'로 정규화. 한국 5 + 행동주의 6/7 중심",
       "matrix_articles_amendment: dim 'bundled_articles_signal' 한국 상법 §433 정관 묶음 관행 기반으로 재정렬",
       "matrix_cash_dividend: bingo 'underpayment_activist_iss' → 'underpayment_activist'로 정규화",
       "cross_cutting_dimensions: 'climate_accountability_signal' → 'climate_disclosure_signal' (한국 KOSPI TCFD 의무화 기반). 'bundled_signal' 한국 상법 §433 + a_activist 기반으로 재정렬",
       "adverse_news dim에 'scoring_mode: manual' + 향후 자동화 노트 추가",
-      "B외국계 (외국계 ISS 참조 사례)는 모든 dim에서 'foreign_reference_note' 필드로 별도 표시"
+      "B외국계 (외국계 외부 advisor 참조 사례)는 모든 dim에서 'foreign_reference_note' 필드로 별도 표시"
     ]
   },
   "updated_at": "2026-04-29",
   "update_history": [
     "v1 (2026-04-28): 12 카테고리 매트릭스 + 96 dims + 67 bingo patterns 초기 작성",
-    "v2 (2026-04-29): v1.1 통합 — b_foreign(ISS) + a_activist(행동주의) dim 보강. 신규 dim: overboarded_director(>2 boards 정량), climate_disclosure(TCFD), bundled_slate_signal(ISS). performance_link 강화",
-    "v2.1 (2026-04-29): v1.2 ISS 다운그레이드 — climate_accountability_signal dim 제거, climate_disclosure는 한국 KOSPI TCFD 의무화 기반으로 재정렬, ISS-only bingo 제거. dim/bingo: 101→100 / 77→76. B외국계은 모든 dim에서 외국계 ISS 참조 사례로 표시"
+    "v2 (2026-04-29): v1.1 통합 — b_foreign(외부 advisor) + a_activist(행동주의) dim 보강. 신규 dim: overboarded_director(>2 boards 정량), climate_disclosure(TCFD), bundled_slate_signal(외부 advisor). performance_link 강화",
+    "v2.1 (2026-04-29): v1.2 외부 advisor 다운그레이드 — climate_accountability_signal dim 제거, climate_disclosure는 한국 KOSPI TCFD 의무화 기반으로 재정렬, 외부 advisor 전용 bingo 제거. dim/bingo: 101→100 / 77→76. B외국계은 모든 dim에서 외국계 외부 advisor 참조 사례로 표시"
   ]
 }

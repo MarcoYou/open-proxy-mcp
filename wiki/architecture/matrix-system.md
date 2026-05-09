@@ -24,7 +24,7 @@ sources:
 기존 운용사 정책의 한계:
 
 - **단일 체크리스트**: "X면 against, Y면 for" 라인 단위 룰. ambiguous 룰은 실무자 재량 → case_by_case 표류 → 결국 default for. T행동주의·한투의 정책 문구는 강하나 실행 against rate 5.5-7.7% (낮음)인 이유.
-- **자문사 의존**: ISS·대신경제 권고 그대로 따르는 경향. 한국 특수성 누락 (5 운용사 silent 영역).
+- **자문사 의존**: 외부 advisor (글로벌·한국) 권고 그대로 따르는 경향. 한국 특수성 누락 (5 운용사 silent 영역).
 - **이해상충 처리 부재**: 삼성 director_election against rate 3.0% vs M레거시 26.1%. 그룹사 안건에서 정책-실제 갭.
 
 OPM의 해결책:
@@ -36,7 +36,7 @@ OPM의 해결책:
 
 ### 1.2 운용사·자문사와의 차별화
 
-| 항목 | 5 운용사 | ISS·Glass Lewis·대신경제 | OPM v1 |
+| 항목 | 5 운용사 | 외부 advisor (글로벌·한국) | OPM v1 |
 | --- | --- | --- | --- |
 | 매트릭스 형태 | 없음 (선형 룰) | 없음 (선형 룰 + 분석 첨부) | 12 × 8 + 빙고 패턴 |
 | 정량 자동 추출 | 부분 (한도·년수만) | 부분 (P75·percentile) | 전면 (data tool 매핑) |
@@ -241,9 +241,9 @@ spin_off:
 
 5 운용사 모두 매트릭스 형태 정책 없음. 선형 룰 ("X면 against") + 외부 자문 의존.
 
-### 6.2 ISS·Glass Lewis 부분 매트릭스
+### 6.2 외부 advisor (글로벌) 부분 매트릭스
 
-- ISS Pay-for-Performance: 정량 점수 + Concern Level (Low/Medium/High) — 부분 매트릭스
+- 외부 advisor (성과 보상): 정량 점수 + Concern Level (Low/Medium/High) — 부분 매트릭스
 - Glass Lewis Korea: Anti-takeover Score, Compensation Score — 부분 매트릭스
 - 둘 다 빙고 패턴 형태 부재
 

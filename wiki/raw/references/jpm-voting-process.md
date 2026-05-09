@@ -35,7 +35,7 @@ Proxy Administrator가 JPMAM이 투표할 수 있는지/해야 하는지 판단.
 
 - Prescribed Guideline이라도 override 필요 시 PM/analyst/stewardship 의견 수렴
 - Case-by-case 중 escalation 필요 시 포트폴리오 운용팀에 리서치 공유
-- 제3자 리서치 (ISS, Glass Lewis 등) 활용
+- 제3자 리서치 (외부 advisor, Glass Lewis 등) 활용
 
 ### 4. Proxy Committee 검토
 

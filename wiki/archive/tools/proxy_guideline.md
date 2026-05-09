@@ -86,7 +86,7 @@ scope:
 }
 ```
 
-지원 운용사: `m_legacy` / `s_legacy` / `sa_legacy` / `t_activist` / `kim` / `a_activist` (행동주의) / `b_foreign` (외국계 ISS 참조)
+지원 운용사: `m_legacy` / `s_legacy` / `sa_legacy` / `t_activist` / `kim` / `a_activist` (행동주의) / `b_foreign` (외국계 외부 advisor 참조)
 + `open_proxy` (OPM 자체 정책 v1.2)
 
 ## Data sources
