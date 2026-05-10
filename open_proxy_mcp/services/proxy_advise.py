@@ -1150,9 +1150,9 @@ def _extract_facts(
         amends = ((retirement_payload or {}).get("data") or {}).get("amendments") or []
         facts["amendments_count"] = len(amends)
         if amends:
-            # raw 노출 (LLM 판단용) — 처음 5개
+            # raw 노출 (LLM 판단용) — 처음 5개. length 300자 통일 (B1/B2 raw와 통일).
             facts["amendments_sample"] = [
-                {"clause": a.get("clause"), "before": (a.get("before") or "")[:200], "after": (a.get("after") or "")[:200], "reason": (a.get("reason") or "")[:120]}
+                {"clause": a.get("clause"), "before": (a.get("before") or "")[:300], "after": (a.get("after") or "")[:300], "reason": (a.get("reason") or "")[:120]}
                 for a in amends[:5]
             ]
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
@@ -1805,15 +1805,40 @@ async def build_proxy_advise_payload(
                     before_raw = (am.get("before") or "").strip()
                     after_raw = (am.get("after") or "").strip()
                     if before_raw or after_raw:
-                        # raw 첨부 (LLM 본문 직접 검토용 — 결정은 REVIEW 유지)
+                        # raw 첨부 (LLM 본문 직접 검토용 — 결정은 REVIEW 유지). length 300자 통일.
                         clause = am.get("clause") or "?"
                         raw_excerpt = []
                         if before_raw:
-                            raw_excerpt.append(f"[{clause} 변경 전] {before_raw[:400]}")
+                            raw_excerpt.append(f"[{clause} 변경 전] {before_raw[:300]}")
                         if after_raw:
-                            raw_excerpt.append(f"[{clause} 변경 후] {after_raw[:400]}")
+                            raw_excerpt.append(f"[{clause} 변경 후] {after_raw[:300]}")
                         if raw_excerpt:
                             reason += "\n\n📄 정관 본문 raw (LLM 직접 검토):\n" + "\n".join(raw_excerpt)
+
+        # 1.6. 미catch 정관변경 안건 — amendments raw 첨부 (LLM 직접 검토용, 260510 ralph 9)
+        # 조건: 정관변경 안건 (top 또는 sub) + amendments 있음 + 모든 fallback (title/body/sub) miss
+        # → LLM이 raw 본문 보고 catch 못한 강행규정 정합 / 우회 신호 직접 판단
+        if law_layer_hit is None and aoi_amendments and (
+            (parent_for_title == "" and _is_charter_top(title))
+            or (parent_for_title and _is_charter_top(parent_for_title))
+        ):
+            raw_excerpts = []
+            for am in aoi_amendments[:5]:  # 처음 5개 (토큰 절약)
+                label = (am.get("label") or am.get("clause") or "?").strip()
+                before_raw = (am.get("before") or "").strip()
+                after_raw = (am.get("after") or "").strip()
+                reason_raw = (am.get("reason") or "").strip()
+                parts = []
+                if before_raw:
+                    parts.append(f"  변경 전: {before_raw[:300]}")
+                if after_raw:
+                    parts.append(f"  변경 후: {after_raw[:300]}")
+                if reason_raw:
+                    parts.append(f"  사유: {reason_raw[:120]}")
+                if parts:
+                    raw_excerpts.append(f"[{label}]\n" + "\n".join(parts))
+            if raw_excerpts:
+                reason += "\n\n📄 정관 본문 raw (LLM 직접 검토 — fallback miss, 결정 보류):\n" + "\n\n".join(raw_excerpts)
 
         # 2. vote_style 정책 default가 명확하면 (for / against / review) 그걸 우선
         # case_by_case면 OPM fallback 결정 유지.
