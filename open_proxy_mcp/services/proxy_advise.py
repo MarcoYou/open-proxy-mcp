@@ -1199,6 +1199,31 @@ def _extract_facts(
                 facts["composition"] = f"사외/독립 {outsiders} + 사내 {insiders}"
             facts["appointment_breakdown"] = f"신임 {apt_new} / 연임 {apt_renewed}" + (f" / 미상 {apt_amb}" if apt_amb else "")
             facts["disqualified_count"] = disq_red
+            # 묶음 후보별 mini-summary (LLM/사용자 detail 노출 — fix 260510)
+            # 후보 5명 같이 묶인 안건도 각자 평가 detail 보여야 LLM 판단 가능.
+            facts["candidate_summary"] = []
+            for ev in all_evals[:10]:  # 묶음 최대 10명
+                role = ev.get("role_type") or ""
+                is_outside_ev = any(k in role for k in ("사외", "독립"))
+                apt_type = (ev.get("appointment_type") or {}).get("type")
+                indep = "비대상 (사내)"
+                if is_outside_ev:
+                    indep = (ev.get("independence") or {}).get("summary")
+                disq = (ev.get("disqualification") or {}).get("summary")
+                cand_info = {
+                    "name": ev.get("name"),
+                    "role": role,
+                    "appointment": apt_type,
+                    "independence": indep,
+                    "disqualification": disq,
+                }
+                # 사외이사 겸직 카운트 (Ralph 9)
+                if is_outside_ev:
+                    co = (ev.get("faithfulness") or {}).get("concurrent_outside_directors")
+                    if co:
+                        cand_info["concurrent_positions"] = co.get("total")
+                        cand_info["concurrent_summary"] = co.get("summary")
+                facts["candidate_summary"].append(cand_info)
 
     return {k: v for k, v in facts.items() if v is not None}
 
@@ -1631,6 +1656,11 @@ async def build_proxy_advise_payload(
     # 안건별 결정 + 사유 (vote_style 정책 wire 적용)
     # 카카오게임즈 패턴 fallback의 cross-match 회피용 — 매핑된 amendment idx track
     _subagenda_used_amendments: set[int] = set()
+    # 1.6 raw 첨부 logic (Ralph 7 → fix 260510 hh:mm)
+    # - 회사 단위 첨부 flag (중복 회피): 첫 미catch 정관변경 안건에 모든 amendments 첨부
+    # - sub→amendment 매핑 결과 활용: 매핑 성공 sub는 자기 amendment 1개만 첨부
+    _amendments_attached_for_company: bool = False
+    _subagenda_attempted_mappings: dict[str, int] = {}  # sub title → mapped amendment idx (룰 매치 여부 무관)
     agenda_decisions: list[dict[str, Any]] = []
     for title in agenda_titles:
         parent_for_title = title_to_parent.get(title, "")
@@ -1680,6 +1710,8 @@ async def build_proxy_advise_payload(
                 title, aoi_amendments, _subagenda_used_amendments,
             )
             if mapped_idx is not None:
+                # 매핑 시도 결과 track (룰 매치 여부 무관 — 1.6 raw 첨부에서 활용)
+                _subagenda_attempted_mappings[title] = mapped_idx
                 law_layer_hit = _law_layer_subagenda_mapped(
                     title, aoi_amendments[mapped_idx],
                     parent_title=parent_for_title,
@@ -1827,30 +1859,55 @@ async def build_proxy_advise_payload(
                         if raw_excerpt:
                             reason += "\n\n📄 정관 본문 raw (LLM 직접 검토):\n" + "\n".join(raw_excerpt)
 
-        # 1.6. 미catch 정관변경 안건 — amendments raw 첨부 (LLM 직접 검토용, 260510 ralph 9)
+        # 1.6. 미catch 정관변경 안건 — amendments raw 첨부 (LLM 직접 검토용)
         # 조건: 정관변경 안건 (top 또는 sub) + amendments 있음 + 모든 fallback (title/body/sub) miss
         # → LLM이 raw 본문 보고 catch 못한 강행규정 정합 / 우회 신호 직접 판단
+        # fix (260510): 두 가지 동시 fix
+        # 1) sub→amendment 매핑 성공 sub는 그 amendment 1개만 첨부 (Ralph 8 매핑 활용)
+        # 2) 회사 단위 첨부 flag — 첫 미매핑 안건에 모든 amendments 첨부 / 다음은 anchor (중복 회피)
         if law_layer_hit is None and aoi_amendments and (
             (parent_for_title == "" and _is_charter_top(title))
             or (parent_for_title and _is_charter_top(parent_for_title))
         ):
-            raw_excerpts = []
-            for am in aoi_amendments[:5]:  # 처음 5개 (토큰 절약)
-                label = (am.get("label") or am.get("clause") or "?").strip()
-                before_raw = (am.get("before") or "").strip()
-                after_raw = (am.get("after") or "").strip()
-                reason_raw = (am.get("reason") or "").strip()
-                parts = []
-                if before_raw:
-                    parts.append(f"  변경 전: {before_raw[:300]}")
-                if after_raw:
-                    parts.append(f"  변경 후: {after_raw[:300]}")
-                if reason_raw:
-                    parts.append(f"  사유: {reason_raw[:120]}")
-                if parts:
-                    raw_excerpts.append(f"[{label}]\n" + "\n".join(parts))
-            if raw_excerpts:
-                reason += "\n\n📄 정관 본문 raw (LLM 직접 검토 — fallback miss, 결정 보류):\n" + "\n\n".join(raw_excerpts)
+            target_amendments: list[dict[str, Any]] | None = None
+            attach_anchor = False
+            mapped_idx = _subagenda_attempted_mappings.get(title)
+            if mapped_idx is not None:
+                # sub-agenda 매핑 성공 (룰 매치 X) → 매핑된 amendment 1개만
+                target_amendments = [aoi_amendments[mapped_idx]]
+            elif not _amendments_attached_for_company:
+                # 매핑 X + 회사 첫 첨부 → 모든 amendments
+                target_amendments = aoi_amendments
+                _amendments_attached_for_company = True
+            else:
+                # 매핑 X + 회사 이미 첨부 → anchor (중복 회피)
+                attach_anchor = True
+
+            if target_amendments:
+                raw_excerpts = []
+                for am in target_amendments:
+                    label = (am.get("label") or am.get("clause") or "?").strip()
+                    before_raw = (am.get("before") or "").strip()
+                    after_raw = (am.get("after") or "").strip()
+                    reason_raw = (am.get("reason") or "").strip()
+                    parts = []
+                    if before_raw:
+                        parts.append(f"  변경 전: {before_raw[:300]}")
+                    if after_raw:
+                        parts.append(f"  변경 후: {after_raw[:300]}")
+                    if reason_raw:
+                        parts.append(f"  사유: {reason_raw[:120]}")
+                    if parts:
+                        raw_excerpts.append(f"[{label}]\n" + "\n".join(parts))
+                if raw_excerpts:
+                    header = (
+                        "📄 정관 본문 raw (LLM 직접 검토 — sub-agenda 매핑된 amendment):"
+                        if mapped_idx is not None
+                        else "📄 정관 본문 raw (LLM 직접 검토 — fallback miss, 회사 단위 1회 첨부):"
+                    )
+                    reason += f"\n\n{header}\n" + "\n\n".join(raw_excerpts)
+            elif attach_anchor:
+                reason += "\n\n📄 정관 본문 raw — 같은 회사의 다른 정관변경 안건에 첨부됨 (중복 회피)"
 
         # 2. vote_style 정책 default가 명확하면 (for / against / review) 그걸 우선
         # case_by_case면 OPM fallback 결정 유지.
