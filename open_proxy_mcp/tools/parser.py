@@ -1558,6 +1558,30 @@ _CAREER_ROLE_END_RE = re.compile(
 )
 
 
+def _split_content_by_role_endings(content: str) -> list[str]:
+    """content를 직책 끝 boundary 기반 split (Ralph 10).
+
+    예: "서울지방국세청 조사4국장국세청 법인납세국장서울지방국세청장법무법인 태평양 고문"
+        → ['서울지방국세청 조사4국장', '국세청 법인납세국장', '서울지방국세청장', '법무법인 태평양 고문']
+    """
+    if not content:
+        return []
+    positions = [m.end() for m in _CAREER_ROLE_END_RE.finditer(content)]
+    if not positions:
+        return [content.strip()] if content.strip() else []
+    segments = []
+    prev = 0
+    for p in positions:
+        seg = content[prev:p].strip(' -·ㆍ•▪')
+        if seg:
+            segments.append(seg)
+        prev = p
+    rest = content[prev:].strip(' -·ㆍ•▪')
+    if rest:
+        segments.append(rest)
+    return segments
+
+
 def _split_concatenated_career_entry(period: str, content: str) -> list[tuple[str, str]] | None:
     """한 entry의 period/content가 N개 직책 concat이면 N개 entries로 분리.
 
@@ -2142,6 +2166,14 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                             contents = [x.strip() for x in contents if x.strip()]
                         else:
                             contents = [contents_raw.strip()] if contents_raw.strip() else []
+
+                        # Ralph 10 (260510): 직책 끝 boundary split — periods N개 + contents M < N
+                        # 메리츠 조홍희 같은 케이스 (4 periods + content 1 row, 직책 4개 concat).
+                        # periods와 contents 갯수 일치하면 그대로 / 일치 안 하면 boundary split 시도.
+                        if len(periods) >= 2 and len(contents) < len(periods):
+                            boundary_split = _split_content_by_role_endings(contents_raw)
+                            if len(boundary_split) == len(periods):
+                                contents = boundary_split
 
                         career_details = []
                         if len(periods) > 1 and len(contents) <= 1:
