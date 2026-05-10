@@ -7,9 +7,10 @@ max_iterations: 6
 ref:
   - open_proxy_mcp/tools/parser.py
   - open_proxy_mcp/services/director_evaluation.py
-related_decisions: [260510_1130_decision_director-faithfulness]
-related_lessons: [director-faithfulness-260510]
+related_decisions: [260510_1130_decision_director-faithfulness, 260510_1230_decision_career-parser-concat]
+related_lessons: [director-faithfulness-260510, career-parser-concat-260510]
 related_ralph: [260510_1100_ralph_director-faithfulness-enhancement]
+related_audits: [architecture/audits/data/260510_career_concat/iter4_findings]
 ---
 
 ## Invoke
@@ -144,20 +145,26 @@ content 셀: "서울지방국세청 조사4국장국세청 법인납세국장서
 
 ## iteration log
 
-### iter 1 — concat 패턴 정량화
-(작성 예정)
+### iter 1 — ✅ 510 회사 정량화
+815 후보 / multi-period 68 / split 가능 15. 메리츠 같은 진짜 concat은 _extract 단계 누락으로 표면에 안 보임.
 
-### iter 2 — split logic 설계
-(작성 예정)
+### iter 2-3 — ✅ 진단 + split logic 구현
+parser pipeline 추적 — _extract_career_from_html (1단계) None / fallback 2단계 contents 분리 부족 발견. _split_content_by_role_endings 직책 boundary split 헬퍼 추가 + fallback 2단계 통합.
 
-### iter 3 — 코드 구현
-(작성 예정)
+### iter 4 — ✅ 단위 검증
+- 메리츠 조홍희 2 → 4 entries (2011~현재 catch)
+- 메리츠 김우진 1 → 5 entries
+- LG화학 천경훈 3 entries 그대로 (regression 0)
 
-### iter 4 — 단위 검증
-(작성 예정)
+### iter 5 — ✅ 510 회사 회귀
+- concerns 후보 108 → 112 (+4)
+- strong 후보 22 → 20 (-2, strong→concerns 이동)
+- concerns 회사 64 → 66 / strong 회사 13 → 11
+- 회귀 0 (기존 entries 보존)
+- 메리츠 사외이사 4명: 모두 single (본 회사만, 다른 사외이사 X 확인)
 
-### iter 5 — 510 회귀
-(작성 예정)
-
-### iter 6 — 문서화 + promise
-(작성 예정)
+### iter 6 — ✅ 문서화 + promise
+- lesson: ✅ wiki/lessons/career-parser-concat-260510.md
+- decision: ✅ wiki/decisions/260510_1230_decision_career-parser-concat.md
+- audit: ✅ iter4_findings.md
+- promise: CAREER_PARSER_CONCAT_VERIFIED ✅
