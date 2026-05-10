@@ -8,8 +8,9 @@ ref:
   - wiki/lessons/law-layer-body-260510.md
   - wiki/architecture/audits/data/260510_agenda_hierarchy/
   - wiki/rules/laws/law_layer_rules.json
-related_decisions: [260508_0700_decision_law-layer-precision]
-related_lessons: [law-layer-body-260510]
+related_decisions: [260508_0700_decision_law-layer-precision, 260510_0900_decision_d-pattern-body-fallback]
+related_lessons: [law-layer-body-260510, agenda-hierarchy-260510]
+related_audits: [260510_agenda_hierarchy/iter1_findings, 260510_agenda_hierarchy/iter2_findings]
 ---
 
 ## Invoke

@@ -7,7 +7,8 @@ related:
   - wiki/lessons/law-layer-precision-260508.md
   - wiki/architecture/audits/data/260510_law_layer_450/README.md
   - wiki/architecture/audits/data/260510_law_layer_body/
-related_decisions: [260508_0700_decision_law-layer-precision]
+related_decisions: [260508_0700_decision_law-layer-precision, 260510_0900_decision_d-pattern-body-fallback]
+related_audits: [260510_agenda_hierarchy/iter1_findings]
 ---
 
 # Ralph 6 — body 매칭 시도 + 광범위 검증 회고
