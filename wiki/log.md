@@ -3,6 +3,27 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-10] ralph | Ralph 7 — 호수 hierarchy 추출 + D 패턴 amendments body fallback
+
+**iter 1 (commit be2e722)**: parser 호수 추출 진단 (10/10 회사). 사용자 가설 "parser가 호수 누락"은 false — parser 거의 완벽. LG화학 ※ note span 미세 버그 1건만 fix (lookahead 괄호 옵션 추가).
+
+**iter 2 (commit e2292d8)**: D 패턴 amendments body fallback logic 구현
+- `_is_charter_top()` + `_law_layer_body()` + 호출부 fallback (`title_to_children_count` map)
+- 단위 검증: 에스엠 A1-5 catch + LG화학 regression 0 (children > 0이라 D 진입 X)
+
+**iter 3 (commit 9d15aed)**: 룰 catalog `body_pattern` 별도 필드 추가 (스키마 확장)
+- A1-1 body_pattern: secondary 확장 (적용 안 / 적용하지 아니 등)
+- A1-7 body_pattern: any_of 확장 (제542조의14, 제542조의15 법령 인용)
+- 검증: 4 미매치 회사 중 D 패턴 3개 모두 catch (에코프로비엠 A1-1 / 에스엠 A1-5 / 메리츠 A1-7)
+- 카카오게임즈는 D 패턴 X (sub-agenda 있고 sub title 일반 표현) — 별도 ralph 후보
+
+**iter 4 (진행 중)**: 510 회사 spot 회귀
+
+**핵심 안전장치 (Ralph 6 회귀 회피)**:
+- D 패턴 strict 진입 조건 (LG화학 같은 sub 명확 회사 자동 제외)
+- amendment 단위 검사 (모든 amendments 통합 X)
+- body_pattern 별도 필드 (title 매칭 회귀 위험 0)
+
 ## [2026-05-10] fix | production wiki/rules/laws/ 누락 — Dockerfile COPY 추가 (★ 중대)
 
 **핵심 발견**: production /app에 wiki/ 디렉토리 자체 없음 (Dockerfile COPY 누락).

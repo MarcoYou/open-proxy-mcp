@@ -172,17 +172,23 @@ elif _is_charter_top(agenda) and not agenda.children and amendments:
 
 상세: `wiki/architecture/audits/data/260510_agenda_hierarchy/iter1_findings.md`
 
-### iter 2 — body fallback 코드 구현
-(작성 예정)
+### iter 2 — ✅ 완료 (260510_e2292d8)
 
-### iter 3 — 4 미매치 catch + LG화학 regression
-(작성 예정)
+D 패턴 amendments body fallback logic 구현. `_is_charter_top()` + `_law_layer_body()` + 호출부 fallback (children 0 + charter top + amendments). 단위 검증 5 회사 — 에스엠 A1-5 catch + LG화학 regression 0.
 
-### iter 4 — 510 회사 회귀 spot
-(작성 예정)
+### iter 3 — ✅ 완료 (260510_9d15aed)
+
+body_pattern 별도 필드 추가 (스키마 확장). A1-1/A1-7 raw 표현 보강. 4 미매치 회사 중 D 패턴 3개 모두 catch (에코프로비엠 A1-1 / 에스엠 A1-5 / 메리츠 A1-7). 카카오게임즈는 D 패턴 X (sub-agenda 있음, 별도 ralph 후보).
+
+### iter 4 — 510 회사 회귀 spot (진행 중)
+
+scripts/spot_law_layer_with_body.py — title hits + D 패턴 body hits 측정. 4 universe (kospi200 / kosdaq150 / kosdaq300 151-300 / dispute_30) background 진행.
 
 ### iter 5 — D 패턴 추가 catalog
-(작성 예정)
+(iter 4 결과 후)
 
 ### iter 6 — 문서화 + promise
-(작성 예정)
+- lesson 작성: ✅ wiki/lessons/agenda-hierarchy-260510.md
+- decision 작성: ✅ wiki/decisions/260510_0900_decision_d-pattern-body-fallback.md
+- log + index update: ✅
+- 510 결과 반영 후 promise 발행
