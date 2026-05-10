@@ -12,7 +12,7 @@ ref:
   - wiki/rules/laws/law_layer_rules.json
 related_decisions: [260510_0900_decision_d-pattern-body-fallback, 260510_1015_decision_subagenda-mapping]
 related_lessons: [agenda-hierarchy-260510, subagenda-mapping-260510]
-related_audits: [architecture/audits/data/260510_subagenda_mapping/iter1_findings]
+related_audits: [architecture/audits/data/260510_subagenda_mapping/iter1_findings, architecture/audits/data/260510_subagenda_mapping/iter4_findings]
 related_ralph: [260510_0823_ralph_agenda-hierarchy-body-fallback]
 ---
 
@@ -168,11 +168,24 @@ parent에 "정관" + "변경"/"개정" (정관변경 top의 sub)
 7 회사 단위 검증 — LG화학 regression 0, 한미/차바이/유한 6건 catch.
 **중요 fix**: keyword 매칭 의도적 제거 (LG화학 "선임독립이사 선임" → "독립이사 명칭 변경" semantic mismatch false positive 회피).
 
-### iter 4 — 510 회사 회귀 spot (진행 중)
+### iter 4 — ✅ 완료 510 회사 회귀
 
-### iter 5 — 추가 sample 검증
+KOSPI200 199 / KOSDAQ150 150 / KOSDAQ151-300 150 / DISPUTE 10 = 509 success.
+- 회귀 0 (회사, rule 단위 set diff 검증)
+- sub 신규 catch 75건 / 55 회사 (10.8%)
+- 미사용 룰 A1-3 (18) / B1-8 / A1-2 활성
 
-### iter 6 — 문서화 + promise
-- lesson: ✅ wiki/lessons/subagenda-mapping-260510.md
+상세: `architecture/audits/data/260510_subagenda_mapping/iter4_findings.md`
+
+### iter 5 — ✅ 완료 추가 sample 검증
+
+iter 4 결과에 통합. KOSPI 23.1% 회사 catch (대형사 sub-agenda hierarchy 명확) vs KOSDAQ 4.7% / 0%. 카카오게임즈 패턴은 KOSPI 우세.
+
+### iter 6 — ✅ 완료 문서화 + promise
+
+- lesson: ✅ wiki/lessons/subagenda-mapping-260510.md (510 결과 보강)
 - decision: ✅ wiki/decisions/260510_1015_decision_subagenda-mapping.md
-- 510 결과 반영 후 promise
+- audit: ✅ iter1_findings + iter4_findings
+- log + index update: ✅
+- wiki link 양방향 lint 0 ✅
+- promise: SUBAGENDA_AMENDMENT_MAPPING_VERIFIED ✅

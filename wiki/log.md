@@ -27,6 +27,27 @@ title: Operation Log
 
 **iter 6 (✅ 완료)**: 문서화 + promise 발행 (AGENDA_HIERARCHY_EXTRACTION_VERIFIED)
 
+## [2026-05-10] ralph | Ralph 8 — 카카오게임즈 패턴 sub→amendment 1:1 매핑
+
+26 진정 카카오게임즈 패턴 회사 (Ralph 7 식별 510 중 5.1%) 처리 별도 architect.
+
+**핵심 design**: 진입 조건 (parent에 정관변경 + sub children 0 + sub generic 아님 + amendments) + strict cascade (label substring → clause 매칭, **keyword 매칭 의도적 제외** — semantic mismatch false positive 회피).
+
+**iter 1 (commit 27db7dd)**: 26 회사 매핑 가능성 정량화 — 102 sub 중 clear 14.7% / partial 60.8% / none 24.5%.
+
+**iter 2-3 (commit b1f2f76)**: 코드 구현 + 단위 검증
+- `_is_charter_top` / `_is_generic_sub` / `_map_subagenda_to_amendment` / `_law_layer_subagenda_mapped` 헬퍼
+- 호출부 0-c 단계 추가 (D 패턴 fallback 다음)
+- LG화학 regression 0 (keyword 매칭 제거 fix — "선임독립이사 선임" → "독립이사 명칭 변경" semantic mismatch 사례)
+
+**iter 4-5 (✅ 완료)**: 510 회사 spot
+- 회귀 0 (회사, rule 단위 set diff)
+- **sub 신규 75건 / 55 회사 (10.8%)**
+- KOSPI 23.1% catch (대형사 sub-hierarchy 명확) vs KOSDAQ 4.7% / 0%
+- 미사용 룰 A1-3 (18건) / B1-8 / A1-2 활성
+
+**iter 6 (✅ 완료)**: 문서화 + promise (SUBAGENDA_AMENDMENT_MAPPING_VERIFIED)
+
 **핵심 안전장치 (Ralph 6 회귀 회피)**:
 - D 패턴 strict 진입 조건 (LG화학 같은 sub 명확 회사 자동 제외)
 - amendment 단위 검사 (모든 amendments 통합 X)

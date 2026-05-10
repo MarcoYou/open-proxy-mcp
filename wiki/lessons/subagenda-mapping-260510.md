@@ -7,7 +7,7 @@ related:
   - wiki/lessons/agenda-hierarchy-260510.md
 related_decisions: [260510_0900_decision_d-pattern-body-fallback, 260510_1015_decision_subagenda-mapping]
 related_ralph: [260510_0950_ralph_subagenda-amendment-mapping, 260510_0823_ralph_agenda-hierarchy-body-fallback]
-related_audits: [architecture/audits/data/260510_subagenda_mapping/iter1_findings]
+related_audits: [architecture/audits/data/260510_subagenda_mapping/iter1_findings, architecture/audits/data/260510_subagenda_mapping/iter4_findings]
 ---
 
 # Ralph 8 — 카카오게임즈 패턴 회고
@@ -67,7 +67,17 @@ Priority 2: clause 매칭 (amendment label/before/after에서 조항 추출)
 
 ## 510 회사 회귀
 
-(iter 4 진행 중)
+| universe | n | 기존 | 신규 | 회귀 | sub | sub 회사 |
+|---|---:|---:|---:|---:|---:|---:|
+| KOSPI200 | 199 | 287 | 344 | 0 | 65 | 46 |
+| KOSDAQ150 | 150 | 40 | 48 | 0 | 8 | 7 |
+| KOSDAQ151-300 | 150 | 30 | 30 | 0 | 0 | 0 |
+| DISPUTE | 10 | 18 | 20 | 0 | 2 | 2 |
+| **TOTAL** | **509** | **375** | **442** | **0** | **75** | **55** |
+
+✅ 회귀 0 ✅ sub 75건 신규 (10.8% 회사) ✅ A1-3/B1-8/A1-2 미사용 룰 활성
+
+sub fallback rule 분포: A1-3 18 / A1-5 15 / A1-1 13 / A1-7 12 / B2-1 4 / B2-7 4 / A1-4 3 / A1-6 3 / B1-8 1 / B1-8b 1 / A1-2 1
 
 ## 핵심 교훈
 

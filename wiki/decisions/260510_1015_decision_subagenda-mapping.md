@@ -5,7 +5,7 @@ date: 2026-05-10 10:15
 status: active
 related_ralph: [260510_0950_ralph_subagenda-amendment-mapping]
 related_lessons: [subagenda-mapping-260510, agenda-hierarchy-260510]
-related_audits: [architecture/audits/data/260510_subagenda_mapping/iter1_findings]
+related_audits: [architecture/audits/data/260510_subagenda_mapping/iter1_findings, architecture/audits/data/260510_subagenda_mapping/iter4_findings]
 ---
 
 # Decision — 카카오게임즈 패턴 sub→amendment 매핑 fallback
