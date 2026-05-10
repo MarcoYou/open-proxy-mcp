@@ -1,0 +1,1134 @@
+[
+  {
+    "ticker": "005930",
+    "name": "삼성전자",
+    "own_name": "삼성전자",
+    "status": "ok",
+    "duration_s": 1.34,
+    "candidates": [
+      {
+        "name": "허은녕",
+        "role": "사외이사",
+        "n_entries": 9,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "000660",
+    "name": "SK하이닉스",
+    "own_name": "SK하이닉스",
+    "status": "ok",
+    "duration_s": 1.88,
+    "candidates": [
+      {
+        "name": "정덕균",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김정원",
+        "role": "사외이사",
+        "n_entries": 3,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최강국",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "고승범",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김정원",
+        "role": "사외이사",
+        "n_entries": 3,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최강국",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "005380",
+    "name": "현대차",
+    "own_name": "현대자동차",
+    "status": "ok",
+    "duration_s": 1.88,
+    "candidates": []
+  },
+  {
+    "ticker": "373220",
+    "name": "LG에너지솔루션",
+    "own_name": "LG에너지솔루션",
+    "status": "ok",
+    "duration_s": 1.2,
+    "candidates": [
+      {
+        "name": "이명규",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "박진규",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이명규",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "207940",
+    "name": "삼성바이오로직스",
+    "own_name": "삼성바이오로직스",
+    "status": "ok",
+    "duration_s": 0.76,
+    "candidates": [
+      {
+        "name": "김정연",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김정연",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "012450",
+    "name": "한화에어로스페이스",
+    "own_name": "한화에어로스페이스",
+    "status": "ok",
+    "duration_s": 1.5,
+    "candidates": [
+      {
+        "name": "전휴재",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "전우홍",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "전휴재",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "402340",
+    "name": "SK스퀘어",
+    "own_name": "SK스퀘어",
+    "status": "ok",
+    "duration_s": 1.72,
+    "candidates": [
+      {
+        "name": "서영호",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "034020",
+    "name": "두산에너빌리티",
+    "own_name": "두산에너빌리티",
+    "status": "ok",
+    "duration_s": 1.07,
+    "candidates": [
+      {
+        "name": "민원기",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "민원기",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이은형",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "000270",
+    "name": "기아",
+    "own_name": "기아",
+    "status": "ok",
+    "duration_s": 2.23,
+    "candidates": [
+      {
+        "name": "전찬혁",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "전찬혁",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "신재용",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "105560",
+    "name": "KB금융",
+    "own_name": "KB금융",
+    "status": "ok",
+    "duration_s": 1.07,
+    "candidates": [
+      {
+        "name": "최재홍",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이명활",
+        "role": "사외이사",
+        "n_entries": 10,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "서정호",
+        "role": "사외이사",
+        "n_entries": 17,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "조화준",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김성용",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김선엽",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "서정호",
+        "role": "사외이사",
+        "n_entries": 17,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "329180",
+    "name": "HD현대중공업",
+    "own_name": "HD현대중공업",
+    "status": "ok",
+    "duration_s": 0.91,
+    "candidates": [
+      {
+        "name": "박광우",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "068270",
+    "name": "셀트리온",
+    "own_name": "셀트리온",
+    "status": "ok",
+    "duration_s": 2.23,
+    "candidates": [
+      {
+        "name": "고영혜",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최원경",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "기우성",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "신민철",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "고영혜",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최원경",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최종문",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이중재",
+        "role": "사외이사",
+        "n_entries": 3,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "윤태화",
+        "role": "사외이사",
+        "n_entries": 10,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "고영혜",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최원경",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최종문",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "055550",
+    "name": "신한지주",
+    "own_name": "신한지주",
+    "status": "ok",
+    "duration_s": 2.28,
+    "candidates": [
+      {
+        "name": "김조설",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "배훈",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "송성주",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최영권",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "박종복",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "곽수근",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "임승연",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "배훈",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최영권",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "032830",
+    "name": "삼성생명",
+    "own_name": "삼성생명",
+    "status": "ok",
+    "duration_s": 0.69,
+    "candidates": [
+      {
+        "name": "임채민",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 1,
+        "split_possible": 1,
+        "examples": [
+          {
+            "period": "2015.05 ~  현재    2011.09 ~ 2013.03",
+            "content": "법무법인 광장 고문보건복지부 장관국무총리실 실장지식경제부 제1차관",
+            "n_periods": 2,
+            "n_roles": 2,
+            "split_match": true
+          }
+        ]
+      },
+      {
+        "name": "임채민",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 1,
+        "split_possible": 1,
+        "examples": [
+          {
+            "period": "2015.05 ~  현재    2011.09 ~ 2013.03",
+            "content": "법무법인 광장 고문보건복지부 장관국무총리실 실장지식경제부 제1차관",
+            "n_periods": 2,
+            "n_roles": 2,
+            "split_match": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "028260",
+    "name": "삼성물산",
+    "own_name": "삼성물산",
+    "status": "ok",
+    "duration_s": 2.89,
+    "candidates": [
+      {
+        "name": "이정식",
+        "role": "사외이사",
+        "n_entries": 6,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김경수",
+        "role": "사외이사",
+        "n_entries": 8,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김민영",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김경수",
+        "role": "사외이사",
+        "n_entries": 8,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김민영",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "042660",
+    "name": "한화오션",
+    "own_name": "한화오션",
+    "status": "ok",
+    "duration_s": 1.82,
+    "candidates": [
+      {
+        "name": "김영삼",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이효진",
+        "role": "사외이사",
+        "n_entries": 6,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김영삼",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "006400",
+    "name": "삼성SDI",
+    "own_name": "삼성SDI",
+    "status": "ok",
+    "duration_s": 0.73,
+    "candidates": [
+      {
+        "name": "윤종원",
+        "role": "사외이사",
+        "n_entries": 8,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이미경",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 1,
+        "split_possible": 0,
+        "examples": [
+          {
+            "period": "2023 ~ 현재2021 ~ 현재2022 ~ 현재",
+            "content": "삼성SDI 사외이사환경재단 대표환경부 중앙정책위원회 위원",
+            "n_periods": 3,
+            "n_roles": 5,
+            "split_match": false
+          }
+        ]
+      },
+      {
+        "name": "유승원",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "윤종원",
+        "role": "사외이사",
+        "n_entries": 8,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "012330",
+    "name": "현대모비스",
+    "own_name": "현대모비스",
+    "status": "ok",
+    "duration_s": 2.52,
+    "candidates": [
+      {
+        "name": "James Kim",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "박현주",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "James Kim",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "박현주",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "박현주",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "006800",
+    "name": "M레거시증권",
+    "status": "no_match"
+  },
+  {
+    "ticker": "267260",
+    "name": "HD현대일렉트릭",
+    "own_name": "HD현대일렉트릭",
+    "status": "ok",
+    "duration_s": 0.39,
+    "candidates": [
+      {
+        "name": "한찬식",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "009150",
+    "name": "삼성전기",
+    "own_name": "삼성전기",
+    "status": "ok",
+    "duration_s": 0.7,
+    "candidates": [
+      {
+        "name": "최종구",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김미영",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이종훈",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이종훈",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "086790",
+    "name": "하나금융지주",
+    "own_name": "하나금융지주",
+    "status": "ok",
+    "duration_s": 1.45,
+    "candidates": [
+      {
+        "name": "박동문",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "원숙연",
+        "role": "사외이사",
+        "n_entries": 9,
+        "multi_period": 1,
+        "split_possible": 0,
+        "examples": [
+          {
+            "period": "2004.03 ~ 현재2019.08 ~ 2024.07",
+            "content": "- 이화여대 사회과학대학  행정학과 교수",
+            "n_periods": 2,
+            "n_roles": 1,
+            "split_match": false
+          }
+        ]
+      },
+      {
+        "name": "이준서",
+        "role": "사외이사",
+        "n_entries": 13,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "주영섭",
+        "role": "사외이사",
+        "n_entries": 6,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이재술",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "윤 심",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 1,
+        "split_possible": 1,
+        "examples": [
+          {
+            "period": "2023.01 ~ 현재2024.03 ~ 현재",
+            "content": "- 한국공학한림원 정회원- 하나금융지주 사외이사",
+            "n_periods": 2,
+            "n_roles": 2,
+            "split_match": true
+          }
+        ]
+      },
+      {
+        "name": "이재민",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최현자",
+        "role": "사외이사",
+        "n_entries": 14,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "박동문",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이준서",
+        "role": "사외이사",
+        "n_entries": 13,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "주영섭",
+        "role": "사외이사",
+        "n_entries": 6,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "윤 심",
+        "role": "사외이사",
+        "n_entries": 5,
+        "multi_period": 1,
+        "split_possible": 1,
+        "examples": [
+          {
+            "period": "2023.01 ~ 현재2024.03 ~ 현재",
+            "content": "- 한국공학한림원 정회원- 하나금융지주 사외이사",
+            "n_periods": 2,
+            "n_roles": 2,
+            "split_match": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "035420",
+    "name": "NAVER",
+    "own_name": "NAVER",
+    "status": "ok",
+    "duration_s": 2.83,
+    "candidates": [
+      {
+        "name": "김이배",
+        "role": "사외이사",
+        "n_entries": 9,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김이배",
+        "role": "사외이사",
+        "n_entries": 9,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "010130",
+    "name": "고려아연",
+    "own_name": "고려아연",
+    "status": "ok",
+    "duration_s": 2.12,
+    "candidates": [
+      {
+        "name": "황덕남",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "최병일",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이선숙",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김보영",
+        "role": "사외이사",
+        "n_entries": 1,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이민호",
+        "role": "사외이사",
+        "n_entries": 2,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "005490",
+    "name": "POSCO홀딩스",
+    "own_name": "POSCO홀딩스",
+    "status": "ok",
+    "duration_s": 0.7,
+    "candidates": [
+      {
+        "name": "김주연",
+        "role": "사외이사",
+        "n_entries": 7,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김준기",
+        "role": "사외이사",
+        "n_entries": 9,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "015760",
+    "name": "한국전력",
+    "status": "no_match"
+  },
+  {
+    "ticker": "009540",
+    "name": "HD한국조선해양",
+    "own_name": "HD한국조선해양",
+    "status": "ok",
+    "duration_s": 1.67,
+    "candidates": [
+      {
+        "name": "김 홍 기",
+        "role": "사외이사",
+        "n_entries": 8,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김 세 연",
+        "role": "사외이사",
+        "n_entries": 6,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김 세 연",
+        "role": "사외이사",
+        "n_entries": 6,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "김 홍 기",
+        "role": "사외이사",
+        "n_entries": 8,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "272210",
+    "name": "한화시스템",
+    "own_name": "한화시스템",
+    "status": "ok",
+    "duration_s": 0.41,
+    "candidates": [
+      {
+        "name": "황형주",
+        "role": "사외이사",
+        "n_entries": 3,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  },
+  {
+    "ticker": "042700",
+    "name": "한미반도체",
+    "own_name": "한미반도체",
+    "status": "ok",
+    "duration_s": 0.87,
+    "candidates": []
+  },
+  {
+    "ticker": "010140",
+    "name": "삼성중공업",
+    "own_name": "삼성중공업",
+    "status": "ok",
+    "duration_s": 0.84,
+    "candidates": [
+      {
+        "name": "이연승",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      },
+      {
+        "name": "이연승",
+        "role": "사외이사",
+        "n_entries": 4,
+        "multi_period": 0,
+        "split_possible": 0,
+        "examples": []
+      }
+    ]
+  }
+]

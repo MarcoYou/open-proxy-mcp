@@ -1539,10 +1539,67 @@ def _split_merged_content(content: str) -> list[str]:
     return [line.strip() for line in content.split('\n') if line.strip()]
 
 
+# Ralph 10 (260510) — career entry concat split logic
+# 한 셀에 N개 period + N개 직책 concat된 layout (예: 메리츠 조홍희) 분리
+_CAREER_PERIOD_RE = re.compile(
+    r'(?:19[5-9]\d|20[0-3]\d)(?:\.\d{1,2})?(?:\.\d{1,2})?\s*[~\-–—]\s*'
+    r'(?:(?:19[5-9]\d|20[0-3]\d)(?:\.\d{1,2})?(?:\.\d{1,2})?|현재|현)'
+)
+_CAREER_ROLE_END_RE = re.compile(
+    r'(?:'
+    r'국장|청장|위원장|위원|장관|차관|'
+    r'사외이사|독립이사|사내이사|이사|감사위원|감사|'
+    r'고문|자문|회원|'
+    r'사장|부사장|회장|부회장|대표이사|대표|'
+    r'본부장|센터장|소장|원장|팀장|실장|부장|'
+    r'교수|조교수|부교수|강사|연구원|박사|'
+    r'CEO|CFO|CTO'
+    r')'
+)
+
+
+def _split_concatenated_career_entry(period: str, content: str) -> list[tuple[str, str]] | None:
+    """한 entry의 period/content가 N개 직책 concat이면 N개 entries로 분리.
+
+    조건 (모두 충족 시 split):
+    - period에 ≥2 매치 (multi-period)
+    - content를 직책 끝 boundary로 split → 같은 N개 segments
+    - period N == content split N (정확 일치)
+
+    return: split 된 [(period, content), ...] 또는 None (mismatch / single)
+    """
+    period_matches = _CAREER_PERIOD_RE.findall(period or "")
+    if len(period_matches) < 2:
+        return None
+    # content를 직책 boundary로 split
+    if not content:
+        return None
+    positions = [m.end() for m in _CAREER_ROLE_END_RE.finditer(content)]
+    if not positions:
+        return None
+    segments = []
+    prev = 0
+    for p in positions:
+        seg = content[prev:p].strip(' -·ㆍ•▪')
+        if seg:
+            segments.append(seg)
+        prev = p
+    rest = content[prev:].strip()
+    if rest:
+        segments.append(rest)
+    # N 정확 일치만 split (안전 fallback)
+    if len(segments) != len(period_matches):
+        return None
+    return list(zip(period_matches, segments))
+
+
 def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
     """경력 리스트 정리: 빈 content 제거, 역순 기간 검증, 합쳐진 content 분리
 
     100자 초과 content는 split 시도. 분리되면 동일 period로 여러 엔트리 생성.
+
+    Ralph 10 (260510): _split_concatenated_career_entry로 N개 period + N개 직책 concat
+    분리. 메리츠 조홍희 같은 케이스 (4 entries 회수).
     """
     cleaned = []
     for d in details:
@@ -1604,6 +1661,17 @@ def _clean_career_details(details: list[dict], name: str = "") -> list[dict]:
                 continue
             # 분리 실패 — 그래도 \n 형태로 보존 (기존 동작 유지)
             d["content"] = sub_lines[0] if sub_lines else content
+        # Ralph 10 (260510): N개 period + N개 직책 concat 분리
+        # 메리츠 조홍희 같은 케이스 — period "2008~2008 2009~2009 ..." + 직책 4개 concat
+        # 안전 fallback: N 정확 일치만 split, 그 외 원본 유지
+        split_pairs = _split_concatenated_career_entry(period, content)
+        if split_pairs:
+            for new_period, new_content in split_pairs:
+                new_d = dict(d)
+                new_d["period"] = new_period
+                new_d["content"] = new_content
+                cleaned.append(new_d)
+            continue
         cleaned.append(d)
     return cleaned
 
