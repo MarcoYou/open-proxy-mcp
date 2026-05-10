@@ -4,8 +4,8 @@ title: D 패턴 amendments body fallback — 정관변경 sub-agenda 부재 회�
 date: 2026-05-10
 status: active
 related_ralph: [260510_0823_ralph_agenda-hierarchy-body-fallback, 260510_0950_ralph_subagenda-amendment-mapping]
-related_lessons: [agenda-hierarchy-260510, law-layer-body-260510]
-related_audits: [260510_agenda_hierarchy/iter1_findings, 260510_agenda_hierarchy/iter2_findings, 260510_agenda_hierarchy/iter4_findings, 260510_agenda_hierarchy/iter5_kakaogames_spot]
+related_lessons: [agenda-hierarchy-260510, law-layer-body-260510, subagenda-mapping-260510]
+related_audits: [architecture/audits/data/260510_agenda_hierarchy/iter1_findings, architecture/audits/data/260510_agenda_hierarchy/iter2_findings, architecture/audits/data/260510_agenda_hierarchy/iter4_findings, architecture/audits/data/260510_agenda_hierarchy/iter5_kakaogames_spot]
 ---
 
 # Decision — D 패턴 amendments body fallback

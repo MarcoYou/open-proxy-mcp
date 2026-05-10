@@ -10,8 +10,9 @@ ref:
   - wiki/architecture/audits/data/260510_agenda_hierarchy/iter5_kakaogames_pattern_510.json
   - wiki/decisions/260510_0900_decision_d-pattern-body-fallback.md
   - wiki/rules/laws/law_layer_rules.json
-related_decisions: [260510_0900_decision_d-pattern-body-fallback]
-related_lessons: [agenda-hierarchy-260510]
+related_decisions: [260510_0900_decision_d-pattern-body-fallback, 260510_1015_decision_subagenda-mapping]
+related_lessons: [agenda-hierarchy-260510, subagenda-mapping-260510]
+related_audits: [architecture/audits/data/260510_subagenda_mapping/iter1_findings]
 related_ralph: [260510_0823_ralph_agenda-hierarchy-body-fallback]
 ---
 
@@ -154,20 +155,24 @@ parent에 "정관" + "변경"/"개정" (정관변경 top의 sub)
 
 ## iteration log
 
-### iter 1 — 26 회사 raw 매핑 가능성 정량화
-(작성 예정)
+### iter 1 — ✅ 완료 (260510_27db7dd) 26 회사 매핑 가능성 정량화
 
-### iter 2 — 매핑 logic 설계 + generic 정책
-(작성 예정)
+102 sub: clear (clause) 14.7% / partial (keyword) 60.8% / none (generic) 24.5%.
 
-### iter 3 — 코드 구현 + 단위 검증
-(작성 예정)
+### iter 2 — ✅ 완료 매핑 logic 설계
 
-### iter 4 — 510 회사 회귀
-(작성 예정)
+옵션 B (generic skip) 채택. cascade: label substring → clause 매칭 → keyword 매칭.
+
+### iter 3 — ✅ 완료 (260510_b1f2f76) 코드 구현 + 단위 검증
+
+7 회사 단위 검증 — LG화학 regression 0, 한미/차바이/유한 6건 catch.
+**중요 fix**: keyword 매칭 의도적 제거 (LG화학 "선임독립이사 선임" → "독립이사 명칭 변경" semantic mismatch false positive 회피).
+
+### iter 4 — 510 회사 회귀 spot (진행 중)
 
 ### iter 5 — 추가 sample 검증
-(작성 예정)
 
 ### iter 6 — 문서화 + promise
-(작성 예정)
+- lesson: ✅ wiki/lessons/subagenda-mapping-260510.md
+- decision: ✅ wiki/decisions/260510_1015_decision_subagenda-mapping.md
+- 510 결과 반영 후 promise

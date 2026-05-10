@@ -5,6 +5,8 @@ date: 2026-05-10
 related:
   - wiki/ralph/260510_0950_ralph_subagenda-amendment-mapping.md
 related_ralph: [260510_0950_ralph_subagenda-amendment-mapping]
+related_lessons: [subagenda-mapping-260510]
+related_decisions: [260510_1015_decision_subagenda-mapping]
 ---
 
 # Ralph 8 iter 1 — 매핑 가능성 정량화
