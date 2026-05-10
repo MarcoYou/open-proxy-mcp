@@ -5,7 +5,7 @@ date: 2026-05-10
 status: active
 related_ralph: [260510_0823_ralph_agenda-hierarchy-body-fallback]
 related_lessons: [agenda-hierarchy-260510, law-layer-body-260510]
-related_audits: [260510_agenda_hierarchy/iter1_findings, 260510_agenda_hierarchy/iter2_findings, 260510_agenda_hierarchy/iter4_findings]
+related_audits: [260510_agenda_hierarchy/iter1_findings, 260510_agenda_hierarchy/iter2_findings, 260510_agenda_hierarchy/iter4_findings, 260510_agenda_hierarchy/iter5_kakaogames_spot]
 ---
 
 # Decision — D 패턴 amendments body fallback
