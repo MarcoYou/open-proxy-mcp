@@ -9,6 +9,7 @@ ref:
   - open_proxy_mcp/services/director_evaluation.py
 related_decisions: [260510_1130_decision_director-faithfulness]
 related_lessons: [director-faithfulness-260510]
+related_ralph: [260510_1100_ralph_director-faithfulness-enhancement]
 ---
 
 ## Invoke
