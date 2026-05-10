@@ -4,7 +4,7 @@ title: careerDetails parser concat 분리 — 직책 boundary split (XML only)
 date: 2026-05-10 12:30
 status: active
 related_ralph: [260510_1200_ralph_career-parser-concat]
-related_lessons: [career-parser-concat-260510]
+related_lessons: [career-parser-concat-260510, 260510_daily-summary]
 related_audits: [architecture/audits/data/260510_career_concat/iter4_findings]
 ---
 
