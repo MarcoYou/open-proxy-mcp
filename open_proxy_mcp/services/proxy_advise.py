@@ -1159,7 +1159,8 @@ def _extract_facts(
     elif category in ("director_election", "audit_committee_election"):
         if eval_match:
             facts["candidate_name"] = eval_match.get("name")
-            facts["role_type"] = eval_match.get("role_type")
+            role = eval_match.get("role_type") or ""
+            facts["role_type"] = role
             facts["agenda_action"] = eval_match.get("agenda_action")
             apt = eval_match.get("appointment_type") or {}
             if isinstance(apt, dict) and apt.get("type"):
@@ -1169,11 +1170,22 @@ def _extract_facts(
             five_y = ((eval_match.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {}).get("result")
             if five_y:
                 facts["tenure_status"] = five_y
-            facts["independence"] = (eval_match.get("independence") or {}).get("summary")
+            # 사내이사는 독립성 평가 비대상 — "충족"으로 오인 방지 (Ralph 9, 260510)
+            is_outside = any(k in role for k in ("사외", "독립"))
+            if is_outside:
+                facts["independence"] = (eval_match.get("independence") or {}).get("summary")
+            else:
+                facts["independence"] = "독립성 평가 비대상 (사내이사)"
             facts["disqualification"] = (eval_match.get("disqualification") or {}).get("summary")
             ah = (eval_match.get("faithfulness") or {}).get("audit_history_check", {}).get("summary")
             if ah:
                 facts["audit_history_check"] = ah
+            # 사외이사 겸직 카운트 (Ralph 9) — 사외이사 한정
+            if is_outside:
+                co = (eval_match.get("faithfulness") or {}).get("concurrent_outside_directors")
+                if co:
+                    facts["concurrent_outside_positions"] = co.get("total")
+                    facts["concurrent_summary"] = co.get("summary")
         elif all_evals:
             # 묶음 안건 — 종합 fact (개별 매칭 X)
             outsiders = sum(1 for e in all_evals if any(k in (e.get("role_type") or "") for k in ("사외", "독립")))

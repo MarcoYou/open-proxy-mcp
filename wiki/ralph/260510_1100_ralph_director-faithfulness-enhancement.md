@@ -7,8 +7,9 @@ max_iterations: 6
 ref:
   - open_proxy_mcp/services/director_evaluation.py
   - open_proxy_mcp/services/proxy_advise.py
-related_decisions: []
-related_lessons: []
+related_decisions: [260510_1130_decision_director-faithfulness]
+related_lessons: [director-faithfulness-260510]
+related_audits: [architecture/audits/data/260510_director_faithfulness/iter1_findings]
 ---
 
 ## Invoke
@@ -166,20 +167,28 @@ def count_concurrent_outside_director_positions(candidate):
 
 ## iteration log
 
-### iter 1 — 겸직 카운트 데이터 정확도 spot
-(작성 예정)
+### iter 1 — ✅ 완료 510 회사 careerDetails audit
+사외이사 후보 798 / careerDetails 98.4% 채워짐 / 겸직 신호 회사 19.6%. 단순 키워드 카운트는 false positive (본 회사 사외이사 표기 케이스).
 
-### iter 2 — 겸직 카운트 logic
-(작성 예정)
+### iter 2 — ✅ 완료 logic v3 정확 카운트
+본 회사명 매칭 + 후보 본인 보장. 510 회사 v3: concerns 64 / strong 13 (false positive 32 회사 제거).
 
-### iter 3 — 사내이사 독립성 용어 정정
-(작성 예정)
+### iter 3 — ✅ 완료 코드 구현 + 사내이사 독립성 정정
+- `count_outside_director_positions` 헬퍼 + faithfulness 통합
+- `_is_outside_director_role` + 사내이사 "독립성 평가 비대상 (사내이사)" 표기
+- _extract_facts에 concurrent_outside_positions / concurrent_summary 노출
 
-### iter 4 — 메리츠금융지주 단위 검증
-(작성 예정)
+### iter 4 — ✅ 완료 단위 검증 (메리츠금융지주 + 삼성바이오 + LG에너지)
+- 김용범 (사내) → "독립성 평가 비대상" ✓
+- 김정연 (사외, 삼성바이오) → 겸직 3 strong ✓
+- 박진규 (사외, LG에너지) → 겸직 2 concerns ✓
+- 조홍희 (사외, 메리츠) → 겸직 1 single ✓
 
-### iter 5 — 510 회사 회귀
-(작성 예정)
+### iter 5 — ✅ 완료 510 회사 회귀
+iter 2 v3 결과에 통합. decision 변경 0 (audit_history_check만 활용 유지). facts 신규 노출만 추가. concerns 13.3% / strong 2.7% 후보.
 
-### iter 6 — 문서화 + promise
-(작성 예정)
+### iter 6 — ✅ 완료 문서화 + promise
+- lesson: ✅ wiki/lessons/director-faithfulness-260510.md
+- decision: ✅ wiki/decisions/260510_1130_decision_director-faithfulness.md
+- audit: ✅ iter1_findings (iter1 + iter2 통합)
+- promise: DIRECTOR_FAITHFULNESS_ENHANCED ✅

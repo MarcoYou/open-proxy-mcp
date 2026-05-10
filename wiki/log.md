@@ -48,6 +48,29 @@ title: Operation Log
 
 **iter 6 (✅ 완료)**: 문서화 + promise (SUBAGENDA_AMENDMENT_MAPPING_VERIFIED)
 
+## [2026-05-10] ralph | Ralph 9 — 사외이사 충실성 강화 + 사내이사 독립성 표기 정정
+
+메리츠금융지주 proxy_advise 응답 검토 시 사용자 피드백 반영:
+1. 김용범 사내이사 "독립성 충족" 표시 부적절
+2. 사외이사 겸직 카운트 추가 (다른 회사 사외이사 또 하면 우려)
+3. 최대주주 특수관계인 → 독립성에 유지
+
+**iter 1-2 (audit data)**:
+- 510 회사 careerDetails 가용성 audit — 98.4% 채워짐
+- 단순 키워드 카운트 false positive 발견 (본 회사 사외이사 표기)
+- logic v3 (본 회사명 매칭 + 후보 본인 보장): concerns 64 / strong 13 회사
+
+**iter 3-4 (코드 + 단위 검증)**:
+- `count_outside_director_positions` 헬퍼 (director_evaluation.py)
+- faithfulness 통합 (concurrent_outside_directors)
+- 사내이사 "독립성 평가 비대상 (사내이사)" 표기
+- 단위 검증: 김용범/김정연(strong)/박진규(concerns)/조홍희(single) ✓
+
+**iter 5-6 (회귀 + 문서화)**:
+- decision 변경 0 (audit_history_check만 활용 유지)
+- facts 신규 노출 (concurrent_outside_positions / concurrent_summary)
+- promise: DIRECTOR_FAITHFULNESS_ENHANCED ✅
+
 **핵심 안전장치 (Ralph 6 회귀 회피)**:
 - D 패턴 strict 진입 조건 (LG화학 같은 sub 명확 회사 자동 제외)
 - amendment 단위 검사 (모든 amendments 통합 X)

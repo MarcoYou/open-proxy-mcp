@@ -5,6 +5,8 @@ date: 2026-05-10
 related:
   - wiki/ralph/260510_1100_ralph_director-faithfulness-enhancement.md
 related_ralph: [260510_1100_ralph_director-faithfulness-enhancement]
+related_lessons: [director-faithfulness-260510]
+related_decisions: [260510_1130_decision_director-faithfulness]
 ---
 
 # Ralph 9 iter 1 — 510 회사 careerDetails 겸직 데이터 audit
@@ -53,11 +55,25 @@ if 사외이사_총_갯수 >= 2:  # 본 + 다른 회사 1개+
 | 차경진 (카카오) | "신세계아이앤씨 사외이사" | 1 + 1 = 2 | concerns |
 | 박광우 (HD현대중공업) | "매일유업 사외이사" | 1 + 1 = 2 | concerns |
 
-## 다음 단계 (iter 2)
+## iter 2 — logic v3 510 회사 정확 카운트 (✅ 완료)
 
-- logic v3 spot 적용 → 510 회사 정확 카운트 (본 회사 제외 후 진짜 겸직 회사 수)
-- 1개 vs 2개+ vs 3개+ 분포
+| 항목 | 수치 |
+|---|---:|
+| 사외이사 후보 총 | 815 |
+| concerns (≥2개 사외이사) | 108 (13.3%) |
+| strong (≥3개) | 22 (2.7%) |
+| **concerns 회사** | **64 / 493 (13.0%)** |
+| **strong 회사** | **13 / 493 (2.6%)** |
+
+iter 1 단순 키워드 96 회사 → v3 정확 64 회사. **false positive 32 회사 제거**.
+
+## 다음 단계 (iter 3)
+
+- `director_evaluation.py` faithfulness에 겸직 카운트 추가 (n_outside_director_positions)
+- `proxy_advise.py` _extract_facts에 노출
+- 사내이사 독립성 표기 정정 ("독립성 평가 비대상 (사내이사)")
 
 ## archive
 
 - `iter1_concurrent_audit.json` (510 raw)
+- `iter2_concurrent_v3.json` (510 v3)

@@ -631,12 +631,14 @@ async def evaluate_faithfulness(
     candidate: dict[str, Any],
     *,
     check_audit_history: bool = False,
+    own_company_name: str = "",
 ) -> dict[str, Any]:
     """충실성 평가.
 
     Phase 1 기본:
     - dutyPlan / recommendationReason → soft-fail (raw 노출, LLM 자연어 판단)
     - mainJob / recommender / careerCompanyGroups → success (구조화)
+    - **concurrent_outside_directors** (Ralph 9) — 사외이사 한정, 본 회사 포함 카운트
 
     check_audit_history=True: 과거 회사 × 재직 기간 × 회계 risk overlap 자동 체크.
     이사 회계 risk 이력 검증는 추가 DART 호출 발생 (cost) — 옵션.
@@ -648,6 +650,25 @@ async def evaluate_faithfulness(
         "recommender": candidate.get("recommender"),
         "career_company_groups": candidate.get("careerCompanyGroups") or [],
     }
+
+    # 사외이사 겸직 카운트 (사외/독립이사 한정)
+    if _is_outside_director_role(candidate.get("roleType") or "") and own_company_name:
+        co = count_outside_director_positions(candidate, own_company_name)
+        if co["total"] >= 3:
+            co_summary = "strong_concerns_concurrent"
+        elif co["total"] >= 2:
+            co_summary = "concerns_concurrent"
+        elif co["total"] == 1:
+            co_summary = "single_position"
+        else:
+            co_summary = "no_data"
+        out["concurrent_outside_directors"] = {
+            "total": co["total"],
+            "in_career_count": co["in_career_count"],
+            "own_in_career": co["own_in_career"],
+            "signals": co["signals"],
+            "summary": co_summary,
+        }
 
     # 이사 회계 risk 이력 검증 — 과거 회사 × 재직 기간 cross-check
     audit_history_red_flags: list[dict[str, Any]] = []
@@ -686,17 +707,22 @@ async def evaluate_faithfulness(
     }
 
     # 통합 summary
+    co_summary = (out.get("concurrent_outside_directors") or {}).get("summary")
     if audit_history_red_flags:
         out["summary"] = "concerns"
+    elif co_summary == "strong_concerns_concurrent":
+        out["summary"] = "concerns"
+    elif co_summary == "concerns_concurrent":
+        out["summary"] = "weak_concerns"
     else:
         out["summary"] = "raw_disclosed" if audit_history_status != "checked" else "clean"
     return out
 
 
 # 후방 호환 alias (Phase 1 코드 사용 중)
-def evaluate_faithfulness_basic(candidate: dict[str, Any]) -> dict[str, Any]:
+def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str = "") -> dict[str, Any]:
     """동기 alias — 이사 회계 risk 이력 검증 비활성. check_audit_history 옵션 없는 호출처용."""
-    return {
+    out = {
         "duty_plan_raw": candidate.get("dutyPlan") or None,
         "recommendation_reason_raw": candidate.get("recommendationReason") or None,
         "main_job": candidate.get("mainJob"),
@@ -705,6 +731,30 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any]) -> dict[str, Any]:
         "audit_history_check": {"status": "disabled", "red_flags": [], "summary": "not_checked"},
         "summary": "raw_disclosed",
     }
+    # 사외이사 겸직 카운트 (Ralph 9)
+    if _is_outside_director_role(candidate.get("roleType") or "") and own_company_name:
+        co = count_outside_director_positions(candidate, own_company_name)
+        if co["total"] >= 3:
+            co_summary = "strong_concerns_concurrent"
+        elif co["total"] >= 2:
+            co_summary = "concerns_concurrent"
+        elif co["total"] == 1:
+            co_summary = "single_position"
+        else:
+            co_summary = "no_data"
+        out["concurrent_outside_directors"] = {
+            "total": co["total"],
+            "in_career_count": co["in_career_count"],
+            "own_in_career": co["own_in_career"],
+            "signals": co["signals"],
+            "summary": co_summary,
+        }
+        # summary 통합
+        if co_summary == "strong_concerns_concurrent":
+            out["summary"] = "concerns"
+        elif co_summary == "concerns_concurrent":
+            out["summary"] = "weak_concerns"
+    return out
 
 
 # ── 후보 평가 통합 ──
@@ -829,7 +879,61 @@ def _normalize_corp_name(name: str) -> str:
     return s
 
 
-def evaluate_candidate(candidate: dict[str, Any], current_year: int) -> dict[str, Any]:
+# ── 사외이사 겸직 카운트 (Ralph 9 — 260510) ──
+
+_CONCURRENT_CURRENT_KW = ("현재", "현직", "재직")
+_CONCURRENT_OUTSIDE_RE = re.compile(r'(?:사외|독립)\s*이사')
+# careerDetails content 정규화 (회사명 substring 매칭용 — 공백/괄호/㈜ 제거)
+_CONTENT_NORMALIZE_RE = re.compile(r'[\s㈜㈱()주식회사]')
+
+
+def count_outside_director_positions(
+    candidate: dict[str, Any],
+    own_company_name: str,
+) -> dict[str, Any]:
+    """후보의 현직 사외이사 직책 총 갯수 (본 회사 자동 포함).
+
+    careerDetails 중:
+    - period에 '현재' / '현직' / '재직' 마커
+    - content에 '사외이사' / '독립이사' 키워드
+    - 본 회사명 매칭 자동 검출 → 본 회사 표기 X면 +1 (후보 본인 본 회사 보장)
+
+    return: {total, in_career_count, own_in_career, signals}
+    """
+    career_details = candidate.get("careerDetails") or []
+    own_norm = _CONTENT_NORMALIZE_RE.sub('', own_company_name or '').lower()
+    in_career = 0
+    own_in_career = False
+    signals: list[str] = []
+    for cd in career_details:
+        period = cd.get("period", "") or ""
+        content = cd.get("content", "") or ""
+        if not any(k in period for k in _CONCURRENT_CURRENT_KW):
+            continue
+        matches = _CONCURRENT_OUTSIDE_RE.findall(content)
+        if not matches:
+            continue
+        in_career += len(matches)
+        signals.append(f"{period} | {content[:140]}")
+        content_norm = _CONTENT_NORMALIZE_RE.sub('', content).lower()
+        if own_norm and own_norm in content_norm:
+            own_in_career = True
+    total = in_career + (0 if own_in_career else 1)
+    return {
+        "total": total,
+        "in_career_count": in_career,
+        "own_in_career": own_in_career,
+        "signals": signals[:3],
+    }
+
+
+def _is_outside_director_role(role_type: str) -> bool:
+    """사외이사/독립이사 role 식별."""
+    rt = role_type or ""
+    return any(k in rt for k in ("사외", "독립"))
+
+
+def evaluate_candidate(candidate: dict[str, Any], current_year: int, own_company_name: str = "") -> dict[str, Any]:
     """단일 후보 → 3축 평가 dict (이사 회계 risk 이력 검증 비활성, sync)."""
     return {
         "name": candidate.get("name"),  # success
@@ -837,7 +941,7 @@ def evaluate_candidate(candidate: dict[str, Any], current_year: int) -> dict[str
         "role_type": candidate.get("roleType"),  # success
         "separate_election": candidate.get("separateElection"),  # success (감사위원 분리선임)
         "independence": evaluate_independence(candidate, current_year),
-        "faithfulness": evaluate_faithfulness_basic(candidate),
+        "faithfulness": evaluate_faithfulness_basic(candidate, own_company_name),
         "disqualification": evaluate_disqualification(candidate, current_year),
     }
 
@@ -847,6 +951,7 @@ async def evaluate_candidate_async(
     current_year: int,
     *,
     check_audit_history: bool = False,
+    own_company_name: str = "",
 ) -> dict[str, Any]:
     """단일 후보 평가 (async, 이사 회계 risk 이력 검증 옵션). 이사 회계 risk 이력 검증 활성 시 과거 회사 cross-check."""
     return {
@@ -855,7 +960,7 @@ async def evaluate_candidate_async(
         "role_type": candidate.get("roleType"),
         "separate_election": candidate.get("separateElection"),
         "independence": evaluate_independence(candidate, current_year),
-        "faithfulness": await evaluate_faithfulness(candidate, check_audit_history=check_audit_history),
+        "faithfulness": await evaluate_faithfulness(candidate, check_audit_history=check_audit_history, own_company_name=own_company_name),
         "disqualification": evaluate_disqualification(candidate, current_year),
     }
 
@@ -910,7 +1015,7 @@ async def build_director_evaluation_payload(
     for ap in appointments:
         cands = ap.get("candidates") or []
         for c in cands:
-            ev = await evaluate_candidate_async(c, target_year, check_audit_history=check_audit_history)
+            ev = await evaluate_candidate_async(c, target_year, check_audit_history=check_audit_history, own_company_name=canonical_corp_name)
             ev["agenda_title"] = ap.get("title")
             ev["agenda_action"] = ap.get("action")
             ev["agenda_category"] = ap.get("category")
