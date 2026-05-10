@@ -1,0 +1,1332 @@
+[
+  {
+    "ticker": "005930",
+    "name": "삼성전자",
+    "own_name": "삼성전자",
+    "status": "ok",
+    "duration_s": 1.05,
+    "n_outside_candidates": 1,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "허은녕",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "000660",
+    "name": "SK하이닉스",
+    "own_name": "SK하이닉스",
+    "status": "ok",
+    "duration_s": 1.62,
+    "n_outside_candidates": 6,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "정덕균",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김정원",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최강국",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "고승범",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김정원",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최강국",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "005380",
+    "name": "현대차",
+    "own_name": "현대자동차",
+    "status": "ok",
+    "duration_s": 2.16,
+    "n_outside_candidates": 0,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": []
+  },
+  {
+    "ticker": "373220",
+    "name": "LG에너지솔루션",
+    "own_name": "LG에너지솔루션",
+    "status": "ok",
+    "duration_s": 1.3,
+    "n_outside_candidates": 3,
+    "n_concerns": 1,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "이명규",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "박진규",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2024~현재 | 롯데이노베이트㈜ 사외이사"
+        ]
+      },
+      {
+        "name": "이명규",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "207940",
+    "name": "삼성바이오로직스",
+    "own_name": "삼성바이오로직스",
+    "status": "ok",
+    "duration_s": 0.82,
+    "n_outside_candidates": 2,
+    "n_concerns": 2,
+    "n_strong": 2,
+    "candidates": [
+      {
+        "name": "김정연",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 3,
+        "in_career": 2,
+        "own_in_career": false,
+        "signals": [
+          "2024~현재 | 한국타이어앤테크놀로지 사외이사",
+          "2022~현재 | 한화손해보험 사외이사"
+        ]
+      },
+      {
+        "name": "김정연",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 3,
+        "in_career": 2,
+        "own_in_career": false,
+        "signals": [
+          "2024~현재 | 한국타이어앤테크놀로지 사외이사",
+          "2022~현재 | 한화손해보험 사외이사"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "012450",
+    "name": "한화에어로스페이스",
+    "own_name": "한화에어로스페이스",
+    "status": "ok",
+    "duration_s": 1.51,
+    "n_outside_candidates": 3,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "전휴재",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "전우홍",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "전휴재",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "402340",
+    "name": "SK스퀘어",
+    "own_name": "SK스퀘어",
+    "status": "ok",
+    "duration_s": 0.49,
+    "n_outside_candidates": 1,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "서영호",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "034020",
+    "name": "두산에너빌리티",
+    "own_name": "두산에너빌리티",
+    "status": "ok",
+    "duration_s": 1.61,
+    "n_outside_candidates": 3,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "민원기",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "민원기",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이은형",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "000270",
+    "name": "기아",
+    "own_name": "기아",
+    "status": "ok",
+    "duration_s": 4.07,
+    "n_outside_candidates": 3,
+    "n_concerns": 1,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "전찬혁",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "전찬혁",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "신재용",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2023 ~ 현재 | DL이앤씨 사외이사한국관리회계학회 부회장한국회계학회 부회장삼일회계법인 저명교수"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "105560",
+    "name": "KB금융",
+    "own_name": "KB금융",
+    "status": "ok",
+    "duration_s": 0.67,
+    "n_outside_candidates": 7,
+    "n_concerns": 3,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "최재홍",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2014.10~현재 | (주)카카오 사외이사"
+        ]
+      },
+      {
+        "name": "이명활",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "서정호",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2020.3~현재 | (주)한화솔루션 사외이사주)"
+        ]
+      },
+      {
+        "name": "조화준",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김성용",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김선엽",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "서정호",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2020.3~현재 | (주)한화솔루션 사외이사주)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "329180",
+    "name": "HD현대중공업",
+    "own_name": "HD현대중공업",
+    "status": "ok",
+    "duration_s": 0.92,
+    "n_outside_candidates": 1,
+    "n_concerns": 1,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "박광우",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2020~현재 | 매일유업 사외이사/감사위원장"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "068270",
+    "name": "셀트리온",
+    "own_name": "셀트리온",
+    "status": "ok",
+    "duration_s": 1.49,
+    "n_outside_candidates": 12,
+    "n_concerns": 1,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "고영혜",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최원경",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "기우성",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "신민철",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "고영혜",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최원경",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최종문",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이중재",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "윤태화",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2024 ~ 현재 | 포스코퓨처엠(주) 사외이사(감사위원장)"
+        ]
+      },
+      {
+        "name": "고영혜",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최원경",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최종문",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "055550",
+    "name": "신한지주",
+    "own_name": "신한지주",
+    "status": "ok",
+    "duration_s": 1.79,
+    "n_outside_candidates": 9,
+    "n_concerns": 1,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "김조설",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "배훈",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "송성주",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최영권",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "박종복",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "곽수근",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "임승연",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2002.09 ~ 현재 | ㆍ美 공인회계사ㆍ㈜카카오게임즈 사외이사ㆍ국민대학교 경영대학 교수ㆍ국민대학교 경영대학장"
+        ]
+      },
+      {
+        "name": "배훈",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최영권",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "032830",
+    "name": "삼성생명",
+    "own_name": "삼성생명",
+    "status": "ok",
+    "duration_s": 2.05,
+    "n_outside_candidates": 2,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "임채민",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "임채민",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "028260",
+    "name": "삼성물산",
+    "own_name": "삼성물산",
+    "status": "ok",
+    "duration_s": 0.97,
+    "n_outside_candidates": 5,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "이정식",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김경수",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김민영",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김경수",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김민영",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "042660",
+    "name": "한화오션",
+    "own_name": "한화오션",
+    "status": "ok",
+    "duration_s": 1.8,
+    "n_outside_candidates": 3,
+    "n_concerns": 2,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "김영삼",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2024 ~ 현재 | 나우IB캐피탈 사외이사"
+        ]
+      },
+      {
+        "name": "이효진",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김영삼",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2024 ~ 현재 | 나우IB캐피탈 사외이사"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "006400",
+    "name": "삼성SDI",
+    "own_name": "삼성SDI",
+    "status": "ok",
+    "duration_s": 1.83,
+    "n_outside_candidates": 4,
+    "n_concerns": 1,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "윤종원",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이미경",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 2,
+        "own_in_career": true,
+        "signals": [
+          "2023 ~ 현재2021 ~ 현재2022 ~ 현재 | 삼성SDI 사외이사환경재단 대표환경부 중앙정책위원회 위원",
+          "2022 ~ 현재 | 하이브 사외이사"
+        ]
+      },
+      {
+        "name": "유승원",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "윤종원",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "012330",
+    "name": "현대모비스",
+    "own_name": "현대모비스",
+    "status": "ok",
+    "duration_s": 2.52,
+    "n_outside_candidates": 5,
+    "n_concerns": 3,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "James Kim",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "박현주",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2020 ~ 현재 | 대한항공 사외이사"
+        ]
+      },
+      {
+        "name": "James Kim",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "박현주",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2020 ~ 현재 | 대한항공 사외이사"
+        ]
+      },
+      {
+        "name": "박현주",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2020 ~ 현재 | 대한항공 사외이사"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "006800",
+    "name": "M레거시증권",
+    "status": "no_match"
+  },
+  {
+    "ticker": "267260",
+    "name": "HD현대일렉트릭",
+    "own_name": "HD현대일렉트릭",
+    "status": "ok",
+    "duration_s": 0.97,
+    "n_outside_candidates": 1,
+    "n_concerns": 1,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "한찬식",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2022~현재 | 풀무원 사외이사"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "009150",
+    "name": "삼성전기",
+    "own_name": "삼성전기",
+    "status": "ok",
+    "duration_s": 1.46,
+    "n_outside_candidates": 4,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "최종구",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김미영",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이종훈",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이종훈",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "086790",
+    "name": "하나금융지주",
+    "own_name": "하나금융지주",
+    "status": "ok",
+    "duration_s": 1.94,
+    "n_outside_candidates": 12,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "박동문",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 1,
+        "own_in_career": true,
+        "signals": [
+          "2021.03 ~ 현재 | - 하나금융지주 사외이사"
+        ]
+      },
+      {
+        "name": "원숙연",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이준서",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 1,
+        "own_in_career": true,
+        "signals": [
+          "2023.03 ~ 현재 | - 하나금융지주 사외이사"
+        ]
+      },
+      {
+        "name": "주영섭",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이재술",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "윤 심",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 1,
+        "own_in_career": true,
+        "signals": [
+          "2023.01 ~ 현재2024.03 ~ 현재 | - 한국공학한림원 정회원- 하나금융지주 사외이사"
+        ]
+      },
+      {
+        "name": "이재민",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "최현자",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "박동문",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 1,
+        "own_in_career": true,
+        "signals": [
+          "2021.03 ~ 현재 | - 하나금융지주 사외이사"
+        ]
+      },
+      {
+        "name": "이준서",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 1,
+        "own_in_career": true,
+        "signals": [
+          "2023.03 ~ 현재 | - 하나금융지주 사외이사"
+        ]
+      },
+      {
+        "name": "주영섭",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "윤 심",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 1,
+        "own_in_career": true,
+        "signals": [
+          "2023.01 ~ 현재2024.03 ~ 현재 | - 한국공학한림원 정회원- 하나금융지주 사외이사"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "035420",
+    "name": "NAVER",
+    "own_name": "NAVER",
+    "status": "ok",
+    "duration_s": 3.17,
+    "n_outside_candidates": 2,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "김이배",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김이배",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "010130",
+    "name": "고려아연",
+    "own_name": "고려아연",
+    "status": "ok",
+    "duration_s": 1.74,
+    "n_outside_candidates": 5,
+    "n_concerns": 2,
+    "n_strong": 1,
+    "candidates": [
+      {
+        "name": "황덕남",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 3,
+        "in_career": 3,
+        "own_in_career": true,
+        "signals": [
+          "2024 ~ 현재 | 고려아연㈜ 사외이사롯데웰푸드㈜ 사외이사서울고등법원 및 서울중앙지방법원 조정위원하나은행 사외이사한국법학원 상임이사"
+        ]
+      },
+      {
+        "name": "최병일",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이선숙",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김보영",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이민호",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 2,
+        "own_in_career": true,
+        "signals": [
+          "2016 ~ 현재 | 고려아연㈜ 사외이사㈜포스코 사외이사"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "005490",
+    "name": "POSCO홀딩스",
+    "own_name": "POSCO홀딩스",
+    "status": "ok",
+    "duration_s": 0.88,
+    "n_outside_candidates": 2,
+    "n_concerns": 1,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "김주연",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 2,
+        "in_career": 1,
+        "own_in_career": false,
+        "signals": [
+          "2023~현재 | SK이노베이션 사외이사"
+        ]
+      },
+      {
+        "name": "김준기",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "015760",
+    "name": "한국전력",
+    "status": "no_match"
+  },
+  {
+    "ticker": "009540",
+    "name": "HD한국조선해양",
+    "own_name": "HD한국조선해양",
+    "status": "ok",
+    "duration_s": 1.43,
+    "n_outside_candidates": 4,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "김 홍 기",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 1,
+        "own_in_career": true,
+        "signals": [
+          "2023~현재 | HD한국조선해양㈜ 사외이사 및 감사위원"
+        ]
+      },
+      {
+        "name": "김 세 연",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김 세 연",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "김 홍 기",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 1,
+        "own_in_career": true,
+        "signals": [
+          "2023~현재 | HD한국조선해양㈜ 사외이사 및 감사위원"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "272210",
+    "name": "한화시스템",
+    "own_name": "한화시스템",
+    "status": "ok",
+    "duration_s": 1.15,
+    "n_outside_candidates": 1,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "황형주",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  },
+  {
+    "ticker": "042700",
+    "name": "한미반도체",
+    "own_name": "한미반도체",
+    "status": "ok",
+    "duration_s": 0.95,
+    "n_outside_candidates": 0,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": []
+  },
+  {
+    "ticker": "010140",
+    "name": "삼성중공업",
+    "own_name": "삼성중공업",
+    "status": "ok",
+    "duration_s": 0.71,
+    "n_outside_candidates": 2,
+    "n_concerns": 0,
+    "n_strong": 0,
+    "candidates": [
+      {
+        "name": "이연승",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      },
+      {
+        "name": "이연승",
+        "role": "사외이사",
+        "agenda_action": "",
+        "total_outside": 1,
+        "in_career": 0,
+        "own_in_career": false,
+        "signals": []
+      }
+    ]
+  }
+]
