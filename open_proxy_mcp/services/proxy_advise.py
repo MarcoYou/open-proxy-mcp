@@ -286,6 +286,66 @@ def _applies_to_match(rule: dict[str, Any], corp_total_asset_won: int | None,
     return True
 
 
+def _is_charter_top(title: str) -> bool:
+    """top-level 정관변경 안건 식별 (D 패턴 fallback 진입 조건 中 1).
+
+    호출부에서 parent_title == "" + children == 0 + amendments 비어있지 않음을
+    추가로 확인해야 D 패턴 (raw에 sub-agenda 자체 부재)으로 확정.
+    """
+    if not title:
+        return False
+    return "정관" in title and any(k in title for k in ("변경", "개정"))
+
+
+def _law_layer_body(
+    amendments: list[dict[str, Any]],
+    *,
+    parent_title: str,
+    corp_total_asset_won: int | None,
+    today_iso: str,
+) -> tuple[str, str, str, str] | None:
+    """D 패턴 한정 amendments body fallback.
+
+    각 amendment를 가상 sub-agenda처럼 _law_layer 호출. **amendment 단위 검사**로
+    Ralph 6 회귀 (모든 amendments 통합 → 한 안건 키워드가 다른 sub에 잘못 매칭) 회피.
+
+    호출 조건 (호출부에서 보장):
+        - title_hit None
+        - parent_title == "" (top)
+        - _is_charter_top(title) True
+        - 안건 children 0
+        - amendments 비어있지 않음
+
+    각 amendment의 label / clause / before / after / reason을 합친 텍스트로 _law_layer
+    호출. amendment 1건이라도 hit하면 그 결과 반환 (priority 정렬은 _law_layer 내부에서).
+    """
+    if not amendments:
+        return None
+    for am in amendments:
+        parts = [
+            am.get("label") or "",
+            am.get("clause") or "",
+            am.get("before") or "",
+            am.get("after") or "",
+            am.get("reason") or "",
+        ]
+        body_text = " ".join(p for p in parts if p).strip()
+        if not body_text:
+            continue
+        hit = _law_layer(
+            body_text,
+            parent_title=parent_title,
+            corp_total_asset_won=corp_total_asset_won,
+            today_iso=today_iso,
+        )
+        if hit:
+            decision, reason, rule_id, law_ref = hit
+            label = (am.get("label") or am.get("clause") or "").strip()
+            label_ref = f" [body: {label[:30]}]" if label else " [body fallback]"
+            return (decision, reason + label_ref, rule_id, law_ref)
+    return None
+
+
 def _law_layer(
     agenda_title: str,
     parent_title: str = "",
@@ -1255,12 +1315,15 @@ async def build_proxy_advise_payload(
             agenda_titles = fallback_titles
 
     # parent_title map: title → parent_title (agenda tree에서 추출)
+    # title → children 수 map (D 패턴 식별용 — children 0 + 정관변경 top + amendments 있음)
     title_to_parent: dict[str, str] = {}
+    title_to_children_count: dict[str, int] = {}
     def _walk_agenda_tree(items: list, parent: str = "") -> None:
         for it in items or []:
             t = (it.get("title") or "").strip()
             if t:
                 title_to_parent[t] = parent
+                title_to_children_count[t] = len(it.get("children") or [])
             _walk_agenda_tree(it.get("children", []), parent=t)
     _walk_agenda_tree(agenda_data.get("agendas") or [])
 
@@ -1405,6 +1468,23 @@ async def build_proxy_advise_payload(
             title, parent_title=parent_for_title,
             corp_total_asset_won=corp_total_asset_won, today_iso=today_iso_for_law,
         )
+
+        # 0-b. D 패턴 한정 amendments body fallback (260510 ralph 7)
+        # title 미매치 + top 정관변경 + children 0 + amendments 있음 → amendment 단위 검사.
+        # children > 0 (LG화학 sub 명확 회사) 자동 제외 — Ralph 6 회귀 회피 핵심.
+        if (
+            law_layer_hit is None
+            and parent_for_title == ""
+            and _is_charter_top(title)
+            and title_to_children_count.get(title, 0) == 0
+            and aoi_amendments
+        ):
+            law_layer_hit = _law_layer_body(
+                aoi_amendments,
+                parent_title=title,
+                corp_total_asset_won=corp_total_asset_won,
+                today_iso=today_iso_for_law,
+            )
 
         # 1. OPM 기본 logic으로 fallback decision 산출
         if category == "director_election" or category == "audit_committee_election":

@@ -1,0 +1,101 @@
+[
+  {
+    "name": "에코프로비엠",
+    "corp_asset_2tril": true,
+    "n_agendas": 11,
+    "n_amendments": 2,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "fallback_entries_n": 1,
+    "fallback_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "fallback_hits_n": 0,
+    "fallback_hits": []
+  },
+  {
+    "name": "카카오게임즈",
+    "corp_asset_2tril": true,
+    "n_agendas": 12,
+    "n_amendments": 2,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "fallback_entries_n": 0,
+    "fallback_entries": [],
+    "fallback_hits_n": 0,
+    "fallback_hits": []
+  },
+  {
+    "name": "에스엠",
+    "corp_asset_2tril": true,
+    "n_agendas": 10,
+    "n_amendments": 1,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "fallback_entries_n": 1,
+    "fallback_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "fallback_hits_n": 1,
+    "fallback_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule": "A1-5",
+        "decision": "FOR",
+        "reason": "사외이사 → 독립이사 명칭 변경 — 2026 상법 1차 개정 (2025-07-22 시행) 정합 [body: 제29조(이사 및 감사의 수)]"
+      }
+    ]
+  },
+  {
+    "name": "메리츠금융지주",
+    "corp_asset_2tril": true,
+    "n_agendas": 7,
+    "n_amendments": 1,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "fallback_entries_n": 1,
+    "fallback_entries": [
+      "정관 개정(안) 승인의 건"
+    ],
+    "fallback_hits_n": 0,
+    "fallback_hits": []
+  },
+  {
+    "name": "LG화학",
+    "corp_asset_2tril": true,
+    "n_agendas": 17,
+    "n_amendments": 8,
+    "title_hits_n": 5,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 인원 확대",
+        "rule": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임시 의결권 제한 강화",
+        "rule": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "fallback_entries_n": 0,
+    "fallback_entries": [],
+    "fallback_hits_n": 0,
+    "fallback_hits": []
+  }
+]
