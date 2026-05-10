@@ -17,7 +17,7 @@ related_lessons: [law-layer-body-260510]
 특수문자 사용 금지. 한글로 풀어쓰기.
 
 ```
-/ralph-loop:ralph-loop wiki/ralph/260510_0823_ralph_agenda-hierarchy-body-fallback.md 가이드 따라 iter 2부터 진행. iter 1 완료 (parser fix commit be2e722). --completion-promise AGENDA_HIERARCHY_EXTRACTION_VERIFIED --max-iterations 6
+/ralph-loop:ralph-loop wiki/ralph/260510_0823_ralph_agenda-hierarchy-body-fallback.md 가이드 따라 iter 2부터 진행. iter 1 완료 — parser fix commit be2e722. --completion-promise AGENDA_HIERARCHY_EXTRACTION_VERIFIED --max-iterations 6
 ```
 
 # Ralph 7: 호수 hierarchy 정확 추출 + D 패턴 amendments body fallback
