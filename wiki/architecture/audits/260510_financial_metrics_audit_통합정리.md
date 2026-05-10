@@ -4,6 +4,7 @@ title: financial_metrics audit 통합 정리 — 6기업 sanity부터 200기업 
 updated: 2026-05-10
 related_audits:
   - 260501_2030_audit_financial_metrics-200기업
+related_tools: [financial_metrics]
 status: canonical
 ---
 
