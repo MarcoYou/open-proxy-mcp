@@ -4,6 +4,9 @@ title: D 패턴 amendments body fallback logic 구현 + 단위 검증 — iter 2
 date: 2026-05-10
 related:
   - wiki/ralph/260510_0823_ralph_agenda-hierarchy-body-fallback.md
+related_ralph: [260510_0823_ralph_agenda-hierarchy-body-fallback]
+related_lessons: [agenda-hierarchy-260510]
+related_decisions: [260510_0900_decision_d-pattern-body-fallback]
 ---
 
 # iter 2 — D 패턴 fallback 단위 검증 결과

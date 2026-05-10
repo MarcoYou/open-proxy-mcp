@@ -8,6 +8,8 @@ related:
   - wiki/lessons/law-layer-precision-260508.md
   - wiki/ralph/260508_0500_ralph_law-layer-precision.md
   - wiki/rules/laws/law_layer_rules.json
+related_lessons: [law-layer-precision-260508, law-layer-body-260510, agenda-hierarchy-260510]
+related_ralph: [260508_0500_ralph_law-layer-precision, 260510_0823_ralph_agenda-hierarchy-body-fallback]
 ---
 
 # 법령 layer 정밀화 결정

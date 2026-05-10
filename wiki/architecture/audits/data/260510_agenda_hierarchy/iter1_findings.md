@@ -5,6 +5,9 @@ date: 2026-05-10
 related:
   - wiki/ralph/260510_0823_ralph_agenda-hierarchy-body-fallback.md
   - wiki/lessons/law-layer-body-260510.md
+related_ralph: [260510_0823_ralph_agenda-hierarchy-body-fallback]
+related_lessons: [law-layer-body-260510, agenda-hierarchy-260510]
+related_decisions: [260510_0900_decision_d-pattern-body-fallback]
 ---
 
 # iter 1 — 호수 hierarchy 진단 결과
