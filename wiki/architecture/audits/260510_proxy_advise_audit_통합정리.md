@@ -8,6 +8,8 @@ related_audits:
   - 260504_0028_audit_proxy_advise_rename_regression
   - 260504_0724_audit_parse_personnel_iter1-7
   - 260504_2200_audit_proxy_advise_framework_iter1-8
+related_tools: [proxy_advise_before_meeting, proxy_result_after_meeting]
+related_ralph: [260503_0002_ralph_proxy-advise-verification]
 status: canonical
 ---
 
