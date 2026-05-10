@@ -1,0 +1,234 @@
+[
+  {
+    "ticker": "241560",
+    "name": "두산밥캣",
+    "status": "ok",
+    "duration_s": 2.78,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "009410",
+    "name": "태영건설",
+    "status": "ok",
+    "duration_s": 3.76,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "352820",
+    "name": "하이브",
+    "status": "ok",
+    "duration_s": 2.82,
+    "n_agendas": 12,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "이사회 정원 상한 축소 및 독립이사 최소 인원 상향",
+        "rule_id": "B1-7",
+        "decision": "REVIEW"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "067160",
+    "name": "SOOP",
+    "status": "ok",
+    "duration_s": 16.01,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "035720",
+    "name": "카카오",
+    "status": "ok",
+    "duration_s": 2.66,
+    "n_agendas": 20,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표 배제 조항 변경의 건 (제24조, 부칙 제4조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경의 건 (제23조, 제27조 제3항, 제27조 제4항, 부칙 제3조)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선임 인원 상향 및 선·해임시 의결권 제한 강화의 건 (제27조 제7항, 제27조 제10항, 부칙 제5조)",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "006260",
+    "name": "LS",
+    "status": "ok",
+    "duration_s": 1.12,
+    "n_agendas": 15,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "000150",
+    "name": "두산",
+    "status": "ok",
+    "duration_s": 5.44,
+    "n_agendas": 10,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "009830",
+    "name": "한화솔루션",
+    "status": "ok",
+    "duration_s": 3.06,
+    "n_agendas": 17,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입에 따른 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사의 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "006400",
+    "name": "삼성SDI",
+    "status": "ok",
+    "duration_s": 1.45,
+    "n_agendas": 16,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 도입을 위한 정관 변경의 건",
+        "rule_id": "A1-2",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입 관련 정관 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 관련 정관 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "028050",
+    "name": "삼성E&A",
+    "status": "ok",
+    "duration_s": 1.21,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  }
+]

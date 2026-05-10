@@ -10,7 +10,7 @@ ref:
   - wiki/rules/laws/law_layer_rules.json
 related_decisions: [260508_0700_decision_law-layer-precision, 260510_0900_decision_d-pattern-body-fallback]
 related_lessons: [law-layer-body-260510, agenda-hierarchy-260510]
-related_audits: [260510_agenda_hierarchy/iter1_findings, 260510_agenda_hierarchy/iter2_findings]
+related_audits: [260510_agenda_hierarchy/iter1_findings, 260510_agenda_hierarchy/iter2_findings, 260510_agenda_hierarchy/iter4_findings]
 ---
 
 ## Invoke
@@ -181,15 +181,29 @@ D 패턴 amendments body fallback logic 구현. `_is_charter_top()` + `_law_laye
 
 body_pattern 별도 필드 추가 (스키마 확장). A1-1/A1-7 raw 표현 보강. 4 미매치 회사 중 D 패턴 3개 모두 catch (에코프로비엠 A1-1 / 에스엠 A1-5 / 메리츠 A1-7). 카카오게임즈는 D 패턴 X (sub-agenda 있음, 별도 ralph 후보).
 
-### iter 4 — 510 회사 회귀 spot (진행 중)
+### iter 4 — ✅ 완료 510 회사 회귀 spot
 
-scripts/spot_law_layer_with_body.py — title hits + D 패턴 body hits 측정. 4 universe (kospi200 / kosdaq150 / kosdaq300 151-300 / dispute_30) background 진행.
+scripts/spot_law_layer_with_body.py — title hits + D 패턴 body hits 측정. 4 universe (kospi200 199 / kosdaq150 150 / kosdaq300 151-300 150 / dispute_30 10).
 
-### iter 5 — D 패턴 추가 catalog
-(iter 4 결과 후)
+| universe | n | 기존 t | 신규 t | Δt | 회귀 | D진입 | body | body 회사 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| KOSPI200 | 199 | 247 | 267 | +20 | 0 | 49 | 28 | 27 |
+| KOSDAQ150 | 150 | 18 | 19 | +1 | 0 | 91 | 22 | 22 |
+| KOSDAQ151-300 | 150 | 12 | 12 | 0 | 0 | 74 | 18 | 18 |
+| DISPUTE | 10 | 16 | 16 | 0 | 0 | 2 | 2 | 2 |
+| **TOTAL** | **509** | **293** | **314** | +21 | **0** | **216** | **70** | **69** |
 
-### iter 6 — 문서화 + promise
-- lesson 작성: ✅ wiki/lessons/agenda-hierarchy-260510.md
-- decision 작성: ✅ wiki/decisions/260510_0900_decision_d-pattern-body-fallback.md
-- log + index update: ✅
-- 510 결과 반영 후 promise 발행
+상세: `wiki/architecture/audits/data/260510_agenda_hierarchy/iter4_findings.md`
+
+### iter 5 — ✅ 완료 D 패턴 추가 catalog + 미사용 룰 활성
+
+iter 4 결과에 통합. body fallback 70건 / 69 회사 (13.5%) catch. **A1-8 (자사주 의무소각) 첫 활성** — Ralph 6 lesson 미사용 룰 catalog 중 첫 catch. B2-1 (REVIEW) body fallback 2건 활성.
+
+### iter 6 — ✅ 완료 문서화 + promise
+
+- lesson: ✅ wiki/lessons/agenda-hierarchy-260510.md (510 결과 보강)
+- decision: ✅ wiki/decisions/260510_0900_decision_d-pattern-body-fallback.md
+- audit: ✅ wiki/architecture/audits/data/260510_agenda_hierarchy/ (iter1/2/4)
+- log + index: ✅
+- wiki link 양방향 lint 0 ✅
+- promise 발행: AGENDA_HIERARCHY_EXTRACTION_VERIFIED ✅

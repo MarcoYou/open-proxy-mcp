@@ -17,7 +17,15 @@ title: Operation Log
 - 검증: 4 미매치 회사 중 D 패턴 3개 모두 catch (에코프로비엠 A1-1 / 에스엠 A1-5 / 메리츠 A1-7)
 - 카카오게임즈는 D 패턴 X (sub-agenda 있고 sub title 일반 표현) — 별도 ralph 후보
 
-**iter 4 (진행 중)**: 510 회사 spot 회귀
+**iter 4-5 (✅ 완료)**: 510 회사 spot 회귀
+- 회귀 0 (기존 hits set ⊆ 신규 hits set, 510/510 회사)
+- title 신규 catch +21 (모두 A1-1 — Ralph 6 "변경" 키워드 효과)
+- **body fallback 신규 70건 (69 회사 = 13.5%)**
+- D 패턴 진입 216건 (510 중 42%)
+- A1-8 (자사주 의무소각) **첫 활성** — 미사용 룰 lesson 첫 catch
+- B2 layer body fallback 작동 (B2-1 2건)
+
+**iter 6 (✅ 완료)**: 문서화 + promise 발행 (AGENDA_HIERARCHY_EXTRACTION_VERIFIED)
 
 **핵심 안전장치 (Ralph 6 회귀 회피)**:
 - D 패턴 strict 진입 조건 (LG화학 같은 sub 명확 회사 자동 제외)

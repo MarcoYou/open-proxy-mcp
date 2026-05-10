@@ -3,7 +3,7 @@
     "ticker": "005930",
     "name": "삼성전자",
     "status": "ok",
-    "duration_s": 3.85,
+    "duration_s": 2.19,
     "n_agendas": 10,
     "n_title_hits": 1,
     "title_hits": [
@@ -22,7 +22,7 @@
     "ticker": "000660",
     "name": "SK하이닉스",
     "status": "ok",
-    "duration_s": 2.66,
+    "duration_s": 3.26,
     "n_agendas": 18,
     "n_title_hits": 1,
     "title_hits": [
@@ -41,7 +41,7 @@
     "ticker": "005380",
     "name": "현대차",
     "status": "ok",
-    "duration_s": 3.08,
+    "duration_s": 3.13,
     "n_agendas": 19,
     "n_title_hits": 3,
     "title_hits": [
@@ -70,7 +70,7 @@
     "ticker": "373220",
     "name": "LG에너지솔루션",
     "status": "ok",
-    "duration_s": 2.65,
+    "duration_s": 2.31,
     "n_agendas": 12,
     "n_title_hits": 3,
     "title_hits": [
@@ -99,7 +99,7 @@
     "ticker": "207940",
     "name": "삼성바이오로직스",
     "status": "ok",
-    "duration_s": 2.42,
+    "duration_s": 2.37,
     "n_agendas": 9,
     "n_title_hits": 1,
     "title_hits": [
@@ -118,7 +118,7 @@
     "ticker": "012450",
     "name": "한화에어로스페이스",
     "status": "ok",
-    "duration_s": 3.42,
+    "duration_s": 3.72,
     "n_agendas": 19,
     "n_title_hits": 2,
     "title_hits": [
@@ -142,7 +142,7 @@
     "ticker": "402340",
     "name": "SK스퀘어",
     "status": "ok",
-    "duration_s": 4.55,
+    "duration_s": 4.77,
     "n_agendas": 9,
     "n_title_hits": 0,
     "title_hits": [],
@@ -157,7 +157,7 @@
     "ticker": "034020",
     "name": "두산에너빌리티",
     "status": "ok",
-    "duration_s": 3.7,
+    "duration_s": 3.69,
     "n_agendas": 12,
     "n_title_hits": 2,
     "title_hits": [
@@ -181,7 +181,7 @@
     "ticker": "000270",
     "name": "기아",
     "status": "ok",
-    "duration_s": 2.52,
+    "duration_s": 2.62,
     "n_agendas": 15,
     "n_title_hits": 3,
     "title_hits": [
@@ -210,7 +210,7 @@
     "ticker": "105560",
     "name": "KB금융",
     "status": "ok",
-    "duration_s": 4.24,
+    "duration_s": 4.26,
     "n_agendas": 13,
     "n_title_hits": 0,
     "title_hits": [],
@@ -231,7 +231,7 @@
     "ticker": "329180",
     "name": "HD현대중공업",
     "status": "ok",
-    "duration_s": 4.26,
+    "duration_s": 4.17,
     "n_agendas": 9,
     "n_title_hits": 1,
     "title_hits": [
@@ -250,7 +250,7 @@
     "ticker": "068270",
     "name": "셀트리온",
     "status": "ok",
-    "duration_s": 3.87,
+    "duration_s": 3.9,
     "n_agendas": 21,
     "n_title_hits": 0,
     "title_hits": [],
@@ -263,7 +263,7 @@
     "ticker": "055550",
     "name": "신한지주",
     "status": "ok",
-    "duration_s": 5.0,
+    "duration_s": 5.19,
     "n_agendas": 17,
     "n_title_hits": 0,
     "title_hits": [],
@@ -284,7 +284,7 @@
     "ticker": "032830",
     "name": "삼성생명",
     "status": "ok",
-    "duration_s": 3.89,
+    "duration_s": 4.19,
     "n_agendas": 6,
     "n_title_hits": 1,
     "title_hits": [
@@ -303,7 +303,7 @@
     "ticker": "028260",
     "name": "삼성물산",
     "status": "ok",
-    "duration_s": 3.11,
+    "duration_s": 3.52,
     "n_agendas": 14,
     "n_title_hits": 1,
     "title_hits": [
@@ -322,7 +322,7 @@
     "ticker": "042660",
     "name": "한화오션",
     "status": "ok",
-    "duration_s": 3.72,
+    "duration_s": 3.84,
     "n_agendas": 16,
     "n_title_hits": 2,
     "title_hits": [
@@ -346,7 +346,7 @@
     "ticker": "006400",
     "name": "삼성SDI",
     "status": "ok",
-    "duration_s": 3.41,
+    "duration_s": 3.45,
     "n_agendas": 16,
     "n_title_hits": 3,
     "title_hits": [
@@ -375,7 +375,7 @@
     "ticker": "012330",
     "name": "현대모비스",
     "status": "ok",
-    "duration_s": 3.78,
+    "duration_s": 3.47,
     "n_agendas": 19,
     "n_title_hits": 3,
     "title_hits": [
@@ -404,7 +404,7 @@
     "ticker": "006800",
     "name": "M레거시증권",
     "status": "ok",
-    "duration_s": 0.43,
+    "duration_s": 0.44,
     "n_agendas": 0,
     "n_title_hits": 0,
     "title_hits": [],
@@ -417,7 +417,7 @@
     "ticker": "267260",
     "name": "HD현대일렉트릭",
     "status": "ok",
-    "duration_s": 2.27,
+    "duration_s": 3.29,
     "n_agendas": 7,
     "n_title_hits": 1,
     "title_hits": [
@@ -436,7 +436,7 @@
     "ticker": "009150",
     "name": "삼성전기",
     "status": "ok",
-    "duration_s": 2.45,
+    "duration_s": 1.79,
     "n_agendas": 9,
     "n_title_hits": 1,
     "title_hits": [
@@ -455,7 +455,7 @@
     "ticker": "086790",
     "name": "하나금융지주",
     "status": "ok",
-    "duration_s": 4.09,
+    "duration_s": 3.9,
     "n_agendas": 19,
     "n_title_hits": 0,
     "title_hits": [],
@@ -470,7 +470,7 @@
     "ticker": "035420",
     "name": "NAVER",
     "status": "ok",
-    "duration_s": 3.78,
+    "duration_s": 3.8,
     "n_agendas": 7,
     "n_title_hits": 1,
     "title_hits": [
@@ -489,7 +489,7 @@
     "ticker": "010130",
     "name": "고려아연",
     "status": "ok",
-    "duration_s": 3.28,
+    "duration_s": 3.03,
     "n_agendas": 45,
     "n_title_hits": 4,
     "title_hits": [
@@ -523,7 +523,7 @@
     "ticker": "005490",
     "name": "POSCO홀딩스",
     "status": "ok",
-    "duration_s": 4.12,
+    "duration_s": 3.92,
     "n_agendas": 15,
     "n_title_hits": 4,
     "title_hits": [
@@ -570,7 +570,7 @@
     "ticker": "009540",
     "name": "HD한국조선해양",
     "status": "ok",
-    "duration_s": 3.21,
+    "duration_s": 3.02,
     "n_agendas": 10,
     "n_title_hits": 1,
     "title_hits": [
@@ -589,7 +589,7 @@
     "ticker": "272210",
     "name": "한화시스템",
     "status": "ok",
-    "duration_s": 2.76,
+    "duration_s": 2.56,
     "n_agendas": 15,
     "n_title_hits": 5,
     "title_hits": [
@@ -628,7 +628,7 @@
     "ticker": "042700",
     "name": "한미반도체",
     "status": "ok",
-    "duration_s": 2.47,
+    "duration_s": 2.42,
     "n_agendas": 5,
     "n_title_hits": 0,
     "title_hits": [],
@@ -643,7 +643,7 @@
     "ticker": "010140",
     "name": "삼성중공업",
     "status": "ok",
-    "duration_s": 1.98,
+    "duration_s": 2.21,
     "n_agendas": 8,
     "n_title_hits": 1,
     "title_hits": [
@@ -657,5 +657,3652 @@
     "d_entries": [],
     "n_body_hits": 0,
     "body_hits": []
+  },
+  {
+    "ticker": "316140",
+    "name": "우리금융지주",
+    "status": "ok",
+    "duration_s": 3.15,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "298040",
+    "name": "효성중공업",
+    "status": "ok",
+    "duration_s": 3.81,
+    "n_agendas": 13,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 관련 정관 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "010120",
+    "name": "LS ELECTRIC",
+    "status": "ok",
+    "duration_s": 2.93,
+    "n_agendas": 13,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제금지 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "034730",
+    "name": "SK",
+    "status": "ok",
+    "duration_s": 8.87,
+    "n_agendas": 8,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "전자주주총회 제도 도입 등 기타 정관 정비 관련 정관 일부 변경",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "064350",
+    "name": "현대로템",
+    "status": "ok",
+    "duration_s": 8.32,
+    "n_agendas": 12,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 개정",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 확대 등",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "051910",
+    "name": "LG화학",
+    "status": "ok",
+    "duration_s": 2.64,
+    "n_agendas": 17,
+    "n_title_hits": 5,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 인원 확대",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임시 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "000810",
+    "name": "삼성화재",
+    "status": "ok",
+    "duration_s": 0.22,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "035720",
+    "name": "카카오",
+    "status": "ok",
+    "duration_s": 3.2,
+    "n_agendas": 20,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표 배제 조항 변경의 건 (제24조, 부칙 제4조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경의 건 (제23조, 제27조 제3항, 제27조 제4항, 부칙 제3조)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선임 인원 상향 및 선·해임시 의결권 제한 강화의 건 (제27조 제7항, 제27조 제10항, 부칙 제5조)",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "096770",
+    "name": "SK이노베이션",
+    "status": "ok",
+    "duration_s": 3.97,
+    "n_agendas": 9,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표가 배제된 정관의 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "267250",
+    "name": "HD현대",
+    "status": "ok",
+    "duration_s": 4.18,
+    "n_agendas": 6,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제가 배제된 정관 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 2,
+    "d_entries": [
+      "집중투표제가 배제된 정관 변경의 건",
+      "그 외의 정관 변경의 건"
+    ],
+    "n_body_hits": 2,
+    "body_hits": [
+      {
+        "title": "집중투표제가 배제된 정관 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "그 외의 정관 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "011200",
+    "name": "HMM",
+    "status": "ok",
+    "duration_s": 6.02,
+    "n_agendas": 8,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "003670",
+    "name": "포스코퓨처엠",
+    "status": "ok",
+    "duration_s": 5.14,
+    "n_agendas": 16,
+    "n_title_hits": 5,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선·해임시 의결권 제한범위 확대",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "분리선출 감사위원 수 증원",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "138040",
+    "name": "메리츠금융지주",
+    "status": "ok",
+    "duration_s": 3.1,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 개정(안) 승인의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 개정(안) 승인의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "047810",
+    "name": "한국항공우주",
+    "status": "ok",
+    "duration_s": 5.28,
+    "n_agendas": 9,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "033780",
+    "name": "KT&G",
+    "status": "ok",
+    "duration_s": 5.35,
+    "n_agendas": 15,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 인원 확대",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "066570",
+    "name": "LG전자",
+    "status": "ok",
+    "duration_s": 3.62,
+    "n_agendas": 12,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선·해임 시 의결권제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "024110",
+    "name": "기업은행",
+    "status": "ok",
+    "duration_s": 2.95,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "079550",
+    "name": "LIG디펜스앤에어로스페이스",
+    "status": "ok",
+    "duration_s": 5.21,
+    "n_agendas": 10,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "017670",
+    "name": "SK텔레콤",
+    "status": "ok",
+    "duration_s": 7.91,
+    "n_agendas": 13,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "000720",
+    "name": "현대건설",
+    "status": "ok",
+    "duration_s": 5.61,
+    "n_agendas": 14,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "000150",
+    "name": "두산",
+    "status": "ok",
+    "duration_s": 6.42,
+    "n_agendas": 10,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "086280",
+    "name": "현대글로비스",
+    "status": "ok",
+    "duration_s": 5.77,
+    "n_agendas": 17,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입 관련 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "030200",
+    "name": "KT",
+    "status": "ok",
+    "duration_s": 2.87,
+    "n_agendas": 21,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "047050",
+    "name": "포스코인터내셔널",
+    "status": "ok",
+    "duration_s": 3.59,
+    "n_agendas": 14,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "집중투표제 도입을 위한 정관의 변경",
+        "rule_id": "A1-2",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자 주주총회 도입 및 사외이사 명칭 변경 등 기타 정관의 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "003550",
+    "name": "LG",
+    "status": "ok",
+    "duration_s": 3.67,
+    "n_agendas": 12,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선 ·해임시 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "278470",
+    "name": "에이피알",
+    "status": "ok",
+    "duration_s": 17.46,
+    "n_agendas": 16,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선·해임 시 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "0126Z0",
+    "name": "삼성에피스홀딩스",
+    "status": "ok",
+    "duration_s": 2.61,
+    "n_agendas": 8,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표 배제에 관한 정관의 변경",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "010950",
+    "name": "S-Oil",
+    "status": "ok",
+    "duration_s": 1.29,
+    "n_agendas": 10,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭을 독립이사로 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "이사 선임 시 집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "071050",
+    "name": "한국금융지주",
+    "status": "ok",
+    "duration_s": 2.17,
+    "n_agendas": 14,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "259960",
+    "name": "크래프톤",
+    "status": "ok",
+    "duration_s": 7.57,
+    "n_agendas": 16,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "018260",
+    "name": "삼성에스디에스",
+    "status": "ok",
+    "duration_s": 1.98,
+    "n_agendas": 12,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 도입을 위한 정관 변경의 건",
+        "rule_id": "A1-2",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "352820",
+    "name": "하이브",
+    "status": "ok",
+    "duration_s": 2.8,
+    "n_agendas": 12,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "이사회 정원 상한 축소 및 독립이사 최소 인원 상향",
+        "rule_id": "B1-7",
+        "decision": "REVIEW"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "323410",
+    "name": "카카오뱅크",
+    "status": "ok",
+    "duration_s": 2.81,
+    "n_agendas": 15,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건 (정관 제 37조 제3항)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입 관련 변경 (정관 제26조 제2항)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경 (독립이사로 명칭 변경)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "005830",
+    "name": "DB손해보험",
+    "status": "ok",
+    "duration_s": 6.21,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부변경 승인의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부변경 승인의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "005940",
+    "name": "NH투자증권",
+    "status": "ok",
+    "duration_s": 6.21,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "039490",
+    "name": "키움증권",
+    "status": "ok",
+    "duration_s": 2.81,
+    "n_agendas": 14,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 제도 도입 근거 규정 마련 (제25조, 제32조)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 관련 조항 삭제 (제36조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경 (제35조, 제37조, 제39조의2, 제41조, 제48조)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "307950",
+    "name": "현대오토에버",
+    "status": "ok",
+    "duration_s": 2.24,
+    "n_agendas": 11,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "003230",
+    "name": "삼양식품",
+    "status": "ok",
+    "duration_s": 4.8,
+    "n_agendas": 11,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사의 독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "003490",
+    "name": "대한항공",
+    "status": "ok",
+    "duration_s": 4.94,
+    "n_agendas": 14,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입 관련 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "000880",
+    "name": "한화",
+    "status": "ok",
+    "duration_s": 3.75,
+    "n_agendas": 17,
+    "n_title_hits": 5,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선.해임 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리 선임 인원 확대",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표 배제 금지",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "016360",
+    "name": "삼성증권",
+    "status": "ok",
+    "duration_s": 4.38,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "006260",
+    "name": "LS",
+    "status": "ok",
+    "duration_s": 2.92,
+    "n_agendas": 15,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "090430",
+    "name": "아모레퍼시픽",
+    "status": "ok",
+    "duration_s": 2.57,
+    "n_agendas": 13,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입에 따른 변경",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 금지에 따른 변경",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "011070",
+    "name": "LG이노텍",
+    "status": "ok",
+    "duration_s": 2.97,
+    "n_agendas": 14,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입 및 소집지 단일화",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선·해임 시 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "443060",
+    "name": "HD현대마린솔루션",
+    "status": "ok",
+    "duration_s": 3.39,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "007660",
+    "name": "이수페타시스",
+    "status": "ok",
+    "duration_s": 3.39,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "180640",
+    "name": "한진칼",
+    "status": "ok",
+    "duration_s": 2.66,
+    "n_agendas": 13,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 확대 및 최대주주 의결권 제한 강화",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "000100",
+    "name": "유한양행",
+    "status": "ok",
+    "duration_s": 2.94,
+    "n_agendas": 13,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "326030",
+    "name": "SK바이오팜",
+    "status": "ok",
+    "duration_s": 8.39,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 개정의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "028050",
+    "name": "삼성E&A",
+    "status": "ok",
+    "duration_s": 7.76,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "047040",
+    "name": "대우건설",
+    "status": "ok",
+    "duration_s": 2.46,
+    "n_agendas": 8,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "267270",
+    "name": "HD건설기계",
+    "status": "ok",
+    "duration_s": 3.66,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "161390",
+    "name": "한국타이어앤테크놀로지",
+    "status": "ok",
+    "duration_s": 4.54,
+    "n_agendas": 13,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입에 따른 변경",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사의 명칭 변경 (독립이사)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "032640",
+    "name": "LG유플러스",
+    "status": "ok",
+    "duration_s": 4.85,
+    "n_agendas": 14,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "전자주주총회 제도 도입의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로의 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선.해임 시 의결권 제한 강화의 건",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "066970",
+    "name": "엘앤에프",
+    "status": "ok",
+    "duration_s": 4.44,
+    "n_agendas": 12,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 관련 정관 변경의 건 (제29조, 부칙 제4조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 1,
+    "d_entries": [
+      "집중투표제 배제 관련 정관 변경의 건 (제29조, 부칙 제4조)"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "집중투표제 배제 관련 정관 변경의 건 (제29조, 부칙 제4조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "128940",
+    "name": "한미약품",
+    "status": "ok",
+    "duration_s": 6.99,
+    "n_agendas": 19,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "377300",
+    "name": "카카오페이",
+    "status": "ok",
+    "duration_s": 7.4,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "009830",
+    "name": "한화솔루션",
+    "status": "ok",
+    "duration_s": 6.02,
+    "n_agendas": 17,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입에 따른 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사의 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "029780",
+    "name": "삼성카드",
+    "status": "ok",
+    "duration_s": 4.5,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "052690",
+    "name": "한전기술",
+    "status": "ok",
+    "duration_s": 6.03,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경(안)"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "078930",
+    "name": "GS",
+    "status": "ok",
+    "duration_s": 3.63,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "241560",
+    "name": "두산밥캣",
+    "status": "ok",
+    "duration_s": 5.04,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "034220",
+    "name": "LG디스플레이",
+    "status": "ok",
+    "duration_s": 3.53,
+    "n_agendas": 13,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 규정 삭제 (개정상법 반영)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입 (개정상법 반영)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경 (개정상법 반영)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선 ㆍ해임 시 의결권 제한 강화 (개정상법 반영)",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "001040",
+    "name": "CJ",
+    "status": "ok",
+    "duration_s": 3.42,
+    "n_agendas": 11,
+    "n_title_hits": 5,
+    "title_hits": [
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임 시 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 인원 확대",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "064400",
+    "name": "LG씨엔에스",
+    "status": "ok",
+    "duration_s": 3.28,
+    "n_agendas": 14,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "138930",
+    "name": "BNK금융지주",
+    "status": "ok",
+    "duration_s": 2.63,
+    "n_agendas": 24,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "175330",
+    "name": "JB금융지주",
+    "status": "ok",
+    "duration_s": 3.22,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "454910",
+    "name": "두산로보틱스",
+    "status": "ok",
+    "duration_s": 3.33,
+    "n_agendas": 10,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "001440",
+    "name": "대한전선",
+    "status": "ok",
+    "duration_s": 5.28,
+    "n_agendas": 11,
+    "n_title_hits": 6,
+    "title_hits": [
+      {
+        "title": "정관 일부 변경의 건(전자 주주총회 도입 등)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입 (제11조의2, 제12조)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표 배제 조항 삭제 (제16조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "분리선임 감사위원 수 상향 (제26조 제4항)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선,해임 의결권 기준 강화 (제26조 제7항)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경 (제20조, 제25조, 제26조 제3항, 제8항, 제9항)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "271560",
+    "name": "오리온",
+    "status": "ok",
+    "duration_s": 8.66,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "021240",
+    "name": "코웨이",
+    "status": "ok",
+    "duration_s": 5.95,
+    "n_agendas": 35,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경 및 이사회 내 위원회 신설의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 확대 및 조문 정비의 건",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "450080",
+    "name": "에코프로머티",
+    "status": "ok",
+    "duration_s": 3.17,
+    "n_agendas": 16,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "036570",
+    "name": "NC",
+    "status": "ok",
+    "duration_s": 3.03,
+    "n_agendas": 13,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "022100",
+    "name": "포스코DX",
+    "status": "ok",
+    "duration_s": 2.85,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "004020",
+    "name": "현대제철",
+    "status": "ok",
+    "duration_s": 4.07,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "002380",
+    "name": "KCC",
+    "status": "ok",
+    "duration_s": 0.22,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "062040",
+    "name": "산일전기",
+    "status": "ok",
+    "duration_s": 8.25,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "251270",
+    "name": "넷마블",
+    "status": "ok",
+    "duration_s": 8.04,
+    "n_agendas": 16,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제를 위한 정관 개정의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "353200",
+    "name": "대덕전자",
+    "status": "ok",
+    "duration_s": 3.06,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "018880",
+    "name": "한온시스템",
+    "status": "ok",
+    "duration_s": 2.57,
+    "n_agendas": 11,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "분리선출 감사위원 수 확대",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "088350",
+    "name": "한화생명",
+    "status": "ok",
+    "duration_s": 3.54,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건 2-1. 상법 개정사항 반영(제19ㆍ24ㆍ27ㆍ29ㆍ31ㆍ39ㆍ40조) 2-2. 이사 임기 변경(제30조) 2-3. 위원회 명칭 변경(제38조)"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "010060",
+    "name": "OCI홀딩스",
+    "status": "ok",
+    "duration_s": 7.4,
+    "n_agendas": 10,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 도입을 위한 정관 변경의 건",
+        "rule_id": "A1-2",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "051900",
+    "name": "LG생활건강",
+    "status": "ok",
+    "duration_s": 8.16,
+    "n_agendas": 11,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임 시 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "012510",
+    "name": "더존비즈온",
+    "status": "ok",
+    "duration_s": 10.27,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건 [별첨]"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "489790",
+    "name": "한화비전",
+    "status": "ok",
+    "duration_s": 8.95,
+    "n_agendas": 19,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 변경의 건 (사외이사→독립이사)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "000990",
+    "name": "DB하이텍",
+    "status": "ok",
+    "duration_s": 4.65,
+    "n_agendas": 18,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "082740",
+    "name": "한화엔진",
+    "status": "ok",
+    "duration_s": 5.28,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "035250",
+    "name": "강원랜드",
+    "status": "ok",
+    "duration_s": 5.36,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "111770",
+    "name": "영원무역",
+    "status": "ok",
+    "duration_s": 4.23,
+    "n_agendas": 15,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표 배제 금지",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "011790",
+    "name": "SKC",
+    "status": "ok",
+    "duration_s": 6.44,
+    "n_agendas": 10,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "031210",
+    "name": "서울보증보험",
+    "status": "ok",
+    "duration_s": 2.09,
+    "n_agendas": 9,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "기타비상무이사 선임의 건 (후보: 진호정, 임기1년)",
+        "rule_id": "B1-4b",
+        "decision": "REVIEW"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "011170",
+    "name": "롯데케미칼",
+    "status": "ok",
+    "duration_s": 3.21,
+    "n_agendas": 21,
+    "n_title_hits": 5,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임 의결권 제한 규정 개정",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선임 확대",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "이사 정원 상한 축소",
+        "rule_id": "B1-7",
+        "decision": "REVIEW"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "439260",
+    "name": "대한조선",
+    "status": "ok",
+    "duration_s": 2.54,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "103590",
+    "name": "일진전기",
+    "status": "ok",
+    "duration_s": 2.56,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "097950",
+    "name": "CJ제일제당",
+    "status": "ok",
+    "duration_s": 3.38,
+    "n_agendas": 11,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임시 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "017800",
+    "name": "현대엘리베이터",
+    "status": "ok",
+    "duration_s": 3.23,
+    "n_agendas": 11,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 변경 관련 조항",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원회 위원이 되는 사외이사 선임의 건 후보 김정호 (사외이사, 임기 1년)",
+        "rule_id": "B1-4b",
+        "decision": "REVIEW"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "302440",
+    "name": "SK바이오사이언스",
+    "status": "ok",
+    "duration_s": 3.07,
+    "n_agendas": 12,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "012750",
+    "name": "에스원",
+    "status": "ok",
+    "duration_s": 2.84,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "036460",
+    "name": "한국가스공사",
+    "status": "ok",
+    "duration_s": 2.84,
+    "n_agendas": 13,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "011780",
+    "name": "금호석유화학",
+    "status": "ok",
+    "duration_s": 2.99,
+    "n_agendas": 12,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 정관의변경",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경 및 감사위원회 구성 강화",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "014680",
+    "name": "한솔케미칼",
+    "status": "ok",
+    "duration_s": 13.68,
+    "n_agendas": 1,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "001720",
+    "name": "신영증권",
+    "status": "ok",
+    "duration_s": 1.03,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "085620",
+    "name": "M레거시생명",
+    "status": "ok",
+    "duration_s": 0.46,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "004170",
+    "name": "신세계",
+    "status": "ok",
+    "duration_s": 1.43,
+    "n_agendas": 9,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "009970",
+    "name": "영원무역홀딩스",
+    "status": "ok",
+    "duration_s": 1.07,
+    "n_agendas": 14,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "023530",
+    "name": "롯데쇼핑",
+    "status": "ok",
+    "duration_s": 1.43,
+    "n_agendas": 17,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "감사위원 분리선출 확대 및 3%룰 강화를 위한 정관의 변경",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경을 위한 정관의 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "004990",
+    "name": "롯데지주",
+    "status": "ok",
+    "duration_s": 1.77,
+    "n_agendas": 18,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표제 도입을 위한 정관 개정의 건",
+        "rule_id": "A1-2",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경 관련 정관 개정의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자 주주총회 도입 관련 정관 개정의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 확대 및 감사위원 선·해임시 의결권 제한 강화 관련 정관 개정의 건",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "009420",
+    "name": "한올바이오파마",
+    "status": "ok",
+    "duration_s": 3.16,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "457190",
+    "name": "이수스페셜티케미컬",
+    "status": "ok",
+    "duration_s": 1.72,
+    "n_agendas": 14,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 및 이사의 수 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "112610",
+    "name": "씨에스윈드",
+    "status": "ok",
+    "duration_s": 1.8,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "026960",
+    "name": "동서",
+    "status": "ok",
+    "duration_s": 2.43,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "001450",
+    "name": "현대해상",
+    "status": "ok",
+    "duration_s": 3.08,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "139130",
+    "name": "iM금융지주",
+    "status": "ok",
+    "duration_s": 3.51,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건(개정 상법 반영)"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "375500",
+    "name": "DL이앤씨",
+    "status": "ok",
+    "duration_s": 3.38,
+    "n_agendas": 9,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표 배제조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선임 인원 및 의결권 제한 변경의 건",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "028670",
+    "name": "팬오션",
+    "status": "ok",
+    "duration_s": 3.14,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "103140",
+    "name": "풍산",
+    "status": "ok",
+    "duration_s": 3.77,
+    "n_agendas": 17,
+    "n_title_hits": 5,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입에 따른 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사의 독립이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원회 위원이 되는 사외이사 분리 선임의 건(사외이사 2명)",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원회 위원이 되는 사외이사 양일수 선임의 건",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원회 위원이 되는 사외이사 이전환 선임의 건",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "008930",
+    "name": "한미사이언스",
+    "status": "ok",
+    "duration_s": 4.72,
+    "n_agendas": 12,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "005850",
+    "name": "에스엘",
+    "status": "ok",
+    "duration_s": 4.65,
+    "n_agendas": 17,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "전자주주총회 제도 도입의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임시 의결권 제한 강화 및 분리선임 인원 상향의 건",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "051600",
+    "name": "한전KPS",
+    "status": "ok",
+    "duration_s": 4.41,
+    "n_agendas": 3,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "139480",
+    "name": "이마트",
+    "status": "ok",
+    "duration_s": 3.72,
+    "n_agendas": 8,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "018670",
+    "name": "SK가스",
+    "status": "ok",
+    "duration_s": 2.85,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 개정의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "003690",
+    "name": "코리안리",
+    "status": "ok",
+    "duration_s": 3.64,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "071970",
+    "name": "HD현대마린엔진",
+    "status": "ok",
+    "duration_s": 2.75,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "000120",
+    "name": "CJ대한통운",
+    "status": "ok",
+    "duration_s": 2.78,
+    "n_agendas": 7,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "279570",
+    "name": "케이뱅크",
+    "status": "ok",
+    "duration_s": 2.56,
+    "n_agendas": 17,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "282330",
+    "name": "BGF리테일",
+    "status": "ok",
+    "duration_s": 4.31,
+    "n_agendas": 13,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입 관련 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사의 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "001430",
+    "name": "세아베스틸지주",
+    "status": "ok",
+    "duration_s": 4.27,
+    "n_agendas": 11,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "독립이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "383220",
+    "name": "F&F",
+    "status": "ok",
+    "duration_s": 2.2,
+    "n_agendas": 10,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입 관련 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "336260",
+    "name": "두산퓨얼셀",
+    "status": "ok",
+    "duration_s": 4.49,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "204320",
+    "name": "HL만도",
+    "status": "ok",
+    "duration_s": 8.3,
+    "n_agendas": 17,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "006360",
+    "name": "GS건설",
+    "status": "ok",
+    "duration_s": 6.51,
+    "n_agendas": 11,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "004370",
+    "name": "농심",
+    "status": "ok",
+    "duration_s": 2.59,
+    "n_agendas": 10,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "사외이사의 독립이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입에 따른 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "000240",
+    "name": "한국앤컴퍼니",
+    "status": "ok",
+    "duration_s": 2.23,
+    "n_agendas": 17,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "독립이사 명칭 등 정관 문구 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입에 따른 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선·해임 시 의결권 제한 조항 삽입의 건",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "192820",
+    "name": "코스맥스",
+    "status": "ok",
+    "duration_s": 2.6,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "004800",
+    "name": "효성",
+    "status": "ok",
+    "duration_s": 2.89,
+    "n_agendas": 10,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "007340",
+    "name": "DN오토모티브",
+    "status": "ok",
+    "duration_s": 3.82,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "120110",
+    "name": "코오롱인더",
+    "status": "ok",
+    "duration_s": 3.19,
+    "n_agendas": 16,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "전자주주총회 제도 도입ㆍ시행에 따른 소집지 및 개최방식 조항 신설의 건 (제22조의2, 부칙 제2조)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭을 독립이사로 변경의 건 (제30조, 제31조, 제37조, 제41조, 제43조, 제44조, 부칙 제3조)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건(제30조 제4항, 부칙 제4조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임 시 최대주주 및 특수관계인 합산 의결권 제한 강화의 건 (제44조 제6항, 부칙 제5조)",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "081660",
+    "name": "미스토홀딩스",
+    "status": "ok",
+    "duration_s": 2.28,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "030000",
+    "name": "제일기획",
+    "status": "ok",
+    "duration_s": 3.34,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "005440",
+    "name": "현대지에프홀딩스",
+    "status": "ok",
+    "duration_s": 3.64,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건 (상법 개정 관련)"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건 (상법 개정 관련)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "002790",
+    "name": "아모레퍼시픽홀딩스",
+    "status": "ok",
+    "duration_s": 3.47,
+    "n_agendas": 16,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입에 따른 변경",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 금지에 따른 변경",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "001120",
+    "name": "LX인터내셔널",
+    "status": "ok",
+    "duration_s": 3.86,
+    "n_agendas": 13,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "017960",
+    "name": "한국카본",
+    "status": "ok",
+    "duration_s": 8.78,
+    "n_agendas": 13,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "020150",
+    "name": "롯데에너지머티리얼즈",
+    "status": "ok",
+    "duration_s": 2.47,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "097230",
+    "name": "HJ중공업",
+    "status": "ok",
+    "duration_s": 3.37,
+    "n_agendas": 17,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입에 따른, 개최 방식 수정 및 신설(제19조)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭을 독립이사로 변경, 감사위원 분리선임 인원 상향, 모든 감사위원 선임시 최대주주 및 특수관계인 의결권 제한(제36조의 2, 제39조의2)",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 관련 정관 변경(제29조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "011210",
+    "name": "현대위아",
+    "status": "ok",
+    "duration_s": 2.9,
+    "n_agendas": 12,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표 배제조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "023590",
+    "name": "다우기술",
+    "status": "ok",
+    "duration_s": 2.7,
+    "n_agendas": 13,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭 변경 (제29조, 제29조의2, 제31조, 제32조, 제34조의3, 제37조의",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "462870",
+    "name": "시프트업",
+    "status": "ok",
+    "duration_s": 5.13,
+    "n_agendas": 15,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "475150",
+    "name": "SK이터닉스",
+    "status": "ok",
+    "duration_s": 10.06,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "069620",
+    "name": "대웅제약",
+    "status": "ok",
+    "duration_s": 7.37,
+    "n_agendas": 15,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "483650",
+    "name": "달바글로벌",
+    "status": "ok",
+    "duration_s": 19.15,
+    "n_agendas": 12,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "독립이사 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "007070",
+    "name": "GS리테일",
+    "status": "ok",
+    "duration_s": 13.04,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경 승인의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경 승인의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "161890",
+    "name": "한국콜마",
+    "status": "ok",
+    "duration_s": 1.39,
+    "n_agendas": 8,
+    "n_title_hits": 2,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입에 따른 정관 변경의 건 (상법 개정 반영)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 명칭 변경 및 구성요건 상향에 따른 정관 변경의 건 (상법 개정 반영)◆",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "003540",
+    "name": "대신증권",
+    "status": "ok",
+    "duration_s": 3.8,
+    "n_agendas": 19,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "전자 주주총회 도입 관련 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경(독립이사)의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "100090",
+    "name": "SK오션플랜트",
+    "status": "ok",
+    "duration_s": 3.14,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경 승인"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 변경 승인",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "361610",
+    "name": "SK아이이테크놀로지",
+    "status": "ok",
+    "duration_s": 3.08,
+    "n_agendas": 12,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표 배제에 관한 정관의 개정",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "069960",
+    "name": "현대백화점",
+    "status": "ok",
+    "duration_s": 3.07,
+    "n_agendas": 17,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표 배제 조항 삭제의 건 (제27조)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "사외이사 명칭 변경의 건 (제27조, 제27조의 2, 제28조, 제29조, 제30조, 제35조, 제42조, 제43조, 제44조)",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 대상 확대 및 감사위원 선ㆍ해임시 의결권 제한 요건 변경의 건 (제44조)",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 제도 도입의 건 (제18조, 제21조)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "073240",
+    "name": "금호타이어",
+    "status": "ok",
+    "duration_s": 3.39,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경 승인의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 변경 승인의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "007810",
+    "name": "코리아써키트",
+    "status": "ok",
+    "duration_s": 3.42,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "008770",
+    "name": "호텔신라",
+    "status": "ok",
+    "duration_s": 7.11,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "005070",
+    "name": "코스모신소재",
+    "status": "ok",
+    "duration_s": 4.64,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "000500",
+    "name": "가온전선",
+    "status": "ok",
+    "duration_s": 1.67,
+    "n_agendas": 13,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "독립이사 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사 비율 상향의 건",
+        "rule_id": "A1-6",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선·해임 시 의결권 제한 강화의 건",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 분리선출 확대의 건",
+        "rule_id": "B2-8",
+        "decision": "REVIEW"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "006040",
+    "name": "동원산업",
+    "status": "ok",
+    "duration_s": 37.79,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건 (개정 상법 반영) (별첨1 : 정관 신구조문대비표)"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 변경의 건 (개정 상법 반영) (별첨1 : 정관 신구조문대비표)",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "006280",
+    "name": "녹십자",
+    "status": "timeout",
+    "duration_s": 36.3
+  },
+  {
+    "ticker": "322000",
+    "name": "HD현대에너지솔루션",
+    "status": "ok",
+    "duration_s": 3.3,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "012630",
+    "name": "HDC",
+    "status": "ok",
+    "duration_s": 2.1,
+    "n_agendas": 10,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "003570",
+    "name": "SNT다이내믹스",
+    "status": "ok",
+    "duration_s": 3.0,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "298020",
+    "name": "효성티앤씨",
+    "status": "ok",
+    "duration_s": 2.85,
+    "n_agendas": 15,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "사내이사 유영환 선임의 건(임기 1년)",
+        "rule_id": "B1-4b",
+        "decision": "REVIEW"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "034230",
+    "name": "파라다이스",
+    "status": "ok",
+    "duration_s": 2.77,
+    "n_agendas": 20,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "'사외이사 명칭 변경' 관련 정관 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "'감사위원 선·해임 시 3% 룰 강화' 관련 정관 변경의 건",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "'전자주주총회 도입' 관련 정관 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      },
+      {
+        "title": "'대규모상장회사 집중투표제 배제 금지' 관련 정관 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "001800",
+    "name": "오리온홀딩스",
+    "status": "ok",
+    "duration_s": 5.59,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ]
   }
 ]
