@@ -17,6 +17,7 @@
       "secondary": "추가 매치 (any_of 안에서 더 specific 분기 위해)",
       "exclude": "매치하면 false (예: 'FOR'가 아닌 케이스 분리)"
     },
+    "body_pattern": "옵션. D 패턴 (raw에 sub-agenda 부재 + top title 일반) 회사용 amendments raw body 매칭 별도 패턴. 없으면 body fallback에서 agenda_pattern 사용. raw 본문은 법령 정합 표현 (적용하지 아니, 제542조의14, 신설/반영) 위주라 lenient 패턴 권장. 동일 schema (any_of/all_of/secondary/exclude)",
     "applies_to": {
       "min_asset_won": "최소 자산 (원). 0이면 모든 회사",
       "applies_after": "이 날짜 이후 시행 (YYYY-MM-DD)",
@@ -46,6 +47,26 @@
           "제거",
           "변경",
           "개정"
+        ]
+      },
+      "body_pattern": {
+        "all_of": [
+          "집중투표"
+        ],
+        "secondary": [
+          "배제",
+          "적용 안",
+          "적용하지 아니",
+          "적용제외",
+          "적용하지않"
+        ],
+        "secondary_then": [
+          "삭제",
+          "폐지",
+          "제거",
+          "변경",
+          "개정",
+          "반영"
         ]
       },
       "applies_to": {
@@ -207,6 +228,22 @@
         ],
         "all_of": [
           "도입"
+        ]
+      },
+      "body_pattern": {
+        "any_of": [
+          "전자주주총회",
+          "전자주총",
+          "비대면 주주총회",
+          "제542조의14",
+          "제542조의15"
+        ],
+        "secondary": [
+          "도입",
+          "신설",
+          "반영",
+          "개정",
+          "신규"
         ]
       },
       "applies_to": {

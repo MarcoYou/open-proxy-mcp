@@ -306,8 +306,9 @@ def _law_layer_body(
 ) -> tuple[str, str, str, str] | None:
     """D 패턴 한정 amendments body fallback.
 
-    각 amendment를 가상 sub-agenda처럼 _law_layer 호출. **amendment 단위 검사**로
-    Ralph 6 회귀 (모든 amendments 통합 → 한 안건 키워드가 다른 sub에 잘못 매칭) 회피.
+    각 amendment의 raw 본문 (label/clause/before/after/reason) 합친 텍스트로 룰 매칭.
+    **amendment 단위 검사**로 Ralph 6 회귀 (모든 amendments 통합 → 한 안건 키워드가
+    다른 sub에 잘못 매칭) 회피.
 
     호출 조건 (호출부에서 보장):
         - title_hit None
@@ -316,11 +317,15 @@ def _law_layer_body(
         - 안건 children 0
         - amendments 비어있지 않음
 
-    각 amendment의 label / clause / before / after / reason을 합친 텍스트로 _law_layer
-    호출. amendment 1건이라도 hit하면 그 결과 반환 (priority 정렬은 _law_layer 내부에서).
+    룰 매칭은 룰의 `body_pattern` (있으면 우선 — D 패턴용 lenient 패턴)
+    또는 `agenda_pattern` (fallback) 사용. amendment 1건이라도 hit하면 결과 반환.
     """
     if not amendments:
         return None
+    rules = _load_law_layer_rules()
+    if not rules:
+        return None
+
     for am in amendments:
         parts = [
             am.get("label") or "",
@@ -332,17 +337,26 @@ def _law_layer_body(
         body_text = " ".join(p for p in parts if p).strip()
         if not body_text:
             continue
-        hit = _law_layer(
-            body_text,
-            parent_title=parent_title,
-            corp_total_asset_won=corp_total_asset_won,
-            today_iso=today_iso,
-        )
-        if hit:
-            decision, reason, rule_id, law_ref = hit
+
+        for rule in rules:
+            if rule.get("layer") == "C":
+                continue
+            if rule.get("decision") == "risk_factors":
+                continue
+            # body_pattern 우선, 없으면 agenda_pattern fallback
+            pattern = rule.get("body_pattern") or rule.get("agenda_pattern") or {}
+            if not _agenda_pattern_match(body_text, parent_title, pattern):
+                continue
+            if not _applies_to_match(rule, corp_total_asset_won, today_iso):
+                continue
             label = (am.get("label") or am.get("clause") or "").strip()
             label_ref = f" [body: {label[:30]}]" if label else " [body fallback]"
-            return (decision, reason + label_ref, rule_id, law_ref)
+            return (
+                rule["decision"],
+                rule.get("reason_template", "") + label_ref,
+                rule.get("id", ""),
+                rule.get("law_reference", ""),
+            )
     return None
 
 

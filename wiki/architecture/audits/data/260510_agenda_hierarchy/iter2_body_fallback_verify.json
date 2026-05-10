@@ -10,8 +10,15 @@
     "fallback_entries": [
       "정관 일부 변경의 건"
     ],
-    "fallback_hits_n": 0,
-    "fallback_hits": []
+    "fallback_hits_n": 1,
+    "fallback_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule": "A1-1",
+        "decision": "FOR",
+        "reason": "집중투표 배제 조항 삭제 — 2026 상법 2차 개정 (자산 2조+ 집중투표 의무화, 정관 배제 불가) 정합 [body: 제33조(이사의 선임)]"
+      }
+    ]
   },
   {
     "name": "카카오게임즈",
@@ -57,8 +64,15 @@
     "fallback_entries": [
       "정관 개정(안) 승인의 건"
     ],
-    "fallback_hits_n": 0,
-    "fallback_hits": []
+    "fallback_hits_n": 1,
+    "fallback_hits": [
+      {
+        "title": "정관 개정(안) 승인의 건",
+        "rule": "A1-7",
+        "decision": "FOR",
+        "reason": "전자주주총회 도입 — 2026 상법 1차 개정 (2027-01-01 의무) 선제 정합 [body: 제29조]"
+      }
+    ]
   },
   {
     "name": "LG화학",
