@@ -1,46 +1,69 @@
 ---
 type: readme
-title: Audit Raw Data 인덱스
-updated: 2026-05-09
+title: Audit 원시 결과물 인덱스
+updated: 2026-05-10
 ---
 
-# Audit Raw Data
+# Audit 원시 결과물
 
-ralph 진행 중 audit raw 결과 보존. lesson에서 참조 + 회귀 검증 시 활용.
+이 폴더는 **결론 문서가 아니라 근거 파일 보관소**다.
 
-## 2026-05-08 — 법령 layer audit data (Ralph 4)
+- `audits/*.md`
+  - 사람이 먼저 읽는 결론 문서
+- `audits/data/**`
+  - `json`, `csv`, `iter` 로그 같은 원시 결과물
 
-- [[260508_law_layer/iter05_kospi_top30]] — KOSPI top 30 spot
-- [[260508_law_layer/iter08_kospi_30-60]] — KOSPI 30-60
-- [[260508_law_layer/iter08_kospi_100-130]] — KOSPI 100-130
-- [[260508_law_layer/iter08_kospi_130-200]] — KOSPI 130-200 (Ralph 4 iter 3)
-- [[260508_law_layer/iter08_kosdaq_0-100]] — KOSDAQ 0-100 (Ralph 4 iter 4)
-- [[260508_law_layer/iter08_dispute_companies]] — 분쟁 회사 20 (Ralph 4 iter 5)
-- [[260508_law_layer/dispute_universe]] — 분쟁 회사 universe csv
+먼저 [[../README]]에서 현재 기준 audit를 찾고, 그 다음 필요한 경우에만 여기로 내려오면 된다.
 
-## 2026-05-04 — proxy_advise + parse_personnel iter archive
+## 주요 원시 결과물 묶음
 
-ralph 27 iter 진행 중 failure case + 진단 raw. 작업 완료 후 archive (lesson에 흡수됨).
+### 2026-05-10 — data tools 성능 audit
+- `260510_perf_data_tools_audit/`
+- 기준 문서: [[../260510_data_tools_perf_audit]]
 
-### parse_personnel_xml iter 4-7
-- [[260504_parse_personnel_failure_archive/iter04_status_role_fixed_period_remains]]
-- [[260504_parse_personnel_failure_archive/iter05_final_status]]
-- [[260504_parse_personnel_failure_archive/iter07_data_limit_confirmed]]
+### 2026-05-10 — 법령 / agenda / career / faithfulness 계열
+- `260510_agenda_hierarchy/`
+- `260510_career_concat/`
+- `260510_director_faithfulness/`
+- `260510_fix_verify/`
+- `260510_law_layer_450/`
+- `260510_law_layer_body/`
+- `260510_subagenda_mapping/`
 
-### proxy_advise iter 1-27
-- [[260504_proxy_advise_failure_archive/iter01_g2_review_vs_for_pattern]]
-- [[260504_proxy_advise_failure_archive/iter02_g2_vote_style_no_effect]]
-- [[260504_proxy_advise_failure_archive/iter03_g2_director_eval_fetch_fix]]
-- [[260504_proxy_advise_failure_archive/iter04_g2_director_grouping_logic]]
-- [[260504_proxy_advise_failure_archive/iter27_g2_remaining_3_cases]]
+### 2026-05-08 — 법령 layer audit data
+- `260508_law_layer/`
+- `260508_parser_audit/`
+
+### 2026-05-05 — 보수 / 퇴직금 / 성과 / 자사주 계열
+- `260505_compensation_retirement/`
+- `260505_compensation_retirement_extend/`
+- `260505_compensation_retirement_precision/`
+- `260505_inside_director_performance/`
+- `260505_parser_omnibus/`
+- `260505_treasury_execution/`
+
+### 2026-05-04 — proxy_advise / parse_personnel iter archive
+- `260504_proxy_advise_framework/`
+- `260504_proxy_advise_failure_archive/`
+- `260504_parse_personnel_failure_archive/`
 
 ## 데이터 보존 정책
 
 - ralph 진행 중 audit data는 `data/{YYMMDD_topic}/iter*.{md|json|csv}` 형식
-- 작업 완료 후 raw data는 보존 (회귀 검증 + 향후 lesson 인용)
-- 디렉토리 명명: 시점 + 토픽 (예: 260508_law_layer)
+- 작업 완료 후 raw data는 보존한다
+  - 회귀 검증
+  - 향후 lesson 인용
+  - 재측정 비교
+- 디렉토리 명명은 `시점 + 토픽`을 기본으로 한다
+  - 예: `260510_perf_data_tools_audit`
+
+## 읽는 규칙
+
+1. 먼저 [[../README]]에서 현재 기준 audit를 찾는다.
+2. 그 문서의 결론 / 최종 판단을 먼저 본다.
+3. 그 다음에만 여기서 근거 `json`/`csv`를 확인한다.
 
 ## 관련
 
-- [[../README]] — Audits 인덱스 (top-level)
+- [[../README]] — Audit 정리본
 - [[../../../ralph/README]] — Ralph plans 인덱스

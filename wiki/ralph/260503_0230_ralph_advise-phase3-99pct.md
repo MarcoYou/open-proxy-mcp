@@ -256,7 +256,7 @@ raw 본문 분석 (동진쎄미켐 / 원익홀딩스 / 현대글로비스):
 
 ## 참고 — Phase 2 finding
 
-### Phase 2 audit (`260503_0130_audit_advise-200-virtual.md`)
+### Phase 2 audit (`260503_0130_audit_advise-200-virtual.md`, 현재는 `260510_proxy_advise_audit_통합정리.md`에 흡수)
 - root cause: financial_metrics _safe silent fallback 시 cash_dividend → REVIEW
 - retry 1회 fix → 95% 도달 (n=20)
 - 200 × 3 결과: 91.4% (n=197) — n 크면 변동 더 보임

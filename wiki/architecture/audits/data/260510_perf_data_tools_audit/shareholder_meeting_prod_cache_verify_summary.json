@@ -1,0 +1,112 @@
+{
+  "by_file": {
+    "kospi35_shareholder_meeting_prod_cache_verify.json": {
+      "n_total": 35,
+      "n_ok": 35,
+      "n_exception": 0,
+      "n_equal": 35,
+      "n_not_equal": 0,
+      "median_speedup_pct": 58.89468600921135,
+      "mean_speedup_pct": 59.506124380434066,
+      "max_speedup_pct": 77.77454166687933,
+      "min_speedup_pct": 41.68769583249381,
+      "status_counts": {
+        "exact": 35
+      }
+    },
+    "kosdaq25_shareholder_meeting_prod_cache_verify.json": {
+      "n_total": 25,
+      "n_ok": 25,
+      "n_exception": 0,
+      "n_equal": 25,
+      "n_not_equal": 0,
+      "median_speedup_pct": 62.10136845485389,
+      "mean_speedup_pct": 58.177001157128316,
+      "max_speedup_pct": 70.2737388495722,
+      "min_speedup_pct": -4.0465279986601,
+      "status_counts": {
+        "exact": 21,
+        "no_filing": 1,
+        "requires_review": 3
+      }
+    },
+    "kospi100_additional_shareholder_meeting_prod_cache_verify.json": {
+      "n_total": 100,
+      "n_ok": 100,
+      "n_exception": 0,
+      "n_equal": 100,
+      "n_not_equal": 0,
+      "median_speedup_pct": 58.31994861665504,
+      "mean_speedup_pct": 57.49948267694427,
+      "max_speedup_pct": 88.83678322459836,
+      "min_speedup_pct": 4.911862811182146,
+      "status_counts": {
+        "exact": 99,
+        "no_filing": 1
+      }
+    },
+    "kosdaq55_additional_shareholder_meeting_prod_cache_verify.json": {
+      "n_total": 55,
+      "n_ok": 55,
+      "n_exception": 0,
+      "n_equal": 55,
+      "n_not_equal": 0,
+      "median_speedup_pct": 58.71023518496653,
+      "mean_speedup_pct": 57.03378542498065,
+      "max_speedup_pct": 79.05279270706063,
+      "min_speedup_pct": 20.449422237257153,
+      "status_counts": {
+        "exact": 54,
+        "requires_review": 1
+      }
+    }
+  },
+  "combined_60": {
+    "n_total": 60,
+    "n_ok": 60,
+    "n_exception": 0,
+    "n_equal": 60,
+    "n_not_equal": 0,
+    "median_speedup_pct": 59.48964829481711,
+    "mean_speedup_pct": 58.95232303739,
+    "max_speedup_pct": 77.77454166687933,
+    "min_speedup_pct": -4.0465279986601,
+    "status_counts": {
+      "exact": 56,
+      "no_filing": 1,
+      "requires_review": 3
+    }
+  },
+  "combined_additional_155": {
+    "n_total": 155,
+    "n_ok": 155,
+    "n_exception": 0,
+    "n_equal": 155,
+    "n_not_equal": 0,
+    "median_speedup_pct": 58.44612008848058,
+    "mean_speedup_pct": 57.33423526495718,
+    "max_speedup_pct": 88.83678322459836,
+    "min_speedup_pct": 4.911862811182146,
+    "status_counts": {
+      "exact": 153,
+      "no_filing": 1,
+      "requires_review": 1
+    }
+  },
+  "combined_215": {
+    "n_total": 215,
+    "n_ok": 215,
+    "n_exception": 0,
+    "n_equal": 215,
+    "n_not_equal": 0,
+    "median_speedup_pct": 58.64034902055698,
+    "mean_speedup_pct": 57.785794643310524,
+    "max_speedup_pct": 88.83678322459836,
+    "min_speedup_pct": -4.0465279986601,
+    "status_counts": {
+      "exact": 209,
+      "no_filing": 2,
+      "requires_review": 4
+    }
+  }
+}

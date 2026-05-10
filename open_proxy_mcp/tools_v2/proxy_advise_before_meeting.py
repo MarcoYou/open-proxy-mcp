@@ -64,6 +64,12 @@ def _five_y_label(code: str) -> str:
     return _FIVE_YEAR_LABELS.get(code, code)
 
 
+def _public_vote_style_label(label: str | None) -> str:
+    if label == "open_proxy":
+        return "open_proxy"
+    return "internal_policy_variant"
+
+
 def _render_error(payload: dict[str, Any]) -> str:
     lines = [f"# advise_vote: {payload.get('subject', '')}", "", "메모 작성 불가."]
     for w in payload.get("warnings", []):
@@ -96,7 +102,7 @@ def _render(payload: dict[str, Any]) -> str:
     fin_ref = data.get("fin_reference_year")
     fin_ref_note = f" (재무 reference: FY{fin_ref})" if fin_ref else ""
     lines.append(f"- 회차: {data.get('year')}년 {data.get('meeting_type')} 주총{fin_ref_note}")
-    lines.append(f"- vote_style: `{data.get('vote_style')}` / 이사 회계 risk 이력 검증: {'활성' if data.get('audit_history_enabled') else '비활성'}")
+    lines.append(f"- vote_style: `{_public_vote_style_label(data.get('vote_style'))}` / 이사 회계 risk 이력 검증: {'활성' if data.get('audit_history_enabled') else '비활성'}")
     lines.append(f"- status: `{payload.get('status')}` / filing_status: `{data.get('filing_status', '-')}`")
     lines.append(f"- 안건: {data.get('agenda_count')} / 후보: {data.get('candidates_count')}")
     lines.append("")

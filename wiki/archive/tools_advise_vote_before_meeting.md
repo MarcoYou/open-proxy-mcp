@@ -33,7 +33,7 @@ advise_vote_before_meeting(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 사업연도 | 0 (자동) |
 | meeting_type | str | no | "annual" / "extraordinary" | "annual" |
-| vote_style | str | no | open_proxy / m_legacy / s_legacy / t_activist / a_activist / nps 등 | "open_proxy" |
+| vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface | "open_proxy" |
 | enable_marco | bool | no | Marco 시나리오 활성 (과거 회사 cross-check) | False |
 | format | str | no | "md" / "json" | "md" |
 
@@ -43,7 +43,7 @@ advise_vote_before_meeting(
   "agenda_decisions": [
     {"agenda_title": "...", "agenda_category": "director_election",
      "decision": "FOR", "reason": "독립성/결격사유 모두 clean",
-     "policy_basis": "Open Proxy Guideline / open_proxy",
+     "policy_basis": "Open Proxy guideline / case_by_case → OPM fallback",
      "evidence_rcept_no": "..."}
   ],
   "candidates_evaluations": [

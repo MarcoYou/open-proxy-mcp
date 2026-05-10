@@ -568,7 +568,7 @@ title: Operation Log
 - `services/financial_metrics.py` (1155 lines): 6 scope (summary/yearly/quarterly/yoy/qoq/audit_opinion), 51 metrics, 22 alerts, normalize_amount (괄호 음수 + 콤마 strip)
 - `tools_v2/financial_metrics.py` (328 lines): MCP tool register, format_krw_human (조/억 변환), 6 scope render
 - `tools/financial_metrics.md` (wiki tool 페이지, 12 섹션 + Flow mermaid)
-- `architecture/audits/260501_1820_audit_financial_metrics-6기업.md` (sanity audit)
+- `architecture/audits/260510_financial_metrics_audit_통합정리.md`에 흡수 (초기 sanity audit)
 - 17 tools → 18 tools 모든 documentation 동기화 (index.md / tools/README.md / README.md / README_ENG.md / CLAUDE.md)
 
 ### 검증

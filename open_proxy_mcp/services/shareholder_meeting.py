@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 import re
 from typing import Any
 
 from bs4 import BeautifulSoup
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+import open_proxy_mcp.tools.parser as notice_parser_mod
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
@@ -41,6 +43,48 @@ _MEETING_TYPE_MAP = {
 }
 _ALLOWED_MEETING_TYPES = {"auto", "annual", "extraordinary"}
 _NOTICE_LEAD_BUFFER_DAYS = 90
+
+
+class _RequestLocalSoupFactory:
+    """One-request soup cache keyed by rcept_no + raw HTML."""
+
+    def __init__(
+        self,
+        original: Any,
+        cache: dict[tuple[str, str, Any], Any],
+        rcept_no: str,
+    ) -> None:
+        self.original = original
+        self.cache = cache
+        self.rcept_no = rcept_no
+
+    def __call__(self, markup: Any = "", features: Any = None, *args: Any, **kwargs: Any) -> Any:
+        if not isinstance(markup, str):
+            return self.original(markup, features, *args, **kwargs)
+        key = (self.rcept_no, markup, features)
+        cached = self.cache.get(key)
+        if cached is not None:
+            return cached
+        soup = self.original(markup, features, *args, **kwargs)
+        self.cache[key] = soup
+        return soup
+
+
+@contextmanager
+def _cached_notice_parser_soup(
+    soup_cache: dict[tuple[str, str, Any], Any] | None,
+    rcept_no: str,
+):
+    if soup_cache is None:
+        yield
+        return
+
+    original = notice_parser_mod.BeautifulSoup
+    notice_parser_mod.BeautifulSoup = _RequestLocalSoupFactory(original, soup_cache, rcept_no)
+    try:
+        yield
+    finally:
+        notice_parser_mod.BeautifulSoup = original
 
 
 def _agenda_nodes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -102,8 +146,10 @@ async def _candidate_notices_range(
         keywords=("소집",),
         last_reprt_at="Y",
     )
-    if error:
+    if error and error != "013":
         raise DartClientError(error, "주총 소집공고 검색 실패")
+    if error == "013":
+        filings = []
     # E type 결과 부족 시 모든 type fallback (에스엠/고려아연 등 누락 대응).
     if not filings:
         try:
@@ -239,11 +285,18 @@ def _parse_notice_meeting_date(datetime_text: str) -> date | None:
         return None
 
 
-def _parse_notice_bundle(text: str, html: str) -> dict[str, Any]:
-    meeting_info = parse_meeting_info_xml(text, html=html)
-    agenda = parse_agenda_xml(text, html=html)
-    board = parse_personnel_xml(html) if html else {"appointments": [], "summary": {}}
-    compensation = parse_compensation_xml(html) if html else {"items": [], "summary": {}}
+def _parse_notice_bundle(
+    text: str,
+    html: str,
+    *,
+    rcept_no: str,
+    soup_cache: dict[tuple[str, str, Any], Any] | None = None,
+) -> dict[str, Any]:
+    with _cached_notice_parser_soup(soup_cache, rcept_no):
+        meeting_info = parse_meeting_info_xml(text, html=html)
+        agenda = parse_agenda_xml(text, html=html)
+        board = parse_personnel_xml(html) if html else {"appointments": [], "summary": {}}
+        compensation = parse_compensation_xml(html) if html else {"items": [], "summary": {}}
     return {
         "text": text,
         "html": html,
@@ -293,10 +346,16 @@ async def _load_notice_bundle_with_fallback(
     rcept_no: str,
     *,
     scope: str,
+    soup_cache: dict[tuple[str, str, Any], Any] | None = None,
 ) -> tuple[dict[str, Any], list[str], str]:
     client = get_dart_client()
     doc = await client.get_document_cached(rcept_no)
-    parsed = _parse_notice_bundle(doc.get("text", ""), doc.get("html", ""))
+    parsed = _parse_notice_bundle(
+        doc.get("text", ""),
+        doc.get("html", ""),
+        rcept_no=rcept_no,
+        soup_cache=soup_cache,
+    )
     reasons = _needs_notice_viewer_fallback(parsed, scope=scope)
     warnings: list[str] = []
     source_used = "dart_xml"
@@ -315,7 +374,12 @@ async def _load_notice_bundle_with_fallback(
         warnings.append(f"DART viewer HTML crawl fallback도 실패했다: {exc}")
         return parsed, warnings, source_used
 
-    viewer_parsed = _parse_notice_bundle(viewer_doc.get("text", ""), viewer_doc.get("html", ""))
+    viewer_parsed = _parse_notice_bundle(
+        viewer_doc.get("text", ""),
+        viewer_doc.get("html", ""),
+        rcept_no=rcept_no,
+        soup_cache=soup_cache,
+    )
     improved = False
 
     if (not parsed["meeting_info"].get("meeting_type")) and viewer_parsed["meeting_info"].get("meeting_type"):
@@ -840,22 +904,6 @@ async def build_shareholder_meeting_payload(
     _client = get_dart_client()
     _calls_start = _client.api_call_snapshot()
     resolution = await resolve_company_query(company_query)
-    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
-        envelope = ToolEnvelope(
-            tool="shareholder_meeting",
-            status=AnalysisStatus.ERROR,
-            subject=company_query,
-            warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
-            data={
-                "query": company_query,
-                "meeting_type": meeting_type,
-                "scope": scope,
-                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
-            },
-            next_actions=["company tool로 먼저 회사 식별 확인"],
-        )
-        return envelope.to_dict()
-
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         envelope = ToolEnvelope(
             tool="shareholder_meeting",
@@ -881,6 +929,22 @@ async def build_shareholder_meeting_payload(
         )
         return envelope.to_dict()
 
+    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        envelope = ToolEnvelope(
+            tool="shareholder_meeting",
+            status=AnalysisStatus.ERROR,
+            subject=company_query,
+            warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
+            data={
+                "query": company_query,
+                "meeting_type": meeting_type,
+                "scope": scope,
+                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+            },
+            next_actions=["company tool로 먼저 회사 식별 확인"],
+        )
+        return envelope.to_dict()
+
     if meeting_type not in _ALLOWED_MEETING_TYPES:
         envelope = ToolEnvelope(
             tool="shareholder_meeting",
@@ -897,6 +961,7 @@ async def build_shareholder_meeting_payload(
         return envelope.to_dict()
 
     target_year = year
+    soup_cache: dict[tuple[str, str, Any], Any] = {}
     selected = resolution.selected
     requested_window_start, requested_window_end, window_warnings = _selection_window(
         target_year,
@@ -977,6 +1042,7 @@ async def build_shareholder_meeting_payload(
     parsed_notice, parse_warnings, notice_parse_source = await _load_notice_bundle_with_fallback(
         latest_notice["rcept_no"],
         scope=scope,
+        soup_cache=soup_cache,
     )
     text = parsed_notice["text"]
     html = parsed_notice["html"]

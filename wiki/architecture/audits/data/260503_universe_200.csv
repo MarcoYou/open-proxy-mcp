@@ -16,7 +16,7 @@ ticker,company,market,meeting_type
 055550,신한지주,KOSPI,annual
 042660,한화오션,KOSPI,annual
 012330,현대모비스,KOSPI,annual
-006800,M레거시증권,KOSPI,annual
+006800,미래에셋증권,KOSPI,annual
 035420,NAVER,KOSPI,annual
 267260,HD현대일렉트릭,KOSPI,annual
 009150,삼성전기,KOSPI,annual
@@ -137,7 +137,7 @@ ticker,company,market,meeting_type
 005290,동진쎄미켐,KOSDAQ,annual
 043260,성호전자,KOSDAQ,annual
 058610,에스피지,KOSDAQ,annual
-100790,M레거시벤처투자,KOSDAQ,annual
+100790,미래에셋벤처투자,KOSDAQ,annual
 098460,고영,KOSDAQ,annual
 257720,실리콘투,KOSDAQ,annual
 031980,피에스케이홀딩스,KOSDAQ,annual

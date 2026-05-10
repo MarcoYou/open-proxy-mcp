@@ -40,7 +40,7 @@ ralph-loop plugin: https://ghuntley.com/ralph/
 
 **결과**:
 - 200×3 batch 91.4% (target ≥95% 미달)
-- audit: 260503_0130_audit_advise-200-virtual.md
+- audit: 260510_proxy_advise_audit_통합정리.md (옛 `260503_0130_audit_advise-200-virtual.md` 흡수)
 
 ---
 
@@ -60,7 +60,7 @@ ralph-loop plugin: https://ghuntley.com/ralph/
 **결과**:
 - 200×3 batch: 91.9% (target 99% 미달, regression 6 회사)
 - promise 출력 X (정직)
-- audit: `260503_0500_audit_phase3_final.md`
+- audit: `260510_proxy_advise_audit_통합정리.md` (옛 `260503_0500_audit_phase3_final.md` 흡수)
 
 **후속 작업** (사용자 명시 추가 → ralph 외부 진행):
 - Phase 4 fix (F6-F11): corpCode race + cache + 정정공고
@@ -99,7 +99,7 @@ ralph-loop plugin: https://ghuntley.com/ralph/
 - G1/G2/G3/regression 모두 충족
 - 핵심 fix: birth_date age bug (iter22) + 퇴직금 (iter26) + wire (iter27)
 - archive: `260504_proxy_advise_failure_archive/iter01-iter27_*.md`
-- audit final: `260504_0705_audit_proxy_advise_ralph_final.md`
+- audit final: `260510_proxy_advise_audit_통합정리.md` (옛 `260504_0705_audit_proxy_advise_ralph_final.md` 흡수)
 
 ---
 

@@ -1,0 +1,28 @@
+{
+  "n_total": 60,
+  "n_equal": 60,
+  "n_status_changed": 0,
+  "status_changes": [],
+  "median_speedup_pct": 80.93940500837829,
+  "mean_speedup_pct": 72.12974623532277,
+  "negative_speedup_cases": [
+    {
+      "ticker": "003670",
+      "company": "포스코홀딩스",
+      "status": "error",
+      "speedup_pct": -8.959750054871666
+    },
+    {
+      "ticker": "039030",
+      "company": "이오테크닉스",
+      "status": "no_filing",
+      "speedup_pct": -73.42825384367856
+    }
+  ],
+  "status_counts": {
+    "error": 4,
+    "exact": 52,
+    "no_filing": 1,
+    "requires_review": 3
+  }
+}

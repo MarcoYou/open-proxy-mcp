@@ -1,0 +1,50 @@
+{
+  "component_summaries": {
+    "kospi35_shareholder_meeting_soup_cache.json": {
+      "n_total": 35,
+      "n_ok": 35,
+      "n_exception": 0,
+      "n_equal": 35,
+      "n_not_equal": 0,
+      "median_speedup_pct": 80.4005733818576,
+      "mean_speedup_pct": 72.62143504479492,
+      "max_speedup_pct": 87.62596242091924,
+      "min_speedup_pct": -3.5051486917304824,
+      "status_counts": {
+        "error": 4,
+        "exact": 31
+      }
+    },
+    "kosdaq25_shareholder_meeting_soup_cache.json": {
+      "n_total": 25,
+      "n_ok": 25,
+      "n_exception": 0,
+      "n_equal": 25,
+      "n_not_equal": 0,
+      "median_speedup_pct": 82.04676648691667,
+      "mean_speedup_pct": 75.26130242076016,
+      "max_speedup_pct": 87.07986761496662,
+      "min_speedup_pct": -63.27435995794607,
+      "status_counts": {
+        "exact": 21,
+        "no_filing": 1,
+        "requires_review": 3
+      }
+    }
+  },
+  "combined_summary": {
+    "n_total": 60,
+    "n_equal": 60,
+    "n_not_equal": 0,
+    "median_speedup_pct": 81.7377645475993,
+    "mean_speedup_pct": 73.72137978478044,
+    "max_speedup_pct": 87.62596242091924,
+    "min_speedup_pct": -63.27435995794607,
+    "status_counts": {
+      "error": 4,
+      "exact": 52,
+      "no_filing": 1,
+      "requires_review": 3
+    }
+  }
+}

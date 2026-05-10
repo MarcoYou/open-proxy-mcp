@@ -1,0 +1,678 @@
+{
+  "meta": {
+    "tool": "shareholder_meeting_summary",
+    "universe": "kosdaq25",
+    "sample_size": 25,
+    "batch_size": 10,
+    "batch_sleep_sec": 10.0,
+    "duration_sec": 74.63
+  },
+  "summary": {
+    "n_total": 25,
+    "n_ok": 25,
+    "n_exception": 0,
+    "n_equal": 25,
+    "n_not_equal": 0,
+    "median_speedup_pct": 82.55866412720478,
+    "mean_speedup_pct": 74.63427647072976,
+    "max_speedup_pct": 87.66838995125953,
+    "min_speedup_pct": -73.42825384367856,
+    "status_counts": {
+      "exact": 21,
+      "no_filing": 1,
+      "requires_review": 3
+    }
+  },
+  "records": [
+    {
+      "ticker": "086520",
+      "company": "에코프로",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.9146622500848025,
+      "experimental_sec": 0.14633337501436472,
+      "speedup_pct": 84.00137591763544,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "247540",
+      "company": "에코프로비엠",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.9963194170268252,
+      "experimental_sec": 0.17225387506186962,
+      "speedup_pct": 82.71097881682337,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "196170",
+      "company": "알테오젠",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.43353554198984057,
+      "experimental_sec": 0.06312637508381158,
+      "speedup_pct": 85.4391695790213,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "000250",
+      "company": "삼천당제약",
+      "status": "requires_review",
+      "experimental_status": "requires_review",
+      "baseline_sec": 0.41628616699017584,
+      "experimental_sec": 0.070560083957389,
+      "speedup_pct": 83.0501012158172,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "requires_review",
+        "warning_count": 3,
+        "filing_count": 1,
+        "parsing_failures": 1,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "requires_review",
+        "warning_count": 3,
+        "filing_count": 1,
+        "parsing_failures": 1,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "277810",
+      "company": "레인보우로보틱스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.4567281670169905,
+      "experimental_sec": 0.07083879096899182,
+      "speedup_pct": 84.4899447670026,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "298380",
+      "company": "에이비엘바이오",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 1.5945064999395981,
+      "experimental_sec": 0.3524293750524521,
+      "speedup_pct": 77.89727573604732,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "950160",
+      "company": "코오롱티슈진",
+      "status": "requires_review",
+      "experimental_status": "requires_review",
+      "baseline_sec": 0.48692070797551423,
+      "experimental_sec": 0.10033712501171976,
+      "speedup_pct": 79.39353915981626,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "requires_review",
+        "warning_count": 3,
+        "filing_count": 1,
+        "parsing_failures": 1,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "requires_review",
+        "warning_count": 3,
+        "filing_count": 1,
+        "parsing_failures": 1,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "058470",
+      "company": "리노공업",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.2358958750264719,
+      "experimental_sec": 0.040358458063565195,
+      "speedup_pct": 82.89141000916771,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "028300",
+      "company": "HLB",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.4356523329624906,
+      "experimental_sec": 0.07420320890378207,
+      "speedup_pct": 82.96733351588159,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "141080",
+      "company": "리가켐바이오",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.28810854197945446,
+      "experimental_sec": 0.062194124911911786,
+      "speedup_pct": 78.41295350543722,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "087010",
+      "company": "펩트론",
+      "status": "requires_review",
+      "experimental_status": "requires_review",
+      "baseline_sec": 0.22475616703741252,
+      "experimental_sec": 0.06845008302479982,
+      "speedup_pct": 69.5447364461391,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "requires_review",
+        "warning_count": 3,
+        "filing_count": 1,
+        "parsing_failures": 1,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "requires_review",
+        "warning_count": 3,
+        "filing_count": 1,
+        "parsing_failures": 1,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "214370",
+      "company": "케어젠",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.4819734579650685,
+      "experimental_sec": 0.0730373749975115,
+      "speedup_pct": 84.84618316828457,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "240810",
+      "company": "원익IPS",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.39168387500103563,
+      "experimental_sec": 0.0764178748941049,
+      "speedup_pct": 80.48991041719478,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "310210",
+      "company": "보로노이",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.5469790829811245,
+      "experimental_sec": 0.09540045901667327,
+      "speedup_pct": 82.55866412720478,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "095340",
+      "company": "ISC",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.23067804204765707,
+      "experimental_sec": 0.038595707970671356,
+      "speedup_pct": 83.26858177394377,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "039030",
+      "company": "이오테크닉스",
+      "status": "no_filing",
+      "experimental_status": "no_filing",
+      "baseline_sec": 0.03142074996139854,
+      "experimental_sec": 0.0544924580026418,
+      "speedup_pct": -73.42825384367856,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "no_filing",
+        "warning_count": 1,
+        "filing_count": 0,
+        "parsing_failures": 0,
+        "meeting_phase": null,
+        "result_status": null
+      },
+      "experimental_summary": {
+        "status": "no_filing",
+        "warning_count": 1,
+        "filing_count": 0,
+        "parsing_failures": 0,
+        "meeting_phase": null,
+        "result_status": null
+      }
+    },
+    {
+      "ticker": "263750",
+      "company": "펄어비스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.46389137499500066,
+      "experimental_sec": 0.12471274996642023,
+      "speedup_pct": 73.1159584573513,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "108490",
+      "company": "로보티즈",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.4333672079956159,
+      "experimental_sec": 0.07081741595175117,
+      "speedup_pct": 83.65879682514705,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "226950",
+      "company": "올릭스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.53565170802176,
+      "experimental_sec": 0.1291892499430105,
+      "speedup_pct": 75.88185606275293,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "068760",
+      "company": "셀트리온제약",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 1.240228584036231,
+      "experimental_sec": 0.24651974998414516,
+      "speedup_pct": 80.1230391592923,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "214150",
+      "company": "클래시스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.7341559589840472,
+      "experimental_sec": 0.0905332500115037,
+      "speedup_pct": 87.66838995125953,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "145020",
+      "company": "휴젤",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.5153152080019936,
+      "experimental_sec": 0.13367249991279095,
+      "speedup_pct": 74.06005143316597,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "140410",
+      "company": "메지온",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.2826234580716118,
+      "experimental_sec": 0.056855416973121464,
+      "speedup_pct": 79.88298021648461,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "005290",
+      "company": "동진쎄미켐",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.3682651249691844,
+      "experimental_sec": 0.06272266595624387,
+      "speedup_pct": 82.96806792076976,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "293490",
+      "company": "카카오게임즈",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 4.430465374956839,
+      "experimental_sec": 0.8876939159817994,
+      "speedup_pct": 79.96386743028214,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    }
+  ]
+}

@@ -7,7 +7,7 @@ data_source: [shareholder_meeting (notice), ownership_structure, corp_gov_report
 related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구조보고서]
 related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
 related_decisions: [open-proxy-guideline]
-related_audits: [260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final, 260504_0028_audit_proxy_advise_rename_regression, 260504_0705_audit_proxy_advise_ralph_final, 260504_0724_audit_parse_personnel_iter1-7]
+related_audits: [260510_proxy_advise_audit_통합정리, 260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final, 260504_0028_audit_proxy_advise_rename_regression, 260504_0724_audit_parse_personnel_iter1-7]
 created: 2026-05-04
 updated: 2026-05-05
 ---
@@ -45,7 +45,7 @@ proxy_advise_before_meeting(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 주총 연도 (사업연도 X) | 자동 (전년) |
 | meeting_type | str | no | "annual" / "extraordinary" / "auto" | "annual" |
-| vote_style | str | no | open_proxy / m_legacy / s_legacy / sa_legacy / kim / t_activist / a_activist / c_activist / b_foreign / nps | "open_proxy" |
+| vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface이며 사용자 출력에는 실명/식별자 노출 안 함 | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | format | str | no | "md" / "json" | "md" |
 
@@ -60,7 +60,7 @@ proxy_advise_before_meeting(
 | `facts` | 정량 fact dict (net_income / cap_status / 1번 안건 본문 FY raw / 후보 평가 등) |
 | `risk_factors` | 위험 신호 list ("완전 자본잠식", "장기연임", "이사 회계 risk 이력" 등) |
 | `policy_citation` | OPM Guideline 근거 ("§재무제표 — 적정 + 잠식 없음 시 FOR" 등) |
-| `policy_basis` | vote_style 적용 정책 ("Open Proxy / case_by_case → OPM fallback") |
+| `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
 | `evidence_rcept_no` | 근거 공고 (DART viewer link) |
 | `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect |
 
@@ -95,7 +95,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
 - `_decide_director_election` (사외/사내·결격·독립성·장기연임 + **사내이사 재직 성과 bad→AGAINST / weak→REVIEW**)
 - `_decide_financial_statements` (감사의견·자본잠식)
 - `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등)
-- `_decide_audit_compensation` (감사 보수한도 11 분기 — N연기금 IV-34 양방향: 1인당 평균 과소 + 인상률 과다)
+- `_decide_audit_compensation` (감사 보수한도 11 분기 — 참조 감사보수 규칙 + strict 내부 패턴: 1인당 평균 과소 + 인상률 과다)
 - `_decide_retirement_pay` (퇴직금 12 분기 — 황금낙하산·사외이사 퇴직금·지급률 2배수+ 등)
 - `_decide_articles_amendment` 안에서 정관변경에 묶인 퇴직금/보수한도 hybrid 처리
 - `_decide_dividend` (배당성향·자본잠식·리츠 의무 90%)
@@ -120,7 +120,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
   - G1 파싱 성공률 director 99.2 / audit 100 / retirement 100
   - G2 trigger 정확도 100% — AGAINST 5건 (피에스케이/피에스케이홀딩스/GST 지급률 2배수+ / 카카오페이 사외이사 퇴직금 / 퓨쳐메디신 자본잠식+인상)
   - G3 운용사 4+ majority 정합 100% (director 11/11, audit 1/1)
-  - G4 N연기금 정합 100% — 모든 AGAINST가 N연기금 [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치
+  - G4 reference rule 정합 100% — 모든 AGAINST가 참조 보수/감사보수/퇴직금 규칙 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치
   - 정관 안에 묶인 퇴직금/보수 hybrid 통합 (코붕이 의견)
   - financial_metrics summary에 prev_net_income/yoy 노출 → 흑자+yoy<0 trigger 활성화
 

@@ -1,0 +1,602 @@
+{
+  "company": "LG화학",
+  "kwargs": {
+    "scope": "summary",
+    "year": 2026,
+    "meeting_type": "annual"
+  },
+  "baseline_times": [
+    1.0685967499157414,
+    0.7246277090162039,
+    0.6867134579224512,
+    0.6538600000785664,
+    0.6944215419935063
+  ],
+  "experimental_times": [
+    0.15976708300877362,
+    0.039910207968205214,
+    0.04149820806924254,
+    0.04189729201607406,
+    0.040921750012785196
+  ],
+  "baseline_avg": 0.7656438917852938,
+  "experimental_avg": 0.06479890821501613,
+  "speedup_ratio": 11.815691234252428,
+  "payload_equal_excluding_usage": false,
+  "baseline_payload": {
+    "tool": "shareholder_meeting",
+    "status": "exact",
+    "subject": "LG화학",
+    "generated_at": "2026-05-10T09:40:39+00:00",
+    "warnings": [],
+    "data": {
+      "query": "LG화학",
+      "company_id": "cmp_051910",
+      "canonical_name": "LG화학",
+      "identifiers": {
+        "ticker": "051910",
+        "corp_code": "00356361"
+      },
+      "requested_meeting_type": "annual",
+      "meeting_type": "annual",
+      "selection_basis": "사용자가 정기 주주총회를 명시해 해당 회차를 선택했다.",
+      "year": 2026,
+      "requested_window": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-12-31",
+        "lookback_months": 12
+      },
+      "notice": {
+        "rcept_no": "20260224004273",
+        "report_name": "주주총회소집공고",
+        "disclosure_date": "20260224",
+        "filer_name": "LG화학",
+        "meeting_type": "정기",
+        "meeting_term": "제25기",
+        "is_correction": false,
+        "datetime": "2026년 3월 31일 (화) 오전 9시",
+        "location": "서울특별시 영등포구 여의대로 128, LG트윈타워 동관 지하1층 커넥트홀",
+        "notice_source": "dart_xml"
+      },
+      "notice_parse_source": "dart_xml",
+      "meeting_info": {
+        "meeting_type": "정기",
+        "meeting_term": "제25기",
+        "is_correction": false,
+        "datetime": "2026년 3월 31일 (화) 오전 9시",
+        "location": "서울특별시 영등포구 여의대로 128, LG트윈타워 동관 지하1층 커넥트홀",
+        "report_items": [
+          "제25기(2025.1.1 ~ 2025.12.31) 감사보고",
+          "제25기(2025.1.1 ~ 2025.12.31) 영업보고 - 주요주주 등 이해관계자와의 거래 보고 - 내부회계관리제도 운영실태보고"
+        ],
+        "electronic_voting": "4. 전자투표에 관한 사항당사는 주주님께서 주주총회에 직접 참석하지 않고도 의결권을 행사하실 수 있도록 전자투표제도(상법 제368조의 4)를 활용하고 있습니다.주주총회에 참석이 어려우시거나 온라인 중계를 시청하실 주주님께서는 주주총회일 전에 전자투표를 통해 의결권 행사를 부탁드립니다. \n주주님들께서는 아래의 방법에 따라 전자투표에 참여하실 수 있습니다. ① 전자투표시스템 - 인터넷 주소: https://evote.ksd.or.kr - 모바일 주소: https://evote.ksd.or.kr/m ※ 관리업무는 한국예탁결제원에 위탁하였습니다.② 전자투표 행사기간:\n \n2026년 3월 21일 9시 ~ 2026년 3월 30일 17시 - 첫날은 오전 9시부터 전자투표시스템 접속이 가능하며, 그 이후 기간 중에는 24시간 접속이 가능합니다. (단, 마지막 날은 오후 5시까지만 투표하실 수 있습니다)\n\n③ 인증서를 이용하여 전자투표시스템에서 주주 본인 확인 후 의결권 행사 - 주주확인용 인증서의 종류: 공동인증서 및 민간인증서\n (한국예탁결제원 전자투표시스템인 K-VOTE에서 사용 가능한 인증서 한정)\n④ 수정동의안 처리: 주주총회에서 상정된 의안에 관하여 수정동의가 제출되는 경우 전자투표는 기권으로 처리됩니다.",
+        "proxy_voting": null,
+        "online_broadcast": "6. 온라인 중계에 관한 사항\n 당사는 주주편의를 위해 사전에 신청하신 주주님들에 한하여 금번 정기주주총회 회의 진행을 온라인과 모바일을 통해 실시간으로 중계할 예정입니다.\n ① 제공 대상 : 2025년 12월 31일 기준 엘지화학 주식회사 주주 중 기간 내 사전 신청한 주주\n ② 사전 신청 기간 : 2026년 3월 21일 9시 ~ 2026년 3월 30일 17시\n ③ 사전 신청 안내 : 당사 홈페이지 (https://www.lgchem.com)를 통해 안내 예정\n ④ 의결권 행사 : 현행 법률상 온라인 중계 시청은 제25기 정기주주총회의 출석으로 인정되지 않으므로 전자투표 혹은 당사의 의결권 대리행사 신청을 통해 의결권을 행사하여 주시기 바랍니다.\n ⑤ 기타사항 : 온라인 중계를 신청하실 경우 당사는 사전 질문을 접수하여 주주총회 현장에서 답변드릴 예정입니다. 주주총회 진행 절차 및 시간제약 등으로 일부 질문만 채택될 수 있음을 알려드립니다. 또한, 동시 접속자 급증으로 인한 접속 장애 등이 발생할 경우 별도 사전 안내없이 중계가 제한될 수 있습니다.※ 당사는 외국인 주주의 의결권 행사를 돕고자 주주총회 현장 및 온라인 중계 시 영어 동시 통역 서비스를 제공할 예정입니다.",
+        "reference_materials": null,
+        "toc": [
+          "주주총회소집공고",
+          "주주총회 소집공고",
+          "※ 참고사항"
+        ]
+      },
+      "meeting_phase": "post_meeting_pre_result",
+      "result_status": "pending_or_missing",
+      "agenda_summary": {
+        "root_count": 6,
+        "total_count": 17,
+        "titles": [
+          "제25기 재무제표 승인의 건",
+          "정관 변경의 건",
+          "집중투표제 배제 조항 삭제",
+          "전자주주총회 제도 도입",
+          "독립이사로 명칭 변경",
+          "감사위원 분리선출 인원 확대",
+          "감사위원 선ㆍ해임시 의결권 제한 강화",
+          "정관 정비",
+          "권고적 주주제안의 도입",
+          "선임독립이사 선임"
+        ]
+      },
+      "board_summary": {
+        "total_appointments": 4,
+        "total_candidates": 2,
+        "directors": 1,
+        "outside_directors": 1,
+        "auditors": 0,
+        "audit_committee": 1,
+        "dismissals": 1
+      },
+      "compensation_summary": {
+        "totalItems": 1,
+        "currentTotalLimit": 7000000000,
+        "priorTotalPaid": 3210000000,
+        "priorTotalLimit": 7000000000,
+        "priorUtilization": 45.9
+      },
+      "no_filing": false,
+      "filing_count": 1,
+      "parsed_count": 1,
+      "parsing_failures": 0,
+      "filing_status": "all_parsed",
+      "available_scopes": [
+        "summary",
+        "board",
+        "compensation",
+        "aoi_change",
+        "prov_financials"
+      ],
+      "selected_meeting": {
+        "meeting_type": "annual",
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing",
+        "meeting_date": "2026-03-31",
+        "notice_rcept_no": "20260224004273",
+        "notice_date": "20260224",
+        "notice_report_name": "주주총회소집공고",
+        "result_rcept_no": "",
+        "result_date": ""
+      },
+      "alternative_meetings": [],
+      "meeting_coverage_12m": {
+        "window_months": 12,
+        "window_start": "2025-03-31",
+        "window_end": "2026-03-31",
+        "has_annual": true,
+        "has_extraordinary": false,
+        "presence_flag": "annual_only",
+        "annual_count": 1,
+        "extraordinary_count": 0,
+        "latest_annual": {
+          "meeting_date": "2026-03-31",
+          "notice_rcept_no": "20260224004273",
+          "notice_date": "20260224"
+        },
+        "latest_extraordinary": null
+      },
+      "agendas": [
+        {
+          "agenda_id": "1",
+          "number": "제1호",
+          "title": "제25기 재무제표 승인의 건",
+          "source": null,
+          "conditional": null,
+          "children": []
+        },
+        {
+          "agenda_id": "2",
+          "number": "제2호",
+          "title": "정관 변경의 건",
+          "source": null,
+          "conditional": null,
+          "children": [
+            {
+              "agenda_id": "2-1",
+              "number": "제2-1호",
+              "title": "집중투표제 배제 조항 삭제",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-2",
+              "number": "제2-2호",
+              "title": "전자주주총회 제도 도입",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-3",
+              "number": "제2-3호",
+              "title": "독립이사로 명칭 변경",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-4",
+              "number": "제2-4호",
+              "title": "감사위원 분리선출 인원 확대",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-5",
+              "number": "제2-5호",
+              "title": "감사위원 선ㆍ해임시 의결권 제한 강화",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-6",
+              "number": "제2-6호",
+              "title": "정관 정비",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-7",
+              "number": "제2-7호",
+              "title": "권고적 주주제안의 도입",
+              "source": "주주제안",
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-8",
+              "number": "제2-8호",
+              "title": "선임독립이사 선임",
+              "source": null,
+              "conditional": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "agenda_id": "3",
+          "number": "제3호",
+          "title": "주주 제안의 건",
+          "source": "주주제안",
+          "conditional": "제 3호 의안은 제2-7호 의안이 가결될 경우에만 상정되고, 그 외의 경우에는 자동 폐기됨.",
+          "children": [
+            {
+              "agenda_id": "3-1",
+              "number": "제3-1호",
+              "title": "기업가치 제고계획에 NAV 할인율을 주요 재무지표로 공개하는 내용의 건",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "3-2",
+              "number": "제3-2호",
+              "title": "기존 경영진 보상 계획에 주식연계보상을 도입하고 NAV 할인율 및 자기자본이익률(ROE)을 추가적인 핵심성과지표(KPI)로 연계하는 안에 대한 보상위원회 검토의 건",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "3-3",
+              "number": "제3-3호",
+              "title": "LG에너지솔루션 지분 유동화 규모를 확대하고 이에 따른 추가 자금을 활용하여 자기주식 매입 및 소각을 실행하는 내용의 주주 환원 정책 보강의 건",
+              "source": null,
+              "conditional": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "agenda_id": "4",
+          "number": "제4호",
+          "title": "이사 선임의 건 (사내이사 김동춘)",
+          "source": null,
+          "conditional": null,
+          "children": []
+        },
+        {
+          "agenda_id": "5",
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 (사외이사 천경훈)",
+          "source": null,
+          "conditional": "제 5호 의안은 제2-4호 의안 부결 시 자동 폐기됨    -",
+          "children": []
+        },
+        {
+          "agenda_id": "6",
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "source": null,
+          "conditional": null,
+          "children": []
+        }
+      ]
+    },
+    "evidence_refs": [
+      {
+        "evidence_id": "ev_notice_20260224004273",
+        "source_type": "dart_xml",
+        "rcept_no": "20260224004273",
+        "rcept_dt": "2026-02-24",
+        "report_nm": "주주총회소집공고",
+        "viewer_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260224004273",
+        "section": "주주총회 소집공고",
+        "note": "회의일 2026년 3월 31일 (화) 오전 9시"
+      }
+    ],
+    "next_actions": [
+      "agenda, board, compensation, results scope로 세부 탭 확인",
+      "결과가 아직 없으면 meeting_phase와 result_status를 먼저 확인"
+    ]
+  },
+  "experimental_payload": {
+    "tool": "shareholder_meeting",
+    "status": "exact",
+    "subject": "LG화학",
+    "generated_at": "2026-05-10T09:40:40+00:00",
+    "warnings": [],
+    "data": {
+      "query": "LG화학",
+      "company_id": "cmp_051910",
+      "canonical_name": "LG화학",
+      "identifiers": {
+        "ticker": "051910",
+        "corp_code": "00356361"
+      },
+      "requested_meeting_type": "annual",
+      "meeting_type": "annual",
+      "selection_basis": "사용자가 정기 주주총회를 명시해 해당 회차를 선택했다.",
+      "year": 2026,
+      "requested_window": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-12-31",
+        "lookback_months": 12
+      },
+      "notice": {
+        "rcept_no": "20260224004273",
+        "report_name": "주주총회소집공고",
+        "disclosure_date": "20260224",
+        "filer_name": "LG화학",
+        "meeting_type": "정기",
+        "meeting_term": "제25기",
+        "is_correction": false,
+        "datetime": "2026년 3월 31일 (화) 오전 9시",
+        "location": "서울특별시 영등포구 여의대로 128, LG트윈타워 동관 지하1층 커넥트홀",
+        "notice_source": "dart_xml"
+      },
+      "notice_parse_source": "dart_xml",
+      "meeting_info": {
+        "meeting_type": "정기",
+        "meeting_term": "제25기",
+        "is_correction": false,
+        "datetime": "2026년 3월 31일 (화) 오전 9시",
+        "location": "서울특별시 영등포구 여의대로 128, LG트윈타워 동관 지하1층 커넥트홀",
+        "report_items": [
+          "제25기(2025.1.1 ~ 2025.12.31) 감사보고",
+          "제25기(2025.1.1 ~ 2025.12.31) 영업보고 - 주요주주 등 이해관계자와의 거래 보고 - 내부회계관리제도 운영실태보고"
+        ],
+        "electronic_voting": "4. 전자투표에 관한 사항당사는 주주님께서 주주총회에 직접 참석하지 않고도 의결권을 행사하실 수 있도록 전자투표제도(상법 제368조의 4)를 활용하고 있습니다.주주총회에 참석이 어려우시거나 온라인 중계를 시청하실 주주님께서는 주주총회일 전에 전자투표를 통해 의결권 행사를 부탁드립니다. \n주주님들께서는 아래의 방법에 따라 전자투표에 참여하실 수 있습니다. ① 전자투표시스템 - 인터넷 주소: https://evote.ksd.or.kr - 모바일 주소: https://evote.ksd.or.kr/m ※ 관리업무는 한국예탁결제원에 위탁하였습니다.② 전자투표 행사기간:\n \n2026년 3월 21일 9시 ~ 2026년 3월 30일 17시 - 첫날은 오전 9시부터 전자투표시스템 접속이 가능하며, 그 이후 기간 중에는 24시간 접속이 가능합니다. (단, 마지막 날은 오후 5시까지만 투표하실 수 있습니다)\n\n③ 인증서를 이용하여 전자투표시스템에서 주주 본인 확인 후 의결권 행사 - 주주확인용 인증서의 종류: 공동인증서 및 민간인증서\n (한국예탁결제원 전자투표시스템인 K-VOTE에서 사용 가능한 인증서 한정)\n④ 수정동의안 처리: 주주총회에서 상정된 의안에 관하여 수정동의가 제출되는 경우 전자투표는 기권으로 처리됩니다.",
+        "proxy_voting": null,
+        "online_broadcast": "6. 온라인 중계에 관한 사항\n 당사는 주주편의를 위해 사전에 신청하신 주주님들에 한하여 금번 정기주주총회 회의 진행을 온라인과 모바일을 통해 실시간으로 중계할 예정입니다.\n ① 제공 대상 : 2025년 12월 31일 기준 엘지화학 주식회사 주주 중 기간 내 사전 신청한 주주\n ② 사전 신청 기간 : 2026년 3월 21일 9시 ~ 2026년 3월 30일 17시\n ③ 사전 신청 안내 : 당사 홈페이지 (https://www.lgchem.com)를 통해 안내 예정\n ④ 의결권 행사 : 현행 법률상 온라인 중계 시청은 제25기 정기주주총회의 출석으로 인정되지 않으므로 전자투표 혹은 당사의 의결권 대리행사 신청을 통해 의결권을 행사하여 주시기 바랍니다.\n ⑤ 기타사항 : 온라인 중계를 신청하실 경우 당사는 사전 질문을 접수하여 주주총회 현장에서 답변드릴 예정입니다. 주주총회 진행 절차 및 시간제약 등으로 일부 질문만 채택될 수 있음을 알려드립니다. 또한, 동시 접속자 급증으로 인한 접속 장애 등이 발생할 경우 별도 사전 안내없이 중계가 제한될 수 있습니다.※ 당사는 외국인 주주의 의결권 행사를 돕고자 주주총회 현장 및 온라인 중계 시 영어 동시 통역 서비스를 제공할 예정입니다.",
+        "reference_materials": null,
+        "toc": [
+          "주주총회소집공고",
+          "주주총회 소집공고",
+          "※ 참고사항"
+        ]
+      },
+      "meeting_phase": "post_meeting_pre_result",
+      "result_status": "pending_or_missing",
+      "agenda_summary": {
+        "root_count": 6,
+        "total_count": 17,
+        "titles": [
+          "제25기 재무제표 승인의 건",
+          "정관 변경의 건",
+          "집중투표제 배제 조항 삭제",
+          "전자주주총회 제도 도입",
+          "독립이사로 명칭 변경",
+          "감사위원 분리선출 인원 확대",
+          "감사위원 선ㆍ해임시 의결권 제한 강화",
+          "정관 정비",
+          "권고적 주주제안의 도입",
+          "선임독립이사 선임"
+        ]
+      },
+      "board_summary": {
+        "total_appointments": 4,
+        "total_candidates": 2,
+        "directors": 1,
+        "outside_directors": 1,
+        "auditors": 0,
+        "audit_committee": 1,
+        "dismissals": 1
+      },
+      "compensation_summary": {
+        "totalItems": 1,
+        "currentTotalLimit": 7000000000,
+        "priorTotalPaid": 3210000000,
+        "priorTotalLimit": 7000000000,
+        "priorUtilization": 45.9
+      },
+      "no_filing": false,
+      "filing_count": 1,
+      "parsed_count": 1,
+      "parsing_failures": 0,
+      "filing_status": "all_parsed",
+      "available_scopes": [
+        "summary",
+        "board",
+        "compensation",
+        "aoi_change",
+        "prov_financials"
+      ],
+      "selected_meeting": {
+        "meeting_type": "annual",
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing",
+        "meeting_date": "2026-03-31",
+        "notice_rcept_no": "20260224004273",
+        "notice_date": "20260224",
+        "notice_report_name": "주주총회소집공고",
+        "result_rcept_no": "",
+        "result_date": ""
+      },
+      "alternative_meetings": [],
+      "meeting_coverage_12m": {
+        "window_months": 12,
+        "window_start": "2025-03-31",
+        "window_end": "2026-03-31",
+        "has_annual": true,
+        "has_extraordinary": false,
+        "presence_flag": "annual_only",
+        "annual_count": 1,
+        "extraordinary_count": 0,
+        "latest_annual": {
+          "meeting_date": "2026-03-31",
+          "notice_rcept_no": "20260224004273",
+          "notice_date": "20260224"
+        },
+        "latest_extraordinary": null
+      },
+      "agendas": [
+        {
+          "agenda_id": "1",
+          "number": "제1호",
+          "title": "제25기 재무제표 승인의 건",
+          "source": null,
+          "conditional": null,
+          "children": []
+        },
+        {
+          "agenda_id": "2",
+          "number": "제2호",
+          "title": "정관 변경의 건",
+          "source": null,
+          "conditional": null,
+          "children": [
+            {
+              "agenda_id": "2-1",
+              "number": "제2-1호",
+              "title": "집중투표제 배제 조항 삭제",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-2",
+              "number": "제2-2호",
+              "title": "전자주주총회 제도 도입",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-3",
+              "number": "제2-3호",
+              "title": "독립이사로 명칭 변경",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-4",
+              "number": "제2-4호",
+              "title": "감사위원 분리선출 인원 확대",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-5",
+              "number": "제2-5호",
+              "title": "감사위원 선ㆍ해임시 의결권 제한 강화",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-6",
+              "number": "제2-6호",
+              "title": "정관 정비",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-7",
+              "number": "제2-7호",
+              "title": "권고적 주주제안의 도입",
+              "source": "주주제안",
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "2-8",
+              "number": "제2-8호",
+              "title": "선임독립이사 선임",
+              "source": null,
+              "conditional": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "agenda_id": "3",
+          "number": "제3호",
+          "title": "주주 제안의 건",
+          "source": "주주제안",
+          "conditional": "제 3호 의안은 제2-7호 의안이 가결될 경우에만 상정되고, 그 외의 경우에는 자동 폐기됨.",
+          "children": [
+            {
+              "agenda_id": "3-1",
+              "number": "제3-1호",
+              "title": "기업가치 제고계획에 NAV 할인율을 주요 재무지표로 공개하는 내용의 건",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "3-2",
+              "number": "제3-2호",
+              "title": "기존 경영진 보상 계획에 주식연계보상을 도입하고 NAV 할인율 및 자기자본이익률(ROE)을 추가적인 핵심성과지표(KPI)로 연계하는 안에 대한 보상위원회 검토의 건",
+              "source": null,
+              "conditional": null,
+              "children": []
+            },
+            {
+              "agenda_id": "3-3",
+              "number": "제3-3호",
+              "title": "LG에너지솔루션 지분 유동화 규모를 확대하고 이에 따른 추가 자금을 활용하여 자기주식 매입 및 소각을 실행하는 내용의 주주 환원 정책 보강의 건",
+              "source": null,
+              "conditional": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "agenda_id": "4",
+          "number": "제4호",
+          "title": "이사 선임의 건 (사내이사 김동춘)",
+          "source": null,
+          "conditional": null,
+          "children": []
+        },
+        {
+          "agenda_id": "5",
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 (사외이사 천경훈)",
+          "source": null,
+          "conditional": "제 5호 의안은 제2-4호 의안 부결 시 자동 폐기됨    -",
+          "children": []
+        },
+        {
+          "agenda_id": "6",
+          "number": "제6호",
+          "title": "이사 보수한도 승인의 건",
+          "source": null,
+          "conditional": null,
+          "children": []
+        }
+      ]
+    },
+    "evidence_refs": [
+      {
+        "evidence_id": "ev_notice_20260224004273",
+        "source_type": "dart_xml",
+        "rcept_no": "20260224004273",
+        "rcept_dt": "2026-02-24",
+        "report_nm": "주주총회소집공고",
+        "viewer_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260224004273",
+        "section": "주주총회 소집공고",
+        "note": "회의일 2026년 3월 31일 (화) 오전 9시"
+      }
+    ],
+    "next_actions": [
+      "agenda, board, compensation, results scope로 세부 탭 확인",
+      "결과가 아직 없으면 meeting_phase와 result_status를 먼저 확인"
+    ]
+  }
+}

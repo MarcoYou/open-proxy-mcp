@@ -19,7 +19,7 @@ related: [3-tier-fallback, opendataloader]
 - **agenda**: XML의 섹션 태그(`<section-1>`)가 정확한 경계 제공. PDF는 텍스트 기반이라 경계 판별 어려움.
 
 ### PDF가 우세한 영역
-- **personnel 경력**: XML에서 병합된 경력이 PDF에서는 개별 줄로 분리됨 (M레거시증권: 245자 1줄 -> 17건)
+- **personnel 경력**: XML에서 병합된 경력이 PDF에서는 개별 줄로 분리됨 (미래에셋증권: 245자 1줄 -> 17건)
 - **compensation**: XML에서 비표준 구조인 기업(기업은행 등)도 PDF에서 정상 파싱
 
 ### 파서별 PDF 성능 추이 (v1 -> 최종)

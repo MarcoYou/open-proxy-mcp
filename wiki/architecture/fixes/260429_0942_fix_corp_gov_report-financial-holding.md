@@ -18,7 +18,7 @@ audit v2 결과: corp_gov_report.summary 196건 중
 - exact 94 / no_filing 82 / **partial_failure 18** / error 2
 
 partial_failure 18건 모두 KOSPI 금융권:
-KB금융, 삼성생명, 신한지주, M레거시증권, 하나금융지주, 우리금융지주, 삼성화재,
+KB금융, 삼성생명, 신한지주, 미래에셋증권, 하나금융지주, 우리금융지주, 삼성화재,
 메리츠금융지주, 기업은행, 한국금융지주, 카카오뱅크, DB손해보험, 키움증권,
 NH투자증권, 삼성증권, 삼성카드, JB금융지주, BNK금융지주.
 
@@ -114,7 +114,7 @@ if is_financial_form:
 | 105560 | KB금융 | partial | no_filing |
 | 032830 | 삼성생명 | partial | no_filing |
 | 055550 | 신한지주 | partial | no_filing |
-| 006800 | M레거시증권 | partial | no_filing |
+| 006800 | 미래에셋증권 | partial | no_filing |
 | 086790 | 하나금융지주 | partial | no_filing |
 | 316140 | 우리금융지주 | partial | no_filing |
 | 000810 | 삼성화재 | partial | no_filing |

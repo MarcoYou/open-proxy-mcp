@@ -123,6 +123,27 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
     return fallback_decision, fallback_reason
 
 
+def _public_vote_style_label(vote_style: str | None) -> str:
+    if vote_style == "open_proxy":
+        return "open_proxy"
+    return "internal_policy_variant"
+
+
+def _public_policy_basis(
+    vote_style: str,
+    category: str,
+    policy_default: str | None,
+    law_layer_hit: tuple[str, str, str] | None,
+) -> str:
+    if law_layer_hit is not None:
+        return f"법령 layer (1·2·3차 상법 개정) — {law_layer_hit[2]}"
+
+    base = "Open Proxy guideline" if vote_style == "open_proxy" else "Internal policy variant"
+    if policy_default and policy_default != "case_by_case":
+        return f"{base} / {category}.default={policy_default}"
+    return f"{base} / case_by_case → OPM fallback"
+
+
 # ── 법령 layer (1·2·3차 상법 개정 + 정관 우회 시나리오, 260508 신규) ──
 
 _LAW_LAYER_RULES_CACHE: list[dict[str, Any]] | None = None
@@ -726,7 +747,7 @@ def _decide_director_compensation(
         return "REVIEW", f"보수한도 대폭 인상 ({inc:+.0f}%) — OPM #8 (50%+ 인상, 일회성 사유 외)"
     # 분기 4: +10~+30% + 순익 yoy 둔화 (N연기금 IV-33② 보수)
     if inc is not None and 10 < inc < 30 and yoy is not None and yoy < 5:
-        return "REVIEW", f"한도 +{inc:.0f}% + 순익 yoy {yoy:+.0f}% (둔화) — N연기금 IV-33② 보수적"
+        return "REVIEW", f"한도 +{inc:.0f}% + 순익 yoy {yoy:+.0f}% (둔화) — 참조 보수 규칙 (보수적)"
     # 분기 6: +30~+50% 외 (#3-4 미해당)
     if inc is not None and 30 <= inc < 50:
         return "REVIEW", f"한도 +{inc:.0f}% 인상 — 적정성 검토"
@@ -738,10 +759,10 @@ def _decide_director_compensation(
         return "FOR", f"한도 감액 ({inc:+.0f}%) — 주주가치 우호"
     # 분기 9: -10 ~ +10 (동결)
     if inc is not None and -10 <= inc <= 10:
-        return "FOR", f"보수한도 소폭 변경 ({inc:+.0f}%) — N연기금 IV-33① 원칙적 찬성"
+        return "FOR", f"보수한도 소폭 변경 ({inc:+.0f}%) — 참조 보수 규칙 (원칙적 찬성)"
     # 분기 10: +10~+30 + 순익 양호
     if inc is not None and 10 < inc < 30 and (yoy is None or yoy >= 5):
-        return "FOR", f"한도 +{inc:.0f}% + 경영성과 양호 — N연기금 IV-33①"
+        return "FOR", f"한도 +{inc:.0f}% + 경영성과 양호 — 참조 보수 규칙"
     # 분기 11/13: 인상률 None (compensation parsed but increase_rate missing)
     if inc is None:
         if cap_status == "full":
@@ -817,22 +838,22 @@ def _decide_audit_compensation(
         return "AGAINST", f"완전 자본잠식 + 감사 한도 인상 ({audit_inc:+.0f}%) — 보수 결정 부적절"
     # 분기 3: 1인당 평균 < threshold_low (N연기금 IV-34 과소)
     if audit_per_person is not None and audit_per_person < threshold_low_per_person:
-        return "AGAINST", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (< {threshold_low_per_person/1e8:.1f}억) — N연기금 IV-34 (과소, 충실 업무 훼손)"
+        return "AGAINST", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (< {threshold_low_per_person/1e8:.1f}억) — 참조 감사보수 규칙 (과소, 충실 업무 훼손)"
     # 분기 4: 인상률 ≥+50% + 1인당 평균 > threshold_high (s_legacy 패턴)
     if audit_inc is not None and audit_inc >= 50 and audit_per_person is not None and audit_per_person > threshold_high_per_person:
-        return "AGAINST", f"감사 한도 +{audit_inc:.0f}% + 1인당 평균 {audit_per_person/1e8:.2f}억 (>{threshold_high_per_person/1e8:.1f}억) — s_legacy 패턴 (경영진 동조 인센티브 우려)"
+        return "AGAINST", f"감사 한도 +{audit_inc:.0f}% + 1인당 평균 {audit_per_person/1e8:.2f}억 (>{threshold_high_per_person/1e8:.1f}억) — strict 내부 감사보수 패턴 (경영진 동조 인센티브 우려)"
     # 분기 5: 인상률 +30~+50% (s_legacy 보수)
     if audit_inc is not None and 30 <= audit_inc < 50:
-        return "REVIEW", f"감사 한도 +{audit_inc:.0f}% 인상 — s_legacy 패턴 보수적 검토"
+        return "REVIEW", f"감사 한도 +{audit_inc:.0f}% 인상 — strict 내부 감사보수 패턴 검토"
     # 분기 6: 1인당 평균 경계
     if audit_per_person is not None and threshold_low_per_person <= audit_per_person < threshold_high_per_person:
         return "REVIEW", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (경계 — {threshold_low_per_person/1e8:.1f}~{threshold_high_per_person/1e8:.1f}억) — 사용자 노출"
     # 분기 7: ±10% (동결)
     if audit_inc is not None and -10 <= audit_inc <= 10:
-        return "FOR", f"감사 한도 소폭 변경 ({audit_inc:+.0f}%) — N연기금 IV-34 + mainstream FOR"
+        return "FOR", f"감사 한도 소폭 변경 ({audit_inc:+.0f}%) — 참조 감사보수 규칙 + mainstream FOR"
     # 분기 8: 1인당 평균 ≥ threshold_high + +10~+30% 인상
     if audit_per_person is not None and audit_per_person >= threshold_high_per_person and audit_inc is not None and 10 < audit_inc < 30:
-        return "FOR", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (≥{threshold_high_per_person/1e8:.1f}억) + 한도 +{audit_inc:.0f}% — N연기금 IV-34 + mainstream"
+        return "FOR", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (≥{threshold_high_per_person/1e8:.1f}억) + 한도 +{audit_inc:.0f}% — 참조 감사보수 규칙 + mainstream"
     # 분기 9/10: 데이터 부족 fallback
     if audit_inc is None and audit_per_person is None:
         if cap_status == "full":
@@ -918,7 +939,7 @@ def _decide_retirement_pay(
     # 분기 1: 황금낙하산
     if risk_against:
         kws = ", ".join(sorted({h["kw"] for h in risk_against}))
-        return "AGAINST", f"퇴직금 위험 trigger ({kws}) 신설 — N연기금 IV-35 + OPM #7 (원칙적 반대)"
+        return "AGAINST", f"퇴직금 위험 trigger ({kws}) 신설 — 참조 퇴직금 규칙 + OPM #7 (원칙적 반대)"
     # 분기 2: 사외이사 퇴직금 신설
     if risk_outside_dir:
         return "AGAINST", "사외이사 퇴직금 신설 — OPM #6 (사외이사 퇴직혜택 부여 against)"
@@ -943,7 +964,7 @@ def _decide_retirement_pay(
             payment_multiplier_signal = True
             break
     if payment_multiplier_signal:
-        return "AGAINST", "지급률 2배수 이상 인상 또는 신설 (≥3배수) — s_legacy strict 패턴"
+        return "AGAINST", "지급률 2배수 이상 인상 또는 신설 (≥3배수) — strict 내부 퇴직금 패턴"
     # 분기 4: 자본잠식 + 변경
     if cap_status == "full" and amendments:
         return "REVIEW", f"완전 자본잠식 + 퇴직금 변경 {len(amendments)}건 — 보수적 검토"
@@ -1069,8 +1090,8 @@ _POLICY_CITATIONS = {
     "director_election": "OPM Guideline §이사선임 — 사내이사: 결격만 검증 / 사외이사: 독립성 + 결격",
     "audit_committee_election": "OPM Guideline §감사위원 — strict 검증 (장기연임 5년 룰 + 독립성)",
     "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 시 AGAINST / 적자+인상 시 AGAINST (#2) / 50% 이상 인상 시 REVIEW (#8)",
-    "audit_compensation": "N연기금 [별표 1] IV-34 + s_legacy 패턴 — 1인당 평균 과소 시 AGAINST / 50% 이상 인상 + 1인당 평균 과다 시 AGAINST",
-    "retirement_pay": "N연기금 [별표 1] IV-35 + OPM #6/#7 — 황금낙하산 신설 시 AGAINST / 사외이사 퇴직금 신설 시 AGAINST / 지급률 2배수 이상 인상 시 AGAINST",
+    "audit_compensation": "참조 감사보수 규칙 + strict 내부 패턴 — 1인당 평균 과소 시 AGAINST / 50% 이상 인상 + 1인당 평균 과다 시 AGAINST",
+    "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 신설 시 AGAINST / 사외이사 퇴직금 신설 시 AGAINST / 지급률 2배수 이상 인상 시 AGAINST",
     "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 없으면 FOR",
     "treasury_share": "OPM Guideline §자사주 — 소각 FOR / 처분 REVIEW",
     "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
@@ -1279,7 +1300,7 @@ def _extract_risks(
         for a in amends:
             after = (a.get("after") or "")
             if "황금낙하산" in after or "경영권 변동" in after:
-                risks.append("황금낙하산 또는 경영권 변동 special 가산 신설 (N연기금 IV-35 원칙적 반대)")
+                risks.append("황금낙하산 또는 경영권 변동 special 가산 신설 (참조 퇴직금 규칙상 원칙적 반대)")
                 break
         for a in amends:
             after = a.get("after") or ""
@@ -1917,16 +1938,8 @@ async def build_proxy_advise_payload(
         if law_layer_hit is None:
             decision, reason = _apply_policy_default(policy_default, decision, reason)
 
-        # 3. 정책 근거 명시 (vote_style + 운용사명 + 카테고리 default)
-        policy_basis = f"{policy_id}"
-        if policy_meta.get("manager_name"):
-            policy_basis = f"{policy_meta['manager_name']} ({policy_id})"
-        if law_layer_hit is not None:
-            policy_basis = f"법령 layer (1·2·3차 상법 개정) — {law_layer_hit[2]}"
-        elif policy_default and policy_default != "case_by_case":
-            policy_basis += f" / {category}.default={policy_default}"
-        else:
-            policy_basis += f" / case_by_case → OPM fallback"
+        # 3. 정책 근거 명시 (공개 surface에서는 내부 운용사/NPS 식별자 비노출)
+        policy_basis = _public_policy_basis(vote_style, category, policy_default, law_layer_hit)
 
         # 4. 결정 근거 보강 — facts (정량) + risk_factors + policy_citation
         all_director_evals = list(name_to_eval.values()) if category in ("director_election", "audit_committee_election") else None
@@ -1983,10 +1996,9 @@ async def build_proxy_advise_payload(
         "year": target_year,
         "fin_reference_year": fin_year,
         "meeting_type": meeting_type,
-        "vote_style": vote_style,
-        "vote_style_policy_id": policy_id,
+        "vote_style": _public_vote_style_label(vote_style),
+        "vote_style_policy_id": _public_vote_style_label(vote_style),
         "vote_style_resolved": bool(policy),
-        "vote_style_manager_name": policy_meta.get("manager_name") if policy else None,
         "audit_history_enabled": check_audit_history,
         "scope": scope,
         "agenda_count": len(agenda_titles),

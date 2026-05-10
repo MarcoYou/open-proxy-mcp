@@ -7,7 +7,7 @@ data_source: [DART OpenAPI fnlttSinglAcnt (BS+IS 핵심 30행), fnlttSinglIndx (
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
 related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석, ROE, ROA, ROIC, FCF, NWC, 매출채권회전율, 재고자산회전율, 이자보상배율, 순현금]
 related_decisions: [open-proxy-guideline, free-paid-분리, cross-domain-체이닝]
-related_audits: [260501_1820_audit_financial_metrics-6기업, 260501_2030_audit_financial_metrics-200기업]
+related_audits: [260510_financial_metrics_audit_통합정리, 260501_2030_audit_financial_metrics-200기업]
 created: 2026-05-01
 ---
 
@@ -187,7 +187,8 @@ sequenceDiagram
 - [[cross-domain-체이닝]] — financial_metrics → vote_brief / corp_gov_report 체이닝 (Phase 2)
 
 ## 관련 audit/fix (architecture/audits/)
-- [[260501_1820_audit_financial_metrics-6기업]] — 6 회사 sanity (status=exact 100%)
+- [[260510_financial_metrics_audit_통합정리]] — 6기업 sanity부터 200기업 전수까지 통합 정리
+- [[260501_2030_audit_financial_metrics-200기업]] — 200기업 기준 문서
 
 ## 알려진 issue + TODO
 - 일부 KOSDAQ 회사 백만원 단위 보고 — `_unit` 메타 자동 곱셈 (Phase 2)

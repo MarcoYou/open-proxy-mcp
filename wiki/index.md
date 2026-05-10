@@ -105,7 +105,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ### 최근 audit / fix
 - `260505_inside_director_performance/` — 사내이사 성과 매트릭스 KOSPI 100 + KOSDAQ 50 audit (n=128, G1 100%, dist 29.7/45.3/18.0/7.0 target band 모두 충족, threshold ≥9→≥7 calibration)
 - [[260504_0724_audit_parse_personnel_iter1-7]] - parse_personnel ralph 7 iter — role 88.7→100% + regression 0 (G2 99.36% 유지)
-- [[260504_0028_audit_proxy_advise_rename_regression]] - proxy_advise rename + 9 scope 추가 — regression 0 + 100% 일관성
+- [[260510_proxy_advise_audit_통합정리]] - proxy_advise / action audit 통합 정리
 - [[260503_2304_audit_recap_pattern]] - recap_vote 패턴 적용 200×3 100% (multi-upstream-pattern 일반화 검증)
 - [[260503_1847_audit_phase4_final]] - advise_vote 200×3 deterministic 100% + regression 0 (Phase 4)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] - 196 기업 × 11 tool audit
@@ -178,7 +178,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] - audit v2: no_filing 분리 + 진짜 partial 측정 (4-class)
 - [[260429_0942_audit_arithmetic-21지표]] - 산술 정확성 audit (21 지표)
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
-- [[260501_1820_audit_financial_metrics-6기업]] - financial_metrics Phase 1 sanity (6/6 PASS, status=exact 100%)
+- [[260510_financial_metrics_audit_통합정리]] - financial_metrics audit 통합 정리
 - [[260501_2030_audit_financial_metrics-200기업]] - financial_metrics 전수 audit (KOSPI 100 + KOSDAQ 100, exact 96.9%, 자본잠식 2건 검출, 5분)
 - [[260502_2300_audit_advise-recap-vote]] - action tool 재편 sanity (advise/recap 신규 + 18→17 회귀 0 + 매핑 3-tier 분류)
 
@@ -264,7 +264,7 @@ DART/KIND 공시 유형. 공시명 = 페이지명.
 
 ### Laws (3) - `rules/laws/`
 - [[rules/laws/상법-2025-2026-종합]] - 2025-2027 상법 개정 시행 일정
-- [[rules/laws/주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (M레거시증권)
+- [[rules/laws/주총방어-시나리오-4가지]] - 상법 개정 대응 방어 전술 4가지 (미래에셋증권)
 - [[rules/laws/주총체크리스트-2026]] - 주총 체크리스트 9개 + 상법 개정 타임라인
 
 ---
