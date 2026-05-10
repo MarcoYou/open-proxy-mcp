@@ -92,6 +92,47 @@ sub: "개정 상법 반영의 건"
 - 매핑 정확도 측정
 - 회귀 검증
 
-## 510 spot data에서 카카오게임즈 같은 케이스 식별
+## 510 회사에서 카카오게임즈 패턴 식별 결과
 
-`iter4_spot_*.json` records 중 정관변경 top + children 2+ + sub title에 "정관" 없음 + body fallback 미진입 회사 list. (별도 ralph iter 1)
+`scripts/spot_kakaogames_pattern.py` 510 회사 (KOSPI200 + KOSDAQ150 + KOSDAQ151-300 + DISPUTE) 안건 트리 분석.
+
+식별 조건:
+- 정관변경 top 안건 (parent="" + "정관" + "변경"/"개정")
+- children > 0 (sub-agenda 있음)
+- sub-agenda 중 title 일반 표현 (정관/변경/개정 단어 없음)
+- top + 모든 sub title 매칭 0 (asset=None 호출)
+
+| 분류 | 회사 수 | 비율 |
+|---|---:|---:|
+| 전체 식별 | 69 | 13.8% |
+| → A) **진정 카카오게임즈 패턴** | **26** | **5.1%** |
+| → B) false positive 의심 (자산 룰 영향) | 43 | 8.6% |
+
+분류 기준: sub title에 강행규정 키워드 (집중투표/사외이사/독립이사/전자주총/자사주/감사위원/보수한도) 있으면 B (자산 정보 정확히 주면 _law_layer catch 가능 — 자산 2조+ 룰). 없으면 A (진정 패턴 — 자산 무관 룰도 catch X).
+
+### A) 진정 카카오게임즈 패턴 26 회사
+
+KOSPI: 유한양행, 강원랜드, 씨에스윈드, 한미사이언스, 솔브레인, 동진쎄미켐, 원익홀딩스, 하나마이크론, 차바이오텍, 인텔리안테크, 솔브레인홀딩스, 쏠리드, 엔켐, 나노신소재, 파이버프로, 넥슨게임즈, 아난티, 에코프로에이치엔, 시노펙스, 한라캐스트, 파인엠텍, 인바디, 이수페타시스, 대덕전자, ISC, 성호전자
+
+sub title 패턴:
+- "개정 상법 반영" / "상법 개정 반영" / "조문 정비" — 일반 표현 多
+- "사업목적 추가" / "이사회 구조 정비" / "전자증권 도입"
+- "제N조 변경" / "제N조 개정" — 조항 번호만 명시 (한미사이언스 / 차바이오텍 / 나노신소재 / 파인엠텍)
+
+### B) false positive 의심 43 회사 sample
+
+삼성전자 / SK하이닉스 / 삼성바이오로직스 / 삼성생명 / NAVER / 삼성중공업 / HMM / 한국항공우주 / LIG디펜스앤에어로스페이스 / 크래프톤 등.
+
+이들은 sub에 "집중투표제 배제 조항 삭제" / "독립이사 명칭" / "전자주주총회" 같은 키워드 있어 _law_layer 정상 catch 가능 (자산 2조+ 회사 다수). spot script가 asset=None로 호출해서 A1-1 등 자산 룰 false negative 발생 — 카카오게임즈 패턴 아님.
+
+## 별도 ralph 우선순위 가치
+
+진정 패턴 26 회사 (5.1%)에 대한 sub→amendment 1:1 매핑 logic 가치:
+- 표본이 작지 않음 (510 중 5.1%)
+- 단 sub title이 너무 generic ("개정 상법 반영")이라 매핑 정확도 한계
+- amendments 갯수 vs sub 갯수 mismatch 처리 필요
+- 별도 architect ralph 후보 (Ralph 7 범위 외)
+
+## archive
+
+- `wiki/architecture/audits/data/260510_agenda_hierarchy/iter5_kakaogames_pattern_510.json` (식별 결과 raw)

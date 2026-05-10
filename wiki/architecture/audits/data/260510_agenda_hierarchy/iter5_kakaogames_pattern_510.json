@@ -1,0 +1,1410 @@
+[
+  {
+    "ticker": "005930",
+    "name": "삼성전자",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "이사의 임기 조문 정비",
+          "주식 소각 조문 정비"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "개정 상법 반영",
+          "이사의 임기 조문 정비",
+          "주식 소각 조문 정비"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "000660",
+    "name": "SK하이닉스",
+    "patterns": [
+      {
+        "top_title": "정관 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "그 외 개정 상법 반영"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "207940",
+    "name": "삼성바이오로직스",
+    "patterns": [
+      {
+        "top_title": "정관 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 정비 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 정비 건",
+          "상법 개정 반영 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "032830",
+    "name": "삼성생명",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제조항 삭제 및 부칙 신설의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제조항 삭제 및 부칙 신설의 건",
+          "상법개정에 따른 표준정관 반영 및 부칙 신설의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "035420",
+    "name": "NAVER",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "기타 상법 개정 반영의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "010140",
+    "name": "삼성중공업",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "사업목적 추가의 건",
+          "집중투표제도 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가의 건",
+          "상법 개정 등에 따른 정관 정비의 건",
+          "집중투표제도 배제 조항 삭제의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "011200",
+    "name": "HMM",
+    "patterns": [
+      {
+        "top_title": "정관 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "정관 일부 변경의 건",
+          "집중투표제 배제조항 삭제의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "047810",
+    "name": "한국항공우주",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "기타 상법 개정 반영의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "079550",
+    "name": "LIG디펜스앤에어로스페이스",
+    "patterns": [
+      {
+        "top_title": "정관 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "사채 발행 규모 확대"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "사명 변경",
+          "사채 발행 규모 확대",
+          "상법 개정 반영"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "259960",
+    "name": "크래프톤",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "자기주식 보유ㆍ처분 근거 규정 신설의 건",
+          "이사회 및 감사위원회 관련 규정 정비의 건"
+        ],
+        "all_sub_titles": [
+          "자기주식 보유ㆍ처분 근거 규정 신설의 건",
+          "의결권 기준일 변경의 건",
+          "전자주주총회 및 집중투표제 운영규정 개정의 건",
+          "이사회 및 감사위원회 관련 규정 정비의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "307950",
+    "name": "현대오토에버",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "그 외 정관 일부 변경의 건 (개정 상법 반영 등)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "007660",
+    "name": "이수페타시스",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "이사회의 구성과 소집 관련 조문 정비",
+          "전자증권 도입 관련 조문 정비 외"
+        ],
+        "all_sub_titles": [
+          "개정 상법 반영",
+          "이사회의 구성과 소집 관련 조문 정비",
+          "전자증권 도입 관련 조문 정비 외"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "000100",
+    "name": "유한양행",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 8,
+        "generic_sub_count": 8,
+        "generic_sub_titles": [
+          "제12조(주주명부 작성·비치)",
+          "제20조(소집지와 개최방식)",
+          "제26조(의결권의 대리행사)",
+          "제29조(이사의 수)",
+          "제30조(이사의 선임)"
+        ],
+        "all_sub_titles": [
+          "제12조(주주명부 작성·비치)",
+          "제20조(소집지와 개최방식)",
+          "제26조(의결권의 대리행사)",
+          "제29조(이사의 수)",
+          "제30조(이사의 선임)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "047040",
+    "name": "대우건설",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "상법개정 관련 정관 일부 변경의 건",
+          "홈페이지 주소 관련 정관 일부 변경의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "128940",
+    "name": "한미약품",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 6,
+        "generic_sub_count": 6,
+        "generic_sub_titles": [
+          "제31조 (의결권의 대리행사)",
+          "제33조 (이사의 수)",
+          "제36조 (이사의 보선)",
+          "제42조의2 (위원회)",
+          "제44조 (감사위원회의 구성)"
+        ],
+        "all_sub_titles": [
+          "제31조 (의결권의 대리행사)",
+          "제33조 (이사의 수)",
+          "제36조 (이사의 보선)",
+          "제42조의2 (위원회)",
+          "제44조 (감사위원회의 구성)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "138930",
+    "name": "BNK금융지주",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "전자주주총회 개최 근거에 관한 사항 (제26조)",
+          "이사회운영위원회 폐지에 관한 사항(제49조)"
+        ],
+        "all_sub_titles": [
+          "전자주주총회 개최 근거에 관한 사항 (제26조)",
+          "주주의결권의 대리행사 증명 방법에 관한 규정 개정(제31조)",
+          "이사의 충실의무 관련 규정 개정(제42조)",
+          "이사회운영위원회 폐지에 관한 사항(제49조)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "036570",
+    "name": "NC",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 5,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "집중투표제 배제조항 삭제",
+          "분기배당절차 개선 반영"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제조항 삭제",
+          "분기배당절차 개선 반영",
+          "사명 및 본점소재지 변경",
+          "자기주식 보유 및 처분 관련 개정 상법 반영",
+          "기타 개정 상법 반영"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "353200",
+    "name": "대덕전자",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "이사의 임기 조문 정비의 건"
+        ],
+        "all_sub_titles": [
+          "개정 상법 반영의 건",
+          "이사의 임기 조문 정비의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "018880",
+    "name": "한온시스템",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 7,
+        "generic_sub_count": 5,
+        "generic_sub_titles": [
+          "전자 주주총회 관련 규정 반영",
+          "독립이사제도 반영",
+          "집중투표제 배제 조항 삭제",
+          "분리선출 감사위원 수 확대",
+          "부칙"
+        ],
+        "all_sub_titles": [
+          "전자 주주총회 관련 규정 반영",
+          "독립이사제도 반영",
+          "집중투표제 배제 조항 삭제",
+          "분리선출 감사위원 수 확대",
+          "감사위원회 선임 관련 규정 변경"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "000990",
+    "name": "DB하이텍",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "공정거래 특별 조사 신설의 건",
+          "내부거래위원회 신설의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "상법 개정사항 반영의 건",
+          "공정거래 특별 조사 신설의 건",
+          "내부거래위원회 신설의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "035250",
+    "name": "강원랜드",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "신규사업 영위를 위한 사업 목적 추가"
+        ],
+        "all_sub_titles": [
+          "관계 법령 및 행정기관·행정체계 개정사항 현행화를 위한 변경",
+          "신규사업 영위를 위한 사업 목적 추가"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "111770",
+    "name": "영원무역",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 10,
+        "generic_sub_count": 10,
+        "generic_sub_titles": [
+          "배당기준일",
+          "이사의 임기",
+          "독립이사제도",
+          "감사위원 분리선임 인원 상향",
+          "전자주주총회"
+        ],
+        "all_sub_titles": [
+          "배당기준일",
+          "이사의 임기",
+          "독립이사제도",
+          "감사위원 분리선임 인원 상향",
+          "전자주주총회"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "011790",
+    "name": "SKC",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경 승인의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "그 외 개정 상법 반영의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "439260",
+    "name": "대한조선",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건 (별첨 참조)",
+        "sub_count": 4,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "전자주주총회 미개최 조항 추가",
+          "서면에 의한 의결권 행사 조항 삭제",
+          "부칙 신설"
+        ],
+        "all_sub_titles": [
+          "전자주주총회 미개최 조항 추가",
+          "서면에 의한 의결권 행사 조항 삭제",
+          "상법 개정법률 반영에 따른 문구 수정",
+          "부칙 신설"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "004170",
+    "name": "신세계",
+    "patterns": [
+      {
+        "top_title": "정관일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "보선 관련 이사의 임기 명확화",
+          "분기 배당 절차 개선"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "상법개정에 따른 변경",
+          "보선 관련 이사의 임기 명확화",
+          "분기 배당 절차 개선"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "009970",
+    "name": "영원무역홀딩스",
+    "patterns": [
+      {
+        "top_title": "정관일부 변경의 건",
+        "sub_count": 7,
+        "generic_sub_count": 7,
+        "generic_sub_titles": [
+          "독립이사제도",
+          "전자주주총회",
+          "이사의 수",
+          "감사의 선임",
+          "이사의 임기"
+        ],
+        "all_sub_titles": [
+          "독립이사제도",
+          "전자주주총회",
+          "이사의 수",
+          "감사의 선임",
+          "이사의 임기"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "112610",
+    "name": "씨에스윈드",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 5,
+        "generic_sub_count": 4,
+        "generic_sub_titles": [
+          "전자증권제도 및 전자증권법 반영",
+          "이사의 임기 조문 정비",
+          "배당절차 개선 반영",
+          "부칙"
+        ],
+        "all_sub_titles": [
+          "개정상법 반영",
+          "전자증권제도 및 전자증권법 반영",
+          "이사의 임기 조문 정비",
+          "배당절차 개선 반영",
+          "부칙"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "008930",
+    "name": "한미사이언스",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 7,
+        "generic_sub_count": 7,
+        "generic_sub_titles": [
+          "제22조 (소집지)",
+          "제28조 (의결권의 대리행사)",
+          "제31조 (이사 및 감사의 수)",
+          "제34조 (이사의 보선)",
+          "제41조의2 (위원회)"
+        ],
+        "all_sub_titles": [
+          "제22조 (소집지)",
+          "제28조 (의결권의 대리행사)",
+          "제31조 (이사 및 감사의 수)",
+          "제34조 (이사의 보선)",
+          "제41조의2 (위원회)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "139480",
+    "name": "이마트",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제조항 삭제"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제조항 삭제",
+          "상법개정 등에 따른 조항 정비"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "000120",
+    "name": "CJ대한통운",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경 승인의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "개정 상법 반영"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "279570",
+    "name": "케이뱅크",
+    "patterns": [
+      {
+        "top_title": "정관 변경(안)",
+        "sub_count": 6,
+        "generic_sub_count": 4,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "이사회내 위원회 신설",
+          "이사회 구성 시 성별 다양성 확보 근거 마련",
+          "부칙 신설"
+        ],
+        "all_sub_titles": [
+          "개정 상법 반영",
+          "집중투표제 배제 조항 삭제",
+          "사외이사 임기 변경",
+          "이사회내 위원회 신설",
+          "이사회 구성 시 성별 다양성 확보 근거 마련"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "336260",
+    "name": "두산퓨얼셀",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "독립이사 제도 도입",
+          "감사위원 분리선임 인원 상향"
+        ],
+        "all_sub_titles": [
+          "독립이사 제도 도입",
+          "감사위원 분리선임 인원 상향"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "204320",
+    "name": "HL만도",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 9,
+        "generic_sub_count": 9,
+        "generic_sub_titles": [
+          "제24조(소집지) → 제24조(소집지와 개최방식)",
+          "제30조(의결권의 대리행사)",
+          "제33조(이사의 수)",
+          "제34조(이사의 선임)",
+          "제35조(사외이사 후보의 추천)"
+        ],
+        "all_sub_titles": [
+          "제24조(소집지) → 제24조(소집지와 개최방식)",
+          "제30조(의결권의 대리행사)",
+          "제33조(이사의 수)",
+          "제34조(이사의 선임)",
+          "제35조(사외이사 후보의 추천)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "006360",
+    "name": "GS건설",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "사업목적 추가의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "사업목적 추가의 건",
+          "상법 개정 반영의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "004800",
+    "name": "효성",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "그 외 정관 변경의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "012630",
+    "name": "HDC",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경 (안)",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제",
+          "상법 개정 반영"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "086520",
+    "name": "에코프로",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "사업목적 추가의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표 배제 조항 변경의 건",
+          "사업목적 추가의 건",
+          "이사 선임 및 보수관련 변경의 건",
+          "기타 변경의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "028300",
+    "name": "HLB",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 7,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "자기주식의 보유 또는 처분의 건",
+          "위원회 신설의 건",
+          "부칙 신설의 건"
+        ],
+        "all_sub_titles": [
+          "사업목적 변경의 건",
+          "종류주식 전환 조건 변경의 건",
+          "자기주식의 보유 또는 처분의 건",
+          "상법 개정 반영의 건",
+          "위원회 신설의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "095340",
+    "name": "ISC",
+    "patterns": [
+      {
+        "top_title": "정관 개정 건",
+        "sub_count": 7,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "제42조의2(이사회 내 위원회) 신설 건"
+        ],
+        "all_sub_titles": [
+          "제35조(이사의 수) 변경 건",
+          "제39조(이사의 의무) 변경 건",
+          "제40조(이사의 보수와 퇴직금) 변경 건",
+          "제40조의2(이사의 책임감경) 변경 건",
+          "제42조의2(이사회 내 위원회) 신설 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "263750",
+    "name": "펄어비스",
+    "patterns": [
+      {
+        "top_title": "정관 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "이사 보수한도 규정 신설",
+          "감사 보수한도 규정 신설"
+        ],
+        "all_sub_titles": [
+          "이사 보수한도 규정 신설",
+          "감사 보수한도 규정 신설"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "043260",
+    "name": "성호전자",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "전환사채 발행한도 확대의 건",
+          "신주인수권부사채의 발행한도 확대의 건",
+          "중간배당에 관한 사항 추가의 건"
+        ],
+        "all_sub_titles": [
+          "전환사채 발행한도 확대의 건",
+          "신주인수권부사채의 발행한도 확대의 건",
+          "중간배당에 관한 사항 추가의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "357780",
+    "name": "솔브레인",
+    "patterns": [
+      {
+        "top_title": "정관 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "기타 조문 정비의 건 (지배구조 개선을 위한 재무제표 및 배당 주주총회 승인 명문화)"
+        ],
+        "all_sub_titles": [
+          "상법 개정 반영의 건 (개정상법 정관 반영)",
+          "기타 조문 정비의 건 (지배구조 개선을 위한 재무제표 및 배당 주주총회 승인 명문화)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "005290",
+    "name": "동진쎄미켐",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "주식의 소각 조문 신설의 건",
+          "분기배당 기준 정비의 건"
+        ],
+        "all_sub_titles": [
+          "주식의 소각 조문 신설의 건",
+          "상법 개정 반영의 건",
+          "분기배당 기준 정비의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "030530",
+    "name": "원익홀딩스",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "조문 일부 정비"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가 및 변경",
+          "개정 상법 반영",
+          "감사 제도 변경",
+          "조문 일부 정비"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "067310",
+    "name": "하나마이크론",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "이사회 구조 및 운영 정비(제37조, 제41조, 제44조)",
+          "배당 제도 정비(제58조, 제58조의",
+          "기타 조문 정비(제1조, 제4조, 제12조, 부칙, 그 외 조문번호)"
+        ],
+        "all_sub_titles": [
+          "개정 상법 반영(제32조, 제35조, 제39조, 제40조의",
+          "이사회 구조 및 운영 정비(제37조, 제41조, 제44조)",
+          "배당 제도 정비(제58조, 제58조의",
+          "기타 조문 정비(제1조, 제4조, 제12조, 부칙, 그 외 조문번호)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "131970",
+    "name": "두산테스나",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "이사의 충실의무 확대의 건",
+          "독립이사 제도 도입의 건",
+          "감사위원회 구성 강화"
+        ],
+        "all_sub_titles": [
+          "이사의 충실의무 확대의 건",
+          "독립이사 제도 도입의 건",
+          "감사위원회 구성 강화"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "078600",
+    "name": "대주전자재료",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 5,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "지점 관련 조항 정비의 건",
+          "자기주식 소각 보유 처분 관련의 건"
+        ],
+        "all_sub_titles": [
+          "지점 관련 조항 정비의 건",
+          "자기주식 소각 보유 처분 관련의 건",
+          "이사의 수 변경의 건",
+          "이사회 관련 조항 변경의 건",
+          "감사위원 선임 관련 변경의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "085660",
+    "name": "차바이오텍",
+    "patterns": [
+      {
+        "top_title": "정관 변경의 건",
+        "sub_count": 7,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "부칙 추가의 건"
+        ],
+        "all_sub_titles": [
+          "정관 제23조(이사와 감사의 원수) 개정의 건",
+          "정관 제23조(이사와 감사의 원수) 개정의 건",
+          "정관 제32조 2(위원회) 개정의 건",
+          "부칙 추가의 건",
+          "정관 제10조의 5(신주발행의 제한) 신설의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "003380",
+    "name": "하림지주",
+    "patterns": [
+      {
+        "top_title": "정관 변경 승인의 건 +",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건 +"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건 +",
+          "그 외의 정관변경에 관한 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "189300",
+    "name": "인텔리안테크",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "사업목적 추가의 건"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가의 건",
+          "개정 상법 반영의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "397030",
+    "name": "에이프릴바이오",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 件",
+        "sub_count": 3,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "이사의 의무 추가 및 독립이사 선임의 件"
+        ],
+        "all_sub_titles": [
+          "이사의 의무 추가 및 독립이사 선임의 件",
+          "임원보수관련 변경의 件",
+          "기타 정관 변경의 件"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "035760",
+    "name": "CJ ENM",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "상법 개정안 반영의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "036830",
+    "name": "솔브레인홀딩스",
+    "patterns": [
+      {
+        "top_title": "정관 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "사업목적 추가의 건",
+          "기타 조문 정비의 건 (지배구조 개선을 위한 재무제표 및 배당 주주총회 승인 명문화)"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가의 건",
+          "상법 개정 반영의 건 (개정상법 정관 반영)",
+          "기타 조문 정비의 건 (지배구조 개선을 위한 재무제표 및 배당 주주총회 승인 명문화)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "050890",
+    "name": "쏠리드",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 7,
+        "generic_sub_count": 6,
+        "generic_sub_titles": [
+          "주식매수선택권 부여 한도 축소 및 성과연동형 조항 추가",
+          "동등배당 규정 준용을 통한 조문 일관성 제고",
+          "전자증권제도에 따른 불필요 조문 삭제",
+          "의결권 기준일 고정으로 절차 간소화",
+          "분기배당 기준일의 가변적 설정 및 공고 절차 근거 마련"
+        ],
+        "all_sub_titles": [
+          "주식매수선택권 부여 한도 축소 및 성과연동형 조항 추가",
+          "동등배당 규정 준용을 통한 조문 일관성 제고",
+          "전자증권제도에 따른 불필요 조문 삭제",
+          "의결권 기준일 고정으로 절차 간소화",
+          "개정 상법 반영"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "348370",
+    "name": "엔켐",
+    "patterns": [
+      {
+        "top_title": "정관일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "전환사채 조문 정비"
+        ],
+        "all_sub_titles": [
+          "개정 상법에 따른 정관 변경",
+          "전환사채 조문 정비"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "121600",
+    "name": "나노신소재",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "부칙 신설(경과규정)"
+        ],
+        "all_sub_titles": [
+          "이사의 수 (제32조) 일부 변경의 건",
+          "이사의 의무 (제37조의 2) 일부 변경의 건",
+          "이사의 보수와 퇴직금 (제41조) 일부 변경의 건",
+          "부칙 신설(경과규정)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "368770",
+    "name": "파이버프로",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "사업목적 추가의 건(제2조)"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가의 건(제2조)",
+          "상법 개정내용 및 코스닥상장법인 표준정관을 반영한 조문 정비의 건(제30조, 제33조, 제38조, 제39조의2, 제50조)",
+          "부칙 변경의 건(부칙 제1조, 제2조, 제3조)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "225570",
+    "name": "넥슨게임즈",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "분기배당 절차 개선"
+        ],
+        "all_sub_titles": [
+          "개정상법 반영",
+          "분기배당 절차 개선"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "024850",
+    "name": "HLB이노베이션",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "자기주식 보유 또는 처분 관련의 건(제10조의",
+          "주주명부의 작성, 비치 관련의 건(제13조의2)"
+        ],
+        "all_sub_titles": [
+          "주식병합에 따른 액면가액 변경의 건(제6조)",
+          "개정 상법 반영에 따른 변경의 건(제19조, 제22조, 제26조, 부칙추가)",
+          "자기주식 보유 또는 처분 관련의 건(제10조의",
+          "주주명부의 작성, 비치 관련의 건(제13조의2)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "356860",
+    "name": "티엘비",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경 건",
+        "sub_count": 4,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "전환사채 발행조항(제17조) 정비 건",
+          "감사위원회 설치 건",
+          "자기주식 보유 및 처분에 관한 조항(제10조) 신설 건"
+        ],
+        "all_sub_titles": [
+          "전환사채 발행조항(제17조) 정비 건",
+          "감사위원회 설치 건",
+          "개정상법에 따른 정관 정비 및 기타 정관 정비 건",
+          "자기주식 보유 및 처분에 관한 조항(제10조) 신설 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "025980",
+    "name": "아난티",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "사업목적 추가"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가",
+          "그 외 정관 변경의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "383310",
+    "name": "에코프로에이치엔",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "사업목적 추가의 건"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가의 건",
+          "이사 선임 및 보수 관련 변경의 건",
+          "기타 변경의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "025320",
+    "name": "시노펙스",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "사업목적 추가의 건"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가의 건",
+          "개정 상법 반영의 건",
+          "기타 변경의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "095660",
+    "name": "네오위즈",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "자기주식 보유 또는 처분에 관한 규정 신설"
+        ],
+        "all_sub_titles": [
+          "개정 상법 반영",
+          "자기주식 보유 또는 처분에 관한 규정 신설",
+          "기타 정관 변경"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "125490",
+    "name": "한라캐스트",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "사업목적 추가의 건",
+          "전환사채 발행한도 증액의 건",
+          "중간배당 추가의 건"
+        ],
+        "all_sub_titles": [
+          "사업목적 추가의 건",
+          "전환사채 발행한도 증액의 건",
+          "중간배당 추가의 건",
+          "그 외 상법 변경에 따른 정관 변경의 건"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "036620",
+    "name": "감성코퍼레이션",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 4,
+        "generic_sub_count": 2,
+        "generic_sub_titles": [
+          "의결권 대리행사 방법 다양화 규정",
+          "이사의 의무 중 총 주주 이익보호 규정"
+        ],
+        "all_sub_titles": [
+          "의결권 대리행사 방법 다양화 규정",
+          "상법 개정에 따른 독립이사 관련 내용 및 이사 정족수 변경 규정",
+          "이사의 의무 중 총 주주 이익보호 규정",
+          "대법원 판례 변경에 따른 임원 보수규정 신설 및 임원 보수 지급"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "441270",
+    "name": "파인엠텍",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 5,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "기타 수정 (부칙)"
+        ],
+        "all_sub_titles": [
+          "소집지와 개최방식 변경의 건 (정관 제26조)",
+          "의결권 대리행사 변경의 건 (정관 제32조)",
+          "이사의 원수 변경의 건 (정관 제35조)",
+          "이사의 의무 변경의 건 (정관 제39조)",
+          "기타 수정 (부칙)"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "041830",
+    "name": "인바디",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경의 건",
+        "sub_count": 3,
+        "generic_sub_count": 3,
+        "generic_sub_titles": [
+          "이사 및 감사의 수",
+          "이사 의무와 책임감경",
+          "이사회 내 위원회 설치"
+        ],
+        "all_sub_titles": [
+          "이사 및 감사의 수",
+          "이사 의무와 책임감경",
+          "이사회 내 위원회 설치"
+        ]
+      }
+    ]
+  },
+  {
+    "ticker": "078020",
+    "name": "LS증권",
+    "patterns": [
+      {
+        "top_title": "정관 일부 변경(案) 승인의 건",
+        "sub_count": 2,
+        "generic_sub_count": 1,
+        "generic_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건"
+        ],
+        "all_sub_titles": [
+          "집중투표제 배제 조항 삭제의 건",
+          "상법 개정사항 반영 등 정관 일부 변경의 건"
+        ]
+      }
+    ]
+  }
+]
