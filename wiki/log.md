@@ -71,6 +71,27 @@ title: Operation Log
 - facts 신규 노출 (concurrent_outside_positions / concurrent_summary)
 - promise: DIRECTOR_FAITHFULNESS_ENHANCED ✅
 
+## [2026-05-10] fix | proxy_advise 응답 품질 — 묶음 후보 detail + raw 중복/매핑 (commit 7f1b88c, 4fec268)
+
+사용자 응답 품질 측정 (메리츠/LG화학/카카오게임즈) 후 발견 3가지 중 2가지 fix:
+
+**fix 1 — 묶음 안건 후보 detail 노출**:
+- facts.candidate_summary 추가 (후보별 이름/role/appointment/독립성/결격/겸직)
+- 50 회사 검증: 25/50 묶음 안건 → 160명 detail 노출 (이전 0)
+
+**fix 2 — raw 첨부 중복 회피 + sub→amendment 매핑 활용**:
+- 회사 단위 첨부 flag (_amendments_attached_for_company) — 첫 미매핑 안건에 모든 amendments / 다음은 anchor
+- Ralph 8 매핑 활용 (_subagenda_attempted_mappings) — 매핑 성공 sub는 자기 amendment 1개만
+- LG화학 5980→2951자 (-50%) + amendments [5][6][7] (미catch sub 본문) 노출
+- 50 회사 검증: anchor 61건 ~76KB 절약 / 매핑 10 회사 (현대차/KT&G/카카오/현대모비스 등)
+
+**검증 결과**:
+- KT&G B1-8 sub-mapped + B1/B2 raw 첨부 동시 작동 (Ralph 6/8 호환)
+- decision logic 영향 0 (facts 노출 + raw 첨부만)
+- 회귀 0 / 에러 0
+
+**문제 3 (reason vs raw 신호 불일치)**: LLM 위임 (skip).
+
 **핵심 안전장치 (Ralph 6 회귀 회피)**:
 - D 패턴 strict 진입 조건 (LG화학 같은 sub 명확 회사 자동 제외)
 - amendment 단위 검사 (모든 amendments 통합 X)
