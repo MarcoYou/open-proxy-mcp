@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import date, timedelta
+import json
+from pathlib import Path
 import re
 from typing import Any
 
@@ -24,6 +26,24 @@ from open_proxy_mcp.services.contracts import (
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
 
 _RECENT_LOOKBACK_DAYS = 180
+_KSIC_PATH = Path(__file__).resolve().parent.parent / "data/ksic/ksic10_ko.json"
+try:
+    _KSIC_MAP: dict[str, str] = json.loads(_KSIC_PATH.read_text(encoding="utf-8"))
+except Exception:
+    _KSIC_MAP = {}
+
+
+def _resolve_induty_name(induty_code: str) -> str:
+    code = (induty_code or "").strip()
+    if not code:
+        return ""
+    if code in _KSIC_MAP:
+        return _KSIC_MAP[code]
+    for end in range(len(code) - 1, 1, -1):
+        prefix = code[:end]
+        if prefix in _KSIC_MAP:
+            return _KSIC_MAP[prefix]
+    return ""
 
 
 @dataclass(slots=True)
@@ -138,17 +158,6 @@ async def _safe_company_info(corp_code: str) -> tuple[dict[str, Any], str | None
     except DartClientError as exc:
         return {}, f"DART company.json 조회 실패: {exc.status}"
 
-
-async def _safe_naver_profile(stock_code: str) -> tuple[dict[str, Any], str | None]:
-    client = get_dart_client()
-    if not stock_code:
-        return {}, None
-    try:
-        return await client.get_naver_corp_profile(stock_code), None
-    except Exception:
-        return {}, "NAVER 업종 보강 실패"
-
-
 async def _safe_recent_filings(
     corp_code: str,
     max_items: int,
@@ -257,7 +266,6 @@ async def build_company_payload(
         return envelope.to_dict()
 
     company_info_task = _safe_company_info(selected["corp_code"])
-    naver_task = _safe_naver_profile(selected.get("stock_code", ""))
     filings_task = _safe_recent_filings(
         selected["corp_code"],
         max_recent_filings,
@@ -265,9 +273,8 @@ async def build_company_payload(
         end_date=end_date,
     )
 
-    (company_info, company_warn), (naver, naver_warn), (recent_filings, filings_window, filings_warn) = await asyncio.gather(
+    (company_info, company_warn), (recent_filings, filings_window, filings_warn) = await asyncio.gather(
         company_info_task,
-        naver_task,
         filings_task,
     )
 
@@ -280,7 +287,7 @@ async def build_company_payload(
         "N": "KONEX",
         "E": "비상장",
     }
-    warnings = [warning for warning in (company_warn, naver_warn, filings_warn) if warning]
+    warnings = [warning for warning in (company_warn, filings_warn) if warning]
     if not company_info.get("jurir_no"):
         warnings.append("ISIN은 아직 v2 company tool에 연결되지 않았다.")
 
@@ -306,8 +313,8 @@ async def build_company_payload(
         "classification": {
             "market": market_map.get(corp_cls, corp_cls or "미상"),
             "corp_cls": corp_cls,
-            "sector_name": naver.get("sector_name", ""),
-            "sector_code": naver.get("sector_code", ""),
+            "sector_name": _resolve_induty_name(company_info.get("induty_code", "")),
+            "sector_code": "",
             "induty_code": company_info.get("induty_code", ""),
             "fiscal_month": company_info.get("acc_mt", ""),
         },

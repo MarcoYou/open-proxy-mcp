@@ -871,6 +871,46 @@ async def _meeting_result_data(
     }, None
 
 
+async def load_shareholder_meeting_agenda_titles(
+    company_query: str,
+    *,
+    meeting_type: str = "annual",
+    year: int | None = None,
+    start_date: str = "",
+    end_date: str = "",
+    lookback_months: int = 12,
+) -> list[str]:
+    """Return notice agenda titles without building the full shareholder_meeting envelope."""
+
+    if meeting_type not in _ALLOWED_MEETING_TYPES:
+        return []
+
+    resolution = await resolve_company_query(company_query)
+    selected = resolution.selected
+    if resolution.status != AnalysisStatus.EXACT or not selected:
+        return []
+
+    soup_cache: dict[tuple[str, str, Any], Any] = {}
+    selected_candidate, _alternatives, _basis, _candidate_error, _candidate_notices = await _select_notice_candidate(
+        selected["corp_code"],
+        year,
+        meeting_type,
+        "summary",
+        start_date=start_date,
+        end_date=end_date,
+        lookback_months=lookback_months,
+    )
+    if not selected_candidate:
+        return []
+
+    parsed_notice, _parse_warnings, _notice_parse_source = await _load_notice_bundle_with_fallback(
+        selected_candidate["notice"]["rcept_no"],
+        scope="summary",
+        soup_cache=soup_cache,
+    )
+    return _agenda_titles(parsed_notice.get("agenda", []))
+
+
 def _unsupported_scope_payload(
     company_query: str,
     scope: str,

@@ -199,23 +199,19 @@ async def _detect_capital_reserve_reduction(
     """
 
     try:
-        from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
+        from open_proxy_mcp.services.shareholder_meeting import load_shareholder_meeting_agenda_titles
     except Exception:
         return False, []
 
     try:
-        payload = await build_shareholder_meeting_payload(
+        titles = await load_shareholder_meeting_agenda_titles(
             company_query,
-            scope="summary",
-            year=year,
             meeting_type="annual",
+            year=year,
         )
     except Exception:
         return False, []
 
-    data = payload.get("data", {}) or {}
-    agenda_summary = data.get("agenda_summary", {}) or {}
-    titles: list[str] = agenda_summary.get("titles", []) or []
     matched: list[dict[str, Any]] = []
     for title in titles:
         if not title:

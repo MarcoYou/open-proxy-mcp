@@ -1348,6 +1348,73 @@ async def fetch_acquisition_summary(
     }
 
 
+async def fetch_treasury_signal_summary(
+    corp_code: str,
+    *,
+    bgn_de: str,
+    end_de: str,
+) -> tuple[dict[str, Any], list[str]]:
+    """Lightweight 24m treasury signal summary for cross-tool references.
+
+    Keeps the same summary semantics used by `value_up` without building
+    execution-phase rows, cycle matching, or the full treasury payload.
+    """
+
+    client = get_dart_client()
+
+    async def safe(coro, label: str) -> tuple[list[dict[str, Any]], str | None]:
+        try:
+            res = await coro
+            return res.get("list", []) or [], None
+        except DartClientError as exc:
+            return [], f"{label} 조회 실패: {exc.status}"
+
+    acq_task = safe(client.get_treasury_acquisition(corp_code, bgn_de, end_de), "취득결정")
+    trc_task = safe(client.get_treasury_trust_contract(corp_code, bgn_de, end_de), "신탁계약 체결결정")
+
+    async def cancelation_search():
+        items, _notices, error = await search_filings_by_report_name(
+            corp_code=corp_code,
+            bgn_de=bgn_de,
+            end_de=end_de,
+            pblntf_tys=("B", "I"),
+            keywords=_CANCELATION_KEYWORDS,
+            strip_spaces=True,
+        )
+        if error:
+            return [], f"자사주 소각결정 조회 실패: {error}"
+        return items, None
+
+    (acq, w1), (trc, w2), (ret, w3) = await asyncio.gather(
+        acq_task,
+        trc_task,
+        cancelation_search(),
+    )
+    warnings = [w for w in (w1, w2, w3) if w]
+
+    cancelation_rows = [_normalize_cancelation_row(item) for item in ret]
+    cancelation_failures = await _enrich_cancelation_with_body(cancelation_rows)
+    if cancelation_failures:
+        warnings.append(
+            f"자사주 소각결정 본문 파싱 실패 {cancelation_failures}건 — 소각 금액이 0으로 보일 수 있다."
+        )
+    raw_cnt = len(cancelation_rows)
+    cancelation_rows = _dedupe_cancelation_rows(cancelation_rows)
+    if len(cancelation_rows) < raw_cnt:
+        warnings.append(
+            f"[기재정정] 중복 {raw_cnt - len(cancelation_rows)}건을 제거해 소각 합산했다."
+        )
+
+    bundles = {
+        "acquisition": [_normalize_acquisition(item) for item in acq],
+        "disposal": [],
+        "trust_contract": [_normalize_trust(item, "trust_contract", "자기주식 취득 신탁계약 체결 결정") for item in trc],
+        "trust_termination": [],
+        "cancelation": cancelation_rows,
+    }
+    return _summary_counts(bundles), warnings
+
+
 async def build_treasury_share_payload(
     company_query: str,
     *,

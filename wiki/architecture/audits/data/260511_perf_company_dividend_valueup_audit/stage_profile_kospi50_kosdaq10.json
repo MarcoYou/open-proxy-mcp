@@ -1,0 +1,5842 @@
+{
+  "meta": {
+    "sample": "KOSPI 50 + KOSDAQ 10",
+    "sample_size": 60,
+    "timeout_sec": 120.0,
+    "duration_sec": 503.39
+  },
+  "summary": {
+    "company": {
+      "n_total": 60,
+      "n_ok": 60,
+      "n_exception": 0,
+      "elapsed_sec": {
+        "median": 4.137749895977322,
+        "p95": 4.173085708380677,
+        "max": 4.3629942500265315,
+        "mean": 4.140266882599098
+      },
+      "stage_summary": [
+        {
+          "stage": "_safe_naver_profile",
+          "median_total_sec": 4.131140082958154,
+          "p95_total_sec": 4.166041118715657,
+          "max_total_sec": 4.282691458007321,
+          "mean_total_sec": 4.131190826328626,
+          "median_count": 1.0,
+          "max_count": 1
+        },
+        {
+          "stage": "_safe_recent_filings",
+          "median_total_sec": 0.20010360452579334,
+          "p95_total_sec": 0.22572868156130427,
+          "max_total_sec": 0.4647661669878289,
+          "mean_total_sec": 0.20790297497878782,
+          "median_count": 1.0,
+          "max_count": 1
+        },
+        {
+          "stage": "_safe_company_info",
+          "median_total_sec": 0.046952228993177414,
+          "p95_total_sec": 0.06789481454761695,
+          "max_total_sec": 0.1280630840919912,
+          "mean_total_sec": 0.051630937562246494,
+          "median_count": 1.0,
+          "max_count": 1
+        },
+        {
+          "stage": "lookup_corp_code_all",
+          "median_total_sec": 0.00361808342859149,
+          "p95_total_sec": 0.017983291065320373,
+          "max_total_sec": 0.15093420795165002,
+          "mean_total_sec": 0.007576563158848634,
+          "median_count": 1.0,
+          "max_count": 1
+        }
+      ]
+    },
+    "dividend": {
+      "n_total": 60,
+      "n_ok": 60,
+      "n_exception": 0,
+      "elapsed_sec": {
+        "median": 1.4245992710348219,
+        "p95": 2.9658488794928357,
+        "max": 6.305583375040442,
+        "mean": 1.666996420919895
+      },
+      "stage_summary": [
+        {
+          "stage": "_detect_capital_reserve_reduction",
+          "median_total_sec": 0.6801801665569656,
+          "p95_total_sec": 2.34682966070249,
+          "max_total_sec": 5.669587000040337,
+          "mean_total_sec": 0.960032290284289,
+          "median_count": 1.0,
+          "max_count": 1
+        },
+        {
+          "stage": "_search_dividend_filings",
+          "median_total_sec": 0.3438609375152737,
+          "p95_total_sec": 0.516736016946379,
+          "max_total_sec": 0.7770180830266327,
+          "mean_total_sec": 0.35428708263207226,
+          "median_count": 1.0,
+          "max_count": 1
+        },
+        {
+          "stage": "_annual_summary",
+          "median_total_sec": 0.2904631255660206,
+          "p95_total_sec": 0.3410499024495948,
+          "max_total_sec": 0.5695490001235157,
+          "mean_total_sec": 0.2969794528500643,
+          "median_count": 3.0,
+          "max_count": 3
+        },
+        {
+          "stage": "_detect_pre_dividend_post_resolution",
+          "median_total_sec": 0.14895800000522286,
+          "p95_total_sec": 0.27963244964485057,
+          "max_total_sec": 0.3838454589713365,
+          "mean_total_sec": 0.1744693124919043,
+          "median_count": 1.0,
+          "max_count": 1
+        },
+        {
+          "stage": "_decision_details",
+          "median_total_sec": 0.005093375046271831,
+          "p95_total_sec": 0.0334834061970468,
+          "max_total_sec": 0.06427212490234524,
+          "mean_total_sec": 0.008486573416739703,
+          "median_count": 1.0,
+          "max_count": 1
+        },
+        {
+          "stage": "resolve_company_query",
+          "median_total_sec": 0.00243462499929592,
+          "p95_total_sec": 0.0039986062038224164,
+          "max_total_sec": 0.02277558296918869,
+          "mean_total_sec": 0.002992464534084623,
+          "median_count": 1.0,
+          "max_count": 1
+        }
+      ]
+    },
+    "value_up": {
+      "n_total": 60,
+      "n_ok": 60,
+      "n_exception": 0,
+      "elapsed_sec": {
+        "median": 2.1522869379841723,
+        "p95": 4.606431909004458,
+        "max": 5.484697208972648,
+        "mean": 2.5821774320696327
+      },
+      "stage_summary": [
+        {
+          "stage": "_search_kind_value_up_items",
+          "median_total_sec": 2.8543989585596137,
+          "p95_total_sec": 4.4488982997601845,
+          "max_total_sec": 4.766231501009315,
+          "mean_total_sec": 2.8992154513834976,
+          "median_count": 2.0,
+          "max_count": 2
+        },
+        {
+          "stage": "treasury_cross_ref",
+          "median_total_sec": 1.937499332940206,
+          "p95_total_sec": 4.1073078848130535,
+          "max_total_sec": 5.109270582906902,
+          "mean_total_sec": 2.1748176596172724,
+          "median_count": 1.0,
+          "max_count": 1
+        },
+        {
+          "stage": "_search_value_up_items",
+          "median_total_sec": 0.12806143751367927,
+          "p95_total_sec": 0.34741670055082063,
+          "max_total_sec": 0.5283573329215869,
+          "mean_total_sec": 0.1754202097770758,
+          "median_count": 1.0,
+          "max_count": 2
+        },
+        {
+          "stage": "get_document_cached",
+          "median_total_sec": 0.0022266250452958047,
+          "p95_total_sec": 0.018469582282705233,
+          "max_total_sec": 0.024615456582978368,
+          "mean_total_sec": 0.005638985063544371,
+          "median_count": 4.5,
+          "max_count": 28
+        },
+        {
+          "stage": "resolve_company_query",
+          "median_total_sec": 0.003958042012527585,
+          "p95_total_sec": 0.013211207726271821,
+          "max_total_sec": 0.015332749928347766,
+          "mean_total_sec": 0.0053731277274588745,
+          "median_count": 1.0,
+          "max_count": 1
+        }
+      ]
+    }
+  },
+  "records": {
+    "company": [
+      {
+        "tool": "company",
+        "ticker": "005930",
+        "company": "삼성전자",
+        "status": "exact",
+        "elapsed_sec": 4.3629942500265315,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.1280630840919912,
+            "count": 1,
+            "avg_sec": 0.1280630840919912
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.1658581249648705,
+            "count": 1,
+            "avg_sec": 4.1658581249648705
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.3754542500246316,
+            "count": 1,
+            "avg_sec": 0.3754542500246316
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.15093420795165002,
+            "count": 1,
+            "avg_sec": 0.15093420795165002
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "000660",
+        "company": "SK하이닉스",
+        "status": "exact",
+        "elapsed_sec": 4.120022415998392,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.0450999999884516,
+            "count": 1,
+            "avg_sec": 0.0450999999884516
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.11588870792184,
+            "count": 1,
+            "avg_sec": 4.11588870792184
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.22487054206430912,
+            "count": 1,
+            "avg_sec": 0.22487054206430912
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003699124907143414,
+            "count": 1,
+            "avg_sec": 0.003699124907143414
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "005380",
+        "company": "현대차",
+        "status": "exact",
+        "elapsed_sec": 4.120096291066147,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.045936833950690925,
+            "count": 1,
+            "avg_sec": 0.045936833950690925
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.116717915982008,
+            "count": 1,
+            "avg_sec": 4.116717915982008
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.21704474999569356,
+            "count": 1,
+            "avg_sec": 0.21704474999569356
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.002894458011724055,
+            "count": 1,
+            "avg_sec": 0.002894458011724055
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "373220",
+        "company": "LG에너지솔루션",
+        "status": "exact",
+        "elapsed_sec": 4.138605291955173,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04592787497676909,
+            "count": 1,
+            "avg_sec": 0.04592787497676909
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.134905625018291,
+            "count": 1,
+            "avg_sec": 4.134905625018291
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19606525008566678,
+            "count": 1,
+            "avg_sec": 0.19606525008566678
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0028124579694122076,
+            "count": 1,
+            "avg_sec": 0.0028124579694122076
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "207940",
+        "company": "삼성바이오로직스",
+        "status": "exact",
+        "elapsed_sec": 4.151908791973256,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.0583087089471519,
+            "count": 1,
+            "avg_sec": 0.0583087089471519
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.148856707965024,
+            "count": 1,
+            "avg_sec": 4.148856707965024
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.2264034590916708,
+            "count": 1,
+            "avg_sec": 0.2264034590916708
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0025600000517442822,
+            "count": 1,
+            "avg_sec": 0.0025600000517442822
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "012450",
+        "company": "한화에어로스페이스",
+        "status": "exact",
+        "elapsed_sec": 4.108499915921129,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04465608298778534,
+            "count": 1,
+            "avg_sec": 0.04465608298778534
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.10484612500295,
+            "count": 1,
+            "avg_sec": 4.10484612500295
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.22388374991714954,
+            "count": 1,
+            "avg_sec": 0.22388374991714954
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0031785829924046993,
+            "count": 1,
+            "avg_sec": 0.0031785829924046993
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "402340",
+        "company": "SK스퀘어",
+        "status": "exact",
+        "elapsed_sec": 4.128652249928564,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05573183298110962,
+            "count": 1,
+            "avg_sec": 0.05573183298110962
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.125308708054945,
+            "count": 1,
+            "avg_sec": 4.125308708054945
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1950780419865623,
+            "count": 1,
+            "avg_sec": 0.1950780419865623
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0028810000512748957,
+            "count": 1,
+            "avg_sec": 0.0028810000512748957
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "034020",
+        "company": "두산에너빌리티",
+        "status": "exact",
+        "elapsed_sec": 4.1007675000000745,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.046387874986976385,
+            "count": 1,
+            "avg_sec": 0.046387874986976385
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.096678624977358,
+            "count": 1,
+            "avg_sec": 4.096678624977358
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19767708401195705,
+            "count": 1,
+            "avg_sec": 0.19767708401195705
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0032791669946163893,
+            "count": 1,
+            "avg_sec": 0.0032791669946163893
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "000270",
+        "company": "기아",
+        "status": "exact",
+        "elapsed_sec": 4.118280666996725,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.08331441599875689,
+            "count": 1,
+            "avg_sec": 0.08331441599875689
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.1126797089818865,
+            "count": 1,
+            "avg_sec": 4.1126797089818865
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.2230703339446336,
+            "count": 1,
+            "avg_sec": 0.2230703339446336
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.004903375054709613,
+            "count": 1,
+            "avg_sec": 0.004903375054709613
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "105560",
+        "company": "KB금융",
+        "status": "exact",
+        "elapsed_sec": 4.117030958994292,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04673449997790158,
+            "count": 1,
+            "avg_sec": 0.04673449997790158
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.11297520797234,
+            "count": 1,
+            "avg_sec": 4.11297520797234
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20634599996265024,
+            "count": 1,
+            "avg_sec": 0.20634599996265024
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0031085419468581676,
+            "count": 1,
+            "avg_sec": 0.0031085419468581676
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "329180",
+        "company": "HD현대중공업",
+        "status": "exact",
+        "elapsed_sec": 4.155369666987099,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05391508399043232,
+            "count": 1,
+            "avg_sec": 0.05391508399043232
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.145472333999351,
+            "count": 1,
+            "avg_sec": 4.145472333999351
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20264762500301003,
+            "count": 1,
+            "avg_sec": 0.20264762500301003
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.009023625054396689,
+            "count": 1,
+            "avg_sec": 0.009023625054396689
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "068270",
+        "company": "셀트리온",
+        "status": "exact",
+        "elapsed_sec": 4.147453207988292,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04215754207689315,
+            "count": 1,
+            "avg_sec": 0.04215754207689315
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.140837540966459,
+            "count": 1,
+            "avg_sec": 4.140837540966459
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19071170897223055,
+            "count": 1,
+            "avg_sec": 0.19071170897223055
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.005740166991017759,
+            "count": 1,
+            "avg_sec": 0.005740166991017759
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "055550",
+        "company": "신한지주",
+        "status": "exact",
+        "elapsed_sec": 4.1791601669974625,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04600958293303847,
+            "count": 1,
+            "avg_sec": 0.04600958293303847
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.175450916052796,
+            "count": 1,
+            "avg_sec": 4.175450916052796
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.21527262509334832,
+            "count": 1,
+            "avg_sec": 0.21527262509334832
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0032389579573646188,
+            "count": 1,
+            "avg_sec": 0.0032389579573646188
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "032830",
+        "company": "삼성생명",
+        "status": "exact",
+        "elapsed_sec": 4.1416558750206605,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.03654479200486094,
+            "count": 1,
+            "avg_sec": 0.03654479200486094
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.135118167032488,
+            "count": 1,
+            "avg_sec": 4.135118167032488
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.2059022500179708,
+            "count": 1,
+            "avg_sec": 0.2059022500179708
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.00314174999948591,
+            "count": 1,
+            "avg_sec": 0.00314174999948591
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "028260",
+        "company": "삼성물산",
+        "status": "exact",
+        "elapsed_sec": 4.1373717919923365,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.042780624935403466,
+            "count": 1,
+            "avg_sec": 0.042780624935403466
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.130896124988794,
+            "count": 1,
+            "avg_sec": 4.130896124988794
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19430862506851554,
+            "count": 1,
+            "avg_sec": 0.19430862506851554
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.005632000043988228,
+            "count": 1,
+            "avg_sec": 0.005632000043988228
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "042660",
+        "company": "한화오션",
+        "status": "exact",
+        "elapsed_sec": 4.130427874973975,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.08121504203882068,
+            "count": 1,
+            "avg_sec": 0.08121504203882068
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.120912124984898,
+            "count": 1,
+            "avg_sec": 4.120912124984898
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20996404101606458,
+            "count": 1,
+            "avg_sec": 0.20996404101606458
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.008867166005074978,
+            "count": 1,
+            "avg_sec": 0.008867166005074978
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "006400",
+        "company": "삼성SDI",
+        "status": "exact",
+        "elapsed_sec": 4.079841500031762,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04653062508441508,
+            "count": 1,
+            "avg_sec": 0.04653062508441508
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.076198959024623,
+            "count": 1,
+            "avg_sec": 4.076198959024623
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20555695798248053,
+            "count": 1,
+            "avg_sec": 0.20555695798248053
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0031689159804955125,
+            "count": 1,
+            "avg_sec": 0.0031689159804955125
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "012330",
+        "company": "현대모비스",
+        "status": "exact",
+        "elapsed_sec": 4.150427499902435,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04565408395137638,
+            "count": 1,
+            "avg_sec": 0.04565408395137638
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.146284749964252,
+            "count": 1,
+            "avg_sec": 4.146284749964252
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.225135707994923,
+            "count": 1,
+            "avg_sec": 0.225135707994923
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0036048749461770058,
+            "count": 1,
+            "avg_sec": 0.0036048749461770058
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "006800",
+        "company": "미래에셋증권",
+        "status": "exact",
+        "elapsed_sec": 4.119482500012964,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.045514833997003734,
+            "count": 1,
+            "avg_sec": 0.045514833997003734
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.1150904999813065,
+            "count": 1,
+            "avg_sec": 4.1150904999813065
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.4647661669878289,
+            "count": 1,
+            "avg_sec": 0.4647661669878289
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0037627089768648148,
+            "count": 1,
+            "avg_sec": 0.0037627089768648148
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "267260",
+        "company": "HD현대일렉트릭",
+        "status": "exact",
+        "elapsed_sec": 4.138674374902621,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.0397433340549469,
+            "count": 1,
+            "avg_sec": 0.0397433340549469
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.1285412079887465,
+            "count": 1,
+            "avg_sec": 4.1285412079887465
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1993759999750182,
+            "count": 1,
+            "avg_sec": 0.1993759999750182
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.009285417036153376,
+            "count": 1,
+            "avg_sec": 0.009285417036153376
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "009150",
+        "company": "삼성전기",
+        "status": "exact",
+        "elapsed_sec": 4.135890916921198,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.056004208978265524,
+            "count": 1,
+            "avg_sec": 0.056004208978265524
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.131654666969553,
+            "count": 1,
+            "avg_sec": 4.131654666969553
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1955229170853272,
+            "count": 1,
+            "avg_sec": 0.1955229170853272
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003631291911005974,
+            "count": 1,
+            "avg_sec": 0.003631291911005974
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "086790",
+        "company": "하나금융지주",
+        "status": "exact",
+        "elapsed_sec": 4.135061000008136,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.0413160000462085,
+            "count": 1,
+            "avg_sec": 0.0413160000462085
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.130712124984711,
+            "count": 1,
+            "avg_sec": 4.130712124984711
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.21902774996124208,
+            "count": 1,
+            "avg_sec": 0.21902774996124208
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003781332983635366,
+            "count": 1,
+            "avg_sec": 0.003781332983635366
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "035420",
+        "company": "NAVER",
+        "status": "exact",
+        "elapsed_sec": 4.1186179160140455,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04593304102309048,
+            "count": 1,
+            "avg_sec": 0.04593304102309048
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.10561983298976,
+            "count": 1,
+            "avg_sec": 4.10561983298976
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.2153303329832852,
+            "count": 1,
+            "avg_sec": 0.2153303329832852
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.01228024996817112,
+            "count": 1,
+            "avg_sec": 0.01228024996817112
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "010130",
+        "company": "고려아연",
+        "status": "exact",
+        "elapsed_sec": 4.130729917087592,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04723324999213219,
+            "count": 1,
+            "avg_sec": 0.04723324999213219
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.1280815419740975,
+            "count": 1,
+            "avg_sec": 4.1280815419740975
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.21729083301033825,
+            "count": 1,
+            "avg_sec": 0.21729083301033825
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0022746670292690396,
+            "count": 1,
+            "avg_sec": 0.0022746670292690396
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "005490",
+        "company": "POSCO홀딩스",
+        "status": "exact",
+        "elapsed_sec": 4.130565666011535,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.0546751250512898,
+            "count": 1,
+            "avg_sec": 0.0546751250512898
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.126212666975334,
+            "count": 1,
+            "avg_sec": 4.126212666975334
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.22569316695444286,
+            "count": 1,
+            "avg_sec": 0.22569316695444286
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0037672079633921385,
+            "count": 1,
+            "avg_sec": 0.0037672079633921385
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "015760",
+        "company": "한국전력",
+        "status": "exact",
+        "elapsed_sec": 4.1381279999623075,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04246516595594585,
+            "count": 1,
+            "avg_sec": 0.04246516595594585
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.131384040927514,
+            "count": 1,
+            "avg_sec": 4.131384040927514
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1919599580578506,
+            "count": 1,
+            "avg_sec": 0.1919599580578506
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.005950417020358145,
+            "count": 1,
+            "avg_sec": 0.005950417020358145
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "009540",
+        "company": "HD한국조선해양",
+        "status": "exact",
+        "elapsed_sec": 4.133918542065658,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05706700007431209,
+            "count": 1,
+            "avg_sec": 0.05706700007431209
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.128727750037797,
+            "count": 1,
+            "avg_sec": 4.128727750037797
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20422020903788507,
+            "count": 1,
+            "avg_sec": 0.20422020903788507
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.00443391699809581,
+            "count": 1,
+            "avg_sec": 0.00443391699809581
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "272210",
+        "company": "한화시스템",
+        "status": "exact",
+        "elapsed_sec": 4.146100417012349,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05035779101308435,
+            "count": 1,
+            "avg_sec": 0.05035779101308435
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.139649749966338,
+            "count": 1,
+            "avg_sec": 4.139649749966338
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20056104206014425,
+            "count": 1,
+            "avg_sec": 0.20056104206014425
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.005552957998588681,
+            "count": 1,
+            "avg_sec": 0.005552957998588681
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "042700",
+        "company": "한미반도체",
+        "status": "exact",
+        "elapsed_sec": 4.149018667056225,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05594129103701562,
+            "count": 1,
+            "avg_sec": 0.05594129103701562
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.145836833049543,
+            "count": 1,
+            "avg_sec": 4.145836833049543
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19542966596782207,
+            "count": 1,
+            "avg_sec": 0.19542966596782207
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.002667332999408245,
+            "count": 1,
+            "avg_sec": 0.002667332999408245
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "010140",
+        "company": "삼성중공업",
+        "status": "exact",
+        "elapsed_sec": 4.13074895797763,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.055653125047683716,
+            "count": 1,
+            "avg_sec": 0.055653125047683716
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.126697207917459,
+            "count": 1,
+            "avg_sec": 4.126697207917459
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19497704098466784,
+            "count": 1,
+            "avg_sec": 0.19497704098466784
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003377791028469801,
+            "count": 1,
+            "avg_sec": 0.003377791028469801
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "316140",
+        "company": "우리금융지주",
+        "status": "exact",
+        "elapsed_sec": 4.168410292011686,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.03935524995904416,
+            "count": 1,
+            "avg_sec": 0.03935524995904416
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.149180000065826,
+            "count": 1,
+            "avg_sec": 4.149180000065826
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19964616699144244,
+            "count": 1,
+            "avg_sec": 0.19964616699144244
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.01853904197923839,
+            "count": 1,
+            "avg_sec": 0.01853904197923839
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "298040",
+        "company": "효성중공업",
+        "status": "exact",
+        "elapsed_sec": 4.119921875069849,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.0565573750063777,
+            "count": 1,
+            "avg_sec": 0.0565573750063777
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.1167567080119625,
+            "count": 1,
+            "avg_sec": 4.1167567080119625
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20642258296720684,
+            "count": 1,
+            "avg_sec": 0.20642258296720684
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.00260079198051244,
+            "count": 1,
+            "avg_sec": 0.00260079198051244
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "010120",
+        "company": "LS ELECTRIC",
+        "status": "exact",
+        "elapsed_sec": 4.139728292007931,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04665391694288701,
+            "count": 1,
+            "avg_sec": 0.04665391694288701
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.136239624931477,
+            "count": 1,
+            "avg_sec": 4.136239624931477
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19593562500085682,
+            "count": 1,
+            "avg_sec": 0.19593562500085682
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.002857874962501228,
+            "count": 1,
+            "avg_sec": 0.002857874962501228
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "034730",
+        "company": "SK",
+        "status": "exact",
+        "elapsed_sec": 4.133668125024997,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.046921417000703514,
+            "count": 1,
+            "avg_sec": 0.046921417000703514
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.129752665990964,
+            "count": 1,
+            "avg_sec": 4.129752665990964
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19387304200790823,
+            "count": 1,
+            "avg_sec": 0.19387304200790823
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.002928416943177581,
+            "count": 1,
+            "avg_sec": 0.002928416943177581
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "064350",
+        "company": "현대로템",
+        "status": "exact",
+        "elapsed_sec": 4.145660041947849,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.06041712500154972,
+            "count": 1,
+            "avg_sec": 0.06041712500154972
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.139127332950011,
+            "count": 1,
+            "avg_sec": 4.139127332950011
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1937061669304967,
+            "count": 1,
+            "avg_sec": 0.1937061669304967
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0057167079066857696,
+            "count": 1,
+            "avg_sec": 0.0057167079066857696
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "051910",
+        "company": "LG화학",
+        "status": "exact",
+        "elapsed_sec": 4.142030792078003,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.06688641593791544,
+            "count": 1,
+            "avg_sec": 0.06688641593791544
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.138691290980205,
+            "count": 1,
+            "avg_sec": 4.138691290980205
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19655366602819413,
+            "count": 1,
+            "avg_sec": 0.19655366602819413
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.002902375068515539,
+            "count": 1,
+            "avg_sec": 0.002902375068515539
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "000810",
+        "company": "삼성화재",
+        "status": "exact",
+        "elapsed_sec": 4.128798041027039,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04401704098563641,
+            "count": 1,
+            "avg_sec": 0.04401704098563641
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.125067749992013,
+            "count": 1,
+            "avg_sec": 4.125067749992013
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.18396370799746364,
+            "count": 1,
+            "avg_sec": 0.18396370799746364
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003264291910454631,
+            "count": 1,
+            "avg_sec": 0.003264291910454631
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "035720",
+        "company": "카카오",
+        "status": "exact",
+        "elapsed_sec": 4.130282958038151,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04541320796124637,
+            "count": 1,
+            "avg_sec": 0.04541320796124637
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.126757457968779,
+            "count": 1,
+            "avg_sec": 4.126757457968779
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.21546004200354218,
+            "count": 1,
+            "avg_sec": 0.21546004200354218
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.002645874978043139,
+            "count": 1,
+            "avg_sec": 0.002645874978043139
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "096770",
+        "company": "SK이노베이션",
+        "status": "exact",
+        "elapsed_sec": 4.087467040983029,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04722216597292572,
+            "count": 1,
+            "avg_sec": 0.04722216597292572
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.083671750035137,
+            "count": 1,
+            "avg_sec": 4.083671750035137
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20379804098047316,
+            "count": 1,
+            "avg_sec": 0.20379804098047316
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0031972500728443265,
+            "count": 1,
+            "avg_sec": 0.0031972500728443265
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "267250",
+        "company": "HD현대",
+        "status": "exact",
+        "elapsed_sec": 4.150448958971538,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.0671937499428168,
+            "count": 1,
+            "avg_sec": 0.0671937499428168
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.1469215410761535,
+            "count": 1,
+            "avg_sec": 4.1469215410761535
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1792558750603348,
+            "count": 1,
+            "avg_sec": 0.1792558750603348
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003070291946642101,
+            "count": 1,
+            "avg_sec": 0.003070291946642101
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "011200",
+        "company": "HMM",
+        "status": "exact",
+        "elapsed_sec": 4.141925040981732,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05612891702912748,
+            "count": 1,
+            "avg_sec": 0.05612891702912748
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.13736783398781,
+            "count": 1,
+            "avg_sec": 4.13736783398781
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.2086619579931721,
+            "count": 1,
+            "avg_sec": 0.2086619579931721
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003966166055761278,
+            "count": 1,
+            "avg_sec": 0.003966166055761278
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "003670",
+        "company": "포스코퓨처엠",
+        "status": "exact",
+        "elapsed_sec": 4.1614112090319395,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.061812917003408074,
+            "count": 1,
+            "avg_sec": 0.061812917003408074
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.156282666954212,
+            "count": 1,
+            "avg_sec": 4.156282666954212
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19310874992515892,
+            "count": 1,
+            "avg_sec": 0.19310874992515892
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.004183041979558766,
+            "count": 1,
+            "avg_sec": 0.004183041979558766
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "138040",
+        "company": "메리츠금융지주",
+        "status": "exact",
+        "elapsed_sec": 4.158813165966421,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04678929201327264,
+            "count": 1,
+            "avg_sec": 0.04678929201327264
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.137584790936671,
+            "count": 1,
+            "avg_sec": 4.137584790936671
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.18593591602984816,
+            "count": 1,
+            "avg_sec": 0.18593591602984816
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.019844042020849884,
+            "count": 1,
+            "avg_sec": 0.019844042020849884
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "047810",
+        "company": "한국항공우주",
+        "status": "exact",
+        "elapsed_sec": 4.146005957969464,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04666858306154609,
+            "count": 1,
+            "avg_sec": 0.04666858306154609
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.136262792046182,
+            "count": 1,
+            "avg_sec": 4.136262792046182
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.17569125001318753,
+            "count": 1,
+            "avg_sec": 0.17569125001318753
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.008883249945938587,
+            "count": 1,
+            "avg_sec": 0.008883249945938587
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "033780",
+        "company": "KT&G",
+        "status": "exact",
+        "elapsed_sec": 4.090972415986471,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.03658491699025035,
+            "count": 1,
+            "avg_sec": 0.03658491699025035
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.087553624995053,
+            "count": 1,
+            "avg_sec": 4.087553624995053
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.21740437508560717,
+            "count": 1,
+            "avg_sec": 0.21740437508560717
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0028737919637933373,
+            "count": 1,
+            "avg_sec": 0.0028737919637933373
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "066570",
+        "company": "LG전자",
+        "status": "exact",
+        "elapsed_sec": 4.128701374982484,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05754562490619719,
+            "count": 1,
+            "avg_sec": 0.05754562490619719
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.117664042045362,
+            "count": 1,
+            "avg_sec": 4.117664042045362
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.206796667072922,
+            "count": 1,
+            "avg_sec": 0.206796667072922
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.010441625025123358,
+            "count": 1,
+            "avg_sec": 0.010441625025123358
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "024110",
+        "company": "기업은행",
+        "status": "exact",
+        "elapsed_sec": 4.130796459037811,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04682541696820408,
+            "count": 1,
+            "avg_sec": 0.04682541696820408
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.127434332971461,
+            "count": 1,
+            "avg_sec": 4.127434332971461
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1972812080057338,
+            "count": 1,
+            "avg_sec": 0.1972812080057338
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.002975250012241304,
+            "count": 1,
+            "avg_sec": 0.002975250012241304
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "079550",
+        "company": "LIG디펜스앤에어로스페이스",
+        "status": "exact",
+        "elapsed_sec": 4.100392417050898,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05532387492712587,
+            "count": 1,
+            "avg_sec": 0.05532387492712587
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.095919042010792,
+            "count": 1,
+            "avg_sec": 4.095919042010792
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20548995805438608,
+            "count": 1,
+            "avg_sec": 0.20548995805438608
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003916957997716963,
+            "count": 1,
+            "avg_sec": 0.003916957997716963
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "017670",
+        "company": "SK텔레콤",
+        "status": "exact",
+        "elapsed_sec": 4.140199874993414,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.043766333954408765,
+            "count": 1,
+            "avg_sec": 0.043766333954408765
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.135829541948624,
+            "count": 1,
+            "avg_sec": 4.135829541948624
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20511912507936358,
+            "count": 1,
+            "avg_sec": 0.20511912507936358
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.003751582931727171,
+            "count": 1,
+            "avg_sec": 0.003751582931727171
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "000720",
+        "company": "현대건설",
+        "status": "exact",
+        "elapsed_sec": 4.087572041898966,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.06236116692889482,
+            "count": 1,
+            "avg_sec": 0.06236116692889482
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.081815958023071,
+            "count": 1,
+            "avg_sec": 4.081815958023071
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.20196279208175838,
+            "count": 1,
+            "avg_sec": 0.20196279208175838
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.005052458960562944,
+            "count": 1,
+            "avg_sec": 0.005052458960562944
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "086520",
+        "company": "에코프로",
+        "status": "exact",
+        "elapsed_sec": 4.15156929101795,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.047749875113368034,
+            "count": 1,
+            "avg_sec": 0.047749875113368034
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.147783791995607,
+            "count": 1,
+            "avg_sec": 4.147783791995607
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1870783750200644,
+            "count": 1,
+            "avg_sec": 0.1870783750200644
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.00304116599727422,
+            "count": 1,
+            "avg_sec": 0.00304116599727422
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "247540",
+        "company": "에코프로비엠",
+        "status": "exact",
+        "elapsed_sec": 4.148675290984102,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05727587500587106,
+            "count": 1,
+            "avg_sec": 0.05727587500587106
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.137098541948944,
+            "count": 1,
+            "avg_sec": 4.137098541948944
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.19600224995519966,
+            "count": 1,
+            "avg_sec": 0.19600224995519966
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.010510500054806471,
+            "count": 1,
+            "avg_sec": 0.010510500054806471
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "196170",
+        "company": "알테오젠",
+        "status": "exact",
+        "elapsed_sec": 4.149968832964078,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04579524998553097,
+            "count": 1,
+            "avg_sec": 0.04579524998553097
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.145857750088908,
+            "count": 1,
+            "avg_sec": 4.145857750088908
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.18572554201819003,
+            "count": 1,
+            "avg_sec": 0.18572554201819003
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0034589170245453715,
+            "count": 1,
+            "avg_sec": 0.0034589170245453715
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "000250",
+        "company": "삼천당제약",
+        "status": "exact",
+        "elapsed_sec": 4.13908120803535,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.052707749884575605,
+            "count": 1,
+            "avg_sec": 0.052707749884575605
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.132906125043519,
+            "count": 1,
+            "avg_sec": 4.132906125043519
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.2012523750308901,
+            "count": 1,
+            "avg_sec": 0.2012523750308901
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.00571583304554224,
+            "count": 1,
+            "avg_sec": 0.00571583304554224
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "277810",
+        "company": "레인보우로보틱스",
+        "status": "exact",
+        "elapsed_sec": 4.15228429203853,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.036227083997800946,
+            "count": 1,
+            "avg_sec": 0.036227083997800946
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.149533416959457,
+            "count": 1,
+            "avg_sec": 4.149533416959457
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1726062080124393,
+            "count": 1,
+            "avg_sec": 0.1726062080124393
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0022904579527676105,
+            "count": 1,
+            "avg_sec": 0.0022904579527676105
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "298380",
+        "company": "에이비엘바이오",
+        "status": "exact",
+        "elapsed_sec": 4.126053250045516,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.05271620908752084,
+            "count": 1,
+            "avg_sec": 0.05271620908752084
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.1223520000930876,
+            "count": 1,
+            "avg_sec": 4.1223520000930876
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1748174160020426,
+            "count": 1,
+            "avg_sec": 0.1748174160020426
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0031635420164093375,
+            "count": 1,
+            "avg_sec": 0.0031635420164093375
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "950160",
+        "company": "코오롱티슈진",
+        "status": "exact",
+        "elapsed_sec": 4.172766000032425,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.047750000027008355,
+            "count": 1,
+            "avg_sec": 0.047750000027008355
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.169517999980599,
+            "count": 1,
+            "avg_sec": 4.169517999980599
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1920701659983024,
+            "count": 1,
+            "avg_sec": 0.1920701659983024
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0027325829723849893,
+            "count": 1,
+            "avg_sec": 0.0027325829723849893
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "058470",
+        "company": "리노공업",
+        "status": "exact",
+        "elapsed_sec": 4.28995137498714,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.040902124950662255,
+            "count": 1,
+            "avg_sec": 0.040902124950662255
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.282691458007321,
+            "count": 1,
+            "avg_sec": 4.282691458007321
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.1821051670704037,
+            "count": 1,
+            "avg_sec": 0.1821051670704037
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.006403208011761308,
+            "count": 1,
+            "avg_sec": 0.006403208011761308
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "028300",
+        "company": "HLB",
+        "status": "exact",
+        "elapsed_sec": 4.106809040997177,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.04843158402945846,
+            "count": 1,
+            "avg_sec": 0.04843158402945846
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.086218458018266,
+            "count": 1,
+            "avg_sec": 4.086218458018266
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.18766320799477398,
+            "count": 1,
+            "avg_sec": 0.18766320799477398
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.017954041017219424,
+            "count": 1,
+            "avg_sec": 0.017954041017219424
+          }
+        }
+      },
+      {
+        "tool": "company",
+        "ticker": "141080",
+        "company": "리가켐바이오",
+        "status": "exact",
+        "elapsed_sec": 4.1501452079974115,
+        "stages": {
+          "_safe_company_info": {
+            "total_sec": 0.046983040985651314,
+            "count": 1,
+            "avg_sec": 0.046983040985651314
+          },
+          "_safe_naver_profile": {
+            "total_sec": 4.147514792042784,
+            "count": 1,
+            "avg_sec": 4.147514792042784
+          },
+          "_safe_recent_filings": {
+            "total_sec": 0.16924279101658612,
+            "count": 1,
+            "avg_sec": 0.16924279101658612
+          },
+          "lookup_corp_code_all": {
+            "total_sec": 0.0022787919733673334,
+            "count": 1,
+            "avg_sec": 0.0022787919733673334
+          }
+        }
+      }
+    ],
+    "dividend": [
+      {
+        "tool": "dividend",
+        "ticker": "005930",
+        "company": "삼성전자",
+        "status": "exact",
+        "elapsed_sec": 1.7076834170147777,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.31544499984011054,
+            "count": 3,
+            "avg_sec": 0.10514833328003685
+          },
+          "_decision_details": {
+            "total_sec": 0.005286999978125095,
+            "count": 1,
+            "avg_sec": 0.005286999978125095
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.9213345830794424,
+            "count": 1,
+            "avg_sec": 0.9213345830794424
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.17749008303508162,
+            "count": 1,
+            "avg_sec": 0.17749008303508162
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4261981250019744,
+            "count": 1,
+            "avg_sec": 0.4261981250019744
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002490083104930818,
+            "count": 1,
+            "avg_sec": 0.002490083104930818
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "000660",
+        "company": "SK하이닉스",
+        "status": "exact",
+        "elapsed_sec": 1.3520654579624534,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2836001248797402,
+            "count": 3,
+            "avg_sec": 0.09453337495991339
+          },
+          "_decision_details": {
+            "total_sec": 0.006025708047673106,
+            "count": 1,
+            "avg_sec": 0.006025708047673106
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.6887594590662047,
+            "count": 1,
+            "avg_sec": 0.6887594590662047
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.15171491692308336,
+            "count": 1,
+            "avg_sec": 0.15171491692308336
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3470356669276953,
+            "count": 1,
+            "avg_sec": 0.3470356669276953
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003949124948121607,
+            "count": 1,
+            "avg_sec": 0.003949124948121607
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "005380",
+        "company": "현대차",
+        "status": "exact",
+        "elapsed_sec": 1.4759822499472648,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.31215287605300546,
+            "count": 3,
+            "avg_sec": 0.10405095868433516
+          },
+          "_decision_details": {
+            "total_sec": 0.0073875830275937915,
+            "count": 1,
+            "avg_sec": 0.0073875830275937915
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.6772262080339715,
+            "count": 1,
+            "avg_sec": 0.6772262080339715
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.13846570800524205,
+            "count": 1,
+            "avg_sec": 0.13846570800524205
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.47590499999932945,
+            "count": 1,
+            "avg_sec": 0.47590499999932945
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0025557499611750245,
+            "count": 1,
+            "avg_sec": 0.0025557499611750245
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "373220",
+        "company": "LG에너지솔루션",
+        "status": "no_filing",
+        "elapsed_sec": 1.0628224579850212,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2507574991323054,
+            "count": 3,
+            "avg_sec": 0.08358583304410179
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.45024370902683586,
+            "count": 1,
+            "avg_sec": 0.45024370902683586
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.15980412508361042,
+            "count": 1,
+            "avg_sec": 0.15980412508361042
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.2996244999812916,
+            "count": 1,
+            "avg_sec": 0.2996244999812916
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002467332989908755,
+            "count": 1,
+            "avg_sec": 0.002467332989908755
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "207940",
+        "company": "삼성바이오로직스",
+        "status": "no_filing",
+        "elapsed_sec": 1.3126609170576558,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.27435720898211,
+            "count": 3,
+            "avg_sec": 0.09145240299403667
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.6114804169628769,
+            "count": 1,
+            "avg_sec": 0.6114804169628769
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.13962350005749613,
+            "count": 1,
+            "avg_sec": 0.13962350005749613
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3984411669662222,
+            "count": 1,
+            "avg_sec": 0.3984411669662222
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0028295409865677357,
+            "count": 1,
+            "avg_sec": 0.0028295409865677357
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "012450",
+        "company": "한화에어로스페이스",
+        "status": "exact",
+        "elapsed_sec": 1.6341945830499753,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.30423862603493035,
+            "count": 3,
+            "avg_sec": 0.10141287534497678
+          },
+          "_decision_details": {
+            "total_sec": 0.004195417044684291,
+            "count": 1,
+            "avg_sec": 0.004195417044684291
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.7464902909705415,
+            "count": 1,
+            "avg_sec": 0.7464902909705415
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.25906291708815843,
+            "count": 1,
+            "avg_sec": 0.25906291708815843
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.457710542017594,
+            "count": 1,
+            "avg_sec": 0.457710542017594
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002235582913272083,
+            "count": 1,
+            "avg_sec": 0.002235582913272083
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "402340",
+        "company": "SK스퀘어",
+        "status": "exact",
+        "elapsed_sec": 1.2031937499996275,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.27544558292720467,
+            "count": 3,
+            "avg_sec": 0.09181519430906822
+          },
+          "_decision_details": {
+            "total_sec": 0.006202707998454571,
+            "count": 1,
+            "avg_sec": 0.006202707998454571
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5904133330332115,
+            "count": 1,
+            "avg_sec": 0.5904133330332115
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.15029370901174843,
+            "count": 1,
+            "avg_sec": 0.15029370901174843
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.2909687909996137,
+            "count": 1,
+            "avg_sec": 0.2909687909996137
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023737079463899136,
+            "count": 1,
+            "avg_sec": 0.0023737079463899136
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "034020",
+        "company": "두산에너빌리티",
+        "status": "no_filing",
+        "elapsed_sec": 1.2377397920936346,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.27889854088425636,
+            "count": 3,
+            "avg_sec": 0.09296618029475212
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5788602500688285,
+            "count": 1,
+            "avg_sec": 0.5788602500688285
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14849774993490428,
+            "count": 1,
+            "avg_sec": 0.14849774993490428
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.34584199998062104,
+            "count": 1,
+            "avg_sec": 0.34584199998062104
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023994590155780315,
+            "count": 1,
+            "avg_sec": 0.0023994590155780315
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "000270",
+        "company": "기아",
+        "status": "exact",
+        "elapsed_sec": 1.6369416669476777,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.30075829185079783,
+            "count": 3,
+            "avg_sec": 0.10025276395026594
+          },
+          "_decision_details": {
+            "total_sec": 0.0035974999191239476,
+            "count": 1,
+            "avg_sec": 0.0035974999191239476
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.7053012918913737,
+            "count": 1,
+            "avg_sec": 0.7053012918913737
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.3198893750086427,
+            "count": 1,
+            "avg_sec": 0.3198893750086427
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.43957054195925593,
+            "count": 1,
+            "avg_sec": 0.43957054195925593
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002384583931416273,
+            "count": 1,
+            "avg_sec": 0.002384583931416273
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "105560",
+        "company": "KB금융",
+        "status": "exact",
+        "elapsed_sec": 1.6224675830453634,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2700677920365706,
+            "count": 3,
+            "avg_sec": 0.09002259734552354
+          },
+          "_decision_details": {
+            "total_sec": 0.006880000000819564,
+            "count": 1,
+            "avg_sec": 0.006880000000819564
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.7435636250302196,
+            "count": 1,
+            "avg_sec": 0.7435636250302196
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.25280212494544685,
+            "count": 1,
+            "avg_sec": 0.25280212494544685
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4555615420686081,
+            "count": 1,
+            "avg_sec": 0.4555615420686081
+          },
+          "resolve_company_query": {
+            "total_sec": 0.00258562492672354,
+            "count": 1,
+            "avg_sec": 0.00258562492672354
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "329180",
+        "company": "HD현대중공업",
+        "status": "exact",
+        "elapsed_sec": 1.388952541979961,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2648366258945316,
+            "count": 3,
+            "avg_sec": 0.0882788752981772
+          },
+          "_decision_details": {
+            "total_sec": 0.004505416960455477,
+            "count": 1,
+            "avg_sec": 0.004505416960455477
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5752798330504447,
+            "count": 1,
+            "avg_sec": 0.5752798330504447
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.2399894589325413,
+            "count": 1,
+            "avg_sec": 0.2399894589325413
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4122532909968868,
+            "count": 1,
+            "avg_sec": 0.4122532909968868
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0022066669771447778,
+            "count": 1,
+            "avg_sec": 0.0022066669771447778
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "068270",
+        "company": "셀트리온",
+        "status": "exact",
+        "elapsed_sec": 1.5097911669872701,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.28002862515859306,
+            "count": 3,
+            "avg_sec": 0.09334287505286436
+          },
+          "_decision_details": {
+            "total_sec": 0.0034086250234395266,
+            "count": 1,
+            "avg_sec": 0.0034086250234395266
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.7493539589922875,
+            "count": 1,
+            "avg_sec": 0.7493539589922875
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.16766570799518377,
+            "count": 1,
+            "avg_sec": 0.16766570799518377
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4206209579715505,
+            "count": 1,
+            "avg_sec": 0.4206209579715505
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0029096660437062383,
+            "count": 1,
+            "avg_sec": 0.0029096660437062383
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "055550",
+        "company": "신한지주",
+        "status": "exact",
+        "elapsed_sec": 1.4687369590392336,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3100038750562817,
+            "count": 3,
+            "avg_sec": 0.10333462501876056
+          },
+          "_decision_details": {
+            "total_sec": 0.005272667040117085,
+            "count": 1,
+            "avg_sec": 0.005272667040117085
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5557382500264794,
+            "count": 1,
+            "avg_sec": 0.5557382500264794
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.26021799992304295,
+            "count": 1,
+            "avg_sec": 0.26021799992304295
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4691759580746293,
+            "count": 1,
+            "avg_sec": 0.4691759580746293
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002647500019520521,
+            "count": 1,
+            "avg_sec": 0.002647500019520521
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "032830",
+        "company": "삼성생명",
+        "status": "exact",
+        "elapsed_sec": 1.3491800839547068,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3328158329240978,
+            "count": 3,
+            "avg_sec": 0.11093861097469926
+          },
+          "_decision_details": {
+            "total_sec": 0.0027608750388026237,
+            "count": 1,
+            "avg_sec": 0.0027608750388026237
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.8557268750155345,
+            "count": 1,
+            "avg_sec": 0.8557268750155345
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.11962408304680139,
+            "count": 1,
+            "avg_sec": 0.11962408304680139
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.18247158301528543,
+            "count": 1,
+            "avg_sec": 0.18247158301528543
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002319667022675276,
+            "count": 1,
+            "avg_sec": 0.002319667022675276
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "028260",
+        "company": "삼성물산",
+        "status": "exact",
+        "elapsed_sec": 1.4861953330691904,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3407684169942513,
+            "count": 3,
+            "avg_sec": 0.1135894723314171
+          },
+          "_decision_details": {
+            "total_sec": 0.0013612089678645134,
+            "count": 1,
+            "avg_sec": 0.0013612089678645134
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.6918645410332829,
+            "count": 1,
+            "avg_sec": 0.6918645410332829
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.20610995893366635,
+            "count": 1,
+            "avg_sec": 0.20610995893366635
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.39273920794948936,
+            "count": 1,
+            "avg_sec": 0.39273920794948936
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0022927919635549188,
+            "count": 1,
+            "avg_sec": 0.0022927919635549188
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "042660",
+        "company": "한화오션",
+        "status": "no_filing",
+        "elapsed_sec": 1.6247487079817802,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.30505233397707343,
+            "count": 3,
+            "avg_sec": 0.10168411132569115
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.7169137079035863,
+            "count": 1,
+            "avg_sec": 0.7169137079035863
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.23905662493780255,
+            "count": 1,
+            "avg_sec": 0.23905662493780255
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4969678340712562,
+            "count": 1,
+            "avg_sec": 0.4969678340712562
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002551250043325126,
+            "count": 1,
+            "avg_sec": 0.002551250043325126
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "006400",
+        "company": "삼성SDI",
+        "status": "exact",
+        "elapsed_sec": 1.1259207089897245,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.274434583960101,
+            "count": 3,
+            "avg_sec": 0.091478194653367
+          },
+          "_decision_details": {
+            "total_sec": 0.0022082909708842635,
+            "count": 1,
+            "avg_sec": 0.0022082909708842635
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.49135779205244035,
+            "count": 1,
+            "avg_sec": 0.49135779205244035
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.15128370898310095,
+            "count": 1,
+            "avg_sec": 0.15128370898310095
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3218119159573689,
+            "count": 1,
+            "avg_sec": 0.3218119159573689
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023353330325335264,
+            "count": 1,
+            "avg_sec": 0.0023353330325335264
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "012330",
+        "company": "현대모비스",
+        "status": "exact",
+        "elapsed_sec": 2.5783224999904633,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.295757457963191,
+            "count": 3,
+            "avg_sec": 0.09858581932106365
+          },
+          "_decision_details": {
+            "total_sec": 0.021267375093884766,
+            "count": 1,
+            "avg_sec": 0.021267375093884766
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.7899132919264957,
+            "count": 1,
+            "avg_sec": 1.7899132919264957
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14099362504202873,
+            "count": 1,
+            "avg_sec": 0.14099362504202873
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.45824912493117154,
+            "count": 1,
+            "avg_sec": 0.45824912493117154
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002248791977763176,
+            "count": 1,
+            "avg_sec": 0.002248791977763176
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "006800",
+        "company": "미래에셋증권",
+        "status": "exact",
+        "elapsed_sec": 2.694883416988887,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.5695490001235157,
+            "count": 3,
+            "avg_sec": 0.18984966670783857
+          },
+          "_decision_details": {
+            "total_sec": 0.06427212490234524,
+            "count": 1,
+            "avg_sec": 0.06427212490234524
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.2207033750601113,
+            "count": 1,
+            "avg_sec": 1.2207033750601113
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.3838454589713365,
+            "count": 1,
+            "avg_sec": 0.3838454589713365
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.7770180830266327,
+            "count": 1,
+            "avg_sec": 0.7770180830266327
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023797079920768738,
+            "count": 1,
+            "avg_sec": 0.0023797079920768738
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "267260",
+        "company": "HD현대일렉트릭",
+        "status": "exact",
+        "elapsed_sec": 1.3052717499667779,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2658755008596927,
+            "count": 3,
+            "avg_sec": 0.0886251669532309
+          },
+          "_decision_details": {
+            "total_sec": 0.0032099999953061342,
+            "count": 1,
+            "avg_sec": 0.0032099999953061342
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.47098508302588016,
+            "count": 1,
+            "avg_sec": 0.47098508302588016
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.2500975839793682,
+            "count": 1,
+            "avg_sec": 0.2500975839793682
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.42133404093328863,
+            "count": 1,
+            "avg_sec": 0.42133404093328863
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0022067090030759573,
+            "count": 1,
+            "avg_sec": 0.0022067090030759573
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "009150",
+        "company": "삼성전기",
+        "status": "exact",
+        "elapsed_sec": 1.2269458750961348,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3950022500939667,
+            "count": 3,
+            "avg_sec": 0.1316674166979889
+          },
+          "_decision_details": {
+            "total_sec": 0.05003100004978478,
+            "count": 1,
+            "avg_sec": 0.05003100004978478
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5366447499254718,
+            "count": 1,
+            "avg_sec": 0.5366447499254718
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.12110216601286083,
+            "count": 1,
+            "avg_sec": 0.12110216601286083
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.2967929169535637,
+            "count": 1,
+            "avg_sec": 0.2967929169535637
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0025420410092920065,
+            "count": 1,
+            "avg_sec": 0.0025420410092920065
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "086790",
+        "company": "하나금융지주",
+        "status": "exact",
+        "elapsed_sec": 1.4356505840551108,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3077614589128643,
+            "count": 3,
+            "avg_sec": 0.10258715297095478
+          },
+          "_decision_details": {
+            "total_sec": 0.014127125032246113,
+            "count": 1,
+            "avg_sec": 0.014127125032246113
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5429087919183075,
+            "count": 1,
+            "avg_sec": 0.5429087919183075
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.25610450003296137,
+            "count": 1,
+            "avg_sec": 0.25610450003296137
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4480859169270843,
+            "count": 1,
+            "avg_sec": 0.4480859169270843
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023484580451622605,
+            "count": 1,
+            "avg_sec": 0.0023484580451622605
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "035420",
+        "company": "NAVER",
+        "status": "exact",
+        "elapsed_sec": 1.1516892910003662,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3070620408980176,
+            "count": 3,
+            "avg_sec": 0.10235401363267253
+          },
+          "_decision_details": {
+            "total_sec": 0.0031923329224810004,
+            "count": 1,
+            "avg_sec": 0.0031923329224810004
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.48661720799282193,
+            "count": 1,
+            "avg_sec": 0.48661720799282193
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14941825007554144,
+            "count": 1,
+            "avg_sec": 0.14941825007554144
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.34187987504992634,
+            "count": 1,
+            "avg_sec": 0.34187987504992634
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002802249975502491,
+            "count": 1,
+            "avg_sec": 0.002802249975502491
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "010130",
+        "company": "고려아연",
+        "status": "exact",
+        "elapsed_sec": 1.0825917080510408,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2813326650066301,
+            "count": 3,
+            "avg_sec": 0.09377755500221004
+          },
+          "_decision_details": {
+            "total_sec": 0.003683333983644843,
+            "count": 1,
+            "avg_sec": 0.003683333983644843
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.2278532920172438,
+            "count": 1,
+            "avg_sec": 0.2278532920172438
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.26082524994853884,
+            "count": 1,
+            "avg_sec": 0.26082524994853884
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.43144983297679573,
+            "count": 1,
+            "avg_sec": 0.43144983297679573
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0030792090110480785,
+            "count": 1,
+            "avg_sec": 0.0030792090110480785
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "005490",
+        "company": "POSCO홀딩스",
+        "status": "exact",
+        "elapsed_sec": 1.3664309580344707,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2902325839968398,
+            "count": 3,
+            "avg_sec": 0.09674419466561328
+          },
+          "_decision_details": {
+            "total_sec": 0.005674000014550984,
+            "count": 1,
+            "avg_sec": 0.005674000014550984
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.701613915967755,
+            "count": 1,
+            "avg_sec": 0.701613915967755
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14168674999382347,
+            "count": 1,
+            "avg_sec": 0.14168674999382347
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.34831575001589954,
+            "count": 1,
+            "avg_sec": 0.34831575001589954
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003088290919549763,
+            "count": 1,
+            "avg_sec": 0.003088290919549763
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "015760",
+        "company": "한국전력",
+        "status": "exact",
+        "elapsed_sec": 6.305583375040442,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.28751849895343184,
+            "count": 3,
+            "avg_sec": 0.09583949965114395
+          },
+          "_decision_details": {
+            "total_sec": 0.005221125087700784,
+            "count": 1,
+            "avg_sec": 0.005221125087700784
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 5.669587000040337,
+            "count": 1,
+            "avg_sec": 5.669587000040337
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.13831591699272394,
+            "count": 1,
+            "avg_sec": 0.13831591699272394
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.31610033300239593,
+            "count": 1,
+            "avg_sec": 0.31610033300239593
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002302417065948248,
+            "count": 1,
+            "avg_sec": 0.002302417065948248
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "009540",
+        "company": "HD한국조선해양",
+        "status": "exact",
+        "elapsed_sec": 2.1781938340282068,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.30627029098104686,
+            "count": 3,
+            "avg_sec": 0.10209009699368228
+          },
+          "_decision_details": {
+            "total_sec": 0.0054587500635534525,
+            "count": 1,
+            "avg_sec": 0.0054587500635534525
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.177874166984111,
+            "count": 1,
+            "avg_sec": 1.177874166984111
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.28030441608279943,
+            "count": 1,
+            "avg_sec": 0.28030441608279943
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.5478135839803144,
+            "count": 1,
+            "avg_sec": 0.5478135839803144
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002227500081062317,
+            "count": 1,
+            "avg_sec": 0.002227500081062317
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "272210",
+        "company": "한화시스템",
+        "status": "exact",
+        "elapsed_sec": 1.0662517920136452,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.28402395895682275,
+            "count": 3,
+            "avg_sec": 0.09467465298560758
+          },
+          "_decision_details": {
+            "total_sec": 0.0015565420035272837,
+            "count": 1,
+            "avg_sec": 0.0015565420035272837
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.47624179197009653,
+            "count": 1,
+            "avg_sec": 0.47624179197009653
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14001058298163116,
+            "count": 1,
+            "avg_sec": 0.14001058298163116
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.2874866659985855,
+            "count": 1,
+            "avg_sec": 0.2874866659985855
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023769589606672525,
+            "count": 1,
+            "avg_sec": 0.0023769589606672525
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "042700",
+        "company": "한미반도체",
+        "status": "exact",
+        "elapsed_sec": 1.1116982500534505,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.28706774895545095,
+            "count": 3,
+            "avg_sec": 0.09568924965181698
+          },
+          "_decision_details": {
+            "total_sec": 0.0014337919419631362,
+            "count": 1,
+            "avg_sec": 0.0014337919419631362
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.49707704095635563,
+            "count": 1,
+            "avg_sec": 0.49707704095635563
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.15078395791351795,
+            "count": 1,
+            "avg_sec": 0.15078395791351795
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.28887779102660716,
+            "count": 1,
+            "avg_sec": 0.28887779102660716
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003692292026244104,
+            "count": 1,
+            "avg_sec": 0.003692292026244104
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "010140",
+        "company": "삼성중공업",
+        "status": "no_filing",
+        "elapsed_sec": 1.2219741659937426,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.32343075005337596,
+            "count": 3,
+            "avg_sec": 0.10781025001779199
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.518370958045125,
+            "count": 1,
+            "avg_sec": 0.518370958045125
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.13660804100800306,
+            "count": 1,
+            "avg_sec": 0.13660804100800306
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.39849012496415526,
+            "count": 1,
+            "avg_sec": 0.39849012496415526
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0032117919763550162,
+            "count": 1,
+            "avg_sec": 0.0032117919763550162
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "316140",
+        "company": "우리금융지주",
+        "status": "exact",
+        "elapsed_sec": 1.413547958014533,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.25787520909216255,
+            "count": 3,
+            "avg_sec": 0.08595840303072085
+          },
+          "_decision_details": {
+            "total_sec": 0.021517124958336353,
+            "count": 1,
+            "avg_sec": 0.021517124958336353
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.7111594170564786,
+            "count": 1,
+            "avg_sec": 0.7111594170564786
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.12150995794218034,
+            "count": 1,
+            "avg_sec": 0.12150995794218034
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.39062074990943074,
+            "count": 1,
+            "avg_sec": 0.39062074990943074
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0025000410387292504,
+            "count": 1,
+            "avg_sec": 0.0025000410387292504
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "298040",
+        "company": "효성중공업",
+        "status": "exact",
+        "elapsed_sec": 1.1237860419787467,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3130537490360439,
+            "count": 3,
+            "avg_sec": 0.1043512496786813
+          },
+          "_decision_details": {
+            "total_sec": 0.003241333062760532,
+            "count": 1,
+            "avg_sec": 0.003241333062760532
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.49173233308829367,
+            "count": 1,
+            "avg_sec": 0.49173233308829367
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.11503316694870591,
+            "count": 1,
+            "avg_sec": 0.11503316694870591
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3059686659835279,
+            "count": 1,
+            "avg_sec": 0.3059686659835279
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002224833006039262,
+            "count": 1,
+            "avg_sec": 0.002224833006039262
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "010120",
+        "company": "LS ELECTRIC",
+        "status": "exact",
+        "elapsed_sec": 1.0315645409282297,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3463981261011213,
+            "count": 3,
+            "avg_sec": 0.1154660420337071
+          },
+          "_decision_details": {
+            "total_sec": 0.0017342090141028166,
+            "count": 1,
+            "avg_sec": 0.0017342090141028166
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.4296967500122264,
+            "count": 1,
+            "avg_sec": 0.4296967500122264
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.11948116705752909,
+            "count": 1,
+            "avg_sec": 0.11948116705752909
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3011542080203071,
+            "count": 1,
+            "avg_sec": 0.3011542080203071
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0022895419970154762,
+            "count": 1,
+            "avg_sec": 0.0022895419970154762
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "034730",
+        "company": "SK",
+        "status": "exact",
+        "elapsed_sec": 5.497950082994066,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2973494160687551,
+            "count": 3,
+            "avg_sec": 0.09911647202291836
+          },
+          "_decision_details": {
+            "total_sec": 0.0055669170105829835,
+            "count": 1,
+            "avg_sec": 0.0055669170105829835
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 4.546110708033666,
+            "count": 1,
+            "avg_sec": 4.546110708033666
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.2608237089589238,
+            "count": 1,
+            "avg_sec": 0.2608237089589238
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.5166002919431776,
+            "count": 1,
+            "avg_sec": 0.5166002919431776
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0034175000619143248,
+            "count": 1,
+            "avg_sec": 0.0034175000619143248
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "064350",
+        "company": "현대로템",
+        "status": "exact",
+        "elapsed_sec": 1.351215000031516,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.27015970810316503,
+            "count": 3,
+            "avg_sec": 0.09005323603438835
+          },
+          "_decision_details": {
+            "total_sec": 0.010327833937481046,
+            "count": 1,
+            "avg_sec": 0.010327833937481046
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.6831341250799596,
+            "count": 1,
+            "avg_sec": 0.6831341250799596
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.18241404206492007,
+            "count": 1,
+            "avg_sec": 0.18241404206492007
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.31363062490709126,
+            "count": 1,
+            "avg_sec": 0.31363062490709126
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023197500267997384,
+            "count": 1,
+            "avg_sec": 0.0023197500267997384
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "051910",
+        "company": "LG화학",
+        "status": "exact",
+        "elapsed_sec": 1.6468544589588419,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3182009169831872,
+            "count": 3,
+            "avg_sec": 0.10606697232772906
+          },
+          "_decision_details": {
+            "total_sec": 0.043273999937810004,
+            "count": 1,
+            "avg_sec": 0.043273999937810004
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.8552276670234278,
+            "count": 1,
+            "avg_sec": 0.8552276670234278
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.16647495806682855,
+            "count": 1,
+            "avg_sec": 0.16647495806682855
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4018624590244144,
+            "count": 1,
+            "avg_sec": 0.4018624590244144
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023390830028802156,
+            "count": 1,
+            "avg_sec": 0.0023390830028802156
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "000810",
+        "company": "삼성화재",
+        "status": "exact",
+        "elapsed_sec": 1.4685655829962343,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3044292511185631,
+            "count": 3,
+            "avg_sec": 0.10147641703952104
+          },
+          "_decision_details": {
+            "total_sec": 0.003461000043898821,
+            "count": 1,
+            "avg_sec": 0.003461000043898821
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.9433604999212548,
+            "count": 1,
+            "avg_sec": 0.9433604999212548
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.1406468329951167,
+            "count": 1,
+            "avg_sec": 0.1406468329951167
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.20064570801332593,
+            "count": 1,
+            "avg_sec": 0.20064570801332593
+          },
+          "resolve_company_query": {
+            "total_sec": 0.02277558296918869,
+            "count": 1,
+            "avg_sec": 0.02277558296918869
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "035720",
+        "company": "카카오",
+        "status": "exact",
+        "elapsed_sec": 1.5257650419371203,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3057622511405498,
+            "count": 3,
+            "avg_sec": 0.10192075038018326
+          },
+          "_decision_details": {
+            "total_sec": 0.0034604170359671116,
+            "count": 1,
+            "avg_sec": 0.0034604170359671116
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.8706485830480233,
+            "count": 1,
+            "avg_sec": 0.8706485830480233
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.15840700000990182,
+            "count": 1,
+            "avg_sec": 0.15840700000990182
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.32325145800132304,
+            "count": 1,
+            "avg_sec": 0.32325145800132304
+          },
+          "resolve_company_query": {
+            "total_sec": 0.00222416699398309,
+            "count": 1,
+            "avg_sec": 0.00222416699398309
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "096770",
+        "company": "SK이노베이션",
+        "status": "exact",
+        "elapsed_sec": 1.9288695830618963,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2626656669890508,
+            "count": 3,
+            "avg_sec": 0.0875552223296836
+          },
+          "_decision_details": {
+            "total_sec": 0.0018947500502690673,
+            "count": 1,
+            "avg_sec": 0.0018947500502690673
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.0693679159739986,
+            "count": 1,
+            "avg_sec": 1.0693679159739986
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.2795970829902217,
+            "count": 1,
+            "avg_sec": 0.2795970829902217
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4266095419880003,
+            "count": 1,
+            "avg_sec": 0.4266095419880003
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002284540911205113,
+            "count": 1,
+            "avg_sec": 0.002284540911205113
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "267250",
+        "company": "HD현대",
+        "status": "exact",
+        "elapsed_sec": 1.4820607909932733,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2740035830065608,
+            "count": 3,
+            "avg_sec": 0.0913345276688536
+          },
+          "_decision_details": {
+            "total_sec": 0.006172832916490734,
+            "count": 1,
+            "avg_sec": 0.006172832916490734
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5619925840292126,
+            "count": 1,
+            "avg_sec": 0.5619925840292126
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.2294259590562433,
+            "count": 1,
+            "avg_sec": 0.2294259590562433
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.5193147920072079,
+            "count": 1,
+            "avg_sec": 0.5193147920072079
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0024348750011995435,
+            "count": 1,
+            "avg_sec": 0.0024348750011995435
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "011200",
+        "company": "HMM",
+        "status": "exact",
+        "elapsed_sec": 2.226589791942388,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.30269191693514585,
+            "count": 3,
+            "avg_sec": 0.10089730564504862
+          },
+          "_decision_details": {
+            "total_sec": 0.005757124978117645,
+            "count": 1,
+            "avg_sec": 0.005757124978117645
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.6988331670872867,
+            "count": 1,
+            "avg_sec": 1.6988331670872867
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.139459791011177,
+            "count": 1,
+            "avg_sec": 0.139459791011177
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.21873045898973942,
+            "count": 1,
+            "avg_sec": 0.21873045898973942
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023043749388307333,
+            "count": 1,
+            "avg_sec": 0.0023043749388307333
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "003670",
+        "company": "포스코퓨처엠",
+        "status": "exact",
+        "elapsed_sec": 1.2122925840085372,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.28648633405100554,
+            "count": 3,
+            "avg_sec": 0.09549544468366851
+          },
+          "_decision_details": {
+            "total_sec": 0.0037919169990345836,
+            "count": 1,
+            "avg_sec": 0.0037919169990345836
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5791407079668716,
+            "count": 1,
+            "avg_sec": 0.5791407079668716
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.15363054093904793,
+            "count": 1,
+            "avg_sec": 0.15363054093904793
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3148105420405045,
+            "count": 1,
+            "avg_sec": 0.3148105420405045
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0022570830769836903,
+            "count": 1,
+            "avg_sec": 0.0022570830769836903
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "138040",
+        "company": "메리츠금융지주",
+        "status": "exact",
+        "elapsed_sec": 1.031927999923937,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2798770419321954,
+            "count": 3,
+            "avg_sec": 0.09329234731073181
+          },
+          "_decision_details": {
+            "total_sec": 0.008049916941672564,
+            "count": 1,
+            "avg_sec": 0.008049916941672564
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.4231305830180645,
+            "count": 1,
+            "avg_sec": 0.4231305830180645
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.12762241694144905,
+            "count": 1,
+            "avg_sec": 0.12762241694144905
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3071240830468014,
+            "count": 1,
+            "avg_sec": 0.3071240830468014
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002723374986089766,
+            "count": 1,
+            "avg_sec": 0.002723374986089766
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "047810",
+        "company": "한국항공우주",
+        "status": "exact",
+        "elapsed_sec": 2.1720101250102744,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.24704779195599258,
+            "count": 3,
+            "avg_sec": 0.08234926398533086
+          },
+          "_decision_details": {
+            "total_sec": 0.004965625004842877,
+            "count": 1,
+            "avg_sec": 0.004965625004842877
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.5648358749458566,
+            "count": 1,
+            "avg_sec": 1.5648358749458566
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14722887496463954,
+            "count": 1,
+            "avg_sec": 0.14722887496463954
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.304366874974221,
+            "count": 1,
+            "avg_sec": 0.304366874974221
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002361416001804173,
+            "count": 1,
+            "avg_sec": 0.002361416001804173
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "033780",
+        "company": "KT&G",
+        "status": "exact",
+        "elapsed_sec": 2.8596155419945717,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.29959445795975626,
+            "count": 3,
+            "avg_sec": 0.09986481931991875
+          },
+          "_decision_details": {
+            "total_sec": 0.012374707963317633,
+            "count": 1,
+            "avg_sec": 0.012374707963317633
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 2.2338150419527665,
+            "count": 1,
+            "avg_sec": 2.2338150419527665
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.13978700002189726,
+            "count": 1,
+            "avg_sec": 0.13978700002189726
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3019830420380458,
+            "count": 1,
+            "avg_sec": 0.3019830420380458
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002434374997392297,
+            "count": 1,
+            "avg_sec": 0.002434374997392297
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "066570",
+        "company": "LG전자",
+        "status": "exact",
+        "elapsed_sec": 1.6196877090260386,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2786749160150066,
+            "count": 3,
+            "avg_sec": 0.09289163867166887
+          },
+          "_decision_details": {
+            "total_sec": 0.012135124998167157,
+            "count": 1,
+            "avg_sec": 0.012135124998167157
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.9443324999883771,
+            "count": 1,
+            "avg_sec": 0.9443324999883771
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.15724983299151063,
+            "count": 1,
+            "avg_sec": 0.15724983299151063
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.34860541694797575,
+            "count": 1,
+            "avg_sec": 0.34860541694797575
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0024441670393571258,
+            "count": 1,
+            "avg_sec": 0.0024441670393571258
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "024110",
+        "company": "기업은행",
+        "status": "exact",
+        "elapsed_sec": 0.9338134590070695,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2662511239759624,
+            "count": 3,
+            "avg_sec": 0.08875037465865414
+          },
+          "_decision_details": {
+            "total_sec": 0.0045406249118968844,
+            "count": 1,
+            "avg_sec": 0.0045406249118968844
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.4486387079814449,
+            "count": 1,
+            "avg_sec": 0.4486387079814449
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.12985074997413903,
+            "count": 1,
+            "avg_sec": 0.12985074997413903
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.19621037505567074,
+            "count": 1,
+            "avg_sec": 0.19621037505567074
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023010829463601112,
+            "count": 1,
+            "avg_sec": 0.0023010829463601112
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "079550",
+        "company": "LIG디펜스앤에어로스페이스",
+        "status": "exact",
+        "elapsed_sec": 2.293902833946049,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.25490362488199025,
+            "count": 3,
+            "avg_sec": 0.08496787496066342
+          },
+          "_decision_details": {
+            "total_sec": 0.0018793749623000622,
+            "count": 1,
+            "avg_sec": 0.0018793749623000622
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.5813659169944003,
+            "count": 1,
+            "avg_sec": 1.5813659169944003
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.16097920795436949,
+            "count": 1,
+            "avg_sec": 0.16097920795436949
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.397462583030574,
+            "count": 1,
+            "avg_sec": 0.397462583030574
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003159541985951364,
+            "count": 1,
+            "avg_sec": 0.003159541985951364
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "017670",
+        "company": "SK텔레콤",
+        "status": "exact",
+        "elapsed_sec": 1.495521374978125,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2965171680552885,
+            "count": 3,
+            "avg_sec": 0.0988390560184295
+          },
+          "_decision_details": {
+            "total_sec": 0.003928084042854607,
+            "count": 1,
+            "avg_sec": 0.003928084042854607
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.8467321670614183,
+            "count": 1,
+            "avg_sec": 0.8467321670614183
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14079029101412743,
+            "count": 1,
+            "avg_sec": 0.14079029101412743
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.33399608405306935,
+            "count": 1,
+            "avg_sec": 0.33399608405306935
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0027636659797281027,
+            "count": 1,
+            "avg_sec": 0.0027636659797281027
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "000720",
+        "company": "현대건설",
+        "status": "exact",
+        "elapsed_sec": 1.443269917042926,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.29730383306741714,
+            "count": 3,
+            "avg_sec": 0.09910127768913905
+          },
+          "_decision_details": {
+            "total_sec": 0.0057932089548558,
+            "count": 1,
+            "avg_sec": 0.0057932089548558
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.5418446250259876,
+            "count": 1,
+            "avg_sec": 0.5418446250259876
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.2377009999472648,
+            "count": 1,
+            "avg_sec": 0.2377009999472648
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.47324800002388656,
+            "count": 1,
+            "avg_sec": 0.47324800002388656
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002585291978903115,
+            "count": 1,
+            "avg_sec": 0.002585291978903115
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "086520",
+        "company": "에코프로",
+        "status": "exact",
+        "elapsed_sec": 1.7931564169703051,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2730074569117278,
+            "count": 3,
+            "avg_sec": 0.0910024856372426
+          },
+          "_decision_details": {
+            "total_sec": 0.0070842079585418105,
+            "count": 1,
+            "avg_sec": 0.0070842079585418105
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.0443121249554679,
+            "count": 1,
+            "avg_sec": 1.0443121249554679
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14026683301199228,
+            "count": 1,
+            "avg_sec": 0.14026683301199228
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.4345285000745207,
+            "count": 1,
+            "avg_sec": 0.4345285000745207
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002956208074465394,
+            "count": 1,
+            "avg_sec": 0.002956208074465394
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "247540",
+        "company": "에코프로비엠",
+        "status": "exact",
+        "elapsed_sec": 1.2573016670066863,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2906936671352014,
+            "count": 3,
+            "avg_sec": 0.09689788904506713
+          },
+          "_decision_details": {
+            "total_sec": 0.0037074590800330043,
+            "count": 1,
+            "avg_sec": 0.0037074590800330043
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.6516233329894021,
+            "count": 1,
+            "avg_sec": 0.6516233329894021
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.12945770798251033,
+            "count": 1,
+            "avg_sec": 0.12945770798251033
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.29823162499815226,
+            "count": 1,
+            "avg_sec": 0.29823162499815226
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0049994580913335085,
+            "count": 1,
+            "avg_sec": 0.0049994580913335085
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "196170",
+        "company": "알테오젠",
+        "status": "exact",
+        "elapsed_sec": 0.9197780000977218,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.29760808404535055,
+            "count": 3,
+            "avg_sec": 0.09920269468178351
+          },
+          "_decision_details": {
+            "total_sec": 0.00038050010334700346,
+            "count": 1,
+            "avg_sec": 0.00038050010334700346
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.4214573750505224,
+            "count": 1,
+            "avg_sec": 0.4214573750505224
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.13120466691907495,
+            "count": 1,
+            "avg_sec": 0.13120466691907495
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.19302091700956225,
+            "count": 1,
+            "avg_sec": 0.19302091700956225
+          },
+          "resolve_company_query": {
+            "total_sec": 0.004938750062137842,
+            "count": 1,
+            "avg_sec": 0.004938750062137842
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "000250",
+        "company": "삼천당제약",
+        "status": "exact",
+        "elapsed_sec": 0.9401087920414284,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.29510424903128296,
+            "count": 3,
+            "avg_sec": 0.09836808301042765
+          },
+          "_decision_details": {
+            "total_sec": 0.001237124903127551,
+            "count": 1,
+            "avg_sec": 0.001237124903127551
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.4417737090261653,
+            "count": 1,
+            "avg_sec": 0.4417737090261653
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.1395612919004634,
+            "count": 1,
+            "avg_sec": 0.1395612919004634
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.18453841598238796,
+            "count": 1,
+            "avg_sec": 0.18453841598238796
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0024182499619200826,
+            "count": 1,
+            "avg_sec": 0.0024182499619200826
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "277810",
+        "company": "레인보우로보틱스",
+        "status": "no_filing",
+        "elapsed_sec": 0.9015712079126388,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.27239241707138717,
+            "count": 3,
+            "avg_sec": 0.09079747235712905
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.4234155409503728,
+            "count": 1,
+            "avg_sec": 0.4234155409503728
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.11995545797981322,
+            "count": 1,
+            "avg_sec": 0.11995545797981322
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.1950318340677768,
+            "count": 1,
+            "avg_sec": 0.1950318340677768
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0027677910402417183,
+            "count": 1,
+            "avg_sec": 0.0027677910402417183
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "298380",
+        "company": "에이비엘바이오",
+        "status": "no_filing",
+        "elapsed_sec": 1.7046829579630867,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2630920420633629,
+            "count": 3,
+            "avg_sec": 0.0876973473544543
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 1.2015412920154631,
+            "count": 1,
+            "avg_sec": 1.2015412920154631
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.13807245797943324,
+            "count": 1,
+            "avg_sec": 0.13807245797943324
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.20500520907808095,
+            "count": 1,
+            "avg_sec": 0.20500520907808095
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0021841670386493206,
+            "count": 1,
+            "avg_sec": 0.0021841670386493206
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "950160",
+        "company": "코오롱티슈진",
+        "status": "no_filing",
+        "elapsed_sec": 4.984282291959971,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3392778751440346,
+            "count": 3,
+            "avg_sec": 0.11309262504801154
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 4.494107416947372,
+            "count": 1,
+            "avg_sec": 4.494107416947372
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.12791299994569272,
+            "count": 1,
+            "avg_sec": 0.12791299994569272
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.17899441695772111,
+            "count": 1,
+            "avg_sec": 0.17899441695772111
+          },
+          "resolve_company_query": {
+            "total_sec": 0.00225124997086823,
+            "count": 1,
+            "avg_sec": 0.00225124997086823
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "058470",
+        "company": "리노공업",
+        "status": "exact",
+        "elapsed_sec": 0.839059834019281,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.2651720829308033,
+            "count": 3,
+            "avg_sec": 0.08839069431026776
+          },
+          "_decision_details": {
+            "total_sec": 0.009832749958150089,
+            "count": 1,
+            "avg_sec": 0.009832749958150089
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.3408544579287991,
+            "count": 1,
+            "avg_sec": 0.3408544579287991
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.1183070840779692,
+            "count": 1,
+            "avg_sec": 0.1183070840779692
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.20303483307361603,
+            "count": 1,
+            "avg_sec": 0.20303483307361603
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003215541015379131,
+            "count": 1,
+            "avg_sec": 0.003215541015379131
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "028300",
+        "company": "HLB",
+        "status": "no_filing",
+        "elapsed_sec": 1.0627274160506204,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.27502870990429074,
+            "count": 3,
+            "avg_sec": 0.09167623663476358
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.45413754193577915,
+            "count": 1,
+            "avg_sec": 0.45413754193577915
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14174424996599555,
+            "count": 1,
+            "avg_sec": 0.14174424996599555
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.3026287079555914,
+            "count": 1,
+            "avg_sec": 0.3026287079555914
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0033410419709980488,
+            "count": 1,
+            "avg_sec": 0.0033410419709980488
+          }
+        }
+      },
+      {
+        "tool": "dividend",
+        "ticker": "141080",
+        "company": "리가켐바이오",
+        "status": "no_filing",
+        "elapsed_sec": 0.9335413749795407,
+        "stages": {
+          "_annual_summary": {
+            "total_sec": 0.3135984579566866,
+            "count": 3,
+            "avg_sec": 0.10453281931889553
+          },
+          "_detect_capital_reserve_reduction": {
+            "total_sec": 0.4373159589013085,
+            "count": 1,
+            "avg_sec": 0.4373159589013085
+          },
+          "_detect_pre_dividend_post_resolution": {
+            "total_sec": 0.14187416702043265,
+            "count": 1,
+            "avg_sec": 0.14187416702043265
+          },
+          "_search_dividend_filings": {
+            "total_sec": 0.17122187500353903,
+            "count": 1,
+            "avg_sec": 0.17122187500353903
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0022910420084372163,
+            "count": 1,
+            "avg_sec": 0.0022910420084372163
+          }
+        }
+      }
+    ],
+    "value_up": [
+      {
+        "tool": "value_up",
+        "ticker": "005930",
+        "company": "삼성전자",
+        "status": "exact",
+        "elapsed_sec": 4.976590083912015,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.16633895901031792,
+            "count": 1,
+            "avg_sec": 0.16633895901031792
+          },
+          "get_document_cached": {
+            "total_sec": 0.003191625699400902,
+            "count": 6,
+            "avg_sec": 0.0005319376165668169
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003098041983321309,
+            "count": 1,
+            "avg_sec": 0.003098041983321309
+          },
+          "treasury_cross_ref": {
+            "total_sec": 4.806023915996775,
+            "count": 1,
+            "avg_sec": 4.806023915996775
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "000660",
+        "company": "SK하이닉스",
+        "status": "exact",
+        "elapsed_sec": 3.977245124988258,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.09916037507355213,
+            "count": 1,
+            "avg_sec": 0.09916037507355213
+          },
+          "get_document_cached": {
+            "total_sec": 0.003206375055015087,
+            "count": 9,
+            "avg_sec": 0.00035626389500167634
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0031620829831808805,
+            "count": 1,
+            "avg_sec": 0.0031620829831808805
+          },
+          "treasury_cross_ref": {
+            "total_sec": 3.8744025410851464,
+            "count": 1,
+            "avg_sec": 3.8744025410851464
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "005380",
+        "company": "현대차",
+        "status": "partial",
+        "elapsed_sec": 2.145638084039092,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 2.0301312090596184,
+            "count": 2,
+            "avg_sec": 1.0150656045298092
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.33708174992352724,
+            "count": 2,
+            "avg_sec": 0.16854087496176362
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023240409791469574,
+            "count": 1,
+            "avg_sec": 0.0023240409791469574
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "373220",
+        "company": "LG에너지솔루션",
+        "status": "exact",
+        "elapsed_sec": 1.4045661250129342,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.07830612501129508,
+            "count": 1,
+            "avg_sec": 0.07830612501129508
+          },
+          "get_document_cached": {
+            "total_sec": 0.00046441692393273115,
+            "count": 1,
+            "avg_sec": 0.00046441692393273115
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002347834059037268,
+            "count": 1,
+            "avg_sec": 0.002347834059037268
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.3230869170511141,
+            "count": 1,
+            "avg_sec": 1.3230869170511141
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "207940",
+        "company": "삼성바이오로직스",
+        "status": "no_filing",
+        "elapsed_sec": 1.7961765839718282,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 1.697911832947284,
+            "count": 2,
+            "avg_sec": 0.848955916473642
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.2624082500115037,
+            "count": 2,
+            "avg_sec": 0.13120412500575185
+          },
+          "resolve_company_query": {
+            "total_sec": 0.011923832935281098,
+            "count": 1,
+            "avg_sec": 0.011923832935281098
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "012450",
+        "company": "한화에어로스페이스",
+        "status": "exact",
+        "elapsed_sec": 3.690093041048385,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.12491287500597537,
+            "count": 1,
+            "avg_sec": 0.12491287500597537
+          },
+          "get_document_cached": {
+            "total_sec": 0.000999834039248526,
+            "count": 1,
+            "avg_sec": 0.000999834039248526
+          },
+          "resolve_company_query": {
+            "total_sec": 0.007404541014693677,
+            "count": 1,
+            "avg_sec": 0.007404541014693677
+          },
+          "treasury_cross_ref": {
+            "total_sec": 3.55611504195258,
+            "count": 1,
+            "avg_sec": 3.55611504195258
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "402340",
+        "company": "SK스퀘어",
+        "status": "exact",
+        "elapsed_sec": 1.5356572500895709,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.08497466705739498,
+            "count": 1,
+            "avg_sec": 0.08497466705739498
+          },
+          "get_document_cached": {
+            "total_sec": 0.01753491477575153,
+            "count": 20,
+            "avg_sec": 0.0008767457387875765
+          },
+          "resolve_company_query": {
+            "total_sec": 0.004125084029510617,
+            "count": 1,
+            "avg_sec": 0.004125084029510617
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.4458731249906123,
+            "count": 1,
+            "avg_sec": 1.4458731249906123
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "034020",
+        "company": "두산에너빌리티",
+        "status": "no_filing",
+        "elapsed_sec": 1.9428157499060035,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 1.8262655830476433,
+            "count": 2,
+            "avg_sec": 0.9131327915238217
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.32926566689275205,
+            "count": 2,
+            "avg_sec": 0.16463283344637603
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0031544159865006804,
+            "count": 1,
+            "avg_sec": 0.0031544159865006804
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "000270",
+        "company": "기아",
+        "status": "exact",
+        "elapsed_sec": 3.288366707973182,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.12682829203549773,
+            "count": 1,
+            "avg_sec": 0.12682829203549773
+          },
+          "get_document_cached": {
+            "total_sec": 0.009771166136488318,
+            "count": 9,
+            "avg_sec": 0.0010856851262764798
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002479500020854175,
+            "count": 1,
+            "avg_sec": 0.002479500020854175
+          },
+          "treasury_cross_ref": {
+            "total_sec": 3.158208915963769,
+            "count": 1,
+            "avg_sec": 3.158208915963769
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "105560",
+        "company": "KB금융",
+        "status": "exact",
+        "elapsed_sec": 2.4632496249396354,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.11659225006587803,
+            "count": 1,
+            "avg_sec": 0.11659225006587803
+          },
+          "get_document_cached": {
+            "total_sec": 0.00895891897380352,
+            "count": 28,
+            "avg_sec": 0.0003199613919215543
+          },
+          "resolve_company_query": {
+            "total_sec": 0.005471791955642402,
+            "count": 1,
+            "avg_sec": 0.005471791955642402
+          },
+          "treasury_cross_ref": {
+            "total_sec": 2.340328291989863,
+            "count": 1,
+            "avg_sec": 2.340328291989863
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "329180",
+        "company": "HD현대중공업",
+        "status": "exact",
+        "elapsed_sec": 2.1589357919292524,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.2069264999590814,
+            "count": 1,
+            "avg_sec": 0.2069264999590814
+          },
+          "get_document_cached": {
+            "total_sec": 0.0014194579562172294,
+            "count": 1,
+            "avg_sec": 0.0014194579562172294
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002166207996197045,
+            "count": 1,
+            "avg_sec": 0.002166207996197045
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9476482080062851,
+            "count": 1,
+            "avg_sec": 1.9476482080062851
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "068270",
+        "company": "셀트리온",
+        "status": "exact",
+        "elapsed_sec": 2.9006105839507654,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.13119737501256168,
+            "count": 1,
+            "avg_sec": 0.13119737501256168
+          },
+          "get_document_cached": {
+            "total_sec": 0.013926877290941775,
+            "count": 22,
+            "avg_sec": 0.0006330398768609898
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0033713330049067736,
+            "count": 1,
+            "avg_sec": 0.0033713330049067736
+          },
+          "treasury_cross_ref": {
+            "total_sec": 2.764849542058073,
+            "count": 1,
+            "avg_sec": 2.764849542058073
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "055550",
+        "company": "신한지주",
+        "status": "exact",
+        "elapsed_sec": 2.4934017499908805,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.10420483304187655,
+            "count": 1,
+            "avg_sec": 0.10420483304187655
+          },
+          "get_document_cached": {
+            "total_sec": 0.024615456582978368,
+            "count": 17,
+            "avg_sec": 0.0014479680342928453
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0036474589724093676,
+            "count": 1,
+            "avg_sec": 0.0036474589724093676
+          },
+          "treasury_cross_ref": {
+            "total_sec": 2.3840754170669243,
+            "count": 1,
+            "avg_sec": 2.3840754170669243
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "032830",
+        "company": "삼성생명",
+        "status": "exact",
+        "elapsed_sec": 1.4034797500353307,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.08897908392827958,
+            "count": 1,
+            "avg_sec": 0.08897908392827958
+          },
+          "get_document_cached": {
+            "total_sec": 0.0005612500244751573,
+            "count": 1,
+            "avg_sec": 0.0005612500244751573
+          },
+          "resolve_company_query": {
+            "total_sec": 0.005963834002614021,
+            "count": 1,
+            "avg_sec": 0.005963834002614021
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.3076099589234218,
+            "count": 1,
+            "avg_sec": 1.3076099589234218
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "028260",
+        "company": "삼성물산",
+        "status": "no_filing",
+        "elapsed_sec": 1.7199969999492168,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 1.6081342920660973,
+            "count": 2,
+            "avg_sec": 0.8040671460330486
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.32813041703775525,
+            "count": 2,
+            "avg_sec": 0.16406520851887763
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0029271250823512673,
+            "count": 1,
+            "avg_sec": 0.0029271250823512673
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "042660",
+        "company": "한화오션",
+        "status": "no_filing",
+        "elapsed_sec": 3.0198184999171644,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 2.799085999955423,
+            "count": 2,
+            "avg_sec": 1.3995429999777116
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.5283573329215869,
+            "count": 2,
+            "avg_sec": 0.26417866646079347
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023432919988408685,
+            "count": 1,
+            "avg_sec": 0.0023432919988408685
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "006400",
+        "company": "삼성SDI",
+        "status": "no_filing",
+        "elapsed_sec": 4.221094249980524,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 4.1101456669857726,
+            "count": 2,
+            "avg_sec": 2.0550728334928863
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.3252256258856505,
+            "count": 2,
+            "avg_sec": 0.16261281294282526
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0023628330091014504,
+            "count": 1,
+            "avg_sec": 0.0023628330091014504
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "012330",
+        "company": "현대모비스",
+        "status": "exact",
+        "elapsed_sec": 2.0279812909429893,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.10637429193593562,
+            "count": 1,
+            "avg_sec": 0.10637429193593562
+          },
+          "get_document_cached": {
+            "total_sec": 0.005563543061725795,
+            "count": 14,
+            "avg_sec": 0.00039739593298041394
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002261540968902409,
+            "count": 1,
+            "avg_sec": 0.002261540968902409
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9184076249366626,
+            "count": 1,
+            "avg_sec": 1.9184076249366626
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "006800",
+        "company": "미래에셋증권",
+        "status": "exact",
+        "elapsed_sec": 5.484697208972648,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.37012391700409353,
+            "count": 1,
+            "avg_sec": 0.37012391700409353
+          },
+          "get_document_cached": {
+            "total_sec": 0.011404165881685913,
+            "count": 9,
+            "avg_sec": 0.0012671295424095457
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0026820830535143614,
+            "count": 1,
+            "avg_sec": 0.0026820830535143614
+          },
+          "treasury_cross_ref": {
+            "total_sec": 5.109270582906902,
+            "count": 1,
+            "avg_sec": 5.109270582906902
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "267260",
+        "company": "HD현대일렉트릭",
+        "status": "exact",
+        "elapsed_sec": 1.8069653329439461,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.10140775004401803,
+            "count": 1,
+            "avg_sec": 0.10140775004401803
+          },
+          "get_document_cached": {
+            "total_sec": 0.0010342920431867242,
+            "count": 1,
+            "avg_sec": 0.0010342920431867242
+          },
+          "resolve_company_query": {
+            "total_sec": 0.006349166971631348,
+            "count": 1,
+            "avg_sec": 0.006349166971631348
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.6969588750507683,
+            "count": 1,
+            "avg_sec": 1.6969588750507683
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "009150",
+        "company": "삼성전기",
+        "status": "exact",
+        "elapsed_sec": 1.4391170419985428,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.11728108301758766,
+            "count": 1,
+            "avg_sec": 0.11728108301758766
+          },
+          "get_document_cached": {
+            "total_sec": 0.0010503750527277589,
+            "count": 1,
+            "avg_sec": 0.0010503750527277589
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0033536250703036785,
+            "count": 1,
+            "avg_sec": 0.0033536250703036785
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.3166972079779953,
+            "count": 1,
+            "avg_sec": 1.3166972079779953
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "086790",
+        "company": "하나금융지주",
+        "status": "exact",
+        "elapsed_sec": 2.4317397919949144,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.10724408307578415,
+            "count": 1,
+            "avg_sec": 0.10724408307578415
+          },
+          "get_document_cached": {
+            "total_sec": 0.008663206943310797,
+            "count": 24,
+            "avg_sec": 0.0003609669559712832
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0029944590060040355,
+            "count": 1,
+            "avg_sec": 0.0029944590060040355
+          },
+          "treasury_cross_ref": {
+            "total_sec": 2.32077108300291,
+            "count": 1,
+            "avg_sec": 2.32077108300291
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "035420",
+        "company": "NAVER",
+        "status": "no_filing",
+        "elapsed_sec": 2.958008332992904,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 2.829059542156756,
+            "count": 2,
+            "avg_sec": 1.414529771078378
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.34622158389538527,
+            "count": 2,
+            "avg_sec": 0.17311079194769263
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002772624953649938,
+            "count": 1,
+            "avg_sec": 0.002772624953649938
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "010130",
+        "company": "고려아연",
+        "status": "exact",
+        "elapsed_sec": 2.5479908749694005,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.0962463750038296,
+            "count": 1,
+            "avg_sec": 0.0962463750038296
+          },
+          "get_document_cached": {
+            "total_sec": 0.02110283321235329,
+            "count": 15,
+            "avg_sec": 0.0014068555474902192
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002687999978661537,
+            "count": 1,
+            "avg_sec": 0.002687999978661537
+          },
+          "treasury_cross_ref": {
+            "total_sec": 2.447961458005011,
+            "count": 1,
+            "avg_sec": 2.447961458005011
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "005490",
+        "company": "POSCO홀딩스",
+        "status": "exact",
+        "elapsed_sec": 2.037269541993737,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.09395524999126792,
+            "count": 1,
+            "avg_sec": 0.09395524999126792
+          },
+          "get_document_cached": {
+            "total_sec": 0.003386873984709382,
+            "count": 8,
+            "avg_sec": 0.00042335924808867276
+          },
+          "resolve_company_query": {
+            "total_sec": 0.006269791047088802,
+            "count": 1,
+            "avg_sec": 0.006269791047088802
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9362054578959942,
+            "count": 1,
+            "avg_sec": 1.9362054578959942
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "015760",
+        "company": "한국전력",
+        "status": "no_filing",
+        "elapsed_sec": 3.1333787499461323,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 3.039400708046742,
+            "count": 2,
+            "avg_sec": 1.519700354023371
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.18691887508612126,
+            "count": 2,
+            "avg_sec": 0.09345943754306063
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0064110830426216125,
+            "count": 1,
+            "avg_sec": 0.0064110830426216125
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "009540",
+        "company": "HD한국조선해양",
+        "status": "exact",
+        "elapsed_sec": 2.2797985419165343,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.23587845894508064,
+            "count": 1,
+            "avg_sec": 0.23587845894508064
+          },
+          "get_document_cached": {
+            "total_sec": 0.0004434579750522971,
+            "count": 1,
+            "avg_sec": 0.0004434579750522971
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0035433339653536677,
+            "count": 1,
+            "avg_sec": 0.0035433339653536677
+          },
+          "treasury_cross_ref": {
+            "total_sec": 2.0395787080051377,
+            "count": 1,
+            "avg_sec": 2.0395787080051377
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "272210",
+        "company": "한화시스템",
+        "status": "exact",
+        "elapsed_sec": 2.0214859169209376,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.07508112501818687,
+            "count": 1,
+            "avg_sec": 0.07508112501818687
+          },
+          "get_document_cached": {
+            "total_sec": 0.0009333341149613261,
+            "count": 2,
+            "avg_sec": 0.00046666705748066306
+          },
+          "resolve_company_query": {
+            "total_sec": 0.004223334020934999,
+            "count": 1,
+            "avg_sec": 0.004223334020934999
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9408821249380708,
+            "count": 1,
+            "avg_sec": 1.9408821249380708
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "042700",
+        "company": "한미반도체",
+        "status": "exact",
+        "elapsed_sec": 1.5563772089080885,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.0863053749781102,
+            "count": 1,
+            "avg_sec": 0.0863053749781102
+          },
+          "get_document_cached": {
+            "total_sec": 0.009909083950333297,
+            "count": 12,
+            "avg_sec": 0.0008257569958611081
+          },
+          "resolve_company_query": {
+            "total_sec": 0.005417958018369973,
+            "count": 1,
+            "avg_sec": 0.005417958018369973
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.4624256250681356,
+            "count": 1,
+            "avg_sec": 1.4624256250681356
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "010140",
+        "company": "삼성중공업",
+        "status": "no_filing",
+        "elapsed_sec": 2.38189799990505,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 2.2803511249367148,
+            "count": 2,
+            "avg_sec": 1.1401755624683574
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.31627349893096834,
+            "count": 2,
+            "avg_sec": 0.15813674946548417
+          },
+          "resolve_company_query": {
+            "total_sec": 0.005726458039134741,
+            "count": 1,
+            "avg_sec": 0.005726458039134741
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "316140",
+        "company": "우리금융지주",
+        "status": "exact",
+        "elapsed_sec": 2.0533600420458242,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.1066385000012815,
+            "count": 1,
+            "avg_sec": 0.1066385000012815
+          },
+          "get_document_cached": {
+            "total_sec": 0.004409875953570008,
+            "count": 7,
+            "avg_sec": 0.0006299822790814298
+          },
+          "resolve_company_query": {
+            "total_sec": 0.005009417072869837,
+            "count": 1,
+            "avg_sec": 0.005009417072869837
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.939179291948676,
+            "count": 1,
+            "avg_sec": 1.939179291948676
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "298040",
+        "company": "효성중공업",
+        "status": "no_filing",
+        "elapsed_sec": 1.5762319579953328,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 1.4865800411207601,
+            "count": 2,
+            "avg_sec": 0.7432900205603801
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.3226301670074463,
+            "count": 2,
+            "avg_sec": 0.16131508350372314
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0051952920621261,
+            "count": 1,
+            "avg_sec": 0.0051952920621261
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "010120",
+        "company": "LS ELECTRIC",
+        "status": "no_filing",
+        "elapsed_sec": 3.38906608405523,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 3.307806208031252,
+            "count": 2,
+            "avg_sec": 1.653903104015626
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.17843204201199114,
+            "count": 2,
+            "avg_sec": 0.08921602100599557
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003213083022274077,
+            "count": 1,
+            "avg_sec": 0.003213083022274077
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "034730",
+        "company": "SK",
+        "status": "exact",
+        "elapsed_sec": 2.533952667028643,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.09866604197304696,
+            "count": 1,
+            "avg_sec": 0.09866604197304696
+          },
+          "get_document_cached": {
+            "total_sec": 0.0018875428941100836,
+            "count": 5,
+            "avg_sec": 0.0003775085788220167
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002325166016817093,
+            "count": 1,
+            "avg_sec": 0.002325166016817093
+          },
+          "treasury_cross_ref": {
+            "total_sec": 2.4323014160618186,
+            "count": 1,
+            "avg_sec": 2.4323014160618186
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "064350",
+        "company": "현대로템",
+        "status": "no_filing",
+        "elapsed_sec": 2.9774284169543535,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 2.8797383749624714,
+            "count": 2,
+            "avg_sec": 1.4398691874812357
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.27570858295075595,
+            "count": 2,
+            "avg_sec": 0.13785429147537798
+          },
+          "resolve_company_query": {
+            "total_sec": 0.010893374914303422,
+            "count": 1,
+            "avg_sec": 0.010893374914303422
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "051910",
+        "company": "LG화학",
+        "status": "exact",
+        "elapsed_sec": 2.049343249993399,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.09577283298131078,
+            "count": 1,
+            "avg_sec": 0.09577283298131078
+          },
+          "get_document_cached": {
+            "total_sec": 0.0010046239476650953,
+            "count": 2,
+            "avg_sec": 0.0005023119738325477
+          },
+          "resolve_company_query": {
+            "total_sec": 0.01216491695959121,
+            "count": 1,
+            "avg_sec": 0.01216491695959121
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9397864169441164,
+            "count": 1,
+            "avg_sec": 1.9397864169441164
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "000810",
+        "company": "삼성화재",
+        "status": "exact",
+        "elapsed_sec": 1.4587079579941928,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.08463279204443097,
+            "count": 1,
+            "avg_sec": 0.08463279204443097
+          },
+          "get_document_cached": {
+            "total_sec": 0.00038724998012185097,
+            "count": 1,
+            "avg_sec": 0.00038724998012185097
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003811042057350278,
+            "count": 1,
+            "avg_sec": 0.003811042057350278
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.369552625110373,
+            "count": 1,
+            "avg_sec": 1.369552625110373
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "035720",
+        "company": "카카오",
+        "status": "no_filing",
+        "elapsed_sec": 2.8009626659331843,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 2.6877160830190405,
+            "count": 2,
+            "avg_sec": 1.3438580415095203
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.3020390000892803,
+            "count": 2,
+            "avg_sec": 0.15101950004464015
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003995417035184801,
+            "count": 1,
+            "avg_sec": 0.003995417035184801
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "096770",
+        "company": "SK이노베이션",
+        "status": "partial",
+        "elapsed_sec": 4.591443334007636,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 4.498097499948926,
+            "count": 2,
+            "avg_sec": 2.249048749974463
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.4074392499169335,
+            "count": 2,
+            "avg_sec": 0.20371962495846674
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0027044580783694983,
+            "count": 1,
+            "avg_sec": 0.0027044580783694983
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "267250",
+        "company": "HD현대",
+        "status": "exact",
+        "elapsed_sec": 2.033971792086959,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.08666316699236631,
+            "count": 1,
+            "avg_sec": 0.08666316699236631
+          },
+          "get_document_cached": {
+            "total_sec": 0.0009901669109240174,
+            "count": 1,
+            "avg_sec": 0.0009901669109240174
+          },
+          "resolve_company_query": {
+            "total_sec": 0.013178291032090783,
+            "count": 1,
+            "avg_sec": 0.013178291032090783
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9322330410359427,
+            "count": 1,
+            "avg_sec": 1.9322330410359427
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "011200",
+        "company": "HMM",
+        "status": "exact",
+        "elapsed_sec": 1.5751427499344572,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.1292945829918608,
+            "count": 1,
+            "avg_sec": 0.1292945829918608
+          },
+          "get_document_cached": {
+            "total_sec": 0.0018058338901028037,
+            "count": 4,
+            "avg_sec": 0.0004514584725257009
+          },
+          "resolve_company_query": {
+            "total_sec": 0.01452291605528444,
+            "count": 1,
+            "avg_sec": 0.01452291605528444
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.4303127500461414,
+            "count": 1,
+            "avg_sec": 1.4303127500461414
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "003670",
+        "company": "포스코퓨처엠",
+        "status": "exact",
+        "elapsed_sec": 2.0586687080794945,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.11496099992655218,
+            "count": 1,
+            "avg_sec": 0.11496099992655218
+          },
+          "get_document_cached": {
+            "total_sec": 0.002123375074006617,
+            "count": 3,
+            "avg_sec": 0.000707791691335539
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003178750048391521,
+            "count": 1,
+            "avg_sec": 0.003178750048391521
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9387932079844177,
+            "count": 1,
+            "avg_sec": 1.9387932079844177
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "138040",
+        "company": "메리츠금융지주",
+        "status": "exact",
+        "elapsed_sec": 2.0218639170052484,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.09657433291431516,
+            "count": 1,
+            "avg_sec": 0.09657433291431516
+          },
+          "get_document_cached": {
+            "total_sec": 0.00872304115910083,
+            "count": 16,
+            "avg_sec": 0.0005451900724438019
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0027905829483643174,
+            "count": 1,
+            "avg_sec": 0.0027905829483643174
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9217606669990346,
+            "count": 1,
+            "avg_sec": 1.9217606669990346
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "047810",
+        "company": "한국항공우주",
+        "status": "exact",
+        "elapsed_sec": 2.018806292093359,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.08342137502040714,
+            "count": 1,
+            "avg_sec": 0.08342137502040714
+          },
+          "get_document_cached": {
+            "total_sec": 0.0009194168960675597,
+            "count": 1,
+            "avg_sec": 0.0009194168960675597
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0032549999887123704,
+            "count": 1,
+            "avg_sec": 0.0032549999887123704
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.930533083039336,
+            "count": 1,
+            "avg_sec": 1.930533083039336
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "033780",
+        "company": "KT&G",
+        "status": "exact",
+        "elapsed_sec": 2.0020368329714984,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.11778262502048165,
+            "count": 1,
+            "avg_sec": 0.11778262502048165
+          },
+          "get_document_cached": {
+            "total_sec": 0.017591831972822547,
+            "count": 19,
+            "avg_sec": 0.0009258858933064499
+          },
+          "resolve_company_query": {
+            "total_sec": 0.011485125054605305,
+            "count": 1,
+            "avg_sec": 0.011485125054605305
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.869443333009258,
+            "count": 1,
+            "avg_sec": 1.869443333009258
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "066570",
+        "company": "LG전자",
+        "status": "exact",
+        "elapsed_sec": 1.5892980420030653,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.10293050005566329,
+            "count": 1,
+            "avg_sec": 0.10293050005566329
+          },
+          "get_document_cached": {
+            "total_sec": 0.0023298750165849924,
+            "count": 3,
+            "avg_sec": 0.0007766250055283308
+          },
+          "resolve_company_query": {
+            "total_sec": 0.005903916084207594,
+            "count": 1,
+            "avg_sec": 0.005903916084207594
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.4775160829303786,
+            "count": 1,
+            "avg_sec": 1.4775160829303786
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "024110",
+        "company": "기업은행",
+        "status": "partial",
+        "elapsed_sec": 2.0156348750460893,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 1.9177694580284879,
+            "count": 2,
+            "avg_sec": 0.9588847290142439
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.18492695898748934,
+            "count": 2,
+            "avg_sec": 0.09246347949374467
+          },
+          "resolve_company_query": {
+            "total_sec": 0.002374625066295266,
+            "count": 1,
+            "avg_sec": 0.002374625066295266
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "079550",
+        "company": "LIG디펜스앤에어로스페이스",
+        "status": "exact",
+        "elapsed_sec": 2.0228647919138893,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.0942596250679344,
+            "count": 1,
+            "avg_sec": 0.0942596250679344
+          },
+          "get_document_cached": {
+            "total_sec": 0.0015868759946897626,
+            "count": 3,
+            "avg_sec": 0.0005289586648965875
+          },
+          "resolve_company_query": {
+            "total_sec": 0.006895375088788569,
+            "count": 1,
+            "avg_sec": 0.006895375088788569
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.920685000019148,
+            "count": 1,
+            "avg_sec": 1.920685000019148
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "017670",
+        "company": "SK텔레콤",
+        "status": "partial",
+        "elapsed_sec": 3.348164333961904,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 3.209789416869171,
+            "count": 2,
+            "avg_sec": 1.6048947084345855
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.2415298749692738,
+            "count": 2,
+            "avg_sec": 0.1207649374846369
+          },
+          "resolve_company_query": {
+            "total_sec": 0.005060708033852279,
+            "count": 1,
+            "avg_sec": 0.005060708033852279
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "000720",
+        "company": "현대건설",
+        "status": "exact",
+        "elapsed_sec": 2.254523167037405,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.10551679192576557,
+            "count": 1,
+            "avg_sec": 0.10551679192576557
+          },
+          "get_document_cached": {
+            "total_sec": 0.0005456670187413692,
+            "count": 1,
+            "avg_sec": 0.0005456670187413692
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0029277909779921174,
+            "count": 1,
+            "avg_sec": 0.0029277909779921174
+          },
+          "treasury_cross_ref": {
+            "total_sec": 2.1452090000966564,
+            "count": 1,
+            "avg_sec": 2.1452090000966564
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "086520",
+        "company": "에코프로",
+        "status": "exact",
+        "elapsed_sec": 2.037154791993089,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.0950014169793576,
+            "count": 1,
+            "avg_sec": 0.0950014169793576
+          },
+          "get_document_cached": {
+            "total_sec": 0.009259418002329767,
+            "count": 7,
+            "avg_sec": 0.001322774000332824
+          },
+          "resolve_company_query": {
+            "total_sec": 0.01130883302539587,
+            "count": 1,
+            "avg_sec": 0.01130883302539587
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.9285767080727965,
+            "count": 1,
+            "avg_sec": 1.9285767080727965
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "247540",
+        "company": "에코프로비엠",
+        "status": "no_filing",
+        "elapsed_sec": 2.119958250084892,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 2.0225836660247296,
+            "count": 2,
+            "avg_sec": 1.0112918330123648
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.1720096250064671,
+            "count": 2,
+            "avg_sec": 0.08600481250323355
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0064102079486474395,
+            "count": 1,
+            "avg_sec": 0.0064102079486474395
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "196170",
+        "company": "알테오젠",
+        "status": "no_filing",
+        "elapsed_sec": 4.891214833944105,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 4.766231501009315,
+            "count": 2,
+            "avg_sec": 2.3831157505046576
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.21287200006190687,
+            "count": 2,
+            "avg_sec": 0.10643600003095344
+          },
+          "resolve_company_query": {
+            "total_sec": 0.010683500091545284,
+            "count": 1,
+            "avg_sec": 0.010683500091545284
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "000250",
+        "company": "삼천당제약",
+        "status": "no_filing",
+        "elapsed_sec": 4.043796167010441,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 3.944866376114078,
+            "count": 2,
+            "avg_sec": 1.972433188057039
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.16467924905009568,
+            "count": 2,
+            "avg_sec": 0.08233962452504784
+          },
+          "resolve_company_query": {
+            "total_sec": 0.015332749928347766,
+            "count": 1,
+            "avg_sec": 0.015332749928347766
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "277810",
+        "company": "레인보우로보틱스",
+        "status": "no_filing",
+        "elapsed_sec": 4.260334582999349,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 4.170102832023986,
+            "count": 2,
+            "avg_sec": 2.085051416011993
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.1563415409764275,
+            "count": 2,
+            "avg_sec": 0.07817077048821375
+          },
+          "resolve_company_query": {
+            "total_sec": 0.003092499915510416,
+            "count": 1,
+            "avg_sec": 0.003092499915510416
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "298380",
+        "company": "에이비엘바이오",
+        "status": "no_filing",
+        "elapsed_sec": 2.972955459030345,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 2.8834013749146834,
+            "count": 2,
+            "avg_sec": 1.4417006874573417
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.17544666700996459,
+            "count": 2,
+            "avg_sec": 0.08772333350498229
+          },
+          "resolve_company_query": {
+            "total_sec": 0.004516750108450651,
+            "count": 1,
+            "avg_sec": 0.004516750108450651
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "950160",
+        "company": "코오롱티슈진",
+        "status": "no_filing",
+        "elapsed_sec": 3.6885420409962535,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 3.590260999975726,
+            "count": 2,
+            "avg_sec": 1.795130499987863
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.17612633295357227,
+            "count": 2,
+            "avg_sec": 0.08806316647678614
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0039206669898703694,
+            "count": 1,
+            "avg_sec": 0.0039206669898703694
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "058470",
+        "company": "리노공업",
+        "status": "exact",
+        "elapsed_sec": 1.1134081250056624,
+        "stages": {
+          "_search_value_up_items": {
+            "total_sec": 0.08610687498003244,
+            "count": 1,
+            "avg_sec": 0.08610687498003244
+          },
+          "get_document_cached": {
+            "total_sec": 0.0012972078984603286,
+            "count": 1,
+            "avg_sec": 0.0012972078984603286
+          },
+          "resolve_company_query": {
+            "total_sec": 0.0044148750603199005,
+            "count": 1,
+            "avg_sec": 0.0044148750603199005
+          },
+          "treasury_cross_ref": {
+            "total_sec": 1.020172500051558,
+            "count": 1,
+            "avg_sec": 1.020172500051558
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "028300",
+        "company": "HLB",
+        "status": "no_filing",
+        "elapsed_sec": 2.096610917011276,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 1.9875244168797508,
+            "count": 2,
+            "avg_sec": 0.9937622084398754
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.20204295800067484,
+            "count": 2,
+            "avg_sec": 0.10102147900033742
+          },
+          "resolve_company_query": {
+            "total_sec": 0.013836624915711582,
+            "count": 1,
+            "avg_sec": 0.013836624915711582
+          }
+        }
+      },
+      {
+        "tool": "value_up",
+        "ticker": "141080",
+        "company": "리가켐바이오",
+        "status": "no_filing",
+        "elapsed_sec": 4.090755041921511,
+        "stages": {
+          "_search_kind_value_up_items": {
+            "total_sec": 4.008216625079513,
+            "count": 2,
+            "avg_sec": 2.0041083125397563
+          },
+          "_search_value_up_items": {
+            "total_sec": 0.17656383395660669,
+            "count": 2,
+            "avg_sec": 0.08828191697830334
+          },
+          "resolve_company_query": {
+            "total_sec": 0.005018999916501343,
+            "count": 1,
+            "avg_sec": 0.005018999916501343
+          }
+        }
+      }
+    ]
+  }
+}

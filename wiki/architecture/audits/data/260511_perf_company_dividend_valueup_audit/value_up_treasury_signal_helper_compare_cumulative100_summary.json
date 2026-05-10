@@ -1,0 +1,18 @@
+{
+  "sample": "cumulative_100",
+  "sample_size": 100,
+  "equal_count": 100,
+  "diff_count": 0,
+  "old_median": 2.2842017709626816,
+  "new_median": 0.33913483301876113,
+  "old_mean": 2.559703930846881,
+  "new_mean": 1.640857455341611,
+  "speedup_median_pct": 82.95433030798117,
+  "speedup_mean_pct": 35.03575468036641,
+  "status_counts": {
+    "exact": 64,
+    "no_filing": 30,
+    "partial": 6
+  },
+  "negative_speedup_count": 31
+}

@@ -2,9 +2,13 @@
 
 ## 최종 요약
 
-이번 audit에서 실제로 반영된 성능 개선은 `shareholder_meeting` 계열의 request-local soup 재사용 1건입니다. 한 요청 안에서 같은 공고 HTML을 여러 번 `BeautifulSoup`로 다시 만들던 경로를, 같은 `rcept_no` 문서에 한해 한 번만 파싱하고 재사용하도록 바꿨습니다.
+이번 audit에서 실제로 반영된 성능 개선은 4건입니다.
+- `shareholder_meeting` 계열의 request-local soup 재사용
+- `company`의 NAVER 업종 보강 제거 + DART `induty_code` 기반 로컬 KSIC 업종명 매핑
+- `dividend`의 감액배당 cross-link 경량화 (`shareholder_meeting` 전체 payload 대신 안건 제목 전용 helper 사용)
+- `value_up`의 `treasury_cross_ref` 경량화 (`treasury_share` 전체 summary 대신 전용 treasury signal helper 사용)
 
-최종 검증 결과는 다음과 같습니다.
+`shareholder_meeting` 최종 검증 결과는 다음과 같습니다.
 - production 코드 기준 `215 / 215` payload equality 유지
 - status 변경 `0건`
 - median speedup `58.6%`
@@ -12,12 +16,41 @@
 - 최대 speedup `88.8%`
 - 최소 speedup `-4.0%`
 
-이번 audit에서 채택하지 않은 개선안도 분명합니다.
+`company` 최종 검증 결과는 다음과 같습니다.
+- 변경 전 median `4.137s`
+- 변경 후 median `0.211s`
+- p95 `4.163s -> 0.251s`
+- mean `4.138s -> 0.229s`
+- 상태 `60 / 60 exact` 유지
+
+`dividend` 최종 검증 결과는 다음과 같습니다.
+- 동일 60개 표본 직접 비교 기준 `60 / 60` equality 유지
+- 변경 전 median `1.445s`
+- 변경 후 median `0.698s`
+- mean `1.655s -> 0.820s`
+- median speedup `51.1%`
+- mean speedup `50.6%`
+- status 변경 `0건`
+
+`value_up` 최종 검증 결과는 다음과 같습니다.
+- 동일 60개 표본 직접 비교 기준 `60 / 60` equality 유지
+- 변경 전 median `2.269s`
+- 변경 후 median `0.359s`
+- mean `2.470s -> 1.822s`
+- median speedup `80.0%`
+- mean speedup `25.2%`
+- status 변경 `0건`
+- 추가 40개 표본에서도 `40 / 40` equality 유지
+- 누적 100개 기준 `100 / 100` equality 유지
+- 누적 100개 기준 median `2.284s -> 0.339s`
+- 누적 100개 기준 mean `2.560s -> 1.641s`
+- 누적 100개 기준 median speedup `83.0%`
+
+이번 audit에서 아직 미반영인 후보도 분명합니다.
 - `treasury_share`의 body enrichment 생략은 속도 이득이 작고 semantic drift가 커서 기각
-- `company`, `dividend`, `value_up`은 병목 후보는 보였지만 이번 턴에서는 안전한 구현안까지 확정하지 못함
 
 한 줄 결론:
-- 이번 성능 개선은 `shareholder_meeting` 1건만 실제 반영했고, 넓은 표본 검증 기준에서 merge-safe로 판단했습니다.
+- 이번 성능 개선은 `shareholder_meeting`, `company`, `dividend`, `value_up` 4건이 실제 반영됐다.
 
 ## 무엇을 바꿨나
 
@@ -27,6 +60,27 @@
 - 변경 후: 같은 요청 안에서는 같은 `rcept_no` 문서 soup를 재사용
 - 캐시 범위: request-local
 - 안전 장치: 전역 캐시 없음, 파싱 결과 dict 공유 없음, raw document/soup 재사용만 허용
+
+적용한 변경:
+- 대상: `open_proxy_mcp/services/company.py`
+- 변경 전: DART `company.json` + NAVER 업종 보강 + 최근 공시 인덱스
+- 변경 후: DART `company.json` + 로컬 KSIC 업종명 매핑 + 최근 공시 인덱스
+- 제거한 경로: NAVER 업종명 스크래핑
+- 대체 방식: DART `induty_code`를 `ksic10_ko.json`으로 매핑, 긴 코드는 prefix fallback 허용
+
+적용한 변경:
+- 대상: `open_proxy_mcp/services/dividend_v2.py`, `open_proxy_mcp/services/shareholder_meeting.py`
+- 변경 전: 감액배당 메타가 `build_shareholder_meeting_payload(..., scope=\"summary\")` 전체 경로를 호출
+- 변경 후: `load_shareholder_meeting_agenda_titles()` helper로 notice 안건 제목만 추출
+- 유지한 의미: 감액배당 키워드 판정 규칙, summary/meta_signals 출력 형태
+- 제거한 비용: `meeting_coverage_12m`, envelope 조립, 부가 메타 계산 같은 비필수 단계
+
+적용한 변경:
+- 대상: `open_proxy_mcp/services/value_up_v2.py`, `open_proxy_mcp/services/treasury_share.py`
+- 변경 전: `value_up`의 `treasury_cross_ref`가 `build_treasury_share_payload(..., scope=\"summary\")` 전체 경로를 호출
+- 변경 후: `fetch_treasury_signal_summary()` helper로 최근 24개월 자사주 신호 요약만 계산
+- 유지한 의미: `treasury_cross_ref` 5개 수치 필드와 출력 형태
+- 제거한 비용: 결과보고서 본문 파싱, cycle matching, 전체 event/type_breakdown 조립
 
 기각한 변경:
 - 대상: `treasury_share`
@@ -47,6 +101,23 @@ production 반영 후:
 - 실험보다 이득이 줄어든 이유는 안전성을 위해 재사용 범위를 notice-parser request path로만 좁혔기 때문
 - 그래도 semantic drift 없이 과반 이상의 속도 개선이 유지됨
 
+`company` 반영 후:
+- `KOSPI 50 + KOSDAQ 10` 기준 median `4.137s -> 0.211s`
+- mean `4.138s -> 0.229s`
+- NAVER 호출 제거가 핵심이었고, 업종명은 KSIC 로컬 매핑으로 복구
+
+`dividend` 반영 후:
+- 같은 `KOSPI 50 + KOSDAQ 10` 표본 직접 비교 기준 median `1.445s -> 0.698s`
+- mean `1.655s -> 0.820s`
+- `60 / 60` equality 유지
+- 개선의 핵심은 감액배당 cross-link가 `shareholder_meeting` 전체 payload를 만들지 않도록 경량화한 것
+
+`value_up` 반영 후:
+- 같은 `KOSPI 50 + KOSDAQ 10` 표본 직접 비교 기준 median `2.269s -> 0.359s`
+- mean `2.470s -> 1.822s`
+- `60 / 60` equality 유지
+- 개선의 핵심은 `treasury_cross_ref`가 `treasury_share` 전체 summary를 만들지 않도록 경량화한 것
+
 ## 하락 케이스와 트레이드오프
 
 확인된 하락 케이스는 제한적입니다.
@@ -65,15 +136,20 @@ production 반영 후:
 
 채택:
 - `shareholder_meeting` request-local soup 재사용 구현 및 유지
+- `company` NAVER 제거 + KSIC 로컬 매핑 유지
+- `dividend` agenda-title helper 기반 감액배당 cross-link 경량화
+- `value_up` treasury signal helper 기반 `treasury_cross_ref` 경량화
 
 기각:
 - `treasury_share` body enrichment 생략
 
 후속 profiling 필요:
+- `treasury_share`의 안전한 세부 단계 분해 측정
+
+stage profiling 완료:
 - `company`
 - `dividend`
 - `value_up`
-- `treasury_share`의 안전한 세부 단계 분해 측정
 
 ## 근거 파일 인덱스
 
@@ -94,6 +170,16 @@ production 반영 후:
   - `wiki/architecture/audits/data/260510_perf_data_tools_audit/kospi100_additional_shareholder_meeting_prod_cache_verify.json`
   - `wiki/architecture/audits/data/260510_perf_data_tools_audit/kosdaq55_additional_shareholder_meeting_prod_cache_verify.json`
   - `wiki/architecture/audits/data/260510_perf_data_tools_audit/shareholder_meeting_prod_cache_verify_summary.json`
+- 260511 후속 profiling / `company` 반영 검증
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/universe_kospi50.csv`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/universe_kosdaq10.csv`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/baseline_kospi50_kosdaq10.json`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/stage_profile_kospi50_kosdaq10.json`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/dividend_summary_after_agenda_titles_helper.json`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/dividend_summary_agenda_titles_helper_compare.json`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare.json`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare_additional40.json`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare_cumulative100_summary.json`
 - 기각 근거
   - `wiki/architecture/audits/data/260510_perf_data_tools_audit/treasury_skip_body_experiment.json`
 

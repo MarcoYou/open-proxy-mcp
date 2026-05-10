@@ -87,7 +87,6 @@ def _company_profile_patches(profiler: StageProfiler) -> Any:
     with ExitStack() as stack:
         stack.enter_context(_patch_async_attr(DartClient, "lookup_corp_code_all", "lookup_corp_code_all", profiler))
         stack.enter_context(_patch_async_attr(company_mod, "_safe_company_info", "_safe_company_info", profiler))
-        stack.enter_context(_patch_async_attr(company_mod, "_safe_naver_profile", "_safe_naver_profile", profiler))
         stack.enter_context(_patch_async_attr(company_mod, "_safe_recent_filings", "_safe_recent_filings", profiler))
         yield
 
