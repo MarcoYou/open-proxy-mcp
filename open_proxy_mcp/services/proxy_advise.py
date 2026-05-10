@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from datetime import date
 from importlib.resources import files
 from pathlib import Path
@@ -357,6 +358,155 @@ def _law_layer_body(
                 rule.get("id", ""),
                 rule.get("law_reference", ""),
             )
+    return None
+
+
+_CLAUSE_RE = re.compile(r'제\s*(\d+)\s*조(?:\s*의\s*(\d+))?')
+
+# sub-agenda → amendment 매핑용 도메인 키워드 (정관 변경 안건)
+# generic 동사 (신설/삭제/정비/개정/반영/조문) 제외 — LG화학 "정관 정비" 같은 generic sub false positive 회피.
+# 정관변경 + 강행규정 specific 키워드만 (Ralph 6 회귀 회피).
+_SUBAGENDA_DOMAIN_KEYWORDS = [
+    "기준일", "소집지", "의결권", "이사", "감사", "보수", "퇴직금", "임기",
+    "사업목적", "주식", "전자", "주주명부", "이사회", "위원회", "수권주식",
+    "전환사채", "신주인수권", "배당", "사명", "본점", "정원", "원수",
+    "전자증권",
+    "집중투표", "사외이사", "독립이사", "전자주주총회", "자사주",
+]
+
+
+def _extract_clauses(text: str) -> set[str]:
+    """텍스트에서 정관 조항 번호 추출 (제N조 / 제N조의M)."""
+    nums = set()
+    for m in _CLAUSE_RE.finditer(text or ""):
+        n1, n2 = m.group(1), m.group(2)
+        nums.add(f"제{n1}조의{n2}" if n2 else f"제{n1}조")
+    return nums
+
+
+def _extract_sub_keywords(text: str) -> set[str]:
+    """sub-agenda title에서 도메인 키워드 추출."""
+    text_clean = (text or "").replace(" ", "")
+    return {kw for kw in _SUBAGENDA_DOMAIN_KEYWORDS if kw in text_clean}
+
+
+def _is_generic_sub(title: str) -> bool:
+    """generic sub-agenda 식별 — 정관/변경/개정 단어 없음 + 도메인 키워드 없음.
+
+    카카오게임즈 패턴 진입 조건 (호출부에서 보장)에서 "정관/변경/개정 없음"은 이미 충족.
+    여기서는 추가로 도메인 키워드도 없는지 검사 (예: "그 외 변경의 건" / "기타 정비").
+    """
+    return not _extract_sub_keywords(title)
+
+
+def _map_subagenda_to_amendment(
+    sub_title: str,
+    amendments: list[dict[str, Any]],
+    used: set[int],
+) -> int | None:
+    """sub-agenda → amendment 매핑. 매핑된 amendment idx 반환 또는 None.
+
+    Priority cascade (strict — semantic mismatch 회피):
+    1. amendment label == sub title (또는 substring) — 강원랜드 같은 동일 string
+    2. amendment label/before/after에서 조항 추출 → sub clauses 매칭
+
+    keyword 매칭은 의도적으로 제외:
+    - sub title의 keyword가 amendment reason에 있어도 의미 다를 수 있음 (예: LG화학
+      "선임독립이사 선임" sub가 "독립이사 명칭 변경" amendment에 매핑되어 A1-5 false
+      positive 발생). Ralph 6 회귀 회피 원칙 — 정확성 우선.
+    - keyword 매칭이 필요한 케이스 (예: 카카오게임즈 "주주총회 기준일 변경" → 제13조의3)는
+      별도 architect 필요 (sub→amendment semantic 매핑은 LLM 영역).
+
+    `used` set: 이미 매핑된 amendment idx — cross-match 회피.
+    """
+    sub_title_clean = (sub_title or "").strip()
+    if not sub_title_clean or not amendments:
+        return None
+
+    # Priority 1: label == sub title (substring)
+    for i, am in enumerate(amendments):
+        if i in used:
+            continue
+        label = (am.get("label") or "").strip()
+        if not label:
+            continue
+        if label == sub_title_clean or label in sub_title_clean or sub_title_clean in label:
+            return i
+
+    # Priority 2: clause 매칭 (label/before/after 모두 검사)
+    sub_clauses = _extract_clauses(sub_title)
+    if sub_clauses:
+        best_i, best_overlap = None, 0
+        for i, am in enumerate(amendments):
+            if i in used:
+                continue
+            am_text = " ".join([
+                am.get("label") or "", am.get("before") or "",
+                am.get("after") or "", am.get("clause") or "",
+            ])
+            am_clauses = _extract_clauses(am_text)
+            overlap = len(sub_clauses & am_clauses)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_i = i
+        if best_i is not None:
+            return best_i
+
+    return None
+
+
+def _law_layer_subagenda_mapped(
+    sub_title: str,
+    amendment: dict[str, Any],
+    *,
+    parent_title: str,
+    corp_total_asset_won: int | None,
+    today_iso: str,
+) -> tuple[str, str, str, str] | None:
+    """카카오게임즈 패턴 fallback — 매핑된 amendment 1개 본문으로 룰 매칭.
+
+    호출 조건 (호출부에서 보장):
+        - title_hit None
+        - parent_title에 "정관" + "변경"/"개정" (정관변경 sub)
+        - 자기 children == 0
+        - 자기 title generic (정관/변경/개정 없음)
+        - amendments 매핑 성공
+
+    매핑된 amendment의 body_text로 룰 매칭 (body_pattern 우선).
+    """
+    if not amendment:
+        return None
+    rules = _load_law_layer_rules()
+    if not rules:
+        return None
+
+    parts = [
+        amendment.get("label") or "",
+        amendment.get("clause") or "",
+        amendment.get("before") or "",
+        amendment.get("after") or "",
+        amendment.get("reason") or "",
+    ]
+    body_text = " ".join(p for p in parts if p).strip()
+    if not body_text:
+        return None
+
+    for rule in rules:
+        if rule.get("layer") == "C" or rule.get("decision") == "risk_factors":
+            continue
+        pattern = rule.get("body_pattern") or rule.get("agenda_pattern") or {}
+        if not _agenda_pattern_match(body_text, parent_title, pattern):
+            continue
+        if not _applies_to_match(rule, corp_total_asset_won, today_iso):
+            continue
+        label = (amendment.get("label") or amendment.get("clause") or "").strip()
+        label_ref = f" [sub-mapped: {label[:30]}]" if label else " [sub-mapped]"
+        return (
+            rule["decision"],
+            rule.get("reason_template", "") + label_ref,
+            rule.get("id", ""),
+            rule.get("law_reference", ""),
+        )
     return None
 
 
@@ -1467,6 +1617,8 @@ async def build_proxy_advise_payload(
         return best_am if best_score >= 2 else None
 
     # 안건별 결정 + 사유 (vote_style 정책 wire 적용)
+    # 카카오게임즈 패턴 fallback의 cross-match 회피용 — 매핑된 amendment idx track
+    _subagenda_used_amendments: set[int] = set()
     agenda_decisions: list[dict[str, Any]] = []
     for title in agenda_titles:
         parent_for_title = title_to_parent.get(title, "")
@@ -1499,6 +1651,31 @@ async def build_proxy_advise_payload(
                 corp_total_asset_won=corp_total_asset_won,
                 today_iso=today_iso_for_law,
             )
+
+        # 0-c. 카카오게임즈 패턴 fallback — sub→amendment 1:1 매핑 (260510 ralph 8)
+        # 진입: title 미매치 + parent에 정관변경 + sub children 0 + sub title generic 아님 + amendments 있음
+        # generic sub (도메인 키워드 없음)는 skip — cross-match 회피 (옵션 B 정책).
+        # 매핑된 amendment의 body로만 룰 매칭 (Ralph 7 통합 검사와 다름 — 1:1 매핑).
+        if (
+            law_layer_hit is None
+            and parent_for_title
+            and _is_charter_top(parent_for_title)
+            and title_to_children_count.get(title, 0) == 0
+            and aoi_amendments
+            and not _is_generic_sub(title)
+        ):
+            mapped_idx = _map_subagenda_to_amendment(
+                title, aoi_amendments, _subagenda_used_amendments,
+            )
+            if mapped_idx is not None:
+                law_layer_hit = _law_layer_subagenda_mapped(
+                    title, aoi_amendments[mapped_idx],
+                    parent_title=parent_for_title,
+                    corp_total_asset_won=corp_total_asset_won,
+                    today_iso=today_iso_for_law,
+                )
+                if law_layer_hit:
+                    _subagenda_used_amendments.add(mapped_idx)
 
         # 1. OPM 기본 logic으로 fallback decision 산출
         if category == "director_election" or category == "audit_committee_election":
