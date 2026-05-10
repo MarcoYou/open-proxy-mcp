@@ -1,0 +1,1813 @@
+[
+  {
+    "name": "유한양행",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 8,
+    "n_amendments": 2,
+    "subs": [
+      {
+        "sub_title": "제12조(주주명부 작성·비치)",
+        "sub_clauses": [
+          "제12조"
+        ],
+        "sub_keywords": [
+          "주주명부"
+        ],
+        "best_am_score": 11,
+        "best_am_label": "제12조(주주명부 작성·비치)",
+        "best_am_clause_overlap": [
+          "제12조"
+        ],
+        "best_am_keyword_overlap": [
+          "주주명부"
+        ]
+      },
+      {
+        "sub_title": "제20조(소집지와 개최방식)",
+        "sub_clauses": [
+          "제20조"
+        ],
+        "sub_keywords": [
+          "소집지"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제30조(이사의 선임)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "제26조(의결권의 대리행사)",
+        "sub_clauses": [
+          "제26조"
+        ],
+        "sub_keywords": [
+          "의결권"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제30조(이사의 선임)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "제29조(이사의 수)",
+        "sub_clauses": [
+          "제29조"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제30조(이사의 선임)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제30조(이사의 선임)",
+        "sub_clauses": [
+          "제30조"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 11,
+        "best_am_label": "제30조(이사의 선임)",
+        "best_am_clause_overlap": [
+          "제30조"
+        ],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제30조의2(독립이사 후보의 추천)",
+        "sub_clauses": [
+          "제30조의2"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제30조(이사의 선임)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제39조의2(위원회)",
+        "sub_clauses": [
+          "제39조의2"
+        ],
+        "sub_keywords": [
+          "위원회"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제30조(이사의 선임)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "제41조의2(감사위원회의 구성)",
+        "sub_clauses": [
+          "제41조의2"
+        ],
+        "sub_keywords": [
+          "위원회",
+          "감사"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제30조(이사의 선임)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 2,
+    "n_partial": 2,
+    "n_none": 4
+  },
+  {
+    "name": "강원랜드",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 2,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "관계 법령 및 행정기관·행정체계 개정사항 현행화를 위한 변경",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "관계 법령 및 행정기관·행정체계 개정사항 현행화를 위한 변경",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정"
+        ]
+      },
+      {
+        "sub_title": "신규사업 영위를 위한 사업 목적 추가",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "관계 법령 및 행정기관·행정체계 개정사항 현행화를 위한 변경",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 1,
+    "n_none": 1
+  },
+  {
+    "name": "씨에스윈드",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 5,
+    "n_amendments": 5,
+    "subs": [
+      {
+        "sub_title": "개정상법 반영",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "개정상법 반영",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "전자증권제도 및 전자증권법 반영",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "전자",
+          "반영",
+          "전자증권"
+        ],
+        "best_am_score": 3,
+        "best_am_label": "전자증권제도 및전자증권법 반영",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "전자",
+          "반영",
+          "전자증권"
+        ]
+      },
+      {
+        "sub_title": "이사의 임기 조문 정비",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "조문",
+          "임기",
+          "정비",
+          "이사"
+        ],
+        "best_am_score": 4,
+        "best_am_label": "이사의 임기 조문 정비",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "임기",
+          "조문",
+          "정비",
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "배당절차 개선 반영",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "개정상법 반영",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "배당",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "부칙",
+        "sub_clauses": [],
+        "sub_keywords": [],
+        "best_am_score": 0,
+        "best_am_label": "개정상법 반영",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 4,
+    "n_none": 1
+  },
+  {
+    "name": "한미사이언스",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 7,
+    "n_amendments": 7,
+    "subs": [
+      {
+        "sub_title": "제22조 (소집지)",
+        "sub_clauses": [
+          "제22조"
+        ],
+        "sub_keywords": [
+          "소집지"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "소집지"
+        ]
+      },
+      {
+        "sub_title": "제28조 (의결권의 대리행사)",
+        "sub_clauses": [
+          "제28조"
+        ],
+        "sub_keywords": [
+          "의결권"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "의결권"
+        ]
+      },
+      {
+        "sub_title": "제31조 (이사 및 감사의 수)",
+        "sub_clauses": [
+          "제31조"
+        ],
+        "sub_keywords": [
+          "감사",
+          "이사"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "감사",
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제34조 (이사의 보선)",
+        "sub_clauses": [
+          "제34조"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제41조의2 (위원회)",
+        "sub_clauses": [
+          "제41조의2"
+        ],
+        "sub_keywords": [
+          "위원회"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "위원회"
+        ]
+      },
+      {
+        "sub_title": "제41조의3 (감사위원회의 구성)",
+        "sub_clauses": [
+          "제41조의3"
+        ],
+        "sub_keywords": [
+          "위원회",
+          "감사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "위원회"
+        ]
+      },
+      {
+        "sub_title": "부칙 신설",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "신설"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "신설"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 7,
+    "n_none": 0
+  },
+  {
+    "name": "솔브레인",
+    "charter_top": "정관 변경의 건",
+    "n_subs": 2,
+    "n_amendments": 2,
+    "subs": [
+      {
+        "sub_title": "상법 개정 반영의 건 (개정상법 정관 반영)",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "상법 개정 반영의 건 (개정상법 정관 반영)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "기타 조문 정비의 건 (지배구조 개선을 위한 재무제표 및 배당 주주총회 승인 명문화)",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당",
+          "조문",
+          "정비"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "상법 개정 반영의 건 (개정상법 정관 반영)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 1,
+    "n_none": 1
+  },
+  {
+    "name": "동진쎄미켐",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 3,
+    "n_amendments": 4,
+    "subs": [
+      {
+        "sub_title": "주식의 소각 조문 신설의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "신설",
+          "주식",
+          "조문"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제15조의3(주식의 소각)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "주식"
+        ]
+      },
+      {
+        "sub_title": "상법 개정 반영의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제30조(이사, 감사의 수)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "분기배당 기준 정비의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당",
+          "정비"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제46조의2(분기배당)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "배당"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 3,
+    "n_none": 0
+  },
+  {
+    "name": "원익홀딩스",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 4,
+    "n_amendments": 4,
+    "subs": [
+      {
+        "sub_title": "사업목적 추가 및 변경",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "의안 : 사업목적 추가 및 변경",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "사업목적"
+        ]
+      },
+      {
+        "sub_title": "개정 상법 반영",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제26조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "감사 제도 변경",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "감사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제29조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "감사"
+        ]
+      },
+      {
+        "sub_title": "조문 일부 정비",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "조문",
+          "정비"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제31조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "조문",
+          "정비"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 4,
+    "n_none": 0
+  },
+  {
+    "name": "하나마이크론",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 4,
+    "n_amendments": 4,
+    "subs": [
+      {
+        "sub_title": "개정 상법 반영(제32조, 제35조, 제39조, 제40조의",
+        "sub_clauses": [
+          "제40조",
+          "제39조",
+          "제35조",
+          "제32조"
+        ],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 11,
+        "best_am_label": "제32조(의결권의대리행사)",
+        "best_am_clause_overlap": [
+          "제32조"
+        ],
+        "best_am_keyword_overlap": [
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "이사회 구조 및 운영 정비(제37조, 제41조, 제44조)",
+        "sub_clauses": [
+          "제44조",
+          "제37조",
+          "제41조"
+        ],
+        "sub_keywords": [
+          "이사회",
+          "정비",
+          "이사"
+        ],
+        "best_am_score": 12,
+        "best_am_label": "제37조(이사의 임기)",
+        "best_am_clause_overlap": [
+          "제37조"
+        ],
+        "best_am_keyword_overlap": [
+          "이사회",
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "배당 제도 정비(제58조, 제58조의",
+        "sub_clauses": [
+          "제58조"
+        ],
+        "sub_keywords": [
+          "배당",
+          "정비"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제57조(이익배당)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "배당"
+        ]
+      },
+      {
+        "sub_title": "기타 조문 정비(제1조, 제4조, 제12조, 부칙, 그 외 조문번호)",
+        "sub_clauses": [
+          "제1조",
+          "제4조",
+          "제12조"
+        ],
+        "sub_keywords": [
+          "조문",
+          "정비"
+        ],
+        "best_am_score": 12,
+        "best_am_label": "제1조(상호)",
+        "best_am_clause_overlap": [
+          "제1조"
+        ],
+        "best_am_keyword_overlap": [
+          "조문",
+          "정비"
+        ]
+      }
+    ],
+    "n_clear": 3,
+    "n_partial": 1,
+    "n_none": 0
+  },
+  {
+    "name": "차바이오텍",
+    "charter_top": "정관 변경의 건",
+    "n_subs": 7,
+    "n_amendments": 4,
+    "subs": [
+      {
+        "sub_title": "정관 제23조(이사와 감사의 원수) 개정의 건",
+        "sub_clauses": [
+          "제23조"
+        ],
+        "sub_keywords": [
+          "개정",
+          "감사",
+          "원수",
+          "이사"
+        ],
+        "best_am_score": 14,
+        "best_am_label": "제23조(이사와 감사의 원수)",
+        "best_am_clause_overlap": [
+          "제23조"
+        ],
+        "best_am_keyword_overlap": [
+          "개정",
+          "감사",
+          "원수",
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "정관 제23조(이사와 감사의 원수) 개정의 건",
+        "sub_clauses": [
+          "제23조"
+        ],
+        "sub_keywords": [
+          "개정",
+          "감사",
+          "원수",
+          "이사"
+        ],
+        "best_am_score": 14,
+        "best_am_label": "제23조(이사와 감사의 원수)",
+        "best_am_clause_overlap": [
+          "제23조"
+        ],
+        "best_am_keyword_overlap": [
+          "개정",
+          "감사",
+          "원수",
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "정관 제32조 2(위원회) 개정의 건",
+        "sub_clauses": [
+          "제32조"
+        ],
+        "sub_keywords": [
+          "개정",
+          "위원회"
+        ],
+        "best_am_score": 11,
+        "best_am_label": "제32조의",
+        "best_am_clause_overlap": [
+          "제32조"
+        ],
+        "best_am_keyword_overlap": [
+          "개정"
+        ]
+      },
+      {
+        "sub_title": "부칙 추가의 건",
+        "sub_clauses": [],
+        "sub_keywords": [],
+        "best_am_score": 0,
+        "best_am_label": "제23조(이사와 감사의 원수)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "정관 제10조의 5(신주발행의 제한) 신설의 건",
+        "sub_clauses": [
+          "제10조의5"
+        ],
+        "sub_keywords": [
+          "신설"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제23조(이사와 감사의 원수)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "정관 제17조의 2(권고적 주주제안) 신설의 건",
+        "sub_clauses": [
+          "제17조의2"
+        ],
+        "sub_keywords": [
+          "신설"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제23조(이사와 감사의 원수)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "정관 제21조(의결권) 개정의 건",
+        "sub_clauses": [
+          "제21조"
+        ],
+        "sub_keywords": [
+          "개정",
+          "의결권"
+        ],
+        "best_am_score": 12,
+        "best_am_label": "제21조(의결권)",
+        "best_am_clause_overlap": [
+          "제21조"
+        ],
+        "best_am_keyword_overlap": [
+          "개정",
+          "의결권"
+        ]
+      }
+    ],
+    "n_clear": 4,
+    "n_partial": 0,
+    "n_none": 3
+  },
+  {
+    "name": "인텔리안테크",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 2,
+    "n_amendments": 2,
+    "subs": [
+      {
+        "sub_title": "사업목적 추가의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "사업목적 추가의 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "사업목적"
+        ]
+      },
+      {
+        "sub_title": "개정 상법 반영의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "개정 상법 반영의 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 0
+  },
+  {
+    "name": "솔브레인홀딩스",
+    "charter_top": "정관 변경의 건",
+    "n_subs": 3,
+    "n_amendments": 3,
+    "subs": [
+      {
+        "sub_title": "사업목적 추가의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제2조(목적)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "사업목적"
+        ]
+      },
+      {
+        "sub_title": "상법 개정 반영의 건 (개정상법 정관 반영)",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "상법 개정 반영의 건 (개정상법 정관 반영)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "기타 조문 정비의 건 (지배구조 개선을 위한 재무제표 및 배당 주주총회 승인 명문화)",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당",
+          "조문",
+          "정비"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제2조(목적)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 1
+  },
+  {
+    "name": "쏠리드",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 7,
+    "n_amendments": 7,
+    "subs": [
+      {
+        "sub_title": "주식매수선택권 부여 한도 축소 및 성과연동형 조항 추가",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "주식",
+          "축소",
+          "한도"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제11조(주식매수선택권)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "주식",
+          "한도"
+        ]
+      },
+      {
+        "sub_title": "동등배당 규정 준용을 통한 조문 일관성 제고",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당",
+          "조문"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제11조의2(우리사주매수선택권)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "배당",
+          "조문"
+        ]
+      },
+      {
+        "sub_title": "전자증권제도에 따른 불필요 조문 삭제",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "전자",
+          "삭제",
+          "조문",
+          "전자증권"
+        ],
+        "best_am_score": 3,
+        "best_am_label": "제16조(기준일)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "전자",
+          "삭제",
+          "전자증권"
+        ]
+      },
+      {
+        "sub_title": "의결권 기준일 고정으로 절차 간소화",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "의결권",
+          "기준일"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제16조(기준일)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "의결권",
+          "기준일"
+        ]
+      },
+      {
+        "sub_title": "개정 상법 반영",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제25조(소집지)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "분기배당 기준일의 가변적 설정 및 공고 절차 근거 마련",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당",
+          "기준일",
+          "공고"
+        ],
+        "best_am_score": 3,
+        "best_am_label": "제56조의2(분기배당)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "배당",
+          "기준일",
+          "공고"
+        ]
+      },
+      {
+        "sub_title": "오기 (誤記 ) 정정 등 조문 정비",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "조문",
+          "정비"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제10조(신주인수권)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "조문",
+          "정비"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 7,
+    "n_none": 0
+  },
+  {
+    "name": "엔켐",
+    "charter_top": "정관일부 변경의 건",
+    "n_subs": 2,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "개정 상법에 따른 정관 변경",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "의안 : 개정 상법에 따른 정관 변경     제2-2호 의안 : 전환사채 조문 정비",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정"
+        ]
+      },
+      {
+        "sub_title": "전환사채 조문 정비",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "전환사채",
+          "조문",
+          "정비"
+        ],
+        "best_am_score": 3,
+        "best_am_label": "의안 : 개정 상법에 따른 정관 변경     제2-2호 의안 : 전환사채 조문 정비",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "전환사채",
+          "조문",
+          "정비"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 0
+  },
+  {
+    "name": "나노신소재",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 4,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "이사의 수 (제32조) 일부 변경의 건",
+        "sub_clauses": [
+          "제32조"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 11,
+        "best_am_label": "이사의 수 (제32조) 일부 변경의 건",
+        "best_am_clause_overlap": [
+          "제32조"
+        ],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "이사의 의무 (제37조의 2) 일부 변경의 건",
+        "sub_clauses": [
+          "제37조의2"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "이사의 수 (제32조) 일부 변경의 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "이사의 보수와 퇴직금 (제41조) 일부 변경의 건",
+        "sub_clauses": [
+          "제41조"
+        ],
+        "sub_keywords": [
+          "보수",
+          "퇴직금",
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "이사의 수 (제32조) 일부 변경의 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "부칙 신설(경과규정)",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "신설"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "이사의 수 (제32조) 일부 변경의 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 1,
+    "n_partial": 2,
+    "n_none": 1
+  },
+  {
+    "name": "파이버프로",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 3,
+    "n_amendments": 3,
+    "subs": [
+      {
+        "sub_title": "사업목적 추가의 건(제2조)",
+        "sub_clauses": [
+          "제2조"
+        ],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 11,
+        "best_am_label": "사업목적 추가의 건(제2조)",
+        "best_am_clause_overlap": [
+          "제2조"
+        ],
+        "best_am_keyword_overlap": [
+          "사업목적"
+        ]
+      },
+      {
+        "sub_title": "상법 개정내용 및 코스닥상장법인 표준정관을 반영한 조문 정비의 건(제30조, 제33조, 제38조, 제39조의",
+        "sub_clauses": [
+          "제50조",
+          "제30조",
+          "제39조의2",
+          "제38조",
+          "제33조"
+        ],
+        "sub_keywords": [
+          "개정",
+          "반영",
+          "조문",
+          "정비"
+        ],
+        "best_am_score": 12,
+        "best_am_label": "제30조(의결권의 대리행사)",
+        "best_am_clause_overlap": [
+          "제30조"
+        ],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "부칙 변경의 건(부칙 제1조, 제2조, 제3조)",
+        "sub_clauses": [
+          "제2조",
+          "제1조",
+          "제3조"
+        ],
+        "sub_keywords": [],
+        "best_am_score": 10,
+        "best_am_label": "사업목적 추가의 건(제2조)",
+        "best_am_clause_overlap": [
+          "제2조"
+        ],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 3,
+    "n_partial": 0,
+    "n_none": 0
+  },
+  {
+    "name": "넥슨게임즈",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 2,
+    "n_amendments": 2,
+    "subs": [
+      {
+        "sub_title": "개정상법 반영",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "의안 : 개정상법 반영",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "분기배당 절차 개선",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제56조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "배당"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 0
+  },
+  {
+    "name": "아난티",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 2,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "사업목적 추가",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "사업목적 추가",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "사업목적"
+        ]
+      },
+      {
+        "sub_title": "그 외 정관 변경의 건",
+        "sub_clauses": [],
+        "sub_keywords": [],
+        "best_am_score": 0,
+        "best_am_label": "사업목적 추가",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 1,
+    "n_none": 1
+  },
+  {
+    "name": "에코프로에이치엔",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 3,
+    "n_amendments": 4,
+    "subs": [
+      {
+        "sub_title": "사업목적 추가의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "사업목적 추가의 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "사업목적"
+        ]
+      },
+      {
+        "sub_title": "이사 선임 및 보수 관련 변경의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "보수",
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제34조(이사의 선임)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "기타 변경의 건",
+        "sub_clauses": [],
+        "sub_keywords": [],
+        "best_am_score": 0,
+        "best_am_label": "제34조(이사의 선임)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 1
+  },
+  {
+    "name": "시노펙스",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 3,
+    "n_amendments": 3,
+    "subs": [
+      {
+        "sub_title": "사업목적 추가의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "사업목적 추가의 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "사업목적"
+        ]
+      },
+      {
+        "sub_title": "개정 상법 반영의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제27조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "기타 변경의 건",
+        "sub_clauses": [],
+        "sub_keywords": [],
+        "best_am_score": 0,
+        "best_am_label": "사업목적 추가의 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 1
+  },
+  {
+    "name": "한라캐스트",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 4,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "사업목적 추가의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "사업목적"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제2조(목적)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "사업목적"
+        ]
+      },
+      {
+        "sub_title": "전환사채 발행한도 증액의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "전환사채",
+          "증액",
+          "한도"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제2조(목적)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "중간배당 추가의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제2조(목적)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "그 외 상법 변경에 따른 정관 변경의 건",
+        "sub_clauses": [],
+        "sub_keywords": [],
+        "best_am_score": 0,
+        "best_am_label": "제2조(목적)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 1,
+    "n_none": 3
+  },
+  {
+    "name": "파인엠텍",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 5,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "소집지와 개최방식 변경의 건 (정관 제26조)",
+        "sub_clauses": [
+          "제26조"
+        ],
+        "sub_keywords": [
+          "소집지"
+        ],
+        "best_am_score": 11,
+        "best_am_label": "소집지와 개최방식 변경의 건 (정관 제26조)",
+        "best_am_clause_overlap": [
+          "제26조"
+        ],
+        "best_am_keyword_overlap": [
+          "소집지"
+        ]
+      },
+      {
+        "sub_title": "의결권 대리행사 변경의 건 (정관 제32조)",
+        "sub_clauses": [
+          "제32조"
+        ],
+        "sub_keywords": [
+          "의결권"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "소집지와 개최방식 변경의 건 (정관 제26조)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "이사의 원수 변경의 건 (정관 제35조)",
+        "sub_clauses": [
+          "제35조"
+        ],
+        "sub_keywords": [
+          "원수",
+          "이사"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "소집지와 개최방식 변경의 건 (정관 제26조)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "이사의 의무 변경의 건 (정관 제39조)",
+        "sub_clauses": [
+          "제39조"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "소집지와 개최방식 변경의 건 (정관 제26조)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "기타 수정 (부칙)",
+        "sub_clauses": [],
+        "sub_keywords": [],
+        "best_am_score": 0,
+        "best_am_label": "소집지와 개최방식 변경의 건 (정관 제26조)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 1,
+    "n_partial": 0,
+    "n_none": 4
+  },
+  {
+    "name": "인바디",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 3,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "이사 및 감사의 수",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "감사",
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제30조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "이사 의무와 책임감경",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제30조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "이사회 내 위원회 설치",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "위원회",
+          "이사회",
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제30조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 3,
+    "n_none": 0
+  },
+  {
+    "name": "이수페타시스",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 3,
+    "n_amendments": 3,
+    "subs": [
+      {
+        "sub_title": "개정 상법 반영",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "개정 상법 반영",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "이사회의 구성과 소집 관련 조문 정비",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "이사회",
+          "조문",
+          "정비",
+          "이사"
+        ],
+        "best_am_score": 4,
+        "best_am_label": "이사회의 구성과 소집 관련 조문 정비",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사회",
+          "조문",
+          "정비",
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "전자증권 도입 관련 조문 정비 외",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "전자",
+          "정비",
+          "조문",
+          "전자증권"
+        ],
+        "best_am_score": 4,
+        "best_am_label": "전자증권 도입 관련 조문 정비 외 부칙",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "전자",
+          "전자증권",
+          "조문",
+          "정비"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 3,
+    "n_none": 0
+  },
+  {
+    "name": "대덕전자",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 2,
+    "n_amendments": 2,
+    "subs": [
+      {
+        "sub_title": "개정 상법 반영의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "개정 상법 반영",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "개정",
+          "반영"
+        ]
+      },
+      {
+        "sub_title": "이사의 임기 조문 정비의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "조문",
+          "임기",
+          "정비",
+          "이사"
+        ],
+        "best_am_score": 4,
+        "best_am_label": "이사의 임기 조문 정비",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "임기",
+          "조문",
+          "정비",
+          "이사"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 0
+  },
+  {
+    "name": "ISC",
+    "charter_top": "정관 개정 건",
+    "n_subs": 7,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "제35조(이사의 수) 변경 건",
+        "sub_clauses": [
+          "제35조"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 11,
+        "best_am_label": "제35조(이사의 수) 변경 건",
+        "best_am_clause_overlap": [
+          "제35조"
+        ],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제39조(이사의 의무) 변경 건",
+        "sub_clauses": [
+          "제39조"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제35조(이사의 수) 변경 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제40조(이사의 보수와 퇴직금) 변경 건",
+        "sub_clauses": [
+          "제40조"
+        ],
+        "sub_keywords": [
+          "보수",
+          "퇴직금",
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제35조(이사의 수) 변경 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제40조의2(이사의 책임감경) 변경 건",
+        "sub_clauses": [
+          "제40조의2"
+        ],
+        "sub_keywords": [
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제35조(이사의 수) 변경 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제42조의2(이사회 내 위원회) 신설 건",
+        "sub_clauses": [
+          "제42조의2"
+        ],
+        "sub_keywords": [
+          "신설",
+          "위원회",
+          "이사회",
+          "이사"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제35조(이사의 수) 변경 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "이사"
+        ]
+      },
+      {
+        "sub_title": "제54조(재무제표 등의 작성 등) 변경 건",
+        "sub_clauses": [
+          "제54조"
+        ],
+        "sub_keywords": [],
+        "best_am_score": 0,
+        "best_am_label": "제35조(이사의 수) 변경 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      },
+      {
+        "sub_title": "제57조(이익배당) 변경 건",
+        "sub_clauses": [
+          "제57조"
+        ],
+        "sub_keywords": [
+          "배당"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제35조(이사의 수) 변경 건",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 1,
+    "n_partial": 4,
+    "n_none": 2
+  },
+  {
+    "name": "성호전자",
+    "charter_top": "정관 일부 변경의 건",
+    "n_subs": 3,
+    "n_amendments": 1,
+    "subs": [
+      {
+        "sub_title": "전환사채 발행한도 확대의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "전환사채",
+          "확대",
+          "한도"
+        ],
+        "best_am_score": 2,
+        "best_am_label": "제15조(전환사채의 발행)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "전환사채",
+          "확대"
+        ]
+      },
+      {
+        "sub_title": "신주인수권부사채의 발행한도 확대의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "확대",
+          "신주인수권",
+          "한도"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제15조(전환사채의 발행)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "확대"
+        ]
+      },
+      {
+        "sub_title": "중간배당에 관한 사항 추가의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "배당"
+        ],
+        "best_am_score": 0,
+        "best_am_label": "제15조(전환사채의 발행)",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": []
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 1
+  },
+  {
+    "name": "카카오게임즈",
+    "charter_top": "정관 일부 변경의 건 └",
+    "n_subs": 2,
+    "n_amendments": 2,
+    "subs": [
+      {
+        "sub_title": "주주총회 기준일 변경의 건 └",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "기준일"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제13조의3",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "기준일"
+        ]
+      },
+      {
+        "sub_title": "개정 상법 반영의 건",
+        "sub_clauses": [],
+        "sub_keywords": [
+          "개정",
+          "반영"
+        ],
+        "best_am_score": 1,
+        "best_am_label": "제20조",
+        "best_am_clause_overlap": [],
+        "best_am_keyword_overlap": [
+          "반영"
+        ]
+      }
+    ],
+    "n_clear": 0,
+    "n_partial": 2,
+    "n_none": 0
+  }
+]
