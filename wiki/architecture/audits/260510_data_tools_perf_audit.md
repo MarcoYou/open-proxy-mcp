@@ -57,6 +57,15 @@
 - mean speedup `15.5%`
 - negative speedup outlier `9 / 60`, 주로 `no_filing` 또는 이미 싼 경로의 warm-cache 민감도
 
+추가 표본 보강 결과는 다음과 같습니다.
+- 기존에 성능 검증에 사용한 `KOSPI 50 + KOSDAQ 10 + value_up 추가 40개`와 겹치지 않는 별도 표본을 선정했다.
+- 추가 표본 크기: `KOSPI 50 + KOSDAQ 20 = 70개`
+- 실행 방식: `10개` 단위 순차 배치, 배치 간 `20초` sleep, item 간 `0.5초` sleep, tool 간 `30초` sleep
+- `company` 추가 표본: `70 / 70 exact`, median `0.198s`
+- `dividend` 추가 표본: `53 exact`, `17 no_filing`, median `1.081s`, p95 `2.668s`
+- `treasury_share` 추가 표본: `36 exact`, `34 no_filing`, median `0.876s`, p95 `1.756s`
+- 추가 표본에서도 새로운 회귀 신호는 없었고, 느린 exact 경로가 특정 회사군에서 반복된다는 기존 관찰이 재확인됐다.
+
 이번 audit에서 기각된 후보도 분명합니다.
 - `treasury_share`의 body enrichment 생략은 속도 이득이 작고 semantic drift가 커서 기각
 
@@ -145,6 +154,14 @@ production 반영 후:
 - direct compare median speedup `22.8%`, mean `15.5%`
 - 개선의 핵심은 결과보고서 4종이 같은 `list.json` 범위를 각자 다시 긁지 않도록 search fan-out을 제거한 것
 
+추가 비중복 표본 재검증:
+- `company`: `70 / 70 exact`, median `0.198s`, p95 `0.233s`
+- `dividend`: `53 exact`, `17 no_filing`, median `1.081s`, p95 `2.668s`
+- `treasury_share`: `36 exact`, `34 no_filing`, median `0.876s`, p95 `1.756s`
+- `dividend` 느린 상위는 `JB금융지주`, `BNK금융지주`, `CJ`, `GS`, `CJ제일제당`으로 수렴했다.
+- `treasury_share` 느린 상위는 `JB금융지주`, `BNK금융지주`, `HPSP`, `HD건설기계`, `OCI홀딩스`로 수렴했다.
+- 해석: 기존 표본에서 보였던 hot path가 우연이 아니라 회사군 특성에 따라 반복된다는 점이 보강됐다.
+
 ## 하락 케이스와 트레이드오프
 
 확인된 하락 케이스는 제한적입니다.
@@ -174,6 +191,10 @@ production 반영 후:
 - `dividend` agenda-title helper 기반 감액배당 cross-link 경량화
 - `value_up` treasury signal helper 기반 `treasury_cross_ref` 경량화
 - `treasury_share` execution-report title scan 재사용
+
+표본 보강 완료:
+- `company`, `dividend`, `treasury_share`는 기존 겹침 없는 추가 `70개` 표본까지 확인했다.
+- 따라서 현재 문서 기준으로는 `shareholder_meeting`, `value_up`뿐 아니라 위 3개도 “표본이 너무 얕다”는 상태에서는 벗어났다.
 
 기각:
 - `treasury_share` body enrichment 생략
@@ -216,6 +237,9 @@ stage profiling 완료:
   - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare.json`
   - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare_additional40.json`
   - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare_cumulative100_summary.json`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/universe_kospi50_additional_nonoverlap.csv`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/universe_kosdaq20_additional_nonoverlap.csv`
+  - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/additional_nonoverlap_safe_audit_kospi50_kosdaq20.json`
   - `wiki/architecture/audits/data/260511_perf_treasury_share_audit/stage_profile_kospi50_kosdaq10.json`
   - `wiki/architecture/audits/data/260511_perf_treasury_share_audit/stage_profile_kospi50_kosdaq10_after_scan_reuse.json`
   - `wiki/architecture/audits/data/260511_perf_treasury_share_audit/legacy_search_compare_kospi50_kosdaq10_after_notice_fix.json`
