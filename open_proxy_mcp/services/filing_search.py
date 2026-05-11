@@ -40,11 +40,45 @@ async def search_filings_by_report_name(
     필요하면 ""로 둔다 (default).
     """
 
+    items, notices, error = await fetch_filings_for_title_scan(
+        corp_code=corp_code,
+        bgn_de=bgn_de,
+        end_de=end_de,
+        pblntf_tys=pblntf_tys,
+        keyword_label=", ".join(keywords),
+        max_pages=max_pages,
+        page_count=page_count,
+        last_reprt_at=last_reprt_at,
+    )
+    if error:
+        return [], notices, error
+
+    matched = [
+        item for item in items
+        if report_name_matches(item, keywords, strip_spaces=strip_spaces)
+    ]
+
+    matched.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
+    return matched, notices, None
+
+
+async def fetch_filings_for_title_scan(
+    *,
+    corp_code: str,
+    bgn_de: str,
+    end_de: str,
+    pblntf_tys: str | Iterable[str],
+    keyword_label: str,
+    max_pages: int = 10,
+    page_count: int = 100,
+    last_reprt_at: str = "",
+) -> tuple[list[dict[str, Any]], list[str], str | None]:
+    """기간/공시유형 기준 list.json fetch를 한 번 수행해 caller-side 제목 필터에 재사용."""
+
     client = get_dart_client()
     notices: list[str] = []
-    matched: list[dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     ptypes = [pblntf_tys] if isinstance(pblntf_tys, str) else list(pblntf_tys)
-    keyword_label = ", ".join(keywords)
 
     for pblntf_ty in ptypes:
         try:
@@ -58,10 +92,10 @@ async def search_filings_by_report_name(
                 last_reprt_at=last_reprt_at,
             )
         except DartClientError as exc:
-            return matched, notices, exc.status
+            return items, notices, exc.status
 
-        items = list(first.get("list", []))
-        total_count = int(first.get("total_count", len(items)) or 0)
+        page_items = list(first.get("list", []))
+        total_count = int(first.get("total_count", len(page_items)) or 0)
         total_pages = max(1, math.ceil(total_count / page_count)) if total_count else 1
         fetched_pages = min(total_pages, max_pages)
 
@@ -77,8 +111,8 @@ async def search_filings_by_report_name(
                     last_reprt_at=last_reprt_at,
                 )
             except DartClientError as exc:
-                return matched, notices, exc.status
-            items.extend(page.get("list", []))
+                return items, notices, exc.status
+            page_items.extend(page.get("list", []))
 
         if total_pages > max_pages:
             notices.append(
@@ -86,10 +120,7 @@ async def search_filings_by_report_name(
                 f"{total_pages}페이지가 있었지만 {max_pages}페이지까지만 확인했다."
             )
 
-        matched.extend(
-            item for item in items
-            if report_name_matches(item, keywords, strip_spaces=strip_spaces)
-        )
+        items.extend(page_items)
 
-    matched.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
-    return matched, notices, None
+    items.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
+    return items, notices, None

@@ -38,7 +38,11 @@ from open_proxy_mcp.services.date_utils import (
     format_yyyymmdd,
     resolve_date_window,
 )
-from open_proxy_mcp.services.filing_search import search_filings_by_report_name
+from open_proxy_mcp.services.filing_search import (
+    fetch_filings_for_title_scan,
+    report_name_matches,
+    search_filings_by_report_name,
+)
 
 
 _SUPPORTED_SCOPES = {"summary", "annual"}
@@ -827,41 +831,74 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
     trt_task = safe(client.get_treasury_trust_termination(corp_code, bgn_de, end_de), "신탁계약 해지결정")
 
     async def cancelation_search():
-        items, _notices, error = await search_filings_by_report_name(
+        items, _notices, error = await fetch_filings_for_title_scan(
             corp_code=corp_code,
             bgn_de=bgn_de,
             end_de=end_de,
             pblntf_tys=("B", "I"),
-            keywords=_CANCELATION_KEYWORDS,
-            strip_spaces=True,
+            keyword_label=", ".join(_CANCELATION_KEYWORDS),
         )
         if error:
             return [], f"자사주 소각결정 조회 실패: {error}"
-        return items, None
+        filtered = [
+            item for item in items
+            if report_name_matches(item, _CANCELATION_KEYWORDS, strip_spaces=True)
+        ]
+        return filtered, None
 
-    async def keyword_search(keywords, label):
-        # 결과보고서는 list.json에서 pblntf_ty="" (빈 문자열, 분류 없음). 빈 문자열로 전체 검색.
-        items, _notices, error = await search_filings_by_report_name(
+    async def execution_report_search():
+        # 결과보고서는 list.json에서 pblntf_ty="" (빈 문자열, 분류 없음). 한 번 fetch 후 keyword별 재필터링한다.
+        items, _notices, error = await fetch_filings_for_title_scan(
             corp_code=corp_code,
             bgn_de=bgn_de,
             end_de=end_de,
             pblntf_tys="",
-            keywords=keywords,
-            strip_spaces=True,
+            keyword_label="treasury execution reports",
         )
         if error:
-            return [], f"{label} 조회 실패: {error}"
-        return items, None
+            return None, error
+        filtered = {
+            "acquisition_result": [
+                item for item in items
+                if report_name_matches(item, _ACQUISITION_RESULT_KEYWORDS, strip_spaces=True)
+            ],
+            "disposal_result": [
+                item for item in items
+                if report_name_matches(item, _DISPOSAL_RESULT_KEYWORDS, strip_spaces=True)
+            ],
+            "trust_acquisition_status": [
+                item for item in items
+                if report_name_matches(item, _TRUST_ACQ_STATUS_KEYWORDS, strip_spaces=True)
+            ],
+            "trust_termination_result": [
+                item for item in items
+                if report_name_matches(item, _TRUST_TERM_RESULT_KEYWORDS, strip_spaces=True)
+            ],
+        }
+        return filtered, None
 
-    (acq, w1), (dsp, w2), (trc, w3), (trt, w4), (ret, w5), \
-        (acq_res, w6), (dsp_res, w7), (trust_acq_status, w8), (trust_term_res, w9) = await asyncio.gather(
-        acq_task, dsp_task, trc_task, trt_task, cancelation_search(),
-        keyword_search(_ACQUISITION_RESULT_KEYWORDS, "자기주식취득결과보고서"),
-        keyword_search(_DISPOSAL_RESULT_KEYWORDS, "자기주식처분결과보고서"),
-        keyword_search(_TRUST_ACQ_STATUS_KEYWORDS, "신탁취득상황보고서"),
-        keyword_search(_TRUST_TERM_RESULT_KEYWORDS, "신탁해지결과보고서"),
+    (acq, w1), (dsp, w2), (trc, w3), (trt, w4), (ret, w5), exec_reports = await asyncio.gather(
+        acq_task, dsp_task, trc_task, trt_task, cancelation_search(), execution_report_search(),
     )
-    warnings = [w for w in (w1, w2, w3, w4, w5, w6, w7, w8, w9) if w]
+    exec_report_sets, exec_report_error = exec_reports
+    warnings = [w for w in (w1, w2, w3, w4, w5) if w]
+    if exec_report_sets is None:
+        warnings.extend(
+            [
+                f"자기주식취득결과보고서 조회 실패: {exec_report_error}",
+                f"자기주식처분결과보고서 조회 실패: {exec_report_error}",
+                f"신탁취득상황보고서 조회 실패: {exec_report_error}",
+                f"신탁해지결과보고서 조회 실패: {exec_report_error}",
+            ]
+        )
+        exec_report_sets = {
+            "acquisition_result": [],
+            "disposal_result": [],
+            "trust_acquisition_status": [],
+            "trust_termination_result": [],
+        }
+    elif exec_report_error:
+        warnings.append(exec_report_error)
 
     cancelation_rows = [_normalize_cancelation_row(i) for i in ret]
     # 본문 파싱으로 소각 주식수·금액(KRW) 추출 — 자사주 소각 분석용. CSR 분자에는 사용하지 않음 (acquire 사용).
@@ -878,10 +915,10 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
         )
 
     # 결과보고서 4종 — list.json 메타 → 본문 파싱 enrich
-    acq_res_rows = [_normalize_result_report(i, "acquisition_result") for i in acq_res]
-    dsp_res_rows = [_normalize_result_report(i, "disposal_result") for i in dsp_res]
-    trust_acq_status_rows = [_normalize_result_report(i, "trust_acquisition_status") for i in trust_acq_status]
-    trust_term_res_rows = [_normalize_result_report(i, "trust_termination_result") for i in trust_term_res]
+    acq_res_rows = [_normalize_result_report(i, "acquisition_result") for i in exec_report_sets["acquisition_result"]]
+    dsp_res_rows = [_normalize_result_report(i, "disposal_result") for i in exec_report_sets["disposal_result"]]
+    trust_acq_status_rows = [_normalize_result_report(i, "trust_acquisition_status") for i in exec_report_sets["trust_acquisition_status"]]
+    trust_term_res_rows = [_normalize_result_report(i, "trust_termination_result") for i in exec_report_sets["trust_termination_result"]]
 
     fail_count = await _enrich_result_reports_with_body(
         acq_res_rows, dsp_res_rows, trust_acq_status_rows, trust_term_res_rows

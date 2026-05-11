@@ -2,11 +2,12 @@
 
 ## 최종 요약
 
-이번 audit에서 실제로 반영된 성능 개선은 4건입니다.
+이번 audit에서 실제로 반영된 성능 개선은 5건입니다.
 - `shareholder_meeting` 계열의 request-local soup 재사용
 - `company`의 NAVER 업종 보강 제거 + DART `induty_code` 기반 로컬 KSIC 업종명 매핑
 - `dividend`의 감액배당 cross-link 경량화 (`shareholder_meeting` 전체 payload 대신 안건 제목 전용 helper 사용)
 - `value_up`의 `treasury_cross_ref` 경량화 (`treasury_share` 전체 summary 대신 전용 treasury signal helper 사용)
+- `treasury_share`의 결과보고서 반복 검색 제거 (같은 `list.json` 범위 1회 fetch 후 keyword별 로컬 필터)
 
 `shareholder_meeting` 최종 검증 결과는 다음과 같습니다.
 - production 코드 기준 `215 / 215` payload equality 유지
@@ -46,11 +47,21 @@
 - 누적 100개 기준 mean `2.560s -> 1.641s`
 - 누적 100개 기준 median speedup `83.0%`
 
-이번 audit에서 아직 미반영인 후보도 분명합니다.
+`treasury_share` 최종 검증 결과는 다음과 같습니다.
+- fresh baseline 60개 표본 기준 median `1.923s -> 1.002s`
+- mean `2.033s -> 1.027s`
+- p95 `3.950s -> 1.475s`
+- max `5.238s -> 3.617s`
+- legacy fan-out 대비 direct compare `60 / 60` equality 유지
+- direct compare 기준 median speedup `22.8%`
+- mean speedup `15.5%`
+- negative speedup outlier `9 / 60`, 주로 `no_filing` 또는 이미 싼 경로의 warm-cache 민감도
+
+이번 audit에서 기각된 후보도 분명합니다.
 - `treasury_share`의 body enrichment 생략은 속도 이득이 작고 semantic drift가 커서 기각
 
 한 줄 결론:
-- 이번 성능 개선은 `shareholder_meeting`, `company`, `dividend`, `value_up` 4건이 실제 반영됐다.
+- 이번 성능 개선은 `shareholder_meeting`, `company`, `dividend`, `value_up`, `treasury_share` 5건이 실제 반영됐다.
 
 ## 무엇을 바꿨나
 
@@ -81,6 +92,13 @@
 - 변경 후: `fetch_treasury_signal_summary()` helper로 최근 24개월 자사주 신호 요약만 계산
 - 유지한 의미: `treasury_cross_ref` 5개 수치 필드와 출력 형태
 - 제거한 비용: 결과보고서 본문 파싱, cycle matching, 전체 event/type_breakdown 조립
+
+적용한 변경:
+- 대상: `open_proxy_mcp/services/treasury_share.py`, `open_proxy_mcp/services/filing_search.py`
+- 변경 전: `_fetch_decisions()`가 결과보고서 4종을 각각 `search_filings_by_report_name(..., pblntf_tys=\"\")`로 다시 검색
+- 변경 후: `fetch_filings_for_title_scan(..., pblntf_tys=\"\")` 1회 fetch 후 keyword별 로컬 필터
+- 유지한 의미: 결과보고서 분류, body enrichment, cycle matching, summary/events/type_breakdown 출력 형태
+- 제거한 비용: 같은 공시 범위에 대한 중복 `list.json` fan-out 검색 4회
 
 기각한 변경:
 - 대상: `treasury_share`
@@ -118,6 +136,15 @@ production 반영 후:
 - `60 / 60` equality 유지
 - 개선의 핵심은 `treasury_cross_ref`가 `treasury_share` 전체 summary를 만들지 않도록 경량화한 것
 
+`treasury_share` 반영 후:
+- fresh baseline `KOSPI 50 + KOSDAQ 10` 기준 median `1.923s -> 1.002s`
+- mean `2.033s -> 1.027s`
+- p95 `3.950s -> 1.475s`
+- max `5.238s -> 3.617s`
+- same-process legacy fan-out 직접 비교 기준 `60 / 60` equality 유지
+- direct compare median speedup `22.8%`, mean `15.5%`
+- 개선의 핵심은 결과보고서 4종이 같은 `list.json` 범위를 각자 다시 긁지 않도록 search fan-out을 제거한 것
+
 ## 하락 케이스와 트레이드오프
 
 확인된 하락 케이스는 제한적입니다.
@@ -132,6 +159,13 @@ production 반영 후:
 - 대신 cancelation/result 필드가 크게 흔들려 semantic regression 발생
 - 따라서 속도보다 품질 손실이 커서 채택 불가
 
+이번에 채택한 `treasury_share` 최적화의 trade-off도 분리해서 봐야 합니다.
+- direct compare에서 negative speedup outlier `9 / 60`이 있었음
+- 하지만 이 비교는 현재 구현을 먼저 실행하고 legacy를 나중에 실행하는 same-process 비교라 문서/검색 cache warm 영향을 강하게 받음
+- 실제 fresh baseline before/after에서는 median, mean, p95, max가 모두 개선됨
+- 따라서 이 outlier는 semantic drift가 아니라 cache-sensitive path variance로 해석하는 것이 맞음
+- equality는 `60 / 60`으로 유지됐고 status drift도 없었음
+
 ## 최종 결정
 
 채택:
@@ -139,17 +173,19 @@ production 반영 후:
 - `company` NAVER 제거 + KSIC 로컬 매핑 유지
 - `dividend` agenda-title helper 기반 감액배당 cross-link 경량화
 - `value_up` treasury signal helper 기반 `treasury_cross_ref` 경량화
+- `treasury_share` execution-report title scan 재사용
 
 기각:
 - `treasury_share` body enrichment 생략
 
 후속 profiling 필요:
-- `treasury_share`의 안전한 세부 단계 분해 측정
+- `financial_metrics`와 기타 미측정 tool의 세부 단계 분해 측정
 
 stage profiling 완료:
 - `company`
 - `dividend`
 - `value_up`
+- `treasury_share`
 
 ## 근거 파일 인덱스
 
@@ -180,6 +216,9 @@ stage profiling 완료:
   - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare.json`
   - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare_additional40.json`
   - `wiki/architecture/audits/data/260511_perf_company_dividend_valueup_audit/value_up_treasury_signal_helper_compare_cumulative100_summary.json`
+  - `wiki/architecture/audits/data/260511_perf_treasury_share_audit/stage_profile_kospi50_kosdaq10.json`
+  - `wiki/architecture/audits/data/260511_perf_treasury_share_audit/stage_profile_kospi50_kosdaq10_after_scan_reuse.json`
+  - `wiki/architecture/audits/data/260511_perf_treasury_share_audit/legacy_search_compare_kospi50_kosdaq10_after_notice_fix.json`
 - 기각 근거
   - `wiki/architecture/audits/data/260510_perf_data_tools_audit/treasury_skip_body_experiment.json`
 
