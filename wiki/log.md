@@ -3,6 +3,24 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-12] docs | proxy_advise Word 보고서 설계 고정, 구현은 TODO로 이월
+
+- `wiki/architecture/proxy_advise_word_report_spec.md` 신규
+  - `proxy_advise` 이후 사용자가 "문서화", "워드", "보고서"를 요청했을 때 따를 source-of-truth 스펙
+  - 입력 범위: `samples/` 자문사 샘플 + 현재 OPM `proxy_advise` payload/renderer/code 구조
+- `wiki/architecture/audits/260512_proxy_advise_word_report_design.md` 신규
+  - 샘플 PDF 포맷 비교
+  - OPM 데이터 매핑 가능 범위와 부족 필드 정리
+  - 기본 권고안: **1페이지 요약 + 안건별 본문 + 후보/근거 부록**
+  - v1(현재 payload 기준 즉시 구현) / v2(추가 파생 필드 포함) 분리
+- `wiki/architecture/audits/README.md`에 위 설계 문서 연결
+- 설계 단계 결론:
+  - 같은 세션 안에서는 `proxy_advise_before_meeting` 1회 결과만으로 문서 초안 작성 가능
+  - 다만 Claude web + MCP connector + fly.io 배포 경로에서 **재호출 없는 문서화 보장**은 서버 쪽 설계가 필요
+  - 후속 구현은 `TO_DO.md`로 이월:
+    - Word 템플릿/내보내기 구현
+    - MCP용 report-friendly payload 또는 report tool 경로 결정
+
 ## [2026-05-10] ralph | Ralph 7 — 호수 hierarchy 추출 + D 패턴 amendments body fallback
 
 **iter 1 (commit be2e722)**: parser 호수 추출 진단 (10/10 회사). 사용자 가설 "parser가 호수 누락"은 false — parser 거의 완벽. LG화학 ※ note span 미세 버그 1건만 fix (lookahead 괄호 옵션 추가).
