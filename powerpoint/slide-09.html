@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenProxy MCP - financial_metrics</title>
+  <style>
+    :root { --bg:#0D2240; --text:#EAF1FF; --muted:#C4D0EA; --line:rgba(225,236,255,.16); --line-strong:rgba(225,236,255,.32); --surface:rgba(255,255,255,.03); }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { width:720pt; height:405pt; position:relative; overflow:hidden; font-family:"Space Mono","Nanum Gothic Coding","SFMono-Regular",Consolas,monospace; color:var(--text); background:var(--bg); padding:22pt 28pt 46pt; }
+    body::before, body::after { content:""; position:absolute; inset:0; pointer-events:none; }
+    body::before { background-image:repeating-linear-gradient(0deg, transparent 0, transparent 19pt, var(--line) 19pt, var(--line) 20pt), repeating-linear-gradient(90deg, transparent 0, transparent 19pt, var(--line) 19pt, var(--line) 20pt); }
+    body::after { background-image:repeating-linear-gradient(0deg, transparent 0, transparent 59pt, var(--line-strong) 59pt, var(--line-strong) 60pt), repeating-linear-gradient(90deg, transparent 0, transparent 59pt, var(--line-strong) 59pt, var(--line-strong) 60pt); }
+    .header { position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center; margin-bottom:10pt; }
+    .micro { font-size:11pt; color:var(--muted); letter-spacing:2pt; text-transform:uppercase; }
+    h1,h2 { position:relative; z-index:1; letter-spacing:1pt; text-transform:uppercase; }
+    h2 { font-size:21pt; line-height:1.24; margin-bottom:8pt; }
+    .summary { position:relative; z-index:1; font-size:13pt; line-height:1.55; color:var(--muted); width:560pt; }
+    .footer { position:absolute; left:0; bottom:0; width:100%; border-top:1px solid var(--line-strong); padding:10pt 28pt 11pt; display:flex; justify-content:space-between; z-index:1; background:rgba(13,34,64,.95); }
+    .footer-title { font-size:12pt; text-transform:uppercase; letter-spacing:2.4pt; }
+    .footer-page { font-size:10pt; color:var(--muted); }
+    ul { padding-left:16pt; }
+    li { font-size:12pt; color:var(--muted); line-height:1.42; margin-bottom:3pt; }
+    p { font-size:12pt; line-height:1.42; }
+    
+    .title-row { position:relative; z-index:1; margin-bottom:10pt; }
+    .title-meta { font-size:10pt; color:var(--muted); letter-spacing:1.4pt; text-transform:uppercase; margin-bottom:6pt; }
+    .layout { position:relative; z-index:1; display:grid; grid-template-columns:1fr 1fr; gap:10pt; margin-top:12pt; transform:scale(0.74); transform-origin:top left; width:calc(100% / 0.74); }
+    .col { display:grid; grid-template-rows:repeat(3, 1fr); gap:10pt; }
+    .box { border:1px solid var(--line-strong); background:var(--surface); padding:8pt 9pt; min-height:72pt; }
+    .box-label { font-size:10pt; color:var(--muted); letter-spacing:1.4pt; text-transform:uppercase; margin-bottom:6pt; }
+    .box-title { font-size:13pt; line-height:1.35; text-transform:uppercase; margin-bottom:6pt; }
+    .box p { font-size:12pt; color:var(--muted); line-height:1.42; }
+    .box ul { margin-top:2pt; }
+    .name { font-size:21pt; line-height:1.18; margin-bottom:8pt; }
+  
+  </style>
+</head>
+<body>
+  <div class="header">
+    <p class="micro">Tool Catalog / Data</p>
+    <p class="micro">Slide 09</p>
+  </div>
+  <div class="title-row">
+    <p class="title-meta">51 metrics / du pont / audit opinion</p>
+    <h2 class="name">financial_metrics</h2>
+    <p class="summary">DART 재무 4 endpoint를 합쳐 재무비율, 듀퐁, FCF, NWC, 감사의견까지 한 번에 보는 재무 tool이다.</p>
+  </div>
+  <div class="layout">
+    <div class="col">
+      <div class="box"><p class="box-label">Role</p><p>정량 재무 analysis와 risk alert에 필요한 지표를 통합하는 financial tab.</p></div>
+      <div class="box"><p class="box-label">Inputs</p><ul><li>company</li><li>year or recent periods</li><li>scope = summary | ratios | cashflow 등</li></ul></div>
+      <div class="box"><p class="box-label">Outputs</p><ul><li>51 structured metrics</li><li>DuPont and trend blocks</li><li>audit opinion history</li></ul></div>
+    </div>
+    <div class="col">
+      <div class="box"><p class="box-label">Sources</p><ul><li>fnlttSinglAcnt</li><li>재무 인덱스 / 계정 endpoint</li><li>감사의견 관련 공시</li></ul></div>
+      <div class="box"><p class="box-label">Workflow</p><ul><li>재무 endpoint 병렬 호출</li><li>지표 계산 / 요약 조립</li><li>audit opinion 결합</li></ul></div>
+      <div class="box"><p class="box-label">Notes</p><p>company 이후 가장 일반적인 fact tab이며 action tool의 재무 위험 판단 기반이 된다.</p></div>
+    </div>
+  </div>
+  <div class="footer"><p class="footer-title">financial_metrics</p><p class="footer-page">09 / 23</p></div>
+</body>
+</html>

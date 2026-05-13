@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenProxy MCP - Why This Exists</title>
+  <style>
+    :root { --bg:#0D2240; --text:#EAF1FF; --muted:#C4D0EA; --line:rgba(225,236,255,.16); --line-strong:rgba(225,236,255,.32); --surface:rgba(255,255,255,.03); }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { width:720pt; height:405pt; position:relative; overflow:hidden; font-family:"Space Mono","Nanum Gothic Coding","SFMono-Regular",Consolas,monospace; color:var(--text); background:var(--bg); padding:22pt 28pt 46pt; }
+    body::before, body::after { content:""; position:absolute; inset:0; pointer-events:none; }
+    body::before { background-image:repeating-linear-gradient(0deg, transparent 0, transparent 19pt, var(--line) 19pt, var(--line) 20pt), repeating-linear-gradient(90deg, transparent 0, transparent 19pt, var(--line) 19pt, var(--line) 20pt); }
+    body::after { background-image:repeating-linear-gradient(0deg, transparent 0, transparent 59pt, var(--line-strong) 59pt, var(--line-strong) 60pt), repeating-linear-gradient(90deg, transparent 0, transparent 59pt, var(--line-strong) 59pt, var(--line-strong) 60pt); }
+    .header { position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center; margin-bottom:10pt; }
+    .micro { font-size:11pt; color:var(--muted); letter-spacing:2pt; text-transform:uppercase; }
+    h1,h2 { position:relative; z-index:1; letter-spacing:1pt; text-transform:uppercase; }
+    h2 { font-size:21pt; line-height:1.24; margin-bottom:8pt; }
+    .summary { position:relative; z-index:1; font-size:13pt; line-height:1.55; color:var(--muted); width:560pt; }
+    .footer { position:absolute; left:0; bottom:0; width:100%; border-top:1px solid var(--line-strong); padding:10pt 28pt 11pt; display:flex; justify-content:space-between; z-index:1; background:rgba(13,34,64,.95); }
+    .footer-title { font-size:12pt; text-transform:uppercase; letter-spacing:2.4pt; }
+    .footer-page { font-size:10pt; color:var(--muted); }
+    ul { padding-left:16pt; }
+    li { font-size:12pt; color:var(--muted); line-height:1.42; margin-bottom:3pt; }
+    p { font-size:12pt; line-height:1.42; }
+    
+  .lead { position:relative; z-index:1; width:470pt; margin-bottom:18pt; }
+  .grid { position:relative; z-index:1; display:grid; grid-template-columns:repeat(3, 1fr); gap:12pt; margin-top:16pt; }
+  .card { border:1px solid var(--line-strong); background:var(--surface); padding:12pt; min-height:156pt; }
+  .card-no { font-size:10pt; color:var(--muted); letter-spacing:1.4pt; margin-bottom:8pt; }
+  .card-title { font-size:15pt; line-height:1.3; margin-bottom:8pt; text-transform:uppercase; }
+  .card-copy { font-size:13pt; line-height:1.52; color:var(--muted); }
+
+  </style>
+</head>
+<body>
+  <div class="header"><p class="micro">Mission / Compression / Actionability</p><p class="micro">Slide 02</p></div>
+  <div class="lead"><h2>Why OpenProxy MCP exists</h2><p class="summary">공시 원문을 직접 읽는 비용을 줄이고, 한국 상장사 거버넌스 질문을 즉시 호출 가능한 structured tool surface로 바꾸기 위해 존재한다.</p></div>
+  <div class="grid">
+    <div class="card"><p class="card-no">01 / SOURCE LOAD</p><p class="card-title">Disclosure volume is too high</p><p class="card-copy">DART, KIND, 주총 소집공고, 결과공시, 주요사항보고서를 질문마다 다시 읽는 방식은 느리고 일관성이 떨어진다.</p></div>
+    <div class="card"><p class="card-no">02 / NORMALIZATION</p><p class="card-title">Facts must be structured first</p><p class="card-copy">회사 식별, 안건 분류, 후보 평가, 재무 위험, 자사주 이벤트를 parser와 domain rule로 먼저 구조화해야 한다.</p></div>
+    <div class="card"><p class="card-no">03 / ACTION</p><p class="card-title">Users want decisions, not raw filings</p><p class="card-copy">최종 사용자는 지분 facts나 배당 facts만이 아니라, 안건별 판단과 근거까지 연결된 action memo를 원한다.</p></div>
+  </div>
+  <div class="footer"><p class="footer-title">Why This Exists</p><p class="footer-page">02 / 23</p></div>
+</body>
+</html>

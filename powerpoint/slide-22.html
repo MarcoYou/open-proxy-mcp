@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenProxy MCP - proxy_result Workflow</title>
+  <style>
+    :root { --bg:#0D2240; --text:#EAF1FF; --muted:#C4D0EA; --line:rgba(225,236,255,.16); --line-strong:rgba(225,236,255,.32); --surface:rgba(255,255,255,.03); }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { width:720pt; height:405pt; position:relative; overflow:hidden; font-family:"Space Mono","Nanum Gothic Coding","SFMono-Regular",Consolas,monospace; color:var(--text); background:var(--bg); padding:22pt 28pt 46pt; }
+    body::before, body::after { content:""; position:absolute; inset:0; pointer-events:none; }
+    body::before { background-image:repeating-linear-gradient(0deg, transparent 0, transparent 19pt, var(--line) 19pt, var(--line) 20pt), repeating-linear-gradient(90deg, transparent 0, transparent 19pt, var(--line) 19pt, var(--line) 20pt); }
+    body::after { background-image:repeating-linear-gradient(0deg, transparent 0, transparent 59pt, var(--line-strong) 59pt, var(--line-strong) 60pt), repeating-linear-gradient(90deg, transparent 0, transparent 59pt, var(--line-strong) 59pt, var(--line-strong) 60pt); }
+    .header { position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center; margin-bottom:10pt; }
+    .micro { font-size:11pt; color:var(--muted); letter-spacing:2pt; text-transform:uppercase; }
+    h1,h2 { position:relative; z-index:1; letter-spacing:1pt; text-transform:uppercase; }
+    h2 { font-size:21pt; line-height:1.24; margin-bottom:8pt; }
+    .summary { position:relative; z-index:1; font-size:13pt; line-height:1.55; color:var(--muted); width:560pt; }
+    .footer { position:absolute; left:0; bottom:0; width:100%; border-top:1px solid var(--line-strong); padding:10pt 28pt 11pt; display:flex; justify-content:space-between; z-index:1; background:rgba(13,34,64,.95); }
+    .footer-title { font-size:12pt; text-transform:uppercase; letter-spacing:2.4pt; }
+    .footer-page { font-size:10pt; color:var(--muted); }
+    ul { padding-left:16pt; }
+    li { font-size:12pt; color:var(--muted); line-height:1.42; margin-bottom:3pt; }
+    p { font-size:12pt; line-height:1.42; }
+    
+  .grid { position:relative; z-index:1; display:grid; grid-template-columns:repeat(4, 1fr); gap:10pt; margin-top:14pt; transform:scale(0.82); transform-origin:top left; width:calc(100% / 0.82); }
+  .step { border:1px solid var(--line-strong); background:var(--surface); padding:11pt; min-height:150pt; }
+  .step-no { font-size:10pt; color:var(--muted); letter-spacing:1.4pt; margin-bottom:7pt; }
+  .step-title { font-size:13pt; text-transform:uppercase; line-height:1.3; margin-bottom:6pt; }
+  .step-copy { font-size:12pt; line-height:1.42; color:var(--muted); }
+  .note { position:relative; z-index:1; margin-top:12pt; width:560pt; border:1px solid var(--line-strong); background:var(--surface); padding:10pt; }
+  .note-title { font-size:10pt; color:var(--muted); letter-spacing:1.4pt; text-transform:uppercase; margin-bottom:6pt; }
+  .note p { font-size:12pt; color:var(--muted); line-height:1.45; }
+
+  </style>
+</head>
+<body>
+  <div class="header"><p class="micro">Action Workflow / post-meeting result reporting</p><p class="micro">Slide 22</p></div>
+  <h2>proxy_result_after_meeting turns result filings into follow-up reports</h2>
+  <p class="summary">사후 workflow는 결과 공시를 찾아 안건별 outcome을 정규화하고, 사용자가 실제로 무엇이 통과·부결됐는지 읽을 수 있는 post-meeting memo를 만든다.</p>
+  <div class="grid">
+    <div class="step"><p class="step-no">01</p><p class="step-title">Collect result filings</p><p class="step-copy">KIND 기반 결과 공시를 회사·시점 기준으로 수집한다.</p></div>
+    <div class="step"><p class="step-no">02</p><p class="step-title">Match the meeting</p><p class="step-copy">해당 연도 주총과 결과 공시를 연결해 잘못된 result join을 막는다.</p></div>
+    <div class="step"><p class="step-no">03</p><p class="step-title">Normalize outcomes</p><p class="step-copy">안건별 가결/부결/기타 결과와 보조 메타를 정리한다.</p></div>
+    <div class="step"><p class="step-no">04</p><p class="step-title">Assemble report</p><p class="step-copy">agenda-level result summary와 follow-up readable payload를 반환한다.</p></div>
+  </div>
+  <div class="note"><p class="note-title">Why it matters</p><p>사전 권고와 사후 결과를 분리함으로써, 분석 surface와 결과 보고 surface의 책임이 명확해지고, 사용자도 before/after 관점을 혼동하지 않게 된다.</p></div>
+  <div class="footer"><p class="footer-title">proxy_result Workflow</p><p class="footer-page">22 / 23</p></div>
+</body>
+</html>

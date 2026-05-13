@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenProxy MCP - proxy_advise Workflow</title>
+  <style>
+    :root { --bg:#0D2240; --text:#EAF1FF; --muted:#C4D0EA; --line:rgba(225,236,255,.16); --line-strong:rgba(225,236,255,.32); --surface:rgba(255,255,255,.03); }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { width:720pt; height:405pt; position:relative; overflow:hidden; font-family:"Space Mono","Nanum Gothic Coding","SFMono-Regular",Consolas,monospace; color:var(--text); background:var(--bg); padding:22pt 28pt 46pt; }
+    body::before, body::after { content:""; position:absolute; inset:0; pointer-events:none; }
+    body::before { background-image:repeating-linear-gradient(0deg, transparent 0, transparent 19pt, var(--line) 19pt, var(--line) 20pt), repeating-linear-gradient(90deg, transparent 0, transparent 19pt, var(--line) 19pt, var(--line) 20pt); }
+    body::after { background-image:repeating-linear-gradient(0deg, transparent 0, transparent 59pt, var(--line-strong) 59pt, var(--line-strong) 60pt), repeating-linear-gradient(90deg, transparent 0, transparent 59pt, var(--line-strong) 59pt, var(--line-strong) 60pt); }
+    .header { position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center; margin-bottom:10pt; }
+    .micro { font-size:11pt; color:var(--muted); letter-spacing:2pt; text-transform:uppercase; }
+    h1,h2 { position:relative; z-index:1; letter-spacing:1pt; text-transform:uppercase; }
+    h2 { font-size:21pt; line-height:1.24; margin-bottom:8pt; }
+    .summary { position:relative; z-index:1; font-size:13pt; line-height:1.55; color:var(--muted); width:560pt; }
+    .footer { position:absolute; left:0; bottom:0; width:100%; border-top:1px solid var(--line-strong); padding:10pt 28pt 11pt; display:flex; justify-content:space-between; z-index:1; background:rgba(13,34,64,.95); }
+    .footer-title { font-size:12pt; text-transform:uppercase; letter-spacing:2.4pt; }
+    .footer-page { font-size:10pt; color:var(--muted); }
+    ul { padding-left:16pt; }
+    li { font-size:12pt; color:var(--muted); line-height:1.42; margin-bottom:3pt; }
+    p { font-size:12pt; line-height:1.42; }
+    
+  .lane { position:relative; z-index:1; display:grid; grid-template-columns:repeat(5, 1fr); gap:8pt; margin-top:12pt; transform:scale(0.75); transform-origin:top left; width:calc(100% / 0.75); }
+  .stage { border:1px solid var(--line-strong); background:var(--surface); padding:10pt; min-height:144pt; }
+  .stage-no { font-size:10pt; color:var(--muted); letter-spacing:1.4pt; margin-bottom:7pt; }
+  .stage-title { font-size:13pt; line-height:1.3; text-transform:uppercase; margin-bottom:6pt; }
+  .stage-copy { font-size:12pt; line-height:1.42; color:var(--muted); }
+  .support { position:absolute; right:26pt; top:128pt; z-index:1; width:132pt; border:1px solid var(--line-strong); background:var(--surface); padding:10pt; }
+  .support-title { font-size:10pt; color:var(--muted); letter-spacing:1.4pt; text-transform:uppercase; margin-bottom:6pt; }
+  .support p { font-size:12pt; color:var(--muted); line-height:1.42; margin-bottom:4pt; }
+
+  </style>
+</head>
+<body>
+  <div class="header"><p class="micro">Action Workflow / pre-meeting recommendation</p><p class="micro">Slide 20</p></div>
+  <h2>proxy_advise assembles recommendations in five stages</h2>
+  <p class="summary">핵심은 단일 판단 함수가 아니라, 소집공고 parsing, 안건 분류, cross-check, law/policy layer, recommendation assembly를 순차적으로 거치는 orchestration이다.</p>
+  <div class="lane">
+    <div class="stage"><p class="stage-no">01</p><p class="stage-title">Notice parsing</p><p class="stage-copy">agenda hierarchy, candidate, compensation, amendment, metadata를 추출한다.</p></div>
+    <div class="stage"><p class="stage-no">02</p><p class="stage-title">Agenda categorization</p><p class="stage-copy">재무제표, 이사, 보수, 퇴직금, 정관변경, 자사주 등 안건 유형을 정리한다.</p></div>
+    <div class="stage"><p class="stage-no">03</p><p class="stage-title">Cross-check facts</p><p class="stage-copy">ownership, governance, financials, dividend, treasury, candidate evaluation을 결합한다.</p></div>
+    <div class="stage"><p class="stage-no">04</p><p class="stage-title">Law / policy layer</p><p class="stage-copy">Open Proxy guideline, law-layer rules, vote style abstraction을 적용한다.</p></div>
+    <div class="stage"><p class="stage-no">05</p><p class="stage-title">Recommendation assembly</p><p class="stage-copy">FOR / AGAINST / REVIEW / NO_DATA와 facts, risk, citation, evidence를 조립한다.</p></div>
+  </div>
+  <div class="support"><p class="support-title">Main upstreams</p><p>shareholder_meeting_notice</p><p>ownership_structure</p><p>corp_gov_report</p><p>financial_metrics</p><p>dividend / treasury_share</p></div>
+  <div class="footer"><p class="footer-title">proxy_advise Workflow</p><p class="footer-page">20 / 23</p></div>
+</body>
+</html>
