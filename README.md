@@ -19,9 +19,16 @@
 
 ## 빠른 시작
 
-### 0단계: Claude 구독 확인 (필수)
+### 0단계: 지원 클라이언트 및 접근 조건 확인 (필수)
 
-MCP 커넥터는 **Claude Pro, Max, Teams** 구독자만 사용할 수 있어요. [claude.ai](https://claude.ai)에서 구독 상태를 확인해주세요.
+OpenProxy MCP는 **원격 MCP 서버**로 배포되어 있어 Claude 웹과 ChatGPT 웹의 custom connector / MCP app 표면에서 연결할 수 있어요.
+
+- **Claude**: 커스텀 커넥터 사용이 가능한 유료 플랜 필요
+- **ChatGPT**: custom connector / MCP app 지원 플랜과 developer mode / workspace 권한이 필요할 수 있어요
+
+> **참고**:
+> - 각 서비스의 플랜, 권한, UI 롤아웃 상태에 따라 실제 연결 메뉴가 보이지 않을 수 있어요.
+> - ChatGPT는 로컬 MCP 서버가 아니라 **원격 MCP 서버** 연결을 전제로 해요.
 
 ### 1단계: DART API 키 발급 (필수)
 
@@ -34,7 +41,7 @@ OpenProxy의 모든 데이터는 DART OpenAPI에서 가져와요. **본인의 AP
 
 API 키를 발급받았다면, 아래 두 가지 방법 중 하나를 선택하세요.
 
-#### 방법 A: 원격 서버 (설치 없이 30초면 돼요)
+#### 방법 A: Claude 웹 custom connector (설치 없이 30초면 돼요)
 
 URL 끝에 발급받은 DART API 키를 붙여서 연결해요. 키는 서버에서만 사용되고, AI에게는 노출되지 않아요.
 
@@ -50,6 +57,26 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 5. 추가된 커넥터의 구성 -> 권한에서 **"항상 허용"** 선택 (매번 승인 없이 tool이 자동 실행돼요)
 
 > **참고**: tool이 추가되거나 변경된 경우 커넥터 MCP 서버 업데이트에 시간이 걸릴 수 있어요. 커넥터를 삭제한 뒤 다시 연결하면 바로 최신 tool이 반영돼요. 재연결한 후 새 채팅을 열어서 다시 시도해주세요.
+
+#### 방법 B: ChatGPT web custom connector / MCP app (beta)
+
+ChatGPT web에서도 원격 MCP 서버를 custom connector / MCP app으로 연결할 수 있어요.
+
+1. ChatGPT web 접속
+2. developer mode 또는 custom connector 생성 권한 확인
+3. `Settings -> Apps & Connectors -> Create`
+   또는 `Workspace Settings -> Connectors -> Create`
+4. 이름: `open-proxy-mcp`
+5. MCP 서버 URL 입력:
+```
+https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
+```
+6. 인증 방식 선택
+7. 저장 후 새 채팅에서 connector/app 선택
+
+> **참고**:
+> - ChatGPT custom connector / MCP app은 계정 플랜, 워크스페이스 권한, 베타 롤아웃 상태에 따라 메뉴가 보이지 않을 수 있어요.
+> - custom connector는 OpenAI가 검증한 기본 커넥터가 아니므로, 조직 사용 시 별도 검토가 필요할 수 있어요.
 
 ### 사용 예시
 
