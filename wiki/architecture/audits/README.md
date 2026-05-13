@@ -28,7 +28,7 @@ updated: 2026-05-10
 
 ### 2. 현재 action / advise 상태
 - [[260510_proxy_advise_audit_통합정리]]
-- [[260512_proxy_advise_word_report_design]]
+- [[../proxy_advise_word_report_design]]
 
 ### 3. 현재 repo / wiki 관리 상태
 - [[260509_wiki_graph_audit]]
@@ -52,7 +52,7 @@ updated: 2026-05-10
 | 영역 | 현재 기준 문서 | 비고 |
 |---|---|---|
 | advise / proxy_advise 전체 흐름 | [[260510_proxy_advise_audit_통합정리]] | sanity → 실패 → 수렴 → framework 통합 |
-| proxy_advise Word 문서 양식 | [[260512_proxy_advise_word_report_design]] | 샘플 기반 Word export 설계 |
+| proxy_advise Word 문서 양식 | [[../proxy_advise_word_report_design]] | 샘플 기반 Word export 설계 |
 | recap pattern | [[260503_2304_audit_recap_pattern]] | recap 전용 |
 | proxy_contest baseline | [[260503_2330_audit_proxy_contest_baseline]] | “fix 불필요” 결정 기록 |
 | ownership baseline | [[260503_2345_audit_ownership_baseline]] | “fix 불필요” 결정 기록 |

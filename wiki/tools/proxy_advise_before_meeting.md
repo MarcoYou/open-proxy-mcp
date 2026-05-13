@@ -7,7 +7,7 @@ data_source: [shareholder_meeting (notice), ownership_structure, corp_gov_report
 related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구조보고서]
 related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
 related_decisions: [open-proxy-guideline]
-related_audits: [260510_proxy_advise_audit_통합정리, 260512_proxy_advise_word_report_design, 260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final, 260504_0028_audit_proxy_advise_rename_regression, 260504_0724_audit_parse_personnel_iter1-7]
+related_audits: [260510_proxy_advise_audit_통합정리, 260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final, 260504_0028_audit_proxy_advise_rename_regression, 260504_0724_audit_parse_personnel_iter1-7]
 created: 2026-05-04
 updated: 2026-05-12
 ---
@@ -139,6 +139,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## ref
 
+- Word 보고서 설계: [[proxy_advise_word_report_design]]
 - 사후 결과: [[proxy_result_after_meeting]]
 - 사전 안건 raw: [[shareholder_meeting_notice]]
 - archive (옛 specialized scope service): `wiki/archive/services/policy_comparison.py` / `proxy_guideline.py`

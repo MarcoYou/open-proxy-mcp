@@ -8,7 +8,7 @@ title: Operation Log
 - `wiki/architecture/proxy_advise_word_report_spec.md` 신규
   - `proxy_advise` 이후 사용자가 "문서화", "워드", "보고서"를 요청했을 때 따를 source-of-truth 스펙
   - 입력 범위: `samples/` 자문사 샘플 + 현재 OPM `proxy_advise` payload/renderer/code 구조
-- `wiki/architecture/audits/260512_proxy_advise_word_report_design.md` 신규
+- `wiki/architecture/proxy_advise_word_report_design.md` 신규
   - 샘플 PDF 포맷 비교
   - OPM 데이터 매핑 가능 범위와 부족 필드 정리
   - 기본 권고안: **1페이지 요약 + 안건별 본문 + 후보/근거 부록**

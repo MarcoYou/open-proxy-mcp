@@ -10,6 +10,17 @@
 - 현재 OPM `proxy_advise` 데이터 구조로 최대한 자동 생성 가능할 것
 - 권고, 근거, caveat, 법률/정책 레이어가 명확히 드러날 것
 - 향후 Word export 기능으로 구현 가능할 정도로 구체적일 것
+- Claude web + MCP connector 환경에서 프롬프트 편차 없이 같은 문서 구조로 반복 생성 가능할 것
+
+## 대상 실행 표면
+
+이 스펙은 로컬 수동 문서화가 아니라 **Claude web + MCP connector + fly.io 배포 서버**에서 호출될 Word export tool을 기준으로 한다.
+
+기본 tool 이름은 아래로 고정한다.
+
+- `proxy_advise_export_docx`
+
+즉 사용자가 Claude web에서 주총 의결권 자문 내용을 문서화해달라고 요청했을 때, 최종적으로는 이 tool이 호출돼 `.docx` 산출물을 반환하는 구조를 전제로 설계한다.
 
 ## 참조 입력
 
@@ -17,11 +28,9 @@
 
 ### 1. 외부 형식 참조
 
-다음 경로의 실제 샘플 문서를 우선 참조한다.
+repo/server가 내부적으로 보유한 **의결권자문사/기관 샘플 문서 corpus**를 우선 참조한다.
 
-- `/Users/marcoyou/Projects/open-proxy-mcp/samples`
-
-여기 있는 다양한 의결권자문사/기관 문서 포맷을 읽고 공통 패턴과 차이를 분류한다.
+이 corpus에 포함된 다양한 실제 보고서 포맷을 읽고 공통 패턴과 차이를 분류한다.
 
 ### 2. 내부 데이터/출력 제약
 
@@ -47,6 +56,7 @@
 7. 현재 OPM 데이터로 바로 자동 생성 가능한 섹션은 무엇인가?
 8. 추가 파생 로직이나 필드가 있어야 구현 가능한 섹션은 무엇인가?
 9. 최종 Word 문서는 “즉시 구현 가능한 v1”과 “이상적인 v2”를 어떻게 구분해야 하는가?
+10. Claude web에서 어떤 호출 흐름으로 `.docx`를 생성할지, 재호출 최소화 구조를 어떻게 잡을지?
 
 ## 반드시 지킬 원칙
 
@@ -75,14 +85,16 @@
 
 ## 권장 작업 순서
 
-1. `samples/` 문서들을 읽고 형식 패턴을 분류한다.
+1. 내장 샘플 corpus를 읽고 형식 패턴을 분류한다.
 2. OPM `proxy_advise` 관련 코드와 출력 구조를 읽어 실제 사용 가능한 필드를 정리한다.
 3. 외부 형식 패턴과 OPM 데이터 필드 간 매핑 가능성을 비교한다.
 4. Word 보고서 정보 구조를 최소 2안 이상 설계한다.
 5. 각 안에 대해 readability, 실무 적합성, 자동생성 가능성, 구현 난이도, 확장성을 비교한다.
 6. 기본 채택안 1개를 선택한다.
 7. 섹션별 field mapping과 구현 메모를 정리한다.
-8. 즉시 구현 가능한 `v1`과 향후 확장용 `v2`를 분리한다.
+8. Word 문서의 시각 규칙(색, 표, 여백, 제목 위계, 강조 규칙)을 명시한다.
+9. Claude web + MCP 기준 호출 계약을 정리한다.
+10. 즉시 구현 가능한 `v1`과 향후 확장용 `v2`를 분리한다.
 
 ## 기대 산출물
 
@@ -107,6 +119,7 @@
 - 근거/증거/법률·정책 레이어 표시 방식
 - caveat / review-needed / uncertain case 표시 방식
 - 부록/첨부 구조
+- 색상, 제목 위계, 표 스타일, 강조 규칙
 
 ### 3. 섹션별 템플릿 스펙
 
@@ -146,6 +159,17 @@ engineering 관점에서 다음을 적는다.
 - 템플릿 엔진/Word export에서 주의할 점
 - 표/머리말/각주/페이지 브레이크/부록 처리 시 유의사항
 
+### 7. Claude web / MCP 실행 계약
+
+다음을 명시한다.
+
+- 기본 tool 이름: `proxy_advise_export_docx`
+- 입력 필드 초안
+- `proxy_advise_before_meeting` 재호출이 필요한지 여부
+- `report_context_id` 같은 재사용 핸들이 필요한지 여부
+- 출력 필드 초안 (`docx`, preview, metadata)
+- Claude web에서 사용자가 어떤 표현으로 요청해도 동일 tool로 수렴되게 할 수 있는지
+
 ## 권장 출력 관점
 
 최종 권고안은 아래 관점을 균형 있게 봐야 한다.
@@ -155,6 +179,25 @@ engineering 관점에서 다음을 적는다.
 - 법률/정관/정책 논리를 과하게 장황하지 않게 넣을 수 있는가
 - OPM의 실제 evidence 구조를 무리 없이 녹일 수 있는가
 - 나중에 여러 스타일(`compact`, `standard`, `full`)로 확장 가능한가
+
+## 시각 설계 원칙
+
+이 문서는 정보 구조만이 아니라 **고정된 Word 시각 양식**까지 정의해야 한다.
+
+반드시 포함할 것:
+
+- 기본 색상 체계
+- 제목/본문/표 글꼴 규칙
+- 표 헤더/본문/강조행 규칙
+- `찬성/반대/검토/추가 확인 필요` 시각 표현 규칙
+- 섹션 간 여백과 페이지 브레이크 원칙
+- 표지/헤더/요약 박스 배치
+
+원칙:
+
+- 화려한 브랜딩보다 **가독성, 인쇄 적합성, 반복 생성 안정성**을 우선한다.
+- 색상은 소수만 사용하고, 흑백 인쇄에서도 의미가 유지돼야 한다.
+- 시각 강조는 색만이 아니라 텍스트 라벨/아이콘/굵기로도 표현해야 한다.
 
 ## 비목표
 
@@ -183,5 +226,5 @@ engineering 관점에서 다음을 적는다.
 이 문서를 source of truth로 두고 goal을 시작할 때는 아래 문장을 사용한다.
 
 ```text
-/goal Use wiki/architecture/proxy_advise_word_report_spec.md as the source of truth for designing the OPM proxy_advise Word export format. Inspect /Users/marcoyou/Projects/open-proxy-mcp/samples and the current OPM proxy_advise code/data structures, then produce the recommended Word report format, section-by-section template spec, OPM field mapping, missing-field analysis, trade-off review, and implementation guidance.
+/goal Use wiki/architecture/proxy_advise_word_report_spec.md as the source of truth for designing the OPM proxy_advise Word export format. Inspect the built-in sample advisor-report corpus and the current OPM proxy_advise code/data structures, then produce the recommended Word report format, section-by-section template spec, OPM field mapping, missing-field analysis, trade-off review, and implementation guidance.
 ```
