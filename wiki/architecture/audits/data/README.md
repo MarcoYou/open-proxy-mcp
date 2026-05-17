@@ -1,7 +1,7 @@
 ---
 type: readme
 title: Audit 원시 결과물 인덱스
-updated: 2026-05-10
+updated: 2026-05-18
 ---
 
 # Audit 원시 결과물
@@ -16,6 +16,11 @@ updated: 2026-05-10
 먼저 [[../README]]에서 현재 기준 audit를 찾고, 그 다음 필요한 경우에만 여기로 내려오면 된다.
 
 ## 주요 원시 결과물 묶음
+
+### 2026-05-17 — parsing success-rate audit
+- `260517_parsing_success_rate_audit/`
+- 기준 문서: [[../260517_parsing_success_rate_audit]]
+- 포함: `KOSPI 300 + KOSDAQ 150` baseline, 비중복 100개 recheck, `shareholder_meeting_notice` 정기/임시 공시 표본, `value_up`/`shareholder_meeting_results` 보강 검증
 
 ### 2026-05-10 — data tools 성능 audit
 - `260510_perf_data_tools_audit/`

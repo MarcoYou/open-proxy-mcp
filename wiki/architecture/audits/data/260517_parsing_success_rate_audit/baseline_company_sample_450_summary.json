@@ -1,0 +1,1022 @@
+{
+  "meta": {
+    "script": "scripts/parsing_success_rate_audit.py",
+    "universe": "combined450",
+    "tools": [
+      "company",
+      "shareholder_meeting_results",
+      "ownership_structure",
+      "financial_metrics",
+      "corp_gov_report",
+      "dividend",
+      "treasury_share",
+      "value_up",
+      "corporate_restructuring",
+      "dilutive_issuance",
+      "proxy_contest",
+      "related_party_transaction"
+    ],
+    "n_companies": 450,
+    "started_at_epoch": 1778949248.4408278,
+    "finished_at_epoch": 1778954505.452874,
+    "company_sample_note": "shareholder_meeting_notice는 별도 공시 표본 감사로 이 runner 기본 대상에서 제외함",
+    "complete": true
+  },
+  "summary": {
+    "tools": {
+      "company": {
+        "total": 450,
+        "status_counts": {
+          "exact": 450
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 1618.2,
+        "p95_ms": 1666.7,
+        "avg_api_calls": null
+      },
+      "corp_gov_report": {
+        "total": 450,
+        "status_counts": {
+          "exact": 245,
+          "no_filing": 205
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 1605.2,
+        "p95_ms": 3161.6,
+        "avg_api_calls": null
+      },
+      "corporate_restructuring": {
+        "total": 450,
+        "status_counts": {
+          "no_filing": 379,
+          "exact": 71
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 1629.7,
+        "p95_ms": 1669.8,
+        "avg_api_calls": null
+      },
+      "dilutive_issuance": {
+        "total": 450,
+        "status_counts": {
+          "no_filing": 335,
+          "exact": 115
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 1630.0,
+        "p95_ms": 1677.8,
+        "avg_api_calls": null
+      },
+      "dividend": {
+        "total": 450,
+        "status_counts": {
+          "exact": 333,
+          "no_filing": 117
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 10790.2,
+        "p95_ms": 24105.6,
+        "avg_api_calls": null
+      },
+      "financial_metrics": {
+        "total": 450,
+        "status_counts": {
+          "exact": 450
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 1626.8,
+        "p95_ms": 1678.1,
+        "avg_api_calls": null
+      },
+      "ownership_structure": {
+        "total": 450,
+        "status_counts": {
+          "exact": 450
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 1397.3,
+        "p95_ms": 2537.8,
+        "avg_api_calls": null
+      },
+      "proxy_contest": {
+        "total": 450,
+        "status_counts": {
+          "exact": 427,
+          "no_filing": 19,
+          "exception": 4
+        },
+        "audit_counts": {
+          "success": 446,
+          "hard_fail": 4
+        },
+        "strict_success_rate": 99.1,
+        "usable_rate": 99.1,
+        "hard_fail_rate": 0.9,
+        "median_ms": 2442.7,
+        "p95_ms": 2713.2,
+        "avg_api_calls": null
+      },
+      "related_party_transaction": {
+        "total": 450,
+        "status_counts": {
+          "exact": 281,
+          "no_filing": 169
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 1233.3,
+        "p95_ms": 2038.6,
+        "avg_api_calls": null
+      },
+      "shareholder_meeting_results": {
+        "total": 450,
+        "status_counts": {
+          "exact": 292,
+          "no_filing": 6,
+          "requires_review": 152
+        },
+        "audit_counts": {
+          "success": 298,
+          "soft_fail": 152
+        },
+        "strict_success_rate": 66.2,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 3197.4,
+        "p95_ms": 7490.4,
+        "avg_api_calls": null
+      },
+      "treasury_share": {
+        "total": 450,
+        "status_counts": {
+          "exact": 229,
+          "no_filing": 221
+        },
+        "audit_counts": {
+          "success": 450
+        },
+        "strict_success_rate": 100.0,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 2681.8,
+        "p95_ms": 5516.7,
+        "avg_api_calls": null
+      },
+      "value_up": {
+        "total": 450,
+        "status_counts": {
+          "exact": 192,
+          "partial": 32,
+          "no_filing": 226
+        },
+        "audit_counts": {
+          "success": 418,
+          "soft_fail": 32
+        },
+        "strict_success_rate": 92.9,
+        "usable_rate": 100.0,
+        "hard_fail_rate": 0.0,
+        "median_ms": 2444.9,
+        "p95_ms": 5103.9,
+        "avg_api_calls": null
+      }
+    },
+    "markets": {
+      "KOSDAQ": {
+        "company": {
+          "total": 150,
+          "status_counts": {
+            "exact": 150
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1619.3,
+          "p95_ms": 1928.2,
+          "avg_api_calls": null
+        },
+        "corp_gov_report": {
+          "total": 150,
+          "status_counts": {
+            "no_filing": 150
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 781.7,
+          "p95_ms": 1527.6,
+          "avg_api_calls": null
+        },
+        "corporate_restructuring": {
+          "total": 150,
+          "status_counts": {
+            "no_filing": 134,
+            "exact": 16
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1630.2,
+          "p95_ms": 1663.5,
+          "avg_api_calls": null
+        },
+        "dilutive_issuance": {
+          "total": 150,
+          "status_counts": {
+            "no_filing": 93,
+            "exact": 57
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1631.0,
+          "p95_ms": 1669.6,
+          "avg_api_calls": null
+        },
+        "dividend": {
+          "total": 150,
+          "status_counts": {
+            "exact": 76,
+            "no_filing": 74
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 8102.2,
+          "p95_ms": 17459.7,
+          "avg_api_calls": null
+        },
+        "financial_metrics": {
+          "total": 150,
+          "status_counts": {
+            "exact": 150
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1624.0,
+          "p95_ms": 1683.0,
+          "avg_api_calls": null
+        },
+        "ownership_structure": {
+          "total": 150,
+          "status_counts": {
+            "exact": 150
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1527.4,
+          "p95_ms": 2836.4,
+          "avg_api_calls": null
+        },
+        "proxy_contest": {
+          "total": 150,
+          "status_counts": {
+            "exact": 138,
+            "no_filing": 8,
+            "exception": 4
+          },
+          "audit_counts": {
+            "success": 146,
+            "hard_fail": 4
+          },
+          "strict_success_rate": 97.3,
+          "usable_rate": 97.3,
+          "hard_fail_rate": 2.7,
+          "median_ms": 2444.9,
+          "p95_ms": 2659.7,
+          "avg_api_calls": null
+        },
+        "related_party_transaction": {
+          "total": 150,
+          "status_counts": {
+            "exact": 88,
+            "no_filing": 62
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1221.5,
+          "p95_ms": 1368.9,
+          "avg_api_calls": null
+        },
+        "shareholder_meeting_results": {
+          "total": 150,
+          "status_counts": {
+            "requires_review": 147,
+            "no_filing": 3
+          },
+          "audit_counts": {
+            "soft_fail": 147,
+            "success": 3
+          },
+          "strict_success_rate": 2.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 2558.6,
+          "p95_ms": 6523.8,
+          "avg_api_calls": null
+        },
+        "treasury_share": {
+          "total": 150,
+          "status_counts": {
+            "exact": 72,
+            "no_filing": 78
+          },
+          "audit_counts": {
+            "success": 150
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 2580.9,
+          "p95_ms": 4614.3,
+          "avg_api_calls": null
+        },
+        "value_up": {
+          "total": 150,
+          "status_counts": {
+            "exact": 38,
+            "no_filing": 106,
+            "partial": 6
+          },
+          "audit_counts": {
+            "success": 144,
+            "soft_fail": 6
+          },
+          "strict_success_rate": 96.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 3447.6,
+          "p95_ms": 5451.8,
+          "avg_api_calls": null
+        }
+      },
+      "KOSPI": {
+        "company": {
+          "total": 300,
+          "status_counts": {
+            "exact": 300
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1615.5,
+          "p95_ms": 1658.8,
+          "avg_api_calls": null
+        },
+        "corp_gov_report": {
+          "total": 300,
+          "status_counts": {
+            "exact": 245,
+            "no_filing": 55
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 2088.2,
+          "p95_ms": 3406.2,
+          "avg_api_calls": null
+        },
+        "corporate_restructuring": {
+          "total": 300,
+          "status_counts": {
+            "no_filing": 245,
+            "exact": 55
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1628.3,
+          "p95_ms": 1670.5,
+          "avg_api_calls": null
+        },
+        "dilutive_issuance": {
+          "total": 300,
+          "status_counts": {
+            "no_filing": 242,
+            "exact": 58
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1629.5,
+          "p95_ms": 1678.7,
+          "avg_api_calls": null
+        },
+        "dividend": {
+          "total": 300,
+          "status_counts": {
+            "exact": 257,
+            "no_filing": 43
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 11766.9,
+          "p95_ms": 25652.6,
+          "avg_api_calls": null
+        },
+        "financial_metrics": {
+          "total": 300,
+          "status_counts": {
+            "exact": 300
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1627.7,
+          "p95_ms": 1676.9,
+          "avg_api_calls": null
+        },
+        "ownership_structure": {
+          "total": 300,
+          "status_counts": {
+            "exact": 300
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1322.1,
+          "p95_ms": 2249.3,
+          "avg_api_calls": null
+        },
+        "proxy_contest": {
+          "total": 300,
+          "status_counts": {
+            "exact": 289,
+            "no_filing": 11
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 2441.9,
+          "p95_ms": 2739.5,
+          "avg_api_calls": null
+        },
+        "related_party_transaction": {
+          "total": 300,
+          "status_counts": {
+            "exact": 193,
+            "no_filing": 107
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1279.4,
+          "p95_ms": 2074.6,
+          "avg_api_calls": null
+        },
+        "shareholder_meeting_results": {
+          "total": 300,
+          "status_counts": {
+            "exact": 292,
+            "no_filing": 3,
+            "requires_review": 5
+          },
+          "audit_counts": {
+            "success": 295,
+            "soft_fail": 5
+          },
+          "strict_success_rate": 98.3,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 3382.9,
+          "p95_ms": 7794.3,
+          "avg_api_calls": null
+        },
+        "treasury_share": {
+          "total": 300,
+          "status_counts": {
+            "exact": 157,
+            "no_filing": 143
+          },
+          "audit_counts": {
+            "success": 300
+          },
+          "strict_success_rate": 100.0,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 2749.2,
+          "p95_ms": 5817.3,
+          "avg_api_calls": null
+        },
+        "value_up": {
+          "total": 300,
+          "status_counts": {
+            "exact": 154,
+            "partial": 26,
+            "no_filing": 120
+          },
+          "audit_counts": {
+            "success": 274,
+            "soft_fail": 26
+          },
+          "strict_success_rate": 91.3,
+          "usable_rate": 100.0,
+          "hard_fail_rate": 0.0,
+          "median_ms": 1601.1,
+          "p95_ms": 4899.2,
+          "avg_api_calls": null
+        }
+      }
+    }
+  },
+  "family_summary": {
+    "DS005 이벤트 계열": {
+      "total": 900,
+      "status_counts": {
+        "no_filing": 714,
+        "exact": 186
+      },
+      "audit_counts": {
+        "success": 900
+      },
+      "strict_success_rate": 100.0,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 1629.8,
+      "p95_ms": 1671.4
+    },
+    "배당 / 자사주 / 밸류업 계열": {
+      "total": 1350,
+      "status_counts": {
+        "exact": 754,
+        "no_filing": 564,
+        "partial": 32
+      },
+      "audit_counts": {
+        "success": 1318,
+        "soft_fail": 32
+      },
+      "strict_success_rate": 97.6,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 3734.0,
+      "p95_ms": 17047.5
+    },
+    "분쟁 / 내부거래 계열": {
+      "total": 900,
+      "status_counts": {
+        "exact": 708,
+        "no_filing": 188,
+        "exception": 4
+      },
+      "audit_counts": {
+        "success": 896,
+        "hard_fail": 4
+      },
+      "strict_success_rate": 99.6,
+      "usable_rate": 99.6,
+      "hard_fail_rate": 0.4,
+      "median_ms": 2033.3,
+      "p95_ms": 2595.1
+    },
+    "재무 집계 계열": {
+      "total": 450,
+      "status_counts": {
+        "exact": 450
+      },
+      "audit_counts": {
+        "success": 450
+      },
+      "strict_success_rate": 100.0,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 1626.8,
+      "p95_ms": 1678.1
+    },
+    "주총 결과 계열": {
+      "total": 450,
+      "status_counts": {
+        "exact": 292,
+        "no_filing": 6,
+        "requires_review": 152
+      },
+      "audit_counts": {
+        "success": 298,
+        "soft_fail": 152
+      },
+      "strict_success_rate": 66.2,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 3197.4,
+      "p95_ms": 7490.4
+    },
+    "지배구조보고서 계열": {
+      "total": 450,
+      "status_counts": {
+        "exact": 245,
+        "no_filing": 205
+      },
+      "audit_counts": {
+        "success": 450
+      },
+      "strict_success_rate": 100.0,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 1605.2,
+      "p95_ms": 3161.6
+    },
+    "지분 구조 계열": {
+      "total": 450,
+      "status_counts": {
+        "exact": 450
+      },
+      "audit_counts": {
+        "success": 450
+      },
+      "strict_success_rate": 100.0,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 1397.3,
+      "p95_ms": 2537.8
+    },
+    "회사 식별 계열": {
+      "total": 450,
+      "status_counts": {
+        "exact": 450
+      },
+      "audit_counts": {
+        "success": 450
+      },
+      "strict_success_rate": 100.0,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 1618.2,
+      "p95_ms": 1666.7
+    }
+  },
+  "tool_failures": {
+    "proxy_contest": {
+      "hard_fail_examples": [
+        {
+          "tool": "proxy_contest",
+          "ticker": "039030",
+          "company": "이오테크닉스",
+          "market": "KOSDAQ",
+          "status": "exception",
+          "audit_class": "hard_fail",
+          "warning_sample": null,
+          "exception_type": "ReadError",
+          "exception_message": ""
+        },
+        {
+          "tool": "proxy_contest",
+          "ticker": "263750",
+          "company": "펄어비스",
+          "market": "KOSDAQ",
+          "status": "exception",
+          "audit_class": "hard_fail",
+          "warning_sample": null,
+          "exception_type": "ReadError",
+          "exception_message": ""
+        },
+        {
+          "tool": "proxy_contest",
+          "ticker": "108490",
+          "company": "로보티즈",
+          "market": "KOSDAQ",
+          "status": "exception",
+          "audit_class": "hard_fail",
+          "warning_sample": null,
+          "exception_type": "ReadError",
+          "exception_message": ""
+        },
+        {
+          "tool": "proxy_contest",
+          "ticker": "226950",
+          "company": "올릭스",
+          "market": "KOSDAQ",
+          "status": "exception",
+          "audit_class": "hard_fail",
+          "warning_sample": null,
+          "exception_type": "ReadError",
+          "exception_message": ""
+        }
+      ],
+      "soft_fail_examples": []
+    },
+    "shareholder_meeting_results": {
+      "hard_fail_examples": [],
+      "soft_fail_examples": [
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "008770",
+          "company": "호텔신라",
+          "market": "KOSPI",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "003570",
+          "company": "SNT다이내믹스",
+          "market": "KOSPI",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "036530",
+          "company": "SNT홀딩스",
+          "market": "KOSPI",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "195870",
+          "company": "해성디에스",
+          "market": "KOSPI",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "064960",
+          "company": "SNT모티브",
+          "market": "KOSPI",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "086520",
+          "company": "에코프로",
+          "market": "KOSDAQ",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "247540",
+          "company": "에코프로비엠",
+          "market": "KOSDAQ",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "196170",
+          "company": "알테오젠",
+          "market": "KOSDAQ",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "000250",
+          "company": "삼천당제약",
+          "market": "KOSDAQ",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "shareholder_meeting_results",
+          "ticker": "277810",
+          "company": "레인보우로보틱스",
+          "market": "KOSDAQ",
+          "status": "requires_review",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        }
+      ]
+    },
+    "value_up": {
+      "hard_fail_examples": [],
+      "soft_fail_examples": [
+        {
+          "tool": "value_up",
+          "ticker": "000660",
+          "company": "SK하이닉스",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "005380",
+          "company": "현대차",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "373220",
+          "company": "LG에너지솔루션",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "402340",
+          "company": "SK스퀘어",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "012330",
+          "company": "현대모비스",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "006800",
+          "company": "미래에셋증권",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "096770",
+          "company": "SK이노베이션",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "024110",
+          "company": "기업은행",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "017670",
+          "company": "SK텔레콤",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        },
+        {
+          "tool": "value_up",
+          "ticker": "000720",
+          "company": "현대건설",
+          "market": "KOSPI",
+          "status": "partial",
+          "audit_class": "soft_fail",
+          "warning_sample": null,
+          "exception_type": null,
+          "exception_message": null
+        }
+      ]
+    }
+  }
+}

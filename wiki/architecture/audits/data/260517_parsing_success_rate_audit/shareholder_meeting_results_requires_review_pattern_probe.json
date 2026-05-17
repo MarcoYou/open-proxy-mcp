@@ -1,0 +1,2925 @@
+{
+  "records": [
+    {
+      "market": "KOSPI",
+      "ticker": "008770",
+      "company": "호텔신라",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "rcept_no": "20260319802129",
+      "rcept_mid": "80",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260319",
+      "whitelist_ok": true,
+      "kind_acptno": "20260319002129",
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3376
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "003570",
+      "company": "SNT다이내믹스",
+      "status": "requires_review",
+      "warnings": [
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "rcept_no": "20260227800565",
+      "rcept_mid": "80",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260227",
+      "whitelist_ok": true,
+      "kind_acptno": "20260227000565",
+      "dart_doc_ok": true,
+      "dart_parse_count": 0,
+      "dart_result_format": null,
+      "dart_text_len": 2930
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "036530",
+      "company": "SNT홀딩스",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "rcept_no": "20260227801131",
+      "rcept_mid": "80",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260227",
+      "whitelist_ok": true,
+      "kind_acptno": "20260227001131",
+      "dart_doc_ok": true,
+      "dart_parse_count": 0,
+      "dart_result_format": null,
+      "dart_text_len": 2792
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "195870",
+      "company": "해성디에스",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "rcept_no": "20260326803441",
+      "rcept_mid": "80",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": true,
+      "kind_acptno": "20260326003441",
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 4133
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "064960",
+      "company": "SNT모티브",
+      "status": "requires_review",
+      "warnings": [
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "rcept_no": "20260227801101",
+      "rcept_mid": "80",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260227",
+      "whitelist_ok": true,
+      "kind_acptno": "20260227001101",
+      "dart_doc_ok": true,
+      "dart_parse_count": 0,
+      "dart_result_format": null,
+      "dart_text_len": 2793
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "086520",
+      "company": "에코프로",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902064",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 12,
+      "dart_result_format": "table",
+      "dart_text_len": 5414
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "247540",
+      "company": "에코프로비엠",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901877",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 4885
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "196170",
+      "company": "알테오젠",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903683",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 12,
+      "dart_result_format": "table",
+      "dart_text_len": 4164
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "000250",
+      "company": "삼천당제약",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901934",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3551
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "277810",
+      "company": "레인보우로보틱스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901445",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3384
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "298380",
+      "company": "에이비엘바이오",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901564",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 4486
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "950160",
+      "company": "코오롱티슈진",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326903156",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 4174
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "058470",
+      "company": "리노공업",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326900659",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4474
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "028300",
+      "company": "HLB",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331900515",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 15,
+      "dart_result_format": "table",
+      "dart_text_len": 6653
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "141080",
+      "company": "리가켐바이오",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903017",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3264
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "087010",
+      "company": "펩트론",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902553",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3372
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "214370",
+      "company": "케어젠",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901625",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3939
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "240810",
+      "company": "원익IPS",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324900425",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3265
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "310210",
+      "company": "보로노이",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330902039",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 11,
+      "dart_result_format": "table",
+      "dart_text_len": 4515
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "095340",
+      "company": "ISC",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902558",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 15,
+      "dart_result_format": "table",
+      "dart_text_len": 4169
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "263750",
+      "company": "펄어비스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902043",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 4,
+      "dart_result_format": "table",
+      "dart_text_len": 2989
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "108490",
+      "company": "로보티즈",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901064",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3292
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "226950",
+      "company": "올릭스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326903165",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 3554
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "032820",
+      "company": "우리기술",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331902922",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 4017
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "214150",
+      "company": "클래시스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901151",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 6412
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "403870",
+      "company": "HPSP",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901580",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3766
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "0009K0",
+      "company": "에임드바이오",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902301",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3206
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "043260",
+      "company": "성호전자",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330902128",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3202
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "347850",
+      "company": "디앤디파마텍",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901152",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3614
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "214450",
+      "company": "파마리서치",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901012",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 4456
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "145020",
+      "company": "휴젤",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901607",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3892
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "237690",
+      "company": "에스티팜",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902899",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3915
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "319400",
+      "company": "현대무벡스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326900749",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3783
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "357780",
+      "company": "솔브레인",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901104",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3445
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "084370",
+      "company": "유진테크",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327903210",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3391
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "036930",
+      "company": "주성엔지니어링",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326900938",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 4507
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "083650",
+      "company": "비에이치아이",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901393",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 3927
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "476830",
+      "company": "알지노믹스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903616",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3745
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "178320",
+      "company": "서진시스템",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331902981",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3334
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "140410",
+      "company": "메지온",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901972",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3004
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "440110",
+      "company": "파두",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901298",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3955
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "068760",
+      "company": "셀트리온제약",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901473",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 3710
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "064760",
+      "company": "티씨케이",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260318902084",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260318",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3957
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "257720",
+      "company": "실리콘투",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330902071",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 18,
+      "dart_result_format": "table",
+      "dart_text_len": 5168
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "058610",
+      "company": "에스피지",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326900407",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3047
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "005290",
+      "company": "동진쎄미켐",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902436",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3141
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "319660",
+      "company": "피에스케이",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901873",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3093
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "218410",
+      "company": "RFHIC",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902441",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 3863
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "347700",
+      "company": "스피어",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902910",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 4024
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "376900",
+      "company": "로킷헬스케어",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903907",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 11,
+      "dart_result_format": "table",
+      "dart_text_len": 4026
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "035900",
+      "company": "JYP Ent.",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326903068",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3939
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "031980",
+      "company": "피에스케이홀딩스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901297",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3303
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "030530",
+      "company": "원익홀딩스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901421",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 4251
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "041510",
+      "company": "에스엠",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260325901323",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260325",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4645
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "099320",
+      "company": "쎄트렉아이",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324900661",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3248
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "067310",
+      "company": "하나마이크론",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902404",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 3942
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "131970",
+      "company": "두산테스나",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331902006",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3816
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "458870",
+      "company": "씨어스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327900868",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3216
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "039200",
+      "company": "오스코텍",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901800",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 11,
+      "dart_result_format": "table",
+      "dart_text_len": 4398
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "222800",
+      "company": "심텍",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901164",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3405
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "078600",
+      "company": "대주전자재료",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902794",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 11,
+      "dart_result_format": "table",
+      "dart_text_len": 3343
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "098460",
+      "company": "고영",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327903221",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 11,
+      "dart_result_format": "table",
+      "dart_text_len": 4335
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "082920",
+      "company": "비츠로셀",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260325900722",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260325",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 4499
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "140860",
+      "company": "파크시스템스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901243",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4473
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "089030",
+      "company": "테크윙",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901031",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3192
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "475830",
+      "company": "오름테라퓨틱",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327903263",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3883
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "290650",
+      "company": "엘앤씨바이오",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901965",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 14,
+      "dart_result_format": "table",
+      "dart_text_len": 4573
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "085660",
+      "company": "차바이오텍",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331904677",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 15,
+      "dart_result_format": "table",
+      "dart_text_len": 4267
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "101490",
+      "company": "에스앤에스텍",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260325900783",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260325",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3614
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "491000",
+      "company": "리브스메드",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903785",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3226
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "323280",
+      "company": "태성",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903466",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3272
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "437730",
+      "company": "삼현",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902263",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 4,
+      "dart_result_format": "table",
+      "dart_text_len": 2809
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "010170",
+      "company": "대한광통신",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901915",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3378
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "038500",
+      "company": "삼표시멘트",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901351",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 13,
+      "dart_result_format": "table",
+      "dart_text_len": 6516
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "003380",
+      "company": "하림지주",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901302",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3572
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "060370",
+      "company": "LS마린솔루션",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324900618",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3846
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "065350",
+      "company": "신성델타테크",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260325900933",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260325",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 16,
+      "dart_result_format": "table",
+      "dart_text_len": 5027
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "232140",
+      "company": "와이씨",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901721",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3291
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "195940",
+      "company": "HK이노엔",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326900775",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 12,
+      "dart_result_format": "table",
+      "dart_text_len": 4584
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "100790",
+      "company": "미래에셋벤처투자",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901000",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4329
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "115180",
+      "company": "큐리언트",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902787",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4214
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "417200",
+      "company": "LS머트리얼즈",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901017",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4266
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "080220",
+      "company": "제주반도체",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901540",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3527
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "445680",
+      "company": "큐리옥스바이오시스템즈",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331904420",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3366
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "127120",
+      "company": "제이에스링크",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901929",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 3550
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "082270",
+      "company": "젬백스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901662",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3461
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "090710",
+      "company": "휴림로봇",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331904225",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3291
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "466100",
+      "company": "클로봇",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902854",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 20,
+      "dart_result_format": "table",
+      "dart_text_len": 4833
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "048410",
+      "company": "현대바이오",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326903617",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3673
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "086450",
+      "company": "동국제약",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260320901765",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260320",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3314
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "281740",
+      "company": "레이크머티리얼즈",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901867",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3325
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "131290",
+      "company": "티에스이",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901746",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3195
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "328130",
+      "company": "루닛",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331902049",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 11,
+      "dart_result_format": "table",
+      "dart_text_len": 3855
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "189300",
+      "company": "인텔리안테크",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330900622",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3061
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "397030",
+      "company": "에이프릴바이오",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260325900377",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260325",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3042
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "035760",
+      "company": "CJ ENM",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (meeting_datetime_missing)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902779",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 4105
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "166090",
+      "company": "하나머티리얼즈",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260323900933",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260323",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3580
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "096530",
+      "company": "씨젠",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902536",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 4746
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "388210",
+      "company": "씨엠티엑스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331902724",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 2971
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "032500",
+      "company": "케이엠더블유",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901719",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3224
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "174900",
+      "company": "앱클론",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260323900565",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260323",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 4289
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "095610",
+      "company": "테스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260323900980",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260323",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3617
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "137400",
+      "company": "피엔티",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324900718",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 2,
+      "dart_result_format": "table",
+      "dart_text_len": 2780
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "007390",
+      "company": "네이처셀",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901649",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3332
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "456160",
+      "company": "지투지바이오",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902749",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 11,
+      "dart_result_format": "table",
+      "dart_text_len": 3930
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "124500",
+      "company": "아이티센글로벌",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901743",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3565
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "213420",
+      "company": "덕산네오룩스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902502",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3570
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "052020",
+      "company": "에스티큐브",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326902423",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 4,
+      "dart_result_format": "table",
+      "dart_text_len": 3002
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "420770",
+      "company": "기가비스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902224",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3310
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "293490",
+      "company": "카카오게임즈",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326903075",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4423
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "027360",
+      "company": "아주IB투자",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901192",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4312
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "253450",
+      "company": "스튜디오드래곤",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326900783",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3528
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "295310",
+      "company": "에이치브이엠",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901079",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3626
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "160190",
+      "company": "하이젠알앤엠",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901400",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4060
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "036540",
+      "company": "SFA반도체",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331902682",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3195
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "388720",
+      "company": "유일로보틱스",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901672",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3516
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "089970",
+      "company": "브이엠",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901196",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 4063
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "023160",
+      "company": "태광",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901119",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3741
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "056190",
+      "company": "에스에프에이",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901766",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3924
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "036830",
+      "company": "솔브레인홀딩스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326900825",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3514
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "014620",
+      "company": "성광벤드",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902504",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3552
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "122870",
+      "company": "와이지엔터테인먼트",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901650",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3644
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "476060",
+      "company": "온코닉테라퓨틱스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260323902136",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260323",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 15,
+      "dart_result_format": "table",
+      "dart_text_len": 5427
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "050890",
+      "company": "쏠리드",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260324901405",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260324",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 12,
+      "dart_result_format": "table",
+      "dart_text_len": 4548
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "056080",
+      "company": "유진로봇",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901752",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 4,
+      "dart_result_format": "table",
+      "dart_text_len": 3004
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "222080",
+      "company": "씨아이에스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331904648",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 14,
+      "dart_result_format": "table",
+      "dart_text_len": 5558
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "204270",
+      "company": "제이앤티씨",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331904685",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 4,
+      "dart_result_format": "table",
+      "dart_text_len": 2900
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "044490",
+      "company": "태웅",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326903375",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 3028
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "161580",
+      "company": "필옵틱스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260325900824",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260325",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3498
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "032190",
+      "company": "다우데이타",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901964",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3670
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "389470",
+      "company": "인벤티지랩",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903328",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3668
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "006730",
+      "company": "서부T&D",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (meeting_datetime_missing, agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901918",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3468
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "126340",
+      "company": "비나텍",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327903268",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 10,
+      "dart_result_format": "table",
+      "dart_text_len": 3962
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "241710",
+      "company": "코스메카코리아",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327902907",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4532
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "171090",
+      "company": "선익시스템",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326900608",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 5,
+      "dart_result_format": "table",
+      "dart_text_len": 2976
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "052400",
+      "company": "코나아이",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260319902148",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260319",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4069
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "074600",
+      "company": "원익QnC",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903743",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3648
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "372320",
+      "company": "큐로셀",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903668",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3675
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "490470",
+      "company": "세미파이브",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331901014",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 4,
+      "dart_result_format": "table",
+      "dart_text_len": 3102
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "036810",
+      "company": "에프에스티",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326903447",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 4236
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "348370",
+      "company": "엔켐",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260331903782",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260331",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3791
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "121600",
+      "company": "나노신소재",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330902179",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 3523
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "368770",
+      "company": "파이버프로",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901091",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3536
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "078160",
+      "company": "메디포스트",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901919",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 4,
+      "dart_result_format": "table",
+      "dart_text_len": 3276
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "225570",
+      "company": "넥슨게임즈",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901465",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3417
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "348340",
+      "company": "뉴로메카",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901939",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 4158
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "358570",
+      "company": "지아이이노베이션",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901504",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 9,
+      "dart_result_format": "table",
+      "dart_text_len": 4389
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "365340",
+      "company": "성일하이텍",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901243",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3211
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "086900",
+      "company": "메디톡스",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260327901340",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260327",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3766
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "475960",
+      "company": "토모큐브",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260330901126",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260330",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 7,
+      "dart_result_format": "table",
+      "dart_text_len": 3273
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "102940",
+      "company": "코오롱생명과학",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326903076",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 6,
+      "dart_result_format": "table",
+      "dart_text_len": 3333
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "009520",
+      "company": "포스코엠텍",
+      "status": "requires_review",
+      "warnings": [
+        "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
+      ],
+      "rcept_no": "20260326901853",
+      "rcept_mid": "90",
+      "report_name": "정기주주총회결과              ",
+      "disclosure_date": "20260326",
+      "whitelist_ok": false,
+      "kind_acptno": null,
+      "dart_doc_ok": true,
+      "dart_parse_count": 8,
+      "dart_result_format": "table",
+      "dart_text_len": 3807
+    }
+  ]
+}

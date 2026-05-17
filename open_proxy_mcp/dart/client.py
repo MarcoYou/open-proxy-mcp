@@ -51,6 +51,12 @@ _MIN_INTERVAL_WEB = 2.0     # 웹: 최소 2초 간격 (DDoS 오해 방지)
 _API_RATE_LIMIT_PER_MINUTE = 900
 
 _KIND_VALUE_UP_DISCLOSURE_CODE = "0184"
+_TRANSIENT_HTTP_ERRORS = (
+    httpx.ReadError,
+    httpx.ConnectError,
+    httpx.ReadTimeout,
+    httpx.RemoteProtocolError,
+)
 
 
 class DartClientError(Exception):
@@ -175,6 +181,13 @@ _CORP_ALIASES: dict[str, str] = {
     "고려아연": "고려아연",
     "kcc": "케이씨씨",
     "포스코홀딩스": "POSCO홀딩스",
+    "롯데칠성": "롯데칠성음료",
+    "삼화콘덴서": "삼화콘덴서공업",
+    "한국단자": "한국단자공업",
+    "di동일": "디아이동일",
+    "유진투자증권": "유진증권",
+    "kcc글라스": "케이씨씨글라스",
+    "f&f홀딩스": "F&F 홀딩스",
     "m레거시증권": "미래에셋증권",
     "m레거시생명": "미래에셋생명",
     "m레거시벤처투자": "미래에셋벤처투자",
@@ -302,7 +315,19 @@ class DartClient:
         params["crtfc_key"] = self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"
 
-        response = await self._http.get(url, params=params, timeout=30)
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                response = await self._http.get(url, params=params, timeout=30)
+                break
+            except _TRANSIENT_HTTP_ERRORS as exc:
+                last_exc = exc
+                if attempt < 2:
+                    wait = 0.5 * (2 ** attempt)
+                    logger.warning(f"{endpoint} attempt {attempt+1} failed ({type(exc).__name__}): retry in {wait}s")
+                    await asyncio.sleep(wait)
+        else:
+            raise last_exc or DartClientError("TRANSPORT_ERROR", f"{endpoint} 요청 실패")
         response.raise_for_status()
         data = response.json()
 

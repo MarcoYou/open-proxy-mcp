@@ -1,0 +1,7 @@
+corp_code,corp_name,stock_code,rcept_no,rcept_dt,report_nm,is_correction,is_extraordinary,meeting_type_detected,meeting_datetime,info_source
+00145668,이화공영,001840,20260310002246,20260310,주주총회소집공고,False,False,,2026년 03월 25일 (수) 오전 10시,dart_html
+00204226,소프트센,032680,20260313001116,20260313,주주총회소집공고,False,False,,2026년 3월 30일 (월) 오전 11시 30분,dart_html
+00356839,메디콕스,054180,20260316000838,20260316,[기재정정]주주총회소집공고,True,False,,2026 년 03 월 31 일 (화) 오전 9시,dart_html
+01118281,피플바이오,304840,20260427000718,20260427,주주총회소집공고,False,False,,2026년 5월 12일(화) 오전 9시,dart_html
+00599285,서플러스글로벌,140070,20260428000524,20260428,주주총회소집공고,False,False,,2026년 05월 13일(수요일) 오전 09시,dart_html
+00356839,메디콕스,054180,20260428000831,20260429,주주총회소집공고,False,False,,2026 년 05 월 13 일 (수) 오전 9시,dart_html

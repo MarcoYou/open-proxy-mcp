@@ -1,0 +1,49 @@
+{
+  "records": [
+    {
+      "company": "팬오션",
+      "status": "exact",
+      "duration_ms": 1080.1,
+      "warnings": [],
+      "results_count": 9,
+      "source": "dart_api",
+      "format": "table"
+    },
+    {
+      "company": "풍산",
+      "status": "exact",
+      "duration_ms": 1069.8,
+      "warnings": [],
+      "results_count": 14,
+      "source": "dart_api",
+      "format": "table"
+    },
+    {
+      "company": "에스엘",
+      "status": "exact",
+      "duration_ms": 1159.3,
+      "warnings": [],
+      "results_count": 15,
+      "source": "dart_api",
+      "format": "table"
+    },
+    {
+      "company": "한전KPS",
+      "status": "exact",
+      "duration_ms": 2432.3,
+      "warnings": [],
+      "results_count": 3,
+      "source": "dart_api",
+      "format": "table"
+    },
+    {
+      "company": "이마트",
+      "status": "exact",
+      "duration_ms": 1255.9,
+      "warnings": [],
+      "results_count": 7,
+      "source": "dart_api",
+      "format": "table"
+    }
+  ]
+}
