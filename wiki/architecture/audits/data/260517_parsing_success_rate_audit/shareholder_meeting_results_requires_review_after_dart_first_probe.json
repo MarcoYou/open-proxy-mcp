@@ -1,0 +1,3096 @@
+{
+  "records": [
+    {
+      "market": "KOSPI",
+      "ticker": "008770",
+      "company": "호텔신라",
+      "status": "requires_review",
+      "duration_ms": 5692.0,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260319802129",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260319",
+        "kind_acptno": "20260319002129",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "003570",
+      "company": "SNT다이내믹스",
+      "status": "requires_review",
+      "duration_ms": 7811.8,
+      "warnings": [
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260227800565",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260227",
+        "kind_acptno": "20260227000565",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      },
+      "results_count": 0,
+      "result_source": null,
+      "result_format": null
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "036530",
+      "company": "SNT홀딩스",
+      "status": "requires_review",
+      "duration_ms": 13891.3,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260227801131",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260227",
+        "kind_acptno": "20260227001131",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      },
+      "results_count": 0,
+      "result_source": null,
+      "result_format": null
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "195870",
+      "company": "해성디에스",
+      "status": "requires_review",
+      "duration_ms": 7577.8,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326803441",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": "20260326003441",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "064960",
+      "company": "SNT모티브",
+      "status": "requires_review",
+      "duration_ms": 6549.3,
+      "warnings": [
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260227801101",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260227",
+        "kind_acptno": "20260227001101",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      },
+      "results_count": 0,
+      "result_source": null,
+      "result_format": null
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "086520",
+      "company": "에코프로",
+      "status": "exact",
+      "duration_ms": 764.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902064",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 12,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "247540",
+      "company": "에코프로비엠",
+      "status": "exact",
+      "duration_ms": 731.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901877",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "196170",
+      "company": "알테오젠",
+      "status": "exact",
+      "duration_ms": 1249.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903683",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 12,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "000250",
+      "company": "삼천당제약",
+      "status": "requires_review",
+      "duration_ms": 7222.0,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901934",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "277810",
+      "company": "레인보우로보틱스",
+      "status": "exact",
+      "duration_ms": 1591.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901445",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "298380",
+      "company": "에이비엘바이오",
+      "status": "exact",
+      "duration_ms": 2337.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901564",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "950160",
+      "company": "코오롱티슈진",
+      "status": "requires_review",
+      "duration_ms": 8521.1,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326903156",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "058470",
+      "company": "리노공업",
+      "status": "exact",
+      "duration_ms": 1964.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326900659",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "028300",
+      "company": "HLB",
+      "status": "exact",
+      "duration_ms": 1328.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331900515",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 15,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "141080",
+      "company": "리가켐바이오",
+      "status": "exact",
+      "duration_ms": 1038.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903017",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "087010",
+      "company": "펩트론",
+      "status": "requires_review",
+      "duration_ms": 6875.8,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902553",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "214370",
+      "company": "케어젠",
+      "status": "exact",
+      "duration_ms": 770.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901625",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "240810",
+      "company": "원익IPS",
+      "status": "exact",
+      "duration_ms": 527.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324900425",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "310210",
+      "company": "보로노이",
+      "status": "exact",
+      "duration_ms": 625.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330902039",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 11,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "095340",
+      "company": "ISC",
+      "status": "exact",
+      "duration_ms": 951.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902558",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 15,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "263750",
+      "company": "펄어비스",
+      "status": "exact",
+      "duration_ms": 1255.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902043",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 4,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "108490",
+      "company": "로보티즈",
+      "status": "exact",
+      "duration_ms": 1566.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901064",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "226950",
+      "company": "올릭스",
+      "status": "exact",
+      "duration_ms": 1901.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326903165",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "032820",
+      "company": "우리기술",
+      "status": "exact",
+      "duration_ms": 1807.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331902922",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "214150",
+      "company": "클래시스",
+      "status": "exact",
+      "duration_ms": 1954.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901151",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "403870",
+      "company": "HPSP",
+      "status": "exact",
+      "duration_ms": 2183.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901580",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "0009K0",
+      "company": "에임드바이오",
+      "status": "exact",
+      "duration_ms": 2002.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902301",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "043260",
+      "company": "성호전자",
+      "status": "exact",
+      "duration_ms": 1992.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330902128",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "347850",
+      "company": "디앤디파마텍",
+      "status": "exact",
+      "duration_ms": 2023.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901152",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "214450",
+      "company": "파마리서치",
+      "status": "exact",
+      "duration_ms": 2420.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901012",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "145020",
+      "company": "휴젤",
+      "status": "exact",
+      "duration_ms": 2649.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901607",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "237690",
+      "company": "에스티팜",
+      "status": "exact",
+      "duration_ms": 2701.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902899",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "319400",
+      "company": "현대무벡스",
+      "status": "exact",
+      "duration_ms": 2688.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326900749",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "357780",
+      "company": "솔브레인",
+      "status": "exact",
+      "duration_ms": 3343.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901104",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "084370",
+      "company": "유진테크",
+      "status": "exact",
+      "duration_ms": 4034.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327903210",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "036930",
+      "company": "주성엔지니어링",
+      "status": "exact",
+      "duration_ms": 4968.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326900938",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "083650",
+      "company": "비에이치아이",
+      "status": "exact",
+      "duration_ms": 6273.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901393",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "476830",
+      "company": "알지노믹스",
+      "status": "exact",
+      "duration_ms": 6504.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903616",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "178320",
+      "company": "서진시스템",
+      "status": "exact",
+      "duration_ms": 6055.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331902981",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "140410",
+      "company": "메지온",
+      "status": "exact",
+      "duration_ms": 5318.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901972",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "440110",
+      "company": "파두",
+      "status": "exact",
+      "duration_ms": 5285.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901298",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "068760",
+      "company": "셀트리온제약",
+      "status": "exact",
+      "duration_ms": 4449.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901473",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "064760",
+      "company": "티씨케이",
+      "status": "exact",
+      "duration_ms": 4196.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260318902084",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260318",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "257720",
+      "company": "실리콘투",
+      "status": "exact",
+      "duration_ms": 4081.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330902071",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 18,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "058610",
+      "company": "에스피지",
+      "status": "exact",
+      "duration_ms": 4073.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326900407",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "005290",
+      "company": "동진쎄미켐",
+      "status": "exact",
+      "duration_ms": 3090.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902436",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "319660",
+      "company": "피에스케이",
+      "status": "exact",
+      "duration_ms": 2660.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901873",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "218410",
+      "company": "RFHIC",
+      "status": "exact",
+      "duration_ms": 2684.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902441",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "347700",
+      "company": "스피어",
+      "status": "exact",
+      "duration_ms": 2635.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902910",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "376900",
+      "company": "로킷헬스케어",
+      "status": "exact",
+      "duration_ms": 2908.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903907",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 11,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "035900",
+      "company": "JYP Ent.",
+      "status": "exact",
+      "duration_ms": 3008.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326903068",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "031980",
+      "company": "피에스케이홀딩스",
+      "status": "exact",
+      "duration_ms": 2997.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901297",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "030530",
+      "company": "원익홀딩스",
+      "status": "exact",
+      "duration_ms": 3079.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901421",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "041510",
+      "company": "에스엠",
+      "status": "exact",
+      "duration_ms": 4453.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260325901323",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260325",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "099320",
+      "company": "쎄트렉아이",
+      "status": "requires_review",
+      "duration_ms": 9099.2,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324900661",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "067310",
+      "company": "하나마이크론",
+      "status": "exact",
+      "duration_ms": 5181.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902404",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "131970",
+      "company": "두산테스나",
+      "status": "exact",
+      "duration_ms": 5807.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331902006",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "458870",
+      "company": "씨어스",
+      "status": "exact",
+      "duration_ms": 5756.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327900868",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "039200",
+      "company": "오스코텍",
+      "status": "exact",
+      "duration_ms": 4967.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901800",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 11,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "222800",
+      "company": "심텍",
+      "status": "exact",
+      "duration_ms": 3771.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901164",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "078600",
+      "company": "대주전자재료",
+      "status": "exact",
+      "duration_ms": 3180.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902794",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 11,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "098460",
+      "company": "고영",
+      "status": "exact",
+      "duration_ms": 3176.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327903221",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 11,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "082920",
+      "company": "비츠로셀",
+      "status": "exact",
+      "duration_ms": 3543.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260325900722",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260325",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "140860",
+      "company": "파크시스템스",
+      "status": "exact",
+      "duration_ms": 4097.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901243",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "089030",
+      "company": "테크윙",
+      "status": "exact",
+      "duration_ms": 4076.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901031",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "475830",
+      "company": "오름테라퓨틱",
+      "status": "exact",
+      "duration_ms": 4016.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327903263",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "290650",
+      "company": "엘앤씨바이오",
+      "status": "exact",
+      "duration_ms": 4288.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901965",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 14,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "085660",
+      "company": "차바이오텍",
+      "status": "exact",
+      "duration_ms": 4972.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331904677",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 15,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "101490",
+      "company": "에스앤에스텍",
+      "status": "exact",
+      "duration_ms": 4712.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260325900783",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260325",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "491000",
+      "company": "리브스메드",
+      "status": "exact",
+      "duration_ms": 4739.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903785",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "323280",
+      "company": "태성",
+      "status": "exact",
+      "duration_ms": 4907.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903466",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "437730",
+      "company": "삼현",
+      "status": "exact",
+      "duration_ms": 5030.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902263",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 4,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "010170",
+      "company": "대한광통신",
+      "status": "exact",
+      "duration_ms": 3261.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901915",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "038500",
+      "company": "삼표시멘트",
+      "status": "exact",
+      "duration_ms": 3912.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901351",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 13,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "003380",
+      "company": "하림지주",
+      "status": "exact",
+      "duration_ms": 4150.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901302",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "060370",
+      "company": "LS마린솔루션",
+      "status": "exact",
+      "duration_ms": 4109.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324900618",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "065350",
+      "company": "신성델타테크",
+      "status": "exact",
+      "duration_ms": 3897.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260325900933",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260325",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 16,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "232140",
+      "company": "와이씨",
+      "status": "exact",
+      "duration_ms": 3790.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901721",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "195940",
+      "company": "HK이노엔",
+      "status": "exact",
+      "duration_ms": 2753.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326900775",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 12,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "100790",
+      "company": "미래에셋벤처투자",
+      "status": "exact",
+      "duration_ms": 2692.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901000",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "115180",
+      "company": "큐리언트",
+      "status": "exact",
+      "duration_ms": 2783.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902787",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "417200",
+      "company": "LS머트리얼즈",
+      "status": "exact",
+      "duration_ms": 2957.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901017",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "080220",
+      "company": "제주반도체",
+      "status": "exact",
+      "duration_ms": 3208.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901540",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "445680",
+      "company": "큐리옥스바이오시스템즈",
+      "status": "exact",
+      "duration_ms": 2966.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331904420",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "127120",
+      "company": "제이에스링크",
+      "status": "exact",
+      "duration_ms": 3830.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901929",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "082270",
+      "company": "젬백스",
+      "status": "exact",
+      "duration_ms": 3675.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901662",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "090710",
+      "company": "휴림로봇",
+      "status": "exact",
+      "duration_ms": 3671.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331904225",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "466100",
+      "company": "클로봇",
+      "status": "exact",
+      "duration_ms": 3483.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902854",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 20,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "048410",
+      "company": "현대바이오",
+      "status": "exact",
+      "duration_ms": 3552.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326903617",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "086450",
+      "company": "동국제약",
+      "status": "exact",
+      "duration_ms": 2680.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260320901765",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260320",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "281740",
+      "company": "레이크머티리얼즈",
+      "status": "exact",
+      "duration_ms": 2726.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901867",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "131290",
+      "company": "티에스이",
+      "status": "exact",
+      "duration_ms": 2581.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901746",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "328130",
+      "company": "루닛",
+      "status": "exact",
+      "duration_ms": 2726.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331902049",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 11,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "189300",
+      "company": "인텔리안테크",
+      "status": "exact",
+      "duration_ms": 2600.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330900622",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "397030",
+      "company": "에이프릴바이오",
+      "status": "exact",
+      "duration_ms": 2505.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260325900377",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260325",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "035760",
+      "company": "CJ ENM",
+      "status": "exact",
+      "duration_ms": 12030.9,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (meeting_datetime_missing)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902779",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "166090",
+      "company": "하나머티리얼즈",
+      "status": "exact",
+      "duration_ms": 2143.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260323900933",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260323",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "096530",
+      "company": "씨젠",
+      "status": "exact",
+      "duration_ms": 2093.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902536",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "388210",
+      "company": "씨엠티엑스",
+      "status": "exact",
+      "duration_ms": 2007.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331902724",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "032500",
+      "company": "케이엠더블유",
+      "status": "exact",
+      "duration_ms": 2185.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901719",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "174900",
+      "company": "앱클론",
+      "status": "exact",
+      "duration_ms": 2140.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260323900565",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260323",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "095610",
+      "company": "테스",
+      "status": "exact",
+      "duration_ms": 2003.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260323900980",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260323",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "137400",
+      "company": "피엔티",
+      "status": "exact",
+      "duration_ms": 2202.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324900718",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 2,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "007390",
+      "company": "네이처셀",
+      "status": "exact",
+      "duration_ms": 2047.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901649",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "456160",
+      "company": "지투지바이오",
+      "status": "requires_review",
+      "duration_ms": 9523.1,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902749",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 11,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "124500",
+      "company": "아이티센글로벌",
+      "status": "exact",
+      "duration_ms": 2710.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901743",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "213420",
+      "company": "덕산네오룩스",
+      "status": "exact",
+      "duration_ms": 3509.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902502",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "052020",
+      "company": "에스티큐브",
+      "status": "exact",
+      "duration_ms": 3671.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326902423",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 4,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "420770",
+      "company": "기가비스",
+      "status": "exact",
+      "duration_ms": 3676.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902224",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "293490",
+      "company": "카카오게임즈",
+      "status": "exact",
+      "duration_ms": 4636.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326903075",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "027360",
+      "company": "아주IB투자",
+      "status": "exact",
+      "duration_ms": 4527.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901192",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "253450",
+      "company": "스튜디오드래곤",
+      "status": "exact",
+      "duration_ms": 4750.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326900783",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "295310",
+      "company": "에이치브이엠",
+      "status": "exact",
+      "duration_ms": 5027.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901079",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "160190",
+      "company": "하이젠알앤엠",
+      "status": "exact",
+      "duration_ms": 3357.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901400",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "036540",
+      "company": "SFA반도체",
+      "status": "exact",
+      "duration_ms": 3471.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331902682",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "388720",
+      "company": "유일로보틱스",
+      "status": "requires_review",
+      "duration_ms": 7650.5,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901672",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "089970",
+      "company": "브이엠",
+      "status": "exact",
+      "duration_ms": 3392.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901196",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "023160",
+      "company": "태광",
+      "status": "exact",
+      "duration_ms": 3253.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901119",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "056190",
+      "company": "에스에프에이",
+      "status": "exact",
+      "duration_ms": 3195.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901766",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "036830",
+      "company": "솔브레인홀딩스",
+      "status": "exact",
+      "duration_ms": 3475.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326900825",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "014620",
+      "company": "성광벤드",
+      "status": "exact",
+      "duration_ms": 2457.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902504",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "122870",
+      "company": "와이지엔터테인먼트",
+      "status": "exact",
+      "duration_ms": 2548.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901650",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "476060",
+      "company": "온코닉테라퓨틱스",
+      "status": "exact",
+      "duration_ms": 2458.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260323902136",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260323",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 15,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "050890",
+      "company": "쏠리드",
+      "status": "exact",
+      "duration_ms": 2811.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260324901405",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 12,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "056080",
+      "company": "유진로봇",
+      "status": "exact",
+      "duration_ms": 2986.7,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901752",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 4,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "222080",
+      "company": "씨아이에스",
+      "status": "exact",
+      "duration_ms": 3288.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331904648",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 14,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "204270",
+      "company": "제이앤티씨",
+      "status": "requires_review",
+      "duration_ms": 7574.8,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331904685",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 4,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "044490",
+      "company": "태웅",
+      "status": "exact",
+      "duration_ms": 3273.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326903375",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "161580",
+      "company": "필옵틱스",
+      "status": "exact",
+      "duration_ms": 2685.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260325900824",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260325",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "032190",
+      "company": "다우데이타",
+      "status": "exact",
+      "duration_ms": 2605.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901964",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "389470",
+      "company": "인벤티지랩",
+      "status": "exact",
+      "duration_ms": 2453.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903328",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "006730",
+      "company": "서부T&D",
+      "status": "requires_review",
+      "duration_ms": 15448.7,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (meeting_datetime_missing, agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901918",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "126340",
+      "company": "비나텍",
+      "status": "exact",
+      "duration_ms": 1931.0,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327903268",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "241710",
+      "company": "코스메카코리아",
+      "status": "exact",
+      "duration_ms": 1702.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327902907",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "171090",
+      "company": "선익시스템",
+      "status": "exact",
+      "duration_ms": 2294.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326900608",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "052400",
+      "company": "코나아이",
+      "status": "exact",
+      "duration_ms": 2566.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260319902148",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260319",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "074600",
+      "company": "원익QnC",
+      "status": "exact",
+      "duration_ms": 3768.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903743",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "372320",
+      "company": "큐로셀",
+      "status": "exact",
+      "duration_ms": 3249.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903668",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "490470",
+      "company": "세미파이브",
+      "status": "exact",
+      "duration_ms": 3511.2,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331901014",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 4,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "036810",
+      "company": "에프에스티",
+      "status": "exact",
+      "duration_ms": 3607.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326903447",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "348370",
+      "company": "엔켐",
+      "status": "exact",
+      "duration_ms": 2989.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260331903782",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "121600",
+      "company": "나노신소재",
+      "status": "exact",
+      "duration_ms": 3928.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330902179",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "368770",
+      "company": "파이버프로",
+      "status": "exact",
+      "duration_ms": 4030.4,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901091",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "078160",
+      "company": "메디포스트",
+      "status": "exact",
+      "duration_ms": 4722.6,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901919",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 4,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "225570",
+      "company": "넥슨게임즈",
+      "status": "exact",
+      "duration_ms": 4318.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901465",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "348340",
+      "company": "뉴로메카",
+      "status": "exact",
+      "duration_ms": 3345.9,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901939",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "358570",
+      "company": "지아이이노베이션",
+      "status": "exact",
+      "duration_ms": 3226.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901504",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 9,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "365340",
+      "company": "성일하이텍",
+      "status": "exact",
+      "duration_ms": 2285.8,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901243",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "086900",
+      "company": "메디톡스",
+      "status": "exact",
+      "duration_ms": 2028.1,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260327901340",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260327",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "475960",
+      "company": "토모큐브",
+      "status": "exact",
+      "duration_ms": 1989.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260330901126",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "102940",
+      "company": "코오롱생명과학",
+      "status": "exact",
+      "duration_ms": 1995.5,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326903076",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table"
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "009520",
+      "company": "포스코엠텍",
+      "status": "exact",
+      "duration_ms": 1725.3,
+      "warnings": [],
+      "result_status": "available",
+      "result_reference": {
+        "rcept_no": "20260326901853",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      },
+      "results_count": 8,
+      "result_source": "dart_api",
+      "result_format": "table"
+    }
+  ]
+}

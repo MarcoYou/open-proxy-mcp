@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-05-05
+updated: 2026-05-18
 ---
 
 # OPM Wiki Index
@@ -12,9 +12,9 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (16 tool, 2026-05-05 정리)
+### 도메인별 (16 tool, 2026-05-18 정리)
 - **Company (1)**: [[company]]
-- **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — KIND)
+- **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
 - **Data (10)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]]
 - **Evidence (1)**: [[evidence]]
 - **Action (2, 시점 분리)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합) · [[proxy_result_after_meeting]] (3 scope)
@@ -25,6 +25,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
 ### 주요 변화 (2026-05-04 ~ 05-06)
+- **key data tools parsing 성공률 감사 (2026-05-17~18)** — KOSPI 300 + KOSDAQ 150 baseline과 비중복 100개 recheck 기준 문서 신설. 최신 기준은 [[architecture/audits/260517_parsing_success_rate_audit]]. `value_up`은 outside-window/013 no_filing 분류 보강 후 strict 100%, `shareholder_meeting_results`는 DART-first 결과 파싱 후 adjusted hard fail 0%.
 - 17 → 16 tool: `screen_events` drop, `proxy_guideline` archive, `shareholder_meeting` → notice + results 분리
 - proxy_advise scope **10 → 1** (`decisions`만, raw는 각 tool 직접 호출)
 - treasury_share scope **6 → 2** (summary + annual)
@@ -78,7 +79,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ## 자주 쓰는 진입점
 
 ### 처음 사용자
-- [[tools/README]] - 17 tool 카탈로그
+- [[tools/README]] - 16 tool 카탈로그
 - [[WIKI_SCHEMA]] - wiki 구조 + 명명 규칙
 
 ### OPM 정책 알고 싶음
@@ -103,12 +104,15 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[rules/laws/README]] - 법령 자료 입구 (옛 archive 안내)
 
 ### 최근 audit / fix
+- [[260517_parsing_success_rate_audit]] - key data tools parsing 성공률 감사. KOSPI 300 + KOSDAQ 150 baseline, 비중복 100개 recheck, value_up/shareholder_meeting_results 보강 및 regression 확인
+- [[260510_data_tools_perf_audit]] - public data tools 성능 감사와 low-risk 개선 후보
 - `260505_inside_director_performance/` — 사내이사 성과 매트릭스 KOSPI 100 + KOSDAQ 50 audit (n=128, G1 100%, dist 29.7/45.3/18.0/7.0 target band 모두 충족, threshold ≥9→≥7 calibration)
 - [[260504_0724_audit_parse_personnel_iter1-7]] - parse_personnel ralph 7 iter — role 88.7→100% + regression 0 (G2 99.36% 유지)
 - [[260510_proxy_advise_audit_통합정리]] - proxy_advise / action audit 통합 정리
 - [[260503_2304_audit_recap_pattern]] - recap_vote 패턴 적용 200×3 100% (multi-upstream-pattern 일반화 검증)
 - [[260503_1847_audit_phase4_final]] - advise_vote 200×3 deterministic 100% + regression 0 (Phase 4)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] - 196 기업 × 11 tool audit
+- [[260510_parsing_audit_통합정리]] - 2026-05-10 이전 parsing audit 통합 정리
+- [[260429_0912_audit_parsing-200기업-v2-no_filing]] - 196 기업 × 11 tool audit 이력
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
 - [[260429_0942_audit_arithmetic-21지표]] - 산술 정확성 audit
 - [[260427_1145_fix_ownership-stockknd]] - 보통주 변형 매칭 fix
@@ -116,39 +120,35 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Tools (17 진입점) - `tools/`
+## Tools (16 진입점) - `tools/`
 
 전체 카탈로그 + 통계 + 흡수된 archive 매핑은 [[tools/README]].
 
-### Discovery (1)
-- [[screen_events]] - 22종 이벤트 -> N개 기업 역조회 (filing-centric)
+### Company (1)
+- [[company]] - 기업 식별 + 최근 공시 인덱스
 
-### Data - 회사·주총·지분·재무 (5)
-- [[company]] - 기업 식별 + 최근 공시 인덱스 (모든 data tool 공통 입구)
-- [[shareholder_meeting]] - 정기/임시 주총 안건/이사/보수/정관/결과 (7 scope)
-- [[ownership_structure]] - 최대주주/특수관계인/5%/자사주/control_map (7 scope)
-- [[corp_gov_report]] - 기업지배구조보고서 15지표 + 연도별 추이 (5 scope)
-- [[financial_metrics]] - DART 재무 4 endpoint 통합: 수익성/안정성/현금흐름/회계risk + 듀퐁/감사의견 (6 scope) **NEW**
+### Meeting (2)
+- [[shareholder_meeting_notice]] - 주총 소집공고 사전 데이터
+- [[shareholder_meeting_results]] - 주총 의결 결과 사후 데이터
 
-### Data - 환원·재편 (4)
-- [[dividend]] - 배당 사실 + CSR(한국식) + TSR(글로벌) (6 scope)
-- [[treasury_share]] - 자기주식 5종 이벤트 (취득/처분/소각/신탁/연간) (6 scope)
-- [[value_up]] - 기업가치제고계획 commitment + 자사주 이행 cross-ref (4 scope)
-- [[corporate_restructuring]] - 합병/분할/주식교환·이전 4종 (DS005, 4 scope)
+### Data (10)
+- [[ownership_structure]] - 최대주주/특수관계인/5%/control_map
+- [[financial_metrics]] - DART 재무 4 endpoint 통합
+- [[corp_gov_report]] - 기업지배구조보고서 15지표
+- [[dividend]] - 배당 사실 + 분기별 breakdown
+- [[treasury_share]] - 자사주 결정/결과/신탁/소각
+- [[value_up]] - 기업가치제고계획
+- [[corporate_restructuring]] - 합병/분할/주식교환·이전
+- [[dilutive_issuance]] - 유상증자/CB/BW/감자
+- [[proxy_contest]] - 위임장/소송/5%/vote_math
+- [[related_party_transaction]] - 타법인주식 + 단일공급계약
 
-### Data - 분쟁·발행·내부거래·근거 (4)
-- [[proxy_contest]] - 위임장/소송/5%/vote_math (filer 3-way 분류, 6 scope)
-- [[dilutive_issuance]] - 유상증자/CB/BW/감자 4종 (희석률, refixing, 5 scope)
-- [[related_party_transaction]] - 타법인주식 + 단일공급계약 (일감몰아주기, 3 scope)
-- [[evidence]] - rcept_no -> 공시일/소스/뷰어 URL (API 0회)
+### Evidence (1)
+- [[evidence]] - rcept_no -> 공시일/소스/뷰어 URL
 
-### Policy & Matrix (1)
-- [[proxy_guideline]] - 8 운용사 + N연기금 정책 + OPM Guideline + 12 매트릭스 자동 채점 + N연기금 (7 scope, 정적 데이터)
-
-### Action (2) — 시점 분리 재편 (2026-05-02)
-- [[advise_vote_before_meeting]] - 주총 **전** 의결권 행사 메모 (안건별 FOR/AGAINST + 결정 사유 + 후보 평가 3축)
-- [[recap_vote_after_meeting]] - 주총 **후** 결과 보고 (가결/부결/찬반율 + 후속 공시 + 위임장 결과)
-- (구 prepare_vote_brief / build_campaign_brief 흡수, prepare_engagement_case는 _archive/)
+### Action (2)
+- [[proxy_advise_before_meeting]] - 주총 전 의결권 자문
+- [[proxy_result_after_meeting]] - 주총 후 결과 보고
 
 ---
 
@@ -274,7 +274,7 @@ DART/KIND 공시 유형. 공시명 = 페이지명.
 흡수된 페이지 (역사 보존, 신규 사용자 안 봐도 OK).
 
 ### archive/analysis/ (18)
-release_v2 검증 예시 + 설계 문서. 17 tools/* 페이지로 흡수.
+release_v2 검증 예시 + 설계 문서. 현재 16 public tools/* 페이지와 archive 이력으로 흡수.
 [[release_v2-tool-아키텍처]] · [[release_v2-public-tool-검증-매트릭스]] · [[release_v2-action-tool-검증-초안]] · [[KIND-주총결과]] · [[cash-shareholder-return-2026-04-29]] · [[total-shareholder-return-2026-04-29]] 등
 
 ### archive/comparison/ (3)

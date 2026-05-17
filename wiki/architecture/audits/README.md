@@ -1,7 +1,7 @@
 ---
 type: readme
 title: Architecture Audits 정리본
-updated: 2026-05-10
+updated: 2026-05-18
 ---
 
 # Architecture Audits
@@ -20,10 +20,9 @@ updated: 2026-05-10
 지금 repo 상태를 빠르게 파악하려면 아래 문서만 먼저 읽으면 된다.
 
 ### 1. 현재 data tools 상태
-- [[260510_parsing_audit_통합정리]]
+- [[260517_parsing_success_rate_audit]]
 - [[260510_financial_metrics_audit_통합정리]]
 - [[260505_0530_audit_treasury_execution_iter1-8]]
-- [[260508_parser_audit]]
 - [[260510_data_tools_perf_audit]]
 
 ### 2. 현재 action / advise 상태
@@ -41,10 +40,9 @@ updated: 2026-05-10
 
 | 영역 | 현재 기준 문서 | 비고 |
 |---|---|---|
-| parsing 전수 상태 | [[260510_parsing_audit_통합정리]] | 계열 문서 통합 안내 포함 |
+| parsing 성공률 / 회귀 | [[260517_parsing_success_rate_audit]] | KOSPI 300 + KOSDAQ 150 baseline, 비중복 100개 recheck, 주요 개선 반영 |
 | financial_metrics | [[260510_financial_metrics_audit_통합정리]] | 6기업 → 200기업 흐름 통합 |
 | treasury_share execution | [[260505_0530_audit_treasury_execution_iter1-8]] | 자사주 결과보고서 기준 |
-| parser 종합 점검 | [[260508_parser_audit]] | 파서 전수/트리거 audit |
 | data tools 성능 | [[260510_data_tools_perf_audit]] | 현재 성능 기준 문서 |
 
 ### Action tools
@@ -69,6 +67,10 @@ updated: 2026-05-10
 아래 문서들은 삭제 대상은 아니지만, “지금 기준 문서”로 읽으면 안 된다.
 
 ### Parsing 계보
+- [[260510_parsing_audit_통합정리]]
+  - 2026-05-10 기준 통합 문서, 최신 성공률/회귀 판단은 2026-05-17 문서가 대체
+- [[260508_parser_audit]]
+  - 파서 전수/트리거 분류 이력, 최신 tool별 성공률 기준 문서는 아님
 - [[260421_2308_audit_parsing-10tool-20기업]]
   - 초기 상태 점검
 - [[260422_0005_audit_parsing-14scope-15기업]]
@@ -76,7 +78,7 @@ updated: 2026-05-10
 - [[260429_0216_audit_parsing-200기업-v1]]
   - `partial` 안에 `no_filing`이 섞여 있던 구버전
 - 현재 기준:
-  - [[260429_0912_audit_parsing-200기업-v2-no_filing]]
+  - [[260517_parsing_success_rate_audit]]
 
 ### financial_metrics 계보
 - `260501_1820_audit_financial_metrics-6기업.md`
@@ -112,6 +114,8 @@ updated: 2026-05-10
 
 현재 기준 묶음에는 넣지 않았지만, 특정 질문에 바로 연결되는 문서들이다.
 
+- [[260510_parsing_audit_통합정리]] — 2026-05-10 이전 parsing audit 통합 흐름
+- [[260508_parser_audit]] — parser family / trigger 구조 점검
 - [[260429_2053_audit_personnel-878명]] — 후보자/경력 파서 정확도
 - [[260502_2300_audit_advise-recap-vote]] — action tool 재편 sanity
 - [[260503_2304_audit_recap_pattern]] — recap multi-upstream-pattern

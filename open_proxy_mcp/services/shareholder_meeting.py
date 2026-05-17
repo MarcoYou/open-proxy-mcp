@@ -485,6 +485,7 @@ def _result_reference(result_filing: dict[str, Any] | None) -> dict[str, Any] | 
 
     rcept_no = result_filing.get("rcept_no", "")
     whitelist_ok = bool(rcept_no and len(rcept_no) == 14 and rcept_no[8:10] == "80")
+    dart_fetchable = bool(rcept_no and len(rcept_no) == 14 and rcept_no.isdigit())
     kind_acptno = rcept_no[:8] + "00" + rcept_no[10:] if whitelist_ok else None
     return {
         "rcept_no": rcept_no,
@@ -492,6 +493,7 @@ def _result_reference(result_filing: dict[str, Any] | None) -> dict[str, Any] | 
         "disclosure_date": result_filing.get("rcept_dt", ""),
         "kind_acptno": kind_acptno,
         "whitelist_ok": whitelist_ok,
+        "dart_fetchable": dart_fetchable,
     }
 
 
@@ -504,7 +506,7 @@ def _meeting_phase(
     today = date.today()
 
     if result_filing:
-        if result_reference and result_reference.get("whitelist_ok"):
+        if result_reference and result_reference.get("dart_fetchable"):
             return "post_result", "available"
         return "post_result", "requires_review"
 
@@ -816,12 +818,10 @@ async def _meeting_result_data(
 
     rcept_no = result_reference.get("rcept_no", "")
     kind_acptno = result_reference.get("kind_acptno")
-    if not kind_acptno:
-        return None, "주주총회결과 공시가 whitelist 규칙에 맞지 않아 자동 매핑하지 않았다."
 
     client = get_dart_client()
-    if not rcept_no or len(rcept_no) != 14 or rcept_no[8:10] != "80":
-        return None, "주주총회결과 공시가 whitelist 규칙에 맞는 DART 결과번호가 아니다."
+    if not rcept_no or len(rcept_no) != 14 or not rcept_no.isdigit():
+        return None, "주주총회결과 공시 접수번호가 DART document.xml 조회 형식에 맞지 않는다."
 
     # 1차: DART API로 본문 fetch (~0.5-1.5s, KIND scraping 4-5s 대비 빠름).
     # html 구조가 KIND와 거의 동일해 기존 parser 호환.
@@ -843,6 +843,8 @@ async def _meeting_result_data(
 
     # 2차 fallback: DART에서 본문 빈 응답 또는 파싱 실패 시 KIND scraping.
     if not items:
+        if not kind_acptno:
+            return None, "DART API 본문에서 안건 결과를 찾지 못했고, KIND fallback 변환 번호가 없다."
         try:
             html = await client.kind_fetch_document(kind_acptno)
         except DartClientError as exc:
@@ -1237,6 +1239,8 @@ async def build_shareholder_meeting_payload(
                     status = AnalysisStatus.REQUIRES_REVIEW
             if result_data:
                 data["results"] = result_data
+                if scope == "results" and result_data.get("items"):
+                    status = AnalysisStatus.EXACT
                 if result_data.get("result_format") == "summary":
                     warnings.append("요약형 결과공시라 안건별 가결·부결은 확인되지만 찬성률/참석률 수치는 제공되지 않는다.")
     elif result_filing_warning and meeting_phase != "pre_meeting":

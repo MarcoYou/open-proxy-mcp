@@ -1,0 +1,3604 @@
+{
+  "records": [
+    {
+      "company": "삼성전자",
+      "ticker": "005930",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK하이닉스",
+      "ticker": "000660",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251127",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20241127",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대차",
+      "ticker": "005380",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20240828",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG에너지솔루션",
+      "ticker": "373220",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251128",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20241122",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한화에어로스페이스",
+      "ticker": "012450",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK스퀘어",
+      "ticker": "402340",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251124",
+          "name": "기업가치제고계획(자율공시)              (2025년)"
+        },
+        {
+          "source": "dart",
+          "date": "20241121",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20241030",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "기아",
+      "ticker": "000270",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              (이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "KB금융",
+      "ticker": "105560",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HD현대중공업",
+      "ticker": "329180",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "셀트리온",
+      "ticker": "068270",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "신한지주",
+      "ticker": "055550",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260423",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        },
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼성생명",
+      "ticker": "032830",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대모비스",
+      "ticker": "012330",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250827",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20241119",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20240904",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "미래에셋증권",
+      "ticker": "006800",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250626",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20240822",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HD현대일렉트릭",
+      "ticker": "267260",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼성전기",
+      "ticker": "009150",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "하나금융지주",
+      "ticker": "086790",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "[기재정정]기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        },
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "고려아연",
+      "ticker": "010130",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "POSCO홀딩스",
+      "ticker": "005490",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HD한국조선해양",
+      "ticker": "009540",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한화시스템",
+      "ticker": "272210",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260420",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한미반도체",
+      "ticker": "042700",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "우리금융지주",
+      "ticker": "316140",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260323",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        },
+        {
+          "source": "dart",
+          "date": "20260206",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK",
+      "ticker": "034730",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG화학",
+      "ticker": "051910",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼성화재",
+      "ticker": "000810",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK이노베이션",
+      "ticker": "096770",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20241030",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HD현대",
+      "ticker": "267250",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HMM",
+      "ticker": "011200",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "포스코퓨처엠",
+      "ticker": "003670",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "메리츠금융지주",
+      "ticker": "138040",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260514",
+          "name": "기업가치제고계획(자율공시)              (2026년 1분기 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20260211",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한국항공우주",
+      "ticker": "047810",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "KT&G",
+      "ticker": "033780",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG전자",
+      "ticker": "066570",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "[기재정정]기업가치제고계획(자율공시)              (2025년 재공시)"
+        },
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              (2025년 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "기업은행",
+      "ticker": "024110",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20241205",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20240930",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LIG디펜스앤에어로스페이스",
+      "ticker": "079550",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK텔레콤",
+      "ticker": "017670",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20241024",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대건설",
+      "ticker": "000720",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251217",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20250328",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "두산",
+      "ticker": "000150",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대글로비스",
+      "ticker": "086280",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "KT",
+      "ticker": "030200",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "포스코인터내셔널",
+      "ticker": "047050",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260420",
+          "name": "기업가치제고계획(자율공시)              ((이행현황))"
+        },
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG",
+      "ticker": "003550",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "에이피알",
+      "ticker": "278470",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "S-Oil",
+      "ticker": "010950",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260316",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한국금융지주",
+      "ticker": "071050",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260429",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260312",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "크래프톤",
+      "ticker": "259960",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼성에스디에스",
+      "ticker": "018260",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "하이브",
+      "ticker": "352820",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260423",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "카카오뱅크",
+      "ticker": "323410",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "DB손해보험",
+      "ticker": "005830",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260323",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "NH투자증권",
+      "ticker": "005940",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "키움증권",
+      "ticker": "039490",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              ((고배당기업 표시를 위한 재공시))"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼양식품",
+      "ticker": "003230",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              ((2025년 이행현황))"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "대한항공",
+      "ticker": "003490",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251219",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20241220",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한화",
+      "ticker": "000880",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260114",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼성증권",
+      "ticker": "016360",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LS",
+      "ticker": "006260",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "아모레퍼시픽",
+      "ticker": "090430",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "[기재정정]기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        },
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG이노텍",
+      "ticker": "011070",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251128",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20241122",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20241107",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HD현대마린솔루션",
+      "ticker": "443060",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "이수페타시스",
+      "ticker": "007660",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한진칼",
+      "ticker": "180640",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260225",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "유한양행",
+      "ticker": "000100",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20241031",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼성E&A",
+      "ticker": "028050",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HD건설기계",
+      "ticker": "267270",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260427",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "ticker": "161390",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG유플러스",
+      "ticker": "032640",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한미약품",
+      "ticker": "128940",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251204",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20250305",
+          "name": "[첨부추가]기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼성카드",
+      "ticker": "029780",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한전기술",
+      "ticker": "052690",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "GS",
+      "ticker": "078930",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "두산밥캣",
+      "ticker": "241560",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              (이행현황 및 고배당기업 표시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG디스플레이",
+      "ticker": "034220",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251128",
+          "name": "기업가치제고계획(자율공시)              (2025년)"
+        },
+        {
+          "source": "dart",
+          "date": "20241122",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "CJ",
+      "ticker": "001040",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG씨엔에스",
+      "ticker": "064400",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "BNK금융지주",
+      "ticker": "138930",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260206",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "JB금융지주",
+      "ticker": "175330",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        },
+        {
+          "source": "dart",
+          "date": "20260205",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "오리온",
+      "ticker": "271560",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "코웨이",
+      "ticker": "021240",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260206",
+          "name": "[첨부추가]기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20260120",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "KCC",
+      "ticker": "002380",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250703",
+          "name": "기업가치제고계획(자율공시)              (2025년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "산일전기",
+      "ticker": "062040",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "넷마블",
+      "ticker": "251270",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "대덕전자",
+      "ticker": "353200",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LG생활건강",
+      "ticker": "051900",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251128",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20241122",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "DB하이텍",
+      "ticker": "000990",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "강원랜드",
+      "ticker": "035250",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              (이행현황 재공시 (고배당기업에 해당))"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "영원무역",
+      "ticker": "111770",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250811",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "서울보증보험",
+      "ticker": "031210",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대엘리베이터",
+      "ticker": "017800",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "에스원",
+      "ticker": "012750",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한국가스공사",
+      "ticker": "036460",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260422",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "금호석유화학",
+      "ticker": "011780",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260311",
+          "name": "기업가치제고계획(자율공시)              (2025 금호석유화학 기업가치제고계획 이행 현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한솔케미칼",
+      "ticker": "014680",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "신세계",
+      "ticker": "004170",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              (2026년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "영원무역홀딩스",
+      "ticker": "009970",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250825",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "롯데쇼핑",
+      "ticker": "023530",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260323",
+          "name": "기업가치제고계획(자율공시)              (2026년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "롯데지주",
+      "ticker": "004990",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "씨에스윈드",
+      "ticker": "112610",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "동서",
+      "ticker": "026960",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260303",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "iM금융지주",
+      "ticker": "139130",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              (2026년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "팬오션",
+      "ticker": "028670",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한미사이언스",
+      "ticker": "008930",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251204",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20241108",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "에스엘",
+      "ticker": "005850",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한전KPS",
+      "ticker": "051600",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260420",
+          "name": "[기재정정]기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        },
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "이마트",
+      "ticker": "139480",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        },
+        {
+          "source": "dart",
+          "date": "20260211",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK가스",
+      "ticker": "018670",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "코리안리",
+      "ticker": "003690",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "BGF리테일",
+      "ticker": "282330",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              (2026년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "세아베스틸지주",
+      "ticker": "001430",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "F&F",
+      "ticker": "383220",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              ((2025년 이행현황 및 2026년 기업가치제고계획))"
+        },
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "GS건설",
+      "ticker": "006360",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "농심",
+      "ticker": "004370",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250522",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20250328",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한국앤컴퍼니",
+      "ticker": "000240",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "코스맥스",
+      "ticker": "192820",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "효성",
+      "ticker": "004800",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "코오롱인더",
+      "ticker": "120110",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "미스토홀딩스",
+      "ticker": "081660",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260423",
+          "name": "[기재정정]기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "[첨부추가]기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "제일기획",
+      "ticker": "030000",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대지에프홀딩스",
+      "ticker": "005440",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260508",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "아모레퍼시픽홀딩스",
+      "ticker": "002790",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LX인터내셔널",
+      "ticker": "001120",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "달바글로벌",
+      "ticker": "483650",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "GS리테일",
+      "ticker": "007070",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "대신증권",
+      "ticker": "003540",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        },
+        {
+          "source": "dart",
+          "date": "20260212",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대백화점",
+      "ticker": "069960",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260506",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "동원산업",
+      "ticker": "006040",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20241127",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SNT다이내믹스",
+      "ticker": "003570",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260303",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "효성티앤씨",
+      "ticker": "298020",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              (효성티앤씨㈜ 기업가치제고계획 이행현황(2025년) )"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "파라다이스",
+      "ticker": "034230",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250328",
+          "name": "[첨부추가]기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "오리온홀딩스",
+      "ticker": "001800",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "오뚜기",
+      "ticker": "007310",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "태광산업",
+      "ticker": "003240",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260312",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK네트웍스",
+      "ticker": "001740",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260414",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한일시멘트",
+      "ticker": "300720",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "NHN",
+      "ticker": "181710",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "하이트진로",
+      "ticker": "000080",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "롯데렌탈",
+      "ticker": "089860",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20251105",
+          "name": "기업가치제고계획(자율공시)              (이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20240927",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "롯데칠성",
+      "ticker": "005300",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "롯데웰푸드",
+      "ticker": "280360",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "[첨부추가]기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "쿠쿠홀딩스",
+      "ticker": "192400",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "NICE평가정보",
+      "ticker": "030190",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260429",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SNT에너지",
+      "ticker": "100840",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260303",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "세아제강지주",
+      "ticker": "003030",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260225",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "엠앤씨솔루션",
+      "ticker": "484870",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SNT홀딩스",
+      "ticker": "036530",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260303",
+          "name": "기업가치제고계획(자율공시)              (기업가치 제고 계획(자율공시)(2026년))"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK디스커버리",
+      "ticker": "006120",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "세진중공업",
+      "ticker": "075580",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "해성디에스",
+      "ticker": "195870",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "유안타증권",
+      "ticker": "003470",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SK케미칼",
+      "ticker": "285130",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "SNT모티브",
+      "ticker": "064960",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260303",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "지역난방공사",
+      "ticker": "071320",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260102",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20250616",
+          "name": "기업가치제고계획(자율공시)              (이행현황 보고서)"
+        },
+        {
+          "source": "dart",
+          "date": "20241226",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20240823",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "세방전지",
+      "ticker": "004490",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "GS피앤엘",
+      "ticker": "499790",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "대한유화",
+      "ticker": "006650",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260313",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "부광약품",
+      "ticker": "003000",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "디아이",
+      "ticker": "003160",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "전진건설로봇",
+      "ticker": "079900",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "명인제약",
+      "ticker": "317450",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "솔루엠",
+      "ticker": "248070",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한국단자",
+      "ticker": "025540",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "부국증권",
+      "ticker": "001270",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "애경케미칼",
+      "ticker": "161000",
+      "market": "KOSPI",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20241216",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20240926",
+          "name": "기업가치제고계획예고(안내공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "동원시스템즈",
+      "ticker": "014820",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260428",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "GKL",
+      "ticker": "114090",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "[기재정정]기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "TKG휴켐스",
+      "ticker": "069260",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "이노션",
+      "ticker": "214320",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260319",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "E1",
+      "ticker": "017940",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "세아홀딩스",
+      "ticker": "058650",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "JW중외제약",
+      "ticker": "001060",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "빙그레",
+      "ticker": "005180",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260304",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "솔루스첨단소재",
+      "ticker": "336370",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260428",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한국쉘석유",
+      "ticker": "002960",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "하나투어",
+      "ticker": "039130",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "미원상사",
+      "ticker": "002840",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "율촌화학",
+      "ticker": "008730",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              (2026년)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대차증권",
+      "ticker": "001500",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "미원에스씨",
+      "ticker": "268280",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260320",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "한전산업",
+      "ticker": "130660",
+      "market": "KOSPI",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "에코프로",
+      "ticker": "086520",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "[기재정정]기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "리노공업",
+      "ticker": "058470",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "케어젠",
+      "ticker": "214370",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "ISC",
+      "ticker": "095340",
+      "market": "KOSDAQ",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20241129",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "이오테크닉스",
+      "ticker": "039030",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              (기업가치 제고 계획)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "클래시스",
+      "ticker": "214150",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HPSP",
+      "ticker": "403870",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "파마리서치",
+      "ticker": "214450",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "에스티팜",
+      "ticker": "237690",
+      "market": "KOSDAQ",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250930",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "현대무벡스",
+      "ticker": "319400",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260424",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "솔브레인",
+      "ticker": "357780",
+      "market": "KOSDAQ",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250430",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "티씨케이",
+      "ticker": "064760",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260504",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "에스피지",
+      "ticker": "058610",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "동진쎄미켐",
+      "ticker": "005290",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "피에스케이",
+      "ticker": "319660",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        },
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "RFHIC",
+      "ticker": "218410",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "JYP Ent.",
+      "ticker": "035900",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260220",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "피에스케이홀딩스",
+      "ticker": "031980",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획(자율공시)              ((2025년 이행현황))"
+        },
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "하나마이크론",
+      "ticker": "067310",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260514",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "두산테스나",
+      "ticker": "131970",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "오스코텍",
+      "ticker": "039200",
+      "market": "KOSDAQ",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250203",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "심텍",
+      "ticker": "222800",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "고영",
+      "ticker": "098460",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260420",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "비츠로셀",
+      "ticker": "082920",
+      "market": "KOSDAQ",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20250616",
+          "name": "[첨부추가]기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20241113",
+          "name": "기업가치제고계획예고              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "파크시스템스",
+      "ticker": "140860",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260515",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20260430",
+          "name": "기업가치제고계획예고              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "테크윙",
+      "ticker": "089030",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260325",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "엘앤씨바이오",
+      "ticker": "290650",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "삼표시멘트",
+      "ticker": "038500",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LS마린솔루션",
+      "ticker": "060370",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "HK이노엔",
+      "ticker": "195940",
+      "market": "KOSDAQ",
+      "baseline_status": "partial",
+      "window": "20240101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20241220",
+          "name": "기업가치제고계획(자율공시)              "
+        },
+        {
+          "source": "dart",
+          "date": "20240626",
+          "name": "기업가치제고계획예고              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "LS머트리얼즈",
+      "ticker": "417200",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260324",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "코미코",
+      "ticker": "183300",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260331",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "인텔리안테크",
+      "ticker": "189300",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260420",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "씨젠",
+      "ticker": "096530",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "테스",
+      "ticker": "095610",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260323",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "기가비스",
+      "ticker": "420770",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260327",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "아주IB투자",
+      "ticker": "027360",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "태광",
+      "ticker": "023160",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260313",
+          "name": "기업가치제고계획(자율공시)              ((주)태광 2026년 기업가치 제고 계획)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "에스에프에이",
+      "ticker": "056190",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260401",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "성광벤드",
+      "ticker": "014620",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260112",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "다우데이타",
+      "ticker": "032190",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260415",
+          "name": "기업가치제고계획(자율공시)              (2025년 이행현황)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "나노신소재",
+      "ticker": "121600",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260330",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "파이버프로",
+      "ticker": "368770",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260326",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    },
+    {
+      "company": "메디톡스",
+      "ticker": "086900",
+      "market": "KOSDAQ",
+      "baseline_status": "exact",
+      "window": "20260101-20261231",
+      "items": [
+        {
+          "source": "dart",
+          "date": "20260420",
+          "name": "기업가치제고계획(자율공시)              "
+        }
+      ],
+      "error": null
+    }
+  ]
+}

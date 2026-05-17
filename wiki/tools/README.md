@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — Tool 카탈로그 (16 tool 진입점)
-updated: 2026-05-05
+updated: 2026-05-18
 ---
 
 # tools/ — Tool 카탈로그
@@ -21,7 +21,7 @@ updated: 2026-05-05
 | tool | 한 줄 |
 |------|------|
 | [[shareholder_meeting_notice]] | 주총 **소집공고** (사전 — DART API/XML, 0.5-1.5s, 5 scope: summary/board/compensation/aoi_change/prov_financials) |
-| [[shareholder_meeting_results]] | 주총 **의결 결과** (사후 — KIND scraping, 4-5s, 단일) |
+| [[shareholder_meeting_results]] | 주총 **의결 결과** (사후 — DART 원문 우선, KIND fallback, 단일) |
 
 ### Data — 지분·재무·거버넌스 (3)
 | tool | 한 줄 |
@@ -54,7 +54,7 @@ updated: 2026-05-05
 
 > **2026-05-04~05-05 정리 변화**: screen_events drop, proxy_guideline → archive (internal로 만들었지만 호출 X 확인 후 archive), shareholder_meeting → notice + results 분리, proxy_advise scope 10→1 (specialized scope은 각 data tool 직접 호출).
 
-## 17 페이지 통일 schema
+## 16 페이지 통일 schema
 
 ```yaml
 ---
@@ -87,22 +87,23 @@ created: 2026-05-01
 
 ## 카테고리별 통계
 
-| 도메인 | tool 수 | 평균 line | 호출 패턴 |
-|--------|---------|----------|---------|
-| Discovery | 1 | 137 | DART list.json 1-40회 (event_type x 페이지) |
-| Data | 12 | 148 | DART API 1-14회 (병렬), 일부 KIND/Naver 보강 |
-| Policy & Matrix | 1 | 165 | 정적 JSON (DART 호출 0회), N연기금 크롤링 옵션 |
-| Action | 3 | 152 | upstream 5-10회 (병렬), auto_score_matrix는 추가 |
+| 도메인 | tool 수 | 호출 패턴 |
+|--------|---------|---------|
+| Company | 1 | corpCode/company/list 기반 식별 |
+| Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
+| Data | 10 | DART API 1-14회 병렬, 일부 KIND fallback |
+| Evidence | 1 | rcept_no 문자열 기반 URL 생성 |
+| Action | 2 | upstream data tool 병렬 호출 후 판단/요약 |
 
 ## 데이터 소스 매트릭스
 
 | tool | DART API | KIND | Naver | Upstage | 정적 JSON |
 |------|----------|------|-------|---------|----------|
-| screen_events | ✅ list.json | - | - | - | - |
 | company | ✅ corpCode/company/list | - | 🔧 보강 | - | - |
-| shareholder_meeting | ✅ list/document | ✅ results whitelist | - | - | - |
+| shareholder_meeting_notice | ✅ list/document | - | - | - | - |
+| shareholder_meeting_results | ✅ list/document | 🔧 fallback | - | - | - |
 | ownership_structure | ✅ 사업보고서/majorstock | ✅ changes scope | - | - | - |
-| dividend | ✅ alotMatter | - | ✅ TSR price | - | - |
+| dividend | ✅ alotMatter | - | - | - | - |
 | financial_metrics | ✅ fnlttSinglAcnt + Indx + AcntAll + audit | - | - | - | - |
 | treasury_share | ✅ DS005 5종 | - | - | - | - |
 | value_up | ✅ list/document | ✅ 0184 fallback | - | - | - |
@@ -112,22 +113,21 @@ created: 2026-05-01
 | related_party_transaction | ✅ list+키워드 | - | - | - | - |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
 | evidence | - | - | - | - | - (문자열 가공) |
-| proxy_guideline | - | - | - | - | ✅ 운용사 데이터 |
-| proxy_advise_before_meeting | (6-9 upstream — scope별) | (upstream) | - | - | (proxy_guideline + records) |
-| proxy_result_after_meeting | (4 upstream) | (results) | - | - | (records) |
+| proxy_advise_before_meeting | upstream data tools | upstream | - | - | 판단 규칙/records |
+| proxy_result_after_meeting | upstream data tools | results fallback | - | - | records |
 
 ✅ = 1차 source / 🔧 = 보조
 
 ## 흡수된 archive 페이지 (정보 출처)
 
-본 17 페이지가 흡수한 archive/analysis/ 자료:
-- `archive/analysis/screen_events-design.md` → `screen_events.md`
+본 16 페이지가 흡수하거나 대체한 archive/analysis/ 자료:
+- `archive/analysis/screen_events-design.md` → archive 유지, public tool에서는 제거
 - `archive/analysis/company-tool-검증-예시.md` → `company.md`
-- `archive/analysis/shareholder_meeting-tool-검증-예시.md` → `shareholder_meeting.md`
+- `archive/analysis/shareholder_meeting-tool-검증-예시.md` → `shareholder_meeting_notice.md` / `shareholder_meeting_results.md`
 - `archive/analysis/ownership_structure-tool-검증-예시.md` → `ownership_structure.md`
 - `archive/analysis/dividend-tool-검증-예시.md` → `dividend.md`
-- `archive/analysis/cash-shareholder-return-2026-04-29.md` → `dividend.md` (CSR scope)
-- `archive/analysis/total-shareholder-return-2026-04-29.md` → `dividend.md` (TSR scope)
+- `archive/analysis/cash-shareholder-return-2026-04-29.md` → archive 유지, CSR scope 제거
+- `archive/analysis/total-shareholder-return-2026-04-29.md` → archive 유지, TSR scope 제거
 - `archive/analysis/proxy_contest-tool-검증-예시.md` → `proxy_contest.md`
 - `archive/analysis/value_up-tool-검증-예시.md` → `value_up.md`
 - `archive/analysis/corporate_restructuring-design.md` → `corporate_restructuring.md`
@@ -135,9 +135,10 @@ created: 2026-05-01
 - `archive/analysis/related_party_transaction-design.md` → `related_party_transaction.md`
 - `archive/analysis/corp_gov_report-design.md` → `corp_gov_report.md`
 - `archive/analysis/evidence-tool-검증-예시.md` → `evidence.md`
-- `archive/analysis/release_v2-action-tool-검증-초안.md` → `prepare_vote_brief.md` / `prepare_engagement_case.md` / `build_campaign_brief.md`
-- `archive/analysis/KIND-주총결과.md` → `shareholder_meeting.md` (results scope)
+- `archive/analysis/release_v2-action-tool-검증-초안.md` → `proxy_advise_before_meeting.md` / `proxy_result_after_meeting.md`
+- `archive/analysis/KIND-주총결과.md` → `shareholder_meeting_results.md` fallback 이력
 
 ## 변경 이력
-- 2026-05-01: W2 작업 — 17 tool 페이지 일괄 작성, README catalog 업데이트
+- 2026-05-01: W2 작업 — 초기 tool 페이지 일괄 작성, README catalog 업데이트
 - 2026-05-01: financial_metrics tool Phase 1 신규 (DART 재무 4 endpoint), 17 → 18 tool
+- 2026-05-18: README 기준을 현재 16 public tool 체계로 정리. `screen_events`, `proxy_guideline`, 구 `shareholder_meeting`, 구 action tool 명칭 제거.

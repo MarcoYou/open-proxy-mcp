@@ -143,7 +143,7 @@ async def _search_value_up_items(
     bgn_de: str,
     end_de: str,
 ) -> tuple[list[dict[str, Any]], list[str], str | None]:
-    return await search_filings_by_report_name(
+    items, notices, error = await search_filings_by_report_name(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
@@ -151,6 +151,9 @@ async def _search_value_up_items(
         keywords=_VALUATION_KEYWORDS,
         strip_spaces=True,
     )
+    if error == "013":
+        return [], notices, None
+    return items, notices, error
 
 
 async def _search_kind_value_up_items(
@@ -368,13 +371,10 @@ async def build_value_up_payload(
                 warnings.append("요청 구간에는 관련 공시가 없고, DART/KIND 진단 구간에서도 공시를 찾지 못했다.")
             else:
                 warnings.append("요청 구간과 DART/KIND 진단 구간 모두에서 기업가치제고 공시를 찾지 못했다.")
-        # availability_status가 "exists_outside_requested_window"인 경우는 진짜 partial.
-        # "no_filing_found"인 경우는 사건 자체가 없는 정상 케이스 = NO_FILING.
+        # 요청 구간 기준으로는 공시가 없으므로 NO_FILING으로 둔다.
+        # 과거/진단 구간 존재 여부는 availability_status와 diagnostics로 보존한다.
         no_filing_meta = build_filing_meta(filing_count=0, parsing_failures=0)
-        if availability_status == "exists_outside_requested_window":
-            response_status = AnalysisStatus.PARTIAL
-        else:
-            response_status = AnalysisStatus.NO_FILING
+        response_status = AnalysisStatus.NO_FILING
         return ToolEnvelope(
             tool="value_up",
             status=response_status,

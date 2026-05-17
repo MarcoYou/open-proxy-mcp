@@ -87,12 +87,11 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 "KB금융 사외이사 후보 독립성 검토해줘"                    # 후보 평가
 "고려아연 경영권 분쟁 분석해줘"                           # 분쟁 시그널
 "삼성전자 지분 구조 보여줘"                              # 지분 + control map
-"SK하이닉스 배당 추이"                                  # 배당 + CSR
+"SK하이닉스 배당 추이"                                  # 배당 + 분기별 breakdown
 "최근 30일 자사주 소각 결정한 KOSPI 기업 찾아줘"         # 자사주 스크리닝
 "롯데케미칼 2024 yoy + 회계 risk alert"                # 재무 + 감사의견
 "KT&G 기업지배구조보고서 준수율"                          # 거버넌스 15 지표
-"KT&G 의결권 메모 만들어줘 (행동주의 운용사 스타일로)"     # vote_style 옵션
-"8개 자산운용사 이사 보수한도 정책 비교해줘"              # 운용사 정책 비교
+"KT&G 의결권 메모 만들어줘"                              # Open Proxy Guideline 기반 의결권 자문
 ```
 
 더 많은 사용 패턴 → [wiki/tools/README.md](wiki/tools/README.md) (16 tool 카탈로그) 참조.
@@ -101,32 +100,61 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 
 ## Tool 구조 (16개)
 
-16개 tool은 **회사 → 시점별 주총 → 데이터 탭 → 종합 분석** 으로 흐름.
+16개 tool은 **Company → Meeting/Data/Evidence → Action** 흐름으로 동작해요.
 
+```text
+OpenProxy MCP
+├─ Company
+│  └─ company
+│     └─ 기업 식별, corp_code, 최근 공시 인덱스
+│
+├─ Meeting
+│  ├─ shareholder_meeting_notice
+│  │  └─ 주총 전: 소집공고, 안건, 후보, 보수, 정관, 재무
+│  └─ shareholder_meeting_results
+│     └─ 주총 후: 의결 결과, 찬반율, DART 원문 우선 + KIND fallback
+│
+├─ Data Tools
+│  ├─ ownership_structure
+│  ├─ financial_metrics
+│  ├─ corp_gov_report
+│  ├─ dividend
+│  ├─ treasury_share
+│  ├─ value_up
+│  ├─ corporate_restructuring
+│  ├─ dilutive_issuance
+│  ├─ proxy_contest
+│  └─ related_party_transaction
+│
+├─ Evidence
+│  └─ evidence
+│     └─ rcept_no 기반 공시 URL, 출처, 메타데이터
+│
+└─ Action Tools
+   ├─ proxy_advise_before_meeting
+   │  └─ 주총 전 의결권 자문
+   │     ├─ company
+   │     ├─ shareholder_meeting_notice
+   │     ├─ ownership_structure
+   │     ├─ financial_metrics
+   │     ├─ corp_gov_report
+   │     ├─ dividend / treasury_share / value_up
+   │     └─ proxy_contest / evidence
+   │
+   └─ proxy_result_after_meeting
+      └─ 주총 후 결과 요약
+         ├─ shareholder_meeting_results
+         ├─ evidence
+         └─ 필요 시 관련 data tools
 ```
-company                            # 기업 식별 + 최근 공시 인덱스
-│
-├─ Meeting Tools (2)
-│  ├─ shareholder_meeting_notice   # 주총 소집공고 (사전, DART)
-│  └─ shareholder_meeting_results  # 주총 의결 결과 (사후, KIND)
-│
-├─ Data Tools (11)
-│  ├─ ownership_structure          # 지분 구조 (최대주주/5%/control_map)
-│  ├─ dividend                     # 배당 사실 + 분기별 breakdown
-│  ├─ financial_metrics            # DART 재무 4 endpoint — 51 지표 + 듀퐁
-│  ├─ treasury_share               # 자사주 결정 5종 + 결과 4종 + 사이클 매칭
-│  ├─ proxy_contest                # 경영권 분쟁 (위임장/소송/5%)
-│  ├─ value_up                     # 밸류업 계획 (약속/이행)
-│  ├─ corporate_restructuring      # 합병/분할/주식교환 통합
-│  ├─ dilutive_issuance            # 유상증자/CB/BW/감자 통합
-│  ├─ related_party_transaction    # 내부거래 (타법인주식 + 공급계약)
-│  ├─ corp_gov_report              # 기업지배구조보고서 15지표
-│  └─ evidence                     # 공시 원문 링크 (rcept_no → URL)
-│
-└─ Action Tools (2)
-   ├─ proxy_advise_before_meeting  # 주총 사전 안건별 FOR/AGAINST/REVIEW/NO_DATA
-   └─ proxy_result_after_meeting   # 주총 사후 결과 보고
-```
+
+| Layer | Tools | 역할 |
+|---|---|---|
+| Company | `company` | 기업 식별과 공통 공시 인덱스 |
+| Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | 주총 전/후 데이터 |
+| Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `related_party_transaction` | 개별 공시/재무/지배구조 파싱 |
+| Evidence | `evidence` | 공시번호 기반 출처 추적 |
+| Action | `proxy_advise_before_meeting`, `proxy_result_after_meeting` | 여러 data tool을 묶어 판단/보고 생성 |
 
 > 각 tool의 scope·옵션·data source·검증 결과는 **[wiki/tools/README.md](wiki/tools/README.md)** 카탈로그 또는 개별 tool 페이지 (`wiki/tools/{name}.md`) 참조.
 
@@ -136,7 +164,7 @@ company                            # 기업 식별 + 최근 공시 인덱스
 - **12 카테고리** × 116 룰 + 11 신규 토픽 + **2026 신법 7개 즉시 반영**
 - **4 기준**: 소수주주 보호 / 거버넌스 투명성 / 장기 가치 / 추적 가능성
 - **38 법령 layer 룰** (1·2·3차 상법 개정 + 정관 우회 시나리오)
-- 한국 8개 자산운용사 + 1 연기금 정책 + 한국 법령 cross-reference (internal)
+- 익명화된 기관 정책 corpus는 내부 cross-reference로만 사용하며, 사용자 응답에는 기관 실명이나 식별자를 노출하지 않음
 
 **모든 응답에 `data.usage` 블록**: DART API 호출 수 + MCP tool 호출 수 노출 (분당 1000 한도 — `dart/client.py` rolling window cap 900으로 hard guard).
 
@@ -150,7 +178,7 @@ company                            # 기업 식별 + 최근 공시 인덱스
 |--------|------|---------|
 | **회사** | 기업 식별 + 최근 공시 인덱스 | 1 |
 | **주총 (사전)** | shareholder_meeting_notice — 안건·이사후보·보수한도·정관변경 (DART) | 1 |
-| **주총 (사후)** | shareholder_meeting_results — KIND 의결 결과 | 1 |
+| **주총 (사후)** | shareholder_meeting_results — DART 원문 우선 + KIND fallback 의결 결과 | 1 |
 | **지분** | 최대주주, 대량보유, control map, 변동신고서 | 1 |
 | **배당** | 실지급 배당 사실 + 분기별 breakdown | 1 |
 | **자사주** | 결정 5종 (사전) + 결과 4종 (실집행) + 사이클 매칭 (★ 결정-실집행 검증) | 1 |
@@ -162,7 +190,7 @@ company                            # 기업 식별 + 최근 공시 인덱스
 | **거버넌스** | 기업지배구조보고서 (15 핵심지표, 2026년부터 KOSPI 전체 의무) | 1 |
 | **재무** | DART 재무 4 endpoint 통합 — 51 지표 + 듀퐁 + FCF + NWC + 회계 risk + 감사의견 3년 추이 | 1 |
 | **근거** | 공시 원문 링크 제공 | 1 |
-| **액션** | proxy_advise_before_meeting (사전 안건별 결정 + facts/risk/citation/근거공고/후보 raw, ralph G2 99.36%) + proxy_result_after_meeting (사후 결과) | 2 |
+| **액션** | proxy_advise_before_meeting (사전 안건별 결정 + facts/risk/citation/근거공고/후보 raw) + proxy_result_after_meeting (사후 결과) | 2 |
 | | **합계** | **16** |
 
 ---
@@ -178,7 +206,7 @@ company                            # 기업 식별 + 최근 공시 인덱스
 | **사내이사 선임 (연임)** | 결격 없음 + 재직 성과 good/moderate | 재직 성과 **bad** (자본잠식/적자 + 누적 악화) | 재직 성과 **weak** (사용자 검토) |
 | 사내이사 선임 (신임) | 결격 없음 (재직 X → 성과 미평가) | 결격사유 발견 | — |
 | **이사 보수한도** | 동결/소폭 변경, 흑자+자본 정상 | 자본잠식+인상, 소진율<30%+인상, 적자/yoy<0+인상 | 50%+ 인상, 30~50% 인상, 소진율<30%+동결/미파악 |
-| **감사 보수한도** | 1인당 평균 ≥1억+소폭 변경, 동결 | 자본잠식+인상, 1인당 평균 < 5천만 (NPS IV-34 과소), 1억+ + 50%+ 인상 (s_legacy 과다) | 30~50% 인상, 1인당 평균 5천만~1억 경계 |
+| **감사 보수한도** | 1인당 평균 ≥1억+소폭 변경, 동결 | 자본잠식+인상, 1인당 평균 과소, 고액 구간에서 과도한 인상 | 30~50% 인상, 1인당 평균 5천만~1억 경계 |
 | **퇴직금 규정** | 단순 정정/법령 반영, 퇴직연금 제도 도입 | 황금낙하산/경영권 변동 가산, 사외이사 퇴직금 신설, 지급률 2배수+ | 자본잠식+변경, 한도/규정 신설, 대상 확장, 위험 키워드 hit |
 | 정관변경 | 법령 반영 (형식적) | 집중투표 배제 | 이사 정원 축소 |
 | 자기주식 | 소각 목적 | 경영권 방어 목적 | 재단 출연 |
@@ -208,9 +236,8 @@ KOSPI 100 + KOSDAQ 50 (n=128) 검증: G1 classification 노출률 100%, distribu
 |------|------|------|
 | [DART OpenAPI](https://opendart.fss.or.kr/) (`opendart.fss.or.kr`) | 정기·주요 공시 메타 + 재무 endpoint + 배당/자사주/지분 등 모든 정형 데이터 | **필수** — 무료 API 키. 분당 1,000회 hard rule (cap 900) |
 | DART 웹 (`dart.fss.or.kr`) | 공시 본문 HTML 파싱 (주총소집공고 / 주요사항보고서 등 ACODE 기반) | 웹 스크래핑, `_throttle_web` rate-limited (2-5초) |
-| [KRX KIND](https://kind.krx.co.kr/) | 주총 의결 결과 (사후) | 웹 크롤링 |
-| [네이버 금융](https://finance.naver.com/) | 업종명 lookup (`company` tool) | 웹 스크래핑 |
-| 자산운용사 의결권 정책·행사내역 | 8 운용사 정책 + 행사내역 (총 17,900+ votes, 익명화) | parsed JSON 정적 보존 — `proxy_advise_before_meeting`의 `vote_style` 옵션 |
+| [KRX KIND](https://kind.krx.co.kr/) | 일부 거래소 공시 fallback | 공식 DART 원문 우선, 필요 시 보조 크롤링 |
+| 익명화 기관 정책 corpus | 의결권 판단 cross-reference | 내부 정적 데이터. 사용자 응답에는 기관 실명/식별자 비노출 |
 
 ---
 
@@ -221,8 +248,8 @@ open_proxy_mcp/
   server.py                # FastMCP 서버 (stdio + HTTP)
   tools_v2/                # 16개 tool (active)
   services/                # 도메인별 분석 로직 (tool과 분리)
-  dart/client.py           # DART API + KIND 크롤링 + 네이버 + rate limiter (cap 900/분)
-  data/asset_managers/     # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
+  dart/client.py           # DART API + KIND fallback + rate limiter (cap 900/분)
+  data/asset_managers/     # 익명화 기관 정책 corpus + Open Proxy Guideline + 12 매트릭스
 scripts/
   wiki_lint.py             # wiki link 정책 자동 검증 (단방향/양방향)
   spot_*.py                # 회귀 spot 스크립트 (KOSPI/KOSDAQ batch)
