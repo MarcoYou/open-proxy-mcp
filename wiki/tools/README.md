@@ -23,7 +23,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 | tool | 한 줄 |
 |------|------|
 | [[shareholder_meeting_notice]] | 주총 **소집공고** (사전 — DART API/XML, 0.5-1.5s, 5 scope: summary/board/compensation/aoi_change/prov_financials) |
-| [[shareholder_meeting_results]] | 주총 **의결 결과** (사후 — DART 원문 우선, KIND fallback, 단일) |
+| [[shareholder_meeting_results]] | 주총 **의결 결과** (사후 — 의결 결과, 찬반율, 단일) |
 
 ### Data — 지분·재무·거버넌스 (3)
 | tool | 한 줄 |

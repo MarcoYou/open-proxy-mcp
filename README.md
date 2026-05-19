@@ -112,19 +112,19 @@ OpenProxy MCP
 │  ├─ shareholder_meeting_notice
 │  │  └─ 주총 전: 소집공고, 안건, 후보, 보수, 정관, 재무
 │  └─ shareholder_meeting_results
-│     └─ 주총 후: 의결 결과, 찬반율, DART 원문 우선 + KIND fallback
+│     └─ 주총 후: 의결 결과, 찬반율, 사후 결과 요약
 │
 ├─ Data Tools
-│  ├─ corp_gov_report: 공시 1종
-│  ├─ corporate_restructuring: 공시 4종
-│  ├─ dilutive_issuance: 공시 4종
-│  ├─ dividend: 공시 5종
-│  ├─ financial_metrics: 공시 3종
-│  ├─ ownership_structure: 공시 4종
-│  ├─ proxy_contest: 공시 5종
-│  ├─ related_party_transaction: 공시 2종
-│  ├─ treasury_share: 공시 5종
-│  └─ value_up: 공시 3종
+│  ├─ corp_gov_report: 공시 1종 (기업지배구조보고서)
+│  ├─ corporate_restructuring: 공시 4종 (합병, 분할 등)
+│  ├─ dilutive_issuance: 공시 4종 (유상증자, CB/BW, 감자 등)
+│  ├─ dividend: 공시 5종 (현금배당, 주식배당, 배당기준일 등)
+│  ├─ financial_metrics: 공시 3종 (사업·반기·분기보고서)
+│  ├─ ownership_structure: 공시 4종 (대량보유, 임원·주요주주, 사업보고서 등)
+│  ├─ proxy_contest: 공시 5종 (위임장, 소송, 대량보유, 주총결과 등)
+│  ├─ related_party_transaction: 공시 2종 (타법인주식, 단일판매공급계약)
+│  ├─ treasury_share: 공시 5종 (자기주식 취득·처분·소각·신탁 등)
+│  └─ value_up: 공시 3종 (기업가치제고계획, 자기주식 등)
 │
 ├─ Evidence
 │  └─ evidence
@@ -180,7 +180,7 @@ OpenProxy MCP
 |--------|------|---------|
 | **회사** | 기업 식별 + 최근 공시 인덱스 | 1 |
 | **주총 (사전)** | shareholder_meeting_notice — 안건·이사후보·보수한도·정관변경 (DART) | 1 |
-| **주총 (사후)** | shareholder_meeting_results — DART 원문 우선 + KIND fallback 의결 결과 | 1 |
+| **주총 (사후)** | shareholder_meeting_results — 의결 결과, 찬반율, 사후 결과 요약 | 1 |
 | **지분** | 최대주주, 대량보유, control map, 변동신고서 | 1 |
 | **배당** | 실지급 배당 사실 + 분기별 breakdown | 1 |
 | **자사주** | 결정 5종 (사전) + 결과 4종 (실집행) + 사이클 매칭 (★ 결정-실집행 검증) | 1 |
@@ -238,7 +238,7 @@ KOSPI 100 + KOSDAQ 50 (n=128) 검증: G1 classification 노출률 100%, distribu
 |------|------|------|
 | [DART OpenAPI](https://opendart.fss.or.kr/) (`opendart.fss.or.kr`) | 정기·주요 공시 메타 + 재무 endpoint + 배당/자사주/지분 등 모든 정형 데이터 | **필수** — 무료 API 키. 분당 1,000회 hard rule (cap 900) |
 | DART 웹 (`dart.fss.or.kr`) | 공시 본문 HTML 파싱 (주총소집공고 / 주요사항보고서 등 ACODE 기반) | 웹 스크래핑, `_throttle_web` rate-limited (2-5초) |
-| [KRX KIND](https://kind.krx.co.kr/) | 일부 거래소 공시 fallback | 공식 DART 원문 우선, 필요 시 보조 크롤링 |
+| [KRX KIND](https://kind.krx.co.kr/) | 일부 거래소 공시 보조 확인 | 필요 시 공시 확인 보조 소스로 사용 |
 | 익명화 기관 정책 corpus | 의결권 판단 cross-reference | 내부 정적 데이터. 사용자 응답에는 기관 실명/식별자 비노출 |
 
 ---
@@ -250,7 +250,7 @@ open_proxy_mcp/
   server.py                # FastMCP 서버 (stdio + HTTP)
   tools_v2/                # 16개 tool (active)
   services/                # 도메인별 분석 로직 (tool과 분리)
-  dart/client.py           # DART API + KIND fallback + rate limiter (cap 900/분)
+  dart/client.py           # DART API + 보조 공시 조회 + rate limiter (cap 900/분)
   data/asset_managers/     # 익명화 기관 정책 corpus + Open Proxy Guideline + 12 매트릭스
 scripts/
   wiki_lint.py             # wiki link 정책 자동 검증 (단방향/양방향)
