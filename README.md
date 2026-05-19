@@ -115,16 +115,16 @@ OpenProxy MCP
 │     └─ 주총 후: 의결 결과, 찬반율, DART 원문 우선 + KIND fallback
 │
 ├─ Data Tools
-│  ├─ ownership_structure
-│  ├─ financial_metrics
-│  ├─ corp_gov_report
-│  ├─ dividend
-│  ├─ treasury_share
-│  ├─ value_up
-│  ├─ corporate_restructuring
-│  ├─ dilutive_issuance
-│  ├─ proxy_contest
-│  └─ related_party_transaction
+│  ├─ corp_gov_report: 공시 1종
+│  ├─ corporate_restructuring: 공시 4종
+│  ├─ dilutive_issuance: 공시 4종
+│  ├─ dividend: 공시 5종
+│  ├─ financial_metrics: 공시 3종
+│  ├─ ownership_structure: 공시 4종
+│  ├─ proxy_contest: 공시 5종
+│  ├─ related_party_transaction: 공시 2종
+│  ├─ treasury_share: 공시 5종
+│  └─ value_up: 공시 3종
 │
 ├─ Evidence
 │  └─ evidence
@@ -148,11 +148,13 @@ OpenProxy MCP
          └─ 필요 시 관련 data tools
 ```
 
+각 data tool이 참조하는 상세 공시 유형은 [data tool disclosure map](wiki/tools/data_tool_disclosure_map.md)을 참조합니다.
+
 | Layer | Tools | 역할 |
 |---|---|---|
 | Company | `company` | 기업 식별과 공통 공시 인덱스 |
 | Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | 주총 전/후 데이터 |
-| Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `related_party_transaction` | 개별 공시/재무/지배구조 파싱 |
+| Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `ownership_structure`, `proxy_contest`, `related_party_transaction`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
 | Evidence | `evidence` | 공시번호 기반 출처 추적 |
 | Action | `proxy_advise_before_meeting`, `proxy_result_after_meeting` | 여러 data tool을 묶어 판단/보고 생성 |
 

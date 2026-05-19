@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — Tool 카탈로그 (16 tool 진입점)
-updated: 2026-05-18
+updated: 2026-05-20
 ---
 
 # tools/ — Tool 카탈로그
@@ -9,6 +9,8 @@ updated: 2026-05-18
 > OPM v2 의 16 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
 > 각 tool 1 페이지, 통일 schema (frontmatter + 한 줄 요약 + 사용법 + 입력 인자 + 출력 schema + Data sources + 파싱 전략 + 관련 공시/개념/결정/audit + 알려진 issue + 변경 이력).
 > 도메인 개념 / 공시 본문 / 정책 결정 정보는 본 폴더에 중복 X. `rules/concepts/`, `rules/disclosures/`, `decisions/`, `architecture/audits/` 로 link만 한다.
+
+Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 
 ## 빠른 진입표 (16 tool)
 
@@ -142,3 +144,4 @@ created: 2026-05-01
 - 2026-05-01: W2 작업 — 초기 tool 페이지 일괄 작성, README catalog 업데이트
 - 2026-05-01: financial_metrics tool Phase 1 신규 (DART 재무 4 endpoint), 17 → 18 tool
 - 2026-05-18: README 기준을 현재 16 public tool 체계로 정리. `screen_events`, `proxy_guideline`, 구 `shareholder_meeting`, 구 action tool 명칭 제거.
+- 2026-05-20: data tool별 상세 공시 매핑 문서 [[data_tool_disclosure_map]] 추가.
