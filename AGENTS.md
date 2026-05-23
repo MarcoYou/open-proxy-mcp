@@ -85,7 +85,6 @@ wiki/                  # LLM 도메인 지식 (트리 layer는 위 섹션 참조
 - 도메인 개념 → `wiki/rules/concepts/`
 
 ## 문서 포인터
-- 미완료 작업 → `TO_DO.md` — **완료된 항목은 즉시 삭제. 완료 섹션 없음. 미완료만 유지.**
 - 개발 히스토리 → `git log` / 관련 wiki 시점 문서 (`architecture/audits/`, `decisions/`, `ralph/`, `lessons/`)
 - wiki 작업 로그 → `wiki/log.md`
 - tool 규칙 (구) → `open_proxy_mcp/*_RULE.md` (점진 흡수)

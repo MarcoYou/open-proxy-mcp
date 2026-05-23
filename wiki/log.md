@@ -17,7 +17,7 @@ title: Operation Log
 - 설계 단계 결론:
   - 같은 세션 안에서는 `proxy_advise_before_meeting` 1회 결과만으로 문서 초안 작성 가능
   - 다만 Claude web + MCP connector + fly.io 배포 경로에서 **재호출 없는 문서화 보장**은 서버 쪽 설계가 필요
-  - 후속 구현은 `TO_DO.md`로 이월:
+  - 후속 구현은 별도 시점 문서나 이슈로 이월:
     - Word 템플릿/내보내기 구현
     - MCP용 report-friendly payload 또는 report tool 경로 결정
 
