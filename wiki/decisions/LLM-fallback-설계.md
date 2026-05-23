@@ -2,7 +2,7 @@
 type: decision
 title: LLM Fallback 설계
 tags: [llm, fallback, architecture]
-sources: [DEVLOG.md]
+sources: [git history, wiki/archive/sources/devlog]
 related: [3-tier-fallback, 파서-판정-등급]
 ---
 

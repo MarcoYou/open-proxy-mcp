@@ -2,7 +2,7 @@
 type: decision
 title: free/paid 2-repo 분리
 tags: [architecture, business-model]
-sources: [DEVLOG.md, OPA_README.md, OPM_README.md]
+sources: [git history, wiki/archive/sources/devlog, OPA_README.md, OPM_README.md]
 related: [OpenProxy-MCP, OpenProxy-AI, 3-tier-fallback]
 ---
 

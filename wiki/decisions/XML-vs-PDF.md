@@ -2,7 +2,7 @@
 type: decision
 title: XML vs PDF 비교 분석
 tags: [parser, architecture, comparison]
-sources: [DEVLOG.md]
+sources: [git history, wiki/archive/sources/devlog]
 related: [3-tier-fallback, opendataloader]
 ---
 
