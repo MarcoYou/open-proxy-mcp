@@ -367,11 +367,12 @@ async def build_corp_gov_report_payload(
 
     selected = resolution.selected
     corp_code = selected["corp_code"]
+    report_search_years = 4 if scope in {"filings", "timeline"} else 2
 
     # filings 검색과 company_info 조회는 independent — 병렬 실행.
     filings_task = timed_call(
         "filings_and_company_info.fetch_latest_reports",
-        _fetch_latest_reports(corp_code, years=4),
+        _fetch_latest_reports(corp_code, years=report_search_years),
     )
     info_task = timed_call(
         "filings_and_company_info.company_info",

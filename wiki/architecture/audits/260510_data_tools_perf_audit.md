@@ -6,23 +6,24 @@
 - 8개 핵심 tool에 `data.timings_ms` stage timing을 노출했다.
 - 표본: `LG화학`, `삼성전자`, `KT&G` 3개 회사 × 8개 tool.
 - 빠른 축: `company` 180-462ms, `shareholder_meeting_notice` 373-574ms, `financial_metrics` 377-446ms, `ownership_structure` 456-585ms.
-- 2026-05-24 후속 fix 후 빠른 축: `company` 194-392ms, `shareholder_meeting_notice` 360-570ms, `financial_metrics` 399-450ms, `ownership_structure` 381-440ms.
-- 후속 fix 후 느린 축: `dividend` 1.10-1.59s, `treasury_share` 0.69-0.95s.
+- 2026-05-24 후속 fix 후 빠른 축: `company` 199-422ms, `shareholder_meeting_notice` 389-547ms, `financial_metrics` 405-463ms, `ownership_structure` 368-459ms, `corp_gov_report` 214-458ms.
+- 후속 fix 후 느린 축: `dividend` 1.11-1.57s, `treasury_share` 0.70-0.99s.
 - `treasury_share`는 결과보고서 검색을 전체 공시(`pblntf_ty=""`)에서 `B/I/E` title scan 1회로 변경하고 DS005 API 호출과 병렬화해 삼성전자 2.7s급 경로를 약 0.9s로 낮췄다.
 - `dividend`는 선배당/감액배당 메타 detection과 과거 연도 `alotMatter` 호출을 앞당겨 summary/filing 경로와 겹치게 했다.
 - `dividend.summary_and_filings` 병목은 `search_filings`로 확인되어, `list.json` page 2 이후 fetch를 병렬화했다.
-- `corp_gov_report.filings_and_company_info`는 이미 company_info와 filings 검색이 병렬이며, 세분화 결과 병목은 `fetch_latest_reports` title scan으로 확인했다.
+- `corp_gov_report.filings_and_company_info`는 이미 company_info와 filings 검색이 병렬이며, 세분화 결과 병목은 `fetch_latest_reports` title scan으로 확인했다. `summary/metrics/principles`는 2년, `filings/timeline`은 4년 윈도우로 분기해 summary 응답 비용을 줄였다.
 - `value_up.dart_search`는 세분화 결과 100-140ms 수준이라 현재 병목이 아니다.
-- 남은 반복 병목: `dividend.summary_and_filings`, `treasury_share.fetch_decisions`, `corp_gov_report.fetch_latest_reports`.
+- 남은 반복 병목: `dividend.summary_and_filings`, `treasury_share.fetch_decisions`.
 - 근거 파일: `wiki/architecture/audits/data/260524_tool_timing_audit.json`.
 
-이번 audit에서 실제로 반영된 성능 개선은 8건입니다.
+이번 audit에서 실제로 반영된 성능 개선은 9건입니다.
 - `shareholder_meeting` 계열의 request-local soup 재사용
 - `company`의 NAVER 업종 보강 제거 + DART `induty_code` 기반 로컬 KSIC 업종명 매핑
 - `dividend`의 감액배당 cross-link 경량화 (`shareholder_meeting` 전체 payload 대신 안건 제목 전용 helper 사용)
 - `dividend`의 선배당/감액배당 메타 detection 병렬화
 - `dividend`의 과거 연도 `alotMatter` 조회 선시작으로 summary/filing 대기와 overlap
 - 공시 title scan helper의 page 2+ 병렬 fetch
+- `corp_gov_report` summary 계열의 보고서 검색 윈도우 4년 → 2년 축소 (`filings/timeline`은 4년 유지)
 - `value_up`의 `treasury_cross_ref` 경량화 (`treasury_share` 전체 summary 대신 전용 treasury signal helper 사용)
 - `treasury_share`의 결과보고서 반복 검색 제거 (같은 `list.json` 범위 1회 fetch 후 keyword별 로컬 필터)
 

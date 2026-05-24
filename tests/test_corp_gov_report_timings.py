@@ -44,6 +44,38 @@ async def _fake_fetch_latest_reports(*_args, **_kwargs):
     return [], [], 0
 
 
+def test_corp_gov_report_uses_short_window_for_summary(monkeypatch):
+    called_years = []
+
+    async def fake_fetch_latest_reports(_corp_code, years):
+        called_years.append(years)
+        return [], [], 0
+
+    monkeypatch.setattr(cgr, "get_dart_client", lambda: FakeClient())
+    monkeypatch.setattr(cgr, "resolve_company_query", _fake_resolve)
+    monkeypatch.setattr(cgr, "_fetch_latest_reports", fake_fetch_latest_reports)
+
+    asyncio.run(cgr.build_corp_gov_report_payload("삼성전자", scope="summary"))
+
+    assert called_years == [2]
+
+
+def test_corp_gov_report_keeps_long_window_for_timeline(monkeypatch):
+    called_years = []
+
+    async def fake_fetch_latest_reports(_corp_code, years):
+        called_years.append(years)
+        return [], [], 0
+
+    monkeypatch.setattr(cgr, "get_dart_client", lambda: FakeClient())
+    monkeypatch.setattr(cgr, "resolve_company_query", _fake_resolve)
+    monkeypatch.setattr(cgr, "_fetch_latest_reports", fake_fetch_latest_reports)
+
+    asyncio.run(cgr.build_corp_gov_report_payload("삼성전자", scope="timeline"))
+
+    assert called_years == [4]
+
+
 def test_corp_gov_report_exposes_nested_filings_and_company_timings(monkeypatch):
     monkeypatch.setattr(cgr, "get_dart_client", lambda: FakeClient())
     monkeypatch.setattr(cgr, "resolve_company_query", _fake_resolve)
