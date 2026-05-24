@@ -146,15 +146,23 @@ def _normalize_notice_row(item: dict[str, Any], meeting_info: dict[str, Any]) ->
     }
 
 
+def _mark_timing(timings_ms: dict[str, int] | None, stage: str, started_at: float) -> None:
+    if timings_ms is not None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
+
 async def _candidate_notices_range(
     corp_code: str,
     meeting_type_label: str,
     bgn_de: str,
     end_de: str,
+    *,
+    timings_ms: dict[str, int] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     client = get_dart_client()
     # last_reprt_at='Y' — 정정공시 자동 정리 (최종본만). 정정 다수 회사
     # (현대차/삼성전자 등)에서 candidate 개수 N=2-3 → 1로 줄어듦.
+    stage_started_at = time.perf_counter()
     filings, notices, error = await search_filings_by_report_name(
         corp_code=corp_code,
         bgn_de=bgn_de,
@@ -163,6 +171,7 @@ async def _candidate_notices_range(
         keywords=("소집",),
         last_reprt_at="Y",
     )
+    _mark_timing(timings_ms, "select_notice_candidate.search_filings", stage_started_at)
     if error and error != "013":
         raise DartClientError(error, "주총 소집공고 검색 실패")
     if error == "013":
@@ -170,11 +179,13 @@ async def _candidate_notices_range(
     # E type 결과 부족 시 모든 type fallback (에스엠/고려아연 등 누락 대응).
     if not filings:
         try:
+            stage_started_at = time.perf_counter()
             data = await client.search_filings(
                 corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
                 pblntf_ty=None,  # 전 type
                 last_reprt_at="Y",
             )
+            _mark_timing(timings_ms, "select_notice_candidate.search_filings_fallback", stage_started_at)
             all_items = data.get("list", []) or []
             filings = [
                 i for i in all_items
@@ -189,10 +200,14 @@ async def _candidate_notices_range(
         return [], notices
 
     async def _resolve_batch(batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        batch_label = "top" if batch == filings[:len(batch)] else "remaining"
+        stage_started_at = time.perf_counter()
         docs = await asyncio.gather(*[
             client.get_document_cached(item["rcept_no"]) for item in batch
         ])
+        _mark_timing(timings_ms, f"select_notice_candidate.fetch_{batch_label}_documents", stage_started_at)
         out: list[dict[str, Any]] = []
+        stage_started_at = time.perf_counter()
         for item, doc in zip(batch, docs):
             text = doc.get("text", "")
             html = doc.get("html", "")
@@ -201,6 +216,7 @@ async def _candidate_notices_range(
             normalized["notice_source"] = info_source
             if normalized["meeting_type"] == meeting_type_label:
                 out.append(normalized)
+        _mark_timing(timings_ms, f"select_notice_candidate.parse_{batch_label}_documents", stage_started_at)
         return out
 
     # 1차: 상위 2건만 doc fetch (정기 + 정정 cover, LG화학 등 대형사 대응).
@@ -219,12 +235,15 @@ async def _candidate_notices(
     corp_code: str,
     meeting_type_label: str,
     year: int,
+    *,
+    timings_ms: dict[str, int] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     return await _candidate_notices_in_meeting_window(
         corp_code,
         meeting_type_label,
         date(year, 1, 1),
         date(year, 12, 31),
+        timings_ms=timings_ms,
     )
 
 
@@ -233,6 +252,8 @@ async def _candidate_notices_in_meeting_window(
     meeting_type_label: str,
     meeting_start: date,
     meeting_end: date,
+    *,
+    timings_ms: dict[str, int] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     search_start = meeting_start - timedelta(days=_NOTICE_LEAD_BUFFER_DAYS)
     notices, search_notices = await _candidate_notices_range(
@@ -240,8 +261,10 @@ async def _candidate_notices_in_meeting_window(
         meeting_type_label,
         search_start.strftime("%Y%m%d"),
         meeting_end.strftime("%Y%m%d"),
+        timings_ms=timings_ms,
     )
     matched: list[dict[str, Any]] = []
+    stage_started_at = time.perf_counter()
     for notice in notices:
         meeting_date = _parse_notice_meeting_date(notice.get("datetime", ""))
         if meeting_date and meeting_start <= meeting_date <= meeting_end:
@@ -259,6 +282,7 @@ async def _candidate_notices_in_meeting_window(
                         matched.append(notice)
                 except ValueError:
                     pass
+    _mark_timing(timings_ms, "select_notice_candidate.filter_meeting_window", stage_started_at)
     return matched, search_notices
 
 
@@ -695,6 +719,7 @@ async def _select_notice_candidate(
     start_date: str = "",
     end_date: str = "",
     lookback_months: int = 12,
+    timings_ms: dict[str, int] | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], str | None, str | None, list[str]]:
     search_notices: list[str] = []
     window_start, window_end, _ = _selection_window(
@@ -710,12 +735,14 @@ async def _select_notice_candidate(
                 _MEETING_TYPE_MAP["annual"],
                 window_start,
                 window_end,
+                timings_ms=timings_ms,
             ),
             _candidate_notices_in_meeting_window(
                 corp_code,
                 _MEETING_TYPE_MAP["extraordinary"],
                 window_start,
                 window_end,
+                timings_ms=timings_ms,
             ),
         )
         annual_notices, annual_search_notices = annual_result
@@ -737,6 +764,7 @@ async def _select_notice_candidate(
         # auto 모드 ranking도 date 기반 phase로 충분 (post_meeting_pre_result rank 1 통합).
         # 정기/임시 분류 자체는 _candidate_notices_in_meeting_window가 doc 파싱으로 결정 — result_filing 무관.
         fetch_result = scope in {"results", "full"}
+        stage_started_at = time.perf_counter()
         candidates = await asyncio.gather(*[
             _build_candidate(
                 corp_code, meeting_type, target_year or window_end.year, notice,
@@ -744,6 +772,7 @@ async def _select_notice_candidate(
             )
             for meeting_type, notice in latest_by_type
         ])
+        _mark_timing(timings_ms, "select_notice_candidate.build_candidate", stage_started_at)
         for candidate in candidates:
             search_notices.extend(candidate.get("search_notices", []))
         selected = sorted(candidates, key=lambda row: _auto_rank_key(row, scope), reverse=True)[0]
@@ -757,16 +786,19 @@ async def _select_notice_candidate(
         meeting_type_label,
         window_start,
         window_end,
+        timings_ms=timings_ms,
     )
     search_notices.extend(notice_search_notices)
     latest_notice = _pick_latest_notice(notices)
     if not latest_notice:
         return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 {meeting_type_label} 주주총회 소집공고를 찾지 못했다.", search_notices
     fetch_result = scope in {"results", "full"}
+    stage_started_at = time.perf_counter()
     selected = await _build_candidate(
         corp_code, requested_meeting_type, target_year or window_end.year, latest_notice,
         fetch_result_filing=fetch_result,
     )
+    _mark_timing(timings_ms, "select_notice_candidate.build_candidate", stage_started_at)
     search_notices.extend(selected.get("search_notices", []))
     basis = f"사용자가 {meeting_type_label} 주주총회를 명시해 해당 회차를 선택했다."
     return selected, [], basis, None, search_notices
@@ -1098,6 +1130,7 @@ async def build_shareholder_meeting_payload(
                 start_date=start_date,
                 end_date=end_date,
                 lookback_months=lookback_months,
+                timings_ms=timings_ms,
             )
             _mark("select_notice_candidate", stage_started_at)
         except DartClientError as exc:

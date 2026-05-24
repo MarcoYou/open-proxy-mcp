@@ -18,6 +18,9 @@ class FakeClient:
     def api_call_snapshot(self):
         return self.calls
 
+    async def get_document_cached(self, _rcept_no):
+        return {"text": "mock", "html": "<html></html>"}
+
 
 def _fake_resolution():
     return CompanyResolution(
@@ -154,6 +157,63 @@ def test_summary_payload_exposes_stage_timings(monkeypatch):
     assert "resolve_company" in timings
     assert "select_notice_candidate" in timings
     assert "load_notice_bundle" in timings
+
+
+def test_select_notice_candidate_exposes_nested_timings(monkeypatch):
+    monkeypatch.setattr(sm, "get_dart_client", lambda: FakeClient())
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_search(**_kwargs):
+        return (
+            [
+                {
+                    "rcept_no": "20260224004273",
+                    "report_nm": "주주총회소집공고",
+                    "rcept_dt": "20260224",
+                    "flr_nm": "LG화학",
+                }
+            ],
+            [],
+            None,
+        )
+
+    async def fake_notice_info(_rcept_no, _text, _html):
+        return (
+            {
+                "meeting_type": "정기",
+                "meeting_term": "제25기",
+                "datetime": "2026년 3월 31일 (화) 오전 9시",
+                "location": "서울특별시 영등포구 여의대로 128",
+                "is_correction": False,
+            },
+            "dart_xml",
+        )
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "search_filings_by_report_name", fake_search)
+    monkeypatch.setattr(sm, "_notice_info_with_fallback", fake_notice_info)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    timings = payload["data"]["timings_ms"]
+    assert "select_notice_candidate.search_filings" in timings
+    assert "select_notice_candidate.fetch_top_documents" in timings
+    assert "select_notice_candidate.parse_top_documents" in timings
+    assert "select_notice_candidate.filter_meeting_window" in timings
+    assert "select_notice_candidate.build_candidate" in timings
 
 
 def test_rcept_no_fast_path_skips_company_and_candidate_search(monkeypatch):
