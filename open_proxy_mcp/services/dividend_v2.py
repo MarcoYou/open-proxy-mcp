@@ -495,6 +495,54 @@ async def build_dividend_payload(
         history_start_year = min(history_start_year, target_year - max(1, years))
     year_list = list(range(history_start_year, target_year + 1))
 
+    # ── 메타 cross-link: 선배당-후결의 + 감액배당 ────────────────────────
+    # summary/CSR/TSR scope에서만 추가 호출 발생. 배당 요약/공시 파싱과 독립이므로
+    # 먼저 시작해 downstream DART/API 대기와 겹친다.
+    pre_dividend_post_resolution = False
+    record_date_notices: list[dict[str, Any]] = []
+    capital_reserve_reduction = False
+    capital_reserve_agendas: list[dict[str, Any]] = []
+    meta_task: asyncio.Task[None] | None = None
+    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return"}:
+        async def run_pre_dividend_detection() -> None:
+            nonlocal pre_dividend_post_resolution, record_date_notices
+            stage_started_at = time.perf_counter()
+            try:
+                pre_dividend_post_resolution, record_date_notices = await _detect_pre_dividend_post_resolution(
+                    selected["corp_code"], target_year
+                )
+            except Exception as exc:
+                warnings.append(f"선배당-후결의 메타 추출 실패: {exc}")
+            finally:
+                _mark("pre_dividend_detection", stage_started_at)
+
+        async def run_capital_reserve_detection() -> None:
+            nonlocal capital_reserve_reduction, capital_reserve_agendas
+            stage_started_at = time.perf_counter()
+            try:
+                capital_reserve_reduction, capital_reserve_agendas = await _detect_capital_reserve_reduction(
+                    company_query, target_year
+                )
+            except Exception as exc:
+                warnings.append(f"감액배당 메타 추출 실패: {exc}")
+            finally:
+                _mark("capital_reserve_detection", stage_started_at)
+
+        async def run_meta_detections() -> None:
+            await asyncio.gather(
+                run_pre_dividend_detection(),
+                run_capital_reserve_detection(),
+            )
+
+        meta_task = asyncio.create_task(run_meta_detections())
+
+    # 연도별 alotMatter 호출도 각 연도 독립. target_year는 latest_summary_task가 담당하고,
+    # 나머지는 초기에 시작해 filings/details/meta 대기와 겹친다.
+    pending_years = [y for y in year_list if y != target_year]
+    pending_annual_task = asyncio.gather(*[
+        _annual_summary(selected["corp_code"], y) for y in pending_years
+    ]) if pending_years else None
+
     # latest_summary와 filings 검색은 independent — 병렬 호출.
     latest_summary_task = _annual_summary(selected["corp_code"], target_year)
     filings_task = _search_dividend_filings(selected["corp_code"], year_list[0], target_year)
@@ -529,11 +577,8 @@ async def build_dividend_payload(
     # 연도별 alotMatter 호출을 병렬화 (각 연도 독립).
     # target_year는 위에서 이미 호출했으므로 latest_summary 재사용해 중복 호출 방지.
     annual_summaries: dict[int, dict[str, Any]] = {}
-    pending_years = [y for y in year_list if y != target_year]
     stage_started_at = time.perf_counter()
-    pending_results = await asyncio.gather(*[
-        _annual_summary(selected["corp_code"], y) for y in pending_years
-    ]) if pending_years else []
+    pending_results = await pending_annual_task if pending_annual_task is not None else []
     _mark("annual_summaries", stage_started_at)
     year_to_result: dict[int, tuple[dict[str, Any], str | None]] = {target_year: (latest_summary, None)}
     for y, res in zip(pending_years, pending_results):
@@ -561,29 +606,8 @@ async def build_dividend_payload(
     history = _history_rows(target_year, selected_annual_summaries, details)
     policy = _policy_signals(history)
 
-    # ── 메타 cross-link: 선배당-후결의 + 감액배당 ────────────────────────
-    # summary/CSR/TSR scope에서만 추가 호출 발생. 나머지 scope는 cost-free.
-    pre_dividend_post_resolution = False
-    record_date_notices: list[dict[str, Any]] = []
-    capital_reserve_reduction = False
-    capital_reserve_agendas: list[dict[str, Any]] = []
-    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return"}:
-        try:
-            stage_started_at = time.perf_counter()
-            pre_dividend_post_resolution, record_date_notices = await _detect_pre_dividend_post_resolution(
-                selected["corp_code"], target_year
-            )
-            _mark("pre_dividend_detection", stage_started_at)
-        except Exception as exc:
-            warnings.append(f"선배당-후결의 메타 추출 실패: {exc}")
-        try:
-            stage_started_at = time.perf_counter()
-            capital_reserve_reduction, capital_reserve_agendas = await _detect_capital_reserve_reduction(
-                company_query, target_year
-            )
-            _mark("capital_reserve_detection", stage_started_at)
-        except Exception as exc:
-            warnings.append(f"감액배당 메타 추출 실패: {exc}")
+    if meta_task is not None:
+        await meta_task
 
     # latest_summary에 신호 메타 부착 (None safe).
     if latest_summary is not None:
