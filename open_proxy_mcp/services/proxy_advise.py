@@ -1054,6 +1054,14 @@ def _decide_articles_amendment(
         return "REVIEW", "이사회 정원 축소 — 거버넌스 영향"
     if "수권주식" in t and ("증가" in t or "확대" in t):
         return "REVIEW", "수권주식 증가 — 향후 희석 가능성"
+    if "액면분할" in t:
+        return "REVIEW", "액면분할 정관 변경 — 수권주식수·액면가 비례 조정 여부 본문 검토 필요"
+    if "신주발행" in t:
+        return "REVIEW", "신주발행 관련 정관 변경 — 주주평등·희석 영향 본문 검토 필요"
+    if "집행임원" in t:
+        return "REVIEW", "집행임원제도 도입 — 이사회·경영진 권한 구조 변경 본문 검토 필요"
+    if "주주총회" in t and "의장" in t:
+        return "REVIEW", "주주총회 의장 변경 — 회의 운영권·중립성 영향 본문 검토 필요"
     # ralph 260505 코붕이 의견: 정관 안에 묶인 퇴직금 변경은 amendments raw 보고 위험 detect
     if "퇴직금" in t or "퇴임위로금" in t:
         ret_decision, ret_reason = _decide_retirement_pay(retirement_payload, fin_metrics_payload)
@@ -1559,7 +1567,19 @@ async def build_proxy_advise_payload(
     # 안건 리스트 추출 (success 매핑) — 260507: parent_title 함께 추출 (정관 sub-안건 분류용)
     agenda_data = (meeting_agenda.get("data") or {})
     agenda_summary = agenda_data.get("agenda_summary", {}) or {}
-    agenda_titles = agenda_summary.get("titles", []) or []
+    agenda_tree = agenda_data.get("agendas") or []
+
+    def _flatten_agenda_titles(items: list) -> list[str]:
+        titles: list[str] = []
+        for it in items or []:
+            title = (it.get("title") or "").strip() if isinstance(it, dict) else ""
+            if title:
+                titles.append(title)
+            if isinstance(it, dict):
+                titles.extend(_flatten_agenda_titles(it.get("children") or []))
+        return titles
+
+    agenda_titles = _flatten_agenda_titles(agenda_tree) or agenda_summary.get("titles", []) or []
     # shareholder_meeting v2 agenda 미검출 시 director_evaluation의 본문 agenda fallback
     if not agenda_titles:
         fallback_titles = (director_eval.get("data") or {}).get("agenda_titles_fallback", []) or []
@@ -1577,7 +1597,7 @@ async def build_proxy_advise_payload(
                 title_to_parent[t] = parent
                 title_to_children_count[t] = len(it.get("children") or [])
             _walk_agenda_tree(it.get("children", []), parent=t)
-    _walk_agenda_tree(agenda_data.get("agendas") or [])
+    _walk_agenda_tree(agenda_tree)
 
     # 후보 평가 dict — name → eval
     director_data = (director_eval.get("data") or {})
