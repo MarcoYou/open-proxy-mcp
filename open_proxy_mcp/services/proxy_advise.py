@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from datetime import date
 from importlib.resources import files
 from pathlib import Path
@@ -1384,19 +1385,33 @@ async def build_proxy_advise_payload(
     Step 3 단순 expose: 6 upstream 항상 호출 (cache 효과로 후속 빠름).
     scope param에 따라 data dict의 raw 노출 여부만 분기. logic 변경 X (regression 0).
     """
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     client = get_dart_client()
     calls_start = client.api_call_snapshot()
 
+    stage_started_at = time.perf_counter()
     resolution = await resolve_company_query(company_query)
+    _mark("resolve_company", stage_started_at)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="proxy_advise_before_meeting",
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}' 회사 식별 실패"],
-            data={"query": company_query, "usage": build_usage(client.api_call_snapshot() - calls_start)},
+            data={
+                "query": company_query,
+                "usage": build_usage(client.api_call_snapshot() - calls_start),
+                "timings_ms": timings_ms,
+            },
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="proxy_advise_before_meeting",
             status=AnalysisStatus.AMBIGUOUS,
@@ -1409,6 +1424,7 @@ async def build_proxy_advise_payload(
                     for c in resolution.candidates[:10]
                 ],
                 "usage": build_usage(client.api_call_snapshot() - calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
 
@@ -1439,21 +1455,26 @@ async def build_proxy_advise_payload(
     # ── F6 (Phase 4) corpCode pre-warm: gather 전에 보장 ──
     # 6 worker가 동시에 _load_corp_codes 호출 시 race 위험 (F7 lock으로도 처리되지만
     # 명시적 사전 로드로 wait_for timeout 안에서 발생하지 않도록 함).
+    stage_started_at = time.perf_counter()
     try:
         await client._load_corp_codes()
     except Exception:
         # corpCode 실패는 _safe가 각 worker에서 또 retry — 여기선 silent
         pass
+    _mark("prewarm_corp_codes", stage_started_at)
 
     # ── 6 upstream 병렬 호출 (retry 3회 + per-call timeout 60s + process cache) ──
     # F1 (Phase 3): retry 3회 + exponential backoff
     # F8 (Phase 4): asyncio.wait_for(timeout=60) — 단일 upstream hang이 전체 timeout 잠식 방지
     # F11 (Phase 4): process-level cache (company+tool+scope+year 키) — 같은 process 내 재호출 동일 결과
-    async def _safe(fn, *args, **kw):
+    async def _safe(fn, *args, timing_label: str | None = None, **kw):
+        upstream_started_at = time.perf_counter()
         # F11 cache key
         cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"))
         cached = _PROXY_ADVISE_CACHE.get(cache_key)
         if cached is not None:
+            if timing_label:
+                _mark(f"upstream.{timing_label}", upstream_started_at)
             return cached
 
         last_exc = None
@@ -1462,6 +1483,8 @@ async def build_proxy_advise_payload(
                 # F8: 단일 upstream 60s cap (전체 wait_for 120s 안에서 6 worker 각자 60s)
                 result = await asyncio.wait_for(fn(*args, **kw), timeout=60.0)
                 _PROXY_ADVISE_CACHE[cache_key] = result
+                if timing_label:
+                    _mark(f"upstream.{timing_label}", upstream_started_at)
                 return result
             except asyncio.TimeoutError as exc:
                 last_exc = exc
@@ -1480,26 +1503,30 @@ async def build_proxy_advise_payload(
             "evidence_refs": [],
         }
         # error는 cache에 저장 X (다음 호출 시 재시도 기회)
+        if timing_label:
+            _mark(f"upstream.{timing_label}", upstream_started_at)
         return err_result
 
     # F10 (Phase 4): 6 → 3 worker — 동시성 줄여 race 완화 + DART API margin 확보
     _UPSTREAM_SEM = asyncio.Semaphore(3)
 
-    async def _safe_throttled(fn, *args, **kw):
+    async def _safe_throttled(fn, *args, timing_label: str | None = None, **kw):
         async with _UPSTREAM_SEM:
-            return await _safe(fn, *args, **kw)
+            return await _safe(fn, *args, timing_label=timing_label, **kw)
 
+    stage_started_at = time.perf_counter()
     meeting_summary, meeting_agenda, meeting_comp, meeting_aoi, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
-        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="summary", year=target_year, meeting_type=meeting_type),
-        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="agenda", year=target_year, meeting_type=meeting_type),
-        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="compensation", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.summary", scope="summary", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.agenda", scope="agenda", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.compensation", scope="compensation", year=target_year, meeting_type=meeting_type),
         # aoi_change scope — B1/B2 hit 안건의 정관 변경 본문 raw (cache hit이라 free, parsing CPU만)
-        _safe_throttled(build_shareholder_meeting_payload, company_query, scope="aoi_change", year=target_year, meeting_type=meeting_type),
-        _safe_throttled(build_ownership_structure_payload, company_query, scope="control_map"),
-        _safe_throttled(build_corp_gov_report_payload, company_query, scope="summary"),
-        _safe_throttled(build_financial_metrics_payload, company_query, scope="summary", year=fin_year),
-        _safe_throttled(build_director_evaluation_payload, company_query, year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
+        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.aoi_change", scope="aoi_change", year=target_year, meeting_type=meeting_type),
+        _safe_throttled(build_ownership_structure_payload, company_query, timing_label="ownership_structure.control_map", scope="control_map"),
+        _safe_throttled(build_corp_gov_report_payload, company_query, timing_label="corp_gov_report.summary", scope="summary"),
+        _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.summary", scope="summary", year=fin_year),
+        _safe_throttled(build_director_evaluation_payload, company_query, timing_label="director_evaluation", year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
     )
+    _mark("upstreams_total", stage_started_at)
 
     # 1번 안건 (재무제표 승인) 잠정 FS 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
     # 260505 ralph 17:50: 같은 doc에서 퇴직금 amendments도 파싱 (extra DART 호출 없이)
@@ -1509,8 +1536,10 @@ async def build_proxy_advise_payload(
     notice_dict = ((meeting_summary.get("data") or {}).get("notice") or {})
     agm_rcept = notice_dict.get("rcept_no") if isinstance(notice_dict, dict) else None
     if agm_rcept:
+        stage_started_at = time.perf_counter()
         try:
             doc = await asyncio.wait_for(client.get_document_cached(agm_rcept), timeout=30.0)
+            _mark("notice_doc_reuse", stage_started_at)
             text = (doc or {}).get("text") or ""
             html = (doc or {}).get("html") or ""
             # 잠정 재무제표 표 파싱 (HTML 표 구조 그대로) + flat metrics 추출
@@ -1524,6 +1553,7 @@ async def build_proxy_advise_payload(
                 if _ret and _ret.get("amendments"):
                     retirement_payload = {"data": _ret, "status": "ok", "source_rcept_no": agm_rcept}
         except Exception:
+            _mark("notice_doc_reuse", stage_started_at)
             fy_raw_from_agenda = {"extraction_status": "error"}
 
     # 안건 리스트 추출 (success 매핑) — 260507: parent_title 함께 추출 (정관 sub-안건 분류용)
@@ -1569,11 +1599,13 @@ async def build_proxy_advise_payload(
     if inside_renewed_candidates:
         # 회사 단위 한 번 fetch (모든 사내이사 동일 source 공유)
         # 추가 호출 ~3개 (dividend + treasury + financial yearly)
+        stage_started_at = time.perf_counter()
         perf_div, perf_treas, perf_fin = await asyncio.gather(
-            _safe_throttled(build_dividend_payload, company_query, scope="history", years=10),
-            _safe_throttled(build_treasury_share_payload, company_query, scope="summary", lookback_months=120),
-            _safe_throttled(build_financial_metrics_payload, company_query, scope="yearly", year=fin_year),
+            _safe_throttled(build_dividend_payload, company_query, timing_label="dividend.history", scope="history", years=10),
+            _safe_throttled(build_treasury_share_payload, company_query, timing_label="treasury_share.summary", scope="summary", lookback_months=120),
+            _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.yearly", scope="yearly", year=fin_year),
         )
+        _mark("inside_director_performance_upstreams", stage_started_at)
         # yearly 데이터 파싱
         roe_yearly: dict[int, float | None] = {}
         leverage_yearly: dict[int, float | None] = {}
@@ -1683,6 +1715,7 @@ async def build_proxy_advise_payload(
     _amendments_attached_for_company: bool = False
     _subagenda_attempted_mappings: dict[str, int] = {}  # sub title → mapped amendment idx (룰 매치 여부 무관)
     agenda_decisions: list[dict[str, Any]] = []
+    stage_started_at = time.perf_counter()
     for title in agenda_titles:
         parent_for_title = title_to_parent.get(title, "")
         category = _classify_agenda(title, parent_title=parent_for_title)
@@ -1961,6 +1994,7 @@ async def build_proxy_advise_payload(
             "opm_fallback_decision": original_decision if (policy_default and policy_default != "case_by_case") else None,
             "evidence_rcept_no": (meeting_summary.get("data") or {}).get("rcept_no") or director_data.get("rcept_no"),
         })
+    _mark("decision_engine", stage_started_at)
 
     # 통합 evidence_refs
     evidence: list[EvidenceRef] = []
@@ -2011,6 +2045,8 @@ async def build_proxy_advise_payload(
         **filing_meta,
         "usage": build_usage(client.api_call_snapshot() - calls_start),
     }
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+    data["timings_ms"] = timings_ms
 
     # 단일 scope (decisions) — 모든 specialized scope 폐지.
     # 사용자가 raw upstream 보고 싶으면 각 tool 직접 호출:
