@@ -171,7 +171,6 @@ sequenceDiagram
 ## 알려진 issue + TODO
 - 특수관계 자동 판별 (계열사 matrix 데이터 소스 확보 시 추가, TODO).
 - 단일공급계약 매출 의존도 계산 (financial_metrics tool과 연계, TODO).
-- screen_events에 `related_party_equity_deal`/`supply_contract` event_type은 이미 22종에 포함됨.
 
 ## 변경 이력
 - 2026-04-21: related_party_transaction tool 신설 (14 → 15번째 tool, Data 10개째)

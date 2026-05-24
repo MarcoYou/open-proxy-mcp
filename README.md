@@ -88,7 +88,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_키
 "고려아연 경영권 분쟁 분석해줘"                           # 분쟁 시그널
 "삼성전자 지분 구조 보여줘"                              # 지분 + control map
 "SK하이닉스 배당 추이"                                  # 배당 + 분기별 breakdown
-"최근 30일 자사주 소각 결정한 KOSPI 기업 찾아줘"         # 자사주 스크리닝
+"삼성전자 최근 자사주 취득·소각 이력 보여줘"              # 자사주 이력
 "롯데케미칼 2024 yoy + 회계 risk alert"                # 재무 + 감사의견
 "KT&G 기업지배구조보고서 준수율"                          # 거버넌스 15 지표
 "KT&G 의결권 메모 만들어줘"                              # Open Proxy Guideline 기반 의결권 자문

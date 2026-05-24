@@ -144,7 +144,6 @@ sequenceDiagram
 ## 알려진 issue + TODO
 - 물적분할 후 재상장 패턴(`dvfcmp_rlst_atn=예`) 자동 경보 추가 검토 (LG화학 → LG에너지솔루션 사례).
 - 외부평가 기관 신뢰도 매트릭스 (TODO).
-- screen_events에 `merger_decision`/`split_decision`/`share_exchange_decision` event_type 추가 가능 (TODO).
 
 ## 변경 이력
 - 2026-04-21: corporate_restructuring tool 신설 (12 → 13번째 tool, Data 8개째)

@@ -153,7 +153,6 @@ sequenceDiagram
 ## 알려진 issue + TODO
 - 제3자배정 대상자 명세 본문 파싱 (TODO, phase 2).
 - 감자 + 유상증자 세트 패턴 자동 감지 (TODO, EDGC 패턴 = 자본잠식 해소 → 3자배정 → 최대주주 변경).
-- screen_events에 `rights_offering_decision`/`convertible_bond_decision` event_type 추가 (TODO).
 
 ## 변경 이력
 - 2026-04-21: dilutive_issuance tool 신설 (13 → 14번째 tool, Data 9개째)

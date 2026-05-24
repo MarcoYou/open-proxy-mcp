@@ -70,7 +70,7 @@ OPM v2 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-20
 | `page_no`, `page_count` | 페이지·페이지당 건수 | `page_count` 최대 100 |
 
 - 캐시: `_search_cache` (corp_code 단독, page=1, count=100일 때만 메모리 캐시)
-- 사용 services: `shareholder_meeting`, `dividend`, `ownership_structure`, `proxy_contest`, `value_up`, `treasury_share`, `corporate_restructuring`, `dilutive_issuance`, `related_party_transaction`, `corp_gov_report`, `screen_events`, `company`
+- 사용 services: `shareholder_meeting`, `dividend`, `ownership_structure`, `proxy_contest`, `value_up`, `treasury_share`, `corporate_restructuring`, `dilutive_issuance`, `related_party_transaction`, `corp_gov_report`, `company`
 
 ### `pblntf_ty` 코드표 ([[pblntf-ty-필터링]] 참조)
 
@@ -526,19 +526,12 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - Scope: summary, metrics, principles, filings, timeline
 - 대상: 2024년 사업연도부터 KOSPI 의무, KOSDAQ은 자율
 
-## 9.12 (참고) screen_events — Discovery tool
-
-- 22 event_type → (pblntf_tys, keywords, strip_spaces) 매핑 (services/screen_events.py `_EVENT_TYPES`)
-- 시장 와이드 검색: 각 (corp_cls, pblntf_ty) 조합별 페이지 순회 + report_nm 키워드 후처리
-- 페이지 한도: max_pages_per_ty=20 (page_count=100), max_results 도달 시 truncated 경고
-- corp_cls: Y(KOSPI) / K(KOSDAQ) / Y+K(all) — KONEX/기타 제외
-
-## 9.13 (참고) evidence
+## 9.12 (참고) evidence
 
 - DART viewer URL 생성 (`_build_viewer_url`)
 - KIND_HTML/DART_XML/DART_HTML/DART_API source 모두 DART viewer URL로 통일 (KIND 직접 URL은 404 위험)
 
-## 9.14 (참고) proxy_guideline
+## 9.13 (참고) proxy_guideline
 
 - DART 호출 0회. 100% 정적 JSON.
 - 6 scope: policy, record, predict, compare, consensus, audit
@@ -615,7 +608,6 @@ v2 운영(2026-04-19~):
 | (참고) get_stock_price | KRX `stk_bydd_trd` | Naver Finance siseJson | — |
 | (참고) get_naver_corp_profile | Naver coinfo + sise_group_detail | — | — |
 | (참고) proxy_guideline | data/asset_managers/ JSON (정적) | — | — |
-| (참고) screen_events | list.json (시장 와이드, 22 event_type) | — | — |
 
 ---
 
