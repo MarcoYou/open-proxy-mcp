@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import date
 import re
+import time
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -610,13 +611,22 @@ async def build_ownership_structure_payload(
     start_date: str = "",
     end_date: str = "",
 ) -> dict[str, Any]:
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
     client = get_dart_client()
     _calls_start = client.api_call_snapshot()
+    stage_started_at = time.perf_counter()
     resolution = await resolve_company_query(company_query)
+    _mark("resolve_company", stage_started_at)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="ownership_structure",
             status=AnalysisStatus.ERROR,
@@ -626,10 +636,12 @@ async def build_ownership_structure_payload(
                 "query": company_query,
                 "scope": scope,
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
             next_actions=["company tool로 회사 식별 확인"],
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="ownership_structure",
             status=AnalysisStatus.AMBIGUOUS,
@@ -648,6 +660,7 @@ async def build_ownership_structure_payload(
                     for corp in resolution.candidates[:10]
                 ],
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
 
@@ -668,9 +681,11 @@ async def build_ownership_structure_payload(
     major_task = client.get_major_shareholders(selected["corp_code"], bsns_year)
     stock_total_task = client.get_stock_total(selected["corp_code"], bsns_year)
     treasury_task = client.get_treasury_stock(selected["corp_code"], bsns_year)
+    stage_started_at = time.perf_counter()
     major_res, stock_total_res, treasury_res = await asyncio.gather(
         major_task, stock_total_task, treasury_task, return_exceptions=True,
     )
+    _mark("annual_report_apis", stage_started_at)
 
     # 1차: 사업보고서 hyslrSttus.
     # 빈 응답(013)은 ERROR가 아니라 fallback 경로로 보낸다 — KOSPI 대형주 다수가 정기보고서
@@ -724,24 +739,30 @@ async def build_ownership_structure_payload(
 
     # 2차 fallback: 1차에서 0건 → 다른 reprt_code (반기/분기) + 직전연도 사업 시도.
     if not major_rows:
+        stage_started_at = time.perf_counter()
         fb_rows, fb_source, fb_warnings = await _fetch_major_with_fallback(
             client, selected["corp_code"], bsns_year
         )
+        _mark("major_holder_fallback", stage_started_at)
         warnings.extend(fb_warnings)
         if fb_rows:
             major_rows = fb_rows
             major_source = fb_source
 
+    stage_started_at = time.perf_counter()
     latest_blocks, timeline_rows, block_warning = await _latest_block_rows(selected["corp_code"])
+    _mark("block_holders", stage_started_at)
     if block_warning:
         warnings.append(block_warning)
 
     # 3차 fallback: 정기보고서 모두 빈 응답 → 5% 대량보유에서 추정.
     # ‘본인+특수관계인 합산’ 개념과는 다르므로 추정치임을 명시한다.
     if not major_rows:
+        stage_started_at = time.perf_counter()
         block_fb_rows, block_fb_warnings = await _fetch_largest_shareholder_from_blocks(
             client, selected["corp_code"]
         )
+        _mark("largest_holder_block_fallback", stage_started_at)
         warnings.extend(block_fb_warnings)
         if block_fb_rows:
             major_rows = block_fb_rows
@@ -825,9 +846,11 @@ async def build_ownership_structure_payload(
     if scope == "control_map":
         data["control_map"] = _build_control_map(major_rows, latest_blocks, treasury_snapshot)
     if scope == "changes":
+        stage_started_at = time.perf_counter()
         change_filings, change_warnings = await _fetch_change_filings(
             selected["corp_code"], window_start, window_end, client
         )
+        _mark("change_filings", stage_started_at)
         data["change_filings"] = change_filings
         warnings.extend(change_warnings)
 
@@ -874,6 +897,8 @@ async def build_ownership_structure_payload(
         warnings.append("최대주주 구조를 충분히 읽지 못해 partial 상태로 표시한다.")
 
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+    data["timings_ms"] = timings_ms
 
     return ToolEnvelope(
         tool="ownership_structure",

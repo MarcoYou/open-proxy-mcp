@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from datetime import date
 from typing import Any
 
@@ -303,14 +304,23 @@ async def build_corp_gov_report_payload(
     scope: str = "summary",
     year: int = 0,
 ) -> dict[str, Any]:
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
     client = get_dart_client()
     calls_start = client.api_call_snapshot()
 
+    stage_started_at = time.perf_counter()
     resolution = await resolve_company_query(company_query)
+    _mark("resolve_company", stage_started_at)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="corp_gov_report",
             status=AnalysisStatus.ERROR,
@@ -320,10 +330,12 @@ async def build_corp_gov_report_payload(
                 "query": company_query,
                 "scope": scope,
                 "usage": build_usage(client.api_call_snapshot() - calls_start),
+                "timings_ms": timings_ms,
             },
             next_actions=["company tool로 회사 식별 확인"],
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="corp_gov_report",
             status=AnalysisStatus.AMBIGUOUS,
@@ -342,6 +354,7 @@ async def build_corp_gov_report_payload(
                     for corp in resolution.candidates[:10]
                 ],
                 "usage": build_usage(client.api_call_snapshot() - calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
 
@@ -351,9 +364,11 @@ async def build_corp_gov_report_payload(
     # filings 검색과 company_info 조회는 independent — 병렬 실행.
     filings_task = _fetch_latest_reports(corp_code, years=4)
     info_task = client.get_company_info(corp_code)
+    stage_started_at = time.perf_counter()
     filings_result, info_result = await asyncio.gather(
         filings_task, info_task, return_exceptions=True,
     )
+    _mark("filings_and_company_info", stage_started_at)
 
     if isinstance(filings_result, BaseException):
         raise filings_result
@@ -414,6 +429,8 @@ async def build_corp_gov_report_payload(
         data["filings"] = filings[:10]
         data.update(filings_meta)
         data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+        data["timings_ms"] = timings_ms
         status = status_from_filing_meta(filings_meta)
         if filings_meta["no_filing"]:
             if corp_cls == "K":
@@ -447,6 +464,8 @@ async def build_corp_gov_report_payload(
         )
         data.update(no_target_meta)
         data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+        data["timings_ms"] = timings_ms
         if corp_cls == "K":
             warnings.append("KOSDAQ 자율공시 — 기업지배구조보고서 미제출 (정상 NO_FILING)")
         else:
@@ -462,12 +481,14 @@ async def build_corp_gov_report_payload(
 
     # 원문 파싱
     rcept_no = target_filing["rcept_no"]
+    stage_started_at = time.perf_counter()
     try:
         doc = await client.get_document_cached(rcept_no)
         html = doc.get("html", "") if isinstance(doc, dict) else ""
     except DartClientError as exc:
         warnings.append(f"원문 조회 실패: {exc.status}")
         html = ""
+    _mark("load_report_document", stage_started_at)
 
     text = _extract_text(html) if html else ""
 
@@ -487,6 +508,8 @@ async def build_corp_gov_report_payload(
             "format_note": "금융회사 지배구조 연차보고서 (PDF 첨부 형식, 일반 거버넌스 표 없음)",
         }
         data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+        data["timings_ms"] = timings_ms
         warnings.append(
             "금융회사 지배구조 연차보고서 형식 (「금융회사의 지배구조에 관한 법률」 제출). "
             "본문은 PDF 첨부에 있어 일반 15-metric 표 파싱 불가. 원문 첨부 PDF 직접 확인 필요."
@@ -620,6 +643,8 @@ async def build_corp_gov_report_payload(
         data["transitions"] = transitions
 
     data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+    data["timings_ms"] = timings_ms
 
     evidence_refs = [
         EvidenceRef(

@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import re
 from datetime import date, timedelta
+import time
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -1461,6 +1462,12 @@ async def build_treasury_share_payload(
     end_date: str = "",
     lookback_months: int = 24,
 ) -> dict[str, Any]:
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     if scope not in _SUPPORTED_SCOPES:
         return ToolEnvelope(
             tool="treasury_share",
@@ -1472,8 +1479,11 @@ async def build_treasury_share_payload(
 
     client = get_dart_client()
     _calls_start = client.api_call_snapshot()
+    stage_started_at = time.perf_counter()
     resolution = await resolve_company_query(company_query)
+    _mark("resolve_company", stage_started_at)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="treasury_share",
             status=AnalysisStatus.ERROR,
@@ -1483,9 +1493,11 @@ async def build_treasury_share_payload(
                 "query": company_query,
                 "scope": scope,
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="treasury_share",
             status=AnalysisStatus.AMBIGUOUS,
@@ -1504,6 +1516,7 @@ async def build_treasury_share_payload(
                     for corp in resolution.candidates[:10]
                 ],
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
 
@@ -1519,7 +1532,9 @@ async def build_treasury_share_payload(
     end_de = format_yyyymmdd(window_end)
     warnings: list[str] = list(window_warnings)
 
+    stage_started_at = time.perf_counter()
     bundles, fetch_warnings = await _fetch_decisions(selected["corp_code"], bgn_de, end_de)
+    _mark("fetch_decisions", stage_started_at)
     # 결정 ↔ 결과 사이클 매칭 — main_report_date / trust_contract_date 키
     cycle_matched = _link_cycles(bundles)
     warnings.extend(fetch_warnings)
@@ -1571,7 +1586,9 @@ async def build_treasury_share_payload(
         # 연간 누적은 ownership_structure(scope="summary")에서 가져온다 (summary에 treasury snapshot 포함).
         # 이전 ownership scope="treasury" 폐지로 summary로 전환.
         from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
+        stage_started_at = time.perf_counter()
         own_payload = await build_ownership_structure_payload(company_query, scope="summary", year=year)
+        _mark("ownership_annual_snapshot", stage_started_at)
         data["annual"] = own_payload.get("data", {}).get("treasury", {})
 
     # evidence_refs — 최신 5건 이벤트의 공시
@@ -1596,6 +1613,8 @@ async def build_treasury_share_payload(
         warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 자사주 이벤트 공시 없음 (정상). 연간 누적은 `scope='annual'`로 확인할 수 있다.")
 
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+    data["timings_ms"] = timings_ms
 
     return ToolEnvelope(
         tool="treasury_share",

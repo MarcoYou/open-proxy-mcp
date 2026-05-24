@@ -1,0 +1,614 @@
+{
+  "companies": [
+    "LG화학",
+    "삼성전자",
+    "KT&G"
+  ],
+  "tool_count": 8,
+  "rows": [
+    {
+      "company": "LG화학",
+      "tool": "company",
+      "status": "exact",
+      "elapsed_ms": 462,
+      "response_total_ms": 462,
+      "top_stage": "company_info_and_recent_filings",
+      "top_stage_ms": 272,
+      "dart_api_calls": 2,
+      "warnings_count": 0,
+      "timings_ms": {
+        "lookup_corp_code_all": 142,
+        "company_info_and_recent_filings": 272,
+        "total": 462
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "shareholder_meeting_notice",
+      "status": "exact",
+      "elapsed_ms": 373,
+      "response_total_ms": 373,
+      "top_stage": "select_notice_candidate",
+      "top_stage_ms": 198,
+      "dart_api_calls": 2,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 10,
+        "fiscal_month_lookup": 55,
+        "select_notice_candidate.search_filings": 127,
+        "select_notice_candidate.fetch_top_documents": 6,
+        "select_notice_candidate.parse_top_documents": 64,
+        "select_notice_candidate.filter_meeting_window": 0,
+        "select_notice_candidate.build_candidate": 0,
+        "select_notice_candidate": 198,
+        "load_notice_bundle": 109,
+        "total": 373
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "financial_metrics",
+      "status": "exact",
+      "elapsed_ms": 446,
+      "response_total_ms": 446,
+      "top_stage": "scope.summary",
+      "top_stage_ms": 442,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 3,
+        "scope.summary": 442,
+        "total": 446
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "ownership_structure",
+      "status": "exact",
+      "elapsed_ms": 466,
+      "response_total_ms": 466,
+      "top_stage": "annual_report_apis",
+      "top_stage_ms": 279,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 4,
+        "annual_report_apis": 279,
+        "block_holders": 182,
+        "total": 466
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "dividend",
+      "status": "exact",
+      "elapsed_ms": 1738,
+      "response_total_ms": 1738,
+      "top_stage": "decision_details",
+      "top_stage_ms": 493,
+      "dart_api_calls": 8,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 5,
+        "summary_and_filings": 448,
+        "decision_details": 493,
+        "annual_summaries": 179,
+        "pre_dividend_detection": 156,
+        "capital_reserve_detection": 455,
+        "total": 1738
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "treasury_share",
+      "status": "no_filing",
+      "elapsed_ms": 993,
+      "response_total_ms": 993,
+      "top_stage": "fetch_decisions",
+      "top_stage_ms": 991,
+      "dart_api_calls": 10,
+      "warnings_count": 5,
+      "timings_ms": {
+        "resolve_company": 2,
+        "fetch_decisions": 991,
+        "total": 993
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "value_up",
+      "status": "exact",
+      "elapsed_ms": 606,
+      "response_total_ms": 606,
+      "top_stage": "dart_search",
+      "top_stage_ms": 106,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 2,
+        "dart_search": 106,
+        "load_latest_document": 59,
+        "total": 606
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "corp_gov_report",
+      "status": "exact",
+      "elapsed_ms": 634,
+      "response_total_ms": 634,
+      "top_stage": "filings_and_company_info",
+      "top_stage_ms": 401,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 6,
+        "filings_and_company_info": 401,
+        "load_report_document": 192,
+        "total": 634
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "company",
+      "status": "exact",
+      "elapsed_ms": 223,
+      "response_total_ms": 223,
+      "top_stage": "company_info_and_recent_filings",
+      "top_stage_ms": 220,
+      "dart_api_calls": 2,
+      "warnings_count": 0,
+      "timings_ms": {
+        "lookup_corp_code_all": 2,
+        "company_info_and_recent_filings": 220,
+        "total": 223
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "shareholder_meeting_notice",
+      "status": "exact",
+      "elapsed_ms": 574,
+      "response_total_ms": 574,
+      "top_stage": "select_notice_candidate",
+      "top_stage_ms": 332,
+      "dart_api_calls": 2,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 8,
+        "fiscal_month_lookup": 52,
+        "select_notice_candidate.search_filings": 150,
+        "select_notice_candidate.fetch_top_documents": 95,
+        "select_notice_candidate.parse_top_documents": 86,
+        "select_notice_candidate.filter_meeting_window": 0,
+        "select_notice_candidate.build_candidate": 0,
+        "select_notice_candidate": 332,
+        "load_notice_bundle": 181,
+        "total": 574
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "financial_metrics",
+      "status": "exact",
+      "elapsed_ms": 377,
+      "response_total_ms": 377,
+      "top_stage": "scope.summary",
+      "top_stage_ms": 375,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 2,
+        "scope.summary": 375,
+        "total": 377
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "ownership_structure",
+      "status": "exact",
+      "elapsed_ms": 456,
+      "response_total_ms": 456,
+      "top_stage": "annual_report_apis",
+      "top_stage_ms": 275,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 8,
+        "annual_report_apis": 275,
+        "block_holders": 171,
+        "total": 456
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "dividend",
+      "status": "exact",
+      "elapsed_ms": 2884,
+      "response_total_ms": 2884,
+      "top_stage": "decision_details",
+      "top_stage_ms": 1555,
+      "dart_api_calls": 8,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 7,
+        "summary_and_filings": 490,
+        "decision_details": 1555,
+        "annual_summaries": 217,
+        "pre_dividend_detection": 166,
+        "capital_reserve_detection": 446,
+        "total": 2884
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "treasury_share",
+      "status": "exact",
+      "elapsed_ms": 2689,
+      "response_total_ms": 2689,
+      "top_stage": "fetch_decisions",
+      "top_stage_ms": 2686,
+      "dart_api_calls": 17,
+      "warnings_count": 2,
+      "timings_ms": {
+        "resolve_company": 2,
+        "fetch_decisions": 2686,
+        "total": 2689
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "value_up",
+      "status": "exact",
+      "elapsed_ms": 592,
+      "response_total_ms": 592,
+      "top_stage": "dart_search",
+      "top_stage_ms": 148,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 4,
+        "dart_search": 148,
+        "load_latest_document": 38,
+        "total": 592
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "corp_gov_report",
+      "status": "exact",
+      "elapsed_ms": 856,
+      "response_total_ms": 856,
+      "top_stage": "filings_and_company_info",
+      "top_stage_ms": 455,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 7,
+        "filings_and_company_info": 455,
+        "load_report_document": 357,
+        "total": 856
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "company",
+      "status": "exact",
+      "elapsed_ms": 180,
+      "response_total_ms": 180,
+      "top_stage": "company_info_and_recent_filings",
+      "top_stage_ms": 177,
+      "dart_api_calls": 2,
+      "warnings_count": 0,
+      "timings_ms": {
+        "lookup_corp_code_all": 2,
+        "company_info_and_recent_filings": 177,
+        "total": 180
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "shareholder_meeting_notice",
+      "status": "exact",
+      "elapsed_ms": 488,
+      "response_total_ms": 488,
+      "top_stage": "select_notice_candidate",
+      "top_stage_ms": 297,
+      "dart_api_calls": 2,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 6,
+        "fiscal_month_lookup": 69,
+        "select_notice_candidate.search_filings": 110,
+        "select_notice_candidate.fetch_top_documents": 119,
+        "select_notice_candidate.parse_top_documents": 66,
+        "select_notice_candidate.filter_meeting_window": 0,
+        "select_notice_candidate.build_candidate": 0,
+        "select_notice_candidate": 297,
+        "load_notice_bundle": 114,
+        "total": 488
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "financial_metrics",
+      "status": "exact",
+      "elapsed_ms": 393,
+      "response_total_ms": 393,
+      "top_stage": "scope.summary",
+      "top_stage_ms": 391,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 2,
+        "scope.summary": 391,
+        "total": 393
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "ownership_structure",
+      "status": "exact",
+      "elapsed_ms": 585,
+      "response_total_ms": 585,
+      "top_stage": "block_holders",
+      "top_stage_ms": 305,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 8,
+        "annual_report_apis": 271,
+        "block_holders": 305,
+        "total": 585
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "dividend",
+      "status": "exact",
+      "elapsed_ms": 3058,
+      "response_total_ms": 3058,
+      "top_stage": "decision_details",
+      "top_stage_ms": 1272,
+      "dart_api_calls": 7,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 7,
+        "summary_and_filings": 317,
+        "decision_details": 1272,
+        "annual_summaries": 208,
+        "pre_dividend_detection": 175,
+        "capital_reserve_detection": 1076,
+        "total": 3058
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "treasury_share",
+      "status": "exact",
+      "elapsed_ms": 2584,
+      "response_total_ms": 2583,
+      "top_stage": "fetch_decisions",
+      "top_stage_ms": 2581,
+      "dart_api_calls": 9,
+      "warnings_count": 3,
+      "timings_ms": {
+        "resolve_company": 2,
+        "fetch_decisions": 2581,
+        "total": 2583
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "value_up",
+      "status": "exact",
+      "elapsed_ms": 570,
+      "response_total_ms": 569,
+      "top_stage": "dart_search",
+      "top_stage_ms": 117,
+      "dart_api_calls": 3,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 8,
+        "dart_search": 117,
+        "load_latest_document": 54,
+        "total": 569
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "corp_gov_report",
+      "status": "exact",
+      "elapsed_ms": 742,
+      "response_total_ms": 742,
+      "top_stage": "load_report_document",
+      "top_stage_ms": 419,
+      "dart_api_calls": 3,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 10,
+        "filings_and_company_info": 286,
+        "load_report_document": 419,
+        "total": 742
+      }
+    }
+  ],
+  "slowest": [
+    {
+      "company": "KT&G",
+      "tool": "dividend",
+      "status": "exact",
+      "elapsed_ms": 3058,
+      "response_total_ms": 3058,
+      "top_stage": "decision_details",
+      "top_stage_ms": 1272,
+      "dart_api_calls": 7,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 7,
+        "summary_and_filings": 317,
+        "decision_details": 1272,
+        "annual_summaries": 208,
+        "pre_dividend_detection": 175,
+        "capital_reserve_detection": 1076,
+        "total": 3058
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "dividend",
+      "status": "exact",
+      "elapsed_ms": 2884,
+      "response_total_ms": 2884,
+      "top_stage": "decision_details",
+      "top_stage_ms": 1555,
+      "dart_api_calls": 8,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 7,
+        "summary_and_filings": 490,
+        "decision_details": 1555,
+        "annual_summaries": 217,
+        "pre_dividend_detection": 166,
+        "capital_reserve_detection": 446,
+        "total": 2884
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "treasury_share",
+      "status": "exact",
+      "elapsed_ms": 2689,
+      "response_total_ms": 2689,
+      "top_stage": "fetch_decisions",
+      "top_stage_ms": 2686,
+      "dart_api_calls": 17,
+      "warnings_count": 2,
+      "timings_ms": {
+        "resolve_company": 2,
+        "fetch_decisions": 2686,
+        "total": 2689
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "treasury_share",
+      "status": "exact",
+      "elapsed_ms": 2584,
+      "response_total_ms": 2583,
+      "top_stage": "fetch_decisions",
+      "top_stage_ms": 2581,
+      "dart_api_calls": 9,
+      "warnings_count": 3,
+      "timings_ms": {
+        "resolve_company": 2,
+        "fetch_decisions": 2581,
+        "total": 2583
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "dividend",
+      "status": "exact",
+      "elapsed_ms": 1738,
+      "response_total_ms": 1738,
+      "top_stage": "decision_details",
+      "top_stage_ms": 493,
+      "dart_api_calls": 8,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 5,
+        "summary_and_filings": 448,
+        "decision_details": 493,
+        "annual_summaries": 179,
+        "pre_dividend_detection": 156,
+        "capital_reserve_detection": 455,
+        "total": 1738
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "treasury_share",
+      "status": "no_filing",
+      "elapsed_ms": 993,
+      "response_total_ms": 993,
+      "top_stage": "fetch_decisions",
+      "top_stage_ms": 991,
+      "dart_api_calls": 10,
+      "warnings_count": 5,
+      "timings_ms": {
+        "resolve_company": 2,
+        "fetch_decisions": 991,
+        "total": 993
+      }
+    },
+    {
+      "company": "삼성전자",
+      "tool": "corp_gov_report",
+      "status": "exact",
+      "elapsed_ms": 856,
+      "response_total_ms": 856,
+      "top_stage": "filings_and_company_info",
+      "top_stage_ms": 455,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 7,
+        "filings_and_company_info": 455,
+        "load_report_document": 357,
+        "total": 856
+      }
+    },
+    {
+      "company": "KT&G",
+      "tool": "corp_gov_report",
+      "status": "exact",
+      "elapsed_ms": 742,
+      "response_total_ms": 742,
+      "top_stage": "load_report_document",
+      "top_stage_ms": 419,
+      "dart_api_calls": 3,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 10,
+        "filings_and_company_info": 286,
+        "load_report_document": 419,
+        "total": 742
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "corp_gov_report",
+      "status": "exact",
+      "elapsed_ms": 634,
+      "response_total_ms": 634,
+      "top_stage": "filings_and_company_info",
+      "top_stage_ms": 401,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 6,
+        "filings_and_company_info": 401,
+        "load_report_document": 192,
+        "total": 634
+      }
+    },
+    {
+      "company": "LG화학",
+      "tool": "value_up",
+      "status": "exact",
+      "elapsed_ms": 606,
+      "response_total_ms": 606,
+      "top_stage": "dart_search",
+      "top_stage_ms": 106,
+      "dart_api_calls": 4,
+      "warnings_count": 0,
+      "timings_ms": {
+        "resolve_company": 2,
+        "dart_search": 106,
+        "load_latest_document": 59,
+        "total": 606
+      }
+    }
+  ]
+}

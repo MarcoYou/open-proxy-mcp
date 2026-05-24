@@ -1,7 +1,7 @@
 ---
 type: readme
 title: Audit 원시 결과물 인덱스
-updated: 2026-05-18
+updated: 2026-05-24
 ---
 
 # Audit 원시 결과물
@@ -16,6 +16,11 @@ updated: 2026-05-18
 먼저 [[../README]]에서 현재 기준 audit를 찾고, 그 다음 필요한 경우에만 여기로 내려오면 된다.
 
 ## 주요 원시 결과물 묶음
+
+### 2026-05-24 — core tool timing audit
+- `260524_tool_timing_audit.json`
+- 기준 문서: [[../260510_data_tools_perf_audit]]
+- 포함: `LG화학`, `삼성전자`, `KT&G` × 8개 핵심 tool stage timing. 반복 병목은 `dividend.decision_details`, `treasury_share.fetch_decisions`.
 
 ### 2026-05-17 — parsing success-rate audit
 - `260517_parsing_success_rate_audit/`

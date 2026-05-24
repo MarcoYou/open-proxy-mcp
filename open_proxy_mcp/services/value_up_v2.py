@@ -6,6 +6,7 @@ import asyncio
 from datetime import date
 from html import unescape
 import re
+import time
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -218,13 +219,22 @@ async def build_value_up_payload(
     start_date: str = "",
     end_date: str = "",
 ) -> dict[str, Any]:
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
     client = get_dart_client()
     _calls_start = client.api_call_snapshot()
+    stage_started_at = time.perf_counter()
     resolution = await resolve_company_query(company_query)
+    _mark("resolve_company", stage_started_at)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="value_up",
             status=AnalysisStatus.ERROR,
@@ -234,9 +244,11 @@ async def build_value_up_payload(
                 "query": company_query,
                 "scope": scope,
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="value_up",
             status=AnalysisStatus.AMBIGUOUS,
@@ -255,6 +267,7 @@ async def build_value_up_payload(
                     for corp in resolution.candidates[:10]
                 ],
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
 
@@ -272,11 +285,13 @@ async def build_value_up_payload(
 
     requested_bgn = format_yyyymmdd(window_start)
     requested_end = format_yyyymmdd(window_end)
+    stage_started_at = time.perf_counter()
     items, search_notices, search_error = await _search_value_up_items(
         selected["corp_code"],
         bgn_de=requested_bgn,
         end_de=requested_end,
     )
+    _mark("dart_search", stage_started_at)
     warnings.extend(search_notices)
     if search_error:
         return ToolEnvelope(
@@ -295,12 +310,14 @@ async def build_value_up_payload(
     kind_items: list[dict[str, Any]] = []
     kind_search_error: str | None = None
     if not items:
+        stage_started_at = time.perf_counter()
         kind_items, kind_search_error = await _search_kind_value_up_items(
             selected.get("stock_code", ""),
             selected.get("corp_name", company_query),
             bgn_de=requested_bgn,
             end_de=requested_end,
         )
+        _mark("kind_search", stage_started_at)
 
     if not items and not kind_items:
         diagnostic_bgn = f"{target_year - 2}0101"
@@ -393,6 +410,7 @@ async def build_value_up_payload(
                 "items": [],
                 **no_filing_meta,
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": {**timings_ms, "total": int((time.perf_counter() - total_started_at) * 1000)},
             },
         ).to_dict()
 
@@ -409,16 +427,20 @@ async def build_value_up_payload(
     latest_excerpt = ""
     source_type = SourceType.DART_XML
     if items:
+        stage_started_at = time.perf_counter()
         latest_doc = await client.get_document_cached(latest["rcept_no"])
         latest_text = latest_doc.get("text", "")
         latest_excerpt = latest_text[:2000]
         source_type = SourceType.DART_XML
+        _mark("load_latest_document", stage_started_at)
     else:
         latest_source = "kind"
         try:
+            stage_started_at = time.perf_counter()
             latest_html = await client.kind_fetch_document(latest["acptno"])
             latest_text = _kind_html_to_text(latest_html)
             latest_excerpt = latest_text[:2000]
+            _mark("load_latest_kind_document", stage_started_at)
         except DartClientError as exc:
             warnings.append(f"KIND 본문 조회 실패: {exc.status}")
         source_type = SourceType.KIND_HTML
@@ -570,6 +592,8 @@ async def build_value_up_payload(
         data["treasury_cross_ref"] = treasury_cross_ref
 
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+    data["timings_ms"] = timings_ms
 
     return ToolEnvelope(
         tool="value_up",

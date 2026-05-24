@@ -8,6 +8,7 @@ from datetime import date, timedelta
 import json
 from pathlib import Path
 import re
+import time
 from typing import Any
 
 from open_proxy_mcp.dart.client import (
@@ -215,9 +216,17 @@ async def build_company_payload(
 ) -> dict[str, Any]:
     """회사 식별 + 최근 공시 인덱스."""
 
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     client = get_dart_client()
     _calls_start = client.api_call_snapshot()
+    stage_started_at = time.perf_counter()
     matches = await client.lookup_corp_code_all(query)
+    _mark("lookup_corp_code_all", stage_started_at)
 
     raw = (query or "").strip()
     numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
@@ -245,6 +254,7 @@ async def build_company_payload(
                 "query": query,
                 "candidates": [],
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": {**timings_ms, "total": int((time.perf_counter() - total_started_at) * 1000)},
             },
             next_actions=["정확한 회사명, 종목코드, corp_code 중 하나로 다시 조회"],
         )
@@ -260,6 +270,7 @@ async def build_company_payload(
                 "query": query,
                 "candidates": [_candidate_row(corp) for corp in candidates[:10]],
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": {**timings_ms, "total": int((time.perf_counter() - total_started_at) * 1000)},
             },
             next_actions=["ticker 또는 corp_code를 직접 넣어 재조회"],
         )
@@ -273,10 +284,12 @@ async def build_company_payload(
         end_date=end_date,
     )
 
+    stage_started_at = time.perf_counter()
     (company_info, company_warn), (recent_filings, filings_window, filings_warn) = await asyncio.gather(
         company_info_task,
         filings_task,
     )
+    _mark("company_info_and_recent_filings", stage_started_at)
 
     corp_name = company_info.get("corp_name") or selected.get("corp_name", "")
     corp_name_eng = company_info.get("corp_name_eng", "")
@@ -334,6 +347,8 @@ async def build_company_payload(
         **filing_meta,
         "usage": build_usage(client.api_call_snapshot() - _calls_start),
     }
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+    payload["timings_ms"] = timings_ms
 
     envelope = ToolEnvelope(
         tool="company",

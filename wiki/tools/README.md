@@ -97,6 +97,14 @@ created: 2026-05-01
 | Evidence | 1 | rcept_no 문자열 기반 URL 생성 |
 | Action | 2 | upstream data tool 병렬 호출 후 판단/요약 |
 
+## 진단 필드
+
+성능 병목 추적을 위해 주요 data/action tool은 `data.timings_ms`를 노출한다.
+공통 키는 `total`, `resolve_company`이고, tool별로 `scope.summary`, `fetch_decisions`,
+`decision_details`, `load_report_document` 같은 stage 키가 추가된다.
+최근 3개 회사 실측 기준 반복 병목은 `dividend.decision_details`,
+`treasury_share.fetch_decisions`였으며 상세 근거는 `wiki/architecture/audits/260510_data_tools_perf_audit.md` 참조.
+
 ## 데이터 소스 매트릭스
 
 | tool | DART API | KIND | Naver | Upstage | 정적 JSON |

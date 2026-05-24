@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
+import time
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -413,13 +414,22 @@ async def build_dividend_payload(
     start_date: str = "",
     end_date: str = "",
 ) -> dict[str, Any]:
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
     client = get_dart_client()
     _calls_start = client.api_call_snapshot()
+    stage_started_at = time.perf_counter()
     resolution = await resolve_company_query(company_query)
+    _mark("resolve_company", stage_started_at)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="dividend",
             status=AnalysisStatus.ERROR,
@@ -429,9 +439,11 @@ async def build_dividend_payload(
                 "query": company_query,
                 "scope": scope,
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="dividend",
             status=AnalysisStatus.AMBIGUOUS,
@@ -450,6 +462,7 @@ async def build_dividend_payload(
                     for corp in resolution.candidates[:10]
                 ],
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
 
@@ -485,16 +498,20 @@ async def build_dividend_payload(
     # latest_summary와 filings 검색은 independent — 병렬 호출.
     latest_summary_task = _annual_summary(selected["corp_code"], target_year)
     filings_task = _search_dividend_filings(selected["corp_code"], year_list[0], target_year)
+    stage_started_at = time.perf_counter()
     (latest_summary, summary_warning), (filings, filing_notices, filing_warning) = await asyncio.gather(
         latest_summary_task, filings_task,
     )
+    _mark("summary_and_filings", stage_started_at)
     if summary_warning:
         warnings.append(summary_warning)
     warnings.extend(filing_notices)
     if filing_warning:
         warnings.append(filing_warning)
         filings = []
+    stage_started_at = time.perf_counter()
     details = await _decision_details(filings[:20]) if filings else []
+    _mark("decision_details", stage_started_at)
 
     # alotMatter가 비어있거나 cash_dps=0이면 해당 연도 배당결정 공시 합산을 source of truth로 대체.
     if (not latest_summary or int(latest_summary.get("cash_dps") or 0) == 0) and details:
@@ -513,9 +530,11 @@ async def build_dividend_payload(
     # target_year는 위에서 이미 호출했으므로 latest_summary 재사용해 중복 호출 방지.
     annual_summaries: dict[int, dict[str, Any]] = {}
     pending_years = [y for y in year_list if y != target_year]
+    stage_started_at = time.perf_counter()
     pending_results = await asyncio.gather(*[
         _annual_summary(selected["corp_code"], y) for y in pending_years
     ]) if pending_years else []
+    _mark("annual_summaries", stage_started_at)
     year_to_result: dict[int, tuple[dict[str, Any], str | None]] = {target_year: (latest_summary, None)}
     for y, res in zip(pending_years, pending_results):
         year_to_result[y] = res
@@ -550,15 +569,19 @@ async def build_dividend_payload(
     capital_reserve_agendas: list[dict[str, Any]] = []
     if scope in {"summary", "cash_shareholder_return", "total_shareholder_return"}:
         try:
+            stage_started_at = time.perf_counter()
             pre_dividend_post_resolution, record_date_notices = await _detect_pre_dividend_post_resolution(
                 selected["corp_code"], target_year
             )
+            _mark("pre_dividend_detection", stage_started_at)
         except Exception as exc:
             warnings.append(f"선배당-후결의 메타 추출 실패: {exc}")
         try:
+            stage_started_at = time.perf_counter()
             capital_reserve_reduction, capital_reserve_agendas = await _detect_capital_reserve_reduction(
                 company_query, target_year
             )
+            _mark("capital_reserve_detection", stage_started_at)
         except Exception as exc:
             warnings.append(f"감액배당 메타 추출 실패: {exc}")
 
@@ -731,6 +754,8 @@ async def build_dividend_payload(
         warnings.append("요청한 연수보다 완료 사업연도 수가 적어, 조회 가능한 최근 완료 사업연도만 반환한다.")
 
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+    data["timings_ms"] = timings_ms
 
     if scope == "summary":
         next_actions = [

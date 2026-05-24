@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -1088,6 +1089,12 @@ async def build_financial_metrics_payload(
     years: int = 3,
     consolidated: bool = True,
 ) -> dict[str, Any]:
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
@@ -1101,8 +1108,11 @@ async def build_financial_metrics_payload(
     client = get_dart_client()
     calls_start = client.api_call_snapshot()
 
+    stage_started_at = time.perf_counter()
     resolution = await resolve_company_query(company_query)
+    _mark("resolve_company", stage_started_at)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="financial_metrics",
             status=AnalysisStatus.ERROR,
@@ -1112,9 +1122,11 @@ async def build_financial_metrics_payload(
                 "query": company_query,
                 "scope": scope,
                 "usage": build_usage(client.api_call_snapshot() - calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="financial_metrics",
             status=AnalysisStatus.AMBIGUOUS,
@@ -1133,6 +1145,7 @@ async def build_financial_metrics_payload(
                     for corp in resolution.candidates[:10]
                 ],
                 "usage": build_usage(client.api_call_snapshot() - calls_start),
+                "timings_ms": timings_ms,
             },
         ).to_dict()
 
@@ -1160,6 +1173,7 @@ async def build_financial_metrics_payload(
     parsing_failures = 0
     filing_count = 0
 
+    stage_started_at = time.perf_counter()
     if scope == "summary":
         metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True)
         warnings.extend(ws)
@@ -1265,6 +1279,7 @@ async def build_financial_metrics_payload(
         data["audit_opinion"] = audit_data
         filing_count = audit_data.get("summary", {}).get("history_years", 0)
         evidence_refs.extend(audit_ev)
+    _mark(f"scope.{scope}", stage_started_at)
 
     filing_meta = build_filing_meta(filing_count=filing_count, parsing_failures=parsing_failures)
     if filing_meta["no_filing"]:
@@ -1277,6 +1292,8 @@ async def build_financial_metrics_payload(
 
     data.update(filing_meta)
     data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+    data["timings_ms"] = timings_ms
 
     payload = ToolEnvelope(
         tool="financial_metrics",
