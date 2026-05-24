@@ -14,11 +14,13 @@ from open_proxy_mcp.services.contracts import AnalysisStatus
 class FakeClient:
     def __init__(self):
         self.calls = 0
+        self.document_fetches = []
 
     def api_call_snapshot(self):
         return self.calls
 
-    async def get_document_cached(self, _rcept_no):
+    async def get_document_cached(self, rcept_no):
+        self.document_fetches.append(rcept_no)
         return {"text": "mock", "html": "<html></html>"}
 
     async def get_company_info(self, _corp_code):
@@ -335,6 +337,128 @@ def test_annual_notice_search_falls_back_when_fiscal_window_empty(monkeypatch):
         ("20251003", "20261231"),
     ]
     assert "select_notice_candidate.full_year_fallback" in payload["data"]["timings_ms"]
+
+
+def test_fiscal_window_annual_search_fetches_only_latest_document_first(monkeypatch):
+    fake_client = FakeClient()
+    monkeypatch.setattr(sm, "get_dart_client", lambda: fake_client)
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_search(**_kwargs):
+        return (
+            [
+                {
+                    "rcept_no": "20260224004273",
+                    "report_nm": "주주총회소집공고",
+                    "rcept_dt": "20260224",
+                    "flr_nm": "LG화학",
+                },
+                {
+                    "rcept_no": "20260201000001",
+                    "report_nm": "주주총회소집공고",
+                    "rcept_dt": "20260201",
+                    "flr_nm": "LG화학",
+                },
+            ],
+            [],
+            None,
+        )
+
+    async def fake_notice_info(_rcept_no, _text, _html):
+        return (
+            {
+                "meeting_type": "정기",
+                "meeting_term": "제25기",
+                "datetime": "2026년 3월 31일 (화) 오전 9시",
+                "location": "서울특별시 영등포구 여의대로 128",
+                "is_correction": False,
+            },
+            "dart_xml",
+        )
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "search_filings_by_report_name", fake_search)
+    monkeypatch.setattr(sm, "_notice_info_with_fallback", fake_notice_info)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    assert payload["status"] == "exact"
+    assert fake_client.document_fetches == ["20260224004273"]
+
+
+def test_fiscal_window_annual_search_fetches_remaining_when_latest_is_not_annual(monkeypatch):
+    fake_client = FakeClient()
+    monkeypatch.setattr(sm, "get_dart_client", lambda: fake_client)
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_search(**_kwargs):
+        return (
+            [
+                {
+                    "rcept_no": "20260224004273",
+                    "report_nm": "주주총회소집공고",
+                    "rcept_dt": "20260224",
+                    "flr_nm": "LG화학",
+                },
+                {
+                    "rcept_no": "20260201000001",
+                    "report_nm": "주주총회소집공고",
+                    "rcept_dt": "20260201",
+                    "flr_nm": "LG화학",
+                },
+            ],
+            [],
+            None,
+        )
+
+    async def fake_notice_info(rcept_no, _text, _html):
+        meeting_type = "임시" if rcept_no == "20260224004273" else "정기"
+        return (
+            {
+                "meeting_type": meeting_type,
+                "meeting_term": "제25기",
+                "datetime": "2026년 3월 31일 (화) 오전 9시",
+                "location": "서울특별시 영등포구 여의대로 128",
+                "is_correction": False,
+            },
+            "dart_xml",
+        )
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "search_filings_by_report_name", fake_search)
+    monkeypatch.setattr(sm, "_notice_info_with_fallback", fake_notice_info)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    assert payload["status"] == "exact"
+    assert fake_client.document_fetches == ["20260224004273", "20260201000001"]
+    assert payload["data"]["notice"]["rcept_no"] == "20260201000001"
 
 
 def test_rcept_no_fast_path_skips_company_and_candidate_search(monkeypatch):

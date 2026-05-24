@@ -196,6 +196,7 @@ async def _candidate_notices_range(
     end_de: str,
     *,
     timings_ms: dict[str, int] | None = None,
+    top_n: int = 2,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     client = get_dart_client()
     # last_reprt_at='Y' — 정정공시 자동 정리 (최종본만). 정정 다수 회사
@@ -257,14 +258,14 @@ async def _candidate_notices_range(
         _mark_timing(timings_ms, f"select_notice_candidate.parse_{batch_label}_documents", stage_started_at)
         return out
 
-    # 1차: 상위 2건만 doc fetch (정기 + 정정 cover, LG화학 등 대형사 대응).
-    TOP_N = 2
-    matched = await _resolve_batch(filings[:TOP_N])
+    # 1차: 상위 후보만 doc fetch. fiscal window로 좁힌 annual 검색은 최신 1건부터 시도한다.
+    top_n = max(1, top_n)
+    matched = await _resolve_batch(filings[:top_n])
 
     # 2차 fallback: 1차에서 meeting_type 일치 못 찾으면 나머지 전체 fetch.
     # rare case (정기/임시 섞임 + 임시가 최신 + 사용자가 annual 요청 등).
-    if not matched and len(filings) > TOP_N:
-        matched = await _resolve_batch(filings[TOP_N:])
+    if not matched and len(filings) > top_n:
+        matched = await _resolve_batch(filings[top_n:])
 
     return matched, notices
 
@@ -292,6 +293,7 @@ async def _candidate_notices_in_meeting_window(
     meeting_end: date,
     *,
     timings_ms: dict[str, int] | None = None,
+    top_n: int = 2,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     search_start = meeting_start - timedelta(days=_NOTICE_LEAD_BUFFER_DAYS)
     notices, search_notices = await _candidate_notices_range(
@@ -300,6 +302,7 @@ async def _candidate_notices_in_meeting_window(
         search_start.strftime("%Y%m%d"),
         meeting_end.strftime("%Y%m%d"),
         timings_ms=timings_ms,
+        top_n=top_n,
     )
     matched: list[dict[str, Any]] = []
     stage_started_at = time.perf_counter()
@@ -829,6 +832,7 @@ async def _select_notice_candidate(
     )
     if fiscal_window:
         search_window_start, search_window_end = fiscal_window
+    top_n = 1 if fiscal_window else 2
 
     notices, notice_search_notices = await _candidate_notices_in_meeting_window(
         corp_code,
@@ -836,6 +840,7 @@ async def _select_notice_candidate(
         search_window_start,
         search_window_end,
         timings_ms=timings_ms,
+        top_n=top_n,
     )
     search_notices.extend(notice_search_notices)
     latest_notice = _pick_latest_notice(notices)
@@ -847,6 +852,7 @@ async def _select_notice_candidate(
             window_start,
             window_end,
             timings_ms=timings_ms,
+            top_n=2,
         )
         _mark_timing(timings_ms, "select_notice_candidate.full_year_fallback", stage_started_at)
         search_notices.extend(notice_search_notices)
