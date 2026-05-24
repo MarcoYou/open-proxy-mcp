@@ -814,7 +814,18 @@ async def _enrich_result_reports_with_body(*row_lists: list[dict[str, Any]]) -> 
     return failures
 
 
-async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[dict[str, list[dict]], list[str]]:
+def _mark_timing(timings_ms: dict[str, int] | None, stage: str, started_at: float) -> None:
+    if timings_ms is not None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
+
+async def _fetch_decisions(
+    corp_code: str,
+    bgn_de: str,
+    end_de: str,
+    *,
+    timings_ms: dict[str, int] | None = None,
+) -> tuple[dict[str, list[dict]], list[str]]:
     """취득·처분·신탁체결·신탁해지 4개 API 병렬 호출 + 소각결정 list.json 검색."""
 
     client = get_dart_client()
@@ -831,33 +842,31 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
     trc_task = safe(client.get_treasury_trust_contract(corp_code, bgn_de, end_de), "신탁계약 체결결정")
     trt_task = safe(client.get_treasury_trust_termination(corp_code, bgn_de, end_de), "신탁계약 해지결정")
 
-    async def cancelation_search():
+    async def treasury_title_search():
+        stage_started_at = time.perf_counter()
         items, _notices, error = await fetch_filings_for_title_scan(
             corp_code=corp_code,
             bgn_de=bgn_de,
             end_de=end_de,
-            pblntf_tys=("B", "I"),
-            keyword_label=", ".join(_CANCELATION_KEYWORDS),
+            pblntf_tys=("B", "I", "E"),
+            keyword_label="treasury title scan",
         )
+        _mark_timing(timings_ms, "fetch_decisions.title_search", stage_started_at)
         if error:
-            return [], f"자사주 소각결정 조회 실패: {error}"
+            return None, error
+        return items, None
+
+    def cancelation_filter(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        stage_started_at = time.perf_counter()
         filtered = [
             item for item in items
             if report_name_matches(item, _CANCELATION_KEYWORDS, strip_spaces=True)
         ]
-        return filtered, None
+        _mark_timing(timings_ms, "fetch_decisions.cancelation_filter", stage_started_at)
+        return filtered
 
-    async def execution_report_search():
-        # 결과보고서는 list.json에서 pblntf_ty="" (빈 문자열, 분류 없음). 한 번 fetch 후 keyword별 재필터링한다.
-        items, _notices, error = await fetch_filings_for_title_scan(
-            corp_code=corp_code,
-            bgn_de=bgn_de,
-            end_de=end_de,
-            pblntf_tys="",
-            keyword_label="treasury execution reports",
-        )
-        if error:
-            return None, error
+    def execution_report_filter(items: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        stage_started_at = time.perf_counter()
         filtered = {
             "acquisition_result": [
                 item for item in items
@@ -876,13 +885,28 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
                 if report_name_matches(item, _TRUST_TERM_RESULT_KEYWORDS, strip_spaces=True)
             ],
         }
-        return filtered, None
+        _mark_timing(timings_ms, "fetch_decisions.execution_report_filter", stage_started_at)
+        return filtered
 
-    (acq, w1), (dsp, w2), (trc, w3), (trt, w4), (ret, w5), exec_reports = await asyncio.gather(
-        acq_task, dsp_task, trc_task, trt_task, cancelation_search(), execution_report_search(),
-    )
-    exec_report_sets, exec_report_error = exec_reports
-    warnings = [w for w in (w1, w2, w3, w4, w5) if w]
+    stage_started_at = time.perf_counter()
+    title_task = asyncio.create_task(treasury_title_search())
+    ds005_started_at = time.perf_counter()
+    ds005_result = await asyncio.gather(acq_task, dsp_task, trc_task, trt_task)
+    _mark_timing(timings_ms, "fetch_decisions.ds005_apis", ds005_started_at)
+    title_items, title_error = await title_task
+    _mark_timing(timings_ms, "fetch_decisions.title_searches", stage_started_at)
+    (acq, w1), (dsp, w2), (trc, w3), (trt, w4) = ds005_result
+    warnings = [w for w in (w1, w2, w3, w4) if w]
+    if title_items is None:
+        ret = []
+        exec_report_sets = None
+        exec_report_error = title_error
+        warnings.append(f"자사주 소각결정 조회 실패: {title_error}")
+    else:
+        ret = cancelation_filter(title_items)
+        exec_report_sets = execution_report_filter(title_items)
+        exec_report_error = None
+
     if exec_report_sets is None:
         warnings.extend(
             [
@@ -903,7 +927,9 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
 
     cancelation_rows = [_normalize_cancelation_row(i) for i in ret]
     # 본문 파싱으로 소각 주식수·금액(KRW) 추출 — 자사주 소각 분석용. CSR 분자에는 사용하지 않음 (acquire 사용).
+    stage_started_at = time.perf_counter()
     cancelation_failures = await _enrich_cancelation_with_body(cancelation_rows)
+    _mark_timing(timings_ms, "fetch_decisions.cancelation_body_enrich", stage_started_at)
     if cancelation_failures:
         warnings.append(
             f"자사주 소각결정 본문 파싱 실패 {cancelation_failures}건 — 소각 금액이 0으로 보일 수 있다."
@@ -921,9 +947,11 @@ async def _fetch_decisions(corp_code: str, bgn_de: str, end_de: str) -> tuple[di
     trust_acq_status_rows = [_normalize_result_report(i, "trust_acquisition_status") for i in exec_report_sets["trust_acquisition_status"]]
     trust_term_res_rows = [_normalize_result_report(i, "trust_termination_result") for i in exec_report_sets["trust_termination_result"]]
 
+    stage_started_at = time.perf_counter()
     fail_count = await _enrich_result_reports_with_body(
         acq_res_rows, dsp_res_rows, trust_acq_status_rows, trust_term_res_rows
     )
+    _mark_timing(timings_ms, "fetch_decisions.execution_body_enrich", stage_started_at)
     if fail_count:
         warnings.append(f"결과보고서 본문 파싱 실패 {fail_count}건 — 합계가 0으로 보일 수 있다.")
 
@@ -1533,7 +1561,12 @@ async def build_treasury_share_payload(
     warnings: list[str] = list(window_warnings)
 
     stage_started_at = time.perf_counter()
-    bundles, fetch_warnings = await _fetch_decisions(selected["corp_code"], bgn_de, end_de)
+    bundles, fetch_warnings = await _fetch_decisions(
+        selected["corp_code"],
+        bgn_de,
+        end_de,
+        timings_ms=timings_ms,
+    )
     _mark("fetch_decisions", stage_started_at)
     # 결정 ↔ 결과 사이클 매칭 — main_report_date / trust_contract_date 키
     cycle_matched = _link_cycles(bundles)

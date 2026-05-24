@@ -6,8 +6,10 @@
 - 8개 핵심 tool에 `data.timings_ms` stage timing을 노출했다.
 - 표본: `LG화학`, `삼성전자`, `KT&G` 3개 회사 × 8개 tool.
 - 빠른 축: `company` 180-462ms, `shareholder_meeting_notice` 373-574ms, `financial_metrics` 377-446ms, `ownership_structure` 456-585ms.
-- 느린 축: `dividend` 1.7-3.1s, `treasury_share` 1.0-2.7s.
-- 반복 병목: `dividend.decision_details`, `treasury_share.fetch_decisions`.
+- 2026-05-24 후속 fix 후 빠른 축: `company` 202-447ms, `shareholder_meeting_notice` 361-533ms, `financial_metrics` 371-429ms, `ownership_structure` 398-457ms.
+- 후속 fix 후 느린 축: `dividend` 1.1-1.9s, `treasury_share` 0.69-0.92s.
+- `treasury_share`는 결과보고서 검색을 전체 공시(`pblntf_ty=""`)에서 `B/I/E` title scan 1회로 변경하고 DS005 API 호출과 병렬화해 삼성전자 2.7s급 경로를 약 0.9s로 낮췄다.
+- 남은 반복 병목: `dividend.summary_and_filings`, `dividend.capital_reserve_detection`, `treasury_share.fetch_decisions`.
 - 근거 파일: `wiki/architecture/audits/data/260524_tool_timing_audit.json`.
 
 이번 audit에서 실제로 반영된 성능 개선은 5건입니다.
