@@ -271,6 +271,13 @@ async def build_value_up_payload(
             },
         ).to_dict()
 
+    async def timed_call(stage: str, coro):
+        started_at = time.perf_counter()
+        try:
+            return await coro
+        finally:
+            _mark(stage, started_at)
+
     selected = resolution.selected
     target_year = year or date.today().year
     explicit_window = bool(start_date or end_date)
@@ -286,10 +293,13 @@ async def build_value_up_payload(
     requested_bgn = format_yyyymmdd(window_start)
     requested_end = format_yyyymmdd(window_end)
     stage_started_at = time.perf_counter()
-    items, search_notices, search_error = await _search_value_up_items(
-        selected["corp_code"],
-        bgn_de=requested_bgn,
-        end_de=requested_end,
+    items, search_notices, search_error = await timed_call(
+        "dart_search.requested_window",
+        _search_value_up_items(
+            selected["corp_code"],
+            bgn_de=requested_bgn,
+            end_de=requested_end,
+        ),
     )
     _mark("dart_search", stage_started_at)
     warnings.extend(search_notices)
@@ -311,11 +321,14 @@ async def build_value_up_payload(
     kind_search_error: str | None = None
     if not items:
         stage_started_at = time.perf_counter()
-        kind_items, kind_search_error = await _search_kind_value_up_items(
-            selected.get("stock_code", ""),
-            selected.get("corp_name", company_query),
-            bgn_de=requested_bgn,
-            end_de=requested_end,
+        kind_items, kind_search_error = await timed_call(
+            "kind_search.requested_window",
+            _search_kind_value_up_items(
+                selected.get("stock_code", ""),
+                selected.get("corp_name", company_query),
+                bgn_de=requested_bgn,
+                end_de=requested_end,
+            ),
         )
         _mark("kind_search", stage_started_at)
 
@@ -323,20 +336,28 @@ async def build_value_up_payload(
         diagnostic_bgn = f"{target_year - 2}0101"
         diagnostic_end = f"{target_year}1231"
         # DART 진단검색과 KIND 진단검색은 independent → 병렬.
-        diag_dart_task = _search_value_up_items(
-            selected["corp_code"],
-            bgn_de=diagnostic_bgn,
-            end_de=diagnostic_end,
+        diag_dart_task = timed_call(
+            "diagnostic_search.dart",
+            _search_value_up_items(
+                selected["corp_code"],
+                bgn_de=diagnostic_bgn,
+                end_de=diagnostic_end,
+            ),
         )
-        diag_kind_task = _search_kind_value_up_items(
-            selected.get("stock_code", ""),
-            selected.get("corp_name", company_query),
-            bgn_de=diagnostic_bgn,
-            end_de=diagnostic_end,
+        diag_kind_task = timed_call(
+            "diagnostic_search.kind",
+            _search_kind_value_up_items(
+                selected.get("stock_code", ""),
+                selected.get("corp_name", company_query),
+                bgn_de=diagnostic_bgn,
+                end_de=diagnostic_end,
+            ),
         )
+        stage_started_at = time.perf_counter()
         (diagnostic_items, diagnostic_notices, diagnostic_error), (diagnostic_kind_items, diagnostic_kind_error) = await asyncio.gather(
             diag_dart_task, diag_kind_task,
         )
+        _mark("diagnostic_search", stage_started_at)
         warnings.extend(diagnostic_notices)
         diagnostics = {
             "requested_window": {
