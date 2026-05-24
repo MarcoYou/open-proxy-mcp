@@ -11,7 +11,8 @@
 - `treasury_share`는 결과보고서 검색을 전체 공시(`pblntf_ty=""`)에서 `B/I/E` title scan 1회로 변경하고 DS005 API 호출과 병렬화해 삼성전자 2.7s급 경로를 약 0.9s로 낮췄다.
 - `dividend`는 선배당/감액배당 메타 detection과 과거 연도 `alotMatter` 호출을 앞당겨 summary/filing 경로와 겹치게 했다.
 - `dividend.summary_and_filings` 병목은 `search_filings`로 확인되어, `list.json` page 2 이후 fetch를 병렬화했다.
-- 남은 반복 병목: `dividend.summary_and_filings`, `treasury_share.fetch_decisions`.
+- `corp_gov_report.filings_and_company_info`는 이미 company_info와 filings 검색이 병렬이며, 세분화 결과 병목은 `fetch_latest_reports` title scan으로 확인했다.
+- 남은 반복 병목: `dividend.summary_and_filings`, `treasury_share.fetch_decisions`, `corp_gov_report.fetch_latest_reports`.
 - 근거 파일: `wiki/architecture/audits/data/260524_tool_timing_audit.json`.
 
 이번 audit에서 실제로 반영된 성능 개선은 8건입니다.

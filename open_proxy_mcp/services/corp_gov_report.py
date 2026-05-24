@@ -358,12 +358,25 @@ async def build_corp_gov_report_payload(
             },
         ).to_dict()
 
+    async def timed_call(stage: str, coro):
+        started_at = time.perf_counter()
+        try:
+            return await coro
+        finally:
+            _mark(stage, started_at)
+
     selected = resolution.selected
     corp_code = selected["corp_code"]
 
     # filings 검색과 company_info 조회는 independent — 병렬 실행.
-    filings_task = _fetch_latest_reports(corp_code, years=4)
-    info_task = client.get_company_info(corp_code)
+    filings_task = timed_call(
+        "filings_and_company_info.fetch_latest_reports",
+        _fetch_latest_reports(corp_code, years=4),
+    )
+    info_task = timed_call(
+        "filings_and_company_info.company_info",
+        client.get_company_info(corp_code),
+    )
     stage_started_at = time.perf_counter()
     filings_result, info_result = await asyncio.gather(
         filings_task, info_task, return_exceptions=True,
