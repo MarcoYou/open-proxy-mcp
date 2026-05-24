@@ -31,6 +31,8 @@ def register_tools(mcp):
         start_date: str = "",
         end_date: str = "",
         lookback_months: int = 12,
+        include_coverage: bool = False,
+        rcept_no: str = "",
         format: str = "md",
     ) -> str:
         """desc: 주주총회 **소집공고** (사전, DART API/XML). 안건·이사 후보·보수한도·정관변경.
@@ -38,6 +40,8 @@ def register_tools(mcp):
         rule: 회사 식별 exact만 자동 선택. 정정공시 있으면 최신 정정본 자동 선택.
         meeting_type: `auto`(정기/임시 최신 회차 자동) / `annual` / `extraordinary`
         scope: `summary` 메타+안건+1호 메타 / `board` 이사·감사 후보 / `compensation` 보수한도 / `aoi_change` 정관+퇴직금 변경 raw / `prov_financials` 잠정 재무제표 4 quadrant
+        include_coverage: true면 조회 구간 내 정기/임시 주총 존재 여부를 추가 계산(느려질 수 있음). 기본 false.
+        rcept_no: 이미 소집공고 접수번호를 알면 회사/후보 검색을 건너뛰고 직접 파싱.
         ref: company, ownership_structure, proxy_contest, shareholder_meeting_results, proxy_advise_before_meeting, evidence
         """
         # 260505 ralph: deprecated scopes (agenda, full) — silent fallback to summary
@@ -53,6 +57,8 @@ def register_tools(mcp):
             start_date=start_date,
             end_date=end_date,
             lookback_months=lookback_months,
+            include_coverage=include_coverage,
+            rcept_no=rcept_no,
         )
         if format == "json":
             return as_pretty_json(payload)

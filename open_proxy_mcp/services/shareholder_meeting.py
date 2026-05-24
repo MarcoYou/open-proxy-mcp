@@ -6,6 +6,7 @@ import asyncio
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 import re
+import time
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -43,6 +44,15 @@ _MEETING_TYPE_MAP = {
 }
 _ALLOWED_MEETING_TYPES = {"auto", "annual", "extraordinary"}
 _NOTICE_LEAD_BUFFER_DAYS = 90
+_SUMMARY_MEETING_INFO_KEYS = {
+    "meeting_type",
+    "meeting_term",
+    "is_correction",
+    "datetime",
+    "location",
+    "report_items",
+    "toc",
+}
 
 
 class _RequestLocalSoupFactory:
@@ -100,6 +110,13 @@ def _agenda_nodes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "children": _agenda_nodes(item.get("children", [])),
         })
     return nodes
+
+
+def _compact_meeting_info(info: dict[str, Any], scope: str) -> dict[str, Any]:
+    """summary 응답에서는 긴 안내문을 빼고 주총 식별 필드만 남긴다."""
+    if scope != "summary":
+        return info
+    return {key: value for key, value in info.items() if key in _SUMMARY_MEETING_INFO_KEYS}
 
 
 def _flatten_agendas(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -937,57 +954,41 @@ async def build_shareholder_meeting_payload(
     start_date: str = "",
     end_date: str = "",
     lookback_months: int = 12,
+    include_coverage: bool = False,
+    rcept_no: str = "",
 ) -> dict[str, Any]:
     """주총 summary/agenda facade."""
 
+    total_started_at = time.perf_counter()
+    timings_ms: dict[str, int] = {}
+
+    def _mark(stage: str, started_at: float) -> None:
+        timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
-
-    _client = get_dart_client()
-    _calls_start = _client.api_call_snapshot()
-    resolution = await resolve_company_query(company_query)
-    if resolution.status == AnalysisStatus.AMBIGUOUS:
-        envelope = ToolEnvelope(
-            tool="shareholder_meeting",
-            status=AnalysisStatus.AMBIGUOUS,
-            subject=company_query,
-            warnings=["회사 식별이 애매해 주총 공시를 자동 선택하지 않았다."],
-            data={
-                "query": company_query,
-                "meeting_type": meeting_type,
-                "scope": scope,
-                "candidates": [
-                    {
-                        "company_id": _company_id(corp),
-                        "corp_name": corp.get("corp_name", ""),
-                        "ticker": corp.get("stock_code", ""),
-                        "corp_code": corp.get("corp_code", ""),
-                    }
-                    for corp in resolution.candidates[:10]
-                ],
-                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
-            },
-            next_actions=["ticker 또는 corp_code로 다시 조회"],
-        )
-        return envelope.to_dict()
-
-    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+    rcept_no = (rcept_no or "").strip()
+    if rcept_no and (len(rcept_no) != 14 or not rcept_no.isdigit()):
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         envelope = ToolEnvelope(
             tool="shareholder_meeting",
             status=AnalysisStatus.ERROR,
             subject=company_query,
-            warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
+            warnings=[f"rcept_no=`{rcept_no}`는 14자리 숫자 형식이어야 한다."],
             data={
                 "query": company_query,
+                "rcept_no": rcept_no,
                 "meeting_type": meeting_type,
                 "scope": scope,
-                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
-            next_actions=["company tool로 먼저 회사 식별 확인"],
         )
         return envelope.to_dict()
 
+    _client = get_dart_client()
+    _calls_start = _client.api_call_snapshot()
     if meeting_type not in _ALLOWED_MEETING_TYPES:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         envelope = ToolEnvelope(
             tool="shareholder_meeting",
             status=AnalysisStatus.ERROR,
@@ -998,13 +999,13 @@ async def build_shareholder_meeting_payload(
                 "meeting_type": meeting_type,
                 "scope": scope,
                 "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
         )
         return envelope.to_dict()
 
     target_year = year
     soup_cache: dict[tuple[str, str, Any], Any] = {}
-    selected = resolution.selected
     requested_window_start, requested_window_end, window_warnings = _selection_window(
         target_year,
         start_date=start_date,
@@ -1012,33 +1013,113 @@ async def build_shareholder_meeting_payload(
         lookback_months=lookback_months,
     )
 
-    try:
-        selected_candidate, alternative_meetings, selection_basis, candidate_error, candidate_notices = await _select_notice_candidate(
-            selected["corp_code"],
-            target_year,
-            meeting_type,
-            scope,
-            start_date=start_date,
-            end_date=end_date,
-            lookback_months=lookback_months,
-        )
-    except DartClientError as exc:
-        envelope = ToolEnvelope(
-            tool="shareholder_meeting",
-            status=AnalysisStatus.ERROR,
-            subject=selected.get("corp_name", company_query),
-            warnings=[f"DART 공시 검색 실패: {exc.status}"],
-            data={
-                "query": company_query,
-                "meeting_type": meeting_type,
-                "scope": scope,
-                "year": target_year,
-                "usage": build_usage(_client.api_call_snapshot() - _calls_start),
-            },
-        )
-        return envelope.to_dict()
+    if rcept_no:
+        selected = {"corp_name": company_query, "stock_code": "", "corp_code": ""}
+        latest_notice = {
+            "rcept_no": rcept_no,
+            "report_name": "주주총회소집공고",
+            "disclosure_date": rcept_no[:8],
+            "filer_name": company_query,
+        }
+        selected_candidate = {
+            "meeting_type": meeting_type if meeting_type != "auto" else "annual",
+            "meeting_type_label": _MEETING_TYPE_MAP.get(meeting_type, ""),
+            "notice": latest_notice,
+            "meeting_date": None,
+            "result_search_year": target_year or int(rcept_no[:4]),
+            "result_filing": None,
+            "result_filing_warning": None,
+            "result_reference": None,
+            "meeting_phase": "undetermined",
+            "result_status": "unknown",
+            "search_notices": [],
+        }
+        alternative_meetings = []
+        selection_basis = "rcept_no가 제공되어 해당 소집공고를 직접 파싱했다."
+        candidate_error = None
+        candidate_notices = []
+    else:
+        stage_started_at = time.perf_counter()
+        resolution = await resolve_company_query(company_query)
+        _mark("resolve_company", stage_started_at)
+        if resolution.status == AnalysisStatus.AMBIGUOUS:
+            timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+            envelope = ToolEnvelope(
+                tool="shareholder_meeting",
+                status=AnalysisStatus.AMBIGUOUS,
+                subject=company_query,
+                warnings=["회사 식별이 애매해 주총 공시를 자동 선택하지 않았다."],
+                data={
+                    "query": company_query,
+                    "meeting_type": meeting_type,
+                    "scope": scope,
+                    "candidates": [
+                        {
+                            "company_id": _company_id(corp),
+                            "corp_name": corp.get("corp_name", ""),
+                            "ticker": corp.get("stock_code", ""),
+                            "corp_code": corp.get("corp_code", ""),
+                        }
+                        for corp in resolution.candidates[:10]
+                    ],
+                    "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+                    "timings_ms": timings_ms,
+                },
+                next_actions=["ticker 또는 corp_code로 다시 조회"],
+            )
+            return envelope.to_dict()
+
+        if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+            timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+            envelope = ToolEnvelope(
+                tool="shareholder_meeting",
+                status=AnalysisStatus.ERROR,
+                subject=company_query,
+                warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
+                data={
+                    "query": company_query,
+                    "meeting_type": meeting_type,
+                    "scope": scope,
+                    "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+                    "timings_ms": timings_ms,
+                },
+                next_actions=["company tool로 먼저 회사 식별 확인"],
+            )
+            return envelope.to_dict()
+
+        selected = resolution.selected
+        try:
+            stage_started_at = time.perf_counter()
+            selected_candidate, alternative_meetings, selection_basis, candidate_error, candidate_notices = await _select_notice_candidate(
+                selected["corp_code"],
+                target_year,
+                meeting_type,
+                scope,
+                start_date=start_date,
+                end_date=end_date,
+                lookback_months=lookback_months,
+            )
+            _mark("select_notice_candidate", stage_started_at)
+        except DartClientError as exc:
+            timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+            envelope = ToolEnvelope(
+                tool="shareholder_meeting",
+                status=AnalysisStatus.ERROR,
+                subject=selected.get("corp_name", company_query),
+                warnings=[f"DART 공시 검색 실패: {exc.status}"],
+                data={
+                    "query": company_query,
+                    "meeting_type": meeting_type,
+                    "scope": scope,
+                    "year": target_year,
+                    "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+                    "timings_ms": timings_ms,
+                },
+            )
+            return envelope.to_dict()
 
     if not selected_candidate:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         # 회사 식별이 정상이고 DART 검색이 성공했지만 주총 소집공고가 없는 경우는
         # 사건 자체가 없는 정상 케이스 (NO_FILING). 호출이 실제 실패한 경우는 ERROR.
         no_filing_meta = build_filing_meta(filing_count=0, parsing_failures=0)
@@ -1060,6 +1141,7 @@ async def build_shareholder_meeting_payload(
                 },
                 **no_filing_meta,
                 "usage": build_usage(_client.api_call_snapshot() - _calls_start),
+                "timings_ms": timings_ms,
             },
             next_actions=["meeting_type 또는 year를 바꿔 재조회"],
         )
@@ -1074,21 +1156,48 @@ async def build_shareholder_meeting_payload(
     result_filing_warning = selected_candidate["result_filing_warning"]
     coverage_anchor_end = requested_window_end if (start_date or end_date or not target_year) else (selected_meeting_date or date.today())
     coverage_anchor_start = requested_window_start if (start_date or end_date or not target_year) else (coverage_anchor_end - timedelta(days=365))
-    coverage_12m = await _meeting_window_coverage(
-        selected["corp_code"],
-        coverage_anchor_start,
-        coverage_anchor_end,
-        months=lookback_months if (start_date or end_date or not target_year) else 12,
-    )
+    coverage_12m = None
+    if include_coverage and selected.get("corp_code"):
+        stage_started_at = time.perf_counter()
+        coverage_12m = await _meeting_window_coverage(
+            selected["corp_code"],
+            coverage_anchor_start,
+            coverage_anchor_end,
+            months=lookback_months if (start_date or end_date or not target_year) else 12,
+        )
+        _mark("coverage_search", stage_started_at)
 
+    stage_started_at = time.perf_counter()
     parsed_notice, parse_warnings, notice_parse_source = await _load_notice_bundle_with_fallback(
         latest_notice["rcept_no"],
         scope=scope,
         soup_cache=soup_cache,
     )
+    _mark("load_notice_bundle", stage_started_at)
     text = parsed_notice["text"]
     html = parsed_notice["html"]
     meeting_info = parsed_notice["meeting_info"]
+    if rcept_no:
+        latest_notice = _normalize_notice_row(
+            {
+                "rcept_no": rcept_no,
+                "report_nm": "주주총회소집공고",
+                "rcept_dt": rcept_no[:8],
+                "flr_nm": company_query,
+            },
+            meeting_info,
+        )
+        selected_candidate["notice"] = latest_notice
+        selected_candidate["meeting_date"] = _parse_notice_meeting_date(latest_notice.get("datetime", ""))
+        selected_candidate["meeting_phase"], selected_candidate["result_status"] = _meeting_phase(latest_notice, None, None)
+        parsed_meeting_type = latest_notice.get("meeting_type")
+        if parsed_meeting_type == _MEETING_TYPE_MAP["extraordinary"]:
+            selected_candidate["meeting_type"] = "extraordinary"
+        elif parsed_meeting_type == _MEETING_TYPE_MAP["annual"]:
+            selected_candidate["meeting_type"] = "annual"
+        selected_meeting_type = selected_candidate["meeting_type"]
+        meeting_phase = selected_candidate["meeting_phase"]
+        result_status = selected_candidate["result_status"]
     agenda = parsed_notice["agenda"]
     agenda_valid = parsed_notice["agenda_valid"]
     board = parsed_notice["board"]
@@ -1148,7 +1257,7 @@ async def build_shareholder_meeting_payload(
         },
         "notice": latest_notice,
         "notice_parse_source": notice_parse_source,
-        "meeting_info": meeting_info,
+        "meeting_info": _compact_meeting_info(meeting_info, scope),
         "meeting_phase": meeting_phase,
         "result_status": result_status,
         "agenda_summary": agenda_summary,
@@ -1158,8 +1267,9 @@ async def build_shareholder_meeting_payload(
         "available_scopes": ["summary", "board", "compensation", "aoi_change", "prov_financials"],
         "selected_meeting": _candidate_meta(selected_candidate),
         "alternative_meetings": alternative_meetings,
-        "meeting_coverage_12m": coverage_12m,
     }
+    if coverage_12m is not None:
+        data["meeting_coverage_12m"] = coverage_12m
     if result_reference:
         data["result_reference"] = result_reference
     if correction:
@@ -1312,7 +1422,9 @@ async def build_shareholder_meeting_payload(
             )
         )
 
+    timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
     data["usage"] = build_usage(_client.api_call_snapshot() - _calls_start)
+    data["timings_ms"] = timings_ms
 
     envelope = ToolEnvelope(
         tool="shareholder_meeting",

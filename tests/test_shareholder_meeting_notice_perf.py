@@ -1,0 +1,217 @@
+import asyncio
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from open_proxy_mcp.services import shareholder_meeting as sm
+from open_proxy_mcp.services.company import CompanyResolution
+from open_proxy_mcp.services.contracts import AnalysisStatus
+
+
+class FakeClient:
+    def __init__(self):
+        self.calls = 0
+
+    def api_call_snapshot(self):
+        return self.calls
+
+
+def _fake_resolution():
+    return CompanyResolution(
+        status=AnalysisStatus.EXACT,
+        query="LG화학",
+        selected={
+            "corp_name": "LG화학",
+            "stock_code": "051910",
+            "corp_code": "00356361",
+        },
+        candidates=[],
+    )
+
+
+def _fake_candidate():
+    notice = {
+        "rcept_no": "20260224004273",
+        "report_name": "주주총회소집공고",
+        "disclosure_date": "20260224",
+        "filer_name": "LG화학",
+        "meeting_type": "정기",
+        "meeting_term": "제25기",
+        "is_correction": False,
+        "datetime": "2026년 3월 31일 (화) 오전 9시",
+        "location": "서울특별시 영등포구 여의대로 128",
+    }
+    return {
+        "meeting_type": "annual",
+        "meeting_type_label": "정기",
+        "notice": notice,
+        "meeting_date": None,
+        "result_search_year": 2026,
+        "result_filing": None,
+        "result_filing_warning": None,
+        "result_reference": None,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing",
+        "search_notices": [],
+    }
+
+
+def _fake_parsed_notice():
+    return (
+        {
+            "text": "mock",
+            "html": "<html></html>",
+            "meeting_info": {
+                "meeting_type": "정기",
+                "meeting_term": "제25기",
+                "datetime": "2026년 3월 31일 (화) 오전 9시",
+                "location": "서울특별시 영등포구 여의대로 128",
+                "electronic_voting": "very long electronic voting guide",
+                "online_broadcast": "very long online broadcast guide",
+                "report_items": ["감사보고"],
+            },
+            "agenda": [
+                {
+                    "agenda_id": "1",
+                    "number": "제1호",
+                    "title": "제25기 재무제표 승인의 건",
+                    "children": [],
+                }
+            ],
+            "agenda_valid": True,
+            "board": {"summary": {}},
+            "compensation": {"summary": {}},
+            "correction": None,
+        },
+        [],
+        "dart_xml",
+    )
+
+
+def test_explicit_annual_summary_skips_coverage_by_default(monkeypatch):
+    monkeypatch.setattr(sm, "get_dart_client", lambda: FakeClient())
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_select(*_args, **_kwargs):
+        return _fake_candidate(), [], "basis", None, []
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    async def fail_coverage(*_args, **_kwargs):
+        raise AssertionError("coverage search should be lazy for explicit annual summary")
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "_select_notice_candidate", fake_select)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+    monkeypatch.setattr(sm, "_meeting_window_coverage", fail_coverage)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    assert payload["status"] == "exact"
+    assert "meeting_coverage_12m" not in payload["data"]
+
+
+def test_summary_payload_exposes_stage_timings(monkeypatch):
+    monkeypatch.setattr(sm, "get_dart_client", lambda: FakeClient())
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_select(*_args, **_kwargs):
+        return _fake_candidate(), [], "basis", None, []
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "_select_notice_candidate", fake_select)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    timings = payload["data"]["timings_ms"]
+    assert timings["total"] >= 0
+    assert "resolve_company" in timings
+    assert "select_notice_candidate" in timings
+    assert "load_notice_bundle" in timings
+
+
+def test_rcept_no_fast_path_skips_company_and_candidate_search(monkeypatch):
+    monkeypatch.setattr(sm, "get_dart_client", lambda: FakeClient())
+
+    async def fail_resolve(*_args, **_kwargs):
+        raise AssertionError("rcept_no fast path should not resolve company")
+
+    async def fail_select(*_args, **_kwargs):
+        raise AssertionError("rcept_no fast path should not search candidates")
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    monkeypatch.setattr(sm, "resolve_company_query", fail_resolve)
+    monkeypatch.setattr(sm, "_select_notice_candidate", fail_select)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            rcept_no="20260224004273",
+        )
+    )
+
+    assert payload["status"] == "exact"
+    assert payload["data"]["notice"]["rcept_no"] == "20260224004273"
+    assert payload["data"]["selection_basis"] == "rcept_no가 제공되어 해당 소집공고를 직접 파싱했다."
+
+
+def test_summary_omits_verbose_meeting_guides(monkeypatch):
+    monkeypatch.setattr(sm, "get_dart_client", lambda: FakeClient())
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_select(*_args, **_kwargs):
+        return _fake_candidate(), [], "basis", None, []
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "_select_notice_candidate", fake_select)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    meeting_info = payload["data"]["meeting_info"]
+    assert "electronic_voting" not in meeting_info
+    assert "online_broadcast" not in meeting_info
+    assert meeting_info["datetime"] == "2026년 3월 31일 (화) 오전 9시"

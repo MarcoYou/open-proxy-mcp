@@ -7,7 +7,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 
 # shareholder_meeting_notice
 
-주총 **소집공고** 공시 데이터 (사전 — DART API/XML). 빠르고 안정 (0.5-1.5s).
+주총 **소집공고** 공시 데이터 (사전 — DART API/XML). 빠르고 안정 (0.5-1.5s). 2026-05-24부터 summary 기본 응답은 경량화하고, stage별 `timings_ms`를 노출한다.
 
 ## 분리 배경 (2026-05-04)
 
@@ -21,7 +21,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 
 | scope | 데이터 | 시간 |
 |---|---|---|
-| `summary` (default) | 메타 + 정정공시 cover + **안건 hierarchy (number+title+children)** + **1호 안건 메타 (회기/사업연도/배당 예정액)** | 0.5s |
+| `summary` (default) | 메타 + 정정공시 cover + **안건 hierarchy (number+title+children)** + **1호 안건 메타 (회기/사업연도/배당 예정액)**. 긴 전자투표/온라인중계 안내문은 기본 제외. | 0.5s |
 | `board` | 이사·감사 후보 + 경력 (raw) | 0.5s |
 | `compensation` | 보수한도 안건 + 소진율 | 0.5s |
 | `aoi_change` | 정관변경 (변경 전/후/사유) **+ 퇴직금 변경 raw** (260505 통합) | 0.5s |
@@ -42,6 +42,15 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 - DART XML 본문 (rcept_no → viewer_url)
 - 정정공시 자동 선택 (rcept_no rank — 최신 정정 우선)
 
+## 성능/디버깅 옵션 (2026-05-24)
+
+| 옵션/필드 | 의미 |
+|---|---|
+| `include_coverage=false` (default) | 명시적 `annual`/`extraordinary` 조회에서 최근 12개월 정기/임시 coverage 재검색을 생략. 정기/임시 판별은 선택된 소집공고 본문으로 계속 수행. |
+| `include_coverage=true` | `meeting_coverage_12m`를 추가 계산. 최근 정기/임시 주총 존재 여부가 필요한 경우에만 사용. |
+| `rcept_no` | 이미 소집공고 접수번호를 알면 회사 식별/후보 검색을 건너뛰고 해당 원문을 직접 파싱. 리포트 재현과 timeout fallback에 유용. |
+| `data.timings_ms` | `resolve_company`, `select_notice_candidate`, `coverage_search`, `load_notice_bundle`, `total` 등 stage별 소요 시간(ms). 병목 원인 확인용. |
+
 ## 사용 예
 
 ```
@@ -49,6 +58,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 "LG화학 사외이사 후보 명단"
 "카카오 보수한도 인상률 정보"
 "현대차 정관변경 변경 전/후 비교"
+"LG화학 주총소집공고 rcept_no=20260224004273으로 다시 파싱해줘"
 ```
 
 ## ref
