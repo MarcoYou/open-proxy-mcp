@@ -15,6 +15,7 @@
 - `value_up.dart_search`는 세분화 결과 100-140ms 수준이라 현재 병목이 아니다.
 - 남은 반복 병목: `dividend.summary_and_filings`, `treasury_share.fetch_decisions`.
 - 근거 파일: `wiki/architecture/audits/data/260524_tool_timing_audit.json`.
+- 회고: [[perf-timing-260524]]
 
 이번 audit에서 실제로 반영된 성능 개선은 9건입니다.
 - `shareholder_meeting` 계열의 request-local soup 재사용

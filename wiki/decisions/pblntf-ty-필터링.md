@@ -63,4 +63,4 @@ matches = [i for i in result["list"] if any(kw in i["report_nm"] for kw in _DIV_
 
 ## 관련
 
-[[대량보유상황보고서]] [[위임장권유참고서류]] [[현금배당결정]] [[배당공시유형]]
+[[대량보유상황보고서]] [[위임장권유참고서류]] [[현금배당결정]] [[배당공시유형]] [[perf-timing-260524]]
