@@ -85,3 +85,23 @@ def test_dividend_meta_detections_run_concurrently(monkeypatch):
     timings = payload["data"]["timings_ms"]
     assert "pre_dividend_detection" in timings
     assert "capital_reserve_detection" in timings
+
+
+def test_dividend_summary_and_filings_exposes_nested_timings(monkeypatch):
+    monkeypatch.setattr(dv, "get_dart_client", lambda: FakeClient())
+    monkeypatch.setattr(dv, "resolve_company_query", _fake_resolve)
+    monkeypatch.setattr(dv, "_annual_summary", _fake_annual_summary)
+    monkeypatch.setattr(dv, "_search_dividend_filings", _fake_search_dividend_filings)
+    monkeypatch.setattr(dv, "_decision_details", _fake_decision_details)
+    monkeypatch.setattr(dv, "_detect_pre_dividend_post_resolution", lambda *_args, **_kwargs: _async_pair(False, []))
+    monkeypatch.setattr(dv, "_detect_capital_reserve_reduction", lambda *_args, **_kwargs: _async_pair(False, []))
+
+    payload = asyncio.run(dv.build_dividend_payload("삼성전자", scope="summary", year=2025))
+
+    timings = payload["data"]["timings_ms"]
+    assert "summary_and_filings.annual_summary" in timings
+    assert "summary_and_filings.search_filings" in timings
+
+
+async def _async_pair(first, second):
+    return first, second

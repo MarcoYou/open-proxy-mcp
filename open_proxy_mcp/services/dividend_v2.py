@@ -466,6 +466,13 @@ async def build_dividend_payload(
             },
         ).to_dict()
 
+    async def timed_call(stage: str, coro):
+        started_at = time.perf_counter()
+        try:
+            return await coro
+        finally:
+            _mark(stage, started_at)
+
     selected = resolution.selected
     explicit_start = parse_date_param(start_date)
     explicit_end = parse_date_param(end_date)
@@ -544,8 +551,14 @@ async def build_dividend_payload(
     ]) if pending_years else None
 
     # latest_summary와 filings 검색은 independent — 병렬 호출.
-    latest_summary_task = _annual_summary(selected["corp_code"], target_year)
-    filings_task = _search_dividend_filings(selected["corp_code"], year_list[0], target_year)
+    latest_summary_task = timed_call(
+        "summary_and_filings.annual_summary",
+        _annual_summary(selected["corp_code"], target_year),
+    )
+    filings_task = timed_call(
+        "summary_and_filings.search_filings",
+        _search_dividend_filings(selected["corp_code"], year_list[0], target_year),
+    )
     stage_started_at = time.perf_counter()
     (latest_summary, summary_warning), (filings, filing_notices, filing_warning) = await asyncio.gather(
         latest_summary_task, filings_task,

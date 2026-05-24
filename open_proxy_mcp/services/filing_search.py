@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 from typing import Any, Iterable
 
@@ -99,7 +100,7 @@ async def fetch_filings_for_title_scan(
         total_pages = max(1, math.ceil(total_count / page_count)) if total_count else 1
         fetched_pages = min(total_pages, max_pages)
 
-        for page_no in range(2, fetched_pages + 1):
+        async def fetch_page(page_no: int) -> tuple[list[dict[str, Any]], str | None]:
             try:
                 page = await client.search_filings(
                     corp_code=corp_code,
@@ -111,8 +112,16 @@ async def fetch_filings_for_title_scan(
                     last_reprt_at=last_reprt_at,
                 )
             except DartClientError as exc:
-                return items, notices, exc.status
-            page_items.extend(page.get("list", []))
+                return [], exc.status
+            return list(page.get("list", [])), None
+
+        page_results = await asyncio.gather(*[
+            fetch_page(page_no) for page_no in range(2, fetched_pages + 1)
+        ]) if fetched_pages >= 2 else []
+        for page_rows, error in page_results:
+            if error:
+                return items, notices, error
+            page_items.extend(page_rows)
 
         if total_pages > max_pages:
             notices.append(
