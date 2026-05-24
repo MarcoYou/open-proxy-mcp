@@ -1,0 +1,997 @@
+{
+  "meta": {
+    "universe": "wiki/architecture/audits/data/260517_parsing_success_rate_audit/universe_kospi300.csv",
+    "generated_at": "2026-05-25",
+    "source_files": [
+      "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_top100_relation_live.json",
+      "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_101_150_relation_live.json",
+      "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_151_200_relation_live.json",
+      "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_201_250_relation_live.json",
+      "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_251_300_relation_live.json"
+    ]
+  },
+  "summary": {
+    "companies": 300,
+    "statuses": {
+      "exact": 294,
+      "no_filing": 3,
+      "requires_review": 3
+    },
+    "agenda_nodes": 3182,
+    "relation_distribution": {
+      "normal": 3004,
+      "cumulative_related": 139,
+      "conditional": 33,
+      "procedural": 2,
+      "alternative": 4
+    },
+    "non_normal_companies": 146,
+    "relation_company_counts": {
+      "alternative": 1,
+      "conditional": 20,
+      "cumulative_related": 138,
+      "procedural": 1
+    }
+  },
+  "batches": [
+    {
+      "file": "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_top100_relation_live.json",
+      "records": 100,
+      "summary": {
+        "companies": 100,
+        "status": {
+          "exact": 100
+        },
+        "relation_distribution": {
+          "normal": 1136,
+          "cumulative_related": 71,
+          "conditional": 16,
+          "procedural": 2,
+          "alternative": 4
+        },
+        "companies_with_non_normal_count": 74
+      }
+    },
+    {
+      "file": "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_101_150_relation_live.json",
+      "records": 50,
+      "summary": {
+        "companies": 50,
+        "status": {
+          "exact": 49,
+          "no_filing": 1
+        },
+        "relation_distribution": {
+          "normal": 519,
+          "cumulative_related": 23,
+          "conditional": 10
+        },
+        "companies_with_non_normal_count": 24
+      }
+    },
+    {
+      "file": "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_151_200_relation_live.json",
+      "records": 50,
+      "summary": {
+        "statuses": {
+          "exact": 49,
+          "requires_review": 1
+        },
+        "relation_distribution": {
+          "normal": 500,
+          "cumulative_related": 20,
+          "conditional": 4
+        },
+        "agenda_nodes": 524,
+        "non_normal_companies": 20
+      }
+    },
+    {
+      "file": "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_201_250_relation_live.json",
+      "records": 50,
+      "summary": {
+        "statuses": {
+          "exact": 47,
+          "requires_review": 2,
+          "no_filing": 1
+        },
+        "relation_distribution": {
+          "normal": 443,
+          "cumulative_related": 16,
+          "conditional": 1
+        },
+        "agenda_nodes": 460,
+        "non_normal_companies": 17
+      }
+    },
+    {
+      "file": "wiki/architecture/audits/data/260524_agenda_relation_corpus/relation_audit/kospi_251_300_relation_live.json",
+      "records": 50,
+      "summary": {
+        "statuses": {
+          "exact": 49,
+          "no_filing": 1
+        },
+        "relation_distribution": {
+          "normal": 406,
+          "cumulative_related": 9,
+          "conditional": 2
+        },
+        "agenda_nodes": 417,
+        "non_normal_companies": 11
+      }
+    }
+  ],
+  "problem_companies": [
+    {
+      "ticker": "001720",
+      "company": "신영증권",
+      "status": "no_filing",
+      "agenda_count": 0,
+      "warnings": [
+        "2026-01-01~2026-12-31 구간에 정기 주주총회 소집공고를 찾지 못했다."
+      ]
+    },
+    {
+      "ticker": "008770",
+      "company": "호텔신라",
+      "status": "requires_review",
+      "agenda_count": 0,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ]
+    },
+    {
+      "ticker": "036530",
+      "company": "SNT홀딩스",
+      "status": "requires_review",
+      "agenda_count": 5,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ]
+    },
+    {
+      "ticker": "009240",
+      "company": "한샘",
+      "status": "no_filing",
+      "agenda_count": 0,
+      "warnings": [
+        "2026-01-01~2026-12-31 구간에 정기 주주총회 소집공고를 찾지 못했다."
+      ]
+    },
+    {
+      "ticker": "195870",
+      "company": "해성디에스",
+      "status": "requires_review",
+      "agenda_count": 0,
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ]
+    },
+    {
+      "ticker": "950210",
+      "company": "프레스티지바이오파마",
+      "status": "no_filing",
+      "agenda_count": 0,
+      "warnings": [
+        "2026-01-01~2026-12-31 구간에 정기 주주총회 소집공고를 찾지 못했다."
+      ]
+    }
+  ],
+  "relation_companies_by_type": {
+    "cumulative_related": [
+      {
+        "ticker": "005930",
+        "company": "삼성전자",
+        "count": 1
+      },
+      {
+        "ticker": "000660",
+        "company": "SK하이닉스",
+        "count": 1
+      },
+      {
+        "ticker": "005380",
+        "company": "현대차",
+        "count": 1
+      },
+      {
+        "ticker": "373220",
+        "company": "LG에너지솔루션",
+        "count": 1
+      },
+      {
+        "ticker": "207940",
+        "company": "삼성바이오로직스",
+        "count": 1
+      },
+      {
+        "ticker": "012450",
+        "company": "한화에어로스페이스",
+        "count": 1
+      },
+      {
+        "ticker": "000270",
+        "company": "기아",
+        "count": 1
+      },
+      {
+        "ticker": "329180",
+        "company": "HD현대중공업",
+        "count": 1
+      },
+      {
+        "ticker": "068270",
+        "company": "셀트리온",
+        "count": 1
+      },
+      {
+        "ticker": "032830",
+        "company": "삼성생명",
+        "count": 1
+      },
+      {
+        "ticker": "028260",
+        "company": "삼성물산",
+        "count": 1
+      },
+      {
+        "ticker": "006400",
+        "company": "삼성SDI",
+        "count": 1
+      },
+      {
+        "ticker": "012330",
+        "company": "현대모비스",
+        "count": 1
+      },
+      {
+        "ticker": "006800",
+        "company": "미래에셋증권",
+        "count": 2
+      },
+      {
+        "ticker": "267260",
+        "company": "HD현대일렉트릭",
+        "count": 1
+      },
+      {
+        "ticker": "009150",
+        "company": "삼성전기",
+        "count": 1
+      },
+      {
+        "ticker": "035420",
+        "company": "NAVER",
+        "count": 1
+      },
+      {
+        "ticker": "005490",
+        "company": "POSCO홀딩스",
+        "count": 1
+      },
+      {
+        "ticker": "009540",
+        "company": "HD한국조선해양",
+        "count": 1
+      },
+      {
+        "ticker": "272210",
+        "company": "한화시스템",
+        "count": 1
+      },
+      {
+        "ticker": "010140",
+        "company": "삼성중공업",
+        "count": 1
+      },
+      {
+        "ticker": "298040",
+        "company": "효성중공업",
+        "count": 1
+      },
+      {
+        "ticker": "010120",
+        "company": "LS ELECTRIC",
+        "count": 1
+      },
+      {
+        "ticker": "034730",
+        "company": "SK",
+        "count": 1
+      },
+      {
+        "ticker": "064350",
+        "company": "현대로템",
+        "count": 1
+      },
+      {
+        "ticker": "051910",
+        "company": "LG화학",
+        "count": 1
+      },
+      {
+        "ticker": "000810",
+        "company": "삼성화재",
+        "count": 1
+      },
+      {
+        "ticker": "035720",
+        "company": "카카오",
+        "count": 1
+      },
+      {
+        "ticker": "096770",
+        "company": "SK이노베이션",
+        "count": 1
+      },
+      {
+        "ticker": "267250",
+        "company": "HD현대",
+        "count": 1
+      },
+      {
+        "ticker": "011200",
+        "company": "HMM",
+        "count": 1
+      },
+      {
+        "ticker": "003670",
+        "company": "포스코퓨처엠",
+        "count": 1
+      },
+      {
+        "ticker": "047810",
+        "company": "한국항공우주",
+        "count": 1
+      },
+      {
+        "ticker": "033780",
+        "company": "KT&G",
+        "count": 1
+      },
+      {
+        "ticker": "066570",
+        "company": "LG전자",
+        "count": 1
+      },
+      {
+        "ticker": "079550",
+        "company": "LIG디펜스앤에어로스페이스",
+        "count": 1
+      },
+      {
+        "ticker": "000720",
+        "company": "현대건설",
+        "count": 1
+      },
+      {
+        "ticker": "000150",
+        "company": "두산",
+        "count": 1
+      },
+      {
+        "ticker": "086280",
+        "company": "현대글로비스",
+        "count": 1
+      },
+      {
+        "ticker": "047050",
+        "company": "포스코인터내셔널",
+        "count": 1
+      },
+      {
+        "ticker": "003550",
+        "company": "LG",
+        "count": 1
+      },
+      {
+        "ticker": "0126Z0",
+        "company": "삼성에피스홀딩스",
+        "count": 1
+      },
+      {
+        "ticker": "010950",
+        "company": "S-Oil",
+        "count": 1
+      },
+      {
+        "ticker": "071050",
+        "company": "한국금융지주",
+        "count": 1
+      },
+      {
+        "ticker": "259960",
+        "company": "크래프톤",
+        "count": 1
+      },
+      {
+        "ticker": "018260",
+        "company": "삼성에스디에스",
+        "count": 1
+      },
+      {
+        "ticker": "352820",
+        "company": "하이브",
+        "count": 1
+      },
+      {
+        "ticker": "323410",
+        "company": "카카오뱅크",
+        "count": 1
+      },
+      {
+        "ticker": "005940",
+        "company": "NH투자증권",
+        "count": 1
+      },
+      {
+        "ticker": "039490",
+        "company": "키움증권",
+        "count": 1
+      },
+      {
+        "ticker": "307950",
+        "company": "현대오토에버",
+        "count": 1
+      },
+      {
+        "ticker": "003490",
+        "company": "대한항공",
+        "count": 1
+      },
+      {
+        "ticker": "000880",
+        "company": "한화",
+        "count": 1
+      },
+      {
+        "ticker": "016360",
+        "company": "삼성증권",
+        "count": 1
+      },
+      {
+        "ticker": "006260",
+        "company": "LS",
+        "count": 1
+      },
+      {
+        "ticker": "090430",
+        "company": "아모레퍼시픽",
+        "count": 1
+      },
+      {
+        "ticker": "011070",
+        "company": "LG이노텍",
+        "count": 1
+      },
+      {
+        "ticker": "180640",
+        "company": "한진칼",
+        "count": 1
+      },
+      {
+        "ticker": "028050",
+        "company": "삼성E&A",
+        "count": 1
+      },
+      {
+        "ticker": "047040",
+        "company": "대우건설",
+        "count": 1
+      },
+      {
+        "ticker": "267270",
+        "company": "HD건설기계",
+        "count": 1
+      },
+      {
+        "ticker": "161390",
+        "company": "한국타이어앤테크놀로지",
+        "count": 1
+      },
+      {
+        "ticker": "032640",
+        "company": "LG유플러스",
+        "count": 1
+      },
+      {
+        "ticker": "066970",
+        "company": "엘앤에프",
+        "count": 1
+      },
+      {
+        "ticker": "009830",
+        "company": "한화솔루션",
+        "count": 1
+      },
+      {
+        "ticker": "029780",
+        "company": "삼성카드",
+        "count": 1
+      },
+      {
+        "ticker": "034220",
+        "company": "LG디스플레이",
+        "count": 1
+      },
+      {
+        "ticker": "001040",
+        "company": "CJ",
+        "count": 1
+      },
+      {
+        "ticker": "064400",
+        "company": "LG씨엔에스",
+        "count": 1
+      },
+      {
+        "ticker": "001440",
+        "company": "대한전선",
+        "count": 1
+      },
+      {
+        "ticker": "021240",
+        "company": "코웨이",
+        "count": 1
+      },
+      {
+        "ticker": "036570",
+        "company": "NC",
+        "count": 1
+      },
+      {
+        "ticker": "002380",
+        "company": "KCC",
+        "count": 1
+      },
+      {
+        "ticker": "251270",
+        "company": "넷마블",
+        "count": 1
+      },
+      {
+        "ticker": "018880",
+        "company": "한온시스템",
+        "count": 1
+      },
+      {
+        "ticker": "010060",
+        "company": "OCI홀딩스",
+        "count": 1
+      },
+      {
+        "ticker": "051900",
+        "company": "LG생활건강",
+        "count": 1
+      },
+      {
+        "ticker": "000990",
+        "company": "DB하이텍",
+        "count": 1
+      },
+      {
+        "ticker": "111770",
+        "company": "영원무역",
+        "count": 1
+      },
+      {
+        "ticker": "011790",
+        "company": "SKC",
+        "count": 1
+      },
+      {
+        "ticker": "031210",
+        "company": "서울보증보험",
+        "count": 1
+      },
+      {
+        "ticker": "011170",
+        "company": "롯데케미칼",
+        "count": 1
+      },
+      {
+        "ticker": "097950",
+        "company": "CJ제일제당",
+        "count": 1
+      },
+      {
+        "ticker": "302440",
+        "company": "SK바이오사이언스",
+        "count": 1
+      },
+      {
+        "ticker": "012750",
+        "company": "에스원",
+        "count": 1
+      },
+      {
+        "ticker": "011780",
+        "company": "금호석유화학",
+        "count": 1
+      },
+      {
+        "ticker": "004170",
+        "company": "신세계",
+        "count": 1
+      },
+      {
+        "ticker": "023530",
+        "company": "롯데쇼핑",
+        "count": 1
+      },
+      {
+        "ticker": "004990",
+        "company": "롯데지주",
+        "count": 1
+      },
+      {
+        "ticker": "375500",
+        "company": "DL이앤씨",
+        "count": 1
+      },
+      {
+        "ticker": "103140",
+        "company": "풍산",
+        "count": 1
+      },
+      {
+        "ticker": "005850",
+        "company": "에스엘",
+        "count": 1
+      },
+      {
+        "ticker": "139480",
+        "company": "이마트",
+        "count": 1
+      },
+      {
+        "ticker": "004800",
+        "company": "효성",
+        "count": 1
+      },
+      {
+        "ticker": "000120",
+        "company": "CJ대한통운",
+        "count": 1
+      },
+      {
+        "ticker": "298020",
+        "company": "효성티앤씨",
+        "count": 1
+      },
+      {
+        "ticker": "069960",
+        "company": "현대백화점",
+        "count": 1
+      },
+      {
+        "ticker": "011210",
+        "company": "현대위아",
+        "count": 1
+      },
+      {
+        "ticker": "002790",
+        "company": "아모레퍼시픽홀딩스",
+        "count": 1
+      },
+      {
+        "ticker": "279570",
+        "company": "케이뱅크",
+        "count": 1
+      },
+      {
+        "ticker": "034230",
+        "company": "파라다이스",
+        "count": 1
+      },
+      {
+        "ticker": "006360",
+        "company": "GS건설",
+        "count": 1
+      },
+      {
+        "ticker": "120110",
+        "company": "코오롱인더",
+        "count": 1
+      },
+      {
+        "ticker": "001120",
+        "company": "LX인터내셔널",
+        "count": 1
+      },
+      {
+        "ticker": "282330",
+        "company": "BGF리테일",
+        "count": 1
+      },
+      {
+        "ticker": "004370",
+        "company": "농심",
+        "count": 1
+      },
+      {
+        "ticker": "003540",
+        "company": "대신증권",
+        "count": 1
+      },
+      {
+        "ticker": "000240",
+        "company": "한국앤컴퍼니",
+        "count": 1
+      },
+      {
+        "ticker": "003690",
+        "company": "코리안리",
+        "count": 1
+      },
+      {
+        "ticker": "012630",
+        "company": "HDC",
+        "count": 1
+      },
+      {
+        "ticker": "383220",
+        "company": "F&F",
+        "count": 1
+      },
+      {
+        "ticker": "361610",
+        "company": "SK아이이테크놀로지",
+        "count": 1
+      },
+      {
+        "ticker": "097230",
+        "company": "HJ중공업",
+        "count": 1
+      },
+      {
+        "ticker": "000210",
+        "company": "DL",
+        "count": 1
+      },
+      {
+        "ticker": "137310",
+        "company": "에스디바이오센서",
+        "count": 1
+      },
+      {
+        "ticker": "285130",
+        "company": "SK케미칼",
+        "count": 1
+      },
+      {
+        "ticker": "300720",
+        "company": "한일시멘트",
+        "count": 1
+      },
+      {
+        "ticker": "294870",
+        "company": "IPARK현대산업개발",
+        "count": 1
+      },
+      {
+        "ticker": "003240",
+        "company": "태광산업",
+        "count": 1
+      },
+      {
+        "ticker": "005300",
+        "company": "롯데칠성",
+        "count": 1
+      },
+      {
+        "ticker": "007310",
+        "company": "오뚜기",
+        "count": 1
+      },
+      {
+        "ticker": "000080",
+        "company": "하이트진로",
+        "count": 1
+      },
+      {
+        "ticker": "004000",
+        "company": "롯데정밀화학",
+        "count": 1
+      },
+      {
+        "ticker": "020560",
+        "company": "아시아나항공",
+        "count": 1
+      },
+      {
+        "ticker": "280360",
+        "company": "롯데웰푸드",
+        "count": 1
+      },
+      {
+        "ticker": "089860",
+        "company": "롯데렌탈",
+        "count": 1
+      },
+      {
+        "ticker": "001740",
+        "company": "SK네트웍스",
+        "count": 1
+      },
+      {
+        "ticker": "003530",
+        "company": "한화투자증권",
+        "count": 1
+      },
+      {
+        "ticker": "001510",
+        "company": "SK증권",
+        "count": 1
+      },
+      {
+        "ticker": "006650",
+        "company": "대한유화",
+        "count": 1
+      },
+      {
+        "ticker": "000400",
+        "company": "롯데손해보험",
+        "count": 1
+      },
+      {
+        "ticker": "002350",
+        "company": "넥센타이어",
+        "count": 1
+      },
+      {
+        "ticker": "001680",
+        "company": "대상",
+        "count": 1
+      },
+      {
+        "ticker": "003620",
+        "company": "KG모빌리티",
+        "count": 1
+      },
+      {
+        "ticker": "001500",
+        "company": "현대차증권",
+        "count": 1
+      },
+      {
+        "ticker": "017940",
+        "company": "E1",
+        "count": 1
+      },
+      {
+        "ticker": "005880",
+        "company": "대한해운",
+        "count": 1
+      },
+      {
+        "ticker": "079160",
+        "company": "CJ CGV",
+        "count": 1
+      }
+    ],
+    "conditional": [
+      {
+        "ticker": "402340",
+        "company": "SK스퀘어",
+        "count": 1
+      },
+      {
+        "ticker": "012330",
+        "company": "현대모비스",
+        "count": 4
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "count": 1
+      },
+      {
+        "ticker": "051910",
+        "company": "LG화학",
+        "count": 2
+      },
+      {
+        "ticker": "033780",
+        "company": "KT&G",
+        "count": 4
+      },
+      {
+        "ticker": "307950",
+        "company": "현대오토에버",
+        "count": 1
+      },
+      {
+        "ticker": "007660",
+        "company": "이수페타시스",
+        "count": 1
+      },
+      {
+        "ticker": "241560",
+        "company": "두산밥캣",
+        "count": 1
+      },
+      {
+        "ticker": "034220",
+        "company": "LG디스플레이",
+        "count": 1
+      },
+      {
+        "ticker": "021240",
+        "company": "코웨이",
+        "count": 5
+      },
+      {
+        "ticker": "010060",
+        "company": "OCI홀딩스",
+        "count": 1
+      },
+      {
+        "ticker": "051900",
+        "company": "LG생활건강",
+        "count": 1
+      },
+      {
+        "ticker": "004990",
+        "company": "롯데지주",
+        "count": 1
+      },
+      {
+        "ticker": "457190",
+        "company": "이수스페셜티케미컬",
+        "count": 1
+      },
+      {
+        "ticker": "005850",
+        "company": "에스엘",
+        "count": 1
+      },
+      {
+        "ticker": "011210",
+        "company": "현대위아",
+        "count": 3
+      },
+      {
+        "ticker": "000240",
+        "company": "한국앤컴퍼니",
+        "count": 1
+      },
+      {
+        "ticker": "005690",
+        "company": "파미셀",
+        "count": 1
+      },
+      {
+        "ticker": "058650",
+        "company": "세아홀딩스",
+        "count": 1
+      },
+      {
+        "ticker": "456040",
+        "company": "OCI",
+        "count": 1
+      }
+    ],
+    "procedural": [
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "count": 2
+      }
+    ],
+    "alternative": [
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "count": 4
+      }
+    ]
+  }
+}

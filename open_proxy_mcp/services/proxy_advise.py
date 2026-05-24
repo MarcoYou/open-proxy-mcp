@@ -1113,6 +1113,33 @@ def _policy_citation(category: str) -> str:
     return _POLICY_CITATIONS.get(category, _POLICY_CITATIONS["other"])
 
 
+def _cumulative_voting_threshold(title: str) -> dict[str, Any] | None:
+    """집중투표 최소 지분율 근사치.
+
+    m명 선임 시 보장 당선 문턱은 행사 의결권 기준 약 1/(m+1).
+    100% 출석·행사면 발행주식 대비도 같은 비율이고, 실제 보유지분
+    기준은 출석률을 곱해 낮아진다.
+    """
+    if not title:
+        return None
+    if "집중투표" not in title and "이사" not in title:
+        return None
+    match = re.search(r"(\d+)\s*인\s*선임", title)
+    if not match:
+        return None
+    seats = int(match.group(1))
+    if seats <= 0:
+        return None
+    threshold = round(100 / (seats + 1), 2)
+    return {
+        "seats_to_elect": seats,
+        "guaranteed_election_threshold_pct_of_votes_cast": threshold,
+        "full_attendance_shareholding_threshold_pct": threshold,
+        "actual_shareholding_threshold_formula": "attendance_rate_pct / (seats_to_elect + 1)",
+        "basis": "단순 근사: 1/(선임 이사 수+1), 행사 의결권 기준. 전원 출석·전원 행사 시 발행주식 대비 동일.",
+    }
+
+
 def _extract_facts(
     category: str,
     title: str,
@@ -1569,22 +1596,38 @@ async def build_proxy_advise_payload(
     agenda_summary = agenda_data.get("agenda_summary", {}) or {}
     agenda_tree = agenda_data.get("agendas") or []
 
-    def _flatten_agenda_titles(items: list) -> list[str]:
-        titles: list[str] = []
+    def _flatten_agenda_rows(items: list) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
         for it in items or []:
             title = (it.get("title") or "").strip() if isinstance(it, dict) else ""
             if title:
-                titles.append(title)
+                rows.append({
+                    "title": title,
+                    "agenda_id": it.get("agenda_id"),
+                    "agenda_relation_type": it.get("agenda_relation_type") or "normal",
+                    "agenda_relation_reasons": it.get("agenda_relation_reasons") or [],
+                    "proposer_type": it.get("proposer_type"),
+                    "source": it.get("source"),
+                    "conditional": it.get("conditional"),
+                })
             if isinstance(it, dict):
-                titles.extend(_flatten_agenda_titles(it.get("children") or []))
-        return titles
+                rows.extend(_flatten_agenda_rows(it.get("children") or []))
+        return rows
 
-    agenda_titles = _flatten_agenda_titles(agenda_tree) or agenda_summary.get("titles", []) or []
+    agenda_rows = _flatten_agenda_rows(agenda_tree)
+    if not agenda_rows:
+        agenda_rows = [
+            {"title": title, "agenda_relation_type": "normal", "agenda_relation_reasons": []}
+            for title in (agenda_summary.get("titles", []) or [])
+        ]
     # shareholder_meeting v2 agenda 미검출 시 director_evaluation의 본문 agenda fallback
-    if not agenda_titles:
+    if not agenda_rows:
         fallback_titles = (director_eval.get("data") or {}).get("agenda_titles_fallback", []) or []
         if fallback_titles:
-            agenda_titles = fallback_titles
+            agenda_rows = [
+                {"title": title, "agenda_relation_type": "normal", "agenda_relation_reasons": []}
+                for title in fallback_titles
+            ]
 
     # parent_title map: title → parent_title (agenda tree에서 추출)
     # title → children 수 map (D 패턴 식별용 — children 0 + 정관변경 top + amendments 있음)
@@ -1736,7 +1779,11 @@ async def build_proxy_advise_payload(
     _subagenda_attempted_mappings: dict[str, int] = {}  # sub title → mapped amendment idx (룰 매치 여부 무관)
     agenda_decisions: list[dict[str, Any]] = []
     stage_started_at = time.perf_counter()
-    for title in agenda_titles:
+    for agenda_row in agenda_rows:
+        title = agenda_row.get("title") or ""
+        agenda_relation_type = agenda_row.get("agenda_relation_type") or "normal"
+        agenda_relation_reasons = agenda_row.get("agenda_relation_reasons") or []
+        proposer_type = agenda_row.get("proposer_type")
         parent_for_title = title_to_parent.get(title, "")
         category = _classify_agenda(title, parent_title=parent_for_title)
         decision = "NO_DATA"
@@ -1933,6 +1980,26 @@ async def build_proxy_advise_payload(
                         if raw_excerpt:
                             reason += "\n\n📄 정관 본문 raw (LLM 직접 검토):\n" + "\n".join(raw_excerpt)
 
+        # 1.55. agenda relation metadata — 절차/대안형 안건은 후보평가 자동 FOR 금지.
+        # 법령 layer hit은 더 강한 근거이므로 우선한다.
+        if law_layer_hit is None and agenda_relation_type in {"procedural", "alternative", "conditional"}:
+            cumulative_threshold = _cumulative_voting_threshold(title)
+            if agenda_relation_type == "procedural":
+                decision = "REVIEW"
+                reason = "절차성 안건 — 후보 결격 평가로 자동 찬성하지 않고 표결 구조/선행 안건 확인 필요"
+            elif agenda_relation_type == "alternative":
+                decision = "REVIEW"
+                reason = "대안형/상호배타 가능 안건 — 관련 안건과 조건부 구조 확인 필요"
+            else:
+                decision = "REVIEW"
+                reason = "조건부 안건 — 선행 안건 결과와 효력 조건 확인 필요"
+            if cumulative_threshold:
+                reason += (
+                    f" (집중투표 필요최소지분율: 행사 의결권 기준 약 "
+                    f"{cumulative_threshold['guaranteed_election_threshold_pct_of_votes_cast']:.2f}%, "
+                    "전원 출석·행사 가정 시 발행주식 대비 동일)"
+                )
+
         # 1.6. 미catch 정관변경 안건 — amendments raw 첨부 (LLM 직접 검토용)
         # 조건: 정관변경 안건 (top 또는 sub) + amendments 있음 + 모든 fallback (title/body/sub) miss
         # → LLM이 raw 본문 보고 catch 못한 강행규정 정합 / 우회 신호 직접 판단
@@ -1988,7 +2055,7 @@ async def build_proxy_advise_payload(
         # 단 법령 layer hit 시는 vote_style 무시 (강행규정 일관성).
         policy_default = _policy_default(policy, category)
         original_decision, original_reason = decision, reason
-        if law_layer_hit is None:
+        if law_layer_hit is None and agenda_relation_type not in {"procedural", "alternative", "conditional"}:
             decision, reason = _apply_policy_default(policy_default, decision, reason)
 
         # 3. 정책 근거 명시 (공개 surface에서는 내부 운용사/NPS 식별자 비노출)
@@ -1998,12 +2065,19 @@ async def build_proxy_advise_payload(
         all_director_evals = list(name_to_eval.values()) if category in ("director_election", "audit_committee_election") else None
         facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, all_director_evals, retirement_payload=retirement_payload,
                                 fy_raw_from_agenda=fy_raw_from_agenda)
+        cumulative_threshold = _cumulative_voting_threshold(title)
+        if cumulative_threshold:
+            facts["cumulative_voting_threshold"] = cumulative_threshold
         risk_factors = _extract_risks(category, matched_eval, fin_metrics, meeting_comp, title, retirement_payload=retirement_payload)
         policy_citation = _policy_citation(category)
 
         agenda_decisions.append({
             "agenda_title": title,
             "agenda_category": category,
+            "agenda_id": agenda_row.get("agenda_id"),
+            "agenda_relation_type": agenda_relation_type,
+            "agenda_relation_reasons": agenda_relation_reasons,
+            "proposer_type": proposer_type,
             "decision": decision,
             "reason": reason,
             "facts": facts,
@@ -2055,7 +2129,7 @@ async def build_proxy_advise_payload(
         "vote_style_resolved": bool(policy),
         "audit_history_enabled": check_audit_history,
         "scope": scope,
-        "agenda_count": len(agenda_titles),
+        "agenda_count": len(agenda_rows),
         "agenda_decisions": agenda_decisions,
         "candidates_count": len(director_evals),
         "candidates_evaluations": director_evals,

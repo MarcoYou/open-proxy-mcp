@@ -39,9 +39,12 @@ def detect_meeting_type(text: str) -> str:
     - 300자: 98.49% (3 miss)
     - 500자: 100.00%
     """
-    raw_head = (text or "")[:2000]
-    head = re.sub(r"\s+", " ", raw_head)[:500]
-    if "임시" in head:
+    section = _extract_notice_section(text or "") or (text or "")
+    head = re.sub(r"\s+", " ", section[:1200])
+    heading_match = re.search(r'\(\s*제\s*\d+\s*기\s*(정기|임시)\s*\)', head)
+    if heading_match:
+        return "extraordinary" if heading_match.group(1) == "임시" else "annual"
+    if re.search(r'임시\s*주주총회', head):
         return "extraordinary"
     return "annual"
 
@@ -66,7 +69,10 @@ _AGENDA_BOUNDARY = (
     r'|\(제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안|안건)\s*\)'  # (제N호 의안) — 괄호형 안건만, 조건부 (제N호 인가되는 경우) 제외
     r'|[·ㆍ]?\s*\d+-\d+호'                          # N-M호 (제 없음), ·N-M호
     r'|성\s*명\s*(?:생\s*년\s*월\s*일|출생)'            # 후보자 테이블 헤더 (공백 허용)
+    r'|성\s*명\s*\('                                  # 후보자 테이블 헤더: 성명(생년월일)
     r'|후보자\s*(?:성명|선임직)'                      # 후보자 테이블 헤더
+    r'|사외이사후보자\s*여부'                          # 후보자 테이블 헤더
+    r'|추천인\s+주된\s*직업'                           # 후보자 테이블 헤더
     r'|선임직\s*성명'                                 # 후보자 테이블 헤더
     r'|변경전\s*내용'                                 # 정관변경 비교 테이블
     r'|현행\s+개정'                                   # 정관변경 비교 테이블
@@ -88,7 +94,7 @@ _AGENDA_BOUNDARY = (
 # 조건부 prefix "(제N호 인가되는 경우)" 등이 제목 앞에 올 수 있으므로 괄호 블록을 포함
 AGENDA_RE = re.compile(
     r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
-    r'\s*(?:의안|안건)?\s*(?:\([^)]*\))?\s*[:：]\s*'
+    r'\s*(?:의안|안건)?\s*(?:\([^)]*\))?\s*[:：.]\s*'
     r'((?:\([^)]*\)\s*)?[^\n]*?)' + _AGENDA_BOUNDARY
 )
 
@@ -180,7 +186,7 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
     # lookahead의 안건 마커 패턴은 AGENDA_RE와 정합 — 괄호 옵션 (예: "제N호 의안 (주주제안) :") 포함
     _note_spans: set[int] = set()
     for nm in re.finditer(
-        r'※.+?(?=\s*[□◎●]\s*제|\s*(?<![가-힣])제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안|안건)?\s*(?:\([^)]*\))?\s*[:：]|$)',
+        r'※.+?(?=\s*[□◎●]\s*제|\s*(?<![가-힣])제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안|안건)?\s*(?:\([^)]*\))?\s*[:：.]|$)',
         zone,
     ):
         note_start, note_end = nm.start(), nm.end()
@@ -356,6 +362,7 @@ def _extract_agenda_zone(section: str) -> str | None:
     """
     start_patterns = [
         r'회의\s*(?:의?\s*)?(?:보고\s*)?목적\s*사항',
+        r'\d+\.\s*목적\s*사항',
         r'결의\s*사항',
         r'부의\s*안건',
         r'부의\s*사항',
@@ -378,6 +385,7 @@ def _extract_agenda_zone(section: str) -> str | None:
         r'\d+\.\s*전자\s*증권',
         r'\d+\.\s*의결권\s*(?:행사|대리)',
         r'\d+\.\s*주주총회\s*참석',
+        r'\d+\.\s*상법\s*제',
         r'\d+\.\s*실질\s*주주',
         r'\d+\.\s*기\s*타\b',
         r'\d+\.\s*배당금\s*지급',
@@ -469,11 +477,16 @@ def parse_meeting_info_xml(text: str, html: str = "") -> dict:
     if re.search(r'정\s*정\s*신\s*고|기재\s*정정', text[:500]):
         info["is_correction"] = True
 
-    # 정기/임시 구분
-    if re.search(r'임시\s*주주총회', section_text):
-        info["meeting_type"] = "임시"
-    elif re.search(r'정기\s*주주총회|정기\)', section_text):
+    # 정기/임시 구분. 본문 뒤 참고사항의 "임시주주총회부터" 같은 문구보다
+    # 소집공고 제목부/초반 문구를 우선한다.
+    type_head = re.sub(r"\s+", " ", section_text[:1200])
+    heading_match = re.search(r'\(\s*제\s*\d+\s*기\s*(정기|임시)\s*\)', type_head)
+    if heading_match:
+        info["meeting_type"] = heading_match.group(1)
+    elif re.search(r'정기\s*주주총회|정기\)', type_head):
         info["meeting_type"] = "정기"
+    elif re.search(r'임시\s*주주총회', type_head):
+        info["meeting_type"] = "임시"
 
     # 기수 추출 (제N기)
     m = re.search(r'(제\s*\d+\s*기)', section_text)

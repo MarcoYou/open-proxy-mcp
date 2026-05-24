@@ -339,6 +339,37 @@ def test_annual_notice_search_falls_back_when_fiscal_window_empty(monkeypatch):
     assert "select_notice_candidate.full_year_fallback" in payload["data"]["timings_ms"]
 
 
+def test_no_filing_warning_includes_fiscal_annual_window(monkeypatch):
+    monkeypatch.setattr(sm, "get_dart_client", lambda: FakeClient())
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_fiscal_month(_corp_code):
+        return "03"
+
+    async def fake_select(*_args, **_kwargs):
+        return None, [], None, "2026-01-01~2026-12-31 구간에 정기 주주총회 소집공고를 찾지 못했다.", []
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "_safe_fiscal_month", fake_fiscal_month)
+    monkeypatch.setattr(sm, "_select_notice_candidate", fake_select)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "신영증권",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    assert payload["status"] == "no_filing"
+    assert payload["data"]["fiscal_month"] == "03"
+    assert "회계연도 종료월은 3월" in payload["warnings"][0]
+    assert "2026-04-01~2026-07-31" in payload["warnings"][0]
+
+
 def test_fiscal_window_annual_search_fetches_only_latest_document_first(monkeypatch):
     fake_client = FakeClient()
     monkeypatch.setattr(sm, "get_dart_client", lambda: fake_client)

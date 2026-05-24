@@ -186,3 +186,110 @@ def test_specific_articles_subagenda_does_not_inherit_unrelated_retirement_reaso
 
     assert decision == "REVIEW"
     assert "퇴직금" not in reason
+
+
+async def _fake_shareholder_meeting_with_relation_agenda(_company, *, scope, **_kwargs):
+    data = {
+        "agenda_summary": {"titles": [
+            "집중투표에 의한 이사 선임의 건",
+            "집중투표에 의하여 선임할 이사의 수 결정의 건",
+            "집중투표에 의한 이사 5인 선임의 건",
+        ]},
+        "agendas": [
+            {
+                "agenda_id": "3",
+                "number": "제3호",
+                "title": "집중투표에 의한 이사 선임의 건",
+                "agenda_relation_type": "procedural",
+                "agenda_relation_reasons": ["procedural_title", "cumulative_voting_title"],
+                "proposer_type": "company",
+                "children": [
+                    {
+                        "agenda_id": "3-1",
+                        "number": "제3-1호",
+                        "title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+                        "agenda_relation_type": "procedural",
+                        "agenda_relation_reasons": ["procedural_title", "cumulative_voting_title"],
+                        "proposer_type": "company",
+                        "children": [],
+                    },
+                    {
+                        "agenda_id": "3-2",
+                        "number": "제3-2호",
+                        "title": "집중투표에 의한 이사 5인 선임의 건",
+                        "agenda_relation_type": "alternative",
+                        "agenda_relation_reasons": ["alternative_title", "cumulative_voting_title"],
+                        "proposer_type": "company",
+                        "children": [],
+                    },
+                ],
+            }
+        ],
+        "notice": {"rcept_no": "20260305001616"},
+        "summary": {},
+    }
+    if scope == "aoi_change":
+        data["aoi_change"] = {"amendments": []}
+    return {"status": "exact", "data": data, "evidence_refs": []}
+
+
+async def _fake_director_eval_with_candidates(*_args, **_kwargs):
+    return {
+        "status": "exact",
+        "data": {
+            "evaluations": [
+                {
+                    "name": "홍길동",
+                    "role_type": "사외이사",
+                    "independence": {"summary": "independent"},
+                    "disqualification": {"summary": "clean"},
+                    "faithfulness": {"audit_history_check": {"summary": "clean"}},
+                }
+            ],
+            "agenda_titles_fallback": [],
+        },
+        "evidence_refs": [],
+    }
+
+
+def test_proxy_advise_relation_metadata_prevents_auto_for_on_procedural_and_alternative(monkeypatch):
+    pa.clear_proxy_advise_cache()
+    monkeypatch.setattr(pa, "get_dart_client", lambda: FakeClient())
+    monkeypatch.setattr(pa, "resolve_company_query", _fake_resolve)
+    monkeypatch.setattr(pa, "_load_vote_style_policy", lambda _style: None)
+    monkeypatch.setattr(pa, "build_shareholder_meeting_payload", _fake_shareholder_meeting_with_relation_agenda)
+    monkeypatch.setattr(pa, "build_ownership_structure_payload", _fake_payload)
+    monkeypatch.setattr(pa, "build_corp_gov_report_payload", _fake_payload)
+    monkeypatch.setattr(pa, "build_financial_metrics_payload", _fake_large_company_financial)
+    monkeypatch.setattr(pa, "build_director_evaluation_payload", _fake_director_eval_with_candidates)
+
+    payload = asyncio.run(
+        pa.build_proxy_advise_payload(
+            "LG화학",
+            year=2026,
+            meeting_type="annual",
+        )
+    )
+
+    by_title = {
+        item["agenda_title"]: item
+        for item in payload["data"]["agenda_decisions"]
+    }
+    count_decision = by_title["집중투표에 의하여 선임할 이사의 수 결정의 건"]
+    slate_decision = by_title["집중투표에 의한 이사 5인 선임의 건"]
+
+    assert count_decision["decision"] == "REVIEW"
+    assert count_decision["agenda_relation_type"] == "procedural"
+    assert "절차" in count_decision["reason"]
+
+    assert slate_decision["decision"] == "REVIEW"
+    assert slate_decision["agenda_relation_type"] == "alternative"
+    assert "대안" in slate_decision["reason"]
+    assert "16.67%" in slate_decision["reason"]
+    assert slate_decision["facts"]["cumulative_voting_threshold"] == {
+        "seats_to_elect": 5,
+        "guaranteed_election_threshold_pct_of_votes_cast": 16.67,
+        "full_attendance_shareholding_threshold_pct": 16.67,
+        "actual_shareholding_threshold_formula": "attendance_rate_pct / (seats_to_elect + 1)",
+        "basis": "단순 근사: 1/(선임 이사 수+1), 행사 의결권 기준. 전원 출석·전원 행사 시 발행주식 대비 동일.",
+    }

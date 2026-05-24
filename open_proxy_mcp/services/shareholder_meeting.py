@@ -97,16 +97,86 @@ def _cached_notice_parser_soup(
         notice_parser_mod.BeautifulSoup = original
 
 
+_AGENDA_PROCEDURAL_PATTERNS = (
+    "선임할 이사의 수",
+    "선임할 이사 수",
+    "이사의 수 결정",
+    "집중투표에 의하여 선임할",
+    "집중투표에 의한 이사 선임",
+)
+_AGENDA_CONDITIONAL_PATTERNS = (
+    "승인 시",
+    "승인시",
+    "가결 시",
+    "가결시",
+    "가결될 경우",
+    "부결 시",
+    "부결시",
+    "부결될 경우",
+    "통과 시",
+    "통과시",
+    "경우에만",
+    "선행",
+)
+_AGENDA_ALTERNATIVE_PATTERNS = (
+    "대안",
+    "택일",
+    "둘 중",
+    "상호배타",
+    "5인 선임",
+    "6인 선임",
+)
+
+
+def _proposer_type(source: str | None) -> str:
+    if source and "주주제안" in source:
+        return "shareholder"
+    if source:
+        return "unknown"
+    return "company"
+
+
+def _agenda_relation(title: str, conditional: str | None = None) -> tuple[str, list[str]]:
+    text = " ".join(part for part in [title or "", conditional or ""] if part)
+    reasons: list[str] = []
+    if conditional:
+        reasons.append("conditional_field")
+    if any(pattern in text for pattern in _AGENDA_PROCEDURAL_PATTERNS):
+        reasons.append("procedural_title")
+    if "집중투표" in text or "누적투표" in text:
+        reasons.append("cumulative_voting_title")
+    if any(pattern in text for pattern in _AGENDA_CONDITIONAL_PATTERNS):
+        reasons.append("conditional_title")
+    if any(pattern in text for pattern in _AGENDA_ALTERNATIVE_PATTERNS):
+        reasons.append("alternative_title")
+
+    if "procedural_title" in reasons:
+        return "procedural", reasons
+    if "alternative_title" in reasons:
+        return "alternative", reasons
+    if "conditional_title" in reasons or "conditional_field" in reasons:
+        return "conditional", reasons
+    if "cumulative_voting_title" in reasons:
+        return "cumulative_related", reasons
+    return "normal", []
+
+
 def _agenda_nodes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     nodes: list[dict[str, Any]] = []
     for item in items:
         agenda_id = item["number"].replace("제", "").replace("호", "")
+        title = item.get("title", "")
+        conditional = item.get("conditional")
+        relation_type, relation_reasons = _agenda_relation(title, conditional)
         nodes.append({
             "agenda_id": agenda_id,
             "number": item.get("number", ""),
-            "title": item.get("title", ""),
+            "title": title,
             "source": item.get("source"),
-            "conditional": item.get("conditional"),
+            "proposer_type": _proposer_type(item.get("source")),
+            "conditional": conditional,
+            "agenda_relation_type": relation_type,
+            "agenda_relation_reasons": relation_reasons,
             "children": _agenda_nodes(item.get("children", [])),
         })
     return nodes
@@ -1229,17 +1299,29 @@ async def build_shareholder_meeting_payload(
         # 회사 식별이 정상이고 DART 검색이 성공했지만 주총 소집공고가 없는 경우는
         # 사건 자체가 없는 정상 케이스 (NO_FILING). 호출이 실제 실패한 경우는 ERROR.
         no_filing_meta = build_filing_meta(filing_count=0, parsing_failures=0)
+        no_filing_warning = candidate_error or f"조사 구간 ({requested_window_start.isoformat()}~{requested_window_end.isoformat()}) 내 주주총회 소집공고 없음 (정상)"
+        if meeting_type == "annual" and target_year and fiscal_month:
+            fiscal_window = _annual_window_from_fiscal_month(target_year, fiscal_month)
+            if fiscal_window:
+                fw_start, fw_end = fiscal_window
+                no_filing_warning = (
+                    f"{target_year}년 정기 주주총회 소집공고를 아직 찾지 못했다. "
+                    f"회계연도 종료월은 {int(fiscal_month)}월이며, 예상 정기주총 개최 window는 "
+                    f"{fw_start.isoformat()}~{fw_end.isoformat()}이다. "
+                    f"현재 조회 가능한 DART 공시 기준으로는 해당 정기 소집공고가 아직 없다."
+                )
         envelope = ToolEnvelope(
             tool="shareholder_meeting",
             status=AnalysisStatus.NO_FILING,
             subject=selected.get("corp_name", company_query),
-            warnings=[*(candidate_notices or []), candidate_error or f"조사 구간 ({requested_window_start.isoformat()}~{requested_window_end.isoformat()}) 내 주주총회 소집공고 없음 (정상)"],
+            warnings=[*(candidate_notices or []), no_filing_warning],
             data={
                 "query": company_query,
                 "company_id": _company_id(selected),
                 "requested_meeting_type": meeting_type,
                 "scope": scope,
                 "year": target_year or requested_window_end.year,
+                "fiscal_month": fiscal_month,
                 "requested_window": {
                     "start_date": requested_window_start.isoformat(),
                     "end_date": requested_window_end.isoformat(),

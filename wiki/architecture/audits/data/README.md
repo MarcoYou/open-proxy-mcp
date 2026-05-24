@@ -17,6 +17,11 @@ updated: 2026-05-24
 
 ## 주요 원시 결과물 묶음
 
+### 2026-05-24~25 — agenda relation corpus / KOSPI300 rerun
+- `260524_agenda_relation_corpus/`
+- 기준 문서: [[../260525_0200_audit_agenda-relation-kospi300]]
+- 포함: 50개 local XML/text corpus, KOSPI300/KOSDAQ top 50 relation live 결과, parser fix 후 KOSPI300 재실행 결과. 최종 `requires_review` 0, `no_filing` 2.
+
 ### 2026-05-24 — core tool timing audit
 - `260524_tool_timing_audit.json`
 - 기준 문서: [[../260510_data_tools_perf_audit]]

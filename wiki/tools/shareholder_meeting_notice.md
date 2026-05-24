@@ -7,7 +7,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 
 # shareholder_meeting_notice
 
-주총 **소집공고** 공시 데이터 (사전 — DART API/XML). 빠르고 안정 (0.5-1.5s). 2026-05-24부터 summary 기본 응답은 경량화하고, stage별 `timings_ms`를 노출한다.
+주총 **소집공고** 공시 데이터 (사전 — DART API/XML). 빠르고 안정 (0.5-1.5s). 2026-05-24부터 summary 기본 응답은 경량화하고, stage별 `timings_ms`를 노출한다. 2026-05-25 KOSPI300 재검증에서 정기 소집공고가 현재 DART에 없는 2건을 제외하고 `requires_review` 0을 확인했다.
 
 ## 분리 배경 (2026-05-04)
 
@@ -52,6 +52,15 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 | `fiscal_month` | `annual` + `year` 조회에서 OpenDART `company.json.acc_mt` 결산월을 읽어 정기주총 후보 window를 먼저 좁힘. fiscal window에서는 최신 후보 1건만 먼저 열고, 정기 매칭 실패 시 나머지 후보와 full-year 검색으로 fallback. |
 | `data.timings_ms` | `resolve_company`, `fiscal_month_lookup`, `select_notice_candidate`, `select_notice_candidate.search_filings`, `select_notice_candidate.fetch_top_documents`, `select_notice_candidate.parse_top_documents`, `select_notice_candidate.filter_meeting_window`, `select_notice_candidate.build_candidate`, `select_notice_candidate.full_year_fallback`, `coverage_search`, `load_notice_bundle`, `total` 등 stage별 소요 시간(ms). 병목 원인 확인용. |
 
+## 파싱 정확도 / relation metadata (2026-05-25)
+
+- agenda node는 `proposer_type`, `agenda_relation_type`, `agenda_relation_reasons`를 포함한다.
+- `agenda_relation_type`: `normal`, `procedural`, `conditional`, `alternative`, `cumulative_related`.
+- 정기/임시 판별은 소집공고 제목부 `(제N기 정기|임시)`를 우선한다.
+- 마침표형 안건 marker(`제N호 의안.`), 후보자 표 boundary, `4. 목적사항` 정정공고형 목록, `※` 주석 뒤 안건 경계를 지원한다.
+- `annual` 조회에서 정기 소집공고가 아직 없으면 결산월과 예상 정기주총 window를 warning에 표시한다.
+- KOSPI300 재실행: `exact` 298, `no_filing` 2, `requires_review` 0. 상세: [[260525_0200_audit_agenda-relation-kospi300]].
+
 ## 사용 예
 
 ```
@@ -69,3 +78,4 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 - 후보 평가 (사용자 노출 X — proxy_advise chain): director_evaluation (services internal)
 - 지분 구조: [[ownership_structure]]
 - 분쟁 맥락: [[proxy_contest]]
+- relation/parser audit: [[260525_0200_audit_agenda-relation-kospi300]]

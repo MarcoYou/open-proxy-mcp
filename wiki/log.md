@@ -3,6 +3,27 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-25] fix/audit | agenda relation + 주총소집공고 parser KOSPI300 재검증
+
+- `shareholder_meeting_notice`
+  - 정기/임시 판별을 소집공고 제목부 `(제N기 정기|임시)` 우선으로 보정
+  - `제N호 의안.` 마침표형 안건 marker 지원
+  - 후보자 표 헤더 boundary 보강
+  - `4. 목적사항` 정정공고형 안건 목록 지원
+  - `※` 주석 뒤 다음 안건이 사라지는 케이스 수정
+  - `no_filing` warning에 결산월과 예상 정기주총 window 표시
+- `proxy_advise_before_meeting`
+  - full agenda tree 기반으로 relation metadata 사용
+  - 절차성/조건부/대안형 안건은 법령 layer hit가 없으면 REVIEW guardrail 적용
+  - 집중투표 slate는 행사 의결권 기준 필요최소지분율 fact 노출
+- 검증:
+  - KOSPI300 재실행: `exact` 298 / `no_filing` 2 / `requires_review` 0
+  - 남은 2건: 신영증권(3월 결산), 프레스티지바이오파마(6월 결산) — 현재 DART 기준 정기 소집공고 없음
+  - 테스트: `23 passed`
+- 문서:
+  - [[260525_0200_audit_agenda-relation-kospi300]]
+  - [[agenda-relation-parser-260525]]
+
 ## [2026-05-12] docs | proxy_advise Word 보고서 설계 고정, 구현은 TODO로 이월
 
 - `wiki/architecture/proxy_advise_word_report_spec.md` 신규
