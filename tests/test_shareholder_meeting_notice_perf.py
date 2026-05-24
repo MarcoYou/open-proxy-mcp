@@ -21,6 +21,9 @@ class FakeClient:
     async def get_document_cached(self, _rcept_no):
         return {"text": "mock", "html": "<html></html>"}
 
+    async def get_company_info(self, _corp_code):
+        return {"acc_mt": "12"}
+
 
 def _fake_resolution():
     return CompanyResolution(
@@ -214,6 +217,124 @@ def test_select_notice_candidate_exposes_nested_timings(monkeypatch):
     assert "select_notice_candidate.parse_top_documents" in timings
     assert "select_notice_candidate.filter_meeting_window" in timings
     assert "select_notice_candidate.build_candidate" in timings
+
+
+def test_annual_notice_search_uses_fiscal_month_window(monkeypatch):
+    search_windows = []
+    monkeypatch.setattr(sm, "get_dart_client", lambda: FakeClient())
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_search(**kwargs):
+        search_windows.append((kwargs["bgn_de"], kwargs["end_de"]))
+        return (
+            [
+                {
+                    "rcept_no": "20260224004273",
+                    "report_nm": "주주총회소집공고",
+                    "rcept_dt": "20260224",
+                    "flr_nm": "LG화학",
+                }
+            ],
+            [],
+            None,
+        )
+
+    async def fake_notice_info(_rcept_no, _text, _html):
+        return (
+            {
+                "meeting_type": "정기",
+                "meeting_term": "제25기",
+                "datetime": "2026년 3월 31일 (화) 오전 9시",
+                "location": "서울특별시 영등포구 여의대로 128",
+                "is_correction": False,
+            },
+            "dart_xml",
+        )
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "search_filings_by_report_name", fake_search)
+    monkeypatch.setattr(sm, "_notice_info_with_fallback", fake_notice_info)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    assert payload["status"] == "exact"
+    assert search_windows[0] == ("20251003", "20260430")
+    assert payload["data"]["fiscal_month"] == "12"
+    assert "fiscal_month_lookup" in payload["data"]["timings_ms"]
+
+
+def test_annual_notice_search_falls_back_when_fiscal_window_empty(monkeypatch):
+    search_windows = []
+    monkeypatch.setattr(sm, "get_dart_client", lambda: FakeClient())
+
+    async def fake_resolve(_query):
+        return _fake_resolution()
+
+    async def fake_search(**kwargs):
+        search_windows.append((kwargs["bgn_de"], kwargs["end_de"]))
+        if len(search_windows) == 1:
+            return [], [], "013"
+        return (
+            [
+                {
+                    "rcept_no": "20260224004273",
+                    "report_nm": "주주총회소집공고",
+                    "rcept_dt": "20260224",
+                    "flr_nm": "LG화학",
+                }
+            ],
+            [],
+            None,
+        )
+
+    async def fake_notice_info(_rcept_no, _text, _html):
+        return (
+            {
+                "meeting_type": "정기",
+                "meeting_term": "제25기",
+                "datetime": "2026년 3월 31일 (화) 오전 9시",
+                "location": "서울특별시 영등포구 여의대로 128",
+                "is_correction": False,
+            },
+            "dart_xml",
+        )
+
+    async def fake_load(*_args, **_kwargs):
+        return _fake_parsed_notice()
+
+    monkeypatch.setattr(sm, "resolve_company_query", fake_resolve)
+    monkeypatch.setattr(sm, "search_filings_by_report_name", fake_search)
+    monkeypatch.setattr(sm, "_notice_info_with_fallback", fake_notice_info)
+    monkeypatch.setattr(sm, "_load_notice_bundle_with_fallback", fake_load)
+
+    payload = asyncio.run(
+        sm.build_shareholder_meeting_payload(
+            "LG화학",
+            meeting_type="annual",
+            scope="summary",
+            year=2026,
+        )
+    )
+
+    assert payload["status"] == "exact"
+    assert search_windows[:2] == [
+        ("20251003", "20260430"),
+        ("20251003", "20261231"),
+    ]
+    assert "select_notice_candidate.full_year_fallback" in payload["data"]["timings_ms"]
 
 
 def test_rcept_no_fast_path_skips_company_and_candidate_search(monkeypatch):

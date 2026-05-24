@@ -151,6 +151,44 @@ def _mark_timing(timings_ms: dict[str, int] | None, stage: str, started_at: floa
         timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
 
 
+def _annual_window_from_fiscal_month(target_year: int, fiscal_month: str) -> tuple[date, date] | None:
+    month_text = (fiscal_month or "").strip()
+    if not month_text.isdigit():
+        return None
+    month = int(month_text)
+    if month < 1 or month > 12:
+        return None
+
+    if month == 12:
+        return date(target_year, 1, 1), date(target_year, 4, 30)
+
+    start_month = month + 1
+    if start_month > 12:
+        return None
+    start = date(target_year, start_month, 1)
+    end_month = min(month + 4, 12)
+    end_day = 31
+    if end_month in {4, 6, 9, 11}:
+        end_day = 30
+    elif end_month == 2:
+        end_day = 29 if target_year % 4 == 0 and (target_year % 100 != 0 or target_year % 400 == 0) else 28
+    return start, date(target_year, end_month, end_day)
+
+
+async def _safe_fiscal_month(corp_code: str) -> str:
+    try:
+        info = await get_dart_client().get_company_info(corp_code)
+    except Exception:
+        return ""
+    fiscal_month = (info.get("acc_mt") or "").strip()
+    if not fiscal_month.isdigit():
+        return ""
+    month = int(fiscal_month)
+    if month < 1 or month > 12:
+        return ""
+    return f"{month:02d}" if len(fiscal_month) == 1 else fiscal_month
+
+
 async def _candidate_notices_range(
     corp_code: str,
     meeting_type_label: str,
@@ -720,6 +758,7 @@ async def _select_notice_candidate(
     end_date: str = "",
     lookback_months: int = 12,
     timings_ms: dict[str, int] | None = None,
+    fiscal_month: str = "",
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], str | None, str | None, list[str]]:
     search_notices: list[str] = []
     window_start, window_end, _ = _selection_window(
@@ -781,15 +820,37 @@ async def _select_notice_candidate(
         return selected, alternatives, basis, None, search_notices
 
     meeting_type_label = _MEETING_TYPE_MAP[requested_meeting_type]
+    search_window_start = window_start
+    search_window_end = window_end
+    fiscal_window = (
+        _annual_window_from_fiscal_month(target_year, fiscal_month)
+        if requested_meeting_type == "annual" and target_year and not start_date and not end_date
+        else None
+    )
+    if fiscal_window:
+        search_window_start, search_window_end = fiscal_window
+
     notices, notice_search_notices = await _candidate_notices_in_meeting_window(
         corp_code,
         meeting_type_label,
-        window_start,
-        window_end,
+        search_window_start,
+        search_window_end,
         timings_ms=timings_ms,
     )
     search_notices.extend(notice_search_notices)
     latest_notice = _pick_latest_notice(notices)
+    if not latest_notice and fiscal_window:
+        stage_started_at = time.perf_counter()
+        notices, notice_search_notices = await _candidate_notices_in_meeting_window(
+            corp_code,
+            meeting_type_label,
+            window_start,
+            window_end,
+            timings_ms=timings_ms,
+        )
+        _mark_timing(timings_ms, "select_notice_candidate.full_year_fallback", stage_started_at)
+        search_notices.extend(notice_search_notices)
+        latest_notice = _pick_latest_notice(notices)
     if not latest_notice:
         return None, [], None, f"{window_start.isoformat()}~{window_end.isoformat()} 구간에 {meeting_type_label} 주주총회 소집공고를 찾지 못했다.", search_notices
     fetch_result = scope in {"results", "full"}
@@ -1044,6 +1105,7 @@ async def build_shareholder_meeting_payload(
         end_date=end_date,
         lookback_months=lookback_months,
     )
+    fiscal_month = ""
 
     if rcept_no:
         selected = {"corp_name": company_query, "stock_code": "", "corp_code": ""}
@@ -1120,6 +1182,10 @@ async def build_shareholder_meeting_payload(
             return envelope.to_dict()
 
         selected = resolution.selected
+        if meeting_type == "annual" and target_year and not start_date and not end_date:
+            stage_started_at = time.perf_counter()
+            fiscal_month = await _safe_fiscal_month(selected["corp_code"])
+            _mark("fiscal_month_lookup", stage_started_at)
         try:
             stage_started_at = time.perf_counter()
             selected_candidate, alternative_meetings, selection_basis, candidate_error, candidate_notices = await _select_notice_candidate(
@@ -1131,6 +1197,7 @@ async def build_shareholder_meeting_payload(
                 end_date=end_date,
                 lookback_months=lookback_months,
                 timings_ms=timings_ms,
+                fiscal_month=fiscal_month,
             )
             _mark("select_notice_candidate", stage_started_at)
         except DartClientError as exc:
@@ -1282,6 +1349,7 @@ async def build_shareholder_meeting_payload(
         "requested_meeting_type": meeting_type,
         "meeting_type": selected_meeting_type,
         "selection_basis": selection_basis,
+        "fiscal_month": fiscal_month,
         "year": target_year or requested_window_end.year,
         "requested_window": {
             "start_date": requested_window_start.isoformat(),
