@@ -114,8 +114,8 @@
 
 적용한 변경:
 - 대상: `open_proxy_mcp/services/treasury_share.py`, `open_proxy_mcp/services/filing_search.py`
-- 변경 전: `_fetch_decisions()`가 결과보고서 4종을 각각 `search_filings_by_report_name(..., pblntf_tys=\"\")`로 다시 검색
-- 변경 후: `fetch_filings_for_title_scan(..., pblntf_tys=\"\")` 1회 fetch 후 keyword별 로컬 필터
+- 1차 변경: `_fetch_decisions()`가 결과보고서 4종을 각각 `search_filings_by_report_name(..., pblntf_tys=\"\")`로 다시 검색하던 경로를 `fetch_filings_for_title_scan(..., pblntf_tys=\"\")` 1회 fetch 후 keyword별 로컬 필터로 축소
+- 2차 변경: 전체 공시(`pblntf_tys=\"\"`) 대신 `B/I/E` title scan 1회로 축소하고 DS005 API 호출과 병렬화
 - 유지한 의미: 결과보고서 분류, body enrichment, cycle matching, summary/events/type_breakdown 출력 형태
 - 제거한 비용: 같은 공시 범위에 대한 중복 `list.json` fan-out 검색 4회
 
