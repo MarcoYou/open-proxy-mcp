@@ -60,6 +60,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 - 마침표형 안건 marker(`제N호 의안.`), 후보자 표 boundary, `4. 목적사항` 정정공고형 목록, `※` 주석 뒤 안건 경계를 지원한다.
 - `annual` 조회에서 정기 소집공고가 아직 없으면 결산월과 예상 정기주총 window를 warning에 표시한다.
 - KOSPI300 재실행: `exact` 298, `no_filing` 2, `requires_review` 0. 상세: [[260525_0200_audit_agenda-relation-kospi300]].
+- KOSPI500 + KOSDAQ150 marketwide audit: XML 확보 641건, `no_filing` 9건, 로컬 재파싱 3회 hash diff 0. 상세: [[260525_1620_audit_agenda-parser-marketwide]].
 
 ## 사용 예
 
@@ -79,3 +80,4 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 - 지분 구조: [[ownership_structure]]
 - 분쟁 맥락: [[proxy_contest]]
 - relation/parser audit: [[260525_0200_audit_agenda-relation-kospi300]]
+- marketwide parser audit: [[260525_1620_audit_agenda-parser-marketwide]]

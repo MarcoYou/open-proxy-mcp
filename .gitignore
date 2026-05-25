@@ -50,6 +50,11 @@ data/
 # wiki audit 결과 csv도 트래킹 (실험 결과 보존)
 !wiki/architecture/audits/data/
 
+# Large marketwide parser audit corpora stay local; commit summaries instead.
+wiki/architecture/audits/data/260525_agenda_parser_marketwide/loop_*.jsonl
+wiki/architecture/audits/data/260525_agenda_parser_marketwide/*.bak
+wiki/architecture/audits/data/260525_agenda_parser_marketwide/variants.csv
+
 # 운용사 정책/행사내역 원본 (parsed JSON만 commit, PDF/xlsx는 로컬 보관)
 wiki/raw/policies/*.pdf
 wiki/raw/records/*.xlsx

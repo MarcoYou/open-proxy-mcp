@@ -637,6 +637,11 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     return "other"
 
 
+def _is_statutory_auditor_agenda(title: str) -> bool:
+    t = title or ""
+    return "감사" in t and "감사위원" not in t and "보수" not in t
+
+
 def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, str]:
     """이사/감사위원 선임 안건 → (decision, reason).
 
@@ -668,6 +673,8 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
             return "REVIEW", "사외이사 장기연임 (재선임/연임/중임 키워드 발견) — 독립성 검토 필요"
         if indep == "concerns":
             return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
+        if is_audit or eval_match.get("_audit_force_strict"):
+            return "FOR", f"감사 독립성/결격사유 모두 clean ({role_type})"
         return "FOR", f"사외이사 독립성/결격사유 모두 clean ({role_type})"
     # 사내이사: 결격사유 외에 재직 중 회사 운영 성과 평가 (status quo 편향 mitigation, ralph 260505)
     perf = (eval_match.get("performance") or {}).get("classification")
@@ -694,6 +701,99 @@ def _fm_yoy_pct(fm_payload: dict[str, Any] | None) -> float | None:
     return summary.get("net_income_yoy_pct")
 
 
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _director_comp_summary_values(summary: dict[str, Any]) -> dict[str, Any]:
+    """보수한도 summary key normalization.
+
+    shareholder_meeting parser는 camelCase(`currentTotalLimit`)를 내고,
+    proxy_advise decision/facts는 snake_case(`limit_krw`)를 기대해왔다.
+    여기서 한 번 normalize해서 판단 로직이 실제 파싱값을 쓰게 한다.
+    """
+    current_limit = _first_present(summary.get("limit_krw"), summary.get("currentTotalLimit"))
+    prior_limit = _first_present(summary.get("prior_limit_krw"), summary.get("priorTotalLimit"))
+    prior_paid = _first_present(summary.get("prior_paid_krw"), summary.get("priorTotalPaid"))
+    util_rate = _first_present(summary.get("utilization_rate_pct"), summary.get("priorUtilization"))
+    inc = summary.get("increase_rate_pct")
+
+    if inc is None and current_limit is not None and prior_limit:
+        inc = round((current_limit - prior_limit) / prior_limit * 100, 1)
+    if util_rate is None and prior_paid is not None and prior_limit:
+        util_rate = round(prior_paid / prior_limit * 100, 1)
+
+    return {
+        "increase_rate_pct": inc,
+        "utilization_rate_pct": util_rate,
+        "limit_krw": current_limit,
+        "prior_limit_krw": prior_limit,
+        "prior_paid_krw": prior_paid,
+    }
+
+
+def _compensation_data(comp_payload: dict[str, Any] | None) -> dict[str, Any]:
+    if not comp_payload:
+        return {}
+    data = comp_payload.get("data") if isinstance(comp_payload, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    compensation = data.get("compensation")
+    if isinstance(compensation, dict):
+        return compensation
+    return data
+
+
+def _comp_amount(data: dict[str, Any], *keys: str) -> int | float | None:
+    for key in keys:
+        value = data.get(key)
+        if value is not None:
+            return value
+    return None
+
+
+def _comp_target_values(comp_payload: dict[str, Any] | None, target: str) -> dict[str, Any]:
+    data = _compensation_data(comp_payload)
+    items = data.get("items") or []
+    item = next((it for it in items if it.get("target") == target), None)
+    if not item:
+        if target == "이사":
+            return _director_comp_summary_values(data.get("summary", {}) or {})
+        return {
+            "increase_rate_pct": None,
+            "utilization_rate_pct": None,
+            "limit_krw": None,
+            "prior_limit_krw": None,
+            "prior_paid_krw": None,
+            "headcount": None,
+        }
+
+    cur = item.get("current") or {}
+    prior = item.get("prior") or {}
+    current_limit = _comp_amount(cur, "limitAmount", "total_amount", "totalAmount", "limit_krw")
+    prior_limit = _comp_amount(prior, "limitAmount", "total_amount", "totalAmount", "limit_krw")
+    prior_paid = _comp_amount(prior, "actualPaidAmount", "actual_paid_amount", "actualPaid", "paid_krw")
+    headcount = _comp_amount(cur, "totalDirectors", "count", "headcount")
+    inc = None
+    util_rate = None
+    if current_limit is not None and prior_limit:
+        inc = round((current_limit - prior_limit) / prior_limit * 100, 1)
+    if prior_paid is not None and prior_limit:
+        util_rate = round(prior_paid / prior_limit * 100, 1)
+
+    return {
+        "increase_rate_pct": inc,
+        "utilization_rate_pct": util_rate,
+        "limit_krw": current_limit,
+        "prior_limit_krw": prior_limit,
+        "prior_paid_krw": prior_paid,
+        "headcount": headcount,
+    }
+
+
 def _decide_director_compensation(
     comp_payload: dict[str, Any] | None,
     fin_metrics_payload: dict[str, Any] | None = None,
@@ -715,15 +815,13 @@ def _decide_director_compensation(
         # 데이터 부족 fallback
         if cap_status == "full":
             return "AGAINST", "완전 자본잠식 — 보수한도 결정 부적절"  # 분기 12
-        if ni is not None and ni > 0:
-            return "FOR", f"보수 데이터 부족이나 흑자 (순익 {ni:,}원) — 재무 양호 묵시 FOR"  # 분기 11
-        if cap_status == "normal":
-            return "FOR", "보수 데이터 부족 + 자본 양호 — 보수한도 설정은 회사 결정 영역 (mainstream FOR)"
+        if ni is not None or cap_status == "normal":
+            return "REVIEW", "보수 데이터 부족 — 전년 한도·소진율·인상률 확인 필요"
         return "NO_DATA", "보수 + 재무 데이터 둘 다 없음 — 본문 검토 필요"  # 분기 13
 
-    summary = (comp_payload.get("data") or {}).get("summary", {}) or {}
-    util_rate = summary.get("utilization_rate_pct")
-    inc = summary.get("increase_rate_pct")
+    comp_values = _comp_target_values(comp_payload, "이사")
+    util_rate = comp_values["utilization_rate_pct"]
+    inc = comp_values["increase_rate_pct"]
 
     # 분기 1: 자본잠식 + 인상
     if cap_status == "full" and inc is not None and inc > 0:
@@ -768,10 +866,8 @@ def _decide_director_compensation(
     if inc is None:
         if cap_status == "full":
             return "AGAINST", "완전 자본잠식 + 인상률 미파악 — OPM Guideline"
-        if ni is not None and ni > 0:
-            return "FOR", f"인상률 미파악이나 흑자 (순익 {ni:,}원) — mainstream fallback"
-        if cap_status == "normal":
-            return "FOR", "인상률 미파악 + 자본 정상 — mainstream fallback"
+        if ni is not None or cap_status == "normal":
+            return "REVIEW", "보수한도 인상률 미파악 — 전년 한도·소진율 확인 필요"
         return "NO_DATA", "보수한도 인상률 + 재무 데이터 둘 다 없음 — 본문 검토 필요"
     # default fallback (이론상 도달 X)
     return "REVIEW", f"보수한도 변경 ({inc:+.0f}%) — 적정성 검토"
@@ -808,29 +904,11 @@ def _decide_audit_compensation(
             return "FOR", "감사 보수 데이터 부족 + 자본 양호 — mainstream fallback"
         return "NO_DATA", "감사 보수 + 재무 데이터 둘 다 없음 — 본문 검토 필요"
 
-    data = comp_payload.get("data") or {}
-    items = data.get("items") or []
-    audit_items = [i for i in items if i.get("target") == "감사"]
-    summary = data.get("summary", {}) or {}
-    # 감사 분리 데이터 — items의 current.total_amount + current.count 활용 (parser 재집계)
-    audit_inc = None
-    audit_total = None
-    audit_count = None
+    audit_values = _comp_target_values(comp_payload, "감사")
+    audit_inc = audit_values["increase_rate_pct"]
+    audit_total = audit_values["limit_krw"]
+    audit_count = audit_values["headcount"]
     audit_per_person = None
-    util_rate = None  # 감사 분리 소진율은 parser 추가 작업 필요 (Step 6)
-
-    for it in audit_items:
-        cur = it.get("current") or {}
-        prior = it.get("prior") or {}
-        if cur.get("total_amount"):
-            audit_total = cur["total_amount"]
-        if cur.get("count"):
-            audit_count = cur["count"]
-        if prior.get("total_amount") and cur.get("total_amount"):
-            try:
-                audit_inc = (cur["total_amount"] - prior["total_amount"]) / prior["total_amount"] * 100
-            except ZeroDivisionError:
-                pass
     if audit_total and audit_count:
         audit_per_person = audit_total / audit_count
 
@@ -1039,6 +1117,7 @@ def _decide_articles_amendment(
     정체성상 의미 있으나 G2 정확도 차원에서 위험 신호 없으면 default FOR.
     """
     t = agenda_title or ""
+    t_compact = re.sub(r"\s+", "", t)
     # 260508: 법령 layer (1·2·3차 상법 개정 + 정관 우회 시나리오) 우선 적용으로 이동.
     # 이 함수는 법령 layer 미매치 시 fallback (운용사 정책 hardcoded 분기).
     # 참조: services/proxy_advise.py:_law_layer + wiki/rules/laws/law_layer_rules.json
@@ -1056,12 +1135,22 @@ def _decide_articles_amendment(
         return "REVIEW", "수권주식 증가 — 향후 희석 가능성"
     if "액면분할" in t:
         return "REVIEW", "액면분할 정관 변경 — 수권주식수·액면가 비례 조정 여부 본문 검토 필요"
+    if "소수주주" in t and "보호" in t:
+        return "FOR", "소수주주 보호 명문화 — 주주권 보호 강화"
+    if "오기" in t and "정정" in t:
+        return "FOR", "오기 정정 — 실질 권리변동 없음"
     if "신주발행" in t:
         return "REVIEW", "신주발행 관련 정관 변경 — 주주평등·희석 영향 본문 검토 필요"
+    if "충실의무" in t and "이사" in t:
+        return "FOR", "이사 충실의무 명문화 — 상법 개정 정합"
+    if "분기배당" in t:
+        return "REVIEW", "분기배당 관련 정관 변경 — 배당 재원·기준일·준비금 영향 본문 검토 필요"
     if "집행임원" in t:
         return "REVIEW", "집행임원제도 도입 — 이사회·경영진 권한 구조 변경 본문 검토 필요"
     if "주주총회" in t and "의장" in t:
         return "REVIEW", "주주총회 의장 변경 — 회의 운영권·중립성 영향 본문 검토 필요"
+    if "이사회" in t and "소집" in t:
+        return "REVIEW", "이사회 소집 절차 변경 — 통지기간·긴급소집 예외가 이사회 운영에 미치는 영향 본문 검토 필요"
     # ralph 260505 코붕이 의견: 정관 안에 묶인 퇴직금 변경은 amendments raw 보고 위험 detect
     if "퇴직금" in t or "퇴임위로금" in t:
         ret_decision, ret_reason = _decide_retirement_pay(retirement_payload, fin_metrics_payload)
@@ -1076,7 +1165,15 @@ def _decide_articles_amendment(
     # iter 5 fix: title 키워드 없어도 본문에 퇴직금 amendments raw가 있으면 hybrid 처리
     # (예: "정관 일부 변경의 건" — 모든 정관 변경 amendments 포함, 고려아연 case)
     ret_amends = ((retirement_payload or {}).get("data") or {}).get("amendments") or []
-    if ret_amends:
+    generic_articles_titles = {
+        "정관변경의건",
+        "정관일부변경의건",
+        "정관개정의건",
+        "정관일부개정의건",
+        "정관일부변경",
+        "정관일부개정",
+    }
+    if ret_amends and t_compact in generic_articles_titles:
         ret_decision, ret_reason = _decide_retirement_pay(retirement_payload, fin_metrics_payload)
         return ret_decision, f"정관변경 (본문 퇴직금 raw {len(ret_amends)}건 detect) — {ret_reason}"
     # default FOR (위험 신호 없는 일반 정관변경 — mainstream 패턴)
@@ -1153,7 +1250,7 @@ def _extract_facts(
     """카테고리별 검증 가능한 정량 fact dict (None 값은 제외)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
     audit = ((fin_payload or {}).get("data") or {}).get("audit_opinion", {}) or {}
-    comp_summary = ((comp_payload or {}).get("data") or {}).get("summary", {}) or {}
+    comp_summary = _compensation_data(comp_payload).get("summary", {}) or {}
     facts: dict[str, Any] = {}
 
     if category == "financial_statements":
@@ -1178,29 +1275,23 @@ def _extract_facts(
         facts["net_income_krw"] = fin_summary.get("net_income_krw")
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
     elif category == "director_compensation":
-        facts["increase_rate_pct"] = comp_summary.get("increase_rate_pct")
-        facts["utilization_rate_pct"] = comp_summary.get("utilization_rate_pct")
-        facts["limit_krw"] = comp_summary.get("limit_krw")
+        comp_values = _comp_target_values(comp_payload, "이사")
+        facts["increase_rate_pct"] = comp_values.get("increase_rate_pct")
+        facts["utilization_rate_pct"] = comp_values.get("utilization_rate_pct")
+        facts["limit_krw"] = comp_values.get("limit_krw")
+        facts["prior_limit_krw"] = comp_values.get("prior_limit_krw")
+        facts["prior_paid_krw"] = comp_values.get("prior_paid_krw")
         facts["net_income_krw"] = fin_summary.get("net_income_krw")
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
     elif category == "audit_compensation":
-        # 감사 분리 데이터 (items에서 target == "감사" filter)
-        items = ((comp_payload or {}).get("data") or {}).get("items") or []
-        audit_items = [i for i in items if i.get("target") == "감사"]
-        for it in audit_items[:1]:
-            cur = it.get("current") or {}
-            prior = it.get("prior") or {}
-            facts["audit_total_limit_krw"] = cur.get("total_amount")
-            facts["audit_count"] = cur.get("count")
-            if cur.get("total_amount") and cur.get("count"):
-                facts["audit_per_person_krw"] = cur["total_amount"] // cur["count"]
-            if prior.get("total_amount") and cur.get("total_amount"):
-                try:
-                    facts["audit_increase_rate_pct"] = round(
-                        (cur["total_amount"] - prior["total_amount"]) / prior["total_amount"] * 100, 1
-                    )
-                except ZeroDivisionError:
-                    pass
+        audit_values = _comp_target_values(comp_payload, "감사")
+        facts["audit_total_limit_krw"] = audit_values.get("limit_krw")
+        facts["audit_count"] = audit_values.get("headcount")
+        if audit_values.get("limit_krw") and audit_values.get("headcount"):
+            facts["audit_per_person_krw"] = audit_values["limit_krw"] // audit_values["headcount"]
+        facts["audit_increase_rate_pct"] = audit_values.get("increase_rate_pct")
+        facts["audit_prior_limit_krw"] = audit_values.get("prior_limit_krw")
+        facts["audit_prior_paid_krw"] = audit_values.get("prior_paid_krw")
         facts["net_income_krw"] = fin_summary.get("net_income_krw")
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
     elif category == "retirement_pay":
@@ -1295,7 +1386,7 @@ def _extract_risks(
 ) -> list[str]:
     """카테고리별 위험 신호 list (LLM/사용자 추가 검토 hint)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
-    comp_summary = ((comp_payload or {}).get("data") or {}).get("summary", {}) or {}
+    comp_summary = _compensation_data(comp_payload).get("summary", {}) or {}
     risks: list[str] = []
 
     cap_status = fin_summary.get("capital_impairment_status")
@@ -1321,8 +1412,9 @@ def _extract_risks(
             risks.append("이사 회계 risk 이력 발견 (raw 메모 검토)")
 
     if category == "director_compensation":
-        util = comp_summary.get("utilization_rate_pct")
-        inc = comp_summary.get("increase_rate_pct")
+        comp_values = _comp_target_values(comp_payload, "이사")
+        util = comp_values["utilization_rate_pct"]
+        inc = comp_values["increase_rate_pct"]
         if util is not None and util < 30 and inc and inc > 0:
             risks.append(f"소진율 {util:.0f}%인데 인상 {inc:+.0f}%")
         elif inc is not None and inc >= 50:
@@ -1848,12 +1940,26 @@ async def build_proxy_advise_payload(
                 if nm and nm in title:
                     matched_eval = ev
                     break
+            statutory_auditor_agenda = (
+                category == "audit_committee_election"
+                and _is_statutory_auditor_agenda(title)
+            )
+            if matched_eval is None and statutory_auditor_agenda:
+                audit_evals = [
+                    ev for ev in name_to_eval.values()
+                    if "감사" in (ev.get("role_type") or "")
+                ]
+                if len(audit_evals) == 1:
+                    matched_eval = audit_evals[0]
             # ralph iter4+7 logic 강화: 매칭 안 됨 + 후보 평가 데이터 존재 →
             # 모든 후보 평가 종합 (묶음 안건 패턴 — "이사 선임의 건" 같은 형식).
             # iter7: 사내이사 (executive) vs 사외이사 (independent) 구분.
             # - 사내이사: 회사 결정 영역 (오너 일가 등). 결격사유만 판단. mainstream FOR.
             # - 사외이사: 독립성 핵심. concerns 있으면 REVIEW.
-            if matched_eval is None and name_to_eval:
+            if matched_eval is None and statutory_auditor_agenda:
+                decision = "NO_DATA"
+                reason = "감사 후보 평가 데이터 없음 — 본문 검토 필요"
+            elif matched_eval is None and name_to_eval:
                 relevant_evals = list(name_to_eval.values())
                 if category == "audit_committee_election":
                     relevant_evals = [
@@ -2063,8 +2169,11 @@ async def build_proxy_advise_payload(
 
         # 4. 결정 근거 보강 — facts (정량) + risk_factors + policy_citation
         all_director_evals = list(name_to_eval.values()) if category in ("director_election", "audit_committee_election") else None
-        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, all_director_evals, retirement_payload=retirement_payload,
-                                fy_raw_from_agenda=fy_raw_from_agenda)
+        facts_all_evals = all_director_evals
+        if category == "audit_committee_election" and _is_statutory_auditor_agenda(title) and matched_eval is None:
+            facts_all_evals = None
+        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, facts_all_evals, retirement_payload=retirement_payload,
+                               fy_raw_from_agenda=fy_raw_from_agenda)
         cumulative_threshold = _cumulative_voting_threshold(title)
         if cumulative_threshold:
             facts["cumulative_voting_threshold"] = cumulative_threshold

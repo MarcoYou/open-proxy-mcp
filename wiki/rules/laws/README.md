@@ -1,7 +1,7 @@
 ---
 type: readme
 title: rules/laws/ — 한국 자본시장 법령 자료
-updated: 2026-05-08
+updated: 2026-05-25
 ---
 
 # wiki/rules/laws/ — 한국 자본시장 법령 자료
@@ -12,16 +12,16 @@ updated: 2026-05-08
 
 | 파일 | 종류 | 용도 |
 |---|---|---|
-| **`상법-2025-2026-종합.md`** | 사람 가독 | 1·2·3차 상법 개정 + 정관 우회 시나리오 + 36 catalog. **유일 master** |
-| **`law_layer_rules.json`** | 머신리더블 | proxy_advise._law_layer 직접 로드. **38 룰** (A1=8 / A2=5 / B1=12 / B2=9 / C=4). Ralph 4 정밀화: B1-4b + B1-8b 신규 + B1-7 보강 |
+| **`상법-2025-2026-종합.md`** | 사람 가독 | 1·2·3차 상법 개정 + 정관 우회 시나리오 + catalog. **유일 master** |
+| **`law_layer_rules.json`** | 머신리더블 | proxy_advise._law_layer 직접 로드. **40 룰** (A1=10 / A2=5 / B1=12 / B2=9 / C=4). A1-10 집중투표 조 분리 삭제 추가 |
 
 ## 사용 흐름
 
 ### 분석가 / LLM (사람)
-→ `상법-2025-2026-종합.md` 읽기 (시행 일정 + 적용 대상 + 36 catalog)
+→ `상법-2025-2026-종합.md` 읽기 (시행 일정 + 적용 대상 + catalog)
 
 ### 코드 (proxy_advise)
-→ `law_layer_rules.json` 로드 + 36 룰 sequential evaluation
+→ `law_layer_rules.json` 로드 + 룰 sequential evaluation
 
 ### 시행 일정/패턴 변경 시
 → `law_layer_rules.json` JSON 수정 (코드 변경 X)

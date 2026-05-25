@@ -69,7 +69,10 @@ _AGENDA_BOUNDARY = (
     r'|\(제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안|안건)\s*\)'  # (제N호 의안) — 괄호형 안건만, 조건부 (제N호 인가되는 경우) 제외
     r'|[·ㆍ]?\s*\d+-\d+호'                          # N-M호 (제 없음), ·N-M호
     r'|성\s*명\s*(?:생\s*년\s*월\s*일|출생)'            # 후보자 테이블 헤더 (공백 허용)
+    r'|성\s*명\s*생\s*년\s*월'                         # 후보자 테이블 헤더: 성명 생년월
+    r'|성\s*명\s*주요\s*약력'                          # 후보자 테이블 헤더: 성명 주요 약력
     r'|성\s*명\s*\('                                  # 후보자 테이블 헤더: 성명(생년월일)
+    r'|생\s*년\s*월\s*일\s+사외이사\s*후보자\s*여부'     # 후보자 테이블 헤더: 생년월일 사외이사 후보자 여부
     r'|후보자\s*(?:성명|선임직)'                      # 후보자 테이블 헤더
     r'|사외이사후보자\s*여부'                          # 후보자 테이블 헤더
     r'|추천인\s+주된\s*직업'                           # 후보자 테이블 헤더
@@ -82,6 +85,10 @@ _AGENDA_BOUNDARY = (
     r'|가\.\s*의안의?\s*요지'                          # 안건 상세 시작
     r'|[▣■□]\s*의결권'                                  # 의결권 행사 안내
     r'|\d+\.\s*주주총회\s*소집'                           # 주총 소집 통지/공고
+    r'|\d+\.\s*사업보고서\s*및\s*감사보고서\s*첨부'          # 사업보고서/감사보고서 첨부 섹션
+    r'|\d+\.\s*사업보고서'                                # 사업보고서 첨부 섹션
+    r'|\d+\.\s*감사보고서'                                # 감사보고서 첨부 섹션
+    r'|\d+\.\s*기타\s*사항'                               # 안건 이후 기타사항 섹션
     r'|-\s*후보에\s*관한\s*사항'                          # 한전 등 공공기관 후보 섹션
     r'|의안\s+후보자\s+임기'                              # 한전 후보자 테이블 헤더
     r'|ｏ\s*(?:제\s*\d+|후보)'                            # 강원랜드 등 전각o + 제N호/후보 마커
@@ -94,14 +101,14 @@ _AGENDA_BOUNDARY = (
 # 조건부 prefix "(제N호 인가되는 경우)" 등이 제목 앞에 올 수 있으므로 괄호 블록을 포함
 AGENDA_RE = re.compile(
     r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
-    r'\s*(?:의안|안건)?\s*(?:\([^)]*\))?\s*[:：.]\s*'
+    r'\s*(?:의\s*안|의안|안건)?\s*(?:\([^)]*\))?\s*[:：.]\s*'
     r'((?:\([^)]*\)\s*)?[^\n]*?)' + _AGENDA_BOUNDARY
 )
 
 # 콜론 없음: 제N호 의안 제목 (의안 키워드 필수, lookahead 더 엄격)
 AGENDA_NO_COLON_RE = re.compile(
     r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
-    r'\s*의안\s+'
+    r'\s*(?:의\s*안|의안)\s+'
     r'(.+?)' + _AGENDA_BOUNDARY
 )
 
@@ -1718,6 +1725,14 @@ def _is_personnel_title(title: str) -> bool:
 
     선임/해임 키워드가 있어도 정관변경/보수/감액 등이면 인사 안건 아님.
     """
+    non_personnel_phrases = [
+        '관련 변경', '기준 변경', '인원 변경', '구성 변경', '의무 추가',
+        '권한 위임', '의결권 제한', '보수와 퇴직금', '규정 신설',
+    ]
+    if any(phrase in title for phrase in non_personnel_phrases):
+        return False
+    if _extract_name_from_title(title):
+        return True
     if not any(kw in title for kw in _PERSONNEL_KEYWORDS):
         return False
     # 인사가 아닌 안건 키워드 (정관변경, 보수, 자본 등)
@@ -1799,6 +1814,98 @@ def parse_personnel_xml(html: str) -> dict:
             "candidates": candidates,
         }
         appointments.append(appointment)
+
+    # Some notices put only the parent item in the detailed section while the
+    # notice agenda tree owns child titles with candidate names.
+    def _walk_agenda(nodes: list[dict]):
+        for node in nodes:
+            yield node
+            yield from _walk_agenda(node.get("children") or [])
+
+    def _candidate_needs_agenda_fallback(candidate: dict) -> bool:
+        name = candidate.get("name") or ""
+        return bool(re.search(r'(?:후보|선임|해임|승인|의\s*건)', name))
+
+    needs_agenda_fallback = any(
+        not appt.get("candidates")
+        or any(_candidate_needs_agenda_fallback(c) for c in appt.get("candidates", []))
+        for appt in appointments
+    )
+    if not appointments:
+        needs_agenda_fallback = bool(re.search(r'(?:이사|감사)[^<]{0,80}(?:선임|해임)|후보자?', html or ""))
+    if not needs_agenda_fallback:
+        needs_agenda_fallback = bool(re.search(
+            r'제\s*\d+\s*-\s*\d+\s*호[^<]{0,120}후보\s*[:：]',
+            html or "",
+        ))
+
+    if needs_agenda_fallback:
+        by_number_for_agenda = {appt.get("number"): appt for appt in appointments if appt.get("number")}
+        soup_text = BeautifulSoup(html or "", _BS4_PARSER).get_text(" ")
+        try:
+            agenda_nodes = parse_agenda_xml(soup_text, html)
+        except Exception:
+            agenda_nodes = []
+        for node in _walk_agenda(agenda_nodes):
+            title = node.get("title") or ""
+            number = node.get("number") or ""
+            if not number:
+                continue
+            if not _is_personnel_title(title):
+                continue
+            if '철회' in title:
+                continue
+            name = _extract_name_from_title(title)
+            if not name:
+                continue
+            existing = by_number_for_agenda.get(number)
+            if existing and existing.get("candidates") and not any(
+                _candidate_needs_agenda_fallback(c) for c in existing.get("candidates", [])
+            ):
+                continue
+            category = "이사"
+            for keyword, cat in _CATEGORY_MAP:
+                if keyword in title:
+                    category = cat
+                    break
+            action = "해임" if "해임" in title else "선임"
+            if '재선임' in title:
+                action = "재선임"
+            elif '중임' in title:
+                action = "중임"
+            elif '연임' in title:
+                action = "연임"
+            fallback_candidate = {"name": name, "roleType": category}
+            if existing:
+                existing["candidates"] = [fallback_candidate]
+                continue
+            new_appointment = {
+                "number": number,
+                "title": title,
+                "action": action,
+                "category": category,
+                "candidates": [fallback_candidate],
+            }
+            appointments.append(new_appointment)
+            by_number_for_agenda[number] = new_appointment
+
+    # Parent agenda back-fill: DART often has a parent agenda ("제5호 감사 선임의 건")
+    # followed by child detail ("제5-1호 감사 임성열") where only the child owns
+    # the candidate table. Surface the child candidates on the parent bundle too.
+    def _num_key(number: str) -> str:
+        return re.sub(r'\s+', '', (number or '').replace('제', '').replace('호', ''))
+
+    by_number = {_num_key(appt.get("number", "")): appt for appt in appointments}
+    for parent_key, parent in list(by_number.items()):
+        if not parent_key or "-" in parent_key or parent.get("candidates"):
+            continue
+        child_candidates = []
+        prefix = f"{parent_key}-"
+        for child_key, child in by_number.items():
+            if child_key.startswith(prefix):
+                child_candidates.extend(dict(c) for c in child.get("candidates", []))
+        if child_candidates:
+            parent["candidates"] = child_candidates
 
     # ── Post-processing: cross-appointment career back-fill ──
     # 부모-자식 안건 구조 (제3호 → 제3-1호, 제3-2호) 또는 같은 회의에서
@@ -1934,8 +2041,8 @@ def _normalize_candidate_name(name: str) -> str:
     name = name.strip()
     # 안건번호 prefix 제거 (제3-1호 + 이름)
     name = re.sub(r'^제?\s*\d+(?:\s*-\s*\d+)*\s*호(?:\s*의안)?\s*', '', name).strip()
-    # 괄호 안 부가 텍스트 제거 (재선임, 임기 등)
-    name = re.sub(r'\s*\([^)]*(?:선임|임기|중임|연임|년|신규|기존|신임)[^)]*\)\s*', '', name).strip()
+    # 괄호 안 부가 텍스트 제거 (재선임, 임기, 성별 등)
+    name = re.sub(r'\s*\([^)]*(?:선임|임기|중임|연임|년|신규|기존|신임|남성|여성|남|여)[^)]*\)\s*', '', name).strip()
     # 임기/년수 텍스트 제거 (괄호 없이 붙은 경우): "임기 1년", "임기 3년"
     name = re.sub(r'\s*임기\s*\d+\s*년\s*', '', name).strip()
     # "신규선임", "재선임", "중임" 등 직접 붙은 경우
@@ -1960,9 +2067,15 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
 
     for sec in agenda_detail.get("sections", []):
         heading = sec.get("heading") or ""
+        text_marker = any(
+            block.get("type") == "text"
+            and "후보자" in (block.get("content") or "")
+            and "성명" in (block.get("content") or "")
+            for block in sec.get("blocks", [])
+        )
 
         # 가. 후보자의 성명ㆍ생년월일... 테이블
-        if heading.startswith("가.") or '성명' in heading:
+        if heading.startswith("가.") or '성명' in heading or text_marker:
             # 정관변경 안건은 가. 가 있어도 후보자 테이블 아님
             if is_charter_amendment:
                 continue
@@ -2333,31 +2446,87 @@ def _split_company_role(content: str) -> tuple[str, str]:
     return content, ""
 
 
-_TITLE_NAME_BLACKLIST = {'분리', '신규', '재', '중임', '연임', '신임', '해당', '없음', '대상', '추가'}
+_TITLE_NAME_BLACKLIST = {
+    '분리', '신규', '재', '중임', '연임', '신임', '해당', '없음', '대상', '추가',
+    '추천', '추천에', '추천의', '관한', '규정', '위원회', '설치', '운영', '근거',
+    '일신상의', '선임', '선임의', '건',
+}
+
+_TITLE_KO_NAME_RE = r'[가-힣](?:\s*[가-힣]){1,4}'
+_TITLE_EN_NAME_RE = r'[A-Z][A-Za-z\.\s\-]{3,29}'
 
 
 def _extract_name_from_title(title: str) -> str | None:
     """안건 제목에서 이름 추출: '사내이사 김용관 선임의 건' → '김용관'"""
     def _check(n: str) -> str | None:
-        n = n.strip()
-        if not n or n in _TITLE_NAME_BLACKLIST:
+        n = _normalize_candidate_name(n)
+        n_norm = re.sub(r'\s+', '', n)
+        if not n or n in _TITLE_NAME_BLACKLIST or n_norm in _TITLE_NAME_BLACKLIST:
+            return None
+        if re.search(r'(?:후보|선임|해임|승인|의\s*건)', n):
+            return None
+        if not _is_valid_candidate_name(n):
             return None
         return n
 
-    # 한글 이름 (2~4자)
-    m = re.search(r'(?:이사|감사)\s+([가-힣]{2,4})\s+(?:선임|해임|재선임|중임|연임)', title)
+    # 후보/후보자 keyword가 role 뒤에 오는 형태:
+    # "사외이사 후보 전병선 선임", "감사위원회 위원이 되는 사외이사 후보 김갑순"
+    m = re.search(
+        rf'후보자?\s+({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})\s+'
+        r'(?:선임|해임|재선임|중임|연임)',
+        title,
+    )
     if m and (n := _check(m.group(1))):
         return n
-    # 영문 이름
-    m = re.search(r'(?:이사|감사)\s+([A-Za-z\s]+?)\s+(?:선임|해임)', title)
+
+    m = re.search(
+        rf'(?:이사|감사)후보\s*\([^)]*\)\s*({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})\s*$',
+        title,
+    )
     if m and (n := _check(m.group(1))):
         return n
-    # 후보자: 형태
-    m = re.search(r'후보자?\s*[:：]?\s*([가-힣]{2,4}|[A-Za-z\s]+)', title)
+
+    m = re.search(
+        rf'(?:사내이사|사외이사|독립이사|기타비상무이사|상근감사|비상근감사|이사|감사)\s+'
+        rf'({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})\s*'
+        r'\(\s*(?:신규선임|신임|재선임|중임|연임)\s*\)\s*$',
+        title,
+    )
     if m and (n := _check(m.group(1))):
         return n
-    # 후보 형태
-    m = re.search(r'후보\s+([가-힣]{2,4})', title)
+
+    # 한글/영문 이름: "사내이사 김용관 선임", "이사 John Smith 선임"
+    m = re.search(
+        rf'(?:사내이사|사외이사|독립이사|기타비상무이사|상근감사|비상근감사|이사|감사)\s+'
+        rf'({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})\s+'
+        r'(?:선임|해임|재선임|중임|연임)',
+        title,
+    )
+    if m and (n := _check(m.group(1))):
+        return n
+    # 상세 섹션 제목이 "제5-1호 의안: 감사 임성열"처럼 선임 suffix 없이
+    # 후보 역할 + 이름만 제공되는 DART 문서 패턴.
+    m = re.search(
+        rf'(?:사내이사|사외이사|독립이사|기타비상무이사|상근감사|비상근감사|감사)\s+'
+        rf'({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})\s*$',
+        title,
+    )
+    if m and (n := _check(m.group(1))):
+        return n
+    # 후보자: 형태. 콜론 없는 "후보 추천" 문구는 후보명으로 오인하지 않도록 별도 제한.
+    m = re.search(rf'후보자?\s*[:：]\s*({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})', title)
+    if m and (n := _check(m.group(1))):
+        return n
+    m = re.search(
+        rf'후보자?\s+({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})(?=\s*(?:선임|해임|재선임|중임|연임|$|\)))',
+        title,
+    )
+    if m and (n := _check(m.group(1))):
+        return n
+    m = re.search(
+        rf'후보\s+({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})(?=\s*(?:선임|해임|재선임|중임|연임|$|\)))',
+        title,
+    )
     if m and (n := _check(m.group(1))):
         return n
     return None
@@ -2476,15 +2645,15 @@ def parse_aoi_xml(html: str, sub_agendas: list[dict] | None = None) -> dict:
 
                 headers = rows[0]
                 headers_clean = [re.sub(r'\s+', '', h) for h in headers]
-                has_before = any('변경전' in h or '현행' in h for h in headers_clean)
-                has_after = any('변경후' in h or '개정' in h for h in headers_clean)
+                has_before = any('변경전' in h or '개정전' in h or '현행' in h for h in headers_clean)
+                has_after = any('변경후' in h or '변경(안)' in h or '변경안' in h or '개정후' in h or '개정(안)' in h or '개정안' in h for h in headers_clean)
                 if not (has_before and has_after):
                     continue
 
                 # 컬럼 인덱스 매핑
                 id_idx = 0
-                before_idx = next((i for i, h in enumerate(headers_clean) if '변경전' in h or '현행' in h), 1)
-                after_idx = next((i for i, h in enumerate(headers_clean) if '변경후' in h or '개정' in h), 2)
+                before_idx = next((i for i, h in enumerate(headers_clean) if '변경전' in h or '개정전' in h or '현행' in h), 1)
+                after_idx = next((i for i, h in enumerate(headers_clean) if '변경후' in h or '변경(안)' in h or '변경안' in h or '개정후' in h or '개정(안)' in h or '개정안' in h), 2)
                 reason_idx = next((i for i, h in enumerate(headers_clean) if '목적' in h or '사유' in h), 3)
 
                 # 이 테이블의 모든 행을 하나의 amendment로 묶음 (pending_sub_id 사용)
@@ -3382,7 +3551,26 @@ def _extract_period_labels(header_cells: list[str]) -> dict:
 
 # ── 보수한도 파싱 ──
 
-_COMPENSATION_KEYWORDS = ['보수한도', '보수 한도', '보수의 한도', '보수액한도', '보수액 한도']
+_COMPENSATION_KEYWORDS = [
+    '보수한도', '보수 한도', '보수의 한도', '보수액한도', '보수액 한도',
+    '보수총액 한도', '보수총액한도', '보수지급한도', '보수 지급한도',
+]
+
+
+def _is_compensation_approval_title(title: str) -> bool:
+    compact = re.sub(r'\s+', '', title or "")
+    if not any(re.sub(r'\s+', '', kw) in compact for kw in _COMPENSATION_KEYWORDS):
+        return False
+    if any(kw in compact for kw in ['규정신설', '규정개정', '정관', '변경', '신설']):
+        return False
+    return '승인' in compact or '한도' in compact
+
+
+def _compensation_target_from_title(title: str) -> str:
+    compact = re.sub(r'\s+', '', title or "")
+    if '감사' in compact and '감사위원' not in compact:
+        return "감사"
+    return "이사"
 
 
 def parse_compensation_xml(html: str) -> dict:
@@ -3398,20 +3586,15 @@ def parse_compensation_xml(html: str) -> dict:
         각 item: {"number", "title", "target", "current", "prior", "notes"}
     """
     details = parse_agenda_details_xml(html)
-    if not details:
-        return {"items": [], "summary": _empty_compensation_summary()}
-
     items = []
 
     for d in details:
         title = d.get("title", "")
-        if not any(kw in title for kw in _COMPENSATION_KEYWORDS):
+        if not _is_compensation_approval_title(title):
             continue
 
         # 대상 분류: 이사 / 감사
-        target = "이사"
-        if '감사' in title and '감사위원' not in title:
-            target = "감사"
+        target = _compensation_target_from_title(title)
 
         current = {}  # 당기
         prior = {}    # 전기
@@ -3486,6 +3669,36 @@ def parse_compensation_xml(html: str) -> dict:
         if extra_tables:
             item["extraTables"] = extra_tables
         items.append(item)
+
+    if not items:
+        soup_text = BeautifulSoup(html or "", _BS4_PARSER).get_text(" ")
+        try:
+            agenda_nodes = parse_agenda_xml(soup_text, html)
+        except Exception:
+            agenda_nodes = []
+
+        def _walk(nodes: list[dict]):
+            for node in nodes:
+                yield node
+                yield from _walk(node.get("children") or [])
+
+        seen_numbers = set()
+        for node in _walk(agenda_nodes):
+            title = node.get("title") or ""
+            number = node.get("number") or ""
+            if not number or number in seen_numbers:
+                continue
+            if not _is_compensation_approval_title(title):
+                continue
+            items.append({
+                "number": number,
+                "title": title,
+                "target": _compensation_target_from_title(title),
+                "current": {},
+                "prior": {},
+                "notes": ["agenda_title_fallback"],
+            })
+            seen_numbers.add(number)
 
     summary = _build_compensation_summary(items)
     return {"items": items, "summary": summary}

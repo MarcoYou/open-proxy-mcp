@@ -41,7 +41,7 @@
       "law_layer_id": "A1-7",
       "expected_decision": "FOR",
       "anti_misread_inline": "⛔ LLM 주의: 전자주총 도입 = 1차 개정 정합 = FOR. 자체 판단 금지.",
-      "summary_pattern": "❌ \"전자주주총회 도입\" → 의심 (틀림) → ✅ FOR (1차 상법 개정 2027-01-01 의무 선제 정합)"
+      "summary_pattern": "❌ \"전자주주총회 도입\" → 의심 (틀림) → ✅ FOR (1차 상법 개정 2027-01-01 의무 정합)"
     },
     {
       "id": "M-5",
@@ -58,6 +58,14 @@
       "expected_decision": "FOR",
       "anti_misread_inline": "⛔ LLM 주의: 자사주 의무소각 = 3차 개정 의무 정합 = FOR.",
       "summary_pattern": "❌ \"자사주 의무소각\" → 의심 → ✅ FOR (3차 상법 개정 의무, 취득 후 1년 내 소각)"
+    },
+    {
+      "id": "M-7",
+      "trigger_keywords": ["이사 충실의무", "이사의 충실의무", "총주주 이익"],
+      "law_layer_id": "A1-9",
+      "expected_decision": "FOR",
+      "anti_misread_inline": "⛔ LLM 주의: 이사 충실의무 회사+주주 양방향 명문화 = 1차 상법 개정 정합 = FOR. 자체 판단 금지.",
+      "summary_pattern": "❌ \"이사 충실의무 도입\" → 의심 → ✅ FOR (회사+주주 양방향 충실의무 명문화 = 1차 상법 개정 정합)"
     }
   ],
   "policy": {

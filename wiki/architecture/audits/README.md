@@ -26,6 +26,7 @@ updated: 2026-05-18
 - [[260510_data_tools_perf_audit]]
 
 ### 2. 현재 action / advise 상태
+- [[260525_1620_audit_agenda-parser-marketwide]]
 - [[260525_0200_audit_agenda-relation-kospi300]]
 - [[260510_proxy_advise_audit_통합정리]]
 - [[../proxy_advise_word_report_design]]
@@ -50,6 +51,7 @@ updated: 2026-05-18
 
 | 영역 | 현재 기준 문서 | 비고 |
 |---|---|---|
+| agenda parser / 주총 소집공고 파싱 전수 | [[260525_1620_audit_agenda-parser-marketwide]] | KOSPI500 + KOSDAQ150, XML 641건, no_filing 9, 재파싱 3회 hash diff 0 |
 | agenda relation / 주총 소집공고 파싱 | [[260525_0200_audit_agenda-relation-kospi300]] | KOSPI300 재실행 exact 298 / no_filing 2 / requires_review 0, relation metadata 검증 |
 | advise / proxy_advise 전체 흐름 | [[260510_proxy_advise_audit_통합정리]] | sanity → 실패 → 수렴 → framework 통합 |
 | proxy_advise Word 문서 양식 | [[../proxy_advise_word_report_design]] | 샘플 기반 Word export 설계 |

@@ -1,7 +1,7 @@
 {
   "version": "v1",
   "effective_date": "2026-05-08",
-  "description": "법령 layer 룰 catalog — vote_style 위에 우선 적용. 1·2·3차 상법 개정 + 정관 우회 시나리오. 38 항목 (A1=8 / A2=5 / B1=12 / B2=9 / C=4). Ralph 4 정밀화: B1-4 분기(B1-4b) + B1-8 보강(B1-8b).",
+  "description": "법령 layer 룰 catalog — vote_style 위에 우선 적용. 1·2·3차 상법 개정 + 정관 우회 시나리오. 40 항목 (A1=10 / A2=5 / B1=12 / B2=9 / C=4). Ralph 4 정밀화: B1-4 분기(B1-4b) + B1-8 보강(B1-8b).",
   "source_docs": [
     "wiki/rules/laws/상법개정-2025-2026-통합본.md",
     "wiki/rules/laws/정관-우회-시나리오-2026.md"
@@ -187,7 +187,7 @@
         "applies_after": "2025-07-22",
         "company_type": "listed"
       },
-      "reason_template": "사외이사 → 독립이사 명칭 변경 — 2026 상법 1차 개정 (2025-07-22 시행) 정합",
+      "reason_template": "사외이사 → 독립이사 명칭 변경 — 상법 1차 개정 정합",
       "law_reference": "상법 1차 개정 (2025-07-22)",
       "priority": 10
     },
@@ -198,21 +198,25 @@
       "decision": "FOR",
       "agenda_pattern": {
         "all_of": [
-          "독립이사"
+          "이사"
         ],
         "any_of": [
           "1/3",
           "3분의 1",
           "비율"
+        ],
+        "secondary": [
+          "독립이사",
+          "사외이사"
         ]
       },
       "applies_to": {
-        "min_asset_won": 0,
+        "min_asset_won": 2000000000000,
         "applies_after": "2025-07-22",
         "company_type": "listed"
       },
-      "reason_template": "독립이사 의무선임 비율 1/3 — 2026 상법 1차 개정 정합",
-      "law_reference": "상법 1차 개정 (2025-07-22 공포, 2026-07-23 시행 + 1년 유예)",
+      "reason_template": "자산 2조+ 독립이사 의무선임 비율 1/3 — 상법 1차 개정 정합",
+      "law_reference": "상법 1차 개정 (독립이사 비율 1/3)",
       "priority": 10
     },
     {
@@ -250,7 +254,7 @@
         "min_asset_won": 0,
         "applies_after": "2025-07-22"
       },
-      "reason_template": "전자주주총회 도입 — 2026 상법 1차 개정 (2027-01-01 의무) 선제 정합",
+      "reason_template": "전자주주총회 도입 — 상법 1차 개정 (2027-01-01 의무) 정합",
       "law_reference": "상법 1차 개정 (전자주주총회 2027-01-01 의무)",
       "priority": 10
     },
@@ -275,6 +279,97 @@
       },
       "reason_template": "자사주 의무소각 — 2026 상법 3차 개정 정합 (취득 후 1년 내 소각 원칙)",
       "law_reference": "상법 3차 개정 (2026-02-25 통과, 2026-09-10 시행 예정)",
+      "priority": 10
+    },
+    {
+      "id": "A1-9",
+      "layer": "A1",
+      "category": "articles_amendment",
+      "decision": "FOR",
+      "agenda_pattern": {
+        "all_of": [
+          "이사",
+          "충실의무"
+        ],
+        "any_of": [
+          "도입",
+          "확대",
+          "반영",
+          "명문화",
+          "개정",
+          "변경"
+        ],
+        "exclude": [
+          "신주발행"
+        ]
+      },
+      "body_pattern": {
+        "all_of": [
+          "이사",
+          "충실의무"
+        ],
+        "any_of": [
+          "주주",
+          "총주주",
+          "공평",
+          "명문화",
+          "신설",
+          "반영",
+          "개정"
+        ],
+        "exclude": [
+          "신주발행"
+        ]
+      },
+      "applies_to": {
+        "min_asset_won": 0,
+        "applies_after": "2025-07-22",
+        "company_type": "listed"
+      },
+      "reason_template": "이사 충실의무 회사+주주 양방향 명문화 — 2026 상법 1차 개정 정합",
+      "law_reference": "상법 §382의3 + 1차 개정 (2025-07-22)",
+      "priority": 10
+    },
+    {
+      "id": "A1-10",
+      "layer": "A1",
+      "category": "articles_amendment",
+      "decision": "FOR",
+      "agenda_pattern": {
+        "all_of": [
+          "집중투표"
+        ],
+        "any_of": [
+          "조 분리 삭제",
+          "별개의 조 삭제",
+          "구분 삭제",
+          "분리 삭제",
+          "조 분리 폐지",
+          "별개의 조 폐지"
+        ]
+      },
+      "body_pattern": {
+        "all_of": [
+          "집중투표",
+          "별개의 조"
+        ],
+        "any_of": [
+          "삭제",
+          "폐지",
+          "제거",
+          "법무부",
+          "유권해석"
+        ],
+        "exclude": [
+          "신설"
+        ]
+      },
+      "applies_to": {
+        "min_asset_won": 2000000000000,
+        "company_type": "listed"
+      },
+      "reason_template": "집중투표 이사 종류별 조 분리 삭제 — 법무부 유권해석 정합 (집중투표는 이사 종류별 분리 적용 근거 없음)",
+      "law_reference": "법무부 유권해석 (집중투표 적용 대상 이사 종류별 구분 근거 없음) + 상법 §382의2",
       "priority": 10
     },
     {
@@ -358,20 +453,24 @@
       "decision": "AGAINST",
       "agenda_pattern": {
         "all_of": [
-          "독립이사"
+          "이사"
         ],
         "any_of": [
           "1/3 미달",
           "축소",
           "비율 하향"
+        ],
+        "secondary": [
+          "독립이사",
+          "사외이사"
         ]
       },
       "applies_to": {
-        "min_asset_won": 0,
+        "min_asset_won": 2000000000000,
         "applies_after": "2026-07-23",
         "company_type": "listed"
       },
-      "reason_template": "독립이사 비율 1/3 미달 — 2026 상법 1차 개정 위반",
+      "reason_template": "자산 2조+ 독립이사 비율 1/3 미달 — 상법 1차 개정 위반",
       "law_reference": "상법 1차 개정 (독립이사 비율 1/3 의무)",
       "priority": 20
     },
