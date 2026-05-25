@@ -109,6 +109,24 @@ OPM 자체 함수들 + vote_style 정책 wire:
 - `_decide_treasury_share` (소각 vs 처분)
 - `_apply_policy_default` (vote_style 정책 default가 case_by_case 아니면 OPM 결정 override)
 
+## Layer consistency guarantee (2026-05-25)
+
+`proxy_advise_before_meeting`은 모든 안건을 억지로 하나의 법령 layer에 매핑하지 않는다. 보장 범위는 **파싱된 안건에 대해 동일한 순서로 판단 layer와 guardrail을 적용한다**는 것이다.
+
+적용 순서:
+
+1. `shareholder_meeting_notice`에서 full agenda tree와 relation metadata를 받는다.
+2. 법령 강행규정/위험규칙에 해당하면 law layer가 먼저 판단한다.
+3. law layer hit가 없고 안건이 `procedural`, `conditional`, `alternative`이면 자동 FOR/AGAINST 대신 REVIEW로 둔다.
+4. 일반 안건은 기존 decision path로 간다.
+   - 재무제표/배당: 재무·배당 decision
+   - 이사/감사위원 선임: 후보 평가 decision
+   - 보수/퇴직금: compensation/retirement decision
+   - 정관변경: law layer + 정관변경 decision
+5. 위 분기에도 걸리지 않는 일반/저위험 안건은 policy default를 적용한다.
+
+따라서 "모든 기업의 모든 안건이 law layer에 걸린다"는 보장은 하지 않는다. 대신 KOSPI300 기준으로 주총 소집공고 파싱은 `exact` 298 / `no_filing` 2 / `requires_review` 0까지 확인했고, 파싱된 안건에는 relation metadata와 동일한 layer 적용 순서가 일관되게 제공된다.
+
 ## 검증
 
 - ralph 27 iter G2 99.36% (vs 8 운용사 majority, 4+ vote case)

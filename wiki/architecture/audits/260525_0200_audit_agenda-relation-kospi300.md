@@ -80,6 +80,22 @@ KOSPI300 1차 측정에서는 다음 6건이 문제로 남았다.
 
 `procedural`/`alternative`는 KOSPI300 전체에서 고려아연형 복합 구조에 집중되어 있었다. KOSDAQ top 50에서는 procedural/alternative 신규 케이스가 없었다.
 
+## proxy_advise consistency 해석
+
+이번 audit의 의미는 "모든 안건이 법령 layer에 걸린다"가 아니다. 실제 보장 범위는 다음이다.
+
+- 파싱된 모든 agenda node는 `proposer_type`, `agenda_relation_type`, `agenda_relation_reasons`를 동일 schema로 가진다.
+- `proxy_advise_before_meeting`은 full agenda tree를 기준으로 안건 결정을 생성한다.
+- layer 적용 순서는 일관된다:
+  1. law layer hit 우선
+  2. law layer hit가 없는 절차성/대안형/조건부 안건은 REVIEW guardrail
+  3. 일반 재무제표/배당/후보/보수/퇴직금/정관변경 decision path
+  4. policy default
+- 법령상 당연히 찬성해야 하는 안건은 relation REVIEW보다 law layer가 우선한다.
+- relation metadata는 결론이 아니라 자동 판단을 멈추는 guardrail이다.
+
+따라서 사용자-facing report에서는 "모든 안건이 layer에 걸렸다"가 아니라 "같은 schema와 같은 판단 순서로 리포트된다"고 설명해야 한다.
+
 ## 검증
 
 명령:

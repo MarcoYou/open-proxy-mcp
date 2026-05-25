@@ -24,6 +24,15 @@ title: Operation Log
   - [[260525_0200_audit_agenda-relation-kospi300]]
   - [[agenda-relation-parser-260525]]
 
+## [2026-05-25] docs | proxy_advise layer consistency 보장 범위 명문화
+
+- `proxy_advise_before_meeting` 문서에 layer consistency guarantee 추가
+  - 모든 안건이 law layer에 걸리는 것이 아니라, 파싱된 안건에 동일 schema와 동일 판단 순서가 적용된다는 점 명시
+  - law layer → relation REVIEW guardrail → 일반 decision path → policy default 순서 정리
+- audit/lesson에도 같은 해석을 반영
+  - relation metadata는 결론이 아니라 자동 판단을 멈추는 guardrail
+  - 사용자-facing report에서는 "모든 안건이 layer에 걸림"이 아니라 "같은 schema와 판단 순서로 리포트됨"으로 설명
+
 ## [2026-05-12] docs | proxy_advise Word 보고서 설계 고정, 구현은 TODO로 이월
 
 - `wiki/architecture/proxy_advise_word_report_spec.md` 신규
