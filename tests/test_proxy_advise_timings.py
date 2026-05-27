@@ -407,6 +407,82 @@ def test_director_compensation_unknown_increase_is_review_not_profit_fallback():
     assert "인상률 미파악" in reason
 
 
+def test_policy_against_default_is_review_without_law_trigger():
+    decision, reason = pa._apply_policy_default("against", "FOR", "fallback")
+
+    assert decision == "REVIEW"
+    assert "법령 hard trigger가 아니므로 REVIEW" in reason
+
+
+def test_policy_judgment_against_cases_are_review():
+    director_comp_payload = {
+        "data": {
+            "compensation": {
+                "items": [
+                    {
+                        "target": "이사",
+                        "current": {"limitAmount": 12_000_000_000},
+                        "prior": {"limitAmount": 10_000_000_000, "actualPaidAmount": 2_000_000_000},
+                    }
+                ]
+            }
+        }
+    }
+    fin_payload = {"data": {"summary": {"net_income_krw": 10_000_000_000, "capital_impairment_status": "normal"}}}
+
+    decision, reason = pa._decide_director_compensation(director_comp_payload, fin_payload)
+
+    assert decision == "REVIEW"
+    assert "소진율 20%" in reason
+
+    audit_comp_payload = {
+        "data": {
+            "compensation": {
+                "items": [
+                    {
+                        "target": "감사",
+                        "current": {"limitAmount": 40_000_000, "totalDirectors": 1},
+                        "prior": {"limitAmount": 40_000_000, "actualPaidAmount": 30_000_000},
+                    }
+                ]
+            }
+        }
+    }
+
+    decision, reason = pa._decide_audit_compensation(audit_comp_payload, fin_payload)
+
+    assert decision == "REVIEW"
+    assert "과소 보수 여부 검토" in reason
+
+
+def test_retirement_dividend_and_articles_policy_concerns_are_review():
+    retirement_payload = {
+        "data": {
+            "amendments": [
+                {"before": "기존", "after": "경영권 변동 시 특별공로금을 지급한다", "reason": ""}
+            ]
+        }
+    }
+
+    decision, reason = pa._decide_retirement_pay(retirement_payload, {"data": {"summary": {}}})
+
+    assert decision == "REVIEW"
+    assert "경영권 변동" in reason
+
+    dividend_decision, dividend_reason = pa._decide_dividend(
+        "현금배당 승인의 건",
+        {"data": {"summary": {"capital_impairment_status": "full"}}},
+    )
+
+    assert dividend_decision == "REVIEW"
+    assert "배당 재원" in dividend_reason
+
+    articles_decision, articles_reason = pa._decide_articles_amendment("집중투표 배제 조항 신설의 건")
+
+    assert articles_decision == "REVIEW"
+    assert "법령 A2 직접 hit 아님" in articles_reason
+
+
 async def _fake_shareholder_meeting_with_relation_agenda(_company, *, scope, **_kwargs):
     data = {
         "agenda_summary": {"titles": [

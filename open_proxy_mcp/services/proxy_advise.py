@@ -118,7 +118,7 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
     if default_str == "for":
         return "FOR", "운용사 정책상 default=FOR (case별 reverse 룰은 별도)"
     if default_str == "against":
-        return "AGAINST", "운용사 정책상 default=AGAINST"
+        return "REVIEW", "운용사 정책상 default=AGAINST이나 법령 hard trigger가 아니므로 REVIEW"
     if default_str == "review":
         return "REVIEW", "운용사 정책상 default=REVIEW (case별 검토)"
     return fallback_decision, fallback_reason
@@ -679,7 +679,7 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     # 사내이사: 결격사유 외에 재직 중 회사 운영 성과 평가 (status quo 편향 mitigation, ralph 260505)
     perf = (eval_match.get("performance") or {}).get("classification")
     if perf == "bad":
-        return "AGAINST", f"사내이사 재직 중 성과 bad — 자본잠식/적자 또는 누적 악화"
+        return "REVIEW", f"사내이사 재직 중 성과 bad — 자본잠식/적자 또는 누적 악화, 법정 결격은 아니므로 사용자 검토"
     if perf == "weak":
         return "REVIEW", f"사내이사 재직 중 성과 weak — 사용자 검토 필요"
     if perf in ("moderate", "good"):
@@ -801,9 +801,9 @@ def _decide_director_compensation(
     """이사 보수한도 — 13 분기 (hard trigger → 자동 trigger → fallback).
 
     정책 근거:
-    - OPM Open Proxy v1.3 #2 (적자/순익 감소 + 한도 증액 against)
-    - OPM #8 (50%+ 인상 against, 일회성 사유 외)
-    - N연기금 [별표 1] IV-33① (이사회 안 원칙적 찬성), IV-33② (한도 과다 against)
+    - OPM Open Proxy v1.3 #2 (적자/순익 감소 + 한도 증액 검토)
+    - OPM #8 (50%+ 인상 검토, 일회성 사유 확인)
+    - N연기금 [별표 1] IV-33① (이사회 안 원칙적 찬성), IV-33② (한도 과다 검토)
     - mainstream FOR fallback (records 표본 82.5% FOR)
     """
     fm_summary = ((fin_metrics_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -814,7 +814,7 @@ def _decide_director_compensation(
     if not comp_payload:
         # 데이터 부족 fallback
         if cap_status == "full":
-            return "AGAINST", "완전 자본잠식 — 보수한도 결정 부적절"  # 분기 12
+            return "REVIEW", "완전 자본잠식 — 보수한도 결정 부적절 가능성, 법정 금지는 아니므로 검토"  # 분기 12
         if ni is not None or cap_status == "normal":
             return "REVIEW", "보수 데이터 부족 — 전년 한도·소진율·인상률 확인 필요"
         return "NO_DATA", "보수 + 재무 데이터 둘 다 없음 — 본문 검토 필요"  # 분기 13
@@ -825,12 +825,12 @@ def _decide_director_compensation(
 
     # 분기 1: 자본잠식 + 인상
     if cap_status == "full" and inc is not None and inc > 0:
-        return "AGAINST", f"완전 자본잠식 + 한도 인상 ({inc:+.0f}%) — OPM Guideline (보수 결정 부적절)"
+        return "REVIEW", f"완전 자본잠식 + 한도 인상 ({inc:+.0f}%) — 보수 결정 부적절 가능성, 법정 금지는 아니므로 검토"
     # 분기 2: 소진율 < 30% — 단독 강화 (코붕이 의견 260505 ralph precision iter 3)
     # "오바해서 올리거나 사용 안하면서 늘리거나"는 인상 외에도 "남는데 한도 유지" 도 검토 대상
     if util_rate is not None and util_rate < 30:
         if inc is not None and inc > 0:
-            return "AGAINST", f"소진율 {util_rate:.0f}%인데 한도 인상 ({inc:+.0f}%) — 주주가치 훼손"
+            return "REVIEW", f"소진율 {util_rate:.0f}%인데 한도 인상 ({inc:+.0f}%) — 한도 적정성 검토"
         if inc is None:
             return "REVIEW", f"소진율 {util_rate:.0f}% (낮음) + 인상률 미파악 — 한도 적정성 검토"
         if inc == 0 or (-10 < inc < 0):
@@ -840,7 +840,7 @@ def _decide_director_compensation(
     if inc is not None and inc > 0:
         if (ni is not None and ni < 0) or (yoy is not None and yoy < 0):
             ni_label = "적자" if (ni is not None and ni < 0) else f"순익 yoy {yoy:+.0f}%"
-            return "AGAINST", f"{ni_label} + 한도 인상 ({inc:+.0f}%) — OPM #2 (경영성과 대비 과다)"
+            return "REVIEW", f"{ni_label} + 한도 인상 ({inc:+.0f}%) — 경영성과 대비 보수 적정성 검토"
     # 분기 5: 50%+ 인상 (#8)
     if inc is not None and inc >= 50:
         return "REVIEW", f"보수한도 대폭 인상 ({inc:+.0f}%) — OPM #8 (50%+ 인상, 일회성 사유 외)"
@@ -865,7 +865,7 @@ def _decide_director_compensation(
     # 분기 11/13: 인상률 None (compensation parsed but increase_rate missing)
     if inc is None:
         if cap_status == "full":
-            return "AGAINST", "완전 자본잠식 + 인상률 미파악 — OPM Guideline"
+            return "REVIEW", "완전 자본잠식 + 인상률 미파악 — 보수한도 적정성 검토"
         if ni is not None or cap_status == "normal":
             return "REVIEW", "보수한도 인상률 미파악 — 전년 한도·소진율 확인 필요"
         return "NO_DATA", "보수한도 인상률 + 재무 데이터 둘 다 없음 — 본문 검토 필요"
@@ -887,8 +887,8 @@ def _decide_audit_compensation(
     """감사 보수한도 — 11 분기.
 
     정책 근거:
-    - N연기금 [별표 1] IV-34: 한도 과소 (감사 충실 업무 훼손) AGAINST
-    - s_legacy 패턴: 인상률 ≥+50% (감사 보수 급증 = 경영진 동조 인센티브) AGAINST
+    - N연기금 [별표 1] IV-34: 한도 과소 (감사 충실 업무 훼손) 검토
+    - s_legacy 패턴: 인상률 ≥+50% (감사 보수 급증 = 경영진 동조 인센티브) 검토
     - mainstream FOR (records 11 majority case 모두 FOR)
     """
     fm_summary = ((fin_metrics_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -897,7 +897,7 @@ def _decide_audit_compensation(
 
     if not comp_payload:
         if cap_status == "full":
-            return "AGAINST", "완전 자본잠식 — 감사 보수한도 결정 부적절"
+            return "REVIEW", "완전 자본잠식 — 감사 보수한도 결정 부적절 가능성, 법정 금지는 아니므로 검토"
         if ni is not None and ni > 0:
             return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — mainstream fallback"
         if cap_status == "normal":
@@ -914,13 +914,13 @@ def _decide_audit_compensation(
 
     # 분기 1: 자본잠식 + 인상
     if cap_status == "full" and audit_inc is not None and audit_inc > 0:
-        return "AGAINST", f"완전 자본잠식 + 감사 한도 인상 ({audit_inc:+.0f}%) — 보수 결정 부적절"
+        return "REVIEW", f"완전 자본잠식 + 감사 한도 인상 ({audit_inc:+.0f}%) — 보수 결정 적정성 검토"
     # 분기 3: 1인당 평균 < threshold_low (N연기금 IV-34 과소)
     if audit_per_person is not None and audit_per_person < threshold_low_per_person:
-        return "AGAINST", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (< {threshold_low_per_person/1e8:.1f}억) — 참조 감사보수 규칙 (과소, 충실 업무 훼손)"
+        return "REVIEW", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (< {threshold_low_per_person/1e8:.1f}억) — 과소 보수 여부 검토"
     # 분기 4: 인상률 ≥+50% + 1인당 평균 > threshold_high (s_legacy 패턴)
     if audit_inc is not None and audit_inc >= 50 and audit_per_person is not None and audit_per_person > threshold_high_per_person:
-        return "AGAINST", f"감사 한도 +{audit_inc:.0f}% + 1인당 평균 {audit_per_person/1e8:.2f}억 (>{threshold_high_per_person/1e8:.1f}억) — strict 내부 감사보수 패턴 (경영진 동조 인센티브 우려)"
+        return "REVIEW", f"감사 한도 +{audit_inc:.0f}% + 1인당 평균 {audit_per_person/1e8:.2f}억 (>{threshold_high_per_person/1e8:.1f}억) — 급증/과다 여부 검토"
     # 분기 5: 인상률 +30~+50% (s_legacy 보수)
     if audit_inc is not None and 30 <= audit_inc < 50:
         return "REVIEW", f"감사 한도 +{audit_inc:.0f}% 인상 — strict 내부 감사보수 패턴 검토"
@@ -936,7 +936,7 @@ def _decide_audit_compensation(
     # 분기 9/10: 데이터 부족 fallback
     if audit_inc is None and audit_per_person is None:
         if cap_status == "full":
-            return "AGAINST", "감사 보수 데이터 부족 + 자본잠식 — 보수 결정 부적절"
+            return "REVIEW", "감사 보수 데이터 부족 + 자본잠식 — 보수 적정성 검토"
         if ni is not None and ni > 0:
             return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — mainstream fallback"
     # 분기 11: default
@@ -972,10 +972,10 @@ def _decide_retirement_pay(
     """퇴직금 규정 변경 안건 — 12 분기.
 
     정책 근거:
-    - N연기금 [별표 1] IV-35: 황금낙하산 원칙적 반대
-    - OPM Open Proxy v1.3 #6 (사외이사 퇴직혜택 부여 against)
-    - OPM #7 (황금낙하산 정관 도입 against)
-    - s_legacy 패턴 (퇴직금 31% AGAINST — 적자 case 등)
+    - N연기금 [별표 1] IV-35: 황금낙하산 검토
+    - OPM Open Proxy v1.3 #6 (사외이사 퇴직혜택 부여 검토)
+    - OPM #7 (황금낙하산 정관 도입 검토)
+    - s_legacy 패턴 (퇴직금 적자 case 등) 검토
     - mainstream FOR (records 표본 80% FOR)
     """
     if not retirement_payload:
@@ -998,7 +998,7 @@ def _decide_retirement_pay(
         after = (a.get("after") or "").strip()
         before = (a.get("before") or "").strip()
         reason = (a.get("reason") or "").strip()
-        # AGAINST hard trigger
+        # REVIEW trigger (policy concern, not legal disqualification)
         for kw in _RETIREMENT_AGAINST_KEYWORDS_AFTER:
             if kw in after:
                 risk_against.append({"clause": a.get("clause"), "kw": kw})
@@ -1018,10 +1018,10 @@ def _decide_retirement_pay(
     # 분기 1: 황금낙하산
     if risk_against:
         kws = ", ".join(sorted({h["kw"] for h in risk_against}))
-        return "AGAINST", f"퇴직금 위험 trigger ({kws}) 신설 — 참조 퇴직금 규칙 + OPM #7 (원칙적 반대)"
+        return "REVIEW", f"퇴직금 위험 trigger ({kws}) 신설 — 황금낙하산/경영권 변동 보상 가능성 검토"
     # 분기 2: 사외이사 퇴직금 신설
     if risk_outside_dir:
-        return "AGAINST", "사외이사 퇴직금 신설 — OPM #6 (사외이사 퇴직혜택 부여 against)"
+        return "REVIEW", "사외이사 퇴직금 신설 — 독립성 훼손 가능성 검토"
     # 분기 3: 지급률 ≥2배수 인상 (sample-aware)
     # SK하이닉스 sample: 사장 4.0배수, 부사장 3.0배수 — 신설인지 변경인지 판단
     payment_multiplier_signal = False
@@ -1043,7 +1043,7 @@ def _decide_retirement_pay(
             payment_multiplier_signal = True
             break
     if payment_multiplier_signal:
-        return "AGAINST", "지급률 2배수 이상 인상 또는 신설 (≥3배수) — strict 내부 퇴직금 패턴"
+        return "REVIEW", "지급률 2배수 이상 인상 또는 신설 (≥3배수) — 과도한 퇴직급여 가능성 검토"
     # 분기 4: 자본잠식 + 변경
     if cap_status == "full" and amendments:
         return "REVIEW", f"완전 자본잠식 + 퇴직금 변경 {len(amendments)}건 — 보수적 검토"
@@ -1122,11 +1122,11 @@ def _decide_articles_amendment(
     # 이 함수는 법령 layer 미매치 시 fallback (운용사 정책 hardcoded 분기).
     # 참조: services/proxy_advise.py:_law_layer + wiki/rules/laws/law_layer_rules.json
     #
-    # AGAINST signals (소수주주 보호 후퇴) — 법령 layer 미매치 fallback
+    # REVIEW signals (소수주주 보호 후퇴) — 법령 layer A2 직접 hit이 아니면 자동 반대 금지
     if "집중투표" in t and "배제" in t:
-        return "AGAINST", "집중투표 배제 — 소수주주 보호 후퇴 (법령 layer A2-1 미매치 fallback)"
+        return "REVIEW", "집중투표 배제 — 소수주주 보호 후퇴 가능성, 법령 A2 직접 hit 아님"
     if "초다수결의제" in t or ("의결권" in t and "제한" in t):
-        return "AGAINST", "초다수결의제 또는 의결권 제한 — 적대적 인수 방어"
+        return "REVIEW", "초다수결의제 또는 의결권 제한 — 적대적 인수 방어 가능성 검토"
     # iter23+24 검증: "통지기한 단축" records 표본 0건 → over-fit fix 제거
     # REVIEW signals (영향 명확하지 않은 변경)
     if "이사" in t and ("정원" in t or "축소" in t):
@@ -1195,9 +1195,9 @@ _POLICY_CITATIONS = {
     "cash_dividend": "OPM Guideline §배당 — 흑자 + 배당성향 적정 시 FOR (200% 초과 시 REVIEW)",
     "director_election": "OPM Guideline §이사선임 — 사내이사: 결격만 검증 / 사외이사: 독립성 + 결격",
     "audit_committee_election": "OPM Guideline §감사위원 — strict 검증 (장기연임 5년 룰 + 독립성)",
-    "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 시 AGAINST / 적자+인상 시 AGAINST (#2) / 50% 이상 인상 시 REVIEW (#8)",
-    "audit_compensation": "참조 감사보수 규칙 + strict 내부 패턴 — 1인당 평균 과소 시 AGAINST / 50% 이상 인상 + 1인당 평균 과다 시 AGAINST",
-    "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 신설 시 AGAINST / 사외이사 퇴직금 신설 시 AGAINST / 지급률 2배수 이상 인상 시 AGAINST",
+    "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 / 적자+인상 / 50% 이상 인상은 REVIEW",
+    "audit_compensation": "참조 감사보수 규칙 + strict 내부 패턴 — 1인당 평균 과소 / 50% 이상 인상 + 1인당 평균 과다는 REVIEW",
+    "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 / 사외이사 퇴직금 / 지급률 2배수 이상 인상은 REVIEW",
     "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 없으면 FOR",
     "treasury_share": "OPM Guideline §자사주 — 소각 FOR / 처분 REVIEW",
     "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
@@ -1428,13 +1428,13 @@ def _extract_risks(
         for a in amends:
             after = (a.get("after") or "")
             if "황금낙하산" in after or "경영권 변동" in after:
-                risks.append("황금낙하산 또는 경영권 변동 special 가산 신설 (참조 퇴직금 규칙상 원칙적 반대)")
+                risks.append("황금낙하산 또는 경영권 변동 special 가산 신설 (참조 퇴직금 규칙상 검토)")
                 break
         for a in amends:
             after = a.get("after") or ""
             before = a.get("before") or ""
             if "사외이사" in after and "사외이사" not in before:
-                risks.append("사외이사 퇴직금 신설 (OPM #6 against)")
+                risks.append("사외이사 퇴직금 신설 (OPM #6 검토)")
                 break
 
     if category == "cash_dividend":
@@ -1455,9 +1455,8 @@ def _extract_risks(
 def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, company_name: str = "") -> tuple[str, str]:
     """배당 안건 — 보수화 (애매→REVIEW).
 
-    AGAINST: 자본잠식 full + 배당 (명백한 주주가치 훼손).
-    REVIEW: 적자 (음수 순익) / 배당성향 80%+ / 재무 데이터 없음.
-    FOR: 흑자 + 배당성향 적정 (< 80%).
+    REVIEW: 완전 자본잠식 / 적자 (음수 순익) / 배당성향 200%+ / 재무 데이터 없음.
+    FOR: 흑자 + 배당성향 적정.
     """
     # iter23: 리츠 (REIT)는 배당 의무 90%+. 무조건 FOR. (사용자 명시)
     if "리츠" in company_name or "REIT" in company_name.upper():
@@ -1471,7 +1470,7 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
     payout = summary.get("payout_ratio_pct")
 
     if cap_status == "full":
-        return "AGAINST", "완전 자본잠식 — 배당 결정은 주주가치 훼손"
+        return "REVIEW", "완전 자본잠식 — 배당 재원과 주주가치 영향 검토"
     # ralph iter9+15+21: 배당 절차 안건은 재무 (적자 등) 무관 자동 FOR.
     # iter21 추가: "자본준비금" / "이익잉여금 전입" — 회계 절차 (리가켐바이오 2/2 FOR)
     procedural_kws = ("분기", "기준일", "중간배당", "동등배당", "배당정책", "배당절차", "절차",
@@ -1991,7 +1990,7 @@ async def build_proxy_advise_payload(
                     decision, reason = "AGAINST", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 결격사유 발견"
                 elif inside_perf_bad:
                     bad_names = [ev.get("name", "?") for ev in inside_evals if (ev.get("performance") or {}).get("classification") == "bad"]
-                    decision, reason = "AGAINST", f"묶음 안건 — 사내이사 재직 성과 bad ({', '.join(bad_names[:3])})"
+                    decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 bad ({', '.join(bad_names[:3])}) — 사용자 검토"
                 elif audit_history_red:
                     decision, reason = "REVIEW", f"묶음 안건 — 이사 회계 risk 이력 검증 red_flag (raw 메모 검토)"
                 elif inside_perf_weak:
