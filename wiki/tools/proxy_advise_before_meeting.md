@@ -7,9 +7,9 @@ data_source: [shareholder_meeting (notice), ownership_structure, corp_gov_report
 related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구조보고서]
 related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
 related_decisions: [open-proxy-guideline]
-related_audits: [260525_0200_audit_agenda-relation-kospi300, 260510_proxy_advise_audit_통합정리, 260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final, 260504_0028_audit_proxy_advise_rename_regression, 260504_0724_audit_parse_personnel_iter1-7]
+related_audits: [260528_proxy_advise_metric_gap_audit, 260525_0200_audit_agenda-relation-kospi300, 260510_proxy_advise_audit_통합정리, 260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final, 260504_0028_audit_proxy_advise_rename_regression, 260504_0724_audit_parse_personnel_iter1-7]
 created: 2026-05-04
-updated: 2026-05-24
+updated: 2026-05-28
 ---
 
 # proxy_advise_before_meeting
@@ -63,6 +63,12 @@ proxy_advise_before_meeting(
 | `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
 | `evidence_rcept_no` | 근거 공고 (DART viewer link) |
 | `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect |
+| `candidate_review_profile` | 후보 선임 안건용 evidence bundle. 결격사유, 독립성 세부 사유, 겸직 구간, 연임/재직 시작, 추천사유/직무계획 raw, 사내이사 성과 요약을 묶어 노출 |
+| `facts.*_band` | 보수 인상률, 보수 소진율, 감사 1인당 보수, 배당성향, 자사주 비율을 사람이 읽기 쉬운 구간값으로 구조화 |
+| `facts.retirement_multiplier_evidence` | 퇴직금/퇴임위로금 변경 안건의 before/after 배수, 증가율, strong review signal |
+| `facts.retirement_target_expansion` | 퇴직금/퇴임위로금 지급 대상이 새로 확장된 경우의 조항과 대상 키워드 |
+| `facts.director_per_person_limit_krw` / `facts.audit_per_person_krw` | 총 보수한도와 인원수로 산출한 1인당 한도. decision을 바꾸기보다 REVIEW 근거 확인용 evidence |
+| `facts.treasury_pct` / `facts.related_total_pct` / `facts.active_signal_count` | 이미 호출한 ownership data를 자사주/지배력 관련 안건 facts에 구조화 |
 
 진단 필드:
 
@@ -172,4 +178,5 @@ OPM 자체 함수들 + vote_style 정책 wire:
 - 사후 결과: [[proxy_result_after_meeting]]
 - 사전 안건 raw: [[shareholder_meeting_notice]]
 - agenda relation/parser audit: [[260525_0200_audit_agenda-relation-kospi300]]
+- 지표 gap audit: [[260528_proxy_advise_metric_gap_audit]]
 - archive (옛 specialized scope service): `wiki/archive/services/policy_comparison.py` / `proxy_guideline.py`

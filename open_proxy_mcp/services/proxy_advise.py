@@ -1237,6 +1237,224 @@ def _cumulative_voting_threshold(title: str) -> dict[str, Any] | None:
     }
 
 
+def _concurrent_outside_band(total: int | None) -> str | None:
+    if total is None:
+        return None
+    if total >= 3:
+        return "strong_review"
+    if total == 2:
+        return "review"
+    if total == 1:
+        return "single_position"
+    return "none"
+
+
+def _candidate_independence_detail(eval_match: dict[str, Any]) -> dict[str, Any]:
+    """후보 독립성 summary를 사용자 검토용 세부 사유로 펼친다.
+
+    새 decision rule을 만들지 않고, 이미 계산된 director_evaluation sub_factors만
+    읽기 쉬운 facts로 재구성한다.
+    """
+    independence = eval_match.get("independence") or {}
+    sub = independence.get("sub_factors") or {}
+    detail: dict[str, Any] = {
+        "summary": independence.get("summary"),
+    }
+
+    major = sub.get("major_shareholder_relation") or {}
+    if major:
+        detail["major_shareholder_relation"] = {
+            "result": major.get("result"),
+            "raw": major.get("raw"),
+        }
+
+    transactions = sub.get("recent_3y_transactions") or {}
+    if transactions:
+        detail["recent_3y_transactions"] = {
+            "result": transactions.get("result"),
+            "raw": transactions.get("raw"),
+        }
+
+    employee = sub.get("recent_2y_employee") or {}
+    if employee:
+        detail["recent_2y_employee"] = {
+            "result": employee.get("result"),
+            "evidence": employee.get("evidence"),
+        }
+
+    five_year = sub.get("five_year_rule") or {}
+    if five_year:
+        detail["five_year_rule"] = {
+            "result": five_year.get("result"),
+        }
+
+    return {k: v for k, v in detail.items() if v is not None}
+
+
+def _candidate_performance_brief(eval_match: dict[str, Any]) -> dict[str, Any] | None:
+    perf = eval_match.get("performance") or {}
+    if not perf:
+        return None
+    brief = {
+        "classification": perf.get("classification"),
+        "total_score": perf.get("total_score"),
+        "score_range": f"{perf.get('min_score')}~{perf.get('max_score')}"
+        if perf.get("min_score") is not None and perf.get("max_score") is not None
+        else None,
+        "tenure_period": perf.get("tenure_period"),
+        "tenure_fallback": perf.get("tenure_fallback"),
+        "rationale": perf.get("rationale"),
+    }
+    return {k: v for k, v in brief.items() if v is not None}
+
+
+def _candidate_review_profile(eval_match: dict[str, Any]) -> dict[str, Any]:
+    """후보 선임 안건의 사용자-facing evidence bundle.
+
+    후보 개인 본문 기반 evidence만 포함한다. 지배구조보고서, 최대주주 지분율 같은
+    회사 context는 후보 개인 판단 근거로 섞지 않는다.
+    """
+    role = eval_match.get("role_type") or ""
+    is_outside = any(k in role for k in ("사외", "독립"))
+    apt = eval_match.get("appointment_type") or {}
+    faithfulness = eval_match.get("faithfulness") or {}
+    concurrent = faithfulness.get("concurrent_outside_directors") or {}
+    concurrent_total = concurrent.get("total")
+    profile: dict[str, Any] = {
+        "candidate_name": eval_match.get("name"),
+        "role_type": role,
+        "appointment_type": apt.get("type") if isinstance(apt, dict) else None,
+        "this_company_since": apt.get("earliest_start") if isinstance(apt, dict) else None,
+        "disqualification": (eval_match.get("disqualification") or {}).get("summary"),
+        "recommendation_reason_raw": faithfulness.get("recommendation_reason_raw"),
+        "duty_plan_raw": faithfulness.get("duty_plan_raw"),
+    }
+
+    if is_outside:
+        profile["independence_detail"] = _candidate_independence_detail(eval_match)
+        if concurrent:
+            profile["concurrent_outside_directors"] = {
+                "total": concurrent_total,
+                "band": _concurrent_outside_band(concurrent_total),
+                "summary": concurrent.get("summary"),
+                "signals": concurrent.get("signals"),
+            }
+    else:
+        profile["independence_detail"] = {"summary": "not_applicable_inside_director"}
+
+    performance = _candidate_performance_brief(eval_match)
+    if performance:
+        profile["performance_brief"] = performance
+
+    audit_history = faithfulness.get("audit_history_check") or {}
+    if audit_history.get("summary"):
+        profile["audit_history_check"] = {
+            "summary": audit_history.get("summary"),
+            "status": audit_history.get("status"),
+            "red_flags_count": len(audit_history.get("red_flags") or []),
+        }
+
+    return {k: v for k, v in profile.items() if v not in (None, "", [])}
+
+
+def _pct_change_band(value: float | int | None) -> str | None:
+    if value is None:
+        return None
+    if value <= 10:
+        return "small_or_flat"
+    if value < 30:
+        return "moderate_increase"
+    if value < 50:
+        return "large_increase"
+    return "very_large_increase"
+
+
+def _utilization_band(value: float | int | None) -> str | None:
+    if value is None:
+        return None
+    if value < 30:
+        return "low_under_30"
+    if value < 70:
+        return "mid_30_to_70"
+    if value < 100:
+        return "normal_70_to_100"
+    return "over_100"
+
+
+def _audit_per_person_band(value: float | int | None) -> str | None:
+    if value is None:
+        return None
+    if value < 50_000_000:
+        return "low_under_50m"
+    if value < 100_000_000:
+        return "borderline_50m_to_100m"
+    if value < 300_000_000:
+        return "sufficient_100m_to_300m"
+    return "high_over_300m"
+
+
+def _treasury_pct_band(value: float | int | None) -> str | None:
+    if value is None:
+        return None
+    if value < 5:
+        return "low_under_5"
+    if value < 10:
+        return "notable_5_to_10"
+    return "high_over_10"
+
+
+def _payout_ratio_band(value: float | int | None) -> str | None:
+    if value is None:
+        return None
+    if value <= 80:
+        return "ordinary_under_80"
+    if value <= 150:
+        return "high_80_to_150"
+    if value <= 200:
+        return "borderline_150_to_200"
+    return "very_high_over_200"
+
+
+def _retirement_multiplier_evidence(amendments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    evidence: list[dict[str, Any]] = []
+    for amendment in amendments:
+        before = amendment.get("before") or ""
+        after = amendment.get("after") or ""
+        before_multipliers = [float(m) for m in re.findall(r"(\d+\.?\d*)\s*배수?", before)]
+        after_multipliers = [float(m) for m in re.findall(r"(\d+\.?\d*)\s*배수?", after)]
+        if not before_multipliers and not after_multipliers:
+            continue
+        max_before = max(before_multipliers) if before_multipliers else None
+        max_after = max(after_multipliers) if after_multipliers else None
+        ratio = round(max_after / max_before, 2) if max_before and max_after else None
+        strong_review = bool(
+            (ratio is not None and ratio >= 2.0)
+            or (max_before is None and max_after is not None and max_after >= 3.0)
+        )
+        evidence.append({
+            "clause": amendment.get("clause"),
+            "before_multipliers": before_multipliers,
+            "after_multipliers": after_multipliers,
+            "max_before": max_before,
+            "max_after": max_after,
+            "increase_ratio": ratio,
+            "strong_review_signal": strong_review,
+        })
+    return evidence
+
+
+def _retirement_target_expansion(amendments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    target_keywords = ("사외이사", "비등기임원", "고문", "상담역", "전직", "명예퇴직")
+    expanded: list[dict[str, Any]] = []
+    for amendment in amendments:
+        before = amendment.get("before") or ""
+        after = amendment.get("after") or ""
+        hits = [kw for kw in target_keywords if kw in after and kw not in before]
+        if hits:
+            expanded.append({"clause": amendment.get("clause"), "targets": hits})
+    return expanded
+
+
 def _extract_facts(
     category: str,
     title: str,
@@ -1246,6 +1464,7 @@ def _extract_facts(
     all_evals: list[dict[str, Any]] | None = None,
     fy_raw_from_agenda: dict[str, Any] | None = None,
     retirement_payload: dict[str, Any] | None = None,
+    ownership_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """카테고리별 검증 가능한 정량 fact dict (None 값은 제외)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -1258,6 +1477,10 @@ def _extract_facts(
         facts["audit_opinion"] = latest_op
         facts["fy_prior_net_income_krw_dart"] = fin_summary.get("net_income_krw")  # DART API (확정치)
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
+        facts["capital_impairment_ratio_pct"] = fin_summary.get("capital_impairment_ratio_pct")
+        facts["cfo_to_op_ratio"] = fin_summary.get("cfo_to_op_ratio")
+        facts["accruals_gap_pct"] = fin_summary.get("accruals_gap_pct")
+        facts["interest_coverage_ratio"] = fin_summary.get("interest_coverage_ratio")
         # 1번 안건 본문 잠정 재무제표 (provisional, 표 raw에서 추출 — 사업보고서 제출 전)
         if fy_raw_from_agenda and fy_raw_from_agenda.get("extraction_status") in ("success", "partial"):
             for k in ("fy_current_net_income_krw", "fy_prior_net_income_krw",
@@ -1272,16 +1495,25 @@ def _extract_facts(
             facts["fy_raw_scope"] = fy_raw_from_agenda.get("scope_used")
     elif category == "cash_dividend":
         facts["payout_ratio_pct"] = fin_summary.get("payout_ratio_pct")
+        facts["payout_ratio_band"] = _payout_ratio_band(fin_summary.get("payout_ratio_pct"))
         facts["net_income_krw"] = fin_summary.get("net_income_krw")
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
+        facts["fcf_krw"] = fin_summary.get("fcf_krw")
+        facts["dividend_to_fcf_pct"] = fin_summary.get("dividend_to_fcf_pct")
     elif category == "director_compensation":
         comp_values = _comp_target_values(comp_payload, "이사")
         facts["increase_rate_pct"] = comp_values.get("increase_rate_pct")
+        facts["increase_rate_band"] = _pct_change_band(comp_values.get("increase_rate_pct"))
         facts["utilization_rate_pct"] = comp_values.get("utilization_rate_pct")
+        facts["utilization_rate_band"] = _utilization_band(comp_values.get("utilization_rate_pct"))
         facts["limit_krw"] = comp_values.get("limit_krw")
         facts["prior_limit_krw"] = comp_values.get("prior_limit_krw")
         facts["prior_paid_krw"] = comp_values.get("prior_paid_krw")
+        facts["director_count"] = comp_values.get("headcount")
+        if comp_values.get("limit_krw") and comp_values.get("headcount"):
+            facts["director_per_person_limit_krw"] = comp_values["limit_krw"] // comp_values["headcount"]
         facts["net_income_krw"] = fin_summary.get("net_income_krw")
+        facts["net_income_yoy_pct"] = fin_summary.get("net_income_yoy_pct")
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
     elif category == "audit_compensation":
         audit_values = _comp_target_values(comp_payload, "감사")
@@ -1289,7 +1521,9 @@ def _extract_facts(
         facts["audit_count"] = audit_values.get("headcount")
         if audit_values.get("limit_krw") and audit_values.get("headcount"):
             facts["audit_per_person_krw"] = audit_values["limit_krw"] // audit_values["headcount"]
+            facts["audit_per_person_band"] = _audit_per_person_band(facts["audit_per_person_krw"])
         facts["audit_increase_rate_pct"] = audit_values.get("increase_rate_pct")
+        facts["audit_increase_rate_band"] = _pct_change_band(audit_values.get("increase_rate_pct"))
         facts["audit_prior_limit_krw"] = audit_values.get("prior_limit_krw")
         facts["audit_prior_paid_krw"] = audit_values.get("prior_paid_krw")
         facts["net_income_krw"] = fin_summary.get("net_income_krw")
@@ -1297,6 +1531,8 @@ def _extract_facts(
     elif category == "retirement_pay":
         amends = ((retirement_payload or {}).get("data") or {}).get("amendments") or []
         facts["amendments_count"] = len(amends)
+        facts["retirement_multiplier_evidence"] = _retirement_multiplier_evidence(amends)
+        facts["retirement_target_expansion"] = _retirement_target_expansion(amends)
         if amends:
             # raw 노출 (LLM 판단용) — 처음 5개. length 300자 통일 (B1/B2 raw와 통일).
             facts["amendments_sample"] = [
@@ -1304,11 +1540,19 @@ def _extract_facts(
                 for a in amends[:5]
             ]
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
+    elif category == "treasury_share":
+        ownership_summary = ((ownership_payload or {}).get("data") or {}).get("summary") or {}
+        treasury_pct = ownership_summary.get("treasury_pct")
+        facts["treasury_pct"] = treasury_pct
+        facts["treasury_pct_band"] = _treasury_pct_band(treasury_pct)
+        facts["related_total_pct"] = ownership_summary.get("related_total_pct")
+        facts["active_signal_count"] = ownership_summary.get("active_signal_count")
     elif category in ("director_election", "audit_committee_election"):
         if eval_match:
             facts["candidate_name"] = eval_match.get("name")
             role = eval_match.get("role_type") or ""
             facts["role_type"] = role
+            facts["candidate_review_profile"] = _candidate_review_profile(eval_match)
             facts["agenda_action"] = eval_match.get("agenda_action")
             apt = eval_match.get("appointment_type") or {}
             if isinstance(apt, dict) and apt.get("type"):
@@ -1364,6 +1608,7 @@ def _extract_facts(
                     "appointment": apt_type,
                     "independence": indep,
                     "disqualification": disq,
+                    "review_profile": _candidate_review_profile(ev),
                 }
                 # 사외이사 겸직 카운트 (Ralph 9)
                 if is_outside_ev:
@@ -1383,6 +1628,7 @@ def _extract_risks(
     comp_payload: dict[str, Any] | None,
     title: str,
     retirement_payload: dict[str, Any] | None = None,
+    ownership_payload: dict[str, Any] | None = None,
 ) -> list[str]:
     """카테고리별 위험 신호 list (LLM/사용자 추가 검토 hint)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -1392,6 +1638,8 @@ def _extract_risks(
     cap_status = fin_summary.get("capital_impairment_status")
     if cap_status == "full":
         risks.append("완전 자본잠식")
+    elif cap_status == "partial_50plus":
+        risks.append("자본잠식률 50% 이상")
     elif cap_status == "partial":
         risks.append("부분 자본잠식")
     ni = fin_summary.get("net_income_krw")
@@ -1420,10 +1668,36 @@ def _extract_risks(
         elif inc is not None and inc >= 50:
             risks.append(f"한도 대폭 인상 {inc:+.0f}%")
 
+    if category == "audit_compensation":
+        audit_values = _comp_target_values(comp_payload, "감사")
+        audit_total = audit_values.get("limit_krw")
+        audit_count = audit_values.get("headcount")
+        audit_inc = audit_values.get("increase_rate_pct")
+        if audit_total and audit_count:
+            audit_per_person = audit_total / audit_count
+            band = _audit_per_person_band(audit_per_person)
+            if band == "low_under_50m":
+                risks.append(f"감사 1인당 보수한도 {audit_per_person/1e8:.2f}억원 — 낮은 한도 가능성")
+            elif band == "borderline_50m_to_100m":
+                risks.append(f"감사 1인당 보수한도 {audit_per_person/1e8:.2f}억원 — 경계 구간")
+            elif band == "high_over_300m":
+                risks.append(f"감사 1인당 보수한도 {audit_per_person/1e8:.2f}억원 — 고액 구간")
+        if audit_inc is not None and audit_inc >= 50:
+            risks.append(f"감사 보수한도 강한 급증 {audit_inc:+.0f}%")
+        elif audit_inc is not None and audit_inc >= 30:
+            risks.append(f"감사 보수한도 급증 {audit_inc:+.0f}%")
+
     if category == "retirement_pay":
         amends = ((retirement_payload or {}).get("data") or {}).get("amendments") or []
         if amends:
             risks.append(f"퇴직금 변경 {len(amends)}건 — 변경 raw 검토 권장")
+        multiplier_evidence = _retirement_multiplier_evidence(amends)
+        if any(item.get("strong_review_signal") for item in multiplier_evidence):
+            risks.append("퇴직금 지급률 2배 이상 증가 또는 3배수 이상 신설")
+        target_expansion = _retirement_target_expansion(amends)
+        if target_expansion:
+            targets = sorted({target for item in target_expansion for target in item.get("targets", [])})
+            risks.append(f"퇴직금 지급 대상 확장 가능성 ({', '.join(targets[:4])})")
         # 황금낙하산 / 사외이사 키워드 hit 탐지
         for a in amends:
             after = (a.get("after") or "")
@@ -1441,6 +1715,31 @@ def _extract_risks(
         payout = fin_summary.get("payout_ratio_pct")
         if payout is not None and payout > 200:
             risks.append(f"배당성향 {payout}% (>200%)")
+        fcf = fin_summary.get("fcf_krw")
+        if fcf is not None and fcf < 0:
+            risks.append(f"FCF 음수 ({fcf:,}원)")
+        div_to_fcf = fin_summary.get("dividend_to_fcf_pct")
+        if div_to_fcf is not None and div_to_fcf > 100:
+            risks.append(f"FCF 대비 배당 {div_to_fcf}% (>100%)")
+
+    if category == "financial_statements":
+        cfo_to_op = fin_summary.get("cfo_to_op_ratio")
+        if cfo_to_op is not None and cfo_to_op < 0.7:
+            risks.append(f"영업현금흐름/영업이익 {cfo_to_op:.2f} (<0.7)")
+        accruals_gap = fin_summary.get("accruals_gap_pct")
+        if accruals_gap is not None and abs(accruals_gap) > 30:
+            risks.append(f"accruals gap {accruals_gap}% (절대값 >30%)")
+        interest_coverage = fin_summary.get("interest_coverage_ratio")
+        if interest_coverage is not None and interest_coverage < 2:
+            risks.append(f"이자보상배율 {interest_coverage:.2f} (<2)")
+
+    if category == "treasury_share":
+        ownership_summary = ((ownership_payload or {}).get("data") or {}).get("summary") or {}
+        treasury_pct = ownership_summary.get("treasury_pct")
+        if treasury_pct is not None and treasury_pct >= 10:
+            risks.append(f"자사주 비율 {treasury_pct}% (10% 이상)")
+        elif treasury_pct is not None and treasury_pct >= 5:
+            risks.append(f"자사주 비율 {treasury_pct}% (5% 이상)")
 
     if category == "articles_amendment":
         t = title or ""
@@ -2171,12 +2470,29 @@ async def build_proxy_advise_payload(
         facts_all_evals = all_director_evals
         if category == "audit_committee_election" and _is_statutory_auditor_agenda(title) and matched_eval is None:
             facts_all_evals = None
-        facts = _extract_facts(category, title, matched_eval, fin_metrics, meeting_comp, facts_all_evals, retirement_payload=retirement_payload,
-                               fy_raw_from_agenda=fy_raw_from_agenda)
+        facts = _extract_facts(
+            category,
+            title,
+            matched_eval,
+            fin_metrics,
+            meeting_comp,
+            facts_all_evals,
+            retirement_payload=retirement_payload,
+            fy_raw_from_agenda=fy_raw_from_agenda,
+            ownership_payload=ownership,
+        )
         cumulative_threshold = _cumulative_voting_threshold(title)
         if cumulative_threshold:
             facts["cumulative_voting_threshold"] = cumulative_threshold
-        risk_factors = _extract_risks(category, matched_eval, fin_metrics, meeting_comp, title, retirement_payload=retirement_payload)
+        risk_factors = _extract_risks(
+            category,
+            matched_eval,
+            fin_metrics,
+            meeting_comp,
+            title,
+            retirement_payload=retirement_payload,
+            ownership_payload=ownership,
+        )
         policy_citation = _policy_citation(category)
 
         agenda_decisions.append({

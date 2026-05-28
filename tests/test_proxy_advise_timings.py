@@ -390,6 +390,140 @@ def test_audit_compensation_uses_audit_item_limit_amount():
     assert facts["audit_prior_paid_krw"] == 60_000_000
 
 
+def test_compensation_facts_include_bands_and_per_person_limits():
+    comp_payload = {
+        "data": {
+            "compensation": {
+                "items": [
+                    {
+                        "target": "이사",
+                        "current": {"limitAmount": 12_000_000_000, "totalDirectors": 6},
+                        "prior": {"limitAmount": 10_000_000_000, "actualPaidAmount": 2_000_000_000},
+                    },
+                    {
+                        "target": "감사",
+                        "current": {"limitAmount": 40_000_000, "totalDirectors": 1},
+                        "prior": {"limitAmount": 40_000_000, "actualPaidAmount": 30_000_000},
+                    },
+                ]
+            }
+        }
+    }
+    fin_payload = {"data": {"summary": {"net_income_yoy_pct": -12.5}}}
+
+    director_facts = pa._extract_facts("director_compensation", "", None, fin_payload, comp_payload)
+    audit_facts = pa._extract_facts("audit_compensation", "", None, fin_payload, comp_payload)
+
+    assert director_facts["increase_rate_pct"] == 20.0
+    assert director_facts["increase_rate_band"] == "moderate_increase"
+    assert director_facts["utilization_rate_pct"] == 20.0
+    assert director_facts["utilization_rate_band"] == "low_under_30"
+    assert director_facts["director_per_person_limit_krw"] == 2_000_000_000
+    assert director_facts["net_income_yoy_pct"] == -12.5
+    assert audit_facts["audit_per_person_krw"] == 40_000_000
+    assert audit_facts["audit_per_person_band"] == "low_under_50m"
+    assert audit_facts["audit_increase_rate_band"] == "small_or_flat"
+
+
+def test_retirement_facts_include_multiplier_and_target_expansion():
+    retirement_payload = {
+        "data": {
+            "amendments": [
+                {
+                    "clause": "제42조",
+                    "before": "대표이사 퇴직금은 월평균보수 1배수로 한다.",
+                    "after": "대표이사 및 비등기임원 퇴직금은 월평균보수 3배수로 한다.",
+                    "reason": "지급률 조정",
+                }
+            ]
+        }
+    }
+
+    facts = pa._extract_facts(
+        "retirement_pay",
+        "",
+        None,
+        {"data": {"summary": {}}},
+        None,
+        retirement_payload=retirement_payload,
+    )
+    risks = pa._extract_risks(
+        "retirement_pay",
+        None,
+        {"data": {"summary": {}}},
+        None,
+        "",
+        retirement_payload=retirement_payload,
+    )
+
+    multiplier = facts["retirement_multiplier_evidence"][0]
+    assert multiplier["max_before"] == 1.0
+    assert multiplier["max_after"] == 3.0
+    assert multiplier["increase_ratio"] == 3.0
+    assert multiplier["strong_review_signal"] is True
+    assert facts["retirement_target_expansion"][0]["targets"] == ["비등기임원"]
+    assert any("퇴직금 지급률 2배 이상 증가" in risk for risk in risks)
+    assert any("퇴직금 지급 대상 확장" in risk for risk in risks)
+
+
+def test_financial_dividend_and_treasury_facts_surface_review_evidence():
+    fin_payload = {
+        "data": {
+            "summary": {
+                "payout_ratio_pct": 210,
+                "fcf_krw": -1_000_000,
+                "dividend_to_fcf_pct": 120,
+                "capital_impairment_status": "partial_50plus",
+                "capital_impairment_ratio_pct": 55,
+                "cfo_to_op_ratio": 0.5,
+                "accruals_gap_pct": 35,
+                "interest_coverage_ratio": 1.5,
+            }
+        }
+    }
+    ownership_payload = {
+        "data": {
+            "summary": {
+                "treasury_pct": 8.4,
+                "related_total_pct": 34.2,
+                "active_signal_count": 1,
+            }
+        }
+    }
+
+    dividend_facts = pa._extract_facts("cash_dividend", "", None, fin_payload, None)
+    financial_facts = pa._extract_facts("financial_statements", "", None, fin_payload, None)
+    treasury_facts = pa._extract_facts(
+        "treasury_share",
+        "",
+        None,
+        None,
+        None,
+        ownership_payload=ownership_payload,
+    )
+    dividend_risks = pa._extract_risks("cash_dividend", None, fin_payload, None, "")
+    financial_risks = pa._extract_risks("financial_statements", None, fin_payload, None, "")
+    treasury_risks = pa._extract_risks(
+        "treasury_share",
+        None,
+        None,
+        None,
+        "",
+        ownership_payload=ownership_payload,
+    )
+
+    assert dividend_facts["payout_ratio_band"] == "very_high_over_200"
+    assert dividend_facts["fcf_krw"] == -1_000_000
+    assert financial_facts["capital_impairment_ratio_pct"] == 55
+    assert financial_facts["cfo_to_op_ratio"] == 0.5
+    assert treasury_facts["treasury_pct_band"] == "notable_5_to_10"
+    assert treasury_facts["related_total_pct"] == 34.2
+    assert any("FCF 음수" in risk for risk in dividend_risks)
+    assert any("자본잠식률 50% 이상" in risk for risk in financial_risks)
+    assert any("영업현금흐름/영업이익" in risk for risk in financial_risks)
+    assert any("자사주 비율 8.4% (5% 이상)" in risk for risk in treasury_risks)
+
+
 def test_director_compensation_unknown_increase_is_review_not_profit_fallback():
     comp_payload = {"data": {"summary": {}}}
     fin_payload = {
@@ -481,6 +615,94 @@ def test_retirement_dividend_and_articles_policy_concerns_are_review():
 
     assert articles_decision == "REVIEW"
     assert "법령 A2 직접 hit 아님" in articles_reason
+
+
+def test_candidate_review_profile_expands_individual_candidate_evidence():
+    eval_match = {
+        "name": "홍길동",
+        "role_type": "사외이사",
+        "agenda_action": "선임",
+        "appointment_type": {"type": "renewed", "earliest_start": 2021},
+        "independence": {
+            "summary": "concerns",
+            "sub_factors": {
+                "major_shareholder_relation": {"result": "related", "raw": "최대주주의 친족"},
+                "recent_3y_transactions": {"result": "transactions_exist", "raw": "거래 있음"},
+                "recent_2y_employee": {"result": "former_employee", "evidence": "2025년 임원"},
+                "five_year_rule": {"result": "potential_long_tenure"},
+            },
+        },
+        "disqualification": {"summary": "clean"},
+        "faithfulness": {
+            "recommendation_reason_raw": "전문성 보유",
+            "duty_plan_raw": "이사회 감시",
+            "concurrent_outside_directors": {
+                "total": 3,
+                "summary": "strong_concerns_concurrent",
+                "signals": ["A사 사외이사", "B사 사외이사", "C사 사외이사"],
+            },
+            "audit_history_check": {"status": "disabled", "summary": "not_checked", "red_flags": []},
+        },
+    }
+
+    facts = pa._extract_facts("director_election", "홍길동 사외이사 선임", eval_match, None, None)
+    profile = facts["candidate_review_profile"]
+
+    assert profile["candidate_name"] == "홍길동"
+    assert profile["appointment_type"] == "renewed"
+    assert profile["this_company_since"] == 2021
+    assert profile["independence_detail"]["major_shareholder_relation"]["result"] == "related"
+    assert profile["independence_detail"]["recent_3y_transactions"]["result"] == "transactions_exist"
+    assert profile["independence_detail"]["recent_2y_employee"]["result"] == "former_employee"
+    assert profile["independence_detail"]["five_year_rule"]["result"] == "potential_long_tenure"
+    assert profile["concurrent_outside_directors"]["total"] == 3
+    assert profile["concurrent_outside_directors"]["band"] == "strong_review"
+    assert profile["recommendation_reason_raw"] == "전문성 보유"
+
+
+def test_candidate_review_profile_summarizes_inside_director_performance():
+    eval_match = {
+        "name": "김대표",
+        "role_type": "사내이사",
+        "appointment_type": {"type": "renewed", "earliest_start": 2019},
+        "independence": {"summary": "concerns", "sub_factors": {}},
+        "disqualification": {"summary": "clean"},
+        "faithfulness": {},
+        "performance": {
+            "classification": "weak",
+            "total_score": 2,
+            "min_score": -6,
+            "max_score": 12,
+            "tenure_period": "2019 ~ 2026 (8년)",
+            "rationale": "ROE 평균 3.2% (weak) / 부채비율 누적변화 +18%p (bad)",
+        },
+    }
+
+    facts = pa._extract_facts("director_election", "김대표 사내이사 선임", eval_match, None, None)
+    profile = facts["candidate_review_profile"]
+
+    assert profile["independence_detail"]["summary"] == "not_applicable_inside_director"
+    assert profile["performance_brief"]["classification"] == "weak"
+    assert profile["performance_brief"]["total_score"] == 2
+    assert profile["performance_brief"]["tenure_period"] == "2019 ~ 2026 (8년)"
+
+
+def test_bundle_candidate_summary_includes_review_profile():
+    all_evals = [
+        {
+            "name": "이사A",
+            "role_type": "사외이사",
+            "appointment_type": {"type": "new"},
+            "independence": {"summary": "independent", "sub_factors": {}},
+            "disqualification": {"summary": "clean"},
+            "faithfulness": {"concurrent_outside_directors": {"total": 2, "summary": "concerns_concurrent"}},
+        }
+    ]
+
+    facts = pa._extract_facts("director_election", "이사 선임의 건", None, None, None, all_evals)
+
+    assert facts["candidate_summary"][0]["review_profile"]["candidate_name"] == "이사A"
+    assert facts["candidate_summary"][0]["review_profile"]["concurrent_outside_directors"]["band"] == "review"
 
 
 async def _fake_shareholder_meeting_with_relation_agenda(_company, *, scope, **_kwargs):
