@@ -14,7 +14,7 @@ created: 2026-05-01
 # financial_metrics
 
 ## 한 줄 요약
-DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk 지표. 한국 표준(연결, 지배주주 귀속). 듀퐁 3단 분해, FCF, NWC, accruals_gap, 감사의견 추이 자동 산출.
+DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/운전자본 회전일수/회계 risk 지표. 한국 표준(연결, 지배주주 귀속). 듀퐁 3단 분해, FCF, NWC, CCC, accruals_gap, 감사의견 추이 자동 산출.
 
 ## 사용법
 ```
@@ -42,7 +42,7 @@ financial_metrics(
 | format | str | no | "md" / "json" | "md" |
 
 scope:
-- `summary`: 1 사업연도 51개 핵심 지표 (수익성/듀퐁/안정성/현금흐름/운전자본/회계risk/배당유보/NAV)
+- `summary`: 1 사업연도 56개 핵심 지표 (수익성/듀퐁/안정성/현금흐름/운전자본/회계risk/배당유보/NAV)
 - `yearly`: 최근 N년 추이 (revenue/op_profit/net_income/OPM/ROE/debt_ratio/CFO/FCF)
 - `quarterly`: 최근 12분기 추이 (4Q × 3년 — Q1/Q2 반기/Q3/Q4 사업)
 - `yoy`: 전년 대비 + 22개 alerts + 감사의견 cross-check
@@ -70,9 +70,13 @@ scope:
     "interest_coverage_ratio": 2.52, "net_cash_krw": 40518545000000,
     "cfo_krw": 72982621000000, "capex_krw": 51406355000000,
     "fcf_krw": 21576266000000, "fcf_margin_pct": 7.17,
-    "cfo_to_op_ratio": 2.23,
+    "cfo_to_op_ratio": 2.23, "cfo_to_net_income_ratio": 1.46,
     "working_capital_krw": 133735967000000, "nwc_krw": 83007761000000,
     "nwc_change_yoy_krw": 6054318000000, "nwc_to_revenue_pct": 27.59,
+    "days_sales_outstanding": 52.9,
+    "days_inventory_outstanding": 88.1,
+    "days_payable_outstanding": 42.4,
+    "cash_conversion_cycle_days": 98.6,
     "accruals_gap_pct": -123.01,
     "ar_to_revenue_pct": 14.50, "inv_to_revenue_pct": 17.20,
     "dividend_paid_krw": 10888749000000, "payout_ratio_pct": 21.76,
@@ -166,6 +170,7 @@ sequenceDiagram
 - **평균자산/평균자본**: 당기 + 전기 BS 평균. 전기 데이터 없으면 기말 단독.
 - **ROIC 근사**: NOPAT = 영업이익 × (1 - 0.22 평균법인세). 투하자본 = 자본 + 총차입.
 - **DuPont 검증**: ROE = 순이익률 × 자산회전율 × 재무레버리지. roe_pct vs roe_dupont_pct 일치 확인용.
+- **운전자본 회전일수**: DSO=평균 매출채권/매출액×365, DIO=평균 재고/매출원가×365, DPO=평균 매입채무/매출원가×365, CCC=DSO+DIO-DPO. 분모가 없거나 0 이하이면 None.
 
 ## 관련 공시 (rules/disclosures/)
 - [[사업보고서]] — fnlttSinglAcnt 1차 source (연간)
@@ -198,5 +203,6 @@ sequenceDiagram
 - vote_brief / 매트릭스 dim 자동 채점 통합 — **Phase 2 별도**
 
 ## 변경 이력
+- 2026-05-31: Tier 1 운전자본 회전일수 4종(DSO/DIO/DPO/CCC) + CFO/순이익 추가. 추가 API 호출 없음.
 - 2026-05-01: financial_metrics tool Phase 1 신규 (DART 4 endpoint + 6 scope + 22 alerts)
 - 2026-05-01: 6 회사 (삼성/KT&G/롯데케미칼/SK하이닉스/삼천당제약/오스템임플란트) sanity 통과

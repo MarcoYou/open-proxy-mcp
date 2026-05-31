@@ -59,6 +59,108 @@ def _extract_highlights(text: str, keywords: tuple[str, ...], limit: int = 6) ->
     return hits
 
 
+def _clean_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _extract_plan_title(text: str) -> str:
+    """본문의 `계획서 명칭` 값 추출.
+
+    DART report_nm은 "기업가치제고계획(자율공시)"로 동일해도 본문 plan title이
+    "2025년 ... 이행현황"처럼 실제 문서 성격을 담는 경우가 있다.
+    """
+
+    clean = _clean_text(text)
+    m = re.search(
+        r"계획서\s*명칭\s+(.+?)(?=\s*(?:2\.\s*주요\s*내용|주요\s*내용|3\.\s*결정일자|$))",
+        clean,
+    )
+    if not m:
+        return ""
+    title = re.sub(r"\s+", " ", m.group(1)).strip(" :-")
+    return title[:180]
+
+
+def _extract_main_content(text: str) -> str:
+    clean = _clean_text(text)
+    m = re.search(
+        r"2\.\s*주요\s*내용\s+(.+?)(?=\s*(?:3\.\s*(?:결정일자|조세특례제한법)|4\.\s*관련|5\.\s*기타|※\s*관련공시|$))",
+        clean,
+    )
+    if not m:
+        return ""
+    return m.group(1).strip()
+
+
+def _split_main_content_units(main_content: str) -> list[str]:
+    content = _clean_text(main_content)
+    if not content:
+        return []
+    # Progress reports use top-level numbered bullets; high-dividend republications
+    # often use dash bullets. Do not split metric sub-bullets like "- [주당배당금]".
+    if re.search(r"\d+\)", content):
+        pieces = re.split(r"\s+(?=\d+\))", content)
+    else:
+        pieces = re.split(r"\s+(?=(?:-\s+(?!\[)|※\s*\(?참고\)?))", content)
+    units: list[str] = []
+    for piece in pieces:
+        unit = piece.strip(" -")
+        if unit:
+            units.append(unit)
+    return units or [content]
+
+
+def _tag_implementation_unit(text: str) -> str | None:
+    raw = text or ""
+    compact = re.sub(r"\s+", "", text or "")
+    if not compact:
+        return None
+    if re.fullmatch(r"\[[^\]]+\]", (text or "").strip()):
+        return None
+    if "고배당기업" in compact or "참조" in compact or "재공시" in compact:
+        return "meta_reference"
+    if "이행결과" in raw:
+        return "implementation_result"
+    if "이행전망" in compact or "예상" in compact or "전망" in compact:
+        return "implementation_outlook"
+    if "배분원칙" in compact or "Upgrade" in text or "업그레이드" in compact or "중장기" in compact:
+        return "future_plan"
+    if (
+        re.search(r"이행\s*현황", raw)
+        or re.search(r"이행\s*내역", raw)
+        or re.search(r"진행\s+현황", raw)
+        or re.search(r"(?:'?\d{2}년|20\d{2}년).{0,24}(?:vs|대비|\+|-)", raw)
+    ):
+        return "implementation_status"
+    return None
+
+
+def _extract_implementation_sections(text: str) -> list[dict[str, str]]:
+    main_content = _extract_main_content(text)
+    if not main_content:
+        return []
+    sections: list[dict[str, str]] = []
+    labels = {
+        "implementation_result": "이행결과",
+        "implementation_status": "이행현황",
+        "implementation_outlook": "이행전망",
+        "future_plan": "향후계획",
+        "meta_reference": "메타/참조",
+    }
+    for unit in _split_main_content_units(main_content):
+        tag = _tag_implementation_unit(unit)
+        if not tag:
+            if sections and unit:
+                sections[-1]["text"] = (sections[-1]["text"] + " - " + unit)[:600]
+            continue
+        sections.append({
+            "tag": tag,
+            "label": labels[tag],
+            "text": unit[:600],
+        })
+    return sections
+
+
 def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]:
     return ToolEnvelope(
         tool="value_up",
@@ -94,18 +196,24 @@ def _filter_value_up_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return filtered
 
 
-def _classify_value_up_item(report_name: str) -> str:
+def _classify_value_up_item(report_name: str, plan_title: str = "") -> str:
     """기업가치제고 공시를 카테고리로 분류.
 
+    - pre_announcement: 계획 수립/공시 예정 안내 (실제 계획 본문 없음)
     - meta_amendment: "고배당기업 표시" 같은 형식 재공시 (실제 본문 계획은 원본에 있음)
     - progress: "이행현황" 관련 재공시
     - plan: 실제 계획 본문 (원본 또는 개정)
     """
 
     name = (report_name or "").replace(" ", "")
+    title = (plan_title or "").replace(" ", "")
+    if "기업가치제고계획예고" in name or "기업가치제고계획예고" in title:
+        return "pre_announcement"
     if "고배당기업" in name or "고배당법인" in name:
         return "meta_amendment"
-    if "이행현황" in name:
+    if "이행결과" in name or "이행결과" in title:
+        return "progress"
+    if re.search(r"이행\s*현황|진행\s+현황", name) or re.search(r"이행\s*현황|진행\s+현황", title):
         return "progress"
     return "plan"
 
@@ -114,6 +222,28 @@ def _item_report_name(item: dict[str, Any]) -> str:
     """DART item은 report_nm, KIND item은 report_name."""
 
     return item.get("report_nm") or item.get("report_name") or ""
+
+
+def _item_key(item: dict[str, Any]) -> str:
+    return item.get("rcept_no") or item.get("acptno") or f"{item.get('rcept_dt', item.get('disclosure_date', ''))}:{_item_report_name(item)}"
+
+
+def _item_disclosure_date(item: dict[str, Any]) -> str:
+    return item.get("rcept_dt", item.get("disclosure_date", ""))
+
+
+def _item_to_value_up_ref(item: dict[str, Any], *, category: str, plan_title: str, note: str = "") -> dict[str, Any]:
+    data = {
+        "rcept_no": item.get("rcept_no", ""),
+        "acptno": item.get("acptno", ""),
+        "disclosure_date": _item_disclosure_date(item),
+        "report_name": _item_report_name(item),
+        "category": category,
+        "plan_title": plan_title,
+    }
+    if note:
+        data["note"] = note
+    return data
 
 
 def _select_latest_plan_item(items: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -466,29 +596,112 @@ async def build_value_up_payload(
             warnings.append(f"KIND 본문 조회 실패: {exc.status}")
         source_type = SourceType.KIND_HTML
 
-    latest_category = _classify_value_up_item(_item_report_name(latest))
-    # 최신 공시가 meta_amendment(고배당기업 형식 재공시)이면 실제 계획 본문이 없으므로
-    # plan 또는 progress 카테고리의 최신 항목을 별도로 fetch해서 commitment 문장 추출에 사용.
-    best_plan_item = None
-    best_plan_text = ""
-    if latest_category == "meta_amendment":
-        candidates = items + kind_items
-        best_plan_item = _select_latest_plan_item(candidates)
-        if best_plan_item and best_plan_item is not latest:
-            if best_plan_item.get("rcept_no"):
-                try:
-                    doc = await client.get_document_cached(best_plan_item["rcept_no"])
-                    best_plan_text = doc.get("text", "")
-                except DartClientError as exc:
-                    warnings.append(f"실계획 본문 조회 실패: {exc.status}")
-            elif best_plan_item.get("acptno"):
-                try:
-                    html = await client.kind_fetch_document(best_plan_item["acptno"])
-                    best_plan_text = _kind_html_to_text(html)
-                except DartClientError as exc:
-                    warnings.append(f"실계획 KIND 본문 조회 실패: {exc.status}")
+    latest_plan_title = _extract_plan_title(latest_text)
+    latest_category = _classify_value_up_item(_item_report_name(latest), plan_title=latest_plan_title)
+    latest_implementation_sections = _extract_implementation_sections(latest_text)
 
-    highlight_source_text = best_plan_text or latest_text
+    loaded_value_up_docs: dict[str, dict[str, Any]] = {
+        _item_key(latest): {
+            "item": latest,
+            "text": latest_text,
+            "plan_title": latest_plan_title,
+            "category": latest_category,
+            "implementation_sections": latest_implementation_sections,
+            "source_type": source_type,
+        }
+    }
+
+    async def load_value_up_doc(item: dict[str, Any]) -> dict[str, Any]:
+        key = _item_key(item)
+        if key in loaded_value_up_docs:
+            return loaded_value_up_docs[key]
+        text = ""
+        doc_source_type = SourceType.DART_XML
+        if item.get("rcept_no"):
+            try:
+                doc = await client.get_document_cached(item["rcept_no"])
+                text = doc.get("text", "")
+            except DartClientError as exc:
+                warnings.append(f"밸류업 본문 조회 실패({item.get('rcept_no', '')}): {exc.status}")
+        elif item.get("acptno"):
+            doc_source_type = SourceType.KIND_HTML
+            try:
+                html = await client.kind_fetch_document(item["acptno"])
+                text = _kind_html_to_text(html)
+            except DartClientError as exc:
+                warnings.append(f"밸류업 KIND 본문 조회 실패({item.get('acptno', '')}): {exc.status}")
+        plan_title = _extract_plan_title(text)
+        category = _classify_value_up_item(_item_report_name(item), plan_title=plan_title)
+        loaded_value_up_docs[key] = {
+            "item": item,
+            "text": text,
+            "plan_title": plan_title,
+            "category": category,
+            "implementation_sections": _extract_implementation_sections(text),
+            "source_type": doc_source_type,
+        }
+        return loaded_value_up_docs[key]
+
+    latest_plan_info: dict[str, Any] | None = None
+    latest_status_info: dict[str, Any] | None = None
+    meta_amendment_info: dict[str, Any] | None = None
+    latest_result_info: dict[str, Any] | None = None
+    candidates = items + kind_items
+
+    async def classify_role_candidates(role_candidates: list[dict[str, Any]]) -> None:
+        nonlocal latest_plan_info, latest_status_info, meta_amendment_info, latest_result_info
+        for item in role_candidates:
+            info = await load_value_up_doc(item)
+            category = info["category"]
+            sections = info["implementation_sections"]
+            if category == "plan" and latest_plan_info is None:
+                latest_plan_info = info
+            elif category == "progress" and latest_status_info is None:
+                latest_status_info = info
+            elif category == "meta_amendment" and meta_amendment_info is None:
+                meta_amendment_info = info
+            if latest_result_info is None and any(section.get("tag") == "implementation_result" for section in sections):
+                latest_result_info = info
+            if latest_plan_info and latest_status_info:
+                # Result is derived from already loaded plan/status/latest meta; do not fetch
+                # extra historical filings solely to prove that result is absent.
+                break
+
+    stage_started_at = time.perf_counter()
+    await classify_role_candidates(candidates)
+    _mark("classify_value_up_roles", stage_started_at)
+
+    if not explicit_window and (latest_plan_info is None or latest_status_info is None):
+        backfill_bgn = f"{target_year - 2}0101"
+        stage_started_at = time.perf_counter()
+        backfill_items, backfill_notices, backfill_error = await timed_call(
+            "role_backfill_search.dart",
+            _search_value_up_items(
+                selected["corp_code"],
+                bgn_de=backfill_bgn,
+                end_de=requested_end,
+            ),
+        )
+        _mark("role_backfill_search", stage_started_at)
+        warnings.extend(backfill_notices)
+        if backfill_error:
+            warnings.append(f"밸류업 역할 보강 검색 실패: {backfill_error}")
+        seen_keys = {_item_key(item) for item in candidates}
+        new_backfill_items = [item for item in backfill_items if _item_key(item) not in seen_keys]
+        if new_backfill_items:
+            stage_started_at = time.perf_counter()
+            await classify_role_candidates(new_backfill_items)
+            _mark("classify_value_up_roles.backfill", stage_started_at)
+            candidates.extend(new_backfill_items)
+
+    # Backward-compatible evidence/highlight source: commitments come from plan first,
+    # then latest status, then latest.
+    best_plan_item = latest_plan_info["item"] if latest_plan_info else None
+    best_plan_text = latest_plan_info["text"] if latest_plan_info else ""
+    best_plan_title = latest_plan_info["plan_title"] if latest_plan_info else ""
+    best_plan_implementation_sections = latest_plan_info["implementation_sections"] if latest_plan_info else []
+
+    highlight_source_text = best_plan_text or (latest_status_info["text"] if latest_status_info else latest_text)
     highlight_source_length = len(highlight_source_text)
     highlights = _extract_highlights(highlight_source_text, _COMMITMENT_KEYWORDS)
 
@@ -570,18 +783,69 @@ async def build_value_up_payload(
             "filer_name": latest.get("flr_nm", latest.get("filer_name", "")),
             "source_type": getattr(source_type, "value", source_type),
             "category": latest_category,
+            "plan_title": latest_plan_title,
         },
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
-    if best_plan_item and best_plan_item is not latest:
-        data["latest_plan"] = {
-            "rcept_no": best_plan_item.get("rcept_no", ""),
-            "acptno": best_plan_item.get("acptno", ""),
-            "disclosure_date": best_plan_item.get("rcept_dt", best_plan_item.get("disclosure_date", "")),
-            "report_name": _item_report_name(best_plan_item),
-            "category": _classify_value_up_item(_item_report_name(best_plan_item)),
-            "note": "최신 공시가 고배당기업 표시 등 형식 재공시라 실제 계획 본문을 담은 가장 최신 공시를 별도 표시한다.",
-        }
+    if latest_implementation_sections:
+        data["latest"]["implementation_sections"] = latest_implementation_sections
+    if latest_plan_info:
+        data["latest_plan"] = _item_to_value_up_ref(
+            latest_plan_info["item"],
+            category=latest_plan_info["category"],
+            plan_title=latest_plan_info["plan_title"],
+            note="가장 최신 본계획/개정계획. 무엇을 하겠다는 계획인지 확인하는 기준 문서.",
+        )
+        if latest_plan_info["implementation_sections"]:
+            data["latest_plan"]["implementation_sections"] = latest_plan_info["implementation_sections"]
+    else:
+        data["latest_plan"] = None
+    if latest_status_info:
+        data["latest_status"] = _item_to_value_up_ref(
+            latest_status_info["item"],
+            category=latest_status_info["category"],
+            plan_title=latest_status_info["plan_title"],
+            note="가장 최신 이행현황/이행내역. 계획 대비 어디까지 진행됐는지 확인하는 기준 문서.",
+        )
+        if latest_status_info["implementation_sections"]:
+            data["latest_status"]["implementation_sections"] = latest_status_info["implementation_sections"]
+    else:
+        data["latest_status"] = None
+    if latest_result_info:
+        result_sections = [
+            section for section in latest_result_info["implementation_sections"]
+            if section.get("tag") == "implementation_result"
+        ]
+        data["latest_result"] = _item_to_value_up_ref(
+            latest_result_info["item"],
+            category=latest_result_info["category"],
+            plan_title=latest_result_info["plan_title"],
+            note="명시적 `이행결과`가 발견된 경우에만 노출한다.",
+        )
+        data["latest_result"]["implementation_sections"] = result_sections
+    else:
+        data["latest_result"] = None
+    if meta_amendment_info:
+        data["meta_amendment"] = _item_to_value_up_ref(
+            meta_amendment_info["item"],
+            category=meta_amendment_info["category"],
+            plan_title=meta_amendment_info["plan_title"],
+            note="고배당기업 표시 등 형식 재공시. 본계획이나 최신 이행현황을 대체하지 않는다.",
+        )
+        if meta_amendment_info["implementation_sections"]:
+            data["meta_amendment"]["implementation_sections"] = meta_amendment_info["implementation_sections"]
+    implementation_sections = (
+        (latest_status_info["implementation_sections"] if latest_status_info else [])
+        or best_plan_implementation_sections
+        or latest_implementation_sections
+    )
+    if implementation_sections:
+        data["implementation_sections"] = implementation_sections
+    if meta_amendment_info and meta_amendment_info["implementation_sections"]:
+        data["embedded_results"] = [
+            section for section in meta_amendment_info["implementation_sections"]
+            if section.get("tag") in {"implementation_result", "implementation_status", "implementation_outlook"}
+        ]
     if scope in {"summary", "timeline"}:
         data["items"] = [
             {

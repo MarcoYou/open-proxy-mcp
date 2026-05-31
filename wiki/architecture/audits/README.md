@@ -21,6 +21,7 @@ updated: 2026-05-18
 
 ### 1. 현재 data tools 상태
 - [[260517_parsing_success_rate_audit]]
+- [[260530_audit_value-up-implementation-tags]]
 - [[260510_financial_metrics_audit_통합정리]]
 - [[260505_0530_audit_treasury_execution_iter1-8]]
 - [[260510_data_tools_perf_audit]]
@@ -43,6 +44,7 @@ updated: 2026-05-18
 | 영역 | 현재 기준 문서 | 비고 |
 |---|---|---|
 | parsing 성공률 / 회귀 | [[260517_parsing_success_rate_audit]] | KOSPI 300 + KOSDAQ 150 baseline, 비중복 100개 recheck, 주요 개선 반영 |
+| value_up 이행 태그 | [[260530_audit_value-up-implementation-tags]] | KOSPI500 + KOSDAQ150, 2024-01-01 이후 562개 filing, 계획서 명칭/주요 내용 태깅 |
 | financial_metrics | [[260510_financial_metrics_audit_통합정리]] | 6기업 → 200기업 흐름 통합 |
 | treasury_share execution | [[260505_0530_audit_treasury_execution_iter1-8]] | 자사주 결과보고서 기준 |
 | data tools 성능 | [[260510_data_tools_perf_audit]] | 현재 성능 기준 문서 |

@@ -54,6 +54,8 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append(f"- 공시명: {latest.get('report_name', '-')}")
         if latest.get("category"):
             lines.append(f"- 카테고리: `{latest.get('category')}`")
+        if latest.get("plan_title"):
+            lines.append(f"- 계획서 명칭: {latest.get('plan_title')}")
         lines.append(f"- 소스: `{latest.get('source_type', '-')}`")
         if latest.get("rcept_no"):
             lines.append(f"- rcept_no: `{latest.get('rcept_no', '')}`")
@@ -63,15 +65,50 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     latest_plan = data.get("latest_plan")
     if latest_plan:
         lines.append("")
-        lines.append("## 실계획 본문 공시 (commitment 추출용)")
+        lines.append("## 본계획")
         lines.append(f"- 공시일: {latest_plan.get('disclosure_date', '-')}")
         lines.append(f"- 공시명: {latest_plan.get('report_name', '-')}")
         lines.append(f"- 카테고리: `{latest_plan.get('category', '-')}`")
+        if latest_plan.get("plan_title"):
+            lines.append(f"- 계획서 명칭: {latest_plan.get('plan_title')}")
         if latest_plan.get("rcept_no"):
             lines.append(f"- rcept_no: `{latest_plan.get('rcept_no', '')}`")
         if latest_plan.get("note"):
             lines.append(f"- note: {latest_plan.get('note')}")
-    else:
+    latest_status = data.get("latest_status")
+    if latest_status:
+        lines.append("")
+        lines.append("## 최신 이행현황")
+        lines.append(f"- 공시일: {latest_status.get('disclosure_date', '-')}")
+        lines.append(f"- 공시명: {latest_status.get('report_name', '-')}")
+        lines.append(f"- 카테고리: `{latest_status.get('category', '-')}`")
+        if latest_status.get("plan_title"):
+            lines.append(f"- 계획서 명칭: {latest_status.get('plan_title')}")
+        if latest_status.get("rcept_no"):
+            lines.append(f"- rcept_no: `{latest_status.get('rcept_no', '')}`")
+        if latest_status.get("note"):
+            lines.append(f"- note: {latest_status.get('note')}")
+
+    latest_result = data.get("latest_result")
+    if latest_result:
+        lines.append("")
+        lines.append("## 이행결과")
+        lines.append(f"- 공시일: {latest_result.get('disclosure_date', '-')}")
+        lines.append(f"- 공시명: {latest_result.get('report_name', '-')}")
+        if latest_result.get("plan_title"):
+            lines.append(f"- 계획서 명칭: {latest_result.get('plan_title')}")
+        for section in latest_result.get("implementation_sections", [])[:5]:
+            lines.append(f"- `{section.get('tag', '')}` {section.get('text', '')}")
+
+    meta_amendment = data.get("meta_amendment")
+    if meta_amendment:
+        lines.append("")
+        lines.append("## 메타/재공시")
+        lines.append(f"- 공시일: {meta_amendment.get('disclosure_date', '-')}")
+        lines.append(f"- 공시명: {meta_amendment.get('report_name', '-')}")
+        lines.append(f"- note: {meta_amendment.get('note', '')}")
+
+    if not latest_plan and not latest_status:
         diagnostic = data.get("search_diagnostics", {}).get("diagnostic_window", {})
         sample_filings = diagnostic.get("sample_filings", [])
         if sample_filings:
@@ -92,6 +129,18 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.extend(["", "## 핵심 문장"])
         for item in data.get("highlights", []):
             lines.append(f"- {item}")
+
+    sections = data.get("implementation_sections") or []
+    if sections and scope in {"summary", "plan", "commitments"}:
+        lines.extend(["", "## 이행 태그"])
+        for section in sections[:12]:
+            lines.append(f"- `{section.get('tag', '')}` {section.get('text', '')}")
+
+    embedded = data.get("embedded_results") or []
+    if embedded:
+        lines.extend(["", "## 재공시 내 업데이트 결과"])
+        for section in embedded[:8]:
+            lines.append(f"- `{section.get('tag', '')}` {section.get('text', '')}")
 
     if scope == "plan":
         lines.extend(["", "## 원문 발췌", "```", data.get("latest_excerpt", "")[:1800], "```"])

@@ -1,0 +1,15 @@
+{
+  "meta_filings": 28,
+  "companies": 27,
+  "relation_counts": {
+    "meta_reference_only": 4,
+    "meta_without_progress_compare_to_plan": 9,
+    "meta_duplicates_progress": 12,
+    "meta_embedded_result": 1,
+    "meta_partially_overlaps_progress": 2
+  },
+  "with_progress": 18,
+  "with_plan": 28,
+  "avg_progress_similarity": 0.4875,
+  "avg_plan_similarity": 0.5104
+}

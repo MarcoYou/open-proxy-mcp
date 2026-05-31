@@ -308,6 +308,20 @@ def _avg(a: int | float | None, b: int | float | None) -> float | None:
     return (a + b) / 2
 
 
+def _turnover_days(
+    balance: int | float | None,
+    denom: int | float | None,
+) -> float | None:
+    """회전일수 = 평균 balance / 연간 denominator * 365.
+
+    금융업/지주사처럼 분모 계정이 없거나 0 이하인 경우 무리해서 산출하지 않는다.
+    """
+    r = _safe_div(balance, denom, positive_denom_only=True)
+    if r is None:
+        return None
+    return round(r * 365, 1)
+
+
 def _compute_metrics(
     *,
     bs_is: dict[str, int | None],
@@ -383,6 +397,9 @@ def _compute_metrics(
     accounts_receivable = detail.get("accounts_receivable")
     inventory = detail.get("inventory")
     accounts_payable = detail.get("accounts_payable")
+    prev_accounts_receivable = detail_prev.get("accounts_receivable")
+    prev_inventory = detail_prev.get("inventory")
+    prev_accounts_payable = detail_prev.get("accounts_payable")
     diluted_eps_per_share = detail.get("diluted_eps")  # 원/주
     basic_eps_per_share = detail.get("basic_eps")
     controlling_ni = detail.get("controlling_interest_income")
@@ -477,6 +494,7 @@ def _compute_metrics(
             fcf_krw = None
     fcf_margin_pct = _safe_pct(fcf_krw, revenue)
     cfo_to_op_ratio = _safe_ratio(cfo, operating_profit)
+    cfo_to_net_income_ratio = _safe_ratio(cfo, net_income_controlling)
     capex_to_da_ratio = None
     if capex is not None and da:
         capex_to_da_ratio = _safe_ratio(abs(capex), abs(da))
@@ -500,6 +518,34 @@ def _compute_metrics(
             prev_nwc = (prev_ar or 0) + (prev_inv or 0) - (prev_ap or 0)
             nwc_change_yoy_krw = nwc_krw - prev_nwc
     nwc_to_revenue_pct = _safe_pct(nwc_krw, revenue)
+    avg_accounts_receivable = (
+        _avg(accounts_receivable, prev_accounts_receivable)
+        if prev_accounts_receivable is not None
+        else accounts_receivable
+    )
+    avg_inventory = (
+        _avg(inventory, prev_inventory)
+        if prev_inventory is not None
+        else inventory
+    )
+    avg_accounts_payable = (
+        _avg(accounts_payable, prev_accounts_payable)
+        if prev_accounts_payable is not None
+        else accounts_payable
+    )
+    days_sales_outstanding = _turnover_days(avg_accounts_receivable, revenue)
+    days_inventory_outstanding = _turnover_days(avg_inventory, cogs)
+    days_payable_outstanding = _turnover_days(avg_accounts_payable, cogs)
+    cash_conversion_cycle_days = None
+    if (
+        days_sales_outstanding is not None
+        and days_inventory_outstanding is not None
+        and days_payable_outstanding is not None
+    ):
+        cash_conversion_cycle_days = round(
+            days_sales_outstanding + days_inventory_outstanding - days_payable_outstanding,
+            1,
+        )
 
     # ── 회계 risk ──
     accruals_gap_pct = None
@@ -581,12 +627,17 @@ def _compute_metrics(
         "fcf_krw": fcf_krw,
         "fcf_margin_pct": fcf_margin_pct,
         "cfo_to_op_ratio": cfo_to_op_ratio,
+        "cfo_to_net_income_ratio": cfo_to_net_income_ratio,
         "capex_to_da_ratio": capex_to_da_ratio,
         # ── 운전자본 ──
         "working_capital_krw": working_capital_krw,
         "nwc_krw": nwc_krw,
         "nwc_change_yoy_krw": nwc_change_yoy_krw,
         "nwc_to_revenue_pct": nwc_to_revenue_pct,
+        "days_sales_outstanding": days_sales_outstanding,
+        "days_inventory_outstanding": days_inventory_outstanding,
+        "days_payable_outstanding": days_payable_outstanding,
+        "cash_conversion_cycle_days": cash_conversion_cycle_days,
         # ── 회계 risk ──
         "accruals_gap_pct": accruals_gap_pct,
         "ar_to_revenue_pct": ar_to_revenue_pct,

@@ -54,6 +54,8 @@ data/
 wiki/architecture/audits/data/260525_agenda_parser_marketwide/loop_*.jsonl
 wiki/architecture/audits/data/260525_agenda_parser_marketwide/*.bak
 wiki/architecture/audits/data/260525_agenda_parser_marketwide/variants.csv
+wiki/architecture/audits/data/260530_value_up_implementation_tags_sample/
+wiki/architecture/audits/data/260530_value_up_implementation_tags_retry_tail/
 
 # 운용사 정책/행사내역 원본 (parsed JSON만 commit, PDF/xlsx는 로컬 보관)
 wiki/raw/policies/*.pdf
