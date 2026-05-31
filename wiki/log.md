@@ -3,6 +3,29 @@ type: log
 title: Operation Log
 ---
 
+## [2026-05-31] feat/audit | value_up role extraction + financial_metrics Tier 1 지표
+
+- `value_up`
+  - 최신 공시 1개 중심 출력에서 `latest_plan` / `latest_status` / `latest_result` / `meta_amendment` 역할 분리로 변경
+  - `계획서 명칭`을 읽어 `report_nm`만으로 구분이 안 되는 plan/progress/meta 문서 성격 보정
+  - `이행결과`는 명시적으로 발견될 때만 `latest_result`로 노출하고, 없으면 `null`
+  - `이행현황`, `이행 현황`, `이행내역`, `이행 내역`, `진행 현황`은 `implementation_status`로 보수 태깅
+  - 요청 구간에 고배당기업 재공시 등 meta만 있으면 최근 2년 role backfill로 본계획과 최신 이행현황 보강
+  - Plain language: 밸류업은 "무엇을 하겠다는 계획"과 "지금 어디까지 했는지"를 같이 봐야 하므로 plan/status를 기본 축으로 두고, result는 실제로 있을 때만 꺼낸다.
+- 전수조사:
+  - KOSPI500 + KOSDAQ150, 2024-01-01 이후 562개 value-up filing 점검
+  - `meta_amendment` 28건 비교: meta는 최신 공시일 수 있어도 최신 progress 대체물로 쓰지 않는 정책 확정
+  - 산출물: [[260530_audit_value-up-implementation-tags]]
+- `financial_metrics`
+  - CFO/순이익 비율 추가
+  - Tier 1 운전자본 회전일수 DSO/DIO/DPO/CCC 추가
+  - 추가 API 호출 없이 기존 재무 detail에서 산출
+- 검증:
+  - `78 passed`
+  - `wiki_lint --strict` passed
+  - 라이브 확인: KB금융/KT&G에서 meta 재공시와 본계획/이행현황/result 분리 확인
+- commit: `3cf1776`
+
 ## [2026-05-25] fix/audit | agenda relation + 주총소집공고 parser KOSPI300 재검증
 
 - `shareholder_meeting_notice`
