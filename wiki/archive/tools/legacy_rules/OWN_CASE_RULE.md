@@ -1,3 +1,9 @@
+---
+type: source
+title: OWN_CASE_RULE legacy
+archived: true
+---
+
 # OWN Case Rule -- 지분 tool 성공/실패 판정 기준
 
 ## 판정 등급

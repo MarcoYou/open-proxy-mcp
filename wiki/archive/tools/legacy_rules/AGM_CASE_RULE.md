@@ -1,3 +1,9 @@
+---
+type: source
+title: AGM_CASE_RULE legacy
+archived: true
+---
+
 # Case Rule -- 파서별 성공/실패 판정 기준
 
 ## 파싱 성능 (KOSPI 200 샘플, 각 tier 독립 성능)

@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-05-18
+updated: 2026-06-01
 ---
 
 # OPM Wiki Index
@@ -12,7 +12,7 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (16 tool, 2026-05-18 정리)
+### 도메인별 (16 tool, 2026-06-01 정리)
 - **Company (1)**: [[company]]
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
 - **Data (10)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[related_party_transaction]] · [[corp_gov_report]]
@@ -24,7 +24,11 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - `director_performance` — 사내이사 재직 중 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend) — proxy_advise 사내이사 분기에 wire
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
-### 주요 변화 (2026-05-04 ~ 05-06)
+### 주요 변화 (2026-05-04 ~ 06-01)
+- **value_up role extraction (2026-05-31)** — 최신 공시 1개 중심에서 `latest_plan` / `latest_status` / `latest_result` / `meta_amendment` 역할 분리. `계획서 명칭` 기반 보정, meta-only 구간 최근 2년 role backfill, `이행결과` nullable 분리. KOSPI500 + KOSDAQ150, 562 filing 전수조사 기준. ([[260530_audit_value-up-implementation-tags]] / [[value_up]])
+- **financial_metrics Tier 1 확장 (2026-05-31)** — CFO/순이익, DSO/DIO/DPO/CCC 추가. 51 → 56 지표, 추가 API 호출 없음. ([[financial_metrics]])
+- **agenda parser marketwide (2026-05-25)** — KOSPI500 + KOSDAQ150, XML 641건, no_filing 9, 3회 재파싱 hash diff 0. 최신 기준은 [[260525_1620_audit_agenda-parser-marketwide]].
+- **agenda relation KOSPI300 rerun (2026-05-25)** — exact 298 / no_filing 2 / requires_review 0, relation metadata는 결론이 아니라 자동 판단을 멈추는 guardrail. ([[260525_0200_audit_agenda-relation-kospi300]] / [[agenda-relation-parser-260525]])
 - **key data tools parsing 성공률 감사 (2026-05-17~18)** — KOSPI 300 + KOSDAQ 150 baseline과 비중복 100개 recheck 기준 문서 신설. 최신 기준은 [[architecture/audits/260517_parsing_success_rate_audit]]. `value_up`은 outside-window/013 no_filing 분류 보강 후 strict 100%, `shareholder_meeting_results`는 DART-first 결과 파싱 후 adjusted hard fail 0%.
 - 17 → 16 tool: `screen_events` drop, `proxy_guideline` archive, `shareholder_meeting` → notice + results 분리
 - proxy_advise scope **10 → 1** (`decisions`만, raw는 각 tool 직접 호출)
@@ -53,14 +57,14 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | 카테고리 | 목적 | 페이지 수 | 수정 가능 |
 |---|---|---|---|
 | **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 16 tool 진입점 (사용자 입장) | 16 + README | YES (tool 변경 시) |
-| **architecture/** | OPM 시스템 설계 + audit + fix | 6 + audits 9+ fixes 3 | YES |
-| **decisions/** | OPM 정책 + 판단 + debate | 14 | YES |
-| **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 31 + 36 + 3 = 70 | YES (사실 update 시) |
-| **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 9 | YES (배운 것 추가 시) |
-| **archive/** | 흡수된 페이지 (역사 보존) | 48 | WARN (단순 보존) |
+| **tools/** | 16 tool 진입점 + data source map | 17 + README | YES (tool 변경 시) |
+| **architecture/** | OPM 시스템 설계 + audit + fix + data archive | 60+ | YES |
+| **decisions/** | OPM 정책 + 판단 + debate | 26 + README | YES |
+| **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 70+ | YES (사실 update 시) |
+| **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 23 + README | YES (배운 것 추가 시) |
+| **archive/** | 흡수된 페이지 (역사 보존) | 69 | WARN (단순 보존) |
 
-총 173 markdown + 29 binary.
+총 305 markdown + raw binary.
 
 ## 명명 규칙 (2026-05-01~)
 
@@ -104,6 +108,9 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[rules/laws/README]] - 법령 자료 입구 (옛 archive 안내)
 
 ### 최근 audit / fix
+- [[260530_audit_value-up-implementation-tags]] - value_up plan/status/result/meta 분리. KOSPI500 + KOSDAQ150, 562 filing, meta 28건 비교
+- [[260525_1620_audit_agenda-parser-marketwide]] - KOSPI500 + KOSDAQ150 agenda numbering/title/body extraction 전수검증
+- [[260525_0200_audit_agenda-relation-kospi300]] - agenda relation KOSPI300 재실행 exact 298 / no_filing 2
 - [[260517_parsing_success_rate_audit]] - key data tools parsing 성공률 감사. KOSPI 300 + KOSDAQ 150 baseline, 비중복 100개 recheck, value_up/shareholder_meeting_results 보강 및 regression 확인
 - [[260510_data_tools_perf_audit]] - public data tools 성능 감사와 low-risk 개선 후보
 - `260505_inside_director_performance/` — 사내이사 성과 매트릭스 KOSPI 100 + KOSDAQ 50 audit (n=128, G1 100%, dist 29.7/45.3/18.0/7.0 target band 모두 충족, threshold ≥9→≥7 calibration)
@@ -152,12 +159,12 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Architecture (6 + audits 23 + fixes 3 + data archive 8)
+## Architecture (6 + audits 28 + fixes 3 + data archive)
 
 ### 시간순 인덱스 (READMEs)
-- [[architecture/audits/README]] — Audits 시간순 인덱스 (23 entries)
-- [[architecture/audits/data/README]] — Audit raw data 인덱스 (8 archives)
-- [[ralph/README]] — Ralph plans 시간순 인덱스 (19 plans)
+- [[architecture/audits/README]] — Audits 시간순 인덱스 (28 entries)
+- [[architecture/audits/data/README]] — Audit raw data 인덱스
+- [[ralph/README]] — Ralph plans 시간순 인덱스 (24 plans)
 - [[lessons/README]] — Lessons 인덱스
 - [[decisions/README]] — Decisions 인덱스
 - [[tools/README]] — Tools 카탈로그 (사용자 진입점)
@@ -237,7 +244,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 #### 시스템 메타
 - [[v4-스키마]] · [[시간순서-규칙]] · [[파서-판정-등급]]
 
-### Disclosures (36) - `rules/disclosures/`
+### Disclosures (40) - `rules/disclosures/`
 DART/KIND 공시 유형. 공시명 = 페이지명.
 
 #### 주총 + 정기보고서

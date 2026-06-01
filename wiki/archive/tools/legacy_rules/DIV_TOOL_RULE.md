@@ -1,3 +1,9 @@
+---
+type: source
+title: DIV_TOOL_RULE legacy
+archived: true
+---
+
 # DIV Tool Rule
 
 ## Tool 구조 (5 tools)

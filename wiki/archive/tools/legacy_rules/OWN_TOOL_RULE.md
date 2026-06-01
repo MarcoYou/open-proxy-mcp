@@ -1,3 +1,9 @@
+---
+type: source
+title: OWN_TOOL_RULE legacy
+archived: true
+---
+
 # OWN Tool Rule
 
 ## Tool 구조 (7 tools)

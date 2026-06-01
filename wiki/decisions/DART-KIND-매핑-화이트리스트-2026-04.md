@@ -1,3 +1,9 @@
+---
+type: decision
+title: DART-KIND 매핑 화이트리스트
+date: 2026-04
+---
+
 # DART-KIND 매핑 화이트리스트 (2026-04)
 
 ## 목적

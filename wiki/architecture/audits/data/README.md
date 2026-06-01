@@ -1,7 +1,7 @@
 ---
 type: readme
 title: Audit 원시 결과물 인덱스
-updated: 2026-05-24
+updated: 2026-06-01
 ---
 
 # Audit 원시 결과물
@@ -16,6 +16,18 @@ updated: 2026-05-24
 먼저 [[../README]]에서 현재 기준 audit를 찾고, 그 다음 필요한 경우에만 여기로 내려오면 된다.
 
 ## 주요 원시 결과물 묶음
+
+### 2026-05-30 — value_up 이행 태그 / meta-progress 비교
+- `260530_value_up_implementation_tags/`
+- `260530_value_up_meta_progress_compare/`
+- 기준 문서: [[../260530_audit_value-up-implementation-tags]]
+- 포함: KOSPI500 + KOSDAQ150, 2024-01-01 이후 562개 filing. `plan_title` 기반 문서 성격 분류, `implementation_status/result/outlook/future_plan/meta_reference` 태그, 고배당 재공시와 최신 progress 비교.
+- 로컬 sample/retry 산출물(`260530_value_up_implementation_tags_sample/`, `260530_value_up_implementation_tags_retry_tail/`)은 `.gitignore` 대상이다.
+
+### 2026-05-25 — agenda parser marketwide
+- `260525_agenda_parser_marketwide/`
+- 기준 문서: [[../260525_1620_audit_agenda-parser-marketwide]]
+- 포함: KOSPI500 + KOSDAQ150, XML 641건, no_filing 9, 3회 재파싱 hash diff 0. 대용량 loop jsonl은 `.gitignore` 대상이다.
 
 ### 2026-05-24~25 — agenda relation corpus / KOSPI300 rerun
 - `260524_agenda_relation_corpus/`
@@ -35,6 +47,12 @@ updated: 2026-05-24
 ### 2026-05-10 — data tools 성능 audit
 - `260510_perf_data_tools_audit/`
 - 기준 문서: [[../260510_data_tools_perf_audit]]
+
+### 2026-05-11 — data tool follow-up timing audit
+- `260511_perf_company_dividend_valueup_audit/`
+- `260511_perf_treasury_share_audit/`
+- 기준 문서: [[../260510_data_tools_perf_audit]]
+- 포함: company/dividend/value_up/treasury_share follow-up timing과 skip/accept trade-off.
 
 ### 2026-05-10 — 법령 / agenda / career / faithfulness 계열
 - `260510_agenda_hierarchy/`

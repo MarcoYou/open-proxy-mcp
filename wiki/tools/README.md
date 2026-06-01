@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — Tool 카탈로그 (16 tool 진입점)
-updated: 2026-05-20
+updated: 2026-06-01
 ---
 
 # tools/ — Tool 카탈로그
@@ -29,7 +29,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 | tool | 한 줄 |
 |------|------|
 | [[ownership_structure]] | 최대주주/특수관계인/5%/control_map (5 scope, treasury 제거) |
-| [[financial_metrics]] | DART 재무 4 endpoint 통합: 51 지표 + 듀퐁/감사의견 (6 scope) |
+| [[financial_metrics]] | DART 재무 4 endpoint 통합: 56 지표 + 듀퐁/감사의견/운전자본 회전일수 (6 scope) |
 | [[corp_gov_report]] | 기업지배구조보고서 15지표 + 연도별 추이 (5 scope) |
 
 ### Data — 환원·이벤트 (5)
@@ -37,7 +37,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 |------|------|
 | [[dividend]] | 배당 사실 + 분기별 breakdown (3 scope: summary/detail/history, CSR/TSR drop) |
 | [[treasury_share]] | 자사주 9 source — 결정 5종 + 결과 4종 + 사이클 매칭 (2 scope: summary/annual) |
-| [[value_up]] | 기업가치제고계획 commitment + 자사주 이행 cross-ref (4 scope) |
+| [[value_up]] | 기업가치제고계획 plan/status/result/meta 분리 + 자사주 이행 cross-ref (4 scope) |
 | [[corporate_restructuring]] | 합병/분할/주식교환·이전 4종 (DS005, 단일 통합) |
 | [[dilutive_issuance]] | 유상증자/CB/BW/감자 4종 (희석률·refixing, 단일 통합) |
 
@@ -104,6 +104,7 @@ created: 2026-05-01
 `decision_details`, `load_report_document` 같은 stage 키가 추가된다.
 최근 3개 회사 실측 기준 반복 병목은 `dividend.decision_details`,
 `treasury_share.fetch_decisions`였으며 상세 근거는 `wiki/architecture/audits/260510_data_tools_perf_audit.md` 참조.
+`value_up`은 `classify_value_up_roles`, `role_backfill_search.dart`로 plan/status/result/meta 분리 비용을 노출한다.
 
 ## 데이터 소스 매트릭스
 
@@ -153,3 +154,4 @@ created: 2026-05-01
 - 2026-05-01: financial_metrics tool Phase 1 신규 (DART 재무 4 endpoint), 17 → 18 tool
 - 2026-05-18: README 기준을 현재 16 public tool 체계로 정리. `screen_events`, `proxy_guideline`, 구 `shareholder_meeting`, 구 action tool 명칭 제거.
 - 2026-05-20: data tool별 상세 공시 매핑 문서 [[data_tool_disclosure_map]] 추가.
+- 2026-05-31: `financial_metrics` 56 지표로 확장(CFO/순이익, DSO/DIO/DPO/CCC). `value_up`은 `latest_plan`/`latest_status`/`latest_result`/`meta_amendment` 역할 분리.

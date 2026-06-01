@@ -1,3 +1,9 @@
+---
+type: source
+title: PRX_TOOL_RULE legacy
+archived: true
+---
+
 # PRX Tool Rule
 
 ## Tool 구조 (5 tools)

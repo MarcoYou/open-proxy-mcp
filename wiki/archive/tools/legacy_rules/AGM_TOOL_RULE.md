@@ -1,3 +1,9 @@
+---
+type: source
+title: AGM_TOOL_RULE legacy
+archived: true
+---
+
 # Tool Rule
 
 ## Tool 구조 (40 tools)

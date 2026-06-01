@@ -1,3 +1,9 @@
+---
+type: architecture
+title: proxy_advise Word 보고서 설계 스펙
+updated: 2026-05-12
+---
+
 # proxy_advise Word 보고서 설계 스펙
 
 ## 목적

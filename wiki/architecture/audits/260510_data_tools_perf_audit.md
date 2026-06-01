@@ -1,3 +1,10 @@
+---
+type: audit
+title: data tools performance audit
+date: 2026-05-10
+updated: 2026-05-24
+---
+
 # 260510 데이터 도구 성능 audit
 
 ## 최종 요약

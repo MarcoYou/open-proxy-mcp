@@ -1,7 +1,7 @@
 ---
 type: readme
 title: Architecture Audits 정리본
-updated: 2026-05-18
+updated: 2026-06-01
 ---
 
 # Architecture Audits
@@ -27,6 +27,7 @@ updated: 2026-05-18
 - [[260510_data_tools_perf_audit]]
 
 ### 2. 현재 action / advise 상태
+- [[260528_proxy_advise_metric_gap_audit]]
 - [[260525_1620_audit_agenda-parser-marketwide]]
 - [[260525_0200_audit_agenda-relation-kospi300]]
 - [[260510_proxy_advise_audit_통합정리]]
@@ -55,6 +56,7 @@ updated: 2026-05-18
 |---|---|---|
 | agenda parser / 주총 소집공고 파싱 전수 | [[260525_1620_audit_agenda-parser-marketwide]] | KOSPI500 + KOSDAQ150, XML 641건, no_filing 9, 재파싱 3회 hash diff 0 |
 | agenda relation / 주총 소집공고 파싱 | [[260525_0200_audit_agenda-relation-kospi300]] | KOSPI300 재실행 exact 298 / no_filing 2 / requires_review 0, relation metadata 검증 |
+| proxy advise metric gap | [[260528_proxy_advise_metric_gap_audit]] | 고려아연/LG화학/솔루엠/KT&G 응답 검토 후 REVIEW guardrail·법령 layer·보수한도/정관 표현 gap 정리 |
 | advise / proxy_advise 전체 흐름 | [[260510_proxy_advise_audit_통합정리]] | sanity → 실패 → 수렴 → framework 통합 |
 | proxy_advise Word 문서 양식 | [[../proxy_advise_word_report_design]] | 샘플 기반 Word export 설계 |
 | recap pattern | [[260503_2304_audit_recap_pattern]] | recap 전용 |
@@ -83,12 +85,16 @@ updated: 2026-05-18
   - 위 문서의 확장판
 - [[260429_0216_audit_parsing-200기업-v1]]
   - `partial` 안에 `no_filing`이 섞여 있던 구버전
+- [[260429_0912_audit_parsing-200기업-v2-no_filing]]
+  - `no_filing` 분리 기준을 도입한 v2 이력. 최신 기준은 2026-05-17 문서.
 - 현재 기준:
   - [[260517_parsing_success_rate_audit]]
 
 ### financial_metrics 계보
 - `260501_1820_audit_financial_metrics-6기업.md`
   - 초기 소표본 sanity, 통합 후 원문 삭제
+- [[260501_2030_audit_financial_metrics-200기업]]
+  - 200기업 전수 audit 원문. 현재 기준은 통합정리 문서와 `financial_metrics` tool 문서.
 - 현재 기준:
   - [[260510_financial_metrics_audit_통합정리]]
 
@@ -97,6 +103,8 @@ updated: 2026-05-18
   - 부분 진행 상태 보고, 통합 후 원문 삭제
 - `260503_0500_audit_phase3_final.md`
   - 실패/미달 상태 기록, 통합 후 원문 삭제
+- [[260503_1847_audit_phase4_final]]
+  - advise_vote 200×3 deterministic 100% 수렴 이력.
 - 현재 기준:
   - [[260510_proxy_advise_audit_통합정리]]
 
@@ -124,6 +132,9 @@ updated: 2026-05-18
 - [[260508_parser_audit]] — parser family / trigger 구조 점검
 - [[260429_2053_audit_personnel-878명]] — 후보자/경력 파서 정확도
 - [[260502_2300_audit_advise-recap-vote]] — action tool 재편 sanity
+- [[260504_2200_audit_proxy_advise_framework_iter1-8]] — proxy_advise framework iter history
+- [[260504_0028_audit_proxy_advise_rename_regression]] — proxy_advise rename regression
+- [[260528_proxy_advise_metric_gap_audit]] — metric/reporting gap audit
 - [[260503_2304_audit_recap_pattern]] — recap multi-upstream-pattern
 - [[260503_2330_audit_proxy_contest_baseline]] — proxy_contest baseline
 - [[260503_2345_audit_ownership_baseline]] — ownership baseline

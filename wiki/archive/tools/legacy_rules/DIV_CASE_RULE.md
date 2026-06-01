@@ -1,3 +1,9 @@
+---
+type: source
+title: DIV_CASE_RULE legacy
+archived: true
+---
+
 # DIV Case Rule -- 배당 tool 성공/실패 판정 기준
 
 ## 판정 등급

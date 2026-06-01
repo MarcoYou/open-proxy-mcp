@@ -1,7 +1,7 @@
 ---
 type: readme
 title: Ralph Plans 인덱스 (시간순)
-updated: 2026-05-09
+updated: 2026-06-01
 ---
 
 # Ralph Plans
@@ -12,6 +12,11 @@ ralph는 [트리 작은가지 (시점 작업)](../WIKI_SCHEMA.md#0-트리-구조
 
 ## 2026-05
 
+- [[260510_1200_ralph_career-parser-concat]] — careerDetails 행 병합/concat 검증
+- [[260510_1100_ralph_director-faithfulness-enhancement]] — 사외이사 겸직/충실성 강화
+- [[260510_0950_ralph_subagenda-amendment-mapping]] — sub-agenda → amendment 1:1 매핑
+- [[260510_0823_ralph_agenda-hierarchy-body-fallback]] — 호수 hierarchy + D 패턴 body fallback
+- [[260510_0747_ralph_law-layer-body-matching]] — law layer body matching
 - [[260508_0500_ralph_law-layer-precision]] — 법령 layer 정밀화 (Ralph 4, 280 회사)
 - [[260508_0207_ralph_parser-precision]] — 파서 정밀화 검증 (Ralph 5)
 - [[260508_0130_ralph_law-layer]] — 법령 layer 도입 (Ralph 3)
