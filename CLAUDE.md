@@ -43,6 +43,7 @@ open_proxy_mcp/        # MCP 서버 코드
   services/            # 도메인별 분석 로직 (tool과 분리)
   dart/client.py       # DART API + KIND + 네이버 시세
   data/asset_managers/ # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
+  data/ksic/           # 한국표준산업분류 코드→업종명 (company tool sector_name)
 scripts/
   wiki_lint.py         # wiki link 정책 자동 검증 (단방향/양방향)
   spot_*.py            # 회귀 spot 스크립트
