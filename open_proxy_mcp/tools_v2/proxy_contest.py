@@ -57,7 +57,12 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             )
         else:
             lines.append(f"- 소송/분쟁 공시: {summary.get('litigation_count', 0)}건")
-        lines.append(f"- 능동적 5% 시그널: {summary.get('active_signal_count', 0)}건")
+        ext_n = summary.get("active_external_block_count", 0)
+        ovl_n = summary.get("active_overlap_block_count", 0)
+        lines.append(
+            f"- 능동적 5% 경영참여 신고: 외부세력 {ext_n}건 (분쟁 신호) / "
+            f"대주주 본인 {ovl_n}건 (지배 신고, 분쟁 아님)"
+        )
         top_holder = summary.get("top_holder", {})
         if top_holder:
             lines.append(f"- 명부상 최대주주: {top_holder.get('name', '')} {top_holder.get('ownership_pct', 0):.2f}%")
