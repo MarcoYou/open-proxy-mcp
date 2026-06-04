@@ -267,13 +267,17 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
     major_rows = _major_holders_rows(major)
     if isinstance(blocks_res, BaseException):
         latest_blocks: list[dict[str, Any]] = []
+        block_timeline: list[dict[str, Any]] = []
         block_warning = f"5% 블록 조회 실패: {blocks_res}"
     else:
-        latest_blocks, _, block_warning = blocks_res
+        # timeline_rows를 더 이상 버리지 않고 시계열 신호 추출에 사용 (260605)
+        latest_blocks, block_timeline, block_warning = blocks_res
     if block_warning:
         warnings.append(block_warning)
     treasury_snapshot = _treasury_snapshot(stock_total, treasury_data)
     control_map = _build_control_map(major_rows, latest_blocks, treasury_snapshot)
+    # 5% 대량보유 시계열 신호 (목적 전환 / 지속 추가매입 / 보고 빈도) — 자동 판정 X, 정보 노출
+    control_map["block_holder_dynamics"] = _block_holder_dynamics(block_timeline)
     return {
         "year": bsns_year,
         "top_holder": _top_holder_summary(major_rows),
@@ -281,6 +285,80 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
         "treasury_pct": treasury_snapshot["treasury_pct"],
         "control_map": control_map,
     }, warnings
+
+
+_PASSIVE_PURPOSES = ("단순투자", "일반투자", "단순투자/일반투자")
+
+
+def _block_holder_dynamics(timeline_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """5% 대량보유 보고 이력을 보고자별 시계열로 분석.
+
+    majorstock 전체 이력(timeline_rows)을 buyer별로 묶어 분쟁 선행 신호를 추출한다.
+    자동 분류(분쟁 강도 판정)는 하지 않고 "무슨 변화가 언제 떴나"만 정보로 노출한다.
+
+    각 보고자별:
+    - purpose_shift: 단순/일반투자 → 경영참여 전환 (분쟁 선행 신호)
+    - accumulation: 첫 보고 대비 최신 지분율 증감 (지속 추가매입)
+    - report_count / first_date / last_date: 보고 빈도
+
+    timeline_rows row 형식 (ownership_structure._latest_block_rows):
+        {reporter, report_date, rcept_no, ownership_pct, purpose, report_name}
+    """
+    by_reporter: dict[str, list[dict[str, Any]]] = {}
+    for row in timeline_rows or []:
+        reporter = (row.get("reporter") or "").strip()
+        if not reporter:
+            continue
+        by_reporter.setdefault(reporter, []).append(row)
+
+    out: list[dict[str, Any]] = []
+    for reporter, rows in by_reporter.items():
+        # 오래된 → 최신 정렬 (시계열 diff)
+        chrono = sorted(rows, key=lambda r: (r.get("report_date", ""), r.get("rcept_no", "")))
+        if not chrono:
+            continue
+
+        # 1. 목적 전환: passive 이력 후 경영참여 등장
+        purpose_shift = None
+        had_passive = False
+        for r in chrono:
+            p = r.get("purpose", "")
+            if p in _PASSIVE_PURPOSES:
+                had_passive = True
+            elif p == "경영참여" and had_passive:
+                purpose_shift = {
+                    "from": "단순/일반투자",
+                    "to": "경영참여",
+                    "date": r.get("report_date", ""),
+                }
+                break
+
+        # 2. 지분 추세 (첫 → 최신)
+        first_pct = chrono[0].get("ownership_pct") or 0.0
+        last_pct = chrono[-1].get("ownership_pct") or 0.0
+        accumulation = {
+            "first_pct": round(first_pct, 2),
+            "last_pct": round(last_pct, 2),
+            "change_pp": round(last_pct - first_pct, 2),
+            "increasing": last_pct > first_pct + 0.01,
+        }
+
+        out.append({
+            "reporter": reporter,
+            "report_count": len(chrono),
+            "first_date": chrono[0].get("report_date", ""),
+            "last_date": chrono[-1].get("report_date", ""),
+            "current_purpose": chrono[-1].get("purpose", ""),
+            "purpose_shift": purpose_shift,
+            "accumulation": accumulation,
+        })
+
+    # 정렬: 목적 전환 있는 보고자 우선 → 최신 지분 큰 순
+    out.sort(
+        key=lambda x: (x["purpose_shift"] is not None, x["accumulation"]["last_pct"]),
+        reverse=True,
+    )
+    return out
 
 
 def _signal_actor_side(row: dict[str, Any]) -> str:
@@ -776,6 +854,8 @@ async def build_proxy_contest_payload(
         data["litigation"] = litigation_rows
     if scope in {"summary", "signals"}:
         data["signals"] = activist_signals
+        # 5% 대량보유 시계열 신호 (목적 전환 / 추가매입 / 보고 빈도) 명시 노출 (260605)
+        data["block_holder_dynamics"] = control_map.get("block_holder_dynamics", [])
     if scope == "timeline":
         data["timeline"] = combined_timeline[:50]
 

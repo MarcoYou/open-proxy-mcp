@@ -81,6 +81,29 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         for row in data.get("signals", [])[:20]:
             lines.append(f"| {row['report_date']} | {row['reporter']} | {row.get('actor_side', '')} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
+        dynamics = data.get("block_holder_dynamics", [])
+        if dynamics:
+            lines.extend([
+                "",
+                "## 5% 보유 동학 (시계열)",
+                "보고자별 목적 전환 / 지속 추가매입 / 보고 빈도. 분쟁 강도 자동 판정은 하지 않는다 — 변화만 노출.",
+                "",
+                "| 보고자 | 보고 | 기간 | 현재 목적 | 목적 전환 | 지분 추세 |",
+                "|--------|------|------|-----------|-----------|-----------|",
+            ])
+            for d in dynamics[:15]:
+                acc = d.get("accumulation", {})
+                ps = d.get("purpose_shift")
+                shift = f"{ps['from']}→{ps['to']} ({ps['date']})" if ps else "-"
+                trend = (
+                    f"{acc.get('first_pct', 0):.2f}% → {acc.get('last_pct', 0):.2f}% "
+                    f"({acc.get('change_pp', 0):+.2f}%p)"
+                )
+                lines.append(
+                    f"| {d['reporter']} | {d['report_count']}회 | {d.get('first_date','')}~{d.get('last_date','')} "
+                    f"| {d.get('current_purpose','')} | {shift} | {trend} |"
+                )
+
     if scope == "timeline":
         lines.extend(["", "## timeline", "| 날짜 | 카테고리 | 주체 | 분류 | 이벤트 | rcept_no |", "|------|----------|------|------|--------|----------|"])
         for row in data.get("timeline", [])[:30]:
