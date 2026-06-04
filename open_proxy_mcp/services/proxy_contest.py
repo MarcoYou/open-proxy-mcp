@@ -328,6 +328,8 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
 
 
 _PASSIVE_PURPOSES = ("단순투자", "일반투자", "단순투자/일반투자")
+# 급변 임계값 — 첫 보고 대비 ±5%p 이상이면 경영권 변동 신호 (매집 또는 exit)
+_ABRUPT_CHANGE_PP = 5.0
 
 
 def _block_holder_dynamics(timeline_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -373,14 +375,25 @@ def _block_holder_dynamics(timeline_rows: list[dict[str, Any]]) -> list[dict[str
                 }
                 break
 
-        # 2. 지분 추세 (첫 → 최신)
+        # 2. 지분 추세 (첫 → 최신). 급변(±임계값)은 증감 무관 강조 —
+        #    매집(증가)과 exit/매각(감소) 모두 경영권 변동 신호.
         first_pct = chrono[0].get("ownership_pct") or 0.0
         last_pct = chrono[-1].get("ownership_pct") or 0.0
+        change_pp = round(last_pct - first_pct, 2)
+        if change_pp > 0.01:
+            direction = "increasing"
+        elif change_pp < -0.01:
+            direction = "decreasing"
+        else:
+            direction = "flat"
         accumulation = {
             "first_pct": round(first_pct, 2),
             "last_pct": round(last_pct, 2),
-            "change_pp": round(last_pct - first_pct, 2),
-            "increasing": last_pct > first_pct + 0.01,
+            "change_pp": change_pp,
+            "increasing": direction == "increasing",
+            "direction": direction,
+            # 급변 = |변동| ≥ 5%p (증가=매집 / 감소=exit·매각 모두 신호)
+            "abrupt_change": abs(change_pp) >= _ABRUPT_CHANGE_PP,
         }
 
         out.append({
@@ -393,9 +406,13 @@ def _block_holder_dynamics(timeline_rows: list[dict[str, Any]]) -> list[dict[str
             "accumulation": accumulation,
         })
 
-    # 정렬: 목적 전환 있는 보고자 우선 → 최신 지분 큰 순
+    # 정렬: 목적전환 > 급변 > 최신 지분 순 (강한 신호 우선)
     out.sort(
-        key=lambda x: (x["purpose_shift"] is not None, x["accumulation"]["last_pct"]),
+        key=lambda x: (
+            x["purpose_shift"] is not None,
+            x["accumulation"]["abrupt_change"],
+            x["accumulation"]["last_pct"],
+        ),
         reverse=True,
     )
     return out

@@ -105,9 +105,12 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 acc = d.get("accumulation", {})
                 ps = d.get("purpose_shift")
                 shift = f"{ps['from']}→{ps['to']} ({ps['date']})" if ps else "-"
+                # 급변(±5%p) 강조 — 매집(↑) / exit·매각(↓)
+                abrupt = "⚡" if acc.get("abrupt_change") else ""
+                arrow = {"increasing": "↑", "decreasing": "↓", "flat": ""}.get(acc.get("direction", ""), "")
                 trend = (
-                    f"{acc.get('first_pct', 0):.2f}% → {acc.get('last_pct', 0):.2f}% "
-                    f"({acc.get('change_pp', 0):+.2f}%p)"
+                    f"{abrupt}{acc.get('first_pct', 0):.2f}% → {acc.get('last_pct', 0):.2f}% "
+                    f"({acc.get('change_pp', 0):+.2f}%p {arrow})"
                 )
                 lines.append(
                     f"| {d['reporter']} | {d['report_count']}회 | {d.get('first_date','')}~{d.get('last_date','')} "
