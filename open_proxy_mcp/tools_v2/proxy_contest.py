@@ -48,7 +48,15 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append("## 요약")
         lines.append(f"- 위임장/공개매수 관련 공시: {summary.get('proxy_filing_count', 0)}건")
         lines.append(f"- 주주측 문서: {summary.get('shareholder_side_count', 0)}건")
-        lines.append(f"- 소송/분쟁 공시: {summary.get('litigation_count', 0)}건")
+        lit_dedup = summary.get("litigation_dedup") or {}
+        if lit_dedup:
+            lines.append(
+                f"- 소송/분쟁 공시: {lit_dedup.get('primary_count', 0)}건 "
+                f"(원본; 제기 {lit_dedup.get('filed_count', 0)} / 판결 {lit_dedup.get('ruling_count', 0)} / 기타 {lit_dedup.get('other_count', 0)}, "
+                f"정정 {lit_dedup.get('correction_excluded', 0)}건 제외 / raw {lit_dedup.get('raw_count', 0)})"
+            )
+        else:
+            lines.append(f"- 소송/분쟁 공시: {summary.get('litigation_count', 0)}건")
         lines.append(f"- 능동적 5% 시그널: {summary.get('active_signal_count', 0)}건")
         top_holder = summary.get("top_holder", {})
         if top_holder:
@@ -72,9 +80,11 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"| {row['disclosure_date']} | {row['side']} | {row.get('actor_group', '')} | {row['filer_name']} | {has_5pct} | {in_lit} | {row['report_name']} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "litigation"}:
-        lines.extend(["", "## litigation", "| 날짜 | 제출인 | 공시명 | rcept_no |", "|------|--------|--------|----------|"])
+        lines.extend(["", "## litigation (정정 제외 원본)", "| 날짜 | 유형 | 제출인 | 공시명 | rcept_no |", "|------|------|--------|--------|----------|"])
+        _lit_type_ko = {"filed": "제기", "ruling": "판결", "other": "기타"}
         for row in data.get("litigation", [])[:20]:
-            lines.append(f"| {row['disclosure_date']} | {row['filer_name']} | {row['report_name']} | `{row['rcept_no']}` |")
+            lit_type = _lit_type_ko.get(row.get("litigation_type", ""), "-")
+            lines.append(f"| {row['disclosure_date']} | {lit_type} | {row['filer_name']} | {row['report_name']} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "signals"}:
         lines.extend(["", "## 5% signals", "| 날짜 | 보고자 | 분류 | 지분율 | 목적 | rcept_no |", "|------|--------|------|--------|------|----------|"])

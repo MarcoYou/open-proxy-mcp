@@ -158,11 +158,50 @@ async def _proxy_items(
     return rows, notices, None
 
 
+_LIT_CORRECTION_MARKERS = ("[기재정정]", "[첨부정정]", "[정정]", "[연장결정]")
+
+
+def _classify_litigation(raw_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """소송 공시 정정 noise 제거 + 유형 분류 (260605 dedup).
+
+    DART는 사건 ID를 주지 않아 완벽한 사건 단위 dedup은 불가하다.
+    현실적 dedup: 정정공시([기재정정]/[첨부정정])를 제외하고, 남은 원본 공시를
+    제기(filed) / 판결(ruling) / 기타(other)로 유형 분류한다.
+
+    제기·판결은 같은 소송의 다른 단계일 수 있으나 별개 이벤트(원본 공시)이므로
+    유형 태그만 달고 건수는 보존한다 — 판단은 애널리스트/LLM에 위임.
+    """
+    primary: list[dict[str, Any]] = []
+    correction_count = 0
+    for r in raw_rows:
+        name = r.get("report_name", "")
+        if any(m in name for m in _LIT_CORRECTION_MARKERS):
+            correction_count += 1
+            continue
+        if "판결" in name or "결정" in name:
+            lit_type = "ruling"
+        elif "제기" in name or "신청" in name:
+            lit_type = "filed"
+        else:
+            lit_type = "other"
+        primary.append({**r, "litigation_type": lit_type})
+
+    meta = {
+        "raw_count": len(raw_rows),
+        "correction_excluded": correction_count,
+        "primary_count": len(primary),
+        "filed_count": sum(1 for r in primary if r["litigation_type"] == "filed"),
+        "ruling_count": sum(1 for r in primary if r["litigation_type"] == "ruling"),
+        "other_count": sum(1 for r in primary if r["litigation_type"] == "other"),
+    }
+    return primary, meta
+
+
 async def _litigation_items(
     corp_code: str,
     bgn_de: str,
     end_de: str,
-) -> tuple[list[dict[str, Any]], list[str], str | None]:
+) -> tuple[list[dict[str, Any]], dict[str, Any], list[str], str | None]:
     items, notices, error = await search_filings_by_report_name(
         corp_code=corp_code,
         bgn_de=bgn_de,
@@ -172,17 +211,18 @@ async def _litigation_items(
         strip_spaces=True,
     )
     if error:
-        return [], notices, f"소송/분쟁 공시 조회 실패: {error}"
-    all_rows: list[dict[str, Any]] = []
+        return [], {}, notices, f"소송/분쟁 공시 조회 실패: {error}"
+    raw_rows: list[dict[str, Any]] = []
     for item in items:
-        all_rows.append({
+        raw_rows.append({
             "rcept_no": item.get("rcept_no", ""),
             "disclosure_date": item.get("rcept_dt", ""),
             "report_name": item.get("report_nm", ""),
             "filer_name": item.get("flr_nm", ""),
         })
-    all_rows.sort(key=lambda row: (row["disclosure_date"], row["rcept_no"]), reverse=True)
-    return all_rows, notices, None
+    raw_rows.sort(key=lambda row: (row["disclosure_date"], row["rcept_no"]), reverse=True)
+    primary_rows, dedup_meta = _classify_litigation(raw_rows)
+    return primary_rows, dedup_meta, notices, None
 
 
 async def _block_signals(corp_code: str) -> tuple[list[dict[str, Any]], str | None]:
@@ -683,7 +723,7 @@ async def build_proxy_contest_payload(
     control_task = _control_context(selected["corp_code"], company_query, window_year)
     (
         (proxy_rows, proxy_notices, proxy_warning),
-        (litigation_rows, litigation_notices, lit_warning),
+        (litigation_rows, litigation_dedup, litigation_notices, lit_warning),
         (signal_rows, signal_warning),
         (control_context, control_warnings),
     ) = await asyncio.gather(proxy_task, litigation_task, signal_task, control_task)
@@ -829,6 +869,7 @@ async def build_proxy_contest_payload(
             "shareholder_side_count": len(shareholder_side_rows),
             "retail_activism_count": len(retail_activism_rows),
             "litigation_count": len(litigation_rows),
+            "litigation_dedup": litigation_dedup,
             "active_signal_count": len(activist_signals),
             "has_contest_signal": has_contest_signal,
             "top_holder": control_context.get("top_holder", {}),
