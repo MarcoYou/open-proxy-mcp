@@ -225,41 +225,6 @@ async def _litigation_items(
     return primary_rows, dedup_meta, notices, None
 
 
-async def _block_signals(corp_code: str) -> tuple[list[dict[str, Any]], str | None]:
-    client = get_dart_client()
-    try:
-        result = await client.get_block_holders(corp_code)
-    except DartClientError as exc:
-        return [], f"5% 대량보유 공시 조회 실패: {exc.status}"
-    latest_by_reporter: dict[str, dict[str, Any]] = {}
-    for item in result.get("list", []):
-        reporter = item.get("repror", "").strip()
-        if not reporter:
-            continue
-        if reporter not in latest_by_reporter or item.get("rcept_dt", "") > latest_by_reporter[reporter].get("rcept_dt", ""):
-            latest_by_reporter[reporter] = item
-    rows: list[dict[str, Any]] = []
-    for reporter, item in latest_by_reporter.items():
-        purpose = _parse_holding_purpose(item.get("report_tp", ""), item.get("report_resn", ""))
-        if purpose in ("불명", "단순투자/일반투자") and item.get("rcept_no"):
-            try:
-                doc = await client.get_document_cached(item["rcept_no"])
-                parsed = _parse_holding_purpose_from_document(doc.get("html", "") or "")
-                if parsed != "불명":
-                    purpose = parsed
-            except Exception:
-                pass
-        rows.append({
-            "reporter": reporter,
-            "report_date": item.get("rcept_dt", ""),
-            "rcept_no": item.get("rcept_no", ""),
-            "ownership_pct": float(item.get("stkrt", 0) or 0),
-            "purpose": purpose,
-        })
-    rows.sort(key=lambda row: (row["report_date"], row["rcept_no"]), reverse=True)
-    return rows, None
-
-
 async def _control_context(corp_code: str, company_query: str, target_year: int | None) -> tuple[dict[str, Any], list[str]]:
     client = get_dart_client()
     warnings: list[str] = []
@@ -733,22 +698,23 @@ async def build_proxy_contest_payload(
     )
     warnings: list[str] = list(window_warnings)
 
-    # 4개 fetch를 병렬화 (각각 endpoint가 다르고 독립적)
+    # 3개 fetch를 병렬화 (각각 endpoint가 다르고 독립적).
+    # (260606) _block_signals 제거 — control_context의 _latest_block_rows와 같은
+    # majorstock API를 중복 호출하면서 결과(signal_rows)는 미사용이었다.
+    # 5% 블록 데이터는 control_map(overlap/non_overlap_blocks)에서 전부 만들어진다.
     proxy_task = _proxy_items(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de)
     litigation_task = _litigation_items(selected["corp_code"], bgn_de, end_de)
-    signal_task = _block_signals(selected["corp_code"])
     control_task = _control_context(selected["corp_code"], company_query, window_year)
     (
         (proxy_rows, proxy_notices, proxy_warning),
         (litigation_rows, litigation_dedup, litigation_notices, lit_warning),
-        (signal_rows, signal_warning),
         (control_context, control_warnings),
-    ) = await asyncio.gather(proxy_task, litigation_task, signal_task, control_task)
+    ) = await asyncio.gather(proxy_task, litigation_task, control_task)
 
     warnings.extend(proxy_notices)
     warnings.extend(litigation_notices)
 
-    for warning in (proxy_warning, lit_warning, signal_warning, *control_warnings):
+    for warning in (proxy_warning, lit_warning, *control_warnings):
         if warning:
             warnings.append(warning)
 
