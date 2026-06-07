@@ -4,7 +4,7 @@
 #
 
 app = 'open-proxy-mcp'
-primary_region = 'iad'
+primary_region = 'nrt'
 
 [build]
 
@@ -30,12 +30,13 @@ primary_region = 'iad'
   # 1대 항상 가동 — cold start 페널티 (3-6s) 제거.
   # 'suspend' 모드여도 idle 시 Firecracker VM 재시작 + Python boot + memory cache 휘발.
   # min=1이면 corpCode sqlite/memory cache + doc LRU cache 영구 유지 → ms 응답.
-  # 비용: shared-cpu-1x 1GB 월 ~$2-3 (24/7 × 30d).
-  min_machines_running = 1
+  # 비용: shared-cpu-1x 768MB 월 ~$4/대 (24/7 × 30d). nrt 2대 = ~$8.
+  # 사용자 대부분 한국 → 도쿄(nrt) 2대로 latency(~40ms) + 머신 redundancy 동시 확보.
+  min_machines_running = 2
   processes = ['app']
 
 [[vm]]
-  memory = '1gb'
+  memory = '768mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 1024
+  memory_mb = 768
