@@ -20,14 +20,14 @@ Governance risk is at the heart of the Korea Discount. As passive investing grow
 
 ## Main Features
 
-Click any feature for a detailed page (pages are in Korean).
+Click any feature for a detailed page.
 
-- **[AGM proxy voting](docs/features/proxy-voting.md)** — structures the AGM notice (소집공고) agenda items and returns a per-item FOR / AGAINST / REVIEW recommendation with rationale.
-- **[Control-contest signals](docs/features/control-contest.md)** — gathers proxy solicitation, tender offer, litigation, and 5%-block activism signals (no auto-verdict — it lists information, the analyst decides).
-- **[Ownership map](docs/features/ownership.md)** — largest shareholder, related parties, 5% blocks, and treasury shares — the real size of control.
-- **[AGM agenda](docs/features/meeting-agenda.md)** — agenda items, director nominees, compensation limits, articles amendments, plus post-AGM results and approval rates.
-- **[Shareholder return](docs/features/shareholder-return.md)** — dividends, the treasury buyback-to-cancellation cycle, and value-up plans, comparing what was promised against what was actually executed.
-- **[Financial metrics](docs/features/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend).
+- **[AGM proxy voting](docs/features/en/proxy-voting.md)** — structures the AGM notice agenda items and returns a per-item FOR / AGAINST / REVIEW recommendation with rationale.
+- **[Control-contest signals](docs/features/en/control-contest.md)** — gathers proxy solicitation, tender offer, litigation, and 5%-block activism signals (no auto-verdict — it lists information, the analyst decides).
+- **[Ownership map](docs/features/en/ownership.md)** — largest shareholder, related parties, 5% blocks, and treasury shares — the real size of control.
+- **[AGM agenda](docs/features/en/meeting-agenda.md)** — agenda items, director nominees, compensation limits, articles amendments, plus post-AGM results and approval rates.
+- **[Shareholder return](docs/features/en/shareholder-return.md)** — dividends, the treasury buyback-to-cancellation cycle, and value-up plans, comparing what was promised against what was actually executed.
+- **[Financial metrics](docs/features/en/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend).
 
 Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, related-party transactions — are in the [16-tool catalog](wiki/tools/README.md).
 
