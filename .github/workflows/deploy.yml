@@ -4,14 +4,46 @@ on:
   push:
     branches: [main]
 
+# GITHUB_TOKEN에 deployments 쓰기 권한 부여 (배포 상태 기록용)
+permissions:
+  contents: read
+  deployments: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # 1) GitHub Deployment 객체 생성 + in_progress 표시
+      - name: Start deployment
+        id: deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          id=$(gh api repos/${{ github.repository }}/deployments --input - --jq '.id' <<'JSON'
+          {"ref":"${{ github.sha }}","environment":"production","auto_merge":false,"required_contexts":[],"description":"Fly.io deploy"}
+          JSON
+          )
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          gh api repos/${{ github.repository }}/deployments/$id/statuses -f state=in_progress >/dev/null
+
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - run: flyctl deploy --remote-only
+      - name: Deploy
+        run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # 2) 배포 결과(성공/실패)를 Deployment 상태로 기록 — 성공 시 이전 기록 자동 inactive
+      - name: Finish deployment
+        if: always() && steps.deployment.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          state=success
+          [ "${{ job.status }}" != "success" ] && state=failure
+          gh api repos/${{ github.repository }}/deployments/${{ steps.deployment.outputs.id }}/statuses \
+            -f state="$state" \
+            -f environment=production \
+            -f description="Fly.io deploy $state" >/dev/null
