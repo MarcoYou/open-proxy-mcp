@@ -54,14 +54,24 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 f"- 소송/분쟁 공시: {lit_dedup.get('primary_count', 0)}건 원본 "
                 f"(정정 {lit_dedup.get('correction_excluded', 0)} 제외 / raw {lit_dedup.get('raw_count', 0)})"
             )
+            inf_m = lit_dedup.get("unspecified_inferred_mgmt", 0)
+            inf_c = lit_dedup.get("unspecified_inferred_commercial", 0)
+            inf_note = ""
+            if inf_m or inf_c:
+                inf_note = f" [미상 중 경영권 추정 {inf_m} / 상거래 추정 {inf_c} — 판결 공시는 성격 미표기, 회사단위 추정]"
             lines.append(
                 f"  - 성격: 경영권분쟁 {lit_dedup.get('management_count', 0)} (분쟁 신호) / "
                 f"상거래 {lit_dedup.get('commercial_count', 0)} (분쟁 아님) / "
-                f"미상 {lit_dedup.get('unspecified_count', 0)}"
+                f"미상 {lit_dedup.get('unspecified_count', 0)}{inf_note}"
             )
             lines.append(
                 f"  - 단계: 제기 {lit_dedup.get('filed_count', 0)} / 판결 {lit_dedup.get('ruling_count', 0)} / 기타 {lit_dedup.get('other_count', 0)}"
             )
+            # LLM 판단 재료 — 공시명 빈도 (정규화)
+            freq = lit_dedup.get("report_name_freq") or []
+            if freq:
+                freq_str = " / ".join(f"{f['name']}×{f['count']}" for f in freq[:8])
+                lines.append(f"  - 공시명 빈도 (LLM 직접 판단용): {freq_str}")
         else:
             lines.append(f"- 소송/분쟁 공시: {summary.get('litigation_count', 0)}건")
         ext_n = summary.get("active_external_block_count", 0)

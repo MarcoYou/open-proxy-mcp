@@ -209,6 +209,23 @@ def _classify_litigation(raw_rows: list[dict[str, Any]]) -> tuple[list[dict[str,
             "dispute_kind": _litigation_dispute_kind(name),
         })
 
+    # 회사 단위 추정 (260607): 판결 공시는 성격이 공시명에 안 적힘("소송등의판결ㆍ결정").
+    # 같은 회사에 경영권분쟁소송 제기가 있으면 미상 판결을 경영권으로 추정 (단정 X, _inferred 태그).
+    has_mgmt_filing = any(r["dispute_kind"] == "management" for r in primary)
+    has_commercial_filing = any(r["dispute_kind"] == "commercial" for r in primary)
+    for r in primary:
+        if r["dispute_kind"] == "unspecified" and r["litigation_type"] == "ruling":
+            if has_mgmt_filing and not has_commercial_filing:
+                r["dispute_kind_inferred"] = "management"
+            elif has_commercial_filing and not has_mgmt_filing:
+                r["dispute_kind_inferred"] = "commercial"
+            else:
+                r["dispute_kind_inferred"] = "mixed"
+
+    # 공시명 빈도 (LLM 판단 재료 — 간단 집계)
+    from collections import Counter as _Counter
+    name_freq = _Counter(_dedup_name(r.get("report_name", "")) for r in primary)
+
     meta = {
         "raw_count": len(raw_rows),
         "correction_excluded": correction_count,
@@ -220,8 +237,24 @@ def _classify_litigation(raw_rows: list[dict[str, Any]]) -> tuple[list[dict[str,
         "management_count": sum(1 for r in primary if r["dispute_kind"] == "management"),
         "commercial_count": sum(1 for r in primary if r["dispute_kind"] == "commercial"),
         "unspecified_count": sum(1 for r in primary if r["dispute_kind"] == "unspecified"),
+        # 미상 판결 회사단위 추정 (단정 X)
+        "unspecified_inferred_mgmt": sum(
+            1 for r in primary if r.get("dispute_kind_inferred") == "management"),
+        "unspecified_inferred_commercial": sum(
+            1 for r in primary if r.get("dispute_kind_inferred") == "commercial"),
+        # LLM 판단용 — 공시명 빈도 (정규화 텍스트)
+        "report_name_freq": [
+            {"name": n, "count": c} for n, c in name_freq.most_common()
+        ],
     }
     return primary, meta
+
+
+def _dedup_name(name: str) -> str:
+    """정정 마커 제거 후 공백 정리 (LLM 판단용 정규화)."""
+    for m in _LIT_CORRECTION_MARKERS:
+        name = name.replace(m, "")
+    return re.sub(r"\s+", " ", name).strip()
 
 
 async def _litigation_items(
