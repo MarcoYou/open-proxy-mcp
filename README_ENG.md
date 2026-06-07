@@ -4,6 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-16-orange.svg)](#tool-structure-16-tools)
+[![Release](https://img.shields.io/badge/release-v2.0-blue.svg)](#release-notes-v20)
 
 [Korean README](README.md)
 
@@ -233,7 +234,7 @@ Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 classification coverage 100%, dis
 
 | Source | Use | Notes |
 |--------|-----|-------|
-| [DART OpenAPI](https://opendart.fss.or.kr/) (`opendart.fss.or.kr`) | All structured data: regular/major filings metadata, financial endpoints, dividends, treasury, ownership | **Required** — free API key. 1,000/min hard rule (cap 900) |
+| [DART OpenAPI](https://opendart.fss.or.kr/) (`opendart.fss.or.kr`) | All structured data: regular/major filings metadata, financial endpoints, dividends, treasury, ownership | **Required** — free API key. 1,000/min hard rule (cap 910) |
 | DART Web (`dart.fss.or.kr`) | Filing body HTML parsing (AGM notices, major-event reports — ACODE-based system fields) | Web scraping, `_throttle_web` rate-limited (2-5s) |
 | [KRX KIND](https://kind.krx.co.kr/) | Fallback for selected exchange filings | DART original documents are preferred; KIND is auxiliary |
 | Anonymized institutional policy corpus | Voting-policy cross-reference | Internal static data. User-facing responses do not expose institution names or identifiers |
@@ -247,7 +248,7 @@ open_proxy_mcp/
   server.py                # FastMCP server (stdio + HTTP)
   tools_v2/                # 16 tools (active)
   services/                # Domain logic layer (separated from tools)
-  dart/client.py           # DART API + KIND fallback + rate limiter (cap 900/min)
+  dart/client.py           # DART API + KIND fallback + rate limiter (cap 910/min)
   data/asset_managers/     # Anonymized institutional policy corpus + Open Proxy Guideline + 12 matrices
 scripts/
   wiki_lint.py             # Wiki link policy auto-validator (downward / bidirectional)
@@ -270,6 +271,21 @@ wiki/                      # LLM domain knowledge — botanical tree order
 Dockerfile                 # Container for Fly.io deployment
 fly.toml                   # Fly.io config (nrt region, auto-suspend)
 ```
+
+---
+
+## Release notes (v2.0)
+
+First stable release. The `tools_v2` toolset ships 16 public tools covering Korean listed-company governance analysis end to end.
+
+- **16 public tools** — Company → Meeting/Data/Evidence → Action flow.
+- **Control-contest signals** (`proxy_contest`) — 4-stage litigation classification + dedup, 5% holding dynamics (purpose shift, sustained accumulation), external-raider vs insider split.
+- **Disclosure-type code index** — `pblntf_ty`/`pblntf_detail_ty` → actual disclosure mapping ([wiki](wiki/rules/disclosures/공시유형코드체계.md)). Searches narrow by detail code first (dividends = `I001`, etc.).
+- **Shareholder-return tracking** — dividends/treasury/value-up in one view.
+- **Financial & governance checks** — DART financial endpoints + corporate governance report.
+- **Reliability** — DART 1,000/min rolling-window hard guard (cap 910), 3-tier fallback (XML→PDF→OCR), full source tracing (`data.usage` + receipt numbers).
+
+Next items (tracked internally): financial-statement footnote parsing (related-party, contingencies, segments), detail-code search rollout.
 
 ---
 

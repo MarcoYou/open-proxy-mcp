@@ -4,6 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-16-orange.svg)](#tool-구조-16개)
+[![Release](https://img.shields.io/badge/release-v2.0-blue.svg)](#릴리즈-노트-v20)
 
 [English README](README_ENG.md)
 
@@ -132,7 +133,7 @@ OpenProxy MCP의 16개 tool은 **Company → Meeting/Data/Evidence → Action** 
 
 `proxy_advise_before_meeting`은 OPM 자체 Open Proxy Guideline을 기본 정책으로 사용합니다. 판단 기준은 소수주주 보호, 거버넌스 투명성, 장기 가치, 추적 가능성입니다. 익명화된 기관 정책 corpus는 내부 cross-reference로만 사용하며, 사용자 응답에는 기관 실명이나 식별자를 노출하지 않습니다.
 
-**모든 응답에 `data.usage` 블록**: DART API 호출 수 + MCP tool 호출 수 노출 (분당 1000 한도 — `dart/client.py` rolling window cap 900으로 hard guard).
+**모든 응답에 `data.usage` 블록**: DART API 호출 수 + MCP tool 호출 수 노출 (분당 1000 한도 — `dart/client.py` rolling window cap 910으로 hard guard).
 
 ```
 사용 패턴:  company로 시작 → 데이터 탭으로 사실 확인 → action tool로 종합 분석
@@ -144,10 +145,25 @@ OpenProxy MCP의 16개 tool은 **Company → Meeting/Data/Evidence → Action** 
 
 | 소스 | 용도 | 비고 |
 |------|------|------|
-| [DART OpenAPI](https://opendart.fss.or.kr/) (`opendart.fss.or.kr`) | 정기·주요 공시 메타 + 재무 endpoint + 배당/자사주/지분 등 모든 정형 데이터 | **필수** — 무료 API 키. 분당 1,000회 hard rule (cap 900) |
+| [DART OpenAPI](https://opendart.fss.or.kr/) (`opendart.fss.or.kr`) | 정기·주요 공시 메타 + 재무 endpoint + 배당/자사주/지분 등 모든 정형 데이터 | **필수** — 무료 API 키. 분당 1,000회 hard rule (cap 910) |
 | DART 웹 (`dart.fss.or.kr`) | 공시 본문 HTML 파싱 (주총소집공고 / 주요사항보고서 등 ACODE 기반) | 웹 스크래핑, `_throttle_web` rate-limited (2-5초) |
 | [KRX KIND](https://kind.krx.co.kr/) | 일부 거래소 공시 보조 확인 | 필요 시 공시 확인 보조 소스로 사용 |
 | 익명화 기관 정책 corpus | 의결권 판단 cross-reference | 내부 정적 데이터. 사용자 응답에는 기관 실명/식별자 비노출 |
+
+---
+
+## 릴리즈 노트 (v2.0)
+
+OpenProxy MCP의 첫 정식 릴리즈입니다. `tools_v2` toolset 기준 16개 public tool로 한국 상장사 거버넌스 분석 전반을 커버합니다.
+
+- **16 public tool** — Company → Meeting/Data/Evidence → Action 흐름.
+- **지분·경영권 분쟁 신호 정밀화** (`proxy_contest`) — 소송 4단계 분류·중복제거, 5% 보유 동학(목적 전환·지속 매집), 외부세력/대주주 본인 분리.
+- **공시유형 코드체계 인덱스** — `pblntf_ty`/`pblntf_detail_ty` → 실제 공시 매핑([wiki](wiki/rules/disclosures/공시유형코드체계.md)). 검색 시 상세코드로 범위를 먼저 좁힘 (배당=`I001` 등).
+- **주주환원 추적** — 배당/자기주식/기업가치제고 통합 조회.
+- **재무·지배구조 점검** — DART 재무 endpoint + 기업지배구조보고서.
+- **안정성** — DART 분당 1,000 한도 rolling-window hard guard(cap 910), 3-tier fallback(XML→PDF→OCR), 전 응답 출처 추적(`data.usage` + 공시번호).
+
+다음 작업(내부 관리): 재무제표 주석 파싱(특수관계자·우발부채·세그먼트), 공시 검색 detail-코드 확장 등.
 
 ---
 
