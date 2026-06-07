@@ -47,8 +47,8 @@ DART_WEB_BASE_URL = "https://dart.fss.or.kr"
 _MIN_INTERVAL_API = 0.1     # API: 최소 0.1초 간격 (race 방지용)
 _MIN_INTERVAL_WEB = 2.0     # 웹: 최소 2초 간격 (DDoS 오해 방지)
 # DART OpenAPI 분당 한도 1000회 — 초과 시 24h IP 차단 정책.
-# 실제 cap을 900으로 둠 (10% buffer, batch 동시 호출 race도 cover).
-_API_RATE_LIMIT_PER_MINUTE = 900
+# 실제 cap을 910으로 둠 (9% buffer, batch 동시 호출 race도 cover).
+_API_RATE_LIMIT_PER_MINUTE = 910
 
 _KIND_VALUE_UP_DISCLOSURE_CODE = "0184"
 _TRANSIENT_HTTP_ERRORS = (

@@ -68,13 +68,15 @@ wiki/                  # LLM 도메인 지식 (트리 layer는 위 섹션 참조
 - **사용 호출 우선순위**: ① **MCP 호출** (default — production 동작 검증) → ② 직접 코드 import (단위 테스트 / 디버깅 시).
 - **데이터 접근 우선순위**: ① DART API (병렬 가능) → ② DART 웹 크롤링 (2초 간격) → ③ KIND 크롤링 (2초 간격). 상위에서 해결되면 하위 접근 금지.
 - **DART API**: 분당 1,000회 초과 시 24시간 IP 차단 — **hard rule, 절대 위반 X**.
-  - `dart/client.py`에 rolling window rate limiter (`_throttle_api`) 내장 — 분당 cap **900** (10% buffer + race 방지).
+  - `dart/client.py`에 rolling window rate limiter (`_throttle_api`) 내장 — 분당 cap **910** (9% buffer + race 방지).
   - 새 batch script 작성 시: 회사수 × 평균 호출수 estimate, **최대 30 회사 단위** + batch 사이 sleep. 100+ 회사 측정은 fly machine (다른 IP) 활용.
+  - ⚠️ **독립 스크립트는 새 client = limiter 리셋** + **ReadError 재시도는 limiter 우회 증폭** → 순차(동시성 1~2) + 호출 사이 sleep + ReadError 즉시 중단. (2026-06-07 throttle 사고 교훈)
   - 차단 시 키 회전 무효 (IP/fingerprint level 차단). 24h cool-down.
   - **DART API 키 2개 fallback (ContextVar 자동)**: 사용자 요청별 키 격리.
 - **웹 스크래핑**: 최소 2초 간격. 배치 금지.
 - **3-tier fallback**: XML → PDF (4s+) → OCR (Upstage)
 - **rcept_no 포맷**: `00`=소집공고(DART 정기공시), `80`=주총결과(거래소 수시공시). agm_*_xml에는 반드시 `00` 포맷 사용.
+- **공시 검색 = 코드 먼저 좁히기**: `list.json` 검색 시 `pblntf_ty`(A-J) + `pblntf_detail_ty`(예 I001 주요경영사항) 필터로 범위부터 좁힌 뒤 제목 키워드 매칭. 전체 순회 금지. **어떤 공시가 어느 코드에 있는지는 반드시 [[공시유형코드체계]] 인덱스 참조** (배당=I001, 5%지분=D001, 위임장=D003, 공개매수=D004, 경영권분쟁소송=I001). corp_code 없는 시장 전체 검색은 3개월 한도.
 - **파이프라인**: 전체 재실행 금지, 누락분만 처리.
 - **저장 안 함**: OPM은 실시간 조회, 데이터 저장 X.
 
@@ -82,7 +84,7 @@ wiki/                  # LLM 도메인 지식 (트리 layer는 위 섹션 참조
 - DART API → `wiki/archive/entities/DART-OpenAPI.md` (구 entity 페이지, archive 보존)
 - fallback → `wiki/architecture/3-tier-fallback.md`
 - 데이터 수집 전체 → `wiki/architecture/data-collection.md`
-- 공시 유형 → `wiki/rules/disclosures/`
+- 공시 유형 → `wiki/rules/disclosures/` (**코드체계 인덱스**: `공시유형코드체계.md` — pblntf_ty/detail_ty → 실제 공시 매핑)
 - 도메인 개념 → `wiki/rules/concepts/`
 
 ## 문서 포인터

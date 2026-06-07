@@ -246,8 +246,11 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 #### 시스템 메타
 - [[v4-스키마]] · [[시간순서-규칙]] · [[파서-판정-등급]]
 
-### Disclosures (40) - `rules/disclosures/`
+### Disclosures (41) - `rules/disclosures/`
 DART/KIND 공시 유형. 공시명 = 페이지명.
+
+#### 코드체계
+- [[공시유형코드체계]] - pblntf_ty(A-J) + pblntf_detail_ty(I001 등) → 실제 공시 매핑, 6사 실증
 
 #### 주총 + 정기보고서
 - [[주주총회소집공고]] · [[주주총회결과]] · [[사업보고서]] · [[반기보고서]] · [[분기보고서]]
