@@ -6,6 +6,7 @@ import asyncio
 from collections import Counter
 from datetime import date, timedelta
 import re
+import time
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -161,20 +162,45 @@ async def _proxy_items(
 _LIT_CORRECTION_MARKERS = ("[기재정정]", "[첨부정정]", "[정정]", "[연장결정]")
 
 
+# 경영권 분쟁 가처분/소송 사건명 키워드 (260607 확장)
+# 발견: 판결 공시("소송등의판결ㆍ결정")는 "경영권분쟁" 단어 없이 괄호에 구체적 사건명만
+# 적어 미상으로 빠짐. 사건명 대부분이 전형적 경영권 분쟁 가처분/소송이라 직접 분류 가능.
+# 공백 제거 후 매칭 (raw가 "경영권 분쟁" 띄어쓰기로 와도 잡음)
+_MGMT_LITIGATION_KEYWORDS = (
+    "경영권분쟁", "경영권변경",
+    "직무집행정지", "직무대행",
+    "총회개최금지", "주주총회개최금지", "임시주주총회개최금지",
+    "의안상정", "주주총회소집", "총회소집",
+    "주주총회결의",  # 취소/무효/효력정지
+    "주주명부", "회계장부",  # 열람·등사 가처분 (행동주의 정보 청구)
+    "의결권행사금지", "의결권없는",
+    "이사및감사", "지위부존재",
+    "검사인선임",  # 회사 부정 조사 (행동주의)
+    # 신주발행 분쟁 (경영권 방어/공격 핵심 — 다양한 표현, 260607 확장)
+    "신주발행", "유상증자발행금지", "주식발행", "상장금지",
+    "전환사채발행금지", "신주인수권",
+)
+
+
 def _litigation_dispute_kind(name: str) -> str:
     """소송 공시명을 경영권 분쟁 / 단순 상거래로 구분 (260607).
 
     142종목 역추적 재검토에서 발견: 소송 키워드 hit의 절반이 "일정금액이상의청구"
     같은 일상 상거래 소송이라 분쟁 신호로 오인됨 (아시아나항공 11건 등).
 
-    - management: "경영권분쟁소송" / "경영권변경" — 진짜 경영권 분쟁
+    판결 공시는 "경영권분쟁" 단어 없이 괄호에 구체적 사건명(직무집행정지/총회개최금지/
+    주주총회결의/회계장부열람 등)만 적어 미상으로 빠지던 것을, 사건명 키워드로 직접
+    management 분류한다 (아이로보틱스/셀피글로벌 판결 공시 raw 분석).
+
+    - management: 경영권분쟁 + 전형적 경영권 가처분/소송 사건명
     - commercial: "일정금액이상의청구" — 일상 손배/상거래 소송 (분쟁 아님)
-    - unspecified: 그 외 (집단소송 등 — 판단 보류)
+    - unspecified: 그 외 (괄호 사건명 없는 일반 양식 등 — 판단 보류 → LLM 위임)
     """
-    if "경영권분쟁" in name or "경영권변경" in name:
-        return "management"
-    if "일정금액이상" in name:
+    name_norm = name.replace(" ", "")
+    if "일정금액이상" in name_norm:
         return "commercial"
+    if any(kw in name_norm for kw in _MGMT_LITIGATION_KEYWORDS):
+        return "management"
     return "unspecified"
 
 
@@ -257,10 +283,76 @@ def _dedup_name(name: str) -> str:
     return re.sub(r"\s+", " ", name).strip()
 
 
+_CASE_NAME_RE = re.compile(
+    r"사건의?\s*명칭\s*[:：]?\s*(.{1,50}?)(?:사건\s*번호|\d\s*[.)]|원고|신청인|채권자|당사자)"
+)
+
+
+def _extract_case_name(html: str) -> str:
+    """소송 공시 본문에서 '1. 사건의 명칭' 필드 추출 (정형).
+
+    예: "신주발행금지 가처분" / "임시총회소집허가" / "장부등열람허용가처분"
+    공시명에 사건명이 없는 미상 케이스를 본문으로 보완한다.
+    """
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or ""))
+    m = _CASE_NAME_RE.search(text)
+    return m.group(1).strip(" ㆍ·,") if m else ""
+
+
+async def _resolve_unspecified_by_document(
+    primary: list[dict[str, Any]],
+    *,
+    max_lookups: int = 30,
+) -> dict[str, int]:
+    """미상 소송의 본문 '사건의 명칭'을 파싱해 경영권/상거래 재분류 (260607 B안).
+
+    dispute_kind=unspecified인 row만 document를 열어(cache hit이면 호출 0)
+    사건명으로 _litigation_dispute_kind를 재적용. row를 in-place 갱신하고
+    재분류 통계 + 파싱 timing을 반환한다.
+
+    max_lookups: 본문 조회 상한 (병목 방지). 초과분은 미상 유지 → LLM 위임.
+    """
+    client = get_dart_client()
+    timings: dict[str, int] = {"wall_ms": 0, "parse_ms": 0, "lookups": 0, "hits": 0}
+    unspec = [r for r in primary if r.get("dispute_kind") == "unspecified" and r.get("rcept_no")]
+    targets = unspec[:max_lookups]
+    if not targets:
+        return timings
+
+    async def _fetch(r):
+        try:
+            return r, await client.get_document_cached(r["rcept_no"])
+        except Exception:
+            return r, None
+
+    wall0 = time.perf_counter()
+    docs = await asyncio.gather(*[_fetch(r) for r in targets])  # 병렬 조회
+    timings["wall_ms"] = int((time.perf_counter() - wall0) * 1000)
+
+    parse0 = time.perf_counter()
+    for r, doc in docs:
+        if doc is None:
+            continue
+        timings["lookups"] += 1
+        case_name = _extract_case_name(doc.get("html", "") or "")
+        if not case_name:
+            continue
+        kind = _litigation_dispute_kind(case_name)
+        if kind != "unspecified":
+            r["dispute_kind"] = kind
+            r["dispute_kind_source"] = "document"
+            r["case_name"] = case_name
+            timings["hits"] += 1
+    timings["parse_ms"] = int((time.perf_counter() - parse0) * 1000)
+    return timings
+
+
 async def _litigation_items(
     corp_code: str,
     bgn_de: str,
     end_de: str,
+    parse_documents: bool = False,
+    max_document_lookups: int = 30,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], list[str], str | None]:
     items, notices, error = await search_filings_by_report_name(
         corp_code=corp_code,
@@ -282,6 +374,18 @@ async def _litigation_items(
         })
     raw_rows.sort(key=lambda row: (row["disclosure_date"], row["rcept_no"]), reverse=True)
     primary_rows, dedup_meta = _classify_litigation(raw_rows)
+
+    # B안 (260607): 미상 소송 본문 '사건의 명칭' 파싱 재분류 (옵션 — 호출 증가)
+    if parse_documents:
+        doc_timings = await _resolve_unspecified_by_document(
+            primary_rows, max_lookups=max_document_lookups)
+        # 재분류 후 카운트 갱신
+        dedup_meta["management_count"] = sum(1 for r in primary_rows if r["dispute_kind"] == "management")
+        dedup_meta["commercial_count"] = sum(1 for r in primary_rows if r["dispute_kind"] == "commercial")
+        dedup_meta["unspecified_count"] = sum(1 for r in primary_rows if r["dispute_kind"] == "unspecified")
+        dedup_meta["document_resolved"] = doc_timings["hits"]
+        dedup_meta["document_timings_ms"] = doc_timings
+
     return primary_rows, dedup_meta, notices, None
 
 
@@ -762,8 +866,14 @@ async def build_proxy_contest_payload(
     # (260606) _block_signals 제거 — control_context의 _latest_block_rows와 같은
     # majorstock API를 중복 호출하면서 결과(signal_rows)는 미사용이었다.
     # 5% 블록 데이터는 control_map(overlap/non_overlap_blocks)에서 전부 만들어진다.
+    # litigation scope에서만 본문 '사건의 명칭' 파싱 on (미상 정밀 재분류 — 260607).
+    # summary 등은 가볍게 (공시명 키워드 + 회사단위 추정만). 병렬 조회라 cache hit이면 부담 0.
+    parse_lit_docs = scope == "litigation"
     proxy_task = _proxy_items(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de)
-    litigation_task = _litigation_items(selected["corp_code"], bgn_de, end_de)
+    litigation_task = _litigation_items(
+        selected["corp_code"], bgn_de, end_de,
+        parse_documents=parse_lit_docs,
+    )
     control_task = _control_context(selected["corp_code"], company_query, window_year)
     (
         (proxy_rows, proxy_notices, proxy_warning),
