@@ -161,12 +161,31 @@ async def _proxy_items(
 _LIT_CORRECTION_MARKERS = ("[기재정정]", "[첨부정정]", "[정정]", "[연장결정]")
 
 
+def _litigation_dispute_kind(name: str) -> str:
+    """소송 공시명을 경영권 분쟁 / 단순 상거래로 구분 (260607).
+
+    142종목 역추적 재검토에서 발견: 소송 키워드 hit의 절반이 "일정금액이상의청구"
+    같은 일상 상거래 소송이라 분쟁 신호로 오인됨 (아시아나항공 11건 등).
+
+    - management: "경영권분쟁소송" / "경영권변경" — 진짜 경영권 분쟁
+    - commercial: "일정금액이상의청구" — 일상 손배/상거래 소송 (분쟁 아님)
+    - unspecified: 그 외 (집단소송 등 — 판단 보류)
+    """
+    if "경영권분쟁" in name or "경영권변경" in name:
+        return "management"
+    if "일정금액이상" in name:
+        return "commercial"
+    return "unspecified"
+
+
 def _classify_litigation(raw_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """소송 공시 정정 noise 제거 + 유형 분류 (260605 dedup).
+    """소송 공시 정정 noise 제거 + 유형 분류 (260605 dedup, 260607 dispute_kind).
 
     DART는 사건 ID를 주지 않아 완벽한 사건 단위 dedup은 불가하다.
     현실적 dedup: 정정공시([기재정정]/[첨부정정])를 제외하고, 남은 원본 공시를
-    제기(filed) / 판결(ruling) / 기타(other)로 유형 분류한다.
+    - 단계: 제기(filed) / 판결(ruling) / 기타(other)
+    - 성격: 경영권(management) / 상거래(commercial) / 미상(unspecified)
+    두 축으로 분류한다.
 
     제기·판결은 같은 소송의 다른 단계일 수 있으나 별개 이벤트(원본 공시)이므로
     유형 태그만 달고 건수는 보존한다 — 판단은 애널리스트/LLM에 위임.
@@ -184,7 +203,11 @@ def _classify_litigation(raw_rows: list[dict[str, Any]]) -> tuple[list[dict[str,
             lit_type = "filed"
         else:
             lit_type = "other"
-        primary.append({**r, "litigation_type": lit_type})
+        primary.append({
+            **r,
+            "litigation_type": lit_type,
+            "dispute_kind": _litigation_dispute_kind(name),
+        })
 
     meta = {
         "raw_count": len(raw_rows),
@@ -193,6 +216,10 @@ def _classify_litigation(raw_rows: list[dict[str, Any]]) -> tuple[list[dict[str,
         "filed_count": sum(1 for r in primary if r["litigation_type"] == "filed"),
         "ruling_count": sum(1 for r in primary if r["litigation_type"] == "ruling"),
         "other_count": sum(1 for r in primary if r["litigation_type"] == "other"),
+        # 경영권/상거래 구분 (분쟁 신호 정확도)
+        "management_count": sum(1 for r in primary if r["dispute_kind"] == "management"),
+        "commercial_count": sum(1 for r in primary if r["dispute_kind"] == "commercial"),
+        "unspecified_count": sum(1 for r in primary if r["dispute_kind"] == "unspecified"),
     }
     return primary, meta
 
@@ -823,7 +850,12 @@ async def build_proxy_contest_payload(
     # retail_activism(소액주주 집단 위임 플랫폼)과 registry_overlap(회사 측 계열사 경영참여 신고)은
     # 분쟁이 아니므로 제외한다.
     external_active_signals = [row for row in activist_signals if row.get("actor_side") == "external_active_block"]
-    has_contest_signal = bool(shareholder_side_rows or litigation_rows or external_active_signals)
+    # 소송 중 commercial(일상 상거래)은 분쟁 신호에서 제외 — management/unspecified만 카운트
+    # (260607: 아시아나항공 상거래 11건 등 false positive 제거)
+    contest_litigation_rows = [
+        row for row in litigation_rows if row.get("dispute_kind") != "commercial"
+    ]
+    has_contest_signal = bool(shareholder_side_rows or contest_litigation_rows or external_active_signals)
 
     # 사건 발견 vs 진짜 partial 분리.
     # 위임장(proxy_filing) + 소송(litigation) + 5% 활성 시그널 합산.

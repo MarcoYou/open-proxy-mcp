@@ -51,9 +51,16 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lit_dedup = summary.get("litigation_dedup") or {}
         if lit_dedup:
             lines.append(
-                f"- 소송/분쟁 공시: {lit_dedup.get('primary_count', 0)}건 "
-                f"(원본; 제기 {lit_dedup.get('filed_count', 0)} / 판결 {lit_dedup.get('ruling_count', 0)} / 기타 {lit_dedup.get('other_count', 0)}, "
-                f"정정 {lit_dedup.get('correction_excluded', 0)}건 제외 / raw {lit_dedup.get('raw_count', 0)})"
+                f"- 소송/분쟁 공시: {lit_dedup.get('primary_count', 0)}건 원본 "
+                f"(정정 {lit_dedup.get('correction_excluded', 0)} 제외 / raw {lit_dedup.get('raw_count', 0)})"
+            )
+            lines.append(
+                f"  - 성격: 경영권분쟁 {lit_dedup.get('management_count', 0)} (분쟁 신호) / "
+                f"상거래 {lit_dedup.get('commercial_count', 0)} (분쟁 아님) / "
+                f"미상 {lit_dedup.get('unspecified_count', 0)}"
+            )
+            lines.append(
+                f"  - 단계: 제기 {lit_dedup.get('filed_count', 0)} / 판결 {lit_dedup.get('ruling_count', 0)} / 기타 {lit_dedup.get('other_count', 0)}"
             )
         else:
             lines.append(f"- 소송/분쟁 공시: {summary.get('litigation_count', 0)}건")
@@ -85,11 +92,13 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"| {row['disclosure_date']} | {row['side']} | {row.get('actor_group', '')} | {row['filer_name']} | {has_5pct} | {in_lit} | {row['report_name']} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "litigation"}:
-        lines.extend(["", "## litigation (정정 제외 원본)", "| 날짜 | 유형 | 제출인 | 공시명 | rcept_no |", "|------|------|--------|--------|----------|"])
+        lines.extend(["", "## litigation (정정 제외 원본)", "| 날짜 | 성격 | 단계 | 제출인 | 공시명 | rcept_no |", "|------|------|------|--------|--------|----------|"])
         _lit_type_ko = {"filed": "제기", "ruling": "판결", "other": "기타"}
+        _kind_ko = {"management": "경영권", "commercial": "상거래", "unspecified": "미상"}
         for row in data.get("litigation", [])[:20]:
             lit_type = _lit_type_ko.get(row.get("litigation_type", ""), "-")
-            lines.append(f"| {row['disclosure_date']} | {lit_type} | {row['filer_name']} | {row['report_name']} | `{row['rcept_no']}` |")
+            kind = _kind_ko.get(row.get("dispute_kind", ""), "-")
+            lines.append(f"| {row['disclosure_date']} | {kind} | {lit_type} | {row['filer_name']} | {row['report_name']} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "signals"}:
         lines.extend(["", "## 5% signals", "| 날짜 | 보고자 | 분류 | 지분율 | 목적 | rcept_no |", "|------|--------|------|--------|------|----------|"])
