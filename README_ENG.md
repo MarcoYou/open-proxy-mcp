@@ -199,18 +199,20 @@ Usage pattern: start with `company` → confirm facts via data tabs → generate
 
 ## Voting Criteria
 
-When you ask for a voting recommendation on an AGM agenda item, OpenProxy follows the criteria below to return FOR / AGAINST / REVIEW.
+When you ask for a voting recommendation on an AGM agenda item, OpenProxy returns FOR / AGAINST / REVIEW from the **information inside DART filings only** — it does not check external news or reputation.
 
-| Agenda type | FOR | AGAINST | REVIEW |
-|-------------|-----|---------|--------|
-| Financial statements | Clean audit opinion | Qualified / adverse | Extreme payout ratio |
-| **Outside director election** | Independence + no disqualification | Independence not met / disqualifying issue | 3+ concurrent roles, adverse news |
-| **Inside director re-election** | No disqualification + tenure performance good/moderate | Tenure performance **bad** (capital impairment / loss + cumulative deterioration) | Tenure performance **weak** (user review) |
-| Inside director (new) | No disqualification (no tenure → performance N/A) | Disqualifying issue | — |
-| Compensation limit | Utilization rate reasonable | Rate < 30% yet proposed increase | 50%+ large increase |
-| Articles amendment | Statutory update (formal) | Removes cumulative voting | Reduces board size |
-| Treasury shares | Cancellation purpose | Entrenchment purpose | Foundation donation |
-| Dividend | Above sector average | EPS up but DPS down | Dividend cut |
+**AGAINST is reserved for hard triggers.** Only four conditions produce AGAINST: capital impairment (full), qualified/adverse audit opinion, director disqualification, and audit-committee long tenure. Every other concern returns REVIEW (OpenProxy flags it; the analyst decides) — never an automatic AGAINST.
+
+| Agenda type | FOR | REVIEW | AGAINST |
+|-------------|-----|--------|---------|
+| Financial statements | Clean audit opinion + no impairment | Data not confirmed (NO_DATA) | Full capital impairment / qualified-adverse opinion |
+| **Outside director election** | Independence + no disqualification | Independence concern (largest-shareholder tie / dealing with company / former employee) / long tenure / prior accounting-risk history | Disqualification / (audit committee) long tenure |
+| **Inside director re-election** | No disqualification + tenure performance good/moderate | Tenure performance weak **or bad** (not a legal disqualification → user review) | Disqualification |
+| Inside director (new) | No disqualification (no tenure → performance N/A) | — | Disqualification |
+| Compensation limit | Utilization reasonable / cut / minor change | Low utilization yet increase / 50%+ large increase / earnings slowdown + increase | (none) |
+| Articles amendment | Formal / minority-protection wording / fiduciary duty | Removes cumulative voting / supermajority / board-size cut / authorized-shares increase | (none) |
+| Treasury shares | Cancellation (shareholder return) | Disposal (possible friendly stake) | (none) |
+| Dividend | Profit + sound capital / REIT | Loss / impairment / payout > 200% | (none) |
 
 ### Inside director tenure performance matrix (2x3)
 
@@ -222,7 +224,7 @@ Auto-FOR for company-nominated inside directors (only checking disqualification)
 | **Debt ratio** | average score | cumulative-change score over tenure |
 | **CSR** (dividend + cancellation / net income) | average score | trend score |
 
-Each cell: good +2 / moderate +1 / weak 0 / bad -1. Total ≥+7 = good / +3~+6 = moderate / 0~+2 = weak / <0 = bad.
+Each cell: good +2 / moderate +1 / weak 0 / bad -1. Total: +7 or above = good / +3 to +6 = moderate / 0 to +2 = weak / below 0 = bad. Grade maps to the vote as **good/moderate → FOR, weak/bad → REVIEW** (a bad grade is not a legal disqualification, so it never auto-produces AGAINST).
 
 **Special rules**: capital impairment (full) auto-bads ROE/leverage avg / loss + return activity → CSR weak (accelerates impairment) / loss + no return → CSR moderate (conservatism).
 

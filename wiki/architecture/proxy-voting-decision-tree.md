@@ -18,6 +18,17 @@ sources: [jpm-voting-process, 주총방어전략-2026, 주총체크리스트-202
 
 ## 1. 안건 유형별 판단 기준
 
+> **⚠️ 구현 노트 (2026-06-08)**: 아래 표는 외부 소스(JPMAM·미래에셋)를 통합한 **이상적 프레임워크**다.
+> OPM 실제 구현(`services/proxy_advise.py`)은 이보다 **보수적**이며, 다음 점에서 다르다:
+> - **AGAINST는 4개 hard trigger에서만** 나온다 — ① 이사 결격사유 ② 감사위원 장기연임(5년 룰)
+>   ③ 완전 자본잠식 ④ 감사의견 한정·부적정. **그 외 모든 우려는 REVIEW**(자동 반대 X, 애널리스트 위임).
+>   따라서 아래 표의 "반대"(보수 대폭증액·집중투표 배제·이사 정수 축소·DPS 감소 등)는 **코드에선 REVIEW**다.
+> - **사내이사 재선임**: 재임성과 bad여도 AGAINST 아닌 **REVIEW** (법정 결격 아님). good/moderate → FOR.
+> - **외부 뉴스·평판은 보지 않는다** — DART 공시 내 정보(결격·독립성·재무)만 판단.
+> - tool명(agm_*, own_*, div_*)은 구 v1 기준 — 현재는 `proxy_advise_before_meeting` / `financial_metrics` 등 v2.
+>
+> 사용자용 정확 매트릭스 → `docs/features/proxy-voting.md` · 권위 소스 → `services/proxy_advise.py`.
+
 ### 재무제표 승인
 
 | 조건 | 판단 | 확인 tool |
