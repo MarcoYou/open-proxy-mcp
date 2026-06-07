@@ -92,10 +92,14 @@ async def _run(args):
     seen_tk = set()
     for key in args.universes.split(","):
         key = key.strip()
-        if key not in universe_map:
+        # 등록 universe 또는 직접 csv 경로
+        path = universe_map.get(key)
+        if path is None and Path(key).is_file():
+            path = Path(key)
+        if path is None:
             print(f"unknown universe: {key}")
             continue
-        with open(universe_map[key]) as f:
+        with open(path) as f:
             for r in csv.DictReader(f):
                 if r["ticker"] not in seen_tk:
                     seen_tk.add(r["ticker"])
@@ -122,7 +126,12 @@ async def _run(args):
 
     archive = ROOT / "wiki/architecture/audits/data/260605_contest_signals_audit"
     archive.mkdir(parents=True, exist_ok=True)
-    out = archive / f"audit_{args.universes.replace(',', '_')}.json"
+    # universe에 csv 경로가 들어와도 안전한 파일명 (label 인자 우선, 없으면 basename)
+    if args.label:
+        tag = args.label
+    else:
+        tag = "_".join(Path(u.strip()).stem for u in args.universes.split(","))
+    out = archive / f"audit_{tag}.json"
     out.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # 요약
@@ -211,6 +220,7 @@ async def _run(args):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--universes", default="kospi200,kosdaq100")
+    ap.add_argument("--label", default="", help="출력 파일명 태그 (csv 경로 universe일 때 권장)")
     ap.add_argument("--year", type=int, default=2025)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--concurrency", type=int, default=3)
