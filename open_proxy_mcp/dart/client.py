@@ -252,6 +252,8 @@ class DartClient:
         # Search result caching (세션 기반, TTL 없음)
         self._search_cache: dict[str, dict] = {}
         self._MAX_SEARCH_CACHE = 50
+        # 과거 연도 배당(alotMatter) 영구 캐시 — 확정된 과거 연도는 안 변함 (260607)
+        self._dividend_cache: dict[str, dict] = {}
         # 사용량 추적 (각 service가 snapshot으로 차이 계산)
         self._request_counter = 0
         # Persistent HTTP client — connection pool 재사용으로 TLS handshake 중복 제거.
@@ -1227,11 +1229,21 @@ class DartClient:
             bsns_year: 사업연도 (예: "2024")
             reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
         """
-        return await self._request("alotMatter.json", {
+        # 과거 연도(2년 전 이전)는 사업보고서 확정 후 안 변하므로 영구 캐시.
+        # 당해/전년은 정정 가능성 있어 캐시 X.
+        from datetime import date as _date
+        cacheable = reprt_code == "11011" and bsns_year.isdigit() and int(bsns_year) <= _date.today().year - 2
+        cache_key = f"{corp_code}|{bsns_year}|{reprt_code}"
+        if cacheable and cache_key in self._dividend_cache:
+            return self._dividend_cache[cache_key]
+        result = await self._request("alotMatter.json", {
             "corp_code": corp_code,
             "bsns_year": bsns_year,
             "reprt_code": reprt_code,
         })
+        if cacheable:
+            self._dividend_cache[cache_key] = result
+        return result
 
     # ── 재무제표 / 주요지표 / 감사의견 (DS003) ──
 

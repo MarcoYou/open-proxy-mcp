@@ -79,21 +79,27 @@ def _in_window(date_value: str, start_ymd: str, end_ymd: str) -> bool:
 
 
 async def _decision_details(filings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """배당 결정 공시 본문 파싱. 병렬 조회 (260607 — 순차 N건 → max 1건 시간).
+
+    문서 순서를 보존하기 위해 gather 결과를 입력 순서대로 조립한다.
+    """
     client = get_dart_client()
-    details: list[dict[str, Any]] = []
-    for item in filings:
+
+    async def _fetch(item: dict[str, Any]) -> dict[str, Any] | None:
         try:
             doc = await client.get_document_cached(item["rcept_no"])
         except Exception:
-            continue
+            return None
         parsed = _parse_dividend_decision(doc.get("text", ""))
         if not parsed:
-            continue
+            return None
         parsed["rcept_no"] = item.get("rcept_no", "")
         parsed["rcept_dt"] = item.get("rcept_dt", "")
         parsed["report_name"] = item.get("report_nm", "")
-        details.append(parsed)
-    return details
+        return parsed
+
+    results = await asyncio.gather(*[_fetch(item) for item in filings])
+    return [r for r in results if r is not None]
 
 
 async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], str | None]:

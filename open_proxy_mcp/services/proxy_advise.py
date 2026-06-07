@@ -2054,7 +2054,7 @@ async def build_proxy_advise_payload(
         # 추가 호출 ~3개 (dividend + treasury + financial yearly)
         stage_started_at = time.perf_counter()
         perf_div, perf_treas, perf_fin = await asyncio.gather(
-            _safe_throttled(build_dividend_payload, company_query, timing_label="dividend.history", scope="history", years=10),
+            _safe_throttled(build_dividend_payload, company_query, timing_label="dividend.history", scope="history", years=5),
             _safe_throttled(build_treasury_share_payload, company_query, timing_label="treasury_share.summary", scope="summary", lookback_months=120),
             _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.yearly", scope="yearly", year=fin_year),
         )
