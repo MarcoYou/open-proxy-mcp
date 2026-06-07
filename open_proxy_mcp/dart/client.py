@@ -636,6 +636,7 @@ class DartClient:
         bgn_de: str,
         end_de: str,
         pblntf_ty: str = "",
+        pblntf_detail_ty: str = "",
         corp_code: str = "",
         corp_name: str = "",
         corp_cls: str = "",
@@ -649,6 +650,8 @@ class DartClient:
             bgn_de: 검색 시작일 (YYYYMMDD)
             end_de: 검색 종료일 (YYYYMMDD)
             pblntf_ty: 공시유형 (A=정기, B=주요사항, E=기타공시 등)
+            pblntf_detail_ty: 상세 공시유형 (I001=주요경영사항 등). 지정 시
+                서버단에서 detail로 좁혀 page 수를 줄인다 (pblntf_ty보다 좁음).
             corp_code: DART 기업코드 (8자리)
             corp_name: 회사명 (부분 매치)
             corp_cls: 법인구분 (Y=유가, K=코스닥, N=코넥스, E=기타)
@@ -663,7 +666,7 @@ class DartClient:
         # 캐싱: corp_code 있고 page_no==1, page_count==100일 때만
         _cacheable = bool(corp_code) and not corp_name and not corp_cls and page_no == 1 and page_count == 100
         if _cacheable:
-            _cache_key = f"{corp_code}|{bgn_de}|{end_de}|{pblntf_ty}|{last_reprt_at}"
+            _cache_key = f"{corp_code}|{bgn_de}|{end_de}|{pblntf_ty}|{pblntf_detail_ty}|{last_reprt_at}"
             if _cache_key in self._search_cache:
                 return self._search_cache[_cache_key]
 
@@ -675,6 +678,8 @@ class DartClient:
         }
         if pblntf_ty:
             params["pblntf_ty"] = pblntf_ty
+        if pblntf_detail_ty:
+            params["pblntf_detail_ty"] = pblntf_detail_ty
         if corp_code:
             params["corp_code"] = corp_code
         if corp_name:

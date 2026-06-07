@@ -31,11 +31,15 @@ async def search_filings_by_report_name(
     max_pages: int = 10,
     page_count: int = 100,
     last_reprt_at: str = "",
+    pblntf_detail_ty: str = "",
 ) -> tuple[list[dict[str, Any]], list[str], str | None]:
     """기간 내 공시를 제목 기준으로 타깃 검색.
 
     DART list.json은 제목 직접 검색이 약하므로, 기간/공시유형으로 조회한 뒤
     제목(report_nm) 필터를 적용한다. 페이지는 무한정 넘기지 않고 max_pages까지만 본다.
+
+    pblntf_detail_ty를 지정하면 서버단에서 상세유형으로 좁혀 page/호출 수를 줄인다
+    (예: 배당 공시는 I001=주요경영사항 하위 → "I" 전체 대신 "I001"만 받으면 됨).
 
     last_reprt_at='Y'를 넘기면 정정공시 자동 정리 (최종본만). caller가 원본+정정 모두
     필요하면 ""로 둔다 (default).
@@ -50,6 +54,7 @@ async def search_filings_by_report_name(
         max_pages=max_pages,
         page_count=page_count,
         last_reprt_at=last_reprt_at,
+        pblntf_detail_ty=pblntf_detail_ty,
     )
     if error:
         return [], notices, error
@@ -73,6 +78,7 @@ async def fetch_filings_for_title_scan(
     max_pages: int = 10,
     page_count: int = 100,
     last_reprt_at: str = "",
+    pblntf_detail_ty: str = "",
 ) -> tuple[list[dict[str, Any]], list[str], str | None]:
     """기간/공시유형 기준 list.json fetch를 한 번 수행해 caller-side 제목 필터에 재사용."""
 
@@ -88,6 +94,7 @@ async def fetch_filings_for_title_scan(
                 bgn_de=bgn_de,
                 end_de=end_de,
                 pblntf_ty=pblntf_ty,
+                pblntf_detail_ty=pblntf_detail_ty,
                 page_no=1,
                 page_count=page_count,
                 last_reprt_at=last_reprt_at,
@@ -107,6 +114,7 @@ async def fetch_filings_for_title_scan(
                     bgn_de=bgn_de,
                     end_de=end_de,
                     pblntf_ty=pblntf_ty,
+                    pblntf_detail_ty=pblntf_detail_ty,
                     page_no=page_no,
                     page_count=page_count,
                     last_reprt_at=last_reprt_at,

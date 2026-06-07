@@ -65,7 +65,8 @@ async def _search_dividend_filings(corp_code: str, start_year: int, end_year: in
         corp_code=corp_code,
         bgn_de=f"{start_year}0101",
         end_de=f"{end_year + 1}1231",
-        pblntf_tys="I",
+        pblntf_tys="",
+        pblntf_detail_ty="I001",  # 배당결정은 I001(주요경영사항) 하위 → I 전체 대신 좁혀 호출↓
         keywords=_DIV_KEYWORDS,
     )
     if error:
@@ -175,7 +176,8 @@ async def _detect_pre_dividend_post_resolution(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_tys="I",
+        pblntf_tys="",
+        pblntf_detail_ty="I001",  # 배당 주주명부폐쇄도 I001 하위 (검증 완료)
         keywords=_RECORD_DATE_NOTICE_KEYWORDS,
         strip_spaces=True,
     )
