@@ -24,7 +24,9 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - `director_performance` — 사내이사 재직 중 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend) — proxy_advise 사내이사 분기에 wire
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
-### 주요 변화 (2026-05-04 ~ 06-01)
+### 주요 변화 (2026-05-04 ~ 06-07)
+- **proxy_contest 분쟁 신호 정밀화 (2026-06-05~07)** — 경영권 분쟁 탐지 다축화. ① 5% 대량보유 시계열 동학 (목적전환 단순투자→경영참여 / 지속 추가매입 / 급변 ±5%p 매집·exit 양방향). ② 소송 4단계 분류: 정정 dedup → 경영권/상거래 구분(commercial false positive 제거, 아시아나항공 등) → 미상 회사단위 추정 → 본문 "사건의 명칭" 파싱(litigation scope, 병렬, 📄) → LLM 위임. 키워드 단독 행위 + 명사·행위 조합 구조(substring FP 제거). ③ 능동 5% 외부세력/대주주 본인 분리. ④ dead code(_block_signals 중복 majorstock) 제거. 역추적 방법론 검증: 시총순 14% vs 분쟁 공시 역추적 71.6% (5배 효율), 142종목 진짜 경영권 분쟁 70 추출. 자동 판정 X — 정보 구조화 + LLM 위임 철학. ([[lessons/contest-signals-500-260605]] / [[lessons/dispute-reverse-lookup-260607]])
+- **데이터 tool latency pass (2026-05-24)** — `data.timings_ms` 노출 + low-risk 병렬화. treasury_share 결과보고서 검색 전체공시→B/I/E title scan(삼성전자 2.7s→0.9s), dividend metadata overlap, filing_search page2+ 병렬, corp_gov 검색윈도우 4년→2년. median speedup 58.6% (4.137s→0.211s), p95 4.163→0.251s. 핵심: 병렬화보다 "대기를 겹치는 위치"가 중요. ([[260510_data_tools_perf_audit]] / [[perf-timing-260524]])
 - **value_up role extraction (2026-05-31)** — 최신 공시 1개 중심에서 `latest_plan` / `latest_status` / `latest_result` / `meta_amendment` 역할 분리. `계획서 명칭` 기반 보정, meta-only 구간 최근 2년 role backfill, `이행결과` nullable 분리. KOSPI500 + KOSDAQ150, 562 filing 전수조사 기준. ([[260530_audit_value-up-implementation-tags]] / [[value_up]])
 - **financial_metrics Tier 1 확장 (2026-05-31)** — CFO/순이익, DSO/DIO/DPO/CCC 추가. 51 → 56 지표, 추가 API 호출 없음. ([[financial_metrics]])
 - **agenda parser marketwide (2026-05-25)** — KOSPI500 + KOSDAQ150, XML 641건, no_filing 9, 3회 재파싱 hash diff 0. 최신 기준은 [[260525_1620_audit_agenda-parser-marketwide]].
