@@ -86,6 +86,14 @@ scope:
 - `ratio_status`: `computed` / `denominator_zero_or_unknown` / `negative_net_income` / `missing_price_data`
 - meta_signals: 선배당-후결의 (2024 신법), 감액배당 cross-link (자본준비금 감소)
 
+> **갱신 (2026-06-09)** — 정확도/분류 정밀화:
+> - **분기별 누적차분** (`quarterly_full`, 최신연도): 분기/반기/사업보고서 누적값을 차분(Q2=반기-Q1…)해
+>   보통+우선 DPS·배당총액 산출. 결정공시 버킷팅(경계 오귀속·예비결산 중복)보다 정확, 무배당 분기 0·특별배당 포착. [[배당공시유형]] §7.
+> - **최신연도 4분류**: 중간배당 확정 / 확정 전(D 명부폐쇄 기준일 매칭) / 미공시(payer인데 결산 미확정) / 무배당(직전도 배당 없음). target연도 매칭으로 단정.
+> - 권위 = 사업보고서 alotMatter **다년컬럼**(개별연도 호출 제거). per-decision 시가배당률은 0 억제(연간값 권위).
+> - ⚠️ **CSR/TSR scope 폐기** — 현재 scope = `summary` / `detail` / `history`만. 아래 CSR/TSR 설명은 구버전.
+> - 상세 교훈: 레슨 `lessons/dividend-source-of-truth-260609`.
+
 ## Data sources
 - **DART API**: `alotMatter` (사업보고서, 1차 source), `현금ㆍ현물배당결정` 공시 합산 (alotMatter 비거나 cash_dps=0일 때 fallback)
 - **treasury_share API**: `tsstkAqDecsn` (CSR 분자, 매입 acquire 시점 — 소각 retire 아님)
