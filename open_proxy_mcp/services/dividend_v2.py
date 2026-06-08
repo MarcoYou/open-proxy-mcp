@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
+import re
 import time
 from typing import Any
 
@@ -299,6 +300,43 @@ async def _quarterly_dps_from_cumulative(corp_code: str, year: int) -> list[dict
     if c3 is not None and ann is not None:
         out.append({"quarter": "결산", "dps_common_krw": ann - c3})
     return out
+
+
+# 주주명부폐쇄(기준일)결정 공시 §2 의 배당기준일. 보일러플레이트("기준일을 정할 수…")는
+# 날짜가 바로 안 붙어 매칭 안 됨 (whitespace만 허용).
+_NOTICE_RECORD_DATE_RE = re.compile(r"기준일[\s]*(\d{4}-\d{2}-\d{2})")
+
+
+async def _record_date_from_notices(notices: list[dict[str, Any]], target_year: int) -> str | None:
+    """주주명부폐쇄(기준일)결정 공시(출처 D) 본문에서 **target_year 결산 배당기준일**을 추출한다.
+
+    선배당-후결의 '확정 전' 케이스: 현금배당결정(금액)이 아직 없어도 결산 기준일은 이 공시에
+    이미 설정돼 있다. 단 결산 배당기준일은 target_year 11-12월 또는 target_year+1 1-4월에
+    찍히므로(전년 결산 기준일과 혼동 방지), 해당 연도 결산에 맞는 기준일만 반환.
+    자회사 공시(자회사의 주요경영사항)는 모회사 기준일이 아니므로 제외.
+    """
+    if not notices:
+        return None
+    client = get_dart_client()
+    for n in sorted(notices, key=lambda x: x.get("rcept_dt", ""), reverse=True):
+        if "자회사" in (n.get("report_nm") or ""):
+            continue
+        rcept = n.get("rcept_no")
+        if not rcept:
+            continue
+        try:
+            doc = await client.get_document_cached(rcept)
+        except Exception:
+            continue
+        m = _NOTICE_RECORD_DATE_RE.search(doc.get("text", ""))
+        if not m:
+            continue
+        rd = m.group(1)
+        y, mo = int(rd[:4]), int(rd[5:7])
+        # target_year 결산 기준일: 그 해 11-12월 또는 다음 해 1-4월.
+        if (y == target_year and mo >= 11) or (y == target_year + 1 and mo <= 4):
+            return rd
+    return None
 
 
 def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> dict[str, Any]:
@@ -874,11 +912,21 @@ async def build_dividend_payload(
                         f"{interim['interim_dps']:,}원이 확정됐고 결산배당은 아직 미정이다 (선배당-후결의)."
                     )
                 else:
-                    row["pattern"] = "확정 전 (배당기준일 설정·금액 미정)"
-                    warnings.append(
-                        f"{target_year} 사업연도는 배당기준일만 설정되고 금액이 아직 확정되지 않았다 "
-                        "(선배당-후결의). 무배당이 아니라 확정 전 상태다."
-                    )
+                    # 출처 D: 금액(현금배당결정)은 없어도 기준일은 주주명부폐쇄결정에 이미 있다.
+                    rd = await _record_date_from_notices(record_date_notices, target_year)
+                    if rd:
+                        row["pattern"] = f"확정 전 (배당기준일 {rd} 설정 · 금액 미정)"
+                        row["record_date"] = rd
+                        warnings.append(
+                            f"{target_year} 사업연도는 배당기준일({rd})만 설정되고 금액이 아직 확정되지 않았다 "
+                            "(선배당-후결의). 무배당이 아니라 확정 전 상태다."
+                        )
+                    else:
+                        row["pattern"] = "확정 전 (배당기준일 설정·금액 미정)"
+                        warnings.append(
+                            f"{target_year} 사업연도는 배당기준일만 설정되고 금액이 아직 확정되지 않았다 "
+                            "(선배당-후결의). 무배당이 아니라 확정 전 상태다."
+                        )
 
     # 추세는 확정된 연도만으로 계산 (미확정 최신 연도의 DPS=0 이 -100% 로 왜곡 방지).
     policy = _policy_signals([r for r in history if not r.get("pending_confirmation")])
