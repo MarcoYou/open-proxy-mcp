@@ -11,7 +11,8 @@ From the **cash/in-kind dividend decision** filing and the business report's **d
 - **Payout ratio** — computed as total dividend ÷ net income
 - **Dividend yield** — computed as DPS ÷ record-date price
 - **Dividend type** — payment cycle identified from the year-end / interim / quarterly field
-- **Year-over-year trend** — multi-year dividend decisions aggregated to judge growth and consistency
+- **Year-over-year trend** — judged from the business report's dividend section (multi-year columns) as the authority, not decision-filing summation
+- **Interim progress** — if the latest year's year-end dividend is unconfirmed, the cumulative figure from quarterly/half reports shows "confirmed through Qn"
 
 Scopes: **summary** · **detail** (dividend-decision detail — record/payment date) · **history** (year-over-year trend).
 

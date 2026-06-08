@@ -199,6 +199,108 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
     return out
 
 
+# 최신 미확정 사업연도의 '중간배당 진행분'을 분기/반기 alotMatter 누적 컬럼에서 읽는다.
+# 가장 최근 기간 우선: 3분기(11014) → 반기(11012) → 1분기(11013).
+_INTERIM_REPRT: tuple[tuple[str, str], ...] = (
+    ("11014", "3분기까지"),
+    ("11012", "반기까지"),
+    ("11013", "1분기까지"),
+)
+
+
+async def _interim_dividend_from_quarterly(corp_code: str, year: int) -> dict[str, Any] | None:
+    """사업보고서가 배당을 아직 확정하지 않은 최신 연도의 '중간배당 진행분'을
+    분기/반기 alotMatter의 당기(current) 누적 컬럼에서 읽는다.
+
+    분기/반기 alotMatter 당기값 = 해당 기간까지 누적 배당 (현대차 3분기=Q1-Q3 합).
+    사업보고서(11011)와 동일한 15행 구조라 `_parse_dividend_items`로 파싱해 보통주
+    주당현금배당금·총액·배당성향을 추출한다. 가장 최근 기간부터 시도해 양수 DPS가 잡히는
+    첫 보고서를 반환, 없으면 None. (출처 맵 B — wiki/rules/disclosures/배당공시유형.md)
+    """
+    client = get_dart_client()
+    for reprt_code, period_label in _INTERIM_REPRT:
+        try:
+            data = await client.get_dividend_info(corp_code, str(year), reprt_code)
+        except DartClientError:
+            continue
+        items = _parse_dividend_items(data)
+        if not items:
+            continue
+        cash_dps = 0
+        total_amount = 0
+        payout: float | None = None
+        for item in items:
+            cat = item.get("category", "")
+            sknd = item.get("stock_type", "")
+            val_raw = item.get("current", "")
+            if "주당 현금배당금" in cat:
+                v = _safe_int(val_raw)
+                if "우선주" in sknd:
+                    continue
+                if "보통주" in sknd or v > 0:  # 빈 행("-"→0)이 보통주 실제값 덮어쓰지 않게
+                    cash_dps = v
+            elif "현금배당금총액" in cat:
+                total_amount = _safe_int(val_raw)
+            elif "현금배당성향" in cat:
+                v = _safe_float(val_raw)
+                if v > 0 and (payout is None or "연결" in cat):
+                    payout = v
+        if cash_dps > 0:
+            return {
+                "interim_dps": cash_dps,
+                "interim_total_mil": total_amount,
+                "interim_payout_ratio": payout,
+                "period": period_label,
+                "reprt_code": reprt_code,
+            }
+    return None
+
+
+def _common_cash_dps_from_items(items: list[dict[str, Any]], column: str = "current") -> int:
+    """alotMatter items에서 보통주 주당현금배당금을 읽는다 (빈 행 덮어쓰기 가드 포함)."""
+    dps = 0
+    for item in items:
+        if "주당 현금배당금" not in item.get("category", ""):
+            continue
+        sknd = item.get("stock_type", "")
+        v = _safe_int(item.get(column, ""))
+        if "우선주" in sknd:
+            continue
+        if "보통주" in sknd or v > 0:
+            dps = v
+    return dps
+
+
+async def _quarterly_dps_from_cumulative(corp_code: str, year: int) -> list[dict[str, Any]]:
+    """분기/반기/사업 alotMatter의 누적 보통주 주당현금배당금을 차분해 분기별 권위 DPS를 만든다.
+
+    Q1 = 1분기(11013) / Q2 = 반기(11012) - Q1 / Q3 = 3분기(11014) - 반기 / 결산 = 연간(11011) - 3분기.
+    누락 보고서가 있으면 차분 불가한 분기는 제외. 결정공시 fiscal-year 추론(_bucket_fiscal_year)이
+    전환기 경계에서 어긋날 때 권위 출처(B)로 교정하는 용도. (wiki/rules/disclosures/배당공시유형.md #2)
+    """
+    client = get_dart_client()
+    cum: dict[str, int] = {}
+    for reprt_code in ("11013", "11012", "11014", "11011"):
+        try:
+            data = await client.get_dividend_info(corp_code, str(year), reprt_code)
+        except DartClientError:
+            continue
+        items = _parse_dividend_items(data)
+        if items:
+            cum[reprt_code] = _common_cash_dps_from_items(items, "current")
+    out: list[dict[str, Any]] = []
+    c1, c2, c3, ann = cum.get("11013"), cum.get("11012"), cum.get("11014"), cum.get("11011")
+    if c1 is not None:
+        out.append({"quarter": "Q1", "dps_common_krw": c1})
+    if c1 is not None and c2 is not None:
+        out.append({"quarter": "Q2", "dps_common_krw": c2 - c1})
+    if c2 is not None and c3 is not None:
+        out.append({"quarter": "Q3", "dps_common_krw": c3 - c2})
+    if c3 is not None and ann is not None:
+        out.append({"quarter": "결산", "dps_common_krw": ann - c3})
+    return out
+
+
 def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> dict[str, Any]:
     """해당 연도 배당결정 공시를 합산해 summary 형식으로 반환.
 
@@ -757,12 +859,26 @@ async def build_dividend_payload(
     if scope == "history" and pre_dividend_post_resolution:
         for row in history:
             if row["year"] == target_year and row["pattern"] == "무배당" and not row.get("annual_dps"):
-                row["pattern"] = "확정 전 (배당기준일 설정·금액 미정)"
+                # 출처 맵 B: 사업보고서가 미확정이어도 분기/반기 alotMatter에 중간배당
+                # 누적값이 있으면 "확정 전(금액 미정)" 대신 "중간배당 확정 (N분기까지)"로 보강.
+                interim = await _interim_dividend_from_quarterly(selected["corp_code"], target_year)
                 row["pending_confirmation"] = True
-                warnings.append(
-                    f"{target_year} 사업연도는 배당기준일만 설정되고 금액이 아직 확정되지 않았다 "
-                    "(선배당-후결의). 무배당이 아니라 확정 전 상태다."
-                )
+                if interim:
+                    row["pattern"] = f"중간배당 확정 ({interim['period']}) · 결산 미정"
+                    row["interim_dps"] = interim["interim_dps"]
+                    row["interim_payout_ratio"] = interim["interim_payout_ratio"]
+                    row["interim_period"] = interim["period"]
+                    row["interim_source"] = f"분기보고서 alotMatter ({interim['reprt_code']})"
+                    warnings.append(
+                        f"{target_year} 사업연도는 {interim['period']} 중간배당 "
+                        f"{interim['interim_dps']:,}원이 확정됐고 결산배당은 아직 미정이다 (선배당-후결의)."
+                    )
+                else:
+                    row["pattern"] = "확정 전 (배당기준일 설정·금액 미정)"
+                    warnings.append(
+                        f"{target_year} 사업연도는 배당기준일만 설정되고 금액이 아직 확정되지 않았다 "
+                        "(선배당-후결의). 무배당이 아니라 확정 전 상태다."
+                    )
 
     # 추세는 확정된 연도만으로 계산 (미확정 최신 연도의 DPS=0 이 -100% 로 왜곡 방지).
     policy = _policy_signals([r for r in history if not r.get("pending_confirmation")])
@@ -832,11 +948,23 @@ async def build_dividend_payload(
             annual = int(row.get("annual_dps") or 0)
             qsum = qb_year_sum.get(row["year"])
             if annual > 0 and qsum and qsum != annual:
-                warnings.append(
-                    f"⚠ {row['year']} 분기 breakdown 합({qsum:,}원)이 사업보고서 연간 DPS"
-                    f"({annual:,}원)와 다르다 — 전환기 결산/분기 기준일 경계 귀속 이슈로 보인다. "
-                    "연간값(사업보고서)이 정확하며 분기 표는 참고용."
-                )
+                # #2: 불일치 연도만 정기보고서 누적 차분으로 권위 분기값을 교정 (출처 B).
+                # 결정공시 fiscal-year 추론이 전환기 경계에서 어긋난 케이스를 바로잡는다.
+                auth = await _quarterly_dps_from_cumulative(selected["corp_code"], row["year"])
+                auth_sum = sum(q["dps_common_krw"] for q in auth)
+                if auth and auth_sum == annual:
+                    row["quarterly_dps_authoritative"] = auth
+                    warnings.append(
+                        f"{row['year']} 분기 breakdown을 정기보고서 누적 차분으로 교정했다 "
+                        f"(결정공시 귀속 합 {qsum:,}원 → 권위 분기합 {auth_sum:,}원 = 연간 {annual:,}원). "
+                        "row.quarterly_dps_authoritative 참조."
+                    )
+                else:
+                    warnings.append(
+                        f"⚠ {row['year']} 분기 breakdown 합({qsum:,}원)이 사업보고서 연간 DPS"
+                        f"({annual:,}원)와 다르다 — 전환기 결산/분기 기준일 경계 귀속 이슈로 보인다. "
+                        "연간값(사업보고서)이 정확하며 분기 표는 참고용."
+                    )
     if scope == "summary":
         data["policy_signals"] = policy
         data["meta_signals"] = {
