@@ -894,6 +894,7 @@ async def build_dividend_payload(
     # 비어 "무배당"으로 보이는 것을 "확정 전"으로 바로잡는다 (예: 메리츠금융지주 —
     # 배당기준일만 설정하고 금액은 주총/사업보고서로 확정). 진짜 무배당(신규상장 등,
     # 기준일 공시 자체가 없음)은 신호가 False라 그대로 "무배당".
+    _latest_class_started = time.perf_counter()
     if scope == "history" and pre_dividend_post_resolution:
         for row in history:
             if row["year"] == target_year and row["pattern"] == "무배당" and not row.get("annual_dps"):
@@ -940,6 +941,7 @@ async def build_dividend_payload(
                                 "회사라 무배당으로 단정하지 않는다 (선배당-후결의로 금액이 사업보고서에 미반영되었거나 결정 전)."
                             )
                         # else: 직전도 배당 이력 없음 → '무배당' 유지 (진짜 무배당)
+    _mark("latest_year_classification", _latest_class_started)
 
     # 추세는 확정된 연도만으로 계산 (미확정 최신 연도의 DPS=0 이 -100% 로 왜곡 방지).
     policy = _policy_signals([r for r in history if not r.get("pending_confirmation")])
@@ -996,6 +998,7 @@ async def build_dividend_payload(
         # 분기배당 회사 (삼성전자 등) 3년치 = 최대 12 quarters + 결산 → 20건 노출.
         data["latest_decisions"] = effective_details[:20]
     if scope == "history":
+        _qb_started = time.perf_counter()
         data["history"] = history
         # quarterly_breakdown: details에서 연도/분기별 grouping (분기배당 회사 분기별 검증용)
         quarterly_breakdown = _quarterly_breakdown(details, history_years or year_list)
@@ -1033,6 +1036,7 @@ async def build_dividend_payload(
                         f"({annual:,}원)와 다르다 — 전환기 결산/분기 기준일 경계 귀속 이슈로 보인다. "
                         "연간값(사업보고서)이 정확하며 분기 표는 참고용."
                     )
+        _mark("quarterly_breakdown", _qb_started)
     if scope == "summary":
         data["policy_signals"] = policy
         data["meta_signals"] = {
