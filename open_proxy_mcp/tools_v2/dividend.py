@@ -89,18 +89,24 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             payout = f"{item['payout_ratio']}%" if item.get("payout_ratio") is not None else "-"
             yld = f"{item['yield_pct']}%" if item.get("yield_pct") is not None else "-"
             lines.append(f"| {item['year']} | {item['annual_dps']:,}원 | {item['decision_count']} | {payout} | {yld} | {item['pattern']} |")
-        # 분기별 breakdown — 분기배당 회사 (삼성전자 등) 분기 디테일 검증
+        # 최신연도 분기별 — 정기보고서 누적차분(권위). 결정공시 버킷팅 오귀속·중복 없음, 무배당 분기 0 포함.
+        qf = data.get("quarterly_full") or []
+        if qf:
+            lines.extend(["", "## 최신연도 분기별 (정기보고서 누적차분)", "| 분기 | 보통주 DPS | 우선주 DPS | 배당총액 |", "|------|------------|------------|----------|"])
+            for x in qf:
+                pref = f"{x['dps_preferred']:,}원" if x.get("dps_preferred") else "-"
+                lines.append(f"| {x['quarter']} | {x['dps_common']:,}원 | {pref} | {x['total_mil']:,}백만 |")
+            lines.append("> 분기/반기/사업보고서 누적값을 차분 — 결정공시 귀속 추측이 아니라 권위 출처. 무배당 분기는 0.")
+        # 결정공시별 breakdown — 기준일·rcept_no 추적용 (정정 이력 포함).
         qb = data.get("quarterly_breakdown") or []
         if qb:
-            lines.extend(["", "## 분기별 / 결산 breakdown", "| 연도 | 분기 | 보통주 DPS | 우선주 DPS | 시가배당률 | 기준일 | 공시 (rcept_no) |", "|------|------|------------|------------|------------|--------|------------------|"])
+            lines.extend(["", "## 분기별 결정공시 (공시별·추적용)", "| 연도 | 분기 | 보통주 DPS | 우선주 DPS | 기준일 | 공시 (rcept_no) |", "|------|------|------------|------------|--------|------------------|"])
             for r in qb:
                 amend = " [정정]" if r.get("is_amendment") else ""
-                supersed = " ~~superseded~~" if r.get("is_superseded") else ""
-                yc = r.get("yield_common_pct")
-                yc_str = f"{yc}%" if yc is not None else "-"
-                lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {r['dps_preferred_krw']:,}원 | {yc_str} | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
+                supersed = " (대체됨)" if r.get("is_superseded") else ""
+                lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {r['dps_preferred_krw']:,}원 | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
             lines.append("")
-            lines.append("> 정정공시는 [정정] 표기, superseded는 같은 (연도/분기/기준일) 내 더 최신 결정으로 대체된 row.")
+            lines.append("> 최신연도 정확값은 위 '누적차분' 표 참조. 이 표는 공시 추적용(기준일·rcept_no·정정 이력).")
 
     return "\n".join(lines)
 
