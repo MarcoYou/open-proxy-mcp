@@ -65,6 +65,12 @@ def main():
         )
 
     if args.transport == "streamable-http":
+        # 무상태 HTTP: 각 요청이 독립(세션 in-memory 미보관) → fly 다중 머신에서 라우팅이
+        # 갈려도 "Session not found" 없음. OPM tool은 무상태(요청마다 키·파라미터 자급)라
+        # 세션 유지 불필요. 2머신 유지하면서 세션 어피니티 문제 해결. (2026-06)
+        mcp.settings.stateless_http = True
+        mcp.settings.json_response = True
+
         import uvicorn
         from starlette.middleware import Middleware
         from starlette.types import ASGIApp, Receive, Scope, Send
