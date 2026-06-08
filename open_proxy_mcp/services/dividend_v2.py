@@ -814,9 +814,29 @@ async def build_dividend_payload(
     if scope == "history":
         data["history"] = history
         # quarterly_breakdown: details에서 연도/분기별 grouping (분기배당 회사 분기별 검증용)
-        data["quarterly_breakdown"] = _quarterly_breakdown(details, history_years or year_list)
+        quarterly_breakdown = _quarterly_breakdown(details, history_years or year_list)
+        data["quarterly_breakdown"] = quarterly_breakdown
         # policy_signals: history scope에 통합 (별도 scope 폐지)
         data["policy_signals"] = policy
+        # 정합성 경고: 분기 breakdown 합(정정 제외) ≠ 사업보고서 연간 DPS.
+        # 깜깜이배당 해소 전환기엔 전년 결산과 올해 Q1이 같은 봄에 공시되고 결산 기준일이
+        # 다음 해로 밀려, 공시별 fiscal-year 추론이 경계에서 어긋날 수 있다. 이때 연간값
+        # (사업보고서)이 정확하고 분기 표가 ±. 헤드라인을 못 믿게 만들지 않도록 명시한다.
+        qb_year_sum: dict[int, int] = {}
+        for r in quarterly_breakdown:
+            if not r.get("is_superseded"):
+                qb_year_sum[r["year"]] = qb_year_sum.get(r["year"], 0) + r["dps_common_krw"]
+        for row in history:
+            if row.get("pending_confirmation"):
+                continue
+            annual = int(row.get("annual_dps") or 0)
+            qsum = qb_year_sum.get(row["year"])
+            if annual > 0 and qsum and qsum != annual:
+                warnings.append(
+                    f"⚠ {row['year']} 분기 breakdown 합({qsum:,}원)이 사업보고서 연간 DPS"
+                    f"({annual:,}원)와 다르다 — 전환기 결산/분기 기준일 경계 귀속 이슈로 보인다. "
+                    "연간값(사업보고서)이 정확하며 분기 표는 참고용."
+                )
     if scope == "summary":
         data["policy_signals"] = policy
         data["meta_signals"] = {
