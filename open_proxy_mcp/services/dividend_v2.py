@@ -168,10 +168,13 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
         yld_pref: float | None = None
         total_amount = 0
         net_income = 0
+        col_has_face_value = False  # 액면가 = 그 해 회사 존재(보고서 범위 내) 신호
         for item in items:
             cat = item.get("category", "")
             sknd = item.get("stock_type", "")
             val_raw = item.get(col, "")
+            if "주당액면가액" in cat and _safe_int(val_raw) > 0:
+                col_has_face_value = True
             if "주당 현금배당금" in cat:
                 v = _safe_int(val_raw)
                 if "우선주" in sknd:
@@ -195,8 +198,11 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
                         yld = v
             elif "연결" in cat and "당기순이익" in cat:
                 net_income = _safe_int(val_raw)
-        # 해당 연도 컬럼이 사실상 비어 있으면(전전기 미수록 등) 스킵 → fallback 으로 위임.
-        if cash_dps <= 0 and total_amount <= 0 and payout is None:
+        # 컬럼 전체가 비어 있으면(보고서 범위 밖/회사 미존재) 스킵 → fallback 위임.
+        # 회사가 존재했는데(액면가/순이익 있음) 배당만 0이면 = 무배당이므로 0-summary로
+        # 유지한다 — pending_annual 제거 후 history 윈도우에서 무배당 연도가 빠지지 않게.
+        existed = col_has_face_value or net_income != 0
+        if cash_dps <= 0 and total_amount <= 0 and payout is None and not existed:
             continue
         out[fy] = {
             "period": f"{fy} 사업보고서(기말)",
@@ -792,12 +798,11 @@ async def build_dividend_payload(
 
         meta_task = asyncio.create_task(run_capital_reserve_detection())
 
-    # 연도별 alotMatter 호출도 각 연도 독립. target_year는 latest_summary_task가 담당하고,
-    # 나머지는 초기에 시작해 filings/details/meta 대기와 겹친다.
-    pending_years = [y for y in year_list if y != target_year]
-    pending_annual_task = asyncio.gather(*[
-        _annual_summary(selected["corp_code"], y) for y in pending_years
-    ]) if pending_years else None
+    # 연도별 값은 target_year 사업보고서의 **다년 컬럼(당기/전기/전전기)**이 권위라,
+    # 최근 3개 연도는 latest_summary 1콜로 충분하다(_alot_multiyear_summaries). 과거엔
+    # 비-target 연도마다 alotMatter를 개별 호출(pending_annual)했으나 multiyear와 중복이라
+    # 제거했다 — multiyear 미커버 연도는 배당결정 공시 합산(_decisions_summary_for_year,
+    # 추가 호출 0)으로 fallback. (감사 #1: 중복 호출 -2/회사)
 
     # latest_summary와 filings 검색은 independent — 병렬 호출.
     latest_summary_task = timed_call(
@@ -859,22 +864,16 @@ async def build_dividend_payload(
         if _in_window(item.get("rcept_dt", ""), start_ymd, end_ymd)
     ]
 
-    # 연도별 alotMatter 호출을 병렬화 (각 연도 독립).
-    # target_year는 위에서 이미 호출했으므로 latest_summary 재사용해 중복 호출 방지.
+    # 비-target 연도는 multiyear 컬럼 또는 결정공시 합산 fallback으로 채운다 (개별 호출 없음).
     annual_summaries: dict[int, dict[str, Any]] = {}
-    stage_started_at = time.perf_counter()
-    pending_results = await pending_annual_task if pending_annual_task is not None else []
-    _mark("annual_summaries", stage_started_at)
     year_to_result: dict[int, tuple[dict[str, Any], str | None]] = {target_year: (latest_summary, None)}
-    for y, res in zip(pending_years, pending_results):
-        year_to_result[y] = res
 
     # 권위 소스: 최신 사업보고서 alotMatter 의 다년 컬럼(당기/전기/전전기).
     # 연도별 개별 호출/결정 합산보다 우선 적용한다.
     alot_multi = _alot_multiyear_summaries(latest_summary)
 
     for y in year_list:
-        summary, warning = year_to_result[y]
+        summary, warning = year_to_result.get(y, (None, None))
         if warning:
             warnings.append(f"{y}년 {warning}")
         if y in alot_multi:
@@ -1003,6 +1002,13 @@ async def build_dividend_payload(
         key=lambda d: (d.get("rcept_dt", ""), d.get("rcept_no", "")),
         reverse=True,
     )
+    # 감사 #3: per-decision 시가배당률은 개별 배당결정 공시에 자주 0/미기재라 오해를 준다.
+    # 0/falsy는 None으로 억제한다 (연간 시가배당률=alotMatter yield_dart가 권위). 유효 비0값은 유지.
+    for _d in effective_details:
+        if not _d.get("yield_common"):
+            _d["yield_common"] = None
+        if not _d.get("yield_preferred"):
+            _d["yield_preferred"] = None
     if scope in {"summary", "detail"}:
         # 분기배당 회사 (삼성전자 등) 3년치 = 최대 12 quarters + 결산 → 20건 노출.
         data["latest_decisions"] = effective_details[:20]
