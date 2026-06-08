@@ -324,6 +324,65 @@ async def _quarterly_dps_from_cumulative(corp_code: str, year: int) -> list[dict
     return out
 
 
+def _cum_full_from_items(items: list[dict[str, Any]], column: str = "current") -> dict[str, Any] | None:
+    """alotMatter 한 컬럼에서 보통/우선 DPS + 배당총액(백만)을 종합 추출. 회사 미존재(컬럼 공란)는 None."""
+    common = 0
+    pref = 0
+    total_mil = 0
+    exists = False
+    for item in items:
+        cat = item.get("category", "")
+        sknd = item.get("stock_type", "")
+        v = _safe_int(item.get(column, ""))
+        if "주당액면가액" in cat and v > 0:
+            exists = True
+        elif "연결" in cat and "당기순이익" in cat and v != 0:
+            exists = True
+        if "주당 현금배당금" in cat:
+            if "우선주" in sknd:
+                pref = v
+            elif "보통주" in sknd or v > 0:
+                common = v
+        elif "현금배당금총액" in cat:
+            total_mil = v
+    if not exists:
+        return None
+    return {"dps_common": common, "dps_preferred": pref, "total_mil": total_mil}
+
+
+async def _quarterly_full_from_cumulative(corp_code: str, year: int) -> list[dict[str, Any]]:
+    """분기/반기/사업 alotMatter 누적값을 차분해 분기별 **보통+우선 DPS + 배당총액**을 만든다.
+
+    `_quarterly_dps_from_cumulative`(보통주 DPS만)의 확장판. 결정공시 버킷팅보다 정확하고
+    우선주·총액·무배당 분기(0)까지 잡는다. 최신/미완료 연도의 분기 분해에 권위 사용 (정확도 우선).
+    각 row: {quarter, dps_common, dps_preferred, total_mil}. 차분 불가 분기는 제외.
+    """
+    client = get_dart_client()
+    cum: dict[str, dict[str, Any]] = {}
+    for reprt_code in ("11013", "11012", "11014", "11011"):
+        try:
+            data = await client.get_dividend_info(corp_code, str(year), reprt_code)
+        except DartClientError:
+            continue
+        col = _cum_full_from_items(_parse_dividend_items(data), "current")
+        if col is not None:
+            cum[reprt_code] = col
+    seq = [("Q1", "11013"), ("반기", "11012"), ("3분기", "11014"), ("연간", "11011")]
+    have = [(lbl, cum[rc]) for lbl, rc in seq if rc in cum]
+    out: list[dict[str, Any]] = []
+    prev = {"dps_common": 0, "dps_preferred": 0, "total_mil": 0}
+    labels = {"Q1": "Q1", "반기": "Q2", "3분기": "Q3", "연간": "결산"}
+    for lbl, cur in have:
+        out.append({
+            "quarter": labels[lbl],
+            "dps_common": cur["dps_common"] - prev["dps_common"],
+            "dps_preferred": cur["dps_preferred"] - prev["dps_preferred"],
+            "total_mil": cur["total_mil"] - prev["total_mil"],
+        })
+        prev = cur
+    return out
+
+
 # 주주명부폐쇄(기준일)결정 공시 §2 의 배당기준일. 보일러플레이트("기준일을 정할 수…")는
 # 날짜가 바로 안 붙어 매칭 안 됨 (whitespace만 허용).
 _NOTICE_RECORD_DATE_RE = re.compile(r"기준일[\s]*(\d{4}-\d{2}-\d{2})")
@@ -1051,6 +1110,15 @@ async def build_dividend_payload(
                         f"({annual:,}원)와 다르다 — 전환기 결산/분기 기준일 경계 귀속 이슈로 보인다. "
                         "연간값(사업보고서)이 정확하며 분기 표는 참고용."
                     )
+        # 최신연도(target_year)는 결정공시 버킷팅이 어긋나기 쉬움(중복 결산·예비결산 등).
+        # 정기보고서 누적차분으로 보통/우선 DPS + 배당총액을 권위 산출 (정확도 우선, 무배당 분기 0 포함).
+        target_paid = any(
+            r.get("year") == target_year and (r.get("annual_dps") or 0) > 0 for r in history
+        )
+        if target_paid:
+            data["quarterly_full"] = await _quarterly_full_from_cumulative(
+                selected["corp_code"], target_year
+            )
         _mark("quarterly_breakdown", _qb_started)
     if scope == "summary":
         data["policy_signals"] = policy
