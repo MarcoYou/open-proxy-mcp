@@ -610,14 +610,17 @@ async def build_dividend_payload(
     year_list = list(range(history_start_year, target_year + 1))
 
     # ── 메타 cross-link: 선배당-후결의 + 감액배당 ────────────────────────
-    # summary/CSR/TSR scope에서만 추가 호출 발생. 배당 요약/공시 파싱과 독립이므로
-    # 먼저 시작해 downstream DART/API 대기와 겹친다.
+    # summary/CSR/TSR/history scope에서 추가 호출 발생. 배당 요약/공시 파싱과 독립이므로
+    # 먼저 시작해 downstream DART/API 대기와 겹친다 (추가 지연 ~0).
+    # history는 최신 사업연도가 "확정 전(기준일만 설정)"인지 판정하려고 선배당 신호만 쓴다
+    # (감액배당 cross-link은 불필요해 생략 → 호출 1회만 추가).
     pre_dividend_post_resolution = False
     record_date_notices: list[dict[str, Any]] = []
     capital_reserve_reduction = False
     capital_reserve_agendas: list[dict[str, Any]] = []
     meta_task: asyncio.Task[None] | None = None
-    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return"}:
+    _meta_needs_capital_reserve = scope in {"summary", "cash_shareholder_return", "total_shareholder_return"}
+    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return", "history"}:
         async def run_pre_dividend_detection() -> None:
             nonlocal pre_dividend_post_resolution, record_date_notices
             stage_started_at = time.perf_counter()
@@ -643,10 +646,10 @@ async def build_dividend_payload(
                 _mark("capital_reserve_detection", stage_started_at)
 
         async def run_meta_detections() -> None:
-            await asyncio.gather(
-                run_pre_dividend_detection(),
-                run_capital_reserve_detection(),
-            )
+            tasks = [run_pre_dividend_detection()]
+            if _meta_needs_capital_reserve:
+                tasks.append(run_capital_reserve_detection())
+            await asyncio.gather(*tasks)
 
         meta_task = asyncio.create_task(run_meta_detections())
 
@@ -743,10 +746,26 @@ async def build_dividend_payload(
         for y in history_years
     } if history_years else annual_summaries
     history = _history_rows(target_year, selected_annual_summaries, details)
-    policy = _policy_signals(history)
 
     if meta_task is not None:
         await meta_task
+
+    # 선배당-후결의(2024 신법) 신호가 있으면, 최신 사업연도가 결정공시·alotMatter 모두
+    # 비어 "무배당"으로 보이는 것을 "확정 전"으로 바로잡는다 (예: 메리츠금융지주 —
+    # 배당기준일만 설정하고 금액은 주총/사업보고서로 확정). 진짜 무배당(신규상장 등,
+    # 기준일 공시 자체가 없음)은 신호가 False라 그대로 "무배당".
+    if scope == "history" and pre_dividend_post_resolution:
+        for row in history:
+            if row["year"] == target_year and row["pattern"] == "무배당" and not row.get("annual_dps"):
+                row["pattern"] = "확정 전 (배당기준일 설정·금액 미정)"
+                row["pending_confirmation"] = True
+                warnings.append(
+                    f"{target_year} 사업연도는 배당기준일만 설정되고 금액이 아직 확정되지 않았다 "
+                    "(선배당-후결의). 무배당이 아니라 확정 전 상태다."
+                )
+
+    # 추세는 확정된 연도만으로 계산 (미확정 최신 연도의 DPS=0 이 -100% 로 왜곡 방지).
+    policy = _policy_signals([r for r in history if not r.get("pending_confirmation")])
 
     # latest_summary에 신호 메타 부착 (None safe).
     if latest_summary is not None:
