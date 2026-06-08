@@ -25,6 +25,8 @@ from open_proxy_mcp.tools.dividend import (
     _build_dividend_summary,
     _parse_dividend_decision,
     _parse_dividend_items,
+    _safe_float,
+    _safe_int,
 )
 
 _SUPPORTED_SCOPES = {
@@ -118,6 +120,85 @@ async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], st
     return summary, None
 
 
+def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int, dict[str, Any]]:
+    """최신 사업보고서 alotMatter 1회 응답의 당기/전기/전전기 컬럼으로
+    최근 3개 사업연도 요약을 구성한다.
+
+    연도별 alotMatter 개별 호출은 (1) 특정 연도 DPS=0 반환 (2) 비면 자회사·정정
+    공시 합산 fallback 유발 등으로 불안정하다. 반면 최신 보고서의 다년 컬럼
+    (current/previous/before_previous)은 단일 출처·동일 기준이라 권위 있다.
+    이 값을 history 연간 DPS/배당성향/수익률의 source of truth로 쓴다.
+    """
+    if not latest_summary:
+        return {}
+    items = latest_summary.get("items") or []
+    if not items:
+        return {}
+    stlm = (latest_summary.get("stlm_dt") or "").strip()
+    digits = "".join(ch for ch in stlm if ch.isdigit())
+    if len(digits) < 4:
+        return {}
+    base_year = int(digits[:4])
+    # 컬럼 → 사업연도 offset (당기=base, 전기=-1, 전전기=-2)
+    columns = {"current": 0, "previous": -1, "before_previous": -2}
+    out: dict[int, dict[str, Any]] = {}
+    for col, offset in columns.items():
+        fy = base_year + offset
+        cash_dps = 0
+        cash_dps_pref = 0
+        payout: float | None = None
+        yld: float | None = None
+        yld_pref: float | None = None
+        total_amount = 0
+        net_income = 0
+        for item in items:
+            cat = item.get("category", "")
+            sknd = item.get("stock_type", "")
+            val_raw = item.get(col, "")
+            if "주당 현금배당금" in cat:
+                v = _safe_int(val_raw)
+                if "우선주" in sknd:
+                    cash_dps_pref = v
+                elif "보통주" in sknd or v > 0:
+                    # stock_type="-" 빈 행("-"→0)이 보통주 실제값을 덮어쓰지 않도록
+                    # 보통주 명시이거나 값이 있을 때만 반영.
+                    cash_dps = v
+            elif "현금배당금총액" in cat:
+                total_amount = _safe_int(val_raw)
+            elif "현금배당성향" in cat:
+                v = _safe_float(val_raw)
+                if v > 0 and (payout is None or "연결" in cat):
+                    payout = v
+            elif "현금배당수익률" in cat:
+                v = _safe_float(val_raw)
+                if v > 0:
+                    if "우선주" in sknd:
+                        yld_pref = v
+                    else:
+                        yld = v
+            elif "연결" in cat and "당기순이익" in cat:
+                net_income = _safe_int(val_raw)
+        # 해당 연도 컬럼이 사실상 비어 있으면(전전기 미수록 등) 스킵 → fallback 으로 위임.
+        if cash_dps <= 0 and total_amount <= 0 and payout is None:
+            continue
+        out[fy] = {
+            "period": f"{fy} 사업보고서(기말)",
+            "stlm_dt": f"{fy}-12-31",
+            "cash_dps": cash_dps,
+            "cash_dps_preferred": cash_dps_pref,
+            "stock_dps": 0,
+            "special_dps": 0,
+            "total_dps": cash_dps,
+            "total_amount_mil": total_amount,
+            "payout_ratio_dart": payout,
+            "yield_dart": yld,
+            "yield_preferred_dart": yld_pref,
+            "net_income_consolidated_mil": net_income,
+            "source": "alotMatter_multiyear",
+        }
+    return out
+
+
 def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> dict[str, Any]:
     """해당 연도 배당결정 공시를 합산해 summary 형식으로 반환.
 
@@ -125,11 +206,10 @@ def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> d
     결정만 공시한 경우) 확정된 배당 결정을 source of truth로 사용하기 위한 fallback.
     """
 
-    year_decisions: list[dict[str, Any]] = []
-    for item in decisions:
-        bucket_year = _bucket_fiscal_year(item)
-        if bucket_year == year:
-            year_decisions.append(item)
+    year_decisions = [d for d in decisions if _bucket_fiscal_year(d) == year]
+    # 정정/재공시 중복 제거 (같은 fiscal_year/분기/기준일 → 최신 1건). 자회사 공시는
+    # 상위 details 단계에서 이미 제외됨.
+    year_decisions = _effective_decisions(year_decisions)
 
     if not year_decisions:
         return {}
@@ -285,7 +365,9 @@ def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], de
 
     history: list[dict[str, Any]] = []
     for year, summary in sorted(annual_summaries.items()):
-        yearly = decisions_by_year.get(year, [])
+        # 정정/재공시 중복 제거 후 집계 — 단일 결산배당이 정정 때문에 2건으로 잡혀
+        # "분기/중간 포함"으로 오분류되는 것 방지 (자회사는 상위에서 이미 제외).
+        yearly = _effective_decisions(decisions_by_year.get(year, []))
         annual_dps = summary.get("total_dps", 0)
         if len(yearly) > 1:
             pattern = "분기/중간 포함"
@@ -326,6 +408,23 @@ def _quarter_label(item: dict[str, Any]) -> str:
             return "Q3"
         return "Q4 (예비결산)"
     return dtype or "기타"
+
+
+def _effective_decisions(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """같은 (fiscal_year, 분기, 기준일) 그룹에서 최신(rcept_dt, rcept_no) 1건만 남긴다.
+
+    정정공시(`[기재정정]…`)나 동일 결의 재공시가 합산에 중복 반영돼 DPS가 부풀려지는
+    것을 막기 위한 dedup. `_quarterly_breakdown` 의 is_superseded 판정과 같은 키를 쓴다.
+    """
+    ordered = sorted(
+        decisions,
+        key=lambda d: (d.get("rcept_dt", ""), d.get("rcept_no", "")),
+    )
+    effective: dict[tuple, dict[str, Any]] = {}
+    for d in ordered:
+        key = (_bucket_fiscal_year(d), _quarter_label(d), (d.get("record_date") or "").strip())
+        effective[key] = d  # 뒤(최신)가 앞을 덮어씀
+    return list(effective.values())
 
 
 def _quarterly_breakdown(decisions: list[dict[str, Any]], year_list: list[int]) -> list[dict[str, Any]]:
@@ -578,8 +677,21 @@ async def build_dividend_payload(
     if filing_warning:
         warnings.append(filing_warning)
         filings = []
+    # 결정 공시만 정밀 타겟 (cap 방식이 아니라 "해당 기간의 해당 공시만"):
+    #  - 기간(bgn_de/end_de)·공시유형(I001)은 검색 단계에서 서버가 이미 좁힘
+    #  - "배당결정" 제목만 (주주명부폐쇄/배당락 등 비결정 공시 제외)
+    #  - "자회사의 주요경영사항"(지주사 산하 자회사가 모회사에 주는 배당) 제외
+    #    — 지주사 DPS 과대계상의 주원인.
+    # 이렇게 거른 집합 자체가 "그 기간 모회사 배당결정 공시 전부"라 개수가 자연히
+    # 작다(분기배당사 ~연 4건). 임의 cap 없이 타겟된 공시만 파싱한다 — 구버전의
+    # raw [:20] 절단처럼 과거 연도가 통째로 누락되는 일이 없다.
+    decision_filings = [
+        f for f in filings
+        if "배당결정" in (f.get("report_nm") or "")
+        and "자회사" not in (f.get("report_nm") or "")
+    ]
     stage_started_at = time.perf_counter()
-    details = await _decision_details(filings[:20]) if filings else []
+    details = await _decision_details(decision_filings) if decision_filings else []
     _mark("decision_details", stage_started_at)
 
     # alotMatter가 비어있거나 cash_dps=0이면 해당 연도 배당결정 공시 합산을 source of truth로 대체.
@@ -605,11 +717,17 @@ async def build_dividend_payload(
     for y, res in zip(pending_years, pending_results):
         year_to_result[y] = res
 
+    # 권위 소스: 최신 사업보고서 alotMatter 의 다년 컬럼(당기/전기/전전기).
+    # 연도별 개별 호출/결정 합산보다 우선 적용한다.
+    alot_multi = _alot_multiyear_summaries(latest_summary)
+
     for y in year_list:
         summary, warning = year_to_result[y]
         if warning:
             warnings.append(f"{y}년 {warning}")
-        if (not summary or int(summary.get("cash_dps") or 0) == 0):
+        if y in alot_multi:
+            summary = alot_multi[y]
+        elif (not summary or int(summary.get("cash_dps") or 0) == 0):
             fallback = _decisions_summary_for_year(details, y)
             if fallback and fallback.get("cash_dps", 0) > 0:
                 summary = fallback
@@ -698,8 +816,9 @@ async def build_dividend_payload(
         # alotMatter (사업보고서) vs filings 합산 mismatch warning
         if latest_summary and latest_summary.get("source") == "alotMatter":
             alot_dps = int(latest_summary.get("cash_dps") or 0)
-            # 해당 사업연도 bucket 결정 공시 합산 (정정공시는 최신만 카운트하기 어려워 단순 합산)
-            decisions_dps = sum(int(d.get("dps_common") or 0) for d in details if _bucket_fiscal_year(d) == target_year)
+            # 해당 사업연도 bucket 결정 공시 합산 (정정/재공시 dedup 후 — 자회사는 이미 제외)
+            year_eff = _effective_decisions([d for d in details if _bucket_fiscal_year(d) == target_year])
+            decisions_dps = sum(int(d.get("dps_common") or 0) for d in year_eff)
             if alot_dps and decisions_dps and abs(alot_dps - decisions_dps) > max(1, alot_dps * 0.05):
                 warnings.append(f"⚠ {target_year}년 사업보고서 alotMatter DPS({alot_dps:,}원)와 배당결정 공시 합산 DPS({decisions_dps:,}원) 불일치 — 정정 또는 신규 결정 누락 가능성, latest_decisions raw 검토 권장.")
 

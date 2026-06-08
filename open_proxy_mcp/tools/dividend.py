@@ -274,7 +274,9 @@ def _build_dividend_summary(items: list[dict], reprt_label: str) -> dict:
                 special_dps += val
             elif "우선주" in sknd:
                 cash_dps_pref = val
-            else:
+            elif "보통주" in sknd or val > 0:
+                # stock_type="-" 빈 행("-"→0)이 보통주 실제값을 덮어쓰지 않도록
+                # 보통주 명시이거나 값이 있을 때만 반영.
                 cash_dps = val
 
         # 주당 주식배당
