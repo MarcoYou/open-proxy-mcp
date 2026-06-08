@@ -20,7 +20,11 @@ from open_proxy_mcp.services.contracts import (
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
-from open_proxy_mcp.services.filing_search import search_filings_by_report_name
+from open_proxy_mcp.services.filing_search import (
+    fetch_filings_for_title_scan,
+    report_name_matches,
+    search_filings_by_report_name,
+)
 from open_proxy_mcp.tools.dividend import (
     _DIV_KEYWORDS,
     _build_dividend_summary,
@@ -63,18 +67,30 @@ def _year_window(end_year: int, years: int) -> list[int]:
     return list(range(end_year - years + 1, end_year + 1))
 
 
-async def _search_dividend_filings(corp_code: str, start_year: int, end_year: int) -> tuple[list[dict[str, Any]], list[str], str | None]:
-    filings, notices, error = await search_filings_by_report_name(
+async def _search_dividend_filings(
+    corp_code: str, start_year: int, end_year: int
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str], str | None]:
+    """I001 raw를 1회 받아 배당결정 + 명부폐쇄(기준일) 둘 다 필터한다.
+
+    배당결정·명부폐쇄 둘 다 I001(주요경영사항) 하위라, 예전엔 검색을 2번(메인 +
+    pre_dividend) 돌렸다. raw 1회 fetch 후 client-side로 양쪽을 필터해 검색 1회·DART
+    호출 1개를 절약한다. 반환: (배당결정 filings, 명부폐쇄 notices, fetch notices, error).
+    """
+    items, notices, error = await fetch_filings_for_title_scan(
         corp_code=corp_code,
         bgn_de=f"{start_year}0101",
         end_de=f"{end_year + 1}1231",
         pblntf_tys="",
-        pblntf_detail_ty="I001",  # 배당결정은 I001(주요경영사항) 하위 → I 전체 대신 좁혀 호출↓
-        keywords=_DIV_KEYWORDS,
+        pblntf_detail_ty="I001",
+        keyword_label="배당결정+명부폐쇄",
     )
     if error:
-        return [], notices, f"배당결정 공시 검색 실패: {error}"
-    return filings, notices, None
+        return [], [], notices, f"배당결정 공시 검색 실패: {error}"
+    dividend_filings = [i for i in items if report_name_matches(i, _DIV_KEYWORDS)]
+    record_notices = [
+        i for i in items if report_name_matches(i, _RECORD_DATE_NOTICE_KEYWORDS, strip_spaces=True)
+    ]
+    return dividend_filings, record_notices, notices, None
 
 
 def _in_window(date_value: str, start_ymd: str, end_ymd: str) -> bool:
@@ -759,20 +775,9 @@ async def build_dividend_payload(
     capital_reserve_reduction = False
     capital_reserve_agendas: list[dict[str, Any]] = []
     meta_task: asyncio.Task[None] | None = None
-    _meta_needs_capital_reserve = scope in {"summary", "cash_shareholder_return", "total_shareholder_return"}
-    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return", "history"}:
-        async def run_pre_dividend_detection() -> None:
-            nonlocal pre_dividend_post_resolution, record_date_notices
-            stage_started_at = time.perf_counter()
-            try:
-                pre_dividend_post_resolution, record_date_notices = await _detect_pre_dividend_post_resolution(
-                    selected["corp_code"], target_year
-                )
-            except Exception as exc:
-                warnings.append(f"선배당-후결의 메타 추출 실패: {exc}")
-            finally:
-                _mark("pre_dividend_detection", stage_started_at)
-
+    # 선배당-후결의(명부폐쇄) 신호는 메인 I001 검색에 통합됨 (gather 직후 record_notices 재사용).
+    # 아래 meta_task는 감액배당 cross-link(shareholder_meeting 의존)만 담당한다.
+    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return"}:
         async def run_capital_reserve_detection() -> None:
             nonlocal capital_reserve_reduction, capital_reserve_agendas
             stage_started_at = time.perf_counter()
@@ -785,13 +790,7 @@ async def build_dividend_payload(
             finally:
                 _mark("capital_reserve_detection", stage_started_at)
 
-        async def run_meta_detections() -> None:
-            tasks = [run_pre_dividend_detection()]
-            if _meta_needs_capital_reserve:
-                tasks.append(run_capital_reserve_detection())
-            await asyncio.gather(*tasks)
-
-        meta_task = asyncio.create_task(run_meta_detections())
+        meta_task = asyncio.create_task(run_capital_reserve_detection())
 
     # 연도별 alotMatter 호출도 각 연도 독립. target_year는 latest_summary_task가 담당하고,
     # 나머지는 초기에 시작해 filings/details/meta 대기와 겹친다.
@@ -810,7 +809,7 @@ async def build_dividend_payload(
         _search_dividend_filings(selected["corp_code"], year_list[0], target_year),
     )
     stage_started_at = time.perf_counter()
-    (latest_summary, summary_warning), (filings, filing_notices, filing_warning) = await asyncio.gather(
+    (latest_summary, summary_warning), (filings, record_notices_search, filing_notices, filing_warning) = await asyncio.gather(
         latest_summary_task, filings_task,
     )
     _mark("summary_and_filings", stage_started_at)
@@ -820,6 +819,16 @@ async def build_dividend_payload(
     if filing_warning:
         warnings.append(filing_warning)
         filings = []
+    # pre_dividend 통합: 메인 검색에서 같이 필터한 명부폐쇄 notice를 재사용 (별도 검색 제거).
+    # 신호 윈도우는 기존과 동일(target_year ~ +1년 4월)로 좁혀 동작 보존. 기준일 본문 파싱은
+    # latest_year_classification 블록에서 _record_date_from_notices가 연도매칭으로 수행.
+    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return", "history"}:
+        _pd_bgn, _pd_end = f"{target_year}0101", f"{target_year + 1}0430"
+        record_date_notices = [
+            n for n in record_notices_search
+            if _pd_bgn <= "".join(c for c in (n.get("rcept_dt") or "") if c.isdigit())[:8] <= _pd_end
+        ]
+        pre_dividend_post_resolution = bool(record_date_notices)
     # 결정 공시만 정밀 타겟 (cap 방식이 아니라 "해당 기간의 해당 공시만"):
     #  - 기간(bgn_de/end_de)·공시유형(I001)은 검색 단계에서 서버가 이미 좁힘
     #  - "배당결정" 제목만 (주주명부폐쇄/배당락 등 비결정 공시 제외)
