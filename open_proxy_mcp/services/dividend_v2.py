@@ -924,9 +924,16 @@ async def build_dividend_payload(
         **filing_meta,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
+    # latest_decisions 노출용 — 정정/재공시 중복 제거 (연도·분기·기준일 최신 1건) + 최신순.
+    # 연간 집계와 동일한 _effective_decisions 키를 써서 표시/합산 일관성 유지.
+    effective_details = sorted(
+        _effective_decisions(details),
+        key=lambda d: (d.get("rcept_dt", ""), d.get("rcept_no", "")),
+        reverse=True,
+    )
     if scope in {"summary", "detail"}:
-        # 분기배당 회사 (삼성전자 등) 3년치 = 최대 12 quarters + 결산 + 정정 → 20건 노출 (이전 5건은 truncation 심각).
-        data["latest_decisions"] = details[:20]
+        # 분기배당 회사 (삼성전자 등) 3년치 = 최대 12 quarters + 결산 → 20건 노출.
+        data["latest_decisions"] = effective_details[:20]
     if scope == "history":
         data["history"] = history
         # quarterly_breakdown: details에서 연도/분기별 grouping (분기배당 회사 분기별 검증용)
@@ -977,8 +984,9 @@ async def build_dividend_payload(
         # detail scope는 모든 filings 노출 (limit 50 — 3년 × 4분기 + 결산 + 정정 충분).
         data["detail"] = {
             "annual_summary": latest_summary,
-            "latest_decisions": details[:50],
-            "decision_count": len(details),
+            "latest_decisions": effective_details[:50],
+            "decision_count": len(effective_details),
+            "raw_decision_count": len(details),
         }
         # alotMatter (사업보고서) vs filings 합산 mismatch warning
         if latest_summary and latest_summary.get("source") == "alotMatter":
