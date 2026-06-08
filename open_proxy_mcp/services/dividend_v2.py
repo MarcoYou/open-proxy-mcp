@@ -899,34 +899,47 @@ async def build_dividend_payload(
             if row["year"] == target_year and row["pattern"] == "무배당" and not row.get("annual_dps"):
                 # 출처 맵 B: 사업보고서가 미확정이어도 분기/반기 alotMatter에 중간배당
                 # 누적값이 있으면 "확정 전(금액 미정)" 대신 "중간배당 확정 (N분기까지)"로 보강.
+                # '확정 전'은 **target연도 증거가 있을 때만** 선언한다 (false-positive 방지):
+                #   ① 분기/반기 alotMatter에 중간배당 누적이 있거나(출처 B),
+                #   ② target연도 결산 배당기준일이 설정됐거나(출처 D, 연도매칭).
+                # 둘 다 없으면 pre_dividend 신호가 전년 notice에 발동한 오발동이므로 '무배당' 유지.
                 interim = await _interim_dividend_from_quarterly(selected["corp_code"], target_year)
-                row["pending_confirmation"] = True
                 if interim:
                     row["pattern"] = f"중간배당 확정 ({interim['period']}) · 결산 미정"
                     row["interim_dps"] = interim["interim_dps"]
                     row["interim_payout_ratio"] = interim["interim_payout_ratio"]
                     row["interim_period"] = interim["period"]
                     row["interim_source"] = f"분기보고서 alotMatter ({interim['reprt_code']})"
+                    row["pending_confirmation"] = True
                     warnings.append(
                         f"{target_year} 사업연도는 {interim['period']} 중간배당 "
                         f"{interim['interim_dps']:,}원이 확정됐고 결산배당은 아직 미정이다 (선배당-후결의)."
                     )
                 else:
-                    # 출처 D: 금액(현금배당결정)은 없어도 기준일은 주주명부폐쇄결정에 이미 있다.
                     rd = await _record_date_from_notices(record_date_notices, target_year)
                     if rd:
                         row["pattern"] = f"확정 전 (배당기준일 {rd} 설정 · 금액 미정)"
                         row["record_date"] = rd
+                        row["pending_confirmation"] = True
                         warnings.append(
                             f"{target_year} 사업연도는 배당기준일({rd})만 설정되고 금액이 아직 확정되지 않았다 "
                             "(선배당-후결의). 무배당이 아니라 확정 전 상태다."
                         )
                     else:
-                        row["pattern"] = "확정 전 (배당기준일 설정·금액 미정)"
-                        warnings.append(
-                            f"{target_year} 사업연도는 배당기준일만 설정되고 금액이 아직 확정되지 않았다 "
-                            "(선배당-후결의). 무배당이 아니라 확정 전 상태다."
+                        # target연도 결산 기준일·중간배당 모두 없음. 직전 연도 배당 이력으로
+                        # '무배당'(진짜 0) vs '미공시'(payer인데 결산 미확정) 구분.
+                        prior_paid = any(
+                            (r.get("annual_dps") or 0) > 0
+                            for r in history if r["year"] < target_year
                         )
+                        if prior_paid:
+                            row["pattern"] = "미공시 (결산 배당 미확정)"
+                            row["pending_confirmation"] = True
+                            warnings.append(
+                                f"{target_year} 사업연도 결산배당이 아직 공시되지 않았다 — 직전 배당 이력이 있는 "
+                                "회사라 무배당으로 단정하지 않는다 (선배당-후결의로 금액이 사업보고서에 미반영되었거나 결정 전)."
+                            )
+                        # else: 직전도 배당 이력 없음 → '무배당' 유지 (진짜 무배당)
 
     # 추세는 확정된 연도만으로 계산 (미확정 최신 연도의 DPS=0 이 -100% 로 왜곡 방지).
     policy = _policy_signals([r for r in history if not r.get("pending_confirmation")])
