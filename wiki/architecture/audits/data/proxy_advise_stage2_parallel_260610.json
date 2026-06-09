@@ -1,0 +1,955 @@
+{
+  "meta": {
+    "script": "scripts/proxy_advise_stage2_parallel_analysis.py",
+    "n_director_eval": 100,
+    "date": "2026-06-10"
+  },
+  "director_eval": [
+    {
+      "company": "삼성전자",
+      "D_ms": 616,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "SK하이닉스",
+      "D_ms": 611,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "현대차",
+      "D_ms": 541,
+      "renewed": true,
+      "n_renewed": 3,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LG에너지솔루션",
+      "D_ms": 554,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성바이오로직스",
+      "D_ms": 373,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한화에어로스페이스",
+      "D_ms": 856,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "SK스퀘어",
+      "D_ms": 800,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "두산에너빌리티",
+      "D_ms": 464,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "기아",
+      "D_ms": 396,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "KB금융",
+      "D_ms": 730,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "HD현대중공업",
+      "D_ms": 437,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "셀트리온",
+      "D_ms": 1226,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "신한지주",
+      "D_ms": 651,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성생명",
+      "D_ms": 783,
+      "renewed": true,
+      "n_renewed": 3,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성물산",
+      "D_ms": 633,
+      "renewed": true,
+      "n_renewed": 3,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한화오션",
+      "D_ms": 328,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성SDI",
+      "D_ms": 304,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "현대모비스",
+      "D_ms": 1521,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "미래에셋증권",
+      "D_ms": 1128,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "HD현대일렉트릭",
+      "D_ms": 328,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성전기",
+      "D_ms": 484,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "하나금융지주",
+      "D_ms": 825,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "NAVER",
+      "D_ms": 367,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "고려아연",
+      "D_ms": 566,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "POSCO홀딩스",
+      "D_ms": 587,
+      "renewed": true,
+      "n_renewed": 4,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한국전력",
+      "D_ms": 4495,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "HD한국조선해양",
+      "D_ms": 529,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한화시스템",
+      "D_ms": 1319,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한미반도체",
+      "D_ms": 310,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성중공업",
+      "D_ms": 460,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "우리금융지주",
+      "D_ms": 667,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "효성중공업",
+      "D_ms": 543,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LS ELECTRIC",
+      "D_ms": 293,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "SK",
+      "D_ms": 4089,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "현대로템",
+      "D_ms": 348,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LG화학",
+      "D_ms": 377,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성화재",
+      "D_ms": 918,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "카카오",
+      "D_ms": 1088,
+      "renewed": true,
+      "n_renewed": 6,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "SK이노베이션",
+      "D_ms": 812,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "HD현대",
+      "D_ms": 482,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "HMM",
+      "D_ms": 667,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "포스코퓨처엠",
+      "D_ms": 562,
+      "renewed": true,
+      "n_renewed": 8,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "메리츠금융지주",
+      "D_ms": 463,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한국항공우주",
+      "D_ms": 952,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "KT&G",
+      "D_ms": 1530,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LG전자",
+      "D_ms": 497,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "기업은행",
+      "D_ms": 376,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "LIG디펜스앤에어로스페이스",
+      "D_ms": 1215,
+      "renewed": true,
+      "n_renewed": 3,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "SK텔레콤",
+      "D_ms": 688,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "현대건설",
+      "D_ms": 386,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "두산",
+      "D_ms": 2024,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "현대글로비스",
+      "D_ms": 374,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "KT",
+      "D_ms": 366,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "포스코인터내셔널",
+      "D_ms": 606,
+      "renewed": true,
+      "n_renewed": 3,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LG",
+      "D_ms": 467,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "에이피알",
+      "D_ms": 948,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성에피스홀딩스",
+      "D_ms": 194,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "S-Oil",
+      "D_ms": 705,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한국금융지주",
+      "D_ms": 1876,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "크래프톤",
+      "D_ms": 2021,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성에스디에스",
+      "D_ms": 452,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "하이브",
+      "D_ms": 522,
+      "renewed": true,
+      "n_renewed": 10,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "카카오뱅크",
+      "D_ms": 628,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "DB손해보험",
+      "D_ms": 842,
+      "renewed": true,
+      "n_renewed": 3,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "NH투자증권",
+      "D_ms": 1072,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "키움증권",
+      "D_ms": 719,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "현대오토에버",
+      "D_ms": 443,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼양식품",
+      "D_ms": 3702,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "대한항공",
+      "D_ms": 681,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한화",
+      "D_ms": 3921,
+      "renewed": true,
+      "n_renewed": 4,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성증권",
+      "D_ms": 958,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LS",
+      "D_ms": 371,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "아모레퍼시픽",
+      "D_ms": 487,
+      "renewed": true,
+      "n_renewed": 4,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LG이노텍",
+      "D_ms": 408,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "HD현대마린솔루션",
+      "D_ms": 134,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "이수페타시스",
+      "D_ms": 402,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한진칼",
+      "D_ms": 470,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "유한양행",
+      "D_ms": 844,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "SK바이오팜",
+      "D_ms": 980,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성E&A",
+      "D_ms": 445,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "대우건설",
+      "D_ms": 371,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "HD건설기계",
+      "D_ms": 413,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "D_ms": 689,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LG유플러스",
+      "D_ms": 572,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "엘앤에프",
+      "D_ms": 484,
+      "renewed": true,
+      "n_renewed": 3,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한미약품",
+      "D_ms": 782,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "카카오페이",
+      "D_ms": 740,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한화솔루션",
+      "D_ms": 1273,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "삼성카드",
+      "D_ms": 514,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "한전기술",
+      "D_ms": 1109,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "GS",
+      "D_ms": 646,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "두산밥캣",
+      "D_ms": 362,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LG디스플레이",
+      "D_ms": 630,
+      "renewed": true,
+      "n_renewed": 1,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "CJ",
+      "D_ms": 812,
+      "renewed": true,
+      "n_renewed": 3,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "LG씨엔에스",
+      "D_ms": 136,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "no_filing"
+    },
+    {
+      "company": "BNK금융지주",
+      "D_ms": 690,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "JB금융지주",
+      "D_ms": 1172,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "두산로보틱스",
+      "D_ms": 357,
+      "renewed": true,
+      "n_renewed": 2,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "대한전선",
+      "D_ms": 443,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    },
+    {
+      "company": "오리온",
+      "D_ms": 549,
+      "renewed": false,
+      "n_renewed": 0,
+      "calls": 1,
+      "status": "exact"
+    }
+  ],
+  "renewed_ratio": "64/100",
+  "D_stats_ms": {
+    "median": 596,
+    "max": 4495,
+    "p90": 1314
+  },
+  "proxy_advise_detail": [
+    {
+      "company": "SK하이닉스",
+      "total_ms": 6480,
+      "L1_ms": 3445,
+      "D_ms": 587,
+      "P_ms": 3448,
+      "current_model_ms": 6893,
+      "method_c_model_ms": 4035,
+      "gain_ms": 2858,
+      "regression": false
+    },
+    {
+      "company": "현대차",
+      "total_ms": 7408,
+      "L1_ms": 4462,
+      "D_ms": 1171,
+      "P_ms": 4462,
+      "current_model_ms": 8924,
+      "method_c_model_ms": 5633,
+      "gain_ms": 3291,
+      "regression": false
+    },
+    {
+      "company": "LG에너지솔루션",
+      "total_ms": 4174,
+      "L1_ms": 1735,
+      "D_ms": 739,
+      "P_ms": 1737,
+      "current_model_ms": 3472,
+      "method_c_model_ms": 2476,
+      "gain_ms": 996,
+      "regression": false
+    },
+    {
+      "company": "한화에어로스페이스",
+      "total_ms": 7305,
+      "L1_ms": 3466,
+      "D_ms": 975,
+      "P_ms": 3469,
+      "current_model_ms": 6935,
+      "method_c_model_ms": 4444,
+      "gain_ms": 2491,
+      "regression": false
+    },
+    {
+      "company": "두산에너빌리티",
+      "total_ms": 5050,
+      "L1_ms": 2196,
+      "D_ms": 509,
+      "P_ms": 2199,
+      "current_model_ms": 4395,
+      "method_c_model_ms": 2708,
+      "gain_ms": 1687,
+      "regression": false
+    },
+    {
+      "company": "기아",
+      "total_ms": 6297,
+      "L1_ms": 3380,
+      "D_ms": 771,
+      "P_ms": 3382,
+      "current_model_ms": 6762,
+      "method_c_model_ms": 4153,
+      "gain_ms": 2609,
+      "regression": false
+    },
+    {
+      "company": "HD현대중공업",
+      "total_ms": 2457,
+      "L1_ms": 1178,
+      "D_ms": 398,
+      "P_ms": 0,
+      "current_model_ms": 1178,
+      "method_c_model_ms": 1178,
+      "gain_ms": 0,
+      "regression": false
+    },
+    {
+      "company": "삼성생명",
+      "total_ms": 5505,
+      "L1_ms": 1833,
+      "D_ms": 1132,
+      "P_ms": 1835,
+      "current_model_ms": 3668,
+      "method_c_model_ms": 2967,
+      "gain_ms": 701,
+      "regression": false
+    },
+    {
+      "company": "삼성전자",
+      "total_ms": 5627,
+      "L1_ms": 2280,
+      "D_ms": 1204,
+      "P_ms": 2282,
+      "current_model_ms": 4562,
+      "method_c_model_ms": 3486,
+      "gain_ms": 1076,
+      "regression": false
+    },
+    {
+      "company": "삼성바이오로직스",
+      "total_ms": 5065,
+      "L1_ms": 1947,
+      "D_ms": 684,
+      "P_ms": 1949,
+      "current_model_ms": 3896,
+      "method_c_model_ms": 2633,
+      "gain_ms": 1263,
+      "regression": false
+    },
+    {
+      "company": "SK스퀘어",
+      "total_ms": 3500,
+      "L1_ms": 2385,
+      "D_ms": 642,
+      "P_ms": 0,
+      "current_model_ms": 2385,
+      "method_c_model_ms": 2385,
+      "gain_ms": 0,
+      "regression": false
+    },
+    {
+      "company": "KB금융",
+      "total_ms": 3222,
+      "L1_ms": 2286,
+      "D_ms": 916,
+      "P_ms": 0,
+      "current_model_ms": 2286,
+      "method_c_model_ms": 2286,
+      "gain_ms": 0,
+      "regression": false
+    }
+  ],
+  "gain_stats_ms": {
+    "median": 1687,
+    "max": 3291,
+    "min": 701
+  },
+  "regression_cases": []
+}
