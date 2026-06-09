@@ -134,7 +134,8 @@ async def _proxy_items(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_tys="D",
+        pblntf_tys="",
+        pblntf_detail_ty=["D001", "D003", "D004"],  # 5%대량보유/위임장/공개매수. D002(임원수천건) 제외로 페이지컷 truncation 교정(삼성 +8)
         keywords=_PROXY_KEYWORDS,
     )
     if error:
@@ -372,7 +373,8 @@ async def _litigation_items(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_tys=("I", "B"),
+        pblntf_tys="",
+        pblntf_detail_ty=["I001", "B001"],  # 경영권분쟁소송(I001)/소송등의제기(B001), 차집합0 검증
         keywords=_LITIGATION_KEYWORDS,
         strip_spaces=True,
     )

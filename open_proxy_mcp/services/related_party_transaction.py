@@ -301,7 +301,8 @@ async def _fetch_equity_deals(corp_code: str, corp_name: str, bgn_de: str, end_d
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_tys=("B", "I"),
+        pblntf_tys="",
+        pblntf_detail_ty=["B001", "I001"],  # 타법인주식 양수도(B001)/취득결정(I001), 차집합0 검증
         keywords=_EQUITY_DEAL_KEYWORDS,
         strip_spaces=True,
     )
@@ -335,7 +336,8 @@ async def _fetch_supply_contracts(corp_code: str, corp_name: str, bgn_de: str, e
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_tys=("I",),
+        pblntf_tys="",
+        pblntf_detail_ty="I001",  # 단일판매·공급계약체결 ∈ I001, 차집합0 검증
         keywords=_SUPPLY_CONTRACT_KEYWORDS,
         strip_spaces=True,
     )
