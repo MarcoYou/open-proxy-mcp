@@ -68,16 +68,16 @@ async def fetch_appointments(
     def _filter(items: list) -> list:
         return [i for i in items if "주주총회소집공고" in (i.get("report_nm") or "")]
 
-    # auto/extraordinary는 연중 검색이라 KOSPI 대형주 (공시 400+건) page 5+ 까지 확장.
-    # annual은 1-5월 좁아 page 1-2 충분.
-    max_pages = 2 if meeting_type == "annual" else 6
+    # 주주총회소집공고 ∈ E006(주주총회소집공고). 전 type(None) 순회 대신 E006으로 좁히면
+    # 무관 공시 flood 없이 소집공고만 받아 page 1로 충분(차집합0 검증: 삼성·고려아연·SK·현대차).
+    max_pages = 2
     notices: list = []
     accumulated: list = []  # 모든 페이지 누적 (가장 최신부터)
     for pg in range(1, max_pages + 1):
         try:
             data = await client.search_filings(
                 corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
-                pblntf_ty=None, page_no=pg, page_count=100,
+                pblntf_ty=None, pblntf_detail_ty="E006", page_no=pg, page_count=100,
             )
         except DartClientError as exc:
             if pg == 1:

@@ -112,6 +112,12 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
             return AnalysisStatus.EXACT, top, ranked
         return AnalysisStatus.AMBIGUOUS, None, ranked
 
+    # 완전일치·정규화일치가 없어도 상장사 후보가 유일하면 그 후보를 채택한다.
+    # (예: "금호석유"→"금호석유화학" 같은 정식명 축약/부분입력). 후보가 하나뿐이라 모호하지 않다.
+    # 여러 개면 위에서 이미 AMBIGUOUS로 처리됨(예: "금호"→타이어/건설/석유화학).
+    if len(matches) == 1:
+        return AnalysisStatus.EXACT, matches[0], matches
+
     return AnalysisStatus.AMBIGUOUS, None, matches
 
 

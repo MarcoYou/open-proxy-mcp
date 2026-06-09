@@ -410,13 +410,27 @@ def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any
     issued = 0
     treasury = 0
     distributable = 0
+    # 보통주 행 우선. 단 셀트리온처럼 우선주 없는 회사는 '보통주' 행 없이 '합계' 행만 있어
+    # (issued=0 누락) → 합계 행을 fallback으로 잡되, 우선주 발행분은 빼 보통주 기준을 맞춘다.
+    common_row = None
+    subtotal_row = None
+    preferred_issued = 0
     for item in stock_total.get("list", []):
         se = item.get("se", "")
         if "보통" in se:
-            issued = _to_int(item.get("istc_totqy", "0"))
-            treasury = _to_int(item.get("tesstk_co", "0"))
-            distributable = _to_int(item.get("distb_stock_co", "0"))
-            break
+            common_row = common_row or item
+        elif "우선" in se:
+            preferred_issued += _to_int(item.get("istc_totqy", "0"))
+        elif _is_subtotal_row(se):
+            subtotal_row = subtotal_row or item
+    if common_row is not None:
+        issued = _to_int(common_row.get("istc_totqy", "0"))
+        treasury = _to_int(common_row.get("tesstk_co", "0"))
+        distributable = _to_int(common_row.get("distb_stock_co", "0"))
+    elif subtotal_row is not None:
+        issued = _to_int(subtotal_row.get("istc_totqy", "0")) - preferred_issued
+        treasury = _to_int(subtotal_row.get("tesstk_co", "0"))
+        distributable = _to_int(subtotal_row.get("distb_stock_co", "0"))
 
     rows = []
     for item in treasury_data.get("list", []):
@@ -540,9 +554,9 @@ async def _fetch_change_filings(
         result = await client.search_filings(
             bgn_de=format_yyyymmdd(window_start),
             end_de=format_yyyymmdd(window_end),
-            pblntf_ty="I",
-            corp_code=corp_code,
-            page_count=20,
+            pblntf_detail_ty="I004",  # 최대주주등소유주식변동신고서 ∈ I004. I 전체를 받으면
+            corp_code=corp_code,       # 배당·실적에 밀려 변동신고서가 거의 누락(삼성 8 vs 90).
+            page_count=20,             # [:5]만 본문 파싱 — 12개월 window 최다 16건(삼성)이라 20이면 충분
         )
     except DartClientError as exc:
         return [], [f"변동신고서 DART 검색 실패: {exc.status}"]
@@ -852,6 +866,10 @@ async def build_ownership_structure_payload(
         )
         _mark("change_filings", stage_started_at)
         data["change_filings"] = change_filings
+        # 5% 대량보유 변동도 합친다. 분쟁사(고려아연 영풍-MBK 등)는 최대주주변동신고서(I004)
+        # 대신 주식등의대량보유상황보고서(D001)로 지분이 움직여 change_filings만 보면 빈다.
+        # timeline_rows는 753에서 majorstock으로 이미 받아 784에서 window 필터됨(추가 콜 0).
+        data["block_changes"] = timeline_rows
         warnings.extend(change_warnings)
 
     evidence_refs: list[EvidenceRef] = [

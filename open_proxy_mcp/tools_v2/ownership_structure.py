@@ -52,25 +52,60 @@ def _render(payload: dict[str, Any], scope: str) -> str:
 
     if scope == "summary":
         top = summary.get("top_holder") or {}
-        lines.append("## 요약")
-        lines.append(f"- 최대주주: {top.get('name', '-') or '-'} {top.get('ownership_pct', 0):.2f}%")
-        lines.append(f"- 특수관계인 합계: {summary.get('related_total_pct', 0):.2f}%")
-        lines.append(f"- 자사주: {summary.get('treasury_shares', 0):,}주 ({summary.get('treasury_pct', 0):.2f}%)")
-        lines.append(f"- 능동적 5% 시그널: {summary.get('active_signal_count', 0)}건")
+        blocks = data.get("blocks", []) or []
+        top_block = blocks[0] if blocks else {}
+        # 요약 + 100% 구성을 한 블록으로. 고유 정보(단독 최대주주·5% 실세)는 캡션 2줄로,
+        # 중복되는 특관 합계·자사주 수치는 아래 100% 표가 흡수한다.
+        lines.append("## 지분 구성")
+        lines.append(f"- 명부상 최대주주(본인 단독): {top.get('name', '-') or '-'} {top.get('ownership_pct', 0):.2f}%")
+        if top_block:
+            lines.append(
+                f"- 5% 대량보유 실세: {top_block.get('reporter', '-')} "
+                f"{top_block.get('ownership_pct', 0):.2f}% ({top_block.get('purpose', '')}) — 보고자 합산 기준"
+            )
+        # 100% 정합 분해 — 명부(본인+특관)/자사주/기타로 발행총수를 중복 없이 나눈다.
+        # 5% 대량보유는 보고자 공동보유·중복이라 합산 100%가 안 되므로 여기엔 쓰지 않는다.
+        _tr = data.get("treasury", {})
+        issued = _tr.get("issued_shares", 0)
+        major_sh = sum(r.get("shares", 0) for r in data.get("major_holders", []))
+        tr_sh = summary.get("treasury_shares", 0)
+        other = issued - major_sh - tr_sh
+        if issued and other >= 0:
+            lines.extend([
+                "", "| 구분 | 보유주식수 | 지분율 |", "|------|-----------|--------|",
+                f"| 최대주주+특수관계인 | {major_sh:,} | {major_sh / issued * 100:.2f}% |",
+                f"| 자사주 | {tr_sh:,} | {tr_sh / issued * 100:.2f}% |",
+                f"| 기타(소액주주·기관 등) | {other:,} | {other / issued * 100:.2f}% |",
+                f"| **합계(발행주식총수)** | **{issued:,}** | **100.00%** |",
+            ])
+        elif issued and other < 0:
+            lines.append("- (100% 분해 생략: 명부+자사주가 보통주 발행총수를 초과 — 우선주 등 분모 불일치)")
+        else:  # issued == 0
+            lines.append("- (100% 분해 생략: 발행주식총수 미확보 — 집합투자기구(인프라펀드 등)이거나 주식총수 미공시)")
 
     if scope in {"summary", "major_holders", "control_map"}:
+        rows = data.get("major_holders", [])
+        # summary는 노이즈 컷: 0.1% 미만 군소 특관은 '외 N인'으로 접는다. major_holders scope는 전체 노출.
+        if scope == "summary":
+            shown = [r for r in rows if r.get("ownership_pct", 0) >= 0.1][:20]
+            hidden = [r for r in rows if r.get("ownership_pct", 0) < 0.1]
+        else:
+            shown, hidden = rows[:20], []
         lines.extend(["", "## 최대주주/특수관계인", "| 이름 | 관계 | 지분율 | 보유주식수 |", "|------|------|--------|-----------|"])
-        for row in data.get("major_holders", [])[:20]:
+        for row in shown:
             lines.append(f"| {row['name']} | {row['relation'] or '-'} | {row['ownership_pct']:.2f}% | {row['shares']:,} |")
+        if hidden:
+            hidden_pct = sum(r.get("ownership_pct", 0) for r in hidden)
+            hidden_shares = sum(r.get("shares", 0) for r in hidden)
+            lines.append(f"| 외 {len(hidden)}인 (0.1% 미만) | 특수관계인 | {hidden_pct:.2f}% | {hidden_shares:,} |")
 
     if scope in {"summary", "blocks", "control_map"}:
         lines.extend(["", "## 5% 대량보유 최신", "| 보고자 | 지분율 | 보유목적 | 날짜 | rcept_no |", "|--------|--------|----------|------|----------|"])
         for row in data.get("blocks", [])[:15]:
             lines.append(f"| {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | {row['report_date']} | `{row['rcept_no']}` |")
 
-    if scope == "summary":
-        treasury = data.get("treasury", {})
-        lines.extend(["", "## 자사주 (가벼운 snapshot — detail은 treasury_share tool)", f"- 발행주식수: {treasury.get('issued_shares', 0):,}주", f"- 자사주: {treasury.get('treasury_shares', 0):,}주", f"- 자사주 비중: {treasury.get('treasury_pct', 0):.2f}%"])
+    # 자사주는 요약줄 + 100% 지분 구성표에 이미 노출되므로 별도 섹션은 두지 않는다(중복 제거).
+    # 자사주 상세(취득/처분 이력 등)는 treasury_share tool.
 
     if scope == "blocks":
         # blocks scope에 timeline 통합 노출
@@ -115,6 +150,16 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 lines.extend(["\n**총괄현황** (금번 기준)", "| 성명 | 관계 | 보통주수 | 비율 |", "|------|------|---------|------|"])
                 for th in total_holders:
                     lines.append(f"| {th['name']} | {th['relation'] or '-'} | {th['shares']:,} | {th['pct']:.2f}% |")
+
+        # 5% 대량보유 변동 — 분쟁사(고려아연 등)는 최대주주변동신고서 대신 이쪽으로 지분이 움직인다.
+        block_changes = data.get("block_changes", []) or []
+        lines.extend(["", "## 5% 대량보유 변동 (주식등의대량보유상황보고서)"])
+        if not block_changes:
+            lines.append("- 조사 구간 내 5% 대량보유 변동 없음")
+        else:
+            lines.extend(["| 날짜 | 보고자 | 지분율 | 목적 | rcept_no |", "|------|--------|--------|------|----------|"])
+            for row in block_changes[:30]:
+                lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
     if scope == "control_map":
         control_map = data.get("control_map", {})
@@ -180,7 +225,7 @@ def register_tools(mcp):
         """desc: 최대주주·특수관계인·5% 대량보유 지분 구조. 자사주 detail은 `treasury_share` 별도.
         when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널.
         rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback.
-        scope: `summary` 최대주주+5%블록+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동) / `changes` 변동신고서
+        scope: `summary` 최대주주+5%블록+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동) / `changes` 최대주주변동신고서(I004) + 5% 대량보유 변동(D001) 통합
         ref: treasury_share, proxy_contest, evidence
         """
         payload = await build_ownership_structure_payload(
