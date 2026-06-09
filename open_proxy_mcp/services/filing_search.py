@@ -31,7 +31,7 @@ async def search_filings_by_report_name(
     max_pages: int = 10,
     page_count: int = 100,
     last_reprt_at: str = "",
-    pblntf_detail_ty: str = "",
+    pblntf_detail_ty: str | Iterable[str] = "",
 ) -> tuple[list[dict[str, Any]], list[str], str | None]:
     """기간 내 공시를 제목 기준으로 타깃 검색.
 
@@ -78,7 +78,7 @@ async def fetch_filings_for_title_scan(
     max_pages: int = 10,
     page_count: int = 100,
     last_reprt_at: str = "",
-    pblntf_detail_ty: str = "",
+    pblntf_detail_ty: str | Iterable[str] = "",
 ) -> tuple[list[dict[str, Any]], list[str], str | None]:
     """기간/공시유형 기준 list.json fetch를 한 번 수행해 caller-side 제목 필터에 재사용."""
 
@@ -86,20 +86,29 @@ async def fetch_filings_for_title_scan(
     notices: list[str] = []
     items: list[dict[str, Any]] = []
     ptypes = [pblntf_tys] if isinstance(pblntf_tys, str) else list(pblntf_tys)
+    detail_codes = [pblntf_detail_ty] if isinstance(pblntf_detail_ty, str) else list(pblntf_detail_ty)
+    detail_codes = [d for d in detail_codes if d]
+    # detail 코드가 있으면 **코드별** 스캔(pblntf_ty=""), 없으면 공시유형별 스캔.
+    # detail로 좁히면 유형 전체 페이지(max_pages 컷)를 받지 않아 정확·고속.
+    targets = [("", d) for d in detail_codes] if detail_codes else [(t, "") for t in ptypes]
 
-    for pblntf_ty in ptypes:
+    for pblntf_ty, detail_ty in targets:
         try:
             first = await client.search_filings(
                 corp_code=corp_code,
                 bgn_de=bgn_de,
                 end_de=end_de,
                 pblntf_ty=pblntf_ty,
-                pblntf_detail_ty=pblntf_detail_ty,
+                pblntf_detail_ty=detail_ty,
                 page_no=1,
                 page_count=page_count,
                 last_reprt_at=last_reprt_at,
             )
         except DartClientError as exc:
+            # 013 = 이 (유형/코드)엔 해당 공시 없음 → 다음 target으로 (멀티코드 스캔이
+            # 한 코드의 no-data로 통째 중단되지 않게). 그 외 에러만 전파.
+            if exc.status == "013":
+                continue
             return items, notices, exc.status
 
         page_items = list(first.get("list", []))
@@ -114,7 +123,7 @@ async def fetch_filings_for_title_scan(
                     bgn_de=bgn_de,
                     end_de=end_de,
                     pblntf_ty=pblntf_ty,
-                    pblntf_detail_ty=pblntf_detail_ty,
+                    pblntf_detail_ty=detail_ty,
                     page_no=page_no,
                     page_count=page_count,
                     last_reprt_at=last_reprt_at,
@@ -133,7 +142,7 @@ async def fetch_filings_for_title_scan(
 
         if total_pages > max_pages:
             notices.append(
-                f"{bgn_de}~{end_de} 기간의 {pblntf_ty} 공시 중 '{keyword_label}' 제목군은 "
+                f"{bgn_de}~{end_de} 기간의 {pblntf_ty or detail_ty} 공시 중 '{keyword_label}' 제목군은 "
                 f"{total_pages}페이지가 있었지만 {max_pages}페이지까지만 확인했다."
             )
 

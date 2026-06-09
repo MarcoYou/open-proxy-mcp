@@ -848,7 +848,8 @@ async def _fetch_decisions(
             corp_code=corp_code,
             bgn_de=bgn_de,
             end_de=end_de,
-            pblntf_tys=("B", "I", "E"),
+            pblntf_tys="",
+            pblntf_detail_ty=["B001", "E001", "E002", "I001"],  # 자기주식 결정(B001)/결과(E001)/신탁(E002)/소각(I001) 차집합0 검증
             keyword_label="treasury title scan",
         )
         _mark_timing(timings_ms, "fetch_decisions.title_search", stage_started_at)
@@ -1247,7 +1248,8 @@ async def fetch_cancelation_summary(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_tys=("B", "I"),
+        pblntf_tys="",
+        pblntf_detail_ty=["B001", "E001", "E002", "I001"],  # 자기주식 detail 좁힘 (차집합0 검증)
         keywords=_CANCELATION_KEYWORDS,
         strip_spaces=True,
     )
@@ -1443,7 +1445,8 @@ async def fetch_treasury_signal_summary(
             corp_code=corp_code,
             bgn_de=bgn_de,
             end_de=end_de,
-            pblntf_tys=("B", "I"),
+            pblntf_tys="",
+        pblntf_detail_ty=["B001", "E001", "E002", "I001"],  # 자기주식 detail 좁힘 (차집합0 검증)
             keywords=_CANCELATION_KEYWORDS,
             strip_spaces=True,
         )
