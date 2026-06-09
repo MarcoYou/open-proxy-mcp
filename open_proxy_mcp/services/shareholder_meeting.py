@@ -276,7 +276,8 @@ async def _candidate_notices_range(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_tys="E",
+        pblntf_tys="",
+        pblntf_detail_ty="E006",  # 주주총회소집공고 ∈ E006 (차집합 0 검증) — E 전체 페이지컷 회피
         keywords=("소집",),
         last_reprt_at="Y",
     )
@@ -602,7 +603,8 @@ async def _find_meeting_result_filing(
         corp_code=corp_code,
         bgn_de=f"{target_year}0101",
         end_de=f"{target_year}1231",
-        pblntf_tys="I",
+        pblntf_tys="",
+        pblntf_detail_ty="I001",  # 정기주주총회결과 ∈ I001 (차집합 0 검증) — I 전체 페이지컷 회피
         keywords=("주주총회결과",),
     )
     if error:

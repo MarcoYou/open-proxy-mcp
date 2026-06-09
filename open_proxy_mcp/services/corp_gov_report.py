@@ -259,7 +259,8 @@ async def _fetch_latest_reports(
         corp_code=corp_code,
         bgn_de=format_yyyymmdd(start),
         end_de=format_yyyymmdd(today),
-        pblntf_tys=("I",),
+        pblntf_tys="",
+        pblntf_detail_ty="I001",  # 기업지배구조보고서공시 ∈ I001 (차집합 0 검증) — I 전체 페이지컷 회피
         keywords=_GOV_KEYWORDS,
         strip_spaces=True,
     )

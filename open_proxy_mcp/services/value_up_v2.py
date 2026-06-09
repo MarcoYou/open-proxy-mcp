@@ -278,7 +278,8 @@ async def _search_value_up_items(
         corp_code=corp_code,
         bgn_de=bgn_de,
         end_de=end_de,
-        pblntf_tys="I",
+        pblntf_tys="",
+        pblntf_detail_ty="I001",  # 기업가치제고계획 ∈ I001 (차집합 0 검증) — I 전체 페이지컷 회피
         keywords=_VALUATION_KEYWORDS,
         strip_spaces=True,
     )
