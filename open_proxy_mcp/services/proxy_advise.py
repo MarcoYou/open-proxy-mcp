@@ -1940,16 +1940,7 @@ async def build_proxy_advise_payload(
             return await _safe(fn, *args, timing_label=timing_label, **kw)
 
     stage_started_at = time.perf_counter()
-    # ── 방법 C: 2단계(perf) 조기 발사 ──
-    # director_eval은 1차에서 일찍 끝나므로(KOSPI 100 측정 중앙 ~600ms), 먼저 await해
-    # gate(inside_renewed)를 판단하고 perf(dividend + treasury 10년 + financial yearly)를
-    # 1차 완료 전에 발사한다. perf는 company_query만 필요(1차 결과 무관)해 나머지 1차와 겹쳐
-    # perf 시간이 숨겨진다. 모델: 현재=L1+P → 방법C=max(L1, D+P) ≤ L1+P (회귀 불가능).
-    # 100개 검증: 회귀 0, renewed 64% 회사에서 중앙 1.7초↓(최대 3.3초), 나머지 36% 손해 0.
-    director_task = asyncio.create_task(
-        _safe_throttled(build_director_evaluation_payload, company_query, timing_label="director_evaluation", year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history)
-    )
-    others_task = asyncio.gather(
+    meeting_summary, meeting_agenda, meeting_comp, meeting_aoi, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
         _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.summary", scope="summary", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.agenda", scope="agenda", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.compensation", scope="compensation", year=target_year, meeting_type=meeting_type),
@@ -1958,30 +1949,8 @@ async def build_proxy_advise_payload(
         _safe_throttled(build_ownership_structure_payload, company_query, timing_label="ownership_structure.control_map", scope="control_map"),
         _safe_throttled(build_corp_gov_report_payload, company_query, timing_label="corp_gov_report.summary", scope="summary"),
         _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.summary", scope="summary", year=fin_year),
+        _safe_throttled(build_director_evaluation_payload, company_query, timing_label="director_evaluation", year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
     )
-    # director 먼저 완료 → gate 판단 → perf 조기 발사 (나머지 1차와 병렬)
-    director_eval = await director_task
-    director_data = (director_eval.get("data") or {})
-    director_evals = director_data.get("evaluations", []) or []
-    name_to_eval: dict[str, dict[str, Any]] = {}
-    for ev in director_evals:
-        nm = ev.get("name")
-        if nm:
-            name_to_eval[nm] = ev
-    inside_renewed_candidates = [
-        ev for ev in director_evals
-        if "사내" in (ev.get("role_type") or "")
-        and (ev.get("appointment_type") or {}).get("type") == "renewed"
-    ]
-    perf_task = None
-    if inside_renewed_candidates:
-        # 사내이사 renewed 있으면 회사 단위 성과 source 발사 (모든 사내이사 동일 source 공유)
-        perf_task = asyncio.gather(
-            _safe_throttled(build_dividend_payload, company_query, timing_label="dividend.history", scope="history", years=5),
-            _safe_throttled(build_treasury_share_payload, company_query, timing_label="treasury_share.summary", scope="summary", lookback_months=120),
-            _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.yearly", scope="yearly", year=fin_year),
-        )
-    meeting_summary, meeting_agenda, meeting_comp, meeting_aoi, ownership, gov_report, fin_metrics = await others_task
     _mark("upstreams_total", stage_started_at)
 
     # 1번 안건 (재무제표 승인) 잠정 FS 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
@@ -2063,14 +2032,32 @@ async def build_proxy_advise_payload(
             _walk_agenda_tree(it.get("children", []), parent=t)
     _walk_agenda_tree(agenda_tree)
 
-    # 후보 평가 dict(name_to_eval) / director_evals / inside_renewed_candidates / perf_task 는
-    # 위 1차 gather 직후(방법 C: perf 조기 발사 지점)에서 이미 계산·발사됨.
+    # 후보 평가 dict — name → eval
+    director_data = (director_eval.get("data") or {})
+    director_evals = director_data.get("evaluations", []) or []
+    name_to_eval: dict[str, dict[str, Any]] = {}
+    for ev in director_evals:
+        nm = ev.get("name")
+        if nm:
+            name_to_eval[nm] = ev
+
     # ── 사내이사 재직 중 성과 매트릭스 (ralph 260505) ──
-    # perf_task가 있으면(사내이사 renewed) 회사 단위 성과 source(dividend+treasury+financial)를
-    # 회수한다 — perf는 director 완료 직후 이미 발사되어 나머지 1차와 겹쳐 돌고 있다.
-    if perf_task is not None:
+    # 사내이사 + renewed (또는 inside_director_default fallback) 후보가 있으면
+    # 추가로 dividend + treasury_share + financial_metrics yearly fetch → performance compute
+    inside_renewed_candidates = [
+        ev for ev in director_evals
+        if "사내" in (ev.get("role_type") or "")
+        and (ev.get("appointment_type") or {}).get("type") == "renewed"
+    ]
+    if inside_renewed_candidates:
+        # 회사 단위 한 번 fetch (모든 사내이사 동일 source 공유)
+        # 추가 호출 ~3개 (dividend + treasury + financial yearly)
         stage_started_at = time.perf_counter()
-        perf_div, perf_treas, perf_fin = await perf_task
+        perf_div, perf_treas, perf_fin = await asyncio.gather(
+            _safe_throttled(build_dividend_payload, company_query, timing_label="dividend.history", scope="history", years=5),
+            _safe_throttled(build_treasury_share_payload, company_query, timing_label="treasury_share.summary", scope="summary", lookback_months=120),
+            _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.yearly", scope="yearly", year=fin_year),
+        )
         _mark("inside_director_performance_upstreams", stage_started_at)
         # yearly 데이터 파싱
         roe_yearly: dict[int, float | None] = {}
