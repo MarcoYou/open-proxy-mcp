@@ -692,13 +692,21 @@ async def build_ownership_structure_payload(
 
     # 3개 정기보고서 API는 같은 corp_code/bsns_year로 병렬 호출 가능 (independent).
     # major는 실패 시 즉시 ERROR return하던 기존 동작 유지(asyncio.gather + return_exceptions).
+    # stock_total(발행총수)·treasury(자사주)는 summary 100% 분해와 control_map에서만 쓰인다.
+    # major_holders/blocks/changes scope는 불필요하므로 호출을 건너뛴다(scope당 2콜 절감).
+    # major는 top_holder/related_total 등 공유 로직에 얽혀 모든 scope에서 유지.
+    need_treasury_apis = scope in {"summary", "control_map"}
     major_task = client.get_major_shareholders(selected["corp_code"], bsns_year)
-    stock_total_task = client.get_stock_total(selected["corp_code"], bsns_year)
-    treasury_task = client.get_treasury_stock(selected["corp_code"], bsns_year)
     stage_started_at = time.perf_counter()
-    major_res, stock_total_res, treasury_res = await asyncio.gather(
-        major_task, stock_total_task, treasury_task, return_exceptions=True,
-    )
+    if need_treasury_apis:
+        stock_total_task = client.get_stock_total(selected["corp_code"], bsns_year)
+        treasury_task = client.get_treasury_stock(selected["corp_code"], bsns_year)
+        major_res, stock_total_res, treasury_res = await asyncio.gather(
+            major_task, stock_total_task, treasury_task, return_exceptions=True,
+        )
+    else:
+        (major_res,) = await asyncio.gather(major_task, return_exceptions=True)
+        stock_total_res = treasury_res = {"list": []}
     _mark("annual_report_apis", stage_started_at)
 
     # 1차: 사업보고서 hyslrSttus.
@@ -763,8 +771,12 @@ async def build_ownership_structure_payload(
             major_rows = fb_rows
             major_source = fb_source
 
+    # 5% 대량보유(majorstock)는 major_holders scope(명부 전용)에선 안 쓰여 스킵(1콜 절감).
     stage_started_at = time.perf_counter()
-    latest_blocks, timeline_rows, block_warning = await _latest_block_rows(selected["corp_code"])
+    if scope != "major_holders":
+        latest_blocks, timeline_rows, block_warning = await _latest_block_rows(selected["corp_code"])
+    else:
+        latest_blocks, timeline_rows, block_warning = [], [], None
     _mark("block_holders", stage_started_at)
     if block_warning:
         warnings.append(block_warning)

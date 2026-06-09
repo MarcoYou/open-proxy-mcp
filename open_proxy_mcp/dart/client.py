@@ -44,7 +44,11 @@ DART_WEB_BASE_URL = "https://dart.fss.or.kr"
 
 # ── Rate Limiting ──
 # API와 웹 스크래핑에 각각 다른 최소 간격 적용
-_MIN_INTERVAL_API = 0.1     # API: 최소 0.1초 간격 (race 방지용)
+# API 최소 간격: 순간 burst를 시간축에 펴는 평활화용(분당 window cap과 별개).
+# 0.066초 = 분당 상한 910 = _API_RATE_LIMIT_PER_MINUTE와 정합 → 단일 흐름이 window cap에
+# 도달 가능하면서 초당 ~15로 burst 평활. (이전 0.1초는 분당 600 상한이라 window cap을
+# 무력화 = 과보수. race는 _api_rate_lock이 직렬화로 보장하므로 간격과 무관.)
+_MIN_INTERVAL_API = 0.066
 _MIN_INTERVAL_WEB = 2.0     # 웹: 최소 2초 간격 (DDoS 오해 방지)
 # DART OpenAPI 분당 한도 1000회 — 초과 시 24h IP 차단 정책.
 # 실제 cap을 910으로 둠 (9% buffer, batch 동시 호출 race도 cover).
