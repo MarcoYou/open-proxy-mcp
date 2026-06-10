@@ -42,7 +42,7 @@ from open_proxy_mcp.services.dividend_v2 import build_dividend_payload  # noqa: 
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload  # noqa: E402
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload  # noqa: E402
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload  # noqa: E402
-from open_proxy_mcp.services.related_party_transaction import build_related_party_transaction_payload  # noqa: E402
+from open_proxy_mcp.services.corporate_deals import build_corporate_deals_payload  # noqa: E402
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload  # noqa: E402
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload  # noqa: E402
 from open_proxy_mcp.services.value_up_v2 import build_value_up_payload  # noqa: E402
@@ -68,7 +68,7 @@ LEGIT_NO_FILING_TOOLS = {
     "corporate_restructuring",
     "dilutive_issuance",
     "proxy_contest",
-    "related_party_transaction",
+    "corporate_deals",
 }
 SOFT_STATUSES = {"ambiguous", "partial", "requires_review", "conflict"}
 HARD_STATUSES = {"error", "search_error"}
@@ -130,7 +130,7 @@ async def _build_proxy_contest(query: str) -> dict[str, Any]:
 
 
 async def _build_rpt(query: str) -> dict[str, Any]:
-    return await build_related_party_transaction_payload(query, scope="summary", include_details=False)
+    return await build_corporate_deals_payload(query, scope="summary", include_details=False)
 
 
 TOOL_SPECS: dict[str, ToolSpec] = {
@@ -145,7 +145,7 @@ TOOL_SPECS: dict[str, ToolSpec] = {
     "corporate_restructuring": {"name": "corporate_restructuring", "bucket": "medium", "builder": _build_restructuring},
     "dilutive_issuance": {"name": "dilutive_issuance", "bucket": "medium", "builder": _build_dilutive},
     "proxy_contest": {"name": "proxy_contest", "bucket": "heavy", "builder": _build_proxy_contest},
-    "related_party_transaction": {"name": "related_party_transaction", "bucket": "medium", "builder": _build_rpt},
+    "corporate_deals": {"name": "corporate_deals", "bucket": "medium", "builder": _build_rpt},
 }
 
 DEFAULT_TOOLS = list(TOOL_SPECS.keys())

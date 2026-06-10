@@ -29,7 +29,7 @@ from open_proxy_mcp.services.evidence import build_evidence_payload  # noqa: E40
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload  # noqa: E402
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload  # noqa: E402
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload  # noqa: E402
-from open_proxy_mcp.services.related_party_transaction import build_related_party_transaction_payload  # noqa: E402
+from open_proxy_mcp.services.corporate_deals import build_corporate_deals_payload  # noqa: E402
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload  # noqa: E402
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload  # noqa: E402
 from open_proxy_mcp.services.value_up_v2 import build_value_up_payload  # noqa: E402
@@ -214,7 +214,7 @@ BASELINE_CASES: list[tuple[str, CaseFactory]] = [
     ("corporate_restructuring_summary", lambda: build_corporate_restructuring_payload("LG화학", scope="summary", start_date="2024-01-01", end_date="2026-05-10")),
     ("dilutive_issuance_summary", lambda: build_dilutive_issuance_payload("LG화학", scope="summary", start_date="2024-01-01", end_date="2026-05-10")),
     ("proxy_contest_summary", lambda: build_proxy_contest_payload("고려아연", scope="summary")),
-    ("related_party_transaction_summary", lambda: build_related_party_transaction_payload("삼성전자", scope="summary")),
+    ("corporate_deals_summary", lambda: build_corporate_deals_payload("삼성전자", scope="summary")),
     ("evidence", _build_evidence_case),
 ]
 

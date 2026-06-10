@@ -1,15 +1,15 @@
-"""v2 related_party_transaction public tool."""
+"""v2 corporate_deals public tool."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
-from open_proxy_mcp.services.related_party_transaction import build_related_party_transaction_payload
+from open_proxy_mcp.services.corporate_deals import build_corporate_deals_payload
 
 
 def _render_error(payload: dict[str, Any]) -> str:
-    lines = [f"# related_party_transaction: {payload.get('subject', '')}", ""]
+    lines = [f"# corporate_deals: {payload.get('subject', '')}", ""]
     for warning in payload.get("warnings", []):
         lines.append(f"- {warning}")
     return "\n".join(lines)
@@ -18,7 +18,7 @@ def _render_error(payload: dict[str, Any]) -> str:
 def _render_ambiguous(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     lines = [
-        f"# related_party_transaction: {data.get('query', '')}",
+        f"# corporate_deals: {data.get('query', '')}",
         "",
         "회사 식별이 애매해 자동 선택하지 않았다.",
         "",
@@ -52,7 +52,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     counts = data.get("event_count", {})
     usage = data.get("usage", {})
     lines = [
-        f"# {data.get('canonical_name', payload.get('subject', ''))} 내부거래·일감몰아주기 (related_party_transaction)",
+        f"# {data.get('canonical_name', payload.get('subject', ''))} 지분 인수·매각 / 공급계약 / 내부거래 (corporate_deals)",
         "",
         f"- company_id: `{data.get('company_id', '')}`",
         f"- scope: `{scope}`",
@@ -170,7 +170,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
 def register_tools(mcp):
 
     @mcp.tool()
-    async def related_party_transaction(
+    async def corporate_deals(
         company: str,
         scope: str = "summary",
         start_date: str = "",
@@ -179,15 +179,15 @@ def register_tools(mcp):
         details_limit: int = 5,
         format: str = "md",
     ) -> str:
-        """desc: 타법인주식 거래(취득/처분) + 단일공급계약(체결/해지) 공시 통합. 일감몰아주기·내부거래 모니터링. include_details=True면 거래 상대방/금액/자산대비비율/특수관계 힌트.
-        when: 출자 변경, 단일공급계약 체결 패턴(거래처 의존도), 자회사 주요경영사항 흐름 추적. 일감몰아주기 신호.
+        """desc: 회사·지분 인수/매각(타법인주식·출자증권 취득/처분) + 대형 단일공급계약(체결/해지) 공시 통합. 계열사 출자·회수, 일감몰아주기·내부거래·특수관계자 거래 모니터링. include_details=True면 거래 상대방/금액/자산대비비율/특수관계 힌트.
+        when: 어떤 회사를 인수했나/팔았나(지분 취득·처분·양수도), 계열사·자회사 출자와 회수, 투자 포트폴리오 재편, 단일공급계약 체결 패턴(거래처 의존도), 자회사 주요경영사항 흐름, 일감몰아주기 신호. 합병·분할·주식교환은 `corporate_restructuring`.
         rule: DART list.json — 타법인주식: B/I + 양수/양도/취득/처분결정 키워드 / 공급계약: I + 단일판매ㆍ공급계약체결/해지. 자회사 주요경영사항/자율공시/[기재정정] 플래그 별도 표시. 기본 lookback 24개월. include_details=True 시 최근 N건 원문 파싱(상대방·관계·금액·비율·목적).
         scope: `summary` 통합 timeline / `equity_deal` 타법인주식 / `supply_contract` 단일공급계약
         include_details: True면 원문 파싱 추가 (DART 호출 N회 증가).
         details_limit: 원문 파싱 건수 (기본 5, 최대 10).
-        ref: ownership_structure (지분 변화), corporate_restructuring (M&A 맥락), evidence (원문 확인)
+        ref: corporate_restructuring (합병/분할/주식교환), ownership_structure (지분 변화), evidence (원문 확인)
         """
-        payload = await build_related_party_transaction_payload(
+        payload = await build_corporate_deals_payload(
             company,
             scope=scope,
             start_date=start_date,

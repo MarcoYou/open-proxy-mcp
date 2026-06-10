@@ -45,7 +45,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 | tool | 한 줄 |
 |------|------|
 | [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류) |
-| [[related_party_transaction]] | 타법인주식 + 단일공급계약 (일감몰아주기) |
+| [[corporate_deals]] | 지분 인수·매각(타법인주식) + 단일공급계약 (일감몰아주기) — 구 related_party_transaction |
 | [[evidence]] | rcept_no → 공시일/소스/뷰어 URL (API 0회) |
 
 ### Action (2 — 시점 분리)
@@ -121,7 +121,7 @@ created: 2026-05-01
 | corp_gov_report | ✅ list/원문 | - | - | - | - |
 | corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - | - |
 | dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - | - |
-| related_party_transaction | ✅ list+키워드 | - | - | - | - |
+| corporate_deals | ✅ list+키워드 | - | - | - | - |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
 | evidence | - | - | - | - | - (문자열 가공) |
 | proxy_advise_before_meeting | upstream data tools | upstream | - | - | 판단 규칙/records |
@@ -143,7 +143,7 @@ created: 2026-05-01
 - `archive/analysis/value_up-tool-검증-예시.md` → `value_up.md`
 - `archive/analysis/corporate_restructuring-design.md` → `corporate_restructuring.md`
 - `archive/analysis/dilutive_issuance-design.md` → `dilutive_issuance.md`
-- `archive/analysis/related_party_transaction-design.md` → `related_party_transaction.md`
+- `archive/analysis/related_party_transaction-design.md` → `corporate_deals.md`
 - `archive/analysis/corp_gov_report-design.md` → `corp_gov_report.md`
 - `archive/analysis/evidence-tool-검증-예시.md` → `evidence.md`
 - `archive/analysis/release_v2-action-tool-검증-초안.md` → `proxy_advise_before_meeting.md` / `proxy_result_after_meeting.md`

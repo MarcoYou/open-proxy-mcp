@@ -1,4 +1,4 @@
-"""v2 related_party_transaction data tool.
+"""v2 corporate_deals data tool.
 
 타법인주식 거래 + 단일판매·공급계약 공시 통합. 일감몰아주기·내부거래 모니터링 소스.
 
@@ -368,7 +368,7 @@ async def _fetch_supply_contracts(corp_code: str, corp_name: str, bgn_de: str, e
 
 def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]:
     return ToolEnvelope(
-        tool="related_party_transaction",
+        tool="corporate_deals",
         status=AnalysisStatus.REQUIRES_REVIEW,
         subject=company_query,
         warnings=[f"`{scope}` scope 미지원."],
@@ -380,7 +380,7 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
     ).to_dict()
 
 
-async def build_related_party_transaction_payload(
+async def build_corporate_deals_payload(
     company_query: str,
     *,
     scope: str = "summary",
@@ -395,7 +395,7 @@ async def build_related_party_transaction_payload(
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(
-            tool="related_party_transaction",
+            tool="corporate_deals",
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
@@ -404,7 +404,7 @@ async def build_related_party_transaction_payload(
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
-            tool="related_party_transaction",
+            tool="corporate_deals",
             status=AnalysisStatus.AMBIGUOUS,
             subject=company_query,
             warnings=["회사 식별이 애매해 자동 선택하지 않았다."],
@@ -565,7 +565,7 @@ async def build_related_party_transaction_payload(
         warnings.append(f"원문 파싱 실패 {filing_meta['parsing_failures']}건 — details 필드 비어 있음")
 
     return ToolEnvelope(
-        tool="related_party_transaction",
+        tool="corporate_deals",
         status=status,
         subject=selected.get("corp_name", company_query),
         warnings=warnings,

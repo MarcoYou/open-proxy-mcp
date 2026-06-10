@@ -27,6 +27,7 @@ TOOL_TO_FAMILY = {
     "dilutive_issuance": "DS005 이벤트 계열",
     "proxy_contest": "분쟁 / 내부거래 계열",
     "related_party_transaction": "분쟁 / 내부거래 계열",
+    "corporate_deals": "분쟁 / 내부거래 계열",
 }
 
 

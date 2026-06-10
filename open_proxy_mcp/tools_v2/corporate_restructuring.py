@@ -176,9 +176,9 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 지배구조 재편 4종(합병/분할/분할합병/주식교환·이전) 결정 통합. 합병비율·상대방 재무·신주발행·외부평가·주식매수청구권 + timeline + detail card.
-        when: M&A·지주회사 전환·자회사 흡수 분석. 주식매수청구권 가격, 합병비율, 상대방 재무 비교.
+        when: M&A 중 합병·분할·주식교환 형태, 지주회사 전환, 자회사 흡수 분석. 주식매수청구권 가격, 합병비율, 상대방 재무 비교. 단순 지분 인수·매각(주식 양수도)은 `corporate_deals`.
         rule: DART DS005 4 API 병렬 — cmpMgDecsn/cmpDvDecsn/cmpDvmgDecsn/stkExtrDecsn. 기본 lookback 24개월.
-        ref: ownership_structure, shareholder_meeting_notice, evidence
+        ref: corporate_deals (지분 인수·매각), ownership_structure, shareholder_meeting_notice, evidence
         """
         payload = await build_corporate_restructuring_payload(
             company,

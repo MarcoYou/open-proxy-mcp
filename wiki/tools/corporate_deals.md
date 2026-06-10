@@ -1,6 +1,6 @@
 ---
 type: tool
-title: related_party_transaction
+title: corporate_deals
 domain: data
 scope: [summary, equity_deal, supply_contract]
 data_source: [DART OpenAPI list.json (B/I) + 키워드 매칭 (타법인주식 4종 / 단일공급계약 2종) + document.xml (include_details=True 시 본문 파싱)]
@@ -11,14 +11,16 @@ related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
 created: 2026-05-01
 ---
 
-# related_party_transaction
+# corporate_deals
+
+> 구 명칭 `related_party_transaction` (2026-06-10 rename). 기능 변화 없음 — "인수/매각" 류 자연어 질의가 tool 라우팅에 실패해 이름·desc를 포괄형으로 교정.
 
 ## 한 줄 요약
-타법인주식 거래(취득/처분) + 단일판매·공급계약(체결/해지) 통합. 일감몰아주기·내부거래 모니터링. 기본은 list.json 메타, `include_details=True`면 원문 파싱으로 거래 상대방/금액/자산대비비율/특수관계 힌트까지 노출.
+회사·지분 인수/매각(타법인주식 취득/처분) + 단일판매·공급계약(체결/해지) 통합. 계열사 출자·회수, 일감몰아주기·내부거래 모니터링. 기본은 list.json 메타, `include_details=True`면 원문 파싱으로 거래 상대방/금액/자산대비비율/특수관계 힌트까지 노출.
 
 ## 사용법
 ```
-related_party_transaction(
+corporate_deals(
     company="POSCO홀딩스",
     scope="summary",
     include_details=True,
@@ -105,7 +107,7 @@ scope:
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant T as related_party_transaction
+    participant T as corporate_deals
     participant R as resolve_company_query
     participant DL as DART list.json (B/I)
     participant DX as DART document.xml (본문)
@@ -178,3 +180,4 @@ sequenceDiagram
 - 2026-04-29: include_details=True 원문 파싱 보강
 - 2026-04-29: 200기업 audit 67.3% exact
 - 2026-05-01: tool wiki 페이지 작성
+- 2026-06-10: tool명 `related_party_transaction` → `corporate_deals` rename. "SK스퀘어가 인수하거나 매각한 회사" 류 질의가 tool 라우팅에 실패(이름·desc에 인수/매각 어휘 부재 + corporate_restructuring이 M&A 선점) → 이름 포괄형 교정 + desc/when에 인수·매각·출자·회수 어휘 보강 + restructuring과 상호 경계 문구. 기능·scope·파싱 변화 0.
