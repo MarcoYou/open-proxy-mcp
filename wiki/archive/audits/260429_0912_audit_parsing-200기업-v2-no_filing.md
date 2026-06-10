@@ -7,6 +7,9 @@ date: 2026-04-29
 related_tools: [company, corp_gov_report, corporate_restructuring, dilutive_issuance, dividend, evidence, ownership_structure, proxy_contest, related_party_transaction, treasury_share, value_up]
 ---
 
+> **archived 2026-06-11**: [[260510_parsing_audit_통합정리]]에 흡수
+
+
 # 파서 전수 audit v2 2026-04-29 — no_filing 분리
 
 11 data tool에 새 메타(`no_filing`/`filing_count`/`parsing_failures`)를 도입해

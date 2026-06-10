@@ -7,6 +7,9 @@ related_audits: [260503_1847_audit_phase4_final, 260503_2304_audit_recap_pattern
 result: regression 0 (P4 baseline 197/197 동일) + 일관성 100%
 ---
 
+> **archived 2026-06-11**: [[260510_proxy_advise_audit_통합정리]]에 흡수
+
+
 # proxy_advise rename + scope 확장 regression audit
 
 새 통합 action tool `proxy_advise_before_meeting` (옛 `advise_vote_before_meeting` rename + 9 scope 추가) 후 Phase 4 baseline과 동일 결과 보장 검증.

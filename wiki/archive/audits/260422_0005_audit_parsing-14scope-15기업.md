@@ -7,6 +7,9 @@ date: 2026-04-22
 related_tools: [corp_gov_report]
 ---
 
+> **archived 2026-06-11**: [[260510_parsing_audit_통합정리]]에 흡수
+
+
 # 확장 파싱 audit (2026-04-22)
 
 2026-04-21 audit에 다음 차원을 추가한 심화 측정:

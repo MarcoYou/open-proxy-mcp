@@ -7,6 +7,9 @@ related_ralph: 260504_0014_ralph_parse-personnel-xml-verification
 result: 7/8 필드 ≥95% 충족 + careerDetails empty 4.9% ≤10% + regression 0 + G2 99.36% 유지
 ---
 
+> **archived 2026-06-11**: [[260510_proxy_advise_audit_통합정리]]에 흡수
+
+
 # parse_personnel_xml 강화 audit (ralph 7 iter)
 
 ralph [[260504_0014_ralph_parse-personnel-xml-verification]] 진행 결과.

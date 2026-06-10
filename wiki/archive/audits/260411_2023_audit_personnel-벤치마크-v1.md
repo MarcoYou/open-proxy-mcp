@@ -7,6 +7,9 @@ related: [3-tier-fallback, 파서-판정-등급, agm-case-rule]
 related_decisions: [파서-성능-추이]
 ---
 
+> **archived 2026-06-11**: v1 벤치마크 — 260429 personnel-878명 audit → [[260510_parsing_audit_통합정리]]로 2단계 대체
+
+
 # 경력 파서 벤치마크 (2026-04)
 
 ## 요약

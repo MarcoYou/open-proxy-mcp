@@ -6,6 +6,9 @@ related: [parsing-audit-2026-04-29-v2, parsing-fix-2026-04-29-cgr-financial]
 date: 2026-04-29
 ---
 
+> **archived 2026-06-11**: [[260510_parsing_audit_통합정리]]에 흡수
+
+
 # 인사 파서 audit 2026-04-29 — 후보자/경력 정확도 95% 달성
 
 `shareholder_meeting`의 personnel 파서 (이사·감사 후보자 + 경력) 전수 점검.

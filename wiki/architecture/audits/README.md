@@ -1,7 +1,7 @@
 ---
 type: readme
 title: Architecture Audits 정리본
-updated: 2026-06-01
+updated: 2026-06-11
 ---
 
 # Architecture Audits
@@ -59,9 +59,6 @@ updated: 2026-06-01
 | proxy advise metric gap | [[260528_proxy_advise_metric_gap_audit]] | 고려아연/LG화학/솔루엠/KT&G 응답 검토 후 REVIEW guardrail·법령 layer·보수한도/정관 표현 gap 정리 |
 | advise / proxy_advise 전체 흐름 | [[260510_proxy_advise_audit_통합정리]] | sanity → 실패 → 수렴 → framework 통합 |
 | proxy_advise Word 문서 양식 | [[../proxy_advise_word_report_design]] | 샘플 기반 Word export 설계 |
-| recap pattern | [[260503_2304_audit_recap_pattern]] | recap 전용 |
-| proxy_contest baseline | [[260503_2330_audit_proxy_contest_baseline]] | “fix 불필요” 결정 기록 |
-| ownership baseline | [[260503_2345_audit_ownership_baseline]] | “fix 불필요” 결정 기록 |
 
 ### 메타 / 유지보수
 
@@ -73,6 +70,12 @@ updated: 2026-06-01
 ## 대체됨 / 이력
 
 아래 문서들은 삭제 대상은 아니지만, “지금 기준 문서”로 읽으면 안 된다.
+
+> 2026-06-11: 흡수·대체 완료된 audit 15건은 `wiki/archive/audits/`로 이동 (각 파일 상단에
+> archived 사유 명시). [[링크]]는 이름 기반이라 그대로 동작한다. 이동 목록 — 통합정리 흡수
+> 11건(parsing 5 / advise 5 / financial 1) + 결론 대체 4건(personnel-벤치마크-v1,
+> proxy_contest_baseline·ownership_baseline “fix 불필요”가 6/5~6/10 재작업으로 뒤집힘,
+> recap_pattern은 scope 10→1에서 폐기된 흐름).
 
 ### Parsing 계보
 - [[260510_parsing_audit_통합정리]]

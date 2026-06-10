@@ -8,6 +8,9 @@ related_ralph: [260503_0002_ralph_proxy-advise-verification]
 related_tools: [proxy_advise_before_meeting]
 ---
 
+> **archived 2026-06-11**: [[260510_proxy_advise_audit_통합정리]]에 흡수
+
+
 # Phase 4 final audit (PROMISE 충족)
 
 ## 적용 fix (F6-F11, commit `d949f68`)

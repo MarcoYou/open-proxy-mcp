@@ -6,6 +6,9 @@ related: [OpenProxy-MCP, parsing-audit, 파서-판정-등급]
 date: 2026-04-21
 ---
 
+> **archived 2026-06-11**: [[260510_parsing_audit_통합정리]]에 흡수
+
+
 # 파싱 audit 매트릭스 (2026-04-21)
 
 v2 data tool 10종의 파싱 건강도를 20개 대표 기업 표본에 대해 전수 측정한 결과.

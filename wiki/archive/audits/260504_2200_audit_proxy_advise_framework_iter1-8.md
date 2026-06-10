@@ -8,6 +8,9 @@ status: PASS
 related_tools: [proxy_advise_before_meeting]
 ---
 
+> **archived 2026-06-11**: [[260510_proxy_advise_audit_통합정리]]에 흡수
+
+
 # proxy_advise framework enrichment — 최종 audit
 
 ralph 5 gate (G1~G5) 중 핵심 4 gate 모두 충족.

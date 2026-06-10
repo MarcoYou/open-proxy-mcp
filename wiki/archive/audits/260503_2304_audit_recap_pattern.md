@@ -8,6 +8,9 @@ result: 일치율 100.0% (195/195) + timeout 0 + cache 효과 검증
 related_ralph: [260503_0002_ralph_proxy-advise-verification]
 ---
 
+> **archived 2026-06-11**: recap_vote는 proxy_advise scope 10→1 정리(2026-05-05)에서 폐기된 흐름
+
+
 # recap_vote — multi-upstream-pattern 검증 audit
 
 advise_vote Phase 4 (commit `d949f68`)에서 도출한 5 요소 패턴을 recap_vote에 적용 후 200×3 batch로 검증. **다른 tool에도 동일 효과 입증**.

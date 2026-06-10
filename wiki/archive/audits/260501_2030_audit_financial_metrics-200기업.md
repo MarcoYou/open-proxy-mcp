@@ -8,6 +8,9 @@ universe: KOSPI 100 + KOSDAQ 100 (실제 95+99=194, 중복/매핑실패 제외)
 result: status=exact 96.9% (188/194), 자본잠식 발견 2건
 ---
 
+> **archived 2026-06-11**: [[260510_financial_metrics_audit_통합정리]]에 흡수
+
+
 # financial_metrics 200기업 전수 audit (Phase 1 production readiness)
 
 ## 환경
