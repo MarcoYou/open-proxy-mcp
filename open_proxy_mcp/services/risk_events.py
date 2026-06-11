@@ -171,7 +171,8 @@ def _parse_embezzlement(text: str, lines: list[str], stage: str) -> dict[str, An
 
 def _parse_derivative_loss(text: str, lines: list[str], stage: str) -> dict[str, Any]:
     return {
-        "loss_amount_won": _find_amount_near(text, "손실누계액") or _find_amount_near(text, "거래손실액") or _find_amount_near(text, "손실액"),
+        # 실제 양식 라벨 = "손실누계잔액(원)(기신고분 제외)" (90일 25건 실측)
+        "loss_amount_won": _find_amount_near(text, "손실누계잔액") or _find_amount_near(text, "손실누계액") or _find_amount_near(text, "거래손실액") or _find_amount_near(text, "손실액"),
         "equity_ratio_pct": _find_pct_near(text, "자기자본대비") or _find_pct_near(text, "자기자본 대비"),
         "summary_excerpt": re.sub(r"\s+", " ", text)[:300],
     }
@@ -179,9 +180,13 @@ def _parse_derivative_loss(text: str, lines: list[str], stage: str) -> dict[str,
 
 def _parse_production_halt(text: str, lines: list[str], stage: str) -> dict[str, Any]:
     return {
-        "halted_business": _find_value_after(lines, "중단(정지)된", 3) or _find_value_after(lines, "생산중단분야", 2) or _find_value_after(lines, "중단내용", 2),
+        # 생산중단 양식 = "생산중단분야", 영업정지 양식 = "영업정지 분야" (90일 27건 실측)
+        "halted_business": _find_value_after(lines, "생산중단분야", 2) or _find_value_after(lines, "생산중단 분야", 2)
+        or _find_value_after(lines, "영업정지 분야", 2) or _find_value_after(lines, "영업정지분야", 2)
+        or _find_value_after(lines, "중단(정지)된", 3) or _find_value_after(lines, "중단내용", 2),
         "revenue_ratio_pct": _find_pct_near(text, "매출액대비") or _find_pct_near(text, "매출액 대비"),
-        "reason": _find_block_after(text, "중단사유", ("3.", "향후")) or _find_block_after(text, "정지사유", ("3.", "향후")),
+        "reason": _find_block_after(text, "생산중단사유", ("5.", "향후")) or _find_block_after(text, "영업정지사유", ("5.", "향후"))
+        or _find_block_after(text, "중단사유", ("3.", "향후")) or _find_block_after(text, "정지사유", ("3.", "향후")),
         "summary_excerpt": re.sub(r"\s+", " ", text)[:300],
     }
 
@@ -210,6 +215,9 @@ _PARSERS = {
 
 def _parse_document(html: str, category: str, stage: str) -> dict[str, Any]:
     text = _extract_text(html)
+    # 일부 거래소 채널 공시(예: 영업정지(종속회사)) 본문이 빈 문서 — parsing failure로 집계
+    if len(text.strip()) < 30:
+        return {}
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     parser = _PARSERS.get(category, _parse_generic)
     return parser(text, lines, stage)
