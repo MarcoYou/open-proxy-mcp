@@ -1,18 +1,18 @@
 ---
 type: readme
-title: tools/ — Tool 카탈로그 (16 tool 진입점)
+title: tools/ — Tool 카탈로그 (17 tool 진입점)
 updated: 2026-06-01
 ---
 
 # tools/ — Tool 카탈로그
 
-> OPM v2 의 16 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
+> OPM v2 의 17 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
 > 각 tool 1 페이지, 통일 schema (frontmatter + 한 줄 요약 + 사용법 + 입력 인자 + 출력 schema + Data sources + 파싱 전략 + 관련 공시/개념/결정/audit + 알려진 issue + 변경 이력).
 > 도메인 개념 / 공시 본문 / 정책 결정 정보는 본 폴더에 중복 X. `rules/concepts/`, `rules/disclosures/`, `decisions/`, `architecture/audits/` 로 link만 한다.
 
 Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 
-## 빠른 진입표 (16 tool)
+## 빠른 진입표 (17 tool)
 
 ### Company (1)
 | tool | 한 줄 |
@@ -41,11 +41,12 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 | [[corporate_restructuring]] | 합병/분할/주식교환·이전 4종 (DS005, 단일 통합) |
 | [[dilutive_issuance]] | 유상증자/CB/BW/감자 4종 (희석률·refixing, 단일 통합) |
 
-### Data — 분쟁·내부거래·근거 (3)
+### Data — 분쟁·내부거래·근거 (4)
 | tool | 한 줄 |
 |------|------|
 | [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류) |
 | [[corporate_deals]] | 지분 인수·매각(타법인주식) + 단일공급계약 (일감몰아주기) — 구 related_party_transaction |
+| [[serious_accident]] | 중대재해발생·처벌확인 (본사/종속·자회사, I001 타겟) — 중대재해처벌법 리스크 |
 | [[evidence]] | rcept_no → 공시일/소스/뷰어 URL (API 0회) |
 
 ### Action (2 — 시점 분리)
@@ -93,7 +94,7 @@ created: 2026-05-01
 |--------|---------|---------|
 | Company | 1 | corpCode/company/list 기반 식별 |
 | Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
-| Data | 10 | DART API 1-14회 병렬, 일부 KIND fallback |
+| Data | 11 | DART API 1-14회 병렬, 일부 KIND fallback |
 | Evidence | 1 | rcept_no 문자열 기반 URL 생성 |
 | Action | 2 | upstream data tool 병렬 호출 후 판단/요약 |
 
@@ -122,6 +123,7 @@ created: 2026-05-01
 | corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - | - |
 | dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - | - |
 | corporate_deals | ✅ list+키워드 | - | - | - | - |
+| serious_accident | ✅ list(I001)+키워드 | - | - | - | - |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
 | evidence | - | - | - | - | - (문자열 가공) |
 | proxy_advise_before_meeting | upstream data tools | upstream | - | - | 판단 규칙/records |

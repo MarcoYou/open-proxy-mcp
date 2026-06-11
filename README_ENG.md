@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-16-orange.svg)](#tool-structure-16-tools)
+[![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-structure-17-tools)
 [![Release](https://img.shields.io/badge/release-v2.0-blue.svg)](#release-notes-v20)
 
 [Korean README](README.md)
@@ -69,7 +69,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 16 tools are automatically recognized
+4. Click "Add" → 17 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -110,13 +110,13 @@ Once connected, just ask in natural language:
 "Create a KT&G AGM voting memo"                                   # Open Proxy Guideline recommendation
 ```
 
-More usage patterns → [wiki/tools/README.md](wiki/tools/README.md) (16 tool catalog).
+More usage patterns → [wiki/tools/README.md](wiki/tools/README.md) (17 tool catalog).
 
 ---
 
-## Tool Structure (16 tools)
+## Tool Structure (17 tools)
 
-16 tools follow the flow **Company → Meeting/Data/Evidence → Action**.
+17 tools follow the flow **Company → Meeting/Data/Evidence → Action**.
 
 ```text
 OpenProxy MCP
@@ -140,7 +140,8 @@ OpenProxy MCP
 │  ├─ corporate_restructuring
 │  ├─ dilutive_issuance
 │  ├─ proxy_contest
-│  └─ corporate_deals
+│  ├─ corporate_deals
+│  └─ serious_accident
 │
 ├─ Evidence
 │  └─ evidence
@@ -168,7 +169,7 @@ OpenProxy MCP
 |---|---|---|
 | Company | `company` | Company identification and common filings index |
 | Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | Pre/post AGM data |
-| Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `corporate_deals` | Filing, financial, ownership, and governance parsers |
+| Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `corporate_deals`, `serious_accident` | Filing, financial, ownership, and governance parsers |
 | Evidence | `evidence` | Source tracking from filing receipt numbers |
 | Action | `proxy_advise_before_meeting`, `proxy_result_after_meeting` | Compose multiple data tools into recommendations/reports |
 
@@ -263,7 +264,7 @@ Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 classification coverage 100%, dis
 ```
 open_proxy_mcp/
   server.py                # FastMCP server (stdio + HTTP)
-  tools_v2/                # 16 tools (active)
+  tools_v2/                # 17 tools (active)
   services/                # Domain logic layer (separated from tools)
   dart/client.py           # DART API + KIND fallback + rate limiter (cap 910/min)
   data/asset_managers/     # Anonymized institutional policy corpus + Open Proxy Guideline + 12 matrices
@@ -273,7 +274,7 @@ scripts/
 wiki/                      # LLM domain knowledge — botanical tree order
   raw/                     # 🌱 Root — external originals (read-only)
   rules/                   # 🪵 Trunk — concepts/ + disclosures/ + laws/ (Korean capital market facts)
-  tools/                   # 🌿 Main branch — 16 tool catalog (user entry point)
+  tools/                   # 🌿 Main branch — 17 tool catalog (user entry point)
   decisions/               # 🌿 Main branch — OPM policy (open-proxy-guideline, etc.)
   architecture/            # 🌿 Main branch (core) + 🌾 sub-branch (audits/ + fixes/)
   ralph/                   # 🌾 Sub-branch — work plans (chronological)

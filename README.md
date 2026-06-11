@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-16-orange.svg)](#tool-구조-16개)
+[![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-구조-17개)
 [![Release](https://img.shields.io/badge/release-v2.0-blue.svg)](#릴리즈-노트-v20)
 
 [English README](README_ENG.md)
@@ -27,7 +27,7 @@
 - **[주주환원](docs/features/shareholder-return.md)**: 배당·자기주식 소각 사이클·밸류업 계획을 묶어 환원 정책의 약속과 실제 집행을 비교합니다.
 - **[재무지표](docs/features/financials.md)**: DART 재무 endpoint 통합 — 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이.
 
-그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 특수관계자 거래 등은 [16개 tool 카탈로그](wiki/tools/README.md)에서 확인할 수 있습니다.
+그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 특수관계자 거래 등은 [17개 tool 카탈로그](wiki/tools/README.md)에서 확인할 수 있습니다.
 
 ---
 
@@ -110,25 +110,25 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 1. `고려아연 경영권 분쟁 관련 공시 알려줘`
 2. `현재 지분 구조와 5% 보유자 변화를 같이 보여줘`
 
-더 많은 사용 패턴 → [wiki/tools/README.md](wiki/tools/README.md) (16 tool 카탈로그) 참조.
+더 많은 사용 패턴 → [wiki/tools/README.md](wiki/tools/README.md) (17 tool 카탈로그) 참조.
 
 ---
 
-## Tool 구조 (16개)
+## Tool 구조 (17개)
 
-OpenProxy MCP의 16개 tool은 **Company → Meeting/Data/Evidence → Action** 흐름으로 동작합니다.
+OpenProxy MCP의 17개 tool은 **Company → Meeting/Data/Evidence → Action** 흐름으로 동작합니다.
 
 | Layer | Tools | 역할 |
 |---|---|---|
 | Company | `company` | 기업 식별과 공통 공시 인덱스 |
 | Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | 주총 전/후 데이터 |
-| Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `ownership_structure`, `corporate_deals`, `proxy_contest`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
+| Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `ownership_structure`, `corporate_deals`, `proxy_contest`, `serious_accident`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
 | Evidence | `evidence` | 공시번호 기반 출처 추적 |
 | Action | `proxy_advise_before_meeting`, `proxy_result_after_meeting` | 여러 data tool을 묶어 판단/보고 생성 |
 
 상세 문서는 아래에서 확인합니다.
 
-- [Tool 카탈로그](wiki/tools/README.md): 16개 public tool의 scope, 입력, 출력, data source
+- [Tool 카탈로그](wiki/tools/README.md): 17개 public tool의 scope, 입력, 출력, data source
 - [Data tool disclosure map](wiki/tools/data_tool_disclosure_map.md): data tool별 참조 공시 유형
 - [의결권 판단 구조](wiki/architecture/proxy-voting-decision-tree.md): `proxy_advise_before_meeting` 판단 흐름
 - [프로젝트 구조](wiki/architecture/project_structure.md): 코드와 wiki 디렉터리 구조

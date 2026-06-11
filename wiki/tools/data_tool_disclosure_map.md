@@ -11,6 +11,7 @@ related_tools:
   - ownership_structure
   - proxy_contest
   - corporate_deals
+  - serious_accident
   - treasury_share
   - value_up
 ---
@@ -31,6 +32,7 @@ related_tools:
 | [[ownership_structure]] | 대량보유상황보고서, 임원·주요주주특정증권등소유상황보고서, 사업보고서, 최대주주등소유주식변동신고서 | 최대주주, 5% 보유, 임원·주요주주, control map |
 | [[proxy_contest]] | 위임장권유참고서류, 소송등의제기, 경영권분쟁소송, 대량보유상황보고서, 주주총회결과 | 위임장, 소송, 5% 활성 신호, vote math |
 | [[corporate_deals]] | 타법인주식및출자증권거래, 단일판매공급계약체결 | 내부거래와 일감몰아주기 모니터링 |
+| [[serious_accident]] | 중대재해발생(본사/종속·자회사), 중대재해관련(형사)처벌사실확인 | 중대재해처벌법 리스크·ESG 안전 모니터링 |
 | [[treasury_share]] | 자기주식취득결정, 자기주식처분결정, 자기주식소각결정, 자기주식신탁결정, 사업보고서 | 결정, 결과보고서, 신탁, 연간 잔고·소각 |
 | [[value_up]] | 기업가치제고계획, 자기주식취득결정, 자기주식소각결정 | 기업가치제고계획과 자사주 이행 cross-reference |
 
@@ -45,5 +47,6 @@ related_tools:
 - [[ownership_structure]]
 - [[proxy_contest]]
 - [[corporate_deals]]
+- [[serious_accident]]
 - [[treasury_share]]
 - [[value_up]]

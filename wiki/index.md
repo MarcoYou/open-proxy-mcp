@@ -10,12 +10,12 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (16 tool, 2026-06-01 정리)
+### 도메인별 (17 tool, 2026-06-11 정리)
 - **Company (1)**: [[company]]
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
-- **Data (10)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[corp_gov_report]]
+- **Data (11)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[serious_accident]] · [[corp_gov_report]]
 - **Evidence (1)**: [[evidence]]
 - **Action (2, 시점 분리)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합) · [[proxy_result_after_meeting]] (3 scope)
 
@@ -24,7 +24,8 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - `director_performance` — 사내이사 재직 중 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend) — proxy_advise 사내이사 분기에 wire
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
-### 주요 변화 (2026-05-04 ~ 06-10)
+### 주요 변화 (2026-05-04 ~ 06-11)
+- **serious_accident tool 신설 — 17번째 tool (2026-06-11)** — 중대재해 공시 통합(발생 본사/종속·자회사 + 처벌사실확인). 사전 검증 **305사 × 3.5년**(고위험 49 + KOSPI100·KOSDAQ100 + 건설·전문건설 56): 'I 전체' vs **I001 차집합 0** + truncation 0 + 전체유형 풀스캔 **누수 0** → I001 타겟팅. 공시 79건 전수 — **대형 원청·지주사 집중**(KOSDAQ 상위 100 보유 0, 중소형 건설 35사 0건, 한화 6·한화에어로 4 최다). 제목 변형 5종을 '중대재해' 단일 키워드로 커버. include_details 시 사망·부상자/발생일자·장소/조치 파싱 + **사상자 집계(같은 사건 정정은 최신 공시로 supersede)**. 제도 시점 주의: 수시공시 신설 2025-10 (실측 최초 2025-10-29) → 이전 무공시 ≠ 무사고 warning 자동 부착. 한화오션/POSCO홀딩스/HD현대중공업/농심 스모크 통과. ([[serious_accident]])
 - **related_party_transaction → corporate_deals rename (2026-06-10)** — "SK스퀘어가 인수하거나 매각한 회사" 질의가 tool 라우팅 실패. 원인 = 이름·desc에 사용자 어휘(인수/매각) 부재 + 이름이 기능 절반(지분 딜 추적)보다 좁음 + corporate_restructuring이 "M&A" 선점. scope 분기 대신 **rename + desc 사용자 어휘 보강**("어떤 회사를 인수했나/팔았나", 출자·회수) + restructuring과 **양방향 경계 문구**. 내부 plumbing 전면 통일, 기능 변화 0, SK스퀘어 회귀 동일(취득4/처분3). ([[lessons/tool-naming-discovery-260610]])
 - **proxy_advise 2단계 조기 발사 시도 → 실측 반증 → 롤백 (2026-06-10)** — perf를 director gate 판단 후 1차 완료 전 조기 발사. component-timing 모델상 이득 1.7초(회귀 수학적 불가능, before/after bit-identical)였으나 **wall-clock 실측에서 반증**: 복잡 20개 손해 16/20, 흔한 15개 손해 12/15, 평균 음수. 측정 노이즈(같은 코드 2회 차이 중앙 426ms)가 효과(-350ms)보다 커 이득이 묻힘 + Semaphore(3)·throttle 경합으로 약한 손해 경향 → 롤백. 교훈: component 모델 ≠ wall-clock, 효과 측정 전 노이즈 baseline 필수. ([[lessons/proxy-advise-stage2-parallel-260610]])
 - **ownership_structure summary 재설계 + 정합성 버그 2건 (2026-06-10)** — "고려아연 지분구조" 질문에서 출발. summary 헤드라인을 **명부 단독 vs 본인+특관 vs 5% 실세**로 라벨 분리(집계 기준 다름), **지분 구성 100% 정합 분해**(명부+자사주+기타, 5%보고는 보고자 중복이라 합산 100% 불가) 추가, 노이즈 컷·블록 병합(6→3블록). changes scope를 **I004(최대주주변동신고서)**로 좁히고 **5% 대량보유 변동 통합**(분쟁사는 5%보고로 움직여 I004만 보면 빔, 고려아연 0→15건). director_evaluation **E006** narrowing. 33개사 스크리닝으로 정합성 버그 교정: **셀트리온 issued=0**(우선주 없는 회사는 `합계` 행만 → 보통주 행 가정 실패 → 합계 fallback), **금호석유 resolve 실패**(정식명 prefix 단일후보 자동선택). 펀드형(맥쿼리인프라) issued=0 안내. ([[lessons/ownership-summary-integrity-260610]])
@@ -156,6 +157,7 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[dilutive_issuance]] - 유상증자/CB/BW/감자
 - [[proxy_contest]] - 위임장/소송/5%/vote_math
 - [[corporate_deals]] - 지분 인수·매각(타법인주식) + 단일공급계약 (구 related_party_transaction)
+- [[serious_accident]] - 중대재해발생·처벌확인 (중대재해처벌법 리스크)
 
 ### Evidence (1)
 - [[evidence]] - rcept_no -> 공시일/소스/뷰어 URL
