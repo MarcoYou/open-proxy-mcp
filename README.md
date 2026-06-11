@@ -122,7 +122,7 @@ OpenProxy MCP의 17개 tool은 **Company → Meeting/Data/Evidence → Action** 
 |---|---|---|
 | Company | `company` | 기업 식별과 공통 공시 인덱스 |
 | Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | 주총 전/후 데이터 |
-| Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `ownership_structure`, `corporate_deals`, `proxy_contest`, `serious_accident`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
+| Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `ownership_structure`, `corporate_deals`, `proxy_contest`, `risk_events`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
 | Evidence | `evidence` | 공시번호 기반 출처 추적 |
 | Action | `proxy_advise_before_meeting`, `proxy_result_after_meeting` | 여러 data tool을 묶어 판단/보고 생성 |
 

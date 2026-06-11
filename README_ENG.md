@@ -141,7 +141,7 @@ OpenProxy MCP
 │  ├─ dilutive_issuance
 │  ├─ proxy_contest
 │  ├─ corporate_deals
-│  └─ serious_accident
+│  └─ risk_events
 │
 ├─ Evidence
 │  └─ evidence
@@ -169,7 +169,7 @@ OpenProxy MCP
 |---|---|---|
 | Company | `company` | Company identification and common filings index |
 | Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | Pre/post AGM data |
-| Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `corporate_deals`, `serious_accident` | Filing, financial, ownership, and governance parsers |
+| Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `corporate_deals`, `risk_events` | Filing, financial, ownership, and governance parsers |
 | Evidence | `evidence` | Source tracking from filing receipt numbers |
 | Action | `proxy_advise_before_meeting`, `proxy_result_after_meeting` | Compose multiple data tools into recommendations/reports |
 

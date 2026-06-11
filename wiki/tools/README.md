@@ -46,7 +46,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 |------|------|
 | [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류) |
 | [[corporate_deals]] | 지분 인수·매각(타법인주식) + 단일공급계약 (일감몰아주기) — 구 related_party_transaction |
-| [[serious_accident]] | 중대재해발생·처벌확인 (본사/종속·자회사, I001 타겟) — 중대재해처벌법 리스크 |
+| [[risk_events]] | 리스크 이벤트 6종 — 중대재해/횡령배임/파생손실/회생·부도/생산중단·영업정지/해산 (I001+B001, 시장 스캔) |
 | [[evidence]] | rcept_no → 공시일/소스/뷰어 URL (API 0회) |
 
 ### Action (2 — 시점 분리)
@@ -123,7 +123,7 @@ created: 2026-05-01
 | corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - | - |
 | dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - | - |
 | corporate_deals | ✅ list+키워드 | - | - | - | - |
-| serious_accident | ✅ list(I001)+키워드 | - | - | - | - |
+| risk_events | ✅ list(I001+B001)+키워드 | - | - | - | - |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
 | evidence | - | - | - | - | - (문자열 가공) |
 | proxy_advise_before_meeting | upstream data tools | upstream | - | - | 판단 규칙/records |
