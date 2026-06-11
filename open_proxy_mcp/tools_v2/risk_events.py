@@ -175,6 +175,8 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(f"- 관할법원: {d['court']}")
             if d.get("event_date"):
                 lines.append(f"- 신청/결정일: {d['event_date']}")
+            if d.get("amount_won"):
+                lines.append(f"- 부도금액: **{d['amount_won']}원**")
             if d.get("summary_excerpt"):
                 lines.append(f"- 본문 발췌: {d['summary_excerpt'][:250]}")
         else:

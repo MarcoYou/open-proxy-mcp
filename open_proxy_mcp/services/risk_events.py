@@ -171,8 +171,8 @@ def _parse_embezzlement(text: str, lines: list[str], stage: str) -> dict[str, An
 
 def _parse_derivative_loss(text: str, lines: list[str], stage: str) -> dict[str, Any]:
     return {
-        # 실제 양식 라벨 = "손실누계잔액(원)(기신고분 제외)" (90일 25건 실측)
-        "loss_amount_won": _find_amount_near(text, "손실누계잔액") or _find_amount_near(text, "손실누계액") or _find_amount_near(text, "거래손실액") or _find_amount_near(text, "손실액"),
+        # 양식 라벨 = "손실누계잔액(원)(기신고분 제외)" 또는 "손실발생금액(원)" (SK하이닉스형, 180일 62건 실측)
+        "loss_amount_won": _find_amount_near(text, "손실누계잔액") or _find_amount_near(text, "손실발생금액") or _find_amount_near(text, "손실누계액") or _find_amount_near(text, "거래손실액") or _find_amount_near(text, "손실액"),
         "equity_ratio_pct": _find_pct_near(text, "자기자본대비") or _find_pct_near(text, "자기자본 대비"),
         "summary_excerpt": re.sub(r"\s+", " ", text)[:300],
     }
@@ -192,9 +192,18 @@ def _parse_production_halt(text: str, lines: list[str], stage: str) -> dict[str,
 
 
 def _parse_rehabilitation(text: str, lines: list[str], stage: str) -> dict[str, Any]:
+    event_date = (
+        _find_value_after(lines, "신청일자", 2) or _find_value_after(lines, "결정일자", 2)
+        or _find_value_after(lines, "최종부도(당좌거래정지)일자", 2) or _find_value_after(lines, "발생일자", 2)
+    )
+    court = _find_value_after(lines, "관할법원", 2) or _find_value_after(lines, "법원", 2)
+    # 부도발생 양식엔 법원 필드가 없어 느슨한 "법원" 라벨이 본문 문장을 잡을 수 있음 — 법원명 형태만 채택
+    if court and not ("법원" in court and len(court) < 40):
+        court = ""
     return {
-        "court": _find_value_after(lines, "관할법원", 2) or _find_value_after(lines, "법원", 2),
-        "event_date": _find_value_after(lines, "신청일자", 2) or _find_value_after(lines, "결정일자", 2) or _find_value_after(lines, "발생일자", 2),
+        "court": court,
+        "event_date": "" if event_date == "-" else event_date,
+        "amount_won": _find_amount_near(text, "부도금액"),  # 부도발생 양식만 존재
         "summary_excerpt": re.sub(r"\s+", " ", text)[:300],
     }
 
