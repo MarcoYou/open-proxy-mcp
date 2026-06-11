@@ -48,7 +48,12 @@ _CATEGORIES: dict[str, dict[str, Any]] = {
     "dissolution": {"label": "해산", "keywords": ("해산사유",)},
 }
 
-_ALL_KEYWORDS = tuple(kw for cfg in _CATEGORIES.values() for kw in cfg["keywords"])
+# 활성 스콥 — 기본(category 미지정) 조회는 이 3종만. 나머지는 mute:
+# 파서·검증(359건)은 완료된 채 보존, 명시적 category 요청 시에만 동작 (2026-06-11 결정).
+_ACTIVE_CATEGORIES = ("serious_accident", "embezzlement", "production_halt")
+_MUTED_CATEGORIES = tuple(c for c in _CATEGORIES if c not in _ACTIVE_CATEGORIES)
+
+_ALL_KEYWORDS = tuple(kw for cat in _ACTIVE_CATEGORIES for kw in _CATEGORIES[cat]["keywords"])
 
 # 단계 추출 — 카테고리 공통 (제목 내 표지 우선순위)
 _STAGE_MARKERS = (
@@ -330,7 +335,7 @@ def _invalid_category_payload(company_query: str, category: str) -> dict[str, An
         status=AnalysisStatus.REQUIRES_REVIEW,
         subject=company_query or "시장 전체",
         warnings=[f"`{category}` category 미지원."],
-        data={"query": company_query, "category": category, "supported_categories": sorted(_CATEGORIES)},
+        data={"query": company_query, "category": category, "supported_categories": list(_ACTIVE_CATEGORIES), "muted_categories": list(_MUTED_CATEGORIES)},
     ).to_dict()
 
 
@@ -344,6 +349,8 @@ async def _build_market_scan_payload(
 ) -> dict[str, Any]:
     """회사 미지정 — 시장 전체 최근 리스크 공시 스캔 (기본 30일, 최대 90일)."""
     warnings: list[str] = []
+    if category in _MUTED_CATEGORIES:
+        warnings.append(f"`{category}`는 mute 상태 카테고리 — 기본 스캔에선 제외되며 명시 요청으로만 조회된다.")
     end = date.today()
     if end_date:
         try:
@@ -396,7 +403,7 @@ async def _build_market_scan_payload(
             if not any(kw in nm for kw in keywords):
                 continue
             cat, stage = _classify(item.get("report_nm") or "")
-            if not cat or (category and cat != category):
+            if not cat or (category and cat != category) or (not category and cat not in _ACTIVE_CATEGORIES):
                 continue
             row = _row_from_item(item, cat, stage)
             row["corp_name"] = item.get("corp_name", "")
@@ -427,7 +434,7 @@ async def _build_market_scan_payload(
         "events": rows,
         **filing_meta,
         "usage": {"dart_api_calls": api_calls, "mcp_tool_calls": 1, "dart_daily_limit_per_minute": 1000},
-        "supported_categories": sorted(_CATEGORIES),
+        "supported_categories": list(_ACTIVE_CATEGORIES), "muted_categories": list(_MUTED_CATEGORIES),
     }
     if filing_meta["no_filing"]:
         warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 시장 전체 리스크 공시 없음.")
@@ -522,6 +529,8 @@ async def build_risk_events_payload(
     end_de = format_yyyymmdd(window_end)
 
     warnings = list(window_warnings)
+    if category in _MUTED_CATEGORIES:
+        warnings.append(f"`{category}`는 mute 상태 카테고리 — 기본 조회에선 제외되며 명시 요청으로만 조회된다.")
     keywords = _category_filter_keywords(category)
 
     items, notices, error = await search_filings_by_report_name(
@@ -541,7 +550,7 @@ async def build_risk_events_payload(
     rows: list[dict[str, Any]] = []
     for item in items or []:
         cat, stage = _classify(item.get("report_nm") or "")
-        if not cat or (category and cat != category):
+        if not cat or (category and cat != category) or (not category and cat not in _ACTIVE_CATEGORIES):
             continue
         rows.append(_row_from_item(item, cat, stage))
     rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
@@ -574,7 +583,7 @@ async def build_risk_events_payload(
         "events": rows,
         **filing_meta,
         "usage": {"dart_api_calls": total_api_calls, "mcp_tool_calls": 1, "dart_daily_limit_per_minute": 1000},
-        "supported_categories": sorted(_CATEGORIES),
+        "supported_categories": list(_ACTIVE_CATEGORIES), "muted_categories": list(_MUTED_CATEGORIES),
     }
 
     evidence_refs: list[EvidenceRef] = []

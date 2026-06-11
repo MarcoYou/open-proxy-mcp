@@ -46,7 +46,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 |------|------|
 | [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류) |
 | [[corporate_deals]] | 지분 인수·매각(타법인주식) + 단일공급계약 (일감몰아주기) — 구 related_party_transaction |
-| [[risk_events]] | 리스크 이벤트 6종 — 중대재해/횡령배임/파생손실/회생·부도/생산중단·영업정지/해산 (I001+B001, 시장 스캔) |
+| [[risk_events]] | 리스크 이벤트 — 활성 3종: 중대재해/횡령배임/생산중단·영업정지 (I001+B001, 시장 스캔. 파생·회생·해산은 mute) |
 | [[evidence]] | rcept_no → 공시일/소스/뷰어 URL (API 0회) |
 
 ### Action (2 — 시점 분리)
