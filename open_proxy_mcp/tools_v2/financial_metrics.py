@@ -93,7 +93,11 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
             "partial_50plus": "**자본잠식 50%+ (KOSDAQ 관리종목 사유)**",
             "full": "**완전 자본잠식 (KOSDAQ 상장폐지 사유)**",
         }.get(cap_status, cap_status)
-        lines.append(f"- 자본잠식 상태: {status_label}  /  잠식률: {_pct(cap_ratio)}  /  자본금: {_format_krw_human(s.get('capital_stock_krw'))}")
+        if cap_status == "normal":
+            # 정상 기업의 잠식률은 거대 음수(예: 삼성전자 -48,514%)라 혼란만 줌 — 상태만 표기
+            lines.append(f"- 자본잠식 상태: {status_label} (자본총계 > 자본금)  /  자본금: {_format_krw_human(s.get('capital_stock_krw'))}")
+        else:
+            lines.append(f"- 자본잠식 상태: {status_label}  /  잠식률: {_pct(cap_ratio)}  /  자본금: {_format_krw_human(s.get('capital_stock_krw'))}")
     lines.append("")
     lines.append("## 현금흐름 (코리아 디스카운트 핵심)")
     lines.append(f"- CFO(영업CF): {_format_krw_human(s.get('cfo_krw'))}  /  CapEx(유형자산취득): {_format_krw_human(s.get('capex_krw'))}")
