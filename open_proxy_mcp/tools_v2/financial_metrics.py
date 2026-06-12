@@ -149,23 +149,41 @@ def _render_yearly(data: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _chg(v: Any) -> str:
+    if v is None:
+        return "-"
+    return f"{v:+.1f}%"
+
+
 def _render_quarterly(data: dict[str, Any]) -> list[str]:
     rows = data.get("quarterly", []) or []
     if not rows:
         return ["## 분기 추이", "_데이터 없음_"]
-    lines = ["## 분기 추이 (최근 12분기)"]
+    lines = ["## 분기 추이 (최근 12분기, 전 행 standalone 3개월 기준)"]
     lines.append("")
-    lines.append("| 연도-분기 | 매출 | 영업이익 | 순이익 | 영업이익률 | 순이익률 |")
-    lines.append("|-----------|------|----------|--------|------------|----------|")
+    lines.append("| 연도-분기 | 매출 | QoQ | YoY | 영업이익 | QoQ | YoY | 순이익 | 영업이익률 |")
+    lines.append("|-----------|------|-----|-----|----------|-----|-----|--------|------------|")
+    has_cumulative_q4 = False
     for r in rows:
+        qoq = r.get("qoq_pct") or {}
+        yoy = r.get("yoy_pct") or {}
+        mark = ""
+        if r.get("basis") == "annual_cumulative":
+            mark = " ⚠연간"
+            has_cumulative_q4 = True
         lines.append(
-            f"| {r.get('year')}-{r.get('quarter')} | "
+            f"| {r.get('year')}-{r.get('quarter')}{mark} | "
             f"{_format_krw_human(r.get('revenue_krw'))} | "
+            f"{_chg(qoq.get('revenue'))} | {_chg(yoy.get('revenue'))} | "
             f"{_format_krw_human(r.get('operating_profit_krw'))} | "
+            f"{_chg(qoq.get('operating_profit'))} | {_chg(yoy.get('operating_profit'))} | "
             f"{_format_krw_human(r.get('net_income_krw'))} | "
-            f"{_pct(r.get('operating_margin_pct'))} | "
-            f"{_pct(r.get('net_profit_margin_pct'))} |"
+            f"{_pct(r.get('operating_margin_pct'))} |"
         )
+    lines.append("")
+    lines.append("> Q4는 사업보고서 연간치에서 3개 분기 누적을 차분한 standalone 값. QoQ/YoY는 전기가 적자·결측이면 `-`.")
+    if has_cumulative_q4:
+        lines.append("> ⚠연간 표시 행은 분기 보고서 결측으로 차분 불가 — 연간 누적치이므로 분기 비교에 쓰지 말 것.")
     return lines
 
 
@@ -226,9 +244,12 @@ def _render_qoq(data: dict[str, Any]) -> list[str]:
     if not curr:
         return lines + ["_데이터 없음_"]
     lines.append(f"- 당기: {curr.get('year')}-{curr.get('quarter')}, 전기: {prev.get('year')}-{prev.get('quarter')}" if prev else f"- 당기: {curr.get('year')}-{curr.get('quarter')} (전분기 데이터 없음)")
+    lines.append("- 양쪽 모두 standalone 3개월 기준 (Q4는 연간−3분기 누적 차분)")
     lines.append("")
-    lines.append("| 지표 | 당기 | 전분기 |")
-    lines.append("|------|------|--------|")
+    lines.append("| 지표 | 당기 | 전분기 | 증감(QoQ) |")
+    lines.append("|------|------|--------|-----------|")
+    qoq_pct = curr.get("qoq_pct") or {}
+    chg_keys = {"revenue_krw": "revenue", "operating_profit_krw": "operating_profit", "net_income_krw": "net_income"}
     pairs = [
         ("매출액", "revenue_krw", _format_krw_human),
         ("영업이익", "operating_profit_krw", _format_krw_human),
@@ -236,7 +257,8 @@ def _render_qoq(data: dict[str, Any]) -> list[str]:
         ("영업이익률", "operating_margin_pct", _pct),
     ]
     for label, key, fmt in pairs:
-        lines.append(f"| {label} | {fmt(curr.get(key))} | {fmt(prev.get(key)) if prev else '-'} |")
+        chg = _chg(qoq_pct.get(chg_keys[key])) if key in chg_keys else "-"
+        lines.append(f"| {label} | {fmt(curr.get(key))} | {fmt(prev.get(key)) if prev else '-'} | {chg} |")
     lines.extend(["", "## Alerts"])
     if alerts:
         for a in alerts:
@@ -322,7 +344,7 @@ def register_tools(mcp):
         """desc: DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk. 한국 표준(연결, 지배주주 귀속). 듀퐁·FCF·NWC·accruals_gap·감사의견 자동 산출.
         when: 재무 펀더멘탈 + 회계 risk 진단 / 적자전환·턴어라운드·이자보상배율 alert / 사외이사 후보 재직 시점 회계 사건 cross-check.
         rule: source = fnlttSinglAcnt(BS+IS 30행) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 raw KRW int(_krw), %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful.
-        scope: `summary` 51 핵심 지표 1년 / `yearly` N년 추이 / `quarterly` 12분기 / `yoy` 전년+22 alert / `qoq` 전분기 / `audit_opinion` 3년 추이
+        scope: `summary` 51 핵심 지표 1년 / `yearly` N년 추이 / `quarterly` 12분기 standalone 손익 + QoQ·YoY 기본 동봉 (Q4는 연간−3분기 누적 차분 — 연간치 혼입 없음) / `yoy` 전년+22 alert / `qoq` 전분기 (standalone 기준) / `audit_opinion` 3년 추이
         ref: dividend, corp_gov_report, shareholder_meeting_notice, evidence
         """
         payload = await build_financial_metrics_payload(

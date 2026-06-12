@@ -203,6 +203,7 @@ sequenceDiagram
 - vote_brief / 매트릭스 dim 자동 채점 통합 — **Phase 2 별도**
 
 ## 변경 이력
+- 2026-06-12: **quarterly/qoq standalone 차분 + QoQ·YoY 기본 동봉.** Q4 행이 사업보고서 연간 누적치로 채워져 QoQ 비교·`revenue_decline_qoq` alert가 왜곡되던 버그 수정 (실사용 발견 — SK하이닉스 26Q1 질의에서 호스트 모델이 수동 보정에 장시간 소모). DART 필드 실측: Q1~Q3 `thstrm_amount`=3개월 standalone, `thstrm_add_amount`=누적, 연간(11011)=누적 → **Q4 = 연간 − Q3 누적(add) 차분** (dividend 누적차분 패턴 재사용, 결측 시 Q1~3 합 fallback + `annual_cumulative` flag·warning). 전 행에 `qoq_pct`/`yoy_pct`(매출·영업이익·순이익) 기본 동봉 — 전기 적자·결측 시 None. BS 항목은 시점값이라 차분 제외. 검증: SK하이닉스(25Q4 32.8조, 26Q1 QoQ +60.2%/YoY +198.1%, false alert 해소)·삼성전자·LG디스플레이(적자 분기 None 처리), **3사 전 연도 '4분기 합 = 연간' 불변식 통과**.
 - 2026-05-31: Tier 1 운전자본 회전일수 4종(DSO/DIO/DPO/CCC) + CFO/순이익 추가. 추가 API 호출 없음.
 - 2026-05-01: financial_metrics tool Phase 1 신규 (DART 4 endpoint + 6 scope + 22 alerts)
 - 2026-05-01: 6 회사 (삼성/KT&G/롯데케미칼/SK하이닉스/삼천당제약/오스템임플란트) sanity 통과

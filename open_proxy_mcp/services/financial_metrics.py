@@ -1050,8 +1050,27 @@ async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str) 
     return out, warnings
 
 
+_QUARTERLY_IS_KEYS = ("revenue", "operating_profit", "net_income")
+
+
+def _qchg_pct(curr: int | None, prev: int | None) -> float | None:
+    """분기 증감률(%). 전기가 0 이하(적자·결측)면 % 비교가 무의미 — None."""
+    if curr is None or prev is None or prev <= 0:
+        return None
+    return round((curr - prev) / prev * 100, 2)
+
+
 async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quarters: int = 12) -> tuple[list[dict[str, Any]], list[str]]:
-    """4Q × 3년 = 12분기. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출."""
+    """4Q × 3년 = 12분기 standalone 손익. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출.
+
+    DART 필드 실측 (SK하이닉스 2025, 2026-06-12):
+    - Q1/Q2/Q3 보고서의 thstrm_amount = 당기 3개월(standalone), thstrm_add_amount = 누적
+    - 사업보고서(11011)의 thstrm_amount = 연간 누적 → Q4 행에 그대로 쓰면
+      QoQ 비교·alert가 전부 왜곡 (연간치 vs 분기치)
+    → Q4 손익은 연간 − 3분기 누적(thstrm_add)으로 차분 (dividend 누적차분과 동일 패턴).
+      BS 항목(자산·부채·자본)은 시점값이라 차분하지 않는다.
+    전 행에 QoQ/YoY 증감률 기본 동봉 — 호출자가 재계산할 필요 없게.
+    """
 
     warnings: list[str] = []
     out: list[dict[str, Any]] = []
@@ -1069,6 +1088,9 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             tasks.append(_safe_fetch_acnt(corp_code, y, rc, fs_div))
             keys.append((y, rc, label))
     results = await asyncio.gather(*tasks)
+
+    cum9_by_year: dict[int, dict[str, int | None]] = {}  # Q3 보고서의 9개월 누적 (Q4 차분용)
+    q_standalone_by_year: dict[int, dict[str, dict[str, int | None]]] = {}
     for (year, rc, label), (rows, err) in zip(keys, results):
         if err == "no_filing":
             continue
@@ -1080,6 +1102,10 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
         bs_is = _build_account_map(rows)
         if not bs_is:
             continue
+        if rc == "11014":
+            cum9_by_year[year] = _build_account_map(rows, period="thstrm_add")
+        if rc != "11011":
+            q_standalone_by_year.setdefault(year, {})[label] = bs_is
         out.append({
             "year": year,
             "quarter": label,
@@ -1090,10 +1116,57 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             "total_assets_krw": bs_is.get("total_assets"),
             "total_equity_krw": bs_is.get("total_equity"),
             "total_liabilities_krw": bs_is.get("total_liabilities"),
-            "operating_margin_pct": _safe_pct(bs_is.get("operating_profit"), bs_is.get("revenue")),
-            "net_profit_margin_pct": _safe_pct(bs_is.get("net_income"), bs_is.get("revenue")),
         })
+
+    # Q4 손익 차분: 연간 − 9개월 누적(Q3 add 우선, 없으면 Q1+Q2+Q3 standalone 합)
+    for row in out:
+        if row["quarter"] != "Q4":
+            row["basis"] = "standalone_3m"
+            continue
+        year = row["year"]
+        cum9 = cum9_by_year.get(year, {})
+        qs = q_standalone_by_year.get(year, {})
+        derived_all = True
+        for key in _QUARTERLY_IS_KEYS:
+            annual = row[f"{key}_krw"]
+            nine = cum9.get(key)
+            if nine is None:
+                parts = [qs.get(q, {}).get(key) for q in ("Q1", "Q2", "Q3")]
+                nine = sum(parts) if all(p is not None for p in parts) else None
+            if annual is not None and nine is not None:
+                row[f"{key}_krw"] = annual - nine
+                row[f"annual_{key}_krw"] = annual
+            else:
+                derived_all = False
+        if derived_all:
+            row["basis"] = "standalone_3m_derived"  # 연간 − 3분기 누적 차분
+        else:
+            row["basis"] = "annual_cumulative"
+            warnings.append(
+                f"{year}-Q4 손익은 연간 누적치 — 분기 보고서 결측으로 standalone 차분 불가. QoQ 해석 주의."
+            )
+
+    for row in out:
+        row["operating_margin_pct"] = _safe_pct(row.get("operating_profit_krw"), row.get("revenue_krw"))
+        row["net_profit_margin_pct"] = _safe_pct(row.get("net_income_krw"), row.get("revenue_krw"))
+
     out.sort(key=lambda x: (x["year"], list(quarter_labels.values()).index(x["quarter"])))
+
+    # QoQ/YoY 기본 동봉 (slice 전 전체 이력 기준 — 표시 첫 분기도 직전·전년 비교 가능)
+    index = {(r["year"], r["quarter"]): r for r in out}
+    for i, row in enumerate(out):
+        prev_q = out[i - 1] if i > 0 else None
+        prev_y = index.get((row["year"] - 1, row["quarter"]))
+        row["qoq_pct"] = {
+            "revenue": _qchg_pct(row.get("revenue_krw"), prev_q.get("revenue_krw") if prev_q else None),
+            "operating_profit": _qchg_pct(row.get("operating_profit_krw"), prev_q.get("operating_profit_krw") if prev_q else None),
+            "net_income": _qchg_pct(row.get("net_income_krw"), prev_q.get("net_income_krw") if prev_q else None),
+        }
+        row["yoy_pct"] = {
+            "revenue": _qchg_pct(row.get("revenue_krw"), prev_y.get("revenue_krw") if prev_y else None),
+            "operating_profit": _qchg_pct(row.get("operating_profit_krw"), prev_y.get("operating_profit_krw") if prev_y else None),
+            "net_income": _qchg_pct(row.get("net_income_krw"), prev_y.get("net_income_krw") if prev_y else None),
+        }
     return out[-num_quarters:], warnings
 
 
