@@ -47,4 +47,4 @@ The notice (before) and results (after) come in different filing formats, so the
 
 - [shareholder_meeting_notice](../../../wiki/tools/shareholder_meeting_notice.md) — notice structuring (before)
 - [shareholder_meeting_results](../../../wiki/tools/shareholder_meeting_results.md) — resolution outcome / approval rates (after)
-- [proxy_result_after_meeting](../../../wiki/tools/proxy_result_after_meeting.md) — post-AGM result synthesis
+- [shareholder_meeting_results](../../../wiki/tools/shareholder_meeting_results.md) — post-AGM per-agenda outcomes and vote rates

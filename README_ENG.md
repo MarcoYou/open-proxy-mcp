@@ -160,7 +160,7 @@ OpenProxy MCP
    │     ├─ dividend / treasury_share / value_up
    │     └─ proxy_contest / evidence
    │
-   └─ proxy_result_after_meeting
+   └─ shareholder_meeting_results (post-AGM outcomes)
       └─ Post-meeting result summary
          ├─ shareholder_meeting_results
          ├─ evidence
@@ -173,7 +173,7 @@ OpenProxy MCP
 | Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | Pre/post AGM data |
 | Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `corporate_deals`, `risk_events` | Filing, financial, ownership, and governance parsers |
 | Evidence | `evidence` | Source tracking from filing receipt numbers |
-| Action | `proxy_advise_before_meeting`, `proxy_result_after_meeting` | Compose multiple data tools into recommendations/reports |
+| Action | `proxy_advise_before_meeting` | Compose multiple data tools into recommendations/reports (post-AGM outcomes: `shareholder_meeting_results`) |
 
 > Each tool's scope, options, data sources, and validation results: see catalog at **[wiki/tools/README.md](wiki/tools/README.md)** or per-tool pages (`wiki/tools/{name}.md`).
 
@@ -210,7 +210,7 @@ Usage pattern: start with `company` → confirm facts via data tabs → generate
 | **Governance** | Corporate governance report (15 core principles, full KOSPI mandatory from 2026) | 1 |
 | **Financials** | DART 4-endpoint integration — 51 metrics + DuPont + FCF + NWC + accounting risk + 3-yr audit opinion | 1 |
 | **Evidence** | Filing source links | 1 |
-| **Action** | proxy_advise_before_meeting (per-agenda decisions + facts/risk/citation/source filings/candidate raw) + proxy_result_after_meeting (post-AGM result) | 2 |
+| **Action** | proxy_advise_before_meeting (per-agenda decisions + facts/risk/citation/source filings/candidate raw) | 1 |
 | | **Total** | **16** |
 
 ---

@@ -1,18 +1,18 @@
 ---
 type: readme
-title: tools/ — Tool 카탈로그 (17 tool 진입점)
+title: tools/ — Tool 카탈로그 (16 tool 진입점)
 updated: 2026-06-01
 ---
 
 # tools/ — Tool 카탈로그
 
-> OPM v2 의 17 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
+> OPM v2 의 16 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
 > 각 tool 1 페이지, 통일 schema (frontmatter + 한 줄 요약 + 사용법 + 입력 인자 + 출력 schema + Data sources + 파싱 전략 + 관련 공시/개념/결정/audit + 알려진 issue + 변경 이력).
 > 도메인 개념 / 공시 본문 / 정책 결정 정보는 본 폴더에 중복 X. `rules/concepts/`, `rules/disclosures/`, `decisions/`, `architecture/audits/` 로 link만 한다.
 
 Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 
-## 빠른 진입표 (17 tool)
+## 빠른 진입표 (16 tool)
 
 ### Company (1)
 | tool | 한 줄 |
@@ -53,7 +53,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 | tool | 한 줄 |
 |------|------|
 | [[proxy_advise_before_meeting]] | 주총 **사전** 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts/risk/citation/근거공고/후보 raw (단일 결정 호출, ralph G2 99.36%) |
-| [[proxy_result_after_meeting]] | 주총 **사후** 결과 보고 (3 scope) |
+
 
 > **2026-05-04~05-05 정리 변화**: screen_events drop, proxy_guideline → archive (internal로 만들었지만 호출 X 확인 후 archive), shareholder_meeting → notice + results 분리, proxy_advise scope 10→1 (specialized scope은 각 data tool 직접 호출).
 
@@ -127,7 +127,6 @@ created: 2026-05-01
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
 | evidence | - | - | - | - | - (문자열 가공) |
 | proxy_advise_before_meeting | upstream data tools | upstream | - | - | 판단 규칙/records |
-| proxy_result_after_meeting | upstream data tools | results fallback | - | - | records |
 
 ✅ = 1차 source / 🔧 = 보조
 

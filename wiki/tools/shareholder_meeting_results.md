@@ -2,7 +2,7 @@
 type: tool
 title: shareholder_meeting_results
 description: 주주총회 의결 결과 (사후) — KIND scraping 기반
-related: [shareholder_meeting_notice, proxy_result_after_meeting, evidence]
+related: [shareholder_meeting_notice, evidence]
 ---
 
 # shareholder_meeting_results
@@ -46,5 +46,5 @@ KIND 웹 스크래핑은 fragile (KIND 변경 시 깨짐). DART API 기반 `shar
 ## ref
 
 - 사전 안건/후보: [[shareholder_meeting_notice]]
-- 종합 사후 보고: [[proxy_result_after_meeting]]
+- 후속 공시(배당/자사주/구조 등)는 dividend·treasury_share 등 각 tool 직접 호출 (proxy_result_after_meeting은 2026-06-13 archive)
 - 원문: [[evidence]]

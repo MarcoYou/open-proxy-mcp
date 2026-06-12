@@ -47,4 +47,4 @@
 
 - [shareholder_meeting_notice](../../wiki/tools/shareholder_meeting_notice.md) — 소집공고 구조화 (사전)
 - [shareholder_meeting_results](../../wiki/tools/shareholder_meeting_results.md) — 의결 결과·찬반율 (사후)
-- [proxy_result_after_meeting](../../wiki/tools/proxy_result_after_meeting.md) — 주총 후 결과 종합
+- [shareholder_meeting_results](../../wiki/tools/shareholder_meeting_results.md) — 주총 후 안건별 가결/부결/찬반율

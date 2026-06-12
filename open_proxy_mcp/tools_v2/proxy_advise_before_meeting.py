@@ -339,12 +339,12 @@ def register_tools(mcp):
     ) -> str:
         """desc: 주총 **소집 전** 안건별 의결권 권고. 1회 호출로: 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts + risk_factors + policy_citation + 근거 공고 + 후보 평가 + 재무/거버넌스 summary.
         ⛔ CRITICAL: 응답의 decision 컬럼은 한국 상법 강행규정 (A1/A2 tag 🛡️) + 운용사 정책 (vote_style) + Open Proxy Guideline 통합 결과. 사용자에게 **그대로** 제시 — 안건명 키워드(배제·제한·축소·강화)만 보고 자체 판단으로 변경 금지. 자주 misread: '집중투표 배제 조항 삭제' = FOR(의무화 정합), '의결권 제한 강화' = FOR(합산 3% 룰).
-        when: 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고. 사후 결과는 `proxy_result_after_meeting`.
+        when: 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고. 사후 결과는 `shareholder_meeting_results`.
         rule: 운용사 의결권 행사 보고서 스타일. hard-fail(형사 처벌/사적 관계/동명이인) 자동 검증 가능 항목만 표기. soft-fail(후보 약력/정관 본문) raw 노출 — LLM 판단.
         vote_style: `open_proxy` (default — OPM 자체 가이드라인). 다른 옵션은 internal cross-reference용
         check_audit_history: True 시 후보 과거 회사 × 회계 risk overlap cross-check (+30s)
         meeting_type: `annual`(default) / `extraordinary` / `auto`
-        ref: shareholder_meeting_notice, financial_metrics, corp_gov_report, ownership_structure, proxy_contest, value_up, proxy_result_after_meeting
+        ref: shareholder_meeting_notice, financial_metrics, corp_gov_report, ownership_structure, proxy_contest, value_up, shareholder_meeting_results
         """
         payload = await build_proxy_advise_payload(
             company,

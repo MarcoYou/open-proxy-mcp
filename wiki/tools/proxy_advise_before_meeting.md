@@ -175,7 +175,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
 ## ref
 
 - Word 보고서 설계: [[proxy_advise_word_report_design]]
-- 사후 결과: [[proxy_result_after_meeting]]
+- 사후 결과: [[shareholder_meeting_results]]
 - 사전 안건 raw: [[shareholder_meeting_notice]]
 - agenda relation/parser audit: [[260525_0200_audit_agenda-relation-kospi300]]
 - 지표 gap audit: [[260528_proxy_advise_metric_gap_audit]]
