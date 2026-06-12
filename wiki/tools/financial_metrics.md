@@ -204,6 +204,7 @@ sequenceDiagram
 
 ## 변경 이력
 - 2026-06-12: **quarterly/qoq standalone 차분 + QoQ·YoY 기본 동봉.** Q4 행이 사업보고서 연간 누적치로 채워져 QoQ 비교·`revenue_decline_qoq` alert가 왜곡되던 버그 수정 (실사용 발견 — SK하이닉스 26Q1 질의에서 호스트 모델이 수동 보정에 장시간 소모). DART 필드 실측: Q1~Q3 `thstrm_amount`=3개월 standalone, `thstrm_add_amount`=누적, 연간(11011)=누적 → **Q4 = 연간 − Q3 누적(add) 차분** (dividend 누적차분 패턴 재사용, 결측 시 Q1~3 합 fallback + `annual_cumulative` flag·warning). 전 행에 `qoq_pct`/`yoy_pct`(매출·영업이익·순이익) 기본 동봉 — 전기 적자·결측 시 None. BS 항목은 시점값이라 차분 제외. 검증: SK하이닉스(25Q4 32.8조, 26Q1 QoQ +60.2%/YoY +198.1%, false alert 해소)·삼성전자·LG디스플레이(적자 분기 None 처리), **3사 전 연도 '4분기 합 = 연간' 불변식 통과**.
+- 2026-06-12: EBITDA 표시 정책 — 산출 불가(76%) 시 "산출 불가" 안내 대신 **줄 자체 생략** (결측 광고가 hedge처럼 읽히는 문제). CapEx/감가상각비 줄 동일. JSON 필드(`ebitda_krw` nullable)는 유지 — 산출 가능 24%에선 그대로 제공.
 - 2026-06-12: **시장 412사 × FY24·25 다차원 전수 audit** (KOSPI 시총 300 + KOSDAQ 100 + 엣지 12, 회사당 10콜·총 ~4,200콜, raw: [[260612_fm_market_audit_412|audits/data/260612_fm_market_audit_412.json]]).
   | 차원 | 결과 |
   |---|---|

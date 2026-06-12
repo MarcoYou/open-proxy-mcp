@@ -69,11 +69,11 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
     s = data.get("summary", {}) or {}
     lines = ["## 핵심 지표"]
     lines.append(f"- 매출액: {_format_krw_human(s.get('revenue_krw'))}  /  매출총이익: {_format_krw_human(s.get('gross_profit_krw'))}  /  영업이익: {_format_krw_human(s.get('operating_profit_krw'))}")
+    # EBITDA는 D&A 추출 가능 회사(~24%)만 산출 — None이면 줄에서 생략 (결측 광고 방지)
     if s.get("ebitda_krw") is not None:
         lines.append(f"- 영업이익률: {_pct(s.get('operating_margin_pct'))}  /  EBITDA: {_format_krw_human(s.get('ebitda_krw'))}  ({_pct(s.get('ebitda_margin_pct'))})")
     else:
-        # CF에 감가상각비가 '조정' 합계로만 공시된 회사(삼성전자 등)는 D&A 미추출 — EBITDA 미산출
-        lines.append(f"- 영업이익률: {_pct(s.get('operating_margin_pct'))}  /  EBITDA: - (CF에 감가상각비 미공시 — 산출 불가)")
+        lines.append(f"- 영업이익률: {_pct(s.get('operating_margin_pct'))}")
     lines.append(f"- 당기순이익(지배): {_format_krw_human(s.get('net_income_krw'))}  /  EPS: {s.get('eps_krw') or '-'}원  /  희석 EPS: {s.get('diluted_eps_krw') or '-'}원")
     lines.append(f"- ROE: {_pct(s.get('roe_pct'))}  /  ROA: {_pct(s.get('roa_pct'))}  /  ROIC: {_pct(s.get('roic_pct'))}")
     lines.append("")
@@ -108,7 +108,8 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
     lines.append(f"- FCF(자유현금흐름): {_format_krw_human(s.get('fcf_krw'))}  ({_pct(s.get('fcf_margin_pct'))})")
     lines.append(f"- CFO/영업이익 (cash quality, <0.7=분식 신호): {_ratio(s.get('cfo_to_op_ratio'))}")
     lines.append(f"- CFO/순이익 (이익의 현금화): {_ratio(s.get('cfo_to_net_income_ratio'))}")
-    lines.append(f"- CapEx/감가상각비 (>1=확장, <1=유지): {_ratio(s.get('capex_to_da_ratio'))}")
+    if s.get("capex_to_da_ratio") is not None:
+        lines.append(f"- CapEx/감가상각비 (>1=확장, <1=유지): {_ratio(s.get('capex_to_da_ratio'))}")
     lines.append(f"- 배당/FCF (배당 capacity 활용도): {_pct(s.get('dividend_to_fcf_pct'))}")
     lines.append("")
     lines.append("## 운전자본 (Working Capital)")
