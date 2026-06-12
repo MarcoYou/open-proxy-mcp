@@ -14,6 +14,7 @@ report_nm은 upstream data tool이 전달한 evidence_refs에 이미 포함되�
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
@@ -57,7 +58,19 @@ async def build_evidence_payload(
 
     target_rcept_no = rcept_no or _extract_rcept_no(evidence_id)
 
-    if not target_rcept_no or not re.fullmatch(r"\d{14}", target_rcept_no):
+    def _valid_date_prefix(no: str) -> bool:
+        # 앞 8자리가 실존 달력 날짜가 아니면(월 13 등) 존재 불가능한 rcept_no
+        try:
+            datetime.strptime(no[:8], "%Y%m%d")
+            return True
+        except ValueError:
+            return False
+
+    if (
+        not target_rcept_no
+        or not re.fullmatch(r"\d{14}", target_rcept_no)
+        or not _valid_date_prefix(target_rcept_no)
+    ):
         return ToolEnvelope(
             tool="evidence",
             status=AnalysisStatus.REQUIRES_REVIEW,

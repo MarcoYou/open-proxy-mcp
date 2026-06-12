@@ -33,6 +33,26 @@ _SUPPORTED_SCOPES = {
 }
 
 
+_DATE_KEY_RE = re.compile(r"_date$")
+_KO_DATE_RE = re.compile(r"^(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?$")
+
+
+def _normalize_row_dates(row: dict) -> None:
+    """*_date 필드의 '2026년 02월 11일'/'2026.02.11'/'20260211' → ISO. 그 외 형식은 보존."""
+    for k, v in row.items():
+        if isinstance(v, dict):
+            _normalize_row_dates(v)
+            continue
+        if not isinstance(v, str) or not v or not _DATE_KEY_RE.search(k):
+            continue
+        s = v.strip()
+        m = _KO_DATE_RE.match(s)
+        if m:
+            row[k] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        elif re.fullmatch(r"\d{8}", s):
+            row[k] = f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+
+
 def _clean(value: Any) -> str:
     text = str(value or "").strip()
     if text in ("-", "해당사항없음", "해당사항 없음"):
@@ -269,6 +289,8 @@ async def _fetch_scope(
     rows: list[dict[str, Any]] = []
     for r in results:
         rows.extend(r)
+    for row in rows:
+        _normalize_row_dates(row)  # DART 원본 '2026년 02월 11일' → ISO (전 tool 관행 통일)
     rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
     return rows, warnings, api_calls
 
