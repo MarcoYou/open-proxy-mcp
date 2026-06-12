@@ -1165,22 +1165,36 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
     # 정합성 점검: 4분기 standalone 합 ≠ 연간이면 기중 연결범위 변동·재작성 가능성
     # (한화에어로스페이스 2024 실측 — 인적분할로 Q1·Q2 당시 보고치와 연간 재작성치 불일치).
     # Q4 = 연간 − Q3누적이라 Q4 자체는 최신 기준 정확. 차이는 Q1~Q3가 당시 보고 기준인 탓.
+    _GAP_LABELS = {"revenue": "매출", "operating_profit": "영업이익", "net_income": "순이익"}
     for y in sorted({r["year"] for r in out}):
         yr_rows = [r for r in out if r["year"] == y]
         q4 = next((r for r in yr_rows if r["quarter"] == "Q4"), None)
-        annual_rev = q4.get("annual_revenue_krw") if q4 else None
-        if annual_rev and len(yr_rows) == 4 and all(r.get("revenue_krw") is not None for r in yr_rows):
-            gap = sum(r["revenue_krw"] for r in yr_rows) - annual_rev
-            gap_pct = abs(gap) / abs(annual_rev) * 100
-            # flag(기계용)는 미세 재작성(>0.01%)도 기록 — 모델이 합산 검산 시 혼란 방지.
-            # warning(사람용)은 해석에 영향 주는 0.5% 초과만 (LG화학 0.09% 같은 미세 조정은 침묵).
-            if abs(gap) > 1_000_000 and gap_pct > 0.01:
-                q4["quarters_sum_gap_pct"] = round(gap_pct, 2)
-            if gap_pct > 0.5:
-                warnings.append(
-                    f"⚠ {y}년 분기 매출 합이 연간과 {gap_pct:.1f}% 차이 — 기중 분할·연결범위 변동으로 "
-                    f"Q1~Q3(당시 보고 기준)와 연간 재작성치가 다를 수 있다. 연간 추이는 yearly scope가 정확."
-                )
+        if not q4 or len(yr_rows) != 4:
+            continue
+        # 매출만이 아니라 손익 3개 키 전부 검사 — 루닛 실측: 매출 합은 일치하는데
+        # 영업이익·순이익만 불일치 (중단영업 재분류 류는 손익 하단에만 영향).
+        gaps: dict[str, float] = {}
+        big_gaps: list[str] = []
+        for key in _QUARTERLY_IS_KEYS:
+            annual = q4.get(f"annual_{key}_krw")
+            vals = [r.get(f"{key}_krw") for r in yr_rows]
+            if annual and all(v is not None for v in vals):
+                gap = sum(vals) - annual
+                gap_pct = abs(gap) / abs(annual) * 100
+                # flag(기계용)는 미세 재작성(>0.01%)도 기록 — 모델이 합산 검산 시 혼란 방지.
+                if abs(gap) > 1_000_000 and gap_pct > 0.01:
+                    gaps[key] = round(gap_pct, 2)
+                # warning(사람용)은 해석에 영향 주는 0.5% 초과만.
+                if gap_pct > 0.5:
+                    big_gaps.append(f"{_GAP_LABELS[key]} {gap_pct:.1f}%")
+        if gaps:
+            q4["quarters_sum_gaps"] = gaps
+            q4["quarters_sum_gap_pct"] = max(gaps.values())
+        if big_gaps:
+            warnings.append(
+                f"⚠ {y}년 분기 합이 연간과 차이 ({', '.join(big_gaps)}) — 기중 분할·연결범위 변동·재작성으로 "
+                f"Q1~Q3(당시 보고 기준)와 연간 재작성치가 다를 수 있다. 연간 추이는 yearly scope가 정확."
+            )
 
     # 금융사(은행·지주)는 매출액 계정이 없다 (이자수익·수수료손익 구조) — 해석 안내
     if out and all(r.get("revenue_krw") is None for r in out) and any(
