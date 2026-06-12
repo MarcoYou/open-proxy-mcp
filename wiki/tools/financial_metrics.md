@@ -204,6 +204,7 @@ sequenceDiagram
 
 ## 변경 이력
 - 2026-06-12: **quarterly/qoq standalone 차분 + QoQ·YoY 기본 동봉.** Q4 행이 사업보고서 연간 누적치로 채워져 QoQ 비교·`revenue_decline_qoq` alert가 왜곡되던 버그 수정 (실사용 발견 — SK하이닉스 26Q1 질의에서 호스트 모델이 수동 보정에 장시간 소모). DART 필드 실측: Q1~Q3 `thstrm_amount`=3개월 standalone, `thstrm_add_amount`=누적, 연간(11011)=누적 → **Q4 = 연간 − Q3 누적(add) 차분** (dividend 누적차분 패턴 재사용, 결측 시 Q1~3 합 fallback + `annual_cumulative` flag·warning). 전 행에 `qoq_pct`/`yoy_pct`(매출·영업이익·순이익) 기본 동봉 — 전기 적자·결측 시 None. BS 항목은 시점값이라 차분 제외. 검증: SK하이닉스(25Q4 32.8조, 26Q1 QoQ +60.2%/YoY +198.1%, false alert 해소)·삼성전자·LG디스플레이(적자 분기 None 처리), **3사 전 연도 '4분기 합 = 연간' 불변식 통과**.
+- 2026-06-12: **10사 확대 audit 후속 보강 3건.** ① `_safe_fetch_acnt`에 fs_div 행 필터 — fnlttSinglAcnt가 fs_div 파라미터와 무관하게 CFS+OFS를 함께 반환(KB금융 실측)해 first-match가 행 순서에 의존하던 잠재 버그 제거. ② Q4 차분 플래그 키 단위 정밀화 — 금융사처럼 계정 자체가 없으면(매출액 None) 차분 실패로 치지 않음 + "매출액 계정 없음 — 금융사" 안내 warning. ③ **분기 합 ≠ 연간 정합성 warning** — 한화에어로스페이스 2024 실측(7.6% 차이, 기중 인적분할 재작성): Q1~Q3는 당시 보고 기준이라 연간 재작성치와 불일치 가능 → `quarters_sum_gap_pct` flag + "연간 추이는 yearly가 정확" 안내. 10사(제조·금융·바이오·플랫폼·지주) audit 통과.
 - 2026-05-31: Tier 1 운전자본 회전일수 4종(DSO/DIO/DPO/CCC) + CFO/순이익 추가. 추가 API 호출 없음.
 - 2026-05-01: financial_metrics tool Phase 1 신규 (DART 4 endpoint + 6 scope + 22 alerts)
 - 2026-05-01: 6 회사 (삼성/KT&G/롯데케미칼/SK하이닉스/삼천당제약/오스템임플란트) sanity 통과

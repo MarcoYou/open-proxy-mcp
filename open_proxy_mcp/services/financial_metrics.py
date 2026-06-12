@@ -790,7 +790,13 @@ async def _safe_fetch_acnt(corp_code: str, year: int, reprt_code: str, fs_div: s
     client = get_dart_client()
     try:
         data = await client.get_fnltt_singl_acnt(corp_code, str(year), reprt_code, fs_div)
-        return data.get("list", []) or [], None
+        rows = data.get("list", []) or []
+        # fnlttSinglAcnt는 fs_div 파라미터와 무관하게 CFS+OFS 행을 함께 반환한다 (KB금융 실측).
+        # 기존 first-match는 DART 행 순서(CFS 먼저)에 의존 — 요청 fs_div로 명시 필터해 순서 의존 제거.
+        wanted = [r for r in rows if (r.get("fs_div") or "").upper() == fs_div.upper()]
+        if wanted:
+            return wanted, None
+        return rows, None  # 연결 미작성(단일 재무제표) 회사는 OFS만 존재 → 그대로 사용
     except DartClientError as exc:
         if exc.status == "013":
             return [], "no_filing"
@@ -1126,31 +1132,58 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
         year = row["year"]
         cum9 = cum9_by_year.get(year, {})
         qs = q_standalone_by_year.get(year, {})
-        derived_all = True
+        failed_keys = []
+        derived_count = 0
         for key in _QUARTERLY_IS_KEYS:
             annual = row[f"{key}_krw"]
+            if annual is None:
+                continue  # 계정 자체 부재 (금융사 매출액 등) — 차분 실패가 아님
             nine = cum9.get(key)
             if nine is None:
                 parts = [qs.get(q, {}).get(key) for q in ("Q1", "Q2", "Q3")]
                 nine = sum(parts) if all(p is not None for p in parts) else None
-            if annual is not None and nine is not None:
+            if nine is not None:
                 row[f"{key}_krw"] = annual - nine
                 row[f"annual_{key}_krw"] = annual
+                derived_count += 1
             else:
-                derived_all = False
-        if derived_all:
-            row["basis"] = "standalone_3m_derived"  # 연간 − 3분기 누적 차분
-        else:
+                failed_keys.append(key)
+        if failed_keys:
             row["basis"] = "annual_cumulative"
             warnings.append(
-                f"{year}-Q4 손익은 연간 누적치 — 분기 보고서 결측으로 standalone 차분 불가. QoQ 해석 주의."
+                f"{year}-Q4 {'/'.join(failed_keys)}은 연간 누적치 — 분기 보고서 결측으로 standalone 차분 불가. QoQ 해석 주의."
             )
+        else:
+            row["basis"] = "standalone_3m_derived"  # 연간 − 3분기 누적 차분
 
     for row in out:
         row["operating_margin_pct"] = _safe_pct(row.get("operating_profit_krw"), row.get("revenue_krw"))
         row["net_profit_margin_pct"] = _safe_pct(row.get("net_income_krw"), row.get("revenue_krw"))
 
     out.sort(key=lambda x: (x["year"], list(quarter_labels.values()).index(x["quarter"])))
+
+    # 정합성 점검: 4분기 standalone 합 ≠ 연간이면 기중 연결범위 변동·재작성 가능성
+    # (한화에어로스페이스 2024 실측 — 인적분할로 Q1·Q2 당시 보고치와 연간 재작성치 불일치).
+    # Q4 = 연간 − Q3누적이라 Q4 자체는 최신 기준 정확. 차이는 Q1~Q3가 당시 보고 기준인 탓.
+    for y in sorted({r["year"] for r in out}):
+        yr_rows = [r for r in out if r["year"] == y]
+        q4 = next((r for r in yr_rows if r["quarter"] == "Q4"), None)
+        annual_rev = q4.get("annual_revenue_krw") if q4 else None
+        if annual_rev and len(yr_rows) == 4 and all(r.get("revenue_krw") is not None for r in yr_rows):
+            gap = sum(r["revenue_krw"] for r in yr_rows) - annual_rev
+            gap_pct = abs(gap) / abs(annual_rev) * 100
+            if gap_pct > 0.5:
+                q4["quarters_sum_gap_pct"] = round(gap_pct, 2)
+                warnings.append(
+                    f"⚠ {y}년 분기 매출 합이 연간과 {gap_pct:.1f}% 차이 — 기중 분할·연결범위 변동으로 "
+                    f"Q1~Q3(당시 보고 기준)와 연간 재작성치가 다를 수 있다. 연간 추이는 yearly scope가 정확."
+                )
+
+    # 금융사(은행·지주)는 매출액 계정이 없다 (이자수익·수수료손익 구조) — 해석 안내
+    if out and all(r.get("revenue_krw") is None for r in out) and any(
+        r.get("operating_profit_krw") is not None or r.get("net_income_krw") is not None for r in out
+    ):
+        warnings.append("매출액 계정 없음 — 금융사(이자수익 구조)로 추정. 영업이익·순이익 기준으로 해석할 것.")
 
     # QoQ/YoY 기본 동봉 (slice 전 전체 이력 기준 — 표시 첫 분기도 직전·전년 비교 가능)
     index = {(r["year"], r["quarter"]): r for r in out}
