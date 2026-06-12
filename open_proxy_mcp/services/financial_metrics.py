@@ -1172,8 +1172,11 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
         if annual_rev and len(yr_rows) == 4 and all(r.get("revenue_krw") is not None for r in yr_rows):
             gap = sum(r["revenue_krw"] for r in yr_rows) - annual_rev
             gap_pct = abs(gap) / abs(annual_rev) * 100
-            if gap_pct > 0.5:
+            # flag(기계용)는 미세 재작성(>0.01%)도 기록 — 모델이 합산 검산 시 혼란 방지.
+            # warning(사람용)은 해석에 영향 주는 0.5% 초과만 (LG화학 0.09% 같은 미세 조정은 침묵).
+            if abs(gap) > 1_000_000 and gap_pct > 0.01:
                 q4["quarters_sum_gap_pct"] = round(gap_pct, 2)
+            if gap_pct > 0.5:
                 warnings.append(
                     f"⚠ {y}년 분기 매출 합이 연간과 {gap_pct:.1f}% 차이 — 기중 분할·연결범위 변동으로 "
                     f"Q1~Q3(당시 보고 기준)와 연간 재작성치가 다를 수 있다. 연간 추이는 yearly scope가 정확."
