@@ -69,7 +69,11 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
     s = data.get("summary", {}) or {}
     lines = ["## 핵심 지표"]
     lines.append(f"- 매출액: {_format_krw_human(s.get('revenue_krw'))}  /  매출총이익: {_format_krw_human(s.get('gross_profit_krw'))}  /  영업이익: {_format_krw_human(s.get('operating_profit_krw'))}")
-    lines.append(f"- 영업이익률: {_pct(s.get('operating_margin_pct'))}  /  EBITDA: {_format_krw_human(s.get('ebitda_krw'))}  ({_pct(s.get('ebitda_margin_pct'))})")
+    if s.get("ebitda_krw") is not None:
+        lines.append(f"- 영업이익률: {_pct(s.get('operating_margin_pct'))}  /  EBITDA: {_format_krw_human(s.get('ebitda_krw'))}  ({_pct(s.get('ebitda_margin_pct'))})")
+    else:
+        # CF에 감가상각비가 '조정' 합계로만 공시된 회사(삼성전자 등)는 D&A 미추출 — EBITDA 미산출
+        lines.append(f"- 영업이익률: {_pct(s.get('operating_margin_pct'))}  /  EBITDA: - (CF에 감가상각비 미공시 — 산출 불가)")
     lines.append(f"- 당기순이익(지배): {_format_krw_human(s.get('net_income_krw'))}  /  EPS: {s.get('eps_krw') or '-'}원  /  희석 EPS: {s.get('diluted_eps_krw') or '-'}원")
     lines.append(f"- ROE: {_pct(s.get('roe_pct'))}  /  ROA: {_pct(s.get('roa_pct'))}  /  ROIC: {_pct(s.get('roic_pct'))}")
     lines.append("")
@@ -347,7 +351,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk. 한국 표준(연결, 지배주주 귀속). 듀퐁·FCF·NWC·accruals_gap·감사의견 자동 산출.
         when: 재무 펀더멘탈 + 회계 risk 진단 / 적자전환·턴어라운드·이자보상배율 alert / 사외이사 후보 재직 시점 회계 사건 cross-check.
-        rule: source = fnlttSinglAcnt(BS+IS 30행, 요청 fs_div로 행 필터) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 raw KRW int(_krw), %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful. 금융사(은행·지주)는 매출액 계정이 없어 None — 영업이익·순이익 기준 해석. 분기 합≠연간이면 기중 분할·재작성 warning 자동 부착.
+        rule: source = fnlttSinglAcnt(BS+IS 30행, 요청 fs_div로 행 필터) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 raw KRW int(_krw), %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful. 금융사(은행·지주)는 매출액 계정이 없어 None — 영업이익·순이익 기준 해석. 분기 합≠연간이면 기중 분할·재작성 warning 자동 부착. 이자보상배율 분모 = IS 이자비용, 없으면 CF '이자의 지급' (금융비용 총액 사용 안 함). EBITDA는 CF에서 D&A가 추출된 회사만 산출 (조정 합계 공시 회사는 None).
         scope: `summary` 51 핵심 지표 1년 / `yearly` N년 추이 / `quarterly` 12분기 standalone 손익 + QoQ·YoY 기본 동봉 (Q4는 연간−3분기 누적 차분 — 연간치 혼입 없음) / `yoy` 전년+22 alert / `qoq` 전분기 (standalone 기준) / `audit_opinion` 3년 추이
         ref: dividend, corp_gov_report, shareholder_meeting_notice, evidence
         """

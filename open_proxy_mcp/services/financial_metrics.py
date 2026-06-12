@@ -75,14 +75,18 @@ _CF_ACCOUNT_PATTERNS = {
     ),
     "depreciation": (
         "감가상각비",
+        "유형자산감가상각비",
+        "감가상각비와무형자산상각비",  # 일부 회사는 유·무형 합산 한 줄
+        "유무형자산상각비",
     ),
     "amortization": (
         "무형자산상각비",
         "무형자산 상각비",
     ),
     "interest_paid": (
+        # 느슨한 "이자지급"은 "신종자본증권 이자지급"(0원 행)에 선매칭돼 분모를 0으로 오염
+        # (POSCO홀딩스 실측) — "이자의 지급"만 사용 (SK하이닉스·POSCO 모두 이 표기).
         "이자의 지급",
-        "이자지급",
     ),
     "dividends_paid": (
         "배당금의 지급",
@@ -96,7 +100,10 @@ _IS_DETAIL_PATTERNS = {
     "gross_profit": ("매출총이익", "매출총이익(손실)"),
     "operating_revenue": ("매출액", "수익(매출액)", "영업수익"),
     "cogs": ("매출원가",),
-    "interest_expense": ("이자비용", "금융비용"),
+    # "금융비용" fallback 금지 — 환손실·평가손 포함 총액이 잡혀 이자보상배율 왜곡
+    # (SK하이닉스 실측: 금융비용 12.5조 vs 실제 이자지급 0.94조 → 3.77배 vs ~50배).
+    # 이자비용 행이 없으면 CF '이자의 지급'(interest_paid)으로 fallback (사용처에서 처리).
+    "interest_expense": ("이자비용",),
     "minority_interest_income": ("비지배지분", "비지배주주지분 순이익", "비지배지분순이익"),
     "controlling_interest_income": ("지배기업 소유주지분", "지배기업소유주지분", "지배주주지분 순이익"),
     "diluted_eps": ("희석주당이익", "희석주당순이익", "희석주당이익(손실)"),
@@ -105,6 +112,8 @@ _IS_DETAIL_PATTERNS = {
     "inventory": ("재고자산",),
     "accounts_payable": ("매입채무", "매입채무 및 기타채무"),
     "cash_and_equivalents": ("현금및현금성자산", "현금 및 현금성자산"),
+    # 일부 회사(SK하이닉스 등)는 유동/비유동 구분 없이 계정명이 그냥 "차입금" 두 행 —
+    # 별도 generic 누적(borrowings_generic)으로 흡수 (map builder 참조).
     "short_term_debt": ("단기차입금",),
     "long_term_debt": ("장기차입금", "사채"),
 }
@@ -236,6 +245,11 @@ def _build_account_map_all(
                     if out[key] is None and _match_account(account_nm, patterns):
                         out[key] = amount
                         break
+            # 유동/비유동 구분 없는 generic "차입금" 행 (SK하이닉스 실측: 유동·비유동 각 1행)
+            # — 단기/장기 패턴에 "차입금"을 넣으면 substring 매칭이 "장기차입금"까지 삼키므로
+            # 정확히 "차입금"인 행만 별도 누적.
+            if account_nm and account_nm.replace(" ", "") == "차입금" and amount is not None:
+                out["borrowings_generic"] = (out.get("borrowings_generic") or 0) + amount
         elif sj_div in ("IS", "CIS"):
             for key, patterns in _IS_ACCOUNT_PATTERNS.items():
                 if out[key] is None and _match_account(account_nm, patterns):
@@ -390,10 +404,15 @@ def _compute_metrics(
     da = None
     if depreciation is not None or amortization is not None:
         da = (depreciation or 0) + (amortization or 0)
+    # IS에 '이자비용' 행이 없는 회사(SK하이닉스 등)는 CF '이자의 지급'으로 fallback —
+    # '금융비용' 총액(환손·평가손 포함)을 쓰면 이자보상배율이 수십 배 왜곡된다.
     interest_expense = detail.get("interest_expense")
+    if interest_expense is None:
+        interest_expense = detail.get("interest_paid")
     cash_and_equivalents = detail.get("cash_and_equivalents")
     short_term_debt = detail.get("short_term_debt")
     long_term_debt = detail.get("long_term_debt")
+    borrowings_generic = detail.get("borrowings_generic")
     accounts_receivable = detail.get("accounts_receivable")
     inventory = detail.get("inventory")
     accounts_payable = detail.get("accounts_payable")
@@ -427,10 +446,13 @@ def _compute_metrics(
     operating_profit_yoy_pct = _yoy_pct(operating_profit, prev_operating_profit)
     net_income_yoy_pct = _yoy_pct(net_income_controlling, prev_net_income_controlling)
 
-    # 총차입금 (단기 + 장기)
+    # 총차입금 (단기 + 장기). 단기/장기 행이 없으면 generic "차입금" 행 합산 fallback
+    # (SK하이닉스 실측: 유동·비유동 모두 계정명이 "차입금").
     total_debt = None
     if short_term_debt is not None or long_term_debt is not None:
         total_debt = (short_term_debt or 0) + (long_term_debt or 0)
+    elif borrowings_generic is not None:
+        total_debt = borrowings_generic
 
     # 순현금
     net_cash = None
@@ -441,11 +463,12 @@ def _compute_metrics(
     operating_margin_pct = _safe_pct(operating_profit, revenue)
     gross_margin_pct = _safe_pct(gross_profit, revenue)
     net_profit_margin_pct = _safe_pct(net_income_controlling, revenue)
+    # EBITDA는 D&A가 실제로 추출됐을 때만 산출. 삼성전자류는 연결 CF에 감가상각비를
+    # '조정' 합계로만 공시(상세는 주석)해 da=None — 이때 OP+0=OP로 내보내면
+    # "EBITDA = 영업이익"이라는 무의미한 값이 그럴듯하게 표시됨 (6사 audit서 5사 실측).
     ebitda_krw = None
-    if operating_profit is not None or da is not None:
-        ebitda_krw = (operating_profit or 0) + (da or 0)
-        if operating_profit is None and da is None:
-            ebitda_krw = None
+    if operating_profit is not None and da is not None:
+        ebitda_krw = operating_profit + da
     ebitda_margin_pct = _safe_pct(ebitda_krw, revenue)
 
     # ROE / ROA — 평균자산/평균자본 (전기 없으면 기말 단독).
@@ -907,13 +930,16 @@ async def _fetch_year_metrics(
     # used_rc는 당기에서 결정된 reprt_code 그대로 사용 (전기도 같은 code로 비교).
     tasks: list[Any] = []
     task_keys: list[str] = []
+    # used_rc 전파 — 당기가 분기/반기 fallback이면 CF·상세(acnt_all)와 전기 비교도
+    # 같은 reprt_code로 맞춘다. 기존엔 acnt_all이 11011 고정이라 fallback 연도에서
+    # 사업보고서 미공시 → CFO/CapEx/FCF 전체 결측 (SK하이닉스 2026 실측).
     if include_prev:
-        tasks.append(_safe_fetch_acnt(corp_code, year - 1, _REPRT_BUSINESS, fs_div))
+        tasks.append(_safe_fetch_acnt(corp_code, year - 1, used_rc, fs_div))
         task_keys.append("prev_acnt")
-    tasks.append(_safe_fetch_acnt_all(corp_code, year, _REPRT_BUSINESS, fs_div))
+    tasks.append(_safe_fetch_acnt_all(corp_code, year, used_rc, fs_div))
     task_keys.append("curr_acnt_all")
     if include_prev:
-        tasks.append(_safe_fetch_acnt_all(corp_code, year - 1, _REPRT_BUSINESS, fs_div))
+        tasks.append(_safe_fetch_acnt_all(corp_code, year - 1, used_rc, fs_div))
         task_keys.append("prev_acnt_all")
 
     parallel_results = await asyncio.gather(*tasks, return_exceptions=False)
