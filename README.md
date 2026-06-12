@@ -170,7 +170,7 @@ OpenProxy MCP의 17개 tool은 **Company → Meeting/Data/Evidence → Action** 
 - **related_party_transaction → corporate_deals** — "인수/매각" 자연어 질의가 tool 라우팅에 실패하던 문제를 이름·설명 어휘 개선으로 해결.
 - **ownership_structure 정밀화** — 발행주식총수 100% 정합 분해, 명부상 최대주주 vs 5% 보유 실세 구분, 분쟁사 5% 변동 통합.
 - **dividend 정밀화** — 분기 배당을 정기보고서 누적 차분으로 산출, 51개사 정합성 100% 검증.
-- **financial_metrics 분기 정밀화** — Q4에 연간 누적치가 섞이던 문제를 누적 차분으로 해결, 전 분기 standalone 3개월 기준 + QoQ·YoY 기본 동봉. 금융사(매출 계정 없음)·기중 분할 재작성은 자동 안내. 74개사 검증.
+- **financial_metrics 정밀화** — Q4에 연간 누적치가 섞이던 문제를 누적 차분으로 해결, 전 분기 standalone 3개월 기준 + QoQ·YoY 기본 동봉. 이자보상배율 왜곡(금융비용 오염) 제거 및 커버리지 97%로 확대, 차입금·분기 현금흐름 복구. 금융사·기중 분할 재작성은 자동 안내. KOSPI 300·KOSDAQ 100 포함 412개사 × 2개년 전수 검증.
 
 ## 릴리즈 노트 (v2.0)
 
