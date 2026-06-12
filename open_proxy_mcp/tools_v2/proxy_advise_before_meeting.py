@@ -255,8 +255,9 @@ def _render(payload: dict[str, Any]) -> str:
                 roe = m.get("roe", {}) or {}
                 lev = m.get("leverage", {}) or {}
                 csr = m.get("csr", {}) or {}
-                lines.append(f"  - ROE: 평균 {roe.get('avg', 0):.1f}% ({roe.get('avg_label')}) / 추세 {roe.get('trend_pp_per_year') or 0:+.2f}%p/년 ({roe.get('trend_label')})")
-                lines.append(f"  - 부채비율: 평균 {lev.get('avg', 0):.0f}% ({lev.get('avg_label')}) / 누적변화 {lev.get('delta_pp_total') or 0:+.0f}%p ({lev.get('trend_label')})")
+                # avg가 None '값'으로 존재하면 .get(key, 0) default가 안 먹는다 → or 0 필수 (솔루엠 crash)
+                lines.append(f"  - ROE: 평균 {roe.get('avg') or 0:.1f}% ({roe.get('avg_label')}) / 추세 {roe.get('trend_pp_per_year') or 0:+.2f}%p/년 ({roe.get('trend_label')})")
+                lines.append(f"  - 부채비율: 평균 {lev.get('avg') or 0:.0f}% ({lev.get('avg_label')}) / 누적변화 {lev.get('delta_pp_total') or 0:+.0f}%p ({lev.get('trend_label')})")
                 csr_avg = csr.get('avg_pct')
                 csr_trend = csr.get('trend_pp_per_year')
                 lines.append(f"  - CSR 환원율: 평균 {csr_avg:.1f}%" if csr_avg is not None else "  - CSR 환원율: 데이터 부족" )

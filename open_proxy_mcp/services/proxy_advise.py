@@ -748,10 +748,24 @@ def _compensation_data(comp_payload: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _comp_amount(data: dict[str, Any], *keys: str) -> int | float | None:
+    """보수 항목 숫자 추출. 일부 회사(고려아연 등)는 파서가 '7'/'7명' 같은 문자열을
+    내려보내 하류 `limit // headcount`가 TypeError — 여기서 일괄 숫자 강제."""
     for key in keys:
         value = data.get(key)
-        if value is not None:
+        if value is None:
+            continue
+        if isinstance(value, (int, float)):
             return value
+        if isinstance(value, str):
+            cleaned = value.replace(",", "").replace("명", "").replace("원", "").strip()
+            try:
+                return int(cleaned)
+            except ValueError:
+                try:
+                    return float(cleaned)
+                except ValueError:
+                    return None
+        return None
     return None
 
 
