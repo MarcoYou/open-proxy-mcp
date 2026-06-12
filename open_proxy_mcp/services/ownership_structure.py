@@ -452,6 +452,52 @@ def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any
     }
 
 
+def _sanitize_share_units(major_rows: list[dict[str, Any]], treasury_snapshot: dict[str, Any]) -> list[str]:
+    """DART 원본의 천주/백만주 단위 오염 자가 교정 (450사 audit 실측: LS·LS에코에너지).
+
+    일부 회사가 hyslrSttus 주식수 또는 stockTotqySttus 발행총수를 ×1,000 / ×1,000,000으로
+    기재한다(예: LS 구자은 '1,170,304,000'주 + 지분율 3.69% — 발행총수 31.7M의 36.9배).
+    지분율(비율) 필드는 오염되지 않으므로 anchor로 쓴다:
+        r = (주식수/발행총수×100) / 공시지분율
+    r ≈ 10^k (k=3,6)  → 명부 주식수 ×10^k 오염 → 주식수 /10^k
+    r ≈ 10^-k         → 발행총수(및 자사주·유통) ×10^k 오염 → 분모 /10^k
+    r이 10의 거듭제곱 근처가 아니면(예: 솔루스 보통주/총주식 분모 차이 r≈1.3) 건드리지 않는다.
+    """
+    import math
+
+    issued = treasury_snapshot.get("issued_shares", 0) or 0
+    anchored = [
+        r for r in major_rows
+        if (r.get("ownership_pct") or 0) >= 0.01 and (r.get("shares") or 0) > 0
+    ]
+    if not issued or not anchored:
+        return []
+    ratios = sorted(
+        (row["shares"] / issued * 100) / row["ownership_pct"] for row in anchored
+    )
+    r = ratios[len(ratios) // 2]  # median — 행별 혼합 오염 방어
+    if r <= 0:
+        return []
+    lr = math.log10(r)
+    k = round(lr)
+    if abs(lr - k) > 0.15 or abs(k) not in (3, 6):
+        return []
+    unit = 10 ** abs(k)
+    if k > 0:
+        for row in major_rows:
+            if row.get("shares"):
+                row["shares"] = row["shares"] // unit
+        return [f"명부 주식수가 발행총수 대비 {unit:,}배로 기재돼 있어 {unit:,}분의 1로 교정 (DART 원본 단위 오염)"]
+    for key in ("issued_shares", "treasury_shares", "tradable_shares"):
+        if treasury_snapshot.get(key):
+            treasury_snapshot[key] = treasury_snapshot[key] // unit
+    issued2 = treasury_snapshot.get("issued_shares", 0) or 0
+    treasury_snapshot["treasury_pct"] = (
+        round(treasury_snapshot.get("treasury_shares", 0) / issued2 * 100, 2) if issued2 else 0.0
+    )
+    return [f"발행총수가 명부 지분율 대비 {unit:,}배로 기재돼 있어 {unit:,}분의 1로 교정 (DART 원본 단위 오염)"]
+
+
 def _parse_change_filing(html: str, rcept_no: str, rcept_dt: str) -> dict[str, Any]:
     """KIND HTML에서 최대주주등소유주식변동신고서 파싱."""
     soup = BeautifulSoup(html, "lxml")
@@ -812,8 +858,20 @@ async def build_ownership_structure_payload(
         if start_ymd <= row.get("report_date", "").replace("-", "") <= end_ymd
     ]
 
-    top_holder = _top_holder_summary(major_rows)
     treasury_snapshot = _treasury_snapshot(stock_total, treasury_data)
+    unit_warnings = _sanitize_share_units(major_rows, treasury_snapshot)
+    warnings.extend(unit_warnings)
+    # 공시 지분율(보통+우선 총주식 기준일 수 있음) vs 보통주 기준 괴리 안내 (솔루스 41% vs 53% 류)
+    _issued_for_check = treasury_snapshot.get("issued_shares", 0) or 0
+    if _issued_for_check and major_rows:
+        _share_pct = sum(r.get("shares", 0) or 0 for r in major_rows) / _issued_for_check * 100
+        _disclosed_pct = _related_total(major_rows)
+        if abs(_share_pct - _disclosed_pct) > 2:
+            warnings.append(
+                f"명부 공시 지분율 합({_disclosed_pct:.2f}%)과 보통주 발행총수 기준({_share_pct:.2f}%)이 다름 — "
+                "공시 지분율은 우선주 포함 총주식 기준일 수 있음. 100% 분해표는 보통주 기준."
+            )
+    top_holder = _top_holder_summary(major_rows)
     active_signals = [
         row for row in latest_blocks
         if row["purpose"] not in ("단순투자", "단순투자/일반투자", "불명")
