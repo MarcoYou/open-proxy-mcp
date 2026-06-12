@@ -9,9 +9,9 @@ It does not just show DART's raw numbers — it processes them into ratios that 
 |---|---|
 | **summary** | Core metrics summary (current + prior) |
 | **yearly** | Yearly metrics (multi-year) |
-| **quarterly** | Quarterly metrics (4Q × multi-year) |
+| **quarterly** | Quarterly metrics (4Q × multi-year, standalone 3-month figures with QoQ/YoY attached; Q4 = annual minus 9-month cumulative) |
 | **yoy** | Year-over-Year |
-| **qoq** | Quarter-over-Quarter |
+| **qoq** | Quarter-over-Quarter (both sides standalone) |
 | **audit_opinion** | Auditor and audit-opinion trend |
 
 ## What it reads and what it computes

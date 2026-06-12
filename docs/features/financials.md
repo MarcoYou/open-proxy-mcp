@@ -9,9 +9,9 @@ DART에서 받은 숫자를 그대로 보여주는 데 그치지 않고, 수익�
 |---|---|
 | **summary** | 핵심 지표 요약 (당기 + 전기) |
 | **yearly** | 연도별 지표 (다년도) |
-| **quarterly** | 분기별 지표 (4Q × 다년) |
+| **quarterly** | 분기별 지표 (4Q × 다년, standalone 3개월 기준 + QoQ·YoY 기본 동봉. Q4는 연간−3분기 누적 차분) |
 | **yoy** | 전년 대비 (Year-over-Year) |
-| **qoq** | 전분기 대비 (Quarter-over-Quarter) |
+| **qoq** | 전분기 대비 (Quarter-over-Quarter, 양쪽 모두 standalone 기준) |
 | **audit_opinion** | 감사인·감사의견 추이 |
 
 ## 무엇을 참고하고 무엇을 연산하나

@@ -25,7 +25,7 @@
 - **[지분·지배구조 맵](docs/features/ownership.md)**: 최대주주·특수관계인·5% 대량보유·자사주로 소유 구조를 그립니다.
 - **[주총 안건 구조화](docs/features/meeting-agenda.md)**: 소집공고 안건·후보·보수한도·정관변경과 주총 후 의결 결과·찬반율을 정리합니다.
 - **[주주환원](docs/features/shareholder-return.md)**: 배당·자기주식 소각 사이클·밸류업 계획을 묶어 환원 정책의 약속과 실제 집행을 비교합니다.
-- **[재무지표](docs/features/financials.md)**: DART 재무 endpoint 통합 — 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이.
+- **[재무지표](docs/features/financials.md)**: DART 재무 endpoint 통합 — 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이. 분기 실적은 standalone 3개월 기준으로 QoQ·YoY를 기본 제공합니다.
 - **[기업 리스크 이벤트](wiki/tools/risk_events.md)**: 중대재해·횡령배임·생산중단 공시를 추적합니다. 회사를 지정하지 않으면 시장 전체에서 최근 사건을 스캔합니다.
 
 그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각과 내부거래 등은 [17개 tool 카탈로그](wiki/tools/README.md)에서 확인할 수 있습니다.
@@ -170,6 +170,7 @@ OpenProxy MCP의 17개 tool은 **Company → Meeting/Data/Evidence → Action** 
 - **related_party_transaction → corporate_deals** — "인수/매각" 자연어 질의가 tool 라우팅에 실패하던 문제를 이름·설명 어휘 개선으로 해결.
 - **ownership_structure 정밀화** — 발행주식총수 100% 정합 분해, 명부상 최대주주 vs 5% 보유 실세 구분, 분쟁사 5% 변동 통합.
 - **dividend 정밀화** — 분기 배당을 정기보고서 누적 차분으로 산출, 51개사 정합성 100% 검증.
+- **financial_metrics 분기 정밀화** — Q4에 연간 누적치가 섞이던 문제를 누적 차분으로 해결, 전 분기 standalone 3개월 기준 + QoQ·YoY 기본 동봉. 금융사(매출 계정 없음)·기중 분할 재작성은 자동 안내. 74개사 검증.
 
 ## 릴리즈 노트 (v2.0)
 

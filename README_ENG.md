@@ -27,7 +27,7 @@ Click any feature for a detailed page.
 - **[Ownership map](docs/features/en/ownership.md)** — largest shareholder, related parties, 5% blocks, and treasury shares — the real size of control.
 - **[AGM agenda](docs/features/en/meeting-agenda.md)** — agenda items, director nominees, compensation limits, articles amendments, plus post-AGM results and approval rates.
 - **[Shareholder return](docs/features/en/shareholder-return.md)** — dividends, the treasury buyback-to-cancellation cycle, and value-up plans, comparing what was promised against what was actually executed.
-- **[Financial metrics](docs/features/en/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend).
+- **[Financial metrics](docs/features/en/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend). Quarterly figures are standalone three-month values with QoQ/YoY changes included by default.
 - **[Corporate risk events](wiki/tools/risk_events.md)** — tracks serious-accident, embezzlement/breach-of-trust, and production-halt filings. With no company specified, it scans the whole market for recent events.
 
 Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, equity stake deals and related-party transactions — are in the [17-tool catalog](wiki/tools/README.md).
@@ -302,6 +302,7 @@ fly.toml                   # Fly.io config (nrt region, auto-suspend)
 - **`related_party_transaction` → `corporate_deals`** — fixed tool-routing misses on "acquired/sold" natural-language queries by renaming and rewording the tool description.
 - **`ownership_structure` precision** — 100% reconciliation of total shares (registry + treasury + others), registry top holder vs actual 5% blockholder split, contest-aware 5% change tracking.
 - **`dividend` precision** — quarterly DPS derived from periodic-report cumulative differencing, 100% consistency across 51 companies.
+- **`financial_metrics` quarterly precision** — fixed Q4 rows carrying full-year cumulative figures; all quarters are now standalone three-month values with QoQ/YoY attached by default. Financial firms (no revenue account) and mid-year restatements are auto-flagged. Verified across 74 companies.
 
 ## Release notes (v2.0)
 
