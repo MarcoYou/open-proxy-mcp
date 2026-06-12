@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-structure-17-tools)
-[![Release](https://img.shields.io/badge/release-v2.0-blue.svg)](#release-notes-v20)
+[![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](#release-notes-v21)
 
 [Korean README](README.md)
 
@@ -28,8 +28,9 @@ Click any feature for a detailed page.
 - **[AGM agenda](docs/features/en/meeting-agenda.md)** — agenda items, director nominees, compensation limits, articles amendments, plus post-AGM results and approval rates.
 - **[Shareholder return](docs/features/en/shareholder-return.md)** — dividends, the treasury buyback-to-cancellation cycle, and value-up plans, comparing what was promised against what was actually executed.
 - **[Financial metrics](docs/features/en/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend).
+- **[Corporate risk events](wiki/tools/risk_events.md)** — tracks serious-accident, embezzlement/breach-of-trust, and production-halt filings. With no company specified, it scans the whole market for recent events.
 
-Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, related-party transactions — are in the [16-tool catalog](wiki/tools/README.md).
+Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, equity stake deals and related-party transactions — are in the [17-tool catalog](wiki/tools/README.md).
 
 ---
 
@@ -108,6 +109,7 @@ Once connected, just ask in natural language:
 "Lotte Chemical 2024 YoY + accounting risk alerts"                # Financials + audit opinion
 "KT&G corporate governance report compliance rate"                # Governance 15 principles
 "Create a KT&G AGM voting memo"                                   # Open Proxy Guideline recommendation
+"Which listed companies filed serious-accident disclosures last month?"  # Market-wide risk scan
 ```
 
 More usage patterns → [wiki/tools/README.md](wiki/tools/README.md) (17 tool catalog).
@@ -291,6 +293,15 @@ fly.toml                   # Fly.io config (nrt region, auto-suspend)
 ```
 
 ---
+
+## Release notes (v2.1)
+
+17-tool lineup. Centered on risk-event tracking and natural-language routing improvements.
+
+- **New `risk_events` tool (17th)** — serious accidents, embezzlement/breach of trust, and production halts in one view. With no company given, scans the whole market for the last 30 days. Verified against 305 companies x 3.5 years (zero search diff) and 359 full-text parses.
+- **`related_party_transaction` → `corporate_deals`** — fixed tool-routing misses on "acquired/sold" natural-language queries by renaming and rewording the tool description.
+- **`ownership_structure` precision** — 100% reconciliation of total shares (registry + treasury + others), registry top holder vs actual 5% blockholder split, contest-aware 5% change tracking.
+- **`dividend` precision** — quarterly DPS derived from periodic-report cumulative differencing, 100% consistency across 51 companies.
 
 ## Release notes (v2.0)
 

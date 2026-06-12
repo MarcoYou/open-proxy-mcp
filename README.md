@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-구조-17개)
-[![Release](https://img.shields.io/badge/release-v2.0-blue.svg)](#릴리즈-노트-v20)
+[![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](#릴리즈-노트-v21)
 
 [English README](README_ENG.md)
 
@@ -26,8 +26,9 @@
 - **[주총 안건 구조화](docs/features/meeting-agenda.md)**: 소집공고 안건·후보·보수한도·정관변경과 주총 후 의결 결과·찬반율을 정리합니다.
 - **[주주환원](docs/features/shareholder-return.md)**: 배당·자기주식 소각 사이클·밸류업 계획을 묶어 환원 정책의 약속과 실제 집행을 비교합니다.
 - **[재무지표](docs/features/financials.md)**: DART 재무 endpoint 통합 — 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이.
+- **[기업 리스크 이벤트](wiki/tools/risk_events.md)**: 중대재해·횡령배임·생산중단 공시를 추적합니다. 회사를 지정하지 않으면 시장 전체에서 최근 사건을 스캔합니다.
 
-그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 특수관계자 거래 등은 [17개 tool 카탈로그](wiki/tools/README.md)에서 확인할 수 있습니다.
+그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각과 내부거래 등은 [17개 tool 카탈로그](wiki/tools/README.md)에서 확인할 수 있습니다.
 
 ---
 
@@ -110,6 +111,11 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 1. `고려아연 경영권 분쟁 관련 공시 알려줘`
 2. `현재 지분 구조와 5% 보유자 변화를 같이 보여줘`
 
+**리스크 모니터링**
+
+1. `최근 한 달 사이에 중대재해나 횡령 공시 낸 상장사 알려줘`
+2. `한화에어로스페이스 중대재해 이력을 사상자까지 자세히 보여줘`
+
 더 많은 사용 패턴 → [wiki/tools/README.md](wiki/tools/README.md) (17 tool 카탈로그) 참조.
 
 ---
@@ -155,6 +161,15 @@ OpenProxy MCP의 17개 tool은 **Company → Meeting/Data/Evidence → Action** 
 | 익명화 기관 정책 corpus | 의결권 판단 cross-reference | 내부 정적 데이터. 사용자 응답에는 기관 실명/식별자 비노출 |
 
 ---
+
+## 릴리즈 노트 (v2.1)
+
+17개 tool 체계. 리스크 이벤트 추적과 자연어 라우팅 개선이 중심입니다.
+
+- **risk_events 신설 (17번째 tool)** — 중대재해·횡령배임·생산중단 공시 통합. 회사 미지정 시 시장 전체 최근 30일 스캔. 검색 305사 × 3.5년 차집합 0, 본문 359건 전수 검증.
+- **related_party_transaction → corporate_deals** — "인수/매각" 자연어 질의가 tool 라우팅에 실패하던 문제를 이름·설명 어휘 개선으로 해결.
+- **ownership_structure 정밀화** — 발행주식총수 100% 정합 분해, 명부상 최대주주 vs 5% 보유 실세 구분, 분쟁사 5% 변동 통합.
+- **dividend 정밀화** — 분기 배당을 정기보고서 누적 차분으로 산출, 51개사 정합성 100% 검증.
 
 ## 릴리즈 노트 (v2.0)
 
