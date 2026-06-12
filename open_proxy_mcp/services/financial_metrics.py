@@ -85,7 +85,8 @@ _CF_ACCOUNT_PATTERNS = {
     ),
     "interest_paid": (
         # 느슨한 "이자지급"은 "신종자본증권 이자지급"(0원 행)에 선매칭돼 분모를 0으로 오염
-        # (POSCO홀딩스 실측) — "이자의 지급"만 사용 (SK하이닉스·POSCO 모두 이 표기).
+        # (POSCO홀딩스 실측) — substring은 "이자의 지급"만, 나머지 변형은
+        # _INTEREST_PAID_EXACT(정확 일치)로 처리 (412사 audit: 미추출 153사 probe).
         "이자의 지급",
     ),
     "dividends_paid": (
@@ -93,6 +94,14 @@ _CF_ACCOUNT_PATTERNS = {
         "배당금지급",
         "배당금 지급",
     ),
+}
+
+# CF 이자지급 변형 — 정확 일치만 (substring이면 "신종자본증권이자지급" 류 FP).
+# 412사 probe 실측 빈도: 이자지급(영업) 15 / 이자지급 8 / 이자비용 5 / 이자비용지급 4 / 이자납부 1.
+# CF의 "이자비용" 행은 간접법 조정 발생액 — 이자보상 분모로 사용 가능.
+_INTEREST_PAID_EXACT = {
+    "이자의지급", "이자지급", "이자지급(영업)", "이자의지급(영업)",
+    "이자비용지급", "이자비용의지급", "이자납부", "이자비용",
 }
 
 # fnlttSinglAcntAll IS/CIS 추가 항목.
@@ -245,10 +254,11 @@ def _build_account_map_all(
                     if out[key] is None and _match_account(account_nm, patterns):
                         out[key] = amount
                         break
-            # 유동/비유동 구분 없는 generic "차입금" 행 (SK하이닉스 실측: 유동·비유동 각 1행)
+            # 유동/비유동 구분 없는 generic "차입금"(SK하이닉스) / 금융사형 "차입부채" 행
             # — 단기/장기 패턴에 "차입금"을 넣으면 substring 매칭이 "장기차입금"까지 삼키므로
-            # 정확히 "차입금"인 행만 별도 누적.
-            if account_nm and account_nm.replace(" ", "") == "차입금" and amount is not None:
+            # 정확 일치 행만 별도 누적. "단기/장기금융부채" 류는 파생·기타부채 포함이라
+            # 차입금으로 잡으면 과대계상 — 의도적으로 미채택 (412사 probe 결정).
+            if account_nm and account_nm.replace(" ", "") in ("차입금", "차입부채") and amount is not None:
                 out["borrowings_generic"] = (out.get("borrowings_generic") or 0) + amount
         elif sj_div in ("IS", "CIS"):
             for key, patterns in _IS_ACCOUNT_PATTERNS.items():
@@ -263,6 +273,11 @@ def _build_account_map_all(
                         out[key] = amount
                         break
         elif sj_div == "CF":
+            # 이자지급 변형은 정확 일치 우선 (substring FP 방지 — _INTEREST_PAID_EXACT 주석 참조)
+            if out.get("interest_paid") is None and account_nm and account_nm.replace(" ", "") in _INTEREST_PAID_EXACT:
+                if amount is not None:
+                    out["interest_paid"] = amount
+                continue
             for key, patterns in _CF_ACCOUNT_PATTERNS.items():
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = amount
