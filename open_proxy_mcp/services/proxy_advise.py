@@ -50,7 +50,7 @@ from open_proxy_mcp.services.director_evaluation import build_director_evaluatio
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
-from open_proxy_mcp.services.director_performance import compute_performance
+from open_proxy_mcp.services.director_performance import _PERF_KO, compute_performance
 from open_proxy_mcp.services.dividend_v2 import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 # Removed dead imports (archived at wiki/archive/services/):
@@ -679,11 +679,11 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     # 사내이사: 결격사유 외에 재직 중 회사 운영 성과 평가 (status quo 편향 mitigation, ralph 260505)
     perf = (eval_match.get("performance") or {}).get("classification")
     if perf == "bad":
-        return "REVIEW", f"사내이사 재직 중 성과 bad — 자본잠식/적자 또는 누적 악화, 법정 결격은 아니므로 사용자 검토"
+        return "REVIEW", f"사내이사 재직 중 성과 저조 — 자본잠식/적자 또는 누적 악화, 법정 결격은 아니므로 사용자 검토"
     if perf == "weak":
-        return "REVIEW", f"사내이사 재직 중 성과 weak — 사용자 검토 필요"
+        return "REVIEW", f"사내이사 재직 중 성과 부진 — 사용자 검토 필요"
     if perf in ("moderate", "good"):
-        return "FOR", f"사내이사 결격 없음 + 재직 성과 {perf} ({role_type})"
+        return "FOR", f"사내이사 결격 없음 + 재직 성과 {_PERF_KO.get(perf, perf)} ({role_type})"
     # performance 미평가 (신임 사내이사 — appointment_type=new) → 기존 logic
     return "FOR", f"사내이사 결격사유 없음 ({role_type}) — 신임 또는 평가 미실시"
 
@@ -1310,7 +1310,7 @@ def _candidate_performance_brief(eval_match: dict[str, Any]) -> dict[str, Any] |
     if not perf:
         return None
     brief = {
-        "classification": perf.get("classification"),
+        "classification": perf.get("classification_ko") or perf.get("classification"),  # 한글 노출(부진 등)
         "total_score": perf.get("total_score"),
         "score_range": f"{perf.get('min_score')}~{perf.get('max_score')}"
         if perf.get("min_score") is not None and perf.get("max_score") is not None
@@ -2303,12 +2303,12 @@ async def build_proxy_advise_payload(
                     decision, reason = "AGAINST", f"묶음 안건 — 후보 {len(relevant_evals)}명 중 결격사유 발견"
                 elif inside_perf_bad:
                     bad_names = [ev.get("name", "?") for ev in inside_evals if (ev.get("performance") or {}).get("classification") == "bad"]
-                    decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 bad ({', '.join(bad_names[:3])}) — 사용자 검토"
+                    decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 저조 ({', '.join(bad_names[:3])}) — 사용자 검토"
                 elif audit_history_red:
                     decision, reason = "REVIEW", f"묶음 안건 — 이사 회계 risk 이력 검증 red_flag (raw 메모 검토)"
                 elif inside_perf_weak:
                     weak_names = [ev.get("name", "?") for ev in inside_evals if (ev.get("performance") or {}).get("classification") == "weak"]
-                    decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 weak ({', '.join(weak_names[:3])}) — 사용자 검토"
+                    decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 부진 ({', '.join(weak_names[:3])}) — 사용자 검토"
                 else:
                     note = f" (사외 {len(outside_evals)}명 중 일부 indep concerns — 개별 사외이사 안건에서 검토)" if indep_concerns_outside else ""
                     decision, reason = "FOR", f"묶음 안건 — 결격사유 없음, 후보 {len(relevant_evals)}명{note}"
@@ -2552,6 +2552,13 @@ async def build_proxy_advise_payload(
         status = AnalysisStatus.NO_FILING
     else:
         status = AnalysisStatus.EXACT
+
+    # 표면 한글화 — performance.classification(영문)은 위 decision 분기에서 이미 소비됐다.
+    # LLM에 노출되는 candidates_evaluations에는 한글 라벨(부진 등)만 보이도록 치환.
+    for _ev in director_evals:
+        _perf = _ev.get("performance")
+        if isinstance(_perf, dict) and _perf.get("classification"):
+            _perf["classification"] = _perf.get("classification_ko") or _perf["classification"]
 
     # ── data dict 구성 (Step 3: scope param 단순 expose) ──
     # 모든 scope 공통 base

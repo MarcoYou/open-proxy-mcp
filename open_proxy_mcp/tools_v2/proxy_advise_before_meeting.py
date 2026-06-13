@@ -248,9 +248,10 @@ def _render(payload: dict[str, Any]) -> str:
             # 사내이사 재직 중 성과 (ralph 260505) — 사내이사 + renewed에만 부착됨
             perf = c.get("performance") or {}
             if perf.get("classification"):
-                cls = perf.get("classification", "n/a")
+                cls = perf.get("classification", "n/a")  # 영문 키 — 이모지 매핑용
+                cls_ko = perf.get("classification_ko") or cls  # 한글 표시
                 cls_emoji = {"good": "🟢", "moderate": "🟡", "weak": "🟠", "bad": "🔴"}.get(cls, "")
-                lines.append(f"- **재직 중 성과**: {cls_emoji} **{cls}** (총점 {perf.get('total_score')}/12, 재직 {perf.get('tenure_period', '-')})")
+                lines.append(f"- **재직 중 성과**: {cls_emoji} **{cls_ko}** (총점 {perf.get('total_score')}/12, 재직 {perf.get('tenure_period', '-')})")
                 m = perf.get("matrix", {}) or {}
                 roe = m.get("roe", {}) or {}
                 lev = m.get("leverage", {}) or {}

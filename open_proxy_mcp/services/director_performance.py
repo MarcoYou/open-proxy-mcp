@@ -34,8 +34,14 @@ WEAK = 0
 BAD = -1
 
 
+# classification(영문)은 proxy_advise 로직 분기의 키라 유지하고, LLM에 노출되는
+# 표면(셀 라벨·rationale·총괄 한글명)만 한글화한다. (Claude web이 'weak'을 그대로 노출하던 문제)
+_PERF_KO = {"good": "우수", "moderate": "양호", "weak": "부진", "bad": "저조", "n/a": "평가불가"}
+
+
 def _label(score: int) -> str:
-    return {2: "good", 1: "moderate", 0: "weak", -1: "bad"}.get(score, "n/a")
+    """매트릭스 셀 점수 → 한글 라벨 (표시용)."""
+    return _PERF_KO[{2: "good", 1: "moderate", 0: "weak", -1: "bad"}.get(score, "n/a")]
 
 
 # ── ROE ──
@@ -228,7 +234,7 @@ def compute_performance(
     Returns: 매트릭스 + 점수 + classification dict
     """
     if not tenure_years:
-        return {"classification": "n/a", "rationale": "재직 기간 없음 (신임 또는 detect fail)"}
+        return {"classification": "n/a", "classification_ko": "평가불가", "rationale": "재직 기간 없음 (신임 또는 detect fail)"}
 
     tenure_years_sorted = sorted(tenure_years)
 
@@ -305,10 +311,10 @@ def compute_performance(
     if csr_trend is not None:
         rationale_parts.append(f"CSR 추세 {csr_trend:+.1f}%p/년 ({_label(csr_trend_score)})")
     if capital_impairment_status == "full":
-        rationale_parts.append("⚠ 자본잠식 (ROE/부채 자동 bad)")
+        rationale_parts.append("⚠ 자본잠식 (ROE/부채 자동 저조)")
     if avg_net_income is not None and avg_net_income < 0:
         if total_return > 0:
-            rationale_parts.append("⚠ 적자에서 환원 (CSR weak)")
+            rationale_parts.append("⚠ 적자에서 환원 (CSR 부진)")
         else:
             rationale_parts.append("적자 환원 자제 (보수)")
 
@@ -347,6 +353,7 @@ def compute_performance(
         "total_score": total,
         "max_score": 12,
         "min_score": -6,
-        "classification": classification,
+        "classification": classification,  # 영문 — proxy_advise 로직 분기 키
+        "classification_ko": _PERF_KO.get(classification, classification),  # 한글 — 표시·LLM 노출용
         "rationale": " / ".join(rationale_parts) if rationale_parts else "데이터 부족",
     }
