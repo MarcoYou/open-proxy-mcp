@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-06-01
+updated: 2026-06-13
 ---
 
 # OPM Wiki Index
@@ -24,7 +24,8 @@ OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - `director_performance` — 사내이사 재직 중 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend) — proxy_advise 사내이사 분기에 wire
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
-### 주요 변화 (2026-05-04 ~ 06-12)
+### 주요 변화 (2026-05-04 ~ 06-13)
+- **proxy_result 제거(17→16) + 2차 전수조사 4축 (2026-06-13)** — proxy_result_after_meeting 제거: 핵심(안건별 가결/부결/찬반율)을 `shareholder_meeting_results`가 3콜 vs 32콜로 대체, desc의 'cross-match' 미구현, 핵심 0건 회귀를 한 달간 무인지 = 실사용 부재. 코드 archive 보존. 남은 검증축 전수: **seam audit**(proxy_advise 8사 composite vs 직접 호출 — 고려아연 headcount str crash 발견·근원 fix), **render smoke**(16툴×31케이스 FastMCP call_tool — 솔루엠 perf None 포맷 crash 발견 → 31/31, payload audit이 못 보는 render 레이어), **corp_gov 값**(30사 450지표 O/X + 기준값 정확 일치, 삼성 13/15), **production MCP smoke**(정식 클라이언트 initialize→list→call, 재설계 반영 확인). 메타: 가짜 clean 3회(틀린 키)→첫 케이스 실키 출력+양성 검사량 보고 표준화 / 인프라 이상은 단발 증상 말고 curl 직접 격리 확인(키 무효 오진 정정). 릴리즈 노트 docs/RELEASE_NOTES.md로 분리. ([[lessons/tool-coverage-audit-260612]])
 - **audit 미커버 툴 전수조사 — proxy_result 0건 회귀 발견·교정 (2026-06-12)** — 커버리지 매핑(파싱 성공률 vs 내용 정확도 2층위) 후 미흡 순서로 전수. ① ownership 450사: DART 원본 단위 오염 2사(LS 명부 ×1,000·LS에코 발행총수 ×1,000,000) — 지분율 anchor 자가 교정 + 분모(보통주 vs 총주식) 괴리 경고. ② dilutive·restructuring·deals 값 정확도 286사: deals 행 1,560 채움률 100% issue 0, 날짜 676건 한국어 원본 → ISO 일괄 정규화. ③ evidence 8케이스(불가능 달력 날짜 검증 추가) + **proxy_result: 핵심 안건결과가 항상 0건이던 회귀**(upstream 키 `agenda_results`→`results.items` rename 미반영, no_results로 위장) 발견 → 교정 후 15/15 복구. 과거 연도(2024·25) 결과는 서술형 공시라 소스 한계. 교훈: baseline 없는 툴은 죽어도 모른다 / upstream rename 시 소비자 동시 갱신 / upstream exact + 자기 0건 = 버그 신호. ([[lessons/tool-coverage-audit-260612]])
 - **financial_metrics 정밀화 — hedge 역추적 → 412사 전수 audit (2026-06-12)** — 실사용(SK하이닉스 질의)에서 호스트 모델의 장시간 추론·"확인 필요" hedge가 전부 tool 파싱 결함의 증상임을 역추적. 교정 9건: **Q4 누적차분 + QoQ·YoY 기본 동봉**, fs_div 필터(CFS+OFS 동시 반환 실측), **이자보상배율 왜곡 제거**(금융비용 오염 — 삼성전자 3.72→92.8배) + 변형 정확일치 세트로 커버리지 59%→97%, 차입금 generic(차입금/차입부채), 분기 fallback CF 결측(used_rc 전파), 재작성 gap flag 이원화·손익 3키 확장, EBITDA(D&A 24% 원천 한계)·잠식률 표시 정책. 검증: 라운드 점증(4→412사 × FY24·25, ~4,200콜) + 불변식(4분기합=연간·FCF=CFO−CapEx·듀퐁곱=ROE) 수렴. 교훈: 모델의 hedge는 공짜 버그 리포트, 결측이 오류보다 낫다, 누적 공시는 항상 차분. ([[financial_metrics]] / [[lessons/financial-metrics-precision-260612]] / [[260612_fm_market_audit_412|audit raw]])
 
