@@ -10,12 +10,12 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 16개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (16 tool, 2026-06-13 정리)
+### 도메인별 (17 tool, 2026-06-13 정리)
 - **Company (1)**: [[company]]
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
-- **Data (11)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[risk_events]] · [[corp_gov_report]]
+- **Data (12)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]]
 - **Evidence (1)**: [[evidence]]
 - **Action (1)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합). 사후 결과는 [[shareholder_meeting_results]]
 

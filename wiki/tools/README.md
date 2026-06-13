@@ -1,18 +1,18 @@
 ---
 type: readme
-title: tools/ — Tool 카탈로그 (16 tool 진입점)
+title: tools/ — Tool 카탈로그 (17 tool 진입점)
 updated: 2026-06-01
 ---
 
 # tools/ — Tool 카탈로그
 
-> OPM v2 의 16 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
+> OPM v2 의 17 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
 > 각 tool 1 페이지, 통일 schema (frontmatter + 한 줄 요약 + 사용법 + 입력 인자 + 출력 schema + Data sources + 파싱 전략 + 관련 공시/개념/결정/audit + 알려진 issue + 변경 이력).
 > 도메인 개념 / 공시 본문 / 정책 결정 정보는 본 폴더에 중복 X. `rules/concepts/`, `rules/disclosures/`, `decisions/`, `architecture/audits/` 로 link만 한다.
 
 Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 
-## 빠른 진입표 (16 tool)
+## 빠른 진입표 (17 tool)
 
 ### Company (1)
 | tool | 한 줄 |
@@ -46,6 +46,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 |------|------|
 | [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류) |
 | [[corporate_deals]] | 지분 인수·매각(타법인주식) + 단일공급계약 (일감몰아주기) — 구 related_party_transaction |
+| [[order_contracts]] | 수주(단일판매·공급계약) — 계약금액·매출대비%·정정 dedup/diff. 적자 코스닥 미래매출 가시성 |
 | [[risk_events]] | 리스크 이벤트 — 활성 3종: 중대재해/횡령배임/생산중단·영업정지 (I001+B001, 시장 스캔. 파생·회생·해산은 mute) |
 | [[evidence]] | rcept_no → 공시일/소스/뷰어 URL (API 0회) |
 
