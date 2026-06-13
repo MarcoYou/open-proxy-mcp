@@ -264,7 +264,16 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(f"  - CSR 환원율: 평균 {csr_avg:.1f}%" if csr_avg is not None else "  - CSR 환원율: 데이터 부족" )
                 lines[-1] += f" ({csr.get('avg_label')}) / 추세 {csr_trend:+.1f}%p/년 ({csr.get('trend_label')})" if csr_trend is not None else f" ({csr.get('avg_label')})"
                 if perf.get("capital_impairment_status") == "full":
-                    lines.append(f"  - ⚠ 자본잠식 (ROE/부채 자동 bad)")
+                    lines.append(f"  - ⚠ 자본잠식 (ROE/부채 자동 저조)")
+                os_ = perf.get("order_signal")
+                if os_ and os_.get("order_count"):
+                    amt = os_.get("external_total_amount_won") or 0
+                    amt_s = f"{amt/1_0000_0000_0000:.1f}조" if amt >= 1_0000_0000_0000 else f"{amt/1_0000_0000:,.0f}억"
+                    mx = os_.get("max_revenue_ratio_pct")
+                    lines.append(
+                        f"  - 수주(참고, 점수 미반영): 외부 {os_.get('external_count', 0)}건 {amt_s}원"
+                        + (f" / 매출대비 최대 {mx}%" if mx else "")
+                    )
             lines.append("")
 
         # 회계 risk 이력 발견 detail (회사명 / 시점 / risk 유형 raw 노출)
