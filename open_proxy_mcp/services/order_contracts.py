@@ -107,36 +107,50 @@ def _correction_diff(flat: str) -> dict[str, Any]:
     m = re.search(r"정정\s*전\s*정정\s*후(.{0,400})", flat)
     if not m:
         return {}
-    blk = m.group(1).split("계약기간")[0]  # 계약기간 날짜 숫자 혼입 차단
-    big = [a for a in re.findall(r"\d{1,3}(?:,\d{3}){2,}", blk) if len(a.replace(",", "")) >= 8]
-    revs = re.findall(r"(?<![\d,])\d{1,3}\.\d+(?![\d])", blk)
+    blk = m.group(1).split("계약기간")[0].split("기타")[0]  # 날짜·기타 숫자 혼입 차단
     out: dict[str, Any] = {}
-    if len(big) >= 2:
-        before, after = _to_won(big[0], "원"), _to_won(big[1], "원")
+    before = after = None
+    # A) '계약금액(원) [전] [후]' 라벨 직접 (포스코 등) — 최근매출 혼입 없음
+    am = re.search(r"계약금액\s*\(원\)\s*([\d,]{6,})\s+([\d,]{6,})", blk)
+    if am:
+        before, after = _to_won(am.group(1), "원"), _to_won(am.group(2), "원")
+    else:
+        # B) 라벨이 값 앞에 몰린 양식 (한화) — 계약금액 라벨 이후, 최근매출 라벨 이전 구간의 큰금액 2개
+        seg = re.split(r"최근\s*매출", blk)[0]
+        big = [a for a in re.findall(r"\d{1,3}(?:,\d{3}){2,}", seg) if len(a.replace(",", "")) >= 8]
+        if len(big) >= 2:
+            before, after = _to_won(big[0], "원"), _to_won(big[1], "원")
+    rm = re.search(r"매출액\s*대비\s*\(%\)\s*([\d.]+)\s+([\d.]+)", blk)
+    if rm:
+        out["revenue_ratio_before_pct"] = float(rm.group(1))
+        out["revenue_ratio_after_pct"] = float(rm.group(2))
+    if before and after:
         out["amount_before_won"] = before
         out["amount_after_won"] = after
-        if before and after:
-            out["amount_change_won"] = after - before
-            out["amount_change_pct"] = round((after - before) / before * 100, 1)
-    if len(revs) >= 2:
-        out["revenue_ratio_before_pct"] = float(revs[0])
-        out["revenue_ratio_after_pct"] = float(revs[1])
+        out["amount_change_won"] = after - before
+        out["amount_change_pct"] = round((after - before) / before * 100, 1)
     return out
 
 
 def _parse_order(html: str) -> dict[str, Any]:
     flat = re.sub(r"\s+", " ", _extract_text(html))
-    amount_won, amount_raw = _amount_with_unit(flat, r"계약금액\s*총액", r"확정\s*계약금액", r"계약금액")
-    revenue_won, _ = _amount_with_unit(flat, r"최근\s*매출액")
-    revenue_ratio = _pct(flat, r"매출액\s*대비")
-    name = _contract_name(flat)
-    cp = _counterparty(flat)
-    rel = _relationship(flat)
-    correction = _correction_diff(flat)
-    # 정정본이면 최신 유효값 = 정정후
-    if correction.get("amount_after_won"):
+    correction = _correction_diff(flat)  # diff는 정정전/후 테이블 전체에서
+    # 정정본은 [정정전/후 테이블] + [정정후 반영 재공시 본문] 구조다. 현재 유효값(금액·매출대비)은
+    # 테이블의 정정전 값을 먼저 잡으면 안 되고, 재공시 본문(정정후)에서 파싱한다.
+    body = flat
+    split = re.search(r"정정\s*전\s*정정\s*후.*?(단일판매[ㆍ·]공급계약\s*체결\s*1\.|판매[ㆍ·]공급계약\s*구분)", flat)
+    if split:
+        body = flat[split.start(1):]
+    amount_won, amount_raw = _amount_with_unit(body, r"계약금액\s*총액", r"확정\s*계약금액", r"계약금액")
+    revenue_won, _ = _amount_with_unit(body, r"최근\s*매출액")
+    revenue_ratio = _pct(body, r"매출액\s*대비")
+    name = _contract_name(body)
+    cp = _counterparty(body)
+    rel = _relationship(body)
+    # 재공시 본문에서 금액 못 잡으면(드문 양식) 정정후 테이블값 fallback
+    if not amount_won and correction.get("amount_after_won"):
         amount_won = correction["amount_after_won"]
-    if correction.get("revenue_ratio_after_pct") is not None:
+    if revenue_ratio is None and correction.get("revenue_ratio_after_pct") is not None:
         revenue_ratio = correction["revenue_ratio_after_pct"]
     period_start = (re.search(r"계약\s*시작일\s*[:\s]*([\d.\-]{8,12})", flat) or [None, None])[1] if re.search(r"계약\s*시작일", flat) else None
     period_end_m = re.search(r"계약\s*종료일\s*[:\s]*([\d.\-]{8,12})", flat)
