@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-structure-17-tools)
-[![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](#release-notes-v21)
+[![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 
 [Korean README](README.md)
 
@@ -294,28 +294,11 @@ fly.toml                   # Fly.io config (nrt region, auto-suspend)
 
 ---
 
-## Release notes (v2.1)
+## Release notes
 
-17-tool lineup. Centered on risk-event tracking and natural-language routing improvements.
+Full version history lives in **[docs/RELEASE_NOTES_ENG.md](docs/RELEASE_NOTES_ENG.md)**.
 
-- **New `risk_events` tool (17th)** — serious accidents, embezzlement/breach of trust, and production halts in one view. With no company given, scans the whole market for the last 30 days. Verified against 305 companies x 3.5 years (zero search diff) and 359 full-text parses.
-- **`related_party_transaction` → `corporate_deals`** — fixed tool-routing misses on "acquired/sold" natural-language queries by renaming and rewording the tool description.
-- **`ownership_structure` precision** — 100% reconciliation of total shares (registry + treasury + others), registry top holder vs actual 5% blockholder split, contest-aware 5% change tracking.
-- **`dividend` precision** — quarterly DPS derived from periodic-report cumulative differencing, 100% consistency across 51 companies.
-- **`financial_metrics` precision** — fixed Q4 rows carrying full-year cumulative figures; all quarters are now standalone three-month values with QoQ/YoY attached by default. Interest-coverage distortion (total finance costs leaking into the denominator) removed with coverage expanded to 97%; borrowings and quarterly cash flow restored. Financial firms and mid-year restatements are auto-flagged. Verified across 412 companies x 2 fiscal years (KOSPI top 300, KOSDAQ top 100).
-
-## Release notes (v2.0)
-
-First stable release. The `tools_v2` toolset ships 16 public tools covering Korean listed-company governance analysis end to end.
-
-- **16 public tools** — Company → Meeting/Data/Evidence → Action flow.
-- **Control-contest signals** (`proxy_contest`) — 4-stage litigation classification + dedup, 5% holding dynamics (purpose shift, sustained accumulation), external-raider vs insider split.
-- **Disclosure-type code index** — `pblntf_ty`/`pblntf_detail_ty` → actual disclosure mapping ([wiki](wiki/rules/disclosures/공시유형코드체계.md)). Searches narrow by detail code first (dividends = `I001`, etc.).
-- **Shareholder-return tracking** — dividends/treasury/value-up in one view.
-- **Financial & governance checks** — DART financial endpoints + corporate governance report.
-- **Reliability** — DART 1,000/min rolling-window hard guard (cap 910), 3-tier fallback (XML→PDF→OCR), full source tracing (`data.usage` + receipt numbers).
-
-Next items (tracked internally): financial-statement footnote parsing (related-party, contingencies, segments), detail-code search rollout.
+- Latest: **v2.1** — new risk_events tool, corporate_deals rename, ownership/dividend/financial_metrics precision passes
 
 ---
 
