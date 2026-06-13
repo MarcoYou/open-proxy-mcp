@@ -78,9 +78,12 @@ def _render(payload: dict[str, Any]) -> str:
             corr = f"{sign}{abs(cd['amount_change_pct'])}%"
         elif o.get("correction_count"):
             corr = f"{o['correction_count']}회"
+        rev_cell = f"{o.get('revenue_ratio_pct', '-')}%"
+        if o.get("ratio_warning"):  # 공시값과 불일치해 계산값 채택 — 공시값 병기
+            rev_cell += f" ⚠(공시 {o.get('revenue_ratio_disclosed_pct')}%)"
         lines.append(
             f"| {o.get('rcept_dt', '')} | {(o.get('contract_name') or '-')[:24]} | {(o.get('counterparty') or '-')[:14]} "
-            f"| {_won(o.get('contract_amount_won'))} | {o.get('revenue_ratio_pct', '-')}% | {'O' if o.get('is_external') else '계열'} | {corr or '-'} |"
+            f"| {_won(o.get('contract_amount_won'))} | {rev_cell} | {'O' if o.get('is_external') else '계열'} | {corr or '-'} |"
         )
 
     terminations = data.get("terminations", []) or []

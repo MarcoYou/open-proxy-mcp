@@ -152,6 +152,18 @@ def _parse_order(html: str) -> dict[str, Any]:
         amount_won = correction["amount_after_won"]
     if revenue_ratio is None and correction.get("revenue_ratio_after_pct") is not None:
         revenue_ratio = correction["revenue_ratio_after_pct"]
+    # 단위 정합 보정 — 계약금액·최근매출은 안정적이나 공시 매출대비%가 본문의 엉뚱한 숫자를
+    # 잡는 엣지(스피어 1.0/앱클론 396 등, 450사 audit 0.5%)가 있다. 계산값(금액÷매출×100)과
+    # 15%+ 괴리면 계산값을 채택하되 공시값을 병기 + warning (사용자가 원천 판단).
+    revenue_ratio_disclosed = revenue_ratio
+    ratio_warning = None
+    if amount_won and revenue_won and revenue_won > 0:
+        computed = round(amount_won / revenue_won * 100, 2)
+        if revenue_ratio is None:
+            revenue_ratio = computed
+        elif abs(computed - revenue_ratio) > max(revenue_ratio * 0.15, 1.0):
+            ratio_warning = f"공시 매출대비 {revenue_ratio}% ≠ 계산값 {computed}% (금액÷최근매출) — 계산값 채택"
+            revenue_ratio = computed
     period_start = (re.search(r"계약\s*시작일\s*[:\s]*([\d.\-]{8,12})", flat) or [None, None])[1] if re.search(r"계약\s*시작일", flat) else None
     period_end_m = re.search(r"계약\s*종료일\s*[:\s]*([\d.\-]{8,12})", flat)
     return {
@@ -160,6 +172,8 @@ def _parse_order(html: str) -> dict[str, Any]:
         "relationship": rel,
         "is_external": _is_external(rel, cp),
         "contract_amount_won": amount_won,
+        "revenue_ratio_disclosed_pct": revenue_ratio_disclosed,
+        "ratio_warning": ratio_warning,
         "amount_raw": amount_raw,
         "recent_revenue_won": revenue_won,
         "revenue_ratio_pct": revenue_ratio,
@@ -294,6 +308,13 @@ async def build_order_contracts_payload(
     orders = _dedup([e for e in events if not e["is_termination"]])
     terminations = [e for e in events if e["is_termination"]]
     summary = _signal_summary(orders, f"{bgn}~{end}")
+    # 매출대비% 보정 발생 건 — 회사 단위 warning으로 surface
+    ratio_warned = [o for o in orders if o.get("ratio_warning")]
+    if ratio_warned:
+        warnings.append(
+            f"매출대비% {len(ratio_warned)}건 보정 — 공시값이 계약금액÷최근매출 계산과 달라 계산값 채택"
+            f" (예: {ratio_warned[0].get('contract_name', '')[:14]} {ratio_warned[0]['ratio_warning']})"
+        )
 
     evidence_refs = [
         EvidenceRef(
