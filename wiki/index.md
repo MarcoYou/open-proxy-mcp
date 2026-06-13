@@ -308,7 +308,7 @@ matrix-system.md 통합으로 흡수.
 
 ### archive/entities/ (9)
 DART/KIND/Upstage 등 외부 entity 페이지. CLAUDE.md path만 archive 보존.
-[[archive/entities/DART-OpenAPI]] · [[archive/entities/KRX-KIND]] · [[archive/entities/네이버-금융]] · [[archive/entities/Upstage-OCR]] · [[archive/entities/OpenProxy-MCP]] · [[archive/entities/OpenProxy-AI]] · [[archive/entities/N연기금]] · [[archive/entities/FastMCP]] · [[archive/entities/opendataloader]]
+[[archive/entities/DART-OpenAPI]] · [[archive/entities/KRX-KIND]] · [[archive/entities/네이버-금융]] · [[archive/entities/Upstage-OCR]] · [[archive/entities/OpenProxy-MCP]] · [[archive/entities/OpenProxy-AI]] · [[archive/entities/국민연금]] · [[archive/entities/FastMCP]] · [[archive/entities/opendataloader]]
 
 ### archive/sources/ (6)
 구 RULE 파일 요약 + taxonomy.
