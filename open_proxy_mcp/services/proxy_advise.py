@@ -2068,9 +2068,19 @@ async def build_proxy_advise_payload(
         # 회사 단위 한 번 fetch (모든 사내이사 동일 source 공유)
         # 추가 호출 ~3개 (dividend + treasury + financial yearly)
         stage_started_at = time.perf_counter()
+        # treasury lookback 동적 — 소각 이력은 사내이사 재직기간만 CSR에 쓰이므로, 가장 오래
+        # 재직한 사내이사 기준으로 lookback을 좁힌다(짧은 재직 회사는 빨라지고, 오너 장기재직은
+        # 120 유지). earliest_start는 1차 gather(director_evaluation)에서 이미 결정됨. 단 한 명이라도
+        # detect fail(None)이면 보수적으로 120 (그 이사는 5년 fallback이라 정확한 span 모름).
+        _earliest = [(ev.get("appointment_type") or {}).get("earliest_start") for ev in inside_renewed_candidates]
+        if _earliest and all(_earliest):
+            _span_months = (target_year - min(_earliest) + 2) * 12  # 재직기간 + 1년 여유
+            treasury_lookback = max(36, min(120, _span_months))
+        else:
+            treasury_lookback = 120
         perf_div, perf_treas, perf_fin, perf_order = await asyncio.gather(
             _safe_throttled(build_dividend_payload, company_query, timing_label="dividend.history", scope="history", years=5),
-            _safe_throttled(build_treasury_share_payload, company_query, timing_label="treasury_share.summary", scope="summary", lookback_months=120),
+            _safe_throttled(build_treasury_share_payload, company_query, timing_label="treasury_share.summary", scope="summary", lookback_months=treasury_lookback),
             _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.yearly", scope="yearly", year=fin_year),
             # 매트릭스 fact용(signal_summary 집계만 필요) — 문서 30→10 경량화. 수주 fact는
             # '최근 모멘텀'이 핵심이라 영향 작고, 대부분 회사는 24개월 내 수주 10건 미만.
