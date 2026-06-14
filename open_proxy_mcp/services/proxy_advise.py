@@ -2072,7 +2072,9 @@ async def build_proxy_advise_payload(
             _safe_throttled(build_dividend_payload, company_query, timing_label="dividend.history", scope="history", years=5),
             _safe_throttled(build_treasury_share_payload, company_query, timing_label="treasury_share.summary", scope="summary", lookback_months=120),
             _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.yearly", scope="yearly", year=fin_year),
-            _safe_throttled(build_order_contracts_payload, company_query, timing_label="order_contracts"),
+            # 매트릭스 fact용(signal_summary 집계만 필요) — 문서 30→10 경량화. 수주 fact는
+            # '최근 모멘텀'이 핵심이라 영향 작고, 대부분 회사는 24개월 내 수주 10건 미만.
+            _safe_throttled(build_order_contracts_payload, company_query, timing_label="order_contracts", max_documents=10),
         )
         _mark("inside_director_performance_upstreams", stage_started_at)
         # 수주 시그널 — 회사 단위 별도 fact. 성과 매트릭스(ROE/부채/CSR) 점수에는 반영하지 않는다
