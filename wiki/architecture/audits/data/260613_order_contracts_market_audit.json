@@ -4,37 +4,22 @@
     "date": "2026-06-13",
     "universe": "baseline450 (450사 완료)",
     "total_dart_calls": 482,
-    "elapsed_min": 9.0
+    "elapsed_min": 8.9
   },
   "summary": {
     "companies": 450,
     "companies_with_orders": 167,
-    "total_valid_orders": 1060,
+    "total_valid_orders": 1061,
     "total_corrections": 603,
     "parse_miss": {
-      "no_name": 33,
+      "no_name": 0,
       "no_amount": 29,
       "no_revenue_ratio": 29,
-      "unit_mismatch": 5
+      "unit_mismatch": 0
     },
-    "flagged_companies": 4
+    "flagged_companies": 1
   },
   "flagged_rows": [
-    {
-      "company": "에코프로",
-      "status": "exact",
-      "order_count": 6,
-      "external_count": 5,
-      "correction_count": 13,
-      "no_name": 0,
-      "no_amount": 0,
-      "no_revenue_ratio": 0,
-      "unit_mismatch": 1,
-      "max_revenue_ratio_pct": 21.8,
-      "flags": [
-        "UNIT?:폐수처리장 납품 및 설 amt/rev=47.2 vs 공시104.0"
-      ]
-    },
     {
       "company": "스피어",
       "status": "exact",
@@ -44,41 +29,10 @@
       "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
-      "unit_mismatch": 1,
-      "max_revenue_ratio_pct": 977.0,
+      "unit_mismatch": 0,
+      "max_revenue_ratio_pct": 1688.51,
       "flags": [
-        "UNIT?:특수합금 공급계약 amt/rev=1688.5 vs 공시1.0"
-      ]
-    },
-    {
-      "company": "원익홀딩스",
-      "status": "exact",
-      "order_count": 6,
-      "external_count": 6,
-      "correction_count": 14,
-      "no_name": 0,
-      "no_amount": 0,
-      "no_revenue_ratio": 0,
-      "unit_mismatch": 2,
-      "max_revenue_ratio_pct": 68.0,
-      "flags": [
-        "UNIT?:2차전지 제조 장비 공 amt/rev=7.0 vs 공시33.0",
-        "UNIT?:2차 전지 제조장비 공 amt/rev=4.8 vs 공시68.0"
-      ]
-    },
-    {
-      "company": "앱클론",
-      "status": "exact",
-      "order_count": 6,
-      "external_count": 6,
-      "correction_count": 6,
-      "no_name": 0,
-      "no_amount": 0,
-      "no_revenue_ratio": 0,
-      "unit_mismatch": 1,
-      "max_revenue_ratio_pct": 396.0,
-      "flags": [
-        "UNIT?:식품의약품안전평가원 시 amt/rev=7.5 vs 공시396.0"
+        "RATIO>1000:1688.51"
       ]
     }
   ],
@@ -271,7 +225,7 @@
       "order_count": 11,
       "external_count": 5,
       "correction_count": 12,
-      "no_name": 2,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -505,7 +459,7 @@
       "order_count": 10,
       "external_count": 4,
       "correction_count": 7,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -726,7 +680,7 @@
       "order_count": 13,
       "external_count": 12,
       "correction_count": 9,
-      "no_name": 2,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -1012,7 +966,7 @@
       "order_count": 11,
       "external_count": 5,
       "correction_count": 8,
-      "no_name": 3,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -1363,7 +1317,7 @@
       "order_count": 7,
       "external_count": 7,
       "correction_count": 5,
-      "no_name": 7,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -1428,7 +1382,7 @@
       "order_count": 5,
       "external_count": 0,
       "correction_count": 2,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -1688,7 +1642,7 @@
       "order_count": 7,
       "external_count": 5,
       "correction_count": 6,
-      "no_name": 2,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -1883,7 +1837,7 @@
       "order_count": 1,
       "external_count": 1,
       "correction_count": 1,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -1948,7 +1902,7 @@
       "order_count": 11,
       "external_count": 11,
       "correction_count": 8,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -2169,7 +2123,7 @@
       "order_count": 15,
       "external_count": 15,
       "correction_count": 3,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -3404,7 +3358,7 @@
       "order_count": 10,
       "external_count": 10,
       "correction_count": 0,
-      "no_name": 2,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -3992,11 +3946,9 @@
       "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
-      "unit_mismatch": 1,
+      "unit_mismatch": 0,
       "max_revenue_ratio_pct": 21.8,
-      "flags": [
-        "UNIT?:폐수처리장 납품 및 설 amt/rev=47.2 vs 공시104.0"
-      ]
+      "flags": []
     },
     {
       "company": "에코프로비엠",
@@ -4027,10 +3979,10 @@
     {
       "company": "삼천당제약",
       "status": "exact",
-      "order_count": 2,
-      "external_count": 2,
+      "order_count": 3,
+      "external_count": 3,
       "correction_count": 4,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -4134,7 +4086,7 @@
       "order_count": 1,
       "external_count": 1,
       "correction_count": 1,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -4355,7 +4307,7 @@
       "order_count": 7,
       "external_count": 7,
       "correction_count": 7,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -4566,10 +4518,10 @@
       "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
-      "unit_mismatch": 1,
-      "max_revenue_ratio_pct": 977.0,
+      "unit_mismatch": 0,
+      "max_revenue_ratio_pct": 1688.51,
       "flags": [
-        "UNIT?:특수합금 공급계약 amt/rev=1688.5 vs 공시1.0"
+        "RATIO>1000:1688.51"
       ]
     },
     {
@@ -4620,12 +4572,9 @@
       "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
-      "unit_mismatch": 2,
-      "max_revenue_ratio_pct": 68.0,
-      "flags": [
-        "UNIT?:2차전지 제조 장비 공 amt/rev=7.0 vs 공시33.0",
-        "UNIT?:2차 전지 제조장비 공 amt/rev=4.8 vs 공시68.0"
-      ]
+      "unit_mismatch": 0,
+      "max_revenue_ratio_pct": 45.9,
+      "flags": []
     },
     {
       "company": "에스엠",
@@ -4867,7 +4816,7 @@
       "order_count": 3,
       "external_count": 3,
       "correction_count": 0,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -4919,7 +4868,7 @@
       "order_count": 7,
       "external_count": 7,
       "correction_count": 9,
-      "no_name": 4,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -5166,7 +5115,7 @@
       "order_count": 7,
       "external_count": 7,
       "correction_count": 3,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,
@@ -5260,11 +5209,9 @@
       "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
-      "unit_mismatch": 1,
-      "max_revenue_ratio_pct": 396.0,
-      "flags": [
-        "UNIT?:식품의약품안전평가원 시 amt/rev=7.5 vs 공시396.0"
-      ]
+      "unit_mismatch": 0,
+      "max_revenue_ratio_pct": 33.3,
+      "flags": []
     },
     {
       "company": "테스",
@@ -5454,7 +5401,7 @@
       "order_count": 1,
       "external_count": 1,
       "correction_count": 0,
-      "no_name": 1,
+      "no_name": 0,
       "no_amount": 0,
       "no_revenue_ratio": 0,
       "unit_mismatch": 0,

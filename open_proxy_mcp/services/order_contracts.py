@@ -52,11 +52,11 @@ def _to_won(num_str: str, unit: str) -> int | None:
 def _amount_with_unit(flat: str, *label_patterns: str) -> tuple[int | None, str]:
     """라벨 뒤 금액 + 단위((원)/(천원)/(백만원)) 추출 → (원 환산값, 원본표기)."""
     for lab in label_patterns:
-        m = re.search(lab + r"\s*\((원|천원|백만원|천|백만)\)\s*([\d,]+)", flat)
+        # 라벨과 숫자 사이의 따옴표·하이픈 노이즈 허용 (정정 서술형 "'계약금액(원)' - 4,082…" LG엔솔)
+        m = re.search(lab + r"\s*\((원|천원|백만원|천|백만)\)['’\"\s\-]*([\d,]{4,})", flat)
         if m:
             return _to_won(m.group(2), m.group(1)), f"{m.group(2)}({m.group(1)})"
-        # 단위 라벨이 없는 경우 (확정 계약금액 등) — 원으로 간주
-        m2 = re.search(lab + r"\s*([\d,]{4,})", flat)
+        m2 = re.search(lab + r"['’\"\s\-]*([\d,]{4,})", flat)
         if m2:
             return _to_won(m2.group(1), "원"), m2.group(1)
     return None, ""
@@ -77,8 +77,10 @@ def _pct(flat: str, *label_patterns: str) -> float | None:
 
 def _contract_name(flat: str) -> str:
     # '체결계약명'(일반) / '세부내용'(자율공시, HD현대 'VLGC 2척') / '판매ㆍ공급계약 내용'(바이오)
+    # 길이 200자 — 영문 장문 계약명(대한전선 'TERM CONTRACT FOR THE SUPPLY, DELIVERY AND
+    # INSTALLATION OF 400KV…' 140자)이 종료조건 전에 길이 제한에 걸려 누락되던 것 대응.
     for lab in ("체결계약명", "세부내용", "판매[ㆍ·]공급계약\\s*내용", "공급계약\\s*내용", "계약명"):
-        m = re.search(lab + r"\s*[:\s]*([^\n]{3,50}?)(?:\s*\d\.|\s*조건부|\s*계약내역|\s*판매[ㆍ·]공급|\s*대규모|$)", flat)
+        m = re.search(lab + r"\s*[:\s]*([^\n]{3,200}?)(?:\s*\d\.\s|\s*조건부|\s*계약내역|\s*판매[ㆍ·]공급|\s*대규모|$)", flat)
         if m and m.group(1).strip() not in ("", "-"):
             return re.sub(r"\s+", " ", m.group(1).strip())
     return ""
@@ -227,7 +229,15 @@ def _dedup(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 else:
                     chains.append([ev])
         for ch in chains:
-            latest = ch[-1]  # 최신본 = 유효값
+            latest = dict(ch[-1])  # 최신본 = 유효값
+            # 금액 미변경 정정(매출대비·유보사유만 정정해 정정본 계약금액이 '-')은 정정본 자체에
+            # 금액이 없다 → 체인 이전본에서 누락 필드 상속 (LG엔솔 등).
+            for fld in ("contract_amount_won", "recent_revenue_won", "revenue_ratio_pct", "contract_name", "counterparty"):
+                if not latest.get(fld):
+                    for e in reversed(ch[:-1]):
+                        if e.get(fld):
+                            latest[fld] = e[fld]
+                            break
             corr_history = [
                 {"rcept_dt": e["rcept_dt"], "rcept_no": e["rcept_no"], **(e.get("correction_diff") or {})}
                 for e in ch if e["is_correction"]
