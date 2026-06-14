@@ -3587,6 +3587,8 @@ def parse_compensation_xml(html: str) -> dict:
     """
     details = parse_agenda_details_xml(html)
     items = []
+    # 블록에서 단위를 못 잡을 때 fallback (LG엔솔처럼 '(단위: 백만원)'이 블록화에서 누락되는 경우)
+    html_fallback_unit = _extract_comp_unit_from_html(html)
 
     for d in details:
         title = d.get("title", "")
@@ -3603,6 +3605,7 @@ def parse_compensation_xml(html: str) -> dict:
 
         # 섹션 순회 — 당기/전기 테이블 추출
         phase = None  # "current" or "prior"
+        comp_unit = None  # 표 헤더 금액 단위 ('억원'/'백만원') — 단위 없는 금액 셀 환산용
         for sec in d.get("sections", []):
             for block in sec.get("blocks", []):
                 btype = block["type"]
@@ -3631,6 +3634,12 @@ def parse_compensation_xml(html: str) -> dict:
                     notes.append(content)
 
                 elif btype == "table":
+                    # 단위 추출 — 핵심 표 직전 '(단위 : 명, 억원)' 행은 1행이라 rows<2로
+                    # skip되므로 raw content에서 먼저 추출 (금액 셀에 단위 없는 표 대응)
+                    um = re.search(r'단위\s*[:：][^)\]|]*?(억원|백만원|천원|원)', content)
+                    if um:
+                        comp_unit = um.group(1)
+
                     rows = _parse_md_table(content)
                     if len(rows) < 2:
                         continue
@@ -3646,7 +3655,7 @@ def parse_compensation_xml(html: str) -> dict:
                         phase = "current" if not current else "prior"
 
                     if is_core and phase:
-                        parsed = _parse_compensation_table(rows)
+                        parsed = _parse_compensation_table(rows, unit=comp_unit or html_fallback_unit)
                         if phase == "current":
                             current = parsed
                         elif phase == "prior":
@@ -3704,11 +3713,14 @@ def parse_compensation_xml(html: str) -> dict:
     return {"items": items, "summary": summary}
 
 
-def _parse_compensation_table(rows: list[list[str]]) -> dict:
+def _parse_compensation_table(rows: list[list[str]], unit: str | None = None) -> dict:
     """보수한도 핵심 테이블 파싱 (key-value 2컬럼 구조)
 
     | 이사의 수 (사외이사수) | 8(5) |
     | 보수총액 또는 최고한도액 | 450억원 |
+
+    unit: 표 헤더의 금액 단위 ('억원'/'백만원' 등). 금액 셀에 단위가 안 붙은 경우 환산에 사용
+        (보수한도 표는 단위가 별도 '(단위 : 명, 억원)' 행에 있고 셀은 '630'처럼 숫자만인 게 흔함).
     """
     result = {}
     for row in rows:
@@ -3732,22 +3744,25 @@ def _parse_compensation_table(rows: list[list[str]]) -> dict:
 
         elif "최고한도" in key or "보수총액또는" in key or "한도액" in key:
             result["limit"] = val
-            result["limitAmount"] = _parse_krw_amount(val)
+            result["limitAmount"] = _parse_krw_amount(val, fallback_unit=unit)
 
         elif "실제지급" in key or "지급된보수" in key:
             result["actualPaid"] = val
-            result["actualPaidAmount"] = _parse_krw_amount(val)
+            result["actualPaidAmount"] = _parse_krw_amount(val, fallback_unit=unit)
 
         elif "보수총액" in key:
             # "보수총액 또는 최고한도액" 과 구별
             if "최고" not in key and "한도" not in key:
                 result["actualPaid"] = val
-                result["actualPaidAmount"] = _parse_krw_amount(val)
+                result["actualPaidAmount"] = _parse_krw_amount(val, fallback_unit=unit)
 
     return result
 
 
-def _parse_krw_amount(text: str) -> int | None:
+_UNIT_MULT_KRW = {"억원": 100_000_000, "백만원": 1_000_000, "천원": 1_000, "원": 1}
+
+
+def _parse_krw_amount(text: str, fallback_unit: str | None = None) -> int | None:
     """금액 문자열을 원 단위 정수로 변환
 
     Examples:
@@ -3755,6 +3770,10 @@ def _parse_krw_amount(text: str) -> int | None:
         "6,000백만원" → 6_000_000_000
         "15,000백만원+30,000주" → 15_000_000_000  (주식 부분 무시)
         "100억원" → 10_000_000_000
+        "630" + fallback_unit="억원" → 63_000_000_000  (셀에 단위 없고 표 헤더가 억원)
+
+    fallback_unit: 셀에 단위가 안 붙은 숫자(예 '630')에 적용할 표 헤더 단위.
+        보수한도 표는 단위가 별도 행 '(단위 : 명, 억원)'에 있고 금액 셀은 숫자만인 경우가 흔하다.
     """
     if not text:
         return None
@@ -3779,11 +3798,40 @@ def _parse_krw_amount(text: str) -> int | None:
     if m:
         return int(float(m.group(1)) * 1_000)
 
-    # 원 (단위 없이 숫자만)
+    # 원 (단위 없이 숫자만) — fallback_unit 있으면 표 헤더 단위로 환산
     m = re.search(r'(\d+)\s*원?$', text)
     if m:
-        return int(m.group(1))
+        num = int(m.group(1))
+        if fallback_unit and fallback_unit in _UNIT_MULT_KRW:
+            return num * _UNIT_MULT_KRW[fallback_unit]
+        return num
 
+    return None
+
+
+def _extract_table_unit(rows: list[list[str]]) -> str | None:
+    """보수 표(또는 단위 행)에서 금액 단위 추출. '(단위 : 명, 억원)' → '억원'."""
+    for row in rows:
+        for cell in row:
+            m = re.search(r'단위\s*[:：][^)\]]*?(억원|백만원|천원|원)', cell)
+            if m:
+                return m.group(1)
+    return None
+
+
+def _extract_comp_unit_from_html(html: str) -> str | None:
+    """raw html에서 보수한도 표 금액 단위 추출 (블록화 누락 대비 fallback).
+
+    '최고 한도액 (당 기) (단위: 백만원)'(LG엔솔)처럼 단위가 표 셀이 아니라 표 직전 텍스트에
+    있어 parse_agenda_details_xml 블록에서 빠지는 경우를 raw 텍스트에서 직접 잡는다.
+    """
+    if not html:
+        return None
+    flat = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+    # '한도액'/'보수총액' ~ 가까운 '(단위: X)' (사이 '(당 기)' 등 허용)
+    m = re.search(r"(?:최고\s*한도액|보수총액)\b.{0,40}?\(\s*단위\s*[:：][^)]*?(억원|백만원|천원)\s*\)", flat)
+    if m:
+        return m.group(1)
     return None
 
 
