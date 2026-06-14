@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from collections import Counter
 from pathlib import Path
@@ -23,7 +24,9 @@ from open_proxy_mcp.dart.client import get_dart_client
 from open_proxy_mcp.services.order_contracts import build_order_contracts_payload as build
 
 BASELINE = Path("wiki/architecture/audits/data/260517_parsing_success_rate_audit/baseline_company_sample_450.json")
-OUT = Path("wiki/architecture/audits/data/260613_order_contracts_market_audit.json")
+# UNIVERSE_FILE(회사명 리스트 JSON) 지정 시 그걸 universe로 — 섹터별 전수조사(바이오 등) 재사용.
+UNIVERSE_FILE = os.environ.get("UNIVERSE_FILE")
+OUT = Path(os.environ.get("AUDIT_OUT", "wiki/architecture/audits/data/260613_order_contracts_market_audit.json"))
 BATCH = 30
 SLEEP_COMPANY = 0.4
 SLEEP_BATCH = 20.0
@@ -31,6 +34,8 @@ MAX_DOCS = 15
 
 
 def _universe() -> list[str]:
+    if UNIVERSE_FILE:
+        return json.loads(Path(UNIVERSE_FILE).read_text())  # 회사명 리스트
     recs = json.loads(BASELINE.read_text())["records"]
     seen, out = set(), []
     for r in recs:
