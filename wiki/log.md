@@ -3,6 +3,22 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-14] refactor/perf | order_contracts 일원화 + proxy_advise 펀더멘털 fact·동적 lookback
+
+상세: [[order-contracts-260613]], [[proxy-advise-perf-fact-260614]]
+
+- `order_contracts`
+  - 해지(termination) 파서 전수조사 — 계약명(해지내용/세부물건)·상대방(영문사·슬래시·장문) 67건 검증, 누락 0
+  - corporate_deals 공급계약(supply_contract scope) 완전 제거 → order_contracts 단일 소스로 일원화. corporate_deals는 타법인주식(지분 인수/매각) 전담
+  - 부정확 추론 제거(파싱만): 체결↔해지 매핑(26%)·순수주·계열일감 규모(관계 미기재 83%) — 전 업종 662사 측정 후 결정
+  - 계열 판정에 최대주주·모회사 키워드 추가 (현대오토에버↔현대차 오판 수정)
+- `proxy_advise` / `director_performance`
+  - 성과 매트릭스 점수는 ROE/부채/CSR 3축 유지, 펀더멘털은 점수 미반영 fact로 분리: 영업이익률(본업 수익성, ROE 왜곡 보완) + 수주·해지
+  - treasury lookback 동적화 36~120개월(재직기간 맞춤, 상한 120) — 정확도 보존 20사 mismatch 0
+  - order_contracts fact 경량화(문서 30→10), 성능 병목 측정 — throttle 직렬화가 종합 tool 하한
+- `corporate_deals`
+  - 공급계약 제거로 equity 전담 + 경량화(0.2초). 해지 파서는 일원화 전 order_contracts 헬퍼 공유로 임시 보강했다가 제거
+
 ## [2026-05-31] feat/audit | value_up role extraction + financial_metrics Tier 1 지표
 
 - `value_up`

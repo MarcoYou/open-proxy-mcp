@@ -8,6 +8,8 @@ related:
   - wiki/ralph/260505_1611_ralph_inside-director-performance-matrix.md
   - wiki/decisions/open-proxy-guideline.md
   - wiki/lessons/decision-vs-raw-separation.md
+related_lessons:
+  - proxy-advise-perf-fact-260614
 ---
 
 # 사내이사 재직 중 성과 매트릭스 (2x3) 도입

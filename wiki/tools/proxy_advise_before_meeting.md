@@ -85,7 +85,7 @@ proxy_advise_before_meeting(
 | recommendation_reason_raw | 추천사유 (회사 본문 raw) |
 | career_company_groups | 경력 (회사·기간) |
 | audit_history_check | 과거 회사 회계 risk overlap (옵션) |
-| **performance** | **사내이사 연임 후보 한정** — 재직 중 회사 운영 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend), 6 cell 점수, classification good/moderate/weak/bad, rationale 한국어 (자세히는 [[260505_1700_decision_inside-director-performance-matrix]]) |
+| **performance** | **사내이사 연임 후보 한정** — 재직 중 회사 운영 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend), 6 cell 점수, classification good/moderate/weak/bad, rationale 한국어. **점수 미반영 fact**: 영업이익률(본업 수익성 — ROE 왜곡 보완, `core_profitable` 본업 흑/적자) + 수주·해지(order_contracts signal_summary — 적자기업 미래매출 가시성). 적자기업이 ROE만으로 부당하게 깔리지 않게 해석 단서로 분리 (자세히는 [[260505_1700_decision_inside-director-performance-matrix]]) |
 
 ## 6 upstream chain (병렬)
 
@@ -98,8 +98,11 @@ proxy_advise_before_meeting(
 
 **+ 사내이사 연임 후보 detect 시 추가 chain (회사 단위 1회)**:
 7. dividend (history, 10년) — CSR avg/trend 계산
-8. treasury_share (summary, 120개월) — 소각 events
-9. financial_metrics (yearly) — ROE/부채비율 시계열
+8. treasury_share (summary, **동적 lookback** 36~120개월) — 소각 events. 가장 오래 재직한
+   사내이사 기준 `(target-min(earliest_start)+2)*12`로 좁힘(상한 120, detect fail시 120).
+   소각은 재직기간만 CSR에 쓰여 정확도 보존(20사 검증 mismatch 0)
+9. financial_metrics (yearly) — ROE/부채비율 시계열 + **영업이익률**(점수 미반영 fact)
+10. order_contracts (max_documents=10 경량화) — 수주·해지 signal_summary fact (점수 미반영)
 
 ## 결정 logic
 
