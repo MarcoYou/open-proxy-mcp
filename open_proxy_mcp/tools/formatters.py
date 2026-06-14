@@ -297,8 +297,9 @@ def _format_agenda_details(details: list[dict]) -> str:
     lines = []
     for agenda in details:
         lines.append(f"## {agenda['number']}: {agenda['title']}")
-        if agenda.get("category"):
-            lines.append(f"*카테고리: {agenda['category']}*")
+        cat = agenda.get("category_label") or agenda.get("category")
+        if cat:
+            lines.append(f"*카테고리: {cat}*")
         lines.append("")
 
         for sec in agenda.get("sections", []):

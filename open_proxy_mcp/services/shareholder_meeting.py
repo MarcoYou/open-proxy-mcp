@@ -161,23 +161,41 @@ def _agenda_relation(title: str, conditional: str | None = None) -> tuple[str, l
     return "normal", []
 
 
-def _agenda_nodes(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+# 안건 category(영문 키) → 한글 라벨. proxy_advise._classify_agenda와 키 공유.
+_AGENDA_CATEGORY_KO = {
+    "director_election": "이사 선임", "audit_committee_election": "감사위원 선임",
+    "financial_statements": "재무제표 승인", "cash_dividend": "현금배당",
+    "director_compensation": "이사 보수한도", "audit_compensation": "감사 보수한도",
+    "retirement_pay": "퇴직금", "articles_amendment": "정관 변경",
+    "treasury_share": "자기주식", "merger_or_restructuring": "합병/분할",
+    "shareholder_proposal": "주주제안", "other": "기타",
+}
+
+
+def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[dict[str, Any]]:
+    # 안건 카테고리 분류 — proxy_advise의 300사 검증 분류기를 agenda scope에도 적용(category None 해소).
+    # 순환 import 회피를 위해 함수 내 지역 import.
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+
     nodes: list[dict[str, Any]] = []
     for item in items:
         agenda_id = item["number"].replace("제", "").replace("호", "")
         title = item.get("title", "")
         conditional = item.get("conditional")
         relation_type, relation_reasons = _agenda_relation(title, conditional)
+        category = _classify_agenda(title, parent_title=parent_title)
         nodes.append({
             "agenda_id": agenda_id,
             "number": item.get("number", ""),
             "title": title,
+            "category": category,
+            "category_label": _AGENDA_CATEGORY_KO.get(category, category),
             "source": item.get("source"),
             "proposer_type": _proposer_type(item.get("source")),
             "conditional": conditional,
             "agenda_relation_type": relation_type,
             "agenda_relation_reasons": relation_reasons,
-            "children": _agenda_nodes(item.get("children", [])),
+            "children": _agenda_nodes(item.get("children", []), parent_title=title),
         })
     return nodes
 
