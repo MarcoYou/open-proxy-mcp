@@ -265,25 +265,6 @@ def _render(payload: dict[str, Any]) -> str:
                 lines[-1] += f" ({csr.get('avg_label')}) / 추세 {csr_trend:+.1f}%p/년 ({csr.get('trend_label')})" if csr_trend is not None else f" ({csr.get('avg_label')})"
                 if perf.get("capital_impairment_status") == "full":
                     lines.append(f"  - ⚠ 자본잠식 (ROE/부채 자동 저조)")
-                os_ = perf.get("order_signal")
-                if os_ and (os_.get("order_count") or os_.get("terminated_count")):
-                    def _won_s(n: int) -> str:
-                        n = n or 0
-                        return f"{n/1_0000_0000_0000:.1f}조" if n >= 1_0000_0000_0000 else f"{n/1_0000_0000:,.0f}억"
-                    parts = []
-                    if os_.get("order_count"):
-                        mx = os_.get("max_revenue_ratio_pct")
-                        parts.append(
-                            f"외부 수주 {os_.get('external_count', 0)}건 {_won_s(os_.get('external_total_amount_won'))}원"
-                            + (f"(매출대비 최대 {mx}%)" if mx else "")
-                        )
-                    if os_.get("terminated_count"):  # 해지 = 부정 시그널
-                        tmx = os_.get("max_terminated_revenue_ratio_pct")
-                        parts.append(
-                            f"🔴해지 {os_.get('terminated_count')}건 {_won_s(os_.get('terminated_total_amount_won'))}원"
-                            + (f"(매출대비 최대 {tmx}%)" if tmx else "")
-                        )
-                    lines.append(f"  - 수주(참고, 점수 미반영): " + " · ".join(parts))
             lines.append("")
 
         # 회계 risk 이력 발견 detail (회사명 / 시점 / risk 유형 raw 노출)
