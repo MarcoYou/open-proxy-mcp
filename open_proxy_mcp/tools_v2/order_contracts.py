@@ -62,8 +62,14 @@ def _render(payload: dict[str, Any]) -> str:
         f"- 외부 수주 총액 **{_won(s.get('external_total_amount_won'))}원**",
         f"- 최근 매출액 대비 — 단일 최대 **{s.get('max_revenue_ratio_pct', '-')}%** / 합계 {s.get('sum_revenue_ratio_pct', '-')}%",
         f"- 기재정정 {s.get('correction_count', 0)}건 (변경계약 — 아래 diff)",
-        "",
     ]
+    if s.get("terminated_count"):
+        lines += [
+            f"- 🔴 계약 해지 **{s.get('terminated_count')}건** {_won(s.get('terminated_total_amount_won'))}원"
+            + (f" (해지 매출대비 최대 {s.get('max_terminated_revenue_ratio_pct')}%)" if s.get("max_terminated_revenue_ratio_pct") else ""),
+            f"- **순수주(외부 체결 − 해지): {_won(s.get('net_amount_won'))}원**",
+        ]
+    lines.append("")
 
     lines += [
         "## 계약별 (최신순, 정정 반영 후)",
@@ -88,9 +94,14 @@ def _render(payload: dict[str, Any]) -> str:
 
     terminations = data.get("terminations", []) or []
     if terminations:
-        lines += ["", f"## 계약 해지 {len(terminations)}건"]
-        for t in terminations[:5]:
-            lines.append(f"- {t.get('rcept_dt', '')} {(t.get('contract_name') or '-')[:30]}")
+        lines += ["", f"## 계약 해지 {len(terminations)}건 (부정 시그널)",
+                  "| 공시일 | 해지 계약명 | 상대방 | 해지금액 | 매출대비 |",
+                  "|--------|-----------|--------|---------|---------|"]
+        for t in terminations[:10]:
+            lines.append(
+                f"| {t.get('rcept_dt', '')} | {(t.get('contract_name') or '-')[:24]} | {(t.get('counterparty') or '-')[:14]} "
+                f"| {_won(t.get('terminated_amount_won'))} | {t.get('revenue_ratio_pct', '-')}% |"
+            )
 
     return "\n".join(lines)
 

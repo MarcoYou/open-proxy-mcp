@@ -79,16 +79,21 @@ def _contract_name(flat: str) -> str:
     # '체결계약명'(일반) / '세부내용'(자율공시, HD현대 'VLGC 2척') / '판매ㆍ공급계약 내용'(바이오)
     # 길이 200자 — 영문 장문 계약명(대한전선 'TERM CONTRACT FOR THE SUPPLY, DELIVERY AND
     # INSTALLATION OF 400KV…' 140자)이 종료조건 전에 길이 제한에 걸려 누락되던 것 대응.
-    for lab in ("체결계약명", "세부내용", "판매[ㆍ·]공급계약\\s*내용", "공급계약\\s*내용", "계약명"):
-        m = re.search(lab + r"\s*[:\s]*([^\n]{3,200}?)(?:\s*\d\.\s|\s*조건부|\s*계약내역|\s*판매[ㆍ·]공급|\s*대규모|$)", flat)
+    for lab in ("체결계약명", "해지계약명", "세부내용", "판매[ㆍ·]공급계약\\s*내용", "공급계약\\s*내용", "계약명"):
+        m = re.search(lab + r"\s*[:\s]*([^\n]{3,200}?)(?:\s*\d\.\s|\s*조건부|\s*계약내역|\s*해지내역|\s*판매[ㆍ·]공급|\s*대규모|$)", flat)
         if m and m.group(1).strip() not in ("", "-"):
             return re.sub(r"\s+", " ", m.group(1).strip())
     return ""
 
 
 def _counterparty(flat: str) -> str:
-    m = re.search(r"계약상대방?\s*[:\s]*([가-힣A-Za-z()㈜·\s0-9]{2,30}?)(?:\s*-|\s*최근|\s*주요|\s*회사와|\s*\d\.)", flat)
-    return re.sub(r"\s+", " ", m.group(1).strip()) if m else ""
+    # '계약상대'가 해지사유 문장('계약상대의 요청에 의한…')에 먼저 등장할 수 있어, 조사로
+    # 시작하는 값은 건너뛰고 실제 상대방 항목('3. 계약상대 오스틴제약…')을 잡는다.
+    for m in re.finditer(r"계약상대방?\s*[:\s]*([가-힣A-Za-z()㈜·\s0-9]{2,30}?)(?:\s*-|\s*최근|\s*주요|\s*회사와|\s*\d\.)", flat):
+        val = re.sub(r"\s+", " ", m.group(1).strip())
+        if val and val[0] not in "의을를이가에와과으로은는도" and len(val) >= 2:
+            return val
+    return ""
 
 
 def _relationship(flat: str) -> str:
@@ -190,6 +195,36 @@ def _parse_order(html: str) -> dict[str, Any]:
     }
 
 
+def _parse_termination(html: str) -> dict[str, Any]:
+    """단일판매·공급계약 '해지' 본문 파싱 — 해지금액·매출대비%·상대방·사유.
+
+    체결과 같은 구조에 라벨만 다르다(해지계약명/해지금액(원)/해지일자). 매출 대비 큰 해지는
+    미래매출 가시성 급락 시그널 (삼성제약 매출 42.91% 수주 해지 등). 헬퍼는 체결과 공용 —
+    단위 환산·콤마·노이즈 처리 그대로 적용.
+    """
+    flat = re.sub(r"\s+", " ", _extract_text(html))
+    amount_won, amount_raw = _amount_with_unit(flat, r"해지금액", r"해지\s*계약금액")
+    revenue_won, _ = _amount_with_unit(flat, r"최근\s*매출액")
+    revenue_ratio = _pct(flat, r"매출액\s*대비")
+    if amount_won and revenue_won and revenue_won > 0 and revenue_ratio is None:
+        revenue_ratio = round(amount_won / revenue_won * 100, 2)
+    reason_m = re.search(r"해지\s*사유\s*[:\s]*([^\n]{2,60}?)(?:\s*\d\.|$)", flat)
+    date_m = re.search(r"해지\s*일자\s*[:\s]*([\d.\-]{8,12})", flat)
+    cp = _counterparty(flat)
+    rel = _relationship(flat)
+    return {
+        "contract_name": _contract_name(flat),
+        "counterparty": cp,
+        "relationship": rel,
+        "is_external": _is_external(rel, cp),
+        "terminated_amount_won": amount_won,
+        "recent_revenue_won": revenue_won,
+        "revenue_ratio_pct": revenue_ratio,
+        "termination_reason": reason_m.group(1).strip() if reason_m else None,
+        "termination_date": date_m.group(1) if date_m else None,
+    }
+
+
 def _norm(s: str) -> str:
     return re.sub(r"[\s()㈜（）·ㆍ,]+", "", s or "").lower()
 
@@ -253,11 +288,14 @@ def _dedup(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return resolved
 
 
-def _signal_summary(orders: list[dict[str, Any]], window_label: str) -> dict[str, Any]:
+def _signal_summary(orders: list[dict[str, Any]], terminations: list[dict[str, Any]], window_label: str) -> dict[str, Any]:
     concluded = [o for o in orders if o.get("contract_amount_won")]
     external = [o for o in concluded if o.get("is_external")]
     ext_amt = sum(o["contract_amount_won"] for o in external)
     ratios = [o["revenue_ratio_pct"] for o in external if o.get("revenue_ratio_pct")]
+    term_amts = [t["terminated_amount_won"] for t in terminations if t.get("terminated_amount_won")]
+    term_total = sum(term_amts)
+    term_ratios = [t["revenue_ratio_pct"] for t in terminations if t.get("revenue_ratio_pct")]
     return {
         "order_count": len(concluded),
         "external_count": len(external),
@@ -266,6 +304,11 @@ def _signal_summary(orders: list[dict[str, Any]], window_label: str) -> dict[str
         "max_revenue_ratio_pct": max(ratios) if ratios else None,
         "sum_revenue_ratio_pct": round(sum(ratios), 1) if ratios else None,
         "correction_count": sum(o.get("correction_count", 0) for o in orders),
+        # 해지(부정 시그널) — 매출 대비 큰 수주 해지는 미래매출 가시성 급락
+        "terminated_count": len(terminations),
+        "terminated_total_amount_won": term_total,
+        "max_terminated_revenue_ratio_pct": max(term_ratios) if term_ratios else None,
+        "net_amount_won": ext_amt - term_total,  # 순수주 = 외부 체결 − 해지
         "window": window_label,
     }
 
@@ -309,8 +352,8 @@ async def build_order_contracts_payload(
         except DartClientError:
             continue
         doc_calls += 1
-        parsed = _parse_order(doc.get("html") or "")
         report_nm = (it.get("report_nm") or "").strip()
+        parsed = _parse_termination(doc.get("html") or "") if "해지" in report_nm else _parse_order(doc.get("html") or "")
         parsed.update({
             "rcept_no": rcept_no,
             "rcept_dt": it.get("rcept_dt", ""),
@@ -323,7 +366,7 @@ async def build_order_contracts_payload(
 
     orders = _dedup([e for e in events if not e["is_termination"]])
     terminations = [e for e in events if e["is_termination"]]
-    summary = _signal_summary(orders, f"{bgn}~{end}")
+    summary = _signal_summary(orders, terminations, f"{bgn}~{end}")
     # 매출대비% 보정 발생 건 — 회사 단위 warning으로 surface
     ratio_warned = [o for o in orders if o.get("ratio_warning")]
     if ratio_warned:
