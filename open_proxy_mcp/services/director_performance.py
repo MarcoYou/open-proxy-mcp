@@ -219,6 +219,7 @@ def compute_performance(
     dividend_yearly: dict[int, int],
     cancelation_yearly: dict[int, int],
     capital_impairment_status: str | None = None,
+    operating_margin_yearly: dict[int, float | None] | None = None,
 ) -> dict[str, Any]:
     """재직 기간 데이터 → performance 매트릭스 + classification + rationale.
 
@@ -230,6 +231,9 @@ def compute_performance(
         dividend_yearly: 연도 → 배당 총액 (원)
         cancelation_yearly: 연도 → 자사주 소각 총액 (원)
         capital_impairment_status: financial_metrics summary의 capital_impairment_status
+        operating_margin_yearly: 연도 → 영업이익률 % (본업 수익성 fact — 점수 미반영).
+            ROE(순이익/자기자본)의 레버리지·일회성 왜곡을 보완. 적자기업의 '영업흑자+순손실'
+            vs '영업적자' 구분 단서. classification 점수에는 넣지 않는다.
 
     Returns: 매트릭스 + 점수 + classification dict
     """
@@ -318,8 +322,24 @@ def compute_performance(
         else:
             rationale_parts.append("적자 환원 자제 (보수)")
 
+    # 영업이익률 fact (점수 미반영) — 본업 수익성. ROE의 레버리지·일회성 왜곡 보완 + 적자기업
+    # '영업흑자+순손실' vs '영업적자' 구분. total_score에는 들어가지 않는다.
+    op_margin_fact = None
+    if operating_margin_yearly:
+        om_valid = [operating_margin_yearly.get(y) for y in tenure_years_sorted]
+        om_valid = [v for v in om_valid if v is not None]
+        if om_valid:
+            om_avg = _avg(om_valid)
+            om_trend = _slope(om_valid)
+            op_margin_fact = {
+                "avg_pct": round(om_avg, 1) if om_avg is not None else None,
+                "trend_pp_per_year": round(om_trend, 1) if om_trend is not None else None,
+                "core_profitable": bool(om_avg is not None and om_avg > 0),  # 본업 흑자 여부
+            }
+
     return {
         "tenure_period": f"{tenure_years_sorted[0]} ~ {tenure_years_sorted[-1]} ({len(tenure_years_sorted)}년)",
+        "operating_margin": op_margin_fact,  # 점수 미반영 fact
         "matrix": {
             "roe": {
                 "avg": roe_avg,

@@ -265,6 +265,14 @@ def _render(payload: dict[str, Any]) -> str:
                 lines[-1] += f" ({csr.get('avg_label')}) / 추세 {csr_trend:+.1f}%p/년 ({csr.get('trend_label')})" if csr_trend is not None else f" ({csr.get('avg_label')})"
                 if perf.get("capital_impairment_status") == "full":
                     lines.append(f"  - ⚠ 자본잠식 (ROE/부채 자동 저조)")
+                om = perf.get("operating_margin")  # 본업 수익성 fact (점수 미반영) — ROE 왜곡 보완
+                if om and om.get("avg_pct") is not None:
+                    core = "본업 흑자" if om.get("core_profitable") else "🔴본업 적자"
+                    tr = om.get("trend_pp_per_year")
+                    lines.append(
+                        f"  - 영업이익률(참고, 점수 미반영): 평균 {om['avg_pct']:.1f}% ({core})"
+                        + (f" / 추세 {tr:+.1f}%p/년" if tr is not None else "")
+                    )
                 os_ = perf.get("order_signal")
                 if os_ and (os_.get("order_count") or os_.get("terminated_count")):
                     def _won_s(n: int) -> str:

@@ -2082,6 +2082,7 @@ async def build_proxy_advise_payload(
         roe_yearly: dict[int, float | None] = {}
         leverage_yearly: dict[int, float | None] = {}
         net_income_yearly: dict[int, int | None] = {}
+        op_margin_yearly: dict[int, float | None] = {}  # 영업이익률 — 본업 수익성 fact (점수 미반영)
         capital_impairment_status = ((fin_metrics.get("data") or {}).get("summary") or {}).get("capital_impairment_status")
         for row in ((perf_fin.get("data") or {}).get("yearly") or []):
             y = row.get("year")
@@ -2090,6 +2091,7 @@ async def build_proxy_advise_payload(
             roe_yearly[y] = row.get("roe_pct")
             leverage_yearly[y] = row.get("debt_ratio_pct")
             net_income_yearly[y] = row.get("net_income_krw")
+            op_margin_yearly[y] = row.get("operating_margin_pct")
 
         # 배당 yearly — history scope의 quarterly_breakdown에서 total_amount_krw 연도별 합산
         # (history scope이 latest_decisions[:20] 노출 + quarterly_breakdown 신규 — 사이클 dedup된 효과)
@@ -2126,6 +2128,7 @@ async def build_proxy_advise_payload(
                 dividend_yearly=dividend_yearly,
                 cancelation_yearly=cancelation_yearly,
                 capital_impairment_status=capital_impairment_status,
+                operating_margin_yearly=op_margin_yearly,
             )
             if not apt.get("earliest_start"):
                 ev["performance"]["tenure_fallback"] = True
