@@ -206,12 +206,19 @@ def _parse_equity_deal_document(html: str) -> dict[str, Any]:
 
 def _parse_supply_contract_document(html: str) -> dict[str, Any]:
     """단일판매·공급계약 체결/해지 원문 파싱."""
+    # order_contracts의 견고한 라벨 파서를 fallback으로 재사용(해지내용/세부물건/해지계약명
+    # 라벨 변형 + 영문사·슬래시 상대방). 순환 import(order_contracts→corporate_deals._extract_text)
+    # 회피를 위해 지역 import. 67건 해지 전수조사로 검증된 헬퍼.
+    from open_proxy_mcp.services.order_contracts import _contract_name as _supply_name
+    from open_proxy_mcp.services.order_contracts import _counterparty as _supply_cp
+
     text = _extract_text(html)
     lines = [l.strip() for l in text.split("\n") if l.strip()]
+    flat = re.sub(r"\s+", " ", text)
 
-    # 계약 기본
+    # 계약 기본 — 체결계약명 우선, 비면 order_contracts 라벨군(해지내용/세부물건 등) fallback
     contract_type = _find_value_after(lines, "판매ㆍ공급계약 구분", 2) or _find_value_after(lines, "판매·공급계약 구분", 2)
-    contract_name = _find_value_after(lines, "체결계약명", 2)
+    contract_name = _find_value_after(lines, "체결계약명", 2) or _supply_name(flat)
 
     # 계약내역
     contract_amount = _find_amount_near(text, r"계약금액\(원\)")
@@ -224,6 +231,8 @@ def _parse_supply_contract_document(html: str) -> dict[str, Any]:
     m = re.search(r"계약상대[^\n]*\n+[^\n]*회사명[^\n]*\n+([^\n]+)", text)
     if m:
         counterparty_name = m.group(1).strip()
+    if not counterparty_name:  # 영문사·슬래시·장문 구사명 — order_contracts 파서 fallback
+        counterparty_name = _supply_cp(flat)
 
     # 상대방과의 관계
     relationship = _extract_relationship(text)
