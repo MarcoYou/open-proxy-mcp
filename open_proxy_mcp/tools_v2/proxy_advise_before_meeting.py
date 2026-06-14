@@ -283,9 +283,7 @@ def _render(payload: dict[str, Any]) -> str:
                             f"🔴해지 {os_.get('terminated_count')}건 {_won_s(os_.get('terminated_total_amount_won'))}원"
                             + (f"(매출대비 최대 {tmx}%)" if tmx else "")
                         )
-                    net = os_.get("net_amount_won")
-                    suffix = f" → 순수주 {_won_s(net)}원" if os_.get("terminated_count") and net is not None else ""
-                    lines.append(f"  - 수주(참고, 점수 미반영): " + " · ".join(parts) + suffix)
+                    lines.append(f"  - 수주(참고, 점수 미반영): " + " · ".join(parts))
             lines.append("")
 
         # 회계 risk 이력 발견 detail (회사명 / 시점 / risk 유형 raw 노출)

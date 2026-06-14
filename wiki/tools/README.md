@@ -46,7 +46,7 @@ Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
 |------|------|
 | [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류) |
 | [[corporate_deals]] | 지분 인수·매각(타법인주식·출자증권) — 계열사 출자·회수, 일감몰아주기. 구 related_party_transaction. 공급계약은 order_contracts로 일원화(260614) |
-| [[order_contracts]] | 수주·해지(단일판매·공급계약 체결/해지) — 계약금액·매출대비%·순수주·정정 dedup/diff·계열 일감. 적자 코스닥 미래매출 가시성 |
+| [[order_contracts]] | 수주·해지(단일판매·공급계약 체결/해지) — 계약금액·매출대비%·정정 dedup/diff·외부/계열 카운트. 적자 코스닥 미래매출 가시성 (매핑·순수주 추론은 부정확해 제외) |
 | [[risk_events]] | 리스크 이벤트 — 활성 3종: 중대재해/횡령배임/생산중단·영업정지 (I001+B001, 시장 스캔. 파생·회생·해산은 mute) |
 | [[evidence]] | rcept_no → 공시일/소스/뷰어 URL (API 0회) |
 

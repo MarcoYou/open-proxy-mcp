@@ -1,10 +1,13 @@
 """수주(단일판매·공급계약) 추적 서비스.
 
 적자 디폴트인 코스닥 바이오/기술주에서 수주 = 미래 매출 가시성. 단일판매·공급계약(체결/해지)을
-전담하는 단일 소스 — 외부 수주 규모·매출액 대비·최근 모멘텀·순수주(체결−해지), 그리고
-**기재정정 dedup + diff**. 외부 수주와 **계열 일감(일감몰아주기)**을 is_external로 구분
-(2026-06-14 corporate_deals 공급계약 일원화로 일감 관점 흡수). corporate_deals는 타법인주식
+전담하는 단일 소스 — 외부 수주 규모·매출액 대비·최근 모멘텀, 그리고 **기재정정 dedup + diff**.
+외부 수주와 계열 일감을 공시 '회사와의 관계' 필드로 구분(카운트). corporate_deals는 타법인주식
 (지분 인수/매각) 전담.
+
+설계 메모(2026-06-14): 체결↔해지 매핑·순수주·계열일감 규모 같은 추론은 넓은 샘플 측정 결과
+부정확(매핑 26%, 관계 미기재 83%)해 제외했다. 공시에서 읽은 사실(체결·해지 파싱, 정정 dedup,
+외부/계열 카운트)만 제공한다.
 
 수주는 정정(변경계약)이 흔하다. 정정본 본문에 '정정전/정정후'가 같이 있어 증액/감액을
 직접 추출한다. dedup은 multi-signal: (계약명+상대방) 그룹 + 정정본의 정정전 금액으로
@@ -315,19 +318,18 @@ def _dedup(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _signal_summary(orders: list[dict[str, Any]], terminations: list[dict[str, Any]], window_label: str) -> dict[str, Any]:
     concluded = [o for o in orders if o.get("contract_amount_won")]
     external = [o for o in concluded if o.get("is_external")]
-    internal = [o for o in concluded if not o.get("is_external")]  # 계열 일감(일감몰아주기)
+    internal = [o for o in concluded if not o.get("is_external")]  # 외부/계열 카운트 (공시 관계필드)
     ext_amt = sum(o["contract_amount_won"] for o in external)
-    int_amt = sum(o["contract_amount_won"] for o in internal)
     ratios = [o["revenue_ratio_pct"] for o in external if o.get("revenue_ratio_pct")]
     term_amts = [t["terminated_amount_won"] for t in terminations if t.get("terminated_amount_won")]
     term_total = sum(term_amts)
     term_ratios = [t["revenue_ratio_pct"] for t in terminations if t.get("revenue_ratio_pct")]
+    # 파싱 사실만 집계 — 매핑·순수주·계열일감 규모 같은 추론은 제외(가능성 측정 결과, 2026-06-14).
     return {
         "order_count": len(concluded),
         "external_count": len(external),
         "internal_count": len(internal),
         "external_total_amount_won": ext_amt,
-        "internal_total_amount_won": int_amt,  # 계열사 일감 규모 (일감몰아주기 — corporate_deals 흡수)
         "max_revenue_ratio_pct": max(ratios) if ratios else None,
         "sum_revenue_ratio_pct": round(sum(ratios), 1) if ratios else None,
         "correction_count": sum(o.get("correction_count", 0) for o in orders),
@@ -335,7 +337,6 @@ def _signal_summary(orders: list[dict[str, Any]], terminations: list[dict[str, A
         "terminated_count": len(terminations),
         "terminated_total_amount_won": term_total,
         "max_terminated_revenue_ratio_pct": max(term_ratios) if term_ratios else None,
-        "net_amount_won": ext_amt - term_total,  # 순수주 = 외부 체결 − 해지
         "window": window_label,
     }
 
@@ -398,17 +399,6 @@ async def build_order_contracts_payload(
 
     orders = _dedup([e for e in events if not e["is_termination"]])
     terminations = [e for e in events if e["is_termination"]]
-    # 체결↔해지 매핑 — dedup 키(계약명+상대방) 재활용. 해지가 과거 체결과 같은 계약이면 연결
-    # (삼성제약 '상품공급 계약' 체결=해지). orders엔 is_terminated, terminations엔 매칭 체결 표시.
-    order_by_key = {(_norm(o["contract_name"])[:24], _norm(o["counterparty"])[:16]): o for o in orders}
-    for t in terminations:
-        key = (_norm(t["contract_name"])[:24], _norm(t["counterparty"])[:16])
-        matched = order_by_key.get(key)
-        if matched and key[0]:  # 계약명 비어있으면 매칭 신뢰 X
-            t["matched_order_rcept_no"] = matched["rcept_no"]
-            t["matched_order_amount_won"] = matched.get("contract_amount_won")
-            matched["is_terminated"] = True
-            matched["termination_rcept_no"] = t["rcept_no"]
     summary = _signal_summary(orders, terminations, f"{bgn}~{end}")
     # 매출대비% 보정 발생 건 — 회사 단위 warning으로 surface
     ratio_warned = [o for o in orders if o.get("ratio_warning")]

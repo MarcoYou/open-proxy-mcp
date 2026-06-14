@@ -63,17 +63,11 @@ def _render(payload: dict[str, Any]) -> str:
         f"- 최근 매출액 대비 — 단일 최대 **{s.get('max_revenue_ratio_pct', '-')}%** / 합계 {s.get('sum_revenue_ratio_pct', '-')}%",
         f"- 기재정정 {s.get('correction_count', 0)}건 (변경계약 — 아래 diff)",
     ]
-    if s.get("internal_count"):  # 계열사 일감(일감몰아주기 관점) — corporate_deals 일원화로 흡수
-        lines.append(
-            f"- 계열 일감 **{s.get('internal_count')}건** {_won(s.get('internal_total_amount_won'))}원 (내부거래 — 일감몰아주기 점검)"
-            "  ※공시 '회사와의 관계' 명시 기준 — 미기재(다수)는 외부로 분류돼 과소집계 가능"
-        )
     if s.get("terminated_count"):
-        lines += [
+        lines.append(
             f"- 🔴 계약 해지 **{s.get('terminated_count')}건** {_won(s.get('terminated_total_amount_won'))}원"
-            + (f" (해지 매출대비 최대 {s.get('max_terminated_revenue_ratio_pct')}%)" if s.get("max_terminated_revenue_ratio_pct") else ""),
-            f"- 순수주 참고치(기간 내 외부 체결 − 해지 **합산**, 동일계약 매칭 아님): **{_won(s.get('net_amount_won'))}원**",
-        ]
+            + (f" (해지 매출대비 최대 {s.get('max_terminated_revenue_ratio_pct')}%)" if s.get("max_terminated_revenue_ratio_pct") else "")
+        )
     lines.append("")
 
     lines += [
@@ -100,13 +94,12 @@ def _render(payload: dict[str, Any]) -> str:
     terminations = data.get("terminations", []) or []
     if terminations:
         lines += ["", f"## 계약 해지 {len(terminations)}건 (부정 시그널)",
-                  "| 공시일 | 해지 계약명 | 상대방 | 해지금액 | 매출대비 | 체결연결 |",
-                  "|--------|-----------|--------|---------|---------|---------|"]
+                  "| 공시일 | 해지 계약명 | 상대방 | 해지금액 | 매출대비 |",
+                  "|--------|-----------|--------|---------|---------|"]
         for t in terminations[:10]:
-            link = "↩체결" if t.get("matched_order_rcept_no") else "-"  # 같은 window 내 체결 해지(빠른 해지)
             lines.append(
                 f"| {t.get('rcept_dt', '')} | {(t.get('contract_name') or '-')[:24]} | {(t.get('counterparty') or '-')[:14]} "
-                f"| {_won(t.get('terminated_amount_won'))} | {t.get('revenue_ratio_pct', '-')}% | {link} |"
+                f"| {_won(t.get('terminated_amount_won'))} | {t.get('revenue_ratio_pct', '-')}% |"
             )
 
     return "\n".join(lines)
@@ -123,7 +116,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 회사의 **수주**(단일판매·공급계약체결) 추적 — 계약금액·**매출액 대비%**·상대방·계약기간. 적자 디폴트인 코스닥 바이오/기술주에서 수주 = 미래 매출 가시성 시그널. 기재정정(변경계약) 자동 dedup + 증액/감액 diff.
-        when: 얼마짜리 수주를 따냈나, 수주가 매출 대비 얼마나 큰가(적자기업 가시성), 최근 수주 모멘텀, 외부 수주 vs 계열 일감(일감몰아주기·내부거래), 계약 해지·순수주, 수주 증액/감액 변경. 지분 인수/매각(타법인주식)은 `corporate_deals`.
+        when: 얼마짜리 수주를 따냈나, 수주가 매출 대비 얼마나 큰가(적자기업 가시성), 최근 수주 모멘텀, 외부 수주 vs 계열 일감(공시 관계필드 기준), 계약 해지, 수주 증액/감액 변경. 지분 인수/매각(타법인주식)은 `corporate_deals`.
         rule: DART list.json I001 — 단일판매ㆍ공급계약체결/해지 (일반+자율공시 모두 I001, 자회사 변형 포함). 본문 파싱: 계약금액(단위 원/천원/백만원 환산)·최근매출액·매출액대비%·상대방·관계(외부/계열)·계약기간. dedup: (계약명+상대방) 그룹 + 정정본 정정전금액으로 원본↔정정 매칭(같은 키라도 금액 체인 불일치 시 별개). 기본 lookback 24개월.
         max_documents: 본문 파싱 상한 (기본 30).
         ref: corporate_deals (타법인주식 지분 인수/매각), financial_metrics (매출·수익성), evidence (원문 확인)
