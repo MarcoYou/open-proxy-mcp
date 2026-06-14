@@ -341,12 +341,15 @@ async def build_order_contracts_payload(
         )
         for o in orders[:10] if o.get("rcept_no")
     ]
-    if items and not orders:
+    if items and not orders and not terminations:
         warnings.append("수주 공시는 있으나 본문 파싱에서 유효 계약을 만들지 못했다.")
+    if terminations and not orders:
+        warnings.append(f"체결 공시 없이 계약 해지 {len(terminations)}건만 있다 (과거 수주의 해지).")
 
     return ToolEnvelope(
         tool="order_contracts",
-        status=AnalysisStatus.EXACT if orders else AnalysisStatus.NO_FILING,
+        # 해지(termination)만 있어도 '수주했다 해지'라는 정보다 — no_filing(수주 자체 없음)과 구분
+        status=AnalysisStatus.EXACT if (orders or terminations) else AnalysisStatus.NO_FILING,
         subject=selected.get("corp_name", company_query),
         warnings=warnings + notices,
         data={
