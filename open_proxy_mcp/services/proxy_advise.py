@@ -53,6 +53,7 @@ from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meetin
 from open_proxy_mcp.services.director_performance import _PERF_KO, compute_performance
 from open_proxy_mcp.services.dividend_v2 import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
+from open_proxy_mcp.services.order_contracts import build_order_contracts_payload
 # Removed dead imports (archived at wiki/archive/services/):
 #   policy_comparison / proxy_guideline / proxy_guideline_scoring
 
@@ -2067,12 +2068,16 @@ async def build_proxy_advise_payload(
         # 회사 단위 한 번 fetch (모든 사내이사 동일 source 공유)
         # 추가 호출 ~3개 (dividend + treasury + financial yearly)
         stage_started_at = time.perf_counter()
-        perf_div, perf_treas, perf_fin = await asyncio.gather(
+        perf_div, perf_treas, perf_fin, perf_order = await asyncio.gather(
             _safe_throttled(build_dividend_payload, company_query, timing_label="dividend.history", scope="history", years=5),
             _safe_throttled(build_treasury_share_payload, company_query, timing_label="treasury_share.summary", scope="summary", lookback_months=120),
             _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.yearly", scope="yearly", year=fin_year),
+            _safe_throttled(build_order_contracts_payload, company_query, timing_label="order_contracts"),
         )
         _mark("inside_director_performance_upstreams", stage_started_at)
+        # 수주 시그널 — 회사 단위 별도 fact. 성과 매트릭스(ROE/부채/CSR) 점수에는 반영하지 않는다
+        # (적자 디폴트 코스닥 바이오 등에서 수주 부재를 성과 저조로 오판하지 않도록). 정보로만 노출.
+        order_signal = (perf_order.get("data") or {}).get("signal_summary") if isinstance(perf_order, dict) else None
         # yearly 데이터 파싱
         roe_yearly: dict[int, float | None] = {}
         leverage_yearly: dict[int, float | None] = {}
@@ -2125,6 +2130,10 @@ async def build_proxy_advise_payload(
             if not apt.get("earliest_start"):
                 ev["performance"]["tenure_fallback"] = True
                 ev["performance"]["rationale"] = "(재직 시작 detect fail — 5년 default) " + ev["performance"].get("rationale", "")
+            # 수주 시그널 — 회사 공통 별도 fact (점수 미반영). 적자기업 미래 매출 가시성 참고용.
+            # 체결 0·해지만 있는 회사(종근당홀딩스 등)도 해지가 부정 시그널이므로 포함.
+            if order_signal and (order_signal.get("order_count") or order_signal.get("terminated_count")):
+                ev["performance"]["order_signal"] = order_signal
 
     # 법령 layer (260508 신규) — 강행규정 + 정관 우회 시나리오. vote_style 위에 우선 적용.
     # corp_total_asset_won: financial_metrics summary에서 자산 추출 (자산 2조+ 분기 등)
