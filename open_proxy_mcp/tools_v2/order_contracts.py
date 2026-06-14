@@ -95,12 +95,13 @@ def _render(payload: dict[str, Any]) -> str:
     terminations = data.get("terminations", []) or []
     if terminations:
         lines += ["", f"## 계약 해지 {len(terminations)}건 (부정 시그널)",
-                  "| 공시일 | 해지 계약명 | 상대방 | 해지금액 | 매출대비 |",
-                  "|--------|-----------|--------|---------|---------|"]
+                  "| 공시일 | 해지 계약명 | 상대방 | 해지금액 | 매출대비 | 체결연결 |",
+                  "|--------|-----------|--------|---------|---------|---------|"]
         for t in terminations[:10]:
+            link = "↩체결" if t.get("matched_order_rcept_no") else "-"  # 같은 window 내 체결 해지(빠른 해지)
             lines.append(
                 f"| {t.get('rcept_dt', '')} | {(t.get('contract_name') or '-')[:24]} | {(t.get('counterparty') or '-')[:14]} "
-                f"| {_won(t.get('terminated_amount_won'))} | {t.get('revenue_ratio_pct', '-')}% |"
+                f"| {_won(t.get('terminated_amount_won'))} | {t.get('revenue_ratio_pct', '-')}% | {link} |"
             )
 
     return "\n".join(lines)

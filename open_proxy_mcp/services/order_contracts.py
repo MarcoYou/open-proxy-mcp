@@ -87,12 +87,18 @@ def _contract_name(flat: str) -> str:
 
 
 def _counterparty(flat: str) -> str:
-    # '계약상대'가 해지사유 문장('계약상대의 요청에 의한…')에 먼저 등장할 수 있어, 조사로
-    # 시작하는 값은 건너뛰고 실제 상대방 항목('3. 계약상대 오스틴제약…')을 잡는다.
-    for m in re.finditer(r"계약상대방?\s*[:\s]*([가-힣A-Za-z()㈜·\s0-9]{2,30}?)(?:\s*-|\s*최근|\s*주요|\s*회사와|\s*\d\.)", flat):
-        val = re.sub(r"\s+", " ", m.group(1).strip())
-        if val and val[0] not in "의을를이가에와과으로은는도" and len(val) >= 2:
-            return val
+    # 상대방 항목 양식: '3. 계약상대 [회사명] - 회사와의 관계'. 해지 본문은 해지사유 문장에
+    # '계약상대의 요청…'이 먼저 나오므로 (1) 항목번호 '3. 계약상대'를 우선 (2) 조사로 시작하는
+    # 값은 건너뛴다. 영문사(Guangdong Landu Pharmaceutical Co., LTD.) 위해 쉼표·마침표·& 허용.
+    val_chars = r"[가-힣A-Za-z()㈜（）·,.&\s0-9]"
+    for pat in (
+        r"3\s*\.\s*계약상대방?\s*[:\s]*(" + val_chars + r"{2,50}?)(?:\s*-\s*회사와|\s*-\s*최근|\s*\d\s*\.)",
+        r"계약상대방?\s*[:\s]*(" + val_chars + r"{2,50}?)(?:\s*-\s*회사와|\s*-\s*최근|\s*주요|\s*\d\s*\.)",
+    ):
+        for m in re.finditer(pat, flat):
+            val = re.sub(r"\s+", " ", m.group(1).strip()).strip(" ,")
+            if val and val[0] not in "의을를이가에와과으로은는도" and len(val) >= 2:
+                return val
     return ""
 
 
@@ -366,6 +372,17 @@ async def build_order_contracts_payload(
 
     orders = _dedup([e for e in events if not e["is_termination"]])
     terminations = [e for e in events if e["is_termination"]]
+    # 체결↔해지 매핑 — dedup 키(계약명+상대방) 재활용. 해지가 과거 체결과 같은 계약이면 연결
+    # (삼성제약 '상품공급 계약' 체결=해지). orders엔 is_terminated, terminations엔 매칭 체결 표시.
+    order_by_key = {(_norm(o["contract_name"])[:24], _norm(o["counterparty"])[:16]): o for o in orders}
+    for t in terminations:
+        key = (_norm(t["contract_name"])[:24], _norm(t["counterparty"])[:16])
+        matched = order_by_key.get(key)
+        if matched and key[0]:  # 계약명 비어있으면 매칭 신뢰 X
+            t["matched_order_rcept_no"] = matched["rcept_no"]
+            t["matched_order_amount_won"] = matched.get("contract_amount_won")
+            matched["is_terminated"] = True
+            matched["termination_rcept_no"] = t["rcept_no"]
     summary = _signal_summary(orders, terminations, f"{bgn}~{end}")
     # 매출대비% 보정 발생 건 — 회사 단위 warning으로 surface
     ratio_warned = [o for o in orders if o.get("ratio_warning")]
