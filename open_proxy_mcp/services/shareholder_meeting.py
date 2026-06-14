@@ -1491,6 +1491,9 @@ async def build_shareholder_meeting_payload(
         data["compensation"] = compensation
         if not compensation.get("items"):
             warnings.append("보수한도 안건이 없거나 파싱되지 않았다.")
+        else:
+            # 파싱 신뢰도 경고(방향 판정 불가·외화·단위미상)를 payload warnings로 노출
+            warnings.extend(compensation.get("summary", {}).get("warnings", []))
     if include_aoi:
         if not html:
             warnings.append("HTML을 확보하지 못해 정관변경 상세를 파싱할 수 없다.")

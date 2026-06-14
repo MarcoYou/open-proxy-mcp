@@ -3745,6 +3745,7 @@ def _parse_compensation_table(rows: list[list[str]], unit: str | None = None) ->
         elif "최고한도" in key or "보수총액또는" in key or "한도액" in key:
             result["limit"] = val
             result["limitAmount"] = _parse_krw_amount(val, fallback_unit=unit)
+            _flag_amount(result, "limit", val, unit)
 
         elif "실제지급" in key or "지급된보수" in key:
             result["actualPaid"] = val
@@ -3762,6 +3763,20 @@ def _parse_compensation_table(rows: list[list[str]], unit: str | None = None) ->
 _UNIT_MULT_KRW = {"억원": 100_000_000, "백만원": 1_000_000, "천원": 1_000, "원": 1}
 
 
+def _flag_amount(result: dict, field: str, raw: str, unit: str | None) -> None:
+    """금액 셀의 신뢰도 플래그 — 외화/단위미상이면 표시 (raw는 이미 result[field]에 보존).
+
+    - {field}Currency='foreign': 달러 등 외화라 원화 환산 불가 (amount None)
+    - {field}UnitKnown=False: 셀·표 헤더 어디에도 금액 단위가 없어 추론 환산 (amount는 raw 숫자)
+    """
+    if re.search(r'USD|US\$|\bU\$|달러|EUR|JPY|CNY|\$', raw):
+        result[f"{field}Currency"] = "foreign"
+        result[f"{field}UnitKnown"] = False
+    elif result.get(f"{field}Amount") is not None and not unit and not re.search(r'억|백만|천|원', raw):
+        # 단위 표기가 셀에도 표 헤더에도 없음 → raw 숫자를 원으로 둔 추정값
+        result[f"{field}UnitKnown"] = False
+
+
 def _parse_krw_amount(text: str, fallback_unit: str | None = None) -> int | None:
     """금액 문자열을 원 단위 정수로 변환
 
@@ -3776,6 +3791,10 @@ def _parse_krw_amount(text: str, fallback_unit: str | None = None) -> int | None
         보수한도 표는 단위가 별도 행 '(단위 : 명, 억원)'에 있고 금액 셀은 숫자만인 경우가 흔하다.
     """
     if not text:
+        return None
+
+    # 외화(달러 등) — 환율 변동으로 원화 환산 불가. None 반환(호출측이 currency 플래그 + raw 노출).
+    if re.search(r'USD|US\$|\bU\$|달러|EUR|JPY|CNY|￦?\$', text):
         return None
 
     # 주식 부분 제거
@@ -3798,8 +3817,9 @@ def _parse_krw_amount(text: str, fallback_unit: str | None = None) -> int | None
     if m:
         return int(float(m.group(1)) * 1_000)
 
-    # 원 (단위 없이 숫자만) — fallback_unit 있으면 표 헤더 단위로 환산
-    m = re.search(r'(\d+)\s*원?$', text)
+    # 단위 없는 숫자 — 끝에 붙은 숫자 우선, 없으면 선행 숫자(셀에 설명 텍스트 섞인 경우:
+    # SK스퀘어 '100※ 이와 별개로 장기인센티브를…' → 100). fallback_unit으로 환산.
+    m = re.search(r'(\d+)\s*원?$', text) or re.match(r'(\d+)', text)
     if m:
         num = int(m.group(1))
         if fallback_unit and fallback_unit in _UNIT_MULT_KRW:
@@ -3855,12 +3875,42 @@ def _build_compensation_summary(items: list[dict]) -> dict:
     if total_prior_limit > 0 and total_prior_paid > 0:
         utilization = round(total_prior_paid / total_prior_limit * 100, 1)
 
+    cur_lim = total_limit if total_limit else None
+    pri_lim = total_prior_limit if total_prior_limit else None
+    # 파싱 신뢰도 — 조용한 빈 값 대신 '왜 그런지' 명시 (방향 판정 가능 여부 + 외화/단위미상)
+    direction_available = bool(cur_lim and pri_lim)
+    has_foreign = any((it.get("current") or {}).get("limitCurrency") == "foreign"
+                      or (it.get("prior") or {}).get("limitCurrency") == "foreign" for it in items)
+    has_unit_unknown = any((it.get("current") or {}).get("limitUnitKnown") is False
+                           or (it.get("prior") or {}).get("limitUnitKnown") is False for it in items)
+    if not items:
+        parse_status = "no_agenda"
+    elif has_foreign:
+        parse_status = "foreign_currency"      # 외화 표기 — 원화 환산 불가, raw 참조
+    elif cur_lim and pri_lim:
+        parse_status = "ok"
+    elif cur_lim or pri_lim:
+        parse_status = "one_side_only"         # 한쪽만 유효 — 방향 판정 불가, 유효값은 노출
+    else:
+        parse_status = "amount_unparsed"       # 안건은 있으나 금액 미파싱 (표 구조 상이 등)
+    warnings: list[str] = []
+    if parse_status == "one_side_only":
+        side = "당기" if cur_lim else "전기"
+        warnings.append(f"보수한도 {side}만 파싱됨 — 전년 대비 증감(방향) 판정 불가, 단일 한도값만 신뢰")
+    if has_foreign:
+        warnings.append("보수한도가 외화(달러 등)로 표기됨 — 원화 환산 불가, raw 한도 문자열 참조")
+    if has_unit_unknown:
+        warnings.append("보수한도 금액 단위 표기가 공시에 없어 추정 환산 — 절대금액 부정확 가능, raw 참조")
+
     return {
         "totalItems": len(items),
-        "currentTotalLimit": total_limit if total_limit else None,
+        "currentTotalLimit": cur_lim,
         "priorTotalPaid": total_prior_paid if total_prior_paid else None,
-        "priorTotalLimit": total_prior_limit if total_prior_limit else None,
+        "priorTotalLimit": pri_lim,
         "priorUtilization": utilization,
+        "parse_status": parse_status,
+        "direction_available": direction_available,
+        "warnings": warnings,
     }
 
 
@@ -3871,6 +3921,9 @@ def _empty_compensation_summary() -> dict:
         "priorTotalPaid": None,
         "priorTotalLimit": None,
         "priorUtilization": None,
+        "parse_status": "no_agenda",
+        "direction_available": False,
+        "warnings": [],
     }
 
 
