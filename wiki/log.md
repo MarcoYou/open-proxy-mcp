@@ -3,6 +3,18 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-15] fix/audit | 주총 안건 파싱 점검 (진행중) — 보수한도 단위·폴백 + agenda 카테고리
+
+상세 + 남은 작업: [[shareholder-meeting-agenda-parse-260615]]
+
+- `shareholder_meeting` (compensation/agenda)
+  - 보수한도 **단위 미환산** 수정 — 표 헤더/raw '(단위: 억원/백만원)' fallback 환산 (두산 630억·LG엔솔 60억)
+  - 보수한도 **폴백 4종** — 셀 오염 선행숫자 추출·한쪽 누락 유효값+플래그·외화/단위미상 플래그+raw·parse_status/warning
+  - **agenda 카테고리 분류** 추가 — proxy_advise `_classify_agenda`를 agenda scope에 적용 (category None 100%→0)
+  - 방법론: 코스피+코스닥 255사 진단 → 실패 유형 → 폴백 → before/after regression(정확도·속도 회귀 0)
+- 진단 도구 신규: `scripts/compensation_parse_diagnosis.py`, `agenda_parse_diagnosis.py`, `top50_compensation_audit.py`
+- **남은 작업**: 안건 종류별 세부 파싱 — 선임(34%)/재무제표(17%)/정관변경(16%) 순. 같은 방법론 반복.
+
 ## [2026-06-14] refactor/perf | order_contracts 일원화 + proxy_advise 펀더멘털 fact·동적 lookback
 
 상세: [[order-contracts-260613]], [[proxy-advise-perf-fact-260614]]
