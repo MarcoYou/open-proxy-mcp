@@ -2,9 +2,9 @@
 type: tool
 title: corporate_deals
 domain: data
-scope: [summary, equity_deal, supply_contract]
-data_source: [DART OpenAPI list.json (B/I) + 키워드 매칭 (타법인주식 4종 / 단일공급계약 2종) + document.xml (include_details=True 시 본문 파싱)]
-related_disclosures: [타법인주식및출자증권거래, 단일판매공급계약체결]
+scope: [summary, equity_deal]
+data_source: [DART OpenAPI list.json (B/I) + 키워드 매칭 (타법인주식 4종) + document.xml (include_details=True 시 본문 파싱)]
+related_disclosures: [타법인주식및출자증권거래]
 related_concepts: [특수관계인, 동일인]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
@@ -16,7 +16,9 @@ created: 2026-05-01
 > 구 명칭 `related_party_transaction` (2026-06-10 rename). 기능 변화 없음 — "인수/매각" 류 자연어 질의가 tool 라우팅에 실패해 이름·desc를 포괄형으로 교정.
 
 ## 한 줄 요약
-회사·지분 인수/매각(타법인주식 취득/처분) + 단일판매·공급계약(체결/해지) 통합. 계열사 출자·회수, 일감몰아주기·내부거래 모니터링. 기본은 list.json 메타, `include_details=True`면 원문 파싱으로 거래 상대방/금액/자산대비비율/특수관계 힌트까지 노출.
+회사·지분 인수/매각(타법인주식·출자증권 취득/처분) 공시. 계열사 출자·회수, 일감몰아주기·내부거래 모니터링. 기본은 list.json 메타, `include_details=True`면 원문 파싱으로 거래 상대방/금액/자산대비비율/특수관계 힌트까지 노출.
+
+> **2026-06-14 일원화**: 단일판매·공급계약(체결/해지)은 [[order_contracts]]로 분리했다. corporate_deals가 공급계약을 메타 나열(정정 dedup·순수주·매출대비 요약 없음)만 하던 반면 order_contracts가 그 가공을 전담하므로, 중복을 없애고 corporate_deals는 **타법인주식 지분 거래** 전담으로 정리. 계열 일감(일감몰아주기 관점 공급계약)은 order_contracts가 is_external로 구분.
 
 ## 사용법
 ```
@@ -29,23 +31,23 @@ corporate_deals(
 
 자연어 예시:
 - "POSCO홀딩스 자회사 거래 패턴" → `scope="summary"` (지주회사 구조 신호)
-- "현대건설 단일공급계약 (건설업 특성)" → `scope="supply_contract"` (72건)
 - "성호전자 타법인주식 양수" → `scope="equity_deal"` (M&A 활발)
+- "현대건설 단일공급계약" → [[order_contracts]] (공급계약은 일원화로 이전)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 3종 (아래 참조) | "summary" |
+| scope | str | no | 2종 (아래 참조) | "summary" |
 | start_date / end_date | str | no | YYYYMMDD | "" (24개월 lookback) |
 | include_details | bool | no | True면 원문 파싱 (DART 호출 N회 추가) | False |
 | details_limit | int | no | 원문 파싱 대상 건수 (1-10) | 5 |
 | format | str | no | "md" / "json" | "md" |
 
 scope:
-- `summary`: 두 도메인 통합 timeline (기본)
+- `summary`: 타법인주식 거래 timeline (기본)
 - `equity_deal`: 타법인주식 거래 (양수/양도/취득/처분)
-- `supply_contract`: 단일판매·공급계약 (체결/해지)
+- (단일판매·공급계약은 [[order_contracts]]로 일원화 — 2026-06-14)
 
 ## 출력 schema (data dict)
 ```json

@@ -1,8 +1,10 @@
 """수주(단일판매·공급계약) 추적 서비스.
 
-적자 디폴트인 코스닥 바이오/기술주에서 수주 = 미래 매출 가시성. corporate_deals는
-단일공급계약을 '일감몰아주기' 관점(내부거래)으로 다루지만, 이 tool은 '수주 시그널'
-관점 — 외부 수주 규모·매출액 대비·최근 모멘텀, 그리고 **기재정정 dedup + diff**.
+적자 디폴트인 코스닥 바이오/기술주에서 수주 = 미래 매출 가시성. 단일판매·공급계약(체결/해지)을
+전담하는 단일 소스 — 외부 수주 규모·매출액 대비·최근 모멘텀·순수주(체결−해지), 그리고
+**기재정정 dedup + diff**. 외부 수주와 **계열 일감(일감몰아주기)**을 is_external로 구분
+(2026-06-14 corporate_deals 공급계약 일원화로 일감 관점 흡수). corporate_deals는 타법인주식
+(지분 인수/매각) 전담.
 
 수주는 정정(변경계약)이 흔하다. 정정본 본문에 '정정전/정정후'가 같이 있어 증액/감액을
 직접 추출한다. dedup은 multi-signal: (계약명+상대방) 그룹 + 정정본의 정정전 금액으로
@@ -114,6 +116,13 @@ def _relationship(flat: str) -> str:
 def _is_external(relationship: str, counterparty: str) -> bool:
     blob = (relationship or "") + (counterparty or "")
     return not any(kw in blob for kw in _INTERNAL_RELATION)
+
+
+def _is_self_filing(flr_nm: str, corp_name: str) -> bool:
+    """공시 제출인이 회사 본인인지 (자회사 주요경영사항이면 제출인=모회사 등으로 다름).
+    corporate_deals 공급계약 일원화로 흡수 — 일감몰아주기 관점 메타."""
+    a, b = (flr_nm or "").strip(), (corp_name or "").strip()
+    return bool(a and b and (a == b or b in a or a in b))
 
 
 def _correction_diff(flat: str) -> dict[str, Any]:
@@ -301,7 +310,9 @@ def _dedup(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _signal_summary(orders: list[dict[str, Any]], terminations: list[dict[str, Any]], window_label: str) -> dict[str, Any]:
     concluded = [o for o in orders if o.get("contract_amount_won")]
     external = [o for o in concluded if o.get("is_external")]
+    internal = [o for o in concluded if not o.get("is_external")]  # 계열 일감(일감몰아주기)
     ext_amt = sum(o["contract_amount_won"] for o in external)
+    int_amt = sum(o["contract_amount_won"] for o in internal)
     ratios = [o["revenue_ratio_pct"] for o in external if o.get("revenue_ratio_pct")]
     term_amts = [t["terminated_amount_won"] for t in terminations if t.get("terminated_amount_won")]
     term_total = sum(term_amts)
@@ -309,8 +320,9 @@ def _signal_summary(orders: list[dict[str, Any]], terminations: list[dict[str, A
     return {
         "order_count": len(concluded),
         "external_count": len(external),
-        "internal_count": len(concluded) - len(external),
+        "internal_count": len(internal),
         "external_total_amount_won": ext_amt,
+        "internal_total_amount_won": int_amt,  # 계열사 일감 규모 (일감몰아주기 — corporate_deals 흡수)
         "max_revenue_ratio_pct": max(ratios) if ratios else None,
         "sum_revenue_ratio_pct": round(sum(ratios), 1) if ratios else None,
         "correction_count": sum(o.get("correction_count", 0) for o in orders),
@@ -364,13 +376,18 @@ async def build_order_contracts_payload(
         doc_calls += 1
         report_nm = (it.get("report_nm") or "").strip()
         parsed = _parse_termination(doc.get("html") or "") if "해지" in report_nm else _parse_order(doc.get("html") or "")
+        compact_nm = report_nm.replace(" ", "")
         parsed.update({
             "rcept_no": rcept_no,
             "rcept_dt": it.get("rcept_dt", ""),
             "report_nm": report_nm,
+            "filer_name": it.get("flr_nm", ""),
             "is_correction": "정정" in report_nm,
             "is_termination": "해지" in report_nm,
-            "autonomous_disclosure": "자율공시" in report_nm.replace(" ", ""),
+            "autonomous_disclosure": "자율공시" in compact_nm,
+            # 일감몰아주기 관점 메타 (corporate_deals 공급계약 일원화로 흡수)
+            "subsidiary_report": "자회사의주요경영사항" in compact_nm,
+            "self_filing": _is_self_filing(it.get("flr_nm", ""), selected.get("corp_name", "")),
         })
         events.append(parsed)
 

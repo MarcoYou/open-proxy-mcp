@@ -1,6 +1,7 @@
 """v2 corporate_deals data tool.
 
-타법인주식 거래 + 단일판매·공급계약 공시 통합. 일감몰아주기·내부거래 모니터링 소스.
+타법인주식·출자증권 취득/처분(지분 인수·매각) 공시. 계열사 출자·회수, 일감몰아주기·내부거래
+모니터링 소스. 단일판매·공급계약(체결/해지)은 order_contracts로 일원화(2026-06-14).
 
 DART 전용 구조화 API가 없어 list.json + report_nm 키워드 매칭 방식.
 상세 수치(거래금액, 상대방)는 evidence tool로 원문 링크 제공.
@@ -29,7 +30,7 @@ from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd,
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 
-_SUPPORTED_SCOPES = {"summary", "equity_deal", "supply_contract"}
+_SUPPORTED_SCOPES = {"summary", "equity_deal"}
 
 
 # 타법인주식 거래 — 취득/양수 및 처분/양도
@@ -40,13 +41,7 @@ _EQUITY_DEAL_KEYWORDS = (
     "타법인주식및출자증권처분결정",
 )
 
-# 단일판매·공급계약 — 체결/해지
-_SUPPLY_CONTRACT_KEYWORDS = (
-    "단일판매ㆍ공급계약체결",
-    "단일판매ㆍ공급계약해지",
-    "단일판매·공급계약체결",
-    "단일판매·공급계약해지",
-)
+# 단일판매·공급계약(체결/해지)은 order_contracts로 일원화(2026-06-14) — 여기선 타법인주식 거래만.
 
 
 def _classify_equity_deal(report_nm: str) -> str:
@@ -55,15 +50,6 @@ def _classify_equity_deal(report_nm: str) -> str:
         return "acquire"
     if "양도" in compact or "처분" in compact:
         return "dispose"
-    return "unknown"
-
-
-def _classify_supply_contract(report_nm: str) -> str:
-    compact = (report_nm or "").replace(" ", "")
-    if "해지" in compact:
-        return "terminate"
-    if "체결" in compact:
-        return "conclude"
     return "unknown"
 
 
@@ -204,66 +190,6 @@ def _parse_equity_deal_document(html: str) -> dict[str, Any]:
     }
 
 
-def _parse_supply_contract_document(html: str) -> dict[str, Any]:
-    """단일판매·공급계약 체결/해지 원문 파싱."""
-    # order_contracts의 견고한 라벨 파서를 fallback으로 재사용(해지내용/세부물건/해지계약명
-    # 라벨 변형 + 영문사·슬래시 상대방). 순환 import(order_contracts→corporate_deals._extract_text)
-    # 회피를 위해 지역 import. 67건 해지 전수조사로 검증된 헬퍼.
-    from open_proxy_mcp.services.order_contracts import _contract_name as _supply_name
-    from open_proxy_mcp.services.order_contracts import _counterparty as _supply_cp
-
-    text = _extract_text(html)
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
-    flat = re.sub(r"\s+", " ", text)
-
-    # 계약 기본 — 체결계약명 우선, 비면 order_contracts 라벨군(해지내용/세부물건 등) fallback
-    contract_type = _find_value_after(lines, "판매ㆍ공급계약 구분", 2) or _find_value_after(lines, "판매·공급계약 구분", 2)
-    contract_name = _find_value_after(lines, "체결계약명", 2) or _supply_name(flat)
-
-    # 계약내역
-    contract_amount = _find_amount_near(text, r"계약금액\(원\)")
-    recent_revenue = _find_amount_near(text, r"최근매출액\(원\)")
-    revenue_ratio = _find_pct_near(text, r"매출액대비\(%\)")
-
-    # 상대방
-    counterparty_name = _find_value_after(lines, "계약상대", 2) or _find_value_after(lines, "거래처", 2)
-    # "계약상대\n회사명\n(주)XXX" 패턴 고려
-    m = re.search(r"계약상대[^\n]*\n+[^\n]*회사명[^\n]*\n+([^\n]+)", text)
-    if m:
-        counterparty_name = m.group(1).strip()
-    if not counterparty_name:  # 영문사·슬래시·장문 구사명 — order_contracts 파서 fallback
-        counterparty_name = _supply_cp(flat)
-
-    # 상대방과의 관계
-    relationship = _extract_relationship(text)
-
-    # 특수관계 힌트
-    special_relation_hint = ""
-    for kw in ("자회사", "종속회사", "계열회사", "계열사", "관계회사"):
-        if relationship and kw in relationship:
-            special_relation_hint = kw
-            break
-
-    # 계약기간
-    period_start = _find_value_after(lines, "계약시작일", 2) or _find_value_after(lines, "계약 시작일", 2)
-    period_end = _find_value_after(lines, "계약종료일", 2) or _find_value_after(lines, "계약 종료일", 2)
-    signing_date = _find_value_after(lines, "계약체결일", 2) or _find_value_after(lines, "계약 체결일", 2)
-
-    return {
-        "contract_type": contract_type,
-        "contract_name": contract_name,
-        "contract_amount_won": contract_amount,
-        "recent_revenue_won": recent_revenue,
-        "revenue_ratio_pct": revenue_ratio,
-        "counterparty_name": counterparty_name,
-        "counterparty_relationship": relationship,
-        "special_relation_hint": special_relation_hint,
-        "period_start": period_start,
-        "period_end": period_end,
-        "signing_date": signing_date,
-    }
-
-
 async def _enrich_with_document_details(
     rows: list[dict[str, Any]],
     max_docs: int = 5,
@@ -300,8 +226,6 @@ async def _enrich_with_document_details(
             continue
         if row.get("type") == "equity_deal":
             row["details"] = _parse_equity_deal_document(html)
-        elif row.get("type") == "supply_contract":
-            row["details"] = _parse_supply_contract_document(html)
     return rows, warnings, doc_calls
 
 
@@ -328,41 +252,6 @@ async def _fetch_equity_deals(corp_code: str, corp_name: str, bgn_de: str, end_d
             "type": "equity_deal",
             "direction": _classify_equity_deal(report_nm),  # acquire/dispose
             "event_label": "타법인주식·출자증권 거래",
-            "rcept_no": item.get("rcept_no", ""),
-            "rcept_dt": item.get("rcept_dt", ""),
-            "report_nm": report_nm,
-            "filer_name": item.get("flr_nm", ""),
-            "subsidiary_report": _is_subsidiary_report(report_nm),
-            "autonomous_disclosure": _is_autonomous(report_nm),
-            "self_filing": _is_self_filing(item.get("flr_nm", ""), corp_name),
-            "is_correction": report_nm.startswith("[기재정정]"),
-        })
-    return rows, notices + warnings, api_calls
-
-
-async def _fetch_supply_contracts(corp_code: str, corp_name: str, bgn_de: str, end_de: str) -> tuple[list[dict[str, Any]], list[str], int]:
-    items, notices, error = await search_filings_by_report_name(
-        corp_code=corp_code,
-        bgn_de=bgn_de,
-        end_de=end_de,
-        pblntf_tys="",
-        pblntf_detail_ty="I001",  # 단일판매·공급계약체결 ∈ I001, 차집합0 검증
-        keywords=_SUPPLY_CONTRACT_KEYWORDS,
-        strip_spaces=True,
-    )
-    rows: list[dict[str, Any]] = []
-    api_calls = 1
-    warnings = []
-    if error:
-        warnings.append(f"단일판매·공급계약 조회 실패: {error}")
-        return rows, notices + warnings, api_calls
-
-    for item in items:
-        report_nm = item.get("report_nm", "")
-        rows.append({
-            "type": "supply_contract",
-            "direction": _classify_supply_contract(report_nm),  # conclude/terminate
-            "event_label": "단일판매·공급계약",
             "rcept_no": item.get("rcept_no", ""),
             "rcept_dt": item.get("rcept_dt", ""),
             "report_nm": report_nm,
@@ -449,8 +338,6 @@ async def build_corporate_deals_payload(
     tasks: list[Any] = []
     if scope in ("summary", "equity_deal"):
         tasks.append(_fetch_equity_deals(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de))
-    if scope in ("summary", "supply_contract"):
-        tasks.append(_fetch_supply_contracts(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de))
 
     results = await asyncio.gather(*tasks)
     for rows, notices, api_calls in results:
@@ -466,8 +353,8 @@ async def build_corporate_deals_payload(
         warnings.extend(detail_warnings)
         total_api_calls += doc_calls
 
-    by_type: dict[str, list[dict[str, Any]]] = {"equity_deal": [], "supply_contract": []}
-    acquire_count = dispose_count = conclude_count = terminate_count = 0
+    by_type: dict[str, list[dict[str, Any]]] = {"equity_deal": []}
+    acquire_count = dispose_count = 0
     subsidiary_count = autonomous_count = 0
     for row in all_rows:
         by_type.setdefault(row.get("type", ""), []).append(row)
@@ -476,11 +363,6 @@ async def build_corporate_deals_payload(
                 acquire_count += 1
             elif row.get("direction") == "dispose":
                 dispose_count += 1
-        elif row.get("type") == "supply_contract":
-            if row.get("direction") == "conclude":
-                conclude_count += 1
-            elif row.get("direction") == "terminate":
-                terminate_count += 1
         if row.get("subsidiary_report"):
             subsidiary_count += 1
         if row.get("autonomous_disclosure"):
@@ -521,9 +403,6 @@ async def build_corporate_deals_payload(
             "equity_deal_total": len(by_type["equity_deal"]),
             "equity_acquire": acquire_count,
             "equity_dispose": dispose_count,
-            "supply_contract_total": len(by_type["supply_contract"]),
-            "supply_conclude": conclude_count,
-            "supply_terminate": terminate_count,
             "subsidiary_reports": subsidiary_count,
             "autonomous_disclosures": autonomous_count,
         },
@@ -548,8 +427,6 @@ async def build_corporate_deals_payload(
         ]
     if scope == "equity_deal":
         data["equity_deal_events"] = by_type["equity_deal"]
-    if scope == "supply_contract":
-        data["supply_contract_events"] = by_type["supply_contract"]
 
     evidence_refs: list[EvidenceRef] = []
     for row in all_rows[:5]:
@@ -569,7 +446,7 @@ async def build_corporate_deals_payload(
 
     status = status_from_filing_meta(filing_meta)
     if filing_meta["no_filing"]:
-        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 타법인주식 거래·단일공급계약 공시 없음 (정상)")
+        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 타법인주식 거래 공시 없음 (정상)")
     elif filing_meta["parsing_failures"] > 0:
         warnings.append(f"원문 파싱 실패 {filing_meta['parsing_failures']}건 — details 필드 비어 있음")
 

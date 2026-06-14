@@ -41,8 +41,6 @@ def _direction_label(row: dict[str, Any]) -> str:
     t, d = row.get("type", ""), row.get("direction", "")
     if t == "equity_deal":
         return {"acquire": "취득·양수", "dispose": "처분·양도"}.get(d, "기타")
-    if t == "supply_contract":
-        return {"conclude": "체결", "terminate": "해지"}.get(d, "기타")
     return d
 
 
@@ -52,12 +50,12 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     counts = data.get("event_count", {})
     usage = data.get("usage", {})
     lines = [
-        f"# {data.get('canonical_name', payload.get('subject', ''))} 지분 인수·매각 / 공급계약 / 내부거래 (corporate_deals)",
+        f"# {data.get('canonical_name', payload.get('subject', ''))} 지분 인수·매각 / 내부거래 (corporate_deals)",
         "",
         f"- company_id: `{data.get('company_id', '')}`",
         f"- scope: `{scope}`",
         f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`",
-        f"- 사건 수: 타법인주식 {counts.get('equity_deal_total', 0)} (취득 {counts.get('equity_acquire', 0)} / 처분 {counts.get('equity_dispose', 0)}) / 단일공급계약 {counts.get('supply_contract_total', 0)} (체결 {counts.get('supply_conclude', 0)} / 해지 {counts.get('supply_terminate', 0)})",
+        f"- 사건 수: 타법인주식 {counts.get('equity_deal_total', 0)} (취득 {counts.get('equity_acquire', 0)} / 처분 {counts.get('equity_dispose', 0)})  ※단일공급계약은 order_contracts",
         f"- 자회사 공시: {counts.get('subsidiary_reports', 0)}건 / 자율공시: {counts.get('autonomous_disclosures', 0)}건",
         f"- status: `{payload.get('status', '')}`",
         "",
@@ -72,7 +70,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"- {warning}")
         lines.append("")
 
-    has_details = any(row.get("details") for row in (data.get("events_timeline") or data.get("equity_deal_events") or data.get("supply_contract_events") or []))
+    has_details = any(row.get("details") for row in (data.get("events_timeline") or data.get("equity_deal_events") or []))
     if not has_details:
         lines.append("> 📋 기본 모드는 list.json 메타만 수집. `include_details=True`로 원문 파싱(최근 건) 또는 evidence tool로 원문 확인.\n")
     else:
@@ -93,7 +91,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             "|------|------|------|------|--------|--------|------|------|",
         ])
         for ev in timeline:
-            type_label = "주식거래" if ev.get("type") == "equity_deal" else "공급계약"
+            type_label = "주식거래"
             sub = "Y" if ev.get("subsidiary") else "-"
             auto = "Y" if ev.get("autonomous") else "-"
             lines.append(
@@ -134,36 +132,6 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                     f"- 최대주주·임원 관계: {d.get('major_shareholder_relation', '-') or '-'}",
                 ])
 
-    if scope == "supply_contract":
-        events = data.get("supply_contract_events", [])
-        if not events:
-            lines.append("단일판매·공급계약 없음.")
-        else:
-            lines.extend([
-                "## 단일판매·공급계약",
-                "| 날짜 | 방향 | 제목 | 제출인 | 자회사 | 자율 | 정정 | 원문 |",
-                "|------|------|------|--------|--------|------|------|------|",
-            ])
-            for row in events:
-                sub = "Y" if row.get("subsidiary_report") else "-"
-                auto = "Y" if row.get("autonomous_disclosure") else "-"
-                corr = "Y" if row.get("is_correction") else "-"
-                lines.append(
-                    f"| {row.get('rcept_dt', '')} | {_direction_label(row)} | {row.get('report_nm', '')[:50]} | {row.get('filer_name', '')[:20]} | {sub} | {auto} | {corr} | {_link(row.get('rcept_no', ''))} |"
-                )
-            # 원문 파싱 상세
-            for row in events:
-                d = row.get("details")
-                if not d:
-                    continue
-                lines.extend([
-                    f"\n### 상세 ({row.get('rcept_dt')} — {row.get('report_nm', '')[:40]})",
-                    f"- 계약 종류: {d.get('contract_type', '-') or '-'} / 체결명: {d.get('contract_name', '-') or '-'}",
-                    f"- 계약금액: {d.get('contract_amount_won', '-') or '-'}원 / 최근매출: {d.get('recent_revenue_won', '-') or '-'}원 / **매출대비 {d.get('revenue_ratio_pct', '-') or '-'}%**",
-                    f"- 상대방: **{d.get('counterparty_name', '-') or '-'}** (관계: {d.get('counterparty_relationship', '-') or '-'}, 힌트: {d.get('special_relation_hint', '-') or '-'})",
-                    f"- 계약기간: {d.get('period_start', '-') or '-'} ~ {d.get('period_end', '-') or '-'} (체결일 {d.get('signing_date', '-') or '-'})",
-                ])
-
     return "\n".join(lines)
 
 
@@ -179,13 +147,13 @@ def register_tools(mcp):
         details_limit: int = 5,
         format: str = "md",
     ) -> str:
-        """desc: 회사·지분 인수/매각(타법인주식·출자증권 취득/처분) + 대형 단일공급계약(체결/해지) 공시 통합. 계열사 출자·회수, 일감몰아주기·내부거래·특수관계자 거래 모니터링. include_details=True면 거래 상대방/금액/자산대비비율/특수관계 힌트.
-        when: 어떤 회사를 인수했나/팔았나(지분 취득·처분·양수도), 계열사·자회사 출자와 회수, 투자 포트폴리오 재편, 단일공급계약 체결 패턴(거래처 의존도), 자회사 주요경영사항 흐름, 일감몰아주기 신호. 합병·분할·주식교환은 `corporate_restructuring`.
-        rule: DART list.json — 타법인주식: B/I + 양수/양도/취득/처분결정 키워드 / 공급계약: I + 단일판매ㆍ공급계약체결/해지. 자회사 주요경영사항/자율공시/[기재정정] 플래그 별도 표시. 기본 lookback 24개월. include_details=True 시 최근 N건 원문 파싱(상대방·관계·금액·비율·목적).
-        scope: `summary` 통합 timeline / `equity_deal` 타법인주식 / `supply_contract` 단일공급계약
+        """desc: 회사·지분 인수/매각(타법인주식·출자증권 취득/처분) 공시. 계열사 출자·회수, 일감몰아주기·내부거래·특수관계자 거래 모니터링. include_details=True면 거래 상대방/금액/자산대비비율/특수관계 힌트.
+        when: 어떤 회사를 인수했나/팔았나(지분 취득·처분·양수도), 계열사·자회사 출자와 회수, 투자 포트폴리오 재편, 자회사 주요경영사항 흐름, 일감몰아주기 신호. 단일판매·공급계약(수주/해지·매출대비)은 `order_contracts`. 합병·분할·주식교환은 `corporate_restructuring`.
+        rule: DART list.json — 타법인주식: B/I + 양수/양도/취득/처분결정 키워드. 자회사 주요경영사항/자율공시/[기재정정] 플래그 별도 표시. 기본 lookback 24개월. include_details=True 시 최근 N건 원문 파싱(상대방·관계·금액·비율·목적).
+        scope: `summary` 통합 timeline / `equity_deal` 타법인주식 (단일공급계약은 order_contracts로 분리됨)
         include_details: True면 원문 파싱 추가 (DART 호출 N회 증가).
         details_limit: 원문 파싱 건수 (기본 5, 최대 10).
-        ref: corporate_restructuring (합병/분할/주식교환), ownership_structure (지분 변화), evidence (원문 확인)
+        ref: order_contracts (단일공급계약 수주/해지/일감), corporate_restructuring (합병/분할/주식교환), ownership_structure (지분 변화), evidence (원문 확인)
         """
         payload = await build_corporate_deals_payload(
             company,
