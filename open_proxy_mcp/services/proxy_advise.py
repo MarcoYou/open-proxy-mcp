@@ -2130,8 +2130,9 @@ async def build_proxy_advise_payload(
             if not apt.get("earliest_start"):
                 ev["performance"]["tenure_fallback"] = True
                 ev["performance"]["rationale"] = "(재직 시작 detect fail — 5년 default) " + ev["performance"].get("rationale", "")
-            # 수주 시그널 — 회사 공통 별도 fact (점수 미반영). 적자기업 미래 매출 가시성 참고용
-            if order_signal and order_signal.get("order_count"):
+            # 수주 시그널 — 회사 공통 별도 fact (점수 미반영). 적자기업 미래 매출 가시성 참고용.
+            # 체결 0·해지만 있는 회사(종근당홀딩스 등)도 해지가 부정 시그널이므로 포함.
+            if order_signal and (order_signal.get("order_count") or order_signal.get("terminated_count")):
                 ev["performance"]["order_signal"] = order_signal
 
     # 법령 layer (260508 신규) — 강행규정 + 정관 우회 시나리오. vote_style 위에 우선 적용.
