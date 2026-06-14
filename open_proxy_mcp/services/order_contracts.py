@@ -79,7 +79,9 @@ def _contract_name(flat: str) -> str:
     # '체결계약명'(일반) / '세부내용'(자율공시, HD현대 'VLGC 2척') / '판매ㆍ공급계약 내용'(바이오)
     # 길이 200자 — 영문 장문 계약명(대한전선 'TERM CONTRACT FOR THE SUPPLY, DELIVERY AND
     # INSTALLATION OF 400KV…' 140자)이 종료조건 전에 길이 제한에 걸려 누락되던 것 대응.
-    for lab in ("체결계약명", "해지계약명", "세부내용", "판매[ㆍ·]공급계약\\s*내용", "공급계약\\s*내용", "계약명"):
+    # 해지 본문은 '판매ㆍ공급계약 해지내용 [계약명]' 라벨 — 체결('내용')과 달리 '해지' infix가 낀다.
+    for lab in ("체결계약명", "해지계약명", "세부내용",
+                "판매[ㆍ·]공급계약\\s*(?:해지\\s*)?내용", "공급계약\\s*(?:해지\\s*)?내용", "계약명"):
         m = re.search(lab + r"\s*[:\s]*([^\n]{3,200}?)(?:\s*\d\.\s|\s*조건부|\s*계약내역|\s*해지내역|\s*판매[ㆍ·]공급|\s*대규모|$)", flat)
         if m and m.group(1).strip() not in ("", "-"):
             return re.sub(r"\s+", " ", m.group(1).strip())
@@ -89,11 +91,12 @@ def _contract_name(flat: str) -> str:
 def _counterparty(flat: str) -> str:
     # 상대방 항목 양식: '3. 계약상대 [회사명] - 회사와의 관계'. 해지 본문은 해지사유 문장에
     # '계약상대의 요청…'이 먼저 나오므로 (1) 항목번호 '3. 계약상대'를 우선 (2) 조사로 시작하는
-    # 값은 건너뛴다. 영문사(Guangdong Landu Pharmaceutical Co., LTD.) 위해 쉼표·마침표·& 허용.
-    val_chars = r"[가-힣A-Za-z()㈜（）·,.&\s0-9]"
+    # 값은 건너뛴다. 영문사(Guangdong Landu Pharmaceutical Co., LTD. / EMS S/A / GreenPine
+    # Pharma Group Co., Ltd. (구 …)) 위해 쉼표·마침표·&·/ 허용 + 길이 80(장문 영문사·구사명 병기).
+    val_chars = r"[가-힣A-Za-z()㈜（）·,./&\s0-9]"
     for pat in (
-        r"3\s*\.\s*계약상대방?\s*[:\s]*(" + val_chars + r"{2,50}?)(?:\s*-\s*회사와|\s*-\s*최근|\s*\d\s*\.)",
-        r"계약상대방?\s*[:\s]*(" + val_chars + r"{2,50}?)(?:\s*-\s*회사와|\s*-\s*최근|\s*주요|\s*\d\s*\.)",
+        r"3\s*\.\s*계약상대방?\s*[:\s]*(" + val_chars + r"{2,80}?)(?:\s*-\s*회사와|\s*-\s*최근|\s*\d\s*\.)",
+        r"계약상대방?\s*[:\s]*(" + val_chars + r"{2,80}?)(?:\s*-\s*회사와|\s*-\s*최근|\s*주요|\s*\d\s*\.)",
     ):
         for m in re.finditer(pat, flat):
             val = re.sub(r"\s+", " ", m.group(1).strip()).strip(" ,")

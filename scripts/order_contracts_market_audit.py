@@ -71,6 +71,31 @@ def _check(company: str, payload: dict) -> dict:
             flags.append(f"RATIO>1000:{ratio}")
         if amt is not None and amt < 0:
             flags.append(f"NEG_AMT:{amt}")
+
+    # 해지(termination) 파싱 검증 — 계약명/상대방/해지금액/매출대비 + 단위 불변식
+    terms = d.get("terminations") or []
+    t_no_name = t_no_cp = t_no_amt = t_no_rev = t_unit_mismatch = 0
+    for t in terms:
+        if not t.get("contract_name"):
+            t_no_name += 1
+            flags.append("TERM_NO_NAME")
+        if not t.get("counterparty"):
+            t_no_cp += 1
+            flags.append("TERM_NO_CP")
+        tamt = t.get("terminated_amount_won")
+        trev = t.get("recent_revenue_won")
+        tratio = t.get("revenue_ratio_pct")
+        if not tamt:
+            t_no_amt += 1
+            flags.append("TERM_NO_AMT")
+        if tratio is None:
+            t_no_rev += 1
+        if tamt and trev and tratio and tratio > 0:
+            implied = tamt / trev * 100
+            if abs(implied - tratio) > max(tratio * 0.15, 1.0):
+                t_unit_mismatch += 1
+                flags.append(f"TERM_UNIT?:{(t.get('contract_name') or '')[:12]} amt/rev={implied:.1f} vs 공시{tratio}")
+
     return {
         "company": company,
         "status": str(payload.get("status")),
@@ -82,6 +107,12 @@ def _check(company: str, payload: dict) -> dict:
         "no_revenue_ratio": no_rev,
         "unit_mismatch": unit_mismatch,
         "max_revenue_ratio_pct": s.get("max_revenue_ratio_pct"),
+        "termination_count": len(terms),
+        "term_no_name": t_no_name,
+        "term_no_counterparty": t_no_cp,
+        "term_no_amount": t_no_amt,
+        "term_no_revenue_ratio": t_no_rev,
+        "term_unit_mismatch": t_unit_mismatch,
         "flags": flags,
     }
 
@@ -113,6 +144,8 @@ async def main() -> None:
 
     with_orders = [r for r in rows if r.get("order_count")]
     total_orders = sum(r.get("order_count", 0) for r in rows)
+    with_terms = [r for r in rows if r.get("termination_count")]
+    total_terms = sum(r.get("termination_count", 0) for r in rows)
     flagged = [r for r in rows if r.get("flags")]
     result = {
         "meta": {
@@ -132,8 +165,18 @@ async def main() -> None:
                 "no_revenue_ratio": sum(r.get("no_revenue_ratio", 0) for r in rows),
                 "unit_mismatch": sum(r.get("unit_mismatch", 0) for r in rows),
             },
+            "termination": {
+                "companies_with_terminations": len(with_terms),
+                "total_terminations": total_terms,
+                "term_no_name": sum(r.get("term_no_name", 0) for r in rows),
+                "term_no_counterparty": sum(r.get("term_no_counterparty", 0) for r in rows),
+                "term_no_amount": sum(r.get("term_no_amount", 0) for r in rows),
+                "term_no_revenue_ratio": sum(r.get("term_no_revenue_ratio", 0) for r in rows),
+                "term_unit_mismatch": sum(r.get("term_unit_mismatch", 0) for r in rows),
+            },
             "flagged_companies": len(flagged),
         },
+        "termination_rows": [r for r in rows if r.get("termination_count")],
         "flagged_rows": flagged,
         "all_rows": rows,
     }
@@ -141,6 +184,7 @@ async def main() -> None:
     sm = result["summary"]
     print(f"\n[완료] {sm['companies']}사 — 수주有 {sm['companies_with_orders']}, 유효계약 {sm['total_valid_orders']}, 정정 {sm['total_corrections']}")
     print(f"  파싱누락: {sm['parse_miss']}  flag회사 {sm['flagged_companies']}")
+    print(f"  해지: {sm['termination']}")
     print(f"  총 DART콜 {result['meta']['total_dart_calls']}, {result['meta']['elapsed_min']}분 → {OUT}")
 
 
