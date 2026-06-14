@@ -96,11 +96,27 @@ def _check(company: str, payload: dict) -> dict:
                 t_unit_mismatch += 1
                 flags.append(f"TERM_UNIT?:{(t.get('contract_name') or '')[:12]} amt/rev={implied:.1f} vs 공시{tratio}")
 
+    # 판단용 진단 ① 해지-체결 매핑 가능성: 같은 window 내 (계약명+상대방) 매칭된 해지 수.
+    #   계약기간 시작일이 본문에 있으면 더 긴 window 역조회로 매핑 가능성 추정.
+    term_matched = sum(1 for t in terms if t.get("matched_order_rcept_no"))
+    term_has_period = sum(1 for t in terms if t.get("period_start") or t.get("contract_period_start"))
+    # 판단용 진단 ② 계열 판정 신뢰도: 체결의 '회사와의 관계' 명시(계열/외부)냐, 미기재('-')냐.
+    rel_internal = rel_ext_named = rel_blank = 0
+    for o in orders:
+        rel = (o.get("relationship") or "").strip()
+        if not rel or rel.lstrip().startswith("-"):
+            rel_blank += 1
+        elif not o.get("is_external"):
+            rel_internal += 1
+        else:
+            rel_ext_named += 1
+
     return {
         "company": company,
         "status": str(payload.get("status")),
         "order_count": len(orders),
         "external_count": s.get("external_count", 0),
+        "internal_count": s.get("internal_count", 0),
         "correction_count": s.get("correction_count", 0),
         "no_name": no_name,
         "no_amount": no_amt,
@@ -113,6 +129,11 @@ def _check(company: str, payload: dict) -> dict:
         "term_no_amount": t_no_amt,
         "term_no_revenue_ratio": t_no_rev,
         "term_unit_mismatch": t_unit_mismatch,
+        "term_matched": term_matched,
+        "term_has_period": term_has_period,
+        "rel_internal": rel_internal,
+        "rel_ext_named": rel_ext_named,
+        "rel_blank": rel_blank,
         "flags": flags,
     }
 
@@ -174,6 +195,19 @@ async def main() -> None:
                 "term_no_revenue_ratio": sum(r.get("term_no_revenue_ratio", 0) for r in rows),
                 "term_unit_mismatch": sum(r.get("term_unit_mismatch", 0) for r in rows),
             },
+            # 판단 ① 해지-체결 매핑 가능성
+            "mapping_feasibility": {
+                "total_terminations": total_terms,
+                "matched_in_window": sum(r.get("term_matched", 0) for r in rows),
+                "has_period_start": sum(r.get("term_has_period", 0) for r in rows),
+            },
+            # 판단 ② 계열 판정 신뢰도 (체결 관계필드 명시 여부)
+            "relation_disclosure": {
+                "total_orders": sum(r.get("order_count", 0) for r in rows),
+                "internal_named": sum(r.get("rel_internal", 0) for r in rows),
+                "external_named": sum(r.get("rel_ext_named", 0) for r in rows),
+                "blank_unspecified": sum(r.get("rel_blank", 0) for r in rows),
+            },
             "flagged_companies": len(flagged),
         },
         "termination_rows": [r for r in rows if r.get("termination_count")],
@@ -185,6 +219,8 @@ async def main() -> None:
     print(f"\n[완료] {sm['companies']}사 — 수주有 {sm['companies_with_orders']}, 유효계약 {sm['total_valid_orders']}, 정정 {sm['total_corrections']}")
     print(f"  파싱누락: {sm['parse_miss']}  flag회사 {sm['flagged_companies']}")
     print(f"  해지: {sm['termination']}")
+    print(f"  [판단①] 매핑가능성: {sm['mapping_feasibility']}")
+    print(f"  [판단②] 관계명시: {sm['relation_disclosure']}")
     print(f"  총 DART콜 {result['meta']['total_dart_calls']}, {result['meta']['elapsed_min']}분 → {OUT}")
 
 

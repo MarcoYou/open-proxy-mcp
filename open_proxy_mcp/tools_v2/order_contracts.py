@@ -66,12 +66,13 @@ def _render(payload: dict[str, Any]) -> str:
     if s.get("internal_count"):  # 계열사 일감(일감몰아주기 관점) — corporate_deals 일원화로 흡수
         lines.append(
             f"- 계열 일감 **{s.get('internal_count')}건** {_won(s.get('internal_total_amount_won'))}원 (내부거래 — 일감몰아주기 점검)"
+            "  ※공시 '회사와의 관계' 명시 기준 — 미기재(다수)는 외부로 분류돼 과소집계 가능"
         )
     if s.get("terminated_count"):
         lines += [
             f"- 🔴 계약 해지 **{s.get('terminated_count')}건** {_won(s.get('terminated_total_amount_won'))}원"
             + (f" (해지 매출대비 최대 {s.get('max_terminated_revenue_ratio_pct')}%)" if s.get("max_terminated_revenue_ratio_pct") else ""),
-            f"- **순수주(외부 체결 − 해지): {_won(s.get('net_amount_won'))}원**",
+            f"- 순수주 참고치(기간 내 외부 체결 − 해지 **합산**, 동일계약 매칭 아님): **{_won(s.get('net_amount_won'))}원**",
         ]
     lines.append("")
 
