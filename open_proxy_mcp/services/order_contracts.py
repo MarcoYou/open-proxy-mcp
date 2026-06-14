@@ -63,11 +63,13 @@ def _amount_with_unit(flat: str, *label_patterns: str) -> tuple[int | None, str]
 
 
 def _pct(flat: str, *label_patterns: str) -> float | None:
+    # 천단위 콤마 허용 — 적자기업은 매출대비%가 천%를 넘어 '3,140.24'처럼 콤마가 들어간다
+    # (콤마 미허용 시 '3'만 읽어 3.0%로 오파싱 — 프레스티지바이오로직스 등 적자 CDMO에서 발생).
     for lab in label_patterns:
-        m = re.search(lab + r"\s*\(?%?\)?\s*([\d.]+)", flat)
+        m = re.search(lab + r"\s*\(?%?\)?\s*([\d,]+(?:\.\d+)?)", flat)
         if m:
             try:
-                return float(m.group(1))
+                return float(m.group(1).replace(",", ""))
             except ValueError:
                 continue
     return None
@@ -108,6 +110,10 @@ def _correction_diff(flat: str) -> dict[str, Any]:
     if not m:
         return {}
     blk = m.group(1).split("계약기간")[0].split("기타")[0]  # 날짜·기타 숫자 혼입 차단
+    # '계약금액 X원에서 총 이행금액은 Y원' = 변경계약(정정)이 아니라 이행현황 안내 →
+    # X(계약금액)와 Y(이행금액)를 정정전/후로 오인하지 않게 금액 diff 제외 (공시유보 해제 케이스)
+    if re.search(r"이행금액|원에서\s*총", blk):
+        return {}  # 정정(변경계약) 아님 — diff 없음
     out: dict[str, Any] = {}
     before = after = None
     # A) '계약금액(원) [전] [후]' 라벨 직접 (포스코 등) — 최근매출 혼입 없음
