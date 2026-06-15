@@ -2609,7 +2609,15 @@ def parse_aoi_xml(html: str, sub_agendas: list[dict] | None = None) -> dict:
     for d in details:
         title = d.get("title", "")
         category = d.get("category", "")
-        if "정관" not in title and "정관" not in category:
+        # 정관변경이 별도 detail로 안 갈리고 다른 안건(예: 재무제표 승인) detail에 섹션으로
+        # 흡수되는 공시가 있다(기업은행 실측: '가.집중투표 배제…정관의 변경' / '나.그 외의
+        # 정관변경에 관한 건'이 재무제표 detail 하위 sec). detail title만 보면 놓치므로
+        # 섹션 heading의 '정관'도 인정. 표 추출은 아래서 변경전 AND 변경후 헤더를 요구하므로
+        # 재무제표·보수 표는 자동 배제 — 필터를 넓혀도 false positive 없음(regression-safe).
+        section_has_charter = any(
+            "정관" in (s.get("heading") or "") for s in d.get("sections", [])
+        )
+        if "정관" not in title and "정관" not in category and not section_has_charter:
             continue
 
         # 섹션 블록을 순서대로 순회 — text에서 세부의안 헤더 감지, table에서 내용 추출
