@@ -852,6 +852,55 @@ async def _safe_fetch_acnt_all(corp_code: str, year: int, reprt_code: str, fs_di
         return [], f"fnlttSinglAcntAll({reprt_code}, {fs_div}) 실패: {exc.status} {exc}"
 
 
+def _actual_fs_div(rows: list[dict[str, Any]]) -> str | None:
+    """rows에서 실제 사용된 fs_div(다수결). CFS 요청인데 OFS가 오면 연결 미작성 폴백 감지용.
+
+    _safe_fetch_acnt는 CFS가 있으면 CFS만, 없으면(연결 미작성) 전체(OFS)를 반환한다.
+    그래서 반환 rows의 fs_div를 보면 실제로 무슨 기준이 쓰였는지 알 수 있다.
+    """
+    counts: dict[str, int] = {}
+    for r in rows:
+        fv = (r.get("fs_div") or "").upper()
+        if fv:
+            counts[fv] = counts.get(fv, 0) + 1
+    if not counts:
+        return None
+    return max(counts, key=lambda k: counts[k])
+
+
+# reprt_code → 정기보고서명 키워드 (list.json report_nm 매칭용)
+_REPRT_NAME_KW = {"11011": "사업보고서", "11012": "반기보고서", "11013": "분기보고서", "11014": "분기보고서"}
+
+
+async def _periodic_filing_ref(corp_code: str, year: int, reprt_code: str | None = None) -> dict[str, str] | None:
+    """해당 연도 정기보고서(정기공시)의 rcept 메타 — evidence 원문 링크용.
+
+    fnlttSinglAcnt(재무 집계 API)는 rcept_no를 돌려주지 않아 evidence 링크가 비어 있었다.
+    list.json(정기공시 A)을 1회 조회해 실제 제출된 보고서의 rcept_no/접수일/보고서명을 붙인다.
+    연간(사업보고서)은 결산 다음 해 제출이라 end를 year+1 9월까지 잡는다.
+    실패 시 None(graceful) — evidence는 기존처럼 합성 마커만 유지.
+    """
+    try:
+        data = await get_dart_client().search_filings(
+            corp_code=corp_code, bgn_de=f"{year}0101", end_de=f"{year + 1}0930", pblntf_ty="A",
+        )
+    except Exception:
+        return None
+    items = [i for i in (data.get("list") or []) if i.get("rcept_no")]
+    if not items:
+        return None
+    kw = _REPRT_NAME_KW.get(reprt_code or "")
+    narrowed = [i for i in items if kw and kw in (i.get("report_nm") or "")]
+    cand = narrowed or items
+    cand.sort(key=lambda x: x.get("rcept_dt", ""), reverse=True)
+    top = cand[0]
+    return {
+        "rcept_no": top.get("rcept_no", ""),
+        "rcept_dt": (top.get("rcept_dt") or "").strip(),
+        "report_nm": (top.get("report_nm") or "").strip(),
+    }
+
+
 async def _safe_fetch_indx(corp_code: str, year: int, reprt_code: str) -> dict[str, float | None]:
     """4개 idx_cl_code 모두 호출 → 통합 dict (idx_nm: idx_val)."""
     client = get_dart_client()
@@ -941,6 +990,11 @@ async def _fetch_year_metrics(
             warnings.append(err_curr)
         used_rc = _REPRT_BUSINESS
 
+    # 연결(CFS) 요청인데 실제로 별도(OFS)가 왔으면 = 연결 미작성 폴백. 조용히 넘기지 않고 경고.
+    actual_fs = _actual_fs_div(rows_curr) or fs_div
+    if fs_div == "CFS" and actual_fs == "OFS":
+        warnings.append(f"{year}년 연결재무제표(CFS) 미작성 — 별도(OFS) 기준으로 산출됨. 연결 기준 수치 아님.")
+
     # 2단계: 나머지 3 호출 병렬 (전기 acnt + 당기 acntAll + 전기 acntAll).
     # used_rc는 당기에서 결정된 reprt_code 그대로 사용 (전기도 같은 code로 비교).
     tasks: list[Any] = []
@@ -988,7 +1042,7 @@ async def _fetch_year_metrics(
         indx_map=None,  # fnlttSinglIndx 제거 — 자체 계산값 우선이라 미사용
     )
     metrics["year"] = year
-    metrics["fs_div"] = fs_div
+    metrics["fs_div"] = actual_fs  # 요청값이 아니라 실제 사용된 기준 (CFS 미작성 시 OFS)
     metrics["reprt_code"] = used_rc
     return metrics, warnings, 1
 
@@ -1138,6 +1192,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
 
     cum9_by_year: dict[int, dict[str, int | None]] = {}  # Q3 보고서의 9개월 누적 (Q4 차분용)
     q_standalone_by_year: dict[int, dict[str, dict[str, int | None]]] = {}
+    fs_seen: set[str] = set()  # 실제 사용된 fs_div 추적 (CFS/OFS 폴백·혼재 감지)
     for (year, rc, label), (rows, err) in zip(keys, results):
         if err == "no_filing":
             continue
@@ -1146,6 +1201,9 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             continue
         if not rows:
             continue
+        actual = _actual_fs_div(rows)
+        if actual:
+            fs_seen.add(actual)
         bs_is = _build_account_map(rows)
         if not bs_is:
             continue
@@ -1164,6 +1222,13 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             "total_equity_krw": bs_is.get("total_equity"),
             "total_liabilities_krw": bs_is.get("total_liabilities"),
         })
+
+    # CFS 요청인데 일부/전부 분기가 OFS면 경고 (조용한 폴백·분기 간 기준 혼재 방지).
+    if fs_div == "CFS" and "OFS" in fs_seen:
+        if "CFS" in fs_seen:
+            warnings.append("일부 분기에 연결재무제표(CFS)가 없어 별도(OFS)로 대체됨 — 분기 간 기준 혼재 주의.")
+        else:
+            warnings.append("연결재무제표(CFS) 미작성 — 별도(OFS) 기준 분기 산출. 연결 기준 수치 아님.")
 
     # Q4 손익 차분: 연간 − 9개월 누적(Q3 add 우선, 없으면 Q1+Q2+Q3 standalone 합)
     for row in out:
@@ -1395,11 +1460,15 @@ async def build_financial_metrics_payload(
         if metrics:
             data["summary"] = metrics
             filing_count = 1
+            ref = await _periodic_filing_ref(corp_code, target_year, metrics.get("reprt_code"))
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_summary_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
+                rcept_no=(ref or {}).get("rcept_no", ""),
+                rcept_dt=(ref or {}).get("rcept_dt", ""),
+                report_nm=(ref or {}).get("report_nm", ""),
                 section=f"사업보고서 ({target_year}) 단일회사 주요계정 + 전체재무제표 + 주요지표",
-                note=f"{selected.get('corp_name', '')} {target_year}년 {fs_div}",
+                note=f"{selected.get('corp_name', '')} {target_year}년 {metrics.get('fs_div', fs_div)}",
             ))
         else:
             parsing_failures = 1
@@ -1410,11 +1479,15 @@ async def build_financial_metrics_payload(
         data["yearly"] = rows
         filing_count = len(rows)
         if rows:
+            ref = await _periodic_filing_ref(corp_code, rows[-1]["year"], "11011")
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_yearly_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
+                rcept_no=(ref or {}).get("rcept_no", ""),
+                rcept_dt=(ref or {}).get("rcept_dt", ""),
+                report_nm=(ref or {}).get("report_nm", ""),
                 section=f"사업보고서 ({rows[0]['year']}~{rows[-1]['year']}) {len(rows)}년 추이",
-                note=f"{selected.get('corp_name', '')} 연간 추이",
+                note=f"{selected.get('corp_name', '')} 연간 추이 (최신 보고서 기준)",
             ))
 
     elif scope == "quarterly":
@@ -1423,10 +1496,14 @@ async def build_financial_metrics_payload(
         data["quarterly"] = rows
         filing_count = len(rows)
         if rows:
+            ref = await _periodic_filing_ref(corp_code, rows[-1]["year"], rows[-1].get("reprt_code"))
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_quarterly_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
-                section=f"분기/반기/사업보고서 {len(rows)}분기 추이",
+                rcept_no=(ref or {}).get("rcept_no", ""),
+                rcept_dt=(ref or {}).get("rcept_dt", ""),
+                report_nm=(ref or {}).get("report_nm", ""),
+                section=f"분기/반기/사업보고서 {len(rows)}분기 추이 (최신: {rows[-1]['year']}-{rows[-1]['quarter']})",
                 note=f"{selected.get('corp_name', '')} 분기 추이",
             ))
 
@@ -1458,9 +1535,13 @@ async def build_financial_metrics_payload(
         }
         filing_count = (1 if curr else 0) + (1 if prev else 0)
         if curr:
+            ref = await _periodic_filing_ref(corp_code, target_year, curr.get("reprt_code"))
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_yoy_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
+                rcept_no=(ref or {}).get("rcept_no", ""),
+                rcept_dt=(ref or {}).get("rcept_dt", ""),
+                report_nm=(ref or {}).get("report_nm", ""),
                 section=f"전년 대비 ({target_year - 1} → {target_year}) — alerts {len(signals)}개",
                 note=", ".join(signals[:5]) if signals else "alerts 없음",
             ))
@@ -1481,10 +1562,14 @@ async def build_financial_metrics_payload(
             data["qoq"] = {"current": rows[-1] if rows else None, "prior": None, "alerts": []}
         filing_count = len(rows)
         if rows:
+            ref = await _periodic_filing_ref(corp_code, rows[-1]["year"], rows[-1].get("reprt_code"))
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_qoq_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
-                section=f"전분기 대비 (최근 {len(rows)}분기 기준)",
+                rcept_no=(ref or {}).get("rcept_no", ""),
+                rcept_dt=(ref or {}).get("rcept_dt", ""),
+                report_nm=(ref or {}).get("report_nm", ""),
+                section=f"전분기 대비 (최근 {len(rows)}분기, 최신: {rows[-1]['year']}-{rows[-1]['quarter']})",
                 note=f"{selected.get('corp_name', '')} 전분기 비교",
             ))
 
@@ -1530,6 +1615,14 @@ def _detect_qoq_alerts(curr: dict[str, Any], prev: dict[str, Any]) -> list[str]:
     op_prev = prev.get("operating_profit_krw")
     if op is not None and op < 0 and (op_prev is None or op_prev >= 0):
         alerts.append("operating_loss_quarter")
+    # 순이익도 영업이익과 대칭으로 적자전환 감지 (기존엔 누락 — 영업이익/매출만 봤음).
+    ni = curr.get("net_income_krw")
+    ni_prev = prev.get("net_income_krw")
+    if ni is not None and ni < 0 and (ni_prev is None or ni_prev >= 0):
+        alerts.append("net_loss_quarter")
+    # 영업이익 흑자인데 순이익만 적자 = 영업외(평가손·금융비용·일회성) 주도 — 질 점검 신호.
+    if ni is not None and ni < 0 and op is not None and op > 0:
+        alerts.append("net_income_below_operating")
     rev = curr.get("revenue_krw")
     rev_prev = prev.get("revenue_krw")
     if rev is not None and rev_prev is not None and rev_prev > 0:
