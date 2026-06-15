@@ -1036,7 +1036,8 @@ async def _meeting_result_data(
     try:
         doc = await client.get_document_cached(rcept_no)
         html = doc.get("html") or ""
-    except DartClientError:
+    except Exception:
+        # DART 본문 실패는 KIND fallback으로 복구 — 네트워크/SSL 등 비-DartClientError도 흡수.
         html = ""
 
     soup = BeautifulSoup(html, "lxml") if html else None
@@ -1055,6 +1056,11 @@ async def _meeting_result_data(
             html = await client.kind_fetch_document(kind_acptno)
         except DartClientError as exc:
             return None, f"DART API + KIND fallback 모두 실패: {exc.status}"
+        except Exception as exc:
+            # KIND는 외부 사이트 스크래핑이라 네트워크·SSL·타임아웃이 비-DartClientError로
+            # 올라온다. 결과는 보조 정보 — 여기서 크래시하면 이미 파싱된 안건·보수까지 날아간다.
+            # graceful degrade: 결과만 생략하고 warning 반환 (full scope 전체 보존).
+            return None, f"주총 결과 조회 실패(KIND fetch {type(exc).__name__}) — 안건 등 나머지는 정상, 결과는 추후 재시도"
         soup = BeautifulSoup(html, "lxml")
         items = _parse_agm_result_table(soup)
         result_format = "table" if items else None
