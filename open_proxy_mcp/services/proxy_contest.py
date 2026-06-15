@@ -564,19 +564,32 @@ def _block_holder_dynamics(timeline_rows: list[dict[str, Any]]) -> list[dict[str
 
 
 def _signal_actor_side(row: dict[str, Any]) -> str:
+    # 우선순위: 보고자 본인이 명부(registry_overlap)가 가장 명확한 내부 신호.
+    # 그 다음 coheld_with_registry — 보고자 이름은 명부에 없어 외부처럼 보이나 특별관계자에
+    # 명부상 최대주주가 포함된 공동보유. external_active_block(외부 능동)로 단정하면 안 된다.
     if row.get("registry_overlap"):
         return "registry_overlap"
+    if row.get("coheld_with_registry"):
+        return "coheld_with_registry"
     if row.get("active_purpose"):
         return "external_active_block"
     return "external_or_passive"
 
 
-def _fight_actor_group(row: dict[str, Any], active_external_names: set[str], overlap_names: set[str]) -> str:
+def _fight_actor_group(
+    row: dict[str, Any],
+    active_external_names: set[str],
+    overlap_names: set[str],
+    coheld_names: set[str],
+) -> str:
     if row.get("side") == "company":
         return "company"
     if row.get("side") == "retail_activism":
         return "retail_activism"
     filer_key = _normalize_entity_name(row.get("filer_name", ""))
+    # coheld는 active_external_names에도 들어있으므로 external보다 먼저 확인.
+    if filer_key in coheld_names:
+        return "coheld_with_registry"
     if filer_key in active_external_names:
         return "external_active_block"
     if filer_key in overlap_names:
@@ -732,7 +745,13 @@ async def _vote_math_scope_data(
     related_total_pct = _to_float(summary.get("related_total_pct"))
     treasury_pct = _to_float(summary.get("treasury_pct"))
     voting_share_base_pct = round(max(100.0 - treasury_pct, 0.0), 2)
-    active_external_total_pct = round(sum(_to_float(row.get("ownership_pct")) for row in control_map.get("active_non_overlap_blocks", [])), 2)
+    # coheld(특관에 명부상 최대주주 포함) 블록은 외부 합계에서 제외 — 헤드라인 ownership_pct가
+    # 명부 최대주주를 합산한 값이라 related_total_pct와 이중계상되고, 외부 압력으로 오독된다.
+    active_external_total_pct = round(sum(
+        _to_float(row.get("ownership_pct"))
+        for row in control_map.get("active_non_overlap_blocks", [])
+        if not row.get("coheld_with_registry")
+    ), 2)
     active_overlap_total_pct = round(sum(_to_float(row.get("ownership_pct")) for row in control_map.get("active_overlap_blocks", [])), 2)
 
     contestable_turnout_pct = None
@@ -915,6 +934,12 @@ async def build_proxy_contest_payload(
         for row in control_map.get("active_non_overlap_blocks", [])
         if _normalize_entity_name(row.get("reporter", ""))
     }
+    # 공동보유(특관에 명부상 최대주주 포함) 보고자 — 외부 능동 블록처럼 보여도 최대주주와 한 편.
+    coheld_names = {
+        _normalize_entity_name(row.get("reporter", ""))
+        for row in (control_map.get("non_overlap_blocks", []) + control_map.get("overlap_blocks", []))
+        if row.get("coheld_with_registry") and _normalize_entity_name(row.get("reporter", ""))
+    }
 
     # 교차 참조 힌트 — 주체(filer) 중심 annotation.
     # 자동 binary 분류(proxy_fight/proxy_campaign) 대신 사실 플래그만 제공하고
@@ -937,7 +962,7 @@ async def build_proxy_contest_payload(
         filer_key = _normalize_entity_name(row.get("filer_name", ""))
         enriched_proxy_rows.append({
             **row,
-            "actor_group": _fight_actor_group(row, active_external_names, overlap_names),
+            "actor_group": _fight_actor_group(row, active_external_names, overlap_names, coheld_names),
             "filer_has_5pct_active_block": filer_key in active_block_all_names,
             "filer_in_litigation": filer_key in litigation_filer_keys,
         })

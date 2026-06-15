@@ -22,6 +22,7 @@ from open_proxy_mcp.services.contracts import (
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
+from open_proxy_mcp.services.holder_table import parse_holder_table
 from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
 
 _SUPPORTED_SCOPES = {
@@ -293,11 +294,30 @@ def _build_control_map(
     for row in latest_blocks:
         reporter_key = _normalize_entity_name(row.get("reporter", ""))
         matched_major = major_name_map.get(reporter_key)
+        # 본인/특관 분해 (합계표 파싱 성공한 활성 블록만 holder_table 보유).
+        # self_pct = 보고자 본인 지분(헤드라인 ownership_pct는 본인+특관 합산).
+        # coheld_with_registry = 특별관계자에 명부상 최대주주가 포함 → 공동보유. 이 경우
+        # 보고자가 외부 세력처럼 보여도(reporter 이름이 명부에 없어 registry_overlap=False)
+        # 실제로는 최대주주와 한 편이므로 "외부 능동 블록"으로 단정하면 안 된다.
+        holder_table = row.get("holder_table")
+        self_pct: float | None = None
+        coheld_names: list[str] = []
+        if holder_table and holder_table.get("self"):
+            self_pct = holder_table["self"].get("pct")
+            for rel in holder_table.get("related", []):
+                rel_key = _normalize_entity_name(rel.get("name", ""))
+                if rel_key and rel_key in major_name_map:
+                    coheld_names.append(major_name_map[rel_key]["name"])
+            # 중복 제거(이름순 안정)
+            coheld_names = sorted(set(coheld_names))
         enriched = {
             **row,
             "registry_overlap": bool(matched_major),
             "matched_major_holder": matched_major.get("name") if matched_major else None,
             "active_purpose": _is_active_purpose(row.get("purpose", "")),
+            "self_pct": self_pct,
+            "coheld_with_registry": bool(coheld_names),
+            "coheld_names": coheld_names,
         }
         if enriched["registry_overlap"]:
             overlap_blocks.append(enriched)
@@ -311,12 +331,17 @@ def _build_control_map(
     related_total_pct = _related_total(major_rows)
     treasury_pct = treasury_snapshot["treasury_pct"]
 
+    # 공동보유 블록 = registry_overlap은 아니나(보고자 이름이 명부에 없음) 특별관계자에
+    # 명부상 최대주주가 들어있는 능동 블록. 외부 세력으로 보이지만 실제로는 최대주주와 한 편.
+    coheld_blocks = [b for b in active_non_overlap_blocks if b.get("coheld_with_registry")]
+
     flags = {
         "registry_majority": related_total_pct >= 50,
         "registry_over_30pct": related_total_pct >= 30,
         "treasury_over_5pct": treasury_pct >= 5,
         "active_non_overlap_block_exists": bool(active_non_overlap_blocks),
         "active_overlap_block_exists": bool(active_overlap_blocks),
+        "coheld_with_registry_block_exists": bool(coheld_blocks),
     }
 
     observations: list[str] = []
@@ -330,6 +355,16 @@ def _build_control_map(
         observations.append("명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다.")
     elif flags["active_overlap_block_exists"]:
         observations.append("능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다.")
+    for block in coheld_blocks:
+        reporter = block.get("reporter", "")
+        names = ", ".join(block.get("coheld_names", []))
+        self_pct = block.get("self_pct")
+        headline = block.get("ownership_pct")
+        self_part = f"본인 {self_pct}%" if self_pct is not None else "본인 지분 미확정"
+        observations.append(
+            f"{reporter}의 5% 보고 {headline}%는 보고자 합산값이며 특별관계자에 명부상 최대주주"
+            f"({names})가 포함된다({self_part}) — 공동보유로 보이므로 외부 세력으로 단정 불가."
+        )
 
     return {
         "core_holder_block": {
@@ -385,22 +420,41 @@ async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list
     for reporter, item in latest_by_reporter.items():
         purpose = _parse_holding_purpose(item.get("report_tp", ""), item.get("report_resn", ""))
         rcept_no = item.get("rcept_no", "")
+        ownership_pct = _to_float(item.get("stkrt", 0))
+        html: str | None = None
         if purpose in ("불명", "단순투자/일반투자") and rcept_no:
             try:
                 doc = await client.get_document_cached(rcept_no)
-                parsed = _parse_holding_purpose_from_document(doc.get("html", "") or "")
+                html = doc.get("html", "") or ""
+                parsed = _parse_holding_purpose_from_document(html)
                 if parsed != "불명":
                     purpose = parsed
             except Exception:
                 pass
+        # 본인/특별관계자 분해: 능동적(경영참여) + 유의미(≥5%) 블록만 본문 합계표 파싱.
+        # 헤드라인 stkrt는 보고자 본인+특관 합산이라, 본인 지분 분리·공동보유 탐지에 필요.
+        # 호출은 활성·유의미 블록(보통 1~3건)으로 한정해 비용을 제한한다. graceful fallback:
+        # 합계표 없음(약식)·파싱 실패면 holder_table=None으로 두고 기존 라벨 유지.
+        holder_table: dict[str, Any] | None = None
+        if rcept_no and _is_active_purpose(purpose) and ownership_pct >= 5.0:
+            if html is None:
+                try:
+                    html = (await client.get_document_cached(rcept_no)).get("html", "") or ""
+                except Exception:
+                    html = ""
+            if html:
+                parsed_table = parse_holder_table(html)
+                if parsed_table and parsed_table.get("format") == "일반":
+                    holder_table = parsed_table
         latest_rows.append({
             "reporter": reporter,
             "report_date": item.get("rcept_dt", ""),
             "rcept_no": rcept_no,
-            "ownership_pct": _to_float(item.get("stkrt", 0)),
+            "ownership_pct": ownership_pct,
             "purpose": purpose,
             "report_type": item.get("report_tp", ""),
             "report_reason": item.get("report_resn", ""),
+            "holder_table": holder_table,
         })
     latest_rows.sort(key=lambda row: row["ownership_pct"], reverse=True)
     return latest_rows, timeline_rows, None

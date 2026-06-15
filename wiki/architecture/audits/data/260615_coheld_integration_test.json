@@ -1,0 +1,1069 @@
+[
+  {
+    "name": "고려아연",
+    "n_blocks": 5,
+    "n_coheld": 2,
+    "coheld_detail": [
+      [
+        "영풍",
+        0.0,
+        [
+          "(유)와이피씨",
+          "㈜코리아써키트",
+          "㈜테라닉스",
+          "김혜경",
+          "시그네틱스㈜",
+          "씨케이(유)",
+          "에이치씨(유)",
+          "영풍전자㈜",
+          "장세경",
+          "장세명",
+          "장세욱",
+          "장세준",
+          "장세환",
+          "장형진",
+          "장혜선"
+        ]
+      ],
+      [
+        "한국기업투자홀딩스",
+        8.25,
+        [
+          "(유)와이피씨",
+          "㈜영풍",
+          "장형진"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 2,
+      "external_active_block": 2,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "블루산업개발",
+    "n_blocks": 4,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 2,
+      "external_or_passive": 1,
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "대양금속",
+    "n_blocks": 3,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_or_passive": 2
+    }
+  },
+  {
+    "name": "만호제강",
+    "n_blocks": 5,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_active_block": 2,
+      "external_or_passive": 2
+    }
+  },
+  {
+    "name": "DKME",
+    "n_blocks": 4,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_active_block": 3
+    }
+  },
+  {
+    "name": "대호에이엘",
+    "n_blocks": 7,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "비즈알파",
+        0.76,
+        [
+          "김석진"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_active_block": 2,
+      "external_or_passive": 4
+    }
+  },
+  {
+    "name": "콜마홀딩스",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "윤상현",
+        31.75,
+        [
+          "원승찬",
+          "유동호",
+          "윤동한",
+          "윤동희",
+          "윤여원",
+          "이민석",
+          "이영석",
+          "이현수",
+          "재단법인 석오문화재단",
+          "허용철"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "한창",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "타이탄에쿼티",
+        13.35,
+        [
+          "김혜임",
+          "이동우"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "동성제약",
+    "n_blocks": 5,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_active_block": 2,
+      "external_or_passive": 2
+    }
+  },
+  {
+    "name": "코아스",
+    "n_blocks": 6,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "백운 조합",
+        19.37,
+        [
+          "김형우",
+          "노병구",
+          "민경중",
+          "박영배",
+          "이원곤",
+          "임병연"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 5
+    }
+  },
+  {
+    "name": "태광산업",
+    "n_blocks": 1,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "한미사이언스",
+    "n_blocks": 4,
+    "n_coheld": 3,
+    "coheld_detail": [
+      [
+        "송영숙",
+        3.84,
+        [
+          "(주)한양정밀",
+          "김원세",
+          "김지우",
+          "송철호",
+          "신동국",
+          "이서정",
+          "이서진",
+          "임종민",
+          "임종철",
+          "임종호",
+          "임주현",
+          "임진희"
+        ]
+      ],
+      [
+        "임종훈",
+        6.46,
+        [
+          "김희준",
+          "임성아",
+          "임성연",
+          "임성지",
+          "임윤단",
+          "임윤지",
+          "임종윤",
+          "임후연",
+          "홍지윤"
+        ]
+      ],
+      [
+        "DXVX",
+        0.1,
+        [
+          "김희준",
+          "임성아",
+          "임성연",
+          "임성지",
+          "임윤단",
+          "임윤지",
+          "임종훈",
+          "임후연",
+          "홍지윤"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 3,
+      "registry_overlap": 1
+    }
+  },
+  {
+    "name": "진원생명과학",
+    "n_blocks": 2,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "다이나믹디자인",
+    "n_blocks": 6,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_or_passive": 6
+    }
+  },
+  {
+    "name": "디아이동일",
+    "n_blocks": 3,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "정헌재단",
+        13.0,
+        [
+          "김기준",
+          "박정훈",
+          "서민석",
+          "서융자",
+          "서지오",
+          "서태원",
+          "서희원",
+          "손재선",
+          "여경주",
+          "장준호"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 2
+    }
+  },
+  {
+    "name": "교보증권",
+    "n_blocks": 0,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {}
+  },
+  {
+    "name": "DB하이텍",
+    "n_blocks": 5,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "DB",
+        19.75,
+        [
+          "DB김준기문화재단",
+          "김동균",
+          "김주원",
+          "김준기",
+          "양승주",
+          "이상기",
+          "최종관",
+          "하주찬"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 4
+    }
+  },
+  {
+    "name": "남양유업",
+    "n_blocks": 1,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1
+    }
+  },
+  {
+    "name": "다올투자증권",
+    "n_blocks": 2,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "이병철",
+        28.75,
+        [
+          "김정수",
+          "남윤근",
+          "이창희",
+          "황준호"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "주성코퍼레이션",
+    "n_blocks": 0,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {}
+  },
+  {
+    "name": "한국종합기술",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "한국종합기술홀딩스",
+        52.96,
+        [
+          "(주)한국종합 서비스",
+          "강윤정",
+          "김한영"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "영풍",
+    "n_blocks": 3,
+    "n_coheld": 2,
+    "coheld_detail": [
+      [
+        "영풍개발",
+        16.64,
+        [
+          "강 성 두",
+          "김 혜 경",
+          "씨케이(유)",
+          "에이치씨(유)",
+          "장 세 준",
+          "장 세 환",
+          "장 혜 선"
+        ]
+      ],
+      [
+        "KZ정밀",
+        3.56,
+        [
+          "유 중 근",
+          "최 주 원",
+          "최 창 규",
+          "최 창 근"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 2,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "에쓰씨엔지니어링",
+    "n_blocks": 5,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "우앤컴퍼니",
+        1.87,
+        [
+          "㈜이브이첨단소재",
+          "김기웅"
+        ]
+      ]
+    ],
+    "sides": {
+      "registry_overlap": 1,
+      "external_active_block": 1,
+      "coheld_with_registry": 1,
+      "external_or_passive": 2
+    }
+  },
+  {
+    "name": "HD건설기계",
+    "n_blocks": 2,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "에이치디현대사이트솔루션",
+        35.86,
+        [
+          "(재)아산나눔재단",
+          "(재)아산사회복지재단",
+          "최철곤"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "NH투자증권",
+    "n_blocks": 2,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "농협금융지주",
+        61.94,
+        [
+          "김성중",
+          "윤병운",
+          "최승호"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "한국금융지주",
+    "n_blocks": 2,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_or_passive": 2
+    }
+  },
+  {
+    "name": "JB금융지주",
+    "n_blocks": 5,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "삼양사",
+        14.38,
+        [
+          "김 윤"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_active_block": 1,
+      "external_or_passive": 3
+    }
+  },
+  {
+    "name": "케이티앤지",
+    "n_blocks": 4,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_or_passive": 4
+    }
+  },
+  {
+    "name": "아시아나항공",
+    "n_blocks": 2,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "대한방직",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "설범",
+        26.2,
+        [
+          "김인호",
+          "대한방직 사내근로 복지기금",
+          "박기대",
+          "박석길",
+          "설경화",
+          "설우정",
+          "이호창",
+          "조병재"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "HJ중공업",
+    "n_blocks": 1,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1
+    }
+  },
+  {
+    "name": "한미약품",
+    "n_blocks": 2,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "한미사이언스",
+        41.42,
+        [
+          "(주)한양정밀",
+          "신동국"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "신성이엔지",
+    "n_blocks": 2,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "이완근",
+        6.85,
+        [
+          "(주)신성이넥스",
+          "우리기술투자(주)",
+          "이정선",
+          "이지선",
+          "홍은희"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "현대차증권",
+    "n_blocks": 2,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_or_passive": 2
+    }
+  },
+  {
+    "name": "JK리버스톤리츠",
+    "n_blocks": 0,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {}
+  },
+  {
+    "name": "광명전기",
+    "n_blocks": 6,
+    "n_coheld": 2,
+    "coheld_detail": [
+      [
+        "피앤씨테크",
+        7.84,
+        [
+          "조광식",
+          "조민수"
+        ]
+      ],
+      [
+        "에이치케이홀딩스",
+        23.66,
+        [
+          "조광식",
+          "조민수"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 2,
+      "external_active_block": 3,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "한국자산신탁",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "엠디엠",
+        28.76,
+        [
+          "(주)엠디엠플러스",
+          "김규철",
+          "문주현",
+          "문태현",
+          "신찬혁"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "셀트리온",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "셀트리온홀딩스",
+        25.62,
+        [
+          "(주)셀트리온스킨큐어",
+          "강석환",
+          "강성환",
+          "구경회",
+          "구윤모",
+          "권기성",
+          "권병오",
+          "권수진",
+          "기숙자",
+          "기우성",
+          "길성민",
+          "김근영",
+          "김민수",
+          "김영식",
+          "김용숙",
+          "김재현",
+          "김종묵",
+          "김호웅",
+          "류성훈",
+          "문경수",
+          "박경호",
+          "박관우",
+          "박민희",
+          "박상민",
+          "박이찬",
+          "박재휘",
+          "박정호",
+          "박준성",
+          "박찬홍",
+          "백경민",
+          "백동훈",
+          "백성준",
+          "백혜연",
+          "서연순",
+          "서정수",
+          "서정진",
+          "서진석",
+          "송수은",
+          "신경하",
+          "신민철",
+          "신선미",
+          "안소연",
+          "안영길",
+          "안현진",
+          "안홍근",
+          "양성욱",
+          "양현주",
+          "오운택",
+          "유선화",
+          "이강희",
+          "이경진",
+          "이경훈",
+          "이동진",
+          "이명숙",
+          "이상준",
+          "이성재",
+          "이수연",
+          "이수영",
+          "이영숙",
+          "이응섭",
+          "이종관",
+          "이종무",
+          "이준원",
+          "이탁호",
+          "이혁재",
+          "이현숙",
+          "장지미",
+          "전민경",
+          "정안나",
+          "정태옥",
+          "조성은",
+          "조종문",
+          "천옥진",
+          "최병욱",
+          "최승희",
+          "최천규"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "현대로템",
+    "n_blocks": 2,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "현대자동차",
+        33.77,
+        [
+          "이용배"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "삼성증권",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "삼성생명",
+        29.4,
+        [
+          "삼성문화재단"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "진흥기업",
+    "n_blocks": 0,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {}
+  },
+  {
+    "name": "씨씨에스",
+    "n_blocks": 2,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_active_block": 2
+    }
+  },
+  {
+    "name": "프로브잇",
+    "n_blocks": 1,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "TS트릴리온",
+    "n_blocks": 5,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_or_passive": 1,
+      "external_active_block": 3
+    }
+  },
+  {
+    "name": "지니틱스",
+    "n_blocks": 1,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "알티캐스트",
+    "n_blocks": 4,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_or_passive": 3
+    }
+  },
+  {
+    "name": "아티스트스튜디오",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "아티스트컴퍼니",
+        18.13,
+        [
+          "이정재"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "셀피글로벌",
+    "n_blocks": 2,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "에스아이리소스",
+    "n_blocks": 2,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "최경덕",
+        29.83,
+        [
+          "전순옥"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 1
+    }
+  },
+  {
+    "name": "콜마비앤에이치",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "콜마홀딩스",
+        44.63,
+        [
+          "김성애",
+          "윤여원",
+          "이민석",
+          "이영석",
+          "이현수",
+          "조영주",
+          "홍진수"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "아크솔루션스",
+    "n_blocks": 4,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "김태욱",
+        13.76,
+        [
+          "김성원",
+          "김주리",
+          "주식회사 티와이"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 1,
+      "external_active_block": 2
+    }
+  },
+  {
+    "name": "테라사이언스",
+    "n_blocks": 0,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {}
+  },
+  {
+    "name": "투비소프트",
+    "n_blocks": 2,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "투비소프트에이엑스",
+        10.84,
+        [
+          "(주)리얼인베스트먼트",
+          "김모란희"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "인크레더블버즈",
+    "n_blocks": 4,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "휴먼웰니스",
+        12.97,
+        [
+          "임신영"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_or_passive": 3
+    }
+  },
+  {
+    "name": "셀루메드",
+    "n_blocks": 4,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "인스코비",
+        8.21,
+        [
+          "(주)프리텔레콤",
+          "구자갑",
+          "김용회",
+          "박민자",
+          "유인수"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1,
+      "external_active_block": 1,
+      "external_or_passive": 2
+    }
+  },
+  {
+    "name": "아티스트컴퍼니",
+    "n_blocks": 1,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_active_block": 1
+    }
+  },
+  {
+    "name": "디와이디",
+    "n_blocks": 4,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "external_active_block": 1,
+      "external_or_passive": 3
+    }
+  },
+  {
+    "name": "전진바이오팜",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "이태훈",
+        4.44,
+        [
+          "우상현"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  },
+  {
+    "name": "KS인더스트리",
+    "n_blocks": 4,
+    "n_coheld": 0,
+    "coheld_detail": [],
+    "sides": {
+      "registry_overlap": 1,
+      "external_or_passive": 1,
+      "external_active_block": 2
+    }
+  },
+  {
+    "name": "올리패스",
+    "n_blocks": 1,
+    "n_coheld": 1,
+    "coheld_detail": [
+      [
+        "제노큐어",
+        31.43,
+        [
+          "㈜비엠물산",
+          "김태현"
+        ]
+      ]
+    ],
+    "sides": {
+      "coheld_with_registry": 1
+    }
+  }
+]
