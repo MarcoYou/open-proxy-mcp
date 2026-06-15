@@ -1,0 +1,7527 @@
+{
+  "meta": {
+    "date": "2026-06-15",
+    "universe": "/tmp/kospi_kosdaq_300.json (255사)",
+    "total_dart_calls": 254,
+    "elapsed_min": 6.6
+  },
+  "summary": {
+    "companies": 255,
+    "no_candidate_companies": 17,
+    "total_candidates": 1171,
+    "no_name_total": 0,
+    "no_reco_reason_total": 204,
+    "independence_mapping": {
+      "major_shareholder_relation:success": 1171,
+      "recent_3y_transactions:success": 1171,
+      "five_year_rule:success": 1171,
+      "recent_2y_employee:soft-fail": 1147,
+      "recent_2y_employee:success": 24
+    },
+    "independence_summary": {
+      "independent": 878,
+      "weak_concerns": 254,
+      "concerns": 39
+    },
+    "disqualification": {
+      "clean": 1170,
+      "red_flag": 1
+    },
+    "appointment_type": {
+      "new": 719,
+      "renewed": 409,
+      "ambiguous": 43
+    },
+    "role_type": {
+      "사외이사": 662,
+      "사내이사": 299,
+      "기타비상무이사": 55,
+      "이사": 55,
+      "감사위원회": 51,
+      "감사": 39,
+      "독립이사": 7,
+      "대표이사": 2,
+      "(주3)": 1
+    }
+  },
+  "no_candidate_companies": [
+    "한미반도체",
+    "한국전력공사",
+    "기업은행",
+    "한전기술",
+    "강원랜드",
+    "롯데케미칼",
+    "신영증권",
+    "한전KPS",
+    "TIME 글로벌AI인공지능액티브",
+    "동진쎄미켐",
+    "에스피지",
+    "대주전자재료",
+    "에임드바이오",
+    "삼현",
+    "에스에이엠티",
+    "씨엠티엑스",
+    "인텔리안테크"
+  ],
+  "rows": [
+    {
+      "company": "삼성전자",
+      "query": "삼성전자",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SK하이닉스",
+      "query": "SK하이닉스",
+      "status": "exact",
+      "candidates": 13,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 5,
+      "indep_map": {
+        "major_shareholder_relation:success": 13,
+        "recent_3y_transactions:success": 13,
+        "recent_2y_employee:soft-fail": 13,
+        "five_year_rule:success": 13
+      },
+      "indep_summary": {
+        "independent": 12,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 13
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 12
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 9,
+        "기타비상무이사": 1,
+        "감사위원회": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SK스퀘어",
+      "query": "SK스퀘어",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 3,
+        "weak_concerns": 2
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 3,
+        "기타비상무이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성전기",
+      "query": "삼성전기",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 4
+      },
+      "role": {
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대자동차",
+      "query": "현대차",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 3,
+        "concerns": 4
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "new": 3,
+        "renewed": 4
+      },
+      "role": {
+        "사외이사": 3,
+        "사내이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG에너지솔루션",
+      "query": "LG에너지솔루션",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성생명",
+      "query": "삼성생명",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성물산",
+      "query": "삼성물산",
+      "status": "exact",
+      "candidates": 14,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 6,
+      "indep_map": {
+        "major_shareholder_relation:success": 14,
+        "recent_3y_transactions:success": 14,
+        "recent_2y_employee:soft-fail": 14,
+        "five_year_rule:success": 14
+      },
+      "indep_summary": {
+        "independent": 14
+      },
+      "disq": {
+        "clean": 14
+      },
+      "appt": {
+        "new": 11,
+        "renewed": 3
+      },
+      "role": {
+        "감사위원회": 4,
+        "사내이사": 3,
+        "사외이사": 7
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HD현대중공업",
+      "query": "HD현대중공업",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "기아",
+      "query": "기아",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성바이오로직스",
+      "query": "삼성바이오로직스",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "independent": 4,
+        "weak_concerns": 2
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 4,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "두산에너빌리티",
+      "query": "두산에너빌리티",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 5
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "KB금융",
+      "query": "KB금융",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 7
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "new": 7
+      },
+      "role": {
+        "사외이사": 7
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한화에어로스페이스",
+      "query": "한화에어로스페이스",
+      "status": "exact",
+      "candidates": 9,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 9,
+        "recent_3y_transactions:success": 9,
+        "recent_2y_employee:success": 1,
+        "five_year_rule:success": 9,
+        "recent_2y_employee:soft-fail": 8
+      },
+      "indep_summary": {
+        "independent": 2,
+        "concerns": 2,
+        "weak_concerns": 5
+      },
+      "disq": {
+        "clean": 9
+      },
+      "appt": {
+        "ambiguous": 1,
+        "renewed": 4,
+        "new": 4
+      },
+      "role": {
+        "사외이사": 5,
+        "사내이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대모비스",
+      "query": "현대모비스",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "concerns": 2,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "new": 5,
+        "renewed": 2
+      },
+      "role": {
+        "사외이사": 5,
+        "이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "신한지주",
+      "query": "신한지주",
+      "status": "exact",
+      "candidates": 10,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 10,
+        "recent_3y_transactions:success": 10,
+        "recent_2y_employee:soft-fail": 10,
+        "five_year_rule:success": 10
+      },
+      "indep_summary": {
+        "independent": 10
+      },
+      "disq": {
+        "clean": 10
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 9
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 9
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성SDI",
+      "query": "삼성SDI",
+      "status": "exact",
+      "candidates": 9,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 9,
+        "recent_3y_transactions:success": 9,
+        "recent_2y_employee:soft-fail": 9,
+        "five_year_rule:success": 9
+      },
+      "indep_summary": {
+        "independent": 7,
+        "weak_concerns": 2
+      },
+      "disq": {
+        "clean": 9
+      },
+      "appt": {
+        "new": 5,
+        "renewed": 4
+      },
+      "role": {
+        "사외이사": 7,
+        "사내이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SK",
+      "query": "SK",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HD현대일렉트릭",
+      "query": "HD현대일렉트릭",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "NAVER",
+      "query": "NAVER",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "셀트리온",
+      "query": "셀트리온",
+      "status": "exact",
+      "candidates": 30,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 10,
+      "indep_map": {
+        "major_shareholder_relation:success": 30,
+        "recent_3y_transactions:success": 30,
+        "recent_2y_employee:soft-fail": 30,
+        "five_year_rule:success": 30
+      },
+      "indep_summary": {
+        "independent": 30
+      },
+      "disq": {
+        "clean": 30
+      },
+      "appt": {
+        "renewed": 8,
+        "new": 22
+      },
+      "role": {
+        "사내이사": 4,
+        "사외이사": 24,
+        "감사위원회": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG전자",
+      "query": "LG전자",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한화오션",
+      "query": "한화오션",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한미반도체",
+      "query": "한미반도체",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "엘에스일렉트릭",
+      "query": "LS ELECTRIC",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "하나금융지주",
+      "query": "하나금융지주",
+      "status": "exact",
+      "candidates": 14,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 14,
+        "recent_3y_transactions:success": 14,
+        "recent_2y_employee:soft-fail": 14,
+        "five_year_rule:success": 14
+      },
+      "indep_summary": {
+        "independent": 14
+      },
+      "disq": {
+        "clean": 14
+      },
+      "appt": {
+        "renewed": 12,
+        "new": 2
+      },
+      "role": {
+        "사외이사": 12,
+        "사내이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "효성중공업",
+      "query": "효성중공업",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "두산",
+      "query": "두산",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "POSCO홀딩스",
+      "query": "POSCO홀딩스",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "independent": 6
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 3,
+        "기타비상무이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "미래에셋증권",
+      "query": "미래에셋증권",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "weak_concerns": 3,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 3,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성화재해상보험",
+      "query": "삼성화재",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "new": 5
+      },
+      "role": {
+        "사외이사": 5
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HD한국조선해양",
+      "query": "HD한국조선해양",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "고려아연",
+      "query": "고려아연",
+      "status": "exact",
+      "candidates": 9,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 9,
+        "recent_3y_transactions:success": 9,
+        "recent_2y_employee:soft-fail": 9,
+        "five_year_rule:success": 9
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 7
+      },
+      "disq": {
+        "clean": 9
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 5
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 5,
+        "기타비상무이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG이노텍",
+      "query": "LG이노텍",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 5
+      },
+      "role": {
+        "사내이사": 1,
+        "기타비상무이사": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG화학",
+      "query": "LG화학",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한국전력공사",
+      "query": "한국전력",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "삼성중공업",
+      "query": "삼성중공업",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "우리금융지주",
+      "query": "우리금융지주",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대로템",
+      "query": "현대로템",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:success": 1,
+        "five_year_rule:success": 5,
+        "recent_2y_employee:soft-fail": 4
+      },
+      "indep_summary": {
+        "independent": 2,
+        "concerns": 2,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "ambiguous": 1,
+        "new": 4
+      },
+      "role": {
+        "독립이사": 1,
+        "이사": 3,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SK텔레콤",
+      "query": "SK텔레콤",
+      "status": "exact",
+      "candidates": 14,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 6,
+      "indep_map": {
+        "major_shareholder_relation:success": 14,
+        "recent_3y_transactions:success": 14,
+        "recent_2y_employee:soft-fail": 14,
+        "five_year_rule:success": 14
+      },
+      "indep_summary": {
+        "weak_concerns": 4,
+        "independent": 10
+      },
+      "disq": {
+        "clean": 14
+      },
+      "appt": {
+        "renewed": 6,
+        "new": 8
+      },
+      "role": {
+        "감사위원회": 4,
+        "사외이사": 7,
+        "사내이사": 2,
+        "기타비상무이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "케이티앤지",
+      "query": "KT&G",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HD현대",
+      "query": "HD현대",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HMM",
+      "query": "HMM",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대오토에버",
+      "query": "현대오토에버",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "이사": 2,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성에스디에스",
+      "query": "삼성에스디에스",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "independent": 6
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "new": 5,
+        "renewed": 1
+      },
+      "role": {
+        "사외이사": 5,
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "카카오",
+      "query": "카카오",
+      "status": "exact",
+      "candidates": 8,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 8,
+        "recent_3y_transactions:success": 8,
+        "recent_2y_employee:soft-fail": 8,
+        "five_year_rule:success": 8
+      },
+      "indep_summary": {
+        "independent": 8
+      },
+      "disq": {
+        "clean": 8
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 6
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 6
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한화시스템",
+      "query": "한화시스템",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "기타비상무이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SK이노베이션",
+      "query": "SK이노베이션",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "포스코퓨처엠",
+      "query": "포스코퓨처엠",
+      "status": "exact",
+      "candidates": 17,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 7,
+      "indep_map": {
+        "major_shareholder_relation:success": 17,
+        "recent_3y_transactions:success": 17,
+        "recent_2y_employee:soft-fail": 16,
+        "five_year_rule:success": 17,
+        "recent_2y_employee:success": 1
+      },
+      "indep_summary": {
+        "independent": 15,
+        "weak_concerns": 2
+      },
+      "disq": {
+        "clean": 17
+      },
+      "appt": {
+        "renewed": 8,
+        "new": 8,
+        "ambiguous": 1
+      },
+      "role": {
+        "사내이사": 6,
+        "기타비상무이사": 4,
+        "사외이사": 6,
+        "독립이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대건설",
+      "query": "현대건설",
+      "status": "exact",
+      "candidates": 8,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 8,
+        "recent_3y_transactions:success": 8,
+        "recent_2y_employee:soft-fail": 8,
+        "five_year_rule:success": 8
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 6
+      },
+      "disq": {
+        "clean": 8
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 6
+      },
+      "role": {
+        "사외이사": 8
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "기업은행",
+      "query": "기업은행",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "LIG디펜스앤에어로스페이스",
+      "query": "LIG디펜스앤에어로스페이스",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "concerns": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG",
+      "query": "LG",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대글로비스",
+      "query": "현대글로비스",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에이피알",
+      "query": "에이피알",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 3
+      },
+      "role": {
+        "이사": 2,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "케이티",
+      "query": "KT",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 3,
+        "concerns": 2
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "new": 3,
+        "renewed": 2
+      },
+      "role": {
+        "사외이사": 3,
+        "이사": 1,
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한국항공우주",
+      "query": "한국항공우주",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한국금융지주",
+      "query": "한국금융지주",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 6
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 5
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 5
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "S-Oil",
+      "query": "S-Oil",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 3,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "기타비상무이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LS",
+      "query": "LS",
+      "status": "exact",
+      "candidates": 14,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 14,
+        "recent_3y_transactions:success": 14,
+        "recent_2y_employee:soft-fail": 14,
+        "five_year_rule:success": 14
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 13
+      },
+      "disq": {
+        "clean": 14
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 13
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 11,
+        "감사위원회": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "카카오뱅크",
+      "query": "카카오뱅크",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 4,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 3,
+        "기타비상무이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "NH투자증권",
+      "query": "NH투자증권",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 4
+      },
+      "role": {
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성에피스홀딩스",
+      "query": "삼성에피스홀딩스",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 5
+      },
+      "role": {
+        "감사위원회": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HD현대마린솔루션",
+      "query": "HD현대마린솔루션",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "크래프톤",
+      "query": "크래프톤",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "independent": 3,
+        "concerns": 3
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "new": 4,
+        "renewed": 2
+      },
+      "role": {
+        "사외이사": 4,
+        "사내이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성증권",
+      "query": "삼성증권",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 2,
+        "renewed": 1
+      },
+      "role": {
+        "사외이사": 2,
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "포스코인터내셔널",
+      "query": "포스코인터내셔널",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 6,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 5
+      },
+      "role": {
+        "사내이사": 2,
+        "기타비상무이사": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "대한항공",
+      "query": "대한항공",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 7
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 4,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "DB손해보험",
+      "query": "DB손해보험",
+      "status": "exact",
+      "candidates": 13,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 13,
+        "recent_3y_transactions:success": 13,
+        "recent_2y_employee:soft-fail": 13,
+        "five_year_rule:success": 13
+      },
+      "indep_summary": {
+        "independent": 13
+      },
+      "disq": {
+        "clean": 13
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 10
+      },
+      "role": {
+        "사외이사": 12,
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "하이브",
+      "query": "하이브",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 2,
+        "기타비상무이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "키움증권",
+      "query": "키움증권",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "new": 5
+      },
+      "role": {
+        "사외이사": 5
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성E&A",
+      "query": "삼성E&A",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG씨엔에스",
+      "query": "LG씨엔에스",
+      "status": "exact",
+      "candidates": 13,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 5,
+      "indep_map": {
+        "major_shareholder_relation:success": 13,
+        "recent_3y_transactions:success": 13,
+        "recent_2y_employee:soft-fail": 12,
+        "five_year_rule:success": 13,
+        "recent_2y_employee:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 8,
+        "independent": 5
+      },
+      "disq": {
+        "clean": 13
+      },
+      "appt": {
+        "renewed": 6,
+        "new": 6,
+        "ambiguous": 1
+      },
+      "role": {
+        "사내이사": 6,
+        "사외이사": 6,
+        "독립이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "이수페타시스",
+      "query": "이수페타시스",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 3
+      },
+      "role": {
+        "사내이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "대우건설",
+      "query": "대우건설",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "query": "한국타이어앤테크놀로지",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼양식품",
+      "query": "삼양식품",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한화",
+      "query": "한화",
+      "status": "exact",
+      "candidates": 9,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 9,
+        "recent_3y_transactions:success": 9,
+        "recent_2y_employee:soft-fail": 8,
+        "five_year_rule:success": 9,
+        "recent_2y_employee:success": 1
+      },
+      "indep_summary": {
+        "concerns": 2,
+        "independent": 7
+      },
+      "disq": {
+        "clean": 9
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 6,
+        "ambiguous": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 7
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "대덕전자",
+      "query": "대덕전자",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 3,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한진칼",
+      "query": "한진칼",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:success": 1,
+        "five_year_rule:success": 4,
+        "recent_2y_employee:soft-fail": 3
+      },
+      "indep_summary": {
+        "independent": 2,
+        "concerns": 1,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "ambiguous": 1,
+        "new": 2,
+        "renewed": 1
+      },
+      "role": {
+        "독립이사": 1,
+        "사외이사": 2,
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "DB하이텍",
+      "query": "DB하이텍",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 7
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 6
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 6
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "대한전선",
+      "query": "대한전선",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "기타비상무이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "두산로보틱스",
+      "query": "두산로보틱스",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "산일전기",
+      "query": "산일전기",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 4,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 5
+      },
+      "role": {
+        "사내이사": 3,
+        "사외이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SKC",
+      "query": "SKC",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "이사": 2,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG디스플레이",
+      "query": "LG디스플레이",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에스케이바이오팜",
+      "query": "SK바이오팜",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "기타비상무이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HD건설기계",
+      "query": "HD건설기계",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG유플러스",
+      "query": "LG유플러스",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 5
+      },
+      "role": {
+        "사내이사": 1,
+        "기타비상무이사": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "GS",
+      "query": "GS",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 2,
+        "weak_concerns": 3
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 3,
+        "기타비상무이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "신세계",
+      "query": "신세계",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "감사위원회": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "아모레퍼시픽",
+      "query": "아모레퍼시픽",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "concerns": 2
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 2,
+        "renewed": 2
+      },
+      "role": {
+        "사외이사": 2,
+        "사내이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한화솔루션",
+      "query": "한화솔루션",
+      "status": "exact",
+      "candidates": 16,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 6,
+      "indep_map": {
+        "major_shareholder_relation:success": 16,
+        "recent_3y_transactions:success": 16,
+        "recent_2y_employee:soft-fail": 16,
+        "five_year_rule:success": 16
+      },
+      "indep_summary": {
+        "concerns": 4,
+        "independent": 10,
+        "weak_concerns": 2
+      },
+      "disq": {
+        "clean": 16
+      },
+      "appt": {
+        "renewed": 8,
+        "new": 8
+      },
+      "role": {
+        "사내이사": 8,
+        "사외이사": 8
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "코웨이",
+      "query": "코웨이",
+      "status": "exact",
+      "candidates": 31,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 21,
+      "indep_map": {
+        "major_shareholder_relation:success": 31,
+        "recent_3y_transactions:success": 31,
+        "recent_2y_employee:soft-fail": 30,
+        "five_year_rule:success": 31,
+        "recent_2y_employee:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 3,
+        "independent": 28
+      },
+      "disq": {
+        "clean": 31
+      },
+      "appt": {
+        "renewed": 9,
+        "new": 21,
+        "ambiguous": 1
+      },
+      "role": {
+        "사내이사": 9,
+        "사외이사": 22
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "두산밥캣",
+      "query": "두산밥캣",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "유한양행",
+      "query": "유한양행",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 1,
+        "concerns": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "카카오페이",
+      "query": "카카오페이",
+      "status": "exact",
+      "candidates": 13,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 13,
+        "recent_3y_transactions:success": 13,
+        "recent_2y_employee:soft-fail": 13,
+        "five_year_rule:success": 13
+      },
+      "indep_summary": {
+        "independent": 13
+      },
+      "disq": {
+        "clean": 13
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 11
+      },
+      "role": {
+        "사내이사": 2,
+        "기타비상무이사": 2,
+        "사외이사": 8,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼성카드",
+      "query": "삼성카드",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "renewed": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한전기술",
+      "query": "한전기술",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "NC",
+      "query": "NC",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 7
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "new": 7
+      },
+      "role": {
+        "사외이사": 7
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "OCI홀딩스",
+      "query": "OCI홀딩스",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "롯데쇼핑",
+      "query": "롯데쇼핑",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 5
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 3,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "BNK금융지주",
+      "query": "BNK금융지주",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 3,
+        "renewed": 1
+      },
+      "role": {
+        "감사위원회": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "엘앤에프",
+      "query": "엘앤에프",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "오리온",
+      "query": "오리온",
+      "status": "exact",
+      "candidates": 8,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 8,
+        "recent_3y_transactions:success": 8,
+        "recent_2y_employee:soft-fail": 8,
+        "five_year_rule:success": 8
+      },
+      "indep_summary": {
+        "independent": 6,
+        "weak_concerns": 2
+      },
+      "disq": {
+        "clean": 8
+      },
+      "appt": {
+        "new": 6,
+        "renewed": 2
+      },
+      "role": {
+        "사외이사": 6,
+        "사내이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한미약품",
+      "query": "한미약품",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "independent": 6
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "CJ",
+      "query": "CJ",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:success": 1,
+        "five_year_rule:success": 2,
+        "recent_2y_employee:soft-fail": 1
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "ambiguous": 1,
+        "new": 1
+      },
+      "role": {
+        "독립이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "JB금융지주",
+      "query": "JB금융지주",
+      "status": "exact",
+      "candidates": 8,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 8,
+        "recent_3y_transactions:success": 8,
+        "recent_2y_employee:soft-fail": 8,
+        "five_year_rule:success": 8
+      },
+      "indep_summary": {
+        "independent": 8
+      },
+      "disq": {
+        "clean": 8
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 4
+      },
+      "role": {
+        "사외이사": 8
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한온시스템",
+      "query": "한온시스템",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "두산퓨얼셀",
+      "query": "두산퓨얼셀",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:success": 1,
+        "five_year_rule:success": 2,
+        "recent_2y_employee:soft-fail": 1
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "ambiguous": 1,
+        "new": 1
+      },
+      "role": {
+        "독립이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대제철",
+      "query": "현대제철",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한화엔진",
+      "query": "한화엔진",
+      "status": "exact",
+      "candidates": 9,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 9,
+        "recent_3y_transactions:success": 9,
+        "recent_2y_employee:soft-fail": 9,
+        "five_year_rule:success": 9
+      },
+      "indep_summary": {
+        "weak_concerns": 8,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 9
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 7
+      },
+      "role": {
+        "사내이사": 2,
+        "기타비상무이사": 1,
+        "사외이사": 6
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "케이씨씨",
+      "query": "KCC",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 4
+      },
+      "role": {
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한화생명",
+      "query": "한화생명",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "independent": 6
+      },
+      "disq": {
+        "clean": 5,
+        "red_flag": 1
+      },
+      "appt": {
+        "new": 5,
+        "renewed": 1
+      },
+      "role": {
+        "사외이사": 5,
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "포스코DX",
+      "query": "포스코DX",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 2,
+        "기타비상무이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "가온전선",
+      "query": "가온전선",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에코프로머티",
+      "query": "에코프로머티",
+      "status": "exact",
+      "candidates": 10,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 10,
+        "recent_3y_transactions:success": 10,
+        "recent_2y_employee:soft-fail": 10,
+        "five_year_rule:success": 10
+      },
+      "indep_summary": {
+        "weak_concerns": 5,
+        "independent": 5
+      },
+      "disq": {
+        "clean": 10
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 7
+      },
+      "role": {
+        "사내이사": 3,
+        "사외이사": 7
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "일진전기",
+      "query": "일진전기",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 3,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "미래에셋생명",
+      "query": "미래에셋생명",
+      "status": "exact",
+      "candidates": 27,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 12,
+      "indep_map": {
+        "major_shareholder_relation:success": 27,
+        "recent_3y_transactions:success": 27,
+        "recent_2y_employee:soft-fail": 25,
+        "five_year_rule:success": 27,
+        "recent_2y_employee:success": 2
+      },
+      "indep_summary": {
+        "independent": 17,
+        "weak_concerns": 10
+      },
+      "disq": {
+        "clean": 27
+      },
+      "appt": {
+        "ambiguous": 20,
+        "new": 7
+      },
+      "role": {
+        "사내이사": 10,
+        "사외이사": 13,
+        "감사위원회": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대백화점",
+      "query": "현대백화점",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한화비전",
+      "query": "한화비전",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LG생활건강",
+      "query": "LG생활건강",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "영원무역",
+      "query": "영원무역",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "더존비즈온",
+      "query": "더존비즈온",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "넷마블",
+      "query": "넷마블",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "weak_concerns": 6
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 5
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 5
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에스원",
+      "query": "에스원",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 4,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "강원랜드",
+      "query": "강원랜드",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "현대해상",
+      "query": "현대해상",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한국가스공사",
+      "query": "한국가스공사",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "F&F",
+      "query": "F&F",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "롯데케미칼",
+      "query": "롯데케미칼",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "서울보증보험",
+      "query": "서울보증보험",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 4,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "new": 5
+      },
+      "role": {
+        "사외이사": 2,
+        "기타비상무이사": 2,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "코리아써키트",
+      "query": "코리아써키트",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한솔케미칼",
+      "query": "한솔케미칼",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에스엘",
+      "query": "에스엘",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대엘리베이터",
+      "query": "현대엘리베이터",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "금호석유화학",
+      "query": "금호석유화학",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SK바이오사이언스",
+      "query": "SK바이오사이언스",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 4,
+        "recent_2y_employee:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2,
+        "concerns": 1
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 3,
+        "renewed": 1
+      },
+      "role": {
+        "기타비상무이사": 1,
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "신영증권",
+      "query": "신영증권",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "HL만도",
+      "query": "HL만도",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 6
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 5
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 4,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "효성",
+      "query": "효성",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "concerns": 1,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "CJ제일제당",
+      "query": "CJ제일제당",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 3,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:success": 1,
+        "five_year_rule:success": 6,
+        "recent_2y_employee:soft-fail": 5
+      },
+      "indep_summary": {
+        "independent": 6
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "ambiguous": 1,
+        "renewed": 2,
+        "new": 3
+      },
+      "role": {
+        "독립이사": 1,
+        "사내이사": 2,
+        "사외이사": 2,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "롯데에너지머티리얼즈",
+      "query": "롯데에너지머티리얼즈",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "weak_concerns": 5,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 7
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 4,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한전KPS",
+      "query": "한전KPS",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "DL이앤씨",
+      "query": "DL이앤씨",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "iM금융지주",
+      "query": "iM금융지주",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "independent": 6
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "new": 6
+      },
+      "role": {
+        "사외이사": 6
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "팬오션",
+      "query": "팬오션",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한올바이오파마",
+      "query": "한올바이오파마",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "케이뱅크",
+      "query": "케이뱅크",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 4,
+        "weak_concerns": 3
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 5
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 5
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "롯데지주",
+      "query": "롯데지주",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "weak_concerns": 3,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 3,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SK네트웍스",
+      "query": "SK네트웍스",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "한국앤컴퍼니",
+      "query": "한국앤컴퍼니",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "independent": 6
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 2,
+        "감사위원회": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "동서",
+      "query": "동서",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 1,
+        "concerns": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 3
+      },
+      "role": {
+        "사외이사": 1,
+        "사내이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "TIME 글로벌AI인공지능액티브",
+      "query": "TIME 글로벌AI인공지능액티브",
+      "status": "error",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "None"
+    },
+    {
+      "company": "이수스페셜티케미컬",
+      "query": "이수스페셜티케미컬",
+      "status": "exact",
+      "candidates": 9,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 9,
+        "recent_3y_transactions:success": 9,
+        "recent_2y_employee:soft-fail": 9,
+        "five_year_rule:success": 9
+      },
+      "indep_summary": {
+        "independent": 5,
+        "weak_concerns": 4
+      },
+      "disq": {
+        "clean": 9
+      },
+      "appt": {
+        "renewed": 6,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 6,
+        "사외이사": 1,
+        "감사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "알테오젠",
+      "query": "알테오젠",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 1,
+        "감사위원회": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에코프로비엠",
+      "query": "에코프로비엠",
+      "status": "exact",
+      "candidates": 13,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 6,
+      "indep_map": {
+        "major_shareholder_relation:success": 13,
+        "recent_3y_transactions:success": 13,
+        "recent_2y_employee:soft-fail": 13,
+        "five_year_rule:success": 13
+      },
+      "indep_summary": {
+        "independent": 13
+      },
+      "disq": {
+        "clean": 13
+      },
+      "appt": {
+        "new": 10,
+        "renewed": 3
+      },
+      "role": {
+        "사외이사": 9,
+        "사내이사": 3,
+        "기타비상무이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에코프로",
+      "query": "에코프로",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 7
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 3,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "레인보우로보틱스",
+      "query": "레인보우로보틱스",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 3
+      },
+      "role": {
+        "사내이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "주성엔지니어링",
+      "query": "주성엔지니어링",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 2,
+        "renewed": 2
+      },
+      "role": {
+        "사외이사": 2,
+        "사내이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "원익IPS",
+      "query": "원익IPS",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "concerns": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 2
+      },
+      "role": {
+        "사내이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "코오롱티슈진",
+      "query": "코오롱티슈진",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 3,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 2,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "리노공업",
+      "query": "리노공업",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "이오테크닉스",
+      "query": "이오테크닉스",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HLB",
+      "query": "HLB",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 4,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 2
+      },
+      "role": {
+        "이사": 4,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼천당제약",
+      "query": "삼천당제약",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "감사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HPSP",
+      "query": "HPSP",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 2,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "사외이사": 2,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "펩트론",
+      "query": "펩트론",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에이비엘바이오",
+      "query": "에이비엘바이오",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "ambiguous": 2
+      },
+      "role": {
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "파두",
+      "query": "파두",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "피에스케이",
+      "query": "피에스케이",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "ambiguous": 1
+      },
+      "role": {
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "ISC",
+      "query": "ISC",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "심텍",
+      "query": "심텍",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "로보티즈",
+      "query": "로보티즈",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 2
+      },
+      "role": {
+        "이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "리가켐바이오",
+      "query": "리가켐바이오",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "renewed": 1
+      },
+      "role": {
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "서진시스템",
+      "query": "서진시스템",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "renewed": 1
+      },
+      "role": {
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "유진테크",
+      "query": "유진테크",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 2,
+        "recent_2y_employee:success": 1
+      },
+      "indep_summary": {
+        "independent": 1,
+        "concerns": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "현대무벡스",
+      "query": "현대무벡스",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "케어젠",
+      "query": "케어젠",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 4
+      },
+      "role": {
+        "이사": 2,
+        "사외이사": 1,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "디앤디파마텍",
+      "query": "디앤디파마텍",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "감사위원회": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "보로노이",
+      "query": "보로노이",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "new": 5
+      },
+      "role": {
+        "사외이사": 4,
+        "(주3)": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "제주반도체",
+      "query": "제주반도체",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "테스",
+      "query": "테스",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "솔브레인",
+      "query": "솔브레인",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 2
+      },
+      "role": {
+        "사외이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "두산테스나",
+      "query": "두산테스나",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "성호전자",
+      "query": "성호전자",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "renewed": 1
+      },
+      "role": {
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "피에스케이홀딩스",
+      "query": "피에스케이홀딩스",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "concerns": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "하나마이크론",
+      "query": "하나마이크론",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "티씨케이",
+      "query": "티씨케이",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 4
+      },
+      "role": {
+        "이사": 3,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "우리기술",
+      "query": "우리기술",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "independent": 7
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 4,
+        "사외이사": 2,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "휴젤",
+      "query": "휴젤",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 4
+      },
+      "role": {
+        "이사": 1,
+        "감사위원회": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "동진쎄미켐",
+      "query": "동진쎄미켐",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "파마리서치",
+      "query": "파마리서치",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 3,
+        "renewed": 1
+      },
+      "role": {
+        "사외이사": 3,
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "티에스이",
+      "query": "티에스이",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "대한광통신",
+      "query": "대한광통신",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "independent": 4
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "new": 2,
+        "renewed": 2
+      },
+      "role": {
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "클래시스",
+      "query": "클래시스",
+      "status": "exact",
+      "candidates": 21,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 21,
+      "indep_map": {
+        "major_shareholder_relation:success": 21,
+        "recent_3y_transactions:success": 21,
+        "recent_2y_employee:soft-fail": 21,
+        "five_year_rule:success": 21
+      },
+      "indep_summary": {
+        "independent": 21
+      },
+      "disq": {
+        "clean": 21
+      },
+      "appt": {
+        "new": 21
+      },
+      "role": {
+        "기타비상무이사": 12,
+        "사외이사": 5,
+        "감사위원회": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "고영",
+      "query": "고영",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 3,
+        "concerns": 1
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 3,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "펄어비스",
+      "query": "펄어비스",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에스티팜",
+      "query": "에스티팜",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "비에이치아이",
+      "query": "비에이치아이",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 2
+      },
+      "role": {
+        "이사": 5
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "테크윙",
+      "query": "테크윙",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "renewed": 1
+      },
+      "role": {
+        "사내이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "브이엠",
+      "query": "브이엠",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1,
+        "기타비상무이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "원익홀딩스",
+      "query": "원익홀딩스",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:success": 1,
+        "five_year_rule:success": 4,
+        "recent_2y_employee:soft-fail": 3
+      },
+      "indep_summary": {
+        "independent": 3,
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "ambiguous": 1,
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "감사": 2,
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "파크시스템스",
+      "query": "파크시스템스",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 3
+      },
+      "role": {
+        "기타비상무이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "올릭스",
+      "query": "올릭스",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "실리콘투",
+      "query": "실리콘투",
+      "status": "exact",
+      "candidates": 13,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 13,
+        "recent_3y_transactions:success": 13,
+        "recent_2y_employee:soft-fail": 13,
+        "five_year_rule:success": 13
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 11
+      },
+      "disq": {
+        "clean": 13
+      },
+      "appt": {
+        "renewed": 8,
+        "new": 5
+      },
+      "role": {
+        "대표이사": 2,
+        "사내이사": 6,
+        "사외이사": 5
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "비츠로셀",
+      "query": "비츠로셀",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에스피지",
+      "query": "에스피지",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "엘앤씨바이오",
+      "query": "엘앤씨바이오",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 3
+      },
+      "role": {
+        "이사": 4,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "네이처셀",
+      "query": "네이처셀",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "renewed": 1
+      },
+      "role": {
+        "이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "미래에셋벤처투자",
+      "query": "미래에셋벤처투자",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 4
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 2,
+        "기타비상무이사": 1,
+        "사외이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "RFHIC",
+      "query": "RFHIC",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 3
+      },
+      "role": {
+        "이사": 2,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "JYP Ent.",
+      "query": "JYP Ent.",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "concerns": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "메지온",
+      "query": "메지온",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에스엠",
+      "query": "에스엠",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "셀트리온제약",
+      "query": "셀트리온제약",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "스피어",
+      "query": "스피어",
+      "status": "exact",
+      "candidates": 8,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 8,
+        "recent_3y_transactions:success": 8,
+        "recent_2y_employee:soft-fail": 8,
+        "five_year_rule:success": 8
+      },
+      "indep_summary": {
+        "independent": 8
+      },
+      "disq": {
+        "clean": 8
+      },
+      "appt": {
+        "new": 8
+      },
+      "role": {
+        "사외이사": 6,
+        "감사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "대주전자재료",
+      "query": "대주전자재료",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "기가비스",
+      "query": "기가비스",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에임드바이오",
+      "query": "에임드바이오",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "삼현",
+      "query": "삼현",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "태성",
+      "query": "태성",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "LS마린솔루션",
+      "query": "LS마린솔루션",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "weak_concerns": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 3,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 2,
+        "기타비상무이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에스에이엠티",
+      "query": "에스에이엠티",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "오스코텍",
+      "query": "오스코텍",
+      "status": "exact",
+      "candidates": 20,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 9,
+      "indep_map": {
+        "major_shareholder_relation:success": 20,
+        "recent_3y_transactions:success": 20,
+        "recent_2y_employee:success": 1,
+        "five_year_rule:success": 20,
+        "recent_2y_employee:soft-fail": 19
+      },
+      "indep_summary": {
+        "independent": 20
+      },
+      "disq": {
+        "clean": 20
+      },
+      "appt": {
+        "ambiguous": 1,
+        "renewed": 10,
+        "new": 9
+      },
+      "role": {
+        "사외이사": 13,
+        "사내이사": 6,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "씨젠",
+      "query": "씨젠",
+      "status": "exact",
+      "candidates": 10,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 10,
+        "recent_3y_transactions:success": 10,
+        "recent_2y_employee:soft-fail": 10,
+        "five_year_rule:success": 10
+      },
+      "indep_summary": {
+        "independent": 8,
+        "weak_concerns": 2
+      },
+      "disq": {
+        "clean": 10
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 8
+      },
+      "role": {
+        "사내이사": 2,
+        "기타비상무이사": 2,
+        "사외이사": 5,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "오름테라퓨틱",
+      "query": "오름테라퓨틱",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "concerns": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "기타비상무이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "하나머티리얼즈",
+      "query": "하나머티리얼즈",
+      "status": "exact",
+      "candidates": 6,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 6,
+        "recent_3y_transactions:success": 6,
+        "recent_2y_employee:soft-fail": 6,
+        "five_year_rule:success": 6
+      },
+      "indep_summary": {
+        "weak_concerns": 4,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 6
+      },
+      "appt": {
+        "renewed": 4,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 4,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "휴림로봇",
+      "query": "휴림로봇",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에스앤에스텍",
+      "query": "에스앤에스텍",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 3
+      },
+      "role": {
+        "이사": 2,
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "와이씨",
+      "query": "와이씨",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "코미코",
+      "query": "코미코",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 2,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:success": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "ambiguous": 2
+      },
+      "role": {
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "쎄트렉아이",
+      "query": "쎄트렉아이",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "알지노믹스",
+      "query": "알지노믹스",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 2,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "삼표시멘트",
+      "query": "삼표시멘트",
+      "status": "exact",
+      "candidates": 12,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 12,
+        "recent_3y_transactions:success": 12,
+        "recent_2y_employee:soft-fail": 12,
+        "five_year_rule:success": 12
+      },
+      "indep_summary": {
+        "weak_concerns": 12
+      },
+      "disq": {
+        "clean": 12
+      },
+      "appt": {
+        "renewed": 12
+      },
+      "role": {
+        "사내이사": 6,
+        "사외이사": 6
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "에이치브이엠",
+      "query": "에이치브이엠",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "GST",
+      "query": "GST",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 1
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "SFA반도체",
+      "query": "SFA반도체",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "weak_concerns": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "기타비상무이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "큐리옥스바이오시스템즈",
+      "query": "큐리옥스바이오시스템즈",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "사외이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "HK이노엔",
+      "query": "HK이노엔",
+      "status": "exact",
+      "candidates": 5,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 5,
+        "recent_3y_transactions:success": 5,
+        "recent_2y_employee:soft-fail": 5,
+        "five_year_rule:success": 5
+      },
+      "indep_summary": {
+        "independent": 5
+      },
+      "disq": {
+        "clean": 5
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 4
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 4
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "케이엠더블유",
+      "query": "케이엠더블유",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "independent": 2
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 1,
+        "renewed": 1
+      },
+      "role": {
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "하림지주",
+      "query": "하림지주",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "renewed": 1
+      },
+      "role": {
+        "감사위원회": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "씨엠티엑스",
+      "query": "씨엠티엑스",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "제이에스링크",
+      "query": "제이에스링크",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:success": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "ambiguous": 3
+      },
+      "role": {
+        "사외이사": 2,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "신성델타테크",
+      "query": "신성델타테크",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 3
+      },
+      "role": {
+        "기타비상무이사": 1,
+        "사외이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "인텔리안테크",
+      "query": "인텔리안테크",
+      "status": "no_filing",
+      "candidates": 0,
+      "no_candidates": true,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {},
+      "indep_summary": {},
+      "disq": {},
+      "appt": {},
+      "role": {},
+      "filing_status": "no_filing"
+    },
+    {
+      "company": "LS머트리얼즈",
+      "query": "LS머트리얼즈",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 7,
+        "five_year_rule:success": 7
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 6
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 6
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 6
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "씨어스",
+      "query": "씨어스",
+      "status": "exact",
+      "candidates": 1,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 1,
+        "recent_3y_transactions:success": 1,
+        "recent_2y_employee:soft-fail": 1,
+        "five_year_rule:success": 1
+      },
+      "indep_summary": {
+        "independent": 1
+      },
+      "disq": {
+        "clean": 1
+      },
+      "appt": {
+        "new": 1
+      },
+      "role": {
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "원익QnC",
+      "query": "원익QnC",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "new": 2
+      },
+      "role": {
+        "이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "차바이오텍",
+      "query": "차바이오텍",
+      "status": "exact",
+      "candidates": 7,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 4,
+      "indep_map": {
+        "major_shareholder_relation:success": 7,
+        "recent_3y_transactions:success": 7,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 7,
+        "recent_2y_employee:success": 3
+      },
+      "indep_summary": {
+        "independent": 7
+      },
+      "disq": {
+        "clean": 7
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 2,
+        "ambiguous": 3
+      },
+      "role": {
+        "사내이사": 2,
+        "감사": 4,
+        "사외이사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "로보스타",
+      "query": "로보스타",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "independent": 3
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "new": 2,
+        "renewed": 1
+      },
+      "role": {
+        "사외이사": 1,
+        "기타비상무이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "루닛",
+      "query": "루닛",
+      "status": "exact",
+      "candidates": 4,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 1,
+      "indep_map": {
+        "major_shareholder_relation:success": 4,
+        "recent_3y_transactions:success": 4,
+        "recent_2y_employee:soft-fail": 4,
+        "five_year_rule:success": 4
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 3
+      },
+      "disq": {
+        "clean": 4
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 2,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "레이크머티리얼즈",
+      "query": "레이크머티리얼즈",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 2,
+        "new": 1
+      },
+      "role": {
+        "이사": 3
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "리브스메드",
+      "query": "리브스메드",
+      "status": "exact",
+      "candidates": 2,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 2,
+        "recent_3y_transactions:success": 2,
+        "recent_2y_employee:soft-fail": 2,
+        "five_year_rule:success": 2
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 1
+      },
+      "disq": {
+        "clean": 2
+      },
+      "appt": {
+        "renewed": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "감사": 1
+      },
+      "filing_status": "all_parsed"
+    },
+    {
+      "company": "아이티센글로벌",
+      "query": "아이티센글로벌",
+      "status": "exact",
+      "candidates": 3,
+      "no_candidates": false,
+      "no_name": 0,
+      "no_reco_reason": 0,
+      "indep_map": {
+        "major_shareholder_relation:success": 3,
+        "recent_3y_transactions:success": 3,
+        "recent_2y_employee:soft-fail": 3,
+        "five_year_rule:success": 3
+      },
+      "indep_summary": {
+        "weak_concerns": 1,
+        "independent": 2
+      },
+      "disq": {
+        "clean": 3
+      },
+      "appt": {
+        "renewed": 1,
+        "new": 2
+      },
+      "role": {
+        "사내이사": 1,
+        "사외이사": 2
+      },
+      "filing_status": "all_parsed"
+    }
+  ]
+}

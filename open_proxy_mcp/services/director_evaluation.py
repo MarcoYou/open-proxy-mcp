@@ -216,7 +216,24 @@ def _is_recent_employee(career_details: list[dict[str, Any]] | None, current_yea
                 end_year = int(m2.group(1))
         if end_year >= current_year - 2:
             return True, f"{period}: {content[:60]}"
-    return False, None
+    # 매칭 실패(soft-fail) — 경력 content가 '재직/근무' 키워드 없이 직책 형식('팀장·담당임원')이라
+    # 정규식이 못 잡는다. 최근 연도순 경력 2개 raw를 evidence로 노출해 LLM이 '실제 2년 내 이
+    # 회사 직원이었나'를 직접 판단하게 한다(docstring의 'soft-fail = raw 노출' 폴백을 실제 구현).
+    # careerDetails 순서가 학력부터인 경우가 있어 period의 최대 연도순으로 정렬해 최근 경력 우선.
+    def _max_year(c: dict) -> int:
+        return max((int(y) for y in re.findall(r"\d{4}", c.get("period") or "")), default=0)
+
+    def _is_education(c: dict) -> bool:
+        return any(k in (c.get("content") or "") for k in ("학사", "석사", "박사", "대학교", "대학원", "학과", "졸업"))
+
+    ranked = sorted(career_details, key=_max_year, reverse=True)
+    # 직원 판단엔 학력이 무용 — 경력(비학력) 우선, 없으면 학력 fallback
+    picks = [c for c in ranked if not _is_education(c)][:2] or ranked[:2]
+    recent_raw = " / ".join(
+        f"{(c.get('period') or '').strip()} {(c.get('content') or '').strip()}".strip()
+        for c in picks
+    ).strip()
+    return False, (recent_raw[:100] or None)
 
 
 def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[str, Any]:
@@ -263,8 +280,9 @@ def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[
     )
     out["sub_factors"]["recent_2y_employee"] = {
         "result": "former_employee" if employee_match else "outsider",
-        "evidence": employee_ev,
-        "mapping": "success" if employee_ev or not candidate.get("careerDetails") else "soft-fail",
+        "evidence": employee_ev,  # soft-fail이어도 '재직/근무' 경력 raw 노출 (LLM 검증용)
+        # mapping은 확정 매칭 여부 기준(evidence 유무 아님) — soft-fail에 raw 붙여도 동작 보존
+        "mapping": "success" if employee_match or not candidate.get("careerDetails") else "soft-fail",
     }
 
     # 4. 5년 룰 (같은 회사 사외이사 5년+) — careerDetails에 회사 자체가 있으면 누적 체크
