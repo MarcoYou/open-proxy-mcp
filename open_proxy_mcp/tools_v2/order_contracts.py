@@ -40,6 +40,11 @@ def _won(n: int | None) -> str:
     return f"{n:,}"
 
 
+def _pct(v) -> str:
+    """매출대비% — None이면 'None%' 노출 방지 ('-'). 0%는 그대로."""
+    return f"{v}" if v is not None else "-"
+
+
 def _render(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     s = data.get("signal_summary", {})
@@ -60,7 +65,7 @@ def _render(payload: dict[str, Any]) -> str:
         "## 수주 시그널 요약",
         f"- 유효 계약 **{s.get('order_count', 0)}건** (외부 {s.get('external_count', 0)} / 내부·계열 {s.get('internal_count', 0)})",
         f"- 외부 수주 총액 **{_won(s.get('external_total_amount_won'))}원**",
-        f"- 최근 매출액 대비 — 단일 최대 **{s.get('max_revenue_ratio_pct', '-')}%** / 합계 {s.get('sum_revenue_ratio_pct', '-')}%",
+        f"- 최근 매출액 대비 — 단일 최대 **{_pct(s.get('max_revenue_ratio_pct'))}%** / 합계 {_pct(s.get('sum_revenue_ratio_pct'))}%",
         f"- 기재정정 {s.get('correction_count', 0)}건 (변경계약 — 아래 diff)",
     ]
     if s.get("terminated_count"):
@@ -83,7 +88,7 @@ def _render(payload: dict[str, Any]) -> str:
             corr = f"{sign}{abs(cd['amount_change_pct'])}%"
         elif o.get("correction_count"):
             corr = f"{o['correction_count']}회"
-        rev_cell = f"{o.get('revenue_ratio_pct', '-')}%"
+        rev_cell = f"{_pct(o.get('revenue_ratio_pct'))}%"
         if o.get("ratio_warning"):  # 공시값과 불일치해 계산값 채택 — 공시값 병기
             rev_cell += f" ⚠(공시 {o.get('revenue_ratio_disclosed_pct')}%)"
         lines.append(
@@ -99,7 +104,7 @@ def _render(payload: dict[str, Any]) -> str:
         for t in terminations[:10]:
             lines.append(
                 f"| {t.get('rcept_dt', '')} | {(t.get('contract_name') or '-')[:24]} | {(t.get('counterparty') or '-')[:14]} "
-                f"| {_won(t.get('terminated_amount_won'))} | {t.get('revenue_ratio_pct', '-')}% |"
+                f"| {_won(t.get('terminated_amount_won'))} | {_pct(t.get('revenue_ratio_pct'))}% |"
             )
 
     return "\n".join(lines)

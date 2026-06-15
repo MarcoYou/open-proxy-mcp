@@ -28,10 +28,43 @@ from open_proxy_mcp.tools_v2._shareholder_meeting_render import (
     render_summary, render_board, render_compensation, render_aoi,
 )
 from open_proxy_mcp.tools_v2.proxy_advise_before_meeting import _render as pa_render
+# 확장: 다른 tool render 경로 (build_*_payload + _render(payload, scope))
+from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload as b_own
+from open_proxy_mcp.tools_v2.ownership_structure import _render as r_own
+from open_proxy_mcp.services.corporate_deals import build_corporate_deals_payload as b_cd
+from open_proxy_mcp.tools_v2.corporate_deals import _render as r_cd
+from open_proxy_mcp.services.dividend_v2 import build_dividend_payload as b_div
+from open_proxy_mcp.tools_v2.dividend import _render as r_div
+from open_proxy_mcp.services.treasury_share import build_treasury_share_payload as b_tre
+from open_proxy_mcp.tools_v2.treasury_share import _render as r_tre
+from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload as b_pc
+from open_proxy_mcp.tools_v2.proxy_contest import _render as r_pc
+from open_proxy_mcp.services.value_up_v2 import build_value_up_payload as b_vu
+from open_proxy_mcp.tools_v2.value_up import _render as r_vu
+from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload as b_cg
+from open_proxy_mcp.tools_v2.corp_gov_report import _render as r_cg
+from open_proxy_mcp.services.risk_events import build_risk_events_payload as b_re
+from open_proxy_mcp.tools_v2.risk_events import _render as r_re
+from open_proxy_mcp.services.order_contracts import build_order_contracts_payload as b_oc
+from open_proxy_mcp.tools_v2.order_contracts import _render as r_oc
+
+# (label, build_coro(q)->payload, render(payload)->md)
+JOBS = [
+    ("ownership.summary", lambda q: b_own(q, scope="summary"), lambda p: r_own(p, "summary")),
+    ("corporate_deals.summary", lambda q: b_cd(q, scope="summary"), lambda p: r_cd(p, "summary")),
+    ("dividend.summary", lambda q: b_div(q, scope="summary"), lambda p: r_div(p, "summary")),
+    ("treasury.summary", lambda q: b_tre(q, scope="summary"), lambda p: r_tre(p, "summary")),
+    ("proxy_contest.summary", lambda q: b_pc(q, scope="summary"), lambda p: r_pc(p, "summary")),
+    ("value_up.summary", lambda q: b_vu(q, scope="summary"), lambda p: r_vu(p, "summary")),
+    ("corp_gov.summary", lambda q: b_cg(q, scope="summary"), lambda p: r_cg(p, "summary")),
+    ("risk_events", lambda q: b_re(q), lambda p: r_re(p)),
+    ("order_contracts", lambda q: b_oc(q), lambda p: r_oc(p)),
+]
 
 UNIVERSE_FILE = os.environ.get("UNIVERSE_FILE", "/tmp/kospi_kosdaq_300.json")
 LIMIT = int(os.environ.get("LIMIT", "40"))
 PA_LIMIT = int(os.environ.get("PA_LIMIT", "15"))
+JOBS_LIMIT = int(os.environ.get("JOBS_LIMIT", "60"))
 OUT = Path(os.environ.get("AUDIT_OUT", "wiki/architecture/audits/data/260615_render_anomaly_scan.json"))
 
 ANOMALY = [
@@ -97,6 +130,22 @@ async def main() -> None:
         except Exception as exc:  # noqa: BLE001
             all_hits.append({"company": q, "view": "proxy_advise", "anomaly": "EXC", "line": f"{type(exc).__name__}: {str(exc)[:60]}"})
         await asyncio.sleep(0.5)
+
+    # 확장 — 9개 tool render 스캔
+    for i, q in enumerate(universe[:JOBS_LIMIT]):
+        for label, build_fn, render_fn in JOBS:
+            try:
+                p = await build_fn(q)
+                if isinstance(p, dict) and p.get("status") not in ("error", "ambiguous"):
+                    all_hits.extend(_scan(render_fn(p), q, label))
+            except httpx.ReadError as exc:
+                print(f"  [ABORT {label}] {q}: {exc}")
+                return
+            except Exception as exc:  # noqa: BLE001
+                all_hits.append({"company": q, "view": label, "anomaly": "EXC", "line": f"{type(exc).__name__}: {str(exc)[:60]}"})
+            await asyncio.sleep(0.3)
+        if (i + 1) % 20 == 0:
+            print(f"  jobs {i+1}/{JOBS_LIMIT} 누적콜={client.api_call_snapshot()-calls0} {(time.time()-t0)/60:.1f}분")
 
     by_anom = Counter(h["anomaly"] for h in all_hits)
     by_view = Counter(h["view"] for h in all_hits)
