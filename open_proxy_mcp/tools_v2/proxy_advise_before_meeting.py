@@ -47,12 +47,12 @@ _SUB_FACTOR_LABELS = {
     "five_year_rule": "5년 임기 룰",
 }
 
-# 독립성 sub_factor result → 한글 (🔴=독립성 우려). 화면 후보 평가 근거 노출용.
+# 독립성 sub_factor result → 한글 (⚠️=독립성 우려). 화면 후보 평가 근거 노출용.
 _INDEP_RESULT_KO = {
-    "independent": "관계없음", "related": "🔴특수관계 있음",
-    "no_transactions": "거래 없음", "transactions_exist": "🔴거래 있음",
-    "outsider": "외부인", "former_employee": "🔴최근 2년 내 직원",
-    "first_term_or_short": "첫 임기/단기", "long_tenure_concerns": "🔴장기연임(5년+)",
+    "independent": "관계없음", "related": "⚠️특수관계 있음",
+    "no_transactions": "거래 없음", "transactions_exist": "⚠️거래 있음",
+    "outsider": "외부인", "former_employee": "⚠️최근 2년 내 직원",
+    "first_term_or_short": "첫 임기/단기", "long_tenure_concerns": "⚠️장기연임(5년+)",
 }
 
 
@@ -305,7 +305,7 @@ def _render(payload: dict[str, Any]) -> str:
                     lines.append(f"  - ⚠ 자본잠식 (ROE/부채 자동 저조)")
                 om = perf.get("operating_margin")  # 본업 수익성 fact (점수 미반영) — ROE 왜곡 보완
                 if om and om.get("avg_pct") is not None:
-                    core = "본업 흑자" if om.get("core_profitable") else "🔴본업 적자"
+                    core = "본업 흑자" if om.get("core_profitable") else "⚠️본업 적자"
                     tr = om.get("trend_pp_per_year")
                     lines.append(
                         f"  - 영업이익률(참고, 점수 미반영): 평균 {om['avg_pct']:.1f}% ({core})"
@@ -328,7 +328,7 @@ def _render(payload: dict[str, Any]) -> str:
                     if os_.get("terminated_count"):  # 해지 = 부정 시그널
                         tmx = os_.get("max_terminated_revenue_ratio_pct")
                         parts.append(
-                            f"🔴해지 {os_.get('terminated_count')}건 {_won_s(os_.get('terminated_total_amount_won'))}원"
+                            f"⚠️해지 {os_.get('terminated_count')}건 {_won_s(os_.get('terminated_total_amount_won'))}원"
                             + (f"(매출대비 최대 {tmx}%)" if tmx else "")
                         )
                     if parts:  # 외부 수주·해지 둘 다 없으면(계열만) line 생략

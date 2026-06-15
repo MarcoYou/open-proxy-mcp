@@ -70,7 +70,7 @@ def _render(payload: dict[str, Any]) -> str:
     ]
     if s.get("terminated_count"):
         lines.append(
-            f"- 🔴 계약 해지 **{s.get('terminated_count')}건** {_won(s.get('terminated_total_amount_won'))}원"
+            f"- ⚠️ 계약 해지 **{s.get('terminated_count')}건** {_won(s.get('terminated_total_amount_won'))}원"
             + (f" (해지 매출대비 최대 {s.get('max_terminated_revenue_ratio_pct')}%)" if s.get("max_terminated_revenue_ratio_pct") else "")
         )
     lines.append("")

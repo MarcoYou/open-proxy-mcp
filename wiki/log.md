@@ -3,6 +3,19 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-16] fix/audit | render 출력 점검 (11 tool·410사) — 화면 이상 3종 + evidence 노출
+
+상세: [[render-output-audit-260616]]
+
+- `proxy_advise` (render)
+  - facts에 dict(`candidate_review_profile`) 통째 raw 노출 차단 → 요약 (None·숫자 새어나옴 근본원인)
+  - 계열만 있는 회사 '외부 수주 0건 0억원' 군더더기 생략 (external_count 기준)
+  - **후보 독립성 sub_factor 근거 화면 구조화 노출** (2년 직원 경력 raw 등 — 애널리스트 검토용)
+  - 경고 아이콘 ⚠️ 통일 (등급 색상 🟢🟡🟠🔴은 유지)
+- `order_contracts` (render)
+  - 'None%' 노출 방지 — `.get(key,'-')`는 None값에 default 안 씀, `_pct()` 헬퍼로 방어
+- 진단 도구: `scripts/render_anomaly_scan.py` (11 tool render 이상 스캔, 410사·52분 실증)
+
 ## [2026-06-15] fix/audit | 주총 안건 파싱 점검 (진행중) — 보수한도 단위·폴백 + agenda 카테고리
 
 상세 + 남은 작업: [[shareholder-meeting-agenda-parse-260615]]
