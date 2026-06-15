@@ -47,6 +47,33 @@ _SUB_FACTOR_LABELS = {
     "five_year_rule": "5년 임기 룰",
 }
 
+# 독립성 sub_factor result → 한글 (🔴=독립성 우려). 화면 후보 평가 근거 노출용.
+_INDEP_RESULT_KO = {
+    "independent": "관계없음", "related": "🔴특수관계 있음",
+    "no_transactions": "거래 없음", "transactions_exist": "🔴거래 있음",
+    "outsider": "외부인", "former_employee": "🔴최근 2년 내 직원",
+    "first_term_or_short": "첫 임기/단기", "long_tenure_concerns": "🔴장기연임(5년+)",
+}
+
+
+def _indep_evidence_lines(c: dict[str, Any]) -> list[str]:
+    """후보 독립성 sub_factor별 결과 + 근거(경력 raw/관계 raw) 구조화 — 사외이사/감사위원."""
+    role = c.get("role_type", "") or ""
+    ind = c.get("independence") or {}
+    subs = ind.get("sub_factors") or {}
+    if not subs or not any(k in role for k in ("사외", "감사", "독립")):
+        return []
+    out = [f"- 독립성 근거 (종합: {_ind_label(ind.get('summary', '-'))}):"]
+    for key in ("major_shareholder_relation", "recent_3y_transactions", "recent_2y_employee", "five_year_rule"):
+        sf = subs.get(key) or {}
+        if not sf:
+            continue
+        res = _INDEP_RESULT_KO.get(sf.get("result"), sf.get("result") or "-")
+        ev = sf.get("evidence") or sf.get("raw")
+        ev_str = f" — 근거: {str(ev).strip()[:70]}" if ev and str(ev).strip() not in ("-", "없음") else ""
+        out.append(f"  - {_SUB_FACTOR_LABELS.get(key, key)}: {res}{ev_str}")
+    return out
+
 
 def _ind_label(code: str) -> str:
     return _INDEPENDENCE_LABELS.get(code, code)
@@ -252,6 +279,8 @@ def _render(payload: dict[str, Any]) -> str:
                     items = grp.get("items") or []
                     items_str = " / ".join(items[:3])
                     lines.append(f"  - {co} — {items_str}")
+            # 독립성 4 sub_factor 결과 + 근거(경력 raw 등) — 사외이사/감사위원
+            lines.extend(_indep_evidence_lines(c))
             if ah_red:
                 lines.append(f"- 과거 회사 회계 risk 이력 (raw): {len(ah_red)}건 발견 — 본문 raw 메모 검토")
             # 사내이사 재직 중 성과 (ralph 260505) — 사내이사 + renewed에만 부착됨
