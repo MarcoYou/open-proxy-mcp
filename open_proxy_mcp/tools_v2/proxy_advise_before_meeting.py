@@ -172,7 +172,16 @@ def _render(payload: dict[str, Any]) -> str:
             if full_reason:
                 lines.append(f"- 사유 (full): {full_reason}")
             if facts:
-                fact_str = ", ".join(f"{k}={v}" for k, v in facts.items())
+                # dict/list 값(candidate_review_profile 등)은 raw 노출 금지 — Python 객체가
+                # markdown에 통째로 박혀 None·내부 숫자가 새어 나온다. 스칼라만 표시,
+                # 구조값은 항목 수로 요약(상세는 별도 후보 평가 섹션에 노출됨).
+                def _fmt_fact(v: Any) -> str:
+                    if isinstance(v, dict):
+                        return f"(상세 {len(v)}항목 — 후보 평가 섹션 참조)"
+                    if isinstance(v, list):
+                        return f"[{len(v)}건]"
+                    return str(v)
+                fact_str = ", ".join(f"{k}={_fmt_fact(v)}" for k, v in facts.items())
                 lines.append(f"- 사실(facts): {fact_str}")
             else:
                 lines.append("- 사실(facts): (해당 카테고리에 정량 fact 없음)")
