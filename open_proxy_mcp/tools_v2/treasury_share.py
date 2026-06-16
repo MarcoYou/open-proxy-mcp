@@ -47,14 +47,16 @@ def _render_error(payload: dict[str, Any]) -> str:
 
 
 def _won(n) -> str:
-    """금액 raw → 조/억 환산 (가독성). order_contracts·proxy_advise와 동일 정책."""
+    """금액 → '환산 (raw원)' 병기. 환산은 절삭이 있어 정밀 raw를 괄호로 같이 노출.
+    1억 미만은 절삭이 없어 raw만. treasury·dividend·order_contracts·proxy_advise 공통 정책."""
     if not n:
         return "-"
+    raw = f"{n:,}원"
     if n >= 1_0000_0000_0000:  # 1조
-        return f"{n/1_0000_0000_0000:.2f}조원"
+        return f"{n/1_0000_0000_0000:.2f}조원 ({raw})"
     if n >= 1_0000_0000:  # 1억
-        return f"{n/1_0000_0000:,.0f}억원"
-    return f"{n:,}원"
+        return f"{n/1_0000_0000:,.0f}억원 ({raw})"
+    return raw
 
 
 def _render(payload: dict[str, Any], scope: str) -> str:

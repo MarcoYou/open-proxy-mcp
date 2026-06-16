@@ -31,13 +31,15 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
 
 
 def _won(n: int | None) -> str:
+    """금액 → '환산 (raw원)' 병기. 환산 절삭 보완 위해 정밀 raw 괄호 노출. 1억 미만은 raw만."""
     if not n:
         return "-"
+    raw = f"{n:,}원"
     if n >= 1_0000_0000_0000:  # 1조
-        return f"{n/1_0000_0000_0000:.2f}조"
+        return f"{n/1_0000_0000_0000:.2f}조원 ({raw})"
     if n >= 1_0000_0000:  # 1억
-        return f"{n/1_0000_0000:,.0f}억"
-    return f"{n:,}"
+        return f"{n/1_0000_0000:,.0f}억원 ({raw})"
+    return raw
 
 
 def _pct(v) -> str:
@@ -64,13 +66,13 @@ def _render(payload: dict[str, Any]) -> str:
     lines += [
         "## 수주 시그널 요약",
         f"- 유효 계약 **{s.get('order_count', 0)}건** (외부 {s.get('external_count', 0)} / 내부·계열 {s.get('internal_count', 0)})",
-        f"- 외부 수주 총액 **{_won(s.get('external_total_amount_won'))}원**",
+        f"- 외부 수주 총액 **{_won(s.get('external_total_amount_won'))}**",
         f"- 최근 매출액 대비 — 단일 최대 **{_pct(s.get('max_revenue_ratio_pct'))}%** / 합계 {_pct(s.get('sum_revenue_ratio_pct'))}%",
         f"- 기재정정 {s.get('correction_count', 0)}건 (변경계약 — 아래 diff)",
     ]
     if s.get("terminated_count"):
         lines.append(
-            f"- ⚠️ 계약 해지 **{s.get('terminated_count')}건** {_won(s.get('terminated_total_amount_won'))}원"
+            f"- ⚠️ 계약 해지 **{s.get('terminated_count')}건** {_won(s.get('terminated_total_amount_won'))}"
             + (f" (해지 매출대비 최대 {s.get('max_terminated_revenue_ratio_pct')}%)" if s.get("max_terminated_revenue_ratio_pct") else "")
         )
     lines.append("")
