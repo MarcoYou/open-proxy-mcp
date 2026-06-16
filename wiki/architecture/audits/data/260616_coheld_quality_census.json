@@ -529,7 +529,7 @@
     "headline": 47.62,
     "format": "일반",
     "parse": "ok",
-    "self_name": "ICROELECTRONICSINTERNATIONAL CORPORATION",
+    "self_name": "HALO MICROELECTRONICSINTERNATIONAL CORPORATION",
     "summed": 47.61,
     "n_related": 2,
     "bad_names": [],
@@ -1140,12 +1140,12 @@
   {
     "name": "피앤씨테크",
     "tag": "dispute",
-    "rcept": "20260609000531",
-    "headline": 37.68,
+    "rcept": "20260616000341",
+    "headline": 38.07,
     "format": "일반",
     "parse": "ok",
     "self_name": "조광식",
-    "summed": 37.68,
+    "summed": 38.07,
     "n_related": 2,
     "bad_names": [],
     "invariant_ok": true
@@ -2283,7 +2283,15 @@
   {
     "name": "한국항공우주",
     "tag": "general",
-    "err": "DartClientError"
+    "rcept": "20260616000329",
+    "headline": 9.04,
+    "format": "일반",
+    "parse": "ok",
+    "self_name": "한화에어로스페이스(주)",
+    "summed": 8.03,
+    "n_related": 1,
+    "bad_names": [],
+    "invariant_ok": false
   },
   {
     "name": "KT",
@@ -3498,7 +3506,7 @@
     "headline": 9.66,
     "format": "일반",
     "parse": "ok",
-    "self_name": "nt Music Entertainment Hong Kong Limited",
+    "self_name": "Tencent Music Entertainment Hong Kong Limited",
     "summed": 9.66,
     "n_related": 0,
     "bad_names": [],
