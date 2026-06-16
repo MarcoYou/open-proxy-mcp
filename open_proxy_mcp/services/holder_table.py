@@ -23,11 +23,20 @@ from typing import Any
 # ID: 생년월일 6자리 | 사업자번호(하이픈) | 법인·고유번호(하이픈 없는 5~13자리, 이탄에쿼티
 # 53541 / 백운조합 6758003138 실측). 이름엔 숫자가 없어 이름 뒤 첫 숫자런이 항상 ID.
 _ID = r"(?:\d{3}-\d{2,3}-\d{4,5}|\d{5,13})"
-# 한 행: [이름(한글/영문/공백/괄호/·)] [ID] [숫자/-/콤마 토큰들] → 마지막 비율(X.XX) 직전이 합계주수
+# 한 행: [이름] [ID] [숫자/-/콤마 토큰들] → 마지막 비율(X.XX) 직전이 합계주수.
+# 이름에 숫자 허용(non-greedy) — 펀드·조합명의 '제N호'가 잘려 "호"만 남던 문제 해결.
+# ID는 5~13자리 연속수(또는 DOB 6/사업자 하이픈)라 '제1호'의 단자리 숫자엔 매칭 안 돼 안전.
 _ROW = re.compile(
-    r"([가-힣A-Za-z()ㄱ-ㆎ·,.&\s]{1,40}?)\s+(" + _ID + r")\s+"
+    r"([가-힣A-Za-z0-9()ㄱ-ㆎ·,.&\s]{1,40}?)\s+(" + _ID + r")\s+"
     r"((?:[\d,]+|-|0)(?:\s+(?:[\d,]+|-|0))*)\s+([\d,]+|-)\s+(\d+\.\d+|-)"
 )
+
+
+def _clean_name(raw: str) -> str:
+    """이름 정제 — 잔여 헤더 토큰(주수/비율/보고자/특별관계자)·구두점 제거."""
+    name = re.sub(r"\s+", " ", raw or "").strip(" ,.")
+    name = re.sub(r"^(?:주수|비율|보고자|특별관계자)\s*", "", name).strip(" ,.")
+    return name
 
 
 def parse_holder_table(html: str) -> dict[str, Any] | None:
@@ -41,20 +50,33 @@ def parse_holder_table(html: str) -> dict[str, Any] | None:
         return {"format": "no_table", "self": None, "related": []}
     flat = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
     # 정정본: 합계표가 2번 → 마지막(정정후) 사용
-    anchors = [m.start() for m in re.finditer(r"주수\s*비율\s*보고자", flat)]
+    anchors = list(re.finditer(r"주수\s*비율\s*보고자", flat))
     if not anchors:
         # 합계표 마커 자체가 없음 = 약식(기관 단순투자 등) — 특별관계자 분해 대상 아님
         return {"format": "no_table", "self": None, "related": []}
-    seg = flat[anchors[-1]: anchors[-1] + 4000]
+    # 앵커(헤더) '다음'부터 파싱 — self 이름에 '주수 비율'이 섞이던 오염 제거
+    start = anchors[-1].end()
+    seg = flat[start: start + 4000]
     seg = re.split(r"※\s*소유에\s*준하는|제\d부\s|주\d\)", seg)[0]
-    # 보고자/특별관계자 라벨 제거 후 행 파싱
-    seg2 = seg.replace("보고자", " ").replace("특별관계자", " ")
+    # 특별관계자 구분 라벨 제거 후 행 파싱
+    seg2 = seg.replace("특별관계자", " ").replace("보고자", " ")
     holders: list[dict[str, Any]] = []
     for m in _ROW.finditer(seg2):
-        name = re.sub(r"\s+", " ", m.group(1)).strip(" ,")
+        name = _clean_name(m.group(1))
         pct_raw = m.group(5)  # 비율 (group4는 합계주수)
         pct = 0.0 if pct_raw == "-" else float(pct_raw)
-        holders.append({"name": name, "pct": pct})
+        if name:
+            holders.append({"name": name, "pct": pct})
     if not holders:
         return None
     return {"format": "일반", "self": holders[0], "related": holders[1:]}
+
+
+def holder_table_total(parsed: dict[str, Any] | None) -> float | None:
+    """보고자 본인 + 특별관계자 비율 합 (불변식 검증용 — 헤드라인 보유비율과 대조)."""
+    if not parsed or parsed.get("format") != "일반" or not parsed.get("self"):
+        return None
+    total = (parsed["self"].get("pct") or 0.0)
+    for r in parsed.get("related", []):
+        total += r.get("pct") or 0.0
+    return round(total, 2)

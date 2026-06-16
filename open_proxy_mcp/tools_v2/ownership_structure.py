@@ -100,9 +100,28 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"| 외 {len(hidden)}인 (0.1% 미만) | 특수관계인 | {hidden_pct:.2f}% | {hidden_shares:,} |")
 
     if scope in {"summary", "blocks", "control_map"}:
+        blocks = data.get("blocks", []) or []
         lines.extend(["", "## 5% 대량보유 최신", "| 보고자 | 지분율 | 보유목적 | 날짜 | rcept_no |", "|--------|--------|----------|------|----------|"])
-        for row in data.get("blocks", [])[:15]:
+        for row in blocks[:15]:
             lines.append(f"| {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | {row['report_date']} | `{row['rcept_no']}` |")
+        # 공동보유자 분해 — 헤드라인 지분율은 보고자 본인+특별관계자 합산이라, 누가 얼마씩인지 표기.
+        co_blocks = [r for r in blocks[:15] if r.get("co_holders")]
+        if co_blocks:
+            lines.append("")
+            lines.append("## 공동보유자 분해 (보고자 본인 vs 특별관계자)")
+            lines.append("> 헤드라인 지분율 = 보고자 본인 + 특별관계자 **합산**. 아래는 그 내역.")
+            for r in co_blocks:
+                verified = r.get("co_holders_verified")
+                vtag = "" if verified else "  ⚠합계 미검증(원문 대조 권장)"
+                lines.append("")
+                lines.append(f"### {r['reporter']} {r['ownership_pct']:.2f}% "
+                             f"(본인 {r.get('reporter_self_pct')}% + 특관, 합산 {r.get('co_holders_total_pct')}%){vtag}")
+                lines.append("| 공동보유자 | 지분율 | 명부 최대주주 |")
+                lines.append("|------------|--------|----------------|")
+                lines.append(f"| {r['reporter']} (보고자 본인) | {r.get('reporter_self_pct')}% | - |")
+                for ch in sorted(r["co_holders"], key=lambda x: -(x.get("ownership_pct") or 0)):
+                    reg = "✓" if ch.get("is_registry_holder") else ""
+                    lines.append(f"| {ch.get('name','')} | {ch.get('ownership_pct')}% | {reg} |")
 
     # 자사주는 요약줄 + 100% 지분 구성표에 이미 노출되므로 별도 섹션은 두지 않는다(중복 제거).
     # 자사주 상세(취득/처분 이력 등)는 treasury_share tool.
@@ -222,10 +241,10 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 최대주주·특수관계인·5% 대량보유 지분 구조. 자사주 detail은 `treasury_share` 별도.
-        when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널.
-        rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback.
-        scope: `summary` 최대주주+5%블록+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동) / `changes` 최대주주변동신고서(I004) + 5% 대량보유 변동(D001) 통합
+        """desc: 최대주주·특수관계인·5% 대량보유 지분 구조 + **공동보유자 분해**. 자사주 detail은 `treasury_share` 별도.
+        when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널, **"OO의 N% 지분이 누구누구 공동보유냐 / 보고자 본인 지분은 얼마냐"** 질의.
+        rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback. 5% 보고 헤드라인 지분율(ownership_pct)은 **보고자 본인 + 특별관계자 합산**임 — 본인만 보려면 `reporter_self_pct`, 공동보유자 내역은 `co_holders`[{name, ownership_pct, is_registry_holder}] 사용. `co_holders_verified=False`면 합계 미검증이라 원문 대조 필요(확정 인용 금지). 합계표 없는 약식보고(기관 단순투자 등)는 co_holders=None.
+        scope: `summary` 최대주주+5%블록(+공동보유자 분해)+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력+공동보유자 분해 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동)+공동보유자 / `changes` 최대주주변동신고서(I004) + 5% 대량보유 변동(D001) 통합
         ref: treasury_share, proxy_contest, evidence
         """
         payload = await build_ownership_structure_payload(

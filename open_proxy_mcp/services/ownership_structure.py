@@ -22,7 +22,7 @@ from open_proxy_mcp.services.contracts import (
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
-from open_proxy_mcp.services.holder_table import parse_holder_table
+from open_proxy_mcp.services.holder_table import holder_table_total, parse_holder_table
 from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
 
 _SUPPORTED_SCOPES = {
@@ -275,6 +275,51 @@ def _is_material_block(row: dict[str, Any]) -> bool:
     return _to_float(row.get("ownership_pct", 0)) >= 5.0
 
 
+def _enrich_co_holders(blocks: list[dict[str, Any]], major_rows: list[dict[str, Any]]) -> None:
+    """각 5% 블록에 공동보유자 분해를 부착(in-place). 모든 scope(summary/blocks/control_map) 공통.
+
+    합계표(holder_table)가 파싱된 블록만 — 보고자 본인(reporter_self_pct) vs 공동보유자
+    (co_holders: 각자 이름·지분·명부최대주주 여부)로 나눈다. 헤드라인 보유비율(ownership_pct)은
+    본인+특관 합산이라, 이 분해가 "32.78% = 누가 얼마씩"에 답한다. 불변식(합≈헤드라인) 검증값도
+    함께 부착 — 불일치면 co_holders_verified=False(확정 표기 금지).
+    """
+    major_name_map = {
+        _normalize_entity_name(r["name"]): r for r in major_rows if _normalize_entity_name(r["name"])
+    }
+    for row in blocks:
+        ht = row.get("holder_table")
+        self_pct = None
+        co_holders = None
+        co_total = None
+        co_verified = None
+        coheld_names: list[str] = []
+        if ht and ht.get("format") == "일반" and ht.get("self"):
+            self_pct = ht["self"].get("pct")
+            co_holders = []
+            for rel in ht.get("related", []):
+                rel_key = _normalize_entity_name(rel.get("name", ""))
+                is_reg = bool(rel_key and rel_key in major_name_map)
+                co_holders.append({
+                    "name": rel.get("name", ""),
+                    "ownership_pct": rel.get("pct"),
+                    "is_registry_holder": is_reg,  # 명부상 최대주주 테이블에 있는가
+                })
+                if is_reg:
+                    coheld_names.append(major_name_map[rel_key]["name"])
+            coheld_names = sorted(set(coheld_names))
+            co_total = holder_table_total(ht)
+            headline = _to_float(row.get("ownership_pct"))
+            if co_total is not None and headline:
+                co_verified = abs(co_total - headline) <= max(headline * 0.05, 0.5)
+        row["self_pct"] = self_pct
+        row["reporter_self_pct"] = self_pct            # 보고자 본인 지분
+        row["co_holders"] = co_holders                 # 공동보유자 명세 [{name, ownership_pct, is_registry_holder}]
+        row["co_holders_total_pct"] = co_total         # 본인+특관 합 (헤드라인 검산)
+        row["co_holders_verified"] = co_verified       # 합≈헤드라인이면 True, 불일치 False(미검증)
+        row["coheld_with_registry"] = bool(coheld_names)
+        row["coheld_names"] = coheld_names
+
+
 def _build_control_map(
     major_rows: list[dict[str, Any]],
     latest_blocks: list[dict[str, Any]],
@@ -299,25 +344,12 @@ def _build_control_map(
         # coheld_with_registry = 특별관계자에 명부상 최대주주가 포함 → 공동보유. 이 경우
         # 보고자가 외부 세력처럼 보여도(reporter 이름이 명부에 없어 registry_overlap=False)
         # 실제로는 최대주주와 한 편이므로 "외부 능동 블록"으로 단정하면 안 된다.
-        holder_table = row.get("holder_table")
-        self_pct: float | None = None
-        coheld_names: list[str] = []
-        if holder_table and holder_table.get("self"):
-            self_pct = holder_table["self"].get("pct")
-            for rel in holder_table.get("related", []):
-                rel_key = _normalize_entity_name(rel.get("name", ""))
-                if rel_key and rel_key in major_name_map:
-                    coheld_names.append(major_name_map[rel_key]["name"])
-            # 중복 제거(이름순 안정)
-            coheld_names = sorted(set(coheld_names))
+        # co_holders/self_pct/coheld_* 는 _enrich_co_holders가 이미 row에 부착(모든 scope 공통).
         enriched = {
             **row,
             "registry_overlap": bool(matched_major),
             "matched_major_holder": matched_major.get("name") if matched_major else None,
             "active_purpose": _is_active_purpose(row.get("purpose", "")),
-            "self_pct": self_pct,
-            "coheld_with_registry": bool(coheld_names),
-            "coheld_names": coheld_names,
         }
         if enriched["registry_overlap"]:
             overlap_blocks.append(enriched)
@@ -926,6 +958,8 @@ async def build_ownership_structure_payload(
                 "공시 지분율은 우선주 포함 총주식 기준일 수 있음. 100% 분해표는 보통주 기준."
             )
     top_holder = _top_holder_summary(major_rows)
+    # 공동보유자 분해를 모든 scope의 5% 블록에 부착 (summary/blocks에서도 노출되도록).
+    _enrich_co_holders(latest_blocks, major_rows)
     active_signals = [
         row for row in latest_blocks
         if row["purpose"] not in ("단순투자", "단순투자/일반투자", "불명")
