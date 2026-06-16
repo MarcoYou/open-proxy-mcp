@@ -65,9 +65,17 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+_TURNOVER_BASIS_KR = {"ttm": "TTM(최근 4분기)", "annual": "연간", "period_matched": "분기 기간보정"}
+
+
 def _render_summary(data: dict[str, Any]) -> list[str]:
     s = data.get("summary", {}) or {}
-    lines = ["## 핵심 지표"]
+    lines: list[str] = []
+    # 기준(당기/누적/TTM) 항상 명시
+    if s.get("basis_note"):
+        lines.append(f"> **기준**: {s['basis_note']}")
+        lines.append("")
+    lines.append("## 핵심 지표")
     lines.append(f"- 매출액: {_format_krw_human(s.get('revenue_krw'))}  /  매출총이익: {_format_krw_human(s.get('gross_profit_krw'))}  /  영업이익: {_format_krw_human(s.get('operating_profit_krw'))}")
     # EBITDA는 D&A 추출 가능 회사(~24%)만 산출 — None이면 줄에서 생략 (결측 광고 방지)
     if s.get("ebitda_krw") is not None:
@@ -117,7 +125,8 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
     lines.append(f"- 순운전자본 NWC (매출채권+재고-매입채무): {_format_krw_human(s.get('nwc_krw'))}")
     lines.append(f"- NWC YoY 변동: {_format_krw_human(s.get('nwc_change_yoy_krw'))}")
     lines.append(f"- NWC/매출 (효율, 낮을수록 좋음): {_pct(s.get('nwc_to_revenue_pct'))}")
-    lines.append(f"- 회전일수: DSO {_ratio(s.get('days_sales_outstanding'))}일 / DIO {_ratio(s.get('days_inventory_outstanding'))}일 / DPO {_ratio(s.get('days_payable_outstanding'))}일")
+    _tb = _TURNOVER_BASIS_KR.get(s.get("turnover_basis"), s.get("turnover_basis") or "-")
+    lines.append(f"- 회전일수 (분모 기준: {_tb}): DSO {_ratio(s.get('days_sales_outstanding'))}일 / DIO {_ratio(s.get('days_inventory_outstanding'))}일 / DPO {_ratio(s.get('days_payable_outstanding'))}일")
     lines.append(f"- 현금전환주기(DSO+DIO-DPO): {_ratio(s.get('cash_conversion_cycle_days'))}일")
     lines.append("")
     lines.append("## 회계 risk 지표 (분식 신호)")
@@ -132,6 +141,13 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
     lines.append("")
     lines.append("## NAV / 주식")
     lines.append(f"- NAV (순자산가치): {_format_krw_human(s.get('nav_krw'))}")
+    # 반기/3분기 보고서면 누적(위)과 별도로 당기 분기(standalone) 손익·현금흐름 제공
+    st = s.get("standalone")
+    if st:
+        lines.append("")
+        lines.append("## 당기 분기(standalone, 3개월) — 위 누적과 별도")
+        lines.append(f"- 매출: {_format_krw_human(st.get('revenue_krw'))}  /  영업이익: {_format_krw_human(st.get('operating_profit_krw'))}  /  순이익: {_format_krw_human(st.get('net_income_krw'))}  /  영업이익률: {_pct(st.get('operating_margin_pct'))}")
+        lines.append(f"- CFO: {_format_krw_human(st.get('cfo_krw'))}  /  FCF: {_format_krw_human(st.get('fcf_krw'))}  /  CFO/영업이익: {_ratio(st.get('cfo_to_op_ratio'))}")
     return lines
 
 
@@ -259,6 +275,7 @@ def _render_qoq(data: dict[str, Any]) -> list[str]:
     lines.append("|------|------|--------|-----------|")
     qoq_pct = curr.get("qoq_pct") or {}
     chg_keys = {"revenue_krw": "revenue", "operating_profit_krw": "operating_profit", "net_income_krw": "net_income"}
+    pp_keys = {"operating_margin_pct": "operating_margin_pp", "net_profit_margin_pct": "net_profit_margin_pp"}
     pairs = [
         ("매출액", "revenue_krw", _format_krw_human),
         ("영업이익", "operating_profit_krw", _format_krw_human),
@@ -266,7 +283,13 @@ def _render_qoq(data: dict[str, Any]) -> list[str]:
         ("영업이익률", "operating_margin_pct", _pct),
     ]
     for label, key, fmt in pairs:
-        chg = _chg(qoq_pct.get(chg_keys[key])) if key in chg_keys else "-"
+        if key in chg_keys:
+            chg = _chg(qoq_pct.get(chg_keys[key]))  # 손익은 증감률(%)
+        elif key in pp_keys:
+            pp = qoq_pct.get(pp_keys[key])  # 마진은 %포인트
+            chg = f"{pp:+.2f}%p" if pp is not None else "-"
+        else:
+            chg = "-"
         lines.append(f"| {label} | {fmt(curr.get(key))} | {fmt(prev.get(key)) if prev else '-'} | {chg} |")
     lines.extend(["", "## Alerts"])
     if alerts:
@@ -353,7 +376,8 @@ def register_tools(mcp):
         """desc: DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk. 한국 표준(연결, 지배주주 귀속). 듀퐁·FCF·NWC·accruals_gap·감사의견 자동 산출.
         when: 재무 펀더멘탈 + 회계 risk 진단 / 적자전환·턴어라운드·이자보상배율 alert / 사외이사 후보 재직 시점 회계 사건 cross-check.
         rule: source = fnlttSinglAcnt(BS+IS 30행, 요청 fs_div로 행 필터) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 raw KRW int(_krw), %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful. 금융사(은행·지주)는 매출액 계정이 없어 None — 영업이익·순이익 기준 해석. 분기 합≠연간이면 기중 분할·재작성 warning 자동 부착. 이자보상배율 분모 = IS 이자비용, 없으면 CF '이자의 지급' (금융비용 총액 사용 안 함). EBITDA는 CF에서 D&A가 추출된 회사만 산출 (조정 합계 공시 회사는 None).
-        scope: `summary` 51 핵심 지표 1년 / `yearly` N년 추이 / `quarterly` 12분기 standalone 손익 + QoQ·YoY 기본 동봉 (Q4는 연간−3분기 누적 차분 — 연간치 혼입 없음) / `yoy` 전년+22 alert / `qoq` 전분기 (standalone 기준) / `audit_opinion` 3년 추이
+        period: DART 기간 의미가 항목별로 다름 — 손익 thstrm=당기3개월/누적은 thstrm_add, 현금흐름=누적, 재무상태=잔액. summary가 분기보고서면 ① 손익은 누적(YTD) 기준 primary + 당기 분기(standalone)를 `standalone`에 별도 동봉(반기/3분기), ② 회전일수(DSO/DIO/CCC)는 TTM(최근 4분기) 분모로 산출(단일분기 연환산 왜곡 제거), ③ ROE/ROA/자산회전율은 연환산 안 함(분기값). 기준은 항상 `period_basis`/`turnover_basis`/`basis_note`로 명시. year 미지정 시 quarterly·qoq는 당해 연도(최신 분기 포함), summary·yearly·yoy는 직전 사업연도.
+        scope: `summary` 핵심 지표 1년(분기보고서면 누적+standalone) / `yearly` N년 추이 / `quarterly` 12분기 standalone 손익 + QoQ·YoY(마진은 %p) 기본 동봉 (Q4는 연간−3분기 누적 차분 — 연간치 혼입 없음) / `yoy` 전년+alert / `qoq` 전분기 (standalone 기준) / `audit_opinion` 3년 추이
         ref: dividend, corp_gov_report, shareholder_meeting_notice, evidence
         """
         payload = await build_financial_metrics_payload(

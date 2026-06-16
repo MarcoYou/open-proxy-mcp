@@ -27,7 +27,7 @@ Click any feature for a detailed page.
 - **[Ownership map](docs/features/en/ownership.md)** — largest shareholder, related parties, 5% blocks, and treasury shares — the real size of control.
 - **[AGM agenda](docs/features/en/meeting-agenda.md)** — agenda items, director nominees, compensation limits, articles amendments, plus post-AGM results and approval rates.
 - **[Shareholder return](docs/features/en/shareholder-return.md)** — dividends, the treasury buyback-to-cancellation cycle, and value-up plans, comparing what was promised against what was actually executed.
-- **[Financial metrics](docs/features/en/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend). Quarterly figures are standalone three-month values with QoQ/YoY changes included by default.
+- **[Financial metrics](docs/features/en/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend). Quarterly results are provided on two bases — cumulative (YTD) and current-quarter (3-month) — with QoQ/YoY, and turnover days use a TTM basis; the basis in use is always stated.
 - **[Corporate risk events](wiki/tools/risk_events.md)** — tracks serious-accident, embezzlement/breach-of-trust, and production-halt filings. With no company specified, it scans the whole market for recent events.
 
 Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, equity stake deals and related-party transactions — are in the [17-tool catalog](wiki/tools/README.md).
