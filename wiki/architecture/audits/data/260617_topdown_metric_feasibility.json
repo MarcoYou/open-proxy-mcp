@@ -1,0 +1,4687 @@
+{
+  "meta": {
+    "date": "2026-06-17",
+    "query": "영업이익 증가율 ≥30.0%",
+    "universe": "500사 (코스피300+코스닥200)",
+    "total_dart_calls": 6865,
+    "elapsed_min": 19.6,
+    "avg_calls_per_company": 13.7
+  },
+  "feasibility": {
+    "companies_scanned": 500,
+    "total_calls_for_one_query": 6865,
+    "avg_calls_per_company": 13.7,
+    "no_data": 19,
+    "errors": 0,
+    "matched_count": 233
+  },
+  "matched": [
+    {
+      "company": "피노",
+      "market": "kosdaq",
+      "op_yoy_pct": 17620.84
+    },
+    {
+      "company": "후성",
+      "market": "kospi",
+      "op_yoy_pct": 8933.01
+    },
+    {
+      "company": "S-Oil",
+      "market": "kospi",
+      "op_yoy_pct": 5815.05
+    },
+    {
+      "company": "SK증권",
+      "market": "kospi",
+      "op_yoy_pct": 5265.88
+    },
+    {
+      "company": "SK이노베이션",
+      "market": "kospi",
+      "op_yoy_pct": 4943.7
+    },
+    {
+      "company": "펄어비스",
+      "market": "kosdaq",
+      "op_yoy_pct": 4146.0
+    },
+    {
+      "company": "에코프로",
+      "market": "kosdaq",
+      "op_yoy_pct": 4004.42
+    },
+    {
+      "company": "코오롱생명과학",
+      "market": "kosdaq",
+      "op_yoy_pct": 3839.04
+    },
+    {
+      "company": "해성디에스",
+      "market": "kospi",
+      "op_yoy_pct": 2995.3
+    },
+    {
+      "company": "씨어스",
+      "market": "kosdaq",
+      "op_yoy_pct": 2456.01
+    },
+    {
+      "company": "NC",
+      "market": "kospi",
+      "op_yoy_pct": 2070.08
+    },
+    {
+      "company": "제주반도체",
+      "market": "kosdaq",
+      "op_yoy_pct": 1714.12
+    },
+    {
+      "company": "코리아써키트",
+      "market": "kospi",
+      "op_yoy_pct": 1686.74
+    },
+    {
+      "company": "에스에이엠티",
+      "market": "kosdaq",
+      "op_yoy_pct": 1575.19
+    },
+    {
+      "company": "브이엠",
+      "market": "kosdaq",
+      "op_yoy_pct": 1503.56
+    },
+    {
+      "company": "엘앤씨바이오",
+      "market": "kosdaq",
+      "op_yoy_pct": 1485.08
+    },
+    {
+      "company": "엠케이전자",
+      "market": "kosdaq",
+      "op_yoy_pct": 1419.85
+    },
+    {
+      "company": "티에스이",
+      "market": "kosdaq",
+      "op_yoy_pct": 1246.96
+    },
+    {
+      "company": "삼지전자",
+      "market": "kosdaq",
+      "op_yoy_pct": 1240.31
+    },
+    {
+      "company": "미래에셋벤처투자",
+      "market": "kosdaq",
+      "op_yoy_pct": 1198.82
+    },
+    {
+      "company": "한전기술",
+      "market": "kospi",
+      "op_yoy_pct": 1081.92
+    },
+    {
+      "company": "HD현대에너지솔루션",
+      "market": "kospi",
+      "op_yoy_pct": 1056.36
+    },
+    {
+      "company": "에스티팜",
+      "market": "kosdaq",
+      "op_yoy_pct": 1024.65
+    },
+    {
+      "company": "아주IB투자",
+      "market": "kosdaq",
+      "op_yoy_pct": 943.48
+    },
+    {
+      "company": "대덕전자",
+      "market": "kospi",
+      "op_yoy_pct": 927.19
+    },
+    {
+      "company": "호텔신라",
+      "market": "kospi",
+      "op_yoy_pct": 926.41
+    },
+    {
+      "company": "대한유화",
+      "market": "kospi",
+      "op_yoy_pct": 844.91
+    },
+    {
+      "company": "나노신소재",
+      "market": "kosdaq",
+      "op_yoy_pct": 837.9
+    },
+    {
+      "company": "에코프로비엠",
+      "market": "kosdaq",
+      "op_yoy_pct": 822.59
+    },
+    {
+      "company": "SK",
+      "market": "kospi",
+      "op_yoy_pct": 818.78
+    },
+    {
+      "company": "삼성전자",
+      "market": "kospi",
+      "op_yoy_pct": 756.1
+    },
+    {
+      "company": "네패스아크",
+      "market": "kosdaq",
+      "op_yoy_pct": 708.11
+    },
+    {
+      "company": "삼천당제약",
+      "market": "kosdaq",
+      "op_yoy_pct": 692.36
+    },
+    {
+      "company": "카카오페이",
+      "market": "kospi",
+      "op_yoy_pct": 630.95
+    },
+    {
+      "company": "하나마이크론",
+      "market": "kosdaq",
+      "op_yoy_pct": 513.61
+    },
+    {
+      "company": "티엘비",
+      "market": "kosdaq",
+      "op_yoy_pct": 472.08
+    },
+    {
+      "company": "유안타증권",
+      "market": "kospi",
+      "op_yoy_pct": 464.1
+    },
+    {
+      "company": "테크윙",
+      "market": "kosdaq",
+      "op_yoy_pct": 444.03
+    },
+    {
+      "company": "샘씨엔에스",
+      "market": "kosdaq",
+      "op_yoy_pct": 436.93
+    },
+    {
+      "company": "프로텍",
+      "market": "kosdaq",
+      "op_yoy_pct": 428.34
+    },
+    {
+      "company": "포스코엠텍",
+      "market": "kosdaq",
+      "op_yoy_pct": 411.55
+    },
+    {
+      "company": "SK하이닉스",
+      "market": "kospi",
+      "op_yoy_pct": 405.48
+    },
+    {
+      "company": "대덕",
+      "market": "kospi",
+      "op_yoy_pct": 402.79
+    },
+    {
+      "company": "SK스퀘어",
+      "market": "kospi",
+      "op_yoy_pct": 401.01
+    },
+    {
+      "company": "자화전자",
+      "market": "kospi",
+      "op_yoy_pct": 389.02
+    },
+    {
+      "company": "삼표시멘트",
+      "market": "kosdaq",
+      "op_yoy_pct": 375.52
+    },
+    {
+      "company": "한전KPS",
+      "market": "kospi",
+      "op_yoy_pct": 374.61
+    },
+    {
+      "company": "와이씨",
+      "market": "kosdaq",
+      "op_yoy_pct": 365.33
+    },
+    {
+      "company": "SK이터닉스",
+      "market": "kospi",
+      "op_yoy_pct": 362.28
+    },
+    {
+      "company": "한온시스템",
+      "market": "kospi",
+      "op_yoy_pct": 361.12
+    },
+    {
+      "company": "HD건설기계",
+      "market": "kospi",
+      "op_yoy_pct": 357.85
+    },
+    {
+      "company": "HJ중공업",
+      "market": "kospi",
+      "op_yoy_pct": 350.7
+    },
+    {
+      "company": "케이씨텍",
+      "market": "kospi",
+      "op_yoy_pct": 344.27
+    },
+    {
+      "company": "LG디스플레이",
+      "market": "kospi",
+      "op_yoy_pct": 338.44
+    },
+    {
+      "company": "와이지-원",
+      "market": "kosdaq",
+      "op_yoy_pct": 327.78
+    },
+    {
+      "company": "한올바이오파마",
+      "market": "kospi",
+      "op_yoy_pct": 312.63
+    },
+    {
+      "company": "미래에셋증권",
+      "market": "kospi",
+      "op_yoy_pct": 297.2
+    },
+    {
+      "company": "에이치브이엠",
+      "market": "kosdaq",
+      "op_yoy_pct": 292.26
+    },
+    {
+      "company": "파이버프로",
+      "market": "kosdaq",
+      "op_yoy_pct": 282.77
+    },
+    {
+      "company": "RF머트리얼즈",
+      "market": "kosdaq",
+      "op_yoy_pct": 281.87
+    },
+    {
+      "company": "아이에스동서",
+      "market": "kospi",
+      "op_yoy_pct": 264.99
+    },
+    {
+      "company": "SK바이오팜",
+      "market": "kospi",
+      "op_yoy_pct": 249.68
+    },
+    {
+      "company": "원익IPS",
+      "market": "kosdaq",
+      "op_yoy_pct": 245.43
+    },
+    {
+      "company": "서울보증보험",
+      "market": "kospi",
+      "op_yoy_pct": 242.75
+    },
+    {
+      "company": "ISC",
+      "market": "kosdaq",
+      "op_yoy_pct": 237.78
+    },
+    {
+      "company": "HD현대마린엔진",
+      "market": "kospi",
+      "op_yoy_pct": 217.01
+    },
+    {
+      "company": "고영",
+      "market": "kosdaq",
+      "op_yoy_pct": 209.09
+    },
+    {
+      "company": "에코프로머티",
+      "market": "kospi",
+      "op_yoy_pct": 206.05
+    },
+    {
+      "company": "한화솔루션",
+      "market": "kospi",
+      "op_yoy_pct": 205.5
+    },
+    {
+      "company": "네패스",
+      "market": "kosdaq",
+      "op_yoy_pct": 198.98
+    },
+    {
+      "company": "태웅",
+      "market": "kosdaq",
+      "op_yoy_pct": 196.2
+    },
+    {
+      "company": "아이티센글로벌",
+      "market": "kosdaq",
+      "op_yoy_pct": 193.07
+    },
+    {
+      "company": "온코닉테라퓨틱스",
+      "market": "kosdaq",
+      "op_yoy_pct": 190.56
+    },
+    {
+      "company": "심텍",
+      "market": "kosdaq",
+      "op_yoy_pct": 184.0
+    },
+    {
+      "company": "비에이치아이",
+      "market": "kosdaq",
+      "op_yoy_pct": 183.89
+    },
+    {
+      "company": "엘앤에프",
+      "market": "kospi",
+      "op_yoy_pct": 183.61
+    },
+    {
+      "company": "현대제철",
+      "market": "kospi",
+      "op_yoy_pct": 182.45
+    },
+    {
+      "company": "선익시스템",
+      "market": "kosdaq",
+      "op_yoy_pct": 182.19
+    },
+    {
+      "company": "에이피알",
+      "market": "kospi",
+      "op_yoy_pct": 179.05
+    },
+    {
+      "company": "영풍",
+      "market": "kospi",
+      "op_yoy_pct": 177.01
+    },
+    {
+      "company": "고려아연",
+      "market": "kospi",
+      "op_yoy_pct": 175.19
+    },
+    {
+      "company": "위메이드",
+      "market": "kosdaq",
+      "op_yoy_pct": 174.88
+    },
+    {
+      "company": "CJ CGV",
+      "market": "kospi",
+      "op_yoy_pct": 172.38
+    },
+    {
+      "company": "OCI",
+      "market": "kospi",
+      "op_yoy_pct": 171.59
+    },
+    {
+      "company": "대신증권",
+      "market": "kospi",
+      "op_yoy_pct": 164.15
+    },
+    {
+      "company": "파두",
+      "market": "kosdaq",
+      "op_yoy_pct": 164.13
+    },
+    {
+      "company": "롯데케미칼",
+      "market": "kospi",
+      "op_yoy_pct": 158.04
+    },
+    {
+      "company": "롯데지주",
+      "market": "kospi",
+      "op_yoy_pct": 156.62
+    },
+    {
+      "company": "코오롱",
+      "market": "kospi",
+      "op_yoy_pct": 149.11
+    },
+    {
+      "company": "하나머티리얼즈",
+      "market": "kosdaq",
+      "op_yoy_pct": 144.33
+    },
+    {
+      "company": "비에이치",
+      "market": "kospi",
+      "op_yoy_pct": 142.02
+    },
+    {
+      "company": "LG이노텍",
+      "market": "kospi",
+      "op_yoy_pct": 136.04
+    },
+    {
+      "company": "코리안리",
+      "market": "kospi",
+      "op_yoy_pct": 135.91
+    },
+    {
+      "company": "한화엔진",
+      "market": "kospi",
+      "op_yoy_pct": 130.27
+    },
+    {
+      "company": "코오롱인더",
+      "market": "kospi",
+      "op_yoy_pct": 129.9
+    },
+    {
+      "company": "두산테스나",
+      "market": "kosdaq",
+      "op_yoy_pct": 128.66
+    },
+    {
+      "company": "대한전선",
+      "market": "kospi",
+      "op_yoy_pct": 122.88
+    },
+    {
+      "company": "삼성중공업",
+      "market": "kospi",
+      "op_yoy_pct": 121.91
+    },
+    {
+      "company": "롯데관광개발",
+      "market": "kospi",
+      "op_yoy_pct": 121.0
+    },
+    {
+      "company": "HD현대",
+      "market": "kospi",
+      "op_yoy_pct": 120.36
+    },
+    {
+      "company": "NH투자증권",
+      "market": "kospi",
+      "op_yoy_pct": 120.27
+    },
+    {
+      "company": "일동제약",
+      "market": "kospi",
+      "op_yoy_pct": 119.97
+    },
+    {
+      "company": "롯데웰푸드",
+      "market": "kospi",
+      "op_yoy_pct": 118.41
+    },
+    {
+      "company": "셀트리온",
+      "market": "kospi",
+      "op_yoy_pct": 115.41
+    },
+    {
+      "company": "GST",
+      "market": "kosdaq",
+      "op_yoy_pct": 110.42
+    },
+    {
+      "company": "한국금융지주",
+      "market": "kospi",
+      "op_yoy_pct": 108.89
+    },
+    {
+      "company": "HD현대중공업",
+      "market": "kospi",
+      "op_yoy_pct": 108.74
+    },
+    {
+      "company": "서울반도체",
+      "market": "kosdaq",
+      "op_yoy_pct": 108.62
+    },
+    {
+      "company": "피에스케이",
+      "market": "kosdaq",
+      "op_yoy_pct": 108.44
+    },
+    {
+      "company": "케이뱅크",
+      "market": "kospi",
+      "op_yoy_pct": 108.04
+    },
+    {
+      "company": "CJ ENM",
+      "market": "kosdaq",
+      "op_yoy_pct": 107.19
+    },
+    {
+      "company": "RFHIC",
+      "market": "kosdaq",
+      "op_yoy_pct": 107.15
+    },
+    {
+      "company": "이오테크닉스",
+      "market": "kosdaq",
+      "op_yoy_pct": 105.75
+    },
+    {
+      "company": "인텔리안테크",
+      "market": "kosdaq",
+      "op_yoy_pct": 104.93
+    },
+    {
+      "company": "유진테크",
+      "market": "kosdaq",
+      "op_yoy_pct": 104.65
+    },
+    {
+      "company": "와이지엔터테인먼트",
+      "market": "kosdaq",
+      "op_yoy_pct": 103.87
+    },
+    {
+      "company": "SGC에너지",
+      "market": "kospi",
+      "op_yoy_pct": 103.63
+    },
+    {
+      "company": "로보스타",
+      "market": "kosdaq",
+      "op_yoy_pct": 103.1
+    },
+    {
+      "company": "SK네트웍스",
+      "market": "kospi",
+      "op_yoy_pct": 102.43
+    },
+    {
+      "company": "SK가스",
+      "market": "kospi",
+      "op_yoy_pct": 101.65
+    },
+    {
+      "company": "카카오",
+      "market": "kospi",
+      "op_yoy_pct": 100.57
+    },
+    {
+      "company": "성호전자",
+      "market": "kosdaq",
+      "op_yoy_pct": 100.31
+    },
+    {
+      "company": "성일하이텍",
+      "market": "kosdaq",
+      "op_yoy_pct": 99.97
+    },
+    {
+      "company": "코나아이",
+      "market": "kosdaq",
+      "op_yoy_pct": 95.38
+    },
+    {
+      "company": "DL이앤씨",
+      "market": "kospi",
+      "op_yoy_pct": 94.34
+    },
+    {
+      "company": "대주전자재료",
+      "market": "kosdaq",
+      "op_yoy_pct": 93.02
+    },
+    {
+      "company": "한진칼",
+      "market": "kospi",
+      "op_yoy_pct": 92.68
+    },
+    {
+      "company": "엘티씨",
+      "market": "kosdaq",
+      "op_yoy_pct": 92.04
+    },
+    {
+      "company": "롯데칠성",
+      "market": "kospi",
+      "op_yoy_pct": 90.96
+    },
+    {
+      "company": "키움증권",
+      "market": "kospi",
+      "op_yoy_pct": 90.88
+    },
+    {
+      "company": "디아이",
+      "market": "kospi",
+      "op_yoy_pct": 90.14
+    },
+    {
+      "company": "롯데에너지머티리얼즈",
+      "market": "kospi",
+      "op_yoy_pct": 89.18
+    },
+    {
+      "company": "두산퓨얼셀",
+      "market": "kospi",
+      "op_yoy_pct": 88.82
+    },
+    {
+      "company": "솔루엠",
+      "market": "kospi",
+      "op_yoy_pct": 88.79
+    },
+    {
+      "company": "한양이엔지",
+      "market": "kosdaq",
+      "op_yoy_pct": 88.64
+    },
+    {
+      "company": "다우기술",
+      "market": "kospi",
+      "op_yoy_pct": 86.2
+    },
+    {
+      "company": "인바디",
+      "market": "kosdaq",
+      "op_yoy_pct": 86.01
+    },
+    {
+      "company": "다우데이타",
+      "market": "kosdaq",
+      "op_yoy_pct": 85.03
+    },
+    {
+      "company": "보령",
+      "market": "kospi",
+      "op_yoy_pct": 84.65
+    },
+    {
+      "company": "안랩",
+      "market": "kosdaq",
+      "op_yoy_pct": 84.32
+    },
+    {
+      "company": "삼성증권",
+      "market": "kospi",
+      "op_yoy_pct": 82.14
+    },
+    {
+      "company": "삼성생명",
+      "market": "kospi",
+      "op_yoy_pct": 80.09
+    },
+    {
+      "company": "케이아이엔엑스",
+      "market": "kosdaq",
+      "op_yoy_pct": 79.53
+    },
+    {
+      "company": "코스메카코리아",
+      "market": "kosdaq",
+      "op_yoy_pct": 78.03
+    },
+    {
+      "company": "SNT에너지",
+      "market": "kospi",
+      "op_yoy_pct": 77.06
+    },
+    {
+      "company": "에이디테크놀로지",
+      "market": "kosdaq",
+      "op_yoy_pct": 76.99
+    },
+    {
+      "company": "디어유",
+      "market": "kosdaq",
+      "op_yoy_pct": 76.91
+    },
+    {
+      "company": "대원전선",
+      "market": "kospi",
+      "op_yoy_pct": 76.18
+    },
+    {
+      "company": "젬백스",
+      "market": "kosdaq",
+      "op_yoy_pct": 74.13
+    },
+    {
+      "company": "롯데정밀화학",
+      "market": "kospi",
+      "op_yoy_pct": 73.94
+    },
+    {
+      "company": "미래에셋생명",
+      "market": "kospi",
+      "op_yoy_pct": 73.78
+    },
+    {
+      "company": "덕산네오룩스",
+      "market": "kosdaq",
+      "op_yoy_pct": 72.66
+    },
+    {
+      "company": "세아베스틸지주",
+      "market": "kospi",
+      "op_yoy_pct": 71.75
+    },
+    {
+      "company": "두산",
+      "market": "kospi",
+      "op_yoy_pct": 71.74
+    },
+    {
+      "company": "SK디스커버리",
+      "market": "kospi",
+      "op_yoy_pct": 71.44
+    },
+    {
+      "company": "롯데쇼핑",
+      "market": "kospi",
+      "op_yoy_pct": 70.59
+    },
+    {
+      "company": "한화오션",
+      "market": "kospi",
+      "op_yoy_pct": 70.55
+    },
+    {
+      "company": "JYP Ent.",
+      "market": "kosdaq",
+      "op_yoy_pct": 70.04
+    },
+    {
+      "company": "대우건설",
+      "market": "kospi",
+      "op_yoy_pct": 68.93
+    },
+    {
+      "company": "KG모빌리티",
+      "market": "kospi",
+      "op_yoy_pct": 68.78
+    },
+    {
+      "company": "BGF리테일",
+      "market": "kospi",
+      "op_yoy_pct": 68.44
+    },
+    {
+      "company": "삼성SDI",
+      "market": "kospi",
+      "op_yoy_pct": 64.16
+    },
+    {
+      "company": "두산에너빌리티",
+      "market": "kospi",
+      "op_yoy_pct": 63.9
+    },
+    {
+      "company": "더존비즈온",
+      "market": "kospi",
+      "op_yoy_pct": 62.22
+    },
+    {
+      "company": "경동나비엔",
+      "market": "kospi",
+      "op_yoy_pct": 61.75
+    },
+    {
+      "company": "SKC",
+      "market": "kospi",
+      "op_yoy_pct": 61.42
+    },
+    {
+      "company": "GS피앤엘",
+      "market": "kospi",
+      "op_yoy_pct": 58.8
+    },
+    {
+      "company": "씨젠",
+      "market": "kosdaq",
+      "op_yoy_pct": 58.63
+    },
+    {
+      "company": "동성화인텍",
+      "market": "kosdaq",
+      "op_yoy_pct": 58.42
+    },
+    {
+      "company": "HD한국조선해양",
+      "market": "kospi",
+      "op_yoy_pct": 57.83
+    },
+    {
+      "company": "PI첨단소재",
+      "market": "kospi",
+      "op_yoy_pct": 57.81
+    },
+    {
+      "company": "인텍플러스",
+      "market": "kosdaq",
+      "op_yoy_pct": 57.39
+    },
+    {
+      "company": "GS",
+      "market": "kospi",
+      "op_yoy_pct": 57.29
+    },
+    {
+      "company": "한샘",
+      "market": "kospi",
+      "op_yoy_pct": 56.44
+    },
+    {
+      "company": "LS",
+      "market": "kospi",
+      "op_yoy_pct": 56.35
+    },
+    {
+      "company": "파미셀",
+      "market": "kospi",
+      "op_yoy_pct": 56.07
+    },
+    {
+      "company": "레이크머티리얼즈",
+      "market": "kosdaq",
+      "op_yoy_pct": 53.77
+    },
+    {
+      "company": "SK오션플랜트",
+      "market": "kospi",
+      "op_yoy_pct": 52.69
+    },
+    {
+      "company": "JW중외제약",
+      "market": "kospi",
+      "op_yoy_pct": 52.57
+    },
+    {
+      "company": "덕산하이메탈",
+      "market": "kosdaq",
+      "op_yoy_pct": 52.0
+    },
+    {
+      "company": "GS리테일",
+      "market": "kospi",
+      "op_yoy_pct": 50.7
+    },
+    {
+      "company": "LIG디펜스앤에어로스페이스",
+      "market": "kospi",
+      "op_yoy_pct": 50.62
+    },
+    {
+      "company": "스튜디오드래곤",
+      "market": "kosdaq",
+      "op_yoy_pct": 50.11
+    },
+    {
+      "company": "달바글로벌",
+      "market": "kospi",
+      "op_yoy_pct": 50.05
+    },
+    {
+      "company": "기가비스",
+      "market": "kosdaq",
+      "op_yoy_pct": 49.67
+    },
+    {
+      "company": "신세계",
+      "market": "kospi",
+      "op_yoy_pct": 49.49
+    },
+    {
+      "company": "일진전기",
+      "market": "kospi",
+      "op_yoy_pct": 49.11
+    },
+    {
+      "company": "효성중공업",
+      "market": "kospi",
+      "op_yoy_pct": 48.77
+    },
+    {
+      "company": "오리온홀딩스",
+      "market": "kospi",
+      "op_yoy_pct": 48.52
+    },
+    {
+      "company": "IPARK현대산업개발",
+      "market": "kospi",
+      "op_yoy_pct": 48.41
+    },
+    {
+      "company": "산일전기",
+      "market": "kospi",
+      "op_yoy_pct": 47.86
+    },
+    {
+      "company": "에코프로에이치엔",
+      "market": "kosdaq",
+      "op_yoy_pct": 47.69
+    },
+    {
+      "company": "LF",
+      "market": "kospi",
+      "op_yoy_pct": 47.53
+    },
+    {
+      "company": "녹십자",
+      "market": "kospi",
+      "op_yoy_pct": 47.35
+    },
+    {
+      "company": "앱클론",
+      "market": "kosdaq",
+      "op_yoy_pct": 46.89
+    },
+    {
+      "company": "영원무역",
+      "market": "kospi",
+      "op_yoy_pct": 46.26
+    },
+    {
+      "company": "LS ELECTRIC",
+      "market": "kospi",
+      "op_yoy_pct": 44.96
+    },
+    {
+      "company": "신영증권",
+      "market": "kospi",
+      "op_yoy_pct": 43.85
+    },
+    {
+      "company": "카프로",
+      "market": "kospi",
+      "op_yoy_pct": 43.74
+    },
+    {
+      "company": "에이팩트",
+      "market": "kosdaq",
+      "op_yoy_pct": 43.71
+    },
+    {
+      "company": "태성",
+      "market": "kosdaq",
+      "op_yoy_pct": 43.49
+    },
+    {
+      "company": "한국항공우주",
+      "market": "kospi",
+      "op_yoy_pct": 43.43
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "market": "kospi",
+      "op_yoy_pct": 42.95
+    },
+    {
+      "company": "교보증권",
+      "market": "kospi",
+      "op_yoy_pct": 42.76
+    },
+    {
+      "company": "대한광통신",
+      "market": "kosdaq",
+      "op_yoy_pct": 42.76
+    },
+    {
+      "company": "금양",
+      "market": "kospi",
+      "op_yoy_pct": 41.2
+    },
+    {
+      "company": "이수페타시스",
+      "market": "kospi",
+      "op_yoy_pct": 40.97
+    },
+    {
+      "company": "에이비엘바이오",
+      "market": "kosdaq",
+      "op_yoy_pct": 40.67
+    },
+    {
+      "company": "삼성전기",
+      "market": "kospi",
+      "op_yoy_pct": 39.9
+    },
+    {
+      "company": "LS마린솔루션",
+      "market": "kosdaq",
+      "op_yoy_pct": 39.61
+    },
+    {
+      "company": "가온칩스",
+      "market": "kosdaq",
+      "op_yoy_pct": 39.22
+    },
+    {
+      "company": "예스티",
+      "market": "kosdaq",
+      "op_yoy_pct": 38.11
+    },
+    {
+      "company": "토모큐브",
+      "market": "kosdaq",
+      "op_yoy_pct": 38.07
+    },
+    {
+      "company": "서부T&D",
+      "market": "kosdaq",
+      "op_yoy_pct": 37.61
+    },
+    {
+      "company": "BNK금융지주",
+      "market": "kospi",
+      "op_yoy_pct": 37.54
+    },
+    {
+      "company": "유한양행",
+      "market": "kospi",
+      "op_yoy_pct": 37.32
+    },
+    {
+      "company": "테스",
+      "market": "kosdaq",
+      "op_yoy_pct": 36.45
+    },
+    {
+      "company": "비나텍",
+      "market": "kosdaq",
+      "op_yoy_pct": 36.26
+    },
+    {
+      "company": "현대홈쇼핑",
+      "market": "kospi",
+      "op_yoy_pct": 35.95
+    },
+    {
+      "company": "리노공업",
+      "market": "kosdaq",
+      "op_yoy_pct": 35.39
+    },
+    {
+      "company": "실리콘투",
+      "market": "kosdaq",
+      "op_yoy_pct": 35.22
+    },
+    {
+      "company": "메디톡스",
+      "market": "kosdaq",
+      "op_yoy_pct": 34.62
+    },
+    {
+      "company": "비츠로셀",
+      "market": "kosdaq",
+      "op_yoy_pct": 34.53
+    },
+    {
+      "company": "루닛",
+      "market": "kosdaq",
+      "op_yoy_pct": 34.22
+    },
+    {
+      "company": "이노션",
+      "market": "kospi",
+      "op_yoy_pct": 33.34
+    },
+    {
+      "company": "넥센타이어",
+      "market": "kospi",
+      "op_yoy_pct": 33.14
+    },
+    {
+      "company": "LG전자",
+      "market": "kospi",
+      "op_yoy_pct": 32.93
+    },
+    {
+      "company": "포스코인터내셔널",
+      "market": "kospi",
+      "op_yoy_pct": 32.33
+    },
+    {
+      "company": "삼양식품",
+      "market": "kospi",
+      "op_yoy_pct": 32.2
+    },
+    {
+      "company": "한국카본",
+      "market": "kospi",
+      "op_yoy_pct": 32.01
+    },
+    {
+      "company": "한국콜마",
+      "market": "kospi",
+      "op_yoy_pct": 31.61
+    },
+    {
+      "company": "LS에코에너지",
+      "market": "kospi",
+      "op_yoy_pct": 31.08
+    },
+    {
+      "company": "HK이노엔",
+      "market": "kosdaq",
+      "op_yoy_pct": 30.83
+    }
+  ],
+  "rows": [
+    {
+      "company": "삼성전자",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 756.1
+    },
+    {
+      "company": "SK하이닉스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 405.48
+    },
+    {
+      "company": "SK스퀘어",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 401.01
+    },
+    {
+      "company": "삼성전기",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 39.9
+    },
+    {
+      "company": "현대차",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -30.79
+    },
+    {
+      "company": "LG에너지솔루션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -155.45
+    },
+    {
+      "company": "삼성생명",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 80.09
+    },
+    {
+      "company": "삼성물산",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -0.56
+    },
+    {
+      "company": "HD현대중공업",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 108.74
+    },
+    {
+      "company": "기아",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -26.71
+    },
+    {
+      "company": "두산에너빌리티",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 63.9
+    },
+    {
+      "company": "삼성바이오로직스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 19.33
+    },
+    {
+      "company": "KB금융",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 18.95
+    },
+    {
+      "company": "한화에어로스페이스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 13.94
+    },
+    {
+      "company": "현대모비스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 3.34
+    },
+    {
+      "company": "신한지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 10.81
+    },
+    {
+      "company": "SK",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 818.78
+    },
+    {
+      "company": "삼성SDI",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 64.16
+    },
+    {
+      "company": "HD현대일렉트릭",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 18.38
+    },
+    {
+      "company": "한화오션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 70.55
+    },
+    {
+      "company": "셀트리온",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 115.41
+    },
+    {
+      "company": "LS ELECTRIC",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 44.96
+    },
+    {
+      "company": "LG전자",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 32.93
+    },
+    {
+      "company": "NAVER",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 7.21
+    },
+    {
+      "company": "효성중공업",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 48.77
+    },
+    {
+      "company": "하나금융지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 11.06
+    },
+    {
+      "company": "한미반도체",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -87.86
+    },
+    {
+      "company": "HD한국조선해양",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 57.83
+    },
+    {
+      "company": "POSCO홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 24.35
+    },
+    {
+      "company": "삼성화재",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 8.68
+    },
+    {
+      "company": "LG이노텍",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 136.04
+    },
+    {
+      "company": "미래에셋증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 297.2
+    },
+    {
+      "company": "두산",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 71.74
+    },
+    {
+      "company": "고려아연",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 175.19
+    },
+    {
+      "company": "LG화학",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -111.12
+    },
+    {
+      "company": "한국전력",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 0.81
+    },
+    {
+      "company": "삼성중공업",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 121.91
+    },
+    {
+      "company": "현대로템",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 10.52
+    },
+    {
+      "company": "우리금융지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -7.03
+    },
+    {
+      "company": "LIG디펜스앤에어로스페이스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 50.62
+    },
+    {
+      "company": "SK텔레콤",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -5.25
+    },
+    {
+      "company": "HD현대",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 120.36
+    },
+    {
+      "company": "HMM",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -56.17
+    },
+    {
+      "company": "한화시스템",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -41.06
+    },
+    {
+      "company": "현대오토에버",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -20.72
+    },
+    {
+      "company": "KT&G",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 27.66
+    },
+    {
+      "company": "SK이노베이션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 4943.7
+    },
+    {
+      "company": "포스코퓨처엠",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 3.2
+    },
+    {
+      "company": "기업은행",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -8.93
+    },
+    {
+      "company": "삼성에스디에스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -70.83
+    },
+    {
+      "company": "카카오",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 100.57
+    },
+    {
+      "company": "LG",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -35.14
+    },
+    {
+      "company": "현대글로비스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 3.9
+    },
+    {
+      "company": "현대건설",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -15.35
+    },
+    {
+      "company": "한국항공우주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 43.43
+    },
+    {
+      "company": "에이피알",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 179.05
+    },
+    {
+      "company": "KT",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -29.92
+    },
+    {
+      "company": "한국금융지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 108.89
+    },
+    {
+      "company": "LS",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 56.35
+    },
+    {
+      "company": "S-Oil",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 5815.05
+    },
+    {
+      "company": "NH투자증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 120.27
+    },
+    {
+      "company": "카카오뱅크",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -13.89
+    },
+    {
+      "company": "포스코인터내셔널",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 32.33
+    },
+    {
+      "company": "HD현대마린솔루션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 12.51
+    },
+    {
+      "company": "삼성에피스홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "대우건설",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 68.93
+    },
+    {
+      "company": "삼성증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 82.14
+    },
+    {
+      "company": "삼성E&A",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 19.64
+    },
+    {
+      "company": "크래프톤",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 22.81
+    },
+    {
+      "company": "대한항공",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 20.03
+    },
+    {
+      "company": "키움증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 90.88
+    },
+    {
+      "company": "DB손해보험",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -33.36
+    },
+    {
+      "company": "하이브",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -1009.12
+    },
+    {
+      "company": "이수페타시스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 40.97
+    },
+    {
+      "company": "LG씨엔에스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 19.4
+    },
+    {
+      "company": "한화",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 18.1
+    },
+    {
+      "company": "한국타이어앤테크놀로지",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 42.95
+    },
+    {
+      "company": "삼양식품",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 32.2
+    },
+    {
+      "company": "한진칼",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 92.68
+    },
+    {
+      "company": "대덕전자",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 927.19
+    },
+    {
+      "company": "대한전선",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 122.88
+    },
+    {
+      "company": "산일전기",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 47.86
+    },
+    {
+      "company": "HD건설기계",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 357.85
+    },
+    {
+      "company": "GS",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 57.29
+    },
+    {
+      "company": "한화솔루션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 205.5
+    },
+    {
+      "company": "신세계",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 49.49
+    },
+    {
+      "company": "SKC",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 61.42
+    },
+    {
+      "company": "두산로보틱스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 0.31
+    },
+    {
+      "company": "LG디스플레이",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 338.44
+    },
+    {
+      "company": "SK바이오팜",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 249.68
+    },
+    {
+      "company": "LG유플러스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 6.6
+    },
+    {
+      "company": "DB하이텍",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 21.36
+    },
+    {
+      "company": "두산밥캣",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 2.59
+    },
+    {
+      "company": "아모레퍼시픽",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 7.62
+    },
+    {
+      "company": "코웨이",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 18.79
+    },
+    {
+      "company": "카카오페이",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 630.95
+    },
+    {
+      "company": "유한양행",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 37.32
+    },
+    {
+      "company": "삼성카드",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -14.25
+    },
+    {
+      "company": "OCI홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -77.7
+    },
+    {
+      "company": "엘앤에프",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 183.61
+    },
+    {
+      "company": "BNK금융지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 37.54
+    },
+    {
+      "company": "NC",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 2070.08
+    },
+    {
+      "company": "롯데쇼핑",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 70.59
+    },
+    {
+      "company": "한미약품",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -9.1
+    },
+    {
+      "company": "CJ",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -13.88
+    },
+    {
+      "company": "한온시스템",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 361.12
+    },
+    {
+      "company": "JB금융지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1.76
+    },
+    {
+      "company": "오리온",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 25.95
+    },
+    {
+      "company": "한전기술",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1081.92
+    },
+    {
+      "company": "두산퓨얼셀",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 88.82
+    },
+    {
+      "company": "한화엔진",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 130.27
+    },
+    {
+      "company": "한화생명",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 29.47
+    },
+    {
+      "company": "KCC",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -14.81
+    },
+    {
+      "company": "현대제철",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 182.45
+    },
+    {
+      "company": "미래에셋생명",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 73.78
+    },
+    {
+      "company": "가온전선",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 27.19
+    },
+    {
+      "company": "현대백화점",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -12.16
+    },
+    {
+      "company": "포스코DX",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -84.0
+    },
+    {
+      "company": "일진전기",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 49.11
+    },
+    {
+      "company": "에코프로머티",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 206.05
+    },
+    {
+      "company": "LG생활건강",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -24.26
+    },
+    {
+      "company": "HL만도",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 18.19
+    },
+    {
+      "company": "한화비전",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -50.13
+    },
+    {
+      "company": "영원무역",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 46.26
+    },
+    {
+      "company": "에스엘",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 20.55
+    },
+    {
+      "company": "현대해상",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 14.38
+    },
+    {
+      "company": "더존비즈온",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 62.22
+    },
+    {
+      "company": "강원랜드",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -7.2
+    },
+    {
+      "company": "DL이앤씨",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 94.34
+    },
+    {
+      "company": "롯데케미칼",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 158.04
+    },
+    {
+      "company": "넷마블",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 6.73
+    },
+    {
+      "company": "한솔케미칼",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 6.51
+    },
+    {
+      "company": "한국가스공사",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 9.12
+    },
+    {
+      "company": "금호석유화학",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -50.75
+    },
+    {
+      "company": "효성",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 15.62
+    },
+    {
+      "company": "현대엘리베이터",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -16.34
+    },
+    {
+      "company": "신영증권",
+      "market": "kospi",
+      "calls": 10,
+      "status": "exact",
+      "op_yoy_pct": 43.85
+    },
+    {
+      "company": "코리아써키트",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1686.74
+    },
+    {
+      "company": "서울보증보험",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 242.75
+    },
+    {
+      "company": "SK바이오사이언스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -194.43
+    },
+    {
+      "company": "에스원",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -62.32
+    },
+    {
+      "company": "F&F",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 24.16
+    },
+    {
+      "company": "롯데에너지머티리얼즈",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 89.18
+    },
+    {
+      "company": "CJ제일제당",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -28.52
+    },
+    {
+      "company": "iM금융지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -7.25
+    },
+    {
+      "company": "팬오션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 24.39
+    },
+    {
+      "company": "케이뱅크",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 108.04
+    },
+    {
+      "company": "TIME 글로벌AI인공지능액티브",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "GS건설",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 4.39
+    },
+    {
+      "company": "한올바이오파마",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 312.63
+    },
+    {
+      "company": "롯데지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 156.62
+    },
+    {
+      "company": "한국앤컴퍼니",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -4.1
+    },
+    {
+      "company": "이수스페셜티케미컬",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -42.91
+    },
+    {
+      "company": "DN오토모티브",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 5.04
+    },
+    {
+      "company": "동서",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -11.72
+    },
+    {
+      "company": "TIME 미국나스닥100액티브",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "이마트",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 11.93
+    },
+    {
+      "company": "코리안리",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 135.91
+    },
+    {
+      "company": "대한조선",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "HD현대마린엔진",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 217.01
+    },
+    {
+      "company": "영원무역홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 19.1
+    },
+    {
+      "company": "제일기획",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -37.58
+    },
+    {
+      "company": "달바글로벌",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 50.05
+    },
+    {
+      "company": "KIWOOM 200TR",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "SK네트웍스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 102.43
+    },
+    {
+      "company": "씨에스윈드",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -40.67
+    },
+    {
+      "company": "한전KPS",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 374.61
+    },
+    {
+      "company": "호텔신라",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 926.41
+    },
+    {
+      "company": "현대위아",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 6.22
+    },
+    {
+      "company": "농심",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 20.29
+    },
+    {
+      "company": "미스토홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 19.05
+    },
+    {
+      "company": "현대지에프홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 23.04
+    },
+    {
+      "company": "BGF리테일",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 68.44
+    },
+    {
+      "company": "풍산",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 29.35
+    },
+    {
+      "company": "코오롱인더",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 129.9
+    },
+    {
+      "company": "GS리테일",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 50.7
+    },
+    {
+      "company": "SK가스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 101.65
+    },
+    {
+      "company": "한미사이언스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 24.0
+    },
+    {
+      "company": "HJ중공업",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 350.7
+    },
+    {
+      "company": "후성",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 8933.01
+    },
+    {
+      "company": "LS에코에너지",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 31.08
+    },
+    {
+      "company": "한국콜마",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 31.61
+    },
+    {
+      "company": "CJ대한통운",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 7.89
+    },
+    {
+      "company": "SK이터닉스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 362.28
+    },
+    {
+      "company": "코스맥스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 3.28
+    },
+    {
+      "company": "시프트업",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -18.08
+    },
+    {
+      "company": "아모레퍼시픽홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 6.92
+    },
+    {
+      "company": "HD현대에너지솔루션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1056.36
+    },
+    {
+      "company": "한국카본",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 32.01
+    },
+    {
+      "company": "케이씨텍",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 344.27
+    },
+    {
+      "company": "세아베스틸지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 71.75
+    },
+    {
+      "company": "다우기술",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 86.2
+    },
+    {
+      "company": "오리온홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 48.52
+    },
+    {
+      "company": "LX인터내셔널",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -6.83
+    },
+    {
+      "company": "SK아이이테크놀로지",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -5.16
+    },
+    {
+      "company": "아시아나항공",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -194.47
+    },
+    {
+      "company": "SNT다이내믹스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 20.25
+    },
+    {
+      "company": "코스모신소재",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -16.29
+    },
+    {
+      "company": "대신증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 164.15
+    },
+    {
+      "company": "삼화콘덴서",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -2.45
+    },
+    {
+      "company": "효성티앤씨",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 11.44
+    },
+    {
+      "company": "녹십자",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 47.35
+    },
+    {
+      "company": "동원산업",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 17.07
+    },
+    {
+      "company": "금호타이어",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 0.32
+    },
+    {
+      "company": "더블유게임즈",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 25.05
+    },
+    {
+      "company": "롯데관광개발",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 121.0
+    },
+    {
+      "company": "파라다이스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -34.87
+    },
+    {
+      "company": "STX엔진",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 13.28
+    },
+    {
+      "company": "대웅제약",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -42.61
+    },
+    {
+      "company": "해성디에스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 2995.3
+    },
+    {
+      "company": "IPARK현대산업개발",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 48.41
+    },
+    {
+      "company": "HDC",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 16.47
+    },
+    {
+      "company": "SK오션플랜트",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 52.69
+    },
+    {
+      "company": "오뚜기",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 3.28
+    },
+    {
+      "company": "교보증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 42.76
+    },
+    {
+      "company": "롯데정밀화학",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 73.94
+    },
+    {
+      "company": "한화투자증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -37.12
+    },
+    {
+      "company": "동양생명",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -46.98
+    },
+    {
+      "company": "NHN",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -5.04
+    },
+    {
+      "company": "DL",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 7.12
+    },
+    {
+      "company": "롯데렌탈",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 24.83
+    },
+    {
+      "company": "하이트진로",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -10.82
+    },
+    {
+      "company": "한일시멘트",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 0.41
+    },
+    {
+      "company": "대웅",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -21.85
+    },
+    {
+      "company": "경동나비엔",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 61.75
+    },
+    {
+      "company": "태광산업",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -521.06
+    },
+    {
+      "company": "현대홈쇼핑",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 35.95
+    },
+    {
+      "company": "종근당",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 13.13
+    },
+    {
+      "company": "유안타증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 464.1
+    },
+    {
+      "company": "TIME Korea플러스배당액티브",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "롯데칠성",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 90.96
+    },
+    {
+      "company": "비에이치",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 142.02
+    },
+    {
+      "company": "롯데웰푸드",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 118.41
+    },
+    {
+      "company": "GS피앤엘",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 58.8
+    },
+    {
+      "company": "OCI",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 171.59
+    },
+    {
+      "company": "HS효성첨단소재",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -29.94
+    },
+    {
+      "company": "쿠쿠홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -20.28
+    },
+    {
+      "company": "세진중공업",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -23.38
+    },
+    {
+      "company": "KIWOOM 200",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "대한유화",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 844.91
+    },
+    {
+      "company": "영풍",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 177.01
+    },
+    {
+      "company": "솔루엠",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 88.79
+    },
+    {
+      "company": "1Q 머니마켓액티브",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "파미셀",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 56.07
+    },
+    {
+      "company": "대원전선",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 76.18
+    },
+    {
+      "company": "세방전지",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -34.24
+    },
+    {
+      "company": "NICE평가정보",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 17.74
+    },
+    {
+      "company": "에스디바이오센서",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 20.66
+    },
+    {
+      "company": "SNT홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 21.73
+    },
+    {
+      "company": "전진건설로봇",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -50.82
+    },
+    {
+      "company": "지역난방공사",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -1.12
+    },
+    {
+      "company": "한화손해보험",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -21.4
+    },
+    {
+      "company": "이노션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 33.34
+    },
+    {
+      "company": "SK디스커버리",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 71.44
+    },
+    {
+      "company": "삼아알미늄",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -75.32
+    },
+    {
+      "company": "한샘",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 56.44
+    },
+    {
+      "company": "엠앤씨솔루션",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -16.21
+    },
+    {
+      "company": "디아이",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 90.14
+    },
+    {
+      "company": "SNT모티브",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -6.41
+    },
+    {
+      "company": "SGC에너지",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 103.63
+    },
+    {
+      "company": "보령",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 84.65
+    },
+    {
+      "company": "LX세미콘",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -65.5
+    },
+    {
+      "company": "SK케미칼",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -177.79
+    },
+    {
+      "company": "솔루스첨단소재",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -44.35
+    },
+    {
+      "company": "CJ CGV",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 172.38
+    },
+    {
+      "company": "한국단자",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -9.92
+    },
+    {
+      "company": "아이에스동서",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 264.99
+    },
+    {
+      "company": "자화전자",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 389.02
+    },
+    {
+      "company": "SNT에너지",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 77.06
+    },
+    {
+      "company": "SK증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 5265.88
+    },
+    {
+      "company": "KoAct 미국나스닥성장기업액티브",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "넥센타이어",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 33.14
+    },
+    {
+      "company": "GKL",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -10.02
+    },
+    {
+      "company": "CJ4우(전환)",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "코오롱",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 149.11
+    },
+    {
+      "company": "PI첨단소재",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 57.81
+    },
+    {
+      "company": "LF",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 47.53
+    },
+    {
+      "company": "대한해운",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 16.49
+    },
+    {
+      "company": "TKG휴켐스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 20.41
+    },
+    {
+      "company": "F&F홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 26.06
+    },
+    {
+      "company": "대덕",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 402.79
+    },
+    {
+      "company": "KG모빌리티",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 68.78
+    },
+    {
+      "company": "부국증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -30.05
+    },
+    {
+      "company": "한국쉘석유",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 10.26
+    },
+    {
+      "company": "대상",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -0.46
+    },
+    {
+      "company": "KoAct 코스닥액티브",
+      "market": "kospi",
+      "calls": 0,
+      "status": "error",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "명인제약",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "빙그레",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 2.28
+    },
+    {
+      "company": "JW중외제약",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 52.57
+    },
+    {
+      "company": "금양",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 41.2
+    },
+    {
+      "company": "동원시스템즈",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 3.91
+    },
+    {
+      "company": "LX홀딩스",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -41.72
+    },
+    {
+      "company": "광전자",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -63.78
+    },
+    {
+      "company": "일동제약",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 119.97
+    },
+    {
+      "company": "카프로",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 43.74
+    },
+    {
+      "company": "세아제강지주",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -58.97
+    },
+    {
+      "company": "KG스틸",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -66.99
+    },
+    {
+      "company": "롯데손해보험",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -318.73
+    },
+    {
+      "company": "E1",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -248.43
+    },
+    {
+      "company": "현대차증권",
+      "market": "kospi",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 19.23
+    },
+    {
+      "company": "알테오젠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -35.59
+    },
+    {
+      "company": "에코프로비엠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 822.59
+    },
+    {
+      "company": "에코프로",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 4004.42
+    },
+    {
+      "company": "레인보우로보틱스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -11.68
+    },
+    {
+      "company": "주성엔지니어링",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -120.74
+    },
+    {
+      "company": "코오롱티슈진",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1.59
+    },
+    {
+      "company": "원익IPS",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 245.43
+    },
+    {
+      "company": "리노공업",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 35.39
+    },
+    {
+      "company": "HLB",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 19.35
+    },
+    {
+      "company": "삼천당제약",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 692.36
+    },
+    {
+      "company": "이오테크닉스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 105.75
+    },
+    {
+      "company": "에이비엘바이오",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 40.67
+    },
+    {
+      "company": "HPSP",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -13.75
+    },
+    {
+      "company": "펩트론",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -32.75
+    },
+    {
+      "company": "리가켐바이오",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -428.86
+    },
+    {
+      "company": "파두",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 164.13
+    },
+    {
+      "company": "심텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 184.0
+    },
+    {
+      "company": "서진시스템",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -257.96
+    },
+    {
+      "company": "피에스케이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 108.44
+    },
+    {
+      "company": "로보티즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -1533.77
+    },
+    {
+      "company": "ISC",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 237.78
+    },
+    {
+      "company": "유진테크",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 104.65
+    },
+    {
+      "company": "케어젠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 0.45
+    },
+    {
+      "company": "현대무벡스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -112.37
+    },
+    {
+      "company": "디앤디파마텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -19.43
+    },
+    {
+      "company": "보로노이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -51.89
+    },
+    {
+      "company": "제주반도체",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1714.12
+    },
+    {
+      "company": "하나마이크론",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 513.61
+    },
+    {
+      "company": "테스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 36.45
+    },
+    {
+      "company": "동진쎄미켐",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 13.91
+    },
+    {
+      "company": "티씨케이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 21.65
+    },
+    {
+      "company": "파마리서치",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 28.07
+    },
+    {
+      "company": "대한광통신",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 42.76
+    },
+    {
+      "company": "휴젤",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 22.26
+    },
+    {
+      "company": "솔브레인",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 24.0
+    },
+    {
+      "company": "클래시스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -4.08
+    },
+    {
+      "company": "두산테스나",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 128.66
+    },
+    {
+      "company": "성호전자",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 100.31
+    },
+    {
+      "company": "티에스이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1246.96
+    },
+    {
+      "company": "우리기술",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -124.74
+    },
+    {
+      "company": "피에스케이홀딩스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -3.86
+    },
+    {
+      "company": "올릭스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -30.86
+    },
+    {
+      "company": "에스티팜",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1024.65
+    },
+    {
+      "company": "펄어비스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 4146.0
+    },
+    {
+      "company": "고영",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 209.09
+    },
+    {
+      "company": "실리콘투",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 35.22
+    },
+    {
+      "company": "브이엠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1503.56
+    },
+    {
+      "company": "코미코",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -34.58
+    },
+    {
+      "company": "테크윙",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 444.03
+    },
+    {
+      "company": "RFHIC",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 107.15
+    },
+    {
+      "company": "비츠로셀",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 34.53
+    },
+    {
+      "company": "에스피지",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 9.69
+    },
+    {
+      "company": "엘앤씨바이오",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1485.08
+    },
+    {
+      "company": "비에이치아이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 183.89
+    },
+    {
+      "company": "원익홀딩스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -122.63
+    },
+    {
+      "company": "대주전자재료",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 93.02
+    },
+    {
+      "company": "JYP Ent.",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 70.04
+    },
+    {
+      "company": "네이처셀",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 22.45
+    },
+    {
+      "company": "셀트리온제약",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 20.16
+    },
+    {
+      "company": "메지온",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -29.69
+    },
+    {
+      "company": "에스엠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 18.45
+    },
+    {
+      "company": "에임드바이오",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "기가비스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 49.67
+    },
+    {
+      "company": "파크시스템스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -84.05
+    },
+    {
+      "company": "스피어",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -83.51
+    },
+    {
+      "company": "LS마린솔루션",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 39.61
+    },
+    {
+      "company": "삼현",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -231.2
+    },
+    {
+      "company": "미래에셋벤처투자",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1198.82
+    },
+    {
+      "company": "태성",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 43.49
+    },
+    {
+      "company": "에스에이엠티",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1575.19
+    },
+    {
+      "company": "씨젠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 58.63
+    },
+    {
+      "company": "오스코텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -20.04
+    },
+    {
+      "company": "알지노믹스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -95.05
+    },
+    {
+      "company": "하나머티리얼즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 144.33
+    },
+    {
+      "company": "오름테라퓨틱",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -88.88
+    },
+    {
+      "company": "에스앤에스텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -4.21
+    },
+    {
+      "company": "휴림로봇",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -690.19
+    },
+    {
+      "company": "와이씨",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 365.33
+    },
+    {
+      "company": "제이에스링크",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -2.09
+    },
+    {
+      "company": "삼표시멘트",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 375.52
+    },
+    {
+      "company": "하림지주",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 17.45
+    },
+    {
+      "company": "씨어스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 2456.01
+    },
+    {
+      "company": "LS머트리얼즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -5.95
+    },
+    {
+      "company": "쎄트렉아이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -215.02
+    },
+    {
+      "company": "HK이노엔",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 30.83
+    },
+    {
+      "company": "SFA반도체",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -2.72
+    },
+    {
+      "company": "신성델타테크",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -31.49
+    },
+    {
+      "company": "차바이오텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -145.67
+    },
+    {
+      "company": "레이크머티리얼즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 53.77
+    },
+    {
+      "company": "케이엠더블유",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 18.27
+    },
+    {
+      "company": "리브스메드",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "GST",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 110.42
+    },
+    {
+      "company": "인텔리안테크",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 104.93
+    },
+    {
+      "company": "루닛",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 34.22
+    },
+    {
+      "company": "씨엠티엑스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "큐리옥스바이오시스템즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -7.54
+    },
+    {
+      "company": "에이치브이엠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 292.26
+    },
+    {
+      "company": "원익QnC",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 14.61
+    },
+    {
+      "company": "로보스타",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 103.1
+    },
+    {
+      "company": "에이프릴바이오",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -1890.11
+    },
+    {
+      "company": "피엔티",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -37.92
+    },
+    {
+      "company": "필옵틱스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -66.15
+    },
+    {
+      "company": "제이앤티씨",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 19.31
+    },
+    {
+      "company": "에스에프에이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -46.81
+    },
+    {
+      "company": "유일로보틱스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -1044.56
+    },
+    {
+      "company": "큐리언트",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -14.02
+    },
+    {
+      "company": "티엘비",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 472.08
+    },
+    {
+      "company": "비나텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 36.26
+    },
+    {
+      "company": "클로봇",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 26.08
+    },
+    {
+      "company": "덕산네오룩스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 72.66
+    },
+    {
+      "company": "현대바이오",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -8.93
+    },
+    {
+      "company": "솔브레인홀딩스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -93.56
+    },
+    {
+      "company": "네패스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 198.98
+    },
+    {
+      "company": "세미파이브",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "제룡전기",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -63.36
+    },
+    {
+      "company": "아주IB투자",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 943.48
+    },
+    {
+      "company": "동국제약",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 7.97
+    },
+    {
+      "company": "샘씨엔에스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 436.93
+    },
+    {
+      "company": "성광벤드",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -38.86
+    },
+    {
+      "company": "와이지엔터테인먼트",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 103.87
+    },
+    {
+      "company": "하이젠알앤엠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -42.86
+    },
+    {
+      "company": "씨아이에스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -87.28
+    },
+    {
+      "company": "태웅",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 196.2
+    },
+    {
+      "company": "코스모로보틱스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "CJ ENM",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 107.19
+    },
+    {
+      "company": "카카오게임즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -104.65
+    },
+    {
+      "company": "아이티센글로벌",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 193.07
+    },
+    {
+      "company": "태광",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 26.28
+    },
+    {
+      "company": "지투지바이오",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -15.36
+    },
+    {
+      "company": "로킷헬스케어",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -853.62
+    },
+    {
+      "company": "엔켐",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -26.36
+    },
+    {
+      "company": "동운아나텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -163.95
+    },
+    {
+      "company": "지아이이노베이션",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -4.37
+    },
+    {
+      "company": "프로텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 428.34
+    },
+    {
+      "company": "쏠리드",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -915.67
+    },
+    {
+      "company": "다우데이타",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 85.03
+    },
+    {
+      "company": "서울반도체",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 108.62
+    },
+    {
+      "company": "선익시스템",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 182.19
+    },
+    {
+      "company": "에스티큐브",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -41.43
+    },
+    {
+      "company": "스튜디오드래곤",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 50.11
+    },
+    {
+      "company": "나노신소재",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 837.9
+    },
+    {
+      "company": "서부T&D",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 37.61
+    },
+    {
+      "company": "온코닉테라퓨틱스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 190.56
+    },
+    {
+      "company": "피노",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 17620.84
+    },
+    {
+      "company": "이엔에프테크놀로지",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 16.11
+    },
+    {
+      "company": "코스메카코리아",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 78.03
+    },
+    {
+      "company": "유진로봇",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -57.95
+    },
+    {
+      "company": "엠케이전자",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1419.85
+    },
+    {
+      "company": "미코",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -46.54
+    },
+    {
+      "company": "코나아이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 95.38
+    },
+    {
+      "company": "성일하이텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 99.97
+    },
+    {
+      "company": "에프에스티",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -48.42
+    },
+    {
+      "company": "티에프이",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 12.01
+    },
+    {
+      "company": "네패스아크",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 708.11
+    },
+    {
+      "company": "앱클론",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 46.89
+    },
+    {
+      "company": "와이지-원",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 327.78
+    },
+    {
+      "company": "삼지전자",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 1240.31
+    },
+    {
+      "company": "가온칩스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 39.22
+    },
+    {
+      "company": "에코프로에이치엔",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 47.69
+    },
+    {
+      "company": "코오롱생명과학",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 3839.04
+    },
+    {
+      "company": "덕산하이메탈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 52.0
+    },
+    {
+      "company": "안랩",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 84.32
+    },
+    {
+      "company": "넥슨게임즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -331.4
+    },
+    {
+      "company": "포스코엠텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 411.55
+    },
+    {
+      "company": "메디톡스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 34.62
+    },
+    {
+      "company": "넥스틴",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -262.48
+    },
+    {
+      "company": "예스티",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 38.11
+    },
+    {
+      "company": "코미팜",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -40.91
+    },
+    {
+      "company": "NHN KCP",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 26.37
+    },
+    {
+      "company": "인벤티지랩",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -56.04
+    },
+    {
+      "company": "코세스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -63.07
+    },
+    {
+      "company": "인바디",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 86.01
+    },
+    {
+      "company": "케이아이엔엑스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 79.53
+    },
+    {
+      "company": "위메이드",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 174.88
+    },
+    {
+      "company": "동성화인텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 58.42
+    },
+    {
+      "company": "젬백스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 74.13
+    },
+    {
+      "company": "뉴로메카",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -7.4
+    },
+    {
+      "company": "원텍",
+      "market": "kosdaq",
+      "calls": 9,
+      "status": "no_filing",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "원익머트리얼즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 6.35
+    },
+    {
+      "company": "네오셈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -60.74
+    },
+    {
+      "company": "성우하이텍",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -6.45
+    },
+    {
+      "company": "노타",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": null
+    },
+    {
+      "company": "한양이엔지",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 88.64
+    },
+    {
+      "company": "이녹스첨단소재",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -35.96
+    },
+    {
+      "company": "RF머트리얼즈",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 281.87
+    },
+    {
+      "company": "서희건설",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -79.45
+    },
+    {
+      "company": "SOOP",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -24.06
+    },
+    {
+      "company": "디어유",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 76.91
+    },
+    {
+      "company": "엘티씨",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 92.04
+    },
+    {
+      "company": "한국피아이엠",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -241.03
+    },
+    {
+      "company": "아이쓰리시스템",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -24.44
+    },
+    {
+      "company": "천보",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -221.13
+    },
+    {
+      "company": "에이디테크놀로지",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 76.99
+    },
+    {
+      "company": "인텍플러스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 57.39
+    },
+    {
+      "company": "현대힘스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 17.82
+    },
+    {
+      "company": "토모큐브",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 38.07
+    },
+    {
+      "company": "켐트로닉스",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 3.95
+    },
+    {
+      "company": "아난티",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": -194.85
+    },
+    {
+      "company": "에이팩트",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 43.71
+    },
+    {
+      "company": "파이버프로",
+      "market": "kosdaq",
+      "calls": 14,
+      "status": "exact",
+      "op_yoy_pct": 282.77
+    }
+  ]
+}
