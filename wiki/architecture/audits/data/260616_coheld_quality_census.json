@@ -646,7 +646,7 @@
     "headline": 15.45,
     "format": "일반",
     "parse": "ok",
-    "self_name": "휴먼웰니스",
+    "self_name": "㈜휴먼웰니스",
     "summed": 15.45,
     "n_related": 2,
     "bad_names": [],
@@ -1168,7 +1168,13 @@
     "tag": "dispute",
     "rcept": "20250904000049",
     "headline": 44.49,
-    "parse": "fail"
+    "format": "일반",
+    "parse": "ok",
+    "self_name": "위더스㈜",
+    "summed": 44.49,
+    "n_related": 0,
+    "bad_names": [],
+    "invariant_ok": true
   },
   {
     "name": "퀀타매트릭스",
@@ -1731,7 +1737,7 @@
     "headline": 79.38,
     "format": "일반",
     "parse": "ok",
-    "self_name": "LG화학",
+    "self_name": "㈜LG화학",
     "summed": 79.38,
     "n_related": 0,
     "bad_names": [],
@@ -2136,11 +2142,11 @@
     "headline": 52.11,
     "format": "일반",
     "parse": "ok",
-    "self_name": "88,052,777 52.09 최재원",
-    "summed": 0.01,
-    "n_related": 16,
+    "self_name": "SK㈜",
+    "summed": 52.1,
+    "n_related": 17,
     "bad_names": [],
-    "invariant_ok": false
+    "invariant_ok": true
   },
   {
     "name": "한화시스템",
@@ -2162,11 +2168,11 @@
     "headline": 60.62,
     "format": "일반",
     "parse": "ok",
-    "self_name": "51,747,787 58.18 학교법인 포항공과대학교",
-    "summed": 2.44,
-    "n_related": 1,
+    "self_name": "포스코홀딩스㈜",
+    "summed": 60.62,
+    "n_related": 2,
     "bad_names": [],
-    "invariant_ok": false
+    "invariant_ok": true
   },
   {
     "name": "메리츠금융지주",
@@ -2329,11 +2335,11 @@
     "headline": 55.35,
     "format": "일반",
     "parse": "ok",
-    "self_name": "24,800,000 55.32 이기동",
-    "summed": 0.04,
-    "n_related": 3,
+    "self_name": "HD현대㈜",
+    "summed": 55.36,
+    "n_related": 4,
     "bad_names": [],
-    "invariant_ok": false
+    "invariant_ok": true
   },
   {
     "name": "카카오뱅크",
@@ -2691,11 +2697,11 @@
     "headline": 26.47,
     "format": "일반",
     "parse": "ok",
-    "self_name": "18,679,446 26.40 방준혁",
-    "summed": 0.07,
-    "n_related": 2,
+    "self_name": "넷마블㈜",
+    "summed": 26.47,
+    "n_related": 3,
     "bad_names": [],
-    "invariant_ok": false
+    "invariant_ok": true
   },
   {
     "name": "유한양행",
@@ -2816,7 +2822,7 @@
     "headline": 65.99,
     "format": "일반",
     "parse": "ok",
-    "self_name": "코오롱",
+    "self_name": "㈜코오롱",
     "summed": 65.99,
     "n_related": 7,
     "bad_names": [],
@@ -3119,10 +3125,10 @@
     "format": "일반",
     "parse": "ok",
     "self_name": "정지완",
-    "summed": 12.49,
-    "n_related": 7,
+    "summed": 44.72,
+    "n_related": 9,
     "bad_names": [],
-    "invariant_ok": false
+    "invariant_ok": true
   },
   {
     "name": "티씨케이",
