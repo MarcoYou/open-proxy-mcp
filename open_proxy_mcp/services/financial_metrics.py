@@ -197,15 +197,39 @@ def _extract_period_amount(row: dict[str, Any], period: str = "thstrm") -> int |
     return normalize_amount(row.get(f"{period}_amount"))
 
 
+def _extract_cumulative_is(row: dict[str, Any]) -> int | None:
+    """IS 누적값: thstrm_add(당기 누적) 우선, 없으면(사업보고서·1분기) thstrm.
+
+    분기·반기 보고서의 손익 thstrm은 '당기 3개월(standalone)'이고 누적은 thstrm_add다.
+    사업보고서(연간)·1분기는 thstrm_add가 비어 thstrm이 곧 누적과 동일하다.
+    """
+    v = normalize_amount(row.get("thstrm_add_amount"))
+    return v if v is not None else normalize_amount(row.get("thstrm_amount"))
+
+
+# reprt_code별 기간(개월) — 누적(period-to-date) / 당기(standalone)
+def _period_months(reprt_code: str | None, *, cumulative: bool) -> int:
+    """누적이면 보고시점까지 개월(1Q=3·반기=6·3Q=9·연간=12), 당기면 분기=3·연간=12."""
+    rc = reprt_code or "11011"
+    if rc == "11011":  # 사업보고서(연간) — 누적=당기=12
+        return 12
+    if not cumulative:
+        return 3  # 분기/반기/3분기 standalone = 3개월
+    return {"11013": 3, "11012": 6, "11014": 9}.get(rc, 12)
+
+
 def _build_account_map(
     rows: list[dict[str, Any]],
     bs_patterns: dict[str, tuple[str, ...]] = _BS_ACCOUNT_PATTERNS,
     is_patterns: dict[str, tuple[str, ...]] = _IS_ACCOUNT_PATTERNS,
     period: str = "thstrm",
+    cumulative_is: bool = False,
 ) -> dict[str, int | None]:
     """fnlttSinglAcnt rows → 표준 키 매핑 dict (BS + IS).
 
     같은 키에 여러 행이 매칭되면 첫 매칭만 사용 (DART 응답 순서 = 사업보고서 순서).
+    cumulative_is=True: IS는 누적(thstrm_add 우선)으로, BS는 잔액(thstrm)으로 — 분기/반기
+    보고서에서 손익을 '당기 3개월'이 아닌 '누적'으로 읽기 위함. BS는 잔액이라 기간 무관.
     """
     out: dict[str, int | None] = {k: None for k in {**bs_patterns, **is_patterns}}
     for row in rows:
@@ -214,12 +238,12 @@ def _build_account_map(
         if sj_div == "BS":
             for key, patterns in bs_patterns.items():
                 if out[key] is None and _match_account(account_nm, patterns):
-                    out[key] = _extract_period_amount(row, period)
+                    out[key] = _extract_period_amount(row, period)  # BS는 항상 잔액
                     break
         elif sj_div == "IS":
             for key, patterns in is_patterns.items():
                 if out[key] is None and _match_account(account_nm, patterns):
-                    out[key] = _extract_period_amount(row, period)
+                    out[key] = _extract_cumulative_is(row) if cumulative_is else _extract_period_amount(row, period)
                     break
     return out
 
@@ -227,10 +251,13 @@ def _build_account_map(
 def _build_account_map_all(
     rows: list[dict[str, Any]],
     period: str = "thstrm",
+    cumulative_is: bool = False,
 ) -> dict[str, int | None]:
     """fnlttSinglAcntAll rows → 표준 키 매핑 (CF + IS detail + BS detail).
 
     sj_div: BS / IS / CIS / CF / SCE.
+    cumulative_is=True: IS/CIS 손익(cogs·gross_profit 등)을 누적으로 읽는다. BS(잔액)·CF
+    (thstrm이 이미 누적)는 그대로 thstrm. 분기/반기 손익을 누적 기준으로 맞추기 위함.
     """
     out: dict[str, int | None] = {}
     out.update({k: None for k in _BS_ACCOUNT_PATTERNS})
@@ -241,7 +268,8 @@ def _build_account_map_all(
     for row in rows:
         sj_div = _strip(row.get("sj_div"))
         account_nm = _strip(row.get("account_nm"))
-        amount = _extract_period_amount(row, period)
+        amount = _extract_period_amount(row, period)  # BS(잔액)·CF(누적 native)용
+        is_amount = _extract_cumulative_is(row) if cumulative_is else amount  # IS/CIS 손익용
 
         if sj_div == "BS":
             for key, patterns in _BS_ACCOUNT_PATTERNS.items():
@@ -263,14 +291,14 @@ def _build_account_map_all(
         elif sj_div in ("IS", "CIS"):
             for key, patterns in _IS_ACCOUNT_PATTERNS.items():
                 if out[key] is None and _match_account(account_nm, patterns):
-                    out[key] = amount
+                    out[key] = is_amount
                     break
             for key, patterns in _IS_DETAIL_PATTERNS.items():
                 if key in {"gross_profit", "cogs", "interest_expense",
                            "minority_interest_income", "controlling_interest_income",
                            "diluted_eps", "basic_eps"}:
                     if out[key] is None and _match_account(account_nm, patterns):
-                        out[key] = amount
+                        out[key] = is_amount
                         break
         elif sj_div == "CF":
             # 이자지급 변형은 정확 일치 우선 (substring FP 방지 — _INTEREST_PAID_EXACT 주석 참조)
@@ -340,15 +368,18 @@ def _avg(a: int | float | None, b: int | float | None) -> float | None:
 def _turnover_days(
     balance: int | float | None,
     denom: int | float | None,
+    period_months: int = 12,
 ) -> float | None:
-    """회전일수 = 평균 balance / 연간 denominator * 365.
+    """회전일수 = 평균 balance / 기간 flow * 기간일수.
 
+    denom(매출·COGS)이 분기/반기 flow면 period_months로 기간을 맞춘다 (분기=3 → ×91.25일).
+    기존엔 ×365 고정이라 분기 데이터에 적용 시 ~4배 과대됐다 (DIO 511일 등).
     금융업/지주사처럼 분모 계정이 없거나 0 이하인 경우 무리해서 산출하지 않는다.
     """
     r = _safe_div(balance, denom, positive_denom_only=True)
     if r is None:
         return None
-    return round(r * 365, 1)
+    return round(r * 365 * period_months / 12, 1)
 
 
 def _compute_metrics(
@@ -358,6 +389,9 @@ def _compute_metrics(
     detail: dict[str, int | None] | None,
     detail_prev: dict[str, int | None] | None,
     indx_map: dict[str, float | None] | None,
+    period_months: int = 12,
+    ttm_revenue: int | None = None,
+    ttm_cogs: int | None = None,
 ) -> dict[str, Any]:
     """단일 사업연도 metrics 계산 (수익성/안정성/현금흐름/운전자본/회계risk/배당유보/NAV).
 
@@ -571,9 +605,24 @@ def _compute_metrics(
         if prev_accounts_payable is not None
         else accounts_payable
     )
-    days_sales_outstanding = _turnover_days(avg_accounts_receivable, revenue)
-    days_inventory_outstanding = _turnover_days(avg_inventory, cogs)
-    days_payable_outstanding = _turnover_days(avg_accounts_payable, cogs)
+    # 회전일수 분모: TTM(최근 4분기) flow가 있으면 우선 — 분기 단일 flow를 연환산하며 생기는
+    # 호황/급변 왜곡(예: AR 3배인데 DSO 하락)을 제거해 연간과 직접 비교 가능. TTM이면 ×365.
+    # 없으면 기간일치(period_months)로 fallback.
+    _use_ttm_rev = ttm_revenue is not None and ttm_revenue > 0
+    _use_ttm_cogs = ttm_cogs is not None and ttm_cogs > 0
+    days_sales_outstanding = (
+        _turnover_days(avg_accounts_receivable, ttm_revenue, 12) if _use_ttm_rev
+        else _turnover_days(avg_accounts_receivable, revenue, period_months)
+    )
+    days_inventory_outstanding = (
+        _turnover_days(avg_inventory, ttm_cogs, 12) if _use_ttm_cogs
+        else _turnover_days(avg_inventory, cogs, period_months)
+    )
+    days_payable_outstanding = (
+        _turnover_days(avg_accounts_payable, ttm_cogs, 12) if _use_ttm_cogs
+        else _turnover_days(avg_accounts_payable, cogs, period_months)
+    )
+    turnover_basis = "ttm" if _use_ttm_rev else ("annual" if period_months == 12 else "period_matched")
     cash_conversion_cycle_days = None
     if (
         days_sales_outstanding is not None
@@ -676,6 +725,11 @@ def _compute_metrics(
         "days_inventory_outstanding": days_inventory_outstanding,
         "days_payable_outstanding": days_payable_outstanding,
         "cash_conversion_cycle_days": cash_conversion_cycle_days,
+        "turnover_basis": turnover_basis,  # ttm / annual / period_matched
+        # 기간 메타 — 회전일수는 ttm(우선) 또는 period_months로 기간 보정됨. ROE/ROA/자산회전율은
+        # 이 기간(분기/반기) flow 기준이라 12 미만이면 '연환산 아님'(분기값)으로 해석할 것.
+        "period_months": period_months,
+        "is_annualized_basis": period_months == 12,
         # ── 회계 risk ──
         "accruals_gap_pct": accruals_gap_pct,
         "ar_to_revenue_pct": ar_to_revenue_pct,
@@ -1026,24 +1080,103 @@ async def _fetch_year_metrics(
     if err_dp and err_dp != "no_filing":
         warnings.append(err_dp)
 
-    bs_is = _build_account_map(rows_curr) if rows_curr else {}
-    bs_is_prev = _build_account_map(rows_prev) if rows_prev else None
-    detail = _build_account_map_all(rows_detail) if rows_detail else None
-    detail_prev = _build_account_map_all(rows_detail_prev) if rows_detail_prev else None
+    # ── PRIMARY = 누적(period-to-date) basis ──
+    # 분기/반기 보고서면 손익을 누적(thstrm_add)으로 읽어 CF(누적)와 기간을 맞춘다.
+    # 사업보고서·1분기는 누적=당기라 동일. BS(잔액)는 기간 무관.
+    bs_is = _build_account_map(rows_curr, cumulative_is=True) if rows_curr else {}
+    bs_is_prev = _build_account_map(rows_prev, cumulative_is=True) if rows_prev else None
+    detail = _build_account_map_all(rows_detail, cumulative_is=True) if rows_detail else None
+    detail_prev = _build_account_map_all(rows_detail_prev, cumulative_is=True) if rows_detail_prev else None
 
     if not bs_is:
         return {}, warnings + [f"{year}년 BS/IS 핵심 데이터 파싱 실패"], 0
 
+    # ── TTM(최근 4분기) 회전일수 분모 — 분기/반기면 직전 FY 1건 추가 fetch ──
+    # TTM = 직전 FY + 당기 YTD(누적) − 전년 YTD(누적). AR/재고 평균은 이미 (당기말+전년동기말)/2라
+    # TTM 정합. 단일분기 연환산 왜곡(AR 3배인데 DSO 하락) 제거. 실패 시 기간일치로 fallback.
+    ttm_revenue = ttm_cogs = None
+    if used_rc != _REPRT_BUSINESS:
+        fy_rows_all, _fy_err = await _safe_fetch_acnt_all(corp_code, year - 1, _REPRT_BUSINESS, actual_fs)
+        fy_map = _build_account_map_all(fy_rows_all) if fy_rows_all else {}
+        ytd_rev_c, ytd_rev_p = (bs_is or {}).get("revenue"), (bs_is_prev or {}).get("revenue")
+        if None not in (fy_map.get("revenue"), ytd_rev_c, ytd_rev_p):
+            ttm_revenue = fy_map["revenue"] + ytd_rev_c - ytd_rev_p
+        ytd_cogs_c, ytd_cogs_p = (detail or {}).get("cogs"), (detail_prev or {}).get("cogs")
+        if None not in (fy_map.get("cogs"), ytd_cogs_c, ytd_cogs_p):
+            ttm_cogs = fy_map["cogs"] + ytd_cogs_c - ytd_cogs_p
+        if ttm_revenue is None:
+            warnings.append(f"{year}년 TTM 회전일수 분모 계산 실패(직전 FY 미조회) — 분기 기간일치로 fallback.")
+
+    pm_cum = _period_months(used_rc, cumulative=True)
     metrics = _compute_metrics(
         bs_is=bs_is,
         bs_is_prev=bs_is_prev,
         detail=detail,
         detail_prev=detail_prev,
         indx_map=None,  # fnlttSinglIndx 제거 — 자체 계산값 우선이라 미사용
+        period_months=pm_cum,
+        ttm_revenue=ttm_revenue,
+        ttm_cogs=ttm_cogs,
     )
     metrics["year"] = year
     metrics["fs_div"] = actual_fs  # 요청값이 아니라 실제 사용된 기준 (CFS 미작성 시 OFS)
     metrics["reprt_code"] = used_rc
+    metrics["period_basis"] = "annual" if used_rc == _REPRT_BUSINESS else f"cumulative_{pm_cum}m"
+    if pm_cum < 12:
+        warnings.append(
+            f"{year}년 {pm_cum}개월 누적 기준 — 회전일수는 기간 보정됨, ROE/ROA/자산회전율은 "
+            f"연환산 아닌 {pm_cum}개월값(연간 비교 시 주의)."
+        )
+
+    # ── 당기(standalone) basis — 반기/3분기는 누적−직전 누적으로 차분, CF는 직전 보고서 필요 ──
+    metrics["standalone"] = None
+    if used_rc in ("11012", "11014"):
+        prior_rc = {"11012": "11013", "11014": "11012"}[used_rc]
+        prior_detail_rows, prior_err = await _safe_fetch_acnt_all(corp_code, year, prior_rc, actual_fs)
+        if prior_detail_rows:
+            bs_is_std = _build_account_map(rows_curr)  # thstrm: IS=당기 3개월, BS=잔액
+            bs_is_prev_std = _build_account_map(rows_prev) if rows_prev else None
+            detail_std = _build_account_map_all(rows_detail) if rows_detail else None
+            prior_detail = _build_account_map_all(prior_detail_rows)
+            if detail_std:
+                # CF는 누적이므로 당기 = 당기누적 − 직전누적 (cfo/capex/이자지급 등 전 CF 키)
+                for k in _CF_ACCOUNT_PATTERNS:
+                    cur_v, pri_v = detail_std.get(k), prior_detail.get(k)
+                    if cur_v is not None and pri_v is not None:
+                        detail_std[k] = cur_v - pri_v
+            standalone = _compute_metrics(
+                bs_is=bs_is_std,
+                bs_is_prev=bs_is_prev_std,
+                detail=detail_std,
+                detail_prev=detail_prev,  # NWC YoY는 잔액 기반이라 기간 무관 — 누적 detail_prev 재사용 OK
+                indx_map=None,
+                period_months=3,
+                ttm_revenue=ttm_revenue,  # 회전일수는 basis 무관 — 두 벌 모두 동일 TTM 사용
+                ttm_cogs=ttm_cogs,
+            )
+            standalone["period_basis"] = "quarter_3m"
+            metrics["standalone"] = standalone
+        else:
+            warnings.append(f"{year}년 당기(standalone) 분해 실패 — 직전 보고서({prior_rc}) 미조회, 누적만 제공.")
+    elif used_rc == "11013":
+        # 1분기는 누적=당기 → primary가 곧 당기 (별도 분해 불필요)
+        metrics["period_basis"] = "quarter_3m"
+
+    # ── 기준 항상 명시 (사람용 한 줄) — 손익이 당기/누적/연간 중 무엇인지 + 회전일수 기준 ──
+    _tb = {"ttm": "TTM(최근 4분기)", "annual": "연간", "period_matched": "기간보정(분기)"}.get(
+        metrics.get("turnover_basis"), metrics.get("turnover_basis"))
+    if used_rc == _REPRT_BUSINESS:
+        metrics["basis_note"] = "손익=연간(사업보고서, 12개월), 회전일수=연간 기준."
+    elif used_rc == "11013":
+        metrics["basis_note"] = f"손익=당기 1분기(3개월), 회전일수={_tb} 기준."
+    else:
+        metrics["basis_note"] = (
+            f"손익=누적 {pm_cum}개월(YTD) 기준, 회전일수={_tb} 기준"
+            f"{' · 당기 분기(3개월)는 standalone 참조' if metrics.get('standalone') else ''}."
+        )
+    if metrics.get("standalone"):
+        metrics["standalone"]["basis_note"] = f"손익=당기 분기(3개월, standalone), 회전일수={_tb} 기준."
+
     return metrics, warnings, 1
 
 
