@@ -46,6 +46,17 @@ def _render_error(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _won(n) -> str:
+    """금액 raw → 조/억 환산 (가독성). order_contracts·proxy_advise와 동일 정책."""
+    if not n:
+        return "-"
+    if n >= 1_0000_0000_0000:  # 1조
+        return f"{n/1_0000_0000_0000:.2f}조원"
+    if n >= 1_0000_0000:  # 1억
+        return f"{n/1_0000_0000:,.0f}억원"
+    return f"{n:,}원"
+
+
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     s = data.get("summary", {}) or {}
@@ -84,11 +95,11 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     if s.get("acquisition_shares_total"):
         lines.append(f"- 취득결정 총 수량: {s['acquisition_shares_total']:,}주")
     if s.get("acquisition_amount_total_krw"):
-        lines.append(f"- 취득결정 총 금액: {s['acquisition_amount_total_krw']:,}원")
+        lines.append(f"- 취득결정 총 금액: {_won(s['acquisition_amount_total_krw'])}")
     if s.get("acquisition_for_cancelation_amount_total_krw"):
-        lines.append(f"- **소각목적 취득 총 금액: {s['acquisition_for_cancelation_amount_total_krw']:,}원**")
+        lines.append(f"- **소각목적 취득 총 금액: {_won(s['acquisition_for_cancelation_amount_total_krw'])}**")
     if s.get("trust_contract_amount_total_krw"):
-        lines.append(f"- 신탁체결 총 규모: {s['trust_contract_amount_total_krw']:,}원")
+        lines.append(f"- 신탁체결 총 규모: {_won(s['trust_contract_amount_total_krw'])}")
 
     events_to_show = data.get("events") or data.get("latest_events") or []
     if events_to_show:
@@ -97,7 +108,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.extend([
             "",
             f"## 이벤트 타임라인{cycle_note}",
-            "| 공시일 | phase | 유형 | 주식수 | 금액(원) | 사이클 link | rcept_no |",
+            "| 공시일 | phase | 유형 | 주식수 | 금액 | 사이클 link | rcept_no |",
             "|--------|-------|------|--------|---------|-------------|----------|",
         ])
         for ev in events_to_show[:40]:
@@ -108,7 +119,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             amount = (ev.get("amount_krw") or ev.get("actual_amount_krw")
                       or ev.get("total_amount_krw") or ev.get("acquired_amount_krw") or 0)
             shares_str = f"{shares:,}" if shares else "-"
-            amount_str = f"{amount:,}" if amount else "-"
+            amount_str = _won(amount)
             link = ""
             if ev.get("linked_decision_rcept_no"):
                 link = f"→ {ev['linked_decision_rcept_no']}"
@@ -133,9 +144,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 ap = ev.get("amount_preferred_krw") or 0
                 if sc or sp or ac or ap:
                     if sc or ac:
-                        lines.append(f"- 보통주: {sc:,}주 / {ac:,}원" + (f" (단가 {ev.get('price_common_krw'):,}원)" if ev.get("price_common_krw") else ""))
+                        lines.append(f"- 보통주: {sc:,}주 / {_won(ac)}" + (f" (단가 {ev.get('price_common_krw'):,}원)" if ev.get("price_common_krw") else ""))
                     if sp or ap:
-                        lines.append(f"- 우선주(기타): {sp:,}주 / {ap:,}원" + (f" (단가 {ev.get('price_preferred_krw'):,}원)" if ev.get("price_preferred_krw") else ""))
+                        lines.append(f"- 우선주(기타): {sp:,}주 / {_won(ap)}" + (f" (단가 {ev.get('price_preferred_krw'):,}원)" if ev.get("price_preferred_krw") else ""))
                 # 기간
                 if ev.get("start_date") or ev.get("end_date"):
                     lines.append(f"- 기간: {ev.get('start_date','-')} ~ {ev.get('end_date','-')}")

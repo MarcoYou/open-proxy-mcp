@@ -30,6 +30,17 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _won(n) -> str:
+    """금액 raw → 조/억 환산 (가독성). treasury·order_contracts와 동일 정책."""
+    if not n:
+        return "-"
+    if n >= 1_0000_0000_0000:
+        return f"{n/1_0000_0000_0000:.2f}조원"
+    if n >= 1_0000_0000:
+        return f"{n/1_0000_0000:,.0f}억원"
+    return f"{n:,}원"
+
+
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     summary = data.get("summary", {})
@@ -51,7 +62,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append(f"- 연간 DPS(보통주): {summary.get('cash_dps', 0):,}원")
         if summary.get("cash_dps_preferred"):
             lines.append(f"- 연간 DPS(우선주): {summary.get('cash_dps_preferred', 0):,}원")
-        lines.append(f"- 배당총액: {summary.get('total_amount_mil', 0):,}백만원")
+        lines.append(f"- 배당총액: {_won(summary.get('total_amount_mil', 0) * 1_000_000)}")
         if summary.get("payout_ratio_dart") is not None:
             lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}%")
         if summary.get("yield_dart") is not None:
@@ -95,7 +106,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.extend(["", "## 최신연도 분기별 (정기보고서 누적차분)", "| 분기 | 보통주 DPS | 우선주 DPS | 배당총액 |", "|------|------------|------------|----------|"])
             for x in qf:
                 pref = f"{x['dps_preferred']:,}원" if x.get("dps_preferred") else "-"
-                lines.append(f"| {x['quarter']} | {x['dps_common']:,}원 | {pref} | {x['total_mil']:,}백만 |")
+                lines.append(f"| {x['quarter']} | {x['dps_common']:,}원 | {pref} | {_won(x['total_mil'] * 1_000_000)} |")
             lines.append("> 분기/반기/사업보고서 누적값을 차분 — 결정공시 귀속 추측이 아니라 권위 출처. 무배당 분기는 0.")
         # 결정공시별 breakdown — 기준일·rcept_no 추적용 (정정 이력 포함).
         qb = data.get("quarterly_breakdown") or []
