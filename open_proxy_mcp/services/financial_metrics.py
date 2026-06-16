@@ -1161,6 +1161,13 @@ def _qchg_pct(curr: int | None, prev: int | None) -> float | None:
     return round((curr - prev) / prev * 100, 2)
 
 
+def _pp_diff(curr: float | None, prev: float | None) -> float | None:
+    """비율(마진 등)의 변화는 증감률(%)이 아니라 %포인트 차이로 본다 (음수 전기에도 유효)."""
+    if curr is None or prev is None:
+        return None
+    return round(curr - prev, 2)
+
+
 async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quarters: int = 12) -> tuple[list[dict[str, Any]], list[str]]:
     """4Q × 3년 = 12분기 standalone 손익. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출.
 
@@ -1317,11 +1324,16 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             "revenue": _qchg_pct(row.get("revenue_krw"), prev_q.get("revenue_krw") if prev_q else None),
             "operating_profit": _qchg_pct(row.get("operating_profit_krw"), prev_q.get("operating_profit_krw") if prev_q else None),
             "net_income": _qchg_pct(row.get("net_income_krw"), prev_q.get("net_income_krw") if prev_q else None),
+            # 마진은 증감률(%)이 아니라 %포인트(pp) 차이로 — 손익(원)은 위 3키, 마진은 _pp 키.
+            "operating_margin_pp": _pp_diff(row.get("operating_margin_pct"), prev_q.get("operating_margin_pct") if prev_q else None),
+            "net_profit_margin_pp": _pp_diff(row.get("net_profit_margin_pct"), prev_q.get("net_profit_margin_pct") if prev_q else None),
         }
         row["yoy_pct"] = {
             "revenue": _qchg_pct(row.get("revenue_krw"), prev_y.get("revenue_krw") if prev_y else None),
             "operating_profit": _qchg_pct(row.get("operating_profit_krw"), prev_y.get("operating_profit_krw") if prev_y else None),
             "net_income": _qchg_pct(row.get("net_income_krw"), prev_y.get("net_income_krw") if prev_y else None),
+            "operating_margin_pp": _pp_diff(row.get("operating_margin_pct"), prev_y.get("operating_margin_pct") if prev_y else None),
+            "net_profit_margin_pp": _pp_diff(row.get("net_profit_margin_pct"), prev_y.get("net_profit_margin_pct") if prev_y else None),
         }
     return out[-num_quarters:], warnings
 
@@ -1431,7 +1443,17 @@ async def build_financial_metrics_payload(
 
     selected = resolution.selected
     corp_code = selected["corp_code"]
-    target_year = year or _default_recent_year()
+    # 분기 인지형 디폴트: quarterly/qoq는 이미 제출된 최신 분기(예: 당해 1분기는 5월 공시)를
+    # 봐야 하므로 디폴트 end_year를 당해 연도로. _build_quarterly는 end_year-2..end_year를
+    # 받고 미공시 분기는 graceful skip이라 호출 수(12) 변동 없이 최신 분기가 포함된다.
+    # summary/yearly/yoy는 연간(사업보고서) 기준이라 _default_recent_year(전년) 유지.
+    if year:
+        target_year = year
+    elif scope in ("quarterly", "qoq"):
+        from datetime import date as _date
+        target_year = _date.today().year
+    else:
+        target_year = _default_recent_year()
 
     warnings: list[str] = []
     evidence_refs: list[EvidenceRef] = []
