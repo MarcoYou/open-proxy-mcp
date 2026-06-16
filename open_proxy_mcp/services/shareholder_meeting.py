@@ -129,8 +129,11 @@ _AGENDA_ALTERNATIVE_PATTERNS = (
 
 
 def _proposer_type(source: str | None) -> str:
+    # 값은 코드 전반의 canonical 명칭 "shareholder_proposal"로 통일 (category 키·proxy_advise
+    # 가이드라인 키와 동일). 과거 "shareholder"는 category("shareholder_proposal")와 어긋나
+    # 소비자가 주주제안을 놓치는 원인이었다.
     if source and "주주제안" in source:
-        return "shareholder"
+        return "shareholder_proposal"
     if source:
         return "unknown"
     return "company"

@@ -37,7 +37,7 @@ def test_agenda_nodes_expose_relation_and_proposer_metadata():
 
     assert nodes[1]["agenda_relation_type"] == "alternative"
     assert "alternative_title" in nodes[1]["agenda_relation_reasons"]
-    assert nodes[1]["proposer_type"] == "shareholder"
+    assert nodes[1]["proposer_type"] == "shareholder_proposal"
 
     assert nodes[2]["agenda_relation_type"] == "conditional"
     assert "conditional_field" in nodes[2]["agenda_relation_reasons"]
