@@ -59,14 +59,14 @@
     "name": "기업은행",
     "sector": "은행",
     "n_library": 1,
-    "comp_status": "amount_unparsed",
+    "comp_status": "ok",
     "comp_items": 2
   },
   {
     "name": "한국금융지주",
     "sector": "증권",
     "n_library": 1,
-    "comp_status": "amount_unparsed",
+    "comp_status": "ok",
     "comp_items": 1
   },
   {

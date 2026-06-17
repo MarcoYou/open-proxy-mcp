@@ -3717,6 +3717,24 @@ def parse_compensation_xml(html: str) -> dict:
             })
             seen_numbers.add(number)
 
+    # 단일 library 등으로 당기/전기 표가 안 붙은 안건 — 원문 텍스트 fallback.
+    # 구조 파싱이 양쪽 다 빈손일 때만 발동(gating) → 정상 파싱 회사 미접촉(회귀 안전).
+    for item in items:
+        cur_has = (item.get("current") or {}).get("limitAmount") is not None
+        pri_has = (item.get("prior") or {}).get("limitAmount") is not None
+        if cur_has or pri_has:
+            continue
+        c, p = _compensation_raw_fallback(html, item.get("target", ""))
+        if c is None and p is None:
+            continue
+        item.setdefault("current", {})
+        item.setdefault("prior", {})
+        if c is not None:
+            item["current"]["limitAmount"] = c
+        if p is not None:
+            item["prior"]["limitAmount"] = p
+        item.setdefault("notes", []).append("raw_fallback_single_library")
+
     summary = _build_compensation_summary(items)
     return {"items": items, "summary": summary}
 
@@ -3861,6 +3879,43 @@ def _extract_comp_unit_from_html(html: str) -> str | None:
     if m:
         return m.group(1)
     return None
+
+
+_COMP_AMT = r"([\d,]+(?:\.\d+)?\s*(?:억\s*원|백만\s*원|천\s*원|원))"
+
+
+def _compensation_raw_fallback(html: str, target: str) -> tuple[int | None, int | None]:
+    """단일 library 등으로 당기/전기 표가 안건에 안 붙은 경우, 원문 텍스트에서 한도 직접 추출.
+
+    기업은행·한국금융지주처럼 전 안건을 단일 <library>에 몰아넣는 양식에선 보수 안건 detail에
+    당기/전기 표가 정상 귀속되지 않아 구조 파싱이 빈손(current/prior 빈값)이 된다. 이때만
+    호출(호출측 gating) — 정상 파싱 회사엔 미접촉이라 회귀 안전.
+
+    target='이사'/'감사' 섹션으로 스코프 후 (당 기) '보수총액 또는 최고한도액', (전 기)
+    '최고한도액'(실제지급 제외)을 잡는다. 외화는 _parse_krw_amount가 None 반환(환산 불가).
+    """
+    flat = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or ""))
+    label = "감사" if target == "감사" else "이사"
+    # (당 기) 마커를 직접 순회 — 보수한도 안건의 당기/전기 표에만 등장(상단 '보수현황' 섹션엔
+    # 없음). 직전 ~40자 라벨('이사의 수ㆍ…' / '감사의 수·…')로 대상 분류.
+    for m in re.finditer(r"\(\s*당\s*기\s*\)", flat):
+        pre = flat[max(0, m.start() - 40): m.start()]
+        blk_label = "감사" if "감사" in pre else "이사"
+        if blk_label != label:
+            continue
+        block = flat[m.start(): m.start() + 1200]
+        parts = re.split(r"\(\s*전\s*기\s*\)", block, maxsplit=1)
+        cur = pri = None
+        mc = re.search(r"(?:보수총액\s*또는\s*최고한도액|최고한도액)\s*" + _COMP_AMT, parts[0])
+        if mc:
+            cur = _parse_krw_amount(mc.group(1))
+        if len(parts) > 1:  # 전기: 실제지급 아닌 '최고한도액'만
+            mp = re.search(r"최고한도액\s*" + _COMP_AMT, parts[1])
+            if mp:
+                pri = _parse_krw_amount(mp.group(1))
+        if cur is not None or pri is not None:
+            return cur, pri
+    return None, None
 
 
 def _build_compensation_summary(items: list[dict]) -> dict:
