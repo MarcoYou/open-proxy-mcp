@@ -1,0 +1,3151 @@
+[
+  {
+    "name": "알테오젠",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에코프로비엠",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251203",
+        "acode": 128014600,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251024",
+        "acode": 10765753600,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241025",
+        "acode": 11443730200,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230427",
+        "acode": 1375596000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 16,
+      "기타주식": 8
+    },
+    "hdrs": []
+  },
+  {
+    "name": "에코프로",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251201",
+        "acode": 137481500,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251023",
+        "acode": 12499860600,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250327",
+        "acode": 1956593800,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241231",
+        "acode": 30000000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241024",
+        "acode": 11192982000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241023",
+        "acode": 75000000000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 25,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "레인보우로보틱스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "주성엔지니어링",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "코오롱티슈진",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "원익IPS",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "리노공업",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "HPSP",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260529",
+        "acode": 2493539640,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260511",
+        "acode": 205126500,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251114",
+        "acode": 2362686200,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251114",
+        "acode": 147514000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251013",
+        "acode": 2362686200,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250918",
+        "acode": 1125162000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 48,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "이오테크닉스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250718",
+        "acode": 44129199633,
+        "daily": 44129199633,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "삼천당제약",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250919",
+        "acode": 29541900000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240701",
+        "acode": 71368750000,
+        "daily": 71368750000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 10,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "HLB",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240925",
+        "acode": 419908000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 3
+    },
+    "hdrs": []
+  },
+  {
+    "name": "펩트론",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250805",
+        "acode": 24177490000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "에이비엘바이오",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "파두",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "심텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "서진시스템",
+    "acq": [
+      {
+        "dt": "20251211",
+        "acode": 9999985450,
+        "daily": 9999985450,
+        "undercount": false
+      },
+      {
+        "dt": "20231110",
+        "acode": 7640748670,
+        "daily": 7640748670,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20240828",
+        "acode": 10135084878,
+        "daily": 10135084878,
+        "undercount": false
+      },
+      {
+        "dt": "20240828",
+        "acode": 10135084878,
+        "daily": 10135084878,
+        "undercount": false
+      },
+      {
+        "dt": "20240722",
+        "acode": 2611516,
+        "daily": 2611516,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 48,
+      "기타주식": 11
+    },
+    "hdrs": []
+  },
+  {
+    "name": "리가켐바이오",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251002",
+        "acode": 5088629000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250415",
+        "acode": 10720306000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 17,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "로보티즈",
+    "acq": [
+      {
+        "dt": "20240701",
+        "acode": 1499923545,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260130",
+        "acode": 10311000000,
+        "daily": 10311000000,
+        "undercount": false
+      },
+      {
+        "dt": "20260107",
+        "acode": 41194953495,
+        "daily": 41194953495,
+        "undercount": false
+      },
+      {
+        "dt": "20250204",
+        "acode": 348552000,
+        "daily": 348552000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "기타주식": 15,
+      "보통주식": 24
+    },
+    "hdrs": []
+  },
+  {
+    "name": "피에스케이",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "ISC",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260406",
+        "acode": 13476949500,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260406",
+        "acode": 6523050500,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 24,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "유진테크",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260506",
+        "acode": 455000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260127",
+        "acode": 152000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251216",
+        "acode": 22251000000,
+        "daily": 22251000000,
+        "undercount": false
+      },
+      {
+        "dt": "20250821",
+        "acode": 345800000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250408",
+        "acode": 292825000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250227",
+        "acode": 136800000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 24,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "현대무벡스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251103",
+        "acode": 2291516640,
+        "daily": 2291516640,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "케어젠",
+    "acq": [
+      {
+        "dt": "20241015",
+        "acode": 5023807090,
+        "daily": 5023807090,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20230214",
+        "acode": 166980000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 24,
+      "기타주식": 5
+    },
+    "hdrs": []
+  },
+  {
+    "name": "보로노이",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251230",
+        "acode": 45552264153,
+        "daily": 45552264153,
+        "undercount": false
+      },
+      {
+        "dt": "20251015",
+        "acode": 35985200000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 11,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "디앤디파마텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "제주반도체",
+    "acq": [
+      {
+        "dt": "20240503",
+        "acode": 0,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20240614",
+        "acode": 2098000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240227",
+        "acode": 9220530000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 20,
+      "기타주식": 7
+    },
+    "hdrs": []
+  },
+  {
+    "name": "테스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251223",
+        "acode": 7822095000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251030",
+        "acode": 15666900000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250925",
+        "acode": 28516200000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 15,
+      "기타주식": 6
+    },
+    "hdrs": []
+  },
+  {
+    "name": "하나마이크론",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "솔브레인",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "티씨케이",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "두산테스나",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260303",
+        "acode": 483879000,
+        "daily": 483879000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "파마리서치",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20230125",
+        "acode": 1243431000,
+        "daily": 1243431000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "동진쎄미켐",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "휴젤",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "성호전자",
+    "acq": [
+      {
+        "dt": "20230626",
+        "acode": 602974585,
+        "daily": 602974585,
+        "undercount": false
+      },
+      {
+        "dt": "20230113",
+        "acode": 470190390,
+        "daily": 470190390,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20240808",
+        "acode": 2295894165,
+        "daily": 2295894165,
+        "undercount": false
+      },
+      {
+        "dt": "20240722",
+        "acode": 5499998530,
+        "daily": 5499998530,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 46,
+      "기타주식": 10
+    },
+    "hdrs": []
+  },
+  {
+    "name": "대한광통신",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "피에스케이홀딩스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20230912",
+        "acode": 15490872437,
+        "daily": 15490872437,
+        "undercount": false
+      },
+      {
+        "dt": "20230824",
+        "acode": 16615800000,
+        "daily": 16615800000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 10,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "티에스이",
+    "acq": [
+      {
+        "dt": "20230328",
+        "acode": 7194017700,
+        "daily": 7194017700,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20251020",
+        "acode": 13944440860,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240626",
+        "acode": 5494392000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240202",
+        "acode": 42050000,
+        "daily": 42050000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 50,
+      "기타주식": 9
+    },
+    "hdrs": []
+  },
+  {
+    "name": "클래시스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250403",
+        "acode": 65970654,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "우리기술",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에스티팜",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "펄어비스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20230620",
+        "acode": 6700743000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "고영",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260401",
+        "acode": 4594590000,
+        "daily": 4594590000,
+        "undercount": false
+      },
+      {
+        "dt": "20250522",
+        "acode": 241150000,
+        "daily": 241150000,
+        "undercount": false
+      },
+      {
+        "dt": "20241223",
+        "acode": 1491717360,
+        "daily": 1491717360,
+        "undercount": false
+      },
+      {
+        "dt": "20240227",
+        "acode": 3218370000,
+        "daily": 3218370000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 22,
+      "기타주식": 8
+    },
+    "hdrs": []
+  },
+  {
+    "name": "테크윙",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251020",
+        "acode": 93313931260,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "올릭스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "실리콘투",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "브이엠",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250730",
+        "acode": 17309723720,
+        "daily": 17309723720,
+        "undercount": false
+      },
+      {
+        "dt": "20250623",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250515",
+        "acode": 4472800000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240402",
+        "acode": 1129500000,
+        "daily": 1129500000,
+        "undercount": false
+      },
+      {
+        "dt": "20230712",
+        "acode": 5713493760,
+        "daily": 5713493760,
+        "undercount": false
+      },
+      {
+        "dt": "20230621",
+        "acode": 2999989080,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 44,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "코미코",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260119",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "원익홀딩스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에스피지",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "RFHIC",
+    "acq": [
+      {
+        "dt": "20250221",
+        "acode": 3000865400,
+        "daily": 3000865400,
+        "undercount": false
+      },
+      {
+        "dt": "20241115",
+        "acode": 5000280760,
+        "daily": 5000280760,
+        "undercount": false
+      },
+      {
+        "dt": "20231020",
+        "acode": 2541371650,
+        "daily": 2541371650,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20251016",
+        "acode": 31000000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250423",
+        "acode": 990669000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 115,
+      "기타주식": 13
+    },
+    "hdrs": []
+  },
+  {
+    "name": "비츠로셀",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20241230",
+        "acode": 1334550000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20231206",
+        "acode": 1742740000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 9,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "비에이치아이",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "엘앤씨바이오",
+    "acq": [
+      {
+        "dt": "20250826",
+        "acode": 9999970400,
+        "daily": 9999970400,
+        "undercount": false
+      },
+      {
+        "dt": "20231208",
+        "acode": 4880999650,
+        "daily": 4880999650,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20231222",
+        "acode": 4187024400,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 40,
+      "기타주식": 9
+    },
+    "hdrs": []
+  },
+  {
+    "name": "JYP Ent.",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "네이처셀",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "셀트리온제약",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "메지온",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "대주전자재료",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251204",
+        "acode": 10909800000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20231121",
+        "acode": 38400000000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 11,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "에스엠",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240828",
+        "acode": 1844398400,
+        "daily": 1844398400,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 6,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "스피어",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260213",
+        "acode": 3032000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260204",
+        "acode": 2855000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260130",
+        "acode": 34361999405,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 26,
+      "기타주식": 6
+    },
+    "hdrs": []
+  },
+  {
+    "name": "파크시스템스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260615",
+        "acode": 193248000,
+        "daily": 193248000,
+        "undercount": false
+      },
+      {
+        "dt": "20260331",
+        "acode": 469000000,
+        "daily": 469000000,
+        "undercount": false
+      },
+      {
+        "dt": "20250520",
+        "acode": 59930000,
+        "daily": 59930000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 12,
+      "기타주식": 6
+    },
+    "hdrs": []
+  },
+  {
+    "name": "에임드바이오",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "기가비스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "삼현",
+    "acq": [
+      {
+        "dt": "20260604",
+        "acode": 2999059550,
+        "daily": 2999059550,
+        "undercount": false
+      },
+      {
+        "dt": "20251010",
+        "acode": 2999077725,
+        "daily": 2999077725,
+        "undercount": false
+      }
+    ],
+    "dsp": [],
+    "kinds": {
+      "보통주식": 34,
+      "기타주식": 6
+    },
+    "hdrs": []
+  },
+  {
+    "name": "태성",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240610",
+        "acode": 3861545262,
+        "daily": 3861545262,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "미래에셋벤처투자",
+    "acq": [
+      {
+        "dt": "20230502",
+        "acode": 5365660600,
+        "daily": 5365660600,
+        "undercount": false
+      }
+    ],
+    "dsp": [],
+    "kinds": {
+      "보통주식": 15,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "LS마린솔루션",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251217",
+        "acode": 37415325000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "에스에이엠티",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "오스코텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "씨젠",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260521",
+        "acode": 27460048,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260506",
+        "acode": 242584848,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260410",
+        "acode": 86904092,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251215",
+        "acode": 42946796,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250908",
+        "acode": 28845824,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250609",
+        "acode": 23598202,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 25,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "하나머티리얼즈",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에스앤에스텍",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250903",
+        "acode": 35758000893,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230509",
+        "acode": 9680600000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 9,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "오름테라퓨틱",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "휴림로봇",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "와이씨",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250826",
+        "acode": 17482546928,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241101",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 8,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "제이에스링크",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "알지노믹스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "삼표시멘트",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "하림지주",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250912",
+        "acode": 143212745720,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "SFA반도체",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "HK이노엔",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "케이엠더블유",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "신성델타테크",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251023",
+        "acode": 16221900000,
+        "daily": 16221900000,
+        "undercount": false
+      },
+      {
+        "dt": "20230926",
+        "acode": 9529000000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 9,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "GST",
+    "acq": [
+      {
+        "dt": "20241213",
+        "acode": 4588730100,
+        "daily": 4588730100,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260106",
+        "acode": 2373533200,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241227",
+        "acode": 1188351500,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241227",
+        "acode": 1188351500,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 28,
+      "기타주식": 8
+    },
+    "hdrs": []
+  },
+  {
+    "name": "쎄트렉아이",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "LS머트리얼즈",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "레이크머티리얼즈",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "차바이오텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에이치브이엠",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "큐리옥스바이오시스템즈",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "씨어스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "로보스타",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "씨엠티엑스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "원익QnC",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "루닛",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "인텔리안테크",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260515",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260414",
+        "acode": 432,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260402",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260401",
+        "acode": 453,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260109",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251219",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 28,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "필옵틱스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "피엔티",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251217",
+        "acode": 23389,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 6,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "리브스메드",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "유일로보틱스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "티엘비",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에스에프에이",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에이프릴바이오",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "제이앤티씨",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251111",
+        "acode": 12402693000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "아이티센글로벌",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "큐리언트",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "클로봇",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "덕산네오룩스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "솔브레인홀딩스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260225",
+        "acode": 19207355200,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "세미파이브",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "아주IB투자",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250819",
+        "acode": 6654632250,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230508",
+        "acode": 315452032,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 8,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "현대바이오",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "샘씨엔에스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260304",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251203",
+        "acode": 8004907419,
+        "daily": 6354900000,
+        "undercount": false
+      },
+      {
+        "dt": "20250217",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240308",
+        "acode": null,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 20,
+      "기타주식": 8
+    },
+    "hdrs": []
+  },
+  {
+    "name": "제룡전기",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "동국제약",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251212",
+        "acode": 7038,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240405",
+        "acode": 100380000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230410",
+        "acode": 107310000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 14,
+      "기타주식": 6
+    },
+    "hdrs": []
+  },
+  {
+    "name": "성광벤드",
+    "acq": [
+      {
+        "dt": "20241011",
+        "acode": 19938310830,
+        "daily": 19938310830,
+        "undercount": false
+      }
+    ],
+    "dsp": [],
+    "kinds": {
+      "보통주식": 61,
+      "기타주식": 3
+    },
+    "hdrs": []
+  },
+  {
+    "name": "하이젠알앤엠",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251022",
+        "acode": 57100000000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "씨아이에스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "CJ ENM",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "와이지엔터테인먼트",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "네패스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250103",
+        "acode": 2094139800,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "엔켐",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "카카오게임즈",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "비나텍",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260212",
+        "acode": 20603244320,
+        "daily": 6123700000,
+        "undercount": false
+      },
+      {
+        "dt": "20251224",
+        "acode": 319641147,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251103",
+        "acode": 319727385,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240902",
+        "acode": 7000000000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 29,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "태광",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "코스모로보틱스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "로킷헬스케어",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "프로텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "쏠리드",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "동운아나텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "나노신소재",
+    "acq": [
+      {
+        "dt": "20241211",
+        "acode": 2156444984,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260130",
+        "acode": 290000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250806",
+        "acode": 111800000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240702",
+        "acode": 302500000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240311",
+        "acode": 99636300,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230830",
+        "acode": 71300000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230728",
+        "acode": 670275000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "기타주식": 17,
+      "상환우선주": 1,
+      "보통주식": 35
+    },
+    "hdrs": []
+  },
+  {
+    "name": "피노",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "서울반도체",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "스튜디오드래곤",
+    "acq": [
+      {
+        "dt": "20260303",
+        "acode": 127138050,
+        "daily": 127138050,
+        "undercount": false
+      },
+      {
+        "dt": "20250304",
+        "acode": 94986350,
+        "daily": 94986350,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260303",
+        "acode": 127138050,
+        "daily": 127138050,
+        "undercount": false
+      },
+      {
+        "dt": "20250304",
+        "acode": 94986350,
+        "daily": 94986350,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 17,
+      "기타주식": 10
+    },
+    "hdrs": []
+  },
+  {
+    "name": "지아이이노베이션",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "다우데이타",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "코스메카코리아",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "지투지바이오",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "선익시스템",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240621",
+        "acode": 18000000000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "유진로봇",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에스티큐브",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "이엔에프테크놀로지",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "미코",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "온코닉테라퓨틱스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "서부T&D",
+    "acq": [
+      {
+        "dt": "20250325",
+        "acode": 4598571200,
+        "daily": 4598571200,
+        "undercount": false
+      },
+      {
+        "dt": "20231130",
+        "acode": 5196457500,
+        "daily": 5196457500,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20251201",
+        "acode": 34503000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 106,
+      "기타주식": 8
+    },
+    "hdrs": []
+  },
+  {
+    "name": "에프에스티",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260226",
+        "acode": 17368650000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260202",
+        "acode": 372120500,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250925",
+        "acode": 20000000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250626",
+        "acode": 169921885,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240626",
+        "acode": 159805330,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230404",
+        "acode": 15000000000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 28,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "코나아이",
+    "acq": [
+      {
+        "dt": "20260615",
+        "acode": 4961116300,
+        "daily": 4961116300,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20250822",
+        "acode": 9833913,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240419",
+        "acode": 25200982400,
+        "daily": 25200982400,
+        "undercount": false
+      },
+      {
+        "dt": "20231124",
+        "acode": 5885183008,
+        "daily": 5885183008,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 34,
+      "기타주식": 9
+    },
+    "hdrs": []
+  },
+  {
+    "name": "엠케이전자",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250910",
+        "acode": 10676880000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "네패스아크",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "가온칩스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "성일하이텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "티에프이",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260212",
+        "acode": 2236480,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260121",
+        "acode": 10525000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250213",
+        "acode": 376300000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 12,
+      "기타주식": 6
+    },
+    "hdrs": []
+  },
+  {
+    "name": "예스티",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251212",
+        "acode": 15425914821,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "삼지전자",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "태웅",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "코오롱생명과학",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "넥스틴",
+    "acq": [
+      {
+        "dt": "20250730",
+        "acode": 4999942100,
+        "daily": 4999942100,
+        "undercount": false
+      },
+      {
+        "dt": "20241212",
+        "acode": 4991890200,
+        "daily": 4991890200,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260116",
+        "acode": 1409555000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 75,
+      "기타주식": 8
+    },
+    "hdrs": []
+  },
+  {
+    "name": "덕산하이메탈",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "케이아이엔엑스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260330",
+        "acode": 2882880000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "안랩",
+    "acq": [
+      {
+        "dt": "20251231",
+        "acode": 20003780850,
+        "daily": 20003780850,
+        "undercount": false
+      },
+      {
+        "dt": "20251202",
+        "acode": 14232000000,
+        "daily": 14232000000,
+        "undercount": false
+      },
+      {
+        "dt": "20250121",
+        "acode": 15915582700,
+        "daily": 15915582700,
+        "undercount": false
+      }
+    ],
+    "dsp": [],
+    "kinds": {
+      "보통주식": 87,
+      "기타주식": 9
+    },
+    "hdrs": []
+  },
+  {
+    "name": "메디톡스",
+    "acq": [
+      {
+        "dt": "20260617",
+        "acode": 4999920050,
+        "daily": 4999920050,
+        "undercount": false
+      },
+      {
+        "dt": "20260213",
+        "acode": 4999963900,
+        "daily": 4999963900,
+        "undercount": false
+      },
+      {
+        "dt": "20251212",
+        "acode": 2999839100,
+        "daily": 2999839100,
+        "undercount": false
+      },
+      {
+        "dt": "20250325",
+        "acode": 5310788100,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20250203",
+        "acode": 4832843100,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241224",
+        "acode": 4110616500,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20250722",
+        "acode": 49716000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241021",
+        "acode": 27620000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240122",
+        "acode": 147767000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20231023",
+        "acode": 151633800,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230620",
+        "acode": 18469450000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 101,
+      "기타주식": 34,
+      "우선주": 3
+    },
+    "hdrs": []
+  },
+  {
+    "name": "포스코엠텍",
+    "acq": [
+      {
+        "dt": "20230623",
+        "acode": 196280000,
+        "daily": 196280000,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20240130",
+        "acode": 102786500,
+        "daily": 102786500,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 11,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "와이지-원",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "넥슨게임즈",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240315",
+        "acode": 830035200,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230317",
+        "acode": 799519200,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 10,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "앱클론",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "원텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "코세스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260128",
+        "acode": 15487325568,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "에코프로에이치엔",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251201",
+        "acode": 81612900,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251023",
+        "acode": 807241500,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20241227",
+        "acode": 534749600,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240507",
+        "acode": 274081500,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20230427",
+        "acode": 487598800,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 20,
+      "기타주식": 10
+    },
+    "hdrs": []
+  },
+  {
+    "name": "NHN KCP",
+    "acq": [
+      {
+        "dt": "20250414",
+        "acode": 7634596190,
+        "daily": 7634596190,
+        "undercount": false
+      }
+    ],
+    "dsp": [],
+    "kinds": {
+      "보통주식": 40,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "네오셈",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251229",
+        "acode": 10000000000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20240129",
+        "acode": 9211775470,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 15,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "뉴로메카",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "위메이드",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "인바디",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260528",
+        "acode": 225930000,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20260306",
+        "acode": 115437000,
+        "daily": 115437000,
+        "undercount": false
+      },
+      {
+        "dt": "20251103",
+        "acode": 32485556250,
+        "daily": 32485556250,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 13,
+      "기타주식": 6
+    },
+    "hdrs": []
+  },
+  {
+    "name": "한양이엔지",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260305",
+        "acode": 24845161140,
+        "daily": 7710961140,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 7,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "인벤티지랩",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "코미팜",
+    "acq": [
+      {
+        "dt": "20260206",
+        "acode": 1999340480,
+        "daily": 1999340480,
+        "undercount": false
+      },
+      {
+        "dt": "20250922",
+        "acode": 999553740,
+        "daily": 999553740,
+        "undercount": false
+      },
+      {
+        "dt": "20250620",
+        "acode": 1000744470,
+        "daily": 1000744470,
+        "undercount": false
+      },
+      {
+        "dt": "20241018",
+        "acode": 678143065,
+        "daily": 678143065,
+        "undercount": false
+      },
+      {
+        "dt": "20240731",
+        "acode": 1986481155,
+        "daily": 1986481155,
+        "undercount": false
+      },
+      {
+        "dt": "20240528",
+        "acode": 1002861080,
+        "daily": 1002861080,
+        "undercount": false
+      }
+    ],
+    "dsp": [],
+    "kinds": {
+      "보통주식": 267,
+      "기타주식": 12
+    },
+    "hdrs": []
+  },
+  {
+    "name": "원익머트리얼즈",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "동성화인텍",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260430",
+        "acode": 237919500,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "젬백스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240422",
+        "acode": 3003000000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "SOOP",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "이녹스첨단소재",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251219",
+        "acode": 17888526216,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "노타",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "성우하이텍",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "RF머트리얼즈",
+    "acq": [
+      {
+        "dt": "20241108",
+        "acode": 945225810,
+        "daily": 945225810,
+        "undercount": false
+      },
+      {
+        "dt": "20240724",
+        "acode": 1003084130,
+        "daily": 1003084130,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20251212",
+        "acode": 4534052050,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 92,
+      "기타주식": 8
+    },
+    "hdrs": []
+  },
+  {
+    "name": "디어유",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "엘티씨",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에이디테크놀로지",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "서희건설",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "천보",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251216",
+        "acode": 102590400,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "아이쓰리시스템",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250711",
+        "acode": 8050911474,
+        "daily": 8050911474,
+        "undercount": false
+      },
+      {
+        "dt": "20250220",
+        "acode": 4768124000,
+        "daily": 4768124000,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 10,
+      "기타주식": 4
+    },
+    "hdrs": []
+  },
+  {
+    "name": "엑스게이트",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "인텍플러스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251125",
+        "acode": 10619472000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 5,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "현대힘스",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "펨트론",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260309",
+        "acode": 5818957200,
+        "daily": 5818957200,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 3,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "켐트로닉스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251110",
+        "acode": 15871141745,
+        "daily": 1587095673,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 6,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "에이팩트",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240404",
+        "acode": 8635,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 4,
+      "기타주식": 2
+    },
+    "hdrs": []
+  },
+  {
+    "name": "토모큐브",
+    "acq": [],
+    "dsp": [],
+    "kinds": {},
+    "hdrs": []
+  },
+  {
+    "name": "에스티아이",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260313",
+        "acode": 1949,
+        "daily": 0,
+        "undercount": false
+      },
+      {
+        "dt": "20251219",
+        "acode": 16031400000,
+        "daily": 0,
+        "undercount": false
+      }
+    ],
+    "kinds": {
+      "보통주식": 11,
+      "기타주식": 4
+    },
+    "hdrs": []
+  }
+]
