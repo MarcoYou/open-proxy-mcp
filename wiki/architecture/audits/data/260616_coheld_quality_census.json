@@ -685,11 +685,11 @@
     "headline": 31.56,
     "format": "일반",
     "parse": "ok",
-    "self_name": "7,787,769 20.30 (주)레그테크",
-    "summed": 11.26,
-    "n_related": 0,
+    "self_name": "OULANGE TRADE LIMITED",
+    "summed": 31.56,
+    "n_related": 1,
     "bad_names": [],
-    "invariant_ok": false
+    "invariant_ok": true
   },
   {
     "name": "전진바이오팜",
@@ -1528,11 +1528,11 @@
     "headline": 57.67,
     "format": "일반",
     "parse": "ok",
-    "self_name": "3,507,790 3.12 이정규",
-    "summed": 4.53,
-    "n_related": 3,
+    "self_name": "Parataxis Korea Fund I LLC",
+    "summed": 57.68,
+    "n_related": 7,
     "bad_names": [],
-    "invariant_ok": false
+    "invariant_ok": true
   },
   {
     "name": "지아이에스",
@@ -1642,7 +1642,13 @@
     "tag": "dispute",
     "rcept": "20260429000055",
     "headline": 52.72,
-    "parse": "fail"
+    "format": "일반",
+    "parse": "ok",
+    "self_name": "Jakota Asia Strategy Limited",
+    "summed": 52.72,
+    "n_related": 0,
+    "bad_names": [],
+    "invariant_ok": true
   },
   {
     "name": "플래티어",
@@ -2255,10 +2261,10 @@
     "format": "일반",
     "parse": "ok",
     "self_name": "정의선",
-    "summed": 39.35,
-    "n_related": 6,
+    "summed": 50.35,
+    "n_related": 7,
     "bad_names": [],
-    "invariant_ok": false
+    "invariant_ok": true
   },
   {
     "name": "현대건설",
