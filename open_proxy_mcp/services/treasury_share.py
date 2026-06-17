@@ -408,6 +408,51 @@ def _parse_main_report_date(text: str) -> str | None:
     return None
 
 
+# 일별 행: [종류] …수량/가격 컬럼… [취득가액총액] [위탁증권사] [고유번호 8자리]
+# 종류는 보통주 / 그 외(기타주식·우선주·종류주식·상환전환우선주·RCPS 등 = '종류주식'으로 통합).
+_DAILY_ROW = re.compile(
+    r"(보통주식|보통주|기타주식|종류주식|우선주식|우선주|상환전환우선주|전환우선주|상환우선주)"
+    r"(?:\s+[\d,]+){1,4}\s+([\d,]{4,})\s+[가-힣A-Za-z()·.&\s]{2,30}?\s+\d{8}(?![\d-])"
+)
+
+
+def _common_other_split(text: str) -> tuple[int, int]:
+    """일별 취득/처분 표를 보통주 vs 종류주식(우선주·기타·RCPS 등 전부)로 2분류 합산.
+
+    사용자 요구: 변종 네이밍 무시, 보통주/종류주식 2분류면 충분. 반환 (보통주합, 종류주식합).
+    """
+    common = other = 0
+    for kind, amt in _DAILY_ROW.findall(text):
+        val = _to_int(amt)
+        if kind.startswith("보통주"):
+            common += val
+        else:
+            other += val
+    return common, other
+
+
+def _apply_common_other(result: dict[str, Any], text: str, acode_amt_key: str = "actual_amount_krw") -> None:
+    """보통주/종류주식 split을 result에 부착 + ACODE가 보통주만 잡아 총액을 누락했으면 보정.
+
+    종류주식 취득/처분분이 유의미(≥1억)할 때만 — 단주·노이즈(현대차 366,843원 류) 미발동.
+    split은 항상 노출하고, 총액 override는 ACODE가 실제로 작을 때만(삼성전자처럼 ACODE가 이미
+    총액이면 split만 노출, 총액 불변).
+    """
+    common, other = _common_other_split(text)
+    _FLOOR = 100_000_000
+    if other < _FLOOR:
+        return  # 보통주 단일(또는 종류주식 미미) — split 불필요
+    total = common + other
+    # 결정 detail과 동일 필드명(보통/우선주) — 우선주=종류주식(우선주·기타·RCPS 통합) 의미.
+    result["amount_common_krw"] = common
+    result["amount_preferred_krw"] = other
+    acq = result.get(acode_amt_key)
+    if acq is None or total > acq * 1.05:
+        result[acode_amt_key] = total
+        result["actual_amount_multi_type_summed"] = True
+        result.pop("shortfall", None)
+
+
 def _parse_acquisition_result_body(text: str, html: str = "") -> dict[str, Any]:
     """자기주식 취득결과보고서 본문 파싱 — DART ACODE 기반 안정 추출.
 
@@ -453,19 +498,8 @@ def _parse_acquisition_result_body(text: str, html: str = "") -> dict[str, Any]:
     # 우선주분이 누락된다(미래에셋증권 2026: 결정 1,000억 vs ACODE 600억). 일별 취득가액총액
     # (…<금액> <위탁증권사> <고유번호 8자리>)을 합산해 보정. 단일 종류면 일별합=ACODE라 5% 가드에
     # 안 걸려 무변(회귀 안전). planned(ACODE)도 보통주만이라 기준 불일치 → 합산 시 shortfall은 제거.
-    daily = [int(a.replace(",", "")) for a in
-             re.findall(r"([\d,]{4,})\s+[가-힣A-Za-z()·.&\s]{2,30}?\s+\d{8}(?![\d-])", clean)]
-    daily_sum = sum(daily) if daily else None
-    acq = result.get("actual_amount_krw")
-    # 절대 하한 1억: 단주(fractional)·노이즈 취득결과(현대차 366,843원 류)에서 일별 패턴이
-    # per-share 가격을 잘못 합산해 오발동하는 것 방지. 복수 종류 누락은 항상 억 단위 gap.
-    _FLOOR = 100_000_000
-    if daily_sum and daily_sum >= _FLOOR and (
-        acq is None or (daily_sum > acq * 1.05 and daily_sum - acq >= _FLOOR)
-    ):
-        result["actual_amount_krw"] = daily_sum
-        result["actual_amount_multi_type_summed"] = True
-        result.pop("shortfall", None)
+    # 보통주/종류주식 2분류 split + ACODE가 보통주만 잡은 경우 총액 보정.
+    _apply_common_other(result, clean, "actual_amount_krw")
 
     return {k: v for k, v in result.items() if v is not None}
 
@@ -505,6 +539,9 @@ def _parse_disposal_result_body(text: str, html: str = "") -> dict[str, Any]:
     if m:
         result["period_start"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
         result["period_end"] = f"{m.group(4)}-{int(m.group(5)):02d}-{int(m.group(6)):02d}"
+
+    # 보통주/종류주식 2분류 split (+ DSP_AMT가 보통주만 잡았으면 보정 — 처분은 실측상 누락 0이나 일관 적용).
+    _apply_common_other(result, re.sub(r"\s+", " ", text), "actual_amount_krw")
 
     return {k: v for k, v in result.items() if v is not None}
 
