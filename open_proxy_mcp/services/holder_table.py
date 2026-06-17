@@ -29,11 +29,12 @@ _ID = r"(?:\d{3}-\d{2,3}-\d{4,5}|\d{5,13})"
 #   （） : 전각 괄호（）.
 # 숫자 허용은 펀드·조합명 '제N호' 잘림 방지(ID는 5~13자리라 '제1호' 단자리엔 안 걸림).
 _NAME = r"[가-힣A-Za-z0-9()（）㈀-㋿ㄱ-ㆎ·,.&\s]"
-# 길이 상한 80 — 긴 영문 펀드명("Align Partners Capital Management Limited"=41자)이 짧은
-# 상한(40)에 첫 글자 잘려("lign…") 매칭되던 문제 해결. 상한은 휴리스틱이라 더 긴 이름은 여전히
-# 잘릴 수 있으나, 그 경우 본인+특관 합이 헤드라인과 어긋나 co_holders_verified=False로 잡힌다.
+# 길이 상한 50 — 실측상 정상 이름 최장 46자(영문 펀드명 'HALO MICROELECTRONICS…CORPORATION').
+# 40이면 41자 영문명("Align Partners Capital Management Limited") 첫 글자가 잘렸고("lign…"),
+# 50은 실제 이름을 다 덮으면서 동시에 여러 행이 잘못 병합되는 runaway(70자+)를 억제한다.
+# 더 긴 이름은 합≠헤드라인 → co_holders_verified=False로 포착(조용히 틀린 값 방지).
 _ROW = re.compile(
-    r"(" + _NAME + r"{1,80}?)\s+(" + _ID + r")\s+"
+    r"(" + _NAME + r"{1,50}?)\s+(" + _ID + r")\s+"
     r"((?:[\d,]+|-|0)(?:\s+(?:[\d,]+|-|0))*)\s+([\d,]+|-)\s+(\d+\.\d+|-)"
 )
 
