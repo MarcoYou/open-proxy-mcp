@@ -457,7 +457,12 @@ def _parse_acquisition_result_body(text: str, html: str = "") -> dict[str, Any]:
              re.findall(r"([\d,]{4,})\s+[가-힣A-Za-z()·.&\s]{2,30}?\s+\d{8}(?![\d-])", clean)]
     daily_sum = sum(daily) if daily else None
     acq = result.get("actual_amount_krw")
-    if daily_sum and (acq is None or daily_sum > acq * 1.05):
+    # 절대 하한 1억: 단주(fractional)·노이즈 취득결과(현대차 366,843원 류)에서 일별 패턴이
+    # per-share 가격을 잘못 합산해 오발동하는 것 방지. 복수 종류 누락은 항상 억 단위 gap.
+    _FLOOR = 100_000_000
+    if daily_sum and daily_sum >= _FLOOR and (
+        acq is None or (daily_sum > acq * 1.05 and daily_sum - acq >= _FLOOR)
+    ):
         result["actual_amount_krw"] = daily_sum
         result["actual_amount_multi_type_summed"] = True
         result.pop("shortfall", None)

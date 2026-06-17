@@ -1,0 +1,2794 @@
+[
+  {
+    "name": "삼성전자",
+    "acq": [
+      {
+        "dt": "20260424",
+        "acode": 7174299854900,
+        "daily": 7174299854900,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260312",
+        "acode": 3572799991850,
+        "daily": 3572799991850,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260325",
+        "acode": 406606709400,
+        "daily": 406606709400,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "SK하이닉스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260507",
+        "acode": 18139592000,
+        "daily": 18139592000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260206",
+        "acode": 358953346000,
+        "daily": 358953346000,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "SK스퀘어",
+    "acq": [
+      {
+        "dt": "20260219",
+        "acode": 99999565500,
+        "daily": 99999565500,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250227",
+        "acode": 100786346600,
+        "daily": 100786346600,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250225",
+        "acode": 100786346600,
+        "daily": 100786346600,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260513",
+        "acode": 398832000,
+        "daily": 398832000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260407",
+        "acode": 47399205000,
+        "daily": 47399205000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260401",
+        "acode": 7263471000,
+        "daily": 7263471000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260401",
+        "acode": 11758687300,
+        "daily": 11758687300,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250904",
+        "acode": 274850400,
+        "daily": 274850400,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250730",
+        "acode": 3338931600,
+        "daily": 3338931600,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "삼성전기",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "현대차",
+    "acq": [
+      {
+        "dt": "20260423",
+        "acode": 366843,
+        "daily": 395111,
+        "pref": true,
+        "undercount": true
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "LG에너지솔루션",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "삼성생명",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "삼성물산",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HD현대중공업",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "기아",
+    "acq": [
+      {
+        "dt": "20251020",
+        "acode": 349999922550,
+        "daily": 349999922550,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250611",
+        "acode": 349999977050,
+        "daily": 349999977050,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260402",
+        "acode": 8280285400,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251201",
+        "acode": 246809253600,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "두산에너빌리티",
+    "acq": [
+      {
+        "dt": "20260420",
+        "acode": 130342615600,
+        "daily": 130342615600,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "삼성바이오로직스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "KB금융",
+    "acq": [
+      {
+        "dt": "20260409",
+        "acode": 599999977300,
+        "daily": 599999977300,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250630",
+        "acode": 299999953150,
+        "daily": 299999953150,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250414",
+        "acode": 519999973900,
+        "daily": 519999973900,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "현대모비스",
+    "acq": [
+      {
+        "dt": "20251024",
+        "acode": 109999970250,
+        "daily": 109999970250,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250512",
+        "acode": 304493564250,
+        "daily": 304493564250,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240510",
+        "acode": 162974068500,
+        "daily": 162974068500,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20231018",
+        "acode": 146455760000,
+        "daily": 146455760000,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260212",
+        "acode": 1694800000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251224",
+        "acode": 17117770000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251201",
+        "acode": 62443482000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241226",
+        "acode": 35856351000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241002",
+        "acode": 72740700000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20231201",
+        "acode": 43161691000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한화에어로스페이스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "신한지주",
+    "acq": [
+      {
+        "dt": "20240322",
+        "acode": 150000055950,
+        "daily": 150000055950,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "SK",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260519",
+        "acode": 9444937000,
+        "daily": 9444937000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260403",
+        "acode": 586124000,
+        "daily": 586124000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250402",
+        "acode": 212133600,
+        "daily": 212133600,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "삼성SDI",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HD현대일렉트릭",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "LG전자",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "NAVER",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250515",
+        "acode": 5181048000,
+        "daily": 5181048000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250402",
+        "acode": 42818762000,
+        "daily": 42818762000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250107",
+        "acode": 20999005200,
+        "daily": 20999005200,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "셀트리온",
+    "acq": [
+      {
+        "dt": "20260508",
+        "acode": 99999873900,
+        "daily": 99999873900,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251017",
+        "acode": 100000028800,
+        "daily": 100000028800,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250813",
+        "acode": 99963619400,
+        "daily": 99963619400,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250721",
+        "acode": 99999854650,
+        "daily": 99999854650,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250626",
+        "acode": 99999933300,
+        "daily": 99999933300,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250520",
+        "acode": 99566213200,
+        "daily": 99566213200,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "LS ELECTRIC",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260430",
+        "acode": 15952281000,
+        "daily": 15952281000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251028",
+        "acode": 9190980000,
+        "daily": 9190980000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250923",
+        "acode": 627020000,
+        "daily": 627020000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250331",
+        "acode": 590555000,
+        "daily": 590555000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241016",
+        "acode": 7777984500,
+        "daily": 7777984500,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241015",
+        "acode": 7777984500,
+        "daily": 7777984500,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한화오션",
+    "acq": [
+      {
+        "dt": "20260407",
+        "acode": 5107387000,
+        "daily": 5107387000,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "하나금융지주",
+    "acq": [
+      {
+        "dt": "20260420",
+        "acode": 199800081800,
+        "daily": 199800081800,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260121",
+        "acode": 149850113950,
+        "daily": 149850113950,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251017",
+        "acode": 199800163250,
+        "daily": 199800163250,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "효성중공업",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한미반도체",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20230703",
+        "acode": 27699144700,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "POSCO홀딩스",
+    "acq": [
+      {
+        "dt": "20240801",
+        "acode": 92283425000,
+        "daily": 92283425000,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20240902",
+        "acode": 41371125950,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230405",
+        "acode": 9947040000,
+        "daily": 9947040000,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "삼성화재",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HD한국조선해양",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "미래에셋증권",
+    "acq": [
+      {
+        "dt": "20260407",
+        "acode": 59999984800,
+        "daily": 99999980555,
+        "pref": true,
+        "undercount": true
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "LG이노텍",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "두산",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260303",
+        "acode": 49390175000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250304",
+        "acode": 14355561000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한국전력",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "고려아연",
+    "acq": [
+      {
+        "dt": "20241028",
+        "acode": 1815626700000,
+        "daily": 1815626700000,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20250929",
+        "acode": 5508063000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250318",
+        "acode": 7115922000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250210",
+        "acode": 4995960000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "LG화학",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "삼성중공업",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "우리금융지주",
+    "acq": [
+      {
+        "dt": "20240318",
+        "acode": 136626216000,
+        "daily": 136626216000,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "현대로템",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "SK텔레콤",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260518",
+        "acode": 5471321600,
+        "daily": 5471321600,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260327",
+        "acode": 1161969600,
+        "daily": 1161969600,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250430",
+        "acode": 261954000,
+        "daily": 261954000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240430",
+        "acode": 280422400,
+        "daily": 280422400,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240202",
+        "acode": 24707496000,
+        "daily": 24707496000,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "HD현대",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "현대오토에버",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HMM",
+    "acq": [
+      {
+        "dt": "20250917",
+        "acode": 2143199981200,
+        "daily": 2143199981200,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "KT&G",
+    "acq": [
+      {
+        "dt": "20251023",
+        "acode": 259999941700,
+        "daily": 259999941700,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250912",
+        "acode": 299999969850,
+        "daily": 299999969850,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241129",
+        "acode": 161303910800,
+        "daily": 161303910800,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241010",
+        "acode": 385373371300,
+        "daily": 385373371300,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230926",
+        "acode": 302637364400,
+        "daily": 302637364400,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260226",
+        "acode": 4099316400,
+        "daily": 4099316400,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250228",
+        "acode": 1805695300,
+        "daily": 1805695300,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240223",
+        "acode": 563040000,
+        "daily": 563040000,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "SK이노베이션",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250702",
+        "acode": 376742401992,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240207",
+        "acode": 600255200,
+        "daily": 600255200,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한화시스템",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "포스코퓨처엠",
+    "acq": [
+      {
+        "dt": "20250326",
+        "acode": 1726047950,
+        "daily": 1726047950,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20250402",
+        "acode": 5204507000,
+        "daily": 5204507000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240520",
+        "acode": 417882000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240408",
+        "acode": 3821571000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230503",
+        "acode": 2838120000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230404",
+        "acode": 1036307000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "메리츠금융지주",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "LIG디펜스앤에어로스페이스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250528",
+        "acode": 20992125000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250523",
+        "acode": 20996250000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "삼성에스디에스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "카카오",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "LG",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "기업은행",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "현대글로비스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "현대건설",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "에이피알",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한국항공우주",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한국금융지주",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "KT",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260508",
+        "acode": 6324760100,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260128",
+        "acode": 77309700,
+        "daily": 77309700,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250612",
+        "acode": 5295914400,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241115",
+        "acode": 297596500,
+        "daily": 297596500,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240529",
+        "acode": 3892608000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "LS",
+    "acq": [
+      {
+        "dt": "20240226",
+        "acode": 9094953600,
+        "daily": 9094953600,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20250602",
+        "acode": 65000000000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "S-Oil",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "NH투자증권",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HD현대마린솔루션",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "카카오뱅크",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "삼성에피스홀딩스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "대한항공",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "삼성증권",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "크래프톤",
+    "acq": [
+      {
+        "dt": "20260407",
+        "acode": 199998438000,
+        "daily": 199998438000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250514",
+        "acode": 325920347750,
+        "daily": 325920347750,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240523",
+        "acode": 199200155000,
+        "daily": 199200155000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230526",
+        "acode": 167904125100,
+        "daily": 167904125100,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260602",
+        "acode": 5580816000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260219",
+        "acode": 2082925000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250903",
+        "acode": 924000000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250604",
+        "acode": 10604656000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250507",
+        "acode": 160135000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240702",
+        "acode": 6134605000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "포스코인터내셔널",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240221",
+        "acode": 16238323600,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230324",
+        "acode": 389180700,
+        "daily": 389180700,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "삼성E&A",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "DB손해보험",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251226",
+        "acode": 77820000000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "키움증권",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "하이브",
+    "acq": [
+      {
+        "dt": "20240925",
+        "acode": 26092380700,
+        "daily": 26092380700,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260407",
+        "acode": 27284701500,
+        "daily": 27284701500,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260304",
+        "acode": 3450830000,
+        "daily": 3450830000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251002",
+        "acode": 1794752500,
+        "daily": 1794752500,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250814",
+        "acode": 3035500000,
+        "daily": 3035500000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250521",
+        "acode": 3035500000,
+        "daily": 3035500000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241217",
+        "acode": 2767644800,
+        "daily": 2767644800,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "대우건설",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "LG씨엔에스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한국타이어앤테크놀로지",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "이수페타시스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "삼양식품",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251124",
+        "acode": 99365688125,
+        "daily": 66242907500,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한진칼",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250814",
+        "acode": 52761275600,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한화",
+    "acq": [
+      {
+        "dt": "20260320",
+        "acode": 11121817500,
+        "daily": 11121817500,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240909",
+        "acode": 10213735500,
+        "daily": 10213735500,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "대덕전자",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "대한전선",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "산일전기",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HD건설기계",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "두산로보틱스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "SKC",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250826",
+        "acode": 125000000000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250630",
+        "acode": 260000000000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250423",
+        "acode": 125,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240903",
+        "acode": 2809979400,
+        "daily": 2809979400,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240426",
+        "acode": 124,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "LG디스플레이",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "SK바이오팜",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "GS",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "DB하이텍",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260121",
+        "acode": 27163684800,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250923",
+        "acode": 125567640000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250213",
+        "acode": 2385458000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "LG유플러스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "신세계",
+    "acq": [
+      {
+        "dt": "20230602",
+        "acode": 83845226900,
+        "daily": 83845226900,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "한화솔루션",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260128",
+        "acode": 3171,
+        "daily": 3171,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240205",
+        "acode": 152,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "아모레퍼시픽",
+    "acq": [
+      {
+        "dt": "20260330",
+        "acode": 9999980600,
+        "daily": 9999980600,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250919",
+        "acode": 5000029300,
+        "daily": 5000029300,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240131",
+        "acode": 11203345300,
+        "daily": 11203345300,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260504",
+        "acode": 1504400700,
+        "daily": 1504400700,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260209",
+        "acode": 499222800,
+        "daily": 499222800,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251110",
+        "acode": 2439299500,
+        "daily": 2439299500,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250825",
+        "acode": 3162833000,
+        "daily": 3162833000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250507",
+        "acode": 849809600,
+        "daily": 849809600,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250210",
+        "acode": 458656800,
+        "daily": 458656800,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "두산밥캣",
+    "acq": [
+      {
+        "dt": "20250221",
+        "acode": 199997502600,
+        "daily": 199997502600,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240528",
+        "acode": 3332893200,
+        "daily": 3332893200,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230328",
+        "acode": 2510108900,
+        "daily": 2510108900,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260303",
+        "acode": 2174364000,
+        "daily": 2174364000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250304",
+        "acode": 716332500,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "코웨이",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "유한양행",
+    "acq": [
+      {
+        "dt": "20250902",
+        "acode": 19979963600,
+        "daily": 19979963600,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "카카오페이",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "삼성카드",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한온시스템",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251229",
+        "acode": 356265600,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "엘앤에프",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260213",
+        "acode": 56531000000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251203",
+        "acode": 122645000000,
+        "daily": 85851500000,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "NC",
+    "acq": [
+      {
+        "dt": "20240726",
+        "acode": 102814894800,
+        "daily": 102814894800,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260428",
+        "acode": 21779578000,
+        "daily": 21779578000,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "BNK금융지주",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한미약품",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260213",
+        "acode": 4044484500,
+        "daily": 4044484500,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "오리온",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "OCI홀딩스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "롯데쇼핑",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "JB금융지주",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250411",
+        "acode": 18908705880,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250404",
+        "acode": 1414909900,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240429",
+        "acode": 4987102680,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한전기술",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "두산퓨얼셀",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260512",
+        "acode": null,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250508",
+        "acode": 50334400,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "CJ",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한화엔진",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "현대제철",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "KCC",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한화생명",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "포스코DX",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20230322",
+        "acode": 97963060,
+        "daily": 97963060,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "일진전기",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "가온전선",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20241226",
+        "acode": 11373180800,
+        "daily": 11373180800,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "에코프로머티",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "현대백화점",
+    "acq": [
+      {
+        "dt": "20260430",
+        "acode": 20999910450,
+        "daily": 20999910450,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250725",
+        "acode": 21078693550,
+        "daily": 21078693550,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "미래에셋생명",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260311",
+        "acode": 1195599630,
+        "daily": 1195599630,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "LG생활건강",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한화비전",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "영원무역",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "에스엘",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "더존비즈온",
+    "acq": [
+      {
+        "dt": "20230202",
+        "acode": 50491328600,
+        "daily": 50491328600,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20240322",
+        "acode": 13293076104,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "현대해상",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260408",
+        "acode": 26730600000,
+        "daily": 26730600000,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "롯데케미칼",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한솔케미칼",
+    "acq": [
+      {
+        "dt": "20250812",
+        "acode": 31624942200,
+        "daily": 31624942200,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241209",
+        "acode": 29996996000,
+        "daily": 29996996000,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260527",
+        "acode": 3621245000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240412",
+        "acode": 63414944000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "강원랜드",
+    "acq": [
+      {
+        "dt": "20260204",
+        "acode": 39999983180,
+        "daily": 39999983180,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241206",
+        "acode": 40000001200,
+        "daily": 40000001200,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20241206",
+        "acode": 40000001200,
+        "daily": 40000001200,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "한국가스공사",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "금호석유화학",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "넷마블",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HL만도",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20230911",
+        "acode": 2247976900,
+        "daily": 2247976900,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "코리아써키트",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "현대엘리베이터",
+    "acq": [
+      {
+        "dt": "20230131",
+        "acode": 49983287500,
+        "daily": 49983287500,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20231115",
+        "acode": 49880000000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "효성",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240611",
+        "acode": 33543336970,
+        "daily": 33543336970,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "서울보증보험",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "SK바이오사이언스",
+    "acq": [
+      {
+        "dt": "20260616",
+        "acode": 17136923975,
+        "daily": 17136923975,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "F&F",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "DL이앤씨",
+    "acq": [
+      {
+        "dt": "20240119",
+        "acode": 61702899250,
+        "daily": 61702899250,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "CJ제일제당",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "신영증권",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "롯데에너지머티리얼즈",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "에스원",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한국앤컴퍼니",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "iM금융지주",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "팬오션",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "케이뱅크",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "롯데지주",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한올바이오파마",
+    "acq": [
+      {
+        "dt": "20250414",
+        "acode": 3214452690,
+        "daily": 3214452690,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260506",
+        "acode": 1819410182,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260311",
+        "acode": 190480000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260303",
+        "acode": 108688400,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251029",
+        "acode": 30300000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250730",
+        "acode": 463950000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250602",
+        "acode": 38824100,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "GS건설",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "이수스페셜티케미컬",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250908",
+        "acode": 11236715490,
+        "daily": 11236715490,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "SK네트웍스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260430",
+        "acode": 120430920,
+        "daily": 120430920,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260210",
+        "acode": 30134560,
+        "daily": 30134560,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250519",
+        "acode": 59987790,
+        "daily": 59987790,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240520",
+        "acode": 59992680,
+        "daily": 59992680,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240215",
+        "acode": 128849380,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240116",
+        "acode": 21489269625,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "DN오토모티브",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "동서",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251219",
+        "acode": 98532850,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "이마트",
+    "acq": [
+      {
+        "dt": "20260128",
+        "acode": 73958400,
+        "daily": 73958400,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250724",
+        "acode": 338372000,
+        "daily": 338372000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250124",
+        "acode": 50450000,
+        "daily": 50450000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240726",
+        "acode": 56900000,
+        "daily": 56900000,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260128",
+        "acode": 73958400,
+        "daily": 73958400,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250724",
+        "acode": 338642690,
+        "daily": 338642690,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250124",
+        "acode": 50490360,
+        "daily": 50490360,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240726",
+        "acode": 56945520,
+        "daily": 56945520,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "영원무역홀딩스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "달바글로벌",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260610",
+        "acode": 1545383000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "대한조선",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "코리안리",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "한전KPS",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HD현대마린엔진",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "후성",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20251103",
+        "acode": 817800,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "제일기획",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "미스토홀딩스",
+    "acq": [
+      {
+        "dt": "20260512",
+        "acode": 9999976375,
+        "daily": 9999976375,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260313",
+        "acode": 9999987000,
+        "daily": 9999987000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251215",
+        "acode": 19999970825,
+        "daily": 19999970825,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250912",
+        "acode": 49999982625,
+        "daily": 49999982625,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250624",
+        "acode": 29863361300,
+        "daily": 29863361300,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250512",
+        "acode": 70095062525,
+        "daily": 70095062525,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "농심",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240904",
+        "acode": 138458768500,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "BGF리테일",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "현대위아",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250401",
+        "acode": 6145,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "호텔신라",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20240705",
+        "acode": 132797000000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "현대지에프홀딩스",
+    "acq": [
+      {
+        "dt": "20260417",
+        "acode": 49999997685,
+        "daily": 49999997685,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": []
+  },
+  {
+    "name": "코오롱인더",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "SK가스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "풍산",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "HJ중공업",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "LS에코에너지",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260116",
+        "acode": 10167762600,
+        "daily": 10167762600,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230828",
+        "acode": 1395699360,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "GS리테일",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20231107",
+        "acode": 30000001733,
+        "daily": 30000001733,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한미사이언스",
+    "acq": [
+      {
+        "dt": "20240126",
+        "acode": 9341616650,
+        "daily": 9341616650,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260213",
+        "acode": 1479180250,
+        "daily": 1479180250,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한국콜마",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "CJ대한통운",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "코스맥스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "시프트업",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "아모레퍼시픽홀딩스",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260504",
+        "acode": 30495750,
+        "daily": 30495750,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20260209",
+        "acode": 4872000,
+        "daily": 4872000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20251110",
+        "acode": 56498400,
+        "daily": 56498400,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250804",
+        "acode": 110271000,
+        "daily": 110271000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250507",
+        "acode": 32703750,
+        "daily": 32703750,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250210",
+        "acode": 9020000,
+        "daily": 9020000,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "씨에스윈드",
+    "acq": [
+      {
+        "dt": "20260413",
+        "acode": 3244992100,
+        "daily": 3244992100,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20260413",
+        "acode": 1169725000,
+        "daily": 1169725000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240731",
+        "acode": 44552416100,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "HD현대에너지솔루션",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "다우기술",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "케이씨텍",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260325",
+        "acode": 269545500,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250327",
+        "acode": 181191900,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "한국카본",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20250402",
+        "acode": 19883500000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "오리온홀딩스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "세아베스틸지주",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "SK이터닉스",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "아시아나항공",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "코스모신소재",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "LX인터내셔널",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "SK아이이테크놀로지",
+    "acq": [
+      {
+        "dt": "20240701",
+        "acode": 159687250,
+        "daily": 159687250,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240207",
+        "acode": 118302800,
+        "daily": 118302800,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230508",
+        "acode": 173975600,
+        "daily": 173975600,
+        "pref": true,
+        "undercount": false
+      }
+    ],
+    "dsp": [
+      {
+        "dt": "20240701",
+        "acode": 164887800,
+        "daily": 164887800,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20240207",
+        "acode": 115106000,
+        "daily": 115106000,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20230508",
+        "acode": 174125600,
+        "daily": 174125600,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "효성티앤씨",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "동원산업",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "녹십자",
+    "acq": [],
+    "dsp": []
+  },
+  {
+    "name": "더블유게임즈",
+    "acq": [],
+    "dsp": [
+      {
+        "dt": "20260417",
+        "acode": 8694235141,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      },
+      {
+        "dt": "20250328",
+        "acode": 5996432000,
+        "daily": 0,
+        "pref": true,
+        "undercount": false
+      }
+    ]
+  },
+  {
+    "name": "STX엔진",
+    "acq": [],
+    "dsp": []
+  }
+]
