@@ -449,6 +449,19 @@ def _parse_acquisition_result_body(text: str, html: str = "") -> dict[str, Any]:
         result["period_start"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
         result["period_end"] = f"{m.group(4)}-{int(m.group(5)):02d}-{int(m.group(6)):02d}"
 
+    # 복수 종류(보통주+우선주/기타주식) 취득결과 보정 — ACODE(ACQ_AMT)는 보통주 한 종류만 잡아
+    # 우선주분이 누락된다(미래에셋증권 2026: 결정 1,000억 vs ACODE 600억). 일별 취득가액총액
+    # (…<금액> <위탁증권사> <고유번호 8자리>)을 합산해 보정. 단일 종류면 일별합=ACODE라 5% 가드에
+    # 안 걸려 무변(회귀 안전). planned(ACODE)도 보통주만이라 기준 불일치 → 합산 시 shortfall은 제거.
+    daily = [int(a.replace(",", "")) for a in
+             re.findall(r"([\d,]{4,})\s+[가-힣A-Za-z()·.&\s]{2,30}?\s+\d{8}(?![\d-])", clean)]
+    daily_sum = sum(daily) if daily else None
+    acq = result.get("actual_amount_krw")
+    if daily_sum and (acq is None or daily_sum > acq * 1.05):
+        result["actual_amount_krw"] = daily_sum
+        result["actual_amount_multi_type_summed"] = True
+        result.pop("shortfall", None)
+
     return {k: v for k, v in result.items() if v is not None}
 
 
