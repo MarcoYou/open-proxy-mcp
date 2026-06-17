@@ -106,7 +106,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ### 시스템 동작 이해
 - [[architecture/data-collection]] - 데이터 수집 architecture
 - [[architecture/3-tier-fallback]] - XML -> PDF -> OCR
-- [[architecture/matrix-system]] - 12 매트릭스 + 자동 채점
+- [[architecture/matrix-system]] - 12 매트릭스 설계 자산 (자동 채점은 의결권 엔진 미사용 — dead code)
 - [[architecture/proxy-voting-decision-tree]] - 의결권 판단 framework
 - [[architecture/pipeline-architecture]] - 199 기업 v4 JSON 배치 파이프라인
 - [[architecture/multi-upstream-pattern]] - asyncio.gather tool 표준 5 요소 (corpCode lock/retry/per-call timeout/semaphore/cache)

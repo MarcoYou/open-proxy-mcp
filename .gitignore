@@ -94,3 +94,9 @@ graphify-out/
 # 운용사 실명-익명 매핑 (개발자 internal only, 외부 노출 금지)
 manager_aliases.json
 configs/master.db
+
+# 특허 출원 초안 (변리사 전달용, 출원 전 비공개 — 절대 커밋 금지)
+docs/patent_draft_OPM.md
+docs/patent_draft_OPM.docx
+docs/patent_*.md
+docs/patent_*.docx

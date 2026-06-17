@@ -42,7 +42,8 @@ open_proxy_mcp/        # MCP 서버 코드
   tools_v2/            # 17 public tools (v2 — active)
   services/            # 도메인별 분석 로직 (tool과 분리)
   dart/client.py       # DART API + KIND + 네이버 시세
-  data/asset_managers/ # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
+  data/asset_managers/ # 8 운용사 + N연기금 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스(설계 자산)
+                       #   ※ 의결권 엔진은 법령 layer + vote_style 정책 + _decide_* 함수로 동작. 12 매트릭스 자동채점은 미사용(dead code). 사내이사 성과 2x3 매트릭스만 실사용
   data/ksic/           # 한국표준산업분류 코드→업종명 (company tool sector_name)
 scripts/
   wiki_lint.py         # wiki link 정책 자동 검증 (단방향/양방향)
