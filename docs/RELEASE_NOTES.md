@@ -5,7 +5,10 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 ## v2.1 이후 (미릴리즈, 2026-06-12 ~ )
 
 - **financial_metrics 기간(period) 처리 정밀화** — DART는 항목별로 기간 의미가 다르다(손익 thstrm=당기 3개월·누적은 thstrm_add / 현금흐름=누적 / 재무상태=잔액). 분기보고서 조회 시 ① 손익을 **누적(YTD) + 당기 분기(standalone) 두 기준**으로 산출(반기/3분기는 직전 보고서 차분), ② 회전일수(DSO/DIO/CCC)를 **TTM(최근 4분기) 분모**로 계산해 단일분기 연환산 왜곡 제거(SK하이닉스 26Q1 DIO 511→133일, DSO 거짓 38.6→61.4), ③ ROE/ROA는 연환산 없이 분기값 유지, ④ 기준을 항상 `period_basis`/`turnover_basis`/`basis_note`로 명시. 부수로 evidence에 원문 보고서 rcept·뷰어URL 부착, 연결(CFS) 미작성 시 별도(OFS) 폴백 경고, 분기 인지형 디폴트(year 미지정 quarterly는 당해 연도), 영업이익률 QoQ/YoY %p 동봉.
-- **ownership_structure / proxy_contest 공동보유 분류** — 5% 대량보유보고서 합계표를 파싱해 보고자 본인 vs 특별관계자 분리, 특관에 명부상 최대주주가 포함되면 `coheld_with_registry`로 재분류(외부 세력 오분류 방지).
+- **ownership_structure 공동보유자 명세 제품화** — 5% 대량보유 헤드라인 지분율은 보고자 본인+특별관계자 합산. 이를 분해해 `reporter_self_pct`(본인) + `co_holders`[{name, ownership_pct, is_registry_holder}] + `co_holders_verified`(합≈헤드라인 불변식)로 노출, 렌더에 "공동보유자 분해" 표 추가("OO의 N%=누구 얼마씩"에 직접 답). 특관에 명부상 최대주주 포함 시 `coheld_with_registry` 재분류(proxy_contest 외부세력 오분류 방지). 파서 정제: self 이름 오염(주수비율)·㈜ 기호·펀드명 숫자(제N호)·긴 영문명·외국법인 ID(LEI·외국 등록번호) — 분쟁 엣지 포함 332사 전수 불변식 92.7→95.3%, 미검증은 verified=False로 정직 표기.
+- **shareholder_meeting proposer_type 통일** — 주주제안 안건 proposer_type 값을 canonical `shareholder_proposal`로(과거 `shareholder`와 불일치해 소비자가 주주제안을 놓침). KOSDAQ 주주제안 전수(원문 교차검증)로 검출 정상화.
+- **treasury_share 자사주 종류별(보통주/종류주식) + 복수종류 누락 교정** — 취득/처분 결과를 보통주 vs 종류주식(우선주·기타주식·RCPS 등 통합) 2분류로 노출. 결과보고서가 보통주/우선주 표를 따로 두고 ACODE가 보통주만 잡던 누락(미래에셋 600→1,000억=보통주600+종류주식400) 일별 합산으로 보정. KOSPI 200·KOSDAQ 200·우선주 활동 172사 전수 — 누락은 미래에셋 1건뿐(처분·소각은 정상), 단주 노이즈는 1억 하한으로 미발동.
+- **보수한도 단일-library fallback** — 전 안건을 단일 `<library>`에 몰아넣는 양식(기업은행·한국금융지주)에서 보수 안건의 당기/전기 표가 안 붙어 `amount_unparsed`이던 것을, 구조 파싱 실패 시에만 원문 텍스트로 보정(정상 회사 미접촉=회귀 안전). 금융 35사 전수로 두 회사 한정 확인. 기업은행·한국금융지주 이사 보수한도 정상 산출(둘 다 상향).
 - **proxy_result_after_meeting 제거 (17→16 tool)** — 핵심(안건별 가결/부결/찬반율)은 `shareholder_meeting_results`가 더 적은 호출로 동일 제공. 후속 공시·분쟁·거버넌스는 각 tool 직접 호출로 체이닝.
 - **전 tool 전수조사 완료** — 파싱 성공률을 넘어 값 정확도·단위·이음새(seam)·렌더·production까지 검증. ownership 450사(DART 원본 단위 오염 자가 교정), 값 정확도 286사, corp_gov 30사 기준값 일치, 렌더 31케이스, production MCP smoke.
 - **proxy_result 결과 0건 회귀 발견·교정** — upstream 키 개편 미반영으로 안건 결과가 항상 비던 문제 (제거 전 교정 검증 완료).
