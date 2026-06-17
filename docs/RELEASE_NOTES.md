@@ -9,7 +9,7 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 - **shareholder_meeting proposer_type 통일** — 주주제안 안건 proposer_type 값을 canonical `shareholder_proposal`로(과거 `shareholder`와 불일치해 소비자가 주주제안을 놓침). KOSDAQ 주주제안 전수(원문 교차검증)로 검출 정상화.
 - **treasury_share 자사주 종류별(보통주/종류주식) + 복수종류 누락 교정** — 취득/처분 결과를 보통주 vs 종류주식(우선주·기타주식·RCPS 등 통합) 2분류로 노출. 결과보고서가 보통주/우선주 표를 따로 두고 ACODE가 보통주만 잡던 누락(미래에셋 600→1,000억=보통주600+종류주식400) 일별 합산으로 보정. KOSPI 200·KOSDAQ 200·우선주 활동 172사 전수 — 누락은 미래에셋 1건뿐(처분·소각은 정상), 단주 노이즈는 1억 하한으로 미발동.
 - **보수한도 단일-library fallback** — 전 안건을 단일 `<library>`에 몰아넣는 양식(기업은행·한국금융지주)에서 보수 안건의 당기/전기 표가 안 붙어 `amount_unparsed`이던 것을, 구조 파싱 실패 시에만 원문 텍스트로 보정(정상 회사 미접촉=회귀 안전). 금융 35사 전수로 두 회사 한정 확인. 기업은행·한국금융지주 이사 보수한도 정상 산출(둘 다 상향).
-- **proxy_result_after_meeting 제거 (17→16 tool)** — 핵심(안건별 가결/부결/찬반율)은 `shareholder_meeting_results`가 더 적은 호출로 동일 제공. 후속 공시·분쟁·거버넌스는 각 tool 직접 호출로 체이닝.
+- **proxy_result_after_meeting 제거** (order_contracts 신설로 상쇄 — 현행 17 tool) — 핵심(안건별 가결/부결/찬반율)은 `shareholder_meeting_results`가 더 적은 호출로 동일 제공. 후속 공시·분쟁·거버넌스는 각 tool 직접 호출로 체이닝.
 - **전 tool 전수조사 완료** — 파싱 성공률을 넘어 값 정확도·단위·이음새(seam)·렌더·production까지 검증. ownership 450사(DART 원본 단위 오염 자가 교정), 값 정확도 286사, corp_gov 30사 기준값 일치, 렌더 31케이스, production MCP smoke.
 - **proxy_result 결과 0건 회귀 발견·교정** — upstream 키 개편 미반영으로 안건 결과가 항상 비던 문제 (제거 전 교정 검증 완료).
 - **proxy_advise 견고성** — 보수 인원수 문자열 crash, 성과 매트릭스 None 포맷 crash 교정.

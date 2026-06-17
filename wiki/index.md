@@ -69,7 +69,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | 카테고리 | 목적 | 페이지 수 | 수정 가능 |
 |---|---|---|---|
 | **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 16 tool 진입점 + data source map | 17 + README | YES (tool 변경 시) |
+| **tools/** | 17 tool 진입점 + data source map | 17 + README | YES (tool 변경 시) |
 | **architecture/** | OPM 시스템 설계 + audit + fix + data archive | 60+ | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 26 + README | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 70+ | YES (사실 update 시) |
@@ -95,7 +95,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ## 자주 쓰는 진입점
 
 ### 처음 사용자
-- [[tools/README]] - 16 tool 카탈로그
+- [[tools/README]] - 17 tool 카탈로그
 - [[WIKI_SCHEMA]] - wiki 구조 + 명명 규칙
 
 ### OPM 정책 알고 싶음
@@ -296,7 +296,7 @@ DART/KIND 공시 유형. 공시명 = 페이지명.
 흡수된 페이지 (역사 보존, 신규 사용자 안 봐도 OK).
 
 ### archive/analysis/ (18)
-release_v2 검증 예시 + 설계 문서. 현재 16 public tools/* 페이지와 archive 이력으로 흡수.
+release_v2 검증 예시 + 설계 문서. 현재 17 public tools/* 페이지와 archive 이력으로 흡수.
 [[release_v2-tool-아키텍처]] · [[release_v2-public-tool-검증-매트릭스]] · [[release_v2-action-tool-검증-초안]] · [[KIND-주총결과]] · [[cash-shareholder-return-2026-04-29]] · [[total-shareholder-return-2026-04-29]] 등
 
 ### archive/comparison/ (3)
