@@ -1,6 +1,6 @@
 # OpenProxy MCP
 
-[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-구조-17개)
@@ -169,6 +169,10 @@ OpenProxy는 DART 공시 데이터를 구조화하여 AI에게 제공하는 도�
 
 ## 라이선스
 
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) -- 비상업적 사용만 허용
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) — 비상업적 사용만 허용 (전문: 루트 [`LICENSE`](LICENSE))
 
-이 프로젝트의 코드와 데이터를 사용할 때는 출처를 밝혀야 합니다. 상업적 목적으로는 사용할 수 없습니다.
+- **비상업적 사용**(개인 연구·학습·비영리 단체·공공기관 등)은 자유롭게 허용됩니다.
+- **상업적 사용**은 허용되지 않습니다. 상업적 이용을 원하면 별도 라이선스 계약이 필요합니다 (OpenProxy AI).
+- 본 라이선스에는 저작권·특허 라이선스 및 면책 조항이 포함됩니다.
+
+> 상업 라이선스 문의: (연락처 기입)

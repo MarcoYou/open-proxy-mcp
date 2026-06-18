@@ -17,7 +17,7 @@ pdf = ["opendataloader-pdf>=0.1.0", "PyPDF2>=3.0.0"]
 all = ["open-proxy-mcp[llm,pdf]"]
 
 [project.license]
-text = "CC-BY-NC-4.0"
+text = "LicenseRef-PolyForm-Noncommercial-1.0.0"
 
 [build-system]
 requires = ["hatchling"]
