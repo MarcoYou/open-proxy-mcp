@@ -109,10 +109,20 @@ docs/patent_*.docx
 
 # 발표·데모 자료 + 내부 측정/진단 스크립트 (로컬 보관, 공개 불필요)
 powerpoint/
-screenshot/
+screenshot/*
+# 단, README에 쓰는 데모 이미지는 공개 유지
+!screenshot/open-proxy-mcp output kor.png
 scripts/*census*.py
 scripts/*diagnos*.py
 scripts/*feasib*.py
 scripts/extract_*.py
 scripts/*_audit.py
 scripts/audit_*.py
+
+# 변리사 발명기술서 (출원 전 비공개)
+*.doc
+율촌_*
+docs/율촌_*
+
+# 특허출원 문서 폴더 (출원 전 비공개 — 절대 커밋 금지)
+특허출원/
