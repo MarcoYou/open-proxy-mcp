@@ -65,10 +65,3 @@ OPM은 "분쟁이다/아니다"를 단정하지 않고 신호를 구조적으로
 
 - [지분·지배구조 맵](ownership.md) — 누가 무엇을 들고 있나 (지분 구조 자체)
 - [주총 의결권 보조](proxy-voting.md) — 분쟁 안건의 의결권 판단
-
-## 기술 상세 (개발자용)
-
-> 아래는 각 tool의 입력·출력 등 기술 문서입니다. 일반 사용자는 보지 않아도 됩니다.
-
-- [proxy_contest](../../wiki/tools/proxy_contest.md) — 분쟁/액티비즘 신호 집계
-- [ownership_structure](../../wiki/tools/ownership_structure.md) — 지분 구조 교차 확인

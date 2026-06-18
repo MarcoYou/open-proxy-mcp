@@ -52,10 +52,3 @@ Profitability, stability, and cash-flow metrics come back organized by period.
 
 - [AGM Proxy Voting](proxy-voting.md) — these financials (impairment, audit opinion, tenure performance) feed the voting judgment
 - [Shareholder Return](shareholder-return.md) — the financial backdrop for dividends and treasury shares
-
-## Technical reference (for developers)
-
-> The pages below are tool I/O specs. General users do not need them.
-
-- [financial_metrics](../../../wiki/tools/financial_metrics.md) — financial metrics
-- [corp_gov_report](../../../wiki/tools/corp_gov_report.md) — corporate governance report (15 indicators)

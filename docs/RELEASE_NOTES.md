@@ -30,7 +30,7 @@ OpenProxy MCP의 첫 정식 릴리즈입니다. `tools_v2` toolset 기준 16개 
 
 - **16 public tool** — Company → Meeting/Data/Evidence → Action 흐름.
 - **지분·경영권 분쟁 신호 정밀화** (`proxy_contest`) — 소송 4단계 분류·중복제거, 5% 보유 동학(목적 전환·지속 매집), 외부세력/대주주 본인 분리.
-- **공시유형 코드체계 인덱스** — `pblntf_ty`/`pblntf_detail_ty` → 실제 공시 매핑([wiki](../wiki/rules/disclosures/공시유형코드체계.md)). 검색 시 상세코드로 범위를 먼저 좁힘 (배당=`I001` 등).
+- **공시유형 코드체계 인덱스** — `pblntf_ty`/`pblntf_detail_ty` → 실제 공시 매핑. 검색 시 상세코드로 범위를 먼저 좁힘 (배당=`I001` 등).
 - **주주환원 추적** — 배당/자기주식/기업가치제고 통합 조회.
 - **재무·지배구조 점검** — DART 재무 endpoint + 기업지배구조보고서.
 - **안정성** — DART 분당 1,000 한도 rolling-window hard guard(cap 910), 3-tier fallback(XML→PDF→OCR), 전 응답 출처 추적(`data.usage` + 공시번호).

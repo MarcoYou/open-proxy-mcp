@@ -26,9 +26,9 @@
 - **[주총 안건 구조화](docs/features/meeting-agenda.md)**: 소집공고 안건·후보·보수한도·정관변경과 주총 후 의결 결과·찬반율을 정리합니다.
 - **[주주환원](docs/features/shareholder-return.md)**: 배당·자기주식 소각 사이클·밸류업 계획을 묶어 환원 정책의 약속과 실제 집행을 비교합니다.
 - **[재무지표](docs/features/financials.md)**: DART 재무 endpoint 통합 — 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이. 분기는 누적(YTD)·당기(3개월) 두 기준으로 QoQ·YoY를 제공하고, 회전일수는 TTM 기준으로 산출하며 어느 기준인지 항상 명시합니다.
-- **[기업 리스크 이벤트](wiki/tools/risk_events.md)**: 중대재해·횡령배임·생산중단 공시를 추적합니다. 회사를 지정하지 않으면 시장 전체에서 최근 사건을 스캔합니다.
+- **기업 리스크 이벤트**: 중대재해·횡령배임·생산중단 공시를 추적합니다. 회사를 지정하지 않으면 시장 전체에서 최근 사건을 스캔합니다.
 
-그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각과 내부거래 등은 [17개 tool 카탈로그](wiki/tools/README.md)에서 확인할 수 있습니다.
+그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각과 내부거래 등 총 17개 tool을 제공합니다.
 
 ---
 
@@ -116,8 +116,6 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 1. `최근 한 달 사이에 중대재해나 횡령 공시 낸 상장사 알려줘`
 2. `한화에어로스페이스 중대재해 이력을 사상자까지 자세히 보여줘`
 
-더 많은 사용 패턴 → [wiki/tools/README.md](wiki/tools/README.md) (17 tool 카탈로그) 참조.
-
 ---
 
 ## Tool 구조 (17개)
@@ -131,13 +129,6 @@ OpenProxy MCP의 17개 tool은 **Company → Meeting/Data/Evidence → Action** 
 | Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `ownership_structure`, `corporate_deals`, `proxy_contest`, `risk_events`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
 | Evidence | `evidence` | 공시번호 기반 출처 추적 |
 | Action | `proxy_advise_before_meeting` | 여러 data tool을 묶어 판단/보고 생성 (사후 결과는 `shareholder_meeting_results`) |
-
-상세 문서는 아래에서 확인합니다.
-
-- [Tool 카탈로그](wiki/tools/README.md): 17개 public tool의 scope, 입력, 출력, data source
-- [Data tool disclosure map](wiki/tools/data_tool_disclosure_map.md): data tool별 참조 공시 유형
-- [의결권 판단 구조](wiki/architecture/proxy-voting-decision-tree.md): `proxy_advise_before_meeting` 판단 흐름
-- [프로젝트 구조](wiki/architecture/project_structure.md): 코드와 wiki 디렉터리 구조
 
 ### 의결권 정책
 
@@ -167,17 +158,6 @@ OpenProxy MCP의 17개 tool은 **Company → Meeting/Data/Evidence → Action** 
 버전별 변경 이력은 **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)** 에서 확인할 수 있습니다.
 
 - 최신: **v2.1** — risk_events 신설, corporate_deals rename, ownership·dividend·financial_metrics 정밀화
-
----
-
-## 개발자 문서
-
-개발자용 구조, 감사 결과, tool 상세는 wiki에 정리되어 있습니다.
-
-- [프로젝트 구조](wiki/architecture/project_structure.md)
-- [Tool 카탈로그](wiki/tools/README.md)
-- [Parsing 성공률 감사](wiki/architecture/audits/260517_parsing_success_rate_audit.md)
-- [Agenda parser marketwide audit](wiki/architecture/audits/260525_1620_audit_agenda-parser-marketwide.md)
 
 ---
 

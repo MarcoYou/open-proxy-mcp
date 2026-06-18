@@ -16,8 +16,6 @@
 
 조회 단위(scope): **summary**(요약) · **detail**(배당결정 공시 상세 — 기준일·지급일) · **history**(연도별 추이).
 
-→ 더 깊이: [dividend](../../wiki/tools/dividend.md)
-
 ## 2. 자기주식 — 취득→처분→소각 사이클
 
 자사주 **취득·처분·소각·신탁** 결정/결과 공시를 집계하고, **결정-결과를 사이클로 매칭**합니다.
@@ -29,8 +27,6 @@
 |---|---|
 | **summary** | 자사주 이벤트 종합 |
 | **annual** | 연도별 취득·처분·소각 집계 |
-
-→ [treasury_share](../../wiki/tools/treasury_share.md)
 
 ## 3. 밸류업 — 정책·미래 약속
 
@@ -46,8 +42,6 @@
 | **commitments** | 핵심 약속 문장 |
 | **timeline** | 공시 시점순 추이 |
 
-→ [value_up](../../wiki/tools/value_up.md)
-
 ## 어떻게 쓰나
 
 > "KT&G 배당이랑 자사주 소각 이력, 밸류업 계획 이행됐는지 봐줘"
@@ -58,11 +52,3 @@
 
 - [지분·지배구조 맵](ownership.md) — 자기주식이 지분 구조에서 갖는 의미
 - [주총 의결권 보조](proxy-voting.md) — 배당·자사주 안건의 의결권 판단
-
-## 기술 상세 (개발자용)
-
-> 아래는 각 tool의 입력·출력 등 기술 문서입니다. 일반 사용자는 보지 않아도 됩니다.
-
-- [dividend](../../wiki/tools/dividend.md) — 배당
-- [treasury_share](../../wiki/tools/treasury_share.md) — 자기주식
-- [value_up](../../wiki/tools/value_up.md) — 밸류업

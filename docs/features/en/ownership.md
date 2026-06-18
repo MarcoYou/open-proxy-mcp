@@ -25,7 +25,7 @@ The point is the **real size of control** — whether the largest shareholder co
 | **control_map** | Control-structure relationship map |
 | **changes** | Ownership-change records — **largest-shareholder change filings + 5% bulk-holding changes combined** (in contests, stakes move via 5% reports) |
 
-> Treasury shares are separated into [treasury_share](../../../wiki/tools/treasury_share.md) (deprecated in this tool).
+> Treasury shares are separated into the treasury_share tool (deprecated in this tool).
 
 ## control_map — registry_overlap
 
@@ -46,10 +46,3 @@ Returns an ownership table organized by largest shareholder, related parties, an
 
 - [Control-Contest Signals](control-contest.md) — whether ownership **changes** are contest signals
 - [Shareholder Return](shareholder-return.md) — treasury shares (non-voting stake) in detail
-
-## Technical reference (for developers)
-
-> The pages below are tool I/O specs. General users do not need them.
-
-- [ownership_structure](../../../wiki/tools/ownership_structure.md) — ownership structure
-- [treasury_share](../../../wiki/tools/treasury_share.md) — treasury shares

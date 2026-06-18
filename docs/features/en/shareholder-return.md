@@ -16,8 +16,6 @@ From the **cash/in-kind dividend decision** filing and the business report's **d
 
 Scopes: **summary** · **detail** (dividend-decision detail — record/payment date) · **history** (year-over-year trend).
 
-→ Deeper: [dividend](../../../wiki/tools/dividend.md)
-
 ## 2. Treasury shares — acquire → dispose → cancel cycle
 
 It aggregates treasury **acquisition / disposal / cancellation / trust** decision/result filings and **matches decisions to results as a cycle**.
@@ -29,8 +27,6 @@ It aggregates treasury **acquisition / disposal / cancellation / trust** decisio
 |---|---|
 | **summary** | Treasury-event overview |
 | **annual** | Yearly acquisition / disposal / cancellation totals |
-
-→ [treasury_share](../../../wiki/tools/treasury_share.md)
 
 ## 3. Value-up — policy / future promise
 
@@ -46,8 +42,6 @@ Reads the value-up (corporate-value-enhancement) filing and its key commitment s
 | **commitments** | Key commitment sentences |
 | **timeline** | Filings in chronological order |
 
-→ [value_up](../../../wiki/tools/value_up.md)
-
 ## How to use
 
 > "Show me KT&G's dividends, treasury cancellation history, and whether its value-up plan was executed"
@@ -58,11 +52,3 @@ You trace policy (value-up) → promise → actual execution (dividend, treasury
 
 - [Ownership Map](ownership.md) — what treasury shares mean in the ownership structure
 - [AGM Proxy Voting](proxy-voting.md) — voting judgment on dividend / treasury agenda items
-
-## Technical reference (for developers)
-
-> The pages below are tool I/O specs. General users do not need them.
-
-- [dividend](../../../wiki/tools/dividend.md) — dividends
-- [treasury_share](../../../wiki/tools/treasury_share.md) — treasury shares
-- [value_up](../../../wiki/tools/value_up.md) — value-up

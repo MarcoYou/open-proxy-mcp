@@ -30,7 +30,7 @@ First stable release. The `tools_v2` toolset ships 16 public tools covering Kore
 
 - **16 public tools** — Company → Meeting/Data/Evidence → Action flow.
 - **Control-contest signals** (`proxy_contest`) — 4-stage litigation classification + dedup, 5% holding dynamics (purpose shift, sustained accumulation), external-raider vs insider split.
-- **Disclosure-type code index** — `pblntf_ty`/`pblntf_detail_ty` → actual disclosure mapping ([wiki](../wiki/rules/disclosures/공시유형코드체계.md)). Searches narrow by detail code first (dividends = `I001`, etc.).
+- **Disclosure-type code index** — `pblntf_ty`/`pblntf_detail_ty` → actual disclosure mapping. Searches narrow by detail code first (dividends = `I001`, etc.).
 - **Shareholder-return tracking** — dividends/treasury/value-up in one view.
 - **Financial & governance checks** — DART financial endpoints + corporate governance report.
 - **Reliability** — DART 1,000/min rolling-window hard guard (cap 910), 3-tier fallback (XML→PDF→OCR), full source tracing (`data.usage` + receipt numbers).

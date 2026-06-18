@@ -25,7 +25,7 @@
 | **control_map** | 지배 구조 관계도 |
 | **changes** | 지분 변동 내역 — **최대주주변동신고서 + 5% 대량보유 변동 통합**(분쟁사는 5% 보고로 지분이 움직임) |
 
-> 자사주(자기주식)는 별도 [treasury_share](../../wiki/tools/treasury_share.md)로 분리되어 있습니다 (이 tool에서는 폐기).
+> 자사주(자기주식)는 별도 기능으로 분리되어 있습니다 (이 tool에서는 폐기).
 
 ## control_map — registry_overlap
 
@@ -46,10 +46,3 @@
 
 - [경영권 분쟁 시그널](control-contest.md) — 지분 **변동**이 분쟁 신호인지
 - [주주환원](shareholder-return.md) — 자기주식(의결권 없는 지분) 상세
-
-## 기술 상세 (개발자용)
-
-> 아래는 각 tool의 입력·출력 등 기술 문서입니다. 일반 사용자는 보지 않아도 됩니다.
-
-- [ownership_structure](../../wiki/tools/ownership_structure.md) — 지분 구조
-- [treasury_share](../../wiki/tools/treasury_share.md) — 자기주식

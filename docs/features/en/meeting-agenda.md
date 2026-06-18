@@ -40,11 +40,3 @@ The notice (before) and results (after) come in different filing formats, so the
 ## See also
 
 - [AGM Proxy Voting](proxy-voting.md) — recommendations on **how to vote** (this agenda data is the input)
-
-## Technical reference (for developers)
-
-> The pages below are tool I/O specs. General users do not need them.
-
-- [shareholder_meeting_notice](../../../wiki/tools/shareholder_meeting_notice.md) — notice structuring (before)
-- [shareholder_meeting_results](../../../wiki/tools/shareholder_meeting_results.md) — resolution outcome / approval rates (after)
-- [shareholder_meeting_results](../../../wiki/tools/shareholder_meeting_results.md) — post-AGM per-agenda outcomes and vote rates

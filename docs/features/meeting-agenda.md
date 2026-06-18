@@ -40,11 +40,3 @@
 ## 함께 보면 좋은 기능
 
 - [주총 의결권 보조](proxy-voting.md) — 안건을 **어떻게 의결할지** 권고 (이 안건 데이터가 판단 입력)
-
-## 기술 상세 (개발자용)
-
-> 아래는 각 tool의 입력·출력 등 기술 문서입니다. 일반 사용자는 보지 않아도 됩니다.
-
-- [shareholder_meeting_notice](../../wiki/tools/shareholder_meeting_notice.md) — 소집공고 구조화 (사전)
-- [shareholder_meeting_results](../../wiki/tools/shareholder_meeting_results.md) — 의결 결과·찬반율 (사후)
-- [shareholder_meeting_results](../../wiki/tools/shareholder_meeting_results.md) — 주총 후 안건별 가결/부결/찬반율

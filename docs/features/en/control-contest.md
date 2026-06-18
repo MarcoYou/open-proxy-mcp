@@ -65,10 +65,3 @@ Litigation, 5% dynamics, proxy solicitation, and tender offers come back bundled
 
 - [Ownership Map](ownership.md) — who holds what (the ownership structure itself)
 - [AGM Proxy Voting](proxy-voting.md) — voting judgment on contested agenda items
-
-## Technical reference (for developers)
-
-> The pages below are tool I/O specs. General users do not need them.
-
-- [proxy_contest](../../../wiki/tools/proxy_contest.md) — contest / activism signal aggregation
-- [ownership_structure](../../../wiki/tools/ownership_structure.md) — ownership cross-check

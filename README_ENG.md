@@ -28,9 +28,9 @@ Click any feature for a detailed page.
 - **[AGM agenda](docs/features/en/meeting-agenda.md)** — agenda items, director nominees, compensation limits, articles amendments, plus post-AGM results and approval rates.
 - **[Shareholder return](docs/features/en/shareholder-return.md)** — dividends, the treasury buyback-to-cancellation cycle, and value-up plans, comparing what was promised against what was actually executed.
 - **[Financial metrics](docs/features/en/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend). Quarterly results are provided on two bases — cumulative (YTD) and current-quarter (3-month) — with QoQ/YoY, and turnover days use a TTM basis; the basis in use is always stated.
-- **[Corporate risk events](wiki/tools/risk_events.md)** — tracks serious-accident, embezzlement/breach-of-trust, and production-halt filings. With no company specified, it scans the whole market for recent events.
+- **Corporate risk events** — tracks serious-accident, embezzlement/breach-of-trust, and production-halt filings. With no company specified, it scans the whole market for recent events.
 
-Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, equity stake deals and related-party transactions — are in the [17-tool catalog](wiki/tools/README.md).
+Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, equity stake deals and related-party transactions — round out the 17-tool set.
 
 ---
 
@@ -112,8 +112,6 @@ Once connected, just ask in natural language:
 "Which listed companies filed serious-accident disclosures last month?"  # Market-wide risk scan
 ```
 
-More usage patterns → [wiki/tools/README.md](wiki/tools/README.md) (17 tool catalog).
-
 ---
 
 ## Tool Structure (17 tools)
@@ -174,8 +172,6 @@ OpenProxy MCP
 | Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `corporate_deals`, `risk_events` | Filing, financial, ownership, and governance parsers |
 | Evidence | `evidence` | Source tracking from filing receipt numbers |
 | Action | `proxy_advise_before_meeting` | Compose multiple data tools into recommendations/reports (post-AGM outcomes: `shareholder_meeting_results`) |
-
-> Each tool's scope, options, data sources, and validation results: see catalog at **[wiki/tools/README.md](wiki/tools/README.md)** or per-tool pages (`wiki/tools/{name}.md`).
 
 ### Voting Policy — Open Proxy Guideline
 

@@ -52,10 +52,3 @@ DART는 보고서마다 항목별 기간 의미가 다릅니다. **손익**은 �
 
 - [주총 의결권 보조](proxy-voting.md) — 이 재무 지표(자본잠식·감사의견·재임성과)가 의결권 판단의 입력
 - [주주환원](shareholder-return.md) — 배당·자사주의 재무적 배경
-
-## 기술 상세 (개발자용)
-
-> 아래는 각 tool의 입력·출력 등 기술 문서입니다. 일반 사용자는 보지 않아도 됩니다.
-
-- [financial_metrics](../../wiki/tools/financial_metrics.md) — 재무 지표 통합
-- [corp_gov_report](../../wiki/tools/corp_gov_report.md) — 기업지배구조보고서 15지표
