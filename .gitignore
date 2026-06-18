@@ -1,5 +1,8 @@
-# Wiki (GitHub 비공개 — 로컬 보관, 추적 해제)
-wiki/
+# Wiki (GitHub 비공개 — 로컬 보관). 단 wiki/rules/laws는 배포·런타임 필수라 예외 추적.
+wiki/*
+!wiki/rules/
+wiki/rules/*
+!wiki/rules/laws/
 
 # Environment
 .env
