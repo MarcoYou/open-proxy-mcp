@@ -103,3 +103,13 @@ docs/patent_draft_OPM.md
 docs/patent_draft_OPM.docx
 docs/patent_*.md
 docs/patent_*.docx
+
+# 발표·데모 자료 + 내부 측정/진단 스크립트 (로컬 보관, 공개 불필요)
+powerpoint/
+screenshot/
+scripts/*census*.py
+scripts/*diagnos*.py
+scripts/*feasib*.py
+scripts/extract_*.py
+scripts/*_audit.py
+scripts/audit_*.py
