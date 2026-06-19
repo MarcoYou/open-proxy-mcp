@@ -35,12 +35,15 @@ L2 = [("da_fs","재무제표(BS·IS·CF)"),("da_audit","감사의견"),("da_divt
       ("da_ownchg","최대주주 지분 변동"),("da_proxyrec","위임장 권유 내역"),
       ("da_tendercond","공개매수 신고내역"),("da_index","회사 식별·공시 인덱스"),
       ("da_viewer","공시일·소스·뷰어 URL")]
-# 기반 tool (15) — proxy_advise/proxy_contest 는 5번째 컬럼으로 분리
-L3 = [("t_fin","financial_metrics"),("t_div","dividend"),("t_own","ownership_structure"),
-      ("t_tre","treasury_share"),("t_dil","dilutive_issuance"),("t_res","corporate_restructuring"),
-      ("t_dea","corporate_deals"),("t_rsk","risk_events"),("t_not","shareholder_meeting_notice"),
-      ("t_rslt","shareholder_meeting_results"),("t_ord","order_contracts"),
-      ("t_gov","corp_gov_report"),("t_val","value_up"),("t_cmp","company"),("t_evd","evidence")]
+# 기반 tool (15) — 영문 도구명 + 한국어 한줄 역할. proxy_advise/proxy_contest 는 5번째 컬럼
+L3 = [("t_fin","financial_metrics\n재무·회계 risk 진단"),("t_div","dividend\n배당 사실·추이"),
+      ("t_own","ownership_structure\n지분구조·공동보유자"),("t_tre","treasury_share\n자사주 이벤트"),
+      ("t_dil","dilutive_issuance\n증자·CB 등 희석"),("t_res","corporate_restructuring\n합병·분할·교환"),
+      ("t_dea","corporate_deals\n인수·매각"),("t_rsk","risk_events\n악재 스캔"),
+      ("t_not","shareholder_meeting_notice\n주총 안건 (사전)"),
+      ("t_rslt","shareholder_meeting_results\n주총 결과 (사후)"),("t_ord","order_contracts\n수주 추적"),
+      ("t_gov","corp_gov_report\n지배구조 점검"),("t_val","value_up\n밸류업 이행"),
+      ("t_cmp","company\n회사 식별·진입"),("t_evd","evidence\n출처 링크")]
 # 종합 tool (오케스트레이터) + 법령 — 커스텀 배치
 L4 = [
     ("law","상법 법령 레이어\n(wiki/rules/laws)"),
@@ -86,20 +89,31 @@ LAW_FILL  = "F1E3CA"; LAW_BORDER = "C09A5B"
 ORCH_LINE = "CC785C"; DIRECT_LINE = "9A8C7A"
 BG = "FAF9F5"; TEXT = "2B2A28"; HEAD_TEXT = "1F1E1D"
 
+LEGEND_LINES = [
+    "［ 범례 / 읽는 법 ］",
+    "• 일반 선 : 공시 → 데이터 → 도구 (추출 흐름)",
+    "• 굵은 선 : 기반 도구를 불러 합침 (오케스트레이션)",
+    "• 점선 : 종합 도구가 공시를 직접 조회",
+    "• ★ TOOL OF TOOLS : 여러 도구를 모아 최종 판단",
+    "• 색상 = 컬럼(공시유형·이름·데이터·도구·종합) 구분",
+    "• 약어 : MCP=AI 도구호출 규약 · rcept_no=공시 접수번호",
+    "          DPS=주당배당금 · BS/IS/CF=재무상태표/손익/현금흐름표",
+]
+
 # ---------- 지오메트리 ----------
 SW, SH = 19.0, 10.0
 COL_X = [0.30, 2.20, 6.30, 10.25, 14.35]
 COL_W = [1.75, 3.85, 3.55, 3.60, 4.45]
-CONTENT_TOP, CONTENT_BOT = 1.35, 0.30
+CONTENT_TOP, CONTENT_BOT = 1.55, 0.30
 USABLE = SH - CONTENT_TOP - CONTENT_BOT
-BOX_H = 0.275
+BOX_H_LAYER = [0.30, 0.30, 0.275, 0.46]   # L3(도구)는 2줄이라 더 높게
 
 geo = {}
 for li, layer in enumerate(LAYERS):
-    n = len(layer); x = COL_X[li]; w = COL_W[li]
+    n = len(layer); x = COL_X[li]; w = COL_W[li]; bh = BOX_H_LAYER[li]
     for i,(nid,_) in enumerate(layer):
         cy = CONTENT_TOP + (i+0.5)*USABLE/n
-        geo[nid] = (x, cy-BOX_H/2, w, BOX_H, li)
+        geo[nid] = (x, cy-bh/2, w, bh, li)
 # L4 커스텀 (x, y_top, w, h, layer)
 x4, w4 = COL_X[4], COL_W[4]
 geo["law"]   = (x4, 1.75-0.27, w4, 0.55, 4)
@@ -125,10 +139,13 @@ def add_text(x,y,w,h,txt,size,color,bold=False,align=PP_ALIGN.LEFT):
     r=p.add_run(); r.text=txt; f=r.font; f.size=Pt(size); f.bold=bold
     f.color.rgb=RGBColor.from_string(color); f.name="Malgun Gothic"
 
-add_text(0.3,0.16,18,0.6,"OpenProxy MCP — 공시 → 데이터 → Tool → 종합 Tool 매핑",26,HEAD_TEXT,True)
+add_text(0.3,0.10,18,0.5,"OpenProxy MCP — 공시 → 데이터 → 도구 → 종합 도구 매핑",26,HEAD_TEXT,True)
+add_text(0.3,0.60,18.4,0.5,
+         "AI(Claude)가 호출하는 17개 분석 도구: 어떤 공시(①②)를 읽어 → 무슨 데이터(③)를 뽑고 → 어떤 도구(④)가 무엇을 답하는지. ⑤는 다른 도구를 모아 종합 판단하는 도구.",
+         12.5,"6B6256",False)
 for li,t in enumerate(TITLES):
     cnt = len(L4) if li==4 else len(LAYERS[li])
-    add_text(COL_X[li],0.78,COL_W[li],0.45,f"{t} ({cnt})",14,TITLE_COLS[li],True,PP_ALIGN.CENTER)
+    add_text(COL_X[li],1.08,COL_W[li],0.42,f"{t} ({cnt})",14,TITLE_COLS[li],True,PP_ALIGN.CENTER)
 
 def emu(v): return Emu(int(v*914400))
 def add_conn(a,b,color,wpt,dash=False,alpha=55000):
@@ -162,13 +179,35 @@ def add_box(nid,li):
         p.alignment=PP_ALIGN.CENTER
         r=p.add_run(); r.text=line; f=r.font
         big = nid in ("t_adv","t_pcn")
-        f.size=Pt(9.5 if (big and idx==0) else (8 if big else 8.5))
-        f.bold=(li>=3 or nid in ("t_adv","t_pcn")) and idx==0
+        if big:
+            f.size=Pt(9.5 if idx==0 else 8)
+        elif li==3:
+            f.size=Pt(9 if idx==0 else 7.3)   # 도구명 / 역할
+        else:
+            f.size=Pt(8.5)
+        f.bold=((li>=3 or big) and idx==0)
         f.color.rgb=RGBColor.from_string(TEXT); f.name="Malgun Gothic"
 
 for li,layer in enumerate(LAYERS):
     for nid,_ in layer: add_box(nid,li)
 for nid,_ in L4: add_box(nid,4)
+
+# 범례 (우측 하단 빈 공간)
+def add_legend():
+    x,y,w,h = COL_X[4], 8.05, COL_W[4], 1.62
+    sh=slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE,Inches(x),Inches(y),Inches(w),Inches(h))
+    sh.fill.solid(); sh.fill.fore_color.rgb=RGBColor.from_string("F4F1EA")
+    sh.line.color.rgb=RGBColor.from_string("D8CFC0"); sh.line.width=Pt(1.0); sh.shadow.inherit=False
+    tf=sh.text_frame; tf.word_wrap=True
+    tf.margin_left=Emu(70000); tf.margin_right=Emu(40000); tf.margin_top=Emu(45000); tf.margin_bottom=Emu(20000)
+    tf.vertical_anchor=MSO_ANCHOR.TOP
+    for idx,line in enumerate(LEGEND_LINES):
+        p=tf.paragraphs[0] if idx==0 else tf.add_paragraph()
+        p.alignment=PP_ALIGN.LEFT
+        r=p.add_run(); r.text=line; f=r.font
+        f.size=Pt(9 if idx==0 else 7.8); f.bold=(idx==0)
+        f.color.rgb=RGBColor.from_string(TEXT); f.name="Malgun Gothic"
+add_legend()
 
 prs.save("wiki/tools/diagrams/tool_disclosure_map.pptx"); print("PPTX saved")
 
@@ -178,11 +217,13 @@ def esc(s): return html.escape(s,quote=True)
 Wp,Hp=int(SW*PX),int(SH*PX)
 svg=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{Wp}" height="{Hp}" '
      f'font-family="Malgun Gothic, sans-serif"><rect width="{Wp}" height="{Hp}" fill="#{BG}"/>']
-svg.append(f'<text x="{int(0.3*PX)}" y="{int(0.52*PX)}" fill="#{HEAD_TEXT}" font-size="26" font-weight="700">'
-           f'OpenProxy MCP — 공시 → 데이터 → Tool → 종합 Tool 매핑</text>')
+svg.append(f'<text x="{int(0.3*PX)}" y="{int(0.42*PX)}" fill="#{HEAD_TEXT}" font-size="26" font-weight="700">'
+           f'OpenProxy MCP — 공시 → 데이터 → 도구 → 종합 도구 매핑</text>')
+svg.append(f'<text x="{int(0.3*PX)}" y="{int(0.78*PX)}" fill="#6B6256" font-size="13">'
+           f'AI(Claude)가 호출하는 17개 분석 도구: 어떤 공시(①②)를 읽어 → 무슨 데이터(③)를 뽑고 → 어떤 도구(④)가 무엇을 답하는지. ⑤는 다른 도구를 모아 종합 판단.</text>')
 for li,t in enumerate(TITLES):
     cx=(COL_X[li]+COL_W[li]/2)*PX; cnt=len(L4) if li==4 else len(LAYERS[li])
-    svg.append(f'<text x="{cx:.0f}" y="{int(1.02*PX)}" fill="#{TITLE_COLS[li]}" font-size="15" '
+    svg.append(f'<text x="{cx:.0f}" y="{int(1.32*PX)}" fill="#{TITLE_COLS[li]}" font-size="15" '
                f'font-weight="700" text-anchor="middle">{esc(t)} ({cnt})</text>')
 def sline(a,b,color,w,op,dash=False):
     xa,ya,wa,ha,_=geo[a]; xb,yb,wb,hb,_=geo[b]
@@ -199,15 +240,30 @@ def srect(nid,li):
     fill,border=node_style(nid,li); big=nid in ("t_adv","t_pcn")
     svg.append(f'<rect x="{px:.1f}" y="{py:.1f}" width="{pw:.1f}" height="{ph:.1f}" rx="5" '
                f'fill="#{fill}" stroke="#{border}" stroke-width="{2 if big else 1.2}"/>')
-    lines=label.split("\n"); n=len(lines); fs=10.5 if big else 11
-    y0=py+ph/2-(n-1)*(fs+2)/2+4
+    lines=label.split("\n"); n=len(lines)
+    if big: sizes=[11]+[9]*(n-1)
+    elif li==3: sizes=[11.5]+[9]*(n-1)
+    else: sizes=[11]*n
+    lh=[s+3 for s in sizes]; total=sum(lh)
+    y=py+ph/2-total/2+sizes[0]
     for i,ln in enumerate(lines):
         fw=700 if (li>=3 or big) and i==0 else 400
-        svg.append(f'<text x="{px+pw/2:.1f}" y="{y0+i*(fs+2):.1f}" fill="#{TEXT}" font-size="{fs}" '
+        svg.append(f'<text x="{px+pw/2:.1f}" y="{y:.1f}" fill="#{TEXT}" font-size="{sizes[i]}" '
                    f'font-weight="{fw}" text-anchor="middle">{esc(ln)}</text>')
+        y+=lh[i]
 for li,layer in enumerate(LAYERS):
     for nid,_ in layer: srect(nid,li)
 for nid,_ in L4: srect(nid,4)
+# 범례
+lx,ly,lw,lh2 = COL_X[4]*PX, 8.05*PX, COL_W[4]*PX, 1.62*PX
+svg.append(f'<rect x="{lx:.0f}" y="{ly:.0f}" width="{lw:.0f}" height="{lh2:.0f}" rx="6" '
+           f'fill="#F4F1EA" stroke="#D8CFC0" stroke-width="1.2"/>')
+ty=ly+18
+for idx,line in enumerate(LEGEND_LINES):
+    fs=12 if idx==0 else 10.5; fw=700 if idx==0 else 400
+    svg.append(f'<text x="{lx+12:.0f}" y="{ty:.0f}" fill="#{TEXT}" font-size="{fs}" '
+               f'font-weight="{fw}">{esc(line)}</text>')
+    ty += 18.5
 svg.append('</svg>')
 with open("wiki/tools/diagrams/ppt_preview.svg","w",encoding="utf-8") as f: f.write("\n".join(svg))
 print(f"SVG preview written: {Wp}x{Hp}")
