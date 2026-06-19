@@ -1,64 +1,70 @@
 ---
 type: readme
-title: tools/ — Tool 카탈로그 (17 tool 진입점)
-updated: 2026-06-01
+title: tools/ — 도구 카탈로그 (17개)
+updated: 2026-06-20
 ---
 
-# tools/ — Tool 카탈로그
+# 도구(Tool) 카탈로그 — 17개
 
-> OPM v2 의 17 public tool 진입점. 사용자가 가장 먼저 보는 페이지.
-> 각 tool 1 페이지, 통일 schema (frontmatter + 한 줄 요약 + 사용법 + 입력 인자 + 출력 schema + Data sources + 파싱 전략 + 관련 공시/개념/결정/audit + 알려진 issue + 변경 이력).
-> 도메인 개념 / 공시 본문 / 정책 결정 정보는 본 폴더에 중복 X. `rules/concepts/`, `rules/disclosures/`, `decisions/`, `architecture/audits/` 로 link만 한다.
+> OPM의 17개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
+> 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
+>
+> 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
+> 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
 
-Data tool별 상세 공시 매핑은 [[data_tool_disclosure_map]]을 본다.
+## 17개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
-## 빠른 진입표 (17 tool)
+### 🏢 기본 — 회사 찾기
+| 도구 | 무엇을 답하나 |
+|---|---|
+| [[company]] | 회사 식별 + 최근 공시 목록 — **모든 분석의 출발점** |
 
-### Company (1)
-| tool | 한 줄 |
-|------|------|
-| [[company]] | 기업 식별 + 최근 공시 인덱스 (모든 data tool 공통 입구) |
+### 🗳️ 주주총회 · 의결권
+| 도구 | 무엇을 답하나 |
+|---|---|
+| [[shareholder_meeting_notice]] | 주총 **소집공고**(주총 전) — 안건·이사 후보·보수한도·정관 변경 |
+| [[shareholder_meeting_results]] | 주총 **결과**(주총 후) — 안건별 가결/부결·찬반율 |
+| [[proxy_advise_before_meeting]] | **의결권 보조** — 안건별 찬성/반대/검토 + 근거 (핵심 도구) |
 
-### Meeting (2 — 시점 분리, 2026-05-04)
-| tool | 한 줄 |
-|------|------|
-| [[shareholder_meeting_notice]] | 주총 **소집공고** (사전 — DART API/XML, 0.5-1.5s, 5 scope: summary/board/compensation/aoi_change/prov_financials) |
-| [[shareholder_meeting_results]] | 주총 **의결 결과** (사후 — 의결 결과, 찬반율, 단일) |
+### 💰 지분 · 재무 · 지배구조
+| 도구 | 무엇을 답하나 |
+|---|---|
+| [[ownership_structure]] | 지분 구조 — 최대주주·특수관계인·5% 대량보유·자사주 |
+| [[financial_metrics]] | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 |
+| [[corp_gov_report]] | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
 
-### Data — 지분·재무·거버넌스 (3)
-| tool | 한 줄 |
-|------|------|
-| [[ownership_structure]] | 최대주주/특수관계인/5%/control_map (5 scope, treasury 제거) |
-| [[financial_metrics]] | DART 재무 4 endpoint 통합: 56 지표 + 듀퐁/감사의견/운전자본 회전일수 (6 scope) |
-| [[corp_gov_report]] | 기업지배구조보고서 15지표 + 연도별 추이 (5 scope) |
+### 🎁 주주환원 · 자본
+| 도구 | 무엇을 답하나 |
+|---|---|
+| [[dividend]] | 배당 — 배당금·총액·배당성향·추이 |
+| [[treasury_share]] | 자기주식 — 취득·처분·소각·신탁 |
+| [[value_up]] | 기업가치 제고(밸류업) 계획과 이행 현황 |
+| [[corporate_restructuring]] | 합병·분할·주식교환·이전 |
+| [[dilutive_issuance]] | 유상증자·전환사채(CB)·신주인수권부사채(BW)·감자 (지분 희석) |
 
-### Data — 환원·이벤트 (5)
-| tool | 한 줄 |
-|------|------|
-| [[dividend]] | 배당 사실 + 분기별 breakdown (3 scope: summary/detail/history, CSR/TSR drop) |
-| [[treasury_share]] | 자사주 9 source — 결정 5종 + 결과 4종 + 사이클 매칭 (2 scope: summary/annual) |
-| [[value_up]] | 기업가치제고계획 plan/status/result/meta 분리 + 자사주 이행 cross-ref (4 scope) |
-| [[corporate_restructuring]] | 합병/분할/주식교환·이전 4종 (DS005, 단일 통합) |
-| [[dilutive_issuance]] | 유상증자/CB/BW/감자 4종 (희석률·refixing, 단일 통합) |
+### ⚔️ 분쟁 · 거래 · 리스크
+| 도구 | 무엇을 답하나 |
+|---|---|
+| [[proxy_contest]] | 경영권 분쟁 신호 — 위임장·소송·5% 경영참여 |
+| [[corporate_deals]] | 회사·지분 인수/매각 (계열사 출자·회수) |
+| [[order_contracts]] | 수주·공급계약 (체결·해지, 매출 대비 규모) |
+| [[risk_events]] | 리스크 사건 — 중대재해·횡령배임·생산중단 |
 
-### Data — 분쟁·내부거래·근거 (4)
-| tool | 한 줄 |
-|------|------|
-| [[proxy_contest]] | 위임장/소송/5%/vote_math (filer 3-way 분류) |
-| [[corporate_deals]] | 지분 인수·매각(타법인주식·출자증권) — 계열사 출자·회수, 일감몰아주기. 구 related_party_transaction. 공급계약은 order_contracts로 일원화(260614) |
-| [[order_contracts]] | 수주·해지(단일판매·공급계약 체결/해지) — 계약금액·매출대비%·정정 dedup/diff·외부/계열 카운트. 적자 코스닥 미래매출 가시성 (매핑·순수주 추론은 부정확해 제외) |
-| [[risk_events]] | 리스크 이벤트 — 활성 3종: 중대재해/횡령배임/생산중단·영업정지 (I001+B001, 시장 스캔. 파생·회생·해산은 mute) |
-| [[evidence]] | rcept_no → 공시일/소스/뷰어 URL (API 0회) |
+### 🔗 근거
+| 도구 | 무엇을 답하나 |
+|---|---|
+| [[evidence]] | 공시 원문 링크 (접수번호 → DART 열람 URL) |
 
-### Action (2 — 시점 분리)
-| tool | 한 줄 |
-|------|------|
-| [[proxy_advise_before_meeting]] | 주총 **사전** 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts/risk/citation/근거공고/후보 raw (단일 결정 호출, ralph G2 99.36%) |
+> 📊 도구–공시 채널 매핑(시각 자료): [[tool_disclosure_map]] · [[data_tool_disclosure_map]]
 
+---
 
-> **2026-05-04~05-05 정리 변화**: screen_events drop, proxy_guideline → archive (internal로 만들었지만 호출 X 확인 후 archive), shareholder_meeting → notice + results 분리, proxy_advise scope 10→1 (specialized scope은 각 data tool 직접 호출).
+# 개발자 · AI용 상세
 
-## 16 페이지 통일 schema
+> 아래는 도구 설계·성능·데이터 출처 등 기술 상세입니다. 사람용 개요는 위 표와 [[guide/architecture]]를
+> 보세요. 각 도구 1페이지는 통일된 형식(아래 schema)을 따릅니다.
+
+## 각 도구 페이지 통일 schema
 
 ```yaml
 ---
@@ -75,19 +81,13 @@ created: 2026-05-01
 ---
 ```
 
-본문 섹션:
-1. 한 줄 요약
-2. 사용법 (자연어 예시 1-2건)
-3. 입력 인자 (표)
-4. 출력 schema (data dict)
-5. Data sources (DART API / KIND / Naver / Upstage / 정적 JSON, 호출 횟수)
-6. 파싱 전략 (3-tier fallback, 알려진 한계, regression 0 검증 audit 링크)
-7. 관련 공시 (rules/disclosures/) — link only, 중복 X
-8. 관련 개념 (rules/concepts/) — link only
-9. 관련 결정 (decisions/) — link only
-10. 관련 audit/fix (architecture/) — link only
-11. 알려진 issue + TODO
-12. 변경 이력
+본문 섹션: 1. 한 줄 요약 · 2. 사용법(자연어 예시) · 3. 입력 인자 · 4. 출력 schema · 5. Data sources
+(호출 횟수) · 6. 파싱 전략(3-tier fallback·한계·regression audit) · 7~10. 관련 공시/개념/결정/audit
+link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공시 본문·정책은 본 폴더에 중복하지 않고
+`rules/`·`decisions/`·`architecture/`로 link만.)
+
+> **2026-05 정리**: screen_events drop · proxy_guideline archive · shareholder_meeting → notice+results
+> 분리 · proxy_advise scope 10→1(specialized scope은 각 data tool 직접 호출).
 
 ## 카테고리별 통계
 
@@ -101,12 +101,12 @@ created: 2026-05-01
 
 ## 진단 필드
 
-성능 병목 추적을 위해 주요 data/action tool은 `data.timings_ms`를 노출한다.
-공통 키는 `total`, `resolve_company`이고, tool별로 `scope.summary`, `fetch_decisions`,
-`decision_details`, `load_report_document` 같은 stage 키가 추가된다.
-최근 3개 회사 실측 기준 반복 병목은 `dividend.decision_details`,
-`treasury_share.fetch_decisions`였으며 상세 근거는 `wiki/architecture/audits/260510_data_tools_perf_audit.md` 참조.
-`value_up`은 `classify_value_up_roles`, `role_backfill_search.dart`로 plan/status/result/meta 분리 비용을 노출한다.
+주요 data/action tool은 `data.timings_ms`를 노출한다. 공통 키는 `total`, `resolve_company`이고,
+tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_document` 같은 stage 키가
+추가된다. 최근 3개 회사 실측 기준 반복 병목은 `dividend.decision_details`,
+`treasury_share.fetch_decisions`였으며 상세 근거는 `architecture/audits/260510_data_tools_perf_audit.md`
+참조. `value_up`은 `classify_value_up_roles`, `role_backfill_search.dart`로 plan/status/result/meta 분리
+비용을 노출한다.
 
 ## 데이터 소스 매트릭스
 
@@ -133,27 +133,17 @@ created: 2026-05-01
 
 ## 흡수된 archive 페이지 (정보 출처)
 
-본 16 페이지가 흡수하거나 대체한 archive/analysis/ 자료:
-- `archive/analysis/screen_events-design.md` → archive 유지, public tool에서는 제거
-- `archive/analysis/company-tool-검증-예시.md` → `company.md`
-- `archive/analysis/shareholder_meeting-tool-검증-예시.md` → `shareholder_meeting_notice.md` / `shareholder_meeting_results.md`
-- `archive/analysis/ownership_structure-tool-검증-예시.md` → `ownership_structure.md`
-- `archive/analysis/dividend-tool-검증-예시.md` → `dividend.md`
-- `archive/analysis/cash-shareholder-return-2026-04-29.md` → archive 유지, CSR scope 제거
-- `archive/analysis/total-shareholder-return-2026-04-29.md` → archive 유지, TSR scope 제거
-- `archive/analysis/proxy_contest-tool-검증-예시.md` → `proxy_contest.md`
-- `archive/analysis/value_up-tool-검증-예시.md` → `value_up.md`
-- `archive/analysis/corporate_restructuring-design.md` → `corporate_restructuring.md`
-- `archive/analysis/dilutive_issuance-design.md` → `dilutive_issuance.md`
-- `archive/analysis/related_party_transaction-design.md` → `corporate_deals.md`
-- `archive/analysis/corp_gov_report-design.md` → `corp_gov_report.md`
-- `archive/analysis/evidence-tool-검증-예시.md` → `evidence.md`
-- `archive/analysis/release_v2-action-tool-검증-초안.md` → `proxy_advise_before_meeting.md` / `proxy_result_after_meeting.md`
-- `archive/analysis/KIND-주총결과.md` → `shareholder_meeting_results.md` fallback 이력
+본 17 페이지가 흡수·대체한 archive/analysis/ 자료:
+- `company-tool-검증-예시` → `company.md` / `shareholder_meeting-tool-검증-예시` → `notice`·`results`
+- `ownership_structure`·`dividend`·`proxy_contest`·`value_up`·`evidence` 검증예시 → 각 동명 tool
+- `corporate_restructuring-design`·`dilutive_issuance-design` → 각 tool / `related_party_transaction-design`
+  → `corporate_deals` / `corp_gov_report-design` → `corp_gov_report`
+- `cash-shareholder-return`·`total-shareholder-return` → archive 유지(CSR/TSR scope 제거)
+- `release_v2-action-tool-검증-초안` → `proxy_advise_before_meeting` / `KIND-주총결과` → `results` fallback 이력
 
 ## 변경 이력
-- 2026-05-01: W2 작업 — 초기 tool 페이지 일괄 작성, README catalog 업데이트
-- 2026-05-01: financial_metrics tool Phase 1 신규 (DART 재무 4 endpoint), 17 → 18 tool
-- 2026-05-18: README 기준을 현재 16 public tool 체계로 정리. `screen_events`, `proxy_guideline`, 구 `shareholder_meeting`, 구 action tool 명칭 제거.
-- 2026-05-20: data tool별 상세 공시 매핑 문서 [[data_tool_disclosure_map]] 추가.
-- 2026-05-31: `financial_metrics` 56 지표로 확장(CFO/순이익, DSO/DIO/DPO/CCC). `value_up`은 `latest_plan`/`latest_status`/`latest_result`/`meta_amendment` 역할 분리.
+- 2026-05-01: 초기 tool 페이지 일괄 작성 + financial_metrics 신규
+- 2026-05-18: 현재 16 public tool 체계로 정리(구 tool 명칭 제거)
+- 2026-05-20: 도구–공시 매핑 [[data_tool_disclosure_map]] 추가
+- 2026-05-31: financial_metrics 56 지표 확장 · value_up 역할 분리
+- 2026-06-20: 카탈로그를 사람용("무엇을 답하나")으로 재정리 + 개발 상세 분리
