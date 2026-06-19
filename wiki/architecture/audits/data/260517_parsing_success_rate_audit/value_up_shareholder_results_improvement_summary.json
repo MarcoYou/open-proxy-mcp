@@ -1,0 +1,96 @@
+{
+  "value_up": {
+    "full450_artifact": "value_up_after_outside_window_reclass_450.json",
+    "full450_summary": {
+      "total": 450,
+      "status_counts": {
+        "exact": 192,
+        "no_filing": 258
+      },
+      "audit_counts": {
+        "success": 450
+      },
+      "strict_success_rate": 100.0,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 2540.6,
+      "p95_ms": 4834.6,
+      "avg_api_calls": null
+    },
+    "recheck100_artifact": "recheck100_value_up_after_013_fix.json",
+    "recheck100_summary": {
+      "total": 100,
+      "status_counts": {
+        "exact": 34,
+        "no_filing": 66
+      },
+      "audit_counts": {
+        "success": 100
+      },
+      "strict_success_rate": 100.0,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 3125.2,
+      "p95_ms": 5195.1,
+      "avg_api_calls": null
+    },
+    "interpretation": "exists_outside_requested_window is no_filing with diagnostics preserved; DART 013 is also no_filing, not hard fail."
+  },
+  "shareholder_meeting_results": {
+    "full450_artifact": "shareholder_meeting_results_after_dart_first_450.json",
+    "full450_raw_summary": {
+      "total": 450,
+      "status_counts": {
+        "exact": 436,
+        "no_filing": 6,
+        "exception": 5,
+        "requires_review": 3
+      },
+      "audit_counts": {
+        "success": 442,
+        "hard_fail": 5,
+        "soft_fail": 3
+      },
+      "strict_success_rate": 98.2,
+      "usable_rate": 98.9,
+      "hard_fail_rate": 1.1,
+      "median_ms": 3271.4,
+      "p95_ms": 8429.9,
+      "avg_api_calls": null
+    },
+    "recheck100_artifact": "recheck100_value_up_shareholder_results_after_fixes.json",
+    "recheck100_summary": {
+      "total": 100,
+      "status_counts": {
+        "exact": 97,
+        "no_filing": 3
+      },
+      "audit_counts": {
+        "success": 100
+      },
+      "strict_success_rate": 100.0,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "median_ms": 2867.1,
+      "p95_ms": 4924.2,
+      "avg_api_calls": null
+    },
+    "exception_retry_artifact": "shareholder_meeting_results_exception5_retry_probe.json",
+    "exception_retry_exact": 5,
+    "adjusted_full450_after_exception_retry": {
+      "total": 450,
+      "success": 447,
+      "soft_fail": 3,
+      "hard_fail": 0,
+      "strict_success_rate": 99.3,
+      "usable_rate": 100.0,
+      "hard_fail_rate": 0.0,
+      "remaining_soft_fail_companies": [
+        "SNT다이내믹스",
+        "SNT홀딩스",
+        "SNT모티브"
+      ]
+    },
+    "pattern_finding": "KOSDAQ result filings use rcept_no middle code 90. DART document.xml parses these result tables directly, so KIND acptno whitelist conversion should not gate availability."
+  }
+}

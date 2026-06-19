@@ -1,0 +1,46 @@
+flowchart TB
+    classDef title fill:#1e3a5f,color:#fff,stroke:#0d1b2a,stroke-width:2px;
+    classDef tool fill:#e8f0fe,color:#1a1a1a,stroke:#4285f4,stroke-width:1px;
+    classDef act fill:#fce4ec,color:#1a1a1a,stroke:#e91e63,stroke-width:1px;
+
+    ROOT["OpenProxy MCP — 17 public tool"]:::title
+
+    subgraph C0["진입 · 출처 (2)"]
+        direction LR
+        company:::tool
+        evidence:::act
+    end
+
+    subgraph C1["주총 · 의결권 (3)"]
+        direction LR
+        shareholder_meeting_notice:::tool
+        shareholder_meeting_results:::tool
+        proxy_advise_before_meeting:::act
+    end
+
+    subgraph C2["주주환원 (3)"]
+        direction LR
+        dividend:::tool
+        treasury_share:::tool
+        value_up:::tool
+    end
+
+    subgraph C3["지배구조 · 경영권 (6)"]
+        direction LR
+        ownership_structure:::tool
+        proxy_contest:::tool
+        corp_gov_report:::tool
+        dilutive_issuance:::tool
+        corporate_restructuring:::tool
+        corporate_deals:::tool
+    end
+
+    subgraph C4["펀더멘탈 · 사업 (3)"]
+        direction LR
+        financial_metrics:::tool
+        order_contracts:::tool
+        risk_events:::tool
+    end
+
+    ROOT --> C0
+    C0 ~~~ C1 ~~~ C2 ~~~ C3 ~~~ C4

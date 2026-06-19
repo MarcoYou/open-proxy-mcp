@@ -1,0 +1,4042 @@
+{
+  "meta": {
+    "start": 0,
+    "count": 200,
+    "duration_s": 344.0,
+    "generated_at": "2026-05-10"
+  },
+  "records": [
+    {
+      "ticker": "009150",
+      "name": "삼성전기",
+      "status": "exact",
+      "duration_s": 2.13,
+      "corp_asset_won": 14595895255468,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-2",
+          "decision": "FOR",
+          "law_ref": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "323410",
+      "name": "카카오뱅크",
+      "status": "exact",
+      "duration_s": 2.59,
+      "corp_asset_won": 76409775000000,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건 (정관 제 37조 제3항)",
+          "parent_title": "정관 일부 변경",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 도입 관련 변경 (정관 제26조 제2항)",
+          "parent_title": "정관 일부 변경",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭 변경 (독립이사로 명칭 변경)",
+          "parent_title": "정관 일부 변경",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "008930",
+      "name": "한미사이언스",
+      "status": "exact",
+      "duration_s": 3.17,
+      "corp_asset_won": 1489047152886,
+      "is_2tril_plus": false,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "004020",
+      "name": "현대제철",
+      "status": "exact",
+      "duration_s": 4.36,
+      "corp_asset_won": 34442304939493,
+      "is_2tril_plus": true,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "007810",
+      "name": "코리아써키트",
+      "status": "exact",
+      "duration_s": 2.06,
+      "corp_asset_won": 1392548104186,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "017800",
+      "name": "현대엘리베이터",
+      "status": "exact",
+      "duration_s": 2.17,
+      "corp_asset_won": 3723057252310,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경 관련 조항",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원회 위원이 되는 사외이사 선임의 건 후보 김정호 (사외이사, 임기 1년)",
+          "parent_title": "",
+          "rule_id": "B1-4b",
+          "decision": "REVIEW",
+          "law_ref": "정관-우회 시나리오 2"
+        }
+      ]
+    },
+    {
+      "ticker": "005930",
+      "name": "삼성전자",
+      "status": "exact",
+      "duration_s": 2.51,
+      "corp_asset_won": 566942110000000,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "138040",
+      "name": "메리츠금융지주",
+      "status": "exact",
+      "duration_s": 2.57,
+      "corp_asset_won": 135457983800835,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "066970",
+      "name": "엘앤에프",
+      "status": "exact",
+      "duration_s": 2.31,
+      "corp_asset_won": 3134104265112,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "302440",
+      "name": "SK바이오사이언스",
+      "status": "exact",
+      "duration_s": 2.59,
+      "corp_asset_won": 2955743509068,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "030000",
+      "name": "제일기획",
+      "status": "exact",
+      "duration_s": 2.42,
+      "corp_asset_won": 3587816549320,
+      "is_2tril_plus": true,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "086790",
+      "name": "하나금융지주",
+      "status": "exact",
+      "duration_s": 2.98,
+      "corp_asset_won": 674590676000000,
+      "is_2tril_plus": true,
+      "n_agendas": 19,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "002380",
+      "name": "KCC",
+      "status": "error",
+      "duration_s": 0.22,
+      "corp_asset_won": null,
+      "is_2tril_plus": false,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "005830",
+      "name": "DB손해보험",
+      "status": "exact",
+      "duration_s": 4.15,
+      "corp_asset_won": 74022307000000,
+      "is_2tril_plus": true,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "005850",
+      "name": "에스엘",
+      "status": "exact",
+      "duration_s": 3.21,
+      "corp_asset_won": 3997077723045,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임시 의결권 제한 강화 및 분리선임 인원 상향의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "081660",
+      "name": "미스토홀딩스",
+      "status": "exact",
+      "duration_s": 2.3,
+      "corp_asset_won": 5519193378050,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "000660",
+      "name": "SK하이닉스",
+      "status": "exact",
+      "duration_s": 2.57,
+      "corp_asset_won": 176107659000000,
+      "is_2tril_plus": true,
+      "n_agendas": 18,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "047810",
+      "name": "한국항공우주",
+      "status": "exact",
+      "duration_s": 3.14,
+      "corp_asset_won": 10370256890187,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "008770",
+      "name": "호텔신라",
+      "status": "requires_review",
+      "duration_s": 7.21,
+      "corp_asset_won": 3541423621707,
+      "is_2tril_plus": true,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "012750",
+      "name": "에스원",
+      "status": "exact",
+      "duration_s": 1.86,
+      "corp_asset_won": 2431985312121,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "128940",
+      "name": "한미약품",
+      "status": "exact",
+      "duration_s": 4.75,
+      "corp_asset_won": 2137597680857,
+      "is_2tril_plus": true,
+      "n_agendas": 19,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "005440",
+      "name": "현대지에프홀딩스",
+      "status": "exact",
+      "duration_s": 4.57,
+      "corp_asset_won": 10490130570000,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "035420",
+      "name": "NAVER",
+      "status": "exact",
+      "duration_s": 2.21,
+      "corp_asset_won": 41084496327318,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "062040",
+      "name": "산일전기",
+      "status": "exact",
+      "duration_s": 3.32,
+      "corp_asset_won": 681958856706,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "005940",
+      "name": "NH투자증권",
+      "status": "exact",
+      "duration_s": 4.65,
+      "corp_asset_won": 83385398000000,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "051600",
+      "name": "한전KPS",
+      "status": "exact",
+      "duration_s": 3.77,
+      "corp_asset_won": 1703560488139,
+      "is_2tril_plus": false,
+      "n_agendas": 3,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "005070",
+      "name": "코스모신소재",
+      "status": "exact",
+      "duration_s": 4.17,
+      "corp_asset_won": 721100349936,
+      "is_2tril_plus": false,
+      "n_agendas": 11,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "005380",
+      "name": "현대차",
+      "status": "exact",
+      "duration_s": 3.13,
+      "corp_asset_won": 368844849000000,
+      "is_2tril_plus": true,
+      "n_agendas": 19,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "집중투표제 배제 문구 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원회 위원 분리선출 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "독립이사로의 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "033780",
+      "name": "KT&G",
+      "status": "exact",
+      "duration_s": 2.99,
+      "corp_asset_won": 14189127000000,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 분리선출 인원 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "036460",
+      "name": "한국가스공사",
+      "status": "exact",
+      "duration_s": 1.76,
+      "corp_asset_won": 53627847000000,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "377300",
+      "name": "카카오페이",
+      "status": "exact",
+      "duration_s": 3.83,
+      "corp_asset_won": 5339580904646,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "002790",
+      "name": "아모레퍼시픽홀딩스",
+      "status": "exact",
+      "duration_s": 2.93,
+      "corp_asset_won": 8769409589796,
+      "is_2tril_plus": true,
+      "n_agendas": 16,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "전자주주총회 도입에 따른 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "010130",
+      "name": "고려아연",
+      "status": "exact",
+      "duration_s": 3.34,
+      "corp_asset_won": 20395719724719,
+      "is_2tril_plus": true,
+      "n_agendas": 45,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "이사회 내 독립이사 구성요건 명확화 및 독립이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선·해임 시 의결권 제한 관련 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "분리선출 감사위원 확대를 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "039490",
+      "name": "키움증권",
+      "status": "exact",
+      "duration_s": 3.25,
+      "corp_asset_won": 81173768149523,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입 근거 규정 마련 (제25조, 제32조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표제 배제 관련 조항 삭제 (제36조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "사외이사 명칭 변경 (제35조, 제37조, 제39조의2, 제41조, 제48조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "251270",
+      "name": "넷마블",
+      "status": "exact",
+      "duration_s": 3.18,
+      "corp_asset_won": 8093652130179,
+      "is_2tril_plus": true,
+      "n_agendas": 16,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제를 위한 정관 개정의 건",
+          "parent_title": "정관 개정의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "139480",
+      "name": "이마트",
+      "status": "exact",
+      "duration_s": 2.91,
+      "corp_asset_won": 33503615741472,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "000500",
+      "name": "가온전선",
+      "status": "exact",
+      "duration_s": 2.24,
+      "corp_asset_won": 1377927912000,
+      "is_2tril_plus": false,
+      "n_agendas": 13,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "독립이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "독립이사 비율 상향의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-6",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22 공포, 2026-07-23 시행 + 1년 유예)"
+        },
+        {
+          "title": "감사위원 선·해임 시 의결권 제한 강화의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "감사위원 분리선출 확대의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "B2-8",
+          "decision": "REVIEW",
+          "law_ref": "정관-우회 시나리오 1"
+        }
+      ]
+    },
+    {
+      "ticker": "373220",
+      "name": "LG에너지솔루션",
+      "status": "exact",
+      "duration_s": 2.17,
+      "corp_asset_won": 67147953000000,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경에 관한 정관 변경의 건",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임 시 최대주주 의결권 제한에 따른 정관 변경의 건",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "066570",
+      "name": "LG전자",
+      "status": "exact",
+      "duration_s": 2.79,
+      "corp_asset_won": 68620167000000,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사로 명칭 변경",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선·해임 시 의결권제한 강화",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "009830",
+      "name": "한화솔루션",
+      "status": "exact",
+      "duration_s": 5.24,
+      "corp_asset_won": 33144011000000,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 도입에 따른 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사의 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "011780",
+      "name": "금호석유화학",
+      "status": "exact",
+      "duration_s": 4.69,
+      "corp_asset_won": 8474479180387,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "독립이사 명칭 변경 및 감사위원회 구성 강화",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "001120",
+      "name": "LX인터내셔널",
+      "status": "exact",
+      "duration_s": 3.06,
+      "corp_asset_won": 9328302981413,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "005490",
+      "name": "POSCO홀딩스",
+      "status": "exact",
+      "duration_s": 3.36,
+      "corp_asset_won": 105192437963565,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "분리선출 감사위원 수 증원",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임 시 의결권 제한범위 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "307950",
+      "name": "현대오토에버",
+      "status": "exact",
+      "duration_s": 2.66,
+      "corp_asset_won": 3605190886000,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "353200",
+      "name": "대덕전자",
+      "status": "exact",
+      "duration_s": 2.21,
+      "corp_asset_won": 1178006544303,
+      "is_2tril_plus": false,
+      "n_agendas": 11,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "018670",
+      "name": "SK가스",
+      "status": "exact",
+      "duration_s": 3.39,
+      "corp_asset_won": 8031885593897,
+      "is_2tril_plus": true,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "006040",
+      "name": "동원산업",
+      "status": "exact",
+      "duration_s": 18.36,
+      "corp_asset_won": 7777544153206,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "024110",
+      "name": "기업은행",
+      "status": "exact",
+      "duration_s": 1.78,
+      "corp_asset_won": 500692621000000,
+      "is_2tril_plus": true,
+      "n_agendas": 4,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "207940",
+      "name": "삼성바이오로직스",
+      "status": "exact",
+      "duration_s": 18.07,
+      "corp_asset_won": 11060741976837,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "029780",
+      "name": "삼성카드",
+      "status": "exact",
+      "duration_s": 2.49,
+      "corp_asset_won": 32174782000000,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "017960",
+      "name": "한국카본",
+      "status": "exact",
+      "duration_s": 5.88,
+      "corp_asset_won": 1043222615767,
+      "is_2tril_plus": false,
+      "n_agendas": 13,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "015760",
+      "name": "한국전력",
+      "status": "error",
+      "duration_s": 0.23,
+      "corp_asset_won": null,
+      "is_2tril_plus": false,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "003230",
+      "name": "삼양식품",
+      "status": "exact",
+      "duration_s": 2.97,
+      "corp_asset_won": 2196495586892,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사의 독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "014680",
+      "name": "한솔케미칼",
+      "status": "exact",
+      "duration_s": 11.4,
+      "corp_asset_won": 1600348080121,
+      "is_2tril_plus": false,
+      "n_agendas": 1,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "018880",
+      "name": "한온시스템",
+      "status": "exact",
+      "duration_s": 2.08,
+      "corp_asset_won": 10492248416160,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "분리선출 감사위원 수 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "003690",
+      "name": "코리안리",
+      "status": "exact",
+      "duration_s": 2.18,
+      "corp_asset_won": 14259770701794,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "006280",
+      "name": "녹십자",
+      "status": "exact",
+      "duration_s": 3.13,
+      "corp_asset_won": 2971095184896,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "012450",
+      "name": "한화에어로스페이스",
+      "status": "exact",
+      "duration_s": 4.11,
+      "corp_asset_won": 53953669604000,
+      "is_2tril_plus": true,
+      "n_agendas": 19,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표 배제조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "079550",
+      "name": "LIG디펜스앤에어로스페이스",
+      "status": "exact",
+      "duration_s": 5.05,
+      "corp_asset_won": 8064772884180,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "001720",
+      "name": "신영증권",
+      "status": "error",
+      "duration_s": 1.44,
+      "corp_asset_won": 10379574597460,
+      "is_2tril_plus": true,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "052690",
+      "name": "한전기술",
+      "status": "exact",
+      "duration_s": 6.05,
+      "corp_asset_won": 885545457188,
+      "is_2tril_plus": false,
+      "n_agendas": 4,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "020150",
+      "name": "롯데에너지머티리얼즈",
+      "status": "exact",
+      "duration_s": 2.86,
+      "corp_asset_won": 2208680587320,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "009540",
+      "name": "HD한국조선해양",
+      "status": "exact",
+      "duration_s": 2.38,
+      "corp_asset_won": 39542213288000,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "003490",
+      "name": "대한항공",
+      "status": "exact",
+      "duration_s": 2.42,
+      "corp_asset_won": 50406072098945,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "088350",
+      "name": "한화생명",
+      "status": "exact",
+      "duration_s": 2.33,
+      "corp_asset_won": 178534378000000,
+      "is_2tril_plus": true,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "071970",
+      "name": "HD현대마린엔진",
+      "status": "exact",
+      "duration_s": 2.06,
+      "corp_asset_won": 814697175815,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "322000",
+      "name": "HD현대에너지솔루션",
+      "status": "exact",
+      "duration_s": 1.88,
+      "corp_asset_won": 530430417283,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "402340",
+      "name": "SK스퀘어",
+      "status": "exact",
+      "duration_s": 2.55,
+      "corp_asset_won": 30504546000000,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "017670",
+      "name": "SK텔레콤",
+      "status": "exact",
+      "duration_s": 3.3,
+      "corp_asset_won": 30107783000000,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "085620",
+      "name": "M레거시생명",
+      "status": "error",
+      "duration_s": 0.43,
+      "corp_asset_won": null,
+      "is_2tril_plus": false,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "097230",
+      "name": "HJ중공업",
+      "status": "exact",
+      "duration_s": 3.03,
+      "corp_asset_won": 2453082000000,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "전자주주총회 도입에 따른, 개최 방식 수정 및 신설(제19조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭을 독립이사로 변경, 감사위원 분리선임 인원 상향, 모든 감사위원 선임시 최대주주 및 특수관계인 의결권 제한(제36조의 2, 제39조의2)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "078930",
+      "name": "GS",
+      "status": "exact",
+      "duration_s": 5.5,
+      "corp_asset_won": 35707911000000,
+      "is_2tril_plus": true,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "272210",
+      "name": "한화시스템",
+      "status": "exact",
+      "duration_s": 2.61,
+      "corp_asset_won": 10327265554498,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 5,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표제 배제 조항 폐지",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원 분리 선임 인원 확대",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원 선·해임 의결권 제한 강화",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "000880",
+      "name": "한화",
+      "status": "exact",
+      "duration_s": 2.98,
+      "corp_asset_won": 289329420000000,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선.해임 의결권 제한 강화",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "감사위원 분리 선임 인원 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "000120",
+      "name": "CJ대한통운",
+      "status": "exact",
+      "duration_s": 2.15,
+      "corp_asset_won": 10339205686286,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "010060",
+      "name": "OCI홀딩스",
+      "status": "exact",
+      "duration_s": 6.52,
+      "corp_asset_won": 7870870449000,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-2",
+          "decision": "FOR",
+          "law_ref": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "012630",
+      "name": "HDC",
+      "status": "exact",
+      "duration_s": 5.01,
+      "corp_asset_won": 12685578705605,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경 (안)",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "034020",
+      "name": "두산에너빌리티",
+      "status": "exact",
+      "duration_s": 2.58,
+      "corp_asset_won": 27513223000000,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "전자주주총회 도입의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭변경 및 감사위원회 구성 강화의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "000720",
+      "name": "현대건설",
+      "status": "exact",
+      "duration_s": 2.81,
+      "corp_asset_won": 27791708000000,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 도입의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "241560",
+      "name": "두산밥캣",
+      "status": "exact",
+      "duration_s": 2.59,
+      "corp_asset_won": 8558454000,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "004170",
+      "name": "신세계",
+      "status": "exact",
+      "duration_s": 2.2,
+      "corp_asset_won": 15833341277876,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "011210",
+      "name": "현대위아",
+      "status": "exact",
+      "duration_s": 2.4,
+      "corp_asset_won": 7025106000000,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표 배제조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "042700",
+      "name": "한미반도체",
+      "status": "exact",
+      "duration_s": 2.09,
+      "corp_asset_won": 813331626120,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "016360",
+      "name": "삼성증권",
+      "status": "exact",
+      "duration_s": 2.66,
+      "corp_asset_won": 79683213004622,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "051900",
+      "name": "LG생활건강",
+      "status": "exact",
+      "duration_s": 4.09,
+      "corp_asset_won": 6869383558281,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경 승인",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 변경 승인",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사로 명칭 변경",
+          "parent_title": "정관 변경 승인",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임 시 의결권 제한 강화",
+          "parent_title": "정관 변경 승인",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "279570",
+      "name": "케이뱅크",
+      "status": "exact",
+      "duration_s": 3.51,
+      "corp_asset_won": 31864288000000,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경(안)",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "003570",
+      "name": "SNT다이내믹스",
+      "status": "exact",
+      "duration_s": 1.85,
+      "corp_asset_won": 1228607911035,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "000270",
+      "name": "기아",
+      "status": "exact",
+      "duration_s": 2.35,
+      "corp_asset_won": 98979055000000,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자 주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "사외이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "000150",
+      "name": "두산",
+      "status": "exact",
+      "duration_s": 5.38,
+      "corp_asset_won": 32927788000000,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "전자주주총회 도입의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "034220",
+      "name": "LG디스플레이",
+      "status": "exact",
+      "duration_s": 5.65,
+      "corp_asset_won": 26916700000000,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "집중투표제 배제 규정 삭제 (개정상법 반영)",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 제도 도입 (개정상법 반영)",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경 (개정상법 반영)",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선 ㆍ해임 시 의결권 제한 강화 (개정상법 반영)",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "009970",
+      "name": "영원무역홀딩스",
+      "status": "exact",
+      "duration_s": 2.13,
+      "corp_asset_won": 6995703461755,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "023590",
+      "name": "다우기술",
+      "status": "exact",
+      "duration_s": 2.0,
+      "corp_asset_won": 82950227249756,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경 (제29조, 제29조의2, 제31조, 제32조, 제34조의3, 제37조의",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "010140",
+      "name": "삼성중공업",
+      "status": "exact",
+      "duration_s": 2.49,
+      "corp_asset_won": 14948871093928,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제도 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "006260",
+      "name": "LS",
+      "status": "exact",
+      "duration_s": 2.24,
+      "corp_asset_won": 24994792000000,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사로 명칭 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "012510",
+      "name": "더존비즈온",
+      "status": "exact",
+      "duration_s": 4.24,
+      "corp_asset_won": 1129961431954,
+      "is_2tril_plus": false,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "282330",
+      "name": "BGF리테일",
+      "status": "exact",
+      "duration_s": 5.68,
+      "corp_asset_won": 3556166960339,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사의 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "298020",
+      "name": "효성티앤씨",
+      "status": "exact",
+      "duration_s": 4.35,
+      "corp_asset_won": 5739089251365,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "사내이사 유영환 선임의 건(임기 1년)",
+          "parent_title": "사내이사 선임의 건",
+          "rule_id": "B1-4b",
+          "decision": "REVIEW",
+          "law_ref": "정관-우회 시나리오 2"
+        }
+      ]
+    },
+    {
+      "ticker": "105560",
+      "name": "KB금융",
+      "status": "exact",
+      "duration_s": 3.37,
+      "corp_asset_won": 797923033000000,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "086280",
+      "name": "현대글로비스",
+      "status": "exact",
+      "duration_s": 2.16,
+      "corp_asset_won": 18587219950287,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "사외이사 명칭 변경의 건",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "전자주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "001040",
+      "name": "CJ",
+      "status": "exact",
+      "duration_s": 2.69,
+      "corp_asset_won": 46966393292000,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 5,
+      "hits": [
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표 배제 조항 삭제",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임 시 의결권 제한 강화",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "감사위원 분리선출 인원 확대",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "023530",
+      "name": "롯데쇼핑",
+      "status": "exact",
+      "duration_s": 2.79,
+      "corp_asset_won": 37910298847681,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "감사위원 분리선출 확대 및 3%룰 강화를 위한 정관의 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "사외이사 명칭 변경을 위한 정관의 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "462870",
+      "name": "시프트업",
+      "status": "exact",
+      "duration_s": 4.19,
+      "corp_asset_won": 1083335531792,
+      "is_2tril_plus": false,
+      "n_agendas": 15,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "316140",
+      "name": "우리금융지주",
+      "status": "exact",
+      "duration_s": 4.95,
+      "corp_asset_won": 601457286000000,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "090430",
+      "name": "아모레퍼시픽",
+      "status": "exact",
+      "duration_s": 3.86,
+      "corp_asset_won": 6961213309494,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "전자주주총회 도입에 따른 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "489790",
+      "name": "한화비전",
+      "status": "exact",
+      "duration_s": 3.31,
+      "corp_asset_won": 1809393507006,
+      "is_2tril_plus": false,
+      "n_agendas": 19,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경의 건 (사외이사→독립이사)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "001430",
+      "name": "세아베스틸지주",
+      "status": "exact",
+      "duration_s": 2.27,
+      "corp_asset_won": 3914568488213,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "독립이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "034230",
+      "name": "파라다이스",
+      "status": "exact",
+      "duration_s": 2.63,
+      "corp_asset_won": 4080365472520,
+      "is_2tril_plus": true,
+      "n_agendas": 20,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "'사외이사 명칭 변경' 관련 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "'감사위원 선·해임 시 3% 룰 강화' 관련 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "'전자주주총회 도입' 관련 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "329180",
+      "name": "HD현대중공업",
+      "status": "exact",
+      "duration_s": 2.61,
+      "corp_asset_won": 26163044535000,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "030200",
+      "name": "KT",
+      "status": "exact",
+      "duration_s": 3.01,
+      "corp_asset_won": 42948573000000,
+      "is_2tril_plus": true,
+      "n_agendas": 21,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "064400",
+      "name": "LG씨엔에스",
+      "status": "exact",
+      "duration_s": 3.02,
+      "corp_asset_won": 5285275191000,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "004990",
+      "name": "롯데지주",
+      "status": "exact",
+      "duration_s": 2.28,
+      "corp_asset_won": 23071072297336,
+      "is_2tril_plus": true,
+      "n_agendas": 18,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "집중투표제 도입을 위한 정관 개정의 건",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-2",
+          "decision": "FOR",
+          "law_ref": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)"
+        },
+        {
+          "title": "사외이사 명칭 변경 관련 정관 개정의 건",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "전자 주주총회 도입 관련 정관 개정의 건",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "감사위원 분리선출 확대 및 감사위원 선·해임시 의결권 제한 강화 관련 정관 개정의 건",
+          "parent_title": "정관 일부 개정의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "475150",
+      "name": "SK이터닉스",
+      "status": "exact",
+      "duration_s": 3.99,
+      "corp_asset_won": 1317071998323,
+      "is_2tril_plus": false,
+      "n_agendas": 4,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "298040",
+      "name": "효성중공업",
+      "status": "exact",
+      "duration_s": 3.95,
+      "corp_asset_won": 7227883006296,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "011070",
+      "name": "LG이노텍",
+      "status": "exact",
+      "duration_s": 2.64,
+      "corp_asset_won": 11930883000000,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 제도 도입 및 소집지 단일화",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사로 명칭 변경",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선·해임 시 의결권 제한 강화",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "000990",
+      "name": "DB하이텍",
+      "status": "exact",
+      "duration_s": 4.07,
+      "corp_asset_won": 2992581747645,
+      "is_2tril_plus": true,
+      "n_agendas": 18,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "383220",
+      "name": "F&F",
+      "status": "exact",
+      "duration_s": 3.56,
+      "corp_asset_won": 2651445897849,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "001800",
+      "name": "오리온홀딩스",
+      "status": "exact",
+      "duration_s": 2.79,
+      "corp_asset_won": 6183410426053,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "068270",
+      "name": "셀트리온",
+      "status": "exact",
+      "duration_s": 4.23,
+      "corp_asset_won": 22334900189800,
+      "is_2tril_plus": true,
+      "n_agendas": 21,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "047050",
+      "name": "포스코인터내셔널",
+      "status": "exact",
+      "duration_s": 3.38,
+      "corp_asset_won": 18753010588000,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "집중투표제 도입을 위한 정관의 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-2",
+          "decision": "FOR",
+          "law_ref": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)"
+        },
+        {
+          "title": "전자 주주총회 도입 및 사외이사 명칭 변경 등 기타 정관의 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "009420",
+      "name": "한올바이오파마",
+      "status": "exact",
+      "duration_s": 3.11,
+      "corp_asset_won": 225224012033,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "138930",
+      "name": "BNK금융지주",
+      "status": "exact",
+      "duration_s": 4.39,
+      "corp_asset_won": 161095407271012,
+      "is_2tril_plus": true,
+      "n_agendas": 24,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "069620",
+      "name": "대웅제약",
+      "status": "exact",
+      "duration_s": 2.33,
+      "corp_asset_won": 2362799296077,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "010120",
+      "name": "LS ELECTRIC",
+      "status": "exact",
+      "duration_s": 2.38,
+      "corp_asset_won": 4956680318372,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "집중투표제 배제금지 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "독립이사 명칭변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "443060",
+      "name": "HD현대마린솔루션",
+      "status": "exact",
+      "duration_s": 2.24,
+      "corp_asset_won": 1272320058801,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "082740",
+      "name": "한화엔진",
+      "status": "exact",
+      "duration_s": 2.46,
+      "corp_asset_won": 1695690258649,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "336260",
+      "name": "두산퓨얼셀",
+      "status": "exact",
+      "duration_s": 3.77,
+      "corp_asset_won": 1198423425943,
+      "is_2tril_plus": false,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "055550",
+      "name": "신한지주",
+      "status": "exact",
+      "duration_s": 4.5,
+      "corp_asset_won": 786013485000000,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "003550",
+      "name": "LG",
+      "status": "exact",
+      "duration_s": 3.21,
+      "corp_asset_won": 33982889000000,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사로 명칭 변경",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선 ·해임시 의결권 제한 강화",
+          "parent_title": "정관 변경 승인의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "175330",
+      "name": "JB금융지주",
+      "status": "exact",
+      "duration_s": 2.94,
+      "corp_asset_won": 73123844000000,
+      "is_2tril_plus": true,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "457190",
+      "name": "이수스페셜티케미컬",
+      "status": "exact",
+      "duration_s": 2.43,
+      "corp_asset_won": 366409360000,
+      "is_2tril_plus": false,
+      "n_agendas": 14,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "사외이사 명칭 및 이사의 수 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "034730",
+      "name": "SK",
+      "status": "exact",
+      "duration_s": 7.23,
+      "corp_asset_won": 213519668000000,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입 등 기타 정관 정비 관련 정관 일부 변경",
+          "parent_title": "정관 일부 변경",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "007660",
+      "name": "이수페타시스",
+      "status": "exact",
+      "duration_s": 1.5,
+      "corp_asset_won": 1289510030680,
+      "is_2tril_plus": false,
+      "n_agendas": 11,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "035250",
+      "name": "강원랜드",
+      "status": "exact",
+      "duration_s": 2.35,
+      "corp_asset_won": 4845197185257,
+      "is_2tril_plus": true,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "483650",
+      "name": "달바글로벌",
+      "status": "exact",
+      "duration_s": 13.01,
+      "corp_asset_won": 255334642397,
+      "is_2tril_plus": false,
+      "n_agendas": 12,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "204320",
+      "name": "HL만도",
+      "status": "exact",
+      "duration_s": 5.1,
+      "corp_asset_won": 7136602919112,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "032830",
+      "name": "삼성생명",
+      "status": "exact",
+      "duration_s": 5.75,
+      "corp_asset_won": 350685701000000,
+      "is_2tril_plus": true,
+      "n_agendas": 6,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제조항 삭제 및 부칙 신설의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "454910",
+      "name": "두산로보틱스",
+      "status": "exact",
+      "duration_s": 1.98,
+      "corp_asset_won": 399370499942,
+      "is_2tril_plus": false,
+      "n_agendas": 10,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "112610",
+      "name": "씨에스윈드",
+      "status": "exact",
+      "duration_s": 1.05,
+      "corp_asset_won": 3216594965195,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "007070",
+      "name": "GS리테일",
+      "status": "exact",
+      "duration_s": 4.63,
+      "corp_asset_won": 7483097413933,
+      "is_2tril_plus": true,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "064350",
+      "name": "현대로템",
+      "status": "exact",
+      "duration_s": 1.17,
+      "corp_asset_won": 9318033774000,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "감사위원 분리선출 확대 등",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "180640",
+      "name": "한진칼",
+      "status": "exact",
+      "duration_s": 1.2,
+      "corp_asset_won": 4140658602000,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원 분리선출 확대 및 최대주주 의결권 제한 강화",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "278470",
+      "name": "에이피알",
+      "status": "exact",
+      "duration_s": 13.36,
+      "corp_asset_won": 771737546894,
+      "is_2tril_plus": false,
+      "n_agendas": 16,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관변경의 건(세부안건 중 하나라도 반대시",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선·해임 시 의결권 제한 강화",
+          "parent_title": "정관변경의 건(세부안건 중 하나라도 반대시",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "006360",
+      "name": "GS건설",
+      "status": "exact",
+      "duration_s": 1.92,
+      "corp_asset_won": 18459842000000,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "111770",
+      "name": "영원무역",
+      "status": "exact",
+      "duration_s": 4.33,
+      "corp_asset_won": 5716939046441,
+      "is_2tril_plus": true,
+      "n_agendas": 15,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "0126Z0",
+      "name": "삼성에피스홀딩스",
+      "status": "exact",
+      "duration_s": 1.64,
+      "corp_asset_won": 7715584325302,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "028260",
+      "name": "삼성물산",
+      "status": "exact",
+      "duration_s": 3.23,
+      "corp_asset_won": 86532745699428,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 도입을 위한 정관 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-2",
+          "decision": "FOR",
+          "law_ref": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "026960",
+      "name": "동서",
+      "status": "exact",
+      "duration_s": 1.8,
+      "corp_asset_won": 1798366336076,
+      "is_2tril_plus": false,
+      "n_agendas": 4,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "001440",
+      "name": "대한전선",
+      "status": "exact",
+      "duration_s": 5.53,
+      "corp_asset_won": 3493282185409,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 6,
+      "hits": [
+        {
+          "title": "정관 일부 변경의 건(전자 주주총회 도입 등)",
+          "parent_title": "",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "전자주주총회 도입 (제11조의2, 제12조)",
+          "parent_title": "정관 일부 변경의 건(전자 주주총회 도입 등)",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표 배제 조항 삭제 (제16조)",
+          "parent_title": "정관 일부 변경의 건(전자 주주총회 도입 등)",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "분리선임 감사위원 수 상향 (제26조 제4항)",
+          "parent_title": "정관 일부 변경의 건(전자 주주총회 도입 등)",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "감사위원 선,해임 의결권 기준 강화 (제26조 제7항)",
+          "parent_title": "정관 일부 변경의 건(전자 주주총회 도입 등)",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경 (제20조, 제25조, 제26조 제3항, 제8항, 제9항)",
+          "parent_title": "정관 일부 변경의 건(전자 주주총회 도입 등)",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "161890",
+      "name": "한국콜마",
+      "status": "exact",
+      "duration_s": 4.26,
+      "corp_asset_won": 3457768462781,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "전자주주총회 도입에 따른 정관 변경의 건 (상법 개정 반영)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경 및 구성요건 상향에 따른 정관 변경의 건 (상법 개정 반영)◆",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "051910",
+      "name": "LG화학",
+      "status": "exact",
+      "duration_s": 2.31,
+      "corp_asset_won": 101061661000000,
+      "is_2tril_plus": true,
+      "n_agendas": 16,
+      "n_law_hits": 5,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사로 명칭 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 분리선출 인원 확대",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임시 의결권 제한 강화",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "000100",
+      "name": "유한양행",
+      "status": "exact",
+      "duration_s": 3.12,
+      "corp_asset_won": 3220925833989,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "011790",
+      "name": "SKC",
+      "status": "exact",
+      "duration_s": 6.48,
+      "corp_asset_won": 6740499643049,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경 승인의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "010950",
+      "name": "S-Oil",
+      "status": "exact",
+      "duration_s": 1.89,
+      "corp_asset_won": 26556957000000,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "사외이사 명칭을 독립이사로 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "이사 선임 시 집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "004370",
+      "name": "농심",
+      "status": "exact",
+      "duration_s": 6.74,
+      "corp_asset_won": 3822122467403,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "사외이사의 독립이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "전자주주총회 도입에 따른 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "042660",
+      "name": "한화오션",
+      "status": "exact",
+      "duration_s": 1.69,
+      "corp_asset_won": 20140914014349,
+      "is_2tril_plus": true,
+      "n_agendas": 16,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "감사위원회 구성 변경의 건 (분리선임 인원 변경 및 의결권 제한)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "사외이사 명칭 변경의 건(사외이사 → 독립이사)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "001450",
+      "name": "현대해상",
+      "status": "exact",
+      "duration_s": 1.92,
+      "corp_asset_won": 50429646840633,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "271560",
+      "name": "오리온",
+      "status": "exact",
+      "duration_s": 3.88,
+      "corp_asset_won": 4598663246300,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "000810",
+      "name": "삼성화재",
+      "status": "error",
+      "duration_s": 0.22,
+      "corp_asset_won": null,
+      "is_2tril_plus": false,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "326030",
+      "name": "SK바이오팜",
+      "status": "exact",
+      "duration_s": 3.33,
+      "corp_asset_won": 1198308575535,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "003540",
+      "name": "대신증권",
+      "status": "exact",
+      "duration_s": 6.81,
+      "corp_asset_won": 39128864373000,
+      "is_2tril_plus": true,
+      "n_agendas": 19,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자 주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "사외이사 명칭 변경(독립이사)의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "031210",
+      "name": "서울보증보험",
+      "status": "exact",
+      "duration_s": 3.85,
+      "corp_asset_won": 9408732397027,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "기타비상무이사 선임의 건 (후보: 진호정, 임기1년)",
+          "parent_title": "이사 선임의 건 (기타비상무이사 1인)",
+          "rule_id": "B1-4b",
+          "decision": "REVIEW",
+          "law_ref": "정관-우회 시나리오 2"
+        }
+      ]
+    },
+    {
+      "ticker": "000240",
+      "name": "한국앤컴퍼니",
+      "status": "exact",
+      "duration_s": 2.39,
+      "corp_asset_won": 5259624597652,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "독립이사 명칭 등 정관 문구 일부 변경의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "전자주주총회 도입에 따른 변경의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원 선·해임 시 의결권 제한 조항 삽입의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "071050",
+      "name": "한국금융지주",
+      "status": "exact",
+      "duration_s": 2.47,
+      "corp_asset_won": 136161928000000,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "006400",
+      "name": "삼성SDI",
+      "status": "exact",
+      "duration_s": 3.94,
+      "corp_asset_won": 42255338580919,
+      "is_2tril_plus": true,
+      "n_agendas": 16,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "집중투표제 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-2",
+          "decision": "FOR",
+          "law_ref": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)"
+        },
+        {
+          "title": "전자주주총회 도입 관련 정관 변경의 건",
+          "parent_title": "그 외 상법 개정에 따른 정관 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 관련 정관 변경의 건",
+          "parent_title": "그 외 상법 개정에 따른 정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        }
+      ]
+    },
+    {
+      "ticker": "139130",
+      "name": "iM금융지주",
+      "status": "exact",
+      "duration_s": 1.76,
+      "corp_asset_won": 98860713000000,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "021240",
+      "name": "코웨이",
+      "status": "exact",
+      "duration_s": 3.26,
+      "corp_asset_won": 7000122151656,
+      "is_2tril_plus": true,
+      "n_agendas": 35,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 도입의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭 변경 및 이사회 내 위원회 신설의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 분리선출 확대 및 조문 정비의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "100090",
+      "name": "SK오션플랜트",
+      "status": "exact",
+      "duration_s": 2.25,
+      "corp_asset_won": 1148241651965,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "035720",
+      "name": "카카오",
+      "status": "exact",
+      "duration_s": 2.9,
+      "corp_asset_won": 27783524545811,
+      "is_2tril_plus": true,
+      "n_agendas": 20,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "독립이사 명칭 변경의 건 (제23조, 제27조 제3항, 제27조 제4항, 부칙 제3조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 분리선임 인원 상향 및 선·해임시 의결권 제한 강화의 건 (제27조 제7항, 제27조 제10항, 부칙 제5조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "028050",
+      "name": "삼성E&A",
+      "status": "exact",
+      "duration_s": 2.99,
+      "corp_asset_won": 10039557572475,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "011170",
+      "name": "롯데케미칼",
+      "status": "exact",
+      "duration_s": 2.7,
+      "corp_asset_won": 31117333049679,
+      "is_2tril_plus": true,
+      "n_agendas": 21,
+      "n_law_hits": 5,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "사외이사 명칭 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임 의결권 제한 규정 개정",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "감사위원 분리선임 확대",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "이사 정원 상한 축소",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "B1-7",
+          "decision": "REVIEW",
+          "law_ref": "정관-우회 시나리오 1"
+        }
+      ]
+    },
+    {
+      "ticker": "192820",
+      "name": "코스맥스",
+      "status": "exact",
+      "duration_s": 2.31,
+      "corp_asset_won": 2125418400005,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "012330",
+      "name": "현대모비스",
+      "status": "exact",
+      "duration_s": 2.81,
+      "corp_asset_won": 70400532000000,
+      "is_2tril_plus": true,
+      "n_agendas": 19,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 도입 관련 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "259960",
+      "name": "크래프톤",
+      "status": "exact",
+      "duration_s": 7.45,
+      "corp_asset_won": 9433648042482,
+      "is_2tril_plus": true,
+      "n_agendas": 16,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "450080",
+      "name": "에코프로머티",
+      "status": "exact",
+      "duration_s": 7.21,
+      "corp_asset_won": 1729095169605,
+      "is_2tril_plus": false,
+      "n_agendas": 16,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "375500",
+      "name": "DL이앤씨",
+      "status": "exact",
+      "duration_s": 2.27,
+      "corp_asset_won": 9669288095980,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "사외이사 명칭 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표 배제조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원 분리선임 인원 및 의결권 제한 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "361610",
+      "name": "SK아이이테크놀로지",
+      "status": "exact",
+      "duration_s": 2.53,
+      "corp_asset_won": 4391860994000,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "096770",
+      "name": "SK이노베이션",
+      "status": "exact",
+      "duration_s": 3.41,
+      "corp_asset_won": 105608481396000,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "047040",
+      "name": "대우건설",
+      "status": "exact",
+      "duration_s": 3.16,
+      "corp_asset_won": 13358502674960,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "439260",
+      "name": "대한조선",
+      "status": "exact",
+      "duration_s": 1.96,
+      "corp_asset_won": 1538053375300,
+      "is_2tril_plus": false,
+      "n_agendas": 8,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "006800",
+      "name": "M레거시증권",
+      "status": "error",
+      "duration_s": 0.43,
+      "corp_asset_won": null,
+      "is_2tril_plus": false,
+      "n_agendas": 0,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "004800",
+      "name": "효성",
+      "status": "exact",
+      "duration_s": 2.74,
+      "corp_asset_won": 5387103885233,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "018260",
+      "name": "삼성에스디에스",
+      "status": "exact",
+      "duration_s": 3.14,
+      "corp_asset_won": 13453704199195,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 도입을 위한 정관 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-2",
+          "decision": "FOR",
+          "law_ref": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "036570",
+      "name": "NC",
+      "status": "exact",
+      "duration_s": 2.53,
+      "corp_asset_won": 4333140469623,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "028670",
+      "name": "팬오션",
+      "status": "exact",
+      "duration_s": 1.87,
+      "corp_asset_won": 10853668000000,
+      "is_2tril_plus": true,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "069960",
+      "name": "현대백화점",
+      "status": "exact",
+      "duration_s": 2.52,
+      "corp_asset_won": 11249807365000,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "집중투표 배제 조항 삭제의 건 (제27조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "사외이사 명칭 변경의 건 (제27조, 제27조의 2, 제28조, 제29조, 제30조, 제35조, 제42조, 제43조, 제44조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 분리선출 대상 확대 및 감사위원 선ㆍ해임시 의결권 제한 요건 변경의 건 (제44조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "전자주주총회 제도 도입의 건 (제18조, 제21조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        }
+      ]
+    },
+    {
+      "ticker": "267250",
+      "name": "HD현대",
+      "status": "exact",
+      "duration_s": 3.05,
+      "corp_asset_won": 78685890494000,
+      "is_2tril_plus": true,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "267270",
+      "name": "HD건설기계",
+      "status": "exact",
+      "duration_s": 2.52,
+      "corp_asset_won": 3602695392000,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "103590",
+      "name": "일진전기",
+      "status": "exact",
+      "duration_s": 2.56,
+      "corp_asset_won": 1525996520000,
+      "is_2tril_plus": false,
+      "n_agendas": 9,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "007340",
+      "name": "DN오토모티브",
+      "status": "exact",
+      "duration_s": 2.62,
+      "corp_asset_won": 5275680667000,
+      "is_2tril_plus": true,
+      "n_agendas": 10,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "267260",
+      "name": "HD현대일렉트릭",
+      "status": "exact",
+      "duration_s": 2.5,
+      "corp_asset_won": 4769815393358,
+      "is_2tril_plus": true,
+      "n_agendas": 7,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "352820",
+      "name": "하이브",
+      "status": "exact",
+      "duration_s": 2.83,
+      "corp_asset_won": 5485474443000,
+      "is_2tril_plus": true,
+      "n_agendas": 12,
+      "n_law_hits": 2,
+      "hits": [
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "이사회 정원 상한 축소 및 독립이사 최소 인원 상향",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "B1-7",
+          "decision": "REVIEW",
+          "law_ref": "정관-우회 시나리오 1"
+        }
+      ]
+    },
+    {
+      "ticker": "032640",
+      "name": "LG유플러스",
+      "status": "exact",
+      "duration_s": 3.4,
+      "corp_asset_won": 19681792000000,
+      "is_2tril_plus": true,
+      "n_agendas": 14,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입의 건",
+          "parent_title": "정관변경 승인의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사로의 명칭 변경의 건",
+          "parent_title": "정관변경 승인의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선.해임 시 의결권 제한 강화의 건",
+          "parent_title": "정관변경 승인의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "집중투표제 배제조항 삭제의 건",
+          "parent_title": "정관변경 승인의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "022100",
+      "name": "포스코DX",
+      "status": "exact",
+      "duration_s": 2.94,
+      "corp_asset_won": 834391536739,
+      "is_2tril_plus": false,
+      "n_agendas": 5,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "103140",
+      "name": "풍산",
+      "status": "exact",
+      "duration_s": 2.34,
+      "corp_asset_won": 4329189509985,
+      "is_2tril_plus": true,
+      "n_agendas": 17,
+      "n_law_hits": 5,
+      "hits": [
+        {
+          "title": "전자주주총회 도입에 따른 변경의 건",
+          "parent_title": "정관 일부변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사의 독립이사 명칭 변경의 건",
+          "parent_title": "정관 일부변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원회 위원이 되는 사외이사 분리 선임의 건(사외이사 2명)",
+          "parent_title": "",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원회 위원이 되는 사외이사 양일수 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 분리 선임의 건(사외이사 2명)",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원회 위원이 되는 사외이사 이전환 선임의 건",
+          "parent_title": "감사위원회 위원이 되는 사외이사 분리 선임의 건(사외이사 2명)",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "073240",
+      "name": "금호타이어",
+      "status": "exact",
+      "duration_s": 2.5,
+      "corp_asset_won": 5539548526344,
+      "is_2tril_plus": true,
+      "n_agendas": 6,
+      "n_law_hits": 0,
+      "hits": []
+    },
+    {
+      "ticker": "011200",
+      "name": "HMM",
+      "status": "exact",
+      "duration_s": 5.2,
+      "corp_asset_won": 33563133000000,
+      "is_2tril_plus": true,
+      "n_agendas": 8,
+      "n_law_hits": 1,
+      "hits": [
+        {
+          "title": "집중투표제 배제조항 삭제의 건",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "161390",
+      "name": "한국타이어앤테크놀로지",
+      "status": "exact",
+      "duration_s": 6.36,
+      "corp_asset_won": 26647188444916,
+      "is_2tril_plus": true,
+      "n_agendas": 13,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 도입에 따른 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사의 명칭 변경 (독립이사)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "097950",
+      "name": "CJ제일제당",
+      "status": "exact",
+      "duration_s": 3.71,
+      "corp_asset_won": 29744790534000,
+      "is_2tril_plus": true,
+      "n_agendas": 11,
+      "n_law_hits": 3,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임시 의결권 제한 강화",
+          "parent_title": "정관 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "120110",
+      "name": "코오롱인더",
+      "status": "exact",
+      "duration_s": 2.79,
+      "corp_asset_won": 7682530168368,
+      "is_2tril_plus": true,
+      "n_agendas": 16,
+      "n_law_hits": 4,
+      "hits": [
+        {
+          "title": "전자주주총회 제도 도입ㆍ시행에 따른 소집지 및 개최방식 조항 신설의 건 (제22조의2, 부칙 제2조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "사외이사 명칭을 독립이사로 변경의 건 (제30조, 제31조, 제37조, 제41조, 제43조, 제44조, 부칙 제3조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제의 건(제30조 제4항, 부칙 제4조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "감사위원 선ㆍ해임 시 최대주주 및 특수관계인 합산 의결권 제한 강화의 건 (제44조 제6항, 부칙 제5조)",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        }
+      ]
+    },
+    {
+      "ticker": "003670",
+      "name": "포스코퓨처엠",
+      "status": "exact",
+      "duration_s": 2.31,
+      "corp_asset_won": 9143896515830,
+      "is_2tril_plus": true,
+      "n_agendas": 16,
+      "n_law_hits": 5,
+      "hits": [
+        {
+          "title": "전자주주총회 도입",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-7",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (전자주주총회 2027-01-01 의무)"
+        },
+        {
+          "title": "독립이사 명칭 변경",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-5",
+          "decision": "FOR",
+          "law_ref": "상법 1차 개정 (2025-07-22)"
+        },
+        {
+          "title": "감사위원 선·해임시 의결권 제한범위 확대",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-4",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)"
+        },
+        {
+          "title": "집중투표제 배제 조항 삭제",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-1",
+          "decision": "FOR",
+          "law_ref": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        },
+        {
+          "title": "분리선출 감사위원 수 증원",
+          "parent_title": "정관 일부 변경의 건",
+          "rule_id": "A1-3",
+          "decision": "FOR",
+          "law_ref": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)"
+        }
+      ]
+    }
+  ]
+}

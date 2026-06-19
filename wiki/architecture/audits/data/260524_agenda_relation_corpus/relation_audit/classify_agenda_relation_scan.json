@@ -1,0 +1,1873 @@
+{
+  "source": "wiki/architecture/audits/data/260507_classify_agenda",
+  "records": 6290,
+  "companies": 289,
+  "relation_distribution": {
+    "normal": 6030,
+    "cumulative_related": 234,
+    "procedural": 4,
+    "alternative": 10,
+    "shareholder_proposal": 6,
+    "conditional": 6
+  },
+  "non_normal_count": 260,
+  "non_normal_by_relation": {
+    "cumulative_related": 234,
+    "procedural": 4,
+    "alternative": 10,
+    "shareholder_proposal": 6,
+    "conditional": 6
+  },
+  "samples_by_relation": {
+    "cumulative_related": [
+      {
+        "ticker": "028260",
+        "company": "삼성물산",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제3-1호",
+        "title": "집중투표제 도입을 위한 정관 변경",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "009150",
+        "company": "삼성전기",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제 도입을 위한 정관 변경의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "373220",
+        "company": "LG에너지솔루션",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제 배제 금지에 관한 정관 변경의 건",
+        "parent_title": "정관 변경 승인의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "009540",
+        "company": "HD한국조선해양",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제가 배제된 정관 변경의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "272210",
+        "company": "한화시스템",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-3호",
+        "title": "집중투표제 배제 조항 폐지",
+        "parent_title": "정관 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "207940",
+        "company": "삼성바이오로직스",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제 배제 정비 건",
+        "parent_title": "정관 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "329180",
+        "company": "HD현대중공업",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제가 배제된 정관의 변경",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "006400",
+        "company": "삼성SDI",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제 도입을 위한 정관 변경의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "035420",
+        "company": "NAVER",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "012450",
+        "company": "한화에어로스페이스",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-8호",
+        "title": "집중투표 배제조항 삭제",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "068270",
+        "company": "셀트리온",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제 관련 정관 일부 변경의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "012330",
+        "company": "현대모비스",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제3-4호",
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "005930",
+        "company": "삼성전자",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제1-1호",
+        "title": "집중투표제 배제 조항 삭제",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "010140",
+        "company": "삼성중공업",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-3호",
+        "title": "집중투표제도 배제 조항 삭제의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "005490",
+        "company": "POSCO홀딩스",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-5호",
+        "title": "분리형 집중투표제 조항 삭제",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "006800",
+        "company": "M레거시증권",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표 배제 관련 정관 변경의 건",
+        "parent_title": "정관 개정의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "006800",
+        "company": "M레거시증권",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-2호",
+        "title": "집중투표 배제 이외 정관 변경의 건",
+        "parent_title": "정관 개정의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "000660",
+        "company": "SK하이닉스",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제 배제 조항 삭제",
+        "parent_title": "정관 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "032830",
+        "company": "삼성생명",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제 배제조항 삭제 및 부칙 신설의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "267260",
+        "company": "HD현대일렉트릭",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-1호",
+        "title": "집중투표제가 배제된 정관의 변경",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "005380",
+        "company": "현대차",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-2호",
+        "title": "집중투표제 배제 문구 삭제",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "000270",
+        "company": "기아",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제2-2호",
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "parent_title": "정관 일부 변경 승인의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "000150",
+        "company": "두산",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2-2호",
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "033780",
+        "company": "KT&G",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2-4호",
+        "title": "집중투표 규정 정비",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "034730",
+        "company": "SK",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2-1호",
+        "title": "집중투표제 관련 정관 일부 변경",
+        "parent_title": "정관 일부 변경",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "0126Z0",
+        "company": "삼성에피스홀딩스",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2-1호",
+        "title": "집중투표 배제에 관한 정관의 변경",
+        "parent_title": "정관 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "267250",
+        "company": "HD현대",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2호",
+        "title": "집중투표제가 배제된 정관 변경의 건",
+        "parent_title": "",
+        "category": "articles_amendment",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "066570",
+        "company": "LG전자",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2-1호",
+        "title": "집중투표제 배제 조항 삭제",
+        "parent_title": "정관 변경 승인의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "086280",
+        "company": "현대글로비스",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2-4호",
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "parent_title": "정관 일부 개정의 건",
+        "category": "other",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "010950",
+        "company": "S-Oil",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2-3호",
+        "title": "이사 선임 시 집중투표제 배제 조항 삭제",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "director_election",
+        "relation_type_candidate": "cumulative_related",
+        "reasons": [
+          "cumulative_voting_title"
+        ]
+      }
+    ],
+    "procedural": [
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제3호",
+        "title": "집중투표에 의한 이사 선임의 건",
+        "parent_title": "",
+        "category": "director_election",
+        "relation_type_candidate": "procedural",
+        "reasons": [
+          "procedural_title",
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제3-1호",
+        "title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+        "parent_title": "집중투표에 의한 이사 선임의 건",
+        "category": "director_election",
+        "relation_type_candidate": "procedural",
+        "reasons": [
+          "procedural_title",
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter03_postfix_kospi_0-30.json",
+        "number": "제3호",
+        "title": "집중투표에 의한 이사 선임의 건",
+        "parent_title": "",
+        "category": "director_election",
+        "relation_type_candidate": "procedural",
+        "reasons": [
+          "procedural_title",
+          "cumulative_voting_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter03_postfix_kospi_0-30.json",
+        "number": "제3-1호",
+        "title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+        "parent_title": "집중투표에 의한 이사 선임의 건",
+        "category": "director_election",
+        "relation_type_candidate": "procedural",
+        "reasons": [
+          "procedural_title",
+          "cumulative_voting_title"
+        ]
+      }
+    ],
+    "alternative": [
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제3-1-1호",
+        "title": "이사 5인 선임의 건",
+        "parent_title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제3-1-2호",
+        "title": "이사 6인 선임의 건",
+        "parent_title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제3-2호",
+        "title": "집중투표에 의한 이사 5인 선임의 건",
+        "parent_title": "집중투표에 의한 이사 선임의 건",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "cumulative_voting_title",
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter01_kospi_0-30.json",
+        "number": "제3-3호",
+        "title": "집중투표에 의한 이사 6인 선임의 건",
+        "parent_title": "집중투표에 의한 이사 선임의 건",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "cumulative_voting_title",
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "039200",
+        "company": "오스코텍",
+        "source_file": "iter02h_kosdaq_30-60.json",
+        "number": "제3호",
+        "title": "집중투표에 의한 이사 5인 선임의 건",
+        "parent_title": "",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "cumulative_voting_title",
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter03_postfix_kospi_0-30.json",
+        "number": "제3-1-1호",
+        "title": "이사 5인 선임의 건",
+        "parent_title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter03_postfix_kospi_0-30.json",
+        "number": "제3-1-2호",
+        "title": "이사 6인 선임의 건",
+        "parent_title": "집중투표에 의하여 선임할 이사의 수 결정의 건",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter03_postfix_kospi_0-30.json",
+        "number": "제3-2호",
+        "title": "집중투표에 의한 이사 5인 선임의 건",
+        "parent_title": "집중투표에 의한 이사 선임의 건",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "cumulative_voting_title",
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "010130",
+        "company": "고려아연",
+        "source_file": "iter03_postfix_kospi_0-30.json",
+        "number": "제3-3호",
+        "title": "집중투표에 의한 이사 6인 선임의 건",
+        "parent_title": "집중투표에 의한 이사 선임의 건",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "cumulative_voting_title",
+          "alternative_title"
+        ]
+      },
+      {
+        "ticker": "039200",
+        "company": "오스코텍",
+        "source_file": "iter04_postfix_kosdaq_30-60.json",
+        "number": "제3호",
+        "title": "집중투표에 의한 이사 5인 선임의 건",
+        "parent_title": "",
+        "category": "director_election",
+        "relation_type_candidate": "alternative",
+        "reasons": [
+          "cumulative_voting_title",
+          "alternative_title"
+        ]
+      }
+    ],
+    "shareholder_proposal": [
+      {
+        "ticker": "051910",
+        "company": "LG화학",
+        "source_file": "iter02a_kospi_30-60.json",
+        "number": "제2-7호",
+        "title": "권고적 주주제안의 도입",
+        "parent_title": "정관 변경의 건",
+        "category": "shareholder_proposal",
+        "relation_type_candidate": "shareholder_proposal",
+        "reasons": [
+          "shareholder_proposal_title"
+        ]
+      },
+      {
+        "ticker": "085660",
+        "company": "차바이오텍",
+        "source_file": "iter02i_kosdaq_60-100.json",
+        "number": "제2-5호",
+        "title": "정관 제17조의 2(권고적 주주제안) 신설의 건",
+        "parent_title": "정관 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "shareholder_proposal",
+        "reasons": [
+          "shareholder_proposal_title"
+        ]
+      },
+      {
+        "ticker": "085660",
+        "company": "차바이오텍",
+        "source_file": "iter02i_kosdaq_60-100.json",
+        "number": "제7호",
+        "title": "권고적 주주제안 채택의 건(본 의안은",
+        "parent_title": "",
+        "category": "shareholder_proposal",
+        "relation_type_candidate": "shareholder_proposal",
+        "reasons": [
+          "shareholder_proposal_title"
+        ]
+      },
+      {
+        "ticker": "051910",
+        "company": "LG화학",
+        "source_file": "iter03_postfix_kospi_30-60.json",
+        "number": "제2-7호",
+        "title": "권고적 주주제안의 도입",
+        "parent_title": "정관 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "shareholder_proposal",
+        "reasons": [
+          "shareholder_proposal_title"
+        ]
+      },
+      {
+        "ticker": "085660",
+        "company": "차바이오텍",
+        "source_file": "iter04_postfix_kosdaq_60-100.json",
+        "number": "제2-5호",
+        "title": "정관 제17조의 2(권고적 주주제안) 신설의 건",
+        "parent_title": "정관 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "shareholder_proposal",
+        "reasons": [
+          "shareholder_proposal_title"
+        ]
+      },
+      {
+        "ticker": "085660",
+        "company": "차바이오텍",
+        "source_file": "iter04_postfix_kosdaq_60-100.json",
+        "number": "제7호",
+        "title": "권고적 주주제안 채택의 건(본 의안은",
+        "parent_title": "",
+        "category": "shareholder_proposal",
+        "relation_type_candidate": "shareholder_proposal",
+        "reasons": [
+          "shareholder_proposal_title"
+        ]
+      }
+    ],
+    "conditional": [
+      {
+        "ticker": "138930",
+        "company": "BNK금융지주",
+        "source_file": "iter02c_kospi_90-120.json",
+        "number": "제7-2호",
+        "title": "양도제한조건부 주식 부여의 건",
+        "parent_title": "이사 보수 승인에 관한 건",
+        "category": "other",
+        "relation_type_candidate": "conditional",
+        "reasons": [
+          "conditional_title"
+        ]
+      },
+      {
+        "ticker": "017800",
+        "company": "현대엘리베이터",
+        "source_file": "iter02d_kospi_120-150.json",
+        "number": "제3-1호",
+        "title": "사채발행 조건부 위임 관련 조항",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "other",
+        "relation_type_candidate": "conditional",
+        "reasons": [
+          "conditional_title"
+        ]
+      },
+      {
+        "ticker": "098460",
+        "company": "고영",
+        "source_file": "iter02h_kosdaq_30-60.json",
+        "number": "제6-1호",
+        "title": "임직원 보상 RSU(Restricted Stock Unit, 양도제한조건부주식) 이행을 위한 자기주식 보유ㆍ처분 계획 승인의 건",
+        "parent_title": "자기주식 보유ㆍ처분 및 소각 계획 승인의 건",
+        "category": "treasury_share",
+        "relation_type_candidate": "conditional",
+        "reasons": [
+          "conditional_title"
+        ]
+      },
+      {
+        "ticker": "138930",
+        "company": "BNK금융지주",
+        "source_file": "iter03_postfix_kospi_90-120.json",
+        "number": "제7-2호",
+        "title": "양도제한조건부 주식 부여의 건",
+        "parent_title": "이사 보수 승인에 관한 건",
+        "category": "other",
+        "relation_type_candidate": "conditional",
+        "reasons": [
+          "conditional_title"
+        ]
+      },
+      {
+        "ticker": "098460",
+        "company": "고영",
+        "source_file": "iter04_postfix_kosdaq_30-60.json",
+        "number": "제6-1호",
+        "title": "임직원 보상 RSU(Restricted Stock Unit, 양도제한조건부주식) 이행을 위한 자기주식 보유ㆍ처분 계획 승인의 건",
+        "parent_title": "자기주식 보유ㆍ처분 및 소각 계획 승인의 건",
+        "category": "treasury_share",
+        "relation_type_candidate": "conditional",
+        "reasons": [
+          "conditional_title"
+        ]
+      },
+      {
+        "ticker": "017800",
+        "company": "현대엘리베이터",
+        "source_file": "iter04_postfix_kospi_120-150.json",
+        "number": "제3-1호",
+        "title": "사채발행 조건부 위임 관련 조항",
+        "parent_title": "정관 일부 변경의 건",
+        "category": "articles_amendment",
+        "relation_type_candidate": "conditional",
+        "reasons": [
+          "conditional_title"
+        ]
+      }
+    ]
+  },
+  "companies_with_candidates": [
+    {
+      "ticker": "010130",
+      "company": "고려아연",
+      "relation_counts": {
+        "normal": 78,
+        "procedural": 4,
+        "alternative": 8
+      },
+      "non_normal_count": 12
+    },
+    {
+      "ticker": "051910",
+      "company": "LG화학",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2,
+        "shareholder_proposal": 2
+      },
+      "non_normal_count": 4
+    },
+    {
+      "ticker": "006800",
+      "company": "M레거시증권",
+      "relation_counts": {
+        "normal": 34,
+        "cumulative_related": 4
+      },
+      "non_normal_count": 4
+    },
+    {
+      "ticker": "085660",
+      "company": "차바이오텍",
+      "relation_counts": {
+        "normal": 34,
+        "shareholder_proposal": 4
+      },
+      "non_normal_count": 4
+    },
+    {
+      "ticker": "282330",
+      "company": "BGF리테일",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "138930",
+      "company": "BNK금융지주",
+      "relation_counts": {
+        "normal": 46,
+        "conditional": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "001040",
+      "company": "CJ",
+      "relation_counts": {
+        "normal": 20,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "035760",
+      "company": "CJ ENM",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "000120",
+      "company": "CJ대한통운",
+      "relation_counts": {
+        "normal": 12,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "097950",
+      "company": "CJ제일제당",
+      "relation_counts": {
+        "normal": 20,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "000990",
+      "company": "DB하이텍",
+      "relation_counts": {
+        "normal": 34,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "375500",
+      "company": "DL이앤씨",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "383220",
+      "company": "F&F",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "006360",
+      "company": "GS건설",
+      "relation_counts": {
+        "normal": 20,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "012630",
+      "company": "HDC",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "267270",
+      "company": "HD건설기계",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "009540",
+      "company": "HD한국조선해양",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "267250",
+      "company": "HD현대",
+      "relation_counts": {
+        "normal": 10,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "267260",
+      "company": "HD현대일렉트릭",
+      "relation_counts": {
+        "normal": 12,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "329180",
+      "company": "HD현대중공업",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "097230",
+      "company": "HJ중공업",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "195940",
+      "company": "HK이노엔",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "011200",
+      "company": "HMM",
+      "relation_counts": {
+        "normal": 14,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "033780",
+      "company": "KT&G",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "003550",
+      "company": "LG",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "034220",
+      "company": "LG디스플레이",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "051900",
+      "company": "LG생활건강",
+      "relation_counts": {
+        "normal": 20,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "064400",
+      "company": "LG씨엔에스",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "373220",
+      "company": "LG에너지솔루션",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "032640",
+      "company": "LG유플러스",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "011070",
+      "company": "LG이노텍",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "066570",
+      "company": "LG전자",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "079550",
+      "company": "LIG디펜스앤에어로스페이스",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "006260",
+      "company": "LS",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "010120",
+      "company": "LS ELECTRIC",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "001120",
+      "company": "LX인터내셔널",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "035420",
+      "company": "NAVER",
+      "relation_counts": {
+        "normal": 12,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "036570",
+      "company": "NC",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "005940",
+      "company": "NH투자증권",
+      "relation_counts": {
+        "normal": 12,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "010060",
+      "company": "OCI홀딩스",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "005490",
+      "company": "POSCO홀딩스",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "010950",
+      "company": "S-Oil",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "034730",
+      "company": "SK",
+      "relation_counts": {
+        "normal": 14,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "011790",
+      "company": "SKC",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "302440",
+      "company": "SK바이오사이언스",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "361610",
+      "company": "SK아이이테크놀로지",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "096770",
+      "company": "SK이노베이션",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "000660",
+      "company": "SK하이닉스",
+      "relation_counts": {
+        "normal": 34,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "098460",
+      "company": "고영",
+      "relation_counts": {
+        "normal": 28,
+        "conditional": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "011780",
+      "company": "금호석유화학",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "000270",
+      "company": "기아",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "251270",
+      "company": "넷마블",
+      "relation_counts": {
+        "normal": 30,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "004370",
+      "company": "농심",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "003540",
+      "company": "대신증권",
+      "relation_counts": {
+        "normal": 36,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "047040",
+      "company": "대우건설",
+      "relation_counts": {
+        "normal": 14,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "001440",
+      "company": "대한전선",
+      "relation_counts": {
+        "normal": 20,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "003490",
+      "company": "대한항공",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "000150",
+      "company": "두산",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "023530",
+      "company": "롯데쇼핑",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "004990",
+      "company": "롯데지주",
+      "relation_counts": {
+        "normal": 34,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "011170",
+      "company": "롯데케미칼",
+      "relation_counts": {
+        "normal": 40,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "028050",
+      "company": "삼성E&A",
+      "relation_counts": {
+        "normal": 12,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "006400",
+      "company": "삼성SDI",
+      "relation_counts": {
+        "normal": 30,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "028260",
+      "company": "삼성물산",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "207940",
+      "company": "삼성바이오로직스",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "032830",
+      "company": "삼성생명",
+      "relation_counts": {
+        "normal": 10,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "018260",
+      "company": "삼성에스디에스",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "0126Z0",
+      "company": "삼성에피스홀딩스",
+      "relation_counts": {
+        "normal": 14,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "009150",
+      "company": "삼성전기",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "005930",
+      "company": "삼성전자",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "010140",
+      "company": "삼성중공업",
+      "relation_counts": {
+        "normal": 14,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "016360",
+      "company": "삼성증권",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "029780",
+      "company": "삼성카드",
+      "relation_counts": {
+        "normal": 12,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "031210",
+      "company": "서울보증보험",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "068270",
+      "company": "셀트리온",
+      "relation_counts": {
+        "normal": 40,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "068760",
+      "company": "셀트리온제약",
+      "relation_counts": {
+        "normal": 40,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "004170",
+      "company": "신세계",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "090430",
+      "company": "아모레퍼시픽",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "002790",
+      "company": "아모레퍼시픽홀딩스",
+      "relation_counts": {
+        "normal": 30,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "005850",
+      "company": "에스엘",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "012750",
+      "company": "에스원",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "086520",
+      "company": "에코프로",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "066970",
+      "company": "엘앤에프",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "111770",
+      "company": "영원무역",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "039200",
+      "company": "오스코텍",
+      "relation_counts": {
+        "normal": 24,
+        "alternative": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "139480",
+      "company": "이마트",
+      "relation_counts": {
+        "normal": 14,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "035720",
+      "company": "카카오",
+      "relation_counts": {
+        "normal": 38,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "323410",
+      "company": "카카오뱅크",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "279570",
+      "company": "케이뱅크",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "003690",
+      "company": "코리안리",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "120110",
+      "company": "코오롱인더",
+      "relation_counts": {
+        "normal": 30,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "021240",
+      "company": "코웨이",
+      "relation_counts": {
+        "normal": 68,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "259960",
+      "company": "크래프톤",
+      "relation_counts": {
+        "normal": 30,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "039490",
+      "company": "키움증권",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "034230",
+      "company": "파라다이스",
+      "relation_counts": {
+        "normal": 38,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "047050",
+      "company": "포스코인터내셔널",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "003670",
+      "company": "포스코퓨처엠",
+      "relation_counts": {
+        "normal": 30,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "103140",
+      "company": "풍산",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "003380",
+      "company": "하림지주",
+      "relation_counts": {
+        "normal": 12,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "352820",
+      "company": "하이브",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "071050",
+      "company": "한국금융지주",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "000240",
+      "company": "한국앤컴퍼니",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "161390",
+      "company": "한국타이어앤테크놀로지",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "047810",
+      "company": "한국항공우주",
+      "relation_counts": {
+        "normal": 16,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "018880",
+      "company": "한온시스템",
+      "relation_counts": {
+        "normal": 20,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "180640",
+      "company": "한진칼",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "000880",
+      "company": "한화",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "009830",
+      "company": "한화솔루션",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "272210",
+      "company": "한화시스템",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "012450",
+      "company": "한화에어로스페이스",
+      "relation_counts": {
+        "normal": 36,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "000720",
+      "company": "현대건설",
+      "relation_counts": {
+        "normal": 26,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "086280",
+      "company": "현대글로비스",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "064350",
+      "company": "현대로템",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "012330",
+      "company": "현대모비스",
+      "relation_counts": {
+        "normal": 36,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "069960",
+      "company": "현대백화점",
+      "relation_counts": {
+        "normal": 32,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "017800",
+      "company": "현대엘리베이터",
+      "relation_counts": {
+        "normal": 20,
+        "conditional": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "307950",
+      "company": "현대오토에버",
+      "relation_counts": {
+        "normal": 20,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "011210",
+      "company": "현대위아",
+      "relation_counts": {
+        "normal": 22,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "005380",
+      "company": "현대차",
+      "relation_counts": {
+        "normal": 36,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "004800",
+      "company": "효성",
+      "relation_counts": {
+        "normal": 18,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "298040",
+      "company": "효성중공업",
+      "relation_counts": {
+        "normal": 24,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    },
+    {
+      "ticker": "298020",
+      "company": "효성티앤씨",
+      "relation_counts": {
+        "normal": 28,
+        "cumulative_related": 2
+      },
+      "non_normal_count": 2
+    }
+  ]
+}

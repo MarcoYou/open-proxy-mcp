@@ -1,0 +1,37 @@
+{
+  "generated_at": "2026-05-30T03:45:16.359035+00:00",
+  "window": {
+    "start_date": "20240101",
+    "end_date": "20260530"
+  },
+  "batch_size": 30,
+  "concurrency": 3,
+  "duration_s": 160.0,
+  "companies": 650,
+  "status_counts": {
+    "ok": 650
+  },
+  "companies_with_value_up": 317,
+  "filings": 562,
+  "category_counts": {
+    "plan": 384,
+    "progress": 92,
+    "pre_announcement": 58,
+    "meta_amendment": 28
+  },
+  "plan_title_presence": {
+    "present": 501,
+    "missing": 61
+  },
+  "implementation_tag_counts": {
+    "future_plan": 165,
+    "implementation_status": 216,
+    "meta_reference": 89,
+    "implementation_outlook": 20,
+    "implementation_result": 1
+  },
+  "filings_with_implementation_sections": 318,
+  "filings_with_embedded_results": 1,
+  "companies_with_embedded_results": 1,
+  "retry_note": "KOSDAQ rank 139-150 retried with concurrency=1 after transient ConnectError in final batch."
+}

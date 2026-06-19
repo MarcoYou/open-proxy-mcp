@@ -1,0 +1,287 @@
+{
+  "records": [
+    {
+      "market": "KOSPI",
+      "ticker": "008770",
+      "company": "호텔신라",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260319802129",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260319",
+        "kind_acptno": "20260319002129",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "003570",
+      "company": "SNT다이내믹스",
+      "status": "requires_review",
+      "warnings": [
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "results_count": 0,
+      "result_source": null,
+      "result_format": null,
+      "result_reference": {
+        "rcept_no": "20260227800565",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260227",
+        "kind_acptno": "20260227000565",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "036530",
+      "company": "SNT홀딩스",
+      "status": "requires_review",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다.",
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "results_count": 0,
+      "result_source": null,
+      "result_format": null,
+      "result_reference": {
+        "rcept_no": "20260227801131",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260227",
+        "kind_acptno": "20260227001131",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "195870",
+      "company": "해성디에스",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260326803441",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": "20260326003441",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSPI",
+      "ticker": "064960",
+      "company": "SNT모티브",
+      "status": "requires_review",
+      "warnings": [
+        "DART/KIND 본문에서 안건 결과를 찾지 못했다."
+      ],
+      "results_count": 0,
+      "result_source": null,
+      "result_format": null,
+      "result_reference": {
+        "rcept_no": "20260227801101",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260227",
+        "kind_acptno": "20260227001101",
+        "whitelist_ok": true,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "000250",
+      "company": "삼천당제약",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 7,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260330901934",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260330",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "950160",
+      "company": "코오롱티슈진",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 10,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260326903156",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "087010",
+      "company": "펩트론",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260326902553",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "099320",
+      "company": "쎄트렉아이",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260324900661",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260324",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "456160",
+      "company": "지투지바이오",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 11,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260326902749",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "388720",
+      "company": "유일로보틱스",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 5,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260326901672",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "204270",
+      "company": "제이앤티씨",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 4,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260331904685",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260331",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      }
+    },
+    {
+      "market": "KOSDAQ",
+      "ticker": "006730",
+      "company": "서부T&D",
+      "status": "exact",
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (meeting_datetime_missing, agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ],
+      "results_count": 6,
+      "result_source": "dart_api",
+      "result_format": "table",
+      "result_reference": {
+        "rcept_no": "20260326901918",
+        "report_name": "정기주주총회결과              ",
+        "disclosure_date": "20260326",
+        "kind_acptno": null,
+        "whitelist_ok": false,
+        "dart_fetchable": true
+      }
+    }
+  ]
+}

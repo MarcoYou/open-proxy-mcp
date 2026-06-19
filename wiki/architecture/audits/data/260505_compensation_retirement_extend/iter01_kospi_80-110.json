@@ -1,0 +1,411 @@
+{
+  "summary": {
+    "n_companies": 30,
+    "n_ok": 28,
+    "categories": {
+      "director_compensation": {
+        "n_decisions": 13,
+        "distribution": {
+          "FOR": 13
+        },
+        "n_with_4plus_majority": 1,
+        "n_match_majority": 1,
+        "match_pct": 100.0,
+        "mismatches": []
+      },
+      "audit_compensation": {
+        "n_decisions": 3,
+        "distribution": {
+          "FOR": 3
+        },
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      },
+      "retirement_pay": {
+        "n_decisions": 1,
+        "distribution": {
+          "REVIEW": 1
+        },
+        "n_with_4plus_majority": 0,
+        "n_match_majority": 0,
+        "match_pct": null,
+        "mismatches": []
+      }
+    }
+  },
+  "results": [
+    {
+      "ticker": "034220",
+      "name": "LG디스플레이",
+      "status": "exact",
+      "duration_s": 15.8,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "001440",
+      "name": "대한전선",
+      "status": "exact",
+      "duration_s": 17.0,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "141080",
+      "name": "리가켐바이오",
+      "status": "exact",
+      "duration_s": 16.2,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수 한도액 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 7,800,099,578원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수 한도액 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 7,800,099,578원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "196170",
+      "name": "알테오젠",
+      "status": "exact",
+      "duration_s": 17.9,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "001040",
+      "name": "CJ",
+      "status": "exact",
+      "duration_s": 10.1,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "011070",
+      "name": "LG이노텍",
+      "status": "exact",
+      "duration_s": 23.8,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "271560",
+      "name": "오리온",
+      "status": "exact",
+      "duration_s": 19.9,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 533,229,552,422원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "277810",
+      "name": "레인보우로보틱스",
+      "status": "exact",
+      "duration_s": 21.5,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 2,095,103,257원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "128940",
+      "name": "한미약품",
+      "status": "exact",
+      "duration_s": 31.9,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "241560",
+      "name": "두산밥캣",
+      "status": "exact",
+      "duration_s": 23.4,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 413,029,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "000250",
+      "name": "삼천당제약",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 11.3,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "021240",
+      "name": "코웨이",
+      "status": "exact",
+      "duration_s": 18.2,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "138930",
+      "name": "BNK금융지주",
+      "status": "exact",
+      "duration_s": 12.5,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "032640",
+      "name": "LG유플러스",
+      "status": "exact",
+      "duration_s": 24.0,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "022100",
+      "name": "포스코DX",
+      "status": "exact",
+      "duration_s": 16.8,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 88,599,060,003원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건나. 보고사항 : 감사보고, 영업보고, 내부회계관리제도 운영실태보고",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 88,599,060,003원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "058470",
+      "name": "리노공업",
+      "status": "exact",
+      "duration_s": 17.6,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "078930",
+      "name": "GS",
+      "status": "exact",
+      "duration_s": 26.9,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수 한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 567,020,000,000원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "454910",
+      "name": "두산로보틱스",
+      "status": "exact",
+      "duration_s": 15.2,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수 한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악 + 자본 정상 — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "036570",
+      "name": "엔씨소프트",
+      "status": "exact",
+      "duration_s": 6.4,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "161390",
+      "name": "한국타이어앤테크놀로지",
+      "status": "exact",
+      "duration_s": 10.4,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "950160",
+      "name": "코오롱티슈진",
+      "status": "exception",
+      "error": "TypeError: unsupported format string passed to NoneType.__format__",
+      "duration_s": 28.8,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "052690",
+      "name": "한전기술",
+      "status": "exact",
+      "duration_s": 14.0,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 58,512,128,400원) — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "audit_compensation",
+          "original_category": "audit_compensation",
+          "title": "감사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "감사 보수 데이터 부족이나 흑자 (순익 58,512,128,400원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "175330",
+      "name": "JB금융지주",
+      "status": "exact",
+      "duration_s": 10.0,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 692,991,000,000원) — mainstream fallback",
+          "majority": {
+            "majority": "FOR",
+            "votes": 4,
+            "total": 4,
+            "all_votes": {
+              "a_activist": "FOR",
+              "m_legacy": "FOR",
+              "s_legacy": "FOR",
+              "t_activist": "FOR"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "ticker": "028300",
+      "name": "HLB",
+      "status": "exact",
+      "duration_s": 8.4,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "086520",
+      "name": "에코프로",
+      "status": "exact",
+      "duration_s": 25.0,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "064400",
+      "name": "LG씨엔에스",
+      "status": "exact",
+      "duration_s": 15.0,
+      "relevant_decisions": []
+    },
+    {
+      "ticker": "028050",
+      "name": "삼성E&A",
+      "status": "exact",
+      "duration_s": 25.7,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 638,672,451,980원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "298380",
+      "name": "에이비엘바이오",
+      "status": "exact",
+      "duration_s": 13.7,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악 + 자본 정상 — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "029780",
+      "name": "삼성카드",
+      "status": "exact",
+      "duration_s": 7.9,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사보수한도 승인 (110억원)",
+          "decision": "FOR",
+          "reason": "인상률 미파악이나 흑자 (순익 664,593,152,937원) — mainstream fallback",
+          "majority": null
+        }
+      ]
+    },
+    {
+      "ticker": "247540",
+      "name": "에코프로비엠",
+      "status": "exact",
+      "duration_s": 25.0,
+      "relevant_decisions": [
+        {
+          "category": "director_compensation",
+          "original_category": "director_compensation",
+          "title": "이사 보수한도 승인의 건",
+          "decision": "FOR",
+          "reason": "인상률 미파악 + 자본 정상 — mainstream fallback",
+          "majority": null
+        },
+        {
+          "category": "retirement_pay",
+          "original_category": "retirement_pay",
+          "title": "임원 퇴직금 지급규정 변경의 건",
+          "decision": "REVIEW",
+          "reason": "퇴직금 변경 8건, 위험 키워드 hit 1건 (특별공로금) — 사용자 검토",
+          "majority": null
+        }
+      ]
+    }
+  ]
+}

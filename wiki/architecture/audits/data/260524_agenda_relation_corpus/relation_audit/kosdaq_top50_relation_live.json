@@ -1,0 +1,758 @@
+{
+  "universe": "KOSDAQ market cap top 50 from 260506_universe_kosdaq_100.csv",
+  "generated_at": "2026-05-25T01:08:24+0900",
+  "summary": {
+    "companies": 50,
+    "status": {
+      "exact": 46,
+      "requires_review": 3,
+      "no_filing": 1
+    },
+    "relation_distribution": {
+      "normal": 454,
+      "cumulative_related": 1,
+      "conditional": 1
+    },
+    "companies_with_non_normal_count": 2
+  },
+  "companies_with_non_normal": [
+    {
+      "ticker": "086520",
+      "company": "에코프로",
+      "status": "exact",
+      "agenda_count": 15,
+      "relations": {
+        "normal": 14,
+        "cumulative_related": 1
+      },
+      "non_normal": [
+        {
+          "agenda_id": "2-1",
+          "title": "집중투표 배제 조항 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "relation_type": "cumulative_related",
+          "relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "proposer_type": "company",
+          "conditional": null
+        }
+      ]
+    },
+    {
+      "ticker": "476830",
+      "company": "알지노믹스",
+      "status": "exact",
+      "agenda_count": 10,
+      "relations": {
+        "normal": 9,
+        "conditional": 1
+      },
+      "non_normal": [
+        {
+          "agenda_id": "4",
+          "title": "이사의 보수한도 승인의 건",
+          "parent_title": "",
+          "relation_type": "conditional",
+          "relation_reasons": [
+            "conditional_field",
+            "conditional_title"
+          ],
+          "proposer_type": "company",
+          "conditional": "제4호 의안은 제2-1호 의안 부결 시 상정하며,"
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "ticker": "086520",
+      "company": "에코프로",
+      "status": "exact",
+      "duration_s": 1.09,
+      "rcept_no": "20260311003383",
+      "agenda_count": 15,
+      "relations": {
+        "normal": 14,
+        "cumulative_related": 1
+      },
+      "non_normal": [
+        {
+          "agenda_id": "2-1",
+          "title": "집중투표 배제 조항 변경의 건",
+          "parent_title": "정관 일부 변경의 건",
+          "relation_type": "cumulative_related",
+          "relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "proposer_type": "company",
+          "conditional": null
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "247540",
+      "company": "에코프로비엠",
+      "status": "exact",
+      "duration_s": 1.24,
+      "rcept_no": "20260306000767",
+      "agenda_count": 11,
+      "relations": {
+        "normal": 11
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "196170",
+      "company": "알테오젠",
+      "status": "exact",
+      "duration_s": 1.4,
+      "rcept_no": "20260316001218",
+      "agenda_count": 14,
+      "relations": {
+        "normal": 14
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "000250",
+      "company": "삼천당제약",
+      "status": "requires_review",
+      "duration_s": 5.4,
+      "rcept_no": "20260310002732",
+      "agenda_count": 10,
+      "relations": {
+        "normal": 10
+      },
+      "non_normal": [],
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ]
+    },
+    {
+      "ticker": "277810",
+      "company": "레인보우로보틱스",
+      "status": "exact",
+      "duration_s": 1.15,
+      "rcept_no": "20260313001141",
+      "agenda_count": 9,
+      "relations": {
+        "normal": 9
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "298380",
+      "company": "에이비엘바이오",
+      "status": "exact",
+      "duration_s": 1.51,
+      "rcept_no": "20260312000773",
+      "agenda_count": 8,
+      "relations": {
+        "normal": 8
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "950160",
+      "company": "코오롱티슈진",
+      "status": "requires_review",
+      "duration_s": 5.97,
+      "rcept_no": "20260306000719",
+      "agenda_count": 10,
+      "relations": {
+        "normal": 10
+      },
+      "non_normal": [],
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ]
+    },
+    {
+      "ticker": "058470",
+      "company": "리노공업",
+      "status": "exact",
+      "duration_s": 0.73,
+      "rcept_no": "20260311003221",
+      "agenda_count": 12,
+      "relations": {
+        "normal": 12
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "028300",
+      "company": "HLB",
+      "status": "exact",
+      "duration_s": 0.39,
+      "rcept_no": "20260316000897",
+      "agenda_count": 17,
+      "relations": {
+        "normal": 17
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "141080",
+      "company": "리가켐바이오",
+      "status": "exact",
+      "duration_s": 0.36,
+      "rcept_no": "20260313000406",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "087010",
+      "company": "펩트론",
+      "status": "requires_review",
+      "duration_s": 5.97,
+      "rcept_no": "20260310002776",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": [
+        "API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. (agenda_parse_low_confidence)",
+        "DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.",
+        "안건 파싱 신뢰도가 낮아 원문 재검토가 필요하다. data.raw_text_excerpt에 DART 원문 텍스트 발췌를 함께 제공하니 직접 해석한다."
+      ]
+    },
+    {
+      "ticker": "214370",
+      "company": "케어젠",
+      "status": "exact",
+      "duration_s": 0.96,
+      "rcept_no": "20260309001677",
+      "agenda_count": 9,
+      "relations": {
+        "normal": 9
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "240810",
+      "company": "원익IPS",
+      "status": "exact",
+      "duration_s": 1.12,
+      "rcept_no": "20260309001596",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "310210",
+      "company": "보로노이",
+      "status": "exact",
+      "duration_s": 0.77,
+      "rcept_no": "20260313000759",
+      "agenda_count": 11,
+      "relations": {
+        "normal": 11
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "095340",
+      "company": "ISC",
+      "status": "exact",
+      "duration_s": 0.72,
+      "rcept_no": "20260311003160",
+      "agenda_count": 17,
+      "relations": {
+        "normal": 17
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "039030",
+      "company": "이오테크닉스",
+      "status": "no_filing",
+      "duration_s": 0.9,
+      "rcept_no": null,
+      "agenda_count": 0,
+      "relations": {},
+      "non_normal": [],
+      "warnings": [
+        "2026-01-01~2026-12-31 구간에 정기 주주총회 소집공고를 찾지 못했다."
+      ]
+    },
+    {
+      "ticker": "263750",
+      "company": "펄어비스",
+      "status": "exact",
+      "duration_s": 0.71,
+      "rcept_no": "20260226005016",
+      "agenda_count": 5,
+      "relations": {
+        "normal": 5
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "108490",
+      "company": "로보티즈",
+      "status": "exact",
+      "duration_s": 0.72,
+      "rcept_no": "20260306000825",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "226950",
+      "company": "올릭스",
+      "status": "exact",
+      "duration_s": 0.86,
+      "rcept_no": "20260311003974",
+      "agenda_count": 4,
+      "relations": {
+        "normal": 4
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "032820",
+      "company": "우리기술",
+      "status": "exact",
+      "duration_s": 0.59,
+      "rcept_no": "20260303002812",
+      "agenda_count": 12,
+      "relations": {
+        "normal": 12
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "214150",
+      "company": "클래시스",
+      "status": "exact",
+      "duration_s": 0.87,
+      "rcept_no": "20260313000628",
+      "agenda_count": 12,
+      "relations": {
+        "normal": 12
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "403870",
+      "company": "HPSP",
+      "status": "exact",
+      "duration_s": 0.96,
+      "rcept_no": "20260312000686",
+      "agenda_count": 6,
+      "relations": {
+        "normal": 6
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "0009K0",
+      "company": "에임드바이오",
+      "status": "exact",
+      "duration_s": 1.11,
+      "rcept_no": "20260312001171",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "043260",
+      "company": "성호전자",
+      "status": "exact",
+      "duration_s": 1.07,
+      "rcept_no": "20260312001185",
+      "agenda_count": 8,
+      "relations": {
+        "normal": 8
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "347850",
+      "company": "디앤디파마텍",
+      "status": "exact",
+      "duration_s": 1.11,
+      "rcept_no": "20260303002387",
+      "agenda_count": 8,
+      "relations": {
+        "normal": 8
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "214450",
+      "company": "파마리서치",
+      "status": "exact",
+      "duration_s": 1.15,
+      "rcept_no": "20260312000551",
+      "agenda_count": 10,
+      "relations": {
+        "normal": 10
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "145020",
+      "company": "휴젤",
+      "status": "exact",
+      "duration_s": 1.18,
+      "rcept_no": "20260316000868",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "237690",
+      "company": "에스티팜",
+      "status": "exact",
+      "duration_s": 1.16,
+      "rcept_no": "20260303002309",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "319400",
+      "company": "현대무벡스",
+      "status": "exact",
+      "duration_s": 1.16,
+      "rcept_no": "20260311004140",
+      "agenda_count": 8,
+      "relations": {
+        "normal": 8
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "357780",
+      "company": "솔브레인",
+      "status": "exact",
+      "duration_s": 0.82,
+      "rcept_no": "20260316001581",
+      "agenda_count": 9,
+      "relations": {
+        "normal": 9
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "084370",
+      "company": "유진테크",
+      "status": "exact",
+      "duration_s": 1.37,
+      "rcept_no": "20260311003901",
+      "agenda_count": 6,
+      "relations": {
+        "normal": 6
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "036930",
+      "company": "주성엔지니어링",
+      "status": "exact",
+      "duration_s": 2.15,
+      "rcept_no": "20260323000092",
+      "agenda_count": 8,
+      "relations": {
+        "normal": 8
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "083650",
+      "company": "비에이치아이",
+      "status": "exact",
+      "duration_s": 3.11,
+      "rcept_no": "20260313000307",
+      "agenda_count": 10,
+      "relations": {
+        "normal": 10
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "476830",
+      "company": "알지노믹스",
+      "status": "exact",
+      "duration_s": 2.75,
+      "rcept_no": "20260316000950",
+      "agenda_count": 10,
+      "relations": {
+        "normal": 9,
+        "conditional": 1
+      },
+      "non_normal": [
+        {
+          "agenda_id": "4",
+          "title": "이사의 보수한도 승인의 건",
+          "parent_title": "",
+          "relation_type": "conditional",
+          "relation_reasons": [
+            "conditional_field",
+            "conditional_title"
+          ],
+          "proposer_type": "company",
+          "conditional": "제4호 의안은 제2-1호 의안 부결 시 상정하며,"
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "178320",
+      "company": "서진시스템",
+      "status": "exact",
+      "duration_s": 2.17,
+      "rcept_no": "20260316001527",
+      "agenda_count": 6,
+      "relations": {
+        "normal": 6
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "140410",
+      "company": "메지온",
+      "status": "exact",
+      "duration_s": 1.36,
+      "rcept_no": "20260313001055",
+      "agenda_count": 6,
+      "relations": {
+        "normal": 6
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "440110",
+      "company": "파두",
+      "status": "exact",
+      "duration_s": 1.75,
+      "rcept_no": "20260311003737",
+      "agenda_count": 8,
+      "relations": {
+        "normal": 8
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "068760",
+      "company": "셀트리온제약",
+      "status": "exact",
+      "duration_s": 2.07,
+      "rcept_no": "20260213000509",
+      "agenda_count": 9,
+      "relations": {
+        "normal": 9
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "064760",
+      "company": "티씨케이",
+      "status": "exact",
+      "duration_s": 2.05,
+      "rcept_no": "20260224001802",
+      "agenda_count": 5,
+      "relations": {
+        "normal": 5
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "257720",
+      "company": "실리콘투",
+      "status": "exact",
+      "duration_s": 1.06,
+      "rcept_no": "20260312001381",
+      "agenda_count": 20,
+      "relations": {
+        "normal": 20
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "058610",
+      "company": "에스피지",
+      "status": "exact",
+      "duration_s": 0.84,
+      "rcept_no": "20260311003162",
+      "agenda_count": 6,
+      "relations": {
+        "normal": 6
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "005290",
+      "company": "동진쎄미켐",
+      "status": "exact",
+      "duration_s": 1.07,
+      "rcept_no": "20260312001051",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "319660",
+      "company": "피에스케이",
+      "status": "exact",
+      "duration_s": 1.21,
+      "rcept_no": "20260313000290",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "218410",
+      "company": "RFHIC",
+      "status": "exact",
+      "duration_s": 1.25,
+      "rcept_no": "20260310002893",
+      "agenda_count": 14,
+      "relations": {
+        "normal": 14
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "347700",
+      "company": "스피어",
+      "status": "exact",
+      "duration_s": 1.17,
+      "rcept_no": "20260311004512",
+      "agenda_count": 10,
+      "relations": {
+        "normal": 10
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "376900",
+      "company": "로킷헬스케어",
+      "status": "exact",
+      "duration_s": 1.21,
+      "rcept_no": "20260312000845",
+      "agenda_count": 13,
+      "relations": {
+        "normal": 13
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "035900",
+      "company": "JYP Ent.",
+      "status": "exact",
+      "duration_s": 1.14,
+      "rcept_no": "20260310002801",
+      "agenda_count": 7,
+      "relations": {
+        "normal": 7
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "031980",
+      "company": "피에스케이홀딩스",
+      "status": "exact",
+      "duration_s": 1.16,
+      "rcept_no": "20260313000015",
+      "agenda_count": 8,
+      "relations": {
+        "normal": 8
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "030530",
+      "company": "원익홀딩스",
+      "status": "exact",
+      "duration_s": 1.16,
+      "rcept_no": "20260312001276",
+      "agenda_count": 12,
+      "relations": {
+        "normal": 12
+      },
+      "non_normal": [],
+      "warnings": []
+    },
+    {
+      "ticker": "041510",
+      "company": "에스엠",
+      "status": "exact",
+      "duration_s": 1.78,
+      "rcept_no": "20260227008845",
+      "agenda_count": 10,
+      "relations": {
+        "normal": 10
+      },
+      "non_normal": [],
+      "warnings": []
+    }
+  ]
+}

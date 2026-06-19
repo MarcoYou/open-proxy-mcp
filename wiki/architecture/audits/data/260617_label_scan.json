@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "date": "2026-06-15",
+    "sm_companies": 20,
+    "pa_companies": 10,
+    "total_dart_calls": 1121,
+    "elapsed_min": 3.6
+  },
+  "anomaly_counts": {},
+  "view_counts": {},
+  "hits": []
+}

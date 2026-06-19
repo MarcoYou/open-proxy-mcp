@@ -1,0 +1,4192 @@
+{
+  "meta": {
+    "script": "scripts/deal_tools_value_audit.py",
+    "date": "2026-06-12",
+    "context": "260517은 파싱 성공률만 검증 — 값 필드 정확도(숫자/범위/형식/coverage) 첫 audit"
+  },
+  "results": {
+    "dilutive_issuance": {
+      "companies": 115,
+      "event_rows": 482,
+      "value_fields": 1897,
+      "filled": 883,
+      "fill_rate_pct": 46.5,
+      "issues": [
+        {
+          "company": "삼성물산",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 29일"
+        },
+        {
+          "company": "카카오",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 11일"
+        },
+        {
+          "company": "카카오",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 22일"
+        },
+        {
+          "company": "카카오",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 11일"
+        },
+        {
+          "company": "카카오",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 22일"
+        },
+        {
+          "company": "카카오",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 05월 30일"
+        },
+        {
+          "company": "카카오",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 30일"
+        },
+        {
+          "company": "카카오",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 11일"
+        },
+        {
+          "company": "카카오",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "카카오",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 11일"
+        },
+        {
+          "company": "카카오",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 30일"
+        },
+        {
+          "company": "SK이노베이션",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 22일"
+        },
+        {
+          "company": "SK이노베이션",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 22일"
+        },
+        {
+          "company": "SK이노베이션",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2027년 10월 31일"
+        },
+        {
+          "company": "SK이노베이션",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 31일"
+        },
+        {
+          "company": "한국항공우주",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 05일"
+        },
+        {
+          "company": "한국항공우주",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 05일"
+        },
+        {
+          "company": "한국항공우주",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 03월 04일"
+        },
+        {
+          "company": "한국항공우주",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 04일"
+        },
+        {
+          "company": "LG전자",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 12일"
+        },
+        {
+          "company": "LG전자",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 12일"
+        },
+        {
+          "company": "LG전자",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 28일"
+        },
+        {
+          "company": "LG",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 21일"
+        },
+        {
+          "company": "LG",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 21일"
+        },
+        {
+          "company": "LG",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 29일"
+        },
+        {
+          "company": "삼성에스디에스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 15일"
+        },
+        {
+          "company": "삼성에스디에스",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 15일"
+        },
+        {
+          "company": "삼성에스디에스",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2032년 04월 30일"
+        },
+        {
+          "company": "삼성에스디에스",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "하이브",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 15일"
+        },
+        {
+          "company": "하이브",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 15일"
+        },
+        {
+          "company": "하이브",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 10월 17일"
+        },
+        {
+          "company": "하이브",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 17일"
+        },
+        {
+          "company": "한화",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 25일"
+        },
+        {
+          "company": "한화",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 25일"
+        },
+        {
+          "company": "한화",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 03일"
+        },
+        {
+          "company": "HD건설기계",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 24일"
+        },
+        {
+          "company": "HD건설기계",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 17일"
+        },
+        {
+          "company": "HD건설기계",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 24일"
+        },
+        {
+          "company": "HD건설기계",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "HD건설기계",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 17일"
+        },
+        {
+          "company": "HD건설기계",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 30일"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 15일"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 16일"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 16일"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 01월 10일"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 10일"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 15일"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 09월 09일"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "\"본 사채\" 발행을 위한 \"발행회사\"의 최초 이사회결의일(2025년 06월 16일) 전일을 기산일로 하여 그"
+        },
+        {
+          "company": "엘앤에프",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 09일"
+        },
+        {
+          "company": "두산밥캣",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산밥캣",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산밥캣",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 01일"
+        },
+        {
+          "company": "대한전선",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 19일"
+        },
+        {
+          "company": "대한전선",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 19일"
+        },
+        {
+          "company": "대한전선",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2027년 11월 29일"
+        },
+        {
+          "company": "대한전선",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 29일"
+        },
+        {
+          "company": "코웨이",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 06일"
+        },
+        {
+          "company": "코웨이",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 06일"
+        },
+        {
+          "company": "코웨이",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 07일"
+        },
+        {
+          "company": "넷마블",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 05일"
+        },
+        {
+          "company": "넷마블",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 05일"
+        },
+        {
+          "company": "넷마블",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 28일"
+        },
+        {
+          "company": "LG생활건강",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 23일"
+        },
+        {
+          "company": "LG생활건강",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 23일"
+        },
+        {
+          "company": "LG생활건강",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 27일"
+        },
+        {
+          "company": "한국카본",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 04일"
+        },
+        {
+          "company": "한국카본",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 31일"
+        },
+        {
+          "company": "한국카본",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 31일"
+        },
+        {
+          "company": "한국카본",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 04월 02일"
+        },
+        {
+          "company": "한국카본",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 02일"
+        },
+        {
+          "company": "한국카본",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 04일"
+        },
+        {
+          "company": "한국카본",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 29일"
+        },
+        {
+          "company": "롯데에너지머티리얼즈",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 25일"
+        },
+        {
+          "company": "롯데에너지머티리얼즈",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 25일"
+        },
+        {
+          "company": "롯데에너지머티리얼즈",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2055년 02월 25일"
+        },
+        {
+          "company": "롯데에너지머티리얼즈",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "증권의 발행 및 공시 등에 관한 규정 제5-24조 제1항, 제5-22조 제1항에 의거 본건 사채의 신주인수권"
+        },
+        {
+          "company": "롯데에너지머티리얼즈",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 25일"
+        },
+        {
+          "company": "현대백화점",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 25일"
+        },
+        {
+          "company": "현대백화점",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 25일"
+        },
+        {
+          "company": "현대백화점",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 28일"
+        },
+        {
+          "company": "코스모신소재",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 16일"
+        },
+        {
+          "company": "코스모신소재",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 16일"
+        },
+        {
+          "company": "코스모신소재",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 01월 30일"
+        },
+        {
+          "company": "코스모신소재",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 30일"
+        },
+        {
+          "company": "동원산업",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 11일"
+        },
+        {
+          "company": "동원산업",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 11일"
+        },
+        {
+          "company": "동원산업",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 04일"
+        },
+        {
+          "company": "아시아나항공",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 04일"
+        },
+        {
+          "company": "아시아나항공",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 04일"
+        },
+        {
+          "company": "아시아나항공",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2055년 11월 13일"
+        },
+        {
+          "company": "아시아나항공",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 13일"
+        },
+        {
+          "company": "롯데웰푸드",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 04일"
+        },
+        {
+          "company": "롯데웰푸드",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 05일"
+        },
+        {
+          "company": "롯데웰푸드",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 04일"
+        },
+        {
+          "company": "롯데웰푸드",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 21일"
+        },
+        {
+          "company": "롯데웰푸드",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 05일"
+        },
+        {
+          "company": "롯데웰푸드",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 29일"
+        },
+        {
+          "company": "현대홈쇼핑",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 11일"
+        },
+        {
+          "company": "현대홈쇼핑",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 11일"
+        },
+        {
+          "company": "현대홈쇼핑",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 06월 26일"
+        },
+        {
+          "company": "SNT홀딩스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 11일"
+        },
+        {
+          "company": "SNT홀딩스",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 11일"
+        },
+        {
+          "company": "SNT홀딩스",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 04월 09일"
+        },
+        {
+          "company": "SNT홀딩스",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 09일"
+        },
+        {
+          "company": "파미셀",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 24일"
+        },
+        {
+          "company": "파미셀",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 24일"
+        },
+        {
+          "company": "파미셀",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 29일"
+        },
+        {
+          "company": "후성",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 23일"
+        },
+        {
+          "company": "후성",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 23일"
+        },
+        {
+          "company": "후성",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 11월 05일"
+        },
+        {
+          "company": "후성",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 05일"
+        },
+        {
+          "company": "TKG휴켐스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 08일"
+        },
+        {
+          "company": "TKG휴켐스",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 08일"
+        },
+        {
+          "company": "TKG휴켐스",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 04월 23일"
+        },
+        {
+          "company": "TKG휴켐스",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 23일"
+        },
+        {
+          "company": "KG모빌리티",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 10일"
+        },
+        {
+          "company": "KG모빌리티",
+          "path": "capital_reduction_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 10일"
+        },
+        {
+          "company": "KG모빌리티",
+          "path": "capital_reduction_events.reduction_standard_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 11일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 12일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 19일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 27일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 12일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 09월 26일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 26일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 19일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 02월 26일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 26일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 27일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 07월 05일"
+        },
+        {
+          "company": "코오롱티슈진",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 05일"
+        },
+        {
+          "company": "HLB",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 07일"
+        },
+        {
+          "company": "HLB",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 03일"
+        },
+        {
+          "company": "HLB",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 24일"
+        },
+        {
+          "company": "HLB",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 20일"
+        },
+        {
+          "company": "HLB",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 25일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 07일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 04월 15일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 15일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 24일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 10월 02일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 02일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 20일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 08월 28일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 28일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 25일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2027년 07월 16일"
+        },
+        {
+          "company": "HLB",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 16일"
+        },
+        {
+          "company": "HLB",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 03일"
+        },
+        {
+          "company": "HLB",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 11월 13일"
+        },
+        {
+          "company": "HLB",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "『증권의 발행 및 공시에 관한 규정』 제5-22조에 따라 “본사채”발행을 위한 이사회 결의일 전일을 기산일로"
+        },
+        {
+          "company": "HLB",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 13일"
+        },
+        {
+          "company": "보로노이",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 27일"
+        },
+        {
+          "company": "보로노이",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 27일"
+        },
+        {
+          "company": "보로노이",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 07월 04일"
+        },
+        {
+          "company": "보로노이",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 04일"
+        },
+        {
+          "company": "우리기술",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 20일"
+        },
+        {
+          "company": "우리기술",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 17일"
+        },
+        {
+          "company": "우리기술",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 28일"
+        },
+        {
+          "company": "우리기술",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 23일"
+        },
+        {
+          "company": "우리기술",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 27일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 20일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 11월 28일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 28일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 17일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 07월 21일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 21일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 28일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 04월 30일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 30일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 23일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 10월 25일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 25일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 27일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 08월 29일"
+        },
+        {
+          "company": "우리기술",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 29일"
+        },
+        {
+          "company": "성호전자",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 08일"
+        },
+        {
+          "company": "성호전자",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 08일"
+        },
+        {
+          "company": "성호전자",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 24일"
+        },
+        {
+          "company": "성호전자",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 24일"
+        },
+        {
+          "company": "성호전자",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 27일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 08일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 01월 07일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 07일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 24일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 08월 01일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 01일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 24일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 08월 01일"
+        },
+        {
+          "company": "성호전자",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 01일"
+        },
+        {
+          "company": "성호전자",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 08일"
+        },
+        {
+          "company": "성호전자",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 01월 07일"
+        },
+        {
+          "company": "성호전자",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채의 행사가격은 증권의 발행 및 공시 등에 관한 규정 제5-24조 제1항 및 제5-22조 제1항에 따라"
+        },
+        {
+          "company": "성호전자",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 07일"
+        },
+        {
+          "company": "성호전자",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 27일"
+        },
+        {
+          "company": "성호전자",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 10월 02일"
+        },
+        {
+          "company": "성호전자",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일 전일로부터 소급한 1개월 가중산술평균주가, 1주일 가중산술평균주가 및 최"
+        },
+        {
+          "company": "성호전자",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 02일"
+        },
+        {
+          "company": "디앤디파마텍",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 15일"
+        },
+        {
+          "company": "디앤디파마텍",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 11일"
+        },
+        {
+          "company": "디앤디파마텍",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 15일"
+        },
+        {
+          "company": "디앤디파마텍",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 04월 30일"
+        },
+        {
+          "company": "디앤디파마텍",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "디앤디파마텍",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 11일"
+        },
+        {
+          "company": "디앤디파마텍",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2055년 06월 20일"
+        },
+        {
+          "company": "디앤디파마텍",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 20일"
+        },
+        {
+          "company": "서진시스템",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 06일"
+        },
+        {
+          "company": "서진시스템",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 06일"
+        },
+        {
+          "company": "서진시스템",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 06일"
+        },
+        {
+          "company": "서진시스템",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 08월 08일"
+        },
+        {
+          "company": "서진시스템",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 08일"
+        },
+        {
+          "company": "서진시스템",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 06일"
+        },
+        {
+          "company": "서진시스템",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 08월 08일"
+        },
+        {
+          "company": "서진시스템",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일 전일로부터 소급한 1개월 가중산술평균주가, 1주일 가중산술평균주가 및 최"
+        },
+        {
+          "company": "서진시스템",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 08일"
+        },
+        {
+          "company": "메지온",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "메지온",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 10일"
+        },
+        {
+          "company": "메지온",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 10일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 05월 12일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 12일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 10일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 06월 20일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 20일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 10일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 06월 20일"
+        },
+        {
+          "company": "메지온",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 20일"
+        },
+        {
+          "company": "파두",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 21일"
+        },
+        {
+          "company": "파두",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 21일"
+        },
+        {
+          "company": "파두",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 05월 23일"
+        },
+        {
+          "company": "파두",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 23일"
+        },
+        {
+          "company": "스피어",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 22일"
+        },
+        {
+          "company": "스피어",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 02일"
+        },
+        {
+          "company": "스피어",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 29일"
+        },
+        {
+          "company": "스피어",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 22일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 22일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 04월 30일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 02일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 01월 30일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 30일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 29일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 03월 07일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 07일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 22일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2027년 11월 28일"
+        },
+        {
+          "company": "스피어",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 28일"
+        },
+        {
+          "company": "로킷헬스케어",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 16일"
+        },
+        {
+          "company": "로킷헬스케어",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 16일"
+        },
+        {
+          "company": "로킷헬스케어",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 07월 18일"
+        },
+        {
+          "company": "로킷헬스케어",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 18일"
+        },
+        {
+          "company": "심텍",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 11일"
+        },
+        {
+          "company": "심텍",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 11일"
+        },
+        {
+          "company": "심텍",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2055년 06월 20일"
+        },
+        {
+          "company": "심텍",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 20일"
+        },
+        {
+          "company": "엘앤씨바이오",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 01일"
+        },
+        {
+          "company": "엘앤씨바이오",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 01일"
+        },
+        {
+          "company": "엘앤씨바이오",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 04월 23일"
+        },
+        {
+          "company": "엘앤씨바이오",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 23일"
+        },
+        {
+          "company": "삼현",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 21일"
+        },
+        {
+          "company": "삼현",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 21일"
+        },
+        {
+          "company": "삼현",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 10월 29일"
+        },
+        {
+          "company": "삼현",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 29일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 29일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 29일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 19일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 29일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 11월 06일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 06일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 19일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2054년 11월 22일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 22일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 29일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 11월 06일"
+        },
+        {
+          "company": "큐리언트",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일 전일을 기산일로 하여 그 기산일로부터 소급하여산정한 1개월 가중산술평균주"
+        },
+        {
+          "company": "큐리언트",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 06일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 13일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 13일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 13일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 20일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 13일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 03월 23일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 23일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 20일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 02월 26일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 26일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 13일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 04월 10일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채의 행사가액은 본 사채 발행을 위한 이사회 결의일 전일을 기산일로 하여 그 기산일로부터 소급하여 산정"
+        },
+        {
+          "company": "제주반도체",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 10일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 13일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 03월 23일"
+        },
+        {
+          "company": "제주반도체",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채의 행사가액은 본 사채 발행을 위한 이사회 결의일 전일을 기산일로 하여 그 기산일로부터 소급하여 산정"
+        },
+        {
+          "company": "제주반도체",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 23일"
+        },
+        {
+          "company": "큐리옥스바이오시스템즈",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 23일"
+        },
+        {
+          "company": "큐리옥스바이오시스템즈",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 23일"
+        },
+        {
+          "company": "큐리옥스바이오시스템즈",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 07월 26일"
+        },
+        {
+          "company": "큐리옥스바이오시스템즈",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 26일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 17일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 22일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 06일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 22일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 27일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 07월 10일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 07월 10일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 07월 10일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 07월 10일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 17일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 01월 15일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 15일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 22일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 10월 02일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 02일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 06일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 09월 03일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 03일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 22일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 08월 01일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 01일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 27일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2027년 12월 06일"
+        },
+        {
+          "company": "제이에스링크",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 06일"
+        },
+        {
+          "company": "젬백스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 22일"
+        },
+        {
+          "company": "젬백스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 28일"
+        },
+        {
+          "company": "젬백스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 28일"
+        },
+        {
+          "company": "젬백스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 24일"
+        },
+        {
+          "company": "젬백스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 12일"
+        },
+        {
+          "company": "젬백스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 28일"
+        },
+        {
+          "company": "젬백스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 28일"
+        },
+        {
+          "company": "젬백스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 12일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 22일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 06월 01일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 06월 01일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 28일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 05월 06일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 06일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 28일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 05월 06일"
+        },
+        {
+          "company": "젬백스",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 06일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 24일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 01월 23일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일 전일로부터 소급한 1개월 가중산술평균주가, 1주일 가중산술평균주가 및 최"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 23일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 12일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 02월 21일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일 전일로부터 소급한 1개월 가중산술평균주가, 1주일 가중산술평균주가 및 최"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 21일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 28일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 02월 04일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일(2025년 01월 07일) 전일로부터 소급한 1개월 가중산술평균주가, 1"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 04일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 28일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2027년 12월 06일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일 전일로부터 소급한 1개월 가중산술평균주가, 1주일 가중산술평균주가 및 최"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 06일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 12일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2027년 07월 16일"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일 전일로부터 소급한 1개월 가중산술평균주가, 1주일 가중산술평균주가 및 최"
+        },
+        {
+          "company": "젬백스",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 16일"
+        },
+        {
+          "company": "현대바이오",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 24일"
+        },
+        {
+          "company": "현대바이오",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 24일"
+        },
+        {
+          "company": "현대바이오",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 10월 02일"
+        },
+        {
+          "company": "현대바이오",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 02일"
+        },
+        {
+          "company": "레이크머티리얼즈",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "레이크머티리얼즈",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "레이크머티리얼즈",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 05월 21일"
+        },
+        {
+          "company": "레이크머티리얼즈",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 21일"
+        },
+        {
+          "company": "케이엠더블유",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 04일"
+        },
+        {
+          "company": "케이엠더블유",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 04일"
+        },
+        {
+          "company": "케이엠더블유",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2028년 07월 08일"
+        },
+        {
+          "company": "케이엠더블유",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 08일"
+        },
+        {
+          "company": "앱클론",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 01일"
+        },
+        {
+          "company": "앱클론",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 28일"
+        },
+        {
+          "company": "앱클론",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 01일"
+        },
+        {
+          "company": "앱클론",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2055년 10월 28일"
+        },
+        {
+          "company": "앱클론",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 28일"
+        },
+        {
+          "company": "앱클론",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 28일"
+        },
+        {
+          "company": "앱클론",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 12월 13일"
+        },
+        {
+          "company": "앱클론",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 13일"
+        },
+        {
+          "company": "지투지바이오",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 16일"
+        },
+        {
+          "company": "지투지바이오",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 23일"
+        },
+        {
+          "company": "지투지바이오",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 16일"
+        },
+        {
+          "company": "지투지바이오",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 03월 23일"
+        },
+        {
+          "company": "지투지바이오",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 23일"
+        },
+        {
+          "company": "지투지바이오",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 23일"
+        },
+        {
+          "company": "지투지바이오",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 03월 12일"
+        },
+        {
+          "company": "지투지바이오",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 12일"
+        },
+        {
+          "company": "아이티센글로벌",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "아이티센글로벌",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "아이티센글로벌",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 05월 08일"
+        },
+        {
+          "company": "아이티센글로벌",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 08일"
+        },
+        {
+          "company": "카카오게임즈",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 24일"
+        },
+        {
+          "company": "카카오게임즈",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 24일"
+        },
+        {
+          "company": "카카오게임즈",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 06월 19일"
+        },
+        {
+          "company": "카카오게임즈",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 06월 19일"
+        },
+        {
+          "company": "에이치브이엠",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 02일"
+        },
+        {
+          "company": "에이치브이엠",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 04일"
+        },
+        {
+          "company": "에이치브이엠",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 02일"
+        },
+        {
+          "company": "에이치브이엠",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 04월 10일"
+        },
+        {
+          "company": "에이치브이엠",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 10일"
+        },
+        {
+          "company": "에이치브이엠",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 04일"
+        },
+        {
+          "company": "에이치브이엠",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 07월 28일"
+        },
+        {
+          "company": "에이치브이엠",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 28일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 06일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 06일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 13일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 11일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 06일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 03월 16일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 16일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 13일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 01월 15일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 15일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 11일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 09월 20일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 20일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "warrant_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 06일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "warrant_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 03월 16일"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "warrant_bond_events.warrant.exercise_price_method",
+          "kind": "AMOUNT_NOT_NUMERIC",
+          "value": "본 사채 발행을 위한 이사회 결의일 전일을 기산일로 하여 그 기산일로부터 소급하여 산정한 (i) 1개월 가중"
+        },
+        {
+          "company": "인벤티지랩",
+          "path": "warrant_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 16일"
+        },
+        {
+          "company": "비나텍",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 12일"
+        },
+        {
+          "company": "비나텍",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 28일"
+        },
+        {
+          "company": "비나텍",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 12일"
+        },
+        {
+          "company": "비나텍",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 03월 20일"
+        },
+        {
+          "company": "비나텍",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 20일"
+        },
+        {
+          "company": "비나텍",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 28일"
+        },
+        {
+          "company": "비나텍",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2054년 09월 02일"
+        },
+        {
+          "company": "비나텍",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 02일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 17일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 17일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 19일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 17일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2031년 04월 27일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 27일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 17일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 09월 26일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 26일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 19일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 02월 21일"
+        },
+        {
+          "company": "큐로셀",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 21일"
+        },
+        {
+          "company": "엔켐",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 30일"
+        },
+        {
+          "company": "엔켐",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 22일"
+        },
+        {
+          "company": "엔켐",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 26일"
+        },
+        {
+          "company": "엔켐",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 14일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 30일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 01월 30일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 30일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 22일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 01월 30일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 30일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 26일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 01월 05일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 05일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 14일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 11월 29일"
+        },
+        {
+          "company": "엔켐",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 29일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 16일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 16일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 16일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 16일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 16일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 01월 13일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 13일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 16일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 01월 06일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 06일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 16일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 12월 30일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 30일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 16일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 12월 30일"
+        },
+        {
+          "company": "메디포스트",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 30일"
+        },
+        {
+          "company": "뉴로메카",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 29일"
+        },
+        {
+          "company": "뉴로메카",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 29일"
+        },
+        {
+          "company": "뉴로메카",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 12월 03일"
+        },
+        {
+          "company": "뉴로메카",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 03일"
+        },
+        {
+          "company": "지아이이노베이션",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 30일"
+        },
+        {
+          "company": "지아이이노베이션",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 30일"
+        },
+        {
+          "company": "지아이이노베이션",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 08월 08일"
+        },
+        {
+          "company": "지아이이노베이션",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 08일"
+        },
+        {
+          "company": "성일하이텍",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 28일"
+        },
+        {
+          "company": "성일하이텍",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 17일"
+        },
+        {
+          "company": "성일하이텍",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 28일"
+        },
+        {
+          "company": "성일하이텍",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 12월 10일"
+        },
+        {
+          "company": "성일하이텍",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 10일"
+        },
+        {
+          "company": "성일하이텍",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 17일"
+        },
+        {
+          "company": "성일하이텍",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2030년 10월 27일"
+        },
+        {
+          "company": "성일하이텍",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 27일"
+        },
+        {
+          "company": "코오롱생명과학",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 11일"
+        },
+        {
+          "company": "코오롱생명과학",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 22일"
+        },
+        {
+          "company": "코오롱생명과학",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 11일"
+        },
+        {
+          "company": "코오롱생명과학",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2055년 11월 26일"
+        },
+        {
+          "company": "코오롱생명과학",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 26일"
+        },
+        {
+          "company": "코오롱생명과학",
+          "path": "convertible_bond_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 22일"
+        },
+        {
+          "company": "코오롱생명과학",
+          "path": "convertible_bond_events.maturity_date",
+          "kind": "DATE_FORMAT",
+          "value": "2029년 11월 26일"
+        },
+        {
+          "company": "코오롱생명과학",
+          "path": "convertible_bond_events.payment_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 26일"
+        }
+      ],
+      "issue_kinds": {
+        "DATE_FORMAT": 486,
+        "AMOUNT_NOT_NUMERIC": 15
+      },
+      "errors": []
+    },
+    "corporate_restructuring": {
+      "companies": 71,
+      "event_rows": 160,
+      "value_fields": 669,
+      "filled": 431,
+      "fill_rate_pct": 64.4,
+      "issues": [
+        {
+          "company": "삼성바이오로직스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 22일"
+        },
+        {
+          "company": "삼성바이오로직스",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 22일"
+        },
+        {
+          "company": "삼성바이오로직스",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 17일"
+        },
+        {
+          "company": "삼성바이오로직스",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 01일"
+        },
+        {
+          "company": "두산에너빌리티",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산에너빌리티",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "HD현대중공업",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 27일"
+        },
+        {
+          "company": "HD현대중공업",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 27일"
+        },
+        {
+          "company": "한화오션",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 27일"
+        },
+        {
+          "company": "한화오션",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 27일"
+        },
+        {
+          "company": "우리금융지주",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 24일"
+        },
+        {
+          "company": "우리금융지주",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 24일"
+        },
+        {
+          "company": "우리금융지주",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 08월 11일"
+        },
+        {
+          "company": "카카오",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 10일"
+        },
+        {
+          "company": "카카오",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 10일"
+        },
+        {
+          "company": "SK이노베이션",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 17일"
+        },
+        {
+          "company": "SK이노베이션",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 17일"
+        },
+        {
+          "company": "HD현대",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 24일"
+        },
+        {
+          "company": "HD현대",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 24일"
+        },
+        {
+          "company": "SK텔레콤",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 26일"
+        },
+        {
+          "company": "SK텔레콤",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 26일"
+        },
+        {
+          "company": "SK텔레콤",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 29일"
+        },
+        {
+          "company": "KT",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 24일"
+        },
+        {
+          "company": "KT",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 24일"
+        },
+        {
+          "company": "포스코인터내셔널",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 03일"
+        },
+        {
+          "company": "포스코인터내셔널",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 03일"
+        },
+        {
+          "company": "하이브",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 31일"
+        },
+        {
+          "company": "하이브",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 31일"
+        },
+        {
+          "company": "삼양식품",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 12일"
+        },
+        {
+          "company": "삼양식품",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 12일"
+        },
+        {
+          "company": "대한항공",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "대한항공",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "한화",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 14일"
+        },
+        {
+          "company": "한화",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 14일"
+        },
+        {
+          "company": "한화",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 07월 15일"
+        },
+        {
+          "company": "한화",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 08월 01일"
+        },
+        {
+          "company": "HD건설기계",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 01일"
+        },
+        {
+          "company": "HD건설기계",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 01일"
+        },
+        {
+          "company": "한화솔루션",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 30일"
+        },
+        {
+          "company": "한화솔루션",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 30일"
+        },
+        {
+          "company": "두산밥캣",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산밥캣",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산밥캣",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 05일"
+        },
+        {
+          "company": "두산로보틱스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산로보틱스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산로보틱스",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산로보틱스",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 11일"
+        },
+        {
+          "company": "두산로보틱스",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 05일"
+        },
+        {
+          "company": "NC",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 21일"
+        },
+        {
+          "company": "NC",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 24일"
+        },
+        {
+          "company": "NC",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 21일"
+        },
+        {
+          "company": "NC",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 28일"
+        },
+        {
+          "company": "NC",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 01일"
+        },
+        {
+          "company": "NC",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 24일"
+        },
+        {
+          "company": "NC",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 14일"
+        },
+        {
+          "company": "NC",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 01일"
+        },
+        {
+          "company": "넷마블",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 25일"
+        },
+        {
+          "company": "넷마블",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 25일"
+        },
+        {
+          "company": "넷마블",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 07월 31일"
+        },
+        {
+          "company": "OCI홀딩스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 05일"
+        },
+        {
+          "company": "OCI홀딩스",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 05일"
+        },
+        {
+          "company": "OCI홀딩스",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 29일"
+        },
+        {
+          "company": "더존비즈온",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 27일"
+        },
+        {
+          "company": "더존비즈온",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 27일"
+        },
+        {
+          "company": "더존비즈온",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 06월 30일"
+        },
+        {
+          "company": "한화비전",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 30일"
+        },
+        {
+          "company": "한화비전",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 30일"
+        },
+        {
+          "company": "SKC",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 14일"
+        },
+        {
+          "company": "SKC",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 14일"
+        },
+        {
+          "company": "롯데케미칼",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 26일"
+        },
+        {
+          "company": "롯데케미칼",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 26일"
+        },
+        {
+          "company": "롯데케미칼",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "롯데케미칼",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 06월 01일"
+        },
+        {
+          "company": "롯데쇼핑",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 12일"
+        },
+        {
+          "company": "롯데쇼핑",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 12일"
+        },
+        {
+          "company": "이마트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 10일"
+        },
+        {
+          "company": "이마트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 25일"
+        },
+        {
+          "company": "이마트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 14일"
+        },
+        {
+          "company": "이마트",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 25일"
+        },
+        {
+          "company": "이마트",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 03월 10일"
+        },
+        {
+          "company": "이마트",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 07월 23일"
+        },
+        {
+          "company": "이마트",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 14일"
+        },
+        {
+          "company": "이마트",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 04일"
+        },
+        {
+          "company": "코스맥스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 01일"
+        },
+        {
+          "company": "코스맥스",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 01일"
+        },
+        {
+          "company": "코오롱인더",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 07일"
+        },
+        {
+          "company": "코오롱인더",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 24일"
+        },
+        {
+          "company": "코오롱인더",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 23일"
+        },
+        {
+          "company": "코오롱인더",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 24일"
+        },
+        {
+          "company": "코오롱인더",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 23일"
+        },
+        {
+          "company": "코오롱인더",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 07일"
+        },
+        {
+          "company": "코오롱인더",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 07월 13일"
+        },
+        {
+          "company": "현대지에프홀딩스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 11일"
+        },
+        {
+          "company": "현대지에프홀딩스",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 11일"
+        },
+        {
+          "company": "현대지에프홀딩스",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 06월 30일"
+        },
+        {
+          "company": "현대위아",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 18일"
+        },
+        {
+          "company": "현대위아",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 18일"
+        },
+        {
+          "company": "현대위아",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 25일"
+        },
+        {
+          "company": "현대위아",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 31일"
+        },
+        {
+          "company": "시프트업",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 30일"
+        },
+        {
+          "company": "시프트업",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 09월 30일"
+        },
+        {
+          "company": "코리아써키트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 08일"
+        },
+        {
+          "company": "코리아써키트",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 08일"
+        },
+        {
+          "company": "동원산업",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 14일"
+        },
+        {
+          "company": "동원산업",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 14일"
+        },
+        {
+          "company": "동원산업",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 14일"
+        },
+        {
+          "company": "HDC",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 21일"
+        },
+        {
+          "company": "HDC",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 21일"
+        },
+        {
+          "company": "아시아나항공",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "아시아나항공",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 16일"
+        },
+        {
+          "company": "아시아나항공",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 13일"
+        },
+        {
+          "company": "아시아나항공",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 01월 16일"
+        },
+        {
+          "company": "동양생명",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 24일"
+        },
+        {
+          "company": "동양생명",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 24일"
+        },
+        {
+          "company": "동양생명",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 08월 11일"
+        },
+        {
+          "company": "한일시멘트",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 17일"
+        },
+        {
+          "company": "한일시멘트",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 17일"
+        },
+        {
+          "company": "NHN",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 23일"
+        },
+        {
+          "company": "NHN",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 23일"
+        },
+        {
+          "company": "현대홈쇼핑",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 11일"
+        },
+        {
+          "company": "현대홈쇼핑",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 02월 11일"
+        },
+        {
+          "company": "현대홈쇼핑",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 06월 30일"
+        },
+        {
+          "company": "한샘",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 07일"
+        },
+        {
+          "company": "한샘",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 05월 07일"
+        },
+        {
+          "company": "일동제약",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 13일"
+        },
+        {
+          "company": "일동제약",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 13일"
+        },
+        {
+          "company": "아이에스동서",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 23일"
+        },
+        {
+          "company": "아이에스동서",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 26일"
+        },
+        {
+          "company": "아이에스동서",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 26일"
+        },
+        {
+          "company": "아이에스동서",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 23일"
+        },
+        {
+          "company": "아이에스동서",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 26일"
+        },
+        {
+          "company": "아이에스동서",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 07월 26일"
+        },
+        {
+          "company": "코오롱",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 07일"
+        },
+        {
+          "company": "코오롱",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 07일"
+        },
+        {
+          "company": "코오롱",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 12월 17일"
+        },
+        {
+          "company": "OCI",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 24일"
+        },
+        {
+          "company": "OCI",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 24일"
+        },
+        {
+          "company": "전진건설로봇",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 15일"
+        },
+        {
+          "company": "전진건설로봇",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 15일"
+        },
+        {
+          "company": "한화손해보험",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 02일"
+        },
+        {
+          "company": "한화손해보험",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 02일"
+        },
+        {
+          "company": "KG모빌리티",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 28일"
+        },
+        {
+          "company": "KG모빌리티",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 10월 28일"
+        },
+        {
+          "company": "세아홀딩스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 30일"
+        },
+        {
+          "company": "세아홀딩스",
+          "path": "share_exchange_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 30일"
+        },
+        {
+          "company": "세아홀딩스",
+          "path": "share_exchange_events.schedule.exchange_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 26일"
+        },
+        {
+          "company": "빙그레",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 13일"
+        },
+        {
+          "company": "빙그레",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 22일"
+        },
+        {
+          "company": "빙그레",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 13일"
+        },
+        {
+          "company": "빙그레",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 11월 22일"
+        },
+        {
+          "company": "빙그레",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 20일"
+        },
+        {
+          "company": "빙그레",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 01일"
+        },
+        {
+          "company": "HLB",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 17일"
+        },
+        {
+          "company": "HLB",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 01일"
+        },
+        {
+          "company": "HLB",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 09월 17일"
+        },
+        {
+          "company": "HLB",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 01일"
+        },
+        {
+          "company": "ISC",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 20일"
+        },
+        {
+          "company": "ISC",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 24일"
+        },
+        {
+          "company": "ISC",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 08월 20일"
+        },
+        {
+          "company": "ISC",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 02월 24일"
+        },
+        {
+          "company": "로보티즈",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 18일"
+        },
+        {
+          "company": "로보티즈",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 03월 18일"
+        },
+        {
+          "company": "로보티즈",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 02일"
+        },
+        {
+          "company": "로보티즈",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 06월 01일"
+        },
+        {
+          "company": "클래시스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 25일"
+        },
+        {
+          "company": "클래시스",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 25일"
+        },
+        {
+          "company": "성호전자",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 29일"
+        },
+        {
+          "company": "성호전자",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 29일"
+        },
+        {
+          "company": "동진쎄미켐",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 01일"
+        },
+        {
+          "company": "동진쎄미켐",
+          "path": "split_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 10월 01일"
+        },
+        {
+          "company": "동진쎄미켐",
+          "path": "split_events.shareholder_meeting_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 11월 14일"
+        },
+        {
+          "company": "동진쎄미켐",
+          "path": "split_events.split_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 01일"
+        },
+        {
+          "company": "스피어",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 11일"
+        },
+        {
+          "company": "스피어",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 28일"
+        },
+        {
+          "company": "스피어",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 11일"
+        },
+        {
+          "company": "스피어",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 06월 28일"
+        },
+        {
+          "company": "JYP Ent.",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 08일"
+        },
+        {
+          "company": "JYP Ent.",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 04월 08일"
+        },
+        {
+          "company": "에스엠",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 31일"
+        },
+        {
+          "company": "에스엠",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 07월 31일"
+        },
+        {
+          "company": "두산테스나",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 20일"
+        },
+        {
+          "company": "두산테스나",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 12월 20일"
+        },
+        {
+          "company": "스튜디오드래곤",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "스튜디오드래곤",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 04월 30일"
+        },
+        {
+          "company": "씨아이에스",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 27일"
+        },
+        {
+          "company": "씨아이에스",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2024년 08월 27일"
+        },
+        {
+          "company": "제이앤티씨",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 08일"
+        },
+        {
+          "company": "제이앤티씨",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2025년 05월 08일"
+        },
+        {
+          "company": "에프에스티",
+          "path": "events_timeline.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 13일"
+        },
+        {
+          "company": "에프에스티",
+          "path": "merger_events.board_decision_date",
+          "kind": "DATE_FORMAT",
+          "value": "2026년 01월 13일"
+        }
+      ],
+      "issue_kinds": {
+        "DATE_FORMAT": 190
+      },
+      "errors": []
+    },
+    "corporate_deals": {
+      "companies": 100,
+      "event_rows": 1560,
+      "value_fields": 1560,
+      "filled": 1560,
+      "fill_rate_pct": 100.0,
+      "issues": [],
+      "issue_kinds": {},
+      "errors": []
+    }
+  }
+}

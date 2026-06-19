@@ -1,0 +1,903 @@
+{
+  "meta": {
+    "universe": "wiki/architecture/audits/data/260517_parsing_success_rate_audit/universe_kospi300.csv",
+    "start": 250,
+    "count": 50,
+    "range_label": "251-300",
+    "concurrency": 2,
+    "timeout_s": 90.0,
+    "duration_s": 31.2,
+    "generated_at": "2026-05-25"
+  },
+  "summary": {
+    "statuses": {
+      "exact": 49,
+      "no_filing": 1
+    },
+    "relation_distribution": {
+      "normal": 406,
+      "cumulative_related": 9,
+      "conditional": 2
+    },
+    "agenda_nodes": 417,
+    "non_normal_companies": 11
+  },
+  "records": [
+    {
+      "ticker": "000370",
+      "company": "한화손해보험",
+      "status": "exact",
+      "duration_s": 0.72,
+      "rcept_no": null,
+      "agenda_count": 4,
+      "relation_counts": {
+        "normal": 4
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "001060",
+      "company": "JW중외제약",
+      "status": "exact",
+      "duration_s": 1.03,
+      "rcept_no": null,
+      "agenda_count": 8,
+      "relation_counts": {
+        "normal": 8
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "093050",
+      "company": "LF",
+      "status": "exact",
+      "duration_s": 0.96,
+      "rcept_no": null,
+      "agenda_count": 9,
+      "relation_counts": {
+        "normal": 9
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "006650",
+      "company": "대한유화",
+      "status": "exact",
+      "duration_s": 0.91,
+      "rcept_no": null,
+      "agenda_count": 9,
+      "relation_counts": {
+        "normal": 8,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "1-2",
+          "number": "제1-2호",
+          "title": "집중투표제도 배제 금지 조항 변경의 건",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 일부 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "005420",
+      "company": "코스모화학",
+      "status": "exact",
+      "duration_s": 1.25,
+      "rcept_no": null,
+      "agenda_count": 6,
+      "relation_counts": {
+        "normal": 6
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "000400",
+      "company": "롯데손해보험",
+      "status": "exact",
+      "duration_s": 1.33,
+      "rcept_no": null,
+      "agenda_count": 8,
+      "relation_counts": {
+        "normal": 7,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "2-1",
+          "number": "제2-1호",
+          "title": "집중투표제 관련 정관 변경의 건",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 일부 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "007700",
+      "company": "F&F홀딩스",
+      "status": "exact",
+      "duration_s": 0.86,
+      "rcept_no": null,
+      "agenda_count": 8,
+      "relation_counts": {
+        "normal": 8
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "003850",
+      "company": "보령",
+      "status": "exact",
+      "duration_s": 1.71,
+      "rcept_no": null,
+      "agenda_count": 7,
+      "relation_counts": {
+        "normal": 7
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "006380",
+      "company": "카프로",
+      "status": "exact",
+      "duration_s": 1.53,
+      "rcept_no": null,
+      "agenda_count": 10,
+      "relation_counts": {
+        "normal": 10
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "005180",
+      "company": "빙그레",
+      "status": "exact",
+      "duration_s": 0.59,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 5
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "014820",
+      "company": "동원시스템즈",
+      "status": "exact",
+      "duration_s": 3.36,
+      "rcept_no": null,
+      "agenda_count": 10,
+      "relation_counts": {
+        "normal": 10
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "025540",
+      "company": "한국단자",
+      "status": "exact",
+      "duration_s": 3.42,
+      "rcept_no": null,
+      "agenda_count": 8,
+      "relation_counts": {
+        "normal": 8
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "003000",
+      "company": "부광약품",
+      "status": "exact",
+      "duration_s": 2.07,
+      "rcept_no": null,
+      "agenda_count": 3,
+      "relation_counts": {
+        "normal": 3
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "130660",
+      "company": "한전산업",
+      "status": "exact",
+      "duration_s": 2.15,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 5
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "039130",
+      "company": "하나투어",
+      "status": "exact",
+      "duration_s": 1.17,
+      "rcept_no": null,
+      "agenda_count": 19,
+      "relation_counts": {
+        "normal": 19
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "002350",
+      "company": "넥센타이어",
+      "status": "exact",
+      "duration_s": 1.38,
+      "rcept_no": null,
+      "agenda_count": 13,
+      "relation_counts": {
+        "normal": 12,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "3-1",
+          "number": "제3-1호",
+          "title": "집중투표제 관련 정관 일부 변경의 건",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 일부 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "317450",
+      "company": "명인제약",
+      "status": "exact",
+      "duration_s": 1.1,
+      "rcept_no": null,
+      "agenda_count": 7,
+      "relation_counts": {
+        "normal": 7
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "008730",
+      "company": "율촌화학",
+      "status": "exact",
+      "duration_s": 0.99,
+      "rcept_no": null,
+      "agenda_count": 8,
+      "relation_counts": {
+        "normal": 8
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "001680",
+      "company": "대상",
+      "status": "exact",
+      "duration_s": 1.32,
+      "rcept_no": null,
+      "agenda_count": 20,
+      "relation_counts": {
+        "normal": 19,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "2-2",
+          "number": "제2-2호",
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 일부 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "090460",
+      "company": "비에이치",
+      "status": "exact",
+      "duration_s": 1.25,
+      "rcept_no": null,
+      "agenda_count": 9,
+      "relation_counts": {
+        "normal": 9
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "001270",
+      "company": "부국증권",
+      "status": "exact",
+      "duration_s": 0.93,
+      "rcept_no": null,
+      "agenda_count": 8,
+      "relation_counts": {
+        "normal": 8
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "003160",
+      "company": "디아이",
+      "status": "exact",
+      "duration_s": 0.87,
+      "rcept_no": null,
+      "agenda_count": 6,
+      "relation_counts": {
+        "normal": 6
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "001570",
+      "company": "금양",
+      "status": "exact",
+      "duration_s": 0.75,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 5
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "950210",
+      "company": "프레스티지바이오파마",
+      "status": "no_filing",
+      "duration_s": 1.22,
+      "rcept_no": null,
+      "agenda_count": 0,
+      "relation_counts": {},
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": [
+        "2026-01-01~2026-12-31 구간에 정기 주주총회 소집공고를 찾지 못했다."
+      ]
+    },
+    {
+      "ticker": "003620",
+      "company": "KG모빌리티",
+      "status": "exact",
+      "duration_s": 0.82,
+      "rcept_no": null,
+      "agenda_count": 8,
+      "relation_counts": {
+        "normal": 7,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "2-1",
+          "number": "제2-1호",
+          "title": "집중투표제 관련 정관 일부 변경의 건",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 일부 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "248070",
+      "company": "솔루엠",
+      "status": "exact",
+      "duration_s": 0.99,
+      "rcept_no": null,
+      "agenda_count": 15,
+      "relation_counts": {
+        "normal": 15
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "108320",
+      "company": "LX세미콘",
+      "status": "exact",
+      "duration_s": 1.47,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 5
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "001500",
+      "company": "현대차증권",
+      "status": "exact",
+      "duration_s": 1.56,
+      "rcept_no": null,
+      "agenda_count": 10,
+      "relation_counts": {
+        "normal": 9,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "2-1",
+          "number": "제2-1호",
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 일부 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "336370",
+      "company": "솔루스첨단소재",
+      "status": "exact",
+      "duration_s": 1.64,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 5
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "114090",
+      "company": "GKL",
+      "status": "exact",
+      "duration_s": 1.63,
+      "rcept_no": null,
+      "agenda_count": 3,
+      "relation_counts": {
+        "normal": 3
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "161000",
+      "company": "애경케미칼",
+      "status": "exact",
+      "duration_s": 1.1,
+      "rcept_no": null,
+      "agenda_count": 6,
+      "relation_counts": {
+        "normal": 6
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "079900",
+      "company": "전진건설로봇",
+      "status": "exact",
+      "duration_s": 1.03,
+      "rcept_no": null,
+      "agenda_count": 7,
+      "relation_counts": {
+        "normal": 7
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "000640",
+      "company": "동아쏘시오홀딩스",
+      "status": "exact",
+      "duration_s": 0.8,
+      "rcept_no": null,
+      "agenda_count": 9,
+      "relation_counts": {
+        "normal": 9
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "017940",
+      "company": "E1",
+      "status": "exact",
+      "duration_s": 1.08,
+      "rcept_no": null,
+      "agenda_count": 11,
+      "relation_counts": {
+        "normal": 10,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "2-1",
+          "number": "제2-1호",
+          "title": "집중투표 배제 건 관련 정관의 변경",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "005880",
+      "company": "대한해운",
+      "status": "exact",
+      "duration_s": 1.24,
+      "rcept_no": null,
+      "agenda_count": 11,
+      "relation_counts": {
+        "normal": 10,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "2-1",
+          "number": "제2-1호",
+          "title": "집중투표제 배제 조항 삭제의 건",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "0120G0",
+      "company": "삼양바이오팜",
+      "status": "exact",
+      "duration_s": 0.86,
+      "rcept_no": null,
+      "agenda_count": 6,
+      "relation_counts": {
+        "normal": 6
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "268280",
+      "company": "미원에스씨",
+      "status": "exact",
+      "duration_s": 0.91,
+      "rcept_no": null,
+      "agenda_count": 7,
+      "relation_counts": {
+        "normal": 7
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "002960",
+      "company": "한국쉘석유",
+      "status": "exact",
+      "duration_s": 0.96,
+      "rcept_no": null,
+      "agenda_count": 16,
+      "relation_counts": {
+        "normal": 16
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "069260",
+      "company": "TKG휴켐스",
+      "status": "exact",
+      "duration_s": 0.83,
+      "rcept_no": null,
+      "agenda_count": 14,
+      "relation_counts": {
+        "normal": 14
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "033240",
+      "company": "자화전자",
+      "status": "exact",
+      "duration_s": 0.8,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 5
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "005090",
+      "company": "SGC에너지",
+      "status": "exact",
+      "duration_s": 0.79,
+      "rcept_no": null,
+      "agenda_count": 12,
+      "relation_counts": {
+        "normal": 12
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "002840",
+      "company": "미원상사",
+      "status": "exact",
+      "duration_s": 0.78,
+      "rcept_no": null,
+      "agenda_count": 4,
+      "relation_counts": {
+        "normal": 4
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "058650",
+      "company": "세아홀딩스",
+      "status": "exact",
+      "duration_s": 0.71,
+      "rcept_no": null,
+      "agenda_count": 12,
+      "relation_counts": {
+        "conditional": 1,
+        "normal": 11
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "1",
+          "number": "제1호",
+          "title": "제25기 재무제표(이익잉여금처분계산서 포함) 및 연결재무제표 승인의 건(1주당 보통주 배당금 : 4,300원)",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": "제1호 의안은 재무제표에 대한 외부감사인의 적정의견 및 감사 전원이 동의할 시 이사회에서 승인하고 주주총회에서 보고사항으로 변경됨.",
+          "agenda_relation_type": "conditional",
+          "agenda_relation_reasons": [
+            "conditional_field"
+          ],
+          "parent_title": "",
+          "depth": 0
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "093370",
+      "company": "후성",
+      "status": "exact",
+      "duration_s": 0.82,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 5
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "456040",
+      "company": "OCI",
+      "status": "exact",
+      "duration_s": 2.07,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 4,
+        "conditional": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "5",
+          "number": "제5호",
+          "title": "감사위원회 위원이 되는 사외이사 문태곤 선임의 건",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": "제5호 의안은 제2-2호 의안 가결을 전제로 상정되며,",
+          "agenda_relation_type": "conditional",
+          "agenda_relation_reasons": [
+            "conditional_field"
+          ],
+          "parent_title": "",
+          "depth": 0
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "383800",
+      "company": "LX홀딩스",
+      "status": "exact",
+      "duration_s": 2.28,
+      "rcept_no": null,
+      "agenda_count": 5,
+      "relation_counts": {
+        "normal": 5
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "005250",
+      "company": "녹십자홀딩스",
+      "status": "exact",
+      "duration_s": 1.16,
+      "rcept_no": null,
+      "agenda_count": 6,
+      "relation_counts": {
+        "normal": 6
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "214320",
+      "company": "이노션",
+      "status": "exact",
+      "duration_s": 0.9,
+      "rcept_no": null,
+      "agenda_count": 11,
+      "relation_counts": {
+        "normal": 11
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    },
+    {
+      "ticker": "079160",
+      "company": "CJ CGV",
+      "status": "exact",
+      "duration_s": 0.99,
+      "rcept_no": null,
+      "agenda_count": 12,
+      "relation_counts": {
+        "normal": 11,
+        "cumulative_related": 1
+      },
+      "non_normal_count": 1,
+      "notable": [
+        {
+          "agenda_id": "2-5",
+          "number": "제2-5호",
+          "title": "집중투표 배제 조항 삭제 관련 사항",
+          "source": null,
+          "proposer_type": "company",
+          "conditional": null,
+          "agenda_relation_type": "cumulative_related",
+          "agenda_relation_reasons": [
+            "cumulative_voting_title"
+          ],
+          "parent_title": "정관 변경의 건",
+          "depth": 1
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "ticker": "178920",
+      "company": "PI첨단소재",
+      "status": "exact",
+      "duration_s": 0.85,
+      "rcept_no": null,
+      "agenda_count": 12,
+      "relation_counts": {
+        "normal": 12
+      },
+      "non_normal_count": 0,
+      "notable": [],
+      "warnings": []
+    }
+  ]
+}

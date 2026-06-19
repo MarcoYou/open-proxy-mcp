@@ -1,0 +1,80 @@
+{
+  "meta": {
+    "tool": "shareholder_meeting_summary",
+    "universe": "kospi200",
+    "start": 35,
+    "sample_size": 2,
+    "batch_size": 2,
+    "batch_sleep_sec": 0.0,
+    "duration_sec": 2.48
+  },
+  "summary": {
+    "n_total": 2,
+    "n_ok": 2,
+    "n_exception": 0,
+    "n_equal": 2,
+    "n_not_equal": 0,
+    "median_speedup_pct": 38.15564758636828,
+    "mean_speedup_pct": 38.15564758636828,
+    "max_speedup_pct": 75.16402244800929,
+    "min_speedup_pct": 1.1472727247272705,
+    "status_counts": {
+      "error": 1,
+      "exact": 1
+    }
+  },
+  "records": [
+    {
+      "ticker": "051910",
+      "company": "LG화학",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.7434327499940991,
+      "experimental_sec": 0.18463879090268165,
+      "speedup_pct": 75.16402244800929,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "000810",
+      "company": "삼성화재",
+      "status": "error",
+      "experimental_status": "error",
+      "baseline_sec": 0.11832775000948459,
+      "experimental_sec": 0.1169702080078423,
+      "speedup_pct": 1.1472727247272705,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "error",
+        "warning_count": 1,
+        "filing_count": null,
+        "parsing_failures": null,
+        "meeting_phase": null,
+        "result_status": null
+      },
+      "experimental_summary": {
+        "status": "error",
+        "warning_count": 1,
+        "filing_count": null,
+        "parsing_failures": null,
+        "meeting_phase": null,
+        "result_status": null
+      }
+    }
+  ]
+}

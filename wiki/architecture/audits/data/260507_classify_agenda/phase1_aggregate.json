@@ -1,0 +1,427 @@
+{
+  "n_records": 300,
+  "n_ok": 289,
+  "n_total_agendas": 3145,
+  "n_mismatch": 607,
+  "mismatch_pct": 19.3,
+  "category_distribution": {
+    "financial_statements": 290,
+    "treasury_share": 83,
+    "articles_amendment": 450,
+    "other": 596,
+    "director_election": 1107,
+    "director_compensation": 298,
+    "audit_committee_election": 174,
+    "audit_compensation": 73,
+    "cash_dividend": 38,
+    "retirement_pay": 33,
+    "shareholder_proposal": 2,
+    "merger_or_restructuring": 1
+  },
+  "mismatch_by_category": {
+    "other": 488,
+    "audit_committee_election": 32,
+    "director_election": 50,
+    "cash_dividend": 15,
+    "retirement_pay": 4,
+    "treasury_share": 11,
+    "shareholder_proposal": 1,
+    "merger_or_restructuring": 1,
+    "financial_statements": 2,
+    "director_compensation": 2,
+    "audit_compensation": 1
+  },
+  "mismatch_sample_per_category": {
+    "other": [
+      {
+        "ticker": "028260",
+        "company": "삼성물산",
+        "parent": "정관 일부 변경의 건",
+        "title": "이사회내 위원회 명칭 변경"
+      },
+      {
+        "ticker": "028260",
+        "company": "삼성물산",
+        "parent": "정관 일부 변경의 건",
+        "title": "부칙"
+      },
+      {
+        "ticker": "373220",
+        "company": "LG에너지솔루션",
+        "parent": "정관 변경 승인의 건",
+        "title": "기재)"
+      },
+      {
+        "ticker": "042660",
+        "company": "한화오션",
+        "parent": "정관 일부 변경의 건",
+        "title": "목적사항 추가의 건"
+      },
+      {
+        "ticker": "042660",
+        "company": "한화오션",
+        "parent": "정관 일부 변경의 건",
+        "title": "개최방식 추가의 건(전자주주총회 반영)"
+      },
+      {
+        "ticker": "042660",
+        "company": "한화오션",
+        "parent": "정관 일부 변경의 건",
+        "title": "의결권 대리행사 추가의 건(대리권 증명방법 추가)"
+      },
+      {
+        "ticker": "042660",
+        "company": "한화오션",
+        "parent": "정관 일부 변경의 건",
+        "title": "이사의 임기 변경의 건(2년 → 3년)"
+      },
+      {
+        "ticker": "042660",
+        "company": "한화오션",
+        "parent": "정관 일부 변경의 건",
+        "title": "부칙 변경(시행일)"
+      },
+      {
+        "ticker": "272210",
+        "company": "한화시스템",
+        "parent": "정관 변경의 건",
+        "title": "전자주주총회 도입"
+      },
+      {
+        "ticker": "272210",
+        "company": "한화시스템",
+        "parent": "정관 변경의 건",
+        "title": "집중투표제 배제 조항 폐지"
+      }
+    ],
+    "audit_committee_election": [
+      {
+        "ticker": "042660",
+        "company": "한화오션",
+        "parent": "정관 일부 변경의 건",
+        "title": "감사위원회 구성 변경의 건 (분리선임 인원 변경 및 의결권 제한)"
+      },
+      {
+        "ticker": "272210",
+        "company": "한화시스템",
+        "parent": "정관 변경의 건",
+        "title": "감사위원 분리 선임 인원 확대"
+      },
+      {
+        "ticker": "012450",
+        "company": "한화에어로스페이스",
+        "parent": "정관 일부 변경의 건",
+        "title": "감사위원 분리선임 인원 변경"
+      },
+      {
+        "ticker": "000150",
+        "company": "두산",
+        "parent": "정관 일부 변경의 건",
+        "title": "독립이사 제도 도입 및 감사위원 분리선임 인원 상향의 건"
+      },
+      {
+        "ticker": "030200",
+        "company": "KT",
+        "parent": "정관 일부 변경의 건",
+        "title": "감사위원 분리선임 인원 상향"
+      },
+      {
+        "ticker": "035720",
+        "company": "카카오",
+        "parent": "정관 일부 변경의 건",
+        "title": "감사위원 분리선임 인원 상향 및 선·해임시 의결권 제한 강화의 건 (제27조 제7항, 제27조 제10항, 부칙 제5조)"
+      },
+      {
+        "ticker": "278470",
+        "company": "에이피알",
+        "parent": "정관변경의 건(세부안건 중 하나라도 반대시",
+        "title": "감사위원 분리선임 인원 상향"
+      },
+      {
+        "ticker": "000880",
+        "company": "한화",
+        "parent": "정관 일부 변경의 건",
+        "title": "감사위원 분리 선임 인원 확대"
+      },
+      {
+        "ticker": "180640",
+        "company": "한진칼",
+        "parent": "정관 일부 변경의 건",
+        "title": "전자투표 도입 시 감사위원 선임 결의요건 완화"
+      },
+      {
+        "ticker": "039490",
+        "company": "키움증권",
+        "parent": "정관 일부 변경의 건",
+        "title": "감사위원 분리선임 인원 변경 (제48조)"
+      }
+    ],
+    "director_election": [
+      {
+        "ticker": "042660",
+        "company": "한화오션",
+        "parent": "정관 일부 변경의 건",
+        "title": "사외이사 명칭 변경의 건(사외이사 → 독립이사)"
+      },
+      {
+        "ticker": "272210",
+        "company": "한화시스템",
+        "parent": "정관 변경의 건",
+        "title": "사외이사 명칭 변경"
+      },
+      {
+        "ticker": "012450",
+        "company": "한화에어로스페이스",
+        "parent": "정관 일부 변경의 건",
+        "title": "사외이사 명칭 변경"
+      },
+      {
+        "ticker": "012330",
+        "company": "현대모비스",
+        "parent": "정관 일부 변경의 건",
+        "title": "사외이사 명칭 변경의 건"
+      },
+      {
+        "ticker": "034020",
+        "company": "두산에너빌리티",
+        "parent": "정관 일부 변경의 건",
+        "title": "사외이사 명칭변경 및 감사위원회 구성 강화의 건"
+      },
+      {
+        "ticker": "000270",
+        "company": "기아",
+        "parent": "정관 일부 변경 승인의 건",
+        "title": "사외이사 명칭 변경의 건"
+      },
+      {
+        "ticker": "033780",
+        "company": "KT&G",
+        "parent": "정관 일부 변경의 건",
+        "title": "사외이사 명칭 변경"
+      },
+      {
+        "ticker": "086280",
+        "company": "현대글로비스",
+        "parent": "정관 일부 개정의 건",
+        "title": "사외이사 명칭 변경의 건"
+      },
+      {
+        "ticker": "010950",
+        "company": "S-Oil",
+        "parent": "정관 일부 변경의 건",
+        "title": "사외이사 명칭을 독립이사로 변경"
+      },
+      {
+        "ticker": "010950",
+        "company": "S-Oil",
+        "parent": "정관 일부 변경의 건",
+        "title": "이사 선임 시 집중투표제 배제 조항 삭제"
+      }
+    ],
+    "cash_dividend": [
+      {
+        "ticker": "012450",
+        "company": "한화에어로스페이스",
+        "parent": "정관 일부 변경의 건",
+        "title": "배당절차 개선 반영"
+      },
+      {
+        "ticker": "000150",
+        "company": "두산",
+        "parent": "정관 일부 변경의 건",
+        "title": "분기배당 기준일 설정 변경의 건"
+      },
+      {
+        "ticker": "021240",
+        "company": "코웨이",
+        "parent": "정관 일부 변경의 건",
+        "title": "분기 배당 조문 정비의 건"
+      },
+      {
+        "ticker": "111770",
+        "company": "영원무역",
+        "parent": "정관 일부 변경의 건",
+        "title": "배당기준일"
+      },
+      {
+        "ticker": "036570",
+        "company": "NC",
+        "parent": "정관 일부 변경의 건",
+        "title": "분기배당절차 개선 반영"
+      },
+      {
+        "ticker": "489790",
+        "company": "한화비전",
+        "parent": "정관 일부 변경의 건",
+        "title": "배당절차 개선의 건"
+      },
+      {
+        "ticker": "004170",
+        "company": "신세계",
+        "parent": "정관일부 변경의 건",
+        "title": "분기 배당 절차 개선"
+      },
+      {
+        "ticker": "112610",
+        "company": "씨에스윈드",
+        "parent": "정관 일부 변경의 건",
+        "title": "배당절차 개선 반영"
+      },
+      {
+        "ticker": "383220",
+        "company": "F&F",
+        "parent": "정관 일부 변경의 건",
+        "title": "배당절차 개선 반영의 건"
+      },
+      {
+        "ticker": "095340",
+        "company": "ISC",
+        "parent": "정관 개정 건",
+        "title": "제57조(이익배당) 변경 건"
+      }
+    ],
+    "retirement_pay": [
+      {
+        "ticker": "033780",
+        "company": "KT&G",
+        "parent": "정관 일부 변경의 건",
+        "title": "사내이사 및 경영임원 퇴직금지급규정 정비"
+      },
+      {
+        "ticker": "095340",
+        "company": "ISC",
+        "parent": "정관 개정 건",
+        "title": "제40조(이사의 보수와 퇴직금) 변경 건"
+      },
+      {
+        "ticker": "323280",
+        "company": "태성",
+        "parent": "정관 일부 변경의 건",
+        "title": "이사의 보수와 퇴직금 변경의 건(제37조)"
+      },
+      {
+        "ticker": "323280",
+        "company": "태성",
+        "parent": "정관 일부 변경의 건",
+        "title": "감사의 보수와 퇴직금 변경의 건(제49조)"
+      }
+    ],
+    "treasury_share": [
+      {
+        "ticker": "033780",
+        "company": "KT&G",
+        "parent": "정관 일부 변경의 건",
+        "title": "자기주식 보유 또는 처분에 관한 규정 신설"
+      },
+      {
+        "ticker": "030200",
+        "company": "KT",
+        "parent": "정관 일부 변경의 건",
+        "title": "자기주식보유처분계획 승인 의무 반영"
+      },
+      {
+        "ticker": "259960",
+        "company": "크래프톤",
+        "parent": "정관 일부 변경의 건",
+        "title": "자기주식 보유ㆍ처분 근거 규정 신설의 건"
+      },
+      {
+        "ticker": "001040",
+        "company": "CJ",
+        "parent": "정관 변경의 건",
+        "title": "자기주식 보유 또는 처분에 관한 규정 신설"
+      },
+      {
+        "ticker": "036570",
+        "company": "NC",
+        "parent": "정관 일부 변경의 건",
+        "title": "자기주식 보유 및 처분 관련 개정 상법 반영"
+      },
+      {
+        "ticker": "018880",
+        "company": "한온시스템",
+        "parent": "정관 일부 변경의 건",
+        "title": "자기주식 관련 상법 개정안 반영"
+      },
+      {
+        "ticker": "011780",
+        "company": "금호석유화학",
+        "parent": "정관 일부 변경의 건",
+        "title": "자기주식 보유, 처분에 관한 규정 명확화"
+      },
+      {
+        "ticker": "004990",
+        "company": "롯데지주",
+        "parent": "정관 일부 개정의 건",
+        "title": "자기주식 처분 및 보유 기준 신설의 건"
+      },
+      {
+        "ticker": "028300",
+        "company": "HLB",
+        "parent": "정관 일부 변경의 건",
+        "title": "자기주식의 보유 또는 처분의 건"
+      },
+      {
+        "ticker": "078600",
+        "company": "대주전자재료",
+        "parent": "정관 일부 변경의 건",
+        "title": "자기주식 소각 보유 처분 관련의 건"
+      }
+    ],
+    "shareholder_proposal": [
+      {
+        "ticker": "051910",
+        "company": "LG화학",
+        "parent": "정관 변경의 건",
+        "title": "권고적 주주제안의 도입"
+      }
+    ],
+    "merger_or_restructuring": [
+      {
+        "ticker": "010120",
+        "company": "LS ELECTRIC",
+        "parent": "정관 일부 변경의 건",
+        "title": "주식분할(액면분할)"
+      }
+    ],
+    "financial_statements": [
+      {
+        "ticker": "095340",
+        "company": "ISC",
+        "parent": "정관 개정 건",
+        "title": "제54조(재무제표 등의 작성 등) 변경 건"
+      },
+      {
+        "ticker": "357780",
+        "company": "솔브레인",
+        "parent": "정관 변경의 건",
+        "title": "기타 조문 정비의 건 (지배구조 개선을 위한 재무제표 및 배당 주주총회 승인 명문화)"
+      }
+    ],
+    "director_compensation": [
+      {
+        "ticker": "263750",
+        "company": "펄어비스",
+        "parent": "정관 변경의 건",
+        "title": "이사 보수한도 규정 신설"
+      },
+      {
+        "ticker": "397030",
+        "company": "에이프릴바이오",
+        "parent": "정관 일부 변경의 件",
+        "title": "임원보수관련 변경의 件"
+      }
+    ],
+    "audit_compensation": [
+      {
+        "ticker": "263750",
+        "company": "펄어비스",
+        "parent": "정관 변경의 건",
+        "title": "감사 보수한도 규정 신설"
+      }
+    ]
+  },
+  "sub_under_정관": 607,
+  "correctly_classified": 0,
+  "g2_accuracy_pct": 0.0
+}

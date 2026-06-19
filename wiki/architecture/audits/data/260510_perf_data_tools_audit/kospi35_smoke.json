@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "tool": "shareholder_meeting_summary",
+    "universe": "kospi35",
+    "sample_size": 2,
+    "batch_size": 2,
+    "batch_sleep_sec": 0.0,
+    "duration_sec": 6.67
+  },
+  "summary": {
+    "n_total": 2,
+    "n_ok": 2,
+    "n_exception": 0,
+    "n_equal": 2,
+    "n_not_equal": 0,
+    "median_speedup_pct": 81.55416568816855,
+    "mean_speedup_pct": 81.55416568816855,
+    "max_speedup_pct": 86.7277022262949,
+    "min_speedup_pct": 76.3806291500422,
+    "status_counts": {
+      "exact": 2
+    }
+  },
+  "records": [
+    {
+      "ticker": "005930",
+      "company": "삼성전자",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 1.107865208061412,
+      "experimental_sec": 0.26167079200968146,
+      "speedup_pct": 76.3806291500422,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "000660",
+      "company": "SK하이닉스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 1.5502892079530284,
+      "experimental_sec": 0.20575900003314018,
+      "speedup_pct": 86.7277022262949,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    }
+  ]
+}

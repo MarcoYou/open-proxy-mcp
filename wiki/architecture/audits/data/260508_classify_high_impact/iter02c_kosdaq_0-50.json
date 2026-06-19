@@ -1,0 +1,589 @@
+{
+  "meta": {
+    "universe": "kosdaq100",
+    "start": 0,
+    "count": 50,
+    "concurrency": 2,
+    "duration_s": 77.9,
+    "generated_at": "2026-05-07"
+  },
+  "records": [
+    {
+      "ticker": "084370",
+      "name": "유진테크",
+      "status": "no_filing",
+      "duration_s": 2.19,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "032820",
+      "name": "우리기술",
+      "status": "no_filing",
+      "duration_s": 4.79,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "095340",
+      "name": "ISC",
+      "status": "partial",
+      "duration_s": 3.9,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "031980",
+      "name": "피에스케이홀딩스",
+      "status": "exact",
+      "duration_s": 1.11,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ((2025년 이행현황))",
+          "category": "progress",
+          "expected": "progress",
+          "match": true,
+          "rcept_no": "20260430900522",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260330900872",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "000250",
+      "name": "삼천당제약",
+      "status": "no_filing",
+      "duration_s": 3.23,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "214450",
+      "name": "파마리서치",
+      "status": "exact",
+      "duration_s": 1.18,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260330900248",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "440110",
+      "name": "파두",
+      "status": "no_filing",
+      "duration_s": 3.67,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "086520",
+      "name": "에코프로",
+      "status": "exact",
+      "duration_s": 2.21,
+      "classifications": [
+        {
+          "report_name": "[기재정정]기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260401901169",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260327900991",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "141080",
+      "name": "리가켐바이오",
+      "status": "no_filing",
+      "duration_s": 4.6,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "319660",
+      "name": "피에스케이",
+      "status": "exact",
+      "duration_s": 1.09,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (2025년 이행현황)",
+          "category": "progress",
+          "expected": "progress",
+          "match": true,
+          "rcept_no": "20260430900483",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260330901878",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "214150",
+      "name": "클래시스",
+      "status": "exact",
+      "duration_s": 1.75,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260331904117",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "039030",
+      "name": "이오테크닉스",
+      "status": "exact",
+      "duration_s": 1.32,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (기업가치 제고 계획)",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260401901119",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "036930",
+      "name": "주성엔지니어링",
+      "status": "no_filing",
+      "duration_s": 3.8,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "277810",
+      "name": "레인보우로보틱스",
+      "status": "no_filing",
+      "duration_s": 2.15,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "030530",
+      "name": "원익홀딩스",
+      "status": "no_filing",
+      "duration_s": 3.92,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "068760",
+      "name": "셀트리온제약",
+      "status": "exact",
+      "duration_s": 2.96,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260324800435",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "145020",
+      "name": "휴젤",
+      "status": "no_filing",
+      "duration_s": 3.39,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "087010",
+      "name": "펩트론",
+      "status": "no_filing",
+      "duration_s": 4.68,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "247540",
+      "name": "에코프로비엠",
+      "status": "no_filing",
+      "duration_s": 3.53,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "218410",
+      "name": "RFHIC",
+      "status": "exact",
+      "duration_s": 2.12,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260330901528",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "403870",
+      "name": "HPSP",
+      "status": "exact",
+      "duration_s": 1.65,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260430901259",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "083650",
+      "name": "비에이치아이",
+      "status": "no_filing",
+      "duration_s": 3.99,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "263750",
+      "name": "펄어비스",
+      "status": "no_filing",
+      "duration_s": 4.92,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "298380",
+      "name": "에이비엘바이오",
+      "status": "no_filing",
+      "duration_s": 4.61,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "041510",
+      "name": "에스엠",
+      "status": "no_filing",
+      "duration_s": 2.94,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "064760",
+      "name": "티씨케이",
+      "status": "exact",
+      "duration_s": 1.58,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (2025년 이행현황)",
+          "category": "progress",
+          "expected": "progress",
+          "match": true,
+          "rcept_no": "20260504900405",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "237690",
+      "name": "에스티팜",
+      "status": "exact",
+      "duration_s": 2.84,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20250930900984",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "214370",
+      "name": "케어젠",
+      "status": "exact",
+      "duration_s": 3.44,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260324901565",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "347700",
+      "name": "스피어",
+      "status": "no_filing",
+      "duration_s": 2.05,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "476830",
+      "name": "알지노믹스",
+      "status": "no_filing",
+      "duration_s": 5.65,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "0009K0",
+      "name": "에임드바이오",
+      "status": "no_filing",
+      "duration_s": 5.63,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "108490",
+      "name": "로보티즈",
+      "status": "no_filing",
+      "duration_s": 4.28,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "950160",
+      "name": "코오롱티슈진",
+      "status": "no_filing",
+      "duration_s": 5.86,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "257720",
+      "name": "실리콘투",
+      "status": "no_filing",
+      "duration_s": 3.63,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "319400",
+      "name": "현대무벡스",
+      "status": "exact",
+      "duration_s": 1.2,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260424900653",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "376900",
+      "name": "로킷헬스케어",
+      "status": "no_filing",
+      "duration_s": 3.56,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "240810",
+      "name": "원익IPS",
+      "status": "no_filing",
+      "duration_s": 4.56,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "178320",
+      "name": "서진시스템",
+      "status": "no_filing",
+      "duration_s": 2.36,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "043260",
+      "name": "성호전자",
+      "status": "no_filing",
+      "duration_s": 4.46,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "226950",
+      "name": "올릭스",
+      "status": "no_filing",
+      "duration_s": 3.71,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "058470",
+      "name": "리노공업",
+      "status": "exact",
+      "duration_s": 1.17,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260326900771",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "058610",
+      "name": "에스피지",
+      "status": "exact",
+      "duration_s": 1.34,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260326900680",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "357780",
+      "name": "솔브레인",
+      "status": "partial",
+      "duration_s": 3.13,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "310210",
+      "name": "보로노이",
+      "status": "no_filing",
+      "duration_s": 2.49,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "035900",
+      "name": "JYP Ent.",
+      "status": "exact",
+      "duration_s": 1.17,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260220900878",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "140410",
+      "name": "메지온",
+      "status": "no_filing",
+      "duration_s": 1.85,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "196170",
+      "name": "알테오젠",
+      "status": "no_filing",
+      "duration_s": 5.59,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "028300",
+      "name": "HLB",
+      "status": "no_filing",
+      "duration_s": 2.1,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "347850",
+      "name": "디앤디파마텍",
+      "status": "no_filing",
+      "duration_s": 4.1,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "005290",
+      "name": "동진쎄미켐",
+      "status": "exact",
+      "duration_s": 1.19,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260327902836",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    }
+  ]
+}

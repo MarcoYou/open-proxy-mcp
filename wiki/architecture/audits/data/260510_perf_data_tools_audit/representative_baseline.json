@@ -1,0 +1,565 @@
+{
+  "company": {
+    "cold_sec": 4.368248000042513,
+    "warm_sec": 4.138223874964751,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 2,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 10,
+      "parsing_failures": 0,
+      "summary": null,
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "shareholder_meeting_notice_summary": {
+    "cold_sec": 1.0438326669391245,
+    "warm_sec": 0.8155737910419703,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 0,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 1,
+      "parsing_failures": 0,
+      "summary": null,
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": "post_meeting_pre_result",
+      "result_status": "pending_or_missing"
+    }
+  },
+  "shareholder_meeting_results": {
+    "cold_sec": 0.8622685000300407,
+    "warm_sec": 0.6766765000065789,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 0,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 1,
+      "parsing_failures": 0,
+      "summary": null,
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": "post_result",
+      "result_status": "available"
+    }
+  },
+  "ownership_structure_summary": {
+    "cold_sec": 0.40123354201205075,
+    "warm_sec": 0.3881355420453474,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 4,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 3,
+      "parsing_failures": 0,
+      "summary": {
+        "top_holder": {
+          "name": "(주)LG",
+          "relation": "최대주주 본인",
+          "shares": 24670331,
+          "ownership_pct": 31.52,
+          "settlement_date": "2025-12-31"
+        },
+        "related_total_pct": 31.55,
+        "treasury_shares": 2,
+        "treasury_pct": 0.0,
+        "active_signal_count": 0
+      },
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "financial_metrics_summary": {
+    "cold_sec": 0.39902629097923636,
+    "warm_sec": 6.082933396100998e-06,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 4,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 1,
+      "parsing_failures": 0,
+      "summary": {
+        "revenue_krw": 45932167000000,
+        "gross_profit_krw": 7809460000000,
+        "operating_profit_krw": 1180900000000,
+        "operating_margin_pct": 2.57,
+        "gross_margin_pct": 17.0,
+        "ebitda_krw": 1180900000000,
+        "ebitda_margin_pct": 2.57,
+        "net_income_krw": -977063000000,
+        "net_income_total_krw": -977063000000,
+        "net_profit_margin_pct": -2.13,
+        "prev_revenue_krw": 48916104000000,
+        "prev_operating_profit_krw": 916798000000,
+        "prev_net_income_krw": 515011000000,
+        "revenue_yoy_pct": -6.1,
+        "operating_profit_yoy_pct": 28.81,
+        "net_income_yoy_pct": -289.72,
+        "eps_krw": -23244,
+        "diluted_eps_krw": null,
+        "roe_pct": -2.05,
+        "roa_pct": -1.0,
+        "roic_pct": null,
+        "asset_turnover_ratio": 0.4713,
+        "equity_multiplier": 2.0496,
+        "roe_dupont_pct": -2.06,
+        "total_assets_krw": 101061661000000,
+        "total_liabilities_krw": 53956116000000,
+        "total_equity_krw": 47105545000000,
+        "current_assets_krw": 32526899000000,
+        "current_liabilities_krw": 26137148000000,
+        "debt_ratio_pct": 114.54,
+        "current_ratio_pct": 124.45,
+        "interest_coverage_ratio": 0.5471,
+        "debt_dependency_pct": null,
+        "total_debt_krw": null,
+        "net_cash_krw": null,
+        "cash_and_equivalents_krw": 9899926000000,
+        "cfo_krw": 8233859000000,
+        "capex_krw": 13660731000000,
+        "fcf_krw": -5426872000000,
+        "fcf_margin_pct": -11.81,
+        "cfo_to_op_ratio": 6.9725,
+        "capex_to_da_ratio": null,
+        "working_capital_krw": 6389751000000,
+        "nwc_krw": 11365530000000,
+        "nwc_change_yoy_krw": -1966052000000,
+        "nwc_to_revenue_pct": 24.74,
+        "accruals_gap_pct": -597.25,
+        "ar_to_revenue_pct": 14.64,
+        "inv_to_revenue_pct": 17.8,
+        "dividend_paid_krw": 226562000000,
+        "payout_ratio_pct": null,
+        "dividend_to_fcf_pct": null,
+        "retained_earnings_krw": 16999267000000,
+        "nav_krw": 47105545000000,
+        "bps_krw": null,
+        "capital_stock_krw": 391406000000,
+        "capital_impairment_ratio_pct": -11934.96,
+        "capital_impairment_status": "normal",
+        "subsidiary_count": null,
+        "dart_indx": {},
+        "year": 2025,
+        "fs_div": "CFS",
+        "reprt_code": "11011"
+      },
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "corp_gov_report_summary": {
+    "cold_sec": 0.6088132089935243,
+    "warm_sec": 0.4274171250872314,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 2,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 4,
+      "parsing_failures": 0,
+      "summary": null,
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "dividend_summary": {
+    "cold_sec": 2.444110875017941,
+    "warm_sec": 1.7872239999705926,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 4,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 15,
+      "parsing_failures": 0,
+      "summary": {
+        "period": "사업보고서(기말)",
+        "stlm_dt": "2025-12-31",
+        "cash_dps": 1668,
+        "cash_dps_preferred": 1669,
+        "stock_dps": 0,
+        "special_dps": 0,
+        "total_dps": 1668,
+        "total_amount_mil": 11107906,
+        "payout_ratio_dart": 25.1,
+        "yield_dart": 1.5,
+        "yield_preferred_dart": 1.9,
+        "net_income_consolidated_mil": 44260956,
+        "par_value_current": 100,
+        "par_value_previous": 100,
+        "items": [
+          {
+            "category": "주당액면가액(원)",
+            "stock_type": "",
+            "current": "100",
+            "previous": "100",
+            "before_previous": "100",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "(연결)당기순이익(백만원)",
+            "stock_type": "",
+            "current": "44,260,956",
+            "previous": "33,621,363",
+            "before_previous": "14,473,401",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "(별도)당기순이익(백만원)",
+            "stock_type": "",
+            "current": "33,686,601",
+            "previous": "23,582,565",
+            "before_previous": "25,397,099",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "(연결)주당순이익(원)",
+            "stock_type": "",
+            "current": "6,605",
+            "previous": "4,950",
+            "before_previous": "2,131",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "현금배당금총액(백만원)",
+            "stock_type": "",
+            "current": "11,107,906",
+            "previous": "9,810,767",
+            "before_previous": "9,809,438",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "주식배당금총액(백만원)",
+            "stock_type": "",
+            "current": "-",
+            "previous": "-",
+            "before_previous": "-",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": true
+          },
+          {
+            "category": "(연결)현금배당성향(%)",
+            "stock_type": "",
+            "current": "25.10",
+            "previous": "29.20",
+            "before_previous": "67.80",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "현금배당수익률(%)",
+            "stock_type": "보통주",
+            "current": "1.50",
+            "previous": "2.70",
+            "before_previous": "1.90",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "현금배당수익률(%)",
+            "stock_type": "우선주",
+            "current": "1.90",
+            "previous": "3.30",
+            "before_previous": "2.40",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "주식배당수익률(%)",
+            "stock_type": "보통주",
+            "current": "-",
+            "previous": "-",
+            "before_previous": "-",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": true
+          },
+          {
+            "category": "주식배당수익률(%)",
+            "stock_type": "우선주",
+            "current": "-",
+            "previous": "-",
+            "before_previous": "-",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": true
+          },
+          {
+            "category": "주당 현금배당금(원)",
+            "stock_type": "보통주",
+            "current": "1,668",
+            "previous": "1,446",
+            "before_previous": "1,444",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "주당 현금배당금(원)",
+            "stock_type": "우선주",
+            "current": "1,669",
+            "previous": "1,447",
+            "before_previous": "1,445",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": false
+          },
+          {
+            "category": "주당 주식배당(주)",
+            "stock_type": "보통주",
+            "current": "-",
+            "previous": "-",
+            "before_previous": "-",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": true
+          },
+          {
+            "category": "주당 주식배당(주)",
+            "stock_type": "우선주",
+            "current": "-",
+            "previous": "-",
+            "before_previous": "-",
+            "stlm_dt": "2025-12-31",
+            "is_special": false,
+            "is_stock_dividend": true
+          }
+        ],
+        "source": "alotMatter",
+        "pre_dividend_post_resolution": false,
+        "capital_reserve_reduction": false
+      },
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "treasury_share_summary": {
+    "cold_sec": 4.819043292081915,
+    "warm_sec": 4.186620332999155,
+    "payload": {
+      "status": "exact",
+      "warnings": 2,
+      "usage": {
+        "dart_api_calls": 41,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 17,
+      "parsing_failures": 0,
+      "summary": {
+        "acquisition_count": 6,
+        "acquisition_for_cancelation_count": 0,
+        "disposal_count": 6,
+        "trust_contract_count": 0,
+        "trust_termination_count": 0,
+        "cancelation_count": 2,
+        "total_event_count": 14,
+        "acquisition_shares_total": 253565544,
+        "acquisition_amount_total_krw": 23159207928700,
+        "acquisition_for_cancelation_shares_total": 0,
+        "acquisition_for_cancelation_amount_total_krw": 0,
+        "disposal_shares_total": 15961122,
+        "trust_contract_amount_total_krw": 0,
+        "cancelation_shares_total": 144019439,
+        "cancelation_amount_total_krw": 8394235034803,
+        "cancelation_body_parsed_count": 2
+      },
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "value_up_summary": {
+    "cold_sec": 1.957102374988608,
+    "warm_sec": 1.227480832953006,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 12,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 2,
+      "parsing_failures": 0,
+      "summary": null,
+      "event_count": null,
+      "availability_status": "found_in_requested_window",
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "corporate_restructuring_summary": {
+    "cold_sec": 0.39890958298929036,
+    "warm_sec": 0.40495166601613164,
+    "payload": {
+      "status": "no_filing",
+      "warnings": 1,
+      "usage": {
+        "dart_api_calls": 4,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 0,
+      "parsing_failures": 0,
+      "summary": null,
+      "event_count": {
+        "total": 0,
+        "merger": 0,
+        "split": 0,
+        "division_merger": 0,
+        "share_exchange": 0
+      },
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "dilutive_issuance_summary": {
+    "cold_sec": 0.39388887502718717,
+    "warm_sec": 0.4170827080961317,
+    "payload": {
+      "status": "no_filing",
+      "warnings": 1,
+      "usage": {
+        "dart_api_calls": 4,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 0,
+      "parsing_failures": 0,
+      "summary": null,
+      "event_count": {
+        "total": 0,
+        "rights_offering": 0,
+        "convertible_bond": 0,
+        "warrant_bond": 0,
+        "capital_reduction": 0
+      },
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "proxy_contest_summary": {
+    "cold_sec": 0.7901717079803348,
+    "warm_sec": 0.5353322080336511,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 5,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 34,
+      "parsing_failures": 0,
+      "summary": {
+        "proxy_filing_count": 7,
+        "shareholder_side_count": 4,
+        "retail_activism_count": 0,
+        "litigation_count": 23,
+        "active_signal_count": 4,
+        "has_contest_signal": true,
+        "top_holder": {
+          "name": "(유)와이피씨",
+          "relation": "본인",
+          "shares": 5262450,
+          "ownership_pct": 25.21,
+          "settlement_date": "2025-12-31"
+        },
+        "related_total_pct": 32.88,
+        "treasury_pct": 2.3,
+        "active_external_block_count": 3,
+        "active_overlap_block_count": 1
+      },
+      "event_count": null,
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  },
+  "related_party_transaction_summary": {
+    "cold_sec": 0.23841270804405212,
+    "warm_sec": 0.23505808401387185,
+    "payload": {
+      "status": "exact",
+      "warnings": 0,
+      "usage": {
+        "dart_api_calls": 2,
+        "mcp_tool_calls": 1,
+        "dart_daily_limit_per_minute": 1000
+      },
+      "filing_count": 2,
+      "parsing_failures": 0,
+      "summary": null,
+      "event_count": {
+        "total": 2,
+        "equity_deal_total": 0,
+        "equity_acquire": 0,
+        "equity_dispose": 0,
+        "supply_contract_total": 2,
+        "supply_conclude": 2,
+        "supply_terminate": 0,
+        "subsidiary_reports": 0,
+        "autonomous_disclosures": 0
+      },
+      "availability_status": null,
+      "meeting_phase": null,
+      "result_status": null
+    }
+  }
+}

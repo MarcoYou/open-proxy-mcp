@@ -1,0 +1,40 @@
+ticker,company,agenda_category,our_decision,majority_decision,majority_strength,alignment,status
+010120,LS ELECTRIC,financial_statements,FOR,FOR,3/3,follows_consensus,exact
+010120,LS ELECTRIC,articles_amendment,REVIEW,FOR,14/16,unique,exact
+010120,LS ELECTRIC,director_election,REVIEW,FOR,7/8,unique,exact
+010120,LS ELECTRIC,audit_committee_election,REVIEW,FOR,5/5,unique,exact
+010120,LS ELECTRIC,director_compensation,REVIEW,FOR,4/5,unique,exact
+012450,한화에어로스페이스,financial_statements,FOR,FOR,7/7,follows_consensus,exact
+012450,한화에어로스페이스,articles_amendment,REVIEW,FOR,71/71,unique,exact
+012450,한화에어로스페이스,other,REVIEW,FOR,2/2,unique,exact
+012450,한화에어로스페이스,director_election,REVIEW,FOR,50/52,unique,exact
+003230,삼양식품,financial_statements,FOR,AGAINST,2/4,aligns_with_outlier,exact
+003230,삼양식품,director_election,FOR,FOR,15/15,follows_consensus,exact
+003230,삼양식품,director_compensation,REVIEW,FOR,9/10,unique,exact
+323410,카카오뱅크,financial_statements,FOR,FOR,2/2,follows_consensus,exact
+323410,카카오뱅크,articles_amendment,REVIEW,FOR,24/24,unique,exact
+323410,카카오뱅크,cash_dividend,FOR,FOR,5/5,follows_consensus,exact
+323410,카카오뱅크,director_election,REVIEW,FOR,22/24,unique,exact
+323410,카카오뱅크,other,REVIEW,FOR,7/7,unique,exact
+278470,에이피알,financial_statements,FOR,FOR,2/2,follows_consensus,exact
+278470,에이피알,cash_dividend,FOR,FOR,8/8,follows_consensus,exact
+278470,에이피알,director_compensation,REVIEW,FOR,10/10,unique,exact
+035720,카카오,cash_dividend,FOR,FOR,8/9,follows_consensus,exact
+035720,카카오,articles_amendment,REVIEW,FOR,50/50,unique,exact
+035720,카카오,other,REVIEW,FOR,7/8,unique,exact
+035720,카카오,director_election,REVIEW,FOR,43/44,unique,exact
+005490,POSCO홀딩스,financial_statements,FOR,FOR,5/5,follows_consensus,exact
+005490,POSCO홀딩스,articles_amendment,REVIEW,FOR,43/43,unique,exact
+005490,POSCO홀딩스,other,REVIEW,,,no_data,exact
+005490,POSCO홀딩스,director_election,REVIEW,FOR,75/79,unique,exact
+005490,POSCO홀딩스,cash_dividend,REVIEW,FOR,9/9,unique,exact
+067310,하나마이크론,financial_statements,FOR,FOR,4/4,follows_consensus,exact
+067310,하나마이크론,other,REVIEW,FOR,4/5,unique,exact
+067310,하나마이크론,director_election,FOR,FOR,17/19,follows_consensus,exact
+067310,하나마이크론,director_compensation,REVIEW,FOR,13/16,unique,exact
+006400,삼성SDI,financial_statements,FOR,FOR,4/8,follows_consensus,exact
+006400,삼성SDI,director_election,REVIEW,FOR,19/29,unique,exact
+006400,삼성SDI,director_compensation,REVIEW,FOR,10/17,unique,exact
+006400,삼성SDI,articles_amendment,REVIEW,FOR,23/34,unique,exact
+085670,뉴프렉스,financial_statements,FOR,,,no_data,exact
+085670,뉴프렉스,director_compensation,REVIEW,FOR,1/2,unique,exact

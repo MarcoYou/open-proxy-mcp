@@ -1,0 +1,1360 @@
+{
+  "meta": {
+    "universe": "kosdaq100",
+    "start": 0,
+    "count": 15,
+    "year": 2026,
+    "concurrency": 2,
+    "inter_call_sleep_s": 1.0,
+    "duration_s": 23.7,
+    "generated_at": "2026-05-06"
+  },
+  "g1": {
+    "n_ok": 15,
+    "unconditional": {
+      "meeting_info": {
+        "ok": 15,
+        "n": 15,
+        "pct": 100.0
+      },
+      "agenda": {
+        "ok": 15,
+        "n": 15,
+        "pct": 100.0
+      },
+      "agenda_details": {
+        "ok": 15,
+        "n": 15,
+        "pct": 100.0
+      },
+      "corrections": {
+        "ok": 15,
+        "n": 15,
+        "pct": 100.0
+      }
+    },
+    "topic_gated": {
+      "personnel_when_director_or_audit": {
+        "ok": 14,
+        "n": 14,
+        "pct": 100.0
+      },
+      "aoi_when_aoi": {
+        "ok": 11,
+        "n": 11,
+        "pct": 100.0
+      },
+      "compensation_when_comp": {
+        "ok": 14,
+        "n": 14,
+        "pct": 100.0
+      },
+      "retirement_call_when_retire_or_aoi": {
+        "ok": 12,
+        "n": 12,
+        "pct": 100.0
+      },
+      "provisional_fs_when_financials": {
+        "ok": 13,
+        "n": 13,
+        "pct": 100.0
+      }
+    }
+  },
+  "records": [
+    {
+      "ticker": "087010",
+      "name": "펩트론",
+      "corp_code": "00415868",
+      "rcept_no": "20260310002776",
+      "rcept_dt": "20260310",
+      "report_nm": "[기재정정]주주총회소집공고",
+      "status": "ok",
+      "duration_s": 2.52,
+      "doc_html_len": 75842,
+      "doc_text_len": 18222,
+      "agm_filings_count": 2,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제29기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": true
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 5,
+          "total_titles": 7,
+          "topics": {
+            "has_director": true,
+            "has_audit": false,
+            "has_compensation": true,
+            "has_aoi": false,
+            "has_retirement": false,
+            "has_financials": false
+          },
+          "titles_sample": [
+            "제29기(2025.1.1 ~ 2025.12.31) 재무제표(이익잉여금처분계산서 또는 결손금처리계산서 포함) 승인의 건",
+            "이사 선임의 건",
+            "사내이사 선임 후보 김성원",
+            "사내이사 선임 후보 박대련",
+            "이사 보수한도액 승인의 건",
+            "감사 보수한도액 승인의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 5,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 1,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 2,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": true,
+          "items_count": 2,
+          "has_reason": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 0,
+          "consolidated_is_rows": 0,
+          "separate_bs_rows": 45,
+          "separate_is_rows": 20,
+          "extraction_status": "success",
+          "scope_used": "separate",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "298380",
+      "name": "에이비엘바이오",
+      "corp_code": "01256864",
+      "rcept_no": "20260312000773",
+      "rcept_dt": "20260312",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 4.17,
+      "doc_html_len": 702118,
+      "doc_text_len": 129329,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제10기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 6,
+          "total_titles": 8,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": false,
+            "has_retirement": false,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제10기(2025.1.1.∼2025.12.31.) 재무제표 승인의 건 (결손금처리계산서 포함)",
+            "정관 일부 개정의 건",
+            "감사위원회 위원이 되는 사외이사 선임의 건",
+            "감사위원이 되는 사외이사 신재균 선임의 건",
+            "감사위원이 되는 사외이사 최주현 선임의 건",
+            "이사 보수한도 승인의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 6,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 1,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 33,
+          "consolidated_is_rows": 27,
+          "separate_bs_rows": 37,
+          "separate_is_rows": 21,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "000250",
+      "name": "삼천당제약",
+      "corp_code": "00128546",
+      "rcept_no": "20260310002732",
+      "rcept_dt": "20260310",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 3.42,
+      "doc_html_len": 201340,
+      "doc_text_len": 35855,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제82기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 6,
+          "total_titles": 10,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": false,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제82기(2025.01.01~2025.12.31) 재무제표(이익잉여금 처분계산서(안) 포함) 및 연결재무제표 승인의 건",
+            "정관 일부 변경의 건",
+            "감사 선임의 건 (상근감사 1명)",
+            "감사(상근) 유연갑 선임의 건 성명 생년월 주요약력 추천인 회사와의 최근3년간 거래내역 최대주주와의 관계 체납사실 여부 부실기업 경영진 여부 법령상 결격사유 여부 유연갑 1964.10 전북대학교 법학대학원,수출입은행 부행장/준법감시인,법무법인(유) 태평양 경제고문 이사회 해당사항 없음 해당사항 없음 해당사항 없음 해당사항 없음 해당사항 없음",
+            "이사 선임의 건 (사외이사 1명)",
+            "사외이사 장병원 선임의 건 성명 생년월 주요약력 추천인 회사와의 최근3년간 거래내역 최대주주와의 관계 체납사실 여부 부실기업 경영진 여부 법령상 결격사유 여부 장병원 1956.11 서울대학교 보건대학원보건학 석사, 일본사회사업대학 대학원사회복지학 박사, 한국제약바이오협회 부회장, 복지부 건강보험정책심의위원회 위원, 現 동아에스티㈜ 사외이사 이사회 해당사항 없음 해당사항 없음 해당사항 없음 해당사항 없음 해당사항 없음"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 6,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 2,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 2,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 2,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 52,
+          "consolidated_is_rows": 30,
+          "separate_bs_rows": 51,
+          "separate_is_rows": 23,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "214370",
+      "name": "케어젠",
+      "corp_code": "00549891",
+      "rcept_no": "20260309001677",
+      "rcept_dt": "20260309",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 2.68,
+      "doc_html_len": 232197,
+      "doc_text_len": 87279,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제25기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 7,
+          "total_titles": 9,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": false,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제25기(2025.01.01~2025.12.31) 별도 및 연결재무제표 승인의 건 (이익잉여금처분계산서(안)포함)",
+            "정관 일부 변경의 건",
+            "이사 선임의 건",
+            "김중현 기타비상무이사 선임의 건",
+            "정헌주 기타비상무이사 선임의 건",
+            "감사위원회 위원이 되는 이영승 사외이사 선임의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 7,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 3,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 40,
+          "consolidated_is_rows": 26,
+          "separate_bs_rows": 17,
+          "separate_is_rows": 23,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "058470",
+      "name": "리노공업",
+      "corp_code": "00369657",
+      "rcept_no": "20260311003221",
+      "rcept_dt": "20260311",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 2.42,
+      "doc_html_len": 88177,
+      "doc_text_len": 23443,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제30기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 6,
+          "total_titles": 12,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": false,
+            "has_financials": false
+          },
+          "titles_sample": [
+            "제30기(2025.01.01.~2025.12.31.) 재무제표 (이익잉여금 처분계산서(안) 포함)승인의 건",
+            "정관 일부 변경의 건",
+            "감사위원회 도입을 위한 정관 변경(제33조,제35조,제37조, 제37조의2,제37조의3,제41조,제42조,제43조,제44조,제45조, 제46조,제48조,제49조,부칙 제2조)",
+            "표준정관 개정반영 등에 따른 정관 변경(제20조,제26조,제33조, 제34조의2,제47조,제50조,제51조,부칙 제1조,제3조,제4조)",
+            "이사 선임의 건(사내이사 2명)",
+            "사내이사 최용기 선임의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 7,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 3,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 2,
+          "with_before": 2,
+          "with_after": 2
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 0,
+          "consolidated_is_rows": 0,
+          "separate_bs_rows": 35,
+          "separate_is_rows": 20,
+          "extraction_status": "success",
+          "scope_used": "separate",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "141080",
+      "name": "리가켐바이오",
+      "corp_code": "00842619",
+      "rcept_no": "20260313000406",
+      "rcept_dt": "20260313",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 2.39,
+      "doc_html_len": 141519,
+      "doc_text_len": 27800,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제20기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 7,
+          "total_titles": 7,
+          "topics": {
+            "has_director": false,
+            "has_audit": false,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": false,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "별도 재무제표 및 연결 재무제표 승인의 건 (제20기 2025년 1월 1일∼12월 31일) ☞ 상기",
+            "정관 변경 승인의 건",
+            "(주주총회 부여분)주식매수선택권 부여 승인의 건",
+            "사내이사 (권용수) 선임의 건 (신규 선임)",
+            "이사 보수 한도액 승인의 건",
+            "감사 보수 한도액 승인의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 7,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 1,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 2,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 42,
+          "consolidated_is_rows": 32,
+          "separate_bs_rows": 38,
+          "separate_is_rows": 24,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 10
+        }
+      }
+    },
+    {
+      "ticker": "277810",
+      "name": "레인보우로보틱스",
+      "corp_code": "01261644",
+      "rcept_no": "20260313001141",
+      "rcept_dt": "20260313",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 2.53,
+      "doc_html_len": 162583,
+      "doc_text_len": 34281,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제15기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 4,
+          "total_titles": 9,
+          "topics": {
+            "has_director": true,
+            "has_audit": false,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": false,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제15기(2025년 1월 1일 - 2025년 12월 31일) 연결 및 별도 재무제표 승인의 건",
+            "정관 일부 변경의 건",
+            "본점 소재지 변경",
+            "개정 상법 반영 및 기타 정관 정비",
+            "이사 선임의 건",
+            "사내이사 이정호 선임의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 4,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 1,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 39,
+          "consolidated_is_rows": 25,
+          "separate_bs_rows": 38,
+          "separate_is_rows": 19,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "028300",
+      "name": "HLB",
+      "corp_code": "00199252",
+      "rcept_no": "20260316000897",
+      "rcept_dt": "20260316",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 2.98,
+      "doc_html_len": 173846,
+      "doc_text_len": 38795,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제41기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 6,
+          "total_titles": 17,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": false,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제41기(2025.01.01~2025.12.31)연결 및 별도재무제표 승인의 건",
+            "이사 선임의 건 (사내이사 4명)",
+            "사내이사 진양곤 재선임의 건",
+            "사내이사 김태한 신규선임의 건",
+            "사내이사 김홍철 신규선임의 건",
+            "사내이사 손도국 신규선임의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 6,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 2,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 48,
+          "consolidated_is_rows": 29,
+          "separate_bs_rows": 46,
+          "separate_is_rows": 20,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "240810",
+      "name": "원익IPS",
+      "corp_code": "01135941",
+      "rcept_no": "20260309001596",
+      "rcept_dt": "20260309",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 3.02,
+      "doc_html_len": 173327,
+      "doc_text_len": 36692,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제10기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 5,
+          "total_titles": 7,
+          "topics": {
+            "has_director": true,
+            "has_audit": false,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": true,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제10기(2025.1.1. ~ 2025.12.31.) 재무제표 승인의 건",
+            "정관 일부 변경의 건",
+            "이사 선임의 건",
+            "사내이사 이용한 선임의 건",
+            "사내이사 김용길 선임의 건",
+            "이사 보수한도 승인의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 5,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 1,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 4,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 46,
+          "consolidated_is_rows": 28,
+          "separate_bs_rows": 43,
+          "separate_is_rows": 20,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "950160",
+      "name": "코오롱티슈진",
+      "corp_code": "01245062",
+      "rcept_no": "20260306000719",
+      "rcept_dt": "20260306",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 2.63,
+      "doc_html_len": 162907,
+      "doc_text_len": 29889,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제27기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 6,
+          "total_titles": 10,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": false,
+            "has_retirement": false,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제27기 (2025.01.01~2025.12.31) 재무제표 승인의 건",
+            "이사 선임 승인의 건",
+            "전승호 사내이사 후보자 선임 승인의 건",
+            "이규호 사내이사 후보자 선임 승인의 건",
+            "Jan Van Acker 사외이사 후보자 선임 승인의 건",
+            "Robert Yuen Lee Ang 사외이사 후보자 선임 승인의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 6,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 2,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 2,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 0,
+          "consolidated_is_rows": 0,
+          "separate_bs_rows": 34,
+          "separate_is_rows": 21,
+          "extraction_status": "success",
+          "scope_used": "separate",
+          "metric_keys_filled": 8
+        }
+      }
+    },
+    {
+      "ticker": "310210",
+      "name": "보로노이",
+      "corp_code": "01327746",
+      "rcept_no": "20260313000759",
+      "rcept_dt": "20260313",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 2.74,
+      "doc_html_len": 191721,
+      "doc_text_len": 41917,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제11기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 6,
+          "total_titles": 11,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": false,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제11기(2025.01.01~2025.12.31) 재무제표 및 연결재무제표 승인의 건",
+            "정관 일부 변경의 건",
+            "독립이사 명칭변경 및 독립이사 구성요건에 관한 상법 개정사항 반영",
+            "이사의 충실의무 도입을 위한 정관 변경의 건",
+            "감사위원회 제도 도입을 위한 정관 변경의 건",
+            "감사위원회 위원이 되는 독립이사 선임의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 6,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 2,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 2,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 44,
+          "consolidated_is_rows": 23,
+          "separate_bs_rows": 43,
+          "separate_is_rows": 17,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 9
+        }
+      }
+    },
+    {
+      "ticker": "247540",
+      "name": "에코프로비엠",
+      "corp_code": "01160363",
+      "rcept_no": "20260306000767",
+      "rcept_dt": "20260306",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 3.72,
+      "doc_html_len": 352171,
+      "doc_text_len": 86518,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제10기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 8,
+          "total_titles": 11,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": true,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제 10기(2025.01.01 ~ 2025.12.31) 재무제표 승인의 건 (현금배당 보통주 1주당 100원)",
+            "정관 일부 변경의 건",
+            "이사 선임의 건",
+            "기타비상무이사 김순주 선임의 건",
+            "사내이사 이완표 선임의 건",
+            "사외이사 강기석 선임의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 10,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 5,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 2,
+          "with_before": 2,
+          "with_after": 2
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 8,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 49,
+          "consolidated_is_rows": 28,
+          "separate_bs_rows": 44,
+          "separate_is_rows": 20,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "095340",
+      "name": "ISC",
+      "corp_code": "00572905",
+      "rcept_no": "20260311003160",
+      "rcept_dt": "20260311",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 3.4,
+      "doc_html_len": 82302,
+      "doc_text_len": 19266,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제25기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 7,
+          "total_titles": 17,
+          "topics": {
+            "has_director": true,
+            "has_audit": false,
+            "has_compensation": true,
+            "has_aoi": false,
+            "has_retirement": true,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제25기 결산 재무제표 승인 건",
+            "제25기 현금배당 승인 건",
+            "이사 선임의 건",
+            "김종우 기타비상무이사 선임 건",
+            "김선혁 기타비상무이사 선임 건",
+            "박혜경 사외이사 선임 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 6,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 1,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "with_before": 1,
+          "with_after": 1
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 2,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 1,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 17,
+          "consolidated_is_rows": 8,
+          "separate_bs_rows": 15,
+          "separate_is_rows": 8,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    },
+    {
+      "ticker": "086520",
+      "name": "에코프로",
+      "corp_code": "00536541",
+      "rcept_no": "20260311003383",
+      "rcept_dt": "20260311",
+      "report_nm": "[기재정정]주주총회소집공고",
+      "status": "ok",
+      "duration_s": 3.39,
+      "doc_html_len": 311295,
+      "doc_text_len": 64390,
+      "agm_filings_count": 2,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제28기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": true
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 6,
+          "total_titles": 15,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": false,
+            "has_aoi": true,
+            "has_retirement": true,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제28기(2025.01.01 ~ 2025.12.31) 재무제표 승인의 건 (현금배당 보통주 1주당 150원)",
+            "정관 일부 변경의 건",
+            "집중투표 배제 조항 변경의 건",
+            "사업목적 추가의 건",
+            "이사 선임 및 보수관련 변경의 건",
+            "기타 변경의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 7,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 3,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 4,
+          "with_before": 4,
+          "with_after": 4
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": true,
+          "items_count": 1,
+          "has_reason": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 6,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 55,
+          "consolidated_is_rows": 30,
+          "separate_bs_rows": 44,
+          "separate_is_rows": 20,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 11
+        }
+      }
+    },
+    {
+      "ticker": "196170",
+      "name": "알테오젠",
+      "corp_code": "00989619",
+      "rcept_no": "20260316001218",
+      "rcept_dt": "20260316",
+      "report_nm": "주주총회소집공고",
+      "status": "ok",
+      "duration_s": 3.68,
+      "doc_html_len": 197548,
+      "doc_text_len": 38320,
+      "agm_filings_count": 1,
+      "parsers": {
+        "meeting_info": {
+          "call_status": "ok",
+          "meeting_type": "정기",
+          "meeting_term": "제18기",
+          "datetime_present": true,
+          "location_present": true,
+          "is_correction": false
+        },
+        "agenda": {
+          "call_status": "ok",
+          "root_count": 9,
+          "total_titles": 14,
+          "topics": {
+            "has_director": true,
+            "has_audit": true,
+            "has_compensation": true,
+            "has_aoi": true,
+            "has_retirement": true,
+            "has_financials": true
+          },
+          "titles_sample": [
+            "제18기(2025.01.01~2025.12.31) 연결재무제표 및 재무제표 승인의 건",
+            "정관 일부 변경의 건",
+            "개정 상법 반영",
+            "감사위원회 설치 관련 정관 정비",
+            "기타 정관 정비",
+            "사내이사 김항연 선임의 건"
+          ]
+        },
+        "agenda_details": {
+          "call_status": "ok",
+          "items_count": 10,
+          "with_body": 0
+        },
+        "personnel": {
+          "call_status": "ok",
+          "appointments_count": 4,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        },
+        "aoi": {
+          "call_status": "ok",
+          "amendments_count": 3,
+          "with_before": 3,
+          "with_after": 3
+        },
+        "compensation": {
+          "call_status": "ok",
+          "items_count": 1,
+          "categories": []
+        },
+        "corrections": {
+          "call_status": "ok",
+          "is_correction": false
+        },
+        "retirement_pay": {
+          "call_status": "ok",
+          "amendments_count": 7,
+          "kinds": []
+        },
+        "provisional_fs": {
+          "call_status": "ok",
+          "consolidated_bs_rows": 46,
+          "consolidated_is_rows": 24,
+          "separate_bs_rows": 44,
+          "separate_is_rows": 20,
+          "extraction_status": "success",
+          "scope_used": "consolidated",
+          "metric_keys_filled": 12
+        }
+      }
+    }
+  ]
+}

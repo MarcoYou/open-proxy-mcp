@@ -1,0 +1,185 @@
+---
+type: tool
+title: proxy_advise_before_meeting
+domain: action
+scope: [decisions]
+data_source: [shareholder_meeting (notice), ownership_structure, corp_gov_report, financial_metrics, director_evaluation (internal), agm_first_agenda_fy (internal)]
+related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구조보고서]
+related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
+related_decisions: [open-proxy-guideline]
+related_audits: [260528_proxy_advise_metric_gap_audit, 260525_0200_audit_agenda-relation-kospi300, 260510_proxy_advise_audit_통합정리, 260504_2200_audit_proxy_advise_framework_iter1-8, 260503_1847_audit_phase4_final, 260504_0028_audit_proxy_advise_rename_regression, 260504_0724_audit_parse_personnel_iter1-7]
+created: 2026-05-04
+updated: 2026-05-28
+---
+
+# proxy_advise_before_meeting
+
+## 한 줄 요약
+주총 **사전** 안건별 의결권 권고 + 명확한 결정 근거 한 번에. 1회 호출로 결정 + facts + risk + 정책 근거 + 후보 raw 모두.
+
+## 단순화 (2026-05-05)
+이전 10 scope 구조 → **scope param 폐지, 항상 decisions** (단일).
+Specialized 정보 (agenda 트리, 후보 raw, 재무 51 지표 등)는 각 data tool 직접 호출 권장:
+- 안건/이사후보 → [[shareholder_meeting_notice]]
+- 재무 detail → [[financial_metrics]]
+- 거버넌스 → [[corp_gov_report]]
+- 지분/5%블록 → [[ownership_structure]] / [[proxy_contest]]
+- 가치제고 → [[value_up]]
+
+## 사용법
+
+```python
+proxy_advise_before_meeting(
+    company="KT&G",
+    year=2026,
+    meeting_type="annual",
+    vote_style="open_proxy",
+    check_audit_history=False,
+)
+```
+
+## 입력 인자
+
+| 인자 | 타입 | 필수 | 설명 | 기본값 |
+|---|---|---|---|---|
+| company | str | yes | 회사명 / ticker / corp_code | - |
+| year | int | no | 주총 연도 (사업연도 X) | 자동 (전년) |
+| meeting_type | str | no | "annual" / "extraordinary" / "auto" | "annual" |
+| vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface이며 사용자 출력에는 실명/식별자 노출 안 함 | "open_proxy" |
+| check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
+| format | str | no | "md" / "json" | "md" |
+
+## 출력 schema (decisions)
+
+각 안건별 (`agenda_decisions[]`):
+
+| 필드 | 의미 |
+|---|---|
+| `decision` | FOR / AGAINST / REVIEW / **NO_DATA** |
+| `reason` | 결정 사유 한 줄 |
+| `facts` | 정량 fact dict (net_income / cap_status / 1번 안건 본문 FY raw / 후보 평가 등) |
+| `risk_factors` | 위험 신호 list ("완전 자본잠식", "장기연임", "이사 회계 risk 이력" 등) |
+| `policy_citation` | OPM Guideline 근거 ("§재무제표 — 적정 + 잠식 없음 시 FOR" 등) |
+| `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
+| `evidence_rcept_no` | 근거 공고 (DART viewer link) |
+| `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect |
+| `candidate_review_profile` | 후보 선임 안건용 evidence bundle. 결격사유, 독립성 세부 사유, 겸직 구간, 연임/재직 시작, 추천사유/직무계획 raw, 사내이사 성과 요약을 묶어 노출 |
+| `facts.*_band` | 보수 인상률, 보수 소진율, 감사 1인당 보수, 배당성향, 자사주 비율을 사람이 읽기 쉬운 구간값으로 구조화 |
+| `facts.retirement_multiplier_evidence` | 퇴직금/퇴임위로금 변경 안건의 before/after 배수, 증가율, strong review signal |
+| `facts.retirement_target_expansion` | 퇴직금/퇴임위로금 지급 대상이 새로 확장된 경우의 조항과 대상 키워드 |
+| `facts.director_per_person_limit_krw` / `facts.audit_per_person_krw` | 총 보수한도와 인원수로 산출한 1인당 한도. decision을 바꾸기보다 REVIEW 근거 확인용 evidence |
+| `facts.treasury_pct` / `facts.related_total_pct` / `facts.active_signal_count` | 이미 호출한 ownership data를 자사주/지배력 관련 안건 facts에 구조화 |
+
+진단 필드:
+
+| 필드 | 의미 |
+|---|---|
+| `data.timings_ms` | `resolve_company`, `prewarm_corp_codes`, `upstreams_total`, `upstream.*`, `notice_doc_reuse`, `decision_engine`, `total` 등 stage별 소요 시간(ms). timeout/지연 병목 확인용. |
+
+후보 평가 (`candidates_evaluations[]`):
+
+| 필드 | 의미 |
+|---|---|
+| 독립성 / 결격사유 / 충실성 | 자동 판단 (Korean 자연 라벨: "독립적" / "약한 우려" / "우려" 등) |
+| main_job | 현 직책 (전문성 hint) |
+| recommendation_reason_raw | 추천사유 (회사 본문 raw) |
+| career_company_groups | 경력 (회사·기간) |
+| audit_history_check | 과거 회사 회계 risk overlap (옵션) |
+| **performance** | **사내이사 연임 후보 한정** — 재직 중 회사 운영 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend), 6 cell 점수, classification good/moderate/weak/bad, rationale 한국어. **점수 미반영 fact**: 영업이익률(본업 수익성 — ROE 왜곡 보완, `core_profitable` 본업 흑/적자) + 수주·해지(order_contracts signal_summary — 적자기업 미래매출 가시성). 적자기업이 ROE만으로 부당하게 깔리지 않게 해석 단서로 분리 (자세히는 [[260505_1700_decision_inside-director-performance-matrix]]) |
+
+## 6 upstream chain (병렬)
+
+1. shareholder_meeting (summary + agenda + compensation)
+2. ownership_structure (control_map)
+3. corp_gov_report (summary)
+4. financial_metrics (FY-2 reference, 안정 데이터)
+5. director_evaluation (후보 평가)
+6. agm_first_agenda_fy (1번 안건 본문 FY raw 추출)
+
+**+ 사내이사 연임 후보 detect 시 추가 chain (회사 단위 1회)**:
+7. dividend (history, 10년) — CSR avg/trend 계산
+8. treasury_share (summary, **동적 lookback** 36~120개월) — 소각 events. 가장 오래 재직한
+   사내이사 기준 `(target-min(earliest_start)+2)*12`로 좁힘(상한 120, detect fail시 120).
+   소각은 재직기간만 CSR에 쓰여 정확도 보존(20사 검증 mismatch 0)
+9. financial_metrics (yearly) — ROE/부채비율 시계열 + **영업이익률**(점수 미반영 fact)
+10. order_contracts (max_documents=10 경량화) — 수주·해지 signal_summary fact (점수 미반영)
+
+## 결정 logic
+
+OPM 자체 함수들 + vote_style 정책 wire:
+- `_decide_director_election` (사외/사내·결격·독립성·장기연임 + **사내이사 재직 성과 bad→AGAINST / weak→REVIEW**)
+- `_decide_financial_statements` (감사의견·자본잠식)
+- `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등)
+- `_decide_audit_compensation` (감사 보수한도 11 분기 — 참조 감사보수 규칙 + strict 내부 패턴: 1인당 평균 과소 + 인상률 과다)
+- `_decide_retirement_pay` (퇴직금 12 분기 — 황금낙하산·사외이사 퇴직금·지급률 2배수+ 등)
+- `_decide_articles_amendment` 안에서 정관변경에 묶인 퇴직금/보수한도 hybrid 처리
+- `_decide_dividend` (배당성향·자본잠식·리츠 의무 90%)
+- `_decide_articles_amendment` (집중투표 배제 등 위험 키워드)
+- `_decide_treasury_share` (소각 vs 처분)
+- `_apply_policy_default` (vote_style 정책 default가 case_by_case 아니면 OPM 결정 override)
+
+## Layer consistency guarantee (2026-05-25)
+
+`proxy_advise_before_meeting`은 모든 안건을 억지로 하나의 법령 layer에 매핑하지 않는다. 보장 범위는 **파싱된 안건에 대해 동일한 순서로 판단 layer와 guardrail을 적용한다**는 것이다.
+
+적용 순서:
+
+1. `shareholder_meeting_notice`에서 full agenda tree와 relation metadata를 받는다.
+2. 법령 강행규정/위험규칙에 해당하면 law layer가 먼저 판단한다.
+3. law layer hit가 없고 안건이 `procedural`, `conditional`, `alternative`이면 자동 FOR/AGAINST 대신 REVIEW로 둔다.
+4. 일반 안건은 기존 decision path로 간다.
+   - 재무제표/배당: 재무·배당 decision
+   - 이사/감사위원 선임: 후보 평가 decision
+   - 보수/퇴직금: compensation/retirement decision
+   - 정관변경: law layer + 정관변경 decision
+5. 위 분기에도 걸리지 않는 일반/저위험 안건은 policy default를 적용한다.
+
+따라서 "모든 기업의 모든 안건이 law layer에 걸린다"는 보장은 하지 않는다. 대신 KOSPI300 기준으로 주총 소집공고 파싱은 `exact` 298 / `no_filing` 2 / `requires_review` 0까지 확인했고, 파싱된 안건에는 relation metadata와 동일한 layer 적용 순서가 일관되게 제공된다.
+
+## 검증
+
+- ralph 27 iter G2 99.36% (vs 8 운용사 majority, 4+ vote case)
+- ralph framework iter1~8 KOSPI 100 + KOSDAQ 50 (566 후보 / 1271 안건)
+  - G1 4 dimension 노출률 100%
+  - G2 NO_DATA false-positive 0%
+  - G3 신임/연임 classified 99.5%, 사내 false-new 0%
+  - G4 1번 안건 FY raw 추출 98.6%
+- ralph 260505 사내이사 성과 매트릭스 (KOSPI 100 + KOSDAQ 50, n=128):
+  - G1 classification 노출률 100% (≥99%)
+  - G2 적자 16건 모두 special rule 작동, 자본잠식 0건
+  - G3 bad→AGAINST, weak→REVIEW 분기 작동 (한화오션 김희철, HD현대중공업 금석호 등)
+  - G4 distribution good 29.7 / mod 45.3 / weak 18.0 / bad 7.0 — 모든 target band 충족
+- ralph 260505 보수/퇴직 분기 정밀화 (KOSPI 200 + KOSDAQ 50, n=226):
+  - G1 파싱 성공률 director 99.2 / audit 100 / retirement 100
+  - G2 trigger 정확도 100% — AGAINST 5건 (피에스케이/피에스케이홀딩스/GST 지급률 2배수+ / 카카오페이 사외이사 퇴직금 / 퓨쳐메디신 자본잠식+인상)
+  - G3 운용사 4+ majority 정합 100% (director 11/11, audit 1/1)
+  - G4 reference rule 정합 100% — 모든 AGAINST가 참조 보수/감사보수/퇴직금 규칙 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치
+  - 정관 안에 묶인 퇴직금/보수 hybrid 통합 (코붕이 의견)
+  - financial_metrics summary에 prev_net_income/yoy 노출 → 흑자+yoy<0 trigger 활성화
+- 260525 agenda relation / 주총 소집공고 parser 재검증:
+  - KOSPI300 재실행 exact 298 / no_filing 2 / requires_review 0
+  - `procedural`, `conditional`, `alternative`, `cumulative_related` relation metadata 노출
+  - 법령 layer hit가 없는 절차성/조건부/대안형 안건은 자동 FOR 대신 REVIEW guardrail 적용
+  - 상세: [[260525_0200_audit_agenda-relation-kospi300]]
+
+## 미수집 (의도적 제외)
+
+- 형사 처벌 / 사적 관계 / 동명이인 (hard-fail)
+- 1주당 액면가 (treasury 공시에 없음)
+- 1일 매수/매도 한도 (분석 가치 낮음)
+
+## 변경 이력
+
+- 2026-05-05: scope 10 → 1 (decisions만), specialized scope 폐지 (raw는 각 tool 직접 호출). proxy_guideline service archive (실 호출 X 확인).
+- 2026-05-04: framework enrichment ralph (facts/risk/citation/근거공고/후보 raw + 신임·연임 auto detect + 1번안건 FY raw)
+- 2026-05-04: rename (구 advise_vote_before_meeting) + 9 scope 추가
+- 2026-05-02: 구 advise_vote_before_meeting
+
+## ref
+
+- Word 보고서 설계: [[proxy_advise_word_report_design]]
+- 사후 결과: [[shareholder_meeting_results]]
+- 사전 안건 raw: [[shareholder_meeting_notice]]
+- agenda relation/parser audit: [[260525_0200_audit_agenda-relation-kospi300]]
+- 지표 gap audit: [[260528_proxy_advise_metric_gap_audit]]
+- archive (옛 specialized scope service): `wiki/archive/services/policy_comparison.py` / `proxy_guideline.py`

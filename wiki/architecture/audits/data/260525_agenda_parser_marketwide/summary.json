@@ -1,0 +1,23 @@
+{
+  "audit_id": "260525_agenda_parser_marketwide",
+  "generated_at": "2026-05-25T16:39:09.312727+00:00",
+  "universe_count": 650,
+  "status_counts": {
+    "ok": 641,
+    "no_filing": 9
+  },
+  "issue_counts": {
+    "charter_agenda_without_aoi_amendments": 2,
+    "title_too_long": 2,
+    "agenda_low_confidence": 1
+  },
+  "reparse_hash_diffs_vs_live": {
+    "loop_02_1": 0,
+    "loop_02_2": 0,
+    "loop_02_3": 0
+  },
+  "output_files": {
+    "issues_csv": "wiki/architecture/audits/data/260525_agenda_parser_marketwide/issues.csv",
+    "variants_csv": "wiki/architecture/audits/data/260525_agenda_parser_marketwide/variants.csv"
+  }
+}

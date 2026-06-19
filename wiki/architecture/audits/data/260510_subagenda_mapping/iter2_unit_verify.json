@@ -1,0 +1,162 @@
+[
+  {
+    "name": "카카오게임즈",
+    "asset_2tril": true,
+    "n_agendas": 12,
+    "n_amendments": 2,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "body_hits_n": 0,
+    "body_hits": [],
+    "sub_hits_n": 0,
+    "sub_hits": [],
+    "used_amendments": []
+  },
+  {
+    "name": "한미사이언스",
+    "asset_2tril": false,
+    "n_agendas": 12,
+    "n_amendments": 7,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "body_hits_n": 0,
+    "body_hits": [],
+    "sub_hits_n": 3,
+    "sub_hits": [
+      {
+        "title": "제31조 (이사 및 감사의 수)",
+        "rule": "A1-5",
+        "mapped_amendment_idx": 2,
+        "mapped_label": ""
+      },
+      {
+        "title": "제34조 (이사의 보선)",
+        "rule": "A1-5",
+        "mapped_amendment_idx": 3,
+        "mapped_label": ""
+      },
+      {
+        "title": "제41조의3 (감사위원회의 구성)",
+        "rule": "A1-4",
+        "mapped_amendment_idx": 5,
+        "mapped_label": ""
+      }
+    ],
+    "used_amendments": [
+      2,
+      3,
+      5
+    ]
+  },
+  {
+    "name": "강원랜드",
+    "asset_2tril": true,
+    "n_agendas": 5,
+    "n_amendments": 1,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "body_hits_n": 0,
+    "body_hits": [],
+    "sub_hits_n": 0,
+    "sub_hits": [],
+    "used_amendments": []
+  },
+  {
+    "name": "한라캐스트",
+    "asset_2tril": false,
+    "n_agendas": 16,
+    "n_amendments": 1,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "body_hits_n": 0,
+    "body_hits": [],
+    "sub_hits_n": 0,
+    "sub_hits": [],
+    "used_amendments": []
+  },
+  {
+    "name": "차바이오텍",
+    "asset_2tril": true,
+    "n_agendas": 19,
+    "n_amendments": 4,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "body_hits_n": 0,
+    "body_hits": [],
+    "sub_hits_n": 2,
+    "sub_hits": [
+      {
+        "title": "정관 제23조(이사와 감사의 원수) 개정의 건",
+        "rule": "A1-6",
+        "mapped_amendment_idx": 0,
+        "mapped_label": "제23조(이사와 감사의 원수)"
+      },
+      {
+        "title": "정관 제21조(의결권) 개정의 건",
+        "rule": "A1-1",
+        "mapped_amendment_idx": 3,
+        "mapped_label": "제21조(의결권)"
+      }
+    ],
+    "used_amendments": [
+      0,
+      3
+    ]
+  },
+  {
+    "name": "유한양행",
+    "asset_2tril": true,
+    "n_agendas": 13,
+    "n_amendments": 2,
+    "title_hits_n": 0,
+    "title_hits": [],
+    "body_hits_n": 0,
+    "body_hits": [],
+    "sub_hits_n": 1,
+    "sub_hits": [
+      {
+        "title": "제30조(이사의 선임)",
+        "rule": "A1-1",
+        "mapped_amendment_idx": 0,
+        "mapped_label": "제30조(이사의 선임)"
+      }
+    ],
+    "used_amendments": [
+      0
+    ]
+  },
+  {
+    "name": "LG화학",
+    "asset_2tril": true,
+    "n_agendas": 17,
+    "n_amendments": 8,
+    "title_hits_n": 5,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제",
+        "rule": "A1-1"
+      },
+      {
+        "title": "전자주주총회 제도 도입",
+        "rule": "A1-7"
+      },
+      {
+        "title": "독립이사로 명칭 변경",
+        "rule": "A1-5"
+      },
+      {
+        "title": "감사위원 분리선출 인원 확대",
+        "rule": "A1-3"
+      },
+      {
+        "title": "감사위원 선ㆍ해임시 의결권 제한 강화",
+        "rule": "A1-4"
+      }
+    ],
+    "body_hits_n": 0,
+    "body_hits": [],
+    "sub_hits_n": 0,
+    "sub_hits": [],
+    "used_amendments": []
+  }
+]

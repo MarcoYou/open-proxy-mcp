@@ -1,0 +1,294 @@
+{
+  "totals": {
+    "n_records": 360,
+    "n_ok": 357,
+    "n_failed": 3,
+    "ok_pct": 99.2
+  },
+  "status_counts": {
+    "ok": 357,
+    "no_corp": 2,
+    "search_error": 1
+  },
+  "topic_frequency": {
+    "has_director": {
+      "n": 281,
+      "pct": 78.7
+    },
+    "has_audit": {
+      "n": 267,
+      "pct": 74.8
+    },
+    "has_compensation": {
+      "n": 336,
+      "pct": 94.1
+    },
+    "has_aoi": {
+      "n": 304,
+      "pct": 85.2
+    },
+    "has_retirement": {
+      "n": 38,
+      "pct": 10.6
+    },
+    "has_financials": {
+      "n": 264,
+      "pct": 73.9
+    }
+  },
+  "g1_overall": {
+    "meeting_info": {
+      "ok": 357,
+      "n": 357,
+      "pct": 100.0
+    },
+    "agenda": {
+      "ok": 356,
+      "n": 357,
+      "pct": 99.7
+    },
+    "agenda_details": {
+      "ok": 357,
+      "n": 357,
+      "pct": 100.0
+    },
+    "corrections": {
+      "ok": 357,
+      "n": 357,
+      "pct": 100.0
+    },
+    "personnel": {
+      "ok": 280,
+      "n": 281,
+      "pct": 99.6
+    },
+    "personnel_audit_topic": {
+      "ok": 266,
+      "n": 267,
+      "pct": 99.6
+    },
+    "aoi": {
+      "ok": 300,
+      "n": 304,
+      "pct": 98.7
+    },
+    "compensation": {
+      "ok": 332,
+      "n": 336,
+      "pct": 98.8
+    },
+    "retirement_pay_call": {
+      "ok": 38,
+      "n": 38,
+      "pct": 100.0
+    },
+    "provisional_fs_call": {
+      "ok": 264,
+      "n": 264,
+      "pct": 100.0
+    },
+    "provisional_fs_metrics_6plus": {
+      "ok": 264,
+      "n": 264,
+      "pct": 100.0
+    },
+    "provisional_fs_metrics_4plus": {
+      "ok": 264,
+      "n": 264,
+      "pct": 100.0
+    }
+  },
+  "g1_per_market": {
+    "kospi": {
+      "n_records": 230,
+      "n_ok": 228,
+      "agenda_ok_pct": 99.6,
+      "personnel_pct": 99.5,
+      "aoi_pct": 98.0,
+      "compensation_pct": 98.6,
+      "pfs_metrics_6plus_pct": 100.0
+    },
+    "kosdaq": {
+      "n_records": 130,
+      "n_ok": 129,
+      "agenda_ok_pct": 100.0,
+      "personnel_pct": 100.0,
+      "aoi_pct": 100.0,
+      "compensation_pct": 99.2,
+      "pfs_metrics_6plus_pct": 100.0
+    }
+  },
+  "fail_samples": {
+    "agenda": [
+      {
+        "ticker": "008770",
+        "name": "호텔신라",
+        "rcept_no": "20260303002845",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "root_count": 0,
+          "total_titles": 0,
+          "topics": {
+            "has_director": false,
+            "has_audit": false,
+            "has_compensation": false,
+            "has_aoi": false,
+            "has_retirement": false,
+            "has_financials": false
+          },
+          "titles_sample": []
+        }
+      }
+    ],
+    "personnel": [
+      {
+        "ticker": "138930",
+        "name": "BNK금융지주",
+        "rcept_no": "20260309001537",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "appointments_count": 0,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        }
+      }
+    ],
+    "personnel_audit_topic": [
+      {
+        "ticker": "138930",
+        "name": "BNK금융지주",
+        "rcept_no": "20260309001537",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "appointments_count": 0,
+          "with_career": 0,
+          "with_birth": 0,
+          "stats": {}
+        }
+      }
+    ],
+    "aoi": [
+      {
+        "ticker": "024110",
+        "name": "기업은행",
+        "rcept_no": "20260311004141",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        }
+      },
+      {
+        "ticker": "071050",
+        "name": "한국금융지주",
+        "rcept_no": "20260312000993",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        }
+      },
+      {
+        "ticker": "267270",
+        "name": "HD건설기계",
+        "rcept_no": "20260225004969",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        }
+      },
+      {
+        "ticker": "138930",
+        "name": "BNK금융지주",
+        "rcept_no": "20260309001537",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "amendments_count": 0,
+          "with_before": 0,
+          "with_after": 0
+        }
+      }
+    ],
+    "compensation": [
+      {
+        "ticker": "024110",
+        "name": "기업은행",
+        "rcept_no": "20260311004141",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        }
+      },
+      {
+        "ticker": "071050",
+        "name": "한국금융지주",
+        "rcept_no": "20260312000993",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        }
+      },
+      {
+        "ticker": "018880",
+        "name": "한온시스템",
+        "rcept_no": "20260311004210",
+        "_universe": "kospi",
+        "parser_summary": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        }
+      },
+      {
+        "ticker": "263750",
+        "name": "펄어비스",
+        "rcept_no": "20260226005016",
+        "_universe": "kosdaq",
+        "parser_summary": {
+          "call_status": "ok",
+          "items_count": 0,
+          "categories": []
+        }
+      }
+    ]
+  },
+  "non_ok_records": [
+    {
+      "ticker": "0126Z0",
+      "name": "삼성에피스홀딩스",
+      "status": "no_corp",
+      "error": "",
+      "_source": "iter02b_kospi_45-60.json"
+    },
+    {
+      "ticker": "001720",
+      "name": "신영증권",
+      "status": "search_error",
+      "error": "013",
+      "_source": "iter03c_kospi_120-135.json"
+    },
+    {
+      "ticker": "0009K0",
+      "name": "에임드바이오",
+      "status": "no_corp",
+      "error": "",
+      "_source": "iter04e_kosdaq_15-30.json"
+    }
+  ]
+}

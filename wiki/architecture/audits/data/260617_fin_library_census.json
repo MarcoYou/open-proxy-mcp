@@ -1,0 +1,247 @@
+[
+  {
+    "name": "삼성생명",
+    "sector": "보험",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "KB금융",
+    "sector": "은행",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "신한지주",
+    "sector": "은행",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "하나금융지주",
+    "sector": "은행",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "삼성화재",
+    "sector": "보험",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "미래에셋증권",
+    "sector": "증권",
+    "n_library": 7,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "우리금융지주",
+    "sector": "은행",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "메리츠금융지주",
+    "sector": "증권",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "기업은행",
+    "sector": "은행",
+    "n_library": 1,
+    "comp_status": "ok",
+    "comp_items": 2
+  },
+  {
+    "name": "한국금융지주",
+    "sector": "증권",
+    "n_library": 1,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "NH투자증권",
+    "sector": "증권",
+    "n_library": 5,
+    "comp_status": "no_agenda",
+    "comp_items": 0
+  },
+  {
+    "name": "카카오뱅크",
+    "sector": "은행",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "삼성증권",
+    "sector": "증권",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "DB손해보험",
+    "sector": "보험",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "키움증권",
+    "sector": "증권",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "삼성카드",
+    "sector": "은행",
+    "n_library": 4,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "BNK금융지주",
+    "sector": "은행",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 2
+  },
+  {
+    "name": "JB금융지주",
+    "sector": "은행",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "한화생명",
+    "sector": "보험",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "미래에셋생명",
+    "sector": "보험",
+    "n_library": 7,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "현대해상",
+    "sector": "보험",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "서울보증보험",
+    "sector": "보험",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "신영증권",
+    "sector": "증권",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "iM금융지주",
+    "sector": "은행",
+    "n_library": 4,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "케이뱅크",
+    "sector": "은행",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "코리안리",
+    "sector": "보험",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "다우기술",
+    "sector": "증권",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 2
+  },
+  {
+    "name": "미래에셋벤처투자",
+    "sector": "은행",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 2
+  },
+  {
+    "name": "대신증권",
+    "sector": "증권",
+    "n_library": 7,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "교보증권",
+    "sector": "증권",
+    "n_library": 5,
+    "comp_status": "one_side_only",
+    "comp_items": 1
+  },
+  {
+    "name": "한화투자증권",
+    "sector": "증권",
+    "n_library": 5,
+    "comp_status": "one_side_only",
+    "comp_items": 1
+  },
+  {
+    "name": "동양생명",
+    "sector": "보험",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "유안타증권",
+    "sector": "증권",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "아주IB투자",
+    "sector": "은행",
+    "n_library": 5,
+    "comp_status": "ok",
+    "comp_items": 1
+  },
+  {
+    "name": "한화손해보험",
+    "sector": "보험",
+    "n_library": 6,
+    "comp_status": "ok",
+    "comp_items": 1
+  }
+]

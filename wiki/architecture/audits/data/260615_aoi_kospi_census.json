@@ -1,0 +1,19 @@
+{
+  "universe_kospi": 500,
+  "ex_reits": 485,
+  "analyzed": 481,
+  "has_articles": 446,
+  "fails": 1,
+  "patterns": {
+    "단일library_섹션드롭(한국금융지주형)": 1
+  },
+  "fail_detail": [
+    {
+      "name": "한국금융지주",
+      "pattern": "단일library_섹션드롭",
+      "rcept": "20260312000993"
+    }
+  ],
+  "errors": [],
+  "note": "기업은행은 fix(e781989)로 통과 확인(KOSPI500 rank54, 실패목록 없음). 유일 실패=한국금융지주. census 스크립트 rcept 키 버그(notice_rcept_no top-level→selected_meeting.notice_rcept_no) 사후 정정."
+}

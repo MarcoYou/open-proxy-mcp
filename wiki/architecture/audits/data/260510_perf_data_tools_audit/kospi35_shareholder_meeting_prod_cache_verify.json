@@ -1,0 +1,937 @@
+{
+  "meta": {
+    "tool": "shareholder_meeting_summary",
+    "universe": "kospi35",
+    "start": 0,
+    "sample_size": 35,
+    "batch_size": 10,
+    "batch_sleep_sec": 0.0,
+    "duration_sec": 74.3
+  },
+  "summary": {
+    "n_total": 35,
+    "n_ok": 35,
+    "n_exception": 0,
+    "n_equal": 35,
+    "n_not_equal": 0,
+    "median_speedup_pct": 58.89468600921135,
+    "mean_speedup_pct": 59.506124380434066,
+    "max_speedup_pct": 77.77454166687933,
+    "min_speedup_pct": 41.68769583249381,
+    "status_counts": {
+      "exact": 35
+    }
+  },
+  "records": [
+    {
+      "ticker": "005930",
+      "company": "삼성전자",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.7705898750573397,
+      "experimental_sec": 0.2342596669914201,
+      "speedup_pct": 69.5999552324784,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "000660",
+      "company": "SK하이닉스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.7751047919737175,
+      "experimental_sec": 0.2971550839720294,
+      "speedup_pct": 61.66259232956652,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "005380",
+      "company": "현대차",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.7708153750281781,
+      "experimental_sec": 0.17131725000217557,
+      "speedup_pct": 77.77454166687933,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "373220",
+      "company": "LG에너지솔루션",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.2601545830257237,
+      "experimental_sec": 0.1010716250166297,
+      "speedup_pct": 61.1493967005625,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "207940",
+      "company": "삼성바이오로직스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.5133678750135005,
+      "experimental_sec": 0.13458225002977997,
+      "speedup_pct": 73.78444258393833,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "012450",
+      "company": "한화에어로스페이스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.7546620409702882,
+      "experimental_sec": 0.38907074998132885,
+      "speedup_pct": 48.444372598747556,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "402340",
+      "company": "SK스퀘어",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.5239832500228658,
+      "experimental_sec": 0.21714379102922976,
+      "speedup_pct": 58.55902053744009,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "034020",
+      "company": "두산에너빌리티",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.39471833303105086,
+      "experimental_sec": 0.14038774999789894,
+      "speedup_pct": 64.43343562994444,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "000270",
+      "company": "기아",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.3341126668965444,
+      "experimental_sec": 0.15522995800711215,
+      "speedup_pct": 53.539636958697535,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "105560",
+      "company": "KB금융",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.5140673751011491,
+      "experimental_sec": 0.17137533391360193,
+      "speedup_pct": 66.6628651779581,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "329180",
+      "company": "HD현대중공업",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.5395439160056412,
+      "experimental_sec": 0.22178104205522686,
+      "speedup_pct": 58.894719136651695,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "068270",
+      "company": "셀트리온",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.6743942089378834,
+      "experimental_sec": 0.3045296249911189,
+      "speedup_pct": 54.84397390204039,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "055550",
+      "company": "신한지주",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.44998808298259974,
+      "experimental_sec": 0.1716868329094723,
+      "speedup_pct": 61.84636006991521,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "032830",
+      "company": "삼성생명",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.5877615830395371,
+      "experimental_sec": 0.2068757499800995,
+      "speedup_pct": 64.80277786951184,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "028260",
+      "company": "삼성물산",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.6575382499722764,
+      "experimental_sec": 0.21699620794970542,
+      "speedup_pct": 66.998694302749,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "042660",
+      "company": "한화오션",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.6625454580644146,
+      "experimental_sec": 0.30363945895805955,
+      "speedup_pct": 54.17077345226645,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "006400",
+      "company": "삼성SDI",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.45371695794165134,
+      "experimental_sec": 0.18110304092988372,
+      "speedup_pct": 60.08457745298252,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "012330",
+      "company": "현대모비스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.33330674993339926,
+      "experimental_sec": 0.1383287499193102,
+      "speedup_pct": 58.49806523661738,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "006800",
+      "company": "미래에셋증권",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.6947701669996604,
+      "experimental_sec": 0.2678577919723466,
+      "speedup_pct": 61.44656107946018,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "018260",
+      "company": "삼성에스디에스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.44229875004384667,
+      "experimental_sec": 0.1693756669992581,
+      "speedup_pct": 61.70559673015868,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "086790",
+      "company": "하나금융지주",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.3324887090129778,
+      "experimental_sec": 0.1463526670122519,
+      "speedup_pct": 55.982665562775715,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "000810",
+      "company": "삼성화재",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.9950785828987136,
+      "experimental_sec": 0.5802532499656081,
+      "speedup_pct": 41.68769583249381,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "009540",
+      "company": "HD한국조선해양",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.4276704579824582,
+      "experimental_sec": 0.20053270796779543,
+      "speedup_pct": 53.11046058364389,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "015760",
+      "company": "한국전력",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 7.421625082963146,
+      "experimental_sec": 2.5838086659787223,
+      "speedup_pct": 65.18540566122056,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "259960",
+      "company": "크래프톤",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 3.0285478750010952,
+      "experimental_sec": 1.3752512090140954,
+      "speedup_pct": 54.590408810572356,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "316140",
+      "company": "우리금융지주",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.40664237493183464,
+      "experimental_sec": 0.16715162503533065,
+      "speedup_pct": 58.89468600921135,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "051910",
+      "company": "LG화학",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.39039245899766684,
+      "experimental_sec": 0.1670473749982193,
+      "speedup_pct": 57.21039913857104,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "017670",
+      "company": "SK텔레콤",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.5731502500129864,
+      "experimental_sec": 0.24092237500008196,
+      "speedup_pct": 57.96523250323573,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "267260",
+      "company": "HD현대일렉트릭",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.2686144169420004,
+      "experimental_sec": 0.09322766598779708,
+      "speedup_pct": 65.29312646389828,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "033780",
+      "company": "KT&G",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.7497382910223678,
+      "experimental_sec": 0.33260291698388755,
+      "speedup_pct": 55.637464303665304,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "009150",
+      "company": "삼성전기",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.3612084169872105,
+      "experimental_sec": 0.16341141692828387,
+      "speedup_pct": 54.75979815440739,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "024110",
+      "company": "기업은행",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.16947308299131691,
+      "experimental_sec": 0.07733829191420227,
+      "speedup_pct": 54.36544225836456,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "010130",
+      "company": "고려아연",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.4699174170382321,
+      "experimental_sec": 0.182220458984375,
+      "speedup_pct": 61.22287611026137,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "003670",
+      "company": "포스코홀딩스",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.44608891604002565,
+      "experimental_sec": 0.19358637498226017,
+      "speedup_pct": 56.60363483120246,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    },
+    {
+      "ticker": "035420",
+      "company": "NAVER",
+      "status": "exact",
+      "experimental_status": "exact",
+      "baseline_sec": 0.21972975006792694,
+      "experimental_sec": 0.10700245900079608,
+      "speedup_pct": 51.302698443102265,
+      "payload_equal_without_usage_generated_at": true,
+      "baseline_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      },
+      "experimental_summary": {
+        "status": "exact",
+        "warning_count": 0,
+        "filing_count": 1,
+        "parsing_failures": 0,
+        "meeting_phase": "post_meeting_pre_result",
+        "result_status": "pending_or_missing"
+      }
+    }
+  ]
+}

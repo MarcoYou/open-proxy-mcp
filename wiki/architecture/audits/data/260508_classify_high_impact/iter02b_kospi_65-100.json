@@ -1,0 +1,622 @@
+{
+  "meta": {
+    "universe": "kospi200",
+    "start": 65,
+    "count": 35,
+    "concurrency": 2,
+    "duration_s": 59.7,
+    "generated_at": "2026-05-07"
+  },
+  "records": [
+    {
+      "ticker": "066970",
+      "name": "엘앤에프",
+      "status": "no_filing",
+      "duration_s": 2.04,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "138930",
+      "name": "BNK금융지주",
+      "status": "exact",
+      "duration_s": 2.58,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260326803541",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260206801495",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "028050",
+      "name": "삼성E&A",
+      "status": "exact",
+      "duration_s": 3.82,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260320801193",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "003490",
+      "name": "대한항공",
+      "status": "exact",
+      "duration_s": 3.87,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20251219800700",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "078930",
+      "name": "GS",
+      "status": "exact",
+      "duration_s": 3.03,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260326800714",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20250814801327",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "443060",
+      "name": "HD현대마린솔루션",
+      "status": "exact",
+      "duration_s": 2.98,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260325800745",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획예고(안내공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20251226800327",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "175330",
+      "name": "JB금융지주",
+      "status": "exact",
+      "duration_s": 4.98,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (2026년)",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260326801072",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              (2026년)",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260205800909",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "128940",
+      "name": "한미약품",
+      "status": "exact",
+      "duration_s": 4.07,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20251204800031",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "039490",
+      "name": "키움증권",
+      "status": "exact",
+      "duration_s": 10.1,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ((고배당기업 표시를 위한 재공시))",
+          "category": "meta_amendment",
+          "expected": "meta_amendment",
+          "match": true,
+          "rcept_no": "20260326803412",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "000880",
+      "name": "한화",
+      "status": "exact",
+      "duration_s": 2.87,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260326802505",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260114800134",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "047040",
+      "name": "대우건설",
+      "status": "no_filing",
+      "duration_s": 3.67,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "007660",
+      "name": "이수페타시스",
+      "status": "exact",
+      "duration_s": 3.19,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260430800992",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "241560",
+      "name": "두산밥캣",
+      "status": "exact",
+      "duration_s": 3.43,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (이행현황 및 고배당기업 표시)",
+          "category": "meta_amendment",
+          "expected": "meta_amendment",
+          "match": true,
+          "rcept_no": "20260327802183",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              (이행현황)",
+          "category": "progress",
+          "expected": "progress",
+          "match": true,
+          "rcept_no": "20250725800436",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "307950",
+      "name": "현대오토에버",
+      "status": "no_filing",
+      "duration_s": 1.34,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "454910",
+      "name": "두산로보틱스",
+      "status": "no_filing",
+      "duration_s": 3.01,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "377300",
+      "name": "카카오페이",
+      "status": "no_filing",
+      "duration_s": 2.92,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "267270",
+      "name": "HD건설기계",
+      "status": "exact",
+      "duration_s": 2.78,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260427801020",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "034220",
+      "name": "LG디스플레이",
+      "status": "exact",
+      "duration_s": 3.48,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (2025년)",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20251128800095",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "180640",
+      "name": "한진칼",
+      "status": "exact",
+      "duration_s": 2.82,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260225801339",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "001440",
+      "name": "대한전선",
+      "status": "no_filing",
+      "duration_s": 2.05,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "016360",
+      "name": "삼성증권",
+      "status": "exact",
+      "duration_s": 10.07,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260320801440",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "161390",
+      "name": "한국타이어앤테크놀로지",
+      "status": "exact",
+      "duration_s": 1.54,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260327800193",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20250925800517",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "006260",
+      "name": "LS",
+      "status": "exact",
+      "duration_s": 2.21,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260327802924",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "009830",
+      "name": "한화솔루션",
+      "status": "no_filing",
+      "duration_s": 5.08,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "001040",
+      "name": "CJ",
+      "status": "exact",
+      "duration_s": 1.65,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260327802511",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "271560",
+      "name": "오리온",
+      "status": "exact",
+      "duration_s": 1.68,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)",
+          "category": "meta_amendment",
+          "expected": "meta_amendment",
+          "match": true,
+          "rcept_no": "20260326802997",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              (2025년)",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20250630800281",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "000100",
+      "name": "유한양행",
+      "status": "partial",
+      "duration_s": 3.39,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "029780",
+      "name": "삼성카드",
+      "status": "exact",
+      "duration_s": 2.67,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260319802054",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "032640",
+      "name": "LG유플러스",
+      "status": "exact",
+      "duration_s": 3.1,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)",
+          "category": "meta_amendment",
+          "expected": "meta_amendment",
+          "match": true,
+          "rcept_no": "20260324801537",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20251128800082",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    },
+    {
+      "ticker": "090430",
+      "name": "아모레퍼시픽",
+      "status": "exact",
+      "duration_s": 4.72,
+      "classifications": [
+        {
+          "report_name": "[기재정정]기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)",
+          "category": "meta_amendment",
+          "expected": "meta_amendment",
+          "match": true,
+          "rcept_no": "20260330801880",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)",
+          "category": "meta_amendment",
+          "expected": "meta_amendment",
+          "match": true,
+          "rcept_no": "20260326801636",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              (2025년 이행현황)",
+          "category": "progress",
+          "expected": "progress",
+          "match": true,
+          "rcept_no": "20251106800638",
+          "source": "dart"
+        }
+      ],
+      "n_items": 3
+    },
+    {
+      "ticker": "064400",
+      "name": "LG씨엔에스",
+      "status": "exact",
+      "duration_s": 3.48,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ",
+          "category": "plan",
+          "expected": "plan",
+          "match": true,
+          "rcept_no": "20260324800910",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "326030",
+      "name": "SK바이오팜",
+      "status": "no_filing",
+      "duration_s": 2.29,
+      "classifications": [],
+      "n_items": 0
+    },
+    {
+      "ticker": "003230",
+      "name": "삼양식품",
+      "status": "exact",
+      "duration_s": 1.82,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              ((2025년 이행현황))",
+          "category": "progress",
+          "expected": "progress",
+          "match": true,
+          "rcept_no": "20260326802713",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "011070",
+      "name": "LG이노텍",
+      "status": "exact",
+      "duration_s": 2.73,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (2025년 이행현황)",
+          "category": "progress",
+          "expected": "progress",
+          "match": true,
+          "rcept_no": "20251128800110",
+          "source": "dart"
+        }
+      ],
+      "n_items": 1
+    },
+    {
+      "ticker": "052690",
+      "name": "한전기술",
+      "status": "exact",
+      "duration_s": 3.3,
+      "classifications": [
+        {
+          "report_name": "기업가치제고계획(자율공시)              (고배당기업 표시를 위한 재공시)",
+          "category": "meta_amendment",
+          "expected": "meta_amendment",
+          "match": true,
+          "rcept_no": "20260401801513",
+          "source": "dart"
+        },
+        {
+          "report_name": "기업가치제고계획(자율공시)              ((2025년 이행현황))",
+          "category": "progress",
+          "expected": "progress",
+          "match": true,
+          "rcept_no": "20251230801018",
+          "source": "dart"
+        }
+      ],
+      "n_items": 2
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+flowchart TB
+    classDef s fill:#e8f0fe,color:#1a1a1a,stroke:#4285f4,stroke-width:1px;
+    classDef out fill:#f1f8e9,color:#1a1a1a,stroke:#689f38,stroke-width:1px;
+    classDef grp fill:#fafafa,color:#1a1a1a,stroke:#9e9e9e;
+
+    title["③ 수시공시 추적형 — I001/B001 검색 → 본문 파싱 → 집계·교차참조"]:::grp
+
+    subgraph WF_ord["order_contracts"]
+        direction LR
+        a1["resolve_company"]:::s --> a2["I001 단일판매·<br/>공급계약 검색"]:::s --> a3["기재정정 dedup"]:::s --> a4["계약금액·매출 대비% 산출"]:::s --> a5["render"]:::out
+    end
+
+    subgraph WF_rsk["risk_events"]
+        direction LR
+        b1["resolve_company<br/>(미지정 시 시장전체)"]:::s --> b2["I001 + B001 병렬 검색"]:::s --> b3["사상자·혐의금액 파싱"]:::s --> b4["자산대비% 산출"]:::s --> b5["render"]:::out
+    end
+
+    subgraph WF_val["value_up"]
+        direction LR
+        c1["resolve_company"]:::s --> c2["I001 밸류업 검색<br/>(KIND 0184 fallback)"]:::s --> c3["commitment 문장 추출"]:::s --> c4["자사주 소각 이행 교차참조"]:::s --> c5["render"]:::out
+    end
+
+    subgraph WF_gov["corp_gov_report"]
+        direction LR
+        d1["resolve_company"]:::s --> d2["I001 기업지배구조<br/>보고서 검색"]:::s --> d3["원문 fetch"]:::s --> d4["15개 지표 O/X 추출"]:::s --> d5["연도별 추이 정리"]:::s --> d6["render"]:::out
+    end
+
+    title ~~~ WF_ord ~~~ WF_rsk ~~~ WF_val ~~~ WF_gov

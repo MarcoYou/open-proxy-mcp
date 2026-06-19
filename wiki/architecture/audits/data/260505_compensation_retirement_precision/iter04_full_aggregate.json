@@ -1,0 +1,48 @@
+{
+  "totals": {
+    "n_co": 226,
+    "n_ok": 200
+  },
+  "categories": {
+    "director_compensation": {
+      "n_decisions": 132,
+      "distribution": {
+        "FOR": 130,
+        "NO_DATA": 1,
+        "AGAINST": 1
+      },
+      "g1_parse_success_pct": 99.2,
+      "g3_majority_n": 11,
+      "g3_match_n": 11,
+      "g3_match_pct": 100.0
+    },
+    "audit_compensation": {
+      "n_decisions": 39,
+      "distribution": {
+        "FOR": 39
+      },
+      "g1_parse_success_pct": 100.0,
+      "g3_majority_n": 1,
+      "g3_match_n": 1,
+      "g3_match_pct": 100.0
+    },
+    "retirement_pay": {
+      "n_decisions": 14,
+      "distribution": {
+        "FOR": 2,
+        "REVIEW": 8,
+        "NO_DATA": 3,
+        "AGAINST": 1
+      },
+      "g1_parse_success_pct": 78.6,
+      "g3_majority_n": 0,
+      "g3_match_n": 0,
+      "g3_match_pct": null
+    }
+  },
+  "g2_trigger_sample": {
+    "director_compensation.AGAINST": 1,
+    "retirement_pay.AGAINST": 1,
+    "retirement_pay.REVIEW": 8
+  }
+}

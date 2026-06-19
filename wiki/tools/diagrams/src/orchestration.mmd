@@ -1,0 +1,43 @@
+flowchart LR
+    classDef base fill:#DEE6EC,color:#2B2A28,stroke:#7C93A8,stroke-width:1px;
+    classDef orch fill:#F3DCD2,color:#2B2A28,stroke:#CC785C,stroke-width:2px;
+    classDef law fill:#F1E3CA,color:#2B2A28,stroke:#C09A5B,stroke-width:1px;
+    classDef out fill:#E3E8D8,color:#2B2A28,stroke:#8A9A6B,stroke-width:1.5px;
+    classDef mod fill:#EFE7DF,color:#2B2A28,stroke:#B0A595,stroke-width:1px,stroke-dasharray:4 3;
+
+    subgraph BASE["기반 tool — 공시를 직접 파싱"]
+        direction TB
+        fin["financial_metrics"]:::base
+        div["dividend"]:::base
+        own["ownership_structure"]:::base
+        tre["treasury_share"]:::base
+        ord["order_contracts"]:::base
+        gov["corp_gov_report"]:::base
+        notice["shareholder_meeting_notice"]:::base
+        results["shareholder_meeting_results"]:::base
+    end
+
+    dirEval["director_evaluation<br/>(내부 모듈 · 이사후보 평가)"]:::mod
+    law["상법 법령 레이어<br/>wiki/rules/laws"]:::law
+
+    %% --- 중간 오케스트레이터 ---
+    own --> pcn
+    results --> pcn
+    pcn["<b>proxy_contest</b><br/>경영권 분쟁 신호"]:::orch --> outPcn["분쟁 신호 리포트<br/>(소송·위임장·5% 매집)"]:::out
+
+    %% --- director_evaluation 은 financial_metrics 재사용 ---
+    fin --> dirEval
+
+    %% --- 최상위 오케스트레이터 ---
+    fin --> adv
+    div --> adv
+    own --> adv
+    tre --> adv
+    ord --> adv
+    gov --> adv
+    notice --> adv
+    dirEval --> adv
+    law --> adv
+    adv["<b>proxy_advise_before_meeting</b><br/>★ TOOL OF TOOLS ★<br/>8개 tool + 법령 종합"]:::orch --> outAdv["안건별 의결권 권고<br/>(찬성/반대 + 근거 + 법령 정합)"]:::out
+
+    style BASE fill:#F4F1EA,stroke:#D8CFC0,stroke-width:1px,color:#6B6256

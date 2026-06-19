@@ -1,0 +1,71 @@
+{
+  "additional_155_summary": {
+    "n_total": 155,
+    "n_equal": 155,
+    "n_status_changed": 0,
+    "median_speedup_pct": 79.91046191457458,
+    "mean_speedup_pct": 76.79784376202896,
+    "max_speedup_pct": 90.81739200320865,
+    "min_speedup_pct": -5.5227380557642105,
+    "status_counts": {
+      "error": 5,
+      "exact": 149,
+      "requires_review": 1
+    },
+    "negative_speedup_cases": [
+      {
+        "ticker": "002380",
+        "company": "KCC",
+        "status": "error",
+        "speedup_pct": -3.938473076461764
+      },
+      {
+        "ticker": "001720",
+        "company": "신영증권",
+        "status": "error",
+        "speedup_pct": -5.5227380557642105
+      }
+    ]
+  },
+  "cumulative_215_summary": {
+    "n_total": 215,
+    "n_equal": 215,
+    "n_status_changed": 0,
+    "median_speedup_pct": 80.15914258746326,
+    "mean_speedup_pct": 75.93929567535496,
+    "max_speedup_pct": 90.81739200320865,
+    "min_speedup_pct": -63.27435995794607,
+    "status_counts": {
+      "error": 9,
+      "exact": 201,
+      "no_filing": 1,
+      "requires_review": 4
+    },
+    "negative_speedup_cases": [
+      {
+        "ticker": "015760",
+        "company": "한국전력",
+        "status": "error",
+        "speedup_pct": -3.5051486917304824
+      },
+      {
+        "ticker": "039030",
+        "company": "이오테크닉스",
+        "status": "no_filing",
+        "speedup_pct": -63.27435995794607
+      },
+      {
+        "ticker": "002380",
+        "company": "KCC",
+        "status": "error",
+        "speedup_pct": -3.938473076461764
+      },
+      {
+        "ticker": "001720",
+        "company": "신영증권",
+        "status": "error",
+        "speedup_pct": -5.5227380557642105
+      }
+    ]
+  }
+}

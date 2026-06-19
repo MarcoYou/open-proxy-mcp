@@ -1,0 +1,3575 @@
+[
+  {
+    "ticker": "066790",
+    "name": "씨씨에스",
+    "status": "exact",
+    "duration_s": 2.6,
+    "has_contest_signal": true,
+    "proxy_filing_count": 20,
+    "shareholder_side_count": 8,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 7.12,
+    "related_total_pct": 14.01,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "자사주 비중이 5% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "씨씨에스"
+    ],
+    "shareholder_side_filers": [
+      "한태원",
+      "그린비티에스",
+      "김정혁",
+      "최봉진"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "227100",
+    "name": "프로브잇",
+    "status": "exact",
+    "duration_s": 2.08,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 17.18,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "루나1호투자조합"
+    ],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "317240",
+    "name": "TS트릴리온",
+    "status": "exact",
+    "duration_s": 2.18,
+    "has_contest_signal": true,
+    "proxy_filing_count": 2,
+    "shareholder_side_count": 0,
+    "litigation_primary": 12,
+    "litigation_raw": 13,
+    "active_signal_count": 0,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0.43,
+    "related_total_pct": 22.22,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "TS트릴리온"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "장기영",
+        "change_pp": -19.05,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "디에스조합",
+        "change_pp": -21.8,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "303030",
+    "name": "지니틱스",
+    "status": "exact",
+    "duration_s": 2.22,
+    "has_contest_signal": true,
+    "proxy_filing_count": 7,
+    "shareholder_side_count": 5,
+    "litigation_primary": 26,
+    "litigation_raw": 31,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 33.48,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "지니틱스"
+    ],
+    "shareholder_side_filers": [
+      "헤일로전자"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "헤일로마이크로일렉트로닉스인터내셔널코퍼레이션",
+        "change_pp": 16.69,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "서울전자통신",
+        "change_pp": -31.12,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "085810",
+    "name": "알티캐스트",
+    "status": "exact",
+    "duration_s": 2.25,
+    "has_contest_signal": true,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 0,
+    "litigation_primary": 8,
+    "litigation_raw": 8,
+    "active_signal_count": 1,
+    "n_block_reporters": 9,
+    "n_purpose_shift": 0,
+    "n_abrupt": 5,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 4,
+    "treasury_pct": 1.59,
+    "related_total_pct": 20.49,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "알티캐스트"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "베노티앤알",
+        "change_pp": 21.9,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "티케이조합 1호",
+        "change_pp": -7.79,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "펜타쉴드1호조합",
+        "change_pp": -19.44,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "휴맥스",
+        "change_pp": -33.44,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "위드윈투자조합79호",
+        "change_pp": -20.33,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "200350",
+    "name": "아티스트스튜디오",
+    "status": "exact",
+    "duration_s": 2.14,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 5,
+    "litigation_raw": 6,
+    "active_signal_count": 3,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 29.22,
+    "active_external_block_count": 2,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "아티스트스튜디오"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "매일방송",
+      "김동래"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "아티스트컴퍼니",
+        "change_pp": 11.26,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "068940",
+    "name": "셀피글로벌",
+    "status": "exact",
+    "duration_s": 2.47,
+    "has_contest_signal": true,
+    "proxy_filing_count": 21,
+    "shareholder_side_count": 0,
+    "litigation_primary": 43,
+    "litigation_raw": 49,
+    "active_signal_count": 2,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 1.45,
+    "related_total_pct": 25.3,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "셀피글로벌",
+      "셀피글로벌주주1호조합"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "트러스트투자조합"
+    ],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "065420",
+    "name": "에스아이리소스",
+    "status": "exact",
+    "duration_s": 2.15,
+    "has_contest_signal": true,
+    "proxy_filing_count": 2,
+    "shareholder_side_count": 0,
+    "litigation_primary": 13,
+    "litigation_raw": 13,
+    "active_signal_count": 1,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 24.76,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "에스아이리소스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "200130",
+    "name": "콜마비앤에이치",
+    "status": "exact",
+    "duration_s": 2.16,
+    "has_contest_signal": true,
+    "proxy_filing_count": 5,
+    "shareholder_side_count": 2,
+    "litigation_primary": 10,
+    "litigation_raw": 13,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 2.66,
+    "related_total_pct": 53.48,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 50% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "콜마비앤에이치"
+    ],
+    "shareholder_side_filers": [
+      "윤동한",
+      "콜마홀딩스"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "203690",
+    "name": "아크솔루션스",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 4,
+    "shareholder_side_count": 0,
+    "litigation_primary": 6,
+    "litigation_raw": 7,
+    "active_signal_count": 1,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 1.13,
+    "related_total_pct": 7.01,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "아크솔루션스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "상상인저축은행",
+        "change_pp": -12.75,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "현대엠프텍",
+        "change_pp": -6.0,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "073640",
+    "name": "테라사이언스",
+    "status": "exact",
+    "duration_s": 2.16,
+    "has_contest_signal": true,
+    "proxy_filing_count": 2,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 2,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 4.22,
+    "related_total_pct": 10.14,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "테라사이언스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "079970",
+    "name": "투비소프트",
+    "status": "exact",
+    "duration_s": 2.14,
+    "has_contest_signal": true,
+    "proxy_filing_count": 2,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 4,
+    "n_block_reporters": 8,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 9.95,
+    "related_total_pct": 7.3,
+    "active_external_block_count": 4,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "자사주 비중이 5% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "투비소프트"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "주식회사 투비소프트 우리사주조합",
+      "투비소프트에이엑스",
+      "벨에어조합2호",
+      "김모란희"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "줄리어스",
+        "change_pp": -6.35,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "064090",
+    "name": "인크레더블버즈",
+    "status": "exact",
+    "duration_s": 2.18,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 5,
+    "litigation_raw": 5,
+    "active_signal_count": 0,
+    "n_block_reporters": 10,
+    "n_purpose_shift": 0,
+    "n_abrupt": 4,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 4,
+    "treasury_pct": 0,
+    "related_total_pct": 13.97,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "부발디아 투자조합",
+        "change_pp": -8.83,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "제이앤와이디1호조합",
+        "change_pp": -6.83,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "비케이파트너스투자조합2호",
+        "change_pp": -5.21,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "온시디움 컨소시엄",
+        "change_pp": -8.47,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "049180",
+    "name": "셀루메드",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 5,
+    "litigation_raw": 5,
+    "active_signal_count": 0,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0.02,
+    "related_total_pct": 27.5,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "셀루메드"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "인스코비",
+        "change_pp": -18.64,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "321820",
+    "name": "아티스트컴퍼니",
+    "status": "exact",
+    "duration_s": 2.15,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 3,
+    "litigation_raw": 3,
+    "active_signal_count": 2,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 28.19,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "아티스트컴퍼니"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "구교식"
+    ],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "219550",
+    "name": "디와이디",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 9,
+    "n_purpose_shift": 0,
+    "n_abrupt": 6,
+    "n_abrupt_gain": 2,
+    "n_abrupt_exit": 4,
+    "treasury_pct": 0,
+    "related_total_pct": 5.32,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "디와이디"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "레그테크"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "OULANGETRADELIMITED",
+        "change_pp": 14.49,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "에스비원 1호조합",
+        "change_pp": 6.96,
+        "dir": "increasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "이일준",
+        "change_pp": -11.51,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "휴스토리",
+        "change_pp": -5.23,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "상상인증권",
+        "change_pp": -36.72,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "엠버랑Amberang",
+        "change_pp": -12.74,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "110020",
+    "name": "전진바이오팜",
+    "status": "exact",
+    "duration_s": 2.15,
+    "has_contest_signal": false,
+    "proxy_filing_count": 4,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 6.84,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "전진바이오팜"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "101000",
+    "name": "KS인더스트리",
+    "status": "exact",
+    "duration_s": 2.15,
+    "has_contest_signal": true,
+    "proxy_filing_count": 13,
+    "shareholder_side_count": 4,
+    "litigation_primary": 10,
+    "litigation_raw": 11,
+    "active_signal_count": 2,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 1,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.06,
+    "related_total_pct": 12.9,
+    "active_external_block_count": 2,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "KS인더스트리"
+    ],
+    "shareholder_side_filers": [
+      "김준혁"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "이엘엠시스템",
+      "아크솔루션스"
+    ],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "244460",
+    "name": "올리패스",
+    "status": "exact",
+    "duration_s": 2.2,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 1,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.08,
+    "related_total_pct": 24.27,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "올리패스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "제노큐어"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "제노큐어",
+        "change_pp": 28.58,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "071850",
+    "name": "캐스텍코리아",
+    "status": "exact",
+    "duration_s": 2.52,
+    "has_contest_signal": true,
+    "proxy_filing_count": 10,
+    "shareholder_side_count": 6,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 3,
+    "n_abrupt_gain": 2,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 17.19,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "캐스텍코리아",
+      "캐스텍코리아 노동조합"
+    ],
+    "shareholder_side_filers": [
+      "이학철"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "이학철",
+        "change_pp": 22.2,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "윤상원",
+        "change_pp": 6.18,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "OrientXinghui(Shanghai)InvestmentCenter(LLP)",
+        "change_pp": -12.04,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "066430",
+    "name": "아이로보틱스",
+    "status": "exact",
+    "duration_s": 2.22,
+    "has_contest_signal": true,
+    "proxy_filing_count": 14,
+    "shareholder_side_count": 5,
+    "litigation_primary": 35,
+    "litigation_raw": 38,
+    "active_signal_count": 3,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.02,
+    "related_total_pct": 10.83,
+    "active_external_block_count": 2,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "아이로보틱스"
+    ],
+    "shareholder_side_filers": [
+      "유형석"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "김영규",
+      "유형석"
+    ],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "196300",
+    "name": "HLB펩",
+    "status": "exact",
+    "duration_s": 1.53,
+    "has_contest_signal": false,
+    "proxy_filing_count": 2,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 15.86,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "HLB펩"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "HLB제넥스",
+        "change_pp": 14.16,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "김재일",
+        "change_pp": -8.42,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "009730",
+    "name": "이렘",
+    "status": "exact",
+    "duration_s": 2.02,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 3,
+    "litigation_raw": 3,
+    "active_signal_count": 1,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 1,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0.02,
+    "related_total_pct": 16.34,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "이렘"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "세화산업"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "세화산업",
+        "change_pp": -7.08,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "코스틸",
+        "change_pp": -21.39,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "196490",
+    "name": "디에이테크놀로지",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "027040",
+    "name": "서울전자통신",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 0,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 41.9,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "052300",
+    "name": "오션인더블유",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 1,
+    "litigation_primary": 7,
+    "litigation_raw": 10,
+    "active_signal_count": 1,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0,
+    "related_total_pct": 32.84,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [
+      "이석빈"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "아름드리코퍼레이션",
+        "change_pp": -10.01,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "메타케어",
+        "change_pp": -6.9,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "222160",
+    "name": "NPX",
+    "status": "exact",
+    "duration_s": 2.07,
+    "has_contest_signal": false,
+    "proxy_filing_count": 2,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 77.34,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 50% 이상이다."
+    ],
+    "company_side_filers": [
+      "NPX"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "007530",
+    "name": "와이엠",
+    "status": "exact",
+    "duration_s": 2.14,
+    "has_contest_signal": true,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 1,
+    "litigation_primary": 8,
+    "litigation_raw": 8,
+    "active_signal_count": 3,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0.68,
+    "related_total_pct": 38.34,
+    "active_external_block_count": 2,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "와이엠"
+    ],
+    "shareholder_side_filers": [
+      "유승덕"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "유승덕",
+      "이재훈"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "유승덕",
+        "change_pp": -26.86,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "065650",
+    "name": "하이퍼코퍼레이션",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": false,
+    "proxy_filing_count": 4,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 7,
+    "n_purpose_shift": 0,
+    "n_abrupt": 4,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 4,
+    "treasury_pct": 0.16,
+    "related_total_pct": 43.22,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "하이퍼코퍼레이션"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "FSN",
+        "change_pp": -23.55,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "버덴트아우룸1호투자조합",
+        "change_pp": -44.69,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "KSTRATEGYHOLDINGSPTE.LTD.",
+        "change_pp": -44.69,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "수성자산운용",
+        "change_pp": -6.41,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "290670",
+    "name": "대보마그네틱",
+    "status": "exact",
+    "duration_s": 1.56,
+    "has_contest_signal": false,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 4.91,
+    "related_total_pct": 45.9,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "043220",
+    "name": "티에스넥스젠",
+    "status": "exact",
+    "duration_s": 1.93,
+    "has_contest_signal": true,
+    "proxy_filing_count": 10,
+    "shareholder_side_count": 3,
+    "litigation_primary": 6,
+    "litigation_raw": 6,
+    "active_signal_count": 0,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 7.53,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [],
+    "company_side_filers": [
+      "티에스넥스젠"
+    ],
+    "shareholder_side_filers": [
+      "김남수"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "바로저축은행",
+        "change_pp": -12.29,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "071200",
+    "name": "인피니트헬스케어",
+    "status": "exact",
+    "duration_s": 2.07,
+    "has_contest_signal": true,
+    "proxy_filing_count": 11,
+    "shareholder_side_count": 4,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.08,
+    "related_total_pct": 47.17,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "인피니트헬스케어"
+    ],
+    "shareholder_side_filers": [
+      "허권"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "217330",
+    "name": "싸이토젠",
+    "status": "exact",
+    "duration_s": 2.09,
+    "has_contest_signal": true,
+    "proxy_filing_count": 4,
+    "shareholder_side_count": 0,
+    "litigation_primary": 3,
+    "litigation_raw": 3,
+    "active_signal_count": 0,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0.26,
+    "related_total_pct": 30.79,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "싸이토젠"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "전병희",
+        "change_pp": -5.24,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "043100",
+    "name": "알파AI",
+    "status": "exact",
+    "duration_s": 2.16,
+    "has_contest_signal": true,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 3,
+    "n_block_reporters": 6,
+    "n_purpose_shift": 0,
+    "n_abrupt": 3,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 3,
+    "treasury_pct": 0.05,
+    "related_total_pct": 50.55,
+    "active_external_block_count": 2,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 50% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "알파AI"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "에이아이(AI)혁신성장에쿼티조합",
+      "에이아이홀딩스컴퍼니"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "김일",
+        "change_pp": -9.82,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "에이아이홀딩스컴퍼니",
+        "change_pp": -12.05,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "MDS테크",
+        "change_pp": -27.73,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "419120",
+    "name": "산돌",
+    "status": "exact",
+    "duration_s": 2.09,
+    "has_contest_signal": false,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 47.42,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "041590",
+    "name": "플래스크",
+    "status": "exact",
+    "duration_s": 2.16,
+    "has_contest_signal": false,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 30.16,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "플래스크"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "비엔엠홀딩스",
+        "change_pp": 7.38,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "060590",
+    "name": "씨티씨바이오",
+    "status": "exact",
+    "duration_s": 2.18,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 4,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 1.13,
+    "related_total_pct": 18.32,
+    "active_external_block_count": 3,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "바이오노트",
+      "이민구",
+      "에스디비인베스트먼트"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "파마리서치",
+        "change_pp": -22.33,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "이민구",
+        "change_pp": -15.32,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "224060",
+    "name": "더코디",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "065150",
+    "name": "대산F&B",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 6,
+    "litigation_raw": 7,
+    "active_signal_count": 1,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0.29,
+    "related_total_pct": 31.93,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "대산홀딩스컴퍼니"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "비에프랩스",
+        "change_pp": -8.33,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "옵트론텍",
+        "change_pp": -6.84,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "106520",
+    "name": "노블엠앤비",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "081150",
+    "name": "티플랙스",
+    "status": "exact",
+    "duration_s": 2.11,
+    "has_contest_signal": true,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 1,
+    "litigation_primary": 6,
+    "litigation_raw": 6,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.17,
+    "related_total_pct": 29.31,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "티플랙스"
+    ],
+    "shareholder_side_filers": [
+      "이규성"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "088800",
+    "name": "에이스테크",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "950130",
+    "name": "엑세스바이오",
+    "status": "exact",
+    "duration_s": 2.16,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 6.77,
+    "related_total_pct": 24.3,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "자사주 비중이 5% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "엑세스바이오"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "060230",
+    "name": "제이케이시냅스",
+    "status": "exact",
+    "duration_s": 2.95,
+    "has_contest_signal": true,
+    "proxy_filing_count": 8,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 8,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0.7,
+    "related_total_pct": 15.39,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "제이케이시냅스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "엠에이치테크"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "제이와이미래기술컴퍼니",
+        "change_pp": -13.43,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "상상인저축은행",
+        "change_pp": -10.16,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "038110",
+    "name": "에코플라스틱",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 1,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 2.41,
+    "related_total_pct": 29.13,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "에코플라스틱"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "064850",
+    "name": "에프앤가이드",
+    "status": "exact",
+    "duration_s": 1.64,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 6,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 2,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 47.72,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "에프앤가이드"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "화천기공",
+        "change_pp": 6.78,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "브릴리언트코리아",
+        "change_pp": 6.78,
+        "dir": "increasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "095910",
+    "name": "에스에너지",
+    "status": "exact",
+    "duration_s": 2.16,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 5,
+    "litigation_raw": 5,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 4.41,
+    "related_total_pct": 16.73,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "에스에너지"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "464080",
+    "name": "에스오에스랩",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 4,
+    "shareholder_side_count": 0,
+    "litigation_primary": 2,
+    "litigation_raw": 3,
+    "active_signal_count": 0,
+    "n_block_reporters": 6,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 25.02,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "에스오에스랩"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "054450",
+    "name": "텔레칩스",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 2.53,
+    "related_total_pct": 20.1,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [],
+    "company_side_filers": [
+      "텔레칩스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "040300",
+    "name": "YTN",
+    "status": "exact",
+    "duration_s": 2.09,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 2,
+    "litigation_raw": 2,
+    "active_signal_count": 1,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 30.95,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "309930",
+    "name": "조이웍스앤코",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 6,
+    "shareholder_side_count": 0,
+    "litigation_primary": 9,
+    "litigation_raw": 9,
+    "active_signal_count": 0,
+    "n_block_reporters": 7,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 4.39,
+    "related_total_pct": 30.98,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "조이웍스앤코"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "나형균",
+        "change_pp": -18.02,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "900100",
+    "name": "파이온엑스",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "237750",
+    "name": "피앤씨테크",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 2,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 2,
+    "active_signal_count": 0,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 33.46,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "피앤씨테크"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "070300",
+    "name": "엑스큐어",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": false,
+    "proxy_filing_count": 4,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 8,
+    "n_purpose_shift": 0,
+    "n_abrupt": 3,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0,
+    "related_total_pct": 22.93,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "엑스큐어"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "브이에스티디(VSTD)투자조합",
+        "change_pp": 8.15,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "하이츠투자조합",
+        "change_pp": -18.77,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "대광헬스케어",
+        "change_pp": -27.25,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "060240",
+    "name": "스타코링크",
+    "status": "exact",
+    "duration_s": 2.15,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 2,
+    "litigation_raw": 4,
+    "active_signal_count": 1,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 2.32,
+    "related_total_pct": 17.66,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "위더스"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "엑시온그룹",
+        "change_pp": -8.1,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "상상인플러스저축은행",
+        "change_pp": -10.4,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "317690",
+    "name": "퀀타매트릭스",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 35.98,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "펜타스톤 3호 신기술투자조합"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "에즈라채리터블트러스트",
+        "change_pp": -19.6,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "304840",
+    "name": "피플바이오",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.27,
+    "related_total_pct": 13.41,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "피플바이오"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "235980",
+    "name": "메드팩토",
+    "status": "exact",
+    "duration_s": 2.21,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 2,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 27.26,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "메드팩토"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "테라젠이텍스"
+    ],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "089140",
+    "name": "넥스턴앤롤코리아",
+    "status": "exact",
+    "duration_s": 2.14,
+    "has_contest_signal": false,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 4,
+    "n_abrupt_gain": 2,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0.05,
+    "related_total_pct": 22.05,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "넥스턴앤롤코리아"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "스튜디오산타클로스엔터테인먼트",
+        "change_pp": -7.13,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "상상인저축은행",
+        "change_pp": 11.23,
+        "dir": "increasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "바로저축은행",
+        "change_pp": 5.05,
+        "dir": "increasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "CMG제약",
+        "change_pp": -6.17,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "313760",
+    "name": "캐리",
+    "status": "exact",
+    "duration_s": 1.54,
+    "has_contest_signal": true,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 1.29,
+    "related_total_pct": 19.06,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "캐리"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "드래곤인베스트조합"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "드림투자조합",
+        "change_pp": -6.33,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "056700",
+    "name": "신화인터텍",
+    "status": "exact",
+    "duration_s": 1.95,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 0,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.43,
+    "related_total_pct": 20.23,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [],
+    "company_side_filers": [
+      "신화인터텍"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "062970",
+    "name": "한국첨단소재",
+    "status": "exact",
+    "duration_s": 1.98,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 2,
+    "litigation_raw": 2,
+    "active_signal_count": 1,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0,
+    "related_total_pct": 17.79,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "한국첨단소재"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "사토시홀딩스"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "스페이셜인베스트먼트",
+        "change_pp": -9.28,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "김호선",
+        "change_pp": -9.28,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "241820",
+    "name": "피씨엘",
+    "status": "exact",
+    "duration_s": 3.4,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 3,
+    "litigation_raw": 3,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 18.55,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "298060",
+    "name": "풍전약품",
+    "status": "exact",
+    "duration_s": 1.58,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0.03,
+    "related_total_pct": 17.02,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "풍전약품"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "마르시아 신기술조합 제77호",
+        "change_pp": 17.29,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "송기령",
+        "change_pp": -12.88,
+        "dir": "decreasing",
+        "purpose": "일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "073570",
+    "name": "리튬포어스",
+    "status": "exact",
+    "duration_s": 1.65,
+    "has_contest_signal": false,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 3,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0.01,
+    "related_total_pct": 21.63,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 3,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "변재석",
+        "change_pp": -30.24,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "리튬인사이트",
+        "change_pp": -42.24,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "294140",
+    "name": "레몬",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.03,
+    "related_total_pct": 53.55,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 50% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "레몬"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "032980",
+    "name": "바이온",
+    "status": "exact",
+    "duration_s": 2.14,
+    "has_contest_signal": true,
+    "proxy_filing_count": 5,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 0,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0.02,
+    "related_total_pct": 6.39,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "바이온"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "뉴런",
+        "change_pp": -11.23,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "307870",
+    "name": "비투엔",
+    "status": "exact",
+    "duration_s": 2.1,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 9,
+    "n_purpose_shift": 0,
+    "n_abrupt": 3,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 3,
+    "treasury_pct": 0,
+    "related_total_pct": 30.25,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "리본머트리얼홀딩스"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "조광원",
+        "change_pp": -5.03,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "마르스엘피1호",
+        "change_pp": -10.45,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "리본머트리얼홀딩스",
+        "change_pp": -12.84,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "049080",
+    "name": "기가레인",
+    "status": "exact",
+    "duration_s": 2.27,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 28.6,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "기가레인"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "케플러밸류파트너스",
+        "change_pp": -10.43,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "294090",
+    "name": "이오플로우",
+    "status": "exact",
+    "duration_s": 2.2,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 2,
+    "litigation_raw": 4,
+    "active_signal_count": 0,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0,
+    "related_total_pct": 9.66,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "이오플로우"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "KIMJESSEJAEJIN",
+        "change_pp": -5.45,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "타이거자산운용투자일임",
+        "change_pp": -5.14,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "108230",
+    "name": "톱텍",
+    "status": "exact",
+    "duration_s": 2.27,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 4.18,
+    "related_total_pct": 42.55,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "톱텍"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "340360",
+    "name": "다보링크",
+    "status": "exact",
+    "duration_s": 2.08,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 5,
+    "n_purpose_shift": 0,
+    "n_abrupt": 3,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0,
+    "related_total_pct": 24.93,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "다보링크"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "테라사이언스",
+        "change_pp": -9.02,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "아하에셋자산운용",
+        "change_pp": 7.91,
+        "dir": "increasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "코프리즘 제1호 조합",
+        "change_pp": -5.37,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "170030",
+    "name": "현대공업",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "086820",
+    "name": "바이오솔루션",
+    "status": "exact",
+    "duration_s": 2.08,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 0,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 1.47,
+    "related_total_pct": 20.11,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [],
+    "company_side_filers": [
+      "바이오솔루션"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "269620",
+    "name": "시스웍",
+    "status": "exact",
+    "duration_s": 2.11,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 4,
+    "litigation_raw": 4,
+    "active_signal_count": 1,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0.32,
+    "related_total_pct": 26.92,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "김태욱",
+        "change_pp": -8.94,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "192410",
+    "name": "오늘이엔엠",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": false,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 14,
+    "n_purpose_shift": 0,
+    "n_abrupt": 7,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 7,
+    "treasury_pct": 0.11,
+    "related_total_pct": 21.54,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "오늘이엔엠"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "휴림로봇",
+        "change_pp": -27.47,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "마케루스메자닌투자조합",
+        "change_pp": -6.02,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "벡셀1호투자조합",
+        "change_pp": -51.0,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "이화전기공업",
+        "change_pp": -11.66,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "블랙마운틴홀딩스",
+        "change_pp": -24.82,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "상상인플러스저축은행",
+        "change_pp": -39.76,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "이스페이스인베스텍",
+        "change_pp": -11.66,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "038540",
+    "name": "상상인",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "393210",
+    "name": "토마토시스템",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "377030",
+    "name": "비트맥스",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": false,
+    "proxy_filing_count": 4,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 7,
+    "n_purpose_shift": 0,
+    "n_abrupt": 6,
+    "n_abrupt_gain": 2,
+    "n_abrupt_exit": 4,
+    "treasury_pct": 0,
+    "related_total_pct": 16.55,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "비트맥스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "스페이셜인베스트먼트",
+        "change_pp": 14.9,
+        "dir": "increasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "메타플랫폼 투자조합",
+        "change_pp": 9.19,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "퍼플렉시티투자조합",
+        "change_pp": -11.16,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "박재완",
+        "change_pp": -24.24,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "스마트프라임밸류투자조합",
+        "change_pp": -23.34,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "이니텍",
+        "change_pp": -9.86,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "139670",
+    "name": "키네마스터",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "080720",
+    "name": "한국유니온제약",
+    "status": "exact",
+    "duration_s": 2.23,
+    "has_contest_signal": true,
+    "proxy_filing_count": 3,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 1,
+    "n_block_reporters": 7,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 8.64,
+    "related_total_pct": 22.58,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "자사주 비중이 5% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "한국유니온제약"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "안희숙",
+        "change_pp": -19.93,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "115310",
+    "name": "인포바인",
+    "status": "exact",
+    "duration_s": 2.25,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 1,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 32.9,
+    "related_total_pct": 17.43,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "자사주 비중이 5% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "066700",
+    "name": "테라젠이텍스",
+    "status": "exact",
+    "duration_s": 2.16,
+    "has_contest_signal": true,
+    "proxy_filing_count": 2,
+    "shareholder_side_count": 0,
+    "litigation_primary": 2,
+    "litigation_raw": 2,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 1.44,
+    "related_total_pct": 9.12,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "테라젠이텍스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "950170",
+    "name": "JTC",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 6,
+    "shareholder_side_count": 5,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 2,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0,
+    "related_total_pct": 44.97,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "JTC"
+    ],
+    "shareholder_side_filers": [
+      "유벤투스홀딩스투자목적회사"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "어펄마캐피탈매니져스코리아"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "구철모",
+        "change_pp": -72.88,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "어펄마캐피탈매니져스코리아",
+        "change_pp": -69.48,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "083660",
+    "name": "CSA 코스믹",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 2,
+    "litigation_raw": 2,
+    "active_signal_count": 3,
+    "n_block_reporters": 13,
+    "n_purpose_shift": 0,
+    "n_abrupt": 4,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 3,
+    "treasury_pct": 3.27,
+    "related_total_pct": 55.41,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 2,
+    "observations": [
+      "명부상 특수관계인 합계가 50% 이상이다.",
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "CSA 코스믹"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "더킴스팜"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "지앤비조합",
+        "change_pp": 27.92,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "지니집코리아",
+        "change_pp": -6.16,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      },
+      {
+        "reporter": "홈캐스트",
+        "change_pp": -55.41,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "퓨리어로보틱스조합",
+        "change_pp": -8.42,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "288330",
+    "name": "파라택시스코리아",
+    "status": "exact",
+    "duration_s": 2.13,
+    "has_contest_signal": true,
+    "proxy_filing_count": 4,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 2,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 2,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 8.51,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "파라택시스코리아"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "PARATAXISKOREAFUNDILLC"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "PARATAXISKOREAFUNDILLC",
+        "change_pp": 11.36,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "이정규",
+        "change_pp": -11.52,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "306620",
+    "name": "지아이에스",
+    "status": "exact",
+    "duration_s": 2.14,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 1,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 4.0,
+    "related_total_pct": 53.6,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 50% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "195990",
+    "name": "에이비프로바이오",
+    "status": "exact",
+    "duration_s": 2.19,
+    "has_contest_signal": true,
+    "proxy_filing_count": 5,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0,
+    "related_total_pct": 7.19,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "에이비프로바이오"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "폴리메쓰 투자조합"
+    ],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "016790",
+    "name": "현대사료",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "384470",
+    "name": "코어라인소프트",
+    "status": "exact",
+    "duration_s": 0.91,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 3,
+    "litigation_raw": 3,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 20.74,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "김진국",
+        "change_pp": -7.17,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "299660",
+    "name": "셀리드",
+    "status": "exact",
+    "duration_s": 1.91,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 5,
+    "litigation_raw": 5,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 15.95,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "셀리드"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "강창율",
+        "change_pp": -13.77,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "065570",
+    "name": "삼영이엔씨",
+    "status": "exact",
+    "duration_s": 1.99,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 13,
+    "litigation_raw": 15,
+    "active_signal_count": 1,
+    "n_block_reporters": 3,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0,
+    "related_total_pct": 19.75,
+    "active_external_block_count": 1,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [
+      "골드스톤 1호조합"
+    ],
+    "abrupt_detail": [
+      {
+        "reporter": "골드스톤 1호조합",
+        "change_pp": -7.26,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      }
+    ]
+  },
+  {
+    "ticker": "039020",
+    "name": "이건홀딩스",
+    "status": "exact",
+    "duration_s": 2.1,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 1,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 4.1,
+    "related_total_pct": 52.19,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 50% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "451250",
+    "name": "삐아",
+    "status": "exact",
+    "duration_s": 2.19,
+    "has_contest_signal": false,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 1,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 2.4,
+    "related_total_pct": 60.58,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 특수관계인 합계가 50% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "094860",
+    "name": "네오리진",
+    "status": "exact",
+    "duration_s": 2.14,
+    "has_contest_signal": false,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 0,
+    "litigation_raw": 0,
+    "active_signal_count": 0,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 0.07,
+    "related_total_pct": 18.71,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "네오리진"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "367000",
+    "name": "플래티어",
+    "status": "exact",
+    "duration_s": 2.12,
+    "has_contest_signal": true,
+    "proxy_filing_count": 0,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 1,
+    "active_signal_count": 0,
+    "n_block_reporters": 1,
+    "n_purpose_shift": 0,
+    "n_abrupt": 0,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 0,
+    "treasury_pct": 3.4,
+    "related_total_pct": 35.96,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 0,
+    "observations": [
+      "명부상 특수관계인 합계가 30% 이상이다.",
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": []
+  },
+  {
+    "ticker": "175250",
+    "name": "아이큐어",
+    "status": "exact",
+    "duration_s": 2.06,
+    "has_contest_signal": true,
+    "proxy_filing_count": 5,
+    "shareholder_side_count": 2,
+    "litigation_primary": 2,
+    "litigation_raw": 2,
+    "active_signal_count": 1,
+    "n_block_reporters": 2,
+    "n_purpose_shift": 0,
+    "n_abrupt": 1,
+    "n_abrupt_gain": 0,
+    "n_abrupt_exit": 1,
+    "treasury_pct": 0.5,
+    "related_total_pct": 15.08,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "능동적 5% 블록이 있으나 명부상 최대주주 테이블과 이름이 겹친다."
+    ],
+    "company_side_filers": [
+      "아이큐어"
+    ],
+    "shareholder_side_filers": [
+      "아이케이파트너스"
+    ],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "상상인플러스저축은행",
+        "change_pp": -5.92,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  },
+  {
+    "ticker": "043590",
+    "name": "웰킵스하이텍",
+    "status": "no_filing"
+  },
+  {
+    "ticker": "355390",
+    "name": "크라우드웍스",
+    "status": "exact",
+    "duration_s": 2.11,
+    "has_contest_signal": true,
+    "proxy_filing_count": 1,
+    "shareholder_side_count": 0,
+    "litigation_primary": 1,
+    "litigation_raw": 2,
+    "active_signal_count": 1,
+    "n_block_reporters": 4,
+    "n_purpose_shift": 0,
+    "n_abrupt": 3,
+    "n_abrupt_gain": 1,
+    "n_abrupt_exit": 2,
+    "treasury_pct": 0.07,
+    "related_total_pct": 18.13,
+    "active_external_block_count": 0,
+    "active_overlap_block_count": 1,
+    "observations": [
+      "명부상 최대주주 테이블과 겹치지 않는 능동적 5% 블록이 있다."
+    ],
+    "company_side_filers": [
+      "크라우드웍스"
+    ],
+    "shareholder_side_filers": [],
+    "retail_activism_filers": [],
+    "active_external_blocks": [],
+    "abrupt_detail": [
+      {
+        "reporter": "박민우",
+        "change_pp": -7.71,
+        "dir": "decreasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "엑스알피1호조합",
+        "change_pp": 6.85,
+        "dir": "increasing",
+        "purpose": "경영참여"
+      },
+      {
+        "reporter": "인터레이스자산운용",
+        "change_pp": -7.42,
+        "dir": "decreasing",
+        "purpose": "단순투자/일반투자"
+      }
+    ]
+  }
+]

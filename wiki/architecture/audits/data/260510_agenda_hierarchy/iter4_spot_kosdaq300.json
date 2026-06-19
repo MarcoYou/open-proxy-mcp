@@ -1,0 +1,2275 @@
+[
+  {
+    "ticker": "033500",
+    "name": "동성화인텍",
+    "status": "ok",
+    "duration_s": 2.3,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "084110",
+    "name": "휴온스글로벌",
+    "status": "ok",
+    "duration_s": 2.78,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "486990",
+    "name": "노타",
+    "status": "ok",
+    "duration_s": 2.29,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 내용 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "468530",
+    "name": "프로티나",
+    "status": "ok",
+    "duration_s": 2.25,
+    "n_agendas": 13,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경 승인의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "033100",
+    "name": "제룡전기",
+    "status": "ok",
+    "duration_s": 1.88,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "376300",
+    "name": "디어유",
+    "status": "ok",
+    "duration_s": 2.12,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "425420",
+    "name": "티에프이",
+    "status": "ok",
+    "duration_s": 2.66,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "399720",
+    "name": "가온칩스",
+    "status": "ok",
+    "duration_s": 2.51,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "112040",
+    "name": "위메이드",
+    "status": "ok",
+    "duration_s": 3.38,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "024850",
+    "name": "HLB이노베이션",
+    "status": "ok",
+    "duration_s": 3.04,
+    "n_agendas": 18,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "348210",
+    "name": "넥스틴",
+    "status": "ok",
+    "duration_s": 2.39,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "214430",
+    "name": "아이쓰리시스템",
+    "status": "ok",
+    "duration_s": 6.25,
+    "n_agendas": 3,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "067160",
+    "name": "SOOP",
+    "status": "ok",
+    "duration_s": 12.33,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "102710",
+    "name": "이엔에프테크놀로지",
+    "status": "ok",
+    "duration_s": 1.62,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "015750",
+    "name": "성우하이텍",
+    "status": "ok",
+    "duration_s": 2.12,
+    "n_agendas": 17,
+    "n_title_hits": 4,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 문구 삭제",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원회 위원 분리선출 확대",
+        "rule_id": "A1-3",
+        "decision": "FOR"
+      },
+      {
+        "title": "독립이사로의 명칭 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선임 또는 해임시 의결권 제한 강화",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "448900",
+    "name": "한국피아이엠",
+    "status": "ok",
+    "duration_s": 1.49,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "053800",
+    "name": "안랩",
+    "status": "ok",
+    "duration_s": 1.67,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "356860",
+    "name": "티엘비",
+    "status": "ok",
+    "duration_s": 1.83,
+    "n_agendas": 17,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "200710",
+    "name": "에이디테크놀로지",
+    "status": "ok",
+    "duration_s": 2.76,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "253590",
+    "name": "네오셈",
+    "status": "ok",
+    "duration_s": 2.38,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "025980",
+    "name": "아난티",
+    "status": "ok",
+    "duration_s": 1.72,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "460930",
+    "name": "현대힘스",
+    "status": "ok",
+    "duration_s": 1.77,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "033790",
+    "name": "피노",
+    "status": "ok",
+    "duration_s": 1.77,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "060280",
+    "name": "큐렉소",
+    "status": "ok",
+    "duration_s": 1.75,
+    "n_agendas": 2,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "042000",
+    "name": "카페24",
+    "status": "ok",
+    "duration_s": 2.83,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "336570",
+    "name": "원텍",
+    "status": "ok",
+    "duration_s": 3.14,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "060250",
+    "name": "NHN KCP",
+    "status": "ok",
+    "duration_s": 2.06,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "383310",
+    "name": "에코프로에이치엔",
+    "status": "ok",
+    "duration_s": 2.79,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "094170",
+    "name": "동운아나텍",
+    "status": "ok",
+    "duration_s": 2.05,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "041960",
+    "name": "코미팜",
+    "status": "ok",
+    "duration_s": 1.81,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "278280",
+    "name": "천보",
+    "status": "ok",
+    "duration_s": 6.42,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "424870",
+    "name": "이뮨온시아",
+    "status": "ok",
+    "duration_s": 8.01,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "327260",
+    "name": "RF머트리얼즈",
+    "status": "ok",
+    "duration_s": 3.26,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "187660",
+    "name": "페니트리움바이오",
+    "status": "ok",
+    "duration_s": 6.07,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "272290",
+    "name": "이녹스첨단소재",
+    "status": "ok",
+    "duration_s": 2.38,
+    "n_agendas": 14,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "211050",
+    "name": "인카금융서비스",
+    "status": "ok",
+    "duration_s": 1.46,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "251970",
+    "name": "펌텍코리아",
+    "status": "ok",
+    "duration_s": 0.96,
+    "n_agendas": 3,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "053610",
+    "name": "프로텍",
+    "status": "ok",
+    "duration_s": 13.44,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "287840",
+    "name": "인투셀",
+    "status": "ok",
+    "duration_s": 1.89,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경 승인의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "389650",
+    "name": "넥스트바이오메디컬",
+    "status": "ok",
+    "duration_s": 0.97,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "252990",
+    "name": "샘씨엔에스",
+    "status": "ok",
+    "duration_s": 1.14,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "090360",
+    "name": "로보스타",
+    "status": "ok",
+    "duration_s": 0.98,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "098070",
+    "name": "한텍",
+    "status": "ok",
+    "duration_s": 2.44,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "099190",
+    "name": "아이센스",
+    "status": "ok",
+    "duration_s": 0.88,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "025320",
+    "name": "시노펙스",
+    "status": "ok",
+    "duration_s": 1.08,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "045100",
+    "name": "한양이엔지",
+    "status": "ok",
+    "duration_s": 1.09,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "138080",
+    "name": "오이솔루션",
+    "status": "ok",
+    "duration_s": 0.95,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "042520",
+    "name": "한스바이오메드",
+    "status": "ok",
+    "duration_s": 0.51,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "025900",
+    "name": "동화기업",
+    "status": "ok",
+    "duration_s": 3.02,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "047920",
+    "name": "HLB제약",
+    "status": "ok",
+    "duration_s": 2.6,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "046890",
+    "name": "서울반도체",
+    "status": "ok",
+    "duration_s": 2.87,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-8",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "018290",
+    "name": "브이티",
+    "status": "ok",
+    "duration_s": 3.16,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "199800",
+    "name": "툴젠",
+    "status": "ok",
+    "duration_s": 2.35,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "376270",
+    "name": "HEM파마",
+    "status": "ok",
+    "duration_s": 2.36,
+    "n_agendas": 15,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "041190",
+    "name": "우리기술투자",
+    "status": "ok",
+    "duration_s": 6.91,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 개정의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "095660",
+    "name": "네오위즈",
+    "status": "ok",
+    "duration_s": 6.81,
+    "n_agendas": 16,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "215600",
+    "name": "신라젠",
+    "status": "ok",
+    "duration_s": 2.62,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "119850",
+    "name": "지엔씨에너지",
+    "status": "ok",
+    "duration_s": 2.76,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "104830",
+    "name": "원익머트리얼즈",
+    "status": "ok",
+    "duration_s": 2.29,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "488900",
+    "name": "비츠로넥스텍",
+    "status": "ok",
+    "duration_s": 2.18,
+    "n_agendas": 9,
+    "n_title_hits": 3,
+    "title_hits": [
+      {
+        "title": "사외이사의 명칭 변경 및 이사회 내 인원수 비율 변경",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      },
+      {
+        "title": "감사위원 선ㆍ해임 시 의결권 제한 강화 및 분리선출 인원 변경",
+        "rule_id": "A1-4",
+        "decision": "FOR"
+      },
+      {
+        "title": "전자주주총회 도입관련 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "125490",
+    "name": "한라캐스트",
+    "status": "ok",
+    "duration_s": 1.56,
+    "n_agendas": 16,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "215200",
+    "name": "메가스터디교육",
+    "status": "ok",
+    "duration_s": 2.13,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "019210",
+    "name": "와이지-원",
+    "status": "ok",
+    "duration_s": 8.58,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "031330",
+    "name": "에스에이엠티",
+    "status": "ok",
+    "duration_s": 8.25,
+    "n_agendas": 3,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "036620",
+    "name": "감성코퍼레이션",
+    "status": "ok",
+    "duration_s": 1.61,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "230360",
+    "name": "에코마케팅",
+    "status": "ok",
+    "duration_s": 2.84,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "484590",
+    "name": "삼양컴텍",
+    "status": "ok",
+    "duration_s": 2.84,
+    "n_agendas": 2,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "393890",
+    "name": "더블유씨피",
+    "status": "ok",
+    "duration_s": 2.7,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "206650",
+    "name": "유바이오로직스",
+    "status": "ok",
+    "duration_s": 2.9,
+    "n_agendas": 14,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "093320",
+    "name": "케이아이엔엑스",
+    "status": "ok",
+    "duration_s": 2.49,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "180400",
+    "name": "DXVX",
+    "status": "ok",
+    "duration_s": 3.44,
+    "n_agendas": 13,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "0082N0",
+    "name": "카나프테라퓨틱스",
+    "status": "ok",
+    "duration_s": 16.83,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "101160",
+    "name": "월덱스",
+    "status": "ok",
+    "duration_s": 1.39,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "077360",
+    "name": "덕산하이메탈",
+    "status": "ok",
+    "duration_s": 1.44,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "318060",
+    "name": "그래피",
+    "status": "ok",
+    "duration_s": 1.02,
+    "n_agendas": 10,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "전자주주총회 도입의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "083450",
+    "name": "GST",
+    "status": "ok",
+    "duration_s": 1.86,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건(상법 등의 개정사항 반영)"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "067630",
+    "name": "HLB생명과학",
+    "status": "ok",
+    "duration_s": 1.04,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "030520",
+    "name": "한글과컴퓨터",
+    "status": "ok",
+    "duration_s": 2.61,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "034950",
+    "name": "한국기업평가",
+    "status": "ok",
+    "duration_s": 4.93,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "079370",
+    "name": "제우스",
+    "status": "ok",
+    "duration_s": 1.9,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "006910",
+    "name": "보성파워텍",
+    "status": "ok",
+    "duration_s": 2.11,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "230240",
+    "name": "에치에프알",
+    "status": "ok",
+    "duration_s": 1.69,
+    "n_agendas": 8,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "독립이사로 명칭 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "478340",
+    "name": "나라스페이스테크놀로지",
+    "status": "ok",
+    "duration_s": 1.98,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "037460",
+    "name": "삼지전자",
+    "status": "ok",
+    "duration_s": 2.11,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "064260",
+    "name": "다날",
+    "status": "ok",
+    "duration_s": 4.04,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "039440",
+    "name": "에스티아이",
+    "status": "ok",
+    "duration_s": 3.98,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "101930",
+    "name": "인화정공",
+    "status": "ok",
+    "duration_s": 12.35,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관일부 변경의 건 - 2-1 호 : 상법 개정에 따른 내용 반영 등 - 2-2 호 : 주식분할을 위한 변경 ( 제 5 조 , 제 6 조 ) ⇒ 주주제안"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관일부 변경의 건 - 2-1 호 : 상법 개정에 따른 내용 반영 등 - 2-2 호 : 주식분할을 위한 변경 ( 제 5 조 , 제 6 조 ) ⇒ 주주제안",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "059090",
+    "name": "미코",
+    "status": "ok",
+    "duration_s": 2.05,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경 승인의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "389260",
+    "name": "대명에너지",
+    "status": "ok",
+    "duration_s": 1.57,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "494120",
+    "name": "큐리오시스",
+    "status": "ok",
+    "duration_s": 1.06,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "338840",
+    "name": "와이바이오로직스",
+    "status": "ok",
+    "duration_s": 5.44,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "340570",
+    "name": "티앤엘",
+    "status": "ok",
+    "duration_s": 1.62,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "089010",
+    "name": "켐트로닉스",
+    "status": "ok",
+    "duration_s": 1.07,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "078350",
+    "name": "한양디지텍",
+    "status": "ok",
+    "duration_s": 1.56,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건(상법 개정안 반영)"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "091700",
+    "name": "파트론",
+    "status": "ok",
+    "duration_s": 3.5,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "033640",
+    "name": "네패스",
+    "status": "ok",
+    "duration_s": 4.32,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "228760",
+    "name": "지노믹트리",
+    "status": "ok",
+    "duration_s": 2.63,
+    "n_agendas": 18,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "069080",
+    "name": "웹젠",
+    "status": "ok",
+    "duration_s": 2.42,
+    "n_agendas": 14,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "독립이사 명칭 도입 등 개정 상법 반영",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "013030",
+    "name": "하이록코리아",
+    "status": "ok",
+    "duration_s": 2.16,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "107640",
+    "name": "한중엔시에스",
+    "status": "ok",
+    "duration_s": 2.41,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "220100",
+    "name": "퓨쳐켐",
+    "status": "ok",
+    "duration_s": 2.36,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "033160",
+    "name": "엠케이전자",
+    "status": "ok",
+    "duration_s": 2.75,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "900290",
+    "name": "GRT",
+    "status": "ok",
+    "duration_s": 1.06,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "168360",
+    "name": "펨트론",
+    "status": "ok",
+    "duration_s": 2.77,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "065660",
+    "name": "안트로젠",
+    "status": "ok",
+    "duration_s": 2.3,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "117730",
+    "name": "티로보틱스",
+    "status": "ok",
+    "duration_s": 1.57,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "122640",
+    "name": "예스티",
+    "status": "ok",
+    "duration_s": 1.97,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "080580",
+    "name": "오킨스전자",
+    "status": "ok",
+    "duration_s": 2.76,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "0001A0",
+    "name": "덕양에너젠",
+    "status": "ok",
+    "duration_s": 2.75,
+    "n_agendas": 3,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경 승인의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경 승인의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "078340",
+    "name": "컴투스",
+    "status": "ok",
+    "duration_s": 2.71,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "101730",
+    "name": "위메이드맥스",
+    "status": "ok",
+    "duration_s": 7.11,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "450950",
+    "name": "아스테라시스",
+    "status": "ok",
+    "duration_s": 2.44,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "441270",
+    "name": "파인엠텍",
+    "status": "ok",
+    "duration_s": 1.05,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "084990",
+    "name": "헬릭스미스",
+    "status": "ok",
+    "duration_s": 0.98,
+    "n_agendas": 4,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "455900",
+    "name": "엔젤로보틱스",
+    "status": "ok",
+    "duration_s": 1.18,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "241770",
+    "name": "메카로",
+    "status": "ok",
+    "duration_s": 5.11,
+    "n_agendas": 7,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "308430",
+    "name": "셀비온",
+    "status": "ok",
+    "duration_s": 5.39,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관변경의 건 (세부의안별 심의·표결)"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관변경의 건 (세부의안별 심의·표결)",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "041830",
+    "name": "인바디",
+    "status": "ok",
+    "duration_s": 2.01,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "394800",
+    "name": "쓰리빌리언",
+    "status": "ok",
+    "duration_s": 1.25,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "394280",
+    "name": "오픈엣지테크놀로지",
+    "status": "ok",
+    "duration_s": 1.41,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "003800",
+    "name": "에이스침대",
+    "status": "ok",
+    "duration_s": 4.76,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "046120",
+    "name": "오르비텍",
+    "status": "ok",
+    "duration_s": 12.13,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "035890",
+    "name": "서희건설",
+    "status": "ok",
+    "duration_s": 9.62,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "078020",
+    "name": "LS증권",
+    "status": "ok",
+    "duration_s": 8.96,
+    "n_agendas": 9,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "집중투표제 배제 조항 삭제의 건",
+        "rule_id": "A1-1",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "114810",
+    "name": "한솔아이원스",
+    "status": "ok",
+    "duration_s": 8.75,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "200670",
+    "name": "휴메딕스",
+    "status": "ok",
+    "duration_s": 2.87,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "041920",
+    "name": "메디아나",
+    "status": "ok",
+    "duration_s": 2.57,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "317330",
+    "name": "덕산테코피아",
+    "status": "ok",
+    "duration_s": 6.9,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "018000",
+    "name": "유니슨",
+    "status": "ok",
+    "duration_s": 7.51,
+    "n_agendas": 13,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "053030",
+    "name": "바이넥스",
+    "status": "ok",
+    "duration_s": 3.37,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "089890",
+    "name": "코세스",
+    "status": "ok",
+    "duration_s": 2.69,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "144510",
+    "name": "지씨셀",
+    "status": "ok",
+    "duration_s": 2.96,
+    "n_agendas": 8,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "290550",
+    "name": "디케이티",
+    "status": "ok",
+    "duration_s": 2.92,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "221800",
+    "name": "유투바이오",
+    "status": "ok",
+    "duration_s": 0.43,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "0088M0",
+    "name": "메쥬",
+    "status": "ok",
+    "duration_s": 1.29,
+    "n_agendas": 0,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "079940",
+    "name": "가비아",
+    "status": "ok",
+    "duration_s": 2.34,
+    "n_agendas": 17,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "298830",
+    "name": "슈어소프트테크",
+    "status": "ok",
+    "duration_s": 4.48,
+    "n_agendas": 10,
+    "n_title_hits": 1,
+    "title_hits": [
+      {
+        "title": "사외이사 명칭, 비율 변경 및 이사충실의무 반영",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "078130",
+    "name": "국일제지",
+    "status": "ok",
+    "duration_s": 1.67,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "314930",
+    "name": "바이오다인",
+    "status": "ok",
+    "duration_s": 1.84,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "114190",
+    "name": "강원에너지",
+    "status": "ok",
+    "duration_s": 1.9,
+    "n_agendas": 3,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "352480",
+    "name": "씨앤씨인터내셔널",
+    "status": "ok",
+    "duration_s": 2.23,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-7",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "035810",
+    "name": "이지홀딩스",
+    "status": "ok",
+    "duration_s": 2.97,
+    "n_agendas": 6,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관일부 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "051500",
+    "name": "CJ프레시웨이",
+    "status": "ok",
+    "duration_s": 7.89,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경 승인"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경 승인",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "241520",
+    "name": "DSC인베스트먼트",
+    "status": "ok",
+    "duration_s": 7.66,
+    "n_agendas": 9,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 개정의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "089980",
+    "name": "상아프론테크",
+    "status": "ok",
+    "duration_s": 2.32,
+    "n_agendas": 5,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "475400",
+    "name": "씨메스로보틱스",
+    "status": "ok",
+    "duration_s": 3.12,
+    "n_agendas": 12,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건"
+    ],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "354320",
+    "name": "알멕",
+    "status": "ok",
+    "duration_s": 4.14,
+    "n_agendas": 12,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 변경의 건 제36조(이사의 임기)의 내용변경 제48조(감사위원회의 구성)의 내용추가"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 변경의 건 제36조(이사의 임기)의 내용변경 제48조(감사위원회의 구성)의 내용추가",
+        "rule_id": "B2-1",
+        "decision": "REVIEW"
+      }
+    ]
+  },
+  {
+    "ticker": "036890",
+    "name": "진성티이씨",
+    "status": "ok",
+    "duration_s": 3.43,
+    "n_agendas": 11,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 1,
+    "d_entries": [
+      "정관 일부 변경의 건"
+    ],
+    "n_body_hits": 1,
+    "body_hits": [
+      {
+        "title": "정관 일부 변경의 건",
+        "rule_id": "A1-5",
+        "decision": "FOR"
+      }
+    ]
+  },
+  {
+    "ticker": "108860",
+    "name": "셀바스AI",
+    "status": "ok",
+    "duration_s": 2.98,
+    "n_agendas": 12,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  },
+  {
+    "ticker": "110990",
+    "name": "디아이티",
+    "status": "ok",
+    "duration_s": 1.19,
+    "n_agendas": 10,
+    "n_title_hits": 0,
+    "title_hits": [],
+    "n_d_entries": 0,
+    "d_entries": [],
+    "n_body_hits": 0,
+    "body_hits": []
+  }
+]

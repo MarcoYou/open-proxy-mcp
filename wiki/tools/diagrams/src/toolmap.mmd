@@ -1,0 +1,76 @@
+flowchart LR
+    classDef src fill:#1e3a5f,color:#fff,stroke:#0d1b2a,stroke-width:1px;
+    classDef tool fill:#e8f0fe,color:#1a1a1a,stroke:#4285f4,stroke-width:1px;
+    classDef q fill:#f1f8e9,color:#1a1a1a,stroke:#689f38,stroke-width:1px;
+    classDef meta fill:#f3e5f5,color:#1a1a1a,stroke:#9c27b0,stroke-width:1px;
+
+    %% ===== 공시 채널 (좌) =====
+    A["정기보고서<br/>사업 · 반기 · 분기"]:::src
+    B["주요사항보고서<br/>(수시 결정공시)"]:::src
+    C["대량보유 · 지분 보고<br/>(5% 보고 등)"]:::src
+    D["거래소 수시공시"]:::src
+    M["공시 메타<br/>(원문 참조 없음)"]:::meta
+
+    %% ===== Tool (중) — 실제 공시명을 박스 안에 =====
+    T_fin["<b>financial_metrics</b><br/>사업·반기·분기보고서<br/>(재무제표 · 감사의견)"]:::tool
+    T_div["<b>dividend</b><br/>정기보고서 '배당에 관한 사항'<br/>+ 현금·현물배당 결정"]:::tool
+    T_own["<b>ownership_structure</b><br/>사업보고서(최대주주·주식현황)<br/>+ 5% 대량보유보고 + 최대주주변동신고"]:::tool
+    T_tre["<b>treasury_share</b><br/>자기주식 취득·처분·소각 결정<br/>+ 취득·처분 결과보고서 + 신탁계약"]:::tool
+    T_dil["<b>dilutive_issuance</b><br/>유상증자 · 전환사채(CB) ·<br/>신주인수권부사채(BW) · 감자 결정"]:::tool
+    T_res["<b>corporate_restructuring</b><br/>회사합병 · 분할 · 분할합병 ·<br/>주식교환·이전 결정"]:::tool
+    T_dea["<b>corporate_deals</b><br/>타법인주식·출자증권<br/>양수·양도 결정"]:::tool
+    T_ord["<b>order_contracts</b><br/>단일판매·공급계약 체결"]:::tool
+    T_not["<b>shareholder_meeting_notice</b><br/>주주총회 소집공고"]:::tool
+    T_rslt["<b>shareholder_meeting_results</b><br/>주주총회 의결 결과<br/>(의결권 행사결과)"]:::tool
+    T_adv["<b>proxy_advise_before_meeting</b><br/>주총 소집공고 + 정관<br/>+ 재무 + 상법(법령)"]:::tool
+    T_pcn["<b>proxy_contest</b><br/>5% 대량보유보고 + 위임장권유<br/>+ 공개매수 + 경영권분쟁소송"]:::tool
+    T_gov["<b>corp_gov_report</b><br/>기업지배구조보고서"]:::tool
+    T_val["<b>value_up</b><br/>기업가치제고계획 (밸류업)"]:::tool
+    T_rsk["<b>risk_events</b><br/>중대재해 · 횡령·배임 · 생산중단 ·<br/>영업정지 · 회생·부도"]:::tool
+    T_cmp["<b>company</b><br/>전체 공시 목록 (인덱스)"]:::tool
+    T_evd["<b>evidence</b><br/>공시일·소스·뷰어 링크<br/>(원문 안 봄)"]:::tool
+
+    %% ===== 답하는 질문 (우) =====
+    Q_fin["재무 건전해? 수익성·안정성·현금흐름·회계 risk"]:::q
+    Q_div["배당 얼마? 배당성향·시가배당률·분기 추이"]:::q
+    Q_own["최대주주 누구? 5% 큰손은? N%를 누가 나눠 갖나"]:::q
+    Q_tre["자사주 사? 처분·소각·신탁? 취득↔결과 사이클"]:::q
+    Q_dil["증자·CB·BW·감자로 내 지분 희석되나?"]:::q
+    Q_res["합병·분할·주식교환? 비율·외부평가·매수청구권"]:::q
+    Q_dea["뭘 인수·매각했나? 상대방·금액·자산대비%"]:::q
+    Q_ord["수주 받았나? 계약금액·매출 대비%·상대방"]:::q
+    Q_not["이번 주총 안건·이사후보·보수한도·정관변경?"]:::q
+    Q_rslt["안건 통과됐나? 가결/부결·찬반율"]:::q
+    Q_adv["이 안건 찬성? 반대? 후보 독립성·결격·법령"]:::q
+    Q_pcn["경영권 분쟁? 위임장·소송·5% 매집·표 구조"]:::q
+    Q_gov["이사회 독립성? 15개 지표 준수율·연도추이"]:::q
+    Q_val["밸류업 계획 냈나? 약속 vs 자사주 소각 이행"]:::q
+    Q_rsk["악재 있나? 중대재해·횡령배임·생산중단·영업정지"]:::q
+    Q_cmp["이 회사 누구? 최근 공시 뭐 있어?"]:::q
+    Q_evd["그 근거 공시 원문 어디?"]:::q
+
+    %% ===== 채널 → Tool =====
+    A --> T_fin & T_div & T_own
+    B --> T_tre & T_dil & T_res & T_dea & T_rsk
+    C --> T_own & T_pcn
+    D --> T_not & T_rslt & T_adv & T_ord & T_gov & T_val & T_rsk & T_div & T_pcn
+    M --> T_evd & T_cmp
+
+    %% ===== Tool → 질문 =====
+    T_fin --> Q_fin
+    T_div --> Q_div
+    T_own --> Q_own
+    T_tre --> Q_tre
+    T_dil --> Q_dil
+    T_res --> Q_res
+    T_dea --> Q_dea
+    T_ord --> Q_ord
+    T_not --> Q_not
+    T_rslt --> Q_rslt
+    T_adv --> Q_adv
+    T_pcn --> Q_pcn
+    T_gov --> Q_gov
+    T_val --> Q_val
+    T_rsk --> Q_rsk
+    T_cmp --> Q_cmp
+    T_evd --> Q_evd

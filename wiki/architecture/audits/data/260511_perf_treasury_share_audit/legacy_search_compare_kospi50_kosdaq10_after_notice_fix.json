@@ -1,0 +1,615 @@
+{
+  "meta": {
+    "sample": "KOSPI 50 + KOSDAQ 10",
+    "row_count": 60
+  },
+  "summary": {
+    "equal_count": 60,
+    "row_count": 60,
+    "median_speedup_pct": 22.84343282781134,
+    "min_speedup_pct": -91.5086756895517,
+    "max_speedup_pct": 54.117866112428295
+  },
+  "records": [
+    {
+      "ticker": "005930",
+      "company": "삼성전자",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 2.303681500023231,
+      "elapsed_legacy_sec": 4.2209761660778895,
+      "speedup_pct": 45.423015686823916,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "000660",
+      "company": "SK하이닉스",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.5077561249490827,
+      "elapsed_legacy_sec": 3.286150833009742,
+      "speedup_pct": 54.117866112428295,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "005380",
+      "company": "현대차",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.876733500044793,
+      "elapsed_legacy_sec": 3.869590000016615,
+      "speedup_pct": 51.500456119724966,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "373220",
+      "company": "LG에너지솔루션",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.6992076250026003,
+      "elapsed_legacy_sec": 0.9107628340134397,
+      "speedup_pct": 23.228353322080952,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "207940",
+      "company": "삼성바이오로직스",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.0415437499759719,
+      "elapsed_legacy_sec": 1.3261174169601873,
+      "speedup_pct": 21.4591606553614,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "012450",
+      "company": "한화에어로스페이스",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.442320332978852,
+      "elapsed_legacy_sec": 2.939320332952775,
+      "speedup_pct": 50.930141338833614,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "402340",
+      "company": "SK스퀘어",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.8114097910001874,
+      "elapsed_legacy_sec": 0.8132117090281099,
+      "speedup_pct": 0.22158043322765597,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "034020",
+      "company": "두산에너빌리티",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.12498570792377,
+      "elapsed_legacy_sec": 1.7260678749298677,
+      "speedup_pct": 34.823785074530775,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "000270",
+      "company": "기아",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.438392166979611,
+      "elapsed_legacy_sec": 2.554334916989319,
+      "speedup_pct": 43.68819228000924,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "105560",
+      "company": "KB금융",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.1115574170835316,
+      "elapsed_legacy_sec": 1.7322380000259727,
+      "speedup_pct": 35.831137691999295,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "329180",
+      "company": "HD현대중공업",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.014197500073351,
+      "elapsed_legacy_sec": 1.308642541989684,
+      "speedup_pct": 22.500035912683497,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "068270",
+      "company": "셀트리온",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.2624241249868646,
+      "elapsed_legacy_sec": 2.1335448330501094,
+      "speedup_pct": 40.82973531040795,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "055550",
+      "company": "신한지주",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.1606584580149502,
+      "elapsed_legacy_sec": 1.7741755419410765,
+      "speedup_pct": 34.58040478085355,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "032830",
+      "company": "삼성생명",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.7089878330007195,
+      "elapsed_legacy_sec": 0.9387254590401426,
+      "speedup_pct": 24.473356275468696,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "028260",
+      "company": "삼성물산",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.02023470797576,
+      "elapsed_legacy_sec": 1.3280182080343366,
+      "speedup_pct": 23.176150612734563,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "042660",
+      "company": "한화오션",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.2226053749909624,
+      "elapsed_legacy_sec": 1.8183300839737058,
+      "speedup_pct": 32.76218736264157,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "006400",
+      "company": "삼성SDI",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.0179643749725074,
+      "elapsed_legacy_sec": 1.3289328339742497,
+      "speedup_pct": 23.399862735859518,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "012330",
+      "company": "현대모비스",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.0578300419729203,
+      "elapsed_legacy_sec": 1.3166954161133617,
+      "speedup_pct": 19.66023204550704,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "006800",
+      "company": "미래에셋증권",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 3.3147656669607386,
+      "elapsed_legacy_sec": 4.3638314589625224,
+      "speedup_pct": 24.040016253313176,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "267260",
+      "company": "HD현대일렉트릭",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.807348084053956,
+      "elapsed_legacy_sec": 1.3300126669928432,
+      "speedup_pct": 39.297714669186654,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "009150",
+      "company": "삼성전기",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.7159420419484377,
+      "elapsed_legacy_sec": 0.9115437499713153,
+      "speedup_pct": 21.458290732510953,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "086790",
+      "company": "하나금융지주",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.1360491249943152,
+      "elapsed_legacy_sec": 1.7464677499374375,
+      "speedup_pct": 34.95161161521528,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "035420",
+      "company": "NAVER",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.1438710000365973,
+      "elapsed_legacy_sec": 2.0348665420897305,
+      "speedup_pct": 43.786436290711954,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "010130",
+      "company": "고려아연",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.2264389169868082,
+      "elapsed_legacy_sec": 1.8331090420251712,
+      "speedup_pct": 33.09514661321673,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "005490",
+      "company": "POSCO홀딩스",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.0214136251015589,
+      "elapsed_legacy_sec": 1.3294481670018286,
+      "speedup_pct": 23.170105427648917,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "015760",
+      "company": "한국전력",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.7037566249491647,
+      "elapsed_legacy_sec": 0.9200058330316097,
+      "speedup_pct": 23.505199675730214,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "009540",
+      "company": "HD한국조선해양",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.1492734169587493,
+      "elapsed_legacy_sec": 1.4295044169994071,
+      "speedup_pct": 19.60336720252149,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "272210",
+      "company": "한화시스템",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.013982667005621,
+      "elapsed_legacy_sec": 1.318285375018604,
+      "speedup_pct": 23.08321959565764,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "042700",
+      "company": "한미반도체",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.8045172500424087,
+      "elapsed_legacy_sec": 0.8066646250663325,
+      "speedup_pct": 0.2662041891011688,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "010140",
+      "company": "삼성중공업",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.7261850419454277,
+      "elapsed_legacy_sec": 0.9231502499897033,
+      "speedup_pct": 21.336202643770346,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "316140",
+      "company": "우리금융지주",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.0153153750579804,
+      "elapsed_legacy_sec": 1.3119439999572933,
+      "speedup_pct": 22.609854148421636,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "298040",
+      "company": "효성중공업",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.7139289999613538,
+      "elapsed_legacy_sec": 0.916067666024901,
+      "speedup_pct": 22.06590992788654,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "010120",
+      "company": "LS ELECTRIC",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.9413303340552375,
+      "elapsed_legacy_sec": 1.2131369590060785,
+      "speedup_pct": 22.405271138844196,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "034730",
+      "company": "SK",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.2322121249744669,
+      "elapsed_legacy_sec": 1.8314130830112845,
+      "speedup_pct": 32.71795771228121,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "064350",
+      "company": "현대로템",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.7113197919679806,
+      "elapsed_legacy_sec": 0.927522832993418,
+      "speedup_pct": 23.309727085389355,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "051910",
+      "company": "LG화학",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.019120541983284,
+      "elapsed_legacy_sec": 1.3108910419978201,
+      "speedup_pct": 22.25741809707334,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "000810",
+      "company": "삼성화재",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.7171979170525447,
+      "elapsed_legacy_sec": 0.909769625053741,
+      "speedup_pct": 21.16708479795871,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "035720",
+      "company": "카카오",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.0440220829332247,
+      "elapsed_legacy_sec": 1.6556863330770284,
+      "speedup_pct": 36.94324449770927,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "096770",
+      "company": "SK이노베이션",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.1532954580616206,
+      "elapsed_legacy_sec": 1.7372897919267416,
+      "speedup_pct": 33.61525155900686,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "267250",
+      "company": "HD현대",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.0099518749630079,
+      "elapsed_legacy_sec": 1.3315741670085117,
+      "speedup_pct": 24.15353947336288,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "011200",
+      "company": "HMM",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.8388887080363929,
+      "elapsed_legacy_sec": 0.8399927080608904,
+      "speedup_pct": 0.13142971527051409,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "003670",
+      "company": "포스코퓨처엠",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.0224045841023326,
+      "elapsed_legacy_sec": 1.3054684170056134,
+      "speedup_pct": 21.682932288208985,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "138040",
+      "company": "메리츠금융지주",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.0303319579688832,
+      "elapsed_legacy_sec": 1.3224275410175323,
+      "speedup_pct": 22.087832715877823,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "047810",
+      "company": "한국항공우주",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 1.0110019169514999,
+      "elapsed_legacy_sec": 1.3103251660941169,
+      "speedup_pct": 22.84343282781134,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "033780",
+      "company": "KT&G",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.9540308340219781,
+      "elapsed_legacy_sec": 1.2350680410163477,
+      "speedup_pct": 22.75479549799554,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "066570",
+      "company": "LG전자",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.8193171250168234,
+      "elapsed_legacy_sec": 0.809127458021976,
+      "speedup_pct": -1.2593401563404372,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "024110",
+      "company": "기업은행",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.7049016669625416,
+      "elapsed_legacy_sec": 0.41077612491790205,
+      "speedup_pct": -71.60239463854519,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "079550",
+      "company": "LIG디펜스앤에어로스페이스",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.0368929170072079,
+      "elapsed_legacy_sec": 1.7453184160403907,
+      "speedup_pct": 40.59004319913097,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "017670",
+      "company": "SK텔레콤",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.844325166894123,
+      "elapsed_legacy_sec": 0.9879409589339048,
+      "speedup_pct": 14.536880037321136,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "000720",
+      "company": "현대건설",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.9792487500235438,
+      "elapsed_legacy_sec": 1.7755034170113504,
+      "speedup_pct": 44.84669865226828,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "086520",
+      "company": "에코프로",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 1.022375916945748,
+      "elapsed_legacy_sec": 1.3213675409788266,
+      "speedup_pct": 22.627438222948566,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "247540",
+      "company": "에코프로비엠",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.8523669170681387,
+      "elapsed_legacy_sec": 0.8427458329824731,
+      "speedup_pct": -1.1416353198231401,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "196170",
+      "company": "알테오젠",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.71843137498945,
+      "elapsed_legacy_sec": 0.42936616693623364,
+      "speedup_pct": -67.32370417442468,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "000250",
+      "company": "삼천당제약",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.7014994580531493,
+      "elapsed_legacy_sec": 0.4203048750059679,
+      "speedup_pct": -66.9025271341877,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "277810",
+      "company": "레인보우로보틱스",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.5973676659632474,
+      "elapsed_legacy_sec": 0.5290903750574216,
+      "speedup_pct": -12.904655636273052,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "298380",
+      "company": "에이비엘바이오",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.8106148330261931,
+      "elapsed_legacy_sec": 0.8298199590062723,
+      "speedup_pct": 2.3143726264523377,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "950160",
+      "company": "코오롱티슈진",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.6882332919631153,
+      "elapsed_legacy_sec": 0.430235999985598,
+      "speedup_pct": -59.966458405654954,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "058470",
+      "company": "리노공업",
+      "status_current": "no_filing",
+      "status_legacy": "no_filing",
+      "elapsed_current_sec": 0.6943536669714376,
+      "elapsed_legacy_sec": 0.41701304202433676,
+      "speedup_pct": -66.5064631074333,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "028300",
+      "company": "HLB",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.8094477910781279,
+      "elapsed_legacy_sec": 0.8249050830490887,
+      "speedup_pct": 1.8738267333529037,
+      "equal_without_usage": true
+    },
+    {
+      "ticker": "141080",
+      "company": "리가켐바이오",
+      "status_current": "exact",
+      "status_legacy": "exact",
+      "elapsed_current_sec": 0.699631541967392,
+      "elapsed_legacy_sec": 0.3653262910665944,
+      "speedup_pct": -91.5086756895517,
+      "equal_without_usage": true
+    }
+  ]
+}

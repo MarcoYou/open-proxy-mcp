@@ -1,8 +1,4 @@
-# Wiki (GitHub 비공개 — 로컬 보관). 단 wiki/rules/laws는 배포·런타임 필수라 예외 추적.
-wiki/*
-!wiki/rules/
-wiki/rules/*
-!wiki/rules/laws/
+# Wiki: 레포 비공개 전환으로 GitHub 추적 재개 (raw 바이너리/대용량 corpora만 하단에서 개별 제외).
 
 # Environment
 .env

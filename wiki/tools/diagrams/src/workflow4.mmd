@@ -1,0 +1,28 @@
+flowchart TB
+    classDef s fill:#e8f0fe,color:#1a1a1a,stroke:#4285f4,stroke-width:1px;
+    classDef out fill:#f1f8e9,color:#1a1a1a,stroke:#689f38,stroke-width:1px;
+    classDef grp fill:#fafafa,color:#1a1a1a,stroke:#9e9e9e;
+
+    title["④ 주총 · 의결권 종합형 — 원문 파싱 + 다중 소스 종합 (가장 긴 flow)"]:::grp
+
+    subgraph WF_not["shareholder_meeting_notice"]
+        direction LR
+        a1["resolve_company"]:::s --> a2["E006 소집공고 검색"]:::s --> a3["XML fetch"]:::s --> a4["안건·이사후보·보수·<br/>정관 파싱 (LLM fallback)"]:::s --> a5["render"]:::out
+    end
+
+    subgraph WF_rslt["shareholder_meeting_results"]
+        direction LR
+        b1["resolve_company"]:::s --> b2["I001 결과공시 검색"]:::s --> b3["XML / KIND fetch"]:::s --> b4["안건별 가결·부결·<br/>찬반율 파싱"]:::s --> b5["render"]:::out
+    end
+
+    subgraph WF_pcn["proxy_contest"]
+        direction LR
+        c1["resolve_company"]:::s --> c2["D001/D003/D004 +<br/>I001/B001 + majorstock"]:::s --> c3["소송 4단계 분류·dedup"]:::s --> c4["5% 동학·외부세력 판별"]:::s --> c5["vote_math 표 구조"]:::s --> c6["render"]:::out
+    end
+
+    subgraph WF_adv["proxy_advise_before_meeting"]
+        direction LR
+        d1["resolve_company"]:::s --> d2["E006 + 재무 +<br/>정관 + 법령 레이어"]:::s --> d3["후보 독립성·결격 평가"]:::s --> d4["안건별 법령 정합 판정"]:::s --> d5["안건별 찬반 권고"]:::s --> d6["render"]:::out
+    end
+
+    title ~~~ WF_not ~~~ WF_rslt ~~~ WF_pcn ~~~ WF_adv

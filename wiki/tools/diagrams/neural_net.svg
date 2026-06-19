@@ -1,0 +1,302 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2640" height="1348" viewBox="0 0 2640 1348" font-family="Malgun Gothic, sans-serif">
+<rect width="2640" height="1348" fill="#0b1220"/>
+<defs>
+<radialGradient id="g0"><stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g1"><stop offset="0%" stop-color="#818cf8" stop-opacity="0.9"/><stop offset="100%" stop-color="#818cf8" stop-opacity="0"/></radialGradient>
+<radialGradient id="g2"><stop offset="0%" stop-color="#fbbf24" stop-opacity="0.9"/><stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/></radialGradient>
+<radialGradient id="g3"><stop offset="0%" stop-color="#34d399" stop-opacity="0.9"/><stop offset="100%" stop-color="#34d399" stop-opacity="0"/></radialGradient>
+</defs>
+<text x="40" y="46" fill="#ffffff" font-size="30" font-weight="700">OpenProxy MCP — 공시 → 데이터 → Tool (심층 신경망 뷰)</text>
+<text x="330.0" y="86" fill="#38bdf8" font-size="22" font-weight="700" text-anchor="middle">① 공시 타입 (5)</text>
+<text x="990.0" y="86" fill="#818cf8" font-size="22" font-weight="700" text-anchor="middle">② 공시 이름 (21)</text>
+<text x="1650.0" y="86" fill="#fbbf24" font-size="22" font-weight="700" text-anchor="middle">③ 추출 데이터 (27)</text>
+<text x="2310.0" y="86" fill="#34d399" font-size="22" font-weight="700" text-anchor="middle">④ Tool · 역할 (17)</text>
+<path d="M636.0,228.8 C659.5,228.8 659.5,138.3 683.0,138.3" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,466.4 C659.5,466.4 659.5,194.9 683.0,194.9" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,466.4 C659.5,466.4 659.5,251.4 683.0,251.4" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,466.4 C659.5,466.4 659.5,308.0 683.0,308.0" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,466.4 C659.5,466.4 659.5,364.6 683.0,364.6" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,466.4 C659.5,466.4 659.5,421.1 683.0,421.1" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,477.7 683.0,477.7" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,534.3 683.0,534.3" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,590.9 683.0,590.9" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,647.4 683.0,647.4" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,704.0 683.0,704.0" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,760.6 683.0,760.6" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,817.1 683.0,817.1" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,873.7 683.0,873.7" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,704.0 C659.5,704.0 659.5,930.3 683.0,930.3" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,941.6 C659.5,941.6 659.5,986.9 683.0,986.9" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,941.6 C659.5,941.6 659.5,1043.4 683.0,1043.4" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,941.6 C659.5,941.6 659.5,1100.0 683.0,1100.0" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,941.6 C659.5,941.6 659.5,1156.6 683.0,1156.6" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,1179.2 C659.5,1179.2 659.5,1213.1 683.0,1213.1" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M636.0,1179.2 C659.5,1179.2 659.5,1269.7 683.0,1269.7" fill="none" stroke="#38bdf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,138.3 C1319.5,138.3 1319.5,132.0 1343.0,132.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,138.3 C1319.5,138.3 1319.5,176.0 1343.0,176.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,138.3 C1319.5,138.3 1319.5,220.0 1343.0,220.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,138.3 C1319.5,138.3 1319.5,264.0 1343.0,264.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,138.3 C1319.5,138.3 1319.5,308.0 1343.0,308.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,194.9 C1319.5,194.9 1319.5,352.0 1343.0,352.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,251.4 C1319.5,251.4 1319.5,396.0 1343.0,396.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,308.0 C1319.5,308.0 1319.5,440.0 1343.0,440.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,364.6 C1319.5,364.6 1319.5,484.0 1343.0,484.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,421.1 C1319.5,421.1 1319.5,528.0 1343.0,528.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,477.7 C1319.5,477.7 1319.5,572.0 1343.0,572.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,477.7 C1319.5,477.7 1319.5,616.0 1343.0,616.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,534.3 C1319.5,534.3 1319.5,660.0 1343.0,660.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,590.9 C1319.5,590.9 1319.5,704.0 1343.0,704.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,647.4 C1319.5,647.4 1319.5,748.0 1343.0,748.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,704.0 C1319.5,704.0 1319.5,792.0 1343.0,792.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,760.6 C1319.5,760.6 1319.5,836.0 1343.0,836.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,817.1 C1319.5,817.1 1319.5,880.0 1343.0,880.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,873.7 C1319.5,873.7 1319.5,924.0 1343.0,924.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,930.3 C1319.5,930.3 1319.5,968.0 1343.0,968.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,986.9 C1319.5,986.9 1319.5,1012.0 1343.0,1012.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,986.9 C1319.5,986.9 1319.5,1056.0 1343.0,1056.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,1043.4 C1319.5,1043.4 1319.5,1100.0 1343.0,1100.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,1100.0 C1319.5,1100.0 1319.5,1144.0 1343.0,1144.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,1156.6 C1319.5,1156.6 1319.5,1188.0 1343.0,1188.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,1213.1 C1319.5,1213.1 1319.5,1232.0 1343.0,1232.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1296.0,1269.7 C1319.5,1269.7 1319.5,1276.0 1343.0,1276.0" fill="none" stroke="#818cf8" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,132.0 C1979.5,132.0 1979.5,144.9 2003.0,144.9" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,176.0 C1979.5,176.0 1979.5,144.9 2003.0,144.9" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,220.0 C1979.5,220.0 1979.5,214.8 2003.0,214.8" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,748.0 C1979.5,748.0 1979.5,214.8 2003.0,214.8" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,264.0 C1979.5,264.0 1979.5,284.7 2003.0,284.7" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,308.0 C1979.5,308.0 1979.5,284.7 2003.0,284.7" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,1012.0 C1979.5,1012.0 1979.5,284.7 2003.0,284.7" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,1100.0 C1979.5,1100.0 1979.5,284.7 2003.0,284.7" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,352.0 C1979.5,352.0 1979.5,354.6 2003.0,354.6" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,704.0 C1979.5,704.0 1979.5,354.6 2003.0,354.6" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,396.0 C1979.5,396.0 1979.5,424.5 2003.0,424.5" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,440.0 C1979.5,440.0 1979.5,494.4 2003.0,494.4" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,484.0 C1979.5,484.0 1979.5,564.2 2003.0,564.2" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,528.0 C1979.5,528.0 1979.5,634.1 2003.0,634.1" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,924.0 C1979.5,924.0 1979.5,634.1 2003.0,634.1" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,572.0 C1979.5,572.0 1979.5,704.0 2003.0,704.0" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,616.0 C1979.5,616.0 1979.5,773.9 2003.0,773.9" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,660.0 C1979.5,660.0 1979.5,843.8 2003.0,843.8" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,792.0 C1979.5,792.0 1979.5,913.6 2003.0,913.6" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,836.0 C1979.5,836.0 1979.5,983.5 2003.0,983.5" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,880.0 C1979.5,880.0 1979.5,1053.4 2003.0,1053.4" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,968.0 C1979.5,968.0 1979.5,1123.3 2003.0,1123.3" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,1056.0 C1979.5,1056.0 1979.5,1123.3 2003.0,1123.3" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,1144.0 C1979.5,1144.0 1979.5,1123.3 2003.0,1123.3" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,1188.0 C1979.5,1188.0 1979.5,1123.3 2003.0,1123.3" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,1232.0 C1979.5,1232.0 1979.5,1193.2 2003.0,1193.2" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<path d="M1956.0,1276.0 C1979.5,1276.0 1979.5,1263.1 2003.0,1263.1" fill="none" stroke="#fbbf24" stroke-width="1.1" stroke-opacity="0.22"/>
+<circle cx="34.0" cy="228.8" r="17" fill="url(#g0)"/>
+<circle cx="34.0" cy="228.8" r="9" fill="#38bdf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="52.0" y="233.8" fill="#dbe4ee" font-size="15">정기보고서</text>
+<circle cx="34.0" cy="466.4" r="17" fill="url(#g0)"/>
+<circle cx="34.0" cy="466.4" r="9" fill="#38bdf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="52.0" y="471.4" fill="#dbe4ee" font-size="15">주요사항보고서</text>
+<circle cx="34.0" cy="704.0" r="17" fill="url(#g0)"/>
+<circle cx="34.0" cy="704.0" r="9" fill="#38bdf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="52.0" y="709.0" fill="#dbe4ee" font-size="15">거래소 수시공시</text>
+<circle cx="34.0" cy="941.6" r="17" fill="url(#g0)"/>
+<circle cx="34.0" cy="941.6" r="9" fill="#38bdf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="52.0" y="946.6" fill="#dbe4ee" font-size="15">대량보유·지분 보고</text>
+<circle cx="34.0" cy="1179.2" r="17" fill="url(#g0)"/>
+<circle cx="34.0" cy="1179.2" r="9" fill="#38bdf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="52.0" y="1184.2" fill="#dbe4ee" font-size="15">공시 메타</text>
+<circle cx="694.0" cy="138.3" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="138.3" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="143.3" fill="#dbe4ee" font-size="15">사업·반기·분기보고서</text>
+<circle cx="694.0" cy="194.9" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="194.9" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="192.9" fill="#dbe4ee" font-size="15">자기주식 취득·처분·신탁 결</text>
+<text x="712.0" y="209.9" fill="#dbe4ee" font-size="15">정</text>
+<circle cx="694.0" cy="251.4" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="251.4" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="249.4" fill="#dbe4ee" font-size="15">유상증자·CB·BW·감자 결</text>
+<text x="712.0" y="266.4" fill="#dbe4ee" font-size="15">정</text>
+<circle cx="694.0" cy="308.0" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="308.0" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="313.0" fill="#dbe4ee" font-size="15">합병·분할·주식교환 결정</text>
+<circle cx="694.0" cy="364.6" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="364.6" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="369.6" fill="#dbe4ee" font-size="15">타법인주식 양수·양도 결정</text>
+<circle cx="694.0" cy="421.1" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="421.1" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="426.1" fill="#dbe4ee" font-size="15">회생·부도·영업정지·해산</text>
+<circle cx="694.0" cy="477.7" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="477.7" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="482.7" fill="#dbe4ee" font-size="15">주주총회 소집공고</text>
+<circle cx="694.0" cy="534.3" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="534.3" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="539.3" fill="#dbe4ee" font-size="15">주주총회 결과(의결권행사)</text>
+<circle cx="694.0" cy="590.9" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="590.9" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="595.9" fill="#dbe4ee" font-size="15">자기주식 결과보고서·소각</text>
+<circle cx="694.0" cy="647.4" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="647.4" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="652.4" fill="#dbe4ee" font-size="15">현금·현물배당 결정</text>
+<circle cx="694.0" cy="704.0" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="704.0" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="709.0" fill="#dbe4ee" font-size="15">단일판매·공급계약 체결</text>
+<circle cx="694.0" cy="760.6" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="760.6" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="765.6" fill="#dbe4ee" font-size="15">기업지배구조보고서</text>
+<circle cx="694.0" cy="817.1" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="817.1" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="822.1" fill="#dbe4ee" font-size="15">기업가치제고계획(밸류업)</text>
+<circle cx="694.0" cy="873.7" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="873.7" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="878.7" fill="#dbe4ee" font-size="15">중대재해·횡령배임·생산중단</text>
+<circle cx="694.0" cy="930.3" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="930.3" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="935.3" fill="#dbe4ee" font-size="15">경영권분쟁소송 제기</text>
+<circle cx="694.0" cy="986.9" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="986.9" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="991.9" fill="#dbe4ee" font-size="15">5% 대량보유상황보고서</text>
+<circle cx="694.0" cy="1043.4" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="1043.4" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="1048.4" fill="#dbe4ee" font-size="15">최대주주 소유주식 변동신고</text>
+<circle cx="694.0" cy="1100.0" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="1100.0" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="1098.0" fill="#dbe4ee" font-size="15">의결권 대리행사 권유(위임장</text>
+<text x="712.0" y="1115.0" fill="#dbe4ee" font-size="15">)</text>
+<circle cx="694.0" cy="1156.6" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="1156.6" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="1161.6" fill="#dbe4ee" font-size="15">공개매수 신고서</text>
+<circle cx="694.0" cy="1213.1" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="1213.1" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="1218.1" fill="#dbe4ee" font-size="15">전체 공시 목록</text>
+<circle cx="694.0" cy="1269.7" r="17" fill="url(#g1)"/>
+<circle cx="694.0" cy="1269.7" r="9" fill="#818cf8" stroke="#0b1220" stroke-width="1.5"/>
+<text x="712.0" y="1274.7" fill="#dbe4ee" font-size="15">rcept_no 메타</text>
+<circle cx="1354.0" cy="132.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="132.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="137.0" fill="#dbe4ee" font-size="15">재무제표(BS·IS·CF)</text>
+<circle cx="1354.0" cy="176.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="176.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="181.0" fill="#dbe4ee" font-size="15">감사의견</text>
+<circle cx="1354.0" cy="220.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="220.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="225.0" fill="#dbe4ee" font-size="15">배당에 관한 사항</text>
+<circle cx="1354.0" cy="264.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="264.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="269.0" fill="#dbe4ee" font-size="15">최대주주·특수관계인</text>
+<circle cx="1354.0" cy="308.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="308.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="313.0" fill="#dbe4ee" font-size="15">주식총수·자기주식 현황</text>
+<circle cx="1354.0" cy="352.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="352.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="357.0" fill="#dbe4ee" font-size="15">취득·처분·신탁 조건</text>
+<circle cx="1354.0" cy="396.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="396.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="401.0" fill="#dbe4ee" font-size="15">발행조건·잠재희석률</text>
+<circle cx="1354.0" cy="440.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="440.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="445.0" fill="#dbe4ee" font-size="15">합병비율·외부평가</text>
+<circle cx="1354.0" cy="484.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="484.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="489.0" fill="#dbe4ee" font-size="15">상대방·금액·자산대비%</text>
+<circle cx="1354.0" cy="528.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="528.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="533.0" fill="#dbe4ee" font-size="15">사유·영향(도산·정지)</text>
+<circle cx="1354.0" cy="572.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="572.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="577.0" fill="#dbe4ee" font-size="15">안건·이사후보·보수한도</text>
+<circle cx="1354.0" cy="616.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="616.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="621.0" fill="#dbe4ee" font-size="15">안건 적법성·후보 평가</text>
+<circle cx="1354.0" cy="660.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="660.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="665.0" fill="#dbe4ee" font-size="15">안건별 가결/부결·찬반율</text>
+<circle cx="1354.0" cy="704.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="704.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="709.0" fill="#dbe4ee" font-size="15">실제 취득·처분·소각 수량</text>
+<circle cx="1354.0" cy="748.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="748.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="753.0" fill="#dbe4ee" font-size="15">DPS·배당총액·기준일</text>
+<circle cx="1354.0" cy="792.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="792.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="797.0" fill="#dbe4ee" font-size="15">계약금액·매출대비%</text>
+<circle cx="1354.0" cy="836.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="836.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="841.0" fill="#dbe4ee" font-size="15">15개 지표 준수율</text>
+<circle cx="1354.0" cy="880.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="880.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="885.0" fill="#dbe4ee" font-size="15">commitment·이행</text>
+<circle cx="1354.0" cy="924.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="924.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="929.0" fill="#dbe4ee" font-size="15">사상자·혐의금액</text>
+<circle cx="1354.0" cy="968.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="968.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="973.0" fill="#dbe4ee" font-size="15">소송 단계·당사자</text>
+<circle cx="1354.0" cy="1012.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="1012.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="1017.0" fill="#dbe4ee" font-size="15">공동보유자 분해</text>
+<circle cx="1354.0" cy="1056.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="1056.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="1061.0" fill="#dbe4ee" font-size="15">5% 동학(매집·목적)</text>
+<circle cx="1354.0" cy="1100.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="1100.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="1105.0" fill="#dbe4ee" font-size="15">최대주주 지분 변동</text>
+<circle cx="1354.0" cy="1144.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="1144.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="1149.0" fill="#dbe4ee" font-size="15">위임장 권유 내역</text>
+<circle cx="1354.0" cy="1188.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="1188.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="1193.0" fill="#dbe4ee" font-size="15">공개매수 조건</text>
+<circle cx="1354.0" cy="1232.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="1232.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="1237.0" fill="#dbe4ee" font-size="15">회사 식별·공시 인덱스</text>
+<circle cx="1354.0" cy="1276.0" r="17" fill="url(#g2)"/>
+<circle cx="1354.0" cy="1276.0" r="9" fill="#fbbf24" stroke="#0b1220" stroke-width="1.5"/>
+<text x="1372.0" y="1281.0" fill="#dbe4ee" font-size="15">공시일·소스·뷰어 URL</text>
+<circle cx="2014.0" cy="144.9" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="144.9" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="149.9" fill="#dbe4ee" font-size="14.5" font-weight="700">financial_metrics</text>
+<circle cx="2014.0" cy="214.8" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="214.8" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="219.8" fill="#dbe4ee" font-size="14.5" font-weight="700">dividend</text>
+<circle cx="2014.0" cy="284.7" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="284.7" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="289.7" fill="#dbe4ee" font-size="14.5" font-weight="700">ownership_structure</text>
+<circle cx="2014.0" cy="354.6" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="354.6" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="359.6" fill="#dbe4ee" font-size="14.5" font-weight="700">treasury_share</text>
+<circle cx="2014.0" cy="424.5" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="424.5" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="429.5" fill="#dbe4ee" font-size="14.5" font-weight="700">dilutive_issuance</text>
+<circle cx="2014.0" cy="494.4" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="494.4" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="499.4" fill="#dbe4ee" font-size="14.5" font-weight="700">corporate_restructuring</text>
+<circle cx="2014.0" cy="564.2" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="564.2" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="569.2" fill="#dbe4ee" font-size="14.5" font-weight="700">corporate_deals</text>
+<circle cx="2014.0" cy="634.1" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="634.1" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="639.1" fill="#dbe4ee" font-size="14.5" font-weight="700">risk_events</text>
+<circle cx="2014.0" cy="704.0" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="704.0" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="709.0" fill="#dbe4ee" font-size="14.5" font-weight="700">shareholder_meeting_notice</text>
+<circle cx="2014.0" cy="773.9" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="773.9" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="778.9" fill="#dbe4ee" font-size="14.5" font-weight="700">proxy_advise_before_meeting</text>
+<circle cx="2014.0" cy="843.8" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="843.8" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="848.8" fill="#dbe4ee" font-size="14.5" font-weight="700">shareholder_meeting_results</text>
+<circle cx="2014.0" cy="913.6" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="913.6" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="918.6" fill="#dbe4ee" font-size="14.5" font-weight="700">order_contracts</text>
+<circle cx="2014.0" cy="983.5" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="983.5" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="988.5" fill="#dbe4ee" font-size="14.5" font-weight="700">corp_gov_report</text>
+<circle cx="2014.0" cy="1053.4" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="1053.4" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="1058.4" fill="#dbe4ee" font-size="14.5" font-weight="700">value_up</text>
+<circle cx="2014.0" cy="1123.3" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="1123.3" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="1128.3" fill="#dbe4ee" font-size="14.5" font-weight="700">proxy_contest</text>
+<circle cx="2014.0" cy="1193.2" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="1193.2" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="1198.2" fill="#dbe4ee" font-size="14.5" font-weight="700">company</text>
+<circle cx="2014.0" cy="1263.1" r="17" fill="url(#g3)"/>
+<circle cx="2014.0" cy="1263.1" r="9" fill="#34d399" stroke="#0b1220" stroke-width="1.5"/>
+<text x="2032.0" y="1268.1" fill="#dbe4ee" font-size="14.5" font-weight="700">evidence</text>
+</svg>
