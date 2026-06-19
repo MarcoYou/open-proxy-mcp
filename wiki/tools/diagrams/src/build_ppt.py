@@ -26,14 +26,14 @@ L2 = [("da_fs","재무제표(BS·IS·CF)"),("da_audit","감사의견"),("da_divt
       ("da_majorholder","최대주주·특수관계인"),("da_shares","주식총수·자기주식 현황"),
       ("da_tscond","취득·처분·신탁 조건"),("da_issuecond","발행조건·잠재희석률"),
       ("da_mergeratio","합병비율·외부평가"),("da_dealterm","상대방·금액·자산대비%"),
-      ("da_riskB","사유·영향(도산·정지)"),("da_agenda","안건·이사후보·보수한도"),
+      ("da_riskB","발생사실·금액·법원(도산·정지)"),("da_agenda","안건·이사후보·보수한도·정관변경"),
       ("da_vote","안건별 가결/부결·찬반율"),("da_tsactual","실제 취득·처분·소각 수량"),
       ("da_dps","DPS·배당총액·기준일"),("da_contract","계약금액·매출대비%"),
-      ("da_gov15","15개 지표 준수율"),("da_commit","commitment·이행"),
+      ("da_gov15","15개 지표 준수율"),("da_commit","약속문장·이행현황"),
       ("da_riskI","사상자·혐의금액"),("da_lawsuit","소송 단계·당사자"),
       ("da_coholder","공동보유자 분해"),("da_5dyn","5% 동학(매집·목적)"),
       ("da_ownchg","최대주주 지분 변동"),("da_proxyrec","위임장 권유 내역"),
-      ("da_tendercond","공개매수 조건"),("da_index","회사 식별·공시 인덱스"),
+      ("da_tendercond","공개매수 신고내역"),("da_index","회사 식별·공시 인덱스"),
       ("da_viewer","공시일·소스·뷰어 URL")]
 # 기반 tool (15) — proxy_advise/proxy_contest 는 5번째 컬럼으로 분리
 L3 = [("t_fin","financial_metrics"),("t_div","dividend"),("t_own","ownership_structure"),
