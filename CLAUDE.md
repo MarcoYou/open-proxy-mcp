@@ -28,6 +28,9 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
   (lessons/audits) 양방향. 변경 시 `python3 scripts/wiki_lint.py --strict` 필수 (CI도 자동 검증).
 - **`raw/` 절대 수정 금지**: 외부 원본(운용사 PDF·xlsx·reference). 분석·요약은 별도 페이지에.
 - 신규 tool/공시/개념 추가 시: 코드 + 해당 wiki 페이지 + `index.md`를 함께 갱신.
+- tool의 DART 호출 수(scope·asyncio.gather·루프 상한)가 바뀌면 `wiki/tools/tool_call_budget.md`(기업당 콜
+  budget)도 갱신 — 유니버스 배치 안전 크기의 근거. **per-firm(기업당 N×콜)** vs **market-scan(시장 전체
+  1회 쿼리, 예: risk_events company 미지정)** 모드 구분 필수.
 
 ## 프로젝트 구조
 ```
