@@ -99,7 +99,7 @@ scope:
 - **treasury_share API**: `tsstkAqDecsn` (CSR 분자, 매입 acquire 시점 — 소각 retire 아님)
 - **Naver Finance**: `siseJson` (TSR P_start/P_end, 7일 비거래일 자동 폴백)
 - **KRX Open API**: 시세 fallback
-- 외부 호출: scope별 1-3회. CSR은 4-5회 (treasury 합산), TSR은 3-4회 (Naver 시세)
+- 외부 호출: summary 13회 (배당결정 공시 N건 본문), history 21회 (+ 분기교정)
 
 ## Flow
 
@@ -142,7 +142,7 @@ sequenceDiagram
     T-->>U: ToolEnvelope (scope별 data + meta_signals)
 ```
 
-호출 횟수: scope별 2-7회. CSR은 +treasury_share, TSR은 +Naver 시세 2회.
+호출 횟수: summary 13회 (배당결정 공시 N건 본문, 최대 12), history 21회 (+ 분기교정 8).
 
 ## 파싱 전략 / source of truth
 

@@ -67,7 +67,7 @@ company(
 ## Data sources
 - **DART API**: `corpCode.xml` (ZIP→XML, 모듈 글로벌 캐시), `company.json` (영문명/법인번호/업종코드), `list.json` (최근 공시).
 - **Naver profile**: 업종·섹터 보강 보조 소스 (DART 공식값 덮어쓰기 금지).
-- 외부 호출: 보통 2-4회 (corpCode 캐시 적중 시 1-2회).
+- 외부 호출: 최대 3회 (corpCode 캐시 적중 시 2회).
 
 ## Flow
 
@@ -101,7 +101,7 @@ sequenceDiagram
     end
 ```
 
-호출 횟수: corpCode 캐시 적중 시 2-3회 (company.json + naver + list.json). 캐시 미스 시 +1.
+호출 횟수: corpCode 캐시 적중 시 2회 (company.json + naver + list.json). 캐시 미스 시 +1 (최대 3회).
 
 ## 파싱 전략
 - exact match 아니면 자동 확정 안 함 → `ambiguous` 반환 (사용자가 명확화).

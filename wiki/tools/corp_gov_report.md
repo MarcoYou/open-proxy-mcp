@@ -90,7 +90,7 @@ scope:
 - **DART API**: `list.json` (pblntf_ty=I) + 키워드 "기업지배구조보고서공시" → 원문 다운로드 (`get_document_cached`) + BeautifulSoup 텍스트 추출
 - 전용 구조화 API 없음.
 - KIND/Naver 미사용. PDF 미수행 (HTML 본문만).
-- 외부 호출: 1-2회 (timeline은 최근 5건 순차).
+- 외부 호출: 일반 3회, timeline scope는 과거 문서 4건 추가로 최대 7회.
 
 ## Flow
 
@@ -130,7 +130,7 @@ sequenceDiagram
     T-->>U: ToolEnvelope (report_meta + scope별 data)
 ```
 
-호출 횟수: summary는 3-4회 (list + company + document). timeline은 +N (과거 filing 본문). filings scope는 2회만.
+호출 횟수: summary는 3회 (list + company + document). timeline은 과거 filing 본문 4건 추가로 최대 7회. filings scope는 2회만.
 
 ## 파싱 전략
 - 키워드 엄격화: `"기업지배구조보고서공시"` (금융지주 "연차보고서" 등 다른 서식 제외)

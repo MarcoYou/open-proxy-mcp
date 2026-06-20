@@ -85,7 +85,7 @@ scope:
   - `tsstkAqTrctrCcDecsn` 신탁해지
   - `list.json` keyword="자기주식소각결정" (소각결정 별도 API 없음)
 - **사업보고서**: `tesstkAcqsDspsSttus` (annual scope, 잔고 + 변동 5컬럼)
-- 외부 호출: 5-7회 (asyncio.gather 병렬). KIND/Naver 미사용.
+- 외부 호출: 5회 (asyncio.gather 병렬) + 소각 공시 본문 최대 5건 = 최대 10회. KIND/Naver 미사용.
 
 ## Flow
 

@@ -89,7 +89,7 @@ details 카테고리별 필드:
 
 ## Data sources
 - **DART API**: `list.json` (pblntf_detail_ty=`I001`,`B001`) + 키워드 / `document` (include_details 시 N건)
-- 외부 호출: company 지정 2회 / 시장 스캔 30일 실측 **44콜** (I001 36p + B001 7p + 첫페이지), 90일 ~185콜 (page cap 200). include_details +N.
+- 외부 호출: company 지정 일반 1회·최대 6회 (per-firm) / 시장 스캔 30일 실측 **44콜** (I001 36p + B001 7p + 첫페이지), 90일 ~185콜 (page cap 200). include_details +N.
 
 ## 파싱 전략
 - **검증 이력 (serious_accident에서 승계)**:

@@ -101,8 +101,8 @@ scope:
   - `document.xml` (include_details=True 시 본문 파싱 N건)
 - KIND/Naver 미사용. 구조화 API 없음.
 - 외부 호출:
-  - 기본 (메타만): 4-6회
-  - include_details=True: 추가 N회 (details_limit 기본 5)
+  - 기본 (메타만): 1회
+  - include_details=True: 추가 N회 (details_limit 기본 5·최대 10) → 최대 11회
 
 ## Flow
 
@@ -137,7 +137,7 @@ sequenceDiagram
     T-->>U: ToolEnvelope (event_count + scope별 events)
 ```
 
-호출 횟수: list 4-6회. include_details=True 시 +N (details_limit, 기본 5).
+호출 횟수: 기본 1회. include_details=True 시 +N (details_limit 기본 5·최대 10) → 최대 11회.
 
 ## 파싱 전략
 - DART list.json + 제목 키워드 (구조화 API 없음).

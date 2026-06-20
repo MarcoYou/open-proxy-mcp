@@ -109,7 +109,7 @@ scope:
 - **DART API**: `list.json` (pblntf_ty=I) + 키워드 "기업가치 제고" → 없으면 KIND `기업가치 제고 계획(0184)` 재시도
 - **KIND**: 밸류업 카테고리 추가 source
 - **treasury_share**: 24개월 cross-ref (별도 호출)
-- 외부 호출: 2-4회 (commitments scope는 treasury cross-ref 추가)
+- 외부 호출: 최대 6회 (일반 5회). commitments scope는 latest/plan/status/result 4건 + 자사주 교차참조
 
 ## Flow
 

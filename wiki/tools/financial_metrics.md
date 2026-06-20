@@ -124,7 +124,7 @@ scope:
   - `fnlttSinglIndx` (주요 재무지표) — DART 산출 ROE/부채비율/EPS 등. idx_cl_code 4 그룹 (수익성/안정성/성장성/활동성) × 4 호출.
   - `fnlttSinglAcntAll` (전체 재무제표) — 213 행 (BS/IS/CIS/CF/SCE). CapEx, 감가상각비, 이자비용, 매출채권/재고/매입채무 추출.
   - `accnutAdtorNmNdAdtOpinion` (회계감사인+의견) — 6 행 (3년 × CFS+OFS). 감사인 / 적정의견 / 강조사항 / 핵심감사사항(KAM) / rcept_no.
-- 외부 호출: scope별 4-12회. summary는 8-9회 (당기/전기 acnt + acntAll + indx 4그룹), yoy는 12-14회.
+- 외부 호출: scope별 최대 12회 (일반 7회). reprt 폴백 + TTM + 당기분해 포함. quarterly scope는 ~24회.
 
 ## Flow
 
@@ -157,7 +157,7 @@ sequenceDiagram
     T-->>U: ToolEnvelope (data + alerts + audit + evidence)
 ```
 
-호출 횟수: scope별 4-14회. yoy는 가장 많음 (당기/전기 모두 + 감사). audit_opinion만은 1회.
+호출 횟수: scope별 최대 12회 (일반 7회). quarterly scope는 ~24회로 가장 많음. audit_opinion만은 1회.
 
 ## 파싱 전략
 - **account_nm 매칭**: 표준 키워드 패턴 9 BS + 5 IS + 13 detail (CF/Detail). 공백 무관 + 부분 일치.

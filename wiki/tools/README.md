@@ -56,6 +56,7 @@ updated: 2026-06-20
 | [[evidence]] | 공시 원문 링크 (접수번호 → DART 열람 URL) |
 
 > 📊 도구–공시 채널 매핑(시각 자료): [[tool_disclosure_map]] · [[data_tool_disclosure_map]]
+> 📞 도구별 DART 콜 budget(기업당 최대 콜·유니버스 배치 안전 크기): [[tool_call_budget]]
 
 ---
 

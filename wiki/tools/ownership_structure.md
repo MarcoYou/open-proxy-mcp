@@ -83,7 +83,7 @@ scope:
 ## Data sources
 - **DART API**: 사업보고서 (대주주 `hyslrSttus`, 지분 `stkSttus`, 자사주 `tesstkAcqsDspsSttus`), `majorstock` (5% 대량보유 목록), `document.xml` (5% 보유목적 보강)
 - **KIND**: 미사용 (false match 위험) — 단, `changes` scope만 원문 파싱
-- 외부 호출: scope별 1-3회, control_map은 5-7회 (asyncio.gather 병렬)
+- 외부 호출: scope별 3-9회, 대주주 reprt 폴백·5% 블록 문서 보강 시 최대 12회 (asyncio.gather 병렬)
 
 ## Flow
 
@@ -126,7 +126,7 @@ sequenceDiagram
     T-->>U: ToolEnvelope (scope별 data)
 ```
 
-호출 횟수: scope별 1-3회 (summary), control_map은 5-7회. fallback 발생 시 +2-3회.
+호출 횟수: scope별 3-9회 (summary 9), 대주주 reprt 폴백 + 5% 블록 문서 보강 시 최대 12회.
 
 ## 파싱 전략
 - 사업보고서 기반 DART 공식 API 우선.

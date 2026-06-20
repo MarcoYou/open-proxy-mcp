@@ -88,7 +88,7 @@ scope:
 ## Data sources
 - **DART API**: `list.json` (D/B/I) + `document.xml` (위임장 본문 행사방향 정규식)
 - **KIND**: vote_math만 (주총 결과 화이트리스트, rcept_no 80→00 변환)
-- 외부 호출: scope별 2-4회. summary/fight 병렬 (asyncio.gather 4x).
+- 외부 호출: 일반 5회 (summary/fight 4-way 병렬 asyncio.gather). litigation 파싱 시 미상 소송 본문 최대 30건 추가로 최대 35회.
 
 ## Flow
 
@@ -129,7 +129,7 @@ sequenceDiagram
     T-->>U: ToolEnvelope (summary + players + scope별 data)
 ```
 
-호출 횟수: scope별 4-7회 (4-way + control_context 4-way). vote_math는 +KIND 1회.
+호출 횟수: 일반 5회 (4-way + control_context). litigation 파싱 시 미상 소송 본문 최대 30건 추가로 최대 35회. vote_math는 +KIND 1회.
 
 ## 파싱 전략
 - DART D/B/I 공시만 사용 (KIND false match 위험).

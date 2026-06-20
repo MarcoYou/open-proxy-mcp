@@ -86,7 +86,7 @@ scope:
   - `bdwtIsDecsn.json` 신주인수권부사채 (BW)
   - `crDecsn.json` 감자
 - KIND/Naver 미사용. 본문 파싱 없음 (API 응답만 정규화).
-- 외부 호출: 4-5회 (asyncio.gather 병렬). 기본 lookback 24개월.
+- 외부 호출: 4회 (DS005 4종 asyncio.gather 병렬). 기본 lookback 24개월.
 
 ## Flow
 

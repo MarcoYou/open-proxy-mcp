@@ -79,7 +79,7 @@ scope:
   - `cmpDvmgDecsn.json` 회사분할합병 (apiId 2020052)
   - `stkExtrDecsn.json` 주식교환·이전 (apiId 2020053)
 - KIND/Naver 미사용. PDF/원문 파싱 없음 (API 응답만 정규화).
-- 외부 호출: 4-5회 (asyncio.gather 병렬). 기본 lookback 24개월.
+- 외부 호출: 4회 (DS005 4종 asyncio.gather 병렬). 기본 lookback 24개월.
 
 ## Flow
 
