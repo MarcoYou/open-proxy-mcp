@@ -173,6 +173,7 @@ OpenProxy는 DART 공시 데이터를 구조화하여 AI에게 제공하는 도�
 
 - **비상업적 사용**(개인 연구·학습·비영리 단체·공공기관 등)은 자유롭게 허용됩니다.
 - **상업적 사용**은 허용되지 않습니다. 상업적 이용을 원하면 별도 라이선스 계약이 필요합니다 (OpenProxy AI).
+- **재배포 시 출처 표기 의무**: 복사·재배포·수정본 배포 시 저작권 고지 `Copyright (c) 2026 OpenProxy AI (https://github.com/MarcoYou/open-proxy-mcp)` 를 그대로 유지해야 합니다 (PolyForm 'Notices' 조항).
 - 본 라이선스에는 저작권·특허 라이선스 및 면책 조항이 포함됩니다.
 
-> 상업 라이선스 문의: gunhoqw20@gmail.com
+> 상업 라이선스·기타 문의: gunhoqw20@gmail.com
