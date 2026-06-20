@@ -32,21 +32,54 @@ logger = logging.getLogger(__name__)
 def detect_meeting_type(text: str) -> str:
     """주총소집공고 본문 → "annual" | "extraordinary".
 
-    단순화: "임시" 단어가 normalize head 500자에 있으면 임시주총.
-    DART 주총소집공고 부제/첫 줄 모두 "임시" / "정기" 명시.
+    Ground truth 규칙 (head 제한 없음 — 정정공시 앞블록·외국계 제목 밀림 대응):
+      1) text 전체에서 '주주총회 소집공고' 직후 40자 안의 괄호 종류표기를 우선.
+         (제N기 정기/임시 …) · (YYYY년 정기/임시 …) · (정기/임시주주총회) 변형 포함.
+         여러 '주주총회 소집공고' 매칭 중 종류표기가 가까이 오는 첫 매칭을 앵커로 채택
+         (본문 후방 문장 "주주총회 소집공고 등)에 의거…"를 앵커로 잡지 않음).
+      2) 앵커 윈도우에서 못 찾으면 text 전체의 첫 (정기|임시)주주총회 키워드.
 
-    검증 (200 sample, 3월 100 + 비-3월 100):
-    - 300자: 98.49% (3 miss)
-    - 500자: 100.00%
+    검증: 2026 3/15~5/15 전수 + 오분류 12 샘플 픽스처 (annual/extraordinary).
     """
-    section = _extract_notice_section(text or "") or (text or "")
-    head = re.sub(r"\s+", " ", section[:1200])
-    heading_match = re.search(r'\(\s*제\s*\d+\s*기\s*(정기|임시)\s*\)', head)
-    if heading_match:
-        return "extraordinary" if heading_match.group(1) == "임시" else "annual"
-    if re.search(r'임시\s*주주총회', head):
-        return "extraordinary"
+    text = text or ""
+    for m in re.finditer(r'주주총회\s*소집\s*공고', text):
+        window = text[m.end():m.end() + 40]
+        # 괄호 종류표기: (제N기 …정기/임시…) · (YYYY년 …정기/임시…) · (정기/임시 …)
+        pm = re.search(r'\(\s*(?:제\s*\d+\s*기|\d{4}\s*년)?\s*(정기|임시)', window)
+        if pm:
+            return "extraordinary" if pm.group(1) == "임시" else "annual"
+        pm2 = re.search(r'(정기|임시)\s*주주총회', window)
+        if pm2:
+            return "extraordinary" if pm2.group(1) == "임시" else "annual"
+    # fallback: 전체 text 첫 (정기|임시)주주총회 키워드
+    fb = re.search(r'(정기|임시)\s*주주총회', text)
+    if fb:
+        return "extraordinary" if fb.group(1) == "임시" else "annual"
     return "annual"
+
+
+def detect_meeting_type_conflict(text: str) -> bool:
+    """제목 종류표기와 본문 'X주주총회를 다음/아래 …' 소집문구가 모순이면 True.
+
+    파멥신 유형: 제목 '(정기)' vs 본문 '임시주주총회를 다음과 같이 개최'처럼 회사가
+    제목/본문을 다르게 적은 비정상 공시. detect_meeting_type은 제목을 따르되, 이
+    플래그로 '수동 확인 필요'를 표시한다.
+    """
+    text = text or ""
+    title_type = None
+    for m in re.finditer(r'주주총회\s*소집\s*공고', text):
+        window = text[m.end():m.end() + 40]
+        pm = re.search(r'\(\s*(?:제\s*\d+\s*기|\d{4}\s*년)?\s*(정기|임시)', window)
+        if pm:
+            title_type = pm.group(1)
+            break
+        pm2 = re.search(r'(정기|임시)\s*주주총회', window)
+        if pm2:
+            title_type = pm2.group(1)
+            break
+    body = re.search(r'(정기|임시)\s*주주총회를?\s*(?:다음|아래)', text)
+    return bool(title_type and body and title_type != body.group(1))
+
 
 # lxml이 있으면 사용 (30% 빠름), 없으면 html.parser fallback
 try:
@@ -471,6 +504,7 @@ def parse_meeting_info_xml(text: str, html: str = "") -> dict:
         "online_broadcast": None,
         "reference_materials": None,
         "toc": [],
+        "meeting_type_conflict": False,
     }
 
     # bs4로 소집공고 섹션 텍스트 추출 (범위가 정확)
@@ -487,13 +521,17 @@ def parse_meeting_info_xml(text: str, html: str = "") -> dict:
     # 정기/임시 구분. 본문 뒤 참고사항의 "임시주주총회부터" 같은 문구보다
     # 소집공고 제목부/초반 문구를 우선한다.
     type_head = re.sub(r"\s+", " ", section_text[:1200])
-    heading_match = re.search(r'\(\s*제\s*\d+\s*기\s*(정기|임시)\s*\)', type_head)
+    heading_match = re.search(
+        r'\(\s*(?:제\s*\d+\s*기|\d{4}\s*년)\s*(정기|임시)\s*\)', type_head)
     if heading_match:
         info["meeting_type"] = heading_match.group(1)
     elif re.search(r'정기\s*주주총회|정기\)', type_head):
         info["meeting_type"] = "정기"
     elif re.search(r'임시\s*주주총회', type_head):
         info["meeting_type"] = "임시"
+
+    # 제목 종류 ≠ 본문 'X주주총회를 다음/아래' 소집문구면 모순 플래그 (파멥신 유형)
+    info["meeting_type_conflict"] = detect_meeting_type_conflict(text)
 
     # 기수 추출 (제N기)
     m = re.search(r'(제\s*\d+\s*기)', section_text)

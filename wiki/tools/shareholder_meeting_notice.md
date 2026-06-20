@@ -56,7 +56,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 
 - agenda node는 `proposer_type`, `agenda_relation_type`, `agenda_relation_reasons`를 포함한다.
 - `agenda_relation_type`: `normal`, `procedural`, `conditional`, `alternative`, `cumulative_related`.
-- 정기/임시 판별은 소집공고 제목부 `(제N기 정기|임시)`를 우선한다.
+- 정기/임시 판별(`detect_meeting_type`, 2026-06-20 개선)은 **head 길이 제한 없이** text 전체에서 `주주총회 소집공고` 매칭을 순회하며, 그 직후 40자 윈도우의 괄호 종류표기 — `(제N기 정기|임시)` · `(YYYY년 정기|임시)` · `(정기|임시주주총회)` — 가 가까이 오는 **첫 매칭**을 앵커로 채택한다. 본문 후방 문장(`주주총회 소집공고 등)에 의거…`)을 앵커로 잡던 오선택(임시→정기 fallback), head 내 참고사항의 `임시` 단어 선점, `(YYYY년 임시)` 변형 누락을 함께 해소한다. 윈도우에서 못 찾으면 text 전체의 첫 `(정기|임시)주주총회` 키워드로 fallback. `parse_meeting_info_xml`의 1순위 heading 패턴도 `(YYYY년 …)` 변형까지 확장했다. 전수 검증(2026 3/15~5/15, 891건, text 픽스처 순수함수 재호출 DART 0콜): 구 detect 880/891 → 신 detect 888/891. 잔여 차이는 회사가 **제목과 본문에 정기/임시를 다르게 적은 모순 공시**(891건 중 11건, 1.2% — 예: 파멥신 제목 `(정기)`/본문 `임시주주총회를 …개최`, 프리티 제목 `(제56기 임시)`/본문 `정기주주총회를 …개최`)다. 이런 공시는 `detect_meeting_type_conflict(text)`가 감지해(제목 종류표기 ≠ 본문 `(정기|임시)주주총회를 다음/아래 …` 소집문구) `parse_meeting_info_xml`의 `meeting_type_conflict` 플래그로 노출한다. detect는 제목을 우선해 한 값을 주되, 플래그가 뜨면 안건(재무제표 승인 여부 등)으로 **수동 확인**이 필요하다. 회귀 앵커(와이즈넛 20260512000585=임시, JTC 20260513000621=정기) 유지.
 - 마침표형 안건 marker(`제N호 의안.`), 후보자 표 boundary, `4. 목적사항` 정정공고형 목록, `※` 주석 뒤 안건 경계를 지원한다.
 - `annual` 조회에서 정기 소집공고가 아직 없으면 결산월과 예상 정기주총 window를 warning에 표시한다.
 - KOSPI300 재실행: `exact` 298, `no_filing` 2, `requires_review` 0. 상세: [[260525_0200_audit_agenda-relation-kospi300]].
