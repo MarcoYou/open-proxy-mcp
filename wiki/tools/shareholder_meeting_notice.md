@@ -103,3 +103,4 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 - 분쟁 맥락: [[proxy_contest]]
 - relation/parser audit: [[260525_0200_audit_agenda-relation-kospi300]]
 - marketwide parser audit: [[260525_1620_audit_agenda-parser-marketwide]]
+- 검증 회고 (측정 함정 5패턴·프로토콜): [[agenda-parser-validation-260621]]
