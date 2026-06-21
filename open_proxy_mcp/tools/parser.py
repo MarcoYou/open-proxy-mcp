@@ -322,7 +322,26 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
     #   false positive(주주제안권·인입보고·따른 이사회결의)는 괄호 태그/후보 문구가 아니라 배제됨
     _propagate_proposer(flat, zone, text)
 
-    return _build_tree(flat)
+    tree = _build_tree(flat)
+    _fill_empty_parent_titles(tree)
+    return tree
+
+
+def _fill_empty_parent_titles(tree: list[dict]) -> None:
+    """부모 제목이 비었는데 하위안건이 있으면(제N호 제목 없이 제N-M호로만 시작)
+    하위 공통 안건유형으로 부모 제목을 추론(in-place). 파인디앤씨·스튜디오드래곤 등.
+    """
+    for node in tree:
+        children = node.get("children") or []
+        if children and len((node.get("title", "") or "").strip()) < 2:
+            cj = " ".join(c.get("title", "") for c in children)
+            verb = "중임" if "중임" in cj else "선임"
+            if "감사" in cj and "이사" not in cj:
+                node["title"] = f"감사 {verb}의 건"
+            elif "이사" in cj:
+                node["title"] = f"이사 {verb}의 건"
+        if children:
+            _fill_empty_parent_titles(children)
 
 
 def _propagate_proposer(flat: list[dict], zone: str, text: str) -> None:
