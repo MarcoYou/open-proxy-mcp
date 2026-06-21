@@ -3,6 +3,18 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-21] fix/docs | 주총 안건 파서 6사이클 production 배포 + 검증 회고 + lessons 분류
+
+상세: [[agenda-parser-validation-260621]]
+
+- `parser.py` (안건/정기·임시) — 6사이클 배포
+  - `detect_meeting_type` 재작성(섹션 오선택 → 소집공고 직후 40자 앵커, 880→888) + `detect_meeting_type_conflict`
+  - 안건 marker/zone·제목 bleeding 경계·인라인 하위안건 분리(`_split_inline_subagendas`)
+  - **proposer(제안주체) 복원** — 주주제안 안건 `source` 전파(제목형 `_detect_source_in_marker` + 그룹헤더형 `_propagate_proposer`), 다원시스 라이브 확인
+  - 빈 제목 부모 추론 `_fill_empty_parent_titles`(제N호 제목 없이 제N-M호로만 시작: 파인디앤씨·스튜디오드래곤, 10→3)
+- 검증 픽스처 891 → **3,016**(2026 3/1~5/15 코스피·코스닥, 정기 2,849) — 표준 검증셋
+- docs: lessons `agenda-parser-validation-260621`(측정 함정 5패턴 + 검증 프로토콜) / CLAUDE 작업 원칙 3가지 + "판단 모호 시" 참조 트리거 / lessons README 6 카테고리 인덱스(물리 이동 X)
+
 ## [2026-06-16] fix/audit | render 출력 점검 (11 tool·410사) — 화면 이상 3종 + evidence 노출
 
 상세: [[render-output-audit-260616]]
