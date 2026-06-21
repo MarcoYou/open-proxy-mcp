@@ -262,6 +262,11 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
         title = _clean_title(raw_title)
 
         source = _detect_source(title)
+        # 제목에서 마커를 못 잡으면 안건 마커 prefix(괄호 소스 태그)에서 보강 감지.
+        # AGENDA_RE의 prefix `(?:\([^)]*\))?`가 '제7호 의안(주주제안) :' 같은 괄호 소스를
+        # title에 닿기 전에 소비함 → group(0) 전체에서 '(주주제안)' 괄호형을 한 번 더 본다.
+        if not source:
+            source = _detect_source_in_marker(m.group(0))
         if source:
             title = _remove_source_tag(title)
 
@@ -311,7 +316,48 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
             deduped.append(item)
     flat = deduped
 
+    # [2] 제안주체(proposer) 전파:
+    #   (a) zone 그룹헤더 '제N-M호 [주주제안]' → 해당 (N,M) 하위안건 전파 (솔루엠)
+    #   (b) 본문 '제N호 의안(...) … 주주제안 후보' → 제N호 안건 (다원시스, 소액주주권 주주제안)
+    #   false positive(주주제안권·인입보고·따른 이사회결의)는 괄호 태그/후보 문구가 아니라 배제됨
+    _propagate_proposer(flat, zone, text)
+
     return _build_tree(flat)
+
+
+def _propagate_proposer(flat: list[dict], zone: str, text: str) -> None:
+    """이미 source가 없는 안건에 한해 주주제안 제안주체를 전파(in-place)."""
+    # (a) zone 그룹헤더: '제N-M호 [주주제안]' 또는 '제N-M호 (주주제안)'
+    #     해당 (l1,l2) prefix를 가진 모든 하위안건(l3 포함)에 전파.
+    group_prefixes: set[tuple[int, int]] = set()
+    if zone:
+        for gm in re.finditer(
+            r'제\s*(\d+)\s*-\s*(\d+)\s*호\s*[\(\[]\s*주주\s*제안\s*[\)\]]', zone
+        ):
+            group_prefixes.add((int(gm.group(1)), int(gm.group(2))))
+
+    # (b) 본문 안건단위 주주제안 후보: '제N호 의안(...) … 주주제안 후보'
+    #     선임 안건에서 주주제안 후보가 상정된 경우. 권리설명/보고/사유문구는
+    #     '주주제안 후보' 직결 패턴이 아니므로 매치되지 않는다.
+    text_numbers: set[int] = set()
+    if text:
+        flat_text = re.sub(r'\n+', ' ', text)
+        for tm in re.finditer(
+            r'제\s*(\d+)\s*호\s*의안\s*\([^)]*\)[^제]{0,40}주주\s*제안\s*후보', flat_text
+        ):
+            text_numbers.add(int(tm.group(1)))
+
+    if not group_prefixes and not text_numbers:
+        return
+
+    for item in flat:
+        if item.get("source"):
+            continue
+        l1, l2 = item["level1"], item["level2"]
+        if l2 is not None and (l1, l2) in group_prefixes:
+            item["source"] = '주주제안'
+        elif l1 in text_numbers:
+            item["source"] = '주주제안'
 
 
 def validate_agenda_result(items: list[dict]) -> bool:
@@ -792,6 +838,19 @@ def _detect_source(text: str) -> str | None:
         return '주주제안'
     if re.search(r'이사회\s*안', text):
         return '이사회안'
+    return None
+
+
+# 안건 마커 영역에서 괄호/대괄호로 감싼 소스 태그만 감지.
+# '제7호 의안(주주제안) :', '제3-2호 [주주제안]' 등 — 안건 제목이 아닌 제안주체 표기.
+# 권리설명('주주제안권')·보고('주주제안 인입보고')·사유문구('주주제안에 따른 …')는
+# 괄호/대괄호 태그가 아니므로 자연히 배제된다.
+_MARKER_SOURCE_RE = re.compile(r'[\(\[]\s*주주\s*제안\s*[\)\]]')
+
+
+def _detect_source_in_marker(text: str) -> str | None:
+    if _MARKER_SOURCE_RE.search(text):
+        return '주주제안'
     return None
 
 
