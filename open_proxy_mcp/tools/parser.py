@@ -101,6 +101,9 @@ _AGENDA_BOUNDARY = (
     r'|\d+\)\s*제\s*\d+'                            # N)제N호
     r'|\(제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안|안건)\s*\)'  # (제N호 의안) — 괄호형 안건만, 조건부 (제N호 인가되는 경우) 제외
     r'|[·ㆍ]?\s*\d+-\d+호'                          # N-M호 (제 없음), ·N-M호
+    r'|-?\s*제\s*\d+\s*[-_]\s*\d+\s*(?:조|호)\s*의\s*안'  # [3] 변형 안건번호: 제N-M조의안 (베셀), 제N_M호 의안 (에이스테크)
+    r'|구\s*분\s+성\s*명'                              # [2] 표헤더 '구분 성명' (엔케이/현대에이치티)
+    r'|전\s*기\s*당\s*기'                              # [2] 보수한도 표헤더 '전 기 당 기' (엔케이)
     r'|성\s*명\s*(?:생\s*년\s*월\s*일|출생)'            # 후보자 테이블 헤더 (공백 허용)
     r'|성\s*명\s*생\s*년\s*월'                         # 후보자 테이블 헤더: 성명 생년월
     r'|성\s*명\s*주요\s*약력'                          # 후보자 테이블 헤더: 성명 주요 약력
@@ -294,6 +297,9 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
     if not flat:
         logger.warning("의안 패턴 매치 없음")
         return []
+
+    # [1] 인라인 하위안건 분리: 부모 제목에 'N-M …의 건'이 뭉친 경우 별도 노드로 분리
+    flat = _split_inline_subagendas(flat)
 
     # 이중 파싱 방지: 같은 number가 중복되면 첫 번째 것만 유지
     # (소집공고 의안 목록이 먼저, 경영참고사항 상세가 뒤에 나오므로 첫 번째가 정확)
@@ -498,6 +504,94 @@ def _build_tree(flat_items: list[dict]) -> list[dict]:
     return tree
 
 
+def _split_inline_subagendas(flat: list[dict]) -> list[dict]:
+    """[1] 부모 제목에 인라인으로 뭉친 하위안건 'N-M …의 건'을 별도 노드로 분리.
+
+    예: 제3호 '이사 선임의 건 3-1 사내이사 허남 선임의 건 3-2 기타비상무이사 정문주 선임의 건'
+        → 제3호 '이사 선임의 건' + 제3-1호 '사내이사 허남 선임의 건' + 제3-2호 '기타비상무이사 정문주 선임의 건'
+
+    분리 조건 (보수적 — 기존 정상 계층 보존):
+    - 대상은 l2/l3 없는 부모 노드만 (이미 하위노드로 잡힌 'N-M호'는 절대 건드리지 않음)
+    - 부모의 children이 비어 있어야 함 (별도 하위노드가 이미 있으면 스킵)
+    - 제목 안의 마커가 부모 번호(N)와 일치하고, M이 1부터 순차(1,2,3,…)
+    - 마커는 'N-M'(호 없음) 형태로, 앞에 '의안'/'-'/'·' 접두 허용, 뒤는 공백 또는 한글
+    - 'N-M호'(호 있음)는 정상 파싱 경로이므로 여기서 처리하지 않음 (오버랩 회피)
+    """
+    out = []
+    for item in flat:
+        title = item.get("title", "")
+        if (
+            item["level2"] is not None
+            or item["level3"] is not None
+            or item.get("children")
+            or not title
+        ):
+            out.append(item)
+            continue
+
+        n = item["level1"]
+        # 'N-M' 마커: 호가 붙지 않은 형태만 (N-M호는 기존 경로에서 별도 노드로 처리됨 → 부모 제목에 안 남음).
+        #   허용 접두: '- 의안 ', '의안 ', '·', '-', '제'  (예: '제2-1 의안 :', '의안 4-1', '3-1')
+        #   '호'가 붙은 형태(제N-M호)는 (?!\s*호)로 제외 — 정상 계층 보존.
+        marker = re.compile(
+            r'(?:[-·ㆍ]\s*)?(?:의\s*안\s*)?제?\s*'
+            r'(?<![\d.])' + str(n) + r'\s*-\s*(\d+)\s*(?!호)'
+            r'(?:의\s*안\s*[:：]?\s*)?'
+            r'(?=[가-힣])'
+        )
+        found = list(marker.finditer(title))
+        # M이 1부터 순차인 유효 시퀀스만 채택
+        if not found or int(found[0].group(1)) != 1:
+            out.append(item)
+            continue
+        ms = [int(g.group(1)) for g in found]
+        if ms != list(range(1, len(ms) + 1)):
+            out.append(item)
+            continue
+
+        # 부모 제목 = 첫 마커 앞까지 절단
+        parent_title = _clean_title(title[:found[0].start()])
+        children = []
+        for idx, mt in enumerate(found):
+            seg_start = mt.end()
+            seg_end = found[idx + 1].start() if idx + 1 < len(found) else len(title)
+            child_title = _clean_title(title[seg_start:seg_end])
+            if not child_title:
+                continue
+            m_val = int(mt.group(1))
+            children.append({
+                "number": _format_number(n, m_val, None),
+                "level1": n,
+                "level2": m_val,
+                "level3": None,
+                "title": child_title,
+                "source": _detect_source(child_title),
+                "conditional": None,
+                "children": [],
+            })
+
+        # 분리에 실패(자식 0개)하면 원본 유지
+        if not children:
+            out.append(item)
+            continue
+
+        # 부모 제목이 비면(국영지앤엠처럼 제목 없이 N-M으로만 구성) 하위 공통 안건유형으로 추론
+        if not parent_title and children:
+            cj = " ".join(c["title"] for c in children)
+            verb = "중임" if "중임" in cj else "선임"
+            if "감사" in cj and "이사" not in cj:
+                parent_title = f"감사 {verb}의 건"
+            else:
+                parent_title = f"이사 {verb}의 건"
+        item["title"] = parent_title
+        # source 재계산 (절단된 제목 기준)
+        item["source"] = _detect_source(parent_title) if parent_title else None
+        out.append(item)
+        out.extend(children)
+
+    return out
+
+
 # ── 비안건 파싱 ──
 
 def parse_meeting_info_xml(text: str, html: str = "") -> dict:
@@ -652,15 +746,25 @@ def _clean_title(title: str) -> str:
     title = title.strip()
     title = re.sub(r'\s{2,}', ' ', title)  # 연속 공백 정리
     title = re.sub(r'^[:：]\s*', '', title)  # 선행 콜론 제거
-    title = re.sub(r'[□■○▶●①②③④⑤⑥⑦⑧⑨⑩]', '', title)  # 마커/기호/원문자 제거
-    title = re.sub(r'[\s]*[ㆍ·\.\-]\s*$', '', title)
-    title = re.sub(r'\s*[나다라마바사아]\s*$', '', title)  # 다음 안건의 가나다 접두사 잔류 제거
-    title = re.sub(r'\s*[ㄴㅇ]\s*$', '', title)  # 단일 자음 잔류 제거 (ㄴ, ㅇ)
-    title = re.sub(r'\s+o\s*$', '', title)  # 목록 마커 'o' 잔류 제거
+    title = re.sub(r'^\s*[-‐–—]\s*', '', title)  # [6] 선행 대시 군더더기 제거 (평화홀딩스 '- 이사 선임의 건')
+    title = re.sub(r'[□■○▶●①②③④⑤⑥⑦⑧⑨⑩◈◆◇]', '', title)  # 마커/기호/원문자 제거 ([6] ◈ 포함)
+    # 후행 군더더기 부호 정리 — 안정될 때까지 반복 (']   [' 처럼 마커가 겹친 경우, '-.' 처럼 연쇄된 경우)
+    for _ in range(6):
+        prev = title
+        title = re.sub(r'\s*[+＋]\s*$', '', title)  # [6] 후행 '+' (하림지주)
+        # [6] 후행 ']' — 짝 없는 닫는 대괄호만 제거 (TS트릴리온의 '…건]'). '[현금배당 200원]'처럼 짝 맞는 건 보존.
+        if title.count(']') + title.count('］') > title.count('[') + title.count('［'):
+            title = re.sub(r'\s*[\]］]\s*$', '', title)
+        title = re.sub(r'[\s]*[ㆍ·\.\-]\s*$', '', title)
+        title = re.sub(r'\s*[나다라마바사아]\s*$', '', title)  # 다음 안건의 가나다 접두사 잔류 제거
+        title = re.sub(r'\s*[ㄴㅇ]\s*$', '', title)  # 단일 자음 잔류 (ㄴ, ㅇ)
+        title = re.sub(r'\s+o\s*$', '', title)  # 목록 마커 'o' 잔류
+        title = re.sub(r'\s*[\(\[]\s*$', '', title)  # 끝에 매달린 여는 괄호/대괄호
+        if title == prev:
+            break
     # 후행 "N)" 제거 — 단, 열린 괄호가 앞에 있으면(괄호 안이면) 제거하지 않음
     if re.search(r'\d+\)\s*$', title) and title.count('(') <= title.count(')') - 1:
         title = re.sub(r'\s*\d+\)\s*$', '', title)
-    title = re.sub(r'\s*[\(\[]\s*$', '', title)  # 끝에 매달린 여는 괄호/대괄호 제거
     title = title.strip()
     # 안전망: 제목이 200자 초과(zone 텍스트 딸려옴 또는 진짜 장문)면 절단.
     # 경계 marker로 못 끊긴 잔여 케이스 — 첫 '…의 건' 직후에서 끊고, 없으면 하드 200자.
