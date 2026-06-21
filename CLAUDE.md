@@ -13,6 +13,9 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 도메인 지식·설계·결정은 모두 wiki에 있다. **질문이 오면 wiki에서 필요한 페이지만 골라 읽는다**
 (전체 로드 X). LLM이 wiki를 유지하며 `/ship`이 영향 페이지를 갱신한다.
 
+**판단의 모호성이 있을 경우 — 추측·서사로 덮지 말고** 아래 매핑표 → 관련 `lessons/` 순으로 확인하고,
+그래도 불명확하면 사용자에게 물어라(`AskUserQuestion`). (작업 수행 원칙 2·3과 연동)
+
 **무엇이 필요한지 → 어디를 보나:**
 
 | 필요 | wiki 위치 |
@@ -24,6 +27,7 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 | 시스템 설계·데이터 수집·폴백 | `architecture/` (`data-collection` · `3-tier-fallback` · `multi-upstream-pattern`) |
 | 의결권 정책·판단 구조 | `decisions/open-proxy-guideline` · `architecture/proxy-voting-decision-tree` |
 | 작업 이유·회고 | `lessons/` |
+| **작업·데이터 검증 방법** (전수·표본·측정 함정·프로토콜) | `lessons/agenda-parser-validation-260621` (측정 함정 5패턴 + html 픽스처 0콜·전수 diff·직접 표본 + 체크리스트) |
 | 전체 색인 / 트리·명명·link 정책 | `index.md` / `WIKI_SCHEMA.md` |
 
 **wiki 작성 규칙:**
