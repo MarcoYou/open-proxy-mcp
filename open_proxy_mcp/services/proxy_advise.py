@@ -1955,17 +1955,19 @@ async def build_proxy_advise_payload(
             return await _safe(fn, *args, timing_label=timing_label, **kw)
 
     stage_started_at = time.perf_counter()
-    meeting_summary, meeting_agenda, meeting_comp, meeting_aoi, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
-        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.summary", scope="summary", year=target_year, meeting_type=meeting_type),
-        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.agenda", scope="agenda", year=target_year, meeting_type=meeting_type),
-        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.compensation", scope="compensation", year=target_year, meeting_type=meeting_type),
-        # aoi_change scope — B1/B2 hit 안건의 정관 변경 본문 raw (cache hit이라 free, parsing CPU만)
-        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.aoi_change", scope="aoi_change", year=target_year, meeting_type=meeting_type),
+    # 같은 주총을 4개 scope(summary/agenda/compensation/aoi_change)로 따로 부르던 것을 scope="advise" 1회로 통합.
+    #   - 회차 선별(공시 검색 + 후보 필터)이 4→1회로 감소 — 콜 수 자체 절감(throttle 하한과 무관하게 이득).
+    #   - advise = full에서 results만 제외한 scope: agenda/compensation/aoi_change 데이터 + comp/aoi viewer 보정은
+    #     모두 포함하되, proxy_advise가 안 쓰는 results는 fetch 안 함(회의 후 회사의 results fetch=네트워크 wall-clock 손해 회피).
+    meeting_full, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
+        _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.advise", scope="advise", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_ownership_structure_payload, company_query, timing_label="ownership_structure.control_map", scope="control_map"),
         _safe_throttled(build_corp_gov_report_payload, company_query, timing_label="corp_gov_report.summary", scope="summary"),
         _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.summary", scope="summary", year=fin_year),
         _safe_throttled(build_director_evaluation_payload, company_query, timing_label="director_evaluation", year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
     )
+    # full payload가 summary/agenda/compensation/aoi_change 데이터를 모두 포함 — 다운스트림 4개 참조에 동일 객체 할당
+    meeting_summary = meeting_agenda = meeting_comp = meeting_aoi = meeting_full
     _mark("upstreams_total", stage_started_at)
 
     # 1번 안건 (재무제표 승인) 잠정 FS 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱

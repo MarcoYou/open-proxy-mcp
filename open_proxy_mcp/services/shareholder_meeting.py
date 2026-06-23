@@ -37,7 +37,7 @@ from open_proxy_mcp.tools.parser import (
 )
 
 
-_SUPPORTED_SCOPES = {"summary", "agenda", "board", "compensation", "aoi_change", "prov_financials", "results", "full"}
+_SUPPORTED_SCOPES = {"summary", "agenda", "board", "compensation", "aoi_change", "prov_financials", "results", "full", "advise"}
 _MEETING_TYPE_MAP = {
     "annual": "정기",
     "extraordinary": "임시",
@@ -509,9 +509,9 @@ def _needs_notice_viewer_fallback(parsed: dict[str, Any], *, scope: str) -> list
     board_expected = any(("선임" in title or "해임" in title) and ("이사" in title or "감사" in title) for title in agenda_titles)
     compensation_expected = any("보수" in title and "한도" in title for title in agenda_titles)
 
-    if scope in {"board", "full"} and board_expected and not parsed["board"].get("appointments"):
+    if scope in {"board", "full", "advise"} and board_expected and not parsed["board"].get("appointments"):
         reasons.append("board_parse_empty")
-    if scope in {"compensation", "full"} and compensation_expected and not parsed["compensation"].get("items"):
+    if scope in {"compensation", "full", "advise"} and compensation_expected and not parsed["compensation"].get("items"):
         reasons.append("compensation_parse_empty")
     return reasons
 
@@ -538,7 +538,7 @@ async def _load_notice_bundle_with_fallback(
         return parsed, warnings, source_used
 
     section_keywords = ["주주총회 소집공고", "주주총회소집공고"]
-    if scope in {"board", "compensation", "aoi_change", "full"}:
+    if scope in {"board", "compensation", "aoi_change", "full", "advise"}:
         section_keywords.extend(["목적사항별 기재사항", "주주총회 목적사항별 기재사항"])
 
     warnings.append(f"API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. ({', '.join(reasons)})")
@@ -568,10 +568,10 @@ async def _load_notice_bundle_with_fallback(
         parsed["text"] = viewer_parsed["text"]
         parsed["html"] = viewer_parsed["html"]
         improved = True
-    if scope in {"board", "full"} and len(viewer_parsed["board"].get("appointments", [])) > len(parsed["board"].get("appointments", [])):
+    if scope in {"board", "full", "advise"} and len(viewer_parsed["board"].get("appointments", [])) > len(parsed["board"].get("appointments", [])):
         parsed["board"] = viewer_parsed["board"]
         improved = True
-    if scope in {"compensation", "full"} and len(viewer_parsed["compensation"].get("items", [])) > len(parsed["compensation"].get("items", [])):
+    if scope in {"compensation", "full", "advise"} and len(viewer_parsed["compensation"].get("items", [])) > len(parsed["compensation"].get("items", [])):
         parsed["compensation"] = viewer_parsed["compensation"]
         improved = True
 
@@ -1501,12 +1501,16 @@ async def build_shareholder_meeting_payload(
             data["raw_text_excerpt"] = raw[:6000]
             data["raw_text_full_length"] = len(raw)
     # 260505 ralph: agenda 트리는 summary에도 항상 포함 (parsing 이미 완료, 비용 0)
-    include_agenda = scope in {"agenda", "full", "summary"}
-    include_board = scope in {"board", "full"}
-    include_compensation = scope in {"compensation", "full"}
-    include_aoi = scope in {"aoi_change", "full"}
-    include_prov_financials = scope in {"prov_financials", "full"}
-    include_results = scope in {"results", "full"}
+    # advise = proxy_advise 전용 scope: full과 동일하되 results만 제외.
+    #   회의 후 회사에서 full은 results를 fetch(네트워크)하는데 proxy_advise는 결과공시를 안 써서
+    #   wall-clock만 손해 → results만 빼서 회차 선별 1회(콜 -4)는 유지하고 속도를 회복한다.
+    _full_like = scope in {"full", "advise"}
+    include_agenda = scope in {"agenda", "summary"} or _full_like
+    include_board = scope == "board" or _full_like
+    include_compensation = scope == "compensation" or _full_like
+    include_aoi = scope == "aoi_change" or _full_like
+    include_prov_financials = scope == "prov_financials" or _full_like
+    include_results = scope in {"results", "full"}  # advise 제외 — results fetch 회피
 
     if include_agenda:
         data["agendas"] = agenda_nodes
