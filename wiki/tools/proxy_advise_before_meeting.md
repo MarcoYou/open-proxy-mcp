@@ -89,7 +89,7 @@ proxy_advise_before_meeting(
 
 ## 6 upstream chain (병렬)
 
-1. shareholder_meeting (summary + agenda + compensation)
+1. shareholder_meeting (**advise** scope — agenda+board+comp+aoi, results 제외 / 회차 선별 1회. 260623: 4-scope summary·agenda·comp·aoi를 통합, results는 proxy_advise 미사용이라 fetch 회피)
 2. ownership_structure (control_map)
 3. corp_gov_report (summary)
 4. financial_metrics (FY-2 reference, 안정 데이터)

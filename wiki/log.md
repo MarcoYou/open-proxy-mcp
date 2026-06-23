@@ -3,6 +3,13 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-23] perf/docs | proxy_advise 주총 4-scope→advise 통합 (콜 -5) + wiki 체계 정비
+
+- **`proxy_advise`** (perf): 같은 주총을 summary/agenda/compensation/aoi_change **4 scope로 따로** 불러 회차 선별이 4회 중복 → `shareholder_meeting`에 **advise scope 신설**(=full에서 results만 제외)로 1회 통합. **10사 cold 실측: 콜 49→44(-5), wall-clock 9/10 빠름, 핵심 자문 10/10 동일(파싱 정확성 불변), evidence board +1**. results fetch(네트워크)가 wall-clock 주범이었음 — investigate로 'summary 합치면 comp/aoi 보정 누락' 함정 차단. **order_contracts 병렬화는 throttle 하한이라 무이득 → revert** (콜 동일·순서만 병렬은 무효, 콜 수 절감만 실효).
+- **`wiki_lint.py`**: README 인덱스 drift 체크 [3] 추가 — 폴더 `.md`가 해당 README에 `[[]]`로 인덱스 안 되면 `--strict` 실패(CI 차단). 첫 적발로 decisions/README 11개 백틱→링크 전환.
+- **wiki 체계**: architecture·archive·fixes·goals README 신설(누락 카테고리), lessons README 6 카테고리 인덱스, CLAUDE.md 작업원칙 3 + 판단모호 트리거 + 매핑 사각 보정 + 슬림화(89→78줄).
+- lessons [[agenda-parser-validation-260621]] (측정 함정 5패턴 + 검증 프로토콜).
+
 ## [2026-06-21] fix/docs | 주총 안건 파서 6사이클 production 배포 + 검증 회고 + lessons 분류
 
 상세: [[agenda-parser-validation-260621]]

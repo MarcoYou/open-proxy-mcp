@@ -39,7 +39,7 @@ method: 코드 실측 (services/*.py 의 DART client 호출 지점)
 | dividend | 21 | 13 | 배당결정 공시 N(최대12) + history 분기교정 8 |
 | order_contracts | 31 | 1 | max_documents (기본 30, 범위 5~50) |
 | proxy_contest | 35 | 5 | litigation 파싱 시 미상 소송 본문 최대 30 |
-| proxy_advise_before_meeting | 37 | 23 | upstream 6개 + 사내이사 연임 시 추가 4개 합산 |
+| proxy_advise_before_meeting | 32 | 23 | upstream 5개(주총=advise scope 1회) + 사내이사 연임 시 추가 4개. 260623: 주총 4-scope→advise(=full-results) 통합으로 -5 |
 
 ### 시장 전체 스캔 (기업당 아님 — 1회 쿼리당)
 | tool | 콜/쿼리 | 비고 |
@@ -82,7 +82,7 @@ DART 분당 한도는 **910콜**(client `_throttle_api`가 강제 — 초과 시
     "dividend": 21,
     "order_contracts": 31,
     "proxy_contest": 35,
-    "proxy_advise_before_meeting": 37,
+    "proxy_advise_before_meeting": 32,
     "risk_events": 6
   },
   "market_scan_per_query": { "risk_events": 45 }
