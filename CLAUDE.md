@@ -21,26 +21,21 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 | 필요 | wiki 위치 |
 |---|---|
 | 사람에게 OPM 설명 (개요·아키텍처·발표자료) | `guide/` |
-| tool 사용법·입출력·데이터 출처 | `tools/README` → 개별 tool |
+| tool 사용법·입출력·데이터 출처 | `tools/README` → 개별 tool · `tools/tool_call_budget.md`(DART 콜 budget) |
 | 공시 유형·검색 코드 매핑 | `rules/disclosures/공시유형코드체계.md` |
 | 법령 / 도메인 개념 | `rules/laws/` · `rules/concepts/` |
 | 시스템 설계·데이터 수집·폴백 | `architecture/` (`data-collection` · `3-tier-fallback` · `multi-upstream-pattern`) |
 | 의결권 정책·판단 구조 | `decisions/open-proxy-guideline` · `architecture/proxy-voting-decision-tree` |
+| 설계·기술 결정 (왜 이렇게 만들었나) | `decisions/` (BeautifulSoup·XML/PDF·free-paid·LLM-fallback 등) |
 | 작업 이유·회고 | `lessons/` |
-| **작업·데이터 검증 방법** (전수·표본·측정 함정·프로토콜) | `lessons/agenda-parser-validation-260621` (측정 함정 5패턴 + html 픽스처 0콜·전수 diff·직접 표본 + 체크리스트) |
+| **작업·데이터 검증 방법** (전수·표본·측정 함정·프로토콜) | `lessons/README` ④ 검증 방법론 카테고리 (대표 `agenda-parser-validation-260621`: 측정 함정 5패턴 + 체크리스트) |
 | 전체 색인 / 트리·명명·link 정책 | `index.md` / `WIKI_SCHEMA.md` |
 
-**wiki 작성 규칙:**
-- **명명**: 시점작업 `yymmdd_hhmm_{type}_{title}.md`(type: audit/fix/decision/ralph/improvement 등) ·
-  정체성 `{name}.md` · lessons `{topic}-yymmdd.md`. 시점작업 신규 시 4축 양방향 link(ralph↔audit↔
-  lesson↔decision). 상세는 [[WIKI_SCHEMA]].
-- **link 정책**: 뿌리(raw)→줄기(rules)→큰가지(tools/decisions/architecture) 단방향 / 큰가지↔잔가지
-  (lessons/audits) 양방향. 변경 시 `python3 scripts/wiki_lint.py --strict` 필수 (CI도 자동 검증).
-- **`raw/` 절대 수정 금지**: 외부 원본(운용사 PDF·xlsx·reference). 분석·요약은 별도 페이지에.
-- 신규 tool/공시/개념 추가 시: 코드 + 해당 wiki 페이지 + `index.md`를 함께 갱신.
-- tool의 DART 호출 수(scope·asyncio.gather·루프 상한)가 바뀌면 `wiki/tools/tool_call_budget.md`(기업당 콜
-  budget)도 갱신 — 유니버스 배치 안전 크기의 근거. **per-firm(기업당 N×콜)** vs **market-scan(시장 전체
-  1회 쿼리, 예: risk_events company 미지정)** 모드 구분 필수.
+**wiki 작성 규칙** (상세 [[WIKI_SCHEMA]]):
+- **명명**: 시점작업 `yymmdd_hhmm_{type}_{title}` · 정체성 `{name}` · lessons `{topic}-yymmdd`. 시점작업은 4축 양방향 link(ralph↔audit↔lesson↔decision).
+- **link**: raw→rules→큰가지 단방향 / 큰가지↔잔가지 양방향. 변경 시 `python3 scripts/wiki_lint.py --strict` 필수.
+- **`raw/` 절대 수정 금지** (외부 원본). 신규 tool/공시/개념 = 코드 + wiki 페이지 + `index.md` 동반 갱신.
+- DART 콜 수 바뀌면 `tools/tool_call_budget.md` 갱신 — **per-firm vs market-scan** 모드 구분 필수.
 
 ## 프로젝트 구조
 ```
@@ -61,12 +56,7 @@ wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
 ## 핵심 규칙
 - **호출 우선순위**: ① MCP 호출(production 검증) → ② 직접 import(테스트·디버깅).
 - **데이터 접근**: ① DART API(병렬) → ② DART 웹(2초 간격) → ③ KIND(2초). 상위 해결 시 하위 금지.
-- **DART API 분당 1,000회 초과 → 24h IP 차단 (hard rule, 절대 위반 X)**:
-  - `dart/client.py` rate limiter 분당 cap **910**. 키 2개 fallback(ContextVar, 요청별 격리).
-  - batch: 회사수×호출수 estimate → **최대 30사 단위 + batch 사이 sleep**. 100+사는 fly machine(다른 IP).
-  - ⚠️ 독립 스크립트는 새 client = limiter 리셋. ReadError 재시도는 limiter 우회 증폭 → **동시성 1~2
-    + 호출 사이 sleep + ReadError 즉시 중단** (260607 throttle 사고 교훈).
-  - 차단 시 키 회전 무효(IP/fingerprint level), 24h cool-down.
+- **DART API 분당 1,000회 초과 → 24h IP 차단 (hard rule, 절대 위반 X)**: cap **910**(키 2개 fallback) · batch **최대 30사 + 사이 sleep**(100+사는 fly machine) · **독립 스크립트는 동시성 1~2 + sleep + ReadError 즉시 중단**. 차단 시 키 회전 무효(IP level)·24h. 메커니즘·260607 사고: [[hard-rate-limit]].
 - **웹 스크래핑**: 최소 2초 간격, 배치 금지.
 - **3-tier fallback**: XML → PDF(4s+) → OCR(Upstage).
 - **rcept_no 포맷**: `00`=소집공고(DART 정기) / `80`=주총결과(거래소 수시). agm_*_xml에는 `00` 사용.
