@@ -33,7 +33,7 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 
 **wiki 작성 규칙** (상세 [[WIKI_SCHEMA]]):
 - **명명**: 시점작업 `yymmdd_hhmm_{type}_{title}` · 정체성 `{name}` · lessons `{topic}-yymmdd`. 시점작업은 4축 양방향 link(ralph↔audit↔lesson↔decision).
-- **link**: raw→rules→큰가지 단방향 / 큰가지↔잔가지 양방향. 변경 시 `python3 scripts/wiki_lint.py --strict` 필수.
+- **link & README**: raw→rules→큰가지 단방향 / 큰가지↔잔가지 양방향 · **폴더에 파일 추가/삭제 시 해당 README를 `[[]]` 인덱스로 갱신**. 변경 시 `python3 scripts/wiki_lint.py --strict` 필수 — link 방향 + 양방향 + **README drift([3])** 자동 검증(누락 시 실패).
 - **`raw/` 절대 수정 금지** (외부 원본). 신규 tool/공시/개념 = 코드 + wiki 페이지 + `index.md` 동반 갱신.
 - DART 콜 수 바뀌면 `tools/tool_call_budget.md` 갱신 — **per-firm vs market-scan** 모드 구분 필수.
 

@@ -14,7 +14,7 @@ updated: 2026-06-01
 |---|---|
 | **`open-proxy-guideline.md`** | OPM 자체 의결권 정책 v1.2 (12 카테고리 + OPM 5 기준 + 8 운용사 + N연기금 통합). **유일 master** |
 | `260429_0059_decision_voting-policy-consensus-matrix.md` | 8 운용사 합의 매트릭스 (79 토픽). 매트릭스 형태 보존 (master 보조) |
-| `260429_0059_debate_opm-guideline-7전문가.md` | open-proxy-guideline 작성 토론 transcript (역사적 발전) |
+| [[260429_0059_debate_opm-guideline-7전문가]] | open-proxy-guideline 작성 토론 transcript (역사적 발전) |
 
 ## 사용 흐름
 
@@ -53,12 +53,12 @@ updated: 2026-06-01
 
 | 파일 | 용도 |
 |---|---|
-| `open-proxy-guideline.md` | OPM 자체 정책 master |
-| `tool-changelog.md` | tool 변경 이력 |
-| `cross-domain-체이닝.md` / `free-paid-분리.md` | tool 간 연결과 repo 운영 정책 |
-| `XML-vs-PDF.md` / `BeautifulSoup-파서-선택.md` / `LLM-fallback-설계.md` | 파서/데이터 소스 결정 |
-| `pblntf-ty-필터링.md` / `DART-KIND-매핑-화이트리스트-2026-04.md` | DART/KIND 검색 정책 |
-| `tool-추가-검증-정책.md` / `파서-성능-추이.md` | tool 추가/성능 이력 |
+| [[open-proxy-guideline]] | OPM 자체 정책 master |
+| [[tool-changelog]] | tool 변경 이력 |
+| [[cross-domain-체이닝]] · [[free-paid-분리]] | tool 간 연결과 repo 운영 정책 |
+| [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[LLM-fallback-설계]] | 파서/데이터 소스 결정 |
+| [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
+| [[tool-추가-검증-정책]] · [[파서-성능-추이]] | tool 추가/성능 이력 |
 
 ## 관련 페이지
 

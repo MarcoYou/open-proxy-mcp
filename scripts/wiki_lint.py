@@ -1,9 +1,9 @@
 """wiki link 방향 정책 lint.
 
-WIKI_SCHEMA Section 0.2 트리 link 방향 정책 검증:
-- 뿌리 → 줄기 → 큰가지: 단방향 (위→아래만)
-- 큰가지 ↔ 가지 ↔ 잎: 양방향 강제
-- 잎 ↔ 잎 / 잎 ↔ 낙엽: 자유
+WIKI_SCHEMA Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 검증:
+- [1] 뿌리 → 줄기 → 큰가지: 단방향 (위→아래만)
+- [2] 큰가지 ↔ 가지 ↔ 잎: 양방향 강제 / 잎 ↔ 잎·낙엽: 자유
+- [3] 폴더 README ← 직속 .md 전부 인덱스([[]] link) — 새 파일 추가하고 README 누락 시 실패 (archive 면제)
 
 사용:
     python3 scripts/wiki_lint.py           # warning만 출력
@@ -194,6 +194,38 @@ def check_bidirectional(outgoing) -> list[str]:
     return issues
 
 
+# README 인덱스 drift: 폴더에 README가 있으면 그 폴더 직속 .md가 README에 링크돼야 함
+README_DRIFT_EXCLUDE = ("archive",)  # 보관소는 통합 안내만 (개별 인덱스 면제)
+
+
+def check_readme_drift(pages, outgoing) -> list[str]:
+    """폴더 README가 그 폴더 직속 비-README .md를 전부 인덱스(링크)하는지 검사.
+
+    새 파일을 추가하고 README에 안 넣으면 여기서 잡힌다(폴더↔README 동기화 강제).
+    """
+    issues = []
+    folder_files = defaultdict(list)
+    readme_rels = {}
+    for rel, _ in pages:
+        parts = rel.split("/")
+        folder = "/".join(parts[:-1])
+        if parts[-1] == "README":
+            readme_rels[folder] = rel
+        else:
+            folder_files[folder].append(rel)
+    for folder, files in sorted(folder_files.items()):
+        if not folder or any(folder == x or folder.startswith(x + "/") for x in README_DRIFT_EXCLUDE):
+            continue
+        readme = readme_rels.get(folder)
+        if not readme:
+            continue  # README 없는 폴더는 면제 (생성 정책은 별도)
+        linked = outgoing.get(readme, set())
+        for f in sorted(files):
+            if f not in linked:
+                issues.append(f"README 미인덱스: {folder}/README ← {f.split('/')[-1]}")
+    return issues
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--strict", action="store_true", help="위반 발견 시 exit 1")
@@ -205,12 +237,14 @@ def main():
 
     uni_violations = check_unidirectional(outgoing)
     bi_issues = check_bidirectional(outgoing)
+    drift_issues = check_readme_drift(pages, outgoing)
 
     if args.json:
         print(json.dumps({
             "total_pages": len(pages),
             "unidirectional_violations": uni_violations,
             "bidirectional_issues": bi_issues,
+            "readme_drift": drift_issues,
         }, ensure_ascii=False, indent=2))
     else:
         print(f"[wiki_lint] 총 페이지: {len(pages)}")
@@ -226,10 +260,16 @@ def main():
         if len(bi_issues) > 20:
             print(f"  ... +{len(bi_issues) - 20} 건")
 
-        if not uni_violations and not bi_issues:
+        print(f"\n[3] README 인덱스 누락 (폴더 .md가 해당 README에 없음): {len(drift_issues)} 건")
+        for v in drift_issues[:20]:
+            print(f"  ⚠ {v}")
+        if len(drift_issues) > 20:
+            print(f"  ... +{len(drift_issues) - 20} 건")
+
+        if not uni_violations and not bi_issues and not drift_issues:
             print("\n✓ 모든 정책 충족")
 
-    if args.strict and (uni_violations or bi_issues):
+    if args.strict and (uni_violations or bi_issues or drift_issues):
         sys.exit(1)
 
 
