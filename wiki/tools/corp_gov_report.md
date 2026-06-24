@@ -44,6 +44,9 @@ scope:
 - `filings`: 제출 이력 (lookback 4년)
 - `timeline`: 연도별 준수율 추이 + 지표 전환 (improved / regressed / changed)
 
+> **주주 4필드 파싱 (260625 fix)**: `company_overview`의 `max_shareholder/pct/minority`는 표 1-0-0을 **td 단위 (label,value)로 파싱**한다 — 이전 텍스트 매칭이 법적 정의문구 '최대주주(그의 상법상 특수관계인을…)'의 `(`를 긁던 **전수 silent 고장** 수정(소액주주 앵커 ~5KB 슬라이스, 50사 regression 0·주주 1→36 채움). 음수재무 △/▲/괄호 정규화.
+> **무결성 시그널 (`warnings`, 260625)**: status=exact인데 `compliance_rate` None / 명시 준수율과 `metrics_compliant/parsed×100` 교차검증 불일치(>0.2) / 주주필드 괄호·빈값 → PARTIAL. 추가 호출 0, 100사 false positive 0.
+
 ## 출력 schema (data dict)
 ```json
 {

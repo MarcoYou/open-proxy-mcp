@@ -7,7 +7,7 @@ data_source: [DART OpenAPI 주요사항보고서 DS005 5종 — piicDecsn + cvbd
 related_disclosures: [유상증자결정, 전환사채발행결정, 교환사채권발행결정, 신주인수권부사채발행결정, 감자결정]
 related_concepts: [지분구조, 경영권-방어]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
+related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260624_1503_fix_dilutive-exchangeable-bond]
 created: 2026-05-01
 ---
 
