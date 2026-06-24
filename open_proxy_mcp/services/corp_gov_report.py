@@ -102,35 +102,179 @@ def _parse_compliance_rate(text: str) -> float | None:
     return None
 
 
-def _parse_company_summary(text: str) -> dict[str, Any]:
-    """기업개요(표 1-0-0): 최대주주, 지분율, 소액주주, 업종, 기업집단, 요약 재무."""
+# 음수 재무 표기 정규식: 일반(123,456) · 부호(-123,456) · △(△123,456) · 괄호((123,456)).
+_NUM_TOKEN_RE = re.compile(r"\(\s*-?[\d,]+\s*\)|[△▲-]?\s*[\d,]+")
+
+
+def _normalize_amount(raw: str) -> str:
+    """재무 수치 표기를 부호 있는 정규형 문자열로 변환.
+
+    '123,456' → '123,456' · '-977,063' → '-977,063' · '△977,063' → '-977,063'
+    · '(977,063)' → '-977,063'. 콤마는 표시 호환을 위해 유지한다.
+    """
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    negative = False
+    # 괄호 음수 (회계 표기)
+    if s.startswith("(") and s.endswith(")"):
+        negative = True
+        s = s[1:-1].strip()
+    # △/▲/- 선두 음수 부호
+    while s and s[0] in "△▲-▵":
+        negative = True
+        s = s[1:].strip()
+    digits = re.sub(r"[^\d,]", "", s)
+    if not digits or not re.search(r"\d", digits):
+        return ""
+    return ("-" + digits) if negative else digits
+
+
+def _extract_amount_after(text: str, label: str) -> str | None:
+    """라벨 직후 첫 수치 토큰을 음수 표기까지 포함해 추출(text 폴백용)."""
+    m = re.search(rf"{re.escape(label)}\s*\n+\s*({_NUM_TOKEN_RE.pattern})", text)
+    if not m:
+        return None
+    norm = _normalize_amount(m.group(1))
+    return norm or None
+
+
+def _find_summary_table(html: str):
+    """표 1-0-0(기업개요): 최대주주·지분율·소액주주가 모두 든 첫 table을 찾는다.
+
+    원문은 수 MB라 전체를 BeautifulSoup로 파싱하면 수백 ms가 든다. '소액주주'는
+    이 개요 표에만 등장하므로(법적 정의문구·다른 표에 없음), 해당 위치를 둘러싼
+    <table>…</table> 약 5KB 조각만 잘라 파싱한다(문자열 슬라이스 → 부분 파싱).
+    """
+    if not html:
+        return None
+    anchor = html.find("소액주주")
+    if anchor != -1:
+        start = html.rfind("<table", 0, anchor)
+        end = html.find("</table>", anchor)
+        if start != -1 and end != -1:
+            frag = html[start : end + len("</table>")]
+            t = BeautifulSoup(frag, "lxml").find("table")
+            if t is not None:
+                txt = t.get_text(" ", strip=True)
+                if "최대주주" in txt and "지분율" in txt:
+                    return t
+    # 폴백: 슬라이스 실패 시 전체 스캔(서식 변형 대비).
+    soup = BeautifulSoup(html, "lxml")
+    for t in soup.find_all("table"):
+        txt = t.get_text(" ", strip=True)
+        if "최대주주" in txt and "소액주주" in txt and "지분율" in txt:
+            return t
+    return None
+
+
+def _parse_summary_from_table(table) -> dict[str, Any]:
+    """표 1-0-0을 td 단위로 파싱(BeautifulSoup table 구조 기반).
+
+    행 구조 예:
+      ['최대주주 등', '삼성생명 외 14명 …', '최대주주등의 지분율(%)', '19.71']
+      ['', '', '소액주주 지분율(%)', '66.04']
+      ['업종', '비금융(Non-financial)', '주요 제품', '전기 전자 제품 등']
+      ['기업집단명', '삼성', '', '']
+      ['(연결) 당기순이익', '45,206,805', '34,451,351', '15,487,100']  # 당기/전기/전전기
+    """
+    out: dict[str, Any] = {}
+    rows: list[list[str]] = []
+    for tr in table.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+        rows.append(cells)
+
+    # (label, value) 인접 쌍 사전 — 라벨 셀 바로 다음 셀을 값으로.
+    kv: dict[str, str] = {}
+    for cells in rows:
+        for i, cell in enumerate(cells):
+            label = (cell or "").strip()
+            if not label:
+                continue
+            val = cells[i + 1].strip() if i + 1 < len(cells) else ""
+            # 같은 라벨이 빈 값으로 먼저 잡혔으면 비지 않은 값으로 갱신.
+            if label not in kv or (not kv[label] and val):
+                kv[label] = val
+
+    def _kv(*labels: str) -> str:
+        for lb in labels:
+            for k, v in kv.items():
+                if (k == lb or k.startswith(lb)) and v:
+                    return v
+        return ""
+
+    out["max_shareholder"] = _kv("최대주주 등", "최대주주등", "최대주주")
+    out["max_shareholder_pct"] = _kv(
+        "최대주주등의 지분율(%)", "최대주주등의 지분율", "최대주주 등의 지분율"
+    )
+    out["minority_shareholder_pct"] = _kv("소액주주 지분율(%)", "소액주주 지분율")
+    out["industry"] = _kv("업종")
+    out["main_products"] = _kv("주요 제품", "주요제품")
+    out["corporate_group"] = _kv("기업집단명")
+
+    # 요약 재무 — 당기 컬럼(라벨 셀 바로 다음). 음수 표기 정규화.
+    fin_map = {
+        "revenue_current": "(연결) 매출액",
+        "operating_income_current": "(연결) 영업이익",
+        "net_income_current": "(연결) 당기순이익",
+        "total_assets_current": "(연결) 자산총액",
+    }
+    for out_key, fin_label in fin_map.items():
+        target = fin_label.replace(" ", "")
+        for cells in rows:
+            if cells and cells[0].strip().replace(" ", "") == target:
+                amt = _normalize_amount(cells[1]) if len(cells) > 1 else ""
+                if amt:
+                    out[out_key] = amt
+                break
+    return out
+
+
+def _parse_company_summary(text: str, html: str = "") -> dict[str, Any]:
+    """기업개요(표 1-0-0): 최대주주, 지분율, 소액주주, 업종, 기업집단, 요약 재무.
+
+    1순위: HTML table을 td 단위로 구조 파싱(정확). flatten 텍스트의 '최대주주(그의
+    상법상 특수관계인을 포함한다)' 정의문구 괄호 오긁음 문제를 회피한다.
+    2순위: HTML이 없거나 표를 못 찾으면 text 기반 폴백(음수 표기 대응 포함).
+    """
     out: dict[str, Any] = {}
 
-    def _after(label: str, max_lines: int = 2) -> str:
+    table = _find_summary_table(html) if html else None
+    if table is not None:
+        out = _parse_summary_from_table(table)
+
+    def _after(label: str) -> str:
         m = re.search(rf"{re.escape(label)}\s*\n+([^\n]+)", text)
         return m.group(1).strip() if m else ""
 
-    out["max_shareholder"] = _after("최대주주")
-    out["max_shareholder_pct"] = _after("최대주주등의 지분율")
-    out["minority_shareholder_pct"] = _after("소액주주 지분율")
-    out["industry"] = _after("업종")
-    out["main_products"] = _after("주요 제품")
-    out["corporate_group"] = _after("기업집단명")
-    out["reporting_period_end"] = _after("공시대상 기간 종료일")
+    # 표에서 못 채운 필드는 text 폴백으로 보완.
+    if not out.get("max_shareholder"):
+        out["max_shareholder"] = _after("최대주주 등") or _after("최대주주등")
+    if not out.get("max_shareholder_pct"):
+        out["max_shareholder_pct"] = _after("최대주주등의 지분율")
+    if not out.get("minority_shareholder_pct"):
+        out["minority_shareholder_pct"] = _after("소액주주 지분율")
+    if not out.get("industry"):
+        out["industry"] = _after("업종")
+    if not out.get("main_products"):
+        out["main_products"] = _after("주요 제품")
+    if not out.get("corporate_group"):
+        out["corporate_group"] = _after("기업집단명")
 
-    # 요약 재무 (당기 기준)
-    m = re.search(r"\(연결\)\s*매출액\s*\n+([\d,]+)", text)
-    if m:
-        out["revenue_current"] = m.group(1)
-    m = re.search(r"\(연결\)\s*영업이익\s*\n+([\d,]+)", text)
-    if m:
-        out["operating_income_current"] = m.group(1)
-    m = re.search(r"\(연결\)\s*당기순이익\s*\n+([\d,]+)", text)
-    if m:
-        out["net_income_current"] = m.group(1)
-    m = re.search(r"\(연결\)\s*자산총액\s*\n+([\d,]+)", text)
-    if m:
-        out["total_assets_current"] = m.group(1)
+    # reporting_period_end는 표 밖 본문에 있어 text 기반 유지.
+    out["reporting_period_end"] = out.get("reporting_period_end") or _after("공시대상 기간 종료일")
+
+    # 요약 재무 — 표에서 못 채운 항목만 text 폴백(음수 표기 대응).
+    for out_key, fin_label in (
+        ("revenue_current", "(연결) 매출액"),
+        ("operating_income_current", "(연결) 영업이익"),
+        ("net_income_current", "(연결) 당기순이익"),
+        ("total_assets_current", "(연결) 자산총액"),
+    ):
+        if not out.get(out_key):
+            amt = _extract_amount_after(text, fin_label)
+            if amt:
+                out[out_key] = amt
     return out
 
 
@@ -553,7 +697,7 @@ async def build_corp_gov_report_payload(
         ).to_dict()
 
     compliance_rate = _parse_compliance_rate(text) if text else None
-    summary_block = _parse_company_summary(text) if text else {}
+    summary_block = _parse_company_summary(text, html) if text else {}
     metrics = _parse_metrics(text) if text else []
     principles = _parse_principles(text) if text else []
 
@@ -681,9 +825,26 @@ async def build_corp_gov_report_payload(
         parsing_failures=parse_failed,
     )
     data.update(final_meta)
-    if len(metrics) < 10:
-        warnings.append(f"핵심지표 파싱 {len(metrics)}개만 추출됨 — 원문 서식 차이 가능성")
+    if len(metrics) < 15:
+        warnings.append(f"핵심지표 {len(metrics)}/15개만 추출 — 원문 서식 차이 가능성")
     status = status_from_filing_meta(final_meta)
+
+    # 시그널 부여(audit w0qo5hfse): 무료 무결성 자동감지 — compliance None / 교차검증 / 주주필드.
+    _rm = data.get("report_meta") or {}
+    _ov = data.get("company_overview") or {}
+    _stated_cr = _rm.get("compliance_rate")
+    _mp = _rm.get("metrics_parsed_count") or 0
+    _mc = _rm.get("metrics_compliant") or 0
+    if status == AnalysisStatus.EXACT and _stated_cr is None:
+        warnings.append("compliance_rate 파싱 실패 — 원문 준수율 표 미인식")
+    if _stated_cr is not None and _mp > 0:
+        _calc_cr = _mc / _mp * 100
+        if abs(_stated_cr - _calc_cr) > 0.2:
+            warnings.append(f"compliance 교차검증 불일치: 명시 {_stated_cr} vs 계산 {_calc_cr:.1f} — 파싱 의심")
+    _msh = (_ov.get("max_shareholder") or "").strip()
+    if status == AnalysisStatus.EXACT and (_msh in ("(", "") or len(_msh) < 2):
+        warnings.append("company_overview 주주 필드 파싱 실패(괄호/빈값) → PARTIAL")
+        status = AnalysisStatus.PARTIAL
 
     return ToolEnvelope(
         tool="corp_gov_report",
