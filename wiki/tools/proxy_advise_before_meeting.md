@@ -107,16 +107,18 @@ proxy_advise_before_meeting(
 ## 결정 logic
 
 OPM 자체 함수들 + vote_style 정책 wire:
-- `_decide_director_election` (사외/사내·결격·독립성·장기연임 + **사내이사 재직 성과 bad→AGAINST / weak→REVIEW**)
-- `_decide_financial_statements` (감사의견·자본잠식)
-- `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등)
-- `_decide_audit_compensation` (감사 보수한도 11 분기 — 참조 감사보수 규칙 + strict 내부 패턴: 1인당 평균 과소 + 인상률 과다)
-- `_decide_retirement_pay` (퇴직금 12 분기 — 황금낙하산·사외이사 퇴직금·지급률 2배수+ 등)
+- `_decide_director_election` (사외/사내·결격·독립성·장기연임). 사외이사: 결격→AGAINST / 독립성·장기연임→REVIEW / clean→FOR. **사내이사: 결격→AGAINST / 재직성과 bad·weak→REVIEW / good·moderate→FOR** (성과는 "법정 결격이 아니므로" 최악도 REVIEW — 자동 AGAINST 아님). 감사위원(audit strict): 장기연임→AGAINST.
+- `_decide_financial_statements` (완전 자본잠식→AGAINST / 비적정 감사의견→AGAINST / 적정+정상→FOR)
+- `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등 → **전부 REVIEW/FOR, AGAINST 없음**)
+- `_decide_audit_compensation` (감사 보수한도 11 분기 — 1인당 과소/50%+인상+1인당과다 등 → **REVIEW/FOR만**)
+- `_decide_retirement_pay` (퇴직금 12 분기 — 황금낙하산·사외이사 퇴직금·지급률 2배수+ → **REVIEW/FOR만**)
 - `_decide_articles_amendment` 안에서 정관변경에 묶인 퇴직금/보수한도 hybrid 처리
-- `_decide_dividend` (배당성향·자본잠식·리츠 의무 90%)
-- `_decide_articles_amendment` (집중투표 배제 등 위험 키워드)
-- `_decide_treasury_share` (소각 vs 처분)
+- `_decide_dividend` (완전 자본잠식·적자·배당성향 200%+→REVIEW / 리츠·절차·흑자→FOR → **AGAINST 없음**)
+- `_decide_articles_amendment` (집중투표 배제 등 위험 키워드 → **REVIEW**; AGAINST는 법령 layer에서만)
+- `_decide_treasury_share` (소각→FOR / 처분→REVIEW)
 - `_apply_policy_default` (vote_style 정책 default가 case_by_case 아니면 OPM 결정 override)
+
+> **AGAINST 발생 범위 (실제 코드 기준)**: ① 재무제표(완전 자본잠식·비적정 감사의견) ② 후보 결격(red_flag) ③ 감사위원 장기연임(5년 룰) ④ **법령 layer 강행규정 직접 hit**(집중투표 배제 신설·감사위원 분리선출 축소·독립이사 1/3 미달·자사주 합병/분할 신주배정). **그 외 모든 위험 신호(보수 과다·퇴직금·자사주 처분·배당 과다·정관 우회·사내이사 성과 부진)는 REVIEW.** 정책 문서(open-proxy-guideline)의 "against" 입장은 *지향*이며, 자동 판정으로 구현된 것과 별개다.
 
 ## Layer consistency guarantee (2026-05-25)
 

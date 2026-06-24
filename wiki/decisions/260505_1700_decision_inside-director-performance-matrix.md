@@ -79,6 +79,8 @@ if is_inside:
 
 신임 (`appointment_type == "new"`) 사내이사는 재직 X → performance 미평가 → 결격만 + FOR.
 
+> **업데이트 (2026-06-24) — 현행 코드는 bad도 REVIEW**: 위 스니펫의 `bad → AGAINST`는 도입 시점 설계안이고, 현행 `_decide_director_election`은 **bad·weak 모두 REVIEW**로 완화됐다(사유: "사내이사 재직 성과 저조는 *법정 결격이 아니므로* 사용자 검토"). 즉 사내이사 연임 성과만으로 자동 AGAINST가 나가지 않는다. 자동 AGAINST는 결격(red_flag)·감사위원 장기연임·재무제표·법령 강행규정에서만 발생. 엑셀 OPM/META Guideline(`@charts.xlsx`)과 [[proxy_advise_before_meeting]] 결정 logic은 이 현행 동작 기준으로 정리됨.
+
 ## 데이터 chain
 
 사내이사 1+명 detect 시 회사 단위로 추가 fetch:
