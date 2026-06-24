@@ -53,30 +53,40 @@ related_tools: [dilutive_issuance]
 
 **비용**: 구조화가 EB를 완전 제공하면 list.json 생략(추가 호출 0). blank/0건일 때만 list.json 1 + 문서 최대 4. EB는 시장 전체의 소수라 대부분의 호출은 list.json 1회만 추가.
 
-## 검증 (라이브 30사)
+### 3. 원문 파서 보강 (전수 검증에서 발견)
 
-시장 전체 `list.json` 스캔으로 EB 발행사 28곳 발굴 + 태광(복원) + 삼성전자(회귀) = 30사 실측.
+187사 전수 검증 중 원문복원 경로에서 2개 추가 버그 발견·수정:
+
+- **교환대상 산식 오염**: 일부 레이아웃(광동제약·동성제약)은 구조화 `교환대상` 셀이 비어 교환가액 *조정 산식*의 변수줄(`A: 기발행주식수`)을 교환대상으로 오인. → `_looks_like_eb_target()`로 산식 변수줄(`^[A-Z]:`, "기발행주식수" 등) 배제 + `교환대상` 라벨 앵커 + narrative(`교환대상 주식: …보통주식`, 푸드나무) 폴백 + 자기주식 마커 최소 신호. 결과: 광동제약 "광동제약 보통주", 푸드나무 "에프엔프레시 보통주" 정확 복원.
+- **중복 행**: 구조화 complete 행 + 같은 EB의 정정 stub 복원이 2행 생성(동성제약). → `_dedup_eb_rows()`로 (회차,총액) 그룹 dedup, 우선순위 구조화>복원>탐지.
+
+## 검증 (라이브 전수 187사)
+
+시장 전체 `list.json` 스캔(2024-01~2026-06)으로 EB 발행사 **186곳 전수 발굴** + 태광(복원) = **187사 실측**(넓은 윈도우 2024-01~2026-06).
 
 | 구분 | 결과 |
 |---|---|
-| **PASS (조건 완비)** | 42 이벤트 (교환가·교환대상·주식수·% 전부) |
-| **DETECT (탐지만)** | 1 (한라IMS — 누락→surface 전환) |
+| **PASS (조건 완비)** | **219 이벤트** (교환가·교환대상·주식수·% 전부) |
+| **DETECT (탐지만)** | 2 (한라IMS·녹원씨엔아이 — 첨부정정 014, 누락→surface 전환) |
 | **WARN (빈값)** | 0 |
 | **FAIL (누락/에러)** | 0 |
+
+> 기본 24개월 윈도우에선 2024 상반기 EB 19곳이 윈도우 밖이라 0건(정상). 넓은 윈도우로 재확인 시 전부 PASS/DETECT — 누락 0 확인.
 
 커버 다양성:
 - **자기주식 교환**(의결권 희석): 태광·남성·위닉스·알서포트·크레버스·한국전자홀딩스·제노레이·티에프이·범한퓨얼셀·한국토지신탁·오킨스전자·클리오
 - **타사주식 교환**: 경농·금강공업·디지캡·엠에스오토텍·PS일렉트로닉스·이엠텍·심텍홀딩스·HD한국조선해양·만호제강·코오롱·코오롱인더·링크드·아이티아이즈·HLB생명과학
 - **다건**: PS일렉트로닉스 7 / 링크드 4 / 심텍·HD조선·만호·크레버스·HLB 2
 - **초대형**: HD한국조선해양 2.37조 + 6천억
-- **복원경로(A)**: 태광(3,185.8억, 교환가 1,172,251, 자기주식 271,769주), 위닉스
-- **탐지경로(C)**: 한라IMS
+- **복원경로(A)**: 태광(3,185.8억, 교환가 1,172,251, 자기주식 271,769주)·위닉스·광동제약·푸드나무(에프엔프레시)
+- **탐지경로(C)**: 한라IMS·녹원씨엔아이 (첨부정정 document.xml 014)
+- **dedup**: 동성제약(구조화+복원 중복 → 1행)
 - **회귀**: 삼성전자 no_filing 정상 (항상 켜진 list.json 체크가 no-EB를 깨지 않음)
 
 ## 코드 변경 파일
 
 - `open_proxy_mcp/dart/client.py` — `get_exchangeable_bond_decision`
-- `open_proxy_mcp/services/dilutive_issuance.py` — normalizer + scope + `_ensure_eb_coverage`/`_find_eb_terms_from_filings`/`_parse_eb_document`/`_merge_eb_doc_into_row`
+- `open_proxy_mcp/services/dilutive_issuance.py` — normalizer + scope + `_ensure_eb_coverage`/`_find_eb_terms_from_filings`/`_parse_eb_document`/`_merge_eb_doc_into_row`/`_looks_like_eb_target`/`_dedup_eb_rows`
 - `open_proxy_mcp/tools_v2/dilutive_issuance.py` — EB 카드 + count(5종) + desc
 - `wiki/rules/disclosures/교환사채권발행결정.md` (신규) + `wiki/rules/disclosures/README.md`
 - `wiki/tools/dilutive_issuance.md` (4종→5종)

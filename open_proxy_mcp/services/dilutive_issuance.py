@@ -333,6 +333,21 @@ def _doc_value_after(lines: list[str], label: str, max_distance: int = 1, numeri
     return ""
 
 
+_EB_FORMULA_JUNK = ("기발행주식수", "신발행주식수", "발행주식총수", "발행주식 총수", "산식", "조정 전", "조정 후")
+
+
+def _looks_like_eb_target(s: str) -> bool:
+    """교환대상 종목명 후보인지 (교환가액 조정 산식 변수줄 A:/B:/C: 등 배제)."""
+    s = (s or "").strip()
+    if not s or len(s) > 90:
+        return False
+    if re.match(r"^[A-Za-z]\s*[:：]", s):  # A: 기발행주식수
+        return False
+    if any(j in s for j in _EB_FORMULA_JUNK):
+        return False
+    return ("보통주" in s) or ("자기주식" in s) or ("KDR" in s) or ("기명식" in s) or ("우선주" in s)
+
+
 def _parse_eb_document(text: str) -> dict[str, Any]:
     """교환사채권발행결정 주요사항보고서 원문(text) 파싱 → 핵심 조건 dict.
 
@@ -360,19 +375,30 @@ def _parse_eb_document(text: str) -> dict[str, Any]:
     ex_price = _doc_value_after(lines, "교환가액 (원/주)", 1, numeric_only=True)
 
     # 교환대상 종류 + 주식수 (자기주식 or 타사주식)
+    # 주의: '교환가액 조정 산식'의 변수줄(A: 기발행주식수 등)을 교환대상으로 오인 금지.
     target = ""
     target_count = ""
+    # (1) '교환대상' 표 라벨 앵커 → 종류 셀 + 주식수
     for i, line in enumerate(lines):
-        if len(line) < 80 and ("자기주식" in line or re.search(r"발행\s*(기명식\s*)?(보통주|주식)", line)) and "주" in line:
-            target = line
-            for j in range(i, min(i + 6, len(lines))):
+        if line == "교환대상" or (line.startswith("교환대상") and len(line) < 12):
+            for j in range(i + 1, min(i + 6, len(lines))):
+                if not target and _looks_like_eb_target(lines[j]):
+                    target = lines[j]
                 if "주식수" in lines[j]:
                     for k in range(j + 1, min(j + 3, len(lines))):
                         if re.fullmatch(r"[\d,]+", lines[k]):
                             target_count = lines[k]
                             break
-                    break
-            break
+            if target:
+                break
+    # (2) narrative 폴백: "교환대상 주식 : 발행회사가 보유한 …보통주식"
+    if not target:
+        m = re.search(r"교환대상\s*주식\s*[:：]?\s*([^\n]+?(?:보통주식?|KDR|우선주))", text)
+        if m and _looks_like_eb_target(m.group(1).strip()):
+            target = m.group(1).strip()[:90]
+    # (3) 그래도 없으면: 자기주식 마커로 최소 신호 복원 (정확 종목명 미상)
+    if not target and any(k in text for k in ("자기주식 대상", "기 보유한 자기주식", "자기주식을 활용", "보유 자기주식")):
+        target = "발행회사 자기주식(종목명 원문 확인)"
 
     # 교환청구기간 시작일 (라벨 뒤 첫 날짜)
     request_begin = ""
@@ -459,6 +485,32 @@ def _merge_eb_doc_into_row(
         f"최신 {latest.get('rcept_dt', '')}(rcept {latest.get('rcept_no', '')}) — "
         f"발행조건 변경·철회 가능성 있어 원문 확인 권장."
     )
+
+
+def _dedup_eb_rows(eb_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """같은 EB(회차+총액)가 구조화 complete + 정정 stub 복원으로 2행 되는 것 제거.
+
+    그룹 내 우선순위: 구조화 complete > 원문복원 > 탐지전용. (series·total 둘 다 빈 행은 고유 취급)
+    """
+    def rank(x: dict[str, Any]) -> int:
+        if x.get("detection_only"):
+            return 0
+        if x.get("recovered_from_document"):
+            return 1
+        return 2
+
+    groups: dict[Any, dict[str, Any]] = {}
+    order: list[Any] = []
+    for r in eb_list:
+        series = r.get("bond_series", "")
+        total = r.get("total_issue_amount", "")
+        key = (series, total) if (series or total) else ("__uniq__", id(r))
+        if key not in groups:
+            groups[key] = r
+            order.append(key)
+        elif rank(r) > rank(groups[key]):
+            groups[key] = r
+    return [groups[k] for k in order]
 
 
 async def _find_eb_terms_from_filings(
@@ -713,6 +765,14 @@ async def build_dilutive_issuance_payload(
         if new_eb_rows:
             rows.extend(new_eb_rows)
             by_type["exchangeable_bond"].extend(new_eb_rows)
+        # 같은 EB가 구조화 complete + 정정 stub 복원으로 중복되는 것 제거.
+        eb_list = by_type.get("exchangeable_bond", [])
+        if len(eb_list) > 1:
+            kept = _dedup_eb_rows(eb_list)
+            if len(kept) != len(eb_list):
+                kept_ids = {id(k) for k in kept}
+                rows = [r for r in rows if r.get("type") != "exchangeable_bond" or id(r) in kept_ids]
+                by_type["exchangeable_bond"] = kept
         if rec_calls:
             # 복원으로 행 추가/rcept_dt 변경 반영 — timeline 정렬 갱신.
             rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
