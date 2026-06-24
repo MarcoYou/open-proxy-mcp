@@ -1030,9 +1030,17 @@ async def build_director_evaluation_payload(
     # 후보별 평가
     evaluations: list[dict[str, Any]] = []
     candidate_count = 0
+    seen_candidate_names: set[str] = set()
     for ap in appointments:
         cands = ap.get("candidates") or []
         for c in cands:
+            # 같은 후보가 묶음 안건(제3호)+개별 안건(제3-1호)+번호중복(제2-3호)에 중복 등장하면
+            # 이름 기준 1회만 평가 — candidates_count·evaluations 부풀림 방지 (콜마홀딩스 23→5)
+            cname = (c.get("name") or "").strip()
+            if cname and cname in seen_candidate_names:
+                continue
+            if cname:
+                seen_candidate_names.add(cname)
             ev = await evaluate_candidate_async(c, target_year, check_audit_history=check_audit_history, own_company_name=canonical_corp_name)
             ev["agenda_title"] = ap.get("title")
             ev["agenda_action"] = ap.get("action")

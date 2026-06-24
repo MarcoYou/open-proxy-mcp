@@ -932,8 +932,8 @@ def _extract_document_toc(text: str) -> list[str]:
 # ── 안건 상세 파싱 (HTML 기반) ──
 
 AGENDA_DETAIL_RE = re.compile(
-    r'[■□●▶(（]?\s*제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
-    r'\s*(?:의안|안건)?\s*[)）:：]?\s*(.+)',
+    r'[■□●▶(（\[【]?\s*제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
+    r'\s*(?:의안|안건)?\s*[)）\]】:：]?\s*(.+)',
     re.DOTALL,
 )
 
@@ -2013,6 +2013,15 @@ def parse_personnel_xml(html: str) -> dict:
     for d in details:
         title = d.get("title", "")
         number = d.get("number", "")
+        category_heading = d.get("category", "") or ""
+
+        # 안건 title이 인사 안건이 아니어도, library 카테고리 제목(□ 이사의 선임 등)이
+        # 인사 안건이면 그것을 안건 제목으로 채택한다.
+        # (갤럭시아머니트리·엠엑스로보틱스: <p>가 '제2-1호 의안'으로 잘려 title='의안',
+        #  실제 제목은 library category '□ 이사의 선임'에 있음 — 후보표가 명백히 존재)
+        if not _is_personnel_title(title) and _is_personnel_title(category_heading):
+            title = category_heading.strip()
+            d = {**d, "title": title}
 
         # 선임/해임 안건인지 확인 (정관변경/보수 제외)
         if not _is_personnel_title(title):
@@ -2188,6 +2197,57 @@ def parse_personnel_xml(html: str) -> dict:
             for k in ('mainJob', 'birthDate', 'eligibility', 'recent3yTransactions'):
                 if c.get(k) in (None, '') and src.get(k):
                     c[k] = src[k]
+
+    # ── Soft-fail fallback (OPM 패턴) ──
+    # 후보표·개별 이름을 구조화하지 못했지만 인사 안건이 존재하면, 후보 영역 raw 텍스트를
+    # 정규화해 candidates_raw_fallback 로 노출한다. 구조화 결과(candidates)와 분리하여
+    # "후보 있음"으로 오인되지 않게 한다. (이오플로우·에이텍·이노테나 등: 발행사가 후보표를
+    # 공시에 누락 → 구조화 불가. 의결권 판단이 끊기지 않도록 안건/후보 텍스트라도 전달.)
+    def _norm_raw(s: str) -> str:
+        s = re.sub(r'\s+', ' ', s or '').strip()
+        return s
+
+    # (a) 구조화 후보가 0명인 인사 안건에 raw fallback 부착
+    for appt in appointments:
+        if appt.get("candidates"):
+            continue
+        raw = _norm_raw(appt.get("title", ""))
+        if raw:
+            appt["candidates_raw_fallback"] = raw
+
+    # (b) detailed 섹션에 인사 안건이 아예 없지만(=appointments 비었거나 인사 안건 0),
+    #     안건 트리에는 인사 안건이 있는 경우 → 트리 제목을 raw fallback 안건으로 추가.
+    has_personnel_appt = any(_is_personnel_title(a.get("title", "")) for a in appointments)
+    if not has_personnel_appt:
+        try:
+            soup_text_fb = BeautifulSoup(html or "", _BS4_PARSER).get_text(" ")
+            agenda_nodes_fb = parse_agenda_xml(soup_text_fb, html or "")
+        except Exception:
+            agenda_nodes_fb = []
+        seen_numbers = {a.get("number") for a in appointments}
+        for node in _walk_agenda(agenda_nodes_fb):
+            t = node.get("title") or ""
+            num = node.get("number") or ""
+            if not _is_personnel_title(t) or '철회' in t:
+                continue
+            if num and num in seen_numbers:
+                continue
+            category = "이사"
+            for kw, cat in _CATEGORY_MAP:
+                if kw in t:
+                    category = cat
+                    break
+            action = "해임" if "해임" in t else "선임"
+            appointments.append({
+                "number": num,
+                "title": t.strip(),
+                "action": action,
+                "category": category,
+                "candidates": [],
+                "candidates_raw_fallback": _norm_raw(t),
+            })
+            if num:
+                seen_numbers.add(num)
 
     # 요약
     summary = _build_personnel_summary(appointments)
@@ -2693,7 +2753,12 @@ _TITLE_NAME_BLACKLIST = {
     '분리', '신규', '재', '중임', '연임', '신임', '해당', '없음', '대상', '추가',
     '추천', '추천에', '추천의', '관한', '규정', '위원회', '설치', '운영', '근거',
     '일신상의', '선임', '선임의', '건',
+    # 이름-앞-역할 패턴(서승민 사내이사 선임)에서 잘못 잡히는 연결어/비-이름 토큰
+    '위원이', '되는', '위원이 되는', '명칭', '변경', '반영', '명칭 변경', '명칭 반영',
+    '분리선출', '분리 선출', '상근', '비상근', '상호', '회사', '신설', '관련',
 }
+# 이름이 아닌 본문성 토큰 (이름-앞-역할 패턴에서 캡처된 경우 기각)
+_TITLE_NAME_REJECT_RE = re.compile(r'위원이|되는|명칭|변경|반영|분리|선출|관련|상호|회사명')
 
 _TITLE_KO_NAME_RE = r'[가-힣](?:\s*[가-힣]){1,4}'
 _TITLE_EN_NAME_RE = r'[A-Z][A-Za-z\.\s\-]{3,29}'
@@ -2707,6 +2772,8 @@ def _extract_name_from_title(title: str) -> str | None:
         if not n or n in _TITLE_NAME_BLACKLIST or n_norm in _TITLE_NAME_BLACKLIST:
             return None
         if re.search(r'(?:후보|선임|해임|승인|의\s*건)', n):
+            return None
+        if _TITLE_NAME_REJECT_RE.search(n):
             return None
         if not _is_valid_candidate_name(n):
             return None
@@ -2747,6 +2814,39 @@ def _extract_name_from_title(title: str) -> str | None:
     )
     if m and (n := _check(m.group(1))):
         return n
+
+    # 이름 BEFORE 역할: "서승민 사내이사 선임의 건", "권준식(비상근감사) 선임의 건"
+    # (원풍·대주이엔티 등 — 후보표가 본문에 없고 안건 제목에 이름+역할만 있는 DART 패턴)
+    m = re.search(
+        rf'(?:^|[:：호건)\s])\s*({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})\s*'
+        r'(?:\([^)]*\))?\s*'
+        r'(?:사내이사|사외이사|독립이사|기타비상무이사|상근감사|비상근감사)\s*'
+        r'(?:\([^)]*\))?\s*'
+        r'(?:선임|해임|재선임|중임|연임)',
+        title,
+    )
+    if m and (n := _check(m.group(1))):
+        return n
+    # "감사 권준식(비상근감사) 선임", "감사 임성열 선임" — 역할 뒤 이름+괄호직책
+    m = re.search(
+        rf'(?:^|[:：호건)\s])\s*(?:상근감사|비상근감사|감사|이사)\s+'
+        rf'({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})\s*'
+        r'\([^)]*감사[^)]*\)\s*(?:선임|해임|재선임|중임|연임)',
+        title,
+    )
+    if m and (n := _check(m.group(1))):
+        return n
+    # "감사 선임의 건 (서정철)" — 역할+선임의건 뒤 괄호 안 단일 이름 (대주이엔티)
+    # 단, 괄호 안에 쉼표/숫자/'명'이 있으면 복수후보 umbrella → 기각.
+    m = re.search(
+        r'(?:사내이사|사외이사|독립이사|기타비상무이사|상근감사|비상근감사|이사|감사)\s*'
+        r'(?:선임|해임|재선임|중임|연임)의?\s*건?\s*'
+        rf'\(\s*({_TITLE_KO_NAME_RE}|{_TITLE_EN_NAME_RE})\s*\)\s*$',
+        title,
+    )
+    if m and ',' not in m.group(0) and '명' not in m.group(0) and not re.search(r'\d', m.group(0)):
+        if (n := _check(m.group(1))):
+            return n
     # 상세 섹션 제목이 "제5-1호 의안: 감사 임성열"처럼 선임 suffix 없이
     # 후보 역할 + 이름만 제공되는 DART 문서 패턴.
     m = re.search(
@@ -2802,6 +2902,10 @@ def _build_personnel_summary(appointments: list[dict]) -> dict:
     for a in appointments:
         cat = a.get("category", "")
         action = a.get("action", "")
+        # 구조화 후보가 없고 raw fallback만 있는 안건은 인원 카운트를 부풀리지 않음
+        # (후보표 누락 공시 — 인원수 미상). 단 total_appointments에는 포함.
+        if not a.get("candidates") and a.get("candidates_raw_fallback"):
+            continue
         count = len(a.get("candidates", [])) or 1
 
         if action == "해임":
