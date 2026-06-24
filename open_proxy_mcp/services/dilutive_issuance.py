@@ -13,6 +13,7 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
+from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -29,8 +30,12 @@ _SUPPORTED_SCOPES = {
     "rights_offering",
     "convertible_bond",
     "warrant_bond",
+    "exchangeable_bond",
     "capital_reduction",
 }
+
+# 교환사채(EB) 원본 문서 검색 키워드 (주요사항보고서 B / 상세 B001)
+_EB_REPORT_KEYWORDS = ("교환사채권발행결정",)
 
 
 _DATE_KEY_RE = re.compile(r"_date$")
@@ -185,6 +190,51 @@ def _normalize_convertible_bond(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _normalize_exchangeable_bond(item: dict[str, Any]) -> dict[str, Any]:
+    """교환사채(EB) 발행결정. CB와 유사하나 '전환→신주'가 아니라 '교환→기존주식(주로 자기주식)'.
+
+    신주 발행이 아니라 형식적 희석은 없으나, 교환대상이 자기주식이면 교환권 행사 시
+    의결권 없던 자사주가 제3자로 이전돼 **의결권 희석** 효과가 발생한다.
+    """
+    return {
+        "type": "exchangeable_bond",
+        "event_label": "교환사채발행결정",
+        "rcept_no": item.get("rcept_no", ""),
+        "rcept_dt": item.get("rcept_dt", ""),
+        "board_decision_date": _clean(item.get("bddd", "")),
+        "bond_series": _clean(item.get("bd_tm", "")),
+        "bond_kind": _truncate(item.get("bd_knd", ""), 100),
+        "total_issue_amount": _clean(item.get("bd_fta", "")),
+        "issuance_method": _clean(item.get("bdis_mthn", "")),  # 사모/공모
+        "coupon_rate": _clean(item.get("bd_intr_ex", "")),
+        "yield_to_maturity": _clean(item.get("bd_intr_sf", "")),
+        "maturity_date": _clean(item.get("bd_mtd", "")),
+        "exchange": {
+            "rate": _clean(item.get("ex_rt", "")),
+            "price": _clean(item.get("ex_prc", "")),
+            "price_method": _truncate(item.get("ex_prc_dmth", ""), 200),
+            "target": _clean(item.get("extg", "")),  # 교환대상 (자기주식/타사주식)
+            "target_share_count": _clean(item.get("extg_stkcnt", "")),
+            "pct_of_total_shares": _clean(item.get("extg_tisstk_vs", "")),  # 발행총수 대비 % (의결권 희석)
+            "request_period_begin": _clean(item.get("exrqpd_bgd", "")),
+            "request_period_end": _clean(item.get("exrqpd_edd", "")),
+        },
+        "fund_purpose": _fdpp_breakdown(item),
+        "payment_date": _clean(item.get("pymd", "")),
+        "bond_issue_date": _clean(item.get("sbd", "")),
+        "guarantor": _clean(item.get("rpmcmp", "")),
+        "collateral": _clean(item.get("grint", "")),
+        "securities_report_required": _clean(item.get("rs_sm_atn", "")),
+        "underwriter": "",  # 구조화 미제공 — 원문 복원 시 채워짐
+        # 원문 복원 메타 (구조화가 정정/철회로 비었을 때 채워짐)
+        "recovered_from_document": False,
+        "detection_only": False,  # 공시는 있으나 구조화·원문 모두 추출 불가 (누락 방지용 탐지 행)
+        "source_rcept_no": "",
+        "latest_status_rcept_no": "",
+        "recovery_note": "",
+    }
+
+
 def _normalize_warrant_bond(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "warrant_bond",
@@ -251,6 +301,279 @@ def _normalize_capital_reduction(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# ── EB 원문 복원 (구조화 응답이 정정/철회로 빈 경우) ──────────────────
+#
+# DART 주요사항보고서 주요정보 API는 정정·철회된 EB는 최신본(철회)만 반환하며
+# 교환 조건이 비어 있다. 이때 list.json으로 원본 공시를 찾아 원문을 파싱해 복원한다.
+
+_EB_DATE_LINE_RE = re.compile(r"\d{4}\s*년|\d{4}[.\-/]\d{1,2}")
+
+
+def _eb_terms_blank(row: dict[str, Any]) -> bool:
+    """EB 행이 핵심 조건(총액·교환가)이 모두 비어 있는 stub인지."""
+    if row.get("type") != "exchangeable_bond":
+        return False
+    return not row.get("total_issue_amount") and not row.get("exchange", {}).get("price")
+
+
+def _doc_value_after(lines: list[str], label: str, max_distance: int = 1, numeric_only: bool = False) -> str:
+    """라벨 줄 뒤 N줄 이내의 값 추출 ('-'·라벨성 줄 skip). 원문 표는 라벨줄→값줄 구조."""
+    for i, line in enumerate(lines):
+        if label in line:
+            for j in range(1, max_distance + 1):
+                if i + j >= len(lines):
+                    break
+                v = lines[i + j].strip()
+                if not v or v == "-" or v.endswith(":"):
+                    continue
+                if numeric_only and not re.search(r"\d", v):
+                    continue
+                if len(v) < 300:
+                    return v
+    return ""
+
+
+def _parse_eb_document(text: str) -> dict[str, Any]:
+    """교환사채권발행결정 주요사항보고서 원문(text) 파싱 → 핵심 조건 dict.
+
+    라벨은 probe로 검증한 실제 원문 구조 기준 (라벨줄 → 값줄).
+    """
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+    series = _doc_value_after(lines, "회차", 1, numeric_only=True)
+    # bond_kind: '종류' 단독 줄 뒤 값 (substring '1. 사채의 종류' 헤더 회피).
+    # 첫 단독 '종류'=사채 종류, 두번째=교환대상 종류이므로 first match 사용.
+    bond_kind = ""
+    for i, l in enumerate(lines):
+        if l == "종류" and i + 1 < len(lines):
+            v = lines[i + 1].strip()
+            if v and v != "-":
+                bond_kind = v[:100]
+                break
+    board_decision = _doc_value_after(lines, "이사회결의일", 1)
+    total = _doc_value_after(lines, "권면(전자등록)총액 (원)", 1, numeric_only=True)
+    method = _doc_value_after(lines, "사채발행방법", 1)
+    coupon = _doc_value_after(lines, "표면이자율 (%)", 1, numeric_only=True)
+    ytm = _doc_value_after(lines, "만기이자율 (%)", 1, numeric_only=True)
+    maturity = _doc_value_after(lines, "사채만기일", 1)
+    ex_rate = _doc_value_after(lines, "교환비율 (%)", 1, numeric_only=True)
+    ex_price = _doc_value_after(lines, "교환가액 (원/주)", 1, numeric_only=True)
+
+    # 교환대상 종류 + 주식수 (자기주식 or 타사주식)
+    target = ""
+    target_count = ""
+    for i, line in enumerate(lines):
+        if len(line) < 80 and ("자기주식" in line or re.search(r"발행\s*(기명식\s*)?(보통주|주식)", line)) and "주" in line:
+            target = line
+            for j in range(i, min(i + 6, len(lines))):
+                if "주식수" in lines[j]:
+                    for k in range(j + 1, min(j + 3, len(lines))):
+                        if re.fullmatch(r"[\d,]+", lines[k]):
+                            target_count = lines[k]
+                            break
+                    break
+            break
+
+    # 교환청구기간 시작일 (라벨 뒤 첫 날짜)
+    request_begin = ""
+    for i, line in enumerate(lines):
+        if "교환청구기간" in line:
+            for j in range(i + 1, min(i + 5, len(lines))):
+                if _EB_DATE_LINE_RE.search(lines[j]):
+                    request_begin = lines[j]
+                    break
+            break
+
+    # 인수자 (best-effort) — 인수인은 보통 '○○증권 주식회사' 형태로 기재
+    uw = re.search(r"([가-힣A-Za-z()]{2,}(?:투자증권|증권|은행|캐피탈|자산운용))\s*주식회사", text)
+    underwriter = uw.group(1) if uw else ""
+
+    return {
+        "bond_series": series,
+        "bond_kind": bond_kind,
+        "board_decision_date": board_decision,
+        "total_issue_amount": total,
+        "issuance_method": method,
+        "coupon_rate": coupon,
+        "ytm": ytm,
+        "maturity_date": maturity,
+        "exchange_rate": ex_rate,
+        "exchange_price": ex_price,
+        "target": target,
+        "target_share_count": target_count,
+        "request_period_begin": request_begin,
+        "underwriter": underwriter,
+    }
+
+
+def _merge_eb_doc_into_row(
+    row: dict[str, Any],
+    parsed: dict[str, Any],
+    source: dict[str, Any],
+    latest: dict[str, Any],
+    chain_len: int,
+) -> None:
+    """원문 파싱 결과를 blank EB 행에 병합 + 복원 메타 기록."""
+    row["recovered_from_document"] = True
+    row["source_rcept_no"] = source.get("rcept_no", "")
+    row["latest_status_rcept_no"] = latest.get("rcept_no", "")
+    # 대표 rcept를 조건이 든 원본으로 교체 → evidence 링크가 실 조건 문서를 가리킨다.
+    row["rcept_no"] = source.get("rcept_no", "") or row.get("rcept_no", "")
+    row["rcept_dt"] = source.get("rcept_dt", "") or row.get("rcept_dt", "")
+
+    if parsed.get("bond_series"):
+        row["bond_series"] = parsed["bond_series"]
+    if parsed.get("bond_kind"):
+        row["bond_kind"] = parsed["bond_kind"]
+    if parsed.get("board_decision_date"):
+        # 구조화 stub의 bddd(철회 결의일)를 원본 이사회결의일로 교체
+        row["board_decision_date"] = parsed["board_decision_date"]
+    if parsed.get("total_issue_amount"):
+        row["total_issue_amount"] = parsed["total_issue_amount"]
+    if parsed.get("issuance_method"):
+        row["issuance_method"] = parsed["issuance_method"]
+    if parsed.get("coupon_rate"):
+        row["coupon_rate"] = parsed["coupon_rate"]
+    if parsed.get("ytm"):
+        row["yield_to_maturity"] = parsed["ytm"]
+    if parsed.get("maturity_date"):
+        row["maturity_date"] = parsed["maturity_date"]
+    ex = row["exchange"]
+    if parsed.get("exchange_rate"):
+        ex["rate"] = parsed["exchange_rate"]
+    if parsed.get("exchange_price"):
+        ex["price"] = parsed["exchange_price"]
+    if parsed.get("target"):
+        ex["target"] = parsed["target"]
+    if parsed.get("target_share_count"):
+        ex["target_share_count"] = parsed["target_share_count"]
+    if parsed.get("request_period_begin"):
+        ex["request_period_begin"] = parsed["request_period_begin"]
+    if parsed.get("underwriter"):
+        row["underwriter"] = parsed["underwriter"]
+    _normalize_row_dates(row)
+
+    row["recovery_note"] = (
+        f"DART 구조화 응답이 정정/철회로 비어 원본 문서(rcept {source.get('rcept_no', '')}, "
+        f"{source.get('rcept_dt', '')})에서 복원. 교환사채 공시 체인 {chain_len}건, "
+        f"최신 {latest.get('rcept_dt', '')}(rcept {latest.get('rcept_no', '')}) — "
+        f"발행조건 변경·철회 가능성 있어 원문 확인 권장."
+    )
+
+
+async def _find_eb_terms_from_filings(
+    filings_sorted: list[dict[str, Any]],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, int, list[str]]:
+    """원본(가장 오래된)부터 최대 4건 문서 파싱, 조건이 든 첫 결과 반환.
+
+    Returns (parsed, source_filing, doc_calls, warnings).
+    """
+    client = get_dart_client()
+    warnings: list[str] = []
+    doc_calls = 0
+    for f in filings_sorted[:4]:
+        rcept_no = f.get("rcept_no", "")
+        if not rcept_no:
+            continue
+        try:
+            doc = await client.get_document_cached(rcept_no)
+            doc_calls += 1
+        except Exception as exc:  # noqa: BLE001 — 문서 실패는 graceful degrade
+            warnings.append(f"EB 원문 조회 실패 ({rcept_no}): {exc}")
+            continue
+        text = doc.get("text", "") if isinstance(doc, dict) else ""
+        cand = _parse_eb_document(text)
+        if cand.get("total_issue_amount") or cand.get("exchange_price"):
+            return cand, f, doc_calls, warnings
+    return None, None, doc_calls, warnings
+
+
+async def _ensure_eb_coverage(
+    eb_rows: list[dict[str, Any]],
+    corp_code: str,
+    bgn_de: str,
+    end_de: str,
+) -> tuple[list[str], int, list[dict[str, Any]]]:
+    """EB 누락/공란 보정.
+
+    구조화 `exbdIsDecsn`은 (1) 정정/철회 시 stub만 주거나(태광형 — blank row),
+    (2) 첨부정정만 있는 체인은 013으로 아예 0건을 주기도 한다(한라IMS형 — 누락).
+    두 경우 모두 list.json으로 EB 공시를 찾아 원본 문서를 파싱해 복원한다.
+    구조화가 EB를 완전히 제공한 경우엔 추가 호출 없이 즉시 반환.
+
+    Returns (warnings, extra_api_calls, new_rows).
+    """
+    warnings: list[str] = []
+    api_calls = 0
+    new_rows: list[dict[str, Any]] = []
+
+    blanks = [r for r in eb_rows if _eb_terms_blank(r)]
+    if eb_rows and not blanks:
+        return warnings, api_calls, new_rows  # 구조화가 EB 완전 제공 — list.json 생략
+
+    try:
+        filings, notices, error = await search_filings_by_report_name(
+            corp_code=corp_code,
+            bgn_de=bgn_de,
+            end_de=end_de,
+            pblntf_tys="B",
+            pblntf_detail_ty="B001",
+            keywords=_EB_REPORT_KEYWORDS,
+            strip_spaces=True,
+            max_pages=3,
+        )
+        api_calls += 1
+    except DartClientError as exc:
+        warnings.append(f"EB 원문 검색 실패: {exc.status}")
+        return warnings, api_calls, new_rows
+    warnings.extend(notices)
+    if error:
+        warnings.append(f"EB 원문 검색 실패: {error}")
+        return warnings, api_calls, new_rows
+    if not filings:
+        return warnings, api_calls, new_rows  # 진짜 EB 없음 (정상)
+
+    # 오래된 순(원본 먼저) — 원본 공시가 발행조건이 가장 완전하다.
+    filings_sorted = sorted(filings, key=lambda x: (x.get("rcept_dt", ""), x.get("rcept_no", "")))
+    latest = filings_sorted[-1]
+    parsed, source, doc_calls, doc_warnings = await _find_eb_terms_from_filings(filings_sorted)
+    api_calls += doc_calls
+    warnings.extend(doc_warnings)
+
+    if not parsed:
+        # 원문 추출 실패(문서 미제공 014/파싱 실패). EB 존재 자체는 surface해 누락 방지.
+        note = (
+            f"EB 공시 {len(filings_sorted)}건 발견(최신 {latest.get('rcept_dt', '')}, "
+            f"rcept {latest.get('rcept_no', '')})되었으나 구조화 응답 + 원문 모두 추출 불가"
+            f"(첨부정정 등으로 document.xml 미제공) — DART 원문 직접 확인 필요."
+        )
+        warnings.append(note)
+        if blanks:
+            blanks[0]["detection_only"] = True
+            blanks[0]["latest_status_rcept_no"] = latest.get("rcept_no", "")
+            blanks[0]["recovery_note"] = note
+        else:
+            row = _normalize_exchangeable_bond({})
+            row["rcept_no"] = latest.get("rcept_no", "")
+            row["rcept_dt"] = latest.get("rcept_dt", "")
+            row["detection_only"] = True
+            row["latest_status_rcept_no"] = latest.get("rcept_no", "")
+            row["recovery_note"] = note
+            _normalize_row_dates(row)
+            new_rows.append(row)
+        return warnings, api_calls, new_rows
+
+    if blanks:
+        # 태광형: 구조화 stub 행에 병합
+        _merge_eb_doc_into_row(blanks[0], parsed, source, latest, len(filings_sorted))
+    else:
+        # 한라IMS형: 구조화 0건 → 새 EB 행 생성
+        row = _normalize_exchangeable_bond({})
+        _merge_eb_doc_into_row(row, parsed, source, latest, len(filings_sorted))
+        new_rows.append(row)
+    return warnings, api_calls, new_rows
+
+
 async def _fetch_scope(
     scope: str,
     corp_code: str,
@@ -280,6 +603,8 @@ async def _fetch_scope(
         tasks.append(fetch_endpoint(client.get_rights_offering_decision, _normalize_rights_offering, "유상증자"))
     if scope in ("summary", "convertible_bond"):
         tasks.append(fetch_endpoint(client.get_convertible_bond_decision, _normalize_convertible_bond, "전환사채"))
+    if scope in ("summary", "exchangeable_bond"):
+        tasks.append(fetch_endpoint(client.get_exchangeable_bond_decision, _normalize_exchangeable_bond, "교환사채"))
     if scope in ("summary", "warrant_bond"):
         tasks.append(fetch_endpoint(client.get_warrant_bond_decision, _normalize_warrant_bond, "신주인수권부사채"))
     if scope in ("summary", "capital_reduction"):
@@ -370,10 +695,27 @@ async def build_dilutive_issuance_payload(
         "rights_offering": [],
         "convertible_bond": [],
         "warrant_bond": [],
+        "exchangeable_bond": [],
         "capital_reduction": [],
     }
     for row in rows:
         by_type.setdefault(row.get("type", ""), []).append(row)
+
+    # EB 보정: 구조화가 정정/철회로 blank이거나(태광형) 0건이면(한라IMS형)
+    # list.json+원문으로 복원/추가. 구조화가 EB 완전 제공 시 추가 호출 없음.
+    if scope in ("summary", "exchangeable_bond"):
+        eb_rows = by_type.get("exchangeable_bond", [])
+        rec_warnings, rec_calls, new_eb_rows = await _ensure_eb_coverage(
+            eb_rows, selected["corp_code"], bgn_de, end_de,
+        )
+        warnings.extend(rec_warnings)
+        api_calls += rec_calls
+        if new_eb_rows:
+            rows.extend(new_eb_rows)
+            by_type["exchangeable_bond"].extend(new_eb_rows)
+        if rec_calls:
+            # 복원으로 행 추가/rcept_dt 변경 반영 — timeline 정렬 갱신.
+            rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
 
     usage = {
         "dart_api_calls": api_calls,
@@ -402,6 +744,7 @@ async def build_dilutive_issuance_payload(
             "total": len(rows),
             "rights_offering": len(by_type.get("rights_offering", [])),
             "convertible_bond": len(by_type.get("convertible_bond", [])),
+            "exchangeable_bond": len(by_type.get("exchangeable_bond", [])),
             "warrant_bond": len(by_type.get("warrant_bond", [])),
             "capital_reduction": len(by_type.get("capital_reduction", [])),
         },
@@ -424,6 +767,7 @@ async def build_dilutive_issuance_payload(
     ]
     data["rights_offering_events"] = by_type.get("rights_offering", [])
     data["convertible_bond_events"] = by_type.get("convertible_bond", [])
+    data["exchangeable_bond_events"] = by_type.get("exchangeable_bond", [])
     data["warrant_bond_events"] = by_type.get("warrant_bond", [])
     data["capital_reduction_events"] = by_type.get("capital_reduction", [])
 
@@ -445,7 +789,7 @@ async def build_dilutive_issuance_payload(
 
     status = status_from_filing_meta(filing_meta)
     if filing_meta["no_filing"]:
-        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 희석성 증권(유증/CB/BW/감자) 발행 공시 없음 (정상)")
+        warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 희석성 증권(유증/CB/EB/BW/감자) 발행 공시 없음 (정상)")
 
     return ToolEnvelope(
         tool="dilutive_issuance",
@@ -457,6 +801,7 @@ async def build_dilutive_issuance_payload(
         next_actions=[
             "잠재 희석률은 convertible_bond/warrant_bond의 pct_of_total_shares 참조",
             "3자배정 유상증자는 ownership_structure(scope=changes)와 교차 확인",
+            "EB(교환사채)는 교환대상이 자기주식이면 treasury_share와 교차 확인 (의결권 희석)",
         ],
     ).to_dict()
 
@@ -471,6 +816,17 @@ def _summary_headline(row: dict[str, Any]) -> str:
     if t == "convertible_bond":
         cv = row.get("conversion", {})
         return f"{row.get('total_issue_amount', '-')}원 / 전환가 {cv.get('price', '-')} / 희석 {cv.get('pct_of_total_shares', '-')}%"
+    if t == "exchangeable_bond":
+        if row.get("detection_only"):
+            return "EB 공시 발견 — 구조화·원문 미제공, DART 원문 확인 필요 ⚠️"
+        ex = row.get("exchange", {})
+        tgt = ex.get("target", "") or "-"
+        cnt = ex.get("target_share_count", "")
+        flag = " ※정정/철회→원문복원" if row.get("recovered_from_document") else ""
+        head = f"{row.get('total_issue_amount', '-')}원 / 교환가 {ex.get('price', '-')} / 대상 {tgt}"
+        if cnt:
+            head += f" {cnt}주"
+        return head + flag
     if t == "warrant_bond":
         w = row.get("warrant", {})
         return f"{row.get('total_issue_amount', '-')}원 / 행사가 {w.get('exercise_price', '-')} / 희석 {w.get('pct_of_total_shares', '-')}% / {w.get('detachable', '-')}"

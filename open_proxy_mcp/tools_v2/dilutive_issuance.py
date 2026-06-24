@@ -72,6 +72,35 @@ def _render_cb_card(row: dict[str, Any]) -> list[str]:
     ]
 
 
+def _render_eb_card(row: dict[str, Any]) -> list[str]:
+    if row.get("detection_only"):
+        return [
+            f"### 교환사채 — {row.get('rcept_dt', '')} ({_link(row.get('rcept_no', ''))})",
+            f"- ⚠️ {row.get('recovery_note', 'EB 공시 발견되었으나 구조화·원문 추출 불가 — 원문 확인 필요')}",
+            "",
+        ]
+    ex = row.get("exchange", {})
+    fp = row.get("fund_purpose", {})
+    lines = [
+        f"### 교환사채 {row.get('bond_series', '')}회 — {row.get('rcept_dt', '')} ({_link(row.get('rcept_no', ''))})",
+        f"- 이사회결의일: {row.get('board_decision_date', '-') or '-'}",
+        f"- 종류: {row.get('bond_kind', '-') or '-'}",
+        f"- 발행총액: **{row.get('total_issue_amount', '-') or '-'}원** / 방식: {row.get('issuance_method', '-') or '-'}",
+        f"- 금리: 표면 {row.get('coupon_rate', '-') or '-'}% / YTM {row.get('yield_to_maturity', '-') or '-'}% / 만기 {row.get('maturity_date', '-') or '-'}",
+        f"- 교환조건: 교환가 **{ex.get('price', '-') or '-'}원** / 교환비율 {ex.get('rate', '-') or '-'}%",
+        f"- 교환대상: **{ex.get('target', '-') or '-'}** {ex.get('target_share_count', '') or ''}{'주' if ex.get('target_share_count') else ''} (**발행총수 대비 {ex.get('pct_of_total_shares', '-') or '-'}%**)",
+        f"- 교환청구기간: {ex.get('request_period_begin', '-') or '-'} ~ {ex.get('request_period_end', '-') or '-'}",
+        f"- 인수자: {row.get('underwriter', '-') or '-'} / 납입일: {row.get('payment_date', '-') or '-'}",
+        f"- 자금 목적: 운영 {fp.get('operating', '-') or '-'} / 채무상환 {fp.get('debt_repayment', '-') or '-'} / 기타법인주식 {fp.get('other_corp_share_acq', '-') or '-'}",
+    ]
+    if row.get("exchange", {}).get("target") and "자기주식" in str(row["exchange"]["target"]):
+        lines.append("- ⚠️ 교환대상=자기주식 → 교환권 행사 시 의결권 부활(제3자 이전)로 **의결권 희석** 효과")
+    if row.get("recovered_from_document"):
+        lines.append(f"- 📄 {row.get('recovery_note', '')}")
+    lines.append("")
+    return lines
+
+
 def _render_bw_card(row: dict[str, Any]) -> list[str]:
     w = row.get("warrant", {})
     fp = row.get("fund_purpose", {})
@@ -119,7 +148,7 @@ def _render(payload: dict[str, Any]) -> str:
         "",
         f"- company_id: `{data.get('company_id', '')}`",
         f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`",
-        f"- 사건 수: 유상증자 {counts.get('rights_offering', 0)} / CB {counts.get('convertible_bond', 0)} / BW {counts.get('warrant_bond', 0)} / 감자 {counts.get('capital_reduction', 0)}",
+        f"- 사건 수: 유상증자 {counts.get('rights_offering', 0)} / CB {counts.get('convertible_bond', 0)} / EB {counts.get('exchangeable_bond', 0)} / BW {counts.get('warrant_bond', 0)} / 감자 {counts.get('capital_reduction', 0)}",
         f"- status: `{payload.get('status', '')}`",
         "",
     ]
@@ -162,6 +191,12 @@ def _render(payload: dict[str, Any]) -> str:
         for row in cb:
             lines.extend(_render_cb_card(row))
 
+    eb = data.get("exchangeable_bond_events") or []
+    if eb:
+        lines.append("## 교환사채 발행결정 상세")
+        for row in eb:
+            lines.extend(_render_eb_card(row))
+
     bw = data.get("warrant_bond_events") or []
     if bw:
         lines.append("## 신주인수권부사채 발행결정 상세")
@@ -186,10 +221,10 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 희석성 증권 4종(유상증자/CB/BW/감자) 결정 통합. 발행조건·잠재 희석률·3자배정·풋옵션·refixing + timeline + detail card.
-        when: 행동주의 대응 자금조달, 경영권 방어 지분 확보, CB·BW 잠재 희석 평가, 3자배정 대상 식별. ownership_structure 교차 권장.
-        rule: DART DS005 4 API 병렬 — piicDecsn/cvbdIsDecsn/bdwtIsDecsn/crDecsn. 기본 lookback 24개월.
-        ref: ownership_structure, corporate_restructuring, proxy_contest, evidence
+        """desc: 희석성 증권 5종(유상증자/CB/EB/BW/감자) 결정 통합. 발행조건·잠재 희석률·3자배정·풋옵션·refixing + timeline + detail card.
+        when: 행동주의 대응 자금조달, 경영권 방어 지분 확보, CB·BW 잠재 희석 평가, EB(자기주식 교환사채) 의결권 희석, 3자배정 대상 식별. ownership_structure 교차 권장.
+        rule: DART DS005 5 API 병렬 — piicDecsn/cvbdIsDecsn/exbdIsDecsn/bdwtIsDecsn/crDecsn. 기본 lookback 24개월. EB는 교환대상이 자기주식이면 의결권 희석(신주 희석 X). 정정·철회로 구조화 응답이 비면 원본 공시(list.json) 문서 파싱으로 교환가액·교환대상 자동 복원.
+        ref: ownership_structure, treasury_share, corporate_restructuring, proxy_contest, evidence
         """
         payload = await build_dilutive_issuance_payload(
             company,

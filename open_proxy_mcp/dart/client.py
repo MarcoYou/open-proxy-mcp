@@ -1228,6 +1228,16 @@ class DartClient:
             "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
         })
 
+    async def get_exchangeable_bond_decision(self, corp_code: str, bgn_de: str, end_de: str) -> dict:
+        """교환사채권 발행결정 (exbdIsDecsn) — 교환가액, 교환대상(자기주식 등), 교환비율, 만기.
+
+        ⚠️ 정정·철회된 EB는 DART 구조화 응답이 최신본(철회)만 반환하며 교환 조건이
+        비어 있을 수 있다. 이 경우 service 레이어가 원본 문서를 파싱해 복원한다.
+        """
+        return await self._request("exbdIsDecsn.json", {
+            "corp_code": corp_code, "bgn_de": bgn_de, "end_de": end_de,
+        })
+
     # ── Dividend API (DS002 정기보고서) ──
 
     async def get_dividend_info(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:

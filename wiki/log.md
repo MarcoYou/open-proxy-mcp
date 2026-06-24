@@ -3,6 +3,15 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-24] feat/fix | dilutive_issuance 교환사채(EB) 추가 + 정정/철회/누락 원문 복원
+
+상세: [[260624_1503_fix_dilutive-exchangeable-bond]]
+
+- **`dilutive_issuance`** (feat): 희석성 증권 4종→**5종**(유증/CB/**EB**/BW/감자). `exbdIsDecsn`(교환사채권발행결정) 추가. EB는 신주 희석이 아닌 **의결권 희석**(교환대상=자기주식 시 교환권 행사로 의결권 부활) 포착. 발단: "태광산업 희석 리스크" 질의에 0건 반환(자기주식 24.41% EB 3,185.8억 발행 후 철회를 못 잡음).
+- **EB 보정 `_ensure_eb_coverage`** (fix): DART 구조화가 정정/철회 EB를 불완전 제공하는 3패턴 대응 — **(A) blank stub**(태광: 구조화 공란→원문 복원·병합) / **(B) 0건 누락**(한라IMS: 첨부정정만 있으면 013→list.json으로 존재 확인 후 새 행 생성) / **(C) 문서 014**(document.xml 미제공→탐지 전용 행으로 surface, no_filing 오인 방지). 구조화가 EB 완전 제공 시 list.json 생략(추가 호출 0).
+- **검증**: 시장 전체 스캔으로 EB 발행사 28곳 발굴 + 태광·삼성 = **30사 라이브** → PASS 42 이벤트 / DETECT 1(한라IMS) / WARN 0 / FAIL 0. 자기주식·타사주식·다건(PS일렉 7)·초대형(HD조선 2.37조)·복원·탐지·no-EB 회귀 모두 정상.
+- docs: [[교환사채권발행결정]] 신규(검증 필드 + 3패턴), [[dilutive_issuance]] 5종 갱신.
+
 ## [2026-06-23] perf/docs | proxy_advise 주총 4-scope→advise 통합 (콜 -5) + wiki 체계 정비
 
 - **`proxy_advise`** (perf): 같은 주총을 summary/agenda/compensation/aoi_change **4 scope로 따로** 불러 회차 선별이 4회 중복 → `shareholder_meeting`에 **advise scope 신설**(=full에서 results만 제외)로 1회 통합. **10사 cold 실측: 콜 49→44(-5), wall-clock 9/10 빠름, 핵심 자문 10/10 동일(파싱 정확성 불변), evidence board +1**. results fetch(네트워크)가 wall-clock 주범이었음 — investigate로 'summary 합치면 comp/aoi 보정 누락' 함정 차단. **order_contracts 병렬화는 throttle 하한이라 무이득 → revert** (콜 동일·순서만 병렬은 무효, 콜 수 절감만 실효). **production 라이브 10사 검증: advise scope 10/10 정상**(고려아연 95안건 분쟁·솔루엠 주주제안 자사주소각 포함, parsing_failures 0·콜 40~50). 단 **셀트리온 이사선임 후보 0명**(소집공고 본문 parse 실패)이 top-level `parsing_failures=0`에 미반영 — in-agenda 후보 파싱 사각지대 발견(advise와 무관, 별도 후속).

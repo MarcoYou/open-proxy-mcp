@@ -11,3 +11,4 @@ updated: 2026-06-23
 - [[260427_1145_fix_ownership-stockknd]] — ownership stockknd 처리 수정
 - [[260429_0216_fix_speed-optimization-9건]] — 속도 최적화 9건
 - [[260429_0942_fix_corp_gov_report-financial-holding]] — corp_gov_report 금융지주 대응
+- [[260624_1503_fix_dilutive-exchangeable-bond]] — dilutive_issuance 교환사채(EB) 추가 + 정정/철회/누락 원문 복원
