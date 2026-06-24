@@ -1072,6 +1072,13 @@ async def build_ownership_structure_payload(
     elif filing_meta["parsing_failures"] > 0 and not major_rows:
         warnings.append("최대주주 구조를 충분히 읽지 못해 partial 상태로 표시한다.")
 
+    # 시그널 부여(audit w0qo5hfse): control_map의 5% 블록 데이터 유무를 명시(다운스트림 사각지대 차단).
+    # 정상 빈(보유자 없음)이 많아 PARTIAL 강등은 보수적으로 안 하고, blocks_present 플래그 + 안내만.
+    if scope == "control_map" and isinstance(data.get("control_map"), dict):
+        data["control_map"]["blocks_present"] = bool(latest_blocks)
+        if not latest_blocks and status == AnalysisStatus.EXACT:
+            warnings.append("5% 대량보유 블록 데이터 없음 — 정상 빈(보유자 없음)일 수 있으나, 분쟁사면 조회 결측 가능성 확인 권장")
+
     data["usage"] = build_usage(client.api_call_snapshot() - _calls_start)
     timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
     data["timings_ms"] = timings_ms

@@ -1746,6 +1746,23 @@ async def build_financial_metrics_payload(
         status = AnalysisStatus.EXACT
 
     data.update(filing_meta)
+    # 시그널 부여(audit w0qo5hfse): 핵심필드 None + exact → quality_flags.
+    # 금융업/지주는 매출 개념 없이 영업이익·순익만 존재(이자·수수료 수익) → revenue None이 '정당 N/A'.
+    # ※ revenue는 data['summary']['revenue_krw']에 있음(최상위 아님). cfo는 summary scope에 없음.
+    #   검증: 삼성전자 rev=333조·현대차 186조(있음) vs KB금융·신한·삼성생명·메리츠·하나금융 None(op/ni만).
+    if scope == "summary" and status == AnalysisStatus.EXACT:
+        _qf: list[str] = []
+        _sm = data.get("summary") or {}
+        _rev = _sm.get("revenue_krw")
+        _op = _sm.get("operating_profit_krw")
+        _ni = _sm.get("net_income_krw")
+        if _rev is None and (_op is not None or _ni is not None):
+            _qf.append("sector_na: revenue 미존재이나 영업이익/순익 있음 — 금융업/지주(정당 N/A)")
+        elif _rev is None and _op is None and _ni is None:
+            _qf.append("core_field_null: 핵심 재무 전부 미파싱 — 진짜 실패 의심")
+        if _qf:
+            data["quality_flags"] = _qf
+            warnings.extend(_qf)
     data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
     timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
     data["timings_ms"] = timings_ms

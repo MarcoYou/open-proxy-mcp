@@ -1049,9 +1049,17 @@ async def build_director_evaluation_payload(
             evaluations.append(ev)
             candidate_count += 1
 
+    # zero-candidate 시그널: 인사 안건(appointments)은 있는데 후보 추출이 0명이면
+    # 소집공고 후보표 파싱 실패 의심 → warning + parsing_failures 반영 (silent empty 방지).
+    zero_candidate = len(appointments) > 0 and candidate_count == 0
+    director_warnings: list[str] = []
+    if zero_candidate:
+        director_warnings.append(
+            f"인사 안건 {len(appointments)}건이 있으나 후보 추출 0명 — 소집공고 후보표 파싱 실패 의심"
+        )
     filing_meta = build_filing_meta(
         filing_count=len(appointments),
-        parsing_failures=0,
+        parsing_failures=len(appointments) if zero_candidate else 0,
     )
     if filing_meta["no_filing"]:
         status = AnalysisStatus.NO_FILING
@@ -1072,7 +1080,7 @@ async def build_director_evaluation_payload(
         tool="director_evaluation",
         status=status,
         subject=selected.get("corp_name", company_query),
-        warnings=[],
+        warnings=director_warnings,
         data={
             "query": company_query,
             "company_id": _company_id(selected),
