@@ -3,6 +3,14 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-25] 검증 | SM·이미지·안건마커 전수 재검증 (production 경로 함정 교정, 코드 변경 0)
+
+- **SM 안건 fallback(eb9a932)**: 픽스처 전수 3,016 **무회귀 0** 확인 (라이브 322사와 일치).
+- **이미지 소집공고**: 픽스처에 0건 — OCR은 **openproxy ai 영역**(별도 프로젝트)으로 분리. mcp 범위 밖.
+- **안건 0건 27건 정밀 재판정**: 진짜 소집공고 안건 실패 **3건(0.1%)**뿐 — 나머지는 이사회 의안 결의(찬반표) 19건 + 안건없음 5건이 측정 함정(parse 0이 정답)이었음.
+- **안건 마커 변형(네이블·제이엠티) raw fallback 시도 → revert**: parse_agenda에 raw 노드를 추가했으나 agenda_valid를 True로 만들어 기존 메커니즘을 우회시키는 역효과. 확인 결과 **production(shareholder_meeting)이 이미 ① viewer crawl 재시도(네이블 파싱 성공) ② `raw_text_excerpt` 원문 발췌(제이엠티 6,000자, REQUIRES_REVIEW)로 대응 중**이라 추가 불필요. 코드 변경 0.
+- 교훈: 픽스처 단일 함수(parse_agenda)만 보고 '실패' 판단 → production 경로(viewer fallback + raw_text_excerpt) 미반영. CLAUDE.md '① MCP 호출(production 검증) → ② 직접 import' 순서 준수.
+
 ## [2026-06-25] feat | director 후보 추출 — 분리표 + 제목 인라인 2패턴 보강
 
 - **`parse_personnel_xml`** (feat): 전수조사가 짚은 zero-candidate 2패턴 보강 — ① 분리표(성명·생년월일 별도 표) candidates 구조화 ② `_extract_inline_subagenda_candidates`로 '제N-M호 사내이사 {이름} 선임의 건' 제목 인라인 후보 추출.
