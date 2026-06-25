@@ -16,7 +16,8 @@ title: Operation Log
 - **`corp_gov_report`** (fix): `_parse_company_summary`가 법적 정의문구 '최대주주(그의 상법상 특수관계인을 포함한다)'의 여는 괄호 `(`를 긁어 `max_shareholder/pct/minority` **전수 silent 고장**. '소액주주' 앵커 ~5KB 슬라이스 + **td 단위 (label,value) 파싱**으로 수정(콜 추가 0). 음수재무 △/▲/괄호 정규화. **50사 regression 0, 주주필드 채움 1→36**(나머지=금융지주 PDF·KOSDAQ no_filing 정당).
 - **시그널 부여** (feat): proxy_advise 5서브툴 전수 audit 도출 — `expected × 결과None/0`의 AND로 자동감지(추가 호출 0). **corp_gov** 무결성(compliance None·교차검증 |stated − metrics 계산|>0.2·주주필드 PARTIAL), **financial** 금융업/지주 revenue None=`sector_na`(정당 N/A) vs `core_field_null`, **director** zero-candidate(인사안건>0 AND 후보0), **ownership** `blocks_present`. **large 100사 + 전수 검증, false positive 0**.
 - **시그널 선별 — 가정 검증으로 폐기/수정**: ① **shm board/comp AND 강화 폐기** — 후보표 헤더 정규식이 원풍식 후보표 못 잡고(false negative) `has_comp`가 변경표 일반을 매치(너무 느슨)하는 섣부른 가정. ② **financial 키 버그** — 초기 `data['revenue_krw']` 가정이 삼성전자까지 false positive(전 회사 None) → `data['summary']['revenue_krw']`로 수정. 코붕이 "금융업 매출 없다고 떠 원래?" 질의가 가정 부정 테스트를 유발해 키 버그 발견.
-- **측정 함정**: director zero-candidate 픽스처 13건 중 이오플로우 등은 **픽스처 rcept(0306) ≠ director 실제 rcept(0317)** 측정 함정. 아남전자식 분리표는 진짜 `parse_personnel` 구조화 실패(시그널이 짚어준 별도 후속).
+- **측정 함정**: director zero-candidate 픽스처 13건 중 이오플로우 등은 **픽스처 rcept(0306) ≠ director 실제 rcept(0317)** 측정 함정.
+- **전수조사 검증(DART 실측, push 후)**: corp_gov 주주 100사 exact **71/71=100%**·음수재무 1→**10사**·내 시그널 fp **0** / ownership blocks 92/6 / **director zero-candidate 대형 100사 0% + 중소형 24사 중 4사(16.7%)**. 4사 본문 직접 확인 → 전부 **진짜 후보 추출 실패** 2패턴: ① 아남전자 **분리표**(성명·생년월일 별도 표) ② 에이텍·코오롱생명과학 **'사내이사 {이름} 선임의 건' 제목 인라인**. 시그널 false positive 0 확정, `parse_personnel` 2패턴 개선이 다음 과제. (후보이름 정규식이 분리표만 잡아 3사 0 오판 — 측정 도구 한계 재발, 본문 직독으로 교정)
 - 교훈: 가정의 부정도 테스트해 확정 / 항상 regression(base 50·large 100·전수 300+ 엣지) / 측정 도구부터 의심.
 
 ## [2026-06-24] feat/fix | dilutive_issuance 교환사채(EB) 추가 + 정정/철회/누락 원문 복원
