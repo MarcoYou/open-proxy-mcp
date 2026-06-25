@@ -3,6 +3,14 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-25] fix | 주총 안건 파서 — 소집공고 목차 없는 케이스 'III.2 목적사항별 기재사항' fallback
+
+- **증상**: 에스엠(SM) 2025 정기주총 안건 0건(no_filing) — 원문엔 제1~5호 명확.
+- **근본원인**: SM 소집공고 preamble에 회의목적사항(안건 목차)이 없음. 실제 안건은 `III.2 주주총회 목적사항별 기재사항`에만 존재하는데, 그 사이 `I. 사외이사 활동내역`(이사회 출석률·의안 찬반 표, '제N호 의안 자기거래' ×100 노이즈)에서 소집공고 섹션이 잘려 파서가 보는 zone이 비어버림.
+- **fix** (`tools/parser.py`): `parse_agenda_xml`을 helper(`_agenda_flat_from_zone`)로 분리하고, 소집공고 zone에서 안건을 못 뽑으면 `_extract_objective_section`(III.2)로 fallback. **strictly additive** — primary zone이 안건을 뽑으면 fallback 미사용(기존 동작 보존). 제목 bleeding 방지용 경계 키워드(후보자 성명·이사/감사의 수·재무상태표) 추가.
+- **회귀 검증**: 정기주총 시즌 **라이브 322개사** baseline↔신규 diff → **회귀 0** (기존 316개사 안건 번호까지 동일), SM 0→5건 수정. 남은 5건은 별개 근본원인 — 이미지 소집공고 4(OCR 영역) + 리츠 '제N호…의 건'(의안 키워드 없는) 마커 변형 1.
+- 후속(별개): 리츠 마커 포맷, 이미지 소집공고 OCR.
+
 ## [2026-06-25] fix/feat | corp_gov 주주필드 silent 고장 수정 + 시그널 부여(가정 검증으로 선별)
 
 - **`corp_gov_report`** (fix): `_parse_company_summary`가 법적 정의문구 '최대주주(그의 상법상 특수관계인을 포함한다)'의 여는 괄호 `(`를 긁어 `max_shareholder/pct/minority` **전수 silent 고장**. '소액주주' 앵커 ~5KB 슬라이스 + **td 단위 (label,value) 파싱**으로 수정(콜 추가 0). 음수재무 △/▲/괄호 정규화. **50사 regression 0, 주주필드 채움 1→36**(나머지=금융지주 PDF·KOSDAQ no_filing 정당).

@@ -121,6 +121,10 @@ _AGENDA_BOUNDARY = (
     r'|구\s*분\s+병합\s*전'                            # 주식병합 비교 테이블
     r'|\s{3,}\d+\s*\.\s+'                              # 표 셀 join 후 번호목록 상세 (3칸+ 공백 후 'N. ') — 진원생명 자본감소 상세
     r'|가\.\s*의안의?\s*요지'                          # 안건 상세 시작
+    r'|가\.\s*후보자'                                  # 후보 상세 (목적사항별 기재사항 fallback)
+    r'|후보자의\s*성명'
+    r'|가\.\s*(?:이사|감사)의\s*수'                     # 보수한도 상세 (이사/감사의 수ㆍ보수총액)
+    r'|[-–]\s*재무상태표'                              # 재무제표 안건 상세 bleeding
     r'|[▣■□]\s*의결권'                                  # 의결권 행사 안내
     r'|\d+\.\s*주주총회\s*소집'                           # 주총 소집 통지/공고
     r'|\d+\s*\.\s*주주총회의\s*소집'                       # '4. 주주총회의 소집통지' (이지스밸류)
@@ -187,40 +191,34 @@ SECTION_END_PATTERNS = [
 
 # ── 안건 파싱 ──
 
-def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
-    """'주주총회 소집공고' 섹션의 회의목적사항에서 안건 트리 추출
+def _extract_objective_section(text: str) -> str | None:
+    """'III. 2. 주주총회 목적사항별 기재사항' 섹션 추출 (소집공고 zone fallback).
 
-    html이 제공되면 bs4로 섹션 경계를 찾고, 없으면 기존 regex 방식 사용.
-
-    Returns:
-        [{"number": "제1호", "level1": 1, "level2": None, "level3": None,
-          "title": "...", "source": "이사회안"|"주주제안"|None,
-          "conditional": "..."|None, "children": [...]}]
+    소집공고 preamble에 회의목적사항 목차가 없는 케이스(SM 등)에서, 실제 안건은 이
+    섹션의 '제N호 의안 : ...' 마커로만 존재한다. 'I. 사외이사 활동내역'의 이사회 의안
+    노이즈(이사회 출석률·찬반)와는 다른 대섹션이라 분리돼 안전하다.
     """
-    zone = None
+    m = re.search(r'주주총회\s*목적\s*사항별\s*기재\s*사항', text)
+    if not m:
+        return None
+    start = m.end()
+    end = len(text)
+    for pat in (r'IV\s*\.\s*사업\s*보고서', r'Ⅳ\s*\.\s*사업\s*보고서',
+                r'사업\s*보고서\s*및\s*감사\s*보고서', r'※\s*참고\s*사항'):
+        em = re.search(pat, text[start:])
+        if em:
+            end = min(end, start + em.start())
+    return text[start:end]
 
-    # 1) bs4 기반 추출 시도
-    if html:
-        zone = _extract_agenda_zone_html(html)
 
-    # 2) Fallback: 기존 plain text regex
-    if not zone:
-        section = _extract_notice_section(text)
-        if not section:
-            logger.warning("'주주총회 소집공고' 섹션을 찾을 수 없음")
-            return []
+def _agenda_flat_from_zone(zone: str) -> tuple[list[dict], str]:
+    """zone 텍스트 → 안건 flat 리스트. Returns (flat, normalized_zone).
 
-        zone = _extract_agenda_zone(section)
-        if not zone:
-            logger.warning("안건 영역(회의목적사항/결의사항/부의안건)을 찾을 수 없음")
-            return []
-
-    # 줄바꿈을 공백으로 치환 — 제목이 여러 줄에 걸치는 케이스 처리
+    parse_agenda_xml의 핵심 추출부를 분리 (primary zone / fallback zone 양쪽에 재사용).
+    """
     zone = re.sub(r'\n+', ' ', zone)
-
     conditionals = _extract_conditionals(zone)
 
-    # 세 패턴(표준 + 콜론없음 + 괄호형)의 매치를 위치 순으로 합침
     matches = []
     seen_positions = set()
     for m in AGENDA_RE.finditer(zone):
@@ -235,9 +233,6 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
             matches.append((m.start(), m))
     matches.sort(key=lambda x: x[0])
 
-    # ※ 비고 문장에 있는 안건 번호 참조 위치 수집 (안건이 아닌 참조)
-    # ※ 뒤에서 다음 안건 마커(□◎●제N호) 전까지만 note 범위로 잡음
-    # lookahead의 안건 마커 패턴은 AGENDA_RE와 정합 — 괄호 옵션 (예: "제N호 의안 (주주제안) :") 포함
     _note_spans: set[int] = set()
     for nm in re.finditer(
         r'※.+?(?=\s*[□◎●]\s*제|\s*(?<![가-힣])제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의안|안건)?\s*(?:\([^)]*\))?\s*[:：.]|$)',
@@ -251,10 +246,8 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
 
     flat = []
     for _, m in matches:
-        # ※ 비고 안의 안건 번호 참조는 스킵
         if m.start() in _note_spans:
             continue
-
         l1 = int(m.group(1))
         l2 = int(m.group(2)) if m.group(2) else None
         l3 = int(m.group(3)) if m.group(3) else None
@@ -262,15 +255,11 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
         title = _clean_title(raw_title)
 
         source = _detect_source(title)
-        # 제목에서 마커를 못 잡으면 안건 마커 prefix(괄호 소스 태그)에서 보강 감지.
-        # AGENDA_RE의 prefix `(?:\([^)]*\))?`가 '제7호 의안(주주제안) :' 같은 괄호 소스를
-        # title에 닿기 전에 소비함 → group(0) 전체에서 '(주주제안)' 괄호형을 한 번 더 본다.
         if not source:
             source = _detect_source_in_marker(m.group(0))
         if source:
             title = _remove_source_tag(title)
 
-        # 소스 태그 제거 후 제목이 비거나 콜론으로 시작하면 재추출
         title = re.sub(r'^[:：]\s*', '', title).strip()
         if not title.strip():
             colon_match = re.search(r'[:：]\s*(.+)', raw_title)
@@ -278,13 +267,10 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
                 title = _clean_title(colon_match.group(1))
             else:
                 title = _clean_title(raw_title)
-            # 소스 태그가 남아있으면 다시 제거
             if source:
                 title = _remove_source_tag(title)
 
         number = _format_number(l1, l2, l3)
-
-        # 보고사항 필터링 (감사보고/영업보고/내부회계 등은 결의 안건이 아님)
         if _is_report_item(title):
             continue
 
@@ -298,9 +284,41 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
             "conditional": conditionals.get(number),
             "children": [],
         })
+    return flat, zone
+
+
+def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
+    """'주주총회 소집공고' 섹션의 회의목적사항에서 안건 트리 추출
+
+    html이 제공되면 bs4로 섹션 경계를 찾고, 없으면 기존 regex 방식 사용.
+
+    Returns:
+        [{"number": "제1호", "level1": 1, "level2": None, "level3": None,
+          "title": "...", "source": "이사회안"|"주주제안"|None,
+          "conditional": "..."|None, "children": [...]}]
+    """
+    # 후보 zone: 1) 소집공고 회의목적사항  2) fallback: 주주총회 목적사항별 기재사항(III.2)
+    #   SM 등 소집공고 preamble에 안건 목차가 없고 안건이 'III.2'에만 있는 케이스 대응.
+    #   primary zone에서 안건을 못 뽑을 때만 fallback 사용 (strictly additive — 기존 동작 보존).
+    primary_zone = None
+    if html:
+        primary_zone = _extract_agenda_zone_html(html)
+    if not primary_zone:
+        section = _extract_notice_section(text)
+        if section:
+            primary_zone = _extract_agenda_zone(section)
+
+    flat: list[dict] = []
+    zone = ""
+    for cand in (primary_zone, _extract_objective_section(text)):
+        if not cand:
+            continue
+        flat, zone = _agenda_flat_from_zone(cand)
+        if flat:
+            break
 
     if not flat:
-        logger.warning("의안 패턴 매치 없음")
+        logger.warning("안건 패턴 매치 없음 (소집공고 zone + 목적사항별 기재사항 fallback 모두 실패)")
         return []
 
     # [1] 인라인 하위안건 분리: 부모 제목에 'N-M …의 건'이 뭉친 경우 별도 노드로 분리
