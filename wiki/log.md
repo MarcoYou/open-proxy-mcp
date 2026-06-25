@@ -3,6 +3,11 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-25] feat | director 후보 추출 — 분리표 + 제목 인라인 2패턴 보강
+
+- **`parse_personnel_xml`** (feat): 전수조사가 짚은 zero-candidate 2패턴 보강 — ① 분리표(성명·생년월일 별도 표) candidates 구조화 ② `_extract_inline_subagenda_candidates`로 '제N-M호 사내이사 {이름} 선임의 건' 제목 인라인 후보 추출.
+- **검증(4축 직접)**: 4사(아남전자 0→5·에이텍 0→3·코오롱생명과학 0→2·퓨쳐메디신 0→2) candidates 복구 + 이름 정확(유성준·박준구·신종수·이용노·권오용·이한국·강대희) / **전수 3016 candidates 무회귀 0**(정상 회사 안 깨짐)·appointments 무변·복구 38건 / zero-candidate 13→9. opm-enhance 워크플로(schema 미준수로 실패)의 작업물(+77)을 직접 4축 검증으로 채택.
+
 ## [2026-06-25] fix | 주총 안건 파서 — 소집공고 목차 없는 케이스 'III.2 목적사항별 기재사항' fallback
 
 - **증상**: 에스엠(SM) 2025 정기주총 안건 0건(no_filing) — 원문엔 제1~5호 명확.

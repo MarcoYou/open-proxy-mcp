@@ -2267,6 +2267,34 @@ def parse_personnel_xml(html: str) -> dict:
             if num:
                 seen_numbers.add(num)
 
+    # ── 본문 인라인 하위안건 후보 back-fill (에이텍·코오롱생명과학·퓨쳐메디신) ──
+    # 부모 인사 안건은 잡혔으나 후보표가 누락되어 candidates=0 인 경우,
+    # 본문에 '제N-M호 … 직책 이름 선임의 건' 으로만 존재하는 후보를 구조화해 부착한다.
+    # (모든 appointments 가 확정된 뒤에 실행 — soft-fail 로 추가된 인사 안건 포함)
+    empty_personnel = [
+        a for a in appointments
+        if _is_personnel_title(a.get("title", "")) and not a.get("candidates")
+    ]
+    if empty_personnel:
+        inline_by_parent = _extract_inline_subagenda_candidates(html)
+        if inline_by_parent:
+            inline_norm = {re.sub(r'\s+', '', k): v for k, v in inline_by_parent.items()}
+            matched_any = False
+            for appt in empty_personnel:
+                inline = inline_norm.get(re.sub(r'\s+', '', appt.get("number", "") or ""))
+                if inline:
+                    appt["candidates"] = [dict(c) for c in inline]
+                    appt.pop("candidates_raw_fallback", None)
+                    matched_any = True
+            # 부모 안건에 번호가 없어(코오롱생명과학: number='') 번호 매칭이 실패한 경우 —
+            # 빈 인사 안건이 단 1개면 모든 인라인 후보를 그 안건에 부착한다.
+            if not matched_any and len(empty_personnel) == 1:
+                all_inline = [c for cs in inline_by_parent.values() for c in cs]
+                if all_inline:
+                    appt = empty_personnel[0]
+                    appt["candidates"] = [dict(c) for c in all_inline]
+                    appt.pop("candidates_raw_fallback", None)
+
     # 요약
     summary = _build_personnel_summary(appointments)
 
@@ -2360,6 +2388,8 @@ def _normalize_candidate_name(name: str) -> str:
     - 다중 공백 정리: '허   융' → '허 융'
     """
     name = name.strip()
+    # 괄호로 묶인 안건번호 prefix 제거 ('(제3-1호)유성준' → '유성준' — 아남전자 분리표)
+    name = re.sub(r'^\(\s*제?\s*\d+(?:\s*-\s*\d+)*\s*호(?:\s*의안)?\s*\)\s*', '', name).strip()
     # 안건번호 prefix 제거 (제3-1호 + 이름)
     name = re.sub(r'^제?\s*\d+(?:\s*-\s*\d+)*\s*호(?:\s*의안)?\s*', '', name).strip()
     # 괄호 안 부가 텍스트 제거 (재선임, 임기, 성별 등)
@@ -2891,6 +2921,53 @@ def _extract_name_from_title(title: str) -> str | None:
     if m and (n := _check(m.group(1))):
         return n
     return None
+
+
+# 본문 인라인 하위안건: '제3-1호 의안: 사내이사 신종수 선임의 건' / '3-1호 의안 : 사내이사 이한국 선임의 건'
+# / '제 3-1호 사내이사 강병철 선임의 건' 처럼 부모(제N호) 후보표가 누락되고 후보 이름이
+# 안건 본문 문장에 인라인으로만 존재하는 DART 패턴 (에이텍·코오롱생명과학·퓨쳐메디신).
+_INLINE_SUBAGENDA_RE = re.compile(
+    r'제?\s*(\d+)\s*-\s*(\d+)\s*호'
+    r'(?:\s*의\s*안)?\s*[:：]?\s*'
+    r'(사내이사|사외이사|기타비상무이사|독립이사|상근감사|비상근감사|감사위원|이사|감사)\s+'
+    r'([가-힣]{2,4}|[A-Z][A-Za-z\.\s\-]{3,29})\s*'
+    r'(?:선임|해임|재선임|중임|연임)\s*의?\s*건'
+)
+
+_ROLE_TO_CATEGORY = {
+    '사내이사': '사내이사', '사외이사': '사외이사', '기타비상무이사': '기타비상무이사',
+    '독립이사': '독립이사', '상근감사': '상근감사', '비상근감사': '비상근감사',
+    '감사위원': '감사위원', '감사': '감사', '이사': '이사',
+}
+
+
+def _extract_inline_subagenda_candidates(html: str) -> dict[str, list[dict]]:
+    """본문 텍스트에서 '제N-M호 … 직책 이름 선임의 건' 인라인 후보를 추출.
+
+    Returns: {부모번호('제3호'): [후보 dict, ...]} — 부모 안건에 자식 후보를 붙이기 위함.
+    """
+    if not html:
+        return {}
+    text = re.sub(r'\s+', ' ', BeautifulSoup(html, _BS4_PARSER).get_text(' '))
+    result: dict[str, list[dict]] = {}
+    seen: set[tuple[str, str]] = set()
+    for m in _INLINE_SUBAGENDA_RE.finditer(text):
+        parent_n = m.group(1)
+        role = m.group(3)
+        raw_name = m.group(4).strip()
+        name = _normalize_candidate_name(raw_name)
+        if not _is_valid_candidate_name(name):
+            continue
+        if re.search(r'(?:후보|선임|해임|승인|의\s*건)', name):
+            continue
+        category = _ROLE_TO_CATEGORY.get(role, '이사')
+        parent_key = f"제{parent_n}호"
+        key = (parent_key, re.sub(r'\s+', '', name))
+        if key in seen:
+            continue
+        seen.add(key)
+        result.setdefault(parent_key, []).append({"name": name, "roleType": category})
+    return result
 
 
 def _parse_md_table(md_content: str) -> list[list[str]]:
