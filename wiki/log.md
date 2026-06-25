@@ -3,6 +3,16 @@ type: log
 title: Operation Log
 ---
 
+## [2026-06-25] ops | Fly.io 배포 실패 복구 — 볼륨 호스트 장애 → 머신 교체 + 이중화 복구 (런북)
+
+- **증상**: director 커밋(3ab8294) 후 Deploy to Fly.io 실패 — `machine requires manual intervention: volume on unreachable host`. log 회고 커밋은 같은 머신이 안 떠서 10분 deadline timeout.
+- **원인**: 머신 1대(287e0d4b)의 볼륨 `opm_data`가 얹힌 **물리 호스트 다운**(Fly 인프라 장애, 코드/설정 무관). 볼륨이 호스트에 묶여 자동 교체 불가.
+- **대응 런북** (다음에 같은 장애 시 그대로):
+  1. `fly machine destroy <unreachable_id> --force -a open-proxy-mcp` — 죽은 머신 제거 (볼륨 `opm_data`는 corp_code 캐시라 무해, 다음 호출 때 DART 재로드)
+  2. `fly deploy -a open-proxy-mcp` — 정상 머신 기준 rolling 재배포 → 최신 코드 반영
+  3. `fly machine clone <정상_id> -a open-proxy-mcp` — 이중화(2대) 복구
+- **결과**: director 포함 최신 코드 production 반영, 머신 2대(8e3e+8254) 이중화 복구. 2대 이중화 덕에 장애 중에도 서비스(open-proxy-mcp.fly.dev)는 무중단.
+
 ## [2026-06-25] 검증 | SM·이미지·안건마커 전수 재검증 (production 경로 함정 교정, 코드 변경 0)
 
 - **SM 안건 fallback(eb9a932)**: 픽스처 전수 3,016 **무회귀 0** 확인 (라이브 322사와 일치).
