@@ -75,21 +75,33 @@ def main():
         from starlette.middleware import Middleware
         from starlette.types import ASGIApp, Receive, Scope, Send
         from open_proxy_mcp.dart.client import set_request_api_key
+        from open_proxy_mcp import usage
 
         class ApiKeyMiddleware:
-            """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅"""
+            """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""
 
             def __init__(self, app: ASGIApp):
                 self.app = app
 
             async def __call__(self, scope: Scope, receive: Receive, send: Send):
-                if scope["type"] == "http":
-                    from urllib.parse import parse_qs
-                    qs = parse_qs(scope.get("query_string", b"").decode())
-                    opendart = qs.get("opendart", [None])[0]
-                    if opendart:
-                        set_request_api_key(opendart)
-                await self.app(scope, receive, send)
+                if scope["type"] != "http":
+                    await self.app(scope, receive, send)
+                    return
+                from urllib.parse import parse_qs
+                qs = parse_qs(scope.get("query_string", b"").decode())
+                opendart = qs.get("opendart", [None])[0]
+                if opendart:
+                    set_request_api_key(opendart)
+
+                # 응답 status를 가로채 사용 통계 기록 (요청 1건 = 이벤트 1건). 기록은 비동기 큐라 지연 0.
+                if opendart and scope.get("path", "").startswith("/mcp"):
+                    async def send_wrapper(message):
+                        if message["type"] == "http.response.start":
+                            usage.record(opendart, message.get("status", 0))
+                        await send(message)
+                    await self.app(scope, receive, send_wrapper)
+                else:
+                    await self.app(scope, receive, send)
 
         app = mcp.streamable_http_app()
         app.add_middleware(ApiKeyMiddleware)

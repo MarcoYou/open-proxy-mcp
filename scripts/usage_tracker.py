@@ -1,0 +1,404 @@
+#!/usr/bin/env python3
+"""OPM 사용 통계 도구 — 요청별 이벤트를 로컬 sqlite에 누적하고 일/주 통계를 뽑는다.
+
+데이터 출처 2가지:
+  (1) **--pull (현행 권장)**: 앱이 Fly 볼륨에 직접 기록한 events를 각 머신에서 긁어 로컬에 합산.
+      누락 0·무인·항상가동. (기록기 = open_proxy_mcp/usage.py, server.py 미들웨어)
+  (2) 기본/--backfill (legacy): Fly Logs HTTP API에서 access 로그를 긁어 수집(7일 보존·401 취약).
+      B 전환 전 과거 데이터 보존용. --pull과 같은 events 테이블에 합쳐짐(event_id PK로 dedup).
+
+키는 **SHA-256 해시로만** 저장(평문 DART 키 미보관). 시각 버킷(일/주)은 **KST(UTC+9)** 기준.
+
+사용:
+  python3 scripts/usage_tracker.py --pull       # Fly 머신들에서 이벤트 합산(권장)
+  python3 scripts/usage_tracker.py --stats      # 일/주/사용자/세션 상세 통계
+  python3 scripts/usage_tracker.py --export DIR  # daily.csv·weekly.csv·users.csv·summary.json
+  python3 scripts/usage_tracker.py --report     # 요약만
+  python3 scripts/usage_tracker.py              # (legacy) 로그 API 증분 수집
+  python3 scripts/usage_tracker.py --backfill    # (legacy) 로그 API 7일 전체 재수집
+"""
+from __future__ import annotations
+
+import csv
+import hashlib
+import json
+import os
+import re
+import shutil
+import sqlite3
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+APP = "open-proxy-mcp"
+API = f"https://api.fly.io/api/v1/apps/{APP}/logs"
+RETENTION_MARGIN_NS = 6 * 24 * 3600 * 10**9   # 첫 실행/오래 비웠을 때 시작점(6일 전 — 7일 보존 안쪽)
+MAX_PAGES = 4000
+SESSION_GAP_S = 30 * 60   # 30분 이상 끊기면 새 세션
+KST = timezone(timedelta(hours=9))
+
+# inbound MCP 요청 한 줄에서 (키, HTTP status) 추출
+REQ_RE = re.compile(r'/mcp\?opendart=([0-9a-fA-F]{40})[^"]*"\s+(\d{3})')
+
+ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = ROOT / "data" / "usage" / "usage.db"
+
+# 본인(운영자) 키 — 외부 사용자 통계에서 제외. 평문 미보관, SHA-256 해시로만.
+#   6f02e8…  = opendart=33ac18b8…(Marco 본인 키)
+SELF_HASHES = {
+    "6f02e8598b1bdcda660c970ca9c07c1ffba1d4d8ec193157991f7dc2a9173c30",
+}
+
+
+# ── 인프라 ────────────────────────────────────────────────────────────────
+def fly_token() -> str:
+    tok = os.environ.get("FLY_API_TOKEN")
+    if tok:
+        return tok.strip()
+    fly = shutil.which("fly") or "/Users/marcoyou/.fly/bin/fly"
+    out = subprocess.run([fly, "auth", "token"], capture_output=True, text=True, timeout=30).stdout
+    for line in out.splitlines():
+        line = line.strip()
+        if line and "deprecat" not in line.lower():
+            return line
+    raise SystemExit("Fly 토큰을 얻지 못했습니다 (fly auth token / FLY_API_TOKEN 확인).")
+
+
+def db() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(DB_PATH)
+    con.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS events(
+            event_id TEXT PRIMARY KEY,   -- Fly 로그 항목 고유 id → 중복 실행에도 dedup
+            ts_ns    INTEGER NOT NULL,   -- epoch nanoseconds (UTC)
+            key_hash TEXT NOT NULL,
+            status   INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_events_hash ON events(key_hash);
+        CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns);
+        CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
+        """
+    )
+    return con
+
+
+def get_cursor(con: sqlite3.Connection) -> str:
+    now_ns = time.time_ns()
+    floor = now_ns - RETENTION_MARGIN_NS
+    row = con.execute("SELECT v FROM meta WHERE k='cursor'").fetchone()
+    if not row:
+        return str(floor)
+    return str(max(int(row[0]), floor))  # 7일보다 오래 비웠으면 보존한도 안쪽으로 클램프
+
+
+# ── 수집 ──────────────────────────────────────────────────────────────────
+def fetch_events(token: str, cursor: str):
+    """cursor(ns) 이후 로그를 forward로 드레인하며 요청 이벤트 추출.
+    일시 실패는 백오프 재시도, 그래도 안 되면 진행분과 마지막 정상 cursor 반환(다음 run이 이어받음)."""
+    rows: list[tuple] = []
+    pages = 0
+    while pages < MAX_PAGES:
+        url = f"{API}?next_token={cursor}"
+        payload = None
+        for attempt in range(8):
+            try:
+                req = urllib.request.Request(url, headers={"Authorization": f"FlyV1 {token}"})
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    payload = json.load(r)
+                break
+            except urllib.error.HTTPError as e:
+                # Fly 로그 API는 빠른 연속 페이징 시 간헐적 401/429를 냄 → 백오프 후 토큰 갱신 재시도
+                if e.code in (401, 403, 429) and attempt >= 1:
+                    try:
+                        token = fly_token()
+                    except Exception:
+                        pass
+                if attempt == 7:
+                    sys.stderr.write(f"[warn] page fetch 실패, 진행분 저장 후 중단: {e}\n")
+                time.sleep(min(2 ** attempt, 30))
+            except Exception as e:
+                if attempt == 7:
+                    sys.stderr.write(f"[warn] page fetch 실패, 진행분 저장 후 중단: {e}\n")
+                time.sleep(min(2 ** attempt, 30))
+        if payload is None:
+            break
+        data = payload.get("data", [])
+        if not data:
+            break
+        for it in data:
+            attr = it.get("attributes", {})
+            m = REQ_RE.search(attr.get("message", ""))
+            if not m:
+                continue
+            ev_id = it.get("id")
+            ts_ns = _id_ns(ev_id) or _iso_ns(attr.get("timestamp", ""))
+            if not ev_id or ts_ns is None:
+                continue
+            khash = hashlib.sha256(m.group(1).lower().encode()).hexdigest()
+            rows.append((ev_id, ts_ns, khash, int(m.group(2))))
+        nxt = payload.get("meta", {}).get("next_token")
+        if not nxt or nxt == cursor:
+            break
+        cursor = nxt
+        pages += 1
+        time.sleep(0.15)
+    return rows, cursor
+
+
+def _id_ns(ev_id):
+    if not ev_id:
+        return None
+    tail = ev_id.rsplit("-", 1)[-1]
+    return int(tail) if tail.isdigit() else None
+
+
+def _iso_ns(ts):
+    try:
+        base = datetime.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+        return int(base.timestamp() * 10**9)
+    except Exception:
+        return None
+
+
+def pull_from_fly(con: sqlite3.Connection) -> int:
+    """각 Fly 머신(볼륨 분리)에서 events를 긁어 로컬 DB에 합산. event_id PK로 dedup."""
+    fly = shutil.which("fly") or "/Users/marcoyou/.fly/bin/fly"
+    out = subprocess.run([fly, "machines", "list", "--json", "-a", APP],
+                         capture_output=True, text=True, timeout=60)
+    try:
+        machines = json.loads(out.stdout)
+    except Exception:
+        sys.stderr.write(f"머신 목록 파싱 실패: {out.stdout[:200]} {out.stderr[:200]}\n")
+        return 0
+    ids = [m.get("id") for m in machines if m.get("id")]
+    print(f"머신 {len(ids)}대: {', '.join(ids)}")
+    total_new = 0
+    for mid in ids:
+        r = subprocess.run(
+            [fly, "ssh", "console", "--machine", mid, "-a", APP, "--pty=false",
+             "-C", "python -m open_proxy_mcp.usage dump"],
+            capture_output=True, text=True, timeout=180,
+        )
+        rows = []
+        for line in r.stdout.splitlines():
+            line = line.strip()
+            if not line.startswith("["):
+                continue
+            try:
+                ev = json.loads(line)
+                rows.append((ev[0], int(ev[1]), ev[2], ev[3]))
+            except Exception:
+                continue
+        new = upsert(con, rows)
+        con.commit()
+        total_new += new
+        print(f"  {mid}: {len(rows)} 이벤트 수신 · 신규 {new}")
+        if not rows and r.stderr:
+            sys.stderr.write(f"  [{mid}] stderr: {r.stderr[:200]}\n")
+    return total_new
+
+
+def upsert(con: sqlite3.Connection, rows) -> int:
+    before = con.total_changes
+    con.executemany(
+        "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status) VALUES(?,?,?,?)", rows
+    )
+    return con.total_changes - before
+
+
+# ── 통계 ──────────────────────────────────────────────────────────────────
+def _kst(ts_ns: int) -> datetime:
+    return datetime.fromtimestamp(ts_ns / 1e9, tz=timezone.utc).astimezone(KST)
+
+
+def _load(con, include_self=False):
+    """외부 사용자 이벤트만(기본) (ts_ns, key_hash) 정렬 리스트로 로드."""
+    rows = con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall()
+    if include_self:
+        return rows
+    return [(t, h) for (t, h) in rows if h not in SELF_HASHES]
+
+
+def daily_stats(rows):
+    """{day(KST 'YYYY-MM-DD'): (unique_users, requests)}"""
+    by_day = defaultdict(lambda: [set(), 0])
+    for ts, h in rows:
+        d = _kst(ts).strftime("%Y-%m-%d")
+        by_day[d][0].add(h)
+        by_day[d][1] += 1
+    return {d: (len(u), n) for d, (u, n) in sorted(by_day.items())}
+
+
+def weekly_stats(rows):
+    """{week('YYYY-Www'): (unique_users, requests)}"""
+    by_w = defaultdict(lambda: [set(), 0])
+    for ts, h in rows:
+        iso = _kst(ts).isocalendar()
+        w = f"{iso[0]}-W{iso[1]:02d}"
+        by_w[w][0].add(h)
+        by_w[w][1] += 1
+    return {w: (len(u), n) for w, (u, n) in sorted(by_w.items())}
+
+
+def per_user(rows):
+    """사용자별: 요청수·활성일수·최초/최종·기간(일)·세션수·총사용시간(분)."""
+    ev = defaultdict(list)
+    for ts, h in rows:
+        ev[h].append(ts)
+    out = {}
+    for h, times in ev.items():
+        times.sort()
+        days = {_kst(t).strftime("%Y-%m-%d") for t in times}
+        # 세션 분할(30분 갭)
+        sessions = []
+        s_start = s_last = times[0]
+        for t in times[1:]:
+            if t - s_last > SESSION_GAP_S * 10**9:
+                sessions.append((s_start, s_last))
+                s_start = t
+            s_last = t
+        sessions.append((s_start, s_last))
+        total_min = sum((e - s) / 1e9 / 60 for s, e in sessions)
+        span_days = (times[-1] - times[0]) / 1e9 / 86400
+        out[h] = {
+            "requests": len(times),
+            "active_days": len(days),
+            "first": _kst(times[0]).strftime("%Y-%m-%d %H:%M"),
+            "last": _kst(times[-1]).strftime("%Y-%m-%d %H:%M"),
+            "span_days": round(span_days, 1),
+            "sessions": len(sessions),
+            "total_minutes": round(total_min, 1),
+        }
+    return dict(sorted(out.items(), key=lambda kv: kv[1]["requests"], reverse=True))
+
+
+def report(con):
+    rows = _load(con)
+    users = {h for _, h in rows}
+    total_all = con.execute("SELECT COUNT(DISTINCT key_hash) FROM events").fetchone()[0]
+    last = con.execute("SELECT v FROM meta WHERE k='last_run'").fetchone()
+    rng = ""
+    if rows:
+        rng = f" · 기간 {_kst(rows[0][0]):%Y-%m-%d} ~ {_kst(rows[-1][0]):%Y-%m-%d}"
+    print(f"고유 사용자(외부): {len(users)}   [전체 {total_all} − 본인 {total_all - len(users)}]")
+    print(f"총 요청(외부): {len(rows)}{rng}")
+    if last:
+        print(f"마지막 집계: {last[0]}")
+
+
+def stats(con):
+    rows = _load(con)
+    if not rows:
+        print("이벤트 없음 — 먼저 수집을 실행하세요.")
+        return
+    daily = daily_stats(rows)
+    weekly = weekly_stats(rows)
+    users = per_user(rows)
+
+    print("=" * 56)
+    print("OPM 사용 통계 (외부 사용자, KST 기준)")
+    print("=" * 56)
+    report(con)
+
+    print("\n[일별]  날짜         단일사용자  요청수")
+    for d, (u, n) in daily.items():
+        print(f"        {d}      {u:>6}   {n:>6}")
+
+    print("\n[주별]  주          단일사용자  요청수")
+    for w, (u, n) in weekly.items():
+        print(f"        {w}    {u:>6}   {n:>6}")
+
+    returning = sum(1 for v in users.values() if v["active_days"] >= 2)
+    avg_min = sum(v["total_minutes"] for v in users.values()) / len(users)
+    avg_req = sum(v["requests"] for v in users.values()) / len(users)
+    print(f"\n[요약] 외부 사용자 {len(users)}명 · 재방문(2일+) {returning}명 "
+          f"· 평균 {avg_req:.1f}요청/인 · 평균 사용 {avg_min:.1f}분/인")
+
+    print("\n[사용자 Top 15]  요청  활성일  기간(일)  세션  총사용(분)   최초 ~ 최종")
+    for h, v in list(users.items())[:15]:
+        print(f"  {h[:10]}  {v['requests']:>5} {v['active_days']:>6} {v['span_days']:>8} "
+              f"{v['sessions']:>5} {v['total_minutes']:>9}   {v['first']} ~ {v['last']}")
+
+
+def export(con, outdir: str):
+    rows = _load(con)
+    d = Path(outdir)
+    d.mkdir(parents=True, exist_ok=True)
+    daily = daily_stats(rows)
+    weekly = weekly_stats(rows)
+    users = per_user(rows)
+
+    with open(d / "daily.csv", "w", newline="") as f:
+        w = csv.writer(f); w.writerow(["date", "unique_users", "requests"])
+        for k, (u, n) in daily.items(): w.writerow([k, u, n])
+    with open(d / "weekly.csv", "w", newline="") as f:
+        w = csv.writer(f); w.writerow(["week", "unique_users", "requests"])
+        for k, (u, n) in weekly.items(): w.writerow([k, u, n])
+    with open(d / "users.csv", "w", newline="") as f:
+        cols = ["requests", "active_days", "first", "last", "span_days", "sessions", "total_minutes"]
+        w = csv.writer(f); w.writerow(["user_hash"] + cols)
+        for h, v in users.items(): w.writerow([h] + [v[c] for c in cols])
+    summary = {
+        "unique_users_external": len({h for _, h in rows}),
+        "total_requests_external": len(rows),
+        "returning_users_2day": sum(1 for v in users.values() if v["active_days"] >= 2),
+        "avg_minutes_per_user": round(sum(v["total_minutes"] for v in users.values()) / max(len(users), 1), 1),
+        "daily": daily,
+        "weekly": weekly,
+    }
+    with open(d / "summary.json", "w") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
+    print(f"내보냄 → {d}/ (daily.csv, weekly.csv, users.csv, summary.json)")
+
+
+# ── 진입점 ────────────────────────────────────────────────────────────────
+def collect(con):
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    token = fly_token()
+    cursor = get_cursor(con)
+    rows, new_cursor = fetch_events(token, cursor)
+    new = upsert(con, rows)
+    con.execute("INSERT OR REPLACE INTO meta(k,v) VALUES('cursor',?)", (new_cursor,))
+    con.execute("INSERT OR REPLACE INTO meta(k,v) VALUES('last_run',?)", (stamp,))
+    con.commit()
+    print(f"[{stamp}] 이벤트 수거 {len(rows)} · 신규 {new}")
+
+
+def main():
+    con = db()
+    args = sys.argv[1:]
+    if "--report" in args:
+        report(con)
+    elif "--stats" in args:
+        stats(con)
+    elif "--export" in args:
+        i = args.index("--export")
+        outdir = args[i + 1] if i + 1 < len(args) else str(ROOT / "data" / "usage" / "export")
+        export(con, outdir)
+    elif "--pull" in args:
+        new = pull_from_fly(con)
+        con.execute("INSERT OR REPLACE INTO meta(k,v) VALUES('last_run',?)",
+                    (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),))
+        con.commit()
+        print(f"합산 완료 · 신규 {new}")
+        report(con)
+    elif "--backfill" in args:
+        con.execute("INSERT OR REPLACE INTO meta(k,v) VALUES('cursor',?)",
+                    (str(time.time_ns() - RETENTION_MARGIN_NS),))
+        con.commit()
+        print("cursor를 6일 전으로 되돌림 — 다음 수집이 보존 window 전체를 재수집합니다.")
+        collect(con)
+        report(con)
+    else:
+        collect(con)
+        report(con)
+
+
+if __name__ == "__main__":
+    main()
