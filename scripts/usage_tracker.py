@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""OPM 사용 통계 도구 — 요청별 이벤트를 로컬 sqlite에 누적하고 일/주 통계를 뽑는다.
+"""OPM 사용 통계 도구 — 요청별 이벤트를 누적하고 일/주 통계를 뽑는다.
 
-데이터 출처 2가지:
-  (1) **--pull (현행 권장)**: 앱이 Fly 볼륨에 직접 기록한 events를 각 머신에서 긁어 로컬에 합산.
-      누락 0·무인·항상가동. (기록기 = open_proxy_mcp/usage.py, server.py 미들웨어)
-  (2) 기본/--backfill (legacy): Fly Logs HTTP API에서 access 로그를 긁어 수집(7일 보존·401 취약).
-      B 전환 전 과거 데이터 보존용. --pull과 같은 events 테이블에 합쳐짐(event_id PK로 dedup).
+저장 백엔드(통계 읽기): **DATABASE_URL 있으면 Postgres(Supabase)**, 없으면 로컬 sqlite.
+앱(open_proxy_mcp/usage.py)이 요청 시점에 직접 기록한 events를 그대로 조회한다 → 무손실·합산 불필요.
 
 키는 **SHA-256 해시로만** 저장(평문 DART 키 미보관). 시각 버킷(일/주)은 **KST(UTC+9)** 기준.
 
-사용:
-  python3 scripts/usage_tracker.py --pull       # Fly 머신들에서 이벤트 합산(권장)
-  python3 scripts/usage_tracker.py --stats      # 일/주/사용자/세션 상세 통계
-  python3 scripts/usage_tracker.py --export DIR  # daily.csv·weekly.csv·users.csv·summary.json
-  python3 scripts/usage_tracker.py --report     # 요약만
-  python3 scripts/usage_tracker.py              # (legacy) 로그 API 증분 수집
-  python3 scripts/usage_tracker.py --backfill    # (legacy) 로그 API 7일 전체 재수집
+사용(읽기 — 백엔드 자동):
+  python3 scripts/usage_tracker.py --stats        # 일/주/사용자/세션 상세 통계
+  python3 scripts/usage_tracker.py --export DIR    # daily.csv·weekly.csv·users.csv·summary.json
+  python3 scripts/usage_tracker.py --report       # 요약만
+  python3 scripts/usage_tracker.py --migrate-local # 로컬 sqlite events → Postgres 1회 이전(시드)
+
+legacy(로컬 sqlite 수집 — Postgres 전환 전 과거 데이터 확보용):
+  python3 scripts/usage_tracker.py --pull       # Fly 머신 볼륨에서 합산
+  python3 scripts/usage_tracker.py              # 로그 API 증분 수집
+  python3 scripts/usage_tracker.py --backfill    # 로그 API 7일 전체 재수집
 """
 from __future__ import annotations
 
@@ -47,6 +47,51 @@ REQ_RE = re.compile(r'/mcp\?opendart=([0-9a-fA-F]{40})[^"]*"\s+(\d{3})')
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "data" / "usage" / "usage.db"
+
+# DATABASE_URL 있으면 통계를 Postgres(Supabase)에서 읽음. 로컬 .env에서도 로드.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(ROOT / ".env")
+except Exception:
+    pass
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+
+def using_pg() -> bool:
+    return bool(DATABASE_URL)
+
+
+def _pg_conn():
+    import psycopg
+    return psycopg.connect(DATABASE_URL, connect_timeout=15)
+
+
+def fetch_rows():
+    """모든 (ts_ns, key_hash) 정렬 반환 (self 포함). 백엔드 자동 선택."""
+    if using_pg():
+        con = _pg_conn()
+        rows = con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall()
+        con.close()
+        return [(int(t), h) for t, h in rows]
+    con = db()
+    return con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall()
+
+
+def migrate_local_to_pg():
+    """로컬 sqlite events를 Postgres로 1회 이전(ON CONFLICT dedup). 과거 데이터 시드용."""
+    if not using_pg():
+        raise SystemExit("DATABASE_URL이 필요합니다 (.env 또는 환경변수).")
+    src = db().execute("SELECT event_id, ts_ns, key_hash, status FROM events").fetchall()
+    pg = _pg_conn()
+    pg.execute("CREATE TABLE IF NOT EXISTS events(event_id text PRIMARY KEY, "
+               "ts_ns bigint NOT NULL, key_hash text NOT NULL, status int)")
+    pg.cursor().executemany(
+        "INSERT INTO events(event_id, ts_ns, key_hash, status) VALUES(%s,%s,%s,%s) "
+        "ON CONFLICT (event_id) DO NOTHING", src)
+    pg.commit()
+    total = pg.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    pg.close()
+    print(f"로컬 {len(src)}건 → Postgres 이전 완료 (PG 총 {total}건)")
 
 # 본인(운영자) 키 — 외부 사용자 통계에서 제외. 평문 미보관, SHA-256 해시로만.
 #   6f02e8…  = opendart=33ac18b8…(Marco 본인 키)
@@ -217,14 +262,6 @@ def _kst(ts_ns: int) -> datetime:
     return datetime.fromtimestamp(ts_ns / 1e9, tz=timezone.utc).astimezone(KST)
 
 
-def _load(con, include_self=False):
-    """외부 사용자 이벤트만(기본) (ts_ns, key_hash) 정렬 리스트로 로드."""
-    rows = con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall()
-    if include_self:
-        return rows
-    return [(t, h) for (t, h) in rows if h not in SELF_HASHES]
-
-
 def daily_stats(rows):
     """{day(KST 'YYYY-MM-DD'): (unique_users, requests)}"""
     by_day = defaultdict(lambda: [set(), 0])
@@ -278,24 +315,26 @@ def per_user(rows):
     return dict(sorted(out.items(), key=lambda kv: kv[1]["requests"], reverse=True))
 
 
-def report(con):
-    rows = _load(con)
+def _external(all_rows):
+    return [(t, h) for (t, h) in all_rows if h not in SELF_HASHES]
+
+
+def report(all_rows):
+    rows = _external(all_rows)
     users = {h for _, h in rows}
-    total_all = con.execute("SELECT COUNT(DISTINCT key_hash) FROM events").fetchone()[0]
-    last = con.execute("SELECT v FROM meta WHERE k='last_run'").fetchone()
+    total_all = len({h for _, h in all_rows})
     rng = ""
     if rows:
         rng = f" · 기간 {_kst(rows[0][0]):%Y-%m-%d} ~ {_kst(rows[-1][0]):%Y-%m-%d}"
+    print(f"[source: {'Postgres(Supabase)' if using_pg() else 'local sqlite'}]")
     print(f"고유 사용자(외부): {len(users)}   [전체 {total_all} − 본인 {total_all - len(users)}]")
     print(f"총 요청(외부): {len(rows)}{rng}")
-    if last:
-        print(f"마지막 집계: {last[0]}")
 
 
-def stats(con):
-    rows = _load(con)
+def stats(all_rows):
+    rows = _external(all_rows)
     if not rows:
-        print("이벤트 없음 — 먼저 수집을 실행하세요.")
+        print("이벤트 없음 — 먼저 수집/기록을 실행하세요.")
         return
     daily = daily_stats(rows)
     weekly = weekly_stats(rows)
@@ -304,7 +343,7 @@ def stats(con):
     print("=" * 56)
     print("OPM 사용 통계 (외부 사용자, KST 기준)")
     print("=" * 56)
-    report(con)
+    report(all_rows)
 
     print("\n[일별]  날짜         단일사용자  요청수")
     for d, (u, n) in daily.items():
@@ -326,8 +365,8 @@ def stats(con):
               f"{v['sessions']:>5} {v['total_minutes']:>9}   {v['first']} ~ {v['last']}")
 
 
-def export(con, outdir: str):
-    rows = _load(con)
+def export(all_rows, outdir: str):
+    rows = _external(all_rows)
     d = Path(outdir)
     d.mkdir(parents=True, exist_ok=True)
     daily = daily_stats(rows)
@@ -371,33 +410,42 @@ def collect(con):
 
 
 def main():
-    con = db()
     args = sys.argv[1:]
+    # 읽기 명령 — 백엔드(Postgres/sqlite) 자동 선택
     if "--report" in args:
-        report(con)
-    elif "--stats" in args:
-        stats(con)
-    elif "--export" in args:
+        report(fetch_rows())
+        return
+    if "--stats" in args:
+        stats(fetch_rows())
+        return
+    if "--export" in args:
         i = args.index("--export")
         outdir = args[i + 1] if i + 1 < len(args) else str(ROOT / "data" / "usage" / "export")
-        export(con, outdir)
-    elif "--pull" in args:
+        export(fetch_rows(), outdir)
+        return
+    if "--migrate-local" in args:
+        migrate_local_to_pg()
+        return
+
+    # 수집 명령 — legacy 로그 API/머신 pull은 로컬 sqlite 사용
+    con = db()
+    if "--pull" in args:
         new = pull_from_fly(con)
         con.execute("INSERT OR REPLACE INTO meta(k,v) VALUES('last_run',?)",
                     (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),))
         con.commit()
         print(f"합산 완료 · 신규 {new}")
-        report(con)
+        report(con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall())
     elif "--backfill" in args:
         con.execute("INSERT OR REPLACE INTO meta(k,v) VALUES('cursor',?)",
                     (str(time.time_ns() - RETENTION_MARGIN_NS),))
         con.commit()
         print("cursor를 6일 전으로 되돌림 — 다음 수집이 보존 window 전체를 재수집합니다.")
         collect(con)
-        report(con)
+        report(con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall())
     else:
         collect(con)
-        report(con)
+        report(con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall())
 
 
 if __name__ == "__main__":

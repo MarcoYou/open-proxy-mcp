@@ -1,14 +1,16 @@
-"""사용 통계 기록기 — inbound MCP 요청을 Fly 볼륨 sqlite에 직접 누적.
+"""사용 통계 기록기 — inbound MCP 요청을 누적(요청 1건 = 이벤트 1건).
 
-왜: 기존엔 Fly Logs API를 긁었지만(7일 보존·401·로컬 Mac 의존), 앱이 요청 시점에 직접 기록하면
-누락 0·무인·항상가동. 키는 **SHA-256 해시로만** 저장(평문 DART 키 미보관).
+백엔드 2가지(환경변수로 자동 선택):
+  - **DATABASE_URL 설정됨 → Postgres**(Supabase). 머신 바깥 중앙 DB → 무손실·합산 불필요.
+  - 미설정 → sqlite(`OPM_USAGE_DB_PATH`, 로컬 개발/폴백).
+
+키는 **SHA-256 해시로만** 저장(평문 DART 키 미보관). 본인 키(SELF_HASHES)는 기록 스킵.
 
 설계 원칙(프로덕션 요청 경로 보호):
-- 기록은 **백그라운드 워커 스레드 큐**로 처리 → 요청 경로에서 디스크 I/O를 만지지 않음(지연 0).
-- 큐가 가득 차거나 DB 오류가 나도 **요청을 절대 깨지 않음**(전부 swallow).
-- Fly 볼륨은 머신별 분리 → 각 머신이 자기 /data/usage.db에 기록. 합산은 usage_tracker.py --pull.
+- 기록은 **백그라운드 워커 스레드 큐** → 요청 경로에서 DB I/O를 만지지 않음(지연 0).
+- 큐 풀·DB 오류가 나도 **요청을 절대 깨지 않음**(전부 swallow). 워커는 죽지 않고 재연결.
 
-CLI:  python -m open_proxy_mcp.usage dump   # 이 머신의 events를 JSONL로 출력(--pull이 사용)
+CLI:  python -m open_proxy_mcp.usage dump   # (sqlite 백엔드용) events를 JSONL로 출력
 """
 from __future__ import annotations
 
@@ -22,8 +24,10 @@ import sys
 import threading
 import time
 
+DATABASE_URL = os.environ.get("DATABASE_URL")  # 있으면 Postgres, 없으면 sqlite
 DB_PATH = os.environ.get("OPM_USAGE_DB_PATH", "/data/usage.db")
 MACHINE = os.environ.get("FLY_MACHINE_ID", "local")
+_USE_PG = bool(DATABASE_URL)
 
 # 본인(운영자) 키 — 아예 기록하지 않음. 평문 미보관, SHA-256 해시로만 비교.
 #   6f02e8…  = opendart=33ac18b8…(Marco 본인 키)
@@ -31,38 +35,70 @@ SELF_HASHES = {
     "6f02e8598b1bdcda660c970ca9c07c1ffba1d4d8ec193157991f7dc2a9173c30",
 }
 
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS events(
-    event_id TEXT PRIMARY KEY,
-    ts_ns    INTEGER NOT NULL,
-    key_hash TEXT NOT NULL,
-    status   INTEGER
-);
-CREATE INDEX IF NOT EXISTS idx_events_hash ON events(key_hash);
-CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns);
-"""
-
 _q: "queue.Queue[tuple]" = queue.Queue(maxsize=10000)
 _counter = itertools.count()
 _worker_started = False
 _lock = threading.Lock()
 
 
-def _connect() -> sqlite3.Connection:
+# ── 백엔드: sqlite ─────────────────────────────────────────────────────────
+def _sqlite_connect():
     con = sqlite3.connect(DB_PATH, timeout=10)
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA synchronous=NORMAL")
-    con.executescript(_SCHEMA)
+    con.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS events(
+            event_id TEXT PRIMARY KEY, ts_ns INTEGER NOT NULL,
+            key_hash TEXT NOT NULL, status INTEGER);
+        CREATE INDEX IF NOT EXISTS idx_events_hash ON events(key_hash);
+        CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns);
+        """
+    )
     return con
 
 
+def _sqlite_write(con, batch):
+    con.executemany(
+        "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status) VALUES(?,?,?,?)", batch
+    )
+    con.commit()
+
+
+# ── 백엔드: Postgres ───────────────────────────────────────────────────────
+def _pg_connect():
+    import psycopg
+    con = psycopg.connect(DATABASE_URL, connect_timeout=15, autocommit=False)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS events("
+        "event_id text PRIMARY KEY, ts_ns bigint NOT NULL, key_hash text NOT NULL, status int)"
+    )
+    con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON events(key_hash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns)")
+    con.commit()
+    return con
+
+
+def _pg_write(con, batch):
+    con.cursor().executemany(
+        "INSERT INTO events(event_id, ts_ns, key_hash, status) VALUES(%s,%s,%s,%s) "
+        "ON CONFLICT (event_id) DO NOTHING",
+        batch,
+    )
+    con.commit()
+
+
+_connect = _pg_connect if _USE_PG else _sqlite_connect
+_write = _pg_write if _USE_PG else _sqlite_write
+
+
+# ── 워커 ───────────────────────────────────────────────────────────────────
 def _worker() -> None:
-    """큐를 비우며 배치 INSERT. 요청 스레드와 분리돼 지연을 만들지 않음."""
+    """큐를 비우며 배치 기록. 요청 스레드와 분리돼 지연을 만들지 않음. 절대 죽지 않음."""
     con = None
     while True:
         try:
             batch = [_q.get()]
-            # 잠깐 모아 배치 커밋(부하 시 디스크 효율↑)
             try:
                 for _ in range(199):
                     batch.append(_q.get_nowait())
@@ -70,20 +106,16 @@ def _worker() -> None:
                 pass
             if con is None:
                 con = _connect()
-            con.executemany(
-                "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status) VALUES(?,?,?,?)",
-                batch,
-            )
-            con.commit()
-        except Exception as e:  # 워커는 절대 죽지 않음 — 다음 배치 계속
-            sys.stderr.write(f"[usage] write 실패(무시): {e}\n")
+            _write(con, batch)
+        except Exception as e:
+            sys.stderr.write(f"[usage] write 실패(무시·재연결): {e}\n")
             try:
                 if con:
                     con.close()
             except Exception:
                 pass
             con = None
-            time.sleep(1)
+            time.sleep(2)
 
 
 def _ensure_worker() -> None:
@@ -93,8 +125,7 @@ def _ensure_worker() -> None:
     with _lock:
         if _worker_started:
             return
-        t = threading.Thread(target=_worker, name="usage-writer", daemon=True)
-        t.start()
+        threading.Thread(target=_worker, name="usage-writer", daemon=True).start()
         _worker_started = True
 
 
@@ -109,15 +140,15 @@ def record(opendart_key: str, status: int) -> None:
         ev_id = f"{ts_ns}-{MACHINE}-{next(_counter)}"
         _q.put_nowait((ev_id, ts_ns, khash, int(status)))
     except Exception:
-        pass  # 큐 풀·해시 실패 등 어떤 경우에도 요청을 깨지 않음
+        pass
 
 
 def _dump() -> None:
-    """이 머신의 events를 JSONL로 stdout 출력 (usage_tracker.py --pull 용)."""
+    """(sqlite 백엔드) events를 JSONL로 stdout 출력."""
     try:
         con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=10)
     except Exception:
-        return  # DB 없음 → 빈 출력
+        return
     for row in con.execute("SELECT event_id, ts_ns, key_hash, status FROM events"):
         sys.stdout.write(json.dumps(row) + "\n")
 
