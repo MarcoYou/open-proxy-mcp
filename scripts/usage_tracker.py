@@ -77,6 +77,22 @@ def fetch_rows():
     return con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall()
 
 
+def fetch_tool_latency():
+    """(tool, key_hash, latency_ms) 리스트. 옛 스키마(열 없음)면 빈 리스트."""
+    sql = "SELECT tool, key_hash, latency_ms FROM events"
+    if using_pg():
+        con = _pg_conn()
+        try:
+            rows = con.execute(sql).fetchall()
+        finally:
+            con.close()
+        return rows
+    try:
+        return db().execute(sql).fetchall()
+    except sqlite3.OperationalError:
+        return []
+
+
 def migrate_local_to_pg():
     """로컬 sqlite events를 Postgres로 1회 이전(ON CONFLICT dedup). 과거 데이터 시드용."""
     if not using_pg():
@@ -319,6 +335,24 @@ def _external(all_rows):
     return [(t, h) for (t, h) in all_rows if h not in SELF_HASHES]
 
 
+def tool_stats(tl_rows):
+    """[(tool, requests, unique_users)] 요청수 내림차순 + 평균 latency(ms)."""
+    by_tool = defaultdict(lambda: [0, set()])
+    lat = []
+    for tool, h, latency in tl_rows:
+        if h in SELF_HASHES:
+            continue
+        if latency is not None:
+            lat.append(latency)
+        if tool:
+            by_tool[tool][0] += 1
+            by_tool[tool][1].add(h)
+    ranked = sorted(((t, n, len(u)) for t, (n, u) in by_tool.items()),
+                    key=lambda x: x[1], reverse=True)
+    avg_lat = round(sum(lat) / len(lat)) if lat else None
+    return ranked, avg_lat
+
+
 def report(all_rows):
     rows = _external(all_rows)
     users = {h for _, h in rows}
@@ -364,6 +398,14 @@ def stats(all_rows):
         print(f"  {h[:10]}  {v['requests']:>5} {v['active_days']:>6} {v['span_days']:>8} "
               f"{v['sessions']:>5} {v['total_minutes']:>9}   {v['first']} ~ {v['last']}")
 
+    ranked, avg_lat = tool_stats(fetch_tool_latency())
+    if avg_lat is not None:
+        print(f"\n[성능] 평균 응답 {avg_lat} ms")
+    if ranked:
+        print("\n[기능(tool) Top 15]  요청  사용자")
+        for t, n, u in ranked[:15]:
+            print(f"  {t:<28} {n:>5} {u:>6}")
+
 
 def export(all_rows, outdir: str):
     rows = _external(all_rows)
@@ -383,17 +425,23 @@ def export(all_rows, outdir: str):
         cols = ["requests", "active_days", "first", "last", "span_days", "sessions", "total_minutes"]
         w = csv.writer(f); w.writerow(["user_hash"] + cols)
         for h, v in users.items(): w.writerow([h] + [v[c] for c in cols])
+    ranked, avg_lat = tool_stats(fetch_tool_latency())
+    with open(d / "tools.csv", "w", newline="") as f:
+        w = csv.writer(f); w.writerow(["tool", "requests", "unique_users"])
+        for t, n, u in ranked: w.writerow([t, n, u])
     summary = {
         "unique_users_external": len({h for _, h in rows}),
         "total_requests_external": len(rows),
         "returning_users_2day": sum(1 for v in users.values() if v["active_days"] >= 2),
         "avg_minutes_per_user": round(sum(v["total_minutes"] for v in users.values()) / max(len(users), 1), 1),
+        "avg_latency_ms": avg_lat,
+        "top_tools": [{"tool": t, "requests": n, "users": u} for t, n, u in ranked[:20]],
         "daily": daily,
         "weekly": weekly,
     }
     with open(d / "summary.json", "w") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
-    print(f"내보냄 → {d}/ (daily.csv, weekly.csv, users.csv, summary.json)")
+    print(f"내보냄 → {d}/ (daily.csv, weekly.csv, users.csv, tools.csv, summary.json)")
 
 
 # ── 진입점 ────────────────────────────────────────────────────────────────

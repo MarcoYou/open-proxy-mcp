@@ -77,6 +77,18 @@ def main():
         from open_proxy_mcp.dart.client import set_request_api_key
         from open_proxy_mcp import usage
 
+        def _extract_tool(body: bytes):
+            """JSON-RPC 본문에서 호출 대상 추출 — tools/call이면 tool명, 아니면 method명."""
+            try:
+                import json
+                d = json.loads(body)
+                method = d.get("method", "")
+                if method == "tools/call":
+                    return d.get("params", {}).get("name") or "tools/call"
+                return method or None
+            except Exception:
+                return None
+
         class ApiKeyMiddleware:
             """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""
 
@@ -93,13 +105,37 @@ def main():
                 if opendart:
                     set_request_api_key(opendart)
 
-                # 응답 status를 가로채 사용 통계 기록 (요청 1건 = 이벤트 1건). 기록은 비동기 큐라 지연 0.
+                # 사용 통계 기록 (요청 1건 = 이벤트 1건). 기록은 비동기 큐라 지연 0.
+                # 요청 본문(JSON-RPC)을 버퍼링해 tool명 추출 후 그대로 앱에 재생(replay).
                 if opendart and scope.get("path", "").startswith("/mcp"):
+                    import time as _t
+                    start = _t.monotonic()
+                    buffered = []
+                    body = b""
+                    more = True
+                    while more:
+                        msg = await receive()
+                        buffered.append(msg)
+                        if msg["type"] == "http.request":
+                            body += msg.get("body", b"")
+                            more = msg.get("more_body", False)
+                        else:
+                            more = False
+                    tool = _extract_tool(body)
+
+                    idx = 0
+                    async def replay():
+                        nonlocal idx
+                        if idx < len(buffered):
+                            m = buffered[idx]; idx += 1; return m
+                        return await receive()
+
                     async def send_wrapper(message):
                         if message["type"] == "http.response.start":
-                            usage.record(opendart, message.get("status", 0))
+                            latency_ms = int((_t.monotonic() - start) * 1000)
+                            usage.record(opendart, message.get("status", 0), tool, latency_ms)
                         await send(message)
-                    await self.app(scope, receive, send_wrapper)
+                    await self.app(scope, replay, send_wrapper)
                 else:
                     await self.app(scope, receive, send)
 
