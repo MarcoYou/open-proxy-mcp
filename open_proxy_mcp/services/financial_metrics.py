@@ -139,6 +139,11 @@ _IS_ATTRIBUTION_ACCOUNT_ID = {
     "minority_interest_income": "ProfitLossAttributableToNoncontrollingInterests",
 }
 
+# EPS는 **account_id**로만 잡는다 — nm "기본주당이익"이 "1우선주기본주당이익"·"계속영업…"에
+# 부분일치하고 우선주 행이 먼저 와서 보통주 EPS 대신 우선주 EPS를 집는 버그(현대차 37851 vs 36088).
+# 보통주 total(ifrs-full_Basic/DilutedEarningsLossPerShare) 우선, total 행이 없으면(분리공시)
+# 계속영업(...FromContinuingOperations)으로 fallback. 우선주(dart_*PreferredStock)·중단영업은 제외.
+
 
 def _strip(s: Any) -> str:
     return ("" if s is None else str(s)).strip()
@@ -316,13 +321,29 @@ def _build_account_map_all(
                 if out.get(attr_key) is None:
                     out[attr_key] = is_amount
                 continue  # 귀속 순이익 행 — 다른 key로 재매칭 금지(총포괄손익 행 오염 방지)
+            # EPS: 보통주 기본/희석을 account_id로만. total 우선, 없으면 계속영업 fallback(루프 후 채움).
+            if account_id == "ifrs-full_BasicEarningsLossPerShare":
+                if out.get("basic_eps") is None:
+                    out["basic_eps"] = is_amount
+                continue
+            if account_id == "ifrs-full_DilutedEarningsLossPerShare":
+                if out.get("diluted_eps") is None:
+                    out["diluted_eps"] = is_amount
+                continue
+            if account_id.startswith("ifrs-full_BasicEarningsLossPerShareFromContinuing"):
+                if out.get("_basic_eps_cont") is None:
+                    out["_basic_eps_cont"] = is_amount
+                continue
+            if account_id.startswith("ifrs-full_DilutedEarningsLossPerShareFromContinuing"):
+                if out.get("_diluted_eps_cont") is None:
+                    out["_diluted_eps_cont"] = is_amount
+                continue
             for key, patterns in _IS_ACCOUNT_PATTERNS.items():
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = is_amount
                     break
             for key, patterns in _IS_DETAIL_PATTERNS.items():
-                if key in {"gross_profit", "cogs", "interest_expense",
-                           "diluted_eps", "basic_eps"}:
+                if key in {"gross_profit", "cogs", "interest_expense"}:  # EPS는 위 account_id 전용
                     if out[key] is None and _match_account(account_nm, patterns):
                         out[key] = is_amount
                         break
@@ -336,6 +357,11 @@ def _build_account_map_all(
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = amount
                     break
+    # EPS: total 행이 없으면 계속영업 EPS로 채움 (분리공시 회사 — 한화에어로·효성중공업 등)
+    if out.get("basic_eps") is None and out.get("_basic_eps_cont") is not None:
+        out["basic_eps"] = out["_basic_eps_cont"]
+    if out.get("diluted_eps") is None and out.get("_diluted_eps_cont") is not None:
+        out["diluted_eps"] = out["_diluted_eps_cont"]
     return out
 
 
