@@ -53,6 +53,9 @@ _BS_ACCOUNT_PATTERNS = {
     "capital_stock": ("자본금",),
     "retained_earnings": ("이익잉여금",),
     "total_equity": ("자본총계",),
+    # 지배주주 귀속 자본 — ROE 분모(평균 지배자본)용. 주요계정엔 없고 fnlttSinglAcntAll BS에만 존재
+    # (account_nm "지배기업 소유주지분" = ifrs-full_EquityAttributableToOwnersOfParent).
+    "controlling_equity": ("지배기업 소유주지분", "지배기업소유주지분"),
 }
 
 _IS_ACCOUNT_PATTERNS = {
@@ -125,6 +128,15 @@ _IS_DETAIL_PATTERNS = {
     # 별도 generic 누적(borrowings_generic)으로 흡수 (map builder 참조).
     "short_term_debt": ("단기차입금",),
     "long_term_debt": ("장기차입금", "사채"),
+}
+
+# 귀속 순이익은 account_nm이 총포괄손익 귀속과 동일("지배기업 소유주지분"/"비지배지분")이라
+# account_nm substring으로는 둘을 구분 못 한다(응답 순서상 ComprehensiveIncome 귀속이 먼저 와서
+# 잘못 잡힘 → 순이익·ROE가 총포괄손익으로 오염). fnlttSinglAcntAll은 account_id(IFRS)를 주므로
+# account_id로 '당기순이익 귀속'만 정확히 매칭한다. (총포괄=ComprehensiveIncomeAttributable…는 배제)
+_IS_ATTRIBUTION_ACCOUNT_ID = {
+    "controlling_interest_income": "ProfitLossAttributableToOwnersOfParent",
+    "minority_interest_income": "ProfitLossAttributableToNoncontrollingInterests",
 }
 
 
@@ -268,10 +280,17 @@ def _build_account_map_all(
     for row in rows:
         sj_div = _strip(row.get("sj_div"))
         account_nm = _strip(row.get("account_nm"))
+        account_id = _strip(row.get("account_id"))
         amount = _extract_period_amount(row, period)  # BS(잔액)·CF(누적 native)용
         is_amount = _extract_cumulative_is(row) if cumulative_is else amount  # IS/CIS 손익용
 
         if sj_div == "BS":
+            # 지배주주 귀속 자본은 account_id로 매칭 — 회사마다 account_nm이 달라(예: "지배기업의
+            # 소유주에게…") substring 매칭이 실패하면 전체자본으로 fallback돼 ROE가 틀어짐.
+            if out.get("controlling_equity") is None and account_id and \
+                    "EquityAttributableToOwnersOfParent" in account_id:
+                out["controlling_equity"] = amount
+                continue
             for key, patterns in _BS_ACCOUNT_PATTERNS.items():
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = amount
@@ -289,13 +308,20 @@ def _build_account_map_all(
             if account_nm and account_nm.replace(" ", "") in ("차입금", "차입부채") and amount is not None:
                 out["borrowings_generic"] = (out.get("borrowings_generic") or 0) + amount
         elif sj_div in ("IS", "CIS"):
+            # 귀속 순이익(지배/비지배)은 account_id로만 매칭 — account_nm이 총포괄손익 귀속과
+            # 동일("지배기업 소유주지분"/"비지배지분")이라 substring으로는 구분 불가.
+            attr_key = next((k for k, frag in _IS_ATTRIBUTION_ACCOUNT_ID.items()
+                             if account_id and frag in account_id), None)
+            if attr_key is not None:
+                if out.get(attr_key) is None:
+                    out[attr_key] = is_amount
+                continue  # 귀속 순이익 행 — 다른 key로 재매칭 금지(총포괄손익 행 오염 방지)
             for key, patterns in _IS_ACCOUNT_PATTERNS.items():
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = is_amount
                     break
             for key, patterns in _IS_DETAIL_PATTERNS.items():
                 if key in {"gross_profit", "cogs", "interest_expense",
-                           "minority_interest_income", "controlling_interest_income",
                            "diluted_eps", "basic_eps"}:
                     if out[key] is None and _match_account(account_nm, patterns):
                         out[key] = is_amount
@@ -438,7 +464,21 @@ def _compute_metrics(
 
     # 평균값 (BS 전기 데이터 있으면)
     avg_assets = _avg(total_assets, (bs_is_prev or {}).get("total_assets")) if bs_is_prev else total_assets
-    avg_equity = _avg(total_equity, (bs_is_prev or {}).get("total_equity")) if bs_is_prev else total_equity
+
+    # ROE 분모 = 평균 '지배주주 귀속 자본' (FnGuide/한국 표준). 주요계정엔 지배자본이 없어
+    # fnlttSinglAcntAll(detail)에서 가져온다. 지배자본 없으면(별도재무·결손) 자본총계로 fallback.
+    controlling_equity = detail.get("controlling_equity")
+    if controlling_equity is None:
+        controlling_equity = bs_is.get("controlling_equity")
+    prev_controlling_equity = detail_prev.get("controlling_equity")
+    if prev_controlling_equity is None:
+        prev_controlling_equity = (bs_is_prev or {}).get("controlling_equity")
+    equity_for_roe = controlling_equity if controlling_equity is not None else total_equity
+    prev_equity_for_roe = (
+        prev_controlling_equity if prev_controlling_equity is not None
+        else (bs_is_prev or {}).get("total_equity")
+    )
+    avg_equity = _avg(equity_for_roe, prev_equity_for_roe) if bs_is_prev else equity_for_roe
 
     # detail (fnlttSinglAcntAll)
     gross_profit = detail.get("gross_profit")
@@ -520,10 +560,12 @@ def _compute_metrics(
         ebitda_krw = operating_profit + da
     ebitda_margin_pct = _safe_pct(ebitda_krw, revenue)
 
-    # ROE / ROA — 평균자산/평균자본 (전기 없으면 기말 단독).
-    # 분모 음수 (채무초과) 시 None — 적자 회사 ROE 부호 왜곡 방지.
+    # ROE / ROA — 평균자산/평균자본 (전기 없으면 기말 단독). 분모 음수(채무초과) 시 None.
+    # ROE = 지배순이익 / 평균 지배자본 (주주 귀속 기준). ROA = 전체순이익 / 평균자산
+    # (총자산은 전체 자본·부채로 조달 → 분자도 전체 순이익이 정합적. FnGuide 동일 규약).
+    net_income_total_for_roa = net_income if net_income is not None else net_income_controlling
     roe_pct = _safe_pct(net_income_controlling, avg_equity, positive_denom_only=True)
-    roa_pct = _safe_pct(net_income_controlling, avg_assets, positive_denom_only=True)
+    roa_pct = _safe_pct(net_income_total_for_roa, avg_assets, positive_denom_only=True)
 
     # ROIC = NOPAT / 투하자본. 단순 근사: 영업이익 × (1 - 0.22 평균법인세율) / (자본 + 총차입)
     nopat = None
