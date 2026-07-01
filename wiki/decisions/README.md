@@ -14,6 +14,7 @@ updated: 2026-06-01
 |---|---|
 | **`open-proxy-guideline.md`** | OPM 자체 의결권 정책 v1.2 (12 카테고리 + OPM 5 기준 + 8 운용사 + N연기금 통합). **유일 master** |
 | `260429_0059_decision_voting-policy-consensus-matrix.md` | 8 운용사 합의 매트릭스 (79 토픽). 매트릭스 형태 보존 (master 보조) |
+| [[valuation-methodology]] | 밸류에이션 tool 방법론 스펙 (지표×시계열 FY0/TTM/MRQ×측정방식 + 6인 패널 검토 + 린 v1) |
 | [[260429_0059_debate_opm-guideline-7전문가]] | open-proxy-guideline 작성 토론 transcript (역사적 발전) |
 
 ## 사용 흐름
