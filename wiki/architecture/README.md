@@ -21,6 +21,7 @@ updated: 2026-06-23
 | **파싱 성공률 audit 방법** | [[parsing_success_rate_audit_spec]] · [[parsing_success_rate_audit_checklist]] |
 | **코드 구조** | [[project_structure]] |
 | **MCP 개발 교훈** | [[lessons-learned]] |
+| **수정주가 타임시리즈** (기준가 리셋 실측 파이프라인 + 핸드오프) | [[adjusted-price-timeseries]] |
 
 ## 하위 폴더
 - `audits/` — 데이터·파서 전수조사 기록 ([[audits/README]])
