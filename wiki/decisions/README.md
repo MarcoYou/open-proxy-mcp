@@ -49,6 +49,7 @@ updated: 2026-06-01
 | [[260510_1015_decision_subagenda-mapping]] | sub-agenda → amendment 1:1 매핑 |
 | [[260510_1130_decision_director-faithfulness]] | 사외이사 겸직/충실성 fact 강화 |
 | [[260510_1230_decision_career-parser-concat]] | careerDetails concat/boundary 처리 |
+| [[260702_1520_decision_usage-is-error-tracking]] | 사용통계 is_error 기록 — 툴 내부 오류 기준 정의 |
 
 ## 정체성 문서 (시점 prefix 없음)
 
