@@ -1434,6 +1434,11 @@ class DartClient:
 
         try:
             await self._throttle_api()
+            try:
+                from open_proxy_mcp.dart.krx_meter import bump
+                bump()  # KRX 일별 사용량 장부
+            except Exception:
+                pass
             url = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
             params = {"AUTH_KEY": api_key, "basDd": base_date}
             resp = await self._http.get(url, params=params, timeout=30)

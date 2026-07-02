@@ -49,6 +49,8 @@ async def _krx_market(basDd: str) -> dict[str, dict]:
     async with httpx.AsyncClient(timeout=30) as h:
         for url in (_KRX_URL, _KSQ_URL):
             try:
+                from open_proxy_mcp.dart.krx_meter import bump
+                bump()  # KRX 일별 사용량 장부
                 r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": basDd})
                 rows = next((v for v in r.json().values() if isinstance(v, list)), [])
                 for row in rows:

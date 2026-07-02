@@ -75,6 +75,11 @@ async def _fetch(h, key, url, day, cap):
     if _calls >= cap:
         raise RuntimeError(f"CALL_CAP({cap}) 도달 — 일 한도 보호 중단. 재실행 시 이어서.")
     _calls += 1
+    try:  # 일별 사용량 장부 (Supabase krx_call_log — 두 PC 합산)
+        from open_proxy_mcp.dart.krx_meter import bump
+        bump()
+    except Exception:
+        pass
     await asyncio.sleep(THROTTLE_S)
     try:
         r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": day})
