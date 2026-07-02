@@ -55,7 +55,7 @@ def _sqlite_connect():
         CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns);
         """
     )
-    for col in ("tool TEXT", "latency_ms INTEGER"):  # 기존 테이블 마이그레이션
+    for col in ("tool TEXT", "latency_ms INTEGER", "is_error INTEGER"):  # 기존 테이블 마이그레이션
         try:
             con.execute(f"ALTER TABLE events ADD COLUMN {col}")
         except sqlite3.OperationalError:
@@ -65,8 +65,8 @@ def _sqlite_connect():
 
 def _sqlite_write(con, batch):
     con.executemany(
-        "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms) "
-        "VALUES(?,?,?,?,?,?)", batch
+        "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error) "
+        "VALUES(?,?,?,?,?,?,?)", batch
     )
     con.commit()
 
@@ -81,6 +81,7 @@ def _pg_connect():
     )
     con.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS tool text")
     con.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS latency_ms int")
+    con.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS is_error boolean")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON events(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns)")
     con.commit()
@@ -89,8 +90,8 @@ def _pg_connect():
 
 def _pg_write(con, batch):
     con.cursor().executemany(
-        "INSERT INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms) "
-        "VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
+        "INSERT INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
         batch,
     )
     con.commit()
@@ -137,9 +138,10 @@ def _ensure_worker() -> None:
         _worker_started = True
 
 
-def record(opendart_key: str, status: int, tool=None, latency_ms=None) -> None:
+def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=None) -> None:
     """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
-    tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms)."""
+    tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
+    is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능)."""
     try:
         khash = hashlib.sha256(opendart_key.lower().encode()).hexdigest()
         if khash in SELF_HASHES:
@@ -147,7 +149,7 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None) -> None:
         _ensure_worker()
         ts_ns = time.time_ns()
         ev_id = f"{ts_ns}-{MACHINE}-{next(_counter)}"
-        _q.put_nowait((ev_id, ts_ns, khash, int(status), tool, latency_ms))
+        _q.put_nowait((ev_id, ts_ns, khash, int(status), tool, latency_ms, is_error))
     except Exception:
         pass
 

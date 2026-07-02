@@ -78,16 +78,20 @@ def main():
         from open_proxy_mcp import usage
 
         def _extract_tool(body: bytes):
-            """JSON-RPC 본문에서 호출 대상 추출 — tools/call이면 tool명, 아니면 method명."""
+            """JSON-RPC 본문에서 호출 대상 추출 → (이름, tools/call 여부).
+            tools/call이면 tool명, 아니면 method명."""
             try:
                 import json
                 d = json.loads(body)
                 method = d.get("method", "")
                 if method == "tools/call":
-                    return d.get("params", {}).get("name") or "tools/call"
-                return method or None
+                    return d.get("params", {}).get("name") or "tools/call", True
+                return method or None, False
             except Exception:
-                return None
+                return None, False
+
+        _ERR_PATTERNS = (b'"isError":true', b'"isError": true',
+                         b'"error":{"code"', b'"error": {"code"')
 
         class ApiKeyMiddleware:
             """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""
@@ -121,7 +125,7 @@ def main():
                             more = msg.get("more_body", False)
                         else:
                             more = False
-                    tool = _extract_tool(body)
+                    tool, is_call = _extract_tool(body)
 
                     idx = 0
                     async def replay():
@@ -130,10 +134,26 @@ def main():
                             m = buffered[idx]; idx += 1; return m
                         return await receive()
 
+                    # tools/call은 응답 본문(SSE/JSON)에서 isError를 스캔한 뒤 본문 종료 시 기록.
+                    # (툴 내부 실패는 HTTP 200에 실려 오므로 status만으론 못 잡음)
+                    # 그 외(핸드셰이크 등)는 기존대로 응답 시작 시 기록.
+                    rec = {"status": 0, "latency": None, "err": False, "tail": b"", "done": False}
+
                     async def send_wrapper(message):
                         if message["type"] == "http.response.start":
-                            latency_ms = int((_t.monotonic() - start) * 1000)
-                            usage.record(opendart, message.get("status", 0), tool, latency_ms)
+                            rec["latency"] = int((_t.monotonic() - start) * 1000)
+                            rec["status"] = message.get("status", 0)
+                            if not is_call:
+                                usage.record(opendart, rec["status"], tool, rec["latency"])
+                        elif message["type"] == "http.response.body" and is_call and not rec["done"]:
+                            chunk = message.get("body", b"") or b""
+                            if chunk and not rec["err"]:
+                                hay = rec["tail"] + chunk
+                                rec["err"] = any(p in hay for p in _ERR_PATTERNS)
+                                rec["tail"] = hay[-24:]
+                            if not message.get("more_body", False):
+                                rec["done"] = True
+                                usage.record(opendart, rec["status"], tool, rec["latency"], is_error=rec["err"])
                         await send(message)
                     await self.app(scope, replay, send_wrapper)
                 else:

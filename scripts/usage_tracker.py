@@ -78,19 +78,27 @@ def fetch_rows():
 
 
 def fetch_tool_latency():
-    """(tool, key_hash, latency_ms) 리스트. 옛 스키마(열 없음)면 빈 리스트."""
-    sql = "SELECT tool, key_hash, latency_ms FROM events"
+    """(tool, key_hash, latency_ms, is_error) 리스트. 옛 스키마(열 없음)면 is_error=None 패딩."""
+    sql = "SELECT tool, key_hash, latency_ms, is_error FROM events"
+    old = "SELECT tool, key_hash, latency_ms FROM events"
     if using_pg():
         con = _pg_conn()
         try:
-            rows = con.execute(sql).fetchall()
+            try:
+                rows = con.execute(sql).fetchall()
+            except Exception:  # is_error 컬럼 미생성(구서버) — 롤백 후 구스키마로
+                con.rollback()
+                rows = [(*r, None) for r in con.execute(old).fetchall()]
         finally:
             con.close()
         return rows
     try:
         return db().execute(sql).fetchall()
     except sqlite3.OperationalError:
-        return []
+        try:
+            return [(*r, None) for r in db().execute(old).fetchall()]
+        except sqlite3.OperationalError:
+            return []
 
 
 def migrate_local_to_pg():
@@ -336,18 +344,24 @@ def _external(all_rows):
 
 
 def tool_stats(tl_rows):
-    """[(tool, requests, unique_users)] 요청수 내림차순 + 평균 latency(ms)."""
-    by_tool = defaultdict(lambda: [0, set()])
+    """[(tool, requests, unique_users, errors, err_known)] 요청수 내림차순 + 평균 latency(ms).
+    errors=is_error=True 건수, err_known=is_error가 기록된 건수(구버전 행은 NULL)."""
+    by_tool = defaultdict(lambda: [0, set(), 0, 0])
     lat = []
-    for tool, h, latency in tl_rows:
+    for tool, h, latency, is_err in tl_rows:
         if h in SELF_HASHES:
             continue
         if latency is not None:
             lat.append(latency)
         if tool:
-            by_tool[tool][0] += 1
-            by_tool[tool][1].add(h)
-    ranked = sorted(((t, n, len(u)) for t, (n, u) in by_tool.items()),
+            rec = by_tool[tool]
+            rec[0] += 1
+            rec[1].add(h)
+            if is_err is not None:
+                rec[3] += 1
+                if is_err:
+                    rec[2] += 1
+    ranked = sorted(((t, n, len(u), e, k) for t, (n, u, e, k) in by_tool.items()),
                     key=lambda x: x[1], reverse=True)
     avg_lat = round(sum(lat) / len(lat)) if lat else None
     return ranked, avg_lat
@@ -402,9 +416,10 @@ def stats(all_rows):
     if avg_lat is not None:
         print(f"\n[성능] 평균 응답 {avg_lat} ms")
     if ranked:
-        print("\n[기능(tool) Top 15]  요청  사용자")
-        for t, n, u in ranked[:15]:
-            print(f"  {t:<28} {n:>5} {u:>6}")
+        print("\n[기능(tool) Top 15]  요청  사용자  오류(측정분)")
+        for t, n, u, e, k in ranked[:15]:
+            err = f"{e}/{k} ({e/k*100:.0f}%)" if k else "-"
+            print(f"  {t:<28} {n:>5} {u:>6}  {err}")
 
 
 def export(all_rows, outdir: str):
