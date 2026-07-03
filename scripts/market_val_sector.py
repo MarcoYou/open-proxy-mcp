@@ -18,8 +18,11 @@ smap = json.load(open(ROOT/"open_proxy_mcp/data/ksic/opm_sector_map.json"))
 L3 = set(smap["level3_prefixes"]); OVR = smap["display_overrides"]; MINB = smap["min_bucket_firms"]
 
 OVR_CODE = smap.get("code_overrides", {})
+REASSIGN = smap.get("prefix_reassign", {})
 def bucket(ind, isu=None):
     if isu and isu in OVR_CODE: return OVR_CODE[isu]
+    for pref, dest in REASSIGN.items():
+        if ind.startswith(pref): return dest
     return ind[:3] if ind[:2] in L3 else ind[:2]
 def label(code): return OVR.get(code) or f"{ksic.get(code,'?')[:14]}({code})"
 
