@@ -34,22 +34,27 @@ def _pg():
     con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL); con.commit()
     return con
 
-def _exec_retry(conbox, sql, args):
-    """PG 연결 끊김(OperationalError) 시 1회 재연결 후 재시도 — 장시간 배치 보호."""
-    try:
-        conbox[0].execute(sql, args); conbox[0].commit()
-    except psycopg.OperationalError:
-        try: conbox[0].close()
-        except Exception: pass
-        conbox[0]=_pg()
-        conbox[0].execute(sql, args); conbox[0].commit()
+def _flush(buf):
+    """버퍼를 새 연결로 일괄 저장 — Supabase 유휴 끊김에 면역(flush마다 fresh conn)."""
+    if not buf: return
+    for attempt in (1,2):
+        try:
+            with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15) as c:
+                with c.cursor() as cur:
+                    cur.executemany(
+                        "INSERT INTO mkt_fund_hist VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", buf)
+                c.commit()
+            buf.clear(); return
+        except psycopg.OperationalError:
+            if attempt==2: raise
 
 async def fetch():
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con=_pg()
-    conbox=[con]
+    buf=[]
     firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
     done={(r[0],r[1]) for r in con.execute("SELECT isu_cd, fy FROM mkt_fund_hist")}
+    con.close()  # 이후 쓰기는 _flush(fresh conn)만 사용
     todo=[(i,c,y) for i,c in firms for y in YEARS if (i,y) not in done]
     print(f"대상 {len(firms)}사 × {len(YEARS)}년 · 남은 {len(todo)}건",flush=True)
     c=get_dart_client(); k=0
@@ -70,15 +75,17 @@ async def fetch():
             ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
             eq=gid(rows,eqa,("BS",)) or gid(rows,"ifrs-full_Equity",("BS",))
             st="ok" if (ni is not None or eq is not None) else "nodata"
-            _exec_retry(conbox, "INSERT INTO mkt_fund_hist VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-                        (isu,yr,fs,ni,eq,st))
+            buf.append((isu,yr,fs,ni,eq,st))
+            if len(buf)>=25: _flush(buf)
         except Exception as e:
             en=type(e).__name__
             if "ReadError" in en or "Connect" in en or "Timeout" in en:
+                _flush(buf)
                 print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
-            _exec_retry(conbox, "INSERT INTO mkt_fund_hist VALUES(%s,%s,NULL,NULL,NULL,%s) ON CONFLICT DO NOTHING",
-                        (isu,yr,f"err:{str(e)[:30]}"))
+            buf.append((isu,yr,None,None,None,f"err:{str(e)[:30]}"))
+            if len(buf)>=25: _flush(buf)
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
+    _flush(buf)
     print("fetch 종료",flush=True)
 
 def series():
