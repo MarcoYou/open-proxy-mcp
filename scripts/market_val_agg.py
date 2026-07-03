@@ -121,6 +121,7 @@ async def report():
         if nf is not None: a["ni_fy"]+=nf; a["cap"]+=cap; a["n"]+=1
         if nt is not None: a["ni_ttm"]+=nt; a["cap_ttm"]+=cap
         if eq is not None and eq>0: a["eq"]+=eq; a["cap_eq"]+=cap
+        if ef is not None and ef>0: a["eq_fy"]=a.get("eq_fy",0)+ef; a["cap_eqf"]=a.get("cap_eqf",0)+cap
     print(f"=== 시장 시총가중 trailing 밸류에이션 (시총 {BAS} · 재무 FY{FY}/TTM) ===")
     for mkt in ("KOSPI","KOSDAQ"):
         a=agg[mkt]; tc=total_cap[mkt]
@@ -128,9 +129,10 @@ async def report():
         per_fy=a["cap"]/a["ni_fy"] if a["ni_fy"] else None
         per_ttm=a["cap_ttm"]/a["ni_ttm"] if a["ni_ttm"] else None
         pbr=a["cap_eq"]/a["eq"] if a["eq"] else None
+        pbr_fy=a.get("cap_eqf",0)/a["eq_fy"] if a.get("eq_fy") else None
         print(f"\n[{mkt}] 커버 {a['n']}사 · 시총커버리지 {a['cap']/tc*100:.1f}%")
         print(f"  PER  {per_fy:.2f}(FY0) / {per_ttm:.2f}(TTM)")
-        print(f"  PBR  {pbr:.2f}(MRQ)")
+        print(f"  PBR  {pbr_fy:.2f}(FY0) / {pbr:.2f}(MRQ)")
         print(f"  Σ시총 {a['cap']/1e12:,.0f}조 · Σ지배순이익(TTM) {a['ni_ttm']/1e12:,.1f}조 · Σ지배자본 {a['eq']/1e12:,.0f}조")
     if unmapped: print(f"\n(우선주 미매핑 시총 {unmapped/1e12:.1f}조 — 제외)")
     con.close()
