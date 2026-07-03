@@ -30,9 +30,24 @@ def gid(rows, frag, sj):
             return num(r.get("thstrm_amount"))
     return None
 
+def _pg():
+    con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL); con.commit()
+    return con
+
+def _exec_retry(conbox, sql, args):
+    """PG 연결 끊김(OperationalError) 시 1회 재연결 후 재시도 — 장시간 배치 보호."""
+    try:
+        conbox[0].execute(sql, args); conbox[0].commit()
+    except psycopg.OperationalError:
+        try: conbox[0].close()
+        except Exception: pass
+        conbox[0]=_pg()
+        conbox[0].execute(sql, args); conbox[0].commit()
+
 async def fetch():
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
-    con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL); con.commit()
+    con=_pg()
+    conbox=[con]
     firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
     done={(r[0],r[1]) for r in con.execute("SELECT isu_cd, fy FROM mkt_fund_hist")}
     todo=[(i,c,y) for i,c in firms for y in YEARS if (i,y) not in done]
@@ -55,15 +70,14 @@ async def fetch():
             ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
             eq=gid(rows,eqa,("BS",)) or gid(rows,"ifrs-full_Equity",("BS",))
             st="ok" if (ni is not None or eq is not None) else "nodata"
-            con.execute("INSERT INTO mkt_fund_hist VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
+            _exec_retry(conbox, "INSERT INTO mkt_fund_hist VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING",
                         (isu,yr,fs,ni,eq,st))
-            con.commit()
         except Exception as e:
             en=type(e).__name__
             if "ReadError" in en or "Connect" in en or "Timeout" in en:
                 print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
-            con.execute("INSERT INTO mkt_fund_hist VALUES(%s,%s,NULL,NULL,NULL,%s) ON CONFLICT DO NOTHING",
-                        (isu,yr,f"err:{str(e)[:30]}")); con.commit()
+            _exec_retry(conbox, "INSERT INTO mkt_fund_hist VALUES(%s,%s,NULL,NULL,NULL,%s) ON CONFLICT DO NOTHING",
+                        (isu,yr,f"err:{str(e)[:30]}"))
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
     print("fetch 종료",flush=True)
 
