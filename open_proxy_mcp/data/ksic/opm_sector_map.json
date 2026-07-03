@@ -1,0 +1,16 @@
+{
+  "_doc": "OPM 자체 업종 분류 — KSIC(DART induty_code) 기반. 근거: wiki/decisions/ksic-sector-mapping.md",
+  "default_level": 2,
+  "level3_prefixes": ["26", "64", "66", "21", "28", "20"],
+  "min_bucket_firms": 5,
+  "fold_label": "기타(소규모)",
+  "display_overrides": {
+    "58": "소프트웨어·출판(58)",
+    "264": "통신·방송장비(264, 삼성전자 포함)",
+    "649": "기타금융·지주(649)",
+    "661": "증권·금융지원(661)",
+    "282": "이차전지(282)",
+    "211": "바이오·기초의약(211)",
+    "212": "제약(212)"
+  }
+}
