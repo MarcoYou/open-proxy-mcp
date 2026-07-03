@@ -17,7 +17,10 @@ ksic = json.load(open(ROOT/"open_proxy_mcp/data/ksic/ksic10_ko.json"))
 smap = json.load(open(ROOT/"open_proxy_mcp/data/ksic/opm_sector_map.json"))
 L3 = set(smap["level3_prefixes"]); OVR = smap["display_overrides"]; MINB = smap["min_bucket_firms"]
 
-def bucket(ind): return ind[:3] if ind[:2] in L3 else ind[:2]
+OVR_CODE = smap.get("code_overrides", {})
+def bucket(ind, isu=None):
+    if isu and isu in OVR_CODE: return OVR_CODE[isu]
+    return ind[:3] if ind[:2] in L3 else ind[:2]
 def label(code): return OVR.get(code) or f"{ksic.get(code,'?')[:14]}({code})"
 
 def main():
@@ -32,7 +35,7 @@ def main():
             if mkt != MKT: continue
             cap = wk.get(isu)
             if not cap: continue
-            a = agg[bucket(ind)]; a["n"]+=1; a["cap"]+=cap
+            a = agg[bucket(ind, isu)]; a["n"]+=1; a["cap"]+=cap
             eq = em if em is not None else ef
             if nt is not None: a["ni"]+=nt; a["capn"]+=cap
             if eq and eq>0: a["eq"]+=eq; a["cape"]+=cap
