@@ -1,40 +1,101 @@
 """환율 조회 — 기능통화가 KRW가 아닌 상장사(두산밥캣=USD 등) 재무를 KRW로 환산.
 
 배경(260704): 두산밥캣(241560)은 기능통화 USD라 DART가 재무를 USD로 준다(currency='USD').
-KRW 주가/시총 ÷ USD 자본으로 배수를 계산하면 환율(≈1,540)배 왜곡(PBR 1,238 = 오탐). → 통화
+KRW 주가/시총 ÷ USD 자본으로 배수를 계산하면 환율(≈1,440)배 왜곡(PBR 1,238 = 오탐). → 통화
 감지 후 KRW 환산 필요.
 
-출처: 야후 파이낸스(비공식·무료). ⚠️ 비공식 엔드포인트라 배포(fly.io) IP 차단 시 깨질 수 있음 —
-production 하드닝은 한국은행 ECOS(공식·무료·일별) 교체가 v1.1 과제. 소스 교체 쉽게 단일 함수로 격리.
+소스 우선순위: ① ECOS(한국은행 매매기준율, 공식·안정) → ② 야후 파이낸스(폴백, 비공식·무키).
+캐시 3층: 인메모리(_MEM) → Supabase fx_rate(영구) → 소스 호출.
+  - 저장 규칙: **과거(확정) 날짜 = 영구 저장**(회계기말=분기말은 값이 안 바뀜, 불변). "오늘/최신"은
+    변동값이라 영구 저장 안 함 — _MEM을 조회기준일(오늘)로 키잉해 하루 지나면 자동 미스→재조회.
+  - 밸류에이션은 항상 과거 분기말로 조회(재무=회계기말 기준)하므로 실제 저장 대상 = 분기말뿐(연 4개).
 
-정확도(v1): stock(자본)·flow(순이익) 모두 해당 회계기말 환율 하나로 환산(수 % 오차) — flow는
-원칙상 평균환율이나 v1.1로. 핵심인 자릿수(환율배수) 왜곡은 이걸로 해소.
+정확도(v1): stock(자본)·flow(순이익) 모두 회계기말 환율 하나로 환산(수 % 오차, 호출부 경고). flow
+원칙상 평균환율은 v1.1.
 """
 from __future__ import annotations
 
+import asyncio
+import os
 from datetime import datetime, timedelta
 
 import httpx
 
-_CACHE: dict[tuple[str, str | None], float | None] = {}
+_MEM: dict[tuple[str, str], float | None] = {}
+_ECOS_ITEM = {"USD": "0000001"}  # 731Y001 원/미국달러(매매기준율). 그 외 통화는 야후 폴백.
+_FX_DDL = ("CREATE TABLE IF NOT EXISTS fx_rate("
+           "base_ccy text, dt text, rate double precision, PRIMARY KEY(base_ccy, dt))")
 _YF = "https://query1.finance.yahoo.com/v8/finance/chart/{pair}"
 
 
-async def fx_to_krw(currency: str | None, date: str | None = None) -> float | None:
-    """currency(예 'USD') 1단위의 KRW 값. date='YYYYMMDD'면 그 날(가장 가까운 거래일) 종가,
-    없으면 최신. KRW/빈값이면 1.0. 실패 시 None(호출부에서 미환산 처리)."""
-    cur = (currency or "KRW").upper()
-    if cur in ("KRW", ""):
-        return 1.0
-    key = (cur, date)
-    if key in _CACHE:
-        return _CACHE[key]
-    pair = f"{cur}KRW=X"
+def _today() -> str:
+    return datetime.now().strftime("%Y%m%d")
+
+
+def _settled(date: str) -> bool:
+    """과거(확정) 날짜만 영구 캐시 대상 — 오늘/미래는 변동값이라 제외."""
+    return date < _today()
+
+
+def _db_get(ccy: str, date: str) -> float | None:
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return None
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=8) as c:
+            c.execute(_FX_DDL)
+            r = c.execute("SELECT rate FROM fx_rate WHERE base_ccy=%s AND dt=%s",
+                          (ccy, date)).fetchone()
+            return r[0] if r else None
+    except Exception:
+        return None
+
+
+def _db_put(ccy: str, date: str, rate: float) -> None:
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=8) as c:
+            c.execute(_FX_DDL)
+            c.execute("INSERT INTO fx_rate(base_ccy, dt, rate) VALUES(%s,%s,%s) "
+                      "ON CONFLICT (base_ccy, dt) DO NOTHING", (ccy, date, rate))
+            c.commit()
+    except Exception:
+        pass
+
+
+async def _ecos(ccy: str, date: str) -> float | None:
+    """한국은행 ECOS 매매기준율(731Y001). date 이하 최신(주말·공휴일이면 직전 거래일)."""
+    key = os.getenv("ECOS_API_KEY")
+    item = _ECOS_ITEM.get(ccy)
+    if not key or not item:
+        return None
+    d = datetime.strptime(date, "%Y%m%d")
+    s = (d - timedelta(days=10)).strftime("%Y%m%d")
+    url = (f"https://ecos.bok.or.kr/api/StatisticSearch/{key}/json/kr/1/100/"
+           f"731Y001/D/{s}/{date}/{item}")
+    try:
+        async with httpx.AsyncClient(timeout=15) as h:
+            j = (await h.get(url)).json()
+        rows = j.get("StatisticSearch", {}).get("row") or []
+        vals = [(x["TIME"], float(x["DATA_VALUE"])) for x in rows if x.get("DATA_VALUE")]
+        if not vals:
+            return None
+        le = [v for v in vals if v[0] <= date]
+        return (le or vals)[-1][1]
+    except Exception:
+        return None
+
+
+async def _yahoo(ccy: str, date: str | None) -> float | None:
+    pair = f"{ccy}KRW=X"
     try:
         params: dict = {"interval": "1d"}
         if date:
             d = datetime.strptime(date, "%Y%m%d")
-            # 기말이 주말·공휴일이면 직전 거래일이 필요 → ±10일 창을 받아 date 이하 최신 종가 선택
             params["period1"] = int((d - timedelta(days=10)).timestamp())
             params["period2"] = int((d + timedelta(days=2)).timestamp())
         else:
@@ -43,23 +104,39 @@ async def fx_to_krw(currency: str | None, date: str | None = None) -> float | No
             r = await h.get(_YF.format(pair=pair), params=params,
                             headers={"User-Agent": "Mozilla/5.0"})
             res = r.json()["chart"]["result"][0]
-            ts = res["timestamp"]
-            closes = res["indicators"]["quote"][0]["close"]
-        pairs = [(t, c) for t, c in zip(ts, closes) if c]
+            pairs = [(t, c) for t, c in zip(res["timestamp"],
+                     res["indicators"]["quote"][0]["close"]) if c]
         if not pairs:
-            _CACHE[key] = None
             return None
         if date:
             cutoff = datetime.strptime(date, "%Y%m%d").timestamp() + 86400
             le = [(t, c) for t, c in pairs if t <= cutoff]
-            rate = (le or pairs)[-1][1]  # date 이하 최신, 없으면 가장 이른 값
-        else:
-            rate = pairs[-1][1]
-        _CACHE[key] = float(rate)
-        return float(rate)
+            return float((le or pairs)[-1][1])
+        return float(pairs[-1][1])
     except Exception:
-        _CACHE[key] = None
         return None
+
+
+async def fx_to_krw(currency: str | None, date: str | None = None) -> float | None:
+    """currency(예 'USD') 1단위의 KRW 값. date='YYYYMMDD'면 그 날(가장 가까운 거래일) 종가/매매
+    기준율, 없으면 오늘. KRW/빈값이면 1.0. 실패 시 None(호출부에서 미환산 처리)."""
+    cur = (currency or "KRW").upper()
+    if cur in ("KRW", ""):
+        return 1.0
+    q_date = date or _today()          # 조회 기준일 — None이면 오늘(변동값)
+    memkey = (cur, q_date)
+    if memkey in _MEM:
+        return _MEM[memkey]
+
+    rate: float | None = None
+    if _settled(q_date):               # 과거 확정일 → 영구캐시 조회
+        rate = await asyncio.to_thread(_db_get, cur, q_date)
+    if rate is None:                   # 캐시 미스 → ECOS 1차, 야후 폴백
+        rate = await _ecos(cur, q_date) or await _yahoo(cur, q_date)
+        if rate is not None and _settled(q_date):
+            await asyncio.to_thread(_db_put, cur, q_date, rate)
+    _MEM[memkey] = rate
+    return rate
 
 
 def statement_currency(rows: list) -> str:
@@ -67,7 +144,7 @@ def statement_currency(rows: list) -> str:
     for r in rows:
         if r.get("account_id") == "ifrs-full_Assets" and r.get("currency"):
             return str(r["currency"]).upper()
-    for r in rows:  # 폴백: 아무 currency나
+    for r in rows:
         if r.get("currency"):
             return str(r["currency"]).upper()
     return "KRW"
