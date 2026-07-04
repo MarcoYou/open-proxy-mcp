@@ -64,6 +64,11 @@ wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
   금지). 코드 매핑은 `rules/disclosures/공시유형코드체계.md`. corp_code 없는 시장검색은 3개월 한도.
 - **파이프라인**: 전체 재실행 금지, 누락분만 처리.
 - **저장 안 함**: 실시간 조회 (master.db는 corp_code 캐시일 뿐).
+- **순서/위치 기반 접근 금지 — 이름 기반으로.** SQL `INSERT`는 컬럼명을 반드시 명시(`INSERT INTO t
+  (a,b,c) VALUES(...)`) — 위치 의존(`VALUES(...)`만)은 `ALTER TABLE ADD COLUMN`으로 물리적 컬럼
+  순서가 바뀌면 **조용히 다른 컬럼에 값이 들어가는 사고**로 이어짐(260704 mkt_fund_hist 사고: DDL
+  선언 순서와 실제 테이블 순서가 어긋나 문자열이 `double precision` 컬럼에 들어가 에러). 같은 원리로
+  튜플 인덱스·위치 언패킹보다 dict/네임드튜플/컬럼명 매핑을 우선.
 
 ## 셋업 · 개발
 ```bash

@@ -5,6 +5,14 @@
 PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년 FY, 아니면 전전년 FY)
           — 사업보고서 3월 중순 공시 규칙의 연 단위 근사(look-ahead 방지).
 
+자동 정정(260704, 소프트센 032680 FY2022 사례로 확정): 회사가 당해년도 XBRL에 단위 스케일을
+잘못 넣는 경우(사람이 읽는 표는 "단위: 백만원"이 맞는데 XBRL 원시값엔 배율을 안 곱함 → 100만배
+부풀림)가 실제로 있다. 원본 하나만 보고는 못 잡지만(두 DART 엔드포인트가 같은 버그를 공유),
+**다음 해 보고서의 전기(frmtrm_amount) 비교치는 회사가 재작성하면서 정상화**돼 있다(실측 확인:
+소프트센 FY2022 매출 73,373,050,121,000,000 → FY2023 보고서 전기란엔 73,373,050,121로 정정).
+그래서 매 연도 fy를 가져올 때 **다음 해(fy+1) 보고서의 전기 비교치도 함께 수집**해 `ni_restated`/
+`eq_restated`에 저장하고, series() 계산 시 **restated가 있으면 그걸 우선** 사용한다.
+
 실행: python3 scripts/market_val_series.py --fetch   # 과거 FY 배치(재개 가능, ~100분)
       python3 scripts/market_val_series.py --series  # 분기 시계열 산출
 """
@@ -18,20 +26,27 @@ import psycopg
 YEARS = [2020, 2021, 2022, 2023, 2024]
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_hist(
   isu_cd text, fy int, fs text, ni double precision, eq double precision,
+  ni_restated double precision, eq_restated double precision,
   fetched text, PRIMARY KEY(isu_cd, fy))"""
+DDL_MIGRATE = (
+    "ALTER TABLE mkt_fund_hist ADD COLUMN IF NOT EXISTS ni_restated double precision",
+    "ALTER TABLE mkt_fund_hist ADD COLUMN IF NOT EXISTS eq_restated double precision",
+)
 
 def num(v):
     try: return float(str(v).replace(",","")) if v not in (None,"","-") else None
     except: return None
 
-def gid(rows, frag, sj):
+def gid(rows, frag, sj, field="thstrm_amount"):
     for r in rows:
-        if r.get("sj_div") in sj and frag in (r.get("account_id") or "") and str(r.get("thstrm_amount") or "")!="":
-            return num(r.get("thstrm_amount"))
+        if r.get("sj_div") in sj and frag in (r.get("account_id") or "") and str(r.get(field) or "")!="":
+            return num(r.get(field))
     return None
 
 def _pg():
-    con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL); con.commit()
+    con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL)
+    for stmt in DDL_MIGRATE: con.execute(stmt)
+    con.commit()
     return con
 
 def _flush(buf):
@@ -41,8 +56,21 @@ def _flush(buf):
         try:
             with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15) as c:
                 with c.cursor() as cur:
+                    # 순서 무관 병합: 실제조회(ni/eq)와 재작성(ni_restated/eq_restated)이 어느 순서로
+                    # 와도 서로의 필드를 덮어쓰지 않음. fetched는 'restate_only'(선행 삽입용 자리표시)
+                    # 보다 실제 상태('ok'/'nodata'/'err:*')가 항상 우선.
                     cur.executemany(
-                        "INSERT INTO mkt_fund_hist VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", buf)
+                        "INSERT INTO mkt_fund_hist (isu_cd,fy,fs,ni,eq,ni_restated,eq_restated,fetched) "
+                        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s) "
+                        "ON CONFLICT (isu_cd,fy) DO UPDATE SET "
+                        "fs=COALESCE(EXCLUDED.fs, mkt_fund_hist.fs), "
+                        "ni=COALESCE(EXCLUDED.ni, mkt_fund_hist.ni), "
+                        "eq=COALESCE(EXCLUDED.eq, mkt_fund_hist.eq), "
+                        "ni_restated=COALESCE(EXCLUDED.ni_restated, mkt_fund_hist.ni_restated), "
+                        "eq_restated=COALESCE(EXCLUDED.eq_restated, mkt_fund_hist.eq_restated), "
+                        "fetched=CASE WHEN EXCLUDED.fetched <> 'restate_only' THEN EXCLUDED.fetched "
+                        "             ELSE mkt_fund_hist.fetched END",
+                        buf)
                 c.commit()
             buf.clear(); return
         except psycopg.OperationalError:
@@ -75,18 +103,60 @@ async def fetch():
             ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
             eq=gid(rows,eqa,("BS",)) or gid(rows,"ifrs-full_Equity",("BS",))
             st="ok" if (ni is not None or eq is not None) else "nodata"
-            buf.append((isu,yr,fs,ni,eq,st))
+            buf.append((isu,yr,fs,ni,eq,None,None,st))
             if len(buf)>=25: _flush(buf)
         except Exception as e:
             en=type(e).__name__
             if "ReadError" in en or "Connect" in en or "Timeout" in en:
                 _flush(buf)
                 print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
-            buf.append((isu,yr,None,None,None,f"err:{str(e)[:30]}"))
+            buf.append((isu,yr,None,None,None,None,None,f"err:{str(e)[:30]}"))
             if len(buf)>=25: _flush(buf)
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
     _flush(buf)
     print("fetch 종료",flush=True)
+
+
+async def backfill_restated():
+    """이미 수집된 firms에 대해 **fy=2024 딱 1콜만** 재조회 — fnlttSinglAcntAll이 thstrm(2024)·
+    frmtrm(2023)·bfefrmtrm(2022)을 한 응답에 다 주므로, 5년 재조회 없이 종목당 1콜로 2022~2024
+    3개년 재작성치를 확보(소프트센 032680 실측으로 bfefrmtrm 제공 확인, 260704)."""
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+    con=_pg()
+    firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
+    fs_map={r[0]:r[1] for r in con.execute("SELECT isu_cd, fs FROM mkt_fund_hist WHERE fy=2024")}
+    # 이 함수는 fy=2024 보고서를 조회해 fy=2023·2022 행에 재작성치를 쓴다(fy=2024 자체엔 안 씀).
+    # 따라서 완료 판정은 2023/2022 중 하나라도 재작성치가 있으면 그 종목은 처리됐다고 본다.
+    done={r[0] for r in con.execute(
+        "SELECT isu_cd FROM mkt_fund_hist WHERE fy IN (2022,2023) "
+        "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)")}
+    con.close()
+    todo=[(i,c) for i,c in firms if i not in done]
+    print(f"대상 {len(firms)}사 · 남은 {len(todo)}건 (종목당 1콜, fy=2024)",flush=True)
+    c=get_dart_client(); k=0
+    restate_buf=[]
+    for isu,cc in todo:
+        k+=1
+        try:
+            fs=fs_map.get(isu,"CFS")
+            d=await c.get_fnltt_singl_acnt_all(cc,"2024","11011",fs)
+            rows=(d.get("list") or []) if isinstance(d,dict) else []
+            await asyncio.sleep(0.45)
+            attr="ProfitLossAttributableToOwnersOfParent"; eqa="EquityAttributableToOwnersOfParent"
+            for fy_off,field in ((2023,"frmtrm_amount"),(2022,"bfefrmtrm_amount")):
+                ni_r=gid(rows,attr,("CIS","IS"),field) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"),field)
+                eq_r=gid(rows,eqa,("BS",),field) or gid(rows,"ifrs-full_Equity",("BS",),field)
+                if ni_r is not None or eq_r is not None:
+                    restate_buf.append((isu,fy_off,fs,None,None,ni_r,eq_r,"restate_only"))
+            if len(restate_buf)>=25: _flush(restate_buf)
+        except Exception as e:
+            en=type(e).__name__
+            if "ReadError" in en or "Connect" in en or "Timeout" in en:
+                _flush(restate_buf)
+                print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
+        if k%200==0: print(f"{k}/{len(todo)}",flush=True)
+    _flush(restate_buf)
+    print("백필 종료",flush=True)
 
 def series():
     con=psycopg.connect(os.environ["DATABASE_URL"])
@@ -97,13 +167,24 @@ def series():
       ORDER BY 1""").fetchall()
     qdates=[r[0] for r in qs if r[0]>="20210601"]
     # 재무: FY별 (mkt_fund_hist ∪ 최신 FY2025는 mkt_fundamentals)
+    # restated(다음 해 보고서 전기 비교치)가 있으면 그걸 우선 — 회사가 스스로 재작성한 참값
+    # (소프트센 032680 FY2022 사례: 당해 XBRL 100만배 오류를 다음해 보고서가 정상화).
     fin={}
-    for isu,fy,ni,eq in con.execute("SELECT isu_cd,fy,ni,eq FROM mkt_fund_hist WHERE fetched='ok'"):
-        fin[(isu,fy)]=(ni,eq)
+    restated_used=[]
+    for isu,fy,ni,eq,ni_r,eq_r in con.execute(
+            "SELECT isu_cd,fy,ni,eq,ni_restated,eq_restated FROM mkt_fund_hist WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL"):
+        final_ni = ni_r if ni_r is not None else ni
+        final_eq = eq_r if eq_r is not None else eq
+        if ni_r is not None and ni is not None and abs(ni_r - ni) > abs(ni) * 0.01:
+            restated_used.append((isu, fy, ni, ni_r))
+        fin[(isu,fy)]=(final_ni, final_eq)
     for isu,ni,eq in con.execute("SELECT isu_cd,ni_fy,eq_fy FROM mkt_fundamentals WHERE fetched='ok'"):
         fin[(isu,2025)]=(ni,eq)
+    if restated_used:
+        print(f"[재작성 적용] {len(restated_used)}건 (당해 XBRL 대신 다음해 보고서 전기 비교치 사용)")
+        for r in restated_used[:10]: print(f"    {r}")
 
-    # 스케일 오류 가드(소프트센류 acntAll 단위 폭주): KOSDAQ 종목의 ni/eq가 50조 초과면
+    # 스케일 오류 가드(재작성으로도 못 잡은 잔여 케이스): KOSDAQ 종목의 ni/eq가 50조 초과면
     # 자릿수 오류로 간주해 무효화(KOSPI 대기업은 실제로 100조 넘으므로 KOSDAQ만 적용).
     kosdaq_isu = {r[0] for r in con.execute(
         "SELECT isu_cd FROM mkt_fundamentals WHERE mkt='KOSDAQ'")}
@@ -116,7 +197,7 @@ def series():
                                     (eq is not None and abs(eq) > SCALE_CAP)):
             dropped.append(k); del fin[k]
     if dropped:
-        print(f"[가드] KOSDAQ 스케일오류 제외: {dropped}")
+        print(f"[가드] KOSDAQ 스케일오류 제외(재작성 미확보분): {dropped}")
     print(f"{'분기말':>9} {'시장':>7} {'PIT_FY':>6} {'PER':>7} {'PBR':>6} {'커버시총%':>7}")
     for d in qdates:
         y,m=int(d[:4]),int(d[4:6])
@@ -142,7 +223,12 @@ def series():
     con.close()
 
 if __name__=="__main__":
-    ap=argparse.ArgumentParser(); ap.add_argument("--fetch",action="store_true"); ap.add_argument("--series",action="store_true")
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--fetch",action="store_true")
+    ap.add_argument("--backfill-restated",action="store_true",
+                    help="종목당 1콜(fy=2024)로 2022~2024 재작성치만 백필")
+    ap.add_argument("--series",action="store_true")
     a=ap.parse_args()
     if a.fetch: asyncio.run(fetch())
+    elif a.backfill_restated: asyncio.run(backfill_restated())
     else: series()
