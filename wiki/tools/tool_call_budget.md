@@ -33,7 +33,7 @@ method: 코드 실측 (services/*.py 의 DART client 호출 지점)
 | shareholder_meeting_notice | 9 | 6 | auto 모드 2회 검색 + viewer fallback |
 | treasury_share | 10 | 5 | 소각 공시 N건 본문(최대 5) |
 | shareholder_meeting_results | 10 | 6 | notice + 결과 공시 |
-| valuation | ~18 | ~14 | financial_metrics(~7) 래핑 + acntAll×3(CFS→OFS 폴백) + company + stockTotqySttus + 배당. 별도 KRX 1콜·ECOS 0~1(캐시). 상세 [[valuation]] |
+| valuation | ~18 | ~14 | financial_metrics(~7) 래핑 + acntAll×3(CFS→OFS 폴백) + company + stockTotqySttus + 배당. **KRX 시세=Supabase krx_daily 서빙(serve-time 0콜, 하루 ~2콜 스냅샷)** · ECOS 0~1(캐시). 상세 [[valuation]] |
 | ownership_structure | 12 | 9 | 대주주 reprt 폴백 4 + 5% 블록 문서 3 |
 | financial_metrics | 12 | 7 | reprt 폴백 + TTM + 당기분해 (quarterly scope는 ~24) |
 | corporate_deals | 11 | 1 | include_details 시 details_limit(기본5·최대10) |
