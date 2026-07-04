@@ -22,7 +22,15 @@ from datetime import datetime, timedelta
 import httpx
 
 _MEM: dict[tuple[str, str], float | None] = {}
-_ECOS_ITEM = {"USD": "0000001"}  # 731Y001 원/미국달러(매매기준율). 그 외 통화는 야후 폴백.
+# 통화 → (ECOS 731Y001 item 코드, per-단위 divisor). 엔·동 등은 100단위로 고시되므로 divisor로
+# 1단위 환산(예 JPY 927원/100엔 → 9.27원/엔). 매핑에 없는 통화만 야후 폴백. (실측 전수검증 260704:
+# 국내상장 외국사 = USD/CNY/JPY. 야후는 CNY 과거범위 조회가 빈값·값도 부정확 → ECOS 정본 우선.)
+_ECOS_ITEM = {
+    "USD": ("0000001", 1), "CNY": ("0000053", 1), "JPY": ("0000002", 100),
+    "EUR": ("0000003", 1), "HKD": ("0000015", 1), "GBP": ("0000012", 1),
+    "CHF": ("0000014", 1), "AUD": ("0000017", 1), "CAD": ("0000013", 1),
+    "SGD": ("0000024", 1), "VND": ("0000035", 100),
+}
 _FX_DDL = ("CREATE TABLE IF NOT EXISTS fx_rate("
            "base_ccy text, dt text, rate double precision, PRIMARY KEY(base_ccy, dt))")
 _YF = "https://query1.finance.yahoo.com/v8/finance/chart/{pair}"
@@ -70,9 +78,10 @@ def _db_put(ccy: str, date: str, rate: float) -> None:
 async def _ecos(ccy: str, date: str) -> float | None:
     """한국은행 ECOS 매매기준율(731Y001). date 이하 최신(주말·공휴일이면 직전 거래일)."""
     key = os.getenv("ECOS_API_KEY")
-    item = _ECOS_ITEM.get(ccy)
-    if not key or not item:
+    ent = _ECOS_ITEM.get(ccy)
+    if not key or not ent:
         return None
+    item, divisor = ent
     d = datetime.strptime(date, "%Y%m%d")
     s = (d - timedelta(days=10)).strftime("%Y%m%d")
     url = (f"https://ecos.bok.or.kr/api/StatisticSearch/{key}/json/kr/1/100/"
@@ -85,7 +94,7 @@ async def _ecos(ccy: str, date: str) -> float | None:
         if not vals:
             return None
         le = [v for v in vals if v[0] <= date]
-        return (le or vals)[-1][1]
+        return (le or vals)[-1][1] / divisor  # 100단위 고시(엔·동) → 1단위 환산
     except Exception:
         return None
 
