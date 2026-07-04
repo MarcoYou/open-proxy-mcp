@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any
 
@@ -371,14 +372,22 @@ async def build_order_contracts_payload(
     if error and error != "013":
         warnings.append(f"수주 공시 검색 실패: {error}")
 
+    # 문서 본문 병렬 fetch — 각 공시는 독립적이라 gather (형제 tool corporate_deals·treasury_share
+    # 동일 패턴). DART client가 롤링윈도우 rate limiter로 동시성 자체 스로틀. 파싱은 순서 유지 순차.
+    async def _fetch(it: dict) -> tuple[dict, dict | None]:
+        try:
+            return it, await client.get_document_cached(it.get("rcept_no", ""))
+        except DartClientError:
+            return it, None
+
+    fetched = await asyncio.gather(*[_fetch(it) for it in items[:max_documents]])
+
     events: list[dict[str, Any]] = []
     doc_calls = 0
-    for it in items[:max_documents]:
-        rcept_no = it.get("rcept_no", "")
-        try:
-            doc = await client.get_document_cached(rcept_no)
-        except DartClientError:
+    for it, doc in fetched:
+        if doc is None:
             continue
+        rcept_no = it.get("rcept_no", "")
         doc_calls += 1
         report_nm = (it.get("report_nm") or "").strip()
         parsed = _parse_termination(doc.get("html") or "") if "해지" in report_nm else _parse_order(doc.get("html") or "")
