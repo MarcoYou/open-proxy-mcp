@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Any
 
@@ -44,23 +45,35 @@ def _price_dates() -> list[str]:
     return [(today - timedelta(days=i)).strftime("%Y%m%d") for i in range(12)]
 
 
+_KRX_CACHE: dict[str, dict[str, dict]] = {}  # basDd → 전종목 스냅샷 (프로세스 캐시)
+
+
 async def _krx_market(basDd: str) -> dict[str, dict]:
-    """KRX 전종목(코스피+코스닥) 일별매매 → {단축코드: row}. 하루 2콜(전종목)."""
+    """KRX 전종목(코스피+코스닥) 일별매매 → {단축코드: row}. 2시장 병렬 + basDd별 캐시.
+    같은 날 스냅샷은 모든 종목이 공유 — 서버가 여러 종목 조회 시 재fetch 방지(전종목 콜 절약)."""
+    if basDd in _KRX_CACHE:
+        return _KRX_CACHE[basDd]
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
     if not key:
         return {}
+    from open_proxy_mcp.dart.krx_meter import bump
+
+    async def _one(h, url):
+        try:
+            bump()  # KRX 일별 사용량 장부
+            r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": basDd})
+            return next((v for v in r.json().values() if isinstance(v, list)), [])
+        except Exception:
+            return []
+
+    async with httpx.AsyncClient(timeout=30) as h:  # 코스피·코스닥 독립 → 병렬
+        kospi, kosdaq = await asyncio.gather(_one(h, _KRX_URL), _one(h, _KSQ_URL))
     out: dict[str, dict] = {}
-    async with httpx.AsyncClient(timeout=30) as h:
-        for url in (_KRX_URL, _KSQ_URL):
-            try:
-                from open_proxy_mcp.dart.krx_meter import bump
-                bump()  # KRX 일별 사용량 장부
-                r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": basDd})
-                rows = next((v for v in r.json().values() if isinstance(v, list)), [])
-                for row in rows:
-                    out[row.get("ISU_CD")] = row  # bydd_trd ISU_CD = 단축코드
-            except Exception:
-                pass
+    for rows in (kospi, kosdaq):
+        for row in rows:
+            out[row.get("ISU_CD")] = row  # bydd_trd ISU_CD = 단축코드
+    if out:  # 빈 응답(휴장일·미settle·오류)은 캐시 안 함 — 다음 조회에서 재시도 여지
+        _KRX_CACHE[basDd] = out
     return out
 
 
@@ -172,7 +185,14 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
                 "warnings": [f"'{name}'은(는) 비상장 — 주가가 없어 시장배수(PER·PBR·배당수익률) 산출 불가. "
                              f"재무 펀더멘탈은 financial_metrics 사용.{alt_txt}"]}
 
-    fm = (await build_financial_metrics_payload(stock_code, scope="summary", year=0, consolidated=True))
+    # ── 데이터 fetch 병렬화: 의존성 3단계 (P1 fy 무관 → P2 fy 의존 → P3 fs_used 의존) ──
+    # P1: 재무요약(대형 ~7콜)·업종정보·시세 — 모두 cc/stock_code만 의존(fy 불필요) → 병렬.
+    #     (이전엔 순차라 info·market이 fm 뒤에서 대기했음). stock_code는 위 unlisted 가드로 보장.
+    fm, info, mk = await asyncio.gather(
+        build_financial_metrics_payload(stock_code, scope="summary", year=0, consolidated=True),
+        client.get_company_info(cc),
+        _market_for(stock_code),
+    )
     s = fm.get("data", {}).get("summary") or {}
     fy = fm.get("data", {}).get("year")
     if fy is None:  # 상장사여도 재무 미확정(신규상장·SPAC 등) → fy+1 크래시 방지, 명확한 상태 반환
@@ -183,16 +203,22 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     # 금융사 판별: KSIC 업종코드(induty) 대분류 K = 64(은행·금융지주)·65(보험)·66(증권).
     # 260704 실측: 매출=None 휴리스틱은 인터넷은행(카카오뱅크 영업수익 3조 신고)을 놓쳐 오분류 →
     # induty를 1차 신호로, 매출=None을 2차 폴백으로. (EV/PSR/FCF·순차입 게이팅 = 범주 부적합 차단)
-    info = await client.get_company_info(cc)
     induty = str(info.get("induty_code") or "")
     is_financial = induty[:2] in ("64", "65", "66") or revenue_fy is None
 
     # TTM(flow) = FY + 1Q(당해) − 1Q(전년); MRQ(stock) = 최근 분기 잔액
     q_cur, q_prev = fy + 1, fy  # 예: fy=2025 → 1Q2026, 1Q2025
-    # 연간에서 fs(연결/별도)를 확정한 뒤 분기에도 같은 기준 강제 — TTM 연결/별도 혼용 방지.
-    fy_rows, fs_used = await _acntall(client, cc, fy, "11011")
-    qc_rows, _ = await _acntall(client, cc, q_cur, "11013", fs_used)
-    qp_rows, _ = await _acntall(client, cc, q_prev, "11013", fs_used)
+    # P2: 연간 재무원장·유통주식수·배당 — fy만 의존 → 병렬.
+    (fy_rows, fs_used), sh, (div_sum, _div_meta) = await asyncio.gather(
+        _acntall(client, cc, fy, "11011"),
+        _shares_outstanding(client, cc, fy),
+        _annual_summary(cc, fy),
+    )
+    # P3: 분기 재무원장 — 연간에서 확정한 fs(연결/별도) 강제(TTM 혼용 방지) → 당해·전년 병렬.
+    (qc_rows, _), (qp_rows, _) = await asyncio.gather(
+        _acntall(client, cc, q_cur, "11013", fs_used),
+        _acntall(client, cc, q_prev, "11013", fs_used),
+    )
 
     # 통화 환산: 기능통화≠KRW(두산밥캣=USD 등)면 회계기말 환율로 KRW 환산 — KRW 주가/시총과
     # 통화 일치시켜야 배수가 유효(미환산 시 환율배수만큼 왜곡: 두산밥캣 PBR 1,238 오탐). wiki §9.
@@ -219,11 +245,9 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     ctrl_equity = eq_mrq if eq_mrq is not None else eq_fy  # MRQ 우선, 미공시시 FY0
     equity_basis = "MRQ" if eq_mrq is not None else "FY0"
 
-    sh = await _shares_outstanding(client, cc, fy)
-    shares_total = sh.get("total")        # 합계(보통+우선) — BPS 분모
+    shares_total = sh.get("total")        # 합계(보통+우선) — BPS 분모 (sh = P2 병렬 fetch)
     shares_common = sh.get("common") or shares_total  # 보통주 — EPS 분모(스펙 P1)
-    mk = await _market_for(stock_code) if stock_code else {}
-    price = mk.get("price")
+    price = mk.get("price")               # mk = P1 병렬 fetch
 
     # ── 실시간 스케일 오류 가드 (소프트센 032680 사례, wiki §9) ──
     # hard 등급 = ②(항등식)·③(시장최댓값 배수). soft = ①(배수점프, 실측 오탐 97.5%)·④(시총비율).
@@ -249,8 +273,7 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     if shares_bad:
         shares_total = shares_common = None
 
-    # DPS = alotMatter 보통주 결의 현금배당금 (이미 주당값 — 주식수 불필요)
-    div_sum, _ = await _annual_summary(cc, fy)
+    # DPS = alotMatter 보통주 결의 현금배당금 (이미 주당값 — 주식수 불필요). div_sum = P2 병렬 fetch.
     dps = (div_sum or {}).get("cash_dps") or None
 
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
