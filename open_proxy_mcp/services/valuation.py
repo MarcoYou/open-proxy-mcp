@@ -148,9 +148,11 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     price = mk.get("price")
 
     # ── 실시간 스케일 오류 가드 (소프트센 032680 사례, wiki §9) ──
-    # ①②는 "보고서 전체를 일괄 부풀린" 유형엔 무력함이 실사고 재검증으로 확인됨(당기·전기·재무제표
-    # 전 항목이 같이 틀리면 내부비교는 정상처럼 보임) → ③④(외부기준: 자릿수·시총 대조)가 최종
-    # 방어선으로 확인됐으나 4개 다 유지(①②는 "일부 항목만 실수" 유형엔 여전히 유효할 수 있음).
+    # hard 등급 = ②(항등식)·③(시장최댓값 배수). soft = ①(배수점프, 실측 오탐 97.5%)·④(시총비율).
+    # ★개별 종목 조회에서는 값을 무효화(N/M)하지 않고 그대로 노출 + 강한 경고만 부착 — 이 tool의
+    #  철학("배수·인풋·가정 모두 노출, 판단은 사용자")과 자본잠식 처리(값 유지+경고)에 일관.
+    #  (기계가 합산하는 시장 aggregate = market_val_agg/series에서는 반대로 무효화 — 경고문이
+    #   합산 연산에 무력하므로. 소비 맥락이 다르면 처리도 다르다.)
     ni_fy_frmtrm = _gid(fy_rows, "ProfitLossAttributableToOwnersOfParent", ("CIS", "IS"), "frmtrm_amount")
     assets_fy = _gid(fy_rows, "Assets", ("BS",))
     liab_fy = _gid(fy_rows, "Liabilities", ("BS",))
@@ -161,8 +163,6 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
         thstrm=ni_fy, frmtrm=ni_fy_frmtrm, assets=assets_fy, liabilities=liab_fy,
         equity=eq_total_fy, mktcap=mk.get("common_mktcap"), market_max=MARKET_MAX_NI_ANCHOR,
     )
-    if scale_verdict["tier"] == "hard":
-        ni_fy = ni_ttm = eq_mrq = eq_fy = ctrl_equity = None
 
     # 주식수 sanity: DART 유통 > KRX 상장×3 = 파싱오류(LS에코 ×1e6) → 무효화 (우선주 감안 여유 ×3)
     list_shrs = mk.get("list_shrs")
@@ -203,9 +203,9 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     if is_financial:
         warnings.append("금융사(매출 계정 없음) — EV/EBITDA·PSR·FCF·순차입 = N/A(범주 부적합). PBR·PER·배당·ROE 중심.")
     if scale_verdict and scale_verdict["tier"] == "hard":
-        warnings.append(f"⚠️ DART 재무 단위(스케일) 오류 감지({scale_verdict['hard_hit']}) — 순이익·자본 N/M 처리. 원문 확인 요망.")
+        warnings.append(f"🚨 DART 재무 단위(스케일) 오류 강하게 의심({scale_verdict['hard_hit']}) — 아래 순이익·자본·배수는 **원문 그대로**이며 신뢰 불가. 반드시 원문 확인 후 사용. (예: 소프트센 032680 100만배 오류)")
     elif scale_verdict and scale_verdict["tier"] == "soft":
-        warnings.append(f"시총 대비 재무 비율 이상치({scale_verdict['soft_hit']}) — 값은 유지하되 확인 권장(원샷 이익/자산매각 등 가능).")
+        warnings.append(f"재무 비율 이상치({scale_verdict['soft_hit']}) — 값은 정상일 수 있음(원샷 이익·자산매각·적자흑자 전환 등). 참고용 플래그.")
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
 
@@ -231,6 +231,11 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
                 "capital_impairment_status": cap_status,
             },
             "warnings": warnings,
+            "data_quality": {
+                "scale_tier": scale_verdict["tier"],          # hard=강한 오류의심 / soft=참고 / clean
+                "scale_flags": scale_verdict["hard_hit"] + scale_verdict["soft_hit"],
+                "values_masked": False,  # 개별조회는 값 무효화 안 함(집계 tool과 반대) — 판단은 사용자
+            },
             "note": "lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT는 v1.1.",
         },
     }
