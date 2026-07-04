@@ -14,7 +14,10 @@ from typing import Any
 
 import httpx
 
+import calendar
+
 from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
 from open_proxy_mcp.services.company import _company_id
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.dividend_v2 import _annual_summary
@@ -173,12 +176,29 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     fy_rows, fs_used = await _acntall(client, cc, fy, "11011")
     qc_rows, _ = await _acntall(client, cc, q_cur, "11013", fs_used)
     qp_rows, _ = await _acntall(client, cc, q_prev, "11013", fs_used)
-    ni_fy = _ctrl_ni(fy_rows)
-    ni_qc = _ctrl_ni(qc_rows)
-    ni_qp = _ctrl_ni(qp_rows)
+
+    # 통화 환산: 기능통화≠KRW(두산밥캣=USD 등)면 회계기말 환율로 KRW 환산 — KRW 주가/시총과
+    # 통화 일치시켜야 배수가 유효(미환산 시 환율배수만큼 왜곡: 두산밥캣 PBR 1,238 오탐). wiki §9.
+    stmt_cur = statement_currency(fy_rows)
+    fx_rate = 1.0
+    if stmt_cur != "KRW":
+        acc_mt = str(info.get("acc_mt") or "12").zfill(2)
+        last_day = calendar.monthrange(fy, int(acc_mt))[1]
+        fx_rate = await fx_to_krw(stmt_cur, f"{fy}{acc_mt}{last_day:02d}") or 1.0
+
+    def _fx(x):  # None 보존, 나머지는 KRW 환산(1.0이면 무변화)
+        return round(x * fx_rate) if x is not None else None
+
+    if fx_rate != 1.0:
+        revenue_fy = _fx(revenue_fy)
+        eps_fy = None  # fm의 eps_krw는 실제 USD/주 → 폐기, 아래서 환산된 ni_fy로 재계산
+
+    ni_fy = _fx(_ctrl_ni(fy_rows))
+    ni_qc = _fx(_ctrl_ni(qc_rows))
+    ni_qp = _fx(_ctrl_ni(qp_rows))
     ni_ttm = (ni_fy + ni_qc - ni_qp) if None not in (ni_fy, ni_qc, ni_qp) else None
-    eq_mrq = _ctrl_equity(qc_rows)
-    eq_fy = _ctrl_equity(fy_rows)
+    eq_mrq = _fx(_ctrl_equity(qc_rows))
+    eq_fy = _fx(_ctrl_equity(fy_rows))
     ctrl_equity = eq_mrq if eq_mrq is not None else eq_fy  # MRQ 우선, 미공시시 FY0
     equity_basis = "MRQ" if eq_mrq is not None else "FY0"
 
@@ -194,12 +214,13 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     #  철학("배수·인풋·가정 모두 노출, 판단은 사용자")과 자본잠식 처리(값 유지+경고)에 일관.
     #  (기계가 합산하는 시장 aggregate = market_val_agg/series에서는 반대로 무효화 — 경고문이
     #   합산 연산에 무력하므로. 소비 맥락이 다르면 처리도 다르다.)
-    ni_fy_frmtrm = _ctrl_ni(fy_rows, "frmtrm_amount")  # 지배순이익 부재사도 폴백 일관 적용
-    assets_fy = _gid(fy_rows, "Assets", ("BS",))
-    liab_fy = _gid(fy_rows, "Liabilities", ("BS",))
+    # 스케일가드용 값도 KRW 환산(_fx) — market_max 앵커가 KRW(44조)이므로 통화 일치 필수.
+    ni_fy_frmtrm = _fx(_ctrl_ni(fy_rows, "frmtrm_amount"))  # 지배순이익 부재사도 폴백 일관 적용
+    assets_fy = _fx(_gid(fy_rows, "Assets", ("BS",)))
+    liab_fy = _fx(_gid(fy_rows, "Liabilities", ("BS",)))
     # 항등식(자산=부채+자본)은 반드시 총자본(지배+비지배지분) 기준 — 지배자본(eq_fy)만 쓰면
     # 비지배지분만큼 항상 어긋남(실측 발견: 삼성전자 비지배지분 12조 → 2.12% 오탐).
-    eq_total_fy = _gid(fy_rows, "Equity", ("BS",))
+    eq_total_fy = _fx(_gid(fy_rows, "Equity", ("BS",)))
     scale_verdict = scale_assess(
         thstrm=ni_fy, frmtrm=ni_fy_frmtrm, assets=assets_fy, liabilities=liab_fy,
         equity=eq_total_fy, mktcap=mk.get("common_mktcap"), market_max=MARKET_MAX_NI_ANCHOR,
@@ -246,6 +267,10 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
         warnings.append("⚠️ 배수 비정상 고값 — 재무 단위/스케일 오류 가능(예: 지배자본 과소). 원문 확인 요망.")
     if is_financial:
         warnings.append("금융사(매출 계정 없음) — EV/EBITDA·PSR·FCF·순차입 = N/A(범주 부적합). PBR·PER·배당·ROE 중심.")
+    if fx_rate != 1.0:
+        warnings.append(f"기능통화 {stmt_cur} — 재무를 {fy}회계기말 환율 {fx_rate:,.1f}원/{stmt_cur}로 KRW 환산(순이익은 원칙상 평균환율, v1은 기말환율 근사 → 수% 오차). KRW 시총과 통화 정합.")
+    elif stmt_cur != "KRW":
+        warnings.append(f"⚠️ 기능통화 {stmt_cur}인데 환율 조회 실패 — 배수 통화 불일치 가능, 원문 확인 요망.")
     if scale_verdict and scale_verdict["tier"] == "hard":
         warnings.append(f"🚨 DART 재무 단위(스케일) 오류 강하게 의심({scale_verdict['hard_hit']}) — 아래 순이익·자본·배수는 **원문 그대로**이며 신뢰 불가. 반드시 원문 확인 후 사용. (예: 소프트센 032680 100만배 오류)")
     elif scale_verdict and scale_verdict["tier"] == "soft":
@@ -273,6 +298,8 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
                 "dps_krw": dps, "revenue_fy0_krw": revenue_fy,
                 "common_market_cap_krw": mk.get("common_mktcap"),
                 "capital_impairment_status": cap_status,
+                "functional_currency": stmt_cur,
+                "fx_rate_to_krw": fx_rate if fx_rate != 1.0 else None,
             },
             "warnings": warnings,
             "data_quality": {
