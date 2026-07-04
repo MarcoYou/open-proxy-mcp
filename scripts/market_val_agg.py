@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import httpx, psycopg
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
 
 FY = 2025
 def latest_trading_day():
@@ -26,6 +27,7 @@ DDL = """CREATE TABLE IF NOT EXISTS mkt_fundamentals(
   isu_cd text PRIMARY KEY, corp_code text, mkt text, fs text,
   ni_fy double precision, ni_ttm double precision,
   eq_fy double precision, eq_mrq double precision, fetched text)"""
+DDL_MIGRATE = ("ALTER TABLE mkt_fundamentals ADD COLUMN IF NOT EXISTS scale_flag text",)
 
 def num(v):
     try: return float(str(v).replace(",","")) if v not in (None,"","-") else None
@@ -46,15 +48,15 @@ async def krx_snapshot(bas=None):
                 kinds[row["ISU_SRT_CD"]]=row.get("KIND_STKCERT_TP_NM","")
     return listings, kinds
 
-def gid(rows, frag, sj):
-    for r in rows:
-        if r.get("sj_div") in sj and frag in (r.get("account_id") or "") and str(r.get("thstrm_amount") or "")!="":
-            return num(r.get("thstrm_amount"))
-    return None
+def gid(rows, account_id, sj, field="thstrm_amount"):
+    """정확일치(exact) — substring(in) 금지(260704 실측: 접두어 충돌로 오탐 확인, wiki §9)."""
+    return gid_exact(rows, account_id, sj, field)
 
 async def fetch():
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
-    con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL); con.commit()
+    con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL)
+    for stmt in DDL_MIGRATE: con.execute(stmt)
+    con.commit()
     done={r[0] for r in con.execute("SELECT isu_cd FROM mkt_fundamentals")}
     listings,kinds=await krx_snapshot()
     commons=[(c,v) for c,v in listings.items() if kinds.get(c)=="보통주"]
@@ -80,15 +82,27 @@ async def fetch():
                 fs="OFS"; fyr=await acnt(cc,FY,"11011",fs); await asyncio.sleep(0.45)
             qc=await acnt(cc,FY+1,"11013",fs); await asyncio.sleep(0.45)
             qp=await acnt(cc,FY,"11013",fs); await asyncio.sleep(0.45)
-            attr="ProfitLossAttributableToOwnersOfParent"; eqa="EquityAttributableToOwnersOfParent"
+            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"; eqa="ifrs-full_EquityAttributableToOwnersOfParent"
             ni_fy=gid(fyr,attr,("CIS","IS")) or gid(fyr,"ifrs-full_ProfitLoss",("CIS","IS"))
+            ni_fy_frmtrm=gid(fyr,attr,("CIS","IS"),"frmtrm_amount")
             ni_c=gid(qc,attr,("CIS","IS")) or gid(qc,"ifrs-full_ProfitLoss",("CIS","IS"))
             ni_p=gid(qp,attr,("CIS","IS")) or gid(qp,"ifrs-full_ProfitLoss",("CIS","IS"))
             ni_ttm=(ni_fy+ni_c-ni_p) if None not in (ni_fy,ni_c,ni_p) else None
             eq_fy=gid(fyr,eqa,("BS",)) or gid(fyr,"ifrs-full_Equity",("BS",))
             eq_mrq=gid(qc,eqa,("BS",)) or gid(qc,"ifrs-full_Equity",("BS",))
-            con.execute("""INSERT INTO mkt_fundamentals VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'ok')
-                ON CONFLICT (isu_cd) DO NOTHING""",(code,cc,v["mkt"],fs,ni_fy,ni_ttm,eq_fy,eq_mrq))
+            # 실시간 스케일 가드(소프트센 032680 사례, wiki §9) — 항등식은 총자본(지배+비지배) 기준
+            assets_fy=gid(fyr,"ifrs-full_Assets",("BS",)); liab_fy=gid(fyr,"ifrs-full_Liabilities",("BS",))
+            eq_total_fy=gid(fyr,"ifrs-full_Equity",("BS",))
+            verdict=scale_assess(thstrm=ni_fy, frmtrm=ni_fy_frmtrm, assets=assets_fy, liabilities=liab_fy,
+                                  equity=eq_total_fy, mktcap=v["cap"])
+            scale_flag = ",".join(verdict["hard_hit"]) if verdict["tier"]=="hard" else (
+                ",".join(verdict["soft_hit"]) if verdict["tier"]=="soft" else None)
+            if verdict["tier"]=="hard":
+                print(f"[가드] {code} 스케일오류 감지({scale_flag}) — ni/eq 무효화",flush=True)
+                ni_fy=ni_ttm=eq_fy=eq_mrq=None
+            con.execute("""INSERT INTO mkt_fundamentals(isu_cd,corp_code,mkt,fs,ni_fy,ni_ttm,eq_fy,eq_mrq,fetched,scale_flag)
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,'ok',%s)
+                ON CONFLICT (isu_cd) DO NOTHING""",(code,cc,v["mkt"],fs,ni_fy,ni_ttm,eq_fy,eq_mrq,scale_flag))
             con.commit()
         except Exception as e:
             en=type(e).__name__
@@ -152,7 +166,8 @@ async def report(store=False):
         for mkt in ("KOSPI","KOSDAQ"):
             a=agg[mkt]
             if not a["n"]: continue
-            con.execute("""INSERT INTO mkt_val_history VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            con.execute("""INSERT INTO mkt_val_history
+              (snap_dd,mkt,per_fy0,per_ttm,pbr_fy0,pbr_mrq,cap,ni_ttm,eq) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)
               ON CONFLICT (snap_dd,mkt) DO NOTHING""",
               (used, mkt,
                a["cap"]/a["ni_fy"] if a["ni_fy"] else None,

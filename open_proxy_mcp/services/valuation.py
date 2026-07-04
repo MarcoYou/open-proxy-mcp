@@ -18,6 +18,7 @@ from open_proxy_mcp.dart.client import get_dart_client, DartClientError
 from open_proxy_mcp.services.company import _company_id
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.dividend_v2 import _annual_summary
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
 
 _KRX_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
 _KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
@@ -88,11 +89,11 @@ async def _acntall(client, cc: str, year: int, rc: str) -> list:
         return []
 
 
-def _gid(rows, frag, sj):
-    for r in rows:
-        if r.get("sj_div") in sj and frag in (r.get("account_id") or "") and str(r.get("thstrm_amount") or "") != "":
-            return _num(r.get("thstrm_amount"))
-    return None
+def _gid(rows, account_id, sj, field="thstrm_amount"):
+    """account_id 정확일치(exact match) — substring 금지(260704 실측 사고: 접두어 충돌로
+    'ifrs-full_Liabilities'가 'ifrs-full_LiabilitiesIncludedIn...'에 오매칭될 수 있음)."""
+    v = gid_exact(rows, f"ifrs-full_{account_id}", sj, field)
+    return int(v) if v is not None else None
 
 
 async def _shares_outstanding(client, cc: str, year: int) -> dict:
@@ -146,6 +147,23 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     mk = await _market_for(stock_code) if stock_code else {}
     price = mk.get("price")
 
+    # ── 실시간 스케일 오류 가드 (소프트센 032680 사례, wiki §9) ──
+    # ①②는 "보고서 전체를 일괄 부풀린" 유형엔 무력함이 실사고 재검증으로 확인됨(당기·전기·재무제표
+    # 전 항목이 같이 틀리면 내부비교는 정상처럼 보임) → ③④(외부기준: 자릿수·시총 대조)가 최종
+    # 방어선으로 확인됐으나 4개 다 유지(①②는 "일부 항목만 실수" 유형엔 여전히 유효할 수 있음).
+    ni_fy_frmtrm = _gid(fy_rows, "ProfitLossAttributableToOwnersOfParent", ("CIS", "IS"), "frmtrm_amount")
+    assets_fy = _gid(fy_rows, "Assets", ("BS",))
+    liab_fy = _gid(fy_rows, "Liabilities", ("BS",))
+    # 항등식(자산=부채+자본)은 반드시 총자본(지배+비지배지분) 기준 — 지배자본(eq_fy)만 쓰면
+    # 비지배지분만큼 항상 어긋남(실측 발견: 삼성전자 비지배지분 12조 → 2.12% 오탐).
+    eq_total_fy = _gid(fy_rows, "Equity", ("BS",))
+    scale_verdict = scale_assess(
+        thstrm=ni_fy, frmtrm=ni_fy_frmtrm, assets=assets_fy, liabilities=liab_fy,
+        equity=eq_total_fy, mktcap=mk.get("common_mktcap"),
+    )
+    if scale_verdict["tier"] == "hard":
+        ni_fy = ni_ttm = eq_mrq = eq_fy = ctrl_equity = None
+
     # 주식수 sanity: DART 유통 > KRX 상장×3 = 파싱오류(LS에코 ×1e6) → 무효화 (우선주 감안 여유 ×3)
     list_shrs = mk.get("list_shrs")
     shares_bad = bool(list_shrs and shares_total and shares_total > list_shrs * 3)
@@ -184,6 +202,10 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
         warnings.append("⚠️ 배수 비정상 고값 — 재무 단위/스케일 오류 가능(예: 지배자본 과소). 원문 확인 요망.")
     if is_financial:
         warnings.append("금융사(매출 계정 없음) — EV/EBITDA·PSR·FCF·순차입 = N/A(범주 부적합). PBR·PER·배당·ROE 중심.")
+    if scale_verdict and scale_verdict["tier"] == "hard":
+        warnings.append(f"⚠️ DART 재무 단위(스케일) 오류 감지({scale_verdict['hard_hit']}) — 순이익·자본 N/M 처리. 원문 확인 요망.")
+    elif scale_verdict and scale_verdict["tier"] == "soft":
+        warnings.append(f"시총 대비 재무 비율 이상치({scale_verdict['soft_hit']}) — 값은 유지하되 확인 권장(원샷 이익/자산매각 등 가능).")
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
 

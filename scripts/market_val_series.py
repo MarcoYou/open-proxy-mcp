@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
 
 YEARS = [2020, 2021, 2022, 2023, 2024]
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_hist(
@@ -37,11 +38,9 @@ def num(v):
     try: return float(str(v).replace(",","")) if v not in (None,"","-") else None
     except: return None
 
-def gid(rows, frag, sj, field="thstrm_amount"):
-    for r in rows:
-        if r.get("sj_div") in sj and frag in (r.get("account_id") or "") and str(r.get(field) or "")!="":
-            return num(r.get(field))
-    return None
+def gid(rows, account_id, sj, field="thstrm_amount"):
+    """정확일치(exact) — substring(in) 금지(260704 실측: 접두어 충돌로 오탐 확인, wiki §9)."""
+    return gid_exact(rows, account_id, sj, field)
 
 def _pg():
     con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL)
@@ -99,9 +98,18 @@ async def fetch():
             fs="CFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(0.45)
             if not rows:
                 fs="OFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(0.45)
-            attr="ProfitLossAttributableToOwnersOfParent"; eqa="EquityAttributableToOwnersOfParent"
+            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"; eqa="ifrs-full_EquityAttributableToOwnersOfParent"
             ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
+            ni_frmtrm=gid(rows,attr,("CIS","IS"),"frmtrm_amount")
             eq=gid(rows,eqa,("BS",)) or gid(rows,"ifrs-full_Equity",("BS",))
+            # 실시간 스케일 가드(소프트센 032680 사례, wiki §9) — mktcap은 이 배치엔 없어 ①②③만 적용.
+            # 항등식은 총자본(지배+비지배) 기준 — eq(지배자본)와 별도로 조회 필요.
+            assets=gid(rows,"ifrs-full_Assets",("BS",)); liab=gid(rows,"ifrs-full_Liabilities",("BS",))
+            eq_total=gid(rows,"ifrs-full_Equity",("BS",))
+            verdict=scale_assess(thstrm=ni, frmtrm=ni_frmtrm, assets=assets, liabilities=liab, equity=eq_total)
+            if verdict["tier"]=="hard":
+                print(f"[가드] {isu} FY{yr} 스케일오류 감지({verdict['hard_hit']}) — ni/eq 무효화",flush=True)
+                ni=eq=None
             st="ok" if (ni is not None or eq is not None) else "nodata"
             buf.append((isu,yr,fs,ni,eq,None,None,st))
             if len(buf)>=25: _flush(buf)
@@ -142,7 +150,7 @@ async def backfill_restated():
             d=await c.get_fnltt_singl_acnt_all(cc,"2024","11011",fs)
             rows=(d.get("list") or []) if isinstance(d,dict) else []
             await asyncio.sleep(0.45)
-            attr="ProfitLossAttributableToOwnersOfParent"; eqa="EquityAttributableToOwnersOfParent"
+            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"; eqa="ifrs-full_EquityAttributableToOwnersOfParent"
             for fy_off,field in ((2023,"frmtrm_amount"),(2022,"bfefrmtrm_amount")):
                 ni_r=gid(rows,attr,("CIS","IS"),field) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"),field)
                 eq_r=gid(rows,eqa,("BS",),field) or gid(rows,"ifrs-full_Equity",("BS",),field)
