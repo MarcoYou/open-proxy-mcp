@@ -18,7 +18,7 @@ from open_proxy_mcp.dart.client import get_dart_client, DartClientError
 from open_proxy_mcp.services.company import _company_id
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.dividend_v2 import _annual_summary
-from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 
 _KRX_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
 _KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
@@ -159,7 +159,7 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     eq_total_fy = _gid(fy_rows, "Equity", ("BS",))
     scale_verdict = scale_assess(
         thstrm=ni_fy, frmtrm=ni_fy_frmtrm, assets=assets_fy, liabilities=liab_fy,
-        equity=eq_total_fy, mktcap=mk.get("common_mktcap"),
+        equity=eq_total_fy, mktcap=mk.get("common_mktcap"), market_max=MARKET_MAX_NI_ANCHOR,
     )
     if scale_verdict["tier"] == "hard":
         ni_fy = ni_ttm = eq_mrq = eq_fy = ctrl_equity = None

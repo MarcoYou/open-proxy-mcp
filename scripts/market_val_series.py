@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
-from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 
 YEARS = [2020, 2021, 2022, 2023, 2024]
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_hist(
@@ -81,6 +81,10 @@ async def fetch():
     buf=[]
     firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
     done={(r[0],r[1]) for r in con.execute("SELECT isu_cd, fy FROM mkt_fund_hist")}
+    # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — mkt_fund_hist DB값으로 동적
+    # 확장 금지: 이 테이블엔 이미 소프트센 오염값(1.07×10^16)이 남아있어(구버전 fetch, 가드 신설
+    # 전 수집) MAX()로 앵커를 잡으면 오염값이 그대로 앵커가 되어 가드가 무력화되는 자기오염 실측 확인.
+    market_max_ni = MARKET_MAX_NI_ANCHOR
     con.close()  # 이후 쓰기는 _flush(fresh conn)만 사용
     todo=[(i,c,y) for i,c in firms for y in YEARS if (i,y) not in done]
     print(f"대상 {len(firms)}사 × {len(YEARS)}년 · 남은 {len(todo)}건",flush=True)

@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import httpx, psycopg
-from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 
 FY = 2025
 def latest_trading_day():
@@ -61,6 +61,10 @@ async def fetch():
     listings,kinds=await krx_snapshot()
     commons=[(c,v) for c,v in listings.items() if kinds.get(c)=="보통주"]
     print(f"전 상장 {len(listings)} · 보통주 {len(commons)} · 기수집 {len(done)}",flush=True)
+    # 시장 내 실측 최댓값(scale_guard.MARKET_MAX_NI_ANCHOR=삼성전자) — 회사규모 안 가리고 작동.
+    # DB 현재값과 큰 쪽 사용하되 scale_flag 있는(이미 이상치로 걸린) 행은 제외해 자기오염 방지.
+    db_max = con.execute("SELECT MAX(ni_fy) FROM mkt_fundamentals WHERE fetched='ok' AND scale_flag IS NULL").fetchone()[0]
+    market_max_ni = max(MARKET_MAX_NI_ANCHOR, db_max or 0)
     c=get_dart_client(); i=fail=0
     async def acnt(cc,yr,rc,fs):
         try:
@@ -94,7 +98,7 @@ async def fetch():
             assets_fy=gid(fyr,"ifrs-full_Assets",("BS",)); liab_fy=gid(fyr,"ifrs-full_Liabilities",("BS",))
             eq_total_fy=gid(fyr,"ifrs-full_Equity",("BS",))
             verdict=scale_assess(thstrm=ni_fy, frmtrm=ni_fy_frmtrm, assets=assets_fy, liabilities=liab_fy,
-                                  equity=eq_total_fy, mktcap=v["cap"])
+                                  equity=eq_total_fy, mktcap=v["cap"], market_max=market_max_ni)
             scale_flag = ",".join(verdict["hard_hit"]) if verdict["tier"]=="hard" else (
                 ",".join(verdict["soft_hit"]) if verdict["tier"]=="soft" else None)
             if verdict["tier"]=="hard":
