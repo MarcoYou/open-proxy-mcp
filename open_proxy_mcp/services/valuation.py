@@ -214,6 +214,111 @@ async def _market_for(stock_code: str) -> dict:
     return {}
 
 
+# ── 시장·산업·종목 히스토리 스코프 — 주간 스냅샷 테이블(DB-first, market_val_weekly.py가 갱신) ──
+# mkt_val_history(시장) · mkt_sector_val(KSIC 섹터) · mkt_valuation(종목별). PER/PBR·시총 시계열은
+# 시총 기반이라 **수정주가 조정에 불변**(시총=주가×주식수, 분할·무상증자에 양쪽이 상쇄) — 조정 불필요.
+# 주당 가격·EPS 시계열을 노출하게 되면 그때 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수(wiki 수정주가).
+
+
+def _pg_rows(sql: str, params: tuple = ()) -> list[tuple]:
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return []
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=8) as c:
+            return c.execute(sql, params).fetchall()
+    except Exception:
+        return []
+
+
+async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
+    """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(mkt_val_history)."""
+    rows = await asyncio.to_thread(_pg_rows,
+        "SELECT snap_dd, mkt, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq "
+        "FROM mkt_val_history ORDER BY snap_dd DESC, mkt")
+    if not rows:
+        return {"tool": "valuation", "status": "no_data", "subject": "시장 밸류에이션",
+                "warnings": ["mkt_val_history 비어있음 — market_val_weekly 배치 미실행."]}
+    hist = [{"snap_dd": r[0], "mkt": r[1],
+             "per_fy0": r[2] and round(r[2], 2), "per_ttm": r[3] and round(r[3], 2),
+             "pbr_fy0": r[4] and round(r[4], 2), "pbr_mrq": r[5] and round(r[5], 2),
+             "cap_krw": r[6], "ni_ttm_krw": r[7], "eq_krw": r[8]} for r in rows]
+    latest_dd = hist[0]["snap_dd"]
+    return {"tool": "valuation", "status": "ok", "subject": "시장 밸류에이션(KOSPI·KOSDAQ)",
+            "data": {"scope": "market", "as_of": latest_dd,
+                     "latest": [h for h in hist if h["snap_dd"] == latest_dd],
+                     "history": hist,
+                     "method": "시총가중(Σ시총÷Σ지배순이익/자본) · 재무 FY0/TTM/MRQ · 주간 스냅샷"},
+            "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — market_val_weekly가 갱신."]}
+
+
+async def build_sector_val_payload(company: str = "", format: str = "md") -> dict[str, Any]:
+    """산업(KSIC 하이브리드)별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(mkt_sector_val).
+    company 지정 시 그 기업의 섹터를 함께 표시."""
+    rows = await asyncio.to_thread(_pg_rows,
+        "SELECT snap_dd, mkt, sector, label, n, cap, per_ttm, pbr_mrq FROM mkt_sector_val "
+        "WHERE snap_dd=(SELECT MAX(snap_dd) FROM mkt_sector_val) ORDER BY mkt, cap DESC")
+    if not rows:
+        return {"tool": "valuation", "status": "no_data", "subject": "산업별 밸류에이션",
+                "warnings": ["mkt_sector_val 비어있음 — market_val_weekly 배치 미실행."]}
+    as_of = rows[0][0]
+    sectors = [{"mkt": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
+                "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2)}
+               for r in rows]
+    company_ctx = None
+    warnings = [f"주간 스냅샷 기준(최신 {as_of}) · 분류=KSIC 하이브리드(opm_sector_map)."]
+    if company.strip():
+        corp = await get_dart_client().lookup_corp_code(company.strip())
+        isu = (corp or {}).get("stock_code")
+        if isu:
+            fr = await asyncio.to_thread(_pg_rows,
+                "SELECT v.sector, v.mkt, v.per_ttm, v.pbr_mrq, s.label, s.per_ttm, s.pbr_mrq "
+                "FROM mkt_valuation v LEFT JOIN mkt_sector_val s "
+                "ON s.snap_dd=v.snap_dd AND s.mkt=v.mkt AND s.sector=v.sector "
+                "WHERE v.isu_cd=%s AND v.snap_dd=%s", (isu, as_of))
+            if fr:
+                sec, mkt, pt, pb, lbl, spt, spb = fr[0]
+                company_ctx = {"name": corp.get("corp_name"), "isu_cd": isu, "mkt": mkt,
+                               "sector": sec, "sector_label": lbl,
+                               "firm_per_ttm": pt and round(pt, 2), "firm_pbr_mrq": pb and round(pb, 2),
+                               "sector_per_ttm": spt and round(spt, 2), "sector_pbr_mrq": spb and round(spb, 2)}
+            else:
+                warnings.append(f"'{company}' 종목 스냅샷 없음(비상장·미수집).")
+    return {"tool": "valuation", "status": "ok", "subject": "산업별 밸류에이션",
+            "data": {"scope": "sector", "as_of": as_of, "sectors": sectors,
+                     "company": company_ctx},
+            "warnings": warnings}
+
+
+async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
+    """종목별 밸류에이션 주간 히스토리(mkt_valuation) — PER/PBR/시총 시계열(수정주가 조정 불변)."""
+    query = (company or "").strip()
+    if not query:
+        return {"tool": "valuation", "status": "invalid", "subject": company,
+                "warnings": ["회사명 또는 종목코드(6자리)를 입력하세요."]}
+    corp = await get_dart_client().lookup_corp_code(query)
+    if not corp or not corp.get("stock_code"):
+        return {"tool": "valuation", "status": "not_found" if not corp else "unlisted",
+                "subject": query, "warnings": [f"'{company}' 상장 종목을 찾지 못함."]}
+    isu = corp["stock_code"]
+    rows = await asyncio.to_thread(_pg_rows,
+        "SELECT snap_dd, mkt, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
+        "FROM mkt_valuation WHERE isu_cd=%s ORDER BY snap_dd", (isu,))
+    if not rows:
+        return {"tool": "valuation", "status": "no_data", "subject": corp.get("corp_name", query),
+                "warnings": ["종목 스냅샷 없음 — market_val_weekly 배치 미실행 또는 미수집 종목."]}
+    hist = [{"snap_dd": r[0], "cap_krw": r[3],
+             "per_fy0": r[4] and round(r[4], 2), "per_ttm": r[5] and round(r[5], 2),
+             "pbr_fy0": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2)} for r in rows]
+    return {"tool": "valuation", "status": "ok", "subject": corp.get("corp_name", query),
+            "data": {"scope": "firm_history", "isu_cd": isu, "mkt": rows[-1][1],
+                     "sector": rows[-1][2], "history": hist,
+                     "method": "주간 스냅샷 · PER=시총(우선주 귀속)÷지배순이익 — 시총 기반이라 수정주가 조정 불변"},
+            "warnings": [f"주간 스냅샷 {len(hist)}개(최신 {hist[-1]['snap_dd']}). "
+                         "정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용."]}
+
+
 async def _acntall(client, cc: str, year: int, rc: str, fs: str | None = None) -> tuple[list, str | None]:
     """fs 지정 시 그 기준만, 미지정 시 CFS(연결)→OFS(별도) 폴백 후 성공한 기준을 함께 반환.
     260704 실측: 카카오뱅크·코스모신소재는 FY2025 연결이 없고 별도만 있어(연결대상 없음) CFS만
