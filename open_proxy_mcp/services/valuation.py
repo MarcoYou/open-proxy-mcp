@@ -45,25 +45,23 @@ def _price_dates() -> list[str]:
     return [(today - timedelta(days=i)).strftime("%Y%m%d") for i in range(12)]
 
 
-# KRX 시세는 Supabase에 **주간(주의 마지막 거래일)만 영구 누적** — 일별 전량 누적은 무료티어 초과.
+# KRX 시세 = 기존 검증 자산 **krx_weekly**(주별 최종거래일 전종목, 2015-12~, 원장 대조 불일치 0,
+# 수정주가 파이프라인과 공유)에서 서빙 — 별도 테이블 신설 금지(260705 krx_weekly_px 중복 생성 → 폐기).
 # 라이브 KRX는 개인키 1개·일 10,000콜 한도(배치와 공유)라 유저마다 못 씀. FX 캐시와 동형:
-#  · 매일 최신 거래일 스냅샷을 불러와 '그 주(ISO week)' 슬롯에 덮어쓰며 갱신 → 서빙엔 전날 종가까지 표시
-#  · 주중 일별은 다음 거래일에 덮여 사라지고, 주가 바뀌면 그 주 슬롯은 '주 마지막 거래일'값으로 굳어 영구 보존
-#  → 주당 스냅샷 1개(연 ~52개)로 bounded. 축적 주간가격은 v1.1 5년밴드·PIT 시계열에 재사용.
+#  · 매일 최신 거래일 스냅샷을 불러와 '그 ISO주' 슬롯에 수렴(같은 주 옛 bas_dd 삭제 후 insert, 트랜잭션)
+#    → 서빙엔 전날 종가까지 표시, 주중 일별은 덮여 사라지고 주 마지막 거래일만 남음(연 ~52스냅샷 bounded)
+#  · 이 daily-refresh가 krx_weekly의 주기 갱신자 역할도 겸함(수정주가 파이프라인 신선도 유지).
 # price_date로 기준일 투명 노출(며칠 전 종가여도 날짜 명시 → 사용자 판단).
 _KRX_CACHE: dict[str, dict[str, dict]] = {}  # basDd → 전종목 (프로세스 인메모리, 라이브 fetch용)
-_KRX_STATE: dict[str, str] = {}              # {"day": 오늘, "latest_wk": 서빙할 ISO주}
-_KRX_DDL = (
-    "CREATE TABLE IF NOT EXISTS krx_weekly_px("
-    "iso_wk text, bas_dd text, isu_cd text, mkt text, close bigint, mktcap bigint, "
-    "list_shrs bigint, PRIMARY KEY(iso_wk, isu_cd))")
+_KRX_STATE: dict[str, str] = {}              # {"day": 오늘, "latest_dd": 서빙할 최신 bas_dd}
 
 
-def _iso_wk(bas_dd: str) -> str:
-    """YYYYMMDD → 'YYYYWww' (ISO 주). 같은 주는 같은 슬롯 → 주중 갱신이 마지막 거래일로 수렴."""
-    from datetime import date
-    y, w, _ = date(int(bas_dd[:4]), int(bas_dd[4:6]), int(bas_dd[6:8])).isocalendar()
-    return f"{y}W{w:02d}"
+def _iso_wk_range(bas_dd: str) -> tuple[str, str]:
+    """YYYYMMDD가 속한 ISO주의 (월요일, 일요일) YYYYMMDD — 같은 주 옛 스냅샷 수렴 삭제용."""
+    from datetime import date, timedelta
+    d = date(int(bas_dd[:4]), int(bas_dd[4:6]), int(bas_dd[6:8]))
+    mon = d - timedelta(days=d.isoweekday() - 1)
+    return mon.strftime("%Y%m%d"), (mon + timedelta(days=6)).strftime("%Y%m%d")
 
 
 def _krx_db_latest_dd() -> str | None:
@@ -73,54 +71,57 @@ def _krx_db_latest_dd() -> str | None:
     try:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
-            c.execute(_KRX_DDL)
-            r = c.execute("SELECT MAX(bas_dd) FROM krx_weekly_px").fetchone()
+            r = c.execute("SELECT MAX(bas_dd) FROM krx_weekly").fetchone()
             return r[0] if r and r[0] else None
     except Exception:
         return None
 
 
-def _krx_db_get(iso_wk: str, isu_cd: str) -> dict:
+def _krx_db_get(bas_dd: str, isu_cd: str) -> dict:
     url = os.getenv("DATABASE_URL")
     if not url:
         return {}
     try:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
-            r = c.execute("SELECT bas_dd, close, mktcap, list_shrs FROM krx_weekly_px "
-                          "WHERE iso_wk=%s AND isu_cd=%s", (iso_wk, isu_cd)).fetchone()
-            if r and r[1]:
-                return {"price": r[1], "date": r[0], "common_mktcap": r[2], "list_shrs": r[3]}
+            r = c.execute("SELECT close, mktcap, list_shrs FROM krx_weekly "
+                          "WHERE bas_dd=%s AND isu_cd=%s", (bas_dd, isu_cd)).fetchone()
+            if r and r[0]:
+                return {"price": r[0], "date": bas_dd, "common_mktcap": r[1], "list_shrs": r[2]}
     except Exception:
         return {}
     return {}
 
 
-def _krx_db_upsert(iso_wk: str, bas_dd: str, rows: list) -> None:
-    """전종목 스냅샷을 '그 주' 슬롯에 덮어쓰기 — 주중 매일 갱신 → 주 마지막 거래일로 수렴(영구 보존).
-    컬럼명 명시(위치의존 금지, CLAUDE.md 원칙)."""
+def _krx_db_upsert(bas_dd: str, kospi: list, kosdaq: list) -> None:
+    """전종목 스냅샷을 krx_weekly에 기록 + 같은 ISO주의 옛 bas_dd 삭제(수렴) — 한 트랜잭션.
+    → 주중엔 '주 내 최신 거래일' 1개, 주 마감 후엔 '주별 최종거래일'로 굳음(기존 의미 보존).
+    mkt는 endpoint 기준 태깅(KOSPI/KOSDAQ — 기존 값 형식과 일치). 컬럼명 명시(위치의존 금지)."""
     url = os.getenv("DATABASE_URL")
-    if not url or not rows:
+    if not url or not (kospi or kosdaq):
         return
     recs = []
-    for row in rows:
-        isu = row.get("ISU_CD")
-        if not isu:
-            continue
-        recs.append((iso_wk, bas_dd, isu, row.get("MKT_ID") or row.get("MKT_NM") or "",
-                     _num(row.get("TDD_CLSPRC")), _num(row.get("MKTCAP")), _num(row.get("LIST_SHRS"))))
+    for mkt, rows in (("KOSPI", kospi), ("KOSDAQ", kosdaq)):
+        for row in rows:
+            isu = row.get("ISU_CD")
+            if not isu:
+                continue
+            recs.append((bas_dd, isu, mkt, _num(row.get("TDD_CLSPRC")),
+                         _num(row.get("MKTCAP")), _num(row.get("LIST_SHRS"))))
     if not recs:
         return
+    wk_start, wk_end = _iso_wk_range(bas_dd)
     try:
         import psycopg
-        with psycopg.connect(url, connect_timeout=20) as c:
-            c.execute(_KRX_DDL)
+        with psycopg.connect(url, connect_timeout=20) as c:  # 단일 트랜잭션 — 삭제·삽입 원자성
             with c.cursor() as cur:
+                cur.execute("DELETE FROM krx_weekly WHERE bas_dd >= %s AND bas_dd <= %s "
+                            "AND bas_dd != %s", (wk_start, wk_end, bas_dd))
                 cur.executemany(
-                    "INSERT INTO krx_weekly_px(iso_wk, bas_dd, isu_cd, mkt, close, mktcap, list_shrs) "
-                    "VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (iso_wk, isu_cd) DO UPDATE SET "
-                    "bas_dd=EXCLUDED.bas_dd, mkt=EXCLUDED.mkt, close=EXCLUDED.close, "
-                    "mktcap=EXCLUDED.mktcap, list_shrs=EXCLUDED.list_shrs", recs)
+                    "INSERT INTO krx_weekly(bas_dd, isu_cd, mkt, close, mktcap, list_shrs) "
+                    "VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT (bas_dd, isu_cd) DO UPDATE SET "
+                    "mkt=EXCLUDED.mkt, close=EXCLUDED.close, mktcap=EXCLUDED.mktcap, "
+                    "list_shrs=EXCLUDED.list_shrs", recs)
             c.commit()
     except Exception:
         pass
@@ -152,6 +153,7 @@ async def _krx_market_live(basDd: str) -> dict[str, dict]:
             out[row.get("ISU_CD")] = row  # bydd_trd ISU_CD = 단축코드
     if out:
         _KRX_CACHE[basDd] = out
+        _KRX_CACHE[basDd + ":split"] = {"KOSPI": kospi, "KOSDAQ": kosdaq}  # 시장별(krx_weekly 태깅용)
     return out
 
 
@@ -165,30 +167,31 @@ async def _fetch_live_snapshot() -> tuple[str | None, dict[str, dict]]:
 
 
 async def _ensure_krx_fresh() -> str | None:
-    """하루 1회(프로세스): 최신 거래일 스냅샷을 '그 주' 슬롯에 덮어써 갱신. 반환 = 서빙할 ISO주.
+    """하루 1회(프로세스): 최신 거래일 스냅샷으로 krx_weekly 갱신(같은 ISO주 수렴). 반환 = 서빙할 bas_dd.
     매일 갱신(전날 종가까지 표시)하되 주중 일별은 덮여 사라지고 주 마지막 거래일만 영구 보존."""
     from datetime import date
     today = date.today().strftime("%Y%m%d")
-    if _KRX_STATE.get("day") == today and _KRX_STATE.get("latest_wk"):
-        return _KRX_STATE["latest_wk"] or None
+    if _KRX_STATE.get("day") == today and _KRX_STATE.get("latest_dd"):
+        return _KRX_STATE["latest_dd"] or None
     db_latest = await asyncio.to_thread(_krx_db_latest_dd)
-    latest_wk = _iso_wk(db_latest) if db_latest else None
     if db_latest is None or db_latest < today:   # 오늘분 아직 시도 안 함 → 라이브 확인·갱신
         dd, snap = await _fetch_live_snapshot()
         if snap and dd:
-            latest_wk = _iso_wk(dd)
-            if dd != db_latest:                  # 새 거래일 → 그 주 슬롯 갱신(같은 주면 수렴, 새 주면 신규)
-                await asyncio.to_thread(_krx_db_upsert, latest_wk, dd, list(snap.values()))
-    _KRX_STATE.update(day=today, latest_wk=latest_wk or "")
-    return latest_wk
+            if dd != db_latest:                  # 새 거래일 → 그 주 슬롯 수렴 기록
+                split = _KRX_CACHE.get(dd + ":split") or {}
+                await asyncio.to_thread(_krx_db_upsert, dd,
+                                        split.get("KOSPI") or [], split.get("KOSDAQ") or [])
+            db_latest = dd
+    _KRX_STATE.update(day=today, latest_dd=db_latest or "")
+    return db_latest
 
 
 async def _market_for(stock_code: str) -> dict:
-    """보통주 종가·시총·상장주식수 — krx_weekly_px(DB) 우선, 라이브 KRX fallback. price_date로 기준일 노출.
-    우선주 총시총 합산은 v1.1 — v1은 배수에 시총 미사용, 보통주 시총만 정보성 노출."""
-    latest_wk = await _ensure_krx_fresh()
-    if latest_wk:
-        row = await asyncio.to_thread(_krx_db_get, latest_wk, stock_code)
+    """보통주 종가·시총·상장주식수 — krx_weekly(DB, 검증 자산) 우선, 라이브 KRX fallback.
+    price_date로 기준일 노출. 우선주 총시총 합산은 v1.1 — v1은 배수에 시총 미사용, 보통주 시총만 정보성."""
+    latest_dd = await _ensure_krx_fresh()
+    if latest_dd:
+        row = await asyncio.to_thread(_krx_db_get, latest_dd, stock_code)
         if row.get("price"):
             return row
     # DB 미스(최신 스냅샷에 아직 없는 신규상장·정지 해제 등) → 라이브 단발 fallback
