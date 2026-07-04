@@ -177,11 +177,21 @@ async def _ensure_krx_fresh() -> str | None:
     if db_latest is None or db_latest < today:   # 오늘분 아직 시도 안 함 → 라이브 확인·갱신
         dd, snap = await _fetch_live_snapshot()
         if snap and dd:
-            if dd != db_latest:                  # 새 거래일 → 그 주 슬롯 수렴 기록
+            # 전진(dd > db_latest)일 때만 기록 — KRX API가 이미 저장된 거래일 데이터를 일시 소실하면
+            # (260703 실측: 금요일 데이터가 이틀째 0행) 스캔이 전일을 잡는데, != 조건이면 저장된
+            # 금요일을 지우고 목요일로 롤백해버림(QA WARN-1). 과거로는 절대 되돌리지 않는다.
+            if db_latest is None or dd > db_latest:
                 split = _KRX_CACHE.get(dd + ":split") or {}
-                await asyncio.to_thread(_krx_db_upsert, dd,
-                                        split.get("KOSPI") or [], split.get("KOSDAQ") or [])
-            db_latest = dd
+                kospi, kosdaq = split.get("KOSPI") or [], split.get("KOSDAQ") or []
+                if kospi and kosdaq:             # 두 시장 모두 있을 때만 — 반쪽 스냅샷으로 덮기 금지(QA WARN-2)
+                    await asyncio.to_thread(_krx_db_upsert, dd, kospi, kosdaq)
+                    db_latest = dd
+                else:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "KRX 스냅샷 반쪽(KOSPI %d/KOSDAQ %d) — krx_weekly 기록 스킵", len(kospi), len(kosdaq))
+            else:
+                db_latest = max(db_latest, dd)   # dd ≤ db_latest: 저장분이 이미 최신 — 그대로 서빙
     _KRX_STATE.update(day=today, latest_dd=db_latest or "")
     return db_latest
 
