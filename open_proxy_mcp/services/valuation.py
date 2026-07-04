@@ -45,12 +45,79 @@ def _price_dates() -> list[str]:
     return [(today - timedelta(days=i)).strftime("%Y%m%d") for i in range(12)]
 
 
-_KRX_CACHE: dict[str, dict[str, dict]] = {}  # basDd → 전종목 스냅샷 (프로세스 캐시)
+# KRX 시세는 Supabase krx_daily(일별 누적)에서 서빙 — 라이브 KRX는 개인키 1개·일 10,000콜 한도
+# (배치와 공유)라 유저마다 못 씀. FX 캐시와 동형: 매일 최신 거래일 스냅샷을 불러와 갱신하되 확정
+# 거래일은 keep해 DB에 누적(→ v1.1 5년밴드·PIT 시계열에도 재사용). price_date로 기준일 투명 노출.
+_KRX_CACHE: dict[str, dict[str, dict]] = {}  # basDd → 전종목 (프로세스 인메모리, 라이브 fetch용)
+_KRX_STATE: dict[str, str] = {}              # {"day": 오늘, "latest_dd": 서빙할 최신 거래일}
+_KRX_DAILY_DDL = (
+    "CREATE TABLE IF NOT EXISTS krx_daily("
+    "bas_dd text, isu_cd text, mkt text, close bigint, mktcap bigint, list_shrs bigint, "
+    "PRIMARY KEY(bas_dd, isu_cd))")
 
 
-async def _krx_market(basDd: str) -> dict[str, dict]:
-    """KRX 전종목(코스피+코스닥) 일별매매 → {단축코드: row}. 2시장 병렬 + basDd별 캐시.
-    같은 날 스냅샷은 모든 종목이 공유 — 서버가 여러 종목 조회 시 재fetch 방지(전종목 콜 절약)."""
+def _krx_db_latest_dd() -> str | None:
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return None
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=8) as c:
+            c.execute(_KRX_DAILY_DDL)
+            r = c.execute("SELECT MAX(bas_dd) FROM krx_daily").fetchone()
+            return r[0] if r and r[0] else None
+    except Exception:
+        return None
+
+
+def _krx_db_get(bas_dd: str, isu_cd: str) -> dict:
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return {}
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=8) as c:
+            r = c.execute("SELECT close, mktcap, list_shrs FROM krx_daily "
+                          "WHERE bas_dd=%s AND isu_cd=%s", (bas_dd, isu_cd)).fetchone()
+            if r and r[0]:
+                return {"price": r[0], "date": bas_dd, "common_mktcap": r[1], "list_shrs": r[2]}
+    except Exception:
+        return {}
+    return {}
+
+
+def _krx_db_upsert(bas_dd: str, rows: list) -> None:
+    """전종목 스냅샷을 krx_daily에 누적 — 컬럼명 명시(위치의존 금지, CLAUDE.md 원칙)."""
+    url = os.getenv("DATABASE_URL")
+    if not url or not rows:
+        return
+    recs = []
+    for row in rows:
+        isu = row.get("ISU_CD")
+        if not isu:
+            continue
+        recs.append((bas_dd, isu, row.get("MKT_ID") or row.get("MKT_NM") or "",
+                     _num(row.get("TDD_CLSPRC")), _num(row.get("MKTCAP")), _num(row.get("LIST_SHRS"))))
+    if not recs:
+        return
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=20) as c:
+            c.execute(_KRX_DAILY_DDL)
+            with c.cursor() as cur:
+                cur.executemany(
+                    "INSERT INTO krx_daily(bas_dd, isu_cd, mkt, close, mktcap, list_shrs) "
+                    "VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT (bas_dd, isu_cd) DO UPDATE SET "
+                    "mkt=EXCLUDED.mkt, close=EXCLUDED.close, mktcap=EXCLUDED.mktcap, "
+                    "list_shrs=EXCLUDED.list_shrs", recs)
+            c.commit()
+    except Exception:
+        pass
+
+
+async def _krx_market_live(basDd: str) -> dict[str, dict]:
+    """KRX 전종목(코스피+코스닥) 라이브 fetch → {단축코드: row}. 2시장 병렬 + basDd 인메모리 캐시.
+    ⚠ 개인키 한도 때문에 서빙은 krx_daily(DB) 우선 — 이 경로는 하루 1회 스냅샷 확보·DB미스 fallback만."""
     if basDd in _KRX_CACHE:
         return _KRX_CACHE[basDd]
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
@@ -72,28 +139,55 @@ async def _krx_market(basDd: str) -> dict[str, dict]:
     for rows in (kospi, kosdaq):
         for row in rows:
             out[row.get("ISU_CD")] = row  # bydd_trd ISU_CD = 단축코드
-    if out:  # 빈 응답(휴장일·미settle·오류)은 캐시 안 함 — 다음 조회에서 재시도 여지
+    if out:
         _KRX_CACHE[basDd] = out
     return out
 
 
-async def _market_for(stock_code: str) -> dict:
-    """보통주 종가·총시총(우선주 합산)·상장주식수. 최근 거래일 fallback."""
+async def _fetch_live_snapshot() -> tuple[str | None, dict[str, dict]]:
+    """최근 거래일 전종목 스냅샷(첫 데이터 있는 날). 주말·휴장이면 직전 거래일."""
     for d in _price_dates():
-        mkt = await _krx_market(d)
-        base = mkt.get(stock_code)
-        if not base:
-            continue
-        price = _num(base.get("TDD_CLSPRC"))
-        if not price:  # 거래정지·기준일 데이터 없음 → 다음 후보일
-            continue
-        # 우선주 총시총 합산은 v1.1 (종목명 접두 매칭이 단명 발행사에서 오합산 — 패널 지적).
-        # v1은 배수에 시총 미사용 → 보통주 시총만 정보성으로 노출.
-        return {
-            "price": price, "date": d,
-            "common_mktcap": _num(base.get("MKTCAP")),
-            "list_shrs": _num(base.get("LIST_SHRS")),
-        }
+        snap = await _krx_market_live(d)
+        if any(_num(r.get("TDD_CLSPRC")) for r in snap.values()):
+            return d, snap
+    return None, {}
+
+
+async def _ensure_krx_fresh() -> str | None:
+    """하루 1회(프로세스): krx_daily에 최신 거래일 스냅샷 확보. 반환 = 서빙할 최신 bas_dd.
+    매일 '오늘' 최신을 불러와 갱신하되 확정 거래일은 keep해 누적. 주말·휴장이면 라이브가 직전
+    거래일을 반환 → 이미 저장돼 있으면 재저장 없이 그대로 서빙(=keep)."""
+    from datetime import date
+    today = date.today().strftime("%Y%m%d")
+    if _KRX_STATE.get("day") == today and _KRX_STATE.get("latest_dd"):
+        return _KRX_STATE["latest_dd"] or None
+    db_latest = await asyncio.to_thread(_krx_db_latest_dd)
+    if db_latest is None or db_latest < today:  # 오늘분 아직 시도 안 함 → 라이브 확인
+        dd, snap = await _fetch_live_snapshot()
+        if snap and dd and dd != db_latest:      # 새 거래일만 누적 저장(주말 재fetch는 기존 keep)
+            await asyncio.to_thread(_krx_db_upsert, dd, list(snap.values()))
+            db_latest = dd
+        elif dd:
+            db_latest = dd                        # 이미 최신(주말·휴장) — 저장분 그대로 서빙
+    _KRX_STATE.update(day=today, latest_dd=db_latest or "")
+    return db_latest
+
+
+async def _market_for(stock_code: str) -> dict:
+    """보통주 종가·시총·상장주식수 — krx_daily(DB) 우선, 라이브 KRX fallback. price_date로 기준일 노출.
+    우선주 총시총 합산은 v1.1 — v1은 배수에 시총 미사용, 보통주 시총만 정보성 노출."""
+    latest_dd = await _ensure_krx_fresh()
+    if latest_dd:
+        row = await asyncio.to_thread(_krx_db_get, latest_dd, stock_code)
+        if row.get("price"):
+            return row
+    # DB 미스(최신 스냅샷에 아직 없는 신규상장·정지 해제 등) → 라이브 단발 fallback
+    for d in _price_dates():
+        snap = await _krx_market_live(d)
+        base = snap.get(stock_code)
+        if base and _num(base.get("TDD_CLSPRC")):
+            return {"price": _num(base.get("TDD_CLSPRC")), "date": d,
+                    "common_mktcap": _num(base.get("MKTCAP")), "list_shrs": _num(base.get("LIST_SHRS"))}
     return {}
 
 
