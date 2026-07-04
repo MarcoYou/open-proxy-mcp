@@ -102,6 +102,21 @@ def series():
         fin[(isu,fy)]=(ni,eq)
     for isu,ni,eq in con.execute("SELECT isu_cd,ni_fy,eq_fy FROM mkt_fundamentals WHERE fetched='ok'"):
         fin[(isu,2025)]=(ni,eq)
+
+    # 스케일 오류 가드(소프트센류 acntAll 단위 폭주): KOSDAQ 종목의 ni/eq가 50조 초과면
+    # 자릿수 오류로 간주해 무효화(KOSPI 대기업은 실제로 100조 넘으므로 KOSDAQ만 적용).
+    kosdaq_isu = {r[0] for r in con.execute(
+        "SELECT isu_cd FROM mkt_fundamentals WHERE mkt='KOSDAQ'")}
+    SCALE_CAP = 50e12
+    dropped = []
+    for k in list(fin):
+        isu, fy = k
+        ni, eq = fin[k]
+        if isu in kosdaq_isu and ((ni is not None and abs(ni) > SCALE_CAP) or
+                                    (eq is not None and abs(eq) > SCALE_CAP)):
+            dropped.append(k); del fin[k]
+    if dropped:
+        print(f"[가드] KOSDAQ 스케일오류 제외: {dropped}")
     print(f"{'분기말':>9} {'시장':>7} {'PIT_FY':>6} {'PER':>7} {'PBR':>6} {'커버시총%':>7}")
     for d in qdates:
         y,m=int(d[:4]),int(d[4:6])
