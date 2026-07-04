@@ -81,12 +81,19 @@ async def _market_for(stock_code: str) -> dict:
     return {}
 
 
-async def _acntall(client, cc: str, year: int, rc: str) -> list:
-    try:
-        d = await client.get_fnltt_singl_acnt_all(cc, str(year), rc, "CFS")
-        return (d.get("list", d) if isinstance(d, dict) else d) or []
-    except DartClientError:
-        return []
+async def _acntall(client, cc: str, year: int, rc: str, fs: str | None = None) -> tuple[list, str | None]:
+    """fs 지정 시 그 기준만, 미지정 시 CFS(연결)→OFS(별도) 폴백 후 성공한 기준을 함께 반환.
+    260704 실측: 카카오뱅크·코스모신소재는 FY2025 연결이 없고 별도만 있어(연결대상 없음) CFS만
+    시도하면 전 지표가 N/M. TTM은 연간·분기를 같은 기준으로 맞춰야 정합(연결/별도 혼용 방지)."""
+    for cand in ((fs,) if fs else ("CFS", "OFS")):
+        try:
+            d = await client.get_fnltt_singl_acnt_all(cc, str(year), rc, cand)
+            rows = (d.get("list", d) if isinstance(d, dict) else d) or []
+            if rows:
+                return rows, cand
+        except DartClientError:
+            continue
+    return [], None
 
 
 def _gid(rows, account_id, sj, field="thstrm_amount"):
@@ -94,6 +101,34 @@ def _gid(rows, account_id, sj, field="thstrm_amount"):
     'ifrs-full_Liabilities'가 'ifrs-full_LiabilitiesIncludedIn...'에 오매칭될 수 있음)."""
     v = gid_exact(rows, f"ifrs-full_{account_id}", sj, field)
     return int(v) if v is not None else None
+
+
+def _ctrl_equity(rows, field="thstrm_amount"):
+    """지배자본 = EquityAttributableToOwnersOfParent. 없으면(비지배지분 없는 회사는 이 계정을
+    아예 안 적음) 총자본 − 비지배지분으로 폴백 — 260704 실측: 카카오뱅크·케이씨텍·코스모신소재·
+    JW중외제약이 지배자본 계정 부재로 PBR이 N/M이던 것을 이 폴백이 해소(NCI 없으면 총자본=지배자본)."""
+    eq = _gid(rows, "EquityAttributableToOwnersOfParent", ("BS",), field)
+    if eq is not None:
+        return eq
+    total = _gid(rows, "Equity", ("BS",), field)
+    if total is None:
+        return None
+    nci = _gid(rows, "NoncontrollingInterests", ("BS",), field) or 0
+    return total - nci
+
+
+def _ctrl_ni(rows, field="thstrm_amount"):
+    """지배순이익 = ProfitLossAttributableToOwnersOfParent. 없으면(비지배지분 없는 회사) 총순이익
+    − 비지배귀속 순이익으로 폴백(대칭 로직) — 260704 실측: 카카오뱅크·케이씨텍·코스모신소재가
+    지배순이익 계정 부재로 PER이 N/M이던 것을 해소."""
+    ni = _gid(rows, "ProfitLossAttributableToOwnersOfParent", ("CIS", "IS"), field)
+    if ni is not None:
+        return ni
+    total = _gid(rows, "ProfitLoss", ("CIS", "IS"), field)
+    if total is None:
+        return None
+    nci = _gid(rows, "ProfitLossAttributableToNoncontrollingInterests", ("CIS", "IS"), field) or 0
+    return total - nci
 
 
 async def _shares_outstanding(client, cc: str, year: int) -> dict:
@@ -125,19 +160,25 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     fy = fm.get("data", {}).get("year")
     eps_fy = s.get("eps_krw"); revenue_fy = s.get("revenue_krw"); roe = s.get("roe_pct")
     cap_status = s.get("capital_impairment_status")
-    is_financial = revenue_fy is None  # 금융사(매출 계정 없음) → EV/PSR/FCF 게이팅
+    # 금융사 판별: KSIC 업종코드(induty) 대분류 K = 64(은행·금융지주)·65(보험)·66(증권).
+    # 260704 실측: 매출=None 휴리스틱은 인터넷은행(카카오뱅크 영업수익 3조 신고)을 놓쳐 오분류 →
+    # induty를 1차 신호로, 매출=None을 2차 폴백으로. (EV/PSR/FCF·순차입 게이팅 = 범주 부적합 차단)
+    info = await client.get_company_info(cc)
+    induty = str(info.get("induty_code") or "")
+    is_financial = induty[:2] in ("64", "65", "66") or revenue_fy is None
 
     # TTM(flow) = FY + 1Q(당해) − 1Q(전년); MRQ(stock) = 최근 분기 잔액
     q_cur, q_prev = fy + 1, fy  # 예: fy=2025 → 1Q2026, 1Q2025
-    fy_rows = await _acntall(client, cc, fy, "11011")
-    qc_rows = await _acntall(client, cc, q_cur, "11013")
-    qp_rows = await _acntall(client, cc, q_prev, "11013")
-    ni_fy = _gid(fy_rows, "ProfitLossAttributableToOwnersOfParent", ("CIS", "IS"))
-    ni_qc = _gid(qc_rows, "ProfitLossAttributableToOwnersOfParent", ("CIS", "IS"))
-    ni_qp = _gid(qp_rows, "ProfitLossAttributableToOwnersOfParent", ("CIS", "IS"))
+    # 연간에서 fs(연결/별도)를 확정한 뒤 분기에도 같은 기준 강제 — TTM 연결/별도 혼용 방지.
+    fy_rows, fs_used = await _acntall(client, cc, fy, "11011")
+    qc_rows, _ = await _acntall(client, cc, q_cur, "11013", fs_used)
+    qp_rows, _ = await _acntall(client, cc, q_prev, "11013", fs_used)
+    ni_fy = _ctrl_ni(fy_rows)
+    ni_qc = _ctrl_ni(qc_rows)
+    ni_qp = _ctrl_ni(qp_rows)
     ni_ttm = (ni_fy + ni_qc - ni_qp) if None not in (ni_fy, ni_qc, ni_qp) else None
-    eq_mrq = _gid(qc_rows, "EquityAttributableToOwnersOfParent", ("BS",))
-    eq_fy = _gid(fy_rows, "EquityAttributableToOwnersOfParent", ("BS",))
+    eq_mrq = _ctrl_equity(qc_rows)
+    eq_fy = _ctrl_equity(fy_rows)
     ctrl_equity = eq_mrq if eq_mrq is not None else eq_fy  # MRQ 우선, 미공시시 FY0
     equity_basis = "MRQ" if eq_mrq is not None else "FY0"
 
@@ -153,7 +194,7 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     #  철학("배수·인풋·가정 모두 노출, 판단은 사용자")과 자본잠식 처리(값 유지+경고)에 일관.
     #  (기계가 합산하는 시장 aggregate = market_val_agg/series에서는 반대로 무효화 — 경고문이
     #   합산 연산에 무력하므로. 소비 맥락이 다르면 처리도 다르다.)
-    ni_fy_frmtrm = _gid(fy_rows, "ProfitLossAttributableToOwnersOfParent", ("CIS", "IS"), "frmtrm_amount")
+    ni_fy_frmtrm = _ctrl_ni(fy_rows, "frmtrm_amount")  # 지배순이익 부재사도 폴백 일관 적용
     assets_fy = _gid(fy_rows, "Assets", ("BS",))
     liab_fy = _gid(fy_rows, "Liabilities", ("BS",))
     # 항등식(자산=부채+자본)은 반드시 총자본(지배+비지배지분) 기준 — 지배자본(eq_fy)만 쓰면
@@ -176,6 +217,9 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
 
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
     eps_ttm = round(_div(ni_ttm, shares_common)) if (ni_ttm and shares_common) else None
+    # EPS(FY0) financial_metrics 우선, None이면(지배순이익 부재사) 자체계산 지배순이익÷보통주로 폴백.
+    if eps_fy is None and ni_fy is not None and shares_common:
+        eps_fy = round(_div(ni_fy, shares_common))
 
     # ── 가드: 자본잠식·적자·섹터 ──
     impaired_full = cap_status == "full"
