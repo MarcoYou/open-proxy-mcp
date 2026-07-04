@@ -43,7 +43,7 @@ valuation(company="두산밥캣")
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
 | 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + Supabase `fx_rate` 캐시 | 기능통화 · 기말환율 | 비KRW → 재무 KRW 환산 |
 | 주식수 | `get_stock_total` → DART **stockTotqySttus** | distb_stock_co(합계/보통주, 자기주식 제외) | EPS 분모(보통주)·BPS 분모(합계) |
-| 시세 | **Supabase `krx_daily`(일별 누적)** 우선 → 미스·스냅샷 확보 시만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
+| 시세 | **Supabase `krx_weekly_px`(주간 누적)** 우선 → 미스·스냅샷 확보 시만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
 | 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) | 배당수익률 |
 
 ## 연산 파이프라인
@@ -112,13 +112,15 @@ PBR(MRQ)     = 주가 ÷ BPS
 | DART stockTotqySttus | 1 | 유통주식수 |
 | DART alotMatter(배당) | ~2 | 연간 요약 |
 | **DART 합계** | **~14 (최대 ~18)** | per-firm |
-| KRX (시세) | **serve-time 0** | Supabase `krx_daily`에서 읽음. 라이브 KRX는 하루 1회 최신 거래일 스냅샷 확보 시만(전종목 2콜, 코스피·코스닥 병렬) → **유저 수 무관 하루 ~2콜**. KRX 개인키 일 10,000 한도 보호 |
+| KRX (시세) | **serve-time 0** | Supabase `krx_weekly_px`에서 읽음. 라이브 KRX는 하루 1회 최신 거래일 스냅샷 확보 시만(전종목 2콜, 코스피·코스닥 병렬) → **유저 수 무관 하루 ~2콜**. KRX 개인키 일 10,000 한도 보호 |
 | ECOS 환율 | 0~1 | 비KRW사만, 분기말 캐시 히트 시 0 |
 
-**KRX 시세 = Supabase krx_daily 서빙(260705)**: KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
+**KRX 시세 = Supabase krx_weekly_px 서빙(260705)**: KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
 공유)라 [N]명 유저를 라이브로 서빙하면 키 소진 시 배수 N/M 위험. FX 캐시와 동형 — 매일 최신 거래일
-전종목 스냅샷을 라이브로 확보해 krx_daily에 누적(확정 거래일 keep), valuation은 DB 우선 읽기. 서빙
-KRX 콜 = 하루 ~2(첫 조회). 축적 일별 가격은 v1.1 5년밴드·PIT 시계열에 재사용. price_date로 기준일 투명.
+전종목 스냅샷을 라이브로 확보해 **'그 주(ISO week)' 슬롯에 덮어쓰며 갱신**(전날 종가까지 표시), 주중
+일별은 다음 거래일에 덮여 사라지고 **주 마지막 거래일만 영구 보존**(주당 1스냅샷 ~52/년 = 무료티어
+보호). valuation은 DB 우선 읽기, 서빙 KRX 콜 = 하루 ~2. 축적 주간가격은 v1.1 5년밴드·PIT 재사용.
+price_date로 기준일 투명.
 
 **fetch 병렬화(260705)**: 최상위 await를 의존성 3단계 gather로 — P1(financial_metrics·company·KRX,
 fy 무관) → P2(연간원장·주식수·배당, fy 의존) → P3(1Q당해·전년, fs_used 의존). info·market이 무거운
