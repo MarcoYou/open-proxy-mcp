@@ -13,12 +13,12 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (17 tool, 2026-06-13 정리)
+### 도메인별 (18 tool, 260705 valuation 추가)
 - **Company (1)**: [[company]]
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
-- **Data (12)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[valuation]] *(등록 예정)*
+- **Data (13)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[valuation]]
 - **Evidence (1)**: [[evidence]]
 - **Action (1)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합). 사후 결과는 [[shareholder_meeting_results]]
 
@@ -73,7 +73,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | 카테고리 | 목적 | 페이지 수 | 수정 가능 |
 |---|---|---|---|
 | **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 17 tool 진입점 + data source map | 17 + README | YES (tool 변경 시) |
+| **tools/** | 18 tool 진입점 + data source map | 18 + README | YES (tool 변경 시) |
 | **architecture/** | OPM 시스템 설계 + audit + fix + data archive | 60+ | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 26 + README | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 70+ | YES (사실 update 시) |
@@ -99,7 +99,7 @@ OPM tool 17개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ## 자주 쓰는 진입점
 
 ### 처음 사용자
-- [[tools/README]] - 17 tool 카탈로그
+- [[tools/README]] - 18 tool 카탈로그
 - [[WIKI_SCHEMA]] - wiki 구조 + 명명 규칙
 
 ### OPM 정책 알고 싶음
