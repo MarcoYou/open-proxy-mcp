@@ -73,7 +73,9 @@ wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
 ## 셋업 · 개발
 ```bash
 git clone https://github.com/MarcoYou/open-proxy-mcp.git && cd open-proxy-mcp
-uv sync && cp .env.example .env   # OPENDART_API_KEY 설정
+uv sync
+# 환경변수: 루트에 .env 생성 후 필요한 키 채움. 어떤 키가 왜 필요한지·어디 넣는지(로컬 .env +
+# fly secrets)는 wiki `architecture/environment-secrets.md` 참조(단일 출처, .env.example 대체).
 ```
 - Build → Check → Pass. 의미 있는 변경마다 커밋. `/ship`이 wiki 자동 갱신.
 - 커밋/푸시/배포는 사용자가 명시적으로 요청할 때만.

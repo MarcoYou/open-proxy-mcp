@@ -20,6 +20,7 @@ updated: 2026-06-23
 | **proxy_advise Word 보고서** | [[proxy_advise_word_report_design]] · [[proxy_advise_word_report_spec]] |
 | **파싱 성공률 audit 방법** | [[parsing_success_rate_audit_spec]] · [[parsing_success_rate_audit_checklist]] |
 | **코드 구조** | [[project_structure]] |
+| **환경변수·시크릿** (필요한 키 목록·설정 위치, `.env.example` 대체) | [[environment-secrets]] |
 | **MCP 개발 교훈** | [[lessons-learned]] |
 | **수정주가 타임시리즈** (기준가 리셋 실측 파이프라인 + 핸드오프) | [[adjusted-price-timeseries]] |
 
