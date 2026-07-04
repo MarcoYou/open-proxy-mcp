@@ -152,15 +152,32 @@ async def _shares_outstanding(client, cc: str, year: int) -> dict:
 
 async def build_valuation_payload(company: str, format: str = "md") -> dict[str, Any]:
     client = get_dart_client()
-    corp = await client.lookup_corp_code(company)
+    query = (company or "").strip()
+    if not query:
+        return {"tool": "valuation", "status": "invalid", "subject": company,
+                "warnings": ["회사명 또는 종목코드(6자리)를 입력하세요."]}
+    corp = await client.lookup_corp_code(query)
     if not corp:
-        return {"tool": "valuation", "status": "not_found", "subject": company}
+        return {"tool": "valuation", "status": "not_found", "subject": company,
+                "warnings": [f"'{company}' 조회 결과 없음 — 종목코드(6자리)나 정확한 회사명으로 재시도. "
+                             "(우선주는 보통주 종목코드로 조회)"]}
     cc, stock_code = corp["corp_code"], corp.get("stock_code")
     name = corp.get("corp_name", company)
+    # 비상장 = 주가 없음 → 시장배수(PER·PBR) 정의 불가. DART 마스터엔 비상장 법인(삼성·쿠팡 등)도
+    # 있어 resolve되므로 여기서 조기 차단(전부 None 산출·크래시 방지). 상장 동명 후보는 안내.
+    if not stock_code:
+        alts = [c for c in await client.lookup_corp_code_all(query) if c.get("stock_code")][:5]
+        alt_txt = ("  상장 후보: " + ", ".join(f"{c['corp_name']}({c['stock_code']})" for c in alts)) if alts else ""
+        return {"tool": "valuation", "status": "unlisted", "subject": name,
+                "warnings": [f"'{name}'은(는) 비상장 — 주가가 없어 시장배수(PER·PBR·배당수익률) 산출 불가. "
+                             f"재무 펀더멘탈은 financial_metrics 사용.{alt_txt}"]}
 
-    fm = (await build_financial_metrics_payload(stock_code or company, scope="summary", year=0, consolidated=True))
+    fm = (await build_financial_metrics_payload(stock_code, scope="summary", year=0, consolidated=True))
     s = fm.get("data", {}).get("summary") or {}
     fy = fm.get("data", {}).get("year")
+    if fy is None:  # 상장사여도 재무 미확정(신규상장·SPAC 등) → fy+1 크래시 방지, 명확한 상태 반환
+        return {"tool": "valuation", "status": "no_financials", "subject": name,
+                "warnings": [f"'{name}'({stock_code}) 재무 데이터를 확정하지 못함 — 밸류에이션 산출 불가."]}
     eps_fy = s.get("eps_krw"); revenue_fy = s.get("revenue_krw"); roe = s.get("roe_pct")
     cap_status = s.get("capital_impairment_status")
     # 금융사 판별: KSIC 업종코드(induty) 대분류 K = 64(은행·금융지주)·65(보험)·66(증권).

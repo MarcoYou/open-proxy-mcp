@@ -550,6 +550,8 @@ class DartClient:
         """
         corps = await self._load_corp_codes()
         query = query.strip()
+        if not query:
+            return []  # 빈 쿼리는 부분매치("" in name)가 전 종목에 참 → 조용한 오매핑 방지
 
         # 1) 종목코드 6자리 정확 매치
         if re.match(r'^\d{6}$', query):
