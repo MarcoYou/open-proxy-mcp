@@ -112,8 +112,12 @@ PBR(MRQ)     = 주가 ÷ BPS
 | DART stockTotqySttus | 1 | 유통주식수 |
 | DART alotMatter(배당) | ~2 | 연간 요약 |
 | **DART 합계** | **~14 (최대 ~18)** | per-firm |
-| KRX bydd_trd | 1 | 일자별 1회(종목간 캐시), KRX 콜미터 bump |
+| KRX bydd_trd | 1 (첫 종목) | 코스피·코스닥 2시장 병렬, basDd별 프로세스 캐시 — 서버가 여러 종목 조회 시 같은 날 스냅샷 재fetch 안 함(이후 0콜). KRX 콜미터 bump |
 | ECOS 환율 | 0~1 | 비KRW사만, 분기말 캐시 히트 시 0 |
+
+**fetch 병렬화(260705)**: 최상위 await를 의존성 3단계 gather로 — P1(financial_metrics·company·KRX,
+fy 무관) → P2(연간원장·주식수·배당, fy 의존) → P3(1Q당해·전년, fs_used 의존). info·market이 무거운
+financial_metrics 뒤에서 대기하던 것 제거. 실측 개별 조회 ~6.3s→~2.2s, 8종목 배치 50s→20s(회귀 클린).
 
 → [[tool_call_budget]] 갱신 필요(등록 시). financial_metrics를 감싸므로 콜 수가 큰 편.
 
