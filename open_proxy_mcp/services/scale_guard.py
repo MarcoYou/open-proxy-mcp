@@ -100,16 +100,21 @@ def check_mktcap_ratio(value, mktcap, cap_ratio: float = _MKTCAP_RATIO_CAP) -> d
 
 def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=None,
            mktcap=None, market_max=None) -> dict:
-    """4개 체크 종합. tier: 'hard'(①②③ 중 하나라도 → N/M 무효화) / 'soft'(④만 → 경고만) / 'clean'.
-    market_max 제공 시 ③은 시장최댓값 대비 배수(원칙적, 회사규모 무관 작동) — 없으면 자릿수 백스톱."""
-    scale_check = (check_market_relative_cap(thstrm, market_max) if market_max
-                   else check_digit_cap(thstrm))
+    """4개 체크 종합. tier: 'hard'(②③ 중 하나라도 → N/M 무효화) / 'soft'(①④만 → 경고만) / 'clean'.
+    market_max 제공 시 ③은 시장최댓값 대비 배수(원칙적, 회사규모 무관 작동) — 없으면 자릿수 백스톱.
+
+    ①(배수점프)은 260704 전수 재검증(mkt_fund_hist 12,995행)에서 오탐률 39/40(97.5%)로 확인돼
+    hard에서 제외 — 중소형사의 정상적 실적 급변동(적자↔흑자 전환 등)이 "10^n 근접"이라는 통계적
+    기준에 흔하게 걸림(대형 우량주 위주 표본검증에선 안 드러난 사각지대). 정보성 soft 신호로만 유지.
+    """
+    hard_scale_check = (check_market_relative_cap(thstrm, market_max) if market_max
+                         else check_digit_cap(thstrm))
     hard = {
-        "magnitude_jump": check_magnitude_jump(thstrm, frmtrm),
         "balance_identity": check_balance_identity(assets, liabilities, equity),
-        "market_relative_cap" if market_max else "digit_cap": scale_check,
+        "market_relative_cap" if market_max else "digit_cap": hard_scale_check,
     }
     soft = {
+        "magnitude_jump": check_magnitude_jump(thstrm, frmtrm),
         "mktcap_ratio": check_mktcap_ratio(thstrm, mktcap),
     }
     hard_hit = [k for k, v in hard.items() if v.get("triggered")]
