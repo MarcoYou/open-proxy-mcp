@@ -283,7 +283,7 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     if (pbr and pbr > 100) or (per_fy and per_fy > 500) or (per_ttm and per_ttm > 500):
         warnings.append("⚠️ 배수 비정상 고값 — 재무 단위/스케일 오류 가능(예: 지배자본 과소). 원문 확인 요망.")
     if is_financial:
-        warnings.append("금융사(매출 계정 없음) — EV/EBITDA·PSR·FCF·순차입 = N/A(범주 부적합). PBR·PER·배당·ROE 중심.")
+        warnings.append("금융·지주 업종 — EV/EBITDA·PSR·FCF·순차입은 범주 부적합으로 산출 제외(N/A). PBR·PER·배당·ROE 중심 해석. (금융·지주도 매출/영업수익은 있음 — 배수 부적합일 뿐)")
     if fx_rate != 1.0:
         warnings.append(f"기능통화 {stmt_cur} — 재무를 {fy}회계기말 환율 {fx_rate:,.1f}원/{stmt_cur}로 KRW 환산(순이익은 원칙상 평균환율, v1은 기말환율 근사 → 수% 오차). KRW 시총과 통화 정합.")
     elif stmt_cur != "KRW":
@@ -324,7 +324,9 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
                 "scale_flags": scale_verdict["hard_hit"] + scale_verdict["soft_hit"],
                 "values_masked": False,  # 개별조회는 값 무효화 안 함(집계 tool과 반대) — 판단은 사용자
             },
-            "note": "lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT는 v1.1.",
+            "note": "lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT는 v1.1. "
+                    "EPS(FY0)=DART 공시 기본주당이익(가중평균 주식수·우선주 배분 반영), "
+                    "EPS(TTM)=지배순이익÷보통주(시점) — 분모 기준이 달라 FY0·TTM PER 직접비교는 주의.",
         },
     }
     if format == "md":
