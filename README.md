@@ -3,7 +3,7 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-17-orange.svg)](#tool-구조-17개)
+[![Tools](https://img.shields.io/badge/tools-18-orange.svg)](#tool-구조-18개)
 [![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](docs/RELEASE_NOTES.md)
 
 [English README](README_ENG.md)
@@ -26,9 +26,10 @@
 - **[주총 안건 구조화](docs/features/meeting-agenda.md)**: 소집공고 안건·후보·보수한도·정관변경과 주총 후 의결 결과·찬반율을 정리합니다.
 - **[주주환원](docs/features/shareholder-return.md)**: 배당·자기주식 소각 사이클·밸류업 계획을 묶어 환원 정책의 약속과 실제 집행을 비교합니다.
 - **[재무지표](docs/features/financials.md)**: DART 재무 endpoint 통합 — 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이. 분기는 누적(YTD)·당기(3개월) 두 기준으로 QoQ·YoY를 제공하고, 회전일수는 TTM 기준으로 산출하며 어느 기준인지 항상 명시합니다.
+- **밸류에이션**: PER·PBR·배당수익률(기업 심층) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 지배주주 귀속, 비KRW 기능통화 자동 환산(한국은행 ECOS), 적자·자본잠식 N/M 처리. `scope="explain"`으로 수치의 계산 과정·기준·출처를 답합니다.
 - **기업 리스크 이벤트**: 중대재해·횡령배임·생산중단 공시를 추적합니다. 회사를 지정하지 않으면 시장 전체에서 최근 사건을 스캔합니다.
 
-그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각과 내부거래 등 총 17개 tool을 제공합니다.
+그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각과 내부거래 등 총 18개 tool을 제공합니다.
 
 ---
 
@@ -118,15 +119,15 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ---
 
-## Tool 구조 (17개)
+## Tool 구조 (18개)
 
-OpenProxy MCP의 17개 tool은 **Company → Meeting/Data/Evidence → Action** 흐름으로 동작합니다.
+OpenProxy MCP의 18개 tool은 **Company → Meeting/Data/Evidence → Action** 흐름으로 동작합니다.
 
 | Layer | Tools | 역할 |
 |---|---|---|
 | Company | `company` | 기업 식별과 공통 공시 인덱스 |
 | Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | 주총 전/후 데이터 |
-| Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `ownership_structure`, `corporate_deals`, `proxy_contest`, `risk_events`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
+| Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `valuation`, `ownership_structure`, `corporate_deals`, `proxy_contest`, `risk_events`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
 | Evidence | `evidence` | 공시번호 기반 출처 추적 |
 | Action | `proxy_advise_before_meeting` | 여러 data tool을 묶어 판단/보고 생성 (사후 결과는 `shareholder_meeting_results`) |
 

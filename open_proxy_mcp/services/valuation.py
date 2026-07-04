@@ -40,9 +40,15 @@ def _div(a, b):
 
 
 def _price_dates() -> list[str]:
+    """최근 12일 중 주말 제외 후보일 — KRX가 빈값 줄 토·일 콜 낭비 제거(API QA)."""
     from datetime import date, timedelta
     today = date.today()
-    return [(today - timedelta(days=i)).strftime("%Y%m%d") for i in range(12)]
+    out = []
+    for i in range(12):
+        d = today - timedelta(days=i)
+        if d.isoweekday() <= 5:  # 월~금 (공휴일은 KRX 빈 응답으로 자연 skip)
+            out.append(d.strftime("%Y%m%d"))
+    return out
 
 
 # KRX 시세 = 기존 검증 자산 **krx_weekly**(주별 최종거래일 전종목, 2015-12~, 원장 대조 불일치 0,
@@ -174,7 +180,13 @@ async def _ensure_krx_fresh() -> str | None:
     if _KRX_STATE.get("day") == today and _KRX_STATE.get("latest_dd"):
         return _KRX_STATE["latest_dd"] or None
     db_latest = await asyncio.to_thread(_krx_db_latest_dd)
-    if db_latest is None or db_latest < today:   # 오늘분 아직 시도 안 함 → 라이브 확인·갱신
+    # DB가 이미 '직전 완료 영업일'(오늘 이전 최근 평일)까지 있으면 라이브 스캔 생략 — 콜드 프로세스
+    # 마다 무조건 스캔하던 낭비 제거(API QA: 일요일 8콜 실측). KRX는 T+1 게시라 오늘 데이터는 없다.
+    prev_bd = next((d for d in _price_dates() if d < today), None)
+    if db_latest and prev_bd and db_latest >= prev_bd:
+        _KRX_STATE.update(day=today, latest_dd=db_latest)
+        return db_latest
+    if db_latest is None or db_latest < today:   # 직전 영업일 미확보 → 라이브 확인·갱신
         dd, snap = await _fetch_live_snapshot()
         if snap and dd:
             # 전진(dd > db_latest)일 때만 기록 — KRX API가 이미 저장된 거래일 데이터를 일시 소실하면
@@ -258,7 +270,10 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
             "data": {"scope": "market", "as_of": latest_dd,
                      "latest": [h for h in hist if h["snap_dd"] == latest_dd],
                      "history": hist,
-                     "method": "시총가중(Σ시총÷Σ지배순이익/자본) · 재무 FY0/TTM/MRQ · 주간 스냅샷. "
+                     "method": "시총가중(Σ시총÷Σ지배순이익/자본) · 재무 FY0/TTM/MRQ · 주간 스냅샷 · "
+                               "trailing(과거 실적) 기준 — 컨센서스 선행 PER와 다름. "
+                               "Σ지배순이익에 적자기업 포함(흑자기업만 쓰는 일부 벤더와 상이 — 적자 우세 "
+                               "시장·섹터의 PER이 크게 높아짐, KOSDAQ 고PER의 주원인. PBR 병행 해석 권장). "
                                "※ 표기 PER 분모별 Σ시총은 해당 지표 보유 종목만 — cap_krw(전체 시총)"
                                "÷ni_ttm_krw 재계산과 다를 수 있음"},
             "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — market_val_weekly가 갱신."]}
@@ -285,8 +300,10 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
     if company.strip():
         corp = await get_dart_client().lookup_corp_code(company.strip())
         isu = (corp or {}).get("stock_code")
-        if not isu:  # 회사 미해결/비상장 — 조용히 무시하면 사용자가 반영 여부를 모름(QA)
-            warnings.append(f"'{company}' 회사를 찾지 못했거나 비상장 — 섹터 비교 생략.")
+        if not isu:  # 회사 미해결/비상장 — 전체 표 덤프 대신 짧은 에러(실사용 QA P1: 1,600토큰 낭비 방지)
+            return {"tool": "valuation", "status": "not_found", "subject": company,
+                    "warnings": [f"'{company}' 상장사를 찾지 못함 — 정확한 회사명/종목코드로 재시도. "
+                                 "전체 섹터 표는 company 없이 scope='sector'."]}
         else:
             fr = await asyncio.to_thread(_pg_rows,
                 "SELECT v.sector, v.mkt, v.per_ttm, v.pbr_mrq, s.label, s.per_ttm, s.pbr_mrq "
@@ -440,7 +457,17 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     # 있어 resolve되므로 여기서 조기 차단(전부 None 산출·크래시 방지). 상장 동명 후보는 안내.
     if not stock_code:
         alts = [c for c in await client.lookup_corp_code_all(query) if c.get("stock_code")][:5]
-        alt_txt = ("  상장 후보: " + ", ".join(f"{c['corp_name']}({c['stock_code']})" for c in alts)) if alts else ""
+        if not alts:  # exact-match 단락으로 빈 경우('삼성'→비상장 법인만) → 부분매치 상장 후보 별도 조회
+            corps = await client._load_corp_codes()  # 실사용 QA P2: "삼성전자를 찾으셨나요?" 오도 방지
+            cand = [c for c in corps if c.get("stock_code") and query in c["corp_name"]]
+            if cand:  # 시총순 정렬 — 사용자가 의도했을 가능성이 큰 대형사(삼성전자)부터
+                latest = await asyncio.to_thread(_krx_db_latest_dd)
+                caps = {r[0]: r[1] for r in (await asyncio.to_thread(
+                    _pg_rows, "SELECT isu_cd, mktcap FROM krx_weekly WHERE bas_dd=%s "
+                    "AND isu_cd = ANY(%s)", (latest, [c["stock_code"] for c in cand])) or [])} if latest else {}
+                alts = sorted(cand, key=lambda c: -(caps.get(c["stock_code"]) or 0))[:5]
+        alt_txt = ("  혹시 이 상장사를 찾으셨나요? " +
+                   ", ".join(f"{c['corp_name']}({c['stock_code']})" for c in alts)) if alts else ""
         return {"tool": "valuation", "status": "unlisted", "subject": name,
                 "warnings": [f"'{name}'은(는) 비상장 — 주가가 없어 시장배수(PER·PBR·배당수익률) 산출 불가. "
                              f"재무 펀더멘탈은 financial_metrics 사용.{alt_txt}"]}
@@ -575,6 +602,24 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
         warnings.append(f"🚨 DART 재무 단위(스케일) 오류 강하게 의심({scale_verdict['hard_hit']}) — 아래 순이익·자본·배수는 **원문 그대로**이며 신뢰 불가. 반드시 원문 확인 후 사용. (예: 소프트센 032680 100만배 오류)")
     elif scale_verdict and scale_verdict["tier"] == "soft":
         warnings.append(f"재무 비율 이상치({scale_verdict['soft_hit']}) — 값은 정상일 수 있음(원샷 이익·자산매각·적자흑자 전환 등). 참고용 플래그.")
+    # EPS 두 기준(공시 가중평균 vs 지배NI÷보통주) 실측 괴리 >10% → 동적 경고 — 재무 QA 실증(현대차):
+    # 이익 감소에도 PER FY0→TTM이 "개선"처럼 보이는 방향 왜곡을 사용자에게 알린다.
+    if eps_fy and ni_fy is not None and shares_common:
+        eps_calc = _div(ni_fy, shares_common)
+        if eps_calc and abs(eps_calc - eps_fy) / abs(eps_fy) > 0.10:
+            warnings.append(
+                f"⚠️ EPS(FY0) 기준 괴리 {abs(eps_calc-eps_fy)/abs(eps_fy)*100:.0f}% — 공시 기본주당이익 "
+                f"{eps_fy:,}원 vs 지배순이익÷보통주 {eps_calc:,.0f}원(가중평균 주식수·우선주 배분·기중 "
+                "주식수 변동 영향). FY0·TTM PER의 증감 방향 비교 주의.")
+    # 수정주가 파이프라인 flag — 분할·미해결 조정 종목은 배수 해석 주의(재무 QA: 삼바 분할 실증).
+    if stock_code:
+        for fl, _detail in (await asyncio.to_thread(
+                _pg_rows, "SELECT flag, detail FROM krx_stock_flags WHERE isu_cd=%s", (stock_code,)) or []):
+            if fl == "spinoff_break":
+                warnings.append("⚠️ 인적분할 이력 — 분할 전후 재무·주식수 불연속으로 FY0 배수(특히 공시 "
+                                "EPS의 가중평균 주식수)가 왜곡될 수 있음. TTM·MRQ 중심 해석 권장.")
+            elif fl == "unresolved_adjustment":
+                warnings.append("⚠️ 미해결 주가조정 이력 — 과거 가격 비교 시 주의.")
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
 
@@ -607,9 +652,11 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
                 "scale_flags": scale_verdict["hard_hit"] + scale_verdict["soft_hit"],
                 "values_masked": False,  # 개별조회는 값 무효화 안 함(집계 tool과 반대) — 판단은 사용자
             },
-            "note": "lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT는 v1.1. "
+            "note": "lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT·희석EPS는 v1.1. "
                     "EPS(FY0)=DART 공시 기본주당이익(가중평균 주식수·우선주 배분 반영), "
-                    "EPS(TTM)=지배순이익÷보통주(시점) — 분모 기준이 달라 FY0·TTM PER 직접비교는 주의.",
+                    "EPS(TTM)=지배순이익÷보통주(시점) — 분모 기준이 달라 FY0·TTM PER 직접비교는 주의. "
+                    "PBR 분모=합계 유통주식수(보통+우선, 자기주식 제외) — 보통주만 쓰는 일부 벤더와 다를 수 있음. "
+                    "배수는 trailing(과거 실적) 기준 — 컨센서스 선행(fwd) PER와 상이.",
         },
     }
     if format == "md":
@@ -630,8 +677,13 @@ def _render_md(p: dict[str, Any]) -> str:
         "## 인풋 (근거 투명)",
         f"- EPS {g(i['eps_fy0_krw'],'','{:,}')}(FY0)/{g(i['eps_ttm_krw'],'','{:,}')}(TTM) · BPS {g(i['bps_krw'],'','{:,}')} · ROE {g(i['roe_pct'],'%')} · DPS {g(i['dps_krw'],'','{:,}')}",
         f"- 지배순이익 {g(i['net_income_fy0_krw'],'','{:,}')}(FY0)/{g(i['net_income_ttm_krw'],'','{:,}')}(TTM) · 지배자본 {g(i['controlling_equity_krw'],'','{:,}')} · 유통주식 보통 {g(i['shares_common'],'','{:,}')}/합계 {g(i['shares_total'],'','{:,}')}",
-        f"- 보통주 시총 {g(i['common_market_cap_krw'],'','{:,}')} (섹터: {d['sector_class']})",
+        f"- 보통주 시총 {g(i['common_market_cap_krw'],'','{:,}')} (업종구분: {'금융·지주' if d['sector_class']=='financial' else '일반(비금융)'})",
     ]
     if d["warnings"]:
         lines += ["", "## 주의"] + [f"- {w}" for w in d["warnings"]]
+    # note(방법론 고지)를 md에도 렌더 — json에만 있으면 기본(md) 사용자가 핵심 고지를 못 봄(재무 QA HIGH)
+    if d.get("note"):
+        lines += ["", f"> {d['note']}"]
+    lines += ["> 시장·섹터 대비 비교는 scope='market'/'sector' — 스냅샷 배수(총시총 기준)는 본 값과 다를 수 있음. "
+              "수치 근거·계산 과정은 scope='explain'."]
     return "\n".join(lines)

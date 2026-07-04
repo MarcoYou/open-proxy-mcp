@@ -3,7 +3,7 @@ type: tool
 title: valuation
 domain: data
 status: 등록 완료 (260705 — tools_v2/valuation.py, v2 toolset 18번째)
-scope: [firm, market, sector, firm_history]
+scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
@@ -35,7 +35,7 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR/시총
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | firm·firm_history는 필수 | 회사명 / ticker(6자리) / corp_code. sector에선 선택(소속 섹터 비교) | "" |
-| scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history` (뒤 3개 = 주간 스냅샷 DB) | "firm" |
+| scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history`(주간 스냅샷 DB) / `explain`(수치 근거 — company 지정 시 실제 값 대입 계산 과정, 미지정 시 방법론·기준·출처 전문) | "firm" |
 | format | str | no | "md" / "json" | "md" |
 
 ## scope 라우팅 — 기능 → 데이터 소스 (DB-first)
@@ -45,10 +45,11 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR/시총
 | `firm` | 실시간 DART 재무 × `krx_weekly` 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
 | `market` | `mkt_val_history` | 주간 스냅샷(cron) | KOSPI·KOSDAQ 시총가중 PER/PBR + 히스토리 |
 | `sector` | `mkt_sector_val` (+`mkt_valuation` 비교) | 주간 스냅샷(cron) | KSIC 하이브리드 섹터별 + 기업 vs 섹터 |
-| `firm_history` | `mkt_valuation` | 주간 스냅샷(cron) | 종목 PER/PBR/시총 주간 시계열 |
+| `firm_history` | `mkt_valuation` (+krx_stock_flags 경고) | 주간 스냅샷(cron) | 종목 PER/PBR/시총 주간 시계열 |
+| `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
 
 - 스냅샷 3테이블은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
-  화~토 KST 10:17 — 매일 수집→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
+  매일 KST 10:17 — 매일 수집(KRX 금요일 지연 게시 커버)→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
 - **⚠ 방법론 이중성**: firm = 보통주 주가÷EPS(유통주식). 스냅샷 = **총시총(우선주 귀속)÷지배순이익**
   (시총가중, 지수 표준) — 삼성 PER(TTM) 20.0(firm) vs 21.9(스냅샷)처럼 다를 수 있음. 출력에 명시.
 - **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
@@ -124,7 +125,7 @@ PBR(MRQ)     = 주가 ÷ BPS
 }
 ```
 - **단위**: 모든 `_krw` 필드 = 원 raw int. `_pct` = float(2.64 = 2.64%). 비KRW사는 환산 후 KRW.
-- status 필드: `ok` / `invalid` / `not_found` / `unlisted` / `no_financials`.
+- status 필드: `ok` / `invalid` / `not_found` / `unlisted` / `no_financials` / `no_data`(배치 미실행) / `db_error`(DB 일시 장애).
 
 ## DART/KRX 콜 budget (per-firm)
 | 소스 | 콜 | 비고 |
@@ -134,11 +135,11 @@ PBR(MRQ)     = 주가 ÷ BPS
 | DART fnlttSinglAcntAll ×3 | 3 (~6) | 연간+1Q당해+1Q전년, CFS→OFS 폴백 시 최대 2배 |
 | DART stockTotqySttus | 1 | 유통주식수 |
 | DART alotMatter(배당) | ~2 | 연간 요약 |
-| **DART 합계** | **~14 (최대 ~18)** | per-firm |
-| KRX (시세) | **serve-time 0** | Supabase `krx_weekly_px`에서 읽음. 라이브 KRX는 하루 1회 최신 거래일 스냅샷 확보 시만(전종목 2콜, 코스피·코스닥 병렬) → **유저 수 무관 하루 ~2콜**. KRX 개인키 일 10,000 한도 보호 |
+| **DART 합계** | **11 (최대 ~15, 실측 260705)** | per-firm. scope=market/sector/firm_history는 **DART·KRX 0콜(DB만)** |
+| KRX (시세) | **serve-time 0** | Supabase `krx_weekly`에서 읽음. 라이브 KRX는 하루 1회 최신 거래일 스냅샷 확보 시만(전종목 2콜, 코스피·코스닥 병렬) → **유저 수 무관 하루 ~수십콜 bounded**. KRX 개인키 일 10,000 한도 보호 |
 | ECOS 환율 | 0~1 | 비KRW사만, 분기말 캐시 히트 시 0 |
 
-**KRX 시세 = Supabase krx_weekly_px 서빙(260705)**: KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
+**KRX 시세 = Supabase krx_weekly 서빙(260705)**: KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
 공유)라 [N]명 유저를 라이브로 서빙하면 키 소진 시 배수 N/M 위험. FX 캐시와 동형 — 매일 최신 거래일
 전종목 스냅샷을 라이브로 확보해 **'그 주(ISO week)' 슬롯에 덮어쓰며 갱신**(전날 종가까지 표시), 주중
 일별은 다음 거래일에 덮여 사라지고 **주 마지막 거래일만 영구 보존**(주당 1스냅샷 ~52/년 = 무료티어
@@ -149,7 +150,7 @@ price_date로 기준일 투명.
 fy 무관) → P2(연간원장·주식수·배당, fy 의존) → P3(1Q당해·전년, fs_used 의존). info·market이 무거운
 financial_metrics 뒤에서 대기하던 것 제거. 실측 개별 조회 ~6.3s→~2.2s, 8종목 배치 50s→20s(회귀 클린).
 
-→ [[tool_call_budget]] 갱신 필요(등록 시). financial_metrics를 감싸므로 콜 수가 큰 편.
+→ [[tool_call_budget]]에 실측 반영 완료(260705).
 
 ## Flow
 ```mermaid

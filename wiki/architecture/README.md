@@ -21,6 +21,7 @@ updated: 2026-06-23
 | **파싱 성공률 audit 방법** | [[parsing_success_rate_audit_spec]] · [[parsing_success_rate_audit_checklist]] |
 | **코드 구조** | [[project_structure]] |
 | **환경변수·시크릿** (필요한 키 목록·설정 위치, `.env.example` 대체) | [[environment-secrets]] |
+| **데이터 저장소 레지스트리** (Supabase 전 테이블 — item·주기·검증·목적·workflow) | [[data-storage-registry]] |
 | **MCP 개발 교훈** | [[lessons-learned]] |
 | **수정주가 타임시리즈** (기준가 리셋 실측 파이프라인 + 핸드오프) | [[adjusted-price-timeseries]] |
 
