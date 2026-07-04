@@ -220,16 +220,22 @@ async def _market_for(stock_code: str) -> dict:
 # 주당 가격·EPS 시계열을 노출하게 되면 그때 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수(wiki 수정주가).
 
 
-def _pg_rows(sql: str, params: tuple = ()) -> list[tuple]:
+def _pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
+    """None = DB 미설정/장애(no_data와 구분 — 오진 방지, QA), [] = 정상 조회·데이터 없음."""
     url = os.getenv("DATABASE_URL")
     if not url:
-        return []
+        return None
     try:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
             return c.execute(sql, params).fetchall()
-    except Exception:
-        return []
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("스냅샷 DB 조회 실패: %s", e)
+        return None
+
+
+_DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, 잠시 후 재시도. (배치 미실행과 다름)"
 
 
 async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
@@ -237,6 +243,9 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, mkt, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq "
         "FROM mkt_val_history ORDER BY snap_dd DESC, mkt")
+    if rows is None:
+        return {"tool": "valuation", "status": "db_error", "subject": "시장 밸류에이션",
+                "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "valuation", "status": "no_data", "subject": "시장 밸류에이션",
                 "warnings": ["mkt_val_history 비어있음 — market_val_weekly 배치 미실행."]}
@@ -249,7 +258,9 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
             "data": {"scope": "market", "as_of": latest_dd,
                      "latest": [h for h in hist if h["snap_dd"] == latest_dd],
                      "history": hist,
-                     "method": "시총가중(Σ시총÷Σ지배순이익/자본) · 재무 FY0/TTM/MRQ · 주간 스냅샷"},
+                     "method": "시총가중(Σ시총÷Σ지배순이익/자본) · 재무 FY0/TTM/MRQ · 주간 스냅샷. "
+                               "※ 표기 PER 분모별 Σ시총은 해당 지표 보유 종목만 — cap_krw(전체 시총)"
+                               "÷ni_ttm_krw 재계산과 다를 수 있음"},
             "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — market_val_weekly가 갱신."]}
 
 
@@ -259,6 +270,9 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, mkt, sector, label, n, cap, per_ttm, pbr_mrq FROM mkt_sector_val "
         "WHERE snap_dd=(SELECT MAX(snap_dd) FROM mkt_sector_val) ORDER BY mkt, cap DESC")
+    if rows is None:
+        return {"tool": "valuation", "status": "db_error", "subject": "산업별 밸류에이션",
+                "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "valuation", "status": "no_data", "subject": "산업별 밸류에이션",
                 "warnings": ["mkt_sector_val 비어있음 — market_val_weekly 배치 미실행."]}
@@ -271,14 +285,23 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
     if company.strip():
         corp = await get_dart_client().lookup_corp_code(company.strip())
         isu = (corp or {}).get("stock_code")
-        if isu:
+        if not isu:  # 회사 미해결/비상장 — 조용히 무시하면 사용자가 반영 여부를 모름(QA)
+            warnings.append(f"'{company}' 회사를 찾지 못했거나 비상장 — 섹터 비교 생략.")
+        else:
             fr = await asyncio.to_thread(_pg_rows,
                 "SELECT v.sector, v.mkt, v.per_ttm, v.pbr_mrq, s.label, s.per_ttm, s.pbr_mrq "
                 "FROM mkt_valuation v LEFT JOIN mkt_sector_val s "
                 "ON s.snap_dd=v.snap_dd AND s.mkt=v.mkt AND s.sector=v.sector "
-                "WHERE v.isu_cd=%s AND v.snap_dd=%s", (isu, as_of))
+                "WHERE v.isu_cd=%s AND v.snap_dd=%s", (isu, as_of)) or []
             if fr:
                 sec, mkt, pt, pb, lbl, spt, spb = fr[0]
+                if lbl is None:  # 소규모 섹터 → mkt_sector_val엔 '_fold'로 접혀 raw 코드 JOIN 미스
+                    fold = [s for s in sectors if s["mkt"] == mkt and s["sector"] == "_fold"]
+                    if fold:  # 폴드 버킷과 비교(정직하게 표기) — literal None 렌더 방지(QA 109종목 실측)
+                        lbl = f"{fold[0]['label']} (소규모 섹터 {sec} 포함)"
+                        spt, spb = fold[0]["per_ttm"], fold[0]["pbr_mrq"]
+                    else:
+                        lbl = f"KSIC {sec} (섹터 집계 없음)"
                 company_ctx = {"name": corp.get("corp_name"), "isu_cd": isu, "mkt": mkt,
                                "sector": sec, "sector_label": lbl,
                                "firm_per_ttm": pt and round(pt, 2), "firm_pbr_mrq": pb and round(pb, 2),
@@ -305,18 +328,33 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, mkt, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
         "FROM mkt_valuation WHERE isu_cd=%s ORDER BY snap_dd", (isu,))
+    if rows is None:
+        return {"tool": "valuation", "status": "db_error", "subject": corp.get("corp_name", query),
+                "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "valuation", "status": "no_data", "subject": corp.get("corp_name", query),
                 "warnings": ["종목 스냅샷 없음 — market_val_weekly 배치 미실행 또는 미수집 종목."]}
     hist = [{"snap_dd": r[0], "cap_krw": r[3],
              "per_fy0": r[4] and round(r[4], 2), "per_ttm": r[5] and round(r[5], 2),
              "pbr_fy0": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2)} for r in rows]
+    warnings = [f"주간 스냅샷 {len(hist)}개(최신 {hist[-1]['snap_dd']}). "
+                "정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용."]
+    # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고).
+    flags = await asyncio.to_thread(_pg_rows,
+        "SELECT flag, detail FROM krx_stock_flags WHERE isu_cd=%s", (isu,)) or []
+    for fl, detail in flags:
+        if fl == "spinoff_break":
+            warnings.append("⚠ 인적분할 이력(spinoff_break) — 분할 시점 시총 점프 + 직후 배수는 "
+                            "재무 반영 지연으로 왜곡 가능. 시계열 비교 주의.")
+        elif fl == "unresolved_adjustment":
+            warnings.append("⚠ 미해결 주가조정 이력(unresolved_adjustment) — 시계열 해석 주의.")
     return {"tool": "valuation", "status": "ok", "subject": corp.get("corp_name", query),
             "data": {"scope": "firm_history", "isu_cd": isu, "mkt": rows[-1][1],
                      "sector": rows[-1][2], "history": hist,
-                     "method": "주간 스냅샷 · PER=시총(우선주 귀속)÷지배순이익 — 시총 기반이라 수정주가 조정 불변"},
-            "warnings": [f"주간 스냅샷 {len(hist)}개(최신 {hist[-1]['snap_dd']}). "
-                         "정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용."]}
+                     "method": "주간 스냅샷 · PER=시총(우선주 귀속)÷지배순이익 — 시총 기반이라 분할·무상증자 "
+                               "등 조정성 이벤트에 불변. 단 유증·자사주 소각·인적분할의 시총 점프는 실제 "
+                               "이벤트 반영(조정 대상 아님)이므로 그대로 남음"},
+            "warnings": warnings}
 
 
 async def _acntall(client, cc: str, year: int, rc: str, fs: str | None = None) -> tuple[list, str | None]:

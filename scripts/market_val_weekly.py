@@ -18,7 +18,10 @@
   → 주중 매일 돌려도 주당 1스냅샷, 주 마지막 거래일로 굳음. (fx·krx_weekly와 동일 패턴)
 
 실행: python3 scripts/market_val_weekly.py            # 전체 A→D
-      python3 scripts/market_val_weekly.py --dry      # 저장 없이 산출만 출력
+      python3 scripts/market_val_weekly.py --dry      # B~D 저장 생략(산출만) — A(krx_weekly 갱신)·DDL은 수행
+
+※ 스냅샷 저장의 단일 정본. 구 market_val_agg.py --report/--snapshot·market_val_sector.py는
+  FX(비KRW 22사) 미환산이라 저장 경로로 쓰지 말 것(분석·비교용 조회만) — QA 260705.
 """
 import argparse, asyncio, json, os, sys
 from collections import defaultdict
@@ -31,7 +34,7 @@ load_dotenv(ROOT / ".env")
 import httpx, psycopg
 
 from open_proxy_mcp.dart.fx import fx_to_krw
-from open_proxy_mcp.services.valuation import _ensure_krx_fresh, _iso_wk_range, _num
+from open_proxy_mcp.services.valuation import _ensure_krx_fresh, _iso_wk_range
 
 FY = 2025
 FY_END = f"{FY}1231"  # 비KRW 재무 환산 기준(회계기말 환율) — valuation tool과 동일 규칙
@@ -113,9 +116,13 @@ async def run(dry: bool = False) -> None:
     wk = {c: (m or 0) for c, m in con.execute(
         "SELECT isu_cd, mktcap FROM krx_weekly WHERE bas_dd=%s", (snap_dd,))}
     kinds = await _krx_kinds(snap_dd)  # KRX 2콜
+    if not kinds:  # 양 endpoint 실패 → caps 전부 빈값 → 수렴 DELETE가 기존 스냅샷을 빈 데이터로
+        print("⚠ KRX 종목유형(kinds) 확보 실패 — 스냅샷 중단(기존 데이터 보존)")  # 덮는 사고 방지(QA)
+        con.close(); return
     # 우선주 시총 → 보통주 코드(첫5자리+'0') 귀속 (market_val_agg와 동일)
     caps: dict[str, float] = {}
     unmapped = 0.0
+    unk_kind = []  # kinds 미수록/미분류 코드 — K/L-suffix 신형우선주류 12건 실측(QA, 시장 0.013%)
     for code, cap in wk.items():
         kind = kinds.get(code, "")
         if kind == "보통주":
@@ -126,6 +133,10 @@ async def run(dry: bool = False) -> None:
                 caps[base] = caps.get(base, 0) + cap
             else:
                 unmapped += cap
+        elif cap and code not in kinds:
+            unk_kind.append(code)
+    if unk_kind:
+        print(f"  (kinds 미수록 {len(unk_kind)}건 — 귀속 제외: {unk_kind[:8]}{'…' if len(unk_kind) > 8 else ''})")
 
     # 재무: mkt_fundamentals (+비KRW 환산 — fx_rate 캐시라 API 0콜)
     rows = con.execute("""SELECT isu_cd, mkt, induty, currency, ni_fy, ni_ttm, eq_fy, eq_mrq
@@ -180,8 +191,8 @@ async def run(dry: bool = False) -> None:
         a = agg[mkt]
         if not a["n"]:
             continue
-        per_f = a["cap"] / a["ni_fy"] if a["ni_fy"] else None
-        per_t = a["cap_ttm"] / a["ni_ttm"] if a["ni_ttm"] else None
+        per_f = a["cap"] / a["ni_fy"] if a["ni_fy"] and a["ni_fy"] > 0 else None      # Σni≤0 → N/M
+        per_t = a["cap_ttm"] / a["ni_ttm"] if a["ni_ttm"] and a["ni_ttm"] > 0 else None  # (음수 PER 금지, QA)
         pbr_f = a["cap_eqf"] / a["eq_fy"] if a["eq_fy"] else None
         pbr_m = a["cap_eq"] / a["eq"] if a["eq"] else None
         mkt_recs.append((snap_dd, mkt, per_f, per_t, pbr_f, pbr_m,

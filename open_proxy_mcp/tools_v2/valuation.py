@@ -18,6 +18,7 @@ _STATUS_TITLE = {
     "unlisted": "비상장 — 시장배수 산출 불가",
     "no_financials": "재무 데이터 미확정",
     "no_data": "스냅샷 데이터 없음",
+    "db_error": "스냅샷 DB 연결 실패 (일시 장애)",
 }
 
 
@@ -44,7 +45,7 @@ def _render_market(p: dict[str, Any]) -> str:
     lines.append("|---|---|---|---|---|---|")
     for h in d["latest"]:
         lines.append(f"| {h['mkt']} | {_f(h['per_fy0'])} | {_f(h['per_ttm'])} | "
-                     f"{_f(h['pbr_fy0'])} | {_f(h['pbr_mrq'])} | {h['cap_krw']/1e12:,.0f}조 |")
+                     f"{_f(h['pbr_fy0'])} | {_f(h['pbr_mrq'])} | {(h['cap_krw'] or 0)/1e12:,.0f}조 |")
     hist = d["history"]
     dds = sorted({h["snap_dd"] for h in hist})
     if len(dds) > 1:
@@ -75,7 +76,7 @@ def _render_sector(p: dict[str, Any]) -> str:
         lines += [f"## {mkt}", "", "| 섹터 | 사수 | PER(TTM) | PBR(MRQ) | Σ시총 |", "|---|---|---|---|---|"]
         for s in rows:
             lines.append(f"| {s['label']} | {s['n']} | {_f(s['per_ttm'])} | {_f(s['pbr_mrq'])} "
-                         f"| {s['cap_krw']/1e12:,.1f}조 |")
+                         f"| {(s['cap_krw'] or 0)/1e12:,.1f}조 |")
         lines.append("")
     for w in p.get("warnings", []):
         lines.append(f"> {w}")
@@ -88,7 +89,7 @@ def _render_firm_history(p: dict[str, Any]) -> str:
              "| 주(기준일) | PER(FY0) | PER(TTM) | PBR(MRQ) | 시총 |", "|---|---|---|---|---|"]
     for h in reversed(d["history"]):
         lines.append(f"| {h['snap_dd']} | {_f(h['per_fy0'])} | {_f(h['per_ttm'])} "
-                     f"| {_f(h['pbr_mrq'])} | {h['cap_krw']/1e12:,.2f}조 |")
+                     f"| {_f(h['pbr_mrq'])} | {(h['cap_krw'] or 0)/1e12:,.2f}조 |")
     lines += ["", f"> {d['method']}"]
     for w in p.get("warnings", []):
         lines.append(f"> {w}")
@@ -113,8 +114,11 @@ def register_tools(mcp):
             payload = await build_sector_val_payload(company, format=format)
         elif sc in ("firm_history", "history"):
             payload = await build_firm_history_payload(company, format=format)
-        else:
+        elif sc == "firm":
             payload = await build_valuation_payload(company, format=format)
+        else:  # 오타("markets" 등)를 조용히 firm으로 보내면 의도 밖 DART 콜 — 명시 거절(QA)
+            payload = {"tool": "valuation", "status": "invalid", "subject": scope,
+                       "warnings": [f"scope '{scope}' 없음 — firm / market / sector / firm_history 중 선택."]}
         if format == "json":
             return as_pretty_json(payload)
         if payload.get("status") != "ok":

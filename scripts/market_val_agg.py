@@ -6,8 +6,12 @@
 한도: DART 동시성 1 + sleep 0.45s(분당 ~130, hard rule 준수) · ReadError 즉시 중단 · 재개 가능.
 저장: mkt_fundamentals (Supabase, ~2,700행) — 이후 aggregate는 재계산만.
 
-실행: python3 scripts/market_val_agg.py --fetch   # 배치 수집(재개 가능, ~60분)
+실행: python3 scripts/market_val_agg.py --fetch   # 배치 수집(재개 가능, ~60분) — 분기 갱신용(현역)
       python3 scripts/market_val_agg.py --report  # aggregate 산출
+
+⚠ deprecated(260705, QA): --report/--snapshot aggregate는 비KRW 22사 FX 미환산 — KOSDAQ PER ~5.7%
+  왜곡 실측. 스냅샷 저장 정본 = scripts/market_val_weekly.py(FX 환산). 이 스크립트는 --fetch
+  (mkt_fundamentals 분기 재수집)만 계속 사용.
 """
 import argparse, asyncio, os, sys
 from pathlib import Path

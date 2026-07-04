@@ -3,7 +3,7 @@ type: tool
 title: valuation
 domain: data
 status: 등록 완료 (260705 — tools_v2/valuation.py, v2 toolset 18번째)
-scope: [lean-v1 상대가치 배수]
+scope: [firm, market, sector, firm_history]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
@@ -20,18 +20,41 @@ DART(공시) + KRX(공식시세) 기반 **상대가치 배수** — PER(FY0·TTM
 
 ## 사용법
 ```
-valuation(company="두산밥캣")
+valuation(company="두산밥캣")                    # firm: 기업 심층 (실시간)
+valuation(scope="market")                        # 시장 전체(KOSPI·KOSDAQ) + 주간 히스토리
+valuation(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교
+valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR/시총 주간 시계열
 ```
 자연어 예시:
-- "삼성전자 밸류에이션" → PER 46.9(FY0)/21.6(TTM) · PBR 4.33 · 배당수익률 0.54%
+- "삼성전자 밸류에이션" → firm: PER 46.9(FY0)/21.6(TTM) · PBR 4.33 · 배당수익률 0.54%
 - "두산밥캣 PBR" → USD 재무 자동 KRW 환산(ECOS 1,434.9) → PBR 0.86
-- "카카오뱅크 배수" → 금융업 판별 → PBR·PER·배당·ROE 중심(EV/EBITDA·PSR·FCF N/A)
+- "코스피 지금 싸?" → market: KOSPI PER 20.4(TTM)·PBR 2.23 + 주간 추이
+- "반도체 업종 밸류" → sector: KSIC 섹터별 PER/PBR 표
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
-| company | str | yes | 회사명 / ticker(6자리) / corp_code | - |
+| company | str | firm·firm_history는 필수 | 회사명 / ticker(6자리) / corp_code. sector에선 선택(소속 섹터 비교) | "" |
+| scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history` (뒤 3개 = 주간 스냅샷 DB) | "firm" |
 | format | str | no | "md" / "json" | "md" |
+
+## scope 라우팅 — 기능 → 데이터 소스 (DB-first)
+
+| scope | 소스 | 갱신 | 내용 |
+|---|---|---|---|
+| `firm` | 실시간 DART 재무 × `krx_weekly` 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
+| `market` | `mkt_val_history` | 주간 스냅샷(cron) | KOSPI·KOSDAQ 시총가중 PER/PBR + 히스토리 |
+| `sector` | `mkt_sector_val` (+`mkt_valuation` 비교) | 주간 스냅샷(cron) | KSIC 하이브리드 섹터별 + 기업 vs 섹터 |
+| `firm_history` | `mkt_valuation` | 주간 스냅샷(cron) | 종목 PER/PBR/시총 주간 시계열 |
+
+- 스냅샷 3테이블은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
+  화~토 KST 10:17 — 매일 수집→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
+- **⚠ 방법론 이중성**: firm = 보통주 주가÷EPS(유통주식). 스냅샷 = **총시총(우선주 귀속)÷지배순이익**
+  (시총가중, 지수 표준) — 삼성 PER(TTM) 20.0(firm) vs 21.9(스냅샷)처럼 다를 수 있음. 출력에 명시.
+- **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
+  조정 불필요. 주당 가격·EPS 시계열을 노출하게 되면 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수.
+- 비KRW 22사(USD/CNY/JPY): 스냅샷 배치가 fx_rate(기말환율)로 KRW 환산 후 산출(구 aggregate의
+  원통화 혼합 합산 버그 수정, 260705).
 
 ## 데이터 계보 (소스 → 아이템 → 연산) — 핵심
 
@@ -43,7 +66,7 @@ valuation(company="두산밥캣")
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
 | 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + Supabase `fx_rate` 캐시 | 기능통화 · 기말환율 | 비KRW → 재무 KRW 환산 |
 | 주식수 | `get_stock_total` → DART **stockTotqySttus** | distb_stock_co(합계/보통주, 자기주식 제외) | EPS 분모(보통주)·BPS 분모(합계) |
-| 시세 | **Supabase `krx_weekly_px`(주간 누적)** 우선 → 미스·스냅샷 확보 시만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
+| 시세 | **Supabase `krx_weekly`(검증 자산, 2015-12~)** 우선 → 미스·최신 확보 시만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
 | 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) | 배당수익률 |
 
 ## 연산 파이프라인
