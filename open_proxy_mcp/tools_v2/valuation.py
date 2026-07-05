@@ -176,10 +176,13 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
             L.append(f"- {lbl} = {formula} → **N/M** (분모≤0·적자·자본잠식 또는 데이터 미확정)")
     L.append(f"- EPS(FY0) = 공시 기본주당이익(가중평균 주식수 반영) = **{i.get('eps_fy0_krw') and format(i['eps_fy0_krw'], ',')}원**"
              " (부재 시 지배순이익÷보통주 폴백)")
-    if i.get("net_income_ttm_krw") is not None and i.get("shares_common"):
-        L.append(f"- EPS(TTM) = TTM 지배순이익 ÷ 보통주 = {i['net_income_ttm_krw']:,} ÷ "
+    if i.get("eps_ttm_basis") == "disclosed_assembled":
+        L.append(f"- EPS(TTM) = **공시 EPS 조립**(FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS) = "
+                 f"**{i.get('eps_ttm_krw') and format(i['eps_ttm_krw'], ',')}원** — FY0과 같은 공시 가중평균 기준(대칭)")
+    elif i.get("net_income_ttm_krw") is not None and i.get("shares_common"):
+        L.append(f"- EPS(TTM) = 폴백: TTM 지배순이익 ÷ 보통주 = {i['net_income_ttm_krw']:,} ÷ "
                  f"{i['shares_common']:,} = **{i.get('eps_ttm_krw') and format(i['eps_ttm_krw'], ',')}원**"
-                 "  (TTM = 연간 + 1Q당해 − 1Q전년)")
+                 "  (공시 EPS 결측 — FY0과 기준 다름 주의)")
     if i.get("controlling_equity_krw") is not None and i.get("shares_total"):
         L.append(f"- BPS = 지배자본(MRQ) ÷ 합계주식수 = {i['controlling_equity_krw']:,} ÷ "
                  f"{i['shares_total']:,} = **{i.get('bps_krw') and format(i['bps_krw'], ',')}원**")

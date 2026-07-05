@@ -73,8 +73,8 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR/시총
 ## 연산 파이프라인
 ```
 TTM 순이익   = ni_fy(연간) + ni_qc(1Q당해) − ni_qp(1Q전년)      # 지배순이익 기준
-EPS(FY0)     = financial_metrics 공시 기본주당이익            # 없으면 지배순이익÷보통주 폴백
-EPS(TTM)     = TTM 순이익 ÷ shares_common(보통주)
+EPS(FY0)     = 공시 기본주당이익 (연간 재무제표 직접, 3단 매칭)   # 결측 시 지배순이익÷보통주 폴백
+EPS(TTM)     = 공시 EPS 조립: FY0 + 분기누적(thstrm_add) − 전년동기누적  # FY0과 같은 공시 기준(대칭)
 BPS          = 지배자본(MRQ 우선, 없으면 FY0) ÷ shares_total(합계)
 PER(FY0/TTM) = 주가 ÷ EPS(FY0/TTM)
 PBR(MRQ)     = 주가 ÷ BPS
@@ -82,9 +82,9 @@ PBR(MRQ)     = 주가 ÷ BPS
 ```
 - **지배주주 귀속 일관**: EPS·BPS·PER·PBR 모두 지배지분(`_ctrl_*`). 지주사(NCI 큰) 과대 방지.
   단 **스케일 항등식은 총자본**(지배+비지배, `_gid` Equity) — 지배자본만 쓰면 NCI만큼 상시 오탐.
-- **⚠ EPS 방법론 비대칭**: EPS(FY0)=공시 기본주당이익(가중평균 주식수·우선주 배분 반영),
-  EPS(TTM)=지배순이익÷보통주(시점) → 분모 기준이 달라 **FY0·PER과 TTM·PER 직접 비교는 주의**
-  (예: 순이익 YoY 감소해도 EPS_ttm>EPS_fy0 역전 가능). 방법론 통일은 v1.1.
+- **EPS 대칭화(260705)**: FY0·TTM 모두 공시 기본주당이익 기준(TTM=공시 EPS 조립) — 두 PER 직접
+  비교 가능. 커버리지 99%(100사 스윕), 결측 시 지배NI÷보통주 폴백+경고. 기중 주식수 급변 시
+  조립 한계는 sanity 경고. 상세 [[per-pbr-data-points]]·[[valuation-methodology]].
 
 ## 가드 4종
 1. **식별 status**(진입부): `invalid`(빈입력) · `not_found`(미존재·우선주 — 마스터는 보통주 코드만) ·

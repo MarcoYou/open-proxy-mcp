@@ -452,6 +452,49 @@ def _ctrl_ni(rows, field="thstrm_amount"):
     return total - nci
 
 
+def _eps_disclosed(rows: list, *fields: str) -> float | None:
+    """공시 기본주당이익 — fields 우선순위로 첫 유효값. 3단 매칭(100사 스윕 실측으로 확장):
+    ① 표준 `ifrs-full_BasicEarningsLossPerShare`
+    ② 계속영업+중단영업 분리 공시(삼바형) — 분모(가중평균) 동일하므로 합산 = 총 기본 EPS
+    ③ 비표준 코드('-표준계정코드 미사용-', LG형) — nm 기반(보통주·기본·비중단·비우선주)
+    분기 응답은 thstrm_add_amount(누적 EPS)가 실존([[per-pbr-data-points]]) → TTM 조립 재료.
+    두산밥캣류 USD EPS는 소수점 문자열("2.95") — int 파싱 금지, float."""
+    def _val(r):
+        for f in fields:
+            v = r.get(f)
+            if v not in (None, "", "-"):
+                try:
+                    return float(str(v).replace(",", ""))
+                except (TypeError, ValueError):
+                    pass
+        return None
+
+    for sj in ("IS", "CIS"):  # 통상 IS 하단, 일부 회사 CIS
+        rs = [r for r in rows if r.get("sj_div") == sj]
+        for r in rs:  # ① 표준 총 기본 EPS
+            if r.get("account_id") == "ifrs-full_BasicEarningsLossPerShare":
+                v = _val(r)
+                if v is not None:
+                    return v
+        cont = disc = None  # ② 계속+중단 분리(삼바형)
+        for r in rs:
+            if r.get("account_id") == "ifrs-full_BasicEarningsLossPerShareFromContinuingOperations":
+                cont = _val(r) if cont is None else cont
+            elif r.get("account_id") == "ifrs-full_BasicEarningsLossPerShareFromDiscontinuedOperations":
+                disc = _val(r) if disc is None else disc
+        if cont is not None:
+            return cont + (disc or 0)
+        for r in rs:  # ③ 비표준 코드(LG형) — nm 기반, 보수적 필터
+            if not (r.get("account_id") or "").startswith("-표준"):
+                continue
+            nm = (r.get("account_nm") or "").replace(" ", "")
+            if "주당" in nm and "기본" in nm and "우선주" not in nm and "중단" not in nm:
+                v = _val(r)
+                if v is not None:
+                    return v
+    return None
+
+
 async def _shares_outstanding(client, cc: str, year: int) -> dict:
     """유통주식수: total(보통+우선 합계, BPS용) · common(보통주, EPS용). 자기주식 제외(distb)."""
     out = {"total": None, "common": None}
@@ -553,7 +596,17 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
 
     if fx_rate != 1.0:
         revenue_fy = _fx(revenue_fy)
-        eps_fy = None  # fm의 eps_krw는 실제 USD/주 → 폐기, 아래서 환산된 ni_fy로 재계산
+        eps_fy = None  # fm의 eps_krw는 실제 USD/주 → 폐기, 아래서 공시 EPS×환율로 대체
+
+    # ── 공시 EPS 조립 (260705, [[per-pbr-data-points]] 전수조사 귀결) ──
+    # 가중평균주식수는 어느 endpoint에도 없음 → 주식수를 직접 만들지 않고 공시 EPS끼리 조립:
+    #   TTM EPS = FY0 EPS + 당해 분기누적 EPS(thstrm_add_amount) − 전년동기누적 EPS
+    # → FY0·TTM 모두 공시 가중평균·우선주 배분 기준 = 분모 비대칭(현대차 29% 괴리·방향 왜곡) 근본 해소.
+    eps_fy_disc = _eps_disclosed(fy_rows, "thstrm_amount")
+    eps_qc_disc = _eps_disclosed(qc_rows, "thstrm_add_amount", "thstrm_amount")
+    eps_qp_disc = _eps_disclosed(qp_rows, "thstrm_add_amount", "thstrm_amount")
+    eps_ttm_disc = (eps_fy_disc + eps_qc_disc - eps_qp_disc) \
+        if None not in (eps_fy_disc, eps_qc_disc, eps_qp_disc) else None
 
     ni_fy = _fx(_ctrl_ni(fy_rows))
     ni_qc = _fx(_ctrl_ni(qc_rows))
@@ -596,10 +649,20 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     dps = (div_sum or {}).get("cash_dps") or None
 
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
-    eps_ttm = round(_div(ni_ttm, shares_common)) if (ni_ttm and shares_common) else None
-    # EPS(FY0) financial_metrics 우선, None이면(지배순이익 부재사) 자체계산 지배순이익÷보통주로 폴백.
+    # EPS(FY0): 공시값 우선 — fy_rows 직접(비KRW는 ×환율) → fm(eps_krw) → 지배순이익÷보통주 폴백.
+    if eps_fy_disc is not None:
+        eps_fy = _fx(eps_fy_disc) if fx_rate != 1.0 else round(eps_fy_disc)
     if eps_fy is None and ni_fy is not None and shares_common:
         eps_fy = round(_div(ni_fy, shares_common))
+    # EPS(TTM): 공시 EPS 조립(FY0과 같은 기준) 우선 → 조각 결측 시 지배순이익÷보통주 폴백(비대칭).
+    if eps_ttm_disc is not None:
+        eps_ttm = _fx(eps_ttm_disc) if fx_rate != 1.0 else round(eps_ttm_disc)
+        eps_ttm_basis = "disclosed_assembled"
+    elif ni_ttm and shares_common:
+        eps_ttm = round(_div(ni_ttm, shares_common))
+        eps_ttm_basis = "ni_div_shares_fallback"
+    else:
+        eps_ttm, eps_ttm_basis = None, None
 
     # ── 가드: 자본잠식·적자·섹터 ──
     impaired_full = cap_status == "full"
@@ -634,15 +697,34 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
         warnings.append(f"🚨 DART 재무 단위(스케일) 오류 강하게 의심({scale_verdict['hard_hit']}) — 아래 순이익·자본·배수는 **원문 그대로**이며 신뢰 불가. 반드시 원문 확인 후 사용. (예: 소프트센 032680 100만배 오류)")
     elif scale_verdict and scale_verdict["tier"] == "soft":
         warnings.append(f"재무 비율 이상치({scale_verdict['soft_hit']}) — 값은 정상일 수 있음(원샷 이익·자산매각·적자흑자 전환 등). 참고용 플래그.")
-    # EPS 두 기준(공시 가중평균 vs 지배NI÷보통주) 실측 괴리 >10% → 동적 경고 — 재무 QA 실증(현대차):
-    # 이익 감소에도 PER FY0→TTM이 "개선"처럼 보이는 방향 왜곡을 사용자에게 알린다.
-    if eps_fy and ni_fy is not None and shares_common:
+    # 조립 EPS sanity(재무 QA 260705, 이오플로우 실증): 기중 주식수 급변(대규모 유증·감자) 시
+    # 서로 다른 가중평균 분모의 EPS를 가감하는 구조적 한계. 단 우선주 배분·가중평균의 '구조적' 괴리
+    # (현대차 22% — 정상)는 FY0·TTM 양쪽에 동일하게 나타나므로, **괴리 비율의 변화**(FY0 대비 TTM)와
+    # 부호 불일치만 경고 — 상시 발동 노이즈 방지.
+    if eps_ttm_basis == "disclosed_assembled" and eps_ttm is not None and ni_ttm and shares_common:
+        uni_ttm = _div(ni_ttm, shares_common)
+        uni_fy = _div(ni_fy, shares_common) if ni_fy is not None else None
+        sign_flip = eps_ttm * ni_ttm < 0
+        shift = None
+        if uni_ttm and uni_fy and eps_fy:
+            r_ttm, r_fy = eps_ttm / uni_ttm, eps_fy / uni_fy
+            if r_fy:
+                shift = abs(r_ttm / r_fy - 1)
+        if sign_flip or (shift is not None and shift > 0.15):
+            warnings.append(
+                "⚠️ TTM EPS 조립값의 정합 이상 — 기중 주식수 급변(대규모 유증·감자·전환) 시 서로 다른 "
+                f"가중평균 분모의 공시 EPS를 가감하는 알려진 한계"
+                f"({'순이익과 부호 불일치' if sign_flip else f'FY0 대비 괴리 변화 {shift*100:.0f}%'}). "
+                "TTM 배수 해석 주의.")
+    # EPS 비대칭 경고 — TTM이 폴백(지배NI÷보통주)일 때만: FY0(공시 가중평균)과 기준이 달라
+    # 괴리 >10%면 방향 왜곡 가능(현대차 29% 실증). 공시 조립(disclosed_assembled)이면 대칭 — 경고 불필요.
+    if eps_ttm_basis == "ni_div_shares_fallback" and eps_fy and ni_fy is not None and shares_common:
         eps_calc = _div(ni_fy, shares_common)
         if eps_calc and abs(eps_calc - eps_fy) / abs(eps_fy) > 0.10:
             warnings.append(
-                f"⚠️ EPS(FY0) 기준 괴리 {abs(eps_calc-eps_fy)/abs(eps_fy)*100:.0f}% — 공시 기본주당이익 "
-                f"{eps_fy:,}원 vs 지배순이익÷보통주 {eps_calc:,.0f}원(가중평균 주식수·우선주 배분·기중 "
-                "주식수 변동 영향). FY0·TTM PER의 증감 방향 비교 주의.")
+                f"⚠️ EPS(TTM)이 폴백 계산(지배순이익÷보통주) — 공시 EPS(FY0 {eps_fy:,}원)와 기준 괴리 "
+                f"{abs(eps_calc-eps_fy)/abs(eps_fy)*100:.0f}%(가중평균·우선주 배분 차이). "
+                "FY0·TTM PER의 증감 방향 비교 주의.")
     # 수정주가 파이프라인 flag — 분할·미해결 조정 종목은 배수 해석 주의(재무 QA: 삼바 분할 실증).
     if stock_code:
         for fl, _detail in (await asyncio.to_thread(
@@ -668,7 +750,8 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
                 "dividend_yield_pct": div_yield,
             },
             "inputs": {
-                "eps_fy0_krw": eps_fy, "eps_ttm_krw": eps_ttm, "bps_krw": bps, "roe_pct": roe,
+                "eps_fy0_krw": eps_fy, "eps_ttm_krw": eps_ttm, "eps_ttm_basis": eps_ttm_basis,
+                "bps_krw": bps, "roe_pct": roe,
                 "net_income_fy0_krw": ni_fy, "net_income_ttm_krw": ni_ttm,
                 "controlling_equity_krw": ctrl_equity,
                 "shares_common": shares_common, "shares_total": shares_total,
@@ -685,8 +768,10 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
                 "values_masked": False,  # 개별조회는 값 무효화 안 함(집계 tool과 반대) — 판단은 사용자
             },
             "note": "lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT·희석EPS는 v1.1. "
-                    "EPS(FY0)=DART 공시 기본주당이익(가중평균 주식수·우선주 배분 반영), "
-                    "EPS(TTM)=지배순이익÷보통주(시점) — 분모 기준이 달라 FY0·TTM PER 직접비교는 주의. "
+                    "EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준(TTM=공시 EPS 조립: FY0+분기누적−전년동기누적 "
+                    "— 가중평균 주식수·우선주 배분 반영, 두 PER 직접비교 가능. 클래스별 EPS 미공시사(삼성전자 등)는 "
+                    "보·우 합산 가중평균 = 네이버금융·FnGuide 관행과 동일). 공시 EPS 결측 시에만 "
+                    "지배순이익÷보통주 폴백(경고 부착). "
                     "PBR 분모=합계 유통주식수(보통+우선, 자기주식 제외) — 보통주만 쓰는 일부 벤더와 다를 수 있음. "
                     "배수는 trailing(과거 실적) 기준 — 컨센서스 선행(fwd) PER와 상이.",
         },
