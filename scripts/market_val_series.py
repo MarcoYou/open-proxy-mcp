@@ -1,7 +1,8 @@
 """시장 밸류에이션 분기 시계열 — PIT(공시 접수 근사) 기준 시장 PER/PBR 추이.
 
 시총: krx_weekly(주간, 2015-12~) 재활용 → KRX 콜 0.
-재무: FY2020~2024 지배순이익·지배자본 배치(mkt_fund_hist) — DART 종목당 5콜, 총 ~13k콜.
+재무: FY2018~2024 지배순이익·지배자본 배치(mkt_fund_hist). 260705 FY2018-2019 백필 추가
+      — firm_history 밴드 깊이를 2020년까지 확장(2020 PBR/PER PIT 커버). resume으로 누락분만 수집.
 PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년 FY, 아니면 전전년 FY)
           — 사업보고서 3월 중순 공시 규칙의 연 단위 근사(look-ahead 방지).
 
@@ -24,7 +25,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 
-YEARS = [2020, 2021, 2022, 2023, 2024]
+YEARS = [2018, 2019, 2020, 2021, 2022, 2023, 2024]
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_hist(
   isu_cd text, fy int, fs text, ni double precision, eq double precision,
   ni_restated double precision, eq_restated double precision,

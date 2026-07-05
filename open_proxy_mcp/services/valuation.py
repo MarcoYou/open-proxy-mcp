@@ -358,36 +358,57 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
             "warnings": warnings}
 
 
-async def _annual_pit_band(isu_cd: str, currency: str = "KRW") -> list[dict]:
+def _pit_fy(bas_dd: str) -> int:
+    """PIT 근사: 그 시점 최신 확정 FY. 사업보고서 3월 중순 공시 → 4월 이후면 전년 FY, 아니면 전전년
+    (look-ahead 방지). market_val_series.py series()와 동일 규칙."""
+    y, m = int(bas_dd[:4]), int(bas_dd[4:6])
+    return y - 1 if m >= 4 else y - 2
+
+
+async def _firm_fin_by_fy(isu_cd: str, currency: str = "KRW") -> dict[int, tuple]:
+    """종목 FY별 (지배순이익, 지배자본) — KRW 환산 완료. mkt_fund_hist(FY2018~2024, 스케일오류
+    정정치 ni_restated/eq_restated 우선) ∪ mkt_fundamentals(FY2025). 비KRW는 FY 기말환율 환산."""
+    rows = await asyncio.to_thread(_pg_rows,
+        "SELECT fy, ni, eq, ni_restated, eq_restated FROM mkt_fund_hist WHERE isu_cd=%s "
+        "AND (fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (isu_cd,)) or []
+    fin: dict[int, tuple] = {}
+    for fy, ni, eq, ni_r, eq_r in rows:
+        ni_f = ni_r if ni_r is not None else ni
+        eq_f = eq_r if eq_r is not None else eq
+        fin[int(fy)] = (float(ni_f) if ni_f is not None else None,
+                        float(eq_f) if eq_f is not None else None)
+    cur = await asyncio.to_thread(_pg_rows,
+        "SELECT ni_fy, eq_fy FROM mkt_fundamentals WHERE isu_cd=%s", (isu_cd,))
+    if cur and cur[0][0] is not None:
+        fin[2025] = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
+    ccy = (currency or "KRW").upper()
+    if ccy not in ("KRW", "NODATA", "?"):
+        for fy in list(fin):
+            fx = await fx_to_krw(ccy, f"{fy}1231")
+            ni_f, eq_f = fin[fy]
+            fin[fy] = ((ni_f * fx if ni_f is not None else None,
+                        eq_f * fx if eq_f is not None else None) if fx else (None, None))
+    return fin
+
+
+async def _annual_pit_band(isu_cd: str, currency: str = "KRW",
+                           fin: dict[int, tuple] | None = None) -> list[dict]:
     """연말 PIT PER/PBR 밴드 — **이미 있는 데이터로 질의 시 계산**(백필 저장 X, compute-on-query).
     연말 보통주 시총(krx_weekly, isu_cd=보통주 코드) ÷ 그 시점 최신 확정 FY 재무(mkt_fund_hist).
-    PIT: 연말 YYYY 시점의 최신 확정 재무 = FY(YYYY−1) (FY는 익년 3월 공시 → look-ahead 방지).
     시총 기반이라 수정주가(분할·무상증자) 조정 불변. 비KRW는 그 FY 기말환율로 KRW 환산."""
     caps = await asyncio.to_thread(_pg_rows,
         "SELECT DISTINCT ON (substring(bas_dd,1,4)) substring(bas_dd,1,4), bas_dd, mktcap "
         "FROM krx_weekly WHERE isu_cd=%s AND substring(bas_dd,5,2)='12' "
         "ORDER BY substring(bas_dd,1,4), bas_dd DESC", (isu_cd,)) or []
-    fins = await asyncio.to_thread(_pg_rows,
-        "SELECT fy, ni, eq FROM mkt_fund_hist WHERE isu_cd=%s AND fetched='ok'", (isu_cd,)) or []
-    fin_by_fy = {int(f): (n, e) for f, n, e in fins}
-    ccy = (currency or "KRW").upper()
-    fx_cache: dict[int, float | None] = {}
+    if fin is None:
+        fin = await _firm_fin_by_fy(isu_cd, currency)
     band = []
     for yr_s, bas_dd, cap in caps:
-        pit_fy = int(yr_s) - 1
-        if pit_fy not in fin_by_fy or not cap:
+        pit_fy = _pit_fy(bas_dd)
+        if pit_fy not in fin or not cap:
             continue
-        ni, eq = fin_by_fy[pit_fy]
-        fx = 1.0
-        if ccy not in ("KRW", "NODATA", "?"):
-            if pit_fy not in fx_cache:
-                fx_cache[pit_fy] = await fx_to_krw(ccy, f"{pit_fy}1231")
-            fx = fx_cache[pit_fy]
-            if not fx:
-                continue
+        ni_k, eq_k = fin[pit_fy]
         cap = float(cap)
-        ni_k = float(ni) * fx if ni is not None else None
-        eq_k = float(eq) * fx if eq is not None else None
         band.append({
             "period": yr_s, "asof": bas_dd, "pit_fy": pit_fy, "cap_krw": round(cap),
             "per_fy0": round(cap / ni_k, 2) if ni_k and ni_k > 0 else None,
@@ -395,6 +416,30 @@ async def _annual_pit_band(isu_cd: str, currency: str = "KRW") -> list[dict]:
             "source": f"연말(PIT FY{pit_fy})",
         })
     return band
+
+
+async def _weekly_series(isu_cd: str, currency: str = "KRW",
+                         fin: dict[int, tuple] | None = None) -> list[dict]:
+    """차트용 주간 dense 시계열 — 주간 보통주 시총(krx_weekly) × PIT 자본·순이익(연 단위 계단).
+    PBR·PER(FY0) 곡선. 재무는 연 1회(3월 공시) 갱신 → 분모는 계단, 주가는 주간이라 곡선은 촘촘.
+    시총 기반이라 수정주가 조정 불변. 반환은 asof 오름차순."""
+    px = await asyncio.to_thread(_pg_rows,
+        "SELECT bas_dd, mktcap FROM krx_weekly WHERE isu_cd=%s ORDER BY bas_dd", (isu_cd,)) or []
+    if fin is None:
+        fin = await _firm_fin_by_fy(isu_cd, currency)
+    series = []
+    for bas_dd, cap in px:
+        fy = _pit_fy(bas_dd)
+        if fy not in fin or not cap:
+            continue
+        ni_k, eq_k = fin[fy]
+        cap = float(cap)
+        series.append({
+            "asof": bas_dd, "pit_fy": fy,
+            "per_fy0": round(cap / ni_k, 3) if ni_k and ni_k > 0 else None,
+            "pbr": round(cap / eq_k, 3) if eq_k and eq_k > 0 else None,
+        })
+    return series
 
 
 async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
@@ -415,8 +460,11 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     cur_row = await asyncio.to_thread(_pg_rows,
         "SELECT mkt, sector, currency FROM mkt_fundamentals WHERE isu_cd=%s", (isu,))
     currency = (cur_row[0][2] if cur_row and cur_row[0][2] else "KRW")
-    # ① 연말 PIT 밴드 — 이미 있는 데이터(krx_weekly×mkt_fund_hist)로 질의 시 계산(저장 X)
-    band = await _annual_pit_band(isu, currency)
+    # ① 연말 PIT 밴드 + ③ 차트용 주간 dense series — 이미 있는 데이터(krx_weekly×mkt_fund_hist)로
+    #    질의 시 계산(저장 X). 재무 로더(fin)는 한 번만 만들어 밴드·series가 공유.
+    fin = await _firm_fin_by_fy(isu, currency)
+    band = await _annual_pit_band(isu, currency, fin=fin)
+    series = await _weekly_series(isu, currency, fin=fin)
     # ② 주간 스냅샷 — 최근/현재 촘촘한 포인트(앞으로 cron이 축적)
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, mkt, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
@@ -450,9 +498,13 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
             warnings.append("⚠ 미해결 주가조정 이력(unresolved_adjustment) — 시계열 해석 주의.")
     mkt = rows[-1][1] if rows else (cur_row[0][0] if cur_row else None)
     sector = rows[-1][2] if rows else (cur_row[0][1] if cur_row else None)
+    if series:
+        warnings.append(f"차트용 주간 series {len(series)}개({series[0]['asof']}~{series[-1]['asof']}) = "
+                        "data.series (asof·per_fy0·pbr). PBR/PER 곡선용 — 재무는 연 1회(3월 공시) 계단, "
+                        "주가는 주간. 표는 연말 밴드만 표시.")
     return {"tool": "valuation", "status": "ok", "subject": corp.get("corp_name", query),
             "data": {"scope": "firm_history", "isu_cd": isu, "mkt": mkt,
-                     "sector": sector, "history": hist,
+                     "sector": sector, "history": hist, "series": series,
                      "method": "연말 PIT 밴드(krx_weekly 연말 보통주 시총 ÷ 그 시점 최신 확정 FY 재무, "
                                "look-ahead 방지) + 주간 스냅샷. PER=보통주 시총÷지배순이익(우선주 시총 별도). "
                                "시총 기반이라 분할·무상증자 등 조정성 이벤트에 불변. 단 유증·자사주 소각·"

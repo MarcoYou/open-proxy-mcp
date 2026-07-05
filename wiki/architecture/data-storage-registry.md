@@ -23,7 +23,7 @@ updated: 2026-07-05
 | 그룹 | 테이블 | 갱신 주체 | 주기 |
 |---|---|---|---|
 | **밸류에이션 서빙** | krx_weekly · mkt_valuation · mkt_val_history · mkt_sector_val · fx_rate | valuation tool(수동갱신 겸) + `market_val_weekly.py` cron | 일별 수집→주간 수렴 |
-| **밸류에이션 원천** | mkt_fundamentals · mkt_fund_hist | `market_val_agg.py --fetch` / `market_val_series.py --fetch` | 분기(보고 시즌) / 연 1회 |
+| **밸류에이션 원천** | mkt_fundamentals · mkt_fund_hist(FY2018~2024) | `market_val_agg.py --fetch` / `market_val_series.py --fetch` | 분기(보고 시즌) / 연 1회(+과거 FY 백필) |
 | **수정주가 파이프라인** | krx_adj_factor(v1~v3) · krx_base_resets · krx_shares_ledger · krx_ledger_days · krx_reset_days · krx_stock_flags · dart_capital_events · dart_sweep_done | 전용 스크립트([[adjusted-price-timeseries]]) | 이벤트/수동 |
 | **운영·미터링** | events · krx_call_log | 앱 자동 | 실시간 |
 
@@ -109,10 +109,13 @@ updated: 2026-07-05
   ※ valuation firm은 이걸 안 쓰고 실시간 DART(최신성 우선 — 배치 스냅샷은 보고 시즌에 stale).
 
 ### `mkt_fund_hist` — 종목별 과거 FY 재무 (시계열)
-- **item**: `isu_cd` · `fy`(2020~2024) · `fs` · `ni` · `eq` · `ni_restated`/`eq_restated`(다음 해
-  보고서 전기비교치로 재작성 검증 — 소프트센 100만배 오류 자동정정 메커니즘) · `fetched`. 12,995행.
-- **갱신**: `market_val_series.py --fetch`(연 1회, 신규 FY 확정 시). / **목적**: PIT(공시 접수 근사)
-  시장 밸류 분기 시계열(`--series`) · v1.1 종목별 5년 밴드 원천.
+- **item**: `isu_cd` · `fy`(**2018~2024**, 260705 FY2018-2019 백필로 확장) · `fs` · `ni` · `eq` ·
+  `ni_restated`/`eq_restated`(다음 해 보고서 전기비교치로 재작성 검증 — 소프트센 100만배 오류
+  자동정정 메커니즘) · `fetched`. ~2,600행/FY.
+- **갱신**: `market_val_series.py --fetch`(연 1회, 신규 FY 확정 시. YEARS 배열 확장으로 과거 FY도
+  백필 — resume `done` 셋이 누락분만 수집, 직렬 0.45s/콜). / **목적**: PIT(공시 접수 근사) 시장 밸류
+  시계열 · firm_history **연말 밴드 + 주간 dense series**(2020~) 원천 — `_pit_fy`(4월 이후 전년 FY,
+  아니면 전전년)로 look-ahead 방지. FY2018-2019 백필로 밴드/series 깊이가 2020년까지 확장.
 
 ## 3. 수정주가 파이프라인 — [[adjusted-price-timeseries]]가 정본, 여기선 요약
 
