@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-06-13
+updated: 2026-07-06
 ---
 
 # OPM Wiki Index
@@ -143,9 +143,10 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 
 ---
 
-## Tools (16 진입점) - `tools/`
+## Tools (18 진입점) - `tools/`
 
-전체 카탈로그 + 통계 + 흡수된 archive 매핑은 [[tools/README]].
+전체 카탈로그 + 통계 + 흡수된 archive 매핑은 [[tools/README]] — 아래는 요약 목록(신규 tool 추가 시
+[[tools/README]]와 함께 갱신).
 
 ### Company (1)
 - [[company]] - 기업 식별 + 최근 공시 인덱스
@@ -154,7 +155,7 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[shareholder_meeting_notice]] - 주총 소집공고 사전 데이터
 - [[shareholder_meeting_results]] - 주총 의결 결과 사후 데이터
 
-### Data (10)
+### Data (13)
 - [[ownership_structure]] - 최대주주/특수관계인/5%/control_map
 - [[financial_metrics]] - DART 재무 4 endpoint 통합
 - [[corp_gov_report]] - 기업지배구조보고서 15지표
@@ -165,12 +166,14 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[dilutive_issuance]] - 유상증자/CB/BW/감자
 - [[proxy_contest]] - 위임장/소송/5%/vote_math
 - [[corporate_deals]] - 지분 인수·매각(타법인주식) + 단일공급계약 (구 related_party_transaction)
+- [[order_contracts]] - 단일판매·공급계약
 - [[risk_events]] - 리스크 이벤트 활성 3종 (중대재해/횡령배임/생산중단·영업정지, 파생·회생·해산 mute)
+- [[valuation]] - PER·PBR·배당수익률(기업 심층) + 시장/섹터/종목 히스토리 (260705 신설)
 
 ### Evidence (1)
 - [[evidence]] - rcept_no -> 공시일/소스/뷰어 URL
 
-### Action (2)
+### Action (1)
 - [[proxy_advise_before_meeting]] - 주총 전 의결권 자문
 
 ---
