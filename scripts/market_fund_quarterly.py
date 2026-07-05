@@ -28,6 +28,7 @@ Rate limit(하드룰 준수): 동시성 1 · 0.45s sleep(≈133콜/분, 910 안�
   python3 scripts/market_fund_quarterly.py --fetch --years 2020,2021,2022,2023,2024,2025
 """
 import argparse, asyncio, os, sys
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,9 +39,17 @@ import psycopg
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
 from open_proxy_mcp.services.financial_metrics import normalize_amount
 
-YEARS_DEFAULT = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+YEARS_DEFAULT = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
 # (quarter, reprt_code) — Q1/반기/3Q만 DART 수집(Q4는 seed)
 QFETCH = [(1, "11013"), (2, "11012"), (3, "11014")]
+# 분기 공시 마감(그 이후 available): 1Q 5/15 · 반기 8/14 · 3Q 11/14. 아직 공시 전 분기는 수집 제외
+# (미래 분기 [013] nodata 낭비 방지 + 현재연도 자동 대응). 실행 시점(date.today) 기준.
+_Q_DEADLINE = {1: (5, 15), 2: (8, 14), 3: (11, 14)}
+
+
+def _disclosed(fy: int, q: int, today: date | None = None) -> bool:
+    mo, dy = _Q_DEADLINE[q]
+    return (today or date.today()) >= date(fy, mo, dy)
 Q_TO_RC = {1: "11013", 2: "11012", 3: "11014", 4: "11011"}
 # 콜 간 sleep(초) — env로 조정. DART client _throttle_api가 910/분을 별도 강제하므로 이건 예의용.
 SLEEP = float(os.getenv("FUND_Q_SLEEP", "0.45"))
@@ -263,8 +272,9 @@ async def fetch(years, pilot=None, conc=2) -> None:
         "SELECT isu_cd, fy, quarter FROM mkt_fund_q WHERE quarter != 4")}  # 분기 단위 resume
     con.close()
     todo = [(i, c, y, q, rc) for i, c in firms for y in years
-            for q, rc in QFETCH if (i, y, q) not in done]
-    print(f"대상 {len(firms)}사 × {len(years)}년 × 3분기 · 남은 {len(todo)}건 · 동시성 {conc}", flush=True)
+            for q, rc in QFETCH if (i, y, q) not in done and _disclosed(y, q)]
+    yspan = sorted({y for _, _, y, _, _ in todo})
+    print(f"대상 {len(firms)}사 · 공시완료 분기만 · 남은 {len(todo)}건(연도 {yspan}) · 동시성 {conc}", flush=True)
     c = get_dart_client()
     buf: list = []; lock = asyncio.Lock(); stop = asyncio.Event()
     prog = {"n": 0}; total = len(todo)
