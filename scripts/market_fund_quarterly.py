@@ -1,0 +1,242 @@
+"""분기 재무 시계열 저장소(mkt_fund_q) — firm/market/sector 밸류 밴드의 분기 granularity 원천.
+
+설계(260705, 사용자 확정): "주간 가격 × **분기 재무** × 분기말 환율". 분기 재무가 있어야 과거
+TTM PER(최근 4분기 지배순이익 합)·MRQ PBR(최근분기 지배자본)을 시계열로 산출 — 연간(mkt_fund_hist)만
+있어서 밴드 TTM이 N/A였던 한계를 해소.
+
+키: (isu_cd, fy, quarter). quarter 1/2/3/4(=사업보고서). 저장:
+  ni_cum = 지배순이익 **누적(YTD)** — TTM = FY(y-1) + ni_cum(y,q) − ni_cum(y-1,q).
+  eq     = 지배자본 **기말 잔액**(BS, 기간무관).
+
+수집 절약: **Q4(사업보고서)는 이미 있는 연간 데이터에서 seed(DART 0콜)** —
+  · FY2018~2024 = mkt_fund_hist(ni=연간누적=Q4누적, eq=FY말자본, restated 우선)
+  · FY2025      = mkt_fundamentals(ni_fy, eq_fy)
+  나머지 Q1(11013)·반기(11012)·3Q(11014)만 DART 수집.
+
+추출: financial_metrics._extract_cumulative_is 규칙 재사용 — 분기/반기 손익은 thstrm_add_amount(누적),
+1Q·사업보고서는 thstrm(=누적). BS는 thstrm(잔액). 지배주주 귀속 account_id. 스케일가드(소프트센).
+
+PIT는 **읽기 시점**에 표준 공시지연으로 매핑(저장 X): 1Q→5/15·반기→8/14·3Q→11/14·사업보고서→익년 4/1.
+
+Rate limit(하드룰 준수): 동시성 1 · 0.45s sleep(≈133콜/분, 910 안전) · ReadError 즉시 중단(resume) ·
+25건마다 flush · 최종 flush는 try로 감싸 blip에도 버퍼 손실 최소화.
+
+실행:
+  python3 scripts/market_fund_quarterly.py --seed              # Q4 seed(0콜)만
+  python3 scripts/market_fund_quarterly.py --pilot 005930,000660,051910  # 소표본 전분기(검증용)
+  python3 scripts/market_fund_quarterly.py --fetch             # 전 종목 Q1~Q3 백필(재개 가능, ~1.5h)
+  python3 scripts/market_fund_quarterly.py --fetch --years 2020,2021,2022,2023,2024,2025
+"""
+import argparse, asyncio, os, sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from dotenv import load_dotenv
+load_dotenv(ROOT / ".env")
+import psycopg
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
+from open_proxy_mcp.services.financial_metrics import normalize_amount
+
+YEARS_DEFAULT = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+# (quarter, reprt_code) — Q1/반기/3Q만 DART 수집(Q4는 seed)
+QFETCH = [(1, "11013"), (2, "11012"), (3, "11014")]
+Q_TO_RC = {1: "11013", 2: "11012", 3: "11014", 4: "11011"}
+# 콜 간 sleep(초) — env로 조정. DART client _throttle_api가 910/분을 별도 강제하므로 이건 예의용.
+SLEEP = float(os.getenv("FUND_Q_SLEEP", "0.45"))
+
+# 지배주주 귀속 추출(260705 QA 후 정정): account_id **substring**으로 net income 귀속만 —
+# "ProfitLossAttributableToOwnersOfParent"는 총포괄 "ComprehensiveIncomeAttributable…"와 문자열이
+# 구분되므로 substring이 안전(dart_* 접두 변형도 포착). account_id가 아예 없는(-표준계정코드 미사용-)
+# 종목(LG그룹 등 다수)은 account_nm 폴백 — 단 **IS/BS만**(CIS 총포괄 제외, 값이 달라 오염). 총계
+# (ifrs-full_ProfitLoss·Equity) 폴백은 **금지**(비지배 포함 총계를 지배로 오저장 — QA 실측 LG화학).
+_NI_CTRL_ID = "ProfitLossAttributableToOwnersOfParent"
+_EQ_CTRL_ID = "EquityAttributableToOwnersOfParent"
+
+
+def _cum_is(r):
+    """IS 누적: thstrm_add(당기누적) 우선, 없으면 thstrm(1Q·사업보고서는 이게 누적)."""
+    v = normalize_amount(r.get("thstrm_add_amount"))
+    return float(v) if v is not None else (
+        float(normalize_amount(r.get("thstrm_amount"))) if normalize_amount(r.get("thstrm_amount")) is not None else None)
+
+
+def _bal(r):
+    v = normalize_amount(r.get("thstrm_amount"))
+    return float(v) if v is not None else None
+
+
+def extract_controlling_ni_cum(rows):
+    """지배 당기순이익 누적. ① account_id substring(IS/CIS — id가 총포괄과 구분) ② 비표준 태깅은
+    account_nm '지배기업…' 폴백, **IS만**(CIS 총포괄 제외). 총계폴백 없음."""
+    for r in rows:
+        if r.get("sj_div") in ("IS", "CIS") and _NI_CTRL_ID in (r.get("account_id") or ""):
+            return _cum_is(r)
+    for r in rows:  # 폴백: -표준계정코드 미사용- 종목. IS만(비지배='비지배지분'엔 '지배기업' 없음)
+        if r.get("sj_div") == "IS" and "지배기업" in (r.get("account_nm") or "").replace(" ", ""):
+            return _cum_is(r)
+    return None
+
+
+def extract_controlling_eq(rows):
+    """지배자본 기말잔액. account_id substring → BS account_nm '지배기업…' 폴백. 총자본폴백 없음."""
+    for r in rows:
+        if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or ""):
+            return _bal(r)
+    for r in rows:
+        if r.get("sj_div") == "BS" and "지배기업" in (r.get("account_nm") or "").replace(" ", ""):
+            return _bal(r)
+    return None
+
+
+DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_q(
+  isu_cd text, fy int, quarter int, reprt_code text, fs text,
+  ni_cum double precision, eq double precision, fetched text,
+  PRIMARY KEY(isu_cd, fy, quarter))"""
+
+
+def _pg():
+    return psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15)
+
+
+def seed_q4() -> None:
+    """Q4(사업보고서) 행을 이미 있는 연간 데이터에서 seed — DART 0콜."""
+    con = _pg(); con.autocommit = True
+    con.execute(DDL)
+    # FY2018~2024: mkt_fund_hist (restated 우선)
+    n1 = con.execute("""
+        INSERT INTO mkt_fund_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
+        SELECT isu_cd, fy, 4, '11011', fs,
+               COALESCE(ni_restated, ni), COALESCE(eq_restated, eq),
+               CASE WHEN COALESCE(ni_restated,ni) IS NOT NULL OR COALESCE(eq_restated,eq) IS NOT NULL
+                    THEN 'ok' ELSE 'nodata' END
+        FROM mkt_fund_hist
+        WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL
+        ON CONFLICT (isu_cd, fy, quarter) DO UPDATE SET
+          ni_cum=EXCLUDED.ni_cum, eq=EXCLUDED.eq, fetched=EXCLUDED.fetched
+    """).rowcount
+    # FY2025: mkt_fundamentals (ni_fy=FY2025 연간, eq_fy=FY말자본)
+    n2 = con.execute("""
+        INSERT INTO mkt_fund_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
+        SELECT isu_cd, 2025, 4, '11011', fs, ni_fy, eq_fy,
+               CASE WHEN ni_fy IS NOT NULL OR eq_fy IS NOT NULL THEN 'ok' ELSE 'nodata' END
+        FROM mkt_fundamentals WHERE fetched='ok'
+        ON CONFLICT (isu_cd, fy, quarter) DO UPDATE SET
+          ni_cum=EXCLUDED.ni_cum, eq=EXCLUDED.eq, fetched=EXCLUDED.fetched
+    """).rowcount
+    print(f"Q4 seed: mkt_fund_hist {n1}행 + mkt_fundamentals(FY2025) {n2}행")
+    con.close()
+
+
+def _flush(buf) -> None:
+    if not buf:
+        return
+    with _pg() as c:
+        with c.cursor() as cur:
+            cur.executemany("""INSERT INTO mkt_fund_q
+                (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (isu_cd, fy, quarter) DO UPDATE SET
+                  reprt_code=EXCLUDED.reprt_code, fs=EXCLUDED.fs, ni_cum=EXCLUDED.ni_cum,
+                  eq=EXCLUDED.eq, fetched=EXCLUDED.fetched""", buf)
+        c.commit()
+    buf.clear()
+
+
+async def fetch(years, pilot=None) -> None:
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+    con = _pg(); con.autocommit = True
+    con.execute(DDL)
+    if pilot:
+        firms = [r for r in con.execute(
+            "SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE isu_cd = ANY(%s) AND fetched='ok'",
+            (pilot,))]
+    else:
+        firms = [r for r in con.execute(
+            "SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
+    done = {(r[0], r[1], r[2]) for r in con.execute(
+        "SELECT isu_cd, fy, quarter FROM mkt_fund_q WHERE quarter != 4")}  # 분기 단위 resume
+    con.close()
+    # todo: (isu, cc, fy, q, rc) — 이미 있는 (isu,fy,q)는 skip(분기 단위, 중단 안전)
+    todo = [(i, c, y, q, rc) for i, c in firms for y in years
+            for q, rc in QFETCH if (i, y, q) not in done]
+    print(f"대상 {len(firms)}사 × {len(years)}년 × 3분기 · 남은 {len(todo)}건", flush=True)
+    c = get_dart_client(); buf = []; k = 0
+
+    async def acnt(cc, yr, rc, fs):
+        try:
+            d = await c.get_fnltt_singl_acnt_all(cc, str(yr), rc, fs)
+            return (d.get("list") or []) if isinstance(d, dict) else []
+        except DartClientError as e:
+            if "[013]" in str(e):
+                return []
+            raise
+
+    NET = ("ReadError", "ConnectError", "ConnectTimeout", "ReadTimeout", "Timeout", "Operational", "gaierror")
+    for isu, cc, yr, q, rc in todo:
+        k += 1
+        try:
+            # 네트워크 blip 자가복구 — DNS/연결 실패 시 backoff 재시도(로컬망 불안정 대응).
+            # 지속 실패(outage)면 소진 후 중단(resume 가능).
+            for attempt in range(9):  # ~5분 outage까지 견딤(5·10·20·30·45·60·60·60s)
+                try:
+                    fs = "CFS"; rows = await acnt(cc, yr, rc, fs); await asyncio.sleep(SLEEP)
+                    if not rows:
+                        fs = "OFS"; rows = await acnt(cc, yr, rc, fs); await asyncio.sleep(SLEEP)
+                    break
+                except Exception as ne:
+                    if any(t in type(ne).__name__ for t in NET) or any(t in str(ne) for t in NET):
+                        if attempt < 8:
+                            await asyncio.sleep(min(60, 5 * 2 ** attempt))
+                            continue
+                    raise
+            ni = extract_controlling_ni_cum(rows)
+            eq = extract_controlling_eq(rows)
+            # 스케일 가드(소프트센 100만배) — 누적 손익 + 총자본 항등식
+            assets = gid_exact(rows, "ifrs-full_Assets", ("BS",))
+            liab = gid_exact(rows, "ifrs-full_Liabilities", ("BS",))
+            eq_total = gid_exact(rows, "ifrs-full_Equity", ("BS",))
+            v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total)
+            if v["tier"] == "hard":
+                print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
+                ni = eq = None
+            st = "ok" if (ni is not None or eq is not None) else "nodata"
+            buf.append((isu, yr, q, rc, fs, ni, eq, st))
+            if len(buf) >= 25:
+                _flush(buf)
+        except Exception as e:
+            en = type(e).__name__
+            if "ReadError" in en or "Connect" in en or "Timeout" in en or "Operational" in en:
+                try:
+                    _flush(buf)
+                except Exception:
+                    pass
+                print(f"네트워크({en}) — 중단(재개 가능, {k}/{len(todo)})", flush=True)
+                return
+            buf.append((isu, yr, q, rc, None, None, None, f"err:{str(e)[:30]}"))
+            if len(buf) >= 25:
+                _flush(buf)
+        if k % 300 == 0:
+            print(f"{k}/{len(todo)}", flush=True)
+    try:
+        _flush(buf)
+    except Exception as e:
+        print(f"최종 flush 실패({type(e).__name__}) — 재개 시 복구", flush=True)
+    print("fetch 종료", flush=True)
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--seed", action="store_true", help="Q4 seed(0콜)")
+    ap.add_argument("--pilot", type=str, help="소표본 isu_cd 콤마구분(전분기 수집·검증)")
+    ap.add_argument("--fetch", action="store_true", help="Q1~Q3 백필")
+    ap.add_argument("--years", type=str, help="콤마구분 연도(기본 2018~2025)")
+    a = ap.parse_args()
+    yrs = [int(y) for y in a.years.split(",")] if a.years else YEARS_DEFAULT
+    if a.seed:
+        seed_q4()
+    if a.pilot:
+        seed_q4()
+        asyncio.run(fetch(yrs, pilot=a.pilot.split(",")))
+    elif a.fetch:
+        asyncio.run(fetch(yrs))
