@@ -76,6 +76,20 @@ def _render_sector(p: dict[str, Any]) -> str:
         lines += [f"**{c['name']}({c['isu_cd']})** → {c['sector_label']} [{c['mkt']}]",
                   f"- 기업 PER(TTM) {_f(c['firm_per_ttm'])} vs 섹터 {_f(c['sector_per_ttm'])} · "
                   f"기업 PBR {_f(c['firm_pbr_mrq'])} vs 섹터 {_f(c['sector_pbr_mrq'])}", ""]
+        shist = c.get("sector_history") or []
+        if len(shist) > 1:
+            yearly = {h["snap_dd"][:4]: h for h in shist if h["snap_dd"][4:6] == "12"}
+            if yearly:
+                lines += ["## 소속 섹터 히스토리 (연말)", "",
+                          "| 연말 | PER(FY0) | PER(TTM) | PBR(FY0) | PBR(MRQ) |", "|---|---|---|---|---|"]
+                for yr in sorted(yearly):
+                    h = yearly[yr]
+                    lines.append(f"| {yr} | {_f(h.get('per_fy0'))} | {_f(h.get('per_ttm'))} "
+                                 f"| {_f(h.get('pbr_fy0'))} | {_f(h.get('pbr_mrq'))} |")
+                lines.append("")
+            lines.append(f"> 📈 섹터 전체 시계열 {len(shist)}개월({shist[0]['snap_dd']}~{shist[-1]['snap_dd']}) = "
+                         "`data.company.sector_history`(월별 FY0/TTM/MRQ). 위 표는 연말만 발췌.")
+            lines.append("")
     for mkt in ("KOSPI", "KOSDAQ"):
         rows = [s for s in d["sectors"] if s["mkt"] == mkt]
         if not rows:

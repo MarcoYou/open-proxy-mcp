@@ -306,7 +306,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
     """산업(KSIC 하이브리드)별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(mkt_sector_val).
     company 지정 시 그 기업의 섹터를 함께 표시."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, mkt, sector, label, n, cap, per_ttm, pbr_mrq FROM mkt_sector_val "
+        "SELECT snap_dd, mkt, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0 FROM mkt_sector_val "
         "WHERE snap_dd=(SELECT MAX(snap_dd) FROM mkt_sector_val) ORDER BY mkt, cap DESC")
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": "산업별 밸류에이션",
@@ -316,7 +316,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
                 "warnings": ["mkt_sector_val 비어있음 — market_val_weekly 배치 미실행."]}
     as_of = rows[0][0]
     sectors = [{"mkt": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
-                "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2)}
+                "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2),
+                "per_fy0": r[8] and round(r[8], 2), "pbr_fy0": r[9] and round(r[9], 2)}
                for r in rows]
     company_ctx = None
     warnings = [f"주간 스냅샷 기준(최신 {as_of}) · 분류=KSIC 하이브리드(opm_sector_map)."]
@@ -350,6 +351,17 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
                                "sector": sec, "sector_label": lbl,
                                "firm_per_ttm": pt and round(pt, 2), "firm_pbr_mrq": pb and round(pb, 2),
                                "sector_per_ttm": spt and round(spt, 2), "sector_pbr_mrq": spb and round(spb, 2)}
+                # 소속 섹터의 과거 시계열(2020-01~, market_val_history_backfill.py가 채움) — 0콜, 이미 DB에 있음.
+                # 소규모(_fold) 섹터면 fold 버킷 자체의 히스토리로 폴백(개별 sec 코드는 mkt_sector_val에 없음).
+                hist_sector = "_fold" if lbl and "(소규모 섹터" in lbl else sec
+                hrows = await asyncio.to_thread(_pg_rows,
+                    "SELECT snap_dd, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap FROM mkt_sector_val "
+                    "WHERE mkt=%s AND sector=%s ORDER BY snap_dd", (mkt, hist_sector)) or []
+                if hrows:
+                    company_ctx["sector_history"] = [
+                        {"snap_dd": h[0], "per_fy0": h[1] and round(h[1], 2), "per_ttm": h[2] and round(h[2], 2),
+                         "pbr_fy0": h[3] and round(h[3], 2), "pbr_mrq": h[4] and round(h[4], 2), "cap_krw": h[5]}
+                        for h in hrows]
             else:
                 warnings.append(f"'{company}' 종목 스냅샷 없음(비상장·미수집).")
     return {"tool": "valuation", "status": "ok", "subject": "산업별 밸류에이션",
