@@ -24,7 +24,7 @@ updated: 2026-07-05
 |---|---|---|---|
 | **밸류에이션 서빙** | krx_weekly · mkt_valuation · mkt_val_history · mkt_sector_val · fx_rate | valuation tool(수동갱신 겸) + `market_val_weekly.py` cron | 일별 수집→주간 수렴 |
 | **밸류에이션 원천** | mkt_fundamentals · mkt_fund_hist(FY2018~2024) | `market_val_agg.py --fetch` / `market_val_series.py --fetch` | 분기(보고 시즌) / 연 1회(+과거 FY 백필) |
-| **수정주가 파이프라인** | krx_adj_factor(v1~v3) · krx_base_resets · krx_shares_ledger · krx_ledger_days · krx_reset_days · krx_stock_flags · dart_capital_events · dart_sweep_done | 전용 스크립트([[adjusted-price-timeseries]]) | 이벤트/수동 |
+| **수정주가 파이프라인** | krx_adj_factor_v3 · krx_base_resets · krx_shares_ledger · krx_reset_days · krx_stock_flags · dart_capital_events | 전용 스크립트([[adjusted-price-timeseries]]) | 이벤트/수동 |
 | **운영·미터링** | events · krx_call_log | 앱 자동 | 실시간 |
 
 ---
@@ -137,7 +137,7 @@ updated: 2026-07-05
 | `krx_shares_ledger` (31,809) | chg_dd · prev_shrs · new_shrs | 주식수 변화 전량(교차검증·소각/CB 구분) |
 | `krx_stock_flags` (155) | flag(spinoff_break 40 · unresolved_adjustment 115) | **시계열 해석 주의 종목** — valuation firm_history가 대조해 경고 부착 |
 | `dart_capital_events` (813) | kind · rcept_no | 리셋의 공시 근거 라벨 |
-| krx_adj_factor(v1)·v2 · krx_ledger_days · krx_reset_days · dart_sweep_done | — | v3 이전 세대·거래일 캘린더·스윕 체크포인트 |
+*(v1·v2·krx_ledger_days·dart_sweep_done — 260705 백업 후 드랍. 코드참조 0건 확인, CSV backup: wiki/handoff/backups_260705/)* | — | — |
 
 **밸류에이션과의 관계**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 등 **조정성 이벤트에
 불변**(주가×주식수 상쇄) → 계수 불필요. 유증·소각·인적분할의 시총 점프는 **실제 이벤트**라 보존

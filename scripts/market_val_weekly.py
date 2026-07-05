@@ -59,6 +59,10 @@ DDL_MIGRATE = (
     "ALTER TABLE mkt_valuation ADD COLUMN IF NOT EXISTS cap_pref double precision",
     "ALTER TABLE mkt_sector_val ADD COLUMN IF NOT EXISTS cap_pref double precision",
     "ALTER TABLE mkt_val_history ADD COLUMN IF NOT EXISTS cap_pref double precision",
+    # 섹터 밴드 통일(260705): 과거 연말은 FY0만 산출 가능 → sector에도 per_fy0/pbr_fy0 저장해
+    # 현재(주간)·과거를 FY0 단일 기준으로 비교. 주간행은 per_ttm/pbr_mrq도 함께 채움.
+    "ALTER TABLE mkt_sector_val ADD COLUMN IF NOT EXISTS per_fy0 double precision",
+    "ALTER TABLE mkt_sector_val ADD COLUMN IF NOT EXISTS pbr_fy0 double precision",
 )
 
 # 섹터 버킷 — market_val_sector.py의 KSIC 하이브리드와 동일 규칙
