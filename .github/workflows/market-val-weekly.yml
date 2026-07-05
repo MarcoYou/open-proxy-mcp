@@ -4,6 +4,10 @@
 # 배치가 멱등·수렴형이라 매일 돌려도 주당 1스냅샷(무료티어 보호). KRX 4콜/일 (일 10,000 한도 대비 무해).
 # 갱신 대상: krx_weekly(시세) · mkt_valuation(종목) · mkt_val_history(시장) · mkt_sector_val(섹터).
 # 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY (ECOS_API_KEY 불필요 — fx_rate는 DB 캐시 히트)
+#
+# 선행 step(260705): mkt_fundamentals 재무 4열을 SSOT(mkt_fund_q 분기재무)에서 파생 — **DART 0콜**.
+# 신규 분기 공시분을 스냅샷 계산 전에 반영(구 market_val_agg는 done셋으로 갱신 불가였음). 분기 fetch는
+# 별도(연 4회 공시 후, DART 키 필요 → fly/수동, GitHub에 키 미복제). derive는 0-DART라 여기서 안전.
 
 name: market-val-weekly
 
@@ -30,6 +34,11 @@ jobs:
 
       - name: Sync deps
         run: uv sync
+
+      - name: Derive mkt_fundamentals from SSOT (mkt_fund_q) — DART 0콜
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/market_fund_quarterly.py --derive
 
       - name: Run weekly valuation snapshot
         env:

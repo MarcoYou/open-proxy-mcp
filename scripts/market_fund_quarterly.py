@@ -201,6 +201,43 @@ def _pg():
     return psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15)
 
 
+def derive_fundamentals() -> None:
+    """mkt_fundamentals 재무 4열(ni_fy·ni_ttm·eq_fy·eq_mrq)을 mkt_fund_q(분기+Q4연간)에서 파생 —
+    **DART 0콜**. SSOT = mkt_fund_q. 원통화 raw 유지(daily cron이 fx_rate로 KRW 환산). 최신 공시분기
+    기준 TTM/MRQ라 분기 공시마다 자동 최신화(구 market_val_agg는 1Q 고정·done셋으로 갱신 불가였음).
+      ni_fy/eq_fy = 최신 완결 FY(Q4) · eq_mrq = 최신 분기 자본 · ni_ttm = FY(y-1)+누적(y,q)−누적(y-1,q)."""
+    from collections import defaultdict
+    con = _pg(); con.autocommit = True
+    q: dict[str, dict] = defaultdict(dict)
+    for isu, fy, quarter, ni, eq in con.execute(
+            "SELECT isu_cd, fy, quarter, ni_cum, eq FROM mkt_fund_q"):
+        q[isu][(int(fy), int(quarter))] = (ni, eq)
+    updated = 0
+    for isu, m in q.items():
+        present = [(fy, qq) for (fy, qq), (ni, eq) in m.items() if ni is not None or eq is not None]
+        if not present:
+            continue
+        if not any(qq != 4 for (fy, qq) in present):
+            continue   # 분기(Q1-3) 미수집 = Q4 seed만 → 기존 mkt_fundamentals 유지(백필 중 안전)
+        lfy, lq = max(present)                                   # 최신 공시분기
+        fys4 = [fy for (fy, qq), (ni, eq) in m.items() if qq == 4 and (ni is not None or eq is not None)]
+        fy_full = max(fys4) if fys4 else None                    # 최신 완결 사업연도
+        ni_fy, eq_fy = m.get((fy_full, 4), (None, None)) if fy_full else (None, None)
+        eq_mrq = m.get((lfy, lq), (None, None))[1]
+        if lq == 4:
+            ni_ttm = m.get((lfy, 4), (None, None))[0]
+        else:
+            cum_now = m.get((lfy, lq), (None, None))[0]
+            cum_prev = m.get((lfy - 1, lq), (None, None))[0]
+            fy_prev = m.get((lfy - 1, 4), (None, None))[0]
+            ni_ttm = (fy_prev + cum_now - cum_prev) if None not in (cum_now, cum_prev, fy_prev) else None
+        con.execute("UPDATE mkt_fundamentals SET ni_fy=%s, ni_ttm=%s, eq_fy=%s, eq_mrq=%s WHERE isu_cd=%s",
+                    (ni_fy, ni_ttm, eq_fy, eq_mrq, isu))
+        updated += 1
+    con.close()
+    print(f"derive: mkt_fundamentals {updated}사 재무 4열 파생 갱신(DART 0콜)", flush=True)
+
+
 def seed_q4() -> None:
     """Q4(사업보고서) 행을 이미 있는 연간 데이터에서 seed — DART 0콜."""
     con = _pg(); con.autocommit = True
@@ -355,7 +392,8 @@ if __name__ == "__main__":
     ap.add_argument("--seed", action="store_true", help="Q4 seed(0콜)")
     ap.add_argument("--pilot", type=str, help="소표본 isu_cd 콤마구분(전분기 수집·검증)")
     ap.add_argument("--fetch", action="store_true", help="Q1~Q3 백필")
-    ap.add_argument("--years", type=str, help="콤마구분 연도(기본 2018~2025)")
+    ap.add_argument("--derive", action="store_true", help="mkt_fundamentals 재무 4열 파생(0콜)")
+    ap.add_argument("--years", type=str, help="콤마구분 연도(기본 2019~2026)")
     ap.add_argument("--conc", type=int, default=int(os.getenv("FUND_Q_CONC", "2")),
                     help="동시성(기본 2, CLAUDE.md 허용 1~2)")
     a = ap.parse_args()
@@ -363,6 +401,8 @@ if __name__ == "__main__":
     conc = max(1, min(2, a.conc))  # 하드 상한 2(910 한도·CLAUDE.md 준수)
     if a.seed:
         seed_q4()
+    if a.derive:
+        derive_fundamentals()
     if a.pilot:
         seed_q4()
         asyncio.run(fetch(yrs, pilot=a.pilot.split(","), conc=conc))

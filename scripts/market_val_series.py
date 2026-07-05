@@ -23,9 +23,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
+from datetime import date
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 
-YEARS = [2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+def _latest_annual_fy(today: date | None = None) -> int:
+    """그 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년). _pit_fy와 동일."""
+    t = today or date.today()
+    return t.year - 1 if t.month >= 4 else t.year - 2
+
+
+# 2018 ~ 최신 확정 FY(자동 확장) — 신규 사업연도 공시 후 재실행하면 resume(done)이 그 FY만 수집.
+YEARS = list(range(2018, _latest_annual_fy() + 1))
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_hist(
   isu_cd text, fy int, fs text, ni double precision, eq double precision,
   ni_restated double precision, eq_restated double precision,
