@@ -325,8 +325,11 @@ async def fetch(years, pilot=None, conc=2) -> None:
     else:
         firms = [r for r in con.execute(
             "SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
+    # 분기 단위 resume — **ok/nodata만 완료로 간주**. err(일일한도[020]·기타 실패)는 done에서 제외 →
+    # 재실행 시 자동 재수집(DART 일일한도 20k/키 리셋 후 남은분 채움). DO UPDATE로 err행 덮어씀.
     done = {(r[0], r[1], r[2]) for r in con.execute(
-        "SELECT isu_cd, fy, quarter FROM mkt_fund_q WHERE quarter != 4")}  # 분기 단위 resume
+        "SELECT isu_cd, fy, quarter FROM mkt_fund_q WHERE quarter != 4 "
+        "AND (fetched IS NULL OR fetched NOT LIKE 'err:%')")}
     con.close()
     todo = [(i, c, y, q, rc) for i, c in firms for y in years
             for q, rc in QFETCH if (i, y, q) not in done and _disclosed(y, q)]
