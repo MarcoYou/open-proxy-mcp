@@ -39,7 +39,9 @@ import psycopg
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
 from open_proxy_mcp.services.financial_metrics import normalize_amount
 
-YEARS_DEFAULT = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+# 분기 수집연도: 2019~현재. 2018 분기는 2019 TTM에만 필요(→ 2020~ 추이엔 불필요)해 제외 —
+# 2018은 seed_q4가 mkt_fund_hist에서 Q4(연간)만 seed. TTM은 2019 동분기가 있어 2020~부터 산출.
+YEARS_DEFAULT = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
 # (quarter, reprt_code) — Q1/반기/3Q만 DART 수집(Q4는 seed)
 QFETCH = [(1, "11013"), (2, "11012"), (3, "11014")]
 # 분기 공시 마감(그 이후 available): 1Q 5/15 · 반기 8/14 · 3Q 11/14. 아직 공시 전 분기는 수집 제외
