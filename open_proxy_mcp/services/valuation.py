@@ -626,9 +626,12 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     # (실무상 소급 재발행 없음 — 리노 1:5 분할 실측: 전년1Q 1,933은 분할 전, 연간 2,002는 분할 후).
     # → 각 조각을 '그 보고서 결산기준일 이후 발생한 조정성 이벤트' 누적 계수로 현재 기준에 정렬.
     #   리노 검산: 2,002 + 532 − 1,933×0.2 = 2,147 (균일분모 2,148과 정합).
+    eps_adj = None  # 보정 발동 시 {"current": f, "prior_q": f} — 근거 투명(explain에 표시)
     if stock_code and any(x is not None for x in (eps_fy_disc, eps_qc_disc, eps_qp_disc)):
         f_cur = await _eps_adj_factor(stock_code, f"{fy + 1}0331")  # 연간·당해1Q 결산기준일 이후
         f_qp = await _eps_adj_factor(stock_code, f"{fy}0331")       # 전년1Q 결산기준일 이후
+        if f_cur != 1.0 or f_qp != 1.0:
+            eps_adj = {"current": round(f_cur, 6), "prior_q": round(f_qp, 6)}
         if eps_fy_disc is not None:
             eps_fy_disc *= f_cur
         if eps_qc_disc is not None:
@@ -781,6 +784,7 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
             },
             "inputs": {
                 "eps_fy0_krw": eps_fy, "eps_ttm_krw": eps_ttm, "eps_ttm_basis": eps_ttm_basis,
+                "eps_adj_factors": eps_adj,  # 분할·무상증자 수정계수 보정(v3) — 미발동 시 None
                 "bps_krw": bps, "roe_pct": roe,
                 "net_income_fy0_krw": ni_fy, "net_income_ttm_krw": ni_ttm,
                 "controlling_equity_krw": ctrl_equity,

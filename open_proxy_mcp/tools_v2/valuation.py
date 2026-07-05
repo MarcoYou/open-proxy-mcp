@@ -118,8 +118,8 @@ _METHODOLOGY = """# valuation 방법론·기준·출처 (수치 근거)
 ## 산식 (firm — 기업 심층)
 | 지표 | 산식 | 기준 |
 |---|---|---|
-| EPS(FY0) | DART **공시 기본주당이익** (가중평균 주식수·우선주 배분 반영) | 부재 시 지배순이익÷보통주 폴백 |
-| EPS(TTM) | TTM 지배순이익 ÷ 보통주 유통주식수(시점) | TTM = 연간 + 1Q(당해) − 1Q(전년) |
+| EPS(FY0) | DART **공시 기본주당이익** (가중평균 주식수·우선주 배분 반영) | 계속+중단영업 분리 공시는 합산, 결측 시 지배순이익÷보통주 폴백 |
+| EPS(TTM) | **공시 EPS 조립** = FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS | FY0과 같은 공시 기준(대칭). 기중 액면분할·무상증자·주식배당은 수정계수(krx_adj_factor_v3)로 각 조각을 현재 기준 정렬 |
 | BPS | 지배자본(최근분기 MRQ, 부재 시 FY말) ÷ 합계 유통주식수(보통+우선, 자기주식 제외) | 지배주주 귀속 |
 | PER | 보통주 종가 ÷ EPS | FY0·TTM 각각 (⚠ 분모 기준이 달라 직접 비교 주의) |
 | PBR | 보통주 종가 ÷ BPS | MRQ |
@@ -127,6 +127,8 @@ _METHODOLOGY = """# valuation 방법론·기준·출처 (수치 근거)
 
 ## 산식 (market/sector/firm_history — 주간 스냅샷)
 - PER = **Σ시총 ÷ Σ지배순이익** (시총가중 조화평균 = 지수 표준) · PBR = Σ시총 ÷ Σ지배자본(MRQ)
+- Σ지배순이익에 **적자기업 포함**(흑자만 쓰는 일부 벤더와 상이) — 적자 우세 시장(KOSDAQ)의 PER이
+  크게 높아짐. PBR 병행 해석 권장. trailing(과거 실적) 기준 — 컨센서스 선행 PER와 다름
 - 시총 = 보통주 + 우선주(보통주 코드로 귀속) — **firm의 보통주 주가 기준과 달라 값이 다를 수 있음**
 - 섹터 분류 = KSIC 하이브리드(자체 매핑) · 소규모(5사 미만) 섹터는 '기타(소규모)'로 합산
 
@@ -179,6 +181,15 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     if i.get("eps_ttm_basis") == "disclosed_assembled":
         L.append(f"- EPS(TTM) = **공시 EPS 조립**(FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS) = "
                  f"**{i.get('eps_ttm_krw') and format(i['eps_ttm_krw'], ',')}원** — FY0과 같은 공시 가중평균 기준(대칭)")
+        adj = i.get("eps_adj_factors")
+        if adj:
+            parts = []
+            if adj.get("current") != 1.0:
+                parts.append(f"연간·당해분기 EPS ×{adj['current']:g}")
+            if adj.get("prior_q") != 1.0:
+                parts.append(f"전년동기 EPS ×{adj['prior_q']:g}")
+            L.append(f"  - **수정계수 보정 적용**: {' · '.join(parts)} — 기중 액면분할·무상증자·주식배당으로 "
+                     "옛 분모 기준인 공시 EPS를 현재 기준으로 정렬 (krx_adj_factor_v3, 거래소 기준가 리셋 실측)")
     elif i.get("net_income_ttm_krw") is not None and i.get("shares_common"):
         L.append(f"- EPS(TTM) = 폴백: TTM 지배순이익 ÷ 보통주 = {i['net_income_ttm_krw']:,} ÷ "
                  f"{i['shares_common']:,} = **{i.get('eps_ttm_krw') and format(i['eps_ttm_krw'], ',')}원**"
