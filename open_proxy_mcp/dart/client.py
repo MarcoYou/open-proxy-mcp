@@ -231,9 +231,16 @@ class DartClient:
             primary = _ctx_opendart_key.get() or os.getenv("OPENDART_API_KEY")
             if primary:
                 self._api_keys.append(primary)
-            secondary = os.getenv("OPENDART_API_KEY_2")
-            if secondary:
-                self._api_keys.append(secondary)
+            # OPENDART_API_KEY_2, _3, _4, ... 순번 있는 만큼 전부 로드(260705, 키 2개 초과 지원).
+            # 분당 스로틀(_api_call_timestamps)은 인스턴스 하나가 전 키 공유 — 키를 늘려도 IP레벨
+            # 분당한도(910)는 그대로 지켜짐, 늘어나는 건 하루 총 쿼터(키당 2만)뿐.
+            i = 2
+            while True:
+                k = os.getenv(f"OPENDART_API_KEY_{i}")
+                if not k:
+                    break
+                self._api_keys.append(k)
+                i += 1
         if not self._api_keys:
             raise ValueError("OPENDART_API_KEY가 설정되어 있지 않습니다. 쿼리 파라미터(?opendart=키) 또는 .env에 설정하세요.")
         self._key_index = 0
