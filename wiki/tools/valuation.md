@@ -23,7 +23,7 @@ DART(공시) + KRX(공식시세) 기반 **상대가치 배수** — PER(FY0·TTM
 valuation(company="두산밥캣")                    # firm: 기업 심층 (실시간)
 valuation(scope="market")                        # 시장 전체(KOSPI·KOSDAQ) + 주간 히스토리
 valuation(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교
-valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR/시총 시계열 (연말 PIT 밴드 + 주간)
+valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계열 — FY0·TTM·MRQ (주간 곡선 + 월말 요약)
 ```
 자연어 예시:
 - "삼성전자 밸류에이션" → firm: PER 46.9(FY0)/21.6(TTM) · PBR 4.33 · 배당수익률 0.54%
@@ -35,7 +35,7 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR/시총
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | firm·firm_history는 필수 | 회사명 / ticker(6자리) / corp_code. sector에선 선택(소속 섹터 비교) | "" |
-| scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history`(주간 스냅샷 DB) / `explain`(수치 근거 — company 지정 시 실제 값 대입 계산 과정, 미지정 시 방법론·기준·출처 전문) | "firm" |
+| scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history`(주간 곡선 + 월말 요약, DB 계산) / `explain`(수치 근거 — company 지정 시 실제 값 대입 계산 과정, 미지정 시 방법론·기준·출처 전문) | "firm" |
 | format | str | no | "md" / "json" | "md" |
 
 ## scope 라우팅 — 기능 → 데이터 소스 (DB-first)
@@ -45,7 +45,7 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR/시총
 | `firm` | 실시간 DART 재무 × `krx_weekly` 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
 | `market` | `mkt_val_history` | 주간 스냅샷(cron) | KOSPI·KOSDAQ 시총가중 PER/PBR + 히스토리 |
 | `sector` | `mkt_sector_val` (+`mkt_valuation` 비교) | 주간 스냅샷(cron) | KSIC 하이브리드 섹터별 + 기업 vs 섹터 |
-| `firm_history` | `krx_weekly`×`mkt_fund_hist`(연말 PIT 밴드, 질의 시 계산) + `mkt_valuation`(주간, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR/시총 시계열 — 과거 연말 밴드(2021~) + 최근 주간 |
+| `firm_history` | `krx_weekly`(주간 시총) × `mkt_fund_hist`(연간 FY0) × `mkt_fund_q`(분기 TTM/MRQ) + `mkt_valuation`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=전구간 주간 곡선(`data.series`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
 
 - 스냅샷 3테이블은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
