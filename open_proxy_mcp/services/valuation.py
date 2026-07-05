@@ -495,6 +495,22 @@ def _eps_disclosed(rows: list, *fields: str) -> float | None:
     return None
 
 
+async def _eps_adj_factor(isu_cd: str, after_dd: str) -> float:
+    """(after_dd, 오늘] 조정성 이벤트(액면분할·병합·무상증자·주식배당)의 누적 수정계수 —
+    수정주가 파이프라인 krx_adj_factor_v3(기준가 리셋 실측, [[adjusted-price-timeseries]]) 재사용.
+    EPS는 가격과 같은 방향으로 조정(주식수 n배 → EPS 1/n = ×factor). 유상증자·감자·미라벨(None)은
+    보수적으로 제외 — 잔여는 sanity 경고가 방어."""
+    rows = await asyncio.to_thread(_pg_rows,
+        "SELECT factor FROM krx_adj_factor_v3 WHERE isu_cd=%s AND effective_date>%s "
+        "AND event_type IN ('split','merge','bonus','stock_div') AND factor IS NOT NULL "
+        "AND confidence='confirmed'", (isu_cd, after_dd))
+    f = 1.0
+    for (x,) in rows or []:
+        if x and x > 0:
+            f *= x
+    return f
+
+
 async def _shares_outstanding(client, cc: str, year: int) -> dict:
     """유통주식수: total(보통+우선 합계, BPS용) · common(보통주, EPS용). 자기주식 제외(distb)."""
     out = {"total": None, "common": None}
@@ -605,6 +621,20 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     eps_fy_disc = _eps_disclosed(fy_rows, "thstrm_amount")
     eps_qc_disc = _eps_disclosed(qc_rows, "thstrm_add_amount", "thstrm_amount")
     eps_qp_disc = _eps_disclosed(qp_rows, "thstrm_add_amount", "thstrm_amount")
+    # 수정계수 보정(krx_adj_factor_v3, 코스닥 스윕 리노공업 실증): 기중 액면분할·무상증자·주식배당
+    # 이후의 보고서는 EPS를 새 분모로 내지만 **그 이전에 제출된 분기보고서 EPS는 옛 분모 그대로**
+    # (실무상 소급 재발행 없음 — 리노 1:5 분할 실측: 전년1Q 1,933은 분할 전, 연간 2,002는 분할 후).
+    # → 각 조각을 '그 보고서 결산기준일 이후 발생한 조정성 이벤트' 누적 계수로 현재 기준에 정렬.
+    #   리노 검산: 2,002 + 532 − 1,933×0.2 = 2,147 (균일분모 2,148과 정합).
+    if stock_code and any(x is not None for x in (eps_fy_disc, eps_qc_disc, eps_qp_disc)):
+        f_cur = await _eps_adj_factor(stock_code, f"{fy + 1}0331")  # 연간·당해1Q 결산기준일 이후
+        f_qp = await _eps_adj_factor(stock_code, f"{fy}0331")       # 전년1Q 결산기준일 이후
+        if eps_fy_disc is not None:
+            eps_fy_disc *= f_cur
+        if eps_qc_disc is not None:
+            eps_qc_disc *= f_cur
+        if eps_qp_disc is not None:
+            eps_qp_disc *= f_qp
     eps_ttm_disc = (eps_fy_disc + eps_qc_disc - eps_qp_disc) \
         if None not in (eps_fy_disc, eps_qc_disc, eps_qp_disc) else None
 
