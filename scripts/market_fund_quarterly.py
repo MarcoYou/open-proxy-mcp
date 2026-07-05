@@ -73,77 +73,88 @@ def _ordv(r):
         return 0
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 경우의수 로직 트리 — 각 firm-quarter 응답이 어느 케이스로 지배 순이익·자본을 얻는지 명시 분류.
+# 각 추출 함수는 (값, 케이스코드)를 반환. 케이스코드로 전 종목 분포를 집계해 exhaustive 검증.
+#
+# 재무제표 조합: IS(손익)·CIS(포괄손익) 중 하나 또는 둘 · CFS(연결)/OFS(별도) — fetch가 CFS→OFS.
+# 지배/비지배 분해: 표준 account_id / 비표준(-표준계정코드 미사용- nm) / 분해 없음(무소수지분·별도).
+# ─────────────────────────────────────────────────────────────────────────────
+def _nm(r):
+    return (r.get("account_nm") or "").replace(" ", "")
+
+
 def _ctrl_in_sj(rows, sj, val):
-    """한 재무제표(sj) 안에서 지배 귀속 행 찾기: id substring 우선, 없으면 nm '지배'(비지배 제외 ·
-    총포괄 id 제외) 중 ord 최선두. IS의 지배행=순이익 귀속(총포괄 없음), CIS는 순이익 귀속이 총포괄
-    귀속보다 문서상 앞이라 ord 최선두가 순이익. IS/CIS는 ord 시퀀스가 별개 → sj 단위로만 비교."""
+    """한 재무제표(sj) 안 지배 귀속 행: ① id substring → ② nm '지배'(비지배·총포괄 제외) ord 최선두.
+    반환 (값, 서브케이스 'ID'|'NM'|None). IS/CIS는 ord 시퀀스 별개 → sj 단위 비교."""
     hit = [r for r in rows if r.get("sj_div") == sj and _NI_CTRL_ID in (r.get("account_id") or "")]
     if hit:
-        return val(min(hit, key=_ordv))
-    cands = [r for r in rows if r.get("sj_div") == sj
-             and "지배" in (r.get("account_nm") or "").replace(" ", "")
-             and "비지배" not in (r.get("account_nm") or "").replace(" ", "")
+        return val(min(hit, key=_ordv)), "ID"
+    cands = [r for r in rows if r.get("sj_div") == sj and "지배" in _nm(r) and "비지배" not in _nm(r)
              and "ComprehensiveIncome" not in (r.get("account_id") or "")]
-    return val(min(cands, key=_ordv)) if cands else None
+    return (val(min(cands, key=_ordv)), "NM") if cands else (None, None)
 
 
 def _has_minority_ni(rows):
-    """비지배 '순이익' 귀속 행 존재 여부(총포괄 비지배는 id의 ComprehensiveIncome로 배제)."""
-    for r in rows:
-        if r.get("sj_div") in ("IS", "CIS"):
-            nm = (r.get("account_nm") or "").replace(" ", "")
-            if "비지배" in nm and "ComprehensiveIncome" not in (r.get("account_id") or ""):
-                return True
-    return False
+    return any(r.get("sj_div") in ("IS", "CIS") and "비지배" in _nm(r)
+               and "ComprehensiveIncome" not in (r.get("account_id") or "") for r in rows)
 
 
 def extract_controlling_ni_cum(rows):
-    """지배 당기순이익 누적.
-    ① IS 우선(순수 손익계산서의 지배행=순이익 귀속) → ② 없으면 CIS(결합제출, ord 최선두=총포괄보다 앞).
-    ③ 지배 귀속 자체가 없고 **비지배 순이익 귀속도 없으면** = 소수지분 없는 회사(IFRS상 분해 의무 없음)
-       → 당기순이익 총계(ifrs-full_ProfitLoss)=지배(001340·NAVER형, 총계≈지배). 총계 폴백은 이 조건
-       (지배·비지배 순이익 귀속 둘 다 부재)에서만 — 비지배 있는데 총계를 지배로 쓰는 LG화학형 오염은
-       ①②가 지배행을 먼저 잡아 원천 차단."""
+    """지배 당기순이익 누적 → (값, 케이스). 트리:
+      NODATA                — 손익 행 없음
+      IS_ID / IS_NM         — IS 지배행(표준 id / 비표준 nm) = 순수 손익 순이익 귀속 [LG화학·삼성]
+      CIS_ID / CIS_NM       — IS 없이 CIS 지배행(ord 최선두=총포괄보다 앞) [000180·기아·SK 결합제출]
+      TOTAL                 — 지배·비지배 순이익 귀속 둘 다 부재(무소수지분/별도) → 당기순이익 총계=지배 [001340·NAVER]
+      MINORITY_NO_CTRL      — 비지배는 있는데 지배 귀속 못 찾음(이상 케이스, 플래그) → None
+      NO_INCOME_ROW         — 손익 행은 있으나 지배·총계 어느 것도 못 잡음(플래그) → None"""
+    if not any(r.get("sj_div") in ("IS", "CIS") for r in rows):
+        return None, "NODATA"
     for sj in ("IS", "CIS"):
-        v = _ctrl_in_sj(rows, sj, _cum_is)
+        v, sub = _ctrl_in_sj(rows, sj, _cum_is)
         if v is not None:
-            return v
-    if not _has_minority_ni(rows):  # 소수지분 분해 부재 → 총계=지배
-        for sj in ("IS", "CIS"):
-            hit = [r for r in rows if r.get("sj_div") == sj and (r.get("account_id") or "") == "ifrs-full_ProfitLoss"]
-            if hit:
-                return _cum_is(min(hit, key=_ordv))
-    return None
+            return v, f"{sj}_{sub}"
+    if _has_minority_ni(rows):
+        return None, "MINORITY_NO_CTRL"  # 비지배 존재 → 총계 폴백 금지(오염 방지)
+    for sj in ("IS", "CIS"):
+        hit = [r for r in rows if r.get("sj_div") == sj and (r.get("account_id") or "") == "ifrs-full_ProfitLoss"]
+        if hit:
+            return _cum_is(min(hit, key=_ordv)), "TOTAL"
+    return None, "NO_INCOME_ROW"
 
 
 def extract_controlling_eq(rows):
-    """지배자본 기말잔액.
-    ① BS account_id substring 'EquityAttributableToOwnersOfParent'.
-    ② 비표준: BS nm '지배'(비지배 제외).
-    ③ 지배·비지배 자본 귀속 둘 다 부재 = 소수지분 없음/**별도(OFS) 재무제표**(지배·비지배 개념 없음)
-       → 자본총계(ifrs-full_Equity)=지배자본. 별도만 있는 은행(카카오뱅크)·무소수지분사 대응.
-       비지배자본 있는 연결은 ①②가 지배행을 먼저 잡아 총자본 오염 차단(QA)."""
+    """지배자본 기말잔액 → (값, 케이스). 트리:
+      NODATA          — BS 없음
+      BS_ID / BS_NM   — BS 지배자본(표준 id / 비표준 nm '지배')
+      TOTAL           — 지배·비지배 자본 부재(무소수지분/별도 OFS) → 자본총계=지배 [카카오뱅크·001340]
+      MINORITY_NO_CTRL — 비지배자본 있는데 지배 못 찾음(플래그) → None
+      NO_EQUITY_ROW    — 자본총계 행도 없음(플래그) → None"""
+    if not any(r.get("sj_div") == "BS" for r in rows):
+        return None, "NODATA"
     hit = [r for r in rows if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or "")]
     if hit:
-        return _bal(min(hit, key=_ordv))
-    cands = [r for r in rows if r.get("sj_div") == "BS"
-             and "지배" in (r.get("account_nm") or "").replace(" ", "")
-             and "비지배" not in (r.get("account_nm") or "").replace(" ", "")]
+        return _bal(min(hit, key=_ordv)), "BS_ID"
+    cands = [r for r in rows if r.get("sj_div") == "BS" and "지배" in _nm(r) and "비지배" not in _nm(r)]
     if cands:
-        return _bal(min(cands, key=_ordv))
-    has_minority = any(r.get("sj_div") == "BS" and "비지배" in (r.get("account_nm") or "").replace(" ", "")
-                       for r in rows)
-    if not has_minority:  # 자본총계=지배(별도·무소수지분)
-        tot = [r for r in rows if r.get("sj_div") == "BS" and (r.get("account_id") or "") == "ifrs-full_Equity"]
-        if tot:
-            return _bal(min(tot, key=_ordv))
-    return None
+        return _bal(min(cands, key=_ordv)), "BS_NM"
+    if any(r.get("sj_div") == "BS" and "비지배" in _nm(r) for r in rows):
+        return None, "MINORITY_NO_CTRL"
+    tot = [r for r in rows if r.get("sj_div") == "BS" and (r.get("account_id") or "") == "ifrs-full_Equity"]
+    if tot:
+        return _bal(min(tot, key=_ordv)), "TOTAL"
+    return None, "NO_EQUITY_ROW"
 
 
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_q(
   isu_cd text, fy int, quarter int, reprt_code text, fs text,
   ni_cum double precision, eq double precision, fetched text,
+  ni_case text, eq_case text,
   PRIMARY KEY(isu_cd, fy, quarter))"""
+DDL_MIGRATE = (
+    "ALTER TABLE mkt_fund_q ADD COLUMN IF NOT EXISTS ni_case text",
+    "ALTER TABLE mkt_fund_q ADD COLUMN IF NOT EXISTS eq_case text",
+)
 
 
 def _pg():
@@ -154,6 +165,8 @@ def seed_q4() -> None:
     """Q4(사업보고서) 행을 이미 있는 연간 데이터에서 seed — DART 0콜."""
     con = _pg(); con.autocommit = True
     con.execute(DDL)
+    for _m in DDL_MIGRATE:
+        con.execute(_m)
     # FY2018~2024: mkt_fund_hist (restated 우선)
     n1 = con.execute("""
         INSERT INTO mkt_fund_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
@@ -185,11 +198,12 @@ def _flush(buf) -> None:
     with _pg() as c:
         with c.cursor() as cur:
             cur.executemany("""INSERT INTO mkt_fund_q
-                (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
-                VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
+                (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched, ni_case, eq_case)
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (isu_cd, fy, quarter) DO UPDATE SET
                   reprt_code=EXCLUDED.reprt_code, fs=EXCLUDED.fs, ni_cum=EXCLUDED.ni_cum,
-                  eq=EXCLUDED.eq, fetched=EXCLUDED.fetched""", buf)
+                  eq=EXCLUDED.eq, fetched=EXCLUDED.fetched, ni_case=EXCLUDED.ni_case,
+                  eq_case=EXCLUDED.eq_case""", buf)
         c.commit()
     buf.clear()
 
@@ -208,6 +222,8 @@ async def fetch(years, pilot=None, conc=2) -> None:
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con = _pg(); con.autocommit = True
     con.execute(DDL)
+    for _m in DDL_MIGRATE:
+        con.execute(_m)
     if pilot:
         firms = [r for r in con.execute(
             "SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE isu_cd = ANY(%s) AND fetched='ok'", (pilot,))]
@@ -266,19 +282,20 @@ async def fetch(years, pilot=None, conc=2) -> None:
                 if _is_net(e):
                     stop.set(); print(f"네트워크({type(e).__name__}) — 중단(재개 가능)", flush=True); return
                 async with lock:
-                    buf.append((isu, yr, q, rc, None, None, None, f"err:{str(e)[:30]}"))
+                    buf.append((isu, yr, q, rc, None, None, None, f"err:{str(e)[:30]}", "ERR", "ERR"))
             else:
-                ni = extract_controlling_ni_cum(rows); eq = extract_controlling_eq(rows)
+                ni, ni_case = extract_controlling_ni_cum(rows)
+                eq, eq_case = extract_controlling_eq(rows)
                 assets = gid_exact(rows, "ifrs-full_Assets", ("BS",))
                 liab = gid_exact(rows, "ifrs-full_Liabilities", ("BS",))
                 eq_total = gid_exact(rows, "ifrs-full_Equity", ("BS",))
                 v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total)
                 if v["tier"] == "hard":
                     print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
-                    ni = eq = None
+                    ni = eq = None; ni_case = eq_case = "SCALE_GUARD"
                 st = "ok" if (ni is not None or eq is not None) else "nodata"
                 async with lock:
-                    buf.append((isu, yr, q, rc, fs, ni, eq, st))
+                    buf.append((isu, yr, q, rc, fs, ni, eq, st, ni_case, eq_case))
             prog["n"] += 1
             if prog["n"] % 300 == 0:
                 print(f"{prog['n']}/{total}", flush=True)
