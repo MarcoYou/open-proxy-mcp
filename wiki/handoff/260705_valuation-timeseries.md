@@ -4,31 +4,24 @@
 57,178건 **100% 완료**. sector scope에 소속 섹터 히스토리 추가. 통화통일 실험은 여전히 롤백 상태(미해결,
 근본해법 필요). 스케일오류 5건 발견·수정. 자세한 건 아래 섹션 참조.
 
-## 🔴 세션 종료 시점(260706) — 연간 백필 진행 중, 이어서 확인 필요
+## 🟡 연간 백필(FY2025 신규 + 결측 90건) — 260706 사용자 지시로 중단, 재개 대기
 
-**`market_val_series.py --fetch`가 백그라운드에서 실행 중인 채로 세션 종료.** 목적: ① `mkt_fund_hist`에
-FY2025 연간자료 신규 수집 ② 이전에 'nodata'로 잘못 표시됐던 90건 재수집. 진행 중 발견한 90건은 이미
-DELETE해서 재시도 대상으로 만들어둔 상태(코드 자체 수정은 아님).
+**`market_val_series.py --fetch`를 사용자 지시("백필 종료")로 안전 종료(pkill, 완전종료 확인함).**
+목적: ① `mkt_fund_hist`에 FY2025 연간자료 신규 수집 ② 이전에 'nodata'로 잘못 표시됐던 90건 재수집.
+90건은 이미 DELETE해서 재시도 대상으로 만들어둔 상태(코드 자체 수정은 아님) — 아직 안 끝났으니 이 갭은
+DB에 남아있음.
 
-- **중단 시점 진행률**: `mkt_fund_hist` 15,993/20,792 (76.9%) · 잔여 4,799건 · FY2025 확보 1,037건.
-- **실행 설정**: `SERIES_SLEEP=0.2`(환경변수로 이번에 노출함, 기본값 0.45) · 동시성 1(원래 순차 구조,
-  worker pool 아님) · 에러 0건으로 안정적으로 진행 중이었음.
-- **⚠ 프로세스 생존 불확실**: `nohup`+`disown`으로 띄웠지만 **이 Claude 세션이 완전히 끝나면 계속
-  살아있는지 보장 못 함**(로컬 Mac이 꺼지거나 터미널이 완전히 닫히면 죽을 수 있음). 출근해서 확인 필요:
+- **중단 시점 진행률**: `mkt_fund_hist` **16,268/20,792 (78.2%) · 잔여 4,524건**.
+- **재개 방법**(resume 안전 — done-set이 이미 받은 건 자동으로 건너뜀):
   ```bash
-  pgrep -fl "market_val_series.py --fetch"   # 살아있으면 계속 진행 중
-  # 로그: /private/tmp/claude-501/-Users-marcoyou-Projects-open-proxy-mcp/9e0fc6b5-9576-4a28-b974-171f2c425860/scratchpad/annual_fetch_260706.log
+  cd /Users/marcoyou/Projects/open-proxy-mcp && SERIES_SLEEP=0.2 python3 scripts/market_val_series.py --fetch
   ```
-  죽어있으면 그냥 다시 실행하면 됨(resume 안전 — done-set이 이미 받은 건 건너뜀):
-  ```bash
-  cd /Users/marcoyou/Projects/open-proxy-mcp && SERIES_SLEEP=0.3 python3 scripts/market_val_series.py --fetch
-  ```
-- **완료되면**: `series()` 재계산 불필요(market_val_history_backfill.py가 이미 mkt_fund_hist를 직접
-  읽음) — 그냥 `python3 scripts/market_val_history_backfill.py`를 한 번 더 돌려서 FY2025 반영된
-  최신 밴드로 갱신하면 됨(멱등, ON CONFLICT라 안전). 이후 "20260529·20260626 스냅샷 NULL" 문제도
-  자동 해소되는지 확인.
-- **코드 변경**: `scripts/market_val_series.py`에 `SERIES_SLEEP` 환경변수 추가(하드코딩 0.45초를
-  조정 가능하게) — 이미 이 핸드오프와 함께 커밋됨.
+  (`SERIES_SLEEP` 환경변수는 이번에 코드에 추가함, 기본값 0.45·순차 실행이라 0.2도 안전 확인됨 —
+  이 실행 전체에서 ReadError 등 에러 0건.)
+- **완료되면**: `python3 scripts/market_val_history_backfill.py`를 한 번 더 돌려서 FY2025 반영된
+  최신 밴드로 갱신(멱등, ON CONFLICT라 안전). 이후 "20260529·20260626 스냅샷 NULL" 문제도 자동
+  해소되는지 확인.
+- 백그라운드 프로세스·Monitor 전부 정리 완료, 세션 깨끗하게 종료됨.
 
 목표(북극성): 정확한 수정주가 × 정확한 재무 → PER·PBR을 FY0·TTM 두 기준 + 시장/섹터/종목 시계열로.
 
