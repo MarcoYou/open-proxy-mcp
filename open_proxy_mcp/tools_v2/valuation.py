@@ -105,9 +105,19 @@ def _render_firm_history(p: dict[str, Any]) -> str:
     d = p["data"]
     lines = [f"# {p['subject']} 밸류에이션 히스토리 ({d['mkt']} · 섹터 {d['sector']})", "",
              "| 시점 | PER(FY0) | PER(TTM) | PBR | 시총(보통주) | 기준 |", "|---|---|---|---|---|---|"]
+    band_na = False
     for h in reversed(d["history"]):
-        lines.append(f"| {h['period']} | {_f(h.get('per_fy0'))} | {_f(h.get('per_ttm'))} "
+        is_band = str(h.get("source", "")).startswith("연말")
+        # 밴드는 연 재무만 있어 TTM 미산출(N/A) — 음수게이팅 N/M과 구분해 '—' 표기
+        if is_band and h.get("per_ttm") is None:
+            ttm = "—"; band_na = True
+        else:
+            ttm = _f(h.get("per_ttm"))
+        lines.append(f"| {h['period']} | {_f(h.get('per_fy0'))} | {ttm} "
                      f"| {_f(h.get('pbr'))} | {(h.get('cap_krw') or 0)/1e12:,.2f}조 | {h.get('source','')} |")
+    if band_na:
+        lines += ["", "> `—`(TTM): 밴드 시점은 연 재무(mkt_fund_hist)만 있어 TTM 산출 불가"
+                  "(과거 분기 미저장). 그 시점 trailing PER은 **PER(FY0)** 참조. `N/M`(주간)은 분모≤0."]
     lines += ["", f"> {d['method']}"]
     for w in p.get("warnings", []):
         lines.append(f"> {w}")
