@@ -108,6 +108,17 @@ def main():
                 opendart = qs.get("opendart", [None])[0]
                 if opendart:
                     set_request_api_key(opendart)
+                elif scope.get("path", "").startswith("/mcp"):
+                    # 키 없는 서빙 요청 거절(260705) — fly secrets에 서버용 OPENDART 키(배치·DB
+                    # 갱신 내부용)가 있으므로, 거절하지 않으면 env 폴백으로 서버 키가 조용히
+                    # 소모된다. 서빙은 반드시 유저 키(?opendart=)로.
+                    import json as _json
+                    body = _json.dumps({"error": "opendart API key required",
+                                        "hint": "connect with ?opendart=<your DART key>"}).encode()
+                    await send({"type": "http.response.start", "status": 401,
+                                "headers": [(b"content-type", b"application/json")]})
+                    await send({"type": "http.response.body", "body": body})
+                    return
 
                 # 사용 통계 기록 (요청 1건 = 이벤트 1건). 기록은 비동기 큐라 지연 0.
                 # 요청 본문(JSON-RPC)을 버퍼링해 tool명 추출 후 그대로 앱에 재생(replay).
