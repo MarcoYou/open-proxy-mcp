@@ -87,6 +87,7 @@ def _flush(buf):
 
 async def fetch():
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+    sleep_s = float(os.getenv("SERIES_SLEEP", "0.45"))  # 260706: 필요시 조정, 기본값은 검증된 0.45 유지
     con=_pg()
     buf=[]
     firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
@@ -109,9 +110,9 @@ async def fetch():
     for isu,cc,yr in todo:
         k+=1
         try:
-            fs="CFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(0.45)
+            fs="CFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
             if not rows:
-                fs="OFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(0.45)
+                fs="OFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
             attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"; eqa="ifrs-full_EquityAttributableToOwnersOfParent"
             ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
             ni_frmtrm=gid(rows,attr,("CIS","IS"),"frmtrm_amount")
