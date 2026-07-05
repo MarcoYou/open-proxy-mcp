@@ -66,25 +66,32 @@ updated: 2026-07-05
   krx_stock_flags 경고. 검증 260705: 삼성 2024말 PBR 0.91·SK하이닉스 2024 PER N/M(FY2023 순손실)
   등 시장 서사와 정합.
 
-### `mkt_val_history` — 시장 전체 aggregate 주간 스냅샷
+### `mkt_val_history` — 시장 전체 aggregate 스냅샷 (**현재 주간 + 과거 FY0 시계열**, 260705 확장)
 - **item**: `snap_dd` · `mkt` · `per_fy0/per_ttm/pbr_fy0/pbr_mrq`(시총가중=Σ보통주 시총÷Σ지배순이익·자본) ·
   `cap`(Σ보통주 시총) · `cap_pref`(Σ우선주 시총 — 배수 미포함) · `ni_ttm` · `eq`. PK(snap_dd, mkt).
-  주 2행(KOSPI·KOSDAQ).
   ※ 표기 PER의 분모별 Σ시총은 해당 지표 보유 종목만 — cap÷ni_ttm 재계산과 다를 수 있음(명시됨).
-- **갱신**: `market_val_weekly.py`(cron). 구 `market_val_agg.py --report/--snapshot`은 FX 미환산이라
-  **deprecated**(KOSDAQ PER 5.7% 왜곡 실측) — 저장 정본은 weekly 하나.
-- **검증**: 260705 QA — 9필드 독립 재계산 소수 4자리 일치, 신·구 차이 전액 FX 환산 효과로 설명.
-- **목적/소비자**: valuation `scope=market` ("코스피 지금 싸?"·시장 밸류 추이).
+- **갱신**: ① 현재 주간행 = `market_val_weekly.py`(cron, per_ttm/pbr_mrq 포함 전체 갱신).
+  ② **과거 시점행(2020-01~현재, 월말 76개)** = `market_val_history_backfill.py`(1회성 백필, DART 0콜,
+  krx_weekly×mkt_fund_hist로 계산 — **FY0만**, TTM/MRQ는 분기 백필 완주 후 별도 추가 예정). ON CONFLICT로
+  FY0열만 갱신해 cron이 채운 최신행의 per_ttm/pbr_mrq는 보존. 구 `market_val_agg.py --report/--snapshot`은
+  FX 미환산이라 **deprecated**(KOSDAQ PER 5.7% 왜곡 실측) — 저장 정본은 weekly+historical backfill 둘.
+- **검증**: 260705 QA — 9필드 독립 재계산 소수 4자리 일치. 과거 밴드는 KOSPI 연말 PER/PBR이 실제 시장사와
+  일치(2023·24 PBR<1=코리아디스카운트, 2022 PER11=실적급증) — 통화(FX)는 **적용 안 함**(비KRW 22사
+  시총<0.2%라 무시해도 정확, mkt_fund_hist에 연도별 통화컬럼 부재로 오히려 FX 적용이 오염 유발 확인).
+- **목적/소비자**: valuation `scope=market` — 이제 **시계열(history 배열)**로 응답, "2020년부터 코스피
+  PER 추이" 가능.
 
-### `mkt_sector_val` — 산업(KSIC)별 aggregate 주간 스냅샷 (260705 신설)
+### `mkt_sector_val` — 산업(KSIC)별 aggregate 스냅샷 (**현재 주간 + 과거 FY0 시계열**, 260705 확장)
 - **item**: `snap_dd` · `mkt` · `sector`(버킷코드, 소규모는 `_fold`) · `label`(표시명) · `n`(사수) ·
-  `cap`(Σ보통주 시총) · `cap_pref`(Σ우선주 시총) · `per_ttm` · `pbr_mrq`. PK(snap_dd, mkt, sector). ~97버킷/주.
+  `cap`(Σ보통주 시총) · `cap_pref`(Σ우선주 시총) · `per_fy0/pbr_fy0`(260705 추가) · `per_ttm` · `pbr_mrq`.
+  PK(snap_dd, mkt, sector). ~97버킷/주.
 - **분류**: KSIC 하이브리드(`open_proxy_mcp/data/ksic/opm_sector_map.json` — 제품용 보존 자산).
   **WI26은 내부 분석 전용 — 제품/저장 탑재 금지**. MINB(5사) 미만 버킷은 `_fold`로 접음.
-- **갱신**: `market_val_weekly.py`(cron). / **검증**: 97버킷 전수 재계산 일치 · Σ버킷=Σ시장 100.0% ·
-  음수 배수 0(260705 QA).
-- **목적/소비자**: valuation `scope=sector` ("반도체 업종 밸류"·기업 vs 소속 섹터 비교 — `_fold`
-  종목은 폴드 버킷과 비교로 폴백).
+- **갱신**: mkt_val_history와 동일 이원화 — 현재 주간행 = `market_val_weekly.py`(cron), 과거 76개월말행
+  = `market_val_history_backfill.py`(FY0만, DART 0콜). / **검증**: 97버킷 전수 재계산 일치 · Σ버킷=Σ시장
+  100.0% · 음수 배수 0(260705 QA).
+- **목적/소비자**: valuation `scope=sector` — 이제 **시계열**로 응답("반도체 업종 밸류 추이"·기업 vs
+  소속 섹터 비교 — `_fold` 종목은 폴드 버킷과 비교로 폴백).
 
 ### `fx_rate` — 환율 영구 캐시
 - **item**: `base_ccy` · `dt`(YYYYMMDD) · `rate`(1단위당 KRW). PK(base_ccy, dt). 265행(11통화 ×
@@ -164,15 +171,21 @@ updated: 2026-07-05
 [유저 조회 시 — valuation tool]
   scope=firm:        DART 실시간(재무 ~14콜) × krx_weekly(시세, KRX 0콜) → 심층 배수+경고
                      (조회 자체가 krx_weekly daily-refresh 겸함 — cron과 이중 안전망)
-  scope=market:      mkt_val_history 읽기만 (API 0콜)
-  scope=sector:      mkt_sector_val (+mkt_valuation 비교) 읽기만
-  scope=firm_history: mkt_valuation + krx_stock_flags(경고) 읽기만
+  scope=market:      mkt_val_history 읽기만 (API 0콜) — 현재값 + 과거 76시점 시계열(FY0)
+  scope=sector:      mkt_sector_val (+mkt_valuation 비교) 읽기만 — 마찬가지로 시계열
+  scope=firm_history: **둘 다 씀** — ① 과거(연말 PIT밴드·차트용 주간곡선·월말요약)는 mkt_fund_hist(연간)
+                     +mkt_fund_q(분기)+krx_weekly(시총)로 조회시연산(저장 X) ② 최근/현재 촘촘한 포인트는
+                     mkt_valuation(주간 스냅샷, 앞으로 cron이 계속 축적) 그대로 읽기 + krx_stock_flags(경고)
 
 [분기 보고 시즌 — 수동]
   market_val_agg.py --fetch ──▶ mkt_fundamentals 재수집 (DART ~8k콜, 동시성 1+sleep, ~60분)
 
 [연 1회 — 수동]
   market_val_series.py --fetch ──▶ mkt_fund_hist 신규 FY 추가 (+재작성 검증)
+
+[1회성 백필 — 완료 260705, 재실행 안전(idempotent)]
+  market_val_history_backfill.py ──▶ mkt_val_history·mkt_sector_val 과거 76개 월말 FY0 밴드
+  (DART 0콜, krx_weekly×mkt_fund_hist만 사용)
 ```
 
 ## 검증 이력 (요약)

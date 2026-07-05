@@ -50,6 +50,9 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계
 
 - 스냅샷 3테이블은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
   매일 KST 10:17 — 매일 수집(KRX 금요일 지연 게시 커버)→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
+- **market/sector 히스토리는 2020-01~현재**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
+  (1회성, DART 0콜)가 채운 과거 76개 월말(FY0 기준) — 합쳐서 "2020년부터 코스피 PER 추이" 응답 가능
+  (260705). TTM/MRQ 과거밴드는 분기 데이터 완비 후 별도 추가 예정, 현재는 FY0만.
 - **⚠ 방법론 이중성**: firm = 보통주 주가÷EPS(유통주식). 스냅샷 = **총시총(우선주 귀속)÷지배순이익**
   (시총가중, 지수 표준) — 삼성 PER(TTM) 20.0(firm) vs 21.9(스냅샷)처럼 다를 수 있음. 출력에 명시.
 - **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
