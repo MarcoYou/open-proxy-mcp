@@ -273,7 +273,7 @@ _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, �
 async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
     """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(mkt_val_history)."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, mkt, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq "
+        "SELECT snap_dd, mkt, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref "
         "FROM mkt_val_history ORDER BY snap_dd DESC, mkt")
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": "시장 밸류에이션",
@@ -284,13 +284,16 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
     hist = [{"snap_dd": r[0], "mkt": r[1],
              "per_fy0": r[2] and round(r[2], 2), "per_ttm": r[3] and round(r[3], 2),
              "pbr_fy0": r[4] and round(r[4], 2), "pbr_mrq": r[5] and round(r[5], 2),
-             "cap_krw": r[6], "ni_ttm_krw": r[7], "eq_krw": r[8]} for r in rows]
+             "cap_krw": r[6], "ni_ttm_krw": r[7], "eq_krw": r[8],
+             "cap_pref_krw": r[9] if len(r) > 9 else None} for r in rows]
     latest_dd = hist[0]["snap_dd"]
     return {"tool": "valuation", "status": "ok", "subject": "시장 밸류에이션(KOSPI·KOSDAQ)",
             "data": {"scope": "market", "as_of": latest_dd,
                      "latest": [h for h in hist if h["snap_dd"] == latest_dd],
                      "history": hist,
-                     "method": "시총가중(Σ시총÷Σ지배순이익/자본) · 재무 FY0/TTM/MRQ · 주간 스냅샷 · "
+                     "method": "**보통주 기준**(260705 확정): PER=Σ보통주 시총÷Σ지배순이익 · PBR=Σ보통주 "
+                               "시총÷Σ지배자본(MRQ) — KRX 지수 PER 관행. 우선주 시총은 배수 제외, cap_pref_krw로 "
+                               "별도 노출(분모 이익·자본엔 우선주 몫 포함 → 소폭 하향 편향, 클래스 분리는 공시 부재로 불가) · "
                                "trailing(과거 실적) 기준 — 컨센서스 선행 PER와 다름. "
                                "Σ지배순이익에 적자기업 포함(흑자기업만 쓰는 일부 벤더와 상이 — 적자 우세 "
                                "시장·섹터의 PER이 크게 높아짐, KOSDAQ 고PER의 주원인. PBR 병행 해석 권장). "
@@ -396,7 +399,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     return {"tool": "valuation", "status": "ok", "subject": corp.get("corp_name", query),
             "data": {"scope": "firm_history", "isu_cd": isu, "mkt": rows[-1][1],
                      "sector": rows[-1][2], "history": hist,
-                     "method": "주간 스냅샷 · PER=시총(우선주 귀속)÷지배순이익 — 시총 기반이라 분할·무상증자 "
+                     "method": "주간 스냅샷 · PER=보통주 시총÷지배순이익(우선주 시총 별도) — 시총 기반이라 분할·무상증자 "
                                "등 조정성 이벤트에 불변. 단 유증·자사주 소각·인적분할의 시총 점프는 실제 "
                                "이벤트 반영(조정 대상 아님)이므로 그대로 남음"},
             "warnings": warnings}

@@ -45,10 +45,14 @@ updated: 2026-07-05
   수정주가 파이프라인(adj_factor_v3·base_resets) · market_val_series의 분기말 시총.
 
 ### `mkt_valuation` — 종목별 밸류 주간 스냅샷 (260705 신설)
-- **item**: `snap_dd` · `isu_cd` · `mkt` · `sector`(KSIC 하이브리드 버킷) · `cap`(우선주 귀속 총시총) ·
-  `per_fy0` · `per_ttm` · `pbr_fy0` · `pbr_mrq`. PK(snap_dd, isu_cd). ~2,600행/주.
-- **산식**: PER=cap÷지배순이익(TTM/FY0), PBR=cap÷지배자본(MRQ/FY0). **ni≤0·eq≤0 → NULL(N/M)**.
-  비KRW 22사는 fx_rate(기말환율)로 KRW 환산 후 산출.
+- **item**: `snap_dd` · `isu_cd` · `mkt` · `sector`(KSIC 하이브리드 버킷) · `cap`(**보통주 시총**) ·
+  `cap_pref`(**우선주 시총 별도** — 배수 미포함) · `per_fy0` · `per_ttm` · `pbr_fy0` · `pbr_mrq`.
+  PK(snap_dd, isu_cd). ~2,600행/주.
+- **산식(260705 보통주 기준 확정)**: PER=**보통주** cap÷지배순이익(TTM/FY0), PBR=보통주 cap÷지배자본
+  (MRQ/FY0). **ni≤0·eq≤0 → NULL(N/M)**. 비KRW 22사는 fx_rate(기말환율)로 KRW 환산 후 산출.
+  우선주 시총(cap_pref)은 배수에서 제외(KRX 지수 PER 관행) — 분모 이익·자본엔 우선주 몫 포함이라
+  소폭 하향 편향(클래스 분리는 공시 부재로 불가). 전수 검증: 2,599사 cap==krx 보통주시총 불일치 0,
+  cap_pref==우선주형제합 불일치 0(260705).
 - **갱신**: `market_val_weekly.py`(cron) — 재무는 mkt_fundamentals, 시총은 krx_weekly. API 0콜(KRX
   종목유형 2콜 제외). 같은 ISO주 수렴.
 - **검증**: 260705 QA — 표본 17사 손계산 재현 <1e-6 · 비KRW 22사 전수 환산 확인 · 커버리지
@@ -57,8 +61,9 @@ updated: 2026-07-05
   조정 불변, spinoff 종목은 krx_stock_flags 경고) · `scope=sector`의 기업 vs 섹터 비교.
 
 ### `mkt_val_history` — 시장 전체 aggregate 주간 스냅샷
-- **item**: `snap_dd` · `mkt` · `per_fy0/per_ttm/pbr_fy0/pbr_mrq`(시총가중=Σ시총÷Σ지배순이익·자본) ·
-  `cap`(전체 Σ시총) · `ni_ttm` · `eq`. PK(snap_dd, mkt). 주 2행(KOSPI·KOSDAQ).
+- **item**: `snap_dd` · `mkt` · `per_fy0/per_ttm/pbr_fy0/pbr_mrq`(시총가중=Σ보통주 시총÷Σ지배순이익·자본) ·
+  `cap`(Σ보통주 시총) · `cap_pref`(Σ우선주 시총 — 배수 미포함) · `ni_ttm` · `eq`. PK(snap_dd, mkt).
+  주 2행(KOSPI·KOSDAQ).
   ※ 표기 PER의 분모별 Σ시총은 해당 지표 보유 종목만 — cap÷ni_ttm 재계산과 다를 수 있음(명시됨).
 - **갱신**: `market_val_weekly.py`(cron). 구 `market_val_agg.py --report/--snapshot`은 FX 미환산이라
   **deprecated**(KOSDAQ PER 5.7% 왜곡 실측) — 저장 정본은 weekly 하나.
@@ -67,7 +72,7 @@ updated: 2026-07-05
 
 ### `mkt_sector_val` — 산업(KSIC)별 aggregate 주간 스냅샷 (260705 신설)
 - **item**: `snap_dd` · `mkt` · `sector`(버킷코드, 소규모는 `_fold`) · `label`(표시명) · `n`(사수) ·
-  `cap` · `per_ttm` · `pbr_mrq`. PK(snap_dd, mkt, sector). ~97버킷/주.
+  `cap`(Σ보통주 시총) · `cap_pref`(Σ우선주 시총) · `per_ttm` · `pbr_mrq`. PK(snap_dd, mkt, sector). ~97버킷/주.
 - **분류**: KSIC 하이브리드(`open_proxy_mcp/data/ksic/opm_sector_map.json` — 제품용 보존 자산).
   **WI26은 내부 분석 전용 — 제품/저장 탑재 금지**. MINB(5사) 미만 버킷은 `_fold`로 접음.
 - **갱신**: `market_val_weekly.py`(cron). / **검증**: 97버킷 전수 재계산 일치 · Σ버킷=Σ시장 100.0% ·

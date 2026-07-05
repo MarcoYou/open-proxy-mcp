@@ -47,11 +47,12 @@ def _render_status(payload: dict[str, Any]) -> str:
 def _render_market(p: dict[str, Any]) -> str:
     d = p["data"]
     lines = [f"# 시장 밸류에이션 — KOSPI·KOSDAQ (기준 {d['as_of']})", ""]
-    lines.append("| 시장 | PER(FY0) | PER(TTM) | PBR(FY0) | PBR(MRQ) | Σ시총 |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| 시장 | PER(FY0) | PER(TTM) | PBR(FY0) | PBR(MRQ) | Σ시총(보통주) | Σ우선주 |")
+    lines.append("|---|---|---|---|---|---|---|")
     for h in d["latest"]:
         lines.append(f"| {h['mkt']} | {_f(h['per_fy0'])} | {_f(h['per_ttm'])} | "
-                     f"{_f(h['pbr_fy0'])} | {_f(h['pbr_mrq'])} | {(h['cap_krw'] or 0)/1e12:,.0f}조 |")
+                     f"{_f(h['pbr_fy0'])} | {_f(h['pbr_mrq'])} | {(h['cap_krw'] or 0)/1e12:,.0f}조 "
+                     f"| {(h.get('cap_pref_krw') or 0)/1e12:,.1f}조 |")
     hist = d["history"]
     dds = sorted({h["snap_dd"] for h in hist})
     if len(dds) > 1:
@@ -126,10 +127,12 @@ _METHODOLOGY = """# valuation 방법론·기준·출처 (수치 근거)
 | 배당수익률 | 주당 현금배당(DPS) ÷ 종가 × 100 | 보통주 결의 기준 |
 
 ## 산식 (market/sector/firm_history — 주간 스냅샷)
-- PER = **Σ시총 ÷ Σ지배순이익** (시총가중 조화평균 = 지수 표준) · PBR = Σ시총 ÷ Σ지배자본(MRQ)
+- PER = **Σ보통주 시총 ÷ Σ지배순이익** (시총가중 조화평균, KRX 지수 PER 관행) · PBR = Σ보통주 시총 ÷ Σ지배자본(MRQ)
 - Σ지배순이익에 **적자기업 포함**(흑자만 쓰는 일부 벤더와 상이) — 적자 우세 시장(KOSDAQ)의 PER이
   크게 높아짐. PBR 병행 해석 권장. trailing(과거 실적) 기준 — 컨센서스 선행 PER와 다름
-- 시총 = 보통주 + 우선주(보통주 코드로 귀속) — **firm의 보통주 주가 기준과 달라 값이 다를 수 있음**
+- **우선주 시총은 배수에서 제외**(cap_pref로 별도 노출) — 분모의 이익·자본엔 우선주 몫이 포함되어
+  배수는 소폭 하향 편향(클래스별 이익·자본 분리는 공시 부재로 불가, KRX 공표 PER도 동일 관행)
+- firm(보통주 주가÷공시 EPS)과는 분모 기준(전체 지배이익 vs 주당 가중평균)이 달라 값이 다를 수 있음
 - 섹터 분류 = KSIC 하이브리드(자체 매핑) · 소규모(5사 미만) 섹터는 '기타(소규모)'로 합산
 
 ## 판단 기준 (게이팅)
@@ -220,7 +223,7 @@ def register_tools(mcp):
     async def valuation(company: str = "", scope: str = "firm", format: str = "md") -> str:
         """desc: 상대가치 밸류에이션 — 기업 심층(PER·PBR·배당수익률) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 한국 표준(연결, 지배주주 귀속). 비KRW 기능통화 자동 KRW 환산(ECOS), 스케일가드, N/M 게이팅.
         when: "PER/PBR 얼마"·"싼가 비싼가"(scope=firm) / "코스피·코스닥 전체 밸류"(market) / "업종별 PER·PBR"·"섹터 대비 어디"(sector, company 지정 시 소속 섹터 비교) / "밸류 추이"(firm_history) / **"이 수치 근거·계산 과정이 뭐야?"(explain — company 지정 시 실제 값 대입 계산, 미지정 시 방법론·기준·출처 전문)**. 재무 펀더멘탈 자체는 financial_metrics, 배당 상세는 dividend.
-        rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — EPS(FY0)=공시 기본주당이익(가중평균, 없으면 지배순이익÷보통주 폴백), EPS(TTM)=TTM 지배순이익÷보통주, BPS=지배자본(MRQ)÷합계주식수, 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(mkt_val_history·mkt_sector_val·mkt_valuation, market_val_weekly 배치가 갱신) — PER=Σ시총÷Σ지배순이익(시총가중 조화평균·우선주 시총 보통주 귀속), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct).
+        rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — EPS(FY0)=공시 기본주당이익(가중평균, 없으면 지배순이익÷보통주 폴백), EPS(TTM)=TTM 지배순이익÷보통주, BPS=지배자본(MRQ)÷합계주식수, 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(mkt_val_history·mkt_sector_val·mkt_valuation, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct).
         status: ok / invalid / not_found(우선주는 보통주 코드로) / unlisted / no_financials / no_data(배치 미실행).
         note: lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT·주당 수정주가 시계열은 v1.1.
         ref: financial_metrics, dividend, corp_gov_report, evidence
