@@ -103,21 +103,31 @@ def _render_sector(p: dict[str, Any]) -> str:
 
 def _render_firm_history(p: dict[str, Any]) -> str:
     d = p["data"]
-    lines = [f"# {p['subject']} 밸류에이션 히스토리 ({d['mkt']} · 섹터 {d['sector']})", "",
-             "| 시점 | PER(FY0) | PER(TTM) | PBR | 시총(보통주) | 기준 |", "|---|---|---|---|---|---|"]
-    band_na = False
-    for h in reversed(d["history"]):
-        is_band = str(h.get("source", "")).startswith("연말")
-        # 밴드는 연 재무만 있어 TTM 미산출(N/A) — 음수게이팅 N/M과 구분해 '—' 표기
-        if is_band and h.get("per_ttm") is None:
-            ttm = "—"; band_na = True
-        else:
-            ttm = _f(h.get("per_ttm"))
-        lines.append(f"| {h['period']} | {_f(h.get('per_fy0'))} | {ttm} "
-                     f"| {_f(h.get('pbr'))} | {(h.get('cap_krw') or 0)/1e12:,.2f}조 | {h.get('source','')} |")
-    if band_na:
-        lines += ["", "> `—`(TTM): 밴드 시점은 연 재무(mkt_fund_hist)만 있어 TTM 산출 불가"
-                  "(과거 분기 미저장). 그 시점 trailing PER은 **PER(FY0)** 참조. `N/M`(주간)은 분모≤0."]
+    summ = d.get("summary") or []
+    band = [h for h in d["history"] if str(h.get("source", "")).startswith("연말")]
+    series = d.get("series") or []
+    lines = [f"# {p['subject']} 밸류에이션 히스토리 ({d['mkt']} · 섹터 {d['sector']})", ""]
+    # ── 최근 12개월 월말(텍스트 요약) — 주간 곡선의 월말 다운샘플 + 분기공시 마커 ──
+    if summ:
+        lines += ["## 최근 12개월 (월말)", "",
+                  "| 월 | PER(FY0) | PER(TTM) | PBR | PBR(MRQ) | 시총(보통주) | 공시 |",
+                  "|---|---|---|---|---|---|---|"]
+        for s in reversed(summ):   # 최신 월이 위로
+            ym = f"{s['asof'][:4]}-{s['asof'][4:6]}"
+            lines.append(f"| {ym} | {_f(s.get('per_fy0'))} | {_f(s.get('per_ttm'))} "
+                         f"| {_f(s.get('pbr'))} | {_f(s.get('pbr_mrq'))} "
+                         f"| {(s.get('cap_krw') or 0)/1e12:,.2f}조 | {s.get('marker','')} |")
+    # ── 연말 PIT 밴드(장기 맥락) — 연 1점, FY0 기준(그 시점 최신 확정 연재무) ──
+    if band:
+        lines += ["", "## 연말 밴드 (장기 · FY0 기준)", "",
+                  "| 연말 | PER(FY0) | PBR(FY0) | 시총(보통주) |", "|---|---|---|---|"]
+        for h in reversed(band):
+            lines.append(f"| {h['period']} | {_f(h.get('per_fy0'))} | {_f(h.get('pbr'))} "
+                         f"| {(h.get('cap_krw') or 0)/1e12:,.2f}조 |")
+    if series:
+        lines += ["", f"> 📈 차트용 전 구간 주간 곡선 {len(series)}개"
+                  f"({series[0]['asof']}~{series[-1]['asof']}) = `data.series`(per_fy0·per_ttm·pbr·pbr_mrq). "
+                  "위 표는 그 월말 다운샘플. `▲`=분기 재무 공시로 분모 갱신(배수 변화가 가격 vs 실적 구분)."]
     lines += ["", f"> {d['method']}"]
     for w in p.get("warnings", []):
         lines.append(f"> {w}")
