@@ -358,6 +358,45 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
             "warnings": warnings}
 
 
+async def _annual_pit_band(isu_cd: str, currency: str = "KRW") -> list[dict]:
+    """연말 PIT PER/PBR 밴드 — **이미 있는 데이터로 질의 시 계산**(백필 저장 X, compute-on-query).
+    연말 보통주 시총(krx_weekly, isu_cd=보통주 코드) ÷ 그 시점 최신 확정 FY 재무(mkt_fund_hist).
+    PIT: 연말 YYYY 시점의 최신 확정 재무 = FY(YYYY−1) (FY는 익년 3월 공시 → look-ahead 방지).
+    시총 기반이라 수정주가(분할·무상증자) 조정 불변. 비KRW는 그 FY 기말환율로 KRW 환산."""
+    caps = await asyncio.to_thread(_pg_rows,
+        "SELECT DISTINCT ON (substring(bas_dd,1,4)) substring(bas_dd,1,4), bas_dd, mktcap "
+        "FROM krx_weekly WHERE isu_cd=%s AND substring(bas_dd,5,2)='12' "
+        "ORDER BY substring(bas_dd,1,4), bas_dd DESC", (isu_cd,)) or []
+    fins = await asyncio.to_thread(_pg_rows,
+        "SELECT fy, ni, eq FROM mkt_fund_hist WHERE isu_cd=%s AND fetched='ok'", (isu_cd,)) or []
+    fin_by_fy = {int(f): (n, e) for f, n, e in fins}
+    ccy = (currency or "KRW").upper()
+    fx_cache: dict[int, float | None] = {}
+    band = []
+    for yr_s, bas_dd, cap in caps:
+        pit_fy = int(yr_s) - 1
+        if pit_fy not in fin_by_fy or not cap:
+            continue
+        ni, eq = fin_by_fy[pit_fy]
+        fx = 1.0
+        if ccy not in ("KRW", "NODATA", "?"):
+            if pit_fy not in fx_cache:
+                fx_cache[pit_fy] = await fx_to_krw(ccy, f"{pit_fy}1231")
+            fx = fx_cache[pit_fy]
+            if not fx:
+                continue
+        cap = float(cap)
+        ni_k = float(ni) * fx if ni is not None else None
+        eq_k = float(eq) * fx if eq is not None else None
+        band.append({
+            "period": yr_s, "asof": bas_dd, "pit_fy": pit_fy, "cap_krw": round(cap),
+            "per_fy0": round(cap / ni_k, 2) if ni_k and ni_k > 0 else None,
+            "pbr_fy0": round(cap / eq_k, 2) if eq_k and eq_k > 0 else None,
+            "source": f"연말(PIT FY{pit_fy})",
+        })
+    return band
+
+
 async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
     """종목별 밸류에이션 주간 히스토리(mkt_valuation) — PER/PBR/시총 시계열(수정주가 조정 불변)."""
     query = (company or "").strip()
@@ -373,19 +412,32 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
         return {"tool": "valuation", "status": "not_found" if not corp else "unlisted",
                 "subject": query, "warnings": [f"'{company}' 상장 종목을 찾지 못함."]}
     isu = corp["stock_code"]
+    cur_row = await asyncio.to_thread(_pg_rows,
+        "SELECT mkt, sector, currency FROM mkt_fundamentals WHERE isu_cd=%s", (isu,))
+    currency = (cur_row[0][2] if cur_row and cur_row[0][2] else "KRW")
+    # ① 연말 PIT 밴드 — 이미 있는 데이터(krx_weekly×mkt_fund_hist)로 질의 시 계산(저장 X)
+    band = await _annual_pit_band(isu, currency)
+    # ② 주간 스냅샷 — 최근/현재 촘촘한 포인트(앞으로 cron이 축적)
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, mkt, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
         "FROM mkt_valuation WHERE isu_cd=%s ORDER BY snap_dd", (isu,))
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": corp.get("corp_name", query),
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
-    if not rows:
+    if not band and not rows:
         return {"tool": "valuation", "status": "no_data", "subject": corp.get("corp_name", query),
-                "warnings": ["종목 스냅샷 없음 — market_val_weekly 배치 미실행 또는 미수집 종목."]}
-    hist = [{"snap_dd": r[0], "cap_krw": r[3],
-             "per_fy0": r[4] and round(r[4], 2), "per_ttm": r[5] and round(r[5], 2),
-             "pbr_fy0": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2)} for r in rows]
-    warnings = [f"주간 스냅샷 {len(hist)}개(최신 {hist[-1]['snap_dd']}). "
+                "warnings": ["시계열 없음 — 과거 시세(krx_weekly)·재무(mkt_fund_hist)·주간 스냅샷 모두 미수집."]}
+    hist = [{"period": b["period"], "asof": b["asof"], "cap_krw": b["cap_krw"],
+             "per_fy0": b["per_fy0"], "per_ttm": None, "pbr": b["pbr_fy0"],
+             "source": b["source"]} for b in band]
+    hist += [{"period": r[0][:4] + "-" + r[0][4:6] + "-" + r[0][6:], "asof": r[0], "cap_krw": r[3],
+              "per_fy0": r[4] and round(r[4], 2), "per_ttm": r[5] and round(r[5], 2),
+              "pbr": (r[7] if r[7] is not None else r[6]) and round(r[7] if r[7] is not None else r[6], 2),
+              "source": "주간"} for r in rows]
+    hist.sort(key=lambda h: h["asof"])
+    latest_dd = rows[-1][0] if rows else (band[-1]["asof"] if band else "?")
+    warnings = [f"연말 PIT 밴드 {len(band)}개 + 주간 스냅샷 {len(rows)}개 = 총 {len(hist)}포인트(최신 {latest_dd}). "
+                "밴드 PER는 FY0(연말 시점 최신 확정 재무·PIT) 기준, 주간은 FY2025+TTM. "
                 "정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용."]
     # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고).
     flags = await asyncio.to_thread(_pg_rows,
@@ -396,12 +448,15 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
                             "재무 반영 지연으로 왜곡 가능. 시계열 비교 주의.")
         elif fl == "unresolved_adjustment":
             warnings.append("⚠ 미해결 주가조정 이력(unresolved_adjustment) — 시계열 해석 주의.")
+    mkt = rows[-1][1] if rows else (cur_row[0][0] if cur_row else None)
+    sector = rows[-1][2] if rows else (cur_row[0][1] if cur_row else None)
     return {"tool": "valuation", "status": "ok", "subject": corp.get("corp_name", query),
-            "data": {"scope": "firm_history", "isu_cd": isu, "mkt": rows[-1][1],
-                     "sector": rows[-1][2], "history": hist,
-                     "method": "주간 스냅샷 · PER=보통주 시총÷지배순이익(우선주 시총 별도) — 시총 기반이라 분할·무상증자 "
-                               "등 조정성 이벤트에 불변. 단 유증·자사주 소각·인적분할의 시총 점프는 실제 "
-                               "이벤트 반영(조정 대상 아님)이므로 그대로 남음"},
+            "data": {"scope": "firm_history", "isu_cd": isu, "mkt": mkt,
+                     "sector": sector, "history": hist,
+                     "method": "연말 PIT 밴드(krx_weekly 연말 보통주 시총 ÷ 그 시점 최신 확정 FY 재무, "
+                               "look-ahead 방지) + 주간 스냅샷. PER=보통주 시총÷지배순이익(우선주 시총 별도). "
+                               "시총 기반이라 분할·무상증자 등 조정성 이벤트에 불변. 단 유증·자사주 소각·"
+                               "인적분할의 시총 점프는 실제 이벤트 반영(조정 대상 아님)이므로 그대로 남음"},
             "warnings": warnings}
 
 

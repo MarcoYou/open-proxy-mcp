@@ -57,8 +57,14 @@ updated: 2026-07-05
   종목유형 2콜 제외). 같은 ISO주 수렴.
 - **검증**: 260705 QA — 표본 17사 손계산 재현 <1e-6 · 비KRW 22사 전수 환산 확인 · 커버리지
   2,599/2,599 누락 0.
-- **목적/소비자**: valuation `scope=firm_history`(종목 PER/PBR/시총 시계열 — 시총 기반이라 수정주가
-  조정 불변, spinoff 종목은 krx_stock_flags 경고) · `scope=sector`의 기업 vs 섹터 비교.
+- **목적/소비자**: valuation `scope=firm_history`(종목 PER/PBR/시총 시계열) · `scope=sector`의 기업
+  vs 섹터 비교.
+- **firm_history 시계열 = compute-on-query(저장 X)**: 주간 스냅샷(현재·미래 축적)에 더해, **연말 PIT
+  밴드**를 질의 시 `krx_weekly`(연말 보통주 시총) × `mkt_fund_hist`(그 시점 최신 확정 FY 재무)로 즉시
+  산출(백필 배치·저장 없음, 2~3 쿼리). PIT: 연말 YYYY→FY(YYYY−1) 사용(FY는 익년 3월 공시 →
+  look-ahead 방지). 시총 기반이라 수정주가 조정 불변, 비KRW는 FY 기말환율 환산. spinoff 종목은
+  krx_stock_flags 경고. 검증 260705: 삼성 2024말 PBR 0.91·SK하이닉스 2024 PER N/M(FY2023 순손실)
+  등 시장 서사와 정합.
 
 ### `mkt_val_history` — 시장 전체 aggregate 주간 스냅샷
 - **item**: `snap_dd` · `mkt` · `per_fy0/per_ttm/pbr_fy0/pbr_mrq`(시총가중=Σ보통주 시총÷Σ지배순이익·자본) ·

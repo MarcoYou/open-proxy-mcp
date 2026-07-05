@@ -104,10 +104,10 @@ def _render_sector(p: dict[str, Any]) -> str:
 def _render_firm_history(p: dict[str, Any]) -> str:
     d = p["data"]
     lines = [f"# {p['subject']} 밸류에이션 히스토리 ({d['mkt']} · 섹터 {d['sector']})", "",
-             "| 주(기준일) | PER(FY0) | PER(TTM) | PBR(MRQ) | 시총 |", "|---|---|---|---|---|"]
+             "| 시점 | PER(FY0) | PER(TTM) | PBR | 시총(보통주) | 기준 |", "|---|---|---|---|---|---|"]
     for h in reversed(d["history"]):
-        lines.append(f"| {h['snap_dd']} | {_f(h['per_fy0'])} | {_f(h['per_ttm'])} "
-                     f"| {_f(h['pbr_mrq'])} | {(h['cap_krw'] or 0)/1e12:,.2f}조 |")
+        lines.append(f"| {h['period']} | {_f(h.get('per_fy0'))} | {_f(h.get('per_ttm'))} "
+                     f"| {_f(h.get('pbr'))} | {(h.get('cap_krw') or 0)/1e12:,.2f}조 | {h.get('source','')} |")
     lines += ["", f"> {d['method']}"]
     for w in p.get("warnings", []):
         lines.append(f"> {w}")
