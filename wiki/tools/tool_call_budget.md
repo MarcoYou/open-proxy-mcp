@@ -47,6 +47,14 @@ method: 코드 실측 (services/*.py 의 DART client 호출 지점)
 |---|---|---|
 | risk_events (company 미지정) | ~45 | 30일 시장 스캔: I001 ~36p + B001 ~7p + 상세. 기간 길면 증가 |
 
+### 재무 SSOT 갱신 배치 (serve-time 아님 — 스케줄/수동 배치, fly/로컬)
+| 배치 | 콜/실행 | 주기 · 비고 |
+|---|---|---|
+| `market_fund_quarterly.py --fetch` | 신규 없음 **≈0** · 공시 직후 **~2,600~5,200**(2,599사×1~2, CFS→OFS 폴백) | 공시-인지(_disclosed)+resume(done셋). 동시성 2+sleep. 초기 백필만 ~54k콜(1회성) |
+| `market_val_series.py --fetch` | 신규 FY 시 **~2,600** · 아니면 **0** | YEARS 동적. 연 1회(4월 이후) |
+| `--seed` · `--derive` | **0** (DART 0콜) | Q4 seed·mkt_fundamentals 파생. DB만 |
+| `refresh_financials.sh` (체인) | 위 합 — 평시 **≈0**, 공시 직후 1회 **~5k** | 연 4회 공시 후. fly 스케줄 머신(키 fly보관·GitHub 미복제). off-peak |
+
 ## 안전한 유니버스 크기 계산
 
 DART 분당 한도는 **910콜**(client `_throttle_api`가 강제 — 초과 시 차단이 아니라 자동 대기). 따라서

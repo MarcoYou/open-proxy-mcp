@@ -5,8 +5,16 @@
 #   → 각 마감 며칠 뒤 1회 실행하면 그 분기/연도만 수집(resume·공시-인지로 0낭비).
 #
 # **DART 키 필요**(OPENDART_API_KEY[, _2]). 보안 제약상 키는 fly secrets 보관 → 이 스크립트는
-#   fly machine 또는 키 보유 로컬에서 실행(GitHub Actions에 키 복제 금지). 0-DART인 derive는
-#   일일 워크플로(market-val-weekly.yml)가 별도 수행하므로 여기 fetch만 하면 됨.
+#   fly machine 또는 키 보유 로컬에서 실행(GitHub Actions에 키 복제 금지 — IP차단 가능 키의 노출면
+#   확대 회피, API-spec 검토 권고). 0-DART인 derive는 일일 워크플로(market-val-weekly.yml)가 별도
+#   수행하므로 여기 fetch만 하면 됨.
+#
+# 배포(권장 = fly 스케줄 머신, 키 이미 fly secrets에 있음·신규 노출 0):
+#   fly machine run . --schedule weekly --restart no \
+#     --command "bash scripts/refresh_financials.sh"       # 앱 이미지·secrets 상속
+#   매주 1회면 충분(멱등·resume·공시-인지 → 신규 없는 주는 ≈0콜, 공시 직후 1주만 실제 수집).
+#   off-peak(새벽 KST) 권장 — fly 웹서버와 IP·키 공유라 동시 배치 금지(cross-process 리미터 사각).
+#   ※ 수동 대안: 공시 마감 며칠 뒤(4/5·5/20·8/20·11/20) fly ssh 또는 로컬에서 직접 실행.
 #
 # rate limit: 각 스크립트가 동시성 1~2 + sleep + client throttle(910/분)로 하드룰 준수.
 # 신규 없으면(공시 전/이미 수집) 각 단계 즉시 종료 — 매주 돌려도 무해(멱등·resume).

@@ -97,25 +97,36 @@ updated: 2026-07-05
 
 ## 2. 밸류에이션 원천 계층 (재무 배치)
 
-### `mkt_fundamentals` — 종목별 최신 FY 재무
-- **item**: `isu_cd` · `corp_code` · `mkt` · `fs`(CFS/OFS) · `ni_fy` · `ni_ttm`(FY+1Q당해−1Q전년) ·
-  `eq_fy` · `eq_mrq`(지배자본) · `fetched`(ok/nocorp/err) · `induty`(KSIC) · `currency` · `scale_flag`.
+### `mkt_fundamentals` — 종목별 최신 FY 재무 (**파생 = mkt_fund_q에서**)
+- **item**: `isu_cd` · `corp_code` · `mkt` · `fs`(CFS/OFS) · `ni_fy` · `ni_ttm` · `eq_fy` ·
+  `eq_mrq`(지배자본) · `fetched`(ok/nocorp/err) · `induty`(KSIC) · `currency` · `scale_flag`.
   2,653행. **⚠ 비KRW 종목은 원통화 저장** — 소비 시 fx_rate로 환산 필수(weekly 배치가 수행).
-- **갱신**: `market_val_agg.py --fetch` — DART 종목당 3~4콜, 동시성 1 + sleep 0.45s(분당 ~130,
-  hard rule 준수), 재개 가능. **주기: 분기 보고 시즌마다 수동**(다음 = 2Q 보고 8월). 스케일가드
-  (hard=항등식·시장최댓값)로 이상치 ni/eq 무효화 + scale_flag 기록.
-- **검증**: account_id exact-match(substring 금지) · 스케일가드 · 260705 QA 표본 재현.
+- **갱신(260705 전환)**: 재무 4열(`ni_fy`·`ni_ttm`·`eq_fy`·`eq_mrq`)은 **`market_fund_quarterly.py
+  --derive`가 mkt_fund_q(SSOT)에서 파생 — DART 0콜**. 최신 공시분기 기준 TTM/MRQ(=분기 공시마다 자동
+  최신화). **일일 워크플로(market-val-weekly.yml)의 선행 step**이라 스냅샷 전 항상 fresh. partial-백필
+  가드(Q1-3 없는 종목=기존값 유지). ⚠ 구 `market_val_agg.py --fetch`는 done셋+`DO NOTHING`이라 기존행
+  **갱신 불가** → 이제 **신규 상장사 onboarding**만 담당(재무 갱신 아님). raw 통화 유지.
+- **검증**: derive 파생값 = 기존 mkt_fundamentals 정확 일치(삼성 ni_ttm 83.33조 등, Data-QA 검토).
 - **목적/소비자**: 주간 스냅샷 배치(mkt_valuation·mkt_val_history·mkt_sector_val)의 재무 원천.
-  ※ valuation firm은 이걸 안 쓰고 실시간 DART(최신성 우선 — 배치 스냅샷은 보고 시즌에 stale).
+  ※ valuation firm은 이걸 안 쓰고 실시간 DART(최신성 우선).
 
-### `mkt_fund_hist` — 종목별 과거 FY 재무 (시계열)
-- **item**: `isu_cd` · `fy`(**2018~2024**, 260705 FY2018-2019 백필로 확장) · `fs` · `ni` · `eq` ·
-  `ni_restated`/`eq_restated`(다음 해 보고서 전기비교치로 재작성 검증 — 소프트센 100만배 오류
-  자동정정 메커니즘) · `fetched`. ~2,600행/FY.
-- **갱신**: `market_val_series.py --fetch`(연 1회, 신규 FY 확정 시. YEARS 배열 확장으로 과거 FY도
-  백필 — resume `done` 셋이 누락분만 수집, 직렬 0.45s/콜). / **목적**: PIT(공시 접수 근사) 시장 밸류
-  시계열 · firm_history **연말 밴드 + 주간 dense series**(2020~) 원천 — `_pit_fy`(4월 이후 전년 FY,
-  아니면 전전년)로 look-ahead 방지. FY2018-2019 백필로 밴드/series 깊이가 2020년까지 확장.
+### `mkt_fund_q` — 종목별 **분기** 재무 (SSOT · firm/market/sector TTM·MRQ 원천)
+- **item**: `isu_cd` · `fy` · `quarter`(1/2/3/4=사업보고서) · `reprt_code` · `fs` · `ni_cum`(지배순이익
+  **누적 YTD**) · `eq`(지배자본 **기말잔액**) · `fetched` · `ni_case`/`eq_case`(추출 경우의수 로직트리
+  태그). 54,579행(2019~2026 Q1-3 + Q4 seed). **raw 통화**.
+- **갱신**: `market_fund_quarterly.py --fetch` — **공시-인지**(_disclosed: 1Q 5/15·반기 8/14·3Q 11/14) +
+  resume(done셋) + 동시성 2 + sleep. **월간/공시후 스케줄**(refresh_financials.sh, fly). Q4는 `--seed`
+  로 mkt_fund_hist(연간)에서 0콜 복제(bootstrap은 최신FY·hist부재시·DO NOTHING — seed↔derive 순환차단).
+- **검증**: 로직트리 전수 케이스 분포(ni 플래그 0 · eq NO_EQUITY_ROW 2=DL 소스파손). TTM 역산 일치.
+- **목적/소비자**: `_ttm_ni`(FY(y-1)+누적(y,q)−누적(y-1,q)) · `_mrq_eq` — firm_history 주간곡선 TTM/MRQ ·
+  mkt_fundamentals derive · (예정) market/sector 분기 밴드.
+
+### `mkt_fund_hist` — 종목별 과거 FY 재무 (연간 시계열)
+- **item**: `isu_cd` · `fy` · `fs` · `ni` · `eq` · `ni_restated`/`eq_restated`(다음 해 보고서 전기비교치로
+  재작성 검증 — 소프트센 100만배 오류 자동정정) · `fetched`. ~2,600행/FY.
+- **갱신**: `market_val_series.py --fetch` — **YEARS 동적**(`range(2018, _latest_annual_fy()+1)`, 신규
+  사업연도 자동 확장), resume `done`이 누락분만, 직렬 0.45s/콜. / **목적**: PIT 시장 밸류 시계열 ·
+  firm_history 연말 밴드 · **mkt_fund_q Q4 seed의 authoritative 소스** · `_pit_fy` look-ahead 방지.
 
 ## 3. 수정주가 파이프라인 — [[adjusted-price-timeseries]]가 정본, 여기선 요약
 
