@@ -52,6 +52,12 @@ _Q_DEADLINE = {1: (5, 15), 2: (8, 14), 3: (11, 14)}
 def _disclosed(fy: int, q: int, today: date | None = None) -> bool:
     mo, dy = _Q_DEADLINE[q]
     return (today or date.today()) >= date(fy, mo, dy)
+
+
+def _latest_annual_fy(today: date | None = None) -> int:
+    """그 시점 확정된 최신 사업연도(사업보고서 3월 공시 → 4월 이후 전년, 아니면 전전년). _pit_fy와 동일."""
+    t = today or date.today()
+    return t.year - 1 if t.month >= 4 else t.year - 2
 Q_TO_RC = {1: "11013", 2: "11012", 3: "11014", 4: "11011"}
 # 콜 간 sleep(초) — env로 조정. DART client _throttle_api가 910/분을 별도 강제하므로 이건 예의용.
 SLEEP = float(os.getenv("FUND_Q_SLEEP", "0.45"))
@@ -214,23 +220,28 @@ def derive_fundamentals() -> None:
         q[isu][(int(fy), int(quarter))] = (ni, eq)
     updated = 0
     for isu, m in q.items():
-        present = [(fy, qq) for (fy, qq), (ni, eq) in m.items() if ni is not None or eq is not None]
-        if not present:
+        # ni·eq 앵커를 **독립**으로(Data-QA #2): 최신분기가 eq만 있고 ni=None이어도 ni_ttm이 불필요하게
+        # None 되지 않게 — 각 지표의 최신 유효분기 기준. 값 있는 분기가 곧 available(저장=공시분).
+        ni_present = [(fy, qq) for (fy, qq), (ni, eq) in m.items() if ni is not None]
+        eq_present = [(fy, qq) for (fy, qq), (ni, eq) in m.items() if eq is not None]
+        if not ni_present and not eq_present:
             continue
-        if not any(qq != 4 for (fy, qq) in present):
+        if not any(qq != 4 for (fy, qq) in ni_present + eq_present):
             continue   # 분기(Q1-3) 미수집 = Q4 seed만 → 기존 mkt_fundamentals 유지(백필 중 안전)
-        lfy, lq = max(present)                                   # 최신 공시분기
         fys4 = [fy for (fy, qq), (ni, eq) in m.items() if qq == 4 and (ni is not None or eq is not None)]
         fy_full = max(fys4) if fys4 else None                    # 최신 완결 사업연도
         ni_fy, eq_fy = m.get((fy_full, 4), (None, None)) if fy_full else (None, None)
-        eq_mrq = m.get((lfy, lq), (None, None))[1]
-        if lq == 4:
-            ni_ttm = m.get((lfy, 4), (None, None))[0]
-        else:
-            cum_now = m.get((lfy, lq), (None, None))[0]
-            cum_prev = m.get((lfy - 1, lq), (None, None))[0]
-            fy_prev = m.get((lfy - 1, 4), (None, None))[0]
-            ni_ttm = (fy_prev + cum_now - cum_prev) if None not in (cum_now, cum_prev, fy_prev) else None
+        eq_mrq = m[max(eq_present)][1] if eq_present else None    # eq 있는 최신분기
+        ni_ttm = None
+        if ni_present:
+            lfy, lq = max(ni_present)                             # ni 있는 최신분기 기준 TTM
+            if lq == 4:
+                ni_ttm = m.get((lfy, 4), (None, None))[0]
+            else:
+                cum_now = m.get((lfy, lq), (None, None))[0]
+                cum_prev = m.get((lfy - 1, lq), (None, None))[0]
+                fy_prev = m.get((lfy - 1, 4), (None, None))[0]
+                ni_ttm = (fy_prev + cum_now - cum_prev) if None not in (cum_now, cum_prev, fy_prev) else None
         con.execute("UPDATE mkt_fundamentals SET ni_fy=%s, ni_ttm=%s, eq_fy=%s, eq_mrq=%s WHERE isu_cd=%s",
                     (ni_fy, ni_ttm, eq_fy, eq_mrq, isu))
         updated += 1
@@ -256,16 +267,23 @@ def seed_q4() -> None:
         ON CONFLICT (isu_cd, fy, quarter) DO UPDATE SET
           ni_cum=EXCLUDED.ni_cum, eq=EXCLUDED.eq, fetched=EXCLUDED.fetched
     """).rowcount
-    # FY2025: mkt_fundamentals (ni_fy=FY2025 연간, eq_fy=FY말자본)
-    n2 = con.execute("""
-        INSERT INTO mkt_fund_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
-        SELECT isu_cd, 2025, 4, '11011', fs, ni_fy, eq_fy,
-               CASE WHEN ni_fy IS NOT NULL OR eq_fy IS NOT NULL THEN 'ok' ELSE 'nodata' END
-        FROM mkt_fundamentals WHERE fetched='ok'
-        ON CONFLICT (isu_cd, fy, quarter) DO UPDATE SET
-          ni_cum=EXCLUDED.ni_cum, eq=EXCLUDED.eq, fetched=EXCLUDED.fetched
-    """).rowcount
-    print(f"Q4 seed: mkt_fund_hist {n1}행 + mkt_fundamentals(FY2025) {n2}행")
+    # 최신 완결 FY가 아직 mkt_fund_hist에 없을 때만 mkt_fundamentals에서 **bootstrap**(INSERT-only).
+    # ⚠ mkt_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 '최신 완결 FY'로 덮어쓰는 가변열 →
+    # 과거 특정연도(하드코딩 2025)에 DO UPDATE로 쓰면 롤오버 시 그 값이 다음 FY로 바뀌어 mkt_fund_q의
+    # 과거 Q4가 오염되고 TTM이 조용히 틀어짐(Data-QA #1). 방지: 대상 FY 동적(_latest_annual_fy) +
+    # hist에 없을 때만 + **DO NOTHING**(hist가 들어오면 n1이 authoritative, bootstrap은 절대 덮지 않음).
+    lfy = _latest_annual_fy()
+    in_hist = con.execute("SELECT 1 FROM mkt_fund_hist WHERE fy=%s LIMIT 1", (lfy,)).fetchone()
+    n2 = 0
+    if not in_hist:
+        n2 = con.execute("""
+            INSERT INTO mkt_fund_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
+            SELECT isu_cd, %s, 4, '11011', fs, ni_fy, eq_fy,
+                   CASE WHEN ni_fy IS NOT NULL OR eq_fy IS NOT NULL THEN 'ok' ELSE 'nodata' END
+            FROM mkt_fundamentals WHERE fetched='ok'
+            ON CONFLICT (isu_cd, fy, quarter) DO NOTHING
+        """, (lfy,)).rowcount
+    print(f"Q4 seed: mkt_fund_hist {n1}행 + mkt_fundamentals bootstrap(FY{lfy}, hist부재시만) {n2}행")
     con.close()
 
 
