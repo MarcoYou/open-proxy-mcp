@@ -117,15 +117,27 @@ def extract_controlling_ni_cum(rows):
 
 
 def extract_controlling_eq(rows):
-    """지배자본 기말잔액. BS account_id substring → nm '지배'(비지배 제외) 폴백. 총자본폴백 없음.
-    BS는 잔액이라 총포괄 이슈 없음 — 자본의 '지배주주지분'/'지배기업 소유주지분'이 곧 지배자본."""
+    """지배자본 기말잔액.
+    ① BS account_id substring 'EquityAttributableToOwnersOfParent'.
+    ② 비표준: BS nm '지배'(비지배 제외).
+    ③ 지배·비지배 자본 귀속 둘 다 부재 = 소수지분 없음/**별도(OFS) 재무제표**(지배·비지배 개념 없음)
+       → 자본총계(ifrs-full_Equity)=지배자본. 별도만 있는 은행(카카오뱅크)·무소수지분사 대응.
+       비지배자본 있는 연결은 ①②가 지배행을 먼저 잡아 총자본 오염 차단(QA)."""
     hit = [r for r in rows if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or "")]
     if hit:
         return _bal(min(hit, key=_ordv))
     cands = [r for r in rows if r.get("sj_div") == "BS"
              and "지배" in (r.get("account_nm") or "").replace(" ", "")
              and "비지배" not in (r.get("account_nm") or "").replace(" ", "")]
-    return _bal(min(cands, key=_ordv)) if cands else None
+    if cands:
+        return _bal(min(cands, key=_ordv))
+    has_minority = any(r.get("sj_div") == "BS" and "비지배" in (r.get("account_nm") or "").replace(" ", "")
+                       for r in rows)
+    if not has_minority:  # 자본총계=지배(별도·무소수지분)
+        tot = [r for r in rows if r.get("sj_div") == "BS" and (r.get("account_id") or "") == "ifrs-full_Equity"]
+        if tot:
+            return _bal(min(tot, key=_ordv))
+    return None
 
 
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_q(
