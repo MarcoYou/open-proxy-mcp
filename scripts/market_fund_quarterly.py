@@ -66,27 +66,66 @@ def _bal(r):
     return float(v) if v is not None else None
 
 
-def extract_controlling_ni_cum(rows):
-    """지배 당기순이익 누적. ① account_id substring(IS/CIS — id가 총포괄과 구분) ② 비표준 태깅은
-    account_nm '지배기업…' 폴백, **IS만**(CIS 총포괄 제외). 총계폴백 없음."""
+def _ordv(r):
+    try:
+        return int(r.get("ord") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _ctrl_in_sj(rows, sj, val):
+    """한 재무제표(sj) 안에서 지배 귀속 행 찾기: id substring 우선, 없으면 nm '지배'(비지배 제외 ·
+    총포괄 id 제외) 중 ord 최선두. IS의 지배행=순이익 귀속(총포괄 없음), CIS는 순이익 귀속이 총포괄
+    귀속보다 문서상 앞이라 ord 최선두가 순이익. IS/CIS는 ord 시퀀스가 별개 → sj 단위로만 비교."""
+    hit = [r for r in rows if r.get("sj_div") == sj and _NI_CTRL_ID in (r.get("account_id") or "")]
+    if hit:
+        return val(min(hit, key=_ordv))
+    cands = [r for r in rows if r.get("sj_div") == sj
+             and "지배" in (r.get("account_nm") or "").replace(" ", "")
+             and "비지배" not in (r.get("account_nm") or "").replace(" ", "")
+             and "ComprehensiveIncome" not in (r.get("account_id") or "")]
+    return val(min(cands, key=_ordv)) if cands else None
+
+
+def _has_minority_ni(rows):
+    """비지배 '순이익' 귀속 행 존재 여부(총포괄 비지배는 id의 ComprehensiveIncome로 배제)."""
     for r in rows:
-        if r.get("sj_div") in ("IS", "CIS") and _NI_CTRL_ID in (r.get("account_id") or ""):
-            return _cum_is(r)
-    for r in rows:  # 폴백: -표준계정코드 미사용- 종목. IS만(비지배='비지배지분'엔 '지배기업' 없음)
-        if r.get("sj_div") == "IS" and "지배기업" in (r.get("account_nm") or "").replace(" ", ""):
-            return _cum_is(r)
+        if r.get("sj_div") in ("IS", "CIS"):
+            nm = (r.get("account_nm") or "").replace(" ", "")
+            if "비지배" in nm and "ComprehensiveIncome" not in (r.get("account_id") or ""):
+                return True
+    return False
+
+
+def extract_controlling_ni_cum(rows):
+    """지배 당기순이익 누적.
+    ① IS 우선(순수 손익계산서의 지배행=순이익 귀속) → ② 없으면 CIS(결합제출, ord 최선두=총포괄보다 앞).
+    ③ 지배 귀속 자체가 없고 **비지배 순이익 귀속도 없으면** = 소수지분 없는 회사(IFRS상 분해 의무 없음)
+       → 당기순이익 총계(ifrs-full_ProfitLoss)=지배(001340·NAVER형, 총계≈지배). 총계 폴백은 이 조건
+       (지배·비지배 순이익 귀속 둘 다 부재)에서만 — 비지배 있는데 총계를 지배로 쓰는 LG화학형 오염은
+       ①②가 지배행을 먼저 잡아 원천 차단."""
+    for sj in ("IS", "CIS"):
+        v = _ctrl_in_sj(rows, sj, _cum_is)
+        if v is not None:
+            return v
+    if not _has_minority_ni(rows):  # 소수지분 분해 부재 → 총계=지배
+        for sj in ("IS", "CIS"):
+            hit = [r for r in rows if r.get("sj_div") == sj and (r.get("account_id") or "") == "ifrs-full_ProfitLoss"]
+            if hit:
+                return _cum_is(min(hit, key=_ordv))
     return None
 
 
 def extract_controlling_eq(rows):
-    """지배자본 기말잔액. account_id substring → BS account_nm '지배기업…' 폴백. 총자본폴백 없음."""
-    for r in rows:
-        if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or ""):
-            return _bal(r)
-    for r in rows:
-        if r.get("sj_div") == "BS" and "지배기업" in (r.get("account_nm") or "").replace(" ", ""):
-            return _bal(r)
-    return None
+    """지배자본 기말잔액. BS account_id substring → nm '지배'(비지배 제외) 폴백. 총자본폴백 없음.
+    BS는 잔액이라 총포괄 이슈 없음 — 자본의 '지배주주지분'/'지배기업 소유주지분'이 곧 지배자본."""
+    hit = [r for r in rows if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or "")]
+    if hit:
+        return _bal(min(hit, key=_ordv))
+    cands = [r for r in rows if r.get("sj_div") == "BS"
+             and "지배" in (r.get("account_nm") or "").replace(" ", "")
+             and "비지배" not in (r.get("account_nm") or "").replace(" ", "")]
+    return _bal(min(cands, key=_ordv)) if cands else None
 
 
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_q(
@@ -143,25 +182,38 @@ def _flush(buf) -> None:
     buf.clear()
 
 
-async def fetch(years, pilot=None) -> None:
+_NET = ("ReadError", "ConnectError", "ConnectTimeout", "ReadTimeout", "Timeout", "Operational", "gaierror")
+
+
+def _is_net(e) -> bool:
+    return any(t in type(e).__name__ for t in _NET) or any(t in str(e) for t in _NET)
+
+
+async def fetch(years, pilot=None, conc=2) -> None:
+    """동시성 conc(기본 2, CLAUDE.md 허용) 워커풀. DART client _throttle_api가 910/분 강제하므로
+    안전. 큐에서 분기 작업을 꺼내 CFS→OFS + backoff 재시도. 지속 outage면 stop 세팅 → 워커 종료 →
+    resume 가능. 버퍼는 lock 보호, flush는 to_thread로 이벤트루프 비차단."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con = _pg(); con.autocommit = True
     con.execute(DDL)
     if pilot:
         firms = [r for r in con.execute(
-            "SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE isu_cd = ANY(%s) AND fetched='ok'",
-            (pilot,))]
+            "SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE isu_cd = ANY(%s) AND fetched='ok'", (pilot,))]
     else:
         firms = [r for r in con.execute(
             "SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
     done = {(r[0], r[1], r[2]) for r in con.execute(
         "SELECT isu_cd, fy, quarter FROM mkt_fund_q WHERE quarter != 4")}  # 분기 단위 resume
     con.close()
-    # todo: (isu, cc, fy, q, rc) — 이미 있는 (isu,fy,q)는 skip(분기 단위, 중단 안전)
     todo = [(i, c, y, q, rc) for i, c in firms for y in years
             for q, rc in QFETCH if (i, y, q) not in done]
-    print(f"대상 {len(firms)}사 × {len(years)}년 × 3분기 · 남은 {len(todo)}건", flush=True)
-    c = get_dart_client(); buf = []; k = 0
+    print(f"대상 {len(firms)}사 × {len(years)}년 × 3분기 · 남은 {len(todo)}건 · 동시성 {conc}", flush=True)
+    c = get_dart_client()
+    buf: list = []; lock = asyncio.Lock(); stop = asyncio.Event()
+    prog = {"n": 0}; total = len(todo)
+    queue: asyncio.Queue = asyncio.Queue()
+    for item in todo:
+        queue.put_nowait(item)
 
     async def acnt(cc, yr, rc, fs):
         try:
@@ -172,54 +224,57 @@ async def fetch(years, pilot=None) -> None:
                 return []
             raise
 
-    NET = ("ReadError", "ConnectError", "ConnectTimeout", "ReadTimeout", "Timeout", "Operational", "gaierror")
-    for isu, cc, yr, q, rc in todo:
-        k += 1
-        try:
-            # 네트워크 blip 자가복구 — DNS/연결 실패 시 backoff 재시도(로컬망 불안정 대응).
-            # 지속 실패(outage)면 소진 후 중단(resume 가능).
-            for attempt in range(9):  # ~5분 outage까지 견딤(5·10·20·30·45·60·60·60s)
-                try:
-                    fs = "CFS"; rows = await acnt(cc, yr, rc, fs); await asyncio.sleep(SLEEP)
-                    if not rows:
-                        fs = "OFS"; rows = await acnt(cc, yr, rc, fs); await asyncio.sleep(SLEEP)
-                    break
-                except Exception as ne:
-                    if any(t in type(ne).__name__ for t in NET) or any(t in str(ne) for t in NET):
-                        if attempt < 8:
-                            await asyncio.sleep(min(60, 5 * 2 ** attempt))
-                            continue
-                    raise
-            ni = extract_controlling_ni_cum(rows)
-            eq = extract_controlling_eq(rows)
-            # 스케일 가드(소프트센 100만배) — 누적 손익 + 총자본 항등식
-            assets = gid_exact(rows, "ifrs-full_Assets", ("BS",))
-            liab = gid_exact(rows, "ifrs-full_Liabilities", ("BS",))
-            eq_total = gid_exact(rows, "ifrs-full_Equity", ("BS",))
-            v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total)
-            if v["tier"] == "hard":
-                print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
-                ni = eq = None
-            st = "ok" if (ni is not None or eq is not None) else "nodata"
-            buf.append((isu, yr, q, rc, fs, ni, eq, st))
-            if len(buf) >= 25:
-                _flush(buf)
-        except Exception as e:
-            en = type(e).__name__
-            if "ReadError" in en or "Connect" in en or "Timeout" in en or "Operational" in en:
-                try:
-                    _flush(buf)
-                except Exception:
-                    pass
-                print(f"네트워크({en}) — 중단(재개 가능, {k}/{len(todo)})", flush=True)
+    async def fetch_rows(cc, yr, rc):
+        for attempt in range(9):  # ~5분 outage까지 견딤
+            try:
+                fs = "CFS"; rows = await acnt(cc, yr, rc, fs); await asyncio.sleep(SLEEP)
+                if not rows:
+                    fs = "OFS"; rows = await acnt(cc, yr, rc, fs); await asyncio.sleep(SLEEP)
+                return fs, rows
+            except Exception as ne:
+                if _is_net(ne) and attempt < 8:
+                    await asyncio.sleep(min(60, 5 * 2 ** attempt)); continue
+                raise
+
+    async def maybe_flush(force=False):
+        async with lock:
+            if buf and (force or len(buf) >= 25):
+                snap = buf[:]; buf.clear()
+                await asyncio.to_thread(_flush, snap)
+
+    async def worker():
+        while not stop.is_set():
+            try:
+                isu, cc, yr, q, rc = queue.get_nowait()
+            except asyncio.QueueEmpty:
                 return
-            buf.append((isu, yr, q, rc, None, None, None, f"err:{str(e)[:30]}"))
-            if len(buf) >= 25:
-                _flush(buf)
-        if k % 300 == 0:
-            print(f"{k}/{len(todo)}", flush=True)
+            try:
+                fs, rows = await fetch_rows(cc, yr, rc)
+            except Exception as e:
+                if _is_net(e):
+                    stop.set(); print(f"네트워크({type(e).__name__}) — 중단(재개 가능)", flush=True); return
+                async with lock:
+                    buf.append((isu, yr, q, rc, None, None, None, f"err:{str(e)[:30]}"))
+            else:
+                ni = extract_controlling_ni_cum(rows); eq = extract_controlling_eq(rows)
+                assets = gid_exact(rows, "ifrs-full_Assets", ("BS",))
+                liab = gid_exact(rows, "ifrs-full_Liabilities", ("BS",))
+                eq_total = gid_exact(rows, "ifrs-full_Equity", ("BS",))
+                v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total)
+                if v["tier"] == "hard":
+                    print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
+                    ni = eq = None
+                st = "ok" if (ni is not None or eq is not None) else "nodata"
+                async with lock:
+                    buf.append((isu, yr, q, rc, fs, ni, eq, st))
+            prog["n"] += 1
+            if prog["n"] % 300 == 0:
+                print(f"{prog['n']}/{total}", flush=True)
+            await maybe_flush()
+
+    await asyncio.gather(*[asyncio.create_task(worker()) for _ in range(conc)])
     try:
-        _flush(buf)
+        await maybe_flush(force=True)
     except Exception as e:
         print(f"최종 flush 실패({type(e).__name__}) — 재개 시 복구", flush=True)
     print("fetch 종료", flush=True)
@@ -231,12 +286,15 @@ if __name__ == "__main__":
     ap.add_argument("--pilot", type=str, help="소표본 isu_cd 콤마구분(전분기 수집·검증)")
     ap.add_argument("--fetch", action="store_true", help="Q1~Q3 백필")
     ap.add_argument("--years", type=str, help="콤마구분 연도(기본 2018~2025)")
+    ap.add_argument("--conc", type=int, default=int(os.getenv("FUND_Q_CONC", "2")),
+                    help="동시성(기본 2, CLAUDE.md 허용 1~2)")
     a = ap.parse_args()
     yrs = [int(y) for y in a.years.split(",")] if a.years else YEARS_DEFAULT
+    conc = max(1, min(2, a.conc))  # 하드 상한 2(910 한도·CLAUDE.md 준수)
     if a.seed:
         seed_q4()
     if a.pilot:
         seed_q4()
-        asyncio.run(fetch(yrs, pilot=a.pilot.split(",")))
+        asyncio.run(fetch(yrs, pilot=a.pilot.split(","), conc=conc))
     elif a.fetch:
-        asyncio.run(fetch(yrs))
+        asyncio.run(fetch(yrs, conc=conc))
