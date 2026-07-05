@@ -95,41 +95,72 @@ def _ctrl_in_sj(rows, sj, val):
     return (val(min(cands, key=_ordv)), "NM") if cands else (None, None)
 
 
-def _has_minority_ni(rows):
-    return any(r.get("sj_div") in ("IS", "CIS") and "비지배" in _nm(r)
-               and "ComprehensiveIncome" not in (r.get("account_id") or "") for r in rows)
+def _first(rows, pred, val):
+    """조건 pred 만족 행 중 ord 최선두 → val(r), 없으면 None. (id/taxonomy 무관 매칭용)"""
+    cands = [r for r in rows if pred(r)]
+    return val(min(cands, key=_ordv)) if cands else None
+
+
+def _total_ni(rows):
+    """당기순이익 총계(지배+비지배). 구·신 taxonomy(ifrs_ProfitLoss / ifrs-full_ProfitLoss) 모두."""
+    for sj in ("IS", "CIS"):
+        v = _first(rows, lambda r: r.get("sj_div") == sj and (r.get("account_id") or "").endswith("_ProfitLoss"), _cum_is)
+        if v is not None:
+            return v
+    return None
+
+
+def _minority_ni(rows):
+    """비지배 당기순이익(총포괄 비지배는 ComprehensiveIncome id로 배제)."""
+    for sj in ("IS", "CIS"):
+        v = _first(rows, lambda r: r.get("sj_div") == sj and "ProfitLossAttributableToNoncontrolling" in (r.get("account_id") or ""), _cum_is)
+        if v is not None:
+            return v
+    for sj in ("IS", "CIS"):
+        v = _first(rows, lambda r: r.get("sj_div") == sj and "비지배" in _nm(r) and "ComprehensiveIncome" not in (r.get("account_id") or ""), _cum_is)
+        if v is not None:
+            return v
+    return None
 
 
 def extract_controlling_ni_cum(rows):
     """지배 당기순이익 누적 → (값, 케이스). 트리:
-      NODATA                — 손익 행 없음
-      IS_ID / IS_NM         — IS 지배행(표준 id / 비표준 nm) = 순수 손익 순이익 귀속 [LG화학·삼성]
-      CIS_ID / CIS_NM       — IS 없이 CIS 지배행(ord 최선두=총포괄보다 앞) [000180·기아·SK 결합제출]
-      TOTAL                 — 지배·비지배 순이익 귀속 둘 다 부재(무소수지분/별도) → 당기순이익 총계=지배 [001340·NAVER]
-      MINORITY_NO_CTRL      — 비지배는 있는데 지배 귀속 못 찾음(이상 케이스, 플래그) → None
-      NO_INCOME_ROW         — 손익 행은 있으나 지배·총계 어느 것도 못 잡음(플래그) → None"""
+      NODATA · IS_ID/IS_NM · CIS_ID/CIS_NM — 명시 지배행 [LG화학·삼성·기아]
+      TOTAL_MINUS_MINORITY — 명시 지배행 없으나 당기순이익 총계 − 비지배순이익 [유한양행형: 서브토탈 부재]
+      TOTAL                — 지배·비지배 귀속 둘 다 부재 → 당기순이익 총계=지배 [001340·NAVER 무소수지분]
+      MINORITY_NO_CTRL / NO_INCOME_ROW — 유도 불가(플래그) → None"""
     if not any(r.get("sj_div") in ("IS", "CIS") for r in rows):
         return None, "NODATA"
     for sj in ("IS", "CIS"):
         v, sub = _ctrl_in_sj(rows, sj, _cum_is)
         if v is not None:
             return v, f"{sj}_{sub}"
-    if _has_minority_ni(rows):
-        return None, "MINORITY_NO_CTRL"  # 비지배 존재 → 총계 폴백 금지(오염 방지)
-    for sj in ("IS", "CIS"):
-        hit = [r for r in rows if r.get("sj_div") == sj and (r.get("account_id") or "") == "ifrs-full_ProfitLoss"]
-        if hit:
-            return _cum_is(min(hit, key=_ordv)), "TOTAL"
-    return None, "NO_INCOME_ROW"
+    tot, mino = _total_ni(rows), _minority_ni(rows)
+    if tot is not None:
+        return (tot - mino, "TOTAL_MINUS_MINORITY") if mino is not None else (tot, "TOTAL")
+    return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_INCOME_ROW")
+
+
+def _total_eq(rows):
+    v = _first(rows, lambda r: r.get("sj_div") == "BS" and (r.get("account_id") or "").endswith("_Equity"), _bal)
+    if v is not None:
+        return v
+    return _first(rows, lambda r: r.get("sj_div") == "BS" and _nm(r) == "자본총계", _bal)
+
+
+def _minority_eq(rows):
+    v = _first(rows, lambda r: r.get("sj_div") == "BS" and "NoncontrollingInterests" in (r.get("account_id") or ""), _bal)
+    if v is not None:
+        return v
+    return _first(rows, lambda r: r.get("sj_div") == "BS" and "비지배" in _nm(r), _bal)
 
 
 def extract_controlling_eq(rows):
     """지배자본 기말잔액 → (값, 케이스). 트리:
-      NODATA          — BS 없음
-      BS_ID / BS_NM   — BS 지배자본(표준 id / 비표준 nm '지배')
-      TOTAL           — 지배·비지배 자본 부재(무소수지분/별도 OFS) → 자본총계=지배 [카카오뱅크·001340]
-      MINORITY_NO_CTRL — 비지배자본 있는데 지배 못 찾음(플래그) → None
-      NO_EQUITY_ROW    — 자본총계 행도 없음(플래그) → None"""
+      NODATA · BS_ID/BS_NM — 명시 지배자본행
+      TOTAL_MINUS_MINORITY — 명시 지배행 없으나 자본총계 − 비지배지분 [유한양행형: 서브토탈 부재]
+      TOTAL                — 지배·비지배 자본 둘 다 부재 → 자본총계=지배 [카카오뱅크 별도·001340]
+      MINORITY_NO_CTRL / NO_EQUITY_ROW — 유도 불가(플래그) → None"""
     if not any(r.get("sj_div") == "BS" for r in rows):
         return None, "NODATA"
     hit = [r for r in rows if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or "")]
@@ -138,12 +169,10 @@ def extract_controlling_eq(rows):
     cands = [r for r in rows if r.get("sj_div") == "BS" and "지배" in _nm(r) and "비지배" not in _nm(r)]
     if cands:
         return _bal(min(cands, key=_ordv)), "BS_NM"
-    if any(r.get("sj_div") == "BS" and "비지배" in _nm(r) for r in rows):
-        return None, "MINORITY_NO_CTRL"
-    tot = [r for r in rows if r.get("sj_div") == "BS" and (r.get("account_id") or "") == "ifrs-full_Equity"]
-    if tot:
-        return _bal(min(tot, key=_ordv)), "TOTAL"
-    return None, "NO_EQUITY_ROW"
+    tot, mino = _total_eq(rows), _minority_eq(rows)
+    if tot is not None:
+        return (tot - mino, "TOTAL_MINUS_MINORITY") if mino is not None else (tot, "TOTAL")
+    return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_EQUITY_ROW")
 
 
 DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_q(
