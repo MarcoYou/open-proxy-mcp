@@ -68,7 +68,12 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if summary.get("payout_ratio_dart") is not None:
             lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}%")
         if summary.get("yield_dart") is not None:
-            lines.append(f"- 시가배당률: {summary.get('yield_dart')}%")
+            lines.append(f"- 시가배당률: {summary.get('yield_dart')}% (결의 당시 공시값)")
+        if summary.get("yield_current_pct") is not None:
+            lines.append(
+                f"- 현재가 기준 배당수익률: {summary.get('yield_current_pct')}% "
+                f"(DPS {summary.get('cash_dps', 0):,}원 ÷ 종가 {summary.get('yield_current_price_krw', 0):,}원, "
+                f"{summary.get('yield_current_price_date', '-')} 기준)")
         # 신호 메타 — 선배당-후결의, 감액배당.
         if summary.get("pre_dividend_post_resolution"):
             lines.append("- 선배당-후결의 (2024 신법): 채택 (배당기준일결정 별도 공시 확인)")
@@ -136,7 +141,7 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 실지급·확정된 배당 **사실**. DPS, 총액, 배당성향, 시가배당률, 분기별 추이. 미래 정책·약속 X.
+        """desc: 실지급·확정된 배당 **사실**. DPS, 총액, 배당성향, 시가배당률(결의 당시)+**현재가 기준 배당수익률**(최신 종가, krx_weekly), 분기별 추이. 미래 정책·약속 X.
         when: 실제 지급된 배당 확인. 분기배당 회사는 `history`로 분기별 breakdown. 미래 정책/약속은 `value_up`.
         rule: source 2단 — (1) 사업보고서 alotMatter(공식값) (2) 현금ㆍ현물배당결정 합산(alotMatter 빈 경우 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법). 정정공시 is_superseded 표시. 미래 약속 추가 금지.
         scope: `summary` 선배당-후결의+감액배당 메타 / `detail` 요약+최근 결정 50건 / `history` N년 추이+분기 breakdown+policy_signals

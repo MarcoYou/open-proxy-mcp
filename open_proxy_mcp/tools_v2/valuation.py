@@ -16,6 +16,7 @@ _STATUS_TITLE = {
     "invalid": "입력 오류",
     "not_found": "조회 결과 없음",
     "unlisted": "비상장 — 시장배수 산출 불가",
+    "ambiguous": "회사 식별 모호 — 후보에서 선택",
     "no_financials": "재무 데이터 미확정",
     "no_data": "스냅샷 데이터 없음",
     "db_error": "스냅샷 DB 연결 실패 (일시 장애)",
@@ -33,7 +34,12 @@ def _render_status(payload: dict[str, Any]) -> str:
     lines = [f"# valuation: {payload.get('subject', '')} — {title}", ""]
     for w in payload.get("warnings", []):
         lines.append(f"- {w}")
-    if not payload.get("warnings"):
+    cands = (payload.get("data") or {}).get("candidates") or []
+    if cands:  # ambiguous — company 툴과 동일한 후보표
+        lines += ["", "| 회사명 | ticker | corp_code |", "|---|---|---|"]
+        for c in cands:
+            lines.append(f"| {c.get('corp_name')} | `{c.get('stock_code') or '-'}` | `{c.get('corp_code')}` |")
+    if not payload.get("warnings") and not cands:
         lines.append(f"- status=`{status}`")
     return "\n".join(lines)
 

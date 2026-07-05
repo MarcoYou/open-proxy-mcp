@@ -61,7 +61,7 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR/시총
 
 | 단계 | 소스 (호출) | 뽑는 아이템 | 쓰임 |
 |---|---|---|---|
-| 식별 | `lookup_corp_code` → DART corp master(master.db 캐시) | corp_code · stock_code · 상장여부 | 진입 게이트(비상장/우선주/빈입력 차단) |
+| 식별 | **`resolve_company_query`(공용 리졸버 — company 툴과 동일 진입, 260705 채택)** → DART corp master | corp_code · stock_code · 상장여부 · ambiguous 후보 | 진입 게이트(동명 다수=후보표 / 비상장·우선주·빈입력 차단) |
 | 재무요약 | `build_financial_metrics_payload(stock_code)` → DART **fnlttSinglAcnt·AcntAll·Indx·감사의견** | eps_krw · revenue_krw · roe_pct · capital_impairment_status · fiscal year | EPS(FY0)·ROE·매출·자본잠식 상태 |
 | 업종/결산월 | `get_company_info` → DART **company.json** | induty_code(KSIC) · acc_mt(결산월) | 금융 판별(64/65/66) · FX 기준일 |
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
@@ -125,7 +125,7 @@ PBR(MRQ)     = 주가 ÷ BPS
 }
 ```
 - **단위**: 모든 `_krw` 필드 = 원 raw int. `_pct` = float(2.64 = 2.64%). 비KRW사는 환산 후 KRW.
-- status 필드: `ok` / `invalid` / `not_found` / `unlisted` / `no_financials` / `no_data`(배치 미실행) / `db_error`(DB 일시 장애).
+- status 필드: `ok` / `invalid` / `not_found` / **`ambiguous`(동명 후보표)** / `unlisted` / `no_financials` / `no_data`(배치 미실행) / `db_error`(DB 일시 장애).
 
 ## DART/KRX 콜 budget (per-firm)
 | 소스 | 콜 | 비고 |

@@ -19,7 +19,8 @@ import calendar
 
 from open_proxy_mcp.dart.client import get_dart_client, DartClientError
 from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
-from open_proxy_mcp.services.company import _company_id
+from open_proxy_mcp.services.company import _company_id, resolve_company_query
+from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.dividend_v2 import _annual_summary
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
@@ -226,6 +227,25 @@ async def _market_for(stock_code: str) -> dict:
     return {}
 
 
+async def _resolve_listed(query: str) -> tuple[dict | None, dict | None]:
+    """공용 리졸버(resolve_company_query) 채택 — company 툴과 동일 진입 방식(260705).
+    상장사 우선 + 동명 다수 시 ambiguous 후보표(silent 첫 후보 pick 제거).
+    반환 (corp, early_payload): corp=식별 결과 / early=즉시 반환할 payload(ambiguous).
+    ERROR(비상장만·무매칭)는 (None, None) — 호출부의 기존 세분화(unlisted 시총순 후보·
+    우선주 힌트)가 더 구체적이라 그 경로로 폴백한다."""
+    res = await resolve_company_query(query)
+    if res.status == AnalysisStatus.AMBIGUOUS:
+        return None, {
+            "tool": "valuation", "status": "ambiguous", "subject": query,
+            "data": {"query": query, "candidates": [
+                {"corp_name": c.get("corp_name"), "stock_code": c.get("stock_code"),
+                 "corp_code": c.get("corp_code")} for c in res.candidates[:10]]},
+            "warnings": [f"'{query}' 동명 후보 여러 건 — 아래에서 골라 종목코드로 재시도."]}
+    if res.status == AnalysisStatus.EXACT and res.selected:
+        return res.selected, None
+    return None, None
+
+
 # ── 시장·산업·종목 히스토리 스코프 — 주간 스냅샷 테이블(DB-first, market_val_weekly.py가 갱신) ──
 # mkt_val_history(시장) · mkt_sector_val(KSIC 섹터) · mkt_valuation(종목별). PER/PBR·시총 시계열은
 # 시총 기반이라 **수정주가 조정에 불변**(시총=주가×주식수, 분할·무상증자에 양쪽이 상쇄) — 조정 불필요.
@@ -298,7 +318,11 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
     company_ctx = None
     warnings = [f"주간 스냅샷 기준(최신 {as_of}) · 분류=KSIC 하이브리드(opm_sector_map)."]
     if company.strip():
-        corp = await get_dart_client().lookup_corp_code(company.strip())
+        corp, early = await _resolve_listed(company.strip())  # 공용 리졸버 — ambiguous 후보표
+        if early:
+            return early
+        if not corp:
+            corp = await get_dart_client().lookup_corp_code(company.strip())
         isu = (corp or {}).get("stock_code")
         if not isu:  # 회사 미해결/비상장 — 전체 표 덤프 대신 짧은 에러(실사용 QA P1: 1,600토큰 낭비 방지)
             return {"tool": "valuation", "status": "not_found", "subject": company,
@@ -337,7 +361,11 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     if not query:
         return {"tool": "valuation", "status": "invalid", "subject": company,
                 "warnings": ["회사명 또는 종목코드(6자리)를 입력하세요."]}
-    corp = await get_dart_client().lookup_corp_code(query)
+    corp, early = await _resolve_listed(query)   # 공용 리졸버 — firm과 동일 진입
+    if early:
+        return early
+    if not corp:
+        corp = await get_dart_client().lookup_corp_code(query)
     if not corp or not corp.get("stock_code"):
         return {"tool": "valuation", "status": "not_found" if not corp else "unlisted",
                 "subject": query, "warnings": [f"'{company}' 상장 종목을 찾지 못함."]}
@@ -446,7 +474,11 @@ async def build_valuation_payload(company: str, format: str = "md") -> dict[str,
     if not query:
         return {"tool": "valuation", "status": "invalid", "subject": company,
                 "warnings": ["회사명 또는 종목코드(6자리)를 입력하세요."]}
-    corp = await client.lookup_corp_code(query)
+    corp, early = await _resolve_listed(query)   # 공용 리졸버(company 툴 방식) — ambiguous 후보표
+    if early:
+        return early
+    if not corp:  # ERROR(비상장만·무매칭) → 기존 세분화 경로(unlisted/not_found + 커스텀 안내)
+        corp = await client.lookup_corp_code(query)
     if not corp:
         return {"tool": "valuation", "status": "not_found", "subject": company,
                 "warnings": [f"'{company}' 조회 결과 없음 — 종목코드(6자리)나 정확한 회사명으로 재시도. "

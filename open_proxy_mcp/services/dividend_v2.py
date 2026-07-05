@@ -923,6 +923,21 @@ async def build_dividend_payload(
         if _in_window(item.get("rcept_dt", ""), start_ymd, end_ymd)
     ]
 
+    # 현재가 기준 배당수익률 (valuation 로직 이식, 260705) — yield_dart(결의 당시 시가배당률)와
+    # 별개로 '지금 사면 몇 %인가'를 답한다. 시세 = krx_weekly(Supabase, serve-time KRX 0콜),
+    # 기준일(price_date) 명시. 지역 import — valuation이 이 모듈(_annual_summary)을 import하므로
+    # 모듈 top import는 순환.
+    if latest_summary and int(latest_summary.get("cash_dps") or 0) > 0:
+        _isu = (resolution.selected or {}).get("stock_code")
+        if _isu:
+            from open_proxy_mcp.services.valuation import _market_for
+            _mk = await _market_for(_isu)
+            if _mk.get("price"):
+                latest_summary["yield_current_pct"] = round(
+                    latest_summary["cash_dps"] / _mk["price"] * 100, 2)
+                latest_summary["yield_current_price_krw"] = _mk["price"]
+                latest_summary["yield_current_price_date"] = _mk["date"]
+
     # 비-target 연도는 multiyear 컬럼 또는 결정공시 합산 fallback으로 채운다 (개별 호출 없음).
     annual_summaries: dict[int, dict[str, Any]] = {}
     year_to_result: dict[int, tuple[dict[str, Any], str | None]] = {target_year: (latest_summary, None)}
