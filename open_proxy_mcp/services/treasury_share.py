@@ -386,6 +386,54 @@ def _acode_int(html: str, code: str) -> int | None:
     return _to_int(val)
 
 
+# 260707 실측 확인 버그 수정: 실행결과보고서 원문 표가 "(단위 : 백만원, 주)" 등으로 작성되면
+# ACODE 태그 안 숫자도 그 단위를 따르는데, _acode_int는 항상 원 단위로 가정해 최대 100만분의
+# 1로 축소됐다(현대차 등 KOSPI200 10개사 확인, scripts/treasury_unit_sweep.py). 주식수(_CNT/_QY류
+# ACODE)는 이 배수를 적용하면 안 되므로(단위선언은 금액 컬럼에만 적용) 금액류만 별도 함수로 분리.
+_UNIT_MULT = {
+    "원": 1, "천원": 1_000, "만원": 10_000, "십만원": 100_000,
+    "백만원": 1_000_000, "천만원": 10_000_000, "억원": 100_000_000, "십억원": 1_000_000_000,
+}
+
+
+def _nearest_table_unit(html: str, pos: int) -> int:
+    """ACODE가 속한 <TABLE-GROUP> 블록 안에서만 '(단위 : ...)' 선언을 찾아 배수를 반환한다.
+
+    DART 원문은 표1개=<TABLE> 단위가 아니라 **헤더표(단위선언)+데이터표**가 <TABLE-GROUP>
+    으로 함께 묶인 구조다(260707 실측: 현대차 acquisition_result에서 "단위: 백만원" 선언은
+    헤더표에만 있고 실제 ACQ_AMT는 22,869자 떨어진 별도 데이터표 안 — 단순 <TABLE> 스코핑은
+    이 헤더+데이터 짝을 못 찾아 오탐/누락 양쪽 다 남). 반대로 SCH_SLT_MN처럼 다른 TABLE-GROUP
+    (선언 없음) 안에 있는 필드가 앞쪽 무관한 TABLE-GROUP의 "백만원" 선언을 잘못 주워 쓰는
+    것도 막아야 해서, **pos를 감싸는 가장 안쪽 TABLE-GROUP**(이미 닫힌 그룹은 무관)으로 범위를
+    한정한다. TABLE-GROUP이 없으면 <TABLE>로 폴백. 선언이 없으면 1(원 단위 가정)."""
+    grp_start = html.rfind("<TABLE-GROUP", 0, pos)
+    if grp_start >= 0 and html.find("</TABLE-GROUP>", grp_start, pos) == -1:
+        window = html[grp_start:pos]
+    else:
+        table_start = html.rfind("<TABLE ", 0, pos)
+        window = html[table_start if table_start >= 0 else 0:pos]
+    matches = list(re.finditer(r"단위\s*[:：]\s*([가-힣]+)", window))
+    if not matches:
+        return 1
+    return _UNIT_MULT.get(matches[-1].group(1), 1)
+
+
+def _acode_amount(html: str, code: str) -> int | None:
+    """금액류 ACODE 추출 — 표 직전 단위선언(백만원 등)을 감지해 원 단위로 환산."""
+    if not html or not code:
+        return None
+    m = re.search(rf'<T[EDH]\s+[^>]*ACODE="{re.escape(code)}"[^>]*>([\s\S]*?)</T[EDH]>', html)
+    if not m:
+        return None
+    val = re.sub(r"<[^>]+>", "", m.group(1)).strip()
+    if not val or val in ("-", "—"):
+        return None
+    n = _to_int(val)
+    if n is None:
+        return None
+    return n * _nearest_table_unit(html, m.start())
+
+
 def _parse_main_report_date(text: str) -> str | None:
     """결과 보고서 본문에서 '주요사항보고서 제출일' (또는 '최초제출일') 추출.
 
@@ -475,11 +523,11 @@ def _parse_acquisition_result_body(text: str, html: str = "") -> dict[str, Any]:
         result["main_report_date"] = main_date
 
     if html:
-        result["actual_amount_krw"] = _acode_int(html, "ACQ_AMT")
-        result["planned_amount_krw"] = _acode_int(html, "SCH_SLT_MN")
+        result["actual_amount_krw"] = _acode_amount(html, "ACQ_AMT")
+        result["planned_amount_krw"] = _acode_amount(html, "SCH_SLT_MN")
         result["cumulative_shares"] = _acode_int(html, "SUM_ACT_CNT")
         result["holding_shares_total"] = _acode_int(html, "HLD_CNT3")
-        result["holding_amount_total_krw"] = _acode_int(html, "HLD_AMT3")
+        result["holding_amount_total_krw"] = _acode_amount(html, "HLD_AMT3")
         result["agreement_status"] = _extract_acode(html, "AGR_MN_YSN")
         result["shortfall_reason"] = _extract_acode(html, "DIF_MN_CAS")
         result["broker_name"] = _extract_acode(html, "CNS_NM")
@@ -525,7 +573,7 @@ def _parse_disposal_result_body(text: str, html: str = "") -> dict[str, Any]:
         result["main_report_date"] = main_date
 
     if html:
-        result["actual_amount_krw"] = _acode_int(html, "DSP_AMT")
+        result["actual_amount_krw"] = _acode_amount(html, "DSP_AMT")
         result["planned_shares"] = _acode_int(html, "SCH_SLT")
         result["actual_shares"] = _acode_int(html, "SEL_SLT")
         result["counterparty"] = _extract_acode(html, "OBJ_OTH")
@@ -533,7 +581,7 @@ def _parse_disposal_result_body(text: str, html: str = "") -> dict[str, Any]:
         result["shortfall_reason"] = _extract_acode(html, "DIF_CAS")
         result["broker_name"] = _extract_acode(html, "CNS_NM")
         result["holding_shares_total"] = _acode_int(html, "HLD_CNT3")
-        result["holding_amount_total_krw"] = _acode_int(html, "HLD_AMT3")
+        result["holding_amount_total_krw"] = _acode_amount(html, "HLD_AMT3")
 
     m = re.search(r"처분기간[\s\S]{0,80}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})[일\s]*부터[\s\S]{0,30}?(\d{4})[년\-./\s]+(\d{1,2})[월\-./\s]+(\d{1,2})", text)
     if m:
@@ -564,11 +612,11 @@ def _parse_trust_acquisition_status_body(text: str, html: str = "") -> dict[str,
     result: dict[str, Any] = {}
 
     if html:
-        result["acquired_amount_krw"] = _acode_int(html, "STK_VAL_TOT")
-        result["avg_price_krw"] = _acode_int(html, "STK_VAL")
+        result["acquired_amount_krw"] = _acode_amount(html, "STK_VAL_TOT")
+        result["avg_price_krw"] = _acode_amount(html, "STK_VAL")
         result["acquired_shares"] = _acode_int(html, "ACQ_CNT")
         result["disposed_shares"] = _acode_int(html, "DSP_CNT")
-        result["trust_contract_amount_krw"] = _acode_int(html, "HLD_AMT2")
+        result["trust_contract_amount_krw"] = _acode_amount(html, "HLD_AMT2")
         result["trust_holding_shares"] = _acode_int(html, "HLD_CNT2")
         result["trust_holding_pct"] = _extract_acode(html, "HLD_RATE2")
         result["trustee_corp_code"] = _extract_acode(html, "CNS_CRP")
@@ -605,15 +653,15 @@ def _parse_trust_termination_result_body(text: str, html: str = "") -> dict[str,
     result: dict[str, Any] = {}
 
     if html:
-        result["actual_amount_krw"] = _acode_int(html, "ACQ_AMT")
+        result["actual_amount_krw"] = _acode_amount(html, "ACQ_AMT")
         result["actual_shares"] = _acode_int(html, "ACQ_CNT")
         result["acquisition_rate_pct"] = _extract_acode(html, "ACQ_RT")
-        result["contract_amount_krw"] = _acode_int(html, "CTR_CNC_AMT")
-        result["planned_amount_krw"] = _acode_int(html, "SCH_SLT_MN")
+        result["contract_amount_krw"] = _acode_amount(html, "CTR_CNC_AMT")
+        result["planned_amount_krw"] = _acode_amount(html, "SCH_SLT_MN")
         result["agreement_status"] = _extract_acode(html, "AGR_MN_YSN")
         result["shortfall_reason"] = _extract_acode(html, "DIF_MN_CAS")
         result["post_termination_shares"] = _acode_int(html, "HLD_CNT3")
-        result["post_termination_amount_krw"] = _acode_int(html, "HLD_AMT3")
+        result["post_termination_amount_krw"] = _acode_amount(html, "HLD_AMT3")
         result["trustee_corp_code"] = _extract_acode(html, "CNCL_CRP")
 
     clean = re.sub(r"\s+", " ", text)
