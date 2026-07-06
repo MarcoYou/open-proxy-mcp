@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-18-orange.svg)](#tool-structure-18-tools)
+[![Tools](https://img.shields.io/badge/tools-19-orange.svg)](#tool-structure-19-tools)
 [![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 
 [Korean README](README.md)
@@ -31,7 +31,7 @@ Click any feature for a detailed page.
 - **Valuation** — PER · PBR · dividend yield (firm-level deep dive) plus market-wide, sector, and per-stock history (weekly snapshots). Controlling-interest basis, automatic FX conversion for non-KRW functional-currency filers (Bank of Korea ECOS), and N/M handling for losses/capital impairment. `scope="explain"` answers "how was this number derived?" with the actual calculation, basis, and source.
 - **Corporate risk events** — tracks serious-accident, embezzlement/breach-of-trust, and production-halt filings. With no company specified, it scans the whole market for recent events.
 
-Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, order/supply-contract tracking, equity stake deals and related-party transactions — round out the 18-tool set.
+Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, order/supply-contract tracking, equity stake deals and related-party transactions, and stewardship follow-up (value-up/dividend/buyback commitment vs. actual execution tracking) — round out the 19-tool set.
 
 ---
 
@@ -71,7 +71,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 18 tools are automatically recognized
+4. Click "Add" → 19 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -115,9 +115,9 @@ Once connected, just ask in natural language:
 
 ---
 
-## Tool Structure (18 tools)
+## Tool Structure (19 tools)
 
-18 tools follow the flow **Company → Meeting/Data/Evidence → Action**.
+19 tools follow the flow **Company → Meeting/Data/Evidence → Action**.
 
 ```text
 OpenProxy MCP
@@ -161,11 +161,12 @@ OpenProxy MCP
    │     ├─ dividend / treasury_share / value_up
    │     └─ proxy_contest / evidence
    │
-   └─ shareholder_meeting_results (post-AGM outcomes)
-      └─ Post-meeting result summary
-         ├─ shareholder_meeting_results
-         ├─ evidence
-         └─ Related data tools when needed
+   ├─ shareholder_meeting_results (post-AGM outcomes)
+   │  └─ Post-meeting result summary
+   │
+   └─ shareholder_commitment
+      └─ Value-up/dividend/buyback commitment vs. actual execution (book-value impact of buyback-cancellation cycles)
+         └─ value_up / corp_gov_report / dividend / treasury_share / financial_metrics
 ```
 
 | Layer | Tools | Role |
@@ -213,7 +214,8 @@ Usage pattern: start with `company` → confirm facts via data tabs → generate
 | **Risk events** | Serious industrial accidents / embezzlement·breach of trust / production halt — active categories; market-wide scan when no company given | 1 |
 | **Evidence** | Filing source links | 1 |
 | **Action** | proxy_advise_before_meeting (per-agenda decisions + facts/risk/citation/source filings/candidate raw) | 1 |
-| | **Total** | **18** |
+| **Stewardship follow-up** | Value-up/dividend/buyback promise vs. actual execution; book-value (BPS) impact of buyback-cancellation cycles | 1 |
+| | **Total** | **19** |
 
 ---
 
@@ -268,7 +270,7 @@ Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 classification coverage 100%, dis
 ```
 open_proxy_mcp/
   server.py                # FastMCP server (stdio + HTTP)
-  tools_v2/                # 18 tools (active)
+  tools_v2/                # 19 tools (active)
   services/                # Domain logic layer (separated from tools)
   dart/client.py           # DART API + KIND fallback + rate limiter (cap 910/min)
   data/asset_managers/     # Anonymized institutional policy corpus + Open Proxy Guideline + 12 matrices
@@ -278,7 +280,7 @@ scripts/
 wiki/                      # LLM domain knowledge — botanical tree order
   raw/                     # 🌱 Root — external originals (read-only)
   rules/                   # 🪵 Trunk — concepts/ + disclosures/ + laws/ (Korean capital market facts)
-  tools/                   # 🌿 Main branch — 18 tool catalog (user entry point)
+  tools/                   # 🌿 Main branch — 19 tool catalog (user entry point)
   decisions/               # 🌿 Main branch — OPM policy (open-proxy-guideline, etc.)
   architecture/            # 🌿 Main branch (core) + 🌾 sub-branch (audits/ + fixes/)
   ralph/                   # 🌾 Sub-branch — work plans (chronological)

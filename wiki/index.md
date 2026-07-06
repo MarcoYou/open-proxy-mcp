@@ -1,7 +1,7 @@
 ---
 type: index
 title: OPM Wiki Index
-updated: 2026-07-06
+updated: 2026-07-07
 ---
 
 # OPM Wiki Index
@@ -13,19 +13,30 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 19개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (18 tool, 260705 valuation 추가)
+### 도메인별 (19 tool, 260707 shareholder_commitment 추가)
 - **Company (1)**: [[company]]
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
 - **Data (13)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[valuation]]
 - **Evidence (1)**: [[evidence]]
-- **Action (1)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합). 사후 결과는 [[shareholder_meeting_results]]
+- **Action (2)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합, 사후 결과는 [[shareholder_meeting_results]]) · [[shareholder_commitment]] (밸류업·배당·소각 약속 vs 실제 이행, 연중 스튜어드십 — 자사주소각 장부가손익 신규 계산)
 
 ### Internal services (MCP 노출 X — chain 전용)
 - `director_evaluation` — proxy_advise 후보 평가 chain (결격 / 독립성 / 전문성 / 과거 행적)
 - `director_performance` — 사내이사 재직 중 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend) — proxy_advise 사내이사 분기에 wire
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
+
+### 주요 변화 (2026-07-07 ~ )
+- **shareholder_commitment tool 신설 — 19번째 tool, 2번째 Action Tool (2026-07-07)** — 밸류업·배당·자사주
+  소각의 **약속 vs 실제 이행**을 연중 추적(proxy_advise가 주총 1회성 판단이라면, 이건 스튜어드십
+  engagement 관점의 지속 추적). 4개 upstream 재사용(value_up·corp_gov_report·dividend·treasury_share,
+  신규 파싱 없음) + 신규 계산 1개: 자사주 소각 사이클마다 매입시점 BPS 대비 실제 매입가를 비교해
+  **장부가(BPS) 손익을 원화로 계산**(배당은 방향이 반대라 이 계산에서 제외, 대신 CSR 종합에는 포함).
+  이 계산이 정확하려면 treasury_share의 실행결과보고서 금액이 정확해야 했는데, 원문 표 단위(백만원 등)
+  미인식 버그를 KOSPI200 전수 스캔으로 발견·수정(26건→0건, QA 2인 원문대조 검증)한 뒤 그 위에 tool을
+  올림. sanity 필터로 별개 이슈(`_link_cycles` 매칭 오탐 4건)를 조용히 흡수하지 않고 명시적으로 플래그.
+  ([[shareholder_commitment]] / [[treasury_share]])
 
 ### 주요 변화 (2026-05-04 ~ 06-21)
 - **주총 안건/정기·임시 파서 6사이클 production 배포 + 검증 측정 함정 5패턴 (2026-06-21)** — detect 재작성(880→888, 섹션 오선택→소집공고 직후 40자 앵커)·marker/zone·bleeding 경계·하위안건 분리·**proposer 복원**(주주제안 `source` 전파, 다원시스 라이브 확인)·빈제목 부모 추론. 통합 픽스처 **3,016건**(코스피·코스닥 3/1~5/15, 정기 2,849) 확보. **측정 스크립트가 6번 거짓 결론**(이미지=본문부재·미상=사각지대·0개=버그·bleed 날짜오탐·v2 정답오판·변경분만 봄) → 직접 표본·전수 diff·production 경로(html)로만 잡힘. 프로토콜: **html 픽스처 0콜 + 전수 diff + 직접 표본**. ([[lessons/agenda-parser-validation-260621]])
@@ -73,7 +84,7 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | 카테고리 | 목적 | 페이지 수 | 수정 가능 |
 |---|---|---|---|
 | **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 18 tool 진입점 + data source map | 18 + README | YES (tool 변경 시) |
+| **tools/** | 19 tool 진입점 + data source map | 19 + README | YES (tool 변경 시) |
 | **architecture/** | OPM 시스템 설계 + audit + fix + data archive | 60+ | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 26 + README | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 70+ | YES (사실 update 시) |
@@ -99,7 +110,7 @@ OPM tool 18개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ## 자주 쓰는 진입점
 
 ### 처음 사용자
-- [[tools/README]] - 18 tool 카탈로그
+- [[tools/README]] - 19 tool 카탈로그
 - [[WIKI_SCHEMA]] - wiki 구조 + 명명 규칙
 
 ### OPM 정책 알고 싶음

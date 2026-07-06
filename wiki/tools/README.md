@@ -1,18 +1,18 @@
 ---
 type: readme
-title: tools/ — 도구 카탈로그 (18개)
-updated: 2026-06-20
+title: tools/ — 도구 카탈로그 (19개)
+updated: 2026-07-07
 ---
 
-# 도구(Tool) 카탈로그 — 18개
+# 도구(Tool) 카탈로그 — 19개
 
-> OPM의 18개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
+> OPM의 19개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
 > 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
 >
 > 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
 > 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
 
-## 18개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
+## 19개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
 ### 🏢 기본 — 회사 찾기
 | 도구 | 무엇을 답하나 |
@@ -40,6 +40,7 @@ updated: 2026-06-20
 | [dividend](dividend.md) | 배당 — 배당금·총액·배당성향·추이 |
 | [treasury_share](treasury_share.md) | 자기주식 — 취득·처분·소각·신탁 |
 | [value_up](value_up.md) | 기업가치 제고(밸류업) 계획과 이행 현황 |
+| [shareholder_commitment](shareholder_commitment.md) | 밸류업·배당·소각 **약속 vs 실제 이행** 추적 (연중 스튜어드십) — 자사주소각 장부가 손익 계산 |
 | [corporate_restructuring](corporate_restructuring.md) | 합병·분할·주식교환·이전 |
 | [dilutive_issuance](dilutive_issuance.md) | 유상증자·전환사채(CB)·신주인수권부사채(BW)·감자 (지분 희석) |
 
@@ -99,7 +100,7 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 | Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
 | Data | 11 | DART API 1-14회 병렬, 일부 KIND fallback |
 | Evidence | 1 | rcept_no 문자열 기반 URL 생성 |
-| Action | 2 | upstream data tool 병렬 호출 후 판단/요약 |
+| Action | 2 | upstream data tool 병렬 호출 후 판단/요약 (shareholder_commitment은 신규 계산 1개 추가) |
 
 ## 진단 필드
 
@@ -130,6 +131,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
 | evidence | - | - | - | - | - (문자열 가공) |
 | proxy_advise_before_meeting | upstream data tools | upstream | - | - | 판단 규칙/records |
+| shareholder_commitment | ✅ value_up+corp_gov_report+dividend+treasury_share+financial_metrics+stockTotqySttus (전부 재사용) | - | - | - | - |
 
 ✅ = 1차 source / 🔧 = 보조
 
