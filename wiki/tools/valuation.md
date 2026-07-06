@@ -9,6 +9,7 @@ related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
 related_decisions: [valuation-methodology]
 created: 2026-07-05
+updated: 2026-07-06
 ---
 
 # valuation
@@ -22,7 +23,7 @@ DART(공시) + KRX(공식시세) 기반 **상대가치 배수** — PER(FY0·TTM
 ```
 valuation(company="두산밥캣")                    # firm: 기업 심층 (실시간)
 valuation(scope="market")                        # 시장 전체(KOSPI·KOSDAQ) + 주간 히스토리
-valuation(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교
+valuation(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교 + 소속 섹터 시계열(연말 요약+전체 월별)
 valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계열 — FY0·TTM·MRQ (주간 곡선 + 월말 요약)
 ```
 자연어 예시:
@@ -43,22 +44,35 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계
 | scope | 소스 | 갱신 | 내용 |
 |---|---|---|---|
 | `firm` | 실시간 DART 재무 × `krx_weekly` 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
-| `market` | `mkt_val_history` | 주간 스냅샷(cron) | KOSPI·KOSDAQ 시총가중 PER/PBR + 히스토리 |
-| `sector` | `mkt_sector_val` (+`mkt_valuation` 비교) | 주간 스냅샷(cron) | KSIC 하이브리드 섹터별 + 기업 vs 섹터 |
-| `firm_history` | `krx_weekly`(주간 시총) × `mkt_fund_hist`(연간 FY0) × `mkt_fund_q`(분기 TTM/MRQ) + `mkt_valuation`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=전구간 주간 곡선(`data.series`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
+| `market` | `mkt_val_history` (`sector='_ALL'` 행만) | 주간 스냅샷(cron) + 과거 76개월 백필 | KOSPI·KOSDAQ 시총가중 PER/PBR + 히스토리 |
+| `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시) |
+| `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=전구간 주간 곡선(`data.series`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
 
-- 스냅샷 3테이블은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
+- **260706 테이블 rename + 병합**: `mkt_fund_hist`→`mkt_finstat_y` · `mkt_fund_q`→`mkt_finstat_q` ·
+  `mkt_valuation`→`firm_valuation_snapshot`. `mkt_val_history`+`mkt_sector_val`(구 섹터 전용 테이블)은
+  **단일 `mkt_val_history`로 병합** — `sector` 컬럼에 센티넬 `'_ALL'`(시장전체) vs 실제 섹터코드로 구분
+  (PK: snap_dd·mkt·sector). 상세: [[data-storage-registry]] "✅ 스키마 변경 완료".
+- 스냅샷은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
   매일 KST 10:17 — 매일 수집(KRX 금요일 지연 게시 커버)→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
-- **market/sector 히스토리는 2020-01~현재**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
-  (1회성, DART 0콜)가 채운 과거 76개 월말(FY0 기준) — 합쳐서 "2020년부터 코스피 PER 추이" 응답 가능
-  (260705). TTM/MRQ 과거밴드는 분기 데이터 완비 후 별도 추가 예정, 현재는 FY0만.
+- **market/sector 히스토리는 2020-01~현재, FY0+TTM+MRQ 전부**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
+  (1회성, DART 0콜)가 채운 과거 78개 월말 — 시장 156행 + 섹터 11,014행, FY0·TTM·MRQ 세 기준 모두 백필
+  완료(260706, 최초엔 FY0만이었으나 분기 백필 완주 후 확장). "2020년부터 코스피 PER/PBR 추이" 응답 가능.
+  단, **주간 cron이 채우는 sector 행은 per_ttm/pbr_mrq만**(per_fy0/pbr_fy0는 과거 백필 스크립트 전용
+  — 현재월 sector 행은 FY0가 비어있을 수 있음, 알려진 갭).
+- **섹터 소속 시계열(260705 신설, sector scope + company 지정 시)**: `company_ctx.sector_history` —
+  그 기업 소속 섹터의 78개월 전체 시계열(per_fy0·per_ttm·pbr_fy0·pbr_mrq·cap). md 렌더는 연말만
+  발췌 표시, 전체는 json의 `data.company.sector_history`. 소규모(`_fold`) 섹터는 fold 버킷 시계열로 폴백.
 - **⚠ 방법론 이중성**: firm = 보통주 주가÷EPS(유통주식). 스냅샷 = **총시총(우선주 귀속)÷지배순이익**
   (시총가중, 지수 표준) — 삼성 PER(TTM) 20.0(firm) vs 21.9(스냅샷)처럼 다를 수 있음. 출력에 명시.
 - **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
   조정 불필요. 주당 가격·EPS 시계열을 노출하게 되면 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수.
-- 비KRW 22사(USD/CNY/JPY): 스냅샷 배치가 fx_rate(기말환율)로 KRW 환산 후 산출(구 aggregate의
-  원통화 혼합 합산 버그 수정, 260705).
+- **비KRW 22사(USD/CNY/JPY) — 260706 근본해결**: 예전엔 저장은 원통화 그대로 두고 조회 시점에
+  최신 통화 라벨 하나를 전 연도에 곱해, 두산밥캣처럼 **연도별로 통화가 바뀌는 회사**의 옛 연도가
+  폭증하는 버그가 있었음(4조→4,826조). 이제 `market_val_series.py`/`market_fund_quarterly.py`
+  fetch 시점에 그 해/분기 응답에서 직접 `statement_currency()`로 통화를 감지해 KRW로 환산 후
+  저장 — **DB의 ni/eq는 항상 KRW**. 라벨도 `currency='KRW'`+`orig_currency=원통화`로 갱신해 하위
+  read-time FX가 자동으로 no-op. 상세: [[valuation-methodology]] · project memory `project_fund_currency`.
 
 ## 데이터 계보 (소스 → 아이템 → 연산) — 핵심
 
@@ -195,6 +209,7 @@ sequenceDiagram
 
 ## 관련
 - [[valuation-methodology]] — 설계·스케일가드·FX·검증 전체 근거(decisions/)
+- [[data-storage-registry]] — market/sector/firm_history가 읽는 Supabase 테이블 전체 지도(rename·병합 이력 포함)
 - [[financial_metrics]] — 재무 펀더멘탈(이 tool이 요약을 재사용). valuation=시장배수, financial_metrics=펀더멘탈
 - [[배당수익률]] — DPS ÷ 주가
 - [[environment-secrets]] — ECOS_API_KEY·KRX_OPEN_API_KEY 등 필요 키

@@ -4,13 +4,13 @@ title: 분기재무-API스펙
 tags: [dart-api, financial-statement, quarterly, timeseries, ttm, pit]
 source: DART OpenAPI (fnlttSinglAcntAll)
 related: [분기보고서, 반기보고서, 사업보고서, 공시유형코드체계]
-purpose: mkt_fund_q(분기 재무 시계열 저장소) 구축용 DART 분기 재무 API 스펙 — 코드 실측 기반
-updated: 2026-07-05
+purpose: mkt_finstat_q(분기 재무 시계열 저장소) 구축용 DART 분기 재무 API 스펙 — 코드 실측 기반
+updated: 2026-07-06
 ---
 
 # 분기 재무 API 스펙 (fnlttSinglAcntAll)
 
-> **분기 재무 시계열 저장소(`mkt_fund_q`)** 구축을 위한 DART 분기 재무 API의 정밀 스펙.
+> **분기 재무 시계열 저장소(`mkt_finstat_q`)** 구축을 위한 DART 분기 재무 API의 정밀 스펙.
 > 모든 항목은 OPM 코드 실측 근거(`파일:줄`)로 문서화한다. TTM(직전 4분기 합산) 계산과
 > look-ahead 방지(PIT)를 위한 필드 의미·공시 타이밍이 핵심.
 >
@@ -168,7 +168,7 @@ TTM = FY(전년, 11011)  +  3Q누적(당해, 11014)  −  3Q누적(전년, 11014
 
 - 현행 `market_val_series.series()`(market_val_series.py:216-217)는 연 단위 근사만 씀:
   `pit_fy = y-1 if m>=4 else y-2` — 4월 이후면 전년 FY, 아니면 전전년 FY(사업보고서 3월중순
-  공시 규칙의 연 단위 축약). **분기 시계열(`mkt_fund_q`)에선 위 표처럼 분기 해상도로 세분**해야
+  공시 규칙의 연 단위 축약). **분기 시계열(`mkt_finstat_q`)에선 위 표처럼 분기 해상도로 세분**해야
   분기 재무의 look-ahead를 막는다.
 - 실제 접수일이 필요하면 `list.json`의 `rcept_dt`로 종목별 실제 공시일을 확인해 근사 대신
   실측 PIT를 쓸 수 있다(기한보다 일찍 내는 종목 다수).
@@ -213,12 +213,12 @@ TTM = FY(전년, 11011)  +  3Q누적(당해, 11014)  −  3Q누적(전년, 11014
 
 ---
 
-## 7. mkt_fund_q 설계 권고 (요약)
+## 7. mkt_finstat_q 설계 권고 (요약)
 
 1. **키**: `(isu_cd, fy, quarter)` — quarter ∈ {1,2,3,4}. Q4는 `연간 − 3Q누적`으로 파생.
 2. **저장 필드**: 지배순이익 누적(YTD)·지배자본 잔액·전기 비교치(재작성 감지용)·`fs`(CFS/OFS)·
    `rcept_dt`(PIT 실측)·`fetched` 상태.
-3. **컬럼명 명시 INSERT** — 위치 의존 금지(CLAUDE.md; 260704 mkt_fund_hist 사고).
+3. **컬럼명 명시 INSERT** — 위치 의존 금지(CLAUDE.md; 260704 mkt_finstat_y 사고).
 4. **TTM 파생**: §2.4 공식으로 뷰/쿼리 단계에서 계산(원천은 누적치 저장).
 5. **PIT 조인**: 가격일 D → §4.2 매핑으로 가용 (fy,quarter) 선택(연 단위 근사 금지).
 
