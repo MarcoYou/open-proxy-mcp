@@ -7,7 +7,8 @@
 실행: python3 scripts/market_val_sector.py [--ksic]
 
 ⚠ deprecated(260705, QA): 비KRW 22사 FX 미환산 — 제품 저장/서빙 금지(내부 비교 조회만).
-  섹터 스냅샷 정본 = scripts/market_val_weekly.py(FX 환산 + mkt_sector_val 저장).
+  섹터 스냅샷 정본 = scripts/market_val_weekly.py(FX 환산 + mkt_val_history에 sector='_ALL' 아닌
+  섹터행으로 저장, 260706 mkt_val_history+mkt_val_history 병합).
 """
 import os, json, sys
 from pathlib import Path

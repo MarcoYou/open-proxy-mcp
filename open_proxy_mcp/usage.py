@@ -76,21 +76,21 @@ def _pg_connect():
     import psycopg
     con = psycopg.connect(DATABASE_URL, connect_timeout=15, autocommit=False)
     con.execute(
-        "CREATE TABLE IF NOT EXISTS events("
+        "CREATE TABLE IF NOT EXISTS tool_call_events("
         "event_id text PRIMARY KEY, ts_ns bigint NOT NULL, key_hash text NOT NULL, status int)"
     )
-    con.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS tool text")
-    con.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS latency_ms int")
-    con.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS is_error boolean")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON events(key_hash)")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns)")
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS tool text")
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS latency_ms int")
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS is_error boolean")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON tool_call_events(key_hash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON tool_call_events(ts_ns)")
     con.commit()
     return con
 
 
 def _pg_write(con, batch):
     con.cursor().executemany(
-        "INSERT INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error) "
+        "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error) "
         "VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
         batch,
     )

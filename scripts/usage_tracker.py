@@ -70,7 +70,7 @@ def fetch_rows():
     """모든 (ts_ns, key_hash) 정렬 반환 (self 포함). 백엔드 자동 선택."""
     if using_pg():
         con = _pg_conn()
-        rows = con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall()
+        rows = con.execute("SELECT ts_ns, key_hash FROM tool_call_events ORDER BY ts_ns").fetchall()
         con.close()
         return [(int(t), h) for t, h in rows]
     con = db()
@@ -78,10 +78,11 @@ def fetch_rows():
 
 
 def fetch_tool_latency():
-    """(tool, key_hash, latency_ms, is_error) 리스트. 옛 스키마(열 없음)면 is_error=None 패딩."""
-    sql = "SELECT tool, key_hash, latency_ms, is_error FROM events"
-    old = "SELECT tool, key_hash, latency_ms FROM events"
+    """(tool, key_hash, latency_ms, is_error) 리스트. 옛 스키마(열 없음)면 is_error=None 패딩.
+    PG(tool_call_events)와 sqlite(events)는 테이블명이 달라(260706 PG측 rename) 쿼리 분리."""
     if using_pg():
+        sql = "SELECT tool, key_hash, latency_ms, is_error FROM tool_call_events"
+        old = "SELECT tool, key_hash, latency_ms FROM tool_call_events"
         con = _pg_conn()
         try:
             try:
@@ -92,6 +93,8 @@ def fetch_tool_latency():
         finally:
             con.close()
         return rows
+    sql = "SELECT tool, key_hash, latency_ms, is_error FROM events"
+    old = "SELECT tool, key_hash, latency_ms FROM events"
     try:
         return db().execute(sql).fetchall()
     except sqlite3.OperationalError:
@@ -102,18 +105,18 @@ def fetch_tool_latency():
 
 
 def migrate_local_to_pg():
-    """로컬 sqlite events를 Postgres로 1회 이전(ON CONFLICT dedup). 과거 데이터 시드용."""
+    """로컬 sqlite events를 Postgres(tool_call_events)로 1회 이전(ON CONFLICT dedup). 과거 데이터 시드용."""
     if not using_pg():
         raise SystemExit("DATABASE_URL이 필요합니다 (.env 또는 환경변수).")
     src = db().execute("SELECT event_id, ts_ns, key_hash, status FROM events").fetchall()
     pg = _pg_conn()
-    pg.execute("CREATE TABLE IF NOT EXISTS events(event_id text PRIMARY KEY, "
+    pg.execute("CREATE TABLE IF NOT EXISTS tool_call_events(event_id text PRIMARY KEY, "
                "ts_ns bigint NOT NULL, key_hash text NOT NULL, status int)")
     pg.cursor().executemany(
-        "INSERT INTO events(event_id, ts_ns, key_hash, status) VALUES(%s,%s,%s,%s) "
+        "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status) VALUES(%s,%s,%s,%s) "
         "ON CONFLICT (event_id) DO NOTHING", src)
     pg.commit()
-    total = pg.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    total = pg.execute("SELECT COUNT(*) FROM tool_call_events").fetchone()[0]
     pg.close()
     print(f"로컬 {len(src)}건 → Postgres 이전 완료 (PG 총 {total}건)")
 

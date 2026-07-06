@@ -57,7 +57,7 @@ def main(apply: bool) -> None:
               f"    .env에 OPM_STORAGE_REPO=<실제 클론 경로> 를 지정하세요. 중단.")
         return
     con = psycopg.connect(os.environ["DATABASE_URL"]); con.autocommit = True
-    row = con.execute("SELECT MIN(ts_ns), MAX(ts_ns) FROM events").fetchone()
+    row = con.execute("SELECT MIN(ts_ns), MAX(ts_ns) FROM tool_call_events").fetchone()
     if not row or row[0] is None:
         print("events 테이블 비어있음 — 드레인 대상 없음"); con.close(); return
     mn, mx = row
@@ -72,7 +72,7 @@ def main(apply: bool) -> None:
     while w < now_week:
         w_end = w + timedelta(days=7)
         rows = con.execute(
-            "SELECT event_id, ts_ns, key_hash, status, tool, latency_ms, is_error FROM events "
+            "SELECT event_id, ts_ns, key_hash, status, tool, latency_ms, is_error FROM tool_call_events "
             "WHERE ts_ns >= %s AND ts_ns < %s ORDER BY ts_ns",
             (_to_ns(w), _to_ns(w_end))
         ).fetchall()
@@ -87,13 +87,13 @@ def main(apply: bool) -> None:
         print(f"[{w.date()}~{(w_end - timedelta(days=1)).date()}] {len(rows)}건 → {fpath.relative_to(ROOT)}")
         if apply:
             ids = [r[0] for r in rows]
-            deleted = con.execute("DELETE FROM events WHERE event_id = ANY(%s)", (ids,)).rowcount
+            deleted = con.execute("DELETE FROM tool_call_events WHERE event_id = ANY(%s)", (ids,)).rowcount
             print(f"  ✓ DB에서 {deleted}건 삭제")
         drained_total += len(rows)
         w = w_end
 
     remaining_current_week = con.execute(
-        "SELECT COUNT(*) FROM events WHERE ts_ns >= %s", (_to_ns(now_week),)).fetchone()[0]
+        "SELECT COUNT(*) FROM tool_call_events WHERE ts_ns >= %s", (_to_ns(now_week),)).fetchone()[0]
     print(f"\n총 {'드레인' if apply else '드레인 대상'} {drained_total}건 · "
           f"진행 중 주({now_week.date()}~)는 안 건드림, {remaining_current_week}건 유지")
     if not apply:

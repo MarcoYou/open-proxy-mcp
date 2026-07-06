@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: 데이터 저장소 레지스트리 — Supabase 전 테이블 (item·주기·검증·목적·workflow)
-updated: 2026-07-05
+updated: 2026-07-06
 ---
 
 # 데이터 저장소 레지스트리 (Supabase Postgres)
@@ -16,16 +16,16 @@ updated: 2026-07-05
 > 2. **주간 수렴 저장**: 시세·스냅샷류는 매일 수집하되 같은 ISO주 슬롯에 덮어써(수렴) **주 마지막
 >    거래일만 영구 보존** — 항상 전날 종가까지 표시하면서 무료티어 안 넘김. (fx·krx_weekly·스냅샷 공통)
 > 3. **불변만 영구**: 과거 확정값(분기말 환율·확정 주간 종가)만 영구 캐시. "오늘"류 변동값은 미저장.
-> 4. **컬럼명 명시**: 모든 INSERT는 컬럼명 명시(위치의존 금지 — 260704 mkt_fund_hist 사고, CLAUDE.md).
+> 4. **컬럼명 명시**: 모든 INSERT는 컬럼명 명시(위치의존 금지 — 260704 mkt_finstat_y 사고, CLAUDE.md).
 
 ## 한눈에 — 그룹별 지도
 
 | 그룹 | 테이블 | 갱신 주체 | 주기 |
 |---|---|---|---|
-| **밸류에이션 서빙** | krx_weekly · mkt_valuation · mkt_val_history · mkt_sector_val · fx_rate | valuation tool(수동갱신 겸) + `market_val_weekly.py` cron | 일별 수집→주간 수렴 |
-| **밸류에이션 원천** | mkt_fundamentals · mkt_fund_hist(FY2018~2024) | `market_val_agg.py --fetch` / `market_val_series.py --fetch` | 분기(보고 시즌) / 연 1회(+과거 FY 백필) |
-| **수정주가 파이프라인** | krx_adj_factor_v3 · krx_base_resets · krx_shares_ledger · krx_reset_days · krx_stock_flags · dart_capital_events | 전용 스크립트([[adjusted-price-timeseries]]) | 이벤트/수동 |
-| **운영·미터링** | events · krx_call_log | 앱 자동 | 실시간 |
+| **밸류에이션 서빙** | krx_weekly · firm_valuation_snapshot · mkt_val_history · mkt_val_history(섹터행) · fx_rate | valuation tool(수동갱신 겸) + `market_val_weekly.py` cron | 일별 수집→주간 수렴 |
+| **밸류에이션 원천** | mkt_fundamentals · mkt_finstat_y(FY2018~2024) | `market_val_agg.py --fetch` / `market_val_series.py --fetch` | 분기(보고 시즌) / 연 1회(+과거 FY 백필) |
+| **수정주가 파이프라인** | krx_adj_factor_v3 · krx_base_resets · krx_shares_ledger · krx_reset_sweep_checkpoint · krx_stock_flags · dart_capital_events | 전용 스크립트([[adjusted-price-timeseries]]) | 이벤트/수동 |
+| **운영·미터링** | tool_call_events · krx_call_log | 앱 자동 | 실시간 |
 
 ---
 
@@ -44,7 +44,7 @@ updated: 2026-07-05
 - **목적/소비자**: valuation firm 시세(주가·시총·상장주식수) · 주간 스냅샷 배치의 시총 원천 ·
   수정주가 파이프라인(adj_factor_v3·base_resets) · market_val_series의 분기말 시총.
 
-### `mkt_valuation` — 종목별 밸류 주간 스냅샷 (260705 신설)
+### `firm_valuation_snapshot` — 종목별 밸류 주간 스냅샷 (260705 신설)
 - **item**: `snap_dd` · `isu_cd` · `mkt` · `sector`(KSIC 하이브리드 버킷) · `cap`(**보통주 시총**) ·
   `cap_pref`(**우선주 시총 별도** — 배수 미포함) · `per_fy0` · `per_ttm` · `pbr_fy0` · `pbr_mrq`.
   PK(snap_dd, isu_cd). ~2,600행/주.
@@ -60,7 +60,7 @@ updated: 2026-07-05
 - **목적/소비자**: valuation `scope=firm_history`(종목 PER/PBR/시총 시계열) · `scope=sector`의 기업
   vs 섹터 비교.
 - **firm_history 시계열 = compute-on-query(저장 X)**: 주간 스냅샷(현재·미래 축적)에 더해, **연말 PIT
-  밴드**를 질의 시 `krx_weekly`(연말 보통주 시총) × `mkt_fund_hist`(그 시점 최신 확정 FY 재무)로 즉시
+  밴드**를 질의 시 `krx_weekly`(연말 보통주 시총) × `mkt_finstat_y`(그 시점 최신 확정 FY 재무)로 즉시
   산출(백필 배치·저장 없음, 2~3 쿼리). PIT: 연말 YYYY→FY(YYYY−1) 사용(FY는 익년 3월 공시 →
   look-ahead 방지). 시총 기반이라 수정주가 조정 불변, 비KRW는 FY 기말환율 환산. spinoff 종목은
   krx_stock_flags 경고. 검증 260705: 삼성 2024말 PBR 0.91·SK하이닉스 2024 PER N/M(FY2023 순손실)
@@ -72,16 +72,16 @@ updated: 2026-07-05
   ※ 표기 PER의 분모별 Σ시총은 해당 지표 보유 종목만 — cap÷ni_ttm 재계산과 다를 수 있음(명시됨).
 - **갱신**: ① 현재 주간행 = `market_val_weekly.py`(cron, per_ttm/pbr_mrq 포함 전체 갱신).
   ② **과거 시점행(2020-01~현재, 월말 76개)** = `market_val_history_backfill.py`(1회성 백필, DART 0콜,
-  krx_weekly×mkt_fund_hist로 계산 — **FY0만**, TTM/MRQ는 분기 백필 완주 후 별도 추가 예정). ON CONFLICT로
+  krx_weekly×mkt_finstat_y로 계산 — **FY0만**, TTM/MRQ는 분기 백필 완주 후 별도 추가 예정). ON CONFLICT로
   FY0열만 갱신해 cron이 채운 최신행의 per_ttm/pbr_mrq는 보존. 구 `market_val_agg.py --report/--snapshot`은
   FX 미환산이라 **deprecated**(KOSDAQ PER 5.7% 왜곡 실측) — 저장 정본은 weekly+historical backfill 둘.
 - **검증**: 260705 QA — 9필드 독립 재계산 소수 4자리 일치. 과거 밴드는 KOSPI 연말 PER/PBR이 실제 시장사와
   일치(2023·24 PBR<1=코리아디스카운트, 2022 PER11=실적급증) — 통화(FX)는 **적용 안 함**(비KRW 22사
-  시총<0.2%라 무시해도 정확, mkt_fund_hist에 연도별 통화컬럼 부재로 오히려 FX 적용이 오염 유발 확인).
+  시총<0.2%라 무시해도 정확, mkt_finstat_y에 연도별 통화컬럼 부재로 오히려 FX 적용이 오염 유발 확인).
 - **목적/소비자**: valuation `scope=market` — 이제 **시계열(history 배열)**로 응답, "2020년부터 코스피
   PER 추이" 가능.
 
-### `mkt_sector_val` — 산업(KSIC)별 aggregate 스냅샷 (**현재 주간 + 과거 FY0 시계열**, 260705 확장)
+### `mkt_val_history(섹터행)` — 산업(KSIC)별 aggregate 스냅샷 (**현재 주간 + 과거 FY0 시계열**, 260705 확장)
 - **item**: `snap_dd` · `mkt` · `sector`(버킷코드, 소규모는 `_fold`) · `label`(표시명) · `n`(사수) ·
   `cap`(Σ보통주 시총) · `cap_pref`(Σ우선주 시총) · `per_fy0/pbr_fy0`(260705 추가) · `per_ttm` · `pbr_mrq`.
   PK(snap_dd, mkt, sector). ~97버킷/주.
@@ -104,36 +104,36 @@ updated: 2026-07-05
 
 ## 2. 밸류에이션 원천 계층 (재무 배치)
 
-### `mkt_fundamentals` — 종목별 최신 FY 재무 (**파생 = mkt_fund_q에서**)
+### `mkt_fundamentals` — 종목별 최신 FY 재무 (**파생 = mkt_finstat_q에서**)
 - **item**: `isu_cd` · `corp_code` · `mkt` · `fs`(CFS/OFS) · `ni_fy` · `ni_ttm` · `eq_fy` ·
   `eq_mrq`(지배자본) · `fetched`(ok/nocorp/err) · `induty`(KSIC) · `currency` · `scale_flag`.
   2,653행. **⚠ 비KRW 종목은 원통화 저장** — 소비 시 fx_rate로 환산 필수(weekly 배치가 수행).
 - **갱신(260705 전환)**: 재무 4열(`ni_fy`·`ni_ttm`·`eq_fy`·`eq_mrq`)은 **`market_fund_quarterly.py
-  --derive`가 mkt_fund_q(SSOT)에서 파생 — DART 0콜**. 최신 공시분기 기준 TTM/MRQ(=분기 공시마다 자동
+  --derive`가 mkt_finstat_q(SSOT)에서 파생 — DART 0콜**. 최신 공시분기 기준 TTM/MRQ(=분기 공시마다 자동
   최신화). **일일 워크플로(market-val-weekly.yml)의 선행 step**이라 스냅샷 전 항상 fresh. partial-백필
   가드(Q1-3 없는 종목=기존값 유지). ⚠ 구 `market_val_agg.py --fetch`는 done셋+`DO NOTHING`이라 기존행
   **갱신 불가** → 이제 **신규 상장사 onboarding**만 담당(재무 갱신 아님). raw 통화 유지.
 - **검증**: derive 파생값 = 기존 mkt_fundamentals 정확 일치(삼성 ni_ttm 83.33조 등, Data-QA 검토).
-- **목적/소비자**: 주간 스냅샷 배치(mkt_valuation·mkt_val_history·mkt_sector_val)의 재무 원천.
+- **목적/소비자**: 주간 스냅샷 배치(firm_valuation_snapshot·mkt_val_history·mkt_val_history(섹터행))의 재무 원천.
   ※ valuation firm은 이걸 안 쓰고 실시간 DART(최신성 우선).
 
-### `mkt_fund_q` — 종목별 **분기** 재무 (SSOT · firm/market/sector TTM·MRQ 원천)
+### `mkt_finstat_q` — 종목별 **분기** 재무 (SSOT · firm/market/sector TTM·MRQ 원천)
 - **item**: `isu_cd` · `fy` · `quarter`(1/2/3/4=사업보고서) · `reprt_code` · `fs` · `ni_cum`(지배순이익
   **누적 YTD**) · `eq`(지배자본 **기말잔액**) · `fetched` · `ni_case`/`eq_case`(추출 경우의수 로직트리
   태그). 54,579행(2019~2026 Q1-3 + Q4 seed). **raw 통화**.
 - **갱신**: `market_fund_quarterly.py --fetch` — **공시-인지**(_disclosed: 1Q 5/15·반기 8/14·3Q 11/14) +
   resume(done셋) + 동시성 2 + sleep. **월간/공시후 스케줄**(refresh_financials.sh, fly). Q4는 `--seed`
-  로 mkt_fund_hist(연간)에서 0콜 복제(bootstrap은 최신FY·hist부재시·DO NOTHING — seed↔derive 순환차단).
+  로 mkt_finstat_y(연간)에서 0콜 복제(bootstrap은 최신FY·hist부재시·DO NOTHING — seed↔derive 순환차단).
 - **검증**: 로직트리 전수 케이스 분포(ni 플래그 0 · eq NO_EQUITY_ROW 2=DL 소스파손). TTM 역산 일치.
 - **목적/소비자**: `_ttm_ni`(FY(y-1)+누적(y,q)−누적(y-1,q)) · `_mrq_eq` — firm_history 주간곡선 TTM/MRQ ·
   mkt_fundamentals derive · (예정) market/sector 분기 밴드.
 
-### `mkt_fund_hist` — 종목별 과거 FY 재무 (연간 시계열)
+### `mkt_finstat_y` — 종목별 과거 FY 재무 (연간 시계열)
 - **item**: `isu_cd` · `fy` · `fs` · `ni` · `eq` · `ni_restated`/`eq_restated`(다음 해 보고서 전기비교치로
   재작성 검증 — 소프트센 100만배 오류 자동정정) · `fetched`. ~2,600행/FY.
 - **갱신**: `market_val_series.py --fetch` — **YEARS 동적**(`range(2018, _latest_annual_fy()+1)`, 신규
   사업연도 자동 확장), resume `done`이 누락분만, 직렬 0.45s/콜. / **목적**: PIT 시장 밸류 시계열 ·
-  firm_history 연말 밴드 · **mkt_fund_q Q4 seed의 authoritative 소스** · `_pit_fy` look-ahead 방지.
+  firm_history 연말 밴드 · **mkt_finstat_q Q4 seed의 authoritative 소스** · `_pit_fy` look-ahead 방지.
 
 ## 3. 수정주가 파이프라인 — [[adjusted-price-timeseries]]가 정본, 여기선 요약
 
@@ -154,7 +154,7 @@ updated: 2026-07-05
 
 | 테이블 | item | 목적 |
 |---|---|---|
-| `events` | ts_ns · key_hash(익명 유저) · tool · latency_ms · is_error | 사용 통계(scripts/usage_tracker.py) — 233유저/2주, financial_metrics 1,244콜 등 |
+| `tool_call_events` | ts_ns · key_hash(익명 유저) · tool · latency_ms · is_error | 사용 통계(scripts/usage_tracker.py) — 233유저/2주, financial_metrics 1,244콜 등 |
 | `krx_call_log` | day · machine · calls | KRX 일별 사용량 장부(잔여한도 미제공 → 자체 집계, 두 PC 합산) |
 
 ---
@@ -166,44 +166,48 @@ updated: 2026-07-05
   KRX bydd_trd(2콜) ──▶ krx_weekly (같은 ISO주 수렴 — 주중엔 최신 거래일, 주말 지나면 금요일로 굳음)
   KRX isu_base_info(2콜: 보통주/우선주 구분) ─┐
   krx_weekly(시총) × mkt_fundamentals(재무) × fx_rate(환산) 
-      ──▶ mkt_valuation(종목) · mkt_val_history(시장) · mkt_sector_val(섹터)  [같은 주 수렴]
+      ──▶ firm_valuation_snapshot(종목) · mkt_val_history(시장) · mkt_val_history(섹터행)(섹터)  [같은 주 수렴]
 
 [유저 조회 시 — valuation tool]
   scope=firm:        DART 실시간(재무 ~14콜) × krx_weekly(시세, KRX 0콜) → 심층 배수+경고
                      (조회 자체가 krx_weekly daily-refresh 겸함 — cron과 이중 안전망)
   scope=market:      mkt_val_history 읽기만 (API 0콜) — 현재값 + 과거 76시점 시계열(FY0)
-  scope=sector:      mkt_sector_val (+mkt_valuation 비교) 읽기만 — 마찬가지로 시계열
-  scope=firm_history: **둘 다 씀** — ① 과거(연말 PIT밴드·차트용 주간곡선·월말요약)는 mkt_fund_hist(연간)
-                     +mkt_fund_q(분기)+krx_weekly(시총)로 조회시연산(저장 X) ② 최근/현재 촘촘한 포인트는
-                     mkt_valuation(주간 스냅샷, 앞으로 cron이 계속 축적) 그대로 읽기 + krx_stock_flags(경고)
+  scope=sector:      mkt_val_history(섹터행) (+firm_valuation_snapshot 비교) 읽기만 — 마찬가지로 시계열
+  scope=firm_history: **둘 다 씀** — ① 과거(연말 PIT밴드·차트용 주간곡선·월말요약)는 mkt_finstat_y(연간)
+                     +mkt_finstat_q(분기)+krx_weekly(시총)로 조회시연산(저장 X) ② 최근/현재 촘촘한 포인트는
+                     firm_valuation_snapshot(주간 스냅샷, 앞으로 cron이 계속 축적) 그대로 읽기 + krx_stock_flags(경고)
 
 [분기 보고 시즌 — 수동]
   market_val_agg.py --fetch ──▶ mkt_fundamentals 재수집 (DART ~8k콜, 동시성 1+sleep, ~60분)
 
 [연 1회 — 수동]
-  market_val_series.py --fetch ──▶ mkt_fund_hist 신규 FY 추가 (+재작성 검증)
+  market_val_series.py --fetch ──▶ mkt_finstat_y 신규 FY 추가 (+재작성 검증)
 
 [1회성 백필 — 완료 260705, 재실행 안전(idempotent)]
-  market_val_history_backfill.py ──▶ mkt_val_history·mkt_sector_val 과거 76개 월말 FY0 밴드
-  (DART 0콜, krx_weekly×mkt_fund_hist만 사용)
+  market_val_history_backfill.py ──▶ mkt_val_history·mkt_val_history(섹터행) 과거 76개 월말 FY0 밴드
+  (DART 0콜, krx_weekly×mkt_finstat_y만 사용)
 ```
 
-## 🔜 대기 중인 스키마 변경 (다음 배포 사이클, 260705 3에이전트 검토 완료)
+## ✅ 스키마 변경 완료 (260706 실행 — rename 5건 + 병합 A)
 
-DART 백필·통화이슈 등과 겹쳐 **지금은 실행 안 함** — 코드 105곳 일괄치환 + DB 변경을 **같은 배포에**
-원자적으로. 결정 근거(마이그레이션/정합성/devil's advocate 3관점 독립검토)는 git 이력(260705 커밋)에
-보존, 여기는 실행 항목만.
+260705 3에이전트 검토(마이그레이션/정합성/devil's advocate 독립검토) 근거로 260706 실행. DB는
+`ALTER TABLE RENAME`(순간) + 병합은 신규 컬럼 추가→데이터 이관→구테이블 drop 순으로 트랜잭션 하나에
+묶어 실행, 곧바로 코드 커밋·푸시(라이브 서빙 갭 최소화 — 사용자 선택).
 
-**Rename 7건** (이름만 바꿈, 데이터 구조 그대로):
-`mkt_fund_hist`→`mkt_finstat_y` · `mkt_fund_q`→`mkt_finstat_q` · `mkt_valuation`→`firm_valuation_snapshot` ·
-`mkt_val_history`→`market_valuation_history` · `mkt_sector_val`→`sector_valuation_history` ·
-`events`→`tool_call_events` · `krx_reset_days`→`krx_reset_sweep_checkpoint`(살아있는 체크포인트, 드랍 아님).
+**Rename 5건 완료**: `mkt_fund_hist`→`mkt_finstat_y` · `mkt_fund_q`→`mkt_finstat_q` ·
+`mkt_valuation`→`firm_valuation_snapshot` · `events`→`tool_call_events` ·
+`krx_reset_days`→`krx_reset_sweep_checkpoint`(살아있는 체크포인트, 드랍 아님).
+※ `usage.py`/`usage_tracker.py`는 로컬 sqlite `events`(별개 DB, 이름 그대로 유지)와 Postgres
+`events`가 같은 리터럴로 섞여있어 연결객체 기준으로 Postgres 쪽만 정확히 골라 rename.
 
-**병합 A(승인)** — `mkt_val_history`+`mkt_sector_val`→ 단일 `mkt_val_history`. `sector` 컬럼에
-**센티넬 `'_ALL'`**(NOT NULL) = 시장전체, 그 외 = 해당 섹터(NULL 사용 금지 — PK NULL 불가 + UNIQUE는
-NULL≠NULL이라 매주 중복 INSERT 쌓임, 3에이전트 전원 확인). 수정 지점: `market_val_weekly.py`
-DDL/INSERT, `market_val_history_backfill.py` DDL/INSERT, 레거시 `market_val_agg.py`(폐기 검토),
-`valuation.py`의 `build_market_val_payload`/`build_sector_val_payload` WHERE절.
+**병합 A 완료** — `mkt_val_history`+`mkt_sector_val`→ 단일 `mkt_val_history`. `sector` 컬럼에
+**센티넬 `'_ALL'`**(NOT NULL, PK=snap_dd·mkt·sector) = 시장전체, 그 외 = 해당 섹터(NULL 사용 안 함 —
+PK NULL 불가 + UNIQUE는 NULL≠NULL이라 매주 중복 INSERT 쌓임). 데이터 검증: 병합 전 158+11,111=11,269행,
+병합 후 11,269행·`_ALL` 158행 정확히 일치 확인 후 커밋. 수정 지점: `market_val_weekly.py`(DDL/INSERT
+통합, mkt_recs+sec_recs 같은 컬럼세트로 합쳐 1회 INSERT) · `market_val_history_backfill.py`(시장행도
+sector='_ALL' 명시 + ON CONFLICT 대상을 새 PK로) · `valuation.py`의 `build_market_val_payload`
+(`WHERE sector='_ALL'`) / `build_sector_val_payload`(`WHERE sector != '_ALL'`) — 레거시
+`market_val_agg.py`는 실사용처 없음 확인(주석 언급뿐, cron/코드 호출 0건)되어 그대로 방치(폐기 코드 그대로).
 
 **병합 B(반려, 재검토 불필요)** — `mkt_fund_hist`+`mkt_fund_q`는 병합하지 않는다. 근거: seed_q4가 채우는
 quarter=4 행의 `ni_case`/`eq_case`가 100% NULL이라 병합 시 케이스 분포 집계의 25%가 결측 처리되는 신규

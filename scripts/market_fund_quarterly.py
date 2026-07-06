@@ -1,7 +1,7 @@
-"""분기 재무 시계열 저장소(mkt_fund_q) — firm/market/sector 밸류 밴드의 분기 granularity 원천.
+"""분기 재무 시계열 저장소(mkt_finstat_q) — firm/market/sector 밸류 밴드의 분기 granularity 원천.
 
 설계(260705, 사용자 확정): "주간 가격 × **분기 재무** × 분기말 환율". 분기 재무가 있어야 과거
-TTM PER(최근 4분기 지배순이익 합)·MRQ PBR(최근분기 지배자본)을 시계열로 산출 — 연간(mkt_fund_hist)만
+TTM PER(최근 4분기 지배순이익 합)·MRQ PBR(최근분기 지배자본)을 시계열로 산출 — 연간(mkt_finstat_y)만
 있어서 밴드 TTM이 N/A였던 한계를 해소.
 
 키: (isu_cd, fy, quarter). quarter 1/2/3/4(=사업보고서). 저장:
@@ -9,7 +9,7 @@ TTM PER(최근 4분기 지배순이익 합)·MRQ PBR(최근분기 지배자본)�
   eq     = 지배자본 **기말 잔액**(BS, 기간무관).
 
 수집 절약: **Q4(사업보고서)는 이미 있는 연간 데이터에서 seed(DART 0콜)** —
-  · FY2018~2024 = mkt_fund_hist(ni=연간누적=Q4누적, eq=FY말자본, restated 우선)
+  · FY2018~2024 = mkt_finstat_y(ni=연간누적=Q4누적, eq=FY말자본, restated 우선)
   · FY2025      = mkt_fundamentals(ni_fy, eq_fy)
   나머지 Q1(11013)·반기(11012)·3Q(11014)만 DART 수집.
 
@@ -43,7 +43,7 @@ from open_proxy_mcp.dart.fx import statement_currency, fx_to_krw
 _QEND = {1: "0331", 2: "0630", 3: "0930", 4: "1231"}
 
 # 분기 수집연도: 2019~현재. 2018 분기는 2019 TTM에만 필요(→ 2020~ 추이엔 불필요)해 제외 —
-# 2018은 seed_q4가 mkt_fund_hist에서 Q4(연간)만 seed. TTM은 2019 동분기가 있어 2020~부터 산출.
+# 2018은 seed_q4가 mkt_finstat_y에서 Q4(연간)만 seed. TTM은 2019 동분기가 있어 2020~부터 산출.
 YEARS_DEFAULT = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
 # (quarter, reprt_code) — Q1/반기/3Q만 DART 수집(Q4는 seed)
 QFETCH = [(1, "11013"), (2, "11012"), (3, "11014")]
@@ -195,14 +195,14 @@ def extract_controlling_eq(rows):
     return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_EQUITY_ROW")
 
 
-DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_q(
+DDL = """CREATE TABLE IF NOT EXISTS mkt_finstat_q(
   isu_cd text, fy int, quarter int, reprt_code text, fs text,
   ni_cum double precision, eq double precision, fetched text,
   ni_case text, eq_case text,
   PRIMARY KEY(isu_cd, fy, quarter))"""
 DDL_MIGRATE = (
-    "ALTER TABLE mkt_fund_q ADD COLUMN IF NOT EXISTS ni_case text",
-    "ALTER TABLE mkt_fund_q ADD COLUMN IF NOT EXISTS eq_case text",
+    "ALTER TABLE mkt_finstat_q ADD COLUMN IF NOT EXISTS ni_case text",
+    "ALTER TABLE mkt_finstat_q ADD COLUMN IF NOT EXISTS eq_case text",
 )
 
 
@@ -211,15 +211,15 @@ def _pg():
 
 
 def derive_fundamentals() -> None:
-    """mkt_fundamentals 재무 4열(ni_fy·ni_ttm·eq_fy·eq_mrq)을 mkt_fund_q(분기+Q4연간)에서 파생 —
-    **DART 0콜**. SSOT = mkt_fund_q. 원통화 raw 유지(daily cron이 fx_rate로 KRW 환산). 최신 공시분기
+    """mkt_fundamentals 재무 4열(ni_fy·ni_ttm·eq_fy·eq_mrq)을 mkt_finstat_q(분기+Q4연간)에서 파생 —
+    **DART 0콜**. SSOT = mkt_finstat_q. 원통화 raw 유지(daily cron이 fx_rate로 KRW 환산). 최신 공시분기
     기준 TTM/MRQ라 분기 공시마다 자동 최신화(구 market_val_agg는 1Q 고정·done셋으로 갱신 불가였음).
       ni_fy/eq_fy = 최신 완결 FY(Q4) · eq_mrq = 최신 분기 자본 · ni_ttm = FY(y-1)+누적(y,q)−누적(y-1,q)."""
     from collections import defaultdict
     con = _pg(); con.autocommit = True
     q: dict[str, dict] = defaultdict(dict)
     for isu, fy, quarter, ni, eq in con.execute(
-            "SELECT isu_cd, fy, quarter, ni_cum, eq FROM mkt_fund_q"):
+            "SELECT isu_cd, fy, quarter, ni_cum, eq FROM mkt_finstat_q"):
         q[isu][(int(fy), int(quarter))] = (ni, eq)
     updated = 0
     for isu, m in q.items():
@@ -258,35 +258,35 @@ def seed_q4() -> None:
     con.execute(DDL)
     for _m in DDL_MIGRATE:
         con.execute(_m)
-    # FY2018~2024: mkt_fund_hist (restated 우선)
+    # FY2018~2024: mkt_finstat_y (restated 우선)
     n1 = con.execute("""
-        INSERT INTO mkt_fund_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
+        INSERT INTO mkt_finstat_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
         SELECT isu_cd, fy, 4, '11011', fs,
                COALESCE(ni_restated, ni), COALESCE(eq_restated, eq),
                CASE WHEN COALESCE(ni_restated,ni) IS NOT NULL OR COALESCE(eq_restated,eq) IS NOT NULL
                     THEN 'ok' ELSE 'nodata' END
-        FROM mkt_fund_hist
+        FROM mkt_finstat_y
         WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL
         ON CONFLICT (isu_cd, fy, quarter) DO UPDATE SET
           ni_cum=EXCLUDED.ni_cum, eq=EXCLUDED.eq, fetched=EXCLUDED.fetched
     """).rowcount
-    # 최신 완결 FY가 아직 mkt_fund_hist에 없을 때만 mkt_fundamentals에서 **bootstrap**(INSERT-only).
+    # 최신 완결 FY가 아직 mkt_finstat_y에 없을 때만 mkt_fundamentals에서 **bootstrap**(INSERT-only).
     # ⚠ mkt_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 '최신 완결 FY'로 덮어쓰는 가변열 →
-    # 과거 특정연도(하드코딩 2025)에 DO UPDATE로 쓰면 롤오버 시 그 값이 다음 FY로 바뀌어 mkt_fund_q의
+    # 과거 특정연도(하드코딩 2025)에 DO UPDATE로 쓰면 롤오버 시 그 값이 다음 FY로 바뀌어 mkt_finstat_q의
     # 과거 Q4가 오염되고 TTM이 조용히 틀어짐(Data-QA #1). 방지: 대상 FY 동적(_latest_annual_fy) +
     # hist에 없을 때만 + **DO NOTHING**(hist가 들어오면 n1이 authoritative, bootstrap은 절대 덮지 않음).
     lfy = _latest_annual_fy()
-    in_hist = con.execute("SELECT 1 FROM mkt_fund_hist WHERE fy=%s LIMIT 1", (lfy,)).fetchone()
+    in_hist = con.execute("SELECT 1 FROM mkt_finstat_y WHERE fy=%s LIMIT 1", (lfy,)).fetchone()
     n2 = 0
     if not in_hist:
         n2 = con.execute("""
-            INSERT INTO mkt_fund_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
+            INSERT INTO mkt_finstat_q (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
             SELECT isu_cd, %s, 4, '11011', fs, ni_fy, eq_fy,
                    CASE WHEN ni_fy IS NOT NULL OR eq_fy IS NOT NULL THEN 'ok' ELSE 'nodata' END
             FROM mkt_fundamentals WHERE fetched='ok'
             ON CONFLICT (isu_cd, fy, quarter) DO NOTHING
         """, (lfy,)).rowcount
-    print(f"Q4 seed: mkt_fund_hist {n1}행 + mkt_fundamentals bootstrap(FY{lfy}, hist부재시만) {n2}행")
+    print(f"Q4 seed: mkt_finstat_y {n1}행 + mkt_fundamentals bootstrap(FY{lfy}, hist부재시만) {n2}행")
     con.close()
 
 
@@ -295,7 +295,7 @@ def _flush(buf) -> None:
         return
     with _pg() as c:
         with c.cursor() as cur:
-            cur.executemany("""INSERT INTO mkt_fund_q
+            cur.executemany("""INSERT INTO mkt_finstat_q
                 (isu_cd, fy, quarter, reprt_code, fs, ni_cum, eq, fetched, ni_case, eq_case)
                 VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (isu_cd, fy, quarter) DO UPDATE SET
@@ -331,7 +331,7 @@ async def fetch(years, pilot=None, conc=2) -> None:
     # 분기 단위 resume — **ok/nodata만 완료로 간주**. err(일일한도[020]·기타 실패)는 done에서 제외 →
     # 재실행 시 자동 재수집(DART 일일한도 20k/키 리셋 후 남은분 채움). DO UPDATE로 err행 덮어씀.
     done = {(r[0], r[1], r[2]) for r in con.execute(
-        "SELECT isu_cd, fy, quarter FROM mkt_fund_q WHERE quarter != 4 "
+        "SELECT isu_cd, fy, quarter FROM mkt_finstat_q WHERE quarter != 4 "
         "AND (fetched IS NULL OR fetched NOT LIKE 'err:%')")}
     con.close()
     todo = [(i, c, y, q, rc) for i, c in firms for y in years

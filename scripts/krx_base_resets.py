@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS krx_base_resets (
   factor double precision, mkt text,
   PRIMARY KEY (isu_cd, reset_dd));
 CREATE INDEX IF NOT EXISTS idx_base_resets_isu ON krx_base_resets (isu_cd, reset_dd);
-CREATE TABLE IF NOT EXISTS krx_reset_days (bas_dd text PRIMARY KEY, n_stocks int);
+CREATE TABLE IF NOT EXISTS krx_reset_sweep_checkpoint (bas_dd text PRIMARY KEY, n_stocks int);
 """
 
 
@@ -102,7 +102,7 @@ async def sweep(since: date, cap: int):
             con.execute(stmt)
     con.commit()
 
-    done = {r[0] for r in con.execute("SELECT bas_dd FROM krx_reset_days").fetchall()}
+    done = {r[0] for r in con.execute("SELECT bas_dd FROM krx_reset_sweep_checkpoint").fetchall()}
     # 재개 시 prev_close 시드: ① 마지막 처리일 재조회 ② 부재 종목은 krx_weekly 최근 종가
     prev_close: dict[str, float] = {}
     last = max(done) if done else None
@@ -146,7 +146,7 @@ async def sweep(since: date, cap: int):
                 if snaps is None:
                     continue  # 일시 오류 — 미기록, 재실행 때 재시도
                 if empty:
-                    con.execute("INSERT INTO krx_reset_days VALUES (%s,0) ON CONFLICT DO NOTHING", (day,))
+                    con.execute("INSERT INTO krx_reset_sweep_checkpoint VALUES (%s,0) ON CONFLICT DO NOTHING", (day,))
                     con.commit()
                     n_days += 1
                     continue
@@ -168,7 +168,7 @@ async def sweep(since: date, cap: int):
                     if rows:
                         cur.executemany("""INSERT INTO krx_base_resets VALUES (%s,%s,%s,%s,%s,%s,%s)
                                            ON CONFLICT (isu_cd, reset_dd) DO NOTHING""", rows)
-                    cur.execute("INSERT INTO krx_reset_days VALUES (%s,%s) ON CONFLICT DO NOTHING", (day, n_st))
+                    cur.execute("INSERT INTO krx_reset_sweep_checkpoint VALUES (%s,%s) ON CONFLICT DO NOTHING", (day, n_st))
                 con.commit()
                 n_resets += len(rows)
                 n_days += 1
@@ -178,7 +178,7 @@ async def sweep(since: date, cap: int):
             print(f"\n중단: {e}", flush=True)
 
     tot = con.execute("SELECT count(*), count(DISTINCT isu_cd) FROM krx_base_resets").fetchone()
-    dd = con.execute("SELECT count(*), max(bas_dd) FROM krx_reset_days").fetchone()
+    dd = con.execute("SELECT count(*), max(bas_dd) FROM krx_reset_sweep_checkpoint").fetchone()
     print(f"\n리셋 테이블: {tot[0]:,}건 / {tot[1]:,}종목 | 처리일 {dd[0]:,} (최신 {dd[1]}) | 이번 콜 {_calls}", flush=True)
     con.close()
 

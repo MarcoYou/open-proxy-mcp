@@ -1,6 +1,6 @@
 """비KRW 공시사 재무를 **원화로 통일 저장** — 시총(krx_weekly, 항상 원화) 기준 **연도별 동적 통화감지**.
 
-배경(260705): mkt_fund_hist/q는 각 연도 공시통화 그대로 저장(통화컬럼 없음). 두산밥캣(241560)처럼 연도별로
+배경(260705): mkt_finstat_y/q는 각 연도 공시통화 그대로 저장(통화컬럼 없음). 두산밥캣(241560)처럼 연도별로
 통화가 바뀌는 회사가 있어, mkt_fundamentals.currency(최신 통화 1개)를 전 연도에 곱하는 하위 FX가 옛 연도를
 망침(4조×1185=4,826조). → 저장 단계에서 원화 통일하면 하위 FX 불필요.
 
@@ -61,7 +61,7 @@ async def main(apply: bool) -> None:
             capfy[int(bas_dd[:4])] = float(mktcap or 0)   # 연내 최신(=연말) 덮어씀
         # 연도별 통화 결정 (eq 기준)
         hist = {int(fy): (ni, eq, nir, eqr) for fy, ni, eq, nir, eqr in con.execute(
-            "SELECT fy, ni, eq, ni_restated, eq_restated FROM mkt_fund_hist WHERE isu_cd=%s", (isu,))}
+            "SELECT fy, ni, eq, ni_restated, eq_restated FROM mkt_finstat_y WHERE isu_cd=%s", (isu,))}
         # 1차: 연도별 원시 판정(신뢰도=로그거리 차)
         raw: dict[int, tuple] = {}
         for fy in sorted(hist):
@@ -111,22 +111,22 @@ async def main(apply: bool) -> None:
                 if not f: continue
                 ni, eq, nir, eqr = hist[fy]
                 vals = tuple(v * f if v is not None else None for v in (ni, eq, nir, eqr))
-                con.execute("UPDATE mkt_fund_hist SET ni=%s, eq=%s, ni_restated=%s, eq_restated=%s "
+                con.execute("UPDATE mkt_finstat_y SET ni=%s, eq=%s, ni_restated=%s, eq_restated=%s "
                             "WHERE isu_cd=%s AND fy=%s", (*vals, isu, fy))
                 tot_hist += 1
             # 분기: 그 fy의 통화결정을 그대로 적용
             for fy, q, ni, eq in con.execute(
-                    "SELECT fy, quarter, ni_cum, eq FROM mkt_fund_q WHERE isu_cd=%s", (isu,)):
+                    "SELECT fy, quarter, ni_cum, eq FROM mkt_finstat_q WHERE isu_cd=%s", (isu,)):
                 if decisions.get(int(fy), "").startswith("foreign"):
                     f = await fx(ccy, int(fy))
                     if not f: continue
-                    con.execute("UPDATE mkt_fund_q SET ni_cum=%s, eq=%s WHERE isu_cd=%s AND fy=%s AND quarter=%s",
+                    con.execute("UPDATE mkt_finstat_q SET ni_cum=%s, eq=%s WHERE isu_cd=%s AND fy=%s AND quarter=%s",
                                 (ni * f if ni is not None else None, eq * f if eq is not None else None, isu, fy, q))
                     tot_q += 1
             con.execute("UPDATE mkt_fundamentals SET orig_currency=COALESCE(orig_currency,%s), currency='KRW' WHERE isu_cd=%s", (ccy, isu))
         print()
     if apply:
-        print(f"✓ APPLY: mkt_fund_hist {tot_hist}행 · mkt_fund_q {tot_q}행 환산 · 라벨 KRW화 + orig_currency 보존")
+        print(f"✓ APPLY: mkt_finstat_y {tot_hist}행 · mkt_finstat_q {tot_q}행 환산 · 라벨 KRW화 + orig_currency 보존")
         print("  → 다음: derive_fundamentals 재실행(mkt_fundamentals 원화화) + 밴드 재실행")
     con.close()
 

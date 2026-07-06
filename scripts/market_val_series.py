@@ -1,7 +1,7 @@
 """시장 밸류에이션 분기 시계열 — PIT(공시 접수 근사) 기준 시장 PER/PBR 추이.
 
 시총: krx_weekly(주간, 2015-12~) 재활용 → KRX 콜 0.
-재무: FY2018~2024 지배순이익·지배자본 배치(mkt_fund_hist). 260705 FY2018-2019 백필 추가
+재무: FY2018~2024 지배순이익·지배자본 배치(mkt_finstat_y). 260705 FY2018-2019 백필 추가
       — firm_history 밴드 깊이를 2020년까지 확장(2020 PBR/PER PIT 커버). resume으로 누락분만 수집.
 PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년 FY, 아니면 전전년 FY)
           — 사업보고서 3월 중순 공시 규칙의 연 단위 근사(look-ahead 방지).
@@ -36,13 +36,13 @@ def _latest_annual_fy(today: date | None = None) -> int:
 
 # 2018 ~ 최신 확정 FY(자동 확장) — 신규 사업연도 공시 후 재실행하면 resume(done)이 그 FY만 수집.
 YEARS = list(range(2018, _latest_annual_fy() + 1))
-DDL = """CREATE TABLE IF NOT EXISTS mkt_fund_hist(
+DDL = """CREATE TABLE IF NOT EXISTS mkt_finstat_y(
   isu_cd text, fy int, fs text, ni double precision, eq double precision,
   ni_restated double precision, eq_restated double precision,
   fetched text, PRIMARY KEY(isu_cd, fy))"""
 DDL_MIGRATE = (
-    "ALTER TABLE mkt_fund_hist ADD COLUMN IF NOT EXISTS ni_restated double precision",
-    "ALTER TABLE mkt_fund_hist ADD COLUMN IF NOT EXISTS eq_restated double precision",
+    "ALTER TABLE mkt_finstat_y ADD COLUMN IF NOT EXISTS ni_restated double precision",
+    "ALTER TABLE mkt_finstat_y ADD COLUMN IF NOT EXISTS eq_restated double precision",
 )
 
 def num(v):
@@ -70,16 +70,16 @@ def _flush(buf):
                     # 와도 서로의 필드를 덮어쓰지 않음. fetched는 'restate_only'(선행 삽입용 자리표시)
                     # 보다 실제 상태('ok'/'nodata'/'err:*')가 항상 우선.
                     cur.executemany(
-                        "INSERT INTO mkt_fund_hist (isu_cd,fy,fs,ni,eq,ni_restated,eq_restated,fetched) "
+                        "INSERT INTO mkt_finstat_y (isu_cd,fy,fs,ni,eq,ni_restated,eq_restated,fetched) "
                         "VALUES(%s,%s,%s,%s,%s,%s,%s,%s) "
                         "ON CONFLICT (isu_cd,fy) DO UPDATE SET "
-                        "fs=COALESCE(EXCLUDED.fs, mkt_fund_hist.fs), "
-                        "ni=COALESCE(EXCLUDED.ni, mkt_fund_hist.ni), "
-                        "eq=COALESCE(EXCLUDED.eq, mkt_fund_hist.eq), "
-                        "ni_restated=COALESCE(EXCLUDED.ni_restated, mkt_fund_hist.ni_restated), "
-                        "eq_restated=COALESCE(EXCLUDED.eq_restated, mkt_fund_hist.eq_restated), "
+                        "fs=COALESCE(EXCLUDED.fs, mkt_finstat_y.fs), "
+                        "ni=COALESCE(EXCLUDED.ni, mkt_finstat_y.ni), "
+                        "eq=COALESCE(EXCLUDED.eq, mkt_finstat_y.eq), "
+                        "ni_restated=COALESCE(EXCLUDED.ni_restated, mkt_finstat_y.ni_restated), "
+                        "eq_restated=COALESCE(EXCLUDED.eq_restated, mkt_finstat_y.eq_restated), "
                         "fetched=CASE WHEN EXCLUDED.fetched <> 'restate_only' THEN EXCLUDED.fetched "
-                        "             ELSE mkt_fund_hist.fetched END",
+                        "             ELSE mkt_finstat_y.fetched END",
                         buf)
                 c.commit()
             buf.clear(); return
@@ -92,8 +92,8 @@ async def fetch():
     con=_pg()
     buf=[]
     firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
-    done={(r[0],r[1]) for r in con.execute("SELECT isu_cd, fy FROM mkt_fund_hist")}
-    # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — mkt_fund_hist DB값으로 동적
+    done={(r[0],r[1]) for r in con.execute("SELECT isu_cd, fy FROM mkt_finstat_y")}
+    # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — mkt_finstat_y DB값으로 동적
     # 확장 금지: 이 테이블엔 이미 소프트센 오염값(1.07×10^16)이 남아있어(구버전 fetch, 가드 신설
     # 전 수집) MAX()로 앵커를 잡으면 오염값이 그대로 앵커가 되어 가드가 무력화되는 자기오염 실측 확인.
     market_max_ni = MARKET_MAX_NI_ANCHOR
@@ -161,11 +161,11 @@ async def backfill_restated():
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con=_pg()
     firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
-    fs_map={r[0]:r[1] for r in con.execute("SELECT isu_cd, fs FROM mkt_fund_hist WHERE fy=2024")}
+    fs_map={r[0]:r[1] for r in con.execute("SELECT isu_cd, fs FROM mkt_finstat_y WHERE fy=2024")}
     # 이 함수는 fy=2024 보고서를 조회해 fy=2023·2022 행에 재작성치를 쓴다(fy=2024 자체엔 안 씀).
     # 따라서 완료 판정은 2023/2022 중 하나라도 재작성치가 있으면 그 종목은 처리됐다고 본다.
     done={r[0] for r in con.execute(
-        "SELECT isu_cd FROM mkt_fund_hist WHERE fy IN (2022,2023) "
+        "SELECT isu_cd FROM mkt_finstat_y WHERE fy IN (2022,2023) "
         "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)")}
     con.close()
     todo=[(i,c) for i,c in firms if i not in done]
@@ -203,13 +203,13 @@ def series():
         WHEN SUBSTRING(bas_dd,5,2)::int<=6 THEN 2 WHEN SUBSTRING(bas_dd,5,2)::int<=9 THEN 3 ELSE 4 END
       ORDER BY 1""").fetchall()
     qdates=[r[0] for r in qs if r[0]>="20210601"]
-    # 재무: FY별 (mkt_fund_hist ∪ 최신 FY2025는 mkt_fundamentals)
+    # 재무: FY별 (mkt_finstat_y ∪ 최신 FY2025는 mkt_fundamentals)
     # restated(다음 해 보고서 전기 비교치)가 있으면 그걸 우선 — 회사가 스스로 재작성한 참값
     # (소프트센 032680 FY2022 사례: 당해 XBRL 100만배 오류를 다음해 보고서가 정상화).
     fin={}
     restated_used=[]
     for isu,fy,ni,eq,ni_r,eq_r in con.execute(
-            "SELECT isu_cd,fy,ni,eq,ni_restated,eq_restated FROM mkt_fund_hist WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL"):
+            "SELECT isu_cd,fy,ni,eq,ni_restated,eq_restated FROM mkt_finstat_y WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL"):
         final_ni = ni_r if ni_r is not None else ni
         final_eq = eq_r if eq_r is not None else eq
         if ni_r is not None and ni is not None and abs(ni_r - ni) > abs(ni) * 0.01:
