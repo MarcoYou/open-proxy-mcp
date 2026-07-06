@@ -18,4 +18,5 @@
 세션이 뭐가 진짜 남았는지 헷갈리게 만드는 원인).
 
 ## 색인
-- [[260705_valuation-timeseries]] — 시장/섹터 밸류 과거 시계열 밴드(FY0 완성) + 통화통일 롤백 + 분기백필 미완
+_(현재 없음 — 260705_valuation-timeseries 해결 완료, durable 지식은 [[data-storage-registry]]·
+[[aggregate-denominator-pairing-260706]]·`project_fund_currency` 메모리로 이관 후 260706 삭제)_

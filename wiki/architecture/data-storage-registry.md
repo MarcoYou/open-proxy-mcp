@@ -188,6 +188,28 @@ updated: 2026-07-05
   (DART 0콜, krx_weekly×mkt_fund_hist만 사용)
 ```
 
+## 🔜 대기 중인 스키마 변경 (다음 배포 사이클, 260705 3에이전트 검토 완료)
+
+DART 백필·통화이슈 등과 겹쳐 **지금은 실행 안 함** — 코드 105곳 일괄치환 + DB 변경을 **같은 배포에**
+원자적으로. 결정 근거(마이그레이션/정합성/devil's advocate 3관점 독립검토)는 git 이력(260705 커밋)에
+보존, 여기는 실행 항목만.
+
+**Rename 7건** (이름만 바꿈, 데이터 구조 그대로):
+`mkt_fund_hist`→`mkt_finstat_y` · `mkt_fund_q`→`mkt_finstat_q` · `mkt_valuation`→`firm_valuation_snapshot` ·
+`mkt_val_history`→`market_valuation_history` · `mkt_sector_val`→`sector_valuation_history` ·
+`events`→`tool_call_events` · `krx_reset_days`→`krx_reset_sweep_checkpoint`(살아있는 체크포인트, 드랍 아님).
+
+**병합 A(승인)** — `mkt_val_history`+`mkt_sector_val`→ 단일 `mkt_val_history`. `sector` 컬럼에
+**센티넬 `'_ALL'`**(NOT NULL) = 시장전체, 그 외 = 해당 섹터(NULL 사용 금지 — PK NULL 불가 + UNIQUE는
+NULL≠NULL이라 매주 중복 INSERT 쌓임, 3에이전트 전원 확인). 수정 지점: `market_val_weekly.py`
+DDL/INSERT, `market_val_history_backfill.py` DDL/INSERT, 레거시 `market_val_agg.py`(폐기 검토),
+`valuation.py`의 `build_market_val_payload`/`build_sector_val_payload` WHERE절.
+
+**병합 B(반려, 재검토 불필요)** — `mkt_fund_hist`+`mkt_fund_q`는 병합하지 않는다. 근거: seed_q4가 채우는
+quarter=4 행의 `ni_case`/`eq_case`가 100% NULL이라 병합 시 케이스 분포 집계의 25%가 결측 처리되는 신규
+버그 발생, `_firm_fin_by_fy` 등 여러 지점이 `ORDER BY` 없이 병합 후 quarter 필터 누락 시 침묵 오류
+위험, restated 백필 로직 재작성 필요 — 리스크가 이득보다 큼.
+
 ## 검증 이력 (요약)
 - **260705 4단계 QA**(각 단계 독립 data QA agent): Step1 krx_weekly 통합(승인, WARN 2 패치) ·
   Step2 주간 스냅샷(승인 — 표본 17+비KRW 22 전수+97버킷 재현 일치, 권장 4 반영) · Step3 scope
