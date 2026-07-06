@@ -38,6 +38,9 @@ load_dotenv(ROOT / ".env")
 import psycopg
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
 from open_proxy_mcp.services.financial_metrics import normalize_amount
+from open_proxy_mcp.dart.fx import statement_currency, fx_to_krw
+
+_QEND = {1: "0331", 2: "0630", 3: "0930", 4: "1231"}
 
 # 분기 수집연도: 2019~현재. 2018 분기는 2019 TTM에만 필요(→ 2020~ 추이엔 불필요)해 제외 —
 # 2018은 seed_q4가 mkt_fund_hist에서 Q4(연간)만 seed. TTM은 2019 동분기가 있어 2020~부터 산출.
@@ -388,13 +391,28 @@ async def fetch(years, pilot=None, conc=2) -> None:
                 assets = gid_exact(rows, "ifrs-full_Assets", ("BS",))
                 liab = gid_exact(rows, "ifrs-full_Liabilities", ("BS",))
                 eq_total = gid_exact(rows, "ifrs-full_Equity", ("BS",))
-                v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total)
-                if v["tier"] == "hard":
-                    print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
-                    ni = eq = None; ni_case = eq_case = "SCALE_GUARD"
-                st = "ok" if (ni is not None or eq is not None) else "nodata"
-                async with lock:
-                    buf.append((isu, yr, q, rc, fs, ni, eq, st, ni_case, eq_case))
+                # 통화 근본해법(260706): 그 분기 응답 자체에서 통화 감지 후 KRW 환산(저장은 항상 KRW) —
+                # market_val_series.py 연간 fetch와 동일 패턴(statement_currency+fx_to_krw) 재사용.
+                stmt_cur = statement_currency(rows)
+                fx_err = None
+                if stmt_cur != "KRW":
+                    fx_rate = await fx_to_krw(stmt_cur, f"{yr}{_QEND[q]}")
+                    if fx_rate is None:
+                        fx_err = f"err:fx_{stmt_cur}"
+                    else:
+                        def _fx(x): return x * fx_rate if x is not None else None
+                        ni, eq, assets, liab, eq_total = (_fx(v) for v in (ni, eq, assets, liab, eq_total))
+                if fx_err:
+                    async with lock:
+                        buf.append((isu, yr, q, rc, None, None, None, fx_err, "ERR", "ERR"))
+                else:
+                    v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total)
+                    if v["tier"] == "hard":
+                        print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
+                        ni = eq = None; ni_case = eq_case = "SCALE_GUARD"
+                    st = "ok" if (ni is not None or eq is not None) else "nodata"
+                    async with lock:
+                        buf.append((isu, yr, q, rc, fs, ni, eq, st, ni_case, eq_case))
             prog["n"] += 1
             if prog["n"] % 300 == 0:
                 print(f"{prog['n']}/{total}", flush=True)

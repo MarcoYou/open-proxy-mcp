@@ -25,6 +25,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from datetime import date
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
+from open_proxy_mcp.dart.fx import statement_currency, fx_to_krw
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
@@ -117,10 +118,23 @@ async def fetch():
             ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
             ni_frmtrm=gid(rows,attr,("CIS","IS"),"frmtrm_amount")
             eq=gid(rows,eqa,("BS",)) or gid(rows,"ifrs-full_Equity",("BS",))
-            # 실시간 스케일 가드(소프트센 032680 사례, wiki §9) — mktcap은 이 배치엔 없어 ①②③만 적용.
-            # 항등식은 총자본(지배+비지배) 기준 — eq(지배자본)와 별도로 조회 필요.
             assets=gid(rows,"ifrs-full_Assets",("BS",)); liab=gid(rows,"ifrs-full_Liabilities",("BS",))
             eq_total=gid(rows,"ifrs-full_Equity",("BS",))
+            # 통화 근본해법(260706): 연도별로 그 응답 자체에서 통화 감지(연도별 통화 상이 가능 —
+            # 두산밥캣 fy≤2022 원화/fy2023+ USD) → **저장 전에 KRW로 환산**. valuation.py의 실시간
+            # firm 조회와 동일 패턴(statement_currency+fx_to_krw) 재사용 — 로직 이중구현 방지.
+            # 저장은 항상 KRW 원칙: 하위 소비처(firm_history 등)의 read-time FX를 이걸로 대체 가능.
+            stmt_cur = statement_currency(rows)
+            if stmt_cur != "KRW":
+                fx_rate = await fx_to_krw(stmt_cur, f"{yr}1231")  # 대부분 12월 결산 근사(라이브 경로와 동일 근사)
+                if fx_rate is None:
+                    buf.append((isu,yr,None,None,None,None,None,f"err:fx_{stmt_cur}"))
+                    if len(buf)>=25: _flush(buf)
+                    continue
+                def _fx(x): return x*fx_rate if x is not None else None
+                ni,ni_frmtrm,eq,assets,liab,eq_total = (_fx(v) for v in (ni,ni_frmtrm,eq,assets,liab,eq_total))
+            # 실시간 스케일 가드(소프트센 032680 사례, wiki §9) — mktcap은 이 배치엔 없어 ①②③만 적용.
+            # 항등식은 총자본(지배+비지배) 기준 — eq(지배자본)와 별도로 조회 필요. (통화환산 후 KRW 기준으로 비교)
             verdict=scale_assess(thstrm=ni, frmtrm=ni_frmtrm, assets=assets, liabilities=liab, equity=eq_total)
             if verdict["tier"]=="hard":
                 print(f"[가드] {isu} FY{yr} 스케일오류 감지({verdict['hard_hit']}) — ni/eq 무효화",flush=True)
