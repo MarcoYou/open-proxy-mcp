@@ -167,11 +167,11 @@ OpenProxy MCP
 
 | Layer | Tools | Role |
 |---|---|---|
-| Company | `company` | Company identification and common filings index |
-| Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | Pre/post AGM data |
-| Data | `ownership_structure`, `financial_metrics`, `corp_gov_report`, `dividend`, `treasury_share`, `value_up`, `corporate_restructuring`, `dilutive_issuance`, `proxy_contest`, `corporate_deals`, `risk_events` | Filing, financial, ownership, and governance parsers |
-| Evidence | `evidence` | Source tracking from filing receipt numbers |
-| Action | `proxy_advise_before_meeting` | Compose multiple data tools into recommendations/reports (post-AGM outcomes: `shareholder_meeting_results`) |
+| Company | [`company`](wiki/tools/company.md) | Company identification and common filings index |
+| Meeting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md) | Pre/post AGM data |
+| Data | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`valuation`](wiki/tools/valuation.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`dividend`](wiki/tools/dividend.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md) | Filing, financial, ownership, and governance parsers |
+| Evidence | [`evidence`](wiki/tools/evidence.md) | Source tracking from filing receipt numbers |
+| Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md) | Compose multiple data tools into recommendations/reports (post-AGM outcomes: [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md)) |
 
 ### Voting Policy — Open Proxy Guideline
 

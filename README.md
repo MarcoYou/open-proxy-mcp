@@ -125,11 +125,11 @@ OpenProxy MCP의 18개 tool은 **Company → Meeting/Data/Evidence → Action** 
 
 | Layer | Tools | 역할 |
 |---|---|---|
-| Company | `company` | 기업 식별과 공통 공시 인덱스 |
-| Meeting | `shareholder_meeting_notice`, `shareholder_meeting_results` | 주총 전/후 데이터 |
-| Data | `corp_gov_report`, `corporate_restructuring`, `dilutive_issuance`, `dividend`, `financial_metrics`, `valuation`, `ownership_structure`, `corporate_deals`, `proxy_contest`, `risk_events`, `treasury_share`, `value_up` | 개별 공시/재무/지배구조 파싱 |
-| Evidence | `evidence` | 공시번호 기반 출처 추적 |
-| Action | `proxy_advise_before_meeting` | 여러 data tool을 묶어 판단/보고 생성 (사후 결과는 `shareholder_meeting_results`) |
+| Company | [`company`](wiki/tools/company.md) | 기업 식별과 공통 공시 인덱스 |
+| Meeting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md) | 주총 전/후 데이터 |
+| Data | [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`dividend`](wiki/tools/dividend.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`valuation`](wiki/tools/valuation.md), [`ownership_structure`](wiki/tools/ownership_structure.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`risk_events`](wiki/tools/risk_events.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md) | 개별 공시/재무/지배구조 파싱 |
+| Evidence | [`evidence`](wiki/tools/evidence.md) | 공시번호 기반 출처 추적 |
+| Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md) | 여러 data tool을 묶어 판단/보고 생성 (사후 결과는 [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md)) |
 
 ### 의결권 정책
 
