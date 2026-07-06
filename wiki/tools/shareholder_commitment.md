@@ -63,6 +63,14 @@ CSR% = (배당총액 + 자사주소각금액) ÷ 순이익 × 100
 (treasury_share.summary)이라 서로 다른 기간 기준 — `overall.period_note`에 명시. 엄밀한 다년 합산이
 아닌 참고용 종합.
 
+## 배당수익률 — 연말종가 기준 보완 (260707 추가)
+`dividend.history`의 `yield_pct`(DART 자체 결의시점 시가배당률)는 **옛 연도일수록 결측이 많음**을
+실측 확인(미래에셋증권·현대차·SKC 전부 2021·2022년 None, 2023년부터만 값 있음 — DART alotMatter의
+과거 공시 특성). `krx_weekly`(연말종가, `valuation.py`의 `_annual_pit_band`와 동일 쿼리 패턴)로
+`DPS ÷ 연말종가`를 직접 계산해 `yield_pct_yearend` 필드로 별도 노출 — 원본 `yield_pct`는 그대로
+두고 공백만 메운다. 두 값은 **기준일이 다르므로**(결의시점 시가 vs 연말종가) 값이 다를 수 있음을
+출력에 명시.
+
 ## 출력 schema (data dict)
 ```json
 {
@@ -78,7 +86,8 @@ CSR% = (배당총액 + 자사주소각금액) ÷ 순이익 × 100
        "premium_discount_pct": -14.71, "book_value_gain_loss_krw": 13809568880,
        "note": "매입가가 BPS보다 쌈(장부가 기준 이득)"}
     ],
-    "dividend_history": [{"year": 2025, "annual_dps": 300, "payout_ratio": 11.1, ...}]
+    "dividend_history": [{"year": 2025, "annual_dps": 300, "payout_ratio": 11.1,
+                          "yield_pct": 0.4, "yield_pct_yearend": 1.31, ...}]
   },
   "governance_trend": {"transitions": [{"label": "...", "from_val": "X", "to_val": "O", "direction": "improved", ...}]},
   "overall": {"dividend_krw": ..., "buyback_cancelation_krw": ..., "cash_shareholder_return_pct": 41.0,

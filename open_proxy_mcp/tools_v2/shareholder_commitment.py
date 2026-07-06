@@ -74,13 +74,20 @@ def _render(payload: dict[str, Any]) -> str:
     if div_hist:
         lines.append("## 배당 추이")
         lines.append("")
-        lines.append("| 연도 | 주당배당(DPS) | 배당성향 | 배당수익률 | 패턴 |")
-        lines.append("|---|---|---|---|---|")
+        lines.append("| 연도 | 주당배당(DPS) | 배당성향 | 배당수익률(결의시점) | 배당수익률(연말종가) | 패턴 |")
+        lines.append("|---|---|---|---|---|---|")
         for h in div_hist:
+            payout = h.get("payout_ratio")
+            yld = h.get("yield_pct")
+            yld_ye = h.get("yield_pct_yearend")
             lines.append(
                 f"| {h.get('year')} | {_f(h.get('annual_dps'))}원 | "
-                f"{h.get('payout_ratio', 'N/M')}% | {h.get('yield_pct', 'N/M')}% | {h.get('pattern', '-')} |"
+                f"{f'{payout}%' if payout is not None else 'N/M'} | {f'{yld}%' if yld is not None else 'N/M'} | "
+                f"{f'{yld_ye}%' if yld_ye is not None else 'N/M'} | {h.get('pattern', '-')} |"
             )
+        lines.append("")
+        lines.append("> 배당수익률(연말종가)은 krx_weekly 연말 종가로 직접 계산(DART 결의시점 시가배당률에")
+        lines.append("> 결측 있는 옛 연도 보완용, 260707 추가) — 두 값은 기준일이 달라 다를 수 있음.")
         lines.append("")
 
     trans = (d.get("governance_trend") or {}).get("transitions") or []

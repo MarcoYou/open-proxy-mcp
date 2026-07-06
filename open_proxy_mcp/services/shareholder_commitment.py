@@ -43,7 +43,7 @@ from open_proxy_mcp.services.value_up_v2 import build_value_up_payload
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
 from open_proxy_mcp.services.dividend_v2 import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
-from open_proxy_mcp.services.valuation import _shares_outstanding
+from open_proxy_mcp.services.valuation import _shares_outstanding, _pg_rows
 from open_proxy_mcp.services.date_utils import resolve_date_window, format_yyyymmdd
 
 _SANITY_LOW, _SANITY_HIGH = 0.3, 3.0
@@ -173,6 +173,26 @@ def _overall_shareholder_return(
     }
 
 
+async def _fill_yearend_yield(isu_cd: str, div_history: list[dict[str, Any]]) -> None:
+    """DART 자체 배당수익률(yield_dart, dividend.history의 yield_pct)은 결의 시점 시가 기준이라
+    옛 연도일수록 결측이 많다(실측 확인 260707: 미래에셋증권·현대차·SKC 전부 2021·2022년 None,
+    2023년부터만 값 있음). krx_weekly(연말종가, valuation.py의 _annual_pit_band와 동일 쿼리 패턴)
+    로 DPS÷연말종가를 직접 계산해 공백을 메운다 — 원래 값(yield_pct)은 안 건드리고
+    `yield_pct_yearend`로 별도 필드 추가(기준일이 다르므로 값이 다를 수 있음을 명시)."""
+    rows = await asyncio.to_thread(_pg_rows,
+        "SELECT DISTINCT ON (substring(bas_dd,1,4)) substring(bas_dd,1,4), close "
+        "FROM krx_weekly WHERE isu_cd=%s AND substring(bas_dd,5,2)='12' "
+        "ORDER BY substring(bas_dd,1,4), bas_dd DESC", (isu_cd,))
+    if not rows:
+        return
+    close_by_year = {int(yr): float(close) for yr, close in rows if close}
+    for h in div_history:
+        dps = h.get("annual_dps")
+        close = close_by_year.get(h.get("year"))
+        if dps and close:
+            h["yield_pct_yearend"] = round(dps / close * 100, 2)
+
+
 async def build_shareholder_commitment_payload(
     company_query: str, *, lookback_years: int = 3, format: str = "md"
 ) -> dict[str, Any]:
@@ -247,6 +267,11 @@ async def build_shareholder_commitment_payload(
             f"(진단 구간 {diag.get('start_date')}~{diag.get('end_date')}에 {diag.get('dart_filing_count', 0)}건 확인) "
             "— lookback_years를 늘려서 재조회 권장."
         )
+
+    isu_cd = selected.get("stock_code")
+    div_history_list = div_history_data.get("history") or []
+    if isu_cd and div_history_list:
+        await _fill_yearend_yield(isu_cd, div_history_list)
 
     capital_return_cycles, quality_flags = await _capital_return_impact(canonical_name, corp_code, treasury_data)
     overall = _overall_shareholder_return(
