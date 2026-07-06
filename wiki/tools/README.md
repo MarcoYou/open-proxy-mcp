@@ -17,44 +17,44 @@ updated: 2026-06-20
 ### 🏢 기본 — 회사 찾기
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [[company]] | 회사 식별 + 최근 공시 목록 — **모든 분석의 출발점** |
+| [company](company.md) | 회사 식별 + 최근 공시 목록 — **모든 분석의 출발점** |
 
 ### 🗳️ 주주총회 · 의결권
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [[shareholder_meeting_notice]] | 주총 **소집공고**(주총 전) — 안건·이사 후보·보수한도·정관 변경 |
-| [[shareholder_meeting_results]] | 주총 **결과**(주총 후) — 안건별 가결/부결·찬반율 |
-| [[proxy_advise_before_meeting]] | **의결권 보조** — 안건별 찬성/반대/검토 + 근거 (핵심 도구) |
+| [shareholder_meeting_notice](shareholder_meeting_notice.md) | 주총 **소집공고**(주총 전) — 안건·이사 후보·보수한도·정관 변경 |
+| [shareholder_meeting_results](shareholder_meeting_results.md) | 주총 **결과**(주총 후) — 안건별 가결/부결·찬반율 |
+| [proxy_advise_before_meeting](proxy_advise_before_meeting.md) | **의결권 보조** — 안건별 찬성/반대/검토 + 근거 (핵심 도구) |
 
 ### 💰 지분 · 재무 · 지배구조
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [[ownership_structure]] | 지분 구조 — 최대주주·특수관계인·5% 대량보유·자사주 |
-| [[financial_metrics]] | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 |
-| [[valuation]] | 상대가치 배수 — PER·PBR·배당수익률 (통화환산·스케일가드) |
-| [[corp_gov_report]] | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
+| [ownership_structure](ownership_structure.md) | 지분 구조 — 최대주주·특수관계인·5% 대량보유·자사주 |
+| [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 |
+| [valuation](valuation.md) | 상대가치 배수 — PER·PBR·배당수익률 (통화환산·스케일가드) |
+| [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
 
 ### 🎁 주주환원 · 자본
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [[dividend]] | 배당 — 배당금·총액·배당성향·추이 |
-| [[treasury_share]] | 자기주식 — 취득·처분·소각·신탁 |
-| [[value_up]] | 기업가치 제고(밸류업) 계획과 이행 현황 |
-| [[corporate_restructuring]] | 합병·분할·주식교환·이전 |
-| [[dilutive_issuance]] | 유상증자·전환사채(CB)·신주인수권부사채(BW)·감자 (지분 희석) |
+| [dividend](dividend.md) | 배당 — 배당금·총액·배당성향·추이 |
+| [treasury_share](treasury_share.md) | 자기주식 — 취득·처분·소각·신탁 |
+| [value_up](value_up.md) | 기업가치 제고(밸류업) 계획과 이행 현황 |
+| [corporate_restructuring](corporate_restructuring.md) | 합병·분할·주식교환·이전 |
+| [dilutive_issuance](dilutive_issuance.md) | 유상증자·전환사채(CB)·신주인수권부사채(BW)·감자 (지분 희석) |
 
 ### ⚔️ 분쟁 · 거래 · 리스크
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [[proxy_contest]] | 경영권 분쟁 신호 — 위임장·소송·5% 경영참여 |
-| [[corporate_deals]] | 회사·지분 인수/매각 (계열사 출자·회수) |
-| [[order_contracts]] | 수주·공급계약 (체결·해지, 매출 대비 규모) |
-| [[risk_events]] | 리스크 사건 — 중대재해·횡령배임·생산중단 |
+| [proxy_contest](proxy_contest.md) | 경영권 분쟁 신호 — 위임장·소송·5% 경영참여 |
+| [corporate_deals](corporate_deals.md) | 회사·지분 인수/매각 (계열사 출자·회수) |
+| [order_contracts](order_contracts.md) | 수주·공급계약 (체결·해지, 매출 대비 규모) |
+| [risk_events](risk_events.md) | 리스크 사건 — 중대재해·횡령배임·생산중단 |
 
 ### 🔗 근거
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [[evidence]] | 공시 원문 링크 (접수번호 → DART 열람 URL) |
+| [evidence](evidence.md) | 공시 원문 링크 (접수번호 → DART 열람 URL) |
 
 > 📊 도구–공시 채널 매핑(시각 자료): [[tool_disclosure_map]] · [[data_tool_disclosure_map]]
 > 📞 도구별 DART 콜 budget(기업당 최대 콜·유니버스 배치 안전 크기): [[tool_call_budget]]
