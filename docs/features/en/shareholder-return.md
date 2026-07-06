@@ -47,6 +47,10 @@ Reads the value-up (corporate-value-enhancement) filing and its key commitment s
 > "Show me KT&G's dividends, treasury cancellation history, and whether its value-up plan was executed"
 
 You trace policy (value-up) → promise → actual execution (dividend, treasury cancellation) in one flow.
+A dedicated tool, `shareholder_commitment` (added 2026-07-07), combines all three in a single call — for
+each buyback-cancellation cycle it also computes the **book-value (BPS) gain or loss** by comparing the
+weighted-average purchase price against BPS at the time of purchase (dividends are shown separately as an
+overall shareholder-return figure, since their book-value effect runs the opposite direction).
 
 ## See also
 

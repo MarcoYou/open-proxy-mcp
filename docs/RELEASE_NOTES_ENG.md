@@ -4,6 +4,18 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Since v2.1 (unreleased, 2026-06-12 ~ )
 
+- **`shareholder_commitment` added — 19th tool, 2nd Action Tool (2026-07-07)** — tracks value-up,
+  dividend, and treasury-buyback commitments against what was actually executed, year-round (whereas
+  `proxy_advise_before_meeting` is a one-time AGM-timed judgment, this is a stewardship-engagement
+  follow-up). For each buyback-cancellation cycle it computes the book-value (BPS) gain or loss by
+  comparing the weighted-average purchase price against BPS at the time of purchase; dividends are
+  shown separately in an overall shareholder-return figure. Dividend yield now also fills gaps in
+  DART's own resolution-date yield (missing for older years) using krx_weekly year-end close
+  (`yield_pct_yearend`).
+- **`treasury_share` unit-misparsing bug fix (2026-07-07)** — result-report tables that declare a
+  scale (e.g. "in millions of won") had their ACODE-tagged amounts misread as raw won, understating
+  values by up to 1,000,000x. Found via a KOSPI200-wide sweep (7 companies, 26 rows affected), fixed,
+  and re-verified at 0 remaining.
 - **financial_metrics period handling** — DART reports carry different period semantics per item (income statement `thstrm` = current 3 months, cumulative is `thstrm_add`; cash flow = cumulative; balance sheet = point-in-time). For interim reports the tool now ① computes P&L on two bases — cumulative (YTD) plus current-quarter standalone (half/Q3 derived by differencing the prior report), ② computes turnover days (DSO/DIO/CCC) on a TTM (trailing-12-month) denominator to remove single-quarter annualization distortion (SK Hynix 26Q1 DIO 511→133 days; DSO false 38.6→61.4), ③ leaves ROE/ROA un-annualized (period value), and ④ always states the basis via `period_basis`/`turnover_basis`/`basis_note`. Also: evidence now carries the source report rcept/viewer URL, a warning when consolidated (CFS) is unavailable and standalone (OFS) is used, a quarter-aware default year for quarterly/qoq, and operating-margin QoQ/YoY in %p.
 - **ownership_structure co-holder breakdown productized** — a 5% block's headline stake is filer + related parties combined; now split into `reporter_self_pct` + `co_holders`[{name, ownership_pct, is_registry_holder}] + `co_holders_verified` (sum≈headline invariant), with a rendered breakdown table (answers "who holds how much of OO's N%"). When related parties include the registry's largest shareholder, reclassified as `coheld_with_registry` (prevents proxy_contest mislabeling an ally as external). Parser hardening: self-name pollution, ㈜ symbol, fund-name digits (제N호), long English names, foreign IDs (LEI / foreign reg number) — 332-company census incl. proxy-contest edges, invariant 92.7→95.3%, unverified flagged via verified=False.
 - **shareholder_meeting proposer_type unified** — shareholder-proposal agendas now use the canonical `shareholder_proposal` value (previously `shareholder`, mismatching consumers that missed proposals). Validated via a KOSDAQ shareholder-proposal census (raw-HTML cross-check).

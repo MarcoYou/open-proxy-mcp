@@ -3,6 +3,36 @@ type: log
 title: Operation Log
 ---
 
+## [2026-07-07] feat+fix | treasury_share 단위버그 수정 + shareholder_commitment 신설(19번째 tool)
+
+- **treasury_share 원문 단위(백만원 등) 미인식 버그 수정**: 실행결과보고서(취득·처분·신탁 결과) 원문
+  표가 "(단위: 백만원)" 등을 선언하면 ACODE 태그 값도 그 배수를 따르는데, 기존 `_acode_int`는 항상
+  원 단위로 가정해 금액이 최대 100만분의 1로 축소됐다. 신규 `_acode_amount`+`_nearest_table_unit`이
+  ACODE를 감싸는 `<TABLE-GROUP>` 범위 안에서만 단위선언을 찾아 배수 적용(문서 내 여러 표가 서로 다른
+  단위를 쓰는 경우 상호 오염 방지 — 처음엔 문서 전체 스캔·단일 `<TABLE>` 스코핑 둘 다 시도했으나
+  각각 오탐/누락 있어 `<TABLE-GROUP>` 단위로 정착). `scripts/treasury_unit_sweep.py`(신규)로 KOSPI200
+  전수 스캔: 수정 전 26건(7개사: 현대차·기아·SKC·포스코퓨처엠·유한양행·한화솔루션·세아베스틸지주,
+  현대차는 60개월 이력 100% 오염) → 수정 후 0건. 독립 QA 에이전트 2인이 신규 10개사에서 원문 직접
+  대조 포함 재검증(과잉수정 없음 확인). 남은 4건(POSCO홀딩스·카카오·엘앤에프·포스코퓨처엠)은 단위버그가
+  아니라 결정↔실행 매칭 로직(`_link_cycles`)의 별개 이슈로 확인, TO_DO 기록.
+- **`shareholder_commitment` tool 신설(19번째 tool, 2번째 Action Tool)**: 밸류업·배당·자사주 소각의
+  약속 vs 실제 이행을 연중 추적. 4개 upstream 재사용(value_up·corp_gov_report·dividend·treasury_share,
+  신규 파싱 없음) + 신규 계산 1개 — 자사주 소각 사이클마다 매입시점 BPS 대비 실제 매입가를 비교해
+  **장부가(BPS) 손익을 원화로 계산**(배당은 방향이 반대라 이 계산에서 제외, CSR 종합에는 포함).
+  BPS는 `financial_metrics.bps_krw`가 실측 결과 항상 None(미구현)임을 확인하고 `total_equity_krw`+
+  DART `stockTotqySttus`(valuation.py의 `_shares_outstanding` 재사용)로 직접 조합. sanity 필터(비율
+  0.3~3.0)로 `_link_cycles` 오탐이 조용히 섞이지 않게 방어. 이름은 처음 `stewardship_followup`으로
+  지었다가 사용자 피드백으로 `shareholder_commitment`로 변경(직관성).
+- **버그 발견·수정(조합형 tool 설계 교훈)**: `value_up` 호출 시 조회 구간을 안 넘겨 실제 존재하는
+  밸류업 계획을 "없음"으로 오판(미래에셋증권 실측 — 2024-08 최초공시·2025-06 이행현황 있음에도 기본
+  12개월 창에 안 걸림). 근본원인은 `value_up`이 이미 갖고 있던 자체 진단 필드(`availability_status:
+  "exists_outside_requested_window"`)를 조합 코드가 upstream `warnings`를 완전히 버려서(예외만 잡고
+  정상응답 warnings 무시) 놓친 것. `_data()` 헬퍼가 모든 upstream warnings를 전파하도록 일반화 —
+  "조합형 Action Tool은 upstream warnings 반드시 전파" 원칙으로 메모리에도 기록.
+- **배당수익률 연말종가 보완**: `dividend.history`의 `yield_pct`(DART 결의시점 시가배당률)가 옛
+  연도일수록 결측 많음을 실측 확인(3개사 전부 2021·2022년 None). `krx_weekly`(연말종가,
+  `valuation.py`의 `_annual_pit_band`와 동일 쿼리 패턴)로 `yield_pct_yearend` 별도 계산해 공백 보완.
+
 ## [2026-07-06] fix+refactor | 통화 저장시점 근본해결 + DB rename 5건·병합 1건 + 문서 정합성 정정
 
 - **통화(FX) 근본해결**: `market_val_series.py`(연간)·`market_fund_quarterly.py`(분기) fetch 루프에

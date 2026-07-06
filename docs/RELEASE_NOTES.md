@@ -4,6 +4,14 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 ## v2.1 이후 (미릴리즈, 2026-06-12 ~ )
 
+- **`shareholder_commitment` 신설 — 19번째 tool, 2번째 Action Tool (2026-07-07)** — 밸류업·배당·자사주
+  소각의 약속 vs 실제 이행을 연중 추적(`proxy_advise_before_meeting`이 주총 1회성 판단이라면 이건
+  스튜어드십 engagement 관점). 자사주 소각 사이클마다 매입시점 BPS 대비 실제 매입가를 비교해 장부가
+  손익을 원화로 계산, 배당은 별도 "주주환원 종합"에 포함. 배당수익률은 DART 결의시점 시가배당률의
+  옛 연도 결측을 krx_weekly 연말종가로 보완(`yield_pct_yearend`).
+- **`treasury_share` 원문 단위(백만원 등) 미인식 버그 수정 (2026-07-07)** — 실행결과보고서 표가 단위를
+  다르게 선언하면 금액이 최대 100만분의 1로 축소되던 버그. KOSPI200 전수 스캔으로 7개사 26건 확인 후
+  수정, 0건으로 회귀검증.
 - **financial_metrics 기간(period) 처리 정밀화** — DART는 항목별로 기간 의미가 다르다(손익 thstrm=당기 3개월·누적은 thstrm_add / 현금흐름=누적 / 재무상태=잔액). 분기보고서 조회 시 ① 손익을 **누적(YTD) + 당기 분기(standalone) 두 기준**으로 산출(반기/3분기는 직전 보고서 차분), ② 회전일수(DSO/DIO/CCC)를 **TTM(최근 4분기) 분모**로 계산해 단일분기 연환산 왜곡 제거(SK하이닉스 26Q1 DIO 511→133일, DSO 거짓 38.6→61.4), ③ ROE/ROA는 연환산 없이 분기값 유지, ④ 기준을 항상 `period_basis`/`turnover_basis`/`basis_note`로 명시. 부수로 evidence에 원문 보고서 rcept·뷰어URL 부착, 연결(CFS) 미작성 시 별도(OFS) 폴백 경고, 분기 인지형 디폴트(year 미지정 quarterly는 당해 연도), 영업이익률 QoQ/YoY %p 동봉.
 - **ownership_structure 공동보유자 명세 제품화** — 5% 대량보유 헤드라인 지분율은 보고자 본인+특별관계자 합산. 이를 분해해 `reporter_self_pct`(본인) + `co_holders`[{name, ownership_pct, is_registry_holder}] + `co_holders_verified`(합≈헤드라인 불변식)로 노출, 렌더에 "공동보유자 분해" 표 추가("OO의 N%=누구 얼마씩"에 직접 답). 특관에 명부상 최대주주 포함 시 `coheld_with_registry` 재분류(proxy_contest 외부세력 오분류 방지). 파서 정제: self 이름 오염(주수비율)·㈜ 기호·펀드명 숫자(제N호)·긴 영문명·외국법인 ID(LEI·외국 등록번호) — 분쟁 엣지 포함 332사 전수 불변식 92.7→95.3%, 미검증은 verified=False로 정직 표기.
 - **shareholder_meeting proposer_type 통일** — 주주제안 안건 proposer_type 값을 canonical `shareholder_proposal`로(과거 `shareholder`와 불일치해 소비자가 주주제안을 놓침). KOSDAQ 주주제안 전수(원문 교차검증)로 검출 정상화.
