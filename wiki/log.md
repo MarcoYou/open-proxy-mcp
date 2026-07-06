@@ -3,6 +3,33 @@ type: log
 title: Operation Log
 ---
 
+## [2026-07-06] fix+refactor | 통화 저장시점 근본해결 + DB rename 5건·병합 1건 + 문서 정합성 정정
+
+- **통화(FX) 근본해결**: `market_val_series.py`(연간)·`market_fund_quarterly.py`(분기) fetch 루프에
+  `statement_currency()`+`fx_to_krw()` 삽입 — 그 해/분기 응답에서 직접 통화 감지 후 저장 전 KRW 환산.
+  기존엔 read-time에 최신 통화 라벨 1개를 전 연도에 곱해 두산밥캣류(연도별 통화 전환사) 옛 연도가
+  폭증하는 버그가 있었음(4조→4,826조). 22사(USD 12·CNY 9·JPY 1) 재수집(연간 176건+분기 489건),
+  라벨 KRW화(`orig_currency` 보존), derive+밴드 재계산, firm_history 회귀검증 통과(두산밥캣 PBR
+  0.73~1.01배로 매끈).
+- **DB rename 5건**: `mkt_fund_hist`→`mkt_finstat_y` · `mkt_fund_q`→`mkt_finstat_q` ·
+  `mkt_valuation`→`firm_valuation_snapshot` · `events`→`tool_call_events` ·
+  `krx_reset_days`→`krx_reset_sweep_checkpoint`. `usage.py`/`usage_tracker.py`는 로컬 sqlite `events`
+  (별개 DB)와 Postgres `events`가 리터럴로 섞여있어 연결객체 기준으로 Postgres만 정확히 골라 rename.
+- **병합 1건**: `mkt_val_history`+`mkt_sector_val` → 단일 `mkt_val_history`, `sector` 컬럼에 센티넬
+  `'_ALL'`(NOT NULL, PK=snap_dd·mkt·sector) 도입. 병합 전후 행수(11,269)·`_ALL` 행수(158) 일치 검증
+  후 커밋. `market_val_weekly.py`/`market_val_history_backfill.py` INSERT 통합, `valuation.py`의
+  `build_market_val_payload`/`build_sector_val_payload`에 `sector='_ALL'` 필터 추가.
+- **실행 중 발견·수정**: 문서상 모순(rename 목록과 병합 결정이 같은 테이블을 두고 충돌) · macOS sed의
+  `\b` 미지원으로 첫 치환이 전부 무효였던 것 · `market_val_weekly.py`의 `DDL_SECTOR` 잔여참조(실제
+  재실행해서 발견) · README.md/README_ENG.md의 도구 개수 불일치(배지 18 vs 실제 표 17개, `valuation`·
+  `order_contracts` 누락 — 특히 README_ENG.md는 여러 곳에서 17로 정체돼 있었음).
+  DB rename+병합은 트랜잭션 하나로 실행 후 즉시 코드 push(라이브 서빙 갭 최소화, 사용자 선택).
+- **문서 갱신**: `wiki/tools/valuation.md`(scope 표·TTM/MRQ 완비·sector_history 신규기능 반영),
+  `wiki/decisions/valuation-methodology.md`·`wiki/rules/disclosures/분기재무-API스펙.md`(테이블명
+  갱신, 특정 과거 사고 기록은 원 이름 보존), `wiki/architecture/data-storage-registry.md`("✅ 완료"
+  전환), `wiki/tools/README.md`+루트 README 2종의 도구 카탈로그를 `[[wikilink]]`/백틱에서 클릭 가능한
+  `[name](name.md)` 마크다운 링크로 전환.
+
 ## [2026-06-25] ops | Fly.io 배포 실패 복구 — 볼륨 호스트 장애 → 머신 교체 + 이중화 복구 (런북)
 
 - **증상**: director 커밋(3ab8294) 후 Deploy to Fly.io 실패 — `machine requires manual intervention: volume on unreachable host`. log 회고 커밋은 같은 머신이 안 떠서 10분 deadline timeout.
