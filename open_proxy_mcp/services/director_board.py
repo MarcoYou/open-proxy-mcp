@@ -330,11 +330,18 @@ _EMP_TOTAL_MARKERS = ("합계", "소계", "총계", "전체")
 
 
 def _emp_row_usable(r: dict[str, Any]) -> tuple[int, int] | None:
-    """(연급여총액, 인원) — 둘 다 유효할 때만. 인원=정규+계약, 없으면 sm(합계)."""
+    """(연급여총액, 인원) — 둘 다 유효할 때만.
+
+    인원은 **sm(공시상 합계 필드)을 우선 신뢰**(QA 260708 발견 — 클로봇 원문에서 특정 행의
+    `rgllbr_co`가 981로 오기재(오타 추정, `sm`은 98)돼 있었는데, rgllbr_co+cnttk_co를 그대로
+    합산하면 총원이 실제보다 10배 부풀려져 인당급여가 비현실적으로 낮아지고 pay_gap 배수가
+    56.6배로 왜곡됨 — 다른 5개 행은 전부 rgllbr_co+cnttk_co==sm 일치, 이 행만 원문 자체 오류).
+    sm이 없는 회사도 있어 그때만 rgllbr_co+cnttk_co로 폴백.
+    """
     pay = _to_int(r.get("fyer_salary_totamt"))
-    head = (_to_int(r.get("rgllbr_co")) or 0) + (_to_int(r.get("cnttk_co")) or 0)
+    head = _to_int(r.get("sm"))
     if not head:
-        head = _to_int(r.get("sm")) or 0
+        head = (_to_int(r.get("rgllbr_co")) or 0) + (_to_int(r.get("cnttk_co")) or 0)
     return (pay, head) if (pay and head) else None
 
 
