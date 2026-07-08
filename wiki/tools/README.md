@@ -1,18 +1,18 @@
 ---
 type: readme
-title: tools/ — 도구 카탈로그 (19개)
+title: tools/ — 도구 카탈로그 (20개)
 updated: 2026-07-07
 ---
 
-# 도구(Tool) 카탈로그 — 19개
+# 도구(Tool) 카탈로그 — 20개
 
-> OPM의 19개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
+> OPM의 20개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
 > 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
 >
 > 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
 > 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
 
-## 19개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
+## 20개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
 ### 🏢 기본 — 회사 찾기
 | 도구 | 무엇을 답하나 |
@@ -33,6 +33,7 @@ updated: 2026-07-07
 | [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 |
 | [valuation](valuation.md) | 상대가치 배수 — PER·PBR·배당수익률 (통화환산·스케일가드) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
+| [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·(v2)출석률 |
 
 ### 🎁 주주환원 · 자본
 | 도구 | 무엇을 답하나 |
@@ -98,7 +99,7 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 |--------|---------|---------|
 | Company | 1 | corpCode/company/list 기반 식별 |
 | Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
-| Data | 11 | DART API 1-14회 병렬, 일부 KIND fallback |
+| Data | 12 | DART API 1-14회 병렬, 일부 KIND fallback |
 | Evidence | 1 | rcept_no 문자열 기반 URL 생성 |
 | Action | 2 | upstream data tool 병렬 호출 후 판단/요약 (shareholder_commitment은 신규 계산 1개 추가) |
 
@@ -124,6 +125,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | treasury_share | ✅ DS005 5종 | - | - | - | - |
 | value_up | ✅ list/document | ✅ 0184 fallback | - | - | - |
 | corp_gov_report | ✅ list/원문 | - | - | - | - |
+| director_board | ✅ exctvSttus+drctrAdtAllMendngSttus 2종+개인별 | - | - | 🔧 v2 출석률 PDF | - |
 | corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - | - |
 | dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - | - |
 | corporate_deals | ✅ list+키워드 | - | - | - | - |

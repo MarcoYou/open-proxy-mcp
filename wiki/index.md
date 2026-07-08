@@ -13,12 +13,12 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 19개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 20개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (19 tool, 260707 shareholder_commitment 추가)
+### 도메인별 (20 tool, 260708 director_board 추가)
 - **Company (1)**: [[company]]
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
-- **Data (13)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[valuation]]
+- **Data (14)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[director_board]] · [[valuation]]
 - **Evidence (1)**: [[evidence]]
 - **Action (2)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합, 사후 결과는 [[shareholder_meeting_results]]) · [[shareholder_commitment]] (밸류업·배당·소각 약속 vs 실제 이행, 연중 스튜어드십 — 자사주소각 장부가손익 신규 계산)
 
@@ -28,6 +28,13 @@ OPM tool 19개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
 ### 주요 변화 (2026-07-07 ~ )
+- **director_board tool 신설 — 20번째 tool (2026-07-08)** — **개별 이사 단위** 정보: 이사 인당보수·
+  보수한도 소진율·임원 재직/사퇴 변동(연도 diff)·(v2)이사회 출석률·겸직. corp_gov_report(회사 15지표
+  준수)와 무중복. 소진율은 DART 정형 API(exctvSttus·drctrAdtAllMendngSttus 2종)로 산출 —
+  감사위원 포함 이사류 실지급÷주총 승인한도(IR 검증 260708: 헤드카운트 정합 확증), 한도 공백해는
+  최근 유효연도 lookback. 재직/사퇴 diff는 이름 OR 생년월 매칭으로 로마자표기·birth 오타 오탐 억제
+  (QA 260708: 기아 신재용 birth_ym 오타 이중오탐 발견·수정). 가치판단 안 함(수치·변동·flag만).
+  client에 이사·보수 정형 API 4종 신규 추가. IR·스튜어드십·QA 3에이전트 교차검증.
 - **shareholder_commitment tool 신설 — 19번째 tool, 2번째 Action Tool (2026-07-07)** — 밸류업·배당·자사주
   소각의 **약속 vs 실제 이행**을 연중 추적(proxy_advise가 주총 1회성 판단이라면, 이건 스튜어드십
   engagement 관점의 지속 추적). 4개 upstream 재사용(value_up·corp_gov_report·dividend·treasury_share,
@@ -84,7 +91,7 @@ OPM tool 19개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 | 카테고리 | 목적 | 페이지 수 | 수정 가능 |
 |---|---|---|---|
 | **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 19 tool 진입점 + data source map | 19 + README | YES (tool 변경 시) |
+| **tools/** | 20 tool 진입점 + data source map | 19 + README | YES (tool 변경 시) |
 | **architecture/** | OPM 시스템 설계 + audit + fix + data archive | 60+ | YES |
 | **decisions/** | OPM 정책 + 판단 + debate | 26 + README | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 70+ | YES (사실 update 시) |
@@ -110,7 +117,7 @@ OPM tool 19개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 ## 자주 쓰는 진입점
 
 ### 처음 사용자
-- [[tools/README]] - 19 tool 카탈로그
+- [[tools/README]] - 20 tool 카탈로그
 - [[WIKI_SCHEMA]] - wiki 구조 + 명명 규칙
 
 ### OPM 정책 알고 싶음
@@ -166,10 +173,11 @@ OPM tool 19개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - [[shareholder_meeting_notice]] - 주총 소집공고 사전 데이터
 - [[shareholder_meeting_results]] - 주총 의결 결과 사후 데이터
 
-### Data (13)
+### Data (14)
 - [[ownership_structure]] - 최대주주/특수관계인/5%/control_map
 - [[financial_metrics]] - DART 재무 4 endpoint 통합
 - [[corp_gov_report]] - 기업지배구조보고서 15지표
+- [[director_board]] - 이사 인당보수·보수한도 소진율·재직/사퇴 변동·(v2)출석률 (260708 신설)
 - [[dividend]] - 배당 사실 + 분기별 breakdown
 - [[treasury_share]] - 자사주 결정/결과/신탁/소각
 - [[value_up]] - 기업가치제고계획

@@ -1105,6 +1105,105 @@ class DartClient:
             "reprt_code": reprt_code,
         })
 
+    # ── Director/board API (DS002 정기보고서 임원·보수 정형) ──
+
+    async def get_executive_status(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """임원 현황 (exctvSttus) — 성명·직위·등기/미등기·상근/비상근·담당업무·재직기간·임기만료일
+
+        연도간 명단 diff로 신규선임/사퇴(중도이탈) 감지에 쓴다(스냅샷이라 사유는 별도 수시공시).
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("exctvSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_director_pay_limit(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """이사·감사 전체의 보수현황 - 주주총회 승인금액 (drctrAdtAllMendngSttusGmtsckConfmAmount)
+
+        인원수(nmpr) + 주총 승인 보수총액(gmtsck_confm_amount = 한도). 새 주총 결의 없는 해엔
+        공백("-")일 수 있어 최근 유효값 lookback 필요.
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("drctrAdtAllMendngSttusGmtsckConfmAmount.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_director_pay_actual(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """이사·감사 전체의 보수현황 - 유형별 지급금액 (drctrAdtAllMendngSttusMendngPymntamtTyCl)
+
+        유형별(등기이사(사외·감사위 제외)/사외이사/감사위원 등) 인원(nmpr)·지급총액(pymnt_totamt)·
+        1인평균 보수액(psn1_avrg_pymntamt)이 이미 계산되어 제공됨. 소진율 분자.
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("drctrAdtAllMendngSttusMendngPymntamtTyCl.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_individual_pay(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """이사·감사 개인별 보수현황 (hmvAuditIndvdlBySttus) — 5억원 이상 법정공개 대상만
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("hmvAuditIndvdlBySttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_unregistered_pay(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """미등기임원 보수현황 (unrstExctvMendngSttus) — se·인원(nmpr)·연급여총액·1인평균(jan_salary_am)
+
+        등기이사 보수(get_director_pay_actual)와 합치면 경영진 전체 보수 그림. 미등기 집행임원은
+        주총 승인한도 밖(등기 안 됨)이라 별개 지표.
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("unrstExctvMendngSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_employee_status(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """직원 현황 (empSttus) — 사업부문·성별 행별 인원(정규/계약)·1인평균급여·연급여총액
+
+        이사 인당보수 ÷ 직원 평균급여 = 경영진-직원 보수 격차 배수(스튜어드십 신호) 계산에 쓴다.
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("empSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
     # ── Ownership API (DS004 수시보고) ──
 
     async def get_block_holders(self, corp_code: str) -> dict:

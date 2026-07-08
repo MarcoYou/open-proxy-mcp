@@ -29,6 +29,7 @@ method: 코드 실측 (services/*.py 의 DART client 호출 지점)
 | dilutive_issuance | 4 | 4 | DS005 4종 병렬 (단일 scope 1) |
 | value_up | 6 | 5 | commitments scope +자사주 교차참조 |
 | corp_gov_report | 7 | 3 | timeline scope 시 문서 4건 추가 |
+| director_board | 18 | 14 | **per-firm**. summary=compensation(2×lookback)+roster(1×lookback)+individual/unregistered/pay_gap(각1)+pay_agenda(notice 재사용 ~6, 캐시 시 0). lookback_years에 비례(기본 3). attendance v2는 +문서 |
 | risk_events (company 지정) | 6 | 1 | **per-firm**. company 미지정은 아래 '시장 스캔' 참조 |
 | shareholder_meeting_notice | 9 | 6 | auto 모드 2회 검색 + viewer fallback |
 | treasury_share | 10 | 5 | 소각 공시 N건 본문(최대 5) |
@@ -82,6 +83,7 @@ DART 분당 한도는 **910콜**(client `_throttle_api`가 강제 — 초과 시
     "dilutive_issuance": 4,
     "value_up": 6,
     "corp_gov_report": 7,
+    "director_board": 18,
     "shareholder_meeting_notice": 9,
     "treasury_share": 10,
     "shareholder_meeting_results": 10,

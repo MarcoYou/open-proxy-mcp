@@ -3,7 +3,7 @@
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-19-orange.svg)](#tool-structure-19-tools)
+[![Tools](https://img.shields.io/badge/tools-20-orange.svg)](#tool-structure-20-tools)
 [![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 
 [Korean README](README.md)
@@ -71,7 +71,7 @@ Append your DART API key to the URL. The key is only used server-side and is nev
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_API_KEY
 ```
-4. Click "Add" → 19 tools are automatically recognized
+4. Click "Add" → 20 tools are automatically recognized
 5. Go to the connector settings → Permissions → select **"Always allow"** (tools run automatically without per-call approval)
 
 > **Note**: If tools have been added or updated, it may take a moment for the connector to sync. Remove the connector and re-add it to get the latest tools immediately. Open a new chat after reconnecting.
@@ -115,9 +115,9 @@ Once connected, just ask in natural language:
 
 ---
 
-## Tool Structure (19 tools)
+## Tool Structure (20 tools)
 
-19 tools follow the flow **Company → Meeting/Data/Evidence → Action**.
+20 tools follow the flow **Company → Meeting/Data/Evidence → Action**.
 
 ```text
 OpenProxy MCP
@@ -136,6 +136,7 @@ OpenProxy MCP
 │  ├─ financial_metrics
 │  ├─ valuation
 │  ├─ corp_gov_report
+│  ├─ director_board
 │  ├─ dividend
 │  ├─ treasury_share
 │  ├─ value_up
@@ -173,7 +174,7 @@ OpenProxy MCP
 |---|---|---|
 | Company | [`company`](wiki/tools/company.md) | Company identification and common filings index |
 | Meeting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md) | Pre/post AGM data |
-| Data | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`valuation`](wiki/tools/valuation.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`dividend`](wiki/tools/dividend.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md) | Filing, financial, ownership, and governance parsers |
+| Data | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`valuation`](wiki/tools/valuation.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md), [`dividend`](wiki/tools/dividend.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md) | Filing, financial, ownership, and governance parsers |
 | Evidence | [`evidence`](wiki/tools/evidence.md) | Source tracking from filing receipt numbers |
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md) | Compose multiple data tools into recommendations/reports (post-AGM outcomes: [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md)) |
 
@@ -270,7 +271,7 @@ Validated on KOSPI 100 + KOSDAQ 50 (n=128): G1 classification coverage 100%, dis
 ```
 open_proxy_mcp/
   server.py                # FastMCP server (stdio + HTTP)
-  tools_v2/                # 19 tools (active)
+  tools_v2/                # 20 tools (active)
   services/                # Domain logic layer (separated from tools)
   dart/client.py           # DART API + KIND fallback + rate limiter (cap 910/min)
   data/asset_managers/     # Anonymized institutional policy corpus + Open Proxy Guideline + 12 matrices
@@ -280,7 +281,7 @@ scripts/
 wiki/                      # LLM domain knowledge — botanical tree order
   raw/                     # 🌱 Root — external originals (read-only)
   rules/                   # 🪵 Trunk — concepts/ + disclosures/ + laws/ (Korean capital market facts)
-  tools/                   # 🌿 Main branch — 19 tool catalog (user entry point)
+  tools/                   # 🌿 Main branch — 20 tool catalog (user entry point)
   decisions/               # 🌿 Main branch — OPM policy (open-proxy-guideline, etc.)
   architecture/            # 🌿 Main branch (core) + 🌾 sub-branch (audits/ + fixes/)
   ralph/                   # 🌾 Sub-branch — work plans (chronological)
