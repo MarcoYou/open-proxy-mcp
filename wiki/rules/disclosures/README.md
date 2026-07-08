@@ -14,6 +14,7 @@ updated: 2026-06-20
 ## 정기보고서
 [[사업보고서]] · [[반기보고서]] · [[분기보고서]]
 - **재무 API 스펙** (분기 시계열·TTM·PIT): [[분기재무-API스펙]] (fnlttSinglAcntAll 누적/당기/잔액 · account_id · 공시 타이밍)
+- **임원·보수 API 스펙** (director_board 6종): [[임원보수-API스펙]] (exctvSttus·drctrAdtAllMendngSttus 2종·개인별·미등기·직원현황 공식 필드명 사전)
 
 ## 주주총회
 [[주주총회소집공고]] · [[주주총회결과]] · [[위임장권유참고서류]]
