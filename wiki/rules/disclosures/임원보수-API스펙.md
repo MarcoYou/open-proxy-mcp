@@ -168,3 +168,27 @@ updated: 2026-07-08
 **부문별 응답 구조 2갈래(260708 QA 확인)**: 대부분 회사는 부문·성별 상세행에 급여가 채워짐(현대차
 남/여). 삼성전자류(부문별+성별합계 양식)는 부문 상세행(DX/DS 등)이 공백("-")이고 **'성별합계' 행에만
 실제 총액**이 옴 — 상세행이 전부 공백이면 합계행으로 폴백하는 로직 필요(`_employee_avg_krw`).
+
+## 7. 사외이사 및 그 변동현황 `outcmpnyDrctrNdChangeSttus.json` (apiId 2020012)
+
+구현: `open_proxy_mcp/dart/client.py`의 `get_outside_director_changes` (260709 추가). DS002
+그룹 목록(WebFetch)에서 발견 — 스톡옵션 API를 찾다가 우연히 발견한 API, roster diff(이름/생년월
+추론)의 교차검증용으로 채택.
+
+| 영문 Element | 한글 항목명 |
+|---|---|
+| rcept_no | 접수번호 |
+| corp_cls | 법인구분 |
+| corp_code | 고유번호 |
+| corp_name | 회사명 |
+| drctr_co | 이사의 수 |
+| otcmp_drctr_co | 사외이사 수 |
+| apnt | 사외이사 변동현황(선임) |
+| rlsofc | 사외이사 변동현황(해임) |
+| mdstrm_resig | 사외이사 변동현황(중도퇴임) |
+| stlm_dt | 결산기준일 |
+
+**개별 성명 없음, 회사 전체 집계**만 제공 — `director_board`의 `roster.changes_vs_prev_year`(이름
+기반 diff)와 완전 일치는 기대할 수 없음(재선임을 diff는 "변동없음", 공식값은 다르게 셀 수 있음).
+사외이사 신규선임 건수만 필터링해 비교해야 규모감이 맞음(260709 QA 발견 — 필터 없이 전체 임원
+diff와 비교하면 미등기 임원까지 섞여 규모 자체가 안 맞음, 미래에셋증권 17 vs 공식 3).

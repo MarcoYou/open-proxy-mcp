@@ -3,7 +3,7 @@ type: tool
 title: director_board
 domain: data
 scope: [단일 조회]
-data_source: [exctvSttus(임원현황), drctrAdtAllMendngSttusGmtsckConfmAmount(주총승인 보수한도), drctrAdtAllMendngSttusMendngPymntamtTyCl(유형별 실지급·1인평균), hmvAuditIndvdlBySttus(개인별 5억+), 기업지배구조보고서(출석률·겸직 — v2)]
+data_source: [exctvSttus(임원현황), drctrAdtAllMendngSttusGmtsckConfmAmount(주총승인 보수한도), drctrAdtAllMendngSttusMendngPymntamtTyCl(유형별 실지급·1인평균), hmvAuditIndvdlBySttus(개인별 5억+), unrstExctvMendngSttus(미등기임원), empSttus(직원현황), outcmpnyDrctrNdChangeSttus(사외이사 변동현황), 기업지배구조보고서(출석률·겸직 — v2)]
 related_disclosures: [사업보고서, 기업지배구조보고서, 임원보수-API스펙]
 related_concepts: [이사보수, 보수한도, 소진율, 이사회, 사외이사]
 related_decisions: []
@@ -30,6 +30,21 @@ created: 2026-07-08
 - scope: `compensation` · `roster` · `attendance`(v2 stub) · `summary`(기본)
 - year: 기준 사업연도(0=최근 확정 전년). lookback_years: 조회 기간(년)
 
+## scope별 추천 질문 (자연어 예시)
+
+| scope | 이럴 때 물어보세요 |
+|---|---|
+| `compensation` | "현대차 이사 보수한도 소진율 얼마야?" · "삼성전자 최근 3년 한도 다 썼어?" · "HD현대중공업 한도초과 이유가 뭐야?"(→ rm 비고로 퇴직금 등 사유 확인) |
+| `roster` | "기아 이사회 구성원 누구누구야?" · "현대차 작년에 이사 누가 오고 누가 나갔어?" · "이 회사 사외이사 중에 최대주주랑 관계있는 사람 있어?" |
+| `individual` | "삼성전자 대표이사들 각각 얼마 받아?" · "이 회사 등기이사 중에 스톡옵션·RSA 받은 사람 있어?" · "정의선 작년 대비 보수 얼마나 늘었어?" |
+| `unregistered` | "현대차 미등기임원 평균 보수 얼마야?" · "등기이사랑 미등기임원 보수 차이 얼마나 나?" |
+| `pay_gap` | "이 회사 임원-직원 보수 격차 몇 배야?" · "직원 평균 연봉이랑 이사 보수 비교해줘" |
+| `pay_agenda` | "이번 주총에 보수한도 얼마나 올려달래?" · "작년에 한도 다 쓰고 또 올려달라는 거야?"(인상 근거 판단) |
+| `attendance` | ⏳ v2 stub — 지금은 "출석률 안내" 문구만 반환. 실제 출석률 질문은 아직 답 못 함 |
+| `summary` (기본) | "이 회사 이사회 전반적으로 봐줘" · "이 회사 이사 보수 적절한지 살펴봐줘"(위 전부 종합) |
+
+한 회사에 특정 관점만 궁금하면 scope 하나만 콜(DART 콜 절약), 종합 그림이 필요하면 `summary`.
+
 ## scope별 내용
 
 | scope | 내용 | 소스 | 상태 |
@@ -42,6 +57,33 @@ created: 2026-07-08
 | `pay_agenda` | 주총 보수한도 안건 **올해 제안 vs 작년 실적**(인상률·작년소진율) | shareholder_meeting notice 재사용 | ✅ v1 |
 | `attendance` | 개별 이사 출석률·선임변동(표4-2-1)·겸직(표5-2-1) | 지배구조보고서 원문 파서 | ⏳ v2 stub |
 | `summary` | 위 전부 종합 + 신호 | 전부 | ✅ v1 |
+
+## 260709 확장 — 전면 YoY + 놓친 필드 전부 노출
+사용자 "다 가져오면 좋은거 아니야?" 지적으로, 이미 API 콜은 하면서 안 쓰던 필드를 전부 캡처·노출:
+- **roster**: `main_career`(주요경력)·`mxmm_shrholdr_relate`(최대주주관계)·`sexdstn`(성별) 추가.
+- **신규 API `outcmpnyDrctrNdChangeSttus`**(사외이사 변동현황) — 이사총수·사외이사수·선임/해임/
+  중도퇴임 **DART 공식 집계**(개별 성명 없음)를 roster diff의 교차검증(sanity check)으로 연동, YoY.
+- **compensation**: 승인한도(limit) 쪽 `rm`도 캡처(기존엔 실지급 쪽만).
+- **individual·unregistered·pay_gap**: 전부 `lookback_years` 지원(YoY)으로 구조 변경 — `per_year: [...]`로 통일.
+- **pay_gap**: `employee_breakdown`(부문·성별 원본 — 정규직/계약직/합계/평균근속연수/1인평균급여) 신규
+  노출. 이전엔 배수 계산 내부에만 쓰고 화면엔 안 보여줬음. **`is_total` 플래그 필수**(census 260709
+  발견 — 삼성전자류는 부문상세(DX/DS, 급여 공백)와 '성별합계' 총계행이 한 응답에 같이 와서, 구분 없이
+  전부 합산하면 실제 인원의 2배로 더블카운트됨. `is_total=true`인 행만 합산 대상으로 표시).
+- 개인별(5억+) `breakdown_note`(RSA·스톡옵션 등 미확정 주식보상) 렌더 추가 — 300개사 전수 확인
+  결과 그룹 집계(`stk_bsd_pd_mendng_totamt`)는 0/300(공백)이지만, **개인별 텍스트엔 49/300(16.3%)에
+  RSA·PSP·RSU·성과연동주식·스톡옵션 등 실제 내용**이 있었음(그룹 집계 하나만 보고 "스톡옵션 없음"
+  단정했다가 사용자 지적으로 재확인해 발견).
+
+**IR·QA 교차검증(260709)으로 발견·수정한 버그 3건**:
+1. **roster diff 이탈 누락**: birth_ym이 연·월만 있어 정밀도 낮음 — 이탈자와 **이름이 전혀 다른
+   잔류자**의 birth_ym이 우연히 같으면(현대차 이탈자 윤치원 vs 잔류자 심달훈, 둘 다 "1959년 06월")
+   이탈이 통째로 누락됨. **2-pass 매칭**으로 수정: Pass1 이름 정확 일치로 잔류 확정 → Pass2 나머지만
+   birth_ym 매칭(그 값이 남은 후보군에서 유일할 때만 인정). 로마자표기 변동(José 사례)은 여전히 잡힘.
+2. **마크다운 표 깨짐**: `main_career`·`largest_shareholder_relation`에 원문 개행이 그대로 남아있어
+   표 셀·목록이 깨짐 → 개행을 `" / "`로 정규화(`_clean_text_or_none`), `"-"`는 None 처리.
+3. **교차검증 프레이밍 오차**: 필터 없이 `changes_vs_prev_year`(exctvSttus 전체 임원, 미등기 포함)를
+   공식 사외이사 집계와 비교해 규모 자체가 안 맞음(미래에셋증권 17 vs 공식 3). `director_type=='사외이사'`
+   신규선임만 필터링 후 비교하도록 수정(같은 회사 1 vs 3 — 재선임 미검출로 설명 가능한 합리적 격차).
 
 ## 신규 계산 로직
 
@@ -148,6 +190,46 @@ IMAGE_NOTICE 감지는 파일명에 "소집"·"통지" 등이 있으면 **본문
 - **개인별 보수 5억 미만 비공개**: `hmvAuditIndvdlBySttus`는 상위 일부만(범주 평균은 전원).
 - **지연 제출 rcept**: 통상 3월 기한보다 늦은 rcept_no(예 미래에셋 2024=8월)는 정정공시 가능성 —
   버킷 내부 정합 확인 권장.
+
+## 260709 추가 수정 2건 (사용자 지적으로 발견)
+
+**개행이 표를 깨는 필드 확대 수정**: main_career·largest_shareholder_relation만 고쳤던
+`_clean_text_or_none` 정규화를 `duty`(담당업무)·`tenure`(재직기간)·`position`(직위, roster+
+individual 양쪽)·`breakdown_note`(RSA/스톡옵션 미포함 보수 설명)까지 확대. 8개사 전수 재스캔으로
+개행 완전 소거 확인. `birth_ym`·`tenure_end`도 렌더 요청으로 roster 표에 추가.
+
+**DART "013(조회된 데이터 없음)" 예외로 전체 크래시(진짜 버그, 300개사 census로 발견)**:
+`client._request`는 status≠000이면 **재시도 후에도 항상 예외를 던진다** — `_fetch_rows`의
+`resp.get("status")` 체크는 정상 응답에서만 도달하는 죽은 방어였다. 013(조회된 데이터 없음)은
+진짜 오류가 아니라 "이 회사는 해당 항목이 없음"(신규상장사 등이 미등기임원·5억+개인·사외이사
+변동이 없을 때)인 흔한 정상 케이스인데, 300개사 census에서 5개사(삼성에피스홀딩스·대한조선·
+에임드바이오·리브스메드·씨엠티엑스 — 전부 최근 상장/소형주)가 `status="error"`로 전체 크래시.
+`_fetch_rows`가 `DartClientError`를 잡아 `status=="013"`만 빈 리스트로 흡수하도록 수정
+(그 외 예외는 그대로 전파 — 진짜 오류를 숨기지 않음).
+
+## 260709 병렬화 (레이턴시 4배 개선)
+
+사용자 지적("무조건 순차로 하는게 좋은건 순차로 해야하는데 병렬로 할 수 있는데 순차로 하는거
+있나") — 300개사 census 스크립트(하드룰상 동시성 1~2+sleep 필요)를 짜던 습관이 **프로덕션
+tool 자체의 단일 회사 조회에도 그대로 남아있었다**. 다른 tool들(`corp_gov_report` 등)은 이미
+`asyncio.gather`로 병렬 처리 중이고 앱 레벨 rate limiter(900/min)가 전체를 보호하므로, 단일
+tool 호출 내부에서 순차로 갈 이유가 없었다. 3단계 병렬화:
+1. **scope 간**: compensation·roster·individual·unregistered·pay_gap·pay_agenda 6개는 서로
+   데이터를 안 씀 — `asyncio.gather`로 동시 실행(pay_gap의 comp_data 재사용은 병렬화를 위해
+   포기, 최신연도 1콜 절약 최적화였을 뿐).
+2. **scope 내부**: 같은 연도의 서로 다른 API(한도+실지급, 직원현황+실지급)도 병렬.
+3. **연도 루프**: `lookback_years`만큼의 연도별 조회가 전부 서로 독립 — 한 번에 병렬 fetch,
+   `sleep(0.4)` 전부 제거. 단 compensation의 "직전 유효 한도 캐리포워드"처럼 순서에 의존하는
+   순수 계산 로직은 fetch 완료 후 최신→과거 순으로 정렬해 순차 처리(정확성 유지).
+
+**효과**: 현대차 lookback_years=3 기준 11.9초 → 3.0초(4배). 회귀 검증(윤치원 이탈 감지·cross-check
+3=3·pay_agenda 신호 등) 전부 병렬화 전과 정확히 일치.
+
+**300개사 최종 census(260709, 병렬화+013수정 반영)**: 300/300 성공(013 수정 전 295/300),
+총 9.1분·평균 3.1초/사(병렬화 전 21.2분에서 절반 이하). newline 버그 재발 0건. emp_breakdown
+정합성 299/300(1건은 설립 2개월 신설 지주사라 급여데이터 자체가 없는 정당한 케이스, 버그 아님).
+roster diff vs 공식 사외이사 변동집계 168/300 정확히 일치(나머지는 재선임 등 정의 차이로 설명 가능한
+정상 격차 — cross_check 자체가 "직접 비교 금지, 참고용"이라고 명시하는 이유).
 
 ## Data sources (회사당 ~5 DART 콜, per-firm)
 | 소스 | 무엇 |

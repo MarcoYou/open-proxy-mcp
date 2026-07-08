@@ -1188,6 +1188,24 @@ class DartClient:
             "reprt_code": reprt_code,
         })
 
+    async def get_outside_director_changes(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
+        """사외이사 및 그 변동현황 (outcmpnyDrctrNdChangeSttus) — 이사총수·사외이사총수·
+        선임/해임/중도퇴임 인원(집계, 개별 성명은 없음).
+
+        director_board의 roster scope(exctvSttus 연도간 diff, 이름 기반 추론)와 독립적인
+        DART 공식 집계값 — diff 결과의 교차검증(sanity check)에 쓴다.
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("outcmpnyDrctrNdChangeSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
     async def get_employee_status(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
         """직원 현황 (empSttus) — 사업부문·성별 행별 인원(정규/계약)·1인평균급여·연급여총액
 

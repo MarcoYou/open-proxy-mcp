@@ -67,8 +67,20 @@ def _to_int(value: Any) -> int | None:
 
 
 async def _fetch_rows(coro) -> list[dict[str, Any]]:
-    """DART 정형 API 응답에서 list만 안전 추출. status!=000이면 빈 리스트(no_data와 오류 구분은 상위)."""
-    resp = await coro
+    """DART 정형 API 응답에서 list만 안전 추출.
+
+    **client._request는 status!=000이면 항상 예외를 던진다**(재시도 후에도) — 이 아래
+    `resp.get("status")` 체크는 사실 정상 응답에서만 도달하는 죽은 방어였다. status="013"
+    ("조회된 데이타가 없습니다")은 진짜 오류가 아니라 "이 회사는 해당 데이터가 없음"이라는
+    흔한 정상 케이스(소액공모/신규상장사가 미등기임원·5억+개인·사외이사변동 등이 없을 때) —
+    300개사 census(260709)에서 5개사가 이걸 못 잡아 tool 전체가 크래시(status=error)했다.
+    013만 빈 리스트로 흡수, 그 외 예외(진짜 오류)는 그대로 올려보냄."""
+    try:
+        resp = await coro
+    except DartClientError as e:
+        if e.status == "013":
+            return []
+        raise
     if (resp or {}).get("status") != "000":
         return []
     return resp.get("list") or []
@@ -110,10 +122,14 @@ def _compensation_from_rows(
     # 단 '계'/'합계' 총계행이 있으면 그 행만 채택(중복 합산 방지, employee 로직과 동일 원칙).
     director_rows: list[tuple[str, int | None, int | None]] = []
     audit_limit_krw = None
+    limit_notes: list[str] = []
     for r in limit_rows:
         se = (r.get("se") or "").strip()
         amt = _to_int(r.get("gmtsck_confm_amount"))
         n = _to_int(r.get("nmpr"))
+        rm = (r.get("rm") or "").strip()
+        if rm and rm != "-":
+            limit_notes.append(f"[{se}] {rm}")
         if "감사" in se and "이사" not in se:
             audit_limit_krw = amt if amt is not None else audit_limit_krw
         else:
@@ -157,23 +173,35 @@ def _compensation_from_rows(
         "director_paid_total_krw": director_paid_total if has_director_paid else None,
         "utilization_pct": utilization_pct,
         "by_type": pay_by_type,
+        "limit_notes": limit_notes,  # 승인한도 공시 rm(비고) — 260709 추가
     }
 
 
 async def _compensation_scope(
     client, corp_code: str, year: int, *, lookback_years: int, warnings: list[str]
 ) -> dict[str, Any]:
-    """연도별 인당보수·한도·소진율. 한도 공백 해는 최근 유효값 lookback(주의 2)."""
+    """연도별 인당보수·한도·소진율. 한도 공백 해는 최근 유효값 lookback(주의 2).
+
+    260709 병렬화: 한도(limit)·실지급(actual)은 서로 무관한 API라 연도당 병렬(gather), 연도끼리도
+    서로 독립이라 전부 한 번에 병렬 fetch — **fetch만** 병렬화하고, last_valid_limit 캐리포워드
+    처리는 네트워크 I/O 없는 순수 계산이라 fetch 후 최신→과거 순서로 순차 처리(정확성 그대로 유지).
+    """
     years = [year - i for i in range(lookback_years)]
+
+    async def _fetch_year(y: int) -> tuple[int, list, list]:
+        limit_rows, actual_rows = await asyncio.gather(
+            _fetch_rows(client.get_director_pay_limit(corp_code, str(y), _REPRT_ANNUAL)),
+            _fetch_rows(client.get_director_pay_actual(corp_code, str(y), _REPRT_ANNUAL)),
+        )
+        return y, limit_rows, actual_rows
+
+    fetched = await asyncio.gather(*[_fetch_year(y) for y in years])
+    fetched.sort(key=lambda t: -t[0])  # 최신→과거 순서 보장(캐리포워드 방향성 유지)
+
     per_year: list[dict[str, Any]] = []
     last_valid_limit: dict[str, Any] | None = None
 
-    for y in years:
-        limit_rows = await _fetch_rows(client.get_director_pay_limit(corp_code, str(y), _REPRT_ANNUAL))
-        await asyncio.sleep(0.4)
-        actual_rows = await _fetch_rows(client.get_director_pay_actual(corp_code, str(y), _REPRT_ANNUAL))
-        await asyncio.sleep(0.4)
-
+    for y, limit_rows, actual_rows in fetched:
         comp = _compensation_from_rows(limit_rows, actual_rows)
         # 한도 공백 → 직전 유효 한도로 소진율 재계산(주의 2)
         if comp["director_pay_limit_krw"] is None and last_valid_limit:
@@ -215,6 +243,14 @@ def _clean_name(value: Any) -> str:
     return " ".join(str(value or "").split())
 
 
+def _clean_text_or_none(value: Any) -> str | None:
+    """긴 텍스트 필드(주요경력·최대주주관계 등) 정규화 — 원문 개행을 ' / '로 치환해 마크다운
+    표 셀·목록이 안 깨지게(QA 260709 발견 — main_career/largest_shareholder_relation에 raw
+    개행이 그대로 남아 표가 깨짐). '-'(DART 공백 마커)는 None으로."""
+    text = " / ".join(line.strip() for line in str(value or "").splitlines() if line.strip())
+    return text if text and text != "-" else None
+
+
 def _roster_key(row: dict[str, Any]) -> str:
     """동명이인 최소화를 위해 이름+생년월 조합을 식별키로."""
     return f"{_clean_name(row.get('nm'))}|{(row.get('birth_ym') or '').strip()}"
@@ -229,104 +265,189 @@ async def _roster_scope(
 ) -> dict[str, Any]:
     """임원현황 스냅샷 + 연도간 diff로 신규선임/이탈 감지(사유는 스냅샷이라 미확정 — 주의)."""
     years = [year - i for i in range(lookback_years)]
-    snapshots: dict[int, dict[str, dict[str, Any]]] = {}
 
-    for y in years:
-        rows = await _fetch_rows(client.get_executive_status(corp_code, str(y), _REPRT_ANNUAL))
-        await asyncio.sleep(0.4)
-        snapshots[y] = {_roster_key(r): r for r in rows}
+    # exctvSttus(임원현황, 연도별)와 outcmpnyDrctrNdChangeSttus(사외이사 변동현황, 연도별)는
+    # 서로 완전 독립 — 하나의 gather로 한 번에 병렬 fetch(260709, 이전엔 두 루프로 나뉘어 순차 대기).
+    exctv_fetched, oc_fetched = await asyncio.gather(
+        asyncio.gather(*[_fetch_rows(client.get_executive_status(corp_code, str(y), _REPRT_ANNUAL))
+                         for y in years]),
+        asyncio.gather(*[_fetch_rows(client.get_outside_director_changes(corp_code, str(y), _REPRT_ANNUAL))
+                         for y in years]),
+    )
+    snapshots: dict[int, dict[str, dict[str, Any]]] = {
+        y: {_roster_key(r): r for r in rows} for y, rows in zip(years, exctv_fetched)
+    }
 
     latest = year
     current = snapshots.get(latest, {})
+    # 모든 텍스트 필드에 _clean_text_or_none 방어 적용(260709 — duty·tenure에서도 raw 개행이
+    # 표를 깨뜨리는 걸 추가 발견, main_career/largest_shareholder_relation만 고쳤던 걸 전체로 확대).
     roster = [{
         "name": _clean_name(r.get("nm")),
-        "position": (r.get("ofcps") or "").strip(),
+        "gender": (r.get("sexdstn") or "").strip(),
+        "birth_ym": (r.get("birth_ym") or "").strip(),             # 출생년월(diff 매칭 키였는데 렌더 요청으로 노출)
+        "position": _clean_text_or_none(r.get("ofcps")) or "",
         "director_type": (r.get("rgist_exctv_at") or "").strip(),  # 사내이사/사외이사/기타비상무/감사
         "full_time": (r.get("fte_at") or "").strip(),              # 상근/비상근
-        "duty": (r.get("chrg_job") or "").strip(),
-        "tenure": (r.get("hffc_pd") or "").strip(),
-        "tenure_end": (r.get("tenure_end_on") or "").strip(),
+        "duty": _clean_text_or_none(r.get("chrg_job")) or "",
+        "tenure": _clean_text_or_none(r.get("hffc_pd")) or "",
+        "tenure_end": _clean_text_or_none(r.get("tenure_end_on")) or "",
+        "main_career": _clean_text_or_none(r.get("main_career")),
+        "largest_shareholder_relation": _clean_text_or_none(r.get("mxmm_shrholdr_relate")),
     } for r in current.values()]
 
-    # 연도간 diff (최신 vs 직전연도). 동일인 판정은 **OR 매칭**(이름 일치 OR 생년월 일치):
-    #   - 로마자 표기 변동(이름 다름·생년월 같음) → 생년월으로 매칭  (José: Jose Munoz↔호세무뇨스)
-    #   - 원문 birth_ym 오타(이름 같음·생년월 다름) → 이름으로 매칭  (기아 신재용 1972.12↔1972.02, QA 발견)
-    # 복합키(둘 다 일치)로는 한쪽만 어긋나도 별인으로 오탐 → OR로 억제.
+    # 연도간 diff (최신 vs 직전연도). 동일인 판정 — **2-pass**(QA 260709 발견 대응):
+    #   Pass 1: 이름 정확히 일치 → 확정 동일인(잔류).
+    #   Pass 2: Pass 1에서 못 잡힌(이름 불일치) 나머지끼리만 birth_ym 매칭 시도 —
+    #           단 그 birth_ym이 "남은 후보군 안에서 유일"할 때만 동일인으로 인정.
+    # 이렇게 나누는 이유: 원래 OR 매칭(이름 OR 생년월, 전체 집합 대상)은 birth_ym이 연·월만 있어
+    # 정밀도가 낮은 탓에, 이탈자와 **이름이 전혀 다른 잔류자**의 birth_ym이 우연히 같으면
+    # (현대차 이탈자 윤치원 vs 잔류자 심달훈, 둘 다 "1959년 06월") 이탈자가 "잔류"로 오판돼
+    # 이탈 자체가 통째로 누락됐다(QA 실측). 잔류자는 Pass 1에서 이미 이름으로 확정되므로
+    # Pass 2 후보군에서 빠져, 이런 오탐이 사라진다. 로마자표기 변동(이름 다름·생년월 같음,
+    # José: Jose Munoz↔호세무뇨스)은 여전히 Pass 2로 잡힘 — 남은 후보가 1쌍뿐이면 유일하니까.
     changes: list[dict[str, Any]] = []
     prev_year = latest - 1
     if prev_year in snapshots and snapshots[prev_year]:
         prev_rows = list(snapshots[prev_year].values())
         curr_rows = list(current.values())
         prev_names = {_clean_name(r.get("nm")) for r in prev_rows}
-        prev_births = {(r.get("birth_ym") or "").strip() for r in prev_rows if (r.get("birth_ym") or "").strip()}
         curr_names = {_clean_name(r.get("nm")) for r in curr_rows}
-        curr_births = {(r.get("birth_ym") or "").strip() for r in curr_rows if (r.get("birth_ym") or "").strip()}
 
-        def _present(row, names, births) -> bool:
-            b = (row.get("birth_ym") or "").strip()
-            return _clean_name(row.get("nm")) in names or (bool(b) and b in births)
+        # Pass 1: 이름으로 못 잡힌 나머지만 추림
+        prev_unmatched = [r for r in prev_rows if _clean_name(r.get("nm")) not in curr_names]
+        curr_unmatched = [r for r in curr_rows if _clean_name(r.get("nm")) not in prev_names]
 
-        for r in curr_rows:
-            if not _present(r, prev_names, prev_births):
+        # Pass 2: 남은 후보군 안에서 birth_ym이 유일하게 겹치는 쌍만 동일인으로 인정
+        def _births(rows):
+            from collections import Counter
+            return Counter((r.get("birth_ym") or "").strip() for r in rows if (r.get("birth_ym") or "").strip())
+
+        prev_b_count, curr_b_count = _births(prev_unmatched), _births(curr_unmatched)
+        matched_prev_births = {
+            (r.get("birth_ym") or "").strip() for r in prev_unmatched
+            if (b := (r.get("birth_ym") or "").strip()) and prev_b_count[b] == 1 and curr_b_count.get(b) == 1
+        }
+
+        for r in curr_unmatched:
+            b = (r.get("birth_ym") or "").strip()
+            if b not in matched_prev_births:
                 changes.append({"name": _clean_name(r.get("nm")), "change": "신규선임/등재",
-                                "position": (r.get("ofcps") or "").strip(), "since_year": latest})
-        for r in prev_rows:
-            if not _present(r, curr_names, curr_births):
+                                "position": _clean_text_or_none(r.get("ofcps")) or "", "since_year": latest,
+                                "director_type": (r.get("rgist_exctv_at") or "").strip()})
+        for r in prev_unmatched:
+            b = (r.get("birth_ym") or "").strip()
+            if b not in matched_prev_births:
                 changes.append({"name": _clean_name(r.get("nm")),
                                 "change": "이탈(사퇴·임기만료·해임 중 하나)",
-                                "position": (r.get("ofcps") or "").strip(), "until_year": prev_year})
+                                "position": _clean_text_or_none(r.get("ofcps")) or "", "until_year": prev_year,
+                                "director_type": (r.get("rgist_exctv_at") or "").strip()})
     else:
         warnings.append(f"{prev_year}년 임원현황이 없어 재직/사퇴 diff 미산출.")
 
     board_count = sum(1 for r in roster if r["director_type"] in _BOARD_TYPES)
+
+    # 사외이사 변동현황(outcmpnyDrctrNdChangeSttus) 교차검증 — DART 공식 집계(개별 성명은 없음).
+    # fetch는 함수 상단에서 exctvSttus와 함께 이미 병렬로 끝남(oc_fetched), 여기선 가공만.
+    official_changes: list[dict[str, Any]] = []
+    for y, oc_rows in zip(years, oc_fetched):
+        if oc_rows:
+            r = oc_rows[0]
+            official_changes.append({
+                "year": y,
+                "director_count": _to_int(r.get("drctr_co")),
+                "outside_director_count": _to_int(r.get("otcmp_drctr_co")),
+                "appointed": _to_int(r.get("apnt")),
+                "released": _to_int(r.get("rlsofc")),
+                "mid_term_resigned": _to_int(r.get("mdstrm_resig")),
+            })
+
+    # 사외이사 신규선임만 필터(QA 260709 발견 — 필터 없이 exctvSttus 전체 임원 diff와 비교하면
+    # 미등기 임원까지 섞여 공식값과 규모 자체가 안 맞음, 예: 미래에셋증권 17 vs 공식 3).
+    our_outside_new = sum(1 for c in changes if "이탈" not in c["change"] and c.get("director_type") == "사외이사")
+    official_latest = next((o for o in official_changes if o["year"] == latest), None)
+    diff_cross_check = None
+    if official_latest is not None:
+        official_appointed = official_latest.get("appointed") or 0
+        diff_cross_check = {
+            "our_outside_director_new_appointments": our_outside_new,
+            "official_outside_director_appointed": official_appointed,
+            "note": "둘 다 '사외이사 신규선임' 건수로 맞춰 비교(같은 정의여도 재선임(연임)을 우리 diff는"
+                    " '변동 없음'으로, 공식값은 다르게 셀 수 있어 완전 일치는 아닐 수 있음 — 크게 어긋나면"
+                    " roster diff 추론을 의심할 신호로만 사용, 공식값이 항상 우선).",
+        }
+
     return {
         "roster": roster,
         "headcount_total": len(roster),
         "headcount_board": board_count,     # 등기 이사회 구성원(사내+사외+기타비상무+감사)
         "changes_vs_prev_year": changes,
+        "official_outside_director_changes": official_changes,  # DART 공식 집계, 연도별(YoY)
+        "diff_cross_check": diff_cross_check,
     }
 
 
 # ── individual: 개인별 5억+ 실명 보수 ───────────────────────────────────────
 
 async def _individual_scope(
-    client, corp_code: str, year: int, *, warnings: list[str]
+    client, corp_code: str, year: int, *, lookback_years: int = 1, warnings: list[str]
 ) -> dict[str, Any]:
-    """개인별 5억 이상 실명 보수(법정공개). 5억 미만은 비공개라 상위 일부만 — 정직하게 명시."""
-    rows = await _fetch_rows(client.get_individual_pay(corp_code, str(year), _REPRT_ANNUAL))
-    people = [{
-        "name": _clean_name(r.get("nm")),
-        "position": (r.get("ofcps") or "").strip(),
-        "total_pay_krw": _to_int(r.get("mendng_totamt")),
-        "breakdown_note": (r.get("mendng_totamt_ct_incls_mendng") or "").strip(),
-    } for r in rows]
-    people.sort(key=lambda p: p["total_pay_krw"] or 0, reverse=True)
-    if not people:
+    """개인별 5억 이상 실명 보수(법정공개, YoY). 5억 미만은 비공개라 상위 일부만 — 정직하게 명시."""
+    years = [year - i for i in range(lookback_years)]
+    # 연도별 fetch는 서로 독립 — 260709 병렬화(순차 sleep 제거)
+    fetched = await asyncio.gather(
+        *[_fetch_rows(client.get_individual_pay(corp_code, str(y), _REPRT_ANNUAL)) for y in years]
+    )
+    per_year: list[dict[str, Any]] = []
+    for y, rows in zip(years, fetched):
+        people = []
+        for r in rows:
+            people.append({
+                "name": _clean_name(r.get("nm")),
+                "position": _clean_text_or_none(r.get("ofcps")) or "",
+                "total_pay_krw": _to_int(r.get("mendng_totamt")),
+                # mendng_totamt_ct_incls_mendng = 보수총액에 "미포함"된 보수(주로 RSA·스톡옵션 등
+                # 아직 확정 안 된 주식기준보상) 설명 텍스트 — 260709 실측 확인(삼성전자/SK하이닉스).
+                # raw 개행 있으면 목록 렌더가 깨져 _clean_text_or_none으로 정규화(260709 census 재발견).
+                "breakdown_note": _clean_text_or_none(r.get("mendng_totamt_ct_incls_mendng")),
+            })
+        people.sort(key=lambda p: p["total_pay_krw"] or 0, reverse=True)
+        per_year.append({"year": y, "disclosed_count": len(people), "people": people})
+    if not any(y["people"] for y in per_year):
         warnings.append("개인별 5억+ 보수 공개 대상이 없음(전원 5억 미만이거나 미공시).")
     return {
-        "year": year,
-        "disclosed_count": len(people),
         "note": "5억원 이상만 법정 개별공개 — 그 미만은 비공개(범주 평균은 compensation scope).",
-        "people": people,
+        "per_year": per_year,
     }
 
 
 # ── unregistered: 미등기 집행임원 보수 ──────────────────────────────────────
 
 async def _unregistered_scope(
-    client, corp_code: str, year: int, *, warnings: list[str]
+    client, corp_code: str, year: int, *, lookback_years: int = 1, warnings: list[str]
 ) -> dict[str, Any]:
-    """미등기 집행임원 인당보수. 주총 승인한도 밖(등기 안 됨)이라 등기이사와 별개 지표."""
-    rows = await _fetch_rows(client.get_unregistered_pay(corp_code, str(year), _REPRT_ANNUAL))
-    buckets = [{
-        "type": (r.get("se") or "").strip(),
-        "headcount": _to_int(r.get("nmpr")),
-        "annual_total_krw": _to_int(r.get("fyer_salary_totamt")),
-        "per_capita_krw": _to_int(r.get("jan_salary_am")),
-    } for r in rows]
-    if not buckets:
+    """미등기 집행임원 인당보수(YoY). 주총 승인한도 밖(등기 안 됨)이라 등기이사와 별개 지표."""
+    years = [year - i for i in range(lookback_years)]
+    # 연도별 fetch는 서로 독립 — 260709 병렬화(순차 sleep 제거)
+    fetched = await asyncio.gather(
+        *[_fetch_rows(client.get_unregistered_pay(corp_code, str(y), _REPRT_ANNUAL)) for y in years]
+    )
+    per_year: list[dict[str, Any]] = []
+    for y, rows in zip(years, fetched):
+        buckets = []
+        for r in rows:
+            rm = (r.get("rm") or "").strip()
+            buckets.append({
+                "type": (r.get("se") or "").strip(),
+                "headcount": _to_int(r.get("nmpr")),
+                "annual_total_krw": _to_int(r.get("fyer_salary_totamt")),
+                "per_capita_krw": _to_int(r.get("jan_salary_am")),
+                "note": rm if rm and rm != "-" else None,
+            })
+        per_year.append({"year": y, "buckets": buckets})
+    if not any(y["buckets"] for y in per_year):
         warnings.append("미등기임원 보수 데이터 없음(미등기임원 미보유 또는 미공시).")
-    return {"year": year, "buckets": buckets}
+    return {"per_year": per_year}
 
 
 # ── pay_gap: 경영진 vs 직원 보수 배수 ───────────────────────────────────────
@@ -376,37 +497,92 @@ def _employee_avg_krw(emp_rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {"employee_avg_pay_krw": avg, "employee_headcount": total_head or None}
 
 
+def _employee_breakdown_rows(emp_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """부문·성별 원본 행을 그대로 구조화 노출(260709 — 지금까지 pay_gap 내부계산에만 쓰고
+    화면엔 안 보여주던 데이터). 평균근속연수(avrg_cnwk_sdytrn)도 포함.
+
+    **is_total 플래그 필수**(census 260709 발견): 삼성전자류는 부문 상세행(DX/DS)과 '성별합계'
+    총계행이 **한 응답에 같이** 온다 — 상세행 total_headcount(예: DX남 38,119 + DX여 12,698 + ...)를
+    합계행과 함께 그냥 다 더하면 실제 인원의 2배가 나온다(더블카운트). 소비자가 이 구분 없이 전체
+    합산하지 않도록 명시."""
+    def _is_total(r: dict[str, Any]) -> bool:
+        label = f"{r.get('se') or ''}{r.get('fo_bbm') or ''}"
+        return any(m in label for m in _EMP_TOTAL_MARKERS)
+
+    rows = []
+    for r in emp_rows:
+        rows.append({
+            "division": (r.get("fo_bbm") or "").strip(),
+            "gender": (r.get("sexdstn") or "").strip(),
+            "is_total": _is_total(r),  # True면 이미 전사 합계 — 다른 행과 합산 금지
+            "regular_headcount": _to_int(r.get("rgllbr_co")),
+            "contract_headcount": _to_int(r.get("cnttk_co")),
+            "total_headcount": _to_int(r.get("sm")),
+            "avg_tenure_years": (r.get("avrg_cnwk_sdytrn") or "").strip() or None,
+            "annual_salary_total_krw": _to_int(r.get("fyer_salary_totamt")),
+            "per_capita_salary_krw": _to_int(r.get("jan_salary_am")),
+        })
+    return rows
+
+
 async def _pay_gap_scope(
-    client, corp_code: str, year: int, *, comp_data: dict[str, Any] | None, warnings: list[str]
+    client, corp_code: str, year: int, *, lookback_years: int = 1,
+    comp_data: dict[str, Any] | None, warnings: list[str]
 ) -> dict[str, Any]:
-    """등기이사 인당보수 ÷ 직원 평균급여 배수. comp_data(이미 조회했으면 재사용)로 이사 인당 확보."""
-    emp_rows = await _fetch_rows(client.get_employee_status(corp_code, str(year), _REPRT_ANNUAL))
-    emp = _employee_avg_krw(emp_rows)
+    """등기이사 인당보수 ÷ 직원 평균급여 배수(YoY). comp_data(최신연도분 이미 조회했으면 재사용)로
+    이사 인당 확보 — 나머지(과거) 연도는 병렬 fetch(260709, comp_data 재사용은 최신연도 1건 콜
+    절약용 최적화라 병렬화를 위해 단순화: 재사용 실패시에만 fetch 대상에 포함)."""
+    years = [year - i for i in range(lookback_years)]
 
-    # 등기이사(사외·감사위 제외) 인당보수 — comp_data 재사용 or 즉석 조회
-    director_pc = None
-    if comp_data:
-        for y in comp_data.get("per_year", []):
-            if y.get("year") == year:
-                for b in y.get("by_type", []):
+    def _reused_pc(y: int) -> int | None:
+        if not (comp_data and y == year):
+            return None
+        for cy in comp_data.get("per_year", []):
+            if cy.get("year") == y:
+                for b in cy.get("by_type", []):
                     if "등기이사" in (b.get("type") or "") and "제외" in (b.get("type") or ""):
-                        director_pc = b.get("per_capita_krw")
-    if director_pc is None:
-        actual_rows = await _fetch_rows(client.get_director_pay_actual(corp_code, str(year), _REPRT_ANNUAL))
-        for r in actual_rows:
-            if "등기이사" in (r.get("se") or "") and "제외" in (r.get("se") or ""):
-                director_pc = _to_int(r.get("psn1_avrg_pymntamt"))
+                        return b.get("per_capita_krw")
+        return None
 
-    avg = emp.get("employee_avg_pay_krw")
-    gap = round(director_pc / avg, 1) if director_pc and avg else None
-    if gap is None:
+    reused = {y: _reused_pc(y) for y in years}
+    need_actual = [y for y in years if reused[y] is None]
+
+    # emp_rows(전 연도) + actual_rows(재사용 실패한 연도만) 한 번에 병렬 fetch
+    emp_fetched, actual_fetched = await asyncio.gather(
+        asyncio.gather(*[_fetch_rows(client.get_employee_status(corp_code, str(y), _REPRT_ANNUAL))
+                         for y in years]),
+        asyncio.gather(*[_fetch_rows(client.get_director_pay_actual(corp_code, str(y), _REPRT_ANNUAL))
+                         for y in need_actual]),
+    )
+    emp_by_year = dict(zip(years, emp_fetched))
+    actual_by_year = dict(zip(need_actual, actual_fetched))
+
+    per_year: list[dict[str, Any]] = []
+    for y in years:
+        emp_rows = emp_by_year[y]
+        emp = _employee_avg_krw(emp_rows)
+
+        director_pc = reused[y]
+        if director_pc is None:
+            for r in actual_by_year.get(y, []):
+                if "등기이사" in (r.get("se") or "") and "제외" in (r.get("se") or ""):
+                    director_pc = _to_int(r.get("psn1_avrg_pymntamt"))
+
+        avg = emp.get("employee_avg_pay_krw")
+        gap = round(director_pc / avg, 1) if director_pc and avg else None
+        per_year.append({
+            "year": y,
+            "director_per_capita_krw": director_pc,
+            "employee_avg_pay_krw": avg,
+            "employee_headcount": emp.get("employee_headcount"),
+            "gap_multiple": gap,
+            "employee_breakdown": _employee_breakdown_rows(emp_rows),
+        })
+
+    if not any(y["gap_multiple"] for y in per_year):
         warnings.append("보수 격차 배수 산출 불가(이사 인당보수 또는 직원 평균급여 결측).")
     return {
-        "year": year,
-        "director_per_capita_krw": director_pc,
-        "employee_avg_pay_krw": avg,
-        "employee_headcount": emp.get("employee_headcount"),
-        "gap_multiple": gap,
+        "per_year": per_year,
         "note": "등기이사(사외·감사위 제외) 인당보수 ÷ 직원 전체 가중평균 급여. 배수 자체가 "
                 "과다/적정 판단은 아님(업종·직군 구성 차이 있음) — 비교 신호로만.",
     }
@@ -513,22 +689,34 @@ async def build_director_board_payload(
         "lookback_years": lookback_years,
     }
 
+    # scope 함수 6개는 서로 데이터를 안 씀(pay_gap의 comp_data 재사용은 순수 최적화라 병렬화를 위해
+    # 포기 — compensation 자체를 fetch 안 하는 케이스도 있어 항상 재사용 가능한 게 아니었음) —
+    # 전부 asyncio.gather로 병렬 실행(260709, 이전엔 6개가 순차 대기 → 지연시간 누적).
+    # warnings 리스트는 asyncio 협조적 스케줄링이라 concurrent append도 안전(진짜 스레드 병렬 아님).
+    tasks: dict[str, Any] = {}
+    if scope in {"compensation", "summary"}:
+        tasks["compensation"] = _compensation_scope(
+            client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
+    if scope in {"roster", "summary"}:
+        tasks["roster"] = _roster_scope(
+            client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
+    if scope in {"individual", "summary"}:
+        tasks["individual"] = _individual_scope(
+            client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
+    if scope in {"unregistered", "summary"}:
+        tasks["unregistered"] = _unregistered_scope(
+            client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
+    if scope in {"pay_gap", "summary"}:
+        tasks["pay_gap"] = _pay_gap_scope(
+            client, corp_code, year, lookback_years=lookback_years, comp_data=None, warnings=warnings)
+    if scope in {"pay_agenda", "summary"}:
+        tasks["pay_agenda"] = _pay_agenda_scope(company_query, warnings=warnings)
+
     try:
-        if scope in {"compensation", "summary"}:
-            data["compensation"] = await _compensation_scope(
-                client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
-        if scope in {"roster", "summary"}:
-            data["roster"] = await _roster_scope(
-                client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
-        if scope in {"individual", "summary"}:
-            data["individual"] = await _individual_scope(client, corp_code, year, warnings=warnings)
-        if scope in {"unregistered", "summary"}:
-            data["unregistered"] = await _unregistered_scope(client, corp_code, year, warnings=warnings)
-        if scope in {"pay_gap", "summary"}:
-            data["pay_gap"] = await _pay_gap_scope(
-                client, corp_code, year, comp_data=data.get("compensation"), warnings=warnings)
-        if scope in {"pay_agenda", "summary"}:
-            data["pay_agenda"] = await _pay_agenda_scope(company_query, warnings=warnings)
+        if tasks:
+            results = await asyncio.gather(*tasks.values())
+            for key, result in zip(tasks.keys(), results):
+                data[key] = result
         if scope in {"attendance", "summary"}:
             # v1: 원문 파서 미구현 — 정직하게 stub. (금융지주는 PDF 별도양식)
             data["attendance"] = {"status": "not_implemented",
