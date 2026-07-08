@@ -39,6 +39,7 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("")
         lines.append("| 연도 | 승인한도 | 이사류 실지급 | 소진율 | 등기이사 인당보수 | 비고 |")
         lines.append("|---|---|---|---|---|---|")
+        year_notes: list[tuple[int, str, str]] = []  # (year, se, rm) — DART 공시 원문 비고
         for y in comp.get("per_year", []):
             reg_pc = next((b.get("per_capita_krw") for b in y.get("by_type", [])
                            if "등기이사" in (b.get("type") or "") and "제외" in (b.get("type") or "")), None)
@@ -51,7 +52,16 @@ def _render(payload: dict[str, Any]) -> str:
                 f"{_won(y.get('director_paid_total_krw'))} | {util_str} | {_won(reg_pc)} | "
                 f"{y.get('limit_source', '')} |"
             )
+            for b in y.get("by_type", []):
+                if b.get("note"):
+                    year_notes.append((y.get("year"), b.get("type"), b["note"]))
         lines.append("")
+        if year_notes:
+            lines.append("**DART 공시 비고**(원문 그대로 — 퇴직금·중도사임 등 1회성 사유나 선임/사임")
+            lines.append("일자가 담긴 경우 있음, 소진율 해석 시 참고):")
+            for yr, se, note in year_notes:
+                lines.append(f"- [{yr}·{se}] {note}")
+            lines.append("")
         lines.append("> 소진율 = 이사류 실지급 합 ÷ 주총 승인한도. 감사위원은 이사 한도 안(순수 감사만 별도).")
         lines.append("> '적절성'은 동종·규모 대비 판단이 필요해 수치·변동·flag만 제공(가치판단 안 함).")
         lines.append("")

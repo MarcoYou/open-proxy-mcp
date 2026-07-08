@@ -85,15 +85,21 @@ def _compensation_from_rows(
     실지급 유형 se 예: '등기이사(사외이사, 감사위원회 위원 제외)'·'사외이사'·'감사위원회 위원'·'감사'.
     이사 보수한도 소진율 = (감사 제외 이사류 실지급 합) ÷ 이사 승인한도.
     """
-    # 유형별 실지급 정리
+    # 유형별 실지급 정리. rm(비고)은 원문 그대로 노출(260708) — 회사마다 날짜·표기 포맷이
+    # 제각각이라(선임'25.03.20 / 2025년 03월 25일 / 2025.3.26 부) 정규식 구조화는 깨지기 쉽다.
+    # 300개사 실측: 17.3%(52사)에 내용 있고 평균 24.9자·최대 187자 — 짧아서 raw passthrough로 충분.
+    # 퇴직금·중도사임 등 1회성 사유, 심지어 이사 성명+정확한 선임/사임 날짜까지 담긴 경우도 있어
+    # exceeded_limit 등 이상치 해석에 바로 쓸모 있다.
     pay_by_type: list[dict[str, Any]] = []
     for r in actual_rows:
         se = (r.get("se") or "").strip()
+        rm = (r.get("rm") or "").strip()
         pay_by_type.append({
             "type": se,
             "headcount": _to_int(r.get("nmpr")),
             "total_paid_krw": _to_int(r.get("pymnt_totamt")),
             "per_capita_krw": _to_int(r.get("psn1_avrg_pymntamt")),
+            "note": rm if rm and rm != "-" else None,
         })
 
     # 이사 승인한도. 감사 전용 행 판정은 **'이사' 문자열 부재**로(QA 260708 발견 — "위원" 유무로
