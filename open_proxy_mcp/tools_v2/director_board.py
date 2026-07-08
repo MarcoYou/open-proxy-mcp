@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from open_proxy_mcp.services.director_board import build_director_board_payload
+from open_proxy_mcp.services.director_board import build_director_board_payload, _is_bare_marker
 from open_proxy_mcp.services.contracts import as_pretty_json
 
 
@@ -52,11 +52,14 @@ def _render(payload: dict[str, Any]) -> str:
                 f"{_won(y.get('director_paid_total_krw'))} | {util_str} | {_won(reg_pc)} | "
                 f"{y.get('limit_source', '')} |"
             )
+            # 각주 마커뿐인 비고('(주1)' 등)는 정보가 없어 렌더에서 억제 — data_quality_flags에
+            # footnote_marker_unresolved로 대신 표식(120사 census: 9사에서 무의미 마커 라인이 뜨던 문제).
             for b in y.get("by_type", []):
-                if b.get("note"):
+                if b.get("note") and not _is_bare_marker(b.get("note")):
                     year_notes.append((y.get("year"), b.get("type"), b["note"]))
             for note in y.get("limit_notes", []):
-                year_notes.append((y.get("year"), "승인한도", note))
+                if not _is_bare_marker(note):
+                    year_notes.append((y.get("year"), "승인한도", note))
         lines.append("")
         if year_notes:
             lines.append("**DART 공시 비고**(원문 그대로 — 퇴직금·중도사임 등 1회성 사유나 선임/사임")
@@ -92,13 +95,25 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append("")
         changes = roster.get("changes_vs_prev_year") or []
         if changes:
-            lines.append("### 전년 대비 변동 (이름/생년월 diff 추론)")
+            lines.append("### 전년 대비 이사회 변동 (등기이사·감사 · 이름/생년월 diff 추론)")
             for c in changes:
                 yr = c.get("since_year") or c.get("until_year")
-                lines.append(f"- **{c.get('name')}** ({c.get('position')}) — {c.get('change')} [{yr}]")
+                dt = c.get("director_type")
+                lines.append(f"- **{c.get('name')}** ({c.get('position')}{f' · {dt}' if dt else ''}) — {c.get('change')} [{yr}]")
             lines.append("")
         else:
             lines.append("- 전년 대비 이사회 구성 변동 없음(또는 diff 미산출)")
+            lines.append("")
+        # 미등기 집행임원 변동은 이사회 변동과 성격이 달라 참고로만 분리 표기(대형사에서 상무 인사
+        # 이동이 이사회 이탈로 오독되던 문제 대응, QA/스튜어드십 260709).
+        exec_changes = roster.get("executive_changes_vs_prev_year") or []
+        if exec_changes:
+            joined = sum(1 for c in exec_changes if "이탈" not in (c.get("change") or ""))
+            left = len(exec_changes) - joined
+            names = ", ".join(c.get("name") for c in exec_changes[:12])
+            more = f" 외 {len(exec_changes)-12}명" if len(exec_changes) > 12 else ""
+            lines.append(f"### 미등기 집행임원 변동 (참고 — 이사회 아님): 신규 {joined} · 이탈 {left}")
+            lines.append(f"- {names}{more}")
             lines.append("")
         official = roster.get("official_outside_director_changes") or []
         if official:
@@ -132,7 +147,8 @@ def _render(payload: dict[str, Any]) -> str:
                 for p in people:
                     lines.append(f"| {p.get('name')} | {p.get('position')} | {_won(p.get('total_pay_krw'))} |")
                 lines.append("")
-                with_breakdown = [p for p in people if p.get("breakdown_note")]
+                with_breakdown = [p for p in people if p.get("breakdown_note")
+                                  and not _is_bare_marker(p.get("breakdown_note"))]
                 if with_breakdown:
                     lines.append("**보수총액 미포함 내역**(RSA·스톡옵션 등 향후 확정될 주식 보상 —")
                     lines.append("아직 보수총액엔 안 잡히나 실질적 보상 규모 판단에 참고):")
@@ -149,9 +165,10 @@ def _render(payload: dict[str, Any]) -> str:
         for y in unreg.get("per_year", []):
             lines.append(f"**{y.get('year')}년**")
             for b in y.get("buckets", []):
+                note = b.get("note")
                 lines.append(f"- {b.get('type')}: {b.get('headcount')}명 · 인당 {_won(b.get('per_capita_krw'))} "
                              f"(연급여총액 {_won(b.get('annual_total_krw'))})"
-                             + (f" — {b['note']}" if b.get("note") else ""))
+                             + (f" — {note}" if note and not _is_bare_marker(note) else ""))
         lines.append("> 미등기임원은 주총 승인한도 밖(등기 안 됨) — 등기이사와 별개 지표.")
         lines.append("")
 
@@ -176,12 +193,16 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"**{latest_gap.get('year')}년 부문·성별 직원 세부**:")
             lines.append("| 부문 | 성별 | 정규직 | 계약직 | 합계 | 평균근속(년) | 1인평균급여 |")
             lines.append("|---|---|---|---|---|---|---|")
+            def _cell(v):
+                # dict 키는 항상 존재하고 값만 None이라 .get(k,'-') 기본값이 발동 못 해 'None'이
+                # 문자열로 찍히던 버그(QA 260709: 펩트론 등 15+파일). 0은 유효값이라 살린다.
+                return v if v is not None else "-"
             for b in breakdown:
                 division = f"**{b.get('division') or '-'}(합계)**" if b.get("is_total") else (b.get("division") or "-")
                 lines.append(
                     f"| {division} | {b.get('gender') or '-'} | "
-                    f"{b.get('regular_headcount', '-')} | {b.get('contract_headcount', '-')} | "
-                    f"{b.get('total_headcount', '-')} | {b.get('avg_tenure_years') or '-'} | "
+                    f"{_cell(b.get('regular_headcount'))} | {_cell(b.get('contract_headcount'))} | "
+                    f"{_cell(b.get('total_headcount'))} | {b.get('avg_tenure_years') or '-'} | "
                     f"{_won(b.get('per_capita_salary_krw'))} |"
                 )
             if any(b.get("is_total") for b in breakdown) and any(not b.get("is_total") for b in breakdown):
@@ -196,8 +217,15 @@ def _render(payload: dict[str, Any]) -> str:
     if agenda:
         lines.append("## 보수한도 주총안건 — 올해 제안 vs 작년 실적")
         lines.append("")
-        if agenda.get("status") == "no_agenda":
+        if not agenda.get("proposed_limit_krw"):
             lines.append(f"- {agenda.get('note')}")
+            if agenda.get("fallback_limit_recent_krw"):
+                chg = agenda.get("fallback_limit_change_pct")
+                lines.append(
+                    f"- 📄 (참고) 사업보고서 승인한도 추이: {_won(agenda.get('fallback_limit_prev_krw'))} → "
+                    f"{_won(agenda.get('fallback_limit_recent_krw'))}"
+                    + (f" (**{chg:+.1f}%**)" if chg is not None else ""))
+                lines.append(f"  - {agenda.get('fallback_note')}")
         else:
             lines.append(f"- 올해 제안 한도: {_won(agenda.get('proposed_limit_krw'))}")
             lines.append(f"- 작년 승인 한도: {_won(agenda.get('prior_limit_krw'))}"
@@ -229,6 +257,28 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"> {assess.get('note', '')}")
         lines.append("")
 
+    # 데이터 품질 참고 — 파싱 신뢰도에 영향을 주는 신호를 종류별로 투명하게(120사 census 설계).
+    # warn(신뢰도 낮춰 봐야 함)을 위, info(실제값이거나 참고)를 아래로.
+    flags = d.get("data_quality_flags") or []
+    if flags:
+        warns = [f for f in flags if f.get("severity") == "warn"]
+        infos = [f for f in flags if f.get("severity") != "warn"]
+        lines.append("## 데이터 품질 참고")
+        for f in warns + infos:
+            mark = "⚠️" if f.get("severity") == "warn" else "ℹ️"
+            yr = f" {f['year']}" if f.get("year") else ""
+            subj = f" {f['subject']}" if f.get("subject") else ""
+            lines.append(f"- {mark} [{f.get('scope')}{yr}]{subj} {f.get('detail')}")
+            # 원문 폴백으로 해소된 각주 본문(정형 API가 못 주던 내용을 사업보고서 원문에서 복구).
+            if f.get("resolved_text"):
+                lines.append(f"  - ↳ **원문 각주**: {f['resolved_text']}")
+            elif f.get("raw_text_excerpt"):
+                lines.append(f"  - ↳ 원문 발췌(각주 자동추출 실패, 직접 확인): {f['raw_text_excerpt'][:200]}…")
+        if any(f.get("kind") == "footnote_marker_unresolved" and not f.get("resolved_text")
+               for f in flags):
+            lines.append("> 각주 마커(예 `(주1)`)는 정형 API가 본문을 안 줘 원문 각주에만 있음 — 해소 실패 건은 사업보고서 원문 확인.")
+        lines.append("")
+
     return "\n".join(lines)
 
 
@@ -241,6 +291,7 @@ def register_tools(mcp):
         year: int = 0,
         lookback_years: int = 3,
         format: str = "md",
+        resolve_footnotes: bool = True,
     ) -> str:
         """desc: **개별 이사 단위** 정보 — 이사 인당 보수, 보수한도 소진율(연도별 rm 비고 원문 포함),
         임원 재직/사퇴 변동(연도 diff + DART 공식 사외이사 변동 집계로 교차검증), 개인별(5억+) 보수와
@@ -260,11 +311,15 @@ def register_tools(mcp):
         scope: compensation | roster | individual(5억+ 실명, RSA/스톡옵션 노트 포함) |
         unregistered(미등기임원) | pay_gap(경영진 vs 직원 배수, 부문별 세부) |
         pay_agenda(보수한도 주총안건 올해vs작년) | attendance(v2 stub) | summary(기본)
+        각주 마커('(주1)' 등 정형 API가 본문을 안 주는 비고)는 resolve_footnotes=True(기본)면 해당
+        사업보고서 원문에서 각주 본문을 자동 복구(마커 뜬 공시만 1회 fetch·캐시) — 실패 시 원문 발췌 폴백.
         year: 기준 사업연도(0=최근 확정 전년). lookback_years: 조회 기간(년), 기본 3 — 대부분 scope에서 YoY 적용
+        resolve_footnotes: 각주 마커를 원문에서 해소할지(기본 True). False면 원문 fetch 없이 마커만 플래그.
         ref: corp_gov_report, director_evaluation, shareholder_meeting
         """
         payload = await build_director_board_payload(
-            company, scope=scope, year=year, lookback_years=lookback_years, format=format)
+            company, scope=scope, year=year, lookback_years=lookback_years, format=format,
+            resolve_footnotes=resolve_footnotes)
         if format == "json":
             return as_pretty_json(payload)
         if payload.get("status") in ("ambiguous", "error"):

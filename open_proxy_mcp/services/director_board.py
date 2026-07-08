@@ -33,6 +33,8 @@ scope:
 from __future__ import annotations
 
 import asyncio
+import re
+import time
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -84,6 +86,118 @@ async def _fetch_rows(coro) -> list[dict[str, Any]]:
     if (resp or {}).get("status") != "000":
         return []
     return resp.get("list") or []
+
+
+async def _timed(coro, name: str, timings: dict[str, float]) -> Any:
+    """scope 코루틴 소요시간(ms)을 timings에 기록. 병렬 실행이라 wall-clock은 겹치지만 개별
+    scope의 소요는 그대로 측정돼 어느 scope가 느린지·성능 회귀를 나중에 잴 수 있다(사용자 요청).
+    time.perf_counter는 벽시계가 아닌 단조 증가 카운터라 측정에 안전."""
+    t0 = time.perf_counter()
+    try:
+        return await coro
+    finally:
+        timings[name] = round((time.perf_counter() - t0) * 1000, 1)
+
+
+# 각주 마커: (*1)·( * 1 )·주1)·(주 1) 등. DART 정형 API가 비고/breakdown에 각주 마커만 반환하고
+# 각주 본문은 사업보고서 원문에만 있는 경우가 있다(120사 census: SK하이닉스 승인한도 '(주1)'·
+# NAVER 개인별 '주1)' 등 9/120사). 이런 필드는 값이 마커뿐이라 그대로 렌더하면 무의미 —
+# raw_text로도 복구 불가(본문이 API 응답에 없음)라 '원문 각주 미해결' 플래그로 표식만 남긴다.
+_MARKER_RE = re.compile(r"\(\s*\*\s*\d+\s*\)|\(?\s*주\s*\d+\s*\)|\*\d+")
+
+
+def _is_bare_marker(value: Any) -> bool:
+    """필드가 사실상 각주 마커뿐인지('[등기임원] (주1)'·'주1)' → True). 마커+실내용이면 False."""
+    if not value:
+        return False
+    body = re.sub(r"^\[[^\]]*\]\s*", "", str(value).strip())  # '[label] ' 접두 제거 후 판정
+    if not _MARKER_RE.search(body):
+        return False
+    return len(_MARKER_RE.sub("", body).strip(" -·.,()[]")) <= 2
+
+
+# 각주가 붙는 표의 제목(섹션 앵커). 마커는 section-local이라(같은 '주1)'이 임원보수·재무각주에
+# 따로 존재·의미 다름 — 크래프톤 실측) 전체 원문이 아니라 앵커 뒤 window 안에서만 각주를 찾는다.
+_SECTION_ANCHORS = {
+    "compensation": r"주주총회\s*승인금액",
+    "individual": r"개인별\s*보수지급\s*금액|이사ㆍ감사의?\s*개인별|5억원\s*이상",
+    "unregistered": r"미등기\s*임원",
+}
+# 각주 '정의'(사용처 아님) 신호어 — 이게 있어야 설명문으로 인정(표 행 조각 오탐 억제).
+_FN_SIGNAL = re.compile(r"(습니다|합니다|하였|함\b|임\b|됨\b|승인|지급|부여|산정|포함|제외|사임|선임|한도|받았)")
+
+
+def _norm_marker(token: str) -> str:
+    """'(주1)'·'주1)'→'주1', '(*1)'·'*1'→'*1'."""
+    return re.sub(r"[^\d주*]", "", token or "")
+
+
+# 각주 문장 종결어미 — 진짜 각주 '정의'는 문장으로 끝난다. 표 행 조각은 안 끝난다(정밀도 우선).
+_FN_END = re.compile(r"(받았습니다|하였습니다|되었습니다|있습니다|없습니다|됩니다|입니다|습니다|합니다|하였음|하였다|하였함|였음|됨|함\b|임\b)[.\)]?")
+
+
+def _clean_fn_body(body: str) -> tuple[str, bool]:
+    """각주 본문 정리: 앞쪽 마커/※/콜론 제거 후 첫 문장 종결에서 자름.
+    반환 (정리본문, 확신) — 문장 종결이 있으면 확신 True(진짜 각주), 없으면 False(표 조각 의심)."""
+    body = re.sub(r"^\s*[※\-]*\s*\(?\s*(?:주|[*])\s?\d+\s*\)?\s*[:：]?\s*", "", body).strip()
+    m = _FN_END.search(body)
+    if m:
+        return body[:m.end()].strip(), True
+    return body.strip(), False
+
+
+def _extract_footnote(text: str, scope: str, marker: str, window: int = 6000) -> tuple[str | None, str | None]:
+    """원문에서 (scope 섹션의) 특정 마커 각주 본문을 추출.
+    반환 (resolved_body, raw_snippet): 문장으로 끝나는 확신 각주면 body(raw None), 애매하면 body None
+    + 앵커 구간 raw 발췌(코붕이 raw_text 폴백 — 틀린 각주를 지어내느니 원문을 그대로 보여줌).
+    크래프톤처럼 마커가 표 컬럼이라 옆 행을 긁는 오탐은 '문장 종결 필수'로 걸러 raw 폴백으로 보낸다."""
+    anchor = _SECTION_ANCHORS.get(scope)
+    if not anchor:
+        return None, None
+    m0 = re.search(anchor, text)
+    if not m0:
+        return None, None
+    seg = re.sub(r"\s+", " ", text[m0.start(): m0.start() + window])
+    want = _norm_marker(marker)
+    defs: dict[str, str] = {}
+    pat = re.compile(r"(\(?\s*(?:주|[*])\s?\d+\s*\))\s*([가-힣0-9A-Za-z※][^\n]{9,260}?)"
+                     r"(?=\(?\s*(?:주|[*])\s?\d+\s*\)|\(단위|$)")
+    for m in pat.finditer(seg):
+        mk = _norm_marker(m.group(1))
+        cleaned, confident = _clean_fn_body(m.group(2))
+        if not confident or len(re.findall(r"[가-힣]", cleaned)) < 6 or not _FN_SIGNAL.search(cleaned):
+            continue  # 문장 종결 없음/한글 부족/신호 없음 → 표 조각으로 보고 스킵(확신 각주만 채택)
+        if mk not in defs or len(cleaned) > len(defs[mk]):
+            defs[mk] = cleaned[:250]
+    if want in defs:
+        return defs[want], None
+    return None, seg[:400].strip()  # 확신 각주 못 찾음 → raw 발췌 폴백
+
+
+async def _resolve_footnotes(client, flags: list[dict[str, Any]]) -> None:
+    """footnote_marker_unresolved 플래그를 원문에서 해소(in-place). 마커 뜬 공시(rcept_no)만
+    get_document_cached로 1회씩 fetch(캐시) — 앱레벨 limiter 보호. 확신 추출→resolved_text,
+    애매→raw_text 폴백. 원문 파싱 스콥에서 코붕이의 raw_text fallback 설계를 실제 구현한 지점."""
+    targets = [f for f in flags if f.get("kind") == "footnote_marker_unresolved" and f.get("rcept_no")]
+    by_rcept: dict[str, list[dict]] = {}
+    for f in targets:
+        by_rcept.setdefault(f["rcept_no"], []).append(f)
+    for rcept_no, fs in by_rcept.items():
+        try:
+            doc = await client.get_document_cached(rcept_no)
+        except Exception:  # noqa: BLE001 — 원문 폴백 실패는 치명적 아님(마커만 남음)
+            continue
+        text = (doc or {}).get("text") or ""
+        if not text:
+            continue
+        for f in fs:
+            body, raw = _extract_footnote(text, f.get("scope"), f.get("raw_text") or "")
+            if body:
+                f["resolved_text"] = body
+                f["resolved_from"] = "원문 각주(사업보고서)"
+            elif raw:
+                f["raw_text_excerpt"] = raw
+                f["resolved_from"] = "원문 발췌(각주 자동추출 실패 — 원문 확인 필요)"
 
 
 # ── compensation: 인당보수·한도·소진율 ──────────────────────────────────────
@@ -148,6 +262,15 @@ def _compensation_from_rows(
         director_limit_krw = sum(a for a, _ in valid) if valid else None
         director_limit_headcount = sum(n or 0 for _, n in valid) if valid else None
 
+    # 한도 원문이 각주 마커('(*1)' 등)라 실제 금액이 숫자로 안 잡혀 spurious 소액(수백만원)이
+    # 분모가 되면 소진율이 수만%로 폭발한다(QA 260709: 디앤디파마텍 2024 한도 0.0억→35833.3%
+    # 🚨한도초과 오표기). 상장사 이사 보수한도가 1억 미만인 경우는 사실상 없으므로 파싱실패 신호로
+    # 보고 '한도 미상'으로 처리 → 소진율 산출에서 제외(공백해 lookback이 직전 유효연도로 채움).
+    if director_limit_krw is not None and director_limit_krw < 100_000_000:
+        limit_notes.append("[소진율 산출] 승인한도 원문이 각주 마커 등으로 금액 미파싱 — 한도 미상 처리(소진율 제외)")
+        director_limit_krw = None
+        director_limit_headcount = None
+
     # 이사류 실지급 합. **주의**: 실지급(actual) 테이블의 '감사위원회 위원'(순수 표기)은 등기이사이므로
     # 이사 한도 안(260708 최초 검증 — 현대차 헤드카운트 12=등기5+사외2+감사위원5 정합 확인됨). 한도 테이블의
     # "감사위원회 위원 또는 감사"(결합 표기, 이번에 발견한 별개 버그)와 판정 기준이 달라야 함 — 실지급
@@ -166,6 +289,9 @@ def _compensation_from_rows(
     if director_limit_krw and has_director_paid:
         utilization_pct = round(director_paid_total / director_limit_krw * 100, 1)
 
+    # 각주 원문 해소용 접수번호(rcept_no) — 마커 뜬 해의 사업보고서 원문을 찾아갈 때 씀(260709).
+    rcept_no = next((r.get("rcept_no") for r in (limit_rows + actual_rows) if r.get("rcept_no")), None)
+
     return {
         "director_pay_limit_krw": director_limit_krw,
         "director_pay_limit_headcount": director_limit_headcount,
@@ -174,6 +300,7 @@ def _compensation_from_rows(
         "utilization_pct": utilization_pct,
         "by_type": pay_by_type,
         "limit_notes": limit_notes,  # 승인한도 공시 rm(비고) — 260709 추가
+        "rcept_no": rcept_no,
     }
 
 
@@ -377,11 +504,20 @@ async def _roster_scope(
                     " roster diff 추론을 의심할 신호로만 사용, 공식값이 항상 우선).",
         }
 
+    # 변동을 등기 이사회 ↔ 미등기 집행임원으로 분리(3-에이전트 수렴 최우선, QA/스튜어드십 260709):
+    # exctvSttus는 이사회 멤버만 적는 회사(삼성·현대차·POSCO)와 전 집행임원(상무·전무)까지 적는
+    # 회사(미래에셋 157명·HD현대중공업 153명)가 섞여, diff를 통으로 내면 대형사에선 '감지된 이탈
+    # 16명'이 대부분 상무라 정작 이사회 변동이 노이즈에 묻힌다. director_type(rgist_exctv_at)로 갈라
+    # 이사회 변동을 주(主)로, 집행임원 변동은 참고로 분리. 종합신호 이탈도 이사회 기준이 된다.
+    board_changes = [c for c in changes if (c.get("director_type") or "") in _BOARD_TYPES]
+    exec_changes = [c for c in changes if (c.get("director_type") or "") not in _BOARD_TYPES]
+
     return {
         "roster": roster,
         "headcount_total": len(roster),
         "headcount_board": board_count,     # 등기 이사회 구성원(사내+사외+기타비상무+감사)
-        "changes_vs_prev_year": changes,
+        "changes_vs_prev_year": board_changes,          # 이사회 변동만(종합신호·주 렌더가 이걸 씀)
+        "executive_changes_vs_prev_year": exec_changes,  # 미등기 집행임원 변동(참고)
         "official_outside_director_changes": official_changes,  # DART 공식 집계, 연도별(YoY)
         "diff_cross_check": diff_cross_check,
     }
@@ -402,17 +538,26 @@ async def _individual_scope(
     for y, rows in zip(years, fetched):
         people = []
         for r in rows:
+            name = _clean_name(r.get("nm"))
+            total = _to_int(r.get("mendng_totamt"))
+            # 5억+ 대상자가 없는 연도엔 DART가 nm='-'·금액공백 placeholder 행을 반환한다 —
+            # 이걸 사람으로 집계하면 '(1명)' 헤더 뒤 빈 행이 뜨고 disclosed_count가 허위가 됨
+            # (QA 260709: 로보티즈 3개연도 전부 유령 1명, 23/60 파일). 실명·금액 둘 다 없으면 제외.
+            if name in ("", "-") and total is None:
+                continue
             people.append({
-                "name": _clean_name(r.get("nm")),
+                "name": name,
                 "position": _clean_text_or_none(r.get("ofcps")) or "",
-                "total_pay_krw": _to_int(r.get("mendng_totamt")),
+                "total_pay_krw": total,
                 # mendng_totamt_ct_incls_mendng = 보수총액에 "미포함"된 보수(주로 RSA·스톡옵션 등
                 # 아직 확정 안 된 주식기준보상) 설명 텍스트 — 260709 실측 확인(삼성전자/SK하이닉스).
                 # raw 개행 있으면 목록 렌더가 깨져 _clean_text_or_none으로 정규화(260709 census 재발견).
                 "breakdown_note": _clean_text_or_none(r.get("mendng_totamt_ct_incls_mendng")),
             })
         people.sort(key=lambda p: p["total_pay_krw"] or 0, reverse=True)
-        per_year.append({"year": y, "disclosed_count": len(people), "people": people})
+        rcept_no = next((r.get("rcept_no") for r in rows if r.get("rcept_no")), None)
+        per_year.append({"year": y, "disclosed_count": len(people), "people": people,
+                         "rcept_no": rcept_no})
     if not any(y["people"] for y in per_year):
         warnings.append("개인별 5억+ 보수 공개 대상이 없음(전원 5억 미만이거나 미공시).")
     return {
@@ -444,7 +589,8 @@ async def _unregistered_scope(
                 "per_capita_krw": _to_int(r.get("jan_salary_am")),
                 "note": rm if rm and rm != "-" else None,
             })
-        per_year.append({"year": y, "buckets": buckets})
+        rcept_no = next((r.get("rcept_no") for r in rows if r.get("rcept_no")), None)
+        per_year.append({"year": y, "buckets": buckets, "rcept_no": rcept_no})
     if not any(y["buckets"] for y in per_year):
         warnings.append("미등기임원 보수 데이터 없음(미등기임원 미보유 또는 미공시).")
     return {"per_year": per_year}
@@ -518,7 +664,9 @@ def _employee_breakdown_rows(emp_rows: list[dict[str, Any]]) -> list[dict[str, A
             "regular_headcount": _to_int(r.get("rgllbr_co")),
             "contract_headcount": _to_int(r.get("cnttk_co")),
             "total_headcount": _to_int(r.get("sm")),
-            "avg_tenure_years": (r.get("avrg_cnwk_sdytrn") or "").strip() or None,
+            # 내부 개행(신한지주 '3년 1개월\n(16년 2개월)')이 마크다운 표 셀을 두 줄로 쪼개므로
+            # _clean_text_or_none로 개행을 ' / '로 정규화(QA 260709: 신한·KB금융 표 붕괴).
+            "avg_tenure_years": _clean_text_or_none(r.get("avrg_cnwk_sdytrn")),
             "annual_salary_total_krw": _to_int(r.get("fyer_salary_totamt")),
             "per_capita_salary_krw": _to_int(r.get("jan_salary_am")),
         })
@@ -649,10 +797,12 @@ async def _pay_agenda_scope(company_query: str, *, warnings: list[str]) -> dict[
 
 async def build_director_board_payload(
     company_query: str, *, scope: str = "summary", year: int = 0, lookback_years: int = 3,
-    format: str = "md",
+    format: str = "md", resolve_footnotes: bool = True,
 ) -> dict[str, Any]:
     client = get_dart_client()
     calls_start = client.api_call_snapshot()
+    t_start = time.perf_counter()
+    timings: dict[str, float] = {}
 
     if scope not in _SUPPORTED_SCOPES:
         return ToolEnvelope(
@@ -682,6 +832,8 @@ async def build_director_board_payload(
         from datetime import date
         year = date.today().year - 1
 
+    timings["resolve"] = round((time.perf_counter() - t_start) * 1000, 1)
+
     warnings: list[str] = []
     data: dict[str, Any] = {
         "query": company_query, "canonical_name": canonical_name,
@@ -693,24 +845,31 @@ async def build_director_board_payload(
     # 포기 — compensation 자체를 fetch 안 하는 케이스도 있어 항상 재사용 가능한 게 아니었음) —
     # 전부 asyncio.gather로 병렬 실행(260709, 이전엔 6개가 순차 대기 → 지연시간 누적).
     # warnings 리스트는 asyncio 협조적 스케줄링이라 concurrent append도 안전(진짜 스레드 병렬 아님).
+    # 각 scope는 _timed로 감싸 개별 소요(ms)를 timings에 기록 → data["timing"]으로 노출(성능측정용).
     tasks: dict[str, Any] = {}
     if scope in {"compensation", "summary"}:
-        tasks["compensation"] = _compensation_scope(
-            client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
+        tasks["compensation"] = _timed(_compensation_scope(
+            client, corp_code, year, lookback_years=lookback_years, warnings=warnings),
+            "compensation", timings)
     if scope in {"roster", "summary"}:
-        tasks["roster"] = _roster_scope(
-            client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
+        tasks["roster"] = _timed(_roster_scope(
+            client, corp_code, year, lookback_years=lookback_years, warnings=warnings),
+            "roster", timings)
     if scope in {"individual", "summary"}:
-        tasks["individual"] = _individual_scope(
-            client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
+        tasks["individual"] = _timed(_individual_scope(
+            client, corp_code, year, lookback_years=lookback_years, warnings=warnings),
+            "individual", timings)
     if scope in {"unregistered", "summary"}:
-        tasks["unregistered"] = _unregistered_scope(
-            client, corp_code, year, lookback_years=lookback_years, warnings=warnings)
+        tasks["unregistered"] = _timed(_unregistered_scope(
+            client, corp_code, year, lookback_years=lookback_years, warnings=warnings),
+            "unregistered", timings)
     if scope in {"pay_gap", "summary"}:
-        tasks["pay_gap"] = _pay_gap_scope(
-            client, corp_code, year, lookback_years=lookback_years, comp_data=None, warnings=warnings)
+        tasks["pay_gap"] = _timed(_pay_gap_scope(
+            client, corp_code, year, lookback_years=lookback_years, comp_data=None, warnings=warnings),
+            "pay_gap", timings)
     if scope in {"pay_agenda", "summary"}:
-        tasks["pay_agenda"] = _pay_agenda_scope(company_query, warnings=warnings)
+        tasks["pay_agenda"] = _timed(_pay_agenda_scope(company_query, warnings=warnings),
+                                     "pay_agenda", timings)
 
     try:
         if tasks:
@@ -730,14 +889,128 @@ async def build_director_board_payload(
             warnings=[f"DART 조회 실패: {e}"], data=data,
         ).to_dict()
 
+    # pay_agenda 안건 미파싱/부재 시 compensation 표의 연도별 승인한도 YoY로 폴백(스튜어드십 260709:
+    # 기아 80→175억처럼 상단 표엔 한도가 있는데 안건 섹션만 빈칸이던 8/60 케이스 보강). 안건 원문이
+    # 아니라 사업보고서 승인한도의 연도간 변화이므로 출처를 명확히 구분해 표기.
     if scope == "summary":
+        pa = data.get("pay_agenda") or {}
+        if not pa.get("proposed_limit_krw"):
+            comp_years = (data.get("compensation") or {}).get("per_year") or []
+            limits = [(y.get("year"), y.get("director_pay_limit_krw"))
+                      for y in comp_years if y.get("director_pay_limit_krw")]
+            distinct: list[tuple[int, int]] = []
+            for yr, lim in limits:  # 캐리포워드로 중복된 값 접어 실제 변화점만
+                if not distinct or distinct[-1][1] != lim:
+                    distinct.append((yr, lim))
+            if len(distinct) >= 2:
+                (ny, nl), (py, pl) = distinct[0], distinct[1]
+                pa["fallback_limit_recent_krw"] = nl
+                pa["fallback_limit_prev_krw"] = pl
+                pa["fallback_limit_change_pct"] = round((nl - pl) / pl * 100, 1) if pl else None
+                pa["fallback_note"] = (
+                    f"주총안건 미파싱 — 사업보고서 승인한도 YoY로 대체({py}년 {pl/1e8:.0f}억원 → "
+                    f"{ny}년 {nl/1e8:.0f}억원). 주총 소집공고 안건 원문이 아님.")
+                data["pay_agenda"] = pa
+
         data["assessment"] = _summary_assessment(data)
 
+    # 데이터 품질 플래그(machine-readable 통합) — 흩어진 신호(각주 마커·한도 미상·소진율 초과·안건
+    # 미파싱·교차검증 불일치)를 스콥별 항목 배열로 모아 소비자(LLM/에이전트)가 프로그램적으로 읽게 함.
+    # 260709 설계: 전역 '파싱의심' 단일 플래그는 이질적 신호를 뭉뚱그려 실제값(스톡옵션 초과 등)에
+    # 오탐 → 종류(kind)별로 분리. raw_text는 원문 파싱 스콥(attendance v2·notice)에서 파싱 실패 시
+    # 원문을 담는 자리 — 정형 API 마커는 본문이 응답에 없어 마커 자체만 참고로 싣는다.
+    if scope != "attendance":
+        flags = _collect_data_quality_flags(data)
+        # 각주 마커 플래그가 있으면 원문 폴백으로 해소 시도(마커 뜬 공시만 1회씩 fetch·캐시).
+        # 정형 API가 못 주는 각주 본문을 사업보고서 원문에서 복구 — 260709 코붕이 제안(url 기반).
+        if resolve_footnotes and any(f.get("kind") == "footnote_marker_unresolved" for f in flags):
+            await _resolve_footnotes(client, flags)
+        data["data_quality_flags"] = flags
+
     data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
+    # 성능측정용 타이머(사용자 요청): scope별 개별 소요 + 전체 wall-clock(ms). 병렬 실행이라
+    # 전체는 개별 합보다 작다(가장 느린 scope에 수렴) — 순차 대비 얼마나 절약했는지도 볼 수 있음.
+    data["timing"] = {
+        "per_scope_ms": timings,
+        "total_wall_ms": round((time.perf_counter() - t_start) * 1000, 1),
+        "scope_sum_ms": round(sum(v for k, v in timings.items() if k != "resolve"), 1),
+    }
     return ToolEnvelope(
         tool="director_board", status=AnalysisStatus.EXACT, subject=canonical_name,
         warnings=warnings, data=data,
     ).to_dict()
+
+
+def _collect_data_quality_flags(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """흩어진 파싱 품질 신호를 스콥별 항목으로 통합. 각 항목:
+      {scope, kind, severity(info/warn), detail, [year], [raw_text], [fallback_used]}.
+    kind별 의미가 달라 소비자가 선택적으로 대응 가능(극단 소진율=info는 실제값이라 무시해도 되고,
+    crosscheck_mismatch=warn은 roster diff 신뢰도를 낮춰 봐야 함). 120사 census 근거로 종류 설계."""
+    flags: list[dict[str, Any]] = []
+
+    comp = data.get("compensation") or {}
+    for y in comp.get("per_year", []):
+        yr = y.get("year")
+        rc = y.get("rcept_no")
+        for note in y.get("limit_notes", []):
+            if "한도 미상" in note:
+                flags.append({"scope": "compensation", "year": yr, "kind": "limit_unreliable",
+                              "severity": "warn",
+                              "detail": "승인한도 원문이 각주 마커라 금액 미파싱 — 소진율 산출에서 제외(직전 유효연도 lookback)."})
+            elif _is_bare_marker(note):
+                flags.append({"scope": "compensation", "year": yr, "kind": "footnote_marker_unresolved",
+                              "severity": "info", "raw_text": note, "rcept_no": rc,
+                              "detail": "승인한도 비고가 각주 마커뿐 — 각주 본문은 사업보고서 원문에 있음(정형 API 미제공)."})
+        for b in y.get("by_type", []):
+            if _is_bare_marker(b.get("note")):
+                flags.append({"scope": "compensation", "year": yr, "kind": "footnote_marker_unresolved",
+                              "severity": "info", "raw_text": b.get("note"), "rcept_no": rc,
+                              "detail": f"[{b.get('type')}] 실지급 비고가 각주 마커뿐 — 원문 각주 참조."})
+        if y.get("utilization_flag") == "exceeded_limit":
+            flags.append({"scope": "compensation", "year": yr, "kind": "utilization_exceeds_limit",
+                          "severity": "info",
+                          "detail": f"소진율 {y.get('utilization_pct')}% — 주총 승인한도 초과 지급. 파싱오류 아님"
+                                    "(퇴직금·성과급·스톡옵션 행사이익 등). 비고·개인별로 원인 확인 권장."})
+
+    indiv = data.get("individual") or {}
+    for y in indiv.get("per_year", []):
+        for p in y.get("people", []):
+            if _is_bare_marker(p.get("breakdown_note")):
+                flags.append({"scope": "individual", "year": y.get("year"),
+                              "kind": "footnote_marker_unresolved", "severity": "info",
+                              "raw_text": p.get("breakdown_note"), "rcept_no": y.get("rcept_no"),
+                              "subject": p.get("name"),
+                              "detail": f"{p.get('name')} 보수 미포함내역(RSA/스톡옵션)이 각주 마커뿐 — 원문 각주 참조."})
+
+    unreg = data.get("unregistered") or {}
+    for y in unreg.get("per_year", []):
+        for b in y.get("buckets", []):
+            if _is_bare_marker(b.get("note")):
+                flags.append({"scope": "unregistered", "year": y.get("year"),
+                              "kind": "footnote_marker_unresolved", "severity": "info",
+                              "raw_text": b.get("note"), "rcept_no": y.get("rcept_no"),
+                              "detail": "미등기임원 보수 비고가 각주 마커뿐 — 원문 각주 참조."})
+
+    pa = data.get("pay_agenda") or {}
+    if pa and not pa.get("proposed_limit_krw"):
+        fb = bool(pa.get("fallback_limit_recent_krw"))
+        flags.append({"scope": "pay_agenda", "kind": "parse_failed",
+                      "severity": "info" if fb else "warn", "fallback_used": fb,
+                      "detail": "주총 소집공고에서 보수한도 안건 미파싱." +
+                                (" 사업보고서 승인한도 YoY로 폴백 제공." if fb
+                                 else " 폴백도 불가(compensation 연도별 한도 부족).")})
+
+    roster = data.get("roster") or {}
+    cc = roster.get("diff_cross_check") or {}
+    if cc:
+        ours = cc.get("our_outside_director_new_appointments") or 0
+        official = cc.get("official_outside_director_appointed") or 0
+        if abs(ours - official) >= 3:
+            flags.append({"scope": "roster", "kind": "crosscheck_mismatch", "severity": "warn",
+                          "detail": f"이름기반 사외이사 신규선임 diff({ours})와 DART 공식 집계({official})가 "
+                                    f"{abs(ours - official)} 차이 — 재선임/정의차 가능하나 roster diff 신뢰도 낮음(공식값 우선)."})
+
+    return flags
 
 
 def _summary_assessment(data: dict[str, Any]) -> dict[str, Any]:

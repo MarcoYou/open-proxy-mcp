@@ -765,12 +765,22 @@ class DartClient:
         data = await self._request_binary("document.xml", {"rcept_no": rcept_no})
         z = zipfile.ZipFile(io.BytesIO(data))
 
-        # XML 파일 찾기
+        # XML 파일 찾기. 사업보고서 등 큰 공시는 ZIP에 본문(`{rcept_no}.xml`) + 첨부
+        # (`{rcept_no}_NNNNN.xml`)가 함께 들어있는데, 정렬상 첨부가 앞서 [0]을 읽으면 본문(임원보수·
+        # 각주 등)을 놓친다(260709 실측: SK하이닉스 사업보고서 ZIP=본문8MB+첨부2, [0]은 첨부575KB).
+        # 본문은 언더스코어 접미사 없는 `{rcept_no}.xml` → 그걸 우선, 없으면 가장 큰 XML, 최후 [0].
         xml_files = [f for f in z.namelist() if f.endswith(".xml")]
         if not xml_files:
             raise DartClientError("NO_DOC", "ZIP에 XML 문서가 없습니다.")
 
-        xml_content = z.read(xml_files[0])
+        main_name = f"{rcept_no}.xml"
+        if main_name in xml_files:
+            chosen = main_name
+        elif len(xml_files) > 1:
+            chosen = max(xml_files, key=lambda f: z.getinfo(f).file_size)
+        else:
+            chosen = xml_files[0]
+        xml_content = z.read(chosen)
 
         # 인코딩 처리
         for encoding in ["utf-8", "euc-kr", "cp949"]:
