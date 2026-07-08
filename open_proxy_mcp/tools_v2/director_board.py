@@ -43,7 +43,9 @@ def _render(payload: dict[str, Any]) -> str:
             reg_pc = next((b.get("per_capita_krw") for b in y.get("by_type", [])
                            if "등기이사" in (b.get("type") or "") and "제외" in (b.get("type") or "")), None)
             util = y.get("utilization_pct")
-            util_str = f"{util}%" + (" ⚠️" if y.get("utilization_flag") == "high" else "") if util is not None else "N/M"
+            flag = y.get("utilization_flag")
+            util_mark = " 🚨한도초과" if flag == "exceeded_limit" else (" ⚠️" if flag == "high" else "")
+            util_str = f"{util}%{util_mark}" if util is not None else "N/M"
             lines.append(
                 f"| {y.get('year')} | {_won(y.get('director_pay_limit_krw'))} | "
                 f"{_won(y.get('director_paid_total_krw'))} | {util_str} | {_won(reg_pc)} | "

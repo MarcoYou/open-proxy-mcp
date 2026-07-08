@@ -96,29 +96,46 @@ def _compensation_from_rows(
             "per_capita_krw": _to_int(r.get("psn1_avrg_pymntamt")),
         })
 
-    # 이사 승인한도 (감사 별도 한도 제외 — se에 '감사'만 단독인 행은 감사 한도)
-    director_limit_krw = None
-    director_limit_headcount = None
+    # 이사 승인한도. 감사 전용 행 판정은 **'이사' 문자열 부재**로(QA 260708 발견 — "위원" 유무로
+    # 가르면 "감사위원회 위원 또는 감사"처럼 이사 언급 없이 위원·감사가 결합된 통합 표기를 이사 한도로
+    # 오분류해 진짜 이사 한도를 덮어씀. '이사'가 전혀 없고 '감사'만 있으면 무조건 감사 전용).
+    # 이사류 행은 **합산**(덮어쓰기 금지 — 상임/비상임·등기/사외로 분리 공시하는 회사가 있어(한국전력·
+    # 기업은행·강원랜드 실측 260708) 마지막 행으로 덮어쓰면 한도가 5~8배 축소돼 소진율이 허위로 폭등).
+    # 단 '계'/'합계' 총계행이 있으면 그 행만 채택(중복 합산 방지, employee 로직과 동일 원칙).
+    director_rows: list[tuple[str, int | None, int | None]] = []
     audit_limit_krw = None
     for r in limit_rows:
         se = (r.get("se") or "").strip()
         amt = _to_int(r.get("gmtsck_confm_amount"))
         n = _to_int(r.get("nmpr"))
-        if "감사" in se and "위원" not in se and "이사" not in se:
+        if "감사" in se and "이사" not in se:
             audit_limit_krw = amt if amt is not None else audit_limit_krw
         else:
-            # '이사'·'등기이사'·'이사·감사' 통합 등 → 이사 한도로 취급
-            if amt is not None:
-                director_limit_krw = amt
-                director_limit_headcount = n
+            director_rows.append((se, amt, n))
 
-    # 이사류 실지급 합 (감사 단독 제외; 감사위원은 이사 한도 안이므로 포함)
+    total_row = next(
+        ((se, amt, n) for se, amt, n in director_rows
+         if amt is not None and any(m in se for m in ("계", "합계", "총계"))),
+        None,
+    )
+    if total_row:
+        director_limit_krw = total_row[1]
+        director_limit_headcount = total_row[2]
+    else:
+        valid = [(amt, n) for _, amt, n in director_rows if amt is not None]
+        director_limit_krw = sum(a for a, _ in valid) if valid else None
+        director_limit_headcount = sum(n or 0 for _, n in valid) if valid else None
+
+    # 이사류 실지급 합. **주의**: 실지급(actual) 테이블의 '감사위원회 위원'(순수 표기)은 등기이사이므로
+    # 이사 한도 안(260708 최초 검증 — 현대차 헤드카운트 12=등기5+사외2+감사위원5 정합 확인됨). 한도 테이블의
+    # "감사위원회 위원 또는 감사"(결합 표기, 이번에 발견한 별개 버그)와 판정 기준이 달라야 함 — 실지급
+    # 쪽은 원래 조건('위원' 없어야 감사 전용) 유지, 한도 쪽만 위에서 '이사' 부재로 판정.
     director_paid_total = 0
     has_director_paid = False
     for p in pay_by_type:
         t = p["type"]
         if "감사" in t and "위원" not in t and "이사" not in t:
-            continue  # 순수 감사 → 별도 한도
+            continue  # 순수 감사(위원 아님) → 별도 한도
         if p["total_paid_krw"] is not None:
             director_paid_total += p["total_paid_krw"]
             has_director_paid = True
@@ -169,7 +186,13 @@ async def _compensation_scope(
             }
 
         comp["year"] = y
-        if comp.get("utilization_pct") is not None and comp["utilization_pct"] >= _UTILIZATION_HIGH:
+        util = comp.get("utilization_pct")
+        # >100%는 주총 승인한도를 실제로 초과 지급한 것 — 300개사 전수조사(260708)에서 실제 사례
+        # 확인(HD현대중공업 등 조선업 슈퍼사이클 성과급이 사전승인 한도 40억을 넘어 125.7% 지급).
+        # 코드 버그가 아니라 스튜어드십 신호이므로 "high"와 구분해 명시적으로 표시.
+        if util is not None and util > 100:
+            comp["utilization_flag"] = "exceeded_limit"
+        elif util is not None and util >= _UTILIZATION_HIGH:
             comp["utilization_flag"] = "high"
         per_year.append(comp)
 
