@@ -803,9 +803,13 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         _role = "감사" if (is_audit or eval_match.get("_audit_force_strict")) else "사외이사"
         # iter23: 장기연임 (5년 룰 위반) — audit는 AGAINST, 일반 사외이사는 REVIEW
         if indep == "long_tenure_concerns":
+            # 사유 정직화 (260710 QA): tenure 기반 플래그면 "키워드 발견"이라 거짓 주장하지 않고
+            # 실제 근거(재직 N년)를 쓴다. keyword 기반이면 종전 문구 유지.
+            _fyr = ((eval_match.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {})
+            _basis = _fyr.get("basis") if _fyr.get("source") == "tenure_years" else "재선임/연임/중임 키워드 발견"
             if is_audit or eval_match.get("_audit_force_strict"):
-                return "AGAINST", "감사/audit 장기연임 — 독립성 훼손 (5년 룰 위반)"
-            return "REVIEW", "사외이사 장기연임 (재선임/연임/중임 키워드 발견) — 독립성 검토 필요"
+                return "AGAINST", f"감사/audit 장기연임 — 독립성 훼손 (5년 룰 위반, {_basis})"
+            return "REVIEW", f"사외이사 장기연임 ({_basis}) — 독립성 검토 필요"
         if indep == "concerns":
             return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
         # 겸직 과다 (3곳 이상) — 충실의무 수행 여력 검토 (260710 계산-후-폐기 신호 반영)

@@ -809,16 +809,20 @@ def detect_appointment_type(
         # 매칭: norm_name이 norm_co의 시작 또는 부분
         if norm_co.startswith(norm_name) or norm_name in norm_co.split():
             items = grp.get("items") or []
-            # 시작 연도 추출 (가장 빠른 시작 연도)
+            # 시작 연도 추출 (가장 빠른 시작 연도) + 진행중(현재) 재직 여부
             earliest = None
+            ongoing = False  # "~ 현재" (end=None) 항목이 있으면 현재 재직 중
             for it in items:
-                start, _end = _parse_career_period(str(it))
+                start, end = _parse_career_period(str(it))
                 if start is not None and (earliest is None or start < earliest):
                     earliest = start
+                if start is not None and end is None:
+                    ongoing = True
             matched.append({
                 "company_in_career": co,
                 "earliest_start": earliest,
                 "items_count": len(items),
+                "ongoing": ongoing,  # 갭C: 종료된 과거 재직을 장기연임으로 오탐하지 않기 위함
             })
 
     if not matched:
@@ -951,6 +955,57 @@ def _is_outside_director_role(role_type: str) -> bool:
     return any(k in rt for k in ("사외", "독립"))
 
 
+# 갭C (260710): 같은 회사 사외이사 재직 5년+ = 장기연임(독립성 훼손 우려).
+_LONG_TENURE_YEARS = 5
+
+
+def apply_tenure_long_tenure(ev: dict[str, Any], appointment_type: dict[str, Any] | None, current_year: int) -> None:
+    """earliest_start(이 회사 재직 시작)로 재직연수 계산 → 5년+면 independence를 장기연임으로 승격.
+
+    배경: `detect_appointment_type`이 '연임'으로 감지하며 `earliest_start`를 이미 계산해두는데,
+    `evaluate_independence`의 five_year_rule은 careerDetails 키워드("재선임/연임/중임")만 봐서
+    키워드가 없으면 놓쳤다 (계산-후-폐기). 날짜 기반으로 그 blind spot을 닫는다.
+
+    안전장치:
+    - `matched_entries`가 있을 때만 신뢰 — 이 회사 매칭 기반 earliest_start만 사용.
+      main_job/사내이사 fallback의 earliest_start는 career-wide(다른 회사 연도)라 over-count 위험 → 제외.
+    - **진행중(현재) 재직이 있을 때만** — 과거에 재직했다 떠난 뒤 신규 지명된 후보(예: 2001~2005
+      재직 후 2026 신규)를 tenure 25년으로 오탐하지 않기 위함 (QA HIGH finding 260710).
+    - 사외/감사 role에서만 적용 (장기연임 독립성 우려의 도메인). 사내이사는 회사 결정 영역.
+    - earliest_start는 careerDetails 누락 시 under-count 쪽이라 false-positive 위험은 낮다(보수적).
+    - 승격만(never downgrade). keyword rule이 이미 잡았으면 그대로.
+    - 한계(inherited): company 매칭은 loose prefix(부서 접미사 "셀트리온 관리부문" 대응 위해 필요)라
+      짧은 지주명("한화" vs "한화솔루션")에서 계열사 재직을 과대계상할 수 있음 — 기존 renewed 감지에서
+      상속된 한계로, 이 함수가 새로 만든 문제 아님(별도 과제).
+    """
+    if not isinstance(appointment_type, dict) or appointment_type.get("type") != "renewed":
+        return
+    matched_entries = appointment_type.get("matched_entries")
+    if not matched_entries:  # 이 회사 매칭 기반만 신뢰
+        return
+    # 진행중(현재) 재직이 하나라도 있어야 tenure를 현재 재직으로 간주 (종료된 과거 재직 오탐 방지)
+    if not any(isinstance(m, dict) and m.get("ongoing") for m in matched_entries):
+        return
+    es = appointment_type.get("earliest_start")
+    if not isinstance(es, int):
+        return
+    tenure = current_year - es
+    if tenure < _LONG_TENURE_YEARS:
+        return
+    role = ev.get("role_type") or ""
+    if not ("사외" in role or "감사" in role or "독립" in role or "outside" in role.lower()):
+        return
+    indep = ev.get("independence")
+    if not isinstance(indep, dict):
+        return
+    fyr = indep.setdefault("sub_factors", {}).setdefault("five_year_rule", {})
+    fyr["result"] = "potential_long_tenure"
+    fyr["basis"] = f"이 회사 재직 {tenure}년 (최초 {es}년 → {current_year}년)"
+    fyr["source"] = "tenure_years"
+    # 장기연임은 summary 최상위 우선순위 (evaluate_independence의 five_year_signal과 동일 정책)
+    indep["summary"] = "long_tenure_concerns"
+
+
 def evaluate_candidate(candidate: dict[str, Any], current_year: int, own_company_name: str = "") -> dict[str, Any]:
     """단일 후보 → 3축 평가 dict (이사 회계 risk 이력 검증 비활성, sync)."""
     return {
@@ -1046,6 +1101,8 @@ async def build_director_evaluation_payload(
             ev["agenda_action"] = ap.get("action")
             ev["agenda_category"] = ap.get("category")
             ev["appointment_type"] = detect_appointment_type(c, canonical_corp_name, target_year)
+            # 갭C: 이 회사 재직 5년+ → 장기연임 승격 (earliest_start 계산-후-폐기 해소)
+            apply_tenure_long_tenure(ev, ev["appointment_type"], target_year)
             evaluations.append(ev)
             candidate_count += 1
 
