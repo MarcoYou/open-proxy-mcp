@@ -62,7 +62,7 @@ proxy_advise_before_meeting(
 | `policy_citation` | OPM Guideline 근거 ("§재무제표 — 적정 + 잠식 없음 시 FOR" 등) |
 | `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
 | `evidence_rcept_no` | 근거 공고 (DART viewer link) |
-| `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect |
+| `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect. career 텍스트 회사매칭이 재선임을 신임으로 오분류(baseline 19%)하던 것을 **roster(임원현황 exctvSttus) 힌트**로 교정(260710) — `source="roster_prior"`면 정형 재직 확인으로 승격. **힌트 정체성**: 승격만(downgrade X)·roster 부재는 소집공고 결과 유지(override 금지)·미등기는 제외 |
 | `candidate_review_profile` | 후보 선임 안건용 evidence bundle. 결격사유, 독립성 세부 사유, 겸직 구간, 연임/재직 시작, 추천사유/직무계획 raw, 사내이사 성과 요약을 묶어 노출 |
 | `facts.*_band` | 보수 인상률, 보수 소진율, 감사 1인당 보수, 배당성향, 자사주 비율을 사람이 읽기 쉬운 구간값으로 구조화 |
 | `facts.retirement_multiplier_evidence` | 퇴직금/퇴임위로금 변경 안건의 before/after 배수, 증가율, strong review signal |

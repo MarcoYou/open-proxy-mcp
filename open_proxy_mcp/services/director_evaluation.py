@@ -1006,6 +1006,90 @@ def apply_tenure_long_tenure(ev: dict[str, Any], appointment_type: dict[str, Any
     indep["summary"] = "long_tenure_concerns"
 
 
+# ── Purpose 1 (260710): roster(exctvSttus)를 파싱 prior로 — new→renewed 오분류 교정 ──
+# 소집공고 career 텍스트 회사매칭이 실패하면 재선임 후보가 '신임'으로 오분류(baseline 19%)되어
+# 5년 tenure 체크를 통째로 스킵한다. 이미 가진 정형 힌트(임원현황 재직 사실)로 분류를 바로잡는다.
+#
+# **힌트 정체성 원칙(사용자 260710)**: 정형 데이터는 소집공고를 override하는 ground-truth가 아니라
+# 힌트다. 소집공고와 사업보고서는 발표 시점이 달라 그 사이 사임·이슈가 생길 수 있다. 그래서:
+#   - 승격만(new→renewed), 절대 downgrade 안 함.
+#   - roster 부재는 override 안 함(미등기·시차·EGM 선임 가능) — career-text 결과 유지.
+#   - source="roster_prior" provenance 기록(투명·재검토 가능).
+#   - tenure 값 자체(5년 룰 계산)는 career 기반 유지(H1: hffc_pd 기산점 재선임 리셋 위험).
+
+def _core_name(name: str | None) -> str:
+    """매칭용 핵심 이름 — 영문 병기·괄호·개행 제거. '도진명 (Jim Myong Doh)'→'도진명'."""
+    if not name:
+        return ""
+    s = re.split(r"[(（]", str(name), maxsplit=1)[0]
+    s = re.sub(r"\s+", "", s)
+    return s
+
+
+def _birth_ym_key(s: str | None) -> tuple[int | None, int | None]:
+    """생년월 (year, month) 추출 — birthDate('1970-05-04')·birth_ym('1970년 05월') 공통."""
+    if not s:
+        return (None, None)
+    t = str(s)
+    ym = re.search(r"(19|20)\d{2}", t)
+    if not ym:
+        return (None, None)
+    year = int(ym.group())
+    rest = t[ym.end():]
+    mm = re.search(r"(\d{1,2})", rest)
+    month = int(mm.group()) if mm and 1 <= int(mm.group()) <= 12 else None
+    return (year, month)
+
+
+def build_roster_index(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """exctvSttus 행 → {core_name: [{birth, director_type, tenure}]} 인덱스 (roster-prior용)."""
+    idx: dict[str, list[dict[str, Any]]] = {}
+    for r in rows or []:
+        if not isinstance(r, dict):
+            continue
+        core = _core_name(r.get("nm"))
+        if not core:
+            continue
+        idx.setdefault(core, []).append({
+            "birth": _birth_ym_key(r.get("birth_ym")),
+            "director_type": (r.get("rgist_exctv_at") or "").strip(),
+            "tenure": (r.get("hffc_pd") or "").strip(),
+        })
+    return idx
+
+
+def apply_roster_prior(ev: dict[str, Any], candidate: dict[str, Any], roster_index: dict[str, list[dict[str, Any]]]) -> None:
+    """roster-prior로 new→renewed 오분류 교정. 승격만·부재는 유지·provenance 기록(힌트 정체성)."""
+    apt = ev.get("appointment_type")
+    if not isinstance(apt, dict) or apt.get("type") != "new":
+        return
+    if not roster_index:
+        return
+    core = _core_name(candidate.get("name"))
+    matches = roster_index.get(core) or []
+    if not matches:
+        return  # roster 부재 → 힌트 없음, career-text 결과 유지 (override 금지)
+    cbk = _birth_ym_key(candidate.get("birthDate"))
+    board = []
+    for m in matches:
+        if "미등기" in (m.get("director_type") or ""):
+            continue  # 엣지3: 미등기임원은 사외이사로선 '신임' — 승격 안 함
+        mbk = m.get("birth") or (None, None)
+        # 생년 대조: 양쪽 다 있으면 연도 일치 요구(동명이인 방지)
+        if cbk[0] and mbk[0] and cbk[0] != mbk[0]:
+            continue
+        board.append(m)
+    if not board:
+        return
+    if len(board) > 1 and not cbk[0]:
+        return  # 다중매칭 + 생년 없음 → 동명이인 위험, 승격 보류
+    m0 = board[0]
+    apt["type"] = "renewed"
+    apt["source"] = "roster_prior"
+    apt["roster_hint"] = {"director_type": m0.get("director_type"), "tenure": m0.get("tenure")}
+    apt["reason"] = ((apt.get("reason") or "") + " | roster(임원현황) 재직 확인 → 연임 재분류(힌트)").strip(" |")
+
+
 def evaluate_candidate(candidate: dict[str, Any], current_year: int, own_company_name: str = "") -> dict[str, Any]:
     """단일 후보 → 3축 평가 dict (이사 회계 risk 이력 검증 비활성, sync)."""
     return {
@@ -1082,6 +1166,15 @@ async def build_director_evaluation_payload(
     )
     canonical_corp_name = selected.get("corp_name", "") or ""
 
+    # Purpose 1 (260710): roster(exctvSttus)를 파싱 prior로 fetch — new→renewed 오분류 교정용.
+    # 이 주총 직전 사업보고서(FY target_year-1)를 힌트로. 실패/부재는 graceful(힌트 없이 진행).
+    roster_index: dict[str, list[dict[str, Any]]] = {}
+    try:
+        _roster_resp = await client.get_executive_status(selected["corp_code"], str(target_year - 1))
+        roster_index = build_roster_index((_roster_resp or {}).get("list") or [])
+    except Exception:
+        roster_index = {}
+
     # 후보별 평가
     evaluations: list[dict[str, Any]] = []
     candidate_count = 0
@@ -1101,6 +1194,8 @@ async def build_director_evaluation_payload(
             ev["agenda_action"] = ap.get("action")
             ev["agenda_category"] = ap.get("category")
             ev["appointment_type"] = detect_appointment_type(c, canonical_corp_name, target_year)
+            # Purpose 1: roster(임원현황) 힌트로 new→renewed 오분류 교정 (tenure 체크 앞단)
+            apply_roster_prior(ev, c, roster_index)
             # 갭C: 이 회사 재직 5년+ → 장기연임 승격 (earliest_start 계산-후-폐기 해소)
             apply_tenure_long_tenure(ev, ev["appointment_type"], target_year)
             evaluations.append(ev)
