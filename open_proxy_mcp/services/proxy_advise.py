@@ -176,6 +176,76 @@ def _load_law_layer_rules() -> list[dict[str, Any]]:
         return []
 
 
+_LAW_PROVISIONS_CACHE: dict[str, dict[str, Any]] | None = None
+
+
+def _load_law_provisions() -> dict[str, dict[str, Any]]:
+    """wiki/rules/laws/law_provisions.json(상법 개정 조항 대장 SSOT) 로드 (모듈 캐시).
+
+    {provision_id: provision} 매핑. 엔진 룰의 provision 필드가 이 키를 가리킨다.
+    law-layer hit 시 근거에 조문·유예도래일·적용대상·시행령 임계를 붙이는 데 쓴다(260709).
+    """
+    global _LAW_PROVISIONS_CACHE
+    if _LAW_PROVISIONS_CACHE is not None:
+        return _LAW_PROVISIONS_CACHE
+    try:
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        path = repo_root / "wiki" / "rules" / "laws" / "law_provisions.json"
+        if not path.exists():
+            _LAW_PROVISIONS_CACHE = {}
+            return {}
+        data = json.loads(path.read_text(encoding="utf-8"))
+        _LAW_PROVISIONS_CACHE = {
+            p["provision_id"]: p for p in (data.get("provisions") or []) if p.get("provision_id")
+        }
+        return _LAW_PROVISIONS_CACHE
+    except Exception:
+        _LAW_PROVISIONS_CACHE = {}
+        return {}
+
+
+def _law_provision_detail(rule_id: str) -> dict[str, Any] | None:
+    """엔진 룰 id → 그 룰의 provision → 조항 대장 상세(근거 심화용).
+
+    반환: {article, amendment_round, effective_date, obligation_date, applies_to,
+           threshold_decree, first_agm_trigger, summary}. provision 없으면 None.
+    summary = 사람이 읽는 한 줄(reason에 붙임).
+    """
+    if not rule_id:
+        return None
+    prov_id = None
+    for r in _load_law_layer_rules():
+        if r.get("id") == rule_id:
+            prov_id = r.get("provision")
+            break
+    if not prov_id:
+        return None
+    p = _load_law_provisions().get(prov_id)
+    if not p:
+        return None
+    parts = [f"조항 상세: {p.get('article', '')} "
+             f"({p.get('amendment_round_label', '')}, 시행 {p.get('effective_date', '')})"]
+    if p.get("obligation_date"):
+        parts.append(f"유예도래일 {p['obligation_date']}")
+    if p.get("threshold_decree"):
+        parts.append(f"임계 {p['threshold_decree']}")
+    if p.get("first_agm_trigger"):
+        parts.append("시행 후 최초 이사선임 주총부터 적용(엔진은 주총일 기준 근사)")
+    if p.get("table_applies_to"):
+        parts.append(f"적용 {p['table_applies_to']}")
+    return {
+        "provision_id": prov_id,
+        "article": p.get("article"),
+        "amendment_round": p.get("amendment_round_label"),
+        "effective_date": p.get("effective_date"),
+        "obligation_date": p.get("obligation_date"),
+        "applies_to": p.get("table_applies_to"),
+        "threshold_decree": p.get("threshold_decree"),
+        "first_agm_trigger": bool(p.get("first_agm_trigger")),
+        "summary": " · ".join(parts),
+    }
+
+
 _LLM_MISREAD_PATTERNS_CACHE: list[dict[str, Any]] | None = None
 
 
@@ -2402,18 +2472,22 @@ async def build_proxy_advise_payload(
                 reason = f"안건 카테고리 'other' — 위험 키워드 없음 (mainstream default)"
 
         # 1.5. 법령 layer hit 시 우선 적용 — vote_style/hardcoded 위에 (260508)
+        law_detail: dict[str, Any] | None = None
         if law_layer_hit is not None:
             ll_decision, ll_reason, ll_id, ll_law_ref = law_layer_hit
             decision = ll_decision
+            # 조항 대장(SSOT) 상세 — 유예도래일·적용 티어·시행령 임계를 근거에 심화 (260709)
+            law_detail = _law_provision_detail(ll_id)
+            detail_line = f"\n📋 {law_detail['summary']}" if (law_detail and law_detail.get("summary")) else ""
             # A1/A2 (강행규정) — LLM이 안건명만 보고 결정 뒤집는 케이스 빈번
             # → catalog (wiki/rules/laws/llm_misread_patterns.json)에서 dynamic guard 매칭
             if ll_id.startswith("A1-") or ll_id.startswith("A2-"):
                 guard = _find_misread_guard(title, ll_id)
                 if not guard:
                     guard = "⛔ LLM 주의: 강행규정 정합 — 결정 변경 금지. 안건명 키워드만 보고 추측 금지."
-                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref}) {guard}"
+                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref}){detail_line} {guard}"
             else:
-                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref})"
+                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref}){detail_line}"
             # B1/B2 (REVIEW) — case-by-case 영역. 정관변경 본문 raw 첨부 (LLM 직접 검토 — 260510)
             # A1/A2 (FOR/AGAINST 강행규정)는 결정 명확 — raw 추가 X (토큰 절약)
             if ll_id.startswith("B1-") or ll_id.startswith("B2-"):
@@ -2529,6 +2603,9 @@ async def build_proxy_advise_payload(
             fy_raw_from_agenda=fy_raw_from_agenda,
             ownership_payload=ownership,
         )
+        # 조항 대장(SSOT) 상세를 구조화 필드로도 노출 (근거 심화 — 260709)
+        if law_detail:
+            facts["law_detail"] = law_detail
         cumulative_threshold = _cumulative_voting_threshold(title)
         if cumulative_threshold:
             facts["cumulative_voting_threshold"] = cumulative_threshold

@@ -10,6 +10,15 @@ title: Operation Log
 > 날짜 엔트리 및 링크된 lessons/decisions 페이지 참조.
 
 ### 주요 변화 (2026-07-07 ~ )
+- **상법 시행일 SSOT + 근거 조문·시행령 정확화 + 주총일 게이트 (2026-07-09)** — 시행일이 md·엔진에
+  손으로 중복 기입돼 한 곳만 고치면 나머지가 조용히 어긋나던 사고(A2-5: 신주배정금지 룰이 3월 아닌
+  9월부터 발화)를 구조적으로 차단. **`law_provisions.json`(신규 SSOT — 상법 개정 조항 대장)**: 조문번호·
+  시행일·공포일·유예도래일·자산 티어·시행령 임계출처·first_agm_trigger. `gen_law_timeline.py`가 md
+  시행 타임라인 표를 자동생성, `wiki_lint [7a-d]`가 표·엔진 날짜·발화게이트(A2=시행일/A1=공포·시행)·
+  근거 조문까지 원본과 3자 정합 강제(CI 차단). 사실정정(권위출처 legalize-kr 부칙·조문 대조):
+  명칭변경 2026-07-23·감사위3% 1차·자사주소각 §341조의4제1항. proxy_advise는 법 적용을 today→**주총일**
+  기준으로(시행 전 주총 오발화 방지), law-layer hit 근거에 조항 대장 상세(유예도래일·티어·시행령)
+  노출. 법률·QA·스튜어드십 3에이전트 + injection 4종 교차검증. 상세: [[rules/laws/README]].
 - **director_board tool 신설 — 20번째 tool (2026-07-08)** — **개별 이사 단위** 정보: 이사 인당보수·
   보수한도 소진율·임원 재직/사퇴 변동(연도 diff)·(v2)이사회 출석률·겸직. corp_gov_report(회사 15지표
   준수)와 무중복. 소진율은 DART 정형 API(exctvSttus·drctrAdtAllMendngSttus 2종)로 산출 —
