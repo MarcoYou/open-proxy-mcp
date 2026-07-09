@@ -42,9 +42,9 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 | **decisions/** | OPM 정책 + 판단 + debate | 29 + README | YES |
 | **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 88 + README 4 | YES (사실 update 시) |
 | **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 46 + README | YES (배운 것 추가 시) |
-| **archive/** | 흡수된 페이지 (역사 보존) | 75 + README 2 | WARN (단순 보존) |
+| **archive/** | 흡수된 페이지 (역사 보존) | 74 + README 2 | WARN (단순 보존) |
 
-총 361 markdown (raw 4 md·binary 제외 시 — wiki_lint 실측과 동기).
+총 359 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
 ## 명명 규칙 (2026-05-01~)
 
@@ -263,7 +263,7 @@ DART/KIND 공시 유형. 공시명 = 페이지명.
 
 ---
 
-## Archive (75)
+## Archive (74)
 
 흡수된 페이지 (역사 보존, 신규 사용자 안 봐도 OK).
 
@@ -282,9 +282,9 @@ matrix-system.md 통합으로 흡수.
 DART/KIND/Upstage 등 외부 entity 페이지. CLAUDE.md path만 archive 보존.
 [[archive/entities/DART-OpenAPI]] · [[archive/entities/KRX-KIND]] · [[archive/entities/네이버-금융]] · [[archive/entities/Upstage-OCR]] · [[archive/entities/OpenProxy-MCP]] · [[archive/entities/OpenProxy-AI]] · [[archive/entities/국민연금]] · [[archive/entities/FastMCP]] · [[archive/entities/opendataloader]]
 
-### archive/sources/ (6)
+### archive/sources/ (5)
 구 RULE 파일 요약 + taxonomy.
-[[agm-tool-rule]] · [[div-tool-rule]] · [[own-tool-rule]] · [[dart-kind-disclosure-taxonomy]] · [[devlog]] · [[주총방어전략-2026]]
+[[agm-tool-rule]] · [[div-tool-rule]] · [[own-tool-rule]] · [[dart-kind-disclosure-taxonomy]] · [[주총방어전략-2026]]
 
 ### archive/templates/ (1)
 - [[tool-추가-검증-템플릿]] - 신규 data/action tool 제안 템플릿

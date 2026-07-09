@@ -42,11 +42,33 @@ REL_ENTRY = re.compile(r"-\s*([^\s\n]+)")
 MD_LINK = re.compile(r"\]\(([^)]+\.md)\)")
 
 
+def _git_tracked_wiki() -> set[str] | None:
+    """git-tracked wiki md 집합 (wiki/ 기준 상대경로). git 불가 시 None → 파일시스템 폴백.
+
+    260709 CI 실패 원인: gitignore된 로컬 전용 파일(devlog.md·_local/)을 로컬 lint는 세고
+    CI 체크아웃엔 없어 [4] 카운트가 어긋남. tracked 집합으로 세면 로컬==CI 항상 일치.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z", "wiki/*.md", "wiki/**/*.md"],
+                             capture_output=True, timeout=10)
+        if out.returncode != 0:
+            return None
+        files = out.stdout.decode("utf-8", errors="ignore").split("\0")
+        return {f[len("wiki/"):] for f in files if f.startswith("wiki/") and f.endswith(".md")}
+    except Exception:  # noqa: BLE001 — git 없는 환경은 파일시스템 폴백
+        return None
+
+
 def collect_pages() -> list[tuple[str, Path]]:
+    tracked = _git_tracked_wiki()
     pages = []
     for md in WIKI.rglob("*.md"):
         if any(p in EXCLUDE_DIRS for p in md.parts):
             continue
+        rel_md = str(md.relative_to(WIKI))
+        if tracked is not None and rel_md not in tracked:
+            continue  # gitignore된 로컬 전용 파일 — CI에 없으므로 세지 않음
         rel = md.relative_to(WIKI).with_suffix("")
         pages.append((str(rel), md))
     return pages
@@ -244,12 +266,16 @@ TOTAL_CLAIM = re.compile(r"총 (\d+) markdown")
 CATEGORY_LABEL = re.compile(r"(?:^#{2,3} |\*\*)(Company|Meeting|Data|Evidence|Action|Tools)\s*\((\d+)", re.MULTILINE)
 
 
-def _direct_md_count(folder: str) -> int:
-    """폴더 직속 비-README .md 수 (-1 = 폴더 없음)."""
-    d = WIKI / folder
-    if not d.is_dir():
+def _direct_md_count(folder: str, pages) -> int:
+    """폴더 직속 비-README 페이지 수 (-1 = 폴더 없음). pages 기반 — git-tracked만 센다(CI 정합)."""
+    if not (WIKI / folder).is_dir():
         return -1
-    return len([p for p in d.glob("*.md") if p.name != "README.md"])
+    n = 0
+    for rel, _ in pages:
+        parts = rel.rsplit("/", 1)
+        if len(parts) == 2 and parts[0] == folder and parts[1] != "README":
+            n += 1
+    return n
 
 
 def check_index_counts(pages) -> list[str]:
@@ -261,13 +287,13 @@ def check_index_counts(pages) -> list[str]:
 
     for m in HEADER_FOLDER_COUNT.finditer(text):
         claimed, folder = int(m.group(1)), m.group(2)
-        actual = _direct_md_count(folder)
+        actual = _direct_md_count(folder, pages)
         if actual >= 0 and claimed != actual:
             issues.append(f"index 카운트 불일치: `{folder}/` 주장 {claimed} vs 실측 {actual}")
 
     for m in ARCHIVE_SUB_COUNT.finditer(text):
         folder, claimed = m.group(1), int(m.group(2))
-        actual = _direct_md_count(folder)
+        actual = _direct_md_count(folder, pages)
         if actual >= 0 and claimed != actual:
             issues.append(f"index 카운트 불일치: `{folder}/` 주장 {claimed} vs 실측 {actual}")
 
