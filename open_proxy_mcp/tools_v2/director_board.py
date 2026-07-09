@@ -166,7 +166,13 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"**{y.get('year')}년**")
             for b in y.get("buckets", []):
                 note = b.get("note")
-                lines.append(f"- {b.get('type')}: {b.get('headcount')}명 · 인당 {_won(b.get('per_capita_krw'))} "
+                hc = b.get("headcount")
+                # DART가 type만 주고 인원·급여가 전부 없는 정보량-0 bucket에서 'None명'이 찍히던
+                # 회귀 수정(regression QA 300사: 펄어비스 등 8사) — None은 N/M로.
+                if hc is None and b.get("per_capita_krw") is None and b.get("annual_total_krw") is None:
+                    continue  # 완전 빈 bucket은 렌더 억제
+                lines.append(f"- {b.get('type')}: {hc if hc is not None else 'N/M'}명 · "
+                             f"인당 {_won(b.get('per_capita_krw'))} "
                              f"(연급여총액 {_won(b.get('annual_total_krw'))})"
                              + (f" — {note}" if note and not _is_bare_marker(note) else ""))
         lines.append("> 미등기임원은 주총 승인한도 밖(등기 안 됨) — 등기이사와 별개 지표.")
@@ -198,7 +204,10 @@ def _render(payload: dict[str, Any]) -> str:
                 # 문자열로 찍히던 버그(QA 260709: 펩트론 등 15+파일). 0은 유효값이라 살린다.
                 return v if v is not None else "-"
             for b in breakdown:
-                division = f"**{b.get('division') or '-'}(합계)**" if b.get("is_total") else (b.get("division") or "-")
+                # 부문명 원문 개행('전력설비\n정비분야')이 표 행을 두 줄로 쪼개던 회귀 수정
+                # (regression QA 300사: 한전KPS·피에스케이 등 3사). 개행→공백.
+                div_raw = (b.get("division") or "-").replace("\n", " ").strip()
+                division = f"**{div_raw}(합계)**" if b.get("is_total") else div_raw
                 lines.append(
                     f"| {division} | {b.get('gender') or '-'} | "
                     f"{_cell(b.get('regular_headcount'))} | {_cell(b.get('contract_headcount'))} | "
@@ -238,9 +247,26 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("")
 
     att = d.get("attendance")
-    if att and att.get("status") == "not_implemented":
-        lines.append("## 이사회 출석률 · 선임변동 · 겸직")
-        lines.append(f"- ⏳ {att.get('note')}")
+    if att:
+        lines.append("## 이사 출석률 (사업보고서 원문 요약)")
+        if att.get("status") == "parsed":
+            mc = att.get("board_meeting_count")
+            if mc:
+                lines.append(f"- 이사회 개최: 총 {mc}회")
+            lines.append("")
+            lines.append("| 이사 | 출석률 |")
+            lines.append("|---|---|")
+            for dd in att.get("directors", []):
+                mark = " ⚠️저조" if dd.get("low") else ""
+                lines.append(f"| {dd.get('name')} | {dd.get('attendance_pct')}%{mark} |")
+            lines.append("")
+            low = att.get("low_attendance") or []
+            if low:
+                names = ", ".join(f"{d.get('name')}({d.get('attendance_pct')}%)" for d in low)
+                lines.append(f"- ⚠️ 출석률 저조: {names}")
+            lines.append(f"> {att.get('note', '')}")
+        else:
+            lines.append(f"- ⏳ {att.get('note')}")
         lines.append("")
 
     assess = d.get("assessment")
@@ -306,11 +332,13 @@ def register_tools(mcp):
         이사류 실지급 합(순수 감사만 별도 한도), 한도 공백해는 최근 유효연도 lookback. 재직/사퇴 diff는
         2-pass 매칭(이름 정확일치로 먼저 확정 → 나머지만 생년월로, 남은 후보군에서 유일할 때만)으로
         로마자표기 변동·동일 생년월 동명이인 오탐 둘 다 억제 — 사외이사 변동현황 API의 공식 집계
-        (선임/해임/중도퇴임 수, 사외이사 신규선임만 필터링해 비교)로 규모감 교차검증. attendance scope는
-        지배구조보고서 원문 파서 v2 예정(금융지주는 PDF 별도양식).
+        (선임/해임/중도퇴임 수, 사외이사 신규선임만 필터링해 비교)로 규모감 교차검증. attendance는
+        사업보고서 원문에서 개별 이사 출석률을 파싱하되, 회사가 일부(주로 사외이사)만 '(출석률:%)'로
+        기재하면 전체가 아님을 data_quality_flags(attendance_partial)로 표시. 원문 fetch(8MB)라 summary
+        기본엔 미포함 — on-demand scope로 조회.
         scope: compensation | roster | individual(5억+ 실명, RSA/스톡옵션 노트 포함) |
         unregistered(미등기임원) | pay_gap(경영진 vs 직원 배수, 부문별 세부) |
-        pay_agenda(보수한도 주총안건 올해vs작년) | attendance(v2 stub) | summary(기본)
+        pay_agenda(보수한도 주총안건 올해vs작년) | attendance(개별 이사 출석률·원문, summary 제외) | summary(기본)
         각주 마커('(주1)' 등 정형 API가 본문을 안 주는 비고)는 resolve_footnotes=True(기본)면 해당
         사업보고서 원문에서 각주 본문을 자동 복구(마커 뜬 공시만 1회 fetch·캐시) — 실패 시 원문 발췌 폴백.
         year: 기준 사업연도(0=최근 확정 전년). lookback_years: 조회 기간(년), 기본 3 — 대부분 scope에서 YoY 적용

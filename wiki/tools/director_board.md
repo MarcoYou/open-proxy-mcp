@@ -3,7 +3,7 @@ type: tool
 title: director_board
 domain: data
 scope: [단일 조회]
-data_source: [exctvSttus(임원현황), drctrAdtAllMendngSttusGmtsckConfmAmount(주총승인 보수한도), drctrAdtAllMendngSttusMendngPymntamtTyCl(유형별 실지급·1인평균), hmvAuditIndvdlBySttus(개인별 5억+), unrstExctvMendngSttus(미등기임원), empSttus(직원현황), outcmpnyDrctrNdChangeSttus(사외이사 변동현황), 기업지배구조보고서(출석률·겸직 — v2)]
+data_source: [exctvSttus(임원현황), drctrAdtAllMendngSttusGmtsckConfmAmount(주총승인 보수한도), drctrAdtAllMendngSttusMendngPymntamtTyCl(유형별 실지급·1인평균), hmvAuditIndvdlBySttus(개인별 5억+), unrstExctvMendngSttus(미등기임원), empSttus(직원현황), outcmpnyDrctrNdChangeSttus(사외이사 변동현황), 사업보고서 원문(출석률 — attendance)]
 related_disclosures: [사업보고서, 기업지배구조보고서, 임원보수-API스펙]
 related_concepts: [이사보수, 보수한도, 소진율, 이사회, 사외이사]
 related_decisions: []
@@ -13,7 +13,7 @@ created: 2026-07-08
 # director_board — 이사회/개별 이사 프로필
 
 ## 한 줄 요약
-**개별 이사 단위** 정보 — 이사 인당 보수·보수한도 소진율·임원 재직/사퇴 변동·(v2)이사회 출석률·겸직.
+**개별 이사 단위** 정보 — 이사 인당 보수·보수한도 소진율·임원 재직/사퇴 변동·이사회 출석률(사업보고서 원문·부분적).
 `corp_gov_report`가 "회사 15지표 준수 여부"라면, 이 tool은 "누가 얼마 받고, 한도를 얼마나 썼고,
 인원이 어떻게 바뀌었나".
 
@@ -27,7 +27,7 @@ created: 2026-07-08
 
 ## 사용법
 `director_board(company, scope="summary", year=0, lookback_years=3, format="md")`
-- scope: `compensation` · `roster` · `attendance`(v2 stub) · `summary`(기본)
+- scope: `compensation` · `roster` · `individual` · `unregistered` · `pay_gap` · `pay_agenda` · `attendance`(출석률·on-demand) · `summary`(기본)
 - year: 기준 사업연도(0=최근 확정 전년). lookback_years: 조회 기간(년)
 
 ## scope별 추천 질문 (자연어 예시)
@@ -40,7 +40,7 @@ created: 2026-07-08
 | `unregistered` | "현대차 미등기임원 평균 보수 얼마야?" · "등기이사랑 미등기임원 보수 차이 얼마나 나?" |
 | `pay_gap` | "이 회사 임원-직원 보수 격차 몇 배야?" · "직원 평균 연봉이랑 이사 보수 비교해줘" |
 | `pay_agenda` | "이번 주총에 보수한도 얼마나 올려달래?" · "작년에 한도 다 쓰고 또 올려달라는 거야?"(인상 근거 판단) |
-| `attendance` | ⏳ v2 stub — 지금은 "출석률 안내" 문구만 반환. 실제 출석률 질문은 아직 답 못 함 |
+| `attendance` | "이사들 이사회 출석 잘 해?" · "출석률 저조한 이사 있어?"(사업보고서 원문, summary 제외 on-demand) |
 | `summary` (기본) | "이 회사 이사회 전반적으로 봐줘" · "이 회사 이사 보수 적절한지 살펴봐줘"(위 전부 종합) |
 
 한 회사에 특정 관점만 궁금하면 scope 하나만 콜(DART 콜 절약), 종합 그림이 필요하면 `summary`.
@@ -55,7 +55,7 @@ created: 2026-07-08
 | `unregistered` | **미등기 집행임원** 인당보수 (등기 밖 경영진) | unrstExctvMendngSttus | ✅ v1 |
 | `pay_gap` | 경영진 vs **직원 평균** 보수 배수 | empSttus 조합 | ✅ v1 |
 | `pay_agenda` | 주총 보수한도 안건 **올해 제안 vs 작년 실적**(인상률·작년소진율) | shareholder_meeting notice 재사용 | ✅ v1 |
-| `attendance` | 개별 이사 출석률·선임변동(표4-2-1)·겸직(표5-2-1) | 지배구조보고서 원문 파서 | ⏳ v2 stub |
+| `attendance` | 개별 이사 **이사회 출석률**(일부만 요약 시 partial flag) | 사업보고서 원문 파서 | ✅ v2(부분적·on-demand) |
 | `summary` | 위 전부 종합 + 신호 | 전부 | ✅ v1 |
 
 ## 260709 확장 — 전면 YoY + 놓친 필드 전부 노출
@@ -182,9 +182,11 @@ IMAGE_NOTICE 감지는 파일명에 "소집"·"통지" 등이 있으면 **본문
 결과도 정규식 오탐 있어 원문 재대조 필요했음). 정정신고 파싱은 별도 TODO.
 
 ## 알려진 issue + TODO
-- **attendance scope 미구현**: 지배구조보고서 원문의 개별 이사 출석률 매트릭스·표4-2-1·표5-2-1은
-  실존 확인(스튜어드십 조사 260708)했으나 파서는 v2. **금융지주는 PDF 별도양식**(금융회사
-  지배구조법)이라 OCR tier 필요.
+- **attendance 부분성**: 사업보고서 원문 파서로 구현(260709)했으나 회사가 개별 출석률을 '(출석률:%)'
+  인라인으로 요약하는 범위가 제각각 — **일부(주로 사외이사)만** 그 형식으로 쓰고 나머지는 회차별
+  출석표에만 있는 회사가 많다(기아 4/9명 등). parsed 인원<이사회 인원이면 `attendance_partial` flag로
+  표시. 전체 이사회 출석을 다 잡으려면 회차별 매트릭스 파싱이 필요(TODO). 표 자체가 없는 회사(셀트리온·
+  알테오젠 등)는 `not_found`. 겸직(표5-2-1)·선임변동은 아직 미구현.
 - **birth_ym 결측 시**: 이름 단독 매칭으로 fallback → 로마자 오탐 재발 가능(관측 표본 결측 0%였으나
   보장 안 됨). 결측 시 `hffc_pd`(재직시작일) 보조키 검토 — TODO.
 - **개인별 보수 5억 미만 비공개**: `hmvAuditIndvdlBySttus`는 상위 일부만(범주 평균은 전원).
@@ -314,13 +316,40 @@ DART 공시뷰어 URL의 `rcpNo`(=접수번호)로 `document.xml`(공시서류�
 - **`get_document` 버그 수정**(client.py): 사업보고서 원문 ZIP은 본문(`{rcpNo}.xml`, 8MB)+첨부
   (`{rcpNo}_NNNNN.xml`)인데 `xml_files[0]`이 첨부(575KB)를 읽어 임원보수·각주를 통째 놓쳤다 —
   본문 우선 선택으로 수정(proxy·dividend 등 원문 파서 공통 개선).
-- **120사 실측**: 마커 플래그 31건 → **원문 각주 복구 28건(90%) · raw 발췌 폴백 3건 · 미해소 0 · 오답 0**.
-  예: SK하이닉스 `(주1)`→"2025년 이사보수한도를 150억원으로 승인 받았습니다", NAVER→"제한조건부주식(RSU)
-  부여 계약…", 크래프톤→"RSU 총 17,300주…상여금액 포함"(옆 행 오탐은 폴백 처리). 성능 영향: 마커 뜬
-  9사만 +원문 fetch(wall 평균 3.9→4.0초, 나머지 111사 무영향).
+- **정밀도 게이트(300사 footnote_qa 검증 260709)**: 초기 구현은 "뭔가 추출"을 "복구 성공"으로 세어
+  실제 정밀도가 과대평가됐다(resolved 63건 재판정: 정확 62%·오답 22%). 오답은 승인한도 셀 마커인데
+  소송충당부채·특수관계자거래(한국가스공사)·스톡옵션(보로노이·HPSP·차바이오텍) 각주를 긁거나, 표 셀
+  조각(BGF리테일), 다른 사람 각주(SK 이성형)를 "원문 각주"로 자신있게 노출 — 오답 1건이 raw폴백 10건보다
+  해롭다. 5중 게이트로 정밀도 확보(미달 시 raw 강등):
+  1. **유형 게이트**(`_fn_topic_ok`): scope별 BAD/OK 키워드 — 승인한도 슬롯은 소송·충당부채·특수관계·
+     스톡옵션·액면분할·무상증자 각주 거부, 보수/한도/승인/지급/성과만 채택.
+  2. **인물 disambiguation**(individual): 본문에 subject 이름 없고 타 임원(이름+직위) 지칭 시 raw.
+  3. **문장 완결성**: 강한 서술종결(습니다/하였음 등)만 — bare 함/임/됨(명사 '사임'·'위원' 오탐) 제외.
+  4. **표 조각 필터**: `N N N`(공백 숫자 3연속) = 표 행이지 각주 아님.
+  5. **동일 본문 dedup**: 같은 각주 연도·scope 넘어 반복 제거.
+  게이트 후 검증: 오답 회사 전부 교정(정확 각주로) 또는 raw 강등, 정확 모범 유지 —
+  SK하이닉스 "150/200/200억 승인", NAVER RSU, SK바이오팜 이동훈 22,435주 PSU vs 정지영 8,763주 LTI(연도별
+  숫자까지). 성능: 마커 뜬 회사만 +원문 fetch.
 
-**이 폴백 구조가 attendance v2의 청사진**: 지배구조보고서 원문 파서도 동일하게 "구조화 파싱 실패 →
-원문 블록 raw_text 반환"으로 가면 된다(같은 `data_quality_flags` 스키마 재사용).
+## 260709 attendance(이사회 출석률) 원문 파서 + 품질 로그
+
+**attendance scope 구현(코붕이 "출석률도 파싱")**: 출석률은 **지배구조보고서/PDF가 아니라 사업보고서
+원문**의 '이사회 활동내역'에 `한애라 (출석률 :100%)`·`박성하(출석률:50%)` 형식으로 있다(당초 wiki가 가정한
+OCR tier 불필요 — 텍스트 파싱으로 됨). exctvSttus의 rcept_no로 사업보고서 원문(각주 해소와 캐시 공유)을
+받아 파싱.
+- **section-local**: 출석률 표가 여러 개(이사회·감사위·보상위)라 같은 이름이 body마다 값이 다름(SK하이닉스
+  안현 이사회 91% vs 위원회 100%). **첫 클러스터(이사회 본 표)만** 잡는다(각주 해소와 같은 원리).
+- **부분성 정직 처리(핵심)**: 회사가 개별 출석률을 인라인 요약하는 범위가 제각각 — 일부(주로 사외이사)만
+  쓰고 나머지는 회차 매트릭스에만 있는 회사 많음(기아 4/9명). parsed<이사회 인원이면 `attendance_partial`
+  flag(같은 exctvSttus 행에서 이사회 인원 직접 카운트 → roster 의존 없음). 표 없으면 `not_found`.
+- **summary 제외·on-demand**: 원문 fetch(8MB, 금융지주 최대 10초)라 흔한 summary를 느리게 함 →
+  `scope="attendance"`로만 조회. 12사 실측: 파싱 8/12(부분 포함)·not_found 3·fetch_failed 1.
+- 출석률 <75%는 `low_attendance` warn flag(SK하이닉스 박성하 50%).
+
+**구조화 품질 로그(코붕이 "log에서 오류 탐지")**: 매 호출 끝에 `logger.info("[DB_QUALITY] {회사} scope=
+{s} wall={ms} calls={n} flags={kind별개수} fn={복구}/{전체} warns={n}")` 1줄. 실전 트래픽에서
+`parse_failed`·각주 복구율 하락·`attendance_partial/not_found` 비율·특정 scope 지연을 로그로 관측 →
+사용자 불평 전에 엣지케이스 발견. **완벽 파싱 대신 "정직한 self-flag + 로그 관측"** 전략의 계측 지점.
 
 ## Data sources (회사당 ~5 DART 콜, per-firm)
 | 소스 | 무엇 |
@@ -332,7 +361,7 @@ DART 공시뷰어 URL의 `rcpNo`(=접수번호)로 `document.xml`(공시서류�
 | `unrstExctvMendngSttus` | 미등기 집행임원 인원·연급여총액·1인평균 |
 | `empSttus` | 직원 부문·성별 인원·평균급여 (pay_gap 분모) |
 | shareholder_meeting notice (재사용) | 보수한도 주총안건 current/prior (pay_agenda) |
-| 기업지배구조보고서 원문 | 출석률·선임변동·겸직 (v2) |
+| 사업보고서 원문 (document.xml) | 각주 본문 해소 + 이사회 출석률(attendance, 부분적) |
 
 ## 관련
 - [[corp_gov_report]] — 회사 지배구조 15지표 준수(정성). 이 tool은 개별 이사 정량.

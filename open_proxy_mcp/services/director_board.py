@@ -33,9 +33,13 @@ scope:
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import time
+from collections import Counter
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import resolve_company_query
@@ -132,13 +136,42 @@ def _norm_marker(token: str) -> str:
     return re.sub(r"[^\d주*]", "", token or "")
 
 
-# 각주 문장 종결어미 — 진짜 각주 '정의'는 문장으로 끝난다. 표 행 조각은 안 끝난다(정밀도 우선).
-_FN_END = re.compile(r"(받았습니다|하였습니다|되었습니다|있습니다|없습니다|됩니다|입니다|습니다|합니다|하였음|하였다|하였함|였음|됨|함\b|임\b)[.\)]?")
+# 각주 문장 종결어미 — 진짜 각주 '정의'는 강한 동사 종결로 끝난다. bare 함/임/됨은 명사(사임·위원 등)를
+# 오탐해 표 조각/중간잘림을 통과시켜서(보로노이 '…사임' 사례) 제외 — 확실한 서술 종결만(정밀도 우선).
+_FN_END = re.compile(r"(받았습니다|하였습니다|되었습니다|있습니다|없습니다|됩니다|입니다|습니다|합니다|"
+                     r"하였음|되었음|받았음|하였다|되었다|한다)[.\)]?")
+
+# 각주 유형 게이트(footnote_qa 300사 검증 260709): 마커가 붙은 slot의 주제와 각주 내용이 맞아야
+# 채택. 안 맞으면(승인한도 셀인데 소송충당부채·특수관계자거래·스톡옵션 각주 등) 오답이므로 raw 강등.
+# BAD=그 scope에서 절대 그 마커 각주일 수 없는 주제 / OK=최소 하나는 있어야 하는 주제.
+_FN_BAD = {
+    "compensation": re.compile(r"주식매수선택권|스톡옵션|공정가치|액면분할|무상증자|유상증자|충당부채|"
+                               r"소송|특수\s*관계|거래\s*금액|거래내역|채무보증|담보|배당금"),
+    "individual": re.compile(r"충당부채|소송|특수\s*관계|거래\s*금액|채무보증"),
+    "unregistered": re.compile(r"충당부채|소송|특수\s*관계|거래\s*금액"),
+}
+_FN_OK = {
+    "compensation": re.compile(r"보수|한도|승인|주주총회|지급|성과|퇴직|퇴임|사임"),
+    "individual": re.compile(r"보수|주식|RSU|RSA|스톡옵션|주식매수선택권|성과|지급|퇴임|사임|"
+                             r"근로소득|상여|가득|제한조건부|PSU|SAR"),
+    "unregistered": re.compile(r"보수|급여|지급|성과|산정|퇴직|근로소득"),
+}
+
+
+def _fn_topic_ok(scope: str, body: str) -> bool:
+    """각주 본문이 그 scope 마커의 주제에 부합하는가(BAD 없고 OK 하나 이상)."""
+    bad = _FN_BAD.get(scope)
+    ok = _FN_OK.get(scope)
+    if bad and bad.search(body):
+        return False
+    if ok and not ok.search(body):
+        return False
+    return True
 
 
 def _clean_fn_body(body: str) -> tuple[str, bool]:
     """각주 본문 정리: 앞쪽 마커/※/콜론 제거 후 첫 문장 종결에서 자름.
-    반환 (정리본문, 확신) — 문장 종결이 있으면 확신 True(진짜 각주), 없으면 False(표 조각 의심)."""
+    반환 (정리본문, 확신) — 강한 서술 종결이 있으면 확신 True(진짜 각주), 없으면 False(표 조각/중간잘림)."""
     body = re.sub(r"^\s*[※\-]*\s*\(?\s*(?:주|[*])\s?\d+\s*\)?\s*[:：]?\s*", "", body).strip()
     m = _FN_END.search(body)
     if m:
@@ -146,7 +179,8 @@ def _clean_fn_body(body: str) -> tuple[str, bool]:
     return body.strip(), False
 
 
-def _extract_footnote(text: str, scope: str, marker: str, window: int = 6000) -> tuple[str | None, str | None]:
+def _extract_footnote(text: str, scope: str, marker: str, window: int = 6000,
+                      subject: str | None = None) -> tuple[str | None, str | None]:
     """원문에서 (scope 섹션의) 특정 마커 각주 본문을 추출.
     반환 (resolved_body, raw_snippet): 문장으로 끝나는 확신 각주면 body(raw None), 애매하면 body None
     + 앵커 구간 raw 발췌(코붕이 raw_text 폴백 — 틀린 각주를 지어내느니 원문을 그대로 보여줌).
@@ -165,13 +199,28 @@ def _extract_footnote(text: str, scope: str, marker: str, window: int = 6000) ->
     for m in pat.finditer(seg):
         mk = _norm_marker(m.group(1))
         cleaned, confident = _clean_fn_body(m.group(2))
-        if not confident or len(re.findall(r"[가-힣]", cleaned)) < 6 or not _FN_SIGNAL.search(cleaned):
-            continue  # 문장 종결 없음/한글 부족/신호 없음 → 표 조각으로 보고 스킵(확신 각주만 채택)
+        # 확신 조건: 강한 문장종결 + 한글 6자+ + 신호어 + scope 주제 게이트 + **표 조각 아님**.
+        # 주제 게이트(footnote_qa 300사): 승인한도 셀 마커인데 소송충당부채·특수관계자거래·스톡옵션
+        # 각주를 긁는 오답(한국가스공사·보로노이·HPSP 등 22%)을 거부 → raw 폴백 강등.
+        # 표 조각 필터: 'N N N'(공백구분 숫자 3연속)은 표 셀 행이지 각주 문장이 아님(BGF리테일
+        # '2 126 63 -' 오탐). '5명과 사외이사 2명'류(명 접미)는 이 패턴에 안 걸림.
+        if (not confident or len(re.findall(r"[가-힣]", cleaned)) < 6
+                or not _FN_SIGNAL.search(cleaned) or not _fn_topic_ok(scope, cleaned)
+                or re.search(r"\d+\s+\d+\s+\d+", cleaned)):
+            continue
         if mk not in defs or len(cleaned) > len(defs[mk]):
             defs[mk] = cleaned[:250]
     if want in defs:
-        return defs[want], None
-    return None, seg[:400].strip()  # 확신 각주 못 찾음 → raw 발췌 폴백
+        body = defs[want]
+        # individual은 인물별 마커 — 여러 명이 같은 (주N) 공유하는 표에서 엉뚱한 사람 각주를 집는
+        # 오탐(SK 이성형→조대식/장동현) 방지: 본문이 subject 이름을 안 담고 **다른** 임원을
+        # 명시적으로 지칭하면(이름+직위) raw 강등(footnote_qa #2).
+        if scope == "individual" and subject and subject not in body:
+            other = re.search(r"([가-힣]{2,4})\s*(대표이사|사내이사|사외이사|이사|사장|부사장|회장)", body)
+            if other and other.group(1) != subject:
+                return None, seg[:400].strip()
+        return body, None
+    return None, seg[:400].strip()  # 확신 각주 못 찾음 → raw 발췌 폴백(틀린 각주보다 안전)
 
 
 async def _resolve_footnotes(client, flags: list[dict[str, Any]]) -> None:
@@ -182,16 +231,23 @@ async def _resolve_footnotes(client, flags: list[dict[str, Any]]) -> None:
     by_rcept: dict[str, list[dict]] = {}
     for f in targets:
         by_rcept.setdefault(f["rcept_no"], []).append(f)
-    for rcept_no, fs in by_rcept.items():
+
+    # 여러 공시(rcept_no) 원문을 병렬 fetch(perf 260709: 순차 루프가 tail 지연 주범 — GS리테일
+    # distinct rcept 다수를 8MB씩 순차로 받아 +15초. 다운로드는 앱 limiter가 보호하므로 병렬 안전).
+    async def _fetch(rc: str):
         try:
-            doc = await client.get_document_cached(rcept_no)
+            return rc, await client.get_document_cached(rc)
         except Exception:  # noqa: BLE001 — 원문 폴백 실패는 치명적 아님(마커만 남음)
-            continue
-        text = (doc or {}).get("text") or ""
+            return rc, None
+
+    docs = dict(await asyncio.gather(*[_fetch(rc) for rc in by_rcept]))
+    for rcept_no, fs in by_rcept.items():
+        text = (docs.get(rcept_no) or {}).get("text") or ""
         if not text:
             continue
         for f in fs:
-            body, raw = _extract_footnote(text, f.get("scope"), f.get("raw_text") or "")
+            body, raw = _extract_footnote(text, f.get("scope"), f.get("raw_text") or "",
+                                          subject=f.get("subject"))
             if body:
                 f["resolved_text"] = body
                 f["resolved_from"] = "원문 각주(사업보고서)"
@@ -747,7 +803,16 @@ async def _pay_agenda_scope(company_query: str, *, warnings: list[str]) -> dict[
     """
     from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 
-    payload = await build_shareholder_meeting_payload(company_query, scope="compensation")
+    # 소집공고 파싱을 8초로 제한(perf 260709: 일부 회사가 DART viewer HTML crawl 폴백에 6~21초
+    # 낭비하는데 warning상 "개선 안 됨"=무용. director_board는 실패 시 compensation 표 승인한도
+    # YoY 폴백이 이미 있으므로 타임아웃하면 자동 대체된다 — 한솔케미칼 21.6초→8초).
+    try:
+        payload = await asyncio.wait_for(
+            build_shareholder_meeting_payload(company_query, scope="compensation"), timeout=8.0)
+    except asyncio.TimeoutError:
+        warnings.append("[pay_agenda] 소집공고 파싱 8초 초과 — 사업보고서 승인한도 YoY 폴백으로 대체.")
+        return {"status": "no_agenda",
+                "note": "주총 소집공고 파싱 타임아웃(viewer crawl) — 사업보고서 한도 YoY 폴백 사용."}
     for w in (payload.get("warnings") or []):
         warnings.append(f"[notice] {w}")
     items = ((payload.get("data") or {}).get("compensation") or {}).get("items") or []
@@ -790,6 +855,80 @@ async def _pay_agenda_scope(company_query: str, *, warnings: list[str]) -> dict[
         "signal": signal,
         "note": "주총 소집공고 보수한도 안건의 current(올해 제안)/prior(작년 한도·실지급) 컬럼 재사용. "
                 "인상률·작년소진율은 사실 — 찬반 판단은 proxy_advise_before_meeting 참조.",
+    }
+
+
+# ── attendance: 개별 이사 이사회 출석률(사업보고서 원문 파서) ────────────────────
+
+# 사업보고서 '이사회 활동내역'의 개별 이사 출석률: '한애라 (출석률 :100%)'·'박성하(출석률:50%)' 형태.
+_ATTEND_RE = re.compile(r"([가-힣]{2,5})\s*\(\s*출석률\s*[:：]\s*(\d+)\s*%\s*\)")
+
+
+def _parse_board_attendance(text: str) -> dict[str, int]:
+    """사업보고서 원문에서 '이사회' 개별 출석률 파싱. 출석률 표가 여러 개(이사회·감사위·보상위 등)라
+    같은 이름이 body마다 다른 값으로 나오므로, **첫 클러스터(=이사회 본 표 헤더행)만** 잡는다
+    (섹션-local, 260709 실측: SK하이닉스 안현이 이사회 91% vs 위원회 100%로 달라 마지막값 잡으면 오류).
+    헤더행은 이름들이 연속(간격<400자) → 큰 간격 나오면 다음 위원회 표로 보고 끊는다."""
+    ms = list(_ATTEND_RE.finditer(text))
+    if not ms:
+        return {}
+    cluster = [ms[0]]
+    for m in ms[1:]:
+        if m.start() - cluster[-1].end() < 400:
+            cluster.append(m)
+        else:
+            break
+    board: dict[str, int] = {}
+    for m in cluster:
+        if m.group(1) not in board:      # 첫 표(이사회)의 첫 값 우선
+            board[m.group(1)] = int(m.group(2))
+    return board
+
+
+async def _attendance_scope(client, corp_code: str, year: int, *, warnings: list[str]) -> dict[str, Any]:
+    """개별 이사 이사회 출석률 — 사업보고서 원문 파서(v2, 260709 신규). exctvSttus의 rcept_no로 그
+    사업보고서 원문(document.xml, 각주 해소와 캐시 공유)을 받아 '이사회 활동내역'의 출석률 표를 파싱.
+    금융지주 등 지배구조보고서 별도양식이라 사업보고서에 표가 없으면 status='not_found'로 정직하게."""
+    rcept_no = None
+    board_headcount = None
+    for y in (year, year - 1):  # 당해 사업보고서 없으면 전년
+        rows = await _fetch_rows(client.get_executive_status(corp_code, str(y), _REPRT_ANNUAL))
+        rcept_no = next((r.get("rcept_no") for r in rows if r.get("rcept_no")), None)
+        if rcept_no:
+            # 완전성 교차검증용 등기 이사회 인원(같은 exctvSttus 행에서 직접 — roster 스콥 의존 없음)
+            board_headcount = sum(1 for r in rows if (r.get("rgist_exctv_at") or "").strip() in _BOARD_TYPES)
+            break
+    if not rcept_no:
+        return {"status": "not_found", "note": "사업보고서 접수번호 확보 실패(임원현황 미제출)."}
+    try:
+        doc = await client.get_document_cached(rcept_no)
+    except Exception as e:  # noqa: BLE001
+        warnings.append(f"[attendance] 원문 조회 실패: {e}")
+        return {"status": "fetch_failed", "rcept_no": rcept_no, "note": "사업보고서 원문 조회 실패."}
+    text = (doc or {}).get("text") or ""
+    board = _parse_board_attendance(text)
+    if not board:
+        return {"status": "not_found", "rcept_no": rcept_no,
+                "note": "사업보고서에서 이사회 개별 출석률 표 미발견 — 금융지주 등 지배구조보고서 "
+                        "별도양식이거나 소규모사 미기재(v2 OCR tier 대상)."}
+    directors = sorted(
+        [{"name": n, "attendance_pct": p, "low": p < _ATTENDANCE_LOW} for n, p in board.items()],
+        key=lambda d: d["attendance_pct"])
+    # 이사회 개최 횟수(best-effort) — 출석률 클러스터 근처의 'N회 개최'/'총 N회'
+    first = _ATTEND_RE.search(text)
+    near = text[max(0, first.start() - 1500): first.start()] if first else ""
+    mm = re.search(r"(\d+)\s*회\s*개최|총\s*(\d+)\s*회", near)
+    count = next((int(g) for g in (mm.groups() if mm else []) if g), None)
+    return {
+        "status": "parsed",
+        "source": "사업보고서 이사회 활동내역 원문",
+        "rcept_no": rcept_no,
+        "board_meeting_count": count,
+        "board_headcount": board_headcount,   # 등기 이사회 인원(완전성 교차검증용)
+        "directors": directors,
+        "low_attendance": [d for d in directors if d["low"]],
+        "note": f"이사회 출석률 <{_ATTENDANCE_LOW:.0f}%는 저조(low) 표시. 위원회(감사위 등) 출석률은 "
+                "이사회 본 표만 파싱해 제외. 개별 성명은 사업보고서 원문 표 기준.",
     }
 
 
@@ -870,19 +1009,18 @@ async def build_director_board_payload(
     if scope in {"pay_agenda", "summary"}:
         tasks["pay_agenda"] = _timed(_pay_agenda_scope(company_query, warnings=warnings),
                                      "pay_agenda", timings)
+    if scope == "attendance":
+        # v2(260709): 사업보고서 원문에서 개별 이사 출석률 파싱. summary 기본엔 제외 — 원문 fetch(8MB,
+        # 금융지주 최대 10초)라 흔한 summary 경로를 느리게 함. 출석률은 on-demand scope로 조회
+        # (footnote 해소와 원문 캐시 공유라 같은 회사면 재사용). 필요 시 summary 포함은 옵션화 가능.
+        tasks["attendance"] = _timed(_attendance_scope(client, corp_code, year, warnings=warnings),
+                                     "attendance", timings)
 
     try:
         if tasks:
             results = await asyncio.gather(*tasks.values())
             for key, result in zip(tasks.keys(), results):
                 data[key] = result
-        if scope in {"attendance", "summary"}:
-            # v1: 원문 파서 미구현 — 정직하게 stub. (금융지주는 PDF 별도양식)
-            data["attendance"] = {"status": "not_implemented",
-                                  "note": "개별 이사 출석률·선임변동·겸직은 지배구조보고서 원문 파서 필요 "
-                                          "(v2 예정). 금융지주는 PDF 별도양식이라 OCR tier 필요."}
-            if scope == "attendance":
-                warnings.append("attendance scope는 v2에서 원문 파서와 함께 제공 예정(현재 stub).")
     except DartClientError as e:
         return ToolEnvelope(
             tool="director_board", status=AnalysisStatus.ERROR, subject=canonical_name,
@@ -919,13 +1057,24 @@ async def build_director_board_payload(
     # 260709 설계: 전역 '파싱의심' 단일 플래그는 이질적 신호를 뭉뚱그려 실제값(스톡옵션 초과 등)에
     # 오탐 → 종류(kind)별로 분리. raw_text는 원문 파싱 스콥(attendance v2·notice)에서 파싱 실패 시
     # 원문을 담는 자리 — 정형 API 마커는 본문이 응답에 없어 마커 자체만 참고로 싣는다.
-    if scope != "attendance":
-        flags = _collect_data_quality_flags(data)
-        # 각주 마커 플래그가 있으면 원문 폴백으로 해소 시도(마커 뜬 공시만 1회씩 fetch·캐시).
-        # 정형 API가 못 주는 각주 본문을 사업보고서 원문에서 복구 — 260709 코붕이 제안(url 기반).
-        if resolve_footnotes and any(f.get("kind") == "footnote_marker_unresolved" for f in flags):
-            await _resolve_footnotes(client, flags)
-        data["data_quality_flags"] = flags
+    flags = _collect_data_quality_flags(data)
+    # 각주 마커 플래그가 있으면 원문 폴백으로 해소 시도(마커 뜬 공시만 1회씩 fetch·캐시).
+    # 정형 API가 못 주는 각주 본문을 사업보고서 원문에서 복구 — 260709 코붕이 제안(url 기반).
+    if resolve_footnotes and any(f.get("kind") == "footnote_marker_unresolved" for f in flags):
+        await _resolve_footnotes(client, flags)
+        # 동일 resolved_text 반복 제거(footnote_qa: 한국가스공사 통합공시 각주가 연도·scope 넘어
+        # 5회 반복). 같은 본문이면 첫 건만 남긴다(정보 손실 없음, 노이즈만 감소).
+        seen_bodies: set = set()
+        pruned = []
+        for f in flags:
+            rt = f.get("resolved_text")
+            if rt and rt in seen_bodies:
+                continue
+            if rt:
+                seen_bodies.add(rt)
+            pruned.append(f)
+        flags = pruned
+    data["data_quality_flags"] = flags
 
     data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
     # 성능측정용 타이머(사용자 요청): scope별 개별 소요 + 전체 wall-clock(ms). 병렬 실행이라
@@ -935,6 +1084,23 @@ async def build_director_board_payload(
         "total_wall_ms": round((time.perf_counter() - t_start) * 1000, 1),
         "scope_sum_ms": round(sum(v for k, v in timings.items() if k != "resolve"), 1),
     }
+
+    # 구조화 품질 로그 1줄(코붕이 260709) — 실전 트래픽을 상시 관측으로. 로그에서 flags 종류별 급증·
+    # 각주 복구율 하락·특정 scope 지연·새 warning을 잡아 사용자 불평 전에 엣지케이스 발견. 로그 자체가
+    # tool을 깨선 안 되므로 방어적으로.
+    try:
+        fl = data.get("data_quality_flags") or []
+        kinds = dict(Counter(f.get("kind") for f in fl))
+        fn = [f for f in fl if f.get("kind") == "footnote_marker_unresolved"]
+        fn_res = sum(1 for f in fn if f.get("resolved_text"))
+        logger.info(
+            "[DB_QUALITY] %s scope=%s wall=%.0fms calls=%s flags=%s fn=%d/%d warns=%d",
+            canonical_name, scope, data["timing"]["total_wall_ms"],
+            (data.get("usage") or {}).get("dart_api_calls"), kinds or {}, fn_res, len(fn),
+            len(warnings))
+    except Exception:  # noqa: BLE001 — 관측 로그가 tool 동작을 절대 깨지 않게
+        pass
+
     return ToolEnvelope(
         tool="director_board", status=AnalysisStatus.EXACT, subject=canonical_name,
         warnings=warnings, data=data,
@@ -1010,7 +1176,35 @@ def _collect_data_quality_flags(data: dict[str, Any]) -> list[dict[str, Any]]:
                           "detail": f"이름기반 사외이사 신규선임 diff({ours})와 DART 공식 집계({official})가 "
                                     f"{abs(ours - official)} 차이 — 재선임/정의차 가능하나 roster diff 신뢰도 낮음(공식값 우선)."})
 
-    return flags
+    att = data.get("attendance") or {}
+    for d in att.get("low_attendance", []):
+        flags.append({"scope": "attendance", "kind": "low_attendance", "severity": "warn",
+                      "subject": d.get("name"),
+                      "detail": f"{d.get('name')} 이사회 출석률 {d.get('attendance_pct')}% "
+                                f"(<{_ATTENDANCE_LOW:.0f}%) — 저조."})
+    # 완전성 교차검증(260709): 회사가 (출석률:%)로 요약한 이사 수 < 등기 이사회 인원이면, 원문이
+    # 일부(주로 사외이사)만 요약한 것 — 전체 이사회로 오독하지 않게 flag. roster·attendance 둘 다
+    # 있는 summary에서만 가능(이 partial 여부를 로그로도 관측 → 실전 커버리지 추적, 코붕이 260709).
+    if att.get("status") == "parsed":
+        parsed_n = len(att.get("directors", []))
+        board_n = att.get("board_headcount") or (data.get("roster") or {}).get("headcount_board")
+        if board_n and parsed_n < board_n:
+            flags.append({"scope": "attendance", "kind": "attendance_partial", "severity": "info",
+                          "detail": f"원문에 출석률 요약된 이사 {parsed_n}명 < 등기 이사회 {board_n}명 — "
+                                    "회사가 일부(주로 사외이사)만 '(출석률:%)' 형식으로 기재. 전체 이사회 아님."})
+
+    # 각주 마커 flag dedup(footnote_qa 260709: 보로노이 동일연도·동일마커 2회 중복 노출 버그) —
+    # (scope, year, 정규화 마커, subject) 같으면 하나만.
+    deduped: list[dict[str, Any]] = []
+    seen: set = set()
+    for f in flags:
+        if f.get("kind") == "footnote_marker_unresolved":
+            key = (f.get("scope"), f.get("year"), _norm_marker(f.get("raw_text") or ""), f.get("subject"))
+            if key in seen:
+                continue
+            seen.add(key)
+        deduped.append(f)
+    return deduped
 
 
 def _summary_assessment(data: dict[str, Any]) -> dict[str, Any]:
