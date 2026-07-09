@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: analysis
 title: 파싱 audit 매트릭스 (2026-04-21)
 tags: [audit, parsing, health-check, data-tool]

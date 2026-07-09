@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: release_v2 action tool 검증 초안
 tags: [release-v2, tool, validation, action]

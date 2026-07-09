@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: TSR (Total Shareholder Return) — 글로벌 정의 1주 수익률
 tags: [dividend, shareholder-return, validation, 2026-04-29]

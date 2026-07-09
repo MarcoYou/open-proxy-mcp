@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: screen_events discovery tool 설계 + 전수조사
 tags: [discovery, screener, screen_events, dart, market-wide]

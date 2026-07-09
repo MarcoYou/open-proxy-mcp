@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: source
 title: AGM_TOOL_RULE legacy
 archived: true

@@ -1,4 +1,5 @@
 ---
+superseded_by: architecture/data-collection
 type: entity
 title: FastMCP
 tags: [framework, mcp, python]

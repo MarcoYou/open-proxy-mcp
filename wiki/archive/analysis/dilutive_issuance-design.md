@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: dilutive_issuance data tool 설계 + 전수조사
 tags: [data-tool, dilutive, capital-raise, convertible-bond, warrant-bond, dart]

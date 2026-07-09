@@ -1,4 +1,5 @@
 ---
+superseded_by: architecture/data-collection
 type: entity
 title: DART OpenAPI
 tags: [api, data-source, dart, fss]

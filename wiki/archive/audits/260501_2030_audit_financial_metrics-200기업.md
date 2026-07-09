@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: audit
 title: financial_metrics 200기업 전수 audit (KOSPI 100 + KOSDAQ 100, summary scope)
 created: 2026-05-01 20:30

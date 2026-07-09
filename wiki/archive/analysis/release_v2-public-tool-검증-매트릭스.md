@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: release_v2 public tool 검증 매트릭스
 tags: [release-v2, tool, validation, matrix]

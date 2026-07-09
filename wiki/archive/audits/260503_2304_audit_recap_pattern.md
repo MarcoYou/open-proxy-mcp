@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: audit
 title: recap_vote multi-upstream-pattern 적용 + 200×3 검증 (100% 일치)
 date: 2026-05-03

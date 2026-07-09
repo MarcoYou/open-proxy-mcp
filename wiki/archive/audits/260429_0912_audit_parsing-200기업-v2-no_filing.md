@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: analysis
 title: 파서 전수 audit v2 2026-04-29 — no_filing 분리 + 진짜 partial 측정
 tags: [audit, parsing, health-check, data-tool, regression, no_filing]

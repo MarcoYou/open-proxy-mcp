@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: template
 title: 신규 tool 제안 및 검증 템플릿
 tags: [template, release-v2, tool, validation]

@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: analysis
 title: 확장 파싱 audit (2026-04-22) — scope × 필드 채움률
 tags: [audit, parsing, health-check, data-tool, field-completeness]

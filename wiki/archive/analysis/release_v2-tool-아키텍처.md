@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: release_v2 tool 아키텍처
 tags: [release-v2, architecture, tool, diagram]

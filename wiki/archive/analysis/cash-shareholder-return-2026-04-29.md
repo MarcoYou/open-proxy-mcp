@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: CSR (Cash Shareholder Return) — 한국식 주주환원율
 tags: [dividend, treasury-share, shareholder-return, validation, 2026-04-29]

@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: analysis
 title: 인사 파서 audit 2026-04-29 — KOSPI 200 후보자 경력 정확도 79% → 95%
 tags: [audit, parsing, personnel, shareholder_meeting, regression, candidates]

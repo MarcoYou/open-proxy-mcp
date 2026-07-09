@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: source
 title: AGM_TOOL_RULE.md 요약
 source_path: raw/rules/AGM_TOOL_RULE.md

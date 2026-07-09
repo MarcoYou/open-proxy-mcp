@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: proxy_contest tool 검증 예시
 tags: [release-v2, tool, validation, proxy-contest]

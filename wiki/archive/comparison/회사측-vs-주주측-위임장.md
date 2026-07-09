@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: comparison
 title: 회사측 vs 주주측 위임장권유참고서류 비교
 tags: [comparison, proxy, agm, dart]

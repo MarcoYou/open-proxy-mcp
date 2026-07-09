@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: KIND 주총결과 파싱
 tags: [kind, crawling, voting, attendance]

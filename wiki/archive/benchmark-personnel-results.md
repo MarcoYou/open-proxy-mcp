@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: source
 title: benchmark_personnel_results.json 요약
 source_path: raw/benchmarks/benchmark_personnel_results.json

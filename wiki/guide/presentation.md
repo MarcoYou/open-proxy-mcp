@@ -10,12 +10,14 @@ updated: 2026-06-19
 > OPM을 소개·설명할 때 쓰는 시각 자료(도표·워크플로우 그림·PPT) 모음입니다. 원본 파일은
 > `wiki/tools/diagrams/`에 있습니다. GitHub에서는 그림이 바로 보이고, PPT는 내려받아 사용합니다.
 
-## 1. 시스템 구성도 — 17개 도구 분류
+## 1. 시스템 구성도 — 20개 도구 분류
 
-OpenProxy MCP의 17개 공개 도구를 6개 영역(진입·출처 / 주총·의결권 / 주주환원 / 지배구조·경영권 /
+OpenProxy MCP의 20개 공개 도구를 6개 영역(진입·출처 / 주총·의결권 / 주주환원 / 지배구조·경영권 /
 펀더멘탈·사업)으로 나눈 전체 구성도입니다. 어떤 도구가 어느 분석 영역을 담당하는지 한눈에 보여줍니다.
 
-![17개 도구 분류 구성도](../tools/diagrams/architecture.png)
+![도구 분류 구성도](../tools/diagrams/architecture.png)
+
+> ※ 위 그림은 17개 도구 시점(2026-06) 산출물 — 이후 valuation·shareholder_commitment·director_board 3종 추가로 현재 20개 (그림 갱신 TODO).
 
 ## 2. 워크플로우 도식
 
@@ -43,7 +45,7 @@ OpenProxy MCP의 17개 공개 도구를 6개 영역(진입·출처 / 주총·의
 
 | 파일 | 형식 | 용도 |
 |---|---|---|
-| `tools/diagrams/architecture.png` | 그림 | 17개 도구 6영역 분류 구성도 |
+| `tools/diagrams/architecture.png` | 그림 | 도구 6영역 분류 구성도 (17개 시점 — 갱신 TODO) |
 | `tools/diagrams/workflow1~4.png` | 그림 | 분석 워크플로우 단계 도식 |
 | `tools/diagrams/tool_disclosure_map.pptx` | PPT | 도구–공시 채널 매핑 슬라이드 |
 | `tools/diagrams/ppt_preview.png` | 그림 | 위 PPT 미리보기 |

@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: audit
 title: parse_personnel_xml ralph (iter 1-7) — role 88.7→100% + regression 0
 date: 2026-05-04

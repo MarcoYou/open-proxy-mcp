@@ -1,4 +1,5 @@
 ---
+superseded_by: architecture/data-collection
 type: entity
 title: Upstage OCR
 tags: [api, ocr, fallback, upstage]

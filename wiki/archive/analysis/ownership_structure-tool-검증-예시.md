@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: ownership_structure tool 검증 예시
 tags: [release-v2, tool, validation, ownership]

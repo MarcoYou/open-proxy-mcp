@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: audit
 title: proxy_contest baseline 200×3 — 패턴 fix 불필요 결정
 date: 2026-05-03

@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: corp_gov_report data tool 설계 + 전수조사
 tags: [data-tool, governance, compliance, parsing, dart]

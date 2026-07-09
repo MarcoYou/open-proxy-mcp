@@ -1,4 +1,5 @@
 ---
+superseded_by: 공시유형코드체계
 type: source
 title: DART-KIND 공시 분류 체계
 source_path: open_proxy_mcp/dart-kind-disclosure-taxonomy.md

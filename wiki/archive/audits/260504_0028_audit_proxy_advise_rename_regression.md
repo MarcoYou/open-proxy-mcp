@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: audit
 title: proxy_advise rename + 9 scope 추가 — regression 0 검증
 date: 2026-05-04

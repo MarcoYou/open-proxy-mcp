@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: value_up tool 검증 예시
 tags: [release-v2, tool, validation, value-up]

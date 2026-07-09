@@ -1,4 +1,5 @@
 ---
+superseded_by: architecture/data-collection
 type: entity
 title: opendataloader
 tags: [library, pdf, parser]

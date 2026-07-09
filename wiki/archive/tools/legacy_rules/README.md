@@ -37,5 +37,5 @@ archive `wiki/archive/tools/legacy_rules/`. 정책상 archive는 역사 보존 (
 
 ## 관련
 
-- [[../README]] — archive/tools 인덱스
+- [[../../README]] — archive 인덱스
 - [[../../../decisions/tool-changelog]] — tool rename/흡수 history

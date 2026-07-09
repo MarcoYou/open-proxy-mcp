@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: audit
 title: Phase 4 final — 100.0% + regression 0 (PROMISE 충족)
 created: 2026-05-03 18:47

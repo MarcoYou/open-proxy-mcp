@@ -23,6 +23,33 @@ B외국계 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우
 - _decision_matrices.json: B외국계-only dim `climate_accountability_signal` 제거 (101 → 100 dim), bingo `climate_accountability_red` 제거 (77 → 76). `climate_disclosure`는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2, 2024) 기반으로 재정렬
 - OPM은 한국 8 운용사 + N연기금 합의 + 한국 법령 + OPM 5 기준 중심으로 운영
 
+## 0-A. 정책 ↔ 엔진 정합표 (260709 상설화 — 스튜어드십 패널 검수 반영)
+
+이 문서(정책)와 `proxy_advise` 엔진(실제 판정)은 **의도적으로 다르다**: 정책이 against를 선언해도
+법령 강행규정·법정 결격 같은 hard trigger가 아니면 엔진은 자동 AGAINST 대신 **REVIEW로 판단 재료를
+번들해 애널리스트에게 위임**한다(proxy_advise.py:122 — "운용사 정책상 default=AGAINST이나 법령 hard
+trigger가 아니므로 REVIEW"). 이 표가 그 간극의 공식 지도다. 이 문서만 읽고 "시스템이 자동 반대한다"고
+오독하지 말 것.
+
+| 카테고리 (§) | 정책 입장 | 엔진 실제 판정 (proxy_advise 실측 260709) |
+|---|---|---|
+| 재무제표 §2.1 | 적정성 심사 | **AGAINST**: 완전 자본잠식·감사의견 비적정/한정 / FOR: 적정+잠식 없음 |
+| 현금배당 §2.2 | 과소·과다 모두 경계 | REVIEW: 자본잠식·적자 배당·배당성향>200% / FOR: 흑자+양호·리츠 |
+| 정관변경 §2.3 | 주주권 후퇴 against | **AGAINST**: 법령 layer A2 강행규정 직접 hit / REVIEW: 집중투표 배제·초다수결·정원 축소·수권 증가 / FOR: 소수주주 보호 명문화·오기 정정 |
+| 이사 선임 §2.4 | 결격·독립성·성과 심사 | **AGAINST**: 법정 결격(미성년 포함)·묶음 안건 내 결격 / REVIEW: 사외이사 장기연임·독립성 우려·사내이사 재직성과 저조(2x3 매트릭스) / FOR: clean |
+| 감사위원·감사 §2.5 | 독립성 엄격 | **AGAINST**: 감사/audit 5년 장기연임(독립성 훼손) / 그 외 이사 선임과 동일 게이트 |
+| 이사 보수 §2.6 | 성과 미연계·과다 against 지향 | **전부 REVIEW** (자본잠식+인상·소진율 대비 인상·50%+ 대폭 인상 등 — 법정 금지 아님) — 판단 재료: 한도·소진율·인상률·순익 yoy 번들 |
+| 자기주식 §2.7 | 소각 for / 처분 경계 | FOR: 소각(주주환원) / REVIEW: 처분(우호지분 형성 가능성) — 자동 AGAINST 없음 |
+| 합병/MoM §2.8·3.2 | MoM 미적용 자기거래 against 지향 | **엔진 자동판정 미구현** — proxy_advise 대상 밖(합병 안건은 REVIEW 낙하), corporate_restructuring이 사실 제공 |
+| 물적분할 §2.9·3.4 | 자회사 상장 against (tier_1) | **엔진 자동판정 미구현** — 동일 (사실은 corporate_restructuring·dilutive_issuance) |
+| 증자/감자 §2.10 | 희석 경계 | REVIEW 낙하 (법령 layer hit 시만 AGAINST) |
+| CB/BW §2.11 | 희석·전환가 refixing 경계 | REVIEW 낙하 (동일) |
+| 주주제안 §2.12 | 내용 기준 판단 | REVIEW 낙하 (proposer_type만 구조화) |
+| 퇴직금 (§2.6 파생) | 황금낙하산 against 지향 | **전부 REVIEW** (위험 trigger·사외이사 퇴직금 신설·지급률 2배수+) / FOR: 퇴직연금 도입·표현 정비(형식적) |
+
+**공통 상위 게이트**: ① 법령 layer 강행규정(law_layer_rules.json 40룰) hit → AGAINST (§2 어느 카테고리든)
+② 100dim/76빙고 정량 매트릭스는 **미사용(dead code)** — 실사용 자동채점은 사내이사 재직성과 2x3뿐(§7-7).
+
 ## 0. v1 → v1.1 변경 요약 (2026-04-29)
 
 ### 0.1 추가 운용사 (5 → 7)

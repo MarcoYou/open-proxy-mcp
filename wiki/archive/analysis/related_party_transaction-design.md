@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: related_party_transaction data tool 설계 + 전수조사
 tags: [data-tool, related-party, insider-dealing, 일감몰아주기, dart]

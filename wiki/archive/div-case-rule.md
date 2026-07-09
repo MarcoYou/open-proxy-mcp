@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: source
 title: DIV_CASE_RULE.md 요약
 source_path: raw/rules/DIV_CASE_RULE.md

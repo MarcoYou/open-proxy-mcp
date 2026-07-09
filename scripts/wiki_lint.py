@@ -4,6 +4,13 @@ WIKI_SCHEMA Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 �
 - [1] 뿌리 → 줄기 → 큰가지: 단방향 (위→아래만)
 - [2] 큰가지 ↔ 가지 ↔ 잎: 양방향 강제 / 잎 ↔ 잎·낙엽: 자유
 - [3] 폴더 README ← 직속 .md 전부 인덱스([[]] link) — 새 파일 추가하고 README 누락 시 실패 (archive 면제)
+- [4] index.md 카운트 검증 (260709 패널 검수) — 폴더 주석 헤더 `(N) - `folder/``·archive 하위
+  헤더·총계 주장을 파일시스템 실측과 대조 + 같은 라벨 상충 카운트(Action (1) vs (2)) 검출.
+  index.md는 wiki-first 라우팅 진입점인데 어떤 자동 검증도 안 받아 카운트 8곳 오류·4곳
+  자기모순이 축적됐던 confident-wrong 사고 재발 방지.
+- [5] 경로 오링크 — `[[a/b/c]]`처럼 경로를 명시한 wikilink가 실제 위치와 다르면(파일이 archive로
+  이동 등) 검출. resolver의 basename 폴백이 조용히 성공해 링크는 "동작"하지만 명시 경로가
+  거짓이 되는 drift를 잡는다.
 
 사용:
     python3 scripts/wiki_lint.py           # warning만 출력
@@ -226,6 +233,124 @@ def check_readme_drift(pages, outgoing) -> list[str]:
     return issues
 
 
+# [4] index.md 카운트 검증 패턴
+INDEX_MD = WIKI / "index.md"
+# `### Concepts (44) - `rules/concepts/`` 류 — 폴더 주석이 붙은 헤더는 직속 파일 수와 대조
+HEADER_FOLDER_COUNT = re.compile(r"^#{2,3} .*?\((\d+)\)[^\n]*?-\s*`([a-z_/]+)/`", re.MULTILINE)
+# `### archive/analysis/ (18)` 류 — 헤더 텍스트 자체가 폴더 경로
+ARCHIVE_SUB_COUNT = re.compile(r"^#{2,3} (archive/[\w가-힣_]+)/ \((\d+)\)", re.MULTILINE)
+TOTAL_CLAIM = re.compile(r"총 (\d+) markdown")
+# tool 카테고리 라벨 — 같은 라벨이 다른 수로 두 번 나오면 자기모순
+CATEGORY_LABEL = re.compile(r"(?:^#{2,3} |\*\*)(Company|Meeting|Data|Evidence|Action|Tools)\s*\((\d+)", re.MULTILINE)
+
+
+def _direct_md_count(folder: str) -> int:
+    """폴더 직속 비-README .md 수 (-1 = 폴더 없음)."""
+    d = WIKI / folder
+    if not d.is_dir():
+        return -1
+    return len([p for p in d.glob("*.md") if p.name != "README.md"])
+
+
+def check_index_counts(pages) -> list[str]:
+    """index.md의 수량 주장(헤더 카운트·총계·카테고리 라벨)을 실측과 대조."""
+    if not INDEX_MD.exists():
+        return []
+    issues = []
+    text = INDEX_MD.read_text(encoding="utf-8", errors="ignore")
+
+    for m in HEADER_FOLDER_COUNT.finditer(text):
+        claimed, folder = int(m.group(1)), m.group(2)
+        actual = _direct_md_count(folder)
+        if actual >= 0 and claimed != actual:
+            issues.append(f"index 카운트 불일치: `{folder}/` 주장 {claimed} vs 실측 {actual}")
+
+    for m in ARCHIVE_SUB_COUNT.finditer(text):
+        folder, claimed = m.group(1), int(m.group(2))
+        actual = _direct_md_count(folder)
+        if actual >= 0 and claimed != actual:
+            issues.append(f"index 카운트 불일치: `{folder}/` 주장 {claimed} vs 실측 {actual}")
+
+    m = TOTAL_CLAIM.search(text)
+    if m and int(m.group(1)) != len(pages):
+        issues.append(f"index 총계 불일치: 주장 {m.group(1)} vs 실측 {len(pages)} (raw 제외 전체 md)")
+
+    # 카테고리 라벨 자기모순 + 합계 vs Tools 총계
+    by_label: dict[str, set[int]] = defaultdict(set)
+    for m in CATEGORY_LABEL.finditer(text):
+        by_label[m.group(1)].add(int(m.group(2)))
+    for label, ns in sorted(by_label.items()):
+        if len(ns) > 1:
+            issues.append(f"index 자기모순 카운트: {label} {sorted(ns)} — 같은 라벨이 다른 수")
+    cats = ("Company", "Meeting", "Data", "Evidence", "Action")
+    if all(len(by_label.get(c, set())) == 1 for c in cats) and len(by_label.get("Tools", set())) == 1:
+        cat_sum = sum(next(iter(by_label[c])) for c in cats)
+        tools_total = next(iter(by_label["Tools"]))
+        if cat_sum != tools_total:
+            issues.append(f"index 카테고리 합계 불일치: Company+Meeting+Data+Evidence+Action={cat_sum} vs Tools({tools_total})")
+    return issues
+
+
+def check_path_links(pages) -> list[str]:
+    """경로 명시 wikilink([[a/b/c]])의 명시 경로가 실제 파일 위치와 다르면 검출.
+
+    resolver의 basename 폴백 때문에 링크 자체는 "동작"하지만, 파일이 archive로 이동한 뒤
+    옛 경로로 남은 링크는 독자(LLM)에게 거짓 위치를 자신있게 알려준다 — 그걸 잡는다.
+    """
+    from posixpath import normpath
+
+    by_rel = {rel for rel, _ in pages}
+    by_basename = defaultdict(list)
+    for rel in by_rel:
+        by_basename[rel.split("/")[-1]].append(rel)
+    issues = []
+    for rel, path in pages:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        parent = "/".join(rel.split("/")[:-1])
+        for link in WIKILINK.findall(text):
+            t = link.split("#")[0].strip()
+            if "/" not in t or t.endswith("/"):
+                continue  # 경로 없는 링크·폴더 링크는 대상 아님
+            tt = t[:-3] if t.endswith(".md") else t
+            if tt.lstrip("./") in by_rel:
+                continue  # wiki 루트 기준 경로 일치
+            # 현재 파일 폴더 기준 상대경로(Obsidian 스타일 `audits/README`·`../x`)도 정당
+            joined = normpath(f"{parent}/{tt}") if parent else normpath(tt)
+            if joined in by_rel:
+                continue
+            cands = by_basename.get(tt.split("/")[-1], [])
+            if cands:
+                where = cands[0] if len(cands) == 1 else f"{len(cands)}곳 (예: {', '.join(cands[:3])} …)"
+                issues.append(f"경로 오링크: {rel} → [[{t}]] (실제: {where})")
+    return issues
+
+
+def check_archive_superseded(pages) -> list[str]:
+    """[6] archive 페이지의 superseded_by frontmatter 강제 (260709 패널 검수).
+
+    낙엽(archive) 페이지를 연 에이전트가 "이건 X로 대체됨"을 첫 화면에서 보도록 — 흡수된 지식을
+    현행으로 오독하는 리스크 차단. 값은 현행 페이지명 또는 null(역사 보존, 직접 대체 없음).
+    non-null 값은 실재 페이지로 resolve돼야 함(QA 260709: phantom 타깃 차단).
+    """
+    resolve = build_resolver(pages)
+    sup_re = re.compile(r"^superseded_by:\s*([^\n#]+)", re.MULTILINE)
+    issues = []
+    for rel, path in pages:
+        if not rel.startswith("archive/") or rel.endswith("/README") or rel == "archive/README":
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        parts = text.split("---", 2)
+        fm = parts[1] if len(parts) >= 3 else ""
+        m = sup_re.search(fm)
+        if not m:
+            issues.append(f"archive frontmatter 누락: {rel} — superseded_by: 필드 없음")
+            continue
+        val = m.group(1).strip()
+        if val and val != "null" and resolve(val) is None:
+            issues.append(f"archive superseded_by phantom: {rel} — '{val}' 페이지가 실재하지 않음")
+    return issues
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--strict", action="store_true", help="위반 발견 시 exit 1")
@@ -238,6 +363,9 @@ def main():
     uni_violations = check_unidirectional(outgoing)
     bi_issues = check_bidirectional(outgoing)
     drift_issues = check_readme_drift(pages, outgoing)
+    index_issues = check_index_counts(pages)
+    path_issues = check_path_links(pages)
+    archive_issues = check_archive_superseded(pages)
 
     if args.json:
         print(json.dumps({
@@ -245,6 +373,9 @@ def main():
             "unidirectional_violations": uni_violations,
             "bidirectional_issues": bi_issues,
             "readme_drift": drift_issues,
+            "index_count_issues": index_issues,
+            "path_link_issues": path_issues,
+            "archive_superseded_issues": archive_issues,
         }, ensure_ascii=False, indent=2))
     else:
         print(f"[wiki_lint] 총 페이지: {len(pages)}")
@@ -266,10 +397,28 @@ def main():
         if len(drift_issues) > 20:
             print(f"  ... +{len(drift_issues) - 20} 건")
 
-        if not uni_violations and not bi_issues and not drift_issues:
+        print(f"\n[4] index.md 카운트 불일치 (주장 vs 실측): {len(index_issues)} 건")
+        for v in index_issues[:20]:
+            print(f"  ✗ {v}")
+        if len(index_issues) > 20:
+            print(f"  ... +{len(index_issues) - 20} 건")
+
+        print(f"\n[5] 경로 오링크 (명시 경로 ≠ 실제 위치): {len(path_issues)} 건")
+        for v in path_issues[:20]:
+            print(f"  ✗ {v}")
+        if len(path_issues) > 20:
+            print(f"  ... +{len(path_issues) - 20} 건")
+
+        print(f"\n[6] archive superseded_by 누락: {len(archive_issues)} 건")
+        for v in archive_issues[:20]:
+            print(f"  ✗ {v}")
+        if len(archive_issues) > 20:
+            print(f"  ... +{len(archive_issues) - 20} 건")
+
+        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues):
             print("\n✓ 모든 정책 충족")
 
-    if args.strict and (uni_violations or bi_issues or drift_issues):
+    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues):
         sys.exit(1)
 
 

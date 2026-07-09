@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: analysis
 title: corporate_restructuring data tool 설계 + 전수조사
 tags: [data-tool, restructuring, merger, split, share-exchange, dart]

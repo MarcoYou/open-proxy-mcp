@@ -1,4 +1,5 @@
 ---
+superseded_by: tools/README
 type: source
 title: OWN_CASE_RULE legacy
 archived: true

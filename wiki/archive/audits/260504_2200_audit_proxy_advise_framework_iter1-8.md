@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: audit
 title: proxy_advise framework enrichment — iter1~8 KOSPI 100 + KOSDAQ 50 검증
 created: 2026-05-04 22:00

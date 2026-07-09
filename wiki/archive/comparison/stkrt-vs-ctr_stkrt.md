@@ -1,4 +1,5 @@
 ---
+superseded_by: null  # 역사 보존 — 직접 대체 페이지 없음
 type: comparison
 title: stkrt vs ctr_stkrt — DART 대량보유 API 필드 비교
 tags: [comparison, dart, ownership, block-holder]

@@ -1,4 +1,5 @@
 ---
+superseded_by: architecture/data-collection
 type: entity
 title: OpenProxy MCP (OPM)
 tags: [project, mcp, open-source]
