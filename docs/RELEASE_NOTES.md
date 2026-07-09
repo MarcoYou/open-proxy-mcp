@@ -4,6 +4,15 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 ## v2.1 이후 (미릴리즈, 2026-06-12 ~ )
 
+- **`director_board` 신설 — 20번째 tool (2026-07-08), 각주정밀도·출석률·성능 검수 (2026-07-09)** —
+  **개별 이사 단위** 정보 tool: 등기이사 인당보수·보수한도 소진율·재직/사퇴 변동·5억원 이상 개별
+  보수·미등기 임원 보수·직원 대비 임원 보수 배수(pay_gap)·이사회 출석률. 정형 API가 각주 본문을
+  안 줘 바 마커(`(주1)`)만 남던 것을 **사업보고서 원문(document.xml)에서 해소** — 단, 승인한도 셀에
+  무관한 각주(소송충당부채·특수관계·스톡옵션·표조각·타인 각주)를 자신있게 노출하던 오답을 **5중
+  게이트**(유형·인물 disambiguation·문장완결성·표조각 필터·dedup)로 차단하고 미달 시 원문 발췌로
+  강등(300사 검수: resolved 오답 0). 이사회 출석률도 원문에서 파싱(section-local, 회사별 인라인
+  요약이 사외이사만인 경우 attendance_partial 플래그). 성능: 각주 fetch 병렬화 + 소집공고 파싱
+  타임아웃으로 max wall 21.6초→8.7초. 골든 회귀 테스트 `spot_footnote_golden.py`로 5개 오답유형 감시.
 - **`shareholder_commitment` 신설 — 19번째 tool, 2번째 Action Tool (2026-07-07)** — 밸류업·배당·자사주
   소각의 약속 vs 실제 이행을 연중 추적(`proxy_advise_before_meeting`이 주총 1회성 판단이라면 이건
   스튜어드십 engagement 관점). 자사주 소각 사이클마다 매입시점 BPS 대비 실제 매입가를 비교해 장부가
