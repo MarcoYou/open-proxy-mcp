@@ -54,6 +54,20 @@ proxy_advise가 띄우는 근거(`law_reference`)는 **정확한 조문번호 + 
 - 타법: 상호주=**공정거래법 §21(상호출자제한기업집단)**, 대량보유=**자본시장법 §147①(5% 보고)** — 각
   법+시행령을 근거에 명시(참조 룰 B1-6·C-3 2건, 상법 SSOT 가드 대상 아님 — 안정 참조).
 
+## 원문 대조 검증 — legalize-kr (260710)
+
+SSOT(`law_provisions.json`)의 조문번호·시행일이 **권위 원문**과 실제 일치하는지 자동 대조한다.
+에이전트 웹추정·수기 편집 drift 차단 + 엔진이 인용하는 조문의 SSOT 누락 감지.
+
+- **원본**: [[reference_legalize_kr_law_corpus]] (github.com/MarcoYou/legalize-kr, `kr/상법/법률.md`·`시행령.md` — 본문 + 부칙 전문).
+- **도구**: `scripts/verify_law_against_corpus.py --corpus <경로>` (또는 `OPM_LEGALIZE_KR` 환경변수).
+  corpus 미지정·부재 시 **graceful-skip**(종료 0) — 남의 CI 안 깸(wiki_lint 패턴). 9개 조항 조문+시행일
+  원문 대조 + `REFERENCE_PROVISIONS`(엔진 인용·개정대장 밖 조문) 존재 확인.
+- **정책 — 참조 조문은 개정대장에 안 넣는다**: `law_provisions.json`은 **상법 2025–2026 *개정* 대장**이다.
+  안정 상시 조문(예 **상법 시행령 §34조5항7호** — 사외이사 재직기간 결격 동일회사 6년/계열 9년, 2020.1.29
+  개정, proxy_advise 장기연임이 인용)은 개정대장에 넣으면 3자 정합[7]을 오염시키므로 **넣지 않고**, verifier의
+  `REFERENCE_PROVISIONS`로 원문 존재만 확인한다. 코드는 그 조문을 정밀 인용(§34조5항7호, 원문 대조 확정).
+
 ## 옛 분산 자료 (archive)
 
 `wiki/archive/laws/`에 보존 (역사):
