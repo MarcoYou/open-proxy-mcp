@@ -1002,6 +1002,7 @@ def apply_tenure_long_tenure(ev: dict[str, Any], appointment_type: dict[str, Any
     fyr["result"] = "potential_long_tenure"
     fyr["basis"] = f"이 회사 재직 {tenure}년 (최초 {es}년 → {current_year}년)"
     fyr["source"] = "tenure_years"
+    fyr["years"] = tenure  # 6년(§34⑤ 결격 경계) tiering용 — proxy_advise가 읽음
     # 장기연임은 summary 최상위 우선순위 (evaluate_independence의 five_year_signal과 동일 정책)
     indep["summary"] = "long_tenure_concerns"
 
@@ -1016,6 +1017,52 @@ def apply_tenure_long_tenure(ev: dict[str, Any], appointment_type: dict[str, Any
 #   - roster 부재는 override 안 함(미등기·시차·EGM 선임 가능) — career-text 결과 유지.
 #   - source="roster_prior" provenance 기록(투명·재검토 가능).
 #   - tenure 값 자체(5년 룰 계산)는 career 기반 유지(H1: hffc_pd 기산점 재선임 리셋 위험).
+
+def _hffc_to_years(hffc: str | None, ref_year: int) -> int | None:
+    """hffc_pd(재직기간) → 재직 연수(floor). 파싱 실패 None.
+
+    포맷: '2년 7개월'·'2021.03.17~현재'·'2021.03.17~2024.03.15'·'22개월'·'2021.3'.
+    **H1 주의**: hffc는 재선임 시 기산점이 리셋돼 실제 tenure를 과소계상할 수 있다 →
+    장기연임 감지의 **하한(floor)으로만** 안전(≥5년이면 진짜 ≥5년; false-positive 낮음).
+    상한/정확값으로는 쓰지 말 것.
+    """
+    if not hffc:
+        return None
+    s = str(hffc).strip()
+    if not s or s in ("-", "재직중", "현재", "미상"):
+        return None
+    # ① 명시적 '기간' 우선 — "N년"/"N.M년"(N은 1~2자리 정수부, 4자리 연도 아님).
+    #    `(?<!\d)`로 '2023년'의 '23'을, 소수부(?:\.\d+)?로 '2.8년'의 '8'을 기간으로 오독하지 않게 막고
+    #    앞 숫자가 없는 정수부만 floor로 취한다('2.8년'→2). 기간 표기가 곧 tenure(직접 진술)라
+    #    "3년 (2021.03 선임)"처럼 연도가 함께 있어도 기간을 신뢰 → 날짜기반 over-count 방지(QA·전수 발견).
+    m = re.search(r"(?<!\d)(\d{1,2})(?:\.\d+)?\s*년", s)
+    if m:
+        return int(m.group(1))
+    # ② 개월만: "22개월" → //12
+    m = re.search(r"(?<!\d)(\d{1,3})\s*개월", s)
+    if m:
+        return int(m.group(1)) // 12
+    # ③ 소수 연수 "2.0" / "3.8" ('년' 없이) → floor.
+    m = re.fullmatch(r"\s*(\d{1,2})\.\d+\s*", s)
+    if m:
+        return int(m.group(1))
+    # ④ 4자리 날짜(연도) — '2023년 03월 17일 ~' / '2021.03.17~현재' 같은 **선임 시작일**. 시작연도 기준.
+    yrs = [int(y) for y in re.findall(r"(?:19|20)\d{2}", s)]
+    if yrs:
+        start = yrs[0]
+        end = yrs[1] if len(yrs) > 1 else ref_year
+        return end - start if end >= start else None
+    # ⑤ 2자리 연도 시작일 "'22.03.17~" / "24.03.14~" — '~'가 있고 YY.MM 꼴이면 날짜(20YY 가정).
+    if "~" in s or "∼" in s:
+        m = re.match(r"['\s]*(\d{2})[.\-/]\s*\d{1,2}", s)
+        if m:
+            start = 2000 + int(m.group(1))
+            after = s.split("~", 1)[-1]
+            em = re.search(r"(\d{2})[.\-/]", after)
+            end = 2000 + int(em.group(1)) if em else ref_year
+            return end - start if ref_year >= start and end >= start else None
+    return None
+
 
 def _core_name(name: str | None) -> str:
     """매칭용 핵심 이름 — 영문 병기·괄호·개행 제거. '도진명 (Jim Myong Doh)'→'도진명'."""
@@ -1054,6 +1101,7 @@ def build_roster_index(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, A
             "birth": _birth_ym_key(r.get("birth_ym")),
             "director_type": (r.get("rgist_exctv_at") or "").strip(),
             "tenure": (r.get("hffc_pd") or "").strip(),
+            "major_shareholder_relation": (r.get("mxmm_shrholdr_relate") or "").strip(),  # H2 rescue용
         })
     return idx
 
@@ -1086,8 +1134,100 @@ def apply_roster_prior(ev: dict[str, Any], candidate: dict[str, Any], roster_ind
     m0 = board[0]
     apt["type"] = "renewed"
     apt["source"] = "roster_prior"
-    apt["roster_hint"] = {"director_type": m0.get("director_type"), "tenure": m0.get("tenure")}
+    apt["roster_hint"] = {
+        "director_type": m0.get("director_type"),
+        "tenure": m0.get("tenure"),
+        "major_shareholder_relation": m0.get("major_shareholder_relation"),  # H2 rescue
+    }
     apt["reason"] = ((apt.get("reason") or "") + " | roster(임원현황) 재직 확인 → 연임 재분류(힌트)").strip(" |")
+
+
+# ── Item2c/H2 (260710): roster 최대주주관계 rescue — 소집공고 결측 시 힌트로 채움 ──
+# 소집공고 majorShareholderRelation이 비면 raw="" → 관계 텍스트 없이 generic 약신호만 뜬다.
+# roster mxmm_shrholdr_relate(예: '계열회사임원')로 **채우기만**(fill-when-missing) 한다.
+# 힌트 정체성: 소집공고에 값이 있으면 override 금지 / 승격만(concern clear 금지) / blank는 신호 아님.
+_MSR_NOISE = ("", "-", "없음", "해당없음", "해당사항없음", "관계없음", "n/a", "na", "본인")
+# 의미있는 관계(summary 승격 가치) — **최대주주와의 실제 관계만**. 친족 + '최대주주/특수관계' 명시.
+# ⚠️ '계열회사 임원'·'임원'·'대표이사'·'발행회사' 등은 제외: 삼성전자 등은 독립적 사외이사 전원을
+#    mxmm_shrholdr_relate='계열회사 임원'으로 채우는 **형식적 boilerplate**라 여기에 넣으면 전원 오탐
+#    (ground-truth 검증: 허은녕·유명희·조혜경 등 독립 사외이사 전원 동일값). 이런 값은 provenance만 기록.
+_MSR_MEANINGFUL = ("子", "女", "父", "母", "兄", "弟", "姉", "姊", "妹", "妻", "夫",
+                   "자녀", "배우자", "형제", "자매", "남편", "딸", "아들", "모친", "부친", "친족",
+                   "최대주주", "특수관계")
+
+
+def apply_roster_msr_rescue(ev: dict[str, Any], candidate: dict[str, Any], roster_index: dict[str, list[dict[str, Any]]]) -> None:
+    """소집공고 최대주주관계 결측 시 roster 값을 힌트로 채움 (사외/감사, 승격만, override 금지)."""
+    indep = ev.get("independence")
+    if not isinstance(indep, dict):
+        return
+    role = ev.get("role_type") or ""
+    if not any(k in role for k in ("사외", "감사", "독립")):
+        return
+    sf = indep.setdefault("sub_factors", {}).setdefault("major_shareholder_relation", {})
+    if (sf.get("raw") or "").strip() not in _MSR_NOISE:
+        return  # 소집공고에 실제 값 있음 → authoritative, override 금지
+    # roster 값 확보: roster_prior 승격 힌트 우선, 없으면 index 직접 조회(단일 매칭만)
+    apt = ev.get("appointment_type") or {}
+    rel = ((apt.get("roster_hint") or {}).get("major_shareholder_relation") or "").strip()
+    if not rel:
+        core = _core_name(candidate.get("name"))
+        cands = [m for m in (roster_index.get(core) or []) if "미등기" not in (m.get("director_type") or "")]
+        rel = (cands[0].get("major_shareholder_relation") or "").strip() if len(cands) == 1 else ""
+    if not rel or rel.lower() in _MSR_NOISE:
+        return  # roster에도 없거나 형식적 → 조용히 skip (틀린 단정 금지)
+    # 부정 표기 가드: '임원 아님'·'특수관계 없음'·'해당하지 않음'·'미해당'처럼 의미 키워드를 품은
+    # 부정문은 관계 '있음'이 아니다(QA Finding2). 부분일치 escalation 전에 반드시 먼저 거른다.
+    if any(neg in rel for neg in ("아니", "아님", "않", "없", "미해당", "비해당", "해당사항")):
+        return
+    if not any(k in rel for k in _MSR_MEANINGFUL):
+        # 비어있지 않지만 generic → hard 신호 금지, provenance만
+        sf["roster_hint_relation"] = rel
+        sf["hint_source"] = "roster_mxmm_shrholdr_relate"
+        return
+    sf["result"] = "related"
+    sf["raw"] = rel
+    sf["hint_source"] = "roster_mxmm_shrholdr_relate"
+    sf["mapping"] = "roster-hint"
+    if indep.get("summary") in (None, "independent"):
+        indep["summary"] = "weak_concerns"  # 승격만 — concern/long_tenure는 유지
+
+
+# ── Item1 (260710): roster tenure → 장기연임 감지 연동 (Purpose1 완성) ──
+# apply_roster_prior가 new→renewed로 승격한 사외이사는 career-matched earliest_start가 없어
+# apply_tenure_long_tenure가 그냥 return → 장기연임을 통째로 놓친다. roster_hint.tenure(hffc_pd)를
+# floor로 써서 그 blind spot을 닫는다. hffc는 과소계상(H1)이라 ≥5년이면 확실 → false-positive 낮음.
+
+def apply_roster_tenure_long_tenure(ev: dict[str, Any], appointment_type: dict[str, Any] | None, current_year: int) -> None:
+    """roster_prior로 승격된 사외/감사 후보의 roster tenure(hffc)를 장기연임 감지에 연동.
+
+    - roster_hint가 있는 후보(=roster_prior 승격)만 대상 — career earliest_start가 없어 놓친 케이스.
+    - hffc→연수는 floor(과소계상 안전) → ≥5년이면 potential_long_tenure로 승격.
+    - **승격만**: five_year_rule이 이미 potential_long_tenure면 손대지 않음(career 근거 우선, never downgrade).
+    - 사외/감사 role에서만(장기연임 독립성 우려 도메인).
+    """
+    if not isinstance(appointment_type, dict):
+        return
+    hint = appointment_type.get("roster_hint")
+    if not isinstance(hint, dict):
+        return  # roster_prior 승격 후보만 (career-renewed는 apply_tenure_long_tenure가 담당)
+    role = ev.get("role_type") or ""
+    if not ("사외" in role or "감사" in role or "독립" in role or "outside" in role.lower()):
+        return
+    indep = ev.get("independence")
+    if not isinstance(indep, dict):
+        return
+    fyr = indep.setdefault("sub_factors", {}).setdefault("five_year_rule", {})
+    if fyr.get("result") == "potential_long_tenure":
+        return  # 이미 감지됨(career 등) → 그대로 유지
+    years = _hffc_to_years(hint.get("tenure"), current_year)
+    if years is None or years < _LONG_TENURE_YEARS:
+        return
+    fyr["result"] = "potential_long_tenure"
+    fyr["basis"] = f"임원현황 재직기간 {years}년+ (roster hffc 하한, 실제 이상)"
+    fyr["source"] = "roster_tenure"
+    fyr["years"] = years  # floor — 6년 경계 tiering은 '이상'으로 안전측
+    indep["summary"] = "long_tenure_concerns"
 
 
 def evaluate_candidate(candidate: dict[str, Any], current_year: int, own_company_name: str = "") -> dict[str, Any]:
@@ -1196,8 +1336,12 @@ async def build_director_evaluation_payload(
             ev["appointment_type"] = detect_appointment_type(c, canonical_corp_name, target_year)
             # Purpose 1: roster(임원현황) 힌트로 new→renewed 오분류 교정 (tenure 체크 앞단)
             apply_roster_prior(ev, c, roster_index)
+            # Item2c/H2: 소집공고 최대주주관계 결측 시 roster 값으로 채움 (fill-when-missing)
+            apply_roster_msr_rescue(ev, c, roster_index)
             # 갭C: 이 회사 재직 5년+ → 장기연임 승격 (earliest_start 계산-후-폐기 해소)
             apply_tenure_long_tenure(ev, ev["appointment_type"], target_year)
+            # Item1: roster_prior 승격 후보는 earliest_start가 없음 → roster tenure(hffc)로 장기연임 catch
+            apply_roster_tenure_long_tenure(ev, ev["appointment_type"], target_year)
             evaluations.append(ev)
             candidate_count += 1
 

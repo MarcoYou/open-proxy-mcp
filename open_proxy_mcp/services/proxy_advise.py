@@ -801,15 +801,29 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         return "REVIEW", "이사 회계 risk 이력 검증 — 과거 재직 회사 회계 risk 발생 (raw 메모 참조 후 판단)"
     if is_outside:
         _role = "감사" if (is_audit or eval_match.get("_audit_force_strict")) else "사외이사"
-        # iter23: 장기연임 (5년 룰 위반) — audit는 AGAINST, 일반 사외이사는 REVIEW
+        # 장기연임 — 법률 정정(260710 lawyer): "5년 룰 위반"은 법적 부정확(위반할 성문 규정 없음).
+        #   · 5년 = OPM 자체 보수적 조기경보(특정 법정/지침 수치 아님).
+        #   · HARD 결격 = 상법 시행령 §34조5항7호: 동일 상장회사 6년 초과 / 계열 합산 9년 초과 → 사외이사 결격.
+        #   · 우리 tenure는 floor(과소계상)이고 동일회사 vs 계열 합산을 구분 못 함 → 결격을 사실확정 불가
+        #     → tenure만으로 AGAINST(결격 확정) 부적절. 감사도 종전 AGAINST → REVIEW로 하향(법적 방어 위해
+        #        사용자가 원문에서 동일회사 6년 초과 확인 필요). 6년 경계로 문구만 tiering.
         if indep == "long_tenure_concerns":
-            # 사유 정직화 (260710 QA): tenure 기반 플래그면 "키워드 발견"이라 거짓 주장하지 않고
-            # 실제 근거(재직 N년)를 쓴다. keyword 기반이면 종전 문구 유지.
             _fyr = ((eval_match.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {})
-            _basis = _fyr.get("basis") if _fyr.get("source") == "tenure_years" else "재선임/연임/중임 키워드 발견"
-            if is_audit or eval_match.get("_audit_force_strict"):
-                return "AGAINST", f"감사/audit 장기연임 — 독립성 훼손 (5년 룰 위반, {_basis})"
-            return "REVIEW", f"사외이사 장기연임 ({_basis}) — 독립성 검토 필요"
+            _is_audit = bool(is_audit or eval_match.get("_audit_force_strict"))
+            _who = "감사위원(사외)" if _is_audit else "사외이사"
+            _audit_note = "(감사위원=사외이사 자격 동일 문턱, 독립성 가중)" if _is_audit else ""
+            # tenure 기반이면 실제 근거를, keyword 기반이면 정직하게 키워드 발견을 명시.
+            if _fyr.get("source") in ("tenure_years", "roster_tenure"):
+                _basis = _fyr.get("basis") or "재직기간 확인"
+                _years = _fyr.get("years")
+                if isinstance(_years, int) and _years >= 6:
+                    return "REVIEW", (f"{_who} 장기연임 ({_basis}) — 동일 상장회사 6년 초과 시 "
+                                      f"상법 시행령 §34조5항7호 사외이사 결격 해당 가능{_audit_note}. 계열 합산(9년)·재직기간 과소계상 여부 원문 확인 권고")
+                return "REVIEW", (f"{_who} 장기연임 소프트 경보 ({_basis}) — 재직 5년 이상. "
+                                  f"법정 결격(상법 시행령 §34조5항7호 6년 초과)에는 미달하나 독립성 약화 소지{_audit_note}, 사용자 검토 권고")
+            # keyword 기반(재직연수 미상) — 단일 REVIEW 문구(6년 경계 판정 불가)
+            return "REVIEW", (f"{_who} 장기연임 (재선임/연임/중임 키워드 발견) — 5년 이상은 소프트 독립성 경보, "
+                              f"동일 상장회사 6년 초과 시 상법 시행령 §34조5항7호 사외이사 결격 해당 가능{_audit_note}(계열 합산·과소계상 원문 확인 권고)")
         if indep == "concerns":
             return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
         # 겸직 과다 (3곳 이상) — 충실의무 수행 여력 검토 (260710 계산-후-폐기 신호 반영)
@@ -1354,7 +1368,7 @@ _POLICY_CITATIONS = {
     "financial_statements": "OPM Guideline §재무제표 — 감사의견 적정 + 자본잠식 없음 시 FOR",
     "cash_dividend": "OPM Guideline §배당 — 흑자 + 배당성향 적정 시 FOR (200% 초과 시 REVIEW)",
     "director_election": "OPM Guideline §이사선임 — 사내이사: 결격만 검증 / 사외이사: 독립성 + 결격",
-    "audit_committee_election": "OPM Guideline §감사위원 — strict 검증 (장기연임 5년 룰 + 독립성)",
+    "audit_committee_election": "OPM Guideline §감사위원 — strict 검증 (장기연임 5년+ 소프트/6년+ 상법 시행령 §34조5항7호 + 독립성)",
     "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 / 적자+인상 / 50% 이상 인상은 REVIEW",
     "audit_compensation": "참조 감사보수 규칙 + strict 내부 패턴 — 1인당 평균 과소 / 50% 이상 인상 + 1인당 평균 과다는 REVIEW",
     "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 / 사외이사 퇴직금 / 지급률 2배수 이상 인상은 REVIEW",
@@ -1815,7 +1829,7 @@ def _extract_risks(
         if indep == "concerns":
             risks.append("독립성 우려 (최대주주 관계 / 회사 거래 / 이전 회사 직원)")
         elif indep == "long_tenure_concerns":
-            risks.append("장기연임 (5년 룰)")
+            risks.append("장기연임 (5년+ 소프트 경보 / 6년+ 상법 시행령 §34조5항7호 결격 가능)")
         if ah == "red_flag":
             risks.append("이사 회계 risk 이력 발견 (raw 메모 검토)")
 

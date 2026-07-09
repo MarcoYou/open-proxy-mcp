@@ -110,13 +110,23 @@ proxy_advise_before_meeting(
 ## 결정 logic
 
 OPM 자체 함수들 + vote_style 정책 wire:
-- `_decide_director_election` (사외/사내·결격·독립성·장기연임). 사외이사: 결격→AGAINST / 독립성·장기연임→REVIEW / clean→FOR. **사내이사: 결격→AGAINST / 재직성과 bad·weak→REVIEW / good·moderate→FOR** (성과는 "법정 결격이 아니므로" 최악도 REVIEW — 자동 AGAINST 아님). 감사위원(audit strict): 장기연임→AGAINST.
-  - 장기연임(5년 룰) 판정은 ① careerDetails 키워드("재선임/연임/중임") + ② **재직연수**(같은 회사
-    사외이사 5년+, `earliest_start` 기반) 둘 다. ②는 260710 추가 — appointment_type이 계산해둔
-    `earliest_start`를 five_year_rule이 안 읽던 계산-후-폐기 해소. 안전장치: 이 회사 매칭 + **진행중
-    (현재) 재직**일 때만(과거 재직 후 신규지명 오탐 방지) + 사외/감사 role만. 재직연수는 주총연도 기준
-    (proxy_advise는 소집공고 주총연도, standalone director_evaluation은 조회연도). 사유도 tenure 기반이면
-    "재직 N년"으로 정직 표기(키워드 발견이라 거짓 안 함).
+- `_decide_director_election` (사외/사내·결격·독립성·장기연임). 사외이사: 결격→AGAINST / 독립성·장기연임→REVIEW / clean→FOR. **사내이사: 결격→AGAINST / 재직성과 bad·weak→REVIEW / good·moderate→FOR** (성과는 "법정 결격이 아니므로" 최악도 REVIEW — 자동 AGAINST 아님).
+  - **장기연임 — 법률 정정(260710 lawyer)**: 종전 "5년 룰 위반" 문구는 법적으로 부정확(위반할 성문
+    규정이 없음)이라 **삭제**. 5년 = OPM 자체 보수적 조기경보(특정 법정/지침 수치 아님). HARD 결격 =
+    **상법 시행령 §34⑤**(동일 상장회사 6년 초과 / 계열 합산 9년 초과 → 사외이사 결격). 우리 tenure는
+    floor(과소계상)이고 동일회사 vs 계열 합산을 구분 못 해 결격을 사실확정할 수 없음 → **tenure만으로
+    AGAINST(결격 확정) 금지**. 따라서 **감사위원도 종전 AGAINST → REVIEW로 하향**(감사=사외 자격 동일
+    문턱). 6년 경계로 reason만 tiering: 5–6년="소프트 경보, 결격 미달" / 6년+="§34⑤ 결격 해당 가능,
+    계열 합산·과소계상 원문 확인 권고". 감사/사외 모두 REVIEW.
+  - 장기연임 **감지**는 ① careerDetails 키워드("재선임/연임/중임") + ② **재직연수**(같은 회사 5년+,
+    `earliest_start` 기반, 진행중 재직만) + ③ **roster tenure(hffc_pd)** — roster_prior로 승격된 후보는
+    career earliest_start가 없어 ②가 놓치므로, 임원현황 재직기간을 floor로 써서 catch(260710 Item1,
+    `source="roster_tenure"`). hffc는 재선임 시 기산점 리셋로 과소계상 → false-positive 낮음(≥5면 확실).
+    사유는 tenure/roster 기반이면 실제 근거를 정직 표기(키워드 발견이라 거짓 안 함).
+  - **최대주주관계 rescue(260710 Item2c/H2)**: 소집공고 최대주주관계가 비면 roster
+    `mxmm_shrholdr_relate`를 **힌트로 채움**(fill-when-missing, 소집공고 값 있으면 override 금지).
+    단 '계열회사 임원' 등은 삼성 등이 독립 사외이사 전원에 채우는 **형식적 boilerplate**라 승격 금지 —
+    친족/최대주주 실관계만 weak_concerns 승격, 그 외는 provenance만 기록(ground-truth 오탐 방지).
   - 260710 계산-후-폐기 신호 반영: **겸직 과다**(`concurrent_outside_directors=strong_concerns_concurrent`, 타사 사외이사 3곳+)→**REVIEW**(overboarding). **최대주주 관계 약한 신호**(`weak_concerns`)는 calibration상 결정은 FOR 유지하되 reason을 정직화("모두 clean" 거짓 금지, 발행회사/계열 관계 표기 명시). 개별 이사/감사위원 sub-안건이 "사내이사 김이태"처럼 "선임" 키워드 없이 와도 부모 상속으로 올바른 검증 경로 진입(삼성카드 auto-FOR 사고). 후보 이름 영문 병기(`도진명 (Jim Myong Doh)`)도 core-name 매칭으로 eval 연결.
 - `_decide_financial_statements` (완전 자본잠식→AGAINST / 비적정 감사의견→AGAINST / 적정+정상→FOR)
 - `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등 → **전부 REVIEW/FOR, AGAINST 없음**)
@@ -128,7 +138,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
 - `_decide_treasury_share` (소각→FOR / 처분→REVIEW)
 - `_apply_policy_default` (vote_style 정책 default가 case_by_case 아니면 OPM 결정 override)
 
-> **AGAINST 발생 범위 (실제 코드 기준)**: ① 재무제표(완전 자본잠식·비적정 감사의견) ② 후보 결격(red_flag) ③ 감사위원 장기연임(5년 룰) ④ **법령 layer 강행규정 직접 hit**(집중투표 배제 신설·감사위원 분리선출 축소·독립이사 1/3 미달·자사주 합병/분할 신주배정). **그 외 모든 위험 신호(보수 과다·퇴직금·자사주 처분·배당 과다·정관 우회·사내이사 성과 부진)는 REVIEW.** 정책 문서(open-proxy-guideline)의 "against" 입장은 *지향*이며, 자동 판정으로 구현된 것과 별개다.
+> **AGAINST 발생 범위 (실제 코드 기준)**: ① 재무제표(완전 자본잠식·비적정 감사의견) ② 후보 결격(red_flag) ③ **법령 layer 강행규정 직접 hit**(집중투표 배제 신설·감사위원 분리선출 축소·독립이사 1/3 미달·자사주 합병/분할 신주배정). **그 외 모든 위험 신호(보수 과다·퇴직금·자사주 처분·배당 과다·정관 우회·사내이사 성과 부진)는 REVIEW.** 정책 문서(open-proxy-guideline)의 "against" 입장은 *지향*이며, 자동 판정으로 구현된 것과 별개다.
 
 ## Layer consistency guarantee (2026-05-25)
 
@@ -182,6 +192,16 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## 변경 이력
 
+- 2026-07-10: **장기연임 법률 정정 + roster tenure 연동 + 최대주주관계 rescue** (멀티에이전트 팀: lawyer·API·QA).
+  ① "5년 룰 위반" 문구 삭제 — 5년=OPM 조기경보(성문 규정 아님), HARD 결격=상법 시행령 §34⑤(6년 동일회사
+  /9년 계열). tenure floor·계열 미구분으로 결격 사실확정 불가 → **감사 장기연임 AGAINST→REVIEW 하향**,
+  6년 경계 reason tiering. ② **Item1**: roster_prior 승격 사외이사(earliest_start 없음)의 hffc_pd를 floor로
+  써 장기연임 catch(`source="roster_tenure"`) — hffc 파서 하드닝(실데이터 '2023년 03월~'·"'22.03~"·'2.0'
+  다포맷, 파싱 88%→99%, over-count 오탐 8→0). ③ **Item2c/H2**: 소집공고 최대주주관계 결측 시 roster로
+  채움(fill-when-missing), '계열회사 임원' boilerplate(삼성 독립 사외이사 전원 동일값)는 승격 금지·provenance만
+  (ground-truth 검증으로 오탐 차단). roster는 Purpose1 fetch 재사용(추가 DART 콜 0). H4 출석률은 파싱
+  0/67·8MB fetch 비용으로 라이브 미배선(director_board 온디맨드 fallback). QA 2차(부정문 substring 오탐·
+  파서 over-count) 반영.
 - 2026-07-10: **계산-후-폐기 신호를 decision·reason에 반영**(30사 실사용 전수조사 후속). 겸직 과다(3곳+)→REVIEW / 최대주주 약신호 reason 정직화 / 개별 이사·감사위원 sub-안건 부모 카테고리 상속(auto-FOR 우회 차단) / 후보 영문병기 이름 core-name 매칭 / FOR인데 재무 risk(적자 등) 있으면 reason에 `⚠️ 유의:` 병기 / 파싱 실패(NO_DATA) 안건에 소집공고 원문 발췌 `facts.raw_text_fallback` 폴백 / `parsing_failures`를 실제 NO_DATA 수로(죽은 메트릭 정직화).
 - 2026-07-10: **장기연임 5년 룰에 재직연수(earliest_start) 반영** (갭C). 키워드 없이 5년+ 재직한 사외이사 blind spot 해소. QA 검토 반영 — 진행중 재직만 신뢰(과거 재직 오탐 방지)·사유 정직화. 짧은 지주명 계열사 과대계상은 기존 renewed 감지 상속 한계(별도 과제).
 - 2026-07-09: **법 적용 판단을 today→주총일 기준**으로(소집공고 notice.datetime; 미파싱 시 today 폴백). 시행 전 주총 오발화 방지. + **근거 심화**: law-layer hit 안건 `reason`·`facts.law_detail`에 조항 대장(SSOT) 조문·유예도래일·적용 티어·시행령 임계 노출. 상세: [[rules/laws/README]].
