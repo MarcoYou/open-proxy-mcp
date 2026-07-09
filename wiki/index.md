@@ -84,7 +84,8 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[rules/concepts/]] - 31 개념 (배당성향 / 최대주주 / 동일인 / 집중투표 등)
 - [[rules/disclosures/]] - 36 공시 유형 (현금배당결정 / 유상증자결정 / 자기주식취득결정 등)
 - [[rules/laws/상법-2025-2026-종합]] - 1·2·3차 상법 개정 통합본 + 4 시나리오 + 36 catalog (master, 260508)
-- `wiki/rules/laws/law_layer_rules.json` - 머신리더블 36 룰 (proxy_advise._law_layer 직접 로드)
+- `wiki/rules/laws/law_layer_rules.json` - 머신리더블 40 룰 (proxy_advise._law_layer 직접 로드)
+- `wiki/rules/laws/law_provisions.json` - **시행일 SSOT** (조항별 시행·공포일 원본). md 표 자동생성·엔진 날짜 검증의 유일 출처 (260709)
 - [[rules/laws/README]] - 법령 자료 입구 (옛 archive 안내)
 
 ### 최근 audit / fix

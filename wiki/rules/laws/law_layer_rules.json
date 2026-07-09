@@ -31,6 +31,7 @@
   "rules": [
     {
       "id": "A1-1",
+      "provision": "§542의7③_집중투표_의무화_2차",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
@@ -75,11 +76,12 @@
         "company_type": "listed"
       },
       "reason_template": "집중투표 배제 조항 삭제 — 2026 상법 2차 개정 (자산 2조+ 집중투표 의무화, 정관 배제 불가) 정합",
-      "law_reference": "상법 2차 개정 (2025-09-09 공포, 2026-09-10 시행)",
+      "law_reference": "상법 제542조의7제3항 + 시행령 §33(자산 2조+) — 2차 개정 (2025-09-09 공포·2026-09-10 시행): 집중투표 의무화",
       "priority": 10
     },
     {
       "id": "A1-2",
+      "provision": "§542의7③_집중투표_의무화_2차",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
@@ -101,11 +103,12 @@
         "applies_after": "2025-09-09"
       },
       "reason_template": "집중투표 도입 — 소수주주 보호 강화",
-      "law_reference": "상법 §382의2 + 2차 개정 (자산 2조+ 의무)",
+      "law_reference": "상법 §382의2(집중투표) → 제542조의7제3항 특례 + 시행령 §33(자산 2조+ 의무) — 2차 개정",
       "priority": 10
     },
     {
       "id": "A1-3",
+      "provision": "§542의12_감사위원_분리선출_2차",
       "layer": "A1",
       "category": "audit_committee_election",
       "decision": "FOR",
@@ -139,11 +142,12 @@
         "company_type": "listed"
       },
       "reason_template": "감사위원 분리선출 의무 충족 (1명 → 2명, 또는 의무 인원 정합) — 2026 상법 2차 개정 (자산 2조+ 분리선출 2명 이상). 단 위원수 4+ 시 1/2 이상 의무 — 본문 확인 권장",
-      "law_reference": "상법 §542의12 ② + 2차 개정 (2025-09-09 공포, 2026-09-10 시행)",
+      "law_reference": "상법 제542조의12제2항 + 시행령 §37①(감사위 의무설치·자산 2조+) — 2차 개정 (2025-09-09 공포·2026-09-10 시행)",
       "priority": 10
     },
     {
       "id": "A1-4",
+      "provision": "§542의12_감사위원_합산3%_1차",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
@@ -163,12 +167,13 @@
         "applies_after": "2025-07-22",
         "company_type": "listed"
       },
-      "reason_template": "감사위원 합산 3% 룰 — 2026 상법 1·2차 개정 (사내·사외 무관, 자산 2조+ 또는 1천억-2조 감사위 설치사) 정합",
-      "law_reference": "상법 §542의12 + 1·2차 개정 (2026-07-23 시행)",
+      "reason_template": "감사위원 합산 3% 룰 — 2026 상법 1차 개정 (사내·사외 무관, 자산 2조+ 또는 1천억-2조 감사위 설치사) 정합",
+      "law_reference": "상법 §542의12 + 1차 개정 (2026-07-23 시행)",
       "priority": 10
     },
     {
       "id": "A1-5",
+      "provision": "§542의8_독립이사_명칭변경_1차",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
@@ -188,11 +193,12 @@
         "company_type": "listed"
       },
       "reason_template": "사외이사 → 독립이사 명칭 변경 — 상법 1차 개정 정합",
-      "law_reference": "상법 1차 개정 (2025-07-22)",
+      "law_reference": "상법 제542조의8 — 1차 개정 (2025-07-22 공포·2026-07-23 시행): 사외이사→독립이사 명칭변경",
       "priority": 10
     },
     {
       "id": "A1-6",
+      "provision": "§542의8①_독립이사_3분의1_1차",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
@@ -216,11 +222,12 @@
         "company_type": "listed"
       },
       "reason_template": "자산 2조+ 독립이사 의무선임 비율 1/3 — 상법 1차 개정 정합",
-      "law_reference": "상법 1차 개정 (독립이사 비율 1/3)",
+      "law_reference": "상법 제542조의8제1항 (독립이사 비율 1/3) — 1차 개정 (2026-07-23 시행)",
       "priority": 10
     },
     {
       "id": "A1-7",
+      "provision": "§542의14_전자주주총회_1차",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
@@ -255,11 +262,12 @@
         "applies_after": "2025-07-22"
       },
       "reason_template": "전자주주총회 도입 — 상법 1차 개정 (2027-01-01 의무) 정합",
-      "law_reference": "상법 1차 개정 (전자주주총회 2027-01-01 의무)",
+      "law_reference": "상법 제542조의14 (전자주주총회) — 1차 개정 (2027-01-01 의무 시행)",
       "priority": 10
     },
     {
       "id": "A1-8",
+      "provision": "§341의4_자사주_의무소각_3차",
       "layer": "A1",
       "category": "treasury_share",
       "decision": "FOR",
@@ -275,14 +283,15 @@
       },
       "applies_to": {
         "min_asset_won": 0,
-        "applies_after": "2026-02-25"
+        "applies_after": "2026-03-06"
       },
       "reason_template": "자사주 의무소각 — 2026 상법 3차 개정 정합 (취득 후 1년 내 소각 원칙)",
-      "law_reference": "상법 3차 개정 — 제341조의3·의4 신설 (2026-02-25 통과, 2026-03-06 공포 즉시 시행)",
+      "law_reference": "상법 3차 개정 — 제341조의4제1항 신설 (소각의무, 2026-02-25 통과·2026-03-06 공포 즉시 시행)",
       "priority": 10
     },
     {
       "id": "A1-9",
+      "provision": "§382의3_이사충실의무_1차",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
@@ -332,6 +341,7 @@
     },
     {
       "id": "A1-10",
+      "provision": "§542의7③_집중투표_의무화_2차",
       "layer": "A1",
       "category": "articles_amendment",
       "decision": "FOR",
@@ -369,11 +379,12 @@
         "company_type": "listed"
       },
       "reason_template": "집중투표 이사 종류별 조 분리 삭제 — 법무부 유권해석 정합 (집중투표는 이사 종류별 분리 적용 근거 없음)",
-      "law_reference": "법무부 유권해석 (집중투표 적용 대상 이사 종류별 구분 근거 없음) + 상법 §382의2",
+      "law_reference": "법무부 유권해석 (집중투표 적용 대상 이사 종류별 구분 근거 없음) + 상법 §382의2·제542조의7제3항",
       "priority": 10
     },
     {
       "id": "A2-1",
+      "provision": "§542의7③_집중투표_의무화_2차",
       "layer": "A2",
       "category": "articles_amendment",
       "decision": "AGAINST",
@@ -394,11 +405,12 @@
         "company_type": "listed"
       },
       "reason_template": "집중투표 배제 조항 신설/유지 — 2026 상법 2차 개정 위반 (자산 2조+ 정관 배제 불가)",
-      "law_reference": "상법 2차 개정 (2026-09-10 시행 — 정관 배제 불가)",
+      "law_reference": "상법 제542조의7제3항 + 시행령 §33(자산 2조+) — 2차 개정 (2026-09-10 시행 — 정관 배제 불가)",
       "priority": 20
     },
     {
       "id": "A2-2",
+      "provision": "§542의12_감사위원_분리선출_2차",
       "layer": "A2",
       "category": "audit_committee_election",
       "decision": "AGAINST",
@@ -419,11 +431,12 @@
         "company_type": "listed"
       },
       "reason_template": "감사위원 분리선출 1명 이하 — 2026 상법 2차 개정 의무 미달 (자산 2조+ 2명 이상 의무)",
-      "law_reference": "상법 2차 개정 (2026-09-10 시행 — 2명 이상 의무)",
+      "law_reference": "상법 제542조의12제2항 + 시행령 §37①(자산 2조+) — 2차 개정 (2026-09-10 시행 — 2명 이상 의무)",
       "priority": 20
     },
     {
       "id": "A2-3",
+      "provision": "§542의12_감사위원_합산3%_1차",
       "layer": "A2",
       "category": "audit_committee_election",
       "decision": "AGAINST",
@@ -442,12 +455,13 @@
         "applies_after": "2026-07-23",
         "company_type": "listed"
       },
-      "reason_template": "감사위원 합산 3% 룰 미적용 — 2026 상법 1·2차 개정 위반 (사내·사외 무관 합산)",
-      "law_reference": "상법 1·2차 개정 (2026-07-23 시행)",
+      "reason_template": "감사위원 합산 3% 룰 미적용 — 2026 상법 1차 개정 위반 (사내·사외 무관 합산)",
+      "law_reference": "상법 제542조의12 + 시행령 §37①(자산 2조+)·§36(자산총액 1천억~2조 감사위 설치사) — 1차 개정 (2026-07-23 시행)",
       "priority": 20
     },
     {
       "id": "A2-4",
+      "provision": "§542의8①_독립이사_3분의1_1차",
       "layer": "A2",
       "category": "articles_amendment",
       "decision": "AGAINST",
@@ -471,11 +485,12 @@
         "company_type": "listed"
       },
       "reason_template": "자산 2조+ 독립이사 비율 1/3 미달 — 상법 1차 개정 위반",
-      "law_reference": "상법 1차 개정 (독립이사 비율 1/3 의무)",
+      "law_reference": "상법 제542조의8제1항 (독립이사 비율 1/3 의무) — 1차 개정 (2026-07-23 시행)",
       "priority": 20
     },
     {
       "id": "A2-5",
+      "provision": "§529의2·§530의13_자사주_신주배정금지_3차",
       "layer": "A2",
       "category": "treasury_share",
       "decision": "AGAINST",
@@ -647,7 +662,7 @@
         "min_asset_won": 2000000000000
       },
       "reason_template": "상호주 형성 (대기업집단) — 공정거래법상 상호출자 위반 가능성. 자산 2조+ 회사는 위험 ↑",
-      "law_reference": "공정거래법 + 정관-우회 시나리오 3",
+      "law_reference": "독점규제및공정거래법 제21조(상호출자 금지 — 상호출자제한기업집단) + 시행령(기업집단 지정 자산총액 기준) + 정관-우회 시나리오 3",
       "priority": 30
     },
     {
@@ -693,6 +708,7 @@
     },
     {
       "id": "B1-8b",
+      "date_basis": "monitoring_baseline",
       "layer": "B1",
       "category": "articles_amendment",
       "decision": "REVIEW",
@@ -965,6 +981,7 @@
     },
     {
       "id": "C-1",
+      "provision": "§542의12_감사위원_합산3%_1차",
       "layer": "C",
       "category": "ownership_signal",
       "decision": "risk_factors",
@@ -977,7 +994,7 @@
         "applies_after": "2026-07-23"
       },
       "reason_template": "총회 직전 최대주주-2대주주 지분 역전 — 합산 3% 회피 시도 의심 (시나리오 3)",
-      "law_reference": "상법 1·2차 개정 + 정관-우회 시나리오 3",
+      "law_reference": "상법 제542조의12 + 시행령 §37①(감사위 3% — 자산 2조+) + 정관-우회 시나리오 3",
       "priority": 50
     },
     {
@@ -1018,7 +1035,7 @@
         "min_asset_won": 0
       },
       "reason_template": "5% 대량보유 보유목적 변경 (단순투자 → 경영참여) — 분쟁 전조",
-      "law_reference": "자본시장법 §147",
+      "law_reference": "자본시장법 제147조제1항 (주식등 대량보유 5% 보고) + 시행령(보유 산정·보고 방법)",
       "priority": 50
     },
     {

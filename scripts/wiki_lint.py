@@ -377,6 +377,136 @@ def check_archive_superseded(pages) -> list[str]:
     return issues
 
 
+_DATE_RE = re.compile(r"20\d\d-\d\d-\d\d")
+# 조문 core 추출: "제542조의7제3항"·"§542의7③" → (542, 7). 표시(law_reference)와 원본(article)을
+# 같은 정규형으로 맞춰 대조 — 근거에 조문번호가 실제로 들어있는지 검사([7d]).
+_ARTICLE_RE = re.compile(r"(?:제(\d+)조의(\d+)|§(\d+)의(\d+))")
+
+
+def _article_cores(text: str) -> set[tuple[str, str]]:
+    cores = set()
+    for m in _ARTICLE_RE.finditer(str(text)):
+        n = m.group(1) or m.group(3)
+        s = m.group(2) or m.group(4)
+        if n and s:
+            cores.add((n, s))
+    return cores
+
+
+def check_law_dates(pages) -> list[str]:
+    """[7] 상법 시행일 3자 정합 (260709 — 시행일 SSOT 도입).
+
+    시행일은 law_provisions.json(원본)에만 두고, 사람이 읽는 md 표와 엔진 룰은 여기서
+    파생·검증되게 한다. 같은 날짜를 여러 곳에 손으로 적어 한 곳만 고치면 조용히 어긋나던
+    사고(이번 세션 A2-5: 엔진이 자사주 신주배정금지 룰을 3월이 아닌 9월부터 발화) 재발 방지.
+
+    ⓐ md '시행 타임라인' 표가 원본과 일치 (생성기 --check 재사용).
+    ⓑ 엔진 law_reference에 적힌 날짜가 해당 provision의 {통과·공포·시행}에 실재.
+    ⓒ 엔진 applies_after(발화 게이트)가 해당 provision의 gate_dates에 속함.
+    ⓓ 엔진 law_reference(proxy_advise가 띄우는 근거)에 원본 조문번호가 실재 — 근거의 조문 정확도 가드.
+    """
+    import subprocess
+
+    issues: list[str] = []
+    reg_path = WIKI / "rules" / "laws" / "law_provisions.json"
+    eng_path = WIKI / "rules" / "laws" / "law_layer_rules.json"
+    gen_path = ROOT / "scripts" / "gen_law_timeline.py"
+
+    if not reg_path.exists():
+        return [f"시행일 원본 없음: {reg_path.relative_to(ROOT)}"]
+
+    registry = json.loads(reg_path.read_text(encoding="utf-8"))
+    prov_dates: dict[str, set[str]] = {}   # provision -> {통과·공포·시행}
+    prov_gate: dict[str, set[str]] = {}    # provision -> gate_dates
+    prov_eff: dict[str, str] = {}          # provision -> 시행일
+    prov_prom: dict[str, str] = {}         # provision -> 공포일
+    prov_article: dict[str, set[tuple[str, str]]] = {}  # provision -> {조문 core (NNN,MM)}
+    for p in registry.get("provisions", []):
+        pid = p["provision_id"]
+        prov_dates[pid] = {
+            d for d in (p.get("effective_date"), p.get("promulgation_date"), p.get("passed_date")) if d
+        }
+        prov_gate[pid] = set(p.get("gate_dates", []))
+        prov_eff[pid] = p.get("effective_date")
+        prov_prom[pid] = p.get("promulgation_date")
+        prov_article[pid] = _article_cores(p.get("article", ""))
+
+    # date_basis 면제: 개정 시행일 개념이 없는 룰 (법률 검증 260709).
+    #   interpretation      = 법무부 유권해석 (A1-10 등), 개정 시행일 없음
+    #   monitoring_baseline = 우회 선제감시용 임의 baseline (B1-8b 2024-01-01), 시행일 아님
+    EXEMPT_BASIS = {"interpretation", "monitoring_baseline"}
+
+    # ⓐ 표 ↔ 원본 (생성기 재사용)
+    if gen_path.exists():
+        r = subprocess.run(
+            [sys.executable, str(gen_path), "--check"],
+            capture_output=True, text=True,
+        )
+        if r.returncode != 0:
+            issues.append("[7a] " + (r.stderr or r.stdout).strip().splitlines()[-1])
+
+    # ⓑ·ⓒ 엔진 룰 ↔ 원본
+    if eng_path.exists():
+        engine = json.loads(eng_path.read_text(encoding="utf-8"))
+        for rule in engine.get("rules", []):
+            rid = rule.get("id", "?")
+            prov = rule.get("provision")
+            if prov and prov not in prov_dates:
+                issues.append(f"[7] 엔진 룰 {rid}: provision '{prov}'가 원본에 없음(phantom)")
+                continue
+            # ⓑ law_reference 날짜
+            for d in set(_DATE_RE.findall(str(rule.get("law_reference", "")))):
+                if prov:
+                    if d not in prov_dates[prov]:
+                        issues.append(
+                            f"[7b] 엔진 룰 {rid} law_reference의 {d}가 원본 '{prov}' 날짜"
+                            f"{sorted(prov_dates[prov])}에 없음")
+                else:
+                    known = set().union(*prov_dates.values()) if prov_dates else set()
+                    if d not in known:
+                        issues.append(
+                            f"[7b] 엔진 룰 {rid} law_reference의 {d}가 원본 어디에도 없음")
+            # ⓒ applies_after(발화 게이트) — layer별로 조인다 (법률 검증 260709).
+            #   A2(위반): 강행규정은 시행 전 위반 불성립 → 반드시 시행일.
+            #   A1(정합): 정관 선제 반영 조기 보상 허용 → 공포일 또는 시행일 (통과일 불허).
+            #   그 외(C 등): gate_dates 집합 안.
+            #   provision 없이 applies_after만 있으면 → date_basis 면제 명시가 없는 한 실패
+            #   (SSOT 미연결 = 원본 날짜 바뀌면 조용히 어긋남 = 막으려는 사고. QA F1 260709).
+            aa = (rule.get("applies_to") or {}).get("applies_after")
+            basis = rule.get("date_basis")
+            if aa and basis not in EXEMPT_BASIS:
+                if not prov:
+                    issues.append(
+                        f"[7c] 엔진 룰 {rid} applies_after={aa}인데 provision도 date_basis도 없음 "
+                        f"— SSOT 미연결(원본 날짜 변경 시 조용히 어긋남). provision 부여 또는 "
+                        f"date_basis({'/'.join(sorted(EXEMPT_BASIS))}) 명시 필요")
+                elif rid.startswith("A2") and aa != prov_eff[prov]:
+                    issues.append(
+                        f"[7c] 엔진 룰 {rid}(A2 위반)의 applies_after={aa}가 원본 '{prov}' "
+                        f"시행일({prov_eff[prov]})과 다름 — 강행규정 위반은 시행일부터만 성립")
+                elif rid.startswith("A1") and aa not in {prov_prom[prov], prov_eff[prov]}:
+                    issues.append(
+                        f"[7c] 엔진 룰 {rid}(A1 정합)의 applies_after={aa}가 원본 '{prov}' "
+                        f"공포일({prov_prom[prov]})·시행일({prov_eff[prov]}) 어느 것도 아님 "
+                        f"(통과일은 불허)")
+                elif not rid.startswith(("A1", "A2")) and aa not in prov_gate[prov]:
+                    issues.append(
+                        f"[7c] 엔진 룰 {rid} applies_after={aa}가 원본 '{prov}' gate_dates"
+                        f"{sorted(prov_gate[prov])}에 없음")
+            # ⓓ 근거 표시(law_reference)에 원본 조문번호가 실제로 들어있는지 (Q1 정확도 가드).
+            #   proxy_advise가 띄우는 근거가 "N차 개정"만이고 조문이 빠지면 여기서 실패 →
+            #   조문 정확도가 조용히 퇴화하는 것을 막는다.
+            if prov and prov_article.get(prov):
+                lr_cores = _article_cores(rule.get("law_reference", ""))
+                missing = prov_article[prov] - lr_cores
+                if missing:
+                    want = "·".join(f"제{n}조의{s}" for n, s in sorted(missing))
+                    issues.append(
+                        f"[7d] 엔진 룰 {rid} law_reference에 원본 조문 {want}가 없음 "
+                        f"— 근거 표시에 정확한 조문번호를 넣어라(provision '{prov}')")
+    return issues
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--strict", action="store_true", help="위반 발견 시 exit 1")
@@ -392,6 +522,7 @@ def main():
     index_issues = check_index_counts(pages)
     path_issues = check_path_links(pages)
     archive_issues = check_archive_superseded(pages)
+    law_date_issues = check_law_dates(pages)
 
     if args.json:
         print(json.dumps({
@@ -402,6 +533,7 @@ def main():
             "index_count_issues": index_issues,
             "path_link_issues": path_issues,
             "archive_superseded_issues": archive_issues,
+            "law_date_issues": law_date_issues,
         }, ensure_ascii=False, indent=2))
     else:
         print(f"[wiki_lint] 총 페이지: {len(pages)}")
@@ -441,10 +573,16 @@ def main():
         if len(archive_issues) > 20:
             print(f"  ... +{len(archive_issues) - 20} 건")
 
-        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues):
+        print(f"\n[7] 상법 시행일 3자 정합 (원본↔md표↔엔진): {len(law_date_issues)} 건")
+        for v in law_date_issues[:20]:
+            print(f"  ✗ {v}")
+        if len(law_date_issues) > 20:
+            print(f"  ... +{len(law_date_issues) - 20} 건")
+
+        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues):
             print("\n✓ 모든 정책 충족")
 
-    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues):
+    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues):
         sys.exit(1)
 
 

@@ -1,0 +1,291 @@
+{
+  "version": "2.0",
+  "description": "상법 2025~2026 개정 조항 대장(SSOT). 조항별 조문번호·시행일·공포일·적용대상 티어·유예도래일의 유일한 출처. wiki/rules/laws/상법-2025-2026-종합.md의 '시행 타임라인' 표는 scripts/gen_law_timeline.py로 이 파일에서 자동생성되고, wiki/rules/laws/law_layer_rules.json(엔진 룰)의 날짜·provision·first_agm_trigger는 wiki_lint.py[7]가 이 파일과 대조 검증한다. 전거: legalize-kr 상법 법률.md 부칙(제20991호 2025-07-22 / 제21044호 2025-09-09 / 제21448호 2026-03-06).",
+  "schema": {
+    "provision_id": "조항 식별자. 조문번호를 앞에 둬서 법무·IR이 즉시 원문 대조. 엔진 룰의 provision 필드가 이 값을 가리킨다.",
+    "article": "상법 조문번호(원문 대조용).",
+    "law_no": "개정 법률 번호(관보 공포 기준).",
+    "amendment_round": "개정 차수(1/2/3). 정수.",
+    "amendment_round_label": "차수 한글 라벨(IR 가독).",
+    "promulgation_date": "공포일(YYYY-MM-DD).",
+    "passed_date": "국회 본회의 통과일. 통과·공포·시행이 다를 때만. 없으면 null.",
+    "effective_date": "법 시행일. md 표의 '시행일'. 회사·안건에 법이 적용되기 시작하는 날.",
+    "obligation_date": "유예 종료·실제 의무 강제일. 시행일과 다를 때만(경과조치). 없으면 null. 시행됐어도 이 날 전엔 미이행이 위반 아님.",
+    "first_agm_trigger": "true면 달력 시행일이 아니라 '시행 이후 최초 이사선임 주총 소집'부터 적용(부칙 적용례). 엔진은 today가 아니라 해당 회사 주총일로 게이트해야 함.",
+    "scope": "적용대상 티어 배열. 자산 구간(원)·부가조건·회사유형. 시행일 같아도 조항마다 대상이 다르므로 배열.",
+    "sanction_scope": "과태료·제재 대상(의무 적용대상과 다를 때). 없으면 null.",
+    "table_content": "md 시행 타임라인 표 '내용' 열 원문(자동생성).",
+    "table_applies_to": "md 표 '적용 대상' 열 원문(자동생성).",
+    "gate_dates": "엔진 룰 applies_after가 가질 수 있는 날짜 집합(통과·공포·시행). lint[7c]가 layer별로 더 좁게 검사(A2=시행일/A1=공포·시행).",
+    "notes": "부가 설명.",
+    "threshold_decree": "자산·자본금 임계를 실제로 정하는 대통령령(상법 시행령) 조문. 임계는 법이 아니라 시행령이 정하므로(예: '자산 2조'=시행령 §33) 출처를 명시. 없으면 null(임계 없는 모든 상장사/회사 적용)."
+  },
+  "provisions": [
+    {
+      "provision_id": "§382의3_이사충실의무_1차",
+      "article": "제382조의3",
+      "law_no": "제20991호",
+      "amendment_round": 1,
+      "amendment_round_label": "1차",
+      "promulgation_date": "2025-07-22",
+      "passed_date": null,
+      "effective_date": "2025-07-22",
+      "obligation_date": null,
+      "first_agm_trigger": false,
+      "scope": [
+        {
+          "min_asset_won": 0,
+          "max_asset_won": null,
+          "extra_condition": null,
+          "company_type": "상장사"
+        }
+      ],
+      "threshold_decree": null,
+      "sanction_scope": null,
+      "table_content": "이사 충실의무 (회사+주주 양방향)",
+      "table_applies_to": "모든 상장사",
+      "gate_dates": [
+        "2025-07-22"
+      ],
+      "notes": "1차 개정 예외로 공포한 날 즉시 시행(부칙 제1조 단서). 이사 충실의무 대상에 주주 추가."
+    },
+    {
+      "provision_id": "§542의8_독립이사_명칭변경_1차",
+      "article": "제542조의8",
+      "law_no": "제20991호",
+      "amendment_round": 1,
+      "amendment_round_label": "1차",
+      "promulgation_date": "2025-07-22",
+      "passed_date": null,
+      "effective_date": "2026-07-23",
+      "obligation_date": null,
+      "first_agm_trigger": false,
+      "scope": [
+        {
+          "min_asset_won": 0,
+          "max_asset_won": null,
+          "extra_condition": null,
+          "company_type": "상장사"
+        }
+      ],
+      "threshold_decree": null,
+      "sanction_scope": null,
+      "table_content": "사외이사 → 독립이사 명칭 변경",
+      "table_applies_to": "모든 상장사 (공포+1년 유예)",
+      "gate_dates": [
+        "2025-07-22",
+        "2026-07-23"
+      ],
+      "notes": "명칭변경은 공포 즉시가 아니라 공포+1년(2026-07-23) 시행(부칙 제1조 본문·경과조치 제2조). 260709 정정: 기존 '즉시' 오류. A1-5 FOR 룰은 공포일 게이트(선제 정관 반영 보상)."
+    },
+    {
+      "provision_id": "§542의8①_독립이사_3분의1_1차",
+      "article": "제542조의8제1항",
+      "law_no": "제20991호",
+      "amendment_round": 1,
+      "amendment_round_label": "1차",
+      "promulgation_date": "2025-07-22",
+      "passed_date": null,
+      "effective_date": "2026-07-23",
+      "obligation_date": "2027-07-23",
+      "first_agm_trigger": false,
+      "scope": [
+        {
+          "min_asset_won": 0,
+          "max_asset_won": null,
+          "extra_condition": null,
+          "company_type": "상장사"
+        }
+      ],
+      "threshold_decree": null,
+      "sanction_scope": null,
+      "table_content": "독립이사 의무선임 비율 1/3",
+      "table_applies_to": "모든 상장사 (시행+1년 유예)",
+      "gate_dates": [
+        "2025-07-22",
+        "2026-07-23"
+      ],
+      "notes": "시행 2026-07-23이나 요건 구비는 시행+1년(부칙 경과조치 제2조 단서: 시행 이후 1년 이내 요건 구비) → 의무 강제일 2027-07-23. 비율 4분의1→3분의1."
+    },
+    {
+      "provision_id": "§542의12_감사위원_합산3%_1차",
+      "article": "제542조의12",
+      "law_no": "제20991호",
+      "amendment_round": 1,
+      "amendment_round_label": "1차",
+      "promulgation_date": "2025-07-22",
+      "passed_date": null,
+      "effective_date": "2026-07-23",
+      "obligation_date": null,
+      "first_agm_trigger": false,
+      "scope": [
+        {
+          "min_asset_won": 2000000000000,
+          "max_asset_won": null,
+          "extra_condition": null,
+          "company_type": "상장사"
+        },
+        {
+          "min_asset_won": 100000000000,
+          "max_asset_won": 2000000000000,
+          "extra_condition": "감사위원회 설치",
+          "company_type": "상장사"
+        }
+      ],
+      "threshold_decree": "상법 시행령 §37①(감사위 의무설치·자산 2조+)·§36(자산총액 1천억+ 상근감사·자율 감사위 설치사 — 법 §542의10)",
+      "sanction_scope": null,
+      "table_content": "감사위원 합산 3% 룰 (사내·사외 무관)",
+      "table_applies_to": "자산 2조+ 또는 1천억-2조 감사위 설치사",
+      "gate_dates": [
+        "2025-07-22",
+        "2026-07-23"
+      ],
+      "notes": "1차 개정 단독(부칙 제20991호). 2차 개정엔 3%룰 변경 없음. 260709 정정: 기존 '1·2차' 오류. 합산 3%를 사외이사(독립이사) 포함 모든 감사위원으로 확대."
+    },
+    {
+      "provision_id": "§542의7③_집중투표_의무화_2차",
+      "article": "제542조의7제3항",
+      "law_no": "제21044호",
+      "amendment_round": 2,
+      "amendment_round_label": "2차",
+      "promulgation_date": "2025-09-09",
+      "passed_date": null,
+      "effective_date": "2026-09-10",
+      "obligation_date": null,
+      "first_agm_trigger": true,
+      "scope": [
+        {
+          "min_asset_won": 2000000000000,
+          "max_asset_won": null,
+          "extra_condition": null,
+          "company_type": "상장사"
+        }
+      ],
+      "threshold_decree": "상법 시행령 §33(집중투표 특례 대상 — 자산 2조+)",
+      "sanction_scope": null,
+      "table_content": "자산 2조+ 집중투표 의무화 (정관 배제 불가)",
+      "table_applies_to": "자산 2조+",
+      "gate_dates": [
+        "2025-09-09",
+        "2026-09-10"
+      ],
+      "notes": "부칙 적용례(제21044호 제2조): 시행 이후 최초 이사선임 주총 소집부터 적용 → first_agm_trigger. 대규모 상장사 집중투표 배제 불가."
+    },
+    {
+      "provision_id": "§542의12_감사위원_분리선출_2차",
+      "article": "제542조의12",
+      "law_no": "제21044호",
+      "amendment_round": 2,
+      "amendment_round_label": "2차",
+      "promulgation_date": "2025-09-09",
+      "passed_date": null,
+      "effective_date": "2026-09-10",
+      "obligation_date": null,
+      "first_agm_trigger": false,
+      "scope": [
+        {
+          "min_asset_won": 2000000000000,
+          "max_asset_won": null,
+          "extra_condition": null,
+          "company_type": "상장사"
+        }
+      ],
+      "threshold_decree": "상법 시행령 §37①(감사위 의무설치 — 자산 2조+)",
+      "sanction_scope": null,
+      "table_content": "감사위원 분리선출 2명 이상 (기존 1명)",
+      "table_applies_to": "자산 2조+",
+      "gate_dates": [
+        "2025-09-09",
+        "2026-09-10"
+      ],
+      "notes": "분리선출 감사위원 최소 1명→2명."
+    },
+    {
+      "provision_id": "§341의4_자사주_의무소각_3차",
+      "article": "제341조의4제1항",
+      "law_no": "제21448호",
+      "amendment_round": 3,
+      "amendment_round_label": "3차",
+      "promulgation_date": "2026-03-06",
+      "passed_date": "2026-02-25",
+      "effective_date": "2026-03-06",
+      "obligation_date": "2027-09-06",
+      "first_agm_trigger": false,
+      "scope": [
+        {
+          "min_asset_won": 0,
+          "max_asset_won": null,
+          "extra_condition": null,
+          "company_type": "모든회사(비상장 포함)"
+        }
+      ],
+      "threshold_decree": null,
+      "sanction_scope": "상장사 (과태료 제635조③제9호)",
+      "table_content": "자사주 의무소각 (취득 후 1년 내) — 공포 즉시 시행",
+      "table_applies_to": "모든 회사 (비상장 포함 · 과태료는 상장사만)",
+      "gate_dates": [
+        "2026-02-25",
+        "2026-03-06"
+      ],
+      "notes": "소각 의무 조문은 제341조의4제1항(취득일부터 1년 내 소각). 제341조의3은 자기주식 권리제한(별개). 둘 다 3차 신설. 공포한 날 즉시 시행(부칙 제21448호 제1조). obligation_date 2027-09-06은 '기존 직접취득 보유분' 한정 hard date(시행일+6개월=2026-09-06부터 1년 이내, 부칙 경과조치 제2조1호) — 신규 취득분은 취득일+1년 rolling이라 단일 날짜 없음. 소각이 타 규정 위반 유발 시 시행일+3년(2029-03-06) 내 처분(부칙 제2조②)."
+    },
+    {
+      "provision_id": "§529의2·§530의13_자사주_신주배정금지_3차",
+      "article": "제529조의2·제530조의13",
+      "law_no": "제21448호",
+      "amendment_round": 3,
+      "amendment_round_label": "3차",
+      "promulgation_date": "2026-03-06",
+      "passed_date": "2026-02-25",
+      "effective_date": "2026-03-06",
+      "obligation_date": null,
+      "first_agm_trigger": false,
+      "scope": [
+        {
+          "min_asset_won": 0,
+          "max_asset_won": null,
+          "extra_condition": null,
+          "company_type": "모든회사(비상장 포함)"
+        }
+      ],
+      "threshold_decree": null,
+      "sanction_scope": null,
+      "table_content": "자사주 합병·분할 시 신주 배정 금지",
+      "table_applies_to": "모든 회사",
+      "gate_dates": [
+        "2026-02-25",
+        "2026-03-06"
+      ],
+      "notes": "합병·분할 시 보유 자사주에 신주 배정 금지."
+    },
+    {
+      "provision_id": "§542의14_전자주주총회_1차",
+      "article": "제542조의14",
+      "law_no": "제20991호",
+      "amendment_round": 1,
+      "amendment_round_label": "1차",
+      "promulgation_date": "2025-07-22",
+      "passed_date": null,
+      "effective_date": "2027-01-01",
+      "obligation_date": null,
+      "first_agm_trigger": false,
+      "scope": [
+        {
+          "min_asset_won": null,
+          "max_asset_won": null,
+          "extra_condition": "대통령령이 정하는 규모",
+          "company_type": "상장사"
+        }
+      ],
+      "threshold_decree": "상법 시행령(§542의14 규모 — 별도 대통령령으로 정함)",
+      "sanction_scope": null,
+      "table_content": "전자주주총회 의무 개최",
+      "table_applies_to": "일정 규모+",
+      "gate_dates": [
+        "2025-07-22",
+        "2027-01-01"
+      ],
+      "notes": "전자주총 조문군은 §542의14(primary)·의15(1차 부칙 제20991호)·의16(3차 부칙 제21448호)에 걸침. 1차 개정이나 부칙 제1조 단서로 2027-01-01 시행. 그 전 자율 도입 가능."
+    }
+  ]
+}

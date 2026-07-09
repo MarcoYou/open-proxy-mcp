@@ -2162,7 +2162,15 @@ async def build_proxy_advise_payload(
             corp_total_asset_won = int(ta)
     except Exception:
         corp_total_asset_won = None
-    today_iso_for_law = date.today().isoformat()
+    # 법 적용 판단 기준일 = 오늘이 아니라 '이 주총'. 강행규정은 주총일이 시행일 이후여야 적용된다
+    # (260709 확장: 스튜어드십 검수 — today 게이트는 시행 전 주총을 놓치거나 시행 후 과거 주총을 오판).
+    # 소집공고 주총일 미파싱 시 today로 폴백(기존 동작 보존). applies_after의 layer 의미(A1=공포일 조기
+    # 보상 / A2=시행일)는 그대로 두고 비교 대상만 today→주총일로 바꾼다.
+    from open_proxy_mcp.services.shareholder_meeting import _parse_notice_meeting_date
+    _today_iso = date.today().isoformat()
+    _meeting_dt_text = notice_dict.get("datetime") if isinstance(notice_dict, dict) else None
+    _meeting_date = _parse_notice_meeting_date(_meeting_dt_text or "")
+    law_gate_iso = _meeting_date.isoformat() if _meeting_date else _today_iso
 
     # aoi_change scope에서 amendments raw 추출 — B1/B2 hit 시 본문 인용용 (260510 raw 보강)
     aoi_amendments: list[dict[str, Any]] = []
@@ -2225,7 +2233,7 @@ async def build_proxy_advise_payload(
         # hit 시 운용사 정책 / hardcoded _decide_* 모두 skip → 법 강행규정 일관 적용.
         law_layer_hit = _law_layer(
             title, parent_title=parent_for_title,
-            corp_total_asset_won=corp_total_asset_won, today_iso=today_iso_for_law,
+            corp_total_asset_won=corp_total_asset_won, today_iso=law_gate_iso,
         )
 
         # 0-b. D 패턴 한정 amendments body fallback (260510 ralph 7)
@@ -2242,7 +2250,7 @@ async def build_proxy_advise_payload(
                 aoi_amendments,
                 parent_title=title,
                 corp_total_asset_won=corp_total_asset_won,
-                today_iso=today_iso_for_law,
+                today_iso=law_gate_iso,
             )
 
         # 0-c. 카카오게임즈 패턴 fallback — sub→amendment 1:1 매핑 (260510 ralph 8)
@@ -2267,7 +2275,7 @@ async def build_proxy_advise_payload(
                     title, aoi_amendments[mapped_idx],
                     parent_title=parent_for_title,
                     corp_total_asset_won=corp_total_asset_won,
-                    today_iso=today_iso_for_law,
+                    today_iso=law_gate_iso,
                 )
                 if law_layer_hit:
                     _subagenda_used_amendments.add(mapped_idx)
