@@ -1793,7 +1793,7 @@
       "name": "자기주식 1년 내 의무소각",
       "effective_date": "2026-03-06",
       "category": "treasury_share",
-      "law_basis": "상법 §342 개정",
+      "law_basis": "상법 3차 개정 — 제341조의3·제341조의4 신설 + §342·§343 개정",
       "applicable": "전체 상장사 (기존 보유분 6개월 유예 후 1년 내)",
       "opm_action": "자사주 정책 전면 재설계. 1년 내 소각 commitment 없는 자사주 취득·처분 against"
     },
