@@ -87,9 +87,10 @@ updated: 2026-07-06
   PK(snap_dd, mkt, sector). ~97버킷/주.
 - **분류**: KSIC 하이브리드(`open_proxy_mcp/data/ksic/opm_sector_map.json` — 제품용 보존 자산).
   **WI26은 내부 분석 전용 — 제품/저장 탑재 금지**. MINB(5사) 미만 버킷은 `_fold`로 접음.
-- **갱신**: mkt_val_history와 동일 이원화 — 현재 주간행 = `market_val_weekly.py`(cron), 과거 76개월말행
+- **갱신**: mkt_val_history와 동일 이원화 — 현재 주간행 = `market_val_weekly.py`(cron, 260709부터
+  섹터행에도 per_fy0/pbr_fy0 채움 — C절 _ALL과 동일 산식, 신규 수집 0), 과거 76개월말행
   = `market_val_history_backfill.py`(FY0만, DART 0콜). / **검증**: 97버킷 전수 재계산 일치 · Σ버킷=Σ시장
-  100.0% · 음수 배수 0(260705 QA).
+  100.0% · 음수 배수 0(260705 QA) · 최신주 섹터 per_fy0 77/97(나머지 Σ순이익≤0 N/M, 260709).
 - **목적/소비자**: valuation `scope=sector` — 이제 **시계열**로 응답("반도체 업종 밸류 추이"·기업 vs
   소속 섹터 비교 — `_fold` 종목은 폴드 버킷과 비교로 폴백).
 

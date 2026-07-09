@@ -58,8 +58,11 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계
 - **market/sector 히스토리는 2020-01~현재, FY0+TTM+MRQ 전부**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
   (1회성, DART 0콜)가 채운 과거 78개 월말 — 시장 156행 + 섹터 11,014행, FY0·TTM·MRQ 세 기준 모두 백필
   완료(260706, 최초엔 FY0만이었으나 분기 백필 완주 후 확장). "2020년부터 코스피 PER/PBR 추이" 응답 가능.
-  단, **주간 cron이 채우는 sector 행은 per_ttm/pbr_mrq만**(per_fy0/pbr_fy0는 과거 백필 스크립트 전용
-  — 현재월 sector 행은 FY0가 비어있을 수 있음, 알려진 갭).
+  주간 cron도 **sector 행에 per_fy0/pbr_fy0를 채운다**(260709 수정 — firm 단위 nf/ef가 이미 로드돼
+  있어 C절 _ALL과 동일 산식으로 D절에서 합산, 신규 수집 0). 과거엔 주간 sector 행이 per_ttm/pbr_mrq만
+  채워 `scope="sector"` 현재주 FY0가 결측이던 갭 해소(최신주 per_fy0 77/97·pbr_fy0 97/97, 나머지는
+  Σ순이익≤0 N/M). ni_ttm·eq도 함께 채워 _ALL 행과 대칭. ※ firm_valuation_snapshot이 최신 2주만
+  보존해 그 이전 주간 sector 행(~3천)은 재백필 불가 — 연말 밴드가 장기 트렌드 커버.
 - **섹터 소속 시계열(260705 신설, sector scope + company 지정 시)**: `company_ctx.sector_history` —
   그 기업 소속 섹터의 78개월 전체 시계열(per_fy0·per_ttm·pbr_fy0·pbr_mrq·cap). md 렌더는 연말만
   발췌 표시, 전체는 json의 `data.company.sector_history`. 소규모(`_fold`) 섹터는 fold 버킷 시계열로 폴백.

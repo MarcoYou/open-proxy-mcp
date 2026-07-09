@@ -213,7 +213,8 @@ async def run(dry: bool = False) -> None:
         print(f"C. [{mkt}] {a['n']}사 PER {per_f:.2f}/{per_t:.2f} PBR {pbr_f:.2f}/{pbr_m:.2f}")
 
     # D. 섹터 aggregate (KSIC 하이브리드, 시장별 · MINB 미만은 fold)
-    sec_agg = defaultdict(lambda: dict(n=0, ni=0, eq=0, capn=0, cape=0, cap=0, cap_pref=0))
+    sec_agg = defaultdict(lambda: dict(n=0, ni=0, eq=0, capn=0, cape=0, cap=0, cap_pref=0,
+                                       ni_fy=0, eq_fy=0, capnf=0, capef=0))
     for isu, mkt, ind, nf, nt, ef, em in firms:
         cap = caps.get(isu)
         if not cap or not ind or ind in ("none", "err"):
@@ -223,9 +224,14 @@ async def run(dry: bool = False) -> None:
         eq = em if em is not None else ef
         if nt is not None: a["ni"] += nt; a["capn"] += cap
         if eq and eq > 0: a["eq"] += eq; a["cape"] += cap
+        # FY0(당해연도) — C절(시장 aggregate)과 동일 산식으로 섹터도 채움(260709). firm 단위 nf/ef는
+        # 이미 로드돼 있어 신규 수집 0. 섹터행 per_fy0/pbr_fy0 결측(주간행 전용) 해소.
+        if nf is not None: a["ni_fy"] += nf; a["capnf"] += cap
+        if ef is not None and ef > 0: a["eq_fy"] += ef; a["capef"] += cap
     sec_recs = []
     for mkt in ("KOSPI", "KOSDAQ"):
-        fold = dict(n=0, ni=0, eq=0, capn=0, cape=0, cap=0, cap_pref=0)
+        fold = dict(n=0, ni=0, eq=0, capn=0, cape=0, cap=0, cap_pref=0,
+                    ni_fy=0, eq_fy=0, capnf=0, capef=0)
         for (m, sec), a in sec_agg.items():
             if m != mkt:
                 continue
@@ -233,18 +239,23 @@ async def run(dry: bool = False) -> None:
                 for k in fold: fold[k] += a[k]
                 continue
             # 컬럼 순서(snap_dd,mkt,sector,label,n,per_fy0,per_ttm,pbr_fy0,pbr_mrq,cap,cap_pref,ni_ttm,eq).
-            # per_fy0/pbr_fy0/ni_ttm/eq는 이 주간 cron에서 섹터 단위로 안 만듦(과거 밴드 백필 스크립트가
-            # 별도 채움) — None 유지, 기존 mkt_val_history 동작과 동일(회귀 없음).
-            sec_recs.append((snap_dd, mkt, sec, label(sec), a["n"], None,
+            # per_fy0/pbr_fy0도 섹터 단위로 채움(260709) — C절 _ALL과 동일 산식, firm 합산이라 신규 수집
+            # 없음. ni_ttm/eq도 함께 채워 _ALL 행과 대칭(과거엔 None이라 scope="sector" FY0 결측 원인).
+            sec_recs.append((snap_dd, mkt, sec, label(sec), a["n"],
+                             a["capnf"] / a["ni_fy"] if a["ni_fy"] and a["ni_fy"] > 0 else None,
                              a["capn"] / a["ni"] if a["ni"] and a["ni"] > 0 else None,
-                             None, a["cape"] / a["eq"] if a["eq"] else None,
-                             a["cap"], a["cap_pref"], None, None))
+                             a["capef"] / a["eq_fy"] if a["eq_fy"] else None,
+                             a["cape"] / a["eq"] if a["eq"] else None,
+                             a["cap"], a["cap_pref"], a["ni"] or None, a["eq"] or None))
         if fold["n"]:
-            sec_recs.append((snap_dd, mkt, "_fold", _smap["fold_label"], fold["n"], None,
+            sec_recs.append((snap_dd, mkt, "_fold", _smap["fold_label"], fold["n"],
+                             fold["capnf"] / fold["ni_fy"] if fold["ni_fy"] and fold["ni_fy"] > 0 else None,
                              fold["capn"] / fold["ni"] if fold["ni"] and fold["ni"] > 0 else None,
-                             None, fold["cape"] / fold["eq"] if fold["eq"] else None,
-                             fold["cap"], fold["cap_pref"], None, None))
-    print(f"D. mkt_val_history(섹터행) {len(sec_recs)}버킷")
+                             fold["capef"] / fold["eq_fy"] if fold["eq_fy"] else None,
+                             fold["cape"] / fold["eq"] if fold["eq"] else None,
+                             fold["cap"], fold["cap_pref"], fold["ni"] or None, fold["eq"] or None))
+    _sec_fy0 = sum(1 for r in sec_recs if r[5] is not None)  # r[5]=per_fy0
+    print(f"D. mkt_val_history(섹터행) {len(sec_recs)}버킷 · per_fy0 채움 {_sec_fy0}/{len(sec_recs)}")
 
     if dry:
         print("(--dry: 저장 생략)"); con.close(); return
