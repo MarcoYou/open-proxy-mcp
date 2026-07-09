@@ -673,6 +673,16 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     # 모두 정관변경 sub 안건이라 articles_amendment 처리.
     if parent and "정관" in parent:
         return "articles_amendment"
+    # 260710 삼성카드 auto-FOR 사고 방지 — 개별 후보 sub-안건 카테고리 상속.
+    # parent가 "…선임…" 묶음인데 sub 제목이 "사내이사 김이태"·"감사위원 김준규"처럼
+    # "선임" 키워드 없이 이름만 와서 title 매칭 실패 → 'other'(→auto-FOR)로 새는 것을 막는다.
+    # (사외이사 sub는 "사외이사" 키워드로 우연히 걸렸지만 사내이사·감사위원 sub는 통째로 우회하던 버그)
+    # 감사위원 우선 판정 — 감사위원 sub는 director보다 strict한 독립성 검증 경로 필요.
+    if parent and "선임" in parent and t and ("이사" in t or "감사위원" in t or "감사" in t):
+        if "감사위원" in parent or "감사위원" in t:
+            return "audit_committee_election"
+        if "이사" in parent:
+            return "director_election"
     # ralph 260505 코붕이 의견: 한국 회사 관행상 퇴직금/보수는 대부분 정관 일부 변경 형태로 들어옴.
     # → 정관이 본질, _decide_articles_amendment 안에서 amendments raw 보고 위험 detect.
     if "정관" in t:
@@ -713,6 +723,54 @@ def _is_statutory_auditor_agenda(title: str) -> bool:
     return "감사" in t and "감사위원" not in t and "보수" not in t
 
 
+def _core_person_name(name: str | None) -> str:
+    """후보 이름에서 안건 제목 매칭용 핵심 이름 추출.
+
+    '도진명 (Jim Myong Doh)' → '도진명' (영문 병기·괄호 제거).
+    영문 전용 이름('Benjamin Tan')은 그대로. 한글 이름 뒤 공백+영문도 앞 토큰만.
+    260710 현대차 도진명 매칭 실패 사고: eval name에 영문이 병기돼 `nm in title`이
+    False → 개별 후보 평가가 통째로 우회되던 버그.
+    """
+    if not name:
+        return ""
+    # 괄호(반각/전각) 앞부분만
+    core = re.split(r"[(（]", name, maxsplit=1)[0].strip()
+    # 한글 이름 뒤 공백+영문("홍길동 James") → 한글 토큰만 (앞 토큰이 한글이면)
+    if " " in core:
+        head = core.split()[0]
+        if re.search(r"[가-힣]", head):
+            core = head
+    return core or name.strip()
+
+
+def _raw_excerpt(full_text: str, title: str, *, limit: int = 1800) -> str | None:
+    """파싱 실패 안건용 소집공고 원문 발췌.
+
+    안건 제목(또는 핵심 토큰)을 원문에서 찾아 주변 문맥을 반환. 못 찾으면 원문 앞부분.
+    260710 코붕이 지시: 파싱 퀄리티가 낮으면(NO_DATA) 구조화 대신 raw 텍스트로 폴백해
+    사람/LLM이 직접 읽고 판단하게 한다.
+    """
+    if not full_text:
+        return None
+    hay = full_text
+    needle = (title or "").strip()
+    idx = hay.find(needle) if needle else -1
+    if idx < 0 and needle:
+        # 제목 첫 핵심 토큰(공백/괄호 앞)으로 재시도
+        token = re.split(r"[ (（]", needle, maxsplit=1)[0].strip()
+        if len(token) >= 2:
+            idx = hay.find(token)
+    if idx < 0:
+        excerpt = hay[:limit].strip()
+        prefix = "[원문 앞부분 — 안건 위치 미확인] "
+    else:
+        start = max(0, idx - 200)
+        excerpt = hay[start:start + limit].strip()
+        prefix = "[원문 발췌] "
+    excerpt = re.sub(r"\s+", " ", excerpt)
+    return (prefix + excerpt) if excerpt else None
+
+
 def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, str]:
     """이사/감사위원 선임 안건 → (decision, reason).
 
@@ -730,13 +788,19 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         is_outside = True
     disq = eval_match.get("disqualification", {}).get("summary", "")
     indep = eval_match.get("independence", {}).get("summary", "")
-    audit_history = eval_match.get("faithfulness", {}).get("audit_history_check", {}).get("summary", "")
+    faith = eval_match.get("faithfulness", {}) or {}
+    audit_history = faith.get("audit_history_check", {}).get("summary", "")
+    # Ralph 9가 계산해두고 판단에서 버려지던 신호 — 겸직 과다(사외이사 3곳 이상).
+    # 260710 audit: 삼성전자 신제윤(감사위원, 태평양+HDC+롯데손보 3중 겸직 strong_concerns_concurrent)이
+    # FOR "모두 clean"으로 나오던 문제 → 판단에 반영.
+    concurrent = (faith.get("concurrent_outside_directors") or {}).get("summary", "")
 
     if disq == "red_flag":
         return "AGAINST", f"결격사유 발견 (eligibility 또는 미성년)"
     if audit_history == "red_flag":
         return "REVIEW", "이사 회계 risk 이력 검증 — 과거 재직 회사 회계 risk 발생 (raw 메모 참조 후 판단)"
     if is_outside:
+        _role = "감사" if (is_audit or eval_match.get("_audit_force_strict")) else "사외이사"
         # iter23: 장기연임 (5년 룰 위반) — audit는 AGAINST, 일반 사외이사는 REVIEW
         if indep == "long_tenure_concerns":
             if is_audit or eval_match.get("_audit_force_strict"):
@@ -744,6 +808,13 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
             return "REVIEW", "사외이사 장기연임 (재선임/연임/중임 키워드 발견) — 독립성 검토 필요"
         if indep == "concerns":
             return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
+        # 겸직 과다 (3곳 이상) — 충실의무 수행 여력 검토 (260710 계산-후-폐기 신호 반영)
+        if concurrent == "strong_concerns_concurrent":
+            return "REVIEW", f"{_role} 겸직 과다 (타사 사외이사 3곳 이상) — 충실의무 수행 여력 검토 (concurrent overboarding, 원문 확인 권고)"
+        # 최대주주 관계 약한 신호(iter18/27 calibration: 단독은 약신호) — 결정은 FOR 유지하되
+        # reason을 정직화("모두 clean" 거짓 금지, 260710 한화오션 발행회사 관계 사고).
+        if indep == "weak_concerns":
+            return "FOR", f"{_role} 결격 없음 — 단 최대주주 관계 약한 신호 있음(발행회사/계열 관계 표기), 원문 확인 권고"
         if is_audit or eval_match.get("_audit_force_strict"):
             return "FOR", f"감사 독립성/결격사유 모두 clean ({role_type})"
         return "FOR", f"사외이사 독립성/결격사유 모두 clean ({role_type})"
@@ -2045,6 +2116,7 @@ async def build_proxy_advise_payload(
     # 260505 ralph 23:30: parse_fy_from_agm_doc (정규식 텍스트) → parse_provisional_financial_statement (BS4 표) 교체
     fy_raw_from_agenda: dict[str, Any] = {"extraction_status": "no_data"}
     retirement_payload: dict[str, Any] | None = None
+    notice_full_text: str = ""  # 파싱 실패 안건 raw 폴백용 소집공고 원문 (아래 decision loop에서 사용)
     notice_dict = ((meeting_summary.get("data") or {}).get("notice") or {})
     agm_rcept = notice_dict.get("rcept_no") if isinstance(notice_dict, dict) else None
     if agm_rcept:
@@ -2053,6 +2125,7 @@ async def build_proxy_advise_payload(
             doc = await asyncio.wait_for(client.get_document_cached(agm_rcept), timeout=30.0)
             _mark("notice_doc_reuse", stage_started_at)
             text = (doc or {}).get("text") or ""
+            notice_full_text = text
             html = (doc or {}).get("html") or ""
             # 잠정 재무제표 표 파싱 (HTML 표 구조 그대로) + flat metrics 추출
             if html:
@@ -2353,7 +2426,10 @@ async def build_proxy_advise_payload(
         # 1. OPM 기본 logic으로 fallback decision 산출
         if category == "director_election" or category == "audit_committee_election":
             for nm, ev in name_to_eval.items():
-                if nm and nm in title:
+                if not nm:
+                    continue
+                # nm in title (기존) + core-name(영문병기 제거) 매칭 (260710 도진명 사고)
+                if nm in title or _core_person_name(nm) in title:
                     matched_eval = ev
                     break
             statutory_auditor_agenda = (
@@ -2606,6 +2682,13 @@ async def build_proxy_advise_payload(
         # 조항 대장(SSOT) 상세를 구조화 필드로도 노출 (근거 심화 — 260709)
         if law_detail:
             facts["law_detail"] = law_detail
+        # 파싱 퀄리티 미달(NO_DATA) → 소집공고 원문 발췌 폴백 (260710 코붕이 지시).
+        # 구조화 파싱이 실패해도 사람/LLM이 원문을 직접 읽고 판단할 수 있게 raw 첨부.
+        if decision == "NO_DATA":
+            _raw = _raw_excerpt(notice_full_text, title)
+            if _raw:
+                facts["raw_text_fallback"] = _raw
+                facts["parsing_quality"] = "low_fallback_to_raw"
         cumulative_threshold = _cumulative_voting_threshold(title)
         if cumulative_threshold:
             facts["cumulative_voting_threshold"] = cumulative_threshold
@@ -2619,6 +2702,21 @@ async def build_proxy_advise_payload(
             ownership_payload=ownership,
         )
         policy_citation = _policy_citation(category)
+
+        # FOR로 결론났지만 재무 risk_factors(적자·자본잠식 등)가 계산돼 있으면 reason에 정직 병기.
+        # 결정 자체는 안 바꾼다(예: 적자여도 보수한도 동결(+0%)은 정당) — 다만 reason이 위험을
+        # 감추지 않게 표면화 (260710 이마트 보수한도 -890억 적자 미언급 사고 = 계산-후-폐기).
+        if (
+            decision == "FOR"
+            and risk_factors
+            and category in (
+                "director_compensation", "audit_compensation", "retirement_pay",
+                "cash_dividend", "financial_statements", "articles_amendment",
+            )
+        ):
+            _risk_note = "; ".join(str(r) for r in risk_factors[:2])
+            if _risk_note and _risk_note not in reason:
+                reason = f"{reason} ⚠️ 유의: {_risk_note}"
 
         agenda_decisions.append({
             "agenda_title": title,
@@ -2657,8 +2755,12 @@ async def build_proxy_advise_payload(
             ))
 
     # filing meta
+    # 260710: parsing_failures를 하드코딩 0 → 실제 NO_DATA(구조화 파싱 실패로 권고 불가) 안건
+    # 수로 채운다. 죽은 메트릭(항상 all_parsed로 보이던 문제) 정직화. NO_DATA 안건엔 위에서
+    # raw_text_fallback을 첨부했으므로 사용자는 partial_failure를 보고 원문으로 넘어갈 수 있다.
     n_decisions = len(agenda_decisions)
-    filing_meta = build_filing_meta(filing_count=n_decisions, parsing_failures=0)
+    parsing_failures = sum(1 for a in agenda_decisions if a.get("decision") == "NO_DATA")
+    filing_meta = build_filing_meta(filing_count=n_decisions, parsing_failures=parsing_failures)
     if filing_meta["no_filing"]:
         status = AnalysisStatus.NO_FILING
     else:

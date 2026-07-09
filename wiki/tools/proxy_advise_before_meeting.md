@@ -70,6 +70,7 @@ proxy_advise_before_meeting(
 | `facts.director_per_person_limit_krw` / `facts.audit_per_person_krw` | 총 보수한도와 인원수로 산출한 1인당 한도. decision을 바꾸기보다 REVIEW 근거 확인용 evidence |
 | `facts.treasury_pct` / `facts.related_total_pct` / `facts.active_signal_count` | 이미 호출한 ownership data를 자사주/지배력 관련 안건 facts에 구조화 |
 | `facts.law_detail` | 법령 layer hit 안건의 조항 대장(SSOT `law_provisions.json`) 상세 — `article`(정확한 조문번호)·`amendment_round`·`effective_date`·`obligation_date`(유예도래일)·`applies_to`(적용대상 티어)·`threshold_decree`(자산 임계 시행령 조문)·`first_agm_trigger`. `reason`에도 `📋 조항 상세:` 한 줄로 노출 (260709) |
+| `facts.raw_text_fallback` / `facts.parsing_quality` | 구조화 파싱 실패(`decision=NO_DATA`) 안건에 한해, 소집공고 원문에서 해당 안건 주변을 발췌해 첨부(`parsing_quality="low_fallback_to_raw"`). 파싱이 안 돼도 사람/LLM이 원문을 직접 읽고 판단 (260710) |
 
 진단 필드:
 
@@ -110,6 +111,7 @@ proxy_advise_before_meeting(
 
 OPM 자체 함수들 + vote_style 정책 wire:
 - `_decide_director_election` (사외/사내·결격·독립성·장기연임). 사외이사: 결격→AGAINST / 독립성·장기연임→REVIEW / clean→FOR. **사내이사: 결격→AGAINST / 재직성과 bad·weak→REVIEW / good·moderate→FOR** (성과는 "법정 결격이 아니므로" 최악도 REVIEW — 자동 AGAINST 아님). 감사위원(audit strict): 장기연임→AGAINST.
+  - 260710 계산-후-폐기 신호 반영: **겸직 과다**(`concurrent_outside_directors=strong_concerns_concurrent`, 타사 사외이사 3곳+)→**REVIEW**(overboarding). **최대주주 관계 약한 신호**(`weak_concerns`)는 calibration상 결정은 FOR 유지하되 reason을 정직화("모두 clean" 거짓 금지, 발행회사/계열 관계 표기 명시). 개별 이사/감사위원 sub-안건이 "사내이사 김이태"처럼 "선임" 키워드 없이 와도 부모 상속으로 올바른 검증 경로 진입(삼성카드 auto-FOR 사고). 후보 이름 영문 병기(`도진명 (Jim Myong Doh)`)도 core-name 매칭으로 eval 연결.
 - `_decide_financial_statements` (완전 자본잠식→AGAINST / 비적정 감사의견→AGAINST / 적정+정상→FOR)
 - `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등 → **전부 REVIEW/FOR, AGAINST 없음**)
 - `_decide_audit_compensation` (감사 보수한도 11 분기 — 1인당 과소/50%+인상+1인당과다 등 → **REVIEW/FOR만**)
@@ -174,6 +176,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## 변경 이력
 
+- 2026-07-10: **계산-후-폐기 신호를 decision·reason에 반영**(30사 실사용 전수조사 후속). 겸직 과다(3곳+)→REVIEW / 최대주주 약신호 reason 정직화 / 개별 이사·감사위원 sub-안건 부모 카테고리 상속(auto-FOR 우회 차단) / 후보 영문병기 이름 core-name 매칭 / FOR인데 재무 risk(적자 등) 있으면 reason에 `⚠️ 유의:` 병기 / 파싱 실패(NO_DATA) 안건에 소집공고 원문 발췌 `facts.raw_text_fallback` 폴백.
 - 2026-07-09: **법 적용 판단을 today→주총일 기준**으로(소집공고 notice.datetime; 미파싱 시 today 폴백). 시행 전 주총 오발화 방지. + **근거 심화**: law-layer hit 안건 `reason`·`facts.law_detail`에 조항 대장(SSOT) 조문·유예도래일·적용 티어·시행령 임계 노출. 상세: [[rules/laws/README]].
 - 2026-05-05: scope 10 → 1 (decisions만), specialized scope 폐지 (raw는 각 tool 직접 호출). proxy_guideline service archive (실 호출 X 확인).
 - 2026-05-04: framework enrichment ralph (facts/risk/citation/근거공고/후보 raw + 신임·연임 auto detect + 1번안건 FY raw)
