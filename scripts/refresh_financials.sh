@@ -23,16 +23,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "═══ [1/4] 연간 재무(mkt_fund_hist) 신규 FY — market_val_series --fetch ═══"
+echo "═══ [1/4] 연간 재무(mkt_finstat_y) 신규 FY — market_val_series --fetch ═══"
 python3 scripts/market_val_series.py --fetch
 
 echo "═══ [2/4] Q4 seed 재생성(신규 연간 반영) — market_fund_quarterly --seed ═══"
 python3 scripts/market_fund_quarterly.py --seed
 
-echo "═══ [3/4] 분기 재무(mkt_fund_q) 신규 분기 — market_fund_quarterly --fetch ═══"
+echo "═══ [3/4] 분기 재무(mkt_finstat_q) 신규 분기 — market_fund_quarterly --fetch ═══"
 python3 scripts/market_fund_quarterly.py --fetch
 
 echo "═══ [4/4] mkt_fundamentals 파생 갱신(0-DART) — market_fund_quarterly --derive ═══"
 python3 scripts/market_fund_quarterly.py --derive
 
-echo "✓ 재무 SSOT 갱신 완료. 일일 market-val-weekly가 스냅샷(mkt_valuation/history/sector)에 반영."
+echo "✓ 재무 SSOT 갱신 완료. 일일 market-val-weekly가 스냅샷(firm_valuation_snapshot·mkt_val_history[시장·섹터])에 반영."
