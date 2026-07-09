@@ -491,7 +491,7 @@
       },
       "applies_to": {
         "min_asset_won": 0,
-        "applies_after": "2026-09-10"
+        "applies_after": "2026-03-06"
       },
       "reason_template": "자사주 합병·분할 시 신주 배정 — 2026 상법 3차 개정 위반",
       "law_reference": "상법 3차 개정 — §529의2·§530의13 (2026-03-06 시행 — 합병·분할 시 신주 배정 금지)",
