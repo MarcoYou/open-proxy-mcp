@@ -1109,6 +1109,77 @@ def _date_within(a: str, b: str, days: int) -> bool:
         return False
 
 
+# 금액 sanity 가드 (260709): _link_cycles 오탐 4건 진단 결과, 날짜 매칭은 정확하고(path 정확일자)
+# 진짜 원인은 **금액 파싱오류**였다 — 포스코퓨처엠 결과금액 3.17천조(×1e6 단위 오적용, _nearest_table_unit이
+# 무관 TABLE-GROUP의 '백만원' 선언을 주움)·카카오 결정금액 49,850원(파싱오류). 주식수(_CNT/_QY ACODE)는
+# 단위배수 미적용이라 신뢰 가능 → 주당 환산가로 결과금액을 자가검증(결정론적·정상 filing 무영향).
+_MAX_PRICE_PER_SHARE = 10_000_000  # 한국 주식 주당가 상한(최고가 종목도 ~2M, 안전 여유). 초과 = 단위오류.
+_MIN_PRICE_PER_SHARE = 10
+_RESULT_KEYS = ("acquisition_result", "disposal_result",
+                "trust_acquisition_status", "trust_termination_result")
+
+
+def _sanity_correct_amounts(bundles: dict[str, list[dict]]) -> list[str]:
+    """결과 금액의 주당 환산가(금액÷주식수)가 물리적으로 불가능하면 단위배수를 되돌려 보정.
+
+    주식수는 정확하므로 implied price가 상한 초과면 금액에 단위(×1e3~×1e6)가 잘못 적용된 것 —
+    1e6·1e5·1e4·1e3로 나눠 주당가가 정상범위에 들어오는 배수를 찾아 보정(정수 나눗셈만). 못 찾으면
+    금액을 보류(None)하고 raw 보존 — 틀린 큰 수를 확정값처럼 노출하지 않음. 정상 filing은 implied가
+    상한 이하라 절대 발동 안 함. Returns: 사람이 볼 경고 문자열 목록.
+    """
+    warnings: list[str] = []
+    for key in _RESULT_KEYS:
+        for r in bundles.get(key, []) or []:
+            amt = r.get("actual_amount_krw")
+            sh = r.get("actual_shares") or r.get("planned_shares")
+            if not (amt and sh and sh > 0):
+                continue
+            implied = amt / sh
+            if implied <= _MAX_PRICE_PER_SHARE:
+                continue
+            corrected = None
+            for div in (1_000_000, 100_000, 10_000, 1_000):
+                if amt % div == 0 and _MIN_PRICE_PER_SHARE <= (amt // div) / sh <= _MAX_PRICE_PER_SHARE:
+                    corrected = amt // div
+                    break
+            r["actual_amount_krw_raw"] = amt
+            if corrected is not None:
+                r["actual_amount_krw"] = corrected
+                r["amount_unit_corrected"] = True
+                warnings.append(f"[sanity] {r.get('rcept_no')} 결과금액 주당 {implied:,.0f}원(불가) "
+                                f"→ {corrected:,}원 보정(단위 오적용 되돌림).")
+            else:
+                r["actual_amount_krw"] = None
+                r["amount_quality"] = "implausible"
+                warnings.append(f"[sanity] {r.get('rcept_no')} 결과금액 주당 {implied:,.0f}원(불가) — "
+                                f"보정 배수 없어 금액 보류(원문 확인 필요).")
+    return warnings
+
+
+def _flag_cycle_mismatches(bundles: dict[str, list[dict]]) -> list[str]:
+    """링크된 결정↔실행 금액비율이 물리적으로 불가능하면 플래그(자동보정 불가한 결정측 파싱오류 대응).
+
+    실행 > 승인 3배(승인 초과 집행 불가) 또는 < 승인 1%(100배+ 축소 = 파싱오류)만 플래그.
+    정상 부분집행(0.05~1.1)·가격변동(≤1.5)·엘앤에프 블록딜 저가처분(0.44)은 통과 — 오탐 회피.
+    카카오 결정금액 49,850원(실행 55.7M의 1/1118)류를 여기서 잡는다.
+    """
+    warnings: list[str] = []
+    for exec_key, dec_key in _CYCLE_MAP.items():
+        dec_by_rcept = {d.get("rcept_no"): d for d in (bundles.get(dec_key) or []) if d.get("rcept_no")}
+        for er in bundles.get(exec_key, []) or []:
+            linked = er.get("linked_decision_rcept_no")
+            ea = er.get("actual_amount_krw")
+            da = (dec_by_rcept.get(linked or "") or {}).get("amount_krw")
+            if not (linked and ea and da and da > 0):
+                continue
+            ratio = ea / da
+            if ratio > 3.0 or ratio < 0.01:
+                er["amount_mismatch_ratio"] = round(ratio, 4)
+                warnings.append(f"[sanity] {er.get('rcept_no')} 실행금액이 결정({linked}) 대비 "
+                                f"{ratio:.3g}배 — 금액 또는 결정↔실행 매칭 오류 의심(원문 확인 필요).")
+    return warnings
+
+
 def _link_cycles(bundles: dict[str, list[dict]]) -> int:
     """결과보고서 본문의 main_report_date / trust_contract_date를 결정 rcept_dt와 매칭.
 
@@ -1674,8 +1745,11 @@ async def build_treasury_share_payload(
         timings_ms=timings_ms,
     )
     _mark("fetch_decisions", stage_started_at)
-    # 결정 ↔ 결과 사이클 매칭 — main_report_date / trust_contract_date 키
+    # 금액 sanity: 링크 전 주당가로 결과금액 단위 오적용 보정(포스코퓨처엠 ×1e6류) →
+    # 링크 → 링크 후 비율 물리불가 플래그(카카오 결정금액 파싱오류류). (260709 _link_cycles 진단)
+    warnings.extend(_sanity_correct_amounts(bundles))
     cycle_matched = _link_cycles(bundles)
+    warnings.extend(_flag_cycle_mismatches(bundles))
     warnings.extend(fetch_warnings)
 
     counts = _summary_counts(bundles)
