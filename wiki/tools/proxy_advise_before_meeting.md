@@ -118,8 +118,9 @@ OPM 자체 함수들 + vote_style 정책 wire:
     AGAINST(결격 확정) 금지**. 따라서 **감사위원도 종전 AGAINST → REVIEW로 하향**(감사=사외 자격 동일
     문턱). 6년 경계로 reason만 tiering: 5–6년="소프트 경보, 결격 미달" / 6년+="§34⑤ 결격 해당 가능,
     계열 합산·과소계상 원문 확인 권고". 감사/사외 모두 REVIEW.
-  - 장기연임 **감지**는 ① careerDetails 키워드("재선임/연임/중임") + ② **재직연수**(같은 회사 5년+,
-    `earliest_start` 기반, 진행중 재직만) + ③ **roster tenure(hffc_pd)** — roster_prior로 승격된 후보는
+  - 장기연임 **감지**는 ① careerDetails 키워드("재선임/연임/중임", **사외/감사 role만**) + ② **재직연수**
+    (같은 회사 5년+, **사외이사/감사 재직 item만** `outside_earliest_start` 기반·진행중 재직만 — 임직원
+    재직 과대계상 제외) + ③ **roster tenure(hffc_pd)** — roster_prior로 승격된 후보는
     career earliest_start가 없어 ②가 놓치므로, 임원현황 재직기간을 floor로 써서 catch(260710 Item1,
     `source="roster_tenure"`). hffc는 재선임 시 기산점 리셋로 과소계상 → false-positive 낮음(≥5면 확실).
     사유는 tenure/roster 기반이면 실제 근거를 정직 표기(키워드 발견이라 거짓 안 함).
@@ -192,6 +193,14 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## 변경 이력
 
+- 2026-07-10: **장기연임 tenure를 '사외이사/감사 재직'만 세도록 정정 (Path A 과대계상 해소)** — 종전
+  `earliest_start`는 이 회사 **전체 경력**(대표이사·본부장·담당장 등 임직원 포함)의 최초 연도를 세서,
+  임직원 출신이 사외이사로 오는 경우 재직연수를 과대계상 → false 장기연임 REVIEW. 5년 룰/§34조5항7호는
+  '사외이사(감사위원 포함) 재직기간' 규정이므로 **사외이사/독립이사/감사위원/감사 career item만** 집계
+  (`outside_earliest_start`). KOSPI200+KOSDAQ 전수 재검증: 종전 tenure_years flag 14건 중 **6건이 임직원
+  과대계상**(SK텔레콤 CIC장/CSO 3명·대웅제약 대표이사·셀트리온 담당장·현대건설 본부장) → 제거, genuine
+  사외이사/감사 장기연임 8건은 보존. + 사내이사 키워드 long_tenure cosmetic 잔재 제거(role guard). 원문
+  대조로 전 케이스 검증.
 - 2026-07-10: **장기연임 법률 정정 + roster tenure 연동 + 최대주주관계 rescue** (멀티에이전트 팀: lawyer·API·QA).
   ① "5년 룰 위반" 문구 삭제 — 5년=OPM 조기경보(성문 규정 아님), HARD 결격=상법 시행령 §34⑤(6년 동일회사
   /9년 계열). tenure floor·계열 미구분으로 결격 사실확정 불가 → **감사 장기연임 AGAINST→REVIEW 하향**,

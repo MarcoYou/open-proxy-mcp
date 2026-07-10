@@ -313,7 +313,11 @@ def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[
         any(k in msr for k in msr_strong_keywords)
         or any(k in msr for k in msr_kinship_keywords)
     )
-    if five_year_signal:
+    # 장기연임(5년 룰/§34조5항7호)은 사외이사·감사 도메인 — 사내이사엔 키워드가 있어도 적용 안 함
+    # (260710: 사내이사에 long_tenure_concerns 표시되던 cosmetic 잔재 제거. 결정경로는 원래 무영향).
+    _role = candidate.get("roleType") or ""
+    _is_oversight = any(k in _role for k in ("사외", "감사", "독립"))
+    if five_year_signal and _is_oversight:
         # 장기연임은 audit/사외이사 모두 strong concerns
         out["summary"] = "long_tenure_concerns"
     elif strong_flags or (not is_independent_from_major and msr_now):
@@ -812,15 +816,29 @@ def detect_appointment_type(
             # 시작 연도 추출 (가장 빠른 시작 연도) + 진행중(현재) 재직 여부
             earliest = None
             ongoing = False  # "~ 현재" (end=None) 항목이 있으면 현재 재직 중
+            # 🔴 감독(oversight) service만 별도 집계 — 5년 룰/§34조5항7호는 '사외이사(감사위원 포함) 재직
+            #   기간' 규정이라, 임직원(대표이사·사장·본부장·담당·센터장·그룹장 등) 재직을 세면 과대계상
+            #   (신민철 담당장·박성수 대표이사·SK텔레콤 CIC장/CSO 사례로 검증). 사외이사/독립이사/감사위원/
+            #   감사 item만 센다. 임직원 career는 이 키워드가 없어 자연히 제외 → over-count 제거.
+            outside_earliest = None
+            outside_ongoing = False
             for it in items:
-                start, end = _parse_career_period(str(it))
+                s = str(it)
+                start, end = _parse_career_period(s)
                 if start is not None and (earliest is None or start < earliest):
                     earliest = start
                 if start is not None and end is None:
                     ongoing = True
+                if any(k in s for k in ("사외이사", "독립이사", "감사위원", "감사")):
+                    if start is not None and (outside_earliest is None or start < outside_earliest):
+                        outside_earliest = start
+                    if start is not None and end is None:
+                        outside_ongoing = True
             matched.append({
                 "company_in_career": co,
                 "earliest_start": earliest,
+                "outside_earliest_start": outside_earliest,  # 🔴 사외이사 재직만 (장기연임 판정용)
+                "outside_ongoing": outside_ongoing,
                 "items_count": len(items),
                 "ongoing": ongoing,  # 갭C: 종료된 과거 재직을 장기연임으로 오탐하지 않기 위함
             })
@@ -974,26 +992,30 @@ def apply_tenure_long_tenure(ev: dict[str, Any], appointment_type: dict[str, Any
     - 사외/감사 role에서만 적용 (장기연임 독립성 우려의 도메인). 사내이사는 회사 결정 영역.
     - earliest_start는 careerDetails 누락 시 under-count 쪽이라 false-positive 위험은 낮다(보수적).
     - 승격만(never downgrade). keyword rule이 이미 잡았으면 그대로.
-    - 한계(inherited): company 매칭은 loose prefix(부서 접미사 "셀트리온 관리부문" 대응 위해 필요)라
-      짧은 지주명("한화" vs "한화솔루션")에서 계열사 재직을 과대계상할 수 있음 — 기존 renewed 감지에서
-      상속된 한계로, 이 함수가 새로 만든 문제 아님(별도 과제).
+    - 🔴 사외이사 service만 셈(260710): earliest_start(전체 경력)이 아니라 **사외이사 재직 item의 최초
+      연도**(outside_earliest_start)로 tenure 계산. 5년 룰/§34조5항7호는 '사외이사 재직기간' 규정이라,
+      임직원·대표이사 재직을 세면 과대계상(신민철 2012 담당장, 박성수 2015 대표이사 사례로 검증). 사외이사
+      career item이 없으면(임직원만) Path A 미발화 → 과대계상 제거. under-count(false-negative)는 안전측.
     """
     if not isinstance(appointment_type, dict) or appointment_type.get("type") != "renewed":
         return
     matched_entries = appointment_type.get("matched_entries")
     if not matched_entries:  # 이 회사 매칭 기반만 신뢰
         return
-    # 진행중(현재) 재직이 하나라도 있어야 tenure를 현재 재직으로 간주 (종료된 과거 재직 오탐 방지)
-    if not any(isinstance(m, dict) and m.get("ongoing") for m in matched_entries):
-        return
-    es = appointment_type.get("earliest_start")
-    if not isinstance(es, int):
-        return
-    tenure = current_year - es
-    if tenure < _LONG_TENURE_YEARS:
-        return
     role = ev.get("role_type") or ""
     if not ("사외" in role or "감사" in role or "독립" in role or "outside" in role.lower()):
+        return
+    # 🔴 사외이사 재직 item만: outside_earliest_start(사외/독립이사 career) + outside_ongoing(진행중).
+    #    임직원만 매칭된 후보(신민철·박성수)는 outside_* 가 None → 미발화(과대계상 제거).
+    if not any(isinstance(m, dict) and m.get("outside_ongoing") for m in matched_entries):
+        return
+    outside_starts = [m.get("outside_earliest_start") for m in matched_entries
+                      if isinstance(m, dict) and isinstance(m.get("outside_earliest_start"), int)]
+    if not outside_starts:
+        return
+    es = min(outside_starts)
+    tenure = current_year - es
+    if tenure < _LONG_TENURE_YEARS:
         return
     indep = ev.get("independence")
     if not isinstance(indep, dict):

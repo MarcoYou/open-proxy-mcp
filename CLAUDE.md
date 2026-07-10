@@ -50,7 +50,7 @@ open_proxy_mcp/
                        #   ※ 의결권 엔진 = 법령 layer + vote_style 정책 + _decide_* 함수.
                        #     12 매트릭스 자동채점은 미사용(dead code) — 사내이사 성과 2x3만 실사용.
   data/ksic/           # 산업분류 코드→업종명
-scripts/               # wiki_lint.py(link 검증) · spot_*.py(회귀)
+scripts/               # wiki_lint.py(link 검증) · spot_*.py(회귀) · verify_law_against_corpus.py(SSOT↔legalize-kr 원문대조)
 wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
 .github/workflows/     # wiki-lint.yml · deploy.yml(fly.io)
 ```
