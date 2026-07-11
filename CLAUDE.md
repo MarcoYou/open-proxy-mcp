@@ -60,7 +60,10 @@ wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
 - **데이터 접근**: ① DART API(병렬) → ② DART 웹(2초 간격) → ③ KIND(2초). 상위 해결 시 하위 금지.
 - **DART API 분당 1,000회 초과 → 24h IP 차단 (hard rule, 절대 위반 X)**: cap **910**(키 2개 fallback) · batch **최대 30사 + 사이 sleep**(100+사는 fly machine) · **독립 스크립트는 동시성 1~2 + sleep + ReadError 즉시 중단**. 차단 시 키 회전 무효(IP level)·24h. 메커니즘·260607 사고: [[hard-rate-limit]].
 - **웹 스크래핑**: 최소 2초 간격, 배치 금지.
-- **3-tier fallback**: XML → PDF(4s+) → OCR(Upstage).
+- **파싱은 XML 단독** (OPM): agm_*_xml·이사보팅·proxy_advise 경로 모두 `get_document_cached`(XML)만
+  사용. XML 불완전 시 원문을 AI에 노출해 보정(soft-fail)하고, 조작된 FOR는 내지 않는다. **PDF 다운로드·
+  OCR(Upstage)·opendataloader 폴백은 2026-07-12 OPM에서 폐기하고 고급 프로덕트 open-proxy-ai로 이관**
+  (`/Users/marcoyou/Projects/open-proxy-ai` — pipeline/pdf_parser.py + pipeline/pdf_download.py, 폴백 전용).
 - **rcept_no 포맷**: `00`=소집공고(DART 정기) / `80`=주총결과(거래소 수시). agm_*_xml에는 `00` 사용.
 - **공시 검색**: `list.json`에서 `pblntf_ty`+`pblntf_detail_ty`로 범위 먼저 좁히고 제목 매칭(전체 순회
   금지). 코드 매핑은 `rules/disclosures/공시유형코드체계.md`. corp_code 없는 시장검색은 3개월 한도.

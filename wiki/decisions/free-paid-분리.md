@@ -17,13 +17,13 @@ OPM 프로젝트를 공개(free)와 비공개(paid) 2개 저장소로 분리. [[
 ### open-proxy-mcp (public, free)
 - 40개 MCP tool + 파서 + API 클라이언트
 - CC BY-NC 4.0 라이선스
-- XML -> AI 보강 -> PDF -> OCR 순서
-- AI가 유저와 대화하면서 점진적 fallback
+- **XML 단독 -> AI 원문 보강** (2026-07-12부터 PDF/OCR 제거 — open-proxy-ai로 이관)
+- AI가 유저와 대화하면서 원문 노출로 보정, 조작된 FOR는 내지 않음
 - agm_manual + CASE_RULE이 AI 판단 기준
 
 ### open-proxy-ai (private, paid)
 - 파이프라인 + 프론트엔드 + 데이터
-- XML -> PDF -> OCR -> LLM 자동 체이닝
+- XML -> PDF -> OCR -> LLM 자동 체이닝 (PDF/OCR 코드도 2026-07-12부터 여기 소유: `pipeline/pdf_parser.py` + `pipeline/pdf_download.py`)
 - 배치 파이프라인으로 미리 최선 데이터 생성
 - [[v4-스키마]] JSON 199개 기업
 

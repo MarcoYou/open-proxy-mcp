@@ -73,7 +73,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
 ### 시스템 동작 이해
 - [[architecture/data-collection]] - 데이터 수집 architecture
-- [[architecture/3-tier-fallback]] - XML -> PDF -> OCR
+- [[architecture/3-tier-fallback]] - XML -> PDF -> OCR (OPM은 XML 단독; PDF/OCR은 open-proxy-ai로 이관 260712)
 - [[architecture/matrix-system]] - 12 매트릭스 설계 자산 (자동 채점은 의결권 엔진 미사용 — dead code)
 - [[architecture/proxy-voting-decision-tree]] - 의결권 판단 framework
 - [[architecture/pipeline-architecture]] - 199 기업 v4 JSON 배치 파이프라인
@@ -157,7 +157,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
 ### 시스템 설계 (6)
 - [[architecture/data-collection]] - OPM 전수 데이터 수집 entry point + 파싱 방법 (DART/KIND/Naver/Upstage/정적 JSON, 14 섹션 639줄)
-- [[architecture/3-tier-fallback]] - XML -> PDF -> OCR 3단계 파싱 전략
+- [[architecture/3-tier-fallback]] - XML -> PDF -> OCR 3단계 전략 (OPM은 XML 단독; PDF/OCR은 open-proxy-ai 이관 260712)
 - [[architecture/matrix-system]] - 12 카테고리 매트릭스 (100 dim, 76 빙고 패턴) + 자동 채점 v1.3 (통합 페이지)
 - [[architecture/proxy-voting-decision-tree]] - 3개 소스 통합 의결권 행사 판단 프레임워크
 - [[architecture/pipeline-architecture]] - 199개 기업 v4 JSON 생성 배치 파이프라인

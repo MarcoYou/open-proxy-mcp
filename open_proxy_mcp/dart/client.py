@@ -865,33 +865,9 @@ class DartClient:
             await asyncio.sleep(wait)
         self._last_web_request = time.monotonic()
 
-    # ── DART 웹 스크래핑 (PDF 다운로드용) ──
-
-    async def _fetch_dcm_no(self, rcept_no: str) -> str:
-        """DART 웹에서 dcm_no(문서번호)를 추출
-
-        PDF 다운로드에 필요한 dcm_no를 공시 뷰어 페이지의
-        JavaScript(makeToc)에서 regex로 추출합니다.
-
-        ⚠️ 웹 스크래핑이므로 rate limit 엄격 적용.
-        """
-        await self._throttle_web()
-        url = f"{DART_WEB_BASE_URL}/dsaf001/main.do?rcpNo={rcept_no}"
-
-        response = await self._http.get(url, timeout=30, headers={
-            "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
-        })
-        response.raise_for_status()
-
-        html = response.text
-        # makeToc() 안의 node1['dcmNo'] = "XXXXXXXX"; 패턴
-        m = re.search(r"\['dcmNo'\]\s*=\s*\"(\d+)\"", html)
-        if not m:
-            raise DartClientError("NO_DCM", f"dcm_no를 찾을 수 없습니다. (rcept_no={rcept_no})")
-
-        dcm_no = m.group(1)
-        logger.info(f"[DART 웹] dcm_no={dcm_no} 추출 완료 (rcept_no={rcept_no})")
-        return dcm_no
+    # ── DART 웹 스크래핑 (viewer HTML 폴백용) ──
+    # NOTE: _fetch_dcm_no (PDF 다운로드용 dcm_no 추출)는 2026-07-12 폐기 —
+    #       get_document_pdf와 함께 open-proxy-ai로 이관.
 
     async def _fetch_viewer_main_html(self, rcept_no: str) -> str:
         """DART 메인 viewer 페이지 HTML을 가져온다."""
@@ -1005,43 +981,9 @@ class DartClient:
         self._doc_cache_put(self._viewer_doc_cache, cache_key, payload)
         return payload
 
-    async def get_document_pdf(self, rcept_no: str) -> bytes:
-        """공시 본문 PDF 다운로드
-
-        ⚠️ DART 웹 스크래핑 기반 — 공식 API가 아닙니다.
-        - 요청 간격: 최소 2초 (dcm_no 조회 + PDF 다운로드 각각)
-        - 배치 사용 금지: 한 번에 1건씩만, 필요할 때만 호출
-        - User-Agent에 프로젝트 정보 명시
-
-        Args:
-            rcept_no: 접수번호
-
-        Returns:
-            PDF 바이너리 (bytes)
-        """
-        dcm_no = await self._fetch_dcm_no(rcept_no)
-
-        await self._throttle_web()
-        url = f"{DART_WEB_BASE_URL}/pdf/download/pdf.do"
-
-        response = await self._http.get(
-            url,
-            params={"rcp_no": rcept_no, "dcm_no": dcm_no},
-            timeout=60,
-            headers={
-                "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
-            },
-        )
-        response.raise_for_status()
-
-        content = response.content
-
-        # PDF 매직 넘버 확인 (%PDF)
-        if not content[:4] == b'%PDF':
-            raise DartClientError("NO_PDF", f"PDF가 아닌 응답 수신 (rcept_no={rcept_no}, size={len(content)})")
-
-        logger.info(f"[DART 웹] PDF 다운로드 완료: {len(content):,} bytes (rcept_no={rcept_no})")
-        return content
+    # NOTE: get_document_pdf (공시 본문 PDF 다운로드)는 2026-07-12 폐기.
+    # OPM은 XML 단독 경로(get_document/get_document_cached)만 유지한다.
+    # PDF 다운로드는 고급 프로덕트 open-proxy-ai(pipeline/pdf_download.py)로 이관했다.
 
     # ── Ownership API (DS002 정기보고서) ──
 

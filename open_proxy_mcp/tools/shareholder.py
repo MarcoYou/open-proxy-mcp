@@ -4,8 +4,6 @@ import os
 import json
 import logging
 import re
-import glob
-import tempfile
 from datetime import datetime
 
 
@@ -33,79 +31,13 @@ from open_proxy_mcp.tools.parser import (
     parse_retirement_pay_xml,
 )
 from open_proxy_mcp.llm.client import extract_agenda_with_llm
-from open_proxy_mcp.tools.pdf_parser import (
-    parse_compensation_pdf, parse_personnel_pdf,
-    parse_financials_pdf, parse_aoi_pdf, parse_agenda_pdf,
-    parse_treasury_share_pdf, parse_capital_reserve_pdf,
-    parse_retirement_pay_pdf,
-    ocr_fallback_for_parser,
-)
+
+# NOTE: PDF 다운로드 + OCR 파싱(pdf_parser, get_document_pdf, opendataloader, Upstage)은
+# 2026-07-12 OPM에서 폐기하고 고급 프로덕트 open-proxy-ai(pipeline/pdf_parser.py +
+# pipeline/pdf_download.py)로 이관했다. OPM의 agm_*_xml tool은 XML 단독 경로만 유지한다.
 
 logger = logging.getLogger(__name__)
 
-
-# ── PDF 캐시 (디스크) ──
-
-_PDF_CACHE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "cache", "pdf"
-)
-_PDF_MD_CACHE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "cache", "pdf_parsed"
-)
-
-
-async def _get_pdf_cached(rcept_no: str) -> bytes:
-    """PDF 바이너리를 디스크 캐시에서 가져오거나 다운로드"""
-    os.makedirs(_PDF_CACHE_DIR, exist_ok=True)
-    path = os.path.join(_PDF_CACHE_DIR, f"{rcept_no}.pdf")
-    if os.path.exists(path):
-        with open(path, "rb") as f:
-            return f.read()
-    client = get_dart_client()
-    pdf_bytes = await client.get_document_pdf(rcept_no)
-    with open(path, "wb") as f:
-        f.write(pdf_bytes)
-    return pdf_bytes
-
-
-def _get_pdf_markdown_cached(rcept_no: str, pdf_bytes: bytes) -> str:
-    """opendataloader 마크다운을 디스크 캐시에서 가져오거나 파싱"""
-    os.makedirs(_PDF_MD_CACHE_DIR, exist_ok=True)
-    md_path = os.path.join(_PDF_MD_CACHE_DIR, f"{rcept_no}.md")
-    if os.path.exists(md_path):
-        with open(md_path, "r") as f:
-            return f.read()
-
-    # opendataloader로 파싱
-    import tempfile
-    from opendataloader_pdf import convert
-
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp.write(pdf_bytes)
-        tmp_path = tmp.name
-
-    try:
-        convert(
-            input_path=[tmp_path],
-            output_dir=_PDF_MD_CACHE_DIR,
-            format="markdown",
-            quiet=True,
-            keep_line_breaks=True,
-            table_method="cluster",
-        )
-        # opendataloader는 입력 파일명 기준으로 출력 — rename 필요
-        generated = glob.glob(os.path.join(_PDF_MD_CACHE_DIR, "*.md"))
-        for g in generated:
-            if os.path.basename(g).startswith("tmp"):
-                os.rename(g, md_path)
-                break
-    finally:
-        os.unlink(tmp_path)
-
-    if os.path.exists(md_path):
-        with open(md_path, "r") as f:
-            return f.read()
-    return ""
 
 def _is_kind_rcept_no(rcept_no: str) -> bool:
     """주주총회결과 rcept_no(80 포맷)인지 판별."""
@@ -313,8 +245,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 의안(안건) 목록 구조화. 제N호/제N-M호 형식의 트리.
         when: [tier-5 Detail] 사용자가 안건 상세를 명시적으로 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="agenda", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
-        ref: agm_parse_fallback, agm_items, agm_manual, corp_identifier
+        rule: XML 파싱. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_items, agm_manual, corp_identifier
 
         Args:
             ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
@@ -432,8 +364,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 재무제표 (BS/IS) 구조화. 연결/별도, 당기/전기 비교.
         when: [tier-5 Detail] 사용자가 재무제표 상세를 명시적으로 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="financials", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
-        ref: agm_parse_fallback, agm_manual, corp_identifier
+        rule: XML 파싱. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_manual, corp_identifier
 
         Args:
             ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
@@ -564,8 +496,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 이사/감사 선임/해임 정보. 후보자별 경력, 결격사유, 추천사유, 직무수행계획.
         when: [tier-5 Detail] 사용자가 이사/감사 후보자 경력 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
-        rule: XML 파싱. 경력 병합(100자+) 시 agm_parse_fallback(parser="personnel", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
-        ref: agm_parse_fallback, agm_manual, agm_result, news_check, corp_identifier
+        rule: XML 파싱. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_manual, agm_result, news_check, corp_identifier
 
         Args:
             ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
@@ -596,8 +528,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 정관변경 비교 (변경전/변경후/사유). 세부의안별 분리.
         when: [tier-5 Detail] 사용자가 정관변경 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="aoi_change", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
-        ref: agm_parse_fallback, agm_manual, corp_identifier
+        rule: XML 파싱. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_manual, corp_identifier
 
         Args:
             ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
@@ -637,8 +569,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 이사/감사 보수한도. 당기 한도, 전기 실지급, 이사 수, 소진율.
         when: [tier-5 Detail] 보수한도/소진율 상세가 필요할 때. ticker만 넣으면 소집공고를 자동 탐색.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="compensation", tier="pdf") fallback. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
-        ref: agm_parse_fallback, agm_manual, div_detail, corp_identifier
+        rule: XML 파싱. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_manual, div_detail, corp_identifier
 
         Args:
             ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
@@ -670,7 +602,7 @@ def register_tools(mcp):
         """desc: 자기주식 보유/처분/소각. 수량, 목적, 방법.
         when: [tier-5 Detail] 사용자가 자사주 안건 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
         rule: XML 파싱. 안건 제목 매칭 한계로 PDF fallback 빈번. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
-        ref: agm_parse_fallback, ownership_treasury, agm_manual, corp_identifier
+        ref: ownership_treasury, agm_manual, corp_identifier
 
         Args:
             ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
@@ -701,8 +633,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 자본준비금 감소/이익잉여금 전입. 감액배당 전제 조건.
         when: [tier-5 Detail] 사용자가 자본준비금 안건 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="capital_reserve", tier="pdf") fallback. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
-        ref: agm_parse_fallback, agm_manual, corp_identifier
+        rule: XML 파싱. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_manual, corp_identifier
 
         Args:
             ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
@@ -733,8 +665,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 임원 퇴직금 규정 개정 (변경전/변경후).
         when: [tier-5 Detail] 사용자가 퇴직금 규정 상세를 요청했을 때만 사용. ticker만 넣으면 소집공고를 자동 탐색.
-        rule: XML 파싱. 불완전 시 agm_parse_fallback(parser="retirement_pay", tier="pdf") fallback. 재무제표 주석의 "퇴직급여"와 혼동 주의. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
-        ref: agm_parse_fallback, agm_manual, corp_identifier
+        rule: XML 파싱. 재무제표 주석의 "퇴직급여"와 혼동 주의. 판정 기준은 agm_manual 참조. 기업 식별이 불확실하면 corp_identifier 먼저 호출.
+        ref: agm_manual, corp_identifier
 
         Args:
             ticker: 종목코드 또는 회사명 (예: "삼성전자", "005930"). rcept_no 미입력 시 소집공고 자동 탐색.
@@ -1083,115 +1015,8 @@ def register_tools(mcp):
         result = await agm_result(ticker=ticker, bgn_de=bgn_de, end_de=end_de)
         return f"{pre}\n\n---\n\n## 투표 결과\n\n{result}"
 
-    # ── PDF/OCR fallback (unified) ──
-
-    PARSER_DISPATCH = {
-        "personnel": {
-            "pdf_parser": parse_personnel_pdf,
-            "ocr_key": "pers",
-            "formatter": _format_personnel,
-            "empty_check": lambda r: not r.get("appointments"),
-            "empty_msg": "선임/해임 안건",
-        },
-        "financials": {
-            "pdf_parser": parse_financials_pdf,
-            "ocr_key": "fin",
-            "formatter": _format_financial_statements,
-            "empty_check": lambda r: not any(
-                r[s][t] is not None
-                for s in ["consolidated", "separate"]
-                for t in ["balance_sheet", "income_statement"]
-            ),
-            "empty_msg": "재무제표",
-        },
-        "aoi_change": {
-            "pdf_parser": parse_aoi_pdf,
-            "ocr_key": "aoi",
-            "formatter": _format_aoi_change,
-            "empty_check": lambda r: not r.get("amendments"),
-            "empty_msg": "정관변경 사항",
-        },
-        "compensation": {
-            "pdf_parser": parse_compensation_pdf,
-            "ocr_key": "comp",
-            "formatter": _format_compensation,
-            "empty_check": lambda r: not r.get("items"),
-            "empty_msg": "보수한도 안건",
-        },
-        "treasury_share": {
-            "pdf_parser": parse_treasury_share_pdf,
-            "ocr_key": "treasury",
-            "formatter": _format_treasury_share,
-            "empty_check": lambda r: not r.get("items"),
-            "empty_msg": "자기주식 안건",
-        },
-        "capital_reserve": {
-            "pdf_parser": parse_capital_reserve_pdf,
-            "ocr_key": "capital",
-            "formatter": _format_capital_reserve,
-            "empty_check": lambda r: not r.get("items"),
-            "empty_msg": "자본준비금 안건",
-        },
-        "retirement_pay": {
-            "pdf_parser": parse_retirement_pay_pdf,
-            "ocr_key": "retirement",
-            "formatter": _format_retirement_pay,
-            "empty_check": lambda r: not r.get("amendments"),
-            "empty_msg": "퇴직금 규정",
-        },
-        "agenda": {
-            "pdf_parser": parse_agenda_pdf,
-            "ocr_key": "agenda",
-            "formatter": _format_agenda_tree,
-            "empty_check": lambda r: not r,
-            "empty_msg": "안건",
-        },
-    }
-
-    @mcp.tool()
-    async def agm_parse_fallback(
-        rcept_no: str,
-        parser: str,
-        tier: str = "pdf",
-        format: str = "md",
-    ) -> str:
-        """desc: AGM 파서 PDF/OCR fallback. XML 파싱 불완전 시 대체 수단.
-        when: [tier-5 Detail] agm_*_xml 결과가 불완전할 때만 사용. tier="pdf"(4s+) 또는 tier="ocr"(UPSTAGE_API_KEY 필요).
-        rule: parser 파라미터로 파서 선택 (personnel/financials/aoi_change/compensation/treasury_share/capital_reserve/retirement_pay/agenda). AI가 자체 보정 실패 후 유저에게 제안.
-        ref: agm_personnel_xml, agm_financials_xml, agm_manual
-
-        Args:
-            rcept_no: 접수번호
-            parser: 파서 이름 (personnel, financials, aoi_change, compensation, treasury_share, capital_reserve, retirement_pay, agenda)
-            tier: "pdf" (기본) 또는 "ocr"
-            format: "md" (기본) 또는 "json"
-        """
-        config = PARSER_DISPATCH.get(parser)
-        if not config:
-            return f"알 수 없는 파서: {parser}. 가능한 값: {', '.join(PARSER_DISPATCH.keys())}"
-
-        pdf_bytes = await _get_pdf_cached(rcept_no)
-        md_text = _get_pdf_markdown_cached(rcept_no, pdf_bytes)
-
-        if tier == "pdf":
-            if not md_text:
-                return "PDF 파싱에 실패했습니다."
-            result = config["pdf_parser"](md_text)
-            if config["empty_check"](result):
-                return f"PDF에서도 {config['empty_msg']}을 찾을 수 없습니다. tier='ocr'로 재시도 가능."
-        elif tier == "ocr":
-            result = ocr_fallback_for_parser(
-                pdf_bytes, md_text, config["ocr_key"],
-                config["pdf_parser"], f"{rcept_no}.pdf",
-            )
-            if not result or config["empty_check"](result):
-                return f"OCR로도 {config['empty_msg']}을 추출할 수 없습니다."
-        else:
-            return f"알 수 없는 tier: {tier}. 'pdf' 또는 'ocr' 사용."
-
-        if format == "json":
-            return json.dumps(result, ensure_ascii=False, indent=2)
-        return config["formatter"](result)
+    # NOTE: agm_parse_fallback (PDF/OCR tier 디스패처)는 2026-07-12 폐기.
+    # PDF 다운로드·OCR 경로는 open-proxy-ai로 이관했다. OPM은 agm_*_xml (XML 단독)만 제공한다.
 
     @mcp.tool()
     async def agm_result(

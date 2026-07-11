@@ -14,8 +14,9 @@ dependencies = [
 
 [project.optional-dependencies]
 llm = ["anthropic>=0.40.0", "openai>=1.50.0"]
-pdf = ["opendataloader-pdf>=0.1.0", "PyPDF2>=3.0.0"]
-all = ["open-proxy-mcp[llm,pdf]"]
+# NOTE: pdf extra(opendataloader-pdf, PyPDF2)는 2026-07-12 제거 —
+#       PDF 다운로드·OCR 경로를 open-proxy-ai로 이관하고 OPM은 XML 단독 유지.
+all = ["open-proxy-mcp[llm]"]
 
 [project.license]
 text = "LicenseRef-PolyForm-Noncommercial-1.0.0"

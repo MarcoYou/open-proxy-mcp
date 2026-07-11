@@ -245,13 +245,14 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 - 용도: `get_viewer_document()`가 main.do의 노드별로 호출 (목차 단위)
 - 사용 service: `shareholder_meeting`, `corp_gov_report` 등 document.xml이 깨질 때 2차 경로
 
-## 2.3 pdf/download/pdf.do — PDF 다운로드 (v1·파이프라인 only)
+## 2.3 pdf/download/pdf.do — PDF 다운로드 (open-proxy-ai 전용, 260712 이관)
 
 - URL: `https://dart.fss.or.kr/pdf/download/pdf.do?rcp_no=...&dcm_no=...`
-- 호출 위치: `DartClient.get_document_pdf()`
+- 호출 위치: **open-proxy-ai `pipeline/pdf_download.py`의 `get_document_pdf(client, rcept_no)`**
+  (2026-07-12 OPM `DartClient.get_document_pdf` 폐기·이관, OPM DartClient의 rate-limited 세션 재사용)
 - 용도: opendataloader 입력 PDF 확보 (XML 파싱 실패 case)
 - 검증: `%PDF` 매직 넘버 확인
-- v2 운영방침: 기본 경로에서 제외. tools/pdf_parser.py가 v1 toolset과 open-proxy-ai 파이프라인에서만 사용
+- OPM 운영방침: PDF 경로 완전 제거(XML 단독). PDF/OCR 파서는 open-proxy-ai `pipeline/pdf_parser.py`가 소유
 
 ## 2.4 DART 웹 Rate Limit
 
@@ -392,10 +393,10 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 
 ---
 
-# 6. Upstage Document Parse API (OCR)
+# 6. Upstage Document Parse API (OCR) — open-proxy-ai 전용 (260712 이관)
 
 - Endpoint: `https://api.upstage.ai/v1/document-ai/document-parse`
-- 호출 위치: `open_proxy_mcp/tools/pdf_parser.py` `upstage_ocr_parse()`
+- 호출 위치: **open-proxy-ai `pipeline/pdf_parser.py` `upstage_ocr_parse()`** (OPM에서 폐기·이관 2026-07-12)
 - 인증: Bearer 토큰 (`UPSTAGE_API_KEY` 환경변수)
 - 입력: PDF 멀티파트 (`document` 필드), `output_formats=["markdown"]`
 - 응답: JSON `content.markdown`
@@ -407,10 +408,10 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 
 ---
 
-# 7. opendataloader-pdf (PDF → 마크다운)
+# 7. opendataloader-pdf (PDF → 마크다운) — open-proxy-ai 전용 (260712 이관)
 
 - 라이브러리: `opendataloader-pdf` (Java 11+ 의존)
-- 호출 위치: `open_proxy_mcp/tools/pdf_parser.py`
+- 호출 위치: **open-proxy-ai `pipeline/pdf_parser.py`** (OPM에서 폐기·이관 2026-07-12)
 - 사용 흐름: DART 웹에서 PDF 다운로드 → opendataloader-pdf로 마크다운 변환(table_method="cluster", keep_line_breaks=True) → AGM 파서 재실행
 - 한국어 OCR 벤치마크 1위, KOSPI 200 198개 PDF 변환 완료
 - 한계: 일부 PDF에서 변환 품질 불안정 → Upstage OCR로 최종 fallback ([[opendataloader]] 참조)
@@ -540,23 +541,27 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 
 # 10. 3-tier Fallback 체계 ([[3-tier-fallback]] 참조)
 
-OPM v1 8개 AGM 파서의 fallback 패턴(v2에서는 PDF tier 기본 제외):
+> ⚠️ **2026-07-12: OPM은 XML 단독.** `_pdf`(get_document_pdf + opendataloader)·`_ocr`(Upstage) tier와
+> 관련 코드(`pdf_parser.py`, `get_document_pdf`, `agm_parse_fallback`)는 OPM에서 폐기하고
+> open-proxy-ai(`pipeline/pdf_parser.py` + `pipeline/pdf_download.py`)로 이관했다. 아래 표의 `_pdf`/`_ocr`
+> tier는 이제 **open-proxy-ai 전용**이다. 이 섹션 6·7(Upstage·opendataloader)도 동일.
 
-| Tier | Source | 속도 | 정확도 | 비용 |
-|---|---|---|---|---|
-| `_xml` | DART API + document.xml | 빠름 | 98%+ | 무료 |
-| `_pdf` | get_document_pdf + opendataloader | 4초+ | 98%+ | 무료 |
-| `_ocr` | Upstage Document Parse | 10초+ | 100% | 유료 |
+8개 AGM 파서의 fallback 패턴(OPM은 `_xml` tier만, PDF/OCR은 open-proxy-ai):
+
+| Tier | Source | 속도 | 정확도 | 비용 | 위치 |
+|---|---|---|---|---|---|
+| `_xml` | DART API + document.xml | 빠름 | 98%+ | 무료 | OPM + open-proxy-ai |
+| `_pdf` | get_document_pdf + opendataloader | 4초+ | 98%+ | 무료 | open-proxy-ai 전용 |
+| `_ocr` | Upstage Document Parse | 10초+ | 100% | 유료 | open-proxy-ai 전용 |
 
 흐름:
 1. `agm_*_xml` 호출 → CASE_RULE 기준 검증
 2. SUCCESS → 즉시 답변
 3. SOFT_FAIL → AI 자체 보정 (구분자/누락 추론)
-4. 보정 불가 → PDF fallback 제안 → 동의 시 `agm_*_pdf`
-5. PDF 부족 → OCR fallback 제안 → `agm_*_ocr` (UPSTAGE_API_KEY 필요)
+4. (OPM) 보정 불가 → 한계 명시하고 답변 / (open-proxy-ai) PDF·OCR 폴백 체이닝
 
-v2 운영(2026-04-19~):
-- PDF 다운로드 기본 경로 제외
+OPM 운영(2026-07-12~ XML 단독):
+- PDF 다운로드·OCR 경로 완전 제거 (open-proxy-ai로 이관)
 - DART_XML이 깨지면 viewer.do HTML(get_viewer_document) → KIND 화이트리스트 4종 → REQUIRES_REVIEW로 종결
 
 ---

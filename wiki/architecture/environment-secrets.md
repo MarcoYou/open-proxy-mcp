@@ -29,7 +29,7 @@ fly.toml `[env]`에는 `OPEN_PROXY_TOOLSET` 같은 **비밀 아닌 설정**만 �
 | `ECOS_API_KEY` | 한국은행 환율(매매기준율) — 기능통화 USD사(두산밥캣) KRW 환산 | 밸류에이션 필수 | ecos.bok.or.kr → 오픈API 인증키 |
 | `ANTHROPIC_API_KEY` | LLM fallback (파싱 실패 시) | 선택 | console.anthropic.com |
 | `OPENAI_API_KEY` | LLM fallback (대체) | 선택 | platform.openai.com |
-| `UPSTAGE_API_KEY` | OCR (3-tier fallback 최종단, 이미지 공고) | 선택 | upstage.ai |
+| `UPSTAGE_API_KEY` | OCR (이미지 공고) — **OPM에선 미사용**, open-proxy-ai(PDF/OCR 폴백)로 이관 260712 | OPM 불필요 | upstage.ai |
 | `OPEN_LAW_API_KEY` | 국가법령정보 API (법령 layer) | 선택 | open.law.go.kr |
 | `NAVER_SEARCH_API_CLIENT_ID` / `..._SECRET` | 네이버 검색(뉴스 체크) | 선택 | developers.naver.com |
 | `DATABASE_URL` | Supabase Postgres — 사용통계·KRX데이터·FX캐시·밸류에이션 배치 | 배치·통계 필수 | Supabase 콘솔 |

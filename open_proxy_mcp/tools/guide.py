@@ -37,7 +37,7 @@ _GUIDE_ORDER = """\
 | 순위 | 소스 | 특성 | 병렬 호출 |
 |------|------|------|----------|
 | 1 | **DART API** | 공식 API. 빠르고 안정적 | ✅ 가능 (분당 1,000회 한도) |
-| 2 | **DART 웹 크롤링** | PDF fallback 등 | ⚠️ 최소 2초 간격 |
+| 2 | **DART 웹 크롤링** | viewer HTML 폴백 등 | ⚠️ 최소 2초 간격 |
 | 3 | **KIND 크롤링** | 투표결과 등 DART에 없는 데이터 | ⚠️ 최소 2초 간격 |
 
 - 다수 기업 배치 분석 시: **DART API 기반 tool을 병렬 호출**하고, KIND는 투표결과가 필요할 때만 순차 호출.
@@ -93,32 +93,29 @@ corp_identifier → agm_search(ticker) → agm_pre_analysis(ticker)   [소집공
 | `agm_capital_reserve_xml(rcept_no)` | rcept_no | 자본준비금 감소 |
 | `agm_retirement_pay_xml(rcept_no)` | rcept_no | 퇴직금 규정 개정 |
 | `agm_corrections(rcept_no)` | rcept_no | 정정 전/후 비교 |
-| `agm_parse_fallback(rcept_no, parser, tier)` | rcept_no, 파서명, pdf/ocr | XML 실패 시 PDF/OCR |
 | `agm_result(ticker)` | ticker | 투표결과 + 추정참석률 (KIND) |
 
 ### Fallback 흐름
 ```
 agm_*_xml → AI 검증 (AGM_CASE_RULE 기준)
   SUCCESS  → 답변
-  SOFT_FAIL → AI 자체 보정 시도
+  SOFT_FAIL → AI 자체 보정 시도 (원문 노출)
     보정 성공 → 답변
-    보정 불가 → 유저에게 PDF fallback 제안
-      유저 동의 → agm_*_pdf (4s+)
-        여전히 부족 → 유저에게 OCR 제안
-          유저 동의 → agm_*_ocr (Upstage API)
+    보정 불가 → 한계 명시하고 답변 (XML 단독 경로 — 조작된 FOR 금지)
 ```
-_pdf: DART 웹 PDF 다운로드 (4s+). _ocr: Upstage API (UPSTAGE_API_KEY 필요, 10s+).
+※ PDF 다운로드·OCR 폴백은 2026-07-12 OPM에서 폐기하고 고급 프로덕트 open-proxy-ai로 이관.
+   OPM은 XML 단독 경로만 제공한다.
 
 ### 파싱 한계
 
 | 안건 유형 | 파서 | 한계 |
 |-----------|------|------|
-| 자기주식 | agm_treasury_share_xml | XML 제목 매칭 한계, PDF fallback 빈번 |
+| 자기주식 | agm_treasury_share_xml | XML 제목 매칭 한계 (원문 노출로 보정) |
 | 보수한도 | agm_compensation_xml | 이사/감사 별도 안건 가능, 단위 다양 |
 | 퇴직금 | agm_retirement_pay_xml | 재무제표 주석 "퇴직급여"와 혼동 |
 | 재무제표 | agm_financials_xml | 보고사항일 수 있음 (투표 없음) |
 | 정관변경 | agm_aoi_change_xml | 하위 안건 분할 빈번, 생략/삭제 표기 정상 |
-| 이사선임 | agm_personnel_xml | 경력 병합 시 PDF fallback. 감사위원 3% 제한 |
+| 이사선임 | agm_personnel_xml | 경력 병합 시 원문 노출로 보정. 감사위원 3% 제한 |
 
 ### 의결권 행사 판단 기준 (FOR / AGAINST / REVIEW)
 
