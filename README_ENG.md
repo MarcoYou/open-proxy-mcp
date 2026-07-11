@@ -28,10 +28,10 @@ Click any feature for a detailed page.
 - **[AGM agenda](docs/features/en/meeting-agenda.md)** — agenda items, director nominees, compensation limits, articles amendments, plus post-AGM results and approval rates.
 - **[Shareholder return](docs/features/en/shareholder-return.md)** — dividends, the treasury buyback-to-cancellation cycle, and value-up plans, comparing what was promised against what was actually executed.
 - **[Financial metrics](docs/features/en/financials.md)** — DART financial endpoints unified into ROE, stability, and cash-flow metrics (plus DuPont breakdown and audit-opinion trend). Quarterly results are provided on two bases — cumulative (YTD) and current-quarter (3-month) — with QoQ/YoY, and turnover days use a TTM basis; the basis in use is always stated.
-- **Valuation** — PER · PBR · dividend yield (firm-level deep dive) plus market-wide, sector, and per-stock history (weekly snapshots). Controlling-interest basis, automatic FX conversion for non-KRW functional-currency filers (Bank of Korea ECOS), and N/M handling for losses/capital impairment. `scope="explain"` answers "how was this number derived?" with the actual calculation, basis, and source.
-- **Corporate risk events** — tracks serious-accident, embezzlement/breach-of-trust, and production-halt filings. With no company specified, it scans the whole market for recent events.
+- **[Valuation](docs/features/en/valuation.md)** — PER · PBR · dividend yield (firm-level deep dive) plus market-wide, sector, and per-stock history (weekly snapshots). Controlling-interest basis, automatic FX conversion for non-KRW functional-currency filers (Bank of Korea ECOS), and N/M handling for losses/capital impairment. `scope="explain"` answers "how was this number derived?" with the actual calculation, basis, and source.
+- **[Corporate risk events](docs/features/en/risk-events.md)** — tracks serious-accident, embezzlement/breach-of-trust, and production-halt filings. With no company specified, it scans the whole market for recent events.
 
-Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, order/supply-contract tracking, equity stake deals and related-party transactions, and stewardship follow-up (value-up/dividend/buyback commitment vs. actual execution tracking) — round out the 19-tool set.
+Other capabilities — source tracing, corporate governance report, dilutive issuance, restructuring, order/supply-contract tracking, equity stake deals and related-party transactions, and stewardship follow-up (value-up/dividend/buyback commitment vs. actual execution tracking) — round out the 20-tool set.
 
 ---
 
