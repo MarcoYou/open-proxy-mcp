@@ -58,13 +58,13 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 | audit / fix / decision / debate / changelog / improvement / release / log | YES | `260429_2030_audit_parsing-200기업.md` |
 | tool / concept / disclosure / law | NO (정체성=이름) | `tools/shareholder_meeting.md` |
 
-상세 schema와 워크플로우는 [[WIKI_SCHEMA]] 참조.
+상세 schema와 워크플로우는 [[wiki_schema]] 참조.
 
 ## 자주 쓰는 진입점
 
 ### 처음 사용자
 - [[tools/README]] - 20 tool 카탈로그
-- [[WIKI_SCHEMA]] - wiki 구조 + 명명 규칙
+- [[wiki_schema]] - wiki 구조 + 명명 규칙
 
 ### OPM 정책 알고 싶음
 - [[open-proxy-guideline]] - Open Proxy Guideline v1.3 (12 카테고리 + 16 novel topics)

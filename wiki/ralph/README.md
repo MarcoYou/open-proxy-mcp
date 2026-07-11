@@ -8,7 +8,7 @@ updated: 2026-06-01
 
 OPM 작업 plan 시간순 인덱스. 각 plan은 `yymmdd_hhmm_ralph_{title}.md` 명명.
 
-ralph는 [트리 작은가지 (시점 작업)](../WIKI_SCHEMA.md#0-트리-구조-식물학-metaphor). 후속 lesson + decision과 양방향 link 필수 ([정책](../WIKI_SCHEMA.md#02-link-방향-정책)).
+ralph는 [트리 작은가지 (시점 작업)](../wiki_schema.md#0-트리-구조-식물학-metaphor). 후속 lesson + decision과 양방향 link 필수 ([정책](../wiki_schema.md#02-link-방향-정책)).
 
 ## 2026-05
 

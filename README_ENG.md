@@ -287,8 +287,8 @@ wiki/                      # LLM domain knowledge — botanical tree order
   ralph/                   # 🌾 Sub-branch — work plans (chronological)
   lessons/                 # 🌾 Sub-branch — retrospectives
   archive/                 # 🍂 Fallen — absorbed/superseded pages
-  index.md                 # Full index (entry point)
-  WIKI_SCHEMA.md           # Tree policy + categories + naming rules
+  wiki_index.md            # Full index (entry point)
+  wiki_schema.md           # Tree policy + categories + naming rules
   log.md                   # Operation log
 .github/workflows/
   wiki-lint.yml            # Auto lint --strict on wiki/ change (PR/push CI)

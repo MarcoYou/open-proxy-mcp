@@ -42,8 +42,8 @@ wiki/
   ralph/                   # 시간순 작업 plan과 실행 기록입니다.
   lessons/                 # 회고와 반복 실수 방지 메모입니다.
   archive/                 # 흡수되었거나 대체된 과거 자료입니다.
-  index.md                 # 전체 wiki 진입점입니다.
-  WIKI_SCHEMA.md           # wiki 카테고리와 명명 규칙입니다.
+  wiki_index.md            # 전체 wiki 진입점입니다.
+  wiki_schema.md           # wiki 카테고리와 명명 규칙입니다.
   log.md                   # 작업 로그입니다.
 ```
 

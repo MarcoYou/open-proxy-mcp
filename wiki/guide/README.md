@@ -60,10 +60,10 @@ OPM은 이 과정을 **AI 에이전트가 여러 분석 도구를 동적으로 �
 | `lessons/` | 작업 회고 — 무엇을 배웠고 왜 그렇게 결정했나 | AI + 개발자 |
 | `decisions/` | 정책 결정 (의결권 가이드라인 등) | 사람 + AI |
 | `archive/` | 흡수·대체된 과거 문서 보존 | 참고용 |
-| `index.md` | AI/개발자용 전체 카탈로그 (wikilink 색인) | AI |
+| `wiki_index.md` | AI/개발자용 전체 카탈로그 (wikilink 색인) | AI |
 
 > **요약**: 사람은 `guide/` → `tools/` → `rules/`·`decisions/` 순으로 보면 충분합니다.
-> `architecture/`·`lessons/`·`index.md`는 더 깊이 보거나 AI 에이전트가 참조하는 영역입니다.
+> `architecture/`·`lessons/`·`wiki_index.md`는 더 깊이 보거나 AI 에이전트가 참조하는 영역입니다.
 
 ## 빠른 시작 — 실제로 어떻게 쓰나
 

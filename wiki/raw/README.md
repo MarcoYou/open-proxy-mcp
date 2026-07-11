@@ -33,4 +33,4 @@ raw/policies/X.pdf  →  parsed JSON (open_proxy_mcp/data/asset_managers/policie
 
 1. raw/ 안 적절한 하위 폴더에 파일 그대로 배치 (rename 가능)
 2. ingest 작업으로 요약/분석 페이지 생성 (raw 외부에 작성)
-3. index.md에 라인 추가
+3. wiki_index.md에 라인 추가

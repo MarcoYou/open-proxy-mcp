@@ -1,12 +1,12 @@
 """wiki link 방향 정책 lint.
 
-WIKI_SCHEMA Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 검증:
+wiki_schema Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 검증:
 - [1] 뿌리 → 줄기 → 큰가지: 단방향 (위→아래만)
 - [2] 큰가지 ↔ 가지 ↔ 잎: 양방향 강제 / 잎 ↔ 잎·낙엽: 자유
 - [3] 폴더 README ← 직속 .md 전부 인덱스([[]] link) — 새 파일 추가하고 README 누락 시 실패 (archive 면제)
-- [4] index.md 카운트 검증 (260709 패널 검수) — 폴더 주석 헤더 `(N) - `folder/``·archive 하위
+- [4] wiki_index.md 카운트 검증 (260709 패널 검수) — 폴더 주석 헤더 `(N) - `folder/``·archive 하위
   헤더·총계 주장을 파일시스템 실측과 대조 + 같은 라벨 상충 카운트(Action (1) vs (2)) 검출.
-  index.md는 wiki-first 라우팅 진입점인데 어떤 자동 검증도 안 받아 카운트 8곳 오류·4곳
+  wiki_index.md는 wiki-first 라우팅 진입점인데 어떤 자동 검증도 안 받아 카운트 8곳 오류·4곳
   자기모순이 축적됐던 confident-wrong 사고 재발 방지.
 - [5] 경로 오링크 — `[[a/b/c]]`처럼 경로를 명시한 wikilink가 실제 위치와 다르면(파일이 archive로
   이동 등) 검출. resolver의 basename 폴백이 조용히 성공해 링크는 "동작"하지만 명시 경로가
@@ -161,7 +161,7 @@ def layer_of(rel: str) -> str:
         return "branch"
     if cat == "archive":
         return "fallen_leaf"
-    return "root_nav"  # index, log, WIKI_SCHEMA
+    return "root_nav"  # wiki_index, log, wiki_schema
 
 
 # 단방향 검사: 줄기/뿌리에서 위로 link 금지
@@ -255,8 +255,8 @@ def check_readme_drift(pages, outgoing) -> list[str]:
     return issues
 
 
-# [4] index.md 카운트 검증 패턴
-INDEX_MD = WIKI / "index.md"
+# [4] wiki_index.md 카운트 검증 패턴
+INDEX_MD = WIKI / "wiki_index.md"
 # `### Concepts (44) - `rules/concepts/`` 류 — 폴더 주석이 붙은 헤더는 직속 파일 수와 대조
 HEADER_FOLDER_COUNT = re.compile(r"^#{2,3} .*?\((\d+)\)[^\n]*?-\s*`([a-z_/]+)/`", re.MULTILINE)
 # `### archive/analysis/ (18)` 류 — 헤더 텍스트 자체가 폴더 경로
@@ -279,7 +279,7 @@ def _direct_md_count(folder: str, pages) -> int:
 
 
 def check_index_counts(pages) -> list[str]:
-    """index.md의 수량 주장(헤더 카운트·총계·카테고리 라벨)을 실측과 대조."""
+    """wiki_index.md의 수량 주장(헤더 카운트·총계·카테고리 라벨)을 실측과 대조."""
     if not INDEX_MD.exists():
         return []
     issues = []
@@ -555,7 +555,7 @@ def main():
         if len(drift_issues) > 20:
             print(f"  ... +{len(drift_issues) - 20} 건")
 
-        print(f"\n[4] index.md 카운트 불일치 (주장 vs 실측): {len(index_issues)} 건")
+        print(f"\n[4] wiki_index.md 카운트 불일치 (주장 vs 실측): {len(index_issues)} 건")
         for v in index_issues[:20]:
             print(f"  ✗ {v}")
         if len(index_issues) > 20:

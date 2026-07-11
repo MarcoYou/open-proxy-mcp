@@ -31,12 +31,12 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 | 설계·기술 결정 (왜 이렇게 만들었나) | `decisions/` (BeautifulSoup·XML/PDF·free-paid·LLM-fallback 등) |
 | 작업 이유·회고 | `lessons/` |
 | **작업·데이터 검증 방법** (전수·표본·측정 함정·프로토콜) | `lessons/README` ④ 검증 방법론 카테고리 (대표 `agenda-parser-validation-260621`: 측정 함정 5패턴 + 체크리스트) |
-| 전체 색인 / 트리·명명·link 정책 | `index.md` / `WIKI_SCHEMA.md` |
+| 전체 색인 / 트리·명명·link 정책 | `wiki_index.md` / `wiki_schema.md` |
 
-**wiki 작성 규칙** (상세 [[WIKI_SCHEMA]]):
+**wiki 작성 규칙** (상세 [[wiki_schema]]):
 - **명명**: 시점작업 `yymmdd_hhmm_{type}_{title}` · 정체성 `{name}` · lessons `{topic}-yymmdd`. 시점작업은 4축 양방향 link(ralph↔audit↔lesson↔decision).
 - **link & README**: raw→rules→큰가지 단방향 / 큰가지↔잔가지 양방향 · **폴더에 파일 추가/삭제 시 해당 README를 `[[]]` 인덱스로 갱신**. 변경 시 `python3 scripts/wiki_lint.py --strict` 필수 — link 방향 + 양방향 + **README drift([3])** + index 카운트([4]) + 경로 오링크([5]) + archive superseded([6]) + **상법 시행일 3자 정합([7])** 자동 검증(누락 시 실패). 시행일은 `wiki/rules/laws/law_provisions.json`(SSOT)만 고치고 `scripts/gen_law_timeline.py`로 md 표 재생성 — 엔진 `applies_after`는 layer별(A2=시행일/A1=공포·시행)로 검사됨.
-- **`raw/` 절대 수정 금지** (외부 원본). 신규 tool/공시/개념 = 코드 + wiki 페이지 + `index.md` 동반 갱신.
+- **`raw/` 절대 수정 금지** (외부 원본). 신규 tool/공시/개념 = 코드 + wiki 페이지 + `wiki_index.md` 동반 갱신.
 - DART 콜 수 바뀌면 `tools/tool_call_budget.md` 갱신 — **per-firm vs market-scan** 모드 구분 필수.
 
 ## 프로젝트 구조

@@ -10,7 +10,7 @@ OpenProxy MCP(OPM) 도메인 지식 위키. Karpathy LLM-wiki 아키텍처 기�
 LLM이 작성/유지하고, 사용자는 소싱과 질문에 집중.
 OPM repo 안에 `wiki/` 디렉토리로 존재 (구 `wiki/`).
 
-처음 방문하면 [[index]] -> [[tools/README]] 순서로 본다.
+처음 방문하면 [[wiki_index]] -> [[tools/README]] 순서로 본다.
 
 ## 0. 트리 구조 (식물학 metaphor)
 
@@ -84,8 +84,8 @@ wiki/
   decisions/      # OPM 정책 + 판단 + debate
   rules/          # 한국 자본시장 사실 (concepts/ + disclosures/ + laws/)
   archive/        # 흡수된 페이지 (역사 보존)
-  index.md        # 전체 인덱스 (시작점)
-  WIKI_SCHEMA.md  # 이 문서
+  wiki_index.md        # 전체 인덱스 (시작점)
+  wiki_schema.md  # 이 문서
   log.md          # 작업 로그
 ```
 
@@ -276,9 +276,9 @@ related:
 - 외부 link: 정상 markdown `[text](https://...)`
 - 같은 폴더 안 ref (markdown 호환): `[text](상대경로.md)` 도 사용 가능
 
-### Step 5: index.md 추가
+### Step 5: wiki_index.md 추가
 
-신규 페이지 1줄 요약과 함께 index.md 해당 섹션에 추가.
+신규 페이지 1줄 요약과 함께 wiki_index.md 해당 섹션에 추가.
 
 ### Step 6: log.md entry
 
@@ -344,7 +344,7 @@ Obsidian + 일반 markdown viewer 둘 다 호환.
 신규 source 추가 워크플로우:
 1. `raw/{policies|records|references}/`에 파일 그대로 배치 (rename 가능)
 2. ingest 작업으로 요약/분석 페이지 생성 (raw 외부에 작성)
-3. index.md + log.md update
+3. wiki_index.md + log.md update
 
 ## 7. archive/ 정책
 
@@ -363,7 +363,7 @@ archive 안 추가가 필요한 경우:
 
 ### 자동 학습 (/ship 연동)
 - 코드 변경 시 `/ship`이 관련 wiki 페이지 자동 update
-- 새 tool -> tools/{name}.md + index.md update
+- 새 tool -> tools/{name}.md + wiki_index.md update
 - 파서 개선 -> architecture/audits/ 신규 entry
 - 새 공시 연동 -> rules/disclosures/{name}.md 신규
 - 변경 없으면 wiki 안 건드림
@@ -371,7 +371,7 @@ archive 안 추가가 필요한 경우:
 ### 토큰 절약
 - CLAUDE.md는 최소한 (~70줄)
 - "상세는 wiki 참조"로 위임
-- AI는 `index.md` 먼저 읽고, 필요한 페이지만 선택적 로드
+- AI는 `wiki_index.md` 먼저 읽고, 필요한 페이지만 선택적 로드
 - 전체 wiki 한 번에 로드 X
 
 ### lint (주기적 점검)
@@ -388,7 +388,7 @@ archive 안 추가가 필요한 경우:
 
 | 하고 싶은 것 | 가야 할 곳 |
 |---|---|
-| OPM 처음 사용 | [[index]] -> [[tools/README]] |
+| OPM 처음 사용 | [[wiki_index]] -> [[tools/README]] |
 | tool 17개 보기 | `tools/` |
 | OPM 정책 알기 | [[open-proxy-guideline]] |
 | 한국 공시 용어 | `rules/concepts/`, `rules/disclosures/` |
