@@ -90,6 +90,41 @@ proxy_advise_before_meeting(
 | audit_history_check | 과거 회사 회계 risk overlap (옵션) |
 | **performance** | **사내이사 연임 후보 한정** — 재직 중 회사 운영 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend), 6 cell 점수, classification good/moderate/weak/bad, rationale 한국어. **점수 미반영 fact**: 영업이익률(본업 수익성 — ROE 왜곡 보완, `core_profitable` 본업 흑/적자) + 수주·해지(order_contracts signal_summary — 적자기업 미래매출 가시성). 적자기업이 ROE만으로 부당하게 깔리지 않게 해석 단서로 분리 (자세히는 [[260505_1700_decision_inside-director-performance-matrix]]) |
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as proxy_advise_before_meeting
+    participant SM as shareholder_meeting_notice (advise)
+    participant OW as ownership_structure
+    participant CG as corp_gov_report
+    participant FM as financial_metrics
+    participant DE as director_evaluation
+    participant LAW as 법령 layer + vote_style
+    U->>T: company (+회차 선별)
+    par 6 upstream 병렬 (asyncio.gather)
+        T->>SM: agenda+board+comp+aoi (XML 단독)
+        T->>OW: control_map
+        T->>CG: summary
+        T->>FM: FY-2 reference
+        T->>DE: 후보 평가
+    end
+    opt 사내이사 연임 detect
+        T->>T: +dividend/treasury/order_contracts chain (CSR·소각)
+    end
+    loop 각 안건
+        T->>LAW: 강행규정/위험규칙 우선 판단
+        alt law layer hit
+            LAW-->>T: AGAINST / REVIEW
+        else 일반 안건
+            T->>T: _decide_* (재무·후보·보수·배당·정관)
+        end
+    end
+    T->>T: layer 순서 일관 적용 + policy default
+    T-->>U: ToolEnvelope (안건별 FOR/AGAINST/REVIEW + 근거)
+```
+
 ## 6 upstream chain (병렬)
 
 1. shareholder_meeting (**advise** scope — agenda+board+comp+aoi, results 제외 / 회차 선별 1회. 260623: 4-scope summary·agenda·comp·aoi를 통합, results는 proxy_advise 미사용이라 fetch 회피)

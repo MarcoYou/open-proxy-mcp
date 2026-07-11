@@ -351,6 +351,32 @@ OCR tier 불필요 — 텍스트 파싱으로 됨). exctvSttus의 rcept_no로 �
 `parse_failed`·각주 복구율 하락·`attendance_partial/not_found` 비율·특정 scope 지연을 로그로 관측 →
 사용자 불평 전에 엣지케이스 발견. **완벽 파싱 대신 "정직한 self-flag + 로그 관측"** 전략의 계측 지점.
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as director_board
+    participant R as resolve_company
+    participant E as DART exctvSttus (임원현황)
+    participant A as DART 보수 3종 (한도·유형별·개인별)
+    participant EM as DART empSttus (직원)
+    participant X as DART 사업보고서 document.xml
+    U->>T: company, scope
+    T->>R: 회사 식별 → corp_code
+    par 병렬 (260709 레이턴시 4배 개선)
+        T->>E: 임원현황 (이사/감사 재직·경력·임기)
+        T->>A: 보수한도/유형별/개인별 5억+
+        T->>EM: 직원 부문·급여 (pay_gap 분모)
+    end
+    opt 각주 미해소 / attendance 필요
+        T->>X: 사업보고서 원문 (rm 각주·이사회 출석률 파싱)
+    end
+    T->>T: 전면 YoY + 소진율·인당보수·pay_gap·pay_agenda 계산
+    Note over T: 파싱품질 플래그 · 실패 시 raw_text fallback
+    T-->>U: ToolEnvelope (이사회/개별이사 프로필)
+```
+
 ## Data sources (회사당 ~5 DART 콜, per-firm)
 | 소스 | 무엇 |
 |---|---|

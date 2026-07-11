@@ -34,6 +34,37 @@ shareholder_commitment(company="미래에셋증권", lookback_years=3)
 | lookback_years | int | no | 조회 기간(년) | 3 |
 | format | str | no | "md" / "json" | "md" |
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as shareholder_commitment
+    participant V as value_up (commitments)
+    participant G as corp_gov_report (timeline)
+    participant D as dividend (summary+history)
+    participant TS as treasury_share (summary)
+    participant F as financial_metrics (summary)
+    participant S as DART stockTotqySttus
+    U->>T: company, lookback_years
+    par upstream 재사용 (신규 파싱 없음)
+        T->>V: 밸류업 계획 + treasury_cross_ref
+    and
+        T->>G: 15지표 O/X transitions
+    and
+        T->>D: 실제 배당 총액·성향·DPS
+    and
+        T->>TS: 결정↔실행 사이클 + 실제금액
+    end
+    loop 소각 사이클별 BPS 손익
+        T->>F: 매입연도 total_equity_krw
+        T->>S: 유통주식수
+        T->>T: 장부가손익 = (BPS − 매입가) × 주식수
+    end
+    T->>T: sanity 필터(비율 0.3~3.0) + CSR 종합
+    T-->>U: ToolEnvelope (commitments·execution·overall·flags)
+```
+
 ## 신규 계산 로직 — 자사주 소각 장부가(BPS) 손익
 기존 4개 tool 어디에도 없던 유일한 신규 로직(나머지는 전부 기존 tool 재사용):
 ```

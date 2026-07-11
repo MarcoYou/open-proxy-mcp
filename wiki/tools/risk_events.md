@@ -42,6 +42,33 @@ risk_events()                                                # 시장 전체 최
 | details_limit | int | no | 원문 파싱 대상 건수 (1-10) | 5 |
 | format | str | no | "md" / "json" | "md" |
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as risk_events
+    participant R as resolve_company
+    participant L as DART list.json (I001 + B001 키워드)
+    participant X as DART document (본문)
+    U->>T: company?, category?, include_details?
+    alt company 지정 (per-firm)
+        T->>R: 회사 식별 → corp_code
+        T->>L: 24개월 리스크 공시 검색 (활성 3종)
+    else company 공백 (market scan)
+        T->>L: 시장 전체 30일(최대 90일) 스캔
+    end
+    L-->>T: 이벤트 공시 list (본사 + 종속/자회사)
+    opt include_details=True
+        loop 상위 details_limit건
+            T->>X: 본문 파싱 (카테고리별 필드)
+            X-->>T: 사상자/금액/사유 등
+        end
+    end
+    T->>T: 카테고리 분류 + 사상자 supersede 집계 + 정정 dedup
+    T-->>U: ToolEnvelope (event_count · casualties · events[])
+```
+
 ## 카테고리 × 채널 매핑 (시장 90일 sweep 실측, 2026-06-11)
 
 | category | 상태 | 키워드 | 채널 | 90일 건수 | 단계(stage) |

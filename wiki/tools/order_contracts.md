@@ -36,6 +36,28 @@ related: [corporate_deals, financial_metrics, evidence]
 
 본문 라벨의 단위 표기(`(원)`/`(천원)`/`(백만원)`)를 읽어 원으로 환산한다. 값 자릿수를 가정하지 않음(시장 실측: 대부분 `(원)`).
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as order_contracts
+    participant R as resolve_company
+    participant L as DART list.json (I001 단일판매·공급계약)
+    participant X as DART document.xml (계약 본문)
+    U->>T: company
+    T->>R: 회사 식별 → corp_code
+    T->>L: I001 체결/해지 공시 검색
+    L-->>T: 계약 공시 rcept_no list (정정 포함)
+    loop 각 rcept_no
+        T->>X: 본문 파싱 (BeautifulSoup)
+        X-->>T: 계약금액·단위·상대방·관계·매출대비%
+    end
+    T->>T: 단위 환산 + (계약명+상대방) dedup + 정정전/후 diff
+    T->>T: 외부/계열 카운트 · 매출대비 최대/합계
+    T-->>U: ToolEnvelope (수주 요약 + 계약별 표)
+```
+
 ## 어떻게 쓰나
 
 > "에스티팜 수주 따낸 거 있어? 매출 대비 얼마나 커?"

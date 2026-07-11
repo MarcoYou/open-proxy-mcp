@@ -29,6 +29,30 @@ KIND 웹 스크래핑은 fragile (KIND 변경 시 깨짐). DART API 기반 `shar
 | - `approval_rate_voted` | 출석주식수 기준 찬성률 |
 | - `opposition_rate` | 반대율 |
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as shareholder_meeting_results
+    participant R as resolve_company
+    participant D as DART list.json (주총결과)
+    participant K as KIND kind_fetch_document
+    U->>T: company / rcept_no
+    T->>R: 회사 식별 → corp_code
+    T->>D: 주총결과 공시 탐색
+    D-->>T: rcept_no (80 포맷)
+    T->>T: 80→00 변환 (KIND acptno whitelist)
+    T->>K: KIND 본문 HTML 요청
+    K-->>T: 결과 표/텍스트/이미지 HTML
+    T->>T: 안건별 가결/부결 + 찬반율 파싱
+    alt 결과 미공시 (KIND 노출 지연)
+        T-->>U: status=pending_or_missing
+    else 공시됨
+        T-->>U: ToolEnvelope (items[] 안건별 결과)
+    end
+```
+
 ## source
 
 - DART rcept_no → KIND acptno 변환 (80→00 whitelist)

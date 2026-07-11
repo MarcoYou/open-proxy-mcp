@@ -36,6 +36,26 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 
 - `result_status` / `result_reference` — 사후 정보, `shareholder_meeting_results` tool 참조
 
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant T as shareholder_meeting_notice
+    participant R as resolve_company
+    participant L as DART list.json (E 소집공고)
+    participant X as DART document.xml (본문)
+    U->>T: company, scope(summary/board/comp/aoi/prov_financials)
+    T->>R: 회사 식별 → corp_code
+    T->>L: 소집공고 검색 (정정 포함)
+    L-->>T: rcept_no (최신 정정 우선)
+    T->>X: document.xml 본문 (XML 단독)
+    X-->>T: 안건/후보/재무 원문
+    T->>T: scope별 파서 (agenda tree · board · comp · aoi)
+    Note over T: XML 불완전 시 원문 노출로 AI 보정<br/>(PDF/OCR 폴백 없음 — 260712 open-proxy-ai 이관)
+    T-->>U: ToolEnvelope (scope별 데이터 + timings_ms)
+```
+
 ## source
 
 - DART OpenAPI `list.json` 검색 + 상세 (`fnlttSinglAcnt` 등 X — XML 직접 파싱)

@@ -86,7 +86,7 @@ created: 2026-05-01
 ```
 
 본문 섹션: 1. 한 줄 요약 · 2. 사용법(자연어 예시) · 3. 입력 인자 · 4. 출력 schema · 5. Data sources
-(호출 횟수) · 6. 파싱 전략(3-tier fallback·한계·regression audit) · 7~10. 관련 공시/개념/결정/audit
+(호출 횟수) · 6. 파싱 전략(XML 단독·한계·regression audit) · 7~10. 관련 공시/개념/결정/audit
 link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공시 본문·정책은 본 폴더에 중복하지 않고
 `rules/`·`decisions/`·`architecture/`로 link만.)
 
@@ -114,26 +114,26 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 
 ## 데이터 소스 매트릭스
 
-| tool | DART API | KIND | Naver | Upstage | 정적 JSON |
-|------|----------|------|-------|---------|----------|
-| company | ✅ corpCode/company/list | - | 🔧 보강 | - | - |
-| shareholder_meeting_notice | ✅ list/document | - | - | - | - |
-| shareholder_meeting_results | ✅ list/document | 🔧 fallback | - | - | - |
-| ownership_structure | ✅ 사업보고서/majorstock | ✅ changes scope | - | - | - |
-| dividend | ✅ alotMatter | - | - | - | - |
-| financial_metrics | ✅ fnlttSinglAcnt + Indx + AcntAll + audit | - | - | - | - |
-| treasury_share | ✅ DS005 5종 | - | - | - | - |
-| value_up | ✅ list/document | ✅ 0184 fallback | - | - | - |
-| corp_gov_report | ✅ list/원문 | - | - | - | - |
-| director_board | ✅ exctvSttus+drctrAdtAllMendngSttus 2종+개인별 · 사업보고서 원문(출석률·각주 해소) | - | - | - | - |
-| corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - | - |
-| dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - | - |
-| corporate_deals | ✅ list+키워드 | - | - | - | - |
-| risk_events | ✅ list(I001+B001)+키워드 | - | - | - | - |
-| proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - | - |
-| evidence | - | - | - | - | - (문자열 가공) |
-| proxy_advise_before_meeting | upstream data tools | upstream | - | - | 판단 규칙/records |
-| shareholder_commitment | ✅ value_up+corp_gov_report+dividend+treasury_share+financial_metrics+stockTotqySttus (전부 재사용) | - | - | - | - |
+| tool | DART API | KIND | Naver | 정적 JSON |
+|------|----------|------|-------|----------|
+| company | ✅ corpCode/company/list | - | 🔧 보강 | - |
+| shareholder_meeting_notice | ✅ list/document | - | - | - |
+| shareholder_meeting_results | ✅ list/document | 🔧 fallback | - | - |
+| ownership_structure | ✅ 사업보고서/majorstock | ✅ changes scope | - | - |
+| dividend | ✅ alotMatter | - | - | - |
+| financial_metrics | ✅ fnlttSinglAcnt + Indx + AcntAll + audit | - | - | - |
+| treasury_share | ✅ DS005 5종 | - | - | - |
+| value_up | ✅ list/document | ✅ 0184 fallback | - | - |
+| corp_gov_report | ✅ list/원문 | - | - | - |
+| director_board | ✅ exctvSttus+drctrAdtAllMendngSttus 2종+개인별 · 사업보고서 원문(출석률·각주 해소) | - | - | - |
+| corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - |
+| dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - |
+| corporate_deals | ✅ list+키워드 | - | - | - |
+| risk_events | ✅ list(I001+B001)+키워드 | - | - | - |
+| proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - |
+| evidence | - | - | - | - (문자열 가공) |
+| proxy_advise_before_meeting | upstream data tools | upstream | - | 판단 규칙/records |
+| shareholder_commitment | ✅ value_up+corp_gov_report+dividend+treasury_share+financial_metrics+stockTotqySttus (전부 재사용) | - | - | - |
 
 ✅ = 1차 source / 🔧 = 보조
 
