@@ -32,33 +32,23 @@ OPM tool 20개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 40KB 인덱스에서 59줄 changelog 분리, 라우팅 인덱스 순수화). 개별 작업 상세는 [[log]] 시간순 엔트리,
 tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
-## 카테고리 구조
+## 카테고리 인벤토리
 
-| 카테고리 | 목적 | 페이지 수 | 수정 가능 |
-|---|---|---|---|
-| **raw/** | 외부 source (운용사 정책 PDF/xlsx, 외부 reference) | 29 binary + 4 md | NO (절대 수정 금지) |
-| **tools/** | 20 tool 진입점 + data source map | 23 + README | YES (tool 변경 시) |
-| **architecture/** | OPM 시스템 설계 + audit + fix + data archive | 58 | YES |
-| **decisions/** | OPM 정책 + 판단 + debate | 29 + README | YES |
-| **rules/** | 한국 자본시장 사실 (concepts/disclosures/laws) | 88 + README 4 | YES (사실 update 시) |
-| **lessons/** | 작업 회고 (Did / Improved / Trade-off / Takeaway) | 46 + README | YES (배운 것 추가 시) |
-| **archive/** | 흡수된 페이지 (역사 보존) | 74 + README 2 | WARN (단순 보존) |
+| 카테고리 | 페이지 수 |
+|---|---|
+| **raw/** | 29 binary + 4 md |
+| **tools/** | 23 + README |
+| **architecture/** | 58 |
+| **decisions/** | 29 + README |
+| **rules/** | 88 + README 4 |
+| **lessons/** | 46 + README |
+| **archive/** | 74 + README 2 |
 
 총 359 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
-## 명명 규칙 (2026-05-01~)
-
-```
-시점 있는 문서:  yymmdd_hhmm_{type}_{title}.md
-정체성 문서:     {name}.md
-```
-
-| Type | Prefix | 예시 |
-|---|---|---|
-| audit / fix / decision / debate / changelog / improvement / release / log | YES | `260429_2030_audit_parsing-200기업.md` |
-| tool / concept / disclosure / law | NO (정체성=이름) | `tools/shareholder_meeting.md` |
-
-상세 schema와 워크플로우는 [[wiki_schema]] 참조.
+> **규칙은 여기 두지 않는다.** 각 카테고리의 목적·수정정책·layer 정의, 명명 규칙, frontmatter schema,
+> link 방향 정책은 전부 [[wiki_schema]]가 단일 출처(SSOT). 이 파일은 "무엇이 어디 있나"(인벤토리·라우팅)만
+> 담는다. 규칙 서술을 여기 복붙하면 `wiki_lint [8]`이 CI를 막는다(260712 패널 결정 — 규칙 이중장부 금지).
 
 ## 자주 쓰는 진입점
 

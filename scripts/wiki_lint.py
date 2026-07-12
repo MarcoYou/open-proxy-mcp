@@ -11,6 +11,9 @@ wiki_schema Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 �
 - [5] 경로 오링크 — `[[a/b/c]]`처럼 경로를 명시한 wikilink가 실제 위치와 다르면(파일이 archive로
   이동 등) 검출. resolver의 basename 폴백이 조용히 성공해 링크는 "동작"하지만 명시 경로가
   거짓이 되는 drift를 잡는다.
+- [8] 규칙 이중장부 방지 (260712 패널 결정) — 규칙 SSOT는 wiki_schema.md. wiki_index.md는
+  인벤토리/라우팅만. 명명 규칙·카테고리 정의·frontmatter schema 서술이 index에 재등장하면 실패
+  (lint 안 받는 두 번째 사본 = confident-wrong drift 원천 차단).
 
 사용:
     python3 scripts/wiki_lint.py           # warning만 출력
@@ -317,6 +320,29 @@ def check_index_counts(pages) -> list[str]:
     return issues
 
 
+# [8] 규칙 이중장부 방지 — 규칙 SSOT는 wiki_schema.md, wiki_index.md는 인벤토리/라우팅만.
+# 260712 패널 결정(Karpathy/Musk/Buffett/Stewardship): 규칙을 index에 복붙하면 lint 안 받는 두 번째
+# 사본이 생겨 confident-wrong drift(260709 카운트 사고와 동종). 규칙 서술이 index에 재등장하면 CI 차단.
+INDEX_RULE_LEAKS = [
+    (re.compile(r"^#{2,4}\s*명명\s*규칙", re.MULTILINE), "명명 규칙 섹션 (SSOT=wiki_schema §2)"),
+    (re.compile(r"yymmdd_hhmm_\{type\}"), "명명 패턴 리터럴 (SSOT=wiki_schema §2)"),
+    (re.compile(r"\|\s*수정\s*가능\s*\|"), "카테고리 정의 표의 '수정 가능' 컬럼 (SSOT=wiki_schema §1)"),
+    (re.compile(r"^#{2,4}\s*frontmatter\s+schema", re.MULTILINE | re.IGNORECASE), "frontmatter schema 표 (SSOT=wiki_schema §3)"),
+]
+
+
+def check_index_no_rules() -> list[str]:
+    """wiki_index.md에 규칙 서술이 재등장하면 실패 — 규칙은 wiki_schema로 옮기고 링크만 남긴다."""
+    if not INDEX_MD.exists():
+        return []
+    text = INDEX_MD.read_text(encoding="utf-8", errors="ignore")
+    issues = []
+    for rx, label in INDEX_RULE_LEAKS:
+        if rx.search(text):
+            issues.append(f"wiki_index.md에 규칙 서술 재등장: {label} — 규칙은 wiki_schema로 옮기고 링크만 남길 것")
+    return issues
+
+
 def check_path_links(pages) -> list[str]:
     """경로 명시 wikilink([[a/b/c]])의 명시 경로가 실제 파일 위치와 다르면 검출.
 
@@ -523,6 +549,7 @@ def main():
     path_issues = check_path_links(pages)
     archive_issues = check_archive_superseded(pages)
     law_date_issues = check_law_dates(pages)
+    index_rule_leaks = check_index_no_rules()
 
     if args.json:
         print(json.dumps({
@@ -534,6 +561,7 @@ def main():
             "path_link_issues": path_issues,
             "archive_superseded_issues": archive_issues,
             "law_date_issues": law_date_issues,
+            "index_rule_leaks": index_rule_leaks,
         }, ensure_ascii=False, indent=2))
     else:
         print(f"[wiki_lint] 총 페이지: {len(pages)}")
@@ -579,10 +607,14 @@ def main():
         if len(law_date_issues) > 20:
             print(f"  ... +{len(law_date_issues) - 20} 건")
 
-        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues):
+        print(f"\n[8] 규칙 이중장부 (wiki_index에 규칙 서술 재등장 — SSOT=wiki_schema): {len(index_rule_leaks)} 건")
+        for v in index_rule_leaks[:20]:
+            print(f"  ✗ {v}")
+
+        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks):
             print("\n✓ 모든 정책 충족")
 
-    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues):
+    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks):
         sys.exit(1)
 
 
