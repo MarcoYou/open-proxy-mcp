@@ -12,6 +12,7 @@ Phase 1: 6 scope (summary / yearly / quarterly / yoy / qoq / audit_opinion).
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import time
 from typing import Any
@@ -340,6 +341,38 @@ _OPM_LONG = {"OPM_LT", "OPM_BOND"}
 _FIN_BS_SIGNAL = ("예수부채", "보험계약부채", "책임준비금", "고객예탁금", "매도파생결합")
 
 
+def _ksic_is_financial(induty_code: str | None) -> bool:
+    """KSIC 업종코드로 금융 영업사 판별 — BS신호(예수부채 등)를 보완하는 2차 신호.
+
+    64(은행·여신·신탁)·65(보험)·66(증권·금융지원)은 금융업. 단 64992(지주회사)는 KSIC상
+    금융지주와 일반지주(SK·LG 등)가 섞여 못 가르므로 **제외** — 금융지주는 연결 BS 예수부채로
+    이미 잡히고, 일반지주는 정상 산출돼야 한다. 이 규칙은 수신 없어(예수부채 無) BS신호가 놓치는
+    카드·캐피탈·벤처캐피탈(삼성카드 64913·미래에셋벤처투자 649 등)을 보완한다 (260713 검증).
+    """
+    ind = str(induty_code or "").strip()
+    return ind[:2] in ("64", "65", "66") and ind != "64992"
+
+
+def _lookup_induty_code(corp_code: str, stock_code: str = "") -> str | None:
+    """mkt_fundamentals(Postgres)에서 induty 조회 — DART 콜 0. 미설정/장애/미수록이면 None."""
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return None
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=8) as c:
+            if stock_code:
+                row = c.execute("SELECT induty FROM mkt_fundamentals WHERE isu_cd=%s", (stock_code,)).fetchone()
+                if row and row[0]:
+                    return str(row[0])
+            row = c.execute("SELECT induty FROM mkt_fundamentals WHERE corp_code=%s", (corp_code,)).fetchone()
+            return str(row[0]) if row and row[0] else None
+    except Exception as exc:  # noqa: BLE001
+        import logging
+        logging.getLogger(__name__).warning("induty 조회 실패: %s", exc)
+        return None
+
+
 def _borrow_local(account_id: str) -> str | None:
     """account_id → casefold local-name (ifrs-full_/dart_ 접두 제거). 비표준코드면 None."""
     aid = account_id or ""
@@ -663,6 +696,7 @@ def _compute_metrics(
     period_months: int = 12,
     ttm_revenue: int | None = None,
     ttm_cogs: int | None = None,
+    induty_code: str | None = None,
 ) -> dict[str, Any]:
     """단일 사업연도 metrics 계산 (수익성/안정성/현금흐름/운전자본/회계risk/배당유보/NAV).
 
@@ -783,7 +817,8 @@ def _compute_metrics(
     # 총차입금 = _compute_borrowings sum-all(단기+장기+전환+기타차입). account_id 정확매칭.
     # 리스부채·신종자본증권은 별도(리스=IFRS16 별도, 신종자본=IFRS 자본).
     total_debt = borrow.get("total_debt")
-    is_financial_company = bool(borrow.get("is_financial_bs"))
+    # 금융사 = 연결 BS 신호(예수부채 등) OR KSIC 업종(수신 없는 카드·캐피탈·VC 보완)
+    is_financial_company = bool(borrow.get("is_financial_bs")) or _ksic_is_financial(induty_code)
     total_debt_confidence = borrow.get("confidence")
 
     # 순현금
@@ -1326,6 +1361,7 @@ async def _fetch_year_metrics(
     *,
     include_prev: bool = True,
     allow_quarterly_fallback: bool = True,
+    induty_code: str | None = None,
 ) -> tuple[dict[str, Any], list[str], int]:
     """단일 사업연도 metrics. 당기+전기 fnlttSinglAcnt를 모두 호출.
 
@@ -1426,6 +1462,7 @@ async def _fetch_year_metrics(
         period_months=pm_cum,
         ttm_revenue=ttm_revenue,
         ttm_cogs=ttm_cogs,
+        induty_code=induty_code,
     )
     metrics["year"] = year
     metrics["fs_div"] = actual_fs  # 요청값이 아니라 실제 사용된 기준 (CFS 미작성 시 OFS)
@@ -1472,6 +1509,7 @@ async def _fetch_year_metrics(
                 period_months=3,
                 ttm_revenue=ttm_revenue,  # 회전일수는 basis 무관 — 두 벌 모두 동일 TTM 사용
                 ttm_cogs=ttm_cogs,
+                induty_code=induty_code,
             )
             standalone["period_basis"] = "quarter_3m"
             metrics["standalone"] = standalone
@@ -1590,9 +1628,9 @@ async def _build_audit_opinion_data(
     )
 
 
-async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str) -> tuple[list[dict[str, Any]], list[str]]:
+async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, induty_code: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     year_list = list(range(end_year - years + 1, end_year + 1))
-    tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True) for y in year_list]
+    tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code) for y in year_list]
     results = await asyncio.gather(*tasks)
     out: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -1895,6 +1933,9 @@ async def build_financial_metrics_payload(
 
     selected = resolution.selected
     corp_code = selected["corp_code"]
+    # 금융사 판별 2차 신호(KSIC 업종) — mkt_fundamentals에서 DART 콜 없이 조회. 수신 없어(예수부채 無)
+    # BS신호가 놓치는 카드·캐피탈·VC(삼성카드·미래에셋벤처투자 등) 보완. DB 미설정/미수록이면 None(무해).
+    induty_code = await asyncio.to_thread(_lookup_induty_code, corp_code, selected.get("stock_code", ""))
     # 분기 인지형 디폴트: quarterly/qoq는 이미 제출된 최신 분기(예: 당해 1분기는 5월 공시)를
     # 봐야 하므로 디폴트 end_year를 당해 연도로. _build_quarterly는 end_year-2..end_year를
     # 받고 미공시 분기는 graceful skip이라 호출 수(12) 변동 없이 최신 분기가 포함된다.
@@ -1929,7 +1970,7 @@ async def build_financial_metrics_payload(
 
     stage_started_at = time.perf_counter()
     if scope == "summary":
-        metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True)
+        metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code)
         warnings.extend(ws)
         if metrics:
             data["summary"] = metrics
@@ -1948,7 +1989,7 @@ async def build_financial_metrics_payload(
             parsing_failures = 1
 
     elif scope == "yearly":
-        rows, ws = await _build_yearly(corp_code, target_year, years, fs_div)
+        rows, ws = await _build_yearly(corp_code, target_year, years, fs_div, induty_code)
         warnings.extend(ws)
         data["yearly"] = rows
         filing_count = len(rows)
@@ -1984,8 +2025,8 @@ async def build_financial_metrics_payload(
     elif scope == "yoy":
         # 당기 + 전기 metrics + 감사의견 cross-check — 3 독립 호출 병렬화 (5-8초 ↓)
         curr_t, prev_t, audit_t = await asyncio.gather(
-            _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True),
-            _fetch_year_metrics(corp_code, target_year - 1, fs_div, include_prev=True),
+            _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code),
+            _fetch_year_metrics(corp_code, target_year - 1, fs_div, include_prev=True, induty_code=induty_code),
             _build_audit_opinion_data(corp_code, target_year, years_back=2),
         )
         curr, ws_curr, _ev1 = curr_t

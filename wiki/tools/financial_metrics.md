@@ -223,6 +223,12 @@ sequenceDiagram
 - vote_brief / 매트릭스 dim 자동 채점 통합 — **Phase 2 별도**
 
 ## 변경 이력
+- 2026-07-13: **금융사 판별 2차 신호(KSIC 업종) 결합.** BS신호(예수부채 등)만으론 수신 없는(예수부채 無)
+  카드·캐피탈·벤처캐피탈(삼성카드 64913·미래에셋벤처투자/HB인베스트먼트 649)을 놓쳐 debt_dependency가
+  잘못 산출됨 → `_lookup_induty_code`(mkt_fundamentals, **DART 콜 0**)로 induty를 받아 `is_financial =
+  BS신호 OR (KSIC 64/65/66 AND ≠64992 지주)`. 64992(지주)는 금융/일반지주 구분 불가라 제외(BS신호에 위임 —
+  KB금융은 연결예수부채로 잡히고 SK·LG는 정상 산출). DB 미설정/미수록이면 None으로 BS-only 폴백(무해).
+  검증: 캐시 296사에서 예상 3사만 변경(over-trigger 0), 삼성전자·SK 대조군 불변. opm-tool-validation 스킬.
 - 2026-07-13: **총차입금 account_id 전체명 정확매칭 이관 (`_compute_borrowings`).** 차입금·사채만
   account_nm 키워드 substring(`단기차입금`·`장기차입금`/`사채`)으로 남아 유동성장기차입·전환사채·
   비유동차입 전량 누락 → KOSPI200 전수 비금융 62%가 총차입 과소, 중앙 -52%. account_id local-name
