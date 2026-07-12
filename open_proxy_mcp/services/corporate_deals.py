@@ -91,8 +91,14 @@ def _find_value_after(lines: list[str], label: str, max_distance: int = 3) -> st
 
 
 def _find_pct_near(text: str, label_pattern: str) -> str:
-    """라벨 근처 % 값 추출."""
-    m = re.search(label_pattern + r"[^\d]*(\d+(?:\.\d+)?)", text, re.MULTILINE)
+    r"""라벨 근처 % 값 추출.
+
+    라벨과 값 사이는 같은 줄 주석("(A/C)" 등, 개행·숫자 제외)까지만 허용하고 값은 라벨 줄 또는
+    바로 다음 줄에서만 취한다. 잡은 숫자 뒤에 콤마/숫자가 오면 거부 — 값이 공란("-")일 때
+    `[^\d]*`가 개행을 건너뛰어 아래 취득금액의 앞자리를 오취득하는 leak 방지
+    (260713 검증: CJ 자기자본대비 공란인데 취득금액 407,725,920,000의 "407"을 잡던 버그).
+    """
+    m = re.search(label_pattern + r"[^\n\d]*\n?[ \t]*(\d+(?:\.\d+)?)(?![\d,])", text)
     return m.group(1) if m else ""
 
 
@@ -220,12 +226,21 @@ async def _enrich_with_document_details(
     for row, (html, err) in zip(targets, results):
         if err:
             warnings.append(err)
+            row["_detail_status"] = "fetch_error"  # fetch 실패 — 파싱 실패와 구분(별도 카운트)
             continue
         doc_calls += 1
         if not html:
+            row["_detail_status"] = "empty_doc"
             continue
         if row.get("type") == "equity_deal":
-            row["details"] = _parse_equity_deal_document(html)
+            details = _parse_equity_deal_document(html)
+            row["details"] = details
+            # 진짜 파싱 실패 = 문서는 받았으나 앵커 필드(상대회사명·거래금액) 둘 다 공란.
+            # _parse_*는 값이 비어도 키 있는 dict를 반환하므로 "빈 dict" 검사로는 못 잡는다.
+            core_ok = bool(details.get("counterparty_name")) or bool(details.get("amount_won"))
+            row["_detail_status"] = "ok" if core_ok else "parse_empty"
+        else:
+            row["_detail_status"] = "ok"  # details 대상 아님(비-equity) — 실패로 세지 않음
     return rows, warnings, doc_calls
 
 
@@ -374,19 +389,24 @@ async def build_corporate_deals_payload(
         "dart_daily_limit_per_minute": 1000,
     }
 
-    # 사건 발견 vs 진짜 partial 분리.
-    # include_details=True면 원문 파싱 시도 — `details` 필드가 비어 있으면 partial 실패.
+    # 사건 발견 vs 진짜 partial 분리. _enrich가 각 대상 row에 _detail_status를 남긴다:
+    #   ok / parse_empty(문서는 받았으나 핵심필드 공란=진짜 파싱실패) / fetch_error / empty_doc.
+    # 과거엔 "details 빈 dict" 검사라 _parse_*가 항상 키-있는 dict를 반환해 진짜 파싱실패를 못 셌고,
+    # 대신 fetch 실패·비대상 row만 잡혀 지표가 오도됐다 (260713 검증).
     parsing_failures = 0
+    fetch_failures = 0
     if include_details:
         for row in all_rows[:details_limit]:
-            details = row.get("details") or {}
-            # details가 dict면 OK, 빈 dict이면 파싱 실패
-            if not details:
+            st = row.get("_detail_status")
+            if st == "parse_empty":
                 parsing_failures += 1
+            elif st in ("fetch_error", "empty_doc"):
+                fetch_failures += 1
     filing_meta = build_filing_meta(
         filing_count=len(all_rows),
         parsing_failures=parsing_failures,
     )
+    filing_meta["fetch_failures"] = fetch_failures
 
     data: dict[str, Any] = {
         "query": company_query,
@@ -426,7 +446,11 @@ async def build_corporate_deals_payload(
             for row in all_rows
         ]
     if scope == "equity_deal":
-        data["equity_deal_events"] = by_type["equity_deal"]
+        # 내부 마커(_detail_status) 제거 후 노출
+        data["equity_deal_events"] = [
+            {k: v for k, v in row.items() if not k.startswith("_")}
+            for row in by_type["equity_deal"]
+        ]
 
     evidence_refs: list[EvidenceRef] = []
     for row in all_rows[:5]:
@@ -447,8 +471,11 @@ async def build_corporate_deals_payload(
     status = status_from_filing_meta(filing_meta)
     if filing_meta["no_filing"]:
         warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 타법인주식 거래 공시 없음 (정상)")
-    elif filing_meta["parsing_failures"] > 0:
-        warnings.append(f"원문 파싱 실패 {filing_meta['parsing_failures']}건 — details 필드 비어 있음")
+    else:
+        if filing_meta["parsing_failures"] > 0:
+            warnings.append(f"원문 파싱 실패 {filing_meta['parsing_failures']}건 — 문서는 조회됐으나 상대회사명·거래금액 추출 실패")
+        if filing_meta.get("fetch_failures", 0) > 0:
+            warnings.append(f"원문 조회 실패 {filing_meta['fetch_failures']}건 — DART 문서 fetch 오류(파싱 이전 단계)")
 
     return ToolEnvelope(
         tool="corporate_deals",
