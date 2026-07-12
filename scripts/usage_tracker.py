@@ -121,7 +121,7 @@ def migrate_local_to_pg():
     print(f"로컬 {len(src)}건 → Postgres 이전 완료 (PG 총 {total}건)")
 
 # 본인(운영자) 키 — 외부 사용자 통계에서 제외. 평문 미보관, SHA-256 해시로만.
-#   6f02e8…  = opendart=33ac18b8…(Marco 본인 키)
+#   6f02e8… = 운영자 opendart 키의 SHA-256 (평문 프리픽스는 주석에도 남기지 않음)
 SELF_HASHES = {
     "6f02e8598b1bdcda660c970ca9c07c1ffba1d4d8ec193157991f7dc2a9173c30",
 }

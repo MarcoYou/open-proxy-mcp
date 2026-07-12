@@ -30,7 +30,7 @@ MACHINE = os.environ.get("FLY_MACHINE_ID", "local")
 _USE_PG = bool(DATABASE_URL)
 
 # 본인(운영자) 키 — 아예 기록하지 않음. 평문 미보관, SHA-256 해시로만 비교.
-#   6f02e8…  = opendart=33ac18b8…(Marco 본인 키)
+#   6f02e8… = 운영자 opendart 키의 SHA-256 (평문 프리픽스는 주석에도 남기지 않음)
 SELF_HASHES = {
     "6f02e8598b1bdcda660c970ca9c07c1ffba1d4d8ec193157991f7dc2a9173c30",
 }
