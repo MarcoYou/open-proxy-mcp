@@ -328,6 +328,38 @@ def fetch_error_rows():
         return []
 
 
+def fetch_error_kinds():
+    """{error_kind: count} — is_error=true 인 이벤트의 예외 분류 집계(외부 사용자만).
+    error_kind 컬럼 자체가 없는 구스키마/구서버면 {} (컬럼 생기기 전 구간은 집계 생략).
+    컬럼이 있으면: 태그(timeout/upstream/crash) + "untagged"(배포後 분류실패=커버리지갭) +
+    NULL→"unknown"(배포前, 소급 분류 불가)."""
+    counts = defaultdict(int)
+    if using_pg():
+        con = _pg_conn()
+        try:
+            try:
+                rows = con.execute(
+                    "SELECT key_hash, error_kind FROM tool_call_events WHERE is_error=true"
+                ).fetchall()
+            except Exception:  # error_kind 미생성 구서버
+                con.rollback()
+                return {}
+        finally:
+            con.close()
+    else:
+        try:
+            rows = db().execute(
+                "SELECT key_hash, error_kind FROM events WHERE is_error=1"
+            ).fetchall()
+        except Exception:
+            return {}
+    for h, kind in rows:
+        if h in SELF_HASHES:
+            continue
+        counts[kind or "unknown"] += 1
+    return dict(counts)
+
+
 def daily_errors(err_rows):
     """{day: (errors, err_known)} — err_rows=(ts, h, is_error) 외부 사용자만. err_known=is_error 기록된 건수."""
     by_day = defaultdict(lambda: [0, 0])  # [errors, known]
@@ -468,6 +500,18 @@ def stats(all_rows):
             break
     print(f"[집중도] 상위 {top_n_for_90}명({top_n_for_90 / len(users) * 100:.1f}%)이 "
           f"전체 요청의 90%를 차지")
+
+    # 오류종류: is_error=true 를 예외 분류로 분해 (배포 이후 이벤트만 태그됨 — 이전은 unknown)
+    ekinds = fetch_error_kinds()
+    if ekinds:
+        _KIND_LABEL = {"crash": "코드버그", "timeout": "시간초과",
+                       "upstream": "DART/KIND장애",
+                       "untagged": "분류실패(커버리지갭)", "unknown": "미분류(배포前)"}
+        total_err = sum(ekinds.values())
+        parts = ", ".join(
+            f"{_KIND_LABEL.get(k, k)} {c}({c/total_err*100:.0f}%)"
+            for k, c in sorted(ekinds.items(), key=lambda kv: -kv[1]))
+        print(f"[오류종류] 총 {total_err}건 — {parts}")
 
     print("\n[사용자 Top 15]  요청  활성일  기간(일)  세션  총사용(분)   최초 ~ 최종")
     for h, v in list(users.items())[:15]:

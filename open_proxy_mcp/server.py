@@ -92,6 +92,8 @@ def main():
 
         _ERR_PATTERNS = (b'"isError":true', b'"isError": true',
                          b'"error":{"code"', b'"error": {"code"')
+        import re as _re
+        _EKIND_RE = _re.compile(rb"\[ekind=(\w+)\]")  # tools_v2 래퍼가 붙인 error_kind 태그
 
         class ApiKeyMiddleware:
             """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""
@@ -148,7 +150,8 @@ def main():
                     # tools/call은 응답 본문(SSE/JSON)에서 isError를 스캔한 뒤 본문 종료 시 기록.
                     # (툴 내부 실패는 HTTP 200에 실려 오므로 status만으론 못 잡음)
                     # 그 외(핸드셰이크 등)는 기존대로 응답 시작 시 기록.
-                    rec = {"status": 0, "latency": None, "err": False, "tail": b"", "done": False}
+                    rec = {"status": 0, "latency": None, "err": False, "tail": b"",
+                           "done": False, "ekind": None}
 
                     async def send_wrapper(message):
                         if message["type"] == "http.response.start":
@@ -158,13 +161,23 @@ def main():
                                 usage.record(opendart, rec["status"], tool, rec["latency"])
                         elif message["type"] == "http.response.body" and is_call and not rec["done"]:
                             chunk = message.get("body", b"") or b""
-                            if chunk and not rec["err"]:
+                            if chunk and (not rec["err"] or rec["ekind"] is None):
                                 hay = rec["tail"] + chunk
-                                rec["err"] = any(p in hay for p in _ERR_PATTERNS)
-                                rec["tail"] = hay[-24:]
+                                if not rec["err"]:
+                                    rec["err"] = any(p in hay for p in _ERR_PATTERNS)
+                                if rec["ekind"] is None:
+                                    m = _EKIND_RE.search(hay)
+                                    if m:
+                                        rec["ekind"] = m.group(1).decode()
+                                rec["tail"] = hay[-64:]  # 태그(~16B)가 청크 경계에 안 잘리게
                             if not message.get("more_body", False):
                                 rec["done"] = True
-                                usage.record(opendart, rec["status"], tool, rec["latency"], is_error=rec["err"])
+                                # 오류일 때만 error_kind 기록. 태그 없는 오류(인자검증·프로토콜·비래핑
+                                # 경로)는 "untagged" sentinel → 배포前 NULL과 배포後 분류실패를 구분.
+                                # 성공(not err)은 본문에 우연히 [ekind=]가 있어도 None으로 기록.
+                                ekind = (rec["ekind"] or "untagged") if rec["err"] else None
+                                usage.record(opendart, rec["status"], tool, rec["latency"],
+                                             is_error=rec["err"], error_kind=ekind)
                         await send(message)
                     await self.app(scope, replay, send_wrapper)
                 else:
