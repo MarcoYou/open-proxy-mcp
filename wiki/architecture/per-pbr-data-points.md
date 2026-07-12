@@ -124,5 +124,4 @@ EPS(TTM) = FY0 EPS + Q누적 EPS(thstrm_add_amount) − 전년동기누적 EPS(f
 
 ## 관련
 - [[valuation-methodology]] — 이 인벤토리를 소비하는 설계 결정(EPS 통일·우선주 처리)
-- [[data-storage-registry]] — Supabase 테이블 상세
 - 원본 실측 JSON: scratchpad `fnltt/`·`krx_*.json` (세션 한정)

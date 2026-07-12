@@ -52,7 +52,7 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계
 - **260706 테이블 rename + 병합**: `mkt_fund_hist`→`mkt_finstat_y` · `mkt_fund_q`→`mkt_finstat_q` ·
   `mkt_valuation`→`firm_valuation_snapshot`. `mkt_val_history`+`mkt_sector_val`(구 섹터 전용 테이블)은
   **단일 `mkt_val_history`로 병합** — `sector` 컬럼에 센티넬 `'_ALL'`(시장전체) vs 실제 섹터코드로 구분
-  (PK: snap_dd·mkt·sector). 상세: [[data-storage-registry]] "✅ 스키마 변경 완료".
+  (PK: snap_dd·mkt·sector). 스키마 상세는 private 레포(data-storage-registry) 참조.
 - 스냅샷은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
   매일 KST 10:17 — 매일 수집(KRX 금요일 지연 게시 커버)→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
 - **market/sector 히스토리는 2020-01~현재, FY0+TTM+MRQ 전부**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
@@ -212,7 +212,6 @@ sequenceDiagram
 
 ## 관련
 - [[valuation-methodology]] — 설계·스케일가드·FX·검증 전체 근거(decisions/)
-- [[data-storage-registry]] — market/sector/firm_history가 읽는 Supabase 테이블 전체 지도(rename·병합 이력 포함)
 - [[financial_metrics]] — 재무 펀더멘탈(이 tool이 요약을 재사용). valuation=시장배수, financial_metrics=펀더멘탈
 - [[배당수익률]] — DPS ÷ 주가
 - [[environment-secrets]] — ECOS_API_KEY·KRX_OPEN_API_KEY 등 필요 키
