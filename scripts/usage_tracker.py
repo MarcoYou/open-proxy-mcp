@@ -410,6 +410,18 @@ def stats(all_rows):
     print(f"\n[요약] 외부 사용자 {len(users)}명 · 재방문(2일+) {returning}명 "
           f"· 평균 {avg_req:.1f}요청/인 · 평균 사용 {avg_min:.1f}분/인")
 
+    # 집중도: users는 requests 내림차순 정렬됨(per_user) — 누적 90% 도달까지 필요한 사용자 수
+    total_req = sum(v["requests"] for v in users.values())
+    cum = 0
+    top_n_for_90 = 0
+    for v in users.values():
+        cum += v["requests"]
+        top_n_for_90 += 1
+        if cum >= total_req * 0.9:
+            break
+    print(f"[집중도] 상위 {top_n_for_90}명({top_n_for_90 / len(users) * 100:.1f}%)이 "
+          f"전체 요청의 90%를 차지")
+
     print("\n[사용자 Top 15]  요청  활성일  기간(일)  세션  총사용(분)   최초 ~ 최종")
     for h, v in list(users.items())[:15]:
         print(f"  {h[:10]}  {v['requests']:>5} {v['active_days']:>6} {v['span_days']:>8} "
@@ -445,15 +457,16 @@ def export(all_rows, outdir: str):
         for h, v in users.items(): w.writerow([h] + [v[c] for c in cols])
     ranked, avg_lat = tool_stats(fetch_tool_latency())
     with open(d / "tools.csv", "w", newline="") as f:
-        w = csv.writer(f); w.writerow(["tool", "requests", "unique_users"])
-        for t, n, u in ranked: w.writerow([t, n, u])
+        w = csv.writer(f); w.writerow(["tool", "requests", "unique_users", "errors", "err_known"])
+        for t, n, u, e, k in ranked: w.writerow([t, n, u, e, k])
     summary = {
         "unique_users_external": len({h for _, h in rows}),
         "total_requests_external": len(rows),
         "returning_users_2day": sum(1 for v in users.values() if v["active_days"] >= 2),
         "avg_minutes_per_user": round(sum(v["total_minutes"] for v in users.values()) / max(len(users), 1), 1),
         "avg_latency_ms": avg_lat,
-        "top_tools": [{"tool": t, "requests": n, "users": u} for t, n, u in ranked[:20]],
+        "top_tools": [{"tool": t, "requests": n, "users": u, "errors": e, "err_known": k}
+                      for t, n, u, e, k in ranked[:20]],
         "daily": daily,
         "weekly": weekly,
     }
