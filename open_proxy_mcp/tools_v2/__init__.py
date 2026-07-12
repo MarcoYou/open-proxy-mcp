@@ -9,6 +9,7 @@ import httpx
 from mcp.server.fastmcp.exceptions import ToolError
 
 from open_proxy_mcp.dart.client import DartClientError
+from open_proxy_mcp.services.dart_safety import DART_EXTERNAL_ERRORS, degrade_response
 
 
 def classify_error(exc: BaseException) -> str:
@@ -26,17 +27,23 @@ def classify_error(exc: BaseException) -> str:
 
 
 def _wrap_tool_errors(fn):
-    """tool 코루틴을 감싸 예외를 분류해 `[ekind=xxx]` 태그를 메시지 앞에 실어 re-raise.
-    FastMCP가 이 ToolError를 그대로 isError 본문에 실어 보내고(태그 보존), ASGI 미들웨어가
-    그 태그만 뽑아 기록한다(에러 메시지 원문은 저장하지 않음 — 개인정보 안전).
-    contextvar 역전파 대신 본문 태그를 쓰는 이유: MCP streamable 전송이 요청/응답을 별도
-    태스크로 쪼개 contextvar가 미들웨어까지 안전하게 전파되지 않음."""
+    """모든 tool 코루틴을 감싸는 중앙 안전망(15개 tool 공통):
+      ① DART 외부·부하 예외(DART_EXTERNAL_ERRORS) → 크래시 대신 graceful 응답(is_error=false).
+         전수조사 결과 15개 tool이 같은 빈틈을 공유해, tool마다가 아니라 이 한 곳에서 처리.
+         resolve_company_query 콜드경로·공용 search 헬퍼 등 미처 못 가드한 경로까지 전부 커버.
+      ② 그 외 예외(진짜 코드버그) → `[ekind=xxx]` 태그를 붙여 re-raise → FastMCP isError=true.
+         (태그를 본문에 싣는 이유: MCP streamable 전송이 요청/응답을 별도 태스크로 쪼개
+         contextvar 역전파가 불안정 → 미들웨어가 본문에서 태그만 뽑아 기록, 원문 미저장.)
+    """
 
     @functools.wraps(fn)
     async def inner(*args, **kwargs):
         try:
             return await fn(*args, **kwargs)
-        except Exception as exc:  # noqa: BLE001 — 분류 후 그대로 re-raise
+        except DART_EXTERNAL_ERRORS as exc:  # 외부·부하 → graceful degrade
+            return degrade_response(getattr(fn, "__name__", "tool"),
+                                    kwargs.get("format", "md"), exc)
+        except Exception as exc:  # noqa: BLE001 — 코드버그는 분류 후 그대로 re-raise
             raise ToolError(f"[ekind={classify_error(exc)}] {exc}") from exc
 
     return inner
