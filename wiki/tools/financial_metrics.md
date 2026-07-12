@@ -68,6 +68,15 @@ scope:
     "asset_turnover_ratio": 0.62, "equity_multiplier": 1.27, "roe_dupont_pct": 13.07,
     "debt_ratio_pct": 27.93, "current_ratio_pct": 243.30,
     "interest_coverage_ratio": 2.52, "net_cash_krw": 40518545000000,
+    "total_debt_krw": 25240000000000, "total_debt_confidence": "MED",
+    "short_term_debt_krw": 18750000000000, "long_term_debt_krw": 6490000000000,
+    "convertible_debt_krw": null, "lease_liabilities_krw": null,
+    "total_debt_incl_lease_krw": 25240000000000, "hybrid_capital_krw": null,
+    "debt_dependency_pct": 4.45, "debt_dependency_status": "computed",
+    "is_financial_company": false,
+    "borrowing_detail": {"by_canonical_id": {"OPM_ST": 17570000000000, "OPM_LT": 6480000000000},
+      "convertible_included": false, "conflicts": [], "reviews": [],
+      "data_quality_flags": [], "no_borrowing_rows": false},
     "cfo_krw": 72982621000000, "capex_krw": 51406355000000,
     "fcf_krw": 21576266000000, "fcf_margin_pct": 7.17,
     "cfo_to_op_ratio": 2.23, "cfo_to_net_income_ratio": 1.46,
@@ -161,6 +170,17 @@ sequenceDiagram
 
 ## 파싱 전략
 - **account_nm 매칭**: 표준 키워드 패턴 9 BS + 5 IS + 13 detail (CF/Detail). 공백 무관 + 부분 일치.
+- **총차입금 = account_id 전체명 정확매칭**(`_compute_borrowings`, 260713): 차입금·사채는 account_nm
+  키워드가 아니라 account_id local-name(casefold) 정확매칭 사전(`_BORROW_ID_MAP`)으로 잡는다. 비표준
+  코드(`-표준계정코드 미사용-`)만 account_nm 전체명 사전(`_BORROW_NM_MAP`) 폴백. sum-all(first-match
+  break 없음) → 유동성장기차입·전환사채·비유동차입 누락 제거. **자체 canonical id**: OPM_ST(단기)·
+  OPM_LT(장기)·OPM_LT_CURR(유동성장기)·OPM_BOND/OPM_BOND_CURR(사채)·OPM_CONV(전환·BW·EB)·
+  OPM_BORROW(일반)·OPM_COMBINED. Loans*Net·LoansAtAmortisedCost(대출채권 **자산**)·매입채무는 명시배제,
+  id↔nm 모순=CONFLICT·미등록=REVIEW로 표면화(합산 제외). 리스부채(IFRS16)·신종자본증권(자본)은 별도
+  필드. 금융사(연결 BS 예수부채·보험계약부채·고객예탁금 정확매칭 — 예수금 제외)는 debt_dependency=None
+  (`status="n/a_financial"`); 일반지주(SK·LG 등, 예수부채 없음)는 정상 산출. KOSDAQ 소형주 '채무'·'유동화'
+  표기변형(유동성장기차입채무·유동화채무)은 nm 정확매칭+토큰 안전망으로 흡수(298사 2룹 검증). 근거:
+  [[financial-metrics-borrowings-260713]].
 - **금액 정규화** (`normalize_amount`):
   - 콤마 strip ("227,062,266,000,000" → 227062266000000)
   - 괄호 음수 ("(500)" → -500, T19 fix 패턴)
@@ -203,6 +223,14 @@ sequenceDiagram
 - vote_brief / 매트릭스 dim 자동 채점 통합 — **Phase 2 별도**
 
 ## 변경 이력
+- 2026-07-13: **총차입금 account_id 전체명 정확매칭 이관 (`_compute_borrowings`).** 차입금·사채만
+  account_nm 키워드 substring(`단기차입금`·`장기차입금`/`사채`)으로 남아 유동성장기차입·전환사채·
+  비유동차입 전량 누락 → KOSPI200 전수 비금융 62%가 총차입 과소, 중앙 -52%. account_id local-name
+  casefold 정확매칭 사전 3종(ID_BORROW/ID_NOTBORROW/NM_BORROW) + sum-all로 이관. CONFLICT(id↔nm 모순)·
+  REVIEW(미등록) 합산제외 표면화, 리스·신종자본증권 별도 필드, 전환사채 포함+희석경고, 금융사(KSIC+연결
+  BS 예수부채 2-신호, 예수금 제외)는 debt_dependency=n/a. before/after 155사 중 101사 복구·과대교정 0사.
+  KICPA·AICPA·DART·스튜어드십·CFO 5인 패널 검토(측정도구 예수금·소계 오탐 발견 포함). 근거:
+  [[financial-metrics-borrowings-260713]]. 영향필드: total_debt_krw·debt_dependency_pct·net_cash_krw·ROIC.
 - 2026-06-12: **quarterly/qoq standalone 차분 + QoQ·YoY 기본 동봉.** Q4 행이 사업보고서 연간 누적치로 채워져 QoQ 비교·`revenue_decline_qoq` alert가 왜곡되던 버그 수정 (실사용 발견 — SK하이닉스 26Q1 질의에서 호스트 모델이 수동 보정에 장시간 소모). DART 필드 실측: Q1~Q3 `thstrm_amount`=3개월 standalone, `thstrm_add_amount`=누적, 연간(11011)=누적 → **Q4 = 연간 − Q3 누적(add) 차분** (dividend 누적차분 패턴 재사용, 결측 시 Q1~3 합 fallback + `annual_cumulative` flag·warning). 전 행에 `qoq_pct`/`yoy_pct`(매출·영업이익·순이익) 기본 동봉 — 전기 적자·결측 시 None. BS 항목은 시점값이라 차분 제외. 검증: SK하이닉스(25Q4 32.8조, 26Q1 QoQ +60.2%/YoY +198.1%, false alert 해소)·삼성전자·LG디스플레이(적자 분기 None 처리), **3사 전 연도 '4분기 합 = 연간' 불변식 통과**.
 - 2026-06-12: EBITDA 표시 정책 — 산출 불가(76%) 시 "산출 불가" 안내 대신 **줄 자체 생략** (결측 광고가 hedge처럼 읽히는 문제). CapEx/감가상각비 줄 동일. JSON 필드(`ebitda_krw` nullable)는 유지 — 산출 가능 24%에선 그대로 제공.
 - 2026-06-12: **시장 412사 × FY24·25 다차원 전수 audit** (KOSPI 시총 300 + KOSDAQ 100 + 엣지 12, 회사당 10콜·총 ~4,200콜, raw: [[260612_fm_market_audit_412|audits/data/260612_fm_market_audit_412.json]]).

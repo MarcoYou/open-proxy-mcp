@@ -124,10 +124,10 @@ _IS_DETAIL_PATTERNS = {
     "inventory": ("재고자산",),
     "accounts_payable": ("매입채무", "매입채무 및 기타채무"),
     "cash_and_equivalents": ("현금및현금성자산", "현금 및 현금성자산"),
-    # 일부 회사(SK하이닉스 등)는 유동/비유동 구분 없이 계정명이 그냥 "차입금" 두 행 —
-    # 별도 generic 누적(borrowings_generic)으로 흡수 (map builder 참조).
-    "short_term_debt": ("단기차입금",),
-    "long_term_debt": ("장기차입금", "사채"),
+    # 총차입금(short_term_debt/long_term_debt/total_debt)은 더 이상 account_nm 키워드로 잡지
+    # 않는다 — account_id(IFRS local-name) 전체명 정확매칭 사전 `_compute_borrowings`로 이관
+    # (260713 KOSPI200 전수검증: 키워드 substring은 유동성장기차입금·전환사채·비유동차입을
+    # 전량 누락해 총차입 중앙 -50% 과소계상. 회계·CFO·스튜어드십 5인 패널 검토 반영).
 }
 
 # 귀속 순이익은 account_nm이 총포괄손익 귀속과 동일("지배기업 소유주지분"/"비지배지분")이라
@@ -265,6 +265,223 @@ def _build_account_map(
     return out
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 총차입금 분류 — account_id/account_nm 전체명 정확매칭 (키워드 substring 금지)
+# 260713 KOSPI200 전수검증 + KICPA·AICPA·DART·스튜어드십·CFO 5인 패널 반영.
+# 원칙: ① substring 금지 → 전체명 사전 정확매칭 ② 미등록=REVIEW 표면화(합산 제외)
+#       ③ id↔nm 모순=CONFLICT(제외+플래그) ④ first-match break 금지 → sum-all.
+# 사전 열거 근거·측정: wiki/lessons (financial-metrics-borrowings-260713).
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _cf(d: dict[str, str]) -> dict[str, str]:
+    return {k.casefold(): v for k, v in d.items()}
+
+# ① account_id local-name(접두 ifrs-full_/dart_ 제거, casefold) → 자체 canonical id [HIGH]
+_BORROW_ID_MAP = _cf({
+    "ShorttermBorrowings": "OPM_ST", "ShortTermBorrowings": "OPM_ST",
+    "CurrentBorrowingsAndCurrentPortionOfNoncurrentBorrowings": "OPM_ST",
+    "OtherCurrentBorrowingsAndCurrentPortionOfOtherNoncurrentBorrowings": "OPM_ST",
+    "CurrentLoansReceivedAndCurrentPortionOfNoncurrentLoansReceived": "OPM_ST",
+    "CurrentPortionOfLongtermBorrowings": "OPM_LT_CURR",
+    "CurrentPortionOfLongTermBorrowings": "OPM_LT_CURR",
+    "LongtermBorrowings": "OPM_LT", "LongTermBorrowings": "OPM_LT",
+    "LongTermBorrowingsGross": "OPM_LT",
+    "NoncurrentPortionOfOtherNoncurrentBorrowings": "OPM_LT",
+    "NoncurrentPortionOfNoncurrentLoansReceived": "OPM_LT",
+    "NoncurrentPortionOfNoncurrentSecuredBankLoansReceived": "OPM_LT",
+    "OtherBorrowings": "OPM_BORROW", "Borrowings": "OPM_BORROW", "LoansReceived": "OPM_BORROW",
+    "BondsIssued": "OPM_BOND", "NoncurrentPortionOfNoncurrentBondsIssued": "OPM_BOND",
+    "BondsIssuedNominalValue": "OPM_BOND",
+    "CurrentPortionOfBonds": "OPM_BOND_CURR",
+    "CurrentBondsIssuedAndCurrentPortionOfNoncurrentBondsIssued": "OPM_BOND_CURR",
+    "ConvertibleBonds": "OPM_CONV", "ConvertibleBondsNet": "OPM_CONV",
+    "CurrentPortionOfConvertibleBonds": "OPM_CONV",
+    "BondWithWarrant": "OPM_CONV", "BondWithWarrantNet": "OPM_CONV",
+    "CurrentPortionOfBondWithWarrant": "OPM_CONV", "CurrentPortionOfExchangeableBond": "OPM_CONV",
+})
+# Loan/Bond 문자열을 포함하나 차입 아님 → 명시 배제(자산/자본/매입채무). CONFLICT 판정에 사용.
+_BORROW_ID_NOTBORROW = _cf({
+    "ShortTermLoansNet": "asset", "LongTermLoansNet": "asset", "ShortTermLoans": "asset",
+    "LongTermLoansGross": "asset", "LoansAtAmortisedCost": "asset",
+    "CurrentLoansAndReceivables": "asset", "NoncurrentLoansAndReceivables": "asset",
+    "LongTermTradeAndOtherNonCurrentPayables": "payable",
+})
+# ② account_nm 전체명(공백제거) → canonical id [MED] — 비표준 account_id일 때만
+_BORROW_NM_MAP = {
+    "단기차입금": "OPM_ST", "유동차입금": "OPM_ST", "단기차입금및유동성장기부채": "OPM_ST",
+    "기업어음": "OPM_ST", "전자단기사채": "OPM_ST", "단기사채": "OPM_ST",  # CP/전단채(패널 E)
+    "유동성장기차입금": "OPM_LT_CURR", "비유동차입금의유동성대체부분": "OPM_LT_CURR",
+    "장기차입금": "OPM_LT", "비유동차입금": "OPM_LT",
+    "자산유동화차입금": "OPM_BORROW", "프로젝트금융차입금": "OPM_BORROW", "PF차입금": "OPM_BORROW",  # ABS 만기중립
+    "차입금": "OPM_BORROW", "차입부채": "OPM_BORROW", "차입금및사채": "OPM_COMBINED",
+    "전환사채": "OPM_CONV", "비유동전환사채": "OPM_CONV",
+    "유동성교환사채": "OPM_CONV", "교환사채": "OPM_CONV", "사채": "OPM_BOND",
+    # KOSDAQ 소형주 '채무'·'유동화' 표기 변형 (260713 KOSPI+KOSDAQ 298사 전수검증 — 비표준코드라
+    # 침묵누락하던 이자부 차입. '장기유동화채무'는 두산 표준코드 NoncurrentPortionOfOtherNoncurrentBorrowings
+    # 매핑과 정합. 전수상 이 명칭들은 전부 차입 계정에서만 등장 — 오탐 없음 확인).
+    "유동성장기차입채무": "OPM_LT_CURR", "유동차입부채": "OPM_ST", "비유동차입부채": "OPM_LT",
+    "유동화채무": "OPM_BORROW", "장기유동화채무": "OPM_LT",
+    "단기차입금및사채": "OPM_ST", "유동성전환사채": "OPM_CONV",
+    "유동성신주인수권부사채": "OPM_CONV", "사채(비유동)": "OPM_BOND",
+}
+# nm '신종자본증권'(비표준코드로 dart_HybridBonds id를 못 단 경우) → hybrid 버킷 인식 (총차입 제외,
+# IFRS 자본성). 포스코퓨처엠 5,994억 등 hybrid_capital_krw 침묵누락 방지.
+_HYBRID_NM = ("신종자본증권",)
+_BORROW_NM_NOTBORROW = {"전환사채상환할증금"}  # 상환할증금은 별도 REVIEW로 표면화(패널 이견 → 조용히 안 삼킴)
+# REVIEW 표면화용(합산 제외) — 미지의 차입 변형을 silent EXCL이 아니라 사람검토로 승격.
+# '차입채무'·'유동화채무'는 전수상 전부 차입 계정에서만 등장(오탐 없음, 260713 검증).
+_BORROW_TOKENS = ("차입금", "차입부채", "차입채무", "사채", "기업어음", "전자단기사채", "유동화채무")
+# canonical id → 만기 버킷 (short = 1년내 만기). total = short + long + convertible + other.
+_OPM_SHORT = {"OPM_ST", "OPM_LT_CURR", "OPM_BOND_CURR"}
+_OPM_LONG = {"OPM_LT", "OPM_BOND"}
+# 연결 BS에 뜨면 금융사(영업조달) 신호 — 은행 예수부채·보험계약부채·증권 고객예탁금.
+# 예수금(원천징수)·예수보험료는 제조사에도 흔해 제외(260713 CFO/DART 지적: 삼성전자·SKT 오탐).
+# 금융지주는 은행·보험 자회사 연결로 이 계정이 뜨고, 일반지주(SK·LG)는 안 떠 자동 분리됨.
+_FIN_BS_SIGNAL = ("예수부채", "보험계약부채", "책임준비금", "고객예탁금", "매도파생결합")
+
+
+def _borrow_local(account_id: str) -> str | None:
+    """account_id → casefold local-name (ifrs-full_/dart_ 접두 제거). 비표준코드면 None."""
+    aid = account_id or ""
+    if aid.startswith(("ifrs", "dart")):
+        loc = aid.split("_", 1)[1] if "_" in aid else aid
+        return loc.casefold()
+    return None
+
+
+def _classify_borrow_row(account_id: str, account_nm: str) -> tuple[str | None, str]:
+    """차입행 분류 → (canonical_id|None, kind).
+
+    kind: borrow(합산) / lease / hybrid / convertible_premium / conflict / review / exclude.
+    """
+    n = (account_nm or "").strip().replace(" ", "")
+    loc = _borrow_local(account_id)
+    if (loc and "leaseliabilit" in loc) or "리스부채" in n or "리스채무" in n:
+        return None, "lease"
+    if (loc and "hybridbonds" in loc) or any(h in n for h in _HYBRID_NM):
+        return None, "hybrid"
+    if n in _BORROW_NM_NOTBORROW:
+        return None, "review"  # 상환할증금 등 — 표면화만
+    if loc in _BORROW_ID_NOTBORROW:
+        if n in _BORROW_NM_MAP:  # id=비차입인데 nm=차입 → 모순
+            return None, "conflict"
+        return None, "exclude"
+    if loc in _BORROW_ID_MAP:
+        return _BORROW_ID_MAP[loc], "borrow"
+    if loc is not None:  # 표준 account_id인데 사전 미등록
+        if n in _BORROW_NM_MAP:
+            return _BORROW_NM_MAP[n], "review"  # nm은 확실 → 표면화(합산 제외)
+        if any(t in n for t in _BORROW_TOKENS):
+            return None, "review"
+        return None, "exclude"
+    # 비표준 account_id → nm 전체명 정확매칭 [MED]
+    if n in _BORROW_NM_MAP:
+        return _BORROW_NM_MAP[n], "borrow"
+    if any(t in n for t in _BORROW_TOKENS):
+        return None, "review"  # 미지의 차입계열 nm — 조용히 누락 말고 표면화
+    return None, "exclude"
+
+
+def _compute_borrowings(rows: list[dict[str, Any]], period: str = "thstrm") -> dict[str, Any]:
+    """BS 행 → 총차입금 구조화 산출 (sum-all, 만기분해, 리스·신종자본 별도, 신뢰도·경고).
+
+    반환: total_debt / short_term_debt / long_term_debt / convertible_debt_krw /
+    other_borrowings_krw / lease_liabilities_krw / hybrid_capital_krw / total_debt_incl_lease /
+    by_canonical / is_financial_bs / confidence / conflicts / reviews / data_quality_flags /
+    no_borrowing_rows.
+    """
+    bs_rows = [r for r in rows if _strip(r.get("sj_div")) == "BS"]
+    by_canon: dict[str, int] = {}
+    borrow_rows: list[tuple[str, int, str, bool]] = []  # (nm, amt, canonical, is_subtotal)
+    lease = hybrid = 0
+    conflicts: list[dict[str, str]] = []
+    reviews: list[dict[str, str]] = []
+    tiers: set[str] = set()
+    is_fin_bs = False
+
+    for r in bs_rows:
+        nm = _strip(r.get("account_nm"))
+        nm_c = nm.replace(" ", "")
+        if any(sig in nm_c for sig in _FIN_BS_SIGNAL):
+            is_fin_bs = True
+        canonical, kind = _classify_borrow_row(_strip(r.get("account_id")), nm)
+        amt = _extract_period_amount(r, period)
+        if kind == "lease":
+            if amt and amt > 0:
+                lease += amt
+            continue
+        if kind == "hybrid":
+            if amt and amt > 0:
+                hybrid += amt
+            continue
+        if kind == "conflict":
+            conflicts.append({"account_nm": nm, "account_id": _strip(r.get("account_id"))})
+            tiers.add("CONFLICT")
+            continue
+        if kind == "review":
+            reviews.append({"account_nm": nm, "account_id": _strip(r.get("account_id"))})
+            tiers.add("REVIEW")
+            continue
+        if kind != "borrow" or canonical is None:
+            continue
+        if amt is None or amt <= 0:
+            continue
+        is_sub = nm_c.endswith(("총액", "합계"))  # 진성 소계만(패널: 사채포함 토큰은 정상 leaf)
+        borrow_rows.append((nm_c, amt, canonical, is_sub))
+        tiers.add("MED" if _borrow_local(_strip(r.get("account_id"))) is None else "HIGH")
+
+    if not bs_rows:
+        return {"total_debt": None, "short_term_debt": None, "long_term_debt": None,
+                "convertible_debt_krw": None, "other_borrowings_krw": None,
+                "lease_liabilities_krw": None, "hybrid_capital_krw": None,
+                "total_debt_incl_lease": None, "by_canonical": {}, "is_financial_bs": False,
+                "confidence": None, "conflicts": [], "reviews": [], "data_quality_flags": [],
+                "no_borrowing_rows": False}
+
+    # 소계행 이중계상 보정: nm 접미 '총액/합계' 행이 leaf합의 ±2%면 제외(엄격).
+    leaves = [b for b in borrow_rows if not b[3]]
+    leaf_sum = sum(b[1] for b in leaves)
+    subtotal_removed = 0
+    flags: list[str] = []
+    kept: list[tuple[str, int, str, bool]] = []
+    for nm_c, amt, canonical, is_sub in borrow_rows:
+        if is_sub and leaf_sum > 0 and 0.98 <= amt / leaf_sum <= 1.02:
+            subtotal_removed += amt
+            flags.append(f"소계행 이중계상 보정: '{nm_c}' {amt/1e12:.2f}조 제외(leaf합과 ±2% 일치)")
+            continue
+        kept.append((nm_c, amt, canonical, is_sub))
+    for nm_c, amt, canonical, _ in kept:
+        by_canon[canonical] = by_canon.get(canonical, 0) + amt
+
+    short = sum(v for k, v in by_canon.items() if k in _OPM_SHORT) or None
+    longt = sum(v for k, v in by_canon.items() if k in _OPM_LONG) or None
+    conv = by_canon.get("OPM_CONV") or None
+    other = sum(v for k, v in by_canon.items() if k in ("OPM_BORROW", "OPM_COMBINED")) or None
+    total = sum(by_canon.values())
+    no_rows = not by_canon and not conflicts and not reviews
+
+    confidence = ("CONFLICT" if "CONFLICT" in tiers else
+                  "REVIEW" if "REVIEW" in tiers else
+                  "MED" if "MED" in tiers else "HIGH")
+    if conflicts:
+        flags.append(f"id↔nm 모순 {len(conflicts)}건 — 사람검토 필요(합산 제외): "
+                     + ", ".join(c["account_nm"] for c in conflicts))
+    if reviews:
+        flags.append(f"사전 미등록 차입계열 {len(reviews)}건 — 표면화(합산 제외): "
+                     + ", ".join(r["account_nm"] for r in reviews))
+
+    return {
+        "total_debt": total if by_canon else (0 if no_rows else total),
+        "short_term_debt": short, "long_term_debt": longt,
+        "convertible_debt_krw": conv, "other_borrowings_krw": other,
+        "lease_liabilities_krw": lease or None, "hybrid_capital_krw": hybrid or None,
+        "total_debt_incl_lease": (total + lease) if (by_canon or lease) else None,
+        "by_canonical": by_canon, "is_financial_bs": is_fin_bs,
+        "confidence": confidence, "conflicts": conflicts, "reviews": reviews,
+        "data_quality_flags": flags, "no_borrowing_rows": no_rows,
+    }
+
+
 def _build_account_map_all(
     rows: list[dict[str, Any]],
     period: str = "thstrm",
@@ -302,16 +519,12 @@ def _build_account_map_all(
                     break
             for key, patterns in _IS_DETAIL_PATTERNS.items():
                 if key in {"accounts_receivable", "inventory", "accounts_payable",
-                           "cash_and_equivalents", "short_term_debt", "long_term_debt"}:
+                           "cash_and_equivalents"}:
                     if out[key] is None and _match_account(account_nm, patterns):
                         out[key] = amount
                         break
-            # 유동/비유동 구분 없는 generic "차입금"(SK하이닉스) / 금융사형 "차입부채" 행
-            # — 단기/장기 패턴에 "차입금"을 넣으면 substring 매칭이 "장기차입금"까지 삼키므로
-            # 정확 일치 행만 별도 누적. "단기/장기금융부채" 류는 파생·기타부채 포함이라
-            # 차입금으로 잡으면 과대계상 — 의도적으로 미채택 (412사 probe 결정).
-            if account_nm and account_nm.replace(" ", "") in ("차입금", "차입부채") and amount is not None:
-                out["borrowings_generic"] = (out.get("borrowings_generic") or 0) + amount
+            # 총차입금(short_term_debt/long_term_debt/generic)은 루프 후 _compute_borrowings로
+            # account_id 정확매칭 일괄 산출 — 여기서 키워드 매칭하지 않는다.
         elif sj_div in ("IS", "CIS"):
             # 귀속 순이익(지배/비지배)은 account_id로만 매칭 — account_nm이 총포괄손익 귀속과
             # 동일("지배기업 소유주지분"/"비지배지분")이라 substring으로는 구분 불가.
@@ -362,6 +575,12 @@ def _build_account_map_all(
         out["basic_eps"] = out["_basic_eps_cont"]
     if out.get("diluted_eps") is None and out.get("_diluted_eps_cont") is not None:
         out["diluted_eps"] = out["_diluted_eps_cont"]
+    # 총차입금 — account_id 전체명 정확매칭 일괄 산출(BS 잔액 기준, cumulative_is 무관)
+    borrow = _compute_borrowings(rows, period=period)
+    out["_borrowing"] = borrow
+    out["short_term_debt"] = borrow["short_term_debt"]
+    out["long_term_debt"] = borrow["long_term_debt"]
+    out["borrowings_generic"] = borrow["other_borrowings_krw"]
     return out
 
 
@@ -525,9 +744,9 @@ def _compute_metrics(
     if interest_expense is None:
         interest_expense = detail.get("interest_paid")
     cash_and_equivalents = detail.get("cash_and_equivalents")
-    short_term_debt = detail.get("short_term_debt")
-    long_term_debt = detail.get("long_term_debt")
-    borrowings_generic = detail.get("borrowings_generic")
+    borrow = detail.get("_borrowing") or {}
+    short_term_debt = borrow.get("short_term_debt")
+    long_term_debt = borrow.get("long_term_debt")
     accounts_receivable = detail.get("accounts_receivable")
     inventory = detail.get("inventory")
     accounts_payable = detail.get("accounts_payable")
@@ -561,13 +780,11 @@ def _compute_metrics(
     operating_profit_yoy_pct = _yoy_pct(operating_profit, prev_operating_profit)
     net_income_yoy_pct = _yoy_pct(net_income_controlling, prev_net_income_controlling)
 
-    # 총차입금 (단기 + 장기). 단기/장기 행이 없으면 generic "차입금" 행 합산 fallback
-    # (SK하이닉스 실측: 유동·비유동 모두 계정명이 "차입금").
-    total_debt = None
-    if short_term_debt is not None or long_term_debt is not None:
-        total_debt = (short_term_debt or 0) + (long_term_debt or 0)
-    elif borrowings_generic is not None:
-        total_debt = borrowings_generic
+    # 총차입금 = _compute_borrowings sum-all(단기+장기+전환+기타차입). account_id 정확매칭.
+    # 리스부채·신종자본증권은 별도(리스=IFRS16 별도, 신종자본=IFRS 자본).
+    total_debt = borrow.get("total_debt")
+    is_financial_company = bool(borrow.get("is_financial_bs"))
+    total_debt_confidence = borrow.get("confidence")
 
     # 순현금
     net_cash = None
@@ -623,7 +840,14 @@ def _compute_metrics(
     interest_coverage_ratio = _safe_ratio(operating_profit, interest_expense, positive_denom_only=True) if (
         interest_expense is not None and interest_expense > 0
     ) else None
-    debt_dependency_pct = _safe_pct(total_debt, total_assets, positive_denom_only=True)
+    # 금융사(은행·보험·증권·금융지주)는 예수부채 등 영업조달이 섞여 총차입/총자산 비율이
+    # 무의미 → None + 상태필드. 일반지주(SK·LG 등, 연결 예수부채 없음)는 정상 산출.
+    if is_financial_company:
+        debt_dependency_pct = None
+        debt_dependency_status = "n/a_financial"
+    else:
+        debt_dependency_pct = _safe_pct(total_debt, total_assets, positive_denom_only=True)
+        debt_dependency_status = "computed" if debt_dependency_pct is not None else "no_data"
 
     # ── 현금흐름 ──
     fcf_krw = None
@@ -773,7 +997,24 @@ def _compute_metrics(
         "current_ratio_pct": current_ratio_pct,
         "interest_coverage_ratio": interest_coverage_ratio,
         "debt_dependency_pct": debt_dependency_pct,
+        "debt_dependency_status": debt_dependency_status,
         "total_debt_krw": total_debt,
+        "total_debt_confidence": total_debt_confidence,
+        "total_debt_incl_lease_krw": borrow.get("total_debt_incl_lease"),
+        "short_term_debt_krw": short_term_debt,
+        "long_term_debt_krw": long_term_debt,
+        "convertible_debt_krw": borrow.get("convertible_debt_krw"),
+        "lease_liabilities_krw": borrow.get("lease_liabilities_krw"),
+        "hybrid_capital_krw": borrow.get("hybrid_capital_krw"),
+        "is_financial_company": is_financial_company,
+        "borrowing_detail": {
+            "by_canonical_id": borrow.get("by_canonical") or {},
+            "convertible_included": bool(borrow.get("convertible_debt_krw")),
+            "conflicts": borrow.get("conflicts") or [],
+            "reviews": borrow.get("reviews") or [],
+            "data_quality_flags": borrow.get("data_quality_flags") or [],
+            "no_borrowing_rows": bool(borrow.get("no_borrowing_rows")),
+        },
         "net_cash_krw": net_cash,
         "cash_and_equivalents_krw": cash_and_equivalents,
         # ── 현금흐름 ──
@@ -1195,6 +1436,16 @@ async def _fetch_year_metrics(
             f"{year}년 {pm_cum}개월 누적 기준 — 회전일수는 기간 보정됨, ROE/ROA/자산회전율은 "
             f"연환산 아닌 {pm_cum}개월값(연간 비교 시 주의)."
         )
+    # 총차입금 진단(신뢰도·모순·리스·전환) top-level 승격 — 조용히 틀린 값보다 표면화(패널 합의).
+    _bd = metrics.get("borrowing_detail") or {}
+    for _f in _bd.get("data_quality_flags") or []:
+        warnings.append(f"{year}년 [총차입금] {_f}")
+    if metrics.get("is_financial_company"):
+        warnings.append(f"{year}년 [총차입금] 금융업(예수부채 등 영업조달) 판정 — 차입금의존도 미산출(n/a).")
+    if metrics.get("lease_liabilities_krw"):
+        warnings.append(f"{year}년 [총차입금] 리스부채는 총차입금 제외(IFRS16 별도) — total_debt_incl_lease_krw 병기.")
+    if metrics.get("convertible_debt_krw"):
+        warnings.append(f"{year}년 [총차입금] 전환사채·BW·EB 포함 — 잠재 지분희석은 dilutive_issuance 참조.")
 
     # ── 당기(standalone) basis — 반기/3분기는 누적−직전 누적으로 차분, CF는 직전 보고서 필요 ──
     metrics["standalone"] = None

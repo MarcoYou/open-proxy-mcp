@@ -94,8 +94,25 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
     lines.append("## 안정성 / 부채")
     lines.append(f"- 자산총계: {_format_krw_human(s.get('total_assets_krw'))}  /  부채총계: {_format_krw_human(s.get('total_liabilities_krw'))}  /  자본총계(NAV): {_format_krw_human(s.get('total_equity_krw'))}")
     lines.append(f"- 부채비율(부채/자본): {_pct(s.get('debt_ratio_pct'))}  /  유동비율: {_pct(s.get('current_ratio_pct'))}")
-    lines.append(f"- 이자보상배율(영업이익/이자비용): {_ratio(s.get('interest_coverage_ratio'))}배  /  차입금의존도: {_pct(s.get('debt_dependency_pct'))}")
-    lines.append(f"- 총차입금: {_format_krw_human(s.get('total_debt_krw'))}  /  순현금(현금-차입): {_format_krw_human(s.get('net_cash_krw'))}")
+    _dep = _pct(s.get("debt_dependency_pct"))
+    if s.get("debt_dependency_status") == "n/a_financial":
+        _dep = "n/a (금융업 — 예수부채 등 영업조달)"
+    lines.append(f"- 이자보상배율(영업이익/이자비용): {_ratio(s.get('interest_coverage_ratio'))}배  /  차입금의존도: {_dep}")
+    _conf = s.get("total_debt_confidence")
+    _conf_tag = f" [{_conf}]" if _conf and _conf in ("REVIEW", "CONFLICT", "MED") else ""
+    lines.append(f"- 총차입금: {_format_krw_human(s.get('total_debt_krw'))}{_conf_tag}  /  순현금(현금-차입): {_format_krw_human(s.get('net_cash_krw'))}")
+    _st, _lt = s.get("short_term_debt_krw"), s.get("long_term_debt_krw")
+    if _st is not None or _lt is not None:
+        lines.append(f"  - 단기: {_format_krw_human(_st)}  /  장기: {_format_krw_human(_lt)}"
+                     + (f"  /  전환사채류: {_format_krw_human(s.get('convertible_debt_krw'))}" if s.get("convertible_debt_krw") else ""))
+    if s.get("lease_liabilities_krw"):
+        lines.append(f"  - 리스부채(별도, IFRS16): {_format_krw_human(s.get('lease_liabilities_krw'))}  /  리스포함 총차입: {_format_krw_human(s.get('total_debt_incl_lease_krw'))}")
+    if s.get("hybrid_capital_krw"):
+        lines.append(f"  - 신종자본증권(자본 분류, 총차입 제외): {_format_krw_human(s.get('hybrid_capital_krw'))}")
+    _bd = s.get("borrowing_detail") or {}
+    if _bd.get("conflicts") or _bd.get("reviews"):
+        _n = len(_bd.get("conflicts") or []) + len(_bd.get("reviews") or [])
+        lines.append(f"  - ⚠ 차입 분류 사람검토 {_n}건(합산 제외) — 총차입금 신뢰도 {_conf}. warnings 참조.")
     cap_status = s.get("capital_impairment_status")
     cap_ratio = s.get("capital_impairment_ratio_pct")
     if cap_status:
