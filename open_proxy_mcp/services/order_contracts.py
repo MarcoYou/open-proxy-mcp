@@ -316,6 +316,54 @@ def _dedup(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return resolved
 
 
+def _dedup_terminations(terms: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """해지 공시 정정 체인 dedup.
+
+    orders와 달리 해지엔 `correction_diff`(정정전 금액)가 없어 `_dedup`의 금액체인이 안 먹고,
+    naive (계약명+상대방) 키는 정정본이 상대방을 채우고 원본이 공란이면 키가 갈려 실패한다
+    (260713 쇼박스 실측: 원본 counterparty='' vs 정정본 '씬앤스튜디오' → 2건 오카운트).
+    안정 키 = **계약명 + 해지일자**(한 계약은 특정일에 한 번 해지된다). 단 서로 다른 두 해지의
+    우연한 동명·동일자 over-merge를 막기 위해, 병합은 **체인에 기재정정본이 있을 때만** 한다.
+    """
+    order = sorted(terms, key=lambda e: (e.get("rcept_dt", ""), e.get("rcept_no", "")))
+    chains: list[list[dict[str, Any]]] = []
+    for ev in order:
+        name = _norm(ev.get("contract_name") or "")[:24]
+        date = ev.get("termination_date")
+        placed = False
+        if name:  # 계약명 없으면 병합 안 함(단서 부족)
+            for ch in chains:
+                head = ch[0]
+                hname = _norm(head.get("contract_name") or "")[:24]
+                hdate = head.get("termination_date")
+                # 같은 계약명 + (같은 해지일자 or 한쪽 일자 미파싱) + 체인/이벤트에 정정본 존재
+                if hname == name and (date == hdate or not date or not hdate) \
+                        and (ev.get("is_correction") or any(e.get("is_correction") for e in ch)):
+                    ch.append(ev)
+                    placed = True
+                    break
+        if not placed:
+            chains.append([ev])
+
+    resolved: list[dict[str, Any]] = []
+    for ch in chains:
+        ch.sort(key=lambda e: (e.get("rcept_dt", ""), e.get("rcept_no", "")))
+        latest = dict(ch[-1])  # 최신본(정정본) = 유효값 — 상대방·금액을 채운 쪽
+        for fld in ("counterparty", "relationship", "is_external", "terminated_amount_won",
+                    "recent_revenue_won", "revenue_ratio_pct", "termination_reason", "termination_date"):
+            if not latest.get(fld):
+                for e in reversed(ch[:-1]):
+                    if e.get(fld):
+                        latest[fld] = e[fld]
+                        break
+        latest["first_rcept_dt"] = ch[0]["rcept_dt"]
+        latest["filing_count"] = len(ch)
+        latest["correction_count"] = sum(1 for e in ch if e.get("is_correction"))
+        resolved.append(latest)
+    resolved.sort(key=lambda e: e.get("rcept_dt", ""), reverse=True)
+    return resolved
+
+
 def _signal_summary(orders: list[dict[str, Any]], terminations: list[dict[str, Any]], window_label: str) -> dict[str, Any]:
     concluded = [o for o in orders if o.get("contract_amount_won")]
     external = [o for o in concluded if o.get("is_external")]
@@ -407,7 +455,7 @@ async def build_order_contracts_payload(
         events.append(parsed)
 
     orders = _dedup([e for e in events if not e["is_termination"]])
-    terminations = [e for e in events if e["is_termination"]]
+    terminations = _dedup_terminations([e for e in events if e["is_termination"]])
     summary = _signal_summary(orders, terminations, f"{bgn}~{end}")
     # 매출대비% 보정 발생 건 — 회사 단위 warning으로 surface
     ratio_warned = [o for o in orders if o.get("ratio_warning")]
