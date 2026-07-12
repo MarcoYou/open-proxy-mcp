@@ -1,0 +1,134 @@
+<title>OPM 사용 리포트 — 런칭 2주</title>
+<style>
+  :root{
+    --paper:#F6F7F9; --card:#FFFFFF; --panel:#FCFCFD;
+    --line:#E3E6EC; --line-2:#EEF0F4;
+    --ink:#16202E; --muted:#606B7B; --muted-2:#98A1AD;
+    --gold:#AE7A1E; --gold-soft:rgba(174,122,30,.10);
+    --bar:#9DB0C8; --bar-wk:#C7D0DC;
+    --font-sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+    --font-mono:"SF Mono","JetBrains Mono","Roboto Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:#E9ECF1; font-family:var(--font-sans); color:var(--ink);
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:16px; padding:32px 16px;
+  }
+  .stage-hint{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;color:var(--muted-2);text-transform:uppercase}
+  .slide-wrap{width:100%;overflow-x:auto;display:flex;justify-content:center}
+  .slide{
+    width:1200px; flex:0 0 1200px; aspect-ratio:16/9;
+    background:linear-gradient(180deg,#FFFFFF 0%, var(--paper) 100%);
+    border:1px solid var(--line); box-shadow:0 1px 0 rgba(20,32,46,.04);
+    padding:46px 54px 38px; display:flex; flex-direction:column; justify-content:space-between;
+    position:relative; font-variant-numeric:tabular-nums;
+  }
+  .slide::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;
+    background:linear-gradient(90deg,var(--gold) 0 22%, transparent 22%)}
+  header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+  .eyebrow{font-family:var(--font-mono);font-size:12.5px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;margin-bottom:13px}
+  h1{font-size:31px;font-weight:700;letter-spacing:-.01em;line-height:1.1;text-wrap:balance;color:var(--ink)}
+  .sub{color:var(--muted);font-size:14.5px;margin-top:8px}
+  .period{text-align:right;font-family:var(--font-mono);font-size:12.5px;color:var(--muted);line-height:1.7;white-space:nowrap;padding-top:4px}
+  .period b{color:var(--ink);font-weight:600}
+
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-top:26px}
+  .card{background:var(--card);border:1px solid var(--line);border-top:2px solid var(--gold);
+    padding:18px 18px 16px;display:flex;flex-direction:column;min-height:150px}
+  .card-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:auto}
+  .card-value{font-family:var(--font-mono);font-weight:600;line-height:1;display:flex;align-items:baseline;gap:6px;margin-top:14px}
+  .card-value .num{font-size:48px;letter-spacing:-.02em;color:var(--ink)}
+  .card-value .num.accent{color:var(--gold)}
+  .card-value .unit{font-size:15px;color:var(--muted);font-weight:500}
+  .card-desc{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:11px}
+
+  .trend{margin-top:20px;display:flex;flex-direction:column}
+  .trend-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+  .trend-head .t{font-family:var(--font-mono);font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+  .legend{display:flex;gap:18px;align-items:center;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;vertical-align:middle;margin-right:6px}
+  .legend .sw-bar{width:11px;height:11px;border-radius:2px;background:var(--bar)}
+  .legend .sw-line{width:16px;height:0;border-top:2.5px solid var(--gold);position:relative;top:-3px}
+  .legend .sw-line::after{content:"";position:absolute;left:5px;top:-3px;width:6px;height:6px;border-radius:50%;background:var(--gold)}
+
+  .chart{width:100%;height:200px;display:block}
+  .chart .axis{stroke:var(--line);stroke-width:1}
+  .chart .grid{stroke:var(--line-2);stroke-width:1}
+  .chart .ax{font-family:var(--font-mono);font-size:10px;fill:var(--muted-2)}
+  .chart .ax-l{text-anchor:end}
+  .chart .ax-r{text-anchor:start;fill:var(--gold)}
+  .chart .bar{fill:var(--bar)}
+  .chart .bar-wk{fill:var(--bar-wk)}
+  .chart .bar-part{fill:var(--bar-wk)}
+  .chart .rate{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+  .chart .dot{fill:#fff;stroke:var(--gold);stroke-width:2.2}
+  .chart .dot-part{fill:var(--paper)}
+  .chart .rlab{font-family:var(--font-mono);font-size:10px;fill:var(--gold);text-anchor:middle;font-weight:600}
+
+  .ticks{display:grid;grid-template-columns:repeat(14,1fr);gap:0;margin-top:6px;padding:0 34px 0 40px}
+  .tick{text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--muted-2);line-height:1.3}
+  .tick .wd{display:block;color:var(--muted-2);font-size:9px;opacity:.7}
+  .tick.wk{color:#B08A3E} .tick.wk .wd{color:#B08A3E}
+
+  footer{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .ctx{display:flex;gap:24px;flex-wrap:wrap}
+  .ctx .item{font-size:12.5px;color:var(--muted)}
+  .ctx .item b{font-family:var(--font-mono);color:var(--ink);font-weight:600}
+  .src{font-size:11px;color:var(--muted-2);text-align:right;line-height:1.5;white-space:nowrap}
+</style>
+
+<p class="stage-hint">↓ 이 슬라이드를 캡처해 LinkedIn에 업로드</p>
+<div class="slide-wrap"><div class="slide">
+  <header>
+    <div>
+      <div class="eyebrow">OPM · OpenProxy MCP</div>
+      <h1>런칭 2주, 이렇게 쓰였습니다</h1>
+      <div class="sub">DART 공시를 MCP로 — 한국 상장사 거버넌스 분석 도구</div>
+    </div>
+    <div class="period"><div><b>2026.06.29 – 07.12</b></div><div>외부 사용자 · KST</div></div>
+  </header>
+
+  <section class="cards">
+    <div class="card"><div class="card-label">외부 사용자</div>
+      <div class="card-value"><span class="num">281</span><span class="unit">명</span></div>
+      <div class="card-desc">런칭 2주간 확보한 실사용자 (운영자 제외)</div></div>
+    <div class="card"><div class="card-label">누적 요청</div>
+      <div class="card-value"><span class="num">92,850</span><span class="unit">건</span></div>
+      <div class="card-desc">공시·거버넌스 분석 tool 호출 수</div></div>
+    <div class="card"><div class="card-label">재방문율</div>
+      <div class="card-value"><span class="num accent">76</span><span class="unit">%</span></div>
+      <div class="card-desc">이틀 이상 다시 찾은 사용자 비율 (213/281)</div></div>
+    <div class="card"><div class="card-label">인당 체류</div>
+      <div class="card-value"><span class="num accent">4.5</span><span class="unit">시간</span></div>
+      <div class="card-desc">사용자 1인당 누적 사용 시간 (평균)</div></div>
+  </section>
+
+  <section class="trend">
+    <div class="trend-head">
+      <div class="t">일별 사용자 &amp; 사용 강도</div>
+      <div class="legend">
+        <span><i class="sw-bar"></i>일 단일 사용자 (명)</span>
+        <span><i class="sw-line"></i>인당 요청 (건)</span>
+      </div>
+    </div>
+    <svg viewBox="0 0 1120 208" class="chart" preserveAspectRatio="none" role="img"
+     aria-label="일별 단일 사용자와 인당 요청 추이">
+  <line x1="40" y1="168" x2="1086" y2="168" class="axis"/>
+  <line x1="40" y1="124.0" x2="1086" y2="124.0" class="grid"/><text x="32" y="127.5" class="ax ax-l">50</text><line x1="40" y1="80.0" x2="1086" y2="80.0" class="grid"/><text x="32" y="83.5" class="ax ax-l">100</text><line x1="40" y1="36.0" x2="1086" y2="36.0" class="grid"/><text x="32" y="39.5" class="ax ax-l">150</text><text x="1094" y="94.5" class="ax ax-r">40</text><text x="1094" y="17.5" class="ax ax-r">80</text>
+  <rect x="57.4" y="114.3" width="40" height="53.7" rx="2.5" class="bar"/><rect x="132.1" y="49.2" width="40" height="118.8" rx="2.5" class="bar"/><rect x="206.8" y="49.2" width="40" height="118.8" rx="2.5" class="bar"/><rect x="281.5" y="41.3" width="40" height="126.7" rx="2.5" class="bar"/><rect x="356.2" y="48.3" width="40" height="119.7" rx="2.5" class="bar"/><rect x="430.9" y="84.4" width="40" height="83.6" rx="2.5" class="bar bar-wk"/><rect x="505.6" y="74.7" width="40" height="93.3" rx="2.5" class="bar bar-wk"/><rect x="580.4" y="36.0" width="40" height="132.0" rx="2.5" class="bar"/><rect x="655.1" y="36.9" width="40" height="131.1" rx="2.5" class="bar"/><rect x="729.8" y="24.6" width="40" height="143.4" rx="2.5" class="bar"/><rect x="804.5" y="36.0" width="40" height="132.0" rx="2.5" class="bar"/><rect x="879.2" y="23.7" width="40" height="144.3" rx="2.5" class="bar"/><rect x="953.9" y="66.8" width="40" height="101.2" rx="2.5" class="bar bar-wk"/><rect x="1028.6" y="95.8" width="40" height="72.2" rx="2.5" class="bar bar-part"/>
+  <polyline points="77.4,118.5 152.1,80.4 226.8,77.7 301.5,63.3 376.2,77.1 450.9,105.2 525.6,89.7 600.4,25.2 675.1,24.4 749.8,64.0 824.5,75.0 899.2,44.4 973.9,86.2 1048.6,87.3" class="rate"/>
+  <circle cx="77.4" cy="118.5" r="3.6" class="dot"/><text x="77.4" y="110.5" class="rlab">26</text><circle cx="152.1" cy="80.4" r="3.6" class="dot"/><text x="152.1" y="72.4" class="rlab">46</text><circle cx="226.8" cy="77.7" r="3.6" class="dot"/><text x="226.8" y="69.7" class="rlab">47</text><circle cx="301.5" cy="63.3" r="3.6" class="dot"/><text x="301.5" y="55.3" class="rlab">54</text><circle cx="376.2" cy="77.1" r="3.6" class="dot"/><text x="376.2" y="69.1" class="rlab">47</text><circle cx="450.9" cy="105.2" r="3.6" class="dot"/><text x="450.9" y="97.2" class="rlab">33</text><circle cx="525.6" cy="89.7" r="3.6" class="dot"/><text x="525.6" y="81.7" class="rlab">41</text><circle cx="600.4" cy="25.2" r="3.6" class="dot"/><text x="600.4" y="17.2" class="rlab">74</text><circle cx="675.1" cy="24.4" r="3.6" class="dot"/><text x="675.1" y="16.4" class="rlab">75</text><circle cx="749.8" cy="64.0" r="3.6" class="dot"/><text x="749.8" y="56.0" class="rlab">54</text><circle cx="824.5" cy="75.0" r="3.6" class="dot"/><text x="824.5" y="67.0" class="rlab">48</text><circle cx="899.2" cy="44.4" r="3.6" class="dot"/><text x="899.2" y="36.4" class="rlab">64</text><circle cx="973.9" cy="86.2" r="3.6" class="dot"/><text x="973.9" y="78.2" class="rlab">42</text><circle cx="1048.6" cy="87.3" r="3.2" class="dot dot-part"/><text x="1048.6" y="79.3" class="rlab">42</text>
+</svg>
+    <div class="ticks"><div class="tick">6/29<span class="wd">월</span></div><div class="tick">6/30<span class="wd">화</span></div><div class="tick">7/01<span class="wd">수</span></div><div class="tick">7/02<span class="wd">목</span></div><div class="tick">7/03<span class="wd">금</span></div><div class="tick wk">7/04<span class="wd">토</span></div><div class="tick wk">7/05<span class="wd">일</span></div><div class="tick">7/06<span class="wd">월</span></div><div class="tick">7/07<span class="wd">화</span></div><div class="tick">7/08<span class="wd">수</span></div><div class="tick">7/09<span class="wd">목</span></div><div class="tick">7/10<span class="wd">금</span></div><div class="tick wk">7/11<span class="wd">토</span></div><div class="tick wk">7/12<span class="wd">일</span></div></div>
+  </section>
+
+  <footer>
+    <div class="ctx">
+      <div class="item">누적 <b>92,850</b> 요청</div>
+      <div class="item">상위 <b>37%</b>가 요청의 90%</div>
+      <div class="item">평균 응답 <b>655</b> ms</div>
+    </div>
+    <div class="src">출처: 자체 텔레메트리 (Supabase) · 운영자 키 제외 · 7/12 진행 중</div>
+  </footer>
+</div></div>
