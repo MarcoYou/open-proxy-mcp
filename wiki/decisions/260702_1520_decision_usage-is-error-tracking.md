@@ -53,3 +53,15 @@ latency_ms    →  얼마나 걸렸나?           (성능 문제)
 
 - "회사명 오타 → 못 찾음" 류는 성공으로 집계(툴 관점 정상). 필요 시 `not_found` 비율 별도 측정.
 - 응답 본문 텍스트에 우연히 패턴 문자열이 포함되면 오탐 가능(따옴표·콜론 포함 정확 매칭이라 실제 확률 극히 낮음).
+
+## 후속 (260712): error_kind 분류 + 중앙 degrade
+
+is_error는 "실패했나"만 알려줄 뿐 "내 코드 탓이냐 DART 탓이냐"를 구분 못 했다. 260712 오류율 스파이크
+조사에서 이 한계가 드러나 두 가지를 얹었다:
+
+- **`events.error_kind` 컬럼** — 예외 타입이 살아있는 tool 래퍼 지점에서 crash/timeout/upstream을
+  분류해 `[ekind=]` 태그로 기록. `--stats [오류종류]`에서 "코드버그 비중"을 바로 본다.
+- **중앙 degrade** — DART 외부·부하 예외를 `tools_v2/_wrap_tool_errors` 한 곳에서 잡아 graceful
+  응답(is_error=false)으로. 원인별 안내(과호출→나눠서 / timeout→기다려)까지 실어 사용자 행동을 유도.
+
+상세·재현·trade-off: [[error-safety-degrade-260712]].
