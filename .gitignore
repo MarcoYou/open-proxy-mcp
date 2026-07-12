@@ -127,3 +127,6 @@ data/usage/
 
 # 로컬 전용 wiki (PUBLIC 리포에 공개하지 않을 운영 문서 — 커밋 금지)
 wiki/_local/
+
+# opm-stats-artifact 스킬 — 개인정보(LinkedIn)+실측 메트릭 포함, private 레포(open-proxy-storage)가 원본. 로컬에서만 사용.
+.claude/skills/opm-stats-artifact
