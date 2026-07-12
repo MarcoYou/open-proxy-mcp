@@ -345,6 +345,10 @@ OCR tier 불필요 — 텍스트 파싱으로 됨). exctvSttus의 rcept_no로 �
 - **summary 제외·on-demand**: 원문 fetch(8MB, 금융지주 최대 10초)라 흔한 summary를 느리게 함 →
   `scope="attendance"`로만 조회. 12사 실측: 파싱 8/12(부분 포함)·not_found 3·fetch_failed 1.
 - 출석률 <75%는 `low_attendance` warn flag(SK하이닉스 박성하 50%).
+- **260713 소수점 출석률 버그 수정**: `_ATTEND_RE`가 `(\d+)`만 잡아 `서창석 (출석률 : 87.5%)` 같은
+  소수점 출석률에서 "87" 뒤 `%`가 `.`과 안 맞아 매치 실패 → **해당 이사 통째 누락**(KT 서창석 실측 —
+  이사 8→9명). `(\d+(?:\.\d+)?)` + `float` 파싱(int('87.5') 크래시 방지, 정수는 int 유지)으로 교정.
+  검증: KT 소수점 케이스 end-to-end + 17사 정수 케이스 회귀 0·크래시 0(opm-tool-validation 스킬).
 
 **구조화 품질 로그(코붕이 "log에서 오류 탐지")**: 매 호출 끝에 `logger.info("[DB_QUALITY] {회사} scope=
 {s} wall={ms} calls={n} flags={kind별개수} fn={복구}/{전체} warns={n}")` 1줄. 실전 트래픽에서

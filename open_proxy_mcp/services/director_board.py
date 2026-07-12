@@ -861,10 +861,12 @@ async def _pay_agenda_scope(company_query: str, *, warnings: list[str]) -> dict[
 # ── attendance: 개별 이사 이사회 출석률(사업보고서 원문 파서) ────────────────────
 
 # 사업보고서 '이사회 활동내역'의 개별 이사 출석률: '한애라 (출석률 :100%)'·'박성하(출석률:50%)' 형태.
-_ATTEND_RE = re.compile(r"([가-힣]{2,5})\s*\(\s*출석률\s*[:：]\s*(\d+)\s*%\s*\)")
+# 소수점 허용 — (\d+)만 잡으면 '서창석 (출석률 : 87.5%)'에서 "87" 뒤 '%'가 '.'과 안 맞아 매치 실패 →
+# 해당 이사 통째 누락(260713 KT 서창석 실측). 값은 float로 파싱(int('87.5') 크래시 방지).
+_ATTEND_RE = re.compile(r"([가-힣]{2,5})\s*\(\s*출석률\s*[:：]\s*(\d+(?:\.\d+)?)\s*%\s*\)")
 
 
-def _parse_board_attendance(text: str) -> dict[str, int]:
+def _parse_board_attendance(text: str) -> dict[str, int | float]:
     """사업보고서 원문에서 '이사회' 개별 출석률 파싱. 출석률 표가 여러 개(이사회·감사위·보상위 등)라
     같은 이름이 body마다 다른 값으로 나오므로, **첫 클러스터(=이사회 본 표 헤더행)만** 잡는다
     (섹션-local, 260709 실측: SK하이닉스 안현이 이사회 91% vs 위원회 100%로 달라 마지막값 잡으면 오류).
@@ -878,10 +880,11 @@ def _parse_board_attendance(text: str) -> dict[str, int]:
             cluster.append(m)
         else:
             break
-    board: dict[str, int] = {}
+    board: dict[str, float] = {}
     for m in cluster:
         if m.group(1) not in board:      # 첫 표(이사회)의 첫 값 우선
-            board[m.group(1)] = int(m.group(2))
+            val = float(m.group(2))      # 87.5 등 소수점 — int()는 크래시
+            board[m.group(1)] = int(val) if val.is_integer() else val
     return board
 
 
