@@ -290,13 +290,55 @@ def _kst(ts_ns: int) -> datetime:
 
 
 def daily_stats(rows):
-    """{day(KST 'YYYY-MM-DD'): (unique_users, requests)}"""
+    """{day(KST 'YYYY-MM-DD'): {"users", "requests", "new_users"}}.
+    new_users = 그 날 로그에 '처음 등장'한 key 수(수집 시작 6/29 이후 기준 — 진짜 최초 사용이
+    아니라 '우리 로그상 첫 관측'. 수집 첫날은 전원이 신규로 잡히는 게 정상)."""
+    first_seen: dict[str, str] = {}
     by_day = defaultdict(lambda: [set(), 0])
     for ts, h in rows:
         d = _kst(ts).strftime("%Y-%m-%d")
+        if h not in first_seen or d < first_seen[h]:
+            first_seen[h] = d
         by_day[d][0].add(h)
         by_day[d][1] += 1
-    return {d: (len(u), n) for d, (u, n) in sorted(by_day.items())}
+    new_by_day: dict[str, int] = defaultdict(int)
+    for h, d in first_seen.items():
+        new_by_day[d] += 1
+    return {d: {"users": len(u), "requests": n, "new_users": new_by_day[d]}
+            for d, (u, n) in sorted(by_day.items())}
+
+
+def fetch_error_rows():
+    """(ts_ns, key_hash, is_error) — 일별 오류율 버킷용. is_error 컬럼 없는 구스키마면 [] (오류율 생략)."""
+    if using_pg():
+        con = _pg_conn()
+        try:
+            try:
+                rows = con.execute("SELECT ts_ns, key_hash, is_error FROM tool_call_events").fetchall()
+            except Exception:  # is_error 미생성 구서버
+                con.rollback()
+                return []
+        finally:
+            con.close()
+        return [(int(t), h, e) for t, h, e in rows]
+    try:
+        return [(int(t), h, e)
+                for t, h, e in db().execute("SELECT ts_ns, key_hash, is_error FROM events").fetchall()]
+    except Exception:
+        return []
+
+
+def daily_errors(err_rows):
+    """{day: (errors, err_known)} — err_rows=(ts, h, is_error) 외부 사용자만. err_known=is_error 기록된 건수."""
+    by_day = defaultdict(lambda: [0, 0])  # [errors, known]
+    for ts, h, e in err_rows:
+        if h in SELF_HASHES or e is None:
+            continue
+        d = _kst(ts).strftime("%Y-%m-%d")
+        by_day[d][1] += 1
+        if e:
+            by_day[d][0] += 1
+    return {d: (er, kn) for d, (er, kn) in by_day.items()}
 
 
 def weekly_stats(rows):
@@ -390,15 +432,20 @@ def stats(all_rows):
     daily = daily_stats(rows)
     weekly = weekly_stats(rows)
     users = per_user(rows)
+    derr = daily_errors(fetch_error_rows())
 
     print("=" * 56)
     print("OPM 사용 통계 (외부 사용자, KST 기준)")
     print("=" * 56)
     report(all_rows)
 
-    print("\n[일별]  날짜         단일사용자  요청수")
-    for d, (u, n) in daily.items():
-        print(f"        {d}      {u:>6}   {n:>6}")
+    print("\n[일별]  날짜         단일사용자  신규  요청수  인당요청  오류율")
+    for d, v in daily.items():
+        u, n, nu = v["users"], v["requests"], v["new_users"]
+        per = n / u if u else 0
+        er, kn = derr.get(d, (0, 0))
+        erate = f"{er/kn*100:.1f}%" if kn else "-"
+        print(f"        {d}      {u:>6}  {nu:>4}  {n:>6}   {per:>6.1f}   {erate:>6}")
 
     print("\n[주별]  주          단일사용자  요청수")
     for w, (u, n) in weekly.items():
@@ -444,10 +491,15 @@ def export(all_rows, outdir: str):
     daily = daily_stats(rows)
     weekly = weekly_stats(rows)
     users = per_user(rows)
+    derr = daily_errors(fetch_error_rows())
 
     with open(d / "daily.csv", "w", newline="") as f:
-        w = csv.writer(f); w.writerow(["date", "unique_users", "requests"])
-        for k, (u, n) in daily.items(): w.writerow([k, u, n])
+        w = csv.writer(f)
+        w.writerow(["date", "unique_users", "new_users", "requests", "req_per_user", "errors", "err_known"])
+        for k, v in daily.items():
+            er, kn = derr.get(k, (0, 0))
+            per = round(v["requests"] / v["users"], 1) if v["users"] else 0
+            w.writerow([k, v["users"], v["new_users"], v["requests"], per, er, kn])
     with open(d / "weekly.csv", "w", newline="") as f:
         w = csv.writer(f); w.writerow(["week", "unique_users", "requests"])
         for k, (u, n) in weekly.items(): w.writerow([k, u, n])
