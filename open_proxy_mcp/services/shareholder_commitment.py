@@ -22,7 +22,7 @@
 새로 안 만들고 `director_performance.py`의 기존 공식(총배당+총소각금액 ÷ 총순이익)을 그대로 재사용.
 
 **sanity 필터**: treasury_share의 결정↔실행 사이클 매칭(`_link_cycles`)에 260707 세션에서 발견한
-별개 오탐 버그가 남아있다(POSCO홀딩스·카카오·엘앤에프·포스코퓨처엠 확인, TO_DO.md 기록). 이 tool은
+별개 오탐 버그가 남아있다(POSCO홀딩스·카카오·엘앤에프·포스코퓨처엠 확인 — 알려진 별개 이슈). 이 tool은
 그 매칭을 무조건 신뢰하지 않고, `actual_amount_krw / decision.amount_krw` 비율이 0.3~3.0 밖이면 그
 사이클을 계산에서 제외하고 `data_quality_flags`에 남긴다(조용히 틀린 값을 내지 않기 위함).
 """
@@ -56,7 +56,7 @@ async def _bps_at_year(canonical_name: str, corp_code: str, year: int) -> dict[s
     ⚠ `total_equity_krw`는 지배지분만이 아니라 총자본(비지배지분 포함)일 수 있음 — financial_metrics가
     이 scope에서 지배지분만 분리한 필드를 별도로 안 주기 때문(알려진 근사치, valuation.py처럼
     `_ctrl_equity` 정밀 분리를 하려면 fnlttSinglAcntAll 직접 재구현이 필요해 이번 스코프에서는
-    보류 — TO_DO 후보)."""
+    보류 — 별도 과제)."""
     from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 
     client = get_dart_client()
@@ -117,7 +117,7 @@ async def _capital_return_impact(
             flags.append(
                 f"사이클 제외(단위/매칭 이상 의심): rcept={res.get('rcept_no')} "
                 f"actual={actual:,} vs decision={decision_amount:,} (비율 {ratio:.2f}) — "
-                f"_link_cycles 매칭 오탐 가능성(TO_DO.md 기록), 장부가손익 계산에서 제외"
+                f"_link_cycles 매칭 오탐 가능성(알려진 별개 이슈), 장부가손익 계산에서 제외"
             )
             continue
 

@@ -136,7 +136,7 @@ def register_tools(mcp):
         when: 스튜어드십/기관투자자 engagement, 연례 보유종목 점검, "이 회사 약속 지켰나" 질문.
         rule: value_up(계획)+corp_gov_report(준수변화)+dividend(실제배당)+treasury_share(실제소각,
         260707 원문단위버그 수정 완료)를 조합. 결정↔실행 매칭 오탐 의심 사이클은 sanity 필터로
-        제외하고 data_quality_flags에 남김(TO_DO.md 기록된 treasury_share `_link_cycles` 별개 이슈 대응).
+        제외하고 data_quality_flags에 남김(알려진 treasury_share `_link_cycles` 별개 이슈 대응).
         lookback_years: 조회 기간(년), 기본 3
         ref: value_up, corp_gov_report, dividend, treasury_share
         """
