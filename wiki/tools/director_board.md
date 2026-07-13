@@ -27,7 +27,7 @@ created: 2026-07-08
 
 ## 사용법
 `director_board(company, scope="summary", year=0, lookback_years=3, format="md")`
-- scope: `compensation` · `roster` · `individual` · `unregistered` · `pay_gap` · `pay_agenda` · `attendance`(출석률·on-demand) · `summary`(기본)
+- scope: `compensation` · `roster` · `individual` · `unregistered` · `pay_gap` · `pay_agenda` · `attendance`(출석률·on-demand) · `pay_criteria`(보수 산정기준·on-demand) · `summary`(기본)
 - year: 기준 사업연도(0=최근 확정 전년). lookback_years: 조회 기간(년)
 
 ## scope별 추천 질문 (자연어 예시)
@@ -41,6 +41,7 @@ created: 2026-07-08
 | `pay_gap` | "이 회사 임원-직원 보수 격차 몇 배야?" · "직원 평균 연봉이랑 이사 보수 비교해줘" |
 | `pay_agenda` | "이번 주총에 보수한도 얼마나 올려달래?" · "작년에 한도 다 쓰고 또 올려달라는 거야?"(인상 근거 판단) |
 | `attendance` | "이사들 이사회 출석 잘 해?" · "출석률 저조한 이사 있어?"(사업보고서 원문, summary 제외 on-demand) |
+| `pay_criteria` | "이 회사 상여는 무슨 기준으로 줘?" · "POSCO 성과급 KPI 가중치 뭐야?" · "대표이사 급여/상여 어떻게 산정했어?"(사업보고서 VIII-2 원문, summary 제외 on-demand) |
 | `summary` (기본) | "이 회사 이사회 전반적으로 봐줘" · "이 회사 이사 보수 적절한지 살펴봐줘"(위 전부 종합) |
 
 한 회사에 특정 관점만 궁금하면 scope 하나만 콜(DART 콜 절약), 종합 그림이 필요하면 `summary`.
@@ -56,6 +57,7 @@ created: 2026-07-08
 | `pay_gap` | 경영진 vs **직원 평균** 보수 배수 | empSttus 조합 | ✅ v1 |
 | `pay_agenda` | 주총 보수한도 안건 **올해 제안 vs 작년 실적**(인상률·작년소진율) | shareholder_meeting notice 재사용 | ✅ v1 |
 | `attendance` | 개별 이사 **이사회 출석률**(일부만 요약 시 partial flag) | 사업보고서 원문 파서 | ✅ v2(부분적·on-demand) |
+| `pay_criteria` | **보수 산정기준**(버킷별 정책 배수 + 개인별 급여/상여/KPI 분해) + **정형 API 하이브리드 교차검증** | 사업보고서 VIII-2 원문 파서 + hmvAuditIndvdlBySttus | ✅ (260713·on-demand) |
 | `summary` | 위 전부 종합 + 신호 | 전부 | ✅ v1 |
 
 ## 260709 확장 — 전면 YoY + 놓친 필드 전부 노출
@@ -355,6 +357,57 @@ OCR tier 불필요 — 텍스트 파싱으로 됨). exctvSttus의 rcept_no로 �
 `parse_failed`·각주 복구율 하락·`attendance_partial/not_found` 비율·특정 scope 지연을 로그로 관측 →
 사용자 불평 전에 엣지케이스 발견. **완벽 파싱 대신 "정직한 self-flag + 로그 관측"** 전략의 계측 지점.
 
+## 260713 pay_criteria — 보수 산정기준 원문 파서 + 정형 API 하이브리드 교차검증
+
+정형 API(compensation/individual)는 보수 **금액·인원**만 준다 — "얼마 받았나"는 알아도 "무슨 기준으로
+산정했나"(성과급 배수·KPI 가중치)는 못 준다. `pay_criteria`는 사업보고서 **VIII. 임원 및 직원 등에
+관한 사항 › 2. 임원의 보수 등** 원문(document.xml)에서 이 서술을 구조화한다. 파서 코어는
+`services/executive_pay.py`(→ [[pay-criteria-hybrid-validation-260713]]).
+
+**무엇을 뽑나**
+- **보수지급기준(정책)**: 등기이사/사외이사/감사위원 버킷별 급여·상여·단기/장기성과급 배수(KT&G 단기
+  0~280%(사장)/0~165%(사내), 장기 0~600%, RSU 3년 이연 등).
+- **개인별 산정기준**: 실명 임원의 급여/상여/주식보상 분해 + 계량·비계량 KPI(POSCO 영업이익 15%·매출
+  15%·ROA 10%·주가 15%·ESG 10% 등 가중치 실명 공개). 배수/비율 토큰은 `ranges`에 원문 그대로 보존.
+
+**구조-우선 파싱(제목·순서 매칭 금지, 4축)**: ① `<...>` 꺾쇠 그룹제목 → 대블록 경계 ② 표 헤더 컬럼
+시그니처(정규화 부분매칭) → 표 종류 ③ rowspan/colspan 그리드 정규화 → 좌표 기반 셀 접근 ④ 표별
+`(단위:백만원)` 선언 → 스케일. 시그니처 불일치 표는 버린다(억지 매칭 금지).
+
+### 하이브리드 검증 — 파서 Σ컴포넌트 vs 정형 API 공식 총액 (핵심 설계)
+개인별 산정기준 표의 Σ(급여+상여+…)를 **두 축**으로 교차검증한다:
+1. **자기일치(파서-vs-파서)**: 같은 원문 안의 「개인별 보수지급금액」 표 공식총액과 대조(DART 0콜).
+2. **하이브리드(파서-vs-API)**: 정형 API `hmvAuditIndvdlBySttus`(5억+ 개인별 보수총액, DART가 별도
+   구조화한 **독립 소스**)와 대조. `reconcile_with_api()`가 individuals에 `api_consistent`/`api_diff_krw`
+   부여 + `api_unmatched`(API엔 5억+로 있는데 파서 개인에 대응 없음 = 이름 병합/누락 신호) 반환.
+
+**왜 하이브리드가 필수인가**: 자기일치는 파서가 같은 원문 두 표를 **같은 방식으로 오독하면 통과**한다
+(파서-vs-파서라 문서 오독을 못 잡음). API는 파서 그리드를 안 거친 독립 축이라 이 silent 오독을
+적발한다. 실제로 이 하이브리드가 없었으면 못 잡았을 두 버그 클래스를 260713 검증에서 발견했다
+(상세 [[pay-criteria-hybrid-validation-260713]]):
+
+| 버그 | 증상 | 원인 | 수정 |
+|---|---|---|---|
+| ① 직위-병합 (34사, 파싱 253사의 13%) | 자기일치 `0/0`으로 **조용히 빔** — 삼성전자·SK하이닉스·현대차·기아·삼성바이오·신한지주 등 초대형주 대부분 | 산정기준 표가 이름 셀에 직위를 병합(`대표이사한종희`) → (group,merged_name) 키가 공식표와 불일치 | **같은 문서 `indiv_total`(이름/직위 분리)의 실명 집합을 ground truth로** 병합셀에서 실명 부분매칭 복원(`_clean_person_name`) |
+| ② 한글 수사 금액 (삼성생명류) | 금액 **10배 축소** — 이승호 14.6억→2.0억 | `(단위:)` 없이 `6억7백만원`으로 자기서술하는 금액을 숫자만 뽑아(`67`) ×백만 처리 | `_korean_amount` 파서 — 억/조/만/천/백/십 자릿단위 해석, 총액 셀에 한글수사 있으면 표 단위 무시하고 원 단위 직접 해석 |
+
+**검증 결과(KOSPI200+KOSDAQ100+엣지10 유니버스, 네트워크 0콜 재파싱 회귀)**: 자기일치 **99.4%**
+(1377/1386), 대조가능 개인 +259(1127→1386), **회귀 0사**. 표본 7사(삼성생명·삼성전자·DB손보 등)
+하이브리드 API 축 전부 100%. 두 버그 모두 자기일치만으론 통과했을 것(①은 0/0, ②는 미등기라 API에
+없어 self축에서만 드러남) — 그래서 하이브리드 + self 양축이 상보적.
+
+### async — 하이브리드 검증의 wall-clock 비용 0
+`get_individual_pay`(API)는 rcept_no가 필요 없어 8MB 원문 `get_document_cached`와 **병렬**로 돌린다
+(`asyncio.gather`). 같은 회사 cold 대조(캐시 무효화 apples-to-apples): 순차(document→API) 대비 병렬이
+회사당 ~130ms 절감 = API 지연 전액이 원문 다운로드 그늘에 흡수. 검증 축을 붙여도 속도 비용 0.
+
+### 미포함(보수적)
+- **정책/개인별 커버리지 부분성**: 정책표 없이 서술형만 있는 회사는 `policy_narrative` 폴백, 그마저
+  없으면 개인별만. 금융지주 지배구조 연차보고서 등 별도양식은 `status=not_found`.
+- **상위5명(미등기·직원) 블록**은 이사회 명단과 다름(합산 금지). 이들은 5억+ 개인공개(등기·감사)
+  대상 밖이라 API에 없을 수 있어 `parser_unmatched_ge5`(정상 가능)로 별도 표식.
+- 남은 자기일치 잔여 9건은 전부 `total_consistent=False`로 투명 플래그(은폐 안 함).
+
 ## Flow
 
 ```mermaid
@@ -391,9 +444,11 @@ sequenceDiagram
 | `unrstExctvMendngSttus` | 미등기 집행임원 인원·연급여총액·1인평균 |
 | `empSttus` | 직원 부문·성별 인원·평균급여 (pay_gap 분모) |
 | shareholder_meeting notice (재사용) | 보수한도 주총안건 current/prior (pay_agenda) |
-| 사업보고서 원문 (document.xml) | 각주 본문 해소 + 이사회 출석률(attendance, 부분적) |
+| 사업보고서 원문 (document.xml) | 각주 본문 해소 + 이사회 출석률(attendance) + 보수 산정기준 VIII-2(pay_criteria) |
+| `hmvAuditIndvdlBySttus` (재사용) | pay_criteria 하이브리드 교차검증(파서 Σ vs API 공식총액) |
 
 ## 관련
 - [[corp_gov_report]] — 회사 지배구조 15지표 준수(정성). 이 tool은 개별 이사 정량.
 - [[director_evaluation]] — 이사 후보 독립성·결격(주총 안건). 이 tool은 재직 중 보수·재직변동.
 - [[shareholder_meeting_notice]] — 보수한도 '안건'. 이 tool은 실제 지급·소진율.
+- [[pay-criteria-hybrid-validation-260713]] — pay_criteria 파서 설계·두 버그 클래스·하이브리드 검증 회고.

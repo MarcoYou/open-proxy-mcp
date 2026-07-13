@@ -269,6 +269,71 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"- ⏳ {att.get('note')}")
         lines.append("")
 
+    pc = d.get("pay_criteria")
+    if pc:
+        lines.append("## 보수 산정기준 (사업보고서 VIII-2 원문)")
+        if pc.get("status") == "parsed":
+            lines.append(f"- 출처: {pc.get('source')} (rcept_no `{pc.get('rcept_no')}`)")
+            lines.append("")
+            policy = pc.get("pay_policy") or []
+            if policy:
+                lines.append("### 보수지급기준 (버킷별 정책)")
+                lines.append("| 구분 | 성과급 배수/비율 | 산정기준(원문) |")
+                lines.append("|---|---|---|")
+                for p in policy:
+                    rng = ", ".join(p.get("ranges") or []) or "-"
+                    crit = (p.get("criteria") or "").replace("\n", " ")
+                    lines.append(f"| {p.get('group')} | {rng} | {crit[:300]} |")
+                lines.append("")
+            elif pc.get("policy_narrative"):
+                lines.append(f"### 보수지급기준: {pc.get('policy_narrative')}")
+                lines.append("")
+            people = pc.get("individuals") or []
+            if people:
+                lines.append("### 개인별 산정기준 및 방법 (급여/상여 분해 + KPI)")
+                # group별로 묶어 표기 (상위5명 블록은 미등기·직원 포함)
+                by_group: dict[str, list] = {}
+                for pr in people:
+                    by_group.setdefault(pr.get("group") or "", []).append(pr)
+                for grp, prs in by_group.items():
+                    lines.append(f"**〈{grp}〉**")
+                    for pr in prs:
+                        comps = [c for c in pr.get("components", []) if c.get("amount_krw") is not None]
+                        comp_str = " · ".join(f"{c['pay_type']} {_won(c['amount_krw'])}" for c in comps)
+                        # 검증 배지: 정형 API(독립)와 대조 결과를 이름 옆에. ✅=API 총액과 일치,
+                        # ❗=불일치(파서 오독 의심), 무표시=API 미공개(5억 미만) 또는 미매칭.
+                        badge = ""
+                        if pr.get("api_consistent") is True:
+                            badge = " ✅API일치"
+                        elif pr.get("api_consistent") is False:
+                            badge = f" ❗API불일치(API {_won(pr.get('api_total_krw'))}, 차이 {_won(pr.get('api_diff_krw'))})"
+                        lines.append(f"- **{pr.get('name')}** (총 {_won(pr.get('total_krw'))}){badge}: {comp_str}")
+                        for c in pr.get("components", []):
+                            if c.get("ranges") or (c.get("pay_type") in ("상여",) and c.get("basis")):
+                                rng = f" [배수/가중치: {', '.join(c['ranges'])}]" if c.get("ranges") else ""
+                                lines.append(f"  - {c['pay_type']} 산정: {(c.get('basis') or '')[:220]}{rng}")
+                    lines.append("")
+            # 검증 요약: ① 파서 자기일치(in-doc 표) ② 하이브리드(정형 API — 독립 교차검증).
+            rec = pc.get("reconciliation") or {}
+            arec = pc.get("api_reconciliation") or {}
+            if rec.get("checkable") or arec.get("checkable"):
+                lines.append("### 검증 (개인별 Σ분해액 대조)")
+                if rec.get("checkable"):
+                    lines.append(f"- 파서 자기일치(원문 개인별표): {rec.get('consistent')}/{rec.get('checkable')} "
+                                 f"({rec.get('consistent_rate')}%)")
+                if arec.get("checkable"):
+                    lines.append(f"- **하이브리드(정형 API 독립대조)**: {arec.get('consistent')}/{arec.get('checkable')} "
+                                 f"({arec.get('consistent_rate')}%) — {arec.get('source')}")
+                # API엔 5억+로 있는데 파서가 매칭 못한 인물 = 이름 병합/누락 의심(삼성생명류 silent case 적발).
+                for u in (arec.get("api_unmatched") or []):
+                    lines.append(f"  - ❗ API 5억+ 공개자 **{u.get('name')}**({_won(u.get('api_total_krw'))})가 파서 개인목록에 없음 — 이름 병합/누락 의심")
+                lines.append("")
+            lines.append(f"> {pc.get('note', '')}")
+            lines.append(f"> {pc.get('unit_note', '')}")
+        else:
+            lines.append(f"- ⏳ {pc.get('note')}")
+        lines.append("")
+
     assess = d.get("assessment")
     if assess:
         lines.append("## 종합 신호")
@@ -338,7 +403,8 @@ def register_tools(mcp):
         기본엔 미포함 — on-demand scope로 조회.
         scope: compensation | roster | individual(5억+ 실명, RSA/스톡옵션 노트 포함) |
         unregistered(미등기임원) | pay_gap(경영진 vs 직원 배수, 부문별 세부) |
-        pay_agenda(보수한도 주총안건 올해vs작년) | attendance(개별 이사 출석률·원문, summary 제외) | summary(기본)
+        pay_agenda(보수한도 주총안건 올해vs작년) | attendance(개별 이사 출석률·원문, summary 제외) |
+        pay_criteria(보수 산정기준·개인별 급여/상여 분해·KPI 가중치, 사업보고서 VIII-2 원문, summary 제외) | summary(기본)
         각주 마커('(주1)' 등 정형 API가 본문을 안 주는 비고)는 resolve_footnotes=True(기본)면 해당
         사업보고서 원문에서 각주 본문을 자동 복구(마커 뜬 공시만 1회 fetch·캐시) — 실패 시 원문 발췌 폴백.
         year: 기준 사업연도(0=최근 확정 전년). lookback_years: 조회 기간(년), 기본 3 — 대부분 scope에서 YoY 적용

@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.executive_pay import parse_executive_pay, reconcile_with_api
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     ToolEnvelope,
@@ -50,7 +51,7 @@ from open_proxy_mcp.services.contracts import (
 )
 
 _SUPPORTED_SCOPES = {"compensation", "roster", "individual", "unregistered", "pay_gap",
-                     "pay_agenda", "attendance", "summary"}
+                     "pay_agenda", "attendance", "pay_criteria", "summary"}
 
 # 소진율 임계 (참고용 flag — 판단이 아니라 신호)
 _UTILIZATION_HIGH = 90.0   # 한도의 90%+ 소진 = 여유 적음
@@ -935,6 +936,66 @@ async def _attendance_scope(client, corp_code: str, year: int, *, warnings: list
     }
 
 
+# ── pay_criteria: 보수 산정기준 (사업보고서 VIII-2 원문 파서) ─────────────────
+
+async def _pay_criteria_scope(client, corp_code: str, year: int, *, warnings: list[str]) -> dict[str, Any]:
+    """보수 산정기준 — 사업보고서 VIII-2 「임원의 보수 등」 원문 파서(260713 신규).
+
+    정형 API(compensation/individual)가 못 주는 **산식·KPI 서술**을 원문에서 구조화:
+    ① 보수지급기준(정책, 버킷별 급여/상여/성과급 배수) ② 개인별 산정기준(실명 급여/상여 분해 +
+    계량·비계량 KPI). exctvSttus의 rcept_no로 사업보고서 원문(document.xml)을 받아 파싱하며,
+    attendance·각주해소와 원문 캐시를 공유(같은 회사면 재fetch 없음). 제목/순서가 아니라 표 헤더
+    시그니처+rowspan 정규화+표별 단위로 판별([[executive_pay]]). 금융지주 등 별도양식은 not_found."""
+    rcept_no = None
+    used_year = year
+    for y in (year, year - 1):  # 당해 사업보고서 없으면 전년
+        rows = await _fetch_rows(client.get_executive_status(corp_code, str(y), _REPRT_ANNUAL))
+        rcept_no = next((r.get("rcept_no") for r in rows if r.get("rcept_no")), None)
+        if rcept_no:
+            used_year = y
+            break
+    if not rcept_no:
+        return {"status": "not_found", "note": "사업보고서 접수번호 확보 실패(임원현황 미제출)."}
+    # 원문 document(8MB, 느림)와 정형 API 개인별 보수(hmvAuditIndvdlBySttus)는 서로 독립 —
+    # get_individual_pay는 rcept_no가 필요 없어 document fetch와 **병렬**로 돌린다(260713). 이렇게
+    # 하면 하이브리드 교차검증용 API 호출이 wall-clock을 사실상 늘리지 않는다(작은 JSON이 큰 원문
+    # 다운로드 그늘에 가려짐). API 실패(5억+ 대상 없음 등)는 검증 생략일 뿐 치명적 아님 → 흡수.
+    try:
+        doc, api_rows = await asyncio.gather(
+            client.get_document_cached(rcept_no),
+            _fetch_rows(client.get_individual_pay(corp_code, str(used_year), _REPRT_ANNUAL)),
+        )
+    except Exception as e:  # noqa: BLE001
+        warnings.append(f"[pay_criteria] 원문 조회 실패: {e}")
+        return {"status": "fetch_failed", "rcept_no": rcept_no, "note": "사업보고서 원문 조회 실패."}
+    html = (doc or {}).get("html") or ""
+    text = (doc or {}).get("text") or ""
+    parsed = parse_executive_pay(html, text)
+    if not parsed["pay_policy"] and not parsed["individuals"] and not parsed["policy_narrative"]:
+        return {"status": "not_found", "rcept_no": rcept_no,
+                "note": "VIII-2 보수지급기준/산정기준 표 미발견 — 금융지주 지배구조 연차보고서 등 "
+                        "별도양식이거나 원문 서식 차이 가능."}
+    # 하이브리드 교차검증: 파서 Σ컴포넌트 vs 정형 API 공식 총액(독립 소스). in-place로 individuals에
+    # api_consistent 부여 + 요약 반환. API가 비어도(5억+ 없음) 빈 요약이라 안전.
+    api_reconciliation = reconcile_with_api(parsed, api_rows)
+    return {
+        "status": "parsed",
+        "source": "사업보고서 VIII. 임원 및 직원 등에 관한 사항 › 2. 임원의 보수 등 원문",
+        "rcept_no": rcept_no,
+        "unit_note": "금액(amount_krw/total_krw)은 원문 표별 단위를 원(KRW)으로 환산한 값.",
+        "pay_policy": parsed["pay_policy"],
+        "policy_narrative": parsed["policy_narrative"],
+        "individuals": parsed["individuals"],
+        "individual_totals": parsed.get("individual_totals"),
+        "reconciliation": parsed.get("reconciliation"),
+        "api_reconciliation": api_reconciliation,
+        "aggregate_seen": parsed["aggregate_seen"],
+        "unknown_tables": parsed["unknown_tables"],
+        "note": "'상위 5명' group은 미등기·직원 포함 — 이사회 명단과 다름(합산 금지). KPI 가중치·성과급 "
+                "배수는 basis/ranges에 원문 그대로 보존(회사별 편차 커 무리한 구조화 안 함).",
+    }
+
+
 # ── 진입점 ─────────────────────────────────────────────────────────────────
 
 async def build_director_board_payload(
@@ -1018,6 +1079,11 @@ async def build_director_board_payload(
         # (footnote 해소와 원문 캐시 공유라 같은 회사면 재사용). 필요 시 summary 포함은 옵션화 가능.
         tasks["attendance"] = _timed(_attendance_scope(client, corp_code, year, warnings=warnings),
                                      "attendance", timings)
+    if scope == "pay_criteria":
+        # 260713: 사업보고서 VIII-2 원문에서 보수 산정기준(정책+개인별 KPI) 파싱. attendance처럼
+        # 원문 fetch(8MB)라 summary 기본엔 제외 — on-demand scope(원문 캐시는 attendance와 공유).
+        tasks["pay_criteria"] = _timed(_pay_criteria_scope(client, corp_code, year, warnings=warnings),
+                                       "pay_criteria", timings)
 
     try:
         if tasks:
