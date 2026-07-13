@@ -946,6 +946,11 @@ async def _pay_criteria_scope(client, corp_code: str, year: int, *, warnings: li
     계량·비계량 KPI). exctvSttus의 rcept_no로 사업보고서 원문(document.xml)을 받아 파싱하며,
     attendance·각주해소와 원문 캐시를 공유(같은 회사면 재fetch 없음). 제목/순서가 아니라 표 헤더
     시그니처+rowspan 정규화+표별 단위로 판별([[executive_pay]]). 금융지주 등 별도양식은 not_found."""
+    # 내부 단계별 소요(ms) 계측 — scope 총시간(_timed)은 있으나 병목이 원문 fetch(I/O)인지
+    # parse(CPU)인지 안 보였다(260714). 실측: fetch_gather가 지배(8~14MB, 이미 API와 병렬),
+    # parse_executive_pay가 CPU 300~770ms로 2순위(원문 캐시히트 시 지배 병목). data.timing_detail로 노출.
+    _td: dict[str, float] = {}
+    _t0 = time.perf_counter()
     rcept_no = None
     used_year = year
     for y in (year, year - 1):  # 당해 사업보고서 없으면 전년
@@ -954,12 +959,14 @@ async def _pay_criteria_scope(client, corp_code: str, year: int, *, warnings: li
         if rcept_no:
             used_year = y
             break
+    _td["status_probe"] = round((time.perf_counter() - _t0) * 1000, 1)
     if not rcept_no:
         return {"status": "not_found", "note": "사업보고서 접수번호 확보 실패(임원현황 미제출)."}
     # 원문 document(8MB, 느림)와 정형 API 개인별 보수(hmvAuditIndvdlBySttus)는 서로 독립 —
     # get_individual_pay는 rcept_no가 필요 없어 document fetch와 **병렬**로 돌린다(260713). 이렇게
     # 하면 하이브리드 교차검증용 API 호출이 wall-clock을 사실상 늘리지 않는다(작은 JSON이 큰 원문
     # 다운로드 그늘에 가려짐). API 실패(5억+ 대상 없음 등)는 검증 생략일 뿐 치명적 아님 → 흡수.
+    _t1 = time.perf_counter()
     try:
         doc, api_rows = await asyncio.gather(
             client.get_document_cached(rcept_no),
@@ -968,20 +975,26 @@ async def _pay_criteria_scope(client, corp_code: str, year: int, *, warnings: li
     except Exception as e:  # noqa: BLE001
         warnings.append(f"[pay_criteria] 원문 조회 실패: {e}")
         return {"status": "fetch_failed", "rcept_no": rcept_no, "note": "사업보고서 원문 조회 실패."}
+    _td["fetch_gather"] = round((time.perf_counter() - _t1) * 1000, 1)
     html = (doc or {}).get("html") or ""
     text = (doc or {}).get("text") or ""
+    _t2 = time.perf_counter()
     parsed = parse_executive_pay(html, text)
+    _td["parse"] = round((time.perf_counter() - _t2) * 1000, 1)
     if not parsed["pay_policy"] and not parsed["individuals"] and not parsed["policy_narrative"]:
         return {"status": "not_found", "rcept_no": rcept_no,
                 "note": "VIII-2 보수지급기준/산정기준 표 미발견 — 금융지주 지배구조 연차보고서 등 "
                         "별도양식이거나 원문 서식 차이 가능."}
     # 하이브리드 교차검증: 파서 Σ컴포넌트 vs 정형 API 공식 총액(독립 소스). in-place로 individuals에
     # api_consistent 부여 + 요약 반환. API가 비어도(5억+ 없음) 빈 요약이라 안전.
+    _t3 = time.perf_counter()
     api_reconciliation = reconcile_with_api(parsed, api_rows)
+    _td["reconcile"] = round((time.perf_counter() - _t3) * 1000, 1)
     return {
         "status": "parsed",
         "source": "사업보고서 VIII. 임원 및 직원 등에 관한 사항 › 2. 임원의 보수 등 원문",
         "rcept_no": rcept_no,
+        "timing_detail": _td,
         "unit_note": "금액(amount_krw/total_krw)은 원문 표별 단위를 원(KRW)으로 환산한 값.",
         "pay_policy": parsed["pay_policy"],
         "policy_narrative": parsed["policy_narrative"],

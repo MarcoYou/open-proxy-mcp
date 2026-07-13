@@ -69,6 +69,11 @@ SSOT(`law_provisions.json`)의 `effective_date`로만 `미시행(시행 YYYY-MM-
 `exact`(정확/bridge/강매치) · `ambiguous`(조문번호 법령 중복·중간대 다수) · `requires_review`(두루뭉술) ·
 `partial`(앵커 있으나 매칭 0) · `error`(인덱스 부재).
 
+## 성능 (260714)
+인덱스(`law_index.json`, 2,725조)·synonyms·fulltext는 전역캐시(`_INDEX_CACHE` 등) — 프로세스당 1회 로드
+(cold ~33ms) 후 쿼리는 파생 dict(`_by_key`)로 **O(1), warm ~1ms/query**(DART 0콜). `data.timing_ms.build`로
+관측. 이미 최적이라 최적화 여지 없음(관측 타이머만 추가). 실측 [[new-tools-perf-profiling-260714]].
+
 ## 폴백 유형 (검색을 올바른 방향으로 유도 — 260713)
 강한 매칭(E/B/강C)이 아닐 때 **왜 안 잡혔는지**를 유형화하고 **유형별 안내 문구+다음 행동**을 준다
 (generic 메시지 대신). `data.fallback = {type, message}`, 문구는 `warnings[0]`, 행동은 `next_actions`.

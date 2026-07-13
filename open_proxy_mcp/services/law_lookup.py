@@ -19,6 +19,7 @@ import json
 import math
 import re
 import unicodedata
+import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -679,6 +680,7 @@ def build_law_lookup_payload(
     q = (query or "").strip()
     warnings: list[str] = []
     as_of_iso = as_of.strip() or date.today().isoformat()
+    _t0 = time.perf_counter()  # DART 0콜 인메모리 매칭 — 병목 관측용(실측 warm ~1ms/query, 인덱스 전역캐시)
 
     idx = load_index()
     if not idx.get("articles"):
@@ -822,6 +824,7 @@ def build_law_lookup_payload(
         "fallback": fallback,  # None이면 깨끗한 정답
         "corpus_asof": fresh["asof"], "corpus_age_days": fresh["age_days"],
         "usage": build_usage(0),
+        "timing_ms": {"build": round((time.perf_counter() - _t0) * 1000, 1)},
     }
     return ToolEnvelope(
         tool="law_lookup", status=status, subject=q,

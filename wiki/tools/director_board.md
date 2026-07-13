@@ -272,6 +272,11 @@ roster diff vs 공식 사외이사 변동집계 168/300 정확히 일치(나머�
 wall **평균 3.9초·중앙 3.8초·p90 4.7초**, scope합(순차환산) 평균 17.3초 → **병렬로 wall 77% 단축**.
 느린 scope 순: compensation 3.8초 > pay_agenda 3.5초(소집공고 재사용이라 무거움) > pay_gap 2.9초.
 성능 회귀는 이 필드로 나중에 바로 잰다.
+**pay_criteria 내부 세부 타이머(260714)**: scope 총시간만으론 병목이 원문 fetch(I/O)인지 parse(CPU)인지
+안 보여, `data.pay_criteria.timing_detail`(`status_probe`/`fetch_gather`/`parse`/`reconcile` ms)을 추가.
+실측(8사): fetch_gather(원문 8~14MB, 이미 API와 병렬)가 지배(139~2457ms)·parse 296~773ms 2순위(원문
+캐시히트 시 지배). 슬라이스(`_SECTION_MAXLEN` 900KB)를 300KB로 좁히면 8/8 파싱출력 회귀라 유지 —
+안전한 무회귀 최적화 없음(관측성만 추가). 상세 [[new-tools-perf-profiling-260714]].
 
 **설계 질문 2개에 대한 데이터 기반 결론**:
 
