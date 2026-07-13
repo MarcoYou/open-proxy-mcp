@@ -13,13 +13,13 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 20개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 21개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (20 tool, 260708 director_board 추가)
+### 도메인별 (21 tool, 260713 law_lookup 추가)
 - **Company (1)**: [[company]]
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
 - **Data (14)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[director_board]] · [[valuation]]
-- **Evidence (1)**: [[evidence]]
+- **Evidence (2)**: [[evidence]] · [[law_lookup]] (정관↔법령 양방향 조회 — 상법·자본시장법·공정거래법·외부감사법 원문, 회사·DART 무관)
 - **Action (2)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합, 사후 결과는 [[shareholder_meeting_results]]) · [[shareholder_commitment]] (밸류업·배당·소각 약속 vs 실제 이행, 연중 스튜어드십 — 자사주소각 장부가손익 신규 계산)
 
 ### Internal services (MCP 노출 X — chain 전용)
@@ -44,7 +44,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 | **lessons/** | 47 + README |
 | **archive/** | 74 + README 2 |
 
-총 360 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
+총 364 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
 > **규칙은 여기 두지 않는다.** 각 카테고리의 목적·수정정책·layer 정의, 명명 규칙, frontmatter schema,
 > link 방향 정책은 전부 [[wiki_schema]]가 단일 출처(SSOT). 이 파일은 "무엇이 어디 있나"(인벤토리·라우팅)만
@@ -98,7 +98,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
 ---
 
-## Tools (20 진입점) - `tools/`
+## Tools (21 진입점) - `tools/`
 
 전체 카탈로그 + 통계 + 흡수된 archive 매핑은 [[tools/README]] — 아래는 요약 목록(신규 tool 추가 시
 [[tools/README]]와 함께 갱신).
@@ -126,8 +126,9 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[risk_events]] - 리스크 이벤트 활성 3종 (중대재해/횡령배임/생산중단·영업정지, 파생·회생·해산 mute)
 - [[valuation]] - PER·PBR·배당수익률(기업 심층) + 시장/섹터/종목 히스토리 (260705 신설)
 
-### Evidence (1)
+### Evidence (2)
 - [[evidence]] - rcept_no -> 공시일/소스/뷰어 URL
+- [[law_lookup]] - 정관↔법령 양방향 조회 (상법·자본시장법·공정거래법·외부감사법 원문 corpus, 3신호 매처, 회사·DART 0콜)
 
 ### Action (2)
 - [[proxy_advise_before_meeting]] - 주총 전 의결권 자문

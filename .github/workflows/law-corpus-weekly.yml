@@ -1,0 +1,63 @@
+# 주간 법령 corpus 자동 재복사 — scripts/sync_law_corpus.py (cron)
+#
+# 설계(260713): 원문 소스 legalize-kr(github.com/MarcoYou/legalize-kr)은 국가법령정보센터를 따라
+# **매일** 개정을 반영하는 살아있는 창고. OPM이 쓰는 corpus는 그 스냅샷 사본이라 자동으로 안 따라감.
+# 이 배치가 매주 최신 원문을 다시 복사 + 조 단위 색인 재생성 → 4개 법(상법·자본시장법·공정거래법·
+# 외부감사법, 각 법률+시행령) 안의 **개정·삭제·신설 조문은 자동 반영**. 새 '법' 추가만 수동(TARGETS).
+#
+# DART 호출 0 · 외부 secrets 0 (legalize-kr public repo). 안전한 순수 재복사 배치.
+# 실질 변경(조문·색인)이 있을 때만 커밋 — manifest의 synced_at 타임스탬프만 바뀐 건 커밋 안 함.
+
+name: law-corpus-weekly
+
+on:
+  schedule:
+    # 매주 월요일 04:30 UTC = KST 13:30. 주 시작에 지난주 개정분을 반영.
+    - cron: "30 4 * * 1"
+  workflow_dispatch: {}  # 수동 실행
+
+permissions:
+  contents: write  # 변경분 커밋백
+
+jobs:
+  resync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: Clone legalize-kr (원문 소스, public)
+        run: git clone --depth 1 https://github.com/MarcoYou/legalize-kr.git /tmp/legalize-kr
+
+      - name: Re-sync law corpus (DART 0콜)
+        run: uv run python scripts/sync_law_corpus.py --corpus /tmp/legalize-kr --strict
+
+      - name: Regression — spot_law_lookup (원문 정합·미시행 유보·폴백)
+        run: uv run python scripts/spot_law_lookup.py
+
+      - name: Commit if corpus 실질 변경
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # synced_at 타임스탬프만 바뀐 _manifest.json은 무시 — 조문(.md)·색인(law_index.json) 변경만 트리거
+          CHANGED=$(git status --porcelain wiki/rules/laws/corpus/ | grep -v '_manifest.json' || true)
+          if [ -n "$CHANGED" ]; then
+            SRC_DATE=$(git -C /tmp/legalize-kr log -1 --format=%cs)
+            git add wiki/rules/laws/corpus/
+            git commit \
+              -m "chore(law_corpus): 주간 자동 재복사 — legalize-kr ${SRC_DATE} 기준 반영" \
+              -m "개정·삭제·신설 조문 자동 반영. scripts/sync_law_corpus.py (DART 0콜)." \
+              -m "Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+            git push
+            echo "✅ 커밋·푸시 완료 (원문 ${SRC_DATE} 기준)"
+          else
+            # synced_at만 바뀐 manifest는 되돌려 불필요 커밋 방지
+            git checkout -- wiki/rules/laws/corpus/_manifest.json 2>/dev/null || true
+            echo "실질 변경 없음 — 커밋 생략"
+          fi

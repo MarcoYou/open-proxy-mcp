@@ -34,7 +34,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WIKI = ROOT / "wiki"
-EXCLUDE_DIRS = {"raw"}
+# raw = 외부 원본. corpus = legalize-kr 법령 원문(law_lookup, sync_law_corpus.py가 vendored·기계생성)
+# — 둘 다 wiki 프로즈가 아니라 외부 원본이라 link/카운트/orphan 검사 대상에서 제외.
+EXCLUDE_DIRS = {"raw", "corpus"}
 
 WIKILINK = re.compile(r"\[\[([^\]\|]+)(?:\|[^\]]+)?\]\]")
 # 인식 키: related, related_*, tools_audited (audit 페이지 관례)
@@ -69,11 +71,12 @@ def collect_pages() -> list[tuple[str, Path]]:
     for md in WIKI.rglob("*.md"):
         if any(p in EXCLUDE_DIRS for p in md.parts):
             continue
-        rel_md = str(md.relative_to(WIKI))
+        # as_posix()로 forward-slash 정규화 — Windows(\)에서도 git ls-files(/)·폴더 카운트와 일치.
+        rel_md = md.relative_to(WIKI).as_posix()
         if tracked is not None and rel_md not in tracked:
             continue  # gitignore된 로컬 전용 파일 — CI에 없으므로 세지 않음
-        rel = md.relative_to(WIKI).with_suffix("")
-        pages.append((str(rel), md))
+        rel = md.relative_to(WIKI).with_suffix("").as_posix()
+        pages.append((rel, md))
     return pages
 
 

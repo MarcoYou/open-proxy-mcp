@@ -1,18 +1,18 @@
 ---
 type: readme
-title: tools/ — 도구 카탈로그 (20개)
+title: tools/ — 도구 카탈로그 (21개)
 updated: 2026-07-07
 ---
 
-# 도구(Tool) 카탈로그 — 20개
+# 도구(Tool) 카탈로그 — 21개
 
-> OPM의 20개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
+> OPM의 21개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
 > 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
 >
 > 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
 > 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
 
-## 20개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
+## 21개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
 ### 🏢 기본 — 회사 찾기
 | 도구 | 무엇을 답하나 |
@@ -53,10 +53,11 @@ updated: 2026-07-07
 | [order_contracts](order_contracts.md) | 수주·공급계약 (체결·해지, 매출 대비 규모) |
 | [risk_events](risk_events.md) | 리스크 사건 — 중대재해·횡령배임·생산중단 |
 
-### 🔗 근거
+### 🔗 근거 · 참조
 | 도구 | 무엇을 답하나 |
 |---|---|
 | [evidence](evidence.md) | 공시 원문 링크 (접수번호 → DART 열람 URL) |
+| [law_lookup](law_lookup.md) | 정관↔법령 양방향 조회 — 정관 조항/키워드 → 관련 법령 조문(전문), 또는 법조문 → 관련 정관 변경유형·우회·안건. 상법·자본시장법·공정거래법·외부감사법 원문. **회사·DART 무관** |
 
 > 📊 도구–공시 채널 매핑(시각 자료): [[tool_disclosure_map]] · [[data_tool_disclosure_map]]
 > 📞 도구별 DART 콜 budget(기업당 최대 콜·유니버스 배치 안전 크기): [[tool_call_budget]]
@@ -100,7 +101,7 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 | Company | 1 | corpCode/company/list 기반 식별 |
 | Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
 | Data | 12 | DART API 1-14회 병렬, 일부 KIND fallback |
-| Evidence | 1 | rcept_no 문자열 기반 URL 생성 |
+| Evidence | 2 | rcept_no URL 생성(evidence) · 법령 corpus 조회(law_lookup) — 둘 다 **DART 무관** |
 | Action | 2 | upstream data tool 병렬 호출 후 판단/요약 (shareholder_commitment은 신규 계산 1개 추가) |
 
 ## 진단 필드
@@ -132,6 +133,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | risk_events | ✅ list(I001+B001)+키워드 | - | - | - |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - |
 | evidence | - | - | - | - (문자열 가공) |
+| law_lookup | - | - | - | ✅ legalize-kr 법령 corpus (상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge |
 | proxy_advise_before_meeting | upstream data tools | upstream | - | 판단 규칙/records |
 | shareholder_commitment | ✅ value_up+corp_gov_report+dividend+treasury_share+financial_metrics+stockTotqySttus (전부 재사용) | - | - | - |
 
@@ -153,3 +155,4 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-05-20: 도구–공시 매핑 [[data_tool_disclosure_map]] 추가
 - 2026-05-31: financial_metrics 56 지표 확장 · value_up 역할 분리
 - 2026-06-20: 카탈로그를 사람용("무엇을 답하나")으로 재정리 + 개발 상세 분리
+- 2026-07-13: **law_lookup 신규(21번째 tool)** — 정관↔법령 양방향 조회. legalize-kr 원문 corpus(상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge, 회사·DART 무관. Evidence 카테고리 1→2

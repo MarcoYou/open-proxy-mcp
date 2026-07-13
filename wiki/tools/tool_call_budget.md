@@ -24,6 +24,7 @@ method: 코드 실측 (services/*.py 의 DART client 호출 지점)
 | tool | 최대 콜 | 일반 | 가변 요인 |
 |---|---|---|---|
 | evidence | 0 | 0 | API 0회 (문자열 가공) |
+| law_lookup | 0 | 0 | API 0회 (로컬 법령 corpus·인덱스 조회, 회사·DART 무관) |
 | company | 3 | 2 | corpCode 캐시 적중 시 2 |
 | corporate_restructuring | 4 | 4 | DS005 4종 병렬 (단일 scope 1~2) |
 | dilutive_issuance | 4 | 4 | DS005 4종 병렬 (단일 scope 1) |
