@@ -33,7 +33,7 @@ updated: 2026-07-07
 | [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 |
 | [valuation](valuation.md) | 상대가치 배수 — PER·PBR·배당수익률 (통화환산·스케일가드) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
-| [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소 |
+| [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria, 정형API 하이브리드 검증) |
 
 ### 🎁 주주환원 · 자본
 | 도구 | 무엇을 답하나 |
@@ -126,7 +126,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | treasury_share | ✅ DS005 5종 | - | - | - |
 | value_up | ✅ list/document | ✅ 0184 fallback | - | - |
 | corp_gov_report | ✅ list/원문 | - | - | - |
-| director_board | ✅ exctvSttus+drctrAdtAllMendngSttus 2종+개인별 · 사업보고서 원문(출석률·각주 해소) | - | - | - |
+| director_board | ✅ exctvSttus+drctrAdtAllMendngSttus 2종+개인별 · 사업보고서 원문(출석률·각주 해소·보수 산정기준 VIII-2) · 개인별5억+ API 하이브리드 교차검증 | - | - | - |
 | corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - |
 | dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - |
 | corporate_deals | ✅ list+키워드 | - | - | - |

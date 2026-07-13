@@ -114,7 +114,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[ownership_structure]] - 최대주주/특수관계인/5%/control_map
 - [[financial_metrics]] - DART 재무 4 endpoint 통합
 - [[corp_gov_report]] - 기업지배구조보고서 15지표
-- [[director_board]] - 이사 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소 (260708 신설, 260709 각주정밀도·출석률·성능 검수)
+- [[director_board]] - 이사 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria) (260708 신설, 260709 각주정밀도·출석률·성능 검수, 260713 pay_criteria 원문파서+정형API 하이브리드 교차검증)
 - [[dividend]] - 배당 사실 + 분기별 breakdown
 - [[treasury_share]] - 자사주 결정/결과/신탁/소각
 - [[value_up]] - 기업가치제고계획
