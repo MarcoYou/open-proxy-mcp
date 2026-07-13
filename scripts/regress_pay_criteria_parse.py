@@ -5,7 +5,7 @@
 디스크 캐시(opm_cache/{rcept}.json)가 없는 회사는 skip(재fetch 금지 — 하드룰). 오늘 수집분이라 TTL 내.
 """
 from __future__ import annotations
-import os, sys, json
+import os, sys, json, tempfile
 from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(r"D:\Projects\open-proxy-mcp")
@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from open_proxy_mcp.dart.client import get_dart_client
 from open_proxy_mcp.services.executive_pay import parse_executive_pay
 
-OUT = Path(r"C:\Users\Owner\AppData\Local\Temp\claude\D--Projects-open-proxy-mcp\d15743ff-584a-4bdc-9041-c4690a232852\scratchpad\vpay_validation")
+OUT = Path(os.environ.get("OPM_VPAY_OUT") or (Path(tempfile.gettempdir()) / "opm_vpay_validation"))
 JSONL = OUT / "results.jsonl"
 
 

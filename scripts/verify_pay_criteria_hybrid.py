@@ -24,7 +24,7 @@ from open_proxy_mcp.dart.client import get_dart_client
 from open_proxy_mcp.services.company import resolve_company_query
 from open_proxy_mcp.services.director_board import build_director_board_payload, _fetch_rows
 
-OUT = Path(r"C:\Users\Owner\AppData\Local\Temp\claude\D--Projects-open-proxy-mcp\d15743ff-584a-4bdc-9041-c4690a232852\scratchpad\vpay_validation")
+OUT = Path(os.environ.get("OPM_VPAY_OUT") or (Path(tempfile.gettempdir()) / "opm_vpay_validation"))
 OUT.mkdir(parents=True, exist_ok=True)
 
 # 대상: silent case(삼성생명) + clean baseline + KPI(POSCO) + 대형다수(삼성전자) + 소수점(풍산) +
