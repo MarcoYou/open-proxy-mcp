@@ -1034,10 +1034,15 @@ async def build_proxy_contest_payload(
     # retail_activism(소액주주 집단 위임 플랫폼)과 registry_overlap(회사 측 계열사 경영참여 신고)은
     # 분쟁이 아니므로 제외한다.
     external_active_signals = [row for row in activist_signals if row.get("actor_side") == "external_active_block"]
-    # 소송 중 commercial(일상 상거래)은 분쟁 신호에서 제외 — management/unspecified만 카운트
-    # (260607: 아시아나항공 상거래 11건 등 false positive 제거)
+    # has_contest_signal용 소송은 **경영권(management) 확정분만** 센다. unspecified(문서까지
+    # 열어봐도 경영권 키워드가 없어 판단보류로 남은 일반 소송)를 분쟁 신호로 세면, 일상 손배·상거래
+    # 소송 하나로 has_contest_signal이 켜지는 과탐이 된다(260713). commercial과 마찬가지로 unspecified도
+    # 제외하고, dispute_kind=management(직접) 또는 ruling에서 inferred=management(같은 회사 내 경영권
+    # 분쟁 맥락으로 추론된 판결)만 분쟁 소송으로 인정. 36사 재검증 has_contest_signal flip 0(무회귀).
     contest_litigation_rows = [
-        row for row in litigation_rows if row.get("dispute_kind") != "commercial"
+        row for row in litigation_rows
+        if row.get("dispute_kind") == "management"
+        or row.get("dispute_kind_inferred") == "management"
     ]
     has_contest_signal = bool(shareholder_side_rows or contest_litigation_rows or external_active_signals)
 
