@@ -476,6 +476,14 @@ _API_RECON_TOL_KRW = 5_000_000
 _FIVE_EOK = 500_000_000   # API 개별공개 하한(5억) — 파서쪽 미매칭 판정 기준
 
 
+def _is_top5_group(group: str | None) -> bool:
+    """'상위 5명' 블록인가. API(hmvAuditIndvdlBySttus)는 **이사·감사** scope라, 같은 사람이
+    이사·감사 블록(등기 자격분)과 상위5명 블록(연간 총액분)에 다른 금액으로 이중공시될 때
+    (제일기획 김태해: 이사·감사 956M vs 상위5명 1,286M — 둘 다 정확) 상위5명 총액을 이사·감사
+    API와 대조하면 scope 불일치 false positive가 난다. 상위5명 블록은 API 대조에서 제외한다."""
+    return bool(group) and ("상위" in group or "5명" in group)
+
+
 def reconcile_with_api(parsed: dict[str, Any], api_rows: list[dict[str, Any]]) -> dict[str, Any]:
     """정형 API(hmvAuditIndvdlBySttus 5억+ 개인별 보수총액)로 파서 개인별 Σ컴포넌트를 독립 교차검증.
 
@@ -511,6 +519,14 @@ def reconcile_with_api(parsed: dict[str, Any], api_rows: list[dict[str, Any]]) -
         api_total = api_by_name.get(key)
         p["api_total_krw"] = api_total
         comp_sum = p.get("total_krw")
+        # 상위5명 블록은 이사·감사 API와 scope가 달라 대조 제외(정보용 api_total_krw만 부여).
+        # 단 그 사람이 이사·감사 블록에도 있으면 그쪽 항목에서 matched로 잡혀 api_unmatched에 안 뜬다.
+        if _is_top5_group(p.get("group")):
+            if api_total is not None:
+                matched_keys.add(key)   # API에 있는 사람이면 매칭됨으로 인정(미매칭 오탐 방지)
+            p["api_diff_krw"] = None
+            p["api_consistent"] = None
+            continue
         if api_total is not None and comp_sum is not None:
             matched_keys.add(key)
             diff = comp_sum - api_total

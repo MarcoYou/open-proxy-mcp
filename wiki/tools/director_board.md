@@ -406,6 +406,11 @@ OCR tier 불필요 — 텍스트 파싱으로 됨). exctvSttus의 rcept_no로 �
   없으면 개인별만. 금융지주 지배구조 연차보고서 등 별도양식은 `status=not_found`.
 - **상위5명(미등기·직원) 블록**은 이사회 명단과 다름(합산 금지). 이들은 5억+ 개인공개(등기·감사)
   대상 밖이라 API에 없을 수 있어 `parser_unmatched_ge5`(정상 가능)로 별도 표식.
+- **이중공시 scope 처리(260713, 삼성·보험 표본검증에서 발견)**: 같은 사람이 「이사·감사 개인별」과
+  「상위 5명 개인별」 **두 법정표에 다른 금액**으로 동시 공시될 수 있다(제일기획 김태해: 이사·감사
+  956M=등기 자격분 vs 상위5명 1,286M=연간 총액분, **둘 다 정확**). API(hmvAuditIndvdlBySttus)는
+  이사·감사 scope라, 상위5명 블록 금액을 API와 대조하면 scope 불일치 false positive가 난다 →
+  `reconcile_with_api`는 상위5명 블록 개인을 API 대조에서 제외(`_is_top5_group`).
 - 남은 자기일치 잔여 9건은 전부 `total_consistent=False`로 투명 플래그(은폐 안 함).
 
 ## Flow
