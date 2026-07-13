@@ -49,6 +49,7 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계
 | `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=전구간 주간 곡선(`data.series`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
 
+- **260714 FY 라벨 하드코딩 제거(latent look-ahead 버그)**: `mkt_fundamentals.ni_fy/eq_fy`는 `derive_fundamentals`가 `_latest_annual_fy()`로 덮어쓰는 **가변열**인데, 그 값을 담는 `fin[]` 키가 `firm_fin_by_fy`·`market_val_series`에서 `2025`로 하드코딩돼 있었다. FY 넘어가면(2027-04 FY2026 공시 후) 최신 fundamentals가 여전히 2025로 라벨돼 진짜 FY2025(mkt_finstat_y)를 덮어쓰는 오염이 예약돼 있었음 → `_latest_annual_fy()`로 파생. 현재 데이터 무오류(diff 0.0%)·오늘 동작 동일·2026 시뮬 FY2025 보존 확인(무회귀).
 - **260706 테이블 rename + 병합**: `mkt_fund_hist`→`mkt_finstat_y` · `mkt_fund_q`→`mkt_finstat_q` ·
   `mkt_valuation`→`firm_valuation_snapshot`. `mkt_val_history`+`mkt_sector_val`(구 섹터 전용 테이블)은
   **단일 `mkt_val_history`로 병합** — `sector` 컬럼에 센티넬 `'_ALL'`(시장전체) vs 실제 섹터코드로 구분

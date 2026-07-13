@@ -3,7 +3,7 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-20-orange.svg)](#tool-구조-20개)
+[![Tools](https://img.shields.io/badge/tools-21-orange.svg)](#tool-구조-21개)
 [![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](docs/RELEASE_NOTES.md)
 
 [English README](README_ENG.md)
@@ -29,7 +29,7 @@
 - **[밸류에이션](docs/features/valuation.md)**: PER·PBR·배당수익률(기업 심층) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 지배주주 귀속, 비KRW 기능통화 자동 환산(한국은행 ECOS), 적자·자본잠식 N/M 처리. `scope="explain"`으로 수치의 계산 과정·기준·출처를 답합니다.
 - **[기업 리스크 이벤트](docs/features/risk-events.md)**: 중대재해·횡령배임·생산중단 공시를 추적합니다. 회사를 지정하지 않으면 시장 전체에서 최근 사건을 스캔합니다.
 
-그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각과 내부거래, 밸류업·배당·소각 약속 이행 추적 등 총 20개 tool을 제공합니다.
+그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각과 내부거래, 밸류업·배당·소각 약속 이행 추적, 정관↔법령 양방향 조회 등 총 21개 tool을 제공합니다.
 
 ---
 
@@ -126,9 +126,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ---
 
-## Tool 구조 (20개)
+## Tool 구조 (21개)
 
-OpenProxy MCP의 20개 tool은 **Company → Meeting/Data/Evidence → Action** 흐름으로 동작합니다.
+OpenProxy MCP의 21개 tool은 **Company → Meeting/Data/Evidence → Action** 흐름으로 동작합니다(법령 조회는 회사 무관 Reference).
 
 | Layer | Tools | 역할 |
 |---|---|---|
@@ -137,6 +137,7 @@ OpenProxy MCP의 20개 tool은 **Company → Meeting/Data/Evidence → Action** 
 | Data | [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`dividend`](wiki/tools/dividend.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`valuation`](wiki/tools/valuation.md), [`ownership_structure`](wiki/tools/ownership_structure.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`risk_events`](wiki/tools/risk_events.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md) | 개별 공시/재무/지배구조 파싱 |
 | Evidence | [`evidence`](wiki/tools/evidence.md) | 공시번호 기반 출처 추적 |
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md) | 여러 data tool을 묶어 판단/보고 생성 (사후 결과는 [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md)) — 후자는 밸류업·배당·소각 약속 vs 실제 이행 추적 |
+| Reference | [`law_lookup`](wiki/tools/law_lookup.md) | 정관↔법령 양방향 조회 (상법·자본시장법·공정거래법·외부감사법 원문) — 회사·DART 무관, API 0콜 |
 
 ### 의결권 정책
 

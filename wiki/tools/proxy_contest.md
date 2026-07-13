@@ -139,6 +139,7 @@ sequenceDiagram
   - 5%경영참여 - + 소송 - → proxy_campaign (예: LG화학 Palliser Capital)
   - retail_activism side → 소액주주 집단 위임 (예: 삼성전자 컨두잇/ACT)
 - vote_math는 주총 결과 있을 때만, 보수적 (승패 예측 X).
+- **260714 has_contest_signal 소송 과계상 교정**: 분쟁 신호용 소송을 `dispute_kind != commercial`로 세어 **미상(unspecified — 문서까지 열어봐도 경영권 키워드 없는 일반 소송)까지 포함** → 일상 손배 소송 하나로 분쟁 신호가 켜지는 과탐. `management`(직접) 또는 ruling의 inferred=management만 인정하도록 좁힘. 36사 재계산 boolean flip 0(무회귀). ※ 같은 판독의 '위임장 side 이름기반 오분류'는 36사 표본 과탐 0건(shareholder 분류가 전부 실제 반대측)이라 미수정 — 기본값 보수화하면 진짜 분쟁을 놓쳐 회귀.
 - 알려진 한계:
   - 위임장 본문 정규식 실패 시 `requires_review`.
   - vote_math는 KIND 검증 실패 시 `requires_review`.
