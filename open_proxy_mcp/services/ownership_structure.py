@@ -935,10 +935,17 @@ async def build_ownership_structure_payload(
             )
     start_ymd = format_yyyymmdd(window_start)
     end_ymd = format_yyyymmdd(window_end)
+    # latest_blocks는 보고자별 최신 1건 = **현재 지분 스냅샷**이라 기간 하한(360일)을 씌우면 안 된다.
+    # 지분 변동이 없어 최근 공시가 없는 안정적 지배주주(국민연금 7.75%·CJ 13%·Silchester 7% 등)가
+    # 조용히 누락되기 때문(실측: 하한창이면 CJ는 5% 블록이 통째로 빔). 하한은 제거하되 상한(end_ymd)은
+    # as-of 과거조회 look-ahead 방지로 유지하고, 5% 밑으로 내려간 이탈/청산 보고(영풍 장형진 0% 등)는
+    # 현재 5% 블록이 아니므로 보유율로 제외한다. 이탈 '이벤트' 자체는 아래 timeline_rows에 남는다.
     latest_blocks = [
         row for row in latest_blocks
-        if start_ymd <= row.get("report_date", "").replace("-", "") <= end_ymd
+        if row.get("report_date", "").replace("-", "") <= end_ymd
+        and (row.get("ownership_pct") or 0) >= 5.0
     ]
+    # timeline_rows는 기간 내 대량보유 '이벤트' 이력이므로 기간창(하한+상한)을 그대로 유지한다.
     timeline_rows = [
         row for row in timeline_rows
         if start_ymd <= row.get("report_date", "").replace("-", "") <= end_ymd
