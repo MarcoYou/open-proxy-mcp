@@ -9,8 +9,8 @@ TTM PER(최근 4분기 지배순이익 합)·MRQ PBR(최근분기 지배자본)�
   eq     = 지배자본 **기말 잔액**(BS, 기간무관).
 
 수집 절약: **Q4(사업보고서)는 이미 있는 연간 데이터에서 seed(DART 0콜)** —
-  · FY2018~2024 = mkt_finstat_y(ni=연간누적=Q4누적, eq=FY말자본, restated 우선)
-  · FY2025      = mkt_fundamentals(ni_fy, eq_fy)
+  · 과거 FY = mkt_finstat_y(ni=연간누적=Q4누적, eq=FY말자본, restated 우선)
+  · 최신 확정 FY(_latest_annual_fy) = mkt_fundamentals(ni_fy, eq_fy) — ni_fy/eq_fy는 가변열
   나머지 Q1(11013)·반기(11012)·3Q(11014)만 DART 수집.
 
 추출: financial_metrics._extract_cumulative_is 규칙 재사용 — 분기/반기 손익은 thstrm_add_amount(누적),

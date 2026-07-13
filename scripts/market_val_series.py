@@ -203,7 +203,7 @@ def series():
         WHEN SUBSTRING(bas_dd,5,2)::int<=6 THEN 2 WHEN SUBSTRING(bas_dd,5,2)::int<=9 THEN 3 ELSE 4 END
       ORDER BY 1""").fetchall()
     qdates=[r[0] for r in qs if r[0]>="20210601"]
-    # 재무: FY별 (mkt_finstat_y ∪ 최신 FY2025는 mkt_fundamentals)
+    # 재무: FY별 (mkt_finstat_y ∪ 최신 확정 FY=_latest_annual_fy()는 mkt_fundamentals)
     # restated(다음 해 보고서 전기 비교치)가 있으면 그걸 우선 — 회사가 스스로 재작성한 참값
     # (소프트센 032680 FY2022 사례: 당해 XBRL 100만배 오류를 다음해 보고서가 정상화).
     fin={}
@@ -215,8 +215,9 @@ def series():
         if ni_r is not None and ni is not None and abs(ni_r - ni) > abs(ni) * 0.01:
             restated_used.append((isu, fy, ni, ni_r))
         fin[(isu,fy)]=(final_ni, final_eq)
+    _lfy = _latest_annual_fy()
     for isu,ni,eq in con.execute("SELECT isu_cd,ni_fy,eq_fy FROM mkt_fundamentals WHERE fetched='ok'"):
-        fin[(isu,2025)]=(ni,eq)
+        fin[(isu,_lfy)]=(ni,eq)
     if restated_used:
         print(f"[재작성 적용] {len(restated_used)}건 (당해 XBRL 대신 다음해 보고서 전기 비교치 사용)")
         for r in restated_used[:10]: print(f"    {r}")

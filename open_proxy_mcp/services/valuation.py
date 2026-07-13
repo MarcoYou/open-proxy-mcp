@@ -371,6 +371,16 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
             "warnings": warnings}
 
 
+def _latest_annual_fy() -> int:
+    """지금 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년).
+    market_fund_quarterly._latest_annual_fy / market_val_series._latest_annual_fy와 동일 규칙.
+    ⚠ mkt_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 이 FY로 덮어쓰는 **가변열**이라,
+    그 값을 담을 fin[] 키는 반드시 이 헬퍼로 파생해야 함(하드코딩 금지 — FY 넘어가면 조용히 오라벨)."""
+    from datetime import date
+    t = date.today()
+    return t.year - 1 if t.month >= 4 else t.year - 2
+
+
 def _pit_fy(bas_dd: str) -> int:
     """PIT 근사: 그 시점 최신 확정 FY. 사업보고서 3월 중순 공시 → 4월 이후면 전년 FY, 아니면 전전년
     (look-ahead 방지). market_val_series.py series()와 동일 규칙."""
@@ -379,8 +389,9 @@ def _pit_fy(bas_dd: str) -> int:
 
 
 async def _firm_fin_by_fy(isu_cd: str, currency: str = "KRW") -> dict[int, tuple]:
-    """종목 FY별 (지배순이익, 지배자본) — KRW 환산 완료. mkt_finstat_y(FY2018~2024, 스케일오류
-    정정치 ni_restated/eq_restated 우선) ∪ mkt_fundamentals(FY2025). 비KRW는 FY 기말환율 환산."""
+    """종목 FY별 (지배순이익, 지배자본) — KRW 환산 완료. mkt_finstat_y(FY2018~과거, 스케일오류
+    정정치 ni_restated/eq_restated 우선) ∪ mkt_fundamentals(최신 확정 FY=_latest_annual_fy()).
+    비KRW는 FY 기말환율 환산."""
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT fy, ni, eq, ni_restated, eq_restated FROM mkt_finstat_y WHERE isu_cd=%s "
         "AND (fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (isu_cd,)) or []
@@ -393,7 +404,7 @@ async def _firm_fin_by_fy(isu_cd: str, currency: str = "KRW") -> dict[int, tuple
     cur = await asyncio.to_thread(_pg_rows,
         "SELECT ni_fy, eq_fy FROM mkt_fundamentals WHERE isu_cd=%s", (isu_cd,))
     if cur and cur[0][0] is not None:
-        fin[2025] = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
+        fin[_latest_annual_fy()] = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
     ccy = (currency or "KRW").upper()
     if ccy not in ("KRW", "NODATA", "?"):
         for fy in list(fin):
