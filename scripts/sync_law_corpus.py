@@ -37,6 +37,7 @@ except Exception:
 from open_proxy_mcp.services.law_lookup import (  # noqa: E402
     CIRCLED_TO_INT,
     extract_tokens,
+    morph_tokens,
     normalize,
 )
 
@@ -200,6 +201,7 @@ def main() -> int:
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
     all_articles: list[dict] = []
+    bm25_docs: list[dict] = []  # 조문 전문 형태소 BM25 (Signal C) — law_bm25.json
     laws_meta: list[dict] = []
     manifest_files: list[dict] = []
     missing: list[str] = []
@@ -234,6 +236,21 @@ def main() -> int:
                     "file": rel,
                 })
             all_articles.extend(recs)
+            # BM25: 조문 전문(heading+body) 형태소 tf. 런타임 질의와 동일 morph_tokens.
+            for r in recs:
+                if r.get("deleted"):
+                    continue  # 삭제 조문은 corpus 매칭 대상 아님
+                span = text[r["char_start"]:r["char_end"]]
+                toks = morph_tokens(span)
+                if not toks:
+                    continue
+                tf: dict[str, int] = {}
+                for t in toks:
+                    tf[t] = tf.get(t, 0) + 1
+                bm25_docs.append({
+                    "k": [r["law_key"], r["article_no"]], "ls": law_short,
+                    "tf": {t: tf[t] for t in sorted(tf)}, "dl": len(toks),
+                })
             law_meta = {
                 "law_key": law_key, "law_short": law_short, "law_name": law_name,
                 "law_id": fm.get("법령ID", ""), "law_mst": fm.get("법령MST", ""),
@@ -280,6 +297,32 @@ def main() -> int:
     }
     (CORPUS_DIR / "law_index.json").write_text(
         json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    # ── BM25 인덱스(Signal C) — 결정적: docs 키정렬·tf키정렬·df키정렬 ──
+    bm25_docs.sort(key=lambda d: (d["k"][0], d["k"][1]))
+    bm_n = len(bm25_docs)
+    bm_df_raw: dict[str, int] = {}
+    for d in bm25_docs:
+        for t in d["tf"]:
+            bm_df_raw[t] = bm_df_raw.get(t, 0) + 1
+    bm_df = {t: bm_df_raw[t] for t in sorted(bm_df_raw)}
+    bm_avgdl = round(sum(d["dl"] for d in bm25_docs) / max(bm_n, 1), 4)
+    bm_anchor = max(3, math.ceil(0.05 * bm_n))   # 두루뭉술 게이트: ≥2 형태소 or 희소
+    bm_rare = max(3, math.ceil(0.022 * bm_n))    # 희소 단독 통과 임계(≈60 @2725) — 흔한 단독어 차단
+    bm25 = {
+        "meta": {
+            "version": "v1", "source_commit": commit_sha,
+            "n": bm_n, "avgdl": bm_avgdl, "k1": 1.5, "b": 0.75,
+            "anchor_df_max": bm_anchor, "rare_df_max": bm_rare, "df": bm_df,
+        },
+        "docs": bm25_docs,
+    }
+    (CORPUS_DIR / "law_bm25.json").write_text(
+        json.dumps(bm25, ensure_ascii=False, indent=1), encoding="utf-8")
+    bm_mb = (CORPUS_DIR / "law_bm25.json").stat().st_size / 1e6
+    print(f"  BM25: {bm_n}조 · 어휘 {len(bm_df)} · avgdl {bm_avgdl} · "
+          f"anchor≤{bm_anchor} rare≤{bm_rare} · {bm_mb:.2f}MB")
+
     manifest = {
         "source_repo": "github.com/MarcoYou/legalize-kr",
         "source_commit_sha": commit_sha, "source_committed_date": commit_dt,

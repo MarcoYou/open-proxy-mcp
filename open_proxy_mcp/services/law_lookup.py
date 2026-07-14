@@ -7,11 +7,16 @@
 
 데이터: legalize-kr 원문(상법·자본시장법·공정거래법·외부감사법 각 법률+시행령)을
 `wiki/rules/laws/corpus/`에 vendored + `scripts/sync_law_corpus.py`가 만든 `law_index.json`.
-매칭 3신호: E(정확 조문 튜플) + B(40룰 bridge, `_agenda_pattern_match` 재사용) + C(corpus 키워드,
-idf·anchor 게이트). 보수적: substring 금지(튜플 exact), 폐쇄 어휘, false-friend guard, difflib 없음.
+매칭 3신호: E(정확 조문 튜플) + B(40룰 bridge, `_agenda_pattern_match` 재사용) + C(corpus 전문
+형태소 BM25). 보수적: substring 금지(튜플 exact), false-friend guard(E/B), difflib 없음.
 
-이 모듈의 토큰화 primitive(normalize/extract_tokens/load_synonyms)는 sync 스크립트가 import해
-인덱스 빌드와 질의 정규화를 **동일 로직**으로 맞춘다.
+C(corpus)는 260714 이전 '폐쇄 어휘 133개 overlap'이었으나 자유질의 recall@10 24%(자연어 패러프레이즈가
+어휘 밖이라 토큰이 ∅) → **kiwipiepy 형태소 + 조문 전문 BM25**로 교체해 146개 held-out 실측 recall@10 80%.
+게이트는 형태소 anchor(≥2 형태소 또는 희소 형태소 1개)로 두루뭉술 질의만 차단. 근거·회귀게이트:
+[[law-recall-harness-260714]] · `scripts/law_recall_harness.py`. BM25 인덱스는 `law_bm25.json`(sync가 생성).
+
+이 모듈의 토큰화 primitive(normalize/extract_tokens/morph_tokens/load_synonyms)는 sync 스크립트가
+import해 인덱스 빌드와 질의 정규화를 **동일 로직**으로 맞춘다.
 """
 from __future__ import annotations
 
@@ -20,6 +25,7 @@ import math
 import re
 import unicodedata
 import time
+from collections import Counter
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -42,6 +48,7 @@ from open_proxy_mcp.services.proxy_advise import (
 _LAWS_DIR = Path(__file__).resolve().parent.parent.parent / "wiki" / "rules" / "laws"
 _CORPUS_DIR = _LAWS_DIR / "corpus"
 _INDEX_PATH = _CORPUS_DIR / "law_index.json"
+_BM25_PATH = _CORPUS_DIR / "law_bm25.json"
 _SYNONYMS_PATH = _LAWS_DIR / "law_lookup_synonyms.json"
 
 # ── 원형숫자 → 항 int (①-⑳ 연속 U+2460-2473, ㉑-㉟ U+3251-325F, ㊱-㊿ U+32B1-32BF) ──
@@ -127,6 +134,15 @@ def load_synonyms() -> dict[str, Any]:
                 surface_to_canonical[normalize(v)] = canon
     guards = [list(g) for g in (raw.get("guards") or [])]
     guarded = {t for g in guards for t in g}
+    # BM25 질의확장(구어→법률): trigger 부분문자열(정규화·무공백) → add 법률형태소.
+    # Signal C(BM25) 전용 — E/B/guard/폐쇄어휘와 무관. add는 corpus 실존 형태소여야 효과.
+    bm25_expansions: list[tuple[list[str], list[str]]] = []
+    for rule in (raw.get("bm25_query_expansions") or {}).get("rules", []):
+        trigs = [normalize(t).replace(" ", "") for t in (rule.get("triggers") or [])]
+        adds = [a for a in (rule.get("add") or [])]
+        trigs = [t for t in trigs if t]
+        if trigs and adds:
+            bm25_expansions.append((trigs, adds))
     # 범위 밖 주제(4법 원문 밖) → 근거 법령 안내용. _note 등 밑줄 키 제외.
     out_of_corpus = {k: v for k, v in (raw.get("out_of_corpus") or {}).items()
                      if not k.startswith("_")}
@@ -142,8 +158,23 @@ def load_synonyms() -> dict[str, Any]:
         "guarded": guarded,
         "date_gated": date_gated,
         "out_of_corpus": out_of_corpus,
+        "bm25_expansions": bm25_expansions,
     }
     return _SYNONYMS_CACHE
+
+
+def _expand_query_for_bm25(query: str, morphs: list[str]) -> list[str]:
+    """구어→법률 질의확장: 정규화 질의에 trigger가 있으면 법률형태소를 append(중복 가중=강조).
+    anchor 게이트 통과 후에만 호출 — vague 거동 보존. 정답 조문 본문 실어휘로만 매핑(근거)."""
+    rules = load_synonyms().get("bm25_expansions") or []
+    if not rules:
+        return morphs
+    nq = normalize(query).replace(" ", "")
+    extra: list[str] = []
+    for trigs, adds in rules:
+        if any(t in nq for t in trigs):
+            extra.extend(adds)
+    return morphs + extra if extra else morphs
 
 
 # 복합어 매칭용 조사(particle) 제거 — 한글 사이의 조사만 제거(어두/어말 조사 보존).
@@ -227,6 +258,85 @@ def load_index() -> dict[str, Any]:
     idx["_by_int"] = by_int
     _INDEX_CACHE = idx
     return _INDEX_CACHE
+
+
+# ── 형태소 토큰화 (Signal C: BM25) ──────────────────────────────────────
+# kiwipiepy = 순수 C++·오프라인·결정적(Java 불필요). 인덱스 빌드(sync)와 질의를 동일 로직으로.
+# 품사: 체언/용언/어근/외국어/숫자/기호수/일반부사. 조사·어미·문장부호는 버림.
+_KIWI_KEEP = ("NNG", "NNP", "NNB", "NR", "NP", "VV", "VA", "VX", "XR", "SL", "SN", "SH", "MAG")
+_KIWI = None  # lazy 싱글턴 (init ~0.7s, 최초 호출 시 1회)
+
+
+def _get_kiwi():
+    """kiwipiepy 형태소 분석기 lazy 싱글턴. 미설치면 None(→ C는 폐쇄어휘 legacy로 degrade)."""
+    global _KIWI
+    if _KIWI is None:
+        try:
+            from kiwipiepy import Kiwi
+            _KIWI = Kiwi()
+        except Exception:
+            _KIWI = False  # 미설치 표식(재시도 안 함)
+    return _KIWI or None
+
+
+def morph_tokens(text: str) -> list[str]:
+    """text → 형태소 토큰 리스트(BM25용). 숫자(SN/NR)는 1글자도 유지, 나머지는 2글자+.
+    sync 인덱스 빌드와 런타임 질의가 반드시 같은 함수를 써야 통계가 정합한다."""
+    kiwi = _get_kiwi()
+    if not kiwi:
+        return []
+    out: list[str] = []
+    for m in kiwi.tokenize(text or ""):
+        if (m.tag in _KIWI_KEEP and len(m.form) > 1) or m.tag in ("SN", "NR"):
+            out.append(m.form)
+    return out
+
+
+# ── BM25 인덱스 로더 (Signal C) ─────────────────────────────────────────
+_BM25_CACHE: dict[str, Any] | None = None
+
+
+def load_bm25() -> dict[str, Any] | None:
+    """law_bm25.json 로드(모듈 캐시). 파생: idf + {(law_key,article_no): doc} 맵.
+    파일 없으면 None → _signal_corpus가 폐쇄어휘 legacy로 degrade."""
+    global _BM25_CACHE
+    if _BM25_CACHE is not None:
+        return _BM25_CACHE or None
+    try:
+        raw = json.loads(_BM25_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        _BM25_CACHE = {}
+        return None
+    meta = raw.get("meta", {})
+    df: dict[str, int] = meta.get("df", {})
+    n = max(int(meta.get("n", 0)), 1)
+    # BM25 idf = ln(1 + (N-df+0.5)/(df+0.5)) — 음수 없는 표준형(Lucene류)
+    idf = {t: math.log(1 + (n - d + 0.5) / (d + 0.5)) for t, d in df.items()}
+    docs = raw.get("docs", [])
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for d in docs:
+        k = d.get("k") or ["", ""]
+        by_key[(k[0], k[1])] = d
+    _BM25_CACHE = {
+        "meta": meta, "idf": idf, "df": df, "n": n,
+        "avgdl": float(meta.get("avgdl", 1.0)) or 1.0,
+        "k1": float(meta.get("k1", 1.5)), "b": float(meta.get("b", 0.75)),
+        "anchor_df_max": int(meta.get("anchor_df_max", 0)),
+        "rare_df_max": int(meta.get("rare_df_max", 0)),
+        "docs": docs, "by_key": by_key,
+    }
+    return _BM25_CACHE
+
+
+def _query_has_morph_anchor(qmorphs: list[str], bm: dict[str, Any]) -> bool:
+    """두루뭉술 게이트: 아는 형태소 ≥2개 또는 희소 형태소(df ≤ rare) 1개면 통과.
+    단일 흔한 단어('이사'·'회사' 등)는 차단(vague → requires_review 보존)."""
+    df = bm["df"]
+    known = [t for t in set(qmorphs) if t in df]
+    if len(known) >= 2:
+        return True
+    rare = bm["rare_df_max"]
+    return any(df.get(t, 0) <= rare for t in known)
 
 
 _MANIFEST_CACHE: dict[str, Any] | None = None
@@ -409,14 +519,58 @@ def _signal_bridge(query: str, direction: str) -> dict[tuple[str, str], dict[str
     return out
 
 
-def _signal_corpus(query_tokens: set[str], law_filter: list[str] | None) -> dict[tuple[str, str], float]:
-    """corpus 키워드 유사도. anchor 게이트: 질의에 anchor(희소) 토큰 없으면 빈 결과."""
+_C_EMIT_TOPN = 20  # BM25 상위 N만 emit(top_k=10 충분 여유). total_candidates 비대·노이즈 방지.
+
+
+def _signal_corpus(query: str, query_tokens: set[str],
+                   law_filter: list[str] | None) -> dict[tuple[str, str], float]:
+    """corpus 전문 형태소 BM25. 두루뭉술 게이트(형태소 anchor) 통과 시 상위 N을 max정규화(0,1]로.
+    BM25 인덱스/kiwi 미가용이면 폐쇄어휘 legacy overlap으로 degrade(하위호환)."""
+    bm = load_bm25()
+    qmorphs = morph_tokens(query)
+    if not bm or not qmorphs:
+        return _signal_corpus_legacy(query_tokens, law_filter)
+    # 구어→법률 확장을 게이트 前에 적용: 특정 법률개념을 트리거한 질의는 anchor로 인정해야
+    # 게이트에 막히지 않는다(예 "주식을 쪼개는 거" — 알려진 형태소 1개라 게이트 탈락하나 '분할'
+    # 확장으로 구제). vague 7단어는 어떤 트리거도 안 걸려 여전히 차단(spot 보존).
+    qmorphs = _expand_query_for_bm25(query, qmorphs)
+    if not _query_has_morph_anchor(qmorphs, bm):
+        return {}
+    idf = bm["idf"]
+    k1, b, avgdl = bm["k1"], bm["b"], bm["avgdl"]
+    lf = set(law_filter) if law_filter else None
+    qc = Counter(qmorphs)
+    scored: list[tuple[float, tuple[str, str]]] = []
+    for d in bm["docs"]:
+        if lf and d.get("ls") not in lf:
+            continue
+        tf = d.get("tf") or {}
+        dl = d.get("dl", 0) or 0
+        s = 0.0
+        for t in qc:
+            f = tf.get(t, 0)
+            if not f:
+                continue
+            s += idf.get(t, 0.0) * (f * (k1 + 1)) / (f + k1 * (1 - b + b * dl / avgdl))
+        if s > 0:
+            k = d.get("k") or ["", ""]
+            scored.append((s, (k[0], k[1])))
+    if not scored:
+        return {}
+    scored.sort(key=lambda x: -x[0])
+    top = scored[:_C_EMIT_TOPN]
+    smax = top[0][0] or 1.0
+    return {key: (raw / smax) for raw, key in top}  # max정규화 → (0,1]
+
+
+def _signal_corpus_legacy(query_tokens: set[str],
+                          law_filter: list[str] | None) -> dict[tuple[str, str], float]:
+    """폐쇄어휘 overlap(구 C). BM25 인덱스/kiwi 미가용 시 fallback."""
     idx = load_index()
     meta = idx.get("meta", {})
     idf: dict[str, float] = meta.get("idf", {})
     df: dict[str, float] = meta.get("df", {})
     anchor_max = meta.get("anchor_df_max", 0)
-    # anchor 게이트
     has_anchor = any(df.get(t, 0) <= anchor_max for t in query_tokens if t in idf)
     if not has_anchor:
         return {}
@@ -473,7 +627,7 @@ def _fuse(query: str, query_tokens: set[str], refs: list[dict], laws: list[str],
         s["signals"].add("bridge")
         s["bridge"] = info
     # C
-    for key, sim in _signal_corpus(query_tokens, law_filter).items():
+    for key, sim in _signal_corpus(query, query_tokens, law_filter).items():
         rec = _record_by_key(key)
         if not rec:
             continue
@@ -484,9 +638,9 @@ def _fuse(query: str, query_tokens: set[str], refs: list[dict], laws: list[str],
     out = []
     for k, s in cand.items():
         score = 1.0 * s["e"] + 0.9 * s["b"] + 0.5 * s["c"]
-        if s["e"] or s["b"]:
-            pass  # exact/bridge는 항상 emit
-        elif score < TAU_EMIT:
+        # E/B/C(BM25 top-N) 신호가 있으면 emit — 랭킹+top_k 슬라이스가 상위만 노출.
+        # (구 TAU_EMIT 게이트는 폐쇄어휘 legacy에서만 의미. BM25는 signal 자체가 상위 N 필터.)
+        if not (s["e"] or s["b"] or s["c"] > 0):
             continue
         s["score"] = round(score, 4)
         out.append(s)
