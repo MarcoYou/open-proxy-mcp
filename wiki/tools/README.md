@@ -1,23 +1,28 @@
 ---
 type: readme
-title: tools/ — 도구 카탈로그 (21개)
-updated: 2026-07-07
+title: tools/ — 도구 카탈로그 (22개)
+updated: 2026-07-15
 ---
 
-# 도구(Tool) 카탈로그 — 21개
+# 도구(Tool) 카탈로그 — 22개
 
-> OPM의 21개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
+> OPM의 22개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
 > 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
 >
 > 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
 > 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
 
-## 21개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
+## 22개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
 ### 🏢 기본 — 회사 찾기
 | 도구 | 무엇을 답하나 |
 |---|---|
 | [company](company.md) | 회사 식별 + 최근 공시 목록 — **모든 분석의 출발점** |
+
+### 🔔 전체시장 스캔 · 디제스트
+| 도구 | 무엇을 답하나 |
+|---|---|
+| [screener](screener.md) | 전체시장 공시 스크리너 / **아침 공시 디제스트** — 직전 실행 이후 뜬 주요 공시를 카드형(시총·유형·단계·정정·분모%·링크)으로. scan(싸게)+details(필요 건만 숫자) |
 
 ### 🗳️ 주주총회 · 의결권
 | 도구 | 무엇을 답하나 |
@@ -99,6 +104,7 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 | 도메인 | tool 수 | 호출 패턴 |
 |--------|---------|---------|
 | Company | 1 | corpCode/company/list 기반 식별 |
+| Screening | 1 | **market-scan**: 전체시장 list.json 1회 스캔(union ~수콜) + details=hit당 파서 디스패치 |
 | Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
 | Data | 12 | DART API 1-14회 병렬, 일부 KIND fallback |
 | Evidence | 2 | rcept_no URL 생성(evidence) · 법령 corpus 조회(law_lookup) — 둘 다 **DART 무관** |
@@ -118,6 +124,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | tool | DART API | KIND | Naver | 정적 JSON |
 |------|----------|------|-------|----------|
 | company | ✅ corpCode/company/list | - | 🔧 보강 | - |
+| screener | ✅ list.json 전체시장 필러(corp_code 無) + details=유형별 파서 재사용 | - | 🔧 카드 링크 | ✅ krx_weekly 시총(DART 0콜) |
 | shareholder_meeting_notice | ✅ list/document | - | - | - |
 | shareholder_meeting_results | ✅ list/document | 🔧 fallback | - | - |
 | ownership_structure | ✅ 사업보고서/majorstock | ✅ changes scope | - | - |
@@ -156,3 +163,4 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-05-31: financial_metrics 56 지표 확장 · value_up 역할 분리
 - 2026-06-20: 카탈로그를 사람용("무엇을 답하나")으로 재정리 + 개발 상세 분리
 - 2026-07-13: **law_lookup 신규(21번째 tool)** — 정관↔법령 양방향 조회. legalize-kr 원문 corpus(상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge, 회사·DART 무관. Evidence 카테고리 1→2
+- 2026-07-15: **screener 신규(22번째 tool)** — 전체시장 공시 스크리너 / 아침 디제스트. Screening 카테고리 신설. scan(전체시장 list.json market-scan, 하루 4콜)+details(유형별 파서 재사용). 시총=krx_weekly(DART 0콜)

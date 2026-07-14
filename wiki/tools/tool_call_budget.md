@@ -1,7 +1,7 @@
 ---
 type: reference
 title: tool별 DART API 콜 budget (기업당 최대)
-updated: 2026-06-20
+updated: 2026-07-15
 method: 코드 실측 (services/*.py 의 DART client 호출 지점)
 ---
 
@@ -48,6 +48,12 @@ method: 코드 실측 (services/*.py 의 DART client 호출 지점)
 | tool | 콜/쿼리 | 비고 |
 |---|---|---|
 | risk_events (company 미지정) | ~45 | 30일 시장 스캔: I001 ~36p + B001 ~7p + 상세. 기간 길면 증가 |
+| screener (scan) | since_yesterday ~3~6 · last_7d ~12 | **market-scan**. core=I001·B001·D001 3코드 union 페이지네이션(100/page, 페이지상한 20/코드, sleep 0.7s). 기간·유형에 비례(N 곱셈 없음). universe(시총필터)는 krx_weekly 사후필터라 **콜 불변** |
+
+> **screener details (opt-in)는 per-firm 모드** — scan hit 건마다 유형별 파서(order_contracts 등)를
+> 디스패치한다(hit당 ~2~8콜, 유형별). 가드: 동시성 2 · sleep 0.8s · **run당 300콜 러닝카운터**(초과 시
+> skip+truncated). `universe=all`이거나 기간>30일이면 details 자동 off(콜 폭주 방지). 유형별 `max_items`
+> 캡으로 details 대상 수를 제한.
 
 ### 재무 SSOT 갱신 배치 (serve-time 아님 — 스케줄/수동 배치, fly/로컬)
 | 배치 | 콜/실행 | 주기 · 비고 |
@@ -97,7 +103,8 @@ DART 분당 한도는 **910콜**(client `_throttle_api`가 강제 — 초과 시
     "proxy_advise_before_meeting": 32,
     "risk_events": 6
   },
-  "market_scan_per_query": { "risk_events": 45 }
+  "market_scan_per_query": { "risk_events": 45, "screener": 12 },
+  "screener_details_running_cap": 300
 }
 ```
 
