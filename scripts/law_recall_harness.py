@@ -90,59 +90,60 @@ def norm_no(s):
     s = s.replace("제","").replace("조","")
     return s.replace("의","-").strip()
 
-idx = load_index()
-have = {(a.get("law_short"), norm_no(a.get("article_no"))) for a in idx["articles"]}
+def run(builder=None, top_k=10, quiet=False):
+    """builder(q, top_k) -> list[(law_short, article_no)] 또는 None(=프로덕션 build_law_lookup_payload).
+    프로토타입(BM25 등)을 주입해 같은 라벨셋으로 before/after 비교하려고 분리."""
+    idx = load_index()
+    have = {(a.get("law_short"), norm_no(a.get("article_no"))) for a in idx["articles"]}
+    bad = 0
+    for q, law, arts, st in L:
+        for a in arts:
+            if (law, norm_no(a)) not in have:
+                if not quiet: print(f"  MISSING: {law} {a}")
+                bad += 1
+    if bad: raise SystemExit(f"라벨 미존재 {bad}개 — 먼저 고칠 것")
 
-# 1) 라벨 검증 — corpus에 실제 존재하는가
-print("=== 라벨 검증(존재하지 않는 정답 조문) ===")
-bad = 0
-for q, law, arts, st in L:
-    for a in arts:
-        if (law, norm_no(a)) not in have:
-            print(f"  MISSING: {law} {a}  ← \"{q[:30]}\""); bad += 1
-print(f"라벨 {sum(len(x[2]) for x in L)}개 중 미존재 {bad}개\n" + ("→ 먼저 라벨 고쳐야 함\n" if bad else "→ 전부 존재 ✓\n"))
-if bad: raise SystemExit
+    hit1 = hit10 = 0; mrr = 0.0
+    by_style = defaultdict(lambda: [0, 0]); by_law = defaultdict(lambda: [0, 0])
+    sig_of_hit = Counter(); miss_fallback = Counter(); misses = []
+    for q, law, arts, st in L:
+        if builder is None:
+            p = B(q, include_full_text=False, top_k=top_k)
+            res = [(r.get("law"), norm_no(r.get("article_no")), tuple(r.get("signals") or [])) for r in p["data"]["results"]]
+            fb = (p["data"].get("fallback") or {}).get("type") or p["status"]
+        else:
+            res = [(lw, norm_no(no), ("bm25",)) for lw, no in builder(q, top_k)]
+            fb = "bm25_empty" if not res else "bm25_miss"
+        gold = {(law, norm_no(a)) for a in arts}
+        rank = None; hitsig = None
+        for i, (lw, no, sg) in enumerate(res):
+            if (lw, no) in gold:
+                rank = i + 1; hitsig = sg; break
+        by_style[st][1] += 1; by_law[law][1] += 1
+        if rank:
+            hit10 += 1; by_style[st][0] += 1; by_law[law][0] += 1; mrr += 1.0 / rank
+            if rank == 1: hit1 += 1
+            sig_of_hit[hitsig] += 1
+        else:
+            miss_fallback[fb] += 1
+            misses.append((st, law, arts, q, fb, res[:3]))
+    N = len(L)
+    if not quiet:
+        print(f"=== recall (N={N}) ===")
+        print(f"  recall@1 : {hit1}/{N} = {hit1/N:.0%}")
+        print(f"  recall@10: {hit10}/{N} = {hit10/N:.0%}")
+        print(f"  MRR      : {mrr/N:.3f}")
+        print("=== style별 recall@10 ==="); [print(f"  {s:5s}: {h}/{t} = {h/t:.0%}") for s,(h,t) in sorted(by_style.items())]
+        print("=== 법령별 recall@10 ==="); [print(f"  {l:8s}: {h}/{t} = {h/t:.0%}") for l,(h,t) in sorted(by_law.items())]
+        print("=== 신호 귀속 ==="); [print(f"  {sg}: {c}") for sg,c in sig_of_hit.most_common()]
+        print("=== miss fallback ==="); [print(f"  {fb}: {c}") for fb,c in miss_fallback.most_common()]
+    return {"recall1": hit1/N, "recall10": hit10/N, "mrr": mrr/N, "misses": misses}
 
-# 2) 러너
-hit1 = hit10 = 0; mrr = 0.0
-by_style = defaultdict(lambda: [0,0])   # style -> [hit10, tot]
-by_law = defaultdict(lambda: [0,0])
-sig_of_hit = Counter()                  # 맞힌 질의에서 정답을 잡은 신호
-miss_fallback = Counter()               # miss 질의의 fallback type
-misses = []
-for q, law, arts, st in L:
-    p = B(q, include_full_text=False, top_k=10)
-    res = p["data"]["results"]
-    gold = {(law, norm_no(a)) for a in arts}
-    rank = None; hitsig = None
-    for i, r in enumerate(res):
-        if (r.get("law"), norm_no(r.get("article_no"))) in gold:
-            rank = i+1; hitsig = tuple(r.get("signals") or []); break
-    by_style[st][1]+=1; by_law[law][1]+=1
-    if rank:
-        hit10+=1; by_style[st][0]+=1; by_law[law][0]+=1; mrr += 1.0/rank
-        if rank==1: hit1+=1
-        sig_of_hit[hitsig]+=1
-    else:
-        fb=(p["data"].get("fallback") or {}).get("type") or p["status"]
-        miss_fallback[fb]+=1
-        top=[(r.get("article_no"), tuple(r.get('signals') or [])) for r in res[:3]]
-        misses.append((st, law, arts, q, p["status"], fb, top))
 
-N=len(L)
-print(f"=== recall (N={N}) ===")
-print(f"  recall@1 : {hit1}/{N} = {hit1/N:.0%}")
-print(f"  recall@10: {hit10}/{N} = {hit10/N:.0%}")
-print(f"  MRR      : {mrr/N:.3f}")
-print("\n=== 슬라이스: style별 recall@10 ===")
-for st,(h,t) in sorted(by_style.items()): print(f"  {st:5s}: {h}/{t} = {h/t:.0%}")
-print("=== 슬라이스: 법령별 recall@10 ===")
-for lw,(h,t) in sorted(by_law.items()): print(f"  {lw:8s}: {h}/{t} = {h/t:.0%}")
-print("\n=== 맞힌 질의의 신호 귀속(어느 신호가 정답을 잡았나) ===")
-for sig,c in sig_of_hit.most_common(): print(f"  {sig}: {c}")
-print("=== miss 질의의 fallback 분포 ===")
-for fb,c in miss_fallback.most_common(): print(f"  {fb}: {c}")
-print(f"\n=== MISS 상세 ({len(misses)}건) ===")
-for st,law,arts,q,stt,fb,top in misses:
-    print(f"  [{st}] {law} 정답{arts} | \"{q}\" → status={stt}/{fb}")
-    print(f"        top3: {top}")
+if __name__ == "__main__":
+    print("=== 라벨 검증(존재하지 않는 정답 조문) ===")
+    _r = run()
+    print(f"\n=== MISS 상세 ({len(_r['misses'])}건) ===")
+    for st, law, arts, q, fb, top in _r["misses"]:
+        print(f"  [{st}] {law} 정답{arts} | \"{q}\" → {fb}  top3={top}")
+    raise SystemExit
