@@ -139,6 +139,8 @@ OpenProxy MCP의 21개 tool은 **Company → Meeting/Data/Evidence → Action** 
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md) | 여러 data tool을 묶어 판단/보고 생성 (사후 결과는 [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md)) — 후자는 밸류업·배당·소각 약속 vs 실제 이행 추적 |
 | Reference | [`law_lookup`](wiki/tools/law_lookup.md) | 정관↔법령 양방향 조회 (상법·자본시장법·공정거래법·외부감사법 원문) — 회사·DART 무관, API 0콜 |
 
+> 각 도구가 **어떤 질문에 답하는지** 예시로 보고 싶다면 → **[docs/examples/](docs/examples/README.md)** (도구별 예시 질문 모음) · 상세 스키마·데이터 출처 → [wiki/tools 카탈로그](wiki/tools/README.md)
+
 ### 의결권 정책
 
 `proxy_advise_before_meeting`은 OPM 자체 Open Proxy Guideline을 기본 정책으로 사용합니다. 판단 기준은 소수주주 보호, 거버넌스 투명성, 장기 가치, 추적 가능성입니다. 익명화된 기관 정책 corpus는 내부 cross-reference로만 사용하며, 사용자 응답에는 기관 실명이나 식별자를 노출하지 않습니다.
