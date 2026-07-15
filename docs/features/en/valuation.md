@@ -1,55 +1,21 @@
 # Valuation
 
-Combines DART filings with official KRX prices to compute **relative-value multiples such as PER, PBR,
-and dividend yield**. It doesn't use DART's raw financials as-is — it aligns them to a controlling-interest
-basis and auto-converts non-KRW functional currencies via the Bank of Korea (ECOS) FX rate. When a
-multiple would be meaningless (losses, capital impairment) it does not force a number, marking it **N/M
-(not meaningful)** instead.
+**Combines DART filings with official KRX prices to compute relative-value multiples like PER, PBR, and dividend yield.** All figures are confirmed and **trailing** — it does **not** produce forward (analyst-estimate) numbers.
 
-## Five scopes
+## What it answers
 
-| scope | What it shows |
-|---|---|
-| **firm** (default) | Deep dive on one company — PER (FY0/TTM) · PBR (MRQ) · dividend yield, live prices |
-| **market** | Whole-market (KOSPI/KOSDAQ) cap-weighted PER/PBR + weekly trend |
-| **sector** | Per-industry (KSIC) multiples + firm vs. its sector + sector time series |
-| **firm_history** | One stock's PER/PBR time series — FY0/TTM/MRQ bases (weekly curve + month-end summary) |
-| **explain** | "How was this PER derived?" — the calculation, basis, and source spelled out with actual values |
+- **PER, PBR, dividend yield** (on the current price). The same PER differs by which point-in-time number you use, so it **always labels the basis — FY0 (latest confirmed annual) / TTM (trailing four quarters) / MRQ (most recent quarter-end).** e.g. `PER 12.3x (TTM, controlling) · PBR 1.1x (MRQ)`.
+- Net income/equity are **controlling-interest**, statements **consolidated-first**. Non-KRW functional-currency firms (e.g. USD) are **auto-converted at Bank of Korea (ECOS) rates** (e.g. Doosan Bobcat).
+- When multiples become meaningless (losses, capital impairment), it **shows N/M (not meaningful) instead of forcing a number.**
+- Beyond a single firm, it also answers **market-wide and sector (industry) comparison, a stock's history**, and a plain-language **"how was this PER computed?"** explanation.
+- Source: DART financials, shares outstanding, dividends + KRX prices + ECOS rates. Detail → [valuation](../../../wiki/tools/valuation.md).
 
-## Three bases — FY0 / TTM / MRQ
-
-The same PER/PBR differs depending on which period's numbers you use. Mixing them silently distorts the
-ratio, so the basis is always stated.
-
-- **FY0**: PER on the most recent confirmed fiscal-year (annual) net income.
-- **TTM**: PER on trailing-twelve-month controlling-interest net income — reflects intra-year changes.
-- **MRQ**: PBR on most-recent-quarter controlling-interest equity.
-
-Because it is computed off market capitalization, the series stays consistent regardless of adjusted-price
-events (stock splits, rights issues).
-
-## What it reads vs. what it computes
-
-| Source item | Computed metric |
-|---|---|
-| Market cap ÷ controlling net income (FY0/TTM) | **PER** |
-| Market cap ÷ controlling equity (MRQ) | **PBR** |
-| Dividend per share ÷ price | **Dividend yield** |
-| Non-KRW functional-currency financials × ECOS rate | **KRW-converted multiples** |
-| Loss / impairment / abnormal-scale detection | **N/M gating + scale guard** |
-
-> Korean convention — net income and equity on a controlling-interest basis, consolidated statements
-> first. Prices and market cap from official KRX data.
-
-## How to use it
+## Ask it like this
 
 > "What's Doosan Bobcat's PBR?"
-
-It auto-converts USD functional-currency financials at the Bank of Korea rate, computes PBR, and shows
-which basis (FY0/TTM/MRQ) and the conversion detail. Ask with `scope="explain"` to see how the number
-was derived.
+> "Walk me through how this PER was computed"
 
 ## See also
 
-- [Financial metrics](financials.md) — the profitability and equity figures behind the multiples' denominators
-- [Shareholder return](shareholder-return.md) — how dividend yield and treasury shares tie into payout policy
+- [Financial Metrics](financials.md) — the profitability/capital metrics behind the multiples
+- [Shareholder Return](shareholder-return.md) — how dividend yield and buybacks tie to return policy

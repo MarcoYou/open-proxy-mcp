@@ -1,58 +1,21 @@
 # Shareholder Return
 
-Bundles dividends, treasury shares, and value-up plans to see **whether shareholder return was actually delivered**.
-The core is comparing the "promise (policy)" against "actual execution (fact)".
+**Places the "promise (policy)" next to the "actual execution (fact)" to see whether shareholder return was delivered.** Bundles dividends, treasury shares, and value-up (corporate-value-improvement) plans.
 
-## 1. Dividends — actually-paid facts
+## What it answers
 
-From the **cash/in-kind dividend decision** filing and the business report's **dividend section**, it references and computes the following (confirmed, actually-paid facts — not future promises).
+- **Dividends**: DPS and total payout, payout ratio (dividend ÷ net income), dividend yield on record-date price, and the multi-year trend — confirmed, actually-paid facts, not future promises.
+- **Treasury shares**: matches the buy → dispose → cancel cycle. The key is that **buying without cancellation is weak return** — it checks whether cancellation was the stated purpose and whether it actually happened.
+- **Value-up**: cross-references the plan's promises against actual treasury-share cancellation to separate **"lip-service value-up" from real return.**
+- The dedicated `shareholder_commitment` feature tracks promise-vs-delivery in one shot, and even computes the **book-value gain/loss of cancellations against their purchase price, in KRW** (dividends shown separately, since their book-value effect runs the opposite direction).
+- Source: DART dividend-decision, business-report dividend section, treasury-share, and value-up filings. Detail → [dividend](../../../wiki/tools/dividend.md) · [treasury_share](../../../wiki/tools/treasury_share.md) · [value_up](../../../wiki/tools/value_up.md).
 
-- **Dividend per share (DPS) / total dividend** — referenced directly from filing items
-- **Payout ratio** — computed as total dividend ÷ net income
-- **Dividend yield** — computed as DPS ÷ record-date price
-- **Dividend type** — payment cycle identified from the year-end / interim / quarterly field
-- **Year-over-year trend** — judged from the business report's dividend section (multi-year columns) as the authority, not decision-filing summation
-- **Interim progress** — if the latest year's year-end dividend is unconfirmed, the cumulative figure from quarterly/half reports shows "confirmed through Qn"
+## Ask it like this
 
-Scopes: **summary** · **detail** (dividend-decision detail — record/payment date) · **history** (year-over-year trend).
-
-## 2. Treasury shares — acquire → dispose → cancel cycle
-
-It aggregates treasury **acquisition / disposal / cancellation / trust** decision/result filings and **matches decisions to results as a cycle**.
-
-- Whether acquired treasury shares were actually **cancelled** determines the quality of the return (acquire-but-not-cancel weakens the effect)
-- `for_cancelation` flag — when the acquisition purpose explicitly states "cancellation" (captures intent even without a separate cancellation decision)
-
-| scope | What it shows |
-|---|---|
-| **summary** | Treasury-event overview |
-| **annual** | Yearly acquisition / disposal / cancellation totals |
-
-## 3. Value-up — policy / future promise
-
-Reads the value-up (corporate-value-enhancement) filing and its key commitment sentences.
-
-- Each filing is classified as **future_plan / implementation_status / implementation_result / meta_reference**
-- **Cross-referenced with treasury-share cancellation** — linking the promise (value-up) to actual execution (cancellation)
-
-| scope | What it shows |
-|---|---|
-| **summary** | Value-up filing overview |
-| **plan** | Plan body + plan title |
-| **commitments** | Key commitment sentences |
-| **timeline** | Filings in chronological order |
-
-## How to use
-
-> "Show me KT&G's dividends, treasury cancellation history, and whether its value-up plan was executed"
-
-You trace policy (value-up) → promise → actual execution (dividend, treasury cancellation) in one flow.
-A dedicated tool, `shareholder_commitment` (added 2026-07-07), combines all three in a single call — for
-each buyback-cancellation cycle it also computes the **book-value (BPS) gain or loss** by comparing the
-weighted-average purchase price against BPS at the time of purchase (dividends are shown separately as an
-overall shareholder-return figure, since their book-value effect runs the opposite direction).
+> "Show KT&G's dividend and treasury-cancellation history"
+> "Did this company actually keep its value-up plan?"
 
 ## See also
 
 - [Ownership Map](ownership.md) — what treasury shares mean in the ownership structure
-- [AGM Proxy Voting](proxy-voting.md) — voting judgment on dividend / treasury agenda items
+- [Proxy Voting Support](proxy-voting.md) — voting judgment on dividend/treasury items
