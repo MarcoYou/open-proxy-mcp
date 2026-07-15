@@ -1,6 +1,7 @@
 ---
 type: tool
 title: screener — 전체시장 공시 스크리너 / 아침 디제스트
+domain: action
 scope: [core preset, all, 유형 CSV]
 data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + krx_weekly (시총, DART 0콜) + 유형별 파서 재사용(details)]
 related: [order_contracts, treasury_share, dividend, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
@@ -8,12 +9,18 @@ related: [order_contracts, treasury_share, dividend, dilutive_issuance, sharehol
 
 # screener — 전체시장 공시 스크리너 / 아침 디제스트
 
-전체시장에 뜬 주요 공시를 **한 번의 호출로 훑어** 카드형으로 요약하는 discovery tool. 1순위 유즈는
+전체시장에 뜬 주요 공시를 **한 번의 호출로 훑어** 카드형으로 요약하는 **Action Tool**. 1순위 유즈는
 **매일 아침 출근길 공시 알람 디제스트** — "직전 실행 이후~오늘 전종목에 뭐가 떴나"를 폰에서 훑기 좋게
 (기업명 + 시총 + 유형 + 단계 + 정정 프리픽스 + 분모% + DART/naver 링크). 벤치마크는 텔레그램 AWAKE.
 
 개별 tool(order_contracts·dividend 등)이 **한 회사를 깊게** 판다면, screener는 **전체시장을 얕게**
 훑어 "무엇이 떴나"를 싸게 답한다. 거버넌스는 유형의 부분집합 — 범용 공시 디제스트다.
+
+> **왜 Action Tool인가** (domain: action): `proxy_advise_before_meeting`·`shareholder_commitment`과
+> 같은 계열 — upstream data tool을 오케스트레이션해 판단/요약을 만든다. details=true면 유형별 파서
+> (order_contracts·treasury_share 등)를 **재사용**해 정형필드(분모%·금액·정정 diff)를 합성하고, 결과는
+> per-company 단발 조회가 아니라 **아침 알람/디제스트 루틴을 구동하는 액션 산출물**이다(전체시장
+> discovery는 그 입력 단계). 루틴 레시피 → [아침 디제스트](../../docs/routines/screener-morning-digest.md).
 
 > **scan = 발견 / details = 숫자.** 무인자 호출(디폴트: core·since_yesterday·all·details=false)은
 > DART **4콜**로 전체시장 하루치를 카드화한다. `details=true`면 필요 건만 문서를 열어 유형별 핵심숫자를
@@ -138,3 +145,4 @@ sequenceDiagram
 ## 변경 이력
 
 - 2026-07-15: 신규(22번째 tool). 전체시장 공시 스크리너 / 아침 디제스트. scan(4콜)+details(파서 재사용).
+- 2026-07-15: `domain: action` 부여 — upstream 파서 오케스트레이션 + 디제스트/루틴 구동(액션 산출물)로 재분류. 루틴 레시피 [docs/routines](../../docs/routines/screener-morning-digest.md) 연동.

@@ -104,11 +104,10 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 | 도메인 | tool 수 | 호출 패턴 |
 |--------|---------|---------|
 | Company | 1 | corpCode/company/list 기반 식별 |
-| Screening | 1 | **market-scan**: 전체시장 list.json 1회 스캔(union ~수콜) + details=hit당 파서 디스패치 |
 | Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
 | Data | 12 | DART API 1-14회 병렬, 일부 KIND fallback |
 | Evidence | 2 | rcept_no URL 생성(evidence) · 법령 corpus 조회(law_lookup) — 둘 다 **DART 무관** |
-| Action | 2 | upstream data tool 병렬 호출 후 판단/요약 (shareholder_commitment은 신규 계산 1개 추가) |
+| Action | 3 | upstream data tool 병렬 호출 후 판단/요약 (shareholder_commitment은 신규 계산 1개 추가). **screener**는 전체시장 **market-scan**(전체 list.json 1회 스캔 ~수콜)+details=hit당 유형별 파서 디스패치로 디제스트/루틴을 구동하는 변형 |
 
 ## 진단 필드
 
@@ -163,4 +162,5 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-05-31: financial_metrics 56 지표 확장 · value_up 역할 분리
 - 2026-06-20: 카탈로그를 사람용("무엇을 답하나")으로 재정리 + 개발 상세 분리
 - 2026-07-13: **law_lookup 신규(21번째 tool)** — 정관↔법령 양방향 조회. legalize-kr 원문 corpus(상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge, 회사·DART 무관. Evidence 카테고리 1→2
-- 2026-07-15: **screener 신규(22번째 tool)** — 전체시장 공시 스크리너 / 아침 디제스트. Screening 카테고리 신설. scan(전체시장 list.json market-scan, 하루 4콜)+details(유형별 파서 재사용). 시총=krx_weekly(DART 0콜)
+- 2026-07-15: **screener 신규(22번째 tool)** — 전체시장 공시 스크리너 / 아침 디제스트. scan(전체시장 list.json market-scan, 하루 4콜)+details(유형별 파서 재사용). 시총=krx_weekly(DART 0콜)
+- 2026-07-15: **screener `domain: action` 재분류** — Screening 카테고리를 Action으로 흡수(2→3). upstream 파서 오케스트레이션 + 디제스트/루틴 구동(액션 산출물). 루틴 레시피 [docs/routines](../../docs/routines/screener-morning-digest.md) 연동
