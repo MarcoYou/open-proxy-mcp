@@ -12,6 +12,7 @@
 ## Ask it like this
 
 > "Show LG Chem's 2026 AGM agenda"
+>
 > "Hyundai Motor's last AGM results and approval rates"
 
 ## See also

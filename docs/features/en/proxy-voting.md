@@ -16,6 +16,7 @@ Judgments follow OPM's **Open Proxy Guideline** (minority-shareholder protection
 ## Ask it like this
 
 > "Give me item-by-item voting opinions for Samsung Electronics' 2026 AGM"
+>
 > "Is there grounds to vote against this director election?"
 
 ## See also

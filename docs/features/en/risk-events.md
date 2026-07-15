@@ -12,6 +12,7 @@
 ## Ask it like this
 
 > "Which companies had accidents or incidents in the last month?"
+>
 > "Any serious-accident filing for Hanwha Ocean?"
 
 ## Good to know

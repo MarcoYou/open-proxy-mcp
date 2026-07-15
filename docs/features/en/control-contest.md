@@ -14,6 +14,7 @@
 ## Ask it like this
 
 > "Summarize control-contest signals for Korea Zinc"
+>
 > "Any external party that bought over 5% of this company?"
 
 ## See also
