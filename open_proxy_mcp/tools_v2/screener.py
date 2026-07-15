@@ -238,7 +238,7 @@ def register_tools(mcp):
         when: "오늘/어제 무슨 공시 떴어", 매일 아침 공시 브리핑, 전체시장 수주·자사주·배당·증자·주총·5%보유 훑기, 특정 유형만 필터, 시총상위/지정종목만. 특정 회사 1곳 심층은 개별 tool(order_contracts·dividend 등).
         types: `core`(수주·자사주·배당·증자CB·주총소집·5%보유) / `all` / 쉼표구분 코드. 코드: order,treasury,dividend,dilutive,agm_notice,ownership5,earnings,agm_result,restructuring,stake_deal,control_change,litigation,insider10.
         period: today / yesterday / since_yesterday(디폴트) / last_7d / last_30d / custom(custom_start·custom_end YYYYMMDD). 시장스캔 3개월 하드캡.
-        universe: all(디폴트 전체시장) / top_mktcap:N / custom:종목코드,종목코드 / kospi200(→시총상위200 대체). 각 카드에 시총 병기.
+        universe: all(디폴트 전체시장) / kospi200(=KOSPI 시총상위200, 코스닥 미포함) / kospi:N / kosdaq:N / top_mktcap:N(전체시장 시총상위) / market:kospi|kosdaq(시장 전체) / custom:종목,종목(코드 또는 회사명 혼용 — "삼성전자" 이름도 자동 코드화). 각 카드에 시총 병기.
         details: false(디폴트, scan만) / true(문서 열어 숫자 — universe=all이거나 기간>30일이면 안전상 자동 off, 기간>7일이면 preview).
         rule: DART list.json 전체시장 필러(corp_code 無)를 유형별 detail코드로 스캔 → report_nm 키워드 분류 → 시총(krx_weekly) 부착 → dedup(정정=최신본만). 정정=`[기재정정]` 프리픽스, 단계태깅(결정≠결과≠소각). details는 유형별 파서(order_contracts 등) 디스패치. 빈 결과는 no_new(신규없음)/status=error(조회실패)로 구분.
         ref: order_contracts·treasury_share·dividend·dilutive_issuance·shareholder_meeting_notice·ownership_structure (유형별 심층)

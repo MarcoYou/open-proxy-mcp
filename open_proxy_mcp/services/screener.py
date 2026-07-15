@@ -25,6 +25,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Iterable
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+from open_proxy_mcp.services.company import resolve_company_query
 
 # ── KST(공시 기준 시간대) ──────────────────────────────────────────────
 _KST = timezone(timedelta(hours=9))
@@ -39,6 +40,7 @@ _PAGE_COUNT = 100
 
 # details 러닝 가드
 _DETAILS_TOTAL_CALL_CAP = 300   # run당 총 DART 콜 러닝카운터
+_DETAILS_UNIVERSE_MAX = 300     # details 허용 유니버스 상한(초과=너무 넓음 → off)
 _DETAILS_CONCURRENCY = 2
 _DETAILS_SLEEP = 0.8
 
@@ -337,7 +339,28 @@ def _krx_mktcap_map(isu_cds: Iterable[str], bas_dd: str) -> dict[str, int]:
         return {}
 
 
-def _krx_top_mktcap(n: int, bas_dd: str) -> set[str]:
+def _krx_top_mktcap(n: int, bas_dd: str, mkt: str | None = None) -> set[str]:
+    """시총 상위 N 단축코드. mkt(KOSPI/KOSDAQ) 지정 시 그 시장만 — 시장 혼합 방지."""
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return set()
+    try:
+        import psycopg
+        q = "SELECT isu_cd FROM krx_weekly WHERE bas_dd=%s AND mktcap IS NOT NULL"
+        params: list = [bas_dd]
+        if mkt:
+            q += " AND mkt=%s"
+            params.append(mkt)
+        q += " ORDER BY mktcap DESC LIMIT %s"
+        params.append(n)
+        with psycopg.connect(url, connect_timeout=10) as c:
+            return {r[0] for r in c.execute(q, tuple(params)).fetchall()}
+    except Exception:
+        return set()
+
+
+def _krx_market_codes(mkt: str, bas_dd: str) -> set[str]:
+    """한 시장(KOSPI/KOSDAQ) 전 종목 단축코드."""
     url = os.getenv("DATABASE_URL")
     if not url:
         return set()
@@ -345,8 +368,8 @@ def _krx_top_mktcap(n: int, bas_dd: str) -> set[str]:
         import psycopg
         with psycopg.connect(url, connect_timeout=10) as c:
             rows = c.execute(
-                "SELECT isu_cd FROM krx_weekly WHERE bas_dd=%s AND mktcap IS NOT NULL "
-                "ORDER BY mktcap DESC LIMIT %s", (bas_dd, n),
+                "SELECT isu_cd FROM krx_weekly WHERE bas_dd=%s AND mkt=%s AND mktcap IS NOT NULL",
+                (bas_dd, mkt),
             ).fetchall()
             return {r[0] for r in rows}
     except Exception:
@@ -367,8 +390,58 @@ class UniverseFilter:
         return (stock_code or "").strip() in self.allowed
 
 
-def resolve_universe(universe: str) -> UniverseFilter:
-    """universe 스펙 → UniverseFilter. 디폴트 all=전체시장(필터 없음)."""
+def _looks_like_code(tok: str) -> bool:
+    """KRX 단축코드(6자 영숫자, 대부분 숫자)인가 — 회사명과 구분. 예: 005930, 900110, 0011A0."""
+    return bool(re.fullmatch(r"[0-9A-Z]{6}", tok)) and sum(c.isdigit() for c in tok) >= 4
+
+
+async def _resolve_custom_universe(raw: str, bas_dd: str | None) -> UniverseFilter:
+    """custom:… 토큰을 코드/이름 혼용으로 해석. 코드는 그대로, 이름은 resolve_company_query로 코드화."""
+    tokens = [t.strip() for t in re.split(r"[,，]+", raw) if t.strip()]
+    if not tokens:
+        return UniverseFilter(label="custom", resolved=False,
+                              notice="custom:[…] 종목 파싱 실패 → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
+    codes: set[str] = set()
+    notes: list[str] = []
+    name_tokens: list[str] = []
+    for tok in tokens:
+        if _looks_like_code(tok.upper()):
+            codes.add(tok.upper())
+        else:
+            name_tokens.append(tok)
+
+    async def _resolve_one(tok: str) -> tuple[str, str | None]:
+        # 이름/티커 → 회사 식별(기존 엔진 재사용, 이름당 DART 0콜=캐시)
+        try:
+            res = await resolve_company_query(tok)
+        except Exception:
+            return tok, None
+        sel = getattr(res, "selected", None)
+        return tok, ((sel or {}).get("stock_code") if sel else None)
+
+    if name_tokens:
+        for tok, sc in await asyncio.gather(*[_resolve_one(t) for t in name_tokens]):
+            if sc:
+                codes.add(sc.strip())
+            else:
+                notes.append(f"'{tok}' 미식별(모호/없음)")
+    if not codes:
+        notice = ("일부 종목 미해결: " + " · ".join(notes)) if notes else ""
+        return UniverseFilter(label="지정종목", resolved=False,
+                              notice=(notice + " → 전체시장으로 대체.").strip(), allowed=None, bas_dd=bas_dd)
+    # 부분 해결 시: 해결분으로 진행함을 명시(전체 degrade로 오해 방지)
+    notice = (f"해결된 {len(codes)}종목으로 진행 — 미해결: " + " · ".join(notes)) if notes else ""
+    return UniverseFilter(label=f"지정 {len(codes)}종목", resolved=True,
+                          notice=notice, allowed=codes, bas_dd=bas_dd)
+
+
+async def resolve_universe(universe: str) -> UniverseFilter:
+    """universe 스펙 → UniverseFilter. 디폴트 all=전체시장(필터 없음).
+
+    지원 스펙:
+      all · market:kospi|kosdaq · kospi200(=KOSPI 시총상위200) · kospi:N · kosdaq:N ·
+      top_mktcap:N(전체시장 시총상위) · custom:코드|이름,… · sector:…(미구현 degrade)
+    """
     spec = (universe or "all").strip()
     bas_dd = _krx_latest_dd()
 
@@ -376,37 +449,60 @@ def resolve_universe(universe: str) -> UniverseFilter:
         return UniverseFilter(label="전체시장", resolved=True, allowed=None, bas_dd=bas_dd)
 
     low = spec.lower()
+
+    def _rank(n: int, mkt: str | None, label: str) -> UniverseFilter:
+        allowed = _krx_top_mktcap(n, bas_dd, mkt) if bas_dd else set()
+        if not allowed:
+            return UniverseFilter(label=label, resolved=False,
+                                  notice="krx_weekly 조회 실패 → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
+        return UniverseFilter(label=label, resolved=True, allowed=allowed, bas_dd=bas_dd)
+
+    # 시장 전체(랭킹 없음) — exact 매칭(kospi200/kospi:N 흡수 방지)
+    if low in ("market:kospi", "kospi"):
+        codes = _krx_market_codes("KOSPI", bas_dd) if bas_dd else set()
+        return UniverseFilter(label="KOSPI 전체", resolved=bool(codes),
+                              notice="" if codes else "krx_weekly 조회 실패 → 전체시장으로 대체.",
+                              allowed=codes or None, bas_dd=bas_dd)
+    if low in ("market:kosdaq", "kosdaq"):
+        codes = _krx_market_codes("KOSDAQ", bas_dd) if bas_dd else set()
+        return UniverseFilter(label="KOSDAQ 전체", resolved=bool(codes),
+                              notice="" if codes else "krx_weekly 조회 실패 → 전체시장으로 대체.",
+                              allowed=codes or None, bas_dd=bas_dd)
+
+    # 시장별 시총 상위 N
+    if low.startswith("kospi:") or low.startswith("kospi_top:"):
+        try:
+            n = int(spec.split(":", 1)[1])
+        except ValueError:
+            return UniverseFilter(label=spec, resolved=False, notice="kospi:N 파싱 실패 → 전체시장.", allowed=None, bas_dd=bas_dd)
+        return _rank(n, "KOSPI", f"KOSPI 시총상위 {n}")
+    if low.startswith("kosdaq:") or low.startswith("kosdaq_top:"):
+        try:
+            n = int(spec.split(":", 1)[1])
+        except ValueError:
+            return UniverseFilter(label=spec, resolved=False, notice="kosdaq:N 파싱 실패 → 전체시장.", allowed=None, bas_dd=bas_dd)
+        return _rank(n, "KOSDAQ", f"KOSDAQ 시총상위 {n}")
+
+    # KOSPI200 → 지수 원장 부재라 KOSPI 시총상위 200으로 대체(시장 분리됨, 안내)
+    if low.startswith("kospi200"):
+        uf = _rank(200, "KOSPI", "KOSPI200(→KOSPI 시총상위200 대체)")
+        if uf.resolved:
+            uf.notice = "KOSPI200 구성종목 원장이 없어 KOSPI 시총상위 200으로 대체했다(코스닥 미포함)."
+        return uf
+
+    # 전체시장 시총 상위 N (시장 혼합 — 라벨로 명시)
     if low.startswith("top_mktcap:"):
         try:
             n = int(spec.split(":", 1)[1])
         except ValueError:
             return UniverseFilter(label=spec, resolved=False,
                                   notice="top_mktcap:N 파싱 실패 → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
-        allowed = _krx_top_mktcap(n, bas_dd) if bas_dd else set()
-        if not allowed:
-            return UniverseFilter(label=f"시총상위 {n}", resolved=False,
-                                  notice="krx_weekly 조회 실패 → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
-        return UniverseFilter(label=f"시총상위 {n}", resolved=True, allowed=allowed, bas_dd=bas_dd)
-
-    if low.startswith("kospi200"):
-        # KOSPI200 구성종목 원장 부재 → 시총상위 200 대체(안내).
-        allowed = _krx_top_mktcap(200, bas_dd) if bas_dd else set()
-        return UniverseFilter(
-            label="KOSPI200(→시총상위200 대체)",
-            resolved=bool(allowed),
-            notice="KOSPI200 구성종목 원장이 없어 시총상위 200으로 대체했다.",
-            allowed=allowed or None, bas_dd=bas_dd)
+        return _rank(n, None, f"전체시장 시총상위 {n}")
 
     if low.startswith("custom:"):
-        raw = spec.split(":", 1)[1]
-        codes = {c.strip() for c in re.split(r"[,\s]+", raw) if c.strip()}
-        if not codes:
-            return UniverseFilter(label=spec, resolved=False,
-                                  notice="custom:[…] 종목코드 파싱 실패 → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
-        return UniverseFilter(label=f"지정 {len(codes)}종목", resolved=True, allowed=codes, bas_dd=bas_dd)
+        return await _resolve_custom_universe(spec.split(":", 1)[1], bas_dd)
 
     if low.startswith("sector"):
-        # 섹터 필터 = KSIC 조인 필요(v1 미구현). 전체시장으로 두되 안내.
         return UniverseFilter(
             label=spec, resolved=False,
             notice="섹터 필터는 v1 미구현(KSIC 조인 TODO) — 전체시장으로 스캔했다.",
@@ -707,7 +803,7 @@ async def build_screener_payload(
     bgn_de, end_de, pnotes = resolve_period(period, cursor=cursor,
                                              custom_start=custom_start, custom_end=custom_end)
     warnings += pnotes
-    uni = resolve_universe(universe)
+    uni = await resolve_universe(universe)
     if uni.notice:
         warnings.append(uni.notice)
 
@@ -716,9 +812,10 @@ async def build_screener_payload(
     details_effective = details
     details_preview = False
     if details:
-        if uni.allowed is None:
+        # 게이트는 유니버스 "크기" — market:kospi(전종목)처럼 넓으면 좁힌 게 아니라 details off.
+        if uni.allowed is None or len(uni.allowed) > _DETAILS_UNIVERSE_MAX:
             details_effective = False
-            warnings.append("universe=all × details=true는 콜 폭주 위험 → details를 껐다. universe를 좁히면(top_mktcap:N / custom:[…]) 켜진다.")
+            warnings.append(f"유니버스가 너무 넓어(전체시장 또는 {_DETAILS_UNIVERSE_MAX}종목 초과) details를 껐다 — 콜 폭주 방지. 좁은 유니버스(top_mktcap:N / kospi:N ≤{_DETAILS_UNIVERSE_MAX} / custom:종목)에서만 켜진다.")
         elif period_days > 30:
             details_effective = False
             warnings.append("기간>30일 × details=true는 콜 폭주 위험 → details를 껐다.")

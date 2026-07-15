@@ -105,15 +105,21 @@ sequenceDiagram
 
 > "오늘 아침 공시 뭐 떴어?" → 무인자 `screener()` = 전체시장·직전영업일 이후·핵심 프리셋 디제스트.
 > "시총 상위 200개 중 증자·CB만" → `types="dilutive"`, `universe="top_mktcap:200"`.
-> "삼성전자·SK하이닉스 자사주 숫자까지" → `types="treasury"`, `universe="custom:005930,000660"`, `details=true`.
+> "삼성전자·SK하이닉스 자사주 숫자까지" → `types="treasury"`, `universe="custom:삼성전자,SK하이닉스"`, `details=true` (코드/이름 혼용 가능).
 
 유형별 카드 그룹(시총순) + 각 카드에 시총·단계·정정뱃지·분모%·DART/naver 링크·`suggested_tool`(심층 tool 힌트).
 
 ## 파라미터
 
 - `types`: `core`(디폴트) / `all` / 쉼표구분 코드. period: today / yesterday / **since_yesterday**(디폴트) /
-  last_7d / last_30d / custom. universe: **all**(디폴트) / top_mktcap:N / custom:코드,코드 / kospi200(→시총상위200 대체).
-- `details`: false(디폴트). **universe=all이거나 기간>30일이면 콜 폭주 방지로 자동 off**, 기간>7일이면 preview(캡 1/2).
+  last_7d / last_30d / custom.
+- **universe**(2026-07-15 시장 분리 + 이름 해석): **all**(디폴트 전체시장) / `kospi200`(=KOSPI 시총상위200,
+  **코스닥 미포함** — 지수 원장 부재라 시총상위 대체) / `kospi:N` · `kosdaq:N`(시장별 시총상위) /
+  `top_mktcap:N`(전체시장 시총상위, 시장 혼합 — 라벨로 명시) / `market:kospi`·`market:kosdaq`(시장 전체) /
+  `custom:종목,종목`(**코드 또는 회사명 혼용** — "삼성전자" 같은 이름은 `resolve_company_query`로 자동 코드화,
+  미해결분은 notice로 투명 고지). 시총·시장 소스 = `krx_weekly`(DART 0콜), 이름해석도 corp_code 캐시라 DART 0콜.
+- `details`: false(디폴트). **universe가 전체시장이거나 300종목 초과, 또는 기간>30일이면 콜 폭주 방지로 자동
+  off**(게이트는 유니버스 "크기" — market:kospi 같은 넓은 유니버스는 details 안 켜짐), 기간>7일이면 preview(캡 1/2).
 - `cursor`(YYYYMMDD): 반개구간[cursor, end) 시작 오버라이드 — 루틴 idempotency(직전 실행 이후만). 응답 `next_cursor`를 다음 실행에 넘긴다.
 
 ## 함께 보면 좋은 기능
