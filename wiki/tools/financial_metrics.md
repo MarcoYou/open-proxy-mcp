@@ -197,6 +197,11 @@ sequenceDiagram
   사업보고서 '현금배당성향(%)'(연결 우선)을 **연간보고서에서만 연도 key 조인**으로 주입(dividend 툴과
   SSOT 일원화). 무배당/미기재/미확정 연도는 None. CF `dividend_paid_krw`는 배당/FCF(현금 coverage)
   지표 전용. 근거: [[financial-metrics-payout-260716]].
+- **REIT 배당성향 억제**(`_is_reit`+`_accrual_payout_pct(is_reit=)`, 260717): 이름에 '리츠' 있으면
+  `payout_ratio_pct=None` + `payout_ratio_note`("DPS·시가배당률 참고"). REIT는 배당가능이익≥90% 분배라
+  순이익 대비 성향이 100~2000%·음수로 무의미(404사 스캔: 미래에셋글로벌리츠 421%·이지스밸류 −415%).
+  KSIC(68)는 부동산 개발사(SK디앤디·자이에스앤디 정상 성향)까지 잡아 과억제하므로 **이름 판정**. 근거:
+  [[dividend-payout-classification-260717]].
 
 ## 관련 공시 (rules/disclosures/)
 - [[사업보고서]] — fnlttSinglAcnt 1차 source (연간)
@@ -229,6 +234,12 @@ sequenceDiagram
 - vote_brief / 매트릭스 dim 자동 채점 통합 — **Phase 2 별도**
 
 ## 변경 이력
+- 2026-07-17: **REIT 배당성향 억제 + (dividend 툴) '미확정' 시간판정.** 404사 대형검증: 성향 이상치
+  (경보제약 656%·롯데지주 −14.8%)는 순익급감/연결적자의 **진짜 DART값**(웹 대조), 총액÷순익 fallback은
+  실효 1사(CJ)·오탐(SK리츠 1957%)이라 **기각**. REIT는 순이익 대비 성향 무의미 → 이름 '리츠' 판정으로
+  `payout_ratio_pct=None`+안내. dividend 툴은 주총 경과(today>익년5/31) 시 "미공시(미확정)"→"무배당(확정)"
+  정정(메리츠·SK증권 배당→자사주 소각 전환, payer-blank 14사 회귀 오전환 0). 근거:
+  [[dividend-payout-classification-260717]].
 - 2026-07-16: **배당성향을 CF 현금지급 → DART 현금배당성향(귀속) 교체.** `payout_ratio_pct`가 분자로
   현금흐름표 '배당금지급'(대개 전년 결산배당이 그해 지급된 것 + 당해 중간배당, 연결 지배+비지배)÷지배
   순이익을 써서, 귀속 표준(당해 배당÷당해 순이익)과 **분자의 연도·주체가 어긋났다**(삼성전자 22.4% vs

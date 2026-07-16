@@ -1330,13 +1330,26 @@ async def _safe_fetch_audit(corp_code: str, year: int) -> tuple[list[dict[str, A
         return [], f"accnutAdtorNmNdAdtOpinion 실패: {exc.status} {exc}"
 
 
-async def _accrual_payout_pct(corp_code: str, year: int) -> float | None:
+def _is_reit(name: str | None) -> bool:
+    """이름 기반 REIT 판정 — KSIC(68)는 부동산 개발사(SK디앤디·자이에스앤디 등 정상 배당성향)까지
+    잡아 과억제하므로 이름의 '리츠'를 신뢰 신호로 쓴다(260717 404사 스캔·QA 검증: 신한글로벌
+    액티브리츠(ksic 64201)처럼 KSIC 오분류 REIT도 이름으로 잡힘)."""
+    return "리츠" in (name or "")
+
+
+async def _accrual_payout_pct(corp_code: str, year: int, *, is_reit: bool = False) -> float | None:
     """배당성향 = DART 사업보고서 '현금배당성향(%)' (해당 사업연도 귀속·연결 기준).
 
     dividend 툴과 동일한 alotMatter 다년 로직을 재사용해 SSOT를 일원화한다. CF '배당금지급'
     기반 계산(연도·주체 불일치)을 대체(260716 검증). 무배당/미기재/미확정 연도는 None.
     과거 확정연도 alotMatter는 client에 영구 캐시되어 dividend 툴과 중복 호출 시 0콜.
+
+    is_reit=True면 None을 반환한다 — REIT는 회계 순이익 대비 배당성향이 무의미하다
+    (배당가능이익≥90% 분배 구조라 100~2000%·음수가 정상. 260717 404사 스캔: 미래에셋글로벌
+    리츠 421%·신한알파 231%·이지스밸류 −415%). 성향 대신 DPS·시가배당률로 봐야 한다.
     """
+    if is_reit:
+        return None
     # 지연 import (모듈 로드 순서 무관 + 순환 회피)
     from open_proxy_mcp.services.dividend_v2 import (
         _alot_multiyear_summaries,
@@ -1389,6 +1402,7 @@ async def _fetch_year_metrics(
     include_prev: bool = True,
     allow_quarterly_fallback: bool = True,
     induty_code: str | None = None,
+    is_reit: bool = False,
 ) -> tuple[dict[str, Any], list[str], int]:
     """단일 사업연도 metrics. 당기+전기 fnlttSinglAcnt를 모두 호출.
 
@@ -1498,7 +1512,9 @@ async def _fetch_year_metrics(
     # 배당성향은 귀속 기준(DART 사업보고서 '현금배당성향')으로 주입 — 연간보고서에서만 의미 있음.
     # 분기/누적 기간엔 해당 연도 배당이 미확정이라 None(정직). CF dividend_paid_krw는 배당/FCF 전용.
     if used_rc == _REPRT_BUSINESS:
-        metrics["payout_ratio_pct"] = await _accrual_payout_pct(corp_code, year)
+        metrics["payout_ratio_pct"] = await _accrual_payout_pct(corp_code, year, is_reit=is_reit)
+        if is_reit:
+            metrics["payout_ratio_note"] = "REIT — 순이익 기준 배당성향 미표시(배당가능이익 분배). DPS·시가배당률 참고"
     else:
         metrics["payout_ratio_pct"] = None
     if pm_cum < 12:
@@ -1661,9 +1677,9 @@ async def _build_audit_opinion_data(
     )
 
 
-async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, induty_code: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, induty_code: str | None = None, is_reit: bool = False) -> tuple[list[dict[str, Any]], list[str]]:
     year_list = list(range(end_year - years + 1, end_year + 1))
-    tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code) for y in year_list]
+    tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit) for y in year_list]
     results = await asyncio.gather(*tasks)
     out: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -1969,6 +1985,8 @@ async def build_financial_metrics_payload(
     # 금융사 판별 2차 신호(KSIC 업종) — mkt_fundamentals에서 DART 콜 없이 조회. 수신 없어(예수부채 無)
     # BS신호가 놓치는 카드·캐피탈·VC(삼성카드·미래에셋벤처투자 등) 보완. DB 미설정/미수록이면 None(무해).
     induty_code = await asyncio.to_thread(_lookup_induty_code, corp_code, selected.get("stock_code", ""))
+    # REIT는 순이익 기준 배당성향이 무의미(배당가능이익 분배) → 이름 기반 판정해 성향 억제 + 안내.
+    is_reit = _is_reit(selected.get("corp_name", ""))
     # 분기 인지형 디폴트: quarterly/qoq는 이미 제출된 최신 분기(예: 당해 1분기는 5월 공시)를
     # 봐야 하므로 디폴트 end_year를 당해 연도로. _build_quarterly는 end_year-2..end_year를
     # 받고 미공시 분기는 graceful skip이라 호출 수(12) 변동 없이 최신 분기가 포함된다.
@@ -2003,7 +2021,7 @@ async def build_financial_metrics_payload(
 
     stage_started_at = time.perf_counter()
     if scope == "summary":
-        metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code)
+        metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit)
         warnings.extend(ws)
         if metrics:
             data["summary"] = metrics
@@ -2022,7 +2040,7 @@ async def build_financial_metrics_payload(
             parsing_failures = 1
 
     elif scope == "yearly":
-        rows, ws = await _build_yearly(corp_code, target_year, years, fs_div, induty_code)
+        rows, ws = await _build_yearly(corp_code, target_year, years, fs_div, induty_code, is_reit=is_reit)
         warnings.extend(ws)
         data["yearly"] = rows
         filing_count = len(rows)

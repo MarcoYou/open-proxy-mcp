@@ -1016,12 +1016,26 @@ async def build_dividend_payload(
                             for r in history if r["year"] < target_year
                         )
                         if prior_paid:
-                            row["pattern"] = "미공시 (결산 배당 미확정)"
-                            row["pending_confirmation"] = True
-                            warnings.append(
-                                f"{target_year} 사업연도 결산배당이 아직 공시되지 않았다 — 직전 배당 이력이 있는 "
-                                "회사라 무배당으로 단정하지 않는다 (선배당-후결의로 금액이 사업보고서에 미반영되었거나 결정 전)."
-                            )
+                            # 시간축 판정: 해당 사업연도 정기주총(12월결산 ≈ 익년 3월)이 지났으면
+                            # '미확정'은 stale이다. 주총에서 배당이 결정됐는데도 결정공시·기준일이
+                            # 전혀 없다는 것은 결산 현금배당을 하지 않기로 확정한 것으로 본다
+                            # (예: FY2025 배당재원을 전액 자사주 소각으로 전환한 메리츠금융지주 →
+                            # 종전엔 '미확정'으로 고착됐음). 익년 5월말 이후를 경과 기준으로(버퍼).
+                            agm_passed = date.today() > date(target_year + 1, 5, 31)
+                            if agm_passed:
+                                row["pattern"] = "무배당 (확정 · 결산 현금배당 없음)"
+                                warnings.append(
+                                    f"{target_year} 사업연도 정기주총이 지났고 결산 현금배당 결정·기준일이 "
+                                    "확인되지 않는다 — 결산 현금배당을 하지 않기로 확정된 것으로 본다(배당재원을 "
+                                    "자사주 소각 등으로 전환했을 수 있다). 미확정이 아니다."
+                                )
+                            else:
+                                row["pattern"] = "미공시 (결산 배당 미확정)"
+                                row["pending_confirmation"] = True
+                                warnings.append(
+                                    f"{target_year} 사업연도 결산배당이 아직 공시되지 않았다 — 직전 배당 이력이 있는 "
+                                    "회사라 무배당으로 단정하지 않는다 (선배당-후결의로 금액이 사업보고서에 미반영되었거나 결정 전)."
+                                )
                         # else: 직전도 배당 이력 없음 → '무배당' 유지 (진짜 무배당)
     _mark("latest_year_classification", _latest_class_started)
 
