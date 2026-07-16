@@ -191,6 +191,12 @@ sequenceDiagram
 - **ROIC 근사**: NOPAT = 영업이익 × (1 - 0.22 평균법인세). 투하자본 = 자본 + 총차입.
 - **DuPont 검증**: ROE = 순이익률 × 자산회전율 × 재무레버리지. roe_pct vs roe_dupont_pct 일치 확인용.
 - **운전자본 회전일수**: DSO=평균 매출채권/매출액×365, DIO=평균 재고/매출원가×365, DPO=평균 매입채무/매출원가×365, CCC=DSO+DIO-DPO. 분모가 없거나 0 이하이면 None.
+- **배당성향 = DART 현금배당성향(귀속)**(`_accrual_payout_pct`, 260716): 분자로 CF '배당금지급'(현금
+  유출 타이밍·연결 전체)을 **쓰지 않는다** — 대개 전년 결산배당이 그해 지급된 것이라 당해 순이익과
+  연도·주체(지배 vs 지배+비지배)가 어긋난다. 대신 dividend 툴의 alotMatter 다년 로직을 재사용해 DART
+  사업보고서 '현금배당성향(%)'(연결 우선)을 **연간보고서에서만 연도 key 조인**으로 주입(dividend 툴과
+  SSOT 일원화). 무배당/미기재/미확정 연도는 None. CF `dividend_paid_krw`는 배당/FCF(현금 coverage)
+  지표 전용. 근거: [[financial-metrics-payout-260716]].
 
 ## 관련 공시 (rules/disclosures/)
 - [[사업보고서]] — fnlttSinglAcnt 1차 source (연간)
@@ -223,6 +229,16 @@ sequenceDiagram
 - vote_brief / 매트릭스 dim 자동 채점 통합 — **Phase 2 별도**
 
 ## 변경 이력
+- 2026-07-16: **배당성향을 CF 현금지급 → DART 현금배당성향(귀속) 교체.** `payout_ratio_pct`가 분자로
+  현금흐름표 '배당금지급'(대개 전년 결산배당이 그해 지급된 것 + 당해 중간배당, 연결 지배+비지배)÷지배
+  순이익을 써서, 귀속 표준(당해 배당÷당해 순이익)과 **분자의 연도·주체가 어긋났다**(삼성전자 22.4% vs
+  실제 25.1%). 73사(금융 20·리츠 10 포함) 전수: |diff| 중앙 6.4%p·최대 127%p, >100% 뻥튀기(에코프로비엠
+  152%·SKT 154%)·금융주 과소(KB 3.5% vs 27%)·배당사 침묵누락(None)·무배당 오탐. → `_accrual_payout_pct`
+  가 dividend 툴의 alotMatter 다년 로직(`_annual_summary`+`_alot_multiyear_summaries`)을 재사용해
+  **DART '현금배당성향'(연결 우선)을 연간보고서에서 연도 key 조인**으로 주입(SSOT 일원화). 2룹 재검증:
+  new≡div |diff| 중앙 0.000%p·침묵누락 55/55 복구·과대교정 0. CF `dividend_paid_krw`는 배당/FCF 전용
+  유지. 남은 갭: alotMatter 현금배당성향 미기재사(일부 보험·REIT/인프라)는 fm·div 둘 다 None(후속).
+  근거: [[financial-metrics-payout-260716]].
 - 2026-07-13: **금융사 판별 2차 신호(KSIC 업종) 결합.** BS신호(예수부채 등)만으론 수신 없는(예수부채 無)
   카드·캐피탈·벤처캐피탈(삼성카드 64913·미래에셋벤처투자/HB인베스트먼트 649)을 놓쳐 debt_dependency가
   잘못 산출됨 → `_lookup_induty_code`(mkt_fundamentals, **DART 콜 0**)로 induty를 받아 `is_financial =

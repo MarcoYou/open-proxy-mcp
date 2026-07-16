@@ -974,9 +974,12 @@ def _compute_metrics(
     dp = detail.get("dividends_paid")
     if dp is not None:
         dividend_paid_krw = abs(dp)
-    payout_ratio_pct = _safe_pct(dividend_paid_krw, net_income_controlling) if (
-        net_income_controlling is not None and net_income_controlling > 0
-    ) else None
+    # 배당성향(payout_ratio_pct)은 여기(CF '배당금지급' ÷ 순이익)서 계산하지 않는다. CF 배당지급은
+    # 현금지급 타이밍(대개 전년 결산배당) + 연결 전체(지배+비지배) 기준이라, 귀속 배당성향과 분자의
+    # 연도·주체가 어긋난다(260716 검증: 54사 |diff| 중앙 6.4%p·최대 127%p, >100% 뻥튀기·금융주 과소).
+    # 실제 값은 _fetch_year_metrics에서 DART 사업보고서 '현금배당성향'(귀속·연결, dividend 툴과 동일
+    # SSOT)으로 주입한다. dividend_paid_krw는 아래 배당/FCF(현금 coverage) 지표 전용으로만 유지.
+    payout_ratio_pct = None
     dividend_to_fcf_pct = _safe_pct(dividend_paid_krw, fcf_krw) if (
         fcf_krw is not None and fcf_krw > 0
     ) else None
@@ -1327,6 +1330,30 @@ async def _safe_fetch_audit(corp_code: str, year: int) -> tuple[list[dict[str, A
         return [], f"accnutAdtorNmNdAdtOpinion 실패: {exc.status} {exc}"
 
 
+async def _accrual_payout_pct(corp_code: str, year: int) -> float | None:
+    """배당성향 = DART 사업보고서 '현금배당성향(%)' (해당 사업연도 귀속·연결 기준).
+
+    dividend 툴과 동일한 alotMatter 다년 로직을 재사용해 SSOT를 일원화한다. CF '배당금지급'
+    기반 계산(연도·주체 불일치)을 대체(260716 검증). 무배당/미기재/미확정 연도는 None.
+    과거 확정연도 alotMatter는 client에 영구 캐시되어 dividend 툴과 중복 호출 시 0콜.
+    """
+    # 지연 import (모듈 로드 순서 무관 + 순환 회피)
+    from open_proxy_mcp.services.dividend_v2 import (
+        _alot_multiyear_summaries,
+        _annual_summary,
+    )
+    try:
+        latest, _err = await _annual_summary(corp_code, year)
+    except Exception:
+        return None
+    if not latest:
+        return None
+    row = _alot_multiyear_summaries(latest).get(year)
+    if not row:
+        return None
+    return row.get("payout_ratio_dart")
+
+
 # ── scope dispatchers ──
 
 async def _fetch_acnt_with_fallback(
@@ -1468,6 +1495,12 @@ async def _fetch_year_metrics(
     metrics["fs_div"] = actual_fs  # 요청값이 아니라 실제 사용된 기준 (CFS 미작성 시 OFS)
     metrics["reprt_code"] = used_rc
     metrics["period_basis"] = "annual" if used_rc == _REPRT_BUSINESS else f"cumulative_{pm_cum}m"
+    # 배당성향은 귀속 기준(DART 사업보고서 '현금배당성향')으로 주입 — 연간보고서에서만 의미 있음.
+    # 분기/누적 기간엔 해당 연도 배당이 미확정이라 None(정직). CF dividend_paid_krw는 배당/FCF 전용.
+    if used_rc == _REPRT_BUSINESS:
+        metrics["payout_ratio_pct"] = await _accrual_payout_pct(corp_code, year)
+    else:
+        metrics["payout_ratio_pct"] = None
     if pm_cum < 12:
         warnings.append(
             f"{year}년 {pm_cum}개월 누적 기준 — 회전일수는 기간 보정됨, ROE/ROA/자산회전율은 "
