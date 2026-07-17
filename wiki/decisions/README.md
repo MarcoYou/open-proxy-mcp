@@ -51,6 +51,7 @@ updated: 2026-06-01
 | [[260510_1130_decision_director-faithfulness]] | 사외이사 겸직/충실성 fact 강화 |
 | [[260510_1230_decision_career-parser-concat]] | careerDetails concat/boundary 처리 |
 | [[260702_1520_decision_usage-is-error-tracking]] | 사용통계 is_error 기록 — 툴 내부 오류 기준 정의 |
+| **[[260717_1220_decision_business-content-tool-roadmap]]** | **business_details tool — "II.사업의 내용" 자동추출 설계·실현가능성 로드맵 (156사 census, A+B 착수·D 보류, 스콥 정의)** |
 
 ## 정체성 문서 (시점 prefix 없음)
 
