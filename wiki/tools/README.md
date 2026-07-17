@@ -12,7 +12,7 @@ updated: 2026-07-15
 > 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
 > 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
 
-## 22개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
+## 23개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
 ### 🏢 기본 — 회사 찾기
 | 도구 | 무엇을 답하나 |
@@ -36,6 +36,7 @@ updated: 2026-07-15
 |---|---|
 | [ownership_structure](ownership_structure.md) | 지분 구조 — 최대주주·특수관계인·5% 대량보유·자사주 |
 | [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 |
+| [business_details](business_details.md) | **사업부문별 매출·영업이익·비중** + R&D·수주잔고·고객집중 — "II.사업의 내용" 구조화(SOTP·부문수익성·적자부문). 정형 저신뢰 시 부문표 후보 raw 반환→호출측 추출. 금융·REIT 미지원 |
 | [valuation](valuation.md) | 상대가치 배수 — PER·PBR·배당수익률 (통화환산·스케일가드) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
 | [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria, 정형API 하이브리드 검증) |
