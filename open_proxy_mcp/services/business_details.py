@@ -635,3 +635,199 @@ def build_details(biz_content_text: str, note_full_text: str, toc: list, note_so
     out["backlog"] = extract_backlog(biz_content_text)
     out["customer_concentration"] = extract_customer_concentration(note_full_text)
     return out
+
+
+# ══════════════════════════════════════════════════════════════════
+# Live 오케스트레이션 (build_business_details_payload) + 단계별 타이머
+# 설계: 정형 primary → 저신뢰시 후보표 raw 반환(호출측 LLM 추출) → N/A. 내부 LLM/pandas 없음.
+# ══════════════════════════════════════════════════════════════════
+import time as _time
+
+_NODE_FIELDS = ("text", "rcpNo", "dcmNo", "eleId", "offset", "length", "dtd", "tocNo")
+
+
+def _extract_node_tree(main_html: str) -> list[dict]:
+    """viewer main.do treeData의 모든 node(node1/2/3…) 계층+부모+좌표 추출 (census 검증 로직)."""
+    parts = re.split(r"var\s+(node\d+)\s*=\s*\{\};", main_html)
+    nodes, last_at = [], {}
+    for k in range(1, len(parts), 2):
+        lvl = int(re.match(r"node(\d+)", parts[k]).group(1))
+        body = parts[k + 1]
+        vals = {"lvl": lvl}
+        for f in _NODE_FIELDS:
+            m = re.search(rf"\['{f}'\]\s*=\s*\"([^\"]*)\"", body)
+            if m:
+                vals[f] = m.group(1)
+        parent = last_at.get(lvl - 1)
+        vals["parent_text"] = parent.get("text") if parent else None
+        last_at[lvl] = vals
+        for dl in [d for d in last_at if d > lvl]:
+            del last_at[dl]
+        nodes.append(vals)
+    return nodes
+
+
+def _node_fetchable(n: dict) -> bool:
+    return {"rcpNo", "dcmNo", "eleId", "offset", "length", "dtd"} <= set(n)
+
+
+async def _find_latest_report(client, corp_code: str, period: str):
+    """사업의 내용 있는 최신 정기보고서 rcept (정정 목차게이트는 fetch 단계에서). period=annual/quarterly."""
+    detail = ["A001"] if period == "annual" else ["A002", "A003"]
+    toks = ["사업보고서"] if period == "annual" else ["분기보고서", "반기보고서"]
+    from datetime import date
+    end = date.today().strftime("%Y%m%d")
+    best = None
+    for dty in detail:
+        res = await client.search_filings(bgn_de="20240101", end_de=end, corp_code=corp_code,
+                                          pblntf_ty="A", pblntf_detail_ty=dty, page_count=30)
+        for r in res.get("list", []):
+            if any(t in r.get("report_nm", "") for t in toks):
+                if best is None or r.get("rcept_dt", "") > best.get("rcept_dt", ""):
+                    best = r
+    return best
+
+
+async def _fetch_biz(client, rcept_no: str) -> dict:
+    """main.do(목차) + II.사업의 내용 chapter만 fetch [2콜]. 주석 노드는 좌표만 반환(lazy)."""
+    main_html = await client._fetch_viewer_main_html(rcept_no)
+    nodes = _extract_node_tree(main_html)
+    out = {"toc": [{"lvl": n["lvl"], "text": n.get("text", "")} for n in nodes]}
+    biz = [n for n in nodes if n["lvl"] == 1 and "사업의 내용" in n.get("text", "") and _node_fetchable(n)]
+    if biz:
+        h = await client._fetch_viewer_section_html(biz[0])
+        out["biz_html"], out["biz_text"] = h, client._html_to_text(h)
+    # 주석 노드 좌표만 보관(연결 우선, 없으면 별도) — fetch는 필요 시에만
+    notes = [n for n in nodes if n.get("parent_text") and "재무에 관한" in n["parent_text"]
+             and "연결재무제표 주석" in n.get("text", "") and _node_fetchable(n)]
+    if not notes:
+        notes = [n for n in nodes if n.get("parent_text") and "재무에 관한" in n["parent_text"]
+                 and "재무제표 주석" in n.get("text", "") and _node_fetchable(n)]
+    out["_note_node"] = notes[0] if notes else None
+    return out
+
+
+async def _fetch_note(client, note_node: dict) -> dict:
+    """주석 노드 HTML+text fetch [1콜, 대용량]. 필요 시에만(lazy)."""
+    if not note_node:
+        return {}
+    h = await client._fetch_viewer_section_html(note_node)
+    return {"note_html": h, "note_text": client._html_to_text(h),
+            "note_source": note_node.get("text", "")}
+
+
+def _segment_confident(sp: "SegmentProfit") -> bool:
+    """정형 신뢰게이트: ①부문명 clean(junk 없음) ②sum(부문 매출)≈총계. 하나라도 아니면 False→후보반환.
+
+    junk(설명문·집계·컬럼머리·지표라벨)가 하나라도 섞이면 confident 아님 → 조용한 오답 대신 호출측에 후보 넘김.
+    """
+    names = [s.get("name", "") for s in sp.segments]
+    for nm in names:
+        if _DESC_RE.search(nm) or _AGG_RE.search(nm) or _NONSEG_RE.search(nm) or nm in _METRIC_ROW_NOISE:
+            return False
+    # 이름 형태 불일치: 짧은 clean명(<7) + 긴 설명명(≥14) 혼재 = 설명이 junk → 후보반환
+    lens = [len(n) for n in names]
+    if len(lens) >= 2 and max(lens) >= 14 and min(lens) < 7:
+        return False
+    revs = [s["revenue"] for s in sp.segments if s.get("revenue") is not None]
+    if len(revs) < 2:
+        return len(revs) == 1
+    ex = (sp.adjustments[0].get("revenue_excess") if sp.adjustments else None) or []
+    s = sum(revs)
+    return any(a != 0 and abs(s - a) <= max(abs(a), 1) * 0.03 for a in ex) if ex else True
+
+
+async def build_business_details_payload(company_query: str, period: str = "annual",
+                                         fields: list[str] | None = None) -> dict:
+    """II.사업의 내용 구조화 추출 tool 진입점. 단계별 타이머(data.timings_ms)로 병목 실측."""
+    from open_proxy_mcp.services.company import resolve_company_query
+    from open_proxy_mcp.services.contracts import ToolEnvelope, AnalysisStatus
+    from open_proxy_mcp.dart.client import get_dart_client
+    from open_proxy_mcp.services.segment_candidates import find_segment_candidates
+
+    T, t0 = {}, _time.perf_counter()
+
+    def _lap(name):
+        nonlocal t0
+        T[name] = round((_time.perf_counter() - t0) * 1000)
+        t0 = _time.perf_counter()
+
+    resolution = await resolve_company_query(company_query)
+    _lap("resolve")
+    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        return ToolEnvelope(tool="business_details", status=resolution.status,
+                            subject=company_query, data={"timings_ms": T},
+                            warnings=["회사 식별 실패"]).to_dict()
+    corp = resolution.selected
+    client = get_dart_client()
+
+    rept = await _find_latest_report(client, corp["corp_code"], period)
+    _lap("search")
+    if not rept:
+        return ToolEnvelope(tool="business_details", status=AnalysisStatus.NO_FILING,
+                            subject=corp.get("corp_name", ""), data={"timings_ms": T},
+                            warnings=[f"{period} 정기보고서 없음"]).to_dict()
+
+    sec = await _fetch_biz(client, rept["rcept_no"])   # main.do + 사업내용 [2콜, 주석 제외]
+    _lap("fetch_biz")
+
+    form = detect_form(sec.get("toc", []))
+    warnings: list[str] = []
+    want = set(fields or ["segments", "rnd", "backlog", "customers"])
+    note_fetched = False
+
+    async def _ensure_note():
+        """주석을 아직 안 받았으면 지금 fetch(lazy). 대용량이라 필요할 때만."""
+        nonlocal note_fetched
+        if not note_fetched and sec.get("_note_node"):
+            nd = await _fetch_note(client, sec["_note_node"])
+            sec.update(nd)
+            note_fetched = True
+
+    # segment_profit: 본문 우선(주석 없이) → 저신뢰 시 주석 lazy fetch → 후보 raw → N/A
+    if form in (FORM_FINANCIAL, FORM_REIT):
+        segment = {"status": UNSUPPORTED_FORM, "source": "none",
+                   "na_reason": f"form_{form}_not_supported_v1 (금융·REIT는 D-트랙)"}
+    elif "segments" not in want:
+        segment = None
+    else:
+        sp = extract_segment_profit(sec.get("biz_text", ""), "", "")  # 본문만 시도
+        if not (sp.status == OK and sp.source == "body" and sp.segments and _segment_confident(sp)):
+            await _ensure_note()  # 본문 불충분 → 주석 받아 재시도
+            sp = extract_segment_profit(sec.get("biz_text", ""), sec.get("note_text", ""), sec.get("note_source", ""))
+        _lap("segment_fetch+parse")
+        if sp.status == OK and sp.segments and _segment_confident(sp):
+            segment = {"status": OK, "source": "deterministic", "revenue_metric": sp.revenue_metric,
+                       "profit_metric": sp.profit_metric, "unit": sp.unit, "items": sp.segments,
+                       "reconciliation": "부문합≈총계 검산 통과"}
+        elif sp.status == NOT_APPLICABLE:
+            segment = {"status": NOT_APPLICABLE, "source": "none", "na_reason": sp.na_reason}
+        else:
+            cands = find_segment_candidates(sec.get("note_html", "")) + find_segment_candidates(sec.get("biz_html", ""))
+            cands.sort(key=lambda x: x["score"], reverse=True)
+            segment = {"status": "NEEDS_REVIEW", "source": "raw_candidates",
+                       "note": "정형 추출 저신뢰 — 아래 부문표 후보(수백 표 중 상위)를 읽어 사업부문별 매출·영업이익을 추출하세요. 부문합계/조정/총계 열은 제외.",
+                       "candidates": cands[:5]}
+            warnings.append("segment_profit: 정형 저신뢰 → 후보표 raw 반환(호출측 추출)")
+
+    data = {
+        "corp": {"name": corp.get("corp_name"), "corp_code": corp.get("corp_code"), "stock_code": corp.get("stock_code")},
+        "report": {"rcept_no": rept["rcept_no"], "report_nm": rept.get("report_nm"), "rcept_dt": rept.get("rcept_dt")},
+        "form_type": form,
+        "segments": segment if "segments" in want else None,
+    }
+    if "rnd" in want:
+        data["rnd"] = extract_rnd(sec.get("biz_text", ""))
+    if "backlog" in want:
+        data["backlog"] = extract_backlog(sec.get("biz_text", ""))
+    if "customers" in want:
+        await _ensure_note()   # 고객집중은 주석 필요 → 아직 없으면 지금 fetch
+        data["customers"] = extract_customer_concentration(sec.get("note_text", ""))
+    _lap("Afields")
+    data["note_fetched"] = note_fetched   # 주석 lazy fetch 여부(투명)
+
+    T["total"] = sum(v for k, v in T.items())
+    data["timings_ms"] = T
+    return ToolEnvelope(tool="business_details", status=AnalysisStatus.EXACT,
+                        subject=corp.get("corp_name", ""), data={k: v for k, v in data.items() if v is not None},
+                        warnings=warnings).to_dict()
