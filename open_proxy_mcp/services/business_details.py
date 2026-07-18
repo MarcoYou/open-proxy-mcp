@@ -986,8 +986,9 @@ async def build_business_details_payload(company_query: str, period: str = "annu
         data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _full_html)
     if "financial_soundness" in want and _fin_ksic:
         data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _full_html)
-    # 투자부동산: 부동산(68)·보험(65)·금융지주(64). content-gate가 REIT-특화라 그 안에서 최종판별.
-    if "investment_property" in want and (_reit_ksic or _ind2 in ("64", "65")):
+    # 투자부동산: 부동산(68=REIT)·보험(65=투자부동산 보유)만. 지주(64)는 primary가 영업현황이라 제외
+    # (broadened 임대료/임차인 시그니처가 지주 프로즈에 과발하던 것 방지).
+    if "investment_property" in want and (_reit_ksic or _ind2 == "65"):
         data["investment_property"] = _bf.extract_investment_property(_biz_t, _full_html)
     data["induty_code"] = induty or None
     _lap("Afields")
