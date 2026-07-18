@@ -19,15 +19,15 @@ _SUBSEC_PREFIX = re.compile(r"(?:\d{1,2}|[가-하]|\(\s*\d{1,2}\s*\)|\d{1,2}\s*\
 
 
 def render_biz_subsection_markdown(html: str, kw_patterns: list[str], max_chars: int = 22000,
-                                   need_rows: int = 1) -> str | None:
+                                   need_rows: int = 1, content_re=None) -> str | None:
     """II.사업의 내용의 특정 소절(kw_patterns 제목)을 통째 마크다운으로 렌더.
 
     소절 제목이 번호/한글자 접두를 가진 헤딩일 때만 앵커(프로즈 언급 오탐 방지). 명부(roster) 배제.
-    kw_patterns는 '전체 헤딩'을 잡도록(접두 바로 뒤에 오게) 작성 — 가장 구체적 패턴부터.
+    content_re 주면 렌더된 구간이 그 필드 내용을 실제로 담을 때만 채택(부모/오섹션 오탐 차단) —
+    이 content-gate 덕에 앵커를 넓게 잡아도 안전(넓은 앵커=놓침↓, gate=오탐↓).
     """
     if not html:
         return None
-    # 매칭 헤딩 위치 수집(번호/한글자 접두 + 명부 배제)
     hits = []
     for kw in kw_patterns:
         for m in re.finditer(kw, html):
@@ -39,15 +39,18 @@ def render_biz_subsection_markdown(html: str, kw_patterns: list[str], max_chars:
             hits.append(m.start())
     if not hits:
         return None
-    # 겹치는 헤딩(한 구간 내 여러 매치) 병합 → 비겹침 구간. 요약(II) + 상세(XII.상세표) 등 최대 2구간.
+    # 비겹침 구간. 요약(II) + 상세(XII.상세표) 등 최대 2구간.
     parts, last_end = [], -1
     for s in sorted(set(hits)):
         if s < last_end:
             continue
         md = _render_html_region_md(html, max(0, s - 40), s + max_chars)
-        if md and _md_has_data_rows(md, need_rows):
-            parts.append(md)
-            last_end = s + max_chars
+        if not (md and _md_has_data_rows(md, need_rows)):
+            continue
+        if content_re is not None and not content_re.search(md):
+            continue                    # 렌더됐지만 그 필드 내용 아님(부모·오섹션) → 스킵
+        parts.append(md)
+        last_end = s + max_chars
         if len(parts) >= 2 or sum(len(p) for p in parts) > max_chars:
             break
     return "\n\n———\n\n".join(parts) if parts else None
@@ -55,14 +58,18 @@ def render_biz_subsection_markdown(html: str, kw_patterns: list[str], max_chars:
 
 # ─────────────────────────── 가동률 (utilization) ───────────────────────────
 # 소절 제목 변형(자간 삽입·율/률·결합제목·슬래시). 앵커는 '전체 헤딩'을 잡아야 접두(나./3))가 붙음.
+# content-gate(_C_UTIL)가 오섹션을 거르므로 앵커를 넓게 잡아 놓침을 줄인다(census 54 놓침 대응).
 _UTIL_HEAD = [
     r"생산능력\s*[/·,]\s*(?:생산)?실적\s*[/·,]\s*가\s*동\s*[율률]",       # 3) 생산능력/실적/가동률 (한미반도체)
     r"생산능력[\s,]*(?:및\s*)?생산실적[\s,및]*가\s*동\s*[율률]",           # 나. 생산능력, 생산실적 및 가동률 (한화솔루션)
+    r"생산능력\s*(?:및|,)\s*가\s*동\s*[율률]",                            # 나. 생산능력 및 가동률 (한국전력공사)
     r"생산실적\s*(?:및|,|/)?\s*가\s*동\s*[율률]",                          # 나. 생산실적 및 가동률/가동율 (오리온)
     r"당해\s*사업연도의?\s*가\s*동\s*[율률]",
     r"당기\s*가\s*동\s*[율률]",
     r"설비\s*가\s*동\s*[율률]",
-    r"생산\s*및\s*설비에?\s*관한\s*사항",
+    r"가\s*동\s*[율률]",                                                   # (2) 가동률 단독 (쎄트렉아이) — prefix+content-gate로 안전
+    r"생산\s*및\s*설비(?:에?\s*관한\s*사항|\s*\(|의?\s*현황)?",            # 2. 생산 및 설비(1)생산능력 (HL만도)
+    r"생산\s*능력\s*(?:및\s*생산능력의?\s*)?산출\s*근거",                  # 현대차
 ]
 # 값 hint는 %만 보수적으로(단위 없는 '1개'·'1?' 노이즈 배제). 시간/톤 등은 마크다운이 담당.
 _UTIL_PCT = re.compile(r"(?:평균\s*|가중평균\s*|설비\s*)?가\s*동\s*[율률]"
@@ -81,9 +88,19 @@ def extract_utilization(biz_text: str, html: str) -> dict:
 # 설계: 파서가 '진짜 X표인가' 판정하지 않는다. 소절을 통째 마크다운으로 렌더→호출측 AI가 읽음.
 # 실패 모드는 '섹션 있는데 md=0'(앵커 미스)뿐이라 헤딩 패턴을 census 앵커로 넓게 잡는다.
 
-def _field(biz_text: str, html: str, head_patterns: list[str], na_re, max_chars: int = 20000) -> dict:
-    """markdown-primary: 소절 마크다운 있으면 MARKDOWN, 없고 NA어휘면 NOT_APPLICABLE, 아니면 미검출."""
-    md = render_biz_subsection_markdown(html, head_patterns, max_chars=max_chars)
+# content-gate 정규식: 렌더 구간이 실제 그 필드 내용을 담는지(부모/오섹션 오탐 차단)
+_C_UTIL = re.compile(r"가\s*동\s*[율률]|가동\s*시간")
+_C_SITE = re.compile(r"소재지|주소|사업장|사업소|공장|영업소|점포|㎡|[가-힣]{2}(?:시|도)\b|"
+                     r"경기|서울|인천|부산|대구|대전|광주|울산|충청|전라|경상|강원|제주|베트남|중국|미국")
+_C_RND = re.compile(r"연구개발")
+_C_BL = re.compile(r"수주\s*(?:잔고|잔액|총액|상황|현황|계약)|기납품|계약잔액|납기|발주처")
+_C_CUST = re.compile(r"고객|매출처|거래처|판매\s*경로|수요처")
+
+
+def _field(biz_text: str, html: str, head_patterns: list[str], na_re, content_re=None,
+           max_chars: int = 20000) -> dict:
+    """markdown-primary: 소절 마크다운(content-gate 통과) 있으면 MARKDOWN, 없고 NA어휘면 N/A, 아니면 미검출."""
+    md = render_biz_subsection_markdown(html, head_patterns, max_chars=max_chars, content_re=content_re)
     if md:
         return {"status": "MARKDOWN", "markdown": md}
     na = na_re.search(biz_text) if (na_re and biz_text) else None
@@ -139,7 +156,7 @@ _CUST_NA = re.compile(r"(?:주요\s*(?:매출처|고객)|판매\s*경로)[^\n]{0
 
 
 def _util_impl(biz_text, html):
-    r = _field(biz_text, html, _UTIL_HEAD, _UTIL_NA, max_chars=18000)
+    r = _field(biz_text, html, _UTIL_HEAD, _UTIL_NA, content_re=_C_UTIL, max_chars=18000)
     hm = None
     for kw in _UTIL_HEAD:
         hm = re.search(kw, biz_text or "")
@@ -154,17 +171,17 @@ def _util_impl(biz_text, html):
 
 
 def extract_sites(biz_text, html):
-    return _field(biz_text, html, _SITE_HEAD, _SITE_NA)
+    return _field(biz_text, html, _SITE_HEAD, _SITE_NA, content_re=_C_SITE)
 
 def extract_rnd(biz_text, html):
-    r = _field(biz_text, html, _RND_HEAD, _RND_NA, max_chars=24000)
+    r = _field(biz_text, html, _RND_HEAD, _RND_NA, content_re=_C_RND, max_chars=24000)
     m = _RND_RATIO.search(biz_text or "")
     if m:
         r["ratio_to_sales_pct_hint"] = m.group(1)
     return r
 
 def extract_backlog(biz_text, html):
-    return _field(biz_text, html, _BL_HEAD, _BL_NA)
+    return _field(biz_text, html, _BL_HEAD, _BL_NA, content_re=_C_BL)
 
 def extract_customers(biz_text, html):
-    return _field(biz_text, html, _CUST_HEAD, _CUST_NA)
+    return _field(biz_text, html, _CUST_HEAD, _CUST_NA, content_re=_C_CUST)
