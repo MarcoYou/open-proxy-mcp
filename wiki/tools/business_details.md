@@ -85,6 +85,7 @@ flatten이 2D표를 1D로 뭉개 정렬이 깨지는 게 근본 난제(156 censu
 
 ## 관련
 - [[260717_1220_decision_business-content-tool-roadmap]] (설계·실현가능성·스콥·아키텍처)
+- [[사업의내용_ksic별양식]] (KOSPI500 census — 업종별 소절 양식·정보 존재율·헤딩 variant 사전)
 - [[ksic-sector-mapping]] (KSIC 한계 — 폼 판별에 불신)
 - [[XML-vs-PDF]] (viewer HTML 단독)
 - `wiki/_local/census-biz-content-260717/` (156사 segment census 원본·ground-truth·재현 스크립트, gitignore)

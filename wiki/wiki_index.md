@@ -45,7 +45,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 | **lessons/** | 47 + README |
 | **archive/** | 74 + README 2 |
 
-총 352 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
+총 353 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
 > **규칙은 여기 두지 않는다.** 각 카테고리의 목적·수정정책·layer 정의, 명명 규칙, frontmatter schema,
 > link 방향 정책은 전부 [[wiki_schema]]가 단일 출처(SSOT). 이 파일은 "무엇이 어디 있나"(인벤토리·라우팅)만
@@ -225,7 +225,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 #### 시스템 메타
 - [[v4-스키마]] · [[시간순서-규칙]] · [[파서-판정-등급]]
 
-### Disclosures (44) - `rules/disclosures/`
+### Disclosures (45) - `rules/disclosures/`
 DART/KIND 공시 유형. 공시명 = 페이지명.
 
 #### 코드체계
