@@ -165,9 +165,9 @@ audit가 `data/`에 남기는 summary.json(또는 동급 manifest)에는 **재�
 원시 결과물부터 읽지 말고:
 1. 이 README에서 현재 기준 audit 선택
 2. 해당 `.md` 문서의 결론 / 최종 판단 확인
-3. 필요할 때만 `data/...json|csv` 근거 파일로 내려간다
+3. 필요할 때만 원시 근거 파일로 내려간다 (raw data는 private 이관 — 아래 참조)
 
-원시 결과물 인덱스는 [[data/README]].
+원시 결과물(raw data: 유니버스·corpus·결과 json/csv)은 **private repo `open-proxy-storage/audits_data/`로 이관**(260718, 경쟁자산). audit 서술(.md)은 public 유지.
 
 ## 신규 audit 추가 규칙
 
@@ -178,5 +178,5 @@ audit가 `data/`에 남기는 summary.json(또는 동급 manifest)에는 **재�
 
 ## 관련
 
-- [[data/README]] — Audit 원시 결과물 인덱스
+- Audit 원시 결과물(raw data) → private repo `open-proxy-storage/audits_data/` (260718 이관)
 - [[../../../ralph/README]] — Ralph 인덱스

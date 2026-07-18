@@ -134,4 +134,4 @@ KOSPI300 재실행:
 - [[shareholder_meeting_notice]]
 - [[proxy_advise_before_meeting]]
 - [[agenda-relation-parser-260525]]
-- [[data/260524_agenda_relation_corpus/README]]
+- raw corpus(260524_agenda_relation_corpus) → private repo `open-proxy-storage/audits_data/` (260718 이관)

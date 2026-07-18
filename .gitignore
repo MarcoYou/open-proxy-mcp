@@ -133,3 +133,7 @@ wiki/_local/
 
 # 디버그/에러 로그 (커밋 금지)
 *.log
+
+# 260718 competitive assets → private repo (open-proxy-storage)
+sample_universe/
+wiki/architecture/audits/data/
