@@ -41,10 +41,16 @@ def _render(p: dict) -> str:
                 L.append(f"| {s.get('name','')} | {_fmt(s.get('revenue'))} | {_fmt(s.get('profit'))} |")
             L.append(f"\n_{seg.get('reconciliation','')}_  (지표: {seg.get('revenue_metric','')}/{seg.get('profit_metric','')})")
         elif st == "NEEDS_REVIEW":
-            L.append(f"\n### 사업부문 표 후보 (정형 저신뢰 → 아래 원문 표에서 직접 추출)")
-            L.append(f"> {seg.get('note','')}")
-            for i, c in enumerate(seg.get("candidates", []), 1):
-                L.append(f"\n**[후보 {i}]** (score {c.get('score')}, {c.get('rows')}×{c.get('cols')})\n```\n{c.get('rendered','')[:2500]}\n```")
+            md = seg.get("segment_note_md")
+            if md:
+                L.append(f"\n### 사업부문 원문 ({seg.get('region','영업부문 주석')}) — 아래에서 직접 추출")
+                L.append(f"> {seg.get('note','')}")
+                L.append("\n" + md)
+            else:
+                L.append(f"\n### 사업부문 표 후보 (정형 저신뢰 → 아래 원문 표에서 직접 추출)")
+                L.append(f"> {seg.get('note','')}")
+                for i, c in enumerate(seg.get("candidates", []), 1):
+                    L.append(f"\n**[후보 {i}]** (score {c.get('score')}, {c.get('rows')}×{c.get('cols')})\n```\n{c.get('rendered','')[:2500]}\n```")
         elif st == "UNSUPPORTED_FORM":
             L.append(f"\n### 사업부문별 이익: **미지원 폼** — {seg.get('na_reason','')}")
         else:

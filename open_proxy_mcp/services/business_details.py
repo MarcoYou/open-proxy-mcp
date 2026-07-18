@@ -35,17 +35,20 @@ def detect_form(toc: list[dict]) -> str:
     """
     titles = [t.get("text", "") for t in toc]
     joined = " ".join(titles)
+    # has_mfg = 제조·제품 소절 존재(표준폼 확정 신호). full biz 텍스트를 넘겨도 이 구절은
+    # 프로즈에 거의 안 나오는 '소절 제목' 고유 문구라 신뢰 가능. → REIT/금융 오탐을 veto.
+    has_mfg = ("원재료 및 생산설비" in joined) or ("주요 제품 및 서비스" in joined)
     # 이중템플릿: 소절 '사업의 내용'류가 (제조서비스업)+(금융업) 두 벌
     if joined.count("영업의 현황") >= 2 or (("(금융업)" in joined) and ("(제조" in joined or "(서비스" in joined)):
         return FORM_DUAL
-    # REIT: 투자부동산/임차인/부동산투자회사
-    if any(k in joined for k in ("부동산투자회사", "투자부동산 내역", "임차인", "자산개요")):
-        return FORM_REIT
-    # 금융폼: 재무건전성/영업의 현황/영업설비 (원재료·생산 없음)
-    fin_marks = sum(1 for k in ("재무건전성", "영업의 현황", "영업설비") if k in joined)
-    has_mfg = ("원재료 및 생산설비" in joined) or ("주요 제품 및 서비스" in joined)
-    if fin_marks >= 1 and not has_mfg:
-        return FORM_FINANCIAL
+    if not has_mfg:
+        # REIT: 투자부동산/임차인/부동산투자회사 (제조·제품 소절이 없을 때만)
+        if any(k in joined for k in ("부동산투자회사", "투자부동산 내역", "임차인", "자산개요")):
+            return FORM_REIT
+        # 금융폼: 재무건전성/영업의 현황/영업설비 (원재료·생산 없음)
+        fin_marks = sum(1 for k in ("재무건전성", "영업의 현황", "영업설비") if k in joined)
+        if fin_marks >= 1:
+            return FORM_FINANCIAL
     return FORM_STANDARD
 
 
@@ -145,6 +148,7 @@ class SegmentProfit:
     anchor: str = ""            # 매칭된 note-title
     na_reason: str = ""
     raw_value_counts: dict = field(default_factory=dict)
+    cross_conflict: bool = False   # 본문표 vs 주석표 부문명 불일치(지주사류) → 신뢰불가, 후보반환
 
 
 def find_segment_note_region(note_full_text: str) -> tuple[Optional[str], Optional[str]]:
@@ -505,27 +509,54 @@ def extract_segment_profit(biz_content_text: str, note_full_text: str, note_sour
 
     (현 단계: 주석 경로 우선 구현. 본문게시 폴백은 A필드 빌드 시 통합.)
     """
-    # ① 본문게시 표 우선 (주석 2번째 콜 불필요). 다부문 표가 먼저 파싱돼야 자회사 단일선언 오탐 방지.
+    # ① 본문게시 표 + ② 주석 표를 둘 다 파싱해 교차검증(get_document는 1콜에 둘 다 있어 추가비용 0).
     b_anchor, b_region = find_body_segment_region(biz_content_text or "")
-    if b_anchor and b_region:
-        sp = parse_segment_table(b_anchor, b_region)
-        sp.source = "body"
-        if sp.status == OK and sp.segments:
-            return sp
-        if sp.status == NOT_APPLICABLE:   # geographic_only 등
-            return sp
-    # ② note-title 재앵커
-    anchor, region = find_segment_note_region(note_full_text or "")
-    if anchor and region:
-        sp = parse_segment_table(anchor, region, note_source)
-        if sp.status == OK and sp.segments:
-            return sp
-        if sp.status == NOT_APPLICABLE:
-            return sp
+    spb = parse_segment_table(b_anchor, b_region) if (b_anchor and b_region) else None
+    if spb:
+        spb.source = "body"
+    n_anchor, n_region = find_segment_note_region(note_full_text or "")
+    spn = parse_segment_table(n_anchor, n_region, note_source) if (n_anchor and n_region) else None
+    if spn:
+        spn.source = "note"
+    b_ok = bool(spb and spb.status == OK and spb.segments)
+    n_ok = bool(spn and spn.status == OK and spn.segments)
+
+    # 둘 다 부문표를 냈으면 부문명 대조 — 불일치(지주사가 본문에 자회사표를 실은 케이스)면 cross_conflict.
+    if b_ok and n_ok:
+        if _seg_names_agree(spb, spn):
+            return spb                              # 동의 → 본문(값 동일, 선점)
+        spn.cross_conflict = True                   # 불일치 → K-IFRS 1108 권위 주석 채택 + 충돌표시
+        return spn                                  # (오케스트레이터가 충돌 시 후보반환으로 강등)
+    if b_ok:
+        return spb
+    if n_ok:
+        return spn
+    # geographic_only 등 NA 선언(본문 우선)
+    if spb and spb.status == NOT_APPLICABLE:
+        return spb
+    if spn and spn.status == NOT_APPLICABLE:
+        return spn
     # ③ 표를 못 찾았을 때만 단일부문 '선언' 확인 → NA (다부문사는 위에서 이미 반환됨)
     if _SINGLE_DECL.search(note_full_text or "") or _SINGLE_DECL.search(biz_content_text or ""):
         return SegmentProfit(status=NOT_APPLICABLE, source="none", na_reason="single_segment")
     return SegmentProfit(status=EXTRACTION_FAILED, source="none", na_reason="no_segment_table_found")
+
+
+def _norm_seg_name(nm: str) -> str:
+    """부문명 정규화(대조용): 공백·부문/사업 접미사·괄호주석·대소문자 제거."""
+    nm = re.sub(r"[\(（*].*", "", nm)                 # 괄호주석·별표 이후 제거
+    nm = nm.replace(" ", "").replace("부문", "").replace("사업", "").replace("사업부", "")
+    return nm.strip().lower()
+
+
+def _seg_names_agree(a: "SegmentProfit", b: "SegmentProfit", thr: float = 0.6) -> bool:
+    """두 부문 리스트의 부문명 집합이 thr 이상 겹치면 동의로 본다."""
+    na = {_norm_seg_name(s.get("name", "")) for s in a.segments if s.get("name")}
+    nb = {_norm_seg_name(s.get("name", "")) for s in b.segments if s.get("name")}
+    na.discard(""); nb.discard("")
+    if not na or not nb:
+        return False
+    return len(na & nb) >= min(len(na), len(nb)) * thr
 
 
 # ── A필드 추출기 (본문/주석) ──
@@ -716,6 +747,78 @@ async def _fetch_note(client, note_node: dict) -> dict:
             "note_source": note_node.get("text", "")}
 
 
+# ── get_document 기반 fetch (1 API콜, viewer 3웹콜보다 ~3x 빠름) + 섹셔닝 ──
+def _slice_getdoc_sections(text: str) -> tuple[str, str, str]:
+    """get_document 전체 텍스트 → (biz=II.사업의내용, note=연결재무제표주석 격리, note_source).
+
+    핵심: 연결+별도 주석이 다 들어있어 '30.부문별보고'가 중복 → 연결 주석만 격리해야 파서 정확.
+    연결 주석 끝 = 별도 'N. 재무제표'(주석 아닌 것) heading.
+    """
+    # biz: II.사업의 내용 → III.재무에 관한. 목차(TOC)에도 같은 제목이 있어 첫 매치를 잡으면
+    # 대형사(SK하이닉스·한화솔루션 등 48/155)에서 목차 stub(수백B)만 떠내진다 → II→III 구간 중
+    # '가장 긴 span'을 실제 body로 택한다(목차 span은 짧고 본문 span은 김).
+    i2s = [m.start() for m in re.finditer(r"(?m)^\s*II\.\s*사업의\s*내용", text)]
+    i3s = [m.start() for m in re.finditer(r"(?m)^\s*III\.\s*재무에\s*관한", text)]
+    biz = ""
+    for a in i2s:
+        nb = [b for b in i3s if b > a]
+        if nb and (nb[0] - a) > len(biz):
+            biz = text[a:nb[0]]
+    note, src = "", ""
+    nconn = re.search(r"(?m)^\s*\d*\.?\s*연결재무제표\s*주석", text)
+    if nconn:
+        after = text[nconn.end():]
+        sep = re.search(r"(?m)^\s*\d+\.\s*재무제표\s*$", after)   # 별도 재무제표 시작
+        note = text[nconn.start(): nconn.end() + sep.start()] if sep else text[nconn.start():nconn.start() + 60000]
+        src = "연결재무제표 주석"
+    else:   # 연결 없으면(별도만) 재무제표 주석
+        nsep = re.search(r"(?m)^\s*\d*\.?\s*재무제표\s*주석", text)
+        if nsep:
+            note = text[nsep.start():nsep.start() + 60000]
+            src = "재무제표 주석"
+    return biz, note, src
+
+
+async def _fetch_getdoc(client, rcept_no: str) -> dict:
+    """get_document 1 API콜로 전체 보고서 → biz/note 슬라이스 + html(후보용). viewer보다 ~3x 빠름."""
+    doc = await client.get_document_cached(rcept_no)
+    text = doc.get("text", "") if isinstance(doc, dict) else ""
+    html = doc.get("html", "") if isinstance(doc, dict) else ""
+    biz, note, src = _slice_getdoc_sections(text)
+    # 후보표용 html은 full 그대로 넘김 — find_segment_candidates가 정규식으로 <table>만 뽑아
+    # 프리필터하므로 22MB도 <250ms. (구간 슬라이스는 TOC 오매칭으로 부문표 누락시켜 폐기)
+    # detect_form은 has_mfg(제조·제품 소절)가 REIT/금융을 veto하므로 full biz 텍스트로 충분.
+    # (유통사가 리츠 자회사 보유→프로즈의 '부동산투자회사'가 REIT 오탐하던 것 방지)
+    return {"biz_text": biz, "note_text": note, "note_source": src, "full_text": text,
+            "note_html": html, "biz_html": "", "toc": [{"lvl": 1, "text": biz}]}
+
+
+# 지역별/지역정보 표를 부문표로 오인 방지(HL만도 한국/중국/미국·이오테크닉스 '본사 소재지 국가'/외국).
+# 부문명을 정규화(부문/사업 접미사 제거)해 대조하므로 '국내부문'→'국내', '해외부문'→'해외'도 걸림.
+_GEO_NAMES = {"한국", "국내", "해외", "국외", "외국", "중국", "미국", "일본", "유럽", "유렵", "인도",
+              "아시아", "북미", "남미", "미주", "동남아", "베트남", "인도네시아", "유럽연합", "중동",
+              "아프리카", "대양주", "북아메리카", "남아메리카", "기타지역", "본사", "지역", "폴란드",
+              "헝가리", "대만", "태국", "멕시코", "브라질", "러시아", "본사소재지국가", "소재지국가"}
+# 재무라인·표제목·집계열이 부문명으로 새는 것(유한양행 '3)비유동자산'·대한전선 '보고부문의 수익 및 성과'·
+# 두산 '연결 후 금액'·SK케미칼 '감가상각비(주2)'). substring 매칭이라 괄호주석 붙어도 걸림.
+_JUNK_NAME_RE = re.compile(r"^\s*\d+\s*[).]|유동자산|자산총계|부채총계|자본총계|연결회사|연결실체|"
+                           r"^합\s*계|총자산|총부채|연결\s*후|소재지|보고부문|주요\s*재무|"
+                           r"수익\s*및\s*성과|감가상각|상각비|재무지표|비\s*고$")
+
+
+def _scrub_segments(sp: "SegmentProfit") -> None:
+    """정형 부문 리스트에서 데이터 없는 행·재무라인 junk 제거(in place). 진짜 부문만 남긴다."""
+    keep = []
+    for s in sp.segments:
+        nm = s.get("name", "")
+        if s.get("revenue") is None and s.get("profit") is None:
+            continue                                  # 값 없는 행(수익유형 설명 등)
+        if _JUNK_NAME_RE.search(nm):
+            continue                                  # 재무제표 라인 누출
+        keep.append(s)
+    sp.segments = keep
+
+
 def _segment_confident(sp: "SegmentProfit") -> bool:
     """정형 신뢰게이트: ①부문명 clean(junk 없음) ②sum(부문 매출)≈총계. 하나라도 아니면 False→후보반환.
 
@@ -724,6 +827,20 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
     names = [s.get("name", "") for s in sp.segments]
     for nm in names:
         if _DESC_RE.search(nm) or _AGG_RE.search(nm) or _NONSEG_RE.search(nm) or nm in _METRIC_ROW_NOISE:
+            return False
+    # 매출유형별 표 오인: '제품매출액/상품매출액/기타매출액'류는 사업부문 아닌 매출유형(휴스틸) → 후보로
+    if names and all(re.search(r"(제품|상품|용역|기타|서비스)\s*매출", n) for n in names):
+        return False
+    # 지역별/지역정보 표 오인: 정규화(부문/사업 접미사 제거) 후 지역명이 절반 이상 or 전부 → 사업부문 아님.
+    # ('국내부문'·'해외부문'·'본사 소재지 국가'/외국 등 K-IFRS 지역정보 disclosure를 후보로 강등)
+    geo = sum(1 for n in names if _norm_seg_name(n) in _GEO_NAMES or n.replace(" ", "") in _GEO_NAMES)
+    if names and (geo == len(names) or geo >= max(2, (len(names) + 1) // 2)):
+        return False
+    # 음수 매출: '기타/공통/조정/내부' 아닌 주요부문이 음수면 정렬 어긋난 제거·조정행 누출(대한전선 '전선'·
+    # 명문제약 '서비스부문') → 후보로. (기타·조정 부문은 내부거래로 정상적으로 음수일 수 있어 허용)
+    for s in sp.segments:
+        rev = s.get("revenue")
+        if rev is not None and rev < 0 and not re.search(r"기타|공통|조정|내부|소계", s.get("name", "")):
             return False
     # 이름 형태 불일치: 짧은 clean명(<7) + 긴 설명명(≥14) 혼재 = 설명이 junk → 후보반환
     lens = [len(n) for n in names]
@@ -768,47 +885,68 @@ async def build_business_details_payload(company_query: str, period: str = "annu
                             subject=corp.get("corp_name", ""), data={"timings_ms": T},
                             warnings=[f"{period} 정기보고서 없음"]).to_dict()
 
-    sec = await _fetch_biz(client, rept["rcept_no"])   # main.do + 사업내용 [2콜, 주석 제외]
-    _lap("fetch_biz")
+    from open_proxy_mcp.dart.client import DartClientError
+    try:
+        sec = await _fetch_getdoc(client, rept["rcept_no"])   # get_document 1 API콜(viewer 3웹콜보다 ~3x 빠름)
+    except DartClientError as e:
+        _lap("fetch")
+        return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR,
+                            subject=corp.get("corp_name", ""),
+                            data={"report": {"rcept_no": rept["rcept_no"], "report_nm": rept.get("report_nm")},
+                                  "timings_ms": T},
+                            warnings=[f"원문 다운로드 실패(DART {getattr(e, 'status', '?')}): {e}"]).to_dict()
+    _lap("fetch")
 
     form = detect_form(sec.get("toc", []))
     warnings: list[str] = []
     want = set(fields or ["segments", "rnd", "backlog", "customers"])
-    note_fetched = False
+    if not sec.get("biz_text"):
+        warnings.append("II.사업의 내용 섹션 미검출(정정본 가능) — 확인 필요")
 
-    async def _ensure_note():
-        """주석을 아직 안 받았으면 지금 fetch(lazy). 대용량이라 필요할 때만."""
-        nonlocal note_fetched
-        if not note_fetched and sec.get("_note_node"):
-            nd = await _fetch_note(client, sec["_note_node"])
-            sec.update(nd)
-            note_fetched = True
-
-    # segment_profit: 본문 우선(주석 없이) → 저신뢰 시 주석 lazy fetch → 후보 raw → N/A
+    # segment_profit: 정형(1콜로 본문+주석 다 있음) → 신뢰게이트 → 후보 raw → N/A
     if form in (FORM_FINANCIAL, FORM_REIT):
         segment = {"status": UNSUPPORTED_FORM, "source": "none",
                    "na_reason": f"form_{form}_not_supported_v1 (금융·REIT는 D-트랙)"}
     elif "segments" not in want:
         segment = None
     else:
-        sp = extract_segment_profit(sec.get("biz_text", ""), "", "")  # 본문만 시도
-        if not (sp.status == OK and sp.source == "body" and sp.segments and _segment_confident(sp)):
-            await _ensure_note()  # 본문 불충분 → 주석 받아 재시도
-            sp = extract_segment_profit(sec.get("biz_text", ""), sec.get("note_text", ""), sec.get("note_source", ""))
-        _lap("segment_fetch+parse")
-        if sp.status == OK and sp.segments and _segment_confident(sp):
+        sp = extract_segment_profit(sec.get("biz_text", ""), sec.get("note_text", ""), sec.get("note_source", ""))
+        if sp.status == OK and sp.segments:
+            _scrub_segments(sp)          # 값없는 행·재무라인 junk 제거 후 신뢰게이트
+        _lap("segment")
+        if sp.status == OK and sp.segments and not sp.cross_conflict and _segment_confident(sp):
             segment = {"status": OK, "source": "deterministic", "revenue_metric": sp.revenue_metric,
                        "profit_metric": sp.profit_metric, "unit": sp.unit, "items": sp.segments,
                        "reconciliation": "부문합≈총계 검산 통과"}
-        elif sp.status == NOT_APPLICABLE:
-            segment = {"status": NOT_APPLICABLE, "source": "none", "na_reason": sp.na_reason}
         else:
-            cands = find_segment_candidates(sec.get("note_html", "")) + find_segment_candidates(sec.get("biz_html", ""))
-            cands.sort(key=lambda x: x["score"], reverse=True)
-            segment = {"status": "NEEDS_REVIEW", "source": "raw_candidates",
-                       "note": "정형 추출 저신뢰 — 아래 부문표 후보(수백 표 중 상위)를 읽어 사업부문별 매출·영업이익을 추출하세요. 부문합계/조정/총계 열은 제외.",
-                       "candidates": cands[:5]}
-            warnings.append("segment_profit: 정형 저신뢰 → 후보표 raw 반환(호출측 추출)")
+            # 정형 저신뢰/실패 → '어느 표인지' 점수매기지 말고 영업부문 주석 구간을 통째로
+            # 마크다운으로 넘겨 호출측 AI가 읽게 한다(260718 사용자 결정). 없으면 II.사업의내용 폴백.
+            from open_proxy_mcp.services.segment_candidates import (
+                render_segment_note_markdown, render_biz_section_markdown, _md_has_data_rows)
+            full_html = sec.get("note_html", "")   # get_document full html
+            note_md = render_segment_note_markdown(full_html)
+            _MD_NOTE = ("아래는 영업부문 주석(K-IFRS 1108) 원문을 마크다운으로 옮긴 것입니다. "
+                        "여기서 사업부문별 매출·영업이익을 읽으세요. 합계/조정/부문간/미배분 열·행은 제외.")
+            if note_md:
+                segment = {"status": "NEEDS_REVIEW", "source": "note_markdown",
+                           "region": "연결 영업부문 주석", "note": _MD_NOTE, "segment_note_md": note_md}
+            else:
+                cands = find_segment_candidates(full_html)
+                if cands:
+                    # 주석 앵커 실패했지만 부문표 신호는 있음(지주사류) → II.사업의내용 마크다운 폴백
+                    biz_md = render_biz_section_markdown(full_html)
+                    if biz_md and _md_has_data_rows(biz_md):
+                        segment = {"status": "NEEDS_REVIEW", "source": "biz_markdown",
+                                   "region": "II.사업의 내용", "note": _MD_NOTE, "segment_note_md": biz_md}
+                    else:
+                        segment = {"status": "NEEDS_REVIEW", "source": "raw_candidates",
+                                   "note": "부문표 후보(상위)에서 사업부문별 매출·영업이익을 읽으세요. 합계/조정/총계 열 제외.",
+                                   "candidates": cands[:5]}
+                    warnings.append("segment_profit: 정형 저신뢰 → 원문 마크다운/후보 반환(호출측 추출)")
+                else:
+                    # 부문 신호 전무 = 단일 영업부문사 → N/A
+                    segment = {"status": NOT_APPLICABLE, "source": "none",
+                               "na_reason": sp.na_reason or "부문표 미검출(단일 영업부문 추정)"}
 
     data = {
         "corp": {"name": corp.get("corp_name"), "corp_code": corp.get("corp_code"), "stock_code": corp.get("stock_code")},
@@ -821,10 +959,9 @@ async def build_business_details_payload(company_query: str, period: str = "annu
     if "backlog" in want:
         data["backlog"] = extract_backlog(sec.get("biz_text", ""))
     if "customers" in want:
-        await _ensure_note()   # 고객집중은 주석 필요 → 아직 없으면 지금 fetch
         data["customers"] = extract_customer_concentration(sec.get("note_text", ""))
     _lap("Afields")
-    data["note_fetched"] = note_fetched   # 주석 lazy fetch 여부(투명)
+    data["fetch_method"] = "get_document"   # 1 API콜(viewer 3웹콜 대비 ~3x)
 
     T["total"] = sum(v for k, v in T.items())
     data["timings_ms"] = T
