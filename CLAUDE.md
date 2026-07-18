@@ -70,6 +70,11 @@ wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
   금지). 코드 매핑은 `rules/disclosures/공시유형코드체계.md`. corp_code 없는 시장검색은 3개월 한도.
 - **파이프라인**: 전체 재실행 금지, 누락분만 처리.
 - **저장 안 함**: 실시간 조회 (master.db는 corp_code 캐시일 뿐).
+- **public/private 분리**: 이 레포=PUBLIC, `open-proxy-storage`=PRIVATE. 실측 usage 메트릭·LinkedIn용
+  자산·Supabase 스키마 등 **비공개는 private로 이관**. private 스킬/자산은 `.claude/skills/`에 **심링크로
+  연결하되 그 심링크는 반드시 `.gitignore`**(public에 커밋 금지 — 절대경로·비공개 구조 노출 방지). public
+  실체 스킬(예: `opm-tool-validation`)만 추적. **스킬/자산 수정은 private 원본에서 커밋** · 커밋도
+  public·private 각각 분리. 상세 배치는 private `wiki-private/`.
 - **순서/위치 기반 접근 금지 — 이름 기반으로.** SQL `INSERT`는 컬럼명을 반드시 명시(`INSERT INTO t
   (a,b,c) VALUES(...)`) — 위치 의존(`VALUES(...)`만)은 `ALTER TABLE ADD COLUMN`으로 물리적 컬럼
   순서가 바뀌면 **조용히 다른 컬럼에 값이 들어가는 사고**로 이어짐(260704 mkt_fund_hist 사고: DDL

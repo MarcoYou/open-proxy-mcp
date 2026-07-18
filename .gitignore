@@ -128,8 +128,11 @@ data/usage/
 # 로컬 전용 wiki (PUBLIC 리포에 공개하지 않을 운영 문서 — 커밋 금지)
 wiki/_local/
 
-# opm-stats-artifact 스킬 — 개인정보(LinkedIn)+실측 메트릭 포함, private 레포(open-proxy-storage)가 원본. 로컬에서만 사용.
+# OPM usage/트랙션 스킬 — 개인정보(LinkedIn)+실측 메트릭 포함, private 레포(open-proxy-storage)가 원본.
+# private-포인팅 심링크는 커밋 금지(로컬 전용). public 실체 스킬(opm-tool-validation)만 추적.
 .claude/skills/opm-stats-artifact
+.claude/skills/opm-traction-deck
+.claude/skills/opm-usage-stats
 
 # 디버그/에러 로그 (커밋 금지)
 *.log
