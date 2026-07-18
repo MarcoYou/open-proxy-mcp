@@ -787,6 +787,25 @@ def _slice_getdoc_sections(text: str) -> tuple[str, str, str]:
     return biz, note, src
 
 
+def _biz_html_region(html: str) -> str:
+    """html에서 II.사업의내용 구간만(III.재무 앞까지) 슬라이스 — 목차(TOC) stub 회피 max-span.
+    D-트랙 시그니처 폴백(_find_by_signature)이 III.재무 주석의 회계표(공정가치 서열체계·
+    투자부동산 장부금액)를 REIT 투자부동산으로 오발하던 것 차단(NH올원·이리츠코크렙). 경계 못
+    찾으면 원본 반환(graceful — 최소 기존 동작 유지)."""
+    if not html:
+        return html
+    i2 = [m.start() for m in re.finditer(r"II\s*\.\s*사업의?\s*내용", html)]
+    i3 = [m.start() for m in re.finditer(r"III\s*\.\s*재무에?\s*관한", html)]
+    # 본문 II는 목차·재무부록보다 먼저 온다 → 앞에서부터 첫 '실질' 구간(목차 stub 수십자 skip).
+    # max-span은 금물: 한화생명류는 말미에 종속사 사업보고서가 embedded돼 그 II→III span이
+    # 본문보다 커 오선택(→본문 DP Real Estate·종속REIT 서술 통째 누락)한다.
+    for a in i2:
+        nb = [b for b in i3 if b > a]
+        if nb and (nb[0] - a) > 2000:
+            return html[a:nb[0]]
+    return html
+
+
 async def _fetch_getdoc(client, rcept_no: str) -> dict:
     """get_document 1 API콜로 전체 보고서 → biz/note 슬라이스 + html(후보용). viewer보다 ~3x 빠름."""
     doc = await client.get_document_cached(rcept_no)
@@ -798,7 +817,7 @@ async def _fetch_getdoc(client, rcept_no: str) -> dict:
     # detect_form은 has_mfg(제조·제품 소절)가 REIT/금융을 veto하므로 full biz 텍스트로 충분.
     # (유통사가 리츠 자회사 보유→프로즈의 '부동산투자회사'가 REIT 오탐하던 것 방지)
     return {"biz_text": biz, "note_text": note, "note_source": src, "full_text": text,
-            "note_html": html, "biz_html": "", "toc": [{"lvl": 1, "text": biz}]}
+            "note_html": html, "biz_html": _biz_html_region(html), "toc": [{"lvl": 1, "text": biz}]}
 
 
 async def _fetch_viewer_sec(client, rcept_no: str) -> dict:
@@ -811,9 +830,10 @@ async def _fetch_viewer_sec(client, rcept_no: str) -> dict:
     biz_text = b.get("biz_text", "") or ""
     note_text = note.get("note_text", "") or ""
     # note_html에 biz_html+note_html 결합 — 필드는 biz구간, 부문주석은 note구간에서 렌더됨.
+    # biz_html은 viewer가 이미 II 챕터만 fetch한 것이라 그대로 D-트랙 필드 전용으로 넘김.
     return {"biz_text": biz_text, "note_text": note_text, "note_source": note.get("note_source", ""),
             "full_text": biz_text + "\n" + note_text,
-            "note_html": biz_html + "\n" + note_html, "biz_html": "", "toc": b.get("toc", [])}
+            "note_html": biz_html + "\n" + note_html, "biz_html": biz_html, "toc": b.get("toc", [])}
 
 
 # 지역별/지역정보 표를 부문표로 오인 방지(HL만도 한국/중국/미국·이오테크닉스 '본사 소재지 국가'/외국).
@@ -1025,6 +1045,8 @@ async def build_business_details_payload(company_query: str, period: str = "annu
     from open_proxy_mcp.services import biz_fields as _bf
     _biz_t = sec.get("biz_text", "")
     _full_html = sec.get("note_html", "")
+    # D-트랙(금융·REIT) 시그니처 폴백은 II.사업의내용 구간만 스캔 — III.재무 주석 회계표 오발 차단.
+    _biz_html = sec.get("biz_html") or _full_html
     if "sites" in want:
         data["sites"] = _bf.extract_sites(_biz_t, _full_html)
     if "utilization" in want:
@@ -1037,13 +1059,13 @@ async def build_business_details_payload(company_query: str, period: str = "annu
         data["customers"] = _bf.extract_customers(_biz_t, _full_html)
     # D-트랙 금융·REIT 필드 = KSIC 게이트(금융권만) + content-signature. KSIC로 비금융 원천 배제.
     if "financial_ops" in want and _fin_ksic:
-        data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _full_html)
+        data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _biz_html)
     if "financial_soundness" in want and _fin_ksic:
-        data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _full_html)
+        data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _biz_html)
     # 투자부동산: 부동산(68=REIT)·보험(65=투자부동산 보유)만. 지주(64)는 primary가 영업현황이라 제외
-    # (broadened 임대료/임차인 시그니처가 지주 프로즈에 과발하던 것 방지).
+    # (broadened 임대료/임차인 시그니처가 지주 프로즈에 과발하던 것 방지). _biz_html=II구간만(III회계표 배제).
     if "investment_property" in want and (_reit_ksic or _ind2 == "65"):
-        data["investment_property"] = _bf.extract_investment_property(_biz_t, _full_html)
+        data["investment_property"] = _bf.extract_investment_property(_biz_t, _biz_html)
     data["induty_code"] = induty or None
     _lap("Afields")
     data["fetch_method"] = fetch_method   # "get_document"(1 API콜) | "viewer_fallback"(014 등 웹fetch)
