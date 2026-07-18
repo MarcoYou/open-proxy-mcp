@@ -134,7 +134,7 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         "code": "earnings", "label": "잠정실적", "tier": 2,
         "scan_code": "I002",
         "matchers": [("잠정실적", ["영업(잠정)실적", "영업잠정실적", "잠정실적"])],
-        "max_items": 40, "detail_kind": None, "force_keywords": ["정정"],
+        "max_items": 40, "detail_kind": "earnings", "force_keywords": ["정정"],
     },
     {
         "code": "agm_result", "label": "주총결과", "tier": 2,
@@ -191,7 +191,7 @@ _SUGGESTED_TOOL = {
     "order": "order_contracts", "treasury": "treasury_share", "dividend": "dividend",
     "dilutive": "dilutive_issuance", "agm_notice": "shareholder_meeting_notice",
     "ownership5": "ownership_structure", "insider10": "ownership_structure",
-    "earnings": "financial_metrics", "agm_result": "shareholder_meeting_results",
+    "earnings": "provisional_earnings", "agm_result": "shareholder_meeting_results",
     "restructuring": "corporate_restructuring", "stake_deal": "corporate_deals",
     "control_change": "ownership_structure", "litigation": "risk_events",
 }
@@ -656,6 +656,25 @@ def _extract_ownership(payload: dict, rcept_no: str) -> dict:
     }
 
 
+def _extract_earnings(payload: dict, rcept_no: str) -> dict:
+    # 실제 payload: data.headline{revenue/operating_profit/net_income:{value_krw,yoy_pct}} + kind/consolidated
+    d = payload.get("data") or {}
+    h = d.get("headline") or {}
+    def _v(k):
+        return (h.get(k) or {}).get("value_krw")
+    def _y(k):
+        return (h.get(k) or {}).get("yoy_pct")
+    return {
+        "revenue_krw": _v("revenue"),
+        "operating_profit_krw": _v("operating_profit"),
+        "net_income_krw": _v("net_income"),
+        "revenue_yoy_pct": _y("revenue"),
+        "op_yoy_pct": _y("operating_profit"),
+        "consolidated": d.get("consolidated"),
+        "provisional_kind": d.get("kind"),  # financial | non_financial(자동차 판매대수 등)
+    }
+
+
 # detail_kind → (import path, build fn name, extractor, call kwargs builder)
 def _build_kwargs_narrow(filed_dt: str) -> dict:
     return {"start_date": filed_dt, "end_date": filed_dt}
@@ -694,6 +713,9 @@ _DETAIL_DISPATCH: dict[str, dict[str, Any]] = {
     "ownership": {"module": "open_proxy_mcp.services.ownership_structure",
                   "fn": "build_ownership_structure_payload", "extract": _extract_ownership,
                   "kwargs": _build_kwargs_narrow},
+    "earnings": {"module": "open_proxy_mcp.services.provisional_earnings",
+                 "fn": "build_provisional_earnings_payload", "extract": _extract_earnings,
+                 "kwargs": _build_kwargs_narrow},
 }
 
 

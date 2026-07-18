@@ -35,7 +35,8 @@ updated: 2026-07-15
 | 도구 | 무엇을 답하나 |
 |---|---|
 | [ownership_structure](ownership_structure.md) | 지분 구조 — 최대주주·특수관계인·5% 대량보유·자사주 |
-| [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 |
+| [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 (정기보고서 **확정치**) |
+| [provisional_earnings](provisional_earnings.md) | **영업(잠정)실적**(I002 공정공시) — 분기 잠정 매출·영업이익·순이익+YoY. 정기보고서보다 먼저 나오는 가장 빠른 실적. table_markdown primary + headline best-effort. 자동차 판매대수·조선 수주 등 비재무형도 커버. screener 연동 |
 | [business_details](business_details.md) | **"II.사업의 내용" 6종**: 사업부문별 매출·영업이익 + **사업장·생산설비·가동률·연구개발·수주현황·주요고객**. segments는 정형→저신뢰 시 원문 마크다운, 나머지 5필드는 **markdown-primary**(소절 원문 반환→호출측 AI가 값 추출, 파서 판정 X). 286사+3전문가 QA 검증. 금융·REIT는 segments 미지원 |
 | [valuation](valuation.md) | 상대가치 배수 — PER·PBR·배당수익률 (통화환산·스케일가드) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
