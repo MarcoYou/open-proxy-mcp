@@ -27,19 +27,30 @@ def render_biz_subsection_markdown(html: str, kw_patterns: list[str], max_chars:
     """
     if not html:
         return None
+    # 매칭 헤딩 위치 수집(번호/한글자 접두 + 명부 배제)
+    hits = []
     for kw in kw_patterns:
         for m in re.finditer(kw, html):
             pre = _strip_tags(html[max(0, m.start() - 26):m.start()])
             if not _SUBSEC_PREFIX.search(pre):
                 continue
-            seg = html[m.start():m.start() + max_chars]
-            if _is_roster(seg[:6000]):
+            if _is_roster(html[m.start():m.start() + 6000]):
                 continue
-            start = max(0, m.start() - 40)
-            md = _render_html_region_md(html, start, start + max_chars)
-            if md and _md_has_data_rows(md, need_rows):
-                return md
-    return None
+            hits.append(m.start())
+    if not hits:
+        return None
+    # 겹치는 헤딩(한 구간 내 여러 매치) 병합 → 비겹침 구간. 요약(II) + 상세(XII.상세표) 등 최대 2구간.
+    parts, last_end = [], -1
+    for s in sorted(set(hits)):
+        if s < last_end:
+            continue
+        md = _render_html_region_md(html, max(0, s - 40), s + max_chars)
+        if md and _md_has_data_rows(md, need_rows):
+            parts.append(md)
+            last_end = s + max_chars
+        if len(parts) >= 2 or sum(len(p) for p in parts) > max_chars:
+            break
+    return "\n\n———\n\n".join(parts) if parts else None
 
 
 # ─────────────────────────── 가동률 (utilization) ───────────────────────────
