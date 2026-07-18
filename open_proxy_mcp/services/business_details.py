@@ -705,9 +705,15 @@ def _node_fetchable(n: dict) -> bool:
 async def _find_report_candidates(client, corp_code: str, period: str) -> list[dict]:
     """정기보고서 후보를 rcept_dt 내림차순으로. [0]=최신, 이후=정정폴백용(동일기수).
     최신이 첨부/기재정정이면 document.xml이 부재(014)일 수 있어 — 같은 기수 원본으로 폴백하려고
-    전 후보를 반환한다(KB금융·삼성화재: 최신 정정 014 → 하루 전 원본은 get_document 정상)."""
-    detail = ["A001"] if period == "annual" else ["A002", "A003"]
-    toks = ["사업보고서"] if period == "annual" else ["분기보고서", "반기보고서"]
+    전 후보를 반환한다(KB금융·삼성화재: 최신 정정 014 → 하루 전 원본은 get_document 정상).
+    period="latest"(기본)=사업·반기·분기 통틀어 rcept_dt 최신(분기보고서가 연간보다 신선). II.사업의
+    내용은 분기/반기도 완전구조라 동일 필드 파싱 — [[사업의내용_ksic별양식]]."""
+    if period == "annual":
+        detail, toks = ["A001"], ["사업보고서"]
+    elif period == "quarterly":
+        detail, toks = ["A002", "A003"], ["분기보고서", "반기보고서"]
+    else:  # "latest"(기본) — 정기보고서 3종 중 가장 최근 제출분
+        detail, toks = ["A001", "A002", "A003"], ["사업보고서", "분기보고서", "반기보고서"]
     from datetime import date
     end = date.today().strftime("%Y%m%d")
     out: list[dict] = []
@@ -897,9 +903,10 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
     return any(a != 0 and abs(s - a) <= max(abs(a), 1) * 0.03 for a in ex) if ex else True
 
 
-async def build_business_details_payload(company_query: str, period: str = "annual",
+async def build_business_details_payload(company_query: str, period: str = "latest",
                                          fields: list[str] | None = None) -> dict:
-    """II.사업의 내용 구조화 추출 tool 진입점. 단계별 타이머(data.timings_ms)로 병목 실측."""
+    """II.사업의 내용 구조화 추출 tool 진입점. 단계별 타이머(data.timings_ms)로 병목 실측.
+    period 기본="latest"(사업·반기·분기 중 최신=최신 데이터). "annual"/"quarterly"로 명시 override."""
     from open_proxy_mcp.services.company import resolve_company_query
     from open_proxy_mcp.services.contracts import ToolEnvelope, AnalysisStatus
     from open_proxy_mcp.dart.client import get_dart_client

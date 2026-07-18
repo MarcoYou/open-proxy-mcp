@@ -16,8 +16,8 @@ created: 2026-07-18
 DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매출·영업이익 ② 사업장·생산설비 ③ 생산실적·가동률 ④ 연구개발 ⑤ 수주현황 ⑥ 주요 고객·매출처**를 추출. SOTP·부문 수익성·생산능력·수주잔고·고객집중 분석의 1차 소스. 286사 census + 재무·공시·산업 3전문가 QA로 검증.
 
 ## 사용법
-- `business_details(company, period="annual", fields="", format="md")`
-- `period`: `annual`(기본) / `quarterly`
+- `business_details(company, period="latest", fields="", format="md")`
+- `period`: **`latest`(기본, 사업·반기·분기 중 가장 최신 제출분=최신 데이터)** / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). 응답 `report.report_nm`으로 어느 보고서인지 확인. II.사업의내용은 분기/반기도 완전구조라 동일 필드([[사업의내용_ksic별양식]] 참조).
 - `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers`, 미지정 시 전체). **특정 필드만 지정하면 응답이 가벼움**(전체는 대형주 ~35K자).
 - 예: `business_details("에코프로비엠", fields="utilization")` · `business_details("HD한국조선해양", fields="backlog")`
 
