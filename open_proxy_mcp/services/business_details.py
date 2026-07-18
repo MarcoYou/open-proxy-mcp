@@ -702,21 +702,29 @@ def _node_fetchable(n: dict) -> bool:
     return {"rcpNo", "dcmNo", "eleId", "offset", "length", "dtd"} <= set(n)
 
 
-async def _find_latest_report(client, corp_code: str, period: str):
-    """사업의 내용 있는 최신 정기보고서 rcept (정정 목차게이트는 fetch 단계에서). period=annual/quarterly."""
+async def _find_report_candidates(client, corp_code: str, period: str) -> list[dict]:
+    """정기보고서 후보를 rcept_dt 내림차순으로. [0]=최신, 이후=정정폴백용(동일기수).
+    최신이 첨부/기재정정이면 document.xml이 부재(014)일 수 있어 — 같은 기수 원본으로 폴백하려고
+    전 후보를 반환한다(KB금융·삼성화재: 최신 정정 014 → 하루 전 원본은 get_document 정상)."""
     detail = ["A001"] if period == "annual" else ["A002", "A003"]
     toks = ["사업보고서"] if period == "annual" else ["분기보고서", "반기보고서"]
     from datetime import date
     end = date.today().strftime("%Y%m%d")
-    best = None
+    out: list[dict] = []
     for dty in detail:
         res = await client.search_filings(bgn_de="20240101", end_de=end, corp_code=corp_code,
                                           pblntf_ty="A", pblntf_detail_ty=dty, page_count=30)
         for r in res.get("list", []):
             if any(t in r.get("report_nm", "") for t in toks):
-                if best is None or r.get("rcept_dt", "") > best.get("rcept_dt", ""):
-                    best = r
-    return best
+                out.append(r)
+    out.sort(key=lambda r: r.get("rcept_dt", ""), reverse=True)
+    return out
+
+
+def _report_period_tag(r: dict) -> str | None:
+    """report_nm의 기수 라벨 '(2025.12)' → '2025.12'. 정정폴백을 같은 기수로 제한(작년데이터 금지)."""
+    m = re.search(r"\((\d{4})[.\s]*(\d{1,2})\)", r.get("report_nm", "") or "")
+    return f"{m.group(1)}.{int(m.group(2))}" if m else None
 
 
 async def _fetch_biz(client, rcept_no: str) -> dict:
@@ -791,6 +799,21 @@ async def _fetch_getdoc(client, rcept_no: str) -> dict:
     # (유통사가 리츠 자회사 보유→프로즈의 '부동산투자회사'가 REIT 오탐하던 것 방지)
     return {"biz_text": biz, "note_text": note, "note_source": src, "full_text": text,
             "note_html": html, "biz_html": "", "toc": [{"lvl": 1, "text": biz}]}
+
+
+async def _fetch_viewer_sec(client, rcept_no: str) -> dict:
+    """get_document 실패(014 등) 폴백 — viewer 웹fetch로 biz+note 받아 _fetch_getdoc 호환 sec 구성.
+    KB금융·삼성화재류(사업보고서 document.xml 부재). 웹콜이라 느리지만 극소수 firm."""
+    b = await _fetch_biz(client, rcept_no)                      # {toc, biz_html, biz_text, _note_node}
+    note = await _fetch_note(client, b.get("_note_node")) if b.get("_note_node") else {}
+    biz_html = b.get("biz_html", "") or ""
+    note_html = note.get("note_html", "") or ""
+    biz_text = b.get("biz_text", "") or ""
+    note_text = note.get("note_text", "") or ""
+    # note_html에 biz_html+note_html 결합 — 필드는 biz구간, 부문주석은 note구간에서 렌더됨.
+    return {"biz_text": biz_text, "note_text": note_text, "note_source": note.get("note_source", ""),
+            "full_text": biz_text + "\n" + note_text,
+            "note_html": biz_html + "\n" + note_html, "biz_html": "", "toc": b.get("toc", [])}
 
 
 # 지역별/지역정보 표를 부문표로 오인 방지(HL만도 한국/중국/미국·이오테크닉스 '본사 소재지 국가'/외국).
@@ -890,27 +913,58 @@ async def build_business_details_payload(company_query: str, period: str = "annu
     _fin_ksic = _ind2 in ("64", "65", "66")      # 금융권
     _reit_ksic = _ind2 == "68"                    # 부동산(REIT 후보)
 
-    rept = await _find_latest_report(client, corp["corp_code"], period)
+    reps = await _find_report_candidates(client, corp["corp_code"], period)
     _lap("search")
-    if not rept:
+    if not reps:
         return ToolEnvelope(tool="business_details", status=AnalysisStatus.NO_FILING,
                             subject=corp.get("corp_name", ""), data={"timings_ms": T},
                             warnings=[f"{period} 정기보고서 없음"]).to_dict()
 
     from open_proxy_mcp.dart.client import DartClientError
-    try:
-        sec = await _fetch_getdoc(client, rept["rcept_no"])   # get_document 1 API콜(viewer 3웹콜보다 ~3x 빠름)
-    except DartClientError as e:
-        _lap("fetch")
-        return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR,
-                            subject=corp.get("corp_name", ""),
-                            data={"report": {"rcept_no": rept["rcept_no"], "report_nm": rept.get("report_nm")},
-                                  "timings_ms": T},
-                            warnings=[f"원문 다운로드 실패(DART {getattr(e, 'status', '?')}): {e}"]).to_dict()
+    latest = reps[0]
+    tag0 = _report_period_tag(latest)
+    rept = latest
+    sec = None
+    fetch_method = "get_document"
+    fetch_warn = None
+    last_err = None
+    # 1) 최신 → (014면) 동일기수 원본 순으로 get_document. 첨부/기재정정은 document.xml 부재(014)라도
+    #    같은 기수 원본은 본문을 담고 있음(KB금융·삼성화재). 작년 기수로는 폴백 안 함(tag0 일치만).
+    for i, cand in enumerate(reps):
+        if i > 0 and tag0 and _report_period_tag(cand) != tag0:
+            continue
+        try:
+            sec = await _fetch_getdoc(client, cand["rcept_no"])
+            rept = cand
+            if i > 0:
+                fetch_method = "get_document(정정폴백)"
+                fetch_warn = (f"최신 {latest.get('report_nm','')}({latest['rcept_no']}) document.xml 부재(014) "
+                              f"→ 동일기수 {cand.get('report_nm','')}({cand['rcept_no']})로 폴백")
+            break
+        except DartClientError as e:
+            last_err = e
+            continue
+    # 2) get_document 전부 실패 → viewer 웹fetch 폴백(최신 기준). 극소수·느림.
+    if sec is None:
+        try:
+            sec = await _fetch_viewer_sec(client, latest["rcept_no"])
+            rept = latest
+            fetch_method = "viewer_fallback"
+            fetch_warn = f"get_document 실패(DART {getattr(last_err, 'status', '?')}) → viewer 폴백"
+        except Exception as ve:
+            _lap("fetch")
+            return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR,
+                                subject=corp.get("corp_name", ""),
+                                data={"report": {"rcept_no": latest["rcept_no"], "report_nm": latest.get("report_nm")},
+                                      "timings_ms": T},
+                                warnings=[f"원문 다운로드 실패(get_document DART {getattr(last_err, 'status', '?')}, "
+                                          f"viewer도 실패: {type(ve).__name__})"]).to_dict()
     _lap("fetch")
 
     form = detect_form(sec.get("toc", []))
     warnings: list[str] = []
+    if fetch_warn:
+        warnings.append(fetch_warn)
     want = set(fields or ["segments", "sites", "utilization", "rnd", "backlog", "customers",
                           "financial_ops", "financial_soundness", "investment_property"])
     if not sec.get("biz_text"):
@@ -992,7 +1046,7 @@ async def build_business_details_payload(company_query: str, period: str = "annu
         data["investment_property"] = _bf.extract_investment_property(_biz_t, _full_html)
     data["induty_code"] = induty or None
     _lap("Afields")
-    data["fetch_method"] = "get_document"   # 1 API콜(viewer 3웹콜 대비 ~3x)
+    data["fetch_method"] = fetch_method   # "get_document"(1 API콜) | "viewer_fallback"(014 등 웹fetch)
 
     T["total"] = sum(v for k, v in T.items())
     data["timings_ms"] = T
