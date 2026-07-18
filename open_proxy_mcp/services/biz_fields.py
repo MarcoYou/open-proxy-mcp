@@ -245,6 +245,13 @@ _C_IPROP = re.compile(r"임대율|공실|임대면적|임대\s*형태|투자부�
 _SIG_IPROP = re.compile(r"임대율|공실률|임대\s*형태|투자부동산의?\s*내역|책임임대차|"
                         r"임차인.{0,40}임대료|임대료.{0,20}배당")
 _IPROP_NA = re.compile(r"투자부동산[^\n]{0,20}?(해당\s*사항\s*(?:이)?\s*없|없습니다)")
+# 지주형 REIT(명목회사)가 표준(제조)폼에 부동산을 프로즈로 싣는 케이스(제이알글로벌·해외리츠 등):
+# 부동산이 '2.주요 제품 및 서비스 → 영업개황'에 서술형(임대료·WALE·임차율)로 들어가 전용헤딩·표
+# 시그니처가 다 놓친다. 전용경로 실패 시에만 표준폼 헤딩을 시도하되, content-gate를 강화
+# (임대료/임대차/임차 + 부동산/투자대상/임대 동반)해 비REIT 오섹션(보험 영업개황 등)을 차단.
+_IPROP_HEAD_STD = [r"주요\s*제품\s*및\s*서비스", r"영업\s*개황", r"회사의?\s*현황"]
+_C_IPROP_PROSE = re.compile(r"(?:임대료|임대차|임차)[^\n]{0,300}"
+                            r"(?:부동산|임차|임대|투자대상|잔여임대|WALE|공실|연면적|기초자산)")
 
 
 def extract_financial_ops(biz_text, html):
@@ -254,4 +261,13 @@ def extract_financial_soundness(biz_text, html):
     return _field2(biz_text, html, _FSND_HEAD, _C_FSND, _SIG_FSND, None)
 
 def extract_investment_property(biz_text, html):
-    return _field2(biz_text, html, _IPROP_HEAD, _C_IPROP, _SIG_IPROP, _IPROP_NA)
+    r = _field2(biz_text, html, _IPROP_HEAD, _C_IPROP, _SIG_IPROP, _IPROP_NA)
+    if r.get("status") == "MARKDOWN":
+        return r
+    # 지주형 REIT 표준폼 프로즈 폴백(전용헤딩·시그니처 실패 시에만 — 작동하는 REIT엔 영향 없음)
+    md = render_biz_subsection_markdown(html, _IPROP_HEAD_STD, content_re=_C_IPROP_PROSE)
+    if md:
+        return {"status": "MARKDOWN", "source": "reit_prose", "markdown": md}
+    na = _IPROP_NA.search(biz_text) if biz_text else None
+    return {"status": "NOT_APPLICABLE",
+            "na_reason": (_strip_tags(na.group(0))[:60] if na else "해당 소절 미검출")}
