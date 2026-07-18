@@ -13,7 +13,7 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 22개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 24개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
 ### 도메인별 (22 tool, 260715 screener 추가)
 - **Company (1)**: [[company]]
