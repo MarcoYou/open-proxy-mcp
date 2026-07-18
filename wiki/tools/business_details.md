@@ -2,7 +2,7 @@
 type: tool
 title: business_details
 domain: data
-scope: [segments, sites, utilization, rnd, backlog, customers]
+scope: [segments, sites, utilization, rnd, backlog, customers, financial_ops, financial_soundness, investment_property]
 data_source: [DART get_document (전체보고서 XML 1콜 → II.사업의 내용 + 연결재무제표주석 부문정보 슬라이스), search list.json A001/A002/A003]
 related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: [사업부문, 영업부문, K-IFRS 1108, SOTP, 부문 영업이익, 연구개발비, 수주잔고, 고객집중]
@@ -30,8 +30,14 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 | **rnd** 연구개발 | 연구개발활동 | 연구개발비·실적·조직 원문(+매출대비% 힌트) | 유한양행·한국항공우주 |
 | **backlog** 수주 | 4.매출 및 수주상황 | 수주잔고·수주계약 원문(조선 flow표 포함) | HD한국조선해양(기초계약잔액→수주잔고) |
 | **customers** 고객 | 주요 매출처 / 주요 고객 주석 | 주요 고객·매출처·판매경로 원문(익명 다수) | 삼성전자·유한양행 |
+| **financial_ops** (금융) | 2.영업의 현황 | 영업개황·영업실적·**영업부문별 재무정보**(금융판 segments) | 신한지주·미래에셋증권 |
+| **financial_soundness** (금융) | 재무건전성·지급여력 | RBC·지급여력비율(K-ICS)·순자본비율·연체율 | 삼성생명·우리금융지주 |
+| **investment_property** (REIT/보험) | 투자부동산 내역·투자자산 개요 | 부동산 목록·임대율·임대면적·공실 | SK리츠·삼성생명 |
 
-> **핵심: segments 외 5필드는 "markdown-primary"** — 도구가 값을 판정하지 않고 **해당 소절 원문을 마크다운 표로 통째 반환**합니다. 값·단위·정의 판단은 **읽는 AI(=당신의 Claude)의 몫**. 회사마다 단위·정의가 달라(가동률 %/시간/톤, 사업장 주소~국가) 원문을 봐야 정확하기 때문(자세히 아래 파싱전략).
+> **D-트랙 금융·REIT(260718)**: 마지막 3필드는 금융/증권/보험/지주·REIT용. **표준사에선 자동 N/A**(금융 특화 마커로 오탐0 검증). segments는 금융폼 `UNSUPPORTED_FORM`이므로 `financial_ops`의 영업부문별 재무정보가 대체.
+> **헤딩 앵커 + 내용 시그니처 폴백 이중구조** — 금융/REIT는 서식이 덜 표준화돼, 헤딩 키워드가 미스해도 **데이터 시그니처(순이자손익·지급여력비율·임대율 등)로 표를 찾아** 렌더(헤딩 라벨보다 안정적). `source=heading|signature`로 어느 경로인지 표기.
+
+> **핵심: segments 외 필드는 "markdown-primary"** — 도구가 값을 판정하지 않고 **해당 소절 원문을 마크다운 표로 통째 반환**합니다. 값·단위·정의 판단은 **읽는 AI(=당신의 Claude)의 몫**. 회사마다 단위·정의가 달라(가동률 %/시간/톤, 사업장 주소~국가) 원문을 봐야 정확하기 때문(자세히 아래 파싱전략).
 
 ## 출력 (ToolEnvelope.data)
 - `form_type`: `standard7` / `financial5` / `reit` / `dual` (목차 소절 제목 기반 판별, KSIC 불신)

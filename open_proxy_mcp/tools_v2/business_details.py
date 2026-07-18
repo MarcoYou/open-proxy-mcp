@@ -58,8 +58,11 @@ def _render(p: dict) -> str:
 
     # 추가 필드(markdown-primary): 소절 원문 마크다운 → 읽어서 추출. hint는 참고용.
     _FIELD_LABEL = {"sites": "사업장·생산설비", "utilization": "생산실적·가동률",
-                    "rnd": "연구개발", "backlog": "수주현황", "customers": "주요 고객·매출처"}
-    for key in ("sites", "utilization", "rnd", "backlog", "customers"):
+                    "rnd": "연구개발", "backlog": "수주현황", "customers": "주요 고객·매출처",
+                    "financial_ops": "영업의 현황(금융)", "financial_soundness": "재무건전성(금융)",
+                    "investment_property": "투자부동산(REIT/보험)"}
+    for key in ("sites", "utilization", "rnd", "backlog", "customers",
+                "financial_ops", "financial_soundness", "investment_property"):
         fd = d.get(key)
         if not fd:
             continue
@@ -94,10 +97,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: DART 사업보고서 **"II. 사업의 내용"**에서 사업부문별 매출·영업이익, **사업장·생산설비, 생산실적·가동률, 연구개발, 수주현황, 주요 고객·매출처**를 추출. SOTP·부문 수익성·생산능력·수주·고객집중 분석의 1차 소스.
-        when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. 금융지주·REIT는 segments 미지원(폼 다름).
-        rule: segments는 정형→저신뢰 시 원문 마크다운. 나머지 필드(사업장·가동률·rnd·수주·고객)는 **해당 소절 원문을 마크다운으로 반환** — 그 표를 읽어 값 추출(단위·정의 회사별 상이, 비교 주의). 유형자산 장부가 표를 사업장으로 오독 금지.
+        when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. **금융/증권/보험/지주는 `financial_ops`·`financial_soundness`, REIT/보험은 `investment_property`** 로 커버(segments 대신).
+        rule: segments는 정형→저신뢰 시 원문 마크다운. 나머지 필드는 **해당 소절 원문을 마크다운으로 반환** — 그 표를 읽어 값 추출(단위·정의 회사별 상이, 비교 주의). 금융/REIT 필드는 표준사에선 자동 N/A. 유형자산 장부가 표를 사업장으로 오독 금지.
         period: `annual`(기본) / `quarterly`
-        fields: 쉼표구분 선택 — `segments,sites,utilization,rnd,backlog,customers` (미지정 시 전체). segments만 필요하면 빠름.
+        fields: 쉼표구분 — 표준: `segments,sites,utilization,rnd,backlog,customers` / 금융·REIT: `financial_ops,financial_soundness,investment_property` (미지정 시 회사에 맞는 것만 렌더, 나머지 N/A).
         ref: financial_metrics, valuation, order_contracts, company
         """
         flist = [f.strip() for f in fields.split(",") if f.strip()] or None

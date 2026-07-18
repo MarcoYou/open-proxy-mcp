@@ -185,3 +185,68 @@ def extract_backlog(biz_text, html):
 
 def extract_customers(biz_text, html):
     return _field(biz_text, html, _CUST_HEAD, _CUST_NA, content_re=_C_CUST)
+
+
+# ═══════════ D-트랙: 금융·REIT 필드 (헤딩앵커 + 내용시그니처 폴백) ═══════════
+# 사용자 지적(260718): 키워드 헤딩만이면 특이 헤딩에 무용지물 → 헤딩 미스 시 '데이터 시그니처'로
+# 표를 찾아 렌더(헤딩라벨보다 안정적). segments의 table-scan 방식을 필드 일반화.
+
+def _find_by_signature(html, signature_re, window=18000):
+    """헤딩 못 찾을 때 폴백: signature 든 <table>(없으면 프로즈) 위치를 찾아 그 앞부터 렌더."""
+    if not html:
+        return None
+    from open_proxy_mcp.services.segment_candidates import _TABLE_RE
+    for m in _TABLE_RE.finditer(html):
+        if signature_re.search(m.group(0)) and not _is_roster(m.group(0)):
+            md = _render_html_region_md(html, max(0, m.start() - 1500), m.start() + window)
+            if md and _md_has_data_rows(md, 2) and len(md) > 300:   # 폴백은 stricter(빈/tiny 렌더 배제)
+                return md
+    tm = signature_re.search(html)
+    if tm:
+        md = _render_html_region_md(html, max(0, tm.start() - 1200), tm.start() + window)
+        if md and len(md) > 300:
+            return md
+    return None
+
+
+def _field2(biz_text, html, head_patterns, content_re, signature_re, na_re, max_chars=18000):
+    """헤딩앵커(content-gate) → 실패 시 내용시그니처 폴백 → N/A. source로 어느 경로인지 표기."""
+    md = render_biz_subsection_markdown(html, head_patterns, max_chars=max_chars, content_re=content_re)
+    if md:
+        return {"status": "MARKDOWN", "source": "heading", "markdown": md}
+    md = _find_by_signature(html, signature_re, max_chars)
+    if md:
+        return {"status": "MARKDOWN", "source": "signature", "markdown": md}
+    na = na_re.search(biz_text) if (na_re and biz_text) else None
+    return {"status": "NOT_APPLICABLE", "na_reason": (_strip_tags(na.group(0))[:60] if na else "해당 소절 미검출")}
+
+
+# 금융 영업현황(영업부문별 재무정보=금융판 segments·영업개황·영업실적)
+_FOPS_HEAD = [r"영업의?\s*현황", r"영업\s*개황", r"영업부문별\s*(?:재무정보|비중|현황)",
+              r"영업의?\s*종류"]
+# content-gate: 금융 특화 마커만(표준사 '영업/부문' 오발 방지)
+_C_FOPS = re.compile(r"순이자|영업수익|보험영업|여신|예수금|자금조달|지급여력|점유율|영업부문별\s*재무|"
+                     r"수수료수익|이자손익|운용자산")
+_SIG_FOPS = re.compile(r"순이자손익|영업부문별\s*재무|은행\s*부문|보험영업손익|수수료수익.{0,10}이자")
+# 금융 재무건전성(지급여력·RBC·BIS·자본적정성)
+_FSND_HEAD = [r"재무\s*건전성", r"지급\s*여력", r"자본\s*적정성"]
+# 금융 특화만(표준사 위험관리의 '유동성/건전성' 오발 방지 — 오리온 등)
+_C_FSND = re.compile(r"지급여력|BIS|RBC|K-ICS|자본비율|자기자본비율|연체율|고정이하|영업용순자본|순자본비율")
+_SIG_FSND = re.compile(r"지급여력비율|K-ICS|RBC\s*비율|BIS\s*비율|고정이하여신|영업용순자본비율")
+# REIT 투자부동산(투자부동산 내역·투자자산 개요)
+_IPROP_HEAD = [r"투자\s*부동산의?\s*(?:내역|현황)", r"투자\s*자산\s*개요", r"투자\s*대상\s*(?:자산|부동산)",
+               r"부동산\s*(?:보유|투자)\s*현황"]
+_C_IPROP = re.compile(r"임대율|공실|임대면적|임대\s*형태|투자부동산의?\s*내역|연면적.{0,10}임대")
+# 시그니처는 REIT 특화(자산의 '투자부동산' 계정 단순언급에 오발 방지 — 오리온 등)
+_SIG_IPROP = re.compile(r"임대율|공실률|임대\s*형태|투자부동산의?\s*내역|임대면적.{0,15}(?:임대율|준공)")
+_IPROP_NA = re.compile(r"투자부동산[^\n]{0,20}?(해당\s*사항\s*(?:이)?\s*없|없습니다)")
+
+
+def extract_financial_ops(biz_text, html):
+    return _field2(biz_text, html, _FOPS_HEAD, _C_FOPS, _SIG_FOPS, None)
+
+def extract_financial_soundness(biz_text, html):
+    return _field2(biz_text, html, _FSND_HEAD, _C_FSND, _SIG_FSND, None)
+
+def extract_investment_property(biz_text, html):
+    return _field2(biz_text, html, _IPROP_HEAD, _C_IPROP, _SIG_IPROP, _IPROP_NA)

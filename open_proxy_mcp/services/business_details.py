@@ -899,7 +899,8 @@ async def build_business_details_payload(company_query: str, period: str = "annu
 
     form = detect_form(sec.get("toc", []))
     warnings: list[str] = []
-    want = set(fields or ["segments", "sites", "utilization", "rnd", "backlog", "customers"])
+    want = set(fields or ["segments", "sites", "utilization", "rnd", "backlog", "customers",
+                          "financial_ops", "financial_soundness", "investment_property"])
     if not sec.get("biz_text"):
         warnings.append("II.사업의 내용 섹션 미검출(정정본 가능) — 확인 필요")
 
@@ -968,6 +969,13 @@ async def build_business_details_payload(company_query: str, period: str = "annu
         data["backlog"] = _bf.extract_backlog(_biz_t, _full_html)
     if "customers" in want:
         data["customers"] = _bf.extract_customers(_biz_t, _full_html)
+    # D-트랙: 금융·REIT 필드(헤딩앵커 + 내용시그니처 폴백). 표준사는 특화 마커라 N/A(오탐0 검증).
+    if "financial_ops" in want:
+        data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _full_html)
+    if "financial_soundness" in want:
+        data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _full_html)
+    if "investment_property" in want:
+        data["investment_property"] = _bf.extract_investment_property(_biz_t, _full_html)
     _lap("Afields")
     data["fetch_method"] = "get_document"   # 1 API콜(viewer 3웹콜 대비 ~3x)
 
