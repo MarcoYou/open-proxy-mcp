@@ -878,6 +878,18 @@ async def build_business_details_payload(company_query: str, period: str = "annu
     corp = resolution.selected
     client = get_dart_client()
 
+    # KSIC(업종코드)로 금융·REIT 판별 — content 마커 오발 방지(카카오·한화·아모레퍼시픽 등 배제).
+    # 64/65/66=금융·보험·금융지원, 68=부동산. 64992=지주회사는 충돌(신한금융 vs SK)이라 content가 최종판정.
+    induty = ""
+    try:
+        _ci = await client.get_company_info(corp["corp_code"])
+        induty = (_ci.get("induty_code") or "").strip()
+    except Exception:
+        pass
+    _ind2 = induty[:2]
+    _fin_ksic = _ind2 in ("64", "65", "66")      # 금융권
+    _reit_ksic = _ind2 == "68"                    # 부동산(REIT 후보)
+
     rept = await _find_latest_report(client, corp["corp_code"], period)
     _lap("search")
     if not rept:
@@ -969,13 +981,15 @@ async def build_business_details_payload(company_query: str, period: str = "annu
         data["backlog"] = _bf.extract_backlog(_biz_t, _full_html)
     if "customers" in want:
         data["customers"] = _bf.extract_customers(_biz_t, _full_html)
-    # D-트랙: 금융·REIT 필드(헤딩앵커 + 내용시그니처 폴백). 표준사는 특화 마커라 N/A(오탐0 검증).
-    if "financial_ops" in want:
+    # D-트랙 금융·REIT 필드 = KSIC 게이트(금융권만) + content-signature. KSIC로 비금융 원천 배제.
+    if "financial_ops" in want and _fin_ksic:
         data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _full_html)
-    if "financial_soundness" in want:
+    if "financial_soundness" in want and _fin_ksic:
         data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _full_html)
-    if "investment_property" in want:
+    # 투자부동산: 부동산(68)·보험(65)·금융지주(64). content-gate가 REIT-특화라 그 안에서 최종판별.
+    if "investment_property" in want and (_reit_ksic or _ind2 in ("64", "65")):
         data["investment_property"] = _bf.extract_investment_property(_biz_t, _full_html)
+    data["induty_code"] = induty or None
     _lap("Afields")
     data["fetch_method"] = "get_document"   # 1 API콜(viewer 3웹콜 대비 ~3x)
 
