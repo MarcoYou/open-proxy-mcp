@@ -61,21 +61,99 @@ _UTIL_NA = re.compile(r"가\s*동\s*[율률][^\n]{0,60}?"
                       r"해당\s*사항\s*(?:이)?\s*없|보안\s*관계상|정보\s*유출)")
 
 
-def extract_utilization(biz_text: str) -> dict:
-    """가동률 hint(비-authoritative, %만): 값·N/A사유. 마크다운이 신뢰경로."""
-    if not biz_text:
-        return {"status": "NOT_COLLECTED"}
+def extract_utilization(biz_text: str, html: str) -> dict:
+    """가동률 markdown-primary + %힌트(안전할 때만, 비교금지). 정의는 _field 아래에서 재사용."""
+    return _util_impl(biz_text, html)
+
+
+# ═══════════ markdown-primary 공통 필드 추출 (사업장·rnd·backlog·customers) ═══════════
+# 설계: 파서가 '진짜 X표인가' 판정하지 않는다. 소절을 통째 마크다운으로 렌더→호출측 AI가 읽음.
+# 실패 모드는 '섹션 있는데 md=0'(앵커 미스)뿐이라 헤딩 패턴을 census 앵커로 넓게 잡는다.
+
+def _field(biz_text: str, html: str, head_patterns: list[str], na_re, max_chars: int = 20000) -> dict:
+    """markdown-primary: 소절 마크다운 있으면 MARKDOWN, 없고 NA어휘면 NOT_APPLICABLE, 아니면 미검출."""
+    md = render_biz_subsection_markdown(html, head_patterns, max_chars=max_chars)
+    if md:
+        return {"status": "MARKDOWN", "markdown": md}
+    na = na_re.search(biz_text) if (na_re and biz_text) else None
+    return {"status": "NOT_APPLICABLE",
+            "na_reason": (_strip_tags(na.group(0))[:60] if na else "해당 소절 미검출")}
+
+
+# ── 사업장 (business sites) — 위치판정은 호출측 AI (유형자산 함정은 AI가 원문 읽어 구분) ──
+_SITE_HEAD = [
+    r"생산설비\s*및\s*투자\s*현황(?:\s*등)?",              # 삼성전자·케이티앤지·대한전선
+    r"생산\s*설비의?\s*현황(?:\s*등)?",
+    r"(?:주요\s*)?(?:국내|해외)?\s*사업장의?\s*현황",
+    r"생산설비에?\s*관한\s*사항",
+    r"생산\s*및\s*설비(?:에?\s*관한\s*사항|의?\s*현황(?:\s*등)?)?",
+    r"생산과\s*영업에\s*중요한\s*(?:시설|물적)",
+    r"영업용\s*설비\s*현황",                               # 유통(이마트·롯데쇼핑)
+    r"물적\s*재산의?\s*(?:내용|현황)",                     # IT(NAVER 등)
+]
+_SITE_NA = re.compile(r"기재하지\s*않았|해당\s*사항\s*(?:이)?\s*없|외주\s*(?:가공|생산)|위탁\s*생산|"
+                      r"\bOEM\b|인적자원을?\s*활용|별도의?\s*생산\s*(?:시설|설비)")
+
+
+# ── rnd 연구개발 (hint=매출액대비 % + 계금액; 회계처리/보조금 분해는 마크다운이 담당) ──
+_RND_HEAD = [
+    r"연구개발\s*실적",
+    r"연구개발\s*비용",
+    r"연구개발\s*활동(?:의?\s*개요)?",
+    r"주요계약\s*및\s*연구개발활동",
+    r"연구개발\s*담당\s*조직",
+]
+_RND_RATIO = re.compile(r"연구개발비\s*/?\s*(?:매출액|영업수익)\s*비율[^\d\n]{0,30}?([\d]{1,3}(?:\.\d+)?)\s*%")
+_RND_NA = re.compile(r"연구개발\s*활동[^\n]{0,30}?(해당\s*사항\s*(?:이)?\s*없|없습니다)")
+
+
+# ── backlog 수주 (value hint 없음 — flow표 오귀속 방지, QA BLOCKER. 마크다운만) ──
+_BL_HEAD = [
+    r"진행률\s*적용?\s*수주계약\s*현황",
+    r"수주\s*계약\s*현황",
+    r"수주\s*(?:상황|현황)",
+    r"매출\s*및\s*수주\s*상황",
+]
+_BL_NA = re.compile(r"수주[^\n]{0,20}?(해당\s*사항\s*(?:이)?\s*없|없습니다)")
+
+
+# ── customers 주요고객/매출처 (hint=집중률 % 안전할 때만; 이름은 마크다운) ──
+_CUST_HEAD = [
+    r"주요\s*매출처(?:\s*(?:및\s*매출\s*비중|현황))?",
+    r"주요\s*고객에\s*대한\s*(?:정보|공시)",
+    r"주요\s*(?:거래처|수요처)",
+    r"판매\s*경로(?:\s*및\s*판매\s*방법)?",
+]
+_CUST_NA = re.compile(r"(?:주요\s*(?:매출처|고객)|판매\s*경로)[^\n]{0,30}?(해당\s*사항\s*(?:이)?\s*없|없습니다)")
+
+
+def _util_impl(biz_text, html):
+    r = _field(biz_text, html, _UTIL_HEAD, _UTIL_NA, max_chars=18000)
     hm = None
     for kw in _UTIL_HEAD:
-        hm = re.search(kw, biz_text)
+        hm = re.search(kw, biz_text or "")
         if hm:
             break
-    region = biz_text[hm.start(): hm.start() + 5000] if hm else biz_text
-    vals = [{"value": mm.group(1), "unit": "%", "raw": _strip_tags(mm.group(0))[:40].strip()}
-            for mm in _UTIL_PCT.finditer(region)]
-    if vals:
-        return {"status": "HINT", "pct_values": vals[:8], "comparable": False,
-                "note": "정형 %힌트일 뿐 — 단위·정의 firm간 상이(비교금지), 마크다운 원문 확인"}
-    na = _UTIL_NA.search(region if hm else biz_text)
-    return {"status": "NOT_APPLICABLE" if na else "NEEDS_MARKDOWN",
-            "na_reason": (_strip_tags(na.group(0))[:60] if na else None)}
+    region = biz_text[hm.start():hm.start() + 5000] if hm else (biz_text or "")
+    pv = [mm.group(1) for mm in _UTIL_PCT.finditer(region)]
+    if pv:
+        r["pct_hint"] = pv[:6]
+        r["comparable"] = False
+    return r
+
+
+def extract_sites(biz_text, html):
+    return _field(biz_text, html, _SITE_HEAD, _SITE_NA)
+
+def extract_rnd(biz_text, html):
+    r = _field(biz_text, html, _RND_HEAD, _RND_NA, max_chars=24000)
+    m = _RND_RATIO.search(biz_text or "")
+    if m:
+        r["ratio_to_sales_pct_hint"] = m.group(1)
+    return r
+
+def extract_backlog(biz_text, html):
+    return _field(biz_text, html, _BL_HEAD, _BL_NA)
+
+def extract_customers(biz_text, html):
+    return _field(biz_text, html, _CUST_HEAD, _CUST_NA)

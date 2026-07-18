@@ -56,17 +56,25 @@ def _render(p: dict) -> str:
         else:
             L.append(f"\n### 사업부문별 이익: 해당없음 — {seg.get('na_reason','')}")
 
-    rnd = d.get("rnd")
-    if rnd and rnd.get("status") == "OK":
-        ratio = rnd.get("ratio_to_sales_pct")
-        ratio_str = f" (매출대비 {ratio}%)" if ratio is not None else ""
-        L.append(f"\n**연구개발비**: {_fmt(rnd.get('amount'))} {rnd.get('unit', '') or ''}{ratio_str}")
-    bl = d.get("backlog")
-    if bl and bl.get("status") == "OK":
-        L.append(f"**수주잔고**: {'; '.join(_fmt(x) for x in (bl.get('values') or [])) or bl.get('note','있음')} {bl.get('unit','') or ''}")
-    cc = d.get("customers")
-    if cc and cc.get("status") == "OK":
-        L.append(f"**주요 고객집중** (매출 10%↑): " + ", ".join(f"{c.get('customer')}={_fmt(c.get('revenue'))}" for c in cc.get("customers", [])))
+    # 추가 필드(markdown-primary): 소절 원문 마크다운 → 읽어서 추출. hint는 참고용.
+    _FIELD_LABEL = {"sites": "사업장·생산설비", "utilization": "생산실적·가동률",
+                    "rnd": "연구개발", "backlog": "수주현황", "customers": "주요 고객·매출처"}
+    for key in ("sites", "utilization", "rnd", "backlog", "customers"):
+        fd = d.get(key)
+        if not fd:
+            continue
+        label = _FIELD_LABEL[key]
+        if fd.get("status") == "MARKDOWN":
+            hint = ""
+            if fd.get("pct_hint"):
+                hint = f" _(가동률 힌트 {', '.join(fd['pct_hint'])}% · 비교금지)_"
+            elif fd.get("ratio_to_sales_pct_hint"):
+                hint = f" _(연구개발비/매출 힌트 {fd['ratio_to_sales_pct_hint']}%)_"
+            L.append(f"\n### {label} (원문){hint}")
+            L.append("> 아래 원문에서 값을 읽으세요. 단위·정의는 회사별 상이(비교 주의).")
+            L.append("\n" + fd["markdown"])
+        else:
+            L.append(f"\n**{label}**: 해당없음 — {fd.get('na_reason','')}")
 
     tm = d.get("timings_ms", {})
     if tm:
@@ -85,11 +93,11 @@ def register_tools(mcp):
         fields: str = "",
         format: str = "md",
     ) -> str:
-        """desc: DART 사업보고서 **"II. 사업의 내용"**에서 사업부문별 매출·영업이익·비중, 연구개발비, 수주잔고, 주요고객 집중도를 구조화 추출. SOTP·부문 수익성·적자부문 분석의 1차 소스.
-        when: 회사의 사업부문별 실적·구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. 금융지주·REIT는 v1 미지원(폼 다름).
-        rule: 정형 파싱 우선 → 저신뢰 시 부문표 원문 후보를 반환하니 그 표를 읽어 부문값 추출(부문합계/조정/총계 열 제외). 단일부문·금융폼은 해당없음.
+        """desc: DART 사업보고서 **"II. 사업의 내용"**에서 사업부문별 매출·영업이익, **사업장·생산설비, 생산실적·가동률, 연구개발, 수주현황, 주요 고객·매출처**를 추출. SOTP·부문 수익성·생산능력·수주·고객집중 분석의 1차 소스.
+        when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. 금융지주·REIT는 segments 미지원(폼 다름).
+        rule: segments는 정형→저신뢰 시 원문 마크다운. 나머지 필드(사업장·가동률·rnd·수주·고객)는 **해당 소절 원문을 마크다운으로 반환** — 그 표를 읽어 값 추출(단위·정의 회사별 상이, 비교 주의). 유형자산 장부가 표를 사업장으로 오독 금지.
         period: `annual`(기본) / `quarterly`
-        fields: 쉼표구분 선택 — `segments,rnd,backlog,customers` (미지정 시 전체). segments만 필요하면 `segments`로 지정하면 주석 fetch 생략돼 빠름.
+        fields: 쉼표구분 선택 — `segments,sites,utilization,rnd,backlog,customers` (미지정 시 전체). segments만 필요하면 빠름.
         ref: financial_metrics, valuation, order_contracts, company
         """
         flist = [f.strip() for f in fields.split(",") if f.strip()] or None

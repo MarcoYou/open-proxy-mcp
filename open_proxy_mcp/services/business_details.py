@@ -899,7 +899,7 @@ async def build_business_details_payload(company_query: str, period: str = "annu
 
     form = detect_form(sec.get("toc", []))
     warnings: list[str] = []
-    want = set(fields or ["segments", "rnd", "backlog", "customers"])
+    want = set(fields or ["segments", "sites", "utilization", "rnd", "backlog", "customers"])
     if not sec.get("biz_text"):
         warnings.append("II.사업의 내용 섹션 미검출(정정본 가능) — 확인 필요")
 
@@ -954,12 +954,20 @@ async def build_business_details_payload(company_query: str, period: str = "annu
         "form_type": form,
         "segments": segment if "segments" in want else None,
     }
+    # 추가 필드: markdown-primary(소절 원문 마크다운 → 호출측 AI 추출). biz 텍스트=hint, full html=md.
+    from open_proxy_mcp.services import biz_fields as _bf
+    _biz_t = sec.get("biz_text", "")
+    _full_html = sec.get("note_html", "")
+    if "sites" in want:
+        data["sites"] = _bf.extract_sites(_biz_t, _full_html)
+    if "utilization" in want:
+        data["utilization"] = _bf.extract_utilization(_biz_t, _full_html)
     if "rnd" in want:
-        data["rnd"] = extract_rnd(sec.get("biz_text", ""))
+        data["rnd"] = _bf.extract_rnd(_biz_t, _full_html)
     if "backlog" in want:
-        data["backlog"] = extract_backlog(sec.get("biz_text", ""))
+        data["backlog"] = _bf.extract_backlog(_biz_t, _full_html)
     if "customers" in want:
-        data["customers"] = extract_customer_concentration(sec.get("note_text", ""))
+        data["customers"] = _bf.extract_customers(_biz_t, _full_html)
     _lap("Afields")
     data["fetch_method"] = "get_document"   # 1 API콜(viewer 3웹콜 대비 ~3x)
 

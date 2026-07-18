@@ -2,7 +2,7 @@
 type: tool
 title: business_details
 domain: data
-scope: [segments, rnd, backlog, customers]
+scope: [segments, sites, utilization, rnd, backlog, customers]
 data_source: [DART get_document (전체보고서 XML 1콜 → II.사업의 내용 + 연결재무제표주석 부문정보 슬라이스), search list.json A001/A002/A003]
 related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: [사업부문, 영업부문, K-IFRS 1108, SOTP, 부문 영업이익, 연구개발비, 수주잔고, 고객집중]
@@ -18,7 +18,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 사업부문별 매출·�
 ## 사용법
 - `business_details(company, period="annual", fields="", format="md")`
 - `period`: `annual`(기본) / `quarterly`
-- `fields`: 쉼표구분 선택(`segments,rnd,backlog,customers`, 미지정 시 전체). **`segments`만 지정하면 주석 fetch 생략돼 빠름**(고객집중은 주석 필요).
+- `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers`, 미지정 시 전체).
 
 ## 출력 (ToolEnvelope.data)
 - `form_type`: `standard7` / `financial5` / `reit` / `dual` (목차 소절 제목 기반 판별, KSIC 불신)
@@ -27,8 +27,11 @@ DART 사업보고서 **"II. 사업의 내용"**에서 사업부문별 매출·�
   - `status=NEEDS_REVIEW` + `source=note_markdown`/`biz_markdown` → `segment_note_md`(영업부문 주석 원문 마크다운) → **호출측 LLM이 읽어 추출**. 앵커 실패 시 `source=raw_candidates` + `candidates:[{rendered, score}]`
   - `status=NOT_APPLICABLE` → 단일부문(정상)
   - `status=UNSUPPORTED_FORM` → 금융폼·REIT(v1 미지원, D-트랙 별도)
-- `rnd`{amount, ratio_to_sales_pct} · `backlog` · `customers`[10%↑ 외부고객]
-- `timings_ms`(단계별 병목) · `note_fetched`(주석 lazy fetch 여부)
+- **추가 필드 5종(markdown-primary, 260718 census+QA패널 결정)** — 각 `{status, markdown, na_reason}`:
+  - `sites`(사업장·생산설비) · `utilization`(생산실적·가동률, +`pct_hint`) · `rnd`(연구개발, +`ratio_to_sales_pct_hint`) · `backlog`(수주현황) · `customers`(주요 고객·매출처)
+  - `status=MARKDOWN` → 해당 소절 원문을 마크다운으로(`markdown`) → **호출측 AI가 읽어 값 추출**(단위·정의 회사별 상이). `status=NOT_APPLICABLE` → 소절 부재/기재생략(`na_reason`).
+  - **파서가 값 판정 안 함**: 사업장 유형자산 장부가 함정·가동률 단위카오스·수주 flow표 오귀속·rnd 회계처리/보조금·customers 다위치 충돌은 호출측 AI가 원문 읽어 판별(QA패널 BLOCKER 대응).
+- `timings_ms`(단계별 병목)
 
 ## Data sources
 DART **`get_document`(전체 보고서 XML) 1 API콜**([[XML-vs-PDF]]) → text에서 `II.사업의 내용`·`연결재무제표 주석`(별도 heading 전까지) 슬라이스(`_slice_getdoc_sections`), html은 후보표 스캔용 원본. viewer 3웹콜(~5s) 대비 **~3x 빠름**. **PDF/OCR·내부 LLM·pandas 불필요.** (get_document 014=document.xml 부재 시 graceful ERROR — KB금융류 극소수)
