@@ -170,7 +170,7 @@ async def build_provisional_earnings_payload(
                             warnings=[f"원문 파싱 실패: {type(e).__name__}"]).to_dict()
     warnings = ["잠정치 — 향후 확정치와 다를 수 있음(감사 전)"]
     if parsed.get("kind") == "non_financial":
-        warnings.append("재무 잠정실적 아님(판매실적 등 비재무 공정공시) — raw_markdown 참조")
+        warnings.append("표준 재무표(매출/영업이익) 미기재 — 도메인 실적표(지역별매출·판매대수·수주·판매량 등)로 공시, table_markdown 참조")
     data = {
         "company": {"name": corp.get("corp_name"), "corp_code": corp.get("corp_code"),
                     "stock_code": corp.get("stock_code")},

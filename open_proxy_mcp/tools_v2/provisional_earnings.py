@@ -51,7 +51,7 @@ def _render(p: dict) -> str:
         if parts:
             L.append("\n" + " · ".join(parts))
     elif d.get("kind") == "non_financial":
-        L.append("\n_재무 잠정실적 아님(판매실적 등 비재무 공정공시) — 아래 표 참조_")
+        L.append("\n_표준 재무표(매출/영업이익) 미기재 — 도메인 실적표(지역별 매출·판매대수·수주·판매량 등)로 공시. 아래 원문표에서 읽으세요_")
 
     # table_markdown(primary): 원문 실적표 통째
     if d.get("table_markdown"):
