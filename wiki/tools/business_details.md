@@ -13,12 +13,25 @@ created: 2026-07-18
 # business_details
 
 ## 한 줄 요약
-DART 사업보고서 **"II. 사업의 내용"**에서 사업부문별 매출·영업이익·비중, 연구개발비, 수주잔고, 주요고객 집중도를 구조화 추출. SOTP·부문 수익성·적자부문·일감몰아주기 분석의 1차 소스. 156사 census로 실현가능성 검증.
+DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매출·영업이익 ② 사업장·생산설비 ③ 생산실적·가동률 ④ 연구개발 ⑤ 수주현황 ⑥ 주요 고객·매출처**를 추출. SOTP·부문 수익성·생산능력·수주잔고·고객집중 분석의 1차 소스. 286사 census + 재무·공시·산업 3전문가 QA로 검증.
 
 ## 사용법
 - `business_details(company, period="annual", fields="", format="md")`
 - `period`: `annual`(기본) / `quarterly`
-- `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers`, 미지정 시 전체).
+- `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers`, 미지정 시 전체). **특정 필드만 지정하면 응답이 가벼움**(전체는 대형주 ~35K자).
+- 예: `business_details("에코프로비엠", fields="utilization")` · `business_details("HD한국조선해양", fields="backlog")`
+
+## 필드별 가이드 (직접 테스트용)
+| 필드 | 읽는 소절 | 무엇이 나오나 | 테스트 예시 |
+|---|---|---|---|
+| **segments** | 영업부문 주석(K-IFRS 1108) | 부문별 매출·영업이익 (정형표 or 원문 마크다운) | 삼성전자(정형)·SK하이닉스(후보)·삼일(마크다운) |
+| **sites** 사업장 | 3.원재료 및 생산설비 / 사업장 현황 | 공장·사업장 소재지·면적 원문(유통은 점포) | 삼성전자(공장 주소)·이마트(점포 창동점) |
+| **utilization** 가동률 | 생산실적 및 가동률 | 생산능력·생산실적·가동률 원문(+% 힌트) | SK하이닉스(100%)·에코프로비엠(생산능력 톤) |
+| **rnd** 연구개발 | 연구개발활동 | 연구개발비·실적·조직 원문(+매출대비% 힌트) | 유한양행·한국항공우주 |
+| **backlog** 수주 | 4.매출 및 수주상황 | 수주잔고·수주계약 원문(조선 flow표 포함) | HD한국조선해양(기초계약잔액→수주잔고) |
+| **customers** 고객 | 주요 매출처 / 주요 고객 주석 | 주요 고객·매출처·판매경로 원문(익명 다수) | 삼성전자·유한양행 |
+
+> **핵심: segments 외 5필드는 "markdown-primary"** — 도구가 값을 판정하지 않고 **해당 소절 원문을 마크다운 표로 통째 반환**합니다. 값·단위·정의 판단은 **읽는 AI(=당신의 Claude)의 몫**. 회사마다 단위·정의가 달라(가동률 %/시간/톤, 사업장 주소~국가) 원문을 봐야 정확하기 때문(자세히 아래 파싱전략).
 
 ## 출력 (ToolEnvelope.data)
 - `form_type`: `standard7` / `financial5` / `reit` / `dual` (목차 소절 제목 기반 판별, KSIC 불신)
@@ -46,8 +59,19 @@ flatten이 2D표를 1D로 뭉개 정렬이 깨지는 게 근본 난제(156 censu
 
 **성능**: get_document 1콜이 지배(미캐시 ~2-2.5s, 캐시히트 150-470ms). 후보 스캔(Afields)은 정규식 프리필터로 <150ms(POSCO 9.7MB도). 단계별 `timings_ms`(resolve/search/fetch/segment/Afields/total)로 실측.
 
+## 추가 5필드 markdown-primary 구현 (`services/biz_fields.py`)
+- `render_biz_subsection_markdown(html, kw_patterns, content_re)` — II.사업의 내용 특정 소절을 마크다운 렌더. **번호/한글자 접두 헤딩**만 앵커(프로즈 오탐 방지) + **content-gate**(렌더 구간이 실제 그 필드 내용 담을 때만 채택 — 부모/오섹션 오탐 차단) + 요약+상세(XII.상세표) 최대 2구간 + `_is_roster`(임원명부) 배제.
+- 각 필드 = 헤딩패턴 + content_re + 최소 hint. **파서 판정 없음** = QA BLOCKER(사업장 유형자산함정·수주 flow표 오귀속·rnd 회계처리/보조금·customers 다위치) 를 "AI가 원문 읽어 판별"로 해소.
+
+## 실사용 검증 + 알려진 한계
+- **오탐(false-MD) 0** — 실 DART 300사 스윕: content-gate 도입 전 사업장 52·수주 37·가동률 7 오탐(부모헤딩이 매출/투자현황 오렌더) → gate로 **전 필드 0**.
+- **조선 수주잔고 검증** — HD한국조선해양·HD현대중공업·대한조선 backlog가 flow표(기초계약잔액→신규→기납품→**수주잔고**, 산식 포함) 전체 캡처 확인. value-hint 안 내므로 오귀속 없음.
+- **슬라이서 버그픽스** — `_slice_getdoc_sections`가 목차(TOC) stub 대신 최대 span II→III 슬라이스 → 대형사 48/155 body 회복(SK하이닉스·한화솔루션). 기존 segments도 OK 35→39 개선.
+- **한계**: ① 비정형 가동률(KX 송출 가동율 등 소수)은 앵커 미스로 N/A 가능(markdown-primary 한계, 수용) ② 금융지주·REIT는 segments `UNSUPPORTED_FORM`(D-트랙 별도) ③ customers 고객명 다수 익명(주요고객A/B) — 이름 억지생성 안 함 ④ 전체 필드 응답 대형주 ~35K자(특정 fields 지정 권장).
+
 ## 관련
 - [[260717_1220_decision_business-content-tool-roadmap]] (설계·실현가능성·스콥·아키텍처)
 - [[ksic-sector-mapping]] (KSIC 한계 — 폼 판별에 불신)
 - [[XML-vs-PDF]] (viewer HTML 단독)
-- `wiki/_local/census-biz-content-260717/` (156사 census 원본·ground-truth·재현 스크립트, gitignore)
+- `wiki/_local/census-biz-content-260717/` (156사 segment census 원본·ground-truth·재현 스크립트, gitignore)
+- `wiki/_local/census-fields-260718/` (286사 5필드 census + 재무·공시·산업 3전문가 QA 합성 결과 `synthesis_qa_full.json`, gitignore)
