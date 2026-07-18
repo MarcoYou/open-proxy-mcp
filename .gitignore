@@ -134,6 +134,12 @@ wiki/_local/
 .claude/skills/opm-traction-deck
 .claude/skills/opm-usage-stats
 
+# ⚠️ 비밀/비공개 자료 — 절대 커밋 금지 (사업계획서·특허·내부 IR). public 레포임.
+BM/
+특허출원/
+powerpoint/
+samples/
+
 # 디버그/에러 로그 (커밋 금지)
 *.log
 
