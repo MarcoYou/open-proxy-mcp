@@ -27,8 +27,8 @@ OpenProxy는 주주총회 의결권 분석을 위해 태어났습니다. 그런�
 - **[주총 의결권 보조](docs/features/proxy-voting.md)**: 소집공고 안건을 구조화하고 안건별 FOR/AGAINST/REVIEW 권고와 근거를 제시합니다.
 - **[재무지표](docs/features/financials.md)**: 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이. 분기는 누적(YTD)·당기(3개월) 두 기준으로 QoQ·YoY 제공.
 - **[밸류에이션](docs/features/valuation.md)**: PER·PBR·배당수익률(기업 심층) + 시장·산업·종목 히스토리. `scope="explain"`으로 계산 과정·출처까지 답합니다.
-- **사업의 내용**: 사업부문별 매출·이익, 생산설비·가동률, 연구개발, 수주잔고, 주요 고객 — "II. 사업의 내용"을 통째로 읽어줍니다 ([`business_details`](wiki/tools/business_details.md)).
-- **잠정실적 속보**: 분기 영업(잠정)실적 공시를 표·증감률로 정리합니다 ([`provisional_earnings`](wiki/tools/provisional_earnings.md)).
+- **[사업의 내용](docs/features/business-details.md)**: 사업부문별 매출·이익, 생산설비·가동률, 연구개발, 수주잔고, 주요 고객 — "II. 사업의 내용"을 통째로 읽어줍니다.
+- **[잠정실적 속보](docs/features/provisional-earnings.md)**: 분기 영업(잠정)실적 공시를 표·증감률로 정리합니다.
 - **[주주환원](docs/features/shareholder-return.md)**: 배당·자사주 소각 사이클·밸류업 계획 — 약속과 실제 집행을 비교합니다.
 - **[지분·지배구조 맵](docs/features/ownership.md)**: 최대주주·특수관계인·5% 대량보유·자사주로 소유 구조를 그립니다.
 - **[주총 안건 구조화](docs/features/meeting-agenda.md)**: 소집공고 안건·후보·보수한도·정관변경과 주총 후 의결 결과·찬반율.
