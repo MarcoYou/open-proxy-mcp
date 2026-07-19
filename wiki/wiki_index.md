@@ -13,13 +13,13 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 24개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 25개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (22 tool, 260715 screener 추가)
+### 도메인별 (25 tool, 260720 asset_holdings 추가)
 - **Company (1)**: [[company]]
 - **Screening (1)**: [[screener]] (전체시장 공시 스크리너 / 아침 디제스트 — scan 싸게 + details 필요 건만 파서 재사용, market-scan)
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
-- **Data (14)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[director_board]] · [[valuation]]
+- **Data (17)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[director_board]] · [[valuation]] · [[business_details]] · [[provisional_earnings]] · [[asset_holdings]] (자산주·NAV 스크리닝 — 계정 티어+상장지분 시가마크+시총 대비 배수)
 - **Evidence (2)**: [[evidence]] · [[law_lookup]] (정관↔법령 양방향 조회 — 상법·자본시장법·공정거래법·외부감사법 원문, 회사·DART 무관)
 - **Action (2)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합, 사후 결과는 [[shareholder_meeting_results]]) · [[shareholder_commitment]] (밸류업·배당·소각 약속 vs 실제 이행, 연중 스튜어드십 — 자사주소각 장부가손익 신규 계산)
 
@@ -38,14 +38,14 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 | 카테고리 | 페이지 수 |
 |---|---|
 | **raw/** | 29 binary + 4 md |
-| **tools/** | 24 + README |
+| **tools/** | 25 + README |
 | **architecture/** | 58 |
 | **decisions/** | 29 + README |
 | **rules/** | 88 + README 4 |
 | ~~lessons/~~ | private 이관(260720, open-proxy-storage/wiki-private/lessons) |
 | **archive/** | 74 + README 2 |
 
-총 283 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
+총 284 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
 > **규칙은 여기 두지 않는다.** 각 카테고리의 목적·수정정책·layer 정의, 명명 규칙, frontmatter schema,
 > link 방향 정책은 전부 [[wiki_schema]]가 단일 출처(SSOT). 이 파일은 "무엇이 어디 있나"(인벤토리·라우팅)만
@@ -54,7 +54,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 ## 자주 쓰는 진입점
 
 ### 처음 사용자
-- [[tools/README]] - 22 tool 카탈로그
+- [[tools/README]] - 25 tool 카탈로그
 - [[wiki_schema]] - wiki 구조 + 명명 규칙
 
 ### OPM 정책 알고 싶음
@@ -99,7 +99,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
 ---
 
-## Tools (22 진입점) - `tools/`
+## Tools (25 진입점) - `tools/`
 
 전체 카탈로그 + 통계 + 흡수된 archive 매핑은 [[tools/README]] — 아래는 요약 목록(신규 tool 추가 시
 [[tools/README]]와 함께 갱신).
@@ -114,7 +114,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[shareholder_meeting_notice]] - 주총 소집공고 사전 데이터
 - [[shareholder_meeting_results]] - 주총 의결 결과 사후 데이터
 
-### Data (14)
+### Data (17)
 - [[ownership_structure]] - 최대주주/특수관계인/5%/control_map
 - [[financial_metrics]] - DART 재무 4 endpoint 통합
 - [[corp_gov_report]] - 기업지배구조보고서 15지표
@@ -129,6 +129,9 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[order_contracts]] - 단일판매·공급계약
 - [[risk_events]] - 리스크 이벤트 활성 3종 (중대재해/횡령배임/생산중단·영업정지, 파생·회생·해산 mute)
 - [[valuation]] - PER·PBR·배당수익률(기업 심층) + 시장/섹터/종목 히스토리 (260705 신설)
+- [[business_details]] - "II.사업의 내용" 9필드(segments+사업장·가동률·rnd·수주·고객+D-트랙 금융/REIT) (260718 신설)
+- [[provisional_earnings]] - 영업(잠정)실적 분기 속보(I002 공정공시) + YoY (260719 신설)
+- [[asset_holdings]] - 자산주·NAV 스크리닝 (계정 티어+상장지분 시가마크+시총 대비 배수) (260720 신설)
 
 ### Evidence (2)
 - [[evidence]] - rcept_no -> 공시일/소스/뷰어 URL

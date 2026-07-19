@@ -3,7 +3,7 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-24-orange.svg)](#tool-구조-24개)
+[![Tools](https://img.shields.io/badge/tools-25-orange.svg)](#tool-구조-25개)
 [![Release](https://img.shields.io/badge/release-v2.1-blue.svg)](docs/RELEASE_NOTES.md)
 
 [English README](README_ENG.md)
@@ -27,6 +27,7 @@ OpenProxy는 주주총회 의결권 분석을 위해 태어났습니다. 그런�
 - **[주총 의결권 보조](docs/features/proxy-voting.md)**: 소집공고 안건을 구조화하고 안건별 FOR/AGAINST/REVIEW 권고와 근거를 제시합니다.
 - **[재무지표](docs/features/financials.md)**: 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이. 분기는 누적(YTD)·당기(3개월) 두 기준으로 QoQ·YoY 제공.
 - **[밸류에이션](docs/features/valuation.md)**: PER·PBR·배당수익률(기업 심층) + 시장·산업·종목 히스토리. `scope="explain"`으로 계산 과정·출처까지 답합니다.
+- **[자산주 스크리닝](docs/features/asset-holdings.md)**: 보유 자산(현금성·투자부동산·지분증권)을 티어로 나누고 상장 보유지분은 시가로 마킹 — 시총 대비 잉여자산·지분NAV 배수로 "숨은 자산"을 찾습니다.
 - **[사업의 내용](docs/features/business-details.md)**: 사업부문별 매출·이익, 생산설비·가동률, 연구개발, 수주잔고, 주요 고객 — "II. 사업의 내용"을 통째로 읽어줍니다.
 - **[잠정실적 속보](docs/features/provisional-earnings.md)**: 분기 영업(잠정)실적 공시를 표·증감률로 정리합니다.
 - **[주주환원](docs/features/shareholder-return.md)**: 배당·자사주 소각 사이클·밸류업 계획 — 약속과 실제 집행을 비교합니다.
@@ -36,7 +37,7 @@ OpenProxy는 주주총회 의결권 분석을 위해 태어났습니다. 그런�
 - **[기업 리스크 이벤트](docs/features/risk-events.md)**: 중대재해·횡령배임·생산중단 추적. 회사 미지정 시 시장 전체 스캔.
 - **[전체시장 공시 디제스트](wiki/tools/screener.md)**: 수주·자사주·배당·증자·주총·5%지분·잠정실적 공시를 한 번에 훑어 카드형으로 요약 — 매일 아침 공시 알람 루틴 ([레시피](docs/routines/screener-morning-digest.md)).
 
-그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각, 정관↔법령 양방향 조회 등 **총 24개 tool**을 제공합니다.
+그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각, 정관↔법령 양방향 조회 등 **총 25개 tool**을 제공합니다.
 
 ---
 
@@ -91,7 +92,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ---
 
-## Tool 구조 (24개)
+## Tool 구조 (25개)
 
 **Company → Meeting/Data/Evidence → Action** 흐름으로 동작합니다 (법령 조회는 회사 무관 Reference).
 
@@ -99,7 +100,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 |---|---|---|
 | Company | [`company`](wiki/tools/company.md) | 기업 식별과 공통 공시 인덱스 |
 | Meeting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md) | 주총 전/후 데이터 |
-| Data | [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`dividend`](wiki/tools/dividend.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`valuation`](wiki/tools/valuation.md), [`business_details`](wiki/tools/business_details.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`ownership_structure`](wiki/tools/ownership_structure.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`risk_events`](wiki/tools/risk_events.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md) | 개별 공시/재무/사업/지배구조 파싱 |
+| Data | [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`dividend`](wiki/tools/dividend.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`valuation`](wiki/tools/valuation.md), [`business_details`](wiki/tools/business_details.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`ownership_structure`](wiki/tools/ownership_structure.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`risk_events`](wiki/tools/risk_events.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md) | 개별 공시/재무/사업/지배구조 파싱 |
 | Evidence | [`evidence`](wiki/tools/evidence.md) | 공시번호 기반 출처 추적 |
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`screener`](wiki/tools/screener.md) | 여러 data tool을 묶어 판단·비교·디제스트 생성 |
 | Reference | [`law_lookup`](wiki/tools/law_lookup.md) | 정관↔법령 양방향 조회 (상법·자본시장법 등 원문) — API 0콜 |

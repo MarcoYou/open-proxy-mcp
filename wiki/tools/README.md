@@ -1,18 +1,18 @@
 ---
 type: readme
-title: tools/ — 도구 카탈로그 (24개)
-updated: 2026-07-19
+title: tools/ — 도구 카탈로그 (25개)
+updated: 2026-07-20
 ---
 
-# 도구(Tool) 카탈로그 — 24개
+# 도구(Tool) 카탈로그 — 25개
 
-> OPM의 24개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
+> OPM의 25개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
 > 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
 >
 > 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
 > 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
 
-## 23개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
+## 25개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
 ### 🏢 기본 — 회사 찾기
 | 도구 | 무엇을 답하나 |
@@ -38,6 +38,7 @@ updated: 2026-07-19
 | [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 (정기보고서 **확정치**) |
 | [provisional_earnings](provisional_earnings.md) | **영업(잠정)실적**(I002 공정공시) — 분기 잠정 매출·영업이익·순이익+YoY. 정기보고서보다 먼저 나오는 가장 빠른 실적. table_markdown primary + headline best-effort. 자동차 판매대수·조선 수주 등 비재무형도 커버. screener 연동 |
 | [business_details](business_details.md) | **"II.사업의 내용" 9필드**: 사업부문별 매출·영업이익 + **사업장·가동률·연구개발·수주·고객** + **D-트랙(금융/REIT): 영업현황·재무건전성·투자부동산**(KSIC 게이트). segments 정형→저신뢰 시 원문 마크다운, 나머지는 **markdown-primary**. `period=latest` 기본(사업·반기·분기 중 최신). KOSPI500 census 검증(사업의내용_ksic별양식) |
+| [asset_holdings](asset_holdings.md) | **자산주·NAV 스크리닝** — 보유 자산(현금성·투자부동산·지분증권·관계기업) 티어 + **상장지분 시가마크** + 시총 대비 잉여자산/지분NAV 배수. "시총보다 보유 자산이 값진가"에 답함 |
 | [valuation](valuation.md) | 상대가치 배수 — PER·PBR·배당수익률 (통화환산·스케일가드) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
 | [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria, 정형API 하이브리드 검증) |
@@ -107,7 +108,7 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 |--------|---------|---------|
 | Company | 1 | corpCode/company/list 기반 식별 |
 | Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
-| Data | 12 | DART API 1-14회 병렬, 일부 KIND fallback |
+| Data | 13 | DART API 1-14회 병렬, 일부 KIND fallback |
 | Evidence | 2 | rcept_no URL 생성(evidence) · 법령 corpus 조회(law_lookup) — 둘 다 **DART 무관** |
 | Action | 3 | upstream data tool 병렬 호출 후 판단/요약 (shareholder_commitment은 신규 계산 1개 추가). **screener**는 전체시장 **market-scan**(전체 list.json 1회 스캔 ~수콜)+details=hit당 유형별 파서 디스패치로 디제스트/루틴을 구동하는 변형 |
 
@@ -135,6 +136,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | value_up | ✅ list/document | ✅ 0184 fallback | - | - |
 | corp_gov_report | ✅ list/원문 | - | - | - |
 | director_board | ✅ exctvSttus+drctrAdtAllMendngSttus 2종+개인별 · 사업보고서 원문(출석률·각주 해소·보수 산정기준 VIII-2) · 개인별5억+ API 하이브리드 교차검증 | - | - | - |
+| asset_holdings | ✅ fnlttSinglAcntAll(계정) + otrCprInvstmntSttus(타법인출자) + get_document(III.주석) + stockPrice/stockTotal(시가마크) | - | - | - |
 | corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - |
 | dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - |
 | corporate_deals | ✅ list+키워드 | - | - | - |
@@ -169,3 +171,4 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-07-18: **business_details 신규(23번째 tool)** — "II.사업의 내용" 6필드(segments+사업장·가동률·rnd·수주·고객). markdown-primary. 286사+3전문가 QA.
 - 2026-07-19: **business_details 확장** — D-트랙 3필드(financial_ops·financial_soundness·investment_property, KSIC 게이트) + 014 정정폴백 + reit_prose + `period=latest` 기본(사업·반기·분기 최신). KOSPI500 census 검증(양식 레퍼런스 사업의내용_ksic별양식, 필드↔소절 헤딩 사전).
 - 2026-07-19: **provisional_earnings 신규(24번째 tool)** — 영업(잠정)실적(I002 공정공시) 분기 잠정 매출·영업익·순익+YoY. financial_metrics 확정치보다 먼저. markdown-primary(table_markdown) + best-effort headline. 자동차 판매대수·조선 수주 등 비재무형 커버. screener `detail_kind=earnings` 연동. 멀티에이전트 24사 + KOSPI500 census 검증(공시율 시총 강상관, 파서 anomaly 0).
+- 2026-07-20: **asset_holdings 신규(25번째 tool)** — 자산주·NAV 스크리닝(계정 티어 + 상장지분 시가마크 + 시총 대비 배수). business_details의 자산가치 opt-in 필드에서 분리. 초기 3스콥(coverage/summary/detail) → summary+detail 2개로 정리(coverage를 summary가 흡수). KOSPI+KOSDAQ+EDGE 2,608사 전수조사(캐시 재사용, DART 0콜) + 5인 패널(재무·부동산·공시전문가·가치투자자·Data QA) 토론 → 결합계정 NAV 소실 버그·REIT 활성오탐 수정, 시그니처 동의어 확장 + 완화 부작용(매출채권 오탐) 재검증·수정. Data 12→13.

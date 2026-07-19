@@ -33,12 +33,10 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 | **financial_ops** (금융) | 2.영업의 현황 | 영업개황·영업실적·**영업부문별 재무정보**(금융판 segments) | 신한지주·미래에셋증권 |
 | **financial_soundness** (금융) | 재무건전성·지급여력 | RBC·지급여력비율(K-ICS)·순자본비율·연체율 | 삼성생명·우리금융지주 |
 | **investment_property** (REIT/보험) | 투자부동산 내역·투자자산 개요 | 부동산 목록·임대율·임대면적·공실 | SK리츠·삼성생명 |
-| **real_estate** (opt-in) | III.재무 주석 유형자산·투자부동산 명세 | 토지 장부가(취득원가/총장부금액/**변동표 기초~기말**) + 재평가적립금 + 토지 공정가치/공시지가 원문(**단위 always-carry**) | 경방(재평가 5,522억≫토지 1,278억)·태광·성창기업 |
-| **equity_holdings** (opt-in) | III.재무 지분증권 명세(FVPL/FVOCI 보강) | 상장/비상장 지분증권 취득원가 vs 공정가치·평가손익. **표준 소스는 타법인출자현황 API**(`otrCprInvstmntSttus`) — 이 재무주석 필드는 트레이딩 포트폴리오 보강용 | 삼성전자·신세계·태광 |
 
-> **자산가치 스콥(260719, opt-in)** — 토지·투자부동산·지분증권의 장부가·공정가치 원문 반환. `real_estate`=토지·투자부동산 장부가+재평가+공정가치, `equity_holdings`=지분증권 원가vs시가. **명시해야 실행**(full html 스캔·기본 want 제외). 소스=III.재무 주석(D-트랙 investment_property가 배제하는 그 영역과 정반대). **DART 중첩 <table> 파싱 실패**(경방 grid=헤더만·데이터행 nested) → table 파싱 포기, **stripped 텍스트 region 윈도를 마크다운으로**(markdown-primary 순수형, 텍스트엔 데이터 다 있음). 순수-lookahead content-signature로 산문 회계정책·BS 한줄·CF조각·종속/관계기업투자(지분법, 시가 아님) 배제. 성능=프리strip 1회 + region window(SK 22MB 0.9s). **KOSPI 자산주+KOSDAQ+엣지 23사 멀티에이전트 QA: 토지명세 23/23 정확·재평가/공시지가/투자부동산 오발 0** (markdown-primary-anchor-260719). 한계: 서식변형 커 region 앞부분 over-capture(관계기업/소유구조 산문 bleed, 데이터는 정확)·재평가 region이 자본변동표 광범위 캡처(값은 포함)·전방류 상장/비상장 미표기 지분상품 미스(정밀도 우선).
->
-> **하드닝 업데이트(260719)**: ① `real_estate` 토지 sig를 **유형자산 변동표(기초~기말 롤포워드)** 대응으로 확장(dominant miss) — 전수 회귀0·복구 187(79→86%). ② region이 단위선언 위를 잘라 스케일 유실 → **근접 지배 단위 백필**(real_estate 100%). ③ 성능: 투자부동산 sig 프리필터 + _strip 1회공유 = **1.5x, 회귀0**. ④ 총액 확인은 재무제표 계정 API(`fnlttSinglAcntAll`)가 정본 — 주석 필드는 명세·원가vs공정가치 breakdown 용도.
+> **자산가치(토지·투자부동산·지분증권 원가vs공정가치)는 별도 tool [[asset_holdings]]로 이관(260720)**.
+> 소스는 동일 III.재무 주석이지만 계정 API(자산 티어)·타법인출자 API(시가마크)·시총 대비 NAV 커버리지까지
+> 결합한 별도 유즈케이스(자산저평가주 스크리닝)라 분리. 시그니처 설계·하드닝 이력은 그쪽 페이지 참조.
 
 > **D-트랙 금융·REIT(260718)**: 마지막 3필드는 금융/증권/보험/지주·REIT용. segments는 금융폼 `UNSUPPORTED_FORM`이므로 `financial_ops`의 영업부문별 재무정보가 대체.
 > **KSIC(업종코드) 게이트**(사용자 제안 260718) — content 마커만이면 카카오(포털)·한화(화약)·아모레퍼시픽(화장품)이 자회사/우발 신호로 오발. → `get_company_info`의 `induty_code`로 **금융권(KSIC 64/65/66)일 때만** financial 필드, **부동산(68)/보험(65)/지주(64)**일 때만 investment_property. 비금융은 아예 시도 안 함(오발 0). **지주회사 64992는 충돌**(신한금융 vs SK)이라 그 안에서만 content-signature로 판별. 응답에 `induty_code` 동봉.
@@ -90,6 +88,7 @@ flatten이 2D표를 1D로 뭉개 정렬이 깨지는 게 근본 난제(156 censu
 - **한계**: ① 비정형 가동률(KX 송출 가동율 등 소수)은 앵커 미스로 N/A 가능(markdown-primary 한계, 수용) ② 금융지주·REIT는 segments `UNSUPPORTED_FORM`(D-트랙 별도) ③ customers 고객명 다수 익명(주요고객A/B) — 이름 억지생성 안 함 ④ 전체 필드 응답 대형주 ~35K자(특정 fields 지정 권장).
 
 ## 관련
+- [[asset_holdings]] (자산가치·NAV 스크리닝 — 260720 이 tool에서 분리)
 - [[260717_1220_decision_business-content-tool-roadmap]] (설계·실현가능성·스콥·아키텍처)
 - 사업의내용_ksic별양식 (KOSPI500 census — 업종별 소절 양식·정보 존재율·헤딩 variant 사전)
 - [[ksic-sector-mapping]] (KSIC 한계 — 폼 판별에 불신)
