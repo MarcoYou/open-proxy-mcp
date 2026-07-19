@@ -23,7 +23,7 @@ Wiki는 **뿌리에서 잎까지의 트리**. 외부 source가 뿌리, 도메인
    │ ② OPM 정책 결정 (단방향 ↓)
 🌿 큰가지 (decisions/, architecture/core/, tools/)   시스템 형상
    │ ③ 검증/회고 (양방향 ↕)
-🌾 가지 (ralph/, architecture/audits/, fixes/, lessons/)   시점 작업
+🌾 가지 (ralph/, architecture/audits/, fixes/, lessons†)   시점 작업   †lessons는 260720부터 private(open-proxy-storage/wiki-private/lessons)
    │
 🍃 잎 (각 카테고리 안 개별 페이지)
 🍂 낙엽 (archive/)        흡수/대체된 페이지 보존
@@ -36,7 +36,7 @@ Wiki는 **뿌리에서 잎까지의 트리**. 외부 source가 뿌리, 도메인
 | 🌱 뿌리 | `raw/` | 외부 source 무결성 base | 원본 파일명 (수정 X) |
 | 🪵 줄기 | `rules/` (concepts/disclosures/laws) | 한국 자본시장 사실 | identity (`{name}.md`) |
 | 🌿 큰가지 | `decisions/`, `architecture/core/`, `tools/` | OPM 시스템 형상 (영구) | identity 위주 |
-| 🌾 가지 (잔가지) | `ralph/`, `architecture/audits/`, `architecture/fixes/`, `lessons/` | 시점 작업 흔적 | yymmdd_hhmm 위주 |
+| 🌾 가지 (잔가지) | `ralph/`, `architecture/audits/`, `architecture/fixes/`, lessons(**private** 이관 260720) | 시점 작업 흔적 | yymmdd_hhmm 위주 |
 | 🍃 잎 | 각 카테고리 안 개별 페이지 | tool / concept / audit 결과 / lesson 등 | 상위 카테고리 따라 |
 | 🍂 낙엽 | `archive/` | 흡수/대체된 페이지 보존 | identity 보존 |
 

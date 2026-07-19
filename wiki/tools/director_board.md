@@ -276,7 +276,7 @@ wall **평균 3.9초·중앙 3.8초·p90 4.7초**, scope합(순차환산) 평균
 안 보여, `data.pay_criteria.timing_detail`(`status_probe`/`fetch_gather`/`parse`/`reconcile` ms)을 추가.
 실측(8사): fetch_gather(원문 8~14MB, 이미 API와 병렬)가 지배(139~2457ms)·parse 296~773ms 2순위(원문
 캐시히트 시 지배). 슬라이스(`_SECTION_MAXLEN` 900KB)를 300KB로 좁히면 8/8 파싱출력 회귀라 유지 —
-안전한 무회귀 최적화 없음(관측성만 추가). 상세 [[new-tools-perf-profiling-260714]].
+안전한 무회귀 최적화 없음(관측성만 추가). 상세 new-tools-perf-profiling-260714.
 
 **설계 질문 2개에 대한 데이터 기반 결론**:
 
@@ -367,7 +367,7 @@ OCR tier 불필요 — 텍스트 파싱으로 됨). exctvSttus의 rcept_no로 �
 정형 API(compensation/individual)는 보수 **금액·인원**만 준다 — "얼마 받았나"는 알아도 "무슨 기준으로
 산정했나"(성과급 배수·KPI 가중치)는 못 준다. `pay_criteria`는 사업보고서 **VIII. 임원 및 직원 등에
 관한 사항 › 2. 임원의 보수 등** 원문(document.xml)에서 이 서술을 구조화한다. 파서 코어는
-`services/executive_pay.py`(→ [[pay-criteria-hybrid-validation-260713]]).
+`services/executive_pay.py`(→ pay-criteria-hybrid-validation-260713).
 
 **무엇을 뽑나**
 - **보수지급기준(정책)**: 등기이사/사외이사/감사위원 버킷별 급여·상여·단기/장기성과급 배수(KT&G 단기
@@ -389,7 +389,7 @@ OCR tier 불필요 — 텍스트 파싱으로 됨). exctvSttus의 rcept_no로 �
 **왜 하이브리드가 필수인가**: 자기일치는 파서가 같은 원문 두 표를 **같은 방식으로 오독하면 통과**한다
 (파서-vs-파서라 문서 오독을 못 잡음). API는 파서 그리드를 안 거친 독립 축이라 이 silent 오독을
 적발한다. 실제로 이 하이브리드가 없었으면 못 잡았을 두 버그 클래스를 260713 검증에서 발견했다
-(상세 [[pay-criteria-hybrid-validation-260713]]):
+(상세 pay-criteria-hybrid-validation-260713):
 
 | 버그 | 증상 | 원인 | 수정 |
 |---|---|---|---|
@@ -461,4 +461,4 @@ sequenceDiagram
 - [[corp_gov_report]] — 회사 지배구조 15지표 준수(정성). 이 tool은 개별 이사 정량.
 - [[director_evaluation]] — 이사 후보 독립성·결격(주총 안건). 이 tool은 재직 중 보수·재직변동.
 - [[shareholder_meeting_notice]] — 보수한도 '안건'. 이 tool은 실제 지급·소진율.
-- [[pay-criteria-hybrid-validation-260713]] — pay_criteria 파서 설계·두 버그 클래스·하이브리드 검증 회고.
+- pay-criteria-hybrid-validation-260713 — pay_criteria 파서 설계·두 버그 클래스·하이브리드 검증 회고.

@@ -180,7 +180,7 @@ sequenceDiagram
   필드. 금융사(연결 BS 예수부채·보험계약부채·고객예탁금 정확매칭 — 예수금 제외)는 debt_dependency=None
   (`status="n/a_financial"`); 일반지주(SK·LG 등, 예수부채 없음)는 정상 산출. KOSDAQ 소형주 '채무'·'유동화'
   표기변형(유동성장기차입채무·유동화채무)은 nm 정확매칭+토큰 안전망으로 흡수(298사 2룹 검증). 근거:
-  [[financial-metrics-borrowings-260713]].
+  financial-metrics-borrowings-260713.
 - **금액 정규화** (`normalize_amount`):
   - 콤마 strip ("227,062,266,000,000" → 227062266000000)
   - 괄호 음수 ("(500)" → -500, T19 fix 패턴)
@@ -196,12 +196,12 @@ sequenceDiagram
   연도·주체(지배 vs 지배+비지배)가 어긋난다. 대신 dividend 툴의 alotMatter 다년 로직을 재사용해 DART
   사업보고서 '현금배당성향(%)'(연결 우선)을 **연간보고서에서만 연도 key 조인**으로 주입(dividend 툴과
   SSOT 일원화). 무배당/미기재/미확정 연도는 None. CF `dividend_paid_krw`는 배당/FCF(현금 coverage)
-  지표 전용. 근거: [[financial-metrics-payout-260716]].
+  지표 전용. 근거: financial-metrics-payout-260716.
 - **REIT 배당성향 억제**(`_is_reit`+`_accrual_payout_pct(is_reit=)`, 260717): 이름에 '리츠' 있으면
   `payout_ratio_pct=None` + `payout_ratio_note`("DPS·시가배당률 참고"). REIT는 배당가능이익≥90% 분배라
   순이익 대비 성향이 100~2000%·음수로 무의미(404사 스캔: 미래에셋글로벌리츠 421%·이지스밸류 −415%).
   KSIC(68)는 부동산 개발사(SK디앤디·자이에스앤디 정상 성향)까지 잡아 과억제하므로 **이름 판정**. 근거:
-  [[dividend-payout-classification-260717]].
+  dividend-payout-classification-260717.
 
 ## 관련 공시 (rules/disclosures/)
 - [[사업보고서]] — fnlttSinglAcnt 1차 source (연간)
@@ -241,7 +241,7 @@ sequenceDiagram
   실효 1사(CJ)·오탐(SK리츠 1957%)이라 **기각**. REIT는 순이익 대비 성향 무의미 → 이름 '리츠' 판정으로
   `payout_ratio_pct=None`+안내. dividend 툴은 주총 경과(today>익년5/31) 시 "미공시(미확정)"→"무배당(확정)"
   정정(메리츠·SK증권 배당→자사주 소각 전환, payer-blank 14사 회귀 오전환 0). 근거:
-  [[dividend-payout-classification-260717]].
+  dividend-payout-classification-260717.
 - 2026-07-16: **배당성향을 CF 현금지급 → DART 현금배당성향(귀속) 교체.** `payout_ratio_pct`가 분자로
   현금흐름표 '배당금지급'(대개 전년 결산배당이 그해 지급된 것 + 당해 중간배당, 연결 지배+비지배)÷지배
   순이익을 써서, 귀속 표준(당해 배당÷당해 순이익)과 **분자의 연도·주체가 어긋났다**(삼성전자 22.4% vs
@@ -251,7 +251,7 @@ sequenceDiagram
   **DART '현금배당성향'(연결 우선)을 연간보고서에서 연도 key 조인**으로 주입(SSOT 일원화). 2룹 재검증:
   new≡div |diff| 중앙 0.000%p·침묵누락 55/55 복구·과대교정 0. CF `dividend_paid_krw`는 배당/FCF 전용
   유지. 남은 갭: alotMatter 현금배당성향 미기재사(일부 보험·REIT/인프라)는 fm·div 둘 다 None(후속).
-  근거: [[financial-metrics-payout-260716]].
+  근거: financial-metrics-payout-260716.
 - 2026-07-13: **금융사 판별 2차 신호(KSIC 업종) 결합.** BS신호(예수부채 등)만으론 수신 없는(예수부채 無)
   카드·캐피탈·벤처캐피탈(삼성카드 64913·미래에셋벤처투자/HB인베스트먼트 649)을 놓쳐 debt_dependency가
   잘못 산출됨 → `_lookup_induty_code`(mkt_fundamentals, **DART 콜 0**)로 induty를 받아 `is_financial =
@@ -265,7 +265,7 @@ sequenceDiagram
   REVIEW(미등록) 합산제외 표면화, 리스·신종자본증권 별도 필드, 전환사채 포함+희석경고, 금융사(KSIC+연결
   BS 예수부채 2-신호, 예수금 제외)는 debt_dependency=n/a. before/after 155사 중 101사 복구·과대교정 0사.
   KICPA·AICPA·DART·스튜어드십·CFO 5인 패널 검토(측정도구 예수금·소계 오탐 발견 포함). 근거:
-  [[financial-metrics-borrowings-260713]]. 영향필드: total_debt_krw·debt_dependency_pct·net_cash_krw·ROIC.
+  financial-metrics-borrowings-260713. 영향필드: total_debt_krw·debt_dependency_pct·net_cash_krw·ROIC.
 - 2026-06-12: **quarterly/qoq standalone 차분 + QoQ·YoY 기본 동봉.** Q4 행이 사업보고서 연간 누적치로 채워져 QoQ 비교·`revenue_decline_qoq` alert가 왜곡되던 버그 수정 (실사용 발견 — SK하이닉스 26Q1 질의에서 호스트 모델이 수동 보정에 장시간 소모). DART 필드 실측: Q1~Q3 `thstrm_amount`=3개월 standalone, `thstrm_add_amount`=누적, 연간(11011)=누적 → **Q4 = 연간 − Q3 누적(add) 차분** (dividend 누적차분 패턴 재사용, 결측 시 Q1~3 합 fallback + `annual_cumulative` flag·warning). 전 행에 `qoq_pct`/`yoy_pct`(매출·영업이익·순이익) 기본 동봉 — 전기 적자·결측 시 None. BS 항목은 시점값이라 차분 제외. 검증: SK하이닉스(25Q4 32.8조, 26Q1 QoQ +60.2%/YoY +198.1%, false alert 해소)·삼성전자·LG디스플레이(적자 분기 None 처리), **3사 전 연도 '4분기 합 = 연간' 불변식 통과**.
 - 2026-06-12: EBITDA 표시 정책 — 산출 불가(76%) 시 "산출 불가" 안내 대신 **줄 자체 생략** (결측 광고가 hedge처럼 읽히는 문제). CapEx/감가상각비 줄 동일. JSON 필드(`ebitda_krw` nullable)는 유지 — 산출 가능 24%에선 그대로 제공.
 - 2026-06-12: **시장 412사 × FY24·25 다차원 전수 audit** (KOSPI 시총 300 + KOSDAQ 100 + 엣지 12, 회사당 10콜·총 ~4,200콜, raw: [[260612_fm_market_audit_412|audits/data/260612_fm_market_audit_412.json]]).

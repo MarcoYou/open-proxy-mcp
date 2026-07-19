@@ -184,7 +184,7 @@ A1-1 "변경" 키워드 fix는 이미 commit (e98f515). 추가 룰 정밀화는 
 
 → G1 미달 → `LAW_LAYER_BODY_MATCHING_VERIFIED` promise 출력 **X** (false promise 거부).
 
-**lesson**: [[lessons/law-layer-body-260510]] 작성. 다음 ralph 후보:
+**lesson**: law-layer-body-260510 작성. 다음 ralph 후보:
 1. body 매칭 architect (amendments 별 가상 안건 노출 또는 raw 첨부 확장)
 2. A2 시행 후 자연 검증 (2026-07-23 / 09-10)
 3. 분쟁 회사 광범위 spot (60+ 회사)

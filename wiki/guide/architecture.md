@@ -103,5 +103,5 @@ OPM은 담당 영역별로 분리된 24개 도구를 MCP로 제공합니다. AI 
 - 데이터 수집·폴백: [[architecture/data-collection]] · [[architecture/3-tier-fallback]]
 - 도구 오케스트레이션 패턴: [[architecture/multi-upstream-pattern]]
 - 의결권 판단 프레임워크: [[architecture/proxy-voting-decision-tree]]
-- 매트릭스 시스템(설계 자산): [[architecture/matrix-system]]
+- 매트릭스 시스템(설계 자산): matrix-system
 - 프로젝트 구조: [[architecture/project_structure]]

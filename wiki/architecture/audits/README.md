@@ -148,7 +148,7 @@ audit가 `data/`에 남기는 summary.json(또는 동급 manifest)에는 **재�
 - [[260510_parsing_audit_통합정리]] — 2026-05-10 이전 parsing audit 통합 흐름
 - [[260508_parser_audit]] — parser family / trigger 구조 점검
 - [[260429_2053_audit_personnel-878명]] — 후보자/경력 파서 정확도
-- [[260502_2300_audit_advise-recap-vote]] — action tool 재편 sanity
+- 260502_2300_audit_advise-recap-vote — action tool 재편 sanity
 - [[260504_2200_audit_proxy_advise_framework_iter1-8]] — proxy_advise framework iter history
 - [[260504_0028_audit_proxy_advise_rename_regression]] — proxy_advise rename regression
 - [[260528_proxy_advise_metric_gap_audit]] — metric/reporting gap audit

@@ -10,6 +10,12 @@ title: Operation Log
 > 날짜 엔트리 및 링크된 lessons/decisions 페이지 참조.
 
 ### 주요 변화 (2026-07-07 ~ )
+- **자산가치 스콥 하드닝 + wiki 구조 재편 (2026-07-19~20)** — `business_details`의
+  `real_estate`·`equity_holdings`: 토지 시그니처를 유형자산 **변동표(기초~기말 롤포워드)** 레이아웃까지
+  확장(전수 회귀 0·복구 187), region 단위선언 유실 시 **근접 지배 단위 백필**(단위 always-carry),
+  프리필터+strip 공유로 1.5x(회귀 0). `dart/client.py`에 타법인출자현황 API(`otrCprInvstmntSttus`)
+  래퍼 추가. wiki는 lessons 등 내부 노하우 문서를 private 저장소로 재배치하고 운용사 익명화 정합을
+  보강(전수 감사 기반) — public에는 툴 문서·도메인 지식·가이드라인 유지.
 - **상법 시행일 SSOT + 근거 조문·시행령 정확화 + 주총일 게이트 (2026-07-09)** — 시행일이 md·엔진에
   손으로 중복 기입돼 한 곳만 고치면 나머지가 조용히 어긋나던 사고(A2-5: 신주배정금지 룰이 3월 아닌
   9월부터 발화)를 구조적으로 차단. **`law_provisions.json`(신규 SSOT — 상법 개정 조항 대장)**: 조문번호·
@@ -37,23 +43,23 @@ title: Operation Log
   ([[shareholder_commitment]] / [[treasury_share]])
 
 ### 주요 변화 (2026-05-04 ~ 06-21)
-- **주총 안건/정기·임시 파서 6사이클 production 배포 + 검증 측정 함정 5패턴 (2026-06-21)** — detect 재작성(880→888, 섹션 오선택→소집공고 직후 40자 앵커)·marker/zone·bleeding 경계·하위안건 분리·**proposer 복원**(주주제안 `source` 전파, 다원시스 라이브 확인)·빈제목 부모 추론. 통합 픽스처 **3,016건**(코스피·코스닥 3/1~5/15, 정기 2,849) 확보. **측정 스크립트가 6번 거짓 결론**(이미지=본문부재·미상=사각지대·0개=버그·bleed 날짜오탐·v2 정답오판·변경분만 봄) → 직접 표본·전수 diff·production 경로(html)로만 잡힘. 프로토콜: **html 픽스처 0콜 + 전수 diff + 직접 표본**. ([[lessons/agenda-parser-validation-260621]])
-- **proxy_result 제거(17→16) + 2차 전수조사 4축 (2026-06-13)** — proxy_result_after_meeting 제거: 핵심(안건별 가결/부결/찬반율)을 `shareholder_meeting_results`가 3콜 vs 32콜로 대체, desc의 'cross-match' 미구현, 핵심 0건 회귀를 한 달간 무인지 = 실사용 부재. 코드 archive 보존. 남은 검증축 전수: **seam audit**(proxy_advise 8사 composite vs 직접 호출 — 고려아연 headcount str crash 발견·근원 fix), **render smoke**(16툴×31케이스 FastMCP call_tool — 솔루엠 perf None 포맷 crash 발견 → 31/31, payload audit이 못 보는 render 레이어), **corp_gov 값**(30사 450지표 O/X + 기준값 정확 일치, 삼성 13/15), **production MCP smoke**(정식 클라이언트 initialize→list→call, 재설계 반영 확인). 메타: 가짜 clean 3회(틀린 키)→첫 케이스 실키 출력+양성 검사량 보고 표준화 / 인프라 이상은 단발 증상 말고 curl 직접 격리 확인(키 무효 오진 정정). 릴리즈 노트 docs/RELEASE_NOTES.md로 분리. ([[lessons/tool-coverage-audit-260612]])
-- **audit 미커버 툴 전수조사 — proxy_result 0건 회귀 발견·교정 (2026-06-12)** — 커버리지 매핑(파싱 성공률 vs 내용 정확도 2층위) 후 미흡 순서로 전수. ① ownership 450사: DART 원본 단위 오염 2사(LS 명부 ×1,000·LS에코 발행총수 ×1,000,000) — 지분율 anchor 자가 교정 + 분모(보통주 vs 총주식) 괴리 경고. ② dilutive·restructuring·deals 값 정확도 286사: deals 행 1,560 채움률 100% issue 0, 날짜 676건 한국어 원본 → ISO 일괄 정규화. ③ evidence 8케이스(불가능 달력 날짜 검증 추가) + **proxy_result: 핵심 안건결과가 항상 0건이던 회귀**(upstream 키 `agenda_results`→`results.items` rename 미반영, no_results로 위장) 발견 → 교정 후 15/15 복구. 과거 연도(2024·25) 결과는 서술형 공시라 소스 한계. 교훈: baseline 없는 툴은 죽어도 모른다 / upstream rename 시 소비자 동시 갱신 / upstream exact + 자기 0건 = 버그 신호. ([[lessons/tool-coverage-audit-260612]])
-- **financial_metrics 정밀화 — hedge 역추적 → 412사 전수 audit (2026-06-12)** — 실사용(SK하이닉스 질의)에서 호스트 모델의 장시간 추론·"확인 필요" hedge가 전부 tool 파싱 결함의 증상임을 역추적. 교정 9건: **Q4 누적차분 + QoQ·YoY 기본 동봉**, fs_div 필터(CFS+OFS 동시 반환 실측), **이자보상배율 왜곡 제거**(금융비용 오염 — 삼성전자 3.72→92.8배) + 변형 정확일치 세트로 커버리지 59%→97%, 차입금 generic(차입금/차입부채), 분기 fallback CF 결측(used_rc 전파), 재작성 gap flag 이원화·손익 3키 확장, EBITDA(D&A 24% 원천 한계)·잠식률 표시 정책. 검증: 라운드 점증(4→412사 × FY24·25, ~4,200콜) + 불변식(4분기합=연간·FCF=CFO−CapEx·듀퐁곱=ROE) 수렴. 교훈: 모델의 hedge는 공짜 버그 리포트, 결측이 오류보다 낫다, 누적 공시는 항상 차분. ([[financial_metrics]] / [[lessons/financial-metrics-precision-260612]] / [[260612_fm_market_audit_412|audit raw]])
+- **주총 안건/정기·임시 파서 6사이클 production 배포 + 검증 측정 함정 5패턴 (2026-06-21)** — detect 재작성(880→888, 섹션 오선택→소집공고 직후 40자 앵커)·marker/zone·bleeding 경계·하위안건 분리·**proposer 복원**(주주제안 `source` 전파, 다원시스 라이브 확인)·빈제목 부모 추론. 통합 픽스처 **3,016건**(코스피·코스닥 3/1~5/15, 정기 2,849) 확보. **측정 스크립트가 6번 거짓 결론**(이미지=본문부재·미상=사각지대·0개=버그·bleed 날짜오탐·v2 정답오판·변경분만 봄) → 직접 표본·전수 diff·production 경로(html)로만 잡힘. 프로토콜: **html 픽스처 0콜 + 전수 diff + 직접 표본**. (agenda-parser-validation-260621)
+- **proxy_result 제거(17→16) + 2차 전수조사 4축 (2026-06-13)** — proxy_result_after_meeting 제거: 핵심(안건별 가결/부결/찬반율)을 `shareholder_meeting_results`가 3콜 vs 32콜로 대체, desc의 'cross-match' 미구현, 핵심 0건 회귀를 한 달간 무인지 = 실사용 부재. 코드 archive 보존. 남은 검증축 전수: **seam audit**(proxy_advise 8사 composite vs 직접 호출 — 고려아연 headcount str crash 발견·근원 fix), **render smoke**(16툴×31케이스 FastMCP call_tool — 솔루엠 perf None 포맷 crash 발견 → 31/31, payload audit이 못 보는 render 레이어), **corp_gov 값**(30사 450지표 O/X + 기준값 정확 일치, 삼성 13/15), **production MCP smoke**(정식 클라이언트 initialize→list→call, 재설계 반영 확인). 메타: 가짜 clean 3회(틀린 키)→첫 케이스 실키 출력+양성 검사량 보고 표준화 / 인프라 이상은 단발 증상 말고 curl 직접 격리 확인(키 무효 오진 정정). 릴리즈 노트 docs/RELEASE_NOTES.md로 분리. (tool-coverage-audit-260612)
+- **audit 미커버 툴 전수조사 — proxy_result 0건 회귀 발견·교정 (2026-06-12)** — 커버리지 매핑(파싱 성공률 vs 내용 정확도 2층위) 후 미흡 순서로 전수. ① ownership 450사: DART 원본 단위 오염 2사(LS 명부 ×1,000·LS에코 발행총수 ×1,000,000) — 지분율 anchor 자가 교정 + 분모(보통주 vs 총주식) 괴리 경고. ② dilutive·restructuring·deals 값 정확도 286사: deals 행 1,560 채움률 100% issue 0, 날짜 676건 한국어 원본 → ISO 일괄 정규화. ③ evidence 8케이스(불가능 달력 날짜 검증 추가) + **proxy_result: 핵심 안건결과가 항상 0건이던 회귀**(upstream 키 `agenda_results`→`results.items` rename 미반영, no_results로 위장) 발견 → 교정 후 15/15 복구. 과거 연도(2024·25) 결과는 서술형 공시라 소스 한계. 교훈: baseline 없는 툴은 죽어도 모른다 / upstream rename 시 소비자 동시 갱신 / upstream exact + 자기 0건 = 버그 신호. (tool-coverage-audit-260612)
+- **financial_metrics 정밀화 — hedge 역추적 → 412사 전수 audit (2026-06-12)** — 실사용(SK하이닉스 질의)에서 호스트 모델의 장시간 추론·"확인 필요" hedge가 전부 tool 파싱 결함의 증상임을 역추적. 교정 9건: **Q4 누적차분 + QoQ·YoY 기본 동봉**, fs_div 필터(CFS+OFS 동시 반환 실측), **이자보상배율 왜곡 제거**(금융비용 오염 — 삼성전자 3.72→92.8배) + 변형 정확일치 세트로 커버리지 59%→97%, 차입금 generic(차입금/차입부채), 분기 fallback CF 결측(used_rc 전파), 재작성 gap flag 이원화·손익 3키 확장, EBITDA(D&A 24% 원천 한계)·잠식률 표시 정책. 검증: 라운드 점증(4→412사 × FY24·25, ~4,200콜) + 불변식(4분기합=연간·FCF=CFO−CapEx·듀퐁곱=ROE) 수렴. 교훈: 모델의 hedge는 공짜 버그 리포트, 결측이 오류보다 낫다, 누적 공시는 항상 차분. ([[financial_metrics]] / financial-metrics-precision-260612 / [[260612_fm_market_audit_412|audit raw]])
 
-- **risk_events tool 신설 — 17번째 tool (2026-06-11, serious_accident 흡수 확장)** — 기업 리스크 이벤트 6종 통합: **중대재해 / 횡령·배임 / 파생상품손실 / 회생·부도 / 생산중단·영업정지 / 해산** (본사·종속/자회사 변형 포함). 채널 = **I001+B001 동시 조회** (회생'신청'·부도·영업정지·해산은 B001 전용 — 시장 90일 sweep 실측으로 채널 매핑 확정). 중대재해는 **305사 × 3.5년** 검증(I 전체 vs I001 차집합 0·truncation 0·풀스캔 누수 0) — 공시 79건 전수: **대형 원청·지주사 집중**(KOSDAQ 상위 100 보유 0, 중소형 건설 35사 0건). **시장 전체 스캔 모드**(company 미지정, 30일 기본·90일 max, ~45콜): 30일 실측 54건/6카테고리. 카테고리별 원문 파싱(사상자/혐의금액·자기자본%/손실액/중단부문) + **사상자 supersede 집계**(정정·지주/사업회사 이중 공시 → 발생일자+장소 정규화 키, 한화 '㈜' vs '(주)' 이중 집계 버그 실측 교정). 처벌확인 실물 2건 첫 확인(화일약품·THE CUBE&), 횡령배임 파서 태광산업 검증(38.3억·자기자본 0.09%). 제도 시점: 중대재해 수시공시 신설 2025-10 → 이전 무공시 ≠ 무사고 warning. 본문 파싱은 연속 2개 90일 윈도우 **359건 전수 audit**(파생 `손실발생금액`·영업정지 라벨 등 교정, 전 카테고리 87~100%). **스콥 결정: 활성 3종(중대재해/횡령배임/생산중단영업정지), 파생손실·회생부도·해산은 mute** — 파서·검증 보존, 기본 조회·desc 비노출, 명시 category 요청 시만 동작. ([[risk_events]] / [[lessons/risk-events-pipeline-260611]])
-- **related_party_transaction → corporate_deals rename (2026-06-10)** — "SK스퀘어가 인수하거나 매각한 회사" 질의가 tool 라우팅 실패. 원인 = 이름·desc에 사용자 어휘(인수/매각) 부재 + 이름이 기능 절반(지분 딜 추적)보다 좁음 + corporate_restructuring이 "M&A" 선점. scope 분기 대신 **rename + desc 사용자 어휘 보강**("어떤 회사를 인수했나/팔았나", 출자·회수) + restructuring과 **양방향 경계 문구**. 내부 plumbing 전면 통일, 기능 변화 0, SK스퀘어 회귀 동일(취득4/처분3). ([[lessons/tool-naming-discovery-260610]])
-- **proxy_advise 2단계 조기 발사 시도 → 실측 반증 → 롤백 (2026-06-10)** — perf를 director gate 판단 후 1차 완료 전 조기 발사. component-timing 모델상 이득 1.7초(회귀 수학적 불가능, before/after bit-identical)였으나 **wall-clock 실측에서 반증**: 복잡 20개 손해 16/20, 흔한 15개 손해 12/15, 평균 음수. 측정 노이즈(같은 코드 2회 차이 중앙 426ms)가 효과(-350ms)보다 커 이득이 묻힘 + Semaphore(3)·throttle 경합으로 약한 손해 경향 → 롤백. 교훈: component 모델 ≠ wall-clock, 효과 측정 전 노이즈 baseline 필수. ([[lessons/proxy-advise-stage2-parallel-260610]])
-- **ownership_structure summary 재설계 + 정합성 버그 2건 (2026-06-10)** — "고려아연 지분구조" 질문에서 출발. summary 헤드라인을 **명부 단독 vs 본인+특관 vs 5% 실세**로 라벨 분리(집계 기준 다름), **지분 구성 100% 정합 분해**(명부+자사주+기타, 5%보고는 보고자 중복이라 합산 100% 불가) 추가, 노이즈 컷·블록 병합(6→3블록). changes scope를 **I004(최대주주변동신고서)**로 좁히고 **5% 대량보유 변동 통합**(분쟁사는 5%보고로 움직여 I004만 보면 빔, 고려아연 0→15건). director_evaluation **E006** narrowing. 33개사 스크리닝으로 정합성 버그 교정: **셀트리온 issued=0**(우선주 없는 회사는 `합계` 행만 → 보통주 행 가정 실패 → 합계 fallback), **금호석유 resolve 실패**(정식명 prefix 단일후보 자동선택). 펀드형(맥쿼리인프라) issued=0 안내. ([[lessons/ownership-summary-integrity-260610]])
-- **공시 검색 페이지컷 truncation 교정 — 6 tool detail-code 좁히기 (2026-06-09)** — 넓은 공시유형(I·B,I,E·D) 페이지 순회(max_pages=10)가 prolific 회사에서 truncation. proxy_contest D 검색이 삼성에서 D002(임원 수천건)에 밀려 D001/D003/D004 일부 잘림(broad 6 vs detail 14, +8 복구). [[공시유형코드체계]] 카탈로그 기반 정밀 매핑 + '넓은type vs detail 차집합 0' 검증으로 6 tool(corp_gov·value_up·shareholder_meeting·treasury·related_party·proxy_contest) 좁힘. filing_search 멀티 detail-code 지원 + 013(no-data) abort 버그 fix. ([[lessons/page-cut-detail-code-260609]])
-- **배당 파서 출처확정+누적차분+분류 정밀화 (2026-06-09)** — 출처맵(A 사업보고서 다년컬럼=권위 / B 분기·반기 누적 / C 결정공시 날짜 / D 명부폐쇄 기준일). 분기별을 결정공시 날짜추측 대신 **정기보고서 누적 차분**(Q2=반기-Q1…)으로 보통+우선 DPS·총액 산출 → 경계 오귀속·예비결산 중복 제거, 무배당 분기 0·특별배당 포착. 최신연도 4분류(중간확정/확정전/미공시/무배당, target연도 매칭). 중복제거(pre_dividend 통합·pending_annual 제거 → DART -3/회사). per-decision 시가배당률 0 억제. stateless MCP(머신별 세션 in-memory → nrt×2 "Session not found" 해소). **51개사 정합성 100%** 검증. ([[lessons/dividend-source-of-truth-260609]] / [[배당공시유형]])
-- **proxy_contest 분쟁 신호 정밀화 (2026-06-05~07)** — 경영권 분쟁 탐지 다축화. ① 5% 대량보유 시계열 동학 (목적전환 단순투자→경영참여 / 지속 추가매입 / 급변 ±5%p 매집·exit 양방향). ② 소송 4단계 분류: 정정 dedup → 경영권/상거래 구분(commercial false positive 제거, 아시아나항공 등) → 미상 회사단위 추정 → 본문 "사건의 명칭" 파싱(litigation scope, 병렬, 📄) → LLM 위임. 키워드 단독 행위 + 명사·행위 조합 구조(substring FP 제거). ③ 능동 5% 외부세력/대주주 본인 분리. ④ dead code(_block_signals 중복 majorstock) 제거. 역추적 방법론 검증: 시총순 14% vs 분쟁 공시 역추적 71.6% (5배 효율), 142종목 진짜 경영권 분쟁 70 추출. 자동 판정 X — 정보 구조화 + LLM 위임 철학. ([[lessons/contest-signals-500-260605]] / [[lessons/dispute-reverse-lookup-260607]])
-- **데이터 tool latency pass (2026-05-24)** — `data.timings_ms` 노출 + low-risk 병렬화. treasury_share 결과보고서 검색 전체공시→B/I/E title scan(삼성전자 2.7s→0.9s), dividend metadata overlap, filing_search page2+ 병렬, corp_gov 검색윈도우 4년→2년. median speedup 58.6% (4.137s→0.211s), p95 4.163→0.251s. 핵심: 병렬화보다 "대기를 겹치는 위치"가 중요. ([[260510_data_tools_perf_audit]] / [[perf-timing-260524]])
+- **risk_events tool 신설 — 17번째 tool (2026-06-11, serious_accident 흡수 확장)** — 기업 리스크 이벤트 6종 통합: **중대재해 / 횡령·배임 / 파생상품손실 / 회생·부도 / 생산중단·영업정지 / 해산** (본사·종속/자회사 변형 포함). 채널 = **I001+B001 동시 조회** (회생'신청'·부도·영업정지·해산은 B001 전용 — 시장 90일 sweep 실측으로 채널 매핑 확정). 중대재해는 **305사 × 3.5년** 검증(I 전체 vs I001 차집합 0·truncation 0·풀스캔 누수 0) — 공시 79건 전수: **대형 원청·지주사 집중**(KOSDAQ 상위 100 보유 0, 중소형 건설 35사 0건). **시장 전체 스캔 모드**(company 미지정, 30일 기본·90일 max, ~45콜): 30일 실측 54건/6카테고리. 카테고리별 원문 파싱(사상자/혐의금액·자기자본%/손실액/중단부문) + **사상자 supersede 집계**(정정·지주/사업회사 이중 공시 → 발생일자+장소 정규화 키, 한화 '㈜' vs '(주)' 이중 집계 버그 실측 교정). 처벌확인 실물 2건 첫 확인(화일약품·THE CUBE&), 횡령배임 파서 태광산업 검증(38.3억·자기자본 0.09%). 제도 시점: 중대재해 수시공시 신설 2025-10 → 이전 무공시 ≠ 무사고 warning. 본문 파싱은 연속 2개 90일 윈도우 **359건 전수 audit**(파생 `손실발생금액`·영업정지 라벨 등 교정, 전 카테고리 87~100%). **스콥 결정: 활성 3종(중대재해/횡령배임/생산중단영업정지), 파생손실·회생부도·해산은 mute** — 파서·검증 보존, 기본 조회·desc 비노출, 명시 category 요청 시만 동작. ([[risk_events]] / risk-events-pipeline-260611)
+- **related_party_transaction → corporate_deals rename (2026-06-10)** — "SK스퀘어가 인수하거나 매각한 회사" 질의가 tool 라우팅 실패. 원인 = 이름·desc에 사용자 어휘(인수/매각) 부재 + 이름이 기능 절반(지분 딜 추적)보다 좁음 + corporate_restructuring이 "M&A" 선점. scope 분기 대신 **rename + desc 사용자 어휘 보강**("어떤 회사를 인수했나/팔았나", 출자·회수) + restructuring과 **양방향 경계 문구**. 내부 plumbing 전면 통일, 기능 변화 0, SK스퀘어 회귀 동일(취득4/처분3). (tool-naming-discovery-260610)
+- **proxy_advise 2단계 조기 발사 시도 → 실측 반증 → 롤백 (2026-06-10)** — perf를 director gate 판단 후 1차 완료 전 조기 발사. component-timing 모델상 이득 1.7초(회귀 수학적 불가능, before/after bit-identical)였으나 **wall-clock 실측에서 반증**: 복잡 20개 손해 16/20, 흔한 15개 손해 12/15, 평균 음수. 측정 노이즈(같은 코드 2회 차이 중앙 426ms)가 효과(-350ms)보다 커 이득이 묻힘 + Semaphore(3)·throttle 경합으로 약한 손해 경향 → 롤백. 교훈: component 모델 ≠ wall-clock, 효과 측정 전 노이즈 baseline 필수. (proxy-advise-stage2-parallel-260610)
+- **ownership_structure summary 재설계 + 정합성 버그 2건 (2026-06-10)** — "고려아연 지분구조" 질문에서 출발. summary 헤드라인을 **명부 단독 vs 본인+특관 vs 5% 실세**로 라벨 분리(집계 기준 다름), **지분 구성 100% 정합 분해**(명부+자사주+기타, 5%보고는 보고자 중복이라 합산 100% 불가) 추가, 노이즈 컷·블록 병합(6→3블록). changes scope를 **I004(최대주주변동신고서)**로 좁히고 **5% 대량보유 변동 통합**(분쟁사는 5%보고로 움직여 I004만 보면 빔, 고려아연 0→15건). director_evaluation **E006** narrowing. 33개사 스크리닝으로 정합성 버그 교정: **셀트리온 issued=0**(우선주 없는 회사는 `합계` 행만 → 보통주 행 가정 실패 → 합계 fallback), **금호석유 resolve 실패**(정식명 prefix 단일후보 자동선택). 펀드형(맥쿼리인프라) issued=0 안내. (ownership-summary-integrity-260610)
+- **공시 검색 페이지컷 truncation 교정 — 6 tool detail-code 좁히기 (2026-06-09)** — 넓은 공시유형(I·B,I,E·D) 페이지 순회(max_pages=10)가 prolific 회사에서 truncation. proxy_contest D 검색이 삼성에서 D002(임원 수천건)에 밀려 D001/D003/D004 일부 잘림(broad 6 vs detail 14, +8 복구). [[공시유형코드체계]] 카탈로그 기반 정밀 매핑 + '넓은type vs detail 차집합 0' 검증으로 6 tool(corp_gov·value_up·shareholder_meeting·treasury·related_party·proxy_contest) 좁힘. filing_search 멀티 detail-code 지원 + 013(no-data) abort 버그 fix. (page-cut-detail-code-260609)
+- **배당 파서 출처확정+누적차분+분류 정밀화 (2026-06-09)** — 출처맵(A 사업보고서 다년컬럼=권위 / B 분기·반기 누적 / C 결정공시 날짜 / D 명부폐쇄 기준일). 분기별을 결정공시 날짜추측 대신 **정기보고서 누적 차분**(Q2=반기-Q1…)으로 보통+우선 DPS·총액 산출 → 경계 오귀속·예비결산 중복 제거, 무배당 분기 0·특별배당 포착. 최신연도 4분류(중간확정/확정전/미공시/무배당, target연도 매칭). 중복제거(pre_dividend 통합·pending_annual 제거 → DART -3/회사). per-decision 시가배당률 0 억제. stateless MCP(머신별 세션 in-memory → nrt×2 "Session not found" 해소). **51개사 정합성 100%** 검증. (dividend-source-of-truth-260609 / [[배당공시유형]])
+- **proxy_contest 분쟁 신호 정밀화 (2026-06-05~07)** — 경영권 분쟁 탐지 다축화. ① 5% 대량보유 시계열 동학 (목적전환 단순투자→경영참여 / 지속 추가매입 / 급변 ±5%p 매집·exit 양방향). ② 소송 4단계 분류: 정정 dedup → 경영권/상거래 구분(commercial false positive 제거, 아시아나항공 등) → 미상 회사단위 추정 → 본문 "사건의 명칭" 파싱(litigation scope, 병렬, 📄) → LLM 위임. 키워드 단독 행위 + 명사·행위 조합 구조(substring FP 제거). ③ 능동 5% 외부세력/대주주 본인 분리. ④ dead code(_block_signals 중복 majorstock) 제거. 역추적 방법론 검증: 시총순 14% vs 분쟁 공시 역추적 71.6% (5배 효율), 142종목 진짜 경영권 분쟁 70 추출. 자동 판정 X — 정보 구조화 + LLM 위임 철학. (contest-signals-500-260605 / dispute-reverse-lookup-260607)
+- **데이터 tool latency pass (2026-05-24)** — `data.timings_ms` 노출 + low-risk 병렬화. treasury_share 결과보고서 검색 전체공시→B/I/E title scan(삼성전자 2.7s→0.9s), dividend metadata overlap, filing_search page2+ 병렬, corp_gov 검색윈도우 4년→2년. median speedup 58.6% (4.137s→0.211s), p95 4.163→0.251s. 핵심: 병렬화보다 "대기를 겹치는 위치"가 중요. ([[260510_data_tools_perf_audit]] / perf-timing-260524)
 - **value_up role extraction (2026-05-31)** — 최신 공시 1개 중심에서 `latest_plan` / `latest_status` / `latest_result` / `meta_amendment` 역할 분리. `계획서 명칭` 기반 보정, meta-only 구간 최근 2년 role backfill, `이행결과` nullable 분리. KOSPI500 + KOSDAQ150, 562 filing 전수조사 기준. ([[260530_audit_value-up-implementation-tags]] / [[value_up]])
 - **financial_metrics Tier 1 확장 (2026-05-31)** — CFO/순이익, DSO/DIO/DPO/CCC 추가. 51 → 56 지표, 추가 API 호출 없음. ([[financial_metrics]])
 - **agenda parser marketwide (2026-05-25)** — KOSPI500 + KOSDAQ150, XML 641건, no_filing 9, 3회 재파싱 hash diff 0. 최신 기준은 [[260525_1620_audit_agenda-parser-marketwide]].
-- **agenda relation KOSPI300 rerun (2026-05-25)** — exact 298 / no_filing 2 / requires_review 0, relation metadata는 결론이 아니라 자동 판단을 멈추는 guardrail. ([[260525_0200_audit_agenda-relation-kospi300]] / [[agenda-relation-parser-260525]])
+- **agenda relation KOSPI300 rerun (2026-05-25)** — exact 298 / no_filing 2 / requires_review 0, relation metadata는 결론이 아니라 자동 판단을 멈추는 guardrail. ([[260525_0200_audit_agenda-relation-kospi300]] / agenda-relation-parser-260525)
 - **key data tools parsing 성공률 감사 (2026-05-17~18)** — KOSPI 300 + KOSDAQ 150 baseline과 비중복 100개 recheck 기준 문서 신설. 최신 기준은 [[architecture/audits/260517_parsing_success_rate_audit]]. `value_up`은 outside-window/013 no_filing 분류 보강 후 strict 100%, `shareholder_meeting_results`는 DART-first 결과 파싱 후 adjusted hard fail 0%.
 - 17 → 16 tool: `screen_events` drop, `proxy_guideline` archive, `shareholder_meeting` → notice + results 분리
 - proxy_advise scope **10 → 1** (`decisions`만, raw는 각 tool 직접 호출)
@@ -63,17 +69,17 @@ title: Operation Log
 - 사내이사 **재직 중 성과 매트릭스 (2x3)** 도입 — status quo bias mitigation. ROE/부채비율/CSR × avg/trend, bad → AGAINST, weak → REVIEW. KOSPI 100 + KOSDAQ 50 검증 G1 100% / G4 dist 29.7/45.3/18.0/7.0 모두 target band 충족. ([[260505_1700_decision_inside-director-performance-matrix]])
 - **보수한도 / 퇴직금 분기 정밀화** — 이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 hybrid 통합. KOSPI 200 + KOSDAQ 50 (n=226) G1 99-100% / G3 100% / G4 N연기금 정합 100%. AGAINST 5건 (지급률 2배수+ × 3, 사외이사 퇴직금 × 1, 자본잠식+인상 × 1) 모두 정확 분기. ([[260505_1900_decision_compensation-retirement-split]])
 - **shareholder_meeting_notice scope 정리** — 6→5 (`agenda`/`full` 폐지, `prov_financials` 신설). summary 강화 (hierarchy + 1호 안건 메타) + aoi_change에 retirement raw 통합. `provisional_financial_statement.py` 독립 모듈 (parser.py 의존성 제거). ([[260506_0030_decision_notice-scope-cleanup-prov-financials]])
-- **parser omnibus 검증 + DART 6컬럼 sub-column fix** — KOSPI 200 + KOSDAQ 100 (300 회사) 통합 audit, 9 Tier A parser G1 ≥98.7% 모두 충족. PFS metric extraction 19 sparse 케이스 (현대차/셀트리온/두산 등) root cause = `_period_by_num` 다음 colspan 확장 빈 셀이 "unknown" 분류되던 것 → fix 후 100%. v1 dead 3 parser logical archive 결정 + G4 layer 정합 PASS. ([[lessons/parser-omnibus-260506]] / [[260506_2330_decision_v1-dead-parsers-archive]])
-- **법령 layer 정밀화 (Ralph 4)** — Ralph 3 follow-up. 280 회사 광범위 검증 (KOSPI 200 + KOSDAQ 100 + 분쟁 20). B1-4 분기 (정관변경 vs 후보 임기) + B1-8b 신규 (KT&G 정관 사전 우회 catch) + B1-7 보강 (정원 키워드). `_agenda_pattern_match()`에 parent_must_contain/parent_excludes 패턴 키 신규. 36 → 38 룰. false positive 0 / 회귀 0. 분쟁 회사 hits 11.6% (KOSPI 9.8% / KOSDAQ 1.8%). ([[lessons/law-layer-precision-260508]] / [[260508_0700_decision_law-layer-precision]])
-- **파서 전수조사 + 정밀화 검증 (Ralph 5)** — 40 파서 분류 (A 명명형 25 / B raw 보존 1 / C 혼합 14). framework: 데이터 본질에 따라 (숫자→파싱, 자연어→raw, 메타+본문→혼합). parse_aoi_xml이 모범 사례 (clause/label 명명 + before/after raw). audit 1차 권장 (parse_personnel_xml + parse_aoi_xml 보강) Ralph 5 실측 후 무효화 — careerDetails 0% 누락 (44회사/225후보) / aoi 1.66% 누락 (모두 source 한계). 두 파서 정밀도 충분, 코드 변경 X. ([[architecture/audits/260508_parser_audit]] / [[lessons/parser-precision-260508]])
+- **parser omnibus 검증 + DART 6컬럼 sub-column fix** — KOSPI 200 + KOSDAQ 100 (300 회사) 통합 audit, 9 Tier A parser G1 ≥98.7% 모두 충족. PFS metric extraction 19 sparse 케이스 (현대차/셀트리온/두산 등) root cause = `_period_by_num` 다음 colspan 확장 빈 셀이 "unknown" 분류되던 것 → fix 후 100%. v1 dead 3 parser logical archive 결정 + G4 layer 정합 PASS. (parser-omnibus-260506 / [[260506_2330_decision_v1-dead-parsers-archive]])
+- **법령 layer 정밀화 (Ralph 4)** — Ralph 3 follow-up. 280 회사 광범위 검증 (KOSPI 200 + KOSDAQ 100 + 분쟁 20). B1-4 분기 (정관변경 vs 후보 임기) + B1-8b 신규 (KT&G 정관 사전 우회 catch) + B1-7 보강 (정원 키워드). `_agenda_pattern_match()`에 parent_must_contain/parent_excludes 패턴 키 신규. 36 → 38 룰. false positive 0 / 회귀 0. 분쟁 회사 hits 11.6% (KOSPI 9.8% / KOSDAQ 1.8%). (law-layer-precision-260508 / [[260508_0700_decision_law-layer-precision]])
+- **파서 전수조사 + 정밀화 검증 (Ralph 5)** — 40 파서 분류 (A 명명형 25 / B raw 보존 1 / C 혼합 14). framework: 데이터 본질에 따라 (숫자→파싱, 자연어→raw, 메타+본문→혼합). parse_aoi_xml이 모범 사례 (clause/label 명명 + before/after raw). audit 1차 권장 (parse_personnel_xml + parse_aoi_xml 보강) Ralph 5 실측 후 무효화 — careerDetails 0% 누락 (44회사/225후보) / aoi 1.66% 누락 (모두 source 한계). 두 파서 정밀도 충분, 코드 변경 X. ([[architecture/audits/260508_parser_audit]] / parser-precision-260508)
 - **Wiki 트리 정책 명문화 + lint hook (2026-05-09)** — 식물학 metaphor 도입 (🌱뿌리 raw → 🪵줄기 rules → 🌿큰가지 → 🌾잔가지 → 🍂낙엽). Link 정책: 단방향(위→아래)/양방향(큰가지↔잔가지)/자유(잎↔잎). ABCDE 정리: 단방향 위반 34→0, 양방향 결손 44→0, orphan 24→7, edges 1261→1558. `scripts/wiki_lint.py` + GitHub Actions CI. CLAUDE.md 124→109 가벼움화. 구 *_RULE.md 7개 archive 이동 (`wiki/archive/tools/legacy_rules/`). data-collection.md DS003 섹션 추가 (financial_metrics 4 API). ([[architecture/audits/260509_wiki_graph_audit]] / [[wiki_schema#0-트리-구조-식물학-metaphor]])
 - **financial_metrics yoy 병렬화 (2026-05-09 perf)** — Explore agent 효율성 audit 결과 #1 fix. sequential 3 호출 (curr/prev/audit_opinion) → `asyncio.gather` 병렬. 회사당 ~3초 → ~1초 (2-3배). 100 회사 배치 시 3-7분 단축. regression 0 (read-only API + 독립 인자). 다른 발견 (#2-#4)은 trade-off로 skip — cache 인프라 견고하여 ROI 낮음.
 - **proxy_advise decision 시각 강조 + B1/B2 raw 첨부 (2026-05-10)** — LG화학 LLM misread (proxy_advise FOR 무시하고 안건명 "배제"만 보고 자체 AGAINST 추측) 방지. ✅ FOR + 🛡️ 강행규정 정합 marker / B1/B2 hit 안건 정관 본문 raw `[clause 변경 전/후]` 첨부 (cache hit으로 latency +1-2%). A1/A2는 결정 강제 유지 (토큰 절약), B1/B2만 LLM case-by-case 판단용 raw.
-- **운용사·NPS·ISS 전수 익명화 (2026-05-10)** — 9 commits. tool description vote_style 옵션 list 제거 + README 표 제거 + `_VOTE_STYLE_POLICY_FILE` 실명 alias 제거 + wiki/data 200+ 파일 일괄 익명화 + sa_active → sa_legacy (실제 운용 스타일) + ISS/BAMK 일반화 + "외부 advisor" 항목 제거 (b_foreign에 흡수). 최종 익명 catalog: m/s/sa/k_legacy + t/a/c_activist + b_foreign + n_pension (9개). manager_aliases.json (gitignored) v4.
+- **운용사·NPS·ISS 전수 익명화 (2026-05-10)** — 9 commits. tool description vote_style 옵션 list 제거 + README 표 제거 + `_VOTE_STYLE_POLICY_FILE` 실명 alias 제거 + wiki/data 200+ 파일 일괄 익명화 + 익명 코드 정비 + 외부 자문사명 일반화 + "외부 advisor" 항목 제거 (b_foreign에 흡수). 최종 익명 catalog: m/s/sa/k_legacy + t/a/c_activist + b_foreign + n_pension (9개). manager_aliases.json (gitignored) v4.
 - **★ production wiki/rules/laws/ 누락 fix (2026-05-10 b5951a4)** — Dockerfile에 `COPY wiki/rules/laws/` 누락으로 38 법령 룰이 **production에서 작동 안 했음**. LG화학 misread의 진짜 원인. v355 deploy로 production /app/wiki/rules/laws/ 활성. + llm_misread_patterns.json (6 패턴 catalog) 신규 — 새 misread 발견 시 JSON 한 줄 추가, 코드 변경 X. + Tool description ⛔ CRITICAL 가이드 inline (Layer 1).
-- **호수 hierarchy 진단 + D 패턴 amendments body fallback (Ralph 7, 2026-05-10)** — 사용자 가설 "parser가 호수 누락" 검증 → false (10/10 회사 거의 완벽, LG화학 ※ note span 미세 버그 1건만 fix). 4 미매치 회사 = D 패턴 (raw에 sub-agenda 자체 부재 + top title 일반 표현). 룰 catalog `body_pattern` 별도 필드 추가 (title 매칭 회귀 위험 0). amendment 단위 검사 + strict 진입 조건 (children 0)으로 Ralph 6 회귀 회피. **510 회사 spot 회귀 0** + body fallback 신규 70건 catch (69 회사 = 13.5%) + **A1-8 (자사주 의무소각) 첫 활성** (Ralph 6 미사용 룰 lesson 중 첫 catch). 카카오게임즈는 D 패턴 X (sub 있고 sub title 일반) — 별도 ralph 후보. ([[lessons/agenda-hierarchy-260510]] / [[260510_0900_decision_d-pattern-body-fallback]])
-- **카카오게임즈 패턴 sub→amendment 1:1 매핑 (Ralph 8, 2026-05-10)** — 510 회사 중 진정 카카오게임즈 패턴 26개 (5.1%) 처리 architect. 진입 조건 (parent 정관변경 + sub children 0 + sub generic 아님 + amendments) + strict cascade (label substring → clause 매칭, keyword 매칭 의도적 제외 — semantic mismatch false positive 회피). cross-match 회피 (회사별 used_amendments track). 510 회사 회귀 0 + sub 75건 신규 catch (55 회사 = 10.8%) + 미사용 룰 A1-3 (18건) / B1-8 / A1-2 활성. KOSPI 23% vs KOSDAQ 5% (대형사 sub-hierarchy 명확). ([[lessons/subagenda-mapping-260510]] / [[260510_1015_decision_subagenda-mapping]])
-- **사외이사 충실성 강화 — 겸직 카운트 + 사내이사 독립성 표기 정정 (Ralph 9, 2026-05-10)** — 메리츠금융지주 응답 검토 사용자 피드백. careerDetails 510 회사 audit (98.4% 채워짐) → 단순 키워드 카운트 false positive 발견 (본 회사 사외이사 표기) → logic v3 (본 회사명 매칭 + 후보 본인 보장). `count_outside_director_positions` + faithfulness 통합 (≥3 strong / ≥2 concerns). 사내이사 "독립성 평가 비대상 (사내이사)" 표기 (오인 방지). decision 변경 0 (facts 신규 노출만). 510 분포: concerns 13.3% / strong 2.7% 후보. 김정연(삼성바이오 strong 3개) / 박진규(LG에너지 concerns 2개) 사례 검증. ([[lessons/director-faithfulness-260510]] / [[260510_1130_decision_director-faithfulness]])
+- **호수 hierarchy 진단 + D 패턴 amendments body fallback (Ralph 7, 2026-05-10)** — 사용자 가설 "parser가 호수 누락" 검증 → false (10/10 회사 거의 완벽, LG화학 ※ note span 미세 버그 1건만 fix). 4 미매치 회사 = D 패턴 (raw에 sub-agenda 자체 부재 + top title 일반 표현). 룰 catalog `body_pattern` 별도 필드 추가 (title 매칭 회귀 위험 0). amendment 단위 검사 + strict 진입 조건 (children 0)으로 Ralph 6 회귀 회피. **510 회사 spot 회귀 0** + body fallback 신규 70건 catch (69 회사 = 13.5%) + **A1-8 (자사주 의무소각) 첫 활성** (Ralph 6 미사용 룰 lesson 중 첫 catch). 카카오게임즈는 D 패턴 X (sub 있고 sub title 일반) — 별도 ralph 후보. (agenda-hierarchy-260510 / [[260510_0900_decision_d-pattern-body-fallback]])
+- **카카오게임즈 패턴 sub→amendment 1:1 매핑 (Ralph 8, 2026-05-10)** — 510 회사 중 진정 카카오게임즈 패턴 26개 (5.1%) 처리 architect. 진입 조건 (parent 정관변경 + sub children 0 + sub generic 아님 + amendments) + strict cascade (label substring → clause 매칭, keyword 매칭 의도적 제외 — semantic mismatch false positive 회피). cross-match 회피 (회사별 used_amendments track). 510 회사 회귀 0 + sub 75건 신규 catch (55 회사 = 10.8%) + 미사용 룰 A1-3 (18건) / B1-8 / A1-2 활성. KOSPI 23% vs KOSDAQ 5% (대형사 sub-hierarchy 명확). (subagenda-mapping-260510 / [[260510_1015_decision_subagenda-mapping]])
+- **사외이사 충실성 강화 — 겸직 카운트 + 사내이사 독립성 표기 정정 (Ralph 9, 2026-05-10)** — 메리츠금융지주 응답 검토 사용자 피드백. careerDetails 510 회사 audit (98.4% 채워짐) → 단순 키워드 카운트 false positive 발견 (본 회사 사외이사 표기) → logic v3 (본 회사명 매칭 + 후보 본인 보장). `count_outside_director_positions` + faithfulness 통합 (≥3 strong / ≥2 concerns). 사내이사 "독립성 평가 비대상 (사내이사)" 표기 (오인 방지). decision 변경 0 (facts 신규 노출만). 510 분포: concerns 13.3% / strong 2.7% 후보. 김정연(삼성바이오 strong 3개) / 박진규(LG에너지 concerns 2개) 사례 검증. (director-faithfulness-260510 / [[260510_1130_decision_director-faithfulness]])
 - proxy_advise render Korean label 자연화 (`weak_concerns` → "약한 우려" 등)
 - archive: `wiki/archive/services/` (proxy_guideline / proxy_guideline_scoring / policy_comparison / agm_first_agenda_fy_v1_regex)
 
@@ -192,11 +198,11 @@ title: Operation Log
 - **`proxy_advise`** (perf): 같은 주총을 summary/agenda/compensation/aoi_change **4 scope로 따로** 불러 회차 선별이 4회 중복 → `shareholder_meeting`에 **advise scope 신설**(=full에서 results만 제외)로 1회 통합. **10사 cold 실측: 콜 49→44(-5), wall-clock 9/10 빠름, 핵심 자문 10/10 동일(파싱 정확성 불변), evidence board +1**. results fetch(네트워크)가 wall-clock 주범이었음 — investigate로 'summary 합치면 comp/aoi 보정 누락' 함정 차단. **order_contracts 병렬화는 throttle 하한이라 무이득 → revert** (콜 동일·순서만 병렬은 무효, 콜 수 절감만 실효). **production 라이브 10사 검증: advise scope 10/10 정상**(고려아연 95안건 분쟁·솔루엠 주주제안 자사주소각 포함, parsing_failures 0·콜 40~50). 단 **셀트리온 이사선임 후보 0명**(소집공고 본문 parse 실패)이 top-level `parsing_failures=0`에 미반영 — in-agenda 후보 파싱 사각지대 발견(advise와 무관, 별도 후속).
 - **`wiki_lint.py`**: README 인덱스 drift 체크 [3] 추가 — 폴더 `.md`가 해당 README에 `[[]]`로 인덱스 안 되면 `--strict` 실패(CI 차단). 첫 적발로 decisions/README 11개 백틱→링크 전환.
 - **wiki 체계**: architecture·archive·fixes·goals README 신설(누락 카테고리), lessons README 6 카테고리 인덱스, CLAUDE.md 작업원칙 3 + 판단모호 트리거 + 매핑 사각 보정 + 슬림화(89→78줄).
-- lessons [[agenda-parser-validation-260621]] (측정 함정 5패턴 + 검증 프로토콜).
+- lessons agenda-parser-validation-260621 (측정 함정 5패턴 + 검증 프로토콜).
 
 ## [2026-06-21] fix/docs | 주총 안건 파서 6사이클 production 배포 + 검증 회고 + lessons 분류
 
-상세: [[agenda-parser-validation-260621]]
+상세: agenda-parser-validation-260621
 
 - `parser.py` (안건/정기·임시) — 6사이클 배포
   - `detect_meeting_type` 재작성(섹션 오선택 → 소집공고 직후 40자 앵커, 880→888) + `detect_meeting_type_conflict`
@@ -208,7 +214,7 @@ title: Operation Log
 
 ## [2026-06-16] fix/audit | render 출력 점검 (11 tool·410사) — 화면 이상 3종 + evidence 노출
 
-상세: [[render-output-audit-260616]]
+상세: render-output-audit-260616
 
 - `proxy_advise` (render)
   - facts에 dict(`candidate_review_profile`) 통째 raw 노출 차단 → 요약 (None·숫자 새어나옴 근본원인)
@@ -221,7 +227,7 @@ title: Operation Log
 
 ## [2026-06-15] fix/audit | 주총 안건 파싱 점검 (진행중) — 보수한도 단위·폴백 + agenda 카테고리
 
-상세 + 남은 작업: [[shareholder-meeting-agenda-parse-260615]]
+상세 + 남은 작업: shareholder-meeting-agenda-parse-260615
 
 - `shareholder_meeting` (compensation/agenda)
   - 보수한도 **단위 미환산** 수정 — 표 헤더/raw '(단위: 억원/백만원)' fallback 환산 (두산 630억·LG엔솔 60억)
@@ -233,7 +239,7 @@ title: Operation Log
 
 ## [2026-06-14] refactor/perf | order_contracts 일원화 + proxy_advise 펀더멘털 fact·동적 lookback
 
-상세: [[order-contracts-260613]], [[proxy-advise-perf-fact-260614]]
+상세: order-contracts-260613, proxy-advise-perf-fact-260614
 
 - `order_contracts`
   - 해지(termination) 파서 전수조사 — 계약명(해지내용/세부물건)·상대방(영문사·슬래시·장문) 67건 검증, 누락 0
@@ -289,7 +295,7 @@ title: Operation Log
   - 테스트: `23 passed`
 - 문서:
   - [[260525_0200_audit_agenda-relation-kospi300]]
-  - [[agenda-relation-parser-260525]]
+  - agenda-relation-parser-260525
 
 ## [2026-05-25] docs | proxy_advise layer consistency 보장 범위 명문화
 
@@ -461,11 +467,11 @@ title: Operation Log
 - Phase 3a (2d4e8ed): wiki/ + docs/ 124 파일 batch 익명화
 - Phase 3b (d882f87): open_proxy_mcp/ 27 파일
 - 추가 (2a81b8a): sa_active → sa_legacy (실제 운용 스타일)
-- 추가 (d5fb8b2 + 1c9dae7): ISS/BAMK 일반화 + 외부 advisor 항목 제거 (b_foreign에 흡수)
+- 추가 (d5fb8b2 + 1c9dae7): 외부 자문사명 일반화 + 외부 advisor 항목 제거 (b_foreign에 흡수)
 
 **최종 익명 catalog**: m_legacy / s_legacy / sa_legacy / k_legacy / t_activist / a_activist / c_activist / b_foreign / n_pension (9개) — manager_aliases.json (gitignored, local) v4.
 
-**검증 sweep**: git tracked (raw 제외) 운용사 실명 / ISS / BAMK / iss_overseas 잔존 0.
+**검증 sweep**: git tracked (raw 제외) 운용사·자문사 실명 잔존 0.
 
 ## [2026-05-09] perf | financial_metrics yoy scope 병렬화 (3배 단축)
 
@@ -604,7 +610,7 @@ title: Operation Log
   - `scripts/spot_law_layer.py` 회귀 spot
   - `wiki/architecture/audits/data/260508_law_layer/iter05_kospi_top30.json`
 - decision: [[260508_0200_decision_law-layer]]
-- lesson: [[lessons/law-layer-260508]]
+- lesson: law-layer-260508
 
 ## [2026-05-08] audit | high-impact 분류기 audit 결과 (fix 불필요 확정)
 - ralph: `wiki/ralph/260508_0030_ralph_classify-high-impact.md` (3 iter / promise 발행)
@@ -615,7 +621,7 @@ title: Operation Log
   - mismatch 2건은 filer 분류기 이슈 X — 회사 resolver 모호 매칭 (셀트리온제약 → 셀트리온 잘못 해석)
 - meta-lesson: audit script 측 버그 주의 (universe csv 약칭 vs DART 정식명 차이)
 - 분류기 코드 변경 0 (견고 확인)
-- lesson: [[lessons/classify-high-impact-260508]]
+- lesson: classify-high-impact-260508
 
 ## [2026-05-08] fix | _classify_agenda 정관 sub-안건 분류 (mismatch 19.3% → 0%)
 - ralph: `wiki/ralph/260507_2330_ralph_classify-agenda-fix.md` (4 iter / promise 발행)
@@ -626,7 +632,7 @@ title: Operation Log
 - post-fix 검증 (300 회사 재 audit): mismatch 0.00% / 정관 sub 정확도 100% (607/607)
 - 롯데케미칼 회귀: NO_DATA 2건 → 0건
 - decision: [[260508_0030_decision_classify-agenda-parent-shortcircuit]]
-- lesson: [[lessons/agenda-classification-260507]]
+- lesson: agenda-classification-260507
 
 ## [2026-05-07] perf | OPM 응답 속도 다수 단축 (10s → 4-6s 체감)
 - 코붕이 review: "옛날엔 잘 됐는데 왜 지금 10초?" 분석 흐름
@@ -658,7 +664,7 @@ title: Operation Log
 - G4 layer 정합 검증 PASS — data tool 14 services + Tier A 9 parser decision 키워드 0건 / proxy_advise 8 `_decide_*` action layer
 - 17 tool scope inventory — 추가 폐지/신설 결정 없음
 - artifacts: `scripts/spot_parser_omnibus.py` / `scripts/spot_pfs_html_search.py` / `scripts/spot_pfs_sparse_recheck.py` / `scripts/agg_parser_omnibus.py` / `wiki/architecture/audits/data/260505_parser_omnibus/`
-- lesson: [[lessons/parser-omnibus-260506]]
+- lesson: parser-omnibus-260506
 - decision: [[decisions/260506_2330_decision_v1-dead-parsers-archive]]
 
 ## [2026-05-06] feat | shareholder_meeting_notice scope 정리 + provisional_financial_statement 독립
@@ -732,7 +738,7 @@ title: Operation Log
 - 추가 변경: Korean label 자연화 (weak_concerns → "약한 우려", concerns → "우려" 등 — `_INDEPENDENCE_LABELS` 등 dict)
 - ralph: [[260505_1611_ralph_inside-director-performance-matrix]]
 - decision: [[260505_1700_decision_inside-director-performance-matrix]]
-- lesson: [[distribution-calibrated-thresholds]] (8번째 lesson — 임계값은 prior가 아니라 audit posterior에서 정함)
+- lesson: distribution-calibrated-thresholds (8번째 lesson — 임계값은 prior가 아니라 audit posterior에서 정함)
 - audit: `wiki/architecture/audits/data/260505_inside_director_performance/` (KOSPI 4 + KOSDAQ 2 batch JSON)
 
 ## [2026-05-05] feat | DART OpenAPI 분당 1000회 hard rule 강제
@@ -945,7 +951,7 @@ title: Operation Log
 ### Phase A: 7 운용사 데이터 파싱
 - 정책 5건: opendataloader-pdf (s_legacy·sa_legacy·t_activist·kim·a_activist 1-4초)
 - M레거시: vector glyph PDF → PyMuPDF DPI 120 raster + JPEG 70% → Upstage OCR 우회 (35KB md)
-- B외국계: B외국계 2026 Voting Guidelines 직접 채택 발견 → `policy_classification: b_foreign_self`
+- B외국계: 외부 가이드라인 직접 채택 발견 → `policy_classification: b_foreign_self`
 - 행사내역 15 xlsx → 통일 schema JSON (총 17,900 votes)
 ### Phase B-C: 합의 매트릭스 + Open Proxy Guideline v1.2
 - `_consensus_matrix.json`: 7 운용사 79 토픽, consensus + majority 62%

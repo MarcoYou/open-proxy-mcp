@@ -116,4 +116,4 @@ status: canonical
 ## 관련
 
 - [[260508_parser_audit]]
-- [[../audits/README]]
+- README

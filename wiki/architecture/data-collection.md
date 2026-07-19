@@ -434,7 +434,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 | `records/` | 운용사 행사내역 (period별) | 16 |
 
 운용사 8종 + OPM 1종(open_proxy):
-- a_activist (A행동주의), b_foreign (B외국계), c_activist (C행동주의), k_legacy ([운용사A]), m_legacy (M레거시), s_legacy (삼성), sa_legacy (삼성액티브), t_activist (T행동주의), open_proxy_v1 (OPM 자체 정책 v1.2)
+- a_activist, b_foreign, c_activist, k_legacy, m_legacy, s_legacy, sa_legacy, t_activist (전부 익명 코드 — 실명 매핑은 gitignored manager_aliases.json), open_proxy_v1 (OPM 자체 정책 v1.2)
 
 원본 정적 데이터(엑셀·PDF):
 - `wiki/raw/records/2024.04~2026.04 *_의결권 행사내역.xlsx` (17건)
@@ -646,4 +646,4 @@ OPM 운영(2026-07-12~ XML 단독):
 [[DART-OpenAPI]] [[KRX-KIND]] [[네이버-금융]] [[Upstage-OCR]] [[opendataloader]]
 [[3-tier-fallback]] [[pblntf-ty-필터링]] [[DART-KIND-매핑-화이트리스트-2026-04]]
 [[free-paid-분리]] [[배당공시유형]] [[주주총회소집공고]] [[주주총회결과]]
-[[v4-스키마]] [[OpenProxy-MCP]] [[release_v2-tool-아키텍처]]
+v4-스키마 [[OpenProxy-MCP]] [[release_v2-tool-아키텍처]]

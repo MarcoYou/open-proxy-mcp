@@ -108,10 +108,13 @@ screenshot/*
 # 단, README에 쓰는 데모 이미지는 공개 유지
 !screenshot/open-proxy-mcp output kor.png
 scripts/*census*.py
+scripts/*census*.js
 scripts/*diagnos*.py
 scripts/*feasib*.py
 scripts/extract_*.py
 scripts/*_audit.py
+scripts/*_audit.js
+scripts/wiki_sensitivity_audit.js
 scripts/audit_*.py
 
 # 변리사 발명기술서 (출원 전 비공개)

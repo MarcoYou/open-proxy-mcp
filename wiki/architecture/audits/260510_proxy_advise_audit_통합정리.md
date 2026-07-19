@@ -21,7 +21,7 @@ status: canonical
 
 ## 포함 범위
 
-- [[260502_2300_audit_advise-recap-vote]]
+- 260502_2300_audit_advise-recap-vote
 - `260503_0130_audit_advise-200-virtual.md` (통합 후 원문 삭제)
 - `260503_0500_audit_phase3_final.md` (통합 후 원문 삭제)
 - [[260503_1847_audit_phase4_final]]
@@ -46,7 +46,7 @@ status: canonical
 
 ### 1. action tool 재편 sanity
 
-- 문서: [[260502_2300_audit_advise-recap-vote]]
+- 문서: 260502_2300_audit_advise-recap-vote
 - 역할:
   - 재편 직후 기본 sanity 확인
 - 성격:

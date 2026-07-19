@@ -35,7 +35,7 @@ related: [open-proxy-guideline, decision-matrix-design, opm-guideline-debate-tra
 14 섹션 문서. 11 + 5 보조 tool entry point 매핑. **새로 명시된 endpoint 8건**:
 - Naver Finance `siseJson` 정규식 파싱 (7일 비거래일 fallback)
 - KIND `_KIND_VALUE_UP_DISCLOSURE_CODE = "0184"`
-- KIND `searchDetailsSub` (봇 차단 우회)
+- KIND `searchDetailsSub` (조회 엔드포인트)
 - DART 캐시 디스크 경로 (`tempfile.gettempdir()/opm_cache/{rcept_no}.json`)
 - `?opendart=KEY` → contextvar → 인스턴스 캐시 키 분리
 - 자동 키 회전 (status≠"000" 시 1회 재시도)

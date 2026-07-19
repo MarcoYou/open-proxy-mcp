@@ -11,7 +11,7 @@ OPM의 tool·지표·파싱 로직이 **시장 전반에서 실제로 맞는지*
 큰 표본 × 이중검증(기계 + 사람-독자) 원칙(CLAUDE.md 작업원칙 2·4)을 **레이트리밋 안전하게** 실행한다.
 
 이론(왜 측정이 거짓 결론을 내는가 — 측정 함정 5패턴·체크리스트)은 만들지 말고 참조:
-`wiki/lessons/agenda-parser-validation-260621.md`. 이 스킬은 그 위의 **실행 절차**다.
+private lessons `open-proxy-storage/wiki-private/lessons/agenda-parser-validation-260621.md`. 이 스킬은 그 위의 **실행 절차**다.
 
 ## 언제 쓰나
 - "이 지표(총차입금·순이익·배당 등) 시장에서 맞아?" / "파싱 전수 검증하자" / "before/after 회귀"
@@ -58,7 +58,7 @@ OPM의 tool·지표·파싱 로직이 **시장 전반에서 실제로 맞는지*
 - production end-to-end(`build_*_payload` 실제 호출)로 최종 확인.
 
 ### 5) 문서화
-- 회고 lesson: `wiki/lessons/{topic}-yymmdd.md`(Context/Did/Improved/Trade-off/Takeaway), README ② 또는 ④ 인덱스 추가.
+- 회고 lesson: **private** `open-proxy-storage/wiki-private/lessons/{topic}-yymmdd.md`(Context/Did/Improved/Trade-off/Takeaway), 그쪽 README 인덱스 추가. (260720부터 lessons=private 원칙)
 - tool 문서(`wiki/tools/*.md`) 파싱전략·변경이력·출력schema 갱신. `python3 scripts/wiki_lint.py --strict` 통과.
 - 측정 도구가 스스로 낸 오류(도구 버그)도 기록 — 다음에 같은 함정 피하려고.
 
@@ -96,4 +96,4 @@ for co in cos:
 ## 주의
 - **캐시는 raw가 아니다** — 스크래치패드에 두고 `wiki/raw/`엔 절대 안 넣는다(외부원본 규칙과 무관).
 - 작업 지시가 바뀌면 **스크립트도 그 지시에 맞게 수정 후 재실행**(stale 로직 재사용 금지 — CLAUDE.md).
-- 실측 사례: `wiki/lessons/financial-metrics-borrowings-260713.md`(총차입금 account_id 이관, 298사 2룹).
+- 실측 사례: private lessons `financial-metrics-borrowings-260713.md`(총차입금 account_id 이관, 298사 2룹).

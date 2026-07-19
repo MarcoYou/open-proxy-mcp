@@ -64,4 +64,4 @@ is_error는 "실패했나"만 알려줄 뿐 "내 코드 탓이냐 DART 탓이냐
 - **중앙 degrade** — DART 외부·부하 예외를 `tools_v2/_wrap_tool_errors` 한 곳에서 잡아 graceful
   응답(is_error=false)으로. 원인별 안내(과호출→나눠서 / timeout→기다려)까지 실어 사용자 행동을 유도.
 
-상세·재현·trade-off: [[error-safety-degrade-260712]].
+상세·재현·trade-off: error-safety-degrade-260712.

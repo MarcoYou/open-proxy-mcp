@@ -8,7 +8,7 @@ related_audits: [260503_2304_audit_recap_pattern]
 result: baseline 100% 일치 + timeout 0 — multi-upstream-pattern fix 불필요
 ---
 
-> **archived 2026-06-11**: 당시 결론 '패턴 fix 불필요' — 2026-06-05~07 분쟁신호 정밀화([[contest-signals-500-260605]])로 결론 대체됨
+> **archived 2026-06-11**: 당시 결론 '패턴 fix 불필요' — 2026-06-05~07 분쟁신호 정밀화(contest-signals-500-260605)로 결론 대체됨
 
 
 # proxy_contest baseline audit (data-driven decision)

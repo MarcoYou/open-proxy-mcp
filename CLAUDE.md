@@ -5,7 +5,7 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 ## 작업 수행 원칙 (모든 작업에 우선 적용)
 
 1. **정확성 > 속도.** 빠른 결론보다 맞는 결론. 스크립트가 숫자를 내도 단정하지 말고 검증한다.
-2. **정확성 = 큰 표본 × 이중 검증.** ① 기계적(스크립트·전수 diff) **그리고** ② 사람-독자 관점(직접 표본을 눈으로 읽음) — 둘 다 한다. 측정 도구의 가정(production 경로·ground truth·패턴 엄격도)을 먼저 의심한다. 사용자가 시키기 전에 default로. 상세·5패턴·체크리스트: `wiki/lessons/agenda-parser-validation-260621.md`.
+2. **정확성 = 큰 표본 × 이중 검증.** ① 기계적(스크립트·전수 diff) **그리고** ② 사람-독자 관점(직접 표본을 눈으로 읽음) — 둘 다 한다. 측정 도구의 가정(production 경로·ground truth·패턴 엄격도)을 먼저 의심한다. 사용자가 시키기 전에 default로. 상세·5패턴·체크리스트: private lessons(`~/Projects/open-proxy-storage/wiki-private/lessons/agenda-parser-validation-260621.md`).
    - **실적·재무 큰 수치가 "이상하다/불가능하다" 싶으면 — 서사(오류일 것) 먼저 만들지 말고 웹서칭으로 제3의 소스(뉴스·IR·공시)부터 검증한다.** 실제로 맞는 값을 "오류"로 단정해 가드·플래그를 넣으면 진짜 데이터를 오탐한다(260705 삼성전자 2026 1Q 영업이익 57조 슈퍼사이클 신기록을 "분기 57조는 불가능"이라 오판할 뻔 → 웹 검증으로 실제 확인). 큰 수치 의심 = ground truth 웹 확인이 default.
 3. **작업이 아니라 목표를 본다.** 시킨 일만 수행하지 말고 — 그 작업의 목표·원칙·전체 프로젝트/환경과의 연관성을 함께 고려해 판단한다.
 4. **가설은 바로 실행하지 않는다 — 엣지케이스 상상 → 테스트 → 통계검증까지 마친 뒤 실행한다.** "A를 B로 고치면 정확도 오른다"는 가설을 세우면 곧장 코드/실행으로 가지 말고, ① 이 가설이 **깨질 엣지케이스를 먼저 상상해 나열**하고 ② 표본으로 **테스트**해 ③ **통계적으로**(일치율·오탐율·before/after 전수 diff·부분집단 슬라이스) 검증을 마친 뒤 실행한다. 260710 이사 교차검증 사례: "정형 데이터로 텍스트 파싱을 override하면 정확도↑" 가설이 신임 후보 폼아티팩트에서 깨졌고(naive override면 clean 사외이사 오탐), **연임만 슬라이스해 통계검증**하니 진짜 성과(재선임→신임 오분류)가 드러났다. 가설→즉시실행이었으면 정반대 결과. (원칙 2와 연동 — 통계검증은 기계+사람-독자 이중검증 위에서)
@@ -15,7 +15,7 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 도메인 지식·설계·결정은 모두 wiki에 있다. **질문이 오면 wiki에서 필요한 페이지만 골라 읽는다**
 (전체 로드 X). LLM이 wiki를 유지하며 `/ship`이 영향 페이지를 갱신한다.
 
-**판단의 모호성이 있을 경우 — 추측·서사로 덮지 말고** 아래 매핑표 → 관련 `lessons/` 순으로 확인하고,
+**판단의 모호성이 있을 경우 — 추측·서사로 덮지 말고** 아래 매핑표 → 관련 lessons(private, `open-proxy-storage/wiki-private/lessons/`) 순으로 확인하고,
 그래도 불명확하면 사용자에게 물어라(`AskUserQuestion`). (작업 수행 원칙 2·3과 연동)
 
 **무엇이 필요한지 → 어디를 보나:**
@@ -29,8 +29,8 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 | 시스템 설계·데이터 수집·폴백 | `architecture/` (`data-collection` · `3-tier-fallback` · `multi-upstream-pattern`) |
 | 의결권 정책·판단 구조 | `decisions/open-proxy-guideline` · `architecture/proxy-voting-decision-tree` |
 | 설계·기술 결정 (왜 이렇게 만들었나) | `decisions/` (BeautifulSoup·XML/PDF·free-paid·LLM-fallback 등) |
-| 작업 이유·회고 | `lessons/` |
-| **작업·데이터 검증 방법** (전수·표본·측정 함정·프로토콜) | `lessons/README` ④ 검증 방법론 카테고리 (대표 `agenda-parser-validation-260621`: 측정 함정 5패턴 + 체크리스트) |
+| 작업 이유·회고 | **private** `open-proxy-storage/wiki-private/lessons/` (260720 이관 — 새 lesson도 여기에) |
+| **작업·데이터 검증 방법** (전수·표본·측정 함정·프로토콜) | private lessons README ④ 검증 방법론 (대표 `agenda-parser-validation-260621`: 측정 함정 5패턴 + 체크리스트) |
 | 전체 색인 / 트리·명명·link 정책 | `wiki_index.md` / `wiki_schema.md` |
 
 **wiki 작성 규칙** (상세 [[wiki_schema]]):

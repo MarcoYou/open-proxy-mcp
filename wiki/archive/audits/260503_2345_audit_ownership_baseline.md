@@ -8,7 +8,7 @@ related_audits: [260503_2330_audit_proxy_contest_baseline]
 result: baseline 100% 일치 + max 1.8s — fix 불필요
 ---
 
-> **archived 2026-06-11**: 당시 결론 '패턴 fix 불필요' — 2026-06-10 summary 재설계+정합성 버그 fix([[ownership-summary-integrity-260610]])로 결론 대체됨
+> **archived 2026-06-11**: 당시 결론 '패턴 fix 불필요' — 2026-06-10 summary 재설계+정합성 버그 fix(ownership-summary-integrity-260610)로 결론 대체됨
 
 
 # ownership_structure baseline audit

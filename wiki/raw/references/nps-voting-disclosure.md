@@ -138,7 +138,3 @@ proxy_guideline(
 
 `proxy_guideline scope=consensus`는 7 운용사 합의/이견 매트릭스를 다루고, NPS는 별도 `scope=nps_record`로 분리 (NPS는 정책 파일이 없고 사후 행사내역만 공개되므로 동일 분석 프레임에 묶기 어려움).
 
-향후 가능 확장:
-- NPS 행사내역과 7 운용사 정책 vs 실제 갭 비교
-- NPS against rate를 캠페인 표 예측 모델의 prior로 사용
-- 5%+ 보유 사실(`own_block` API)과 결합하여 의결권 영향력 정량화

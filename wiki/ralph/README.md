@@ -33,7 +33,7 @@ ralph는 [트리 작은가지 (시점 작업)](../wiki_schema.md#0-트리-구조
 - [[260503_0230_ralph_advise-phase3-99pct]] — advise Phase 3 99% 검증
 - [[260503_0030_ralph_advise-200기업-가상실험]] — 200 회사 가상실험
 - [[260503_0002_ralph_proxy-advise-verification]] — proxy_advise 검증
-- [[260502_0930_ralph_advise-recap-vote]] — advise/recap vote
+- 260502_0930_ralph_advise-recap-vote — advise/recap vote
 - [[260501_1547_ralph_financial-metrics-phase1]] — financial_metrics Phase 1
 
 ## 메타

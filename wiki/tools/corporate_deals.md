@@ -183,7 +183,7 @@ sequenceDiagram
   거부로 교정(leak 3→0, 회귀 0). ② `parsing_failures` 의미 오도 — `_parse_*`가 값 공란이어도 키-있는 dict를
   반환해 "빈 dict" 검사가 진짜 파싱실패를 못 세고 fetch실패·비대상 row만 잡힘 → `_detail_status`(ok/parse_empty/
   fetch_error/empty_doc)로 재정의, parse_empty(문서는 받았으나 앵커필드 공란)만 카운트 + `fetch_failures` 분리.
-  근거: [[financial-metrics-borrowings-260713]] 검증 절차(opm-tool-validation 스킬).
+  근거: financial-metrics-borrowings-260713 검증 절차(opm-tool-validation 스킬).
 - 2026-04-21: related_party_transaction tool 신설 (14 → 15번째 tool, Data 10개째)
 - 2026-04-21: 5/5 전수조사 통과
 - 2026-04-29: include_details=True 원문 파싱 보강

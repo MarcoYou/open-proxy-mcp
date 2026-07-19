@@ -42,10 +42,10 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 | **architecture/** | 58 |
 | **decisions/** | 29 + README |
 | **rules/** | 88 + README 4 |
-| **lessons/** | 47 + README |
+| ~~lessons/~~ | private 이관(260720, open-proxy-storage/wiki-private/lessons) |
 | **archive/** | 74 + README 2 |
 
-총 355 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
+총 283 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
 > **규칙은 여기 두지 않는다.** 각 카테고리의 목적·수정정책·layer 정의, 명명 규칙, frontmatter schema,
 > link 방향 정책은 전부 [[wiki_schema]]가 단일 출처(SSOT). 이 파일은 "무엇이 어디 있나"(인벤토리·라우팅)만
@@ -65,9 +65,9 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 ### 시스템 동작 이해
 - [[architecture/data-collection]] - 데이터 수집 architecture
 - [[architecture/3-tier-fallback]] - XML -> PDF -> OCR (OPM은 XML 단독; PDF/OCR은 open-proxy-ai로 이관 260712)
-- [[architecture/matrix-system]] - 12 매트릭스 설계 자산 (자동 채점은 의결권 엔진 미사용 — dead code)
+- matrix-system - 12 매트릭스 설계 자산 (자동 채점은 의결권 엔진 미사용 — dead code)
 - [[architecture/proxy-voting-decision-tree]] - 의결권 판단 framework
-- [[architecture/pipeline-architecture]] - 199 기업 v4 JSON 배치 파이프라인
+- pipeline-architecture - 199 기업 v4 JSON 배치 파이프라인
 - [[architecture/multi-upstream-pattern]] - asyncio.gather tool 표준 5 요소 (corpCode lock/retry/per-call timeout/semaphore/cache)
 - [[architecture/lessons-learned]] - MCP 개발 7가지 교훈
 
@@ -146,16 +146,16 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[architecture/audits/README]] — Audits 시간순 인덱스 (28 entries)
 - Audit raw data → private repo `open-proxy-storage/audits_data/` (260718 이관, 경쟁자산)
 - [[ralph/README]] — Ralph plans 시간순 인덱스 (24 plans)
-- [[lessons/README]] — Lessons 인덱스
+- Lessons — private 이관(open-proxy-storage/wiki-private/lessons, 260720)
 - [[decisions/README]] — Decisions 인덱스
 - [[tools/README]] — Tools 카탈로그 (사용자 진입점)
 
 ### 시스템 설계 (6)
 - [[architecture/data-collection]] - OPM 전수 데이터 수집 entry point + 파싱 방법 (DART/KIND/Naver/Upstage/정적 JSON, 14 섹션 639줄)
 - [[architecture/3-tier-fallback]] - XML -> PDF -> OCR 3단계 전략 (OPM은 XML 단독; PDF/OCR은 open-proxy-ai 이관 260712)
-- [[architecture/matrix-system]] - 12 카테고리 매트릭스 (100 dim, 76 빙고 패턴) + 자동 채점 v1.3 (통합 페이지)
+- matrix-system - 12 카테고리 매트릭스 (100 dim, 76 빙고 패턴) + 자동 채점 v1.3 (통합 페이지)
 - [[architecture/proxy-voting-decision-tree]] - 3개 소스 통합 의결권 행사 판단 프레임워크
-- [[architecture/pipeline-architecture]] - 199개 기업 v4 JSON 생성 배치 파이프라인
+- pipeline-architecture - 199개 기업 v4 JSON 생성 배치 파이프라인
 - [[architecture/lessons-learned]] - MCP 개발 7가지 핵심 교훈 (v1->v2 회고, 2026-04-19)
 
 ### audits/ (10 시점별)
@@ -168,7 +168,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
 - [[260510_financial_metrics_audit_통합정리]] - financial_metrics audit 통합 정리
 - [[260501_2030_audit_financial_metrics-200기업]] - financial_metrics 전수 audit (KOSPI 100 + KOSDAQ 100, exact 96.9%, 자본잠식 2건 검출, 5분)
-- [[260502_2300_audit_advise-recap-vote]] - action tool 재편 sanity (advise/recap 신규 + 18→17 회귀 0 + 매핑 3-tier 분류)
+- 260502_2300_audit_advise-recap-vote - action tool 재편 sanity (advise/recap 신규 + 18→17 회귀 0 + 매핑 3-tier 분류)
 
 ### fixes/ (3 시점별)
 - [[260427_1145_fix_ownership-stockknd]] - ownership_structure 17건 partial -> 0 fix (stock_knd 변형 positive matching + 3-tier fallback, regression 0)
@@ -207,7 +207,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
 ## Rules
 
-### Concepts (43) - `rules/concepts/`
+### Concepts (42) - `rules/concepts/`
 한국 자본시장 도메인 개념. tool 본문에서 link only.
 
 #### 배당
@@ -223,9 +223,9 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[프록시-파이트]] · [[위임장-권유]] · [[경영권-방어]] · [[주주환원]]
 
 #### 시스템 메타
-- [[v4-스키마]] · [[시간순서-규칙]] · [[파서-판정-등급]]
+- v4-스키마 · [[시간순서-규칙]] · [[파서-판정-등급]]
 
-### Disclosures (45) - `rules/disclosures/`
+### Disclosures (44) - `rules/disclosures/`
 DART/KIND 공시 유형. 공시명 = 페이지명.
 
 #### 코드체계
@@ -272,11 +272,11 @@ release_v2 검증 예시 + 설계 문서. 현재 17 public tools/* 페이지와 
 
 ### archive/decisions/ (2)
 matrix-system.md 통합으로 흡수.
-[[archive/decisions/decision-matrix-design]] · [[archive/decisions/matrix-auto-scoring-2026-04-29]]
+decision-matrix-design · matrix-auto-scoring-2026-04-29
 
-### archive/entities/ (9)
+### archive/entities/ (8)
 DART/KIND/Upstage 등 외부 entity 페이지. CLAUDE.md path만 archive 보존.
-[[archive/entities/DART-OpenAPI]] · [[archive/entities/KRX-KIND]] · [[archive/entities/네이버-금융]] · [[archive/entities/Upstage-OCR]] · [[archive/entities/OpenProxy-MCP]] · [[archive/entities/OpenProxy-AI]] · [[archive/entities/국민연금]] · [[archive/entities/FastMCP]] · [[archive/entities/opendataloader]]
+[[archive/entities/DART-OpenAPI]] · [[archive/entities/KRX-KIND]] · [[archive/entities/네이버-금융]] · [[archive/entities/Upstage-OCR]] · [[archive/entities/OpenProxy-MCP]] · OpenProxy-AI · [[archive/entities/국민연금]] · [[archive/entities/FastMCP]] · [[archive/entities/opendataloader]]
 
 ### archive/sources/ (5)
 구 RULE 파일 요약 + taxonomy.

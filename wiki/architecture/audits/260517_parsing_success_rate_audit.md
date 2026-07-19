@@ -28,8 +28,8 @@ related_notes:
 
 본 감사의 source of truth는 다음 두 문서다.
 
-- [[parsing_success_rate_audit_spec]]
-- [[parsing_success_rate_audit_checklist]]
+- parsing_success_rate_audit_spec
+- parsing_success_rate_audit_checklist
 
 ## 감사 범위
 

@@ -37,7 +37,7 @@ updated: 2026-07-19
 | [ownership_structure](ownership_structure.md) | 지분 구조 — 최대주주·특수관계인·5% 대량보유·자사주 |
 | [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 (정기보고서 **확정치**) |
 | [provisional_earnings](provisional_earnings.md) | **영업(잠정)실적**(I002 공정공시) — 분기 잠정 매출·영업이익·순이익+YoY. 정기보고서보다 먼저 나오는 가장 빠른 실적. table_markdown primary + headline best-effort. 자동차 판매대수·조선 수주 등 비재무형도 커버. screener 연동 |
-| [business_details](business_details.md) | **"II.사업의 내용" 9필드**: 사업부문별 매출·영업이익 + **사업장·가동률·연구개발·수주·고객** + **D-트랙(금융/REIT): 영업현황·재무건전성·투자부동산**(KSIC 게이트). segments 정형→저신뢰 시 원문 마크다운, 나머지는 **markdown-primary**. `period=latest` 기본(사업·반기·분기 중 최신). KOSPI500 census 검증([[사업의내용_ksic별양식]]) |
+| [business_details](business_details.md) | **"II.사업의 내용" 9필드**: 사업부문별 매출·영업이익 + **사업장·가동률·연구개발·수주·고객** + **D-트랙(금융/REIT): 영업현황·재무건전성·투자부동산**(KSIC 게이트). segments 정형→저신뢰 시 원문 마크다운, 나머지는 **markdown-primary**. `period=latest` 기본(사업·반기·분기 중 최신). KOSPI500 census 검증(사업의내용_ksic별양식) |
 | [valuation](valuation.md) | 상대가치 배수 — PER·PBR·배당수익률 (통화환산·스케일가드) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 |
 | [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria, 정형API 하이브리드 검증) |
@@ -167,5 +167,5 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-07-15: **screener 신규(22번째 tool)** — 전체시장 공시 스크리너 / 아침 디제스트. scan(전체시장 list.json market-scan, 하루 4콜)+details(유형별 파서 재사용). 시총=krx_weekly(DART 0콜)
 - 2026-07-15: **screener `domain: action` 재분류** — Screening 카테고리를 Action으로 흡수(2→3). upstream 파서 오케스트레이션 + 디제스트/루틴 구동(액션 산출물). 루틴 레시피 [docs/routines](../../docs/routines/screener-morning-digest.md) 연동
 - 2026-07-18: **business_details 신규(23번째 tool)** — "II.사업의 내용" 6필드(segments+사업장·가동률·rnd·수주·고객). markdown-primary. 286사+3전문가 QA.
-- 2026-07-19: **business_details 확장** — D-트랙 3필드(financial_ops·financial_soundness·investment_property, KSIC 게이트) + 014 정정폴백 + reit_prose + `period=latest` 기본(사업·반기·분기 최신). KOSPI500 census 검증(양식 레퍼런스 [[사업의내용_ksic별양식]], 필드↔소절 헤딩 사전).
+- 2026-07-19: **business_details 확장** — D-트랙 3필드(financial_ops·financial_soundness·investment_property, KSIC 게이트) + 014 정정폴백 + reit_prose + `period=latest` 기본(사업·반기·분기 최신). KOSPI500 census 검증(양식 레퍼런스 사업의내용_ksic별양식, 필드↔소절 헤딩 사전).
 - 2026-07-19: **provisional_earnings 신규(24번째 tool)** — 영업(잠정)실적(I002 공정공시) 분기 잠정 매출·영업익·순익+YoY. financial_metrics 확정치보다 먼저. markdown-primary(table_markdown) + best-effort headline. 자동차 판매대수·조선 수주 등 비재무형 커버. screener `detail_kind=earnings` 연동. 멀티에이전트 24사 + KOSPI500 census 검증(공시율 시총 강상관, 파서 anomaly 0).

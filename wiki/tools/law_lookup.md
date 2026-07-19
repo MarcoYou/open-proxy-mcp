@@ -64,7 +64,7 @@ difflib 없음. 삭제 조문 보존+경고, 조문번호 법령 중복 → `amb
 39%→79%, ② 구어↔법률 zero-overlap(번 돈≠이익·쪼개다≠분할·일감몰아주기≠부당지원)을 닫는 **질의확장층**
 (`law_lookup_synonyms.json`의 `bm25_query_expansions` — 구어 trigger → 정답 조문 본문 실제 법률형태소
 append, anchor 게이트 前 적용)으로 **합계 242개 실사용셋 recall@10 90%**(자본시장법 93·외감 97·상법 90).
-근거·회귀게이트: [[lessons/law-recall-harness-260714]] · `scripts/law_recall_harness.py`(242 baked) ·
+근거·회귀게이트: law-recall-harness-260714 · `scripts/law_recall_harness.py`(242 baked) ·
 `scripts/spot_law_lookup.py`(하드게이트: vague·guard·collision·bridge 100% 무회귀).
 
 **미시행 유보 (260713 수정)**: corpus의 `enforcement`는 법 **전문(공포본)** 시행일자라 개별 조문의
@@ -87,7 +87,7 @@ SSOT(`law_provisions.json`)의 `effective_date`로만 `미시행(시행 YYYY-MM-
 인덱스(`law_index.json`·`law_bm25.json`)·synonyms·fulltext는 전역캐시 — 프로세스당 1회 로드. Signal C
 형태소화에 **kiwipiepy**를 쓰는데 init이 무거워 **lazy 싱글턴**(첫 질의만 `cold ~1.1s`, kiwi 모델 로드 포함).
 이후 **warm ~1.3ms/query**(BM25는 2,599조 스코어링 포함해도 무시할 수준, DART 0콜). `data.timing_ms.build`로
-관측. 실측 [[new-tools-perf-profiling-260714]].
+관측. 실측 new-tools-perf-profiling-260714.
 
 ## 폴백 유형 (검색을 올바른 방향으로 유도 — 260713)
 강한 매칭(E/B/강C)이 아닐 때 **왜 안 잡혔는지**를 유형화하고 **유형별 안내 문구+다음 행동**을 준다
@@ -131,4 +131,4 @@ longest-first 마스킹으로 차단. ③ 조사 분리 복합어 recall(이사�
 - [[proxy_advise_before_meeting]] — 회사 주총 안건 판단(정관 본문↔안건). law_lookup은 그 하위 법령 지식 조회.
 - [[rules/laws/README]] — 법령 자료 입구(SSOT·bridge·corpus)
 - [[상법-2025-2026-종합]] — 상법 개정 사람 가독 master
-- [[law-lookup-260713]] — 신설·후속 회고(미시행 유보·폴백·자동갱신·결정성 발견) + v2 로드맵
+- law-lookup-260713 — 신설·후속 회고(미시행 유보·폴백·자동갱신·결정성 발견) + v2 로드맵

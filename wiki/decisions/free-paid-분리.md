@@ -10,7 +10,7 @@ related: [OpenProxy-MCP, OpenProxy-AI, 3-tier-fallback]
 
 ## 결정 (2026-04-04)
 
-OPM 프로젝트를 공개(free)와 비공개(paid) 2개 저장소로 분리. [[OpenProxy-MCP]]와 [[OpenProxy-AI]]의 역할 분담.
+OPM 프로젝트를 공개(free)와 비공개(paid) 2개 저장소로 분리. [[OpenProxy-MCP]]와 OpenProxy-AI의 역할 분담.
 
 ## 구조
 
@@ -22,10 +22,7 @@ OPM 프로젝트를 공개(free)와 비공개(paid) 2개 저장소로 분리. [[
 - agm_manual + CASE_RULE이 AI 판단 기준
 
 ### open-proxy-ai (private, paid)
-- 파이프라인 + 프론트엔드 + 데이터
-- XML -> PDF -> OCR -> LLM 자동 체이닝 (PDF/OCR 코드도 2026-07-12부터 여기 소유: `pipeline/pdf_parser.py` + `pipeline/pdf_download.py`)
-- 배치 파이프라인으로 미리 최선 데이터 생성
-- [[v4-스키마]] JSON 199개 기업
+- 유료 프로덕트 — 상세 설계는 private wiki(open-proxy-storage) 참조.
 
 ## 공유 레이어
 
@@ -33,6 +30,4 @@ parser.py, pdf_parser.py, dart/client.py가 공통. OPA가 OPM을 pip install로
 
 ## 분리 이유
 
-- MCP tool은 오픈소스로 커뮤니티 기여 유도
-- 파이프라인/프론트엔드는 차별화 가치로 비공개 유지
-- pyproject.toml optional deps 분리 (core/pdf/llm/all)
+- 공개 MCP는 커뮤니티 기여 유도, 상세 사유는 private wiki 참조.

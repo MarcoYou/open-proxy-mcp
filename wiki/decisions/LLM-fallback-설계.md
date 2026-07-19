@@ -48,4 +48,4 @@ validate_agenda_result()
 ## free vs paid
 
 - **free ([[OpenProxy-MCP]])**: use_llm=False 기본, 유저 AI 토큰으로 보정
-- **paid ([[OpenProxy-AI]])**: 자동 체이닝, provider API 토큰 사용. [[free-paid-분리]] 설계에 따른 차이
+- **paid (OpenProxy-AI)**: 자동 체이닝, provider API 토큰 사용. [[free-paid-분리]] 설계에 따른 차이
