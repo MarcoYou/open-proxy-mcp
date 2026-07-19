@@ -107,6 +107,8 @@ powerpoint/
 screenshot/*
 # 단, README에 쓰는 데모 이미지는 공개 유지
 !screenshot/open-proxy-mcp output kor.png
+!screenshot/opx-cashflow.png
+!screenshot/opx-agm.png
 scripts/*census*.py
 scripts/*census*.js
 scripts/*diagnos*.py
