@@ -2,8 +2,44 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
-## Since v2.1 (unreleased, 2026-06-12 ~ )
+## v2.2
 
+25-tool lineup. Centered on three new tools (business details, provisional earnings, asset-holdings
+screening) plus director/shareholder-return/treasury precision work.
+
+- **New `asset_holdings` tool (25th, 2026-07-20)** — classifies audited consolidated balance-sheet
+  accounts into purpose buckets (cash-like, tradable securities, friendly/allied stakes,
+  controlling/associate stakes, investment property, core operating assets), re-marks listed stakes
+  at today's price, and screens for asset plays via surplus-asset / equity-NAV coverage vs. market
+  cap. Auto-generates a one-line character read ("trading-heavy", "real-estate play", "holdco
+  discount", "friendly-stake"). Reviewed by an accountant + Data QA expert-agent panel and validated
+  by reusing an existing 2,608-company census cache (KOSPI+KOSDAQ+EDGE, zero new DART calls), which
+  surfaced and fixed a separate-financial-statement combined-account (subsidiary+associate) NAV-loss
+  bug (130 companies, up to 4.57x), an active REIT false-positive, and a 19% market-cap source
+  mismatch.
+- **New `provisional_earnings` tool (24th, 2026-07-19)** — quarterly preliminary earnings filings
+  (I002 fair disclosure): revenue, operating profit, net income + YoY. The earliest available
+  earnings signal, ahead of confirmed periodic-report figures. table_markdown primary + best-effort
+  headline, also covers non-financial metrics like auto unit sales and shipbuilding orders. Verified
+  via multi-agent review across 24 companies plus a KOSPI500 census.
+- **New `business_details` tool (23rd, 2026-07-18)** — reads the "Business Overview" section for
+  segment revenue/profit (structured when possible, falls back to the original note as markdown at
+  low confidence) plus five markdown-primary fields (sites, utilization, R&D, order backlog, key
+  customers), and a dedicated financial/REIT track (operating overview, soundness ratios, investment
+  property, gated by industry code). Verified via a 286-company census plus a three-expert panel
+  (financial/disclosure/industry). Defaults to `period="latest"` (most recent of annual/half-year/
+  quarterly).
+- **New `director_board` tool (20th, 2026-07-08; footnote precision & attendance-rate hardening,
+  2026-07-09)** — per-director data: registered-director pay, pay-limit utilization, tenure changes,
+  individual pay disclosures ≥500M KRW, unregistered-officer pay, employee-to-officer pay multiple
+  (pay_gap), and board attendance rate. Resolves footnote markers (e.g. `(주1)`) that the structured
+  API leaves unexpanded by pulling the original filing text — while blocking false attributions
+  (litigation provisions, related-party notes, stock options, table fragments, other footnotes) via
+  a five-stage gate, downgrading to a raw excerpt when confidence falls short (300-company review:
+  zero resolved errors). Attendance rate is also parsed from the original text (section-local, with
+  a partial-attendance flag when a company's inline summary covers only outside directors).
+  Performance: parallelized footnote fetches and a notice-parsing timeout cut max wall time from
+  21.6s to 8.7s. A golden regression test (`spot_footnote_golden.py`) watches five known error types.
 - **`shareholder_commitment` added — 19th tool, 2nd Action Tool (2026-07-07)** — tracks value-up,
   dividend, and treasury-buyback commitments against what was actually executed, year-round (whereas
   `proxy_advise_before_meeting` is a one-time AGM-timed judgment, this is a stewardship-engagement
