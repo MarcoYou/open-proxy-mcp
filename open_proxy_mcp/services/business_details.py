@@ -1076,10 +1076,11 @@ async def build_business_details_payload(company_query: str, period: str = "late
     # 자산가치 스콥(III.재무 주석 원가 vs 공정가치 — 자산저평가주). full html 스캔이라 opt-in(기본 want 제외).
     if "real_estate" in want or "equity_holdings" in want:
         from open_proxy_mcp.services import asset_valuation as _av
+        _av_stripped = _av._strip(_full_html)   # 1회만 strip해 두 추출에 공유(재strip 회피, 병목 해소)
         if "real_estate" in want:
-            data["real_estate"] = _av.extract_real_estate(_biz_t, _full_html)
+            data["real_estate"] = _av.extract_real_estate(_biz_t, _full_html, stripped=_av_stripped)
         if "equity_holdings" in want:
-            data["equity_holdings"] = _av.extract_equity_holdings(_biz_t, _full_html)
+            data["equity_holdings"] = _av.extract_equity_holdings(_biz_t, _full_html, stripped=_av_stripped)
     data["induty_code"] = induty or None
     _lap("Afields")
     data["fetch_method"] = fetch_method   # "get_document"(1 API콜) | "viewer_fallback"(014 등 웹fetch)

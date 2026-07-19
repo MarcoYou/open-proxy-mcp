@@ -1410,6 +1410,26 @@ class DartClient:
             "fs_div": fs_div,
         })
 
+    async def get_other_corp_investment(
+        self,
+        corp_code: str,
+        bsns_year: str,
+        reprt_code: str = "11011",
+    ) -> dict:
+        """타법인 출자현황 (otrCprInvstmntSttus) — 사업보고서 XII.상세표. 표준화 구조화 표.
+
+        지분증권 보유의 **표준 소스**(재무주석 명세보다 깨끗). 컬럼:
+          inv_prm(법인명) · frst_acqs_amount(최초취득금액=원가) · trmend_blce_acntbk_amount(기말장부가액)
+          · trmend_blce_qota_rt(기말지분율) · incrs_dcrs_evl_lstmn(평가손익)
+          · recent_bsns_year_fnnr_sttus_tot_assets(피투자사 총자산). 상장=장부가액≈공정가치.
+        자산저평가 지분증권 트랙의 원가 vs 시가 gap을 파싱 없이 확보. 필드 상세는 opendart 공식 가이드.
+        """
+        return await self._request("otrCprInvstmntSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
     async def get_audit_opinion(
         self,
         corp_code: str,

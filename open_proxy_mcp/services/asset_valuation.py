@@ -25,21 +25,47 @@ def _strip(html: str) -> str:
     return _WS_RE.sub(" ", t.replace("\n", " "))
 
 
+# 단위 선언 "(단위 : 천원)" 등. DART 재무표는 표별 단위 선언 → region이 그 선언 위를 잘라내면 스케일을
+# 잃는다(천원↔백만원=1000배 오밸류). region에 단위가 없으면 **바로 위(근접) 선언**만 붙인다(먼 다른 표의
+# 단위를 잘못 붙이면 더 위험 → correct-or-absent). 단위 always-carry 원칙(사용자 지시 260719).
+_UNIT_DECL = re.compile(r"단위\s*[:：]\s*([^)\n]{1,24}?)\s*[)\n]")
+
+
+def _unit_before(txt: str, region_start: int, back: int = 700) -> str | None:
+    """region_start 직전 back 이내의 가장 가까운 '(단위: X)' 선언을 반환(근접일 때만 — 오단위 방지)."""
+    seg = txt[max(0, region_start - back):region_start]
+    last = None
+    for last in _UNIT_DECL.finditer(seg):
+        pass
+    return last.group(1).strip() if last else None
+
+
 def _find_regions(stripped: str, anchors: tuple[str, ...], sig: re.Pattern,
                   before: int = 140, after: int = 1500, max_regions: int = 1,
-                  max_scan: int = 400) -> list[str]:
+                  max_scan: int = 400, require: tuple[str, ...] = ()) -> list[str]:
     """앵커 literal 위치마다 [p-before, p+after] 윈도를 열고, content-signature(순수 lookahead)
-    통과 시 그 텍스트를 반환. 중첩표 무관(텍스트 기반). dedup·스캔 상한."""
+    통과 시 그 텍스트를 반환. 중첩표 무관(텍스트 기반). dedup·스캔 상한.
+    region에 단위 선언이 없으면 근접(≤700자) 지배 단위를 앞에 붙임(스케일 유실 방지).
+    require: sig가 반드시 포함하는 리터럴 — 값싼 `in`으로 선-프루닝(sig.search보다 ~1000x 빠름,
+    회귀무: sig가 매치하려면 어차피 require를 포함해야 하므로 없는 region은 어차피 불일치). 병목 해소."""
     positions = sorted(set(m.start() for a in anchors for m in re.finditer(re.escape(a), stripped)))
     out, seen = [], set()
     for p in positions[:max_scan]:
-        region = stripped[max(0, p - before):p + after].strip()
+        start = max(0, p - before)
+        raw = stripped[start:p + after]
+        if require and any(k not in raw for k in require):   # 값싼 프리필터(회귀무)
+            continue
+        region = raw.strip()
         if not sig.search(region):
             continue
         key = region[:70]
         if key in seen:
             continue
         seen.add(key)
+        if not _UNIT_DECL.search(region):        # 단위 유실 시 근접 지배 단위 백필
+            u = _unit_before(stripped, start)
+            if u:
+                region = f"[단위: {u}] {region}"
         out.append(region)
         if len(out) >= max_regions:
             break
@@ -47,9 +73,12 @@ def _find_regions(stripped: str, anchors: tuple[str, ...], sig: re.Pattern,
 
 
 # ── content-signatures (순수 lookahead, re.S — 소비/backtracking 없음) ──
-# 유형자산 토지 명세: 서식변형(SK=취득원가·경방=총장부금액·대한제분=transposed) → 라벨·인접 유연.
+# 유형자산 토지 명세: 컬럼형(취득원가/장부금액) OR **변동표(기초~기말 롤포워드)** 둘 다 대응.
+# 260719 하드닝: 변동표(토지 기말잔액이 '장부금액' 라벨 없이 기초/취득/기말 컬럼)가 dominant miss였음
+# (009440·메디앙스 등 — 워크플로 커버리지가 다수 검출). 실측 검증: 알려진 miss 13/13 복구 · found 회귀 0.
+# 담보제공/현금흐름표 오탐(~20% 신규검출)은 markdown-primary(caller가 읽어넘김)+멀티소스 계정대사로 흡수.
 _SIG_TANGIBLE_LAND = re.compile(
-    r"(?=.*토지)(?=.*(?:취득원가|총장부금액))(?=.*장부금액)(?=.*[\d,]{6,})", re.S)
+    r"(?=.*토지)(?=.*[\d,]{6,})(?=.*(?:취득원가|총장부금액|기초))(?=.*(?:장부금액|장부가액|기말))", re.S)
 # 투자부동산 명세(전문가 sig): 취득원가/취득가액·(감가)상각누계액·장부금액 + 토지/건물 + 5자리(산문·CF 배제).
 _SIG_INV_PROP = re.compile(
     r"(?=.*투자부동산)(?=.*(?:취득원가|취득가액|총장부금액))(?=.*장부금액)(?=.*(?:토지|건물)\s*[\d,]{5,})", re.S)
@@ -65,18 +94,20 @@ _SIG_EQUITY = re.compile(
     r"(?=.*(?:공정가치|순자산가액|평가손익))", re.S)
 
 
-def extract_real_estate(biz_text: str, full_html: str) -> dict[str, Any]:
-    """토지·투자부동산 장부가 vs 공정가치/재평가 region을 마크다운으로. 자산저평가주 스크리닝용."""
-    txt = _strip(full_html)
+def extract_real_estate(biz_text: str, full_html: str, stripped: str | None = None) -> dict[str, Any]:
+    """토지·투자부동산 장부가 vs 공정가치/재평가 region을 마크다운으로. 자산저평가주 스크리닝용.
+    stripped: 이미 _strip한 텍스트가 있으면 전달(재strip 회피 — 병목 해소, 회귀무)."""
+    txt = stripped if stripped is not None else _strip(full_html)
     specs = [
-        ("유형자산_토지_명세", ("토지",), _SIG_TANGIBLE_LAND),
-        ("투자부동산_명세", ("투자부동산",), _SIG_INV_PROP),
-        ("재평가", ("재평가적립금", "재평가잉여금"), _SIG_REVAL),
-        ("토지_공정가치/공시지가", ("공시지가", "토지의 공정가치"), _SIG_LAND_FV),
+        # (label, anchors, sig, require) — require=값싼 선-프루닝 리터럴(투자부동산이 병목: 회귀무 프리필터)
+        ("유형자산_토지_명세", ("토지",), _SIG_TANGIBLE_LAND, ()),
+        ("투자부동산_명세", ("투자부동산",), _SIG_INV_PROP, ("장부금액",)),
+        ("재평가", ("재평가적립금", "재평가잉여금"), _SIG_REVAL, ()),
+        ("토지_공정가치/공시지가", ("공시지가", "토지의 공정가치"), _SIG_LAND_FV, ()),
     ]
     parts, labels = [], []
-    for label, anchors, sig in specs:
-        regions = _find_regions(txt, anchors, sig, max_regions=1)
+    for label, anchors, sig, require in specs:
+        regions = _find_regions(txt, anchors, sig, max_regions=1, require=require)
         if regions:
             labels.append(label)
             parts.append(f"### {label}\n{regions[0]}")
@@ -88,11 +119,13 @@ def extract_real_estate(biz_text: str, full_html: str) -> dict[str, Any]:
             "note": "장부가 vs 공정가치 gap = 저평가 신호. 토지 공정가치는 공시지가 기준(실거래가 50~70%)이라 보수적 하한."}
 
 
-def extract_equity_holdings(biz_text: str, full_html: str) -> dict[str, Any]:
-    """금융자산 지분증권(상장/비상장) 취득원가 vs 공정가치·평가손익 region을 마크다운으로."""
-    txt = _strip(full_html)
+def extract_equity_holdings(biz_text: str, full_html: str, stripped: str | None = None) -> dict[str, Any]:
+    """금융자산 지분증권(상장/비상장) 취득원가 vs 공정가치·평가손익 region을 마크다운으로.
+    stripped: 이미 _strip한 텍스트가 있으면 전달(재strip 회피). 지분증권 명세는 타법인출자현황 API가
+    표준 소스(otrCprInvstmntSttus) — 이 함수는 트레이딩 포트폴리오(FVPL/FVOCI) 보강용."""
+    txt = stripped if stripped is not None else _strip(full_html)
     regions = _find_regions(txt, ("상장주식", "비상장주식", "상장지분", "비상장지분"), _SIG_EQUITY,
-                            before=180, after=2400, max_regions=1)
+                            before=180, after=2400, max_regions=1, require=("취득원가",))
     if not regions:
         return {"status": "NOT_APPLICABLE", "na_reason": "지분증권 원가-vs-시가 명세 미공시(총액·민감도만)"}
     return {"status": "MARKDOWN",
