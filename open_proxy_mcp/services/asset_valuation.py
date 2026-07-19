@@ -65,7 +65,7 @@ _SIG_EQUITY = re.compile(
     r"(?=.*(?:공정가치|순자산가액|평가손익))", re.S)
 
 
-def extract_real_asset_valuation(biz_text: str, full_html: str) -> dict[str, Any]:
+def extract_real_estate(biz_text: str, full_html: str) -> dict[str, Any]:
     """토지·투자부동산 장부가 vs 공정가치/재평가 region을 마크다운으로. 자산저평가주 스크리닝용."""
     txt = _strip(full_html)
     specs = [

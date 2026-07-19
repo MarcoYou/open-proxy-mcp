@@ -1074,10 +1074,10 @@ async def build_business_details_payload(company_query: str, period: str = "late
     if "investment_property" in want and (_reit_ksic or _ind2 == "65"):
         data["investment_property"] = _bf.extract_investment_property(_biz_t, _biz_html)
     # 자산가치 스콥(III.재무 주석 원가 vs 공정가치 — 자산저평가주). full html 스캔이라 opt-in(기본 want 제외).
-    if "real_asset_valuation" in want or "equity_holdings" in want:
+    if "real_estate" in want or "equity_holdings" in want:
         from open_proxy_mcp.services import asset_valuation as _av
-        if "real_asset_valuation" in want:
-            data["real_asset_valuation"] = _av.extract_real_asset_valuation(_biz_t, _full_html)
+        if "real_estate" in want:
+            data["real_estate"] = _av.extract_real_estate(_biz_t, _full_html)
         if "equity_holdings" in want:
             data["equity_holdings"] = _av.extract_equity_holdings(_biz_t, _full_html)
     data["induty_code"] = induty or None
