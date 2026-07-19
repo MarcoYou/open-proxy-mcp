@@ -269,7 +269,7 @@ HEADER_FOLDER_COUNT = re.compile(r"^#{2,3} .*?\((\d+)\)[^\n]*?-\s*`([a-z_/]+)/`"
 ARCHIVE_SUB_COUNT = re.compile(r"^#{2,3} (archive/[\w가-힣_]+)/ \((\d+)\)", re.MULTILINE)
 TOTAL_CLAIM = re.compile(r"총 (\d+) markdown")
 # tool 카테고리 라벨 — 같은 라벨이 다른 수로 두 번 나오면 자기모순
-CATEGORY_LABEL = re.compile(r"(?:^#{2,3} |\*\*)(Company|Screening|Meeting|Data|Evidence|Action|Tools)\s*\((\d+)", re.MULTILINE)
+CATEGORY_LABEL = re.compile(r"(?:^#{2,3} |\*\*)(Discovery|Company|Screening|Meeting|Data|Evidence|Action|Tools)\s*\((\d+)", re.MULTILINE)
 
 
 def _direct_md_count(folder: str, pages) -> int:
@@ -314,7 +314,7 @@ def check_index_counts(pages) -> list[str]:
     for label, ns in sorted(by_label.items()):
         if len(ns) > 1:
             issues.append(f"index 자기모순 카운트: {label} {sorted(ns)} — 같은 라벨이 다른 수")
-    cats = ("Company", "Screening", "Meeting", "Data", "Evidence", "Action")
+    cats = ("Discovery", "Company", "Screening", "Meeting", "Data", "Evidence", "Action")
     if all(len(by_label.get(c, set())) == 1 for c in cats) and len(by_label.get("Tools", set())) == 1:
         cat_sum = sum(next(iter(by_label[c])) for c in cats)
         tools_total = next(iter(by_label["Tools"]))

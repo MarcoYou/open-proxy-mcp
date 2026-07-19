@@ -2,6 +2,20 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Since v2.2 (unreleased, 2026-07-21 ~ )
+
+- **New `getting_started` tool (26th, new Discovery category)** — answers broad capability questions
+  like "what can this do?". Decided by a 4-expert panel (MCP protocol, LLM tool-use practice,
+  multi-client, DX/maintenance) that favored a tool over a resource or doing nothing — per the MCP
+  spec, a model deciding on its own to respond to a vague question is model-controlled territory,
+  which is exactly what tools (not resources) are designed for, and resources aren't reliably
+  supported the same way across Claude/ChatGPT/Perplexity. While reviewing, the panel found that the
+  v1 toolset's `tool_guide` had been completely abandoned after the v2 rewrite — it shares zero tool
+  names with what's registered today. Taking that as a cautionary tale, the new tool's content is
+  assembled at runtime via `mcp.list_tools()` introspection instead of hardcoded markdown, so drift
+  is structurally impossible. Also added a FastMCP `instructions` field (a one-time orientation sent
+  at connection time).
+
 ## v2.2
 
 25-tool lineup. Centered on three new tools (business details, provisional earnings, asset-holdings

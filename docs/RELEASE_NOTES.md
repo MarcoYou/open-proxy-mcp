@@ -2,6 +2,17 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
+## v2.2 이후 (미릴리즈, 2026-07-21 ~ )
+
+- **`getting_started` 신규(26번째 tool, 신규 Discovery 카테고리)** — "OPM으로 뭐 할 수 있어?" 같은
+  포괄적 capability 질문에 답하는 tool. 4인 전문가 패널(MCP 프로토콜·LLM tool-use·멀티클라이언트·
+  DX 엔지니어) 토론 결과 tool 채택(resource·무대응 기각) — MCP 스펙상 "모델이 자율 판단해 반응"은
+  model-controlled 영역이라 tool이 정공법이고, resource는 Claude/ChatGPT/Perplexity 3사 동시
+  지원이 실무상 보장 안 됨. 검토 중 v1 `tool_guide`가 v2 재설계 후 완전히 방치돼 현재 tool 이름과
+  하나도 안 겹치는 죽은 코드가 된 사실을 발견 — 반면교사로 콘텐츠를 하드코딩 대신 `mcp.list_tools()`
+  런타임 introspection으로 조립해 드리프트를 구조적으로 차단. FastMCP `instructions` 필드(서버
+  연결 시 1회 오리엔테이션)도 함께 신설.
+
 ## v2.2
 
 25개 tool 체계. 사업내용·잠정실적·자산주 스크리닝 신규 tool 3종과 이사·주주환원·자사주 정밀화가 중심입니다.

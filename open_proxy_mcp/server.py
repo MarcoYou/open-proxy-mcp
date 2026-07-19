@@ -11,7 +11,16 @@ from open_proxy_mcp.tools_v2 import register_all_tools_v2
 def build_mcp(toolset: str) -> FastMCP:
     """toolset별 MCP 인스턴스 생성."""
 
-    mcp = FastMCP("open-proxy-mcp")
+    mcp = FastMCP(
+        "open-proxy-mcp",
+        instructions=(
+            "Korean-listed company disclosure (DART) analysis server. Covers financials, "
+            "valuation, ownership structure, AGM proxy voting, and asset-holdings screening. "
+            "Start with the `company` tool to resolve a company name or ticker. If asked broadly "
+            "what this server can do, call `getting_started` rather than guessing. Natural-language "
+            "questions work fine — you don't need to know tool names."
+        ),
+    )
     if toolset == "v2":
         register_all_tools_v2(mcp)
     elif toolset == "hybrid":
