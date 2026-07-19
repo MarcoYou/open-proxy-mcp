@@ -235,8 +235,8 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: **전체시장 공시 스크리너 / 아침 공시 디제스트.** 직전 실행 이후~오늘 전종목에 뜬 주요 공시를 카드형으로 요약(기업명+시총+유형+단계+정정+DART/naver 링크). 무인자 호출=오늘 아침 디제스트. scan(무엇이 떴나, 싸게)=디폴트, details=true면 필요 건만 문서 열어 유형별 핵심숫자(금액·분모%·DPS·안건·지분%).
-        when: "오늘/어제 무슨 공시 떴어", 매일 아침 공시 브리핑, 전체시장 수주·자사주·배당·증자·주총·5%보유 훑기, 특정 유형만 필터, 시총상위/지정종목만. 특정 회사 1곳 심층은 개별 tool(order_contracts·dividend 등).
-        types: `core`(수주·자사주·배당·증자CB·주총소집·5%보유) / `all` / 쉼표구분 코드. 코드: order,treasury,dividend,dilutive,agm_notice,ownership5,earnings,agm_result,restructuring,stake_deal,control_change,litigation,insider10.
+        when: "오늘/어제 무슨 공시 떴어", "최근 며칠/일주일 잠정실적 발표", 매일 아침 공시 브리핑, 전체시장 **영업(잠정)실적**·수주·자사주·배당·증자·주총·5%보유 훑기, 특정 유형만 필터, 시총상위/지정종목만. 특정 회사 1곳 심층은 개별 tool(provisional_earnings·order_contracts·dividend 등).
+        types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `all` / 쉼표구분 코드. 코드: earnings(영업잠정실적: 매출·영업익·YoY),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10.
         period: today / yesterday / since_yesterday(디폴트) / last_7d / last_30d / custom(custom_start·custom_end YYYYMMDD). 시장스캔 3개월 하드캡.
         universe: all(디폴트 전체시장) / kospi200(=KOSPI 시총상위200, 코스닥 미포함) / kospi:N / kosdaq:N / top_mktcap:N(전체시장 시총상위) / market:kospi|kosdaq(시장 전체) / custom:종목,종목(코드 또는 회사명 혼용 — "삼성전자" 이름도 자동 코드화). 각 카드에 시총 병기.
         details: false(디폴트, scan만) / true(문서 열어 숫자 — universe=all이거나 기간>30일이면 안전상 자동 off, 기간>7일이면 preview).

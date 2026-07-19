@@ -64,7 +64,7 @@ def _normalize_report_nm(report_nm: str) -> str:
 #  ⚠ 순서 = 분류 우선순위(구체 → 일반). 첫 매치가 이긴다.
 # ══════════════════════════════════════════════════════════════════════
 
-CORE_PRESET = ["order", "treasury", "dividend", "dilutive", "agm_notice", "ownership5"]
+CORE_PRESET = ["order", "treasury", "dividend", "dilutive", "agm_notice", "ownership5", "earnings"]
 
 # details 대상 Tier1 여섯 + scan-only Tier2/3. scan_codes 합집합이 실제 스캔 코드가 된다.
 TYPE_REGISTRY: list[dict[str, Any]] = [

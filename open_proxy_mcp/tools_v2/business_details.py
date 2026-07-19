@@ -60,9 +60,12 @@ def _render(p: dict) -> str:
     _FIELD_LABEL = {"sites": "사업장·생산설비", "utilization": "생산실적·가동률",
                     "rnd": "연구개발", "backlog": "수주현황", "customers": "주요 고객·매출처",
                     "financial_ops": "영업의 현황(금융)", "financial_soundness": "재무건전성(금융)",
-                    "investment_property": "투자부동산(REIT/보험)"}
+                    "investment_property": "투자부동산(REIT/보험)",
+                    "real_asset_valuation": "실물자산 장부가 vs 공정가치(자산저평가주)",
+                    "equity_holdings": "지분증권 보유(원가 vs 시가)"}
     for key in ("sites", "utilization", "rnd", "backlog", "customers",
-                "financial_ops", "financial_soundness", "investment_property"):
+                "financial_ops", "financial_soundness", "investment_property",
+                "real_asset_valuation", "equity_holdings"):
         fd = d.get(key)
         if not fd:
             continue
@@ -73,6 +76,8 @@ def _render(p: dict) -> str:
                 hint = f" _(가동률 힌트 {', '.join(fd['pct_hint'])}% · 비교금지)_"
             elif fd.get("ratio_to_sales_pct_hint"):
                 hint = f" _(연구개발비/매출 힌트 {fd['ratio_to_sales_pct_hint']}%)_"
+            elif fd.get("note"):
+                hint = f" _({fd['note']})_"
             L.append(f"\n### {label} (원문){hint}")
             L.append("> 아래 원문에서 값을 읽으세요. 단위·정의는 회사별 상이(비교 주의).")
             L.append("\n" + fd["markdown"])
@@ -100,7 +105,7 @@ def register_tools(mcp):
         when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. **금융/증권/보험/지주는 `financial_ops`·`financial_soundness`, REIT/보험은 `investment_property`** 로 커버(segments 대신).
         rule: segments는 정형→저신뢰 시 원문 마크다운. 나머지 필드는 **해당 소절 원문을 마크다운으로 반환** — 그 표를 읽어 값 추출(단위·정의 회사별 상이, 비교 주의). 금융/REIT 필드는 표준사에선 자동 N/A. 유형자산 장부가 표를 사업장으로 오독 금지. **응답 `report.report_nm`으로 어느 보고서인지 확인**(분기/반기/사업).
         period: `latest`(기본, 사업·반기·분기 중 **가장 최신 제출분**=최신 데이터) / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). II.사업의내용은 분기/반기도 완전구조라 동일 필드.
-        fields: 쉼표구분 — 표준: `segments,sites,utilization,rnd,backlog,customers` / 금융·REIT: `financial_ops,financial_soundness,investment_property` (미지정 시 회사에 맞는 것만 렌더, 나머지 N/A).
+        fields: 쉼표구분 — 표준: `segments,sites,utilization,rnd,backlog,customers` / 금융·REIT: `financial_ops,financial_soundness,investment_property` / **자산가치(opt-in, 명시해야 실행)**: `real_asset_valuation`(토지·투자부동산 장부가 vs 공정가치·재평가 — **자산저평가주** 스크리닝, III.재무 주석) · `equity_holdings`(지분증권 원가 vs 시가). (미지정 시 회사에 맞는 표준·금융 필드만, 자산가치 필드는 제외).
         ref: financial_metrics, valuation, order_contracts, company
         """
         flist = [f.strip() for f in fields.split(",") if f.strip()] or None
