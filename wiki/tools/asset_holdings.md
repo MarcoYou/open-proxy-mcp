@@ -91,8 +91,20 @@ created: 2026-07-20
 - `asset_valuation.py`(markdown-primary content-signature 엔진, [[markdown-primary-anchor-260719]] 계승)
 - [[valuation]] (전사 밸류에이션 PER/PBR — 시총 시계열은 이쪽, 자산 point-in-time은 asset_holdings)
 - [[financial_metrics]] (재무비율 — 부채 미차감 gross NAV 배수는 PBR과 병용 권장)
+- [[260721_1500_decision_asset-holdings-purpose-buckets]] (자산 목적버킷 6분류 — 회계사 검토·확정,
+  자산 성격 서사(재테크형/부동산 자산주형/지주사 할인형/우호지분형) 근거)
 
 ## 변경 이력
 - 2026-07-20: 신규 tool. summary+detail 2스콥(초기 3스콥 coverage/summary/detail → coverage를
   summary로 완전 흡수). 5인 패널 검증 후 결합계정 NAV 버그·REIT 오탐·시그니처 동의어 3종 수정,
   완화 부작용(매출채권 오탐) 재검증에서 발견해 즉시 수정.
+- 2026-07-21: **시총 소스 통일** — 자체계산(DART 유통주식수×종가)이 `valuation` tool의 KRX 기준
+  시총과 19%(서희건설 3,704억 vs 4,592억) 괴리하던 것을 실사용 중 발견 → `valuation._market_for`
+  (KRX 캐시, 상장주식수 기준) 재사용으로 통일, DART 호출도 감소. **FVPL 종목별 보유명세 복구** —
+  "상장주식의 내역" 롤포워드 표(원가 비교 아님, 기초~기말 시가평가 변동)가 기존 시그니처에 안 잡히던
+  것 발견(서희건설 삼성바이오로직스·테슬라·엔비디아 등 실명 트레이딩 포트폴리오) → 신규 시그니처
+  추가. **목적버킷 6분류 신설**([[260721_1500_decision_asset-holdings-purpose-buckets]], 회계사
+  에이전트 검토) — 자산을 현금성/환금성증권/우호제휴지분/지배관계사지분/투자용부동산/본업자산으로
+  재분류해 "재테크형·부동산 자산주형·지주사 할인형·우호지분형" 성격 서사 자동생성. 금융업은
+  surplus/지분NAV 배수 자체를 미제공으로 변경(트레이딩·FVOCI가 본업이라 서사 성립 안 함, 회계사
+  에이전트 지적). `_mark_listed_stakes`의 `cand.sort(reverse=True)` 동률 시 dict 비교 크래시 fix.

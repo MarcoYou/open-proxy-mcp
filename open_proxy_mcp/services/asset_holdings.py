@@ -99,6 +99,53 @@ _TIER_LABEL = {
     "mixed": "결합출자(종속+관계/공동, 미분리)",
 }
 
+# ── 목적 버킷 (260721, 회계사 검토·확정 — wiki/decisions/260721_1500_decision_asset-holdings-purpose-buckets.md 참조) ──
+# ltinv(FVPL 비유동)은 "장기"라는 이름과 달리 측정·처분목적이 trading과 동일(비유동은 표시분류일
+# 뿐, K-IFRS1001§60) → trading과 같은 버킷. oci(FVOCI 지분상품)는 영향력 '없는' 지분(K-IFRS1109
+# §5.7.5)이라 assoc/subs(지배력·유의적영향력 전제, K-IFRS1110/1028)와 목적이 반대 → 별도 버킷.
+_BUCKET = {
+    "cash": "cashlike", "held_for_sale": "cashlike",
+    "trading": "trading_sec", "ltinv": "trading_sec",
+    "oci": "friendly_stake",
+    "assoc": "control_stake", "subs": "control_stake", "mixed": "control_stake",
+    "inv_prop": "real_estate",
+    "tangible": "core_biz", "nc_other": "unclassified",
+}
+_BUCKET_ORDER = ["cashlike", "trading_sec", "friendly_stake", "control_stake",
+                "real_estate", "core_biz", "unclassified"]
+_BUCKET_LABEL = {
+    "cashlike": "현금성 자산", "trading_sec": "환금성 증권(재테크형)",
+    "friendly_stake": "우호·제휴 지분", "control_stake": "지배·관계사 지분",
+    "real_estate": "투자용 부동산", "core_biz": "본업 자산(참고)", "unclassified": "기타(미분류)",
+}
+_BUCKET_DESC = {
+    "cashlike": "즉시 현금화 가능",
+    "trading_sec": "언제든 팔 수 있는 주식·펀드 — 트레이딩 목적(만기 1년 초과분 포함)",
+    "friendly_stake": "영향력 없는 지분관계 유지 목적(상호출자 등), 지배력과 무관",
+    "control_stake": "경영권·유의적 영향력 보유 — 팔기 어려움(지주사 할인 요인)",
+    "real_estate": "본업과 무관한 임대·시세차익 목적 부동산",
+    "core_biz": "회사가 직접 쓰는 자산(자가사용) — 스크리닝 대상 아님",
+    "unclassified": "목적 분류 불가(소액·특수계정)",
+}
+_NARRATIVE = {
+    "trading_sec": "재테크형 — 트레이딩 가능한 주식·펀드 비중이 큽니다",
+    "real_estate": "부동산 자산주형 — 본업과 무관한 투자부동산이 큽니다",
+    "control_stake": "지주사 할인형 — 자회사·관계사 지분이 큽니다",
+    "friendly_stake": "우호지분형 — 경영권과 무관한 상호출자성 지분이 큽니다",
+}
+
+
+def _asset_story(bucket_totals: dict[str, int], mcap: int | None) -> str | None:
+    """가장 큰 버킷(본업·미분류 제외)을 시총 대비로 판단해 자산 성격 한 줄 서사 생성.
+    시총 15% 미만이면 특별한 서사 없음(잡음 방지)."""
+    candidates = [(k, v) for k, v in bucket_totals.items() if k in _NARRATIVE and v]
+    if not candidates:
+        return None
+    top_k, top_v = max(candidates, key=lambda x: x[1])
+    if mcap and top_v < mcap * 0.15:
+        return None
+    return _NARRATIVE[top_k]
+
 
 def _bs_tiers(fin_list: list[dict]) -> tuple[dict[str, int], list[dict]]:
     lines = []
@@ -156,7 +203,7 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
         if not listed_map.get(_norm(h.get("inv_prm") or "")):
             continue
         cand.append((book, h))
-    cand.sort(reverse=True)
+    cand.sort(key=lambda x: x[0], reverse=True)  # book 동률 시 dict 2차비교로 TypeError 방지(260721)
     marked, book_sum, mkt_sum, unresolved = [], 0, 0, 0
     for book, h in cand[:12]:                           # 콜 상한 12
         nm = h.get("inv_prm") or ""
@@ -187,6 +234,7 @@ import datetime  # noqa: E402
 
 from open_proxy_mcp.dart.client import get_dart_client  # noqa: E402
 from open_proxy_mcp.services import business_details as _bd  # noqa: E402
+from open_proxy_mcp.services import valuation as _val  # noqa: E402
 from open_proxy_mcp.services.company import resolve_company_query  # noqa: E402
 
 _YEAR = re.compile(r"\((\d{4})\.\d{2}\)")
@@ -208,35 +256,18 @@ async def _safe_getdoc(client, rcept_no: str) -> dict:
         return {"note_html": "", "full_text": ""}
 
 
-async def _shares_distb(client, corp_code: str, year: str) -> int | None:
-    try:
-        st = await client.get_stock_total(corp_code, year, "11011")
-    except DartClientError:
-        return None
-    for r in (st.get("list", st) if isinstance(st, dict) else st) or []:
-        if (r.get("se") or "").strip() == "합계":
-            return _num(r.get("distb_stock_co"))
-    return None
-
-
-async def _market_cap(client, stock_code: str, corp_code: str, year: str):
-    """유통주식수 × 최근 거래일 종가. Postgres 무의존(DART/naver). 실패 시 (None, 사유)."""
-    shares = await _shares_distb(client, corp_code, year)
-    if not shares or not stock_code:
-        return None, {"reason": "주식총수/종목코드 없음", "shares": shares}
-    today = datetime.date.today()
-    for back in range(0, 12):
-        d = today - datetime.timedelta(days=back)
-        if d.weekday() >= 5:
-            continue
-        try:
-            p = await client.get_stock_price(stock_code, d.strftime("%Y%m%d"))
-        except (DartClientError, Exception):  # noqa: BLE001
-            p = None
-        if p and p.get("closing_price"):
-            return shares * p["closing_price"], {"shares": shares, "close": p["closing_price"],
-                                                 "date": p.get("base_date")}
-    return None, {"reason": "최근 종가 조회 실패", "shares": shares}
+async def _market_cap(stock_code: str):
+    """시총 = valuation tool과 동일 소스(krx_weekly, 상장주식수 기준) 재사용 — DART 0콜, Postgres 캐시.
+    260721 버그수정: 이전엔 DART 유통주식수(distb_stock_co, 자기주식 제외)×종가로 자체계산해
+    관행적 '시가총액'(상장주식수 전체 기준, valuation/네이버/KRX 표준)보다 자기주식 비율만큼
+    과소산출됐다(서희건설 실측: 유통 1.85억주 vs 상장 2.30억주 — 시총 19% 과소, 잉여자산배수 왜곡).
+    실패 시 (None, 사유)."""
+    if not stock_code:
+        return None, {"reason": "종목코드 없음"}
+    mk = await _val._market_for(stock_code)
+    if not mk.get("price") or not mk.get("common_mktcap"):
+        return None, {"reason": "KRX 시세/시총 조회 실패"}
+    return mk["common_mktcap"], {"shares": mk.get("list_shrs"), "close": mk["price"], "date": mk.get("date")}
 
 
 async def build_asset_holdings_payload(company: str, scope: str = "summary",
@@ -314,22 +345,39 @@ async def build_asset_holdings_payload(company: str, scope: str = "summary",
         pledged = _av.extract_pledged_assets("", stripped=stripped)
         contingent = _av.extract_contingent("", stripped=stripped)
         data["haircuts"] = {"pledged": pledged.get("status"), "contingent": contingent.get("status")}
-        mcap, mcap_meta = await _market_cap(client, isu, cc, year)
+        mcap, mcap_meta = await _market_cap(isu)
         data["market_cap_krw"] = mcap
         data["market_cap_meta"] = mcap_meta
         t = data["_tiers"]
+        bucket_totals: dict[str, int] = {}
+        for k, v in t.items():
+            b = _BUCKET.get(k)
+            if b and v:
+                bucket_totals[b] = bucket_totals.get(b, 0) + v
+        data["asset_buckets"] = {_BUCKET_LABEL[b]: {"krw": bucket_totals[b], "desc": _BUCKET_DESC[b]}
+                                 for b in _BUCKET_ORDER if bucket_totals.get(b)}
+        data["asset_story"] = _asset_story(bucket_totals, mcap)
         # 잉여자산(본업무관·환금): 현금성+환금FVPL+장투증권+투자부동산(비금융·비REIT). 지배지분은 별도(NAV).
-        surplus = t.get("cash", 0) + t.get("trading", 0) + t.get("ltinv", 0) + t.get("held_for_sale", 0)
-        if not is_fin and not is_reit:
-            surplus += t.get("inv_prop", 0)
-        # 지분 NAV: 관계기업(시가마크 반영) + FVOCI. 결합계정(mixed)은 지배지분 섞여있어 별도 참고라인.
-        assoc_nav = mark["listed_mkt_krw"] + max(0, t.get("assoc", 0) - mark["listed_book_krw"]) + t.get("oci", 0)
+        # 260721 회계사 검토: 금융업(은행·증권·보험)은 트레이딩/FVOCI 자산 자체가 본업이라 surplus·
+        # equity_nav '숨은가치' 서사 자체가 성립 안 함 — 비율 미제공(raw 자산표는 그대로 노출).
+        if is_fin:
+            surplus = t.get("cash", 0) + t.get("held_for_sale", 0)
+        else:
+            surplus = t.get("cash", 0) + t.get("trading", 0) + t.get("ltinv", 0) + t.get("held_for_sale", 0)
+            if not is_reit:
+                surplus += t.get("inv_prop", 0)
+        # 지분 NAV: 관계기업(시가마크 반영) + FVOCI(비금융만 — 금융업은 FVOCI도 본업 포트폴리오).
+        assoc_nav = mark["listed_mkt_krw"] + max(0, t.get("assoc", 0) - mark["listed_book_krw"])
+        if not is_fin:
+            assoc_nav += t.get("oci", 0)
         mixed_krw = t.get("mixed", 0)
+        if is_fin:
+            warnings.append("금융업 — 트레이딩·FVOCI 자산이 본업이라 surplus/지분NAV 배수는 미제공(자산표만 참고)")
         data["nav"] = {
             "surplus_krw": surplus, "equity_nav_krw": assoc_nav,
             "listed_unrealized_gap_krw": mark["unrealized_gap_krw"],
-            "surplus_cov": (surplus / mcap) if mcap else None,
-            "equity_nav_cov": (assoc_nav / mcap) if mcap else None,
+            "surplus_cov": (surplus / mcap) if (mcap and not is_fin) else None,
+            "equity_nav_cov": (assoc_nav / mcap) if (mcap and not is_fin) else None,
             "mixed_combined_krw": mixed_krw,
             "mixed_combined_cov": (mixed_krw / mcap) if mcap and mixed_krw else None,
             "haircut_flags": [k for k, v in data["haircuts"].items() if v == "MARKDOWN"],

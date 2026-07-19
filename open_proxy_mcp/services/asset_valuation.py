@@ -113,6 +113,13 @@ _SIG_EQUITY = re.compile(
     r"(?!.*손상차손누계액)"
     r"(?=.*(?:취득원가|취득가액|총장부금액))(?=.*(?:상장|비상장)\s*(?:주식|지분상품|지분증권))"
     r"(?=.*(?:공정가치|순자산가액|평가손익))", re.S)
+# FVPL 상장주식 롤포워드형 보유명세(260721, 서희건설 실사용 발견) — 위 _SIG_EQUITY는 "원가 vs
+# 시가" 비교표 전용인데, 트레이딩 포트폴리오(당기손익-공정가치측정금융자산)는 원가 컬럼 없이
+# **종목별 기초금융자산→매입/매도/평가손익→기말금융자산** 롤포워드로만 공시하는 경우가 흔함
+# (삼성바이오로직스·테슬라·엔비디아·팔란티어 등 실명 종목 + KODEX/TIGER/SOXX 등 ETF 혼재).
+# "상장주식의 내역" 소제목 앵커 + 롤포워드 고유 컬럼명(기초금융자산·기말금융자산)으로 지목.
+_SIG_EQUITY_FVPL_ROLL = re.compile(
+    r"(?=.*상장주식의\s*내역)(?=.*기초금융자산)(?=.*기말금융자산)(?=.*[\d,]{5,})", re.S)
 # 담보제공 자산(asset_holdings haircut): 담보 맥락 + 자산종류 + 장부금액 인접 숫자. 자유청산 NAV에서 차감.
 _SIG_PLEDGED = re.compile(
     r"(?=.*담보)(?=.*(?:토지|건물|투자부동산|예금|정기예금|유가증권|주식|사용권))"
@@ -155,13 +162,22 @@ def extract_equity_holdings(biz_text: str, full_html: str, stripped: str | None 
     txt = stripped if stripped is not None else _strip(full_html)
     # require 미지정: "취득원가" 단일리터럴 프리필터가 취득가액/총장부금액 표기(040300 등 실명 상장주식
     # 명세)를 과잉 배제해 제거(260720 전수조사) — 앵커(상장/비상장주식)가 이미 좁아 성능 영향 미미.
-    regions = _find_regions(txt, ("상장주식", "비상장주식", "상장지분", "비상장지분"), _SIG_EQUITY,
-                            before=180, after=2400, max_regions=1)
-    if not regions:
+    specs = [
+        ("지분증권_원가vs공정가치", ("상장주식", "비상장주식", "상장지분", "비상장지분"), _SIG_EQUITY, 180, 2400),
+        ("FVPL_상장주식_보유명세(종목별)", ("상장주식의 내역",), _SIG_EQUITY_FVPL_ROLL, 180, 2600),
+    ]
+    parts, labels = [], []
+    for label, anchors, sig, before, after in specs:
+        regions = _find_regions(txt, anchors, sig, before=before, after=after, max_regions=1)
+        if regions:
+            labels.append(label)
+            parts.append(f"### {label}\n{regions[0]}")
+    if not parts:
         return {"status": "NOT_APPLICABLE", "na_reason": "지분증권 원가-vs-시가 명세 미공시(총액·민감도만)"}
-    return {"status": "MARKDOWN",
-            "markdown": ("### 지분증권 보유명세(원가 vs 공정가치)\n" + "\n\n".join(regions))[:12000],
-            "note": "상장=공정가치·비상장=순자산가액/공정가치. 취득원가 대비 gap = 평가손익."}
+    return {"status": "MARKDOWN", "found": labels,
+            "markdown": ("\n\n".join(parts))[:14000],
+            "note": "상장=공정가치·비상장=순자산가액/공정가치. 취득원가 대비 gap = 평가손익. "
+                    "FVPL 보유명세(종목별)는 원가 비교가 아니라 기초~기말 롤포워드(트레이딩 포트폴리오 시가평가 변동)."}
 
 
 def extract_pledged_assets(full_html: str, stripped: str | None = None) -> dict[str, Any]:

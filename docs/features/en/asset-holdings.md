@@ -5,6 +5,7 @@
 ## What it answers
 
 - **Asset composition** — cash & equivalents, tradable securities (FVPL), long-term securities, strategic FVOCI stakes, controlling/associate stakes (equity method), investment property, and tangible assets, split by purpose.
+- **One-line character read** — automatically diagnoses which purpose dominates relative to market cap and labels the story: "trading-heavy" (short-term stocks/funds), "real-estate play" (investment property unrelated to the core business), "holdco discount" (subsidiary/associate stakes), or "friendly-stake" (cross-shareholding unrelated to control).
 - **Mark-to-market on listed stakes** — re-prices listed holdings (from the other-corporate-investment filing) at today's closing price and shows the unrealized gap vs. book value — e.g. a holding company still carrying a subsidiary at cost years after it listed and re-rated.
 - **Coverage ratios vs. market cap** — surplus assets (cash + liquid securities + investment property) and equity NAV (controlling/associate stakes) each compared to market cap, flagging when they exceed it.
 - **Pledged-asset & contingent-liability warnings** — flags when assets are pledged as collateral or contingent liabilities/guarantees exist, since both should be subtracted from NAV (see `scope="detail"` for the original text).
