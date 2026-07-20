@@ -2,7 +2,10 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
-## Since v2.2 (unreleased, 2026-07-21 ~ )
+## v2.3 (2026-07-20)
+
+26-tool lineup. Centered on a new capability-question tool and an extension to `business_details`
+for point-in-time lookups.
 
 - **New `getting_started` tool (26th, new Discovery category)** — answers broad capability questions
   like "what can this do?". Decided by a 4-expert panel (MCP protocol, LLM tool-use practice,
@@ -15,6 +18,15 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
   assembled at runtime via `mcp.list_tools()` introspection instead of hardcoded markdown, so drift
   is structurally impossible. Also added a FastMCP `instructions` field (a one-time orientation sent
   at connection time).
+- **`business_details` — point-in-time lookups via bsns_year+reprt_code** — the existing `period`
+  parameter (latest/annual/quarterly) always returned only the most recent filing, so there was no
+  way to answer segment-revenue-trend questions (discovered in a live session where an AI couldn't
+  answer a question about Samsung Electronics' segment revenue trend over the past year). Added
+  DART's standard parameters (same convention already used by `get_major_shareholders` etc.) to
+  query one specific past quarter/half/annual filing. Matches precisely on the report-title's fiscal
+  label so it stays safe for companies whose fiscal year-end isn't December. Verified against 8 edge
+  cases against real DART data with no regression on the existing `period` path. Still returns only
+  one period per call (trend questions require one call per quarter).
 
 ## v2.2
 

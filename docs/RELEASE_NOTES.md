@@ -2,7 +2,9 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
-## v2.2 이후 (미릴리즈, 2026-07-21 ~ )
+## v2.3 (2026-07-20)
+
+26개 tool 체계. capability 질문에 답하는 신규 tool 1종과 business_details 시계열 조회 확장이 중심입니다.
 
 - **`getting_started` 신규(26번째 tool, 신규 Discovery 카테고리)** — "OPM으로 뭐 할 수 있어?" 같은
   포괄적 capability 질문에 답하는 tool. 4인 전문가 패널(MCP 프로토콜·LLM tool-use·멀티클라이언트·
@@ -12,6 +14,13 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
   하나도 안 겹치는 죽은 코드가 된 사실을 발견 — 반면교사로 콘텐츠를 하드코딩 대신 `mcp.list_tools()`
   런타임 introspection으로 조립해 드리프트를 구조적으로 차단. FastMCP `instructions` 필드(서버
   연결 시 1회 오리엔테이션)도 함께 신설.
+- **`business_details` — bsns_year+reprt_code로 특정 과거 시점 조회 지원** — 기존 `period`
+  (latest/annual/quarterly)는 항상 최신 제출분만 반환해 부문별 매출 추이 같은 시계열 질문에 답할
+  방법이 없었음(실사용 세션에서 삼성전자 지난 1년 부문매출 추이 질문이 불가 판정된 사례로 발견).
+  DART 표준 파라미터(기존 `get_major_shareholders` 등과 동일 컨벤션)로 과거 특정 분기/반기/연간
+  1건을 지정 조회 가능. report_nm 기수라벨로 정밀 매칭해 결산월이 12월이 아닌 회사도 안전. 8개
+  엣지케이스 실DART 대조 + 기존 경로 회귀 없음 확인. 한 번의 호출로 여러 기간을 반환하진 않음(추이는
+  분기마다 반복 호출).
 
 ## v2.2
 
