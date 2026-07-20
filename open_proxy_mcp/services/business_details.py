@@ -733,6 +733,42 @@ def _report_period_tag(r: dict) -> str | None:
     return f"{m.group(1)}.{int(m.group(2))}" if m else None
 
 
+_REPRT_CODE_INFO = {
+    "11011": ("A001", ["사업보고서"]),   # 사업(연간)
+    "11012": ("A002", ["반기보고서"]),   # 반기
+    "11013": ("A003", ["분기보고서"]),   # 1분기
+    "11014": ("A003", ["분기보고서"]),   # 3분기
+}
+
+
+async def _find_report_for_bsns_year(client, corp_code: str, bsns_year: str, reprt_code: str) -> list[dict]:
+    """특정 사업연도·보고서유형(DART 표준 reprt_code: 11011=사업/11012=반기/11013=1분기/11014=3분기)의
+    정기보고서를 report_nm 기수라벨 '(YYYY.MM)'로 정밀 매칭 — 시계열(추이) 조회용, period(latest 스냅샷)와
+    별개 경로. 결산월을 몰라도(3월결산 등) 안전하도록 절대월을 가정하지 않고, 분기보고서(11013/11014)가
+    연내 2회 등장하면 tag 월의 상대순서(빠른 쪽=1분기/늦은 쪽=3분기)로만 구분한다."""
+    info = _REPRT_CODE_INFO.get(reprt_code)
+    if info is None or not bsns_year.strip().isdigit():
+        return []
+    detail_ty, toks = info
+    year = int(bsns_year)
+    from datetime import date
+    end = min(f"{year + 1}0630", date.today().strftime("%Y%m%d"))
+    res = await client.search_filings(bgn_de=f"{year}0101", end_de=end, corp_code=corp_code,
+                                       pblntf_ty="A", pblntf_detail_ty=detail_ty, page_count=100)
+    cands = [r for r in res.get("list", [])
+             if any(t in r.get("report_nm", "") for t in toks)
+             and (_report_period_tag(r) or "").startswith(f"{year}.")]
+    if reprt_code in ("11013", "11014") and len({_report_period_tag(r) for r in cands}) > 1:
+        def _tag_month(r):
+            tag = _report_period_tag(r)
+            return int(tag.split(".")[1]) if tag else 0
+        months = sorted({_tag_month(r) for r in cands})
+        want = months[0] if reprt_code == "11013" else months[-1]
+        cands = [r for r in cands if _tag_month(r) == want]
+    cands.sort(key=lambda r: r.get("rcept_dt", ""), reverse=True)
+    return cands
+
+
 async def _fetch_biz(client, rcept_no: str) -> dict:
     """main.do(목차) + II.사업의 내용 chapter만 fetch [2콜]. 주석 노드는 좌표만 반환(lazy)."""
     main_html = await client._fetch_viewer_main_html(rcept_no)
@@ -904,9 +940,11 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
 
 
 async def build_business_details_payload(company_query: str, period: str = "latest",
-                                         fields: list[str] | None = None) -> dict:
+                                         fields: list[str] | None = None,
+                                         bsns_year: str = "", reprt_code: str = "") -> dict:
     """II.사업의 내용 구조화 추출 tool 진입점. 단계별 타이머(data.timings_ms)로 병목 실측.
-    period 기본="latest"(사업·반기·분기 중 최신=최신 데이터). "annual"/"quarterly"로 명시 override."""
+    period 기본="latest"(사업·반기·분기 중 최신=최신 데이터). "annual"/"quarterly"로 명시 override.
+    bsns_year+reprt_code 둘 다 지정 시 특정 과거 시점(시계열 추이용)을 조회 — period보다 우선."""
     from open_proxy_mcp.services.company import resolve_company_query
     from open_proxy_mcp.services.contracts import ToolEnvelope, AnalysisStatus
     from open_proxy_mcp.dart.client import get_dart_client
@@ -940,12 +978,24 @@ async def build_business_details_payload(company_query: str, period: str = "late
     _fin_ksic = _ind2 in ("64", "65", "66")      # 금융권
     _reit_ksic = _ind2 == "68"                    # 부동산(REIT 후보)
 
-    reps = await _find_report_candidates(client, corp["corp_code"], period)
-    _lap("search")
-    if not reps:
-        return ToolEnvelope(tool="business_details", status=AnalysisStatus.NO_FILING,
-                            subject=corp.get("corp_name", ""), data={"timings_ms": T},
-                            warnings=[f"{period} 정기보고서 없음"]).to_dict()
+    if bsns_year or reprt_code:
+        if not (bsns_year and reprt_code):
+            return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR,
+                                subject=corp.get("corp_name", ""), data={"timings_ms": T},
+                                warnings=["bsns_year와 reprt_code는 함께 지정해야 합니다"]).to_dict()
+        reps = await _find_report_for_bsns_year(client, corp["corp_code"], bsns_year, reprt_code)
+        _lap("search")
+        if not reps:
+            return ToolEnvelope(tool="business_details", status=AnalysisStatus.NO_FILING,
+                                subject=corp.get("corp_name", ""), data={"timings_ms": T},
+                                warnings=[f"{bsns_year}년 reprt_code={reprt_code} 정기보고서 없음"]).to_dict()
+    else:
+        reps = await _find_report_candidates(client, corp["corp_code"], period)
+        _lap("search")
+        if not reps:
+            return ToolEnvelope(tool="business_details", status=AnalysisStatus.NO_FILING,
+                                subject=corp.get("corp_name", ""), data={"timings_ms": T},
+                                warnings=[f"{period} 정기보고서 없음"]).to_dict()
 
     from open_proxy_mcp.dart.client import DartClientError
     latest = reps[0]

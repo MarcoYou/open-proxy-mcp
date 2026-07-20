@@ -97,16 +97,22 @@ def register_tools(mcp):
         period: str = "latest",
         fields: str = "",
         format: str = "md",
+        bsns_year: str = "",
+        reprt_code: str = "",
     ) -> str:
         """desc: DART 정기보고서 **"II. 사업의 내용"**에서 사업부문별 매출·영업이익, **사업장·생산설비, 생산실적·가동률, 연구개발, 수주현황, 주요 고객·매출처**를 추출. SOTP·부문 수익성·생산능력·수주·고객집중 분석의 1차 소스.
-        when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. **금융/증권/보험/지주는 `financial_ops`·`financial_soundness`, REIT/보험은 `investment_property`** 로 커버(segments 대신).
-        rule: segments는 정형→저신뢰 시 원문 마크다운. 나머지 필드는 **해당 소절 원문을 마크다운으로 반환** — 그 표를 읽어 값 추출(단위·정의 회사별 상이, 비교 주의). 금융/REIT 필드는 표준사에선 자동 N/A. 유형자산 장부가 표를 사업장으로 오독 금지. **응답 `report.report_nm`으로 어느 보고서인지 확인**(분기/반기/사업).
-        period: `latest`(기본, 사업·반기·분기 중 **가장 최신 제출분**=최신 데이터) / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). II.사업의내용은 분기/반기도 완전구조라 동일 필드.
+        when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. **금융/증권/보험/지주는 `financial_ops`·`financial_soundness`, REIT/보험은 `investment_property`** 로 커버(segments 대신). **여러 분기/연도 추이**가 필요하면 `bsns_year`+`reprt_code`를 지정해 과거 시점을 하나씩 반복 호출.
+        rule: segments는 정형→저신뢰 시 원문 마크다운. 나머지 필드는 **해당 소절 원문을 마크다운으로 반환** — 그 표를 읽어 값 추출(단위·정의 회사별 상이, 비교 주의). 금융/REIT 필드는 표준사에선 자동 N/A. 유형자산 장부가 표를 사업장으로 오독 금지. **응답 `report.report_nm`으로 어느 보고서인지 확인**(분기/반기/사업). `bsns_year`/`reprt_code`는 **반드시 둘 다** 지정(하나만 주면 에러) — 지정 시 `period`는 무시됨.
+        period: `latest`(기본, 사업·반기·분기 중 **가장 최신 제출분**=최신 데이터) / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). II.사업의내용은 분기/반기도 완전구조라 동일 필드. `bsns_year`+`reprt_code` 지정 시 이 파라미터는 무시.
         fields: 쉼표구분 — 표준: `segments,sites,utilization,rnd,backlog,customers` / 금융·REIT: `financial_ops,financial_soundness,investment_property`. (미지정 시 회사에 맞는 표준·금융 필드만). **자산(토지·투자부동산·지분증권 원가vs공정가치)은 별도 tool `asset_holdings`.**
+        bsns_year: 특정 과거 사업연도 조회(예: "2025"). `reprt_code`와 함께 지정해야 함 — **추이 조회용**(한 번에 여러 분기 반환 아님, 분기마다 반복 호출).
+        reprt_code: DART 표준 보고서유형 — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). `bsns_year`와 함께 지정.
         ref: financial_metrics, valuation, order_contracts, company
         """
         flist = [f.strip() for f in fields.split(",") if f.strip()] or None
-        payload = await build_business_details_payload(company, period=period, fields=flist)
+        payload = await build_business_details_payload(
+            company, period=period, fields=flist, bsns_year=bsns_year, reprt_code=reprt_code
+        )
         if format == "json":
             return as_pretty_json(payload)
         return _render(payload)

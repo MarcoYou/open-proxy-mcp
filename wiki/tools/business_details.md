@@ -16,10 +16,14 @@ created: 2026-07-18
 DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매출·영업이익 ② 사업장·생산설비 ③ 생산실적·가동률 ④ 연구개발 ⑤ 수주현황 ⑥ 주요 고객·매출처**를 추출. SOTP·부문 수익성·생산능력·수주잔고·고객집중 분석의 1차 소스. 286사 census + 재무·공시·산업 3전문가 QA로 검증.
 
 ## 사용법
-- `business_details(company, period="latest", fields="", format="md")`
-- `period`: **`latest`(기본, 사업·반기·분기 중 가장 최신 제출분=최신 데이터)** / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). 응답 `report.report_nm`으로 어느 보고서인지 확인. II.사업의내용은 분기/반기도 완전구조라 동일 필드(사업의내용_ksic별양식 참조).
+- `business_details(company, period="latest", fields="", format="md", bsns_year="", reprt_code="")`
+- `period`: **`latest`(기본, 사업·반기·분기 중 가장 최신 제출분=최신 데이터)** / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). 응답 `report.report_nm`으로 어느 보고서인지 확인. II.사업의내용은 분기/반기도 완전구조라 동일 필드(사업의내용_ksic별양식 참조). `bsns_year`+`reprt_code` 지정 시 무시됨.
 - `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers`, 미지정 시 전체). **특정 필드만 지정하면 응답이 가벼움**(전체는 대형주 ~35K자).
-- 예: `business_details("에코프로비엠", fields="utilization")` · `business_details("HD한국조선해양", fields="backlog")`
+- `bsns_year`+`reprt_code`(260721 추가, **시계열/추이 조회용**): 둘 다 지정 시 특정 과거 시점 1건을 조회(`period` 대신). DART 표준 `reprt_code` — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). 한 번에 여러 분기를 반환하지 않으므로 **추이는 분기마다 반복 호출**해서 호출측이 이어붙임(`ownership_major(ticker, year)` 등 기존 DART 표준 파라미터명과 동일 컨벤션 재사용, 결산월 비표준(3월결산 등)에도 안전 — 분기보고서가 연내 2회 등장하면 `report_nm` 기수라벨의 상대순서로 1분기/3분기 구분, 절대월 하드코딩 없음). 하나만 지정하면 `status=error`.
+- 예: `business_details("에코프로비엠", fields="utilization")` · `business_details("HD한국조선해양", fields="backlog")` · `business_details("삼성전자", bsns_year="2025", reprt_code="11014")`(2025 3분기 스냅샷)
+
+## 알려진 한계 (v1 스코프)
+- **한 번의 호출로 여러 기간을 반환하지 않음** — "지난 1년 부문별 매출 추이" 같은 질문은 `bsns_year`/`reprt_code` 조합으로 분기마다 반복 호출 필요(예: 2Q25/3Q25/4Q25/1Q26 4번). 서버가 자동으로 시계열을 조립해주지 않음(260721 실사용 세션에서 발견 — 최초 설계([[260717_1220_decision_business-content-tool-roadmap]])는 "최신 스냅샷"만 스코프였음).
 
 ## 필드별 가이드 (직접 테스트용)
 | 필드 | 읽는 소절 | 무엇이 나오나 | 테스트 예시 |
