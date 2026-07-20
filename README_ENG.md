@@ -47,7 +47,7 @@ OpenProxy MCP is a **remote server you connect** to AI services like Claude, Cha
 
 ### Step 1: Get a DART API key (required, free)
 
-All data comes from DART OpenAPI, so you need your own key.
+OPM combines three sources — DART filing text, exchange filing text, and the OpenDART API. Your own key is needed for the OpenDART API calls.
 Go to [DART OpenAPI](https://opendart.fss.or.kr/) → sign up → request an authentication key (issued immediately).
 
 ### Step 2: Connect to your AI service

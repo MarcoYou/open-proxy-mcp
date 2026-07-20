@@ -47,7 +47,7 @@ OpenProxy MCP는 Claude, ChatGPT, Perplexity 같은 AI 서비스에 **연결해�
 
 ### 1단계: DART API 키 발급 (필수·무료)
 
-모든 데이터는 DART OpenAPI에서 가져오므로 본인의 API 키가 필요합니다.
+OPM은 DART·거래소 공시 원문과 OpenDART API, 3개 소스를 함께 씁니다. 이 중 OpenDART API 호출에 본인의 키가 필요합니다.
 [DART OpenAPI](https://opendart.fss.or.kr/) 접속 → 회원가입 → 인증키 신청 (바로 발급됩니다).
 
 ### 2단계: AI 서비스에 연결
