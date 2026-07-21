@@ -2,6 +2,13 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
+## v2.3 이후 (미릴리즈, 2026-07-22 ~ )
+
+- **`getting_started` 제거 (26→25 tool, Discovery 카테고리 폐지)** — 신설 하루 만의 회수.
+  capability 질문("뭐 할 수 있어?")은 FastMCP `instructions` 오리엔테이션 + 클라이언트 모델이
+  tool 목록의 desc를 직접 읽는 것으로 충분하다고 판단, 별도 tool은 목록만 늘리는 오버헤드로 봄.
+  설계 검토 기록(tool vs resource 논거)은 wiki decision 문서에 후기와 함께 보존.
+
 ## v2.3 (2026-07-20)
 
 26개 tool 체계. capability 질문에 답하는 신규 tool 1종과 business_details 시계열 조회 확장이 중심입니다.

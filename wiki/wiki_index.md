@@ -13,10 +13,9 @@ OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
 ## Quick Start (사용자 진입점)
 
-OPM tool 26개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
+OPM tool 25개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부터)
 
-### 도메인별 (26 tool, 260721 getting_started 추가)
-- **Discovery (1)**: [[getting_started]] (capability 질문 응답 — 등록 tool desc 런타임 introspection, 하드코딩 아님)
+### 도메인별 (25 tool, 260722 getting_started 제거)
 - **Company (1)**: [[company]]
 - **Screening (1)**: [[screener]] (전체시장 공시 스크리너 / 아침 디제스트 — scan 싸게 + details 필요 건만 파서 재사용, market-scan)
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
@@ -39,14 +38,14 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 | 카테고리 | 페이지 수 |
 |---|---|
 | **raw/** | 29 binary + 4 md |
-| **tools/** | 26 + README |
+| **tools/** | 25 + README |
 | **architecture/** | 58 |
 | **decisions/** | 32 + README |
 | **rules/** | 88 + README 4 |
 | ~~lessons/~~ | private 이관(260720, open-proxy-storage/wiki-private/lessons) |
 | **archive/** | 74 + README 2 |
 
-총 287 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
+총 286 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
 > **규칙은 여기 두지 않는다.** 각 카테고리의 목적·수정정책·layer 정의, 명명 규칙, frontmatter schema,
 > link 방향 정책은 전부 [[wiki_schema]]가 단일 출처(SSOT). 이 파일은 "무엇이 어디 있나"(인벤토리·라우팅)만
@@ -55,7 +54,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 ## 자주 쓰는 진입점
 
 ### 처음 사용자
-- [[tools/README]] - 26 tool 카탈로그
+- [[tools/README]] - 25 tool 카탈로그
 - [[wiki_schema]] - wiki 구조 + 명명 규칙
 
 ### OPM 정책 알고 싶음
@@ -100,13 +99,10 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
 ---
 
-## Tools (26 진입점) - `tools/`
+## Tools (25 진입점) - `tools/`
 
 전체 카탈로그 + 통계 + 흡수된 archive 매핑은 [[tools/README]] — 아래는 요약 목록(신규 tool 추가 시
 [[tools/README]]와 함께 갱신).
-
-### Discovery (1)
-- [[getting_started]] - capability 질문 응답, 등록 tool desc 런타임 introspection (260721 신설)
 
 ### Company (1)
 - [[company]] - 기업 식별 + 최근 공시 인덱스

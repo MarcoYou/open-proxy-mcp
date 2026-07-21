@@ -2,7 +2,7 @@
 type: decision
 title: capability 질문 응답 메커니즘 — tool vs resource vs 무대응 (4인 전문가 패널)
 generated: 2026-07-21
-related: [getting_started]
+status: superseded (260722 tool 제거 — 아래 후기)
 ---
 
 # capability 질문 응답 메커니즘 — tool vs resource vs 무대응
@@ -60,6 +60,11 @@ prompts=user-controlled(유저가 먼저 선택)로 통제 주체가 다르다. 
 - self-referential 질문에 대한 실제 tool 호출률은 3개 클라이언트에서 실측 검증되지 않음(패널의
   명시적 잔여 리스크) — 추후 실사용 로그로 확인 필요.
 
+## 후기 (2026-07-22 — tool 제거)
+신설 다음 날 사용자 결정으로 `getting_started` tool을 제거(코드·wiki 페이지 삭제, 26→25 tool).
+capability 질문은 FastMCP `instructions`의 오리엔테이션 + 클라이언트 모델이 tool 목록의 desc를
+직접 읽는 것으로 충분하다고 판단 — 별도 tool은 목록만 늘리는 오버헤드로 봄. 이 문서의 검토 과정
+(tool vs resource 논거, v1 `tool_guide` 하드코딩 드리프트 반면교사)은 향후 유사 설계 시 참조용으로 보존.
+
 ## 관련
-- [[getting_started]] (구현 tool)
 - `open_proxy_mcp/tools/guide.py` (v1 `tool_guide` — 반면교사, 현재 프로덕션 미등록 상태로 방치)

@@ -53,7 +53,7 @@ updated: 2026-06-01
 | [[260702_1520_decision_usage-is-error-tracking]] | 사용통계 is_error 기록 — 툴 내부 오류 기준 정의 |
 | **[[260717_1220_decision_business-content-tool-roadmap]]** | **business_details tool — "II.사업의 내용" 자동추출 설계·실현가능성 로드맵 (156사 census, A+B 착수·D 보류, 스콥 정의)** |
 | [[260721_1500_decision_asset-holdings-purpose-buckets]] | asset_holdings 보유자산 목적버킷 6분류(회계사 검토) — 재테크형/부동산 자산주형/지주사 할인형/우호지분형 서사 근거 |
-| [[260721_1600_decision_getting-started-tool-vs-resource]] | capability 질문 응답 메커니즘(4인 전문가 패널) — tool 채택·resource 기각, 하드코딩 대신 런타임 introspection 설계 |
+| [[260721_1600_decision_getting-started-tool-vs-resource]] | capability 질문 응답 메커니즘(4인 전문가 패널) — tool 채택·resource 기각, 런타임 introspection 설계. **260722 tool 제거로 superseded**(후기 참조) |
 
 ## 정체성 문서 (시점 prefix 없음)
 

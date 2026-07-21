@@ -2,6 +2,14 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Since v2.3 (unreleased, 2026-07-22 ~ )
+
+- **Removed `getting_started` (26→25 tools, Discovery category retired)** — reversed one day after
+  launch. Broad capability questions ("what can this do?") are adequately handled by the FastMCP
+  `instructions` orientation plus the client model reading tool descriptions directly; a dedicated
+  tool only added list overhead. The design-review record (tool vs. resource arguments) is preserved
+  in the wiki decision doc with a postscript.
+
 ## v2.3 (2026-07-20)
 
 26-tool lineup. Centered on a new capability-question tool and an extension to `business_details`

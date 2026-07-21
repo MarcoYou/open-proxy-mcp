@@ -16,8 +16,7 @@ def build_mcp(toolset: str) -> FastMCP:
         instructions=(
             "Korean-listed company disclosure (DART) analysis server. Covers financials, "
             "valuation, ownership structure, AGM proxy voting, and asset-holdings screening. "
-            "Start with the `company` tool to resolve a company name or ticker. If asked broadly "
-            "what this server can do, call `getting_started` rather than guessing. Natural-language "
+            "Start with the `company` tool to resolve a company name or ticker. Natural-language "
             "questions work fine — you don't need to know tool names."
         ),
     )

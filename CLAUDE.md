@@ -45,7 +45,7 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 거버넌스 
 ```
 open_proxy_mcp/
   server.py            # FastMCP 진입점
-  tools_v2/            # 26 public tool (active)
+  tools_v2/            # 25 public tool (active)
   services/            # 도메인 분석 로직 (tool과 분리)
   dart/client.py       # DART API + KIND + 네이버 시세
   data/asset_managers/ # 운용사 정책(익명) + 행사내역 + 12 매트릭스(설계 자산)
