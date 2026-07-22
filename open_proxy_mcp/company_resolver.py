@@ -117,12 +117,20 @@ _market_context_loaded_at = 0.0
 _MARKET_CONTEXT_TTL_SECONDS = 3_600
 
 
+def _market_context_is_fresh() -> bool:
+    return (
+        _market_context is not None
+        and _market_context_loaded_at > 0
+        and time.monotonic() - _market_context_loaded_at < _MARKET_CONTEXT_TTL_SECONDS
+    )
+
+
 async def load_market_context() -> MarketContext:
     global _market_context, _market_context_loaded_at
-    if _market_context is not None and time.monotonic() - _market_context_loaded_at < _MARKET_CONTEXT_TTL_SECONDS:
+    if _market_context_is_fresh():
         return _market_context
     async with _market_context_lock:
-        if _market_context is None or time.monotonic() - _market_context_loaded_at >= _MARKET_CONTEXT_TTL_SECONDS:
+        if not _market_context_is_fresh():
             database = await asyncio.to_thread(_database_market_context)
             local = _local_market_context()
             if database:
