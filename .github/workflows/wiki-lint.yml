@@ -7,12 +7,24 @@ on:
       - 'wiki/**'
       - 'scripts/wiki_lint.py'
       - 'scripts/gen_index.py'
+      - 'scripts/check_documentation_contract.py'
+      - 'open_proxy_mcp/services/business_details.py'
+      - 'docs/features/business-details.md'
+      - 'docs/features/en/business-details.md'
+      - 'README.md'
+      - 'README_ENG.md'
       - '.github/workflows/wiki-lint.yml'
   pull_request:
     paths:
       - 'wiki/**'
       - 'scripts/wiki_lint.py'
       - 'scripts/gen_index.py'
+      - 'scripts/check_documentation_contract.py'
+      - 'open_proxy_mcp/services/business_details.py'
+      - 'docs/features/business-details.md'
+      - 'docs/features/en/business-details.md'
+      - 'README.md'
+      - 'README_ENG.md'
 
 jobs:
   lint:
@@ -27,3 +39,5 @@ jobs:
         run: python3 scripts/gen_index.py --check
       - name: Run wiki_lint (strict)
         run: python3 scripts/wiki_lint.py --strict
+      - name: Check public documentation contract
+        run: python3 scripts/check_documentation_contract.py

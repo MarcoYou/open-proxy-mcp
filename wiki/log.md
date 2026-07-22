@@ -3,6 +3,10 @@ type: log
 title: Operation Log
 ---
 
+## [2026-07-23] docs | business_details field 계약 검증
+- runtime `BUSINESS_DETAILS_FIELDS`를 기준으로 tool wiki `scope`와 한글·영문 기능 문서의 명시적 field 계약을 비교하는 `check_documentation_contract.py`를 추가했다. README는 각 언어별 상세 기능 문서 링크 존재를 함께 확인한다.
+- 문서 전용 변경도 CI에서 이 검사가 실행되게 해 새 field가 runtime에는 있으나 사용자 문서에는 빠지는 drift를 차단한다. 일반 문장 정규식 대신 좁은 선언부만 검사해 서술 자유도는 유지한다.
+
 ## [2026-07-23] feat | business_details strict + candidate 문맥
 - 기본 경로는 구조 헤딩 경계 `strict`로 유지하고, strict `NOT_COLLECTED`인 단일 표준 필드에 한해 저신뢰 고정 창 문맥을 `candidate_context`로 별도 반환한다.
 - `context_chars`는 기본 20,000자, 최대 60,000자다. candidate는 공식 `SUCCESS`·hint·자동 비교에 사용하지 않으며 호출 AI의 재탐색 전용이다.

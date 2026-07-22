@@ -41,7 +41,7 @@ OPM은 담당 영역별로 분리된 도구를 MCP로 제공합니다. AI 에이
 | 식별 | company | 기업 식별 + 최근 공시 |
 | 주총 | shareholder_meeting_notice / _results | 소집공고(사전) / 의결 결과(사후) |
 | 지배·재무 | ownership_structure · financial_metrics · corp_gov_report · director_board · valuation | 지분 구조 · 재무 지표 · 지배구조보고서 · 개별 이사 보수/출석률 · PER/PBR 밸류에이션 |
-| 실적·사업 | provisional_earnings · business_details | 영업(잠정)실적(확정 전 가장 빠른 실적) · II.사업의 내용 9필드(사업부문·생산·수주·고객·금융/REIT) |
+| 실적·사업 | provisional_earnings · business_details | 영업(잠정)실적(확정 전 가장 빠른 실적) · II.사업의 내용 11필드(사업부문·생산·수주·고객·원재료·제품가격·금융/REIT) |
 | 환원·이벤트 | dividend · treasury_share · value_up · corporate_restructuring · dilutive_issuance | 배당 · 자기주식 · 밸류업 · 합병/분할 · 증자/감자 |
 | 분쟁·거래 | proxy_contest · corporate_deals · order_contracts · risk_events | 위임장/분쟁 · 지분 인수/매각 · 수주 · 리스크 |
 | 스크리닝 | screener | 전체시장 공시 스캔 / 아침 디제스트(잠정실적 포함) |

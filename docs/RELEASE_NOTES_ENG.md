@@ -4,6 +4,7 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Since v2.3 (unreleased, 2026-07-22 ~ )
 
+- **`business_details` — added raw-material and product-pricing fields** — `raw_materials` separately captures material composition/purchases and input-price trends, so an omission in one segment cannot hide a valid table in another. `product_pricing` returns product/service prices, ASP, and price-change rationale as its own section. Verified with LG Chem raw-material and Samsung Electronics product-pricing production MCP smoke tests plus a local 300-company sample.
 - **Removed `getting_started` (26→25 tools, Discovery category retired)** — reversed one day after
   launch. Broad capability questions ("what can this do?") are adequately handled by the FastMCP
   `instructions` orientation plus the client model reading tool descriptions directly; a dedicated

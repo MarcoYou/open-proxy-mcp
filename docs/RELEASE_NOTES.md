@@ -4,6 +4,7 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 ## v2.3 이후 (미릴리즈, 2026-07-22 ~ )
 
+- **`business_details` — 원재료·제품가격 필드 추가** — `raw_materials`는 원재료 구성·매입과 원재료 가격 추이를 각각 구조 경계로 수집해 한 사업부의 기재 생략이 다른 유효 표를 덮지 않게 한다. `product_pricing`은 제품·서비스 가격, ASP, 가격변동 원인을 별도 소절로 반환한다. LG화학 원재료·삼성전자 제품가격 production MCP smoke와 로컬 300사 표본으로 확인.
 - **`getting_started` 제거 (26→25 tool, Discovery 카테고리 폐지)** — 신설 하루 만의 회수.
   capability 질문("뭐 할 수 있어?")은 FastMCP `instructions` 오리엔테이션 + 클라이언트 모델이
   tool 목록의 desc를 직접 읽는 것으로 충분하다고 판단, 별도 tool은 목록만 늘리는 오버헤드로 봄.

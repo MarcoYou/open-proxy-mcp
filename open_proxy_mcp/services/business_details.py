@@ -957,9 +957,12 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
     return any(a != 0 and abs(s - a) <= max(abs(a), 1) * 0.03 for a in ex) if ex else True
 
 
-_STANDARD_BIZ_FIELDS = {
-    "sites", "utilization", "rnd", "backlog", "customers", "raw_materials", "product_pricing",
-}
+BUSINESS_DETAILS_FIELDS = (
+    "segments", "sites", "utilization", "rnd", "backlog", "customers", "raw_materials",
+    "product_pricing", "financial_ops", "financial_soundness", "investment_property",
+)
+_STANDARD_BIZ_FIELDS = set(BUSINESS_DETAILS_FIELDS[1:8])
+_FINANCIAL_BIZ_FIELDS = set(BUSINESS_DETAILS_FIELDS[8:])
 _CANDIDATE_CONTEXT_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers"}
 _CANDIDATE_CONTEXT_DEFAULT_CHARS = 20_000
 _CANDIDATE_CONTEXT_MAX_CHARS = 60_000
@@ -978,9 +981,7 @@ async def build_business_details_payload(company_query: str, period: str = "late
     from open_proxy_mcp.dart.client import get_dart_client
     from open_proxy_mcp.services.segment_candidates import find_segment_candidates
 
-    want = set(fields or ["segments", "sites", "utilization", "rnd", "backlog", "customers",
-                          "raw_materials", "product_pricing",
-                          "financial_ops", "financial_soundness", "investment_property"])
+    want = set(fields or BUSINESS_DETAILS_FIELDS)
     mode = (context_mode or "strict").strip().lower()
     if mode not in {"strict", "candidate"}:
         return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
@@ -1150,7 +1151,7 @@ async def build_business_details_payload(company_query: str, period: str = "late
     # D-트랙(금융·REIT) 시그니처 폴백은 II.사업의내용 구간만 스캔 — III.재무 주석 회계표 오발 차단.
     _biz_html = sec.get("biz_html") or _full_html
     _standard_fields = _STANDARD_BIZ_FIELDS
-    _d_fields = {"financial_ops", "financial_soundness", "investment_property"}
+    _d_fields = _FINANCIAL_BIZ_FIELDS
     _full_region_index = _bf.build_region_index(_full_html) if want & _standard_fields else None
     _biz_region_index = (_bf.build_region_index(_biz_html) if want & _d_fields
                          else None)
