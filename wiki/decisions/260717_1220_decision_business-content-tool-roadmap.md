@@ -108,7 +108,7 @@ flatten 텍스트 파서 v1은 2D표를 1D로 뭉개 정렬 whack-a-mole 천장(
 ```
 분담선 실측(156사): 정형충분 ~30 · 후보반환 ~71 · N/A ~50. 후보 narrow 검증: 8사 중 7사 진짜표 1위·1사 2위(둘 다 반환). **anthropic·pandas·API키·지연·비용·비결정성 전부 제거** — "AI in production" 리스크 통째 해소. 비-LLM 배치소비자 생기면 그때 구조화 재고.
 
-**파일**: `services/business_details.py`(정형, 기존) + `services/segment_candidates.py`(신규, 후보 narrow, bs4-only) + `tools_v2/business_details.py`(신규 래퍼) + `wiki/tools/business_details.md`. **검증**: 156 ground-truth(에이전트 추출 = 호출측 LLM이 후보에서 뽑을 값과 동일)로 대조.
+**파일**: `services/business_details.py`(정형, 기존) + `services/segment_candidates.py`(신규, 후보 narrow, bs4-only) + `tools/business_details.py`(신규 래퍼) + `wiki/tools/business_details.md`. **검증**: 156 ground-truth(에이전트 추출 = 호출측 LLM이 후보에서 뽑을 값과 동일)로 대조.
 
 ## 관련
 - `hard-rate-limit`(lessons) (DART 하드룰 — census fetch 준수)
@@ -132,5 +132,55 @@ flatten 텍스트 파서 v1은 2D표를 1D로 뭉개 정렬 whack-a-mole 천장(
 연도) 실DART 검증 + 기존 `period` 경로 회귀 없음 확인 + 삼성전자 1Q26 rcept_no가 실사용 세션에서 인용된
 값(`20260515002181`)과 정확히 일치함을 대조.
 
-파일: `services/business_details.py`(`_find_report_for_bsns_year` 신규) + `tools_v2/business_details.py`
+파일: `services/business_details.py`(`_find_report_for_bsns_year` 신규) + `tools/business_details.py`
 (파라미터 배선) + `wiki/tools/business_details.md`.
+
+## 정확도 하드닝 — 구조 헤딩 경계 (260722)
+
+고정 18~24KB window는 해당 소절 뒤의 위험관리·재무자료를 함께 반환하고, `MARKDOWN`이 실제 값 존재가 아니라
+단순 구간 발견을 뜻하게 만드는 문제가 있었다. 공개 signature와 markdown-primary 원칙은 유지하고 수집 경계만 교체했다.
+
+1. 전체 보고서에서 `<TITLE>`·번호형 `<P>/<SPAN>`을 1회 색인하고 요청 필드가 공유한다.
+2. 목차·표 내부 라벨·일반 교차참조를 제외하고 실제 헤딩에서 다음 동급/상위 헤딩 또는 section 끝까지 반환한다.
+3. 굵은 span+본문 결합, 비강조 장문 문단, 공백이 소실된 `...마. 주요매출처`를 제한적으로 지원한다.
+4. 번호 깊이 역전은 최초 경계가 제목만 남을 때만 복구한다. DART `<TITLE>`은 같은 `SECTION-2` 끝,
+   일반 문단 헤딩은 다음 최상위 절까지만 허용한다. 내용이 있는데 content-gate가 실패한 구간은 확장하지 않는다.
+5. 기존 `status`는 호환 유지하고 `extraction_status`, `section_source`, 비권위 `hints[]`를 병행 추가한다.
+   힌트 값은 반환 markdown 밖에서 가져오지 않는다.
+
+검증: 최초 `NOT_COLLECTED` 132건을 원문으로 전수 판정하고, 수정 과정에서 상태가 바뀐 sites 16건과 backlog
+24건 및 기존 성공→N/A 경계도 다시 육안 검사했다. 실제 정보 51건을 회수하고 명시적 N/A 13건을 교정했다.
+특히 `소수주주권` 문자열 충돌, 기존 false-SUCCESS 18건(수주 17·R&D 1), 위치 없는 유형자산표의 sites 오인을
+회귀 테스트로 고정했다. 로컬 DART 원문 300사(KOSPI 169/KOSDAQ 131) × 5필드 = 1,500 슬롯 최종 결과는
+예외 0, `SUCCESS` 1,245(83.0%), `NOT_APPLICABLE` 147, `NOT_COLLECTED` 108, 처리율 92.8%, 41.4초다.
+잔여 108건은 실제 부재·무관 신호 또는 원천 보고서 불일치로 모두 분류했다. 한국단자공업 표본은 감사보고서가
+잘못 선택돼 source-selection 후속 과제로 남긴다. 외부 DART 호출 없이 수행했고 전체 157 tests를 통과했다.
+별도 로컬 FastMCP 실호출 1건(삼성전자 최신 분기 backlog)은 `SUCCESS`, 380자,
+`II. 사업의 내용 / 바. 수주상황`, 약 5.5초로 통과했다.
+
+## strict + candidate 문맥 계약 (260723)
+
+구조 경계가 헤딩 없는 예외를 놓칠 수 있다는 반론을 고정 문자 창과 통제 비교했다. 같은 300사·1,500필드에서
+현행 앵커·게이트·N/A 규칙은 고정하고 끝 경계만 바꿨다. 고정 창은 `SUCCESS` 1,276(85.1%)로 strict
+1,245(83.0%)보다 높았지만, fixed-only `SUCCESS` 44건 중 43건은 strict에서 명시적 N/A, 1건은 미수집이었다.
+strict-only `SUCCESS`는 13건이고 처리율은 strict 92.8% > fixed 92.4%였다. 따라서 고정 창의 추가 성공은
+공식 결과에 섞을 수 없는 인접 절 문맥이며, 성능 이점(32.8초 vs 41.4초)만으로 기본 경로를 바꾸지 않는다.
+
+결정: `context_mode="strict"`를 기본으로 유지한다. `context_mode="candidate"`는 strict가 `NOT_COLLECTED`일
+때만 단일 표준 필드에 대해 활성화한다. `context_chars`는 기본 20,000자, 최대 60,000자이며 호출 AI가 필요할 때
+재호출로 늘린다. 반환은 공식 필드와 분리한 `candidate_context.status="LOW_CONFIDENCE"`이고,
+markdown·anchor·warning만 담는다. candidate는 hint 산출, `SUCCESS` 상태, 자동 비교에 절대 사용하지 않는다.
+
+### 고정창 기본화 검토와 보류 (260723)
+
+호출 AI는 넓은 원문에서 앵커 이후의 다른 소절을 읽고 제외해 요약할 수 있다. markdown-primary라는 도구 성격상
+고정창 원문을 기본으로 주는 방식은 실사용 관점에서 성립한다. 다만 이는 **AI가 읽어 판단하는 문맥 제공 계약**이며,
+현재의 `SUCCESS`·`NOT_APPLICABLE`·hint처럼 소절 자체를 기계적으로 판정하는 **공식 추출 계약**과는 다르다.
+
+고정창을 기본으로 바꾸려면 상태와 hint를 축소하거나, 결과 타입을 `anchored_context`로 분리해야 한다. 그렇지 않으면
+호출 AI가 아닌 소비자와 자동 후속 처리도 인접 소절을 공식 필드로 오인할 수 있다. 앵커 사전은 이미 strict와
+candidate가 공유한다. 제목 변형을 계속 조사·추가하면 두 경로의 회수율이 함께 개선된다.
+
+현재 결정은 유지: strict 기본 + `NOT_COLLECTED`에서만 candidate 재호출. 향후 실제 사용 로그에서 candidate의
+재호출 빈도와 AI의 문맥 판독 성공률이 충분히 확인되고, 공식 상태·hint를 포기해도 되는 별도 문맥형 응답 계약이
+필요해질 때에만 고정창 기본화 또는 `anchored_context` 별도 모드를 재검토한다.

@@ -3,6 +3,17 @@ type: log
 title: Operation Log
 ---
 
+## [2026-07-23] feat | business_details strict + candidate 문맥
+- 기본 경로는 구조 헤딩 경계 `strict`로 유지하고, strict `NOT_COLLECTED`인 단일 표준 필드에 한해 저신뢰 고정 창 문맥을 `candidate_context`로 별도 반환한다.
+- `context_chars`는 기본 20,000자, 최대 60,000자다. candidate는 공식 `SUCCESS`·hint·자동 비교에 사용하지 않으며 호출 AI의 재탐색 전용이다.
+- 같은 300사·1,500필드 통제 비교에서 fixed-only `SUCCESS` 44건 중 43건은 strict 명시적 N/A, 1건은 미수집으로 확인됐다. strict 처리율 92.8%가 fixed 92.4%보다 높아 strict 기본을 유지했다.
+- 호출 AI가 넓은 고정창 원문에서 다른 소절을 배제해 요약할 수 있다는 점은 인정하되, 이는 공식 추출이 아닌 문맥 제공 계약이다. 별도 `anchored_context` 응답 타입이 필요한 시점까지 현재 strict/candidate 분리를 유지한다.
+
+## [2026-07-22] fix | business_details 실패 전수검사 + 앵커 정확도 보강
+- 로컬 300사(KOSPI 169/KOSDAQ 131) 5필드의 최초 `NOT_COLLECTED` 132건을 원문으로 전수 판정하고, 수정 후 상태 전환 사례도 추가 육안 검사했다.
+- 생산·가동, R&D, 수주, 고객, 사업장 제목 변형과 강한 회사 행동문을 보강해 실제 정보 51건을 회수하고 명시적 N/A 13건을 교정했다. `소수주주권`의 문자열 충돌과 위치 없는 유형자산표 오인을 차단했다.
+- 최종 1,500 슬롯: `SUCCESS` 1,245(83.0%), `NOT_APPLICABLE` 147, `NOT_COLLECTED` 108, 처리율 92.8%, 예외 0. 잔여는 실제 부재·무관 또는 원천 불일치로 전부 분류했다. 외부 DART 호출 0, 157 tests 통과.
+
 ## [2026-07-22] improvement | 한글·영문 통합 CompanyResolver
 - DART `corpCode.xml`의 공식 영문명을 memory/SQLite master에 보존하고 구형 4컬럼 DB를 additive migration 후 1회 갱신한다. 신규 master는 전체·종목코드·영문 커버리지 검증 후에만 교체하며, 갱신/파싱 실패 시 stale 한글 cache로 fail-open한다.
 - 종목코드 보유 법인만 공식명·정규화·compact·token index를 만들고, ticker/corp_code는 전체 법인 exact map으로 유지한다.
@@ -1665,3 +1676,13 @@ title: Operation Log
 - `dart-kind-disclosure-taxonomy.md`
   - wiki source 문서 `[[dart-kind-disclosure-taxonomy]]`로 반영
   - v2 소스 정책과 공시군 분류 기준 문서로 재사용 시작
+
+## [2026-07-22] fix | business_details 구조 경계·상태 정확도 보강
+- 고정 18~24KB 구간 대신 실제 DART 헤딩 색인과 다음 동급/상위 헤딩 경계를 사용
+- 목차·표 내부 라벨·교차참조 배제, span+본문 결합·비강조/공백소실 헤딩 변형 회수
+- 번호 깊이 역전은 제목만 남는 경우에 한해 `SECTION-2` 경계 복구
+- 기존 `status` 호환 유지 + `extraction_status`, `section_source`, 반환 markdown 기반 `hints[]` 추가
+- 로컬 원문 300사(KOSPI 169/KOSDAQ 131) × 5필드 = 1,500 슬롯 전수 재측정: 예외 0, `SUCCESS` 1,201(80.1%), 명시적 N/A 포함 처리 1,368(91.2%), 39.2초
+- 구형에만 잡힌 잔여 37건은 매출 제목·계약·시장 평균·재무주석 또는 경계 누출로 확인, 확인된 실제 데이터 회귀 0
+- HD건설기계·SK·아모레퍼시픽홀딩스 경계 누출과 피에스케이 계열 결합 목차 오인식 차단, 전체 134 tests 통과
+- 별도 로컬 FastMCP 삼성전자 backlog 실호출 성공: 최신 분기, `SUCCESS`, 380자, 약 5.5초

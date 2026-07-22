@@ -836,6 +836,24 @@ def _biz_html_region(html: str) -> str:
     찾으면 원본 반환(graceful — 최소 기존 동작 유지)."""
     if not html:
         return html
+    # 실제 장 제목(<TITLE>)을 먼저 고른다. 회사개요의 "II. 사업의 내용을 참조" 문구에서
+    # 다음 III 제목까지가 2KB를 넘는 문서는 길이 휴리스틱만으로 참조문을 본문으로 오인한다.
+    title_i2 = [
+        match.start()
+        for match in re.finditer(
+            r"<TITLE\b[^>]*>\s*II\s*\.\s*사업의?\s*내용", html, re.IGNORECASE
+        )
+    ]
+    title_i3 = [
+        match.start()
+        for match in re.finditer(
+            r"<TITLE\b[^>]*>\s*III\s*\.\s*재무에?\s*관한", html, re.IGNORECASE
+        )
+    ]
+    for a in title_i2:
+        nb = [b for b in title_i3 if b > a]
+        if nb and (nb[0] - a) > 2000:
+            return html[a:nb[0]]
     i2 = [m.start() for m in re.finditer(r"II\s*\.\s*사업의?\s*내용", html)]
     i3 = [m.start() for m in re.finditer(r"III\s*\.\s*재무에?\s*관한", html)]
     # 본문 II는 목차·재무부록보다 먼저 온다 → 앞에서부터 첫 '실질' 구간(목차 stub 수십자 skip).
@@ -939,16 +957,41 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
     return any(a != 0 and abs(s - a) <= max(abs(a), 1) * 0.03 for a in ex) if ex else True
 
 
+_STANDARD_BIZ_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers"}
+_CANDIDATE_CONTEXT_DEFAULT_CHARS = 20_000
+_CANDIDATE_CONTEXT_MAX_CHARS = 60_000
+
+
 async def build_business_details_payload(company_query: str, period: str = "latest",
                                          fields: list[str] | None = None,
-                                         bsns_year: str = "", reprt_code: str = "") -> dict:
+                                         bsns_year: str = "", reprt_code: str = "",
+                                         context_mode: str = "strict",
+                                         context_chars: int = _CANDIDATE_CONTEXT_DEFAULT_CHARS) -> dict:
     """II.사업의 내용 구조화 추출 tool 진입점. 단계별 타이머(data.timings_ms)로 병목 실측.
     period 기본="latest"(사업·반기·분기 중 최신=최신 데이터). "annual"/"quarterly"로 명시 override.
     bsns_year+reprt_code 둘 다 지정 시 특정 과거 시점(시계열 추이용)을 조회 — period보다 우선."""
-    from open_proxy_mcp.services.company import resolve_company_query
     from open_proxy_mcp.services.contracts import ToolEnvelope, AnalysisStatus
+    from open_proxy_mcp.services.company import resolve_company_query
     from open_proxy_mcp.dart.client import get_dart_client
     from open_proxy_mcp.services.segment_candidates import find_segment_candidates
+
+    want = set(fields or ["segments", "sites", "utilization", "rnd", "backlog", "customers",
+                          "financial_ops", "financial_soundness", "investment_property"])
+    mode = (context_mode or "strict").strip().lower()
+    if mode not in {"strict", "candidate"}:
+        return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
+                            warnings=["context_mode는 strict 또는 candidate여야 합니다"]).to_dict()
+    if mode == "candidate":
+        if not isinstance(context_chars, int) or isinstance(context_chars, bool):
+            return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
+                                warnings=["context_chars는 1~60000 사이의 정수여야 합니다"]).to_dict()
+        if not 1 <= context_chars <= _CANDIDATE_CONTEXT_MAX_CHARS:
+            return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
+                                warnings=["candidate context_chars는 1~60000 사이여야 합니다"]).to_dict()
+        if len(want) != 1 or not want <= _STANDARD_BIZ_FIELDS:
+            return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
+                                warnings=["context_mode=candidate는 sites/utilization/rnd/backlog/customers 중 "
+                                          "하나의 fields만 지정해야 합니다"]).to_dict()
 
     T, t0 = {}, _time.perf_counter()
 
@@ -1042,8 +1085,6 @@ async def build_business_details_payload(company_query: str, period: str = "late
     warnings: list[str] = []
     if fetch_warn:
         warnings.append(fetch_warn)
-    want = set(fields or ["segments", "sites", "utilization", "rnd", "backlog", "customers",
-                          "financial_ops", "financial_soundness", "investment_property"])
     if not sec.get("biz_text"):
         warnings.append("II.사업의 내용 섹션 미검출(정정본 가능) — 확인 필요")
 
@@ -1104,25 +1145,43 @@ async def build_business_details_payload(company_query: str, period: str = "late
     _full_html = sec.get("note_html", "")
     # D-트랙(금융·REIT) 시그니처 폴백은 II.사업의내용 구간만 스캔 — III.재무 주석 회계표 오발 차단.
     _biz_html = sec.get("biz_html") or _full_html
+    _standard_fields = _STANDARD_BIZ_FIELDS
+    _d_fields = {"financial_ops", "financial_soundness", "investment_property"}
+    _full_region_index = _bf.build_region_index(_full_html) if want & _standard_fields else None
+    _biz_region_index = (_bf.build_region_index(_biz_html) if want & _d_fields
+                         else None)
     if "sites" in want:
-        data["sites"] = _bf.extract_sites(_biz_t, _full_html)
+        data["sites"] = _bf.extract_sites(_biz_t, _full_html, _full_region_index)
     if "utilization" in want:
-        data["utilization"] = _bf.extract_utilization(_biz_t, _full_html)
+        data["utilization"] = _bf.extract_utilization(_biz_t, _full_html, _full_region_index)
     if "rnd" in want:
-        data["rnd"] = _bf.extract_rnd(_biz_t, _full_html)
+        data["rnd"] = _bf.extract_rnd(_biz_t, _full_html, _full_region_index)
     if "backlog" in want:
-        data["backlog"] = _bf.extract_backlog(_biz_t, _full_html)
+        data["backlog"] = _bf.extract_backlog(_biz_t, _full_html, _full_region_index)
     if "customers" in want:
-        data["customers"] = _bf.extract_customers(_biz_t, _full_html)
+        data["customers"] = _bf.extract_customers(_biz_t, _full_html, _full_region_index)
+    if mode == "candidate":
+        candidate_field = next(iter(want))
+        strict_result = data.get(candidate_field, {})
+        if strict_result.get("extraction_status") == "NOT_COLLECTED":
+            candidate = _bf.render_candidate_context(
+                candidate_field, _full_html, context_chars, _full_region_index,
+            )
+            data["candidate_context"] = candidate or {
+                "status": "NOT_FOUND",
+                "field": candidate_field,
+                "context_chars": context_chars,
+                "warning": "저신뢰 보조 문맥에 사용할 헤딩 후보를 찾지 못했습니다.",
+            }
     # D-트랙 금융·REIT 필드 = KSIC 게이트(금융권만) + content-signature. KSIC로 비금융 원천 배제.
     if "financial_ops" in want and _fin_ksic:
-        data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _biz_html)
+        data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _biz_html, _biz_region_index)
     if "financial_soundness" in want and _fin_ksic:
-        data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _biz_html)
+        data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _biz_html, _biz_region_index)
     # 투자부동산: 부동산(68=REIT)·보험(65=투자부동산 보유)만. 지주(64)는 primary가 영업현황이라 제외
     # (broadened 임대료/임차인 시그니처가 지주 프로즈에 과발하던 것 방지). _biz_html=II구간만(III회계표 배제).
     if "investment_property" in want and (_reit_ksic or _ind2 == "65"):
-        data["investment_property"] = _bf.extract_investment_property(_biz_t, _biz_html)
+        data["investment_property"] = _bf.extract_investment_property(_biz_t, _biz_html, _biz_region_index)
     # 자산가치(토지·투자부동산·지분증권 원가vs공정가치)는 별도 tool asset_holdings로 이관(260720).
     data["induty_code"] = induty or None
     _lap("Afields")
