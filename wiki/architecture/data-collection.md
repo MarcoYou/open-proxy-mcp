@@ -10,16 +10,15 @@ related: [DART-OpenAPI, KRX-KIND, 네이버-금융, Upstage-OCR, opendataloader,
 
 ## 개요
 
-OPM(open-proxy-mcp) v2.0.0이 사용하는 모든 데이터 source의 entry point, endpoint URL, 파싱 방법, rate limit, fallback chain을 단일 문서로 정리한다.
+OPM(open-proxy-mcp)이 사용하는 모든 데이터 source의 entry point, endpoint URL, 파싱 방법, rate limit, fallback chain을 단일 문서로 정리한다.
 
-OPM v2 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-04]] 참조):
+OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-04]] 참조):
 
 - 1순위: `DART OpenAPI` (구조화 JSON/XML)
 - 2순위: `DART document.xml` (원문 ZIP→XML→텍스트)
 - 3순위: `KIND HTML` (화이트리스트 4종만)
 - 보조: `Naver Finance` (시세·뉴스), `KRX Open API` (종가)
-- v2에서는 PDF 다운로드를 기본 경로에서 제외(서버 부하·서비스 약관). 단 `tools/pdf_parser.py`는 v1·파이프라인 측에서 여전히 활용된다.
-- OCR(`Upstage Document Parse`)은 vector glyph PDF·이미지 공고 등 최후의 수단.
+- PDF 다운로드와 OCR은 OPM 런타임에서 제거되어 `open-proxy-ai`로 이관됐다.
 
 ## 데이터 source 전수
 
@@ -280,7 +279,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 2. `?method=searchContents&docNo={docNo}` → JS `setPath('목차URL', '본문URL')` 정규식에서 본문 URL 추출
 3. 본문 URL GET → 최종 HTML 반환
 
-- BeautifulSoup `lxml` 파서로 후처리 (services/value_up_v2._kind_html_to_text 등)
+- BeautifulSoup `lxml` 파서로 후처리 (services/value_up._kind_html_to_text 등)
 - Rate limit: `_throttle_kind()` 1.0~3.0초 random
 
 ## 3.2 disclosure/details.do — 상세 검색 (POST)
@@ -322,7 +321,7 @@ KOSPI 200 8개 기업 전수 검증: 100% 매칭. 자세한 화이트리스트�
 |---|---|---|
 | shareholder_meeting | `_fetch_kind_results` (services/shareholder_meeting.py:696) | 주총결과 80→00 변환 후 본문 |
 | ownership_structure | services/ownership_structure.py:375 | 변동신고서 본문 보강 |
-| value_up | services/value_up_v2.py:150,386,410 | 밸류업 plan 본문 + KIND 직접 검색 |
+| value_up | services/value_up.py | 밸류업 plan 본문 + KIND 직접 검색 |
 
 shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-1256).
 
@@ -445,7 +444,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 
 # 9. 11 Data Tool 별 Source Flow
 
-각 v2 data tool의 entry point + scope별 호출 흐름. 모든 service는 `open_proxy_mcp/services/`에 위치.
+각 data tool의 entry point + scope별 호출 흐름. 모든 service는 `open_proxy_mcp/services/`에 위치.
 
 ## 9.1 company
 
@@ -625,8 +624,6 @@ OPM 운영(2026-07-12~ XML 단독):
 | `KRX_API_KEY` 또는 `KRX_OPEN_API_KEY` | KRX Open API 종가 | 선택 (미설정 시 Naver fallback) |
 | `NAVER_SEARCH_API_CLIENT_ID` | Naver 뉴스 API client id | 선택 (news_check 사용 시) |
 | `NAVER_SEARCH_API_CLIENT_SECRET` | Naver 뉴스 API client secret | 선택 |
-| `UPSTAGE_API_KEY` | Upstage Document Parse | 선택 (OCR fallback 사용 시) |
-| `OPEN_PROXY_TOOLSET` | v1/v2/hybrid toolset 분기 | 선택 (default v1) |
 | `FASTMCP_HOST`, `FASTMCP_PORT` | streamable-http 호스트/포트 | 선택 |
 | `FASTMCP_ALLOWED_HOSTS` | DNS rebinding 허용 호스트 | 선택 |
 

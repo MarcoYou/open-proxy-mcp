@@ -1,4 +1,4 @@
-"""v2 dilutive_issuance data tool.
+"""dilutive_issuance data tool.
 
 희석성 증권 발행 4종(유상증자/전환사채/신주인수권부사채/감자) 결정을 통합 제공.
 행동주의 / 경영권 방어 / 우호지분 형성 분석의 핵심 소스.

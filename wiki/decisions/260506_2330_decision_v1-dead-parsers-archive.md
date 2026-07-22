@@ -74,3 +74,10 @@ parse_financials_xml usages:
 ## 영향받는 파일
 
 없음 (decision-only).
+
+## 후속 결과 (2026-07-22)
+
+v1 toolset을 완전히 retire했다. 현행 파서는 `services/shareholder_meeting_parser.py`로 이동하고,
+서비스가 실제 사용하던 배당·주총결과·보유목적 helper는 각각 전용 service parser로 분리했다.
+구 tool wrapper는 삭제했으며 복구 기준점은 Git의 `open-proxy-mcp-v1.3.0` 브랜치다. 런타임에는
+toolset 환경변수나 버전 선택 분기가 남아 있지 않다.

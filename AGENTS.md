@@ -1,110 +1,103 @@
 # OPM (OpenProxy MCP)
 
-DART 데이터를 MCP로 제공하는 Python 서버. 약칭 **OPM**.
-한국 상장사 거버넌스 분석 (주총, 지분, 배당, 위임장).
+DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 재무·사업·지배구조·주총·지분·배당·위임장·의결권 분석을 지원한다.
 
-## 지식 체계 (wiki-first)
+## 작업 원칙
 
-**도메인 지식, 아키텍처 결정, 공시 유형 등 상세는 위키 참조.**
-위키는 LLM이 유지하며, `/ship` 시 LLM이 영향 페이지 update + commit + push.
+1. **정확성 > 속도.** 수치·파싱 결과는 스크립트 출력만 믿지 말고 원문 표본과 함께 검증한다.
+2. **가설 → 엣지케이스 → 표본 테스트 → 전수 diff.** 파서·계산 로직을 바로 고치지 말고 오탐/누락과 부분집단을 먼저 측정한다.
+3. **production 경로 우선.** 실제 동작 확인은 MCP 호출을 먼저 사용하고, 직접 import는 단위 테스트·디버깅에 쓴다.
+4. **공유 파생지표는 재사용.** 시총·주식수·환율 등은 검증된 공통 service/캐시를 사용하고 tool별로 다시 계산하지 않는다.
+5. **이름 기반 접근.** SQL `INSERT`는 컬럼명을 명시하고, 튜플 위치 언패킹·암묵적 정렬보다 dict/명시적 `key=`를 우선한다.
 
-질문이 오면 `wiki/index.md` (전체 카탈로그)를 먼저 읽고 관련 페이지만 선택 로드. 전체 wiki 한 번에 로드 X.
+## Wiki-first
 
-- **첫 진입**: [[tools/README]] (17 tool 카탈로그)
-- **위키 스키마**: [[WIKI_SCHEMA]] — 트리 정책 + 카테고리 + 명명 + frontmatter + 워크플로우
-- **트리 흐름**: `raw` (뿌리) → `rules` (줄기) → `tools/decisions/architecture/core` (큰가지) → `ralph/audits/fixes/lessons` (잔가지) → `archive` (낙엽)
-- **Link 정책**: 뿌리→줄기→큰가지 단방향 / 큰가지↔잔가지 양방향 / 잎↔잎 자유
+도메인 지식·아키텍처·공시 유형·결정의 정본은 `wiki/`다. 질문이 오면 **`wiki/wiki_index.md` → 필요한 관련 페이지만** 읽고 전체 wiki를 한꺼번에 로드하지 않는다.
 
-### 명명 규칙 (2026-05-01~)
+| 필요 | 위치 |
+|---|---|
+| 처음 진입 / tool 카탈로그 | `wiki/tools/README.md` |
+| 사람용 개요·아키텍처·발표자료 | `wiki/guide/` |
+| 전체 색인 / 트리·명명·link 정책 | `wiki/wiki_index.md` / `wiki/wiki_schema.md` |
+| 공시 유형·검색 코드 | `wiki/rules/disclosures/공시유형코드체계.md` |
+| 법령 / 도메인 개념 | `wiki/rules/laws/` / `wiki/rules/concepts/` |
+| 데이터 수집·폴백·병렬화 | `wiki/architecture/` |
+| 의결권 정책·판단 구조 | `wiki/decisions/open-proxy-guideline.md` / `wiki/architecture/proxy-voting-decision-tree.md` |
+| tool별 DART 호출 budget | `wiki/tools/tool_call_budget.md` |
+| 작업 이유·회고 | private `open-proxy-storage/wiki-private/lessons/` |
 
-| 종류 | 패턴 | 예시 |
-|---|---|---|
-| 시점 작업 | `yymmdd_hhmm_{type}_{title}.md` | `260508_0700_decision_law-layer-precision.md` |
-| 정체성 | `{name}.md` | `shareholder_meeting_notice.md` / `자사주.md` |
-| lessons | 정체성 또는 `{topic}-yymmdd.md` | `parser-precision-260508.md` |
+### Wiki 수정 규칙
 
-시점 type: audit / fix / decision / debate / ralph / improvement / changelog / release / log (자세한 type 정의는 [[WIKI_SCHEMA]]).
+- `wiki/raw/`는 외부 원본이다. **절대 수정하지 않는다.** 분석·요약은 `rules/`, `architecture/`, `decisions/`에 작성한다.
+- 새 tool/공시/개념 추가 시 코드, 해당 wiki 페이지, 폴더 README, `wiki/wiki_index.md`를 함께 갱신한다.
+- 시점 문서는 `yymmdd_hhmm_{type}_{title}.md`, 정체성 문서는 `{name}.md`를 사용한다. 상세 schema는 `wiki/wiki_schema.md`가 SSOT다.
+- index 카운트는 손으로 고치지 않는다. 파일 추가·삭제 후 `python3 scripts/gen_index.py`를 실행한다.
+- wiki 변경 후 반드시 다음을 통과시킨다.
 
-신규 페이지 추가 시 [[WIKI_SCHEMA]] 워크플로우 따를 것.
-
-### 시점 작업 4축 (양방향 link 강제)
-
-ralph → audit → lesson → decision 신규 시 frontmatter `related_ralph/audits/lessons/decisions: [...]`로 4축 양방향 link. 상세 + snippet: [[WIKI_SCHEMA#0.3 같은 시점 작업의 4축 표준]]
-
-### raw/ 절대 수정 금지
-`wiki/raw/`는 외부 원본 (운용사 정책 PDF, 행사내역 xlsx, 외부 reference markdown).
-LLM도 사람도 절대 수정 X. 분석/요약은 별도 페이지에 작성 (`architecture/`, `decisions/`, `rules/`).
+```bash
+python3 scripts/gen_index.py --check
+python3 scripts/wiki_lint.py --strict
+```
 
 ## 프로젝트 구조
-```
-open_proxy_mcp/        # MCP 서버 코드
-  server.py            # FastMCP 진입점
-  tools_v2/            # 17 public tools (v2 — active)
-  services/            # 도메인별 분석 로직 (tool과 분리)
-  dart/client.py       # DART API + KIND + 네이버 시세
-  data/asset_managers/ # 8 운용사 정책 (익명화) + 행사내역 + Open Proxy Guideline + 12 매트릭스
-scripts/
-  wiki_lint.py         # wiki link 정책 자동 검증 (단방향/양방향)
-  spot_*.py            # 회귀 spot 스크립트
-wiki/                  # LLM 도메인 지식 (트리 layer는 위 섹션 참조)
-  raw/                 # 외부 원본 (정책 PDF + xlsx + reference). 절대 수정 금지
-  rules/               # concepts/ + disclosures/ + laws/
-  tools/               # 17 tool 카탈로그 (사용자 진입점)
-  decisions/           # OPM 정책 (open-proxy-guideline 등)
-  architecture/        # 시스템 설계 + audits/ + fixes/
-  ralph/ + lessons/    # 작업 plan (yymmdd_hhmm) + 회고
-  archive/             # 흡수/대체 보존 (신규 X)
-                       #   archive/tools/legacy_rules/ — 구 *_RULE.md 7개
-  index.md             # 전체 인덱스 (시작점)
-  WIKI_SCHEMA.md       # 트리 정책 + 카테고리 + 명명 규칙
-  log.md               # 작업 로그
-.github/workflows/
-  wiki-lint.yml        # wiki/ 변경 시 lint --strict 자동 (PR/push)
-  deploy.yml           # fly.io 배포
+
+```text
+open_proxy_mcp/
+  server.py            # FastMCP 진입점·HTTP middleware
+  tools/               # public MCP tool facades
+  services/            # 도메인 분석·파싱 로직
+  dart/client.py       # DART/KIND 접근·throttle·cache·회사 식별
+  data/asset_managers/ # 익명화 정책·행사내역·설계 자산
+  data/ksic/           # 산업분류 매핑
+scripts/               # audit/census/spot/wiki·법령·시장 snapshot 작업
+tests/                 # tracked unit/regression tests
+wiki/                  # public 도메인 지식과 결정 기록
+.github/workflows/     # deploy·wiki lint·법령/시장 snapshot jobs
 ```
 
-## 핵심 규칙 (간략)
-- **사용 호출 우선순위**: ① **MCP 호출** (default — production 동작 검증) → ② 직접 코드 import (단위 테스트 / 디버깅 시).
-- **데이터 접근 우선순위**: ① DART API (병렬 가능) → ② DART 웹 크롤링 (2초 간격) → ③ KIND 크롤링 (2초 간격). 상위에서 해결되면 하위 접근 금지.
-- **DART API**: 분당 1,000회 초과 시 24시간 IP 차단 — **hard rule, 절대 위반 X**.
-  - `dart/client.py`에 rolling window rate limiter (`_throttle_api`) 내장 — 분당 cap **910** (9% buffer + race 방지).
-  - 새 batch script 작성 시: 회사수 × 평균 호출수 estimate, **최대 30 회사 단위** + batch 사이 sleep. 100+ 회사 측정은 fly machine (다른 IP) 활용.
-  - ⚠️ **독립 스크립트는 새 client = limiter 리셋** + **ReadError 재시도는 limiter 우회 증폭** → 순차(동시성 1~2) + 호출 사이 sleep + ReadError 즉시 중단. (2026-06-07 throttle 사고 교훈)
-  - 차단 시 키 회전 무효 (IP/fingerprint level 차단). 24h cool-down.
-  - **DART API 키 2개 fallback (ContextVar 자동)**: 사용자 요청별 키 격리.
-- **웹 스크래핑**: 최소 2초 간격. 배치 금지.
-- **3-tier fallback**: XML → PDF (4s+) → OCR (Upstage)
-- **rcept_no 포맷**: `00`=소집공고(DART 정기공시), `80`=주총결과(거래소 수시공시). agm_*_xml에는 반드시 `00` 포맷 사용.
-- **공시 검색 = 코드 먼저 좁히기**: `list.json` 검색 시 `pblntf_ty`(A-J) + `pblntf_detail_ty`(예 I001 주요경영사항) 필터로 범위부터 좁힌 뒤 제목 키워드 매칭. 전체 순회 금지. **어떤 공시가 어느 코드에 있는지는 반드시 [[공시유형코드체계]] 인덱스 참조** (배당=I001, 5%지분=D001, 위임장=D003, 공개매수=D004, 경영권분쟁소송=I001). corp_code 없는 시장 전체 검색은 3개월 한도.
-- **파이프라인**: 전체 재실행 금지, 누락분만 처리.
-- **저장 안 함**: OPM은 실시간 조회, 데이터 저장 X.
+## 데이터·호출 안전 규칙
 
-상세 규칙은 위키의 해당 페이지 참조:
-- DART API → `wiki/archive/entities/DART-OpenAPI.md` (구 entity 페이지, archive 보존)
-- fallback → `wiki/architecture/3-tier-fallback.md`
-- 데이터 수집 전체 → `wiki/architecture/data-collection.md`
-- 공시 유형 → `wiki/rules/disclosures/` (**코드체계 인덱스**: `공시유형코드체계.md` — pblntf_ty/detail_ty → 실제 공시 매핑)
-- 도메인 개념 → `wiki/rules/concepts/`
+- **접근 순서**: DART OpenAPI/`document.xml` → 필요한 경우 service가 정의한 DART viewer HTML fallback → 허용된 KIND fallback. 상위 소스에서 해결되면 하위 접근 금지.
+- **PDF/OCR 없음**: PDF 다운로드·Upstage OCR·opendataloader는 2026-07-12 OPM에서 제거되어 `open-proxy-ai`로 이관됐다.
+- **DART API hard limit**: 분당 1,000회 초과 시 24시간 IP 차단. `DartClient` rolling-window cap은 **910/min**이다.
+- batch 전 회사수 × 예상 호출수를 계산한다. 최대 30사 단위로 나누고 batch 사이 sleep. 100사 이상은 별도 운영 환경을 사용한다.
+- 독립 script는 client 생성마다 limiter가 분리될 수 있다. 동시성 1~2, 호출 간 sleep, `ReadError` 즉시 중단을 기본으로 한다.
+- API 키를 늘려도 IP 단위 분당 cap은 늘지 않는다. `OPENDART_API_KEY`, `_2`, `_3`… 다중 fallback은 일일 quota 대응용이다.
+- DART 웹/KIND scraping은 최소 2초 간격이며 배치 scraping은 금지한다.
+- API 키가 들어간 URL·쿼리·예외 메시지는 **전체는 물론 prefix도 출력·로그·fixture에 저장하지 않는다.**
+- 공시 검색은 `pblntf_ty` + `pblntf_detail_ty`로 먼저 좁히고 제목을 매칭한다. 전체 순회 금지. 회사 없는 시장검색은 최대 3개월.
+- `rcept_no`: `00`은 소집공고(DART 정기공시), `80`은 주총결과(거래소 수시공시). AGM XML 경로에는 `00`을 사용한다.
+- 사용자 조회 결과는 저장하지 않는다. 예외는 corp-code/document cache, 시장 snapshot, 운영 usage telemetry 같은 명시적 인프라 데이터다.
+- 전체 파이프라인 재실행 금지. 누락분만 처리하고 resume 가능한 script로 작성한다.
 
-## 문서 포인터
-- 개발 히스토리 → `git log` / 관련 wiki 시점 문서 (`architecture/audits/`, `decisions/`, `ralph/`, `lessons/`)
-- wiki 작업 로그 → `wiki/log.md`
-- tool 규칙 (구) → `open_proxy_mcp/*_RULE.md` (점진 흡수)
+## Public / Private
 
-## 로컬 셋업
+이 repository는 PUBLIC이다. usage 원자료·비공개 사업자료·private lessons·내부 schema는 `open-proxy-storage`에 둔다. private 자산의 절대경로·내용·심링크를 public Git에 커밋하지 않는다.
+
+## 테스트·검증
+
+- 기본 `pytest` 수집 경계는 `pyproject.toml`의 `tests/`로 고정되어 있다.
+
 ```bash
-git clone https://github.com/MarcoYou/open-proxy-mcp.git && cd open-proxy-mcp
-uv sync && cp .env.example .env  # OPENDART_API_KEY 설정
+uv run pytest -q
 ```
 
-## 개발 방식
-- Build → Check → Pass 사이클. 의미 있는 변경마다 커밋.
-- `/ship` 시 wiki 자동 업데이트 (코드 변경 → 관련 위키 페이지 갱신).
-- 신규 tool/공시/개념 추가 시 [[WIKI_SCHEMA]] 워크플로우 따라 명명 + frontmatter + index.md update.
-- **wiki 변경 시 link 정책 검증 필수**:
-  ```bash
-  python3 scripts/wiki_lint.py --strict
-  ```
-  - 단방향 위반 (rules → 큰가지) + 양방향 결손 (큰가지 ↔ 가지) 자동 검출
-  - GitHub Actions `wiki-lint.yml`이 PR/push 시 자동 실행
-  - 정책 상세: [[WIKI_SCHEMA#0.2 Link 방향 정책]]
+- unit/regression test는 기본적으로 network/DART 0콜이어야 한다. live 검증은 명시적 spot/integration script로 분리하고 호출 budget을 먼저 확인한다.
+- wiki-only 변경은 wiki lint, Python 변경은 관련 unit test + 필요한 spot script, tool 동작 변경은 가능하면 production MCP smoke까지 수행한다.
+- 테스트 실패를 기존 실패로 가정하지 않는다. 현재 branch에서 재현하고 원인과 영향 범위를 기록한다.
+
+## 셋업·개발
+
+```bash
+git clone https://github.com/MarcoYou/open-proxy-mcp.git
+cd open-proxy-mcp
+uv sync
+# 필요한 환경변수는 wiki/architecture/environment-secrets.md 참조
+```
+
+```bash
+uv run python -m open_proxy_mcp.server --transport stdio
+```
+
+- Build → Check → Pass. 의미 있는 변경마다 검증하되 commit/push/deploy는 사용자가 명시적으로 요청할 때만 한다.
+- 작업 지시가 바뀌면 일회성 audit/census/diagnosis script도 새 필터·대상·필드에 맞게 갱신한 뒤 실행한다.

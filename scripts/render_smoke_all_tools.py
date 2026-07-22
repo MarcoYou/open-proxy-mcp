@@ -15,7 +15,7 @@ import time
 
 from mcp.server.fastmcp import FastMCP
 
-from open_proxy_mcp.tools_v2 import register_all_tools_v2
+from open_proxy_mcp.tools import register_all_tools
 
 # tool → 호출 args 목록 (대표 2사 — 대형 + 중형/특수)
 CASES: dict[str, list[dict]] = {
@@ -42,7 +42,7 @@ BAD_MARKERS = ("Traceback", "Exception", "NoneType", "KeyError")
 
 async def main() -> None:
     mcp = FastMCP("smoke")
-    register_all_tools_v2(mcp)
+    register_all_tools(mcp)
     tools = {t.name for t in await mcp.list_tools()}
     missing = set(CASES) - tools
     extra = tools - set(CASES)

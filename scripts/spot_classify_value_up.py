@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from open_proxy_mcp.services.value_up_v2 import (  # noqa: E402
+from open_proxy_mcp.services.value_up import (  # noqa: E402
     _classify_value_up_item,
     _item_report_name,
     build_value_up_payload,

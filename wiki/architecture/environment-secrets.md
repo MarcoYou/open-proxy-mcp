@@ -17,7 +17,7 @@ updated: 2026-07-04
 | **로컬 개발·스크립트** | 프로젝트 루트 `.env` (숨김파일, gitignore) | 파일에 `KEY=값` 추가 (`open -e .env`로 편집) |
 | **배포 서버(fly.io)** | fly secrets (런타임 주입, fly.toml엔 비밀 아닌 설정만) | `fly secrets set KEY=값` — 자동 롤링 재배포 |
 
-fly.toml `[env]`에는 `OPEN_PROXY_TOOLSET` 같은 **비밀 아닌 설정**만 둔다. API 키·DB URL은 전부 fly secrets.
+fly.toml `[env]`에는 경로 같은 **비밀 아닌 설정**만 둔다. API 키·DB URL은 전부 fly secrets.
 
 ## 필요한 키
 

@@ -1,4 +1,4 @@
-"""v2 risk_events public tool."""
+"""risk_events public tool."""
 
 from __future__ import annotations
 

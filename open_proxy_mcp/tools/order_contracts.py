@@ -1,4 +1,4 @@
-"""v2 order_contracts public tool — 수주(단일판매·공급계약) 추적."""
+"""order_contracts public tool — 수주(단일판매·공급계약) 추적."""
 
 from __future__ import annotations
 

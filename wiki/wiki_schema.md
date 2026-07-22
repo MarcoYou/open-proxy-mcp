@@ -389,7 +389,7 @@ archive 안 추가가 필요한 경우:
 | 하고 싶은 것 | 가야 할 곳 |
 |---|---|
 | OPM 처음 사용 | [[wiki_index]] -> [[tools/README]] |
-| tool 17개 보기 | `tools/` |
+| tool 카탈로그 보기 | `tools/` |
 | OPM 정책 알기 | [[open-proxy-guideline]] |
 | 한국 공시 용어 | `rules/concepts/`, `rules/disclosures/` |
 | 시스템 설계 | `architecture/` |

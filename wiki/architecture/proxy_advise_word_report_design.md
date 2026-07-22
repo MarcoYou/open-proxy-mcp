@@ -51,7 +51,7 @@ related: [proxy_advise_before_meeting, 260510_proxy_advise_audit_통합정리, p
 - [proxy_advise_word_report_spec.md](/Users/marcoyou/Projects/open-proxy-mcp/wiki/architecture/proxy_advise_word_report_spec.md:1)
 - [proxy_advise_before_meeting.md](/Users/marcoyou/Projects/open-proxy-mcp/wiki/tools/proxy_advise_before_meeting.md:1)
 - [proxy_advise.py](/Users/marcoyou/Projects/open-proxy-mcp/open_proxy_mcp/services/proxy_advise.py:1367)
-- [proxy_advise_before_meeting.py](/Users/marcoyou/Projects/open-proxy-mcp/open_proxy_mcp/tools_v2/proxy_advise_before_meeting.py:1)
+- `open_proxy_mcp/tools/proxy_advise_before_meeting.py`
 
 ## 샘플 형식 비교
 

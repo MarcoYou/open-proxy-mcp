@@ -16,7 +16,7 @@ ROOT = Path("/Users/marcoyou/Projects/open-proxy-mcp")
 sys.path.insert(0, str(ROOT))
 
 from open_proxy_mcp.dart.client import DartClient
-from open_proxy_mcp.tools.parser import parse_retirement_pay_xml, parse_agenda_xml
+from open_proxy_mcp.services.shareholder_meeting_parser import parse_retirement_pay_xml, parse_agenda_xml
 
 
 async def spot(ticker: str, name: str, year: int = 2026) -> dict:

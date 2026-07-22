@@ -22,7 +22,7 @@ from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
-from open_proxy_mcp.services.dividend_v2 import _annual_summary
+from open_proxy_mcp.services.dividend import _annual_summary
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 
 _KRX_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"

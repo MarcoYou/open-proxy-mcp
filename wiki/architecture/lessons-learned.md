@@ -65,10 +65,10 @@ KOSPI 200 199개 돌려보면 HARD_FAIL, 비표준 구조 케이스가 쏟아짐
 ## 5. Tool과 로직 분리 — v1에서 배운 구조적 교훈
 
 v1은 tool 안에 파싱/분석 로직이 섞여 있었음 → tool 수정 시 MCP 인터페이스까지 흔들림.
-v2에서 `tools_v2/` (MCP 인터페이스) + `services/` (도메인 로직) 분리로 해결.
+현행 구조는 `tools/` (MCP 인터페이스) + `services/` (도메인 로직) 분리로 해결.
 
 ```
-tools_v2/shareholder_meeting.py   ← 입력 검증 + 응답 포매팅만
+tools/shareholder_meeting_notice.py ← 입력 검증 + 응답 포매팅만
 services/shareholder_meeting.py   ← 실제 파싱/분석 로직
 ```
 

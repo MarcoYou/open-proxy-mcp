@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from open_proxy_mcp.tools.parser import (
+from open_proxy_mcp.services.shareholder_meeting_parser import (
     parse_aoi_xml,
     parse_agenda_xml,
     parse_compensation_xml,

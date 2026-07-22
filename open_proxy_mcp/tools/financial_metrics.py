@@ -1,4 +1,4 @@
-"""v2 financial_metrics public tool — DART 재무 4 endpoint 통합."""
+"""financial_metrics public tool — DART 재무 4 endpoint 통합."""
 
 from __future__ import annotations
 

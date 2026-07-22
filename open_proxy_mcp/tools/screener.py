@@ -1,4 +1,4 @@
-"""v2 screener public tool — 범용 공시 스크리너 / 아침 공시 디제스트.
+"""screener public tool — 범용 공시 스크리너 / 아침 공시 디제스트.
 
 무인자 호출 = 오늘 아침 디제스트(전체시장 · 직전영업일 이후 · 핵심 프리셋 · scan only).
 """

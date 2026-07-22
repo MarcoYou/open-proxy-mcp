@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: project-structure
-updated: 2026-05-28
+updated: 2026-07-22
 ---
 
 # Project Structure
@@ -13,7 +13,7 @@ updated: 2026-05-28
 ```text
 open_proxy_mcp/
   server.py                # FastMCP 서버입니다. stdio와 HTTP 진입점을 제공합니다.
-  tools_v2/                # 16개 public tool의 active entrypoint입니다.
+  tools/                   # public MCP tool의 active entrypoint입니다.
   services/                # 도메인별 분석 로직입니다. tool wrapper와 분리되어 있습니다.
   dart/client.py           # DART API, 보조 공시 조회, rate limiter를 담당합니다.
   data/asset_managers/     # 내부 정책 corpus와 Open Proxy Guideline 데이터입니다.
@@ -36,7 +36,7 @@ fly.toml                   # Fly.io 설정입니다.
 wiki/
   raw/                     # 외부 원본입니다. 원칙적으로 수정하지 않습니다.
   rules/                   # 한국 자본시장 사실, 공시 유형, 법령 layer입니다.
-  tools/                   # 16개 public tool 카탈로그와 개별 tool 문서입니다.
+  tools/                   # public tool 카탈로그와 개별 tool 문서입니다.
   decisions/               # OPM 정책 결정과 changelog입니다.
   architecture/            # architecture, audit, fix, goal 문서입니다.
   ralph/                   # 시간순 작업 plan과 실행 기록입니다.

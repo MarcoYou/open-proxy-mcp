@@ -1,4 +1,4 @@
-"""v2 corp_gov_report public tool."""
+"""corp_gov_report public tool."""
 
 from __future__ import annotations
 

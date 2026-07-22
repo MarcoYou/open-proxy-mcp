@@ -1,4 +1,4 @@
-"""v2 corporate_deals data tool.
+"""corporate_deals data tool.
 
 타법인주식·출자증권 취득/처분(지분 인수·매각) 공시. 계열사 출자·회수, 일감몰아주기·내부거래
 모니터링 소스. 단일판매·공급계약(체결/해지)은 order_contracts로 일원화(2026-06-14).

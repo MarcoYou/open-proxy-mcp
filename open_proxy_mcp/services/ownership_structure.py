@@ -1,4 +1,4 @@
-"""v2 ownership_structure facade 서비스."""
+"""ownership_structure facade 서비스."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from open_proxy_mcp.services.contracts import (
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.holder_table import holder_table_total, parse_holder_table
-from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
+from open_proxy_mcp.services.ownership_parser import parse_holding_purpose, parse_holding_purpose_from_document
 
 _SUPPORTED_SCOPES = {
     "summary",
@@ -444,13 +444,13 @@ async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list
             "report_date": item.get("rcept_dt", ""),
             "rcept_no": item.get("rcept_no", ""),
             "ownership_pct": _to_float(item.get("stkrt", 0)),
-            "purpose": _parse_holding_purpose(item.get("report_tp", ""), item.get("report_resn", "")),
+            "purpose": parse_holding_purpose(item.get("report_tp", ""), item.get("report_resn", "")),
             "report_name": item.get("report_tp", ""),
         })
     timeline_rows.sort(key=lambda row: (row["report_date"], row["rcept_no"]), reverse=True)
 
     for reporter, item in latest_by_reporter.items():
-        purpose = _parse_holding_purpose(item.get("report_tp", ""), item.get("report_resn", ""))
+        purpose = parse_holding_purpose(item.get("report_tp", ""), item.get("report_resn", ""))
         rcept_no = item.get("rcept_no", "")
         ownership_pct = _to_float(item.get("stkrt", 0))
         html: str | None = None
@@ -458,7 +458,7 @@ async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list
             try:
                 doc = await client.get_document_cached(rcept_no)
                 html = doc.get("html", "") or ""
-                parsed = _parse_holding_purpose_from_document(html)
+                parsed = parse_holding_purpose_from_document(html)
                 if parsed != "불명":
                     purpose = parsed
             except Exception:

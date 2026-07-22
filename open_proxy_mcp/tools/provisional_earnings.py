@@ -1,4 +1,4 @@
-"""provisional_earnings — 영업(잠정)실적(I002 공정공시) 파싱 (22번째 tool).
+"""provisional_earnings — 영업(잠정)실적(I002 공정공시) 파싱.
 
 정기보고서 확정치(financial_metrics)보다 먼저 나오는 분기 잠정 실적. 공시검색+원문파싱.
 설계: wiki/tools/provisional_earnings.md

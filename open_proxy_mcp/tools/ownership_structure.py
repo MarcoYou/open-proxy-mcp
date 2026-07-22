@@ -1,4 +1,4 @@
-"""v2 ownership_structure public tool."""
+"""ownership_structure public tool."""
 
 from __future__ import annotations
 

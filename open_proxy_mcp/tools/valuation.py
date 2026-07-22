@@ -1,4 +1,4 @@
-"""v2 valuation public tool — DART(공시)+KRX(공식시세) 상대가치 배수 (기업·시장·산업 + 히스토리)."""
+"""valuation public tool — DART(공시)+KRX(공식시세) 상대가치 배수 (기업·시장·산업 + 히스토리)."""
 
 from __future__ import annotations
 

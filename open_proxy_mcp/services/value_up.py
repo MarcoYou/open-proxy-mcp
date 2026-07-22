@@ -1,4 +1,4 @@
-"""v2 value_up facade 서비스."""
+"""value_up facade 서비스."""
 
 from __future__ import annotations
 

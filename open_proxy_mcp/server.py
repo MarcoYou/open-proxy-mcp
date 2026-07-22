@@ -5,12 +5,10 @@ import os
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.tools import register_all_tools
-from open_proxy_mcp.tools_v2 import register_all_tools_v2
 
 
-def build_mcp(toolset: str) -> FastMCP:
-    """toolset별 MCP 인스턴스 생성."""
-
+def build_mcp() -> FastMCP:
+    """Build the single supported MCP tool surface."""
     mcp = FastMCP(
         "open-proxy-mcp",
         instructions=(
@@ -20,17 +18,11 @@ def build_mcp(toolset: str) -> FastMCP:
             "questions work fine — you don't need to know tool names."
         ),
     )
-    if toolset == "v2":
-        register_all_tools_v2(mcp)
-    elif toolset == "hybrid":
-        register_all_tools(mcp)
-        register_all_tools_v2(mcp)
-    else:
-        register_all_tools(mcp)
+    register_all_tools(mcp)
     return mcp
 
 
-mcp = build_mcp(os.environ.get("OPEN_PROXY_TOOLSET", "v1"))
+mcp = build_mcp()
 
 
 def main():
@@ -45,15 +37,10 @@ def main():
         action="store_true",
         help="하위호환 옵션: --transport sse 와 동일",
     )
-    parser.add_argument(
-        "--toolset",
-        choices=["v1", "v2", "hybrid"],
-        default=os.environ.get("OPEN_PROXY_TOOLSET", "v1"),
-    )
     args = parser.parse_args()
     if args.sse:
         args.transport = "sse"
-    mcp = build_mcp(args.toolset)
+    mcp = build_mcp()
 
     if args.transport in ("sse", "streamable-http"):
         mcp.settings.host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
@@ -101,7 +88,7 @@ def main():
         _ERR_PATTERNS = (b'"isError":true', b'"isError": true',
                          b'"error":{"code"', b'"error": {"code"')
         import re as _re
-        _EKIND_RE = _re.compile(rb"\[ekind=(\w+)\]")  # tools_v2 래퍼가 붙인 error_kind 태그
+        _EKIND_RE = _re.compile(rb"\[ekind=(\w+)\]")  # tool 래퍼가 붙인 error_kind 태그
 
         class ApiKeyMiddleware:
             """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""

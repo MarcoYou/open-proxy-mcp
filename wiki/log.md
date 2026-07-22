@@ -3,6 +3,12 @@ type: log
 title: Operation Log
 ---
 
+## [2026-07-22] refactor | toolset 버전 제거 + 테스트·문서 드리프트 경계
+- 현행 `tools_v2/`를 `tools/`로 변경하고 v1 wrapper와 `OPEN_PROXY_TOOLSET` 분기를 제거했다.
+- 현행 서비스가 쓰던 구 parser helper를 `services/` 전용 모듈로 분리하고 서비스 파일명의 `_v2`도 제거했다.
+- `pytest` 기본 수집을 `tests/`로 고정하고 Python CI 및 runtime↔wiki tool catalog 검사를 추가했다.
+- 구 `test/` 로컬 자료와 legacy tools snapshot은 `~/Backups/open-proxy-mcp-legacy-20260722`에 압축 백업 후 작업공간에서 제거했다.
+
 ## [다이제스트] index.md '주요 변화' 이관 보존 (260709)
 
 > index.md가 라우팅 인덱스로 순수화되면서(패널 검수 260709), 그 안에 있던 시간순 서사·rationale

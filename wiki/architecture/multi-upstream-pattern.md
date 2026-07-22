@@ -161,7 +161,7 @@ upstream 종류로 판단:
 | 위치 | 코드 | 상태 |
 |---|---|---|
 | `director_evaluation.py:86` | `notice = notices[0]` | ✅ Phase 4 fix (3개 fallback 시도) |
-| `value_up_v2.py:127, 130, 394` | `plan_items[0]` / `kind_items[0]` | ✅ fix (정정 제외 우선 + fallback) |
+| `value_up.py` | `plan_items[0]` / `kind_items[0]` | ✅ fix (정정 제외 우선 + fallback) |
 | `corp_gov_report.py:386` | `filings[0]  # 최신` | ✅ fix (정정 제외 우선 + fallback) |
 | `shareholder_meeting.py:395` | `result_items[0]` | ✅ fix (정정 제외 우선 + fallback) |
 | `tools/proxy.py:421` | `company_items[0]` | ✅ fix (정정 제외 우선 + fallback) |

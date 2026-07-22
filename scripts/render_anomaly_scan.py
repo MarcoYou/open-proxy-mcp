@@ -24,29 +24,29 @@ import httpx
 from open_proxy_mcp.dart.client import get_dart_client
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload as sm
 from open_proxy_mcp.services.proxy_advise import build_proxy_advise_payload as pa
-from open_proxy_mcp.tools_v2._shareholder_meeting_render import (
+from open_proxy_mcp.tools._shareholder_meeting_render import (
     render_summary, render_board, render_compensation, render_aoi,
 )
-from open_proxy_mcp.tools_v2.proxy_advise_before_meeting import _render as pa_render
+from open_proxy_mcp.tools.proxy_advise_before_meeting import _render as pa_render
 # 확장: 다른 tool render 경로 (build_*_payload + _render(payload, scope))
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload as b_own
-from open_proxy_mcp.tools_v2.ownership_structure import _render as r_own
+from open_proxy_mcp.tools.ownership_structure import _render as r_own
 from open_proxy_mcp.services.corporate_deals import build_corporate_deals_payload as b_cd
-from open_proxy_mcp.tools_v2.corporate_deals import _render as r_cd
-from open_proxy_mcp.services.dividend_v2 import build_dividend_payload as b_div
-from open_proxy_mcp.tools_v2.dividend import _render as r_div
+from open_proxy_mcp.tools.corporate_deals import _render as r_cd
+from open_proxy_mcp.services.dividend import build_dividend_payload as b_div
+from open_proxy_mcp.tools.dividend import _render as r_div
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload as b_tre
-from open_proxy_mcp.tools_v2.treasury_share import _render as r_tre
+from open_proxy_mcp.tools.treasury_share import _render as r_tre
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload as b_pc
-from open_proxy_mcp.tools_v2.proxy_contest import _render as r_pc
-from open_proxy_mcp.services.value_up_v2 import build_value_up_payload as b_vu
-from open_proxy_mcp.tools_v2.value_up import _render as r_vu
+from open_proxy_mcp.tools.proxy_contest import _render as r_pc
+from open_proxy_mcp.services.value_up import build_value_up_payload as b_vu
+from open_proxy_mcp.tools.value_up import _render as r_vu
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload as b_cg
-from open_proxy_mcp.tools_v2.corp_gov_report import _render as r_cg
+from open_proxy_mcp.tools.corp_gov_report import _render as r_cg
 from open_proxy_mcp.services.risk_events import build_risk_events_payload as b_re
-from open_proxy_mcp.tools_v2.risk_events import _render as r_re
+from open_proxy_mcp.tools.risk_events import _render as r_re
 from open_proxy_mcp.services.order_contracts import build_order_contracts_payload as b_oc
-from open_proxy_mcp.tools_v2.order_contracts import _render as r_oc
+from open_proxy_mcp.tools.order_contracts import _render as r_oc
 
 # (label, build_coro(q)->payload, render(payload)->md)
 JOBS = [

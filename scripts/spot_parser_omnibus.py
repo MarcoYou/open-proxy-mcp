@@ -45,7 +45,7 @@ from open_proxy_mcp.services.provisional_financial_statement import (  # noqa: E
     extract_metrics as _pfs_extract_metrics,
     parse_provisional_financial_statement,
 )
-from open_proxy_mcp.tools.parser import (  # noqa: E402
+from open_proxy_mcp.services.shareholder_meeting_parser import (  # noqa: E402
     parse_agenda_details_xml,
     parse_agenda_xml,
     parse_aoi_xml,

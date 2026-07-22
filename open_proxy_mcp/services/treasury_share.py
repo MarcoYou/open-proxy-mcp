@@ -1,4 +1,4 @@
-"""v2 treasury_share facade 서비스.
+"""treasury_share facade 서비스.
 
 자기주식 이벤트(취득·처분·소각·신탁) 전용 data tool.
 주주환원 관점에서 소각 중심 신호를 애널리스트에게 제공한다.
@@ -1492,7 +1492,7 @@ async def fetch_acquisition_summary(
 ) -> dict[str, Any]:
     """단일 사업연도의 자사주 **취득(매입)** 합계 (수량·금액).
 
-    `dividend_v2.scope_cash_shareholder_return`(CSR) 분자 합산용. 한국 시장
+    `dividend.scope_cash_shareholder_return`(CSR) 분자 합산용. 한국 시장
     정의의 주주환원에서는 회사가 실제로 시장에서 현금을 지출해 자사주를 매입한
     금액을 환원으로 본다 (소각은 매입 후 회계 정리 단계).
 

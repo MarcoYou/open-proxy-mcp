@@ -6,7 +6,7 @@ from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.engagement_case import build_engagement_case_payload
-from open_proxy_mcp.tools_v2._shared import _format_evidence_line
+from open_proxy_mcp.tools._shared import _format_evidence_line
 
 
 def _render_error(payload: dict[str, Any]) -> str:

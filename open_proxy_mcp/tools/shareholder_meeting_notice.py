@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
-from open_proxy_mcp.tools_v2._shareholder_meeting_render import (
+from open_proxy_mcp.tools._shareholder_meeting_render import (
     render_aoi,
     render_board,
     render_compensation,

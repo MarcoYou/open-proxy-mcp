@@ -1,4 +1,4 @@
-"""v2 treasury_share public tool."""
+"""treasury_share public tool."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """shareholder_meeting_notice / shareholder_meeting_results 공유 render helper.
 
-Note: 이 모듈은 `_` prefix → tools_v2 auto-discovery 제외 (register_tools 호출 X).
+Note: 이 모듈은 `_` prefix → tools auto-discovery 제외 (register_tools 호출 X).
 """
 
 from __future__ import annotations

@@ -1,18 +1,18 @@
 ---
 type: readme
-title: tools/ — 도구 카탈로그 (25개)
+title: tools/ — 도구 카탈로그
 updated: 2026-07-22
 ---
 
-# 도구(Tool) 카탈로그 — 25개
+# 도구(Tool) 카탈로그
 
-> OPM의 25개 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
+> OPM의 런타임 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
 > 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
 >
 > 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
 > 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
 
-## 25개 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
+## 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
 ### 🏢 기본 — 회사 찾기
 | 도구 | 무엇을 답하나 |
@@ -172,6 +172,6 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-07-19: **business_details 확장** — D-트랙 3필드(financial_ops·financial_soundness·investment_property, KSIC 게이트) + 014 정정폴백 + reit_prose + `period=latest` 기본(사업·반기·분기 최신). KOSPI500 census 검증(양식 레퍼런스 사업의내용_ksic별양식, 필드↔소절 헤딩 사전).
 - 2026-07-19: **provisional_earnings 신규(24번째 tool)** — 영업(잠정)실적(I002 공정공시) 분기 잠정 매출·영업익·순익+YoY. financial_metrics 확정치보다 먼저. markdown-primary(table_markdown) + best-effort headline. 자동차 판매대수·조선 수주 등 비재무형 커버. screener `detail_kind=earnings` 연동. 멀티에이전트 24사 + KOSPI500 census 검증(공시율 시총 강상관, 파서 anomaly 0).
 - 2026-07-20: **asset_holdings 신규(25번째 tool)** — 자산주·NAV 스크리닝(계정 티어 + 상장지분 시가마크 + 시총 대비 배수). business_details의 자산가치 opt-in 필드에서 분리. 초기 3스콥(coverage/summary/detail) → summary+detail 2개로 정리(coverage를 summary가 흡수). KOSPI+KOSDAQ+EDGE 2,608사 전수조사(캐시 재사용, DART 0콜) + 5인 패널(재무·부동산·공시전문가·가치투자자·Data QA) 토론 → 결합계정 NAV 소실 버그·REIT 활성오탐 수정, 시그니처 동의어 확장 + 완화 부작용(매출채권 오탐) 재검증·수정. Data 12→13.
-- 2026-07-21: **getting_started 신규(26번째 tool, 신규 Discovery 카테고리)** — "OPM으로 뭐 할 수 있어?" capability 질문 응답. 4인 전문가 패널(MCP 프로토콜·LLM tool-use·멀티클라이언트·DX) 토론 결과 tool 채택, resource·무대응 기각([[260721_1600_decision_getting-started-tool-vs-resource]]). 검토 중 v1 `tool_guide`가 v2 재설계 후 완전히 방치돼 죽은 코드가 된 사실을 발견 — 반면교사로 콘텐츠를 하드코딩 대신 `mcp.list_tools()` 런타임 introspection으로 조립(드리프트 구조적 차단). FastMCP `instructions` 필드도 함께 신설(서버 연결 시 1회 오리엔테이션).
+- 2026-07-21: capability 안내용 `getting_started` 도구를 검토·추가했으나 같은 날 제거했다. 서버 `instructions`만 유지하며 현재 카탈로그에는 포함하지 않는다([[260721_1600_decision_getting-started-tool-vs-resource]]).
 - 2026-07-21: **business_details 확장** — `bsns_year`+`reprt_code`(DART 표준 11011/11012/11013/11014)로 특정 과거 시점 1건 조회 추가(`period`는 최신 스냅샷 전용, 시계열은 여전히 미지원 — 분기마다 반복 호출 필요). 실사용 세션(삼성전자 부문매출 추이 질문)에서 드러난 갭. 절대월 하드코딩 없이 report_nm 기수라벨 상대순서로 1/3분기 구분(비12월 결산법인도 안전, 신영증권 3월결산 실측 검증). [[260717_1220_decision_business-content-tool-roadmap]] 스코프 확장 참조.
 - 2026-07-22: **getting_started 제거(26→25 tool, Discovery 카테고리 폐지)** — 사용자 결정. FastMCP `instructions`의 서버 오리엔테이션 + 각 tool desc만으로 capability 질문 대응(클라이언트 모델이 tool 목록을 직접 읽음). 신설 하루 만의 회수로, 설계 기록은 [[260721_1600_decision_getting-started-tool-vs-resource]]에 후기와 함께 보존.

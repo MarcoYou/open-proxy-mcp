@@ -10,7 +10,7 @@ from open_proxy_mcp.services.contracts import AnalysisStatus, EvidenceRef, ToolE
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload
-from open_proxy_mcp.services.value_up_v2 import build_value_up_payload
+from open_proxy_mcp.services.value_up import build_value_up_payload
 
 
 def _merge_status(*statuses: str) -> str:

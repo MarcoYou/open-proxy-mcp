@@ -1,4 +1,4 @@
-"""tools_v2 공통 렌더링 헬퍼."""
+"""Public tool rendering helpers."""
 
 from __future__ import annotations
 

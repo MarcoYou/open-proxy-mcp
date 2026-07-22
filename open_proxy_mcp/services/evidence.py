@@ -1,4 +1,4 @@
-"""v2 evidence facade 서비스.
+"""evidence facade 서비스.
 
 evidence tool은 순수 `인용 메타 가공기`다.
 rcept_no 문자열만으로 즉시 유도 가능한 정보만 반환한다.

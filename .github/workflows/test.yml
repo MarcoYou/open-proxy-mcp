@@ -1,0 +1,35 @@
+name: Python Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'open_proxy_mcp/**'
+      - 'tests/**'
+      - 'scripts/check_tool_catalog.py'
+      - 'wiki/tools/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/test.yml'
+  pull_request:
+    paths:
+      - 'open_proxy_mcp/**'
+      - 'tests/**'
+      - 'scripts/check_tool_catalog.py'
+      - 'wiki/tools/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Check tool catalog
+        run: uv run python scripts/check_tool_catalog.py
+      - name: Run unit and regression tests
+        run: uv run pytest -q

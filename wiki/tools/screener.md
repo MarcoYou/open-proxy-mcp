@@ -131,7 +131,7 @@ sequenceDiagram
 
 ## 기술 상세
 
-- 서비스: `open_proxy_mcp/services/screener.py` (로직 SSOT) · tool: `open_proxy_mcp/tools_v2/screener.py` (디제스트 렌더)
+- 서비스: `open_proxy_mcp/services/screener.py` (로직 SSOT) · tool: `open_proxy_mcp/tools/screener.py` (디제스트 렌더)
 - 스캔: `client.search_filings`(corp_code 無 전체시장 필러, 100/page) 페이지네이션 + sleep 0.7s + 코드당 20페이지 상한.
 - 레이트리밋 가드: scan 순차 + ReadError/상태 020·011·012 즉시 중단 · details 동시성 2 · sleep 0.8s · **run당 300콜 러닝카운터**(per-type 캡 우선, 초과 시 truncated).
 - 공시코드 매핑: [[공시유형코드체계]] (I001 주요경영사항 · B001 주요사항보고서 · D001 5%대량보유 · I002 잠정실적).

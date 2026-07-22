@@ -1,4 +1,4 @@
-"""v2 corporate_restructuring data tool.
+"""corporate_restructuring data tool.
 
 회사합병 / 분할 / 분할합병 / 주식교환·이전 4종 주요사항보고서 결정을 한 탭에서 제공.
 지배구조 재편의 정형화된 4개 경로를 하나의 tool로 통합.

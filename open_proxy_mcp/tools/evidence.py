@@ -1,4 +1,4 @@
-"""v2 evidence public tool."""
+"""evidence public tool."""
 
 from __future__ import annotations
 

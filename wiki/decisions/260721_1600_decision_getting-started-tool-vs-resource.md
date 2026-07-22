@@ -67,4 +67,4 @@ capability 질문은 FastMCP `instructions`의 오리엔테이션 + 클라이언
 (tool vs resource 논거, v1 `tool_guide` 하드코딩 드리프트 반면교사)은 향후 유사 설계 시 참조용으로 보존.
 
 ## 관련
-- `open_proxy_mcp/tools/guide.py` (v1 `tool_guide` — 반면교사, 현재 프로덕션 미등록 상태로 방치)
+- `open-proxy-mcp-v1.3.0` 브랜치의 `open_proxy_mcp/tools/guide.py` (구 `tool_guide` 반면교사)

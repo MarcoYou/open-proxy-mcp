@@ -1,4 +1,4 @@
-"""v2 corporate_restructuring public tool."""
+"""corporate_restructuring public tool."""
 
 from __future__ import annotations
 

@@ -1,9 +1,9 @@
 """DART 조회 예외 안전망 (중앙집중).
 
 부하(대량 스캔) 시 DART 클라이언트가 던지는 외부·전송·타임아웃 예외를, tool 래퍼
-(`tools_v2/_wrap_tool_errors`) 한 곳에서 graceful 응답으로 떨어뜨려 크래시
+(`tools/_wrap_tool_errors`) 한 곳에서 graceful 응답으로 떨어뜨려 크래시
 (FastMCP isError=true)를 방지한다. 260712 shareholder_meeting 사고(한 유저 140콜
-버스트에서 크래시 스파이크) 근본수정 — 전수조사 결과 15개 tool이 같은 빈틈을 공유해,
+버스트에서 크래시 스파이크) 근본수정 — 전수조사 결과 여러 tool이 같은 빈틈을 공유해,
 tool마다 고치지 않고 모든 tool이 통과하는 래퍼에서 일괄 처리한다.
 
 degrade 대상(외부·부하 원인 — "일시적 오류, 재시도" 로 안내):

@@ -14,8 +14,8 @@ import sys
 
 from open_proxy_mcp.dart.client import get_dart_client, DartClientError
 from open_proxy_mcp.services.company import resolve_company_query
-from open_proxy_mcp.services.dividend_v2 import _search_dividend_filings, _decision_details, _effective_decisions, _bucket_fiscal_year, _quarter_label
-from open_proxy_mcp.tools.dividend import _parse_dividend_items
+from open_proxy_mcp.services.dividend import _search_dividend_filings, _decision_details, _effective_decisions, _bucket_fiscal_year, _quarter_label
+from open_proxy_mcp.services.dividend_parser import parse_dividend_items
 
 SLEEP = 0.35
 
@@ -64,7 +64,7 @@ async def collect(client, name, year):
     for rc in ("11013", "11012", "11014", "11011"):
         try:
             data = await client.get_dividend_info(cc, str(year), rc)
-            reports[rc] = _col(_parse_dividend_items(data), "current")
+            reports[rc] = _col(parse_dividend_items(data), "current")
         except DartClientError:
             reports[rc] = None
         await asyncio.sleep(SLEEP)

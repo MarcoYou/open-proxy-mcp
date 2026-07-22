@@ -1,4 +1,4 @@
-"""v2 dilutive_issuance public tool."""
+"""dilutive_issuance public tool."""
 
 from __future__ import annotations
 

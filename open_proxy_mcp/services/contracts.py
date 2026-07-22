@@ -1,4 +1,4 @@
-"""v2 public tool 공통 계약."""
+"""public tool 공통 계약."""
 
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ def _utc_now_iso() -> str:
 
 
 def build_usage(api_calls: int) -> dict[str, int]:
-    """모든 v2 data tool이 data.usage로 노출하는 공통 블록."""
+    """모든 data tool이 data.usage로 노출하는 공통 블록."""
     return {
         "dart_api_calls": api_calls,
         "mcp_tool_calls": 1,
@@ -154,7 +154,7 @@ class EvidenceRef:
 
 @dataclass(slots=True)
 class ToolEnvelope:
-    """v2 public tool 공통 응답."""
+    """public tool 공통 응답."""
 
     tool: str
     status: AnalysisStatus | str

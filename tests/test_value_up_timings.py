@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from open_proxy_mcp.services import value_up_v2 as vu
+from open_proxy_mcp.services import value_up as vu
 from open_proxy_mcp.services.company import CompanyResolution
 from open_proxy_mcp.services.contracts import AnalysisStatus
 

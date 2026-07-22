@@ -97,7 +97,7 @@ def test_proxy_advise_exposes_upstream_stage_timings(monkeypatch):
     assert "resolve_company" in timings
     assert "prewarm_corp_codes" in timings
     assert "upstreams_total" in timings
-    assert "upstream.shareholder_meeting.summary" in timings
+    assert "upstream.shareholder_meeting.advise" in timings
     assert "upstream.financial_metrics.summary" in timings
     assert "decision_engine" in timings
 

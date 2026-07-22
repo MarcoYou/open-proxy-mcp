@@ -52,11 +52,13 @@ async def _fake_fetch_filings_for_title_scan(**_kwargs):
 
 def test_treasury_share_exposes_fetch_decision_stage_timings(monkeypatch):
     searched_types = []
+    searched_detail_types = []
     monkeypatch.setattr(ts, "get_dart_client", lambda: FakeClient())
     monkeypatch.setattr(ts, "resolve_company_query", _fake_resolve)
 
     async def fake_fetch_filings_for_title_scan(**kwargs):
         searched_types.append(kwargs["pblntf_tys"])
+        searched_detail_types.append(kwargs["pblntf_detail_ty"])
         return await _fake_fetch_filings_for_title_scan(**kwargs)
 
     monkeypatch.setattr(ts, "fetch_filings_for_title_scan", fake_fetch_filings_for_title_scan)
@@ -76,5 +78,5 @@ def test_treasury_share_exposes_fetch_decision_stage_timings(monkeypatch):
     assert "fetch_decisions.execution_report_filter" in timings
     assert "fetch_decisions.cancelation_body_enrich" in timings
     assert "fetch_decisions.execution_body_enrich" in timings
-    assert searched_types.count(("B", "I", "E")) == 1
-    assert "" not in searched_types
+    assert searched_types == [""]
+    assert searched_detail_types == [["B001", "E001", "E002", "I001"]]

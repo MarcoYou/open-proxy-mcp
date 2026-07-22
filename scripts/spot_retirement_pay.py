@@ -7,7 +7,7 @@ ROOT = Path("/Users/marcoyou/Projects/open-proxy-mcp")
 sys.path.insert(0, str(ROOT))
 
 from open_proxy_mcp.dart.client import DartClient
-from open_proxy_mcp.tools.parser import parse_retirement_pay_xml
+from open_proxy_mcp.services.shareholder_meeting_parser import parse_retirement_pay_xml
 
 
 async def find_with_retirement(ticker_name_pairs, year, max_found=10, max_try=120):

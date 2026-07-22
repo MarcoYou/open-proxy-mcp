@@ -1,4 +1,4 @@
-"""v2 proxy_contest public tool."""
+"""proxy_contest public tool."""
 
 from __future__ import annotations
 

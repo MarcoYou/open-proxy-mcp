@@ -1,794 +1,164 @@
-"""배당 관련 MCP tools (div_*)
+"""dividend public tool."""
 
-배당 지표 연산 규칙:
-  - 배당성향(payout ratio) = 총배당금 / 지배주주 당기순이익 × 100
-    * 반드시 '지배주주 귀속 당기순이익' 사용 (연결 기준)
-    * 비지배지분 순이익 포함하면 배당성향이 과소 계산됨
-    * 별도 재무제표의 당기순이익은 사용 금지 (연결 vs 별도 괴리)
-  - 배당수익률(dividend yield) = 주당배당금(DPS) / 기준일 종가 × 100
-    * 종가: KRX Open API 일별 시세 (배당 기준일 또는 직전 거래일)
-    * 시가배당률이 DART에 있으면 그걸 우선 사용
-  - 분기/반기 배당 시:
-    * 각 분기별 DPS는 해당 분기분만 (누적 아님)
-    * 연간 DPS = 1Q + 2Q + 3Q + 기말 합산
-    * flow(개별 분기) + stock(연간 누적) 모두 표시
-  - 특별배당: 정기배당과 별도. '특별' 키워드로 감지, 합산에 포함하되 별도 표시
-  - 주식배당: 데이터 관리하되 현금배당 대비 중요도 낮음. 별도 행으로 표시
-"""
+from __future__ import annotations
 
-import json
-import re
-import logging
-from datetime import datetime
+from typing import Any
 
-from open_proxy_mcp.dart.client import DartClient, DartClientError, get_dart_client
-from open_proxy_mcp.tools.errors import tool_error, tool_not_found, tool_empty
-from open_proxy_mcp.tools.formatters import resolve_ticker, parse_kr_number, parse_kr_int
-
-logger = logging.getLogger(__name__)
-
-# 배당 관련 거래소공시(pblntf_ty="I") 키워드 목록
-# 전체 공시 순회 금지 — pblntf_ty="I"로 먼저 범위 한정 후 이 키워드로 필터
-_DIV_KEYWORDS = (
-    "현금ㆍ현물배당결정",                          # 결산/분기 현금배당
-    "현금배당결정",                                # 일부 기업 표기
-    "분기ㆍ중간배당결정",                           # 분기/중간배당
-    "주식배당결정",                                # 주식으로 배당
-    "현금ㆍ현물배당을위한주주명부폐쇄",               # 배당 기준일 설정
-    "중간(분기)배당을위한주주명부폐쇄",               # 중간/분기 기준일
-    "권리분기배당락",                              # KRX 배당락 공시
-    "권리중간배당락",
-    "배당락",
-)
-
-# 보고서 코드 → 라벨
-_REPRT_LABELS = {
-    "11013": "1분기",
-    "11012": "반기",
-    "11014": "3분기",
-    "11011": "사업보고서(기말)",
-}
+from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.services.dividend import build_dividend_payload
 
 
-def _safe_int(val) -> int:
-    """문자열 → 정수 변환 (괄호 음수, 단위 처리 포함)"""
-    return parse_kr_int(str(val) if val is not None else "")
+def _render_error(payload: dict[str, Any]) -> str:
+    lines = [f"# dividend: {payload.get('subject', '')}", "", "배당 데이터를 확정하지 못했다."]
+    for warning in payload.get("warnings", []):
+        lines.append(f"- {warning}")
+    return "\n".join(lines)
 
 
-def _safe_float(val) -> float:
-    """문자열 → 실수 변환 (괄호 음수 처리 포함)"""
-    return parse_kr_number(str(val) if val is not None else "")
+def _render_ambiguous(payload: dict[str, Any]) -> str:
+    data = payload.get("data", {})
+    lines = [
+        f"# dividend: {data.get('query', payload.get('subject', ''))}",
+        "",
+        "회사 식별이 애매해 배당 데이터를 자동 선택하지 않았다.",
+        "",
+        "| 회사명 | ticker | corp_code | company_id |",
+        "|------|--------|-----------|------------|",
+    ]
+    for item in data.get("candidates", []):
+        lines.append(f"| {item['corp_name']} | `{item['ticker']}` | `{item['corp_code']}` | `{item['company_id']}` |")
+    return "\n".join(lines)
 
 
-def _parse_dividend_decision(text: str) -> dict | None:
-    """현금ㆍ현물배당결정 공시 본문 파싱 (거래소 표준 서식)
-
-    표준 필드:
-      1. 배당구분 (결산배당/중간배당/분기배당)
-      2. 배당종류 (현금배당/현물배당)
-      3. 1주당 배당금(원) — 보통주식/종류주식
-      4. 시가배당율(%) — 보통주식/종류주식
-      5. 배당금총액(원)
-      6. 배당기준일 (YYYY-MM-DD)
-      7. 배당금지급 예정일자 (YYYY-MM-DD 또는 -)
-      8. 주주총회 개최여부
-      9. 주주총회 예정일자
-     10. 이사회결의일(결정일)
-     11. 기타 투자판단과 관련한 중요사항
-    """
-    if not text:
-        return None
-
-    # CSS 제거
-    clean = re.sub(r'\.xforms[^}]+\}', '', text).strip()
-    # 연속 공백/개행 → 단일 공백
-    clean = re.sub(r'\s+', ' ', clean)
-
-    result = {}
-
-    # 1. 배당구분
-    m = re.search(r'1\.\s*배당구분\s*(결산배당|중간배당|분기배당)', clean)
-    result["dividend_type"] = m.group(1) if m else None
-
-    # 2. 배당종류
-    m = re.search(r'2\.\s*배당종류\s*(현금배당|현물배당|주식배당)', clean)
-    result["dividend_method"] = m.group(1) if m else None
-
-    # 3. 1주당 배당금
-    m = re.search(r'3\.\s*1주당\s*배당금\s*\(원\)\s*보통주식\s*([\d,]+)', clean)
-    result["dps_common"] = _safe_int(m.group(1)) if m else 0
-    # 종류주식 DPS: "1주당 배당금" ~ "4. 시가배당율" 사이에서 추출
-    dps_start = clean.find("1주당 배당금")
-    dps_end = clean.find("4.", dps_start) if dps_start >= 0 else -1
-    dps_segment = clean[dps_start:dps_end] if dps_start >= 0 and dps_end > dps_start else ""
-    m = re.search(r'종류주식\s*([\d,]+)', dps_segment)
-    result["dps_preferred"] = _safe_int(m.group(1)) if m else 0
-
-    # 차등배당
-    m = re.search(r'차등배당\s*여부\s*(해당|미해당)', clean)
-    result["differential_dividend"] = m.group(1) == "해당" if m else False
-
-    # 4. 시가배당율
-    m = re.search(r'4\.\s*시가배당율\s*\(%\)\s*보통주식\s*([\d.]+)', clean)
-    result["yield_common"] = _safe_float(m.group(1)) if m else 0.0
-    m = re.search(r'4\.\s*시가배당율.*?종류주식\s*([\d.]+)', clean)
-    result["yield_preferred"] = _safe_float(m.group(1)) if m else 0.0
-
-    # 5. 배당금총액
-    m = re.search(r'5\.\s*배당금총액\s*\(원\)\s*([\d,]+)', clean)
-    result["total_amount"] = _safe_int(m.group(1)) if m else 0
-
-    # 6. 배당기준일
-    m = re.search(r'6\.\s*배당기준일\s*(\d{4}-\d{2}-\d{2})', clean)
-    result["record_date"] = m.group(1) if m else None
-
-    # 7. 배당금지급 예정일자
-    m = re.search(r'7\.\s*배당금지급\s*예정일자\s*(\d{4}-\d{2}-\d{2})', clean)
-    result["payment_date"] = m.group(1) if m else None
-
-    # 8. 주주총회 개최여부
-    m = re.search(r'8\.\s*주주총회\s*개최여부\s*(개최|미개최|미해당)', clean)
-    result["agm_required"] = m.group(1) if m else None
-
-    # 9. 주주총회 예정일자
-    m = re.search(r'9\.\s*주주총회\s*예정일자\s*(\d{4}-\d{2}-\d{2})', clean)
-    result["agm_date"] = m.group(1) if m else None
-
-    # 10. 이사회결의일
-    m = re.search(r'10\.\s*이사회결의일\s*\(결정일\)\s*(\d{4}-\d{2}-\d{2})', clean)
-    result["board_date"] = m.group(1) if m else None
-
-    # 11. 기타 — 특별배당 감지
-    m = re.search(r'11\.\s*기타\s*투자판단과\s*관련한\s*중요사항\s*(.*?)(?:※|【|\Z)', clean)
-    remarks = m.group(1).strip() if m else ""
-    result["remarks"] = remarks
-
-    # 특별배당 감지
-    result["has_special"] = bool(re.search(r'특별|추가.*배당|추가하여', remarks))
-    # 특별배당 금액 추출 시도
-    if result["has_special"]:
-        m = re.search(r'([\d,.]+)\s*조원을?\s*추가', remarks)
-        if m:
-            result["special_amount_description"] = f"{m.group(1)}조원 추가"
-
-    # 종류주식 상세 (복수 우선주 지원)
-    kind_match = re.search(r'【종류주식[^】]*】\s*(.*?)$', clean)
-    preferred_stocks = []
-    if kind_match:
-        pref_text = kind_match.group(1)
-        # 각 우선주 행: 종류주식명 종류주식구분 DPS 시가배당율 배당금총액
-        rows = re.findall(
-            r'(\S+)\s+(우선주|전환우선주|종류주식)\s+([\d,.]+)\s+([\d.]+|-)\s+([\d,.]+)',
-            pref_text
-        )
-        for raw_name, ptype, dps, yld, total_amt in rows:
-            # 이름 정규화: 괄호 제거, 종목코드 제거
-            name_clean = re.sub(r'^\(|\)$', '', raw_name)  # 앞뒤 괄호
-            name_clean = re.sub(r'^\d{6}\)?$', '', name_clean)  # 순수 종목코드
-            if not name_clean:
-                continue
-
-            # 우선주 종류 판별
-            # 2우B, 3우B = 신형우선주
-            # N우(전환) = 전환우선주
-            # {회사}우, 우선주, 1우선주 = 구형우선주 (단독이면 그냥 "우선주")
-            if re.search(r'\d우B', name_clean):
-                stock_class = "신형우선주"
-            elif "전환" in ptype or "전환" in name_clean:
-                stock_class = "전환우선주"
-            elif re.match(r'제?\d차', name_clean):
-                stock_class = "전환우선주"  # 키움증권 제3차/제4차
-            elif re.search(r'2우선주|2우$', name_clean):
-                stock_class = "신형우선주"
-            else:
-                stock_class = "우선주"  # 구형 또는 단독
-
-            preferred_stocks.append({
-                "name": name_clean,
-                "raw_type": ptype,
-                "stock_class": stock_class,
-                "dps": _safe_int(dps),
-                "yield_pct": _safe_float(yld),
-                "total_amount": _safe_int(total_amt),
-            })
-
-    result["preferred_stocks"] = preferred_stocks
-    # 하위 호환: 첫 번째 우선주를 preferred_detail로
-    if preferred_stocks:
-        result["preferred_detail"] = preferred_stocks[0]
-
-    # 유효성 체크
-    if not result.get("dps_common") and not result.get("total_amount"):
-        return None
-
-    return result
+def _won(n) -> str:
+    """금액 → '환산 (raw원)' 병기. 환산은 절삭이 있어 정밀 raw를 괄호로 같이 노출.
+    1억 미만은 절삭이 없어 raw만. treasury·dividend·order_contracts·proxy_advise 공통 정책."""
+    if not n:
+        return "-"
+    raw = f"{n:,}원"
+    if n >= 1_0000_0000_0000:  # 1조
+        return f"{n/1_0000_0000_0000:.2f}조원 ({raw})"
+    if n >= 1_0000_0000:  # 1억
+        return f"{n/1_0000_0000:,.0f}억원 ({raw})"
+    return raw
 
 
-def _parse_dividend_items(data: dict) -> list[dict]:
-    """alotMatter API 응답 → 정규화된 배당 항목 리스트
+def _render(payload: dict[str, Any], scope: str) -> str:
+    data = payload.get("data", {})
+    summary = data.get("summary", {})
+    window = data.get("window", {})
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 배당", ""]
+    lines.append(f"- company_id: `{data.get('company_id', '')}`")
+    lines.append(f"- status: `{payload.get('status', '')}`")
+    if window:
+        lines.append(f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
+    lines.append("")
+    if payload.get("warnings"):
+        lines.append("## 유의사항")
+        for warning in payload["warnings"]:
+            lines.append(f"- {warning}")
+        lines.append("")
 
-    DART alotMatter 필드:
-      se: 항목명 (주당액면가액, 당기순이익, 현금배당금총액, 배당성향, 배당수익률, 주당 현금배당금 등)
-      stock_knd: 주식 종류 (보통주/우선주, 일부 항목에만 있음)
-      thstrm: 당기, frmtrm: 전기, lwfr: 전전기
-      stlm_dt: 결산일 (배당 기준일/지급일 아님)
-    """
-    items = data.get("list", [])
-    if not items:
-        return []
+    if summary:
+        lines.append("## 연간 요약")
+        lines.append(f"- 연간 DPS(보통주): {summary.get('cash_dps', 0):,}원")
+        if summary.get("cash_dps_preferred"):
+            lines.append(f"- 연간 DPS(우선주): {summary.get('cash_dps_preferred', 0):,}원")
+        lines.append(f"- 배당총액: {_won(summary.get('total_amount_mil', 0) * 1_000_000)}")
+        if summary.get("payout_ratio_dart") is not None:
+            lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}%")
+        if summary.get("yield_dart") is not None:
+            lines.append(f"- 시가배당률: {summary.get('yield_dart')}% (결의 당시 공시값)")
+        if summary.get("yield_current_pct") is not None:
+            lines.append(
+                f"- 현재가 기준 배당수익률: {summary.get('yield_current_pct')}% "
+                f"(DPS {summary.get('cash_dps', 0):,}원 ÷ 종가 {summary.get('yield_current_price_krw', 0):,}원, "
+                f"{summary.get('yield_current_price_date', '-')} 기준)")
+        # 신호 메타 — 선배당-후결의, 감액배당.
+        if summary.get("pre_dividend_post_resolution"):
+            lines.append("- 선배당-후결의 (2024 신법): 채택 (배당기준일결정 별도 공시 확인)")
+        elif "pre_dividend_post_resolution" in summary:
+            lines.append("- 선배당-후결의 (2024 신법): 미채택 추정")
+        if summary.get("capital_reserve_reduction"):
+            lines.append("- 감액배당 cross-link: 자본준비금 감소 안건 주총 상정 (이익잉여금 전입 → 배당 재원)")
 
-    results = []
-    for item in items:
-        se = item.get("se", "")
-        stock_knd = item.get("stock_knd", "")
+    if scope in {"summary", "detail"}:
+        lines.extend(["", "## 최근 배당결정", "| 공시일 | 구분 | DPS(보통) | 기준일 | rcept_no |", "|--------|------|-----------|--------|----------|"])
+        for item in data.get("latest_decisions", [])[:10]:
+            lines.append(
+                f"| {item.get('rcept_dt', '')} | {item.get('dividend_type', '-') or '-'} | {item.get('dps_common', 0):,}원 | "
+                f"{item.get('record_date', '-') or '-'} | `{item.get('rcept_no', '')}` |"
+            )
 
-        parsed = {
-            "category": se,
-            "stock_type": stock_knd,
-            "current": item.get("thstrm", ""),
-            "previous": item.get("frmtrm", ""),
-            "before_previous": item.get("lwfr", ""),
-            "stlm_dt": item.get("stlm_dt", ""),
-            "is_special": "특별" in se,
-            "is_stock_dividend": "주식배당" in se or "주당 주식배당" in se,
-        }
-        results.append(parsed)
+    if scope in {"summary", "policy_signals"}:
+        policy = data.get("policy_signals", {})
+        lines.extend([
+            "",
+            "## 정책 신호",
+            f"- 추세: {policy.get('trend', '-')}",
+            f"- 분기/중간배당 패턴: {'예' if policy.get('has_quarterly_pattern') else '아니오'}",
+            f"- 특별배당 이력: {'예' if policy.get('has_special_dividend') else '아니오'}",
+            f"- 최근 DPS 변화율: {str(policy.get('latest_change_pct')) + '%' if policy.get('latest_change_pct') is not None else '-'}",
+        ])
 
-    return results
+    if scope == "history":
+        lines.extend(["", "## 최근 연도 추이", "| 연도 | 연간 DPS | 공시 수 | 배당성향 | 수익률 | 패턴 |", "|------|----------|--------|----------|--------|------|"])
+        for item in data.get("history", []):
+            payout = f"{item['payout_ratio']}%" if item.get("payout_ratio") is not None else "-"
+            yld = f"{item['yield_pct']}%" if item.get("yield_pct") is not None else "-"
+            lines.append(f"| {item['year']} | {item['annual_dps']:,}원 | {item['decision_count']} | {payout} | {yld} | {item['pattern']} |")
+        # 최신연도 분기별 — 정기보고서 누적차분(권위). 결정공시 버킷팅 오귀속·중복 없음, 무배당 분기 0 포함.
+        qf = data.get("quarterly_full") or []
+        if qf:
+            lines.extend(["", "## 최신연도 분기별 (정기보고서 누적차분)", "| 분기 | 보통주 DPS | 우선주 DPS | 배당총액 |", "|------|------------|------------|----------|"])
+            for x in qf:
+                pref = f"{x['dps_preferred']:,}원" if x.get("dps_preferred") else "-"
+                lines.append(f"| {x['quarter']} | {x['dps_common']:,}원 | {pref} | {_won(x['total_mil'] * 1_000_000)} |")
+            lines.append("> 분기/반기/사업보고서 누적값을 차분 — 결정공시 귀속 추측이 아니라 권위 출처. 무배당 분기는 0.")
+        # 결정공시별 breakdown — 기준일·rcept_no 추적용 (정정 이력 포함).
+        qb = data.get("quarterly_breakdown") or []
+        if qb:
+            lines.extend(["", "## 분기별 결정공시 (공시별·추적용)", "| 연도 | 분기 | 보통주 DPS | 우선주 DPS | 기준일 | 공시 (rcept_no) |", "|------|------|------------|------------|--------|------------------|"])
+            for r in qb:
+                amend = " [정정]" if r.get("is_amendment") else ""
+                supersed = " (대체됨)" if r.get("is_superseded") else ""
+                lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {r['dps_preferred_krw']:,}원 | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
+            lines.append("")
+            lines.append("> 최신연도 정확값은 위 '누적차분' 표 참조. 이 표는 공시 추적용(기준일·rcept_no·정정 이력).")
 
+    return "\n".join(lines)
 
-def _build_dividend_summary(items: list[dict], reprt_label: str) -> dict:
-    """배당 항목 리스트 → 요약 구조체
-
-    alotMatter 실제 항목명 기준:
-      - "주당 현금배당금(원)" + stock_knd="보통주" → 현금 DPS
-      - "현금배당금총액(백만원)" → 총액 (백만원 단위)
-      - "(연결)현금배당성향(%)" → 배당성향 (연결 기준)
-      - "현금배당수익률(%)" + stock_knd="보통주" → 배당수익률
-      - "(연결)당기순이익(백만원)" → 연결 당기순이익
-      - "주당 주식배당(주)" → 주식배당
-    """
-    cash_dps = 0
-    cash_dps_pref = 0  # 우선주 DPS
-    stock_dps = 0
-    special_dps = 0
-    total_amount = 0  # 백만원 단위
-    payout_ratio_dart = None
-    yield_dart = None
-    yield_pref_dart = None
-    net_income_consolidated = 0  # 연결 당기순이익 (백만원)
-    stlm_dt = ""
-
-    for item in items:
-        cat = item.get("category", "")
-        cur = item.get("current", "")
-        sknd = item.get("stock_type", "")
-
-        if not stlm_dt and item.get("stlm_dt"):
-            stlm_dt = item["stlm_dt"]
-
-        # 주당 현금배당금
-        if "주당 현금배당금" in cat or ("주당" in cat and "현금배당금" in cat):
-            val = _safe_int(cur)
-            if item.get("is_special"):
-                special_dps += val
-            elif "우선주" in sknd:
-                cash_dps_pref = val
-            elif "보통주" in sknd or val > 0:
-                # stock_type="-" 빈 행("-"→0)이 보통주 실제값을 덮어쓰지 않도록
-                # 보통주 명시이거나 값이 있을 때만 반영.
-                cash_dps = val
-
-        # 주당 주식배당
-        if "주당 주식배당" in cat:
-            stock_dps = _safe_int(cur)
-
-        # 현금배당금총액
-        if "현금배당금총액" in cat:
-            total_amount = _safe_int(cur)  # 백만원 단위
-
-        # 배당성향 (연결 기준 우선)
-        if "현금배당성향" in cat and "연결" in cat:
-            val = _safe_float(cur)
-            if val > 0:
-                payout_ratio_dart = val
-        elif "현금배당성향" in cat and payout_ratio_dart is None:
-            val = _safe_float(cur)
-            if val > 0:
-                payout_ratio_dart = val
-
-        # 현금배당수익률
-        if "현금배당수익률" in cat:
-            val = _safe_float(cur)
-            if val > 0:
-                if "우선주" in sknd:
-                    yield_pref_dart = val
-                else:
-                    yield_dart = val
-
-        # 연결 당기순이익
-        if "연결" in cat and "당기순이익" in cat:
-            net_income_consolidated = _safe_int(cur)
-
-    # 액면가 (당기/전기) — 액면분할 감지용
-    par_current = 0
-    par_previous = 0
-    for item in items:
-        if "액면가" in item.get("category", ""):
-            par_current = _safe_int(item.get("current", ""))
-            par_previous = _safe_int(item.get("previous", ""))
-            break
-
-    return {
-        "period": reprt_label,
-        "stlm_dt": stlm_dt,
-        "cash_dps": cash_dps,
-        "cash_dps_preferred": cash_dps_pref,
-        "stock_dps": stock_dps,
-        "special_dps": special_dps,
-        "total_dps": cash_dps + special_dps,
-        "total_amount_mil": total_amount,
-        "payout_ratio_dart": payout_ratio_dart,
-        "yield_dart": yield_dart,
-        "yield_preferred_dart": yield_pref_dart,
-        "net_income_consolidated_mil": net_income_consolidated,
-        "par_value_current": par_current,
-        "par_value_previous": par_previous,
-        "items": items,
-    }
-
-
-# ── Tool 등록 ──
 
 def register_tools(mcp):
-    """dividend MCP tools 등록"""
 
     @mcp.tool()
-    async def div_search(
-        ticker: str,
-        bgn_de: str = "",
-        end_de: str = "",
-    ) -> str:
-        """desc: 배당/배당금/dividend/DPS 관련 공시 검색 (현금배당 결정, 중간배당 등).
-        when: [tier-3 Search] 배당, 배당금, dividend, DPS, 분배금, 주당배당 관련 공시를 찾을 때. ticker로 검색.
-        rule: 검색 결과에서 rcept_no를 얻어 div_detail에 전달.
-        ref: corp_identifier, div_detail, div_history"""
-        ticker = await resolve_ticker(ticker)
-        client = get_dart_client()
-        corp = await client.lookup_corp_code(ticker)
-        if not corp:
-            return tool_not_found("기업", ticker)
-
-        corp_code = corp["corp_code"]
-        corp_name = corp.get("corp_name", ticker)
-
-        if not bgn_de:
-            bgn_de = f"{datetime.now().year - 1}0101"
-        if not end_de:
-            end_de = datetime.now().strftime("%Y%m%d")
-
-        try:
-            # pblntf_ty="I" (거래소공시) — 현금배당결정은 여기 속함
-            filings = await client.search_filings(
-                corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
-                pblntf_ty="I",
-            )
-        except DartClientError as e:
-            return tool_error("배당 공시 검색", e, ticker=ticker)
-
-        dividend_filings = []
-        for item in filings.get("list", []):
-            report_nm = item.get("report_nm", "")
-            if any(kw in report_nm for kw in _DIV_KEYWORDS):
-                dividend_filings.append(item)
-
-        if not dividend_filings:
-            return f"{corp_name}의 배당 관련 공시를 찾을 수 없습니다 ({bgn_de}-{end_de}).\n*div_history로 사업보고서 기반 배당 이력을 조회할 수 있습니다.*"
-
-        lines = [f"# {corp_name} 배당 공시 ({bgn_de}-{end_de})\n"]
-        for item in dividend_filings[:10]:
-            lines.append(
-                f"- **{item.get('report_nm', '')}** ({item.get('rcept_dt', '')})\n"
-                f"  rcept_no: `{item.get('rcept_no', '')}`"
-            )
-        return "\n".join(lines)
-
-    @mcp.tool()
-    async def div_detail(
-        ticker: str,
-        bsns_year: str = "",
-        reprt_code: str = "11011",
-        format: str = "md",
-    ) -> str:
-        """desc: 배당 상세 — 보통주/우선주 DPS, 배당금, 배당총액, 배당성향, 시가배당률, dividend yield, 특별배당, 종류주식(우선주) 상세.
-        when: [tier-5 Detail] 배당, 배당금, dividend, DPS, 배당률 내용을 볼 때. 우선주(2우B, 우선주) 배당도 이 tool로 조회. "삼성전자우" 질문 시 ticker="삼성전자"로 호출 후 preferred_stocks에서 확인.
-        rule: 우선주는 보통주 공시 안에 포함. ticker는 보통주 기준으로 입력. reprt_code로 분기 선택 (11011=기말, 11012=반기, 11013=1Q, 11014=3Q). DART 제공 배당성향/시가배당률이 있으면 우선 사용.
-        ref: div_history, ownership_total, agm_financials_xml"""
-        ticker = await resolve_ticker(ticker)
-        client = get_dart_client()
-        corp = await client.lookup_corp_code(ticker)
-        if not corp:
-            return tool_not_found("기업", ticker)
-
-        corp_code = corp["corp_code"]
-        corp_name = corp.get("corp_name", ticker)
-
-        if not bsns_year:
-            bsns_year = str(datetime.now().year - 1)
-
-        try:
-            data = await client.get_dividend_info(corp_code, bsns_year, reprt_code)
-        except DartClientError as e:
-            return tool_error("배당 조회", e, ticker=ticker)
-
-        items = _parse_dividend_items(data)
-        if not items:
-            return f"{corp_name}의 {bsns_year}년 배당 정보가 없습니다 (reprt_code={reprt_code})."
-
-        reprt_label = _REPRT_LABELS.get(reprt_code, reprt_code)
-        summary = _build_dividend_summary(items, reprt_label)
-
-        # 현금배당결정 공시에서 기준일/지급일/특별배당 파싱
-        decisions = []
-        try:
-            filings = await client.search_filings(
-                corp_code=corp_code, bgn_de=f"{bsns_year}0101",
-                end_de=f"{int(bsns_year)+1}1231", pblntf_ty="I",
-            )
-            for item in filings.get("list", []):
-                if "현금" in item.get("report_nm", "") and "배당결정" in item.get("report_nm", ""):
-                    doc = await client.get_document_cached(item["rcept_no"])
-                    parsed = _parse_dividend_decision(doc.get("text", ""))
-                    if parsed:
-                        parsed["rcept_no"] = item["rcept_no"]
-                        parsed["rcept_dt"] = item.get("rcept_dt", "")
-                        decisions.append(parsed)
-        except (DartClientError, Exception):
-            pass
-
-        if format == "json":
-            return json.dumps({
-                "corp_name": corp_name, "bsns_year": bsns_year,
-                **summary, "decisions": decisions,
-            }, ensure_ascii=False, indent=2)
-
-        # Markdown
-        stlm = summary.get("stlm_dt", "")
-        lines = [
-            f"# {corp_name} 배당 ({bsns_year} {reprt_label})",
-            f"*결산일: {stlm}*\n",
-        ]
-
-        # alotMatter 테이블 (연간 요약)
-        lines.append("## 연간 요약 (사업보고서)")
-        lines.append(f"| 항목 | 당기 | 전기 | 전전기 |")
-        lines.append(f"|------|------|------|--------|")
-        for item in items:
-            lines.append(
-                f"| {item['category']}{' (' + item['stock_type'] + ')' if item.get('stock_type') else ''} "
-                f"| {item['current']} | {item['previous']} | {item['before_previous']} |"
-            )
-
-        lines.append("")
-        if summary["cash_dps"]:
-            lines.append(f"**연간 DPS (보통주)**: {summary['cash_dps']:,}원")
-        if summary["cash_dps_preferred"]:
-            lines.append(f"**연간 DPS (우선주)**: {summary['cash_dps_preferred']:,}원")
-        if summary["total_amount_mil"]:
-            lines.append(f"**배당금 총액**: {summary['total_amount_mil']:,}백만원")
-        if summary["payout_ratio_dart"] is not None:
-            lines.append(f"**배당성향 (연결)**: {summary['payout_ratio_dart']}%")
-        if summary["yield_dart"] is not None:
-            lines.append(f"**시가배당률 (보통주, DART 공식)**: {summary['yield_dart']}%")
-        if summary.get("yield_preferred_dart") is not None:
-            lines.append(f"**시가배당률 (우선주, DART 공식)**: {summary['yield_preferred_dart']}%")
-
-        # 현금배당결정 공시 (회차별 상세)
-        if decisions:
-            lines.append("")
-            lines.append("## 배당 결정 내역 (거래소 공시)")
-            lines.append("")
-            lines.append("| 배당구분 | DPS(보통) | DPS(우선) | 배당총액 | 기준일 | 지급예정일 | 결의일 | 시가배당률 |")
-            lines.append("|---------|----------|----------|---------|--------|----------|--------|----------|")
-            for d in decisions:
-                pay_date = d.get("payment_date") or "-"
-                lines.append(
-                    f"| {d.get('dividend_type', '-')} "
-                    f"| {d.get('dps_common', 0):,}원 "
-                    f"| {d.get('dps_preferred', 0):,}원 "
-                    f"| {d.get('total_amount', 0):,}원 "
-                    f"| {d.get('record_date', '-')} "
-                    f"| {pay_date} "
-                    f"| {d.get('board_date', '-')} "
-                    f"| {d.get('yield_common', 0)}% |"
-                )
-
-            # 우선주 상세 (복수 우선주 포함)
-            has_pref = any(d.get("preferred_stocks") for d in decisions)
-            if has_pref:
-                lines.append("")
-                lines.append("### 종류주식(우선주) 상세")
-                lines.append("")
-                lines.append("| 배당구분 | 종류주식명 | 분류 | DPS | 시가배당률 | 배당총액 |")
-                lines.append("|---------|----------|------|-----|----------|---------|")
-                for d in decisions:
-                    for ps in d.get("preferred_stocks", []):
-                        lines.append(
-                            f"| {d.get('dividend_type', '-')} "
-                            f"| {ps['name']} "
-                            f"| {ps['stock_class']} "
-                            f"| {ps['dps']:,}원 "
-                            f"| {ps['yield_pct']}% "
-                            f"| {ps['total_amount']:,}원 |"
-                        )
-
-            # 특별배당 표시
-            for d in decisions:
-                if d.get("has_special"):
-                    desc = d.get("special_amount_description", "특별배당 포함")
-                    lines.append(f"\n**특별배당**: {desc}")
-                if d.get("remarks"):
-                    # 핵심 비고만 (200자 이내)
-                    remark = d["remarks"][:200]
-                    if len(d["remarks"]) > 200:
-                        remark += "..."
-                    lines.append(f"*비고: {remark}*")
-
-        return "\n".join(lines)
-
-    @mcp.tool()
-    async def div_history(
-        ticker: str,
+    async def dividend(
+        company: str,
+        scope: str = "summary",
+        year: int = 0,
         years: int = 3,
+        start_date: str = "",
+        end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 배당 이력/추이 — 공시 건별 집계. 보통주/우선주 DPS, 배당금 변화, 배당구분(결산/분기/중간), 기준일, 지급일, 배당성향, 배당수익률, dividend history, 종류주식 상세.
-        when: [tier-5 Detail] 배당 추이, 배당 변화, 배당 증가/감소, DPS 변동, dividend history를 볼 때. 분기배당 여부, 배당 시작/중단 시그널 감지.
-        rule: 현금배당결정 공시(거래소)를 건별로 파싱하여 집계. 배당구분은 공시 자체에 명시(결산배당/분기배당/중간배당). alotMatter는 연간 요약(배당성향/수익률)으로만 사용.
-        ref: div_detail, ownership_treasury_tx"""
-        ticker = await resolve_ticker(ticker)
-        client = get_dart_client()
-        corp = await client.lookup_corp_code(ticker)
-        if not corp:
-            return tool_not_found("기업", ticker)
-
-        corp_code = corp["corp_code"]
-        corp_name = corp.get("corp_name", ticker)
-        stock_code = corp.get("stock_code", "")
-
-        current_year = datetime.now().year
-        start_year = current_year - years
-
-        # 1. 현금배당결정 공시 연도별 수집 (페이지네이션 방지)
-        all_decisions = []
-        for search_year in range(start_year, current_year + 1):
-            try:
-                filings = await client.search_filings(
-                    corp_code=corp_code,
-                    bgn_de=f"{search_year}0101",
-                    end_de=f"{search_year}1231",
-                    pblntf_ty="I",
-                )
-                for item in filings.get("list", []):
-                    nm = item.get("report_nm", "")
-                    if "현금" in nm and "배당결정" in nm:
-                        try:
-                            doc = await client.get_document_cached(item["rcept_no"])
-                            parsed = _parse_dividend_decision(doc.get("text", ""))
-                            if parsed:
-                                parsed["rcept_no"] = item["rcept_no"]
-                                parsed["rcept_dt"] = item.get("rcept_dt", "")
-                                all_decisions.append(parsed)
-                        except Exception:
-                            pass
-            except DartClientError:
-                pass
-
-        # 2. 연도별 그룹핑 (배당기준일 기준)
-        by_year = {}
-        for d in all_decisions:
-            rd = d.get("record_date", "")
-            if rd:
-                yr = rd[:4]
-            else:
-                yr = d.get("rcept_dt", "")[:4]
-            if yr not in by_year:
-                by_year[yr] = []
-            by_year[yr].append(d)
-
-        # 3. alotMatter 연간 요약 (배당성향/수익률)
-        annual_summaries = {}
-        for year in range(start_year, current_year):
-            year_str = str(year)
-            try:
-                data = await client.get_dividend_info(corp_code, year_str, "11011")
-                items = _parse_dividend_items(data)
-                annual_summaries[year_str] = _build_dividend_summary(items, "기말")
-            except DartClientError:
-                pass
-
-        # 4. 액면분할 감지 — 수정DPS 계산용
-        # 최신 액면가를 기준으로 과거 DPS를 조정
-        split_adjustments = {}  # year → 누적 분할비율
-        par_values = {}
-        for year_str, summary in annual_summaries.items():
-            par_cur = summary.get("par_value_current", 0)
-            par_prev = summary.get("par_value_previous", 0)
-            if par_cur > 0:
-                par_values[year_str] = par_cur
-            if par_cur > 0 and par_prev > 0 and par_prev != par_cur:
-                split_adjustments[year_str] = par_prev / par_cur  # 예: 5000/100 = 50
-
-        # 최신 액면가
-        latest_par = 0
-        for yr in sorted(par_values.keys(), reverse=True):
-            latest_par = par_values[yr]
-            break
-
-        # 누적 분할비율 계산 (최신 기준으로 과거 조정)
-        cumulative_split = {}
-        cum = 1.0
-        for yr in sorted(annual_summaries.keys(), reverse=True):
-            cumulative_split[yr] = cum
-            if yr in split_adjustments:
-                cum *= split_adjustments[yr]
-        # split 이전 연도에도 적용
-        for yr in sorted(annual_summaries.keys()):
-            if yr not in cumulative_split:
-                cumulative_split[yr] = cum
-
-        # 5. 연도별 집계
-        yearly_data = []
-        for year in range(start_year, current_year):
-            year_str = str(year)
-            decisions = by_year.get(year_str, [])
-            summary = annual_summaries.get(year_str, {})
-
-            # 공시 건별 DPS 합산
-            annual_dps = 0
-            decision_details = []
-            for d in sorted(decisions, key=lambda x: x.get("record_date", "")):
-                dps = d.get("dps_common", 0)
-                annual_dps += dps
-                decision_details.append({
-                    "type": d.get("dividend_type", ""),
-                    "dps": dps,
-                    "dps_preferred": d.get("dps_preferred", 0),
-                    "preferred_stocks": d.get("preferred_stocks", []),
-                    "record_date": d.get("record_date"),
-                    "payment_date": d.get("payment_date"),
-                    "board_date": d.get("board_date"),
-                    "yield_pct": d.get("yield_common", 0),
-                    "total_amount": d.get("total_amount", 0),
-                    "has_special": d.get("has_special", False),
-                    "special_desc": d.get("special_amount_description", ""),
-                })
-
-            # 배당 패턴 분류
-            types = [d["type"] for d in decision_details]
-            if "분기배당" in types:
-                pattern = "분기배당"
-            elif "중간배당" in types:
-                pattern = "반기배당"
-            elif decisions:
-                pattern = "연간배당"
-            else:
-                pattern = "무배당"
-
-            # 배당성향/수익률: alotMatter 우선
-            payout = summary.get("payout_ratio_dart")
-            yield_dart = summary.get("yield_dart")
-
-            # KRX 종가 기반 배당수익률 (alotMatter 없을 때)
-            calc_yield = None
-            if stock_code and annual_dps > 0 and not yield_dart:
-                price_data = await client.get_stock_price(stock_code, f"{year}1230")
-                if price_data and price_data.get("closing_price", 0) > 0:
-                    calc_yield = round(annual_dps / price_data["closing_price"] * 100, 2)
-
-            # 수정DPS (액면분할 조정)
-            split_ratio = cumulative_split.get(year_str, 1.0)
-            adjusted_dps = round(annual_dps / split_ratio) if split_ratio > 1.0 else annual_dps
-
-            yearly_data.append({
-                "year": year_str,
-                "pattern": pattern,
-                "annual_dps": annual_dps,
-                "adjusted_dps": adjusted_dps,
-                "split_ratio": split_ratio if split_ratio > 1.0 else None,
-                "decision_count": len(decisions),
-                "decisions": decision_details,
-                "payout_ratio_dart": payout,
-                "yield_dart": yield_dart,
-                "calc_yield": calc_yield,
-            })
-
+        """desc: 실지급·확정된 배당 **사실**. DPS, 총액, 배당성향, 시가배당률(결의 당시)+**현재가 기준 배당수익률**(최신 종가, krx_weekly), 분기별 추이. 미래 정책·약속 X.
+        when: 실제 지급된 배당 확인. 분기배당 회사는 `history`로 분기별 breakdown. 미래 정책/약속은 `value_up`.
+        rule: source 2단 — (1) 사업보고서 alotMatter(공식값) (2) 현금ㆍ현물배당결정 합산(alotMatter 빈 경우 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법). 정정공시 is_superseded 표시. 미래 약속 추가 금지.
+        scope: `summary` 선배당-후결의+감액배당 메타 / `detail` 요약+최근 결정 50건 / `history` N년 추이+분기 breakdown+policy_signals
+        ref: value_up, treasury_share, shareholder_meeting_notice, company, ownership_structure, evidence
+        """
+        payload = await build_dividend_payload(
+            company,
+            scope=scope,
+            year=year or None,
+            years=years,
+            start_date=start_date,
+            end_date=end_date,
+        )
         if format == "json":
-            return json.dumps({"corp_name": corp_name, "history": yearly_data}, ensure_ascii=False, indent=2)
-
-        # Markdown
-        lines = [f"# {corp_name} 배당 이력 ({start_year}-{current_year - 1})\n"]
-
-        # 액면분할 여부 확인
-        has_split = any(yd.get("split_ratio") for yd in yearly_data)
-
-        # 연도별 요약 테이블
-        if has_split:
-            lines.append("| 연도 | 패턴 | 연간 DPS | 수정 DPS | 공시 수 | 배당성향 | 배당수익률 |")
-            lines.append("|------|------|----------|----------|--------|----------|------------|")
-        else:
-            lines.append("| 연도 | 패턴 | 연간 DPS | 공시 수 | 배당성향 | 배당수익률 |")
-            lines.append("|------|------|----------|--------|----------|------------|")
-
-        for yd in yearly_data:
-            pr = f"{yd['payout_ratio_dart']}%" if yd["payout_ratio_dart"] else "-"
-            if yd["yield_dart"]:
-                dy = f"{yd['yield_dart']}%"
-            elif yd["calc_yield"]:
-                dy = f"{yd['calc_yield']}% (KRX)"
-            else:
-                dy = "-"
-            if has_split:
-                adj = f"{yd['adjusted_dps']:,}원" if yd.get("split_ratio") else f"{yd['annual_dps']:,}원"
-                split_note = f" (1:{yd['split_ratio']:.0f})" if yd.get("split_ratio") else ""
-                lines.append(
-                    f"| {yd['year']} | {yd['pattern']} | {yd['annual_dps']:,}원{split_note} | {adj} | {yd['decision_count']}건 | {pr} | {dy} |"
-                )
-            else:
-                lines.append(
-                    f"| {yd['year']} | {yd['pattern']} | {yd['annual_dps']:,}원 | {yd['decision_count']}건 | {pr} | {dy} |"
-                )
-
-        # 건별 상세
-        lines.append("\n## 건별 상세\n")
-        lines.append("| 연도 | 구분 | DPS | 기준일 | 지급예정일 | 결의일 | 시가배당률 | 특별 |")
-        lines.append("|------|------|-----|--------|----------|--------|----------|------|")
-
-        for yd in yearly_data:
-            for d in yd["decisions"]:
-                pay = d.get("payment_date") or "-"
-                special = d.get("special_desc") or ("O" if d.get("has_special") else "-")
-                yld = f"{d['yield_pct']}%" if d.get("yield_pct") else "-"
-                lines.append(
-                    f"| {yd['year']} | {d['type']} | {d['dps']:,}원 | {d.get('record_date', '-')} | {pay} | {d.get('board_date', '-')} | {yld} | {special} |"
-                )
-
-        lines.append("")
-        lines.append("*배당성향 = 배당금총액 / 지배주주귀속 당기순이익 × 100 (DART alotMatter)*")
-        lines.append("*배당수익률 = DART 시가배당률 우선, 없으면 연간 DPS / KRX 종가*")
-        if has_split:
-            lines.append("*수정 DPS = 액면분할/병합 조정. 최신 액면가 기준으로 과거 DPS를 환산.*")
-
-        return "\n".join(lines)
-
-    @mcp.tool()
-    async def div_full_analysis(
-        ticker: str,
-        format: str = "md",
-    ) -> str:
-        """desc: 배당 종합 분석 — 최근 배당금/DPS + 3년 추이 + 배당성향/수익률. 보통주/우선주 모두 포함.
-        when: [tier-4 Orchestrate] 배당, 배당금, dividend, DPS 정책/현황을 종합적으로 볼 때.
-        rule: div_detail(최신) + div_history(3년)를 합쳐서 반환.
-        ref: corp_identifier, div_detail, div_history"""
-        ticker = await resolve_ticker(ticker)
-        if format == "json":
-            import json as _json
-            detail_raw = await div_detail(ticker=ticker, format="json")
-            history_raw = await div_history(ticker=ticker, years=3, format="json")
-            try:
-                detail_data = _json.loads(detail_raw)
-            except Exception:
-                detail_data = {"raw": detail_raw}
-            try:
-                history_data = _json.loads(history_raw)
-            except Exception:
-                history_data = {"raw": history_raw}
-            return _json.dumps({"detail": detail_data, "history": history_data},
-                               ensure_ascii=False, indent=2)
-
-        # 최신 기말 배당
-        detail = await div_detail(ticker=ticker, format=format)
-        # 3년 이력
-        history = await div_history(ticker=ticker, years=3, format=format)
-
-        return f"{detail}\n\n---\n\n{history}"
+            return as_pretty_json(payload)
+        if payload.get("status") == "ambiguous":
+            return _render_ambiguous(payload)
+        if payload.get("status") == "error":
+            return _render_error(payload)
+        return _render(payload, scope)

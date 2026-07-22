@@ -28,7 +28,7 @@ from open_proxy_mcp.services.contracts import (
     build_filing_meta,
     build_usage,
 )
-from open_proxy_mcp.tools.parser import parse_personnel_xml
+from open_proxy_mcp.services.shareholder_meeting_parser import parse_personnel_xml
 
 
 # ── 후보 데이터 fetch (success/soft-fail 분류) ──
@@ -52,7 +52,7 @@ async def fetch_appointments(
 
     return: (appointments, rcept_no, filings_meta)
     """
-    from open_proxy_mcp.tools.parser import detect_meeting_type
+    from open_proxy_mcp.services.shareholder_meeting_parser import detect_meeting_type
 
     client = get_dart_client()
     # 검색 범위: auto 또는 extraordinary는 연중, annual은 1-5월
@@ -135,7 +135,7 @@ async def fetch_appointments(
         parsed = parse_personnel_xml(text)
         candidate_appointments = parsed.get("appointments", []) or []
         try:
-            from open_proxy_mcp.tools.parser import parse_agenda_xml
+            from open_proxy_mcp.services.shareholder_meeting_parser import parse_agenda_xml
             agenda_items = parse_agenda_xml(text, html=text)
             candidate_agenda_titles = [a.get("title") for a in (agenda_items or []) if a.get("title")]
         except Exception:

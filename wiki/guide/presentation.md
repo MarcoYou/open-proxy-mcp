@@ -10,14 +10,14 @@ updated: 2026-06-19
 > OPM을 소개·설명할 때 쓰는 시각 자료(도표·워크플로우 그림·PPT) 모음입니다. 원본 파일은
 > `wiki/tools/diagrams/`에 있습니다. GitHub에서는 그림이 바로 보이고, PPT는 내려받아 사용합니다.
 
-## 1. 시스템 구성도 — 24개 도구 분류
+## 1. 시스템 구성도 — 도구 분류
 
 OpenProxy MCP의 24개 공개 도구를 분석 영역(진입·출처 / 주총·의결권 / 주주환원 / 지배구조·경영권 /
 펀더멘탈·사업·실적 / 스크리닝·법령)으로 나눈 전체 구성도입니다. 어떤 도구가 어느 분석 영역을 담당하는지 보여줍니다.
 
 ![도구 분류 구성도](../tools/diagrams/architecture.png)
 
-> ※ 위 그림은 17개 도구 시점(2026-06) 산출물 — 이후 valuation·shareholder_commitment·director_board·law_lookup·screener·business_details·provisional_earnings 추가로 현재 **24개** (그림 갱신 TODO). 최신 목록은 [[tools/README]].
+> ※ 그림은 개념 분류용입니다. 최신 런타임 목록은 [[tools/README]]를 참조합니다.
 
 ## 2. 워크플로우 도식
 

@@ -4,11 +4,11 @@
 "작년에 공표한 밸류업 계획(배당·자사주 소각)을 실제로 지켰나"를 주총과 무관하게 연중 추적한다.
 
 4개 upstream을 재사용(새 파싱 로직 없음, 전부 기존 build_*_payload 그대로 호출):
-  - value_up_v2.build_value_up_payload(scope="commitments") — 밸류업 계획 원문 + 이미 있는
+  - value_up.build_value_up_payload(scope="commitments") — 밸류업 계획 원문 + 이미 있는
     treasury_cross_ref(소각 약속 vs 24개월 실제 이벤트 요약).
   - corp_gov_report.build_corp_gov_report_payload(scope="timeline") — 15개 지표 O/X 연도별 전환
     (transitions: improved/regressed).
-  - dividend_v2.build_dividend_payload(scope="summary"/"history") — 실제 배당 총액·성향·연도별 DPS.
+  - dividend.build_dividend_payload(scope="summary"/"history") — 실제 배당 총액·성향·연도별 DPS.
   - treasury_share.build_treasury_share_payload(scope="summary") — 이번 세션에 원문 단위(백만원 등)
     미인식 버그를 고친 정확한 actual_amount_krw/cumulative_shares + 결정↔실행 사이클 매칭.
 
@@ -39,9 +39,9 @@ from open_proxy_mcp.services.contracts import (
     ToolEnvelope,
     build_usage,
 )
-from open_proxy_mcp.services.value_up_v2 import build_value_up_payload
+from open_proxy_mcp.services.value_up import build_value_up_payload
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
-from open_proxy_mcp.services.dividend_v2 import build_dividend_payload
+from open_proxy_mcp.services.dividend import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 from open_proxy_mcp.services.valuation import _shares_outstanding, _pg_rows
 from open_proxy_mcp.services.date_utils import resolve_date_window, format_yyyymmdd

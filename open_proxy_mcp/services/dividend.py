@@ -1,4 +1,4 @@
-"""v2 dividend facade 서비스."""
+"""dividend facade 서비스."""
 
 from __future__ import annotations
 
@@ -25,13 +25,13 @@ from open_proxy_mcp.services.filing_search import (
     report_name_matches,
     search_filings_by_report_name,
 )
-from open_proxy_mcp.tools.dividend import (
-    _DIV_KEYWORDS,
-    _build_dividend_summary,
-    _parse_dividend_decision,
-    _parse_dividend_items,
-    _safe_float,
-    _safe_int,
+from open_proxy_mcp.services.dividend_parser import (
+    DIVIDEND_KEYWORDS,
+    build_dividend_summary,
+    parse_dividend_decision,
+    parse_dividend_items,
+    safe_float,
+    safe_int,
 )
 
 _SUPPORTED_SCOPES = {
@@ -86,7 +86,7 @@ async def _search_dividend_filings(
     )
     if error:
         return [], [], notices, f"배당결정 공시 검색 실패: {error}"
-    dividend_filings = [i for i in items if report_name_matches(i, _DIV_KEYWORDS)]
+    dividend_filings = [i for i in items if report_name_matches(i, DIVIDEND_KEYWORDS)]
     record_notices = [
         i for i in items if report_name_matches(i, _RECORD_DATE_NOTICE_KEYWORDS, strip_spaces=True)
     ]
@@ -110,7 +110,7 @@ async def _decision_details(filings: list[dict[str, Any]]) -> list[dict[str, Any
             doc = await client.get_document_cached(item["rcept_no"])
         except Exception:
             return None
-        parsed = _parse_dividend_decision(doc.get("text", ""))
+        parsed = parse_dividend_decision(doc.get("text", ""))
         if not parsed:
             return None
         parsed["rcept_no"] = item.get("rcept_no", "")
@@ -128,10 +128,10 @@ async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], st
         data = await client.get_dividend_info(corp_code, str(year), "11011")
     except DartClientError as exc:
         return {}, f"alotMatter 조회 실패: {exc.status}"
-    items = _parse_dividend_items(data)
+    items = parse_dividend_items(data)
     if not items:
         return {}, None
-    summary = _build_dividend_summary(items, "사업보고서(기말)")
+    summary = build_dividend_summary(items, "사업보고서(기말)")
     if summary:
         summary["source"] = "alotMatter"
     return summary, None
@@ -173,10 +173,10 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
             cat = item.get("category", "")
             sknd = item.get("stock_type", "")
             val_raw = item.get(col, "")
-            if "주당액면가액" in cat and _safe_int(val_raw) > 0:
+            if "주당액면가액" in cat and safe_int(val_raw) > 0:
                 col_has_face_value = True
             if "주당 현금배당금" in cat:
-                v = _safe_int(val_raw)
+                v = safe_int(val_raw)
                 if "우선주" in sknd:
                     cash_dps_pref = v
                 elif "보통주" in sknd or v > 0:
@@ -184,20 +184,20 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
                     # 보통주 명시이거나 값이 있을 때만 반영.
                     cash_dps = v
             elif "현금배당금총액" in cat:
-                total_amount = _safe_int(val_raw)
+                total_amount = safe_int(val_raw)
             elif "현금배당성향" in cat:
-                v = _safe_float(val_raw)
+                v = safe_float(val_raw)
                 if v > 0 and (payout is None or "연결" in cat):
                     payout = v
             elif "현금배당수익률" in cat:
-                v = _safe_float(val_raw)
+                v = safe_float(val_raw)
                 if v > 0:
                     if "우선주" in sknd:
                         yld_pref = v
                     else:
                         yld = v
             elif "연결" in cat and "당기순이익" in cat:
-                net_income = _safe_int(val_raw)
+                net_income = safe_int(val_raw)
         # 컬럼 전체가 비어 있으면(보고서 범위 밖/회사 미존재) 스킵 → fallback 위임.
         # 회사가 존재했는데(액면가/순이익 있음) 배당만 0이면 = 무배당이므로 0-summary로
         # 유지한다 — pending_annual 제거 후 history 윈도우에서 무배당 연도가 빠지지 않게.
@@ -236,7 +236,7 @@ async def _interim_dividend_from_quarterly(corp_code: str, year: int) -> dict[st
     분기/반기 alotMatter의 당기(current) 누적 컬럼에서 읽는다.
 
     분기/반기 alotMatter 당기값 = 해당 기간까지 누적 배당 (현대차 3분기=Q1-Q3 합).
-    사업보고서(11011)와 동일한 15행 구조라 `_parse_dividend_items`로 파싱해 보통주
+    사업보고서(11011)와 동일한 15행 구조라 `parse_dividend_items`로 파싱해 보통주
     주당현금배당금·총액·배당성향을 추출한다. 가장 최근 기간부터 시도해 양수 DPS가 잡히는
     첫 보고서를 반환, 없으면 None. (출처 맵 B — wiki/rules/disclosures/배당공시유형.md)
     """
@@ -246,7 +246,7 @@ async def _interim_dividend_from_quarterly(corp_code: str, year: int) -> dict[st
             data = await client.get_dividend_info(corp_code, str(year), reprt_code)
         except DartClientError:
             continue
-        items = _parse_dividend_items(data)
+        items = parse_dividend_items(data)
         if not items:
             continue
         cash_dps = 0
@@ -257,15 +257,15 @@ async def _interim_dividend_from_quarterly(corp_code: str, year: int) -> dict[st
             sknd = item.get("stock_type", "")
             val_raw = item.get("current", "")
             if "주당 현금배당금" in cat:
-                v = _safe_int(val_raw)
+                v = safe_int(val_raw)
                 if "우선주" in sknd:
                     continue
                 if "보통주" in sknd or v > 0:  # 빈 행("-"→0)이 보통주 실제값 덮어쓰지 않게
                     cash_dps = v
             elif "현금배당금총액" in cat:
-                total_amount = _safe_int(val_raw)
+                total_amount = safe_int(val_raw)
             elif "현금배당성향" in cat:
-                v = _safe_float(val_raw)
+                v = safe_float(val_raw)
                 if v > 0 and (payout is None or "연결" in cat):
                     payout = v
         if cash_dps > 0:
@@ -286,7 +286,7 @@ def _common_cash_dps_from_items(items: list[dict[str, Any]], column: str = "curr
         if "주당 현금배당금" not in item.get("category", ""):
             continue
         sknd = item.get("stock_type", "")
-        v = _safe_int(item.get(column, ""))
+        v = safe_int(item.get(column, ""))
         if "우선주" in sknd:
             continue
         if "보통주" in sknd or v > 0:
@@ -308,7 +308,7 @@ async def _quarterly_dps_from_cumulative(corp_code: str, year: int) -> list[dict
             data = await client.get_dividend_info(corp_code, str(year), reprt_code)
         except DartClientError:
             continue
-        items = _parse_dividend_items(data)
+        items = parse_dividend_items(data)
         if items:
             cum[reprt_code] = _common_cash_dps_from_items(items, "current")
     out: list[dict[str, Any]] = []
@@ -333,7 +333,7 @@ def _cum_full_from_items(items: list[dict[str, Any]], column: str = "current") -
     for item in items:
         cat = item.get("category", "")
         sknd = item.get("stock_type", "")
-        v = _safe_int(item.get(column, ""))
+        v = safe_int(item.get(column, ""))
         if "주당액면가액" in cat and v > 0:
             exists = True
         elif "연결" in cat and "당기순이익" in cat and v != 0:
@@ -364,7 +364,7 @@ async def _quarterly_full_from_cumulative(corp_code: str, year: int) -> list[dic
             data = await client.get_dividend_info(corp_code, str(year), reprt_code)
         except DartClientError:
             continue
-        col = _cum_full_from_items(_parse_dividend_items(data), "current")
+        col = _cum_full_from_items(parse_dividend_items(data), "current")
         if col is not None:
             cum[reprt_code] = col
     seq = [("Q1", "11013"), ("반기", "11012"), ("3분기", "11014"), ("연간", "11011")]

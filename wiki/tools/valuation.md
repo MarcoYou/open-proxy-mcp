@@ -2,7 +2,7 @@
 type: tool
 title: valuation
 domain: data
-status: 등록 완료 (260705 — tools_v2/valuation.py, v2 toolset 18번째)
+status: 등록 완료 (260705 — tools/valuation.py)
 scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]

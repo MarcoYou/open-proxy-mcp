@@ -1,4 +1,4 @@
-"""v2 company facade 서비스."""
+"""company facade 서비스."""
 
 from __future__ import annotations
 
@@ -308,7 +308,7 @@ async def build_company_payload(
     }
     warnings = [warning for warning in (company_warn, filings_warn) if warning]
     if not company_info.get("jurir_no"):
-        warnings.append("ISIN은 아직 v2 company tool에 연결되지 않았다.")
+        warnings.append("ISIN은 아직 company tool에 연결되지 않았다.")
 
     # company tool은 회사 정보가 항상 있어 no_filing 케이스가 거의 없다.
     # 다만 recent_filings 0건은 NO_FILING으로 표시 (정상). company_info 자체가

@@ -1351,7 +1351,7 @@ async def _accrual_payout_pct(corp_code: str, year: int, *, is_reit: bool = Fals
     if is_reit:
         return None
     # 지연 import (모듈 로드 순서 무관 + 순환 회피)
-    from open_proxy_mcp.services.dividend_v2 import (
+    from open_proxy_mcp.services.dividend import (
         _alot_multiyear_summaries,
         _annual_summary,
     )

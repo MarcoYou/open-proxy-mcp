@@ -1,4 +1,4 @@
-"""law_lookup — 정관↔법령 양방향 조회 (21번째 tool, company-agnostic·DART 0콜).
+"""law_lookup — 정관↔법령 양방향 조회 (company-agnostic·DART 0콜).
 
 두 방향:
   A) 정관/자유텍스트 → 관련 법령 조문 (clause_to_law)

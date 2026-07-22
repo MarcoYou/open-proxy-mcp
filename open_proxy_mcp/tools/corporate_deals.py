@@ -1,4 +1,4 @@
-"""v2 corporate_deals public tool."""
+"""corporate_deals public tool."""
 
 from __future__ import annotations
 

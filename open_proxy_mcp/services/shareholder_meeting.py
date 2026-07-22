@@ -1,4 +1,4 @@
-"""v2 shareholder_meeting facade 서비스."""
+"""shareholder_meeting facade 서비스."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
-import open_proxy_mcp.tools.parser as notice_parser_mod
+import open_proxy_mcp.services.shareholder_meeting_parser as notice_parser_mod
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
@@ -24,8 +24,8 @@ from open_proxy_mcp.services.contracts import (
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
-from open_proxy_mcp.tools.formatters import _parse_agm_result_summary, _parse_agm_result_table
-from open_proxy_mcp.tools.parser import (
+from open_proxy_mcp.services.agm_result_parser import parse_agm_result_summary, parse_agm_result_table
+from open_proxy_mcp.services.shareholder_meeting_parser import (
     parse_agenda_details_xml,
     parse_agenda_xml,
     parse_aoi_xml,
@@ -1044,10 +1044,10 @@ async def _meeting_result_data(
         html = ""
 
     soup = BeautifulSoup(html, "lxml") if html else None
-    items = _parse_agm_result_table(soup) if soup else []
+    items = parse_agm_result_table(soup) if soup else []
     result_format = "table" if items else None
     if soup and not items:
-        items = _parse_agm_result_summary(soup)
+        items = parse_agm_result_summary(soup)
         if items:
             result_format = "summary"
 
@@ -1065,10 +1065,10 @@ async def _meeting_result_data(
             # graceful degrade: 결과만 생략하고 warning 반환 (full scope 전체 보존).
             return None, f"주총 결과 조회 실패(KIND fetch {type(exc).__name__}) — 안건 등 나머지는 정상, 결과는 추후 재시도"
         soup = BeautifulSoup(html, "lxml")
-        items = _parse_agm_result_table(soup)
+        items = parse_agm_result_table(soup)
         result_format = "table" if items else None
         if not items:
-            items = _parse_agm_result_summary(soup)
+            items = parse_agm_result_summary(soup)
             if items:
                 result_format = "summary"
         if not items:
@@ -1537,7 +1537,7 @@ async def build_shareholder_meeting_payload(
                     break
             aoi_result = parse_aoi_xml(html, sub_agendas=charter_subs if charter_subs else None)
             # 260505 ralph: aoi_change에 퇴직금 변경 raw도 통합 (data tool 원칙 — raw + 키워드 hit count, 판단 X)
-            from open_proxy_mcp.tools.parser import parse_retirement_pay_xml
+            from open_proxy_mcp.services.shareholder_meeting_parser import parse_retirement_pay_xml
             retire_result = parse_retirement_pay_xml(html)
             retire_amendments = retire_result.get("amendments") or []
             aoi_result["retirement_amendments"] = retire_amendments

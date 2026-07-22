@@ -1,4 +1,4 @@
-"""v2 proxy_contest facade 서비스."""
+"""proxy_contest facade 서비스."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from open_proxy_mcp.services.ownership_structure import (
     _treasury_snapshot,
 )
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
-from open_proxy_mcp.tools.formatters import _parse_holding_purpose, _parse_holding_purpose_from_document
+from open_proxy_mcp.services.ownership_parser import parse_holding_purpose, parse_holding_purpose_from_document
 
 _SUPPORTED_SCOPES = {"summary", "fight", "litigation", "signals", "timeline", "vote_math"}
 _PROXY_KEYWORDS = (

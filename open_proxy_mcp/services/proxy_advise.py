@@ -51,7 +51,7 @@ from open_proxy_mcp.services.financial_metrics import build_financial_metrics_pa
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 from open_proxy_mcp.services.director_performance import _PERF_KO, compute_performance
-from open_proxy_mcp.services.dividend_v2 import build_dividend_payload
+from open_proxy_mcp.services.dividend import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 from open_proxy_mcp.services.order_contracts import build_order_contracts_payload
 # Removed dead imports (archived at wiki/archive/services/):
@@ -2151,7 +2151,7 @@ async def build_proxy_advise_payload(
                 fy_raw_from_agenda = _extract_provisional_fs_metrics(pfs_parsed)
             # 퇴직금 amendments parse — 본문에 "퇴직금" 키워드 있을 때만
             if html and ("퇴직금" in text or "퇴직금" in html or "퇴임위로금" in text or "퇴임위로금" in html):
-                from open_proxy_mcp.tools.parser import parse_retirement_pay_xml
+                from open_proxy_mcp.services.shareholder_meeting_parser import parse_retirement_pay_xml
                 _ret = parse_retirement_pay_xml(html)
                 if _ret and _ret.get("amendments"):
                     retirement_payload = {"data": _ret, "status": "ok", "source_rcept_no": agm_rcept}
@@ -2188,7 +2188,7 @@ async def build_proxy_advise_payload(
             {"title": title, "agenda_relation_type": "normal", "agenda_relation_reasons": []}
             for title in (agenda_summary.get("titles", []) or [])
         ]
-    # shareholder_meeting v2 agenda 미검출 시 director_evaluation의 본문 agenda fallback
+    # shareholder_meeting agenda 미검출 시 director_evaluation의 본문 agenda fallback
     if not agenda_rows:
         fallback_titles = (director_eval.get("data") or {}).get("agenda_titles_fallback", []) or []
         if fallback_titles:

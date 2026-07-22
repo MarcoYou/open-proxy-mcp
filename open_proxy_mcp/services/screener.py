@@ -505,7 +505,7 @@ async def resolve_universe(universe: str) -> UniverseFilter:
     if low.startswith("sector"):
         return UniverseFilter(
             label=spec, resolved=False,
-            notice="섹터 필터는 v1 미구현(KSIC 조인 TODO) — 전체시장으로 스캔했다.",
+            notice="섹터 필터는 미구현(KSIC 조인 TODO) — 전체시장으로 스캔했다.",
             allowed=None, bas_dd=bas_dd)
 
     return UniverseFilter(label=spec, resolved=False,
@@ -699,7 +699,7 @@ _DETAIL_DISPATCH: dict[str, dict[str, Any]] = {
     "treasury": {"module": "open_proxy_mcp.services.treasury_share",
                  "fn": "build_treasury_share_payload", "extract": _extract_treasury,
                  "kwargs": _build_kwargs_narrow},
-    "dividend": {"module": "open_proxy_mcp.services.dividend_v2",
+    "dividend": {"module": "open_proxy_mcp.services.dividend",
                  "fn": "build_dividend_payload", "extract": _extract_dividend,
                  "kwargs": _build_kwargs_narrow},
     "dilutive": {"module": "open_proxy_mcp.services.dilutive_issuance",

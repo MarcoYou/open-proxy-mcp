@@ -1,4 +1,4 @@
-"""business_details — DART "II. 사업의 내용" 사업부문 데이터 추출 (21번째 tool).
+"""business_details — DART "II. 사업의 내용" 사업부문 데이터 추출.
 
 정형 파서 primary → 저신뢰 시 부문표 후보 raw 반환(호출측 LLM 추출) → N/A. 내부 LLM/pandas 없음.
 설계: wiki/decisions/260717_1220_decision_business-content-tool-roadmap.md

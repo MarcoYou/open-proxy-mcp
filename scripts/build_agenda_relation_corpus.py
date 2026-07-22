@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT))
 
 from open_proxy_mcp.dart.client import get_dart_client  # noqa: E402
 from open_proxy_mcp.services.shareholder_meeting import _agenda_nodes, _parse_notice_bundle  # noqa: E402
-from open_proxy_mcp.tools.parser import parse_aoi_xml, parse_retirement_pay_xml  # noqa: E402
+from open_proxy_mcp.services.shareholder_meeting_parser import parse_aoi_xml, parse_retirement_pay_xml  # noqa: E402
 
 CLASSIFIED_CSV = ROOT / "wiki/architecture/audits/data/260517_parsing_success_rate_audit/shareholder_meeting_notice_2026_classified.csv"
 DISPUTE_CSV = ROOT / "wiki/architecture/audits/data/260508_law_layer/dispute_universe.csv"

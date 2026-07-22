@@ -1,4 +1,4 @@
-"""v2 corp_gov_report data tool.
+"""corp_gov_report data tool.
 
 기업지배구조보고서 (2024년 사업연도부터 전체 KOSPI 의무공시).
 - DART 전용 구조화 API 없음 → list.json + 원문 파싱 방식

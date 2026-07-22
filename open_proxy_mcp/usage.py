@@ -144,7 +144,7 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
     """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
     tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
     is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능),
-    error_kind=is_error일 때 예외 분류(timeout/upstream/crash/unknown; tools_v2 래퍼가 붙인
+    error_kind=is_error일 때 예외 분류(timeout/upstream/crash/unknown; tools 래퍼가 붙인
     `[ekind=...]` 태그에서 추출). 에러 메시지 원문은 저장하지 않음."""
     try:
         khash = hashlib.sha256(opendart_key.lower().encode()).hexdigest()

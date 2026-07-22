@@ -1,4 +1,4 @@
-"""v2 public tool 날짜 파라미터 유틸리티."""
+"""public tool 날짜 파라미터 유틸리티."""
 
 from __future__ import annotations
 

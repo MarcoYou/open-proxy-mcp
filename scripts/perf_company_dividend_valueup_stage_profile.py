@@ -18,13 +18,13 @@ sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
 
 import open_proxy_mcp.services.company as company_mod  # noqa: E402
-import open_proxy_mcp.services.dividend_v2 as dividend_mod  # noqa: E402
-import open_proxy_mcp.services.value_up_v2 as value_up_mod  # noqa: E402
+import open_proxy_mcp.services.dividend as dividend_mod  # noqa: E402
+import open_proxy_mcp.services.value_up as value_up_mod  # noqa: E402
 import open_proxy_mcp.services.treasury_share as treasury_mod  # noqa: E402
 from open_proxy_mcp.dart.client import DartClient  # noqa: E402
 from open_proxy_mcp.services.company import build_company_payload  # noqa: E402
-from open_proxy_mcp.services.dividend_v2 import build_dividend_payload  # noqa: E402
-from open_proxy_mcp.services.value_up_v2 import build_value_up_payload  # noqa: E402
+from open_proxy_mcp.services.dividend import build_dividend_payload  # noqa: E402
+from open_proxy_mcp.services.value_up import build_value_up_payload  # noqa: E402
 
 
 UNIVERSE_FILES = {
