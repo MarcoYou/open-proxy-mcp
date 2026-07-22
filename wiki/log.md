@@ -3,6 +3,12 @@ type: log
 title: Operation Log
 ---
 
+## [2026-07-22] improvement | 한글·영문 통합 CompanyResolver
+- DART `corpCode.xml`의 공식 영문명을 memory/SQLite master에 보존하고 구형 4컬럼 DB를 additive migration 후 1회 갱신한다. 신규 master는 전체·종목코드·영문 커버리지 검증 후에만 교체하며, 갱신/파싱 실패 시 stale 한글 cache로 fail-open한다.
+- 종목코드 보유 법인만 공식명·정규화·compact·token index를 만들고, ticker/corp_code는 전체 법인 exact map으로 유지한다.
+- curated historical alias와 공식명을 시총보다 우선하고, 부분 브랜드명은 시총 최상위 후보를 자동 추론한다. 1.5배 격차 미만은 low confidence + 대안을 표시하되 되묻지 않는다. strong 공식명 충돌만 후보 순서로 반환한다.
+- 실제 DART 118,511사에서 `삼성/Samsung`, `Samsung Fire`, `HD Hyundai Electric`, `KT and G`, `Hyundai`, 한영 혼합 질의를 확인했다. cold 다운로드+index 2.1s, warm p95 0.04ms. 안내문은 짧은 한·영 두 버전으로 두고 호출 AI가 `language=ko|en`으로 선택한다.
+
 ## [2026-07-22] refactor | toolset 버전 제거 + 테스트·문서 드리프트 경계
 - 현행 `tools_v2/`를 `tools/`로 변경하고 v1 wrapper와 `OPEN_PROXY_TOOLSET` 분기를 제거했다.
 - 현행 서비스가 쓰던 구 parser helper를 `services/` 전용 모듈로 분리하고 서비스 파일명의 `_v2`도 제거했다.

@@ -213,6 +213,19 @@ def _sort_corp_results(corps: list[dict]) -> list[dict]:
     )
 
 
+def _validate_corp_master(corps: list[dict]) -> None:
+    listed = [corp for corp in corps if corp.get("stock_code")]
+    english_coverage = (
+        sum(bool(corp.get("corp_eng_name")) for corp in listed) / len(listed)
+        if listed else 0.0
+    )
+    if len(corps) < 100_000 or len(listed) < 3_000 or english_coverage < 0.9:
+        raise ValueError(
+            f"corpCode master validation failed: total={len(corps)}, "
+            f"listed={len(listed)}, english={english_coverage:.1%}"
+        )
+
+
 class DartClient:
     """OpenDART API 호출 래퍼
 
@@ -409,8 +422,8 @@ class DartClient:
     # ── 기업 코드 매핑 ──
 
     @staticmethod
-    def _master_db_load() -> list[dict] | None:
-        """sqlite master.db에서 corp_codes 로드 (TTL 24h 검증).
+    def _master_db_load(*, require_english: bool = True, allow_stale: bool = False) -> list[dict] | None:
+        """sqlite master.db에서 corp_codes 로드 (TTL 7d 검증).
 
         Returns:
             list[dict] (cache fresh) 또는 None (없거나 stale)
@@ -432,15 +445,30 @@ class DartClient:
             except ValueError:
                 conn.close()
                 return None
-            if datetime.now() - last > timedelta(hours=_MASTER_DB_TTL_HOURS):
+            if not allow_stale and datetime.now() - last > timedelta(hours=_MASTER_DB_TTL_HOURS):
                 conn.close()
                 return None
-            cur.execute("SELECT corp_code, corp_name, stock_code, modify_date FROM corp_codes")
+            columns = {r[1] for r in cur.execute("PRAGMA table_info(corp_codes)").fetchall()}
+            if "corp_eng_name" not in columns:
+                if require_english:
+                    cur.execute("ALTER TABLE corp_codes ADD COLUMN corp_eng_name TEXT NOT NULL DEFAULT ''")
+                    conn.commit()
+                    conn.close()
+                    # Existing rows cannot be backfilled without corpCode.xml. Force one refresh.
+                    return None
+                english_column = "''"
+            else:
+                english_column = "corp_eng_name"
+            cur.execute(f"SELECT corp_code, corp_name, {english_column}, stock_code, modify_date FROM corp_codes")
             corps = [
-                {"corp_code": r[0], "corp_name": r[1], "stock_code": r[2] or "", "modify_date": r[3] or ""}
+                {"corp_code": r[0], "corp_name": r[1], "corp_eng_name": r[2] or "",
+                 "stock_code": r[3] or "", "modify_date": r[4] or ""}
                 for r in cur.fetchall()
             ]
             conn.close()
+            listed = [corp for corp in corps if corp["stock_code"]]
+            if require_english and listed and sum(bool(corp["corp_eng_name"]) for corp in listed) / len(listed) < 0.9:
+                return None
             return corps if corps else None
         except sqlite3.Error as exc:
             logger.warning(f"sqlite master load 실패 (download fallback): {exc}")
@@ -453,14 +481,17 @@ class DartClient:
             _MASTER_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
             conn = sqlite3.connect(_MASTER_DB_PATH)
             cur = conn.cursor()
-            cur.execute("CREATE TABLE IF NOT EXISTS corp_codes (corp_code TEXT PRIMARY KEY, corp_name TEXT NOT NULL, stock_code TEXT, modify_date TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS corp_codes (corp_code TEXT PRIMARY KEY, corp_name TEXT NOT NULL, corp_eng_name TEXT NOT NULL DEFAULT '', stock_code TEXT, modify_date TEXT)")
+            columns = {r[1] for r in cur.execute("PRAGMA table_info(corp_codes)").fetchall()}
+            if "corp_eng_name" not in columns:
+                cur.execute("ALTER TABLE corp_codes ADD COLUMN corp_eng_name TEXT NOT NULL DEFAULT ''")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_stock_code ON corp_codes(stock_code) WHERE stock_code != ''")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_corp_name ON corp_codes(corp_name)")
             cur.execute("CREATE TABLE IF NOT EXISTS _meta (key TEXT PRIMARY KEY, value TEXT)")
             cur.execute("DELETE FROM corp_codes")  # 전체 reload
             cur.executemany(
-                "INSERT INTO corp_codes (corp_code, corp_name, stock_code, modify_date) VALUES (?, ?, ?, ?)",
-                [(c["corp_code"], c["corp_name"], c["stock_code"], c["modify_date"]) for c in corps],
+                "INSERT INTO corp_codes (corp_code, corp_name, corp_eng_name, stock_code, modify_date) VALUES (?, ?, ?, ?, ?)",
+                [(c["corp_code"], c["corp_name"], c.get("corp_eng_name", ""), c["stock_code"], c["modify_date"]) for c in corps],
             )
             cur.execute("INSERT OR REPLACE INTO _meta (key, value) VALUES ('last_updated', ?)", (datetime.now().isoformat(),))
             conn.commit()
@@ -470,11 +501,11 @@ class DartClient:
             logger.warning(f"sqlite master save 실패 (memory cache만 사용): {exc}")
 
     async def _load_corp_codes(self) -> list[dict]:
-        """corpCode.xml 로드 — 3-layer cache: memory → sqlite (TTL 24h) → DART download.
+        """corpCode.xml 로드 — 3-layer cache: memory → sqlite (TTL 7d) → DART download.
 
         F6/F7 (Phase 4): asyncio.Lock으로 동시 다운로드 race 제거 + httpx
         ReadError/ConnectError 시 3회 retry (1/2/4s backoff).
-        iter27 (KIS 참고): sqlite master cache (24h TTL) — cold start 6-15s → ms.
+        iter27 (KIS 참고): sqlite master cache (7d TTL) — cold start 6-15s → ms.
         OPM_MASTER_DB_PATH env로 위치 변경 가능 (fly.io volume mount 등).
 
         Returns:
@@ -493,10 +524,10 @@ class DartClient:
             if _corp_code_cache is not None:
                 return _corp_code_cache
 
-            # Layer 2: sqlite cache (TTL 24h)
+            # Layer 2: sqlite cache (TTL 7d)
             corps = self._master_db_load()
             if corps:
-                logger.info(f"corp_codes loaded from sqlite master ({len(corps)} corps, fresh ≤24h)")
+                logger.info(f"corp_codes loaded from sqlite master ({len(corps)} corps, fresh ≤7d)")
                 _corp_code_cache = corps
                 return corps
 
@@ -514,9 +545,11 @@ class DartClient:
                         corps.append({
                             "corp_code": item.findtext("corp_code", ""),
                             "corp_name": item.findtext("corp_name", ""),
+                            "corp_eng_name": item.findtext("corp_eng_name", ""),
                             "stock_code": item.findtext("stock_code", "").strip(),
                             "modify_date": item.findtext("modify_date", ""),
                         })
+                    _validate_corp_master(corps)
                     _corp_code_cache = corps
                     # sqlite save (실패해도 memory cache로 계속)
                     self._master_db_save(corps)
@@ -527,9 +560,19 @@ class DartClient:
                         wait = 1.0 * (2 ** attempt)  # 1s / 2s / 4s
                         logger.warning(f"_load_corp_codes attempt {attempt+1} failed ({type(exc).__name__}): retry in {wait}s")
                         await asyncio.sleep(wait)
+                except DartClientError as exc:
+                    last_exc = exc
+                    break
                 except Exception as exc:
-                    raise
+                    last_exc = exc
+                    logger.warning(f"corpCode master parse/validation 실패: {type(exc).__name__}: {exc}")
+                    break
 
+            fallback_corps = self._master_db_load(require_english=False, allow_stale=True)
+            if fallback_corps:
+                logger.warning("corpCode 영문명 갱신 실패 — 기존 한글 master로 fail-open")
+                _corp_code_cache = fallback_corps
+                return fallback_corps
             raise DartClientError("CORPCODE_DOWNLOAD_FAILED", f"corpCode.xml 3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}")
 
     async def lookup_corp_code(self, query: str) -> dict | None:
@@ -547,58 +590,22 @@ class DartClient:
         results = await self.lookup_corp_code_all(query)
         if not results:
             return None
+        resolution = results[0].get("_resolution") or {}
+        if resolution.get("inferred") and not resolution.get("auto_selected"):
+            return None
         return results[0]
 
     async def lookup_corp_code_all(self, query: str) -> list[dict]:
         """query에 매칭되는 기업 전체 목록 반환 (우선순위 정렬)
 
-        우선순위: 1) 정확매치 > 2) 정규화 매치 > 3) 부분 매치
-                  각 단계 내에서: 상장(stock_code 있음) 우선 → modify_date 최신 순
+        우선순위: 식별자 → curated alias → 공식명 → 정규화 → token/부분/fuzzy.
+        같은 tier에서는 최신 KRX 활성 여부와 시총 prior를 사용한다.
         """
+        from open_proxy_mcp.company_resolver import get_company_resolver
+
         corps = await self._load_corp_codes()
-        query = query.strip()
-        if not query:
-            return []  # 빈 쿼리는 부분매치("" in name)가 전 종목에 참 → 조용한 오매핑 방지
-
-        # 1) 종목코드 6자리 정확 매치
-        if re.match(r'^\d{6}$', query):
-            exact = [c for c in corps if c["stock_code"] == query]
-            if exact:
-                return exact
-
-        # 2) corp_code 8자리 정확 매치
-        if re.match(r'^\d{8}$', query):
-            exact = [c for c in corps if c["corp_code"] == query]
-            if exact:
-                return exact
-
-        # 3) 알려진 alias → DART 정식명으로 변환
-        q_lower = query.lower()
-        if q_lower in _CORP_ALIASES:
-            query = _CORP_ALIASES[q_lower]
-
-        # 4) 회사명 정확 매치
-        exact = [c for c in corps if c["corp_name"] == query]
-        if exact:
-            return _sort_corp_results(exact)
-
-        # 5) 정규화 후 정확 매치 (법인격 제거)
-        q_norm = _normalize_corp_name(query)
-        norm_exact = [c for c in corps if _normalize_corp_name(c["corp_name"]) == q_norm]
-        if norm_exact:
-            return _sort_corp_results(norm_exact)
-
-        # 6) 부분 매치 (원본 query)
-        partial = [c for c in corps if query in c["corp_name"]]
-        if partial:
-            return _sort_corp_results(partial)
-
-        # 7) 정규화 부분 매치
-        norm_partial = [c for c in corps if q_norm in _normalize_corp_name(c["corp_name"])]
-        if norm_partial:
-            return _sort_corp_results(norm_partial)
-
-        return []
+        resolver = await get_company_resolver(corps, _CORP_ALIASES)
+        return resolver.search(query)
 
     async def get_naver_corp_profile(self, stock_code: str) -> dict:
         """NAVER 금융에서 업종명 조회 (웹 스크래핑)

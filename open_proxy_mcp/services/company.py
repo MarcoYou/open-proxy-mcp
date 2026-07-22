@@ -34,6 +34,12 @@ except Exception:
     _KSIC_MAP = {}
 
 
+def _prefers_english(query: str, language: str = "auto") -> bool:
+    if language in {"ko", "en"}:
+        return language == "en"
+    return bool(re.search(r"[A-Za-z]", query or "")) and not bool(re.search(r"[가-힣]", query or ""))
+
+
 def _resolve_induty_name(induty_code: str) -> str:
     code = (induty_code or "").strip()
     if not code:
@@ -55,6 +61,7 @@ class CompanyResolution:
     query: str
     selected: dict[str, Any] | None
     candidates: list[dict[str, Any]]
+    resolution: dict[str, Any] | None = None
 
 
 def _company_id(corp: dict[str, Any]) -> str:
@@ -66,6 +73,19 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
     raw = query.strip()
     if not matches:
         return AnalysisStatus.ERROR, None, []
+
+    resolver_meta = matches[0].get("_resolution") or {}
+    if resolver_meta.get("match_kind"):
+        kind = resolver_meta.get("match_kind")
+        if kind in {"ticker", "corp_code"}:
+            return AnalysisStatus.EXACT, matches[0], matches
+        if not resolver_meta.get("inferred"):
+            if len(matches) == 1 or resolver_meta.get("strong_disambiguated"):
+                return AnalysisStatus.EXACT, matches[0], matches
+            return AnalysisStatus.AMBIGUOUS, None, matches
+        if resolver_meta.get("auto_selected"):
+            return AnalysisStatus.EXACT, matches[0], matches
+        return AnalysisStatus.AMBIGUOUS, None, matches
 
     if re.fullmatch(r"\d{6}", raw):
         numeric = [corp for corp in matches if corp.get("stock_code") == raw]
@@ -123,8 +143,6 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
 
 def _aliases_for_company(corp_name: str, query: str) -> list[str]:
     aliases = [key for key, value in _CORP_ALIASES.items() if value == corp_name]
-    if query and query not in aliases and query != corp_name:
-        aliases.insert(0, query)
     deduped: list[str] = []
     seen: set[str] = set()
     for alias in aliases:
@@ -207,9 +225,66 @@ def _candidate_row(corp: dict[str, Any]) -> dict[str, Any]:
     return {
         "company_id": _company_id(corp),
         "corp_name": corp.get("corp_name", ""),
+        "corp_name_eng": corp.get("corp_eng_name", ""),
         "ticker": corp.get("stock_code", ""),
         "corp_code": corp.get("corp_code", ""),
         "modify_date": corp.get("modify_date", ""),
+        "resolution": corp.get("_resolution", {}),
+    }
+
+
+def _resolution_reasons(
+    kind: str,
+    active_registry_used: bool,
+    ranking_signal: str,
+) -> dict[str, str]:
+    ko_universe = "활성 상장사" if active_registry_used else "종목코드 보유 법인"
+    en_universe = "active listed companies" if active_registry_used else "companies with a ticker"
+    ko_rank = "시가총액" if ranking_signal == "market_cap" else "로컬 인기도 prior"
+    en_rank = "market capitalization" if ranking_signal == "market_cap" else "the local popularity prior"
+    return {
+        "ko": {
+            "token": f"입력 토큰을 모두 포함하는 {ko_universe} 후보 중 {ko_rank} 우선",
+            "substring": f"부분 회사명과 일치하는 {ko_universe} 후보 중 {ko_rank} 우선",
+            "fuzzy": f"제한적 오타 교정 후 {ko_universe} 후보 중 {ko_rank} 우선",
+        }.get(kind, "공식명 또는 등록 별칭 일치"),
+        "en": {
+            "token": f"All query tokens matched; ranked {en_universe} by {en_rank}",
+            "substring": f"Partial name matched; ranked {en_universe} by {en_rank}",
+            "fuzzy": f"Applied limited typo correction, then ranked {en_universe} by {en_rank}",
+        }.get(kind, "Matched an official name or registered alias"),
+    }
+
+
+def _resolution_payload(
+    query: str,
+    selected: dict[str, Any],
+    candidates: list[dict[str, Any]],
+    language: str = "auto",
+) -> dict[str, Any]:
+    meta = selected.get("_resolution") or {}
+    inferred = bool(meta.get("inferred"))
+    alternatives = [_candidate_row(corp) for corp in candidates[1:4]] if inferred else []
+    kind = meta.get("match_kind", "official")
+    english = _prefers_english(query, language)
+    reason_i18n = _resolution_reasons(
+        kind,
+        bool(meta.get("active_registry_used")),
+        str(meta.get("ranking_signal") or "local_popularity_prior"),
+    )
+    reason = reason_i18n["en" if english else "ko"]
+    return {
+        "query": query,
+        "response_language": "en" if english else "ko",
+        "match_type": "inferred" if inferred else ("alias" if kind == "alias" else "canonical"),
+        "matched_on": kind,
+        "confidence": "high" if not inferred or meta.get("dominant") else "low",
+        "reason": reason,
+        "reason_i18n": reason_i18n,
+        "market_data_as_of": meta.get("market_data_as_of"),
+        "market_data_source": meta.get("market_data_source"),
+        "ranking_signal": meta.get("ranking_signal"),
+        "alternatives": alternatives,
     }
 
 
@@ -219,6 +294,7 @@ async def build_company_payload(
     max_recent_filings: int = 10,
     start_date: str = "",
     end_date: str = "",
+    language: str = "auto",
 ) -> dict[str, Any]:
     """회사 식별 + 최근 공시 인덱스."""
 
@@ -248,9 +324,10 @@ async def build_company_payload(
     status, selected, candidates = _resolve_match(query, matches)
 
     if status == AnalysisStatus.ERROR:
-        warnings = [f"'{query}'에 해당하는 회사를 찾지 못했다."]
+        english = _prefers_english(query, language)
+        warnings = [f"No listed company matched '{query}'." if english else f"'{query}'에 해당하는 회사를 찾지 못했다."]
         if unlisted_only:
-            warnings.append("입력에 일치하는 법인은 비상장이어서 OPM 분석 대상(상장사)에서 제외했다. 정확한 상장사 종목명/종목코드로 다시 조회한다.")
+            warnings.append("The matching entity is unlisted and outside OPM's listed-company universe." if english else "입력에 일치하는 법인은 비상장이어서 OPM 분석 대상(상장사)에서 제외했다. 정확한 상장사 종목명/종목코드로 다시 조회한다.")
         envelope = ToolEnvelope(
             tool="company",
             status=AnalysisStatus.ERROR,
@@ -262,23 +339,24 @@ async def build_company_payload(
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
                 "timings_ms": {**timings_ms, "total": int((time.perf_counter() - total_started_at) * 1000)},
             },
-            next_actions=["정확한 회사명, 종목코드, corp_code 중 하나로 다시 조회"],
+            next_actions=["Retry with an exact company name, ticker, or corp_code" if english else "정확한 회사명, 종목코드, corp_code 중 하나로 다시 조회"],
         )
         return envelope.to_dict()
 
     if status == AnalysisStatus.AMBIGUOUS or not selected:
+        english = _prefers_english(query, language)
         envelope = ToolEnvelope(
             tool="company",
             status=AnalysisStatus.AMBIGUOUS,
             subject=query,
-            warnings=["자동 선택을 하지 않았다. 후보를 확인한 뒤 종목코드 또는 정확한 회사명으로 다시 조회해야 한다."],
+            warnings=["Multiple equally strong matches are shown in ranked order." if english else "동일하게 강한 후보를 가능성 높은 순서로 표시합니다."],
             data={
                 "query": query,
                 "candidates": [_candidate_row(corp) for corp in candidates[:10]],
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
                 "timings_ms": {**timings_ms, "total": int((time.perf_counter() - total_started_at) * 1000)},
             },
-            next_actions=["ticker 또는 corp_code를 직접 넣어 재조회"],
+            next_actions=[],
         )
         return envelope.to_dict()
 
@@ -298,7 +376,7 @@ async def build_company_payload(
     _mark("company_info_and_recent_filings", stage_started_at)
 
     corp_name = company_info.get("corp_name") or selected.get("corp_name", "")
-    corp_name_eng = company_info.get("corp_name_eng", "")
+    corp_name_eng = company_info.get("corp_name_eng") or selected.get("corp_eng_name", "")
     corp_cls = company_info.get("corp_cls", "")
     market_map = {
         "Y": "KOSPI",
@@ -308,7 +386,7 @@ async def build_company_payload(
     }
     warnings = [warning for warning in (company_warn, filings_warn) if warning]
     if not company_info.get("jurir_no"):
-        warnings.append("ISIN은 아직 company tool에 연결되지 않았다.")
+        warnings.append("ISIN is not connected to the company tool yet." if _prefers_english(query, language) else "ISIN은 아직 company tool에 연결되지 않았다.")
 
     # company tool은 회사 정보가 항상 있어 no_filing 케이스가 거의 없다.
     # 다만 recent_filings 0건은 NO_FILING으로 표시 (정상). company_info 자체가
@@ -320,6 +398,7 @@ async def build_company_payload(
 
     payload = {
         "query": query,
+        "company_resolution": _resolution_payload(query, selected, candidates, language),
         "company_id": _company_id(selected),
         "canonical_name": corp_name,
         "identifiers": {
@@ -363,7 +442,8 @@ async def build_company_payload(
         warnings=warnings,
         data=payload,
         next_actions=[
-            "shareholder_meeting, ownership_structure, dividend 등 후속 data tool에서 company_id 또는 ticker 사용",
+            ("Use company_id or ticker with downstream tools such as shareholder_meeting, ownership_structure, and dividend"
+             if _prefers_english(query, language) else "shareholder_meeting, ownership_structure, dividend 등 후속 data tool에서 company_id 또는 ticker 사용"),
         ],
     )
     return envelope.to_dict()
@@ -400,4 +480,5 @@ async def resolve_company_query(query: str) -> CompanyResolution:
         query=query,
         selected=selected,
         candidates=candidates,
+        resolution=_resolution_payload(query, selected, candidates) if selected else None,
     )
