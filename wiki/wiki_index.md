@@ -129,7 +129,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[order_contracts]] - 단일판매·공급계약
 - [[risk_events]] - 리스크 이벤트 활성 3종 (중대재해/횡령배임/생산중단·영업정지, 파생·회생·해산 mute)
 - [[valuation]] - PER·PBR·배당수익률(기업 심층) + 시장/섹터/종목 히스토리 (260705 신설)
-- [[business_details]] - "II.사업의 내용" 9필드(segments+사업장·가동률·rnd·수주·고객+D-트랙 금융/REIT) (260718 신설)
+- [[business_details]] - "II.사업의 내용" 11필드(segments+사업장·가동률·rnd·수주·고객·원재료·제품가격+D-트랙 금융/REIT) (260718 신설)
 - [[provisional_earnings]] - 영업(잠정)실적 분기 속보(I002 공정공시) + YoY (260719 신설)
 - [[asset_holdings]] - 자산주·NAV 스크리닝 (계정 티어+상장지분 시가마크+시총 대비 배수) (260720 신설)
 

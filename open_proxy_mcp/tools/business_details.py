@@ -59,9 +59,11 @@ def _render(p: dict) -> str:
     # 추가 필드(markdown-primary): 소절 원문 마크다운 → 읽어서 추출. hint는 참고용.
     _FIELD_LABEL = {"sites": "사업장·생산설비", "utilization": "생산실적·가동률",
                     "rnd": "연구개발", "backlog": "수주현황", "customers": "주요 고객·매출처",
+                    "raw_materials": "원재료·투입원가", "product_pricing": "제품·서비스 가격 추이",
                     "financial_ops": "영업의 현황(금융)", "financial_soundness": "재무건전성(금융)",
                     "investment_property": "투자부동산(REIT/보험)"}
     for key in ("sites", "utilization", "rnd", "backlog", "customers",
+                "raw_materials", "product_pricing",
                 "financial_ops", "financial_soundness", "investment_property"):
         fd = d.get(key)
         if not fd:
@@ -114,11 +116,11 @@ def register_tools(mcp):
         context_mode: str = "strict",
         context_chars: int = 20000,
     ) -> str:
-        """desc: DART 정기보고서 **"II. 사업의 내용"**에서 사업부문별 매출·영업이익, **사업장·생산설비, 생산실적·가동률, 연구개발, 수주현황, 주요 고객·매출처**를 추출. SOTP·부문 수익성·생산능력·수주·고객집중 분석의 1차 소스.
+        """desc: DART 정기보고서 **"II. 사업의 내용"**에서 사업부문별 매출·영업이익, **사업장·생산설비, 생산실적·가동률, 연구개발, 수주현황, 주요 고객·매출처, 원재료·투입원가, 제품·서비스 가격 추이**를 추출. SOTP·부문 수익성·생산능력·수주·고객집중·마진 분석의 1차 소스.
         when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. **금융/증권/보험/지주는 `financial_ops`·`financial_soundness`, REIT/보험은 `investment_property`** 로 커버(segments 대신). **여러 분기/연도 추이**가 필요하면 `bsns_year`+`reprt_code`를 지정해 과거 시점을 하나씩 반복 호출.
         rule: segments는 정형→저신뢰 시 원문 마크다운. 나머지 필드는 **해당 소절 원문을 마크다운으로 반환** — 그 표를 읽어 값 추출(단위·정의 회사별 상이, 비교 주의). `context_mode=candidate`는 strict가 `NOT_COLLECTED`일 때만 **저신뢰 고정 윈도우 문맥**을 별도 `candidate_context`로 반환하며, 공식 결과·hint로 사용하면 안 됨. 이 모드는 표준 필드 하나를 지정할 때만 사용. 금융/REIT 필드는 표준사에선 자동 N/A. 유형자산 장부가 표를 사업장으로 오독 금지. **응답 `report.report_nm`으로 어느 보고서인지 확인**(분기/반기/사업). `bsns_year`/`reprt_code`는 **반드시 둘 다** 지정(하나만 주면 에러) — 지정 시 `period`는 무시됨.
         period: `latest`(기본, 사업·반기·분기 중 **가장 최신 제출분**=최신 데이터) / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). II.사업의내용은 분기/반기도 완전구조라 동일 필드. `bsns_year`+`reprt_code` 지정 시 이 파라미터는 무시.
-        fields: 쉼표구분 — 표준: `segments,sites,utilization,rnd,backlog,customers` / 금융·REIT: `financial_ops,financial_soundness,investment_property`. (미지정 시 회사에 맞는 표준·금융 필드만). **자산(토지·투자부동산·지분증권 원가vs공정가치)은 별도 tool `asset_holdings`.**
+        fields: 쉼표구분 — 표준: `segments,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing` / 금융·REIT: `financial_ops,financial_soundness,investment_property`. `raw_materials`는 원재료 구성·매입과 원재료 가격 추이를 별도 소절로 반환하고, `product_pricing`은 판매가격·ASP·가격변동 원인을 반환. (미지정 시 회사에 맞는 표준·금융 필드만). **자산(토지·투자부동산·지분증권 원가vs공정가치)은 별도 tool `asset_holdings`.**
         bsns_year: 특정 과거 사업연도 조회(예: "2025"). `reprt_code`와 함께 지정해야 함 — **추이 조회용**(한 번에 여러 분기 반환 아님, 분기마다 반복 호출).
         reprt_code: DART 표준 보고서유형 — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). `bsns_year`와 함께 지정.
         context_mode: `strict`(기본) / `candidate`. candidate는 strict `NOT_COLLECTED`일 때만 단일 표준 필드의 저신뢰 보조 문맥을 별도 반환.

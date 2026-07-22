@@ -38,6 +38,9 @@ def set_request_api_key(opendart: str):
     _ctx_opendart_key.set(opendart)
 
 logger = logging.getLogger(__name__)
+# OpenDART 인증키는 query string으로 전달된다. httpx INFO request 로그는 전체 URL을
+# 출력하므로 서버·stdio 모두에서 비활성화하고, warning 이상 전송 오류만 남긴다.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 OPENDART_BASE_URL = "https://opendart.fss.or.kr/api"
 DART_WEB_BASE_URL = "https://dart.fss.or.kr"

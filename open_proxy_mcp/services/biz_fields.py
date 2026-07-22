@@ -841,6 +841,111 @@ def extract_customers(biz_text, html, region_index=None):
     return r
 
 
+# ── 원재료·제품가격: 사업부문별 N/A가 다른 실측 소절을 덮지 않도록 소절 단위 조합 ──
+_RAW_MATERIALS_HEAD = [
+    r"(?:주요|회사별)\s*원\s*(?:재료|자재)(?:\s*\([^)]{0,40}\))?"
+    r"(?:\s*(?:등)?의?)?\s*(?:현황|매입\s*현황|에\s*관한\s*사항)",
+    r"주요\s*원\s*(?:재료|자재)(?:\s*\([^)]{0,40}\))?$",
+    r"원\s*(?:재료|자재)\s*매입\s*(?:현황|실적)",
+]
+_RAW_INPUT_PRICE_HEAD = [
+    r"원\s*(?:재료|자재)\s*(?:등)?의?\s*가격\s*(?:변동\s*)?(?:추이|현황)",
+]
+_PRODUCT_PRICING_HEAD = [
+    r"주요\s*(?:제품|상품|서비스)(?:\s*등)?\s*(?:의\s*)?가격\s*(?:변동\s*)?(?:추이|현황)",
+]
+_C_RAW_MATERIALS = re.compile(
+    r"매입(?:액|처|비중|실적)|구입(?:처|가격)|공급(?:사|처|업체)|구체적\s*용도|"
+    r"원\s*(?:재료|자재)\s*가격|수입|품목"
+)
+_C_RAW_INPUT_PRICE = re.compile(r"가격|단가|원\s*(?:재료|자재)|품목")
+_C_PRODUCT_PRICING = re.compile(
+    r"판매\s*가격|평균\s*판매|단가|가격\s*변동\s*원인|가격\s*(?:상승|하락|변동|수준|추이)"
+)
+_RAW_MATERIALS_NA = re.compile(
+    r"원\s*(?:재료|자재)[\s\S]{0,160}?"
+    r"(?:해당\s*사항\s*(?:이)?\s*없|기재(?:를)?\s*생략|기재하지\s*않|"
+    r"발생하지\s*않|필요하지\s*않|존재하지\s*않)"
+)
+_PRODUCT_PRICING_NA = re.compile(
+    r"(?:가격\s*(?:변동\s*)?(?:추이|현황))?[\s\S]{0,160}?"
+    r"(?:기재(?:는|를)?\s*생략|기재하지\s*않|산출.{0,25}?(?:어렵|곤란|부적합))"
+)
+_PRODUCT_PRICE_VALUE = re.compile(
+    r"\d[\d,.]*\s*(?:원|달러|US\$|\$|%|/W|/kg|/KG|천원|백만원)|"
+    r"(?:202[0-9]|전년|당기)[^\n|]{0,30}\d"
+)
+
+
+def _compose_pricing_field(biz_text: str, html: str, components: list[tuple[str, str, list[str], re.Pattern]],
+                           na_re, region_index: BizRegionIndex | None = None) -> dict:
+    """Combine at most one bounded region per source component without cross-component N/A poisoning."""
+    found: list[tuple[str, str, dict]] = []
+    for key, label, heads, content_re in components:
+        regions = _render_biz_subsection_regions(
+            html, heads, need_rows=0, content_re=content_re, region_index=region_index,
+            exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+        )
+        if regions:
+            found.append((key, label, regions[0]))
+    if not found:
+        na = na_re.search(biz_text) if (na_re and biz_text) else None
+        return {
+            "status": "NOT_APPLICABLE",
+            "extraction_status": "NOT_APPLICABLE" if na else "NOT_COLLECTED",
+            "na_reason": _strip_tags(na.group(0))[:60] if na else "해당 소절 미검출",
+        }
+
+    # 가격을 명시적으로 생략한 소절만 있고 숫자/단위 가격 신호도 없을 때만 N/A다.
+    usable = found
+    if len(components) == 1 and na_re:
+        usable = [item for item in found if not (
+            na_re.search(item[2]["markdown"]) and not _PRODUCT_PRICE_VALUE.search(item[2]["markdown"])
+        )]
+        if not usable:
+            na = na_re.search(found[0][2]["markdown"])
+            return {
+                "status": "NOT_APPLICABLE",
+                "extraction_status": "NOT_APPLICABLE",
+                "na_reason": _strip_tags(na.group(0))[:60],
+            }
+
+    return {
+        "status": "MARKDOWN",
+        "extraction_status": "SUCCESS",
+        "source": "heading",
+        "section_source": {
+            "matched_headings": [item[2]["heading"] for item in usable if item[2].get("heading")],
+            "chapters": list(dict.fromkeys(item[2]["chapter"] for item in usable)),
+            "selection_method": "heading",
+            "boundary_methods": list(dict.fromkeys(item[2]["boundary"] for item in usable)),
+            "components": [item[0] for item in usable],
+        },
+        "markdown": "\n\n———\n\n".join(
+            f"#### {label}\n\n{region['markdown']}" for _, label, region in usable
+        ),
+    }
+
+
+def extract_raw_materials(biz_text, html, region_index=None):
+    return _compose_pricing_field(
+        biz_text, html,
+        [
+            ("materials", "원재료 구성·매입", _RAW_MATERIALS_HEAD, _C_RAW_MATERIALS),
+            ("input_price", "원재료 가격 추이", _RAW_INPUT_PRICE_HEAD, _C_RAW_INPUT_PRICE),
+        ],
+        _RAW_MATERIALS_NA, region_index,
+    )
+
+
+def extract_product_pricing(biz_text, html, region_index=None):
+    return _compose_pricing_field(
+        biz_text, html,
+        [("product_pricing", "제품·서비스 가격 추이", _PRODUCT_PRICING_HEAD, _C_PRODUCT_PRICING)],
+        _PRODUCT_PRICING_NA, region_index,
+    )
+
+
 # ═══════════ D-트랙: 금융·REIT 필드 (헤딩앵커 + 내용시그니처 폴백) ═══════════
 # 사용자 지적(260718): 키워드 헤딩만이면 특이 헤딩에 무용지물 → 헤딩 미스 시 '데이터 시그니처'로
 # 표를 찾아 렌더(헤딩라벨보다 안정적). segments의 table-scan 방식을 필드 일반화.

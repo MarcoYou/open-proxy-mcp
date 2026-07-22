@@ -957,7 +957,10 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
     return any(a != 0 and abs(s - a) <= max(abs(a), 1) * 0.03 for a in ex) if ex else True
 
 
-_STANDARD_BIZ_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers"}
+_STANDARD_BIZ_FIELDS = {
+    "sites", "utilization", "rnd", "backlog", "customers", "raw_materials", "product_pricing",
+}
+_CANDIDATE_CONTEXT_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers"}
 _CANDIDATE_CONTEXT_DEFAULT_CHARS = 20_000
 _CANDIDATE_CONTEXT_MAX_CHARS = 60_000
 
@@ -976,6 +979,7 @@ async def build_business_details_payload(company_query: str, period: str = "late
     from open_proxy_mcp.services.segment_candidates import find_segment_candidates
 
     want = set(fields or ["segments", "sites", "utilization", "rnd", "backlog", "customers",
+                          "raw_materials", "product_pricing",
                           "financial_ops", "financial_soundness", "investment_property"])
     mode = (context_mode or "strict").strip().lower()
     if mode not in {"strict", "candidate"}:
@@ -988,7 +992,7 @@ async def build_business_details_payload(company_query: str, period: str = "late
         if not 1 <= context_chars <= _CANDIDATE_CONTEXT_MAX_CHARS:
             return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
                                 warnings=["candidate context_chars는 1~60000 사이여야 합니다"]).to_dict()
-        if len(want) != 1 or not want <= _STANDARD_BIZ_FIELDS:
+        if len(want) != 1 or not want <= _CANDIDATE_CONTEXT_FIELDS:
             return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
                                 warnings=["context_mode=candidate는 sites/utilization/rnd/backlog/customers 중 "
                                           "하나의 fields만 지정해야 합니다"]).to_dict()
@@ -1160,6 +1164,10 @@ async def build_business_details_payload(company_query: str, period: str = "late
         data["backlog"] = _bf.extract_backlog(_biz_t, _full_html, _full_region_index)
     if "customers" in want:
         data["customers"] = _bf.extract_customers(_biz_t, _full_html, _full_region_index)
+    if "raw_materials" in want:
+        data["raw_materials"] = _bf.extract_raw_materials(_biz_t, _full_html, _full_region_index)
+    if "product_pricing" in want:
+        data["product_pricing"] = _bf.extract_product_pricing(_biz_t, _full_html, _full_region_index)
     if mode == "candidate":
         candidate_field = next(iter(want))
         strict_result = data.get(candidate_field, {})

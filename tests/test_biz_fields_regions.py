@@ -4,6 +4,8 @@ from open_proxy_mcp.services.biz_fields import (
     build_region_index,
     extract_backlog,
     extract_customers,
+    extract_product_pricing,
+    extract_raw_materials,
     extract_rnd,
     extract_sites,
     extract_utilization,
@@ -49,6 +51,63 @@ def test_backlog_stops_at_next_peer_heading() -> None:
     assert "시장위험" not in result["markdown"]
     assert "99999" not in result["markdown"]
     assert result["section_source"]["boundary_methods"] == ["peer_heading"]
+
+
+def test_raw_materials_keeps_materials_and_input_price_as_separate_bounded_components() -> None:
+    html = _document(
+        '<P USERMARK="F-14 B">3. 원재료 및 생산설비</P>'
+        '<P USERMARK="F-14 B">가. 주요 원재료 등의 현황</P>'
+        + _table("니켈 매입액", "100")
+        + '<P USERMARK="F-14 B">나. 주요 원재료 등의 가격변동추이</P>'
+        + _table("니켈 단가", "120")
+        + '<P USERMARK="F-14 B">다. 생산실적</P>'
+        + _table("생산량", "999")
+    )
+
+    result = extract_raw_materials("", html, build_region_index(html))
+
+    assert result["extraction_status"] == "SUCCESS"
+    assert result["section_source"]["components"] == ["materials", "input_price"]
+    assert "니켈 매입액" in result["markdown"]
+    assert "니켈 단가" in result["markdown"]
+    assert "생산량" not in result["markdown"]
+
+
+def test_raw_materials_distinguishes_explicit_no_materials_from_missing_heading() -> None:
+    html = _document(
+        '<P USERMARK="F-14 B">가. 주요 원재료 등에 관한 사항</P>'
+        '<P>소프트웨어 개발업은 일반 제조업과 달리 원재료 매입이 존재하지 않습니다.</P>'
+    )
+
+    result = extract_raw_materials("원재료 매입이 존재하지 않습니다.", html, build_region_index(html))
+
+    assert result["extraction_status"] == "NOT_APPLICABLE"
+
+
+def test_product_pricing_returns_only_its_price_section() -> None:
+    html = _document(
+        '<P USERMARK="F-14 B">나. 주요 제품 등의 가격변동추이</P>'
+        '<P>평균 판매가격은 전년 대비 8% 상승했습니다.</P>'
+        + '<P USERMARK="F-14 B">다. 판매경로</P>'
+        + _table("대리점", "999")
+    )
+
+    result = extract_product_pricing("", html, build_region_index(html))
+
+    assert result["extraction_status"] == "SUCCESS"
+    assert "8% 상승" in result["markdown"]
+    assert "대리점" not in result["markdown"]
+
+
+def test_product_pricing_marks_explicitly_omitted_price_trend_not_applicable() -> None:
+    html = _document(
+        '<P USERMARK="F-14 B">다. 주요 제품 등의 가격변동추이</P>'
+        '<P>개별 게임의 가격 변경이 잦아 가격변동추이에 대한 구체적인 기재는 생략합니다.</P>'
+    )
+
+    result = extract_product_pricing("", html, build_region_index(html))
+
+    assert result["extraction_status"] == "NOT_APPLICABLE"
 
 
 def test_candidate_context_is_separate_fixed_window_for_a_failed_strict_anchor() -> None:

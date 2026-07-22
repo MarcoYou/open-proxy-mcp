@@ -2,7 +2,7 @@
 type: tool
 title: business_details
 domain: data
-scope: [segments, sites, utilization, rnd, backlog, customers, financial_ops, financial_soundness, investment_property]
+scope: [segments, sites, utilization, rnd, backlog, customers, raw_materials, product_pricing, financial_ops, financial_soundness, investment_property]
 data_source: [DART get_document (전체보고서 XML 1콜 → II.사업의 내용 + 연결재무제표주석 부문정보 슬라이스), search list.json A001/A002/A003]
 related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: [사업부문, 영업부문, K-IFRS 1108, SOTP, 부문 영업이익, 연구개발비, 수주잔고, 고객집중]
@@ -13,12 +13,12 @@ created: 2026-07-18
 # business_details
 
 ## 한 줄 요약
-DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매출·영업이익 ② 사업장·생산설비 ③ 생산실적·가동률 ④ 연구개발 ⑤ 수주현황 ⑥ 주요 고객·매출처**를 추출. SOTP·부문 수익성·생산능력·수주잔고·고객집중 분석의 1차 소스. 286사 census + 재무·공시·산업 3전문가 QA로 검증.
+DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매출·영업이익 ② 사업장·생산설비 ③ 생산실적·가동률 ④ 연구개발 ⑤ 수주현황 ⑥ 주요 고객·매출처 ⑦ 원재료·투입원가 ⑧ 제품·서비스 가격 추이**를 추출. SOTP·부문 수익성·생산능력·수주잔고·고객집중·마진 분석의 1차 소스.
 
 ## 사용법
 - `business_details(company, period="latest", fields="", format="md", bsns_year="", reprt_code="", context_mode="strict", context_chars=20000)`
 - `period`: **`latest`(기본, 사업·반기·분기 중 가장 최신 제출분=최신 데이터)** / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). 응답 `report.report_nm`으로 어느 보고서인지 확인. II.사업의내용은 분기/반기도 완전구조라 동일 필드(사업의내용_ksic별양식 참조). `bsns_year`+`reprt_code` 지정 시 무시됨.
-- `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers,financial_ops,financial_soundness,investment_property`, 미지정 시 전체). **특정 필드만 지정하면 응답이 가벼움**. 연구개발 상세표처럼 실제 소절이 큰 회사는 단일 필드도 수만 자일 수 있다.
+- `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,financial_ops,financial_soundness,investment_property`, 미지정 시 전체). **특정 필드만 지정하면 응답이 가벼움**. 연구개발 상세표처럼 실제 소절이 큰 회사는 단일 필드도 수만 자일 수 있다.
 - `bsns_year`+`reprt_code`(260721 추가, **시계열/추이 조회용**): 둘 다 지정 시 특정 과거 시점 1건을 조회(`period` 대신). DART 표준 `reprt_code` — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). 한 번에 여러 분기를 반환하지 않으므로 **추이는 분기마다 반복 호출**해서 호출측이 이어붙임(`ownership_major(ticker, year)` 등 기존 DART 표준 파라미터명과 동일 컨벤션 재사용, 결산월 비표준(3월결산 등)에도 안전 — 분기보고서가 연내 2회 등장하면 `report_nm` 기수라벨의 상대순서로 1분기/3분기 구분, 절대월 하드코딩 없음). 하나만 지정하면 `status=error`.
 - 예: `business_details("에코프로비엠", fields="utilization")` · `business_details("HD한국조선해양", fields="backlog")` · `business_details("삼성전자", bsns_year="2025", reprt_code="11014")`(2025 3분기 스냅샷)
 
@@ -39,6 +39,8 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 | **rnd** 연구개발 | 연구개발활동 | 연구개발비·실적·조직 원문(+매출대비% 힌트) | 유한양행·한국항공우주 |
 | **backlog** 수주 | 4.매출 및 수주상황 | 수주잔고·수주계약 원문(조선 flow표 포함) | HD한국조선해양(기초계약잔액→수주잔고) |
 | **customers** 고객 | 주요 매출처 / 주요 고객 주석 | 주요 고객·매출처·판매경로 원문(익명 다수) | 삼성전자·유한양행 |
+| **raw_materials** 원재료 | 주요 원재료 현황 / 원재료 가격변동추이 | 원재료 구성·매입과 원재료 가격 추이 원문 | LG화학·대한항공 |
+| **product_pricing** 제품가격 | 주요 제품 등의 가격변동추이 | 판매가격·ASP·가격변동 원인 원문 | 삼성전자·HD한국조선해양 |
 | **financial_ops** (금융) | 2.영업의 현황 | 영업개황·영업실적·**영업부문별 재무정보**(금융판 segments) | 신한지주·미래에셋증권 |
 | **financial_soundness** (금융) | 재무건전성·지급여력 | RBC·지급여력비율(K-ICS)·순자본비율·연체율 | 삼성생명·우리금융지주 |
 | **investment_property** (REIT/보험) | 투자부동산 내역·투자자산 개요 | 부동산 목록·임대율·임대면적·공실 | SK리츠·삼성생명 |
@@ -62,8 +64,10 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
   - `status=NEEDS_REVIEW` + `source=note_markdown`/`biz_markdown` → `segment_note_md`(영업부문 주석 원문 마크다운) → **호출측 LLM이 읽어 추출**. 앵커 실패 시 `source=raw_candidates` + `candidates:[{rendered, score}]`
   - `status=NOT_APPLICABLE` → 단일부문(정상)
   - `status=UNSUPPORTED_FORM` → 금융폼·REIT(v1 미지원, D-트랙 별도)
-- **추가 필드 5종(markdown-primary, 260718 census+QA패널 결정)** — 각 `{status, extraction_status, markdown, na_reason, section_source}`:
-  - `sites`(사업장·생산설비) · `utilization`(생산실적·가동률, +`pct_hint`) · `rnd`(연구개발, +`ratio_to_sales_pct_hint`) · `backlog`(수주현황) · `customers`(주요 고객·매출처)
+- **추가 필드 7종(markdown-primary)** — 각 `{status, extraction_status, markdown, na_reason, section_source}`:
+  - `sites`(사업장·생산설비) · `utilization`(생산실적·가동률, +`pct_hint`) · `rnd`(연구개발, +`ratio_to_sales_pct_hint`) · `backlog`(수주현황) · `customers`(주요 고객·매출처) · `raw_materials`(원재료 구성·매입 + 원재료 가격 추이) · `product_pricing`(제품·서비스 가격 추이)
+  - `raw_materials`는 `materials`와 `input_price`를 **각각 구조 경계로 추출해 최대 하나씩** 결합한다. 한 사업부의 기재 생략이 다른 사업부의 실제 매입·가격 표를 `NOT_APPLICABLE`로 덮지 않는다.
+  - `product_pricing`은 명시적 가격 추이 기재 생략·산출 곤란만 `NOT_APPLICABLE`로 처리한다. 가격 결정 방식·정성 설명은 원문으로 유지한다.
   - 기존 `status=MARKDOWN|NOT_APPLICABLE`은 호환성을 위해 유지. `extraction_status=SUCCESS|NOT_APPLICABLE|NOT_COLLECTED`가 명시적 기재없음과 앵커 미검출을 구분한다.
   - markdown 형식에서도 `NOT_COLLECTED`는 `확인하지 못함`, 명시적 부재만 `해당없음`으로 표시한다.
   - `status=MARKDOWN` → 해당 소절 원문을 마크다운으로(`markdown`) → **호출측 AI가 읽어 값 추출**(단위·정의 회사별 상이).
