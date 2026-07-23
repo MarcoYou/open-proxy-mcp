@@ -60,8 +60,15 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 
 ## 출력 (ToolEnvelope.data)
 - `form_type`: `standard7` / `financial5` / `reit` / `dual` (목차 소절 제목 기반 판별, KSIC 불신)
+- **공통 응답 계약(260724 통일)**: 모든 필드는 같은 사다리를 따른다 —
+  ① 정형(검산 등 자격 심사 통과분만) → ② 심사 탈락 시 해당 구간 **원문 마크다운 + 탈락 사유** →
+  ③ 원문도 없으면 명시적 부재(`NOT_COLLECTED`/`NOT_APPLICABLE` + `na_reason`).
+  정형 성공 응답에는 `self_check`(호출 AI용 자가검증 안내 — 의심 신호 체크리스트 + 원문 재조회
+  경로)가 동봉된다. 어떤 단계에서도 근거 없는 숫자를 만들지 않는다.
 - `segments`:
-  - `status=OK` + `source=deterministic` → `items:[{name, revenue, profit}]` + `reconciliation`(sum-check)
+  - `status=OK` + `source=deterministic` → `items:[{name, revenue, profit}]` + `revenue_metric`/
+    `profit_metric`(어느 행을 읽었는지 — 외부매출/총부문수익 개념 구분용) + `unit` +
+    `reconciliation`(sum-check) + `self_check`
   - `status=NEEDS_REVIEW` + `source=note_markdown`/`biz_markdown` → `segment_note_md`(영업부문 주석 원문 마크다운) → **호출측 LLM이 읽어 추출**. 앵커 실패 시 `source=raw_candidates` + `candidates:[{rendered, score}]`
   - `status=NOT_APPLICABLE` → 단일부문(정상)
   - `status=UNSUPPORTED_FORM` → 금융폼·REIT(v1 미지원, D-트랙 별도)
@@ -75,6 +82,18 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
   - `section_source`: 실제 매칭 헤딩·chapter·선택 방식·경계 방식(`peer_heading|section_end|section_end_recovery|top_level_recovery|fixed_window_fallback`)을 기록한다.
   - 기존 `pct_hint`·`ratio_to_sales_pct_hint`는 유지하고, 동일 값을 비권위 `hints[]`에도 제공한다. 힌트는 반드시 반환된 markdown에서만 산출한다.
   - **파서가 값 판정 안 함**: 사업장 유형자산 장부가 함정·가동률 단위카오스·수주 flow표 오귀속·rnd 회계처리/보조금·customers 다위치 충돌은 호출측 AI가 원문 읽어 판별(QA패널 BLOCKER 대응).
+- `geo_revenue`(지역별 수익 — 전사 차원 공시, 260724 신설):
+  - `extraction_status=SUCCESS` → `items:[{name, revenue}]` + `unit` + `revenue_metric` +
+    `regional_total`(표 자체의 지역 합계 — 연결 매출과의 tie-out 재료) + `reconciliation` +
+    `basis_caption`(표 직전 캡션 — 소재지/도착지 등 기준 확인용) + `self_check`.
+    **정형 자격**: 항목합≈지역합계 검산 + 단위 확인 + 외부매출 기준(내부거래 포함 총액 표·
+    수익 구성행만 있는 표는 정형 거부)을 전부 통과한 표만.
+  - `extraction_status=NEEDS_REVIEW` → 지역표는 찾았으나 정형 자격 미달: 원문 표 마크다운
+    (`markdown`) + 탈락 사유(`note` — 예: "내부거래 포함 총액 기준") → 호출 AI가 함정을 알고
+    직접 읽는다.
+  - `NOT_COLLECTED` → 검산 가능한 지역표 부재. 금융·REIT 폼은 `UNSUPPORTED_FORM`.
+  - 알려진 한계(v2): 총액 기준·구성행 표의 합계행 재선택(현재는 안전 강등), 3개월/누적 구분,
+    비중(%) 파생, 제품·서비스별 분해(`product_revenue` — 오분류 위험으로 이연).
 - `candidate_context`(선택): `context_mode="candidate"`이고 공식 `extraction_status=NOT_COLLECTED`일 때만 추가된다. `{status="LOW_CONFIDENCE", field, anchor, selection_method="fixed_window_heading", context_chars, warning, markdown}`이며 공식 필드 상태·`hints[]`·자동 비교와 분리된다. 앵커조차 없으면 `status="NOT_FOUND"`만 반환한다.
 - `timings_ms`(단계별 병목)
 

@@ -10,7 +10,9 @@
 - **Sites & production facilities** (sites), **production output & utilization** (utilization), **R&D** (rnd), **order backlog** (backlog), **key customers** (customers).
 - **Raw materials & input costs** (raw_materials) — original material-composition, purchase, and input-price-trend sections.
 - **Product & service pricing trends** (product_pricing) — original selling-price, ASP, and price-change-rationale sections.
-- **Revenue by region** (geo_revenue) — geographic revenue breakdown (structured only when totals reconcile).
+- **Revenue by region** (geo_revenue) — geographic revenue breakdown. Structured output is returned only when the table passes reconciliation, unit, and external-revenue checks; otherwise the original table markdown is returned with the rejection reason.
+
+Every field follows the same response contract: structured numbers only when certain, otherwise the original section markdown with a reason, otherwise an explicit absence. Structured responses include a `self_check` note — if a value looks off, re-query the original text via the suggested path.
 - **Dedicated financial/REIT track** — financial firms get operating overview & soundness ratios (K-ICS, net capital ratio) instead of segment tables; REITs/insurers get investment-property detail (occupancy, vacancy). Auto-detected by industry code (KSIC).
 - Supports **quarterly and half-year reports** as well — defaults to the most recently filed report.
 - Core design: units and formats differ by company (utilization in %, hours, or tons), so the tool doesn't guess values — it **returns the subsection as markdown** and the reading AI extracts values from the original. Source: DART periodic-report originals. Details → [business_details](../../../wiki/tools/business_details.md).
