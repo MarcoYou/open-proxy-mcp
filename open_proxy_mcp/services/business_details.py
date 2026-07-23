@@ -1270,7 +1270,12 @@ async def build_business_details_payload(company_query: str, period: str = "late
         if sp.status == OK and sp.segments and not sp.cross_conflict and _segment_confident(sp):
             segment = {"status": OK, "source": "deterministic", "revenue_metric": sp.revenue_metric,
                        "profit_metric": sp.profit_metric, "unit": sp.unit, "items": sp.segments,
-                       "reconciliation": "부문합≈총계 검산 통과"}
+                       "reconciliation": "부문합≈총계 검산 통과",
+                       "self_check": "이 값이 맥락과 안 맞아 보이면 그대로 쓰지 마세요: "
+                                     "① revenue_metric이 외부매출 계열인지 확인(총부문수익류면 내부거래 포함) "
+                                     "② 부문합이 연결 매출과 크게 다르면 의심 "
+                                     "③ 의심 시 이 tool을 fields=segments로 재호출하면 검산 실패 시 "
+                                     "주석 원문 마크다운이 반환되니 원문으로 직접 판단하세요."}
         else:
             # 정형 저신뢰/실패 → '어느 표인지' 점수매기지 말고 영업부문 주석 구간을 통째로
             # 마크다운으로 넘겨 호출측 AI가 읽게 한다(260718 사용자 결정). 없으면 II.사업의내용 폴백.

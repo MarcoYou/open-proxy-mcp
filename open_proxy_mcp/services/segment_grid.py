@@ -241,6 +241,7 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
     if pos < 0:
         return out
     attempts = 0
+    geo_md_fallback = None
     for m in _TABLE_RE.finditer(full_html, pos):
         if attempts >= 10 or m.start() > pos + 150000:
             break
@@ -248,35 +249,58 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
             continue
         attempts += 1
         p = _parse_table(m.group(0))
-        if not p or len(p["segments"]) < 2 or not p["excess"]:
+        if not p or len(p["segments"]) < 2:
             continue
-        total = p["excess"][-1]
-        ssum = sum(s["revenue"] for s in p["segments"]) + sum(p["excess"][:-1])
-        if not total or abs(ssum - total) > abs(total) * 0.005:
-            continue                        # 검산 실패 표는 정형으로 내지 않음
-        if not p["unit"]:
-            um = _UNIT_RE.search(_caption_before(full_html, m.start()))
-            if um:
-                p["unit"] = um.group(1).strip()
-        if not p["unit"]:
-            continue                        # 단위 미상 값은 정형으로 내지 않는다(오환산 방지)
+        # ── 분류 먼저: 지역표인가 (게이트 탈락해도 지역표면 원문 폴백 대상) ──
         names_norm = [re.sub(r"[\s()]", "", s["name"]) for s in p["segments"]]
         geo_cnt = sum(1 for n in names_norm if n in geo_names)
         caption = _caption_before(full_html, m.start())
         is_geo = geo_cnt >= max(2, (len(names_norm) + 1) // 2) or (
-            geo_cnt >= 1 and _GEO_CAPTION_RE.search(caption))
-        # product 판정: 캡션 신호, 또는 부문 추출이 불성립한 회사(단일부문류)의 비지역 분해표.
-        # 어느 쪽이든 확정된 부문명과 겹치는 표는 제외 — 진짜 부문표의 오분류 방지.
+            geo_cnt >= 1 and bool(_GEO_CAPTION_RE.search(caption)))
         is_product = False    # v2로 이연 (위 NOTE)
-        # 수익 '구성' 행(상품/제품/용역/기타 등 부분값)이나 내부거래 포함 총액 행이
-        # 매출행으로 뽑힌 표는 정형 거부(안전측) — 부분값·과대값이 지역 매출로 나가는 것 차단.
-        # (애널리스트 QA: 파마리서치 6%·에코프로 0.08%·SK이노 213% 왜곡 — 합계행 재선택은 v2)
-        if re.search(r"용역|재화|제공|상품|제품|기타\s*수익|로열티|수수료|임대|총\s*매출|내부", p["revenue_metric"]):
+
+        # ── 정형 게이트 (표준 계약: 앵커 → 정형+검산 → 원문 마크다운 → 명시적 부재) ──
+        fail = ""
+        if not p["excess"]:
+            fail = "총계 열 부재(검산 불가)"
+        else:
+            total = p["excess"][-1]
+            ssum = sum(s0["revenue"] for s0 in p["segments"]) + sum(p["excess"][:-1])
+            if not total or abs(ssum - total) > abs(total) * 0.005:
+                fail = "항목합≠총계(검산 실패)"
+        if not fail and not p["unit"]:
+            um = _UNIT_RE.search(caption)
+            if um:
+                p["unit"] = um.group(1).strip()
+            if not p["unit"]:
+                fail = "단위 미상(오환산 방지)"
+        # 수익 '구성' 행(부분값)·내부거래 포함 총액 행 — 애널리스트 QA: 파마리서치 6%·
+        # 에코프로 0.08%·SK이노 213% 왜곡. 합계행 재선택은 v2.
+        if not fail and re.search(r"용역|재화|제공|상품|제품|기타\s*수익|로열티|수수료|임대|총\s*매출|내부",
+                                  p["revenue_metric"]):
+            fail = "수익 구성행(부분값 위험)"
+        if not fail and any(v < 0 for v in p["excess"]):
+            fail = "내부거래 포함 총액 기준(조정 열 존재)"
+
+        if fail:
+            # 게이트 탈락한 '지역표'는 버리지 않고 원문 마크다운으로 강등 보관(첫 건만)
+            if is_geo and out["geo"] is None and geo_md_fallback is None:
+                try:
+                    from bs4 import BeautifulSoup as _BS
+
+                    from open_proxy_mcp.services.segment_candidates import _table_to_markdown
+                    md = _table_to_markdown(_BS(m.group(0), "lxml").find("table"))
+                except Exception:
+                    md = ""
+                if md:
+                    geo_md_fallback = {
+                        "status": "NEEDS_REVIEW", "extraction_status": "NEEDS_REVIEW",
+                        "markdown": md,
+                        "note": f"지역별 수익 표 발견했으나 정형 게이트 탈락({fail}) — "
+                                "원문 표를 그대로 제공하니 직접 읽어 판단하세요.",
+                    }
             continue
-        if any(v < 0 for v in p["excess"]):
-            # 조정 열 존재 = 지역 값이 내부거래 포함 총액(SK이노 FY23: 국내 98.4조 vs 외부 40.0조).
-            # 총액 기준 지역표는 정형으로 내지 않는다 — 외부매출 기준 표만.
-            continue
+
         clean_caption = re.sub(r'[A-Za-z-]+="[^"]*"|[<>]|BORDER|WIDTH|HEIGHT', " ", caption)
         clean_caption = re.sub(r"\s+", " ", clean_caption).strip()[-120:]
         payload = {
@@ -286,6 +310,9 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
             "regional_total": total,          # tie-out 메타 — 호출측이 연결매출과 대조 가능
             "reconciliation": "항목합≈지역합계 검산 통과",
             "note": "합계는 표 기준 — 연결 손익계산서 매출과 대조해 개념(총액/외부) 확인 권장",
+            "self_check": "regional_total이 연결 매출과 크게 다르거나 지역 구성이 이상하면 "
+                          "이 정형값을 쓰지 말고 segments 필드의 주석 원문(NEEDS_REVIEW 마크다운)으로 "
+                          "직접 확인하세요.",
             "basis_caption": clean_caption,
         }
         if is_geo and out["geo"] is None:
@@ -294,4 +321,6 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
             out["product"] = payload
         if out["geo"] and out["product"]:
             break
+    if out["geo"] is None and geo_md_fallback is not None:
+        out["geo"] = geo_md_fallback          # 표준 사다리 2단: 정형 실패 → 원문 마크다운
     return out
