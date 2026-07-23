@@ -43,10 +43,11 @@ proxy_advise_before_meeting(
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| year | int | no | 주총 연도 (사업연도 X) | 자동 (전년) |
+| year | int | no | 주총 연도 (사업연도 X) | 자동 — 최신 소집공고(12개월 lookback) 기준 회차 (260723 변경, 종전 달력 전년). 공고 미발견 시 전년 fallback + warning. 응답 `year_resolution`에 선택 근거, 종료된 회차면 `meeting_closed_hint` 동봉 |
 | meeting_type | str | no | "annual" / "extraordinary" / "auto" | "annual" |
 | vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface이며 사용자 출력에는 실명/식별자 노출 안 함 | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
+| segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 (260723) | 8000 |
 | format | str | no | "md" / "json" | "md" |
 
 ## 출력 schema (decisions)
@@ -88,7 +89,7 @@ proxy_advise_before_meeting(
 | recommendation_reason_raw | 추천사유 (회사 본문 raw) |
 | career_company_groups | 경력 (회사·기간) |
 | audit_history_check | 과거 회사 회계 risk overlap (옵션) |
-| **performance** | **사내이사 연임 후보 한정** — 재직 중 회사 운영 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend), 6 cell 점수, classification good/moderate/weak/bad, rationale 한국어. **점수 미반영 fact**: 영업이익률(본업 수익성 — ROE 왜곡 보완, `core_profitable` 본업 흑/적자) + 수주·해지(order_contracts signal_summary — 적자기업 미래매출 가시성). 적자기업이 ROE만으로 부당하게 깔리지 않게 해석 단서로 분리 (자세히는 [[260505_1700_decision_inside-director-performance-matrix]]) |
+| **performance** | **사내이사 연임 후보 한정** — 재직 중 회사 운영 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend), 6 cell 점수, classification good/moderate/weak/bad, rationale 한국어. **점수 미반영 fact**: 영업이익률(본업 수익성 — ROE 왜곡 보완, `core_profitable` 본업 흑/적자) + 수주·해지(order_contracts signal_summary — 적자기업 미래매출 가시성) + **담당부문 성과 `segment_signal`**(260723 Phase 1 — 부문장 출신 후보만, 커리어→business_details segments 보수적 매핑(정확히 1개 매칭·정형 OK만), 최근 3개 사업연도 부문 매출·영업이익, `excluded_years`로 저신뢰 제외 연도 명시, `segment_signal_status`로 skip 사유 기록). 적자기업이 ROE만으로 부당하게 깔리지 않게, 부문장 출신이 전사 실적만으로 깔리지 않게 해석 단서로 분리 (자세히는 [[260505_1700_decision_inside-director-performance-matrix]]) |
 
 ## Flow
 

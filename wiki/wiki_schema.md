@@ -114,7 +114,7 @@ wiki/
 | `audit` | 데이터/시스템 진단 | `260429_2030_audit_parsing-200기업.md` |
 | `fix` | 버그 fix + regression 검증 | `260427_1145_fix_ownership-stockknd.md` |
 | `decision` | 정책 결정 transcript | `260429_0059_decision_voting-policy-consensus-matrix.md` |
-| `debate` | 다인 토론 / 페르소나 토론 | `260429_0059_debate_opm-guideline-7전문가.md` |
+| `debate` | 다인 토론 / 페르소나 토론 | `yymmdd_hhmm_debate_{topic}.md` |
 | `improvement` | 시스템 개선 (audit + fix 결합) | `260429_0216_improvement_turnkey-11agent.md` |
 | `changelog` | 버전 변경 이력 (특정 시점 release) | `tool-changelog.md` (정체성으로 보존) |
 | `release` | 릴리스 이벤트 | (예정) |

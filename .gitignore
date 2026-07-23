@@ -74,6 +74,8 @@ wiki/raw/records/2026.*
 
 # Document cache (DART API)
 cache/
+# Local agenda notice fixtures (raw DART html/txt dumps — large, rebuildable)
+fixtures/
 test_screenshots/*.key
 test_screenshots/Compare/
 test_screenshots/*.png
@@ -154,3 +156,7 @@ samples/
 # 260718 competitive assets → private repo (open-proxy-storage)
 sample_universe/
 wiki/architecture/audits/data/
+
+# 로컬 개발 전용 (조회 스냅샷·개인 경로 포함 launch 설정 — 커밋 금지)
+scratchpad_*.json
+.claude/launch.json

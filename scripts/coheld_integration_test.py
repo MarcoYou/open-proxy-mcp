@@ -14,9 +14,11 @@ W.filterwarnings("ignore")
 import asyncio, csv, json, os, sys, io, time
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", line_buffering=True)
-for line in open(".env.local", encoding="utf-8"):
-    if line.startswith("DART_API_KEY="):
-        os.environ["OPENDART_API_KEY"] = line.split("=", 1)[1].strip()
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")  # OPENDART_API_KEY 등 (repo 표준)
 
 from open_proxy_mcp.services.company import resolve_company_query
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload

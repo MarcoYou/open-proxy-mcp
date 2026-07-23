@@ -52,7 +52,9 @@ def _table_to_grid(tb) -> list[list[str]]:
     for tr in tb.find_all("tr"):
         row: list[str] = []
         ci = 0
-        cells = tr.find_all(["td", "th"])
+        # DART document.xml 표는 데이터 셀에 <TE>/<TU>를 쓴다(헤더만 <TH>) — td/th만 찾으면
+        # 주석 데이터행이 통째로 소실됨(260723 SK이노베이션 영업부문 주석 markdown 실측).
+        cells = tr.find_all(["td", "th", "te", "tu"])
         cidx = 0
         while cidx < len(cells) or (rowspans and ci in rowspans):
             if ci in rowspans:

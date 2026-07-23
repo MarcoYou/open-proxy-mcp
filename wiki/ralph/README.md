@@ -22,7 +22,6 @@ ralph는 [트리 작은가지 (시점 작업)](../wiki_schema.md#0-트리-구조
 - [[260508_0130_ralph_law-layer]] — 법령 layer 도입 (Ralph 3)
 - [[260508_0030_ralph_classify-high-impact]] — 고임팩트 안건 분류
 - [[260507_2330_ralph_classify-agenda-fix]] — 안건 분류 fix
-- [[260505_2330_ralph_parser-omnibus-perf]] — parser omnibus 성능
 - [[260505_2200_ralph_compensation-retirement-precision]] — 보수/퇴직금 정밀화
 - [[260505_2030_ralph_compensation-retirement-extend]] — 보수/퇴직금 확장
 - [[260505_1750_ralph_compensation-retirement-split]] — 보수/퇴직금 분기

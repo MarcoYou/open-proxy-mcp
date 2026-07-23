@@ -421,7 +421,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 # 8. 자산운용사 의결권 행사 데이터 (정적 JSON, 호출 0회)
 
 - 위치: `open_proxy_mcp/data/asset_managers/`
-- 로딩 service: `services/proxy_guideline.py` (`load_index`, `load_policy`, `load_records`, `load_consensus_matrix`, `load_decision_matrices`)
+- 로딩 service: (구 백엔드 — private archive)
 - 외부 호출: 0회. proxy_guideline tool 단독 동작 (cross-domain 시만 DART 호출)
 
 | 디렉토리/파일 | 내용 | 건수 |

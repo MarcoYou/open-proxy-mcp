@@ -7,7 +7,7 @@ scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
-related_decisions: [valuation-methodology]
+related_decisions: []
 created: 2026-07-05
 updated: 2026-07-06
 ---
@@ -17,7 +17,7 @@ updated: 2026-07-06
 ## 한 줄 요약
 DART(공시) + KRX(공식시세) 기반 **상대가치 배수** — PER(FY0·TTM) · PBR(MRQ) · 배당수익률. 지배주주
 귀속 기준, 비KRW 기능통화 자동 환산(ECOS), 실시간 스케일가드 + N/M 게이팅 + 식별 status 4단.
-설계·검증 근거 = [[valuation-methodology]].
+설계·검증 근거 = 방법론 스펙(private wiki).
 
 ## 사용법
 ```
@@ -76,7 +76,7 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계
   폭증하는 버그가 있었음(4조→4,826조). 이제 `market_val_series.py`/`market_fund_quarterly.py`
   fetch 시점에 그 해/분기 응답에서 직접 `statement_currency()`로 통화를 감지해 KRW로 환산 후
   저장 — **DB의 ni/eq는 항상 KRW**. 라벨도 `currency='KRW'`+`orig_currency=원통화`로 갱신해 하위
-  read-time FX가 자동으로 no-op. 상세: [[valuation-methodology]] · project memory `project_fund_currency`.
+  read-time FX가 자동으로 no-op. 상세: private wiki · project memory `project_fund_currency`.
 
 ## 데이터 계보 (소스 → 아이템 → 연산) — 핵심
 
@@ -105,14 +105,14 @@ PBR(MRQ)     = 주가 ÷ BPS
   단 **스케일 항등식은 총자본**(지배+비지배, `_gid` Equity) — 지배자본만 쓰면 NCI만큼 상시 오탐.
 - **EPS 대칭화(260705)**: FY0·TTM 모두 공시 기본주당이익 기준(TTM=공시 EPS 조립) — 두 PER 직접
   비교 가능. 커버리지 99%(100사 스윕), 결측 시 지배NI÷보통주 폴백+경고. 기중 주식수 급변 시
-  조립 한계는 sanity 경고. 상세 per-pbr-data-points·[[valuation-methodology]].
+  조립 한계는 sanity 경고. 상세 private wiki.
 
 ## 가드 4종
 1. **식별 status**(진입부): `invalid`(빈입력) · `not_found`(미존재·우선주 — 마스터는 보통주 코드만) ·
    `unlisted`(비상장, 주가 없어 배수 불가 + 상장 후보 안내) · `no_financials`(재무 미확정). 크래시·오매핑 0.
 2. **N/M 게이팅**: 분모(EPS·BPS)≤0 또는 **완전자본잠식**(cap_status=full)이면 해당 배수 = None(N/M).
    적자를 숫자 배수로 내보내지 않음.
-3. **스케일가드**([[valuation-methodology]] §9, `services/scale_guard.py`): hard=②항등식(자산=부채+자본)·
+3. **스케일가드**(`services/scale_guard.py`, 설계 근거 private wiki): hard=②항등식(자산=부채+자본)·
    ③시장최댓값배수 / soft=①배수점프·④시총비율. **개별조회는 마스킹 안 함 — 값 유지 + 강한 경고**.
    (시장 aggregate는 반대로 무효화 — 소비 맥락이 다르므로.)
 4. **통화**: 비KRW면 회계기말 환율로 순이익·자본·자산·부채 환산 후 배수 산출 + 환산 경고.
@@ -199,7 +199,7 @@ sequenceDiagram
 ## 검증 (260705, 등록 전)
 7-에이전트 다각 검증(대형제조·금융·통화환산·지주NCI·부실스케일·엣지식별·독립산식감사) + 웹검증.
 **견고성 blocker 0** — 18개 배수 독립 재계산 전부 일치, 두 자본 구분 SK(NCI 71%) 정확, 통화 ECOS
-정합, 완전자본잠식(이오플로우) N/M 정확, 크래시·오매핑 0. 상세 = [[valuation-methodology]] §"등록 전
+정합, 완전자본잠식(이오플로우) N/M 정확, 크래시·오매핑 0. 상세 = private wiki §"등록 전
 7-에이전트 검증".
 
 ## 알려진 issue + v1.1
@@ -212,7 +212,7 @@ sequenceDiagram
   한국은행 ECOS를 야후 폴백 대신 정본 유지 · 우선주 총시총 합산.
 
 ## 관련
-- [[valuation-methodology]] — 설계·스케일가드·FX·검증 전체 근거(decisions/)
+- 설계·스케일가드·FX·검증 전체 근거 = private wiki
 - [[financial_metrics]] — 재무 펀더멘탈(이 tool이 요약을 재사용). valuation=시장배수, financial_metrics=펀더멘탈
 - [[배당수익률]] — DPS ÷ 주가
 - [[environment-secrets]] — ECOS_API_KEY·KRX_OPEN_API_KEY 등 필요 키

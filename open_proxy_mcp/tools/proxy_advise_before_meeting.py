@@ -128,7 +128,16 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("")
     fin_ref = data.get("fin_reference_year")
     fin_ref_note = f" (재무 reference: FY{fin_ref})" if fin_ref else ""
-    lines.append(f"- 회차: {data.get('year')}년 {data.get('meeting_type')} 주총{fin_ref_note}")
+    _mt = data.get("selected_meeting_type") or data.get("meeting_type")
+    _mt_ko = {"annual": "정기", "extraordinary": "임시"}.get(_mt, _mt)
+    lines.append(f"- 회차: {data.get('year')}년 **{_mt_ko}**주총{fin_ref_note}")
+    year_resolution = data.get("year_resolution") or {}
+    if year_resolution.get("basis"):
+        lines.append(f"- 회차 선택 근거: {year_resolution['basis']}")
+    if data.get("meeting_closed_hint"):
+        lines.append("")
+        lines.append(f"> ⚠️ **{data['meeting_closed_hint']}**")
+        lines.append("")
     lines.append(f"- vote_style: `{_public_vote_style_label(data.get('vote_style'))}` / 이사 회계 risk 이력 검증: {'활성' if data.get('audit_history_enabled') else '비활성'}")
     lines.append(f"- status: `{payload.get('status')}` / filing_status: `{data.get('filing_status', '-')}`")
     lines.append(f"- 안건: {data.get('agenda_count')} / 후보: {data.get('candidates_count')}")
@@ -338,7 +347,67 @@ def _render(payload: dict[str, Any]) -> str:
                         )
                     if parts:  # 외부 수주·해지 둘 다 없으면(계열만) line 생략
                         lines.append(f"  - 수주(참고, 점수 미반영): " + " · ".join(parts))
+                # 담당부문 성과 (260723 Phase 1 — 참고, 점수 미반영) — 부문장 출신 사내이사만
+                seg = perf.get("segment_signal")
+                if seg and seg.get("series"):
+                    sr = seg["series"]
+                    unit = (sr[-1].get("unit") or "").strip()
+
+                    def _seg_v(v) -> str:
+                        return f"{v:,.0f}" if isinstance(v, (int, float)) else "-"
+
+                    span = " → ".join(
+                        f"FY{r['fy']} 매출 {_seg_v(r.get('revenue'))}·영업이익 {_seg_v(r.get('profit'))}"
+                        for r in sr
+                    )
+                    excluded = seg.get("excluded_years") or []
+                    excl_note = (
+                        f" · FY{'/'.join(str(y) for y in excluded)}는 부문표 정형 추출 저신뢰로 제외"
+                        if excluded else ""
+                    )
+                    lines.append(
+                        f"  - **담당부문 성과(참고, 점수 미반영)**: {seg.get('segment')} — {span}"
+                        + (f" (단위: {unit})" if unit else "")
+                        + excl_note
+                    )
+                    lines.append(
+                        f"    - 매핑 근거: \"{seg.get('matched_from')}\" · 전사 매트릭스와 별개 참고 정보"
+                        f" — 부문 재편 시 연도 간 불연속 가능 (회사 공시 기준)"
+                    )
             lines.append("")
+
+        # 부문 참고 fallback (260723) — 자동 매핑 실패/정형 저신뢰 시 회사 단위 1회 첨부
+        seg_ref = data.get("segment_reference")
+        if seg_ref:
+            if seg_ref.get("kind") == "structured_table":
+                lines.append(f"### 📊 부문표 전체 (FY{seg_ref.get('fiscal_year')} — 참고, 점수 미반영)")
+                lines.append(f"> {seg_ref.get('note')}")
+                lines.append("")
+                unit_s = (seg_ref.get("unit") or "").strip()
+                lines.append(f"| 부문 | 매출{f' ({unit_s})' if unit_s else ''} | 영업이익{f' ({unit_s})' if unit_s else ''} |")
+                lines.append("|------|------|------|")
+                for it in seg_ref.get("items") or []:
+                    _rv = it.get("revenue")
+                    _pf = it.get("profit")
+                    lines.append(
+                        f"| {it.get('name', '?')} "
+                        f"| {f'{_rv:,.0f}' if isinstance(_rv, (int, float)) else '-'} "
+                        f"| {f'{_pf:,.0f}' if isinstance(_pf, (int, float)) else '-'} |"
+                    )
+                lines.append("")
+            elif seg_ref.get("kind") == "note_markdown":
+                lines.append(f"### 📄 영업부문 주석 원문 (FY{seg_ref.get('fiscal_year')} — LLM 직접 검토, 점수 미반영)")
+                lines.append(f"> {seg_ref.get('note')}")
+                if seg_ref.get("truncated"):
+                    lines.append(
+                        f"> ✂️ 분량 초과로 앞부분만 발췌 (전체 {seg_ref.get('full_length'):,}자 중 "
+                        f"{seg_ref.get('context_chars'):,}자). 전체가 필요하면 ① business_details("
+                        f"fields=\"segments\", bsns_year=\"{seg_ref.get('fiscal_year')}\", reprt_code=\"11011\")로 "
+                        f"직접 조회(권장, 콜 절약) 또는 ② segment_context_chars를 늘려(최대 30000) 재호출."
+                    )
+                lines.append("")
+                lines.append(seg_ref.get("markdown") or "")
+                lines.append("")
 
         # 회계 risk 이력 발견 detail (회사명 / 시점 / risk 유형 raw 노출)
         audit_history_detail = []
@@ -410,6 +479,7 @@ def register_tools(mcp):
         meeting_type: str = "annual",
         vote_style: str = "open_proxy",
         check_audit_history: bool = False,
+        segment_context_chars: int = 8000,
         format: str = "md",
     ) -> str:
         """desc: 주총 **소집 전** 안건별 의결권 권고. 1회 호출로: 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts + risk_factors + policy_citation + 근거 공고 + 후보 평가 + 재무/거버넌스 summary.
@@ -419,6 +489,8 @@ def register_tools(mcp):
         vote_style: `open_proxy` (default — OPM 자체 가이드라인). 다른 옵션은 internal cross-reference용
         check_audit_history: True 시 후보 과거 회사 × 회계 risk overlap cross-check (+30s)
         meeting_type: `annual`(default) / `extraordinary` / `auto`
+        year: 미지정(0) 시 최신 소집공고(12개월 lookback) 기준 회차 자동 선택 — 응답의 회차 선택 근거·정기/임시 확인. 이미 종료된 회차면 임시주총 확인 힌트 동봉. 특정 연도 분석은 year 명시.
+        segment_context_chars: 부문장 출신 사내이사의 담당부문 매핑 실패·정형 추출 저신뢰 시 첨부되는 부문표 원문 발췌 길이(기본 8000, 최대 30000). 응답에 '앞부분만 발췌' 표시가 뜨면 이 값을 늘려 재호출하거나 — 더 싸게는 business_details(fields="segments", bsns_year, reprt_code)로 전체를 직접 조회.
         ref: shareholder_meeting_notice, financial_metrics, corp_gov_report, ownership_structure, proxy_contest, value_up, shareholder_meeting_results
         """
         payload = await build_proxy_advise_payload(
@@ -428,6 +500,7 @@ def register_tools(mcp):
             vote_style=vote_style,
             scope="decisions",  # 단일 scope — 모든 specialized scope 폐지 (각 tool 직접 호출 권장)
             check_audit_history=check_audit_history,
+            segment_context_chars=segment_context_chars,
         )
         if format == "json":
             return as_pretty_json(payload)

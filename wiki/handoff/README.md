@@ -18,5 +18,8 @@
 세션이 뭐가 진짜 남았는지 헷갈리게 만드는 원인).
 
 ## 색인
-_(현재 없음 — 260705_valuation-timeseries 해결 완료, durable 지식은 data-storage-registry(private 이관)·
-aggregate-denominator-pairing-260706·`project_fund_currency` 메모리로 이관 후 260706 삭제)_
+_(현재 비어 있음)_
+
+_(과거: 260705_valuation-timeseries 해결 완료, durable 지식은 data-storage-registry(private 이관)·
+aggregate-denominator-pairing-260706·`project_fund_currency` 메모리로 이관 후 260706 삭제 /
+260723 핸드오프 — 잔여 항목·회고 전부 private wiki로 이관 후 260724 삭제)_

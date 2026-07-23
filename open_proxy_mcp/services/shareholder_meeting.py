@@ -844,6 +844,72 @@ async def _build_candidate(
     }
 
 
+async def resolve_latest_meeting_year(
+    corp_code: str,
+    *,
+    meeting_type: str = "annual",
+    lookback_months: int = 12,
+) -> dict[str, Any] | None:
+    """최신 소집공고 기준 주총 회차(연도) pre-resolution.
+
+    proxy_advise 등 downstream이 year 미지정 호출 시 "달력 전년" 대신
+    실제 최신 소집공고의 회의연도를 target_year로 쓰기 위한 가벼운 선행 조회.
+    비용: 유형별 list.json 1콜 + 상위 공고 doc 파싱(get_document_cached — 이후
+    build_shareholder_meeting_payload가 같은 doc을 캐시로 재사용).
+
+    Returns:
+        {year, meeting_type, meeting_date(date|None), notice_rcept_no,
+         notice_date, meeting_phase} 또는 공고 미발견 시 None.
+        meeting_phase는 date 기반 단순 분류 (pre_meeting / post_meeting_pre_result
+        / undetermined) — 결과공시 존재 여부(post_result)는 확인하지 않는다.
+    """
+    if meeting_type not in _ALLOWED_MEETING_TYPES:
+        return None
+    today = date.today()
+    # meeting window end를 미래로 확장 (260723 리뷰 CRITICAL 수정): 필터가 '회의일' 기준이라
+    # end=today면 회의일이 미래인 공고(= 소집공고 발행 후 ~ 주총 전, 이 pre-resolution의 1차
+    # 사용 구간)가 통째로 탈락해 작년 회차를 "최신"으로 오선택했다. 공고→회의 간격은 상법상
+    # 2주+, 실무 2~6주 — _NOTICE_LEAD_BUFFER_DAYS(90일)면 충분히 덮는다.
+    # (DART list.json의 미래 end_de는 무해 — 접수일 필터일 뿐이며 기존 연도지정 경로도 12/31 사용)
+    window_end = today + timedelta(days=_NOTICE_LEAD_BUFFER_DAYS)
+    window_start = today - timedelta(days=lookback_months * 31)
+    types = ["annual", "extraordinary"] if meeting_type == "auto" else [meeting_type]
+    results = await asyncio.gather(*[
+        _candidate_notices_in_meeting_window(
+            corp_code, _MEETING_TYPE_MAP[t], window_start, window_end,
+        )
+        for t in types
+    ])
+    picked: tuple[str, dict[str, Any]] | None = None
+    for t, (notices, _search_notes) in zip(types, results):
+        latest = _pick_latest_notice(notices)
+        if not latest:
+            continue
+        if picked is None or (latest.get("disclosure_date", "") > picked[1].get("disclosure_date", "")):
+            picked = (t, latest)
+    if picked is None:
+        return None
+    picked_type, notice = picked
+    meeting_date = _parse_notice_meeting_date(notice.get("datetime", ""))
+    meeting_phase, _ = _meeting_phase(notice if meeting_date else {"datetime": ""}, None, None)
+    # 연도 확정: 회의일 연도 우선, 파싱 실패 시 공시 접수 연도 fallback
+    # (소집공고→회의는 통상 2~4주 간격 — 같은 해가 대부분, 연말 경계는 회의일 파싱이 잡는다)
+    disclosure = notice.get("disclosure_date", "")
+    year_resolved = meeting_date.year if meeting_date else (
+        int(disclosure[:4]) if len(disclosure) >= 4 and disclosure[:4].isdigit() else None
+    )
+    if year_resolved is None:
+        return None
+    return {
+        "year": year_resolved,
+        "meeting_type": picked_type,
+        "meeting_date": meeting_date,
+        "notice_rcept_no": notice.get("rcept_no", ""),
+        "notice_date": disclosure,
+        "meeting_phase": meeting_phase,
+    }
+
+
 async def _select_notice_candidate(
     corp_code: str,
     target_year: int | None,

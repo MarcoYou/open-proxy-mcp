@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+from open_proxy_mcp.dart.client import html_to_text
+
 # ── 결측 3분류 ──
 NOT_APPLICABLE = "NOT_APPLICABLE"      # 구조적 부재(단일부문·폼 소절 부재) — 정상
 NOT_COLLECTED = "NOT_COLLECTED"        # 미수집(분기 주석 등) — 데이터 없음
@@ -109,9 +111,11 @@ _BODY_ANCHOR = re.compile(r"사업부문별\s*(요약\s*)?재무\s*(현황|정�
 # 본문 표의 연도블록 경계 ('(N기)' / '(1)' / '(2)')
 _BODY_YEAR = re.compile(r"(?m)^\s*(?:\(\d+\)|[①②③]|제\s*\d+\s*[\(（])")
 
-# 세그먼트 노트 제목 앵커: 'N. 부문별 정보/영업부문 (연결)'
+# 세그먼트 노트 제목 앵커: 'N. 부문별 정보/영업부문(별) 정보/영업부문 (연결)'
+# (?:영업)? — SK이노베이션류 '36. 영업부문별 정보 (연결)'·'39. 영업부문 정보 (연결)' 서식.
+# 260723 census(캐시 정기보고서 46건): 변형 추가로 +6 획득 / 0 상실, 회계정책 소절(2.15류)은 계속 배제.
 _NOTE_ANCHOR = re.compile(
-    r"(?m)^\s*(\d{1,2})\.\s*(부문별?\s*정보|부문\s*정보|영업부문(?:에\s*대한\s*정보)?|부문별\s*보고)\s*(\(연결\)|\(별도\))?\s*$"
+    r"(?m)^\s*(\d{1,2})\.\s*((?:영업)?부문별?\s*정보|영업부문(?:에\s*대한\s*정보)?|부문별\s*보고)\s*(\(연결\)|\(별도\))?\s*$"
 )
 _NEXT_NOTE = re.compile(r"(?m)^\s*(\d{1,2})\.\s+\S")
 # 단일부문 선언 (다양한 표현: '하나의 보고 부문', '단일의 영업', '보고부문을 가지고')
@@ -300,21 +304,53 @@ def _scope_region(region: str) -> str:
     return scan[:cut]
 
 
-def _collect_metric_row(region: str, label: str) -> list[float]:
-    """지표 라벨 라인 직후 연속 값행(숫자, %는 스킵)을 리스트로."""
+_DASH_CELL = re.compile(r"^[-－–—]$")   # 단독 dash 셀(값 없음 자리표시자). 260723 캐시 49건 실측은 ASCII '-'만.
+
+
+def _collect_metric_row(region: str, label: str, dash_zero: bool = False) -> list[float]:
+    """지표 라벨 라인 직후 연속 값행(숫자, %는 스킵)을 리스트로.
+
+    dash_zero=True(세그먼트 표 경로 전용): 행 중간 단독 '-'를 0.0으로 유지해 열 정렬 보존 —
+    dash에서 끊으면 한화 FY2024류(조선업 열 '-')가 9부문 중 앞 3부문만 값이 잡히는 부분추출이 됨.
+    단, 실숫자가 하나도 없으면(전부 dash 행) 빈 리스트 — 전부-0 유령행 방지.
+    ⚠ 금액/비중 교차표(스트림에 % 셀 존재)에서는 dash_zero를 자동 비활성(260723 리뷰) —
+    비중 열의 dash는 % 마커가 없어 금액 0.0으로 오인되고, 열이 밀린 오답이 검산 인증까지
+    받는 채널이 재현됨. 텍스트만으로 dash의 소속 열을 판별할 수 없으므로 종전 break로
+    보수 후퇴(부분수집 → 검산 불가 → 게이트가 후보 강등).
+    _find_row_values(rnd·backlog·customers)는 기본 False 유지 — vals[0]이 금액이라 dash→0.0이면
+    '값 없음(None)'이 '0원'으로 둔갑한다."""
     pat = re.compile(r"(?m)^\s*" + re.escape(label) + r"\s*$")
     m = pat.search(region)
     if not m:
         return []
+    lines = region[m.end():].split("\n")[1:]
+    if dash_zero:
+        # 사전 스캔(메인 루프의 종료 조건 미러): 값 스트림 안에 % 셀이 하나라도 있으면 교차표 → 비활성
+        for line in lines:
+            t = line.strip()
+            if t == "":
+                continue
+            if t.endswith("%"):
+                dash_zero = False
+                break
+            if parse_number(t) is None and not _DASH_CELL.match(t):
+                break  # 스트림 종료 — 이 지점까지 % 없음
     vals: list[float] = []
-    for line in region[m.end():].split("\n")[1:]:
+    has_real = False
+    for line in lines:
         s = line.strip()
         if s == "" or s.endswith("%"):   # 빈줄·비중% 스킵(금액/비중 교차표)
             continue
         v = parse_number(s)
         if v is None:
+            if dash_zero and _DASH_CELL.match(s):
+                vals.append(0.0)
+                continue
             break
+        has_real = True
         vals.append(v)
+    if dash_zero and not has_real:
+        return []
     return vals
 
 
@@ -448,8 +484,8 @@ def parse_segment_table(anchor: str, region: str, note_source: str = "") -> Segm
     prof_label = next((lb for lb in PROFIT_LABELS if re.search(r"(?m)^\s*" + re.escape(lb) + r"\s*$", region)), "")
     sp.revenue_metric = rev_label
     sp.profit_metric = prof_label
-    rev_vals = _collect_metric_row(region, rev_label) if rev_label else []
-    prof_vals = _collect_metric_row(region, prof_label) if prof_label else []
+    rev_vals = _collect_metric_row(region, rev_label, dash_zero=True) if rev_label else []
+    prof_vals = _collect_metric_row(region, prof_label, dash_zero=True) if prof_label else []
     sp.raw_value_counts = {"headers": len(headers), "revenue": len(rev_vals), "profit": len(prof_vals)}
 
     if not headers or (not rev_vals and not prof_vals):
@@ -484,12 +520,15 @@ def parse_segment_table(anchor: str, region: str, note_source: str = "") -> Segm
               "revenue": rev_vals[i] if i < len(rev_vals) else None,
               "profit": prof_vals[i] if i < len(prof_vals) else None}
              for i, name in enumerate(headers)]
-    # 초과분(합계/조정) 분리 기록
+    # 초과분(합계/조정) 분리 기록 — 기준은 부문명 개수(len(headers)): 검증 k가 부문명보다 크면
+    # (한화 FY2024: 부문 9 + 연결조정 열 → k=10) 그 사이 조정열 값을 버리지 않고 excess에 보존해야
+    # _segment_confident의 '부문합+조정 ≈ 총계' 검산이 성립한다.
+    n_seg = len(headers)
     extra = {}
-    if len(rev_vals) > k:
-        extra["revenue_excess"] = rev_vals[k:]
-    if len(prof_vals) > k:
-        extra["profit_excess"] = prof_vals[k:]
+    if len(rev_vals) > n_seg:
+        extra["revenue_excess"] = rev_vals[n_seg:]
+    if len(prof_vals) > n_seg:
+        extra["profit_excess"] = prof_vals[n_seg:]
     if extra:
         sp.adjustments = [extra]
     # 값기반 총계-누출 안전망 — 못 지운 총계가 남으면 강등(조용한 오답 금지)
@@ -798,34 +837,92 @@ async def _fetch_note(client, note_node: dict) -> dict:
 
 
 # ── get_document 기반 fetch (1 API콜, viewer 3웹콜보다 ~3x 빠름) + 섹셔닝 ──
-def _slice_getdoc_sections(text: str) -> tuple[str, str, str]:
-    """get_document 전체 텍스트 → (biz=II.사업의내용, note=연결재무제표주석 격리, note_source).
+# DART 표준 섹션 코드 (<TITLE AASSOCNOTE="...">) — 구간 경계용 구조 앵커.
+_AASSOC_BIZ = "D-0-2-0-0"        # II. 사업의 내용
+_AASSOC_FIN = "D-0-3-0-0"        # III. 재무에 관한 사항
+_AASSOC_NOTE_CONN = "D-0-3-3-0"  # 연결재무제표 주석
+_AASSOC_NOTE_SEP = "D-0-3-5-0"   # 재무제표 주석(별도)
+_AASSOC_TITLE_RE = re.compile(r'<TITLE\b[^>]*\bAASSOCNOTE="(D-0-[0-9-]+)"', re.IGNORECASE)
+
+
+def _aassoc_positions(html: str) -> dict[str, list[int]]:
+    """html(DART XML)에서 D-계열 AASSOCNOTE 앵커 코드 → 출현 위치 목록."""
+    pos: dict[str, list[int]] = {}
+    for m in _AASSOC_TITLE_RE.finditer(html):
+        pos.setdefault(m.group(1), []).append(m.start())
+    return pos
+
+
+def _slice_by_aassoc(html: str, images: list | None = None) -> tuple[str, str, str]:
+    """AASSOCNOTE 코드 앵커로 html을 구간 슬라이스 → text화한 (biz, note, src).
+
+    - biz  = [D-0-2-0-0, D-0-3-0-0)  — 사이의 L-계열 소절 앵커는 경계로 쓰지 않음
+    - note = [연결 D-0-3-3-0, 다음 D-앵커) · 연결 없으면 [별도 D-0-3-5-0, 다음 D-앵커)
+    방어: 앵커가 중복 출현하면 그 섹션은 코드 경로 포기("" 반환) → 호출측이 섹션별로
+    텍스트 폴백. text화는 get_document text와 동일 함수(html_to_text)라 내용 일치.
+    """
+    pos = _aassoc_positions(html)
+    all_starts = sorted(p for ps in pos.values() for p in ps)
+
+    def _unique(code: str) -> int | None:
+        ps = pos.get(code, [])
+        return ps[0] if len(ps) == 1 else None
+
+    def _next_anchor_after(start: int) -> int | None:
+        nxt = [p for p in all_starts if p > start]
+        return nxt[0] if nxt else None
+
+    biz = ""
+    b0, b1 = _unique(_AASSOC_BIZ), _unique(_AASSOC_FIN)
+    if b0 is not None and b1 is not None and b0 < b1:
+        biz = html_to_text(html[b0:b1], images=images)
+
+    note, src = "", ""
+    for code, label in ((_AASSOC_NOTE_CONN, "연결재무제표 주석"),
+                        (_AASSOC_NOTE_SEP, "재무제표 주석")):
+        n0 = _unique(code)
+        if n0 is None:
+            continue
+        n1 = _next_anchor_after(n0)
+        if n1 is None:
+            continue        # 끝 경계 불명 → 텍스트 폴백에 맡김 (60KB cap 로직 보유)
+        note, src = html_to_text(html[n0:n1], images=images), label
+        break
+    return biz, note, src
+
+
+def _slice_getdoc_sections(text: str, html: str = "",
+                           images: list | None = None) -> tuple[str, str, str]:
+    """get_document 전체 → (biz=II.사업의내용, note=연결재무제표주석 격리, note_source).
+
+    1차: 코드 앵커(html). 2차: 섹션별 텍스트 폴백(코드 앵커 없는 구형 문서·비표준 서식).
 
     핵심: 연결+별도 주석이 다 들어있어 '30.부문별보고'가 중복 → 연결 주석만 격리해야 파서 정확.
-    연결 주석 끝 = 별도 'N. 재무제표'(주석 아닌 것) heading.
+    연결 주석 끝 = 별도 'N. 재무제표'(주석 아닌 것) heading(텍스트 폴백) / 다음 D-앵커(코드).
     """
-    # biz: II.사업의 내용 → III.재무에 관한. 목차(TOC)에도 같은 제목이 있어 첫 매치를 잡으면
-    # 대형사(SK하이닉스·한화솔루션 등 48/155)에서 목차 stub(수백B)만 떠내진다 → II→III 구간 중
-    # '가장 긴 span'을 실제 body로 택한다(목차 span은 짧고 본문 span은 김).
-    i2s = [m.start() for m in re.finditer(r"(?m)^\s*II\.\s*사업의\s*내용", text)]
-    i3s = [m.start() for m in re.finditer(r"(?m)^\s*III\.\s*재무에\s*관한", text)]
-    biz = ""
-    for a in i2s:
-        nb = [b for b in i3s if b > a]
-        if nb and (nb[0] - a) > len(biz):
-            biz = text[a:nb[0]]
-    note, src = "", ""
-    nconn = re.search(r"(?m)^\s*\d*\.?\s*연결재무제표\s*주석", text)
-    if nconn:
-        after = text[nconn.end():]
-        sep = re.search(r"(?m)^\s*\d+\.\s*재무제표\s*$", after)   # 별도 재무제표 시작
-        note = text[nconn.start(): nconn.end() + sep.start()] if sep else text[nconn.start():nconn.start() + 60000]
-        src = "연결재무제표 주석"
-    else:   # 연결 없으면(별도만) 재무제표 주석
-        nsep = re.search(r"(?m)^\s*\d*\.?\s*재무제표\s*주석", text)
-        if nsep:
-            note = text[nsep.start():nsep.start() + 60000]
-            src = "재무제표 주석"
+    biz, note, src = _slice_by_aassoc(html, images=images) if html else ("", "", "")
+    if not biz:
+        # biz: II.사업의 내용 → III.재무에 관한. 목차(TOC)에도 같은 제목이 있어 첫 매치를 잡으면
+        # 대형사(SK하이닉스·한화솔루션 등 48/155)에서 목차 stub(수백B)만 떠내진다 → II→III 구간 중
+        # '가장 긴 span'을 실제 body로 택한다(목차 span은 짧고 본문 span은 김).
+        i2s = [m.start() for m in re.finditer(r"(?m)^\s*II\.\s*사업의\s*내용", text)]
+        i3s = [m.start() for m in re.finditer(r"(?m)^\s*III\.\s*재무에\s*관한", text)]
+        for a in i2s:
+            nb = [b for b in i3s if b > a]
+            if nb and (nb[0] - a) > len(biz):
+                biz = text[a:nb[0]]
+    if not note:
+        nconn = re.search(r"(?m)^\s*\d*\.?\s*연결재무제표\s*주석", text)
+        if nconn:
+            after = text[nconn.end():]
+            sep = re.search(r"(?m)^\s*\d+\.\s*재무제표\s*$", after)   # 별도 재무제표 시작
+            note = text[nconn.start(): nconn.end() + sep.start()] if sep else text[nconn.start():nconn.start() + 60000]
+            src = "연결재무제표 주석"
+        else:   # 연결 없으면(별도만) 재무제표 주석
+            nsep = re.search(r"(?m)^\s*\d*\.?\s*재무제표\s*주석", text)
+            if nsep:
+                note = text[nsep.start():nsep.start() + 60000]
+                src = "재무제표 주석"
     return biz, note, src
 
 
@@ -871,7 +968,8 @@ async def _fetch_getdoc(client, rcept_no: str) -> dict:
     doc = await client.get_document_cached(rcept_no)
     text = doc.get("text", "") if isinstance(doc, dict) else ""
     html = doc.get("html", "") if isinstance(doc, dict) else ""
-    biz, note, src = _slice_getdoc_sections(text)
+    images = doc.get("images") if isinstance(doc, dict) else None
+    biz, note, src = _slice_getdoc_sections(text, html=html, images=images)
     # 후보표용 html은 full 그대로 넘김 — find_segment_candidates가 정규식으로 <table>만 뽑아
     # 프리필터하므로 22MB도 <250ms. (구간 슬라이스는 TOC 오매칭으로 부문표 누락시켜 폐기)
     # detect_form은 has_mfg(제조·제품 소절)가 REIT/금융을 veto하므로 full biz 텍스트로 충분.
@@ -950,11 +1048,34 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
     if len(lens) >= 2 and max(lens) >= 14 and min(lens) < 7:
         return False
     revs = [s["revenue"] for s in sp.segments if s.get("revenue") is not None]
-    if len(revs) < 2:
-        return len(revs) == 1
+    if not revs:
+        return False
+    # ②검산: 총계열(초과값)이 없으면 sum≈총계를 확인할 수 없다 → confident 아님(후보반환).
+    # 260723 실측: 총계 부재 시 무조건 True이던 구멍으로 부분추출이 통과 —
+    #   SK이노베이션 FY2024(분할합병 부분표 2/6부문·transposed 무검산)·한화 FY2024(dash에서
+    #   값수집 중단 → 9부문 중 3부문만 값 보유, 무검산 통과). 검산 못 한 정형추출은 OK로 내지 않는다.
     ex = (sp.adjustments[0].get("revenue_excess") if sp.adjustments else None) or []
+    if not ex:
+        return False
     s = sum(revs)
-    return any(a != 0 and abs(s - a) <= max(abs(a), 1) * 0.03 for a in ex) if ex else True
+    # 검산 성립 = ⓐ부문합 ≈ 초과값(총계) 직접 매칭, 또는 ⓑ부문합 + 조정 누적 ≈ 후속 초과값 —
+    # 합계 직전에 조정열이 끼는 표(한화 FY2024: 부문9 + 연결조정 -10.5조 + 합계)는 ⓑ로만 성립.
+    # 260723 리뷰 강화(오답-인증 채널 차단): ⓑ의 흡수 대상을 **음수**(내부거래 제거·연결조정 성격)
+    # 최대 2회로 한정. 헤더 추출에서 부문명이 탈락하면 그 부문의 '양수 매출'이 excess로 밀리는데,
+    # 이를 조정으로 흡수하면 오정렬 표(name↔value 한 칸 밀림)가 "검산 통과" 인증을 받는다 —
+    # 재현 확인된 회귀. 양수 초과값은 총계 후보(직접/누적 비교 대상)로만 취급하고 흡수하지 않는다.
+    # (잔여 위험: 부문합이 우연히 다른 초과값과 ±3% 일치하는 직접매칭 오인증 — cca184b strict에도
+    #  동일하게 존재하던 채널로, 이름 정보 없이는 원리적으로 제거 불가. 그리드 접근 검토로 이관.)
+    run = s
+    absorbed = 0
+    for a in ex:
+        tol = max(abs(a), 1) * 0.03
+        if a != 0 and (abs(s - a) <= tol or abs(run - a) <= tol):
+            return True
+        if a < 0 and absorbed < 2:
+            run += a
+            absorbed += 1
+    return False
 
 
 BUSINESS_DETAILS_FIELDS = (

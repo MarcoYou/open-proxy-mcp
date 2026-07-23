@@ -1,6 +1,6 @@
 """실시간 스케일 오류 가드 — DART acntAll 단위 오류(소프트센 032680 FY2022, 100만배) 탐지.
 
-스펙: wiki/decisions/valuation-methodology.md §9 (3인 전문가 검토 + 20개사 스모크 테스트 완료).
+설계 스펙·검증 근거: private wiki.
 과거 연도는 다음해 보고서 재작성치로 사후정정 가능(market_val_series.backfill_restated)하나,
 가장 최신 연도는 그 방법이 안 통함 — 여기 4개 체크는 "같은 API 응답 안에서" 지연 없이 판정한다.
 

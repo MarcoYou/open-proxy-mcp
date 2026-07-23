@@ -47,5 +47,5 @@ fly.toml `[env]`에는 경로 같은 **비밀 아닌 설정**만 둔다. API 키
 ## 관련
 
 - 셋업 흐름: CLAUDE.md 「셋업·개발」 (이 문서 참조)
-- FX(ECOS) 캐싱 설계: [[valuation-methodology]] §9 · `open_proxy_mcp/dart/fx.py`
+- FX(ECOS) 캐싱 설계: private wiki · `open_proxy_mcp/dart/fx.py`
 - 배포: `.github/workflows/deploy.yml` (fly.io)

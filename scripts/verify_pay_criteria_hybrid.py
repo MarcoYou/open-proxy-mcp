@@ -15,9 +15,9 @@ from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(r"D:\Projects\open-proxy-mcp")
-for line in open(ROOT / ".env.local", encoding="utf-8"):
-    if line.startswith("DART_API_KEY="):
-        os.environ["OPENDART_API_KEY"] = line.split("=", 1)[1].strip()
+from dotenv import load_dotenv
+
+load_dotenv(ROOT / ".env")  # OPENDART_API_KEY 등 (repo 표준)
 sys.path.insert(0, str(ROOT))
 
 from open_proxy_mcp.dart.client import get_dart_client

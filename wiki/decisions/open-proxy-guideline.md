@@ -20,7 +20,7 @@ B외국계 추천 퀄리티가 별로인 경우 + 글로벌 논란 있는 경우
   - 다운그레이드: climate_accountability (한국 운용사 입장만, tier_2 → tier_3_signal)
   - 유지: bundled_slate_against (A행동주의 동조), overboarded_directors (한국 상법 §382의2 + 시행령 §34 + 한투 정량)
 - voting_rules 12 카테고리에서 `[B외국계 direct]` 직접 인용 제거, source/law/evidence_refs를 한국 운용사·법령 중심으로 재정렬. B외국계은 `foreign_reference_note` 필드로 별도 보존
-- _decision_matrices.json: B외국계-only dim `climate_accountability_signal` 제거 (101 → 100 dim), bingo `climate_accountability_red` 제거 (77 → 76). `climate_disclosure`는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2, 2024) 기반으로 재정렬
+- 매트릭스 데이터(private): B외국계-only 기후 dim 1종 정리. `climate_disclosure`는 한국 KOSPI 자산 2조원+ TCFD 의무화 (자본시장법 §161의2, 2024) 기반으로 재정렬
 - OPM은 한국 8 운용사 + N연기금 합의 + 한국 법령 + OPM 5 기준 중심으로 운영
 
 ## 0-A. 정책 ↔ 엔진 정합표 (260709 상설화 — 스튜어드십 패널 검수 반영)
@@ -411,7 +411,6 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + B외국계 �
 
 ### 8.2 산출물
 - **Open Proxy Guideline v1 JSON**: `open_proxy_mcp/data/asset_managers/policies/open_proxy_v1.json`
-- **12 카테고리 의사결정 매트릭스 JSON**: `open_proxy_mcp/data/asset_managers/_decision_matrices.json`
 - **매트릭스 시스템 문서**: `wiki/architecture/matrix-system.md` (구 `decision-matrix-design` + `matrix-auto-scoring` 통합)
 - **토론 시뮬레이션 Transcript**: `wiki/decisions/260429_0059_debate_opm-guideline-7전문가.md`
 

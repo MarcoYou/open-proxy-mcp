@@ -4,7 +4,7 @@ title: v1 dead parsers archive 결정 (3개)
 date: 2026-05-06 23:30
 status: adopted
 related:
-  - wiki/ralph/260505_2330_ralph_parser-omnibus-perf.md
+  - parser omnibus 성능 ralph (private 이관)
   - wiki/decisions/260506_0030_decision_notice-scope-cleanup-prov-financials.md
 related_lessons: [parser-omnibus-260506]
 ---

@@ -3,9 +3,11 @@ import warnings as W; W.filterwarnings("ignore")
 import asyncio, os, sys, io, re, json, time
 from collections import Counter
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", line_buffering=True)
-for line in open(".env.local", encoding="utf-8"):
-    if line.startswith("DART_API_KEY="):
-        os.environ["OPENDART_API_KEY"] = line.split("=",1)[1].strip()
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")  # OPENDART_API_KEY 등 (repo 표준)
 from openpyxl import load_workbook
 from open_proxy_mcp.services.company import resolve_company_query
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name

@@ -11,7 +11,7 @@
 - ownership_structure (control_map)
 - corp_gov_report (summary)
 - financial_metrics (summary + audit_opinion)
-- proxy_guideline (predict scope — 안건별 정책 + 자동 채점)
+- (구) predict scope — 안건별 정책 + 자동 채점
 - director_evaluation (이사/감사 후보 평가, 이사 회계 risk 이력 옵션)
 
 매핑 분류:
@@ -49,13 +49,16 @@ from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payloa
 from open_proxy_mcp.services.director_evaluation import build_director_evaluation_payload
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
-from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
+from open_proxy_mcp.services.shareholder_meeting import (
+    build_shareholder_meeting_payload,
+    resolve_latest_meeting_year,
+)
 from open_proxy_mcp.services.director_performance import _PERF_KO, compute_performance
 from open_proxy_mcp.services.dividend import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 from open_proxy_mcp.services.order_contracts import build_order_contracts_payload
 # Removed dead imports (archived at wiki/archive/services/):
-#   policy_comparison / proxy_guideline / proxy_guideline_scoring
+#   (구 백엔드 3종 — private archive)
 
 
 # ── F11 (Phase 4): process-level result cache ──
@@ -63,6 +66,9 @@ from open_proxy_mcp.services.order_contracts import build_order_contracts_payloa
 # 200×3 batch에서 같은 회사 run1/run2/run3 일관성 보장 + 호출 비용 절감.
 # 단, status="error" 결과는 cache에 저장 X (재시도 기회 유지).
 _PROXY_ADVISE_CACHE: dict[tuple, dict] = {}
+
+# 회차 pre-resolution 표기용 (shareholder_meeting._MEETING_TYPE_MAP과 동일 한글 라벨)
+_MEETING_TYPE_KO = {"annual": "정기", "extraordinary": "임시", "auto": "정기/임시"}
 
 
 def clear_proxy_advise_cache() -> None:
@@ -656,7 +662,7 @@ def _law_layer(
 # ── 안건별 결정 logic ──
 
 def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
-    """안건 제목 → category. proxy_guideline의 voting_rules 키와 매칭.
+    """안건 제목 → category. 가이드라인 voting_rules 키와 매칭.
 
     iter13 fix: 정관 안건이 "배당" 키워드 포함해도 articles_amendment 우선 분류.
     예: "배당절차 개선에 따른 정관 변경의 건" → 실제 정관변경 (LG화학)
@@ -1964,6 +1970,10 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
 
 # ── 메인 advise builder ──
 
+_SEGMENT_CONTEXT_DEFAULT_CHARS = 8000
+_SEGMENT_CONTEXT_MAX_CHARS = 30000  # proxy_advise 응답이 이미 대형 — business_details(6만)보다 낮게 cap
+
+
 async def build_proxy_advise_payload(
     company_query: str,
     *,
@@ -1972,6 +1982,7 @@ async def build_proxy_advise_payload(
     vote_style: str = "open_proxy",
     scope: str = "decisions",
     check_audit_history: bool = False,
+    segment_context_chars: int = _SEGMENT_CONTEXT_DEFAULT_CHARS,
 ) -> dict[str, Any]:
     """proxy_advise_before_meeting payload.
 
@@ -2028,7 +2039,62 @@ async def build_proxy_advise_payload(
         ).to_dict()
 
     selected = resolution.selected
-    target_year = year or date.today().year - 1
+
+    # ── target_year 결정 (260723 변경) ──
+    # 종전: year 미지정 시 달력 전년(today.year-1) 하드코딩 — 주총 시즌(2~3월)에
+    # 기본 호출하면 1년 묵은 회차를 분석하는 모순 (notice tool의 auto=최신 공고와 불일치).
+    # 현행: 최신 소집공고(12개월 lookback) pre-resolution으로 실제 회의연도를 확정.
+    #   - 요청 meeting_type(기본 annual=정기) 그대로 검색 — 정기/임시 명시 확인.
+    #   - 비용: list.json 1콜 (doc 파싱은 get_document_cached 공유 — 본 payload가 재사용).
+    #   - 공고 미발견 시 종전 기본값(전년) fallback + warning.
+    year_resolution: dict[str, Any]
+    pre_resolved: dict[str, Any] | None = None
+    if year:
+        target_year = year
+        year_resolution = {"mode": "user_specified", "basis": f"사용자 지정 연도 {year}"}
+    else:
+        stage_started_at = time.perf_counter()
+        resolve_error: str | None = None
+        try:
+            pre_resolved = await resolve_latest_meeting_year(
+                selected["corp_code"], meeting_type=meeting_type,
+            )
+        except Exception as exc:  # 260723 리뷰: '조회 실패'를 '공고 없음'으로 위장하지 않는다
+            pre_resolved = None
+            resolve_error = type(exc).__name__
+        _mark("resolve_meeting_year", stage_started_at)
+        if pre_resolved:
+            target_year = pre_resolved["year"]
+            _md = pre_resolved.get("meeting_date")
+            year_resolution = {
+                "mode": "latest_notice",
+                "basis": (
+                    f"최신 {_MEETING_TYPE_KO.get(pre_resolved['meeting_type'], pre_resolved['meeting_type'])}주총 "
+                    f"소집공고({pre_resolved.get('notice_date', '?')} 공시) 기준 자동 선택 — "
+                    f"회의일 {(_md.isoformat() if _md else '파싱 실패 (공시연도 fallback)')}"
+                ),
+                "resolved_meeting_type": pre_resolved["meeting_type"],
+                "notice_rcept_no": pre_resolved.get("notice_rcept_no"),
+                "meeting_phase": pre_resolved.get("meeting_phase"),
+            }
+        elif resolve_error:
+            target_year = date.today().year - 1
+            year_resolution = {
+                "mode": "resolve_error",
+                "basis": (
+                    f"최신 소집공고 조회 실패({resolve_error}) — 달력 전년({target_year})으로 임시 fallback. "
+                    f"일시 장애일 수 있으니 재시도하거나 year를 직접 지정해 재조회 권장"
+                ),
+            }
+        else:
+            target_year = date.today().year - 1
+            year_resolution = {
+                "mode": "fallback_prev_year",
+                "basis": (
+                    f"최근 12개월(+예정분) 내 {_MEETING_TYPE_KO.get(meeting_type, meeting_type)}주총 소집공고를 "
+                    f"찾지 못해 달력 전년({target_year})으로 fallback — year를 직접 지정해 재조회 가능"
+                ),
+            }
     # 재무 fiscal year 매핑.
     # 주총 N년 안건 = "FY(N-1) 재무제표 승인의 건" (소집공고에서 그대로 추출).
     # 단, FY(N-1) 사업보고서는 주총 직전 막 공시된 신선한 데이터 — 분석 reference로 부적합.
@@ -2068,8 +2134,8 @@ async def build_proxy_advise_payload(
     # F11 (Phase 4): process-level cache (company+tool+scope+year 키) — 같은 process 내 재호출 동일 결과
     async def _safe(fn, *args, timing_label: str | None = None, **kw):
         upstream_started_at = time.perf_counter()
-        # F11 cache key
-        cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"))
+        # F11 cache key (260723: bsns_year 추가 — business_details 연도별 조회 충돌 방지)
+        cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"), kw.get("bsns_year"))
         cached = _PROXY_ADVISE_CACHE.get(cache_key)
         if cached is not None:
             if timing_label:
@@ -2137,6 +2203,18 @@ async def build_proxy_advise_payload(
     notice_full_text: str = ""  # 파싱 실패 안건 raw 폴백용 소집공고 원문 (아래 decision loop에서 사용)
     notice_dict = ((meeting_summary.get("data") or {}).get("notice") or {})
     agm_rcept = notice_dict.get("rcept_no") if isinstance(notice_dict, dict) else None
+    # 260723 리뷰: pre-resolution은 연도만 downstream에 넘기고 payload는 그 연도 창에서 재선택
+    # — 두 선택이 다른 공고를 가리키면(예: 같은 해 임시주총 2회) basis가 근거를 오표기하므로 명시
+    if (
+        pre_resolved and agm_rcept
+        and pre_resolved.get("notice_rcept_no")
+        and agm_rcept != pre_resolved["notice_rcept_no"]
+    ):
+        year_resolution["notice_mismatch"] = True
+        year_resolution["basis"] = (
+            year_resolution.get("basis", "")
+            + " ※ 실제 분석 공고는 회차 창 내에서 재선택됨(연도 결정 근거 공고와 다름 — evidence 참조)"
+        )
     if agm_rcept:
         stage_started_at = time.perf_counter()
         try:
@@ -2227,6 +2305,8 @@ async def build_proxy_advise_payload(
         if "사내" in (ev.get("role_type") or "")
         and (ev.get("appointment_type") or {}).get("type") == "renewed"
     ]
+    # 부문 매핑 실패/정형 저신뢰 시 회사 단위 참고 첨부 (아래 segment 블록에서 설정)
+    segment_reference: dict[str, Any] | None = None
     if inside_renewed_candidates:
         # 회사 단위 한 번 fetch (모든 사내이사 동일 source 공유)
         # 추가 호출 ~3개 (dividend + treasury + financial yearly)
@@ -2312,6 +2392,143 @@ async def build_proxy_advise_payload(
             # 체결 0·해지만 있는 회사(종근당홀딩스 등)도 해지가 부정 시그널이므로 포함.
             if order_signal and (order_signal.get("order_count") or order_signal.get("terminated_count")):
                 ev["performance"]["order_signal"] = order_signal
+
+        # ── 담당부문 성과 참고 fact (260723 Phase 1 — 점수 미반영) ──
+        # 부문장 출신 사내이사(예: LG화학 김동춘 — 첨단소재 라인)가 전사 지표로만 평가되는
+        # 한계 보완: 커리어→부문 보수적 매핑(정확히 1개 매칭만) 후 해당 부문 매출·영업이익
+        # 최근 3개 사업연도 추이를 참고로 첨부. decision 로직 개입 없음 (order_signal 패턴).
+        # 콜 게이트: ① 부문장류 커리어 키워드 없으면 fetch 0 ② 최신 1개년 먼저 → 정형
+        # 고신뢰(OK) + 매핑 성공일 때만 과거 2개년 추가 fetch (+2 payload).
+        from open_proxy_mcp.services.business_details import build_business_details_payload
+        from open_proxy_mcp.services.director_segment_signal import (
+            build_segment_series,
+            extract_segment_items,
+            has_division_career,
+            map_candidate_to_segment,
+        )
+
+        if not has_division_career(inside_renewed_candidates):
+            # 게이트 skip도 상태를 기록 — QA에서 '미기록 None'과 '의도된 skip' 구분 가능하게
+            for ev in inside_renewed_candidates:
+                ev["performance"]["segment_signal_status"] = "no_division_career"
+        else:
+            stage_started_at = time.perf_counter()
+            _seg_y1 = target_year - 1  # 최신 확정 사업연도 (2026 주총 → FY2025 사업보고서)
+            seg_latest_payload = await _safe_throttled(
+                build_business_details_payload, company_query,
+                timing_label="business_details.segments.latest",
+                fields=["segments"], bsns_year=str(_seg_y1), reprt_code="11011",
+            )
+            seg_latest = extract_segment_items(seg_latest_payload if isinstance(seg_latest_payload, dict) else {})
+            if not seg_latest:
+                # 주총 시즌 사전 호출이면 FY(회차-1) 사업보고서가 아직 미공시일 수 있음 → FY(회차-2) 1회 fallback
+                _seg_y1 = target_year - 2
+                seg_latest_payload = await _safe_throttled(
+                    build_business_details_payload, company_query,
+                    timing_label="business_details.segments.latest_fb",
+                    fields=["segments"], bsns_year=str(_seg_y1), reprt_code="11011",
+                )
+                seg_latest = extract_segment_items(seg_latest_payload if isinstance(seg_latest_payload, dict) else {})
+            _company_name_for_seg = selected.get("corp_name") or company_query
+            seg_mappings: dict[int, dict[str, Any]] = {}
+            _seg_statuses: list[str] = []
+            if seg_latest:
+                seg_names = [s.get("name", "") for s in seg_latest["items"]]
+                for idx, ev in enumerate(inside_renewed_candidates):
+                    m = map_candidate_to_segment(ev, seg_names, _company_name_for_seg)
+                    ev["performance"]["segment_signal_status"] = m["status"]
+                    _seg_statuses.append(m["status"])
+                    if m["status"] == "mapped":
+                        seg_mappings[idx] = m
+                # (A) 정형 OK인데 매핑 실패한 부문장류 후보 존재 → 부문표 전체를 구조화 참고로
+                # 첨부 (260723 사용자 결정: 매칭 단정 불가 시 통으로 넘겨 호출측 AI가 직접 대조).
+                # no_division_career는 대조 수요 없음 — no_match/ambiguous만 트리거. 추가 콜 0.
+                if any(s in ("no_match", "ambiguous") for s in _seg_statuses):
+                    segment_reference = {
+                        "kind": "structured_table",
+                        "fiscal_year": _seg_y1,
+                        "unit": seg_latest.get("unit"),
+                        "revenue_metric": seg_latest.get("revenue_metric"),
+                        "profit_metric": seg_latest.get("profit_metric"),
+                        "items": seg_latest["items"],
+                        "note": (
+                            "커리어→부문 자동 매핑이 단정 불가(no_match/ambiguous)라 부문표 전체를 참고로 첨부. "
+                            "후보 경력과 직접 대조해 판단 — 점수 미반영."
+                        ),
+                    }
+            else:
+                for ev in inside_renewed_candidates:
+                    ev["performance"]["segment_signal_status"] = "segments_low_confidence"
+                # (B) 정형 저신뢰 → segments 추출기가 돌려준 영업부문 주석 마크다운을 회사 단위
+                # 1회 첨부 (260718 결정 '통으로 마크다운' 재사용 — 호출측 AI가 직접 읽음). 추가 콜 0.
+                _seg_data = ((seg_latest_payload or {}).get("data") or {}) if isinstance(seg_latest_payload, dict) else {}
+                _seg_raw = _seg_data.get("segments") or {}
+                _md = (_seg_raw.get("segment_note_md") or "").strip()
+                # 호출측이 지정하는 발췌 길이 — 잘리면 AI가 파라미터를 늘려 재호출하거나
+                # business_details(fields='segments')로 전체 조회 (260723 사용자 결정). clamp 안전.
+                try:
+                    _cap = max(1000, min(_SEGMENT_CONTEXT_MAX_CHARS, int(segment_context_chars)))
+                except (TypeError, ValueError):
+                    _cap = _SEGMENT_CONTEXT_DEFAULT_CHARS
+                if not _md:
+                    # raw_candidates 변형 (주석 앵커 실패 — CJ제일제당류): 상위 후보 표
+                    # 파이프격자 텍스트를 이어붙여 동일하게 노출 (호출측 AI가 진짜 부문표 선별)
+                    _cand_tables = _seg_raw.get("candidates") or []
+                    _md = "\n\n".join(
+                        (c.get("rendered") or "").strip() for c in _cand_tables[:3] if c.get("rendered")
+                    ).strip()
+                if _md:
+                    segment_reference = {
+                        "kind": "note_markdown",
+                        "fiscal_year": _seg_y1,
+                        "source": _seg_raw.get("source"),
+                        "markdown": _md[:_cap],
+                        "truncated": len(_md) > _cap,
+                        "context_chars": _cap,
+                        "full_length": len(_md),
+                        "note": (
+                            "부문표 정형 추출 저신뢰 → 영업부문 주석/후보 표 원문 첨부 (LLM 직접 검토). "
+                            "여기서 후보 담당부문의 매출·영업이익을 직접 읽되, 합계/조정/부문간/미배분 "
+                            "열·행은 제외 — 점수 미반영."
+                        ),
+                    }
+
+            if seg_mappings:
+                # 매핑 성공 → 과거 2개년 추가 fetch (docs는 get_document_cached 공유)
+                past_payloads = await asyncio.gather(*[
+                    _safe_throttled(
+                        build_business_details_payload, company_query,
+                        timing_label=f"business_details.segments.y{off}",
+                        fields=["segments"], bsns_year=str(_seg_y1 - off), reprt_code="11011",
+                    )
+                    for off in (1, 2)
+                ])
+                yearly = {_seg_y1: seg_latest_payload}
+                for off, p in zip((1, 2), past_payloads):
+                    yearly[_seg_y1 - off] = p if isinstance(p, dict) else None
+                for idx, m in seg_mappings.items():
+                    ev = inside_renewed_candidates[idx]
+                    series = build_segment_series(yearly, m["segment"])
+                    if series:
+                        # 요청 연도 중 시계열에서 빠진 연도 — 정형 추출 저신뢰(NEEDS_REVIEW 폴백)
+                        # 또는 부문 재편으로 제외됨을 명시 (부문 부재로 오독 방지)
+                        _series_fys = {r["fy"] for r in series}
+                        excluded = sorted(fy for fy in yearly if fy not in _series_fys)
+                        ev["performance"]["segment_signal"] = {
+                            "segment": m["segment"],
+                            "matched_from": m["matched_from"],
+                            "revenue_metric": seg_latest.get("revenue_metric"),
+                            "profit_metric": seg_latest.get("profit_metric"),
+                            "series": series,
+                            "excluded_years": excluded,
+                            "note": (
+                                "참고 — 점수 미반영. 담당부문 추정은 후보 경력 텍스트 기반 보수적 매핑. "
+                                "부문 구성·지표 정의(K-IFRS 1108)는 회사 공시 기준이라 연도 간 재편 시 불연속 가능."
+                            ),
+                        }
+                    else:
+                        ev["performance"]["segment_signal_status"] = "mapped_but_no_series"
+            _mark("inside_director_segment_signal", stage_started_at)
 
     # 법령 layer (260508 신규) — 강행규정 + 정관 우회 시나리오. vote_style 위에 우선 적용.
     # corp_total_asset_won: financial_metrics summary에서 자산 추출 (자산 2조+ 분기 등)
@@ -2791,6 +3008,22 @@ async def build_proxy_advise_payload(
         if isinstance(_perf, dict) and _perf.get("classification"):
             _perf["classification"] = _perf.get("classification_ko") or _perf["classification"]
 
+    # ── 회차 상태 힌트 (260723 UX): 선택된 주총이 이미 종료된 회차면 명시 + 후속 제안 ──
+    # meeting_phase는 date 기반 (advise scope는 결과공시 fetch 안 함 — post_result는 안 뜸).
+    _meeting_data = (meeting_full.get("data") or {})
+    _selected_mt = _meeting_data.get("meeting_type") or meeting_type
+    _meeting_phase = _meeting_data.get("meeting_phase")
+    _selected_meeting_date = ((_meeting_data.get("selected_meeting") or {}).get("meeting_date")) or "?"
+    meeting_closed_hint: str | None = None
+    if _meeting_phase in ("post_meeting_pre_result", "post_result"):
+        _mt_ko = _MEETING_TYPE_KO.get(_selected_mt, _selected_mt)
+        meeting_closed_hint = (
+            f"이 {_mt_ko}주총({_selected_meeting_date})은 이미 종료된 회차입니다. "
+            f"이 분석은 사후 복기용으로만 유효합니다. 이후 개최 예정이거나 최근 개최된 임시주총이 "
+            f"있는지 확인할까요? (meeting_type='extraordinary'로 재호출) "
+            f"의결 결과 확인은 shareholder_meeting_results를 사용하세요."
+        )
+
     # ── data dict 구성 (Step 3: scope param 단순 expose) ──
     # 모든 scope 공통 base
     data: dict[str, Any] = {
@@ -2798,6 +3031,10 @@ async def build_proxy_advise_payload(
         "company_id": _company_id(selected),
         "canonical_name": selected.get("corp_name"),
         "year": target_year,
+        "year_resolution": year_resolution,
+        "selected_meeting_type": _selected_mt,
+        "meeting_phase": _meeting_phase,
+        "meeting_closed_hint": meeting_closed_hint,
         "fin_reference_year": fin_year,
         "meeting_type": meeting_type,
         "vote_style": _public_vote_style_label(vote_style),
@@ -2809,6 +3046,7 @@ async def build_proxy_advise_payload(
         "agenda_decisions": agenda_decisions,
         "candidates_count": len(director_evals),
         "candidates_evaluations": director_evals,
+        "segment_reference": segment_reference,
         "ownership_summary": (ownership.get("data") or {}).get("summary"),
         "governance_summary": (gov_report.get("data") or {}).get("summary"),
         "financial_summary": (fin_metrics.get("data") or {}).get("summary"),
@@ -2825,11 +3063,17 @@ async def build_proxy_advise_payload(
     # - financial / governance / ownership → financial_metrics / corp_gov_report / ownership_structure
     # - policy_basis / proxy_battle / engagement → 별도 ralph 또는 사용 시 archive에서 부활
 
+    envelope_warnings: list[str] = []
+    if year_resolution.get("mode") in ("fallback_prev_year", "resolve_error"):
+        envelope_warnings.append(year_resolution["basis"])
+    if meeting_closed_hint:
+        envelope_warnings.append(meeting_closed_hint)
+
     return ToolEnvelope(
         tool="proxy_advise_before_meeting",
         status=status,
         subject=selected.get("corp_name", company_query),
-        warnings=[],
+        warnings=envelope_warnings,
         data=data,
         evidence_refs=evidence,
     ).to_dict()

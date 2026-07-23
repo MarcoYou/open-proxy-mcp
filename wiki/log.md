@@ -3,6 +3,34 @@ type: log
 title: Operation Log
 ---
 
+## [2026-07-24] feat | 정기보고서 구간 슬라이싱 정확도 개선
+- business_details의 사업의내용/주석 구간 분리를 개선해 부문 추출 커버리지 향상(기존 정답 상실 0, 검증 표본 전수 회귀). 상세·검증 방법은 private lessons.
+
+## [2026-07-23] docs | 공시 원문 구조 조사
+- 파싱 정확도 개선을 위한 공시 원문 구조 조사 수행. 산출물은 private wiki로 이관(260724).
+
+## [2026-07-23] fix | fresh-eye 리뷰 P0 2건 — 회차 resolver 미래 회의일 + 검산 게이트 오답-인증 차단
+- 독립 리뷰어 4명(수정 4건 각 1명, 세션 맥락 차단)의 적대적 리뷰에서 CRITICAL 1 + HIGH 3 확정 (재현·코드 근거 첨부, 주요 지적은 메인 세션이 재검증).
+- **P0-1 (CRITICAL)**: `resolve_latest_meeting_year`의 meeting window end=today라 **회의일이 미래인 공고**(소집 후~주총 전 = 본래 사용 구간)가 필터 탈락 → 주총 시즌 기본 호출이 작년 회차를 "최신 공고 기준"이라는 거짓 근거로 선택. 7월 라이브 검증(전부 회의 종료 후)이 못 잡은 사각. window end를 today+90일(_NOTICE_LEAD_BUFFER_DAYS)로 확장, 엣지 단위테스트 6건(미래 회의일·연말 경계·파싱 실패·auto 타입 경쟁·무공고·오타입) 신설. 부수: 조회 실패를 '공고 없음'으로 위장하던 bare except 분리(`mode=resolve_error`), resolver 선택 공고 ≠ payload 실분석 공고 시 `notice_mismatch` 명시.
+- **P0-2 (HIGH×2, 재현 확인)**: ① 누적검산이 헤더에서 탈락한 부문의 **양수 매출을 조정으로 흡수**해 오정렬 표가 "검산 통과" 인증 획득(구코드는 안전 강등하던 방향성 회귀) → 흡수를 음수(내부거래 제거 성격) 최대 2회로 한정. ② 금액/비중 교차표에서 비중 열 dash(% 마커 없음)가 금액 0.0으로 오인 → 스트림에 % 셀 감지 시 dash_zero 자동 비활성(보수 후퇴 — 부분수집은 게이트가 강등). 리뷰어 재현 3건 + 흡수 상한을 회귀 테스트로 고정(총 196 tests).
+- 코퍼스 재검증(10사×FY23-25, 캐시): 정형 OK 10→13 (SK이노 FY23·CJ FY24 신규 — 머지된 앵커/te-tu 효과 유지), **기존 정답 상실 0** (한화 9부문·삼성·현대차·두산 전부 유지), SK이노 FY24 오답 차단 유지, 크래프톤 FY25는 예고된 안전측 강등.
+- 잔여(P1, 미수정): `_norm_seg_name` replace 순서 잔여("○○사업부"→"○○부" — 매핑 miss·시계열 탈락), excluded_years 사유 뭉개기, FY-2 fallback 과광폭, substring 짧은명 오매칭 방지. 후속 개선 방향은 private에 기록.
+
+## [2026-07-23] feat | 사내이사 담당부문 성과 참고 fact (Phase 1, 점수 미반영)
+- 배경: director_performance 매트릭스는 전사 지표(ROE·부채비율·CSR)만 봐서, 부문장 출신 사내이사가 본인이 책임지지 않은 부문 실적으로 감점됨 (260723 LG화학 김동춘 — 첨단소재 라인 재직인데 전사 ROE로 '부진 1/12'). 사용자 결정: 부문별 성과를 보되 Phase 1은 **참고(점수 미반영)** 노출만 — order_signal·영업이익률과 동일 패턴, decision 미개입.
+- `services/director_segment_signal.py` 신설: 후보의 이 회사 경력 텍스트(faithfulness.career_company_groups + main_job) → business_details segments 부문명 보수적 매핑. **정확히 1개 부문 매칭일 때만** 부착 (0개/복수=ambiguous/타사 부문장/전사 CEO는 전부 skip + status 기록 — 오매핑은 miss보다 나쁨). 부문명 정규화는 `business_details._norm_seg_name` 재사용(단일 소스).
+- 콜 게이트 2단: ① 부문장류 커리어 키워드 없으면 fetch 0 ② 최신 사업연도 1개 먼저 fetch → 정형 고신뢰(status=OK)+매핑 성공일 때만 과거 2개년 추가 (+2 payload). NEEDS_REVIEW 마크다운 폴백은 쓰지 않음. 주총 시즌 FY(회차-1) 사업보고서 미공시 대비 FY(회차-2) fallback 1회. `_safe` 캐시 키에 bsns_year 추가(연도별 조회 충돌 방지).
+- 시계열에서 빠진 연도는 `excluded_years`로 명시 렌더("FY2023/2024는 부문표 정형 추출 저신뢰로 제외") — 부문 부재로 오독 방지. 실측: LG화학 김동춘 → 첨단소재 mapped, FY2025 매출 4.06조·영업이익 1,464억(백만원 단위), FY23-24는 저신뢰 제외 표기. 삼성전자 김용관 → no_division_career 정상 skip. 단위테스트 10건(매핑 엣지케이스: 복수부문 ambiguous·타사 부문장·엘지화학 표기 변형·stopword) 포함 전체 175 tests 통과.
+- 안정성 검증(10사×FY23-25): 부문명은 정형 OK 연도끼리 안정(현대차 3/3·두산 4/4 정규화 겹침) — 연도 간 변동은 정규화가 흡수. 병목은 정형 추출률(FY23 1/10·FY24 4/10·FY25 5/10). 오매핑 0건. SK이노 FY2024 부분추출(배터리·석유 2개만 OK) 의심 → 별도 태스크 분리.
+- **fallback 첨부(사용자 결정 — "매칭 안 되면 마크다운 통으로")**: (A) 정형 OK+매핑 실패(no_match/ambiguous) → 부문표 전체를 구조화 표로 회사 단위 첨부 (현대차 이승조 케이스). (B) 정형 저신뢰 → 영업부문 주석 마크다운 or raw_candidates 상위 표 파이프격자 첨부 — CJ제일제당 윤석환(BIO사업부문 대표) 케이스에서 3개년 부문표 원문이 실려 호출측 AI가 직접 읽음. 두 경우 모두 **추가 DART 콜 0**(이미 fetch한 payload 재사용), `data.segment_reference`로 노출.
+- **발췌 길이 파라미터 `segment_context_chars`(기본 8000·clamp 1000~30000, 사용자 결정)**: 잘리면 응답에 "전체 N자 중 M자" + 재조회 경로 2개(① business_details 직접 조회 — 콜 절약 권장 ② 파라미터 증액 재호출) 안내 → 호출 AI가 자가조정. business_details context_chars 관례 재사용, cap은 proxy_advise 응답 대형이라 3만으로 보수. 라이브 검증: CJ 2,032자 md를 1000 cap으로 강제 잘림 → truncated/full_length/안내문 정상.
+
+## [2026-07-23] fix | proxy_advise year=0 회차를 최신 소집공고 기준으로
+- 종전 `year 미지정 = 달력 전년` 하드코딩은 tool의 사용 시점 정의("소집공고 후 ~ 주총 직전")와 모순 — 주총 시즌(2~3월) 기본 호출 시 1년 묵은 회차를 분석했고, notice tool의 auto(최신 공고)와도 불일치했다 (260723 LG화학 dogfooding에서 발견: notice=2026 회차, advise=2025 회차).
+- `shareholder_meeting.resolve_latest_meeting_year()` 신설 — 최신 소집공고(12개월 lookback, 요청 meeting_type 그대로) pre-resolution으로 회의연도·정기/임시·phase를 확정. 비용 list.json +1 (doc 파싱은 `get_document_cached` 캐시를 본 payload가 재사용). 공고 미발견 시 종전 전년 fallback + warning.
+- UX: 응답에 `year_resolution`(선택 근거·정기/임시 명시)과, 이미 종료된 회차면 `meeting_closed_hint`("사후 복기용 — 이후 임시주총 확인할까요?") 동봉. fin_reference(FY=회차-2) 매핑은 확정된 회차 기준으로 동일 유지.
+- 샘플 검증 6케이스(LG화학·삼성전자·신영증권 3월결산·고려아연 annual/auto·크래프톤) 전부 2026 최신 회차 정확 선택, LG화학 end-to-end에서 year=2026·안건 17·힌트 노출 확인. 전체 165 tests 통과.
+
 ## [2026-07-23] docs | business_details field 계약 검증
 - runtime `BUSINESS_DETAILS_FIELDS`를 기준으로 tool wiki `scope`와 한글·영문 기능 문서의 명시적 field 계약을 비교하는 `check_documentation_contract.py`를 추가했다. README는 각 언어별 상세 기능 문서 링크 존재를 함께 확인한다.
 - 문서 전용 변경도 CI에서 이 검사가 실행되게 해 새 field가 runtime에는 있으나 사용자 문서에는 빠지는 drift를 차단한다. 일반 문장 정규식 대신 좁은 선언부만 검사해 서술 자유도는 유지한다.
@@ -164,7 +192,7 @@ title: Operation Log
   `order_contracts` 누락 — 특히 README_ENG.md는 여러 곳에서 17로 정체돼 있었음).
   DB rename+병합은 트랜잭션 하나로 실행 후 즉시 코드 push(라이브 서빙 갭 최소화, 사용자 선택).
 - **문서 갱신**: `wiki/tools/valuation.md`(scope 표·TTM/MRQ 완비·sector_history 신규기능 반영),
-  `wiki/decisions/valuation-methodology.md`·`wiki/rules/disclosures/분기재무-API스펙.md`(테이블명
+  `wiki/rules/disclosures/분기재무-API스펙.md`(테이블명
   갱신, 특정 과거 사고 기록은 원 이름 보존), `wiki/architecture/data-storage-registry.md`("✅ 완료"
   전환), `wiki/tools/README.md`+루트 README 2종의 도구 카탈로그를 `[[wikilink]]`/백틱에서 클릭 가능한
   `[name](name.md)` 마크다운 링크로 전환.
@@ -675,7 +703,7 @@ title: Operation Log
 - decision: [[260507_2330_decision_httpx-connection-pool]]
 
 ## [2026-05-06] fix | parser omnibus 검증 + DART 6컬럼 sub-column 처리 (PFS 100%)
-- ralph: `wiki/ralph/260505_2330_ralph_parser-omnibus-perf.md` (9 iter / promise 발행)
+- ralph: parser omnibus 성능 점검 (9 iter / promise 발행, private 이관)
 - 300 회사 (KOSPI 200 + KOSDAQ 100) 통합 audit — Tier A 9 parser G1 ≥98.7% 모두 충족
 - **핵심 발견**: DART 잠정 재무제표 html 6컬럼 row 패턴 — `account/note/empty/current/empty/prior`
   - 기존 `_build_column_meta` 가 `_period_by_num` 다음 colspan 확장 빈 셀을 "unknown"으로 분류 → row[2]/row[4] (empty)을 current/prior로 인식하여 모든 metric empty 추출

@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT))
 from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
-load_dotenv(ROOT / ".env.local")
+
 
 import httpx
 import psycopg
@@ -95,7 +95,7 @@ async def _fetch(h, key, url, day, cap):
 
 async def sweep(since: date, cap: int):
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
-    assert key, "KRX_API_KEY 없음 (.env/.env.local)"
+    assert key, "KRX_API_KEY 없음 (.env)"
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20)
     for stmt in DDL.strip().split(";"):
         if stmt.strip():

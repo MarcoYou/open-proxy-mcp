@@ -1,6 +1,6 @@
 """밸류에이션 (lean v1) — DART(공시)+KRX(공식시세) 상대가치 배수.
 
-스펙: wiki/decisions/valuation-methodology.md (6인 패널 검토 반영).
+설계 스펙·검증 근거: private wiki.
 지표: PER(FY0+TTM) · PBR(MRQ, 미공시시 FY0) · 배당수익률(alotMatter 보통주 DPS).
 가드: 섹터 N/A(금융사 EV/PSR/FCF 차단) · N/M(분모≤0) · 자본잠식→N/M+상폐/관리종목 경고.
 시계열 기준: FY0=최근 사업연도, TTM=FY+1Q차분(flow), MRQ=최근 분기말 잔액(stock).
@@ -717,7 +717,7 @@ def _eps_disclosed(rows: list, *fields: str) -> float | None:
 
 async def _eps_adj_factor(isu_cd: str, after_dd: str) -> float:
     """(after_dd, 오늘] 조정성 이벤트(액면분할·병합·무상증자·주식배당)의 누적 수정계수 —
-    수정주가 파이프라인 krx_adj_factor_v3(기준가 리셋 실측, [[adjusted-price-timeseries]]) 재사용.
+    수정주가 파이프라인 krx_adj_factor_v3(기준가 리셋 실측) 재사용.
     EPS는 가격과 같은 방향으로 조정(주식수 n배 → EPS 1/n = ×factor). 유상증자·감자·미라벨(None)은
     보수적으로 제외 — 잔여는 sanity 경고가 방어."""
     rows = await asyncio.to_thread(_pg_rows,

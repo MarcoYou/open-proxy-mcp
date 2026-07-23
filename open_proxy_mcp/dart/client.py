@@ -66,6 +66,26 @@ _TRANSIENT_HTTP_ERRORS = (
 )
 
 
+def html_to_text(html: str, images: list[str] | None = None) -> str:
+    """HTML/XML을 파서 친화적인 평문으로 정규화.
+
+    get_document의 text 필드가 이 함수로 생성된다. 문서 일부(html 슬라이스)에 적용해도
+    전체 적용 결과의 해당 구간과 내용이 일치한다(치환이 전부 로컬) — 구간 슬라이스의
+    text화에도 재사용(business_details._slice_getdoc_sections).
+    """
+    text = re.sub(r'<(?:br|BR)\s*/?>', '\n', html)
+    text = re.sub(r'</(?:p|P|div|DIV|tr|TR|li|LI|h\d|H\d|table|TABLE|td|TD|th|TH)>', '\n', text)
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'&nbsp;', ' ', text)
+    text = re.sub(r'&[a-zA-Z]+;', ' ', text)
+    if images:
+        for img in images:
+            text = text.replace(img, '')
+    text = re.sub(r'[^\S\n]+', ' ', text)
+    text = re.sub(r'\n\s*\n+', '\n\n', text)
+    return text.strip()
+
+
 class DartClientError(Exception):
     """OpenDART API 에러"""
     def __init__(self, status: str, message: str):
@@ -811,18 +831,8 @@ class DartClient:
         return {"text": text, "html": text_html, "images": images}
 
     def _html_to_text(self, html: str, images: list[str] | None = None) -> str:
-        """HTML/XML을 파서 친화적인 평문으로 정규화."""
-        text = re.sub(r'<(?:br|BR)\s*/?>', '\n', html)
-        text = re.sub(r'</(?:p|P|div|DIV|tr|TR|li|LI|h\d|H\d|table|TABLE|td|TD|th|TH)>', '\n', text)
-        text = re.sub(r'<[^>]+>', ' ', text)
-        text = re.sub(r'&nbsp;', ' ', text)
-        text = re.sub(r'&[a-zA-Z]+;', ' ', text)
-        if images:
-            for img in images:
-                text = text.replace(img, '')
-        text = re.sub(r'[^\S\n]+', ' ', text)
-        text = re.sub(r'\n\s*\n+', '\n\n', text)
-        return text.strip()
+        """HTML/XML을 파서 친화적인 평문으로 정규화 (모듈 함수 html_to_text 위임)."""
+        return html_to_text(html, images=images)
 
     # ── Rate Limiting ──
 

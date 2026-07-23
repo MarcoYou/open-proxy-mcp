@@ -114,4 +114,4 @@ status: 용도 분리 확정 (260703) — 내부 분석=외부 분류 / 제품=K
 
 - induty 저장: `mkt_fundamentals.induty` (2,599사 100%). 수집: company.json 배치(2,599콜, 260703).
 - 분포 재현: 이 문서의 통계는 `mkt_fundamentals × krx_weekly(최신주)` 조인으로 산출.
-- 관련: [[valuation-methodology]](시장 aggregate 방법) · `adjusted-price-timeseries`(시계열 인프라).
+- 관련: 밸류에이션 방법론(private wiki) · 시계열 인프라(private wiki).
