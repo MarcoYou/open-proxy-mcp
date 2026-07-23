@@ -46,6 +46,19 @@ def test_aassoc_note_falls_to_separate_when_no_conn() -> None:
     assert src == "재무제표 주석"
     assert "별도주석 본문" in note and "배당" not in note
 
+def test_aassoc_title_mismatch_disables_start_but_keeps_boundary() -> None:
+    # 코드+제목 이중검증: 서식 개정으로 코드 의미가 이동한 경우(제목 불일치) —
+    # 그 코드는 시작 앵커로 무효(해당 섹션 텍스트 폴백), 이전 섹션의 끝 경계로는 유효.
+    xml = ('<DOCUMENT>'
+           '<TITLE AASSOCNOTE="D-0-2-0-0">II. 사업의 내용</TITLE><P>본문</P>'
+           '<TITLE AASSOCNOTE="D-0-3-0-0">III. 재무에 관한 사항</TITLE>'
+           '<TITLE AASSOCNOTE="D-0-3-3-0">3. 기타 재무에 관한 사항</TITLE><P>주석 아님</P>'
+           '<TITLE AASSOCNOTE="D-0-3-4-0">4. 재무제표</TITLE></DOCUMENT>')
+    biz, note, src = _slice_by_aassoc(xml)
+    assert "본문" in biz                       # biz는 정상 (끝 경계 = D-0-3-0-0 위치 유효)
+    assert note == "" and src == ""            # 연결주석 코드는 제목 불일치 → 시작 앵커 무효
+
+
 def test_aassoc_duplicate_anchor_disables_that_section() -> None:
     # 미지의 서식 변형(코드 중복 출현) 방어 — 그 섹션은 코드 경로 포기 → 텍스트 폴백 몫
     xml = _doc_xml() + '<TITLE AASSOCNOTE="D-0-2-0-0">II. 사업의 내용(중복)</TITLE>'

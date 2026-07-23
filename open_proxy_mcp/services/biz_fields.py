@@ -11,7 +11,7 @@ from __future__ import annotations
 import html as html_lib
 import re
 from bisect import bisect_right
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 
 from open_proxy_mcp.services.segment_candidates import (
     _TABLE_RE,
@@ -80,6 +80,76 @@ class BizRegionIndex:
     """DART XML/HTML heading coordinates, built once and shared by field extractors."""
 
     headings: tuple[_Heading, ...]
+    # L-소절 구조 앵커 지도 {("L1"|"L2", n): (start, end)} — 사업의 내용 소절 경계.
+    # L1=제조서비스업 서식 트랙 / L2=금융업 서식 트랙 (겸업사는 병존). 코드+제목 이중검증
+    # 통과분만 담기며, 없으면 빈 dict(구형 문서 등) → 소비처는 기존 전체 탐색 그대로.
+    l_spans: dict = dataclass_field(default_factory=dict)
+
+
+# <TITLE AASSOCNOTE="..."> 구조 앵커. L-0-2-N-L1/L2 = II.사업의 내용 소절 코드.
+_AASSOC_TITLE_SCAN_RE = re.compile(
+    r'<TITLE\b[^>]*\bAASSOCNOTE="([A-Za-z0-9_-]+)"[^>]*>(.*?)</TITLE>',
+    re.IGNORECASE | re.DOTALL,
+)
+_L_SUBSEC_CODE_RE = re.compile(r"^L-0-2-(\d{1,2})-L([12])$")
+# 코드는 목차 '위치' 좌표라 서식 개정 시 의미가 이동할 수 있다 → 제목 키워드로 이중검증,
+# 불일치 소절은 지도에서 제외(기존 텍스트 탐색으로 자연 폴백).
+_L_SUBSEC_EXPECT = {
+    ("L1", 1): re.compile(r"사업의\s*개요"),
+    ("L1", 2): re.compile(r"제품|서비스"),
+    ("L1", 3): re.compile(r"원재료|생산\s*설비"),
+    ("L1", 4): re.compile(r"매출|수주"),
+    ("L1", 5): re.compile(r"위험\s*관리|파생"),
+    ("L1", 6): re.compile(r"연구\s*개발|계약"),
+    ("L1", 7): re.compile(r"기타"),
+    ("L2", 1): re.compile(r"사업의\s*개요"),
+    ("L2", 2): re.compile(r"영업의?\s*현황"),
+    ("L2", 3): re.compile(r"파생"),
+    ("L2", 4): re.compile(r"영업\s*설비"),
+    ("L2", 5): re.compile(r"재무\s*건전성|기타"),
+}
+# 필드 → 표준 소재 소절. 스팬 안에서 먼저 찾고, 없으면 기존 전체 탐색(단조 안전 폴백).
+_FIELD_SUBSECTIONS = {
+    "sites": (("L1", 3), ("L2", 4)),
+    "utilization": (("L1", 3),),
+    "raw_materials": (("L1", 3),),
+    "backlog": (("L1", 4),),
+    "customers": (("L1", 4), ("L1", 2)),
+    "rnd": (("L1", 6),),
+    "product_pricing": (("L1", 2), ("L1", 3)),
+    "financial_ops": (("L2", 2),),
+    "financial_soundness": (("L2", 5),),
+}
+
+
+def _build_l_subsection_spans(html: str) -> dict:
+    """AASSOCNOTE L-소절 코드로 사업의 내용 소절 경계 지도 생성.
+
+    끝 경계 = 다음 AASSOCNOTE 앵커(L/D 무관). 방어: 같은 코드 중복 출현(미지 서식 변형) 또는
+    제목 키워드 불일치(세대 간 의미 이동) 소절은 버린다 — 소비처가 기존 탐색으로 폴백.
+    """
+    hits = [(m.start(), m.group(1), _clean_heading_text(m.group(2)))
+            for m in _AASSOC_TITLE_SCAN_RE.finditer(html)]
+    code_counts: dict[str, int] = {}
+    for _, code, _t in hits:
+        code_counts[code] = code_counts.get(code, 0) + 1
+    spans: dict = {}
+    for i, (start, code, title) in enumerate(hits):
+        m = _L_SUBSEC_CODE_RE.match(code)
+        if not m or code_counts[code] != 1:
+            continue
+        key = (f"L{m.group(2)}", int(m.group(1)))
+        expect = _L_SUBSEC_EXPECT.get(key)
+        if expect is None or not expect.search(title):
+            continue
+        end = hits[i + 1][0] if i + 1 < len(hits) else len(html)
+        spans[key] = (start, end)
+    return spans
+
+
+def field_subsection_spans(field: str, index: "BizRegionIndex") -> tuple[tuple[int, int], ...]:
+    """필드의 표준 소재 소절 스팬들(문서에 존재하는 것만)."""
+    return tuple(index.l_spans[k] for k in _FIELD_SUBSECTIONS.get(field, ()) if k in index.l_spans)
 
 
 def _heading_level(text: str) -> int | None:
@@ -102,6 +172,7 @@ def build_region_index(html: str) -> BizRegionIndex:
     """Index short, styled subsection headings without parsing the multi-MB document DOM."""
     if not html:
         return BizRegionIndex(())
+    l_spans = _build_l_subsection_spans(html)
     found: list[_Heading] = []
     table_ranges = [(match.start(), match.end()) for match in _TABLE_RE.finditer(html)]
     table_starts = [start for start, _ in table_ranges]
@@ -170,7 +241,7 @@ def build_region_index(html: str) -> BizRegionIndex:
         elif heading.tag == "p" and deduped[duplicate_at].tag != "p":
             deduped[duplicate_at] = heading
     deduped.sort(key=lambda h: h.start)
-    return BizRegionIndex(tuple(deduped))
+    return BizRegionIndex(tuple(deduped), l_spans)
 
 
 def _enclosing_section_end(html: str, pos: int) -> int | None:
@@ -249,10 +320,13 @@ def _recovery_end(index: BizRegionIndex, heading: _Heading, section_end: int) ->
 
 
 def _structural_regions(html: str, kw_patterns: list[str], index: BizRegionIndex,
-                        content_re=None, need_rows: int = 1, exclude_chapter_re=None) -> list[dict]:
+                        content_re=None, need_rows: int = 1, exclude_chapter_re=None,
+                        spans: tuple[tuple[int, int], ...] | None = None) -> list[dict]:
     candidates: list[tuple[int, _Heading, str]] = []
     for priority, keyword in enumerate(kw_patterns):
         for heading in index.headings:
+            if spans and not any(a <= heading.start < b for a, b in spans):
+                continue        # L-소절 게이트: 표준 소재 소절 안의 헤딩만
             match = re.search(keyword, heading.text)
             if match and not (
                 exclude_chapter_re and exclude_chapter_re.search(_chapter_for(index, heading))
@@ -378,10 +452,23 @@ def _legacy_regions(html: str, kw_patterns: list[str], max_chars: int,
 def _render_biz_subsection_regions(html: str, kw_patterns: list[str], max_chars: int = 22000,
                                    need_rows: int = 1, content_re=None,
                                    region_index: BizRegionIndex | None = None,
-                                   exclude_chapter_re=None) -> list[dict]:
+                                   exclude_chapter_re=None, field: str | None = None) -> list[dict]:
     if not html:
         return []
     index = region_index or build_region_index(html)
+    # 1-pass: L-소절 게이트 — 필드의 표준 소재 소절 안에서만 탐색(다른 장·타 소절·embedded
+    # 종속사 보고서의 유사 제목 오탐 차단). 소절 지도가 없거나(구형) 소절 안에서 못 찾으면
+    # 2-pass 전체 탐색(기존 동작 그대로) → 단조 안전.
+    spans = field_subsection_spans(field, index) if field else ()
+    if spans:
+        regions = _structural_regions(
+            html, kw_patterns, index, content_re=content_re, need_rows=need_rows,
+            exclude_chapter_re=exclude_chapter_re, spans=spans,
+        )
+        if regions:
+            for region in regions:
+                region["l_gated"] = True
+            return regions
     regions = _structural_regions(
         html, kw_patterns, index, content_re=content_re, need_rows=need_rows,
         exclude_chapter_re=exclude_chapter_re,
@@ -483,11 +570,11 @@ _FINANCIAL_CHAPTER_RE = re.compile(r"^III\.\s*재무")
 
 def _field(biz_text: str, html: str, head_patterns: list[str], na_re, content_re=None,
            max_chars: int = 20000, region_index: BizRegionIndex | None = None,
-           exclude_chapter_re=None) -> dict:
+           exclude_chapter_re=None, field: str | None = None) -> dict:
     """markdown-primary: 소절 마크다운(content-gate 통과) 있으면 MARKDOWN, 없고 NA어휘면 N/A, 아니면 미검출."""
     regions = _render_biz_subsection_regions(
         html, head_patterns, max_chars=max_chars, content_re=content_re, region_index=region_index,
-        exclude_chapter_re=exclude_chapter_re,
+        exclude_chapter_re=exclude_chapter_re, field=field,
     )
     if exclude_chapter_re:
         regions = [region for region in regions
@@ -508,7 +595,8 @@ def _field(biz_text: str, html: str, head_patterns: list[str], na_re, content_re
             "section_source": {
                 "matched_headings": [region["heading"] for region in regions if region.get("heading")],
                 "chapters": list(dict.fromkeys(region["chapter"] for region in regions)),
-                "selection_method": "heading",
+                "selection_method": ("heading_l_gate" if all(r.get("l_gated") for r in regions)
+                                     else "heading"),
                 "boundary_methods": list(dict.fromkeys(region["boundary"] for region in regions)),
             },
             "markdown": markdown,
@@ -732,7 +820,8 @@ def render_candidate_context(field: str, html: str, context_chars: int,
 
 def _util_impl(biz_text, html, region_index=None):
     r = _field(biz_text, html, _UTIL_HEAD, _UTIL_NA, content_re=_C_UTIL, max_chars=18000,
-               region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE)
+               region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+               field="utilization")
     production_na = _UTIL_PRODUCTION_EXPLICIT_NA.search(
         r.get("markdown", "") or (biz_text or "")
     )
@@ -751,7 +840,7 @@ def _util_impl(biz_text, html, region_index=None):
         r = _field(
             biz_text, html, _UTIL_PRODUCTION_PARENT_HEAD, _UTIL_NA,
             content_re=_C_UTIL, max_chars=18000, region_index=region_index,
-            exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+            exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field="utilization",
         )
     pv = [match.group(1) for match in _UTIL_PCT.finditer(r.get("markdown", ""))]
     if pv:
@@ -770,18 +859,19 @@ def _util_impl(biz_text, html, region_index=None):
 
 def extract_sites(biz_text, html, region_index=None):
     r = _field(biz_text, html, _SITE_HEAD, _SITE_NA, content_re=_C_SITE,
-               region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE)
+               region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+               field="sites")
     if r.get("extraction_status") == "NOT_COLLECTED":
         r = _field(
             biz_text, html, _SITE_PRODUCTION_HEAD, _SITE_NA,
             content_re=_C_SITE_LOCATION_STRONG, region_index=region_index,
-            exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+            exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field="sites",
         )
     if r.get("extraction_status") == "NOT_COLLECTED":
         r = _field(
             biz_text, html, _SITE_REFERENCE_HEAD, _SITE_NA,
             content_re=_C_SITE_REFERENCE, region_index=region_index,
-            exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+            exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field="sites",
         )
     if r.get("extraction_status") == "NOT_COLLECTED":
         r = _signal_paragraph_field(html, _SITE_PROSE_SIGNAL, "signal_paragraph") or r
@@ -789,7 +879,8 @@ def extract_sites(biz_text, html, region_index=None):
 
 def extract_rnd(biz_text, html, region_index=None):
     r = _field(biz_text, html, _RND_HEAD, _RND_NA, content_re=_C_RND, max_chars=24000,
-               region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE)
+               region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+               field="rnd")
     if r.get("extraction_status") == "NOT_COLLECTED":
         r = _signal_paragraph_field(html, _RND_PROSE_SIGNAL, "signal_paragraph") or r
     m = _RND_RATIO.search(r.get("markdown", ""))
@@ -807,7 +898,8 @@ def extract_rnd(biz_text, html, region_index=None):
 
 def extract_backlog(biz_text, html, region_index=None):
     r = _field(biz_text, html, _BL_HEAD, _BL_NA, content_re=_C_BL,
-               region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE)
+               region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+               field="backlog")
     markdown = r.get("markdown", "")
     explicit_na = _BL_NA.search(markdown or (biz_text or ""))
     if explicit_na and not _BL_ACTUAL_SIGNAL.search(markdown):
@@ -824,6 +916,7 @@ def extract_customers(biz_text, html, region_index=None):
     r = _field(
         biz_text, html, _CUST_HEAD, _CUST_NA, content_re=_C_CUST,
         region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+        field="customers",
     )
     for heads, content_re in (
         (_CUST_FIN_HEAD, _C_CUST_FIN),
@@ -835,6 +928,7 @@ def extract_customers(biz_text, html, region_index=None):
         r = _field(
             biz_text, html, heads, _CUST_NA, content_re=content_re,
             region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+            field="customers",
         )
     if r.get("extraction_status") == "NOT_COLLECTED":
         r = _signal_paragraph_field(html, _CUST_PROSE_SIGNAL, "signal_paragraph") or r
@@ -878,13 +972,14 @@ _PRODUCT_PRICE_VALUE = re.compile(
 
 
 def _compose_pricing_field(biz_text: str, html: str, components: list[tuple[str, str, list[str], re.Pattern]],
-                           na_re, region_index: BizRegionIndex | None = None) -> dict:
+                           na_re, region_index: BizRegionIndex | None = None,
+                           field: str | None = None) -> dict:
     """Combine at most one bounded region per source component without cross-component N/A poisoning."""
     found: list[tuple[str, str, dict]] = []
     for key, label, heads, content_re in components:
         regions = _render_biz_subsection_regions(
             html, heads, need_rows=0, content_re=content_re, region_index=region_index,
-            exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+            exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field=field,
         )
         if regions:
             found.append((key, label, regions[0]))
@@ -934,7 +1029,7 @@ def extract_raw_materials(biz_text, html, region_index=None):
             ("materials", "원재료 구성·매입", _RAW_MATERIALS_HEAD, _C_RAW_MATERIALS),
             ("input_price", "원재료 가격 추이", _RAW_INPUT_PRICE_HEAD, _C_RAW_INPUT_PRICE),
         ],
-        _RAW_MATERIALS_NA, region_index,
+        _RAW_MATERIALS_NA, region_index, field="raw_materials",
     )
 
 
@@ -942,7 +1037,7 @@ def extract_product_pricing(biz_text, html, region_index=None):
     return _compose_pricing_field(
         biz_text, html,
         [("product_pricing", "제품·서비스 가격 추이", _PRODUCT_PRICING_HEAD, _C_PRODUCT_PRICING)],
-        _PRODUCT_PRICING_NA, region_index,
+        _PRODUCT_PRICING_NA, region_index, field="product_pricing",
     )
 
 
@@ -969,10 +1064,11 @@ def _find_by_signature(html, signature_re, window=18000):
 
 
 def _field2(biz_text, html, head_patterns, content_re, signature_re, na_re, max_chars=18000,
-            region_index=None):
+            region_index=None, field=None):
     """헤딩앵커(content-gate) → 실패 시 내용시그니처 폴백 → N/A. source로 어느 경로인지 표기."""
     regions = _render_biz_subsection_regions(
         html, head_patterns, max_chars=max_chars, content_re=content_re, region_index=region_index,
+        field=field,
     )
     if regions:
         markdown = "\n\n———\n\n".join(region["markdown"] for region in regions)
@@ -987,7 +1083,8 @@ def _field2(biz_text, html, head_patterns, content_re, signature_re, na_re, max_
             "section_source": {
                 "matched_headings": [region["heading"] for region in regions if region.get("heading")],
                 "chapters": list(dict.fromkeys(region["chapter"] for region in regions)),
-                "selection_method": "heading",
+                "selection_method": ("heading_l_gate" if all(r.get("l_gated") for r in regions)
+                                     else "heading"),
                 "boundary_methods": list(dict.fromkeys(region["boundary"] for region in regions)),
             },
             "markdown": markdown,
@@ -1037,10 +1134,12 @@ _C_IPROP_PROSE = re.compile(r"(?:임대료|임대차|임차)[^\n]{0,300}"
 
 
 def extract_financial_ops(biz_text, html, region_index=None):
-    return _field2(biz_text, html, _FOPS_HEAD, _C_FOPS, _SIG_FOPS, None, region_index=region_index)
+    return _field2(biz_text, html, _FOPS_HEAD, _C_FOPS, _SIG_FOPS, None, region_index=region_index,
+                   field="financial_ops")
 
 def extract_financial_soundness(biz_text, html, region_index=None):
-    return _field2(biz_text, html, _FSND_HEAD, _C_FSND, _SIG_FSND, None, region_index=region_index)
+    return _field2(biz_text, html, _FSND_HEAD, _C_FSND, _SIG_FSND, None, region_index=region_index,
+                   field="financial_soundness")
 
 def extract_investment_property(biz_text, html, region_index=None):
     r = _field2(biz_text, html, _IPROP_HEAD, _C_IPROP, _SIG_IPROP, _IPROP_NA,

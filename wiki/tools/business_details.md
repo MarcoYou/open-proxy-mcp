@@ -2,7 +2,7 @@
 type: tool
 title: business_details
 domain: data
-scope: [segments, sites, utilization, rnd, backlog, customers, raw_materials, product_pricing, financial_ops, financial_soundness, investment_property]
+scope: [segments, sites, utilization, rnd, backlog, customers, raw_materials, product_pricing, financial_ops, financial_soundness, investment_property, geo_revenue]
 data_source: [DART get_document (전체보고서 XML 1콜 → II.사업의 내용 + 연결재무제표주석 부문정보 슬라이스), search list.json A001/A002/A003]
 related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: [사업부문, 영업부문, K-IFRS 1108, SOTP, 부문 영업이익, 연구개발비, 수주잔고, 고객집중]
@@ -18,7 +18,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 ## 사용법
 - `business_details(company, period="latest", fields="", format="md", bsns_year="", reprt_code="", context_mode="strict", context_chars=20000)`
 - `period`: **`latest`(기본, 사업·반기·분기 중 가장 최신 제출분=최신 데이터)** / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). 응답 `report.report_nm`으로 어느 보고서인지 확인. II.사업의내용은 분기/반기도 완전구조라 동일 필드(사업의내용_ksic별양식 참조). `bsns_year`+`reprt_code` 지정 시 무시됨.
-- `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,financial_ops,financial_soundness,investment_property`, 미지정 시 전체). **특정 필드만 지정하면 응답이 가벼움**. 연구개발 상세표처럼 실제 소절이 큰 회사는 단일 필드도 수만 자일 수 있다.
+- `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,financial_ops,financial_soundness,investment_property,geo_revenue`, 미지정 시 전체). **특정 필드만 지정하면 응답이 가벼움**. 연구개발 상세표처럼 실제 소절이 큰 회사는 단일 필드도 수만 자일 수 있다.
 - `bsns_year`+`reprt_code`(260721 추가, **시계열/추이 조회용**): 둘 다 지정 시 특정 과거 시점 1건을 조회(`period` 대신). DART 표준 `reprt_code` — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). 한 번에 여러 분기를 반환하지 않으므로 **추이는 분기마다 반복 호출**해서 호출측이 이어붙임(`ownership_major(ticker, year)` 등 기존 DART 표준 파라미터명과 동일 컨벤션 재사용, 결산월 비표준(3월결산 등)에도 안전 — 분기보고서가 연내 2회 등장하면 `report_nm` 기수라벨의 상대순서로 1분기/3분기 구분, 절대월 하드코딩 없음). 하나만 지정하면 `status=error`.
 - 예: `business_details("에코프로비엠", fields="utilization")` · `business_details("HD한국조선해양", fields="backlog")` · `business_details("삼성전자", bsns_year="2025", reprt_code="11014")`(2025 3분기 스냅샷)
 
@@ -41,6 +41,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 | **customers** 고객 | 주요 매출처 / 주요 고객 주석 | 주요 고객·매출처·판매경로 원문(익명 다수) | 삼성전자·유한양행 |
 | **raw_materials** 원재료 | 주요 원재료 현황 / 원재료 가격변동추이 | 원재료 구성·매입과 원재료 가격 추이 원문 | LG화학·대한항공 |
 | **product_pricing** 제품가격 | 주요 제품 등의 가격변동추이 | 판매가격·ASP·가격변동 원인 원문 | 삼성전자·HD한국조선해양 |
+| **geo_revenue** 지역별 수익 | 부문 주석의 지역별 수익 표(전사 차원 공시) | 지역별 매출 정형(검산 통과분만) | 기아·LG엔솔(단일부문사) |
 | **financial_ops** (금융) | 2.영업의 현황 | 영업개황·영업실적·**영업부문별 재무정보**(금융판 segments) | 신한지주·미래에셋증권 |
 | **financial_soundness** (금융) | 재무건전성·지급여력 | RBC·지급여력비율(K-ICS)·순자본비율·연체율 | 삼성생명·우리금융지주 |
 | **investment_property** (REIT/보험) | 투자부동산 내역·투자자산 개요 | 부동산 목록·임대율·임대면적·공실 | SK리츠·삼성생명 |

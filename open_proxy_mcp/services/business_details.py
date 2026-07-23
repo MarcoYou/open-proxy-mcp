@@ -115,7 +115,9 @@ _BODY_YEAR = re.compile(r"(?m)^\s*(?:\(\d+\)|[①②③]|제\s*\d+\s*[\(（])")
 # (?:영업)? — SK이노베이션류 '36. 영업부문별 정보 (연결)'·'39. 영업부문 정보 (연결)' 서식.
 # 260723 census(캐시 정기보고서 46건): 변형 추가로 +6 획득 / 0 상실, 회계정책 소절(2.15류)은 계속 배제.
 _NOTE_ANCHOR = re.compile(
-    r"(?m)^\s*(\d{1,2})\.\s*((?:영업)?부문별?\s*정보|영업부문(?:에\s*대한\s*정보)?|부문별\s*보고)\s*(\(연결\)|\(별도\))?\s*$"
+    r"(?m)^\s*(\d{1,2}(?:-\d{1,2})?)\.\s*((?:영업)?부문별?\s*정보|영업\s*부문별?\s*정보|"
+    r"영업부문(?:에\s*대한\s*정보|\s*및\s*매출현황|\s*-\s*연결)?|부문별\s*보고|부문\s*정보)\s*"
+    r"(\(연결\)|\(별도\))?\s*$"
 )
 _NEXT_NOTE = re.compile(r"(?m)^\s*(\d{1,2})\.\s+\S")
 # 단일부문 선언 (다양한 표현: '하나의 보고 부문', '단일의 영업', '보고부문을 가지고')
@@ -578,6 +580,11 @@ def extract_segment_profit(biz_content_text: str, note_full_text: str, note_sour
     # ③ 표를 못 찾았을 때만 단일부문 '선언' 확인 → NA (다부문사는 위에서 이미 반환됨)
     if _SINGLE_DECL.search(note_full_text or "") or _SINGLE_DECL.search(biz_content_text or ""):
         return SegmentProfit(status=NOT_APPLICABLE, source="none", na_reason="single_segment")
+    if spn is not None:
+        return spn        # 파싱 실패라도 주석 앵커·부분정보 보존 — 격자 재판독의 재료
+    if n_anchor:          # 앵커는 찾았으나 표 게이트에서 걸러진 경우도 앵커만 보존
+        return SegmentProfit(status=EXTRACTION_FAILED, source="note", anchor=n_anchor,
+                             na_reason="segment_table_parse_failed")
     return SegmentProfit(status=EXTRACTION_FAILED, source="none", na_reason="no_segment_table_found")
 
 
@@ -842,15 +849,34 @@ _AASSOC_BIZ = "D-0-2-0-0"        # II. 사업의 내용
 _AASSOC_FIN = "D-0-3-0-0"        # III. 재무에 관한 사항
 _AASSOC_NOTE_CONN = "D-0-3-3-0"  # 연결재무제표 주석
 _AASSOC_NOTE_SEP = "D-0-3-5-0"   # 재무제표 주석(별도)
-_AASSOC_TITLE_RE = re.compile(r'<TITLE\b[^>]*\bAASSOCNOTE="(D-0-[0-9-]+)"', re.IGNORECASE)
+_AASSOC_TITLE_RE = re.compile(r'<TITLE\b[^>]*\bAASSOCNOTE="(D-0-[0-9-]+)"[^>]*>(.*?)</TITLE>',
+                              re.IGNORECASE | re.DOTALL)
+# 코드는 목차 '위치' 좌표라 서식 개정 시 의미가 이동할 수 있다 → 제목 키워드 이중검증.
+# 불일치 앵커는 없는 것으로 취급(그 섹션만 텍스트 폴백) — 미래 서식 재편 방어.
+_AASSOC_EXPECT = {
+    _AASSOC_BIZ: re.compile(r"사업의\s*내용"),
+    _AASSOC_FIN: re.compile(r"재무에\s*관한"),
+    _AASSOC_NOTE_CONN: re.compile(r"연결\s*재무제표\s*주석"),
+    _AASSOC_NOTE_SEP: re.compile(r"재무제표\s*주석"),
+}
 
 
-def _aassoc_positions(html: str) -> dict[str, list[int]]:
-    """html(DART XML)에서 D-계열 AASSOCNOTE 앵커 코드 → 출현 위치 목록."""
+def _aassoc_positions(html: str) -> tuple[dict[str, list[int]], set[str]]:
+    """html(DART XML)에서 D-계열 AASSOCNOTE 앵커 → (코드별 위치 목록, 제목 불일치 코드 집합).
+
+    제목 불일치 코드는 섹션 '시작' 앵커로는 무효(의미 이동 의심 → 텍스트 폴백)지만,
+    위치 자체는 어떤 섹션의 시작이므로 이전 섹션의 '끝' 경계로는 그대로 유효하다."""
     pos: dict[str, list[int]] = {}
+    unverified: set[str] = set()
     for m in _AASSOC_TITLE_RE.finditer(html):
-        pos.setdefault(m.group(1), []).append(m.start())
-    return pos
+        code = m.group(1)
+        pos.setdefault(code, []).append(m.start())
+        expect = _AASSOC_EXPECT.get(code)
+        if expect is not None:
+            title = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(2))).strip()
+            if not expect.search(title):
+                unverified.add(code)
+    return pos, unverified
 
 
 def _slice_by_aassoc(html: str, images: list | None = None) -> tuple[str, str, str]:
@@ -861,12 +887,12 @@ def _slice_by_aassoc(html: str, images: list | None = None) -> tuple[str, str, s
     방어: 앵커가 중복 출현하면 그 섹션은 코드 경로 포기("" 반환) → 호출측이 섹션별로
     텍스트 폴백. text화는 get_document text와 동일 함수(html_to_text)라 내용 일치.
     """
-    pos = _aassoc_positions(html)
+    pos, unverified = _aassoc_positions(html)
     all_starts = sorted(p for ps in pos.values() for p in ps)
 
     def _unique(code: str) -> int | None:
         ps = pos.get(code, [])
-        return ps[0] if len(ps) == 1 else None
+        return ps[0] if len(ps) == 1 and code not in unverified else None
 
     def _next_anchor_after(start: int) -> int | None:
         nxt = [p for p in all_starts if p > start]
@@ -1081,9 +1107,13 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
 BUSINESS_DETAILS_FIELDS = (
     "segments", "sites", "utilization", "rnd", "backlog", "customers", "raw_materials",
     "product_pricing", "financial_ops", "financial_soundness", "investment_property",
+    "geo_revenue",
 )
-_STANDARD_BIZ_FIELDS = set(BUSINESS_DETAILS_FIELDS[1:8])
-_FINANCIAL_BIZ_FIELDS = set(BUSINESS_DETAILS_FIELDS[8:])
+# 위치 슬라이스 대신 이름 기반(필드 추가 시 조용한 오분류 방지 — 이름 기반 접근 원칙)
+_STANDARD_BIZ_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers",
+                        "raw_materials", "product_pricing"}
+_FINANCIAL_BIZ_FIELDS = {"financial_ops", "financial_soundness", "investment_property"}
+_ENTITY_WIDE_FIELDS = {"geo_revenue"}
 _CANDIDATE_CONTEXT_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers"}
 _CANDIDATE_CONTEXT_DEFAULT_CHARS = 20_000
 _CANDIDATE_CONTEXT_MAX_CHARS = 60_000
@@ -1224,6 +1254,18 @@ async def build_business_details_payload(company_query: str, period: str = "late
         sp = extract_segment_profit(sec.get("biz_text", ""), sec.get("note_text", ""), sec.get("note_source", ""))
         if sp.status == OK and sp.segments:
             _scrub_segments(sp)          # 값없는 행·재무라인 junk 제거 후 신뢰게이트
+        # 격자 재판독: 텍스트 경로가 고른 앵커의 표를 행×열 구조로 다시 읽어 이름↔값을
+        # 열 인덱스로 결합(외부매출 행 우선 = 연도 간 개념 일관). 기존 게이트(클린+검산)를
+        # 통과할 때만 채택 — 실패 시 텍스트 결과 유지(단조 안전).
+        try:
+            from open_proxy_mcp.services.segment_grid import grid_refine
+            gsp = grid_refine(sec.get("note_html", ""), sp)
+        except Exception:
+            gsp = None
+        if gsp is not None:
+            _scrub_segments(gsp)
+            if gsp.segments and _segment_confident(gsp):
+                sp = gsp
         _lap("segment")
         if sp.status == OK and sp.segments and not sp.cross_conflict and _segment_confident(sp):
             segment = {"status": OK, "source": "deterministic", "revenue_metric": sp.revenue_metric,
@@ -1265,6 +1307,30 @@ async def build_business_details_payload(company_query: str, period: str = "late
         "form_type": form,
         "segments": segment if "segments" in want else None,
     }
+    # 전사 차원 공시(지역별·제품별 수익) — 부문 주석 구간 격자 판독(검산 통과분만 정형)
+    if want & _ENTITY_WIDE_FIELDS:
+        if form in (FORM_FINANCIAL, FORM_REIT):
+            _ew_base = {"status": UNSUPPORTED_FORM, "extraction_status": "UNSUPPORTED_FORM",
+                        "na_reason": f"form_{form}_not_supported_v1"}
+            _ew = {"geo": None, "product": None}
+        else:
+            _ew_base = {"status": "NOT_COLLECTED", "extraction_status": "NOT_COLLECTED",
+                        "na_reason": "검산 가능한 지역별/제품별 수익 표 미검출"}
+            _ew_anchor = sp.anchor if ("segments" in want and form not in (FORM_FINANCIAL, FORM_REIT)) else ""
+            if not _ew_anchor:
+                _ew_anchor = (find_segment_note_region(sec.get("note_text", "") or "")[0]) or ""
+            try:
+                from open_proxy_mcp.services.segment_grid import scan_entity_wide
+                _seg_ok = bool(isinstance(segment, dict) and segment.get("status") == OK)
+                _excl = ({_norm_seg_name(s0.get("name", "")) for s0 in sp.segments}
+                         if _seg_ok and "segments" in want else set())
+                _ew = scan_entity_wide(sec.get("note_html", ""), _ew_anchor, _GEO_NAMES,
+                                       product_fallback=not _seg_ok,
+                                       exclude_names={n for n in _excl if n})
+            except Exception:
+                _ew = {"geo": None, "product": None}
+        if "geo_revenue" in want:
+            data["geo_revenue"] = _ew["geo"] or dict(_ew_base)
     # 추가 필드: markdown-primary(소절 원문 마크다운 → 호출측 AI 추출). biz 텍스트=hint, full html=md.
     from open_proxy_mcp.services import biz_fields as _bf
     _biz_t = sec.get("biz_text", "")
