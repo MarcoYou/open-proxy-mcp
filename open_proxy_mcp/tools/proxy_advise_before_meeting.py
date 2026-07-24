@@ -352,22 +352,40 @@ def _render(payload: dict[str, Any]) -> str:
                 if seg and seg.get("series"):
                     sr = seg["series"]
                     unit = (sr[-1].get("unit") or "").strip()
+                    # 연도 간 단위가 다르면 공통 단위 표기가 착시를 만든다 → 연도별 병기 (P1-6)
+                    unit_ok = seg.get("unit_consistent", True)
 
                     def _seg_v(v) -> str:
                         return f"{v:,.0f}" if isinstance(v, (int, float)) else "-"
 
                     span = " → ".join(
                         f"FY{r['fy']} 매출 {_seg_v(r.get('revenue'))}·영업이익 {_seg_v(r.get('profit'))}"
+                        + (f"({(r.get('unit') or '').strip()})" if not unit_ok and r.get("unit") else "")
                         for r in sr
                     )
                     excluded = seg.get("excluded_years") or []
-                    excl_note = (
-                        f" · FY{'/'.join(str(y) for y in excluded)}는 부문표 정형 추출 저신뢰로 제외"
-                        if excluded else ""
-                    )
+                    # 제외 사유를 구분해 표기 (P1-2) — fetch 실패를 '회사 공시 저신뢰'로 오표기 금지
+                    _reason_ko = {
+                        "fetch_error": "조회 실패",
+                        "not_applicable": "부문 공시 대상 아님",
+                        "segment_absent_or_renamed": "해당 부문 미존재(재편·개명 가능)",
+                        "low_confidence": "부문표 정형 추출 저신뢰",
+                    }
+                    _reasons = seg.get("excluded_reasons") or {}
+                    if excluded:
+                        _grouped: dict[str, list[str]] = {}
+                        for _y in excluded:
+                            _grouped.setdefault(_reasons.get(str(_y), "low_confidence"), []).append(str(_y))
+                        excl_note = " · " + ", ".join(
+                            f"FY{'/'.join(ys)}는 {_reason_ko.get(rk, rk)}로 제외"
+                            for rk, ys in _grouped.items()
+                        )
+                    else:
+                        excl_note = ""
                     lines.append(
                         f"  - **담당부문 성과(참고, 점수 미반영)**: {seg.get('segment')} — {span}"
-                        + (f" (단위: {unit})" if unit else "")
+                        + (f" (단위: {unit})" if unit and unit_ok else "")
+                        + ("" if unit_ok else " ⚠️연도 간 공시 단위 상이 — 추이 비교 주의")
                         + excl_note
                     )
                     lines.append(

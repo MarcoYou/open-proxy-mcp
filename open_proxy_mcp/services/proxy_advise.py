@@ -2420,15 +2420,29 @@ async def build_proxy_advise_payload(
                 fields=["segments"], bsns_year=str(_seg_y1), reprt_code="11011",
             )
             seg_latest = extract_segment_items(seg_latest_payload if isinstance(seg_latest_payload, dict) else {})
-            if not seg_latest:
+            # FY-2 fallback은 '아직 미공시' 케이스에만 (260723 리뷰 P1-3): 단일부문사
+            # (NOT_APPLICABLE)·금융/REIT(UNSUPPORTED_FORM)·upstream 에러는 과거 연도에서도
+            # 같은 결과가 확정적이라 추가 fetch가 순낭비 + '저신뢰' 오라벨을 낳는다.
+            _latest_seg_status = (
+                (((seg_latest_payload or {}).get("data") or {}).get("segments") or {}).get("status")
+                if isinstance(seg_latest_payload, dict) else None
+            )
+            _latest_is_error = (
+                isinstance(seg_latest_payload, dict) and seg_latest_payload.get("status") == "error"
+            )
+            _structural_absence = _latest_seg_status in ("NOT_APPLICABLE", "UNSUPPORTED_FORM")
+            if not seg_latest and not _structural_absence and not _latest_is_error:
                 # 주총 시즌 사전 호출이면 FY(회차-1) 사업보고서가 아직 미공시일 수 있음 → FY(회차-2) 1회 fallback
-                _seg_y1 = target_year - 2
-                seg_latest_payload = await _safe_throttled(
+                _fb_year = target_year - 2
+                _fb_payload = await _safe_throttled(
                     build_business_details_payload, company_query,
                     timing_label="business_details.segments.latest_fb",
-                    fields=["segments"], bsns_year=str(_seg_y1), reprt_code="11011",
+                    fields=["segments"], bsns_year=str(_fb_year), reprt_code="11011",
                 )
-                seg_latest = extract_segment_items(seg_latest_payload if isinstance(seg_latest_payload, dict) else {})
+                _fb_seg = extract_segment_items(_fb_payload if isinstance(_fb_payload, dict) else {})
+                if _fb_seg:
+                    # 정형 성공 시에만 교체 — 실패면 FY(t-1)의 마크다운(더 신선)을 보존
+                    _seg_y1, seg_latest_payload, seg_latest = _fb_year, _fb_payload, _fb_seg
             _company_name_for_seg = selected.get("corp_name") or company_query
             seg_mappings: dict[int, dict[str, Any]] = {}
             _seg_statuses: list[str] = []
@@ -2458,7 +2472,14 @@ async def build_proxy_advise_payload(
                     }
             else:
                 for ev in inside_renewed_candidates:
-                    ev["performance"]["segment_signal_status"] = "segments_low_confidence"
+                    # 상태 세분화(260723 리뷰 P1-2/P1-3): 구조적 부재·조회 실패를
+                    # '저신뢰'로 뭉뚱그리면 사용자에게 잘못된 서사가 나간다.
+                    ev["performance"]["segment_signal_status"] = (
+                        "segments_not_applicable" if _latest_seg_status == "NOT_APPLICABLE"
+                        else "segments_unsupported_form" if _latest_seg_status == "UNSUPPORTED_FORM"
+                        else "segments_fetch_error" if _latest_is_error
+                        else "segments_low_confidence"
+                    )
                 # (B) 정형 저신뢰 → segments 추출기가 돌려준 영업부문 주석 마크다운을 회사 단위
                 # 1회 첨부 (260718 결정 '통으로 마크다운' 재사용 — 호출측 AI가 직접 읽음). 추가 콜 0.
                 _seg_data = ((seg_latest_payload or {}).get("data") or {}) if isinstance(seg_latest_payload, dict) else {}
@@ -2510,10 +2531,22 @@ async def build_proxy_advise_payload(
                     ev = inside_renewed_candidates[idx]
                     series = build_segment_series(yearly, m["segment"])
                     if series:
-                        # 요청 연도 중 시계열에서 빠진 연도 — 정형 추출 저신뢰(NEEDS_REVIEW 폴백)
-                        # 또는 부문 재편으로 제외됨을 명시 (부문 부재로 오독 방지)
+                        # 요청 연도 중 시계열에서 빠진 연도 — 사유를 구분해 기록(260723 리뷰 P1-2):
+                        # fetch 에러를 '회사 공시가 저신뢰'라고 표기하면 거짓 서사가 된다.
                         _series_fys = {r["fy"] for r in series}
                         excluded = sorted(fy for fy in yearly if fy not in _series_fys)
+                        excluded_reasons: dict[str, str] = {}
+                        for _fy in excluded:
+                            _p = yearly.get(_fy)
+                            if not isinstance(_p, dict) or _p.get("status") == "error":
+                                excluded_reasons[str(_fy)] = "fetch_error"
+                                continue
+                            _st = ((_p.get("data") or {}).get("segments") or {}).get("status")
+                            excluded_reasons[str(_fy)] = (
+                                "not_applicable" if _st in ("NOT_APPLICABLE", "UNSUPPORTED_FORM")
+                                else "segment_absent_or_renamed" if _st == "OK"
+                                else "low_confidence"
+                            )
                         ev["performance"]["segment_signal"] = {
                             "segment": m["segment"],
                             "matched_from": m["matched_from"],
@@ -2521,6 +2554,10 @@ async def build_proxy_advise_payload(
                             "profit_metric": seg_latest.get("profit_metric"),
                             "series": series,
                             "excluded_years": excluded,
+                            "excluded_reasons": excluded_reasons,
+                            # 연도 간 공시 단위 변경(백만원↔억원) 시 추이가 100배 착시를 만든다 —
+                            # 불일치하면 렌더가 연도별 단위를 병기하도록 플래그 (260723 리뷰 P1-6)
+                            "unit_consistent": len({(r.get("unit") or "") for r in series}) <= 1,
                             "note": (
                                 "참고 — 점수 미반영. 담당부문 추정은 후보 경력 텍스트 기반 보수적 매핑. "
                                 "부문 구성·지표 정의(K-IFRS 1108)는 회사 공시 기준이라 연도 간 재편 시 불연속 가능."

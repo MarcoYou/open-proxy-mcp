@@ -104,3 +104,43 @@ class TestSeries:
         series = build_segment_series(yearly, "첨단소재")
         assert [r["fy"] for r in series] == [2023, 2025]
         assert series[-1]["revenue"] == 120.0
+
+
+# ── 260724 P1 회귀 고정 (fresh-eye 리뷰 잔여 처리) ──
+
+class TestP1Fixes:
+    def test_norm_seg_name_no_suffix_residue(self):
+        """P1-1: '사업'을 먼저 지우면 '사업부' 제거가 dead code가 돼 '전지부' 잔여가 남았다."""
+        from open_proxy_mcp.services.business_details import _norm_seg_name
+        assert _norm_seg_name("전지사업부") == "전지"
+        assert _norm_seg_name("반도체사업부") == "반도체"
+        assert _norm_seg_name("첨단소재사업부문") == "첨단소재"
+        assert _norm_seg_name("첨단소재") == "첨단소재"
+
+    def test_division_head_maps_despite_saeopbu_naming(self):
+        """P1-1의 실제 효과: '○○사업부' 공시 회사에서 매핑이 살아난다."""
+        cand = _cand("(주)테스트 전지사업부장",
+                     [{"company": "(주)테스트 전지사업부", "items": ["2024~현재 사업부장"]}])
+        m = map_candidate_to_segment(cand, ["전지사업부", "소재사업부"], "테스트")
+        assert m["status"] == "mapped"
+        assert m["segment"] == "전지사업부"
+
+    def test_series_equality_survives_suffix_variants(self):
+        """P1-1: 연도 간 '전지사업부'↔'전지' 표기 변형이 정규화 동치로 이어진다."""
+        def _payload(name):
+            return {"data": {"segments": {"status": "OK", "unit": "백만원", "revenue_metric": "",
+                                          "profit_metric": "", "items": [{"name": name, "revenue": 10.0, "profit": 1.0}]}}}
+        series = build_segment_series({2024: _payload("전지사업부"), 2025: _payload("전지")}, "전지사업부")
+        assert [r["fy"] for r in series] == [2024, 2025]
+
+    def test_short_latin_segment_name_rejected(self):
+        """P1-4: latin 2자('IT')는 'Digital'·'Security'에 substring 매치돼 오매핑을 낳는다."""
+        cand = _cand("(주)테스트 Digital Security 사업본부장",
+                     [{"company": "(주)테스트 Digital Security", "items": ["2024~현재 본부장"]}])
+        assert map_candidate_to_segment(cand, ["IT사업부문"], "테스트")["status"] == "no_match"
+
+    def test_pseudo_axis_segment_names_are_stopwords(self):
+        """P1-4: 지역·기능 축 pseudo-부문(수출/내수/금융 등)은 매핑 대상에서 제외."""
+        cand = _cand("(주)테스트 수출사업본부장",
+                     [{"company": "(주)테스트 수출사업", "items": ["2024~현재 본부장"]}])
+        assert map_candidate_to_segment(cand, ["수출", "내수"], "테스트")["status"] == "no_match"

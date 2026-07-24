@@ -31,7 +31,20 @@ _CAREER_NORM_RE = re.compile(r"[\s㈜㈱()（）주식회사]")
 _DIVISION_CAREER_RE = re.compile(r"(사업본부|사업부문|사업부|본부장|부문장|사업담당|사업총괄|BU장?|디비전)")
 
 # 매핑 제외 부문명 (정규화 후) — 너무 일반적이라 오매칭 위험
-_SEGMENT_STOPWORDS = {"기타", "공통", "본사", "연결", "국내", "해외", "합계"}
+_SEGMENT_STOPWORDS = {
+    "기타", "공통", "본사", "연결", "국내", "해외", "합계",
+    # 260723 리뷰 P1-4: 지역·기능 축 pseudo-부문 (커리어 텍스트에 흔히 등장해 오매칭 유발)
+    "수출", "내수", "지주", "금융", "물류", "유통", "제조", "서비스", "영업", "관리",
+}
+
+# latin 부문명은 짧을수록 오매칭 위험이 크다("IT"→'it'가 "Digital"·"Security"에 substring 매치).
+# 한글은 2자만 돼도 변별력이 있으나(전지·소재), latin은 3자 이상만 허용 (260723 리뷰 P1-4).
+_MIN_LEN_HANGUL = 2
+_MIN_LEN_LATIN = 3
+
+
+def _min_norm_len(norm: str) -> int:
+    return _MIN_LEN_HANGUL if re.search(r"[가-힣]", norm) else _MIN_LEN_LATIN
 
 
 def _norm_text(text: str) -> str:
@@ -97,7 +110,7 @@ def map_candidate_to_segment(
     matched: dict[str, str] = {}  # 원문 부문명 → 근거 텍스트
     for name in segment_names:
         norm = _norm_seg_name(name or "")
-        if len(norm) < 2 or norm in _SEGMENT_STOPWORDS:
+        if len(norm) < _min_norm_len(norm) or norm in _SEGMENT_STOPWORDS:
             continue
         if norm in joined:
             evidence = next((t for t in texts if norm in _norm_text(t)), joined_raw[:80])

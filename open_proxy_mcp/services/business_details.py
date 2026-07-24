@@ -589,9 +589,16 @@ def extract_segment_profit(biz_content_text: str, note_full_text: str, note_sour
 
 
 def _norm_seg_name(nm: str) -> str:
-    """부문명 정규화(대조용): 공백·부문/사업 접미사·괄호주석·대소문자 제거."""
+    """부문명 정규화(대조용): 공백·부문/사업 접미사·괄호주석·대소문자 제거.
+
+    접미사는 **긴 것부터** 제거한다 — 짧은 것("사업")을 먼저 지우면 긴 것("사업부")의
+    제거가 영원히 도달 불가능해져 잔여가 남는다(260723 리뷰: '전지사업부'→'전지부'로
+    남아 담당부문 매핑 miss + 연도 간 시계열 동치 실패).
+    """
     nm = re.sub(r"[\(（*].*", "", nm)                 # 괄호주석·별표 이후 제거
-    nm = nm.replace(" ", "").replace("부문", "").replace("사업", "").replace("사업부", "")
+    nm = nm.replace(" ", "")
+    for suffix in ("사업부문", "사업부", "부문", "사업"):
+        nm = nm.replace(suffix, "")
     return nm.strip().lower()
 
 
