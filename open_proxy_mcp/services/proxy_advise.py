@@ -116,26 +116,26 @@ def _reconcile_category_with_lcode(
     if not section_code or section_code in _LCODE_NON_AUTHORITATIVE:
         return category, None
     mapped = _LCODE_CATEGORY.get(section_code)
+    # 문구에 원시 L-코드 비노출 (260724 사용자: 코드는 운영자용 — payload의
+    # source_section.section_code로만 제공, 사용자 문구는 한글 유형명으로)
     if mapped is None:
-        return category, (
-            f"표준 안건유형코드({section_code})가 분류 체계에 미등록 — 안건 분류 수기 확인 권고"
-        )
+        return category, "표준 서식 신고 유형이 분류 체계에 미등록 — 안건 분류 수기 확인 권고"
     if category == "other":
         # 이름 기반 정합: 섹션 제목("□ 자본의 감소" 류)을 분류기에 넣어 코드와 일치할 때만 승격
         title_cat = _classify_agenda(section_title) if section_title else None
         if map_trusted and title_cat == mapped:
             return mapped, (
-                f"분류 근거: 안건유형코드 {section_code}"
-                f"({_CATEGORY_KO.get(mapped, mapped)}) — 제목 기반 분류 미매칭을 표준 서식 코드로 보완"
+                f"분류 근거: 표준 서식 신고 유형 '{_CATEGORY_KO.get(mapped, mapped)}' — "
+                f"제목 기반 분류 미매칭을 보완"
             )
         return category, (
-            f"안건유형코드 {section_code}({_CATEGORY_KO.get(mapped, mapped)}) 존재하나 "
-            f"정합 확인 실패 — 분류 수기 확인 권고"
+            f"표준 서식 신고 유형('{_CATEGORY_KO.get(mapped, mapped)}') 존재하나 "
+            f"정합 확인 실패 — 원문 발췌 확인 권고"
         )
     if mapped != category:
         return category, (
-            f"안건유형코드({_CATEGORY_KO.get(mapped, mapped)})와 제목 기반 분류"
-            f"({_CATEGORY_KO.get(category, category)}) 불일치 — 본문 재확인 권고"
+            f"표준 서식 신고 유형('{_CATEGORY_KO.get(mapped, mapped)}')과 제목 기반 분류"
+            f"('{_CATEGORY_KO.get(category, category)}') 불일치 — 원문 발췌 확인 권고"
         )
     return category, None
 
@@ -2399,10 +2399,16 @@ async def build_proxy_advise_payload(
             for it in agenda_tree
             if isinstance(it, dict) and (it.get("title") or "").strip()
         ]
+        # 섹션 원문 구간(다음 L/D 앵커 전까지) — 정합 실패 시 통 원문 발췌용 (260724)
+        _lsec_pos = [m.start() for m in re.finditer(
+            r'<TITLE\b[^>]*AASSOCNOTE="L0-0-2-\d+-0"[^>]*>', notice_html)]
         if _lsecs and _roots and len(_lsecs) == len(_roots):
-            for _rt, (_code, _sec_title) in zip(_roots, _lsecs):
+            for _i, (_rt, (_code, _sec_title)) in enumerate(zip(_roots, _lsecs)):
+                _s = _lsec_pos[_i] if _i < len(_lsec_pos) else 0
+                _e = _lsec_pos[_i + 1] if _i + 1 < len(_lsec_pos) else min(len(notice_html), _s + 60000)
                 agenda_source_map[_rt] = {
                     "rcept_no": agm_rcept, "section_code": _code, "section_title": _sec_title,
+                    "_span": (_s, _e),
                 }
     # 맵 단위 정합성 게이트 (260724 QA): 루트 하나라도 "코드 vs 제목 분류" 상충이면
     # zip-order 밀림 의심 → 이 공고의 'other' 승격 전체 억제 (행별 독립 대조의 맹점 보완)
@@ -2769,12 +2775,22 @@ async def build_proxy_advise_payload(
         # 안건 유형 코드 이중 대조 (260724) — 루트 안건만 직접 바인딩됨(자식은 상속이라
         # 유형이 다를 수 있어 대조 제외: 예 이사선임 묶음 아래 개별 감사위원 sub)
         classification_note: str | None = None
+        source_excerpt: str | None = None
         if not parent_for_title:
             _src = agenda_source_map.get(title)
             category, classification_note = _reconcile_category_with_lcode(
                 category, (_src or {}).get("section_code"),
                 section_title=(_src or {}).get("section_title") or "",
                 map_trusted=lcode_map_trusted)
+            # 정합 실패·불일치·미등록이면 메모로 끝내지 않고 해당 절 원문을 통으로 동봉
+            # (260724 사용자 결정 — segments 사다리와 동일 철학). 표는 그리드 변환기
+            # (_render_html_region_md → _table_to_markdown)가 마크다운 표로 변환.
+            if classification_note and "분류 근거" not in classification_note and _src and _src.get("_span"):
+                from open_proxy_mcp.services.segment_candidates import _render_html_region_md
+                _s, _e = _src["_span"]
+                _md = _render_html_region_md(notice_html, _s, _e) or ""
+                if _md:
+                    source_excerpt = _md[:3500] + (" …(발췌)" if len(_md) > 3500 else "")
         decision = "NO_DATA"
         reason = "category 미분류 — 본문 검토 필요"
         matched_eval: dict[str, Any] | None = None
@@ -3169,6 +3185,8 @@ async def build_proxy_advise_payload(
             or agenda_source_map.get(title_to_parent.get(title) or ""),
             # 분류 품질 메모 (승격 근거·불일치·미등재) — 거버넌스 risk와 분리 (260724 리뷰)
             "classification_note": classification_note,
+            # 정합 실패 시 해당 절 원문 통 발췌 (표는 그리드→마크다운 변환)
+            "source_excerpt": source_excerpt,
         })
     _mark("decision_engine", stage_started_at)
 

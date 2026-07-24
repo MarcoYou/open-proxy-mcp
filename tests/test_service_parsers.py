@@ -94,7 +94,7 @@ def test_render_agenda_source_section_line():
         }]}}
     md = _render(payload)
     assert "근거 위치: 소집공고 **§자본의 감소**" in md
-    assert "L0-0-2-19-0" in md
+    assert "L0-0-2-19-0" not in md  # 내부 코드는 사용자 화면 비노출 (payload에만)
 
 
 def test_reconcile_category_with_lcode_rules():
@@ -102,7 +102,7 @@ def test_reconcile_category_with_lcode_rules():
     from open_proxy_mcp.services.proxy_advise import _reconcile_category_with_lcode as rec
     # other + 특정 코드 + 이름 정합 + 맵 신뢰 → 승격 + 분류 근거 note (silent 승격 금지)
     cat, note = rec("other", "L0-0-2-19-0", section_title="자본의 감소", map_trusted=True)
-    assert cat == "capital_reduction" and note and "분류 근거" in note
+    assert cat == "capital_reduction" and note and "분류 근거" in note and "L0-0-2" not in note
     # 이름 정합 실패(밀린 코드 — 섹션 제목이 코드와 다른 유형) → 승격 차단 + 수기 확인
     cat, note = rec("other", "L0-0-2-19-0", section_title="이사의 보수한도 승인", map_trusted=True)
     assert cat == "other" and note and "정합 확인 실패" in note
@@ -119,7 +119,7 @@ def test_reconcile_category_with_lcode_rules():
     assert rec("other", None) == ("other", None)
     # 미등재 코드 → 수기 확인 note (사용자 톤 — '어휘 수집' 개발 메모 미노출)
     cat, note = rec("other", "L0-0-2-7-0", section_title="알 수 없는 안건")
-    assert cat == "other" and note and "미등록" in note and "어휘" not in note
+    assert cat == "other" and note and "미등록" in note and "어휘" not in note and "L0-0-2" not in note
 
 
 def test_classify_new_auto_for_holes_closed():

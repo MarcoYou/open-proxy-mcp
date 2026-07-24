@@ -230,14 +230,20 @@ def _render(payload: dict[str, Any]) -> str:
             if rcept_no:
                 viewer = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
                 lines.append(f"- 근거 공고: [주주총회소집공고 {rcept_no}]({viewer})")
+            # 내부 코드번호는 비노출 (payload source_section.section_code로만 — 운영자용)
             src = ag.get("source_section")
             if src and src.get("section_title"):
                 lines.append(
-                    f"- 근거 위치: 소집공고 **§{src['section_title']}** (안건유형코드 `{src.get('section_code')}`)"
+                    f"- 근거 위치: 소집공고 **§{src['section_title']}**"
                     f" — 뷰어 좌측 목차에서 해당 절을 열면 이 안건의 원문"
                 )
             if ag.get("classification_note"):
                 lines.append(f"- 분류 검증: {ag['classification_note']}")
+            if ag.get("source_excerpt"):
+                lines.append("- 해당 절 원문 발췌 (LLM 직접 검토):")
+                lines.append("")
+                lines.append(ag["source_excerpt"])
+                lines.append("")
             lines.append("")
 
     # 후보 평가 (사외이사/감사위원 위주)
