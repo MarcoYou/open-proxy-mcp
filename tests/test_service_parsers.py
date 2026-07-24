@@ -76,3 +76,22 @@ def test_classify_statutory_auditor_election_path_kept():
     assert _classify_agenda("감사의 선임") == "audit_committee_election"
     assert _is_statutory_auditor_agenda("감사의 선임") is True
     assert _is_statutory_auditor_agenda("감사위원회 위원의 선임") is False
+
+
+def test_render_agenda_source_section_line():
+    """260724 provenance 1단계: source_section이 있으면 '근거 위치' 라인이 렌더된다."""
+    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
+    payload = {"status": "exact", "subject": "T", "data": {
+        "canonical_name": "테스트", "year": 2026, "meeting_type": "annual",
+        "candidates_evaluations": [],
+        "agenda_decisions": [{
+            "agenda_title": "자본의 감소", "agenda_category": "capital_reduction",
+            "decision": "REVIEW", "reason": "자본 감소 — 원문 확인 필요", "facts": {},
+            "risk_factors": [], "policy_citation": "-", "policy_basis": "-",
+            "evidence_rcept_no": "20260101000001",
+            "source_section": {"rcept_no": "20260101000001",
+                               "section_code": "L0-0-2-19-0", "section_title": "자본의 감소"},
+        }]}}
+    md = _render(payload)
+    assert "근거 위치: 소집공고 **§자본의 감소**" in md
+    assert "L0-0-2-19-0" in md

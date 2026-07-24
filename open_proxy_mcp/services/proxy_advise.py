@@ -2209,6 +2209,7 @@ async def build_proxy_advise_payload(
     fy_raw_from_agenda: dict[str, Any] = {"extraction_status": "no_data"}
     retirement_payload: dict[str, Any] | None = None
     notice_full_text: str = ""  # 파싱 실패 안건 raw 폴백용 소집공고 원문 (아래 decision loop에서 사용)
+    notice_html: str = ""       # 260724 provenance: L0-0-2-* 섹션 좌표 추출용 원문 XML
     notice_dict = ((meeting_summary.get("data") or {}).get("notice") or {})
     agm_rcept = notice_dict.get("rcept_no") if isinstance(notice_dict, dict) else None
     # 260723 리뷰: pre-resolution은 연도만 downstream에 넘기고 payload는 그 연도 창에서 재선택
@@ -2231,6 +2232,7 @@ async def build_proxy_advise_payload(
             text = (doc or {}).get("text") or ""
             notice_full_text = text
             html = (doc or {}).get("html") or ""
+            notice_html = html
             # 잠정 재무제표 표 파싱 (HTML 표 구조 그대로) + flat metrics 추출
             if html:
                 pfs_parsed = parse_provisional_financial_statement(html)
@@ -2295,6 +2297,28 @@ async def build_proxy_advise_payload(
                 title_to_children_count[t] = len(it.get("children") or [])
             _walk_agenda_tree(it.get("children", []), parent=t)
     _walk_agenda_tree(agenda_tree)
+
+    # ── 근거 위치(provenance) 1단계 (260724) — 루트 안건 ↔ L0-0-2-* 섹션 순서 바인딩 ──
+    # DART 편집기가 안건 유형별로 찍는 표준 섹션 코드(L0-0-2-N-0)를 "어느 공시의 어디를
+    # 보라"는 좌표로 동봉한다. 루트 안건 수 == L-섹션 수일 때만 순서 바인딩(보수 원칙 —
+    # 불일치·부재 시 미부착), 자식 안건은 부모 섹션을 상속. 코드↔카테고리 대조는 향후 확장.
+    agenda_source_map: dict[str, dict[str, str]] = {}
+    if notice_html and agm_rcept:
+        _lsecs = [
+            (m.group(1), re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(2))).replace("□", "").strip())
+            for m in re.finditer(
+                r'<TITLE\b[^>]*AASSOCNOTE="(L0-0-2-\d+-0)"[^>]*>(.*?)</TITLE>', notice_html, re.S)
+        ]
+        _roots = [
+            (it.get("title") or "").strip()
+            for it in agenda_tree
+            if isinstance(it, dict) and (it.get("title") or "").strip()
+        ]
+        if _lsecs and _roots and len(_lsecs) == len(_roots):
+            for _rt, (_code, _sec_title) in zip(_roots, _lsecs):
+                agenda_source_map[_rt] = {
+                    "rcept_no": agm_rcept, "section_code": _code, "section_title": _sec_title,
+                }
 
     # 후보 평가 dict — name → eval
     director_data = (director_eval.get("data") or {})
@@ -3023,6 +3047,9 @@ async def build_proxy_advise_payload(
             "policy_default": policy_default,
             "opm_fallback_decision": original_decision if (policy_default and policy_default != "case_by_case") else None,
             "evidence_rcept_no": (meeting_summary.get("data") or {}).get("rcept_no") or director_data.get("rcept_no"),
+            # provenance 1단계: 이 안건을 원문 어디서 볼지 — 자식 안건은 부모 섹션 상속
+            "source_section": agenda_source_map.get(title)
+            or agenda_source_map.get(title_to_parent.get(title) or ""),
         })
     _mark("decision_engine", stage_started_at)
 
