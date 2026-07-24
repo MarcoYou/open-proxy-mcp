@@ -50,3 +50,29 @@ def test_agm_result_table_parser_preserves_vote_rows():
     rows = parse_agm_result_table(soup)
     assert rows[0]["number"] == "제1호"
     assert rows[0]["estimated_attendance"] == 88.9
+
+
+# ── 260724 안건 분류 L-코드 진단 반영 회귀 ──
+
+def test_classify_capital_reduction_official_wording():
+    """DART 공식 표기 '자본의 감소'가 'other'(→mainstream FOR 위험)로 새지 않는다."""
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("자본의 감소") == "capital_reduction"
+    assert _classify_agenda("자본감소의 건") == "capital_reduction"
+    assert _classify_agenda("무상감자 결정의 건") == "capital_reduction"
+    assert _classify_agenda("자본금 감액의 건") == "capital_reduction"
+
+
+def test_classify_reserve_reduction_stays_mainstream():
+    """자본준비금 감액(회계 평탄화·배당가능이익 확보)은 종전대로 other — iter12 유지."""
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("자본준비금 감액의 건") == "other"
+    assert _classify_agenda("이익준비금 감액의 건") == "other"
+
+
+def test_classify_statutory_auditor_election_path_kept():
+    """감사(상근) 선임은 감사위원과 동일 결정 경로 유지 (인용 라벨만 citation에서 구분)."""
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda, _is_statutory_auditor_agenda
+    assert _classify_agenda("감사의 선임") == "audit_committee_election"
+    assert _is_statutory_auditor_agenda("감사의 선임") is True
+    assert _is_statutory_auditor_agenda("감사위원회 위원의 선임") is False

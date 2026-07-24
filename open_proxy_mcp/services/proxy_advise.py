@@ -717,6 +717,13 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
         return "articles_amendment"
     if "자기주식" in t or "자사주" in t:
         return "treasury_share"
+    # 260724 L-코드 진단(캐시 27건×111회): DART 공식 표기 '자본의 감소'(L0-0-2-19-0)가
+    # 'other' 위험키워드('감자'·'자본금 감액')를 우회해 mainstream FOR로 흐르던 실사례 2건
+    # → 전용 카테고리. 단 '자본준비금/이익준비금 감액'(회계 평탄화)은 종전대로 other(FOR).
+    if "감자" in t or (
+        "자본" in t and ("감소" in t or "감액" in t) and "준비금" not in t
+    ):
+        return "capital_reduction"
     if any(k in t for k in ("합병", "분할", "주식교환", "주식이전")):
         return "merger_or_restructuring"
     if "주주제안" in t:
@@ -1380,6 +1387,7 @@ _POLICY_CITATIONS = {
     "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 / 사외이사 퇴직금 / 지급률 2배수 이상 인상은 REVIEW",
     "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 없으면 FOR",
     "treasury_share": "OPM Guideline §자사주 — 소각 FOR / 처분 REVIEW",
+    "capital_reduction": "OPM Guideline §자본감소 — 주주 지분 직접 영향, 유형(무상/유상·결손보전) 무관 원문 검토 REVIEW",
     "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
     "shareholder_proposal": "OPM Guideline §주주제안 — 본문 검토",
     "other": "OPM Guideline §기타 — 위험 키워드 (감자/적대적/포이즌/CB) 없으면 mainstream FOR",
@@ -2802,6 +2810,11 @@ async def build_proxy_advise_payload(
             )
         elif category == "treasury_share":
             decision, reason = _decide_treasury_share(title)
+        elif category == "capital_reduction":
+            # 260724: 자동 FOR 금지 — 무상감자(결손보전)와 유상감자(지분 환급)는 주주 영향이
+            # 정반대일 수 있어 원문 판단 위임. 종전엔 'other'로 새어 mainstream FOR 위험.
+            decision = "REVIEW"
+            reason = "자본 감소 — 주주 지분·자본구조 직접 영향. 유형(무상/유상, 결손보전·주식병합 여부)을 원문에서 확인 필요"
         else:
             # ralph iter6/12: other 카테고리 default FOR (위험 키워드 없으면).
             # 운용사 mainstream 표본 100% FOR (한화 2/2, 카카오뱅크 7/7 등).
@@ -2974,6 +2987,10 @@ async def build_proxy_advise_payload(
             ownership_payload=ownership,
         )
         policy_citation = _policy_citation(category)
+        # 260724 L-코드 진단 부수(감사의 선임 L0-0-2-5-0): 상법상 감사(상근·비상근)는
+        # 감사위원회 위원과 별개 기구 — 결정 경로(3%룰·후보검증)는 공유하되 인용 라벨만 구분.
+        if category == "audit_committee_election" and _is_statutory_auditor_agenda(title):
+            policy_citation = "OPM Guideline §감사선임 — 상법상 감사(감사위원 아님): 합산 3%룰·결격 검증 동일 적용"
 
         # FOR로 결론났지만 재무 risk_factors(적자·자본잠식 등)가 계산돼 있으면 reason에 정직 병기.
         # 결정 자체는 안 바꾼다(예: 적자여도 보수한도 동결(+0%)은 정당) — 다만 reason이 위험을
