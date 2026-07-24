@@ -236,6 +236,8 @@ def _render(payload: dict[str, Any]) -> str:
                     f"- 근거 위치: 소집공고 **§{src['section_title']}** (안건유형코드 `{src.get('section_code')}`)"
                     f" — 뷰어 좌측 목차에서 해당 절을 열면 이 안건의 원문"
                 )
+            if ag.get("classification_note"):
+                lines.append(f"- 분류 검증: {ag['classification_note']}")
             lines.append("")
 
     # 후보 평가 (사외이사/감사위원 위주)

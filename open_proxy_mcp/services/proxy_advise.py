@@ -70,6 +70,75 @@ _PROXY_ADVISE_CACHE: dict[tuple, dict] = {}
 # 회차 pre-resolution 표기용 (shareholder_meeting._MEETING_TYPE_MAP과 동일 한글 라벨)
 _MEETING_TYPE_KO = {"annual": "정기", "extraordinary": "임시", "auto": "정기/임시"}
 
+# ── 안건 유형 표준 섹션 코드 → 카테고리 (260724, 캐시 27건×111회 대조 근거) ──
+# DART 편집기가 소집공고·위임장에 자동 기입하는 안건 유형 코드. 20-0(기타)은 권위 없음.
+# 5-0(감사의 선임)은 상법상 감사 — 결정 경로는 감사위원과 공유(3%룰·후보검증), 라벨은 citation에서 구분.
+_LCODE_CATEGORY = {
+    "L0-0-2-1-0": "financial_statements",
+    "L0-0-2-2-0": "articles_amendment",
+    "L0-0-2-3-0": "director_election",
+    "L0-0-2-4-0": "audit_committee_election",
+    "L0-0-2-5-0": "audit_committee_election",
+    "L0-0-2-9-0": "director_compensation",
+    "L0-0-2-10-0": "audit_compensation",
+    "L0-0-2-19-0": "capital_reduction",
+}
+_LCODE_NON_AUTHORITATIVE = {"L0-0-2-20-0"}  # 기타 목적사항 — 무엇이든 담김
+
+
+_CATEGORY_KO = {
+    "financial_statements": "재무제표 승인", "articles_amendment": "정관 변경",
+    "director_election": "이사 선임", "audit_committee_election": "감사위원/감사 선임",
+    "director_compensation": "이사 보수한도", "audit_compensation": "감사 보수한도",
+    "capital_reduction": "자본 감소", "stock_option_grant": "주식매수선택권 부여",
+    "other": "기타",
+}
+
+
+def _reconcile_category_with_lcode(
+    category: str,
+    section_code: str | None,
+    section_title: str = "",
+    map_trusted: bool = True,
+) -> tuple[str, str | None]:
+    """텍스트 분류 ↔ 안건 유형 코드 이중 대조 (당가비기 제1조 — 좌표로 짚되 제목으로 검증).
+
+    - 코드가 특정 유형이고 텍스트 분류가 'other'(놓침)면 → 코드로 승격하되 **분류 근거를
+      note로 남긴다** (260724 QA: silent 승격 금지 — 설명책임).
+      승격 게이트 2중: ① map_trusted (같은 공고에서 불일치가 하나라도 나오면 순서
+      바인딩 전체 불신 — zip-order 밀림 방어) ② 섹션 제목 자체의 텍스트 분류가 코드와
+      일치해야 함 (이름 기반 정합 — 밀린 코드는 여기서 걸린다).
+    - 둘 다 특정인데 다르면 → 텍스트 분류 유지 + 확인 권고 note.
+    - 코드 없음/기타(20-0)/미등재 → 텍스트 분류 그대로 (미등재는 note로 수기 확인 권고).
+    반환: (category, classification_note|None) — note는 risk_factors가 아니라 별도 필드로
+    노출한다 (거버넌스 위험 목록에 분류 품질 메모를 섞지 않는다 — 스튜어드십 리뷰 260724).
+    """
+    if not section_code or section_code in _LCODE_NON_AUTHORITATIVE:
+        return category, None
+    mapped = _LCODE_CATEGORY.get(section_code)
+    if mapped is None:
+        return category, (
+            f"표준 안건유형코드({section_code})가 분류 체계에 미등록 — 안건 분류 수기 확인 권고"
+        )
+    if category == "other":
+        # 이름 기반 정합: 섹션 제목("□ 자본의 감소" 류)을 분류기에 넣어 코드와 일치할 때만 승격
+        title_cat = _classify_agenda(section_title) if section_title else None
+        if map_trusted and title_cat == mapped:
+            return mapped, (
+                f"분류 근거: 안건유형코드 {section_code}"
+                f"({_CATEGORY_KO.get(mapped, mapped)}) — 제목 기반 분류 미매칭을 표준 서식 코드로 보완"
+            )
+        return category, (
+            f"안건유형코드 {section_code}({_CATEGORY_KO.get(mapped, mapped)}) 존재하나 "
+            f"정합 확인 실패 — 분류 수기 확인 권고"
+        )
+    if mapped != category:
+        return category, (
+            f"안건유형코드({_CATEGORY_KO.get(mapped, mapped)})와 제목 기반 분류"
+            f"({_CATEGORY_KO.get(category, category)}) 불일치 — 본문 재확인 권고"
+        )
+    return category, None
+
 
 def clear_proxy_advise_cache() -> None:
     """test/diagnostic 용 cache reset"""
@@ -722,9 +791,15 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     # → 전용 카테고리. 단 '자본준비금/이익준비금 감액'(회계 평탄화)은 종전대로 other(FOR).
     if "감자" in t or (
         "자본" in t and ("감소" in t or "감액" in t) and "준비금" not in t
-    ):
+    ) or ("병합" in t and ("주식" in t or "액면" in t)):
+        # 주식(액면)병합 = reverse split (260724 상상인증권 8/7 EGM 라이브 실사례 —
+        # '기타'→자동FOR로 새던 것): 단주 처리 소수주주 축출 리스크 → 자본감소 체크리스트로 REVIEW
         return "capital_reduction"
-    if any(k in t for k in ("합병", "분할", "주식교환", "주식이전")):
+    # 260724 스튜어드십 리뷰: 스톡옵션 부여도 'other'→자동FOR로 새던 동종 구멍 —
+    # 희석률·행사가·부여대상 검토가 mainstream 필수라 전용 카테고리(REVIEW).
+    if "주식매수선택권" in t or "스톡옵션" in t:
+        return "stock_option_grant"
+    if any(k in t for k in ("합병", "분할", "주식교환", "주식이전", "영업양도", "영업양수", "영업 양도", "영업 양수")):
         return "merger_or_restructuring"
     if "주주제안" in t:
         return "shareholder_proposal"
@@ -823,20 +898,29 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         if indep == "long_tenure_concerns":
             _fyr = ((eval_match.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {})
             _is_audit = bool(is_audit or eval_match.get("_audit_force_strict"))
-            _who = "감사위원(사외)" if _is_audit else "사외이사"
-            _audit_note = "(감사위원=사외이사 자격 동일 문턱, 독립성 가중)" if _is_audit else ""
+            # 260724 스튜어드십 리뷰: 상근감사(감사위원 아님)에는 시행령 §34⑤7호(사외이사
+            # 전용 결격)를 인용하지 않는다 — 장기재직 REVIEW 결론은 유지하되 소프트 경보로 서술.
+            _rt = (eval_match.get("role_type") or "")
+            _statutory = ("감사" in _rt) and ("감사위원" not in _rt) and ("사외" not in _rt)
+            _who = ("감사(상근·감사위원 아님)" if _statutory
+                    else "감사위원(사외)" if _is_audit else "사외이사")
+            _audit_note = "(감사위원=사외이사 자격 동일 문턱, 독립성 가중)" if (_is_audit and not _statutory) else ""
+            _law6 = ("장기재직에 따른 독립성 약화 소지 (소프트 경보 — 법정 결격 아님)" if _statutory
+                     else "동일 상장회사 6년 초과 시 상법 시행령 §34조5항7호 사외이사 결격 해당 가능")
             # tenure 기반이면 실제 근거를, keyword 기반이면 정직하게 키워드 발견을 명시.
             if _fyr.get("source") in ("tenure_years", "roster_tenure"):
                 _basis = _fyr.get("basis") or "재직기간 확인"
                 _years = _fyr.get("years")
                 if isinstance(_years, int) and _years >= 6:
-                    return "REVIEW", (f"{_who} 장기연임 ({_basis}) — 동일 상장회사 6년 초과 시 "
-                                      f"상법 시행령 §34조5항7호 사외이사 결격 해당 가능{_audit_note}. 계열 합산(9년)·재직기간 과소계상 여부 원문 확인 권고")
+                    return "REVIEW", (f"{_who} 장기연임 ({_basis}) — {_law6}{_audit_note}. "
+                                      f"계열 합산(9년)·재직기간 과소계상 여부 원문 확인 권고")
                 return "REVIEW", (f"{_who} 장기연임 소프트 경보 ({_basis}) — 재직 5년 이상. "
-                                  f"법정 결격(상법 시행령 §34조5항7호 6년 초과)에는 미달하나 독립성 약화 소지{_audit_note}, 사용자 검토 권고")
+                                  + ("독립성 약화 소지" if _statutory
+                                     else "법정 결격(상법 시행령 §34조5항7호 6년 초과)에는 미달하나 독립성 약화 소지")
+                                  + f"{_audit_note}, 사용자 검토 권고")
             # keyword 기반(재직연수 미상) — 단일 REVIEW 문구(6년 경계 판정 불가)
             return "REVIEW", (f"{_who} 장기연임 (재선임/연임/중임 키워드 발견) — 5년 이상은 소프트 독립성 경보, "
-                              f"동일 상장회사 6년 초과 시 상법 시행령 §34조5항7호 사외이사 결격 해당 가능{_audit_note}(계열 합산·과소계상 원문 확인 권고)")
+                              f"{_law6}{_audit_note}(계열 합산·과소계상 원문 확인 권고)")
         if indep == "concerns":
             return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
         # 겸직 과다 (3곳 이상) — 충실의무 수행 여력 검토 (260710 계산-후-폐기 신호 반영)
@@ -1387,7 +1471,8 @@ _POLICY_CITATIONS = {
     "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 / 사외이사 퇴직금 / 지급률 2배수 이상 인상은 REVIEW",
     "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 없으면 FOR",
     "treasury_share": "OPM Guideline §자사주 — 소각 FOR / 처분 REVIEW",
-    "capital_reduction": "OPM Guideline §자본감소 — 주주 지분 직접 영향, 유형(무상/유상·결손보전) 무관 원문 검토 REVIEW",
+    "capital_reduction": "OPM Guideline §자본감소 — 원칙 반대·예외 찬성(회생/구조조정 불가피·상장폐지 회피·주주가치 미훼손 유상감자·자사주 소각). 엔진은 유형 확정 불가 시 REVIEW(원문 판단 위임)",
+    "stock_option_grant": "OPM Guideline §주식매수선택권 — 희석률 한도·행사가격·부여대상 검토 필수, 엔진은 REVIEW(원문 판단 위임)",
     "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
     "shareholder_proposal": "OPM Guideline §주주제안 — 본문 검토",
     "other": "OPM Guideline §기타 — 위험 키워드 (감자/적대적/포이즌/CB) 없으면 mainstream FOR",
@@ -2319,6 +2404,16 @@ async def build_proxy_advise_payload(
                 agenda_source_map[_rt] = {
                     "rcept_no": agm_rcept, "section_code": _code, "section_title": _sec_title,
                 }
+    # 맵 단위 정합성 게이트 (260724 QA): 루트 하나라도 "코드 vs 제목 분류" 상충이면
+    # zip-order 밀림 의심 → 이 공고의 'other' 승격 전체 억제 (행별 독립 대조의 맹점 보완)
+    lcode_map_trusted = True
+    for _rt, _src in agenda_source_map.items():
+        _mapped = _LCODE_CATEGORY.get(_src.get("section_code") or "")
+        if _mapped:
+            _tc = _classify_agenda(_rt)
+            if _tc != "other" and _tc != _mapped:
+                lcode_map_trusted = False
+                break
 
     # 후보 평가 dict — name → eval
     director_data = (director_eval.get("data") or {})
@@ -2671,6 +2766,15 @@ async def build_proxy_advise_payload(
         proposer_type = agenda_row.get("proposer_type")
         parent_for_title = title_to_parent.get(title, "")
         category = _classify_agenda(title, parent_title=parent_for_title)
+        # 안건 유형 코드 이중 대조 (260724) — 루트 안건만 직접 바인딩됨(자식은 상속이라
+        # 유형이 다를 수 있어 대조 제외: 예 이사선임 묶음 아래 개별 감사위원 sub)
+        classification_note: str | None = None
+        if not parent_for_title:
+            _src = agenda_source_map.get(title)
+            category, classification_note = _reconcile_category_with_lcode(
+                category, (_src or {}).get("section_code"),
+                section_title=(_src or {}).get("section_title") or "",
+                map_trusted=lcode_map_trusted)
         decision = "NO_DATA"
         reason = "category 미분류 — 본문 검토 필요"
         matched_eval: dict[str, Any] | None = None
@@ -2837,14 +2941,23 @@ async def build_proxy_advise_payload(
         elif category == "capital_reduction":
             # 260724: 자동 FOR 금지 — 무상감자(결손보전)와 유상감자(지분 환급)는 주주 영향이
             # 정반대일 수 있어 원문 판단 위임. 종전엔 'other'로 새어 mainstream FOR 위험.
+            # 체크리스트는 스튜어드십 리뷰(260724) 실무 기준 — 합의 매트릭스 '원칙반대·예외찬성' 정합.
             decision = "REVIEW"
-            reason = "자본 감소 — 주주 지분·자본구조 직접 영향. 유형(무상/유상, 결손보전·주식병합 여부)을 원문에서 확인 필요"
+            reason = ("자본 감소(특별결의) — 확인사항: ① 무상/유상 구분 ② 목적(결손보전·회생·"
+                      "구조조정 불가피성 — 해당 시 mainstream 찬성 관행) ③ 감자비율·주주평등"
+                      "(주식병합 시 단주 처리) ④ 유상감자 시 환급가액 적정성")
+        elif category == "stock_option_grant":
+            # 260724 스튜어드십 리뷰: 'other'→자동FOR로 새던 동종 구멍 봉쇄
+            decision = "REVIEW"
+            reason = ("주식매수선택권 부여 — 확인사항: ① 희석률(발행주식총수 대비, 통상 1~3% 한도) "
+                      "② 행사가격 적정성 ③ 부여 대상·수량 ④ 기존 부여분 누적 희석")
         else:
             # ralph iter6/12: other 카테고리 default FOR (위험 키워드 없으면).
             # 운용사 mainstream 표본 100% FOR (한화 2/2, 카카오뱅크 7/7 등).
             # iter12 정밀화: "자본준비금 감액"(회계 평탄화) ≠ "자본금 감액/감자"(주주가치 영향)
             t = (title or "")
-            risk_keywords = ["적대적", "방어", "포이즌", "전환사채발행"]
+            # 260724 스튜어드십 리뷰: '해임'은 분쟁·부정행위 국면 안건 — 자동 FOR 방어 불가
+            risk_keywords = ["적대적", "방어", "포이즌", "전환사채발행", "해임"]
             # "감자" 또는 "자본금 감액" (자본준비금 감액 제외 — mainstream FOR)
             if "감자" in t or ("자본금" in t and "감액" in t):
                 decision = "REVIEW"
@@ -3014,7 +3127,11 @@ async def build_proxy_advise_payload(
         # 260724 L-코드 진단 부수(감사의 선임 L0-0-2-5-0): 상법상 감사(상근·비상근)는
         # 감사위원회 위원과 별개 기구 — 결정 경로(3%룰·후보검증)는 공유하되 인용 라벨만 구분.
         if category == "audit_committee_election" and _is_statutory_auditor_agenda(title):
-            policy_citation = "OPM Guideline §감사선임 — 상법상 감사(감사위원 아님): 합산 3%룰·결격 검증 동일 적용"
+            # 260724 스튜어드십 리뷰 교정: 상장사 감사 선임은 최대주주만 합산 3%(§542-12④),
+            # 그 외 주주 개별 3%. 결격은 §542-10②(사외이사 결격 §382③·§542-8과 별개).
+            policy_citation = ("OPM Guideline §감사선임 — 상법상 감사(감사위원회 위원 아님): "
+                               "최대주주 합산 3%·그 외 주주 개별 3% 의결권 제한(상법 §542-12④), "
+                               "결격은 §542-10② 기준. 후보 독립성 검증은 감사위원 경로 준용")
 
         # FOR로 결론났지만 재무 risk_factors(적자·자본잠식 등)가 계산돼 있으면 reason에 정직 병기.
         # 결정 자체는 안 바꾼다(예: 적자여도 보수한도 동결(+0%)은 정당) — 다만 reason이 위험을
@@ -3050,6 +3167,8 @@ async def build_proxy_advise_payload(
             # provenance 1단계: 이 안건을 원문 어디서 볼지 — 자식 안건은 부모 섹션 상속
             "source_section": agenda_source_map.get(title)
             or agenda_source_map.get(title_to_parent.get(title) or ""),
+            # 분류 품질 메모 (승격 근거·불일치·미등재) — 거버넌스 risk와 분리 (260724 리뷰)
+            "classification_note": classification_note,
         })
     _mark("decision_engine", stage_started_at)
 

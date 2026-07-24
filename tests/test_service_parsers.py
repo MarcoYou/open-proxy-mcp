@@ -95,3 +95,46 @@ def test_render_agenda_source_section_line():
     md = _render(payload)
     assert "근거 위치: 소집공고 **§자본의 감소**" in md
     assert "L0-0-2-19-0" in md
+
+
+def test_reconcile_category_with_lcode_rules():
+    """260724 L-코드 이중 대조 (QA·스튜어드십 리뷰 반영판): 승격 게이트 2중 + note 분리."""
+    from open_proxy_mcp.services.proxy_advise import _reconcile_category_with_lcode as rec
+    # other + 특정 코드 + 이름 정합 + 맵 신뢰 → 승격 + 분류 근거 note (silent 승격 금지)
+    cat, note = rec("other", "L0-0-2-19-0", section_title="자본의 감소", map_trusted=True)
+    assert cat == "capital_reduction" and note and "분류 근거" in note
+    # 이름 정합 실패(밀린 코드 — 섹션 제목이 코드와 다른 유형) → 승격 차단 + 수기 확인
+    cat, note = rec("other", "L0-0-2-19-0", section_title="이사의 보수한도 승인", map_trusted=True)
+    assert cat == "other" and note and "정합 확인 실패" in note
+    # 맵 불신(같은 공고에 불일치 존재) → 승격 차단
+    cat, note = rec("other", "L0-0-2-19-0", section_title="자본의 감소", map_trusted=False)
+    assert cat == "other" and note and "정합 확인 실패" in note
+    # 둘 다 특정인데 상충 → 텍스트 유지 + 한글 라벨 경고
+    cat, note = rec("director_election", "L0-0-2-4-0", section_title="감사위원회 위원의 선임")
+    assert cat == "director_election" and note and "불일치" in note
+    # 일치 → 무note
+    assert rec("director_election", "L0-0-2-3-0", section_title="이사의 선임") == ("director_election", None)
+    # 기타(20-0) 비권위 / 코드 부재 → 무간섭
+    assert rec("other", "L0-0-2-20-0", section_title="기타 주주총회의 목적사항") == ("other", None)
+    assert rec("other", None) == ("other", None)
+    # 미등재 코드 → 수기 확인 note (사용자 톤 — '어휘 수집' 개발 메모 미노출)
+    cat, note = rec("other", "L0-0-2-7-0", section_title="알 수 없는 안건")
+    assert cat == "other" and note and "미등록" in note and "어휘" not in note
+
+
+def test_classify_new_auto_for_holes_closed():
+    """260724 스튜어드십 리뷰: 스톡옵션·영업양도 자동FOR 구멍 봉쇄."""
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("주식매수선택권 부여의 건") == "stock_option_grant"
+    assert _classify_agenda("임직원 스톡옵션 부여 승인의 건") == "stock_option_grant"
+    assert _classify_agenda("영업양도의 건") == "merger_or_restructuring"
+    assert _classify_agenda("영업양수의 건") == "merger_or_restructuring"
+
+
+def test_classify_reverse_split_routed_to_capital_reduction():
+    """260724 라이브 실사례(상상인증권 8/7 EGM): 주식(액면)병합이 'other'→FOR로 새던 것."""
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("주식(액면)병합 승인의 건") == "capital_reduction"
+    assert _classify_agenda("액면병합의 건") == "capital_reduction"
+    # 합병(merger)과 혼동 금지
+    assert _classify_agenda("회사 합병 승인의 건") == "merger_or_restructuring"
