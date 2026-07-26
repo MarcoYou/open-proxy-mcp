@@ -468,8 +468,12 @@ _TITLE_IN = re.compile(r"<TITLE[^>]*>(.*?)</TITLE>", re.S | re.I)
 _CODE_REJECT_NAME = re.compile(r"단\s*위\s*[:：]|^\(단위|^주요\s*거래선|^거래선|^매출처|^\d{1,2}[-.]")
 
 
-def _table_group_span(html: str, aclass: str) -> str:
-    """ACLASS 로 표그룹을 찾아 여닫이 스택으로 그 블록만 반환. 없으면 ''."""
+def _table_group_bounds(html: str, aclass: str) -> Optional[tuple[int, int]]:
+    """ACLASS 로 표그룹을 찾아 여닫이 스택으로 (start, end) 오프셋 반환. 없으면 None.
+
+    블록 경계가 원문에 명시돼 있으므로 '다음 제목까지'를 추정할 필요가 없다 —
+    과잉 포함도, 고정 창 절단도 생기지 않는다.
+    """
     for m in _TG_OPEN.finditer(html):
         if f'ACLASS="{aclass}"' not in m.group(0):
             continue
@@ -477,9 +481,52 @@ def _table_group_span(html: str, aclass: str) -> str:
         for tk in _TG_TOK.finditer(html, m.start()):
             depth += -1 if tk.group(1) else 1
             if depth == 0:
-                return html[m.start():tk.end()]
-        return html[m.start():]
-    return ""
+                return m.start(), tk.end()
+        return m.start(), len(html)
+    return None
+
+
+def _table_group_span(html: str, aclass: str) -> str:
+    """ACLASS 로 표그룹을 찾아 그 블록 문자열만 반환. 없으면 ''."""
+    b = _table_group_bounds(html, aclass)
+    return html[b[0]:b[1]] if b else ""
+
+
+def render_segment_note_md_by_code(full_html: str) -> tuple[Optional[str], str]:
+    """표준 서식 식별자로 부문 주석 블록만 정확히 떠서 마크다운으로. 반환 (md, reason).
+
+    기존 폴백은 제목 위치에서 고정 55,000자를 떠오므로 뒤 주석이 섞여 들어온다
+    (실측 46건 중 8건 혼입 — 최대 6개 주석). 블록 경계를 쓰면 그 혼입이 사라지고
+    반대 방향의 고정창 절단 위험도 없어진다.
+    md 가 None 이면 호출측은 기존 폴백을 그대로 쓴다(단조 안전).
+    """
+    if not full_html:
+        return None, "no_html"
+    from open_proxy_mcp.services import coordinate_map
+    from open_proxy_mcp.services.segment_candidates import _md_has_data_rows, _render_html_region_md
+
+    spec = coordinate_map.concept(_SEG_CONCEPT)
+    if not spec:
+        return None, "map_not_loaded" if not coordinate_map.load()["loaded"] else "concept_missing"
+    must = spec.get("title_must_contain") or []
+    reason = "code_not_present"
+    for key in ("consolidated", "separate"):
+        aclass = spec.get(key)
+        if not aclass:
+            continue
+        b = _table_group_bounds(full_html, aclass)
+        if not b:
+            continue
+        tm = _TITLE_IN.search(full_html[b[0]:b[1]])
+        title = re.sub(r"<[^>]+>|\s+", " ", tm.group(1)).strip() if tm else ""
+        if must and not any(tok in title for tok in must):
+            reason = f"title_mismatch:{title[:40]}"
+            continue
+        md = _render_html_region_md(full_html, b[0], b[1])
+        if md and _md_has_data_rows(md):
+            return md, f"code:{key}"
+        reason = "no_data_rows"
+    return None, reason
 
 
 def find_segment_note_region_by_code(note_html: str) -> tuple[Optional[str], Optional[str], str]:
@@ -1400,12 +1447,18 @@ async def build_business_details_payload(company_query: str, period: str = "late
             from open_proxy_mcp.services.segment_candidates import (
                 render_segment_note_markdown, render_biz_section_markdown, _md_has_data_rows)
             full_html = sec.get("note_html", "")   # get_document full html
-            note_md = render_segment_note_markdown(full_html)
+            # ① 표준 서식 식별자로 블록 경계를 정확히 떠서 렌더(과잉·절단 없음)
+            #    → ② 실패 시 기존 제목+고정창 렌더로 폴백(단조 안전)
+            note_md, md_method = render_segment_note_md_by_code(full_html)
+            if not note_md:
+                note_md = render_segment_note_markdown(full_html)
+                md_method = "title_window" if note_md else md_method
             _MD_NOTE = ("아래는 영업부문 주석(K-IFRS 1108) 원문을 마크다운으로 옮긴 것입니다. "
                         "여기서 사업부문별 매출·영업이익을 읽으세요. 합계/조정/부문간/미배분 열·행은 제외.")
             if note_md:
                 segment = {"status": "NEEDS_REVIEW", "source": "note_markdown",
-                           "region": "연결 영업부문 주석", "note": _MD_NOTE, "segment_note_md": note_md}
+                           "region": "연결 영업부문 주석", "note": _MD_NOTE,
+                           "region_method": md_method, "segment_note_md": note_md}
             else:
                 cands = find_segment_candidates(full_html)
                 if cands:
