@@ -101,7 +101,7 @@ def _reconcile_category_with_lcode(
     section_title: str = "",
     map_trusted: bool = True,
 ) -> tuple[str, str | None]:
-    """텍스트 분류 ↔ 안건 유형 코드 이중 대조 (당가비기 제1조 — 좌표로 짚되 제목으로 검증).
+    """텍스트 분류 ↔ 안건 유형 코드 이중 대조 (코드로 짚고 제목으로 재확인).
 
     - 코드가 특정 유형이고 텍스트 분류가 'other'(놓침)면 → 코드로 승격하되 **분류 근거를
       note로 남긴다** (260724 QA: silent 승격 금지 — 설명책임).
