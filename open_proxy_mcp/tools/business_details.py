@@ -52,9 +52,11 @@ def _render(p: dict) -> str:
                 for i, c in enumerate(seg.get("candidates", []), 1):
                     L.append(f"\n**[후보 {i}]** (score {c.get('score')}, {c.get('rows')}×{c.get('cols')})\n```\n{c.get('rendered','')[:2500]}\n```")
         elif st == "UNSUPPORTED_FORM":
-            L.append(f"\n### 사업부문별 이익: **미지원 폼** — {seg.get('na_reason','')}")
+            L.append(f"\n### 사업부문별 이익: 이 업종은 다른 tool에서 제공 — {seg.get('na_reason','')}")
         else:
-            L.append(f"\n### 사업부문별 이익: 해당없음 — {seg.get('na_reason','')}")
+            # '실패'라는 말은 쓰지 않는다 — 대부분은 오류가 아니라 '공시에 없거나 읽을 수 없는 형태'다.
+            _HEAD = {"NOT_APPLICABLE": "해당 없음", "NOT_COLLECTED": "공시에 미기재"}
+            L.append(f"\n### 사업부문별 이익: {_HEAD.get(st, '확인 불가')} — {seg.get('na_reason','')}")
 
     # 추가 필드(markdown-primary): 소절 원문 마크다운 → 읽어서 추출. hint는 참고용.
     _FIELD_LABEL = {"sites": "사업장·생산설비", "utilization": "생산실적·가동률",
