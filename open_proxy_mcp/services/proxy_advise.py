@@ -2350,6 +2350,10 @@ async def build_proxy_advise_payload(
                     "proposer_type": it.get("proposer_type"),
                     "source": it.get("source"),
                     "conditional": it.get("conditional"),
+                    # 재무제표 승인 안건에 병합된 배당 + 회사가 신고한 안건 구간 코드(진단용)
+                    "dividend": it.get("dividend"),
+                    "filed_code": it.get("filed_code"),
+                    "filed_kind": it.get("filed_kind"),
                 })
             if isinstance(it, dict):
                 rows.extend(_flatten_agenda_rows(it.get("children") or []))
@@ -2943,6 +2947,23 @@ async def build_proxy_advise_payload(
             decision, reason = _decide_retirement_pay(retirement_payload, fin_metrics)
         elif category == "financial_statements":
             decision, reason = _decide_financial_statements(fin_metrics)
+            # 재무제표 승인 안건에 배당이 함께 실린 경우(실측 68건 중 재무제표 안건의 71.7%)
+            # 배당 적정성 판단도 함께 돌린다 — 한 안건에 두 판단이 묶여 있어 종전엔
+            # 배당 로직이 아예 호출되지 않았다. 두 판단 중 **보수적인 쪽을 채택**한다.
+            _div = agenda_row.get("dividend") if isinstance(agenda_row, dict) else None
+            if _div and _div.get("mentioned") and not _div.get("none_declared"):
+                d_dec, d_reason = _decide_dividend(title, fin_metrics,
+                                                  selected.get("corp_name") or "")
+                _amt = _div.get("per_share_krw")
+                _detail = (f"주당 {_amt:,}원" if _amt is not None else "금액은 본문 확인")
+                if _div.get("yield_pct") is not None:
+                    _detail += f" · 시가배당률 {_div['yield_pct']}%"
+                if _div.get("by_class"):
+                    _detail += " · " + ", ".join(f"{k} {v:,}원" for k, v in _div["by_class"].items())
+                _rank = {"AGAINST": 3, "REVIEW": 2, "NO_DATA": 2, "FOR": 1}
+                if _rank.get(d_dec, 0) > _rank.get(decision, 0):
+                    decision = d_dec
+                reason = f"{reason} / 배당 병합({_detail}) — {d_reason}"
         elif category == "cash_dividend":
             decision, reason = _decide_dividend(title, fin_metrics, selected.get("corp_name") or "")
         elif category == "articles_amendment":

@@ -342,7 +342,135 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
 
     tree = _build_tree(flat)
     _fill_empty_parent_titles(tree)
+    if html:
+        annotate_agenda_codes(tree, html)
     return tree
+
+
+# 소집공고가 안건마다 달아둔 표준 서식 구간 코드 → 회사가 '어느 유형으로 올렸는지'.
+# 260727 실측(68건·안건 309개): 코드 15종 · 코드↔제목 일치 100% · 정기 43/43 · 임시 24/24.
+# 이 코드는 **분류를 대체하지 않는다** — 텍스트 분류가 코드보다 세분하다(코드가 '기타'로 묶는
+# 퇴직금·자기주식·배당·합병을 텍스트는 각각 잡는다). 회사가 기타로 올렸으면 기타가 맞다.
+# 용도는 **정확도 계측의 한 축**이다: 분류 결과와 이 코드의 정합을 운영에서 관측한다.
+# 코드 1종이 텍스트 분류 여러 종에 대응한다 — 실측(68건)으로 확인한 대응이다.
+# 예: 「감사위원이 되는 사외이사 선임」은 상법상 이사 선임(L0-0-2-3-0)이지만 텍스트 분류는
+#     audit_committee_election 이다(의결권 판단에는 3% 룰·분리선출이 중요해 그쪽이 유용).
+# 코드가 '기타'(L0-0-2-20-0)로 묶은 것도 텍스트는 퇴직금·자기주식·배당·합병으로 세분한다 —
+# 회사가 기타로 올렸으면 기타가 맞으므로, 코드는 정확도 계측 축으로만 쓰고 분류는 텍스트를 따른다.
+_AGENDA_CODE_KIND: dict[str, tuple[str, ...]] = {
+    "L0-0-2-1-0": ("financial_statements", "cash_dividend"),
+    "L0-0-2-2-0": ("articles_amendment",),
+    "L0-0-2-3-0": ("director_election", "audit_committee_election"),
+    "L0-0-2-4-0": ("audit_committee_election", "director_election"),
+    "L0-0-2-5-0": ("auditor_election", "audit_committee_election"),
+    "L0-0-2-9-0": ("director_compensation",),
+    "L0-0-2-10-0": ("audit_compensation",),
+    "L0-0-2-11-0": ("stock_option_grant",),
+    "L0-0-2-14-0": ("business_transfer", "merger_or_restructuring"),
+    "L0-0-2-16-0": ("capital_reserve_transfer", "cash_dividend", "capital_reduction"),
+    "L0-0-2-19-0": ("capital_reduction",),
+    "L0-0-2-20-0": ("other", "retirement_pay", "treasury_share", "cash_dividend",
+                    "merger_or_restructuring", "capital_reduction", "stock_option_grant"),
+}
+
+_L0_ANCHOR = re.compile(
+    r'<(?:COVER-)?TITLE\b[^>]*AASSOCNOTE="(L0-[\d\-]+)"[^>]*>(.*?)</(?:COVER-)?TITLE>', re.S | re.I)
+
+
+# 재무제표 승인 안건에 배당이 함께 실린다 — 실측 68건 중 재무제표 안건 53개의 71.7%(38개).
+# 두 판단(재무제표 승인 / 배당 적정성)이 한 안건에 묶여 있어 배당 판단 로직을 타지 못했다.
+# 표기가 14가지로 갈리므로(주당 배당금 / 1주당 / 현금배당 / 배당예정내용 / 시가배당률 …)
+# 대안을 열거하지 않고 **조합형**으로 잡는다 — 종류어 + 주당 표기 + 금액을 각각 인식한다.
+_DIV_PRESENT = re.compile(r"배\s*당|이익\s*잉여금\s*처분")
+_DIV_NONE = re.compile(r"무\s*배\s*당|배\s*당\s*(?:을)?\s*하지|배\s*당\s*없")
+_DIV_PER_SHARE = re.compile(
+    r"(?:1\s*)?주당[^\d%]{0,12}([\d,]+)\s*원|([\d,]+)\s*원\s*(?:을)?\s*(?:현금)?\s*배당")
+_DIV_YIELD = re.compile(r"(?:시가)?배당률[^\d]{0,6}([\d.]+)\s*%")
+_DIV_KIND = re.compile(r"(현금\s*배당|주식\s*배당|중간\s*배당)")
+_DIV_CLASS = re.compile(r"(보통주|우선주|\d+우선주)[^\d]{0,10}([\d,]+)\s*원")
+
+
+def extract_dividend_from_title(title: str) -> dict | None:
+    """재무제표 승인 안건 제목에서 배당 내용을 발라낸다. 없으면 None.
+
+    반환 — {mentioned, none_declared, kind, per_share_krw, by_class, yield_pct, evidence}
+    금액을 못 뽑아도 `mentioned=True` 는 남긴다: '배당이 이 안건에 묶여 있다'는 사실 자체가
+    호출측 판단에 필요하다(재무제표 승인만 보고 배당 적정성을 건너뛰면 안 된다).
+    """
+    t = title or ""
+    if not _DIV_PRESENT.search(t):
+        return None
+    out: dict = {"mentioned": True, "none_declared": bool(_DIV_NONE.search(t))}
+    km = _DIV_KIND.search(t)
+    if km:
+        out["kind"] = re.sub(r"\s+", "", km.group(1))
+    by_class = {re.sub(r"\s+", "", m.group(1)): int(m.group(2).replace(",", ""))
+                for m in _DIV_CLASS.finditer(t)}
+    if by_class:
+        out["by_class"] = by_class
+    ps = _DIV_PER_SHARE.search(t)
+    if ps:
+        out["per_share_krw"] = int((ps.group(1) or ps.group(2)).replace(",", ""))
+    elif by_class:
+        out["per_share_krw"] = by_class.get("보통주") or next(iter(by_class.values()))
+    ym = _DIV_YIELD.search(t)
+    if ym:
+        try:
+            out["yield_pct"] = float(ym.group(1))
+        except ValueError:
+            pass
+    # 근거 발췌 — 판단 근거를 사용자가 확인할 수 있게
+    m = re.search(r"[^,\(\)\-–]{0,10}(?:배당|이익\s*잉여금\s*처분)[^,\)]{0,40}", t)
+    if m:
+        out["evidence"] = re.sub(r"\s+", " ", m.group(0)).strip()
+    return out
+
+
+def agenda_codes_in_notice(html: str) -> list[dict]:
+    """소집공고 원문의 안건 구간 코드 목록. 확인서(-1 접미)는 안건이 아니라 후보자 첨부라 제외."""
+    out = []
+    for m in _L0_ANCHOR.finditer(html or ""):
+        code = m.group(1)
+        if re.search(r"-\d-1$", code):          # L0-0-2-3-1 등 = 확인서
+            continue
+        kinds = _AGENDA_CODE_KIND.get(code, ())
+        out.append({"code": code, "kinds": kinds, "kind": kinds[0] if kinds else "unmapped",
+                    "title": re.sub(r"<[^>]+>|\s+", " ", m.group(2)).strip()})
+    return out
+
+
+def annotate_agenda_codes(tree: list[dict], html: str) -> None:
+    """안건 트리에 원문 구간 코드를 진단 필드로 부착(in-place). 분류는 바꾸지 않는다.
+
+    붙이는 것 — `filed_code`(원문 코드) · `filed_kind`(코드가 뜻하는 유형).
+    같은 유형이 여러 안건에 걸릴 수 있으므로 유형 단위로 매칭하고, 남는 코드는
+    문서 수준 진단으로만 남긴다(안건에 억지로 배정하지 않는다).
+    """
+    codes = agenda_codes_in_notice(html)
+    if not codes:
+        return
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+
+    remaining = list(codes)
+
+    def take(cat: str) -> dict | None:
+        for i, c in enumerate(remaining):
+            if cat in c["kinds"]:
+                return remaining.pop(i)
+        return None
+
+    # 코드는 **루트 안건에만** 달린다. 하위안건(제N-M호)은 부모 코드 구간에 속하므로 상속한다.
+    for n in tree:
+        div = extract_dividend_from_title(n.get("title") or "")
+        if div:
+            n["dividend"] = div
+        cat = _classify_agenda(n.get("title") or "", "")
+        c = take(cat) or take("other")
+        if not c:
+            continue
+        n["filed_code"], n["filed_kind"] = c["code"], c["kind"]
+        for ch in n.get("children") or []:
+            ch["filed_code"] = c["code"]
 
 
 def _fill_empty_parent_titles(tree: list[dict]) -> None:
