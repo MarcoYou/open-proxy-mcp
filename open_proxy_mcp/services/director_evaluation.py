@@ -668,6 +668,8 @@ async def evaluate_faithfulness(
     out: dict[str, Any] = {
         "duty_plan_raw": candidate.get("dutyPlan") or None,
         "recommendation_reason_raw": candidate.get("recommendationReason") or None,
+        # 문면이 이 후보를 안 밝혀 구간 공통으로 붙은 것 — 확정 표기를 피하려고 전파
+        "recommendation_reason_shared": candidate.get("recommendationReasonShared") or None,
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
         "career_company_groups": candidate.get("careerCompanyGroups") or [],
@@ -747,6 +749,8 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str
     out = {
         "duty_plan_raw": candidate.get("dutyPlan") or None,
         "recommendation_reason_raw": candidate.get("recommendationReason") or None,
+        # 문면이 이 후보를 안 밝혀 구간 공통으로 붙은 것 — 확정 표기를 피하려고 전파
+        "recommendation_reason_shared": candidate.get("recommendationReasonShared") or None,
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
         "career_company_groups": candidate.get("careerCompanyGroups") or [],

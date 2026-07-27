@@ -3239,6 +3239,18 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                 named = [c for c in candidates if c.get("name") and c["name"] in reason_text]
                 for c in (named if named else candidates):
                     c["recommendationReason"] = reason_text
+                # 문면이 다른 후보의 이름만 밝히고 이 후보는 안 밝히는 경우가 남는다
+                # (실측 4건 — 녹십자 사내이사 3명은 사유가 이름 없이 「후보자는 …」으로만 쓰였고
+                #  블록이 다음 후보 구간까지 넘어간다). 떼어내면 그들의 사유가 통째로 사라지므로
+                # 붙여두되 '이 후보 것이라고 확정할 수 없다'고 밝힌다.
+                if len(candidates) >= 2:
+                    for c in candidates:
+                        if (c.get("recommendationReason") or "") != reason_text:
+                            continue
+                        if c.get("name") and c["name"] in reason_text:
+                            c.pop("recommendationReasonShared", None)   # 이름이 있으면 확정
+                        else:
+                            c["recommendationReasonShared"] = True
 
     return candidates
 

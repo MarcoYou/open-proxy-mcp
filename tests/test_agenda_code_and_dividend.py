@@ -373,3 +373,26 @@ def test_declared_role_only_on_election_agendas():
     assert "declared_role" not in tree[0], "정관 명칭변경 안건"
     assert "declared_role" not in tree[1], "보수한도 안건"
     assert tree[2]["declared_role"] == "사외이사"
+
+
+def test_candidate_block_renders_with_and_without_shared_marker():
+    """후보 평가 렌더가 공유 문면 표시와 함께 깨지지 않아야 한다.
+
+    라이브에서 잡힌 크래시(`name 'ev' is not defined`)를 고정한다 — 렌더러는
+    단위 테스트가 없어 변수명 오타가 배포 직전까지 살아남았다.
+    """
+    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
+    def _payload(shared):
+        return {"status": "exact", "subject": "T", "data": {
+            "canonical_name": "테스트", "year": 2026, "meeting_type": "annual",
+            "agenda_decisions": [], "candidates_evaluations": [{
+                "name": "허은철", "role_type": "사내이사",
+                "faithfulness": {"main_job": "대표이사",
+                                 "recommendation_reason_raw": "후보자는 개발, 생산, 품질관리 분야에서",
+                                 "recommendation_reason_shared": shared},
+            }]}}
+    with_mark = _render(_payload(True))
+    without = _render(_payload(False))
+    assert "확정하지 못함" in with_mark
+    assert "확정하지 못함" not in without
+    assert "후보자는 개발, 생산, 품질관리 분야에서" in with_mark, "문면 자체는 그대로 넘긴다"

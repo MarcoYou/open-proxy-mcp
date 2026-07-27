@@ -296,7 +296,11 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"**{name}** ({role})")
             lines.append(f"- 주요 직책: {main_job}")
             if rec_reason:
-                lines.append(f"- 추천 사유 (raw): {rec_reason[:240]}{'…' if len(rec_reason) > 240 else ''}")
+                _shared = " ⚠️ (구간 공통 문면 — 이 후보 것이라고 확정하지 못함)" \
+                    if faith.get("recommendation_reason_shared") else ""
+                lines.append(
+                    f"- 추천 사유 (raw){_shared}: {rec_reason[:240]}"
+                    f"{'…' if len(rec_reason) > 240 else ''}")
             if careers:
                 lines.append("- 경력:")
                 for grp in careers[:6]:
