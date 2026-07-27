@@ -203,7 +203,7 @@ def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[d
         }
         # 파서가 붙인 진단 필드를 통과시킨다. 화이트리스트로 새 dict를 만드는 구조라
         # 여기 적지 않으면 조용히 사라진다 — 실제로 filed_*·resolution_* 이 그렇게 유실됐다.
-        for key in ("filed_code", "filed_kind", "filed_link",
+        for key in ("filed_code", "filed_kind", "filed_link", "declared_role",
                     "resolution_status", "resolution_note", "dividend"):
             if item.get(key) is not None:
                 node[key] = item[key]

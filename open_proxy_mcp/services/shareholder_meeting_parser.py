@@ -372,6 +372,7 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
     # 상법 §449조의2 — 재무제표가 이사회 승인으로 갈음돼 보고사항이 됐는지.
     # 본문(text)에도 공고문에도 실릴 수 있어 둘 다 본다.
     annotate_board_approval(tree, (text or "") + " " + (html_to_text(html) if html else ""))
+    annotate_declared_role(tree)
     return tree
 
 
@@ -587,6 +588,28 @@ def board_approval_special_case(text: str) -> dict:
     if not best:
         return {}
     return {"state": best, "agenda_numbers": numbers, "evidence": evidence[:400]}
+
+
+# 안건 제목이 직접 밝힌 직위. 후보자 표에 「직위」 칸이 없으면 roleType 이 구간 전체 제목에서
+# 추정되는데, 하위안건이 한 표에 묶인 서식에서는 첫 하위안건의 직위를 전원이 상속한다
+# (실측 하림지주: 「제1-1호 사내이사…」가 앞서서 사외이사 2명이 사내이사로 집계됨).
+# 여기서는 고치지 않고 '공고가 뭐라고 했는지'만 남긴다 — 덮어쓰면 반대 방향(사내→사외 11건)과
+# 세분도 차이(사내이사 vs 이사 106건)까지 함께 깨진다. 판단은 호출측에 맡긴다.
+_DECLARED_ROLE = (("사외이사", "사외이사"), ("사내이사", "사내이사"),
+                  ("기타비상무이사", "기타비상무이사"))
+
+
+def annotate_declared_role(tree: list[dict]) -> None:
+    """안건 제목이 명시한 직위를 `declared_role` 로 부착(in-place)."""
+    def walk(nodes: list[dict]) -> None:
+        for n in nodes:
+            t = n.get("title") or ""
+            for kw, role in _DECLARED_ROLE:
+                if kw in t:
+                    n["declared_role"] = role
+                    break
+            walk(n.get("children") or [])
+    walk(tree)
 
 
 def annotate_board_approval(tree: list[dict], text: str) -> None:

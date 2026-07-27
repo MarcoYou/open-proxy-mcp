@@ -312,3 +312,26 @@ def test_financial_statements_as_modifier_is_not_the_approval_agenda():
     annotate_board_approval(tree, sent)
     assert tree[0]["resolution_status"] == "report_only", "철회된 재무제표 안건은 맞다"
     assert "resolution_status" not in tree[1], "주주제안 안건에는 붙으면 안 된다"
+
+
+# ── 공고가 밝힌 직위 vs 후보자 표 파싱 ──────────────────────────────────
+from open_proxy_mcp.services.shareholder_meeting_parser import annotate_declared_role  # noqa: E402
+
+
+def test_declared_role_records_what_the_notice_said():
+    """제목이 밝힌 직위를 남긴다 — 파싱을 덮지는 않는다."""
+    tree = [{"number": "제1호", "title": "이사 선임의 건", "children": [
+        {"number": "제1-1호", "title": "사내이사 선임의 건 (후보자: 문경민)", "children": []},
+        {"number": "제1-2호", "title": "사외이사 선임의 건 (후보자: 유균)", "children": []},
+        {"number": "제1-3호", "title": "기타비상무이사 후보 : 조민영", "children": []},
+    ]}]
+    annotate_declared_role(tree)
+    assert "declared_role" not in tree[0], "직위가 없는 묶음 안건에는 붙지 않는다"
+    kids = tree[0]["children"]
+    assert [k["declared_role"] for k in kids] == ["사내이사", "사외이사", "기타비상무이사"]
+
+
+def test_declared_role_absent_when_title_is_silent():
+    tree = [{"number": "제2호", "title": "감사위원회 위원 선임의 건 (후보자: 유균)", "children": []}]
+    annotate_declared_role(tree)
+    assert "declared_role" not in tree[0]

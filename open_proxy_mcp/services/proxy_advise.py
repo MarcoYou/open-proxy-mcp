@@ -2372,6 +2372,7 @@ async def build_proxy_advise_payload(
                     # declared 만 문서가 직접 밝힌 것이라 분류 정확도의 독립 근거로 쓸 수 있다.
                     "filed_link": it.get("filed_link"),
                     # 상법 §449조의2 — 재무제표가 보고사항으로 갈음됐는지(표결 유무)
+                    "declared_role": it.get("declared_role"),
                     "resolution_status": it.get("resolution_status"),
                     "resolution_note": it.get("resolution_note"),
                 })
@@ -2957,6 +2958,27 @@ async def build_proxy_advise_payload(
                             # 강제 outside 처리 — _decide_director_election 안에 분기
                             matched_eval["_audit_force_strict"] = True
                     decision, reason = _decide_director_election(matched_eval)
+                # 공고는 사외이사라고 밝혔는데 사외이사 경로를 타지 않은 경우 — 독립성 검증이
+                # 통째로 건너뛰어진 채 조용히 FOR 가 나간다(실측 667건 중 20건, 3.0%).
+                # 후보자 표에 「직위」 칸이 없으면 roleType 이 구간 전체 제목에서 추정되는데,
+                # 하위안건이 한 표에 묶이면 첫 하위안건의 직위를 전원이 상속하기 때문이다.
+                # 제목으로 덮어쓰지는 않는다 — 반대 방향(사내→사외 11건)과 세분도 차이
+                # (사내이사 vs 이사 106건)까지 함께 깨진다. 대신 판단을 원문으로 넘긴다.
+                # 감사위원 경로는 위에서 _audit_force_strict 로 이미 강제 엄격 검증(독립성 포함)을
+                # 건다 — 거기에 REVIEW 를 덧씌우면 오탐이다(실측: 삼진식품 「감사위원이 되는
+                # 사외이사 …」 2건). 그래서 순수 이사선임에서만 본다.
+                _declared = (agenda_row.get("declared_role") or "") if isinstance(agenda_row, dict) else ""
+                if (_declared == "사외이사" and decision == "FOR"
+                        and category == "director_election"
+                        and not (matched_eval or {}).get("_audit_force_strict")):
+                    _rt = (matched_eval or {}).get("role_type") or ""
+                    if not any(k in _rt for k in ("사외", "독립", "감사")):
+                        decision = "REVIEW"
+                        reason = (f"공고는 사외이사 선임으로 밝혔는데 후보자 표 파싱은 "
+                                  f"'{_rt or '미상'}' — 사외이사 독립성 검증(최대주주 관계·거래·"
+                                  f"임직원 이력·5년 임기)이 적용되지 않았다. "
+                                  f"「□ 이사의 선임」 구간 원문으로 직접 확인 필요. "
+                                  f"(원래 판정: {reason})")
         elif category == "director_compensation":
             decision, reason = _decide_director_compensation(meeting_comp, fin_metrics)
         elif category == "audit_compensation":
