@@ -202,3 +202,34 @@ def test_corp_form_prefix_does_not_eat_real_names():
     from open_proxy_mcp.dart.client import _normalize_corp_name as norm
     for name in ("주성엔지니어링", "주연테크", "유한양행", "재영솔루텍", "사조오양"):
         assert norm(name) == name.lower(), name
+
+
+def test_reverse_transliteration_matches_latin_registered_names():
+    """DART 등록명은 「SKC」인데 공고 헤더는 「에스케이씨(주)」로 적는다 — 둘을 이어야 한다.
+
+    실측 322개 중 48개가 조회 실패였고 대부분 이 유형이었다(→ 31개).
+    """
+    from open_proxy_mcp.company_resolver import latinized_variants, normalize_compact
+    def v(n): return latinized_variants(normalize_compact(n))
+    assert "skc" in v("에스케이씨(주)")
+    assert "cj대한통운" in v("씨제이대한통운")
+    assert "hlb" in v("에이치엘비㈜")
+    assert "byc" in v("비와이씨")
+    assert "hd한국조선해양" in v("에이치디한국조선해양")
+
+
+def test_reverse_transliteration_emits_every_prefix_length():
+    """「엔」은 알파벳 N 이자 「엔터테인먼트」의 첫 글자다 — 어디까지 letter 인지 정할 수 없어
+    길이별 변형을 모두 만든다."""
+    from open_proxy_mcp.company_resolver import latinized_variants, normalize_compact
+    got = latinized_variants(normalize_compact("제이와이피엔터테인먼트"))
+    assert "jyp엔터테인먼트" in got, got
+    assert "jypn터테인먼트" in got, "다른 해석도 함께 남긴다"
+
+
+def test_reverse_transliteration_leaves_ordinary_names_alone():
+    """반례 — 우연히 알파벳 음차와 겹치는 정상 상호를 깎으면 안 된다.
+    1글자는 우연 일치가 많아(이수페타시스의 '이'=E) 2글자부터만 만든다."""
+    from open_proxy_mcp.company_resolver import latinized_variants, normalize_compact
+    for name in ("이수페타시스", "오뚜기", "삼성전자", "이마트", "유한양행", "지누스", "비상장회사"):
+        assert not latinized_variants(normalize_compact(name)), name

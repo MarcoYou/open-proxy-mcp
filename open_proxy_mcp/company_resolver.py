@@ -37,6 +37,43 @@ _KOREAN_LEGAL_PREFIX_RE = re.compile(
 )
 _NON_WORD_RE = re.compile(r"[^0-9a-z가-힣]+")
 
+# 알파벳 26자의 한글 음차. DART 등록명은 「SKC」인데 공고 헤더는 「에스케이씨(주)」로 적는다
+# (실측 322개 중 48개가 조회 실패, 대부분 이 유형). 긴 표기부터 매칭해야 '에이치'가
+# '에이'로 잘리지 않는다.
+_LETTER_KO = {
+    "에이치": "H", "더블유": "W", "더블류": "W", "제트": "Z", "엑스": "X",
+    "에스": "S", "에프": "F", "에이": "A", "제이": "J", "케이": "K",
+    "브이": "V", "와이": "Y", "아이": "I", "아르": "R",
+    "엘": "L", "엠": "M", "엔": "N", "오": "O", "피": "P", "큐": "Q",
+    "알": "R", "티": "T", "유": "U", "비": "B", "씨": "C", "시": "C",
+    "디": "D", "이": "E", "지": "G", "쥐": "G",
+}
+_LETTER_KO_ORDER = sorted(_LETTER_KO, key=len, reverse=True)
+
+
+def latinized_variants(value: str) -> set[str]:
+    """앞머리의 한글 알파벳 음차를 알파벳으로 되돌린 변형들.
+
+    「엔」처럼 알파벳(N)이자 낱말 첫 글자(엔터테인먼트)인 음절이 있어 어디까지 letter 로
+    읽을지 하나로 정할 수 없다. 그래서 길이별 변형을 모두 만들어 색인한다 —
+    「제이와이피엔터테인먼트」는 JY이피…·JYP엔터테인먼트·JYPN터테인먼트 중 하나가 맞는다.
+    1글자는 우연 일치(이수페타시스·비상장)가 많아 2글자부터 만든다.
+    """
+    letters: list[str] = []
+    rests: list[str] = []
+    i, n = 0, len(value)
+    while i < n:
+        for kw in _LETTER_KO_ORDER:
+            if value.startswith(kw, i):
+                letters.append(_LETTER_KO[kw]); i += len(kw); break
+        else:
+            break
+        rests.append(value[i:])
+    out = set()
+    for k in range(2, len(letters) + 1):
+        out.add("".join(letters[:k]).lower() + rests[k - 1])
+    return out
+
 
 def _nfkc_casefold(value: str) -> str:
     return unicodedata.normalize("NFKC", value or "").casefold().strip()
@@ -208,6 +245,8 @@ class CompanyResolver:
                 self._add(self._official, raw, row_id)
                 self._add(self._phrase, phrase, row_id)
                 self._add(self._compact, compact, row_id)
+                for alt in latinized_variants(compact):
+                    self._add(self._compact, alt, row_id)
                 for token in name_tokens(name):
                     self._tokens.setdefault(token, set()).add(row_id)
                     if re.fullmatch(r"[가-힣]{3,}", token):
@@ -270,7 +309,25 @@ class CompanyResolver:
         }
         return corp
 
-    def search(self, query: str) -> list[dict[str, Any]]:
+    def search(self, query: str, *, _latinized: bool = False) -> list[dict[str, Any]]:
+        raw_query = (query or "").strip()
+        if not raw_query:
+            return []
+        if not _latinized:
+            found = self._search_one(raw_query)
+            if found:
+                return found
+            # 역음차 재시도 — 「에스케이씨(주)」로 물으면 「SKC」를 찾아야 한다.
+            # 색인 쪽에도 같은 변형을 넣어 두어 반대 방향도 성립한다. 조회 체인 전체를
+            # 다시 타야 한다: 「JYP Ent.」는 compact 가 'jypent' 라 토큰 경로로만 잡힌다.
+            for alt in sorted(latinized_variants(normalize_compact(raw_query))):
+                hit = self._search_one(alt)
+                if hit:
+                    return hit
+            return []
+        return self._search_one(raw_query)
+
+    def _search_one(self, query: str) -> list[dict[str, Any]]:
         raw_query = (query or "").strip()
         if not raw_query:
             return []
