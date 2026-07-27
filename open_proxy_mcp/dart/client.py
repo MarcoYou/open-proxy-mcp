@@ -642,6 +642,14 @@ class DartClient:
         resolver = await get_company_resolver(corps, _CORP_ALIASES)
         return resolver.search(query)
 
+    async def suggest_corp_candidates(self, query: str, limit: int = 5) -> list[dict]:
+        """조회 실패 시 보여줄 근접 후보. 자동 선택이 아니라 사람이 고르게 하는 용도."""
+        from open_proxy_mcp.company_resolver import get_company_resolver
+
+        corps = await self._load_corp_codes()
+        resolver = await get_company_resolver(corps, _CORP_ALIASES)
+        return resolver.suggest(query, limit)
+
     async def get_naver_corp_profile(self, stock_code: str) -> dict:
         """NAVER 금융에서 업종명 조회 (웹 스크래핑)
 

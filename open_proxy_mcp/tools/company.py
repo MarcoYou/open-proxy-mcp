@@ -32,6 +32,23 @@ def _render_error(payload: dict[str, Any]) -> str:
         lines.append("")
         for warning in warnings:
             lines.append(f"- {warning}")
+    # 못 찾았으면 끝내지 말고 근접 후보를 보여준다 — 개명·상장폐지·접미가 붙은 상호를
+    # 사용자가 알아보고 고를 수 있다. 자동 선택은 하지 않는다(앞자르기 자동선택은 오답).
+    cands = (payload.get("data") or {}).get("candidates") or payload.get("candidates") or []
+    if cands:
+        lines.append("")
+        lines.append("Did you mean one of these?" if english else "혹시 이 회사인가요?")
+        lines.append("")
+        lines.append("| 회사명 | ticker | corp_code |")
+        lines.append("|------|--------|-----------|")
+        for c in cands[:5]:
+            lines.append(
+                f"| {c.get('corp_name', '')} | `{c.get('stock_code', '')}` | `{c.get('corp_code', '')}` |"
+            )
+        lines.append("")
+        lines.append("맞는 회사가 없으면 ticker(6자리)나 corp_code(8자리)로 다시 물어보세요."
+                     if not english else
+                     "If none match, retry with a 6-digit ticker or 8-digit corp_code.")
     return "\n".join(lines)
 
 

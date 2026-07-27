@@ -325,6 +325,17 @@ async def build_company_payload(
 
     if status == AnalysisStatus.ERROR:
         english = _prefers_english(query, language)
+        # 못 찾았으면 끝내지 말고 근접 후보를 보여준다 — 개명·상장폐지·접미가 붙은 상호를
+        # 사용자가 알아보고 고를 수 있다(「에이플러스에셋어드바이저」→「에이플러스에셋」).
+        # 자동 선택은 하지 않는다 — 앞자르기 자동선택은 오답을 낸다(포스코디엑스→POSCO홀딩스).
+        try:
+            _near = [
+                {"corp_name": c.get("corp_name"), "stock_code": c.get("stock_code"),
+                 "corp_code": c.get("corp_code")}
+                for c in await client.suggest_corp_candidates(query)
+            ]
+        except Exception:
+            _near = []
         warnings = [f"No listed company matched '{query}'." if english else f"'{query}'에 해당하는 회사를 찾지 못했다."]
         if unlisted_only:
             warnings.append("The matching entity is unlisted and outside OPM's listed-company universe." if english else "입력에 일치하는 법인은 비상장이어서 OPM 분석 대상(상장사)에서 제외했다. 정확한 상장사 종목명/종목코드로 다시 조회한다.")
@@ -335,7 +346,9 @@ async def build_company_payload(
             warnings=warnings,
             data={
                 "query": query,
-                "candidates": [],
+                # resolution 이 담아온 근접 후보를 버리지 않는다 — 못 찾았을 때 사용자가
+                # 고를 수 있게 보여준다(자동 선택은 하지 않는다).
+                "candidates": _near,
                 "usage": build_usage(client.api_call_snapshot() - _calls_start),
                 "timings_ms": {**timings_ms, "total": int((time.perf_counter() - total_started_at) * 1000)},
             },
@@ -475,6 +488,19 @@ async def resolve_company_query(query: str) -> CompanyResolution:
             )
 
     status, selected, candidates = _resolve_match(query, matches)
+    if status == AnalysisStatus.ERROR and not selected:
+        # 못 찾았으면 끝내지 말고 근접 후보를 보여준다 — 개명·상장폐지·접미가 붙은
+        # 상호를 사용자가 알아보고 고를 수 있다(실측: 「에이플러스에셋어드바이저」→
+        # 「에이플러스에셋」). 자동 선택은 하지 않는다 — 앞자르기 자동선택은 오답을 낸다.
+        try:
+            near = await client.suggest_corp_candidates(query)
+        except Exception:
+            near = []
+        if near:
+            return CompanyResolution(
+                status=status, query=query, selected=None,
+                candidates=near,
+            )
     return CompanyResolution(
         status=status,
         query=query,

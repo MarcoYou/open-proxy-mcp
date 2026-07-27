@@ -355,6 +355,27 @@ class CompanyResolver:
             return []
         return self._search_one(raw_query)
 
+    def suggest(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+        """못 찾았을 때 보여줄 근접 후보. **자동 선택하지 않는다.**
+
+        앞자르기로 자동 선택하면 오답이 난다(실측: 에스피씨삼립→「케이에스피」,
+        포스코디엑스→「POSCO홀딩스」). 같은 계산을 '제안'으로 쓰면 안전하다 —
+        고르는 것은 사람이다. 「에이플러스에셋어드바이저」→「에이플러스에셋」처럼
+        접미가 붙은 상호, 개명·상장폐지된 이름을 사용자가 알아볼 수 있게 한다.
+        """
+        base = normalize_compact(query)
+        seen: dict[int, None] = {}
+        for end in range(len(base) - 1, 2, -1):
+            for row_id in self._compact.get(base[:end], []):
+                if row_id in self._listed_ids:
+                    seen.setdefault(row_id, None)
+            for row_id in self._tokens.get(base[:end], set()):
+                if row_id in self._listed_ids:
+                    seen.setdefault(row_id, None)
+            if len(seen) >= limit:
+                break
+        return [self.corps[i] for i in list(seen)[:limit]]
+
     def _search_one(self, query: str) -> list[dict[str, Any]]:
         raw_query = (query or "").strip()
         if not raw_query:

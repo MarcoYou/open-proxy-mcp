@@ -257,3 +257,24 @@ def test_industry_suffix_stripping_leaves_group_forms_alone():
     from open_proxy_mcp.company_resolver import industry_suffix_variants as v
     for name in ("nice홀딩스", "포스코디엑스", "에스피씨삼립", "삼성전자", "카카오"):
         assert v(name) == [], name
+
+
+def test_not_found_shows_candidates_instead_of_dead_end():
+    """못 찾으면 끝내지 말고 근접 후보를 보여준다 — 고르는 것은 사람이다."""
+    from open_proxy_mcp.tools.company import _render_error
+    out = _render_error({"subject": "에이플러스에셋어드바이저",
+                         "warnings": ["'에이플러스에셋어드바이저'에 해당하는 회사를 찾지 못했다."],
+                         "data": {"candidates": [
+                             {"corp_name": "에이플러스에셋", "stock_code": "244920",
+                              "corp_code": "00684802"}]}})
+    assert "혹시 이 회사인가요?" in out
+    assert "에이플러스에셋" in out and "244920" in out
+    assert "ticker(6자리)" in out, "다음에 뭘 하면 되는지 알려준다"
+
+
+def test_not_found_without_candidates_stays_quiet():
+    """후보가 없으면 빈 표를 만들지 않는다."""
+    from open_proxy_mcp.tools.company import _render_error
+    out = _render_error({"subject": "성안머티리얼스", "warnings": ["못 찾았다."],
+                         "data": {"candidates": []}})
+    assert "혹시 이 회사인가요?" not in out
