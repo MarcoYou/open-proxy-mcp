@@ -293,3 +293,22 @@ def test_clause_number_449_without_the_special_case():
     """상법 제449조(재무제표 승인 일반)는 특칙이 아니다 — 조의2 만 잡는다."""
     assert board_approval_special_case(
         "상법 제449조에 따라 주주총회에서 재무제표를 승인합니다.") == {}
+
+
+def test_financial_statements_as_modifier_is_not_the_approval_agenda():
+    """'재무제표'가 수식어로 쓰인 별개 안건을 보고사항으로 표시하면 조언이 통째로 죽는다.
+
+    실측(케이씨씨): 「연결재무제표를 기준으로 한 주주환원정책 재수립의 건(권고적 주주제안)」이
+    재무제표 승인 안건으로 오인돼 '표결없음' 처리됐다 — 주주제안 안건인데 의견이 안 나간다.
+    """
+    sent = ("제8호 의안 : 안건 철회(보고사항으로 변경) 상법 제449조의2에 따라 요건을 모두 충족하여"
+            " 이사회 결의로 재무제표를 승인하였습니다.")
+    tree = [
+        {"number": "제8호", "title": "안건 철회(보고사항으로 변경)", "children": []},
+        {"number": "제10-3호",
+         "title": "연결재무제표를 기준으로 한 주주환원정책 재수립의 건(권고적 주주제안)",
+         "children": []},
+    ]
+    annotate_board_approval(tree, sent)
+    assert tree[0]["resolution_status"] == "report_only", "철회된 재무제표 안건은 맞다"
+    assert "resolution_status" not in tree[1], "주주제안 안건에는 붙으면 안 된다"
