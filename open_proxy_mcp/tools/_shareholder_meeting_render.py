@@ -17,8 +17,13 @@ def _render_agenda_node(node: dict[str, Any], indent: int = 0) -> list[str]:
     title = node.get("title", "") or ""
     source = f" [{node['source']}]" if node.get("source") else ""
     conditional = f" ({node['conditional']})" if node.get("conditional") else ""
+    # 상법 §449조의2 — 재무제표가 이사회 승인으로 갈음돼 표결하지 않는 안건.
+    # 표시가 없으면 읽는 쪽이 일반 안건으로 오인해 찬반 의견을 만들어 낸다.
+    _vote = {"report_only": " 🚫 **표결 대상 아님 — 보고사항**",
+             "report_if_conditions_met": " ⚠️ 요건 충족 시 보고사항으로 전환 가능"}.get(
+        node.get("resolution_status") or "", "")
     bullet = f"- **{number}** {title}" if number else f"- {title}"
-    lines.append(f"{prefix}{bullet}{source}{conditional}")
+    lines.append(f"{prefix}{bullet}{source}{conditional}{_vote}")
     for child in (node.get("children") or []):
         lines.extend(_render_agenda_node(child, indent + 1))
     return lines
@@ -221,6 +226,22 @@ def render_summary(payload: dict[str, Any]) -> str:
         lines.append("## 1호 안건 메타 (재무제표 승인)")
         for k, v in fy_meta.items():
             lines.append(f"- {k}: {v}")
+
+    # 목적사항별 기재사항 구간 원문. 안건과 구간을 짝지어 주지 않는 대신 어느 구간도 버리지
+    # 않는다 — 표 파싱이 실패하면 통째로 사라지던 내용(주주제안 후보 명단·자기주식 처분계획·
+    # 퇴직금 규정 개정 상세)이 여기로 나온다. 재무제표 구간은 머리만 남긴다(수치는 API가 정본).
+    sections = data.get("agenda_detail_sections") or []
+    if sections:
+        lines.append("")
+        lines.append("## 목적사항별 기재사항 (원문)")
+        lines.append("- 어느 안건의 상세인지는 구간 제목과 본문을 보고 판단한다.")
+        for sec in sections:
+            note = f" · 이하 생략(전체 {sec['chars']:,}자)" if sec.get("truncated") else ""
+            lines.append("")
+            lines.append(f"### {sec.get('heading') or sec['code']}{note}")
+            lines.append("```")
+            lines.append(sec.get("text") or "")
+            lines.append("```")
 
     report_items = info.get("report_items") or []
     if report_items:

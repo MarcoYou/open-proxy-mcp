@@ -188,7 +188,7 @@ def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[d
         conditional = item.get("conditional")
         relation_type, relation_reasons = _agenda_relation(title, conditional)
         category = _classify_agenda(title, parent_title=parent_title)
-        nodes.append({
+        node = {
             "agenda_id": agenda_id,
             "number": item.get("number", ""),
             "title": title,
@@ -200,7 +200,14 @@ def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[d
             "agenda_relation_type": relation_type,
             "agenda_relation_reasons": relation_reasons,
             "children": _agenda_nodes(item.get("children", []), parent_title=title),
-        })
+        }
+        # 파서가 붙인 진단 필드를 통과시킨다. 화이트리스트로 새 dict를 만드는 구조라
+        # 여기 적지 않으면 조용히 사라진다 — 실제로 filed_*·resolution_* 이 그렇게 유실됐다.
+        for key in ("filed_code", "filed_kind", "filed_link",
+                    "resolution_status", "resolution_note", "dividend"):
+            if item.get(key) is not None:
+                node[key] = item[key]
+        nodes.append(node)
     return nodes
 
 
