@@ -260,7 +260,8 @@ def render_summary(payload: dict[str, Any]) -> str:
 
     if data.get("raw_text_excerpt"):
         lines.append("")
-        lines.append("## 원문 발췌 (DART 본문, 구조 파싱 실패 fallback)")
+        # 통째 반환은 실패가 아니라 설계된 경로다 — '실패·fallback'으로 표기하지 않는다.
+        lines.append("## 원문 발췌 (DART 본문)")
         lines.append(f"- 원문 총 길이: {data.get('raw_text_full_length', 0):,}자 (최대 6000자만 표시)")
         lines.append("```")
         lines.append(data["raw_text_excerpt"])

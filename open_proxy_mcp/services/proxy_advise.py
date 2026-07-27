@@ -1271,7 +1271,7 @@ def _decide_retirement_pay(
     cap_status = fm_summary.get("capital_impairment_status")
 
     if not amendments:
-        return "NO_DATA", "퇴직금 안건 본문에서 amendments 추출 실패 (parser miss 또는 단순 정정)"
+        return "NO_DATA", "퇴직금 변경 상세가 정형으로 잡히지 않음 — 본문 원문으로 확인 (단순 정정일 수 있음)"
 
     # 키워드 hit 검출
     risk_against = []  # 황금낙하산 등
@@ -3034,6 +3034,24 @@ async def build_proxy_advise_payload(
                 reason = ("자본 감소(특별결의) — 확인사항: ① 무상/유상 구분 ② 목적(결손보전·회생·"
                           "구조조정 불가피성 — 해당 시 mainstream 찬성 관행) ③ 감자비율·주주평등"
                           "(주식병합 시 단주 처리) ④ 유상감자 시 환급가액 적정성")
+        elif category == "merger_or_restructuring":
+            # 260727: 분류 카테고리는 있는데 판정 분기가 없어 'other'→자동 FOR 로 새고 있었다
+            # (라이브 실측: 에이치디현대미포 「합병계약 체결 승인의 건」, 롯데케미칼
+            # 「분할계획서 승인의 건」 둘 다 ✅ FOR). 합병비율·주식매수청구권은 의결권 판단에서
+            # 가장 무거운 항목이라 자동 찬성이 나가면 안 된다. stock_option_grant·
+            # capital_reduction 과 같은 구멍이고 이번이 세 번째다.
+            decision = "REVIEW"
+            reason = ("합병·분할·영업양수도(특별결의) — 확인사항: ① 합병·분할 비율의 산정근거와 "
+                      "외부평가기관 의견 ② 주식매수청구권 행사가액·행사기간 ③ 지배주주 지분 변동과 "
+                      "일반주주 희석 ④ 사업적 정당성(시너지·구조조정 필요성) ⑤ 계열사 간 거래면 "
+                      "이해상충 검토. 「목적사항별 기재사항」 구간 원문 확인 필요")
+        elif category == "shareholder_proposal":
+            # 주주제안은 경영진 안건과 이해가 정면으로 충돌하는 자리 — 자동 찬성/반대 모두 부적절.
+            decision = "REVIEW"
+            reason = ("주주제안 안건 — 확인사항: ① 제안 주체와 지분율·보유기간(상법 §363-2 요건) "
+                      "② 제안 내용이 회사·전체주주 이익에 부합하는지 ③ 이사회 반대의견의 근거 "
+                      "④ 경영권 분쟁 국면이면 양측 주장 대조. 제안자 측 자료와 회사 측 자료를 "
+                      "모두 읽고 판단 — 구간 원문 참조")
         elif category == "stock_option_grant":
             # 260724 스튜어드십 리뷰: 'other'→자동FOR로 새던 동종 구멍 봉쇄
             decision = "REVIEW"

@@ -278,3 +278,21 @@ def test_not_found_without_candidates_stays_quiet():
     out = _render_error({"subject": "성안머티리얼스", "warnings": ["못 찾았다."],
                          "data": {"candidates": []}})
     assert "혹시 이 회사인가요?" not in out
+
+
+def test_every_classified_category_has_a_decision_branch():
+    """분류 카테고리에 판정 분기가 없으면 'other'로 새어 자동 FOR 가 된다.
+
+    이번 세션에서만 같은 구멍을 네 번 막았다 — stock_option_grant · capital_reduction
+    (260724) · merger_or_restructuring · shareholder_proposal (260727, 라이브 스윕에서 발견).
+    새 카테고리를 만들 때 분기를 빼먹으면 여기서 걸린다.
+    """
+    import re
+    from pathlib import Path
+    src = Path("open_proxy_mcp/services/proxy_advise.py").read_text(encoding="utf-8")
+    classifier = src.split("def _classify_agenda")[1].split("\ndef ")[0]
+    cats = set(re.findall(r'return "([a-z_]+)"', classifier)) - {"other"}
+    dispatch = src.split("agenda_decisions.append")[0]
+    have = set(re.findall(r'category == "([a-z_]+)"', dispatch))
+    missing = sorted(cats - have)
+    assert not missing, f"판정 분기 없는 카테고리(자동 FOR 위험): {missing}"
