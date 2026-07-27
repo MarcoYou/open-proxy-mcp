@@ -595,8 +595,10 @@ def board_approval_special_case(text: str) -> dict:
 # (실측 하림지주: 「제1-1호 사내이사…」가 앞서서 사외이사 2명이 사내이사로 집계됨).
 # 여기서는 고치지 않고 '공고가 뭐라고 했는지'만 남긴다 — 덮어쓰면 반대 방향(사내→사외 11건)과
 # 세분도 차이(사내이사 vs 이사 106건)까지 함께 깨진다. 판단은 호출측에 맡긴다.
-_DECLARED_ROLE = (("사외이사", "사외이사"), ("사내이사", "사내이사"),
-                  ("기타비상무이사", "기타비상무이사"))
+# 상법 1차 개정(§542의8, 공포 2025-07-22 · 시행 2026-07-23)으로 '사외이사'가 '독립이사'로
+# 바뀐다. 시행 전 공고와 이후 공고가 한동안 섞이므로 둘 다 같은 직위로 취급한다.
+_DECLARED_ROLE = (("독립이사", "사외이사"), ("사외이사", "사외이사"),
+                  ("사내이사", "사내이사"), ("기타비상무이사", "기타비상무이사"))
 
 
 def annotate_declared_role(tree: list[dict]) -> None:
@@ -2950,6 +2952,10 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                                       '해당', '부', '무', '여', '유', 'X', 'x', 'N', 'O', 'Y'):
                             return None
                         # "사내이사 후보자(재선임)" / "사외이사후보자" → 표준 role
+                        # 상법 1차 개정(§542의8, 2026-07-23 시행)으로 사외이사 → 독립이사.
+                        # 시행 전후 공고가 섞이므로 둘 다 받는다. 표기는 원문대로 보존한다 —
+                        # 독립성 검증 경로는 '사외'와 '독립'을 모두 사외로 취급한다.
+                        if '독립이사' in v: return '독립이사'
                         if '사외이사' in v: return '사외이사'
                         if '사내이사' in v: return '사내이사'
                         if '비상무이사' in v or ('비상무' in v and '이사' in v): return '기타비상무이사'
@@ -2969,7 +2975,8 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         val = row[ci].strip()
                         if '생년월일' in h:
                             candidate["birthDate"] = val
-                        elif ('사외이사' in h and '후보' in h) or '이사구분' in h or '직위' in h or h in ('구분', '직책'):
+                        elif ((('사외이사' in h or '독립이사' in h) and '후보' in h)
+                              or '이사구분' in h or '직위' in h or h in ('구분', '직책')):
                             candidate["roleType"] = _normalize_role_value(val)
                         elif '분리선출' in h:
                             candidate["separateElection"] = val

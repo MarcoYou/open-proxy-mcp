@@ -335,3 +335,28 @@ def test_declared_role_absent_when_title_is_silent():
     tree = [{"number": "제2호", "title": "감사위원회 위원 선임의 건 (후보자: 유균)", "children": []}]
     annotate_declared_role(tree)
     assert "declared_role" not in tree[0]
+
+
+# ── 상법 1차 개정: 사외이사 → 독립이사 (§542의8, 시행 2026-07-23) ──────────
+def test_independent_director_is_the_same_role_as_outside_director():
+    """명칭만 바뀐 같은 직위다 — 시행 전후 공고가 섞이므로 둘 다 사외이사로 받는다."""
+    tree = [{"number": "제1호", "title": "이사 선임의 건", "children": [
+        {"number": "제1-1호", "title": "독립이사 선임의 건 (후보자: 김철수)", "children": []},
+        {"number": "제1-2호", "title": "사외이사 선임의 건 (후보자: 이영희)", "children": []},
+        {"number": "제1-3호", "title": "사내이사 선임의 건 (후보자: 박민수)", "children": []},
+    ]}]
+    annotate_declared_role(tree)
+    assert [k["declared_role"] for k in tree[0]["children"]] == \
+        ["사외이사", "사외이사", "사내이사"], "독립이사도 사외이사로 취급"
+
+
+def test_independent_director_normalises_like_outside_director():
+    """표의 직위 칸이 「독립이사」여도 사외이사와 동일하게 정규화된다.
+
+    실측 검증(판타지오 소집공고 전체를 개정 후 표기로 치환): 사외이사 2명이 독립이사로
+    그대로 인식되고 후보 수도 보존됐다. 여기서는 그 규칙만 좁게 고정한다.
+    """
+    from open_proxy_mcp.services.director_evaluation import _is_outside_director_role
+    for role in ("독립이사", "독립이사 후보자(재선임)", "사외이사"):
+        assert _is_outside_director_role(role), role
+    assert not _is_outside_director_role("사내이사")

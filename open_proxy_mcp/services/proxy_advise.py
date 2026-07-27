@@ -1994,8 +1994,9 @@ def _extract_risks(
         for a in amends:
             after = a.get("after") or ""
             before = a.get("before") or ""
-            if "사외이사" in after and "사외이사" not in before:
-                risks.append("사외이사 퇴직금 신설 (OPM #6 검토)")
+            _out = ("사외이사", "독립이사")     # 상법 1차 개정 명칭 변경 — 둘 다 본다
+            if any(k in after for k in _out) and not any(k in before for k in _out):
+                risks.append("사외이사(독립이사) 퇴직금 신설 (OPM #6 검토)")
                 break
 
     if category == "cash_dividend":
@@ -2952,7 +2953,7 @@ async def build_proxy_advise_payload(
                     # 상근감사 같은 case에서 role_type 빈 string → 사내이사 fallback (자동 FOR) 위험.
                     if category == "audit_committee_election" and matched_eval is not None:
                         rt = matched_eval.get("role_type") or ""
-                        if "사외" not in rt and "감사" not in rt:
+                        if not any(k in rt for k in ("사외", "독립", "감사")):
                             # role_type 빈 또는 사내이사 표기여도 audit는 strict
                             matched_eval = {**matched_eval, "role_type": (rt or "") + " (audit-strict)"}
                             # 강제 outside 처리 — _decide_director_election 안에 분기
