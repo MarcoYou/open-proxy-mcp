@@ -69,7 +69,12 @@ def main() -> None:
         "generated_note": "DART 원문은 저장하지 않는다 — rcept_no 로 재수집한다(scripts/restore_samples.py).",
         "counts": dict(counts), "total": len(rows), "samples": rows,
     }, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"레지스트리 {len(rows)}건 → {REGISTRY.relative_to(ROOT)}")
+    # 레지스트리는 보통 private 저장소(레포 밖)에 있으므로 relative_to 를 쓰면 깨진다.
+    try:
+        where = REGISTRY.relative_to(ROOT)
+    except ValueError:
+        where = REGISTRY
+    print(f"레지스트리 {len(rows)}건 → {where}")
     for k, v in counts.most_common():
         print(f"  {v:>4}  {k}")
 

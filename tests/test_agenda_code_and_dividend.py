@@ -209,3 +209,87 @@ def test_merge_takes_conservative_side():
                           ("REVIEW", "FOR", "REVIEW"), ("FOR", "FOR", "FOR")]:
         got = div if rank[div] > rank[fs] else fs
         assert got == want, (fs, div, got)
+
+
+# ── 상법 §449조의2: 재무제표가 표결 대상인가 보고사항인가 ─────────────────
+from open_proxy_mcp.services.shareholder_meeting_parser import (      # noqa: E402
+    annotate_board_approval, board_approval_special_case,
+)
+
+
+def _fs_tree():
+    return [{"number": "제1호", "title": "제56기 재무제표 승인의 건", "children": []},
+            {"number": "제2호", "title": "정관 일부 변경의 건", "children": []}]
+
+
+@pytest.mark.parametrize("sentence", [
+    # 캐시 실측 확정 문면 — 완료형·철회형
+    "당사는 상법 449조2 및 회사 정관 제52조 제6항에 따라 외부감사인의 감사의견이 적정하고"
+    " 감사의 동의가 있어 재무제표를 이사회 결의로 승인하였기에 보고 안건으로 시행합니다.",
+    "제50기 재무제표는 외부감사인의 '적정' 감사의견과 감사의 동의로 상법 제449조 의2 및 당사"
+    " 정관 제51조 4항에 따라 이사회에서 최종승인 되었습니다.",
+    "상법 제449조의2 및 정관 제43조에 따른 요건이 충족되어 이를 이사회에서 승인하고"
+    " 주주총회 보고사항으로 변경함",
+    "제1호 의안 : 안건 철회(보고사항으로 변경) 상법 제449조의2에 따라 요건을 모두 충족하여",
+])
+def test_converted_marks_agenda_as_not_voted(sentence):
+    tree = _fs_tree()
+    annotate_board_approval(tree, sentence)
+    assert tree[0]["resolution_status"] == "report_only"
+    assert "resolution_status" not in tree[1], "재무제표 아닌 안건에는 붙지 않는다"
+
+
+@pytest.mark.parametrize("sentence", [
+    # 캐시 실측 조건부 문면 — 조건 어미가 문장 전체를 지배한다
+    "제 45 기 재무제표 승인의 건은 상법 제449조의2 및 당사 정관 제42조에 의거 외부감사인이"
+    " 적정의견을 표시하고 감사 전원이 동의할 경우 이사회에서 승인하고 주주총회에서는"
+    " 보고로 갈음할 예정입니다.",
+    "제1호 의안은 상법 제449조의2 및 당사 정관 제43조 4항에 의해 외부감사인의 적정의견 및"
+    " 감사위원 전원이 동의할 시 이사회에서 승인하고 주주총회에는 보고로 갈음할 수 있음.",
+    "제8호 의안은 상법 제449조의2에 의한 요건 충족시 이사회 승인 후 주주총회 보고사항으로 변경 예정",
+    "당사는 상법 제449조의2 및 당사 정관 제43조에 따라 외부감사인의 감사의견이 적정이고"
+    " 감사의 동의가 있는 경우 이사회에서 재무제표를 승인하고 주주총회에서 보고할 예정임.",
+])
+def test_conditional_stays_a_votable_agenda(sentence):
+    """조건부는 공고 시점엔 여전히 표결 안건 — '이사회에서 승인하고'만 떼어 완료로 읽으면 오판이다."""
+    tree = _fs_tree()
+    annotate_board_approval(tree, sentence)
+    assert tree[0]["resolution_status"] == "report_if_conditions_met"
+
+
+def test_withdrawn_title_variants_are_recognised():
+    """철회된 안건은 제목만 남고 표기가 갈린다 — 놓치면 표결 없는 안건에 찬성이 나간다."""
+    sent = ("당사는 상법 제449조의2 및 당사 정관 제43조 규정에 의거하여 외부감사인의 적정의견 및"
+            " 감사위원 전원의 동의로 재무제표를 이사회에서 승인하였습니다.")
+    for title in ("안건 철회(보고사항으로 변경)", "의안 철회 [보고사항으로 변경]",
+                  "보고사항으로 변경", "보고사항으로 전환", "보고사항으로 진행"):
+        tree = [{"number": "제1호", "title": title, "children": []}]
+        annotate_board_approval(tree, sent)
+        assert tree[0]["resolution_status"] == "report_only", title
+
+
+def test_renumbered_correction_does_not_mistag_other_agenda():
+    """정정공고에서 번호가 재배치되면 문면의 '제1호'가 다른 안건을 가리킨다.
+
+    실측: 써니전자·한진중공업홀딩스의 정관변경 안건에 보고사항 표시가 잘못 붙었다.
+    번호가 아니라 안건의 정체로 게이트를 건다.
+    """
+    sent = ("기존 결의사항 제1호 의안인 제60기 재무제표 승인의 건을 상법 제449조의2 및 당사 정관"
+            " 제43조에 따라 요건을 충족하여 이사회에서 승인하고 주주총회 보고사항으로 변경하였습니다.")
+    tree = [{"number": "제1호", "title": "정관 일부 변경의 건", "children": []},
+            {"number": "제2호", "title": "이사 선임의 건", "children": []}]
+    annotate_board_approval(tree, sent)
+    assert all("resolution_status" not in n for n in tree)
+
+
+def test_law_absent_is_a_no_op():
+    tree = _fs_tree()
+    annotate_board_approval(tree, "제1호 의안 : 제56기 재무제표 승인의 건")
+    assert all("resolution_status" not in n for n in tree)
+    assert board_approval_special_case("정관 제449조 규정에 따라") == {}
+
+
+def test_clause_number_449_without_the_special_case():
+    """상법 제449조(재무제표 승인 일반)는 특칙이 아니다 — 조의2 만 잡는다."""
+    assert board_approval_special_case(
+        "상법 제449조에 따라 주주총회에서 재무제표를 승인합니다.") == {}

@@ -369,6 +369,9 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
     _fill_empty_parent_titles(tree)
     if html:
         annotate_agenda_codes(tree, html)
+    # 상법 §449조의2 — 재무제표가 이사회 승인으로 갈음돼 보고사항이 됐는지.
+    # 본문(text)에도 공고문에도 실릴 수 있어 둘 다 본다.
+    annotate_board_approval(tree, (text or "") + " " + (html_to_text(html) if html else ""))
     return tree
 
 
@@ -499,6 +502,133 @@ def declared_agenda_links(html: str) -> dict[str, str]:
                 key = m.group(1) + (f"-{m.group(2)}" if m.group(2) else "")
                 out.setdefault(key, code)
     return out
+
+
+# ── 상법 §449조의2: 재무제표를 이사회가 승인하면 주총은 '보고'만 받는다 ──────
+# 정관 근거 + 외부감사인 적정의견 + 감사(위원) 전원 동의 세 요건이 충족되면 재무제표 승인은
+# 이사회 결의로 갈음되고 주주총회에서는 보고사항이 된다. 이때 그 안건은 **표결하지 않는다** —
+# 찬반 의견을 내면 없는 표결에 의견을 내는 셈이다.
+#
+# 문면은 두 상태로 갈리고 조언에 미치는 영향이 정반대다(캐시 실측 27건: 조건부 15 · 확정 12).
+#   조건부  「요건이 충족될 경우 … 보고할 수 있습니다」  → 공고 시점엔 여전히 표결 안건
+#   확정    「요건을 충족하여 … 보고사항으로 변경되었습니다」 → 표결하지 않는다
+#
+# 한국어 조건문은 조건 어미가 문장 전체를 지배한다. 「동의할 경우 이사회에서 승인하고
+# 주주총회에서는 보고로 갈음할 예정입니다」에서 '이사회에서 승인하고'만 떼어 완료로 읽으면
+# 오판이다 — 앞의 '동의할 경우'가 문장을 조건으로 묶는다. 그래서 조각이 아니라 문장 단위로 본다.
+_LAW_449_2 = re.compile(r'449\s*조\s*(?:의\s*)?2')
+# 조건 어미. '시'는 시각(오전 9시)·시행과 겹치므로 조건으로 쓰인 형태만 받는다.
+_BA_CONDITIONAL = re.compile(
+    r'(?:경우|때)\s*(?:에는|에|,)?(?=\s|$|[^가-힣])'
+    r'|(?<![0-9])(?:충족|동의|적정|해당|성립)\s*(?:할|될|하는|되는)?\s*시(?=\s|,|[^가-힣])'
+    r'|(?:할|될)\s*시(?=\s|,|[^가-힣])'
+    r'|(?:되|하|이)면(?=\s|,)'
+    r'|수\s*있(?:습니다|음|다|으며|고)?'
+    r'|예정(?:입니다|임|이며)?'
+    r'|될\s*것'
+)
+# 조건 어미가 있어도 이기는 강한 완료 신호 — 정정공고의 '정정 후' 문면
+_BA_CONVERTED_STRONG = re.compile(
+    r'안건\s*철회'
+    r'|부의\s*사항\s*[→\-–>]+\s*보고\s*사항'
+    r'|보고\s*(?:사항|안건)\s*으로\s*(?:변경|대체|전환)\s*(?:하였|되었|함|됨)'
+    r'|보고\s*안건\s*으로\s*시행'
+)
+_BA_CONVERTED = re.compile(
+    r'충족(?:하여|되어|되었|됨)'
+    r'|승인\s*(?:하였|되었)'
+    r'|승인\s*하고\s*주주총회\s*보고\s*사항\s*으로\s*변경'
+)
+_BA_SENT = re.compile(r'(?<=[.。])\s+|(?<=니다)\s+|(?<=[임음])\s+|\s*※\s*|\s*[-–]\s(?=[가-힣])')
+_BA_AGENDA_NO = re.compile(r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*호')
+
+
+def _ba_sentence_state(sent: str) -> str:
+    if _BA_CONVERTED_STRONG.search(sent):
+        return "converted"
+    if _BA_CONDITIONAL.search(sent):
+        return "conditional"
+    if _BA_CONVERTED.search(sent):
+        return "converted"
+    return ""
+
+
+def board_approval_special_case(text: str) -> dict:
+    """상법 §449조의2 적용 상태. 없으면 {}.
+
+    반환 — {state: converted|conditional, agenda_numbers: [...], evidence: "..."}
+    `agenda_numbers` 는 그 문장이 스스로 지목한 안건 번호다(「제8호 의안은 …」).
+    지목이 없으면 빈 리스트이고, 호출측이 재무제표 안건에 적용한다.
+    """
+    flat = re.sub(r"\s+", " ", text or "")
+    hits = list(_LAW_449_2.finditer(flat))
+    if not hits:
+        return {}
+    best = ""
+    evidence = ""
+    numbers: list[str] = []
+    for m in hits:
+        window = flat[max(0, m.start() - 300): m.start() + 380]
+        for sent in _BA_SENT.split(window):
+            if not (_LAW_449_2.search(sent) or "보고" in sent):
+                continue
+            state = _ba_sentence_state(sent)
+            if not state:
+                continue
+            if state == "converted" and best != "converted":
+                best, evidence, numbers = state, sent.strip(), []
+            elif state == "conditional" and not best:
+                best, evidence, numbers = state, sent.strip(), []
+            if state == best:
+                for am in _BA_AGENDA_NO.finditer(sent):
+                    key = am.group(1) + (f"-{am.group(2)}" if am.group(2) else "")
+                    if key not in numbers:
+                        numbers.append(key)
+    if not best:
+        return {}
+    return {"state": best, "agenda_numbers": numbers, "evidence": evidence[:400]}
+
+
+def annotate_board_approval(tree: list[dict], text: str) -> None:
+    """재무제표 안건에 §449조의2 상태를 부착(in-place).
+
+    붙이는 것 — `resolution_status`(report_only · report_if_conditions_met) · `resolution_note`.
+    문장이 안건 번호를 지목했으면 그 안건에만, 아니면 재무제표 안건에 붙인다.
+    """
+    info = board_approval_special_case(text)
+    if not info:
+        return
+    status = ("report_only" if info["state"] == "converted" else "report_if_conditions_met")
+    wanted = set(info["agenda_numbers"])
+
+    def is_fs(node: dict) -> bool:
+        """재무제표 안건인가. 번호가 아니라 정체로 판정한다.
+
+        번호만 믿으면 안 된다 — 정정공고에서 안건이 철회되며 번호가 재배치되면 문면의
+        「제1호」가 지금의 제1호(정관변경)와 다른 안건을 가리킨다(실측: 써니전자·한진중공업홀딩스의
+        정관변경 안건이 보고사항으로 잘못 표시됐다). 철회 표기만 남은 안건도 재무제표 안건이다.
+        """
+        t = node.get("title") or ""
+        if "보수" in t:
+            return False
+        if "재무제표" in t or "재무상태표" in t or "제무제표" in t:
+            return True
+        # 철회된 안건은 제목만 남는다. 표기가 갈린다 — 실측: 철회·변경·전환·진행·대체.
+        # 「보고사항으로 진행」을 놓치면 표결 없는 안건에 찬성 의견이 나간다.
+        return "보고사항" in t and any(k in t for k in ("철회", "변경", "전환", "진행", "대체", "갈음"))
+
+    def walk(nodes: list[dict]) -> None:
+        numbered = {re.sub(r"[제호\s]", "", o.get("number") or "") for o in nodes if is_fs(o)}
+        pinned = bool(wanted & numbered)          # 문면이 지목한 번호가 실제 재무제표 안건일 때만
+        for n in nodes:
+            if is_fs(n):
+                num = re.sub(r"[제호\s]", "", n.get("number") or "")
+                if not pinned or num in wanted:
+                    n["resolution_status"] = status
+                    n["resolution_note"] = info["evidence"]
+            walk(n.get("children") or [])
+
+    walk(tree)
 
 
 # 구간별 분량 상한. 실측 287건: 목적사항별 기재사항 전체의 85.3%가 '재무제표의 승인' 하나다

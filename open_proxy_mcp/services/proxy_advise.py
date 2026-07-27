@@ -2371,6 +2371,9 @@ async def build_proxy_advise_payload(
                     # 구간 코드를 어떻게 이었는지(declared/candidate_name/heading/kind_match).
                     # declared 만 문서가 직접 밝힌 것이라 분류 정확도의 독립 근거로 쓸 수 있다.
                     "filed_link": it.get("filed_link"),
+                    # 상법 §449조의2 — 재무제표가 보고사항으로 갈음됐는지(표결 유무)
+                    "resolution_status": it.get("resolution_status"),
+                    "resolution_note": it.get("resolution_note"),
                 })
             if isinstance(it, dict):
                 rows.extend(_flatten_agenda_rows(it.get("children") or []))
@@ -3209,6 +3212,20 @@ async def build_proxy_advise_payload(
             _risk_note = "; ".join(str(r) for r in risk_factors[:2])
             if _risk_note and _risk_note not in reason:
                 reason = f"{reason} ⚠️ 유의: {_risk_note}"
+
+        # 상법 §449조의2 — 재무제표 승인이 이사회 결의로 갈음돼 주총 보고사항이 된 경우
+        # 그 안건은 표결하지 않는다. 찬반을 내면 없는 표결에 의견을 내는 셈이다.
+        # 조건부(요건 충족 시 전환 예정)는 공고 시점엔 여전히 표결 안건이므로 판정을 유지하고
+        # 전환 가능성만 알린다 — 실측 27건 중 조건부 15 · 확정 12로 둘 다 흔하다.
+        _res_status = agenda_row.get("resolution_status") if isinstance(agenda_row, dict) else None
+        if _res_status == "report_only":
+            decision = "NO_VOTE"
+            reason = ("표결 대상이 아님 — 상법 §449조의2에 따라 재무제표를 이사회 결의로 승인하고 "
+                      "주주총회에는 보고로 갈음(정관 근거 + 외부감사인 적정의견 + 감사 전원 동의). "
+                      f"공고 문면: 「{(agenda_row.get('resolution_note') or '')[:120]}」")
+        elif _res_status == "report_if_conditions_met":
+            reason = (f"{reason} / 상법 §449조의2 요건(외부감사인 적정의견·감사 전원 동의) 충족 시 "
+                      "이사회 승인으로 갈음돼 보고사항으로 바뀔 수 있음 — 총회 직전 정정공고 확인 필요")
 
         agenda_decisions.append({
             "agenda_title": title,

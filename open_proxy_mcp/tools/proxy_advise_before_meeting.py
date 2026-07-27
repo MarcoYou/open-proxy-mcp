@@ -180,6 +180,8 @@ def _render(payload: dict[str, Any]) -> str:
                 "AGAINST": "❌ AGAINST",
                 "REVIEW": "⚠️ REVIEW",
                 "NO_DATA": "— NO_DATA",
+                # 상법 §449조의2로 보고사항이 된 안건 — 표결 자체가 없다
+                "NO_VOTE": "🚫 표결없음",
             }.get(decision, decision)
             # 법령 layer 정합 시 강한 표시 추가
             law_tag_marker = ""
