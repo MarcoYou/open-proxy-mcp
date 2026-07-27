@@ -360,3 +360,16 @@ def test_independent_director_normalises_like_outside_director():
     for role in ("독립이사", "독립이사 후보자(재선임)", "사외이사"):
         assert _is_outside_director_role(role), role
     assert not _is_outside_director_role("사내이사")
+
+
+def test_declared_role_only_on_election_agendas():
+    """직위가 제목에 나와도 선임 안건이 아니면 그 사람의 직위를 밝힌 게 아니다(실측 164건)."""
+    tree = [
+        {"number": "제2-3호", "title": "독립이사로의 명칭 변경의 건", "children": []},
+        {"number": "제5-3호", "title": "사외이사들의 보수 한도액을 1억원으로 정하는 건", "children": []},
+        {"number": "제3-1호", "title": "사외이사 이원조 선임의 건", "children": []},
+    ]
+    annotate_declared_role(tree)
+    assert "declared_role" not in tree[0], "정관 명칭변경 안건"
+    assert "declared_role" not in tree[1], "보수한도 안건"
+    assert tree[2]["declared_role"] == "사외이사"

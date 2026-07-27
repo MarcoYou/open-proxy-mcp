@@ -601,15 +601,22 @@ _DECLARED_ROLE = (("독립이사", "사외이사"), ("사외이사", "사외이�
                   ("사내이사", "사내이사"), ("기타비상무이사", "기타비상무이사"))
 
 
+# 직위가 제목에 나와도 선임 안건이 아니면 그 사람의 직위를 밝힌 게 아니다 —
+# 「독립이사로의 명칭 변경의 건」(정관)·「사외이사들의 보수 한도액을 정하는 건」(보수)에
+# 붙으면 안 된다(실측 164건). 선임 계열 안건에만 붙인다.
+_ELECTION_AGENDA = re.compile(r'선\s*임|중\s*임|해\s*임|후보')
+
+
 def annotate_declared_role(tree: list[dict]) -> None:
     """안건 제목이 명시한 직위를 `declared_role` 로 부착(in-place)."""
     def walk(nodes: list[dict]) -> None:
         for n in nodes:
             t = n.get("title") or ""
-            for kw, role in _DECLARED_ROLE:
-                if kw in t:
-                    n["declared_role"] = role
-                    break
+            if _ELECTION_AGENDA.search(t):
+                for kw, role in _DECLARED_ROLE:
+                    if kw in t:
+                        n["declared_role"] = role
+                        break
             walk(n.get("children") or [])
     walk(tree)
 
@@ -2975,8 +2982,18 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         val = row[ci].strip()
                         if '생년월일' in h:
                             candidate["birthDate"] = val
-                        elif ((('사외이사' in h or '독립이사' in h) and '후보' in h)
-                              or '이사구분' in h or '직위' in h or h in ('구분', '직책')):
+                        elif (('사외이사' in h or '독립이사' in h) and '후보' in h
+                              and '여부' in h):
+                            # 「사외이사후보자여부 : 여」는 노이즈가 아니라 '이 후보는 사외이사'라는
+                            # 문서의 선언이다. 종전엔 값('여')만 보고 버린 뒤 구간 제목에서 직위를
+                            # 추정해, 하위안건이 한 표에 묶인 서식에서 사외이사가 사내이사로 집계됐다.
+                            _v = re.sub(r'\s+', '', val)
+                            if _v in ('여', '예', 'O', 'o', 'Y', 'y', '유', '해당', 'ㅇ'):
+                                candidate["roleType"] = "사외이사"
+                            else:
+                                # '부/아니오/-' = 사외이사가 아님. 무엇인지는 안건 제목이 정한다.
+                                candidate["roleType"] = _normalize_role_value(val)
+                        elif '이사구분' in h or '직위' in h or h in ('구분', '직책'):
                             candidate["roleType"] = _normalize_role_value(val)
                         elif '분리선출' in h:
                             candidate["separateElection"] = val
@@ -3216,7 +3233,11 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         texts.append(content)
             if texts and candidates:
                 reason_text = "\n".join(texts)
-                for c in candidates:
+                # 공고는 하위안건마다 '마. 추천 사유'를 따로 둔다. 전원에게 복사하면 마지막
+                # 하위안건의 사유가 앞 후보들을 덮어써서, 후보 3명이 모두 같은 사람의 추천
+                # 사유를 달고 나간다(실측 하림지주). 문면이 이름을 밝히면 그 후보에게만 붙인다.
+                named = [c for c in candidates if c.get("name") and c["name"] in reason_text]
+                for c in (named if named else candidates):
                     c["recommendationReason"] = reason_text
 
     return candidates
