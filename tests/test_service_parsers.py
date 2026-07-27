@@ -138,3 +138,161 @@ def test_classify_reverse_split_routed_to_capital_reduction():
     assert _classify_agenda("액면병합의 건") == "capital_reduction"
     # 합병(merger)과 혼동 금지
     assert _classify_agenda("회사 합병 승인의 건") == "merger_or_restructuring"
+
+
+def test_reserve_reclass_is_not_a_dividend():
+    """「자본준비금 감액 및 이익잉여금 전입」은 배당이 아니라 배당가능이익을 만드는 자본거래다.
+
+    '이익잉여금' 단축경로가 이 안건을 배당으로 끌고 가면 근거가 「§배당 — 흑자 + 배당성향
+    적정 시 FOR」로 붙는다. 결손을 메우는 회사에 '흑자' 기준을 인용하게 되는 셈이다.
+    문면은 전부 캐시 실측(소집공고 287건에서 12건 중 11건이 이렇게 새고 있었다).
+    """
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    for t in (
+        "자본준비금의 이익잉여금 전입의 건",
+        "자본준비금 감액 및 이익잉여금 전입의 건",
+        "자본준비금 감액 및 이익잉여금 전환의 건",
+        "자본준비금 감소 및 이익잉여금 전입의 건",
+        "결손보전을 위한 자본준비금의 이익잉여금 전입의 건",
+        "자본준비금 이익잉여금 전입 승인 건",
+        "자본준비금의 이익잉여금 전입의 건(규모: 500억원)",
+        "자본준비금, 임의적립금, 기타자본잉여금 감액 및 이익잉여금으로의 이입의 건",
+    ):
+        assert _classify_agenda(t) == "other", t
+
+
+def test_reserve_rule_does_not_swallow_real_dividends():
+    """반례 — 준비금을 언급해도 배당이 본질이면 배당으로 남아야 한다."""
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("자본준비금 감액에 따른 배당 확대의 건") == "cash_dividend"
+    assert _classify_agenda("이익잉여금 처분계산서 승인의 건") == "cash_dividend"
+    assert _classify_agenda("현금배당 승인의 건 (1주당 500원)") == "cash_dividend"
+    # 반대 방향(적립)은 감액·전입이 아니라 이 규칙에 걸리지 않는다
+    assert _classify_agenda("이익준비금 적립의 건") == "other"
+
+
+def test_share_consolidation_keeps_review_but_not_called_capital_reduction():
+    """주식(액면)병합은 자본금이 줄지 않는다 — REVIEW 라우팅은 유지하되 감자라 하지 않는다.
+
+    실측 10건 중 4건은 공고문에서 명시적으로 감자가 아니라고 밝히고 있었다. 그렇다고
+    'other'로 되돌리면 자동 찬성으로 새던 사고(260724)가 재발하므로 경로는 그대로 둔다.
+    """
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("주식병합 승인의 건") == "capital_reduction"
+    assert _classify_agenda("주식(액면) 병합 승인의 건") == "capital_reduction"
+    assert _classify_agenda("자본금 감소(액면가 감액) 승인의 건") == "capital_reduction"
+
+
+def test_corp_form_prefix_is_stripped_for_lookup():
+    """DART 정식명은 「(주)광무」처럼 법인격이 앞에 붙는다 — 그 표기로도 찾아야 한다.
+
+    실측(100사 라이브 스윕): suffix 만 떼던 탓에 우리 툴이 스스로 출력한 회사명으로
+    재조회하면 14곳이 식별 실패했다.
+    """
+    from open_proxy_mcp.dart.client import _normalize_corp_name as norm
+    assert norm("(주)광무") == "광무"
+    assert norm("주식회사솔루엠") == "솔루엠"
+    assert norm("㈜한화") == "한화"
+    assert norm("주식회사 케이티스카이라이프") == "케이티스카이라이프"
+    assert norm("미래에셋생명보험(주)") == "미래에셋생명보험"
+
+
+def test_corp_form_prefix_does_not_eat_real_names():
+    """반례 — '주'·'유'·'재'·'사'로 시작하는 정상 상호를 깎으면 안 된다."""
+    from open_proxy_mcp.dart.client import _normalize_corp_name as norm
+    for name in ("주성엔지니어링", "주연테크", "유한양행", "재영솔루텍", "사조오양"):
+        assert norm(name) == name.lower(), name
+
+
+def test_reverse_transliteration_matches_latin_registered_names():
+    """DART 등록명은 「SKC」인데 공고 헤더는 「에스케이씨(주)」로 적는다 — 둘을 이어야 한다.
+
+    실측 322개 중 48개가 조회 실패였고 대부분 이 유형이었다(→ 31개).
+    """
+    from open_proxy_mcp.company_resolver import latinized_variants, normalize_compact
+    def v(n): return latinized_variants(normalize_compact(n))
+    assert "skc" in v("에스케이씨(주)")
+    assert "cj대한통운" in v("씨제이대한통운")
+    assert "hlb" in v("에이치엘비㈜")
+    assert "byc" in v("비와이씨")
+    assert "hd한국조선해양" in v("에이치디한국조선해양")
+
+
+def test_reverse_transliteration_emits_every_prefix_length():
+    """「엔」은 알파벳 N 이자 「엔터테인먼트」의 첫 글자다 — 어디까지 letter 인지 정할 수 없어
+    길이별 변형을 모두 만든다."""
+    from open_proxy_mcp.company_resolver import latinized_variants, normalize_compact
+    got = latinized_variants(normalize_compact("제이와이피엔터테인먼트"))
+    assert "jyp엔터테인먼트" in got, got
+    assert "jypn터테인먼트" in got, "다른 해석도 함께 남긴다"
+
+
+def test_reverse_transliteration_leaves_ordinary_names_alone():
+    """반례 — 우연히 알파벳 음차와 겹치는 정상 상호를 깎으면 안 된다.
+    1글자는 우연 일치가 많아(이수페타시스의 '이'=E) 2글자부터만 만든다."""
+    from open_proxy_mcp.company_resolver import latinized_variants, normalize_compact
+    for name in ("이수페타시스", "오뚜기", "삼성전자", "이마트", "유한양행", "지누스", "비상장회사"):
+        assert not latinized_variants(normalize_compact(name)), name
+
+
+def test_industry_suffix_stripping_prefers_the_shortest_cut():
+    """공고 헤더는 정식 상호(「삼성생명보험」)인데 DART 등록명은 짧다(「삼성생명」).
+
+    많이 뗄수록 다른 회사가 된다 — 「미래에셋생명보험」에서 '생명보험'을 떼면
+    「미래에셋」이라는 별개 회사가 나온다. '보험'만 떼야 「미래에셋생명」이다.
+    """
+    from open_proxy_mcp.company_resolver import industry_suffix_variants as v
+    assert v("미래에셋생명보험")[0] == "미래에셋생명", v("미래에셋생명보험")
+    assert v("흥국화재해상보험")[0] == "흥국화재해상"
+    assert "흥국화재" in v("흥국화재해상보험"), "짧게 떼서 못 찾으면 더 떼 본다"
+    assert v("대한약품공업")[0] == "대한약품"
+
+
+def test_industry_suffix_stripping_leaves_group_forms_alone():
+    """지주·계열 표기는 떼지 않는다 — 앞자르기 실험에서 나온 오답을 막는다.
+
+    실측: 에스피씨삼립→「케이에스피」, 포스코디엑스→「POSCO홀딩스」, NICE홀딩스→「NICE」.
+    조회 실패보다 틀린 회사를 주는 편이 나쁘다.
+    """
+    from open_proxy_mcp.company_resolver import industry_suffix_variants as v
+    for name in ("nice홀딩스", "포스코디엑스", "에스피씨삼립", "삼성전자", "카카오"):
+        assert v(name) == [], name
+
+
+def test_not_found_shows_candidates_instead_of_dead_end():
+    """못 찾으면 끝내지 말고 근접 후보를 보여준다 — 고르는 것은 사람이다."""
+    from open_proxy_mcp.tools.company import _render_error
+    out = _render_error({"subject": "에이플러스에셋어드바이저",
+                         "warnings": ["'에이플러스에셋어드바이저'에 해당하는 회사를 찾지 못했다."],
+                         "data": {"candidates": [
+                             {"corp_name": "에이플러스에셋", "stock_code": "244920",
+                              "corp_code": "00684802"}]}})
+    assert "혹시 이 회사인가요?" in out
+    assert "에이플러스에셋" in out and "244920" in out
+    assert "ticker(6자리)" in out, "다음에 뭘 하면 되는지 알려준다"
+
+
+def test_not_found_without_candidates_stays_quiet():
+    """후보가 없으면 빈 표를 만들지 않는다."""
+    from open_proxy_mcp.tools.company import _render_error
+    out = _render_error({"subject": "성안머티리얼스", "warnings": ["못 찾았다."],
+                         "data": {"candidates": []}})
+    assert "혹시 이 회사인가요?" not in out
+
+
+def test_every_classified_category_has_a_decision_branch():
+    """분류 카테고리에 판정 분기가 없으면 'other'로 새어 자동 FOR 가 된다.
+
+    이번 세션에서만 같은 구멍을 네 번 막았다 — stock_option_grant · capital_reduction
+    (260724) · merger_or_restructuring · shareholder_proposal (260727, 라이브 스윕에서 발견).
+    새 카테고리를 만들 때 분기를 빼먹으면 여기서 걸린다.
+    """
+    import re
+    from pathlib import Path
+    src = Path("open_proxy_mcp/services/proxy_advise.py").read_text(encoding="utf-8")
+    classifier = src.split("def _classify_agenda")[1].split("\ndef ")[0]
+    cats = set(re.findall(r'return "([a-z_]+)"', classifier)) - {"other"}
+    dispatch = src.split("agenda_decisions.append")[0]
+    have = set(re.findall(r'category == "([a-z_]+)"', dispatch))
+    missing = sorted(cats - have)
+    assert not missing, f"판정 분기 없는 카테고리(자동 FOR 위험): {missing}"

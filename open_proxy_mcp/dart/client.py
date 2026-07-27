@@ -115,6 +115,17 @@ _CORP_SUFFIX_RE = re.compile(
     re.IGNORECASE
 )
 
+# 법인격 prefix 제거 패턴 — DART 정식명은 「(주)광무」·「주식회사솔루엠」처럼 앞에 붙는다.
+# suffix 만 떼면 우리 툴이 스스로 출력한 회사명으로 재조회했을 때 식별 실패한다
+# (실측 100사 라이브 스윕에서 14곳). 「주성엔지니어링」처럼 '주'로 시작하는 정상 상호를
+# 깎지 않도록 닫는 괄호나 '식회사'를 반드시 요구한다.
+_CORP_PREFIX_RE = re.compile(
+    r'^\s*[\(（]\s*[주유재사]\s*[\)）]\s*'      # (주) (유) (재) (사)
+    r'|^\s*[㈜㈐]\s*'
+    r'|^\s*(?:주식|유한|합자|합명)\s*회사\s*'
+    r'|^\s*(?:재단|사단)\s*법인\s*',
+)
+
 # 알려진 약칭/영문명 → DART 정식 한글명 매핑 (lowercase key)
 _CORP_ALIASES: dict[str, str] = {
     # ── 영문/약칭 → DART 정식명 ──
@@ -225,6 +236,7 @@ _CORP_ALIASES: dict[str, str] = {
 
 def _normalize_corp_name(name: str) -> str:
     """법인격 suffix 제거 후 소문자 변환 (매칭용)"""
+    name = _CORP_PREFIX_RE.sub("", name.strip())
     name = _CORP_SUFFIX_RE.sub("", name.strip())
     return name.strip().lower()
 
@@ -629,6 +641,14 @@ class DartClient:
         corps = await self._load_corp_codes()
         resolver = await get_company_resolver(corps, _CORP_ALIASES)
         return resolver.search(query)
+
+    async def suggest_corp_candidates(self, query: str, limit: int = 5) -> list[dict]:
+        """조회 실패 시 보여줄 근접 후보. 자동 선택이 아니라 사람이 고르게 하는 용도."""
+        from open_proxy_mcp.company_resolver import get_company_resolver
+
+        corps = await self._load_corp_codes()
+        resolver = await get_company_resolver(corps, _CORP_ALIASES)
+        return resolver.suggest(query, limit)
 
     async def get_naver_corp_profile(self, stock_code: str) -> dict:
         """NAVER 금융에서 업종명 조회 (웹 스크래핑)

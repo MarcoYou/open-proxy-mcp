@@ -18,8 +18,11 @@
 
 import re
 import logging
+from typing import Optional
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 import warnings
+
+from open_proxy_mcp.dart.client import html_to_text
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
@@ -163,6 +166,24 @@ AGENDA_NO_COLON_RE = re.compile(
     r'(.+?)' + _AGENDA_BOUNDARY
 )
 
+# 하위안건 맨몸: 제N-M호 제목 (콜론도 '의안'도 없음)
+#
+# 기존 세 그물은 구분자(: . )) 아니면 '의안' 키워드를 요구한다. 그래서
+# 「제1-1호 사내이사 선임의 건 (후보자: 문경민)」처럼 번호 뒤에 제목이 곧바로 붙는
+# 하위안건이 셋 다 통과해 사라진다 — 상위 「이사 선임의 건」만 남고 후보자별 안건이
+# 없어져 후보자 개별 판단이 불가능해진다(실측 8건 19안건, 하림지주 5명 전원 소실).
+#
+# 하이픈 번호(제N-M호)로 한정한다. 홑번호(제N호)까지 열면 '제5호에 따라' 같은
+# 본문 참조를 안건으로 오인한다. 제목은 _AGENDA_BOUNDARY 가 끊으므로 다음 안건을
+# 삼키지 않는다. '및/또는' 같은 연결어로 시작하면 참조문(「제2-1호 및 제2-2호는…」)이다.
+AGENDA_HYPHEN_BARE_RE = re.compile(
+    r'제\s*(\d+)\s*-\s*(\d+)\s*(?:-\s*(\d+))?\s*호'
+    r'(?!\s*(?:의\s*안|의안|안건))'                     # '의안' 계열은 위 그물이 잡는다
+    r'(?!\s*[:：.)）])'                                  # 구분자가 있으면 위 그물이 잡는다
+    r'\s*(?!(?:및|또는|내지|과|와|부터)\b)'
+    r'([^\n]{3,}?)' + _AGENDA_BOUNDARY
+)
+
 # 괄호형: (제N-M-K호) 제목 (콜론 없음)
 AGENDA_PAREN_RE = re.compile(
     r'\(제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호\)'
@@ -229,6 +250,10 @@ def _agenda_flat_from_zone(zone: str) -> tuple[list[dict], str]:
             matches.append((m.start(), m))
             seen_positions.add(m.start())
     for m in AGENDA_PAREN_RE.finditer(zone):
+        if m.start() not in seen_positions:
+            matches.append((m.start(), m))
+            seen_positions.add(m.start())
+    for m in AGENDA_HYPHEN_BARE_RE.finditer(zone):   # 하위안건 맨몸 — 마지막 그물
         if m.start() not in seen_positions:
             matches.append((m.start(), m))
     matches.sort(key=lambda x: x[0])
@@ -342,7 +367,460 @@ def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
 
     tree = _build_tree(flat)
     _fill_empty_parent_titles(tree)
+    if html:
+        annotate_agenda_codes(tree, html)
+    # 상법 §449조의2 — 재무제표가 이사회 승인으로 갈음돼 보고사항이 됐는지.
+    # 본문(text)에도 공고문에도 실릴 수 있어 둘 다 본다.
+    annotate_board_approval(tree, (text or "") + " " + (html_to_text(html) if html else ""))
+    annotate_declared_role(tree)
     return tree
+
+
+# 소집공고가 안건마다 달아둔 표준 서식 구간 코드 → 회사가 '어느 유형으로 올렸는지'.
+# 260727 실측(68건·안건 309개): 코드 15종 · 코드↔제목 일치 100% · 정기 43/43 · 임시 24/24.
+# 이 코드는 **분류를 대체하지 않는다** — 텍스트 분류가 코드보다 세분하다(코드가 '기타'로 묶는
+# 퇴직금·자기주식·배당·합병을 텍스트는 각각 잡는다). 회사가 기타로 올렸으면 기타가 맞다.
+# 용도는 **정확도 계측의 한 축**이다: 분류 결과와 이 코드의 정합을 운영에서 관측한다.
+# 코드 1종이 텍스트 분류 여러 종에 대응한다 — 실측(68건)으로 확인한 대응이다.
+# 예: 「감사위원이 되는 사외이사 선임」은 상법상 이사 선임(L0-0-2-3-0)이지만 텍스트 분류는
+#     audit_committee_election 이다(의결권 판단에는 3% 룰·분리선출이 중요해 그쪽이 유용).
+# 코드가 '기타'(L0-0-2-20-0)로 묶은 것도 텍스트는 퇴직금·자기주식·배당·합병으로 세분한다 —
+# 회사가 기타로 올렸으면 기타가 맞으므로, 코드는 정확도 계측 축으로만 쓰고 분류는 텍스트를 따른다.
+_AGENDA_CODE_KIND: dict[str, tuple[str, ...]] = {
+    "L0-0-2-1-0": ("financial_statements", "cash_dividend"),
+    "L0-0-2-2-0": ("articles_amendment",),
+    "L0-0-2-3-0": ("director_election", "audit_committee_election"),
+    "L0-0-2-4-0": ("audit_committee_election", "director_election"),
+    "L0-0-2-5-0": ("auditor_election", "audit_committee_election"),
+    "L0-0-2-9-0": ("director_compensation",),
+    "L0-0-2-10-0": ("audit_compensation",),
+    "L0-0-2-11-0": ("stock_option_grant",),
+    "L0-0-2-14-0": ("business_transfer", "merger_or_restructuring"),
+    "L0-0-2-16-0": ("capital_reserve_transfer", "cash_dividend", "capital_reduction"),
+    "L0-0-2-19-0": ("capital_reduction",),
+    "L0-0-2-20-0": ("other", "retirement_pay", "treasury_share", "cash_dividend",
+                    "merger_or_restructuring", "capital_reduction", "stock_option_grant"),
+}
+
+_L0_ANCHOR = re.compile(
+    r'<(?:COVER-)?TITLE\b[^>]*AASSOCNOTE="(L0-[\d\-]+)"[^>]*>(.*?)</(?:COVER-)?TITLE>', re.S | re.I)
+
+
+# 재무제표 승인 안건에 배당이 함께 실린다 — 실측 68건 중 재무제표 안건 53개의 71.7%(38개).
+# 두 판단(재무제표 승인 / 배당 적정성)이 한 안건에 묶여 있어 배당 판단 로직을 타지 못했다.
+# 표기가 14가지로 갈리므로(주당 배당금 / 1주당 / 현금배당 / 배당예정내용 / 시가배당률 …)
+# 대안을 열거하지 않고 **조합형**으로 잡는다 — 종류어 + 주당 표기 + 금액을 각각 인식한다.
+_DIV_PRESENT = re.compile(r"배\s*당|이익\s*잉여금\s*처분")
+_DIV_NONE = re.compile(r"무\s*배\s*당|배\s*당\s*(?:을)?\s*하지|배\s*당\s*없")
+_DIV_PER_SHARE = re.compile(
+    r"(?:1\s*)?주당[^\d%]{0,12}([\d,]+)\s*원|([\d,]+)\s*원\s*(?:을)?\s*(?:현금)?\s*배당")
+_DIV_YIELD = re.compile(r"(?:시가)?배당률[^\d]{0,6}([\d.]+)\s*%")
+_DIV_KIND = re.compile(r"(현금\s*배당|주식\s*배당|중간\s*배당)")
+_DIV_CLASS = re.compile(r"(보통주|우선주|\d+우선주)[^\d]{0,10}([\d,]+)\s*원")
+
+
+def extract_dividend_from_title(title: str) -> dict | None:
+    """재무제표 승인 안건 제목에서 배당 내용을 발라낸다. 없으면 None.
+
+    반환 — {mentioned, none_declared, kind, per_share_krw, by_class, yield_pct, evidence}
+    금액을 못 뽑아도 `mentioned=True` 는 남긴다: '배당이 이 안건에 묶여 있다'는 사실 자체가
+    호출측 판단에 필요하다(재무제표 승인만 보고 배당 적정성을 건너뛰면 안 된다).
+    """
+    t = title or ""
+    if not _DIV_PRESENT.search(t):
+        return None
+    out: dict = {"mentioned": True, "none_declared": bool(_DIV_NONE.search(t))}
+    km = _DIV_KIND.search(t)
+    if km:
+        out["kind"] = re.sub(r"\s+", "", km.group(1))
+    by_class = {re.sub(r"\s+", "", m.group(1)): int(m.group(2).replace(",", ""))
+                for m in _DIV_CLASS.finditer(t)}
+    if by_class:
+        out["by_class"] = by_class
+    ps = _DIV_PER_SHARE.search(t)
+    if ps:
+        out["per_share_krw"] = int((ps.group(1) or ps.group(2)).replace(",", ""))
+    elif by_class:
+        out["per_share_krw"] = by_class.get("보통주") or next(iter(by_class.values()))
+    ym = _DIV_YIELD.search(t)
+    if ym:
+        try:
+            out["yield_pct"] = float(ym.group(1))
+        except ValueError:
+            pass
+    # 근거 발췌 — 판단 근거를 사용자가 확인할 수 있게
+    m = re.search(r"[^,\(\)\-–]{0,10}(?:배당|이익\s*잉여금\s*처분)[^,\)]{0,40}", t)
+    if m:
+        out["evidence"] = re.sub(r"\s+", " ", m.group(0)).strip()
+    return out
+
+
+def agenda_codes_in_notice(html: str) -> list[dict]:
+    """소집공고 원문의 안건 구간 코드 목록. 확인서(-1 접미)는 안건이 아니라 후보자 첨부라 제외."""
+    out = []
+    for m in _L0_ANCHOR.finditer(html or ""):
+        code = m.group(1)
+        if re.search(r"-\d-1$", code):          # L0-0-2-3-1 등 = 확인서
+            continue
+        kinds = _AGENDA_CODE_KIND.get(code, ())
+        out.append({"code": code, "kinds": kinds, "kind": kinds[0] if kinds else "unmapped",
+                    "title": re.sub(r"<[^>]+>|\s+", " ", m.group(2)).strip()})
+    return out
+
+
+# 구간 본문이 스스로 밝힌 안건번호만 링크로 받는다.
+#   받음 — 「제4호 의안 : …」 · 「제3-1호 사내이사 후보자 채동석」
+#   버림 — 「정관 제25조 제1항 제3호」(법령·정관 조항번호) · 「제3호 의안이 부결되면」(조건부 참조)
+_DECL_CLAUSE_CTX = re.compile(
+    r'제\s*\d+\s*(?:조|항)(?:\s*의\s*\d+|\s*제\s*\d+\s*항)?\s*(?:,|및|·|와|과)?\s*$')
+_DECL_REF_SUFFIX = r'(?![이은는가와과의를도만]\s)'
+_DECL_FORMS = (
+    re.compile(r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*호\s*(?:의\s*안)?\s*[:：]'),
+    re.compile(r'제\s*(\d+)\s*-\s*(\d+)\s*호\s*(?:의\s*안)?\s*' + _DECL_REF_SUFFIX + r'\s*[가-힣]'),
+    re.compile(r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*호\s*의\s*안\s*' + _DECL_REF_SUFFIX),
+)
+
+
+def declared_agenda_links(html: str) -> dict[str, str]:
+    """{안건번호 -> 구간코드}. **문서가 직접 밝힌 링크만** 돌려준다.
+
+    소집공고의 '주주총회 목적사항별 기재사항'은 구간마다 「제N호 의안 : …」으로 어느 안건의
+    상세인지 스스로 적는다. 그 선언만 읽는다 — 순서로 짝짓거나 분류 결과로 짝지으면
+    한 곳이 틀린 순간 뒤가 전부 밀리고(실측 6.3%), 그러면 이 필드로 분류 정확도를
+    되짚을 수 없다(재는 자가 재는 대상에 의존하게 됨).
+    """
+    out: dict[str, str] = {}
+    anchors = [(m.start(), m.group(1)) for m in _L0_ANCHOR.finditer(html or "")]
+    for i, (pos, code) in enumerate(anchors):
+        if re.search(r"-\d-[1-9]$", code):        # 확인서 첨부
+            continue
+        end = anchors[i + 1][0] if i + 1 < len(anchors) else len(html)
+        body = re.sub(r"\s+", " ", html_to_text(html[pos:end]))
+        for rx in _DECL_FORMS:
+            for m in rx.finditer(body):
+                if _DECL_CLAUSE_CTX.search(body[max(0, m.start() - 26):m.start()]):
+                    continue
+                key = m.group(1) + (f"-{m.group(2)}" if m.group(2) else "")
+                out.setdefault(key, code)
+    return out
+
+
+# ── 상법 §449조의2: 재무제표를 이사회가 승인하면 주총은 '보고'만 받는다 ──────
+# 정관 근거 + 외부감사인 적정의견 + 감사(위원) 전원 동의 세 요건이 충족되면 재무제표 승인은
+# 이사회 결의로 갈음되고 주주총회에서는 보고사항이 된다. 이때 그 안건은 **표결하지 않는다** —
+# 찬반 의견을 내면 없는 표결에 의견을 내는 셈이다.
+#
+# 문면은 두 상태로 갈리고 조언에 미치는 영향이 정반대다(캐시 실측 27건: 조건부 15 · 확정 12).
+#   조건부  「요건이 충족될 경우 … 보고할 수 있습니다」  → 공고 시점엔 여전히 표결 안건
+#   확정    「요건을 충족하여 … 보고사항으로 변경되었습니다」 → 표결하지 않는다
+#
+# 한국어 조건문은 조건 어미가 문장 전체를 지배한다. 「동의할 경우 이사회에서 승인하고
+# 주주총회에서는 보고로 갈음할 예정입니다」에서 '이사회에서 승인하고'만 떼어 완료로 읽으면
+# 오판이다 — 앞의 '동의할 경우'가 문장을 조건으로 묶는다. 그래서 조각이 아니라 문장 단위로 본다.
+_LAW_449_2 = re.compile(r'449\s*조\s*(?:의\s*)?2')
+# 조건 어미. '시'는 시각(오전 9시)·시행과 겹치므로 조건으로 쓰인 형태만 받는다.
+_BA_CONDITIONAL = re.compile(
+    r'(?:경우|때)\s*(?:에는|에|,)?(?=\s|$|[^가-힣])'
+    r'|(?<![0-9])(?:충족|동의|적정|해당|성립)\s*(?:할|될|하는|되는)?\s*시(?=\s|,|[^가-힣])'
+    r'|(?:할|될)\s*시(?=\s|,|[^가-힣])'
+    r'|(?:되|하|이)면(?=\s|,)'
+    r'|수\s*있(?:습니다|음|다|으며|고)?'
+    r'|예정(?:입니다|임|이며)?'
+    r'|될\s*것'
+)
+# 조건 어미가 있어도 이기는 강한 완료 신호 — 정정공고의 '정정 후' 문면
+_BA_CONVERTED_STRONG = re.compile(
+    r'안건\s*철회'
+    r'|부의\s*사항\s*[→\-–>]+\s*보고\s*사항'
+    r'|보고\s*(?:사항|안건)\s*으로\s*(?:변경|대체|전환)\s*(?:하였|되었|함|됨)'
+    r'|보고\s*안건\s*으로\s*시행'
+)
+_BA_CONVERTED = re.compile(
+    r'충족(?:하여|되어|되었|됨)'
+    r'|승인\s*(?:하였|되었)'
+    r'|승인\s*하고\s*주주총회\s*보고\s*사항\s*으로\s*변경'
+)
+_BA_SENT = re.compile(r'(?<=[.。])\s+|(?<=니다)\s+|(?<=[임음])\s+|\s*※\s*|\s*[-–]\s(?=[가-힣])')
+_BA_AGENDA_NO = re.compile(r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*호')
+
+
+def _ba_sentence_state(sent: str) -> str:
+    if _BA_CONVERTED_STRONG.search(sent):
+        return "converted"
+    if _BA_CONDITIONAL.search(sent):
+        return "conditional"
+    if _BA_CONVERTED.search(sent):
+        return "converted"
+    return ""
+
+
+def board_approval_special_case(text: str) -> dict:
+    """상법 §449조의2 적용 상태. 없으면 {}.
+
+    반환 — {state: converted|conditional, agenda_numbers: [...], evidence: "..."}
+    `agenda_numbers` 는 그 문장이 스스로 지목한 안건 번호다(「제8호 의안은 …」).
+    지목이 없으면 빈 리스트이고, 호출측이 재무제표 안건에 적용한다.
+    """
+    flat = re.sub(r"\s+", " ", text or "")
+    hits = list(_LAW_449_2.finditer(flat))
+    if not hits:
+        return {}
+    best = ""
+    evidence = ""
+    numbers: list[str] = []
+    for m in hits:
+        window = flat[max(0, m.start() - 300): m.start() + 380]
+        for sent in _BA_SENT.split(window):
+            if not (_LAW_449_2.search(sent) or "보고" in sent):
+                continue
+            state = _ba_sentence_state(sent)
+            if not state:
+                continue
+            if state == "converted" and best != "converted":
+                best, evidence, numbers = state, sent.strip(), []
+            elif state == "conditional" and not best:
+                best, evidence, numbers = state, sent.strip(), []
+            if state == best:
+                for am in _BA_AGENDA_NO.finditer(sent):
+                    key = am.group(1) + (f"-{am.group(2)}" if am.group(2) else "")
+                    if key not in numbers:
+                        numbers.append(key)
+    if not best:
+        return {}
+    return {"state": best, "agenda_numbers": numbers, "evidence": evidence[:400]}
+
+
+# 안건 제목이 직접 밝힌 직위. 후보자 표에 「직위」 칸이 없으면 roleType 이 구간 전체 제목에서
+# 추정되는데, 하위안건이 한 표에 묶인 서식에서는 첫 하위안건의 직위를 전원이 상속한다
+# (실측 하림지주: 「제1-1호 사내이사…」가 앞서서 사외이사 2명이 사내이사로 집계됨).
+# 여기서는 고치지 않고 '공고가 뭐라고 했는지'만 남긴다 — 덮어쓰면 반대 방향(사내→사외 11건)과
+# 세분도 차이(사내이사 vs 이사 106건)까지 함께 깨진다. 판단은 호출측에 맡긴다.
+# 상법 1차 개정(§542의8, 공포 2025-07-22 · 시행 2026-07-23)으로 '사외이사'가 '독립이사'로
+# 바뀐다. 시행 전 공고와 이후 공고가 한동안 섞이므로 둘 다 같은 직위로 취급한다.
+_DECLARED_ROLE = (("독립이사", "사외이사"), ("사외이사", "사외이사"),
+                  ("사내이사", "사내이사"), ("기타비상무이사", "기타비상무이사"))
+
+
+# 직위가 제목에 나와도 선임 안건이 아니면 그 사람의 직위를 밝힌 게 아니다 —
+# 「독립이사로의 명칭 변경의 건」(정관)·「사외이사들의 보수 한도액을 정하는 건」(보수)에
+# 붙으면 안 된다(실측 164건). 선임 계열 안건에만 붙인다.
+_ELECTION_AGENDA = re.compile(r'선\s*임|중\s*임|해\s*임|후보')
+
+
+def annotate_declared_role(tree: list[dict]) -> None:
+    """안건 제목이 명시한 직위를 `declared_role` 로 부착(in-place)."""
+    def walk(nodes: list[dict]) -> None:
+        for n in nodes:
+            t = n.get("title") or ""
+            if _ELECTION_AGENDA.search(t):
+                for kw, role in _DECLARED_ROLE:
+                    if kw in t:
+                        n["declared_role"] = role
+                        break
+            walk(n.get("children") or [])
+    walk(tree)
+
+
+def annotate_board_approval(tree: list[dict], text: str) -> None:
+    """재무제표 안건에 §449조의2 상태를 부착(in-place).
+
+    붙이는 것 — `resolution_status`(report_only · report_if_conditions_met) · `resolution_note`.
+    문장이 안건 번호를 지목했으면 그 안건에만, 아니면 재무제표 안건에 붙인다.
+    """
+    info = board_approval_special_case(text)
+    if not info:
+        return
+    status = ("report_only" if info["state"] == "converted" else "report_if_conditions_met")
+    wanted = set(info["agenda_numbers"])
+
+    def is_fs(node: dict) -> bool:
+        """재무제표 안건인가. 번호가 아니라 정체로 판정한다.
+
+        번호만 믿으면 안 된다 — 정정공고에서 안건이 철회되며 번호가 재배치되면 문면의
+        「제1호」가 지금의 제1호(정관변경)와 다른 안건을 가리킨다(실측: 써니전자·한진중공업홀딩스의
+        정관변경 안건이 보고사항으로 잘못 표시됐다). 철회 표기만 남은 안건도 재무제표 안건이다.
+        """
+        t = node.get("title") or ""
+        if "보수" in t or "주주제안" in t:
+            return False
+        # '재무제표'가 들어갔다고 다 재무제표 승인 안건이 아니다 — 「연결재무제표를 기준으로 한
+        # 주주환원정책 재수립의 건(권고적 주주제안)」처럼 수식어로 쓰인 별개 안건이 있다(케이씨씨).
+        # 이걸 보고사항으로 표시하면 주주제안 안건의 조언이 통째로 죽는다.
+        if re.search(r'(?:재무제표|재무상태표|제무제표)', t) and re.search(r'승인|확정|처분계산서', t):
+            return True
+        # 철회된 안건은 제목만 남는다. 표기가 갈린다 — 실측: 철회·변경·전환·진행·대체.
+        # 「보고사항으로 진행」을 놓치면 표결 없는 안건에 찬성 의견이 나간다.
+        return "보고사항" in t and any(k in t for k in ("철회", "변경", "전환", "진행", "대체", "갈음"))
+
+    def walk(nodes: list[dict]) -> None:
+        numbered = {re.sub(r"[제호\s]", "", o.get("number") or "") for o in nodes if is_fs(o)}
+        pinned = bool(wanted & numbered)          # 문면이 지목한 번호가 실제 재무제표 안건일 때만
+        for n in nodes:
+            if is_fs(n):
+                num = re.sub(r"[제호\s]", "", n.get("number") or "")
+                if not pinned or num in wanted:
+                    n["resolution_status"] = status
+                    n["resolution_note"] = info["evidence"]
+            walk(n.get("children") or [])
+
+    walk(tree)
+
+
+# 구간별 분량 상한. 실측 287건: 목적사항별 기재사항 전체의 85.3%가 '재무제표의 승인' 하나다
+# (중앙 17,452자·최대 313,847자 — 재무상태표·손익계산서 전문이 첨부돼서). 재무 수치는 DART API
+# 정형 데이터가 정본이라 원문 전문을 넘길 이유가 없다. 머리만 남긴다(영업상황 개요·배당 문면이
+# 거기 있다). 합병·분할은 계획서 전문이 판단 근거라 넉넉히 준다.
+# 이 상한 적용 후 287건 전부 21,697자(≈9,900토큰) 이내 — 예산 초과 0건.
+_SECTION_CHAR_CAP = {"L0-0-2-1-0": 2500, "L0-0-2-12-0": 20000, "L0-0-2-13-0": 20000}
+_SECTION_CHAR_CAP_DEFAULT = 20000
+
+
+def agenda_detail_sections(html: str, include_confirmations: bool = False) -> list[dict]:
+    """'주주총회 목적사항별 기재사항' 구간을 라벨 달아 통째로 돌려준다.
+
+    안건과 구간을 우리가 짝지어 주지 않는다. 「제4호 감사위원회 위원 선임의 건」과
+    「□ 감사위원회 위원의 선임 … 후보자 김철홍」을 잇는 일은 정규식에는 어렵고 읽는 쪽에는
+    쉽다. 짝짓기를 포기하는 대신 **어느 구간도 버리지 않는다** — 지금까지 표 파싱이 실패하면
+    통째로 사라졌던 기타목적사항(주주제안 이사 후보 명단·자기주식 처분계획·주식병합 상세)이
+    여기로 살아 나온다.
+
+    각 항목 — {code, kind, heading, text, chars, truncated}
+    """
+    out: list[dict] = []
+    anchors = [(m.start(), m.group(1), re.sub(r"<[^>]+>|\s+", " ", m.group(2)).strip())
+               for m in _L0_ANCHOR.finditer(html or "")]
+    for i, (pos, code, heading) in enumerate(anchors):
+        if not include_confirmations and re.search(r"-\d-[1-9]$", code):
+            continue                              # 확인서 = 후보자 확인서 이미지 파일명뿐
+        end = anchors[i + 1][0] if i + 1 < len(anchors) else len(html)
+        text = re.sub(r"[ \t]+", " ", html_to_text(html[pos:end])).strip()
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        cap = _SECTION_CHAR_CAP.get(code, _SECTION_CHAR_CAP_DEFAULT)
+        full = len(text)
+        if full > cap:
+            text = text[:cap].rstrip() + f"\n… (이하 {full - cap:,}자 생략 — 원문 참조)"
+        kinds = _AGENDA_CODE_KIND.get(code, ())
+        out.append({
+            "code": code,
+            "kind": kinds[0] if kinds else "unmapped",
+            "heading": heading,
+            "text": text,
+            "chars": full,
+            "truncated": full > cap,
+        })
+    return out
+
+
+# ── 안건↔구간 연결: 선언이 없을 때 쓰는 추론 층 ──────────────────────
+# 선언(declared)만으로는 루트 안건의 47.3%밖에 닿지 않는다. 아래 세 층을 순서대로 얹어
+# 부착률 98.2%까지 올린다. 각 층의 정확도는 '선언이 있는 안건에서 선언을 가리고' 재서
+# 확인했다(홀드아웃 — 정답을 아는 상태로 오답률을 잰다):
+#     후보명 96.9% → 제목겹침 86.8% → 유형대응 94.9%, 합쳐서 93.3%
+# 추론 결과는 반드시 `filed_link`로 추론임을 밝힌다. 남는 오차 대부분은
+# 「감사위원회 위원이 되는 사외이사 선임의 건」처럼 회사가 이사선임 구간에 넣기도 하고
+# 감사위원 구간에 넣기도 하는 진짜 모호한 안건이라, 추론으로는 원리상 확정할 수 없다.
+# 그래서 어느 층으로 붙였든 `agenda_detail_sections`로 구간 원문을 함께 넘겨
+# 호출측이 읽고 뒤집을 수 있게 한다.
+_NAME_TOKEN = re.compile(r'(?<![가-힣])([가-힣]{2,4})(?=\s*(?:\(|\d{4}|생년|·|$|\s))')
+# 후보자 이름 자리에 섞여 드는 일반명사 — 이름으로 오인하면 엉뚱한 구간에 붙는다
+_NAME_STOP = frozenset("""성명 후보 이사 감사 선임 위원 사내 사외 해당 없음 기타 보수 한도 추천
+관계 여부 비고 구분 금액 주주 제안 회사 경력 약력 직업 현재 위원회 최대주주 생년월일 재선임 신규
+연임 임기 주요 등기 대표 부사장 승인 변경""".split())
+# 제목 겹침은 도메인어가 곧 신호다 — 문법어만 거른다
+_HEAD_STOP = frozenset("의 및 건 등 관한 대한 하는 되는 사항 안건 의안 승인 호".split())
+
+
+def _head_tokens(s: str) -> set[str]:
+    return {w for w in re.findall(r'[가-힣]{2,}', s or "") if w not in _HEAD_STOP}
+
+
+def _link_by_candidate_name(sections: list[dict], title: str) -> Optional[str]:
+    """구간 표의 후보자 이름이 안건 제목에 있으면 그 구간 — 분류기와 무관한 경로."""
+    scored: list[tuple[int, str]] = []
+    for s in sections:
+        names = {m.group(1) for m in _NAME_TOKEN.finditer(s.get("text") or "")
+                 if m.group(1) not in _NAME_STOP}
+        hit = sum(1 for n in names if n in (title or ""))
+        if hit:
+            scored.append((hit, s["code"]))
+    if len(scored) == 1:
+        return scored[0][1]
+    if scored:
+        scored.sort(reverse=True)
+        if scored[0][0] > scored[1][0]:           # 동점이면 확정하지 않는다
+            return scored[0][1]
+    return None
+
+
+def _link_by_heading(sections: list[dict], title: str) -> Optional[str]:
+    """구간 제목과 안건 제목의 어절 겹침 — 분류기와 무관한 경로."""
+    tt = _head_tokens(title)
+    if not tt:
+        return None
+    scored = sorted(((len(tt & _head_tokens(s.get("heading") or "")), s["code"])
+                     for s in sections), reverse=True)
+    if scored and scored[0][0] >= 1 and (len(scored) == 1 or scored[0][0] > scored[1][0]):
+        return scored[0][1]
+    return None
+
+
+def _link_by_unique_kind(sections: list[dict], title: str) -> Optional[str]:
+    """분류 유형에 대응하는 구간이 그 문서에 딱 하나면 그 구간.
+
+    분류기에 의존하는 가장 약한 층이라 마지막에 둔다. 이 층으로 붙은 코드는
+    분류 정확도를 되짚는 근거로 쓸 수 없다(재는 자가 재는 대상에 의존).
+    """
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    cat = _classify_agenda(title or "", "")
+    hit = [s["code"] for s in sections if cat in _AGENDA_CODE_KIND.get(s["code"], ())]
+    return hit[0] if len(hit) == 1 else None
+
+
+def annotate_agenda_codes(tree: list[dict], html: str) -> None:
+    """안건 트리에 원문 구간 코드를 진단 필드로 부착(in-place). 분류는 바꾸지 않는다.
+
+    붙이는 것
+      · `filed_code` — 원문 구간 코드
+      · `filed_kind` — 코드가 뜻하는 유형 (**문서가 직접 선언한 경우만**)
+      · `filed_link` — 어떻게 이었는지: declared · candidate_name · heading · kind_match
+
+    `filed_link="declared"` 인 것만 분류 정확도의 독립 계측 축으로 쓸 수 있다.
+    나머지는 추론이며, 어느 것도 확정하지 못하면 붙이지 않는다 —
+    틀린 코드는 코드 없는 것보다 나쁘다.
+    """
+    codes = {c["code"]: c for c in agenda_codes_in_notice(html)}
+    if not codes:
+        return
+    links = declared_agenda_links(html)
+    sections = [s for s in agenda_detail_sections(html) if s["code"] in codes]
+
+    def resolve(title: str, num: str) -> tuple[Optional[str], str]:
+        if num in links:
+            return links[num], "declared"
+        for method, fn in (("candidate_name", _link_by_candidate_name),
+                           ("heading", _link_by_heading),
+                           ("kind_match", _link_by_unique_kind)):
+            code = fn(sections, title)
+            if code:
+                return code, method
+        return None, ""
+
+    def walk(nodes: list[dict], inherited: tuple[Optional[str], str] = (None, "")) -> None:
+        for n in nodes:
+            div = extract_dividend_from_title(n.get("title") or "")
+            if div:
+                n["dividend"] = div
+            num = re.sub(r"[제호\s]", "", n.get("number") or "")
+            code, how = resolve(n.get("title") or "", num)
+            if not code:
+                code, how = inherited                     # 하위안건은 부모 구간을 상속
+            if code and code in codes:
+                n["filed_code"], n["filed_link"] = code, how
+                if how == "declared":
+                    n["filed_kind"] = codes[code]["kind"]
+            walk(n.get("children") or [], (code, how))
+
+    walk(tree)
 
 
 def _fill_empty_parent_titles(tree: list[dict]) -> None:
@@ -2481,6 +2959,10 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                                       '해당', '부', '무', '여', '유', 'X', 'x', 'N', 'O', 'Y'):
                             return None
                         # "사내이사 후보자(재선임)" / "사외이사후보자" → 표준 role
+                        # 상법 1차 개정(§542의8, 2026-07-23 시행)으로 사외이사 → 독립이사.
+                        # 시행 전후 공고가 섞이므로 둘 다 받는다. 표기는 원문대로 보존한다 —
+                        # 독립성 검증 경로는 '사외'와 '독립'을 모두 사외로 취급한다.
+                        if '독립이사' in v: return '독립이사'
                         if '사외이사' in v: return '사외이사'
                         if '사내이사' in v: return '사내이사'
                         if '비상무이사' in v or ('비상무' in v and '이사' in v): return '기타비상무이사'
@@ -2500,7 +2982,18 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         val = row[ci].strip()
                         if '생년월일' in h:
                             candidate["birthDate"] = val
-                        elif ('사외이사' in h and '후보' in h) or '이사구분' in h or '직위' in h or h in ('구분', '직책'):
+                        elif (('사외이사' in h or '독립이사' in h) and '후보' in h
+                              and '여부' in h):
+                            # 「사외이사후보자여부 : 여」는 노이즈가 아니라 '이 후보는 사외이사'라는
+                            # 문서의 선언이다. 종전엔 값('여')만 보고 버린 뒤 구간 제목에서 직위를
+                            # 추정해, 하위안건이 한 표에 묶인 서식에서 사외이사가 사내이사로 집계됐다.
+                            _v = re.sub(r'\s+', '', val)
+                            if _v in ('여', '예', 'O', 'o', 'Y', 'y', '유', '해당', 'ㅇ'):
+                                candidate["roleType"] = "사외이사"
+                            else:
+                                # '부/아니오/-' = 사외이사가 아님. 무엇인지는 안건 제목이 정한다.
+                                candidate["roleType"] = _normalize_role_value(val)
+                        elif '이사구분' in h or '직위' in h or h in ('구분', '직책'):
                             candidate["roleType"] = _normalize_role_value(val)
                         elif '분리선출' in h:
                             candidate["separateElection"] = val
@@ -2740,8 +3233,24 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         texts.append(content)
             if texts and candidates:
                 reason_text = "\n".join(texts)
-                for c in candidates:
+                # 공고는 하위안건마다 '마. 추천 사유'를 따로 둔다. 전원에게 복사하면 마지막
+                # 하위안건의 사유가 앞 후보들을 덮어써서, 후보 3명이 모두 같은 사람의 추천
+                # 사유를 달고 나간다(실측 하림지주). 문면이 이름을 밝히면 그 후보에게만 붙인다.
+                named = [c for c in candidates if c.get("name") and c["name"] in reason_text]
+                for c in (named if named else candidates):
                     c["recommendationReason"] = reason_text
+                # 문면이 다른 후보의 이름만 밝히고 이 후보는 안 밝히는 경우가 남는다
+                # (실측 4건 — 녹십자 사내이사 3명은 사유가 이름 없이 「후보자는 …」으로만 쓰였고
+                #  블록이 다음 후보 구간까지 넘어간다). 떼어내면 그들의 사유가 통째로 사라지므로
+                # 붙여두되 '이 후보 것이라고 확정할 수 없다'고 밝힌다.
+                if len(candidates) >= 2:
+                    for c in candidates:
+                        if (c.get("recommendationReason") or "") != reason_text:
+                            continue
+                        if c.get("name") and c["name"] in reason_text:
+                            c.pop("recommendationReasonShared", None)   # 이름이 있으면 확정
+                        else:
+                            c["recommendationReasonShared"] = True
 
     return candidates
 

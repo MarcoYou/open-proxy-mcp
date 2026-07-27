@@ -730,6 +730,13 @@ def _law_layer(
 
 # ── 안건별 결정 logic ──
 
+# 준비금 재분류(자본준비금·이익준비금 → 이익잉여금) — 배당 자체가 아니라 배당가능이익을
+# 만드는 자본거래. '적립의 건'처럼 반대 방향 안건은 걸리지 않게 감액·전입 동작을 함께 요구한다.
+_RESERVE_RECLASS = re.compile(
+    r'(?:자본|이익)\s*준비금[^\n]{0,60}?(?:감액|감소|전입|전환|이입)'
+    r'|(?:감액|감소|전입|전환|이입)[^\n]{0,60}?(?:자본|이익)\s*준비금')
+
+
 def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     """안건 제목 → category. 가이드라인 voting_rules 키와 매칭.
 
@@ -767,6 +774,13 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
         return "financial_statements"
     if "재무제표" in t and "배당" not in t:
         return "financial_statements"
+    # 「자본준비금 감액 및 이익잉여금 전입」은 배당이 아니라 배당가능이익을 만드는 자본거래다.
+    # '이익잉여금' 단축경로가 이 안건을 배당으로 끌고 가면 배당성향·잉여금으로 적정성을 따지는
+    # 엉뚱한 판정이 나온다 — 실측 12건 중 11건이 이렇게 새고 있었고 2건은 「결손보전을 위한」,
+    # 즉 배당 여력과 정반대 국면이었다. 아래 iter12 주석이 밝힌 의도(준비금 감액은 other)가
+    # 문면에 '이익잉여금'이 들어간 순간 달성되지 않던 순서 결함.
+    if _RESERVE_RECLASS.search(t) and "배당" not in t:
+        return "other"
     if "배당" in t or "이익잉여금" in t:
         return "cash_dividend"
     if "사외이사" in t or ("이사" in t and "선임" in t and "감사위원" not in t):
@@ -1257,7 +1271,7 @@ def _decide_retirement_pay(
     cap_status = fm_summary.get("capital_impairment_status")
 
     if not amendments:
-        return "NO_DATA", "퇴직금 안건 본문에서 amendments 추출 실패 (parser miss 또는 단순 정정)"
+        return "NO_DATA", "퇴직금 변경 상세가 정형으로 잡히지 않음 — 본문 원문으로 확인 (단순 정정일 수 있음)"
 
     # 키워드 hit 검출
     risk_against = []  # 황금낙하산 등
@@ -1980,8 +1994,9 @@ def _extract_risks(
         for a in amends:
             after = a.get("after") or ""
             before = a.get("before") or ""
-            if "사외이사" in after and "사외이사" not in before:
-                risks.append("사외이사 퇴직금 신설 (OPM #6 검토)")
+            _out = ("사외이사", "독립이사")     # 상법 1차 개정 명칭 변경 — 둘 다 본다
+            if any(k in after for k in _out) and not any(k in before for k in _out):
+                risks.append("사외이사(독립이사) 퇴직금 신설 (OPM #6 검토)")
                 break
 
     if category == "cash_dividend":
@@ -2350,6 +2365,17 @@ async def build_proxy_advise_payload(
                     "proposer_type": it.get("proposer_type"),
                     "source": it.get("source"),
                     "conditional": it.get("conditional"),
+                    # 재무제표 승인 안건에 병합된 배당 + 회사가 신고한 안건 구간 코드(진단용)
+                    "dividend": it.get("dividend"),
+                    "filed_code": it.get("filed_code"),
+                    "filed_kind": it.get("filed_kind"),
+                    # 구간 코드를 어떻게 이었는지(declared/candidate_name/heading/kind_match).
+                    # declared 만 문서가 직접 밝힌 것이라 분류 정확도의 독립 근거로 쓸 수 있다.
+                    "filed_link": it.get("filed_link"),
+                    # 상법 §449조의2 — 재무제표가 보고사항으로 갈음됐는지(표결 유무)
+                    "declared_role": it.get("declared_role"),
+                    "resolution_status": it.get("resolution_status"),
+                    "resolution_note": it.get("resolution_note"),
                 })
             if isinstance(it, dict):
                 rows.extend(_flatten_agenda_rows(it.get("children") or []))
@@ -2927,12 +2953,33 @@ async def build_proxy_advise_payload(
                     # 상근감사 같은 case에서 role_type 빈 string → 사내이사 fallback (자동 FOR) 위험.
                     if category == "audit_committee_election" and matched_eval is not None:
                         rt = matched_eval.get("role_type") or ""
-                        if "사외" not in rt and "감사" not in rt:
+                        if not any(k in rt for k in ("사외", "독립", "감사")):
                             # role_type 빈 또는 사내이사 표기여도 audit는 strict
                             matched_eval = {**matched_eval, "role_type": (rt or "") + " (audit-strict)"}
                             # 강제 outside 처리 — _decide_director_election 안에 분기
                             matched_eval["_audit_force_strict"] = True
                     decision, reason = _decide_director_election(matched_eval)
+                # 공고는 사외이사라고 밝혔는데 사외이사 경로를 타지 않은 경우 — 독립성 검증이
+                # 통째로 건너뛰어진 채 조용히 FOR 가 나간다(실측 667건 중 20건, 3.0%).
+                # 후보자 표에 「직위」 칸이 없으면 roleType 이 구간 전체 제목에서 추정되는데,
+                # 하위안건이 한 표에 묶이면 첫 하위안건의 직위를 전원이 상속하기 때문이다.
+                # 제목으로 덮어쓰지는 않는다 — 반대 방향(사내→사외 11건)과 세분도 차이
+                # (사내이사 vs 이사 106건)까지 함께 깨진다. 대신 판단을 원문으로 넘긴다.
+                # 감사위원 경로는 위에서 _audit_force_strict 로 이미 강제 엄격 검증(독립성 포함)을
+                # 건다 — 거기에 REVIEW 를 덧씌우면 오탐이다(실측: 삼진식품 「감사위원이 되는
+                # 사외이사 …」 2건). 그래서 순수 이사선임에서만 본다.
+                _declared = (agenda_row.get("declared_role") or "") if isinstance(agenda_row, dict) else ""
+                if (_declared == "사외이사" and decision == "FOR"
+                        and category == "director_election"
+                        and not (matched_eval or {}).get("_audit_force_strict")):
+                    _rt = (matched_eval or {}).get("role_type") or ""
+                    if not any(k in _rt for k in ("사외", "독립", "감사")):
+                        decision = "REVIEW"
+                        reason = (f"공고는 사외이사 선임으로 밝혔는데 후보자 표 파싱은 "
+                                  f"'{_rt or '미상'}' — 사외이사 독립성 검증(최대주주 관계·거래·"
+                                  f"임직원 이력·5년 임기)이 적용되지 않았다. "
+                                  f"「□ 이사의 선임」 구간 원문으로 직접 확인 필요. "
+                                  f"(원래 판정: {reason})")
         elif category == "director_compensation":
             decision, reason = _decide_director_compensation(meeting_comp, fin_metrics)
         elif category == "audit_compensation":
@@ -2943,6 +2990,23 @@ async def build_proxy_advise_payload(
             decision, reason = _decide_retirement_pay(retirement_payload, fin_metrics)
         elif category == "financial_statements":
             decision, reason = _decide_financial_statements(fin_metrics)
+            # 재무제표 승인 안건에 배당이 함께 실린 경우(실측 68건 중 재무제표 안건의 71.7%)
+            # 배당 적정성 판단도 함께 돌린다 — 한 안건에 두 판단이 묶여 있어 종전엔
+            # 배당 로직이 아예 호출되지 않았다. 두 판단 중 **보수적인 쪽을 채택**한다.
+            _div = agenda_row.get("dividend") if isinstance(agenda_row, dict) else None
+            if _div and _div.get("mentioned") and not _div.get("none_declared"):
+                d_dec, d_reason = _decide_dividend(title, fin_metrics,
+                                                  selected.get("corp_name") or "")
+                _amt = _div.get("per_share_krw")
+                _detail = (f"주당 {_amt:,}원" if _amt is not None else "금액은 본문 확인")
+                if _div.get("yield_pct") is not None:
+                    _detail += f" · 시가배당률 {_div['yield_pct']}%"
+                if _div.get("by_class"):
+                    _detail += " · " + ", ".join(f"{k} {v:,}원" for k, v in _div["by_class"].items())
+                _rank = {"AGAINST": 3, "REVIEW": 2, "NO_DATA": 2, "FOR": 1}
+                if _rank.get(d_dec, 0) > _rank.get(decision, 0):
+                    decision = d_dec
+                reason = f"{reason} / 배당 병합({_detail}) — {d_reason}"
         elif category == "cash_dividend":
             decision, reason = _decide_dividend(title, fin_metrics, selected.get("corp_name") or "")
         elif category == "articles_amendment":
@@ -2959,9 +3023,35 @@ async def build_proxy_advise_payload(
             # 정반대일 수 있어 원문 판단 위임. 종전엔 'other'로 새어 mainstream FOR 위험.
             # 체크리스트는 스튜어드십 리뷰(260724) 실무 기준 — 합의 매트릭스 '원칙반대·예외찬성' 정합.
             decision = "REVIEW"
-            reason = ("자본 감소(특별결의) — 확인사항: ① 무상/유상 구분 ② 목적(결손보전·회생·"
-                      "구조조정 불가피성 — 해당 시 mainstream 찬성 관행) ③ 감자비율·주주평등"
-                      "(주식병합 시 단주 처리) ④ 유상감자 시 환급가액 적정성")
+            # 주식(액면)병합은 발행주식수만 줄고 자본금은 그대로라 감자가 아니다. 판단 경로는
+            # 단주 처리 리스크 때문에 공유하되(자동 찬성 유출 방어), 문면을 감자라고 하지 않는다 —
+            # 실측 10건 중 4건은 공고문에서 명시적으로 감자가 아니라고 밝히고 있었다.
+            if "병합" in (title or "") and ("주식" in (title or "") or "액면" in (title or "")):
+                reason = ("주식(액면)병합 — 자본금 감소가 아니라 발행주식수 감소(액면가 상향). "
+                          "확인사항: ① 병합비율 ② 단주 처리 방식·보상단가(소수주주 축출 우려) "
+                          "③ 목적(유통주식수 조정·관리종목 회피 등) ④ 정관 액면가 변경 동반 여부")
+            else:
+                reason = ("자본 감소(특별결의) — 확인사항: ① 무상/유상 구분 ② 목적(결손보전·회생·"
+                          "구조조정 불가피성 — 해당 시 mainstream 찬성 관행) ③ 감자비율·주주평등"
+                          "(주식병합 시 단주 처리) ④ 유상감자 시 환급가액 적정성")
+        elif category == "merger_or_restructuring":
+            # 260727: 분류 카테고리는 있는데 판정 분기가 없어 'other'→자동 FOR 로 새고 있었다
+            # (라이브 실측: 에이치디현대미포 「합병계약 체결 승인의 건」, 롯데케미칼
+            # 「분할계획서 승인의 건」 둘 다 ✅ FOR). 합병비율·주식매수청구권은 의결권 판단에서
+            # 가장 무거운 항목이라 자동 찬성이 나가면 안 된다. stock_option_grant·
+            # capital_reduction 과 같은 구멍이고 이번이 세 번째다.
+            decision = "REVIEW"
+            reason = ("합병·분할·영업양수도(특별결의) — 확인사항: ① 합병·분할 비율의 산정근거와 "
+                      "외부평가기관 의견 ② 주식매수청구권 행사가액·행사기간 ③ 지배주주 지분 변동과 "
+                      "일반주주 희석 ④ 사업적 정당성(시너지·구조조정 필요성) ⑤ 계열사 간 거래면 "
+                      "이해상충 검토. 「목적사항별 기재사항」 구간 원문 확인 필요")
+        elif category == "shareholder_proposal":
+            # 주주제안은 경영진 안건과 이해가 정면으로 충돌하는 자리 — 자동 찬성/반대 모두 부적절.
+            decision = "REVIEW"
+            reason = ("주주제안 안건 — 확인사항: ① 제안 주체와 지분율·보유기간(상법 §363-2 요건) "
+                      "② 제안 내용이 회사·전체주주 이익에 부합하는지 ③ 이사회 반대의견의 근거 "
+                      "④ 경영권 분쟁 국면이면 양측 주장 대조. 제안자 측 자료와 회사 측 자료를 "
+                      "모두 읽고 판단 — 구간 원문 참조")
         elif category == "stock_option_grant":
             # 260724 스튜어드십 리뷰: 'other'→자동FOR로 새던 동종 구멍 봉쇄
             decision = "REVIEW"
@@ -3163,6 +3253,25 @@ async def build_proxy_advise_payload(
             _risk_note = "; ".join(str(r) for r in risk_factors[:2])
             if _risk_note and _risk_note not in reason:
                 reason = f"{reason} ⚠️ 유의: {_risk_note}"
+
+        # 상법 §449조의2 — 재무제표 승인이 이사회 결의로 갈음돼 주총 보고사항이 된 경우
+        # 그 안건은 표결하지 않는다. 찬반을 내면 없는 표결에 의견을 내는 셈이다.
+        # 조건부(요건 충족 시 전환 예정)는 공고 시점엔 여전히 표결 안건이므로 판정을 유지하고
+        # 전환 가능성만 알린다 — 실측 27건 중 조건부 15 · 확정 12로 둘 다 흔하다.
+        _res_status = agenda_row.get("resolution_status") if isinstance(agenda_row, dict) else None
+        if _res_status == "report_only":
+            decision = "NO_VOTE"
+            reason = ("표결 대상이 아님 — 상법 §449조의2에 따라 재무제표를 이사회 결의로 승인하고 "
+                      "주주총회에는 보고로 갈음(정관 근거 + 외부감사인 적정의견 + 감사 전원 동의). "
+                      f"공고 문면: 「{(agenda_row.get('resolution_note') or '')[:120]}」")
+            # 근거도 함께 바꾼다 — 판정은 '표결없음'인데 인용이 '위험 키워드 없으면 FOR'로 남으면
+            # 근거가 판정과 반대로 읽힌다.
+            policy_citation = ("상법 §449조의2(재무제표 등의 승인에 대한 특칙) — 주주총회 결의사항이 "
+                               "아니므로 의결권 행사 대상에서 제외. 재무제표 자체의 적정성은 "
+                               "financial_metrics·감사보고서로 별도 검토")
+        elif _res_status == "report_if_conditions_met":
+            reason = (f"{reason} / 상법 §449조의2 요건(외부감사인 적정의견·감사 전원 동의) 충족 시 "
+                      "이사회 승인으로 갈음돼 보고사항으로 바뀔 수 있음 — 총회 직전 정정공고 확인 필요")
 
         agenda_decisions.append({
             "agenda_title": title,

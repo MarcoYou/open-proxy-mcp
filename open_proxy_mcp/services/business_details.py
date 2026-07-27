@@ -152,9 +152,11 @@ class SegmentProfit:
     adjustments: list = field(default_factory=list)  # 조정/합계 열 (부문 아님)
     note_source: str = ""       # 연결/별도
     anchor: str = ""            # 매칭된 note-title
-    na_reason: str = ""
+    na_reason: str = ""       # 사용자 문면(한국어 서술) — 내부 코드 금지
+    na_code: str = ""         # 진단용 식별자(로그·관측성 전용)
     raw_value_counts: dict = field(default_factory=dict)
     cross_conflict: bool = False   # 본문표 vs 주석표 부문명 불일치(지주사류) → 신뢰불가, 후보반환
+    selection_method: str = ""     # text_anchor | code:consolidated | code:separate — 구간을 어떻게 짚었나
 
 
 def find_segment_note_region(note_full_text: str) -> tuple[Optional[str], Optional[str]]:
@@ -458,6 +460,242 @@ def _clean_segments(segments: list[dict]) -> tuple[list[dict], bool]:
     return segs, len(segs) >= 1
 
 
+_SEG_CONCEPT = "부문별_보고"
+_TG_OPEN = re.compile(r"<TABLE-GROUP\b[^>]*>", re.I)
+_TG_TOK = re.compile(r"<(/?)TABLE-GROUP\b", re.I)
+_TITLE_IN = re.compile(r"<TITLE[^>]*>(.*?)</TITLE>", re.S | re.I)
+# 새 경로 전용 거부 패턴 — 공용 가드(_NONSEG_RE·_GEO_TOKENS)는 건드리지 않는다.
+# 공용 가드를 넓히면 기존 성공 경로가 함께 줄어든다(실측: 150→144).
+_CODE_REJECT_NAME = re.compile(r"단\s*위\s*[:：]|^\(단위|^주요\s*거래선|^거래선|^매출처|^\d{1,2}[-.]")
+
+
+def _table_group_bounds(html: str, aclass: str) -> Optional[tuple[int, int]]:
+    """ACLASS 로 표그룹을 찾아 여닫이 스택으로 (start, end) 오프셋 반환. 없으면 None.
+
+    블록 경계가 원문에 명시돼 있으므로 '다음 제목까지'를 추정할 필요가 없다 —
+    과잉 포함도, 고정 창 절단도 생기지 않는다.
+    """
+    for m in _TG_OPEN.finditer(html):
+        if f'ACLASS="{aclass}"' not in m.group(0):
+            continue
+        depth = 0
+        for tk in _TG_TOK.finditer(html, m.start()):
+            depth += -1 if tk.group(1) else 1
+            if depth == 0:
+                return m.start(), tk.end()
+        return m.start(), len(html)
+    return None
+
+
+def _table_group_span(html: str, aclass: str) -> str:
+    """ACLASS 로 표그룹을 찾아 그 블록 문자열만 반환. 없으면 ''."""
+    b = _table_group_bounds(html, aclass)
+    return html[b[0]:b[1]] if b else ""
+
+
+def render_segment_note_md_by_code(full_html: str) -> tuple[Optional[str], str]:
+    """표준 서식 식별자로 부문 주석 블록만 정확히 떠서 마크다운으로. 반환 (md, reason).
+
+    기존 폴백은 제목 위치에서 고정 55,000자를 떠오므로 뒤 주석이 섞여 들어온다
+    (실측 46건 중 8건 혼입 — 최대 6개 주석). 블록 경계를 쓰면 그 혼입이 사라지고
+    반대 방향의 고정창 절단 위험도 없어진다.
+    md 가 None 이면 호출측은 기존 폴백을 그대로 쓴다(단조 안전).
+    """
+    if not full_html:
+        return None, "no_html"
+    from open_proxy_mcp.services import coordinate_map
+    from open_proxy_mcp.services.segment_candidates import _md_has_data_rows, _render_html_region_md
+
+    spec = coordinate_map.concept(_SEG_CONCEPT)
+    if not spec:
+        return None, "map_not_loaded" if not coordinate_map.load()["loaded"] else "concept_missing"
+    must = spec.get("title_must_contain") or []
+    reason = "code_not_present"
+    for key in ("consolidated", "separate"):
+        aclass = spec.get(key)
+        if not aclass:
+            continue
+        b = _table_group_bounds(full_html, aclass)
+        if not b:
+            continue
+        tm = _TITLE_IN.search(full_html[b[0]:b[1]])
+        title = re.sub(r"<[^>]+>|\s+", " ", tm.group(1)).strip() if tm else ""
+        if must and not any(tok in title for tok in must):
+            reason = f"title_mismatch:{title[:40]}"
+            continue
+        md = _render_html_region_md(full_html, b[0], b[1])
+        if md and md.strip():
+            # **확정된 구간은 버리지 않는다.** 숫자 행이 적어도(단일부문 REIT 등) 원문을 넘긴다 —
+            # 게이트는 라벨만 낮추고 내용을 폐기하지 않는다(원칙: 구간 확정 = 반환 보장).
+            # 실측: 이 게이트가 「3. 영업부문 (연결)」을 정확히 짚은 REIT 2건을 통째로 버렸다.
+            return md, f"code:{key}" + ("" if _md_has_data_rows(md) else "+low_rows")
+        reason = "empty_render"
+    return None, reason
+
+
+def find_segment_note_region_by_code(note_html: str) -> tuple[Optional[str], Optional[str], str]:
+    """텍스트 앵커 실패 시에만 쓰는 2차 경로 — 표준 서식 식별자로 부문 주석 블록을 짚는다.
+
+    반환 (title, region_text, reason). 채택 못 하면 (None, None, 이유)로, 이유를 호출측이
+    진단에 남긴다(무표시 열화 금지).
+
+    **제목 검증 필수**: 식별자가 부문 표가 아닌 블록에 붙은 작성사가 실재한다
+    (실측 「20-2. 주요 고객」·「22. 수익(매출)」). 검증 없이 채택하면 엉뚱한 표를 읽는다.
+    """
+    if not note_html:
+        return None, None, "no_html"
+    from open_proxy_mcp.services import coordinate_map
+
+    spec = coordinate_map.concept(_SEG_CONCEPT)
+    if not spec:
+        return None, None, ("map_not_loaded" if not coordinate_map.load()["loaded"]
+                            else "concept_missing")
+    must = spec.get("title_must_contain") or []
+    rejected = ""
+    for key in ("consolidated", "separate"):
+        aclass = spec.get(key)
+        if not aclass:
+            continue
+        block = _table_group_span(note_html, aclass)
+        if not block:
+            continue
+        tm = _TITLE_IN.search(block)
+        title = re.sub(r"<[^>]+>|\s+", " ", tm.group(1)).strip() if tm else ""
+        if must and not any(tok in title for tok in must):
+            rejected = f"title_mismatch:{title[:40]}"
+            continue
+        region = html_to_text(block)
+        if not region.strip():
+            rejected = "empty_region"
+            continue
+        return title, region, f"code:{key}"
+    return None, None, rejected or "code_not_present"
+
+
+def _code_path_acceptable(sp: "SegmentProfit", title: str) -> str:
+    """새 경로 결과를 채택할지 판정. 통과면 "", 아니면 거부 이유.
+
+    공용 가드보다 엄격하게 잡는다 — 새 경로가 만드는 오탐을 기존 경로에 전가하지 않기 위함.
+    실측 근거(거부해야 하는 것): 지역표(동국제강 대한민국·외국·아메리카), 주석 제목이
+    부문명으로 잡힘(삼진제약 「26. 영업부문」), 종속회사명 1건(삼천당제약 SCD JAPAN).
+    """
+    names = [str(s.get("name", "")).strip() for s in (sp.segments or [])]
+    names = [n for n in names if n]
+    if not names:
+        return "no_segments"
+    if any(_CODE_REJECT_NAME.search(n) for n in names):
+        return "name_pattern"
+    tnorm = re.sub(r"\s+", "", title)
+    if any(re.sub(r"\s+", "", n) and re.sub(r"\s+", "", n) in tnorm for n in names):
+        return "name_is_title"          # 제목 조각이 부문명으로 잡힌 경우
+    core = [n for n in names if n not in _RESIDUAL_SEG]
+    if core and all(n in _GEO_TOKENS or n.rstrip("지역") in _GEO_TOKENS
+                    or n in {"대한민국", "외국", "아메리카", "기타 국가", "기타국가"} for n in core):
+        return "geographic_only"
+    if len(core) < 2:
+        return "single_segment_unreliable"   # 실측 1부문 결과 2건 모두 오답이었다
+    return ""
+
+
+_MD_NOTE = ("아래는 영업부문 주석(K-IFRS 1108) 원문을 마크다운으로 옮긴 것입니다. "
+            "여기서 사업부문별 매출·영업이익을 읽으세요. 합계/조정/부문간/미배분 열·행은 제외.")
+
+# 부문이 '없는' 이유를 가르는 독립 판정. 조합형으로 쓴다 — 표현 변형마다 대안을 덧붙이면
+# 목록이 끝없이 늘고 놓치는 표현이 계속 생긴다(실측: 「단일의 보고부문으로 구성되어」·
+# 「하나의 영업부문으로 분류되기」·「단일 부문으로 사업을 수행」이 모두 기존 목록에서 누락).
+_ONE_SEG_SUBJ = r"(?:단일|하나)\s*의?\s*(?:사업|영업|보고)?\s*부문"
+_ONE_SEG_VERB = r"(?:구성|분류|결정|운영|영위|수행|보유|가지|해당|이며|이고|입니다|합니다|이다|으로|로)"
+_ONE_SEGMENT = re.compile(_ONE_SEG_SUBJ + r"[^.。\n]{0,40}?" + _ONE_SEG_VERB)
+# 부정문 제외 — 「단일 부문이 아니며」·「단일부문이 아닌」·「아님」
+# 한글은 음절 블록이라 '아니'가 '아닌'을 포함하지 않는다(닌 ≠ 니) → 종성별로 열거해야 한다.
+# '않·없'은 넣지 않는다 — 「단일 보고부문으로 결정하였으며 별도 공시는 없습니다」를 부정문으로 오판한다.
+_ONE_SEG_NEG = re.compile(_ONE_SEG_SUBJ + r"[^.。\n]{0,12}?아[니닌님]")
+# 주석 자체를 생략한 경우(분기보고서 등) — 데이터 미수집이지 파싱 실패가 아니다
+_NOTE_OMITTED = re.compile(r"해당\s*사항\s*(?:이)?\s*없|기재하지\s*않|작성\s*대상\s*기간\s*현재\s*해당")
+
+
+def _quote(text: str, m: re.Match, span: int = 70) -> str:
+    """판정 근거를 원문 인용으로 남긴다 — 라벨만 주면 사용자가 검증할 수 없다.
+
+    인용은 **문장 시작부터** 자른다. 고정 오프셋으로 자르면 「'에 따른 보고부문이…」처럼
+    말 중간에서 시작해 읽을 수 없다.
+    """
+    head = text[max(0, m.start() - 120):m.start()]
+    cut = max(head.rfind("."), head.rfind("。"), head.rfind("\n"), head.rfind(")"))
+    s = m.start() - (len(head) - cut - 1) if cut >= 0 else max(0, m.start() - 12)
+    out = re.sub(r"\s+", " ", text[max(0, s):m.end() + span]).strip()
+    return (out[:110].rsplit(" ", 1)[0] + "…") if len(out) > 110 else out
+
+
+def classify_absence(note_text: str, biz_text: str = "") -> Optional[tuple[str, str]]:
+    """부문 데이터가 없을 때 '왜 없는가'를 판정. 반환 (status, 근거 인용) 또는 None(불명).
+
+    None 을 돌려주는 것이 중요하다 — 모르는 것을 '단일부문 추정'으로 단정하면 오진이 조용히 나간다.
+    """
+    for src in (note_text or "", biz_text or ""):
+        if not src:
+            continue
+        m = _ONE_SEGMENT.search(src)
+        if m and not _ONE_SEG_NEG.search(src[max(0, m.start() - 20):m.end() + 20]):
+            return NOT_APPLICABLE, f"단일부문 선언 — 「{_quote(src, m)}」"
+    body = re.sub(r"^\s*\d+\.\s*[^\n]*\n", "", note_text or "", count=1)   # 첫 줄(구간 제목) 제외
+    if len(re.sub(r"\s+", "", body)) < 120:
+        m = _NOTE_OMITTED.search(note_text or "")
+        if m:
+            return NOT_COLLECTED, f"주석 미기재 — 「{_quote(note_text, m, 30)}」"
+        if len(re.sub(r"\s+", "", note_text or "")) < 60:
+            return NOT_COLLECTED, "주석 구간이 비어 있음(분기보고서 생략 등)"
+    return None
+
+
+def build_segment_fallback(full_html: str, na_reason: str = "",
+                           note_text: str = "", biz_text: str = "") -> tuple[dict, str]:
+    """정형 파싱이 실패했을 때 무엇을 반환할지 결정. 반환 (segment dict, warning).
+
+    설계(260718 사용자): '어느 표인지' 점수매기지 말고 영업부문 주석 구간을 통째로 마크다운으로
+    넘겨 호출측 AI가 읽게 한다. 구간 확정이 되면 값 추출이 실패해도 정보는 잃지 않는다.
+
+    순서 — ① 표준 서식 식별자로 블록 경계를 확정해 렌더(과잉·절단 없음)
+           ② 실패 시 기존 제목+고정창 렌더 ③ 부문표 후보 신호가 있으면 II.사업의내용 마크다운
+           ④ 그마저 없으면 후보표 raw ⑤ 부문 신호 전무면 N/A(단일부문 추정)
+
+    live fetch 밖의 순수 함수로 둔다 — 캐시만으로 이 결정 전체를 검증할 수 있어야 한다
+    (오케스트레이터 안에 있으면 검증 스크립트가 재구현하게 되고, 그 재구현이 곧 측정 오류가 된다).
+    """
+    from open_proxy_mcp.services.segment_candidates import (
+        render_segment_note_markdown, render_biz_section_markdown, _md_has_data_rows,
+        find_segment_candidates as _find_cands)
+
+    note_md, md_method = render_segment_note_md_by_code(full_html)
+    if not note_md:
+        note_md = render_segment_note_markdown(full_html)
+        md_method = "title_window" if note_md else md_method
+    if note_md:
+        return ({"status": "NEEDS_REVIEW", "source": "note_markdown",
+                 "region": "연결 영업부문 주석", "note": _MD_NOTE,
+                 "region_method": md_method, "segment_note_md": note_md}, "")
+    cands = _find_cands(full_html)
+    if cands:
+        biz_md = render_biz_section_markdown(full_html)
+        warn = "segment_profit: 정형 저신뢰 → 원문 마크다운/후보 반환(호출측 추출)"
+        if biz_md and _md_has_data_rows(biz_md):
+            return ({"status": "NEEDS_REVIEW", "source": "biz_markdown",
+                     "region": "II.사업의 내용", "note": _MD_NOTE,
+                     "region_method": md_method, "segment_note_md": biz_md}, warn)
+        return ({"status": "NEEDS_REVIEW", "source": "raw_candidates",
+                 "note": "부문표 후보(상위)에서 사업부문별 매출·영업이익을 읽으세요. 합계/조정/총계 열 제외.",
+                 "region_method": md_method, "candidates": cands[:5]}, warn)
+    # 여기까지 오면 부문 원문이 없다 — '왜 없는지'를 근거와 함께 가른다.
+    # 예전에는 무조건 NOT_APPLICABLE + "단일 영업부문 추정"이라 근거 없는 단정이 나갔다.
+    cls = classify_absence(note_text, biz_text)
+    if cls:
+        st, why = cls
+        return ({"status": st, "source": "none", "region_method": md_method, "na_reason": why}, "")
+    return ({"status": EXTRACTION_FAILED, "source": "none", "region_method": md_method,
+             "na_reason": na_reason or "사업부문 정보가 공시에 없거나 읽을 수 없는 형태입니다", "na_code": "absent_or_unparseable"},
+            "segment_profit: 부문 구간을 찾지 못했습니다(사유 불명)")
+
+
 def parse_segment_table(anchor: str, region: str, note_source: str = "") -> SegmentProfit:
     """세그먼트 표 구간 → SegmentProfit. 전치/컬럼 자동감지 → 구조정렬 + 검증가드 + 총계누출 안전망."""
     sp = SegmentProfit(source="note", anchor=anchor, note_source=note_source)
@@ -480,7 +718,7 @@ def parse_segment_table(anchor: str, region: str, note_source: str = "") -> Segm
             sp.status = OK
             return sp
         sp.status = EXTRACTION_FAILED
-        sp.na_reason = "transposed_parse_failed" if not clean_ok else "transposed_no_values"
+        sp.na_reason = "부문 표를 값으로 읽지 못했습니다(세로형 표) — 아래 원문에서 직접 확인하세요"; sp.na_code = "transposed_parse_failed" if not clean_ok else "transposed_no_values"
         return sp
     rev_label = next((lb for lb in REVENUE_LABELS if re.search(r"(?m)^\s*" + re.escape(lb) + r"\s*$", region)), "")
     prof_label = next((lb for lb in PROFIT_LABELS if re.search(r"(?m)^\s*" + re.escape(lb) + r"\s*$", region)), "")
@@ -492,14 +730,14 @@ def parse_segment_table(anchor: str, region: str, note_source: str = "") -> Segm
 
     if not headers or (not rev_vals and not prof_vals):
         sp.status = EXTRACTION_FAILED
-        sp.na_reason = "no_headers_or_values"
+        sp.na_reason = "부문 표의 머리행 또는 값을 읽지 못했습니다 — 아래 원문에서 직접 확인하세요"; sp.na_code = "no_headers_or_values"
         return sp
 
     # G2: 잔여부문(기타 등) 제외한 실부문이 전부 지역명이면 사업부문 아님 → NA(geographic_only)
     core_h = [h for h in headers if h not in _RESIDUAL_SEG]
     if core_h and all(h in _GEO_TOKENS or h.rstrip("지역") in _GEO_TOKENS for h in core_h):
         sp.status = NOT_APPLICABLE
-        sp.na_reason = "geographic_only"
+        sp.na_reason = "사업부문이 아니라 지역별 표만 공시되어 있습니다"; sp.na_code = "geographic_only"
         sp.segments = []
         return sp
 
@@ -513,7 +751,7 @@ def parse_segment_table(anchor: str, region: str, note_source: str = "") -> Segm
         else:
             # 정렬 미검증 + 초과값 존재 = 오정렬 위험 → 조용한 오답 대신 강등
             sp.status = EXTRACTION_FAILED
-            sp.na_reason = "alignment_unverified"
+            sp.na_reason = "부문과 값의 대응을 검산하지 못했습니다 — 아래 원문에서 직접 확인하세요"; sp.na_code = "alignment_unverified"
             sp.segments = [{"name": h, "revenue": None, "profit": None} for h in headers]
             return sp
 
@@ -537,7 +775,7 @@ def parse_segment_table(anchor: str, region: str, note_source: str = "") -> Segm
     segs, clean_ok = _clean_segments(built)
     if not clean_ok or not segs:
         sp.status = EXTRACTION_FAILED
-        sp.na_reason = "total_leak_unresolved"
+        sp.na_reason = "합계 행과 부문 행을 가려내지 못했습니다 — 아래 원문에서 직접 확인하세요"; sp.na_code = "total_leak_unresolved"
         sp.segments = built
         return sp
     sp.segments = segs
@@ -545,7 +783,8 @@ def parse_segment_table(anchor: str, region: str, note_source: str = "") -> Segm
     return sp
 
 
-def extract_segment_profit(biz_content_text: str, note_full_text: str, note_source: str = "") -> SegmentProfit:
+def extract_segment_profit(biz_content_text: str, note_full_text: str, note_source: str = "",
+                           note_html: str = "") -> SegmentProfit:
     """3단 fallback: ①단일부문 선언 감지 ②note-title 재앵커 표 파싱 (본문 폴백은 P0-A에서).
 
     (현 단계: 주석 경로 우선 구현. 본문게시 폴백은 A필드 빌드 시 통합.)
@@ -556,9 +795,23 @@ def extract_segment_profit(biz_content_text: str, note_full_text: str, note_sour
     if spb:
         spb.source = "body"
     n_anchor, n_region = find_segment_note_region(note_full_text or "")
+    method, code_reason = "text_anchor", ""
     spn = parse_segment_table(n_anchor, n_region, note_source) if (n_anchor and n_region) else None
+    if not (spn and spn.status == OK and spn.segments) and note_html:
+        # 텍스트 앵커가 구간을 못 잡았거나 값을 못 뽑았을 때만 식별자 경로를 한 번 더 시도.
+        c_anchor, c_region, code_reason = find_segment_note_region_by_code(note_html)
+        if c_anchor and c_region:
+            spc = parse_segment_table(c_anchor, c_region, note_source)
+            reject = _code_path_acceptable(spc, c_anchor) if spc.status == OK else "parse_failed"
+            if not reject:
+                spn, n_anchor, method = spc, c_anchor, code_reason
+            else:
+                code_reason = f"{code_reason}/rejected:{reject}"
     if spn:
         spn.source = "note"
+        spn.selection_method = method
+        if code_reason and method == "text_anchor":
+            spn.na_reason = (spn.na_reason + " " if spn.na_reason else "") + code_reason
     b_ok = bool(spb and spb.status == OK and spb.segments)
     n_ok = bool(spn and spn.status == OK and spn.segments)
 
@@ -578,14 +831,17 @@ def extract_segment_profit(biz_content_text: str, note_full_text: str, note_sour
     if spn and spn.status == NOT_APPLICABLE:
         return spn
     # ③ 표를 못 찾았을 때만 단일부문 '선언' 확인 → NA (다부문사는 위에서 이미 반환됨)
+    _cls = classify_absence(note_full_text or "", biz_content_text or "")
+    if _cls:
+        return SegmentProfit(status=_cls[0], source="none", na_reason=_cls[1])
     if _SINGLE_DECL.search(note_full_text or "") or _SINGLE_DECL.search(biz_content_text or ""):
-        return SegmentProfit(status=NOT_APPLICABLE, source="none", na_reason="single_segment")
+        return SegmentProfit(status=NOT_APPLICABLE, source="none", na_reason="사업부문이 하나뿐인 회사입니다", na_code="single_segment")
     if spn is not None:
         return spn        # 파싱 실패라도 주석 앵커·부분정보 보존 — 격자 재판독의 재료
     if n_anchor:          # 앵커는 찾았으나 표 게이트에서 걸러진 경우도 앵커만 보존
         return SegmentProfit(status=EXTRACTION_FAILED, source="note", anchor=n_anchor,
-                             na_reason="segment_table_parse_failed")
-    return SegmentProfit(status=EXTRACTION_FAILED, source="none", na_reason="no_segment_table_found")
+                             na_reason="부문 구간은 찾았으나 표를 값으로 읽지 못했습니다 — 아래 원문에서 직접 확인하세요", na_code="segment_table_parse_failed")
+    return SegmentProfit(status=EXTRACTION_FAILED, source="none", na_reason="공시에서 사업부문 표를 찾지 못했습니다", na_code="no_segment_table_found")
 
 
 def _norm_seg_name(nm: str) -> str:
@@ -703,10 +959,14 @@ def extract_customer_concentration(note_full_text: str) -> dict:
 def _sp_to_dict(sp: "SegmentProfit") -> dict:
     return {"status": sp.status, "source": sp.source, "revenue_metric": sp.revenue_metric,
             "profit_metric": sp.profit_metric, "unit": sp.unit, "na_reason": sp.na_reason,
-            "segments": sp.segments, "adjustments": sp.adjustments}
+            "na_code": sp.na_code,
+            "segments": sp.segments, "adjustments": sp.adjustments,
+            # 구간을 무엇으로 짚었는지 — 층별 적용률을 운영에서 관측하기 위함
+            "selection_method": sp.selection_method}
 
 
-def build_details(biz_content_text: str, note_full_text: str, toc: list, note_source: str = "") -> dict:
+def build_details(biz_content_text: str, note_full_text: str, toc: list, note_source: str = "",
+                  note_html: str = "") -> dict:
     """최상위 오케스트레이션 — 폼 게이트 후 필드 추출. 스콥: 금융·REIT는 UNSUPPORTED_FORM."""
     form = detect_form(toc or [])
     out = {"form_type": form}
@@ -714,7 +974,11 @@ def build_details(biz_content_text: str, note_full_text: str, toc: list, note_so
         for f in ("segment_profit", "rnd", "backlog", "customer_concentration"):
             out[f] = {"status": UNSUPPORTED_FORM, "na_reason": f"form_{form}_not_supported_v1"}
         return out
-    out["segment_profit"] = _sp_to_dict(extract_segment_profit(biz_content_text, note_full_text, note_source))
+    out["segment_profit"] = _sp_to_dict(extract_segment_profit(biz_content_text, note_full_text, note_source,
+                                                               note_html=note_html))
+    # 매핑 미탑재를 조용히 넘기지 않는다 — 미탑재면 텍스트 경로만 돌았다는 뜻이므로 표면화한다.
+    from open_proxy_mcp.services import coordinate_map as _cm
+    out["coordinate_map"] = _cm.status()
     out["rnd"] = extract_rnd(biz_content_text)
     out["backlog"] = extract_backlog(biz_content_text)
     out["customer_concentration"] = extract_customer_concentration(note_full_text)
@@ -1258,7 +1522,8 @@ async def build_business_details_payload(company_query: str, period: str = "late
     elif "segments" not in want:
         segment = None
     else:
-        sp = extract_segment_profit(sec.get("biz_text", ""), sec.get("note_text", ""), sec.get("note_source", ""))
+        sp = extract_segment_profit(sec.get("biz_text", ""), sec.get("note_text", ""), sec.get("note_source", ""),
+                                    note_html=sec.get("note_html", ""))
         if sp.status == OK and sp.segments:
             _scrub_segments(sp)          # 값없는 행·재무라인 junk 제거 후 신뢰게이트
         # 격자 재판독: 텍스트 경로가 고른 앵커의 표를 행×열 구조로 다시 읽어 이름↔값을
@@ -1284,34 +1549,11 @@ async def build_business_details_payload(company_query: str, period: str = "late
                                      "③ 의심 시 이 tool을 fields=segments로 재호출하면 검산 실패 시 "
                                      "주석 원문 마크다운이 반환되니 원문으로 직접 판단하세요."}
         else:
-            # 정형 저신뢰/실패 → '어느 표인지' 점수매기지 말고 영업부문 주석 구간을 통째로
-            # 마크다운으로 넘겨 호출측 AI가 읽게 한다(260718 사용자 결정). 없으면 II.사업의내용 폴백.
-            from open_proxy_mcp.services.segment_candidates import (
-                render_segment_note_markdown, render_biz_section_markdown, _md_has_data_rows)
-            full_html = sec.get("note_html", "")   # get_document full html
-            note_md = render_segment_note_markdown(full_html)
-            _MD_NOTE = ("아래는 영업부문 주석(K-IFRS 1108) 원문을 마크다운으로 옮긴 것입니다. "
-                        "여기서 사업부문별 매출·영업이익을 읽으세요. 합계/조정/부문간/미배분 열·행은 제외.")
-            if note_md:
-                segment = {"status": "NEEDS_REVIEW", "source": "note_markdown",
-                           "region": "연결 영업부문 주석", "note": _MD_NOTE, "segment_note_md": note_md}
-            else:
-                cands = find_segment_candidates(full_html)
-                if cands:
-                    # 주석 앵커 실패했지만 부문표 신호는 있음(지주사류) → II.사업의내용 마크다운 폴백
-                    biz_md = render_biz_section_markdown(full_html)
-                    if biz_md and _md_has_data_rows(biz_md):
-                        segment = {"status": "NEEDS_REVIEW", "source": "biz_markdown",
-                                   "region": "II.사업의 내용", "note": _MD_NOTE, "segment_note_md": biz_md}
-                    else:
-                        segment = {"status": "NEEDS_REVIEW", "source": "raw_candidates",
-                                   "note": "부문표 후보(상위)에서 사업부문별 매출·영업이익을 읽으세요. 합계/조정/총계 열 제외.",
-                                   "candidates": cands[:5]}
-                    warnings.append("segment_profit: 정형 저신뢰 → 원문 마크다운/후보 반환(호출측 추출)")
-                else:
-                    # 부문 신호 전무 = 단일 영업부문사 → N/A
-                    segment = {"status": NOT_APPLICABLE, "source": "none",
-                               "na_reason": sp.na_reason or "부문표 미검출(단일 영업부문 추정)"}
+            segment, _fb_warn = build_segment_fallback(
+                sec.get("note_html", ""), sp.na_reason,
+                note_text=sec.get("note_text", ""), biz_text=sec.get("biz_text", ""))
+            if _fb_warn:
+                warnings.append(_fb_warn)
 
     data = {
         "corp": {"name": corp.get("corp_name"), "corp_code": corp.get("corp_code"), "stock_code": corp.get("stock_code")},

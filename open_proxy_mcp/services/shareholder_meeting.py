@@ -26,6 +26,7 @@ from open_proxy_mcp.services.date_utils import format_iso_date, parse_date_param
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.services.agm_result_parser import parse_agm_result_summary, parse_agm_result_table
 from open_proxy_mcp.services.shareholder_meeting_parser import (
+    agenda_detail_sections,
     parse_agenda_details_xml,
     parse_agenda_xml,
     parse_aoi_xml,
@@ -187,7 +188,7 @@ def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[d
         conditional = item.get("conditional")
         relation_type, relation_reasons = _agenda_relation(title, conditional)
         category = _classify_agenda(title, parent_title=parent_title)
-        nodes.append({
+        node = {
             "agenda_id": agenda_id,
             "number": item.get("number", ""),
             "title": title,
@@ -199,7 +200,14 @@ def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[d
             "agenda_relation_type": relation_type,
             "agenda_relation_reasons": relation_reasons,
             "children": _agenda_nodes(item.get("children", []), parent_title=title),
-        })
+        }
+        # 파서가 붙인 진단 필드를 통과시킨다. 화이트리스트로 새 dict를 만드는 구조라
+        # 여기 적지 않으면 조용히 사라진다 — 실제로 filed_*·resolution_* 이 그렇게 유실됐다.
+        for key in ("filed_code", "filed_kind", "filed_link", "declared_role",
+                    "resolution_status", "resolution_note", "dividend"):
+            if item.get(key) is not None:
+                node[key] = item[key]
+        nodes.append(node)
     return nodes
 
 
@@ -1580,6 +1588,14 @@ async def build_shareholder_meeting_payload(
 
     if include_agenda:
         data["agendas"] = agenda_nodes
+        # '주주총회 목적사항별 기재사항' 구간 원문. 안건과 구간을 우리가 짝지어 주지 않고
+        # 라벨만 달아 통째로 넘긴다 — 표 파싱이 실패하면 통째로 사라지던 내용(주주제안
+        # 이사 후보 명단·자기주식 처분계획·주식병합 상세)이 여기로 살아 나온다.
+        # 재무제표 구간은 머리만 남긴다(수치는 financial_metrics 정형 데이터가 정본).
+        if html:
+            sections = agenda_detail_sections(html)
+            if sections:
+                data["agenda_detail_sections"] = sections
     if include_board:
         data["board"] = board
         if not board.get("appointments"):

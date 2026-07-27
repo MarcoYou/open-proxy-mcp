@@ -26,7 +26,73 @@ _KOREAN_LEGAL_SUFFIX_RE = re.compile(
     r"(?:\s*[\(（]주[\)）]\s*|\s*㈜\s*|\s*주식회사\s*)$",
     re.IGNORECASE,
 )
+# DART 정식명은 법인격이 앞에 붙는 형태가 흔하다 — 「(주)광무」·「주식회사솔루엠」.
+# suffix 만 떼면 공시에서 복사한 회사명이나 우리 툴이 출력한 이름으로 재조회했을 때
+# 식별에 실패한다(실측 100사 라이브 스윕에서 14곳). 「주성엔지니어링」처럼 우연히 같은
+# 글자로 시작하는 상호를 깎지 않도록 닫는 괄호나 '식회사'를 반드시 요구한다.
+_KOREAN_LEGAL_PREFIX_RE = re.compile(
+    r"^(?:\s*[\(（]\s*[주유재사]\s*[\)）]\s*|\s*[㈜㈐]\s*"
+    r"|\s*(?:주식|유한|합자|합명)\s*회사\s*|\s*(?:재단|사단)\s*법인\s*)",
+    re.IGNORECASE,
+)
 _NON_WORD_RE = re.compile(r"[^0-9a-z가-힣]+")
+
+# 알파벳 26자의 한글 음차. DART 등록명은 「SKC」인데 공고 헤더는 「에스케이씨(주)」로 적는다
+# (실측 322개 중 48개가 조회 실패, 대부분 이 유형). 긴 표기부터 매칭해야 '에이치'가
+# '에이'로 잘리지 않는다.
+_LETTER_KO = {
+    "에이치": "H", "더블유": "W", "더블류": "W", "제트": "Z", "엑스": "X",
+    "에스": "S", "에프": "F", "에이": "A", "제이": "J", "케이": "K",
+    "브이": "V", "와이": "Y", "아이": "I", "아르": "R",
+    "엘": "L", "엠": "M", "엔": "N", "오": "O", "피": "P", "큐": "Q",
+    "알": "R", "티": "T", "유": "U", "비": "B", "씨": "C", "시": "C",
+    "디": "D", "이": "E", "지": "G", "쥐": "G",
+}
+_LETTER_KO_ORDER = sorted(_LETTER_KO, key=len, reverse=True)
+
+
+# 공고 헤더는 정식 상호(「삼성생명보험」)인데 DART 등록명은 짧다(「삼성생명」).
+# 업종어만 떼되 **짧은 것부터** 시도한다 — 「미래에셋생명보험」에서 '생명보험'을 떼면
+# 「미래에셋」이라는 다른 회사가 나온다. '보험'만 떼야 「미래에셋생명」이 된다.
+# 지주·계열 표기(홀딩스·디엑스 등)는 절대 떼지 않는다 — 앞자르기 실험에서
+# 에스피씨삼립→「케이에스피」, 포스코디엑스→「POSCO홀딩스」 같은 오답이 나왔다.
+_INDUSTRY_SUFFIXES = ("보험", "공업", "재보험", "해상보험", "생명보험", "손해보험",
+                      "화재해상보험")
+
+
+def industry_suffix_variants(value: str) -> list[str]:
+    """업종어를 뗀 후보들. 짧게 떼는 것부터 — 많이 뗄수록 다른 회사가 될 위험이 크다."""
+    out: list[str] = []
+    for suf in sorted(_INDUSTRY_SUFFIXES, key=len):
+        if value.endswith(suf) and len(value) > len(suf) + 1:
+            base = value[: -len(suf)]
+            if base not in out:
+                out.append(base)
+    return out
+
+
+def latinized_variants(value: str) -> set[str]:
+    """앞머리의 한글 알파벳 음차를 알파벳으로 되돌린 변형들.
+
+    「엔」처럼 알파벳(N)이자 낱말 첫 글자(엔터테인먼트)인 음절이 있어 어디까지 letter 로
+    읽을지 하나로 정할 수 없다. 그래서 길이별 변형을 모두 만들어 색인한다 —
+    「제이와이피엔터테인먼트」는 JY이피…·JYP엔터테인먼트·JYPN터테인먼트 중 하나가 맞는다.
+    1글자는 우연 일치(이수페타시스·비상장)가 많아 2글자부터 만든다.
+    """
+    letters: list[str] = []
+    rests: list[str] = []
+    i, n = 0, len(value)
+    while i < n:
+        for kw in _LETTER_KO_ORDER:
+            if value.startswith(kw, i):
+                letters.append(_LETTER_KO[kw]); i += len(kw); break
+        else:
+            break
+        rests.append(value[i:])
+    out = set()
+    for k in range(2, len(letters) + 1):
+        out.add("".join(letters[:k]).lower() + rests[k - 1])
+    return out
 
 
 def _nfkc_casefold(value: str) -> str:
@@ -40,7 +106,8 @@ def normalize_raw(value: str) -> str:
 
 def name_tokens(value: str) -> tuple[str, ...]:
     """Search tokens shared by Korean, English, and mixed company names."""
-    text = _KOREAN_LEGAL_SUFFIX_RE.sub("", _nfkc_casefold(value))
+    text = _KOREAN_LEGAL_PREFIX_RE.sub("", _nfkc_casefold(value))
+    text = _KOREAN_LEGAL_SUFFIX_RE.sub("", text)
     text = text.replace("&", " and ").replace("앤", " and ")
     tokens = _NON_WORD_RE.sub(" ", text).split()
     while tokens and tokens[-1] in _LEGAL_SUFFIXES:
@@ -198,6 +265,8 @@ class CompanyResolver:
                 self._add(self._official, raw, row_id)
                 self._add(self._phrase, phrase, row_id)
                 self._add(self._compact, compact, row_id)
+                for alt in latinized_variants(compact):
+                    self._add(self._compact, alt, row_id)
                 for token in name_tokens(name):
                     self._tokens.setdefault(token, set()).add(row_id)
                     if re.fullmatch(r"[가-힣]{3,}", token):
@@ -260,7 +329,54 @@ class CompanyResolver:
         }
         return corp
 
-    def search(self, query: str) -> list[dict[str, Any]]:
+    def search(self, query: str, *, _latinized: bool = False) -> list[dict[str, Any]]:
+        raw_query = (query or "").strip()
+        if not raw_query:
+            return []
+        if not _latinized:
+            found = self._search_one(raw_query)
+            if found:
+                return found
+            # 역음차 재시도 — 「에스케이씨(주)」로 물으면 「SKC」를 찾아야 한다.
+            # 색인 쪽에도 같은 변형을 넣어 두어 반대 방향도 성립한다. 조회 체인 전체를
+            # 다시 타야 한다: 「JYP Ent.」는 compact 가 'jypent' 라 토큰 경로로만 잡힌다.
+            compact_q = normalize_compact(raw_query)
+            for alt in sorted(latinized_variants(compact_q)):
+                hit = self._search_one(alt)
+                if hit:
+                    return hit
+            # 업종어 접미 제거 — 후보가 정확히 하나일 때만 받는다. 여럿이면 어느 쪽인지
+            # 확정할 수 없으므로 붙이지 않는다(틀린 회사를 주는 것보다 못 찾는 편이 낫다).
+            for base in industry_suffix_variants(compact_q):
+                hit = self._search_one(base)
+                listed = [h for h in hit if str(h.get("stock_code") or "").strip()]
+                if len(listed) == 1:
+                    return listed
+            return []
+        return self._search_one(raw_query)
+
+    def suggest(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+        """못 찾았을 때 보여줄 근접 후보. **자동 선택하지 않는다.**
+
+        앞자르기로 자동 선택하면 오답이 난다(실측: 에스피씨삼립→「케이에스피」,
+        포스코디엑스→「POSCO홀딩스」). 같은 계산을 '제안'으로 쓰면 안전하다 —
+        고르는 것은 사람이다. 「에이플러스에셋어드바이저」→「에이플러스에셋」처럼
+        접미가 붙은 상호, 개명·상장폐지된 이름을 사용자가 알아볼 수 있게 한다.
+        """
+        base = normalize_compact(query)
+        seen: dict[int, None] = {}
+        for end in range(len(base) - 1, 2, -1):
+            for row_id in self._compact.get(base[:end], []):
+                if row_id in self._listed_ids:
+                    seen.setdefault(row_id, None)
+            for row_id in self._tokens.get(base[:end], set()):
+                if row_id in self._listed_ids:
+                    seen.setdefault(row_id, None)
+            if len(seen) >= limit:
+                break
+        return [self.corps[i] for i in list(seen)[:limit]]
+
+    def _search_one(self, query: str) -> list[dict[str, Any]]:
         raw_query = (query or "").strip()
         if not raw_query:
             return []
