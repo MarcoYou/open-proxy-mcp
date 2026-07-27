@@ -51,6 +51,26 @@ _LETTER_KO = {
 _LETTER_KO_ORDER = sorted(_LETTER_KO, key=len, reverse=True)
 
 
+# 공고 헤더는 정식 상호(「삼성생명보험」)인데 DART 등록명은 짧다(「삼성생명」).
+# 업종어만 떼되 **짧은 것부터** 시도한다 — 「미래에셋생명보험」에서 '생명보험'을 떼면
+# 「미래에셋」이라는 다른 회사가 나온다. '보험'만 떼야 「미래에셋생명」이 된다.
+# 지주·계열 표기(홀딩스·디엑스 등)는 절대 떼지 않는다 — 앞자르기 실험에서
+# 에스피씨삼립→「케이에스피」, 포스코디엑스→「POSCO홀딩스」 같은 오답이 나왔다.
+_INDUSTRY_SUFFIXES = ("보험", "공업", "재보험", "해상보험", "생명보험", "손해보험",
+                      "화재해상보험")
+
+
+def industry_suffix_variants(value: str) -> list[str]:
+    """업종어를 뗀 후보들. 짧게 떼는 것부터 — 많이 뗄수록 다른 회사가 될 위험이 크다."""
+    out: list[str] = []
+    for suf in sorted(_INDUSTRY_SUFFIXES, key=len):
+        if value.endswith(suf) and len(value) > len(suf) + 1:
+            base = value[: -len(suf)]
+            if base not in out:
+                out.append(base)
+    return out
+
+
 def latinized_variants(value: str) -> set[str]:
     """앞머리의 한글 알파벳 음차를 알파벳으로 되돌린 변형들.
 
@@ -320,10 +340,18 @@ class CompanyResolver:
             # 역음차 재시도 — 「에스케이씨(주)」로 물으면 「SKC」를 찾아야 한다.
             # 색인 쪽에도 같은 변형을 넣어 두어 반대 방향도 성립한다. 조회 체인 전체를
             # 다시 타야 한다: 「JYP Ent.」는 compact 가 'jypent' 라 토큰 경로로만 잡힌다.
-            for alt in sorted(latinized_variants(normalize_compact(raw_query))):
+            compact_q = normalize_compact(raw_query)
+            for alt in sorted(latinized_variants(compact_q)):
                 hit = self._search_one(alt)
                 if hit:
                     return hit
+            # 업종어 접미 제거 — 후보가 정확히 하나일 때만 받는다. 여럿이면 어느 쪽인지
+            # 확정할 수 없으므로 붙이지 않는다(틀린 회사를 주는 것보다 못 찾는 편이 낫다).
+            for base in industry_suffix_variants(compact_q):
+                hit = self._search_one(base)
+                listed = [h for h in hit if str(h.get("stock_code") or "").strip()]
+                if len(listed) == 1:
+                    return listed
             return []
         return self._search_one(raw_query)
 

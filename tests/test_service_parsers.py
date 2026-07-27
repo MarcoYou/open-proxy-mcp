@@ -233,3 +233,27 @@ def test_reverse_transliteration_leaves_ordinary_names_alone():
     from open_proxy_mcp.company_resolver import latinized_variants, normalize_compact
     for name in ("이수페타시스", "오뚜기", "삼성전자", "이마트", "유한양행", "지누스", "비상장회사"):
         assert not latinized_variants(normalize_compact(name)), name
+
+
+def test_industry_suffix_stripping_prefers_the_shortest_cut():
+    """공고 헤더는 정식 상호(「삼성생명보험」)인데 DART 등록명은 짧다(「삼성생명」).
+
+    많이 뗄수록 다른 회사가 된다 — 「미래에셋생명보험」에서 '생명보험'을 떼면
+    「미래에셋」이라는 별개 회사가 나온다. '보험'만 떼야 「미래에셋생명」이다.
+    """
+    from open_proxy_mcp.company_resolver import industry_suffix_variants as v
+    assert v("미래에셋생명보험")[0] == "미래에셋생명", v("미래에셋생명보험")
+    assert v("흥국화재해상보험")[0] == "흥국화재해상"
+    assert "흥국화재" in v("흥국화재해상보험"), "짧게 떼서 못 찾으면 더 떼 본다"
+    assert v("대한약품공업")[0] == "대한약품"
+
+
+def test_industry_suffix_stripping_leaves_group_forms_alone():
+    """지주·계열 표기는 떼지 않는다 — 앞자르기 실험에서 나온 오답을 막는다.
+
+    실측: 에스피씨삼립→「케이에스피」, 포스코디엑스→「POSCO홀딩스」, NICE홀딩스→「NICE」.
+    조회 실패보다 틀린 회사를 주는 편이 나쁘다.
+    """
+    from open_proxy_mcp.company_resolver import industry_suffix_variants as v
+    for name in ("nice홀딩스", "포스코디엑스", "에스피씨삼립", "삼성전자", "카카오"):
+        assert v(name) == [], name
