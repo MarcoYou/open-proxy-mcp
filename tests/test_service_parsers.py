@@ -181,3 +181,24 @@ def test_share_consolidation_keeps_review_but_not_called_capital_reduction():
     assert _classify_agenda("주식병합 승인의 건") == "capital_reduction"
     assert _classify_agenda("주식(액면) 병합 승인의 건") == "capital_reduction"
     assert _classify_agenda("자본금 감소(액면가 감액) 승인의 건") == "capital_reduction"
+
+
+def test_corp_form_prefix_is_stripped_for_lookup():
+    """DART 정식명은 「(주)광무」처럼 법인격이 앞에 붙는다 — 그 표기로도 찾아야 한다.
+
+    실측(100사 라이브 스윕): suffix 만 떼던 탓에 우리 툴이 스스로 출력한 회사명으로
+    재조회하면 14곳이 식별 실패했다.
+    """
+    from open_proxy_mcp.dart.client import _normalize_corp_name as norm
+    assert norm("(주)광무") == "광무"
+    assert norm("주식회사솔루엠") == "솔루엠"
+    assert norm("㈜한화") == "한화"
+    assert norm("주식회사 케이티스카이라이프") == "케이티스카이라이프"
+    assert norm("미래에셋생명보험(주)") == "미래에셋생명보험"
+
+
+def test_corp_form_prefix_does_not_eat_real_names():
+    """반례 — '주'·'유'·'재'·'사'로 시작하는 정상 상호를 깎으면 안 된다."""
+    from open_proxy_mcp.dart.client import _normalize_corp_name as norm
+    for name in ("주성엔지니어링", "주연테크", "유한양행", "재영솔루텍", "사조오양"):
+        assert norm(name) == name.lower(), name

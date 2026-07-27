@@ -26,6 +26,15 @@ _KOREAN_LEGAL_SUFFIX_RE = re.compile(
     r"(?:\s*[\(（]주[\)）]\s*|\s*㈜\s*|\s*주식회사\s*)$",
     re.IGNORECASE,
 )
+# DART 정식명은 법인격이 앞에 붙는 형태가 흔하다 — 「(주)광무」·「주식회사솔루엠」.
+# suffix 만 떼면 공시에서 복사한 회사명이나 우리 툴이 출력한 이름으로 재조회했을 때
+# 식별에 실패한다(실측 100사 라이브 스윕에서 14곳). 「주성엔지니어링」처럼 우연히 같은
+# 글자로 시작하는 상호를 깎지 않도록 닫는 괄호나 '식회사'를 반드시 요구한다.
+_KOREAN_LEGAL_PREFIX_RE = re.compile(
+    r"^(?:\s*[\(（]\s*[주유재사]\s*[\)）]\s*|\s*[㈜㈐]\s*"
+    r"|\s*(?:주식|유한|합자|합명)\s*회사\s*|\s*(?:재단|사단)\s*법인\s*)",
+    re.IGNORECASE,
+)
 _NON_WORD_RE = re.compile(r"[^0-9a-z가-힣]+")
 
 
@@ -40,7 +49,8 @@ def normalize_raw(value: str) -> str:
 
 def name_tokens(value: str) -> tuple[str, ...]:
     """Search tokens shared by Korean, English, and mixed company names."""
-    text = _KOREAN_LEGAL_SUFFIX_RE.sub("", _nfkc_casefold(value))
+    text = _KOREAN_LEGAL_PREFIX_RE.sub("", _nfkc_casefold(value))
+    text = _KOREAN_LEGAL_SUFFIX_RE.sub("", text)
     text = text.replace("&", " and ").replace("앤", " and ")
     tokens = _NON_WORD_RE.sub(" ", text).split()
     while tokens and tokens[-1] in _LEGAL_SUFFIXES:
