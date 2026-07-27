@@ -26,6 +26,7 @@ from open_proxy_mcp.services.date_utils import format_iso_date, parse_date_param
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.services.agm_result_parser import parse_agm_result_summary, parse_agm_result_table
 from open_proxy_mcp.services.shareholder_meeting_parser import (
+    agenda_detail_sections,
     parse_agenda_details_xml,
     parse_agenda_xml,
     parse_aoi_xml,
@@ -1580,6 +1581,14 @@ async def build_shareholder_meeting_payload(
 
     if include_agenda:
         data["agendas"] = agenda_nodes
+        # '주주총회 목적사항별 기재사항' 구간 원문. 안건과 구간을 우리가 짝지어 주지 않고
+        # 라벨만 달아 통째로 넘긴다 — 표 파싱이 실패하면 통째로 사라지던 내용(주주제안
+        # 이사 후보 명단·자기주식 처분계획·주식병합 상세)이 여기로 살아 나온다.
+        # 재무제표 구간은 머리만 남긴다(수치는 financial_metrics 정형 데이터가 정본).
+        if html:
+            sections = agenda_detail_sections(html)
+            if sections:
+                data["agenda_detail_sections"] = sections
     if include_board:
         data["board"] = board
         if not board.get("appointments"):

@@ -2354,6 +2354,9 @@ async def build_proxy_advise_payload(
                     "dividend": it.get("dividend"),
                     "filed_code": it.get("filed_code"),
                     "filed_kind": it.get("filed_kind"),
+                    # 구간 코드를 어떻게 이었는지(declared/candidate_name/heading/kind_match).
+                    # declared 만 문서가 직접 밝힌 것이라 분류 정확도의 독립 근거로 쓸 수 있다.
+                    "filed_link": it.get("filed_link"),
                 })
             if isinstance(it, dict):
                 rows.extend(_flatten_agenda_rows(it.get("children") or []))

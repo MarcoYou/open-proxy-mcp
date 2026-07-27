@@ -6,7 +6,8 @@
 import pytest
 
 from open_proxy_mcp.services.shareholder_meeting_parser import (
-    agenda_codes_in_notice, annotate_agenda_codes, extract_dividend_from_title,
+    agenda_codes_in_notice, agenda_detail_sections, annotate_agenda_codes,
+    declared_agenda_links, extract_dividend_from_title,
 )
 
 
@@ -58,11 +59,23 @@ def test_none_declared_flagged():
 
 
 # ── 안건 구간 코드 ────────────────────────────────────────────────────
+# 구간 본문이 「제N호 의안 :」으로 어느 안건의 상세인지 스스로 밝히는 실측 서식.
 _NOTICE = (
     '<TITLE AASSOCNOTE="L0-0-2-1-0">□ 재무제표의 승인</TITLE>'
+    '<P>제1호 의안 : 제38기 재무제표 승인의 건</P>'
     '<TITLE AASSOCNOTE="L0-0-2-3-0">□ 이사의 선임</TITLE>'
-    '<TITLE AASSOCNOTE="L0-0-2-3-1">확인서</TITLE>'
+    '<P>제2호 의안 : 이사 선임의 건 -제2-1호 사외이사 홍길동</P>'
+    '<TITLE AASSOCNOTE="L0-0-2-3-1">확인서</TITLE><P>확인서_홍길동.jpg</P>'
     '<TITLE AASSOCNOTE="L0-0-2-9-0">□ 이사의 보수한도 승인</TITLE>'
+    '<P>제3호 의안 : 이사 보수한도 승인의 건</P>'
+)
+
+# 구간이 번호를 밝히지 않는 서식 — 실측 287건 중 40%가 이 모양이다.
+_NOTICE_SILENT = (
+    '<TITLE AASSOCNOTE="L0-0-2-1-0">□ 재무제표의 승인</TITLE>'
+    '<P>가. 해당 사업연도의 영업상황의 개요</P>'
+    '<TITLE AASSOCNOTE="L0-0-2-2-0">□ 정관의 변경</TITLE>'
+    '<P>가. 집중투표 배제를 위한 정관의 변경</P>'
 )
 
 
@@ -72,8 +85,8 @@ def test_confirmation_docs_excluded():
     assert codes == ["L0-0-2-1-0", "L0-0-2-3-0", "L0-0-2-9-0"], codes
 
 
-def test_code_attaches_to_root_and_inherits_to_children():
-    """코드는 루트 안건에만 달린다 — 하위안건(제N-M호)은 부모 구간을 상속한다."""
+def test_code_attaches_from_document_declaration():
+    """구간이 스스로 밝힌 안건번호로만 붙인다 — 하위안건은 부모 구간을 상속한다."""
     tree = [
         {"number": "제1호", "title": "제38기 재무제표 승인의 건 (주당 배당금 100원)", "children": []},
         {"number": "제2호", "title": "이사 선임의 건", "children": [
@@ -85,8 +98,34 @@ def test_code_attaches_to_root_and_inherits_to_children():
     assert tree[0]["filed_code"] == "L0-0-2-1-0"
     assert tree[1]["filed_code"] == "L0-0-2-3-0"
     assert tree[1]["children"][0]["filed_code"] == "L0-0-2-3-0", "하위안건은 부모 코드를 상속"
-    assert "filed_kind" not in tree[1]["children"][0], "하위안건에 유형은 붙이지 않는다"
     assert tree[2]["filed_code"] == "L0-0-2-9-0"
+
+
+def test_misclassification_does_not_shift_codes():
+    """분류가 틀려도 코드는 밀리지 않아야 한다.
+
+    옛 구현은 분류 결과로 코드를 소비해서, 제1호를 정관변경으로 오분류하면 정관용 코드를
+    먹어버리고 제2호부터 전부 밀렸다(실측 오답 6.3%). 그러면 이 필드로 분류 정확도를
+    되짚을 수 없다 — 재는 자가 재는 대상에 의존하기 때문이다.
+    """
+    tree = [
+        # 실측 오분류 사례: 「제무제표」 오타 + 「상법 제449조의2」 언급 → 정관변경으로 오분류됨
+        {"number": "제1호", "title": "제38기 제무제표 승인의 건 (단, 상법 제449조의2에 따라)",
+         "children": []},
+        {"number": "제2호", "title": "이사 선임의 건", "children": []},
+        {"number": "제3호", "title": "이사 보수한도 승인의 건", "children": []},
+    ]
+    annotate_agenda_codes(tree, _NOTICE)
+    assert tree[0]["filed_code"] == "L0-0-2-1-0", "오분류돼도 문서 선언대로"
+    assert tree[1]["filed_code"] == "L0-0-2-3-0", "뒤 안건이 밀리지 않는다"
+    assert tree[2]["filed_code"] == "L0-0-2-9-0"
+
+
+def test_clause_number_is_not_an_agenda_number():
+    """「정관 제25조 제1항 제3호」의 '제3호'는 조항번호이지 안건번호가 아니다."""
+    html = ('<TITLE AASSOCNOTE="L0-0-2-2-0">□ 정관의 변경</TITLE>'
+            '<P>나. 정관 제25조 제1항, 제3호를 다음과 같이 변경</P>')
+    assert declared_agenda_links(html) == {}
 
 
 def test_dividend_attached_during_annotation():
@@ -100,6 +139,66 @@ def test_code_absent_is_harmless():
     tree = [{"number": "제1호", "title": "이사 보수한도 승인의 건", "children": []}]
     annotate_agenda_codes(tree, "<TITLE>회의목적사항</TITLE>")   # 코드 없는 원문
     assert "filed_code" not in tree[0]
+
+
+def test_silent_document_falls_back_but_says_it_inferred():
+    """문서가 안 밝히면 추론 층으로 잇되, 추론이라고 밝힌다.
+
+    선언만 쓰면 루트 안건의 47.3%에서 멈춘다. 층을 얹어 98.2%까지 올리는 대신,
+    추론한 것을 선언처럼 내보내지 않는다 — `filed_link`로 구분되고 `filed_kind`는 안 붙는다.
+    """
+    tree = [{"number": "제1호", "title": "제38기 재무제표 승인의 건", "children": []},
+            {"number": "제2호", "title": "정관 일부 변경의 건", "children": []}]
+    annotate_agenda_codes(tree, _NOTICE_SILENT)
+    assert tree[0]["filed_code"] == "L0-0-2-1-0"
+    assert tree[1]["filed_code"] == "L0-0-2-2-0"
+    for n in tree:
+        assert n["filed_link"] != "declared", "선언이 없었으니 declared 라고 하면 안 된다"
+        assert "filed_kind" not in n, "유형은 선언된 안건에만 — 추론에 확정 딱지를 붙이지 않는다"
+
+
+def test_inference_never_overrides_declaration():
+    """선언이 있으면 추론 층은 개입하지 않는다 — 문서가 최종 권위다."""
+    tree = [{"number": "제1호", "title": "제38기 재무제표 승인의 건", "children": []},
+            {"number": "제2호", "title": "이사 선임의 건", "children": []},
+            {"number": "제3호", "title": "이사 보수한도 승인의 건", "children": []}]
+    annotate_agenda_codes(tree, _NOTICE)
+    assert [n["filed_link"] for n in tree] == ["declared"] * 3
+
+
+def test_candidate_name_links_when_declaration_absent():
+    """구간 표의 후보자 이름이 안건 제목에 있으면 그 구간 — 분류기와 무관한 경로."""
+    html = ('<TITLE AASSOCNOTE="L0-0-2-3-0">□ 이사의 선임</TITLE>'
+            '<P>후보자성명 생년월일 추천인 김의형 1958.03 이사회</P>'
+            '<TITLE AASSOCNOTE="L0-0-2-9-0">□ 이사의 보수한도 승인</TITLE>'
+            '<P>가. 이사의 수ㆍ보수총액 8(3) 7,000,000,000</P>')
+    tree = [{"number": "제2호", "title": "사외이사 김의형 선임의 건", "children": []}]
+    annotate_agenda_codes(tree, html)
+    assert tree[0]["filed_code"] == "L0-0-2-3-0"
+    assert tree[0]["filed_link"] == "candidate_name"
+
+
+# ── 구간 통째 반환 ────────────────────────────────────────────────────
+def test_sections_returned_whole_without_pairing():
+    """안건↔구간을 짝지어 주지 않는 대신 어느 구간도 버리지 않는다."""
+    secs = agenda_detail_sections(_NOTICE)
+    assert [s["code"] for s in secs] == ["L0-0-2-1-0", "L0-0-2-3-0", "L0-0-2-9-0"]
+    assert "확인서" not in " ".join(s["text"] for s in secs), "확인서는 이미지 파일명뿐 — 기본 제외"
+    assert "이사 선임의 건" in secs[1]["text"]
+    assert secs[1]["heading"].startswith("□")
+    assert all(s["truncated"] is False for s in secs)
+
+
+def test_financial_statement_section_is_capped():
+    """재무제표 구간은 원문 전체 분량의 85.3%를 차지하고, 수치는 API 정형 데이터가 정본이다."""
+    big = ('<TITLE AASSOCNOTE="L0-0-2-1-0">□ 재무제표의 승인</TITLE>'
+           '<P>가. 영업상황의 개요</P><P>' + ("자산총계 1,000 " * 4000) + '</P>')
+    s = agenda_detail_sections(big)[0]
+    assert s["truncated"] is True
+    assert s["chars"] > 20000
+    assert len(s["text"]) < 3000
+    assert "영업상황의 개요" in s["text"], "머리는 남긴다"
+    assert "생략" in s["text"], "잘렸다는 사실을 감추지 않는다"
 
 
 # ── 병합 판단: 보수적인 쪽 채택 ────────────────────────────────────────

@@ -18,8 +18,11 @@
 
 import re
 import logging
+from typing import Optional
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 import warnings
+
+from open_proxy_mcp.dart.client import html_to_text
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
@@ -163,6 +166,24 @@ AGENDA_NO_COLON_RE = re.compile(
     r'(.+?)' + _AGENDA_BOUNDARY
 )
 
+# 하위안건 맨몸: 제N-M호 제목 (콜론도 '의안'도 없음)
+#
+# 기존 세 그물은 구분자(: . )) 아니면 '의안' 키워드를 요구한다. 그래서
+# 「제1-1호 사내이사 선임의 건 (후보자: 문경민)」처럼 번호 뒤에 제목이 곧바로 붙는
+# 하위안건이 셋 다 통과해 사라진다 — 상위 「이사 선임의 건」만 남고 후보자별 안건이
+# 없어져 후보자 개별 판단이 불가능해진다(실측 8건 19안건, 하림지주 5명 전원 소실).
+#
+# 하이픈 번호(제N-M호)로 한정한다. 홑번호(제N호)까지 열면 '제5호에 따라' 같은
+# 본문 참조를 안건으로 오인한다. 제목은 _AGENDA_BOUNDARY 가 끊으므로 다음 안건을
+# 삼키지 않는다. '및/또는' 같은 연결어로 시작하면 참조문(「제2-1호 및 제2-2호는…」)이다.
+AGENDA_HYPHEN_BARE_RE = re.compile(
+    r'제\s*(\d+)\s*-\s*(\d+)\s*(?:-\s*(\d+))?\s*호'
+    r'(?!\s*(?:의\s*안|의안|안건))'                     # '의안' 계열은 위 그물이 잡는다
+    r'(?!\s*[:：.)）])'                                  # 구분자가 있으면 위 그물이 잡는다
+    r'\s*(?!(?:및|또는|내지|과|와|부터)\b)'
+    r'([^\n]{3,}?)' + _AGENDA_BOUNDARY
+)
+
 # 괄호형: (제N-M-K호) 제목 (콜론 없음)
 AGENDA_PAREN_RE = re.compile(
     r'\(제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호\)'
@@ -229,6 +250,10 @@ def _agenda_flat_from_zone(zone: str) -> tuple[list[dict], str]:
             matches.append((m.start(), m))
             seen_positions.add(m.start())
     for m in AGENDA_PAREN_RE.finditer(zone):
+        if m.start() not in seen_positions:
+            matches.append((m.start(), m))
+            seen_positions.add(m.start())
+    for m in AGENDA_HYPHEN_BARE_RE.finditer(zone):   # 하위안건 맨몸 — 마지막 그물
         if m.start() not in seen_positions:
             matches.append((m.start(), m))
     matches.sort(key=lambda x: x[0])
@@ -439,38 +464,198 @@ def agenda_codes_in_notice(html: str) -> list[dict]:
     return out
 
 
+# 구간 본문이 스스로 밝힌 안건번호만 링크로 받는다.
+#   받음 — 「제4호 의안 : …」 · 「제3-1호 사내이사 후보자 채동석」
+#   버림 — 「정관 제25조 제1항 제3호」(법령·정관 조항번호) · 「제3호 의안이 부결되면」(조건부 참조)
+_DECL_CLAUSE_CTX = re.compile(
+    r'제\s*\d+\s*(?:조|항)(?:\s*의\s*\d+|\s*제\s*\d+\s*항)?\s*(?:,|및|·|와|과)?\s*$')
+_DECL_REF_SUFFIX = r'(?![이은는가와과의를도만]\s)'
+_DECL_FORMS = (
+    re.compile(r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*호\s*(?:의\s*안)?\s*[:：]'),
+    re.compile(r'제\s*(\d+)\s*-\s*(\d+)\s*호\s*(?:의\s*안)?\s*' + _DECL_REF_SUFFIX + r'\s*[가-힣]'),
+    re.compile(r'제\s*(\d+)\s*(?:-\s*(\d+))?\s*호\s*의\s*안\s*' + _DECL_REF_SUFFIX),
+)
+
+
+def declared_agenda_links(html: str) -> dict[str, str]:
+    """{안건번호 -> 구간코드}. **문서가 직접 밝힌 링크만** 돌려준다.
+
+    소집공고의 '주주총회 목적사항별 기재사항'은 구간마다 「제N호 의안 : …」으로 어느 안건의
+    상세인지 스스로 적는다. 그 선언만 읽는다 — 순서로 짝짓거나 분류 결과로 짝지으면
+    한 곳이 틀린 순간 뒤가 전부 밀리고(실측 6.3%), 그러면 이 필드로 분류 정확도를
+    되짚을 수 없다(재는 자가 재는 대상에 의존하게 됨).
+    """
+    out: dict[str, str] = {}
+    anchors = [(m.start(), m.group(1)) for m in _L0_ANCHOR.finditer(html or "")]
+    for i, (pos, code) in enumerate(anchors):
+        if re.search(r"-\d-[1-9]$", code):        # 확인서 첨부
+            continue
+        end = anchors[i + 1][0] if i + 1 < len(anchors) else len(html)
+        body = re.sub(r"\s+", " ", html_to_text(html[pos:end]))
+        for rx in _DECL_FORMS:
+            for m in rx.finditer(body):
+                if _DECL_CLAUSE_CTX.search(body[max(0, m.start() - 26):m.start()]):
+                    continue
+                key = m.group(1) + (f"-{m.group(2)}" if m.group(2) else "")
+                out.setdefault(key, code)
+    return out
+
+
+# 구간별 분량 상한. 실측 287건: 목적사항별 기재사항 전체의 85.3%가 '재무제표의 승인' 하나다
+# (중앙 17,452자·최대 313,847자 — 재무상태표·손익계산서 전문이 첨부돼서). 재무 수치는 DART API
+# 정형 데이터가 정본이라 원문 전문을 넘길 이유가 없다. 머리만 남긴다(영업상황 개요·배당 문면이
+# 거기 있다). 합병·분할은 계획서 전문이 판단 근거라 넉넉히 준다.
+# 이 상한 적용 후 287건 전부 21,697자(≈9,900토큰) 이내 — 예산 초과 0건.
+_SECTION_CHAR_CAP = {"L0-0-2-1-0": 2500, "L0-0-2-12-0": 20000, "L0-0-2-13-0": 20000}
+_SECTION_CHAR_CAP_DEFAULT = 20000
+
+
+def agenda_detail_sections(html: str, include_confirmations: bool = False) -> list[dict]:
+    """'주주총회 목적사항별 기재사항' 구간을 라벨 달아 통째로 돌려준다.
+
+    안건과 구간을 우리가 짝지어 주지 않는다. 「제4호 감사위원회 위원 선임의 건」과
+    「□ 감사위원회 위원의 선임 … 후보자 김철홍」을 잇는 일은 정규식에는 어렵고 읽는 쪽에는
+    쉽다. 짝짓기를 포기하는 대신 **어느 구간도 버리지 않는다** — 지금까지 표 파싱이 실패하면
+    통째로 사라졌던 기타목적사항(주주제안 이사 후보 명단·자기주식 처분계획·주식병합 상세)이
+    여기로 살아 나온다.
+
+    각 항목 — {code, kind, heading, text, chars, truncated}
+    """
+    out: list[dict] = []
+    anchors = [(m.start(), m.group(1), re.sub(r"<[^>]+>|\s+", " ", m.group(2)).strip())
+               for m in _L0_ANCHOR.finditer(html or "")]
+    for i, (pos, code, heading) in enumerate(anchors):
+        if not include_confirmations and re.search(r"-\d-[1-9]$", code):
+            continue                              # 확인서 = 후보자 확인서 이미지 파일명뿐
+        end = anchors[i + 1][0] if i + 1 < len(anchors) else len(html)
+        text = re.sub(r"[ \t]+", " ", html_to_text(html[pos:end])).strip()
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        cap = _SECTION_CHAR_CAP.get(code, _SECTION_CHAR_CAP_DEFAULT)
+        full = len(text)
+        if full > cap:
+            text = text[:cap].rstrip() + f"\n… (이하 {full - cap:,}자 생략 — 원문 참조)"
+        kinds = _AGENDA_CODE_KIND.get(code, ())
+        out.append({
+            "code": code,
+            "kind": kinds[0] if kinds else "unmapped",
+            "heading": heading,
+            "text": text,
+            "chars": full,
+            "truncated": full > cap,
+        })
+    return out
+
+
+# ── 안건↔구간 연결: 선언이 없을 때 쓰는 추론 층 ──────────────────────
+# 선언(declared)만으로는 루트 안건의 47.3%밖에 닿지 않는다. 아래 세 층을 순서대로 얹어
+# 부착률 98.2%까지 올린다. 각 층의 정확도는 '선언이 있는 안건에서 선언을 가리고' 재서
+# 확인했다(홀드아웃 — 정답을 아는 상태로 오답률을 잰다):
+#     후보명 96.9% → 제목겹침 86.8% → 유형대응 94.9%, 합쳐서 93.3%
+# 추론 결과는 반드시 `filed_link`로 추론임을 밝힌다. 남는 오차 대부분은
+# 「감사위원회 위원이 되는 사외이사 선임의 건」처럼 회사가 이사선임 구간에 넣기도 하고
+# 감사위원 구간에 넣기도 하는 진짜 모호한 안건이라, 추론으로는 원리상 확정할 수 없다.
+# 그래서 어느 층으로 붙였든 `agenda_detail_sections`로 구간 원문을 함께 넘겨
+# 호출측이 읽고 뒤집을 수 있게 한다.
+_NAME_TOKEN = re.compile(r'(?<![가-힣])([가-힣]{2,4})(?=\s*(?:\(|\d{4}|생년|·|$|\s))')
+# 후보자 이름 자리에 섞여 드는 일반명사 — 이름으로 오인하면 엉뚱한 구간에 붙는다
+_NAME_STOP = frozenset("""성명 후보 이사 감사 선임 위원 사내 사외 해당 없음 기타 보수 한도 추천
+관계 여부 비고 구분 금액 주주 제안 회사 경력 약력 직업 현재 위원회 최대주주 생년월일 재선임 신규
+연임 임기 주요 등기 대표 부사장 승인 변경""".split())
+# 제목 겹침은 도메인어가 곧 신호다 — 문법어만 거른다
+_HEAD_STOP = frozenset("의 및 건 등 관한 대한 하는 되는 사항 안건 의안 승인 호".split())
+
+
+def _head_tokens(s: str) -> set[str]:
+    return {w for w in re.findall(r'[가-힣]{2,}', s or "") if w not in _HEAD_STOP}
+
+
+def _link_by_candidate_name(sections: list[dict], title: str) -> Optional[str]:
+    """구간 표의 후보자 이름이 안건 제목에 있으면 그 구간 — 분류기와 무관한 경로."""
+    scored: list[tuple[int, str]] = []
+    for s in sections:
+        names = {m.group(1) for m in _NAME_TOKEN.finditer(s.get("text") or "")
+                 if m.group(1) not in _NAME_STOP}
+        hit = sum(1 for n in names if n in (title or ""))
+        if hit:
+            scored.append((hit, s["code"]))
+    if len(scored) == 1:
+        return scored[0][1]
+    if scored:
+        scored.sort(reverse=True)
+        if scored[0][0] > scored[1][0]:           # 동점이면 확정하지 않는다
+            return scored[0][1]
+    return None
+
+
+def _link_by_heading(sections: list[dict], title: str) -> Optional[str]:
+    """구간 제목과 안건 제목의 어절 겹침 — 분류기와 무관한 경로."""
+    tt = _head_tokens(title)
+    if not tt:
+        return None
+    scored = sorted(((len(tt & _head_tokens(s.get("heading") or "")), s["code"])
+                     for s in sections), reverse=True)
+    if scored and scored[0][0] >= 1 and (len(scored) == 1 or scored[0][0] > scored[1][0]):
+        return scored[0][1]
+    return None
+
+
+def _link_by_unique_kind(sections: list[dict], title: str) -> Optional[str]:
+    """분류 유형에 대응하는 구간이 그 문서에 딱 하나면 그 구간.
+
+    분류기에 의존하는 가장 약한 층이라 마지막에 둔다. 이 층으로 붙은 코드는
+    분류 정확도를 되짚는 근거로 쓸 수 없다(재는 자가 재는 대상에 의존).
+    """
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    cat = _classify_agenda(title or "", "")
+    hit = [s["code"] for s in sections if cat in _AGENDA_CODE_KIND.get(s["code"], ())]
+    return hit[0] if len(hit) == 1 else None
+
+
 def annotate_agenda_codes(tree: list[dict], html: str) -> None:
     """안건 트리에 원문 구간 코드를 진단 필드로 부착(in-place). 분류는 바꾸지 않는다.
 
-    붙이는 것 — `filed_code`(원문 코드) · `filed_kind`(코드가 뜻하는 유형).
-    같은 유형이 여러 안건에 걸릴 수 있으므로 유형 단위로 매칭하고, 남는 코드는
-    문서 수준 진단으로만 남긴다(안건에 억지로 배정하지 않는다).
+    붙이는 것
+      · `filed_code` — 원문 구간 코드
+      · `filed_kind` — 코드가 뜻하는 유형 (**문서가 직접 선언한 경우만**)
+      · `filed_link` — 어떻게 이었는지: declared · candidate_name · heading · kind_match
+
+    `filed_link="declared"` 인 것만 분류 정확도의 독립 계측 축으로 쓸 수 있다.
+    나머지는 추론이며, 어느 것도 확정하지 못하면 붙이지 않는다 —
+    틀린 코드는 코드 없는 것보다 나쁘다.
     """
-    codes = agenda_codes_in_notice(html)
+    codes = {c["code"]: c for c in agenda_codes_in_notice(html)}
     if not codes:
         return
-    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    links = declared_agenda_links(html)
+    sections = [s for s in agenda_detail_sections(html) if s["code"] in codes]
 
-    remaining = list(codes)
+    def resolve(title: str, num: str) -> tuple[Optional[str], str]:
+        if num in links:
+            return links[num], "declared"
+        for method, fn in (("candidate_name", _link_by_candidate_name),
+                           ("heading", _link_by_heading),
+                           ("kind_match", _link_by_unique_kind)):
+            code = fn(sections, title)
+            if code:
+                return code, method
+        return None, ""
 
-    def take(cat: str) -> dict | None:
-        for i, c in enumerate(remaining):
-            if cat in c["kinds"]:
-                return remaining.pop(i)
-        return None
+    def walk(nodes: list[dict], inherited: tuple[Optional[str], str] = (None, "")) -> None:
+        for n in nodes:
+            div = extract_dividend_from_title(n.get("title") or "")
+            if div:
+                n["dividend"] = div
+            num = re.sub(r"[제호\s]", "", n.get("number") or "")
+            code, how = resolve(n.get("title") or "", num)
+            if not code:
+                code, how = inherited                     # 하위안건은 부모 구간을 상속
+            if code and code in codes:
+                n["filed_code"], n["filed_link"] = code, how
+                if how == "declared":
+                    n["filed_kind"] = codes[code]["kind"]
+            walk(n.get("children") or [], (code, how))
 
-    # 코드는 **루트 안건에만** 달린다. 하위안건(제N-M호)은 부모 코드 구간에 속하므로 상속한다.
-    for n in tree:
-        div = extract_dividend_from_title(n.get("title") or "")
-        if div:
-            n["dividend"] = div
-        cat = _classify_agenda(n.get("title") or "", "")
-        c = take(cat) or take("other")
-        if not c:
-            continue
-        n["filed_code"], n["filed_kind"] = c["code"], c["kind"]
-        for ch in n.get("children") or []:
-            ch["filed_code"] = c["code"]
+    walk(tree)
 
 
 def _fill_empty_parent_titles(tree: list[dict]) -> None:
