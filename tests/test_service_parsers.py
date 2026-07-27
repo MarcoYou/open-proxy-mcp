@@ -138,3 +138,46 @@ def test_classify_reverse_split_routed_to_capital_reduction():
     assert _classify_agenda("액면병합의 건") == "capital_reduction"
     # 합병(merger)과 혼동 금지
     assert _classify_agenda("회사 합병 승인의 건") == "merger_or_restructuring"
+
+
+def test_reserve_reclass_is_not_a_dividend():
+    """「자본준비금 감액 및 이익잉여금 전입」은 배당이 아니라 배당가능이익을 만드는 자본거래다.
+
+    '이익잉여금' 단축경로가 이 안건을 배당으로 끌고 가면 근거가 「§배당 — 흑자 + 배당성향
+    적정 시 FOR」로 붙는다. 결손을 메우는 회사에 '흑자' 기준을 인용하게 되는 셈이다.
+    문면은 전부 캐시 실측(소집공고 287건에서 12건 중 11건이 이렇게 새고 있었다).
+    """
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    for t in (
+        "자본준비금의 이익잉여금 전입의 건",
+        "자본준비금 감액 및 이익잉여금 전입의 건",
+        "자본준비금 감액 및 이익잉여금 전환의 건",
+        "자본준비금 감소 및 이익잉여금 전입의 건",
+        "결손보전을 위한 자본준비금의 이익잉여금 전입의 건",
+        "자본준비금 이익잉여금 전입 승인 건",
+        "자본준비금의 이익잉여금 전입의 건(규모: 500억원)",
+        "자본준비금, 임의적립금, 기타자본잉여금 감액 및 이익잉여금으로의 이입의 건",
+    ):
+        assert _classify_agenda(t) == "other", t
+
+
+def test_reserve_rule_does_not_swallow_real_dividends():
+    """반례 — 준비금을 언급해도 배당이 본질이면 배당으로 남아야 한다."""
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("자본준비금 감액에 따른 배당 확대의 건") == "cash_dividend"
+    assert _classify_agenda("이익잉여금 처분계산서 승인의 건") == "cash_dividend"
+    assert _classify_agenda("현금배당 승인의 건 (1주당 500원)") == "cash_dividend"
+    # 반대 방향(적립)은 감액·전입이 아니라 이 규칙에 걸리지 않는다
+    assert _classify_agenda("이익준비금 적립의 건") == "other"
+
+
+def test_share_consolidation_keeps_review_but_not_called_capital_reduction():
+    """주식(액면)병합은 자본금이 줄지 않는다 — REVIEW 라우팅은 유지하되 감자라 하지 않는다.
+
+    실측 10건 중 4건은 공고문에서 명시적으로 감자가 아니라고 밝히고 있었다. 그렇다고
+    'other'로 되돌리면 자동 찬성으로 새던 사고(260724)가 재발하므로 경로는 그대로 둔다.
+    """
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("주식병합 승인의 건") == "capital_reduction"
+    assert _classify_agenda("주식(액면) 병합 승인의 건") == "capital_reduction"
+    assert _classify_agenda("자본금 감소(액면가 감액) 승인의 건") == "capital_reduction"

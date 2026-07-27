@@ -730,6 +730,13 @@ def _law_layer(
 
 # ── 안건별 결정 logic ──
 
+# 준비금 재분류(자본준비금·이익준비금 → 이익잉여금) — 배당 자체가 아니라 배당가능이익을
+# 만드는 자본거래. '적립의 건'처럼 반대 방향 안건은 걸리지 않게 감액·전입 동작을 함께 요구한다.
+_RESERVE_RECLASS = re.compile(
+    r'(?:자본|이익)\s*준비금[^\n]{0,60}?(?:감액|감소|전입|전환|이입)'
+    r'|(?:감액|감소|전입|전환|이입)[^\n]{0,60}?(?:자본|이익)\s*준비금')
+
+
 def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     """안건 제목 → category. 가이드라인 voting_rules 키와 매칭.
 
@@ -767,6 +774,13 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
         return "financial_statements"
     if "재무제표" in t and "배당" not in t:
         return "financial_statements"
+    # 「자본준비금 감액 및 이익잉여금 전입」은 배당이 아니라 배당가능이익을 만드는 자본거래다.
+    # '이익잉여금' 단축경로가 이 안건을 배당으로 끌고 가면 배당성향·잉여금으로 적정성을 따지는
+    # 엉뚱한 판정이 나온다 — 실측 12건 중 11건이 이렇게 새고 있었고 2건은 「결손보전을 위한」,
+    # 즉 배당 여력과 정반대 국면이었다. 아래 iter12 주석이 밝힌 의도(준비금 감액은 other)가
+    # 문면에 '이익잉여금'이 들어간 순간 달성되지 않던 순서 결함.
+    if _RESERVE_RECLASS.search(t) and "배당" not in t:
+        return "other"
     if "배당" in t or "이익잉여금" in t:
         return "cash_dividend"
     if "사외이사" in t or ("이사" in t and "선임" in t and "감사위원" not in t):
@@ -2983,9 +2997,17 @@ async def build_proxy_advise_payload(
             # 정반대일 수 있어 원문 판단 위임. 종전엔 'other'로 새어 mainstream FOR 위험.
             # 체크리스트는 스튜어드십 리뷰(260724) 실무 기준 — 합의 매트릭스 '원칙반대·예외찬성' 정합.
             decision = "REVIEW"
-            reason = ("자본 감소(특별결의) — 확인사항: ① 무상/유상 구분 ② 목적(결손보전·회생·"
-                      "구조조정 불가피성 — 해당 시 mainstream 찬성 관행) ③ 감자비율·주주평등"
-                      "(주식병합 시 단주 처리) ④ 유상감자 시 환급가액 적정성")
+            # 주식(액면)병합은 발행주식수만 줄고 자본금은 그대로라 감자가 아니다. 판단 경로는
+            # 단주 처리 리스크 때문에 공유하되(자동 찬성 유출 방어), 문면을 감자라고 하지 않는다 —
+            # 실측 10건 중 4건은 공고문에서 명시적으로 감자가 아니라고 밝히고 있었다.
+            if "병합" in (title or "") and ("주식" in (title or "") or "액면" in (title or "")):
+                reason = ("주식(액면)병합 — 자본금 감소가 아니라 발행주식수 감소(액면가 상향). "
+                          "확인사항: ① 병합비율 ② 단주 처리 방식·보상단가(소수주주 축출 우려) "
+                          "③ 목적(유통주식수 조정·관리종목 회피 등) ④ 정관 액면가 변경 동반 여부")
+            else:
+                reason = ("자본 감소(특별결의) — 확인사항: ① 무상/유상 구분 ② 목적(결손보전·회생·"
+                          "구조조정 불가피성 — 해당 시 mainstream 찬성 관행) ③ 감자비율·주주평등"
+                          "(주식병합 시 단주 처리) ④ 유상감자 시 환급가액 적정성")
         elif category == "stock_option_grant":
             # 260724 스튜어드십 리뷰: 'other'→자동FOR로 새던 동종 구멍 봉쇄
             decision = "REVIEW"
