@@ -156,7 +156,10 @@ def test_proxy_advise_uses_full_agenda_tree_for_decisions(monkeypatch):
     ]
     assert audit_split
     assert audit_split[0]["decision"] == "FOR"
-    assert "[법령 A1-3]" in audit_split[0]["reason"]
+    # 규칙 ID 는 사유 문장에서 빼고 필드로 옮겼다(260728) — 사유는 사람이 읽는 문장이다.
+    assert audit_split[0]["law_layer_id"] == "A1-3"
+    assert "[법령" not in audit_split[0]["reason"]
+    assert "상법 제542조의12" in audit_split[0]["reason"]     # 조문은 사유에 남는다
 
 
 @pytest.mark.parametrize("title", [

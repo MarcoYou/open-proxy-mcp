@@ -14,6 +14,7 @@ _INDEPENDENCE_LABELS = {
     "weak_concerns": "약한 우려 (1개 sub-factor 위반)",
     "concerns": "우려 (다수 sub-factor 위반)",
     "long_tenure_concerns": "장기연임 우려 (5년 룰 위반)",
+    "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
     "no_data": "데이터 부족",
     "-": "-",
 }
@@ -36,6 +37,7 @@ _AUDIT_HISTORY_LABELS = {
 _FIVE_YEAR_LABELS = {
     "first_term_or_short": "첫 임기 또는 단기 (5년 룰 통과)",
     "long_tenure_concerns": "장기연임 (5년+, 독립성 훼손)",
+    "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
     "no_data": "데이터 부족",
     "-": "-",
 }
@@ -53,6 +55,9 @@ _INDEP_RESULT_KO = {
     "no_transactions": "거래 없음", "transactions_exist": "⚠️거래 있음",
     "outsider": "외부인", "former_employee": "⚠️최근 2년 내 직원",
     "first_term_or_short": "첫 임기/단기", "long_tenure_concerns": "⚠️장기연임(5년+)",
+    # 25사 스윕에서 남아 있던 값 — 사전에 없으면 영문 코드가 그대로 화면에 나온다(260728)
+    "potential_long_tenure": "장기연임 가능성(임기 확인 필요)",
+    "no_match": "일치 항목 없음", "ambiguous": "판별 불가",
 }
 
 
@@ -89,6 +94,151 @@ def _audit_label(code: str) -> str:
 
 def _five_y_label(code: str) -> str:
     return _FIVE_YEAR_LABELS.get(code, code)
+
+
+# facts 는 엔진 내부 필드명이다. 사람이 읽는 문서에 `fy_current_revenue_krw` 가 그대로 나오면
+# 안 된다(260728 사용자 지적). 라벨 사전으로 옮기고, 못 옮긴 키는 아래 _humanize 가 최소한
+# 영문 티를 걷어낸다. 새 fact 를 추가하면 여기에도 한 줄 추가할 것.
+_FACT_LABEL: dict[str, str] = {
+    # 재무제표 승인
+    "audit_opinion": "감사의견", "capital_impairment_status": "자본잠식",
+    "capital_impairment_ratio_pct": "자본잠식률(%)", "net_income_krw": "당기순이익",
+    "net_income_yoy_pct": "순이익 증감률(%)", "accruals_gap_pct": "발생액 괴리(%)",
+    "cfo_to_op_ratio": "영업현금흐름/영업이익", "interest_coverage_ratio": "이자보상배율",
+    "fcf_krw": "잉여현금흐름", "dividend_to_fcf_pct": "배당/잉여현금흐름(%)",
+    "fy_current_net_income_krw": "당기 순이익", "fy_prior_net_income_krw": "전기 순이익",
+    "fy_current_revenue_krw": "당기 매출액", "fy_prior_revenue_krw": "전기 매출액",
+    "fy_current_operating_profit_krw": "당기 영업이익",
+    "fy_prior_operating_profit_krw": "전기 영업이익",
+    "fy_current_total_assets_krw": "당기 자산총계",
+    "fy_current_total_liabilities_krw": "당기 부채총계",
+    "fy_current_total_equity_krw": "당기 자본총계",
+    "fy_prior_net_income_krw_dart": "전기 순이익(DART 기준)",
+    "fy_raw_extraction_status": "본문 추출 상태", "fy_raw_scope": "본문 추출 범위",
+    # 배당
+    "payout_ratio_pct": "배당성향(%)", "payout_ratio_band": "배당성향 구간",
+    # 보수한도
+    "limit_krw": "이번 한도", "prior_limit_krw": "전기 한도", "prior_paid_krw": "전기 실지급",
+    "increase_rate_pct": "한도 증가율(%)", "increase_rate_band": "증가율 구간",
+    "director_count": "이사 수", "director_per_person_limit_krw": "1인당 한도",
+    "audit_total_limit_krw": "감사 한도 총액", "audit_prior_limit_krw": "감사 전기 한도",
+    "audit_prior_paid_krw": "감사 전기 실지급", "audit_count": "감사 수",
+    "audit_per_person_krw": "감사 1인당", "audit_per_person_band": "감사 1인당 구간",
+    "audit_increase_rate_pct": "감사 한도 증가율(%)", "audit_increase_rate_band": "감사 증가율 구간",
+    "retirement_multiplier_evidence": "퇴직금 배수 근거",
+    "retirement_target_expansion": "퇴직금 지급대상 확대",
+    # 이사 선임
+    "candidate_name": "후보자", "role_type": "직위", "appointment_type": "선임 유형",
+    "tenure_status": "임기 상태", "this_company_since": "당사 재직 시작",
+    "total_candidates": "후보 수", "disqualified_count": "결격 후보 수",
+    "disqualification": "결격사유", "independence": "독립성",
+    "concurrent_outside_positions": "겸직 수", "concurrent_summary": "겸직 요약",
+    "candidate_summary": "후보 요약", "candidate_review_profile": "후보 상세",
+    "audit_history_check": "회계 risk 이력 확인", "composition": "이사회 구성",
+    # 정관변경·기타
+    "amendments_count": "변경 조항 수", "amendments_sample": "변경 조항 예시",
+    "agenda_action": "안건 성격", "cumulative_voting_threshold": "집중투표 기준",
+    "treasury_pct": "자기주식 비율(%)", "treasury_pct_band": "자기주식 구간",
+    "related_total_pct": "특수관계인 합계(%)", "active_signal_count": "행동주의 신호 수",
+    "parsing_quality": "파싱 품질", "raw_text_fallback": "원문 폴백 사용",
+    "law_detail": "조항 상세", "appointment_breakdown": "선임 유형 내역",
+    "utilization_rate_pct": "한도 소진율(%)", "utilization_rate_band": "소진율 구간",
+}
+# 값이 enum 인 것들 — `not_checked` 같은 게 그대로 나가면 안 된다
+_FACT_VALUE: dict[str, str] = {
+    "normal": "없음", "partial": "부분", "full": "완전",
+    "not_checked": "미확인", "checked": "확인함", "skipped": "생략",
+    "first_term_or_short": "첫 임기 또는 단기", "long_tenure": "장기 재직",
+    "reappointment": "재선임", "new": "신규 선임", "inside": "사내이사", "outside": "사외이사",
+    "audit_committee": "감사위원", "success": "성공", "partial_success": "일부 성공",
+    "failed": "실패", "none": "없음", "unknown": "미상",
+    "case_by_case": "사안별 판단", "mainstream": "일반 기준", "conservative": "보수적 기준",
+    # 구간(band) — 엔진이 임계로 나눈 결과. 숫자 없이 영문 코드만 보이면 아무 뜻도 전달되지 않는다.
+    "low_under_5": "5% 미만", "low_under_30": "30% 미만", "low_under_50m": "5천만원 미만",
+    "mid_30_to_70": "30~70%", "high_80_to_150": "80~150%", "high_over_10": "10% 초과",
+    "high_over_300m": "3억원 초과", "very_high_over_200": "200% 초과",
+    "small_or_flat": "소폭 또는 동결", "large_increase": "큰 폭 인상",
+    "very_large_increase": "매우 큰 폭 인상",
+    "low_confidence": "신뢰도 낮음", "low_fallback_to_raw": "원문으로 대체",
+    # 이사 후보 상태
+    "renewed": "재선임", "independent": "독립적", "clean": "결격사유 없음",
+    "concerns": "우려 있음", "weak": "부진", "strong": "우수",
+    "single_position": "겸직 1곳", "multiple_positions": "겸직 여러 곳", "no_position": "겸직 없음",
+    # 25사 라이브 스윕에서 남아 있던 것 — 코드 값 목록에서 전수로 뽑아 채웠다(260728)
+    "borderline_150_to_200": "150~200%(경계)", "borderline_50m_to_100m": "5천만~1억원(경계)",
+    "normal_70_to_100": "70~100%", "ordinary_under_80": "80% 미만",
+    "notable_5_to_10": "5~10%", "sufficient_100m_to_300m": "1억~3억원",
+    "moderate_increase": "완만한 인상",
+    "long_tenure_concerns": "장기 재직 우려", "potential_long_tenure": "장기 재직 가능성",
+    "weak_concerns": "약한 우려", "concerns_concurrent": "겸직 우려",
+    "strong_concerns_concurrent": "겸직 우려 큼",
+    "strong_review": "정밀 검토 필요", "strong_review_signal": "정밀 검토 신호",
+    "low_attendance": "출석률 낮음", "mid_term_resigned": "임기 중 사임",
+    "no_division_career": "담당부문 경력 없음", "no_match": "일치 항목 없음",
+    "no_agenda": "안건 없음", "no_data": "자료 없음", "no_filing": "공시 없음",
+    "potential_long_tenure": "장기연임 가능성", "ambiguous": "판별 불가", "over_100": "100% 초과",
+}
+
+
+def _fact_label(key: str) -> str:
+    if key in _FACT_LABEL:
+        return _FACT_LABEL[key]
+    # 사전에 없는 키 — 최소한 영문 스네이크 티는 걷어낸다
+    k = key.replace("_krw", "(원)").replace("_pct", "(%)").replace("_", " ")
+    return k
+
+
+def _fact_value(key: str, v) -> str:
+    if isinstance(v, bool):
+        return "예" if v else "아니오"
+    if isinstance(v, dict):
+        return f"{len(v)}항목 (아래 상세 참조)"
+    if isinstance(v, list):
+        return f"{len(v)}건"
+    if v is None:
+        return "-"
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        # `_krw` 가 키 끝이 아닐 수 있다(fy_prior_net_income_krw_dart) — 포함 여부로 본다
+        if "_krw" in key:
+            return _won(v)
+        if isinstance(v, float):
+            return f"{v:,.2f}".rstrip("0").rstrip(".")     # 7.6487 → 7.65
+        # 연도·개수에 천단위 쉼표를 찍으면 「2,018년」이 된다 — 큰 수만 구분자를 넣는다
+        return f"{v:,}" if abs(v) >= 10_000 else str(v)
+    sv = str(v)
+    return _FACT_VALUE.get(sv, sv)
+
+
+def _one_line(text: str, limit: int) -> str:
+    """표 셀용 한 줄 요약 — 줄바꿈·파이프 제거 후 자른다. 전문은 근거 절이 보여준다."""
+    head = (text or "").split("\n", 1)[0].replace("|", "／").strip()
+    if len(head) <= limit:
+        return head
+    cut = head[:limit]
+    # 괄호 안에서 끊기면 문장이 이상해진다 — 마지막 여는 괄호 앞에서 자른다
+    for op, cl in (("(", ")"), ("（", "）")):
+        if cut.count(op) > cut.count(cl):
+            cut = cut[:cut.rfind(op)].rstrip(" ·-—,")
+    return cut + "…"
+
+
+def _won(v) -> str:
+    """48916104000000 → 48조 9,161억. 사람이 읽는 자리에 원 단위 숫자를 그대로 두지 않는다."""
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return "-"
+    sign = "-" if n < 0 else ""
+    n = abs(n)
+    if n >= 1_0000_0000_0000:
+        jo, rest = divmod(n, 1_0000_0000_0000)
+        eok = rest // 1_0000_0000
+        return f"{sign}{jo}조" + (f" {eok:,}억" if eok else "") + "원"
+    if n >= 1_0000_0000:
+        return f"{sign}{n // 1_0000_0000:,}억원"
+    if n >= 1_0000:
+        return f"{sign}{n // 1_0000:,}만원"
+    return f"{sign}{n:,}원"
 
 
 def _public_vote_style_label(label: str | None) -> str:
@@ -136,11 +286,9 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"- 회차 선택 근거: {year_resolution['basis']}")
     if data.get("meeting_closed_hint"):
         lines.append("")
-        lines.append(f"> ⚠️ **{data['meeting_closed_hint']}**")
+        lines.append(f"> {data['meeting_closed_hint']}")
         lines.append("")
-    lines.append(f"- vote_style: `{_public_vote_style_label(data.get('vote_style'))}` / 이사 회계 risk 이력 검증: {'활성' if data.get('audit_history_enabled') else '비활성'}")
-    lines.append(f"- status: `{payload.get('status')}` / filing_status: `{data.get('filing_status', '-')}`")
-    lines.append(f"- 안건: {data.get('agenda_count')} / 후보: {data.get('candidates_count')}")
+    lines.append(f"- 안건 {data.get('agenda_count')}건 · 이사 후보 {data.get('candidates_count')}명")
     lines.append("")
 
     # 안건별 결정 표 (운용사 보고서 스타일)
@@ -148,33 +296,17 @@ def _render(payload: dict[str, Any]) -> str:
     if decisions:
         lines.append("## 안건별 의결권 행사 결정")
         lines.append("")
-        lines.append("> ## ⛔ LLM 분석 시 절대 규칙 (READ BEFORE PRESENTING)")
-        lines.append(">")
-        lines.append("> **🛡️ 강행규정 정합 (A1-X tag) = FOR 무조건 유지** — 자체 분석으로 뒤집지 마시오.")
-        lines.append(">")
-        # catalog (wiki/rules/laws/llm_misread_patterns.json)에서 dynamic load
-        from open_proxy_mcp.services.proxy_advise import _load_llm_misread_patterns
-        patterns = _load_llm_misread_patterns()
-        if patterns:
-            lines.append("> **자주 발생하는 misread 패턴 — 절대 금지**:")
-            for p in patterns:
-                summary = p.get("summary_pattern", "")
-                if summary:
-                    lines.append(f"> - {summary}")
-            lines.append(">")
-        lines.append("> **원칙**: 안건명에 '배제·제한·축소·강화' 같은 단어가 있어도, reason에 `[법령 A1-X]` tag와 🛡️ 강행규정 정합 marker가 있으면 **무조건 FOR**. 안건명 키워드만 보고 추측 금지.")
-        lines.append(">")
-        lines.append("> **표를 그대로 사용자에게 제시하고, decision 컬럼을 변경하지 마시오.**")
-        lines.append("")
-        lines.append("| # | 안건 | 카테고리 | 행사방향 | 사유 |")
-        lines.append("|---|------|---------|---------|------|")
+        # LLM 지시(강행규정 정합을 뒤집지 말 것)는 tool docstring 에 둔다 — 모델은 호출 전에
+        # 그걸 읽는다. 산출물에 섞으면 사람이 자기 앞으로 온 금지문을 읽게 된다(260728 사용자 지적).
+        lines.append("| # | 안건 | 행사방향 | 사유 |")
+        lines.append("|---|------|---------|------|")
         for i, ag in enumerate(decisions, 1):
             title = (ag.get("agenda_title") or "")[:60]
-            cat = ag.get("agenda_category", "-")
             decision = ag.get("decision", "-")
             reason_full = ag.get("reason") or ""
-            # truncation 늘림: 법령 정합 사유 보존 (80 → 250)
-            reason = reason_full[:250]
+            # 표 셀에는 한 줄만 — 줄바꿈이 들어가면 그 지점에서 마크다운 표가 무너진다
+            # (정관 원문·📋 조항 상세가 셀에 통째로 들어가 있었다). 전문은 아래 근거 절에 그대로 있다.
+            reason = _one_line(reason_full, 160)
             decision_emoji = {
                 "FOR": "✅ FOR",
                 "AGAINST": "❌ AGAINST",
@@ -184,14 +316,16 @@ def _render(payload: dict[str, Any]) -> str:
                 "NO_VOTE": "🚫 표결없음",
             }.get(decision, decision)
             # 법령 layer 정합 시 강한 표시 추가
+            # 사유 문자열 파싱이 아니라 필드로 — 사유에서 내부 ID 를 뺐다(260728)
+            _ll = ag.get("law_layer_id") or ""
             law_tag_marker = ""
-            if "[법령 A1-" in reason_full:
+            if _ll.startswith("A1-"):
                 law_tag_marker = " 🛡️ 강행규정 정합"
-            elif "[법령 A2-" in reason_full:
+            elif _ll.startswith("A2-"):
                 law_tag_marker = " 🛡️ 강행규정 위반"
-            elif "[법령 B1-" in reason_full or "[법령 B2-" in reason_full:
+            elif _ll.startswith("B1-") or _ll.startswith("B2-"):
                 law_tag_marker = " 🔍 우회 의심"
-            lines.append(f"| {i} | {title} | `{cat}` | **{decision_emoji}**{law_tag_marker} | {reason} |")
+            lines.append(f"| {i} | {title} | **{decision_emoji}**{law_tag_marker} | {reason} |")
         lines.append("")
 
         # 안건별 결정 근거 detail (facts + risk + policy citation + 근거 공고)
@@ -208,21 +342,16 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"**{i}. {title}** — {ag.get('decision','-')}")
             # reason full (표는 250자 truncate, detail은 full — 정관 본문 raw 포함)
             if full_reason:
-                lines.append(f"- 사유 (full): {full_reason}")
+                lines.append(f"- 사유: {full_reason}")
             if facts:
                 # dict/list 값(candidate_review_profile 등)은 raw 노출 금지 — Python 객체가
                 # markdown에 통째로 박혀 None·내부 숫자가 새어 나온다. 스칼라만 표시,
                 # 구조값은 항목 수로 요약(상세는 별도 후보 평가 섹션에 노출됨).
-                def _fmt_fact(v: Any) -> str:
-                    if isinstance(v, dict):
-                        return f"(상세 {len(v)}항목 — 후보 평가 섹션 참조)"
-                    if isinstance(v, list):
-                        return f"[{len(v)}건]"
-                    return str(v)
-                fact_str = ", ".join(f"{k}={_fmt_fact(v)}" for k, v in facts.items())
-                lines.append(f"- 사실(facts): {fact_str}")
+                fact_str = " · ".join(f"{_fact_label(k)} {_fact_value(k, v)}"
+                                      for k, v in facts.items())
+                lines.append(f"- 사실: {fact_str}")
             else:
-                lines.append("- 사실(facts): (해당 카테고리에 정량 fact 없음)")
+                lines.append("- 사실: 이 안건 유형에는 정량 수치가 없습니다")
             if risks:
                 lines.append(f"- 위험 신호: {', '.join(risks)}")
             else:
@@ -296,10 +425,10 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"**{name}** ({role})")
             lines.append(f"- 주요 직책: {main_job}")
             if rec_reason:
-                _shared = " ⚠️ (구간 공통 문면 — 이 후보 것이라고 확정하지 못함)" \
+                _shared = " (구간 공통 문면 — 이 후보 것이라고 확정하지 못함)" \
                     if faith.get("recommendation_reason_shared") else ""
                 lines.append(
-                    f"- 추천 사유 (raw){_shared}: {rec_reason[:240]}"
+                    f"- 추천 사유{_shared}: {rec_reason[:240]}"
                     f"{'…' if len(rec_reason) > 240 else ''}")
             if careers:
                 lines.append("- 경력:")
@@ -434,14 +563,15 @@ def _render(payload: dict[str, Any]) -> str:
                     )
                 lines.append("")
             elif seg_ref.get("kind") == "note_markdown":
-                lines.append(f"### 📄 영업부문 주석 원문 (FY{seg_ref.get('fiscal_year')} — LLM 직접 검토, 점수 미반영)")
+                lines.append(f"### 📄 영업부문 주석 원문 (FY{seg_ref.get('fiscal_year')} · 참고, 점수 미반영)")
                 lines.append(f"> {seg_ref.get('note')}")
                 if seg_ref.get("truncated"):
+                    # 다른 도구의 호출 시그니처를 사람 문서에 적지 않는다 — 무엇이 필요한지만
+                    # 말하면 호출측 AI 가 알아서 부른다(260728 이마트 실측).
                     lines.append(
-                        f"> ✂️ 분량 초과로 앞부분만 발췌 (전체 {seg_ref.get('full_length'):,}자 중 "
-                        f"{seg_ref.get('context_chars'):,}자). 전체가 필요하면 ① business_details("
-                        f"fields=\"segments\", bsns_year=\"{seg_ref.get('fiscal_year')}\", reprt_code=\"11011\")로 "
-                        f"직접 조회(권장, 콜 절약) 또는 ② segment_context_chars를 늘려(최대 30000) 재호출."
+                        f"> 원문 {seg_ref.get('full_length'):,}자 중 앞 {seg_ref.get('context_chars'):,}자입니다. "
+                        f"부문 정보 전체가 필요하면 {seg_ref.get('fiscal_year')}년 사업부문 상세를 "
+                        f"따로 조회하시면 됩니다."
                     )
                 lines.append("")
                 lines.append(seg_ref.get("markdown") or "")
@@ -480,10 +610,12 @@ def _render(payload: dict[str, Any]) -> str:
     # 회사 펀더멘털 요약 (참고)
     fin = data.get("financial_summary") or {}
     if fin:
-        lines.append("## 회사 펀더멘털 (참고)")
-        lines.append(f"- 매출액: {fin.get('revenue_krw') or '-'} / 영업이익: {fin.get('operating_profit_krw') or '-'}")
-        lines.append(f"- ROE: {fin.get('roe_pct') or '-'}% / 부채비율: {fin.get('debt_ratio_pct') or '-'}%")
-        lines.append(f"- 자본잠식 상태: {fin.get('capital_impairment_status') or '-'}")
+        lines.append("## 회사 재무 (참고)")
+        lines.append(f"- 매출액 {_won(fin.get('revenue_krw'))} · 영업이익 {_won(fin.get('operating_profit_krw'))}")
+        lines.append(f"- ROE {fin.get('roe_pct') or '-'}% · 부채비율 {fin.get('debt_ratio_pct') or '-'}%")
+        _imp = {"normal": "자본잠식 없음", "partial": "부분 자본잠식", "full": "완전 자본잠식"}
+        _st = fin.get("capital_impairment_status")
+        lines.append(f"- {_imp.get(_st, _st or '-')}")
         lines.append("")
 
     # Evidence
@@ -498,9 +630,9 @@ def _render(payload: dict[str, Any]) -> str:
     # 추가 분석 영역 — 짧게. 사용자가 자연스럽게 후속 질문 유도 (도구는 Claude가 알아서 매칭)
     decisions_local = data.get("agenda_decisions", []) or []
     has_director = any(ad.get("agenda_category") in ("director_election", "audit_committee_election") for ad in decisions_local)
-    topics: list[str] = ["배당", "지분 구조·행동주의", "가치제고 plan", "운용사별 정책 비교", "재무 detail"]
+    topics: list[str] = ["배당", "지분 구조·행동주의", "기업가치 제고 계획", "운용사별 정책 비교", "재무 상세"]
     if has_director:
-        topics.append("후보 회계 risk 이력 (`check_audit_history=True`)")
+        topics.append("이사 후보의 과거 회계 문제 이력")
 
     lines.append("---")
     lines.append(f"_더 보고 싶은 영역: {' · '.join(topics)} — 이어서 물어보시면 영역별로 더 자세히 분석합니다._")

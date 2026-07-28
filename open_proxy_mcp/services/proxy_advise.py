@@ -217,8 +217,8 @@ def _public_policy_basis(
 
     base = "Open Proxy guideline" if vote_style == "open_proxy" else "Internal policy variant"
     if policy_default and policy_default != "case_by_case":
-        return f"{base} / {category}.default={policy_default}"
-    return f"{base} / case_by_case → OPM fallback"
+        return f"{base} / 운용사 정책 기본값: {policy_default}"
+    return f"{base} / 운용사 정책은 사안별 판단 — OPM 기준으로 판정"
 
 
 # ── 법령 layer (1·2·3차 상법 개정 + 정관 우회 시나리오, 260508 신규) ──
@@ -1184,9 +1184,9 @@ def _decide_audit_compensation(
         if cap_status == "full":
             return "REVIEW", "완전 자본잠식 — 감사 보수한도 결정 부적절 가능성, 법정 금지는 아니므로 검토"
         if ni is not None and ni > 0:
-            return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — mainstream fallback"
+            return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — 일반 기준 적용"
         if cap_status == "normal":
-            return "FOR", "감사 보수 데이터 부족 + 자본 양호 — mainstream fallback"
+            return "FOR", "감사 보수 데이터 부족 + 자본 양호 — 일반 기준 적용"
         return "NO_DATA", "감사 보수 + 재무 데이터 둘 다 없음 — 본문 검토 필요"
 
     audit_values = _comp_target_values(comp_payload, "감사")
@@ -1214,16 +1214,16 @@ def _decide_audit_compensation(
         return "REVIEW", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (경계 — {threshold_low_per_person/1e8:.1f}~{threshold_high_per_person/1e8:.1f}억) — 사용자 노출"
     # 분기 7: ±10% (동결)
     if audit_inc is not None and -10 <= audit_inc <= 10:
-        return "FOR", f"감사 한도 소폭 변경 ({audit_inc:+.0f}%) — 참조 감사보수 규칙 + mainstream FOR"
+        return "FOR", f"감사 한도 소폭 변경 ({audit_inc:+.0f}%) — 참조 감사보수 규칙(원칙적 찬성)"
     # 분기 8: 1인당 평균 ≥ threshold_high + +10~+30% 인상
     if audit_per_person is not None and audit_per_person >= threshold_high_per_person and audit_inc is not None and 10 < audit_inc < 30:
-        return "FOR", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (≥{threshold_high_per_person/1e8:.1f}억) + 한도 +{audit_inc:.0f}% — 참조 감사보수 규칙 + mainstream"
+        return "FOR", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (≥{threshold_high_per_person/1e8:.1f}억) + 한도 +{audit_inc:.0f}% — 참조 감사보수 규칙(원칙적 찬성)"
     # 분기 9/10: 데이터 부족 fallback
     if audit_inc is None and audit_per_person is None:
         if cap_status == "full":
             return "REVIEW", "감사 보수 데이터 부족 + 자본잠식 — 보수 적정성 검토"
         if ni is not None and ni > 0:
-            return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — mainstream fallback"
+            return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — 일반 기준 적용"
     # 분기 11: default
     return "FOR", f"감사 보수한도 — 위험 신호 없음 (변경률 {audit_inc:+.0f}% 또는 1인당 {audit_per_person})"
 
@@ -2016,7 +2016,7 @@ def _extract_risks(
             risks.append(f"영업현금흐름/영업이익 {cfo_to_op:.2f} (<0.7)")
         accruals_gap = fin_summary.get("accruals_gap_pct")
         if accruals_gap is not None and abs(accruals_gap) > 30:
-            risks.append(f"accruals gap {accruals_gap}% (절대값 >30%)")
+            risks.append(f"발생액 괴리 {accruals_gap}% — 이익과 현금흐름의 차이가 큽니다(기준 ±30%)")
         interest_coverage = fin_summary.get("interest_coverage_ratio")
         if interest_coverage is not None and interest_coverage < 2:
             risks.append(f"이자보상배율 {interest_coverage:.2f} (<2)")
@@ -2063,7 +2063,7 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
     procedural_kws = ("분기", "기준일", "중간배당", "동등배당", "배당정책", "배당절차", "절차",
                       "자본준비금", "이익잉여금 전입", "이익잉여금전입")
     if any(kw in agenda_title for kw in procedural_kws):
-        return "FOR", f"배당 절차/회계 안건 — 재무 무관 mainstream FOR"
+        return "FOR", "배당 절차·회계 안건 — 재무와 무관(원칙적 찬성)"
     if ni is not None and ni < 0:
         return "REVIEW", f"적자 회사 (순이익 {ni:,}원) — 배당 재원 적정성 검토 필요"
     # 배당성향 200%+ 명백 과도 (이전엔 150%였으나 150-200%도 mainstream FOR)
@@ -2625,7 +2625,7 @@ async def build_proxy_advise_payload(
                         "profit_metric": seg_latest.get("profit_metric"),
                         "items": seg_latest["items"],
                         "note": (
-                            "커리어→부문 자동 매핑이 단정 불가(no_match/ambiguous)라 부문표 전체를 참고로 첨부. "
+                            "후보 경력과 사업부문을 자동으로 연결하지 못해 부문표 전체를 참고로 첨부합니다. "
                             "후보 경력과 직접 대조해 판단 — 점수 미반영."
                         ),
                     }
@@ -3032,7 +3032,7 @@ async def build_proxy_advise_payload(
                           "③ 목적(유통주식수 조정·관리종목 회피 등) ④ 정관 액면가 변경 동반 여부")
             else:
                 reason = ("자본 감소(특별결의) — 확인사항: ① 무상/유상 구분 ② 목적(결손보전·회생·"
-                          "구조조정 불가피성 — 해당 시 mainstream 찬성 관행) ③ 감자비율·주주평등"
+                          "구조조정 불가피성 — 해당 시 일반적으로 찬성) ③ 감자비율·주주평등"
                           "(주식병합 시 단주 처리) ④ 유상감자 시 환급가액 적정성")
         elif category == "merger_or_restructuring":
             # 260727: 분류 카테고리는 있는데 판정 분기가 없어 'other'→자동 FOR 로 새고 있었다
@@ -3067,31 +3067,30 @@ async def build_proxy_advise_payload(
             # "감자" 또는 "자본금 감액" (자본준비금 감액 제외 — mainstream FOR)
             if "감자" in t or ("자본금" in t and "감액" in t):
                 decision = "REVIEW"
-                reason = f"안건 카테고리 'other' — 자본금 감액/감자 본문 검토 필요"
+                reason = "자본금 감액·감자 관련 — 본문 확인이 필요합니다"
             elif any(kw in t for kw in risk_keywords):
                 decision = "REVIEW"
-                reason = f"안건 카테고리 'other' — 위험 키워드 발견, 본문 검토 필요"
+                reason = "분류되지 않은 안건 — 위험 요소가 보입니다. 본문 확인이 필요합니다"
             else:
                 decision = "FOR"
-                reason = f"안건 카테고리 'other' — 위험 키워드 없음 (mainstream default)"
+                reason = "분류되지 않은 안건 — 알려진 위험 요소가 발견되지 않았습니다(본문 확인 권장)"
 
         # 1.5. 법령 layer hit 시 우선 적용 — vote_style/hardcoded 위에 (260508)
         law_detail: dict[str, Any] | None = None
+        law_layer_id: str | None = None
         if law_layer_hit is not None:
             ll_decision, ll_reason, ll_id, ll_law_ref = law_layer_hit
+            law_layer_id = ll_id
             decision = ll_decision
             # 조항 대장(SSOT) 상세 — 유예도래일·적용 티어·시행령 임계를 근거에 심화 (260709)
             law_detail = _law_provision_detail(ll_id)
             detail_line = f"\n📋 {law_detail['summary']}" if (law_detail and law_detail.get("summary")) else ""
             # A1/A2 (강행규정) — LLM이 안건명만 보고 결정 뒤집는 케이스 빈번
             # → catalog (wiki/rules/laws/llm_misread_patterns.json)에서 dynamic guard 매칭
-            if ll_id.startswith("A1-") or ll_id.startswith("A2-"):
-                guard = _find_misread_guard(title, ll_id)
-                if not guard:
-                    guard = "⛔ LLM 주의: 강행규정 정합 — 결정 변경 금지. 안건명 키워드만 보고 추측 금지."
-                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref}){detail_line} {guard}"
-            else:
-                reason = f"[법령 {ll_id}] {ll_reason} (근거: {ll_law_ref}){detail_line}"
+            # 사유는 사람이 읽는 문장이다 — 내부 규칙 ID(`A1-1`) 대신 조문을 앞세운다.
+            # ID 는 law_layer_id 필드로 따로 나가므로 기계 소비자·회귀 테스트는 그대로 쓴다.
+            # LLM 이 안건명만 보고 결정을 뒤집는 것은 tool docstring 과 행 단위 🛡️ 마커가 막는다.
+            reason = f"{ll_reason} (근거: {ll_law_ref}){detail_line}"
             # B1/B2 (REVIEW) — case-by-case 영역. 정관변경 본문 raw 첨부 (LLM 직접 검토 — 260510)
             # A1/A2 (FOR/AGAINST 강행규정)는 결정 명확 — raw 추가 X (토큰 절약)
             if ll_id.startswith("B1-") or ll_id.startswith("B2-"):
@@ -3108,7 +3107,7 @@ async def build_proxy_advise_payload(
                         if after_raw:
                             raw_excerpt.append(f"[{clause} 변경 후] {after_raw[:300]}")
                         if raw_excerpt:
-                            reason += "\n\n📄 정관 본문 raw (LLM 직접 검토):\n" + "\n".join(raw_excerpt)
+                            reason += "\n\n📄 해당 정관 조문 원문:\n" + "\n".join(raw_excerpt)
 
         # 1.55. agenda relation metadata — 절차/대안형 안건은 후보평가 자동 FOR 금지.
         # 법령 layer hit은 더 강한 근거이므로 우선한다.
@@ -3172,13 +3171,13 @@ async def build_proxy_advise_payload(
                         raw_excerpts.append(f"[{label}]\n" + "\n".join(parts))
                 if raw_excerpts:
                     header = (
-                        "📄 정관 본문 raw (LLM 직접 검토 — sub-agenda 매핑된 amendment):"
+                        "📄 해당 정관 조문 원문:"
                         if mapped_idx is not None
-                        else "📄 정관 본문 raw (LLM 직접 검토 — fallback miss, 회사 단위 1회 첨부):"
+                        else "📄 정관 변경 조문 원문 (이 회사 정관변경 안건 전체 기준, 1회만 첨부):"
                     )
                     reason += f"\n\n{header}\n" + "\n\n".join(raw_excerpts)
             elif attach_anchor:
-                reason += "\n\n📄 정관 본문 raw — 같은 회사의 다른 정관변경 안건에 첨부됨 (중복 회피)"
+                reason += "\n\n📄 정관 조문 원문은 같은 회사의 다른 정관변경 안건에 첨부되어 있습니다"
 
         # 2. vote_style 정책 default가 명확하면 (for / against / review) 그걸 우선
         # case_by_case면 OPM fallback 결정 유지.
@@ -3252,7 +3251,7 @@ async def build_proxy_advise_payload(
         ):
             _risk_note = "; ".join(str(r) for r in risk_factors[:2])
             if _risk_note and _risk_note not in reason:
-                reason = f"{reason} ⚠️ 유의: {_risk_note}"
+                reason = f"{reason} · 유의: {_risk_note}"
 
         # 상법 §449조의2 — 재무제표 승인이 이사회 결의로 갈음돼 주총 보고사항이 된 경우
         # 그 안건은 표결하지 않는다. 찬반을 내면 없는 표결에 의견을 내는 셈이다.
@@ -3276,6 +3275,8 @@ async def build_proxy_advise_payload(
         agenda_decisions.append({
             "agenda_title": title,
             "agenda_category": category,
+            # 강행규정 layer 규칙 ID — 사유 문장에서 뺐으므로 마커·회귀 테스트는 이 필드를 쓴다
+            "law_layer_id": law_layer_id,
             "agenda_id": agenda_row.get("agenda_id"),
             "agenda_relation_type": agenda_relation_type,
             "agenda_relation_reasons": agenda_relation_reasons,
@@ -3345,10 +3346,9 @@ async def build_proxy_advise_payload(
     if _meeting_phase in ("post_meeting_pre_result", "post_result"):
         _mt_ko = _MEETING_TYPE_KO.get(_selected_mt, _selected_mt)
         meeting_closed_hint = (
-            f"이 {_mt_ko}주총({_selected_meeting_date})은 이미 종료된 회차입니다. "
-            f"이 분석은 사후 복기용으로만 유효합니다. 이후 개최 예정이거나 최근 개최된 임시주총이 "
-            f"있는지 확인할까요? (meeting_type='extraordinary'로 재호출) "
-            f"의결 결과 확인은 shareholder_meeting_results를 사용하세요."
+            f"이 {_mt_ko}주총({_selected_meeting_date})은 이미 종료된 회차입니다 — "
+            f"이 분석은 사후 복기용입니다. 이후 열렸거나 예정된 임시주총, 또는 이 회차의 "
+            f"실제 의결 결과가 필요하시면 말씀해 주세요."
         )
 
     # ── data dict 구성 (Step 3: scope param 단순 expose) ──
