@@ -62,6 +62,42 @@ private lessons `open-proxy-storage/wiki-private/lessons/agenda-parser-validatio
 - tool 문서(`wiki/tools/*.md`) 파싱전략·변경이력·출력schema 갱신. `python3 scripts/wiki_lint.py --strict` 통과.
 - 측정 도구가 스스로 낸 오류(도구 버그)도 기록 — 다음에 같은 함정 피하려고.
 
+## 렌더러를 고쳤을 때 (산출물 오염 검사) — 260728 신설
+
+값이 아니라 **출력 자체**를 고쳤을 때(라벨·포맷·문구·표 구조)는 위 절차 대신 이걸 쓴다.
+값 검증과 목적이 다르다 — 여기서 보는 것은 「고치다 내용을 흘리지 않았나」다.
+
+**왜 필요한가**: 15개 파일 일괄 치환에서 `shareholder_meeting_notice` 가 import 누락으로
+19,637자 → 100자 크래시가 됐는데 **테스트 354개는 전부 통과했다.** 렌더 함수를 실제로
+호출해 봐야 터지는 지연 오류였다. 단위 테스트만 믿으면 안 된다.
+
+```bash
+# ① 고치기 전 baseline 확보 (라이브, 도구×회사 조합)
+python3 <runner> before.json          # 순차 + sleep 1.5s (DART 하드룰)
+# ② 고친 뒤 같은 조합 재수집
+python3 <runner> after.json
+# ③ 오염 대조 — 숫자 소실·표 행 감소·크래시·분량 급감
+python3 scripts/diff_tool_output.py before.json after.json     # exit 1 이면 경보
+# ④ 내부 식별자 스캔 — 도구별 집계
+python3 scripts/scan_tool_output.py after.json
+```
+
+- **분량이 줄어드는 것 자체는 정상**(헤더·라벨 축약). 판정 기준은 **숫자 집합과 표 행이
+  유지되는가**다. 값이 사라졌으면 정보가 사라진 것이다.
+- ③④는 기계가 볼 수 있는 것만 본다. **의미 검수는 에이전트 2종을 붙인다**(아래).
+
+### 에이전트 2종 (프롬프트에 "DART 추가호출 절대 금지 — 결과 파일만 읽어라" 명시)
+
+| 에이전트 | 무엇을 보나 |
+|---|---|
+| **QA(사람-독자)** | before/after 를 읽고 ① 의미 손실·뜻이 바뀐 라벨 ② 어색한 한글·이중 표기 ③ 재무분석가가 오해할 표현(단위·연결/별도·기간) ④ 표 깨짐·빈 절·잘린 문장 ⑤ 남은 내부 식별자. BLOCKER/IMPORTANT/NICE 로 보고 |
+| **디버깅** | `git diff HEAD` 를 읽고 ① 정규식 치환이 엉뚱한 줄까지 바꾼 곳 ② **모든 tool 모듈을 import 하고 렌더 함수를 합성 payload 로 호출** — 지연 import·미정의 이름·f-string 오류 ③ `.get` 대신 `[]` 로 KeyError 나는 곳 ④ 제거된 변수를 아직 쓰는 곳 |
+
+### 고정된 회귀 테스트
+`tests/test_tool_render_no_internal_ids.py` — 소스 수준 가드(새 도구가 옛 패턴을 복사해 오면
+걸린다) + **모든 tool 모듈 import 스모크**(지연 오류 방지) + 라벨 사전 교차 일관성
+(사전이 여러 벌이면 한 곳만 고쳐져 다른 표에서 샌다 — `potential_long_tenure` 실측).
+
 ## 스크립트 골격 (스크래치패드에 복사해 지시에 맞게 수정 후 실행)
 
 **수집** (`fetch_*.py`) — DART 하드룰 준수:

@@ -855,7 +855,7 @@ async def _pay_agenda_scope(company_query: str, *, warnings: list[str]) -> dict[
         "prior_utilization_pct": prior_util,
         "signal": signal,
         "note": "주총 소집공고 보수한도 안건의 current(올해 제안)/prior(작년 한도·실지급) 컬럼 재사용. "
-                "인상률·작년소진율은 사실 — 찬반 판단은 proxy_advise_before_meeting 참조.",
+                "인상률·작년 소진율은 사실 — 찬반 판단은 의결권 자문 도구(proxy_advise_before_meeting)에서 합니다.",
     }
 
 

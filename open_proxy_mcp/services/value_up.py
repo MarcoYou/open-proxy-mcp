@@ -35,6 +35,16 @@ _NOISE_PATTERNS: tuple[re.Pattern, ...] = (
 )
 
 
+# 섹션 태그 → 한글. tool 렌더러가 그대로 재사용한다(사전을 두 벌 두면 한쪽만 고쳐져 샌다).
+SECTION_LABELS_KO = {
+    "implementation_result": "이행결과",
+    "implementation_status": "이행현황",
+    "implementation_outlook": "이행전망",
+    "future_plan": "향후계획",
+    "meta_reference": "메타/참조",
+}
+
+
 def _is_noise(chunk: str) -> bool:
     for pattern in _NOISE_PATTERNS:
         if pattern.search(chunk):
@@ -140,13 +150,7 @@ def _extract_implementation_sections(text: str) -> list[dict[str, str]]:
     if not main_content:
         return []
     sections: list[dict[str, str]] = []
-    labels = {
-        "implementation_result": "이행결과",
-        "implementation_status": "이행현황",
-        "implementation_outlook": "이행전망",
-        "future_plan": "향후계획",
-        "meta_reference": "메타/참조",
-    }
+    labels = SECTION_LABELS_KO
     for unit in _split_main_content_units(main_content):
         tag = _tag_implementation_unit(unit)
         if not tag:

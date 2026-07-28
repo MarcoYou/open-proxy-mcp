@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.corporate_restructuring import build_corporate_restructuring_payload
 
 
@@ -111,16 +112,17 @@ def _render(payload: dict[str, Any]) -> str:
     window = data.get("window", {})
     counts = data.get("event_count", {})
     lines = [
-        f"# {data.get('canonical_name', payload.get('subject', ''))} 지배구조 재편 (corporate_restructuring)",
+        f"# {data.get('canonical_name', payload.get('subject', ''))} 지배구조 재편",
         "",
-        f"- company_id: `{data.get('company_id', '')}`",
         f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`",
         f"- 사건 수: 합병 {counts.get('merger', 0)} / 분할 {counts.get('split', 0)} / 분할합병 {counts.get('division_merger', 0)} / 주식교환 {counts.get('share_exchange', 0)}",
-        f"- status: `{payload.get('status', '')}`",
         "",
     ]
     if payload.get("warnings"):
         lines.append("## 유의사항")
+        _cid = company_id_line(data)
+        if _cid:
+            lines.append(_cid)
         for warning in payload["warnings"]:
             lines.append(f"- {warning}")
         lines.append("")

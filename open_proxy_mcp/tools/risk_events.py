@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.risk_events import build_risk_events_payload
 
 
@@ -59,14 +60,15 @@ def _render(payload: dict[str, Any]) -> str:
     title = "시장 전체 리스크 이벤트 공시" if market else f"{data.get('canonical_name', payload.get('subject', ''))} 리스크 이벤트"
     lines = [f"# {title} (risk_events){cat_note}", ""]
     if not market:
-        lines.append(f"- company_id: `{data.get('company_id', '')}`")
+        _cid = company_id_line(data)
+        if _cid:
+            lines.append(_cid)
     cat_summary = " / ".join(
         f"{_CAT_LABEL[c]} {counts.get(c, 0)}" for c in _CAT_ORDER if counts.get(c, 0)
     ) or "0"
     lines += [
         f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`" + (" (시장 전체 스캔)" if market else ""),
         f"- 사건 수: 총 {counts.get('total', 0)}건 — {cat_summary} / 종속·자회사 {counts.get('subsidiary_reports', 0)} / 정정 {counts.get('corrections', 0)}",
-        f"- status: `{payload.get('status', '')}`",
         "",
         "## 사용량",
         f"- DART API 호출: {usage.get('dart_api_calls', 0)}회 (분당 한도 {usage.get('dart_daily_limit_per_minute', 1000)}회)",
@@ -94,7 +96,9 @@ def _render(payload: dict[str, Any]) -> str:
 
     has_details = any(row.get("details") for row in events)
     if not has_details:
-        lines.append("> 📋 기본 모드는 list.json 메타만 수집. `include_details=True`로 원문 파싱 (중대재해: 사상자·장소·조치 / 횡령배임: 혐의자·금액·자기자본% / 파생손실: 손실액·% / 생산중단: 부문·매출비중).\n")
+        lines.append("> 기본은 공시 목록만 봅니다. 중대재해 사상자·장소·조치, 횡령배임 혐의자·금액·"
+                     "자기자본 대비 비율, 파생손실액과 비율, 생산중단 부문·매출 비중 같은 원문 상세가 "
+                     "필요하면 말씀해 주세요(include_details 옵션).\n")
 
     if market and data.get("by_company"):
         lines.extend(["## 회사별 건수", "| 회사 | 건수 |", "|------|------|"])

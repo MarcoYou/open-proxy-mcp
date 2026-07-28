@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
 
 
@@ -44,15 +45,13 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     usage = data.get("usage", {})
 
     lines = [
-        f"# {data.get('canonical_name', payload.get('subject', ''))} 기업지배구조보고서 (corp_gov_report)",
+        f"# {data.get('canonical_name', payload.get('subject', ''))} 기업지배구조보고서",
         "",
-        f"- company_id: `{data.get('company_id', '')}`",
         f"- 시장: `{data.get('market', '')}` (의무대상: {'✓' if data.get('mandatory') else '✗ 자율공시'})",
         f"- scope: `{scope}`",
         f"- 최신 보고서: {meta.get('rcept_dt', '-')} / 공시대상기간 ~ {meta.get('reporting_period_end', '-')}",
         f"- 원문: {_link(meta.get('rcept_no', ''))}",
         f"- 총 {data.get('filings_count', 0)}건 이력",
-        f"- status: `{payload.get('status', '')}`",
         "",
         "## 사용량",
         f"- DART API 호출: {usage.get('dart_api_calls', 0)}회 (분당 한도 {usage.get('dart_daily_limit_per_minute', 1000)})",
@@ -61,6 +60,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     ]
     if payload.get("warnings"):
         lines.append("## 유의사항")
+        _cid = company_id_line(data)
+        if _cid:
+            lines.append(_cid)
         for w in payload["warnings"]:
             lines.append(f"- {w}")
         lines.append("")

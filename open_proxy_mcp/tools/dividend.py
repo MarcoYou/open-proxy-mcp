@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.dividend import build_dividend_payload
 
 
@@ -48,8 +49,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     summary = data.get("summary", {})
     window = data.get("window", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 배당", ""]
-    lines.append(f"- company_id: `{data.get('company_id', '')}`")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _cid = company_id_line(data)
+    if _cid:
+        lines.append(_cid)
     if window:
         lines.append(f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
     lines.append("")
@@ -83,7 +85,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append("- 감액배당 cross-link: 자본준비금 감소 안건 주총 상정 (이익잉여금 전입 → 배당 재원)")
 
     if scope in {"summary", "detail"}:
-        lines.extend(["", "## 최근 배당결정", "| 공시일 | 구분 | DPS(보통) | 기준일 | rcept_no |", "|--------|------|-----------|--------|----------|"])
+        lines.extend(["", "## 최근 배당결정", "| 공시일 | 구분 | DPS(보통) | 기준일 | 공시번호 |", "|--------|------|-----------|--------|----------|"])
         for item in data.get("latest_decisions", [])[:10]:
             lines.append(
                 f"| {item.get('rcept_dt', '')} | {item.get('dividend_type', '-') or '-'} | {item.get('dps_common', 0):,}원 | "

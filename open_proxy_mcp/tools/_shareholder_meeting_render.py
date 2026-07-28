@@ -8,6 +8,12 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from open_proxy_mcp.tools._shared import company_id_line
+
+
+# 주총 종류 라벨 — 한 벌만 둔다(사전을 복제하면 한쪽만 고쳐져 다른 표에서 샌다).
+_MEETING_TYPE_KO = {"annual": "정기주총", "extraordinary": "임시주총"}
+
 
 def _render_agenda_node(node: dict[str, Any], indent: int = 0) -> list[str]:
     """안건 트리 hierarchical render — number + title + 자식."""
@@ -148,16 +154,25 @@ def render_summary(payload: dict[str, Any]) -> str:
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 주주총회 소집공고"]
     lines.append("")
-    lines.append(f"- company_id: `{data.get('company_id', '')}`")
-    lines.append(f"- requested_meeting_type: `{data.get('requested_meeting_type', '')}`")
-    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
+    _cid = company_id_line(data)
+    if _cid:
+        lines.append(_cid)
+    # 출처: tools/shareholder_meeting_notice.py 의 meeting_type 기본값 `auto` 포함
+    _RQ_KO = {"auto": "지정 없음(자동 선택)", "annual": "정기주총", "extraordinary": "임시주총",
+              "any": "지정 없음", "": "지정 없음"}
+    _rq = data.get("requested_meeting_type", "")
+    lines.append(f"- 요청한 주총 종류: {_RQ_KO.get(_rq, _rq)}")
+    _mt = data.get("meeting_type", "")
+    lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt, _mt)}")
+    lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
     # 260505 ralph: result_status 제거 (사후 정보, 시점 분리 위반)
-    lines.append(f"- notice_parse_source: `{data.get('notice_parse_source', '')}`")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    # 출처: services/shareholder_meeting.py — notice_parse_source 는 dart_xml / dart_html
+    _SRC_KO = {"dart_xml": "DART 원문(XML)", "dart_html": "DART 뷰어(HTML)", "": "-"}
+    _src = data.get("notice_parse_source", "")
+    lines.append(f"- 원문 출처: {_SRC_KO.get(_src, _src)}")
     if requested_window:
         lines.append(
-            f"- requested_window: `{requested_window.get('start_date', '')}` ~ `{requested_window.get('end_date', '')}`"
+            f"- 조회 구간: {requested_window.get('start_date', '')} ~ {requested_window.get('end_date', '')}"
         )
     lines.append("")
     lines.extend(warning_block(payload))
@@ -169,7 +184,10 @@ def render_summary(payload: dict[str, Any]) -> str:
             lines.append("- 대안 회차")
             for item in alternatives:
                 lines.append(
-                    f"  - {item.get('meeting_type')} / {item.get('meeting_phase')} / notice `{item.get('notice_rcept_no', '')}` / result `{item.get('result_rcept_no', '') or '-'}`"
+                    f"  - {_MEETING_TYPE_KO.get(item.get('meeting_type'), item.get('meeting_type'))}"
+                    f" / {phase_label(item.get('meeting_phase', ''))}"
+                    f" / 소집공고 `{item.get('notice_rcept_no', '')}`"
+                    f" / 결과 `{item.get('result_rcept_no', '') or '-'}`"
                 )
         lines.append("")
 
@@ -193,7 +211,7 @@ def render_summary(payload: dict[str, Any]) -> str:
         "|------|----|",
         f"| 공시명 | {notice.get('report_name', '') or '-'} |",
         f"| 공시일 | {notice.get('disclosure_date', '') or '-'} |",
-        f"| rcept_no | `{notice.get('rcept_no', '')}` |",
+        f"| 공시번호 | `{notice.get('rcept_no', '')}` |",
         f"| 정정 여부 | {'예' if notice.get('is_correction') else '아니오'} |",
         "",
         "## 회의 정보",
@@ -276,10 +294,10 @@ def render_board(payload: dict[str, Any]) -> str:
     appointments = board.get("appointments", [])
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 이사/감사 안건", ""]
-    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- result_status: {result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _mt2 = data.get("meeting_type", "")
+    lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt2, _mt2)}")
+    lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
+    lines.append(f"- 결과 공시: {result_status_label(data.get('result_status', ''))}")
     lines.append("")
     lines.extend(warning_block(payload))
 
@@ -318,10 +336,10 @@ def render_compensation(payload: dict[str, Any]) -> str:
     items = compensation.get("items", [])
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 보수한도 안건", ""]
-    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- result_status: {result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _mt2 = data.get("meeting_type", "")
+    lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt2, _mt2)}")
+    lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
+    lines.append(f"- 결과 공시: {result_status_label(data.get('result_status', ''))}")
     lines.append("")
     lines.extend(warning_block(payload))
 
@@ -363,9 +381,9 @@ def render_aoi(payload: dict[str, Any]) -> str:
     summary = aoi.get("summary", {}) or {}
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 정관변경 + 퇴직금 변경 raw", ""]
-    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _mt2 = data.get("meeting_type", "")
+    lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt2, _mt2)}")
+    lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
     lines.append("")
     lines.extend(warning_block(payload))
 
@@ -429,9 +447,9 @@ def render_provisional_financials(payload: dict[str, Any]) -> str:
     metrics = pfs.get("metrics", {}) or {}
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 잠정 재무제표 (1호 안건 본문)", ""]
-    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- rcept_no: `{notice.get('rcept_no', '')}`")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _mt2 = data.get("meeting_type", "")
+    lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt2, _mt2)}")
+    lines.append(f"- 공시번호 {notice.get('rcept_no', '')}")
     lines.append(f"- 출처: 주총 소집공고 1호 안건 본문 (사업보고서 제출 전 회사 자가 공시 — 잠정치)")
     lines.append("")
     lines.extend(warning_block(payload))
@@ -491,21 +509,25 @@ def render_results(payload: dict[str, Any]) -> str:
     items = results.get("items", [])
 
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 주총 결과", ""]
-    lines.append(f"- selected_meeting_type: `{data.get('meeting_type', '')}`")
-    lines.append(f"- meeting_phase: {phase_label(data.get('meeting_phase', ''))} (`{data.get('meeting_phase', '')}`)")
-    lines.append(f"- result_status: {result_status_label(data.get('result_status', ''))} (`{data.get('result_status', '')}`)")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _mt2 = data.get("meeting_type", "")
+    lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt2, _mt2)}")
+    lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
+    lines.append(f"- 결과 공시: {result_status_label(data.get('result_status', ''))}")
     lines.append("")
     lines.extend(warning_block(payload))
 
     lines.append("## 결과 공시")
-    lines.append(f"- result rcept_no: `{result_reference.get('rcept_no', '')}`" if result_reference else "- result rcept_no: -")
+    lines.append(f"- 공시번호 {result_reference.get('rcept_no', '')}" if result_reference
+                 else "- 공시번호 -")
     if result_reference.get("kind_acptno"):
-        lines.append(f"- KIND acptno: `{result_reference.get('kind_acptno')}`")
+        lines.append(f"- 거래소 접수번호 {result_reference.get('kind_acptno')}")
+    # 출처: services/shareholder_meeting.py — result_format 은 "table" 또는 "summary"
+    _FMT_KO = {"table": "안건별 찬반 집계표", "summary": "서술형 요약"}
     if results.get("result_format"):
-        lines.append(f"- result_format: `{results.get('result_format')}`")
-    if results.get("numerical_vote_table_available") is not None:
-        lines.append(f"- numerical_vote_table_available: `{results.get('numerical_vote_table_available')}`")
+        _f = results.get("result_format")
+        lines.append(f"- 결과 기재 형식: {_FMT_KO.get(_f, _f)}")
+    # numerical_vote_table_available 은 result_format=="table" 과 같은 사실이라 줄을 따로 내지
+    # 않는다 — 두 줄로 나오면 독립된 두 정보처럼 읽힌다(260728 QA 지적).
     lines.append("")
 
     lines.append("## 의결 결과")

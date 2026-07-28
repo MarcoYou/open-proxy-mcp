@@ -40,3 +40,13 @@ def _format_evidence_line(ref: dict[str, Any]) -> str:
     tail = " · ".join(tail_parts)
 
     return f"- {head} — {tail}" if tail else f"- {head}"
+
+def company_id_line(data: dict) -> str | None:
+    """내부 회사 ID(`cmp_005930`)를 사람이 쓰는 종목코드로. 값이 없으면 줄을 내지 않는다.
+
+    260728: 15개 도구 라이브 스캔에서 `- company_id: ``cmp_005930``` 가 10개 도구에 걸쳐
+    나왔다. 사용자에게 `cmp_` 접두는 아무 뜻도 없고, 필요한 건 종목코드다.
+    """
+    cid = str(data.get("company_id") or "")
+    code = data.get("stock_code") or (cid.split("_", 1)[1] if "_" in cid else "")
+    return f"- 종목코드 {code}" if code else None

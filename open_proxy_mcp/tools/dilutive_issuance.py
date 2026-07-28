@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.dilutive_issuance import build_dilutive_issuance_payload
 
 
@@ -144,16 +145,17 @@ def _render(payload: dict[str, Any]) -> str:
     counts = data.get("event_count", {})
     usage = data.get("usage", {})
     lines = [
-        f"# {data.get('canonical_name', payload.get('subject', ''))} 희석성 증권 발행 (dilutive_issuance)",
+        f"# {data.get('canonical_name', payload.get('subject', ''))} 희석성 증권 발행",
         "",
-        f"- company_id: `{data.get('company_id', '')}`",
         f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`",
         f"- 사건 수: 유상증자 {counts.get('rights_offering', 0)} / CB {counts.get('convertible_bond', 0)} / EB {counts.get('exchangeable_bond', 0)} / BW {counts.get('warrant_bond', 0)} / 감자 {counts.get('capital_reduction', 0)}",
-        f"- status: `{payload.get('status', '')}`",
         "",
     ]
     if payload.get("warnings"):
         lines.append("## 유의사항")
+        _cid = company_id_line(data)
+        if _cid:
+            lines.append(_cid)
         for warning in payload["warnings"]:
             lines.append(f"- {warning}")
         lines.append("")

@@ -5,8 +5,38 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.value_up import build_value_up_payload
 
+
+
+
+# 사전은 producer 를 읽고 만든다. 출처: services/value_up.py 의 availability_status 대입 4곳
+# (517·519·581). 관찰된 값만 보고 손으로 쓰면 흔한 경로(공시 없는 회사)가 통째로 샌다 —
+# 260728 디버깅 에이전트 실측.
+_AVAIL_KO = {
+    "no_filing_found": "밸류업 공시 없음",
+    "exists_outside_requested_window": "조회 구간 밖에 공시 있음",
+    "found_in_requested_window": "조회 구간에서 확인",
+    "found_in_requested_window_kind_only": "조회 구간에서 확인(제목만)",
+}
+
+# 출처: services/value_up.py 의 SourceType — dart_xml · kind_html
+_SRC_KO = {"dart_xml": "DART 원문(XML)", "kind_html": "거래소 KIND(HTML)", "-": "-", "": "-"}
+
+
+def _src_ko(v) -> str:
+    return _SRC_KO.get(str(v or ""), str(v or "-"))
+
+# 섹션 태그는 엔진 내부 이름이다 — services.value_up 의 한글 매핑을 재사용한다(260728).
+def _tag_ko(tag: str) -> str:
+    from open_proxy_mcp.services.value_up import SECTION_LABELS_KO
+    # 출처: services/value_up.py `_classify_value_up_item()` — plan · progress ·
+    # pre_announcement · meta_amendment. 「정정공시」는 DART 에서 기재정정을 뜻하므로 오역이다
+    # (본문이 스스로 "형식 재공시"라고 설명한다) — 계획 수정으로 오독된다(260728 QA 지적).
+    extra = {"plan": "본계획", "progress": "이행현황", "pre_announcement": "예고",
+             "meta_amendment": "형식 재공시", "meta_reference": "메타/참조", "-": "-"}
+    return SECTION_LABELS_KO.get(tag) or extra.get(tag) or (tag.replace("_", " ") if tag else "-")
 
 def _render_error(payload: dict[str, Any]) -> str:
     lines = [f"# value_up: {payload.get('subject', '')}", "", "밸류업 공시를 확정하지 못했다."]
@@ -28,10 +58,12 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     latest = data.get("latest", {})
     window = data.get("window", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 밸류업", ""]
-    lines.append(f"- company_id: `{data.get('company_id', '')}`")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _cid = company_id_line(data)
+    if _cid:
+        lines.append(_cid)
     if data.get("availability_status"):
-        lines.append(f"- availability_status: `{data.get('availability_status', '')}`")
+        _av = data.get("availability_status", "")
+        lines.append(f"- 공시 여부: {_AVAIL_KO.get(_av, _av)}")
     if window:
         lines.append(f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
     lines.append("")
@@ -53,12 +85,12 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append(f"- 공시일: {latest.get('disclosure_date', '-')}")
         lines.append(f"- 공시명: {latest.get('report_name', '-')}")
         if latest.get("category"):
-            lines.append(f"- 카테고리: `{latest.get('category')}`")
+            lines.append(f"- 카테고리: {_tag_ko(latest.get('category') or '')}")
         if latest.get("plan_title"):
             lines.append(f"- 계획서 명칭: {latest.get('plan_title')}")
-        lines.append(f"- 소스: `{latest.get('source_type', '-')}`")
+        lines.append(f"- 원문 출처: {_src_ko(latest.get('source_type', '-'))}")
         if latest.get("rcept_no"):
-            lines.append(f"- rcept_no: `{latest.get('rcept_no', '')}`")
+            lines.append(f"- 공시번호 {latest.get('rcept_no', '')}")
         if latest.get("acptno"):
             lines.append(f"- KIND acptno: `{latest.get('acptno', '')}`")
 
@@ -68,26 +100,26 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append("## 본계획")
         lines.append(f"- 공시일: {latest_plan.get('disclosure_date', '-')}")
         lines.append(f"- 공시명: {latest_plan.get('report_name', '-')}")
-        lines.append(f"- 카테고리: `{latest_plan.get('category', '-')}`")
+        lines.append(f"- 카테고리: {_tag_ko(latest_plan.get('category') or '-')}")
         if latest_plan.get("plan_title"):
             lines.append(f"- 계획서 명칭: {latest_plan.get('plan_title')}")
         if latest_plan.get("rcept_no"):
-            lines.append(f"- rcept_no: `{latest_plan.get('rcept_no', '')}`")
+            lines.append(f"- 공시번호 {latest_plan.get('rcept_no', '')}")
         if latest_plan.get("note"):
-            lines.append(f"- note: {latest_plan.get('note')}")
+            lines.append(f"- 비고: {latest_plan.get('note')}")
     latest_status = data.get("latest_status")
     if latest_status:
         lines.append("")
         lines.append("## 최신 이행현황")
         lines.append(f"- 공시일: {latest_status.get('disclosure_date', '-')}")
         lines.append(f"- 공시명: {latest_status.get('report_name', '-')}")
-        lines.append(f"- 카테고리: `{latest_status.get('category', '-')}`")
+        lines.append(f"- 카테고리: {_tag_ko(latest_status.get('category') or '-')}")
         if latest_status.get("plan_title"):
             lines.append(f"- 계획서 명칭: {latest_status.get('plan_title')}")
         if latest_status.get("rcept_no"):
-            lines.append(f"- rcept_no: `{latest_status.get('rcept_no', '')}`")
+            lines.append(f"- 공시번호 {latest_status.get('rcept_no', '')}")
         if latest_status.get("note"):
-            lines.append(f"- note: {latest_status.get('note')}")
+            lines.append(f"- 비고: {latest_status.get('note')}")
 
     latest_result = data.get("latest_result")
     if latest_result:
@@ -98,7 +130,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if latest_result.get("plan_title"):
             lines.append(f"- 계획서 명칭: {latest_result.get('plan_title')}")
         for section in latest_result.get("implementation_sections", [])[:5]:
-            lines.append(f"- `{section.get('tag', '')}` {section.get('text', '')}")
+            lines.append(f"- **{_tag_ko(section.get('tag', ''))}** {section.get('text', '')}")
 
     meta_amendment = data.get("meta_amendment")
     if meta_amendment:
@@ -106,7 +138,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append("## 메타/재공시")
         lines.append(f"- 공시일: {meta_amendment.get('disclosure_date', '-')}")
         lines.append(f"- 공시명: {meta_amendment.get('report_name', '-')}")
-        lines.append(f"- note: {meta_amendment.get('note', '')}")
+        lines.append(f"- 비고: {meta_amendment.get('note', '')}")
 
     if not latest_plan and not latest_status:
         diagnostic = data.get("search_diagnostics", {}).get("diagnostic_window", {})
@@ -120,7 +152,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 )
 
     if scope in {"summary", "timeline"}:
-        lines.extend(["", "## 공시 타임라인", "| 날짜 | 공시명 | 제출인 | rcept_no |", "|------|--------|--------|----------|"])
+        lines.extend(["", "## 공시 타임라인", "| 날짜 | 공시명 | 제출인 | 공시번호 |", "|------|--------|--------|----------|"])
         for item in data.get("items", []):
             filing_id = item.get("rcept_no") or item.get("acptno", "")
             lines.append(f"| {item.get('disclosure_date', '')} | {item.get('report_name', '')} | {item.get('filer_name', '')} | `{filing_id}` |")
@@ -134,13 +166,13 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     if sections and scope in {"summary", "plan", "commitments"}:
         lines.extend(["", "## 이행 태그"])
         for section in sections[:12]:
-            lines.append(f"- `{section.get('tag', '')}` {section.get('text', '')}")
+            lines.append(f"- **{_tag_ko(section.get('tag', ''))}** {section.get('text', '')}")
 
     embedded = data.get("embedded_results") or []
     if embedded:
         lines.extend(["", "## 재공시 내 업데이트 결과"])
         for section in embedded[:8]:
-            lines.append(f"- `{section.get('tag', '')}` {section.get('text', '')}")
+            lines.append(f"- **{_tag_ko(section.get('tag', ''))}** {section.get('text', '')}")
 
     if scope == "plan":
         lines.extend(["", "## 원문 발췌", "```", data.get("latest_excerpt", "")[:1800], "```"])
@@ -154,7 +186,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if amt:
             lines.append(f"- 소각 목적 취득 총액: {amt:,}원")
         lines.append(f"- 신탁계약 체결: {cross.get('trust_contract_count_24m', 0)}건")
-        lines.append(f"- 상세: `treasury_share(scope=\"cancelation\")` 또는 `scope=\"acquisition\"`")
+        lines.append("- 자기주식 취득·소각 상세는 자기주식 도구(treasury_share)로 따로 조회하시면 됩니다.")
 
     return "\n".join(lines)
 

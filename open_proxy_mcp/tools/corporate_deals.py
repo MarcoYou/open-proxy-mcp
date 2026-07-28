@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.corporate_deals import build_corporate_deals_payload
 
 
@@ -50,14 +51,12 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     counts = data.get("event_count", {})
     usage = data.get("usage", {})
     lines = [
-        f"# {data.get('canonical_name', payload.get('subject', ''))} 지분 인수·매각 / 내부거래 (corporate_deals)",
+        f"# {data.get('canonical_name', payload.get('subject', ''))} 지분 인수·매각 / 내부거래",
         "",
-        f"- company_id: `{data.get('company_id', '')}`",
         f"- scope: `{scope}`",
         f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`",
-        f"- 사건 수: 타법인주식 {counts.get('equity_deal_total', 0)} (취득 {counts.get('equity_acquire', 0)} / 처분 {counts.get('equity_dispose', 0)})  ※단일공급계약은 order_contracts",
+        f"- 사건 수: 타법인주식 {counts.get('equity_deal_total', 0)} (취득 {counts.get('equity_acquire', 0)} / 처분 {counts.get('equity_dispose', 0)})  ※단일판매·공급계약은 수주·계약 도구(order_contracts)에서 봅니다",
         f"- 자회사 공시: {counts.get('subsidiary_reports', 0)}건 / 자율공시: {counts.get('autonomous_disclosures', 0)}건",
-        f"- status: `{payload.get('status', '')}`",
         "",
         "## 사용량",
         f"- DART API 호출: {usage.get('dart_api_calls', 0)}회 (분당 한도 {usage.get('dart_daily_limit_per_minute', 1000)}회)",
@@ -66,13 +65,16 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     ]
     if payload.get("warnings"):
         lines.append("## 유의사항")
+        _cid = company_id_line(data)
+        if _cid:
+            lines.append(_cid)
         for warning in payload["warnings"]:
             lines.append(f"- {warning}")
         lines.append("")
 
     has_details = any(row.get("details") for row in (data.get("events_timeline") or data.get("equity_deal_events") or []))
     if not has_details:
-        lines.append("> 📋 기본 모드는 list.json 메타만 수집. `include_details=True`로 원문 파싱(최근 건) 또는 evidence tool로 원문 확인.\n")
+        lines.append("> 기본은 공시 목록만 봅니다. 최근 건의 원문 상세가 필요하면 말씀해 주세요(include_details 옵션).\n")
     else:
         lines.append("> ✓ 원문 파싱 보강 적용됨 (최근 건). 거래 상대방/금액/특수관계/자산대비비율 포함.\n")
 

@@ -64,7 +64,6 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     s = data.get("summary", {}) or {}
     window = data.get("window", {}) or {}
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 자사주 이벤트", ""]
-    lines.append(f"- status: `{payload.get('status', '')}`")
     lines.append(f"- 조사 구간: `{window.get('start_date', '-')}` ~ `{window.get('end_date', '-')}`")
     lines.append("")
     if payload.get("warnings"):
@@ -110,7 +109,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.extend([
             "",
             f"## 이벤트 타임라인{cycle_note}",
-            "| 공시일 | phase | 유형 | 주식수 | 금액 | 사이클 link | rcept_no |",
+            "| 공시일 | phase | 유형 | 주식수 | 금액 | 사이클 link | 공시번호 |",
             "|--------|-------|------|--------|---------|-------------|----------|",
         ])
         for ev in events_to_show[:40]:

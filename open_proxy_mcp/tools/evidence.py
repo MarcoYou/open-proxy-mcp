@@ -27,13 +27,12 @@ def _render(payload: dict) -> str:
 
     heading = report_nm or rcept_no or payload.get("subject", "")
     lines = [f"# evidence: {heading}", ""]
-    lines.append(f"- status: `{payload.get('status', '')}`")
     if rcept_dt:
         lines.append(f"- 공시일: `{rcept_dt}`")
     if report_nm:
         lines.append(f"- 공시명: {report_nm}")
     if rcept_no:
-        lines.append(f"- rcept_no: `{rcept_no}`")
+        lines.append(f"- 공시번호 {rcept_no}")
     if source_type:
         lines.append(f"- 소스: {source_label}")
     if viewer_url:

@@ -5,8 +5,34 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload
 
+
+
+# 표 셀에 들어가는 분류값은 엔진 내부 enum 이다 — 사람이 읽는 표에 영문 코드를 두지 않는다.
+# 사전은 **producer 를 읽고** 만든다(260728 디버깅 에이전트 지적: 관찰된 값만 보고 손으로 쓰면
+# 절반이 새고 없는 키가 들어간다). 출처:
+#   services/proxy_contest.py `_fight_actor_group()` — registry_overlap · coheld_with_registry
+#                                                     · external_active_block · external_or_passive
+#   services/proxy_contest.py `_signal_actor_side()` — 위 3종 + company · retail_activism · shareholder
+# 두 producer 가 어휘를 공유하므로 사전도 하나로 둔다(둘로 나누면 컬럼이 뒤바뀐다 — 실측 결함).
+_GROUP_KO = {
+    "registry_overlap": "주주명부상 최대주주",
+    "coheld_with_registry": "최대주주와 공동보유",
+    "external_active_block": "외부 경영참여 블록",
+    "external_or_passive": "외부·단순투자",
+    "company": "회사측",
+    "shareholder": "주주측",
+    "retail_activism": "소액주주 행동",
+    "litigation": "소송",
+    "unknown": "미상", "": "-", "-": "-",
+}
+_CATEGORY_KO = {"fight": "위임장 대결", "litigation": "소송", "signal": "5% 보고"}
+
+
+def _ko(m: dict, v) -> str:
+    return m.get(str(v or ""), str(v or ""))
 
 def _render_error(payload: dict[str, Any], scope: str = "summary") -> str:
     message = "분쟁 관련 공시를 확정하지 못했다."
@@ -32,8 +58,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     players = data.get("players", {})
     control_context = data.get("control_context", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} proxy contest", ""]
-    lines.append(f"- company_id: `{data.get('company_id', '')}`")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _cid = company_id_line(data)
+    if _cid:
+        lines.append(_cid)
     window = data.get("window", {})
     if window:
         lines.append(f"- 최근 12개월 조사구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
@@ -71,7 +98,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             freq = lit_dedup.get("report_name_freq") or []
             if freq:
                 freq_str = " / ".join(f"{f['name']}×{f['count']}" for f in freq[:8])
-                lines.append(f"  - 공시명 빈도 (LLM 직접 판단용): {freq_str}")
+                lines.append(f"  - 공시명 빈도: {freq_str}")
         else:
             lines.append(f"- 소송/분쟁 공시: {summary.get('litigation_count', 0)}건")
         ext_n = summary.get("active_external_block_count", 0)
@@ -95,11 +122,11 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 lines.append(f"- {item}")
 
     if scope in {"summary", "fight"}:
-        lines.extend(["", "## fight", "| 날짜 | 구분 | 플레이어 분류 | 제출인 | 5%경영참여 | 소송연관 | 공시명 | rcept_no |", "|------|------|---------------|--------|-----------|----------|--------|----------|"])
+        lines.extend(["", "## fight", "| 날짜 | 구분 | 플레이어 분류 | 제출인 | 5%경영참여 | 소송연관 | 공시명 | 공시번호 |", "|------|------|---------------|--------|-----------|----------|--------|----------|"])
         for row in data.get("fight", [])[:20]:
             has_5pct = "✓" if row.get("filer_has_5pct_active_block") else "-"
             in_lit = "✓" if row.get("filer_in_litigation") else "-"
-            lines.append(f"| {row['disclosure_date']} | {row['side']} | {row.get('actor_group', '')} | {row['filer_name']} | {has_5pct} | {in_lit} | {row['report_name']} | `{row['rcept_no']}` |")
+            lines.append(f"| {row['disclosure_date']} | {_ko(_GROUP_KO, row['side'])} | {_ko(_GROUP_KO, row.get('actor_group'))} | {row['filer_name']} | {has_5pct} | {in_lit} | {row['report_name']} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "litigation"}:
         lit_dedup = summary.get("litigation_dedup") or {}
@@ -107,7 +134,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         title = "## litigation (정정 제외 원본)"
         if doc_resolved:
             title += f" — 본문 사건명 파싱으로 미상 {doc_resolved}건 재분류"
-        lines.extend(["", title, "| 날짜 | 성격 | 단계 | 제출인 | 사건명/공시명 | rcept_no |", "|------|------|------|--------|--------|----------|"])
+        lines.extend(["", title, "| 날짜 | 성격 | 단계 | 제출인 | 사건명/공시명 | 공시번호 |", "|------|------|------|--------|--------|----------|"])
         _lit_type_ko = {"filed": "제기", "ruling": "판결", "other": "기타"}
         _kind_ko = {"management": "경영권", "commercial": "상거래", "unspecified": "미상"}
         for row in data.get("litigation", [])[:20]:
@@ -119,9 +146,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"| {row['disclosure_date']} | {kind}{src} | {lit_type} | {row['filer_name']} | {display} | `{row['rcept_no']}` |")
 
     if scope in {"summary", "signals"}:
-        lines.extend(["", "## 5% signals", "| 날짜 | 보고자 | 분류 | 지분율 | 목적 | rcept_no |", "|------|--------|------|--------|------|----------|"])
+        lines.extend(["", "## 5% signals", "| 날짜 | 보고자 | 분류 | 지분율 | 목적 | 공시번호 |", "|------|--------|------|--------|------|----------|"])
         for row in data.get("signals", [])[:20]:
-            lines.append(f"| {row['report_date']} | {row['reporter']} | {row.get('actor_side', '')} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
+            lines.append(f"| {row['report_date']} | {row['reporter']} | {_ko(_GROUP_KO, row.get('actor_side'))} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
         dynamics = data.get("block_holder_dynamics", [])
         if dynamics:
@@ -150,9 +177,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 )
 
     if scope == "timeline":
-        lines.extend(["", "## timeline", "| 날짜 | 카테고리 | 주체 | 분류 | 이벤트 | rcept_no |", "|------|----------|------|------|--------|----------|"])
+        lines.extend(["", "## timeline", "| 날짜 | 카테고리 | 주체 | 분류 | 이벤트 | 공시번호 |", "|------|----------|------|------|--------|----------|"])
         for row in data.get("timeline", [])[:30]:
-            lines.append(f"| {row['date']} | {row['category']} | {row.get('actor', '')} | {row.get('side', '')} | {row['title']} | `{row['rcept_no']}` |")
+            lines.append(f"| {row['date']} | {_ko(_CATEGORY_KO, row['category'])} | {row.get('actor', '')} | {_ko(_GROUP_KO, row.get('side'))} | {row['title']} | `{row['rcept_no']}` |")
 
     if scope == "vote_math":
         vote_math = data.get("vote_math", {})

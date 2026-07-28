@@ -1529,7 +1529,7 @@ async def _fetch_year_metrics(
     if metrics.get("is_financial_company"):
         warnings.append(f"{year}년 [총차입금] 금융업(예수부채 등 영업조달) 판정 — 차입금의존도 미산출(n/a).")
     if metrics.get("lease_liabilities_krw"):
-        warnings.append(f"{year}년 [총차입금] 리스부채는 총차입금 제외(IFRS16 별도) — total_debt_incl_lease_krw 병기.")
+        warnings.append(f"{year}년 총차입금에 리스부채는 빠져 있습니다(IFRS16 별도) — 리스 포함 총차입도 함께 표시했습니다.")
     if metrics.get("convertible_debt_krw"):
         warnings.append(f"{year}년 [총차입금] 전환사채·BW·EB 포함 — 잠재 지분희석은 dilutive_issuance 참조.")
 
@@ -2168,7 +2168,7 @@ async def build_financial_metrics_payload(
         _op = _sm.get("operating_profit_krw")
         _ni = _sm.get("net_income_krw")
         if _rev is None and (_op is not None or _ni is not None):
-            _qf.append("sector_na: revenue 미존재이나 영업이익/순익 있음 — 금융업/지주(정당 N/A)")
+            _qf.append("매출액이 없고 영업이익·순이익만 있습니다 — 금융업·지주회사에서는 정상입니다")
         elif _rev is None and _op is None and _ni is None:
             _qf.append("core_field_null: 핵심 재무 전부 미파싱 — 진짜 실패 의심")
         if _qf:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 
 
@@ -37,8 +38,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     summary = data.get("summary", {})
     window = data.get("window", {})
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 지분 구조", ""]
-    lines.append(f"- company_id: `{data.get('company_id', '')}`")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _cid = company_id_line(data)
+    if _cid:
+        lines.append(_cid)
     if data.get("as_of_date"):
         lines.append(f"- as_of_date: `{data.get('as_of_date', '')}`")
     if window:
@@ -101,7 +103,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
 
     if scope in {"summary", "blocks", "control_map"}:
         blocks = data.get("blocks", []) or []
-        lines.extend(["", "## 5% 대량보유 최신", "| 보고자 | 지분율 | 보유목적 | 날짜 | rcept_no |", "|--------|--------|----------|------|----------|"])
+        lines.extend(["", "## 5% 대량보유 최신", "| 보고자 | 지분율 | 보유목적 | 날짜 | 공시번호 |", "|--------|--------|----------|------|----------|"])
         for row in blocks[:15]:
             lines.append(f"| {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | {row['report_date']} | `{row['rcept_no']}` |")
         # 공동보유자 분해 — 헤드라인 지분율은 보고자 본인+특별관계자 합산이라, 누가 얼마씩인지 표기.
@@ -130,7 +132,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         # blocks scope에 timeline 통합 노출
         timeline = data.get("timeline", []) or []
         if timeline:
-            lines.extend(["", "## 5% 대량보유 이력 (timeline)", "| 날짜 | 보고자 | 지분율 | 목적 | rcept_no |", "|------|--------|--------|------|----------|"])
+            lines.extend(["", "## 5% 대량보유 이력 (timeline)", "| 날짜 | 보고자 | 지분율 | 목적 | 공시번호 |", "|------|--------|--------|------|----------|"])
             for row in timeline[:30]:
                 lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
@@ -176,7 +178,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if not block_changes:
             lines.append("- 조사 구간 내 5% 대량보유 변동 없음")
         else:
-            lines.extend(["| 날짜 | 보고자 | 지분율 | 목적 | rcept_no |", "|------|--------|--------|------|----------|"])
+            lines.extend(["| 날짜 | 보고자 | 지분율 | 목적 | 공시번호 |", "|------|--------|--------|------|----------|"])
             for row in block_changes[:30]:
                 lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 

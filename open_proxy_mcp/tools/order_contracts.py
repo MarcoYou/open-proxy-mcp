@@ -55,7 +55,7 @@ def _render(payload: dict[str, Any]) -> str:
     lines = [
         f"# {data.get('canonical_name', '')} 수주 현황",
         "",
-        f"- company_id: `{data.get('company_id', '')}` / 구간: `{win.get('start_date', '')}`~`{win.get('end_date', '')}`",
+        f"- 조회 구간 {win.get('start_date', '')} ~ {win.get('end_date', '')}",
         "",
     ]
     if payload.get("warnings"):

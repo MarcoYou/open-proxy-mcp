@@ -346,9 +346,20 @@ def _render(payload: dict[str, Any]) -> str:
     scope = data.get("scope", "summary")
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 재무지표 — {scope}"]
     lines.append("")
-    lines.append(f"- company_id: `{data.get('company_id', '')}`  /  ticker: `{data.get('identifiers', {}).get('ticker', '')}`")
-    lines.append(f"- 사업연도: {data.get('year')} / fs_div: `{data.get('fs_div')}` (연결={data.get('consolidated')})")
-    lines.append(f"- status: `{payload.get('status')}`  /  filing_status: `{data.get('filing_status', '-')}`")
+    _tk = (data.get("identifiers") or {}).get("ticker") or ""
+    if _tk:
+        lines.append(f"- 종목코드 {_tk}")
+    # 기준은 요청값(consolidated)이 아니라 **실제 사용된 fs_div** 다 — CFS 미작성 시 OFS 로 폴백된다.
+    # None 을 「별도」로 단정하면 안 된다(260728 디버깅 에이전트 실측).
+    _FSDIV_KO = {"CFS": "연결", "OFS": "별도"}
+    _fsdiv = (data.get("summary") or {}).get("fs_div") or data.get("fs_div")
+    _basis = _FSDIV_KO.get(_fsdiv, "기준 미상")
+    lines.append(f"- 사업연도 {data.get('year')} · {_basis} 기준")
+    # 일부 파싱 실패는 status 만 PARTIAL 로 바뀌고 warning 이 안 붙는다 — 화면에서 사라지면 안 된다.
+    if (data.get("filing_status") or "") not in ("", "all_parsed"):
+        _n = data.get("parsing_failures")
+        lines.append(f"- ⚠ 일부 공시를 읽지 못했습니다"
+                     + (f" ({_n}건)" if _n else "") + " — 수치가 불완전할 수 있습니다.")
     lines.append("")
     if payload.get("warnings"):
         lines.append("## 유의사항")

@@ -7,6 +7,7 @@ from typing import Any
 
 from open_proxy_mcp.services.company import build_company_payload
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import company_id_line
 
 
 def _english_response(payload: dict[str, Any]) -> bool:
@@ -108,8 +109,9 @@ def _render_exact(payload: dict[str, Any]) -> str:
                 for item in alternatives
             ))
         lines.append("")
-    lines.append(f"- company_id: `{data.get('company_id', '')}`")
-    lines.append(f"- status: `{payload.get('status', '')}`")
+    _cid = company_id_line(data)
+    if _cid:
+        lines.append(_cid)
     lines.append("")
 
     if warnings:
@@ -156,7 +158,7 @@ def _render_exact(payload: dict[str, Any]) -> str:
         "## Recent filings" if english else "## 최근 공시 인덱스",
         (f"- Search window: {filings_window.get('start_date', '-') } ~ {filings_window.get('end_date', '-')}"
          if english else f"- 조사 구간: {filings_window.get('start_date', '-') } ~ {filings_window.get('end_date', '-')}"),
-        "| Date | Type | Filing | Filer | rcept_no |" if english else "| 날짜 | 분류 | 공시명 | 제출인 | rcept_no |",
+        "| Date | Type | Filing | Filer | Receipt No |" if english else "| 날짜 | 분류 | 공시명 | 제출인 | 공시번호 |",
         "|------|------|--------|--------|----------|",
     ])
     for item in filings:
