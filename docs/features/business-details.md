@@ -1,12 +1,17 @@
 # 사업의 내용
 
-<!-- documentation-contract: business_details fields=segments,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,financial_ops,financial_soundness,investment_property,geo_revenue -->
+<!-- documentation-contract: business_details fields=revenue_breakdown,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,financial_ops,financial_soundness,investment_property,geo_revenue,key_contracts -->
 
 **정기보고서의 "II. 사업의 내용"을 통째로 읽어줍니다.** 사업부문별 매출·이익부터 생산설비·가동률·연구개발·수주잔고·주요 고객, 원재료·투입원가와 제품가격 추이까지 — 수십 페이지 서술형 섹션에서 필요한 소절만 골라 원문 그대로 가져옵니다.
 
 ## 무엇을 답하나
 
-- **사업부문별 매출·영업이익**(segments) — SOTP·부문 수익성 분석의 1차 소스. 표준 표는 구조화해서, 서식이 특이한 회사는 원문 표를 그대로 보여줍니다.
+- **매출 분해**(revenue_breakdown) — 매출을 어떻게 쪼개 보는지의 단일 진입점. 두 축이 함께 옵니다.
+  - `by_segment`: 재무제표 주석의 영업부문(K-IFRS 1108, 외부감사 대상, 매출+영업이익). SOTP·부문 수익성 분석의 1차 소스.
+  - `by_product`: 사업의 내용에 적힌 제품·품목별 매출 구성(공시서식 기재사항, 외부감사 대상 아님, 매출만).
+  - **영업부문이 단일이라 비어 있어도 제품 구성은 있는 경우가 많습니다** — 두 축을 함께 보면 놓치지 않습니다.
+    두 축은 같은 매출을 다른 기준으로 자른 것이라 서로 합산되지 않습니다.
+- **주요계약**(key_contracts) — 라이선스·기술도입·장기공급 계약의 상대방·기간·목적 원문.
 - **사업장·생산설비**(sites), **생산실적·가동률**(utilization), **연구개발**(rnd), **수주현황**(backlog), **주요 고객·매출처**(customers).
 - **원재료·투입원가**(raw_materials) — 주요 원재료 구성·매입과 원재료 가격변동 추이 원문.
 - **제품·서비스 가격 추이**(product_pricing) — 판매가격·ASP·가격변동 원인 원문.
