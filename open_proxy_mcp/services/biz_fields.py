@@ -117,6 +117,12 @@ _FIELD_SUBSECTIONS = {
     "customers": (("L1", 4), ("L1", 2)),
     "rnd": (("L1", 6),),
     "product_pricing": (("L1", 2), ("L1", 3)),
+    # II-2-가 「주요 제품 등의 현황」 — 회계 부문(III 주석)이 아니라 공시서식 기재사항.
+    # 실측 286건: II-2-가 83.2% vs III §32 제품별 7.3% — 제품 구성의 사실상 유일 경로다.
+    "revenue_mix_form": (("L1", 2),),
+    # II-6 「가. 주요계약」 — rnd 와 같은 소절인데 추출이 연구개발 하위표제로만 좁혀져
+    # 절반이 잘려 나갔다(실측: 녹십자 라이센스인/아웃, 세방전지 기술도입, 대원화성 광개발 옵션).
+    "key_contracts": (("L1", 6),),
     "financial_ops": (("L2", 2),),
     "financial_soundness": (("L2", 5),),
 }
@@ -568,6 +574,24 @@ _C_CUST = re.compile(
 _FINANCIAL_CHAPTER_RE = re.compile(r"^III\.\s*재무")
 
 
+def _md_has_text_rows(md: str, need: int = 2) -> bool:
+    """숫자 없는 표도 실질 내용이다 — 계약 상대방·아티스트 명단처럼 이름만 있는 표.
+
+    `_md_has_data_rows`는 숫자행만 세므로, 「가. 주요 계약: 해당사항 없습니다」 뒤에 붙은
+    「나. 주요 아티스트 전속계약」 표(회사명·그룹·아티스트)가 빈 표로 취급돼 구간 전체가
+    해당없음으로 접혔다(하이브 실측 4,160자 유실).
+    """
+    n = 0
+    for ln in md.splitlines():
+        if not ln.startswith("|") or re.fullmatch(r"[|\s:-]+", ln):
+            continue
+        if sum(1 for c in ln.strip("|").split("|") if c.strip()) >= 2:
+            n += 1
+            if n >= need:
+                return True
+    return False
+
+
 def _field(biz_text: str, html: str, head_patterns: list[str], na_re, content_re=None,
            max_chars: int = 20000, region_index: BizRegionIndex | None = None,
            exclude_chapter_re=None, field: str | None = None) -> dict:
@@ -582,7 +606,8 @@ def _field(biz_text: str, html: str, head_patterns: list[str], na_re, content_re
     if regions:
         markdown = "\n\n———\n\n".join(region["markdown"] for region in regions)
         explicit_na = na_re.search(markdown) if na_re else None
-        if explicit_na and not _md_has_data_rows(markdown, 1):
+        # 「해당사항 없습니다」가 구간 앞머리에 있어도, 뒤에 실제 표가 있으면 그건 원문이 이긴다.
+        if explicit_na and not _md_has_data_rows(markdown, 1) and not _md_has_text_rows(markdown, 3):
             return {
                 "status": "NOT_APPLICABLE",
                 "extraction_status": "NOT_APPLICABLE",
@@ -948,6 +973,40 @@ _RAW_INPUT_PRICE_HEAD = [
 _PRODUCT_PRICING_HEAD = [
     r"주요\s*(?:제품|상품|서비스)(?:\s*등)?\s*(?:의\s*)?가격\s*(?:변동\s*)?(?:추이|현황)",
 ]
+# II-2-가 「주요 제품 등의 현황」. '가격변동추이'(2-나)와 구분해야 한다 — 바로 옆 소절이다.
+#   소절2는 문서가 스스로 선언한 구간이다. 그 안에서 표를 실제로 이고 있는 표제의 어휘는
+#   회사마다 갈린다 — 「주요제품 (연결기준)」·「주요 제품, 서비스 등의 매출 현황」·「매출현황」·
+#   「주요제품 소개」. 어휘를 좇지 말고 넓게 앵커한 뒤 content-gate(_C_REVENUE_MIX)로 거른다.
+#   신풍제약 실측: 소절 표제와 표 표제가 형제 레벨이라 구간이 52자에서 끊겨 gate 탈락했다.
+_NOT_PRICE_TREND = r"(?!.{0,14}(?:가격|단가|판매\s*가)\s*(?:변동|추이|현황))"
+_REVENUE_MIX_HEAD = [
+    r"주요\s*제품\s*등?의?\s*현황",
+    r"주요\s*(?:제품|상품|서비스)\s*및\s*서비스",
+    r"주요\s*제품\s*및\s*원재료",
+    r"주요\s*(?:제품|상품|서비스|품목|매출)" + _NOT_PRICE_TREND,
+    r"(?:제품|상품|서비스|사업\s*부문)\s*별?\s*매출\s*(?:현황|실적|구성|비중)",
+    r"매출\s*(?:현황|실적|구성)" + _NOT_PRICE_TREND,
+]
+# 값이 실제로 매출 구성인지 — 금액·비율 신호. 「가. 주요공사 현황」(시공실적)·
+# 「매입 현황」·기능 카탈로그를 걸러내려면 이 신호가 있어야 한다.
+_C_REVENUE_MIX = re.compile(
+    r"매\s*출\s*액|매출\s*비중|비\s*율|품\s*목|사\s*업\s*부\s*문|매출\s*유형|구체적\s*용도"
+)
+# II-6-가 「주요계약」 — 라이선스·기술도입·장기공급.
+_KEY_CONTRACTS_HEAD = [
+    r"주요\s*계약(?:\s*(?:등)?의?\s*(?:현황|내용))?",
+    r"라이\s*[선센]\s*스\s*(?:아웃|인)",
+    r"기술\s*(?:도입|이전|제휴)\s*계약",
+    # 업종의 핵심 계약이 「가. 주요 계약: 해당사항 없습니다」 밑의 별도 표제에 실린다.
+    # 하이브 실측: 「나. 주요 아티스트 전속계약」에 소속사·그룹·아티스트 전원이 있는데
+    # 앞 표제의 '없습니다'만 읽고 해당없음으로 접혔다 — 재계약 리스크가 통째로 사라진다.
+    r"전속\s*계약",
+]
+_C_KEY_CONTRACTS = re.compile(
+    r"계약\s*(?:상대|체결|기간|금액|명)|상\s*대\s*처|License|라이[선센]스|기술도입|"
+    r"대금\s*(?:수수|수금)|전속\s*계약|아\s*티\s*스\s*트"
+)
+
 _C_RAW_MATERIALS = re.compile(
     r"매입(?:액|처|비중|실적)|구입(?:처|가격)|공급(?:사|처|업체)|구체적\s*용도|"
     r"원\s*(?:재료|자재)\s*가격|수입|품목"
@@ -1031,6 +1090,168 @@ def extract_raw_materials(biz_text, html, region_index=None):
         ],
         _RAW_MATERIALS_NA, region_index, field="raw_materials",
     )
+
+
+# ── II-2-가 매출구성 (공시서식 기재사항 — 회계 부문 아님) ──────────────────
+# 이 표는 K-IFRS 1108 부문 정보가 아니다. 실측(회계 QA 52사·IR 62사):
+#   · 합계가 연결과 안 맞음 33% (별도 기준인데 표시 없음 · 분모가 내부거래 포함 단순합계)
+#   · 매출이 아예 아닌 표 (남광토건 시공실적 · 듀켐바이오 매입액 · 퓨쳐켐 경쟁사 점유율)
+#   · 비율 합계가 100%가 아님 (태광산업 500% · 삼성전자 108.9% · 토니모리 98.67%)
+# 그래서 정형값을 만들지 않고 **원문 마크다운 + 캡션**으로 넘긴다 — 읽는 쪽이 판단한다.
+# 각주(※·(주n)·(*))는 이 표의 유일한 사용설명서라 자르지 않는다.
+_REVENUE_MIX_NA = re.compile(
+    r"주요\s*제품[\s\S]{0,120}?(?:해당\s*사항\s*(?:이)?\s*없|기재를?\s*생략)"
+)
+# 캡션이 이것들이면 매출 구성표가 아니다 — 값으로 내보내지 않는다.
+_REVENUE_MIX_NOT_SALES = re.compile(
+    r"주요\s*공사\s*현황|시공\s*실적|매입\s*(?:현황|에\s*관한)|생산\s*능력|가격\s*변동|"
+    r"주요\s*기능|영업\s*시설|"
+    # 은행·보험의 II-2는 매출구성이 아니라 취급 상품 카탈로그다(상품수·가입대상, 단위가 「개」).
+    # 금융업 매출 구성은 financial_ops 가 따로 본다. 실측: KB금융지주 65,050자 통째 반환.
+    r"상\s*품\s*수|가입\s*대상|주요상품의\s*내용"
+)
+
+
+# 원문은 넘기되 페이로드는 묶는다 — 잘랐다는 사실을 숨기지 않고 필드로 알린다.
+# 실측 상한은 ~15.6k(한전KPS)라 정상 문서는 걸리지 않고, 카탈로그형 이상치만 잘린다.
+_BIZ_MD_CAP = 20_000
+
+
+def _cap_markdown(r: dict) -> dict:
+    md = r.get("markdown") or ""
+    if len(md) <= _BIZ_MD_CAP:
+        return r
+    return {**r, "markdown": md[:_BIZ_MD_CAP], "markdown_truncated": True,
+            "markdown_full_chars": len(md)}
+
+
+# ── 자가진단: 표가 스스로 밝힌 것만 검산한다 ────────────────────────────
+# 값을 재계산해 '정답'을 내려는 게 아니다. 표에 적힌 합계행·비율·단위를 그대로 읽어
+# 서로 안 맞으면 안 맞는다고 말한다. 애매하면 단정하지 않고 null 로 둔다.
+_UNIT_RE = re.compile(r"단\s*위\s*[:：]\s*([^)\|\n]{1,24})")
+_TOTAL_CELL_RE = re.compile(r"^(?:합\s*계|총\s*계|계|소\s*계|total)$", re.I)
+_NUM_RE = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+\.\d+|-?\d{4,}")
+_PCT_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*%")
+
+
+def _split_md_tables(md: str) -> list[list[str]]:
+    """마크다운 구간을 표 단위로 쪼갠다 — 구분행(|---|)이 새 표의 시작 표시다.
+
+    한 구간에 표가 여럿(당기/전기 별도 표, 부문별+품목별)인 경우가 절반이라, 통째로 합산하면
+    항목합이 합계행의 2~3배가 되어 '불일치'만 쏟아진다. 표 하나씩 봐야 검산이 의미를 갖는다.
+    """
+    tables, cur, seen_sep = [], [], False
+    for ln in md.splitlines():
+        if not ln.startswith("|"):
+            if cur:
+                tables.append(cur)
+            cur, seen_sep = [], False
+            continue
+        if re.fullmatch(r"[|\s:-]+", ln):
+            if seen_sep and cur:          # 구분행이 또 나오면 다음 표가 시작된 것
+                tables.append(cur)
+                cur = []
+            seen_sep = True
+            continue
+        cur.append(ln)
+    if cur:
+        tables.append(cur)
+    return [t for t in tables if t]
+
+
+def _check_one_table(rows: list[str]) -> dict:
+    item_pcts, item_amts, total_amts = [], [], []
+    for ln in rows:
+        # 캡션행(단위·기준일)은 데이터가 아니다 — 「2025.12.31」이 금액으로 걷히면 합계가 흐려진다.
+        if _UNIT_RE.search(ln) or "기준일" in ln:
+            continue
+        ln = re.sub(r"\d{4}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]?\s*\d{0,2}\s*일?", " ", ln)
+        cells = [c.strip() for c in ln.strip("|").split("|")]
+        is_total = any(_TOTAL_CELL_RE.fullmatch(re.sub(r"\s+", "", c)) for c in cells)
+        pcts = [float(p) for p in _PCT_RE.findall(ln)]
+        # 비율 괄호형 「2,835,195(69.5%)」 과 별도 열 「매출비중」 둘 다 같은 방식으로 걷힌다.
+        nums = [float(n.replace(",", "")) for n in _NUM_RE.findall(_PCT_RE.sub(" ", ln))]
+        amt = max(nums) if nums else None
+        if is_total:
+            if amt is not None:
+                total_amts.append(amt)
+        else:
+            if pcts:
+                item_pcts.append(pcts[-1])
+            if amt is not None:
+                item_amts.append(amt)
+    out: dict = {"pct_sum": None, "pct_sum_is_100": None,
+                 "declared_total": None, "item_sum": None, "tie_out": None}
+    if item_pcts:
+        s = round(sum(item_pcts), 1)
+        out["pct_sum"], out["pct_sum_is_100"] = s, abs(s - 100.0) <= 1.0
+    if total_amts and item_amts:
+        declared, isum = max(total_amts), sum(item_amts)
+        out["declared_total"], out["item_sum"] = declared, isum
+        if declared > 0:
+            gap = abs(declared - isum) / declared
+            out["tie_out"] = ("항목합≈합계행 일치" if gap <= 0.02 else
+                              f"항목합≠합계행 (차이 {gap * 100:.1f}%) — 라벨 없는 소계행이 "
+                              f"섞여 있는 경우가 많습니다")
+    elif item_amts:
+        out["tie_out"] = "합계행 없음 — 항목합만 제시"
+    return out
+
+
+def _mix_self_check(md: str) -> dict:
+    """표가 밝힌 단위·비율합·합계행을 읽어 자기정합성만 본다. 외부 대조는 호출측 몫.
+
+    검산 대상은 '합계행을 가진 첫 표' — 없으면 첫 표. 구간에 표가 여럿이면 그 사실을 알린다.
+    """
+    tables = _split_md_tables(md)
+    checks = [_check_one_table(t) for t in tables]
+    chosen = next((c for c in checks if c.get("declared_total") is not None),
+                  next((c for c in checks if c.get("item_sum") or c.get("pct_sum")), None))
+    out: dict = dict(chosen or {"pct_sum": None, "pct_sum_is_100": None,
+                                "declared_total": None, "item_sum": None, "tie_out": None})
+    unit = _UNIT_RE.search(md)
+    out["unit"] = re.sub(r"\s+", " ", unit.group(1)).strip(" ,") if unit else None
+    out["tables_in_region"] = len(tables)
+    if len(tables) > 1:
+        out["scope_note"] = (f"구간에 표가 {len(tables)}개라 검산은 그중 한 표 기준입니다. "
+                             "기간·연결/별도가 표마다 다를 수 있습니다.")
+    return out
+
+
+def extract_revenue_mix_form(biz_text, html, region_index=None):
+    r = _cap_markdown(_field(
+        biz_text, html, _REVENUE_MIX_HEAD, _REVENUE_MIX_NA, content_re=_C_REVENUE_MIX,
+        region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
+        field="revenue_mix_form"))
+    md = r.get("markdown") or ""
+    if md and _REVENUE_MIX_NOT_SALES.search(md[:400]):
+        # 캡션이 시공실적·매입·생산능력이면 매출표가 아니다. 값을 내지 말고 그렇게 말한다.
+        return {**r, "status": "NEEDS_REVIEW",
+                "note": "「주요 제품」 절이지만 캡션이 매출 구성표가 아닙니다.",
+                "not_sales_caption": True}
+    if md:
+        # 상세 설명은 두지 않는다 — 축별 출처 라벨과 self_check 가 구체적으로 말한다.
+        r["basis_note"] = ("II. 사업의 내용 > 2. 주요 제품 및 서비스 > 가. 주요 제품 등의 현황 "
+                           "(기업공시서식 기재사항). 제품별 매출 구분은 K-IFRS 기준과 다를 수 있습니다.")
+        r["self_check"] = _mix_self_check(md)
+        r["self_check"]["guidance"] = (
+            "unit 이 null 이면 단위가 원문에만 있습니다(천원/백만원 혼동은 1000배 차이). "
+            "tie_out 이 불일치면 표가 여러 개이거나 연결/별도가 섞인 경우입니다. "
+            "declared_total 은 표 기준이라 연결 손익계산서 매출과 다를 수 있습니다.")
+    return r
+
+
+# ── II-6-가 주요계약 (rnd 와 같은 소절인데 종전엔 연구개발만 나갔다) ──────────
+_KEY_CONTRACTS_NA = re.compile(
+    r"주요\s*계약[\s\S]{0,120}?(?:해당\s*사항\s*(?:이)?\s*없|없습니다|체결(?:중인)?\s*[^\n]{0,20}없)"
+)
+
+
+def extract_key_contracts(biz_text, html, region_index=None):
+    return _cap_markdown(_field(
+        biz_text, html, _KEY_CONTRACTS_HEAD, _KEY_CONTRACTS_NA,
+        content_re=_C_KEY_CONTRACTS, region_index=region_index,
+        exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field="key_contracts"))
 
 
 def extract_product_pricing(biz_text, html, region_index=None):

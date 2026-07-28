@@ -1375,14 +1375,33 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
     return False
 
 
+# 매출 분해는 축이 셋이고 축마다 출처·감사여부가 다르다. 한 필드로 묶되 평평하게 섞지 않는다 —
+# 섞으면 제품+지역을 더해 매출이 두 배가 되고, 감사받은 주석과 공시서식 기재사항이 구분되지 않는다.
+# (260728: `segments`만 물어본 호출측이 「단일부문 선언」만 보고 제품 구성을 놓치던 문제)
+_REVENUE_AXES = {"segments": "by_segment",
+                 "revenue_mix_form": "by_product"}
+_REVENUE_AXIS_SOURCE = {
+    "by_segment": "III. 재무제표 주석 · K-IFRS 1108 영업부문 · 외부감사 대상 (매출 + 영업이익)",
+    "by_product": "II. 사업의 내용 2-가 · 기업공시서식 기재사항 · 외부감사 대상 아님 (매출만)",
+}
+# 안내문은 짧게, 그리고 서술문으로 — 매 호출마다 데이터보다 먼저 나온다. 경고 이모지·금지문은
+# 읽는 사람이 뭘 잘못한 것처럼 느끼게 한다. 자료의 성격을 알려주는 것이지 나무라는 게 아니다. 나머지(감사여부·검산·어느 축에 값이 있나)는
+# 축별 `source` 라벨과 `available`/`self_check` 줄이 이미 말하므로 여기서 반복하지 않는다.
+_REVENUE_BREAKDOWN_GUIDANCE = "제품별·부문별 매출 구분은 K-IFRS 기준과 다를 수 있습니다."
+
+# 기본 반환 세트. 세 축은 revenue_breakdown 안으로 들어가므로 여기 없다 —
+# 옛 이름(segments·revenue_mix_form)은 fields 로 명시하면 평평하게 그대로 나온다(별칭).
+# 지역별(geo_revenue)은 묶지 않고 독립 필드로 둔다.
 BUSINESS_DETAILS_FIELDS = (
-    "segments", "sites", "utilization", "rnd", "backlog", "customers", "raw_materials",
+    "revenue_breakdown", "sites", "utilization", "rnd", "backlog", "customers", "raw_materials",
     "product_pricing", "financial_ops", "financial_soundness", "investment_property",
-    "geo_revenue",
+    "geo_revenue", "key_contracts",
 )
 # 위치 슬라이스 대신 이름 기반(필드 추가 시 조용한 오분류 방지 — 이름 기반 접근 원칙)
 _STANDARD_BIZ_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers",
-                        "raw_materials", "product_pricing"}
+                        "raw_materials", "product_pricing",
+                        # II-2-가 매출구성 · II-6-가 주요계약 (260728 신설)
+                        "revenue_mix_form", "key_contracts"}
 _FINANCIAL_BIZ_FIELDS = {"financial_ops", "financial_soundness", "investment_property"}
 _ENTITY_WIDE_FIELDS = {"geo_revenue"}
 _CANDIDATE_CONTEXT_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers"}
@@ -1404,6 +1423,10 @@ async def build_business_details_payload(company_query: str, period: str = "late
     from open_proxy_mcp.services.segment_candidates import find_segment_candidates
 
     want = set(fields or BUSINESS_DETAILS_FIELDS)
+    # 묶음을 요청하면 세 축을 실제로 계산해야 한다. 축 이름을 직접 준 호출은 평평하게 받는다.
+    _flat_axes = {k for k in _REVENUE_AXES if k in want}
+    if "revenue_breakdown" in want:
+        want |= set(_REVENUE_AXES)
     mode = (context_mode or "strict").strip().lower()
     if mode not in {"strict", "candidate"}:
         return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
@@ -1610,6 +1633,10 @@ async def build_business_details_payload(company_query: str, period: str = "late
         data["raw_materials"] = _bf.extract_raw_materials(_biz_t, _full_html, _full_region_index)
     if "product_pricing" in want:
         data["product_pricing"] = _bf.extract_product_pricing(_biz_t, _full_html, _full_region_index)
+    if "revenue_mix_form" in want:
+        data["revenue_mix_form"] = _bf.extract_revenue_mix_form(_biz_t, _full_html, _full_region_index)
+    if "key_contracts" in want:
+        data["key_contracts"] = _bf.extract_key_contracts(_biz_t, _full_html, _full_region_index)
     if mode == "candidate":
         candidate_field = next(iter(want))
         strict_result = data.get(candidate_field, {})
@@ -1633,6 +1660,28 @@ async def build_business_details_payload(company_query: str, period: str = "late
     if "investment_property" in want and (_reit_ksic or _ind2 == "65"):
         data["investment_property"] = _bf.extract_investment_property(_biz_t, _biz_html, _biz_region_index)
     # 자산가치(토지·투자부동산·지분증권 원가vs공정가치)는 별도 tool asset_holdings로 이관(260720).
+    # 세 축을 한 서랍장으로 묶는다. 칸막이(출처 라벨)는 남기고, 축 이름을 직접 요청한 경우에만
+    # 평평한 키도 함께 남긴다 — 기본 호출에서 같은 내용이 두 번 실리지 않게.
+    if "revenue_breakdown" in want:
+        axes, available, needs_review = {}, [], []
+        for flat, axis in _REVENUE_AXES.items():
+            val = data.get(flat)
+            if val is None:
+                val = {"status": "NOT_COLLECTED", "extraction_status": "NOT_COLLECTED",
+                       "na_reason": "이 보고서에서 해당 축을 산출하지 않음"}
+            axes[axis] = {**val, "source": _REVENUE_AXIS_SOURCE[axis]}
+            # 값이 나온 축과 '원문만 있고 값은 못 믿는' 축을 섞지 않는다 — 섞으면 안내가 거짓이 된다
+            # (남광토건: 제품별이 시공실적 표라 검토필요인데 available 에 들어가 있었다).
+            st, ext = val.get("status"), val.get("extraction_status")
+            if st in ("OK", "MARKDOWN", "SUCCESS") or ext == "SUCCESS":
+                available.append(axis)
+            elif st == "NEEDS_REVIEW" or ext == "NEEDS_REVIEW":
+                needs_review.append(axis)
+            if flat not in _flat_axes:
+                data.pop(flat, None)
+        data["revenue_breakdown"] = {**axes, "available": available,
+                                     "needs_review": needs_review,
+                                     "guidance": _REVENUE_BREAKDOWN_GUIDANCE}
     data["induty_code"] = induty or None
     _lap("Afields")
     data["fetch_method"] = fetch_method   # "get_document"(1 API콜) | "viewer_fallback"(014 등 웹fetch)
