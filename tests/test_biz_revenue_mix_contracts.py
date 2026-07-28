@@ -282,3 +282,33 @@ def test_output_does_not_scold_the_reader():
     assert "⚠" not in out
     for scold in ("하지 마세요", "하지 말 것", "금지"):
         assert scold not in out, scold
+
+
+def test_warnings_footer_is_a_processing_note_not_a_warning_sign():
+    """푸터에 담기는 건 대개 실패가 아니라 처리 메모다 — 30사 스윕에서 6사가 ⚠ 를 달고 나왔다."""
+    from open_proxy_mcp.tools.business_details import _render as _r
+    out = _r({"status": "ok", "subject": "테스트", "data": {"report": {}},
+              "warnings": ["segment_profit: 정형 저신뢰 → 원문 마크다운/후보 반환"]})
+    assert "⚠" not in out
+    assert "처리 메모" in out and "정형 저신뢰" in out
+
+
+def test_explicit_segments_request_keeps_the_flat_key():
+    """proxy_advise 는 fields=["segments"] 로 부르고 data["segments"] 를 직접 읽는다.
+
+    묶음을 도입하면서 평평 키를 지우면 이사-부문 시그널이 조용히 죽는다 — 별칭을 계약으로 고정.
+    """
+    from open_proxy_mcp.services.business_details import _REVENUE_AXES, BUSINESS_DETAILS_FIELDS
+    # 기본 세트에는 없고(묶음으로 나감), 이름 자체는 살아 있어야 한다(명시 요청 시 평평 반환)
+    assert "segments" not in BUSINESS_DETAILS_FIELDS
+    assert "segments" in _REVENUE_AXES
+
+
+def test_extract_segment_items_reads_the_flat_key_not_the_bundle():
+    from open_proxy_mcp.services.director_segment_signal import extract_segment_items
+    flat = {"data": {"segments": {"status": "OK", "items": [{"name": "A", "revenue": 1}],
+                                  "unit": "백만원"}}}
+    assert extract_segment_items(flat) is not None
+    # 묶음만 있고 평평 키가 없으면 못 읽는다 → fields=["segments"] 를 계속 명시해야 한다는 뜻
+    bundled = {"data": {"revenue_breakdown": {"by_segment": flat["data"]["segments"]}}}
+    assert extract_segment_items(bundled) is None

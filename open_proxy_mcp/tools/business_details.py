@@ -194,7 +194,9 @@ def _render(p: dict) -> str:
     if tm:
         L.append(f"\n_조회 {tm.get('total','?')}ms · 주석fetch={d.get('note_fetched')}_")
     if p.get("warnings"):
-        L.append("\n⚠ " + " · ".join(p["warnings"]))
+        # 여기 담기는 것은 대개 실패가 아니라 처리 메모다(어느 문서를 썼나 · 정형 대신 원문을 냈나).
+        # 경고 표지를 달면 읽는 사람이 뭘 잘못한 것처럼 느낀다.
+        L.append("\n_처리 메모: " + " · ".join(p["warnings"]) + "_")
     return "\n".join(L)
 
 
