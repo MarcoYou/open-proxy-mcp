@@ -157,19 +157,10 @@ def render_summary(payload: dict[str, Any]) -> str:
     _cid = company_id_line(data)
     if _cid:
         lines.append(_cid)
-    # 출처: tools/shareholder_meeting_notice.py 의 meeting_type 기본값 `auto` 포함
-    _RQ_KO = {"auto": "지정 없음(자동 선택)", "annual": "정기주총", "extraordinary": "임시주총",
-              "any": "지정 없음", "": "지정 없음"}
-    _rq = data.get("requested_meeting_type", "")
-    lines.append(f"- 요청한 주총 종류: {_RQ_KO.get(_rq, _rq)}")
     _mt = data.get("meeting_type", "")
     lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt, _mt)}")
     lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
     # 260505 ralph: result_status 제거 (사후 정보, 시점 분리 위반)
-    # 출처: services/shareholder_meeting.py — notice_parse_source 는 dart_xml / dart_html
-    _SRC_KO = {"dart_xml": "DART 원문(XML)", "dart_html": "DART 뷰어(HTML)", "": "-"}
-    _src = data.get("notice_parse_source", "")
-    lines.append(f"- 원문 출처: {_SRC_KO.get(_src, _src)}")
     if requested_window:
         lines.append(
             f"- 조회 구간: {requested_window.get('start_date', '')} ~ {requested_window.get('end_date', '')}"
@@ -521,11 +512,6 @@ def render_results(payload: dict[str, Any]) -> str:
                  else "- 공시번호 -")
     if result_reference.get("kind_acptno"):
         lines.append(f"- 거래소 접수번호 {result_reference.get('kind_acptno')}")
-    # 출처: services/shareholder_meeting.py — result_format 은 "table" 또는 "summary"
-    _FMT_KO = {"table": "안건별 찬반 집계표", "summary": "서술형 요약"}
-    if results.get("result_format"):
-        _f = results.get("result_format")
-        lines.append(f"- 결과 기재 형식: {_FMT_KO.get(_f, _f)}")
     # numerical_vote_table_available 은 result_format=="table" 과 같은 사실이라 줄을 따로 내지
     # 않는다 — 두 줄로 나오면 독립된 두 정보처럼 읽힌다(260728 QA 지적).
     lines.append("")

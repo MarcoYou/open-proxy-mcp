@@ -11,23 +11,6 @@ from open_proxy_mcp.services.value_up import build_value_up_payload
 
 
 
-# 사전은 producer 를 읽고 만든다. 출처: services/value_up.py 의 availability_status 대입 4곳
-# (517·519·581). 관찰된 값만 보고 손으로 쓰면 흔한 경로(공시 없는 회사)가 통째로 샌다 —
-# 260728 디버깅 에이전트 실측.
-_AVAIL_KO = {
-    "no_filing_found": "밸류업 공시 없음",
-    "exists_outside_requested_window": "조회 구간 밖에 공시 있음",
-    "found_in_requested_window": "조회 구간에서 확인",
-    "found_in_requested_window_kind_only": "조회 구간에서 확인(제목만)",
-}
-
-# 출처: services/value_up.py 의 SourceType — dart_xml · kind_html
-_SRC_KO = {"dart_xml": "DART 원문(XML)", "kind_html": "거래소 KIND(HTML)", "-": "-", "": "-"}
-
-
-def _src_ko(v) -> str:
-    return _SRC_KO.get(str(v or ""), str(v or "-"))
-
 # 섹션 태그는 엔진 내부 이름이다 — services.value_up 의 한글 매핑을 재사용한다(260728).
 def _tag_ko(tag: str) -> str:
     from open_proxy_mcp.services.value_up import SECTION_LABELS_KO
@@ -61,9 +44,6 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     _cid = company_id_line(data)
     if _cid:
         lines.append(_cid)
-    if data.get("availability_status"):
-        _av = data.get("availability_status", "")
-        lines.append(f"- 공시 여부: {_AVAIL_KO.get(_av, _av)}")
     if window:
         lines.append(f"- 조사 구간: `{window.get('start_date', '')}` ~ `{window.get('end_date', '')}`")
     lines.append("")
@@ -88,7 +68,6 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"- 카테고리: {_tag_ko(latest.get('category') or '')}")
         if latest.get("plan_title"):
             lines.append(f"- 계획서 명칭: {latest.get('plan_title')}")
-        lines.append(f"- 원문 출처: {_src_ko(latest.get('source_type', '-'))}")
         if latest.get("rcept_no"):
             lines.append(f"- 공시번호 {latest.get('rcept_no', '')}")
         if latest.get("acptno"):

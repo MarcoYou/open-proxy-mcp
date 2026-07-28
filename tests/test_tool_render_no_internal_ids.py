@@ -61,16 +61,24 @@ def test_proxy_contest_dict_covers_every_producer_value():
         assert not _SNAKE.search(v), f"{k} → {v}"
 
 
-def test_value_up_availability_dict_covers_every_producer_value():
-    from open_proxy_mcp.tools.value_up import _AVAIL_KO
-    import inspect, re as _re
-    from open_proxy_mcp.services import value_up as svc
-    src = inspect.getsource(svc)
-    produced = set(_re.findall(r'availability_status = "([a-z_]+)"', src))
-    produced |= set(_re.findall(r'availability_status\s*=\s*"[a-z_]+" if [^"]*else "([a-z_]+)"', src))
-    assert produced, "producer 값을 못 읽었다"
-    missing = produced - set(_AVAIL_KO)
-    assert not missing, f"사전에 없는 producer 값: {sorted(missing)}"
+def test_plumbing_lines_stay_out_of_the_output():
+    """번역할지 정하기 전에 「애초에 보여줄 게 맞나」를 묻는다(260728 사용자 지적).
+
+    호출 파라미터를 되돌려주는 줄·파싱 구현 세부·바로 아래 표를 보면 아는 줄은 번역 대상이
+    아니라 **삭제 대상**이다. 지우면 사전도 함께 사라져 producer 와 어긋날 일이 없다.
+    되살아나면 여기서 걸린다.
+    """
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "tools"
+    src = "\n".join(p.read_text(encoding="utf-8") for p in root.glob("*.py"))
+    for gone in ("요청한 주총 종류",        # 호출 파라미터 에코
+                 "원문 출처",              # XML/HTML 중 무엇으로 파싱했나 — 우리 사정
+                 "결과 기재 형식",          # 바로 아래 표를 보면 안다
+                 "공시 여부: ",             # 아래 공시 목록으로 자명
+                 "안건 | 카테고리 |"):      # 안건 분류 — 내부 enum 이라 독자에게 정보가 없다
+    # 반례: proxy_contest timeline 의 「카테고리」는 값이 위임장 대결/소송/5% 보고라
+    # 섞인 이벤트를 구분하는 실제 정보다 — 컬럼 이름이 아니라 **값이 정보인가**로 가른다
+        assert gone not in src, f"보여줄 필요 없는 줄이 되살아났다: {gone}"
 
 
 def test_no_tool_renders_a_raw_company_id_line():
@@ -104,3 +112,18 @@ def test_every_tool_module_imports_what_it_uses():
         src = p.read_text(encoding="utf-8")
         if "company_id_line(" in src and p.name != "_shared.py":
             assert "import" in src and "company_id_line" in src.split("def ", 1)[0], p.name
+
+
+def test_independence_dict_covers_director_evaluation_results():
+    """sub_factor `result` 는 director_evaluation 이 뱉는다. 25사 스윕엔 미성년·결격 후보가
+    없어 안 잡혔고 사전 감사(producer→사전 방향)로만 드러났다(260728).
+    """
+    import inspect, re as _re
+    from open_proxy_mcp.services import director_evaluation as de
+    from open_proxy_mcp.tools.proxy_advise_before_meeting import _INDEP_RESULT_KO
+    src = inspect.getsource(de)
+    produced = set(_re.findall(r'"result":\s*"([a-z_]+)" if [^\n]*else "([a-z_]+)"', src))
+    flat = {v for pair in produced for v in pair}
+    assert flat, "producer 값을 못 읽었다 — 테스트가 무력화됐다"
+    missing = flat - set(_INDEP_RESULT_KO)
+    assert not missing, f"사전에 없는 result 값: {sorted(missing)}"

@@ -58,6 +58,10 @@ _INDEP_RESULT_KO = {
     # 25사 스윕에서 남아 있던 값 — 사전에 없으면 영문 코드가 그대로 화면에 나온다(260728)
     "potential_long_tenure": "장기연임 가능성(임기 확인 필요)",
     "no_match": "일치 항목 없음", "ambiguous": "판별 불가",
+    # 결격 sub_factor — services/director_evaluation.py 가 result 로 뱉는다(354·383행).
+    # 사전 감사(producer→사전 방향)에서 발견, 25사 스윕엔 해당 후보가 없어 안 잡혔다(260728).
+    "minor": "⚠️미성년", "adult": "성년",
+    "red_flag": "⚠️결격 신호 있음", "clean": "결격사유 없음",
 }
 
 
@@ -148,9 +152,9 @@ _FACT_LABEL: dict[str, str] = {
 _FACT_VALUE: dict[str, str] = {
     "normal": "없음", "partial": "부분", "full": "완전",
     "not_checked": "미확인", "checked": "확인함", "skipped": "생략",
-    "first_term_or_short": "첫 임기 또는 단기", "long_tenure": "장기 재직",
+    "first_term_or_short": "첫 임기 또는 단기", 
     "reappointment": "재선임", "new": "신규 선임", "inside": "사내이사", "outside": "사외이사",
-    "audit_committee": "감사위원", "success": "성공", "partial_success": "일부 성공",
+    "audit_committee": "감사위원", "success": "성공", 
     "failed": "실패", "none": "없음", "unknown": "미상",
     "case_by_case": "사안별 판단", "mainstream": "일반 기준", "conservative": "보수적 기준",
     # 구간(band) — 엔진이 임계로 나눈 결과. 숫자 없이 영문 코드만 보이면 아무 뜻도 전달되지 않는다.
@@ -163,7 +167,7 @@ _FACT_VALUE: dict[str, str] = {
     # 이사 후보 상태
     "renewed": "재선임", "independent": "독립적", "clean": "결격사유 없음",
     "concerns": "우려 있음", "weak": "부진", "strong": "우수",
-    "single_position": "겸직 1곳", "multiple_positions": "겸직 여러 곳", "no_position": "겸직 없음",
+    "single_position": "겸직 1곳",
     # 25사 라이브 스윕에서 남아 있던 것 — 코드 값 목록에서 전수로 뽑아 채웠다(260728)
     "borderline_150_to_200": "150~200%(경계)", "borderline_50m_to_100m": "5천만~1억원(경계)",
     "normal_70_to_100": "70~100%", "ordinary_under_80": "80% 미만",
