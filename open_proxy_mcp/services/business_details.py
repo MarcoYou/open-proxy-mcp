@@ -1407,13 +1407,19 @@ _ENTITY_WIDE_FIELDS = {"geo_revenue"}
 _CANDIDATE_CONTEXT_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers"}
 _CANDIDATE_CONTEXT_DEFAULT_CHARS = 20_000
 _CANDIDATE_CONTEXT_MAX_CHARS = 60_000
+# 소절 원문 상한 — 하드코딩이 아니라 호출 파라미터다. 정보가 모자라면 호출측 AI 가 올려서 다시 부른다.
+# 기본 20,000 은 제조·서비스사를 덮는다. 금융지주는 계열사 반복으로 한 소절이 70k 를 넘는다
+# (실측: KB금융지주 재무건전성 70,710 · 미래에셋증권 영업의현황 50,584).
+SECTION_CHARS_DEFAULT = 20_000
+SECTION_CHARS_MAX = 200_000
 
 
 async def build_business_details_payload(company_query: str, period: str = "latest",
                                          fields: list[str] | None = None,
                                          bsns_year: str = "", reprt_code: str = "",
                                          context_mode: str = "strict",
-                                         context_chars: int = _CANDIDATE_CONTEXT_DEFAULT_CHARS) -> dict:
+                                         context_chars: int = _CANDIDATE_CONTEXT_DEFAULT_CHARS,
+                                         section_chars: int = SECTION_CHARS_DEFAULT) -> dict:
     """II.사업의 내용 구조화 추출 tool 진입점. 단계별 타이머(data.timings_ms)로 병목 실측.
     period 기본="latest"(사업·반기·분기 중 최신=최신 데이터). "annual"/"quarterly"로 명시 override.
     bsns_year+reprt_code 둘 다 지정 시 특정 과거 시점(시계열 추이용)을 조회 — period보다 우선."""
@@ -1431,6 +1437,10 @@ async def build_business_details_payload(company_query: str, period: str = "late
     if mode not in {"strict", "candidate"}:
         return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
                             warnings=["context_mode는 strict 또는 candidate여야 합니다"]).to_dict()
+    if not isinstance(section_chars, int) or isinstance(section_chars, bool) \
+            or not 2_000 <= section_chars <= SECTION_CHARS_MAX:
+        return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
+                            warnings=[f"section_chars는 2000~{SECTION_CHARS_MAX} 사이의 정수여야 합니다"]).to_dict()
     if mode == "candidate":
         if not isinstance(context_chars, int) or isinstance(context_chars, bool):
             return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
@@ -1634,9 +1644,9 @@ async def build_business_details_payload(company_query: str, period: str = "late
     if "product_pricing" in want:
         data["product_pricing"] = _bf.extract_product_pricing(_biz_t, _full_html, _full_region_index)
     if "revenue_mix_form" in want:
-        data["revenue_mix_form"] = _bf.extract_revenue_mix_form(_biz_t, _full_html, _full_region_index)
+        data["revenue_mix_form"] = _bf.extract_revenue_mix_form(_biz_t, _full_html, _full_region_index, section_chars)
     if "key_contracts" in want:
-        data["key_contracts"] = _bf.extract_key_contracts(_biz_t, _full_html, _full_region_index)
+        data["key_contracts"] = _bf.extract_key_contracts(_biz_t, _full_html, _full_region_index, section_chars)
     if mode == "candidate":
         candidate_field = next(iter(want))
         strict_result = data.get(candidate_field, {})
@@ -1652,13 +1662,13 @@ async def build_business_details_payload(company_query: str, period: str = "late
             }
     # D-트랙 금융·REIT 필드 = KSIC 게이트(금융권만) + content-signature. KSIC로 비금융 원천 배제.
     if "financial_ops" in want and _fin_ksic:
-        data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _biz_html, _biz_region_index)
+        data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _biz_html, _biz_region_index, section_chars)
     if "financial_soundness" in want and _fin_ksic:
-        data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _biz_html, _biz_region_index)
+        data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _biz_html, _biz_region_index, section_chars)
     # 투자부동산: 부동산(68=REIT)·보험(65=투자부동산 보유)만. 지주(64)는 primary가 영업현황이라 제외
     # (broadened 임대료/임차인 시그니처가 지주 프로즈에 과발하던 것 방지). _biz_html=II구간만(III회계표 배제).
     if "investment_property" in want and (_reit_ksic or _ind2 == "65"):
-        data["investment_property"] = _bf.extract_investment_property(_biz_t, _biz_html, _biz_region_index)
+        data["investment_property"] = _bf.extract_investment_property(_biz_t, _biz_html, _biz_region_index, section_chars)
     # 자산가치(토지·투자부동산·지분증권 원가vs공정가치)는 별도 tool asset_holdings로 이관(260720).
     # 세 축을 한 서랍장으로 묶는다. 칸막이(출처 라벨)는 남기고, 축 이름을 직접 요청한 경우에만
     # 평평한 키도 함께 남긴다 — 기본 호출에서 같은 내용이 두 번 실리지 않게.

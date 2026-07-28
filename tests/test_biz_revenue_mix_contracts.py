@@ -312,3 +312,43 @@ def test_extract_segment_items_reads_the_flat_key_not_the_bundle():
     # 묶음만 있고 평평 키가 없으면 못 읽는다 → fields=["segments"] 를 계속 명시해야 한다는 뜻
     bundled = {"data": {"revenue_breakdown": {"by_segment": flat["data"]["segments"]}}}
     assert extract_segment_items(bundled) is None
+
+
+# ── section_chars: 상한은 하드코딩이 아니라 호출 파라미터 ────────────────────────
+
+def test_cap_is_a_parameter_and_says_how_to_get_the_rest():
+    from open_proxy_mcp.services.biz_fields import _cap_markdown
+    big = {"status": "MARKDOWN", "markdown": "가" * 50_000}
+    d = _cap_markdown(big, 20_000)
+    assert len(d["markdown"]) == 20_000
+    assert d["markdown_truncated"] is True and d["markdown_full_chars"] == 50_000
+    assert "section_chars" in d["truncation_note"]          # 어떻게 더 받는지 알려준다
+    # 올리면 그만큼 더 온다
+    assert len(_cap_markdown(big, 80_000)["markdown"]) == 50_000
+    assert "markdown_truncated" not in _cap_markdown(big, 80_000)
+
+
+def test_cap_default_matches_the_service_default():
+    from open_proxy_mcp.services.biz_fields import _BIZ_MD_CAP, _cap_markdown
+    from open_proxy_mcp.services.business_details import SECTION_CHARS_DEFAULT
+    assert _BIZ_MD_CAP == SECTION_CHARS_DEFAULT
+    assert len(_cap_markdown({"markdown": "가" * 30_000})["markdown"]) == SECTION_CHARS_DEFAULT
+
+
+def test_truncation_note_is_rendered_so_the_caller_can_act_on_it():
+    from open_proxy_mcp.tools.business_details import _render as _r
+    out = _r({"status": "ok", "subject": "테스트", "data": {"report": {}, "financial_soundness": {
+        "status": "MARKDOWN", "markdown": "| BIS비율 | 15.2 |",
+        "markdown_truncated": True, "markdown_full_chars": 70_710,
+        "truncation_note": "원문 70,710자 중 앞 20,000자입니다. 뒤쪽이 필요하면 "
+                           "section_chars 를 올려 다시 조회하세요."}}})
+    assert "70,710" in out and "section_chars" in out
+
+
+def test_section_chars_out_of_range_is_rejected():
+    import asyncio
+    from open_proxy_mcp.services.business_details import build_business_details_payload
+    for bad in (0, 1_999, 200_001, "20000", True):
+        r = asyncio.run(build_business_details_payload("삼성전자", section_chars=bad))
+        assert r["status"] == "error", bad
+        assert "section_chars" in " ".join(r.get("warnings") or [])

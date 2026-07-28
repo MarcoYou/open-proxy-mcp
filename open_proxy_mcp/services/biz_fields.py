@@ -1113,16 +1113,21 @@ _REVENUE_MIX_NOT_SALES = re.compile(
 
 
 # 원문은 넘기되 페이로드는 묶는다 — 잘랐다는 사실을 숨기지 않고 필드로 알린다.
-# 실측 상한은 ~15.6k(한전KPS)라 정상 문서는 걸리지 않고, 카탈로그형 이상치만 잘린다.
+# 상한은 하드코딩이 아니라 호출 파라미터다(`section_chars`): 정보가 모자라면 호출측 AI 가
+# 올려서 다시 부를 수 있다. 기본 20,000 은 제조·서비스사 실측 상한(~15.6k 한전KPS)을 덮는다.
+# 금융지주는 계열사마다 같은 항목을 실어 한 소절이 70k 를 넘는다(KB금융지주 재무건전성).
 _BIZ_MD_CAP = 20_000
 
 
-def _cap_markdown(r: dict) -> dict:
+def _cap_markdown(r: dict, cap: int | None = None) -> dict:
+    cap = _BIZ_MD_CAP if cap is None else int(cap)
     md = r.get("markdown") or ""
-    if len(md) <= _BIZ_MD_CAP:
+    if cap <= 0 or len(md) <= cap:
         return r
-    return {**r, "markdown": md[:_BIZ_MD_CAP], "markdown_truncated": True,
-            "markdown_full_chars": len(md)}
+    return {**r, "markdown": md[:cap], "markdown_truncated": True,
+            "markdown_full_chars": len(md),
+            "truncation_note": (f"원문 {len(md):,}자 중 앞 {cap:,}자입니다. 뒤쪽이 필요하면 "
+                                f"section_chars 를 올려 다시 조회하세요.")}
 
 
 # ── 자가진단: 표가 스스로 밝힌 것만 검산한다 ────────────────────────────
@@ -1218,11 +1223,11 @@ def _mix_self_check(md: str) -> dict:
     return out
 
 
-def extract_revenue_mix_form(biz_text, html, region_index=None):
+def extract_revenue_mix_form(biz_text, html, region_index=None, max_chars=None):
     r = _cap_markdown(_field(
         biz_text, html, _REVENUE_MIX_HEAD, _REVENUE_MIX_NA, content_re=_C_REVENUE_MIX,
         region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE,
-        field="revenue_mix_form"))
+        field="revenue_mix_form"), max_chars)
     md = r.get("markdown") or ""
     if md and _REVENUE_MIX_NOT_SALES.search(md[:400]):
         # 캡션이 시공실적·매입·생산능력이면 매출표가 아니다. 값을 내지 말고 그렇게 말한다.
@@ -1247,11 +1252,11 @@ _KEY_CONTRACTS_NA = re.compile(
 )
 
 
-def extract_key_contracts(biz_text, html, region_index=None):
+def extract_key_contracts(biz_text, html, region_index=None, max_chars=None):
     return _cap_markdown(_field(
         biz_text, html, _KEY_CONTRACTS_HEAD, _KEY_CONTRACTS_NA,
         content_re=_C_KEY_CONTRACTS, region_index=region_index,
-        exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field="key_contracts"))
+        exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field="key_contracts"), max_chars)
 
 
 def extract_product_pricing(biz_text, html, region_index=None):
@@ -1354,30 +1359,30 @@ _C_IPROP_PROSE = re.compile(r"(?:임대료|임대차|임차)[^\n]{0,300}"
                             r"(?:부동산|임차|임대|투자대상|잔여임대|WALE|공실|연면적|기초자산)")
 
 
-def extract_financial_ops(biz_text, html, region_index=None):
-    return _field2(biz_text, html, _FOPS_HEAD, _C_FOPS, _SIG_FOPS, None, region_index=region_index,
-                   field="financial_ops")
+def extract_financial_ops(biz_text, html, region_index=None, max_chars=None):
+    return _cap_markdown(_field2(biz_text, html, _FOPS_HEAD, _C_FOPS, _SIG_FOPS, None,
+                                 region_index=region_index, field="financial_ops"), max_chars)
 
-def extract_financial_soundness(biz_text, html, region_index=None):
-    return _field2(biz_text, html, _FSND_HEAD, _C_FSND, _SIG_FSND, None, region_index=region_index,
-                   field="financial_soundness")
+def extract_financial_soundness(biz_text, html, region_index=None, max_chars=None):
+    return _cap_markdown(_field2(biz_text, html, _FSND_HEAD, _C_FSND, _SIG_FSND, None,
+                                 region_index=region_index, field="financial_soundness"), max_chars)
 
-def extract_investment_property(biz_text, html, region_index=None):
+def extract_investment_property(biz_text, html, region_index=None, max_chars=None):
     r = _field2(biz_text, html, _IPROP_HEAD, _C_IPROP, _SIG_IPROP, _IPROP_NA,
                 region_index=region_index)
     if r.get("status") == "MARKDOWN":
-        return r
+        return _cap_markdown(r, max_chars)
     # 지주형 REIT 표준폼 프로즈 폴백(전용헤딩·시그니처 실패 시에만 — 작동하는 REIT엔 영향 없음)
     regions = _render_biz_subsection_regions(
         html, _IPROP_HEAD_STD, content_re=_C_IPROP_PROSE, region_index=region_index,
     )
     md = "\n\n———\n\n".join(region["markdown"] for region in regions) if regions else None
     if md:
-        return {"status": "MARKDOWN", "extraction_status": "SUCCESS",
+        return _cap_markdown({"status": "MARKDOWN", "extraction_status": "SUCCESS",
                 "source": "reit_prose", "section_source": {"selection_method": "heading",
                 "matched_headings": [region["heading"] for region in regions if region.get("heading")],
                 "boundary_methods": list(dict.fromkeys(region["boundary"] for region in regions))},
-                "markdown": md}
+                "markdown": md}, max_chars)
     na = _IPROP_NA.search(biz_text) if biz_text else None
     return {"status": "NOT_APPLICABLE", "extraction_status": "NOT_APPLICABLE" if na else "NOT_COLLECTED",
             "na_reason": (_strip_tags(na.group(0))[:60] if na else "해당 소절 미검출")}

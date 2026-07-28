@@ -77,8 +77,8 @@ def _mix_lines(node: dict, h: str) -> list[str]:
             bits.append(sc["scope_note"])
         L.append(f"_자가검산: {' · '.join(bits)}_")
     L.append("\n" + node["markdown"])
-    if node.get("markdown_truncated"):
-        L.append(f"\n_(원문 {node.get('markdown_full_chars')}자 중 앞부분만 — 나머지는 DART 원문 참조)_")
+    if node.get("truncation_note"):
+        L.append(f"\n_{node['truncation_note']}_")
     return L
 
 
@@ -168,6 +168,8 @@ def _render(p: dict) -> str:
                 # 비율 분모가 내부거래 포함 단순합계인 회사가 있다.
                 L.append("> 제품별 매출 구분은 K-IFRS 기준과 다를 수 있습니다.")
             L.append("\n" + fd["markdown"])
+            if fd.get("truncation_note"):
+                L.append(f"\n_{fd['truncation_note']}_")
         elif fd.get("status") == "NEEDS_REVIEW":
             # 「해당없음」이 아니다 — 절은 찾았고 값만 못 믿는 것이다. 원문을 버리면 안 된다.
             L.append(f"\n### {label} (원문 · 검토필요)")
@@ -212,6 +214,7 @@ def register_tools(mcp):
         reprt_code: str = "",
         context_mode: str = "strict",
         context_chars: int = 20000,
+        section_chars: int = 20000,
     ) -> str:
         """desc: DART 정기보고서 **"II. 사업의 내용"**에서 사업부문별 매출·영업이익, **사업장·생산설비, 생산실적·가동률, 연구개발, 수주현황, 주요 고객·매출처, 원재료·투입원가, 제품·서비스 가격 추이**를 추출. SOTP·부문 수익성·생산능력·수주·고객집중·마진 분석의 1차 소스.
         when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `valuation`. **금융/증권/보험/지주는 `financial_ops`·`financial_soundness`, REIT/보험은 `investment_property`** 로 커버(segments 대신). **여러 분기/연도 추이**가 필요하면 `bsns_year`+`reprt_code`를 지정해 과거 시점을 하나씩 반복 호출.
@@ -222,12 +225,14 @@ def register_tools(mcp):
         reprt_code: DART 표준 보고서유형 — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). `bsns_year`와 함께 지정.
         context_mode: `strict`(기본) / `candidate`. candidate는 strict `NOT_COLLECTED`일 때만 단일 표준 필드의 저신뢰 보조 문맥을 별도 반환.
         context_chars: candidate 고정 문맥 길이(기본 20000, 최대 60000). strict에서는 사용하지 않음.
+        section_chars: 소절 원문 1개당 반환 상한(기본 20000, 2000~200000). **정보가 부족하면 올려서 다시 호출**하세요 — 응답에 `markdown_truncated`·`truncation_note`가 붙어 있으면 뒤쪽이 잘린 것입니다. 금융지주·보험은 계열사마다 같은 항목을 실어 한 소절이 크므로(실측: 재무건전성 70,710자) 계열사 전체가 필요하면 80000 이상을 권합니다. 크게 올리면 응답도 그만큼 커집니다.
         ref: financial_metrics, valuation, order_contracts, company
         """
         flist = [f.strip() for f in fields.split(",") if f.strip()] or None
         payload = await build_business_details_payload(
             company, period=period, fields=flist, bsns_year=bsns_year, reprt_code=reprt_code,
             context_mode=context_mode, context_chars=context_chars,
+            section_chars=section_chars,
         )
         if format == "json":
             return as_pretty_json(payload)
