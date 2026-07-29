@@ -15,8 +15,11 @@ from open_proxy_mcp.services.director_segment_signal import (
 SEGS = ["석유화학", "첨단소재", "생명과학", "에너지솔루션", "공통 및 기타"]
 
 
-def _cand(main_job: str, groups: list[dict] | None = None) -> dict:
-    return {"faithfulness": {"main_job": main_job, "career_company_groups": groups or []}}
+def _cand(main_job: str, careers: list[tuple[str, str]] | None = None) -> dict:
+    """(기간, 경력 원문) 목록 — 260730 부터 쪼갠 그룹이 아니라 소집공고 표 원문을 쓴다."""
+    return {"faithfulness": {
+        "main_job": main_job,
+        "career_raw": [{"period": p, "content": c} for p, c in (careers or [])]}}
 
 
 class TestMapping:
@@ -24,11 +27,9 @@ class TestMapping:
         # 260723 LG화학 김동춘 실측 케이스 — 첨단소재 라인 재직
         cand = _cand(
             "(주)LG화학 CEO 겸 첨단소재사업본부장 사장",
-            [
-                {"company": "(주)LG화학 CEO 겸 첨단소재사업", "items": ["2026~현재 본부장 사장"]},
-                {"company": "(주)LG화학 첨단소재사업", "items": ["2025~2025 본부장 부사장"]},
-                {"company": "(주)LG화학 전자소재", "items": ["2023~2024 사업부장 전무"]},
-            ],
+            [("2026~현재", "(주)LG화학 CEO 겸 첨단소재사업본부장 사장"),
+             ("2025~2025", "(주)LG화학 첨단소재사업본부장 부사장"),
+             ("2023~2024", "(주)LG화학 전자소재사업부장 전무")],
         )
         m = map_candidate_to_segment(cand, SEGS, "LG화학")
         assert m["status"] == "mapped"
@@ -38,13 +39,13 @@ class TestMapping:
     def test_company_wide_ceo_skipped(self):
         # 전사 경영(부문장류 키워드 없음) → 매핑 시도 자체 skip
         cand = _cand("(주)LG화학 대표이사 부회장",
-                     [{"company": "(주)LG화학", "items": ["2019~현재 대표이사 부회장"]}])
+                     [("2019~현재", "(주)LG화학 대표이사 부회장")])
         assert map_candidate_to_segment(cand, SEGS, "LG화학")["status"] == "no_division_career"
 
     def test_multi_segment_career_is_ambiguous(self):
         # 복수 부문 이력 → 어느 부문 실적을 붙일지 단정 불가 → skip
         cand = _cand("(주)LG화학 석유화학사업본부장",
-                     [{"company": "(주)LG화학 첨단소재사업", "items": ["2020~2022 사업본부장"]}])
+                     [("2020~2022", "(주)LG화학 첨단소재사업본부장")])
         m = map_candidate_to_segment(cand, SEGS, "LG화학")
         assert m["status"] == "ambiguous"
         assert set(m["candidates"]) == {"석유화학", "첨단소재"}
@@ -52,13 +53,13 @@ class TestMapping:
     def test_other_company_division_not_mapped(self):
         # 타사 부문장 이력은 풀에서 제외 — 이 회사 부문으로 오매핑 금지
         cand = _cand("(주)LG화학 사장",
-                     [{"company": "삼성전자 반도체사업부", "items": ["2015~2018 사업부장"]}])
+                     [("2015~2018", "삼성전자 반도체사업부장")])
         assert map_candidate_to_segment(cand, SEGS, "LG화학")["status"] == "no_division_career"
 
     def test_company_name_variant_falls_back_to_main_job(self):
         # 엘지화학 vs LG화학 표기 변형 → 회사명 매칭 0건 → main_job fallback
         cand = _cand("(주)엘지화학 첨단소재사업본부장",
-                     [{"company": "(주)엘지화학 첨단소재사업", "items": ["2024~현재 본부장"]}])
+                     [("2024~현재", "(주)엘지화학 첨단소재사업본부장")])
         texts = candidate_career_texts(cand, "LG화학")
         assert texts == ["(주)엘지화학 첨단소재사업본부장"]
         assert map_candidate_to_segment(cand, SEGS, "LG화학")["status"] == "mapped"
@@ -66,7 +67,7 @@ class TestMapping:
     def test_generic_segment_names_excluded(self):
         # '기타' 류 일반 부문명은 stopword — 오매칭 방지
         cand = _cand("(주)테스트 기타사업본부장",
-                     [{"company": "(주)테스트 기타사업", "items": ["2020~현재 본부장"]}])
+                     [("2020~현재", "(주)테스트 기타사업본부장")])
         assert map_candidate_to_segment(cand, ["기타", "공통"], "테스트")["status"] == "no_match"
 
 

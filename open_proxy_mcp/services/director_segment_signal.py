@@ -54,7 +54,7 @@ def _norm_text(text: str) -> str:
 def candidate_career_texts(candidate: dict[str, Any], company_name: str) -> list[str]:
     """후보의 '이 회사' 재직 경력 텍스트 풀.
 
-    1순위: careerDetails.content / career_company_groups 중 회사명이 포함된 항목.
+    1순위: 경력 원문(career_raw / careerDetails) 중 회사명이 포함된 항목.
     회사명 표기 변형(LG화학 vs 엘지화학)으로 매칭 0건이면 main_job fallback —
     사내이사의 main_job(현직)은 역할 정의상 이 회사 직책이다.
     """
@@ -64,20 +64,17 @@ def candidate_career_texts(candidate: dict[str, Any], company_name: str) -> list
     faith = candidate.get("faithfulness") or {}
     main_job = (faith.get("main_job") or "").strip()
 
-    # eval dict는 raw careerDetails를 안 갖는다 — faithfulness.career_company_groups가 정본.
-    # (careerDetails가 있는 다른 호출 경로도 방어적으로 지원)
-    for cd in candidate.get("careerDetails") or []:
+    # eval dict 는 raw careerDetails 를 안 갖는다 — faithfulness.career_raw 가 정본.
+    # (careerDetails 가 있는 다른 호출 경로도 방어적으로 지원)
+    # 260730: 쪼갠 career_company_groups 를 쓰던 것을 원문으로 바꿨다. 전수 비교(2,284명)에서
+    # 부문 매핑이 98.7% 동일하고, 다른 29건은 **전부 원문이 더 잡는 방향**이었다
+    # (쪼갠 쪽만 mapped = 0명). 쪼갠 company 에 붙던 부문명은 원문에 그대로 들어 있다.
+    seen: set[str] = set()
+    for cd in list(candidate.get("careerDetails") or []) + list(faith.get("career_raw") or []):
         content = (cd.get("content") or "").strip()
-        if content and own_norm and own_norm in _norm_text(content):
+        if content and own_norm and own_norm in _norm_text(content) and content not in seen:
+            seen.add(content)
             pool.append(content)
-
-    for grp in faith.get("career_company_groups") or []:
-        co = (grp.get("company") or "").strip()
-        items = [i for i in (grp.get("items") or []) if i]
-        if own_norm and own_norm in _norm_text(co):
-            # company 문자열 자체에 부문명이 붙는 형태 다수 ("(주)LG화학 첨단소재사업") — co 포함
-            pool.append(co)
-            pool.extend(items)
 
     if main_job and own_norm and own_norm in _norm_text(main_job):
         pool.append(main_job)
@@ -130,8 +127,7 @@ def has_division_career(candidates: list[dict[str, Any]]) -> bool:
         blob = " ".join(
             [faith.get("main_job") or ""]
             + [cd.get("content") or "" for cd in ev.get("careerDetails") or []]
-            + [g.get("company") or "" for g in faith.get("career_company_groups") or []]
-            + [i for g in faith.get("career_company_groups") or [] for i in (g.get("items") or [])]
+            + [cd.get("content") or "" for cd in faith.get("career_raw") or []]
         )
         if _DIVISION_CAREER_RE.search(blob):
             return True

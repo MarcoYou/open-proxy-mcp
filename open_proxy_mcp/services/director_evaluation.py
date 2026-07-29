@@ -394,32 +394,28 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
 
 # ── 충실성 — 이사 회계 risk 이력 검증 (과거 회사 × 재직 기간 × 회계 risk overlap) ──
 
-# 한국 회사명 정규식 패턴 — careerCompanyGroups company 필드에서 추출.
-# 예: "삼성전자 사외이사", "KB금융 ESG위원장", "POSCO홀딩스 부사장"
-# 한국 회사 + 직책이 한 줄로 붙어 있는 케이스 대응.
-_KOREAN_CORP_SUFFIX_RE = re.compile(
-    r"([가-힣A-Za-z0-9&\(\)]+(?:홀딩스|금융지주|증권|건설|중공업|화학|전자|반도체|"
-    r"바이오|제약|텔레콤|에너지|화공|상사|글로벌|디스플레이|자동차|생명과학)?[가-힣A-Za-z0-9]*)"
-)
+# 경력 원문 맨 앞의 회사·기관명 — 「(주)카카오 대표이사」 → 「(주)카카오」.
+# 법인 접두/접미(㈜·(주)·주식회사)는 이름의 일부라 **떼지 않는다**. 떼면 조회가 어긋난다.
+# 「現)」·「전)」 같은 시점 마커와 「-」·「·」 불릿만 앞에서 걷어낸다.
+_CAREER_LEAD_TRIM = re.compile(r"^[\s\-·•]*(?:現|현|前|전)\s*[\)\]]?\s*")
 
 
-def _extract_korean_corp_names(career_company_groups: list[dict[str, Any]] | None) -> list[str]:
-    """careerCompanyGroups → 한국 회사명 candidates list.
+def _leading_corp_name(content: str) -> str:
+    """경력 항목 원문 → 맨 앞 회사·기관명 후보(없으면 빈 문자열).
 
-    매핑: success (회사명 추출 성공) / soft-fail (정규식 실패 시 raw 그대로 노출)
+    쪼갠 company 필드로 하던 때는 「(주)카카오」가 통째로 드롭되고(실측 17.1%)
+    「대한변호사협회」가 「대한」으로 잘려 나갔다. 원문 앞머리를 그대로 쓴다.
     """
-    if not career_company_groups:
-        return []
-    names: list[str] = []
-    for grp in career_company_groups:
-        company = (grp.get("company") or "").strip()
-        if not company:
-            continue
-        # 첫 segment 추출 (콤마/공백 분리)
-        first = re.split(r"[,，\(]", company, maxsplit=1)[0].strip()
-        if first and len(first) >= 2:
-            names.append(first)
-    return names
+    s = _CAREER_LEAD_TRIM.sub("", (content or "").strip())
+    if not s:
+        return ""
+    # 첫 공백까지가 이름 — 「(주) 카카오」처럼 법인표기 뒤에 공백이 오면 한 토큰 더 붙인다.
+    parts = s.split()
+    name = parts[0]
+    if re.fullmatch(r"[\(（]?주[\)）]?|㈜|주식회사", name) and len(parts) > 1:
+        name = f"{name}{parts[1]}"
+    name = name.strip("·,，")
+    return name if len(name) >= 2 else ""
 
 
 # 등기이사(이사회 구성원) 직위 — 성과 귀속은 이 기간에만 한다.
@@ -436,8 +432,11 @@ _BOARD_ROLE_RE = re.compile(
 # 감사원·감사실·감사본부·감사팀·감사법인은 조직명이라 등기와 무관하다(실측 오탐 16%).
 # 숫자는 lookahead **안**에 둔다 — 밖에 두면 「감사2팀」에서 역행 추적이 숫자를 건너뛰어
 # 「2」를 보고 통과시킨다(조직명이 등기 감사로 오탐).
+# 앞의 한글은 막되 **상근·비상근·상임·비상임은 예외** — 「상근감사」는 상법 §409 의 감사 직위인데
+# 한글 lookbehind 가 「근」에 걸려 통째로 막혔다(260730: 동원시스템즈 오종환에서 드러남).
 _BOARD_AUDIT_RE = re.compile(
-    r"(?<![가-힣])감사(?!\s*\d*\s*(?:보고|결과|의견|인|원|실|반|팀|본부|법인|부문|위원회\s*운영))")
+    r"(?:(?<=상근)|(?<=비상근)|(?<=상임)|(?<=비상임)|(?<![가-힣]))"
+    r"감사(?!\s*\d*\s*(?:보고|결과|의견|인|원|실|반|팀|본부|법인|부문|위원회\s*운영))")
 # ↑ 「이사장」(학교법인·재단·공단)과 「CEO」는 뺐다. 상법상 등기 대상은 §317②8호가 정한
 #   사내·사외·기타비상무이사·감사·집행임원이며 CEO·이사장은 거기 없다. 대표이사는 별도로 잡힌다.
 
@@ -686,7 +685,7 @@ async def evaluate_faithfulness(
 
     Phase 1 기본:
     - dutyPlan / recommendationReason → soft-fail (raw 노출, LLM 자연어 판단)
-    - mainJob / recommender / careerCompanyGroups → success (구조화)
+    - mainJob / recommender / career_raw(경력 원문) → success
     - **concurrent_outside_directors** (Ralph 9) — 사외이사 한정, 본 회사 포함 카운트
 
     check_audit_history=True: 과거 회사 × 재직 기간 × 회계 risk overlap 자동 체크.
@@ -699,11 +698,10 @@ async def evaluate_faithfulness(
         "recommendation_reason_shared": candidate.get("recommendationReasonShared") or None,
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
-        "career_company_groups": candidate.get("careerCompanyGroups") or [],
-        # 사람에게 보여줄 것은 원문이다 — 쪼갠 결과가 아니라.
-        # 실측(소집공고 479건·후보 2,284명): 회사/직위 분리가 후보 17%에서 깨져
-        # 「UNIST 전기전자·컴퓨터공학부 부」/「교수」처럼 단어를 찢고, 분량은 원문의 2배다
-        # (후보당 중앙값 168자 vs 83자). `career_company_groups` 는 회사명 매칭용으로 남긴다.
+        # 경력은 소집공고 표 원문(기간·내용) 그대로 싣는다. 쪼갠 결과는 쓰지 않는다 —
+        # 회사/직위 분리가 후보 17%에서 깨져 「…공학부 부」/「교수」처럼 단어를 찢었고,
+        # 분량은 원문의 2배였으며(후보당 168자 vs 83자), 매칭·부문매핑 어느 쪽도
+        # 원문 대비 나은 결과를 낸 적이 없다(전수 비교 100% 동일 또는 원문 우세).
         "career_raw": [{"period": (d.get("period") or "").strip(),
                         "content": (d.get("content") or "").strip()}
                        for d in (candidate.get("careerDetails") or [])
@@ -734,22 +732,21 @@ async def evaluate_faithfulness(
     audit_history_status = "disabled"
     if check_audit_history:
         audit_history_status = "checked"
-        career_groups = candidate.get("careerCompanyGroups") or []
-
         # (corp_name, start, end) 튜플 list — 회사 + 기간 조합 모두 만들고 병렬 호출.
+        # 회사명은 **경력 원문**에서 뽑는다. 쪼갠 company 필드를 쓰던 때는
+        # ① `re.split(r"[,，\(]")` 가 「(주)카카오」처럼 `(` 로 시작하는 이름에서 빈 문자열을 내
+        #    조회 자체를 건너뛰고(실측 7,452건 중 **17.1%** 가 이렇게 사라졌다),
+        # ② 잘린 이름(「대한」·「금융」)을 DART 회사검색에 던져 유효 조회가 **27.1%** 뿐이었다.
         tasks_meta: list[tuple[str, int, int | None]] = []
-        for grp in career_groups:
-            company_raw = (grp.get("company") or "").strip()
-            if not company_raw:
+        for cd in (candidate.get("careerDetails") or []):
+            content = (cd.get("content") or "").strip()
+            if not content:
                 continue
-            first_segment = re.split(r"[,，\(]", company_raw, maxsplit=1)[0].strip()
-            corp_name_candidate = first_segment.split()[0] if first_segment else ""
-            if not corp_name_candidate or len(corp_name_candidate) < 2:
+            start, end = _parse_career_period(cd.get("period") or "")
+            if start is None:
                 continue
-            for period in (grp.get("items") or []):
-                start, end = _parse_career_period(period)
-                if start is None:
-                    continue
+            corp_name_candidate = _leading_corp_name(content)
+            if corp_name_candidate:
                 tasks_meta.append((corp_name_candidate, start, end))
 
         # asyncio.gather로 N 회사 × 기간 동시 — 속도 핵심 (코붕이 5번 지시).
@@ -788,7 +785,11 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str
         "recommendation_reason_shared": candidate.get("recommendationReasonShared") or None,
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
-        "career_company_groups": candidate.get("careerCompanyGroups") or [],
+        # async 경로와 **같은 계약**을 유지한다 — 한쪽에만 넣으면 sync 소비자가 조용히 빈다.
+        "career_raw": [{"period": (d.get("period") or "").strip(),
+                        "content": (d.get("content") or "").strip()}
+                       for d in (candidate.get("careerDetails") or [])
+                       if (d.get("content") or "").strip()],
         "audit_history_check": {"status": "disabled", "red_flags": [], "summary": "not_checked"},
         "summary": "raw_disclosed",
     }
@@ -827,34 +828,31 @@ def detect_appointment_type(
 ) -> dict[str, Any]:
     """신임/연임 자동 분류.
 
-    - 'renewed' (연임): career_company_groups에 이 회사 entry 존재 + 시작 연도 < current_year
-    - 'new' (신임): 이 회사 entry 없음 (외부 회사만)
-    - 'ambiguous': career_company_groups 비어있거나 매칭 불가
+    - 'renewed' (연임): 경력 원문에 이 회사 항목 존재 + 시작 연도 < current_year
+    - 'new' (신임): 이 회사 항목 없음 (외부 회사만)
+    - 'ambiguous': 경력 원문이 비었거나 매칭 불가
 
-    이 회사 매칭: 정규화된 회사명 (괄호/(주)/주식회사 제거)이 entry company명에 prefix/contains.
+    이 회사 매칭: 정규화된 회사명(괄호·(주)·주식회사 제거)이 경력 원문에 포함되는가.
     """
-    careers = candidate.get("careerCompanyGroups") or []
-    if not careers:
-        return {"type": "ambiguous", "reason": "career_company_groups 비어있음", "matched_entries": []}
+    # 경력 원문(기간·내용)을 그대로 본다. 쪼갠 그룹은 쓰지 않는다 —
+    # 전수 비교(후보 2,552명) 결과 type·earliest_start·board_earliest_start·
+    # outside_earliest_start·outside_ongoing·match_source 가 **100% 동일**했고,
+    # 쪼개기는 「기타비상무이사」를 「기타비」+「상무이사」로 찢는 등 어휘를 훼손했다.
+    details = candidate.get("careerDetails") or []
+    if not details:
+        return {"type": "ambiguous", "reason": "경력 원문 없음", "matched_entries": []}
 
     norm_name = _normalize_corp_name(canonical_corp_name)
     if not norm_name:
         return {"type": "ambiguous", "reason": "canonical_name 비어있음", "matched_entries": []}
 
     matched: list[dict[str, Any]] = []
-    for grp in careers:
-        co = (grp.get("company") or "").strip()
-        norm_co = _normalize_corp_name(co)
-        all_items = grp.get("items") or []
-        # ① 쪼갠 회사명으로 매칭 (기존)
-        by_company = bool(norm_co) and (norm_co.startswith(norm_name)
-                                        or norm_name in norm_co.split())
-        # ② 쪼개기가 회사명을 잘라먹었을 때 — 원문(items 에 병기)에서 회사명을 찾는다.
-        #    이때는 **회사명이 든 항목만** 쓴다(그룹 전체를 쓰면 다른 회사 기간까지 섞인다).
-        #    실측(소집공고 479건·후보 2,284명): ①만 쓰면 놓치던 것을 ②가 **159명(7%)** 회복하고,
-        #    ②로 잃는 것은 **0명**이다. 그래서 ①을 유지한 채 더한다.
-        items = all_items if by_company else [
-            it for it in all_items if norm_name in _normalize_corp_name(str(it))]
+    for cd in details:
+        content = (cd.get("content") or "").strip()
+        if not content or norm_name not in _normalize_corp_name(content):
+            continue
+        co = content
+        items = [f"{(cd.get('period') or '').strip()} {content}".strip()]
         if items:
             # 시작 연도 추출 (가장 빠른 시작 연도) + 진행중(현재) 재직 여부
             earliest = None
@@ -896,11 +894,11 @@ def detect_appointment_type(
             })
 
     if not matched:
-        # career_company_groups에서 가장 오래된 연도 추출 (회사명 mismatch라도 어느 entry든 시작 연도 사용)
+        # 경력 원문에서 가장 오래된 연도 추출 (회사명 mismatch라도 어느 항목이든 시작 연도 사용)
         # — fallback case에서 performance tenure 추정용
         fallback_earliest = None
-        for grp in careers:
-            for it in (grp.get("items") or []):
+        for cd in details:
+            for it in [f"{(cd.get('period') or '').strip()} {(cd.get('content') or '').strip()}".strip()]:
                 start, _end = _parse_career_period(str(it))
                 if start is not None and (fallback_earliest is None or start < fallback_earliest):
                     fallback_earliest = start

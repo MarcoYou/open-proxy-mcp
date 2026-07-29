@@ -223,28 +223,39 @@ def test_not_evaluated_renders_without_none_values():
     assert "평가하지 않음" in out and "사업연도가 부족" in out
 
 
-def test_company_match_falls_back_to_the_raw_career_text():
-    """쪼갠 회사명이 잘려도 원문으로 이 회사 재직을 잡는다.
+def test_company_match_reads_the_raw_career_text():
+    """이 회사 재직 매칭은 **경력 원문**으로 한다 — 쪼갠 회사명은 쓰지 않는다.
 
-    `_split_company_role` 이 첫 직책 키워드에서 자르느라 회사명이 사라지는 경우가 있다.
-    실측(소집공고 479건·후보 2,284명): 원문 보강으로 **159명(7%)** 회복, 손실 **0명**.
-    그중 153명이 renewed 로 바로잡혔다 — 연임인데 신임으로 분류돼 성과·장기연임 검증을
-    통째로 건너뛰던 사람들이다.
-    회복 경로에서는 **회사명이 든 항목만** 쓴다(그룹 전체를 쓰면 다른 회사 기간이 섞인다).
+    260730 전수 비교(후보 2,552명): 쪼갠 그룹을 빼고 원문만 써도 type·earliest_start·
+    board_earliest_start·outside_earliest_start·match_source 가 100% 동일했다.
+    반대로 쪼개기는 「기타비상무이사」를 「기타비」+「상무이사」로, 「검사장」을 「사장」으로
+    찢어 판정 어휘 자체를 훼손했다.
+    회사명이 든 항목만 이 회사 재직으로 센다(다른 회사 기간이 섞이면 안 된다).
     """
     from open_proxy_mcp.services.director_evaluation import detect_appointment_type
-    cand = {"name": "박기덕", "careerCompanyGroups": [{
-        # 쪼개기가 회사명을 못 남긴 그룹 — items 원문에는 들어 있다
-        "company": "케이지그린텍㈜ 기타비상무",
-        "items": ["2024 ~ 현재 케이지그린텍㈜ 기타비상무이사고려아연㈜ 사장",
-                  "2019 ~ 2021 무관회사㈜ 상무"]}]}
+    cand = {"name": "박기덕", "careerDetails": [
+        {"period": "2024 ~ 현재", "content": "케이지그린텍㈜ 기타비상무이사고려아연㈜ 사장"},
+        {"period": "2019 ~ 2021", "content": "무관회사㈜ 상무"}]}
     r = detect_appointment_type(cand, "고려아연", 2026)
     assert r["type"] == "renewed", r
     assert r["matched_entries"], "원문에 회사명이 있으면 매칭돼야 한다"
-    # 회사명이 없는 항목(무관회사 2019)은 이 회사 재직으로 세지 않는다
-    assert r["earliest_start"] == 2024, r
+    assert r["earliest_start"] == 2024, r   # 무관회사 2019 는 세지 않는다
 
 
+def test_leading_corp_name_keeps_the_whole_name():
+    r"""회사명 추출은 원문 앞머리를 통째로 — 쪼갠 필드를 쓰던 때는 이름이 잘리거나 사라졌다.
+
+    실측: `re.split(r"[,，\(]")` 가 「(주)카카오」에서 빈 문자열을 내 **17.1%** 가 조회에서
+    통째로 빠졌고, 「대한변호사협회」→「대한」·「금융위원회」→「금융」으로 잘려 DART 회사검색
+    유효 조회가 27.1% 뿐이었다.
+    """
+    from open_proxy_mcp.services.director_evaluation import _leading_corp_name as f
+    assert f("(주)카카오 대표이사") == "(주)카카오"
+    assert f("(주) 풀무원 사외이사") == "(주)풀무원"     # 법인표기 뒤 공백
+    assert f("㈜광무 사내이사") == "㈜광무"
+    assert f("대한변호사협회 부회장") == "대한변호사협회"
+    assert f("현) ㈜애셔코퍼레이션 대표이사") == "㈜애셔코퍼레이션"   # 시점 마커 제거
+    assert f("") == "" and f("- ") == ""
 def test_interim_diff_reports_board_changes_only():
     """직전 사업보고서 이후 변동도 **이사회(등기)만** 싣는다.
 
