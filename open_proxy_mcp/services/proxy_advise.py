@@ -2602,8 +2602,32 @@ async def build_proxy_advise_payload(
         # earliest_start None (career detect fail) 시 default 5년 fallback (낮은 정확도)
         for ev in inside_renewed_candidates:
             apt = ev.get("appointment_type") or {}
-            earliest = apt.get("earliest_start") or (target_year - 5)  # fallback: 5년
-            tenure_years = list(range(earliest, target_year + 1))
+            # 성과 귀속은 **등기이사였던 기간**에만 한다 — 비등기 집행임원 시절의 전사 지표를
+            # 개인에게 물으면 안 된다(260729: 김동춘은 2018~2025 가 비등기 본부장이고 2026 에
+            # CEO 로 등기됐는데 「재직 2018~2026(9년)」으로 9년치 ROE 를 귀속했다).
+            board_start = apt.get("board_earliest_start")
+            if board_start is None:
+                # 등기 이력을 못 찾았다 — 성과 매트릭스를 돌리지 않고 그렇게 말한다.
+                ev["performance"] = {
+                    "classification": "not_evaluated",
+                    "rationale": "등기이사 재직 이력을 확인하지 못해 재직 중 성과를 평가하지 않았습니다 "
+                                 "— 소집공고 세부경력에서 이사회 구성원 재직 기간을 직접 확인하세요.",
+                    "tenure_period": None,
+                }
+                continue
+            # 등기 첫 해는 취임 전 실적이라 본인 성과가 아니다 — 최소 2개 사업연도를 요구한다.
+            # (260729 실측 25사: 이에 해당하는 후보는 김동춘 1건. 취임 연도 1년으로 「저조」가
+            #  나왔는데, 그 해 실적은 전임 경영진의 것이다.)
+            if target_year - board_start < 2:
+                ev["performance"] = {
+                    "classification": "not_evaluated",
+                    "rationale": (f"등기이사 재직이 {board_start}년부터라 평가할 사업연도가 부족합니다"
+                                  " — 취임 연도 실적은 본인 성과로 보기 어렵습니다."),
+                    "tenure_period": None,
+                    "board_start_year": board_start,
+                }
+                continue
+            tenure_years = list(range(board_start, target_year + 1))
             ev["performance"] = compute_performance(
                 tenure_years=tenure_years,
                 roe_yearly=roe_yearly,
@@ -2614,9 +2638,11 @@ async def build_proxy_advise_payload(
                 capital_impairment_status=capital_impairment_status,
                 operating_margin_yearly=op_margin_yearly,
             )
-            if not apt.get("earliest_start"):
-                ev["performance"]["tenure_fallback"] = True
-                ev["performance"]["rationale"] = "(재직 시작 detect fail — 5년 default) " + ev["performance"].get("rationale", "")
+            # 등기 시작이 회사 근무 시작보다 늦으면 그 사실을 밝힌다(오해 방지)
+            if apt.get("earliest_start") and apt["earliest_start"] < board_start:
+                ev["performance"]["tenure_note"] = (
+                    f"이 회사 근무는 {apt['earliest_start']}년부터이나 **등기이사 재직은 "
+                    f"{board_start}년부터**입니다 — 성과는 등기 기간만 반영했습니다.")
             # 수주 시그널 — 회사 공통 별도 fact (점수 미반영). 적자기업 미래 매출 가시성 참고용.
             # 체결 0·해지만 있는 회사(종근당홀딩스 등)도 해지가 부정 시그널이므로 포함.
             if order_signal and (order_signal.get("order_count") or order_signal.get("terminated_count")):

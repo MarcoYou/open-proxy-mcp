@@ -285,7 +285,9 @@ def _render(payload: dict[str, Any]) -> str:
     fin_ref_note = f" (재무 reference: FY{fin_ref})" if fin_ref else ""
     _mt = data.get("selected_meeting_type") or data.get("meeting_type")
     _mt_ko = {"annual": "정기", "extraordinary": "임시"}.get(_mt, _mt)
-    lines.append(f"- 회차: {data.get('year')}년 **{_mt_ko}**주총{fin_ref_note}")
+    # 값이 없으면 「None주총」이 찍힌다 — 모르면 종류를 말하지 않는다.
+    _head = f"{_mt_ko}주총" if _mt_ko else "주주총회"
+    lines.append(f"- 회차: {data.get('year')}년 **{_head}**{fin_ref_note}")
     year_resolution = data.get("year_resolution") or {}
     if year_resolution.get("basis"):
         lines.append(f"- 회차 선택 근거: {year_resolution['basis']}")
@@ -455,11 +457,17 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(f"- 과거 회사 회계 risk 이력 (raw): {len(ah_red)}건 발견 — 본문 raw 메모 검토")
             # 사내이사 재직 중 성과 (ralph 260505) — 사내이사 + renewed에만 부착됨
             perf = c.get("performance") or {}
-            if perf.get("classification"):
+            if perf.get("classification") == "not_evaluated":
+                # 평가를 안 한 것이지 「저조」가 아니다 — 점수·기간을 None 으로 찍지 않는다.
+                lines.append(f"- **재직 중 성과**: 평가하지 않음 — "
+                             f"{perf.get('rationale') or '등기이사 재직 이력을 확인하지 못했습니다.'}")
+            elif perf.get("classification"):
                 cls = perf.get("classification", "n/a")  # 영문 키 — 이모지 매핑용
                 cls_ko = perf.get("classification_ko") or cls  # 한글 표시
                 cls_emoji = {"good": "🟢", "moderate": "🟡", "weak": "🟠", "bad": "🔴"}.get(cls, "")
                 lines.append(f"- **재직 중 성과**: {cls_emoji} **{cls_ko}** (총점 {perf.get('total_score')}/12, 재직 {perf.get('tenure_period', '-')})")
+                if perf.get("tenure_note"):
+                    lines.append(f"  - {perf['tenure_note']}")
                 m = perf.get("matrix", {}) or {}
                 roe = m.get("roe", {}) or {}
                 lev = m.get("leverage", {}) or {}

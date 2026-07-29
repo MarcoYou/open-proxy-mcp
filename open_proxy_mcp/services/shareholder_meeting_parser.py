@@ -3274,9 +3274,15 @@ def _build_career_company_groups(career_details: list[dict]) -> list[dict]:
 
         if company not in groups:
             groups[company] = []
+        # 원문(content)을 함께 남긴다 — 회사/직위 분리가 직위 앞부분을 회사명 쪽으로 가져가는
+        # 경우가 있어(「(주)LG화학 CEO 겸 첨단소재사업」/「본부장 사장」) 잘린 role 만 보면
+        # 등기 직위 판별이 실패한다(260729: CEO 를 못 봐 성과 귀속이 9년으로 늘어났다).
         item = f"{period} {role}".strip() if period else role
+        full = f"{period} {content}".strip() if period else content
         if item:
             groups[company].append(item)
+        if full and full != item:
+            groups[company].append(full)
 
     return [{"company": k, "items": v} for k, v in groups.items()]
 

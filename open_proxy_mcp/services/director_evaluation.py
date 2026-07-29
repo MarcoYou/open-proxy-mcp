@@ -422,6 +422,25 @@ def _extract_korean_corp_names(career_company_groups: list[dict[str, Any]] | Non
     return names
 
 
+# 등기이사(이사회 구성원) 직위 — 성과 귀속은 이 기간에만 한다.
+# 「상무이사·전무이사」는 등기일 수 있어 포함하고, 「상무·전무·부사장·본부장」 단독은 집행임원이다.
+# 실측(캐시 소집공고 479건): 경력 블록 103건 중 33건(32%)에서 등기 최초연도가 전체 최초연도보다
+# 3년 이상 늦다 — 드문 케이스가 아니다.
+_BOARD_ROLE_RE = re.compile(
+    r"대표이사|사내이사|사외이사|기타비상무이사|비상무이사|감사위원|이사회\s*의장|이사장"
+    r"|상무이사|전무이사|부사장이사|CEO|C\.E\.O"
+)
+# 「감사」는 「감사보고」·「감사결과」 같은 안건 문구와 겹쳐 단독으로는 쓰지 않는다.
+_BOARD_AUDIT_RE = re.compile(r"(?<![가-힣])감사(?!\s*(?:보고|결과|의견|인|위원회\s*운영))")
+
+
+def _is_board_role(text: str) -> bool:
+    """경력 항목이 **등기이사** 재직인가(집행임원 제외)."""
+    if not text:
+        return False
+    return bool(_BOARD_ROLE_RE.search(text) or _BOARD_AUDIT_RE.search(text))
+
+
 def _parse_career_period(period: str) -> tuple[int | None, int | None]:
     """careerDetails.period → (start_year, end_year). "현재" → None (current).
 
@@ -826,6 +845,7 @@ def detect_appointment_type(
             #   감사 item만 센다. 임직원 career는 이 키워드가 없어 자연히 제외 → over-count 제거.
             outside_earliest = None
             outside_ongoing = False
+            board_earliest = None
             for it in items:
                 s = str(it)
                 start, end = _parse_career_period(s)
@@ -838,9 +858,17 @@ def detect_appointment_type(
                         outside_earliest = start
                     if start is not None and end is None:
                         outside_ongoing = True
+                # 🔴 **등기이사** 재직만 — 성과 귀속은 이사회 구성원이었던 기간에만 해야 한다.
+                #    260729: 김동춘(LG화학)은 2018~2025 가 비등기 집행임원(상무·전무·부사장·
+                #    본부장)이고 2026 에 CEO 로 등기됐는데, 전체 최초연도 2018 을 잡아
+                #    「재직 2018~2026(9년)」의 전사 ROE·부채비율을 개인에게 귀속했다.
+                if _is_board_role(s):
+                    if start is not None and (board_earliest is None or start < board_earliest):
+                        board_earliest = start
             matched.append({
                 "company_in_career": co,
                 "earliest_start": earliest,
+                "board_earliest_start": board_earliest,     # 🔴 등기이사 재직만 (성과 귀속용)
                 "outside_earliest_start": outside_earliest,  # 🔴 사외이사 재직만 (장기연임 판정용)
                 "outside_ongoing": outside_ongoing,
                 "items_count": len(items),
@@ -889,12 +917,18 @@ def detect_appointment_type(
 
     # 시작 연도 기준 — 과거 (current_year 이전) 시작이면 연임
     earliest_overall = min((m["earliest_start"] for m in matched if m["earliest_start"] is not None), default=None)
+    # 성과 귀속 전용 — 등기이사였던 기간의 최초 연도(없으면 None → 성과 매트릭스 미실행)
+    board_earliest_overall = min(
+        (m["board_earliest_start"] for m in matched
+         if isinstance(m, dict) and m.get("board_earliest_start") is not None),
+        default=None)
     if earliest_overall is not None and earliest_overall < current_year:
         return {
             "type": "renewed",
             "reason": f"이 회사 재직 이력 {len(matched)}건 (최초 {earliest_overall}년)",
             "matched_entries": matched,
             "earliest_start": earliest_overall,
+            "board_earliest_start": board_earliest_overall,
         }
     if earliest_overall is not None and earliest_overall >= current_year:
         return {
@@ -902,6 +936,7 @@ def detect_appointment_type(
             "reason": f"이 회사 entry 있으나 모두 미래 시작 ({earliest_overall}~)",
             "matched_entries": matched,
             "earliest_start": earliest_overall,
+            "board_earliest_start": board_earliest_overall,
         }
     # entry 있는데 시작 연도 미상 — ambiguous
     return {"type": "ambiguous", "reason": "이 회사 entry 있으나 시작 연도 미상", "matched_entries": matched}
