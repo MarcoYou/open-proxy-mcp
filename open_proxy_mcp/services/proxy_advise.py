@@ -2611,10 +2611,10 @@ async def build_proxy_advise_payload(
                 # 등기 이력이 없다 — 왜 없는지에 따라 뜻이 전혀 다르므로 갈라서 말한다.
                 # (260729: 하나로 뭉뚱그리면 「확정된 신임」과 「파싱 실패」가 구분되지 않는다.)
                 if src.get("note", "").startswith("임원현황에 미등기"):
-                    why = (f"직전 사업보고서({src.get('fiscal_year')}년) 임원현황에 "
-                           "미등기임원으로만 올라 있어, 등기이사로 재직한 기간이 없습니다.")
+                    why = (f"{src.get('source')} 임원현황에 미등기임원으로만 올라 있어, "
+                           "등기이사로 재직한 기간이 없습니다.")
                 elif not (apt.get("matched_entries") or []):
-                    why = ("소집공고 세부경력에서 이 회사 재직 이력을 찾지 못했고 직전 사업보고서 "
+                    why = ("소집공고 세부경력에서 이 회사 재직 이력을 찾지 못했고 직전 정기보고서 "
                            "임원현황에도 없습니다 — 신규 선임이거나 경력 표기가 달라 대조되지 않았습니다.")
                 else:
                     why = ("이 회사 재직 이력은 있으나 등기이사 재직 시점을 확정할 근거가 없습니다 "
@@ -2654,9 +2654,16 @@ async def build_proxy_advise_payload(
                     f"이 회사 근무는 {apt['earliest_start']}년부터이나 **등기이사 재직은 "
                     f"{board_start}년부터**입니다 — 성과는 등기 기간만 반영했습니다.")
             # 등기 기간의 출처를 밝힌다 — 정형 데이터인지 경력란 추정인지에 따라 신뢰도가 다르다.
-            if src.get("director_type"):
+            if src.get("rejected_start"):
+                # 게이트가 정형 값을 버렸다 — 지금 쓰는 시작연도는 소집공고 추정이다.
+                # 임원현황 재직기간을 그대로 찍으면 그걸 쓴 것처럼 읽힌다.
                 ev["performance"]["tenure_source"] = (
-                    f"{src['fiscal_year']}년 사업보고서 임원현황 기준 「{src['director_type']}」"
+                    f"소집공고 세부경력 추정 — {src.get('source')} 임원현황의 재직기간"
+                    + (f"({src['tenure_raw']})" if src.get("tenure_raw") else "")
+                    + "은 근속연수로 보여 쓰지 않았습니다.")
+            elif src.get("director_type"):
+                ev["performance"]["tenure_source"] = (
+                    f"{src.get('source')} 임원현황 기준 「{src['director_type']}」"
                     + (f" · 재직기간 {src['tenure_raw']}" if src.get("tenure_raw") else ""))
             else:
                 ev["performance"]["tenure_source"] = (

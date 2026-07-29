@@ -103,6 +103,102 @@ def test_tenure_field_formats_seen_in_real_filings():
         assert f(raw, 2025)[0] == want, (raw, f(raw, 2025))
 
 
+def test_roster_sources_go_from_freshest_to_oldest():
+    """roster 사다리는 **신선한 것부터** 시도하고 없으면 내려간다.
+
+    FY(N-1) 사업보고서가 1순위다. 소집공고(중앙값 3/13)보다 늦게 나오지만(3/23),
+    「누가 언제 등기됐나」는 그때 이미 주총결과 공시로 공개된 사실이라 look-ahead 가 아니다
+    — 감사 전이라 그때 알 수 없는 재무제표(`fin_year = target_year - 2`)와는 다르다.
+    없으면 빈 응답이 오고 분기·반기(분기 종료 후 45일 제출)로 내려간다.
+    FY(N-2)는 최후여야 한다 — 오래된 스냅샷일수록 그 뒤 승진분을 놓친다.
+    """
+    from open_proxy_mcp.services.director_evaluation import _ROSTER_SOURCES
+    assert _ROSTER_SOURCES[0][:2] == (1, "11011"), "FY(N-1) 사업보고서가 1순위"
+    backs = [b for b, *_ in _ROSTER_SOURCES]
+    assert backs == sorted(backs), "오래된 사업연도가 앞에 오면 안 된다"
+    assert _ROSTER_SOURCES[-1][0] == 2, "FY(N-2)는 최후 rung"
+    # 각 rung 의 기준일 월이 그 보고서와 맞아야 개월 역산이 정확하다
+    for _back, code, _label, ref_month in _ROSTER_SOURCES:
+        assert ref_month == {"11011": 12, "11014": 9, "11012": 6, "11013": 3}[code]
+
+
+def test_old_snapshot_must_not_declare_no_board_service():
+    """FY(N-2) 스냅샷으로 「등기 재직 없음」을 단정하면 안 된다 — 그 뒤 승진해 등기됐을 수 있다.
+
+    실측 등기 190행 중 28행(14.7%)이 직전 1년 내 시작이다.
+    """
+    from open_proxy_mcp.services.director_evaluation import apply_roster_board_tenure
+    roster = {"홍길동": [{"birth": (1970, 3), "director_type": "미등기임원", "tenure": "6년"}]}
+    cand = {"name": "홍길동", "birthDate": "1970-03-01"}
+    old = {"appointment_type": {"type": "renewed", "board_earliest_start": 2011}}
+    apply_roster_board_tenure(old, cand, roster, 2024, can_confirm_unregistered=False)
+    assert old["appointment_type"]["board_earliest_start"] == 2011, "추정을 지우면 안 된다"
+    assert "이후 변동 가능" in old["appointment_type"]["board_tenure_source"]["note"]
+    fresh = {"appointment_type": {"type": "renewed", "board_earliest_start": 2011}}
+    apply_roster_board_tenure(fresh, cand, roster, 2025, can_confirm_unregistered=True)
+    assert fresh["appointment_type"]["board_earliest_start"] is None  # 최신이면 확정
+
+
+def test_unknown_registration_wording_is_not_read_as_unregistered():
+    """「등기」·「집행임원」처럼 해석 못 하는 표기를 「미등기 확정」으로 내면 안 된다."""
+    from open_proxy_mcp.services.director_evaluation import apply_roster_board_tenure
+    for wording in ("등기", "집행임원"):
+        ev = {"appointment_type": {"type": "renewed", "board_earliest_start": 2015}}
+        apply_roster_board_tenure(
+            ev, {"name": "홍길동", "birthDate": "1970-03-01"},
+            {"홍길동": [{"birth": (1970, 3), "director_type": wording, "tenure": "5년"}]}, 2025)
+        note = ev["appointment_type"]["board_tenure_source"]["note"]
+        assert "확정하지 못했" in note, (wording, note)
+        assert ev["appointment_type"]["board_earliest_start"] == 2015
+
+
+def test_tenure_that_implies_an_implausible_age_is_rejected():
+    """「재직기간」에 입사 근속을 적는 회사가 있다 — 취임연령이 비상식적이면 시작연도를 버린다.
+
+    실측 30사 등기 190행: 취임연령 30세 미만 11행(5.8%), 최악은 **19세 전무이사**.
+    같은 회사 미등기 상무·전무도 「18년」·「19년」을 쓴다 = 근속연수다.
+    날짜형도 안전하지 않다(넥센타이어 「1990.05.28~」 = 그해 24세).
+    이걸 등기 기간으로 쓰면 비등기 시절을 개인에게 묻는 **원래 버그를 더 크게 재도입**한다.
+    """
+    from open_proxy_mcp.services.director_evaluation import apply_roster_board_tenure
+    ev = {"appointment_type": {"type": "renewed", "board_earliest_start": None}}
+    apply_roster_board_tenure(
+        ev, {"name": "윤성임", "birthDate": "1971-01-01"},
+        {"윤성임": [{"birth": (1971, 1), "director_type": "사내이사", "tenure": "35년"}]}, 2025)
+    apt = ev["appointment_type"]
+    assert apt["board_earliest_start"] is None, "19세 취임은 채택하면 안 된다"
+    assert apt["board_tenure_source"]["rejected_start"] == 1990
+    assert "19세" in apt["board_tenure_source"]["note"]
+
+
+def test_earliest_of_multiple_board_rows_wins():
+    """등기 행이 여럿이면 **가장 이른** 시작을 쓴다 — 성과 귀속은 등기 기간 전체다."""
+    from open_proxy_mcp.services.director_evaluation import apply_roster_board_tenure
+    ev = {"appointment_type": {"type": "renewed", "board_earliest_start": None}}
+    apply_roster_board_tenure(
+        ev, {"name": "홍길동", "birthDate": "1965-05-01"},
+        {"홍길동": [{"birth": (1965, 5), "director_type": "사내이사", "tenure": "2020.03.20~"},
+                   {"birth": (1965, 5), "director_type": "기타비상무이사", "tenure": "2012.03.15~"}]},
+        2025)
+    assert ev["appointment_type"]["board_earliest_start"] == 2012
+
+
+def test_month_arithmetic_respects_the_report_cutoff_date():
+    """개월 역산은 기준일 월을 따라야 한다 — 3분기(9/30)와 사업보고서(12/31)는 다르다."""
+    from open_proxy_mcp.services.director_evaluation import _roster_board_start_year as f
+    # 사업보고서 2025 (기준 2025-12): 46개월 전 = 2022-02
+    assert f("46개월", 2025, 12)[0] == 2022
+    assert f("10개월", 2025, 12)[0] == 2025          # 2025-02
+    assert f("13개월", 2025, 12)[0] == 2024          # 2024-11
+    # 3분기보고서 2025 (기준 2025-09): 같은 값이라도 한 해 앞선다
+    assert f("46개월", 2025, 9)[0] == 2021           # 2021-11
+    assert f("10개월", 2025, 9)[0] == 2024           # 2024-11
+    assert f("9개월", 2025, 9)[0] == 2024            # 2024-12
+    assert f("3개월", 2025, 9)[0] == 2025            # 2025-06
+    # 날짜형(실측 58%)은 기준일과 무관하게 원문 그대로
+    assert f("2019.01.01~", 2025, 9)[0] == 2019
+
+
 def test_roster_absence_does_not_overwrite_the_notice_estimate():
     """임원현황에 없으면(신임·매칭 실패) 추정을 덮지 않는다 — 침묵 삭제 금지."""
     from open_proxy_mcp.services.director_evaluation import apply_roster_board_tenure
