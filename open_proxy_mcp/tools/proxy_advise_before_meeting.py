@@ -119,6 +119,7 @@ _FACT_LABEL: dict[str, str] = {
     "fy_current_total_equity_krw": "당기 자본총계",
     "fy_prior_net_income_krw_dart": "전기 순이익(DART 기준)",
     "fy_raw_extraction_status": "본문 추출 상태", "fy_raw_scope": "본문 추출 범위",
+    "fy_raw_cross_check": "본문↔확정 재무제표 검산",
     # 배당
     "payout_ratio_pct": "배당성향(%)", "payout_ratio_band": "배당성향 구간",
     # 보수한도

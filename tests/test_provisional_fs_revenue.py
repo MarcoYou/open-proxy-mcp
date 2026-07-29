@@ -55,3 +55,33 @@ def test_insurance_revenue_is_kept():
 def test_non_revenue_rows_never_match():
     for a in ("매출원가", "매출총이익", "판매비와 관리비", "자산총계", "부채총계"):
         assert not _matches(a), a
+
+
+def test_cross_check_catches_the_mis_parsed_revenue():
+    """소집공고는 사업보고서보다 먼저 나오므로 **본문 전기 = API 당기**다 — 서로 검산이 된다.
+
+    260729 실측: 파서가 「Ⅳ. 기타영업수익」을 매출로 잡았을 때 이 비율이 0.03 이었다.
+    정상 20사에서는 14곳이 비율 1.00, 오탐 0건.
+    """
+    from open_proxy_mcp.services.proxy_advise import _cross_check_provisional_revenue as chk
+    api = {"revenue_krw": 48_916_104_000_000}          # LG화학 FY2024 확정치
+    ok = chk({"fy_prior_revenue_krw": 48_699_754_000_000}, api)
+    assert ok and "일치" in ok, ok
+    bug = chk({"fy_prior_revenue_krw": 1_480_020_000_000}, api)   # 기타영업수익을 잡았을 때
+    assert bug and "어긋납니다" in bug and "0.03배" in bug, bug
+
+
+def test_cross_check_stays_silent_without_both_sides():
+    from open_proxy_mcp.services.proxy_advise import _cross_check_provisional_revenue as chk
+    assert chk(None, {"revenue_krw": 1}) is None
+    assert chk({"fy_prior_revenue_krw": 1}, None) is None
+    assert chk({}, {"revenue_krw": 1}) is None
+    assert chk({"fy_prior_revenue_krw": 1}, {}) is None
+
+
+def test_cross_check_tolerates_audit_adjustment():
+    """감사 전/후 조정으로 몇 % 어긋나는 것은 정상이다(남광토건 실측 1.09배)."""
+    from open_proxy_mcp.services.proxy_advise import _cross_check_provisional_revenue as chk
+    for r in (0.75, 0.9, 1.0, 1.09, 1.35):
+        out = chk({"fy_prior_revenue_krw": int(1e12 * r)}, {"revenue_krw": int(1e12)})
+        assert "일치" in out, (r, out)

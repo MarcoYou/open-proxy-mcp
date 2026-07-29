@@ -1162,6 +1162,27 @@ def _decide_director_compensation(
 _decide_compensation = _decide_director_compensation
 
 
+def _cross_check_provisional_revenue(fy_raw: dict[str, Any] | None,
+                                     fin_summary: dict[str, Any] | None) -> str | None:
+    """소집공고 본문 잠정 재무제표를 DART API 확정치로 검산한다.
+
+    소집공고는 사업보고서보다 먼저 나오므로(실측 88곳 중 78곳, 중앙 7일) 본문의 당기는
+    API 에 아직 없다. 대신 **본문의 전기 = API 의 당기**라 이 둘을 맞대면 파싱이 맞는지 알 수 있다.
+    값을 고치지는 않는다 — 어긋나면 그렇게 말할 뿐이다(호출측이 원문을 보게).
+    """
+    if not fy_raw or not fin_summary:
+        return None
+    prior = fy_raw.get("fy_prior_revenue_krw")
+    api_cur = fin_summary.get("revenue_krw")
+    if not prior or not api_cur:
+        return None
+    ratio = prior / api_cur
+    if 0.7 <= ratio <= 1.4:
+        return "본문 전기 매출이 확정 재무제표와 일치 — 본문 파싱 정상"
+    return (f"본문 전기 매출({prior / 1e12:.2f}조)이 확정 재무제표({api_cur / 1e12:.2f}조)와 "
+            f"{ratio:.2f}배 어긋납니다 — 본문 파싱을 신뢰하지 마시고 원문을 확인하세요")
+
+
 def _decide_audit_compensation(
     comp_payload: dict[str, Any] | None,
     fin_metrics_payload: dict[str, Any] | None = None,
@@ -1785,6 +1806,13 @@ def _extract_facts(
                     facts[k] = v
             facts["fy_raw_extraction_status"] = fy_raw_from_agenda.get("extraction_status")
             facts["fy_raw_scope"] = fy_raw_from_agenda.get("scope_used")
+            # 본문의 **전기**와 DART API 의 **당기**는 같은 해다(소집공고가 사업보고서보다
+            # 먼저 나오므로 한 해 어긋난다 — 실측 88곳 중 78곳). 그래서 서로 검산이 된다.
+            # 260729: 파서가 「Ⅳ. 기타영업수익」을 매출로 잡았을 때 이 비율이 0.03 이었다.
+            # 실측 20사에서 정상 케이스는 14곳이 비율 1.00, 오탐 0건.
+            _chk = _cross_check_provisional_revenue(fy_raw_from_agenda, fin_summary)
+            if _chk:
+                facts["fy_raw_cross_check"] = _chk
     elif category == "cash_dividend":
         facts["payout_ratio_pct"] = fin_summary.get("payout_ratio_pct")
         facts["payout_ratio_band"] = _payout_ratio_band(fin_summary.get("payout_ratio_pct"))
