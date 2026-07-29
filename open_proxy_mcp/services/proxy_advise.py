@@ -2606,12 +2606,22 @@ async def build_proxy_advise_payload(
             # 개인에게 물으면 안 된다(260729: 김동춘은 2018~2025 가 비등기 본부장이고 2026 에
             # CEO 로 등기됐는데 「재직 2018~2026(9년)」으로 9년치 ROE 를 귀속했다).
             board_start = apt.get("board_earliest_start")
+            src = apt.get("board_tenure_source") or {}
             if board_start is None:
-                # 등기 이력을 못 찾았다 — 성과 매트릭스를 돌리지 않고 그렇게 말한다.
+                # 등기 이력이 없다 — 왜 없는지에 따라 뜻이 전혀 다르므로 갈라서 말한다.
+                # (260729: 하나로 뭉뚱그리면 「확정된 신임」과 「파싱 실패」가 구분되지 않는다.)
+                if src.get("note", "").startswith("임원현황에 미등기"):
+                    why = (f"직전 사업보고서({src.get('fiscal_year')}년) 임원현황에 "
+                           "미등기임원으로만 올라 있어, 등기이사로 재직한 기간이 없습니다.")
+                elif not (apt.get("matched_entries") or []):
+                    why = ("소집공고 세부경력에서 이 회사 재직 이력을 찾지 못했고 직전 사업보고서 "
+                           "임원현황에도 없습니다 — 신규 선임이거나 경력 표기가 달라 대조되지 않았습니다.")
+                else:
+                    why = ("이 회사 재직 이력은 있으나 등기이사 재직 시점을 확정할 근거가 없습니다 "
+                           "— 소집공고 경력란은 등기 여부를 적을 의무가 없습니다.")
                 ev["performance"] = {
                     "classification": "not_evaluated",
-                    "rationale": "등기이사 재직 이력을 확인하지 못해 재직 중 성과를 평가하지 않았습니다 "
-                                 "— 소집공고 세부경력에서 이사회 구성원 재직 기간을 직접 확인하세요.",
+                    "rationale": why + " 재직 중 성과는 평가하지 않았습니다.",
                     "tenure_period": None,
                 }
                 continue
@@ -2643,6 +2653,14 @@ async def build_proxy_advise_payload(
                 ev["performance"]["tenure_note"] = (
                     f"이 회사 근무는 {apt['earliest_start']}년부터이나 **등기이사 재직은 "
                     f"{board_start}년부터**입니다 — 성과는 등기 기간만 반영했습니다.")
+            # 등기 기간의 출처를 밝힌다 — 정형 데이터인지 경력란 추정인지에 따라 신뢰도가 다르다.
+            if src.get("director_type"):
+                ev["performance"]["tenure_source"] = (
+                    f"{src['fiscal_year']}년 사업보고서 임원현황 기준 「{src['director_type']}」"
+                    + (f" · 재직기간 {src['tenure_raw']}" if src.get("tenure_raw") else ""))
+            else:
+                ev["performance"]["tenure_source"] = (
+                    "소집공고 세부경력 추정 — 임원현황과 대조되지 않았습니다.")
             # 수주 시그널 — 회사 공통 별도 fact (점수 미반영). 적자기업 미래 매출 가시성 참고용.
             # 체결 0·해지만 있는 회사(종근당홀딩스 등)도 해지가 부정 시그널이므로 포함.
             if order_signal and (order_signal.get("order_count") or order_signal.get("terminated_count")):

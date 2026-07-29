@@ -423,19 +423,27 @@ def _extract_korean_corp_names(career_company_groups: list[dict[str, Any]] | Non
 
 
 # 등기이사(이사회 구성원) 직위 — 성과 귀속은 이 기간에만 한다.
-# 「상무이사·전무이사」는 등기일 수 있어 포함하고, 「상무·전무·부사장·본부장」 단독은 집행임원이다.
-# 실측(캐시 소집공고 479건): 경력 블록 103건 중 33건(32%)에서 등기 최초연도가 전체 최초연도보다
-# 3년 이상 늦다 — 드문 케이스가 아니다.
+# ⚠️ 이건 **추정**이다. 소집공고 경력란은 등기 여부를 적을 의무가 없고(상법 §542조의4② +
+#    시행령 §31③은 성명·약력·추천인·최대주주 관계·거래내역·결격사유만 요구), 실측상
+#    경력 항목 7,617개 중 「등기」를 명시한 것은 15개(0.20%)뿐이다. 확정 근거는 사업보고서
+#    임원현황(rgist_exctv_at) — `apply_roster_board_tenure`가 그 값으로 이 추정을 덮는다.
+#    정형 대조 결과 이 추정의 일치율은 43%(30사·77명)라 단독 사용은 위험하다.
 _BOARD_ROLE_RE = re.compile(
-    r"대표이사|사내이사|사외이사|기타비상무이사|비상무이사|감사위원|이사회\s*의장|이사장"
-    r"|상무이사|전무이사|부사장이사|CEO|C\.E\.O"
+    r"대표이사|사내이사|사외이사|기타비상무이사|비상무이사|감사위원|이사회\s*의장"
+    r"|상무이사|전무이사|부사장이사"
 )
-# 「감사」는 「감사보고」·「감사결과」 같은 안건 문구와 겹쳐 단독으로는 쓰지 않는다.
-_BOARD_AUDIT_RE = re.compile(r"(?<![가-힣])감사(?!\s*(?:보고|결과|의견|인|위원회\s*운영))")
+# 「감사」 단독은 등기 대상이나 이사가 아니다(상법 §409·§412 — 이사회 구성원 아님).
+# 감사원·감사실·감사본부·감사팀·감사법인은 조직명이라 등기와 무관하다(실측 오탐 16%).
+# 숫자는 lookahead **안**에 둔다 — 밖에 두면 「감사2팀」에서 역행 추적이 숫자를 건너뛰어
+# 「2」를 보고 통과시킨다(조직명이 등기 감사로 오탐).
+_BOARD_AUDIT_RE = re.compile(
+    r"(?<![가-힣])감사(?!\s*\d*\s*(?:보고|결과|의견|인|원|실|반|팀|본부|법인|부문|위원회\s*운영))")
+# ↑ 「이사장」(학교법인·재단·공단)과 「CEO」는 뺐다. 상법상 등기 대상은 §317②8호가 정한
+#   사내·사외·기타비상무이사·감사·집행임원이며 CEO·이사장은 거기 없다. 대표이사는 별도로 잡힌다.
 
 
 def _is_board_role(text: str) -> bool:
-    """경력 항목이 **등기이사** 재직인가(집행임원 제외)."""
+    """경력 항목이 등기이사 재직으로 **보이는가**(집행임원 제외) — 확정 아님, 정형 데이터로 덮인다."""
     if not text:
         return False
     return bool(_BOARD_ROLE_RE.search(text) or _BOARD_AUDIT_RE.search(text))
@@ -1203,6 +1211,92 @@ def apply_roster_prior(ev: dict[str, Any], candidate: dict[str, Any], roster_ind
     apt["reason"] = ((apt.get("reason") or "") + " | roster(임원현황) 재직 확인 → 연임 재분류(힌트)").strip(" |")
 
 
+# ── 260729: 등기 재직기간의 SSOT를 소집공고 경력 → 사업보고서 임원현황으로 ──
+# 소집공고 경력란은 등기 여부를 적을 의무가 없어(상법 §542조의4②·시행령 §31③) 실측상 0.20%만
+# 명시한다. 반면 사업보고서 임원현황은 「등기임원 여부」가 법정 기재사항이고, 캐시 302건 중 97%에
+# 그 열이 있다. 소집공고 추정과 정형 데이터의 일치율은 43%(30사 77명) — 추정을 덮어야 한다.
+#
+# ⚠️ hffc_pd(재직기간)는 **등기 구분과 함께** 써야 한다. 미등기 행에도 연수가 찍히고(실측 640건,
+#    삼성중공업 미등기 부사장 6년) 그것만 빼 쓰면 비등기 시절이 그대로 딸려 온다.
+_ROSTER_BOARD_TYPES = ("사내이사", "사외이사", "기타비상무이사", "감사")
+
+
+def _roster_board_start_year(raw: str, roster_year: int) -> tuple[int | None, str | None]:
+    """hffc_pd → (등기 재직 시작연도, 근거). 서식이 회사마다 달라 네 가지를 모두 본다.
+
+    실측 분포(30사 861행): 날짜 58% · 연수만 20% · 「N년」 14% · 「N개월」 7%.
+    날짜형은 시작일을 직접 적으므로 역산이 필요 없다 — 가장 정확하다.
+    """
+    s = re.sub(r"\s+", " ", (raw or "")).strip()
+    if not s or s in ("-", "—"):
+        return None, None
+    # ① "2019.01.01~" / "2023년 3월 13일~" / "2022년 05월 ~" — 시작일 직접 표기
+    if m := re.match(r"(19|20)(\d{2})\s*[.\-/년]", s):
+        return int(m.group(1) + m.group(2)), "재직 시작일"
+    # ② "08.04.01 ~ 현재" — 2자리 연도. 미래가 되면 1900년대로 본다.
+    if m := re.match(r"(\d{2})[.\-/]\d{1,2}[.\-/]\d{1,2}\s*~", s):
+        y = 2000 + int(m.group(1))
+        return (y if y <= roster_year else y - 100), "재직 시작일"
+    # ③ "10개월" / "46개월"
+    if m := re.match(r"(\d{1,3})\s*개월", s):
+        return roster_year - int(m.group(1)) // 12, "재직기간 역산"
+    # ④ "14년" / "5년 1개월" / "2.1년" / 단위 없는 "4"(= 재직 연수)
+    if m := re.match(r"(\d{1,2})(?:\.\d+)?\s*년?(?:\s*(\d{1,2})\s*개월)?$", s):
+        yrs = int(m.group(1))
+        return roster_year - yrs, "재직기간 역산"
+    return None, None
+
+
+def apply_roster_board_tenure(
+    ev: dict[str, Any], candidate: dict[str, Any],
+    roster_index: dict[str, list[dict[str, Any]]], roster_year: int | None,
+) -> None:
+    """등기 재직 시작연도를 임원현황(정형)에서 확정 — 소집공고 경력 추정을 덮는다."""
+    apt = ev.get("appointment_type")
+    if not isinstance(apt, dict) or not roster_index or roster_year is None:
+        return
+    matches = roster_index.get(_core_name(candidate.get("name"))) or []
+    if not matches:
+        return  # 임원현황에 없음 = 신임이거나 매칭 실패 → 추정을 덮지 않는다
+    cbk = _birth_ym_key(candidate.get("birthDate"))
+    board = []
+    for m in matches:
+        dt = m.get("director_type") or ""
+        if "미등기" in dt or not any(b in dt for b in _ROSTER_BOARD_TYPES):
+            continue
+        mbk = m.get("birth") or (None, None)
+        if cbk[0] and mbk[0] and cbk[0] != mbk[0]:
+            continue  # 동명이인 방지
+        board.append(m)
+    if not board:
+        # 임원현황에 있으나 전부 미등기 → 등기 재직 없음이 **확정**된다.
+        apt["board_earliest_start"] = None
+        apt["board_tenure_source"] = {
+            "source": "사업보고서 임원현황", "fiscal_year": roster_year,
+            "director_type": (matches[0].get("director_type") or "").strip() or None,
+            "note": "임원현황에 미등기임원으로만 기재 — 등기이사 재직 없음",
+        }
+        return
+    if len(board) > 1 and not cbk[0]:
+        return  # 다중매칭 + 생년 없음 → 동명이인 위험, 덮지 않는다
+    m0 = board[0]
+    start, basis = _roster_board_start_year(m0.get("tenure") or "", roster_year)
+    prov: dict[str, Any] = {
+        "source": "사업보고서 임원현황", "fiscal_year": roster_year,
+        "director_type": (m0.get("director_type") or "").strip() or None,
+        "tenure_raw": re.sub(r"\s+", " ", (m0.get("tenure") or "")).strip() or None,
+        "notice_estimate": apt.get("board_earliest_start"),
+    }
+    if start is None:
+        # 등기인 건 확정, 시작연도만 미상 — 추정을 남기되 출처를 밝힌다.
+        prov["note"] = "등기 구분은 확정, 재직기간 표기를 읽지 못해 시작연도는 소집공고 경력 추정값"
+        apt["board_tenure_source"] = prov
+        return
+    prov["basis"] = basis
+    apt["board_earliest_start"] = start
+    apt["board_tenure_source"] = prov
+
+
 # ── Item2c/H2 (260710): roster 최대주주관계 rescue — 소집공고 결측 시 힌트로 채움 ──
 # 소집공고 majorShareholderRelation이 비면 raw="" → 관계 텍스트 없이 generic 약신호만 뜬다.
 # roster mxmm_shrholdr_relate(예: '계열회사임원')로 **채우기만**(fill-when-missing) 한다.
@@ -1370,9 +1464,12 @@ async def build_director_evaluation_payload(
     # Purpose 1 (260710): roster(exctvSttus)를 파싱 prior로 fetch — new→renewed 오분류 교정용.
     # 이 주총 직전 사업보고서(FY target_year-1)를 힌트로. 실패/부재는 graceful(힌트 없이 진행).
     roster_index: dict[str, list[dict[str, Any]]] = {}
+    roster_year: int | None = None
     try:
         _roster_resp = await client.get_executive_status(selected["corp_code"], str(target_year - 1))
         roster_index = build_roster_index((_roster_resp or {}).get("list") or [])
+        if roster_index:
+            roster_year = target_year - 1  # 등기 재직기간 역산의 기준연도(= 그 사업보고서 결산기준일)
     except Exception:
         roster_index = {}
 
@@ -1399,6 +1496,8 @@ async def build_director_evaluation_payload(
             apply_roster_prior(ev, c, roster_index)
             # Item2c/H2: 소집공고 최대주주관계 결측 시 roster 값으로 채움 (fill-when-missing)
             apply_roster_msr_rescue(ev, c, roster_index)
+            # 260729: 등기 재직 시작연도를 임원현황(정형)으로 확정 — 소집공고 경력 추정을 덮는다
+            apply_roster_board_tenure(ev, c, roster_index, roster_year)
             # 갭C: 이 회사 재직 5년+ → 장기연임 승격 (earliest_start 계산-후-폐기 해소)
             apply_tenure_long_tenure(ev, ev["appointment_type"], target_year)
             # Item1: roster_prior 승격 후보는 earliest_start가 없음 → roster tenure(hffc)로 장기연임 catch
