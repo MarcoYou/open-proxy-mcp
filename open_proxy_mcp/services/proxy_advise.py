@@ -1169,6 +1169,13 @@ def _cross_check_provisional_revenue(fy_raw: dict[str, Any] | None,
     소집공고는 사업보고서보다 먼저 나오므로(실측 88곳 중 78곳, 중앙 7일) 본문의 당기는
     API 에 아직 없다. 대신 **본문의 전기 = API 의 당기**라 이 둘을 맞대면 파싱이 맞는지 알 수 있다.
     값을 고치지는 않는다 — 어긋나면 그렇게 말할 뿐이다(호출측이 원문을 보게).
+
+    **성립 조건**: 이 등식은 `fin_year = target_year - 2` 에 의존한다(주총 N년 → 안건은 FY(N-1),
+    분석 reference 는 FY(N-2)). 본문의 전기도 FY(N-1)-1 = FY(N-2) 라 같은 해가 된다.
+    그 선택 로직이 「최신 사업보고서」로 바뀌면 사업보고서 제출 전후로 API 가 FY(N-1) 로 옮겨가
+    **이 검산이 조용히 무너진다**(전기 vs 당기를 비교하게 되어 실제 YoY 변동을 오탐).
+    `tests/test_provisional_fs_revenue.py::test_cross_check_assumes_fin_year_is_two_years_back` 가
+    그 계약을 잡는다(260729 사용자 지적으로 확인).
     """
     if not fy_raw or not fin_summary:
         return None

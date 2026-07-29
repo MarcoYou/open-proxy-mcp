@@ -85,3 +85,20 @@ def test_cross_check_tolerates_audit_adjustment():
     for r in (0.75, 0.9, 1.0, 1.09, 1.35):
         out = chk({"fy_prior_revenue_krw": int(1e12 * r)}, {"revenue_krw": int(1e12)})
         assert "일치" in out, (r, out)
+
+
+def test_cross_check_assumes_fin_year_is_two_years_back():
+    """검산의 성립 조건 — API 쪽 회계연도가 `target_year - 2` 여야 「본문 전기 = API 당기」다.
+
+    260729 사용자 지적: 「주총공고 시점에도 두 데이터가 다 있느냐」.
+    확인 결과 소집공고 시점에 API 는 FY(N-2) 를 갖고 있다(1년 전 제출분). 그리고 도구가
+    의도적으로 FY(N-2) 를 고르므로 사업보고서가 나온 뒤에 돌려도 값이 안 바뀐다.
+    이 선택이 「최신 사업보고서」로 바뀌면 검산이 조용히 무너지므로 소스로 계약을 잡는다.
+    """
+    import inspect
+    from open_proxy_mcp.services import proxy_advise as pa
+    src = inspect.getsource(pa.build_proxy_advise_payload)
+    assert "fin_year = target_year - 2" in src, (
+        "fin_year 선택이 바뀌었다 — _cross_check_provisional_revenue 의 "
+        "「본문 전기 = API 당기」 전제가 깨졌는지 확인하라"
+    )
