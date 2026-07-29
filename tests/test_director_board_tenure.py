@@ -221,3 +221,52 @@ def test_not_evaluated_renders_without_none_values():
     assert "not_evaluated" not in out
     assert "None" not in out
     assert "평가하지 않음" in out and "사업연도가 부족" in out
+
+
+def test_company_match_falls_back_to_the_raw_career_text():
+    """쪼갠 회사명이 잘려도 원문으로 이 회사 재직을 잡는다.
+
+    `_split_company_role` 이 첫 직책 키워드에서 자르느라 회사명이 사라지는 경우가 있다.
+    실측(소집공고 479건·후보 2,284명): 원문 보강으로 **159명(7%)** 회복, 손실 **0명**.
+    그중 153명이 renewed 로 바로잡혔다 — 연임인데 신임으로 분류돼 성과·장기연임 검증을
+    통째로 건너뛰던 사람들이다.
+    회복 경로에서는 **회사명이 든 항목만** 쓴다(그룹 전체를 쓰면 다른 회사 기간이 섞인다).
+    """
+    from open_proxy_mcp.services.director_evaluation import detect_appointment_type
+    cand = {"name": "박기덕", "careerCompanyGroups": [{
+        # 쪼개기가 회사명을 못 남긴 그룹 — items 원문에는 들어 있다
+        "company": "케이지그린텍㈜ 기타비상무",
+        "items": ["2024 ~ 현재 케이지그린텍㈜ 기타비상무이사고려아연㈜ 사장",
+                  "2019 ~ 2021 무관회사㈜ 상무"]}]}
+    r = detect_appointment_type(cand, "고려아연", 2026)
+    assert r["type"] == "renewed", r
+    assert r["matched_entries"], "원문에 회사명이 있으면 매칭돼야 한다"
+    # 회사명이 없는 항목(무관회사 2019)은 이 회사 재직으로 세지 않는다
+    assert r["earliest_start"] == 2024, r
+
+
+def test_interim_diff_reports_board_changes_only():
+    """직전 사업보고서 이후 변동도 **이사회(등기)만** 싣는다.
+
+    260709 QA: 대형사 상무 인사이동이 이사회 이탈로 오독됐다. 연간 diff 는 그때 갈랐는데,
+    260730 에 기중 diff 를 더하면서 같은 실수를 되풀이할 뻔했다(LG화학 첫 구현에서
+    상무·담당·명예회장만 잔뜩 나왔다). 집행임원은 건수만 요약한다.
+    """
+    from open_proxy_mcp.services.director_board import _diff_roster_rows, _BOARD_TYPES
+    prev = [{"nm": "고윤주", "birth_ym": "1970년 03월", "ofcps": "전무", "rgist_exctv_at": "미등기"},
+            {"nm": "유명희", "birth_ym": "1967년 08월", "ofcps": "이사", "rgist_exctv_at": "사외이사"}]
+    curr = [{"nm": "김용관", "birth_ym": "1966년 01월", "ofcps": "사장", "rgist_exctv_at": "사내이사"}]
+    changes = _diff_roster_rows(prev, curr, joined_label="신규", left_label="이탈")
+    board = [c for c in changes if c["director_type"] in _BOARD_TYPES]
+    assert {c["name"] for c in board} == {"김용관", "유명희"}
+    assert all(c["name"] != "고윤주" for c in board), "미등기 전무는 이사회 변동이 아니다"
+
+
+def test_two_pass_diff_survives_a_shared_birth_month():
+    """이름이 다른 잔류자와 이탈자의 생년월이 같아도 이탈을 놓치지 않는다(QA 260709 회귀)."""
+    from open_proxy_mcp.services.director_board import _diff_roster_rows
+    prev = [{"nm": "윤치원", "birth_ym": "1959년 06월", "ofcps": "이사", "rgist_exctv_at": "사외이사"},
+            {"nm": "심달훈", "birth_ym": "1959년 06월", "ofcps": "이사", "rgist_exctv_at": "사외이사"}]
+    curr = [{"nm": "심달훈", "birth_ym": "1959년 06월", "ofcps": "이사", "rgist_exctv_at": "사외이사"}]
+    changes = _diff_roster_rows(prev, curr, joined_label="신규", left_label="이탈")
+    assert [c["name"] for c in changes] == ["윤치원"], changes

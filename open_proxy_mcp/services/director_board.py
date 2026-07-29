@@ -58,6 +58,13 @@ _UTILIZATION_HIGH = 90.0   # 한도의 90%+ 소진 = 여유 적음
 _ATTENDANCE_LOW = 75.0     # 출석률 75% 미만 = 저조 flag
 
 _REPRT_ANNUAL = "11011"    # 사업보고서
+# 사업보고서가 아직 안 나온 시기(주총 성수기 2~3월)에 현재 명단을 채울 대체 보고서 — 신선한 순.
+# (reprt_code, 이름, 기준일 월). 자본시장법상 분기 종료 후 45일 제출이라 3분기는 11/14 에 나온다.
+_QUARTERLY_FALLBACK: tuple[tuple[str, str, int], ...] = (
+    ("11014", "3분기보고서", 9),
+    ("11012", "반기보고서", 6),
+    ("11013", "1분기보고서", 3),
+)
 
 
 def _to_int(value: Any) -> int | None:
@@ -444,6 +451,52 @@ def _roster_key(row: dict[str, Any]) -> str:
 _BOARD_TYPES = {"사내이사", "사외이사", "기타비상무이사", "감사"}
 
 
+
+def _diff_roster_rows(
+    prev_rows: list[dict[str, Any]], curr_rows: list[dict[str, Any]],
+    *, joined_label: str, left_label: str,
+) -> list[dict[str, Any]]:
+    """두 임원현황 스냅샷의 명단 변화. 동일인 판정은 **2-pass**(QA 260709 대응).
+
+      Pass 1: 이름 정확히 일치 → 확정 동일인(잔류).
+      Pass 2: Pass 1 에서 못 잡힌 나머지끼리만 birth_ym 매칭 — 단 그 birth_ym 이
+              **남은 후보군 안에서 유일**할 때만 동일인으로 인정.
+
+    나누는 이유: 원래 OR 매칭(이름 OR 생년월, 전체 집합)은 birth_ym 이 연·월뿐이라 정밀도가
+    낮아, 이탈자와 **이름이 전혀 다른 잔류자**의 birth_ym 이 우연히 같으면(현대차 이탈자
+    윤치원 vs 잔류자 심달훈, 둘 다 "1959년 06월") 이탈이 통째로 누락됐다. 잔류자는 Pass 1 에서
+    이름으로 확정되므로 Pass 2 후보군에서 빠져 이 오탐이 사라진다. 로마자표기 변동
+    (이름 다름·생년월 같음, Jose Munoz↔호세무뇨스)은 남은 후보가 1쌍이면 Pass 2 로 잡힌다.
+    """
+    changes: list[dict[str, Any]] = []
+    prev_names = {_clean_name(r.get("nm")) for r in prev_rows}
+    curr_names = {_clean_name(r.get("nm")) for r in curr_rows}
+    prev_unmatched = [r for r in prev_rows if _clean_name(r.get("nm")) not in curr_names]
+    curr_unmatched = [r for r in curr_rows if _clean_name(r.get("nm")) not in prev_names]
+
+    def _births(rows):
+        from collections import Counter
+        return Counter((r.get("birth_ym") or "").strip() for r in rows
+                       if (r.get("birth_ym") or "").strip())
+
+    prev_b, curr_b = _births(prev_unmatched), _births(curr_unmatched)
+    paired = {
+        (r.get("birth_ym") or "").strip() for r in prev_unmatched
+        if (b := (r.get("birth_ym") or "").strip()) and prev_b[b] == 1 and curr_b.get(b) == 1
+    }
+    for r in curr_unmatched:
+        if (r.get("birth_ym") or "").strip() not in paired:
+            changes.append({"name": _clean_name(r.get("nm")), "change": joined_label,
+                            "position": _clean_text_or_none(r.get("ofcps")) or "",
+                            "director_type": (r.get("rgist_exctv_at") or "").strip()})
+    for r in prev_unmatched:
+        if (r.get("birth_ym") or "").strip() not in paired:
+            changes.append({"name": _clean_name(r.get("nm")), "change": left_label,
+                            "position": _clean_text_or_none(r.get("ofcps")) or "",
+                            "director_type": (r.get("rgist_exctv_at") or "").strip()})
+    return changes
+
+
 async def _roster_scope(
     client, corp_code: str, year: int, *, lookback_years: int, warnings: list[str]
 ) -> dict[str, Any]:
@@ -463,6 +516,26 @@ async def _roster_scope(
     }
 
     latest = year
+    # 현재 명단은 **가장 최신 정기보고서**로 채운다(260730 사용자 지적).
+    # 사업보고서만 보면 2~3월엔 FY(N-2) = 15개월 묵은 명단을 「현재 이사회」로 내놓는다 —
+    # 그 사이 주총 한 번이 지나 이사회 구성이 바뀌었을 수 있다.
+    # 분기·반기보고서에도 임원현황이 실린다(실측 10사×4종 100%, 등기구분·재직기간도 100%).
+    # 다만 분·반기는 기재 생략이 허용되는 항목이라 소형사에서 빌 수 있어 사다리로 내려간다.
+    # 과거 연도는 diff 기준선이라 사업보고서로 고정한다(스냅샷 기준일을 섞으면 비교가 어긋난다).
+    roster_as_of = f"{latest}년 사업보고서"
+    interim_rows: list[dict[str, Any]] = []
+    interim_label = ""
+    if not snapshots.get(latest):
+        for code, label, _ref_month in _QUARTERLY_FALLBACK:
+            rows = await _fetch_rows(client.get_executive_status(corp_code, str(latest), code))
+            if rows:
+                snapshots[latest] = {_roster_key(r): r for r in rows}
+                interim_rows, interim_label = rows, f"{latest}년 {label}"
+                roster_as_of = interim_label
+                warnings.append(
+                    f"{latest}년 사업보고서가 아직 없어 {label}(기준일 {_ref_month}월 말) "
+                    "임원현황으로 현재 명단을 구성했습니다 — 이후 변동은 반영되지 않습니다.")
+                break
     current = snapshots.get(latest, {})
     # 모든 텍스트 필드에 _clean_text_or_none 방어 적용(260709 — duty·tenure에서도 raw 개행이
     # 표를 깨뜨리는 걸 추가 발견, main_career/largest_shareholder_relation만 고쳤던 걸 전체로 확대).
@@ -493,41 +566,27 @@ async def _roster_scope(
     changes: list[dict[str, Any]] = []
     prev_year = latest - 1
     if prev_year in snapshots and snapshots[prev_year]:
-        prev_rows = list(snapshots[prev_year].values())
-        curr_rows = list(current.values())
-        prev_names = {_clean_name(r.get("nm")) for r in prev_rows}
-        curr_names = {_clean_name(r.get("nm")) for r in curr_rows}
-
-        # Pass 1: 이름으로 못 잡힌 나머지만 추림
-        prev_unmatched = [r for r in prev_rows if _clean_name(r.get("nm")) not in curr_names]
-        curr_unmatched = [r for r in curr_rows if _clean_name(r.get("nm")) not in prev_names]
-
-        # Pass 2: 남은 후보군 안에서 birth_ym이 유일하게 겹치는 쌍만 동일인으로 인정
-        def _births(rows):
-            from collections import Counter
-            return Counter((r.get("birth_ym") or "").strip() for r in rows if (r.get("birth_ym") or "").strip())
-
-        prev_b_count, curr_b_count = _births(prev_unmatched), _births(curr_unmatched)
-        matched_prev_births = {
-            (r.get("birth_ym") or "").strip() for r in prev_unmatched
-            if (b := (r.get("birth_ym") or "").strip()) and prev_b_count[b] == 1 and curr_b_count.get(b) == 1
-        }
-
-        for r in curr_unmatched:
-            b = (r.get("birth_ym") or "").strip()
-            if b not in matched_prev_births:
-                changes.append({"name": _clean_name(r.get("nm")), "change": "신규선임/등재",
-                                "position": _clean_text_or_none(r.get("ofcps")) or "", "since_year": latest,
-                                "director_type": (r.get("rgist_exctv_at") or "").strip()})
-        for r in prev_unmatched:
-            b = (r.get("birth_ym") or "").strip()
-            if b not in matched_prev_births:
-                changes.append({"name": _clean_name(r.get("nm")),
-                                "change": "이탈(사퇴·임기만료·해임 중 하나)",
-                                "position": _clean_text_or_none(r.get("ofcps")) or "", "until_year": prev_year,
-                                "director_type": (r.get("rgist_exctv_at") or "").strip()})
+        changes = _diff_roster_rows(
+            list(snapshots[prev_year].values()), list(current.values()),
+            joined_label="신규선임/등재", left_label="이탈(사퇴·임기만료·해임 중 하나)")
+        for c in changes:
+            c["since_year" if "이탈" not in c["change"] else "until_year"] = (
+                latest if "이탈" not in c["change"] else prev_year)
     else:
         warnings.append(f"{prev_year}년 임원현황이 없어 재직/사퇴 diff 미산출.")
+
+    # 직전 사업보고서 이후의 **기중 변동**(260730 사용자 지적).
+    # 사업보고서끼리 비교하면 6월에 사임한 이사가 안 보인다 — 다음 사업보고서가 나와야 드러난다.
+    # 분기·반기 명단을 직전 사업보고서와 대조하면 그 사이 들고 난 사람이 바로 보인다.
+    # 스튜어드십 실무에서 「지금 이사회가 작년 말과 뭐가 다른가」가 곧 이 diff 다.
+    interim_changes: list[dict[str, Any]] = []
+    interim_vs = ""
+    if interim_rows and snapshots.get(prev_year):
+        interim_changes = _diff_roster_rows(
+            list(snapshots[prev_year].values()), interim_rows,
+            joined_label="신규 등재(직전 사업보고서 이후)",
+            left_label="이탈(직전 사업보고서 이후 — 사퇴·임기만료·해임 중 하나)")
+        interim_vs = f"{prev_year}년 사업보고서 → {interim_label}"
 
     board_count = sum(1 for r in roster if r["director_type"] in _BOARD_TYPES)
 
@@ -571,6 +630,15 @@ async def _roster_scope(
 
     return {
         "roster": roster,
+        "roster_as_of": roster_as_of,   # 현재 명단이 어느 보고서 기준인지 — 기준일이 다르면 해석이 달라진다
+        # 직전 사업보고서 이후 기중 변동 — 연간 diff 가 놓치는 것.
+        # 연간 diff 와 같은 기준으로 **이사회(등기)만** 싣는다 — 상무 인사이동을 이사회 변동으로
+        # 오독하던 문제(QA 260709)를 여기서 되풀이하지 않는다. 집행임원은 건수만 요약한다.
+        "changes_since_last_annual": [
+            c for c in interim_changes if (c.get("director_type") or "") in _BOARD_TYPES],
+        "executive_changes_since_last_annual_count": sum(
+            1 for c in interim_changes if (c.get("director_type") or "") not in _BOARD_TYPES),
+        "changes_since_last_annual_basis": interim_vs or None,
         "headcount_total": len(roster),
         "headcount_board": board_count,     # 등기 이사회 구성원(사내+사외+기타비상무+감사)
         "changes_vs_prev_year": board_changes,          # 이사회 변동만(종합신호·주 렌더가 이걸 씀)

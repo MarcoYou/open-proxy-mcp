@@ -74,6 +74,9 @@ def _render(payload: dict[str, Any]) -> str:
     roster = d.get("roster")
     if roster:
         lines.append(f"## 임원 현황 (총 {roster.get('headcount_total')}명 · 등기 이사회 {roster.get('headcount_board')}명)")
+        if roster.get("roster_as_of"):
+            # 어느 보고서 기준인지 밝힌다 — 2~3월엔 사업보고서가 없어 분기보고서로 채운다
+            lines.append(f"- 기준: {roster['roster_as_of']}")
         lines.append("")
         people = roster.get("roster") or []
         if people:
@@ -103,6 +106,22 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append("")
         else:
             lines.append("- 전년 대비 이사회 구성 변동 없음(또는 diff 미산출)")
+            lines.append("")
+        # 사업보고서끼리 비교하면 기중(예: 6월) 사임이 다음 사업보고서까지 안 보인다.
+        # 분기·반기 명단을 직전 사업보고서와 대조해 그 사이 변동을 따로 보여준다.
+        since_annual = roster.get("changes_since_last_annual") or []
+        if roster.get("changes_since_last_annual_basis"):
+            lines.append(f"### 직전 사업보고서 이후 변동 ({roster['changes_since_last_annual_basis']})")
+            if since_annual:
+                for c in since_annual:
+                    dt = c.get("director_type")
+                    lines.append(f"- **{c.get('name')}** ({c.get('position')}"
+                                 f"{f' · {dt}' if dt else ''}) — {c.get('change')}")
+            else:
+                lines.append("- 이사회 구성 변동 없음")
+            n_exec = roster.get("executive_changes_since_last_annual_count") or 0
+            if n_exec:
+                lines.append(f"- (미등기 집행임원 변동 {n_exec}건 — 이사회 아님)")
             lines.append("")
         # 미등기 집행임원 변동은 이사회 변동과 성격이 달라 참고로만 분리 표기(대형사에서 상무 인사
         # 이동이 이사회 이탈로 오독되던 문제 대응, QA/스튜어드십 260709).

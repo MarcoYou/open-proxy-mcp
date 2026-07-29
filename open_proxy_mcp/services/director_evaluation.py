@@ -844,14 +844,18 @@ def detect_appointment_type(
     matched: list[dict[str, Any]] = []
     for grp in careers:
         co = (grp.get("company") or "").strip()
-        if not co:
-            continue
         norm_co = _normalize_corp_name(co)
-        if not norm_co:
-            continue
-        # 매칭: norm_name이 norm_co의 시작 또는 부분
-        if norm_co.startswith(norm_name) or norm_name in norm_co.split():
-            items = grp.get("items") or []
+        all_items = grp.get("items") or []
+        # ① 쪼갠 회사명으로 매칭 (기존)
+        by_company = bool(norm_co) and (norm_co.startswith(norm_name)
+                                        or norm_name in norm_co.split())
+        # ② 쪼개기가 회사명을 잘라먹었을 때 — 원문(items 에 병기)에서 회사명을 찾는다.
+        #    이때는 **회사명이 든 항목만** 쓴다(그룹 전체를 쓰면 다른 회사 기간까지 섞인다).
+        #    실측(소집공고 479건·후보 2,284명): ①만 쓰면 놓치던 것을 ②가 **159명(7%)** 회복하고,
+        #    ②로 잃는 것은 **0명**이다. 그래서 ①을 유지한 채 더한다.
+        items = all_items if by_company else [
+            it for it in all_items if norm_name in _normalize_corp_name(str(it))]
+        if items:
             # 시작 연도 추출 (가장 빠른 시작 연도) + 진행중(현재) 재직 여부
             earliest = None
             ongoing = False  # "~ 현재" (end=None) 항목이 있으면 현재 재직 중
