@@ -1146,12 +1146,12 @@ def _sanity_correct_amounts(bundles: dict[str, list[dict]]) -> list[str]:
             if corrected is not None:
                 r["actual_amount_krw"] = corrected
                 r["amount_unit_corrected"] = True
-                warnings.append(f"[sanity] {r.get('rcept_no')} 결과금액 주당 {implied:,.0f}원(불가) "
+                warnings.append(f"공시 {r.get('rcept_no')} 결과금액 주당 {implied:,.0f}원(불가) "
                                 f"→ {corrected:,}원 보정(단위 오적용 되돌림).")
             else:
                 r["actual_amount_krw"] = None
                 r["amount_quality"] = "implausible"
-                warnings.append(f"[sanity] {r.get('rcept_no')} 결과금액 주당 {implied:,.0f}원(불가) — "
+                warnings.append(f"공시 {r.get('rcept_no')} 결과금액 주당 {implied:,.0f}원(불가) — "
                                 f"보정 배수 없어 금액 보류(원문 확인 필요).")
     return warnings
 
@@ -1175,7 +1175,7 @@ def _flag_cycle_mismatches(bundles: dict[str, list[dict]]) -> list[str]:
             ratio = ea / da
             if ratio > 3.0 or ratio < 0.01:
                 er["amount_mismatch_ratio"] = round(ratio, 4)
-                warnings.append(f"[sanity] {er.get('rcept_no')} 실행금액이 결정({linked}) 대비 "
+                warnings.append(f"공시 {er.get('rcept_no')} 실행금액이 결정({linked}) 대비 "
                                 f"{ratio:.3g}배 — 금액 또는 결정↔실행 매칭 오류 의심(원문 확인 필요).")
     return warnings
 

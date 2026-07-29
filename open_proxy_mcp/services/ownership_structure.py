@@ -705,7 +705,7 @@ async def _fetch_change_filings(
         rcept_no = item.get("rcept_no", "")
         rcept_dt = item.get("rcept_dt", "")
         if not (rcept_no and len(rcept_no) == 14 and rcept_no[8:10] == "80"):
-            warnings.append(f"변동신고서 rcept_no 포맷 불일치: {rcept_no}")
+            warnings.append(f"변동신고서 공시번호 형식이 올바르지 않습니다: {rcept_no}")
             continue
         acptno = rcept_no[:8] + "00" + rcept_no[10:]
 

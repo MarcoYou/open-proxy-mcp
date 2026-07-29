@@ -519,7 +519,8 @@ def test_rcept_no_fast_path_skips_company_and_candidate_search(monkeypatch):
 
     assert payload["status"] == "exact"
     assert payload["data"]["notice"]["rcept_no"] == "20260224004273"
-    assert payload["data"]["selection_basis"] == "rcept_no가 제공되어 해당 소집공고를 직접 파싱했다."
+    # 260729: 사람이 읽는 문장에서 내부 필드명(rcept_no)을 뺐다 → 「공시번호」
+    assert payload["data"]["selection_basis"] == "공시번호를 직접 지정하셔서 해당 소집공고를 그대로 읽었습니다."
 
 
 def test_summary_omits_verbose_meeting_guides(monkeypatch):

@@ -76,7 +76,7 @@ async def build_evidence_payload(
             status=AnalysisStatus.REQUIRES_REVIEW,
             subject=evidence_id or rcept_no or "evidence",
             warnings=[
-                "rcept_no는 14자리 숫자여야 한다. 올바른 rcept_no 또는 rcept_no가 포함된 evidence_id를 입력해야 한다.",
+                "공시번호는 14자리 숫자입니다. 올바른 공시번호를 넣거나, 공시번호가 들어 있는 근거 ID를 넣어 주세요.",
             ],
             data={
                 "evidence_id": evidence_id,

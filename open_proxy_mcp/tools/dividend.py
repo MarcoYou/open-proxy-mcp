@@ -122,13 +122,13 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         # 결정공시별 breakdown — 기준일·rcept_no 추적용 (정정 이력 포함).
         qb = data.get("quarterly_breakdown") or []
         if qb:
-            lines.extend(["", "## 분기별 결정공시 (공시별·추적용)", "| 연도 | 분기 | 보통주 DPS | 우선주 DPS | 기준일 | 공시 (rcept_no) |", "|------|------|------------|------------|--------|------------------|"])
+            lines.extend(["", "## 분기별 결정공시 (공시별·추적용)", "| 연도 | 분기 | 보통주 DPS | 우선주 DPS | 기준일 | 공시번호 |", "|------|------|------------|------------|--------|------------------|"])
             for r in qb:
                 amend = " [정정]" if r.get("is_amendment") else ""
                 supersed = " (대체됨)" if r.get("is_superseded") else ""
                 lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {r['dps_preferred_krw']:,}원 | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
             lines.append("")
-            lines.append("> 최신연도 정확값은 위 '누적차분' 표 참조. 이 표는 공시 추적용(기준일·rcept_no·정정 이력).")
+            lines.append("> 최신연도 정확값은 위 '누적차분' 표 참조. 이 표는 공시 추적용(기준일·공시번호·정정 이력).")
 
     return "\n".join(lines)
 

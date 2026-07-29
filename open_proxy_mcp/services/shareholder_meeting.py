@@ -1246,7 +1246,7 @@ async def build_shareholder_meeting_payload(
             tool="shareholder_meeting",
             status=AnalysisStatus.ERROR,
             subject=company_query,
-            warnings=[f"rcept_no=`{rcept_no}`는 14자리 숫자 형식이어야 한다."],
+            warnings=[f"공시번호 `{rcept_no}` 형식이 올바르지 않습니다 — 14자리 숫자여야 합니다."],
             data={
                 "query": company_query,
                 "rcept_no": rcept_no,
@@ -1308,7 +1308,7 @@ async def build_shareholder_meeting_payload(
             "search_notices": [],
         }
         alternative_meetings = []
-        selection_basis = "rcept_no가 제공되어 해당 소집공고를 직접 파싱했다."
+        selection_basis = "공시번호를 직접 지정하셔서 해당 소집공고를 그대로 읽었습니다."
         candidate_error = None
         candidate_notices = []
     else:

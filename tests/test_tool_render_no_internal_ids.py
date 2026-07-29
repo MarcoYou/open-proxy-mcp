@@ -140,3 +140,27 @@ def test_krw_formatter_always_carries_the_unit():
         assert out.endswith("원"), f"{v} → {out}"
     assert f(None) == "-"
     assert _num(15410) == "15,410"        # 문서 내 다른 숫자와 표기를 맞춘다
+
+
+def test_no_user_facing_sentence_embeds_the_rcept_no_field_name():
+    """「rcept_no가 제공되어…」처럼 **문장 안에** 내부 필드명이 박힌 것은 표·헤더 치환으로는
+    안 잡힌다(260729 사용자 지적). 사람이 읽는 문자열에서만 검사한다.
+    """
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "open_proxy_mcp"
+    bad = []
+    for p in list(root.glob("tools/*.py")) + list(root.glob("services/*.py")):
+        for i, ln in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            s = ln.strip()
+            if s.startswith("#") or s.startswith('"""') or "rcept_no" not in ln:
+                continue
+            # 한글이 같은 따옴표 문자열 안에 있으면 사용자에게 렌더되는 문장으로 본다
+            for m in re.finditer(r'"([^"\n]*rcept_no[^"\n]*)"', ln):
+                seg = m.group(1)
+                # `{...get('rcept_no')}` 같은 **값 참조**는 필드명 노출이 아니다 —
+                # 중괄호 안에 있는 것은 제외한다(측정 도구 오탐 3건 교정).
+                if re.search(r"\{[^{}]*rcept_no[^{}]*\}", seg):
+                    continue
+                if re.search(r"[가-힣]", seg):
+                    bad.append(f"{p.name}:{i} {seg[:60]}")
+    assert not bad, bad

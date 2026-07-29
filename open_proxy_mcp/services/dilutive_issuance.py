@@ -596,7 +596,7 @@ async def _ensure_eb_coverage(
         # 원문 추출 실패(문서 미제공 014/파싱 실패). EB 존재 자체는 surface해 누락 방지.
         note = (
             f"EB 공시 {len(filings_sorted)}건 발견(최신 {latest.get('rcept_dt', '')}, "
-            f"rcept {latest.get('rcept_no', '')})되었으나 구조화 응답 + 원문 모두 추출 불가"
+            f"공시번호 {latest.get('rcept_no', '')})되었으나 구조화 응답과 원문 모두에서 추출하지 못했습니다"
             f"(첨부정정 등으로 document.xml 미제공) — DART 원문 직접 확인 필요."
         )
         warnings.append(note)
