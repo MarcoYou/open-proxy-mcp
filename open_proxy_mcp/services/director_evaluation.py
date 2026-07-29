@@ -1251,6 +1251,12 @@ _ROSTER_SOURCES: tuple[tuple[int, str, str, int], ...] = (
 )
 
 
+def _roster_has_board_member(row: dict[str, Any]) -> bool:
+    """임원현황 한 행이 **등기 이사회 구성원**인가 — rung 완전성 판정용."""
+    k = (row.get("rgist_exctv_at") or "").strip()
+    return "미등기" not in k and any(b in k for b in _ROSTER_BOARD_TYPES)
+
+
 def _roster_board_start_year(
     raw: str, roster_year: int, ref_month: int = 12
 ) -> tuple[int | None, str | None]:
@@ -1581,7 +1587,15 @@ async def build_director_evaluation_payload(
             continue
         except Exception:
             continue
-        roster_index = build_roster_index((_resp or {}).get("list") or [])
+        _rows = (_resp or {}).get("list") or []
+        # **완전성 게이트** — 행이 있다고 쓸 수 있는 게 아니다. 분기·반기보고서는 임원현황
+        # 기재를 생략할 수 있어(자본시장법 시행령 §170) **일부만 실린 채 응답이 오는** 경우가
+        # 있다. 실측 29사 중 1사(미래에셋증권 2025 3분기): 사업보고서 157행·등기 7명인데
+        # 3분기는 **1행·등기 0명**이었다. 그걸 받아들이면 사업보고서로 확정했던 등기 시작이
+        # 소집공고 추정으로 되돌아간다(김미섭 2021→1994). 불완전하면 다음 rung 으로 내려간다.
+        if not any(_roster_has_board_member(r) for r in _rows):
+            continue
+        roster_index = build_roster_index(_rows)
         if roster_index:
             roster_year, roster_back = target_year - back, back
             roster_ref = (roster_year, ref_month)

@@ -281,3 +281,19 @@ def test_two_pass_diff_survives_a_shared_birth_month():
     curr = [{"nm": "심달훈", "birth_ym": "1959년 06월", "ofcps": "이사", "rgist_exctv_at": "사외이사"}]
     changes = _diff_roster_rows(prev, curr, joined_label="신규", left_label="이탈")
     assert [c["name"] for c in changes] == ["윤치원"], changes
+
+
+def test_incomplete_quarterly_roster_is_rejected():
+    """분기·반기보고서는 임원현황 기재를 생략할 수 있다 — 등기이사가 없으면 rung 으로 못 쓴다.
+
+    260730 실측 29사 중 1사(미래에셋증권 2025 3분기): 사업보고서 157행·등기 7명인데
+    3분기는 **1행·등기 0명**이었다. 그걸 받아들이면 사업보고서로 확정했던 등기 시작이
+    소집공고 추정으로 되돌아간다(김미섭 2021 → 1994). 행 개수가 아니라 **등기 구성원 유무**로 판정한다.
+    """
+    from open_proxy_mcp.services.director_evaluation import _roster_has_board_member as f
+    assert f({"rgist_exctv_at": "사내이사"}) is True
+    assert f({"rgist_exctv_at": "사외이사"}) is True
+    assert f({"rgist_exctv_at": "감사"}) is True
+    assert f({"rgist_exctv_at": "미등기임원"}) is False
+    assert f({"rgist_exctv_at": ""}) is False
+    assert f({}) is False

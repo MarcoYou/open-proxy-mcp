@@ -528,7 +528,10 @@ async def _roster_scope(
     if not snapshots.get(latest):
         for code, label, _ref_month in _QUARTERLY_FALLBACK:
             rows = await _fetch_rows(client.get_executive_status(corp_code, str(latest), code))
-            if rows:
+            # 행이 온다고 쓸 수 있는 게 아니다 — 분·반기는 임원현황 기재를 생략할 수 있어
+            # 일부만 실린 응답이 온다(실측 29사 중 1사: 사업보고서 157행·등기 7명 →
+            # 3분기 1행·등기 0명). 등기 이사회 구성원이 없으면 명단으로 쓰지 않는다.
+            if rows and any((r.get("rgist_exctv_at") or "").strip() in _BOARD_TYPES for r in rows):
                 snapshots[latest] = {_roster_key(r): r for r in rows}
                 interim_rows, interim_label = rows, f"{latest}년 {label}"
                 roster_as_of = interim_label
