@@ -1,0 +1,44 @@
+# -*- coding: utf-8 -*-
+"""헬스 엔드포인트 — 배포가 살아 있는지 외부에서 확인하는 유일한 경로. network 0콜.
+
+260729 사고: `mcp` 2.0.0 이 `mcp.server.fastmcp` 를 제거해 서버가 부팅 즉시 죽었다.
+헬스체크가 없어 fly 는 「VM 이 켜졌다」만 보고 배포를 성공 처리했고 GitHub CI 도 초록이었다.
+로컬 테스트 361개도 전부 통과했다(.venv 엔 구버전이 깔려 있으니). **배포만 깨지는 구조.**
+"""
+from __future__ import annotations
+
+import json
+
+from starlette.testclient import TestClient
+
+from open_proxy_mcp.server import mcp
+
+
+def test_health_returns_200_without_auth():
+    client = TestClient(mcp.streamable_http_app())
+    r = client.get("/health")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "ok"
+    # 도구가 0개면 살아 있어도 쓸모가 없다 — 등록까지 확인한다
+    assert body["tools"] > 0, body
+
+
+def test_health_is_registered_on_the_http_app():
+    paths = {getattr(r, "path", None) for r in mcp.streamable_http_app().routes}
+    assert "/health" in paths and "/mcp" in paths, paths
+
+
+def test_server_imports_the_module_that_actually_disappeared():
+    """`mcp.server.fastmcp` 는 2.0.0 에서 사라졌다 — import 자체를 테스트가 붙잡는다."""
+    import importlib
+    m = importlib.import_module("mcp.server.fastmcp")
+    assert hasattr(m, "FastMCP")
+
+
+def test_dependency_has_an_upper_bound_on_mcp():
+    """상한이 없으면 새 메이저가 나온 날 배포만 깨진다(260729 실측)."""
+    import pathlib
+    txt = (pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+    line = next(l for l in txt.splitlines() if l.strip().startswith('"mcp['))
+    assert "<2" in line, line

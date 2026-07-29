@@ -32,6 +32,16 @@ primary_region = 'nrt'
   min_machines_running = 2
   processes = ['app']
 
+  # 260729 사고: 헬스체크가 없어 fly 가 「VM 이 켜졌다」만 보고 배포를 성공 처리했다.
+  # 앱은 부팅 즉시 죽어 8000 포트에 아무도 리스닝하지 않았는데도 CI 는 초록이었다.
+  # 이제 /health 가 200 을 못 내면 fly 가 그 머신을 unhealthy 로 보고 배포가 실패한다.
+  [[http_service.checks]]
+    grace_period = '15s'
+    interval = '30s'
+    method = 'GET'
+    timeout = '5s'
+    path = '/health'
+
 [[vm]]
   memory = '768mb'
   cpu_kind = 'shared'

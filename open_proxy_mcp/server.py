@@ -25,6 +25,16 @@ def build_mcp() -> FastMCP:
 mcp = build_mcp()
 
 
+# 헬스 엔드포인트 — 인증 없이 200 을 내는 유일한 경로.
+# 260729 사고: mcp 2.0.0 이 fastmcp 를 제거해 서버가 부팅 즉시 죽었는데, 헬스체크가 없어
+# fly 는 「VM 이 켜졌다」만 보고 배포를 성공 처리했고 CI 도 초록이었다. 프로세스가 살아서
+# 포트를 잡고 있다는 것을 외부에서 확인할 수 있어야 한다.
+@mcp.custom_route("/health", methods=["GET"])
+async def _health(_request):
+    from starlette.responses import JSONResponse
+    return JSONResponse({"status": "ok", "tools": len(await mcp.list_tools())})
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(

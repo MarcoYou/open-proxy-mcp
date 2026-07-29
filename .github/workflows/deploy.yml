@@ -35,6 +35,23 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      # 배포 성공 != 서비스 정상. 260729 사고에서 flyctl 은 성공을 냈지만 앱은 죽어 있었다.
+      # 실제로 엔드포인트가 200 을 내는지 확인하고, 아니면 이 job 을 실패시킨다.
+      - name: Smoke - /health check
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /tmp/h.json -w '%{http_code}' --max-time 10 \
+                   https://open-proxy-mcp.fly.dev/health || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "healthy: $(cat /tmp/h.json)"
+              grep -q 'ok' /tmp/h.json || { echo "body not ok"; exit 1; }
+              exit 0
+            fi
+            echo "attempt $i -> $code"; sleep 10
+          done
+          echo "::error::deployed but /health is not 200 - service is down"
+          exit 1
+
       # 2) 배포 결과(성공/실패)를 Deployment 상태로 기록 — 성공 시 이전 기록 자동 inactive
       - name: Finish deployment
         if: always() && steps.deployment.outputs.id != ''
