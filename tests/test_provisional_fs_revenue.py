@@ -68,7 +68,36 @@ def test_cross_check_catches_the_mis_parsed_revenue():
     ok = chk({"fy_prior_revenue_krw": 48_699_754_000_000}, api)
     assert ok and "일치" in ok, ok
     bug = chk({"fy_prior_revenue_krw": 1_480_020_000_000}, api)   # 기타영업수익을 잡았을 때
-    assert bug and "어긋납니다" in bug and "0.03배" in bug, bug
+    assert bug and "확인하세요" in bug and "0.03배" in bug, bug
+
+
+def test_cross_check_covers_operating_profit_too():
+    """실측 18사에서 영업이익도 17곳이 1.00±5% — 매출과 같이 본다."""
+    from open_proxy_mcp.services.proxy_advise import _cross_check_provisional_revenue as chk
+    api = {"revenue_krw": 48_916_104_000_000, "operating_profit_krw": 916_798_000_000}
+    ok = chk({"fy_prior_revenue_krw": 48_699_754_000_000,
+              "fy_prior_operating_profit_krw": 874_927_000_000}, api)
+    assert "매출·영업이익" in ok and "일치" in ok, ok
+    # 영업이익만 어긋나도 잡는다
+    bad = chk({"fy_prior_revenue_krw": 48_699_754_000_000,
+               "fy_prior_operating_profit_krw": 90_000_000_000}, api)
+    assert "영업이익" in bad and "확인하세요" in bad, bad
+
+
+def test_cross_check_skips_net_income():
+    """순이익은 본문=총·API=지배주주 귀속이라 개념이 다르다 — 실측 -0.75~22.69배.
+    하이브는 매출·영업이익이 1.00 인데 순이익만 22.69배였다. 검산에 쓰면 오탐이다."""
+    from open_proxy_mcp.services.proxy_advise import _CROSS_CHECK_ITEMS
+    assert not any("net_income" in k for k, _, _ in _CROSS_CHECK_ITEMS), _CROSS_CHECK_ITEMS
+
+
+def test_cross_check_ignores_small_amounts():
+    """절대액이 작으면 비율이 흔들린다 — 남광토건 영업이익 43억 vs 73억(0.60배)은
+    오파싱이 아니라 감사 전/후 조정이다."""
+    from open_proxy_mcp.services.proxy_advise import _cross_check_provisional_revenue as chk
+    out = chk({"fy_prior_operating_profit_krw": 4_300_000_000},
+              {"operating_profit_krw": 7_300_000_000})
+    assert out is None, out
 
 
 def test_cross_check_stays_silent_without_both_sides():

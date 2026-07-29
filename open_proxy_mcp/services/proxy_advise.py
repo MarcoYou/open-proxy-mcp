@@ -1162,6 +1162,22 @@ def _decide_director_compensation(
 _decide_compensation = _decide_director_compensation
 
 
+# 본문↔확정 재무제표 검산 대상. **매출·영업이익만** 쓴다 — 실측 20사(260729):
+#   매출     16곳 중 15곳이 1.00±5%   (범위 1.00~1.09)
+#   영업이익  18곳 중 17곳이 1.00±5%   (범위 0.60~1.00)
+#   순이익    **-0.75 ~ 22.69** — 못 쓴다. 본문은 총 순이익, API 는 지배주주 귀속이라
+#            개념이 다르다(하이브: 매출·영업이익은 1.00인데 순이익만 22.69배).
+# 자산·부채·자본은 본문에서 **당기만** 넘어와 대조 상대가 없다(API 는 FY(N-2)).
+_CROSS_CHECK_ITEMS = (
+    ("fy_prior_revenue_krw", "revenue_krw", "매출"),
+    ("fy_prior_operating_profit_krw", "operating_profit_krw", "영업이익"),
+)
+# 절대액이 작으면 비율이 크게 흔들린다 — 남광토건 영업이익 43억 vs 73억 = 0.60배지만
+# 차이는 30억이라 오파싱이 아니라 감사 전/후 조정이다. 그래서 소액 구간은 비율을 보지 않는다.
+_CROSS_CHECK_MIN_ABS = 100_000_000_000        # 1,000억
+_CROSS_CHECK_LOW, _CROSS_CHECK_HIGH = 0.7, 1.4
+
+
 def _cross_check_provisional_revenue(fy_raw: dict[str, Any] | None,
                                      fin_summary: dict[str, Any] | None) -> str | None:
     """소집공고 본문 잠정 재무제표를 DART API 확정치로 검산한다.
@@ -1169,6 +1185,10 @@ def _cross_check_provisional_revenue(fy_raw: dict[str, Any] | None,
     소집공고는 사업보고서보다 먼저 나오므로(실측 88곳 중 78곳, 중앙 7일) 본문의 당기는
     API 에 아직 없다. 대신 **본문의 전기 = API 의 당기**라 이 둘을 맞대면 파싱이 맞는지 알 수 있다.
     값을 고치지는 않는다 — 어긋나면 그렇게 말할 뿐이다(호출측이 원문을 보게).
+
+    **한계**: 검산 대상은 전기다. 안건이 승인하려는 **당기는 직접 검증되지 않는다** —
+    같은 표·같은 행에서 뽑으므로 전기가 맞으면 당기도 맞다고 추론할 뿐이다.
+    행을 잘못 고르는 오류(260729 「기타영업수익」)는 당기·전기가 함께 틀리므로 잡힌다.
 
     **성립 조건**: 이 등식은 `fin_year = target_year - 2` 에 의존한다(주총 N년 → 안건은 FY(N-1),
     분석 reference 는 FY(N-2)). 본문의 전기도 FY(N-1)-1 = FY(N-2) 라 같은 해가 된다.
@@ -1179,15 +1199,25 @@ def _cross_check_provisional_revenue(fy_raw: dict[str, Any] | None,
     """
     if not fy_raw or not fin_summary:
         return None
-    prior = fy_raw.get("fy_prior_revenue_krw")
-    api_cur = fin_summary.get("revenue_krw")
-    if not prior or not api_cur:
-        return None
-    ratio = prior / api_cur
-    if 0.7 <= ratio <= 1.4:
-        return "본문 전기 매출이 확정 재무제표와 일치 — 본문 파싱 정상"
-    return (f"본문 전기 매출({prior / 1e12:.2f}조)이 확정 재무제표({api_cur / 1e12:.2f}조)와 "
-            f"{ratio:.2f}배 어긋납니다 — 본문 파싱을 신뢰하지 마시고 원문을 확인하세요")
+    checked: list[str] = []
+    bad: list[str] = []
+    for raw_key, api_key, label in _CROSS_CHECK_ITEMS:
+        prior, api_cur = fy_raw.get(raw_key), fin_summary.get(api_key)
+        if not prior or not api_cur:
+            continue
+        if abs(api_cur) < _CROSS_CHECK_MIN_ABS:
+            continue                          # 소액 구간은 비율이 신호가 안 된다
+        ratio = prior / api_cur
+        if _CROSS_CHECK_LOW <= ratio <= _CROSS_CHECK_HIGH:
+            checked.append(label)
+        else:
+            bad.append(f"{label} {prior / 1e12:.2f}조 vs 확정 {api_cur / 1e12:.2f}조({ratio:.2f}배)")
+    if bad:
+        return ("본문 전기 " + " · ".join(bad)
+                + " — 본문 파싱을 신뢰하지 마시고 원문을 확인하세요")
+    if checked:
+        return f"본문 전기 {'·'.join(checked)}이 확정 재무제표와 일치 — 본문 파싱 정상"
+    return None
 
 
 def _decide_audit_compensation(
