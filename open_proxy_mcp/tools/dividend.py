@@ -62,7 +62,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append("")
 
     if summary:
-        lines.append("## 연간 요약")
+        # 몇 년치인지 없으면 리포트에 인용할 때 위험하다(260728 QA 지적)
+        _fy = summary.get("fiscal_year") or summary.get("year") or data.get("year")
+        lines.append(f"## 연간 요약" + (f" (FY{_fy})" if _fy else ""))
         lines.append(f"- 연간 DPS(보통주): {summary.get('cash_dps', 0):,}원")
         if summary.get("cash_dps_preferred"):
             lines.append(f"- 연간 DPS(우선주): {summary.get('cash_dps_preferred', 0):,}원")
@@ -97,7 +99,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.extend([
             "",
             "## 정책 신호",
-            f"- 추세: {policy.get('trend', '-')}",
+            f"- 추세: {_TREND_KO.get(policy.get('trend'), policy.get('trend') or '-')}",
             f"- 분기/중간배당 패턴: {'예' if policy.get('has_quarterly_pattern') else '아니오'}",
             f"- 특별배당 이력: {'예' if policy.get('has_special_dividend') else '아니오'}",
             f"- 최근 DPS 변화율: {str(policy.get('latest_change_pct')) + '%' if policy.get('latest_change_pct') is not None else '-'}",

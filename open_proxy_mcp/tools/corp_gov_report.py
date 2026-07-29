@@ -9,6 +9,13 @@ from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
 
 
+def _amt(v) -> str:
+    """금액 + 단위. 값이 없으면 단위를 붙이지 않는다 — 「-백만원」은 음수로 읽힌다."""
+    if v in (None, "", "-"):
+        return "-"
+    return f"{v}백만원"
+
+
 def _render_error(payload: dict[str, Any]) -> str:
     lines = [f"# corp_gov_report: {payload.get('subject', '')}", ""]
     for warning in payload.get("warnings", []):
@@ -89,19 +96,27 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         f"- 업종: {overview.get('industry', '-') or '-'}",
         f"- 주요 제품: {overview.get('main_products', '-') or '-'}",
         f"- 기업집단: {overview.get('corporate_group', '-') or '-'}",
-        f"- 매출 (연결): {overview.get('revenue_current', '-') or '-'}백만원",
-        f"- 영업이익 (연결): {overview.get('operating_income_current', '-') or '-'}백만원",
-        f"- 순이익 (연결): {overview.get('net_income_current', '-') or '-'}백만원",
-        f"- 자산총액 (연결): {overview.get('total_assets_current', '-') or '-'}백만원",
+        # 값이 없을 때 「-백만원」이 되면 음수로 읽힌다 — 없으면 단위도 붙이지 않는다(260728 QA 지적).
+        f"- 매출 (연결): {_amt(overview.get('revenue_current'))}",
+        f"- 영업이익 (연결): {_amt(overview.get('operating_income_current'))}",
+        f"- 순이익 (연결): {_amt(overview.get('net_income_current'))}",
+        f"- 자산총액 (연결): {_amt(overview.get('total_assets_current'))}",
         "",
         "## 지배구조 핵심지표 준수",
     ])
     rate = meta.get("compliance_rate")
     if rate is not None:
         lines.append(f"- **준수율: {rate}%**")
-    lines.append(
-        f"- 15개 지표 중 **{meta.get('metrics_compliant', 0)}개 준수 / {meta.get('metrics_non_compliant', 0)}개 미준수** (파싱 {meta.get('metrics_parsed_count', 0)}건)"
-    )
+    # 파싱 0건이면 「0개 준수」가 아니라 「읽지 못함」이다 — 굵게 강조된 0이 미준수 기업으로
+    # 읽힌다(260728 QA 지적: KB금융 사례).
+    _parsed = meta.get("metrics_parsed_count", 0) or 0
+    if _parsed:
+        lines.append(
+            f"- 15개 지표 중 **{meta.get('metrics_compliant', 0)}개 준수 / "
+            f"{meta.get('metrics_non_compliant', 0)}개 미준수** (지표 {_parsed}건 확인)"
+        )
+    else:
+        lines.append("- 핵심지표 준수 여부를 읽지 못했습니다 — 미준수라는 뜻이 아닙니다. 원문을 확인하세요.")
     lines.append("")
 
     if scope == "summary":

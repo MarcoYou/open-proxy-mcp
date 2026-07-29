@@ -1225,7 +1225,12 @@ def _decide_audit_compensation(
         if ni is not None and ni > 0:
             return "FOR", f"감사 보수 데이터 부족이나 흑자 (순익 {ni:,}원) — 일반 기준 적용"
     # 분기 11: default
-    return "FOR", f"감사 보수한도 — 위험 신호 없음 (변경률 {audit_inc:+.0f}% 또는 1인당 {audit_per_person})"
+    # 분기 9/10 은 둘 다 None 일 때만 잡는다 — 하나만 None 이면 여기로 떨어져 포맷이 터졌다
+    # (260728 부실기업 검증에서 이오플로우·한국유니온제약 크래시로 발견).
+    _inc = f"변경률 {audit_inc:+.0f}%" if audit_inc is not None else "변경률 미상"
+    _pp = (f"1인당 {audit_per_person / 1e8:.2f}억원" if audit_per_person is not None
+           else "1인당 미상")
+    return "FOR", f"감사 보수한도 — 위험 신호 없음 ({_inc} · {_pp})"
 
 
 # 퇴직금 위험 키워드 (Step 0 sample 분석 + OPM Open Proxy v1.3 + N연기금 [별표 1] IV-35)
