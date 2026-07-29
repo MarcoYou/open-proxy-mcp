@@ -700,6 +700,14 @@ async def evaluate_faithfulness(
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
         "career_company_groups": candidate.get("careerCompanyGroups") or [],
+        # 사람에게 보여줄 것은 원문이다 — 쪼갠 결과가 아니라.
+        # 실측(소집공고 479건·후보 2,284명): 회사/직위 분리가 후보 17%에서 깨져
+        # 「UNIST 전기전자·컴퓨터공학부 부」/「교수」처럼 단어를 찢고, 분량은 원문의 2배다
+        # (후보당 중앙값 168자 vs 83자). `career_company_groups` 는 회사명 매칭용으로 남긴다.
+        "career_raw": [{"period": (d.get("period") or "").strip(),
+                        "content": (d.get("content") or "").strip()}
+                       for d in (candidate.get("careerDetails") or [])
+                       if (d.get("content") or "").strip()],
     }
 
     # 사외이사 겸직 카운트 (사외/독립이사 한정)

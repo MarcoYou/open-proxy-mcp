@@ -157,3 +157,24 @@ def test_rendered_amounts_carry_the_won_unit():
     for m in re.finditer(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?\s*(조|억)(?!원)", out):
         raise AssertionError(f"단위에 '원'이 없다: {out[max(0, m.start()-30):m.end()+10]!r}")
     assert "조원" in out or "억원" in out, "금액이 렌더되지 않았다 — 테스트가 무력화됐다"
+
+
+def test_career_is_rendered_as_the_original_table_not_a_split():
+    """경력은 소집공고 표 그대로(기간 | 내용) 찍는다 — 회사/직위로 쪼개지 않는다.
+
+    260729 실측(소집공고 479건·후보 2,284명): `_split_company_role` 기반 렌더는
+    후보 **17%**에서 회사 칸에 직위가 섞였고(「UNIST 전기전자·컴퓨터공학부 부」/「교수」로
+    단어를 찢는다), 분량은 원문의 **2배**였다(후보당 중앙값 168자 vs 83자).
+    원문이 더 짧고 더 정확하니 쪼개지 않는다.
+    """
+    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
+    out = _render({"status": "ok", "subject": "테스트", "data": {
+        "year": 2026, "agenda_count": 0, "candidates_count": 1,
+        "candidates_evaluations": [{
+            "name": "최재식", "role_type": "outside",
+            "faithfulness": {"career_raw": [
+                {"period": "2017~2019", "content": "UNIST 전기전자·컴퓨터공학부 부교수"},
+                {"period": "2017~2020", "content": "포스코 철강전문 교수"}]}}]}})
+    assert "UNIST 전기전자·컴퓨터공학부 부교수" in out, "단어를 찢으면 안 된다"
+    assert "2017~2019 | UNIST" in out, "기간 | 내용 형식이어야 한다"
+    assert "부 —" not in out and "부  —" not in out

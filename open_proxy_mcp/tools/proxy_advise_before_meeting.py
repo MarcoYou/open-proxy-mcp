@@ -432,7 +432,7 @@ def _render(payload: dict[str, Any]) -> str:
             faith = c.get("faithfulness", {}) or {}
             main_job = faith.get("main_job") or "-"
             rec_reason = (faith.get("recommendation_reason_raw") or "").strip()
-            careers = faith.get("career_company_groups") or []
+            careers = faith.get("career_raw") or []
             ah = faith.get("audit_history_check") or {}
             ah_red = ah.get("red_flags") or []
 
@@ -445,12 +445,16 @@ def _render(payload: dict[str, Any]) -> str:
                     f"- 추천 사유{_shared}: {rec_reason[:240]}"
                     f"{'…' if len(rec_reason) > 240 else ''}")
             if careers:
-                lines.append("- 경력:")
-                for grp in careers[:6]:
-                    co = grp.get("company", "?")
-                    items = grp.get("items") or []
-                    items_str = " / ".join(items[:3])
-                    lines.append(f"  - {co} — {items_str}")
+                # 소집공고 표 그대로(기간 | 내용). 쪼개서 보여주지 않는다 —
+                # 회사/직위 분리가 후보 17%에서 깨져 「…공학부 부」/「교수」처럼 단어를 찢고,
+                # 분량도 원문의 2배였다(260729 실측 2,284명).
+                lines.append("- 경력 (소집공고 세부경력 원문):")
+                for item in careers[:8]:
+                    period = item.get("period") or ""
+                    content = item.get("content") or ""
+                    lines.append(f"  - {period} | {content}" if period else f"  - {content}")
+                if len(careers) > 8:
+                    lines.append(f"  - … 외 {len(careers) - 8}건")
             # 독립성 4 sub_factor 결과 + 근거(경력 raw 등) — 사외이사/감사위원
             lines.extend(_indep_evidence_lines(c))
             if ah_red:
