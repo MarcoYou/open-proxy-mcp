@@ -36,7 +36,7 @@ def _format_krw_human(amount: int | float | None) -> str:
         return f"{sign}{eok:,.1f}억원"
     if n >= 10_000:
         man = n / 10_000
-        return f"{sign}{man:,.0f}만"
+        return f"{sign}{man:,.0f}만원"
     return f"{sign}{n:,}원"
 
 

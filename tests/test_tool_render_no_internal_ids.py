@@ -127,3 +127,16 @@ def test_independence_dict_covers_director_evaluation_results():
     assert flat, "producer 값을 못 읽었다 — 테스트가 무력화됐다"
     missing = flat - set(_INDEP_RESULT_KO)
     assert not missing, f"사전에 없는 result 값: {sorted(missing)}"
+
+
+def test_krw_formatter_always_carries_the_unit():
+    """「334조」만 쓰면 무엇의 단위인지 문서 안에서 확정되지 않는다(260728 QA 지적).
+
+    변이 테스트에서 이 가드가 없으면 '원'을 떼도 아무 테스트가 안 깨졌다.
+    """
+    from open_proxy_mcp.tools.financial_metrics import _format_krw_human as f, _num
+    for v in (334_000_000_000_000, 3_340_000_000_000, 333_400_000_000, -690_854_000_000, 12_345):
+        out = f(v)
+        assert out.endswith("원"), f"{v} → {out}"
+    assert f(None) == "-"
+    assert _num(15410) == "15,410"        # 문서 내 다른 숫자와 표기를 맞춘다

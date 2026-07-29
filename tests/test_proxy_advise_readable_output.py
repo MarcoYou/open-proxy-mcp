@@ -107,3 +107,53 @@ def test_audit_compensation_never_crashes_on_partial_data():
             d, r = _decide_audit_compensation(comp, fin or {})
             assert d in ("FOR", "AGAINST", "REVIEW", "NO_DATA"), (comp, fin, d)
             assert "None" not in r, (comp, fin, r)
+
+
+# ── 변이 테스트에서 「못 잡음」으로 드러난 구멍 (260729) ───────────────────────
+# 소스 문자열만 검사하면 렌더 결과가 바뀌어도 통과한다. 실제 렌더를 돌려서 본다.
+
+def _rendered_sample() -> str:
+    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
+    return _render({
+        "status": "ok", "subject": "테스트",
+        "data": {
+            "year": 2026, "agenda_count": 2, "candidates_count": 0,
+            "agenda_decisions": [
+                {"agenda_title": "정관 변경의 건", "decision": "FOR",
+                 # 표 셀에 줄바꿈이 들어가면 마크다운 표가 그 지점에서 무너진다
+                 "reason": "정관변경 — 위험 신호 없음\n\n📄 정관 조문 원문:\n[제20조] 변경 전: …",
+                 "facts": {}, "risk_factors": []},
+                {"agenda_title": "이사 보수한도 승인의 건", "decision": "REVIEW",
+                 "reason": "한도 인상 — 검토 필요", "facts": {"limit_krw": 7_000_000_000},
+                 "risk_factors": []},
+            ],
+            "financial_summary": {"revenue_krw": 48_916_104_000_000,
+                                  "operating_profit_krw": 916_798_000_000,
+                                  "capital_impairment_status": "normal"},
+        },
+    })
+
+
+def test_rendered_table_rows_have_a_consistent_column_count():
+    """표 셀에 줄바꿈이 들어가면 그 행부터 표가 무너진다 — 렌더 결과로 확인한다."""
+    rows = [ln for ln in _rendered_sample().splitlines() if ln.startswith("|")]
+    assert rows, "표가 렌더되지 않았다 — 테스트가 무력화됐다"
+    counts = {ln.count("|") for ln in rows}
+    assert len(counts) == 1, f"열 수가 어긋난 행이 있다: {sorted(counts)}"
+
+
+def test_rendered_output_has_no_scolding_and_no_warning_sign():
+    out = _rendered_sample()
+    assert "⚠" not in out.replace("⚠️ REVIEW", "")      # 판정 마커만 예외
+    for scold in ("하지 마세요", "하지 말 것", "만들지 마", "금지"):
+        assert scold not in out, scold
+
+
+def test_rendered_amounts_carry_the_won_unit():
+    """「334조」만 쓰면 무엇의 단위인지 문서 안에서 확정되지 않는다."""
+    import re
+    out = _rendered_sample()
+    # 「제20조」의 조를 물지 않게 — 천단위 구분자가 있는 금액만 본다(측정 도구 오탐 교정)
+    for m in re.finditer(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?\s*(조|억)(?!원)", out):
+        raise AssertionError(f"단위에 '원'이 없다: {out[max(0, m.start()-30):m.end()+10]!r}")
+    assert "조원" in out or "억원" in out, "금액이 렌더되지 않았다 — 테스트가 무력화됐다"
