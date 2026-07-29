@@ -144,7 +144,7 @@ def test_rendered_table_rows_have_a_consistent_column_count():
 
 def test_rendered_output_has_no_scolding_and_no_warning_sign():
     out = _rendered_sample()
-    assert "⚠" not in out.replace("⚠️ REVIEW", "")      # 판정 마커만 예외
+    assert "⚠" not in out.replace("⚠️ 검토 필요", "")     # 판정 마커만 예외
     for scold in ("하지 마세요", "하지 말 것", "만들지 마", "금지"):
         assert scold not in out, scold
 

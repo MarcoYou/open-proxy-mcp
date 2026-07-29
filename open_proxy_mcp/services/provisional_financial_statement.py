@@ -453,7 +453,14 @@ _METRIC_KEYWORDS = {
         "당기순이익(손실)", "당기순이익", "당기 순이익", "당기손익",
         "지배기업소유주지분", "지배기업 소유주지분", "지배기업의 소유주지분", "지배지분 순이익",
     ),
-    "revenue_krw": ("매출액", "수익(매출액)", "영업수익", "수익 (매출액)"),
+    # 「Ⅰ. 매출」(액 없음) 474건 · 「매출액」1001건 — 둘 다 받는다.
+    # 「기타매출」·「기타수익」·「기타영업수익」은 접두 매칭이 걸러낸다.
+    # 「Ⅰ. 매출」(액 없음) 474건 · 「매출액」1001건 — 둘 다 받는다.
+    # 「기타매출」·「기타수익」·「기타영업수익」은 접두 매칭이 걸러낸다(638건).
+    # **보험·금융업은 「보험영업수익」이 매출에 해당**한다 — 접두 매칭이라 명시해야 잡힌다
+    # (260729 회귀 검증: 흥국화재·코리안리가 소실됐다. 삼성생명의 「기타영업수익」은 정상 배제).
+    "revenue_krw": ("매출액", "매출", "수익(매출액)", "영업수익", "수익 (매출액)",
+                    "보험영업수익", "영업수익(매출액)"),
     "operating_profit_krw": ("영업이익(손실)", "영업이익", "영업손익"),
     "total_assets_krw": ("자산총계", "자산 총계"),
     "total_liabilities_krw": ("부채총계", "부채 총계"),
@@ -464,6 +471,23 @@ _METRIC_KEYWORDS = {
 # account 컬럼 raw text에 영문 사명 라인 다수 (≥6) 있으면 종속회사 목록으로 판단 → reject.
 _NON_FS_TABLE_HINTS = ("Inc.", "Ltd.", "Pte.", "B.V.", "S.A.S.", "K.K.", "Co.,Ltd",
                        "Limited", "Corporation", "PTE.", "LTD")
+
+
+# 접두 매칭이라도 「매출원가」·「매출총이익」은 「매출」로 시작한다 — 명시적으로 막는다.
+# (260729 테스트가 잡음: 「매출」 키워드를 넣자마자 원가·총이익이 매출로 들어왔다)
+_REVENUE_EXCLUDE = ("매출원가", "매출총이익", "매출채권", "매출할인", "매출에누리",
+                    "영업수익원가", "보험영업비용")
+
+
+def _account_matches(account_clean: str, keywords, metric_key: str) -> bool:
+    if metric_key == "revenue_krw" and account_clean.startswith(_REVENUE_EXCLUDE):
+        return False
+    return any(account_clean.startswith(kw.replace(" ", "")) for kw in keywords)
+
+
+def _strip_item_marker(s: str) -> str:
+    """계정명 앞의 항목 번호를 뗀다 — 「Ⅰ.매출」·「1.매출액」·「(1)매출」."""
+    return re.sub(r"^[\(（]?[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩIVXivx0-9]{1,4}[\)）]?\s*[.．:：]?\s*", "", s)
 
 
 def _parse_amount(text: str) -> int | None:
@@ -558,14 +582,18 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
                 account = (row[acc_idx] or "").strip()
                 if not account:
                     continue
-                account_clean = account.replace(" ", "")
+                # 「Ⅰ.」·「1.」 같은 항목 번호를 떼고 본다 — 원문은 「Ⅰ. 매출」처럼 쓴다.
+                account_clean = _strip_item_marker(account.replace(" ", ""))
 
                 for metric_key, keywords in _METRIC_KEYWORDS.items():
                     cur_key = f"fy_current_{metric_key}"
                     prior_key = f"fy_prior_{metric_key}"
                     if cur_key in out:
                         continue
-                    if any(kw.replace(" ", "") in account_clean for kw in keywords):
+                    # **접두** 매칭 — 부분 포함이면 「기타영업수익」이 「영업수익」에 걸린다.
+                    # 260729 실측: LG화학 매출이 45.9조 대신 기타영업수익 1.65조로 들어갔다.
+                    # 캐시 소집공고 479건에 「기타수익」541·「기타매출」97·「기타영업수익」10건.
+                    if _account_matches(account_clean, keywords, metric_key):
                         cur_val = _parse_amount(row[cur_idx])
                         prior_val = _parse_amount(row[prior_idx])
                         if cur_val is not None:

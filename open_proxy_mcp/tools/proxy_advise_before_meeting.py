@@ -302,6 +302,11 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("")
         # LLM 지시(강행규정 정합을 뒤집지 말 것)는 tool docstring 에 둔다 — 모델은 호출 전에
         # 그걸 읽는다. 산출물에 섞으면 사람이 자기 앞으로 온 금지문을 읽게 된다(260728 사용자 지적).
+        lines.append("> **✅ 찬성 / ❌ 반대**는 정책·법령에 비추어 판정이 선 것이고, "
+                     "**⚠️ 검토 필요**는 판정을 보류한 것입니다 — 아래 「안건별 결정 근거」의 "
+                     "사실·위험 신호를 읽고 직접 정하세요. 근거가 사실과 다르면 그 판정은 "
+                     "쓰지 마시고 원문을 확인하시면 됩니다.")
+        lines.append("")
         lines.append("| # | 안건 | 행사방향 | 사유 |")
         lines.append("|---|------|---------|------|")
         for i, ag in enumerate(decisions, 1):
@@ -312,10 +317,12 @@ def _render(payload: dict[str, Any]) -> str:
             # (정관 원문·📋 조항 상세가 셀에 통째로 들어가 있었다). 전문은 아래 근거 절에 그대로 있다.
             reason = _one_line(reason_full, 160)
             decision_emoji = {
-                "FOR": "✅ FOR",
-                "AGAINST": "❌ AGAINST",
-                "REVIEW": "⚠️ REVIEW",
-                "NO_DATA": "— NO_DATA",
+                # 사람이 읽는 표다 — 영문 enum 을 그대로 두지 않는다(260729 사용자 지적).
+                # payload 의 `decision` 필드는 FOR/AGAINST 그대로라 기계 소비자는 영향 없다.
+                "FOR": "✅ 찬성",
+                "AGAINST": "❌ 반대",
+                "REVIEW": "⚠️ 검토 필요",
+                "NO_DATA": "— 판단 보류(자료 부족)",
                 # 상법 §449조의2로 보고사항이 된 안건 — 표결 자체가 없다
                 "NO_VOTE": "🚫 표결없음",
             }.get(decision, decision)
