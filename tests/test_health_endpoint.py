@@ -42,3 +42,15 @@ def test_dependency_has_an_upper_bound_on_mcp():
     txt = (pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
     line = next(l for l in txt.splitlines() if l.strip().startswith('"mcp['))
     assert "<2" in line, line
+
+
+def test_health_exists_on_a_freshly_built_instance():
+    """`main()` 은 `build_mcp()` 로 **새 인스턴스**를 만든다 — 모듈 레벨 mcp 에만 붙이면
+    실제 서빙되는 앱엔 라우트가 없다(260729 2차 사고: 배포 후 /health 404, 배포 실패).
+    """
+    from open_proxy_mcp.server import build_mcp
+    fresh = build_mcp()
+    paths = {getattr(r, "path", None) for r in fresh.streamable_http_app().routes}
+    assert "/health" in paths, paths
+    r = TestClient(fresh.streamable_http_app()).get("/health")
+    assert r.status_code == 200 and r.json()["tools"] > 0, r.text
