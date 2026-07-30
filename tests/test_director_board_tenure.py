@@ -572,3 +572,28 @@ def test_roster_career_fills_only_when_the_notice_has_none():
     has = {"faithfulness": {"career_raw": [{"period": "2020~현재", "content": "A사 대표이사"}]}}
     apply_roster_career_fallback(has, cand, roster)
     assert "career_from_roster" not in has["faithfulness"]
+
+
+def test_estimated_tenure_is_labelled_in_the_classification():
+    """재직 기간이 정형이 아니라 추정이면 분류 라벨에 병기한다 — 「양호」만 보면 확신 있게 읽힌다.
+
+    게이트가 정형 재직기간을 「근속 오기재」로 버린 뒤 소집공고 추정으로 되돌아간 경우다
+    (실측 3/113). 그 추정의 정형 대조 일치율은 43%다.
+    정형 재직기간이 등기 기간인지 근속인지는 **표기 서식으로 가릴 수 없다** —
+    260730 실측 서식별 취임연령 이상률: 일자범위 1/8(12%) ≈ 「N년」 7/56(12%).
+    확정하려면 법인등기부가 필요하다(상법 §317, 상업등기법).
+    """
+    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
+    def render(tenure_source):
+        return _render({"status": "ok", "subject": "T", "data": {
+            "year": 2026, "agenda_count": 0, "candidates_count": 1,
+            "candidates_evaluations": [{"name": "박성수", "role_type": "사내이사",
+                "performance": {"classification": "good", "classification_ko": "양호",
+                                "total_score": 4, "tenure_period": "2013 ~ 2026 (14년)",
+                                "tenure_source": tenure_source}}]}})
+    est = render("소집공고 세부경력 추정 — 2025년 사업보고서 임원현황의 재직기간은 근속연수로 보여…")
+    assert "**양호** (추정 기간 기준)" in est, est[est.find("재직 중 성과"):][:120]
+
+    firm = render("2025년 사업보고서 임원현황 기준 「사내이사」 · 재직기간 2015.11.01~")
+    assert "(추정 기간 기준)" not in firm, "정형 근거일 때는 붙이지 않는다"
+    assert "**양호**" in firm

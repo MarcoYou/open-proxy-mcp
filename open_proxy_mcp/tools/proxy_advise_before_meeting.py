@@ -457,18 +457,21 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"- 주요 직책: {main_job}")
             # 정형 직위 — 주된직업(자유기재)과 별개로 이 회사 현재 직위를 정형으로 보여준다.
             # 실측 81.1%에서 주된직업에 없는 정보를 담고 있었다.
-            if isinstance(_apt0 := (c.get("appointment_type") or {}), dict) and _apt0.get("roster_position"):
-                lines.append(f"- 직위 (직전 정기보고서 기준): {_apt0['roster_position']}")
+            # 출처 표기 규칙: **소집공고는 기본값이라 라벨을 안 붙이고, 다른 문서에서 온 것만
+            # 밝힌다.** 안 밝히면 읽는 쪽이 전부 공고 내용이라고 읽는다(이 도구는 공고 분석이다).
+            _apt0 = c.get("appointment_type") or {}
+            _src0 = (_apt0.get("board_tenure_source") or {}).get("source") or "직전 정기보고서"
+            if isinstance(_apt0, dict) and _apt0.get("roster_position"):
+                lines.append(f"- 직위 ({_src0}): {_apt0['roster_position']}")
             # 임기 만료일 — 정형(임원현황) 값. 「이 사람 임기가 언제 끝나나」는 스튜어드십
             # 실무의 기본 정보인데 지금까지 받아만 오고 안 보여줬다(등기 행 96.3% 채움).
             _apt = c.get("appointment_type") or {}
             # 직전 보고서 기준 위원회 소속 — 감사위원 후보가 이미 그 위원회에 있었나
             if isinstance(_apt, dict) and _apt.get("roster_committees"):
-                lines.append(f"- 위원회 (직전 정기보고서 기준): "
-                             f"{' · '.join(_apt['roster_committees'])}")
+                lines.append(f"- 위원회 ({_src0}): {' · '.join(_apt['roster_committees'])}")
             if isinstance(_apt, dict) and _apt.get("term_end_on"):
                 _mark = " · 이번 회차 만료(재선임 대상)" if _apt.get("term_expiring_this_meeting") else ""
-                lines.append(f"- 임기 만료: {_apt['term_end_on']}{_mark}")
+                lines.append(f"- 임기 만료 ({_src0}): {_apt['term_end_on']}{_mark}")
             if rec_reason:
                 _shared = " (구간 공통 문면 — 이 후보 것이라고 확정하지 못함)" \
                     if faith.get("recommendation_reason_shared") else ""
@@ -505,7 +508,19 @@ def _render(payload: dict[str, Any]) -> str:
                 cls = perf.get("classification", "n/a")  # 영문 키 — 이모지 매핑용
                 cls_ko = perf.get("classification_ko") or cls  # 한글 표시
                 cls_emoji = {"good": "🟢", "moderate": "🟡", "weak": "🟠", "bad": "🔴"}.get(cls, "")
-                lines.append(f"- **재직 중 성과**: {cls_emoji} **{cls_ko}** (총점 {perf.get('total_score')}/12, 재직 {perf.get('tenure_period', '-')})")
+                # 재직 기간이 정형이 아니라 **추정**이면 분류 라벨에 그 사실을 병기한다.
+                # 게이트가 정형 재직기간을 「근속 오기재」로 버린 뒤 소집공고 추정으로 되돌아간
+                # 경우다(실측 3/113). 「양호」만 보면 확신 있게 읽히는데 근거는 그만큼 단단하지
+                # 않다 — 정형 재직기간이 등기 기간인지 근속인지는 표기로 가릴 수 없고
+                # (서식별 취임연령 이상률: 일자범위 12% ≈ N년 12% — 서식은 판별자가 아니다)
+                # 확정하려면 법인등기부가 필요하다.
+                _est = " (추정 기간 기준)" if "추정" in (perf.get("tenure_source") or "") else ""
+                lines.append(f"- **재직 중 성과**: {cls_emoji} **{cls_ko}**{_est} "
+                             f"(총점 {perf.get('total_score')}/12, 재직 {perf.get('tenure_period', '-')})")
+                # 점수를 좌우하는 건 「재직 몇 년」이다 — 그 기간이 어디서 왔는지 밝히지 않으면
+                # 읽는 쪽이 검증할 수 없다(계산은 되고 있었는데 렌더가 빠져 있었다).
+                if perf.get("tenure_source"):
+                    lines.append(f"  - 재직 기간 근거: {perf['tenure_source']}")
                 if perf.get("tenure_note"):
                     lines.append(f"  - {perf['tenure_note']}")
                 m = perf.get("matrix", {}) or {}
