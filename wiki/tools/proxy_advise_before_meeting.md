@@ -87,7 +87,7 @@ proxy_advise_before_meeting(
 | 독립성 / 결격사유 / 충실성 | 자동 판단 (Korean 자연 라벨: "독립적" / "약한 우려" / "우려" 등) |
 | main_job | 현 직책 (전문성 hint) |
 | recommendation_reason_raw | 추천사유 (회사 본문 raw) |
-| career_company_groups | 경력 (회사·기간) |
+| career_raw | 경력 — 소집공고 세부경력 **원문**(기간·내용). 260730 에 쪼갠 `career_company_groups` 를 폐기하고 이걸로 대체 |
 | audit_history_check | 과거 회사 회계 risk overlap (옵션) |
 | **performance** | **사내이사 연임 후보 한정** — 재직 중 회사 운영 성과 매트릭스 2x3 (ROE/부채비율/CSR × avg/trend), 6 cell 점수, classification good/moderate/weak/bad, rationale 한국어. **점수 미반영 fact**: 영업이익률(본업 수익성 — ROE 왜곡 보완, `core_profitable` 본업 흑/적자) + 수주·해지(order_contracts signal_summary — 적자기업 미래매출 가시성) + **담당부문 성과 `segment_signal`**(260723 Phase 1 — 부문장 출신 후보만, 커리어→business_details segments 보수적 매핑(정확히 1개 매칭·정형 OK만), 최근 3개 사업연도 부문 매출·영업이익, `excluded_years`로 저신뢰 제외 연도 명시, `segment_signal_status`로 skip 사유 기록). 적자기업이 ROE만으로 부당하게 깔리지 않게, 부문장 출신이 전사 실적만으로 깔리지 않게 해석 단서로 분리 (자세히는 [[260505_1700_decision_inside-director-performance-matrix]]) |
 
