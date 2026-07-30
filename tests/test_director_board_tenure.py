@@ -532,3 +532,43 @@ def test_governance_report_confirms_the_gender_signal():
     assert "기업지배구조보고서 미준수 지표" in out
     assert "이사회 구성원 모두 단일성(性)이 아님" in out
     assert "집중투표제 채택" in out
+
+
+def test_formal_position_is_shown_alongside_the_self_declared_job():
+    """정형 직위(`ofcps`)는 소집공고 「주된직업」과 별개 정보다.
+
+    주된직업은 자유기재이고 다른 회사 직책일 수 있다. `ofcps` 는 **이 회사 현재 직위**를
+    정형으로 적는다. 실측 53명 중 **43명(81.1%)** 에서 주된직업에 없는 정보를 담고 있었다
+    (삼성전자 전영현 — 정형 「부회장」).
+    """
+    from open_proxy_mcp.services.director_evaluation import apply_roster_board_tenure
+    ev = {"appointment_type": {"type": "renewed", "board_earliest_start": None}}
+    apply_roster_board_tenure(
+        ev, {"name": "전영현", "birthDate": "1960-12-01"},
+        {"전영현": [{"birth": (1960, 12), "director_type": "사내이사", "tenure": "10개월",
+                   "position": "부회장", "duty": "ㆍ대표이사 (DS부문 경영전반 총괄)"}]}, 2025)
+    apt = ev["appointment_type"]
+    assert apt["roster_position"] == "부회장"
+    assert apt["board_tenure_source"]["position"] == "부회장"
+
+
+def test_roster_career_fills_only_when_the_notice_has_none():
+    """소집공고 세부경력이 **없을 때만** 임원현황 주요경력으로 메운다 — 덮지 않는다.
+
+    시점이 다르다(사업보고서 결산기준일 vs 소집공고). 실측 결측은 1.9%지만 그게 하드케이스다
+    (모나리자 Lok Shean Yang Peter — 외국인명).
+    """
+    from open_proxy_mcp.services.director_evaluation import apply_roster_career_fallback
+    roster = {"홍길동": [{"birth": (1970, 3), "main_career": "- 現) A사 CFO - 前) B사 이사"}]}
+    cand = {"name": "홍길동", "birthDate": "1970-03-01"}
+
+    empty = {"faithfulness": {"career_raw": []}}
+    apply_roster_career_fallback(empty, cand, roster, report_label="2025년 사업보고서")
+    cfr = empty["faithfulness"]["career_from_roster"]
+    assert cfr["main_career"].startswith("- 現) A사 CFO")
+    assert "기준일이 다릅니다" in cfr["note"]
+
+    # 공고에 경력이 있으면 손대지 않는다
+    has = {"faithfulness": {"career_raw": [{"period": "2020~현재", "content": "A사 대표이사"}]}}
+    apply_roster_career_fallback(has, cand, roster)
+    assert "career_from_roster" not in has["faithfulness"]

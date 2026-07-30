@@ -1189,6 +1189,8 @@ def build_roster_index(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, A
             # 260730: 임기 만료일 — 등기 행 실측 96.3% 채움. 서식이 「YYYY년 MM월 DD일」 하나라
             # hffc_pd(재직기간)보다 해석 여지가 없다.
             "tenure_end": re.sub(r"\s+", " ", (r.get("tenure_end_on") or "")).strip(),
+            # 260730: 주요경력 — 소집공고 세부경력이 결측일 때 메운다(실측 98.6% 채움).
+            "main_career": re.sub(r"\s+", " ", (r.get("main_career") or "")).strip(),
         })
     return idx
 
@@ -1412,6 +1414,12 @@ def apply_roster_board_tenure(
     prov["tenure_raw"] = re.sub(r"\s+", " ", (m0.get("tenure") or "")).strip() or None
     # 임기 만료일 — 서식이 하나라(「YYYY년 MM월 DD일」) 재직기간보다 해석 여지가 없다.
     # 등기 행 실측 96.3% 채움. 읽는 쪽이 「이 사람 임기가 언제 끝나나」를 바로 볼 수 있다.
+    # 정형 직위(ofcps) — 소집공고 「주된직업」은 자유기재인데 이건 정형이다.
+    # 실측 53명 중 43명(81.1%)에서 주된직업에 안 나타나는 정보를 담고 있었다
+    # (삼성전자 전영현: 주된직업에 없고 정형은 「부회장」).
+    if (m0.get("position") or "").strip():
+        prov["position"] = (m0.get("position") or "").strip()
+        apt["roster_position"] = prov["position"]
     _comms = _committees_in(m0.get("duty") or "")
     if _comms:
         prov["committees"] = _comms
@@ -1545,6 +1553,35 @@ def apply_roster_employee_check(
     # 「외부인」으로 남겨두면 안 된다 — 정형이 반대로 말하고 있다. 단정은 피하고 검토로 올린다.
     if sub.get("result") == "outsider":
         sub["result"] = "roster_says_fulltime_insider"
+
+
+def apply_roster_career_fallback(
+    ev: dict[str, Any], candidate: dict[str, Any],
+    roster_index: dict[str, list[dict[str, Any]]], *, report_label: str | None = None,
+) -> None:
+    """소집공고 세부경력이 결측이면 임원현황 「주요경력」으로 메운다 — 출처를 밝히고 덮지 않는다.
+
+    실측: roster 대조 가능한 후보 53명 중 공고 경력 결측은 1명(1.9%)이지만 그게 하드케이스다
+    (모나리자 Lok Shean Yang Peter — 외국인명). 빈도는 낮고 비용도 낮다.
+    **공고에 경력이 있으면 손대지 않는다** — 시점(사업보고서 결산기준일)이 다르다.
+    """
+    faith = ev.get("faithfulness")
+    if not isinstance(faith, dict) or faith.get("career_raw") or not roster_index:
+        return
+    cbk = _birth_ym_key(candidate.get("birthDate"))
+    for m in roster_index.get(_core_name(candidate.get("name"))) or []:
+        mbk = m.get("birth") or (None, None)
+        if cbk[0] and mbk[0] and cbk[0] != mbk[0]:
+            continue
+        mc = (m.get("main_career") or "").strip()
+        if mc and mc not in ("-", "—"):
+            faith["career_from_roster"] = {
+                "source": report_label or "정기보고서 임원현황",
+                "main_career": mc,
+                "note": "소집공고 세부경력이 없어 임원현황 주요경력으로 대신 보여줍니다 "
+                        "— 기준일이 다릅니다(그 보고서 결산기준일).",
+            }
+            return
 
 
 # ── Item2c/H2 (260710): roster 최대주주관계 rescue — 소집공고 결측 시 힌트로 채움 ──
@@ -1785,6 +1822,8 @@ async def build_director_evaluation_payload(
             ev["agenda_named_inside_director"] = (
                 re.sub(r"\s+", "", c.get("name") or "") in inside_named)
             apply_roster_employee_check(ev, c, roster_index, report_label=roster_report)
+            # 260730: 소집공고 경력 결측 시 임원현황 주요경력으로 보완(덮지 않음)
+            apply_roster_career_fallback(ev, c, roster_index, report_label=roster_report)
             # 260729: 등기 재직 시작연도를 임원현황(정형)으로 확정 — 소집공고 경력 추정을 덮는다
             apply_roster_board_tenure(
                 ev, c, roster_index, roster_year,

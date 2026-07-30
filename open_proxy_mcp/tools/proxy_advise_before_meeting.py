@@ -455,6 +455,10 @@ def _render(payload: dict[str, Any]) -> str:
                     f"- ⚠️ 직위 표기 불일치: 후보자 표「{rtc.get('role_type')}」 vs "
                     f"안건 제목「{rtc.get('declared_role')}」 — {rtc.get('note')}")
             lines.append(f"- 주요 직책: {main_job}")
+            # 정형 직위 — 주된직업(자유기재)과 별개로 이 회사 현재 직위를 정형으로 보여준다.
+            # 실측 81.1%에서 주된직업에 없는 정보를 담고 있었다.
+            if isinstance(_apt0 := (c.get("appointment_type") or {}), dict) and _apt0.get("roster_position"):
+                lines.append(f"- 직위 (직전 정기보고서 기준): {_apt0['roster_position']}")
             # 임기 만료일 — 정형(임원현황) 값. 「이 사람 임기가 언제 끝나나」는 스튜어드십
             # 실무의 기본 정보인데 지금까지 받아만 오고 안 보여줬다(등기 행 96.3% 채움).
             _apt = c.get("appointment_type") or {}
@@ -471,6 +475,11 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(
                     f"- 추천 사유{_shared}: {rec_reason[:240]}"
                     f"{'…' if len(rec_reason) > 240 else ''}")
+            _cfr = faith.get("career_from_roster")
+            if not careers and isinstance(_cfr, dict):
+                lines.append(f"- 경력 ({_cfr.get('source')} 주요경력 — 소집공고에 세부경력 없음):")
+                lines.append(f"  - {str(_cfr.get('main_career'))[:400]}")
+                lines.append(f"  - ⓘ {_cfr.get('note')}")
             if careers:
                 # 소집공고 표 그대로(기간 | 내용). 쪼개서 보여주지 않는다 —
                 # 회사/직위 분리가 후보 17%에서 깨져 「…공학부 부」/「교수」처럼 단어를 찢고,
