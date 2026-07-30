@@ -660,3 +660,33 @@ def test_split_doubt_signals_and_raw_fallback_chain():
             {"period": "2020 ~ 현재", "content": cut}]}), cut
     # 「㈜」로 시작하는 정상 회사명은 절단이 아니다
     assert f({"careerDetails": [{"period": "2020 ~ 현재", "content": "㈜영풍 사장"}]}) == []
+
+
+def test_not_evaluated_reason_separates_unknown_status_from_unknown_start():
+    """「등기인지 모른다」와 「등기는 맞는데 언제부터인지 모른다」는 다른 말이다.
+
+    260731 실측(대웅제약 박은경): 정형이 「사내이사」로 명시하고 임기 만료일까지 있는데
+    사유는 「등기이사 재직 시점을 확정할 근거가 없습니다 — 소집공고 경력란은 등기 여부를 적을
+    의무가 없습니다」로 나갔다. **등기 여부는 확정됐고 시작 시점만 못 정한 것**인데
+    등기 여부를 모르는 것처럼 읽힌다.
+    """
+    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
+
+    def rationale(**perf):
+        out = _render({"status": "ok", "subject": "T", "data": {
+            "year": 2026, "agenda_count": 0, "candidates_count": 1,
+            "candidates_evaluations": [{"name": "박은경", "role_type": "사내이사",
+                                        "performance": {"classification": "not_evaluated", **perf}}]}})
+        return out
+
+    # 게이트가 시작연도를 버린 경우 — 등기는 확인됐다고 말해야 한다
+    txt = rationale(rationale="2025년 사업보고서 임원현황이 「사내이사」로 밝혀 등기이사인 것은 "
+                              "확인되나, 재직기간 표기(2010.1 ~現)가 근속연수로 보여 등기 시작 "
+                              "시점을 확정하지 못했습니다.")
+    assert "등기이사인 것은 확인되나" in txt
+    assert "등기 여부를 적을 의무가 없습니다" not in txt
+
+    # 미등기 확정은 별개 문구
+    txt2 = rationale(rationale="2025년 사업보고서 임원현황에 미등기임원으로만 올라 있어, "
+                               "등기이사로 재직한 기간이 없습니다.")
+    assert "미등기임원으로만" in txt2

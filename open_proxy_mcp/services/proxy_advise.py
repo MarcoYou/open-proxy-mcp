@@ -2619,6 +2619,18 @@ async def build_proxy_advise_payload(
                 if src.get("note", "").startswith("임원현황에 미등기"):
                     why = (f"{src.get('source')} 임원현황에 미등기임원으로만 올라 있어, "
                            "등기이사로 재직한 기간이 없습니다.")
+                elif src.get("rejected_start"):
+                    # 등기 여부는 **확정됐고** 시작 시점만 못 정한 경우다. 「등기인지 모른다」로
+                    # 말하면 읽는 쪽이 잘못 읽는다(260731: 대웅제약 박은경 — 정형이 「사내이사」로
+                    # 명시하고 임기 만료일까지 있는데 메시지는 등기 여부를 모르는 것처럼 말했다).
+                    why = (f"{src.get('source')} 임원현황이 「{src.get('director_type')}」로 밝혀 "
+                           "등기이사인 것은 확인되나, 재직기간 표기"
+                           + (f"({src.get('tenure_raw')})" if src.get("tenure_raw") else "")
+                           + "가 근속연수로 보여 등기 시작 시점을 확정하지 못했습니다.")
+                elif src.get("director_type") and "미등기" not in (src.get("director_type") or ""):
+                    why = (f"{src.get('source')} 임원현황이 「{src.get('director_type')}」로 밝혀 "
+                           "등기이사인 것은 확인되나, 재직기간 표기가 없어 시작 시점을 "
+                           "확정하지 못했습니다.")
                 elif not (apt.get("matched_entries") or []):
                     why = ("소집공고 세부경력에서 이 회사 재직 이력을 찾지 못했고 직전 정기보고서 "
                            "임원현황에도 없습니다 — 신규 선임이거나 경력 표기가 달라 대조되지 않았습니다.")
