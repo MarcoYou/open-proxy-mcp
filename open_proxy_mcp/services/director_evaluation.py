@@ -1583,6 +1583,8 @@ def evaluate_candidate(candidate: dict[str, Any], current_year: int, own_company
         "name": candidate.get("name"),  # success
         "birth_date": candidate.get("birthDate"),  # success
         "role_type": candidate.get("roleType"),  # success
+        # 후보자 표와 안건 제목이 직위를 다르게 밝힌 경우 — 어느 쪽도 덮지 않고 사실만 전달한다
+        "role_type_conflict": candidate.get("roleTypeConflict"),
         "separate_election": candidate.get("separateElection"),  # success (감사위원 분리선임)
         "independence": evaluate_independence(candidate, current_year),
         "faithfulness": evaluate_faithfulness_basic(candidate, own_company_name),
@@ -1602,6 +1604,8 @@ async def evaluate_candidate_async(
         "name": candidate.get("name"),
         "birth_date": candidate.get("birthDate"),
         "role_type": candidate.get("roleType"),
+        # 후보자 표와 안건 제목이 직위를 다르게 밝힌 경우 — 어느 쪽도 덮지 않고 사실만 전달한다
+        "role_type_conflict": candidate.get("roleTypeConflict"),
         "separate_election": candidate.get("separateElection"),
         "independence": evaluate_independence(candidate, current_year),
         "faithfulness": await evaluate_faithfulness(candidate, check_audit_history=check_audit_history, own_company_name=own_company_name),

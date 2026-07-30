@@ -607,32 +607,53 @@ _DECLARED_ROLE = (("독립이사", "사외이사"), ("사외이사", "사외이�
 _ELECTION_AGENDA = re.compile(r'선\s*임|중\s*임|해\s*임|후보')
 
 
-def declared_role_for_candidate(title: str, name: str) -> tuple[str | None, str]:
+def declared_role_for_candidate(
+    title: str, name: str, siblings: tuple[str, ...] = (),
+) -> tuple[str | None, str]:
     """안건 제목이 **이 후보에게** 밝힌 직위 → (직위, 근거).
 
     제목이 여러 안건으로 뭉쳐 오는 서식이 있다:
       「사내이사 정인철 선임의 건 (임기 3년) 제3-3호 의안 : 사외이사 김대근 선임의 건」
-    이때 구간 전체에서 직위를 추정하면 첫 직위를 전원이 상속해 정인철이 사외이사가 된다
-    (실측 479건: 제목이 역할을 밝힌 후보 363명 중 55명(15.2%) 이 roleType 과 어긋난다).
-    그래서 **이름 바로 앞의 직위**를 먼저 본다 — 이게 가장 확실하다.
+    구간 전체에서 직위를 추정하면 첫 직위를 전원이 상속해 정인철이 사외이사가 된다
+    (실측 479건: 제목이 역할을 밝힌 후보 363명 중 55명(15.2%)이 roleType 과 어긋났다).
 
-    반환 근거: `named`(이름 앞 직위) / `sole`(제목에 직위가 하나뿐) / `""`(못 밝힘).
-    직위가 둘 이상인데 이름 지목이 없으면 **판단하지 않는다**(None) — 추측하면 그게 버그다.
+    그래서 제목을 **직위 키워드로 구간 분할**한다. 각 구간은 그 직위가 지배하는 영역이고,
+    구간 안에 이름이 있으면 그 사람의 직위가 확정된다(`named`).
+    직위가 하나뿐이고 **다른 후보를 지목하지 않았을 때만** 전원에게 적용한다(`sole`) —
+    「…사내이사 선임의 건 (후보자 : 문경민)」이 같은 안건의 사외이사에게 씌워지면 거짓 충돌이
+    된다(실측 하림지주 2건).
+    직위가 둘 이상인데 지목이 없으면 **판단하지 않는다**(None) — 추측하면 그게 버그다.
     """
     t = re.sub(r"\s+", "", title or "")
     nm = re.sub(r"\s+", "", name or "")
     if not t or not _ELECTION_AGENDA.search(t):
         return None, ""
-    roles = [canon for kw, canon in _DECLARED_ROLE if kw in t]
+    # 직위 키워드 등장 위치 → 구간. 긴 키워드(기타비상무이사)가 짧은 것에 먹히지 않게 정렬한다.
+    marks: list[tuple[int, str]] = []
+    for kw, canon in sorted(_DECLARED_ROLE, key=lambda x: -len(x[0])):
+        for m in re.finditer(re.escape(kw), t):
+            if not any(p <= m.start() < p + len(k) for p, k in
+                       [(pp, kk) for pp, kk in marks]):
+                marks.append((m.start(), kw))
+    if not marks:
+        return None, ""
+    marks.sort()
+    _canon = dict(_DECLARED_ROLE)
+    segs = [(_canon[kw], t[pos:(marks[i + 1][0] if i + 1 < len(marks) else len(t))])
+            for i, (pos, kw) in enumerate(marks)]
     if nm:
-        # 「사내이사정인철」 / 「사외이사후보정인철」 — 이름 바로 앞(후보·후보자 삽입 허용)
-        for kw, canon in _DECLARED_ROLE:
-            if re.search(rf"{re.escape(kw)}(?:후보자?)?{re.escape(nm)}", t):
+        for canon, seg in segs:
+            if nm in seg:
                 return canon, "named"
-    uniq = sorted(set(roles))
-    if len(uniq) == 1:
-        return uniq[0], "sole"
-    return None, ""
+    roles = sorted({canon for canon, _ in segs})
+    if len(roles) != 1:
+        return None, ""
+    # 직위가 하나여도 **다른 후보가 지목돼 있으면** 그 직위는 그 사람 것이다.
+    for sib in siblings:
+        sn = re.sub(r"\s+", "", sib or "")
+        if sn and sn != nm and any(sn in seg for _c, seg in segs):
+            return None, ""
+    return roles[0], "sole"
 
 
 def annotate_declared_role(tree: list[dict]) -> None:
@@ -2590,7 +2611,9 @@ def parse_personnel_xml(html: str) -> dict:
         # 세분도 차이(사내이사 vs 이사)까지 함께 깨져 106건이 흔들린다(앞선 세션 측정).
         # 그 경우는 충돌 사실만 남겨 읽는 쪽이 원문을 확인하게 한다.
         for _c in candidates:
-            _role, _basis = declared_role_for_candidate(title, _c.get("name") or "")
+            _role, _basis = declared_role_for_candidate(
+                title, _c.get("name") or "",
+                tuple((x.get("name") or "") for x in candidates))
             if not _role:
                 continue
             _c["declaredRole"] = _role

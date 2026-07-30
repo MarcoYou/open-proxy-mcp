@@ -409,3 +409,23 @@ def test_named_role_in_title_beats_a_title_wide_guess():
     # 선임 계열 안건이 아니면 그 사람의 직위를 밝힌 게 아니다(실측 164건)
     assert f("독립이사로의 명칭 변경의 건", "홍길동") == (None, "")
     assert f("사외이사들의 보수 한도액을 정하는 건", "홍길동") == (None, "")
+
+
+def test_sole_role_does_not_spill_onto_other_candidates():
+    """직위가 하나뿐이어도 **다른 후보가 지목돼 있으면** 그 직위는 그 사람 것이다.
+
+    실측(하림지주 2025 임시주총): 「이사 선임의 건 1-1호 의안) 사내이사 선임의 건
+    (후보자 : 문경민)」 제목이 같은 안건의 **사외이사** 유균·김완희에게 사내이사를 씌워
+    거짓 충돌 2건을 만들었다. 제목을 직위 구간으로 나누고, 구간에 다른 후보 이름이 있으면
+    나머지에게는 적용하지 않는다. 이 수정으로 전수 충돌이 12건 → 3건으로 줄었다.
+    """
+    from open_proxy_mcp.services.shareholder_meeting_parser import declared_role_for_candidate as f
+    t = "이사 선임의 건1-1호 의안) 사내이사 선임의 건 (후보자 : 문경민)"
+    sibs = ("문경민", "유균", "김완희")
+    assert f(t, "문경민", sibs) == ("사내이사", "named")
+    assert f(t, "유균", sibs) == (None, ""), "지목 안 된 후보에게 씌우면 안 된다"
+    assert f(t, "김완희", sibs) == (None, "")
+    # 지목이 전혀 없으면 단일 직위는 전원에게 적용된다
+    assert f("사외이사 선임의 건", "아무개", ("아무개", "다른이")) == ("사외이사", "sole")
+    # 긴 키워드가 짧은 것에 먹히지 않는다
+    assert f("기타비상무이사 홍길동 선임의 건", "홍길동", ("홍길동",)) == ("기타비상무이사", "named")

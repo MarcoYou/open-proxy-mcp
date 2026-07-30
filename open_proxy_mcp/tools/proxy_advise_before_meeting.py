@@ -447,6 +447,13 @@ def _render(payload: dict[str, Any]) -> str:
             ah_red = ah.get("red_flags") or []
 
             lines.append(f"**{name}** ({role})")
+            # 후보자 표와 안건 제목이 직위를 다르게 밝힌 경우 — 판정하지 않고 사실만 알린다.
+            # 실측 12명(캐시 소집공고 1,399명 중). 직위가 갈리면 독립성 검증 적용 여부가 달라진다.
+            rtc = c.get("role_type_conflict")
+            if isinstance(rtc, dict):
+                lines.append(
+                    f"- ⚠️ 직위 표기 불일치: 후보자 표「{rtc.get('role_type')}」 vs "
+                    f"안건 제목「{rtc.get('declared_role')}」 — {rtc.get('note')}")
             lines.append(f"- 주요 직책: {main_job}")
             if rec_reason:
                 _shared = " (구간 공통 문면 — 이 후보 것이라고 확정하지 못함)" \
