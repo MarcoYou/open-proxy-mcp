@@ -429,3 +429,75 @@ def test_sole_role_does_not_spill_onto_other_candidates():
     assert f("사외이사 선임의 건", "아무개", ("아무개", "다른이")) == ("사외이사", "sole")
     # 긴 키워드가 짧은 것에 먹히지 않는다
     assert f("기타비상무이사 홍길동 선임의 건", "홍길동", ("홍길동",)) == ("기타비상무이사", "named")
+
+
+def test_term_end_date_confirms_reappointment_and_backstops_the_gate():
+    """임기 만료일(`tenure_end_on`)은 서식이 하나뿐이라 재직기간보다 해석 여지가 없다.
+
+    등기 행 실측 96.3% 채움. 두 가지로 쓴다:
+      ① 만료가 이번 회차면 **재선임 대상 확정** — 경력 텍스트 추론과 독립된 정형 근거.
+         실측 71명 중 37명(52.1%).
+      ② 생년이 없어 취임연령 게이트를 못 돌릴 때, (만료 − 시작) 으로 근속 오기재를 잡는다.
+    """
+    from open_proxy_mcp.services.director_evaluation import apply_roster_board_tenure
+    # ① 신임으로 분류됐지만 임기가 이번 회차 만료 → 이미 재직 중이므로 연임
+    ev = {"appointment_type": {"type": "new", "board_earliest_start": None}}
+    apply_roster_board_tenure(
+        ev, {"name": "최성안", "birthDate": "1960-01-01"},
+        {"최성안": [{"birth": (1960, 1), "director_type": "사내이사", "tenure": "2022.03.20~",
+                   "tenure_end": "2026년 03월 20일"}]}, 2025, meeting_year=2026)
+    apt = ev["appointment_type"]
+    assert apt["type"] == "renewed" and apt["source"] == "roster_term_end", apt
+    assert apt["term_end_on"] == "2026년 03월 20일"
+    assert apt["term_expiring_this_meeting"] is True
+    assert apt["board_earliest_start"] == 2022
+
+    # ② 생년이 없을 때 — 시작 1977 · 만료 2026 = 49년이면 근속으로 본다
+    ev2 = {"appointment_type": {"type": "renewed", "board_earliest_start": None}}
+    apply_roster_board_tenure(
+        ev2, {"name": "이종민", "birthDate": None},
+        {"이종민": [{"birth": (None, None), "director_type": "사내이사", "tenure": "48년",
+                   "tenure_end": "2026년 03월 25일"}]}, 2025, meeting_year=2026)
+    src = ev2["appointment_type"]["board_tenure_source"]
+    assert ev2["appointment_type"]["board_earliest_start"] is None
+    assert src["rejected_start"] == 1977 and "49년" in src["note"]
+
+    # 만료가 한참 뒤면 이번 회차 대상이 아니다
+    ev3 = {"appointment_type": {"type": "new", "board_earliest_start": None}}
+    apply_roster_board_tenure(
+        ev3, {"name": "홍길동", "birthDate": "1970-01-01"},
+        {"홍길동": [{"birth": (1970, 1), "director_type": "사외이사", "tenure": "2024.03.01~",
+                   "tenure_end": "2028년 03월 01일"}]}, 2025, meeting_year=2026)
+    assert ev3["appointment_type"]["term_expiring_this_meeting"] is False
+    assert ev3["appointment_type"]["type"] == "new", "만료가 멀면 승격하지 않는다"
+
+
+def test_board_gender_signal_needs_both_zero_women_and_the_asset_threshold():
+    """자본시장법 §165조의20 — 자산 2조원 이상 상장사는 이사회를 특정 성으로만 구성할 수 없다.
+
+    `sexdstn`(성별)은 임원현황에 실측 100% 채워지는데 지금까지 받아만 오고 안 썼다.
+    실측 30사 중 **10사가 등기이사 여성 0명**이고, 그중 자산 2조를 넘는 회사에서만 신호를 낸다
+    (유안타증권 발동 / DB 1.0조·한컴라이프케어 0.2조 미발동).
+    **판정하지 않는다** — 자산은 FY(N-2) 기준이고 이사회 구성도 스냅샷이라 확정이 아니다.
+    """
+    from open_proxy_mcp.services.proxy_advise import _GENDER_DIVERSITY_ASSET_KRW
+    assert _GENDER_DIVERSITY_ASSET_KRW == 2_000_000_000_000
+
+    def fires(female, assets):
+        # 서비스의 조건과 같은 식 — 둘 다 충족해야 발동한다
+        return bool(female == 0 and assets and assets >= _GENDER_DIVERSITY_ASSET_KRW)
+
+    assert fires(0, 3_000_000_000_000) is True      # 여성 0 + 3조
+    assert fires(0, 1_000_000_000_000) is False     # 여성 0 + 1조 → 적용 대상 아님
+    assert fires(2, 3_000_000_000_000) is False     # 여성 2명 → 위반 아님
+    assert fires(0, None) is False                  # 자산 미상 → 판정 보류
+
+
+def test_board_gender_counts_registered_directors_only():
+    """이사회 구성은 **등기이사만** 센다 — 미등기 집행임원은 이사회 구성원이 아니다."""
+    from open_proxy_mcp.services.director_evaluation import _roster_has_board_member
+    rows = [{"rgist_exctv_at": "사내이사", "sexdstn": "남"},
+            {"rgist_exctv_at": "사외이사", "sexdstn": "여"},
+            {"rgist_exctv_at": "미등기임원", "sexdstn": "여"}]   # 세면 안 된다
+    fem = sum(1 for r in rows if _roster_has_board_member(r) and r["sexdstn"] == "여")
+    assert fem == 1, "미등기 여성 임원을 이사회 여성으로 세면 위반을 놓친다"

@@ -455,6 +455,12 @@ def _render(payload: dict[str, Any]) -> str:
                     f"- ⚠️ 직위 표기 불일치: 후보자 표「{rtc.get('role_type')}」 vs "
                     f"안건 제목「{rtc.get('declared_role')}」 — {rtc.get('note')}")
             lines.append(f"- 주요 직책: {main_job}")
+            # 임기 만료일 — 정형(임원현황) 값. 「이 사람 임기가 언제 끝나나」는 스튜어드십
+            # 실무의 기본 정보인데 지금까지 받아만 오고 안 보여줬다(등기 행 96.3% 채움).
+            _apt = c.get("appointment_type") or {}
+            if isinstance(_apt, dict) and _apt.get("term_end_on"):
+                _mark = " · 이번 회차 만료(재선임 대상)" if _apt.get("term_expiring_this_meeting") else ""
+                lines.append(f"- 임기 만료: {_apt['term_end_on']}{_mark}")
             if rec_reason:
                 _shared = " (구간 공통 문면 — 이 후보 것이라고 확정하지 못함)" \
                     if faith.get("recommendation_reason_shared") else ""

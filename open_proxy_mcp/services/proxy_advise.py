@@ -1805,6 +1805,10 @@ def _retirement_target_expansion(amendments: list[dict[str, Any]]) -> list[dict[
     return expanded
 
 
+# 자본시장법 §165조의20 적용 임계 — 자산총액 2조원
+_GENDER_DIVERSITY_ASSET_KRW = 2_000_000_000_000
+
+
 def _extract_facts(
     category: str,
     title: str,
@@ -2519,6 +2523,8 @@ async def build_proxy_advise_payload(
 
     # 후보 평가 dict — name → eval
     director_data = (director_eval.get("data") or {})
+    # 이사회 성별 구성 — 자본시장법 §165조의20 판정 재료(등기이사만 집계됨)
+    _board_gender = director_data.get("board_gender") or {}
     director_evals = director_data.get("evaluations", []) or []
     name_to_eval: dict[str, dict[str, Any]] = {}
     for ev in director_evals:
@@ -3349,6 +3355,18 @@ async def build_proxy_advise_payload(
             retirement_payload=retirement_payload,
             ownership_payload=ownership,
         )
+        # 자본시장법 §165조의20 — 자산총액 2조원 이상 상장사는 이사회를 특정 성(性)의 이사로만
+        # 구성할 수 없다(2020 개정, 2022-08-05 시행). `sexdstn` 은 임원현황에 100% 채워지는데
+        # 지금까지 받아만 오고 안 썼다. 이사 선임 안건에서 「여성 0명인데 또 남성만 선임」이면
+        # 위반 상태를 유지하는 안건이라 반드시 알려야 한다.
+        # 판정은 하지 않는다 — 자산은 FY(N-2) 기준이고 이사회 구성도 스냅샷이라 확정이 아니다.
+        if (category in ("director_election", "audit_committee_election")
+                and _board_gender and _board_gender.get("female") == 0
+                and corp_total_asset_won and corp_total_asset_won >= _GENDER_DIVERSITY_ASSET_KRW):
+            risk_factors = list(risk_factors) + [
+                f"이사회 여성 0명 (등기이사 {_board_gender.get('male', 0)}명 전원 남성, "
+                f"{_board_gender.get('as_of')} 기준) — 자산 2조원 이상 상장사는 이사회를 특정 성의 "
+                "이사로만 구성할 수 없습니다(자본시장법 §165조의20)"]
         policy_citation = _policy_citation(category)
         # 260724 L-코드 진단 부수(감사의 선임 L0-0-2-5-0): 상법상 감사(상근·비상근)는
         # 감사위원회 위원과 별개 기구 — 결정 경로(3%룰·후보검증)는 공유하되 인용 라벨만 구분.

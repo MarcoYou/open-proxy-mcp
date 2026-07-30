@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections import Counter
 from datetime import date
 from typing import Any
 
@@ -1185,6 +1186,9 @@ def build_roster_index(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, A
             "full_time": (r.get("fte_at") or "").strip(),
             "position": (r.get("ofcps") or "").strip(),
             "duty": re.sub(r"\s+", " ", (r.get("chrg_job") or "")).strip(),
+            # 260730: 임기 만료일 — 등기 행 실측 96.3% 채움. 서식이 「YYYY년 MM월 DD일」 하나라
+            # hffc_pd(재직기간)보다 해석 여지가 없다.
+            "tenure_end": re.sub(r"\s+", " ", (r.get("tenure_end_on") or "")).strip(),
         })
     return idx
 
@@ -1305,6 +1309,15 @@ def _roster_board_start_year(
 # 등기이사 취임 하한 — 상법상 연령 제한은 없으나, 실측 190행 중 92.6%가 35세 이상이고
 # 30세 미만 5.8%는 전부 근속연수 오기재로 보인다(19·23·24세 등). 게이트를 30세에 둔다.
 _MIN_PLAUSIBLE_BOARD_AGE = 30
+# 생년이 없어 취임연령 게이트를 못 돌릴 때의 대체 검산 — (임기만료 − 도출시작)이 이만큼을
+# 넘으면 재직기간이 근속연수일 가능성이 크다. 창업 일가가 40년 등기인 경우도 있어 넉넉히 둔다.
+_MAX_PLAUSIBLE_BOARD_SPAN = 40
+
+
+def _year_of(raw: str) -> int | None:
+    """「2026년 03월 20일」 → 2026."""
+    m = re.match(r"\s*(19|20)(\d{2})", raw or "")
+    return int(m.group(1) + m.group(2)) if m else None
 
 
 def _birth_ym_str(row: dict[str, Any]) -> str | None:
@@ -1325,7 +1338,7 @@ def apply_roster_board_tenure(
     ev: dict[str, Any], candidate: dict[str, Any],
     roster_index: dict[str, list[dict[str, Any]]], roster_year: int | None,
     *, ref_month: int = 12, report_label: str | None = None,
-    can_confirm_unregistered: bool = True,
+    can_confirm_unregistered: bool = True, meeting_year: int | None = None,
 ) -> None:
     """등기 재직 시작연도를 임원현황(정형)에서 확정 — 소집공고 경력 추정을 덮는다.
 
@@ -1384,6 +1397,24 @@ def apply_roster_board_tenure(
     m0 = min(cands, key=lambda x: x[0])[2] if cands else board[0]
     prov["director_type"] = (m0.get("director_type") or "").strip() or None
     prov["tenure_raw"] = re.sub(r"\s+", " ", (m0.get("tenure") or "")).strip() or None
+    # 임기 만료일 — 서식이 하나라(「YYYY년 MM월 DD일」) 재직기간보다 해석 여지가 없다.
+    # 등기 행 실측 96.3% 채움. 읽는 쪽이 「이 사람 임기가 언제 끝나나」를 바로 볼 수 있다.
+    _end = (m0.get("tenure_end") or "").strip()
+    if _end:
+        prov["term_end_on"] = _end
+        apt["term_end_on"] = _end
+        _ey = _year_of(_end)
+        if _ey is not None:
+            # 임기가 이번 회차(주총 연도 또는 그 직전 결산 후)에 만료 = 재선임 대상이다.
+            # 실측 71명 중 37명(52.1%). 경력 텍스트 추론과 독립된 정형 근거다.
+            _my = meeting_year if meeting_year is not None else roster_year + 1
+            apt["term_expiring_this_meeting"] = _my - 1 <= _ey <= _my
+            if apt.get("type") == "new" and apt["term_expiring_this_meeting"]:
+                # 승격만 — 임기가 만료된다는 건 이미 재직 중이라는 뜻이다.
+                apt["type"] = "renewed"
+                apt["source"] = "roster_term_end"
+                apt["reason"] = ((apt.get("reason") or "")
+                                 + f" | 임원현황 임기 만료일 {_end} → 연임 재분류").strip(" |")
     if not cands:
         # 등기인 건 확정, 시작연도만 미상 — 추정을 남기되 출처를 밝힌다.
         prov["note"] = "등기 구분은 확정, 재직기간 표기를 읽지 못해 시작연도는 소집공고 경력 추정값"
@@ -1398,6 +1429,16 @@ def apply_roster_board_tenure(
     # 근속을 등기 기간으로 쓰면 **이번에 고치려던 오류(비등기 기간 귀속)를 더 크게 재도입**한다.
     # 그래서 의심스러우면 시작연도를 버리고 등기 여부만 남긴다(보수적 = 성과 미평가).
     age = _age_at(candidate.get("birthDate") or _birth_ym_str(m0), start)
+    if age is None:
+        # 생년이 없어 취임연령을 못 본다 — 임기 만료일로 총 재직 기간을 대신 검산한다.
+        _ey2 = _year_of((m0.get("tenure_end") or "").strip())
+        if _ey2 is not None and _ey2 - start > _MAX_PLAUSIBLE_BOARD_SPAN:
+            prov["note"] = (f"재직기간 환산 시작 {start}년 ~ 임기만료 {_ey2}년 = "
+                            f"{_ey2 - start}년으로 등기 재직기간으로 보기 어렵습니다"
+                            "(입사 근속연수로 기재한 것으로 보임) — 시작연도 미채택")
+            prov["rejected_start"] = start
+            apt["board_tenure_source"] = prov
+            return
     if age is not None and age < _MIN_PLAUSIBLE_BOARD_AGE:
         prov["note"] = (f"재직기간을 시작연도로 환산하면 취임 당시 {age}세라 등기 재직기간으로 "
                         "보기 어렵습니다(입사 근속연수로 기재한 것으로 보임) — 시작연도 미채택")
@@ -1662,6 +1703,7 @@ async def build_director_evaluation_payload(
     roster_index: dict[str, list[dict[str, Any]]] = {}
     roster_year: int | None = None
     roster_ref: tuple[int, int] | None = None   # (기준일 연, 월)
+    board_gender: Counter = Counter()           # 사다리가 전부 비면 빈 상태로 남는다
     roster_report: str | None = None
     roster_back: int | None = None
     for back, code, label, ref_month in _ROSTER_SOURCES:
@@ -1684,6 +1726,12 @@ async def build_director_evaluation_payload(
         if not any(_roster_has_board_member(r) for r in _rows):
             continue
         roster_index = build_roster_index(_rows)
+        # 자본시장법 §165의20 — 자산 2조+ 상장사는 이사회를 특정 성의 이사로만 구성할 수 없다.
+        # `sexdstn` 은 실측 100% 채워지는데 지금까지 받아만 오고 안 썼다. 등기 이사만 센다
+        # (미등기 집행임원은 이사회 구성원이 아니다).
+        board_gender = Counter(
+            (r.get("sexdstn") or "").strip() or "미상"
+            for r in _rows if _roster_has_board_member(r))
         if roster_index:
             roster_year, roster_back = target_year - back, back
             roster_ref = (roster_year, ref_month)
@@ -1725,7 +1773,8 @@ async def build_director_evaluation_payload(
                 ev, c, roster_index, roster_year,
                 ref_month=(roster_ref[1] if roster_ref else 12),
                 report_label=roster_report,
-                can_confirm_unregistered=(roster_back == 1))
+                can_confirm_unregistered=(roster_back == 1),
+                meeting_year=target_year)
             # 갭C: 이 회사 재직 5년+ → 장기연임 승격 (earliest_start 계산-후-폐기 해소)
             apply_tenure_long_tenure(ev, ev["appointment_type"], target_year)
             # Item1: roster_prior 승격 후보는 earliest_start가 없음 → roster tenure(hffc)로 장기연임 catch
@@ -1774,6 +1823,12 @@ async def build_director_evaluation_payload(
             "appointments_count": len(appointments),
             "candidates_count": candidate_count,
             "evaluations": evaluations,
+            # 이사회 성별 구성 — 자본시장법 §165의20 판정 재료(자산 임계는 호출측에서 본다)
+            "board_gender": ({"male": board_gender.get("남", 0),
+                              "female": board_gender.get("여", 0),
+                              "unknown": board_gender.get("미상", 0),
+                              "as_of": roster_report}
+                             if board_gender else None),
             "rcept_no": rcept_no,
             "agenda_titles_fallback": (meta[0].get("agenda_titles") if meta and meta[0].get("agenda_titles") else []),
             **filing_meta,
