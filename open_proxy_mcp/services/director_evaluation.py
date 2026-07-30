@@ -1181,6 +1181,10 @@ def build_roster_index(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, A
             "director_type": (r.get("rgist_exctv_at") or "").strip(),
             "tenure": (r.get("hffc_pd") or "").strip(),
             "major_shareholder_relation": (r.get("mxmm_shrholdr_relate") or "").strip(),  # H2 rescue용
+            # 260730: 상법 §382③1호(상무 종사) 검산용 — fte_at 은 실측 100% 채워진다
+            "full_time": (r.get("fte_at") or "").strip(),
+            "position": (r.get("ofcps") or "").strip(),
+            "duty": re.sub(r"\s+", " ", (r.get("chrg_job") or "")).strip(),
         })
     return idx
 
@@ -1405,6 +1409,86 @@ def apply_roster_board_tenure(
     apt["board_tenure_source"] = prov
 
 
+# ── 260730: 사외이사 후보의 「상무 종사」를 정형으로 검산 (상법 §382③1호) ──
+# 상법 §382③1호는 「회사의 상무에 종사하는 이사·집행임원·감사 및 피용자 또는 **최근 2년 내**
+# 그러했던 자」를 사외이사 결격으로 정한다. 그런데 소집공고는 결격사유를 「해당사항 없음」이라고
+# 적을 뿐이고(실측 84.2%가 그렇게 적힌다), 우리는 그걸 경력 텍스트로만 검증했다.
+# 임원현황에는 `fte_at`(상근 여부)가 **100%** 채워져 있다 — 직전 보고서에서 이 회사 상근
+# 임원이었다면 그 사실을 검산 재료로 쓸 수 있다.
+#
+# ⚠️ **결격을 단정하지 않는다.** ① 스냅샷 하나로 「최근 2년」을 확정할 수 없고
+# ② 동명이인 위험이 있고 ③ 그 사이 사임했을 수 있다. 「정형이 이렇게 말한다」까지만 낸다.
+# 실측 30사 사외이사 후보 82명 중 4명(4.9%) 발동(태광산업 정인철 — 미등기/부사장/상근).
+_FULLTIME_YES = "상근"
+
+
+def names_titled_inside_director(appointments: list[dict[str, Any]]) -> set[str]:
+    """공고의 **모든** 안건 제목에서 「사내이사 {이름}」으로 지목된 이름 집합.
+
+    안건 제목이 여러 안건으로 뭉쳐 오면 뒤 안건의 직위가 앞 후보의 roleType 에 붙는다
+    (실측 태광산업: 「사내이사 정인철 선임의 건 … 사외이사 김대근 선임의 건」 → 정인철이
+    roleType='사외이사'). 제목에 명시된 지목이 roleType 보다 신뢰도가 높다.
+    """
+    out: set[str] = set()
+    for ap in appointments or []:
+        title = re.sub(r"\s+", "", ap.get("title") or "")
+        for c in ap.get("candidates") or []:
+            nm = re.sub(r"\s+", "", (c.get("name") or ""))
+            if nm and f"사내이사{nm}" in title:
+                out.add(nm)
+    return out
+
+
+def apply_roster_employee_check(
+    ev: dict[str, Any], candidate: dict[str, Any],
+    roster_index: dict[str, list[dict[str, Any]]], *, report_label: str | None = None,
+) -> None:
+    """사외이사 후보가 직전 정기보고서에서 이 회사 상근 임원이었나 — 승격만, override 금지."""
+    indep = ev.get("independence")
+    if not isinstance(indep, dict) or not roster_index:
+        return
+    if not any(k in (ev.get("role_type") or candidate.get("roleType") or "")
+               for k in ("사외", "독립", "감사위원")):
+        return
+    # ⚠️ roleType 을 그대로 믿으면 안 된다. 안건 제목이 여러 안건으로 뭉쳐 오는 경우
+    # (「사내이사 정인철 선임의 건 … 제3-3호 의안 : 사외이사 김대근 선임의 건」) 뒤 안건의
+    # 직위가 앞 후보에게 붙는다 — 실측 태광산업에서 사내이사 후보 2명이 사외이사로 잡혀
+    # §382③ 신호가 전부 오탐이 됐다. 제목이 이 사람을 사내이사로 지목하면 적용하지 않는다.
+    # 한 후보가 여러 안건에 등장하므로 **공고 전체**의 제목을 봐야 한다 — 지금 안건 제목만
+    # 보면 「이사 선임의 건」처럼 지목 없는 안건에서 오탐이 남는다(실측 태광산업 정인철).
+    if ev.get("agenda_named_inside_director"):
+        return
+    cbk = _birth_ym_key(candidate.get("birthDate"))
+    hits = []
+    for m in roster_index.get(_core_name(candidate.get("name"))) or []:
+        mbk = m.get("birth") or (None, None)
+        if cbk[0] and mbk[0] and cbk[0] != mbk[0]:
+            continue                      # 동명이인 배제
+        if not (cbk[0] and mbk[0]):
+            continue                      # 생년 대조 불가 → 신호로 쓰지 않는다(오탐 방지)
+        dt = (m.get("director_type") or "").strip()
+        if m.get("full_time") == _FULLTIME_YES and "사외" not in dt:
+            hits.append(m)
+    if not hits:
+        return
+    m0 = hits[0]
+    sub = (indep.setdefault("sub_factors", {})
+           .setdefault("recent_2y_employee", {"result": "outsider", "mapping": "success"}))
+    sub["roster_cross_check"] = {
+        "source": report_label or "정기보고서 임원현황",
+        "director_type": (m0.get("director_type") or "").strip() or None,
+        "position": (m0.get("position") or "").strip() or None,
+        "full_time": _FULLTIME_YES,
+        "duty": (m0.get("duty") or "").strip() or None,
+        "note": ("직전 정기보고서 임원현황에 이 회사 **상근** 임원(사외이사 아님)으로 기재됨 "
+                 "— 상법 §382조③1호(상무 종사자·최근 2년) 해당 여부 확인이 필요합니다. "
+                 "소집공고의 결격사유 기재와 대조하세요."),
+    }
+    # 「외부인」으로 남겨두면 안 된다 — 정형이 반대로 말하고 있다. 단정은 피하고 검토로 올린다.
+    if sub.get("result") == "outsider":
+        sub["result"] = "roster_says_fulltime_insider"
+
+
 # ── Item2c/H2 (260710): roster 최대주주관계 rescue — 소집공고 결측 시 힌트로 채움 ──
 # 소집공고 majorShareholderRelation이 비면 raw="" → 관계 텍스트 없이 generic 약신호만 뜬다.
 # roster mxmm_shrholdr_relate(예: '계열회사임원')로 **채우기만**(fill-when-missing) 한다.
@@ -1602,6 +1686,9 @@ async def build_director_evaluation_payload(
             roster_report = f"{roster_year}년 {label}"
             break
 
+    # 안건 제목이 사내이사로 **지목한** 이름 — roleType 오배정을 걸러내는 데 쓴다
+    inside_named = names_titled_inside_director(appointments)
+
     # 후보별 평가
     evaluations: list[dict[str, Any]] = []
     candidate_count = 0
@@ -1625,6 +1712,10 @@ async def build_director_evaluation_payload(
             apply_roster_prior(ev, c, roster_index)
             # Item2c/H2: 소집공고 최대주주관계 결측 시 roster 값으로 채움 (fill-when-missing)
             apply_roster_msr_rescue(ev, c, roster_index)
+            # 260730: 사외이사 후보의 「상무 종사」를 정형으로 검산 (상법 §382③1호)
+            ev["agenda_named_inside_director"] = (
+                re.sub(r"\s+", "", c.get("name") or "") in inside_named)
+            apply_roster_employee_check(ev, c, roster_index, report_label=roster_report)
             # 260729: 등기 재직 시작연도를 임원현황(정형)으로 확정 — 소집공고 경력 추정을 덮는다
             apply_roster_board_tenure(
                 ev, c, roster_index, roster_year,

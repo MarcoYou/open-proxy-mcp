@@ -54,6 +54,8 @@ _INDEP_RESULT_KO = {
     "independent": "관계없음", "related": "⚠️특수관계 있음",
     "no_transactions": "거래 없음", "transactions_exist": "⚠️거래 있음",
     "outsider": "외부인", "former_employee": "⚠️최근 2년 내 직원",
+    # 260730: 정형(임원현황)이 「이 회사 상근 임원」이라고 말하는 경우 — 단정하지 않고 검토로
+    "roster_says_fulltime_insider": "⚠️정형 데이터는 이 회사 상근 임원으로 기재 — 확인 필요",
     "first_term_or_short": "첫 임기/단기", "long_tenure_concerns": "⚠️장기연임(5년+)",
     # 25사 스윕에서 남아 있던 값 — 사전에 없으면 영문 코드가 그대로 화면에 나온다(260728)
     "potential_long_tenure": "장기연임 가능성(임기 확인 필요)",
@@ -81,6 +83,14 @@ def _indep_evidence_lines(c: dict[str, Any]) -> list[str]:
         ev = sf.get("evidence") or sf.get("raw")
         ev_str = f" — 근거: {str(ev).strip()[:70]}" if ev and str(ev).strip() not in ("-", "없음") else ""
         out.append(f"  - {_SUB_FACTOR_LABELS.get(key, key)}: {res}{ev_str}")
+        # 정형 데이터가 소집공고와 다르게 말하면 그 사실을 그대로 보여준다(단정하지 않는다).
+        rx = sf.get("roster_cross_check")
+        if rx:
+            desc = " · ".join(x for x in (rx.get("director_type"), rx.get("position"),
+                                          rx.get("full_time")) if x)
+            out.append(f"    · {rx.get('source')} 기재: {desc}"
+                       + (f" · 담당 {rx['duty'][:40]}" if rx.get("duty") else ""))
+            out.append(f"    · {rx.get('note')}")
     return out
 
 

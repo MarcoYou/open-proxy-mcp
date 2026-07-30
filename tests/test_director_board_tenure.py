@@ -297,3 +297,91 @@ def test_incomplete_quarterly_roster_is_rejected():
     assert f({"rgist_exctv_at": "미등기임원"}) is False
     assert f({"rgist_exctv_at": ""}) is False
     assert f({}) is False
+
+
+def test_outside_director_fulltime_insider_is_flagged_not_asserted():
+    """사외이사 후보가 직전 보고서에 이 회사 상근 임원이면 검산 신호를 낸다 — 단정하지 않는다.
+
+    상법 §382③1호: 회사의 상무에 종사하는 자 또는 **최근 2년 내** 그러했던 자는 사외이사 결격.
+    소집공고는 결격사유를 「해당사항 없음」이라고만 적는다(실측 84.2%) — 정형으로 검산한다.
+    임원현황 `fte_at`(상근 여부)는 실측 100% 채워진다.
+    실측 30사 사외이사 후보 82명 중 4명(4.9%) 발동(태광산업 정인철 — 미등기/부사장/상근).
+
+    **단정 금지**: 스냅샷 하나로 「최근 2년」을 확정할 수 없고, 그 사이 사임했을 수 있다.
+    """
+    from open_proxy_mcp.services.director_evaluation import apply_roster_employee_check
+    ev = {"role_type": "사외이사",
+          "independence": {"summary": "independent",
+                           "sub_factors": {"recent_2y_employee": {"result": "outsider"}}}}
+    roster = {"정인철": [{"birth": (1963, 7), "director_type": "미등기", "full_time": "상근",
+                        "position": "부사장", "duty": "관리"}]}
+    apply_roster_employee_check(ev, {"name": "정인철", "birthDate": "1963-07-14"}, roster,
+                                report_label="2025년 사업보고서")
+    sf = ev["independence"]["sub_factors"]["recent_2y_employee"]
+    assert sf["result"] == "roster_says_fulltime_insider", sf
+    rx = sf["roster_cross_check"]
+    assert rx["position"] == "부사장" and rx["full_time"] == "상근"
+    assert "§382조③1호" in rx["note"] and "확인이 필요" in rx["note"]
+
+
+def test_employee_check_needs_a_birth_year_match():
+    """생년 대조가 안 되면 신호로 쓰지 않는다 — 동명이인을 결격 신호로 내면 안 된다."""
+    from open_proxy_mcp.services.director_evaluation import apply_roster_employee_check
+    for cand_birth, row_birth in ((None, (1963, 7)), ("1963-07-14", (None, None)),
+                                  ("1975-01-01", (1963, 7))):
+        ev = {"role_type": "사외이사",
+              "independence": {"sub_factors": {"recent_2y_employee": {"result": "outsider"}}}}
+        apply_roster_employee_check(
+            ev, {"name": "정인철", "birthDate": cand_birth},
+            {"정인철": [{"birth": row_birth, "director_type": "미등기", "full_time": "상근",
+                       "position": "부사장", "duty": "관리"}]})
+        sf = ev["independence"]["sub_factors"]["recent_2y_employee"]
+        assert sf["result"] == "outsider", (cand_birth, row_birth, sf)
+        assert "roster_cross_check" not in sf
+
+
+def test_inside_director_candidate_is_not_checked():
+    """사내이사 후보에게는 §382③ 이 적용되지 않는다 — 신호를 내면 오탐이다."""
+    from open_proxy_mcp.services.director_evaluation import apply_roster_employee_check
+    ev = {"role_type": "사내이사",
+          "independence": {"sub_factors": {"recent_2y_employee": {"result": "outsider"}}}}
+    apply_roster_employee_check(
+        ev, {"name": "홍길동", "birthDate": "1970-03-01"},
+        {"홍길동": [{"birth": (1970, 3), "director_type": "사내이사", "full_time": "상근",
+                   "position": "전무", "duty": "영업"}]})
+    assert ev["independence"]["sub_factors"]["recent_2y_employee"]["result"] == "outsider"
+
+
+def test_merged_agenda_title_does_not_create_a_false_disqualification():
+    """안건 제목이 여러 안건으로 뭉쳐 오면 roleType 이 뒤 안건 것으로 오배정된다.
+
+    실측(태광산업 2026): 제목이 「사내이사 정인철 선임의 건 (임기 3년) 제3-3호 의안 :
+    사외이사 김대근 선임의 건」으로 뭉쳐, **사내이사 후보** 정인철·정안식이 roleType='사외이사'
+    로 잡혔다. 그 상태로 §382③ 검산을 돌리면 발동 4건이 전부 오탐이다.
+    제목이 이 사람을 사내이사로 지목하면 적용하지 않는다.
+    """
+    from open_proxy_mcp.services.director_evaluation import apply_roster_employee_check
+    title = "사내이사 정인철 선임의 건 (임기 3년) 제3-3호 의안 : 사외이사 김대근 선임의 건"
+    row = {"birth": (1963, 7), "director_type": "미등기", "full_time": "상근",
+           "position": "부사장", "duty": "관리"}
+    from open_proxy_mcp.services.director_evaluation import names_titled_inside_director
+    named = names_titled_inside_director([
+        {"title": title, "candidates": [{"name": "정인철"}, {"name": "김대근"}]},
+        {"title": "이사 선임의 건", "candidates": [{"name": "정인철"}]}])
+    assert named == {"정인철"}, named   # 공고 전체를 봐야 잡힌다
+    ev = {"role_type": "사외이사", "agenda_title": "이사 선임의 건",
+          "agenda_named_inside_director": True,
+          "independence": {"sub_factors": {"recent_2y_employee": {"result": "outsider"}}}}
+    apply_roster_employee_check(ev, {"name": "정인철", "birthDate": "1963-07-14"},
+                               {"정인철": [row]})
+    sf = ev["independence"]["sub_factors"]["recent_2y_employee"]
+    assert sf["result"] == "outsider", sf
+    assert "roster_cross_check" not in sf
+    # 같은 제목의 **진짜** 사외이사 후보에게는 적용된다
+    ev2 = {"role_type": "사외이사", "agenda_title": title,
+           "agenda_named_inside_director": False,
+           "independence": {"sub_factors": {"recent_2y_employee": {"result": "outsider"}}}}
+    apply_roster_employee_check(ev2, {"name": "김대근", "birthDate": "1963-07-14"},
+                               {"김대근": [row]})
+    assert ev2["independence"]["sub_factors"]["recent_2y_employee"][
+        "result"] == "roster_says_fulltime_insider"
