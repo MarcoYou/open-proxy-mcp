@@ -597,3 +597,36 @@ def test_estimated_tenure_is_labelled_in_the_classification():
     firm = render("2025년 사업보고서 임원현황 기준 「사내이사」 · 재직기간 2015.11.01~")
     assert "(추정 기간 기준)" not in firm, "정형 근거일 때는 붙이지 않는다"
     assert "**양호**" in firm
+
+
+def test_unpaired_period_falls_back_to_the_raw_cells():
+    """기간이 항목별로 안 갈리면 짝을 짓지 말고 두 칸을 원문 그대로 싣는다.
+
+    소집공고 후보표에 줄 구분(`<p>`)이 없는 서식이 있다. 그때 파서가 기간 하나를 전 항목에
+    복사해 **존재하지 않는 기간**을 만들고 나머지 시점을 버렸다.
+    실측 1,403명 중 43명(3.1%) 발동:
+      카카오 정신아  「1997 ~ 현재」 6회 반복 — 원문엔 시점이 8개(학력 3 + 경력 5)
+      고려아연 최XX  「2019~현재」 7회 반복 — 원문엔 19·19·16·14·12·04 여섯 시점
+    내용도 원문 셀을 쓴다 — 항목 분할이 회사명 중간을 자른다
+    (「네이버㈜(구, 엔에이치엔㈜) 수석부장」 → 「㈜(구, 엔에이치엔」/「㈜) 수석부장」).
+    전수 검증: 원문 셀이 쪼갠 항목을 **100% 포함**(38/38) — 정보 소실 0.
+    """
+    from open_proxy_mcp.services.director_evaluation import (
+        _career_period_unpaired, _career_content_raw)
+    fabricated = {
+        "careerDetails": [{"period": "1997 ~ 현재", "content": "연세대학교 학사"},
+                          {"period": "1997 ~ 현재", "content": "㈜(구, 엔에이치엔"},
+                          {"period": "1997 ~ 현재", "content": "㈜) 수석부장"}],
+        "careerPeriodRaw": "<학력사항>1997년 2000년 <경력사항>2000년 ~ 2007년 2024년 ~ 현재",
+        "careerContentRaw": "연세대학교 학사네이버㈜(구, 엔에이치엔㈜) 수석부장"}
+    assert _career_period_unpaired(fabricated).startswith("<학력사항>")
+    assert "엔에이치엔㈜) 수석부장" in _career_content_raw(fabricated)
+
+    # 기간이 항목별로 갈려 있으면 손대지 않는다(정상 케이스)
+    ok = {"careerDetails": [{"period": "2015 ~ 현재", "content": "A사 대표이사"},
+                            {"period": "2013 ~ 2015", "content": "B사 부사장"}]}
+    assert _career_period_unpaired(ok) is None
+
+    # 항목이 하나면 짝짓기 문제가 없다
+    single = {"careerDetails": [{"period": "2020 ~ 현재", "content": "A사 사외이사"}]}
+    assert _career_period_unpaired(single) is None

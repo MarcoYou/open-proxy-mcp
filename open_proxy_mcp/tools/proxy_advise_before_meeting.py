@@ -483,7 +483,18 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(f"- 경력 ({_cfr.get('source')} 주요경력 — 소집공고에 세부경력 없음):")
                 lines.append(f"  - {str(_cfr.get('main_career'))[:400]}")
                 lines.append(f"  - ⓘ {_cfr.get('note')}")
-            if careers:
+            _unpaired = faith.get("career_period_unpaired")
+            if careers and _unpaired:
+                # 기간이 항목별로 안 갈렸다 — 짝을 지어 찍으면 없는 기간을 사실로 내보낸다.
+                # 두 칸을 원문 그대로 싣고 대응은 읽는 쪽에 맡긴다(실측 4.8%).
+                lines.append("- 경력 (소집공고 세부경력 원문 — 기간·내용 대응이 원문에 없어 "
+                             "두 칸을 그대로 싣습니다):")
+                lines.append(f"  - 기간: {_unpaired[:300]}")
+                # 내용도 원문 셀을 쓴다 — 항목 분할이 회사명 중간을 자른다
+                _craw = faith.get("career_content_raw") or " · ".join(
+                    (it.get("content") or "").strip() for it in careers[:12])
+                lines.append(f"  - 내용: {_craw[:700]}")
+            elif careers:
                 # 소집공고 표 그대로(기간 | 내용). 쪼개서 보여주지 않는다 —
                 # 회사/직위 분리가 후보 17%에서 깨져 「…공학부 부」/「교수」처럼 단어를 찢고,
                 # 분량도 원문의 2배였다(260729 실측 2,284명).

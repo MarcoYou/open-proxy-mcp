@@ -401,6 +401,30 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
 _CAREER_LEAD_TRIM = re.compile(r"^[\s\-·•]*(?:現|현|前|전)\s*[\)\]]?\s*")
 
 
+def _career_period_unpaired(candidate: dict[str, Any]) -> str | None:
+    """기간이 항목별로 갈리지 않았으면 원문 기간 셀을 돌려준다(아니면 None).
+
+    소집공고 후보표에서 기간·내용 셀에 줄 구분(`<p>`)이 없는 서식이 있다. 그때 파서가
+    기간 하나를 전 항목에 복사해 **존재하지 않는 기간**을 만든다 — 카카오 정신아는 원문에
+    시점이 8개(학력 3 + 경력 5) 있는데 「1997 ~ 현재」 하나만 6번 반복됐다.
+    실측 904명 중 43명(4.8%). 짝을 못 지었으면 짓지 말고 원문 두 칸을 그대로 보여준다.
+    (기간이 전부 같은 정상 케이스 — 동시 겸직 3건 등 — 도 항목별 반복은 군더더기라 같이 묶인다.)
+    """
+    det = [d for d in (candidate.get("careerDetails") or []) if (d.get("content") or "").strip()]
+    if len(det) < 2:
+        return None
+    pers = {(d.get("period") or "").strip() for d in det}
+    if len(pers) != 1 or not next(iter(pers)):
+        return None                       # 기간이 항목별로 갈려 있으면 정상 — 손대지 않는다
+    raw = (candidate.get("careerPeriodRaw") or "").strip()
+    return raw or next(iter(pers))
+
+
+def _career_content_raw(candidate: dict[str, Any]) -> str | None:
+    """원문 내용 셀 — 항목 분할이 회사명을 자르므로(「㈜(구, 엔에이치엔」) 통째로 쓴다."""
+    return (candidate.get("careerContentRaw") or "").strip() or None
+
+
 def _leading_corp_name(content: str) -> str:
     """경력 항목 원문 → 맨 앞 회사·기관명 후보(없으면 빈 문자열).
 
@@ -699,6 +723,9 @@ async def evaluate_faithfulness(
         "recommendation_reason_shared": candidate.get("recommendationReasonShared") or None,
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
+        # 기간이 항목별로 안 갈린 경우 원문 기간 셀 — 짝을 지어 보여주면 거짓이 된다
+        "career_period_unpaired": _career_period_unpaired(candidate),
+        "career_content_raw": _career_content_raw(candidate),
         # 경력은 소집공고 표 원문(기간·내용) 그대로 싣는다. 쪼갠 결과는 쓰지 않는다 —
         # 회사/직위 분리가 후보 17%에서 깨져 「…공학부 부」/「교수」처럼 단어를 찢었고,
         # 분량은 원문의 2배였으며(후보당 168자 vs 83자), 매칭·부문매핑 어느 쪽도
@@ -791,6 +818,8 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str
                         "content": (d.get("content") or "").strip()}
                        for d in (candidate.get("careerDetails") or [])
                        if (d.get("content") or "").strip()],
+        "career_period_unpaired": _career_period_unpaired(candidate),
+        "career_content_raw": _career_content_raw(candidate),
         "audit_history_check": {"status": "disabled", "red_flags": [], "summary": "not_checked"},
         "summary": "raw_disclosed",
     }

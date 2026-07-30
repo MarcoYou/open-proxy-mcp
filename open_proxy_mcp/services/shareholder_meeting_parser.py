@@ -3242,6 +3242,14 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                             career_details = _clean_career_details(career_details, name)
                         if career_details:
                             c["careerDetails"] = career_details
+                            # 원문 기간 셀을 보존한다 — 짝이 못 맞을 때 이것을 그대로 보여준다.
+                            # 실측(904명 중 43명=4.8%): 기간 하나를 전 항목에 복사해
+                            # 「1997 ~ 현재」 같은 **존재하지 않는 기간**을 만들고 나머지 시점을
+                            # 버리고 있었다(카카오 정신아: 원문 8개 시점 → 1개만 살아남음).
+                            c["careerPeriodRaw"] = re.sub(r"\s+", " ", periods_raw or "").strip()
+                            # 내용 셀도 보존한다 — 항목 분할이 회사명 중간을 자른다
+                            # (「네이버㈜(구, 엔에이치엔㈜) 수석부장」 → 「㈜(구, 엔에이치엔」/「㈜) 수석부장」).
+                            c["careerContentRaw"] = re.sub(r"\s+", " ", contents_raw or "").strip()
                         elif periods_raw or contents_raw:
                             c["careerDetails"] = _clean_career_details(
                                 [{"period": periods_raw, "content": contents_raw}], name
