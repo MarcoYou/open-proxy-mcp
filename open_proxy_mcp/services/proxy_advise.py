@@ -3515,6 +3515,16 @@ async def build_proxy_advise_payload(
         "segment_reference": segment_reference,
         "ownership_summary": (ownership.get("data") or {}).get("summary"),
         "governance_summary": (gov_report.get("data") or {}).get("summary"),
+        # 15개 핵심지표 중 **미준수(X)** 만 골라 싣는다. 준수율(93.3%)만 보여주면 어느 지표가
+        # 빠졌는지 알 수 없는데, 그중엔 의결권 판단에 바로 닿는 것이 있다 —
+        # 「사외이사가 이사회 의장인지 여부」(CEO·의장 겸직) ·
+        # 「이사회 구성원 모두 단일성(性)이 아님」(자본시장법 §165조의20) ·
+        # 「집중투표제 채택」 · 「기업가치 훼손 책임자의 임원 선임 방지」.
+        "governance_non_compliant": [
+            (it.get("label") or "").strip()
+            for it in ((gov_report.get("data") or {}).get("metrics_summary") or [])
+            if isinstance(it, dict) and (it.get("current") or "").strip().upper() == "X"
+        ] or None,
         "financial_summary": (fin_metrics.get("data") or {}).get("summary"),
         **filing_meta,
         "usage": build_usage(client.api_call_snapshot() - calls_start),

@@ -501,3 +501,34 @@ def test_board_gender_counts_registered_directors_only():
             {"rgist_exctv_at": "미등기임원", "sexdstn": "여"}]   # 세면 안 된다
     fem = sum(1 for r in rows if _roster_has_board_member(r) and r["sexdstn"] == "여")
     assert fem == 1, "미등기 여성 임원을 이사회 여성으로 세면 위반을 놓친다"
+
+
+def test_committee_membership_comes_from_the_duty_field():
+    """담당업무(`chrg_job`)에 적힌 위원회 소속을 그대로 읽는다 — 추정하지 않는다.
+
+    실측 30사 등기 190명: 담당업무 95.8% 채움, 감사위원회 39 · 내부거래 20 · ESG 20 ·
+    사외이사후보추천 14건 언급. 감사위원 후보가 직전 보고서에 이미 그 위원회 소속이면
+    연임이고 아니면 신임이라, 판정 근거가 된다.
+    """
+    from open_proxy_mcp.services.director_evaluation import _committees_in as f
+    assert f("대표이사 이사회 의장 경영위원회 위원장 ESG위원회 위원") == ["ESG위원회", "경영위원회"]
+    assert f("경영총괄 대표이사/ 이사회의장/ 사외이사후보추천위원회 위원") == ["사외이사후보추천위원회"]
+    assert f("감사위원회 위원") == ["감사위원회"]
+    assert f("영업") == [] and f("") == []
+
+
+def test_governance_report_confirms_the_gender_signal():
+    """기업지배구조보고서 15개 핵심지표에 「이사회 구성원 모두 단일성(性)이 아님」이 있다.
+
+    260730 교차검증(5사): roster 여성 0명 ↔ 지표 「X」, 여성 있음 ↔ 「O」 — **불일치 0건**.
+    두 소스가 독립적으로 같은 말을 한다. 유안타증권은 지배구조보고서가 없어 정형만 있고,
+    그 빈틈을 `sexdstn` 신호가 메운다.
+    미준수 지표를 산출물에 싣는다 — 준수율(93.3%)만 보면 어느 지표가 빠졌는지 알 수 없다.
+    """
+    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
+    out = _render({"status": "ok", "subject": "테스트", "data": {
+        "year": 2026, "agenda_count": 0, "candidates_count": 0,
+        "governance_non_compliant": ["이사회 구성원 모두 단일성(性)이 아님", "집중투표제 채택"]}})
+    assert "기업지배구조보고서 미준수 지표" in out
+    assert "이사회 구성원 모두 단일성(性)이 아님" in out
+    assert "집중투표제 채택" in out

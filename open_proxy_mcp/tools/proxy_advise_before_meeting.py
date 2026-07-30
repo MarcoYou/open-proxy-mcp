@@ -458,6 +458,10 @@ def _render(payload: dict[str, Any]) -> str:
             # 임기 만료일 — 정형(임원현황) 값. 「이 사람 임기가 언제 끝나나」는 스튜어드십
             # 실무의 기본 정보인데 지금까지 받아만 오고 안 보여줬다(등기 행 96.3% 채움).
             _apt = c.get("appointment_type") or {}
+            # 직전 보고서 기준 위원회 소속 — 감사위원 후보가 이미 그 위원회에 있었나
+            if isinstance(_apt, dict) and _apt.get("roster_committees"):
+                lines.append(f"- 위원회 (직전 정기보고서 기준): "
+                             f"{' · '.join(_apt['roster_committees'])}")
             if isinstance(_apt, dict) and _apt.get("term_end_on"):
                 _mark = " · 이번 회차 만료(재선임 대상)" if _apt.get("term_expiring_this_meeting") else ""
                 lines.append(f"- 임기 만료: {_apt['term_end_on']}{_mark}")
@@ -653,6 +657,15 @@ def _render(payload: dict[str, Any]) -> str:
                         detail = f"부채 +{r.get('debt_growth_pct')}% / 영업이익 {r.get('op_from'):,} → {r.get('op_to'):,}"
                     lines.append(f"| {cand_name} | {co} | {tenure} | `{rtype}` | {yr} | {detail} |")
             lines.append("")
+
+    # 기업지배구조보고서 15개 핵심지표 중 미준수 — 준수율만 보면 어느 지표가 빠졌는지 모른다.
+    # 그중엔 의결권 판단에 바로 닿는 것이 있다(이사회 의장 겸직·이사회 단일성·집중투표제).
+    gnc = data.get("governance_non_compliant") or []
+    if gnc:
+        lines.append("## 기업지배구조보고서 미준수 지표 (15개 핵심지표 중)")
+        for lb in gnc:
+            lines.append(f"- {lb}")
+        lines.append("")
 
     # 회사 펀더멘털 요약 (참고)
     fin = data.get("financial_summary") or {}

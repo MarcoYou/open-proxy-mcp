@@ -1259,6 +1259,19 @@ _ROSTER_SOURCES: tuple[tuple[int, str, str, int], ...] = (
 )
 
 
+# 담당업무(chrg_job)에 적히는 위원회 — 실측 30사 등기 190명 중 담당업무 95.8% 채움,
+# 감사위원회 39 · 내부거래 20 · ESG 20 · 사외이사후보추천 14 건 언급.
+# 감사위원 후보가 직전 보고서에 이미 감사위원회 소속이면 연임이고, 아니면 신임이다.
+_COMMITTEES = ("감사위원회", "사외이사후보추천위원회", "보수위원회", "내부거래위원회",
+               "ESG위원회", "경영위원회", "리스크관리위원회", "지속가능경영위원회")
+
+
+def _committees_in(duty: str) -> list[str]:
+    """담당업무 문구 → 소속 위원회 목록(원문에 적힌 것만)."""
+    d = re.sub(r"\s+", "", duty or "")
+    return [c for c in _COMMITTEES if re.sub(r"\s+", "", c) in d]
+
+
 def _roster_has_board_member(row: dict[str, Any]) -> bool:
     """임원현황 한 행이 **등기 이사회 구성원**인가 — rung 완전성 판정용."""
     k = (row.get("rgist_exctv_at") or "").strip()
@@ -1399,6 +1412,10 @@ def apply_roster_board_tenure(
     prov["tenure_raw"] = re.sub(r"\s+", " ", (m0.get("tenure") or "")).strip() or None
     # 임기 만료일 — 서식이 하나라(「YYYY년 MM월 DD일」) 재직기간보다 해석 여지가 없다.
     # 등기 행 실측 96.3% 채움. 읽는 쪽이 「이 사람 임기가 언제 끝나나」를 바로 볼 수 있다.
+    _comms = _committees_in(m0.get("duty") or "")
+    if _comms:
+        prov["committees"] = _comms
+        apt["roster_committees"] = _comms
     _end = (m0.get("tenure_end") or "").strip()
     if _end:
         prov["term_end_on"] = _end
