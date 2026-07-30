@@ -401,6 +401,32 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
 _CAREER_LEAD_TRIM = re.compile(r"^[\s\-·•]*(?:現|현|前|전)\s*[\)\]]?\s*")
 
 
+# 「잘 쪼갰나」를 의심할 신호 — 하나라도 걸리면 원문 두 칸을 함께 싣는다(폴백 체인).
+# 짝이 맞아 보여도 잘 쪼갰다는 보장이 없다. 실측 1,211명:
+#   A 기간 미대응 3.6% · B blob(한 항목에 회사 2개+) 9.1% · C 절단 흔적 1.4% → 하나라도 13.0%
+_CORP_MARK = re.compile(r"㈜|\(주\)|주식회사")
+# 「㈜영풍 사장」처럼 법인표기로 시작하는 건 정상이다 — 진짜 절단은 **닫는 괄호로 시작**하거나
+# **여는 괄호로 끝나는** 것이다(「㈜) 수석부장」·「…ㆍ(」). 처음엔 「㈜ 시작」을 절단으로 세어
+# 13.0%가 나왔는데 실제로는 1.4%였다(측정 오류).
+_CAREER_CUT = re.compile(r"^\s*[)\]）]|^\s*㈜\s*\)|[(\[（]\s*$|\(\s*구,?\s*$")
+
+
+def career_split_doubt(candidate: dict[str, Any]) -> list[str]:
+    """경력 쪼개기를 의심할 근거 목록(비면 의심 없음)."""
+    det = [d for d in (candidate.get("careerDetails") or []) if (d.get("content") or "").strip()]
+    if not det:
+        return []
+    out: list[str] = []
+    pers = {(d.get("period") or "").strip() for d in det}
+    if len(det) >= 2 and len(pers) == 1 and next(iter(pers)):
+        out.append("기간이 항목별로 갈리지 않음")
+    if any(len(_CORP_MARK.findall(d.get("content") or "")) >= 2 for d in det):
+        out.append("한 항목에 회사가 여럿(뭉침)")
+    if any(_CAREER_CUT.search(d.get("content") or "") for d in det):
+        out.append("항목이 괄호 중간에서 잘림")
+    return out
+
+
 def _career_period_unpaired(candidate: dict[str, Any]) -> str | None:
     """기간이 항목별로 갈리지 않았으면 원문 기간 셀을 돌려준다(아니면 None).
 
@@ -726,6 +752,10 @@ async def evaluate_faithfulness(
         # 기간이 항목별로 안 갈린 경우 원문 기간 셀 — 짝을 지어 보여주면 거짓이 된다
         "career_period_unpaired": _career_period_unpaired(candidate),
         "career_content_raw": _career_content_raw(candidate),
+        # 쪼개기를 의심할 근거 — 있으면 렌더가 원문 두 칸을 함께 싣는다
+        "career_split_doubt": career_split_doubt(candidate) or None,
+        # 원문 기간 셀 — 의심 유무와 무관하게 payload 에 남긴다(호출측 AI 가 언제든 대조)
+        "career_period_raw": (candidate.get("careerPeriodRaw") or "").strip() or None,
         # 경력은 소집공고 표 원문(기간·내용) 그대로 싣는다. 쪼갠 결과는 쓰지 않는다 —
         # 회사/직위 분리가 후보 17%에서 깨져 「…공학부 부」/「교수」처럼 단어를 찢었고,
         # 분량은 원문의 2배였으며(후보당 168자 vs 83자), 매칭·부문매핑 어느 쪽도
@@ -820,6 +850,10 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str
                        if (d.get("content") or "").strip()],
         "career_period_unpaired": _career_period_unpaired(candidate),
         "career_content_raw": _career_content_raw(candidate),
+        # 쪼개기를 의심할 근거 — 있으면 렌더가 원문 두 칸을 함께 싣는다
+        "career_split_doubt": career_split_doubt(candidate) or None,
+        # 원문 기간 셀 — 의심 유무와 무관하게 payload 에 남긴다(호출측 AI 가 언제든 대조)
+        "career_period_raw": (candidate.get("careerPeriodRaw") or "").strip() or None,
         "audit_history_check": {"status": "disabled", "red_flags": [], "summary": "not_checked"},
         "summary": "raw_disclosed",
     }

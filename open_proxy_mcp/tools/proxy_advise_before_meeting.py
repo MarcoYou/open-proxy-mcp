@@ -505,6 +505,19 @@ def _render(payload: dict[str, Any]) -> str:
                     lines.append(f"  - {period} | {content}" if period else f"  - {content}")
                 if len(careers) > 8:
                     lines.append(f"  - … 외 {len(careers) - 8}건")
+                # **폴백 체인** — 짝이 맞아 보여도 잘 쪼갰다는 보장은 없다.
+                # 의심 신호가 있으면 원문 두 칸을 함께 싣고 읽는 쪽이 대조하게 한다
+                # (실측 1,211명 중 13.0%: 기간 미대응 3.6% · 뭉침 9.1% · 절단 1.4%).
+                _doubt = faith.get("career_split_doubt") or []
+                _praw = faith.get("career_period_raw")
+                _craw2 = faith.get("career_content_raw")
+                if _doubt and (_praw or _craw2):
+                    lines.append(f"  - ⓘ 항목 분리가 확실하지 않습니다({' · '.join(_doubt)})"
+                                 " — 원문 두 칸을 함께 싣습니다:")
+                    if _praw:
+                        lines.append(f"    · 기간 원문: {_praw[:300]}")
+                    if _craw2:
+                        lines.append(f"    · 내용 원문: {_craw2[:700]}")
             # 독립성 4 sub_factor 결과 + 근거(경력 raw 등) — 사외이사/감사위원
             lines.extend(_indep_evidence_lines(c))
             if ah_red:

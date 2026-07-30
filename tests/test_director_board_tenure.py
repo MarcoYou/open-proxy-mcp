@@ -630,3 +630,33 @@ def test_unpaired_period_falls_back_to_the_raw_cells():
     # 항목이 하나면 짝짓기 문제가 없다
     single = {"careerDetails": [{"period": "2020 ~ 현재", "content": "A사 사외이사"}]}
     assert _career_period_unpaired(single) is None
+
+
+def test_split_doubt_signals_and_raw_fallback_chain():
+    """짝이 맞아 보여도 잘 쪼갰다는 보장은 없다 — 의심 신호가 있으면 원문을 함께 싣는다.
+
+    실측 1,211명: 기간 미대응 3.6% · 뭉침(한 항목에 회사 2개+) 9.1% · 절단 1.4%
+    → **하나라도 13.0%**. 이때 쪼갠 목록 + 원문 두 칸을 같이 내보내 대조하게 한다.
+
+    절단 판정 주의: 「㈜영풍 사장」처럼 **법인표기로 시작하는 건 정상**이다.
+    처음엔 「㈜ 시작」을 절단으로 세어 13.0%가 나왔는데 실제는 1.4%였다(측정 오류).
+    진짜 절단은 **닫는 괄호로 시작**(「㈜) 수석부장」·「)흥국생명 대표이사」)하거나
+    **여는 괄호로 끝나는**(「…ㆍ(」) 것이다.
+    """
+    from open_proxy_mcp.services.director_evaluation import career_split_doubt as f
+    # 정상 — 기간이 갈리고, 항목마다 회사 하나, 괄호 온전
+    assert f({"careerDetails": [{"period": "2015 ~ 현재", "content": "㈜영풍 사장(경영관리)"},
+                                {"period": "2013 ~ 2015", "content": "(주)대웅제약 부사장"}]}) == []
+    # 기간 미대응
+    assert "기간이 항목별로 갈리지 않음" in f({"careerDetails": [
+        {"period": "1997 ~ 현재", "content": "A사 이사"},
+        {"period": "1997 ~ 현재", "content": "B사 이사"}]})
+    # 뭉침 — 한 항목에 회사 표기 2개+
+    assert "한 항목에 회사가 여럿(뭉침)" in f({"careerDetails": [
+        {"period": "2012 ~ 현재", "content": "(주)인터엠 기획팀 총괄(주)인터엠 대표이사"}]})
+    # 절단 — 닫는 괄호로 시작 / 여는 괄호로 끝
+    for cut in ("㈜) 수석부장", ")흥국생명 대표이사", "ㆍ신한은행 은행장ㆍ("):
+        assert "항목이 괄호 중간에서 잘림" in f({"careerDetails": [
+            {"period": "2020 ~ 현재", "content": cut}]}), cut
+    # 「㈜」로 시작하는 정상 회사명은 절단이 아니다
+    assert f({"careerDetails": [{"period": "2020 ~ 현재", "content": "㈜영풍 사장"}]}) == []

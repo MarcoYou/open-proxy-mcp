@@ -1903,6 +1903,11 @@ _CATEGORY_MAP = [
 ]
 
 
+# `_extract_career_from_html` 이 마지막으로 본 원문 기간·내용 셀. 반환 시그니처를 바꾸지 않고
+# 원문을 밖으로 내보내기 위한 부수 저장소다(단일 스레드 파싱 경로 전제).
+_LAST_CAREER_RAW: dict[str, str] = {}
+
+
 def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | None:
     """HTML에서 후보자의 경력을 bs4로 직접 파싱 (1단계)
 
@@ -2119,6 +2124,9 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
 
             if not period_ps:
                 period_raw = period_td.get_text(strip=True)
+                _LAST_CAREER_RAW["period"] = re.sub(r"\s+", " ", period_raw).strip()
+                _LAST_CAREER_RAW["content"] = re.sub(
+                    r"\s+", " ", content_td.get_text(" ", strip=True)).strip()
                 periods = _parse_period_raw(period_raw)
                 if len(periods) == len(content_ps):
                     return _clean_career_details(
@@ -3149,9 +3157,16 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
             for c in candidates:
                 name = c["name"]
                 # 1단계: HTML <p> 태그에서 직접 분리
+                _LAST_CAREER_RAW.clear()
                 html_career = _extract_career_from_html(html, name)
                 if html_career:
                     c["careerDetails"] = html_career
+                    # 원문 두 칸도 보존한다 — 짝을 지었다고 잘 쪼갰다는 보장은 없다.
+                    # 호출측이 언제든 원문과 대조할 수 있어야 한다(폴백 체인).
+                    if _LAST_CAREER_RAW.get("period"):
+                        c["careerPeriodRaw"] = _LAST_CAREER_RAW["period"]
+                    if _LAST_CAREER_RAW.get("content"):
+                        c["careerContentRaw"] = _LAST_CAREER_RAW["content"]
                     continue
 
                 # 2단계: regex fallback — 마크다운 테이블에서 기간/내용 분리
