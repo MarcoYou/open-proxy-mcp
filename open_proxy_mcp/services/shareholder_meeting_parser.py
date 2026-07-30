@@ -607,6 +607,34 @@ _DECLARED_ROLE = (("독립이사", "사외이사"), ("사외이사", "사외이�
 _ELECTION_AGENDA = re.compile(r'선\s*임|중\s*임|해\s*임|후보')
 
 
+def declared_role_for_candidate(title: str, name: str) -> tuple[str | None, str]:
+    """안건 제목이 **이 후보에게** 밝힌 직위 → (직위, 근거).
+
+    제목이 여러 안건으로 뭉쳐 오는 서식이 있다:
+      「사내이사 정인철 선임의 건 (임기 3년) 제3-3호 의안 : 사외이사 김대근 선임의 건」
+    이때 구간 전체에서 직위를 추정하면 첫 직위를 전원이 상속해 정인철이 사외이사가 된다
+    (실측 479건: 제목이 역할을 밝힌 후보 363명 중 55명(15.2%) 이 roleType 과 어긋난다).
+    그래서 **이름 바로 앞의 직위**를 먼저 본다 — 이게 가장 확실하다.
+
+    반환 근거: `named`(이름 앞 직위) / `sole`(제목에 직위가 하나뿐) / `""`(못 밝힘).
+    직위가 둘 이상인데 이름 지목이 없으면 **판단하지 않는다**(None) — 추측하면 그게 버그다.
+    """
+    t = re.sub(r"\s+", "", title or "")
+    nm = re.sub(r"\s+", "", name or "")
+    if not t or not _ELECTION_AGENDA.search(t):
+        return None, ""
+    roles = [canon for kw, canon in _DECLARED_ROLE if kw in t]
+    if nm:
+        # 「사내이사정인철」 / 「사외이사후보정인철」 — 이름 바로 앞(후보·후보자 삽입 허용)
+        for kw, canon in _DECLARED_ROLE:
+            if re.search(rf"{re.escape(kw)}(?:후보자?)?{re.escape(nm)}", t):
+                return canon, "named"
+    uniq = sorted(set(roles))
+    if len(uniq) == 1:
+        return uniq[0], "sole"
+    return None, ""
+
+
 def annotate_declared_role(tree: list[dict]) -> None:
     """안건 제목이 명시한 직위를 `declared_role` 로 부착(in-place)."""
     def walk(nodes: list[dict]) -> None:
@@ -2554,6 +2582,32 @@ def parse_personnel_xml(html: str) -> dict:
             if name:
                 candidates = [{"name": name, "roleType": category}]
 
+        # 제목이 후보별로 밝힌 직위를 붙인다.
+        # **덮는 경우는 딱 하나** — roleType 이 구간 전체 제목에서 추정된(`title`) 값이거나 아예
+        # 없는데(`none`), 제목이 이 후보의 **이름 바로 앞에서** 직위를 지목한(`named`) 경우다.
+        # 그때는 지목이 구간 추정보다 확실하다(실측 13명 교정).
+        # 후보표 컬럼에서 온 roleType(`column`)은 후보별 정형이라 덮지 않는다 — 덮으면
+        # 세분도 차이(사내이사 vs 이사)까지 함께 깨져 106건이 흔들린다(앞선 세션 측정).
+        # 그 경우는 충돌 사실만 남겨 읽는 쪽이 원문을 확인하게 한다.
+        for _c in candidates:
+            _role, _basis = declared_role_for_candidate(title, _c.get("name") or "")
+            if not _role:
+                continue
+            _c["declaredRole"] = _role
+            _c["declaredRoleBasis"] = _basis
+            _rt, _rb = (_c.get("roleType") or "").strip(), _c.get("roleTypeBasis")
+            if _basis == "named" and _rb in (None, "title") and _rt != _role:
+                _c["roleTypeBefore"] = _rt or None
+                _c["roleType"] = _role
+                _c["roleTypeBasis"] = "title_named"
+            elif _rt and _rt != _role:
+                _c["roleTypeConflict"] = {
+                    "role_type": _rt, "role_type_basis": _rb or "none",
+                    "declared_role": _role, "declared_role_basis": _basis,
+                    "note": ("후보자 표와 안건 제목이 직위를 다르게 밝혔습니다 — "
+                             "「□ 이사의 선임」 구간 원문으로 확인하세요."),
+                }
+
         appointment = {
             "number": number,
             "title": title,
@@ -2987,11 +3041,16 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                             _v = re.sub(r'\s+', '', val)
                             if _v in ('여', '예', 'O', 'o', 'Y', 'y', '유', '해당', 'ㅇ'):
                                 candidate["roleType"] = "사외이사"
+                                candidate["roleTypeBasis"] = "column"
                             else:
                                 # '부/아니오/-' = 사외이사가 아님. 무엇인지는 안건 제목이 정한다.
                                 candidate["roleType"] = _normalize_role_value(val)
+                                if candidate.get("roleType"):
+                                    candidate["roleTypeBasis"] = "column"
                         elif '이사구분' in h or '직위' in h or h in ('구분', '직책'):
                             candidate["roleType"] = _normalize_role_value(val)
+                            if candidate.get("roleType"):
+                                candidate["roleTypeBasis"] = "column"
                         elif '분리선출' in h:
                             candidate["separateElection"] = val
                         elif '최대주주' in h:
@@ -3007,6 +3066,9 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                                 cat_from_title = cat
                                 break
                         candidate["roleType"] = cat_from_title
+                        # 구간 전체 제목에서 추정 — 하위안건이 묶이면 첫 직위를 전원이 상속한다.
+                        # 후보표 컬럼에서 온 값과 신뢰도가 다르므로 출처를 남긴다.
+                        candidate["roleTypeBasis"] = "title"
 
                     # 중복 제거 (같은 안건 안에서 동일 이름 1번)
                     if not any(c["name"] == name for c in candidates):

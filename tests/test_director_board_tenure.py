@@ -385,3 +385,27 @@ def test_merged_agenda_title_does_not_create_a_false_disqualification():
                                {"김대근": [row]})
     assert ev2["independence"]["sub_factors"]["recent_2y_employee"][
         "result"] == "roster_says_fulltime_insider"
+
+
+def test_named_role_in_title_beats_a_title_wide_guess():
+    """제목이 이름 바로 앞에서 직위를 지목하면 구간 전체 추정보다 그것을 쓴다.
+
+    260730 실측(캐시 소집공고 1,399명): 제목이 여러 안건으로 뭉치면 첫 직위를 전원이 상속해
+    **13명이 감독(사외·감사) 계열로 오분류**됐다. 그 결과 사내이사에게 독립성 평가가 적용되고
+    사내이사 성과 평가는 누락됐다.
+    대웅제약 박성수(현직 대표이사)가 「사외이사」로 잡혀 「최근 2년 직원 이력: 외부인」이라는
+    판정이 나갔다 — 근거란에는 「2015 ~ 현재 (주)대웅제약 대표이사」가 그대로 적혀 있었다.
+
+    **후보자 표 컬럼에서 온 roleType 은 덮지 않는다** — 후보별 정형이고, 덮으면 세분도 차이
+    (사내이사 vs 이사)까지 함께 깨진다(앞선 세션 측정 106건). 충돌만 남긴다.
+    """
+    from open_proxy_mcp.services.shareholder_meeting_parser import declared_role_for_candidate as f
+    title = "사내이사 정인철 선임의 건 (임기 3년) 제3-3호 의안 : 사외이사 김대근 선임의 건"
+    assert f(title, "정인철") == ("사내이사", "named")
+    assert f(title, "김대근") == ("사외이사", "named")
+    # 직위가 둘 이상인데 이름 지목이 없으면 판단하지 않는다 — 추측하면 그게 버그다
+    assert f("이사선임의건(사내이사2명,사외이사3명)", "아무개") == (None, "")
+    assert f("사외이사 선임의 건", "아무개") == ("사외이사", "sole")
+    # 선임 계열 안건이 아니면 그 사람의 직위를 밝힌 게 아니다(실측 164건)
+    assert f("독립이사로의 명칭 변경의 건", "홍길동") == (None, "")
+    assert f("사외이사들의 보수 한도액을 정하는 건", "홍길동") == (None, "")
