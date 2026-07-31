@@ -599,3 +599,42 @@ def test_aoi_parser_accepts_revision_before_after_headers():
 
     assert len(aoi["amendments"]) == 1
     assert aoi["amendments"][0]["subAgendaId"] == "2-1"
+
+
+def test_career_raw_cells_survive_the_plain_text_branch():
+    """`<p>` 없는 순수 텍스트 셀에서도 원문 두 칸을 챙긴다.
+
+    신한지주 진옥동 행은 기간·내용 셀에 `<p>`가 하나도 없다. 그 서식은 파서의
+    「순수 텍스트」 분기를 타는데, 그 분기가 원문 저장 지점보다 **앞에서 리턴**해
+    원문이 안 남았다. 결과는 4개 기간이 2항목으로 뭉치고 「(現)」이 통째로 사라지는데
+    (`ㆍ신한은행 은행장ㆍ(` 에서 잘림), 의심 신호는 떴지만 보여줄 원문이 없는 빈손이었다.
+
+    실측(2026 소집공고 캐시 41건·후보 200명): 원문 확보 46.0% → 54.5%,
+    의심 발동 21명 중 빈손 1명 → 0명. 파싱 결과·의심 판정은 200명 전원 변화 0.
+    """
+    from open_proxy_mcp.services.shareholder_meeting_parser import _extract_career_from_html
+
+    html = """
+<TABLE>
+<TR><TH>후보자성명</TH><TH>주된직업</TH><TH>세부경력</TH><TH></TH><TH>해당법인과의 최근3년간 거래내역</TH></TR>
+<TR><TH></TH><TH></TH><TH>기간</TH><TH>내용</TH><TH></TH></TR>
+<TR>
+<TD>진옥동</TD>
+<TD>신한금융지주 대표이사</TD>
+<TD>ㆍ2015.06~2016.12ㆍ2017.03~2018.12ㆍ2019.03~2022.12ㆍ2023.03~현재</TD>
+<TD>ㆍSBJ은행 법인장ㆍ신한금융지주회사 부사장ㆍ신한은행 은행장ㆍ(現) 신한금융지주회사 회장</TD>
+<TD>해당 사항 없음</TD>
+</TR>
+</TABLE>
+"""
+    from open_proxy_mcp.services import shareholder_meeting_parser as smp
+
+    smp._LAST_CAREER_RAW.clear()
+    _extract_career_from_html(html, "진옥동")
+
+    raw = smp._LAST_CAREER_RAW.get("content") or ""
+    assert raw, "순수 텍스트 분기에서도 내용 원문이 남아야 한다"
+    # 쪼개기가 잃어버리는 「(現)」과 마지막 직위가 원문에는 온전히 있다
+    assert "(現) 신한금융지주회사 회장" in raw
+    # 기간 원문도 네 구간이 모두 남는다
+    assert "2023.03~현재" in (smp._LAST_CAREER_RAW.get("period") or "").replace(" ", "")

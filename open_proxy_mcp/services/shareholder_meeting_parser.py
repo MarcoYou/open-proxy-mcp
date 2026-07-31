@@ -2037,6 +2037,16 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
             period_ps = [p.get_text(strip=True) for p in period_td.find_all('p') if p.get_text(strip=True)]
             content_ps = [p.get_text(strip=True) for p in content_td.find_all('p') if p.get_text(strip=True)] if content_td else []
 
+            # 원문 두 칸을 무조건 챙긴다 — 쪼개기를 의심할 근거(career_split_doubt)는 기간이
+            # 정상으로 갈린 행에서도 뜬다. 신한지주 진옥동은 기간은 <p>로 잘 갈렸는데 내용이
+            # 「ㆍ신한은행 은행장ㆍ(」에서 잘렸다. 예전엔 `not period_ps`일 때만 원문을 남겨서
+            # 그 조합엔 보여줄 원문이 없었다 — 의심만 띄우고 대안이 없는 빈손.
+            # 이 행은 1960행 이름 필터를 통과했으므로 이 후보의 행이 확실하고,
+            # rowspan>1은 2031행 앞에서 리턴하므로 여기엔 온전한 한 행짜리 셀만 온다.
+            _LAST_CAREER_RAW["period"] = re.sub(r"\s+", " ", period_td.get_text(strip=True)).strip()
+            _LAST_CAREER_RAW["content"] = re.sub(
+                r"\s+", " ", content_td.get_text(" ", strip=True)).strip() if content_td else ""
+
             if not period_ps and not content_ps:
                 # <p> 태그 없이 순수 텍스트인 경우 — 現/前 구분자로 content 먼저 분리, period는 연도 패턴으로 분리
                 period_raw = period_td.get_text(strip=True) if period_td else ""
@@ -2124,9 +2134,6 @@ def _extract_career_from_html(html: str, candidate_name: str) -> list[dict] | No
 
             if not period_ps:
                 period_raw = period_td.get_text(strip=True)
-                _LAST_CAREER_RAW["period"] = re.sub(r"\s+", " ", period_raw).strip()
-                _LAST_CAREER_RAW["content"] = re.sub(
-                    r"\s+", " ", content_td.get_text(" ", strip=True)).strip()
                 periods = _parse_period_raw(period_raw)
                 if len(periods) == len(content_ps):
                     return _clean_career_details(
