@@ -528,6 +528,14 @@ def _render(payload: dict[str, Any]) -> str:
                 # 평가를 안 한 것이지 「저조」가 아니다 — 점수·기간을 None 으로 찍지 않는다.
                 lines.append(f"- **재직 중 성과**: 평가하지 않음 — "
                              f"{perf.get('rationale') or '등기이사 재직 이력을 확인하지 못했습니다.'}")
+                # 판단 근거가 된 임원현황 행을 통째로 — 사유 문장만으로는 읽는 쪽이 검증할 수
+                # 없다(대웅제약 박은경: 「재직기간 2010.1 ~現」이 취임연령 게이트에 걸렸는데
+                # 그 표기를 볼 방법이 없었다). 확정된 경우엔 붙지 않는다.
+                _rr = perf.get("roster_row") or {}
+                if _rr:
+                    lines.append("  - 판단 근거가 된 임원현황 원문 행:")
+                    for _k, _v in _rr.items():
+                        lines.append(f"    · {_k}: {_v}")
             elif perf.get("classification"):
                 cls = perf.get("classification", "n/a")  # 영문 키 — 이모지 매핑용
                 cls_ko = perf.get("classification_ko") or cls  # 한글 표시
@@ -711,8 +719,20 @@ def _render(payload: dict[str, Any]) -> str:
     gnc = data.get("governance_non_compliant") or []
     if gnc:
         lines.append("## 기업지배구조보고서 미준수 지표 (15개 핵심지표 중)")
-        for lb in gnc:
-            lines.append(f"- {lb}")
+        for it in gnc:
+            if not isinstance(it, dict):        # 옛 형태(라벨 문자열)도 그대로 받는다
+                lines.append(f"- {it}")
+                continue
+            _pr = (it.get("prior") or "").strip().upper()
+            _tail = " · 전년에도 미준수" if _pr in ("X", "×") else (
+                f" · 전년 {it['prior']}" if it.get("prior") else "")
+            lines.append(f"- {it.get('label')}{_tail}")
+            # 회사가 적은 사유 — 준수/미준수보다 이쪽이 판단에 더 닿는다
+            if it.get("note"):
+                lines.append(f"  - 회사 설명(원문): {it['note']}")
+            # 그 사유가 다른 절을 가리키기만 하면 가리킨 절을 데려온다(원문은 위에 그대로)
+            if it.get("note_ref"):
+                lines.append(f"    · 가리킨 세부원칙 원문: {it['note_ref']}")
         lines.append("")
 
     # 회사 펀더멘털 요약 (참고)

@@ -1258,6 +1258,27 @@ def build_roster_index(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, A
     return idx
 
 
+_ROSTER_ROW_LABELS: tuple[tuple[str, str], ...] = (
+    ("director_type", "등기 구분"), ("position", "직위"), ("duty", "담당업무"),
+    ("tenure", "재직기간"), ("tenure_end", "임기 만료일"), ("full_time", "상근 여부"),
+    ("major_shareholder_relation", "최대주주 관계"), ("main_career", "주요경력"),
+)
+
+
+def _roster_row_raw(row: dict[str, Any]) -> dict[str, str] | None:
+    """임원현황 한 행을 사람이 읽는 라벨로 통째 반환(빈 칸은 뺀다).
+
+    등기 시작 시점을 확정하지 못했을 때 「왜 못 했나」는 문장으로만 나가고 근거 행은
+    payload에 없었다. 대웅제약 박은경은 `재직기간 2010.1 ~現` 이 취임연령 게이트에
+    걸려 미채택됐는데, 읽는 쪽에서 그 표기를 직접 볼 방법이 없었다. 확정 못 한
+    갈래에만 붙인다 — 확정된 경우엔 군더더기다.
+    """
+    out = {ko: re.sub(r"\s+", " ", str(row.get(k) or "")).strip()[:300]
+           for k, ko in _ROSTER_ROW_LABELS}
+    out = {k: v for k, v in out.items() if v}
+    return out or None
+
+
 def apply_roster_prior(ev: dict[str, Any], candidate: dict[str, Any], roster_index: dict[str, list[dict[str, Any]]]) -> None:
     """roster-prior로 new→renewed 오분류 교정. 승격만·부재는 유지·provenance 기록(힌트 정체성)."""
     apt = ev.get("appointment_type")
@@ -1450,17 +1471,20 @@ def apply_roster_board_tenure(
             # 「등기」·「집행임원」처럼 우리가 모르는 표기 → 모른다고 말한다(미등기라 단정 금지)
             prov["director_type"] = next((t for t in types if t), None)
             prov["note"] = "임원현황의 등기 구분 표기를 해석하지 못해 등기 여부를 확정하지 못했습니다"
+            prov["roster_row"] = _roster_row_raw(same_person[0])
             apt["board_tenure_source"] = prov
             return
         if not can_confirm_unregistered:
             # 오래된 스냅샷(FY N-2)이다 — 그 뒤 승진해 등기됐을 수 있어 확정하지 않는다.
             prov["director_type"] = "미등기"
             prov["note"] = "이 보고서 시점에는 미등기 — 이후 변동 가능(더 최신 임원현황 없음)"
+            prov["roster_row"] = _roster_row_raw(same_person[0])
             apt["board_tenure_source"] = prov
             return
         apt["board_earliest_start"] = None       # 등기 재직 없음이 **확정**된다
         prov["director_type"] = next((t for t in types if t), None)
         prov["note"] = "임원현황에 미등기임원으로만 기재 — 등기이사 재직 없음"
+        prov["roster_row"] = _roster_row_raw(same_person[0])
         apt["board_tenure_source"] = prov
         return
     if len(board) > 1 and not cbk[0]:
@@ -1506,6 +1530,7 @@ def apply_roster_board_tenure(
     if not cands:
         # 등기인 건 확정, 시작연도만 미상 — 추정을 남기되 출처를 밝힌다.
         prov["note"] = "등기 구분은 확정, 재직기간 표기를 읽지 못해 시작연도는 소집공고 경력 추정값"
+        prov["roster_row"] = _roster_row_raw(m0)
         apt["board_tenure_source"] = prov
         return
     start, basis, _ = min(cands, key=lambda x: x[0])
@@ -1525,12 +1550,14 @@ def apply_roster_board_tenure(
                             f"{_ey2 - start}년으로 등기 재직기간으로 보기 어렵습니다"
                             "(입사 근속연수로 기재한 것으로 보임) — 시작연도 미채택")
             prov["rejected_start"] = start
+            prov["roster_row"] = _roster_row_raw(m0)
             apt["board_tenure_source"] = prov
             return
     if age is not None and age < _MIN_PLAUSIBLE_BOARD_AGE:
         prov["note"] = (f"재직기간을 시작연도로 환산하면 취임 당시 {age}세라 등기 재직기간으로 "
                         "보기 어렵습니다(입사 근속연수로 기재한 것으로 보임) — 시작연도 미채택")
         prov["rejected_start"] = start
+        prov["roster_row"] = _roster_row_raw(m0)
         apt["board_tenure_source"] = prov
         return
     prov["basis"] = basis

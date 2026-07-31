@@ -690,3 +690,57 @@ def test_not_evaluated_reason_separates_unknown_status_from_unknown_start():
     txt2 = rationale(rationale="2025년 사업보고서 임원현황에 미등기임원으로만 올라 있어, "
                                "등기이사로 재직한 기간이 없습니다.")
     assert "미등기임원으로만" in txt2
+
+
+def test_roster_row_is_attached_only_when_the_start_is_not_confirmed():
+    """등기 시작을 확정 못 했으면 근거가 된 임원현황 행을 통째로 함께 싣는다.
+
+    사유 문장만 내보내면 읽는 쪽이 검증할 수 없다 — 대웅제약 박은경은 정형이
+    「사내이사 · 임기만료 2027-03-28」로 등기를 확정해 주는데 `재직기간 2010.1 ~現`이
+    취임연령 게이트(30세 미만)에 걸려 시작연도가 미채택됐다. 그 표기를 볼 방법이 없었다.
+    확정된 경우엔 붙이지 않는다 — 군더더기다.
+    """
+    from open_proxy_mcp.services.director_evaluation import apply_roster_board_tenure
+
+    row = {"birth": (1983, 5), "director_type": "사내이사", "tenure": "2010.1 ~現",
+           "position": "본부장", "duty": "CH 마케팅 본부장", "full_time": "상근",
+           "tenure_end": "2027년 03월 28일", "major_shareholder_relation": "계열회사 임원",
+           "main_career": ""}
+    ev = {"appointment_type": {"type": "renewed", "board_earliest_start": 2010}}
+    apply_roster_board_tenure(ev, {"name": "박은경", "birthDate": "1983-05-01"},
+                              {"박은경": [row]}, 2025)
+    src = ev["appointment_type"]["board_tenure_source"]
+    assert src.get("rejected_start") == 2010            # 게이트가 시작연도를 버렸다
+    rr = src.get("roster_row") or {}
+    assert rr.get("등기 구분") == "사내이사"               # 등기 여부는 확정돼 있다
+    assert rr.get("재직기간") == "2010.1 ~現"             # 게이트에 걸린 그 표기
+    assert rr.get("임기 만료일") == "2027년 03월 28일"
+    assert "주요경력" not in rr                          # 빈 칸은 싣지 않는다
+
+    # 확정된 경우엔 원문 행을 붙이지 않는다
+    ok = {"appointment_type": {"type": "renewed", "board_earliest_start": 2018}}
+    apply_roster_board_tenure(ok, {"name": "김이사", "birthDate": "1968-03-01"},
+                              {"김이사": [{"birth": (1968, 3), "director_type": "사내이사",
+                                          "tenure": "2020.03.01 ~", "major_shareholder_relation": ""}]},
+                              2025)
+    assert "roster_row" not in (ok["appointment_type"]["board_tenure_source"] or {})
+
+
+def test_governance_note_pointer_is_followed_to_the_principle():
+    """미준수 사유가 「(세부원칙 4-1) 참고」처럼 포인터뿐이면 그 절을 데려온다.
+
+    15개 지표의 비고를 전부 포인터로 채우는 서식이 있다(캐시 1건은 15/15). 그 회사는
+    지금까지 미준수 사유가 통째로 빈 것과 같았다. 세부원칙은 같은 문서에서 이미
+    파싱되므로 추가 DART 콜 0. 캐시 15건 실측: 사유를 볼 수 있는 비율 68.2% → 82.4%.
+    표(「표 1-1-1 참고」)를 가리키는 것은 해소하지 않는다 — 대상이 원칙이 아니다.
+    """
+    from open_proxy_mcp.services.corp_gov_report import _resolve_note_pointer
+
+    by_no = {"4-1": {"principle_number": "4-1",
+                     "response": "보고서 제출일 현재 이사회는 7인으로 구성되어 있으며, "
+                                 "사내이사 3명과 사외이사 4명으로 구성하고 있습니다."}}
+    assert "사내이사 3명" in _resolve_note_pointer("(세부원칙 4-1) 참고", by_no)
+    assert _resolve_note_pointer("표 1-1-1: 주주총회 개최 정보 참고", by_no) == ""
+    assert _resolve_note_pointer("사내이사가 이사회 의장직 수행", by_no) == ""
+    assert _resolve_note_pointer("(세부원칙 9-9) 참고", by_no) == ""   # 없는 절
+    assert _resolve_note_pointer("", by_no) == ""

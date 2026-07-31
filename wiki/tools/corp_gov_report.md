@@ -180,3 +180,9 @@ sequenceDiagram
 - 2026-04-29: 금융지주 형식 분리 (partial 18건 → 0, regression 0)
 - 2026-04-29: timeline scope 추가 (transitions 자동 감지)
 - 2026-05-01: tool wiki 페이지 작성
+- 2026-07-31: `metrics_summary`에 `prior`·`note`·`note_ref` 추가 — 준수/미준수보다 **사유**가
+  판단에 더 닿는데 요약이 라벨과 O/X만 남기고 버리고 있었다. 비고가 「(세부원칙 4-1) 참고」처럼
+  다른 절을 가리키기만 하면 그 절의 응답을 `note_ref`로 데려온다(세부원칙은 같은 문서에서 이미
+  파싱 — 추가 DART 콜 0, 원문 `note`는 그대로 보존). 표(「표 1-1-1 참고」)는 해소하지 않는다.
+  실측(캐시 15건 · 미준수 85개): 사유를 볼 수 있는 비율 68.2% → 82.4%. 소비처는
+  [[proxy_advise_before_meeting]]의 `governance_non_compliant`.

@@ -350,6 +350,26 @@ def _parse_metrics(text: str) -> list[dict[str, Any]]:
     return results
 
 
+_NOTE_POINTER = re.compile(r"세부원칙\s*(\d+)\s*[-–]\s*(\d+)")
+
+
+def _resolve_note_pointer(note: str, by_no: dict[str, Any]) -> str:
+    """비고가 「(세부원칙 4-1) 참고」처럼 **다른 절을 가리키기만 할 때** 그 절을 데려온다.
+
+    서식에 따라 15개 지표의 비고를 전부 포인터로 채우는 회사가 있다(캐시 1건은 15/15).
+    그 회사는 지금까지 미준수 사유가 통째로 빈 것과 같았다. 세부원칙은 같은 문서에서
+    이미 파싱되므로 추가 DART 콜 0. 원문 note 는 그대로 두고 별도 필드로 붙인다.
+    「표 1-1-1 참고」처럼 표를 가리키는 것은 해소하지 않는다(대상이 원칙이 아니다).
+    """
+    m = _NOTE_POINTER.search(note or "")
+    if not m:
+        return ""
+    p = by_no.get(f"{m.group(1)}-{m.group(2)}")
+    if not isinstance(p, dict):
+        return ""
+    return re.sub(r"\s+", " ", (p.get("response") or "")).strip()[:300]
+
+
 def _parse_principles(text: str) -> list[dict[str, Any]]:
     """세부원칙별 준수여부 텍스트 추출.
 
@@ -719,8 +739,15 @@ async def build_corp_gov_report_payload(
 
     if scope == "summary":
         # metrics 압축 요약
+        # note(회사가 적은 사유)·prior(전년)를 버리지 않는다 — 준수/미준수보다 **사유**가
+        # 판단에 더 닿는다. 「사외이사가 이사회 의장인지 여부 X」만 보면 왜인지 모르는데
+        # 회사는 「사내이사가 이사회 의장직 수행」이라고 적어 둔다. 캐시 15건 실측:
+        # 미준수(X) 85개 중 실제 설명 57개(67.1%) · 포인터 14개 · 사유 없음 14개.
+        _by_no = {p.get("principle_number"): p for p in principles}
         data["metrics_summary"] = [
-            {"label": m["label"], "current": m["current"]}
+            {"label": m["label"], "current": m["current"],
+             "prior": m.get("prior") or "", "note": m.get("note") or "",
+             "note_ref": _resolve_note_pointer(m.get("note") or "", _by_no)}
             for m in metrics
         ]
     if scope == "metrics":

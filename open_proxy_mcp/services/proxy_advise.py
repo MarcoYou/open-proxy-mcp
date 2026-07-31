@@ -2641,6 +2641,9 @@ async def build_proxy_advise_payload(
                     "classification": "not_evaluated",
                     "rationale": why + " 재직 중 성과는 평가하지 않았습니다.",
                     "tenure_period": None,
+                    # 「왜 확정 못 했나」를 문장으로만 내보내면 읽는 쪽이 검증할 수 없다 —
+                    # 판단의 근거가 된 임원현황 행을 통째로 함께 싣는다(확정된 경우엔 안 붙는다).
+                    "roster_row": src.get("roster_row"),
                 }
                 continue
             # 등기 첫 해는 취임 전 실적이라 본인 성과가 아니다 — 최소 2개 사업연도를 요구한다.
@@ -3532,8 +3535,16 @@ async def build_proxy_advise_payload(
         # 「사외이사가 이사회 의장인지 여부」(CEO·의장 겸직) ·
         # 「이사회 구성원 모두 단일성(性)이 아님」(자본시장법 §165조의20) ·
         # 「집중투표제 채택」 · 「기업가치 훼손 책임자의 임원 선임 방지」.
+        # 라벨만 싣지 않는다 — 회사가 적은 **사유**(note)와 전년 값(prior)을 함께 싣는다.
+        # 「사외이사가 이사회 의장인지 여부 X」는 그것만 보면 왜인지 모르지만 회사는
+        # 「사내이사가 이사회 의장직 수행」이라 밝혀 둔다. 전년 값이 있으면 이번에 나빠진
+        # 것인지 계속 그랬던 것인지도 갈린다. 실측 미준수 82개 중 68개(82.9%)에 사유 있음.
         "governance_non_compliant": [
-            (it.get("label") or "").strip()
+            {"label": (it.get("label") or "").strip(),
+             "note": (it.get("note") or "").strip() or None,
+             # 비고가 「(세부원칙 4-1) 참고」처럼 포인터뿐이면 그 절을 데려온 것
+             "note_ref": (it.get("note_ref") or "").strip() or None,
+             "prior": (it.get("prior") or "").strip() or None}
             for it in ((gov_report.get("data") or {}).get("metrics_summary") or [])
             if isinstance(it, dict) and (it.get("current") or "").strip().upper() == "X"
         ] or None,
