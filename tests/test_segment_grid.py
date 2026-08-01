@@ -127,3 +127,43 @@ def test_geo_anchor_falls_back_when_segment_note_anchor_is_missing():
     assert pos >= 0
     assert pos <= 5000, "표를 포함하도록 조금 앞에서 시작해야 한다"
     assert _find_geo_anchor_pos("<TH>차량</TH><TH>금융</TH>") == -1
+
+
+def test_note_sections_are_the_anchor_and_narrow_the_search():
+    """주석 절 목록(`<A name='tocN'>`)이 탐색 창을 정한다 — 좁게 시작해 못 찾으면 넓힌다.
+
+    주석 본문엔 AASSOCNOTE·ACODE 가 **없다**(캐시 89건 실측 0%). 구조 코드는 챕터
+    경계까지고 주석 안에선 사라진다. 대신 toc 앵커가 89/89(100%) 있어 절 경계를 준다.
+    절로 좁히면 볼 표가 중앙 248개 → 9개(28배). 못 찾으면 문서 전체로 넓히는데
+    전수 파싱이 중앙 80ms·최대 615ms 라(DART 콜 하나가 1~3초) 넓히지 못할 이유가 없다.
+    """
+    from open_proxy_mcp.services.segment_grid import _note_sections, _scan_windows
+
+    html = ("<A name='toc1'>1. 회사의 개요 (연결)</A>" + "a" * 500
+            + "<A name='toc2'>2. 영업부문 (연결)</A>" + "b" * 500
+            + "<A name='toc3'>3. 리스 (연결)</A>" + "c" * 500)
+    secs = _note_sections(html)
+    assert [t for _, t, _, _ in secs] == ["1. 회사의 개요 (연결)", "2. 영업부문 (연결)", "3. 리스 (연결)"]
+    assert secs[0][3] == secs[1][2], "절 끝은 다음 절 시작이어야 한다"
+
+    wins = _scan_windows(html, "2. 영업부문 (연결)")
+    assert wins[0][2] == "2. 영업부문 (연결)", "호출측 앵커 절이 1순위"
+    assert wins[-1][1] == len(html), "마지막 창은 문서 전체 폴백"
+    # 리스 절은 사전에 없으므로 후보에서 빠진다
+    assert "3. 리스 (연결)" not in [w[2] for w in wins]
+
+
+def test_geo_section_dictionary_covers_sections_other_than_부문():
+    """지역표는 「부문」 절에만 있는 게 아니다 — 사전을 넓혀야 한다.
+
+    캐시 32건 실측: 부문 절만 보면 25/32(78%), 수익·고객과의 계약·보험위험까지 넓히면
+    31/32(97%). LG전자는 「28. 매출액」, HD현대일렉트릭은 「27. 수익」 절에 있었다.
+    """
+    from open_proxy_mcp.services.segment_grid import _GEO_SECTION_RE
+
+    for t in ("37. 부문정보 (연결)", "4. 영업부문 (연결)", "27. 수익 (연결)",
+              "28. 매출액 (연결)", "23. 영업수익 (연결)",
+              "5. 영업부문 및 고객과의 계약에서 생기는 수익 (연결)", "보험위험 (연결)"):
+        assert _GEO_SECTION_RE.search(t), t
+    for t in ("3. 리스 (연결)", "9. 유형자산 (연결)", "12. 퇴직급여 (연결)"):
+        assert not _GEO_SECTION_RE.search(t), t

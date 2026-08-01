@@ -280,6 +280,53 @@ def _find_geo_anchor_pos(html: str) -> int:
         return -1
     # 표 머리에서 잡혔을 수 있으니 조금 앞에서 시작해 그 표를 포함시킨다
     return max(0, m.start() - 3000)
+
+
+# ── 주석 절 목록 (선언 구조 파싱을 주석 층까지) ─────────────────────────────────
+# 주석 본문엔 AASSOCNOTE·ACODE 가 **없다**(캐시 89건 실측 0%). 구조 코드는 챕터
+# 경계까지만 있고 주석 안으로 들어오면 사라진다. 대신 `<A name='tocN'>` 절 앵커가
+# **89/89(100%)** 있다 — 의미 코드는 아니지만 절 경계는 여기서 확정할 수 있다.
+_TOC_ANCHOR_RE = re.compile(r"<A\s+name=['\"]toc(\d+)['\"]\s*>\s*([^<]{2,80}?)\s*</A>", re.I)
+# 지역표가 실제로 들어 있던 절(캐시 32건 전수). 부문 절만 보면 78%, 아래까지 넓히면 97%.
+_GEO_SECTION_RE = re.compile(r"부문|세그먼트|수익|매출|고객과의\s*계약|영업\s*수익|보험위험|지역")
+
+
+def _note_sections(html: str) -> list[tuple[int, str, int, int]]:
+    """주석 절 목록 → [(toc번호, 제목, 시작, 끝)]. 없으면 빈 목록."""
+    ms = list(_TOC_ANCHOR_RE.finditer(html or ""))
+    out: list[tuple[int, str, int, int]] = []
+    for i, m in enumerate(ms):
+        end = ms[i + 1].start() if i + 1 < len(ms) else len(html)
+        out.append((int(m.group(1)), re.sub(r"\s+", " ", m.group(2)).strip(), m.start(), end))
+    return out
+
+
+def _scan_windows(full_html: str, anchor: str) -> list[tuple[int, int, str]]:
+    """검사할 (시작, 끝, 절제목) 창을 **우선순위대로** 만든다.
+
+    좁게 시작해 못 찾으면 넓힌다 — 절로 좁히면 볼 표가 중앙 248개 → 9개(28배)로 줄고,
+    전수로 넓혀도 파싱 비용은 중앙 80ms·최대 615ms(DART 콜 하나가 1~3초)라 넓히지
+    못할 이유가 없다. 예전엔 표 10개에서 끊어 현대차(앵커 뒤 87,663자)를 못 봤다.
+    """
+    secs = _note_sections(full_html)
+    wins: list[tuple[int, int, str]] = []
+    if secs:
+        anchor_key = re.sub(r"\s+", "", anchor or "")
+        # ① 호출측이 준 부문 앵커와 같은 절
+        if anchor_key:
+            for _, title, s, e in secs:
+                if anchor_key and anchor_key in re.sub(r"\s+", "", title):
+                    wins.append((s, e, title))
+        # ② 사전에 걸리는 절 (문서 순서 유지)
+        for _, title, s, e in secs:
+            if _GEO_SECTION_RE.search(title) and not any(w[0] == s for w in wins):
+                wins.append((s, e, title))
+    # ③ 최후 폴백 — 절을 못 가르거나 후보 절에 없을 때 문서 전체
+    start = _find_anchor_pos(full_html, anchor) if anchor else -1
+    if start < 0:
+        start = _find_geo_anchor_pos(full_html)
+    wins.append((max(0, start) if start >= 0 else 0, len(full_html), ""))
+    return wins
 _PRODUCT_CAPTION_RE = re.compile(r"제품|서비스\s*별|재화\s*(?:와|및)?\s*용역|수익\s*유형|매출\s*유형|품목|플랫폼|수익원|용역\s*별")
 _CAPTION_WINDOW = 600
 
@@ -302,21 +349,27 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
     out = {"geo": None, "product": None}
     if not full_html:
         return out
-    pos = _find_anchor_pos(full_html, anchor) if anchor else -1
-    if pos < 0:
-        # 부문정보 앵커가 없거나 못 찾아도 지역 공시는 따로 있을 수 있다 — K-IFRS 1108의
-        # entity-wide 지역 정보는 부문 주석과 다른 절에 실리는 서식이 있다.
-        # HD현대일렉트릭은 앵커가 안 잡혀 스캔 자체를 건너뛰었는데 지역표는 실재했다.
-        pos = _find_geo_anchor_pos(full_html)
-        if pos < 0:
-            return out
-    attempts = 0
+    # 좁은 창(후보 절) → 넓은 창(문서 전체) 순서로 훑는다. 창 안에서만 표를 세므로
+    # 비용이 절 단위로 묶이고, 절 경계가 확정돼 「통으로 리턴」의 범위도 정확해진다.
     geo_md_fallback = None
+    for win_start, win_end, win_title in _scan_windows(full_html, anchor):
+        got = _scan_window(full_html, win_start, win_end, win_title, anchor,
+                           geo_names, out, geo_md_fallback)
+        geo_md_fallback = got
+        if out["geo"] is not None:
+            break
+    if out["geo"] is None and geo_md_fallback is not None:
+        out["geo"] = geo_md_fallback          # 표준 사다리 2단: 정형 실패 → 원문 마크다운
+    return out
+
+
+def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor: str,
+                 geo_names: set, out: dict, geo_md_fallback):
+    """창 하나를 훑어 out["geo"]를 채운다. 강등 폴백(마크다운)을 돌려준다."""
+    attempts = 0
     for m in _TABLE_RE.finditer(full_html, pos):
-        # 표 개수 상한은 비용 가드지만, 지역표가 앵커에서 멀면(현대차: +87,663자) 상한에
-        # 먼저 걸려 실재하는 표를 못 봤다. **후보 신호가 없는 표는 세지 않는다**로 바꿔
-        # 비용은 유지하면서 도달 거리를 늘린다.
-        if attempts >= _EW_MAX_ATTEMPTS or m.start() > pos + 150000:
+        # 창 안에서만 센다 — 절로 좁히면 볼 표가 중앙 248 → 9개(28배)로 준다.
+        if attempts >= _EW_MAX_ATTEMPTS or m.start() >= win_end or m.start() > pos + 150000:
             break
         chunk = m.group(0)
         # 길이 하한은 잡표를 거르는 장치인데 **entity-wide 지역표는 원래 작다** —
@@ -403,7 +456,8 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
             # 원문을 직접 찾아보게 — 어느 단원의 어느 절, 어떤 표인지 (rcept_no는 호출측이 붙인다)
             "source_location": {
                 "chapter": "III. 재무에 관한 사항 — 재무제표 주석",
-                "note_section": (anchor or "지역 정보 표(부문정보 절 앵커 미검출)"),
+                "note_section": (win_title or anchor or "지역 정보 표(주석 절 미확정)"),
+                "section_bounds": [pos, win_end] if win_title else None,
                 "table_caption": clean_caption[-80:],
                 "how_to_find": "DART 원문에서 위 주석 절을 찾아 표 캡션으로 대조하세요.",
             },
@@ -419,6 +473,4 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
             out["product"] = payload
         if out["geo"] and out["product"]:
             break
-    if out["geo"] is None and geo_md_fallback is not None:
-        out["geo"] = geo_md_fallback          # 표준 사다리 2단: 정형 실패 → 원문 마크다운
-    return out
+    return geo_md_fallback
