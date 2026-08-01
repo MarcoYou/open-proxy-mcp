@@ -6,6 +6,7 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 재무·사�
 
 1. **정확성 > 속도.** 빠른 결론보다 맞는 결론. 스크립트가 숫자를 내도 단정하지 말고 검증한다.
 2. **정확성 = 큰 표본 × 이중 검증.** ① 기계적(스크립트·전수 diff) **그리고** ② 사람-독자 관점(직접 표본을 눈으로 읽음) — 둘 다 한다. 측정 도구의 가정(production 경로·ground truth·패턴 엄격도)을 먼저 의심한다. 사용자가 시키기 전에 default로. 상세·5패턴·체크리스트: private lessons(`~/Projects/open-proxy-storage/wiki-private/lessons/agenda-parser-validation-260621.md`).
+   - **회귀 캐시는 DART 응답 경계(`get_document_cached`)에서만 만든다 — 중간 함수의 출력은 회귀 입력이 될 수 없다.** 「production 함수를 import했다」는 검증의 근거가 못 된다. **함수가 아니라 입력이 기준**이다. 260731 사고: `_fetch_biz`/`_fetch_note`(viewer HTML) 결과를 캐시해 geo 회귀를 돌리고 「검출 8→20사」를 보고했는데, 프로덕션 주 경로는 `_fetch_getdoc`(document.xml)이라 실제로는 14→16이었다. 두 원본은 구조 표지가 정반대다(document.xml=AASSOCNOTE·ACODE 100%·toc앵커 0% / viewer=반대). 이미 `opm_cache`(=`get_document_cached` 디스크 캐시)라는 올바른 캐시가 있으니 그것만 재생 소재로 쓴다.
    - **실적·재무 큰 수치가 "이상하다/불가능하다" 싶으면 — 서사(오류일 것) 먼저 만들지 말고 웹서칭으로 제3의 소스(뉴스·IR·공시)부터 검증한다.** 실제로 맞는 값을 "오류"로 단정해 가드·플래그를 넣으면 진짜 데이터를 오탐한다(260705 삼성전자 2026 1Q 영업이익 57조 슈퍼사이클 신기록을 "분기 57조는 불가능"이라 오판할 뻔 → 웹 검증으로 실제 확인). 큰 수치 의심 = ground truth 웹 확인이 default.
    - **회계·재무 판단이 들어간 로직(자산분류·지표계산·밸류에이션 등)은 K-IFRS 정합성 검토 + Data QA(측정·회귀 검증)를 거친 뒤 반영한다.** 사람 직관만으로 분류·수식을 설계하면 잘못된 회계개념을 코드에 굳힐 위험이 있다. 필요시 부동산·가치투자·공시 관점 검토를 병행한다. 실측 사례: [[260721_1500_decision_asset-holdings-purpose-buckets]] · private lessons(`.../asset-holdings-census-260720.md`).
 3. **작업이 아니라 목표를 본다.** 시킨 일만 수행하지 말고 — 그 작업의 목표·원칙·전체 프로젝트/환경과의 연관성을 함께 고려해 판단한다.
