@@ -215,6 +215,71 @@ def grid_refine(full_html: str, text_sp) -> "object | None":
 # ── 전사 차원 공시(K-IFRS 1108 문단 32-34): 지역별·제품/서비스별 수익 ──
 # 부문 주석 안의 부수 표들 — 단일부문 회사의 실질 정보원. 표 직전 캡션과 이름 구성으로 분류.
 _GEO_CAPTION_RE = re.compile(r"지역|국가|시장\s*별|권역")
+# 부문 앵커가 없을 때 쓰는 지역 전용 앵커 — 「지역에 대한 정보」류 소제목이나
+# 표 머리에만 등장하는 「본사 소재지 국가」를 잡는다(K-IFRS 1108 entity-wide 표기).
+_GEO_ANCHOR_RE = re.compile(r"지역(?:별|에)\s*(?:대한\s*)?정보|본사\s*소재지\s*국가|지역\s*합계")
+# 표 개수 상한(비용 가드) — 후보 신호가 있는 표만 센다
+_EW_MAX_ATTEMPTS = 14
+# 지역표 전용 길이 하한 — 데이터가 한 행뿐이라 작다(실측 최소 493자)
+_EW_GEO_MIN_CHARS = 350
+_GEO_HEAD_RE = re.compile(r"본사\s*소재지|외\s*국|국\s*외|북미|미주|아시아|유럽|중동|중남미|지역\s*합계")
+_EW_CANDIDATE_RE = re.compile(r"지역|국가|본사\s*소재지|외국|국내|해외|국외|북미|미주|아시아|유럽|중동|"
+                              r"제품|서비스|품목|수익\s*유형|매출\s*유형|부문")
+
+
+_DOMESTIC_RE = re.compile(r"^(본사소재지국가?|본사소재지|국내|한국|대한민국)$")
+# 지역명에 붙는 각주 표시 — 카카오는 항목이 「국내(주1)」이라 국내로 인식되지 않아
+# 해외비중이 100%로 나왔다(실제로는 국내가 대부분).
+_FOOTNOTE_RE = re.compile(r"\(?\s*(?:주|참고|note|\*)\s*\d*\s*\)?\s*$", re.I)
+
+
+def _region_key(name: str) -> str:
+    """지역명 정규화 — 공백·괄호 제거 + 각주 표시 제거."""
+    return re.sub(r"[\s()]", "", _FOOTNOTE_RE.sub("", (name or "").strip()))
+
+
+def _all_region_names(names_norm: list[str], geo_names: set) -> bool:
+    """항목이 전부 지역명인가 — 합계 열 없이 항목합을 총계로 쓸 수 있는 조건."""
+    keys = [_region_key(n) for n in names_norm]
+    return bool(keys) and all(k in geo_names or _DOMESTIC_RE.match(k) for k in keys)
+
+
+def _foreign_share(items: list[dict]) -> dict:
+    """해외 매출 비중(%) — **단위가 약분되므로 단위 미상일 때도 맞는 유일한 지표**.
+
+    실측(층화 47사): 격자 매핑이 어긋나거나 단위를 잘못 읽어 절대금액이 10^6 배 틀린
+    경우에도 비중은 정확했다. 그래서 절대금액보다 비중을 앞세운다.
+    국내 = 본사 소재지 국가 / 국내 / 한국 / 대한민국, 나머지는 해외로 본다.
+    """
+    dom = fgn = 0.0
+    for it in items:
+        n = _region_key(it.get("name") or "")
+        v = it.get("revenue") or 0
+        if _DOMESTIC_RE.match(n):
+            dom += v
+        else:
+            fgn += v
+    tot = dom + fgn
+    if not tot:
+        return {}
+    out = {"domestic_revenue": dom, "foreign_revenue": fgn,
+           "foreign_share_pct": round(fgn / tot * 100, 1),
+           "share_basis": "국내=본사 소재지 국가/국내/한국, 그 외=해외"}
+    if dom == 0:
+        # 「해외 100%」와 「국내 항목이 표에 없음」은 다르다 — 대한해운은 항목이
+        # 아시아·오세아니아·유럽·북아메리카뿐이라 국내 구분 자체가 없다.
+        out["share_caveat"] = ("표에 국내 구분 항목이 없어 100%로 계산됐습니다 — "
+                               "국내 매출이 0이라는 뜻이 아닐 수 있습니다(항목명을 확인하세요)")
+    return out
+
+
+def _find_geo_anchor_pos(html: str) -> int:
+    """지역 전용 앵커 위치(없으면 -1). 부문정보 앵커 폴백."""
+    m = _GEO_ANCHOR_RE.search(html or "")
+    if not m:
+        return -1
+    # 표 머리에서 잡혔을 수 있으니 조금 앞에서 시작해 그 표를 포함시킨다
+    return max(0, m.start() - 3000)
 _PRODUCT_CAPTION_RE = re.compile(r"제품|서비스\s*별|재화\s*(?:와|및)?\s*용역|수익\s*유형|매출\s*유형|품목|플랫폼|수익원|용역\s*별")
 _CAPTION_WINDOW = 600
 
@@ -235,17 +300,32 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
     반환 {"geo": {...}|None, "product": {...}|None}.
     """
     out = {"geo": None, "product": None}
-    if not full_html or not anchor:
+    if not full_html:
         return out
-    pos = _find_anchor_pos(full_html, anchor)
+    pos = _find_anchor_pos(full_html, anchor) if anchor else -1
     if pos < 0:
-        return out
+        # 부문정보 앵커가 없거나 못 찾아도 지역 공시는 따로 있을 수 있다 — K-IFRS 1108의
+        # entity-wide 지역 정보는 부문 주석과 다른 절에 실리는 서식이 있다.
+        # HD현대일렉트릭은 앵커가 안 잡혀 스캔 자체를 건너뛰었는데 지역표는 실재했다.
+        pos = _find_geo_anchor_pos(full_html)
+        if pos < 0:
+            return out
     attempts = 0
     geo_md_fallback = None
     for m in _TABLE_RE.finditer(full_html, pos):
-        if attempts >= 10 or m.start() > pos + 150000:
+        # 표 개수 상한은 비용 가드지만, 지역표가 앵커에서 멀면(현대차: +87,663자) 상한에
+        # 먼저 걸려 실재하는 표를 못 봤다. **후보 신호가 없는 표는 세지 않는다**로 바꿔
+        # 비용은 유지하면서 도달 거리를 늘린다.
+        if attempts >= _EW_MAX_ATTEMPTS or m.start() > pos + 150000:
             break
-        if len(m.group(0)) < 1500:
+        chunk = m.group(0)
+        # 길이 하한은 잡표를 거르는 장치인데 **entity-wide 지역표는 원래 작다** —
+        # 데이터가 한 행(수익(매출액))뿐이라서다. 실측: HD현대일렉트릭 493자·현대차 1,235자로
+        # 둘 다 1500자 하한에 걸려 아예 읽히지 않았다(파싱 자체는 정상이었다).
+        # 지역 머리를 가진 표만 하한을 낮춘다.
+        if len(chunk) < (_EW_GEO_MIN_CHARS if _GEO_HEAD_RE.search(chunk[:2500]) else 1500):
+            continue
+        if not _EW_CANDIDATE_RE.search(chunk[:4000]):
             continue
         attempts += 1
         p = _parse_table(m.group(0))
@@ -261,6 +341,12 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
 
         # ── 정형 게이트 (표준 계약: 앵커 → 정형+검산 → 원문 마크다운 → 명시적 부재) ──
         fail = ""
+        if not p["excess"] and is_geo and _all_region_names(names_norm, geo_names):
+            # 「외국 | 본사 소재지 국가」 두 칸만 있고 합계 열이 없는 서식이 있다
+            # (HD현대일렉트릭). 항목이 **전부 지역명**이면 빠짐없이 나열된 것으로 보고
+            # 항목합을 총계로 쓴다 — 이때 검산은 못 했다고 밝힌다.
+            p = {**p, "excess": [sum(s0["revenue"] for s0 in p["segments"])],
+                 "_total_derived": True}
         if not p["excess"]:
             fail = "총계 열 부재(검산 불가)"
         else:
@@ -314,7 +400,19 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
                           "이 정형값을 쓰지 말고 segments 필드의 주석 원문(NEEDS_REVIEW 마크다운)으로 "
                           "직접 확인하세요.",
             "basis_caption": clean_caption,
+            # 원문을 직접 찾아보게 — 어느 단원의 어느 절, 어떤 표인지 (rcept_no는 호출측이 붙인다)
+            "source_location": {
+                "chapter": "III. 재무에 관한 사항 — 재무제표 주석",
+                "note_section": (anchor or "지역 정보 표(부문정보 절 앵커 미검출)"),
+                "table_caption": clean_caption[-80:],
+                "how_to_find": "DART 원문에서 위 주석 절을 찾아 표 캡션으로 대조하세요.",
+            },
         }
+        if p.get("_total_derived"):
+            payload["reconciliation"] = "합계 열 없음 — 항목이 모두 지역명이라 항목합을 총계로 사용(검산 못 함)"
+            payload["extraction_status"] = "SUCCESS_NO_TOTAL_COLUMN"
+        if is_geo:
+            payload.update(_foreign_share(payload["items"]))
         if is_geo and out["geo"] is None:
             out["geo"] = payload
         elif is_product and out["product"] is None:
