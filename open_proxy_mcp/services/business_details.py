@@ -1796,6 +1796,11 @@ async def build_business_details_payload(company_query: str, period: str = "late
                 val = {"status": "NOT_COLLECTED", "extraction_status": "NOT_COLLECTED",
                        "na_reason": "이 보고서에서 해당 축을 산출하지 않음"}
             axes[axis] = {**val, "source": _REVENUE_AXIS_SOURCE[axis]}
+            # 수출/내수는 by_trade 로 독립했다. geo_revenue 에 남긴 중첩본은 **옛 평평 호출
+            # 전용 호환**이라, 묶음 안에서까지 실으면 같은 표가 두 번 나온다(260802 파일럿
+            # 실측: HD현대일렉트릭에서 지역별 안에 한 번·수출/내수 축에 또 한 번).
+            if axis == "by_region":
+                axes[axis].pop("ii_export_domestic", None)
             # 값이 나온 축과 '원문만 있고 값은 못 믿는' 축을 섞지 않는다 — 섞으면 안내가 거짓이 된다
             # (남광토건: 제품별이 시공실적 표라 검토필요인데 available 에 들어가 있었다).
             st, ext = val.get("status"), val.get("extraction_status")

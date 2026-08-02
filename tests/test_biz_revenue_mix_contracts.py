@@ -290,6 +290,18 @@ def test_every_axis_node_carries_status_so_available_can_see_it():
     assert "92.73조원" in out
 
 
+def test_trade_table_is_not_rendered_twice_in_the_bundle():
+    """수출/내수는 by_trade 로 독립했다 — geo_revenue 에 남긴 중첩본은 옛 평평 호출 전용
+    호환이라, 묶음에서까지 실으면 같은 표가 두 번 나온다(260802 파일럿: HD현대일렉트릭)."""
+    from open_proxy_mcp.tools.business_details import _render as _r
+    trade = {"export_krw": 3_147_338_000_000, "domestic_krw": 932_160_000_000,
+             "export_share_pct": 77.2, "status": "SUCCESS"}
+    out = _r(_rb(geo={"status": "SUCCESS", "unit": "백만원",
+                      "items": [{"name": "외국", "revenue": 3_147_338}]},
+                 trade=trade, available=["by_region", "by_trade"]))
+    assert out.count("II 매출실적표 (별도 기준)") == 1
+
+
 def test_only_segment_axis_carries_profit():
     """이익은 by_segment 에만 있다 — K-IFRS 1108 이 이익을 영업부문(¶23)에만 요구하고
     지역(¶33)엔 수익·비유동자산만 요구하기 때문. 다른 축에 이익을 붙이면 기준을 넘어선다."""
