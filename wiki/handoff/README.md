@@ -18,10 +18,12 @@
 세션이 뭐가 진짜 남았는지 헷갈리게 만드는 원인).
 
 ## 색인
-- [[260802_geo-revenue-anchoring]] — 지역별 수익 앵커링. **재시작 직후 좀비 stdio MCP 확인**(세션마다
-  뜨던 로컬 서버가 그 시점 코드를 붙들어 고쳐도 옛 결과를 냈다) + 남은 작업(키움증권 절 밖 지역표 ·
-  `assets_by_region` 부분 포착 · 절 맵 적재 설계 미결)
+_(비어 있음 — 미해결 핸드오프 없음)_
 
 _(과거: 260705_valuation-timeseries 해결 완료, durable 지식은 data-storage-registry(private 이관)·
 aggregate-denominator-pairing-260706·`project_fund_currency` 메모리로 이관 후 260706 삭제 /
-260723 핸드오프 — 잔여 항목·회고 전부 private wiki로 이관 후 260724 삭제)_
+260723 핸드오프 — 잔여 항목·회고 전부 private wiki로 이관 후 260724 삭제 /
+260802_geo-revenue-anchoring — 좀비 stdio는 [[mcp-endpoints]]로, 4축 재편·지역별 결함 3건은
+`tools/business_details` 실사용 검증 절로, 측정 함정 회고는 private lesson
+`production-call-signature-260802` 로 이관 후 260802 삭제. 남은 개선거리(키움증권 절 밖 지역표 1건 ·
+절 맵 적재)는 그 tool 문서에 기록됨 — 표본 1건·사용자 판단 대기라 핸드오프로 들 만한 미해결이 아님)_
