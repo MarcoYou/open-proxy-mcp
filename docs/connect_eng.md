@@ -1,6 +1,6 @@
 # Local Installation Guide
 
-Local installation lets you configure additional API keys beyond DART (news search, OCR fallback, etc.).
+Local installation lets you configure additional API keys beyond DART (news search, etc.).
 
 ---
 
@@ -10,7 +10,7 @@ Local installation lets you configure additional API keys beyond DART (news sear
 git clone https://github.com/MarcoYou/open-proxy-mcp.git
 cd open-proxy-mcp
 uv sync                    # Creates .venv + installs all dependencies
-cp .env.example .env
+touch .env
 ```
 
 ## 2. Configure environment
@@ -25,7 +25,6 @@ OPENDART_API_KEY=your_key_here
 OPENDART_API_KEY_2=backup_key                      # Auto-switches on rate limit (1,000/min)
 NAVER_SEARCH_API_CLIENT_ID=naver_id                # Candidate news search
 NAVER_SEARCH_API_CLIENT_SECRET=naver_secret         # Candidate news search
-UPSTAGE_API_KEY=upstage_key                         # OCR fallback (Tier 3)
 ```
 
 | API Key | Required | Where to Get | Purpose |
@@ -34,7 +33,6 @@ UPSTAGE_API_KEY=upstage_key                         # OCR fallback (Tier 3)
 | `OPENDART_API_KEY_2` | No | Same (backup key) | Auto-switches on rate limit (1,000/min) |
 | `NAVER_SEARCH_API_CLIENT_ID` | No | [Naver Developers](https://developers.naver.com/) -> Register app -> Search API | Candidate news search |
 | `NAVER_SEARCH_API_CLIENT_SECRET` | No | Same | Same |
-| `UPSTAGE_API_KEY` | No | [Upstage AI](https://www.upstage.ai/) -> Sign up -> API key | OCR fallback (Tier 3) |
 
 ## 3. Editable install
 
@@ -50,7 +48,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "open-proxy-mcp": {
-      "command": "/path/to/wiki/.venv/bin/python",
+      "command": "/path/to/open-proxy-mcp/.venv/bin/python",
       "args": ["-m", "open_proxy_mcp"],
       "cwd": "/path/to/open-proxy-mcp"
     }
@@ -65,7 +63,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "open-proxy-mcp": {
-      "command": "/path/to/wiki/.venv/bin/python",
+      "command": "/path/to/open-proxy-mcp/.venv/bin/python",
       "args": ["-m", "open_proxy_mcp"],
       "cwd": "/path/to/open-proxy-mcp"
     }
@@ -76,7 +74,6 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ## 6. Optional dependencies
 
 ```bash
-uv pip install -e ".[pdf]"               # + PDF/OCR fallback
 uv pip install -e ".[llm]"               # + LLM fallback (Claude/OpenAI)
 uv pip install -e ".[all]"               # Everything
 ```

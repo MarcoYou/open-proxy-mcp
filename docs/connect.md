@@ -1,6 +1,6 @@
 # 로컬 설치 가이드
 
-로컬에서 실행하면 DART 외에 추가 API 키도 설정할 수 있습니다 (후보자 뉴스 검색, OCR fallback 등).
+로컬에서 실행하면 DART 외에 추가 API 키도 설정할 수 있습니다 (후보자 뉴스 검색 등).
 
 ---
 
@@ -10,7 +10,7 @@
 git clone https://github.com/MarcoYou/open-proxy-mcp.git
 cd open-proxy-mcp
 uv sync                    # .venv 생성 + 의존성 설치
-cp .env.example .env       # 환경변수 파일 생성
+touch .env                 # 환경변수 파일 생성 (아래 2번 참고)
 ```
 
 ## 2. 환경변수 설정
@@ -25,7 +25,6 @@ OPENDART_API_KEY=발급받은_키
 OPENDART_API_KEY_2=보조_키                        # 분당 1,000회 제한 시 자동 전환
 NAVER_SEARCH_API_CLIENT_ID=네이버_클라이언트_ID     # 후보자 뉴스 검색
 NAVER_SEARCH_API_CLIENT_SECRET=네이버_시크릿        # 후보자 뉴스 검색
-UPSTAGE_API_KEY=업스테이지_키                       # OCR fallback (Tier 3)
 ```
 
 | API 키 | 필수 여부 | 발급처 | 용도 |
@@ -34,7 +33,6 @@ UPSTAGE_API_KEY=업스테이지_키                       # OCR fallback (Tier 3
 | `OPENDART_API_KEY_2` | 선택 | 동일 (보조 키) | 분당 1,000회 제한 도달 시 자동 전환 |
 | `NAVER_SEARCH_API_CLIENT_ID` | 선택 | [네이버 개발자센터](https://developers.naver.com/) -> 애플리케이션 등록 -> 검색 API | 후보자 뉴스 검색 |
 | `NAVER_SEARCH_API_CLIENT_SECRET` | 선택 | 동일 | 동일 |
-| `UPSTAGE_API_KEY` | 선택 | [Upstage AI](https://www.upstage.ai/) 회원가입 -> API 키 발급 | OCR fallback (Tier 3) |
 
 ## 3. Editable Install
 
@@ -50,7 +48,7 @@ uv pip install -e .
 {
   "mcpServers": {
     "open-proxy-mcp": {
-      "command": "/path/to/wiki/.venv/bin/python",
+      "command": "/path/to/open-proxy-mcp/.venv/bin/python",
       "args": ["-m", "open_proxy_mcp"],
       "cwd": "/path/to/open-proxy-mcp"
     }
@@ -65,7 +63,7 @@ uv pip install -e .
 {
   "mcpServers": {
     "open-proxy-mcp": {
-      "command": "/path/to/wiki/.venv/bin/python",
+      "command": "/path/to/open-proxy-mcp/.venv/bin/python",
       "args": ["-m", "open_proxy_mcp"],
       "cwd": "/path/to/open-proxy-mcp"
     }
@@ -76,7 +74,6 @@ uv pip install -e .
 ## 6. 선택 의존성
 
 ```bash
-uv pip install -e ".[pdf]"               # + PDF/OCR fallback
 uv pip install -e ".[llm]"               # + LLM fallback (Claude/OpenAI)
 uv pip install -e ".[all]"               # 전부 설치
 ```
