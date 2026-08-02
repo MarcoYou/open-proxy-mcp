@@ -657,24 +657,30 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
         # 데이터가 한 행(수익(매출액))뿐이라서다. 실측: HD현대일렉트릭 493자·현대차 1,235자로
         # 둘 다 1500자 하한에 걸려 아예 읽히지 않았다(파싱 자체는 정상이었다).
         # 지역 머리를 가진 표만 하한을 낮춘다.
-        if len(chunk) < (_EW_GEO_MIN_CHARS if _GEO_HEAD_RE.search(chunk[:2500]) else 1500):
+        if len(chunk) < (_EW_GEO_MIN_CHARS if _GEO_HEAD_RE.search(chunk) else 1500):
             continue
         if not _EW_CANDIDATE_RE.search(chunk[:4000]):
             continue
         attempts += 1
         p = _parse_table(m.group(0))
-        if (not p or len(p["segments"]) < 2) and _GEO_HEAD_RE.search(chunk[:4000]):
+        # `_GEO_HEAD_RE` 는 표 **전체**에서 찾는다. 종전엔 `chunk[:4000]` 만 봤는데,
+        # 조정 행까지 실은 큰 표는 지역 머리가 뒤에 온다 — AJ네트웍스는 11,219자 표에서
+        # 「지역 합계」가 5,062번째라 못 찾고, 행 지향 리더가 아예 안 불려 완전 공시된
+        # 표를 통째로 버렸다(260802 실측). 정규식 어휘 자체가 특이해서(본사 소재지·외국·
+        # 북미·지역 합계) 범위를 넓혀도 오탐이 없다 — 전수 304건 회귀에서 기존 95건의
+        # 값 변화 0, 검출만 +3(정형 1 · 원문폴백 2).
+        if (not p or len(p["segments"]) < 2) and _GEO_HEAD_RE.search(chunk):
             # 부문표 파서는 **열 지향**(지역이 컬럼)만 읽는다. 지역이 행에 오는 서식
             # (LG화학 「지역 | 한국 | 총부문수익 | 비유동자산」)에서는 항목이 0개로
             # 나와 표를 통째로 버렸다 — 앵커는 맞았는데 표에서 걸린 것.
             p = _read_row_oriented_geo(chunk) or _read_column_oriented_geo(chunk)
-        if p and _GEO_HEAD_RE.search(chunk[:4000]) and not any(
+        if p and _GEO_HEAD_RE.search(chunk) and not any(
                 REGION.match(_region_key(s0["name"])) for s0 in p["segments"]):
             # 부문 리프를 잡았지만 머리 위층이 지역인 표 — 조흥은 「지역 > 본사 소재지 국가
             # > 부문(치즈·식품첨가물)」 3층이라 리프(부문)를 뽑고 지역표가 아니라고 봤다.
             # 지역으로 보면 전량 국내라는 확정 정보다.
             p = _read_single_region_with_subaxis(chunk) or p
-        if p and len(p["segments"]) == 1 and _GEO_HEAD_RE.search(chunk[:4000]):
+        if p and len(p["segments"]) == 1 and _GEO_HEAD_RE.search(chunk):
             # 지역이 **하나뿐**인 표(동우팜투테이블 「본사 소재지 국가 | 325,458」)는
             # 정보가 없는 게 아니라 **「전량 국내」라는 확정 정보**다. 2개 이상 게이트에
             # 걸려 통째로 버려지고 있었다 — 해외비중 0%를 낼 수 있는 케이스다.

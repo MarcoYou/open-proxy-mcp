@@ -371,3 +371,40 @@ def test_major_customer_disclosure_is_not_a_geo_marker():
     assert not _GEO_MARK_RE.search("주요 고객에 대한 정보")
     assert _GEO_MARK_RE.search("본사 소재지 국가")
     assert _GEO_MARK_RE.search("지역 합계")
+
+
+def test_geo_header_is_searched_in_the_whole_table_not_just_the_head():
+    """조정 행까지 실은 큰 표는 지역 머리가 뒤에 온다 — 앞부분만 보면 통째로 버린다.
+
+    AJ네트웍스(20260318001186)는 11,219자 표에서 「지역 합계」가 5,062번째라
+    `chunk[:4000]` 검색으로는 못 찾았고, 그래서 행 지향 리더가 아예 불리지 않아
+    완전 공시된 지역표(국내 1,113,506,004 / 해외 69,642,553)를 놓쳤다.
+    전수 304건 회귀: 기존 95건 값 변화 0 · 검출 +3.
+    """
+    import inspect
+
+    from open_proxy_mcp.services import segment_grid as SG
+
+    src = inspect.getsource(SG._scan_window)
+    assert "_GEO_HEAD_RE.search(chunk[:" not in src, (
+        "지역 머리는 표 앞부분이 아니라 전체에서 찾아야 한다")
+    assert "_GEO_HEAD_RE.search(chunk)" in src
+
+
+def test_geo_table_with_an_elimination_row_is_still_read():
+    """지역표에도 조정 행(부문간 제거)이 있을 수 있다 — 표가 스스로 선언한
+    「지역 합계」를 총계로 써야 검산이 성립한다."""
+    from open_proxy_mcp.services.segment_grid import _read_row_oriented_geo
+
+    html = ("<TABLE><TR><TE>지역</TE><TE>영업수익</TE></TR>"
+            "<TR><TE>국내</TE><TE>1,113,506,004</TE></TR>"
+            "<TR><TE>해외</TE><TE>69,642,553</TE></TR>"
+            "<TR><TE>지역 합계</TE><TE>1,183,148,557</TE></TR>"
+            "<TR><TE>부문간 제거한 금액</TE><TE>(113,034,088)</TE></TR>"
+            "<TR><TE>기업 전체 총계 합계</TE><TE>1,070,114,469</TE></TR></TABLE>")
+    p = _read_row_oriented_geo(html)
+    assert p is not None
+    assert [s["name"] for s in p["segments"]] == ["국내", "해외"]
+    # 첫 합계행(「지역 합계」)을 잡아야 항목합과 검산이 맞는다
+    assert p["excess"] == [1_183_148_557]
+    assert sum(s["revenue"] for s in p["segments"]) == p["excess"][-1]
