@@ -18,6 +18,22 @@ def _fmt(v):
         return str(v)
 
 
+def _krw(v):
+    """원 단위 금액을 사람이 읽는 단위로 — 지역별 표는 「백만원」 표 단위 그대로 쓰지만
+    II 매출실적 합산값은 원 단위라 43,140,940,000,000 처럼 읽기 어렵다."""
+    if v is None:
+        return "-"
+    try:
+        a = abs(float(v))
+    except (TypeError, ValueError):
+        return str(v)
+    if a >= 1e12:
+        return f"{v/1e12:,.2f}조원"
+    if a >= 1e8:
+        return f"{v/1e8:,.0f}억원"
+    return f"{v:,.0f}원"
+
+
 _AXIS_KO = {"by_segment": "부문별", "by_product": "제품별"}
 # 「실패」라는 말은 쓰지 않는다 — 대부분은 오류가 아니라 '공시에 없거나 읽을 수 없는 형태'다.
 _ABSENT_KO = {"NOT_APPLICABLE": "해당 없음", "NOT_COLLECTED": "공시에 미기재"}
@@ -85,18 +101,54 @@ def _mix_lines(node: dict, h: str) -> list[str]:
 def _geo_lines(node: dict, h: str) -> list[str]:
     """지역별 수익 — 정형(검산 통과) 또는 원문 표. 종전엔 md 렌더가 아예 없어 안 보였다(260728)."""
     items = node.get("items") or []
+    L: list[str] = []
     if items:
-        L = [f"\n| 지역 | 매출 |", "|---|--:|"]
+        # 해외비중을 **표보다 먼저** — 단위가 약분돼 단위 미상일 때도 맞는 유일한 지표다.
+        if node.get("foreign_share_pct") is not None:
+            L.append(f"\n**해외 매출 비중 {node['foreign_share_pct']}%**"
+                     f"  ({node.get('share_basis','')})")
+            if node.get("share_caveat"):
+                L.append(f"> ⚠ {node['share_caveat']}")
+        L += ["\n| 지역 | 매출 |", "|---|--:|"]
         L.extend(f"| {i.get('name','')} | {_fmt(i.get('revenue'))} |" for i in items)
         L.append(f"\n_단위 {node.get('unit','')} · {node.get('reconciliation','')} "
                  f"· 지표 {node.get('revenue_metric','')}_")
+        # 비유동자산 지역별 — 수출형 vs 현지생산형 판별자
+        if node.get("assets_by_region"):
+            L.append("\n| 지역 | 비유동자산 |")
+            L.append("|---|--:|")
+            L.extend(f"| {k} | {_fmt(v)} |" for k, v in node["assets_by_region"].items())
+            L.append(f"_{node.get('assets_note','')}_")
+        loc = node.get("source_location") or {}
+        if loc.get("note_section"):
+            L.append(f"_원문 위치: {loc.get('chapter','')} → {loc['note_section']}_")
         if node.get("basis_caption"):
             L.append(f"_기준: {node['basis_caption']}_")
-        return L
-    if node.get("markdown"):
-        return [f"\n> {node.get('note','정형 검산을 통과하지 못해 원문 표를 그대로 싣습니다.')}",
-                "\n" + node["markdown"]]
-    return _absent(node, "지역별 수익")
+    elif node.get("markdown"):
+        L += [f"\n> {node.get('note','정형 검산을 통과하지 못해 원문 표를 그대로 싣습니다.')}",
+              "\n" + node["markdown"]]
+    else:
+        # 「회사가 공시를 안 했다」와 「우리가 못 읽었다」를 구분해 보여준다.
+        kind = node.get("absence_kind")
+        if kind:
+            mark = {"no_segment_note": "공시 없음", "not_disclosed": "공시 없음",
+                    "extraction_failed": "⚠ 추출 실패", "outside_segment_note": "위치 다름"}
+            L.append(f"\n지역별 수익: **{mark.get(kind, kind)}** — {node.get('absence_detail','')}")
+            if node.get("absence_sections"):
+                L.append(f"_해당 절: {' · '.join(node['absence_sections'])}_")
+            if node.get("absence_hint"):
+                L.append(f"> 💡 {node['absence_hint']}")
+        else:
+            L += _absent(node, "지역별 수익")
+    # II 매출실적표의 수출/내수 — III 지역별과 **다른 지표**라 칸을 나눠 병렬로 싣는다.
+    e = node.get("ii_export_domestic")
+    if e:
+        L.append(f"\n**II 매출실적표 (별도 기준)** — 수출 {_krw(e.get('export_krw'))} · "
+                 f"내수 {_krw(e.get('domestic_krw'))}"
+                 + (f" · 수출비중 {e['export_share_pct']}%" if e.get("export_share_pct") is not None else ""))
+        L.append(f"_{e.get('basis','')}_")
+        L.append(f"> ⚠ {e.get('caveat','')}")
+    return L
 
 
 def _render(p: dict) -> str:

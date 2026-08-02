@@ -102,6 +102,14 @@ uv sync
 - 커밋/푸시/배포는 사용자가 명시적으로 요청할 때만 수행한다.
 - 기본 `pytest` 수집 경계는 `pyproject.toml`의 `tests/`로 고정되어 있다. `uv run pytest -q`를 사용하고 unit/regression은 기본 network 0콜로 유지한다.
 - 로컬 서버는 `uv run python -m open_proxy_mcp.server --transport stdio`로 실행한다. toolset 버전 분기는 없다.
+- **라이브 검증은 배포본이 아니라 로컬 MCP로 한다 (260731 이후 표준).** `.mcp.json`의 MCP는
+  fly 배포본이라 방금 고친 코드가 아니고, 세션 연결이 낡은 응답을 물기도 한다(260731 실측:
+  배포 완료 후에도 세션 MCP가 이전 응답을 반환). `.claude/launch.json`의 **`opm-local`**을
+  띄우면 배포본과 같은 `streamable-http`(무상태)로 지금 워킹트리 코드를 그대로 친다:
+  `preview_start(name="opm-local")` → `POST http://127.0.0.1:8000/mcp?opendart=<키>`
+  (키는 `.env`에서 읽고 **출력하지 않는다**). 코드 고치면 `preview_stop` → `preview_start`로 재시작.
+  **payload가 맞아도 렌더러가 안 쓰면 사용자는 못 본다** — 로컬 라이브가 그걸 잡는다
+  (260731: 해외비중·부재 신호·II 수출이 payload엔 있는데 md 렌더에 없었다).
 - **작업용 script는 지시마다 갱신할 것**: 사용자 지시를 수행하려고 만든 일회성 script(audit·census·
   diagnosis·전수조사 등)는, 지시가 바뀌거나 세부가 업데이트될 때마다 **script를 그 지시에 맞게 함께
   수정한 뒤 실행**한다. 이전에 만든 script를 그대로 재사용해 진행하지 말 것 — stale 로직(옛 필터·옛
