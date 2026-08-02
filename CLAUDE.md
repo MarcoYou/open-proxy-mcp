@@ -55,6 +55,7 @@ open_proxy_mcp/
                        #     12 매트릭스 자동채점은 미사용(dead code) — 사내이사 성과 2x3만 실사용.
   data/ksic/           # 산업분류 코드→업종명
 scripts/               # wiki_lint.py(link 검증) · spot_*.py(회귀) · verify_law_against_corpus.py(SSOT↔legalize-kr 원문대조)
+                       #   live_pilot_diff.py(live↔pilot 코드 시점 차이 추적)
 wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
 .github/workflows/     # wiki-lint.yml · deploy.yml(fly.io)
 ```
@@ -101,19 +102,23 @@ uv sync
 - Build → Check → Pass. 의미 있는 변경마다 검증한다. `/ship` 시 영향 wiki를 갱신한다.
 - 커밋/푸시/배포는 사용자가 명시적으로 요청할 때만 수행한다.
 - 기본 `pytest` 수집 경계는 `pyproject.toml`의 `tests/`로 고정되어 있다. `uv run pytest -q`를 사용하고 unit/regression은 기본 network 0콜로 유지한다.
-- 로컬 서버는 `uv run python -m open_proxy_mcp.server --transport stdio`로 실행한다. toolset 버전 분기는 없다.
-- **MCP는 둘뿐이고 이름으로 구분한다 — `live-opm`(fly 배포본) / `pilot-opm`(로컬).**
-  종전엔 `~/.claude.json`(로컬 stdio)과 `.mcp.json`(fly)이 **같은 이름 `open-proxy-mcp`**로
-  겹쳐 어느 쪽이 잡히는지 알 수 없었다. 로컬 stdio 항목은 제거했다(260802).
-  - `live-opm` = `https://open-proxy-mcp.fly.dev/mcp` — **배포된 것**. 사용자가 실제로 쓰는 것.
-  - `pilot-opm` = `http://127.0.0.1:8000/mcp` — **지금 워킹트리 코드**. 검증용.
-- **개발 중 검증은 `pilot-opm`으로 한다 (260731 이후 표준).** 배포본은 방금 고친 코드가
-  아니고, 세션 연결이 낡은 응답을 물기도 한다(260731 실측: 배포 완료 후에도 세션 MCP가
-  이전 응답 반환). `.claude/launch.json`의 **`pilot-opm`**은 배포본과 같은
-  `streamable-http`(무상태)라 프로토콜 차이가 없다:
+- toolset 버전 분기는 없다.
+- **MCP는 둘뿐이고, 같은 서버의 두 사본이 아니라 목적이 다른 별개 대상이다 — 따로 관리한다.**
+  상세(pilot이 받아내는 변경·전송방식·상태확인·키취급): [[mcp-endpoints]].
+  - `pilot-opm` = `http://127.0.0.1:8000/mcp` — **바꾼 것을 시험하는 곳.** 파서·tool·필드·
+    파라미터를 고치거나 더하거나 뺐을 때 반영시킨 뒤 문제 없는지 확인한다. 사람이 띄우고 내린다.
+  - `live-opm` = `https://open-proxy-mcp.fly.dev/mcp` — **사람들에게 배포해서 쓰게 하는 것.**
+    관리 주체는 `deploy.yml`(fly 배포).
+  - 둘 다 `streamable-http`(무상태)라 프로토콜 차이가 없다. **남는 차이는 코드 시점 하나.**
+  - 그 차이는 **항상 추적한다** — `python3 scripts/live_pilot_diff.py` (배포된 커밋은 GitHub
+    Deployments, tool 개수는 양쪽 `/health`). SessionStart 훅이 세션마다 자동으로 띄운다.
+- **`--transport stdio`로 OPM MCP를 띄우지 않는다.** stdio는 세션이 뜰 때 **그 시점 코드를
+  메모리에 붙들어**, 코드를 고쳐도 그 세션의 MCP는 계속 옛 결과를 낸다(260802 확인). 로컬 검증은
+  pilot(HTTP)으로만 한다.
+- **개발 중 검증은 `pilot-opm`, 배포 후 확인은 `live-opm` (260731 이후 표준).**
   `preview_start(name="pilot-opm")` → `POST http://127.0.0.1:8000/mcp?opendart=<키>`
   (키는 `.env`에서 읽고 **출력하지 않는다**). 코드 고치면 `preview_stop` → `preview_start`.
-  고치고 배포한 뒤에는 `live-opm`으로 한 번 더 확인한다(배포 반영 여부는 별개 문제).
+  코드가 맞는 것과 배포가 반영된 것은 **별개 문제**라 배포 뒤 live로 한 번 더 본다.
   **payload가 맞아도 렌더러가 안 쓰면 사용자는 못 본다** — pilot이 그걸 잡는다
   (260731: 해외비중·부재 신호·II 수출이 payload엔 있는데 md 렌더에 없었다).
 - **작업용 script는 지시마다 갱신할 것**: 사용자 지시를 수행하려고 만든 일회성 script(audit·census·

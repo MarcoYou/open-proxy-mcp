@@ -1,0 +1,141 @@
+---
+type: architecture
+title: MCP 엔드포인트 — live-opm / pilot-opm 두 개, 목적이 다르고 따로 관리한다
+updated: 2026-08-02
+---
+
+# MCP 엔드포인트 — live-opm / pilot-opm
+
+> **OPM에 붙는 MCP는 둘뿐이다. 둘은 같은 서버의 두 사본이 아니라, 목적이 다른 별개 대상이다.**
+>
+> - **`pilot` = 바꾼 것을 시험하는 곳.** 파서·tool·필드·파라미터를 고치거나 더하거나 뺐을 때,
+>   그것을 반영시킨 뒤 문제가 없는지 확인하는 용도.
+> - **`live` = 사람들에게 배포해서 쓰게 하는 것.**
+>
+> 섞으면 "고쳤는데 왜 그대로지"가 되고, 반대로 시험 안 끝난 것이 사람들에게 나간다.
+> 셋업 키·시크릿은 [[environment-secrets]], 코드 구조는 [[project_structure]].
+
+## 두 엔드포인트
+
+| | `pilot-opm` | `live-opm` |
+|---|---|---|
+| **무엇** | **지금 워킹트리 코드** | fly.io에 **배포된 것** |
+| **주소** | `http://127.0.0.1:8000/mcp` | `https://open-proxy-mcp.fly.dev/mcp` |
+| **목적** | **바꾼 것을 반영시킨 뒤 문제 없는지 시험** | **사람들에게 배포해서 쓰게 하는 것** |
+| **누가 보나** | 나 혼자 | 실제 사용자 |
+| **코드 시점** | 저장한 그 순간 | 마지막 배포 시점 |
+| **관리 주체** | 사람이 띄우고 내림 (`preview_start`/`preview_stop`) | `.github/workflows/deploy.yml` (fly 배포) |
+| **설정 위치** | `.mcp.json` + `.claude/launch.json` | `.mcp.json` (gitignore — 키가 URL에 들어감) |
+| **전송 방식** | `streamable-http` (무상태) — **배포본과 동일** | `streamable-http` (무상태) |
+
+**따로 관리된다.** pilot은 사람이 손으로 띄우고 내리는 임시 프로세스라 언제든 꺼져 있어도
+정상이고, live는 배포 파이프라인이 관리하는 상시 서비스다. pilot을 껐다고 사용자에게 영향이
+가지 않고, live를 배포했다고 pilot이 최신이 되지도 않는다.
+
+## pilot이 받아내는 변경
+
+pilot에서 시험하는 것은 코드 한 줄이 아니라 **사용자에게 보이는 표면 전체**다:
+
+| 바꾼 것 | pilot에서 확인할 것 |
+|---|---|
+| **파서** | 값이 맞나 · 기존에 되던 회사가 깨지지 않았나(회귀) |
+| **tool 추가·제거** | 도구 목록에 뜨나 · 없앤 게 정말 사라졌나 |
+| **필드 추가·제거** | payload에 있나 — **그리고 렌더러가 그걸 쓰나** |
+| **파라미터 추가·제거·기본값 변경** | 새 값이 먹나 · 안 주면 종전대로 동작하나 · 옛 호출이 안 깨지나 |
+
+**payload가 맞아도 렌더러가 안 쓰면 사용자는 못 본다** — 필드를 더하고 뺄 때 가장 자주 새는
+구멍이고, pilot이 그걸 잡는다(260731 실측: 해외비중·부재 신호·II 수출이 payload엔 있는데
+md 렌더엔 없었다). 그래서 pilot 확인은 **응답 JSON이 아니라 사람이 보는 출력**까지 본다.
+
+**전송 방식이 같은 것이 핵심이다.** pilot이 stdio였다면 프로토콜 차이 때문에 pilot에서 통과한 것이
+live에서 깨질 수 있다. 같은 `streamable-http`라 그 층의 차이가 없고, 남는 차이는 **코드 시점 하나**다.
+
+## 언제 무엇을 쓰나
+
+- **바꾼 것을 시험할 땐 = `pilot-opm`** (260731 이후 표준). 배포본은 방금 고친 코드가 아니다.
+- **배포 후 확인 = `live-opm`.** 코드가 맞는 것과 배포가 반영된 것은 **별개 문제**라, pilot에서
+  통과했어도 live에서 한 번 더 본다.
+- **사람들에게 나가기 전 마지막 관문이 pilot이다.** pilot을 건너뛰면 시험 안 끝난 변경이
+  곧장 사용자에게 간다.
+
+```
+코드 수정 → pilot-opm 검증 → 커밋·배포 → live-opm 재확인
+              (내용이 맞나)          (반영이 됐나)
+```
+
+pilot은 코드를 고칠 때마다 `preview_stop` → `preview_start`로 다시 띄운다. 안 그러면 옛 코드를
+붙들고 있다(아래 참조).
+
+## 왜 이름을 나눴나 (260802)
+
+종전엔 `~/.claude.json`(로컬 stdio)과 `.mcp.json`(fly)이 **같은 이름 `open-proxy-mcp`**로 겹쳐,
+어느 쪽이 잡히는지 알 수 없었다. 이름이 같으니 도구 이름(`mcp__open-proxy-mcp__*`)만 봐서는
+live인지 local인지 구분이 안 됐다.
+
+더 나쁜 건 stdio 쪽이었다. **stdio MCP는 세션이 뜰 때 프로세스로 뜨고 그 시점 코드를 메모리에
+붙든다.** 코드를 고쳐도 그 세션의 MCP 도구는 계속 옛 결과를 냈고, 이름이 겹쳐서 그 사실조차
+안 보였다. 그래서 로컬 stdio 항목을 제거하고 둘 다 URL(`streamable-http`)로 통일한 뒤
+`live-opm` / `pilot-opm`으로 이름을 갈랐다.
+
+**따라서 stdio로 OPM MCP를 띄우지 않는다.** 로컬 검증은 pilot(HTTP)으로만 한다.
+
+## 둘의 차이를 항상 추적한다
+
+남는 차이가 **코드 시점 하나**뿐이므로, 그 하나를 늘 눈에 보이게 둔다. 모르면 「고쳤는데 왜
+그대로」(배포 안 됨)나 「시험 안 끝난 게 나감」(pilot 건너뜀) 중 하나에 걸린다.
+
+```bash
+python3 scripts/live_pilot_diff.py
+```
+
+```
+━━ live ↔ pilot ━━
+  live   9c083a5c  tools=25  (2026-08-02 03:53)
+  pilot  9c083a5c  안 떠 있음
+━━ 차이 (pilot 에만 있고 live 에는 없는 것) ━━
+  미커밋 코드 3개:  ← 동작이 달라지는 쪽
+    open_proxy_mcp/services/shareholder_meeting_parser.py
+```
+
+**무엇을 어디서 읽나** — 추정하지 않고 권위 있는 출처만 쓴다:
+
+| 알고 싶은 것 | 출처 |
+|---|---|
+| live에 올라간 커밋 | GitHub Deployments — `deploy.yml`이 배포마다 `ref=github.sha`로 남긴다. **성공한** 배포만 live로 친다 |
+| live의 tool 개수 | live `/health` → `{"status":"ok","tools":25}` (키 불필요) |
+| pilot의 코드 | 워킹트리 `HEAD` + 미커밋 변경 |
+| pilot이 떠 있나 | pilot `/health` |
+
+**tool 개수 비교가 tool 추가·제거 드리프트를 잡는다** — 필드·파라미터 변경은 개수로 안 드러나니
+그건 pilot 실호출로 본다.
+
+`.claude/settings.json`의 **SessionStart 훅**(`scripts/live_pilot_diff_hook.sh`)이 세션 시작마다
+자동으로 띄운다. 차이가 없으면 조용하다. 원격 조회가 실패해도(오프라인·gh 미인증) 로컬 정보만
+내고 절대 작업을 막지 않는다 — 추적기가 작업을 막아서는 안 된다.
+
+## 상태 확인
+
+```bash
+# stdio 좀비가 없어야 정상 (있으면 옛 코드를 붙든 세션이 있다는 뜻)
+ps aux | grep "python -m open_proxy_mcp" | grep -v grep | grep -v streamable-http
+
+# pilot이 떠 있나
+lsof -nP -iTCP:8000 -sTCP:LISTEN
+```
+
+stdio 프로세스가 잡히면 그 부모 세션을 확인한다(`ps -o ppid= -p <PID>`). 설정을 고치기 전에 뜬
+세션이 잔여 프로세스를 붙들고 있는 경우가 있고, 그건 설정 문제가 아니라 그 세션만의 문제다.
+
+## 키 취급
+
+두 URL 모두 `?opendart=<키>` 형태로 키가 **URL 안에** 들어간다. 그래서:
+
+- `.mcp.json`은 **gitignore** (`.gitignore`에 등재됨 — 커밋 금지).
+- curl 예시·로그·fixture에 URL을 그대로 붙여넣지 않는다. 키는 `.env`에서 읽고 **출력하지 않는다**
+  (전체뿐 아니라 prefix도). 상세: [[environment-secrets]].
+
+## 관련
+
+- [[environment-secrets]] — 어떤 키가 왜 필요한가 · 로컬 `.env` + fly secrets
+- [[project_structure]] — `server.py` 진입점과 transport
+- [[lessons-learned]] — MCP 개발 교훈

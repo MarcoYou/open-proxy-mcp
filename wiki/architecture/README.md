@@ -20,6 +20,7 @@ updated: 2026-06-23
 | **proxy_advise Word 보고서** | [[proxy_advise_word_report_design]] · [[proxy_advise_word_report_spec]] |
 | **파싱 성공률 audit 방법** | parsing_success_rate_audit_spec · parsing_success_rate_audit_checklist |
 | **코드 구조** | [[project_structure]] |
+| **MCP 엔드포인트** (live-opm / pilot-opm — 목적이 다르고 따로 관리, stdio 금지) | [[mcp-endpoints]] |
 | **환경변수·시크릿** (필요한 키 목록·설정 위치, `.env.example` 대체) | [[environment-secrets]] |
 | **PER·PBR 데이터 포인트 전수조사** (보통주·우선주 실측 인벤토리, EPS 조립 경로) | per-pbr-data-points |
 | **MCP 개발 교훈** | [[lessons-learned]] |
