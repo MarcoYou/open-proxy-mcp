@@ -2970,6 +2970,200 @@ def _normalize_candidate_name(name: str) -> str:
     return name
 
 
+# ── 추천 사유 구간 분할 ────────────────────────────────────────────────
+# 「마. 후보자에 대한 이사회의 추천 사유」는 한 구간에 후보 전원의 사유를 담는 서식이
+# 다수고, 공고는 그 안에서 이름으로 후보별 구간을 스스로 선언한다. 그 선언을 읽는다.
+# 실측 411사(캐시 소집공고 전수)에서 확인한 선언 형태:
+#   - 홍길동 후보자 / ■홍길동 후보자 / ○ 홍길동 후보자 / □ 홍길동 후보자
+#   [홍길동 후보자] / <홍길동 후보자> / (홍길동) / [ 홍 길 동 ] / <후보자 : 홍길동>
+#   1. 홍길동 / (2) 홍길동 / 가) 홍길동 / -홍길동 사내이사 후보자 / - 홍길동(재선임)
+#   <사내이사 후보자 홍길동> / O 홍길동 감사위원회 위원이 되는 사외이사 후보자
+#   …추천함.홍길동 사내이사 후보자는 …  (문장 끝 뒤에 이름으로 다음 구간이 열리는 서식)
+
+_REASON_ROLE_WORDS = (
+    r'사외이사인\s*감사위원|감사위원회\s*위원이\s*되는\s*사외이사|감사위원회\s*위원|'
+    r'기타비상무이사|비상무이사|사내이사|사외이사|독립이사|감사위원|상근감사|비상근감사|'
+    r'대표이사|이사|감사'
+)
+
+# 이름 앞에 올 수 있는 것 — 불릿·번호·괄호·직위·'후보자 :' 라벨 (구간 여는 표지).
+# 「가.」식 한글 번호는 [가나다…] 로 열거한다 — [가-하] 는 한글 음절 대부분을 포함하는
+# 범위라서 '…추천하였습니다.' 의 '다.' 까지 번호로 먹어치운다(실측 112명 오귀속 원인).
+_REASON_PREFIX_TAIL_RE = re.compile(
+    r'(?:[\s\-–—~=*·∙•◦○●◎□■▲△▶▷◇◆★☆※→⇒]|(?<![0-9A-Za-z])[Oo](?=\s))*'
+    r'(?:(?:\(\s*\d{1,2}\s*\)|\d{1,2}\s*[.)]|[가나다라마바사아자차카타파하]\s*[.)])\s*)?'
+    # 하위안건 제목이 다음 후보 구간을 여는 서식: '제2-2호 의안: 사내이사 선임의 건(한상훈)'
+    r'(?:(?:제\s*)?\d+(?:\s*-\s*\d+)*\s*호\s*(?:의안|안건)?\s*[).:：]?\s*)?'
+    rf'(?:(?:{_REASON_ROLE_WORDS})?\s*선임의\s*건\s*)?'
+    r'(?:(?:이사회에서는|이사회는|당\s*사는|동\s*사는|회사는)\s*)?'
+    r'[\s<\[\(「【〈《]*'
+    rf'(?:(?:{_REASON_ROLE_WORDS})\s*)?'
+    r'(?:후보자?\s*)?'
+    r'(?:[:：]\s*)?'
+    r'[\s<\[\(]*'
+)
+_REASON_PREFIX_MAX = 48         # 표지가 이보다 길면 표지가 아니다
+
+# 대괄호·굵은 불릿은 그 자체로 구간을 여는 표지다 — 앞 문장이 마침표 없이 끝나는
+# 개조식 서식('…경쟁력 제고에 기여 [오자키 유타카]')에서도 경계로 인정한다.
+# 소괄호 '('와 '-'는 문장 중간에도 흔해 제외한다.
+_REASON_STRONG_OPENER_RE = re.compile(r'[\[<【「《■□○●◎※▶▷◇◆★☆▲△]')
+
+# 표지 안의 번호 매김 — 「2. 정인호」처럼 이름 뒤에 후보 지칭이 없어도 구간을 연다
+_REASON_NUMBERING_RE = re.compile(r'(?:\(\s*\d{1,2}\s*\)|\d{1,2}\s*[.)]|[가나다라마바사아자차카타파하]\s*[.)])\s*$')
+
+# 표지 앞은 문서/줄의 시작이거나 문장이 끝난 자리여야 한다 (문장 중간의 이름 언급 배제)
+_REASON_BOUNDARY_RE = re.compile(
+    r'(?:^|[\n\r]|[.!?。;]|니다|습니다|합니다|함|됨|음|임|였다|었다|한다|이다|된다|바랍니다)$'
+)
+
+# 이름 뒤는 후보 지칭이어야 한다 (「홍길동 회장이 설립한」 같은 본문 언급 배제)
+_REASON_DESIGNATOR_RE = re.compile(
+    r'\s*(?:'
+    r'(?:본|동|당|해당|위|상기)?\s*후보'          # 후보자는 / 본 후보자는 / 위 후보자는 …
+    rf'|(?:{_REASON_ROLE_WORDS})'                 # 홍길동 사내이사 후보자는 …
+    r'|[\)\]>»〉》】」]'                           # (홍길동) [홍길동] <홍길동>
+    r'|\(\s*(?:재선임|신규선임|신규|중임|연임|신임|재선임\s*예정)\s*\)'
+    r'|$'                                         # 이름만 있는 줄
+    r'|[\n\r]'
+    r')'
+)
+
+_REASON_TAIL_NOISE_RE = re.compile(
+    r'^[\s\-–—*·○□■]*(?:'
+    r'해당\s*사항\s*(?:없음|없습니다|아님)|해당\s*없음|없음|없습니다|확인서|'
+    r'상기\s*참조|기재\s*생략'
+    r')\.?\s*$'
+)
+
+
+def _strip_reason_tail_noise(text: str) -> str:
+    """추천 사유 끝에 붙는 비-내용 줄 제거 ('해당사항 없음'·'확인서').
+
+    후보별로 가르면 이 꼬리가 마지막 후보의 사유로 귀속돼 버린다. 내용이 전혀 없는
+    경우(사유 자체가 '해당사항 없음')는 그것이 문서의 답이므로 남긴다.
+    """
+    lines = (text or "").split("\n")
+    while len(lines) > 1 and _REASON_TAIL_NOISE_RE.match(lines[-1]):
+        lines.pop()
+    return "\n".join(lines).strip()
+
+
+def _reason_name_pattern(name: str) -> str:
+    """이름을 공백 허용 패턴으로.
+
+    표와 본문의 띄어쓰기가 다른 경우가 흔하다 — 표 '한 승 희' vs 본문 '한승희',
+    표 '야지마 마사아키(矢島昌明)' vs 본문 '야지마 마사아키 (矢島昌明)'.
+    라틴 문자끼리는 단어가 쪼개지지 않게 그대로 둔다('James Kim'의 Kim 은 붙여서).
+    """
+    out: list[str] = []
+    prev = ''
+    for ch in name:
+        if ch.isspace():
+            if out and out[-1] != r'\s*':
+                out.append(r'\s*')
+            prev = ''
+            continue
+        both_latin = (prev.isalnum() and prev.isascii()) and (ch.isalnum() and ch.isascii())
+        if prev and not both_latin and out and out[-1] != r'\s*':
+            out.append(r'\s*')
+        out.append(re.escape(ch))
+        prev = ch
+    return ''.join(out)
+
+
+def _split_recommendation_reason(text: str, names: list[str]) -> dict[str, str]:
+    """추천 사유 구간을 후보별 문면으로 가른다.
+
+    원문이 이름으로 구간을 선언한 자리만 경계로 삼는다. 확정할 수 없으면 빈 dict를
+    돌려 호출측이 '가르지 못했다'로 처리하게 한다 — 추정으로 귀속하지 않는다.
+    """
+    if not text or not names:
+        return {}
+    # 이름이 서로 부분문자열인 경우(김철/김철수) 긴 이름을 먼저 — 앞 대안이 우선 매칭된다
+    uniq: list[str] = []
+    for n in names:
+        if n and len(re.sub(r'\s+', '', n)) >= 2 and n not in uniq:
+            uniq.append(n)
+    if not uniq:
+        return {}
+    uniq.sort(key=lambda n: len(re.sub(r'\s+', '', n)), reverse=True)
+    by_group = {f"n{i}": n for i, n in enumerate(uniq)}
+    pattern = '|'.join(f"(?P<n{i}>{_reason_name_pattern(n)})" for i, n in enumerate(uniq))
+    try:
+        name_re = re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        return {}
+
+    marks: list[tuple[int, str]] = []       # (구간 시작 offset, 후보 이름)
+    for m in name_re.finditer(text):
+        name = next((by_group[g] for g in by_group if m.group(g) is not None), None)
+        if name is None:
+            continue
+        # 이름 뒤가 후보 지칭이거나(「…후보자는」), 앞이 번호 매김이어야 한다.
+        # 「2. 정인호 농심켈로그 한국·대만·홍콩 시장을 총괄하며…」처럼 지칭 없이 곧장
+        # 본문으로 들어가는 서식이 있어, 번호가 구간을 여는 표지 노릇을 한다.
+        designated = bool(_REASON_DESIGNATOR_RE.match(text, m.end()))
+        # 표지 길이는 하나로 정해지지 않는다('…판단됨. <' 는 '<'만 표지고 '됨. <'는 아니다).
+        # 가능한 표지를 긴 것부터 훑어, 그 앞이 문장/줄의 끝인 첫 후보를 택한다.
+        start = None
+        lo = max(0, m.start() - _REASON_PREFIX_MAX)
+        for k in range(lo, m.start() + 1):
+            if not _REASON_PREFIX_TAIL_RE.fullmatch(text, k, m.start()):
+                continue
+            if not (designated or _REASON_NUMBERING_RE.search(text, k, m.start())):
+                continue
+            before = text[:k]
+            if (not before
+                    or _REASON_BOUNDARY_RE.search(before.rstrip(' \t'))
+                    or _REASON_STRONG_OPENER_RE.search(text, k, m.start())):
+                start = k
+                break
+        if start is None:
+            continue
+        if marks and marks[-1][0] == start:
+            continue
+        marks.append((start, name))
+
+    if not marks:
+        return {}
+
+    # 표지가 맨 앞 하나뿐이고 구간이 글 전체인데, 다른 후보도 「…후보자는」으로 지칭돼
+    # 있으면 그건 구간이 갈린 게 아니라 한 문장이 여러 후보를 함께 말한 것이다
+    # (실측: 「김태윤 후보자는 …, 전재형 후보자는 …, 이용균 후보자는 …」).
+    # 첫 후보 것으로 확정하면 남의 문면을 그의 사유로 단정하게 된다 — 가르지 못한 것으로 둔다.
+    if len({n for _s, n in marks}) == 1 and marks[0][0] == 0:
+        marked = marks[0][1]
+        for other in uniq:
+            if other == marked:
+                continue
+            for om in re.finditer(_reason_name_pattern(other), text, re.IGNORECASE):
+                if _REASON_DESIGNATOR_RE.match(text, om.end()):
+                    return {}
+
+    # 같은 이름이 '연달아' 구간을 열면 원문은 거기서 안 끊긴 것이다 — 한 구간으로 둔다.
+    # 표지+본문 시작(「<김동춘>\n김동춘 사내이사 후보는…」)뿐 아니라, 한 단락 안에서 본인
+    # 이름이 두 번 나오는 서식(「…기여하였습니다. 김동춘 사내이사 후보가 쌓아온…」)도 여기 걸린다.
+    # 쪼갠 뒤 "\n"으로 되붙이면 원문의 공백이 줄바꿈으로 바뀌어, 내용은 같아도 md 렌더에서
+    # 「- 추천 사유:」 불릿이 끊긴다(실측 41명 중 2명 — LG화학 김동춘·CJ대한통운 손관수).
+    collapsed: list[tuple[int, str]] = []
+    for start, name in marks:
+        if collapsed and collapsed[-1][1] == name:
+            continue
+        collapsed.append((start, name))
+    marks = collapsed
+
+    segments: dict[str, list[str]] = {}
+    for i, (start, name) in enumerate(marks):
+        end = marks[i + 1][0] if i + 1 < len(marks) else len(text)
+        seg = text[start:end].strip()
+        if not seg:
+            continue
+        segments.setdefault(name, []).append(seg)
+    # 같은 이름이 '떨어져서' 다시 구간을 열면(사이에 다른 후보가 있음) 원문 순서대로 이어 붙인다
+    return {n: "\n".join(parts).strip() for n, parts in segments.items() if "".join(parts).strip()}
+
+
 def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
     """안건 상세의 가. 서브섹션 테이블에서 후보자 정보 추출"""
     candidates = []
@@ -3342,25 +3536,36 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                     if content:
                         texts.append(content)
             if texts and candidates:
-                reason_text = "\n".join(texts)
-                # 공고는 하위안건마다 '마. 추천 사유'를 따로 둔다. 전원에게 복사하면 마지막
-                # 하위안건의 사유가 앞 후보들을 덮어써서, 후보 3명이 모두 같은 사람의 추천
-                # 사유를 달고 나간다(실측 하림지주). 문면이 이름을 밝히면 그 후보에게만 붙인다.
-                named = [c for c in candidates if c.get("name") and c["name"] in reason_text]
-                for c in (named if named else candidates):
-                    c["recommendationReason"] = reason_text
-                # 문면이 다른 후보의 이름만 밝히고 이 후보는 안 밝히는 경우가 남는다
-                # (실측 4건 — 녹십자 사내이사 3명은 사유가 이름 없이 「후보자는 …」으로만 쓰였고
-                #  블록이 다음 후보 구간까지 넘어간다). 떼어내면 그들의 사유가 통째로 사라지므로
-                # 붙여두되 '이 후보 것이라고 확정할 수 없다'고 밝힌다.
-                if len(candidates) >= 2:
+                reason_text = _strip_reason_tail_noise("\n".join(texts))
+                names = [c["name"] for c in candidates if c.get("name")]
+                # 한 구간이 후보 전원의 사유를 담는 서식이 다수다(실측 411사 중 310 구간).
+                # 공고가 「- 홍길동 후보자」/「[홍길동 후보자]」처럼 이름으로 구간을 스스로
+                # 선언하므로, 그 선언을 읽어 후보별로 가른다.
+                segments = _split_recommendation_reason(reason_text, names)
+                if segments:
                     for c in candidates:
-                        if (c.get("recommendationReason") or "") != reason_text:
-                            continue
-                        if c.get("name") and c["name"] in reason_text:
-                            c.pop("recommendationReasonShared", None)   # 이름이 있으면 확정
-                        else:
+                        seg = segments.get(c.get("name"))
+                        if seg:
+                            c["recommendationReason"] = seg
+                            c.pop("recommendationReasonShared", None)   # 원문이 이 후보 것이라 선언
+                        # 선언에서 빠진 후보는 이 구간에 자기 사유가 없다 —
+                        # 남의 문면을 붙이지 않는다(붙이면 그게 자기 사유로 읽힌다).
+                else:
+                    # 구간을 가를 수 없다. 공고는 하위안건마다 '마. 추천 사유'를 따로 둔다.
+                    # 전원에게 복사하면 마지막 하위안건의 사유가 앞 후보들을 덮어써서, 후보
+                    # 3명이 모두 같은 사람의 추천 사유를 달고 나간다(실측 하림지주).
+                    # 문면이 이름을 밝히면 그 후보에게만 붙인다.
+                    named = [c for c in candidates if c.get("name") and c["name"] in reason_text]
+                    targets = named if named else candidates
+                    for c in targets:
+                        c["recommendationReason"] = reason_text
+                        # 2명 이상이 같은 문면을 나눠 가지면 어느 문장이 누구 것인지 확정할 수
+                        # 없다(이름 없이 「후보자는 …」으로만 쓰거나, 블록이 다음 후보 구간까지
+                        # 넘어가는 서식). 떼어내면 사유가 통째로 사라지므로 붙여두되 밝힌다.
+                        if len(targets) >= 2:
                             c["recommendationReasonShared"] = True
+                        else:
+                            c.pop("recommendationReasonShared", None)
 
     return candidates
 
