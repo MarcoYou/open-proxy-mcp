@@ -31,6 +31,10 @@ load_dotenv()
 
 # ── 요청별 API 키 (URL 쿼리 파라미터 → contextvar) ──
 _ctx_opendart_key: ContextVar[str | None] = ContextVar("opendart_key", default=None)
+# 이 요청에서 DART 문서를 캐시로 해결했나 — 캐시를 키울 값어치가 있는지 판단할 유일한
+# 근거다(텔레메트리엔 회사·인자를 남기지 않으므로 적중률을 달리 셀 방법이 없다).
+# None=문서를 안 받은 요청 / True=캐시 / False=DART 왕복.
+_ctx_doc_cache_hit: ContextVar[bool | None] = ContextVar("doc_cache_hit", default=None)
 
 
 def set_request_api_key(opendart: str):
@@ -1834,11 +1838,14 @@ class DartClient:
         중복 API 호출 방지."""
         cached = self._doc_cache_get(self._doc_cache, rcept_no)
         if cached is not None:
+            _ctx_doc_cache_hit.set(True)
             return cached
         disk_doc = self._load_from_disk(rcept_no)
         if disk_doc:
             self._doc_cache_put(self._doc_cache, rcept_no, disk_doc)
+            _ctx_doc_cache_hit.set(True)
             return disk_doc
+        _ctx_doc_cache_hit.set(False)          # DART 왕복 — fetch 가 병목인 구간
         doc = await self.get_document(rcept_no)
         self._doc_cache_put(self._doc_cache, rcept_no, doc)
         self._save_to_disk(rcept_no, doc)

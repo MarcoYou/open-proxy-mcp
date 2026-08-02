@@ -157,7 +157,7 @@ def main():
                     # (툴 내부 실패는 HTTP 200에 실려 오므로 status만으론 못 잡음)
                     # 그 외(핸드셰이크 등)는 기존대로 응답 시작 시 기록.
                     rec = {"status": 0, "latency": None, "err": False, "tail": b"",
-                           "done": False, "ekind": None}
+                           "done": False, "ekind": None, "bytes": 0}
 
                     async def send_wrapper(message):
                         if message["type"] == "http.response.start":
@@ -167,6 +167,7 @@ def main():
                                 usage.record(opendart, rec["status"], tool, rec["latency"])
                         elif message["type"] == "http.response.body" and is_call and not rec["done"]:
                             chunk = message.get("body", b"") or b""
+                            rec["bytes"] += len(chunk)     # 호출측이 무는 토큰 비용의 대리 지표
                             if chunk and (not rec["err"] or rec["ekind"] is None):
                                 hay = rec["tail"] + chunk
                                 if not rec["err"]:
@@ -182,8 +183,16 @@ def main():
                                 # 경로)는 "untagged" sentinel → 배포前 NULL과 배포後 분류실패를 구분.
                                 # 성공(not err)은 본문에 우연히 [ekind=]가 있어도 None으로 기록.
                                 ekind = (rec["ekind"] or "untagged") if rec["err"] else None
+                                # 캐시 적중은 요청 컨텍스트에서 읽는다 — 문서를 안 받은
+                                # 요청은 None 이라 분모에서 자연히 빠진다.
+                                try:
+                                    from open_proxy_mcp.dart.client import _ctx_doc_cache_hit
+                                    _hit = _ctx_doc_cache_hit.get()
+                                except Exception:
+                                    _hit = None
                                 usage.record(opendart, rec["status"], tool, rec["latency"],
-                                             is_error=rec["err"], error_kind=ekind)
+                                             is_error=rec["err"], error_kind=ekind,
+                                             doc_cache_hit=_hit, response_bytes=rec["bytes"])
                         await send(message)
                     await self.app(scope, replay, send_wrapper)
                 else:

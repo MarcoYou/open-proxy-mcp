@@ -55,7 +55,8 @@ def _sqlite_connect():
         CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns);
         """
     )
-    for col in ("tool TEXT", "latency_ms INTEGER", "is_error INTEGER", "error_kind TEXT"):  # 기존 테이블 마이그레이션
+    for col in ("tool TEXT", "latency_ms INTEGER", "is_error INTEGER", "error_kind TEXT",
+                "doc_cache_hit INTEGER", "response_bytes INTEGER"):  # 기존 테이블 마이그레이션
         try:
             con.execute(f"ALTER TABLE events ADD COLUMN {col}")
         except sqlite3.OperationalError:
@@ -65,8 +66,8 @@ def _sqlite_connect():
 
 def _sqlite_write(con, batch):
     con.executemany(
-        "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind) "
-        "VALUES(?,?,?,?,?,?,?,?)", batch
+        "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
+        "doc_cache_hit, response_bytes) VALUES(?,?,?,?,?,?,?,?,?,?)", batch
     )
     con.commit()
 
@@ -83,6 +84,10 @@ def _pg_connect():
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS latency_ms int")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS is_error boolean")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS error_kind text")
+    # 260802: 캐시를 키울 값어치가 있나 · 어느 tool 이 토큰을 많이 먹나 — 두 질문에
+    # 답하려고 더한다. **회사·인자는 남기지 않는다**(「사용자 조회 결과 저장 안 함」).
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_cache_hit boolean")
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS response_bytes int")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON tool_call_events(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON tool_call_events(ts_ns)")
     con.commit()
@@ -91,8 +96,9 @@ def _pg_connect():
 
 def _pg_write(con, batch):
     con.cursor().executemany(
-        "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
+        "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
+        "doc_cache_hit, response_bytes) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
         batch,
     )
     con.commit()
@@ -140,12 +146,16 @@ def _ensure_worker() -> None:
 
 
 def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=None,
-           error_kind=None) -> None:
+           error_kind=None, doc_cache_hit=None, response_bytes=None) -> None:
     """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
     tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
     is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능),
     error_kind=is_error일 때 예외 분류(timeout/upstream/crash/unknown; tools 래퍼가 붙인
-    `[ekind=...]` 태그에서 추출). 에러 메시지 원문은 저장하지 않음."""
+    `[ekind=...]` 태그에서 추출). 에러 메시지 원문은 저장하지 않음.
+    doc_cache_hit=DART 문서를 캐시에서 꺼냈는지(캐시 확대 가치 판단용),
+    response_bytes=응답 본문 바이트(호출측이 무는 토큰 비용의 대리 지표 —
+    한글 UTF-8 은 글자당 3바이트라 토큰 수와 비례한다).
+    **어느 회사를 조회했는지는 기록하지 않는다** — 「사용자 조회 결과 저장 안 함」."""
     try:
         khash = hashlib.sha256(opendart_key.lower().encode()).hexdigest()
         if khash in SELF_HASHES:
@@ -153,7 +163,8 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
         _ensure_worker()
         ts_ns = time.time_ns()
         ev_id = f"{ts_ns}-{MACHINE}-{next(_counter)}"
-        _q.put_nowait((ev_id, ts_ns, khash, int(status), tool, latency_ms, is_error, error_kind))
+        _q.put_nowait((ev_id, ts_ns, khash, int(status), tool, latency_ms, is_error,
+                       error_kind, doc_cache_hit, response_bytes))
     except Exception:
         pass
 
