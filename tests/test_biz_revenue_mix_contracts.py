@@ -193,33 +193,47 @@ def test_text_only_table_counts_as_content_against_a_preceding_na_phrase():
 
 # ── revenue_breakdown: 세 축을 한 필드로 묶되 칸막이(출처·상태)는 유지한다 ──────────
 
-def _rb(by_segment=None, by_product=None, geo=None, **kw):
+def _rb(by_segment=None, by_product=None, geo=None, trade=None, **kw):
+    """260802 4축: 지역별·수출/내수도 묶음 안으로. `geo=`는 by_region 축으로 들어간다."""
     from open_proxy_mcp.services.business_details import _REVENUE_AXIS_SOURCE
     node = {k: {**(v or {"status": "NOT_COLLECTED", "extraction_status": "NOT_COLLECTED"}),
                 "source": _REVENUE_AXIS_SOURCE[k]}
-            for k, v in (("by_segment", by_segment), ("by_product", by_product))}
+            for k, v in (("by_segment", by_segment), ("by_product", by_product),
+                         ("by_region", geo), ("by_trade", trade))}
     data = {"report": {}, "revenue_breakdown": {**node, "guidance": "축을 섞지 말 것", **kw}}
-    if geo is not None:
-        data["geo_revenue"] = geo          # 지역별은 묶음 밖 독립 필드
     return {"status": "ok", "subject": "테스트", "data": data}
 
 
-def test_breakdown_renders_both_axes_with_provenance():
+def test_breakdown_renders_all_four_axes_with_provenance():
     from open_proxy_mcp.tools.business_details import _render as _r
     out = _r(_rb(
         by_segment={"status": "NOT_APPLICABLE", "na_reason": "단일부문 선언"},
         by_product={"status": "MARKDOWN", "markdown": "| 전력기기 | 2,835,195(69.5%) |",
                     "self_check": {"unit": "백만원", "pct_sum": 100.0, "tie_out": "항목합≈합계행 일치"}},
         geo={"status": "SUCCESS", "items": [{"name": "국내", "revenue": 1000}], "unit": "백만원"},
+        trade={"export_krw": 92_730_000_000_000, "domestic_krw": 64_810_000_000_000,
+               "export_share_pct": 58.9, "basis": "II 매출실적표(별도)"},
         available=["by_product"], needs_review=[]))
-    for ko in ("부문별", "제품별"):
+    for ko in ("부문별", "제품별", "지역별", "수출/내수"):
         assert f"### [{ko}]" in out
-    assert "### [지역별]" not in out          # 지역별은 묶지 않는다
-    # 칸막이 — 어느 축이 감사 대상인지 출력에 남아야 한다
+    # 칸막이 — 어느 축이 감사 대상인지·연결인지 별도인지 출력에 남아야 한다
     assert "K-IFRS 1108 영업부문 · 외부감사 대상" in out
     assert "외부감사 대상 아님" in out
+    assert "**연결**" in out and "**별도**" in out
     assert "단일부문 선언" in out and "전력기기" in out and "국내" in out
     assert "자가검산: 단위 백만원" in out
+
+
+def test_flat_geo_alias_still_renders_when_bundle_not_requested():
+    """`fields="geo_revenue"` 로 부르던 옛 호출 — 묶음이 없으면 평평 키를 그대로 렌더한다.
+    (4축 재편으로 축 이름이 바뀌어도 옛 호출이 빈 출력을 받으면 안 된다)"""
+    from open_proxy_mcp.tools.business_details import _render as _r
+    out = _r({"status": "ok", "subject": "테스트", "data": {
+        "report": {},
+        "geo_revenue": {"status": "SUCCESS", "unit": "백만원",
+                        "items": [{"name": "국내", "revenue": 46_641_151}],
+                        "basis_caption": "고객 소재지 기준"}}})
+    assert "지역별 수익" in out and "46,641,151" in out and "고객 소재지 기준" in out
 
 
 def test_breakdown_does_not_call_needs_review_axis_available():
@@ -255,10 +269,32 @@ def test_default_field_set_returns_bundle_not_flat_duplicates():
 
 
 def test_axis_names_stay_valid_as_aliases():
-    """`fields=segments` 로 부르던 기존 호출이 깨지면 안 된다 — 축 이름은 별칭으로 살아 있다."""
+    """`fields=segments`·`fields=geo_revenue` 로 부르던 기존 호출이 깨지면 안 된다 —
+    옛 이름은 별칭으로 살아 있다(260802 4축 재편)."""
     from open_proxy_mcp.services.business_details import _REVENUE_AXES, _REVENUE_AXIS_SOURCE
-    assert set(_REVENUE_AXES) == {"segments", "revenue_mix_form"}
+    assert set(_REVENUE_AXES) == {"segments", "revenue_mix_form",
+                                  "geo_revenue", "export_domestic"}
     assert set(_REVENUE_AXES.values()) == set(_REVENUE_AXIS_SOURCE)
+    assert set(_REVENUE_AXES.values()) == {"by_segment", "by_product", "by_region", "by_trade"}
+
+
+def test_every_axis_node_carries_status_so_available_can_see_it():
+    """묶음의 `available` 판정은 축 노드의 status 를 본다 — status 없이 값만 실으면
+    표는 렌더되는데 「값이 나온 축」에서 빠져, 읽는 쪽은 그 축이 없는 줄 안다.
+    (260802 파일럿 실측: 현대차 수출 92.73조가 렌더는 되는데 목록에 없었다)"""
+    from open_proxy_mcp.tools.business_details import _render as _r
+    out = _r(_rb(trade={"export_krw": 92_730_000_000_000, "domestic_krw": 64_810_000_000_000,
+                        "export_share_pct": 58.9, "status": "SUCCESS"},
+                 available=["by_trade"]))
+    assert "값이 나온 축: **수출/내수**" in out
+    assert "92.73조원" in out
+
+
+def test_only_segment_axis_carries_profit():
+    """이익은 by_segment 에만 있다 — K-IFRS 1108 이 이익을 영업부문(¶23)에만 요구하고
+    지역(¶33)엔 수익·비유동자산만 요구하기 때문. 다른 축에 이익을 붙이면 기준을 넘어선다."""
+    from open_proxy_mcp.services.business_details import _REVENUE_AXIS_PROFIT
+    assert _REVENUE_AXIS_PROFIT == {"by_segment"}
 
 
 def test_breakdown_heading_lists_exactly_the_axes_it_renders():

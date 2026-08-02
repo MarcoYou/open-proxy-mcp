@@ -1442,23 +1442,37 @@ def _segment_confident(sp: "SegmentProfit") -> bool:
 # 섞으면 제품+지역을 더해 매출이 두 배가 되고, 감사받은 주석과 공시서식 기재사항이 구분되지 않는다.
 # (260728: `segments`만 물어본 호출측이 「단일부문 선언」만 보고 제품 구성을 놓치던 문제)
 _REVENUE_AXES = {"segments": "by_segment",
-                 "revenue_mix_form": "by_product"}
+                 "revenue_mix_form": "by_product",
+                 # 260802: 지역·수출 축도 같은 서랍장으로. 넷 다 「같은 매출을 다르게 자른 것」이라
+                 # 성격이 같은데, 종전엔 지역이 독립 필드(geo_revenue)로 따로 있고 수출/내수는
+                 # 그 안에 중첩돼 있어 매출 축을 세 군데서 봐야 했다.
+                 "geo_revenue": "by_region",
+                 "export_domestic": "by_trade"}
 _REVENUE_AXIS_SOURCE = {
     "by_segment": "III. 재무제표 주석 · K-IFRS 1108 영업부문 · 외부감사 대상 (매출 + 영업이익)",
     "by_product": "II. 사업의 내용 2-가 · 기업공시서식 기재사항 · 외부감사 대상 아님 (매출만)",
+    "by_region": "III. 재무제표 주석 · K-IFRS 1108 ¶33 전사 차원 · **연결** 기준 · 고객 소재지 (매출만)",
+    "by_trade": "II. 사업의 내용 4 매출실적표 · **별도** 기준 · 수출/내수 (매출만)",
 }
+# 이익이 있는 축은 by_segment 하나뿐이다 — K-IFRS 1108 이 이익을 영업부문(¶23)에만 요구하고
+# 지역(¶33)엔 수익·비유동자산만 요구하기 때문이다. 지역별 이익이 필요하면 부문명이 지역·현지법인인
+# 회사(오로라: 본사/미국/영국/홍콩 사업본부)의 by_segment 를 본다 — 실측 205건 확인.
+_REVENUE_AXIS_PROFIT = {"by_segment"}
 # 안내문은 짧게, 그리고 서술문으로 — 매 호출마다 데이터보다 먼저 나온다. 경고 이모지·금지문은
 # 읽는 사람이 뭘 잘못한 것처럼 느끼게 한다. 자료의 성격을 알려주는 것이지 나무라는 게 아니다. 나머지(감사여부·검산·어느 축에 값이 있나)는
 # 축별 `source` 라벨과 `available`/`self_check` 줄이 이미 말하므로 여기서 반복하지 않는다.
-_REVENUE_BREAKDOWN_GUIDANCE = "제품별·부문별 매출 구분은 K-IFRS 기준과 다를 수 있습니다."
+_REVENUE_BREAKDOWN_GUIDANCE = (
+    "네 축은 같은 매출을 다르게 자른 것이라 합하지 않습니다. 특히 by_region 은 연결, "
+    "by_trade 는 별도 기준이라 한쪽이 크기도 작기도 합니다(실측: 현대차 1.4배·대한제분 0.5배). "
+    "제품별·부문별 매출 구분은 K-IFRS 기준과 다를 수 있습니다.")
 
-# 기본 반환 세트. 세 축은 revenue_breakdown 안으로 들어가므로 여기 없다 —
-# 옛 이름(segments·revenue_mix_form)은 fields 로 명시하면 평평하게 그대로 나온다(별칭).
-# 지역별(geo_revenue)은 묶지 않고 독립 필드로 둔다.
+# 기본 반환 세트. 네 축은 revenue_breakdown 안으로 들어가므로 여기 없다 —
+# 옛 이름(segments·revenue_mix_form·geo_revenue)은 fields 로 명시하면 평평하게 그대로
+# 나온다(별칭). 옛 호출을 깨지 않으려는 것이지 새 이름이 아니다 — 새 코드는 축 이름을 쓴다.
 BUSINESS_DETAILS_FIELDS = (
     "revenue_breakdown", "sites", "utilization", "rnd", "backlog", "customers", "raw_materials",
     "product_pricing", "financial_ops", "financial_soundness", "investment_property",
-    "geo_revenue", "key_contracts",
+    "key_contracts",
 )
 # 위치 슬라이스 대신 이름 기반(필드 추가 시 조용한 오분류 방지 — 이름 기반 접근 원칙)
 _STANDARD_BIZ_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers",
@@ -1466,7 +1480,9 @@ _STANDARD_BIZ_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers",
                         # II-2-가 매출구성 · II-6-가 주요계약 (260728 신설)
                         "revenue_mix_form", "key_contracts"}
 _FINANCIAL_BIZ_FIELDS = {"financial_ops", "financial_soundness", "investment_property"}
-_ENTITY_WIDE_FIELDS = {"geo_revenue"}
+# 전사 차원(부문 축이 아닌) 공시 — 지역별 수익과 수출/내수. 축 이름으로 묶이기 전의
+# 평평한 키가 계산 게이트다(`revenue_breakdown` 요청 시 want 에 자동으로 합쳐진다).
+_ENTITY_WIDE_FIELDS = {"geo_revenue", "export_domestic"}
 _CANDIDATE_CONTEXT_FIELDS = {"sites", "utilization", "rnd", "backlog", "customers"}
 _CANDIDATE_CONTEXT_DEFAULT_CHARS = 20_000
 _CANDIDATE_CONTEXT_MAX_CHARS = 60_000
@@ -1698,15 +1714,26 @@ async def build_business_details_payload(company_query: str, period: str = "late
                         f"이 값은 {rept.get('report_nm')} 기준입니다 — 분·반기는 지역별 정보를 "
                         "생략하는 회사가 있습니다. 사업보고서에는 있을 수 있으니 "
                         "reprt_code='11011'(사업보고서)로 다시 조회해 보세요.")
-            # II 매출실적표의 수출/내수를 **병렬로** 싣는다 — III 지역별과 상호보완이다.
-            # 실측 75건: III 부문 주석이 없는 34건 중 **31건이 II 에 수출 표기**를 갖는다.
-            # ⚠ 두 값을 더하거나 비교하지 말 것 — 별도 기준 수출 vs 연결 기준 외국 수익이라
-            #    현대차 1.4x·대한제분 0.5x 로 **방향이 양쪽으로 갈린다**(현지생산 vs 내부거래 제거).
+            data["geo_revenue"] = _geo
+        # II 매출실적표의 수출/내수 — 260802부터 **독립 축(by_trade)**이다.
+        # 종전엔 geo_revenue 안에 중첩돼 있었는데, 기준이 달라(별도 수출 vs 연결 외국 수익)
+        # 같은 서랍에 넣으면 한 값의 하위 항목처럼 읽힌다. 실제로는 상호보완이다 —
+        # 실측 75건: III 부문 주석이 없는 34건 중 **31건이 II 에 수출 표기**를 갖는다.
+        # ⚠ 두 값을 더하거나 비교하지 말 것 — 현대차 1.4x·대한제분 0.5x 로 **방향이 양쪽으로
+        #   갈린다**(현지생산 vs 내부거래 제거).
+        if want & {"geo_revenue", "export_domestic"}:
             _exp = _export_from_biz_table(_biz_html_region(sec.get("note_html", ""))
                                           or sec.get("biz_html", ""))
-            if _exp:
-                _geo["ii_export_domestic"] = _exp
-            data["geo_revenue"] = _geo
+            if "export_domestic" in want:
+                # status 를 명시적으로 붙인다 — 묶음의 `available` 판정이 status 를 보므로,
+                # 없으면 표가 나왔는데도 「값이 나온 축」에서 빠져 읽는 쪽이 없는 줄 안다
+                # (260802 파일럿에서 실측: 현대차 수출 92.73조가 렌더는 되는데 목록엔 없었다).
+                data["export_domestic"] = ({**_exp, "status": "SUCCESS"} if _exp else {
+                    "status": "NOT_COLLECTED", "extraction_status": "NOT_COLLECTED",
+                    "na_reason": "II 매출실적표에서 수출/내수 구분을 찾지 못했습니다"})
+            # 옛 호출 호환 — `fields="geo_revenue"` 로 직접 부르던 쪽은 중첩 위치에서 계속 읽는다.
+            if _exp and isinstance(data.get("geo_revenue"), dict):
+                data["geo_revenue"]["ii_export_domestic"] = _exp
     # 추가 필드: markdown-primary(소절 원문 마크다운 → 호출측 AI 추출). biz 텍스트=hint, full html=md.
     from open_proxy_mcp.services import biz_fields as _bf
     _biz_t = sec.get("biz_text", "")
