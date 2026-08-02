@@ -273,6 +273,87 @@ def _foreign_share(items: list[dict]) -> dict:
     return out
 
 
+# DART XML 의 표 셀은 `<TE>`(table entry) 다 — `<TD>` 만 찾으면 데이터 행이 통째로 빈다.
+# 머리 행만 `<TH>` 라 헤더는 읽히고 본문은 안 읽혀 「항목 0개」로 보였다.
+_CELL_TAGS = ["td", "th", "te", "tu"]
+
+
+def _read_row_oriented_geo(chunk: str) -> dict | None:
+    """지역이 **행**에 있는 표를 읽는다 — 열 지향과 레이아웃이 정반대다.
+
+    열 지향(HD현대일렉트릭·현대차):
+        (머리) 본사 소재지 국가 | 북미 | 아시아 | 유럽 | 지역 합계
+        수익(매출액)  55,298,034 | 83,444,813 | ...
+    행 지향(LG화학):
+        (머리)        | 총부문수익 | 비유동자산 | ...
+        지역 | 한국    | 10,553,720 | 20,165,226
+             | 중국    | 11,108,354 |  4,989,625
+        지역 합계      | 48,916,104 | 58,287,995
+
+    행 지향은 지역명이 첫(또는 둘째) 열에 오고 금액 열이 여럿이라 부문표 파서가
+    항목을 못 뽑았다. 여기서는 **지역명이 든 행**만 골라 첫 금액 열을 수익으로 읽는다.
+    비유동자산 열이 함께 있으면 생산지 판별에 쓰도록 같이 돌려준다.
+    """
+    from bs4 import BeautifulSoup
+
+    try:
+        t = BeautifulSoup(chunk, "lxml").find("table")
+    except Exception:
+        return None
+    if t is None:
+        return None
+    rows = t.find_all("tr")
+    if len(rows) < 3:
+        return None
+    head = [c.get_text(" ", strip=True) for c in rows[0].find_all(_CELL_TAGS)]
+    asset_col = next((i for i, hcell in enumerate(head)
+                      if re.search(r"비유동자산|유형자산", hcell or "")), None)
+    items, assets, total = [], {}, None
+    for r in rows[1:]:
+        cells = [c.get_text(" ", strip=True) for c in r.find_all(_CELL_TAGS)]
+        if len(cells) < 2:
+            continue
+        labels = [c for c in cells if not _row_num(c)]
+        nums = [(_row_num(c), i) for i, c in enumerate(cells) if _row_num(c) is not None]
+        if not nums or not labels:
+            continue
+        name = next((x for x in labels if REGION.match(_region_key(x))), None)
+        if name is None:
+            if any(TOTAL.search(x) for x in labels) and total is None:
+                total = nums[0][0]
+            continue
+        items.append({"name": name.strip(), "revenue": float(nums[0][0])})
+        if asset_col is not None:
+            av = next((v for v, i in nums if i >= asset_col), None)
+            if av is not None:
+                assets[name.strip()] = float(av)
+    if len(items) < 2:
+        return None
+    return {"segments": items, "excess": [total] if total is not None else [],
+            "revenue_metric": (head[1] if len(head) > 1 else "") or "수익",
+            "unit": "", "_row_oriented": True,
+            "_assets_by_region": assets or None}
+
+
+def _row_num(c):
+    c = (c or "").replace(" ", "").replace("\xa0", "")
+    if not re.fullmatch(r"-?\(?\d{1,3}(?:,\d{3})*\)?", c) or c in ("", "-"):
+        return None
+    try:
+        v = int(c.strip("()").replace(",", ""))
+    except ValueError:
+        return None
+    return -v if c.startswith("(") else v
+
+
+TOTAL = re.compile(r"합\s*계|총\s*계")
+REGION = re.compile(
+    r"^\s*(?:본사\s*소재지(?:\s*국가)?|외국|국내|해외|국외|대한민국|한국|"
+    r"북미|미주|남미|중남미|아메리카|아시아[가-힣\s/·및]{0,14}|유럽|중동|아프리카|오세아니아|"
+    r"중국|일본|미국|베트남|인도|인도네시아|대만|태국|싱가포르|홍콩|호주|캐나다|멕시코|"
+    r"브라질|러시아|독일|영국|프랑스|폴란드|헝가리|기타(?:\s*국가|\s*지역)?)\s*$")
+
+
 def _find_geo_anchor_pos(html: str) -> int:
     """지역 전용 앵커 위치(없으면 -1). 부문정보 앵커 폴백."""
     m = _GEO_ANCHOR_RE.search(html or "")
@@ -287,18 +368,39 @@ def _find_geo_anchor_pos(html: str) -> int:
 # 경계까지만 있고 주석 안으로 들어오면 사라진다. 대신 `<A name='tocN'>` 절 앵커가
 # **89/89(100%)** 있다 — 의미 코드는 아니지만 절 경계는 여기서 확정할 수 있다.
 _TOC_ANCHOR_RE = re.compile(r"<A\s+name=['\"]toc(\d+)['\"]\s*>\s*([^<]{2,80}?)\s*</A>", re.I)
-# 지역표가 실제로 들어 있던 절(캐시 32건 전수). 부문 절만 보면 78%, 아래까지 넓히면 97%.
+# 주 경로(document.xml)의 주석 절 표지 — XBRL 택소노미 코드.
+#   <TABLE-GROUP ACLASS="{XBRL}NT_C_D871100"><TITLE ATOC="Y">33. 부문별 정보 (연결)</TITLE>
+# 회사마다 절 번호(4·5·6·22·33·35·39)와 제목(6종)이 달라도 **코드는 하나로 모인다**.
+# 실측 34건: 97%가 보유. 제목 사전은 새 표현이 나오면 뚫리지만 코드는 안 뚫린다.
+_XBRL_BLOCK_RE = re.compile(
+    r'<TABLE-GROUP[^>]*ACLASS="\{XBRL\}([^"]+)"[^>]*>\s*<TITLE[^>]*>(.*?)</TITLE>', re.S)
+# 지역 표가 실제로 든 블록의 코드 계열(실측 26건 중 22건 = 85%):
+#   D871 = K-IFRS 1108 영업부문 · D831 = K-IFRS 1115 수익 · 804 계열 = 부문 공시 변형
+_GEO_XBRL_RE = re.compile(r"D871|D831|D[A-Z]?804")
+# 지역표가 실제로 들어 있던 절 제목(캐시 32건 전수). 코드가 없는 서식(viewer 등)의 2순위.
 _GEO_SECTION_RE = re.compile(r"부문|세그먼트|수익|매출|고객과의\s*계약|영업\s*수익|보험위험|지역")
 
 
-def _note_sections(html: str) -> list[tuple[int, str, int, int]]:
-    """주석 절 목록 → [(toc번호, 제목, 시작, 끝)]. 없으면 빈 목록."""
-    ms = list(_TOC_ANCHOR_RE.finditer(html or ""))
-    out: list[tuple[int, str, int, int]] = []
-    for i, m in enumerate(ms):
-        end = ms[i + 1].start() if i + 1 < len(ms) else len(html)
-        out.append((int(m.group(1)), re.sub(r"\s+", " ", m.group(2)).strip(), m.start(), end))
-    return out
+def _note_sections(html: str) -> list[tuple[str, str, int, int]]:
+    """주석 절 목록 → [(키, 제목, 시작, 끝)]. 없으면 빈 목록.
+
+    주 경로(document.xml)는 XBRL 택소노미 코드를, 폴백(viewer HTML)은 toc 앵커를 쓴다.
+    두 원본은 구조 표지가 정반대라 하나만 보면 절을 못 가른다 — 260731 사고의 뿌리.
+    키는 XBRL이면 코드(`NT_C_D871100`), toc면 `toc38` 형태.
+    """
+    html = html or ""
+    ms = list(_XBRL_BLOCK_RE.finditer(html))
+    if ms:
+        out = []
+        for i, m in enumerate(ms):
+            end = ms[i + 1].start() if i + 1 < len(ms) else len(html)
+            title = re.sub(r"\s+", " ", re.sub(r"<[^>]*>", "", m.group(2))).strip()
+            out.append((m.group(1), title, m.start(), end))
+        return out
+    ms = list(_TOC_ANCHOR_RE.finditer(html))
+    return [(f"toc{m.group(1)}", re.sub(r"\s+", " ", m.group(2)).strip(), m.start(),
+             ms[i + 1].start() if i + 1 < len(ms) else len(html))
+            for i, m in enumerate(ms)]
 
 
 def _scan_windows(full_html: str, anchor: str) -> list[tuple[int, int, str]]:
@@ -310,18 +412,31 @@ def _scan_windows(full_html: str, anchor: str) -> list[tuple[int, int, str]]:
     """
     secs = _note_sections(full_html)
     wins: list[tuple[int, int, str]] = []
+    seen: set[int] = set()
+
+    def _add(s, e, title, key):
+        if s in seen:
+            return
+        seen.add(s)
+        wins.append((s, e, f"{title} [{key}]" if key and not key.startswith("toc") else title))
+
     if secs:
+        # ① **XBRL 택소노미 코드** — 제목 변이에 면역이라 1순위.
+        #    실측: 제목 6종(「4. 영업부문」~「주석 - 5. 영업부문정보 - 연결」)이 코드 하나로 모인다.
+        for key, title, s, e in secs:
+            if _GEO_XBRL_RE.search(key):
+                _add(s, e, title, key)
+        # ② 호출측이 준 부문 앵커와 같은 절
         anchor_key = re.sub(r"\s+", "", anchor or "")
-        # ① 호출측이 준 부문 앵커와 같은 절
         if anchor_key:
-            for _, title, s, e in secs:
-                if anchor_key and anchor_key in re.sub(r"\s+", "", title):
-                    wins.append((s, e, title))
-        # ② 사전에 걸리는 절 (문서 순서 유지)
-        for _, title, s, e in secs:
-            if _GEO_SECTION_RE.search(title) and not any(w[0] == s for w in wins):
-                wins.append((s, e, title))
-    # ③ 최후 폴백 — 절을 못 가르거나 후보 절에 없을 때 문서 전체
+            for key, title, s, e in secs:
+                if anchor_key in re.sub(r"\s+", "", title):
+                    _add(s, e, title, key)
+        # ③ 제목 사전 (코드가 없는 서식·viewer 폴백용, 문서 순서 유지)
+        for key, title, s, e in secs:
+            if _GEO_SECTION_RE.search(title):
+                _add(s, e, title, key)
+    # ④ 최후 폴백 — 절을 못 가르거나 후보 절에 없을 때 문서 전체
     start = _find_anchor_pos(full_html, anchor) if anchor else -1
     if start < 0:
         start = _find_geo_anchor_pos(full_html)
@@ -382,6 +497,11 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
             continue
         attempts += 1
         p = _parse_table(m.group(0))
+        if (not p or len(p["segments"]) < 2) and _GEO_HEAD_RE.search(chunk[:4000]):
+            # 부문표 파서는 **열 지향**(지역이 컬럼)만 읽는다. 지역이 행에 오는 서식
+            # (LG화학 「지역 | 한국 | 총부문수익 | 비유동자산」)에서는 항목이 0개로
+            # 나와 표를 통째로 버렸다 — 앵커는 맞았는데 표에서 걸린 것.
+            p = _read_row_oriented_geo(chunk)
         if not p or len(p["segments"]) < 2:
             continue
         # ── 분류 먼저: 지역표인가 (게이트 탈락해도 지역표면 원문 폴백 대상) ──
@@ -456,10 +576,13 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
             # 원문을 직접 찾아보게 — 어느 단원의 어느 절, 어떤 표인지 (rcept_no는 호출측이 붙인다)
             "source_location": {
                 "chapter": "III. 재무에 관한 사항 — 재무제표 주석",
+                # 절 제목 뒤 `[NT_C_D871100]` 는 XBRL 택소노미 코드 — 회사마다 절 번호·제목이
+                # 달라도 이 코드는 같으므로, 다른 회사 원문을 찾을 때 그대로 쓸 수 있다.
                 "note_section": (win_title or anchor or "지역 정보 표(주석 절 미확정)"),
                 "section_bounds": [pos, win_end] if win_title else None,
                 "table_caption": clean_caption[-80:],
-                "how_to_find": "DART 원문에서 위 주석 절을 찾아 표 캡션으로 대조하세요.",
+                "how_to_find": "DART 원문에서 위 주석 절을 찾아 표 캡션으로 대조하세요."
+                               " 대괄호 안은 XBRL 코드(D871=영업부문·D831=수익).",
             },
         }
         if p.get("_total_derived"):

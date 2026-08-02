@@ -167,3 +167,54 @@ def test_geo_section_dictionary_covers_sections_other_than_부문():
         assert _GEO_SECTION_RE.search(t), t
     for t in ("3. 리스 (연결)", "9. 유형자산 (연결)", "12. 퇴직급여 (연결)"):
         assert not _GEO_SECTION_RE.search(t), t
+
+
+def test_xbrl_taxonomy_code_is_the_anchor_on_the_main_path():
+    """주 경로(document.xml)의 주석 절 앵커는 제목이 아니라 XBRL 택소노미 코드다.
+
+    회사마다 절 번호(4·5·6·22·33·35·39)와 제목이 다른데 코드는 하나로 모인다:
+      NT_C_D871100 (28회) ← 「4. 영업부문 (연결)」「33. 부문별 정보 (연결)」
+                              「35. 영업부문 정보 (연결)」「주석 - 5. 영업부문정보 - 연결 (연결)」
+    제목 사전은 새 표현이 나오면 뚫리지만 코드는 안 뚫린다. 실측 34건 중 97%가 보유.
+    D871=K-IFRS 1108 영업부문 · D831=K-IFRS 1115 수익 · 804 계열=부문 공시 변형.
+    """
+    from open_proxy_mcp.services.segment_grid import _GEO_XBRL_RE, _note_sections, _scan_windows
+
+    for code in ("NT_C_D871100", "NT_S_D871105", "NT_C_D831150", "NT_S_D831155",
+                 "NT_C_DS804000", "NT_C_DI804000", "NT_C_DX804000"):
+        assert _GEO_XBRL_RE.search(code), code
+    for code in ("BS_C", "IS_C", "NT_C_D610000"):
+        assert not _GEO_XBRL_RE.search(code), code
+
+    html = ('<TABLE-GROUP ACLASS="{XBRL}NT_C_D610000"><TITLE>9. 유형자산 (연결)</TITLE>' + "a" * 400
+            + '<TABLE-GROUP ACLASS="{XBRL}NT_C_D871100"><TITLE>33. 부문별 정보 (연결)</TITLE>' + "b" * 400)
+    secs = _note_sections(html)
+    assert [k for k, _t, _s, _e in secs] == ["NT_C_D610000", "NT_C_D871100"]
+    wins = _scan_windows(html, "")
+    assert "NT_C_D871100" in wins[0][2], "XBRL 코드가 1순위 창이어야 한다"
+
+
+def test_row_oriented_geo_tables_are_read():
+    """지역이 **행**에 오는 서식도 읽는다 — 부문표 파서는 열 지향만 안다.
+
+    LG화학은 「지역 | 한국 | 총부문수익 | 비유동자산」 구조라 항목이 0개로 나와
+    표를 통째로 버렸다(앵커는 맞았는데 표에서 걸림). 셀이 `<TD>` 가 아니라
+    DART XML 의 `<TE>` 라 데이터 행이 통째로 비어 보인 것도 함께 잡았다.
+    수정 후 LG화학 해외비중 78.4%(한국 10.55조 · 아메리카 12.5조 · 유럽 8.9조).
+    """
+    from open_proxy_mcp.services.segment_grid import _read_row_oriented_geo
+
+    chunk = """<TABLE><THEAD><TR><TH></TH><TH></TH><TH>총부문수익</TH><TH>비유동자산</TH></TR></THEAD>
+    <TBODY>
+    <TR><TE>지역</TE><TE>한국</TE><TE>10,553,720</TE><TE>20,165,226</TE></TR>
+    <TR><TE></TE><TE>중국</TE><TE>11,108,354</TE><TE>4,989,625</TE></TR>
+    <TR><TE></TE><TE>아메리카</TE><TE>12,513,258</TE><TE>26,294,590</TE></TR>
+    <TR><TE>지역 합계</TE><TE></TE><TE>34,175,332</TE><TE>51,449,441</TE></TR>
+    </TBODY></TABLE>"""
+    got = _read_row_oriented_geo(chunk)
+    assert got is not None
+    assert [s["name"] for s in got["segments"]] == ["한국", "중국", "아메리카"]
+    assert got["segments"][0]["revenue"] == 10553720.0
+    assert got["excess"] == [34175332]
+    # 비유동자산 열이 있으면 생산지 판별용으로 함께 돌려준다
+    assert (got.get("_assets_by_region") or {}).get("한국") == 20165226.0
