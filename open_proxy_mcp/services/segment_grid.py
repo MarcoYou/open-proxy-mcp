@@ -609,7 +609,50 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
         out["geo"] = geo_md_fallback          # 표준 사다리 2단: 정형 실패 → 원문 마크다운
     if out["geo"] is not None:
         _mark_basis(out["geo"], full_html)
+        _mark_attribution(out["geo"], full_html)
     return out
+
+
+# 귀속기준 **값**의 문형. 라벨(「…에 대한 기술」)과 구분해야 한다 — DART 표는 라벨행과
+# 값행의 열 인덱스가 어긋나(ragged) 라벨→값 매핑이 안 되므로, 값 자체를 문형으로 찾는다.
+_ATTR_VALUE_RE = re.compile(
+    r"(귀속시켰|귀속하였|귀속됩니다|귀속되어|기초하여\s*구분|소재지에\s*기초|"
+    r"소재지\s*기준|소재지를?\s*기준|인도되는\s*국가|제공되는\s*국가)")
+_ATTR_LABEL_TAIL_RE = re.compile(r"대한\s*기술\s*$")
+
+
+def _mark_attribution(geo: dict, full_html: str) -> None:
+    """지역 매출을 **무슨 기준으로** 나라에 배분했는지 원문에서 뽑는다(in place).
+
+    종전엔 출력 라벨에 「고객 소재지」가 하드코딩돼 있었는데, K-IFRS 1108 ¶33 이 요구하는
+    귀속기준을 실제로 공시한 회사는 실측 96건 중 5건(5%)뿐이고, 그나마도 「고객 소재지」만
+    있는 게 아니다 — 「**사업장** 소재지 기준」도 있다. 못박으면 나머지 95%에서 거짓이 된다.
+
+    공시했으면 그 문장을 그대로 싣고, 없으면 `attribution_basis` 를 비워 둔다(렌더가
+    「귀속기준 미공시」로 밝힌다). 지어내지 않는 것이 요점이다.
+    """
+    b = (geo.get("source_location") or {}).get("section_bounds")
+    if not b:
+        return
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:
+        return
+    for m in _TABLE_RE.finditer(full_html, b[0]):
+        if m.start() >= b[1]:
+            break
+        try:
+            tb = BeautifulSoup(m.group(0), "lxml").find("table")
+        except Exception:
+            continue
+        if tb is None:
+            continue
+        for c in tb.find_all(_CELL_TAGS):
+            s = re.sub(r"\s+", " ", c.get_text(" ", strip=True))
+            if 10 < len(s) < 200 and _ATTR_VALUE_RE.search(s) \
+                    and not _ATTR_LABEL_TAIL_RE.search(s):
+                geo["attribution_basis"] = s
+                return
 
 
 def _mark_basis(geo: dict, full_html: str) -> None:

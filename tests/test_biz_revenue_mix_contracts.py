@@ -494,3 +494,22 @@ def test_section_chars_out_of_range_is_rejected():
         r = asyncio.run(build_business_details_payload("삼성전자", section_chars=bad))
         assert r["status"] == "error", bad
         assert "section_chars" in " ".join(r.get("warnings") or [])
+
+
+def test_region_axis_states_the_attribution_basis_or_says_it_is_undisclosed():
+    """지역 매출을 무슨 기준으로 나라에 배분했는지 — 못박지 말고 원문에서 가져오거나 없다고 밝힌다.
+
+    K-IFRS 1108 ¶33 이 요구하는 귀속기준을 실제 공시한 회사는 실측 96건 중 5건(5%)뿐이고,
+    그나마 「고객 소재지」만 있는 게 아니라 「사업장 소재지 기준」도 있다(20260319001270).
+    이 값이 해외비중의 의미를 좌우한다 — 대한항공은 국제선 23조가 「본사 소재지 국가」로
+    잡혀 해외비중 0.6% 가 나온다.
+    """
+    from open_proxy_mcp.tools.business_details import _render as _r
+    base = {"status": "SUCCESS", "unit": "백만원", "basis": "연결",
+            "items": [{"name": "외국", "revenue": 3_147_338}]}
+    got = _r(_rb(geo={**base, "attribution_basis": "수익은 고객의 소재지에 기초한 국가에 귀속됩니다."},
+                 available=["by_region"]))
+    assert "귀속기준: 수익은 고객의 소재지에 기초한 국가에 귀속됩니다." in got
+    missing = _r(_rb(geo=base, available=["by_region"]))
+    assert "귀속기준 미공시" in missing
+    assert "고객 소재지" not in missing        # 없는 걸 지어내지 않는다

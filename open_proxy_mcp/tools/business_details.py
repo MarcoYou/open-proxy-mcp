@@ -204,6 +204,13 @@ def _geo_lines(node: dict, h: str) -> list[str]:
             L.extend(f"| {k} | {_scaled(v, _ad, _adec)} |" for k, v in node["assets_by_region"].items())
             L.append(f"_{node.get('assets_note','')}_")
         L.extend(_origin_lines(node))
+        # 지역 매출을 무슨 기준으로 나라에 배분했는지. 공시한 회사가 5%뿐이라(실측 96건 중
+        # 5건) 「고객 소재지」로 못박을 수 없다 — 「사업장 소재지 기준」을 쓰는 회사도 있다.
+        # 없으면 없다고 밝힌다. 이 값이 해외비중의 의미를 좌우한다.
+        if node.get("attribution_basis"):
+            L.append(f"_귀속기준: {node['attribution_basis']}_")
+        else:
+            L.append("_귀속기준 미공시 — 어느 나라 매출로 잡았는지는 회사가 밝히지 않았습니다_")
         if node.get("basis_caption"):
             L.append(f"_기준: {node['basis_caption']}_")
     elif node.get("markdown"):
