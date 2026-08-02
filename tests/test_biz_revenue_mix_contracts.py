@@ -210,16 +210,20 @@ def test_breakdown_renders_all_four_axes_with_provenance():
         by_segment={"status": "NOT_APPLICABLE", "na_reason": "단일부문 선언"},
         by_product={"status": "MARKDOWN", "markdown": "| 전력기기 | 2,835,195(69.5%) |",
                     "self_check": {"unit": "백만원", "pct_sum": 100.0, "tie_out": "항목합≈합계행 일치"}},
-        geo={"status": "SUCCESS", "items": [{"name": "국내", "revenue": 1000}], "unit": "백만원"},
+        geo={"status": "SUCCESS", "items": [{"name": "국내", "revenue": 1000}], "unit": "백만원",
+             "basis": "연결"},
         trade={"export_krw": 92_730_000_000_000, "domestic_krw": 64_810_000_000_000,
                "export_share_pct": 58.9, "basis": "II 매출실적표(별도)"},
         available=["by_product"], needs_review=[]))
     for ko in ("부문별", "제품별", "지역별", "수출/내수"):
         assert f"### [{ko}]" in out
-    # 칸막이 — 어느 축이 감사 대상인지·연결인지 별도인지 출력에 남아야 한다
+    # 칸막이 — 어느 축이 감사 대상인지 출력에 남아야 한다
     assert "K-IFRS 1108 영업부문 · 외부감사 대상" in out
     assert "외부감사 대상 아님" in out
-    assert "**연결**" in out and "**별도**" in out
+    # by_trade 는 II 매출실적표라 정의상 늘 별도 → 라벨에 못박아도 된다.
+    # by_region 은 회사마다 갈리므로 **라벨이 아니라 노드**가 싣는다.
+    assert "**별도**" in out                      # by_trade 라벨
+    assert "연결 재무제표 주석 기준" in out          # by_region 노드에서 온 값
     assert "단일부문 선언" in out and "전력기기" in out and "국내" in out
     assert "자가검산: 단위 백만원" in out
 
@@ -374,6 +378,22 @@ def test_origin_line_is_omitted_when_the_parser_does_not_know():
                              "source_location": None},
                  available=["by_segment"]))
     assert "원문 위치:" not in out
+
+
+def test_region_axis_says_whether_it_read_consolidated_or_separate():
+    """출처 라벨에 「연결 기준」을 못박으면 별도 절을 읽고도 연결이라 말한다
+    (실측 95건 중 5건: 대웅제약·코오롱글로벌·한글과컴퓨터·디에이치오토웨어)."""
+    from open_proxy_mcp.services.business_details import _REVENUE_AXIS_SOURCE
+    from open_proxy_mcp.tools.business_details import _render as _r
+    # 라벨에 기준을 못박지 않는다 — 실제 기준은 노드가 싣는다
+    assert "연결" not in _REVENUE_AXIS_SOURCE["by_region"]
+    assert "고객 소재지" not in _REVENUE_AXIS_SOURCE["by_region"]
+    out = _r(_rb(geo={"status": "SUCCESS", "unit": "백만원", "basis": "별도",
+                      "basis_conflict": "이 표는 별도 재무제표 주석에서 읽었습니다.",
+                      "items": [{"name": "외국", "revenue": 3_147_338}]},
+                 available=["by_region"]))
+    assert "별도 재무제표 주석 기준" in out
+    assert "별도 재무제표 주석에서 읽었습니다" in out
 
 
 def test_only_segment_axis_carries_profit():

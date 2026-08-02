@@ -172,6 +172,12 @@ def _geo_lines(node: dict, h: str) -> list[str]:
     items = node.get("items") or []
     L: list[str] = []
     if items:
+        # 이 표가 연결인지 별도인지 **표보다 먼저** 밝힌다 — 종전엔 출처 라벨에 「연결 기준」이
+        # 하드코딩돼 별도 절을 읽고도 연결이라 말했다(실측 95건 중 5건).
+        if node.get("basis"):
+            L.append(f"\n_{node['basis']} 재무제표 주석 기준_")
+        if node.get("basis_conflict"):
+            L.append(f"> {node['basis_conflict']}")
         # 해외비중을 **표보다 먼저** — 단위가 약분돼 단위 미상일 때도 맞는 유일한 지표다.
         if node.get("foreign_share_pct") is not None:
             L.append(f"\n**해외 매출 비중 {node['foreign_share_pct']}%**"

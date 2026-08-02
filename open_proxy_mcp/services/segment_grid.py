@@ -607,7 +607,37 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
             break
     if out["geo"] is None and geo_md_fallback is not None:
         out["geo"] = geo_md_fallback          # 표준 사다리 2단: 정형 실패 → 원문 마크다운
+    if out["geo"] is not None:
+        _mark_basis(out["geo"], full_html)
     return out
+
+
+def _mark_basis(geo: dict, full_html: str) -> None:
+    """이 지역표가 **연결인지 별도인지** 밝힌다(in place).
+
+    종전엔 출력 라벨에 「연결 기준」이 하드코딩돼 있어, 별도 절을 읽고도 연결이라고
+    말했다(실측 95건 중 5건). 창 순서는 이미 연결이 앞인데도 그렇게 되는 이유는,
+    연결 절이 정형에 실패하면 루프가 계속 돌아 **뒤의 별도 절이 정형에 성공하면 그게
+    채택**되기 때문이다. 순서를 바꿔도 안 고쳐지고, 값을 버리면 후퇴다.
+    그래서 값은 그대로 두되 **무엇을 읽었는지 밝히고, 연결이 있는데 별도를 읽었으면 알린다**.
+
+    판별은 XBRL 코드(NT_C=연결 / NT_S=별도)로 한다 — 실측 84건에서 코드와 절 제목이
+    어긋난 경우가 0건이라 코드를 신뢰해도 안전하다. 코드가 없는 서식(viewer 폴백 등)은
+    지어내지 않고 「미상」으로 둔다.
+    """
+    loc = geo.get("source_location") or {}
+    m = re.search(r"\[(NT_[CS]_[^\]]+)\]", loc.get("note_section") or "")
+    code = m.group(1) if m else ""
+    geo["basis"] = ("연결" if code.startswith("NT_C")
+                    else "별도" if code.startswith("NT_S") else "미상")
+    if geo["basis"] != "별도":
+        return
+    codes = {k for k, _t, _s, _e in _note_sections(full_html)}
+    if any(k.startswith("NT_C") and _GEO_XBRL_RE.search(k) for k in codes):
+        geo["basis_conflict"] = (
+            "이 표는 **별도** 재무제표 주석에서 읽었습니다. 같은 보고서에 연결 기준 지역 "
+            "정보도 있으나 표를 읽지 못했습니다 — 연결 기준 값이 필요하면 원문을 직접 "
+            "확인하세요.")
 
 
 def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor: str,
