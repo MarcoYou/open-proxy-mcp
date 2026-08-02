@@ -408,3 +408,32 @@ def test_geo_table_with_an_elimination_row_is_still_read():
     # 첫 합계행(「지역 합계」)을 잡아야 항목합과 검산이 맞는다
     assert p["excess"] == [1_183_148_557]
     assert sum(s["revenue"] for s in p["segments"]) == p["excess"][-1]
+
+
+def test_outside_segment_note_is_not_triggered_by_unrelated_text():
+    """「부문 주석 밖에 지역 표지가 있다」를 문서 전체 단어 검색으로 판정하면 헛짚는다.
+
+    정기보고서는 수백만 자라 표지 어휘가 엉뚱한 맥락에서 얼마든지 나온다.
+    실측 6건 중 5건이 오탐이었다 — 위험관리 주석의 신용위험 익스포져 표(키움증권
+    「지역 합계」) · 회사 주소(도이치모터스 「본사소재지 :」) · **없다는 선언**
+    (신세계푸드 「지역별 정보는 산출하지 않습니다」).
+    절 단위로 제외하면 진짜(롯데칠성 — 회계정책 절의 「8개의 주요지역[대한민국(본사
+    소재지 국가), 필리핀…]」 서술)까지 죽으므로 문맥으로 거른다.
+    전수 304건 회귀: 오탐 3건만 not_disclosed 로 이동 · 다른 판정 변화 0.
+    """
+    from open_proxy_mcp.services.segment_grid import _geo_mark_outside_is_real
+
+    # ① 없다고 선언한 경우 — 다른 절을 찾아보라고 하면 정반대 답이 된다
+    assert not _geo_mark_outside_is_real(
+        "매출 구성은 다음과 같습니다. 지역별 정보는 산출하지 않습니다.")
+    # ② 위험관리 표의 「지역 합계」 — 금융자산이지 매출이 아니다
+    assert not _geo_mark_outside_is_real(
+        "신용위험 익스포져 금융자산 지역 지역 합계 한국 기타 15,727,478,617")
+    # ③ 회사 주소
+    assert not _geo_mark_outside_is_real(
+        "본사소재지 : 경기도 용인시 기흥구 흥덕1로 13 타워동 임차 부동산")
+    # ④ 진짜 — 부문 문맥 안의 지역 서술
+    assert _geo_mark_outside_is_real(
+        "부문이익은 최고의사결정자에게 보고되는 측정치이며, 연결회사는 당기말 현재 "
+        "8개의 주요지역[대한민국(본사 소재지 국가), 필리핀, 파키스탄, 미국]에서 "
+        "매출을 인식하고 있습니다.")

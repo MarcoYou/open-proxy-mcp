@@ -480,6 +480,38 @@ _GEO_SECTION_RE = re.compile(r"부문|세그먼트|수익|매출|고객과의\s*
 _GEO_MARK_RE = re.compile(r"본사\s*소재지|지역\s*합계|지역별\s*정보|지역에\s*대한\s*정보|"
                           r"고객의?\s*소재지\s*국가|소재지별\s*수익")
 
+# ── 「부문 주석 밖에 지역 표지가 있다」 판정을 좁히는 장치 (260802) ─────────────
+# 위 표지를 **문서 전체**에서 찾으면 정기보고서가 수백만 자라 엉뚱한 데서 걸린다.
+# 실측 6건 중 5건이 오탐이었다:
+#   키움증권   「지역 합계」 = 위험관리 주석의 신용위험 익스포져 표(금융자산 한국/기타)
+#   도이치모터스「본사소재지 :」 = 그냥 회사 주소
+#   신세계푸드 「지역별 정보는 **산출하지 않습니다**」 = 없다는 선언인데 있다는 신호로 읽힘
+# 절 단위로 제외하면 진짜(롯데칠성 — 회계정책 절에 「8개의 주요지역[대한민국(본사 소재지
+# 국가), 필리핀…]」 서술)까지 죽으므로, 절이 아니라 **문맥**으로 거른다.
+
+# ① 원문이 스스로 「없다」고 밝힌 경우 — 다른 절을 찾아보라고 안내하면 정반대 답이 된다
+_GEO_ABSENT_DECL_RE = re.compile(
+    r"지역별?\s*(정보|현황|매출|수익)[^.。\n]{0,20}"
+    r"(산출하지\s*않|기재하지\s*않|작성하지\s*않|해당\s*사항\s*없|공시하지\s*않)")
+# ② 표지 주변에 매출·부문 문맥이 있어야 지역 **수익** 정보다
+_GEO_CTX_RE = re.compile(r"매출|수익|영업부문|부문이익|외부고객|최고(영업)?의사결정자")
+# ③ 주소·위험관리·부동산 문맥이면 지역 수익과 무관하다
+_GEO_NOISE_RE = re.compile(
+    r"소재지\s*[:：]|위험\s*익스포|신용위험|금융자산|임차|전대|㎡|번지|[가-힣]+시\s[가-힣]+구")
+_GEO_CTX_WINDOW = 400
+
+
+def _geo_mark_outside_is_real(full_html: str) -> bool:
+    """부문 주석 밖 지역 표지가 **진짜 지역 수익 정보**인지."""
+    if _GEO_ABSENT_DECL_RE.search(full_html):
+        return False                      # 원문이 없다고 선언했다
+    for m in _GEO_MARK_RE.finditer(full_html):
+        w = re.sub(r"<[^>]+>", " ",
+                   full_html[max(0, m.start() - _GEO_CTX_WINDOW):m.start() + _GEO_CTX_WINDOW])
+        if _GEO_CTX_RE.search(w) and not _GEO_NOISE_RE.search(w):
+            return True
+    return False
+
 
 def absence_signal(full_html: str) -> dict:
     """미검출이 「진짜 없음」인가 「있는데 못 뽑음」인가 — 원문 신호로 가른다.
@@ -503,7 +535,7 @@ def absence_signal(full_html: str) -> dict:
                 "absence_detail": "부문 주석에 지역 표지가 있는데 표를 읽지 못했습니다 — "
                                   "공시는 되어 있으니 원문을 직접 확인하세요.",
                 "absence_sections": [f"{t} [{k}]" for k, t, _s, _e in blocks[:3]]}
-    if _GEO_MARK_RE.search(full_html or ""):
+    if _geo_mark_outside_is_real(full_html or ""):
         return {"absence_kind": "outside_segment_note",
                 "absence_detail": "부문 주석 밖에 지역 표지가 있습니다 — 다른 절에 실렸을 수 있습니다."}
     return {"absence_kind": "not_disclosed",
