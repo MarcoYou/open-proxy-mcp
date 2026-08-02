@@ -218,8 +218,10 @@ _GEO_CAPTION_RE = re.compile(r"지역|국가|시장\s*별|권역")
 # 부문 앵커가 없을 때 쓰는 지역 전용 앵커 — 「지역에 대한 정보」류 소제목이나
 # 표 머리에만 등장하는 「본사 소재지 국가」를 잡는다(K-IFRS 1108 entity-wide 표기).
 _GEO_ANCHOR_RE = re.compile(r"지역(?:별|에)\s*(?:대한\s*)?정보|본사\s*소재지\s*국가|지역\s*합계")
-# 표 개수 상한(비용 가드) — 후보 신호가 있는 표만 센다
-_EW_MAX_ATTEMPTS = 14
+# 표 개수 상한(비용 가드) — 후보 신호가 있는 표만 센다.
+# 14 는 과했다: 현대차 「37. 부문정보」 절 하나가 435KB 라 지역표가 14개 뒤로 밀린다.
+# 전수 파싱 비용이 중앙 80ms·최대 615ms(DART 콜 하나가 1~3초)라 넉넉히 잡아도 된다.
+_EW_MAX_ATTEMPTS = 60
 # 지역표 전용 길이 하한 — 데이터가 한 행뿐이라 작다(실측 최소 493자)
 _EW_GEO_MIN_CHARS = 350
 _GEO_HEAD_RE = re.compile(r"본사\s*소재지|외\s*국|국\s*외|북미|미주|아시아|유럽|중동|중남미|지역\s*합계")
@@ -276,6 +278,50 @@ def _foreign_share(items: list[dict]) -> dict:
 # DART XML 의 표 셀은 `<TE>`(table entry) 다 — `<TD>` 만 찾으면 데이터 행이 통째로 빈다.
 # 머리 행만 `<TH>` 라 헤더는 읽히고 본문은 안 읽혀 「항목 0개」로 보였다.
 _CELL_TAGS = ["td", "th", "te", "tu"]
+
+
+def _read_column_oriented_geo(chunk: str) -> dict | None:
+    """지역이 **열**에 오는 표를 머리↔값 인덱스로 직접 읽는다.
+
+    부문표 파서는 항목 2개 이상을 전제해서, 지역이 하나뿐인 표
+    (동우팜투테이블 「본사 소재지 국가 | 325,458」)는 항목 0개로 나와 통째로 버려졌다.
+    그런데 그건 정보가 없는 게 아니라 **「전량 국내」라는 확정 정보**다.
+    """
+    from bs4 import BeautifulSoup
+
+    try:
+        t = BeautifulSoup(chunk, "lxml").find("table")
+    except Exception:
+        return None
+    if t is None:
+        return None
+    head, body = [], []
+    for r in t.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in r.find_all(_CELL_TAGS)]
+        if any(_row_num(c) is not None for c in cells):
+            body.append(cells)
+        else:
+            head.append(cells)
+    if not head or not body:
+        return None
+    leaves = [h for h in head[-1] if h] or [h for row in head for h in row if h]
+    row = body[0]
+    regions, total = [], None
+    vals = [(i, _row_num(c)) for i, c in enumerate(row) if _row_num(c) is not None]
+    # 값 열과 지역 머리를 **개수로** 맞춘다(라벨 칸 offset 흡수)
+    labs = [h for h in leaves if REGION.match(_region_key(h)) or TOTAL.search(h)]
+    if len(labs) != len(vals) or not labs:
+        return None
+    for (idx, v), lab in zip(vals, labs):
+        if TOTAL.search(lab):
+            total = v
+        elif REGION.match(_region_key(lab)):
+            regions.append({"name": lab.strip(), "revenue": float(v)})
+    if not regions:
+        return None
+    metric = next((c for c in row if _row_num(c) is None and c.strip()), "수익")
+    return {"segments": regions, "excess": [total] if total is not None else [],
+            "revenue_metric": metric, "unit": "", "_col_oriented": True}
 
 
 def _read_row_oriented_geo(chunk: str) -> dict | None:
@@ -381,6 +427,40 @@ _GEO_XBRL_RE = re.compile(r"D871|D831|D[A-Z]?804")
 _GEO_SECTION_RE = re.compile(r"부문|세그먼트|수익|매출|고객과의\s*계약|영업\s*수익|보험위험|지역")
 
 
+_GEO_MARK_RE = re.compile(r"본사\s*소재지|지역\s*합계|지역별\s*정보|지역에\s*대한\s*정보|"
+                          r"고객의?\s*소재지|외부고객으로부터의?\s*수익")
+
+
+def absence_signal(full_html: str) -> dict:
+    """미검출이 「진짜 없음」인가 「있는데 못 뽑음」인가 — 원문 신호로 가른다.
+
+    `NOT_COLLECTED` 만 내면 읽는 쪽은 회사가 공시를 안 한 건지 우리가 못 읽은 건지
+    알 수 없다. 세 신호로 갈라 밝힌다(실측 75건):
+
+      부문/수익 XBRL 블록 자체가 없음  45.3% → 부문 주석 미작성 = **확정적 부재**
+      블록은 있는데 지역 표지 없음      4.0% → 부문 주석에 지역 정보 없음 = 확정적 부재
+      블록에 지역 표지가 있는데 미검출   8.0% → **우리 추출 실패**(고칠 대상)
+    """
+    secs = _note_sections(full_html or "")
+    blocks = [s for s in secs if _GEO_XBRL_RE.search(s[0])]
+    if not blocks:
+        return {"absence_kind": "no_segment_note",
+                "absence_detail": "영업부문·수익 주석(K-IFRS 1108/1115) 자체가 없습니다 — "
+                                  "단일 부문이라 작성을 생략한 것으로 보입니다. "
+                                  "지역별 매출이 공시되지 않은 것이지 파싱 실패가 아닙니다."}
+    if any(_GEO_MARK_RE.search(full_html[s:e]) for _k, _t, s, e in blocks):
+        return {"absence_kind": "extraction_failed",
+                "absence_detail": "부문 주석에 지역 표지가 있는데 표를 읽지 못했습니다 — "
+                                  "공시는 되어 있으니 원문을 직접 확인하세요.",
+                "absence_sections": [f"{t} [{k}]" for k, t, _s, _e in blocks[:3]]}
+    if _GEO_MARK_RE.search(full_html or ""):
+        return {"absence_kind": "outside_segment_note",
+                "absence_detail": "부문 주석 밖에 지역 표지가 있습니다 — 다른 절에 실렸을 수 있습니다."}
+    return {"absence_kind": "not_disclosed",
+            "absence_detail": "부문 주석은 있으나 지역별 정보를 싣지 않았습니다 — "
+                              "공시되지 않은 것이지 파싱 실패가 아닙니다."}
+
+
 def _note_sections(html: str) -> list[tuple[str, str, int, int]]:
     """주석 절 목록 → [(키, 제목, 시작, 끝)]. 없으면 빈 목록.
 
@@ -470,7 +550,9 @@ def scan_entity_wide(full_html: str, anchor: str, geo_names: set,
     for win_start, win_end, win_title in _scan_windows(full_html, anchor):
         got = _scan_window(full_html, win_start, win_end, win_title, anchor,
                            geo_names, out, geo_md_fallback)
-        geo_md_fallback = got
+        # 뒤 창이 폴백을 못 찾아 None 을 돌려주면 **앞 창에서 잡은 폴백이 지워졌다** —
+        # 현대차는 단위 미상으로 강등된 원문 표가 있었는데 NOT_COLLECTED 로 나왔다.
+        geo_md_fallback = got or geo_md_fallback
         if out["geo"] is not None:
             break
     if out["geo"] is None and geo_md_fallback is not None:
@@ -484,7 +566,11 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
     attempts = 0
     for m in _TABLE_RE.finditer(full_html, pos):
         # 창 안에서만 센다 — 절로 좁히면 볼 표가 중앙 248 → 9개(28배)로 준다.
-        if attempts >= _EW_MAX_ATTEMPTS or m.start() >= win_end or m.start() > pos + 150000:
+        # 150,000자 제한은 앵커 하나로 훑던 시절의 잔재다 — 창 경계(win_end)가 있으면
+        # 그것이 범위다. 현대차 「37. 부문정보」 절은 435,866자라 150KB 에서 끊겨
+        # 지역표에 닿지 못했다. 창이 없을 때(문서 전체 폴백)만 옛 제한을 유지한다.
+        limit = win_end if win_title else min(win_end, pos + 150000)
+        if attempts >= _EW_MAX_ATTEMPTS or m.start() >= limit:
             break
         chunk = m.group(0)
         # 길이 하한은 잡표를 거르는 장치인데 **entity-wide 지역표는 원래 작다** —
@@ -501,15 +587,27 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
             # 부문표 파서는 **열 지향**(지역이 컬럼)만 읽는다. 지역이 행에 오는 서식
             # (LG화학 「지역 | 한국 | 총부문수익 | 비유동자산」)에서는 항목이 0개로
             # 나와 표를 통째로 버렸다 — 앵커는 맞았는데 표에서 걸린 것.
-            p = _read_row_oriented_geo(chunk)
-        if not p or len(p["segments"]) < 2:
+            p = _read_row_oriented_geo(chunk) or _read_column_oriented_geo(chunk)
+        if p and len(p["segments"]) == 1 and _GEO_HEAD_RE.search(chunk[:4000]):
+            # 지역이 **하나뿐**인 표(동우팜투테이블 「본사 소재지 국가 | 325,458」)는
+            # 정보가 없는 게 아니라 **「전량 국내」라는 확정 정보**다. 2개 이상 게이트에
+            # 걸려 통째로 버려지고 있었다 — 해외비중 0%를 낼 수 있는 케이스다.
+            if _DOMESTIC_RE.match(_region_key(p["segments"][0]["name"])):
+                p = {**p, "excess": [p["segments"][0]["revenue"]], "_single_region": True}
+        if not p or len(p["segments"]) < 1:
+            continue
+        if len(p["segments"]) < 2 and not p.get("_single_region"):
             continue
         # ── 분류 먼저: 지역표인가 (게이트 탈락해도 지역표면 원문 폴백 대상) ──
         names_norm = [re.sub(r"[\s()]", "", s["name"]) for s in p["segments"]]
-        geo_cnt = sum(1 for n in names_norm if n in geo_names)
+        # 호출측이 준 `geo_names` 는 좁다(「본사 소재지 국가」·「북미」·「아시아」가 없다) —
+        # 현대차는 지역 4개를 정확히 뽑고도 「지역표가 아니다」로 분류돼 버려졌다.
+        # 모듈 안의 넓은 지역 정규식을 함께 본다.
+        geo_cnt = sum(1 for n in names_norm
+                      if n in geo_names or REGION.match(_region_key(n)))
         caption = _caption_before(full_html, m.start())
         is_geo = geo_cnt >= max(2, (len(names_norm) + 1) // 2) or (
-            geo_cnt >= 1 and bool(_GEO_CAPTION_RE.search(caption)))
+            geo_cnt >= 1 and bool(_GEO_CAPTION_RE.search(caption))) or bool(p.get("_single_region"))
         is_product = False    # v2로 이연 (위 NOTE)
 
         # ── 정형 게이트 (표준 계약: 앵커 → 정형+검산 → 원문 마크다운 → 명시적 부재) ──
@@ -590,6 +688,16 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
             payload["extraction_status"] = "SUCCESS_NO_TOTAL_COLUMN"
         if is_geo:
             payload.update(_foreign_share(payload["items"]))
+        if p.get("_single_region"):
+            payload["reconciliation"] = "지역이 하나(본사 소재지 국가)뿐 — 전량 국내 매출"
+            payload["note"] = ("표에 지역이 하나만 있습니다 — 해외 매출이 0이라는 뜻입니다"
+                               "(정보가 없는 것이 아닙니다).")
+        # 비유동자산 지역별이 같은 표에 있으면 함께 — 「수출형 vs 현지생산형」 판별자다.
+        # 해외 수익이 큰데 해외 자산이 0이면 수출형, 자산도 크면 현지 생산·판매다.
+        if p.get("_assets_by_region"):
+            payload["assets_by_region"] = p["_assets_by_region"]
+            payload["assets_note"] = ("비유동자산 지역별 — 해외 수익이 큰데 해외 자산이 0이면 "
+                                      "수출형, 자산도 크면 현지 생산·판매입니다(K-IFRS 1108).")
         if is_geo and out["geo"] is None:
             out["geo"] = payload
         elif is_product and out["product"] is None:

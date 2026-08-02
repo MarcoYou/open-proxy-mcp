@@ -1275,6 +1275,69 @@ async def _fetch_getdoc(client, rcept_no: str) -> dict:
             "note_html": html, "biz_html": _biz_html_region(html), "toc": [{"lvl": 1, "text": biz}]}
 
 
+_EXP_UNITS = {"원": 1, "천원": 1_000, "백만원": 1_000_000, "십억원": 1_000_000_000,
+              "억원": 100_000_000}
+_EXP_NUM = re.compile(r"^-?\(?\d{1,3}(?:,\d{3})+\)?$")
+_EXP_NOISE = re.compile(r"특허|디자인|실용신안|상\s*표\s*권|소\s*재\s*지|연구")
+
+
+def _export_from_biz_table(biz_html: str) -> dict | None:
+    """II 매출실적표의 수출/내수 — {부문 × 품목}마다 반복되는 행을 전부 합산.
+
+    III 지역별과 **다른 지표**다(별도 기준 수출 vs 연결 기준 외국 수익). 그래도 함께
+    싣는 이유는 상호보완이기 때문이다 — 실측 75건 중 III 부문 주석이 없는 34건의
+    **31건이 II 에 수출 표기**를 갖는다. 두 값을 더하거나 비교하면 안 된다
+    (현대차 1.4x·대한제분 0.5x 로 방향이 양쪽으로 갈린다).
+
+    현대차는 수출 행이 품목마다 반복된다(승용 10.8조 + RV 26.9조 + …) — 첫 행만
+    읽으면 매출을 크게 과소평가한다.
+    """
+    if not biz_html:
+        return None
+    from bs4 import BeautifulSoup
+    try:
+        soup = BeautifulSoup(biz_html, "lxml")
+    except Exception:
+        return None
+    for t in soup.find_all("table"):
+        blob = t.get_text(" ", strip=True)
+        if not re.search(r"매출|수익", blob[:400]) or _EXP_NOISE.search(blob[:300]):
+            continue
+        if not re.search(r"수\s*출", blob):
+            continue
+        node = t.find_previous(string=re.compile(r"단위"))
+        um = re.search(r"단위\s*[:：]?\s*([가-힣]*원)", str(node or ""))
+        unit = _EXP_UNITS.get(um.group(1), 1_000_000) if um else 1_000_000
+        exp = dom = 0
+        rows = 0
+        for r in t.find_all("tr"):
+            cells = [c.get_text(" ", strip=True) for c in r.find_all(["td", "th", "te", "tu"])]
+            for i, cl in enumerate(cells):
+                k = re.sub(r"\s+", "", cl or "")
+                if k not in ("수출", "국내", "내수"):
+                    continue
+                nums = [c for c in cells[i + 1:] if _EXP_NUM.match(c.replace(" ", ""))]
+                if not nums:
+                    continue
+                v = int(nums[0].replace(" ", "").strip("()").replace(",", ""))
+                if k == "수출":
+                    exp += v
+                    rows += 1
+                else:
+                    dom += v
+                break
+        if rows:
+            tot = exp + dom
+            return {"export_krw": exp * unit, "domestic_krw": dom * unit,
+                    "export_share_pct": round(exp / tot * 100, 1) if tot else None,
+                    "rows_summed": rows,
+                    "basis": "II. 사업의 내용 4. 매출 및 수주상황 — 매출실적표(별도 기준 수출)",
+                    "caveat": "III 주석의 지역별 수익과 **다른 지표**입니다 — 더하거나 "
+                              "비교하지 마세요(별도 수출 vs 연결 외국 수익).",
+                    }
+    return None
+
+
 async def _fetch_viewer_sec(client, rcept_no: str) -> dict:
     """get_document 실패(014 등) 폴백 — viewer 웹fetch로 biz+note 받아 _fetch_getdoc 호환 sec 구성.
     KB금융·삼성화재류(사업보고서 document.xml 부재). 웹콜이라 느리지만 극소수 firm."""
@@ -1617,7 +1680,33 @@ async def build_business_details_payload(company_query: str, period: str = "late
             except Exception:
                 _ew = {"geo": None, "product": None}
         if "geo_revenue" in want:
-            data["geo_revenue"] = _ew["geo"] or dict(_ew_base)
+            _geo = _ew["geo"] or dict(_ew_base)
+            if not _ew["geo"]:
+                # 「없는가 vs 못 뽑았는가」를 밝힌다 — NOT_COLLECTED 만 내면 읽는 쪽이
+                # 회사가 공시를 안 한 건지 우리가 못 읽은 건지 구분할 수 없다.
+                try:
+                    from open_proxy_mcp.services.segment_grid import absence_signal
+                    _geo.update(absence_signal(sec.get("note_html", "")))
+                except Exception:
+                    pass
+                # 기본 period="latest" 는 분기보고서를 고를 수 있는데, 분·반기는 지역별
+                # 정보를 생략하는 회사가 있다(자본시장법 시행령 §170). 「없다」로만 내면
+                # 사업보고서엔 있는 줄 모른다 — 동우팜투테이블 실측(분기 없음·사업 있음).
+                if _geo.get("absence_kind") in ("not_disclosed", "no_segment_note") \
+                        and re.search(r"분기|반기", rept.get("report_nm", "") or ""):
+                    _geo["absence_hint"] = (
+                        f"이 값은 {rept.get('report_nm')} 기준입니다 — 분·반기는 지역별 정보를 "
+                        "생략하는 회사가 있습니다. 사업보고서에는 있을 수 있으니 "
+                        "reprt_code='11011'(사업보고서)로 다시 조회해 보세요.")
+            # II 매출실적표의 수출/내수를 **병렬로** 싣는다 — III 지역별과 상호보완이다.
+            # 실측 75건: III 부문 주석이 없는 34건 중 **31건이 II 에 수출 표기**를 갖는다.
+            # ⚠ 두 값을 더하거나 비교하지 말 것 — 별도 기준 수출 vs 연결 기준 외국 수익이라
+            #    현대차 1.4x·대한제분 0.5x 로 **방향이 양쪽으로 갈린다**(현지생산 vs 내부거래 제거).
+            _exp = _export_from_biz_table(_biz_html_region(sec.get("note_html", ""))
+                                          or sec.get("biz_html", ""))
+            if _exp:
+                _geo["ii_export_domestic"] = _exp
+            data["geo_revenue"] = _geo
     # 추가 필드: markdown-primary(소절 원문 마크다운 → 호출측 AI 추출). biz 텍스트=hint, full html=md.
     from open_proxy_mcp.services import biz_fields as _bf
     _biz_t = sec.get("biz_text", "")
