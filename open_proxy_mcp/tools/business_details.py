@@ -71,8 +71,13 @@ def _scaled(v, div, dec):
 
 _AXIS_KO = {"by_segment": "부문별", "by_product": "제품별",
             "by_region": "지역별", "by_trade": "수출/내수"}
+# 폼 판별 결과는 내부 enum 이다 — 제목에 `dual`·`standard7` 을 그대로 찍으면 읽는 사람은 뜻을 모른다.
+_FORM_KO = {"standard7": "일반(제조·서비스) 서식", "financial5": "금융업 서식",
+            "reit": "부동산투자회사 서식", "dual": "제조·서비스 + 금융업 이중 서식"}
 # 「실패」라는 말은 쓰지 않는다 — 대부분은 오류가 아니라 '공시에 없거나 읽을 수 없는 형태'다.
-_ABSENT_KO = {"NOT_APPLICABLE": "해당 없음", "NOT_COLLECTED": "공시에 미기재"}
+_ABSENT_KO = {"NOT_APPLICABLE": "해당 없음", "NOT_COLLECTED": "공시에 미기재",
+              # 폼 게이트로 걸러진 것은 우리가 못 읽은 게 아니다 — 「확인 불가」로 내면 거짓말이 된다
+              "UNSUPPORTED_FORM": "해당 없음"}
 
 
 def _absent(node: dict, what: str) -> list[str]:
@@ -184,7 +189,8 @@ def _geo_lines(node: dict, h: str) -> list[str]:
         if kind:
             mark = {"no_segment_note": "공시 없음", "not_disclosed": "공시 없음",
                     "extraction_failed": "⚠ 추출 실패", "outside_segment_note": "위치 다름"}
-            L.append(f"\n지역별 수익: **{mark.get(kind, kind)}** — {node.get('absence_detail','')}")
+            # 모르는 kind 를 그대로 굵게 찍으면 내부 코드가 그대로 나간다(`get(k, k)` 금지).
+            L.append(f"\n지역별 수익: **{mark.get(kind, '확인 불가')}** — {node.get('absence_detail','')}")
             if node.get("absence_sections"):
                 L.append(f"_해당 절: {' · '.join(node['absence_sections'])}_")
             if node.get("absence_hint"):
@@ -228,7 +234,9 @@ def _render(p: dict) -> str:
         return f"**{subj}** — {'; '.join(p.get('warnings') or ['정기보고서 없음'])}"
     L = []
     rep = d.get("report", {})
-    L.append(f"## {subj} — 사업부문 상세  ({rep.get('report_nm','')}, {d.get('form_type','')})")
+    _form = d.get("form_type", "")
+    L.append(f"## {subj} — 사업부문 상세  ({rep.get('report_nm','')}"
+             + (f", {_FORM_KO[_form]}" if _form in _FORM_KO else "") + ")")
 
     _seg_head = _seg_lines(d.get("segments"), "###") if d.get("segments") else []
     L.extend(_seg_head)

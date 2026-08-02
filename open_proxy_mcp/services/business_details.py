@@ -461,6 +461,9 @@ def _clean_segments(segments: list[dict]) -> tuple[list[dict], bool]:
 
 
 _SEG_CONCEPT = "부문별_보고"
+# 폼 게이트(금융·REIT) 문면 — 코드(form_*_not_supported_v1)는 na_code 로만 남긴다.
+# 네 필드(부문·연구개발·수주·주요고객)가 함께 쓰므로 항목명을 박지 않는다 — 라벨이 이미 말한다.
+_UNSUPPORTED_FORM_KO = "금융·REIT 서식에는 이 항목의 표가 없습니다(영업의 현황·재무건전성으로 공시)"
 _TG_OPEN = re.compile(r"<TABLE-GROUP\b[^>]*>", re.I)
 _TG_TOK = re.compile(r"<(/?)TABLE-GROUP\b", re.I)
 _TITLE_IN = re.compile(r"<TITLE[^>]*>(.*?)</TITLE>", re.S | re.I)
@@ -597,6 +600,50 @@ def _code_path_acceptable(sp: "SegmentProfit", title: str) -> str:
     return ""
 
 
+# 식별자 경로가 남기는 사유 코드 → 사용자 문면. **코드는 na_code(진단)에만 남긴다.**
+# 260802 실측: `map_not_loaded` 가 「…아래 원문에서 직접 확인하세요 map_not_loaded」처럼
+# 사람이 읽는 문장 끝에 그대로 붙어 나갔다(삼성증권 revenue_breakdown, 67ecb5ce 이후 상시).
+# 모르는 코드는 **빈 문자열**로 떨군다 — `get(code, code)` 로 두면 새 코드가 그대로 다시 샌다.
+_CODE_REASON_KO = {
+    "no_html": "부문 주석 원문을 받지 못했습니다",
+    "map_not_loaded": "부문 좌표 맵을 불러오지 못했습니다",
+    "concept_missing": "부문 좌표 맵에 영업부문 항목이 없습니다",
+    "code_not_present": "원문에 표준 서식의 부문 표 식별자가 없습니다",
+    "empty_region": "식별자로 짚은 구간이 비어 있습니다",
+    "empty_render": "식별자로 짚은 구간을 표로 옮기지 못했습니다",
+    "code:consolidated": "연결 기준 부문 주석 구간을 짚었습니다",
+    "code:separate": "별도 기준 부문 주석 구간을 짚었습니다",
+}
+# 식별자로 표를 찾고도 채택하지 않은 이유 — 이쪽은 원문에 대한 정보라 읽는 사람에게 쓸모가 있다.
+_CODE_REJECT_KO = {
+    "parse_failed": "표를 값으로 읽지 못했습니다",
+    "no_segments": "부문명을 하나도 얻지 못했습니다",
+    "name_pattern": "부문명 자리에 단위·거래처 표기가 들어 있습니다",
+    "name_is_title": "제목 조각이 부문명으로 잡혔습니다",
+    "geographic_only": "사업부문이 아니라 지역 구분이었습니다",
+    "single_segment_unreliable": "부문이 하나뿐이라 그대로 믿을 수 없었습니다",
+}
+
+
+def code_reason_ko(code: str) -> str:
+    """식별자 경로 사유 코드 → 한국어 한 문장. 모르는 코드는 ""(문장에 코드를 흘리지 않는다).
+
+    합성 코드 두 가지를 함께 푼다 — `title_mismatch:{제목}` · `{base}/rejected:{거부사유}`.
+    """
+    code = (code or "").strip()
+    if not code:
+        return ""
+    base, sep, rej = code.partition("/rejected:")
+    if sep:
+        why = _CODE_REJECT_KO.get(rej, "")
+        return "식별자로 찾은 표를 채택하지 않았습니다" + (f" — {why}" if why else "")
+    if base.startswith("title_mismatch:"):
+        title = base.split(":", 1)[1].strip()
+        return ("표준 서식 식별자가 부문 표가 아닌 구간"
+                + (f"(「{title}」)" if title else "") + "에 붙어 있습니다")
+    return _CODE_REASON_KO.get(base, "")
+
+
 _MD_NOTE = ("아래는 영업부문 주석(K-IFRS 1108) 원문을 마크다운으로 옮긴 것입니다. "
             "여기서 사업부문별 매출·영업이익을 읽으세요. 합계/조정/부문간/미배분 열·행은 제외.")
 
@@ -649,7 +696,8 @@ def classify_absence(note_text: str, biz_text: str = "") -> Optional[tuple[str, 
 
 
 def build_segment_fallback(full_html: str, na_reason: str = "",
-                           note_text: str = "", biz_text: str = "") -> tuple[dict, str]:
+                           note_text: str = "", biz_text: str = "",
+                           na_code: str = "") -> tuple[dict, str]:
     """정형 파싱이 실패했을 때 무엇을 반환할지 결정. 반환 (segment dict, warning).
 
     설계(260718 사용자): '어느 표인지' 점수매기지 말고 영업부문 주석 구간을 통째로 마크다운으로
@@ -677,7 +725,7 @@ def build_segment_fallback(full_html: str, na_reason: str = "",
     cands = _find_cands(full_html)
     if cands:
         biz_md = render_biz_section_markdown(full_html)
-        warn = "segment_profit: 정형 저신뢰 → 원문 마크다운/후보 반환(호출측 추출)"
+        warn = "사업부문: 정형 저신뢰 → 원문 마크다운/후보 반환(호출측 추출)"
         if biz_md and _md_has_data_rows(biz_md):
             return ({"status": "NEEDS_REVIEW", "source": "biz_markdown",
                      "region": "II.사업의 내용", "note": _MD_NOTE,
@@ -692,8 +740,9 @@ def build_segment_fallback(full_html: str, na_reason: str = "",
         st, why = cls
         return ({"status": st, "source": "none", "region_method": md_method, "na_reason": why}, "")
     return ({"status": EXTRACTION_FAILED, "source": "none", "region_method": md_method,
-             "na_reason": na_reason or "사업부문 정보가 공시에 없거나 읽을 수 없는 형태입니다", "na_code": "absent_or_unparseable"},
-            "segment_profit: 부문 구간을 찾지 못했습니다(사유 불명)")
+             "na_reason": na_reason or "사업부문 정보가 공시에 없거나 읽을 수 없는 형태입니다",
+             "na_code": na_code or "absent_or_unparseable"},
+            "사업부문: 부문 구간을 찾지 못했습니다(사유 불명)")
 
 
 def parse_segment_table(anchor: str, region: str, note_source: str = "") -> SegmentProfit:
@@ -811,7 +860,13 @@ def extract_segment_profit(biz_content_text: str, note_full_text: str, note_sour
         spn.source = "note"
         spn.selection_method = method
         if code_reason and method == "text_anchor":
-            spn.na_reason = (spn.na_reason + " " if spn.na_reason else "") + code_reason
+            # 코드는 진단 필드(na_code)로, 문장에는 한국어 문면만 — 260802 `map_not_loaded` 누출.
+            spn.na_code = f"{spn.na_code}+{code_reason}" if spn.na_code else code_reason
+            ko = code_reason_ko(code_reason)
+            if ko:
+                # 괄호로 곁말임을 표시한다 — 안 그러면 「…직접 확인하세요 · 좌표 맵을…」처럼
+                # 행동 안내 뒤에 사유가 매달려 무엇을 하라는 문장인지 흐려진다.
+                spn.na_reason = f"{spn.na_reason} ({ko})" if spn.na_reason else ko
     b_ok = bool(spb and spb.status == OK and spb.segments)
     n_ok = bool(spn and spn.status == OK and spn.segments)
 
@@ -899,7 +954,8 @@ def extract_rnd(biz_content_text: str) -> dict:
                     pass
                 break
     if amount is None and ratio is None:
-        return {"status": NOT_APPLICABLE, "na_reason": "no_rnd_table"}
+        return {"status": NOT_APPLICABLE, "na_reason": "연구개발비 표를 찾지 못했습니다",
+                "na_code": "no_rnd_table"}
     return {"status": OK, "amount": amount, "unit": parse_unit(t[:2000])[0] if amount else None,
             "ratio_to_sales_pct": ratio, "label": lb}
 
@@ -909,12 +965,14 @@ def extract_backlog(biz_content_text: str) -> dict:
     t = biz_content_text or ""
     if re.search(r"수주(에 의한 생산|생산에 의한).{0,20}(아니|없|해당\s*없)", t) or \
        re.search(r"수주\s*상황.{0,60}해당\s*(사항\s*)?없", t):
-        return {"status": NOT_APPLICABLE, "na_reason": "not_order_based"}
+        return {"status": NOT_APPLICABLE, "na_reason": "수주에 의한 생산이 아니라고 공시했습니다",
+                "na_code": "not_order_based"}
     lb, vals = _find_row_values(t, ["수주잔고", "수주잔액", "수주총액"])
     if not vals:
         m = re.search(r"수주\s*(잔고|잔액|총액)", t)
         if not m:
-            return {"status": NOT_APPLICABLE, "na_reason": "no_backlog"}
+            return {"status": NOT_APPLICABLE, "na_reason": "수주잔고 표기가 없습니다",
+                    "na_code": "no_backlog"}
         return {"status": OK, "present": True, "values": None, "note": "수주 언급 존재(표 미파싱)"}
     return {"status": OK, "present": True, "label": lb, "values": vals[:6],
             "unit": parse_unit(t[:3000])[0]}
@@ -929,7 +987,8 @@ def extract_customer_concentration(note_full_text: str) -> dict:
         if p >= 0:
             break
     if p < 0:
-        return {"status": NOT_APPLICABLE, "na_reason": "no_customer_disclosure"}
+        return {"status": NOT_APPLICABLE, "na_reason": "주요 고객에 대한 공시가 없습니다",
+                "na_code": "no_customer_disclosure"}
     region = t[p:p + 2500]
     # 당기 블록만 — 2번째 '(단위'/기간마커에서 절단(주요고객 마커 컷은 쓰지 않음)
     u1 = region.find("(단위")
@@ -948,7 +1007,8 @@ def extract_customer_concentration(note_full_text: str) -> dict:
     if len(vals) >= 2 and vals[-1] != 0 and abs(sum(vals[:-1]) - vals[-1]) <= max(abs(vals[-1]), 1) * 0.02:
         vals = vals[:-1]
     if not flat and not vals:
-        return {"status": NOT_APPLICABLE, "na_reason": "customer_marker_no_data"}
+        return {"status": NOT_APPLICABLE, "na_reason": "주요 고객 표기는 있으나 값을 읽지 못했습니다",
+                "na_code": "customer_marker_no_data"}
     # 이름 개수 기준 zip(이름 있으면) — 초과 값은 버림
     n = len(flat) if flat else min(len(vals), 6)
     customers = [{"customer": flat[i] if i < len(flat) else f"고객{i+1}",
@@ -972,7 +1032,8 @@ def build_details(biz_content_text: str, note_full_text: str, toc: list, note_so
     out = {"form_type": form}
     if form in (FORM_FINANCIAL, FORM_REIT):
         for f in ("segment_profit", "rnd", "backlog", "customer_concentration"):
-            out[f] = {"status": UNSUPPORTED_FORM, "na_reason": f"form_{form}_not_supported_v1"}
+            out[f] = {"status": UNSUPPORTED_FORM, "na_reason": _UNSUPPORTED_FORM_KO,
+                      "na_code": f"form_{form}_not_supported_v1"}
         return out
     out["segment_profit"] = _sp_to_dict(extract_segment_profit(biz_content_text, note_full_text, note_source,
                                                                note_html=note_html))
@@ -1613,15 +1674,15 @@ async def build_business_details_payload(company_query: str, period: str = "late
             sec = await _fetch_viewer_sec(client, latest["rcept_no"])
             rept = latest
             fetch_method = "viewer_fallback"
-            fetch_warn = f"get_document 실패(DART {getattr(last_err, 'status', '?')}) → viewer 폴백"
+            fetch_warn = f"원문 XML 내려받기 실패(DART {getattr(last_err, 'status', '?')}) → 뷰어 폴백"
         except Exception as ve:
             _lap("fetch")
             return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR,
                                 subject=corp.get("corp_name", ""),
                                 data={"report": {"rcept_no": latest["rcept_no"], "report_nm": latest.get("report_nm")},
                                       "timings_ms": T},
-                                warnings=[f"원문 다운로드 실패(get_document DART {getattr(last_err, 'status', '?')}, "
-                                          f"viewer도 실패: {type(ve).__name__})"]).to_dict()
+                                warnings=[f"원문 다운로드 실패(DART {getattr(last_err, 'status', '?')}, "
+                                          f"뷰어도 실패: {type(ve).__name__})"]).to_dict()
     _lap("fetch")
 
     form = detect_form(sec.get("toc", []))
@@ -1634,7 +1695,8 @@ async def build_business_details_payload(company_query: str, period: str = "late
     # segment_profit: 정형(1콜로 본문+주석 다 있음) → 신뢰게이트 → 후보 raw → N/A
     if form in (FORM_FINANCIAL, FORM_REIT):
         segment = {"status": UNSUPPORTED_FORM, "source": "none",
-                   "na_reason": f"form_{form}_not_supported_v1 (금융·REIT는 D-트랙)"}
+                   "na_reason": _UNSUPPORTED_FORM_KO,
+                   "na_code": f"form_{form}_not_supported_v1"}
     elif "segments" not in want:
         segment = None
     else:
@@ -1667,7 +1729,8 @@ async def build_business_details_payload(company_query: str, period: str = "late
         else:
             segment, _fb_warn = build_segment_fallback(
                 sec.get("note_html", ""), sp.na_reason,
-                note_text=sec.get("note_text", ""), biz_text=sec.get("biz_text", ""))
+                note_text=sec.get("note_text", ""), biz_text=sec.get("biz_text", ""),
+                na_code=sp.na_code)
             if _fb_warn:
                 warnings.append(_fb_warn)
 
@@ -1681,7 +1744,8 @@ async def build_business_details_payload(company_query: str, period: str = "late
     if want & _ENTITY_WIDE_FIELDS:
         if form in (FORM_FINANCIAL, FORM_REIT):
             _ew_base = {"status": UNSUPPORTED_FORM, "extraction_status": "UNSUPPORTED_FORM",
-                        "na_reason": f"form_{form}_not_supported_v1"}
+                        "na_reason": "금융·REIT 서식에는 지역별·제품별 수익 표가 없습니다",
+                        "na_code": f"form_{form}_not_supported_v1"}
             _ew = {"geo": None, "product": None}
         else:
             _ew_base = {"status": "NOT_COLLECTED", "extraction_status": "NOT_COLLECTED",

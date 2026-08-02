@@ -142,6 +142,156 @@ def test_krw_formatter_always_carries_the_unit():
     assert _num(15410) == "15,410"        # 문서 내 다른 숫자와 표기를 맞춘다
 
 
+# ── 사유 코드가 사람 문장에 섞이는 경우 ────────────────────────────────────────────
+# 260802 실측(삼성증권 business_details): 「…아래 원문에서 직접 확인하세요 map_not_loaded」.
+# 위 가드들은 **필드명·company_id·표 헤더**를 봤을 뿐이라 「사유 코드가 문장 끝에 붙는」
+# 이 형태를 통과시켰다. 코드는 na_code(진단)로, 문장에는 한국어 문면만 — 두 갈래를 다 본다.
+
+# 호출자가 그대로 다시 쓰는 **공개 파라미터명**은 내부 식별자가 아니다(재조회 안내문에 실린다).
+_PUBLIC_PARAMS = {"reprt_code", "bsns_year", "corp_code", "stock_code", "context_mode"}
+
+
+def _snake_in_prose(md: str) -> list[str]:
+    """사람이 읽는 산문 줄에 섞인 스네이크 토큰. 표 행·코드펜스(원문 첨부)는 제외한다."""
+    bad, fenced = [], False
+    for ln in md.splitlines():
+        s = ln.strip()
+        if s.startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced or s.startswith("|"):
+            continue
+        bad += [t for t in _SNAKE.findall(s) if t not in _PUBLIC_PARAMS]
+    return bad
+
+
+def test_segment_reason_sentence_never_carries_the_coordinate_map_code(monkeypatch):
+    """좌표 맵 미탑재(=기본 상태)에서 사유 코드가 문장으로 새던 회귀 — 삼성증권 실측 경로 그대로.
+
+    텍스트 앵커가 값을 못 뽑고 → 식별자 경로가 map_not_loaded 로 끝나는 조합을 재현한다.
+    """
+    from open_proxy_mcp.services import business_details as bd, coordinate_map
+    from open_proxy_mcp.tools.business_details import _render
+
+    monkeypatch.setenv("OPM_COORDINATE_MAP_PATH", "/nonexistent/coordinate_map.json")
+    coordinate_map._CACHE.update({"path": None, "mtime": None, "data": None})
+    monkeypatch.setattr(bd, "find_segment_note_region",
+                        lambda _t: ("3. 영업부문", "3. 영업부문\n(단위: 백만원)\n"))
+
+    note = "3. 영업부문\n" + "당사는 재화의 종류와 용역의 성격에 따라 영업부문을 구분하여 공시하고 있습니다. " * 4
+    sp = bd.extract_segment_profit("", note, "연결재무제표 주석",
+                                   note_html='<TABLE-GROUP ACLASS="X"><TITLE>3. 영업부문</TITLE></TABLE-GROUP>')
+    assert "map_not_loaded" in sp.na_code                  # 진단은 남는다
+    assert "부문 좌표 맵을 불러오지 못했습니다" in sp.na_reason   # 문면은 한국어로
+    assert not _SNAKE.search(sp.na_reason), sp.na_reason
+
+    # 라이브 경로는 여기서 한 번 더 감싸진다 — 감싼 뒤에도 문장이 깨끗한지 본다.
+    seg, _ = bd.build_segment_fallback("", sp.na_reason, note_text=note, na_code=sp.na_code)
+    assert "map_not_loaded" in seg["na_code"] and not _SNAKE.search(seg["na_reason"])
+    out = _render({"status": "ok", "subject": "테스트", "data": {"report": {}, "segments": seg}})
+    assert "확인 불가" in out and not _snake_in_prose(out), _snake_in_prose(out)
+
+
+def test_reason_code_dictionary_covers_every_producer_value():
+    """사전을 「관찰된 값」으로 손수 쓰면 절반이 샌다 — producer 를 읽어 대조한다(260728 교훈).
+
+    모르는 코드는 빈 문자열로 떨어뜨리는 설계라, 사전 누락 = **문면 소실**(무표시 열화)이다.
+    """
+    import ast, inspect, textwrap
+    from open_proxy_mcp.services import business_details as bd
+
+    def _codes(fn) -> set[str]:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+        # `spec.get("title_must_contain")` 같은 **조회 키**는 사유 코드가 아니다
+        keys = {id(a) for n in ast.walk(tree)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                and n.func.attr == "get" for a in n.args}
+        return {n.value for n in ast.walk(tree)
+                if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                and id(n) not in keys and _SNAKE.fullmatch(n.value)}
+
+    produced = (_codes(bd.find_segment_note_region_by_code)
+                | _codes(bd.render_segment_note_md_by_code))
+    rejects = _codes(bd._code_path_acceptable) | {"parse_failed"}   # parse_failed = 호출측 판정
+    assert produced and rejects, "producer 리터럴을 못 읽었다 — 테스트가 무력화됐다"
+    assert not produced - set(bd._CODE_REASON_KO), sorted(produced - set(bd._CODE_REASON_KO))
+    assert not rejects - set(bd._CODE_REJECT_KO), sorted(rejects - set(bd._CODE_REJECT_KO))
+    for ko in list(bd._CODE_REASON_KO.values()) + list(bd._CODE_REJECT_KO.values()):
+        assert not _SNAKE.search(ko), ko
+    # 합성 코드(제목 불일치 · 채택 거부)와 미지의 코드까지 — 어느 쪽도 코드를 흘리지 않는다
+    for code in ("title_mismatch:20-2. 주요 고객", "code:consolidated/rejected:geographic_only",
+                 "code:separate/rejected:parse_failed", "brand_new_code_v2", ""):
+        assert not _SNAKE.search(bd.code_reason_ko(code)), code
+
+
+def test_na_reason_literals_are_human_sentences_not_codes():
+    """`na_reason` 은 사용자 문면, `na_code` 는 진단 — SegmentProfit 계약(소스 수준 가드).
+
+    260802: `form_financial5_not_supported_v1` 이 「해당없음 — form_…」으로 렌더됐다.
+    f-string 은 상수 조각을 이어 검사한다(`f"form_{form}_not_supported_v1"` 를 놓치지 않게).
+    """
+    import ast
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "open_proxy_mcp"
+
+    def _text(node) -> str | None:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            # 치환칸은 **빈칸이 아니라 자리표시자**로 잇는다 — 그냥 이으면 `f"form_{x}_not_ok"` 가
+            # "form__not_ok"(연속 언더바)가 돼 스네이크 정규식을 빠져나간다(실측으로 확인).
+            return "".join(v.value if isinstance(v, ast.Constant) and isinstance(v.value, str)
+                           else "x" for v in node.values)
+        return None                       # 계산값(원문 인용 등)은 정적으로 볼 수 없다
+
+    bad = []
+    for p in list(root.glob("services/*.py")) + list(root.glob("tools/*.py")):
+        tree = ast.parse(p.read_text(encoding="utf-8"))
+        for n in ast.walk(tree):
+            vals = []
+            if isinstance(n, ast.Dict):
+                vals = [v for k, v in zip(n.keys, n.values)
+                        if isinstance(k, ast.Constant) and k.value == "na_reason"]
+            elif isinstance(n, ast.Call):
+                vals = [kw.value for kw in n.keywords if kw.arg == "na_reason"]
+            for v in vals:
+                s = _text(v)
+                hits = [t for t in _SNAKE.findall(s or "") if t not in _PUBLIC_PARAMS]
+                if hits:
+                    bad.append(f"{p.name}:{v.lineno} {hits} — {(s or '')[:50]}")
+    assert not bad, bad
+
+
+def test_form_type_enum_never_renders_raw():
+    """제목에 `dual`·`standard7` 이 그대로 찍혔다(260802 삼성증권 실측 — 스네이크가 아니라
+    기존 가드에 안 걸렸다). enum 은 producer(detect_form)에서 읽어 사전과 대조한다."""
+    import inspect, re as _re
+    from open_proxy_mcp.services import business_details as bd
+    from open_proxy_mcp.tools.business_details import _FORM_KO, _render
+    produced = set(_re.findall(r"return (FORM_[A-Z]+)", inspect.getsource(bd.detect_form)))
+    assert produced, "producer 값을 못 읽었다 — 테스트가 무력화됐다"
+    for name in produced:
+        val = getattr(bd, name)
+        assert val in _FORM_KO, f"{name}={val} 이 사전에 없다"
+    for val in list(_FORM_KO) + ["brand_new_form"]:
+        out = _render({"status": "ok", "subject": "테스트",
+                       "data": {"report": {"report_nm": "사업보고서"}, "form_type": val}})
+        assert val not in out, out.splitlines()[0]
+
+
+def test_geo_absence_kind_dictionary_covers_every_producer_value():
+    """`mark.get(kind, kind)` 로 두면 새 kind 가 **굵은 글씨로** 그대로 나간다."""
+    import inspect, re as _re
+    from open_proxy_mcp.services import segment_grid
+    from open_proxy_mcp.tools.business_details import _geo_lines
+    produced = set(_re.findall(r'"absence_kind":\s*"([a-z_]+)"',
+                               inspect.getsource(segment_grid)))
+    assert produced, "producer 값을 못 읽었다 — 테스트가 무력화됐다"
+    for kind in produced | {"some_unmapped_kind"}:
+        out = "\n".join(_geo_lines({"absence_kind": kind, "absence_detail": "설명"}, "####"))
+        assert not _snake_in_prose(out), f"{kind} → {out}"
+
+
 def test_no_user_facing_sentence_embeds_the_rcept_no_field_name():
     """「rcept_no가 제공되어…」처럼 **문장 안에** 내부 필드명이 박힌 것은 표·헤더 치환으로는
     안 잡힌다(260729 사용자 지적). 사람이 읽는 문자열에서만 검사한다.
