@@ -437,3 +437,29 @@ def test_outside_segment_note_is_not_triggered_by_unrelated_text():
         "부문이익은 최고의사결정자에게 보고되는 측정치이며, 연결회사는 당기말 현재 "
         "8개의 주요지역[대한민국(본사 소재지 국가), 필리핀, 파키스탄, 미국]에서 "
         "매출을 인식하고 있습니다.")
+
+
+def test_outside_segment_note_message_does_not_send_the_reader_hunting():
+    """이 신호가 뜬 시점엔 **이미 문서 전체를 훑고 못 찾은 것**이다 — 탐색 창의 마지막이
+    문서 전체이고, 0부터 전수 재스캔해도 없었다(롯데칠성 3개년 실측).
+    「다른 절에 실렸을 수 있다」고 하면 없는 표를 찾으러 보낸다.
+    실제 상태는 「표가 아니라 문장으로만 지역이 적혀 금액을 낼 수 없다」이다.
+    """
+    from open_proxy_mcp.services.segment_grid import absence_signal
+    from open_proxy_mcp.tools.business_details import _geo_lines
+
+    # 부문 주석 블록에는 지역 표지가 **없고**, 그 밖(회계정책 절)에 서술만 있는 구조 —
+    # 롯데칠성이 실제로 이 모양이다.
+    html = ('<TABLE-GROUP ACLASS="{XBRL}NT_C_D871100"><TITLE>4. 영업부문 (연결)</TITLE>'
+            "부문이익은 자원을 배분하고 성과를 평가하기 위한 측정치입니다."
+            '<TABLE-GROUP ACLASS="{XBRL}NT_C_D800600"><TITLE>2. 중요한 회계정책 (연결)</TITLE>'
+            "연결회사는 당기말 현재 8개의 주요지역[대한민국(본사 소재지 국가), 필리핀, "
+            "미국]에서 매출을 인식하고 있으며 부문이익은 최고의사결정자에게 보고됩니다.")
+    got = absence_signal(html)
+    assert got["absence_kind"] == "outside_segment_note"
+    assert "다른 절" not in got["absence_detail"]
+    assert "표로 공시되지 않" in got["absence_detail"]
+
+    out = "\n".join(_geo_lines({"status": "NOT_COLLECTED", **got}, "###"))
+    assert "표 없음" in out
+    assert "위치 다름" not in out

@@ -536,8 +536,14 @@ def absence_signal(full_html: str) -> dict:
                                   "공시는 되어 있으니 원문을 직접 확인하세요.",
                 "absence_sections": [f"{t} [{k}]" for k, t, _s, _e in blocks[:3]]}
     if _geo_mark_outside_is_real(full_html or ""):
+        # 「다른 절에 실렸을 수 있다」고 하면 안 된다 — 탐색 창의 마지막이 **문서 전체**라
+        # 이 신호가 뜬 시점에 이미 문서를 다 훑고 못 찾은 것이다(실측: 0부터 전수 재스캔해도
+        # 없음). 남는 경우는 지역이 **표가 아니라 문장**으로만 적힌 것이다
+        # (롯데칠성 「8개의 주요지역[대한민국(본사 소재지 국가), 필리핀, 파키스탄…]에서
+        # 영업하고 있으며」 — 금액이 없어 매출 축으로는 쓸 수 없다).
         return {"absence_kind": "outside_segment_note",
-                "absence_detail": "부문 주석 밖에 지역 표지가 있습니다 — 다른 절에 실렸을 수 있습니다."}
+                "absence_detail": "지역별 금액이 표로 공시되지 않았습니다 — 원문에 사업 "
+                                  "지역이 문장으로만 언급돼 있어 금액을 낼 수 없습니다."}
     return {"absence_kind": "not_disclosed",
             "absence_detail": "부문 주석은 있으나 지역별 정보를 싣지 않았습니다 — "
                               "공시되지 않은 것이지 파싱 실패가 아닙니다."}

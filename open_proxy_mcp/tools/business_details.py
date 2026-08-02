@@ -221,7 +221,9 @@ def _geo_lines(node: dict, h: str) -> list[str]:
         kind = node.get("absence_kind")
         if kind:
             mark = {"no_segment_note": "공시 없음", "not_disclosed": "공시 없음",
-                    "extraction_failed": "⚠ 추출 실패", "outside_segment_note": "위치 다름"}
+                    # 「위치 다름」은 다른 데 있다는 뜻으로 읽힌다 — 실제로는 문서를 다 훑고도
+                    # 표가 없는 것이고, 지역이 문장으로만 적힌 상태다.
+                    "extraction_failed": "⚠ 추출 실패", "outside_segment_note": "표 없음"}
             # 모르는 kind 를 그대로 굵게 찍으면 내부 코드가 그대로 나간다(`get(k, k)` 금지).
             L.append(f"\n지역별 수익: **{mark.get(kind, '확인 불가')}** — {node.get('absence_detail','')}")
             if node.get("absence_sections"):
