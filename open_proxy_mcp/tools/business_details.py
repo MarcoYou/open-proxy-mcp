@@ -110,13 +110,18 @@ def _geo_lines(node: dict, h: str) -> list[str]:
                      f"  ({node.get('share_basis','')})")
             if node.get("share_caveat"):
                 L.append(f"> ⚠ {node['share_caveat']}")
-        L += ["\n| 지역 | 매출 |", "|---|--:|"]
+        # 단위는 표 **머리**에 붙인다 — 각주로 내리면 숫자와 떨어져, 바로 옆 by_trade 가
+        # 「3.15조원」으로 쓰는 같은 값이 여기선 「3,147,338」로 보여 다른 값으로 읽힌다
+        # (260802 파일럿 실측: HD현대일렉트릭). 원문 표 단위는 그대로 두고 라벨만 붙인다 —
+        # 조·억으로 환산하면 원문 대조가 안 되고 반올림이 섞인다.
+        _u = (node.get("unit") or "").strip()
+        _uh = f"매출({_u})" if _u else "매출(단위 미상 — 원문 확인)"
+        L += [f"\n| 지역 | {_uh} |", "|---|--:|"]
         L.extend(f"| {i.get('name','')} | {_fmt(i.get('revenue'))} |" for i in items)
-        L.append(f"\n_단위 {node.get('unit','')} · {node.get('reconciliation','')} "
-                 f"· 지표 {node.get('revenue_metric','')}_")
+        L.append(f"\n_{node.get('reconciliation','')} · 지표 {node.get('revenue_metric','')}_")
         # 비유동자산 지역별 — 수출형 vs 현지생산형 판별자
         if node.get("assets_by_region"):
-            L.append("\n| 지역 | 비유동자산 |")
+            L.append(f"\n| 지역 | 비유동자산({_u}) |" if _u else "\n| 지역 | 비유동자산 |")
             L.append("|---|--:|")
             L.extend(f"| {k} | {_fmt(v)} |" for k, v in node["assets_by_region"].items())
             L.append(f"_{node.get('assets_note','')}_")

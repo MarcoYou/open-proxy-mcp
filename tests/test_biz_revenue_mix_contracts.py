@@ -302,6 +302,27 @@ def test_trade_table_is_not_rendered_twice_in_the_bundle():
     assert out.count("II 매출실적표 (별도 기준)") == 1
 
 
+def test_region_table_carries_its_unit_in_the_header():
+    """단위는 표 머리에 — 각주로 내리면 숫자와 떨어져 오독된다. 바로 옆 by_trade 는 같은
+    값을 「3.15조원」으로 쓰는데 지역별이 「3,147,338」이면 다른 값으로 읽힌다
+    (260802 파일럿: HD현대일렉트릭. 두 축의 숫자가 실제로 같았다)."""
+    from open_proxy_mcp.tools.business_details import _render as _r
+    out = _r(_rb(geo={"status": "SUCCESS", "unit": "백만원",
+                      "items": [{"name": "외국", "revenue": 3_147_338}]},
+                 available=["by_region"]))
+    assert "| 지역 | 매출(백만원) |" in out
+    assert "3,147,338" in out
+
+
+def test_region_table_says_so_when_the_unit_is_unknown():
+    """단위를 못 읽었으면 숨기지 않고 밝힌다 — 빈 라벨은 「원 단위」로 오해된다."""
+    from open_proxy_mcp.tools.business_details import _render as _r
+    out = _r(_rb(geo={"status": "SUCCESS", "unit": "",
+                      "items": [{"name": "외국", "revenue": 3_147_338}]},
+                 available=["by_region"]))
+    assert "단위 미상" in out
+
+
 def test_only_segment_axis_carries_profit():
     """이익은 by_segment 에만 있다 — K-IFRS 1108 이 이익을 영업부문(¶23)에만 요구하고
     지역(¶33)엔 수익·비유동자산만 요구하기 때문. 다른 축에 이익을 붙이면 기준을 넘어선다."""
