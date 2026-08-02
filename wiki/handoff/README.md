@@ -18,7 +18,9 @@
 세션이 뭐가 진짜 남았는지 헷갈리게 만드는 원인).
 
 ## 색인
-_(현재 비어 있음)_
+- [[260802_geo-revenue-anchoring]] — 지역별 수익 앵커링. **재시작 직후 좀비 stdio MCP 확인**(세션마다
+  뜨던 로컬 서버가 그 시점 코드를 붙들어 고쳐도 옛 결과를 냈다) + 남은 작업(키움증권 절 밖 지역표 ·
+  `assets_by_region` 부분 포착 · 절 맵 적재 설계 미결)
 
 _(과거: 260705_valuation-timeseries 해결 완료, durable 지식은 data-storage-registry(private 이관)·
 aggregate-denominator-pairing-260706·`project_fund_currency` 메모리로 이관 후 260706 삭제 /
