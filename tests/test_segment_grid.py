@@ -279,7 +279,11 @@ def test_ii_export_is_carried_in_parallel_never_merged_with_iii():
     assert got is not None
     assert got["rows_summed"] == 2, "품목마다 반복되는 수출 행을 전부 합산해야 한다"
     assert got["export_krw"] == (10_799_207 + 26_917_762) * 1_000_000
-    assert "다른 지표" in got["caveat"]
+    # 성격은 밝히되 나무라지 않는다 — 금지문("~하지 마세요")은 흔한 일(기준이 다른 두 수치가
+    # 안 맞는 것)을 사고처럼 보이게 한다(260802 사용자 피드백).
+    assert "별도 기준" in got["caveat"]
+    assert "정확히 같지 않을 수 있습니다" in got["caveat"]
+    assert "마세요" not in got["caveat"] and "⚠" not in got["caveat"]
 
 
 def test_window_boundary_replaces_the_legacy_150k_cap():

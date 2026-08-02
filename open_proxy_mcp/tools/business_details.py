@@ -34,6 +34,41 @@ def _krw(v):
     return f"{v:,.0f}원"
 
 
+# 원문 표가 쓰는 단위 → 원 환산 배수. 공시 표는 회사마다 단위가 다르다(천원·백만원이 대부분).
+_UNIT_MULT = {"원": 1, "천원": 1e3, "만원": 1e4, "백만원": 1e6,
+              "억원": 1e8, "십억원": 1e9, "조원": 1e12}
+
+
+def _table_scale(values, unit: str):
+    """표 **전체에 한 단위**를 골라 준다 — (라벨, 나눌 값, 소수자리).
+
+    행마다 단위를 달리하면(한 줄은 조원, 다음 줄은 억원) 행끼리 눈으로 비교가 안 된다.
+    그래서 공시 표처럼 최댓값 기준으로 단위 하나를 정해 전 행에 적용한다.
+    단위를 모르면 환산하지 않는다 — 모르는 채로 곱하면 10³·10⁶ 배 틀린 값을 확신 있게 낸다.
+    """
+    mult = _UNIT_MULT.get((unit or "").strip())
+    if not mult:
+        return None, None, None
+    nums = [abs(float(v)) * mult for v in values if isinstance(v, (int, float))]
+    m = max(nums) if nums else 0
+    if m >= 1e12:
+        return "조원", 1e12 / mult, 2
+    if m >= 1e8:
+        return "억원", 1e8 / mult, 0
+    if m >= 1e4:
+        return "만원", 1e4 / mult, 0
+    return "원", 1 / mult, 0
+
+
+def _scaled(v, div, dec):
+    if v is None or div is None:
+        return _fmt(v)
+    try:
+        return f"{float(v)/div:,.{dec}f}"
+    except (TypeError, ValueError):
+        return _fmt(v)
+
+
 _AXIS_KO = {"by_segment": "부문별", "by_product": "제품별",
             "by_region": "지역별", "by_trade": "수출/내수"}
 # 「실패」라는 말은 쓰지 않는다 — 대부분은 오류가 아니라 '공시에 없거나 읽을 수 없는 형태'다.
@@ -50,13 +85,19 @@ def _seg_lines(seg: dict, h: str) -> list[str]:
     """영업부문(K-IFRS 1108) — 정형 → 주석 원문 → 표 후보 → 부재."""
     L, st = [], seg.get("status")
     if st == "OK":
-        L.append(f"\n{h} 사업부문별 매출·이익  (단위: {seg.get('unit','')}, 출처: 정형파싱)")
-        L.append("| 부문 | 매출 | 영업이익 |")
+        items = seg.get("items", [])
+        u = (seg.get("unit") or "").strip()
+        # 매출·이익을 함께 스케일한다 — 열마다 단위가 다르면 두 열을 눈으로 못 견준다.
+        lab, div, dec = _table_scale([v for s in items for v in (s.get("revenue"), s.get("profit"))], u)
+        L.append(f"\n{h} 사업부문별 매출·이익  (출처: 정형파싱)")
+        L.append(f"| 부문 | 매출({lab or u or '단위 미상'}) | 영업이익({lab or u or '단위 미상'}) |")
         L.append("|---|--:|--:|")
-        for s in seg.get("items", []):
-            L.append(f"| {s.get('name','')} | {_fmt(s.get('revenue'))} | {_fmt(s.get('profit'))} |")
+        for s in items:
+            L.append(f"| {s.get('name','')} | {_scaled(s.get('revenue'), div, dec)} "
+                     f"| {_scaled(s.get('profit'), div, dec)} |")
+        src = f" · 원문 표 단위 {u}" if lab and u and lab != u else ""
         L.append(f"\n_{seg.get('reconciliation','')}_  "
-                 f"(지표: {seg.get('revenue_metric','')}/{seg.get('profit_metric','')})")
+                 f"(지표: {seg.get('revenue_metric','')}/{seg.get('profit_metric','')}{src})")
     elif st == "NEEDS_REVIEW":
         md = seg.get("segment_note_md")
         if md:
@@ -109,21 +150,25 @@ def _geo_lines(node: dict, h: str) -> list[str]:
             L.append(f"\n**해외 매출 비중 {node['foreign_share_pct']}%**"
                      f"  ({node.get('share_basis','')})")
             if node.get("share_caveat"):
-                L.append(f"> ⚠ {node['share_caveat']}")
-        # 단위는 표 **머리**에 붙인다 — 각주로 내리면 숫자와 떨어져, 바로 옆 by_trade 가
-        # 「3.15조원」으로 쓰는 같은 값이 여기선 「3,147,338」로 보여 다른 값으로 읽힌다
-        # (260802 파일럿 실측: HD현대일렉트릭). 원문 표 단위는 그대로 두고 라벨만 붙인다 —
-        # 조·억으로 환산하면 원문 대조가 안 되고 반올림이 섞인다.
+                L.append(f"> {node['share_caveat']}")
+        # 단위는 표 **머리**에 붙이고, 값은 사람이 읽는 단위로 환산한다. 각주에 두면 숫자와
+        # 떨어져, 바로 옆 by_trade 가 「3.15조원」으로 쓰는 같은 값이 여기선 「3,147,338」로
+        # 보여 다른 값으로 읽힌다(260802 파일럿 실측: HD현대일렉트릭 — 두 축의 값이 실제로
+        # 같았다). 정확한 원값은 payload(JSON)에 그대로 있으므로 md 는 가독성을 택한다.
         _u = (node.get("unit") or "").strip()
-        _uh = f"매출({_u})" if _u else "매출(단위 미상 — 원문 확인)"
+        _lab, _div, _dec = _table_scale([i.get("revenue") for i in items], _u)
+        _uh = f"매출({_lab})" if _lab else (f"매출({_u})" if _u else "매출(단위 미상 — 원문 확인)")
         L += [f"\n| 지역 | {_uh} |", "|---|--:|"]
-        L.extend(f"| {i.get('name','')} | {_fmt(i.get('revenue'))} |" for i in items)
-        L.append(f"\n_{node.get('reconciliation','')} · 지표 {node.get('revenue_metric','')}_")
+        L.extend(f"| {i.get('name','')} | {_scaled(i.get('revenue'), _div, _dec)} |" for i in items)
+        _src = f" · 원문 표 단위 {_u}" if _lab and _u and _lab != _u else ""
+        L.append(f"\n_{node.get('reconciliation','')} · 지표 {node.get('revenue_metric','')}{_src}_")
         # 비유동자산 지역별 — 수출형 vs 현지생산형 판별자
         if node.get("assets_by_region"):
-            L.append(f"\n| 지역 | 비유동자산({_u}) |" if _u else "\n| 지역 | 비유동자산 |")
+            _av = list(node["assets_by_region"].values())
+            _al, _ad, _adec = _table_scale(_av, _u)
+            L.append(f"\n| 지역 | 비유동자산({_al or _u}) |" if (_al or _u) else "\n| 지역 | 비유동자산 |")
             L.append("|---|--:|")
-            L.extend(f"| {k} | {_fmt(v)} |" for k, v in node["assets_by_region"].items())
+            L.extend(f"| {k} | {_scaled(v, _ad, _adec)} |" for k, v in node["assets_by_region"].items())
             L.append(f"_{node.get('assets_note','')}_")
         loc = node.get("source_location") or {}
         if loc.get("note_section"):
@@ -169,7 +214,7 @@ def _trade_lines(node: dict, h: str = "###") -> list[str]:
     if node.get("basis"):
         L.append(f"_{node['basis']}_")
     if node.get("caveat"):
-        L.append(f"> ⚠ {node['caveat']}")
+        L.append(f"> {node['caveat']}")
     return L
 
 

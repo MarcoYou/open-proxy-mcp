@@ -233,7 +233,7 @@ def test_flat_geo_alias_still_renders_when_bundle_not_requested():
         "geo_revenue": {"status": "SUCCESS", "unit": "백만원",
                         "items": [{"name": "국내", "revenue": 46_641_151}],
                         "basis_caption": "고객 소재지 기준"}}})
-    assert "지역별 수익" in out and "46,641,151" in out and "고객 소재지 기준" in out
+    assert "지역별 수익" in out and "46.64" in out and "고객 소재지 기준" in out
 
 
 def test_breakdown_does_not_call_needs_review_axis_available():
@@ -257,7 +257,7 @@ def test_geo_axis_is_rendered_in_markdown():
                       "items": [{"name": "국내", "revenue": 46_641_151},
                                 {"name": "미주", "revenue": 12_000_000}],
                       "basis_caption": "고객 소재지 기준"}))
-    assert "46,641,151" in out and "미주" in out and "고객 소재지 기준" in out
+    assert "46.64" in out and "미주" in out and "고객 소재지 기준" in out
 
 
 def test_default_field_set_returns_bundle_not_flat_duplicates():
@@ -310,8 +310,9 @@ def test_region_table_carries_its_unit_in_the_header():
     out = _r(_rb(geo={"status": "SUCCESS", "unit": "백만원",
                       "items": [{"name": "외국", "revenue": 3_147_338}]},
                  available=["by_region"]))
-    assert "| 지역 | 매출(백만원) |" in out
-    assert "3,147,338" in out
+    assert "| 지역 | 매출(조원) |" in out       # 3,147,338 백만원 = 3.15조원
+    assert "3.15" in out
+    assert "원문 표 단위 백만원" in out          # 원문 대조 경로는 남긴다
 
 
 def test_region_table_says_so_when_the_unit_is_unknown():
