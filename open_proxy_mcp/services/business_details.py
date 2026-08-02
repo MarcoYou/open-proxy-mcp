@@ -1016,13 +1016,50 @@ def extract_customer_concentration(note_full_text: str) -> dict:
     return {"status": OK, "customers": customers, "unit": parse_unit(region)[0]}
 
 
+def _seg_chapter(source: str) -> str:
+    """`source` 는 어느 층에서 표를 얻었는지다 — note / note_grid / body / body_grid.
+    접두로 판별한다: 정확일치 맵으로 두면 격자 경로(`note_grid`)가 빠져 장(章)이 빈
+    「원문 위치:  → 37. 부문정보」가 나간다(260802 파일럿 실측)."""
+    s = (source or "").lower()
+    if s.startswith("note"):
+        return "III. 재무에 관한 사항 — 재무제표 주석"
+    if s.startswith("body"):
+        return "II. 사업의 내용"
+    return ""
+
+
+def _seg_basis(note_source: str, anchor: str) -> str:
+    """연결/별도만 뽑는다. `note_source` 는 「연결재무제표 주석」 같은 라벨이라 그대로 쓰면
+    「연결재무제표 주석 기준」처럼 어색해진다. 라벨에 없으면 절 제목에서 찾는다."""
+    for text in (note_source or "", anchor or ""):
+        if "연결" in text:
+            return "연결"
+        if "별도" in text:
+            return "별도"
+    return ""
+
+
+def _seg_source_location(sp: "SegmentProfit") -> dict | None:
+    """부문 표가 **이 회사 원문의 어느 절**에서 나왔는지. 파서는 절 제목(anchor)을 이미
+    알고 있었는데 payload 에 안 실어 읽는 쪽이 원문을 못 찾았다(260802 파일럿에서 발견).
+    지역별(segment_grid.source_location)과 같은 모양으로 맞춘다."""
+    if not sp.anchor:
+        return None                      # 모르면 적지 않는다 — 빈 「원문 위치: →」가 더 나쁘다
+    return {"chapter": _seg_chapter(sp.source),
+            "note_section": sp.anchor,
+            "basis": _seg_basis(sp.note_source, sp.anchor),
+            "selection_method": sp.selection_method,
+            "how_to_find": "DART 원문에서 위 절을 찾아 표의 부문명으로 대조하세요."}
+
+
 def _sp_to_dict(sp: "SegmentProfit") -> dict:
     return {"status": sp.status, "source": sp.source, "revenue_metric": sp.revenue_metric,
             "profit_metric": sp.profit_metric, "unit": sp.unit, "na_reason": sp.na_reason,
             "na_code": sp.na_code,
             "segments": sp.segments, "adjustments": sp.adjustments,
             # 구간을 무엇으로 짚었는지 — 층별 적용률을 운영에서 관측하기 위함
-            "selection_method": sp.selection_method}
+            "selection_method": sp.selection_method,
+            "source_location": _seg_source_location(sp)}
 
 
 def build_details(biz_content_text: str, note_full_text: str, toc: list, note_source: str = "",
@@ -1721,6 +1758,9 @@ async def build_business_details_payload(company_query: str, period: str = "late
             segment = {"status": OK, "source": "deterministic", "revenue_metric": sp.revenue_metric,
                        "profit_metric": sp.profit_metric, "unit": sp.unit, "items": sp.segments,
                        "reconciliation": "부문합≈총계 검산 통과",
+                       # 이 표가 **이 회사 원문의 어느 절**에서 나왔는지. 회사마다 절 번호·제목이
+                       # 다르므로(실측 101건: 번호 26가지) 「III 주석」만으론 원문을 못 찾는다.
+                       "source_location": _seg_source_location(sp),
                        "self_check": "이 값이 맥락과 안 맞아 보이면 그대로 쓰지 마세요: "
                                      "① revenue_metric이 외부매출 계열인지 확인(총부문수익류면 내부거래 포함) "
                                      "② 부문합이 연결 매출과 크게 다르면 의심 "

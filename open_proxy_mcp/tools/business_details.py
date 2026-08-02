@@ -80,6 +80,26 @@ _ABSENT_KO = {"NOT_APPLICABLE": "해당 없음", "NOT_COLLECTED": "공시에 미
               "UNSUPPORTED_FORM": "해당 없음"}
 
 
+def _origin_lines(node: dict) -> list[str]:
+    """이 표가 **회사별로 원문 어디**에서 나왔는지 한 줄로.
+
+    회사마다 절 번호·제목이 다르므로(실측 101건에서 번호 26가지, 같은 회사도 연도가 바뀌면
+    24→30 으로 밀림) 「III 주석」 같은 일반론으로는 원문을 못 찾는다. 그 회사의 그 절을
+    적는다. 축마다 payload 모양이 달라(부문·지역=source_location / 제품=section_source)
+    여기서 하나로 흡수한다 — 파서는 이미 알고 있었는데 렌더가 안 썼다.
+    """
+    loc = node.get("source_location") or {}
+    if loc.get("note_section"):
+        basis = f" · {loc['basis']} 기준" if loc.get("basis") else ""
+        return [f"_원문 위치: {loc.get('chapter','')} → {loc['note_section']}{basis}_"]
+    ss = node.get("section_source") or {}
+    heads = [h for h in (ss.get("matched_headings") or []) if h]
+    if heads:
+        chap = (ss.get("chapters") or ["II. 사업의 내용"])[0]
+        return [f"_원문 위치: {chap} → {' · '.join(heads[:3])}_"]
+    return []
+
+
 def _absent(node: dict, what: str) -> list[str]:
     st = node.get("status")
     reason = (node.get("na_reason") or node.get("note") or "").strip()
@@ -103,6 +123,7 @@ def _seg_lines(seg: dict, h: str) -> list[str]:
         src = f" · 원문 표 단위 {u}" if lab and u and lab != u else ""
         L.append(f"\n_{seg.get('reconciliation','')}_  "
                  f"(지표: {seg.get('revenue_metric','')}/{seg.get('profit_metric','')}{src})")
+        L.extend(_origin_lines(seg))
     elif st == "NEEDS_REVIEW":
         md = seg.get("segment_note_md")
         if md:
@@ -139,6 +160,7 @@ def _mix_lines(node: dict, h: str) -> list[str]:
         if sc.get("scope_note"):
             bits.append(sc["scope_note"])
         L.append(f"_자가검산: {' · '.join(bits)}_")
+    L.extend(_origin_lines(node))
     L.append("\n" + node["markdown"])
     if node.get("truncation_note"):
         L.append(f"\n_{node['truncation_note']}_")
@@ -175,9 +197,7 @@ def _geo_lines(node: dict, h: str) -> list[str]:
             L.append("|---|--:|")
             L.extend(f"| {k} | {_scaled(v, _ad, _adec)} |" for k, v in node["assets_by_region"].items())
             L.append(f"_{node.get('assets_note','')}_")
-        loc = node.get("source_location") or {}
-        if loc.get("note_section"):
-            L.append(f"_원문 위치: {loc.get('chapter','')} → {loc['note_section']}_")
+        L.extend(_origin_lines(node))
         if node.get("basis_caption"):
             L.append(f"_기준: {node['basis_caption']}_")
     elif node.get("markdown"):

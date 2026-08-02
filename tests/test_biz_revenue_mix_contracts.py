@@ -324,6 +324,58 @@ def test_region_table_says_so_when_the_unit_is_unknown():
     assert "단위 미상" in out
 
 
+def test_every_axis_says_which_section_of_which_company_it_read():
+    """회사마다 절 번호·제목이 다르다(실측 101건: 번호 26가지, 같은 회사도 연도가 바뀌면
+    24→30 으로 밀림). 「III 주석」 같은 일반론으로는 원문을 못 찾으니 그 회사의 그 절을 적는다.
+    파서는 이미 알고 있었는데 payload/렌더가 안 썼다(260802)."""
+    from open_proxy_mcp.tools.business_details import _render as _r
+    out = _r(_rb(
+        by_segment={"status": "OK", "unit": "백만원",
+                    "items": [{"name": "차량", "revenue": 232_879_832, "profit": 7_358_550}],
+                    "source_location": {"chapter": "III. 재무에 관한 사항 — 재무제표 주석",
+                                        "note_section": "33. 부문별 정보 (연결)", "basis": "연결"}},
+        by_product={"status": "MARKDOWN", "markdown": "| 전력기기 | 2,835,195 |",
+                    "section_source": {"matched_headings": ["가. 주요 제품 등의 현황"],
+                                       "chapters": ["II. 사업의 내용"]}},
+        geo={"status": "SUCCESS", "unit": "백만원",
+             "items": [{"name": "외국", "revenue": 3_147_338}],
+             "source_location": {"chapter": "III. 재무에 관한 사항 — 재무제표 주석",
+                                 "note_section": "27. 수익 (연결) [NT_C_D831150]"}},
+        available=["by_segment", "by_product", "by_region"]))
+    assert "33. 부문별 정보 (연결)" in out and "연결 기준" in out
+    assert "가. 주요 제품 등의 현황" in out
+    assert "27. 수익 (연결) [NT_C_D831150]" in out
+    assert out.count("원문 위치:") == 3          # 세 축 모두 자기 출처를 밝힌다
+
+
+def test_segment_payload_actually_carries_the_origin_not_just_the_renderer():
+    """렌더 테스트는 픽스처에 손으로 넣은 값을 보므로 **서비스가 안 실어도 통과**한다.
+    260802 실측: `_sp_to_dict` 에 넣었는데 payload 는 다른 자리에서 인라인으로 만들어져
+    부문별만 원문 위치가 비어 나갔다(파일럿에서 발견). 조립 함수를 직접 부른다."""
+    from open_proxy_mcp.services.business_details import SegmentProfit, _seg_source_location
+    sp = SegmentProfit()
+    # 프로덕션이 실제로 타는 격자 경로는 source='note_grid' 다 — 정확일치 맵으로 두면
+    # 장(章)이 빈 「원문 위치:  → 37. 부문정보」가 나간다(260802 파일럿 실측).
+    sp.anchor, sp.source, sp.note_source = "5. 영업부문 (연결)", "note_grid", "연결재무제표 주석"
+    loc = _seg_source_location(sp)
+    assert loc["note_section"] == "5. 영업부문 (연결)"
+    assert "재무제표 주석" in loc["chapter"] and loc["chapter"].startswith("III")
+    # 「연결재무제표 주석 기준」처럼 어색해지지 않게 연결/별도만 뽑는다
+    assert loc["basis"] == "연결"
+    sp2 = SegmentProfit()
+    assert _seg_source_location(sp2) is None      # 모르면 None — 빈 위치를 지어내지 않는다
+
+
+def test_origin_line_is_omitted_when_the_parser_does_not_know():
+    """모르면 적지 않는다 — 빈 「원문 위치: →」는 절을 짚은 것처럼 보여 더 나쁘다."""
+    from open_proxy_mcp.tools.business_details import _render as _r
+    out = _r(_rb(by_segment={"status": "OK", "unit": "백만원",
+                             "items": [{"name": "차량", "revenue": 1000, "profit": 10}],
+                             "source_location": None},
+                 available=["by_segment"]))
+    assert "원문 위치:" not in out
+
+
 def test_only_segment_axis_carries_profit():
     """이익은 by_segment 에만 있다 — K-IFRS 1108 이 이익을 영업부문(¶23)에만 요구하고
     지역(¶33)엔 수익·비유동자산만 요구하기 때문. 다른 축에 이익을 붙이면 기준을 넘어선다."""
