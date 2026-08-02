@@ -229,7 +229,7 @@ _EW_CANDIDATE_RE = re.compile(r"지역|국가|본사\s*소재지|외국|국내|�
                               r"제품|서비스|품목|수익\s*유형|매출\s*유형|부문")
 
 
-_DOMESTIC_RE = re.compile(r"^(본사소재지국가?|본사소재지|국내|한국|대한민국)$")
+_DOMESTIC_RE = re.compile(r"^(본사소재지국가?|본사소재지|국내|한국|대한민국|내수)$")
 # 지역명에 붙는 각주 표시 — 카카오는 항목이 「국내(주1)」이라 국내로 인식되지 않아
 # 해외비중이 100%로 나왔다(실제로는 국내가 대부분).
 _FOOTNOTE_RE = re.compile(r"\(?\s*(?:주|참고|note|\*)\s*\d*\s*\)?\s*$", re.I)
@@ -278,6 +278,51 @@ def _foreign_share(items: list[dict]) -> dict:
 # DART XML 의 표 셀은 `<TE>`(table entry) 다 — `<TD>` 만 찾으면 데이터 행이 통째로 빈다.
 # 머리 행만 `<TH>` 라 헤더는 읽히고 본문은 안 읽혀 「항목 0개」로 보였다.
 _CELL_TAGS = ["td", "th", "te", "tu"]
+
+
+def _read_single_region_with_subaxis(chunk: str) -> dict | None:
+    """지역 축이 **하나**이고 그 아래 부문 축이 걸린 표 → 「전량 그 지역」으로 읽는다.
+
+    조흥은 머리가 3층이다:
+        지역
+        본사 소재지 국가                    ← 지역 축이 하나뿐
+        부문 | 부문 합계
+        치즈 | 식품 및 식품첨가물 등          ← 부문 축
+        수익(매출액) 295,413,841 | 192,832,219 | 488,246,060
+    부문표 파서는 리프(치즈·식품첨가물)를 잡아 「지역표가 아니다」로 분류했다. 그런데
+    지역으로 보면 **전량 국내 488,246,060** 이라는 확정 정보다.
+    """
+    from bs4 import BeautifulSoup
+
+    try:
+        t = BeautifulSoup(chunk, "lxml").find("table")
+    except Exception:
+        return None
+    if t is None:
+        return None
+    head, body = [], []
+    for r in t.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in r.find_all(_CELL_TAGS)]
+        (body if any(_row_num(c) is not None for c in cells) else head).append(cells)
+    if not head or not body:
+        return None
+    flat = [h for row in head for h in row if h]
+    regions = {h for h in flat if len(h) <= 18 and REGION.match(_region_key(h))}
+    if len(regions) != 1:
+        return None                       # 지역이 둘 이상이면 다른 리더가 처리한다
+    if not any(TOTAL.search(h) for h in flat):
+        return None                       # 합계 열이 있어야 그 지역의 총액을 안다
+    row = next((r for r in body
+                if re.search(r"수익|매출", " ".join(c for c in r if _row_num(c) is None))), None)
+    if row is None:
+        return None
+    vals = [v for v in (_row_num(c) for c in row) if v is not None]
+    if len(vals) < 2:
+        return None
+    name = next(iter(regions))
+    return {"segments": [{"name": name, "revenue": float(vals[-1])}],   # 마지막 = 합계
+            "excess": [float(vals[-1])], "revenue_metric": "수익",
+            "unit": "", "_single_region": True, "_subaxis": True}
 
 
 def _read_column_oriented_geo(chunk: str) -> dict | None:
@@ -393,8 +438,11 @@ def _row_num(c):
 
 
 TOTAL = re.compile(r"합\s*계|총\s*계")
+# 「수출/내수」는 II 매출실적표 용어인데 **III 주석에서 지역 축으로 쓰는 회사**가 있다
+# (실측 1건: 「지역 | 수출 252,561,372 | 내수 1,251,118,204 | 연결조정 | 지역 합계」).
+# 수출=해외, 내수=국내로 읽는다. 「연결조정」은 지역이 아니라 자동으로 빠진다.
 REGION = re.compile(
-    r"^\s*(?:본사\s*소재지(?:\s*국가)?|외국|국내|해외|국외|대한민국|한국|"
+    r"^\s*(?:본사\s*소재지(?:\s*국가)?|외국|국내|해외|국외|대한민국|한국|수\s*출|내\s*수|"
     r"북미|미주|남미|중남미|아메리카|아시아[가-힣\s/·및]{0,14}|유럽|중동|아프리카|오세아니아|"
     r"중국|일본|미국|베트남|인도|인도네시아|대만|태국|싱가포르|홍콩|호주|캐나다|멕시코|"
     r"브라질|러시아|독일|영국|프랑스|폴란드|헝가리|기타(?:\s*국가|\s*지역)?)\s*$")
@@ -427,8 +475,10 @@ _GEO_XBRL_RE = re.compile(r"D871|D831|D[A-Z]?804")
 _GEO_SECTION_RE = re.compile(r"부문|세그먼트|수익|매출|고객과의\s*계약|영업\s*수익|보험위험|지역")
 
 
+# 「외부고객으로부터의 수익」은 K-IFRS 1108 의 **주요 고객 집중도** 공시지 지리 정보가
+# 아니다 — 명인제약이 이것 때문에 「지역표가 있는데 못 읽었다」로 오분류됐다.
 _GEO_MARK_RE = re.compile(r"본사\s*소재지|지역\s*합계|지역별\s*정보|지역에\s*대한\s*정보|"
-                          r"고객의?\s*소재지|외부고객으로부터의?\s*수익")
+                          r"고객의?\s*소재지\s*국가|소재지별\s*수익")
 
 
 def absence_signal(full_html: str) -> dict:
@@ -588,6 +638,12 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
             # (LG화학 「지역 | 한국 | 총부문수익 | 비유동자산」)에서는 항목이 0개로
             # 나와 표를 통째로 버렸다 — 앵커는 맞았는데 표에서 걸린 것.
             p = _read_row_oriented_geo(chunk) or _read_column_oriented_geo(chunk)
+        if p and _GEO_HEAD_RE.search(chunk[:4000]) and not any(
+                REGION.match(_region_key(s0["name"])) for s0 in p["segments"]):
+            # 부문 리프를 잡았지만 머리 위층이 지역인 표 — 조흥은 「지역 > 본사 소재지 국가
+            # > 부문(치즈·식품첨가물)」 3층이라 리프(부문)를 뽑고 지역표가 아니라고 봤다.
+            # 지역으로 보면 전량 국내라는 확정 정보다.
+            p = _read_single_region_with_subaxis(chunk) or p
         if p and len(p["segments"]) == 1 and _GEO_HEAD_RE.search(chunk[:4000]):
             # 지역이 **하나뿐**인 표(동우팜투테이블 「본사 소재지 국가 | 325,458」)는
             # 정보가 없는 게 아니라 **「전량 국내」라는 확정 정보**다. 2개 이상 게이트에

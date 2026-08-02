@@ -309,3 +309,61 @@ def test_degraded_fallback_is_not_erased_by_a_later_empty_window():
     from open_proxy_mcp.services import segment_grid as SG
 
     assert "geo_md_fallback = got or geo_md_fallback" in inspect.getsource(SG.scan_entity_wide)
+
+
+def test_single_region_with_segment_subaxis_is_still_geo_information():
+    """머리가 「지역 > 본사 소재지 국가 > 부문」 3층이면 리프는 부문이지만 지역 정보다.
+
+    조흥은 부문 리프(치즈·식품 및 식품첨가물 등)를 뽑고 「지역표가 아니다」로 분류됐다.
+    지역으로 보면 **전량 국내 488,246,060** 이라는 확정 정보다.
+    """
+    from open_proxy_mcp.services.segment_grid import _read_single_region_with_subaxis
+
+    chunk = ("<TABLE><TR><TH></TH><TH>지역</TH></TR>"
+             "<TR><TH></TH><TH>본사 소재지 국가</TH></TR>"
+             "<TR><TH></TH><TH>부문</TH><TH>부문 합계</TH></TR>"
+             "<TR><TH></TH><TH>치즈</TH><TH>식품 및 식품첨가물 등</TH><TH></TH></TR>"
+             "<TR><TE>수익(매출액)</TE><TE>295,413,841</TE><TE>192,832,219</TE>"
+             "<TE>488,246,060</TE></TR></TABLE>")
+    got = _read_single_region_with_subaxis(chunk)
+    assert got is not None
+    assert got["segments"] == [{"name": "본사 소재지 국가", "revenue": 488246060.0}]
+    assert got["_single_region"] is True
+
+    # 지역이 둘 이상이면 다른 리더가 처리한다 — 여기서 가로채지 않는다
+    two = ("<TABLE><TR><TH></TH><TH>국내</TH><TH>외국</TH><TH>합계</TH></TR>"
+           "<TR><TE>수익</TE><TE>10</TE><TE>20</TE><TE>30</TE></TR></TABLE>")
+    assert _read_single_region_with_subaxis(two) is None
+
+
+def test_export_domestic_wording_is_a_region_axis_in_some_notes():
+    """「수출/내수」는 II 용어인데 III 주석에서 지역 축으로 쓰는 회사가 있다.
+
+    실측: 「지역 | 수출 252,561,372 | 내수 1,251,118,204 | 연결조정 | 지역 합계」.
+    수출=해외·내수=국내로 읽는다(해외비중 15.3%). 「연결조정」은 지역이 아니라 빠진다.
+    """
+    from open_proxy_mcp.services.segment_grid import _DOMESTIC_RE, REGION, _foreign_share, _region_key
+
+    for t in ("수출", "내수", "수 출", "내 수"):
+        assert REGION.match(_region_key(t)), t
+    assert _DOMESTIC_RE.match(_region_key("내수"))
+    assert not _DOMESTIC_RE.match(_region_key("수출"))
+    assert not REGION.match(_region_key("연결조정"))
+
+    got = _foreign_share([{"name": "수출", "revenue": 252_561_372.0},
+                          {"name": "내수", "revenue": 1_251_118_204.0}])
+    assert got["foreign_share_pct"] == 16.8
+
+
+def test_major_customer_disclosure_is_not_a_geo_marker():
+    """「외부고객으로부터의 수익」은 K-IFRS 1108 **주요 고객** 공시지 지리 정보가 아니다.
+
+    명인제약이 이 문구 때문에 「지역표가 있는데 못 읽었다」로 오분류됐다 —
+    실제로는 지역별 정보를 싣지 않은 회사다(not_disclosed).
+    """
+    from open_proxy_mcp.services.segment_grid import _GEO_MARK_RE
+
+    assert not _GEO_MARK_RE.search("연결회사는 단일 외부고객으로부터의 수익이 10%를 초과합니다")
+    assert not _GEO_MARK_RE.search("주요 고객에 대한 정보")
+    assert _GEO_MARK_RE.search("본사 소재지 국가")
+    assert _GEO_MARK_RE.search("지역 합계")
