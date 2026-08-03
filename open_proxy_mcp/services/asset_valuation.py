@@ -415,6 +415,17 @@ def extract_pledged_assets(full_html: str, stripped: str | None = None) -> dict[
                                   "담보로 제공하고 있는 자산", "담보로 제공하고 있는"),
                             _SIG_PLEDGED, before=60, after=1800, max_regions=1, require=("담보",))
     if not regions:
+        # 표를 이끄는 다른 문구들. 앵커를 「담보로 제공된/되어」처럼 넓히면 회수 104건에
+        # **기존 값 514건이 바뀌고**, 「…담보로 제공되어 있습니다(주석 5참조)」 같은 산문에서
+        # 출발해 다음 주석 표를 끌어온다(260803 실측). 그래서 넓히지 않고, 표 제목으로 쓰이는
+        # 문구만 골라 **위에서 못 찾았을 때만** 본다 — 회수 59건, 손실·내용변경 0.
+        regions = _find_regions(
+            txt, ("담보로 제공된 금융자산", "사용이 제한되거나 담보로 제공", "담보로 제공된 보험",
+                  "채무를 위하여 담보로 제공", "담보로 제공되어 있는 유형자산",
+                  "담보로 제공된 유형자산", "담보로 제공된 자산에 대한 공시",
+                  "담보제공 내역", "담보제공 현황"),
+            _SIG_PLEDGED, before=60, after=1800, max_regions=1, require=("담보",))
+    if not regions:
         return {"status": "NOT_APPLICABLE", "na_reason": "담보제공 자산 주석 미검출(무담보 or 미기재)",
                 **_absence_verdict(txt, ("담보제공자산", "담보로 제공"), "담보제공 자산")}
     return {"status": "MARKDOWN",
