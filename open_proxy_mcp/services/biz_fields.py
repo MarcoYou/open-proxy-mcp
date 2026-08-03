@@ -634,6 +634,58 @@ def _field(biz_text: str, html: str, head_patterns: list[str], na_re, content_re
     }
 
 
+# III. 재무 장이 시작하는 자리 — 문단 폴백이 주석 표를 긁지 않도록 경계를 둔다.
+_FIN_CHAPTER_POS_RE = re.compile(r"<TITLE[^>]*>\s*(?:III|Ⅲ)\s*\.\s*재무", re.I)
+_PROSE_TABLE_GAP = 900          # 문단 끝에서 이 안에 표가 오면 그 문단이 이끄는 표로 본다
+_PROSE_TABLE_JOIN = 200         # 이미 표를 잡은 뒤 바짝 붙어 오는 표(단위 선언 등)는 이어 붙인다
+
+
+def _prose_anchor_regions(html: str, head_patterns: list[str], content_re,
+                          max_regions: int = 1) -> list[tuple[str, str]]:
+    """소절 제목이 **문단 안에 녹아 있을 때**의 마지막 회수.
+
+    회사가 「…추정됩니다.주요 원재료의 가격변동추이는 다음과 같습니다.」처럼 제목을 문장에
+    넣어 버리면 HTML 헤딩 요소가 없어 `build_region_index` 에 안 잡힌다(260803 실측 19건 —
+    II장엔 XBRL 구조 코드가 0개라 코드로 짚는 길도 없다).
+
+    임베디드 헤딩 lookahead 를 넓히는 방법을 먼저 재봤으나 회수 4에 손실 2(그중 6,981자)라
+    버렸다 — 색인을 건드리면 다른 필드의 구간 경계가 흔들린다. 이 경로는 **정규 경로가
+    아무것도 못 찾았을 때만** 돌아서, 있는 값을 밀어낼 수 없다.
+    """
+    fin = _FIN_CHAPTER_POS_RE.search(html or "")
+    limit = fin.start() if fin else len(html or "")
+    out: list[tuple[str, str]] = []
+    for pm in _P_BLOCK_RE.finditer(html or ""):
+        if pm.start() >= limit:                       # III. 재무 주석은 이 필드의 자리가 아니다
+            break
+        text = _clean_heading_text(pm.group("body"))
+        hit = next((m for pat in head_patterns for m in [re.search(pat, text)] if m), None)
+        if not hit:
+            continue
+        # 헤딩이 없으니 **문장에서 잡은 그 문구**를 원문 위치로 준다 — 회사마다 표현이
+        # 달라(「원재료의 가격 변동 추이」·「주요 원재료의 가격변동추이는」) 이게 없으면
+        # 읽는 쪽이 원문에서 같은 자리를 못 찾는다.
+        label = text[hit.start():hit.end() + 12].strip()[:60]
+        # 그 문단이 이끄는 표까지 담는다. **잇달아 오는 표는 함께 담아야** 한다 —
+        # DART 는 「(단위 : 원)」을 별도 표로 렌더해서, 첫 표만 집으면 단위 줄에서 끊긴다.
+        end = pm.end()
+        cursor, gap = pm.end(), _PROSE_TABLE_GAP
+        while True:
+            tm = _TABLE_RE.search(html, cursor)
+            if not tm or tm.start() - cursor > gap:
+                break
+            end = cursor = tm.end()
+            gap = _PROSE_TABLE_JOIN                    # 이후로는 바짝 붙은 표만 이어 붙인다
+        rendered = _render_html_region_md(html, pm.start(), end)
+        if not rendered or (content_re and not content_re.search(rendered)):
+            continue
+        if all(rendered != r for r, _ in out):
+            out.append((rendered, label))
+        if len(out) >= max_regions:
+            break
+    return out
+
+
 def _signal_paragraph_field(html: str, signal_re, source: str) -> dict | None:
     """헤딩 없는 강한 회사 고유 행동문만 해당 HTML 문단 단위로 보조 회수."""
     markdown: list[str] = []
@@ -1044,6 +1096,15 @@ def _compose_pricing_field(biz_text: str, html: str, components: list[tuple[str,
         )
         if regions:
             found.append((key, label, regions[0]))
+    if not found:
+        # 헤딩이 없는 형태(제목이 문장에 녹음)를 마지막으로 한 번 더 본다.
+        for key, label, heads, content_re in components:
+            prose = _prose_anchor_regions(html, heads, content_re)
+            if prose:
+                md, where = prose[0]
+                found.append((key, label, {"markdown": md, "heading": where,
+                                           "chapter": "II. 사업의 내용",
+                                           "boundary": "prose_paragraph"}))
     if not found:
         na = na_re.search(biz_text) if (na_re and biz_text) else None
         return {
