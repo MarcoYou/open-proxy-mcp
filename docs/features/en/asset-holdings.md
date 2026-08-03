@@ -10,6 +10,8 @@
 - **Coverage ratios vs. market cap** — surplus assets (cash + liquid securities + investment property) and equity NAV (controlling/associate stakes) each compared to market cap, flagging when they exceed it.
 - **Pledged-asset & contingent-liability warnings** — flags when assets are pledged as collateral or contingent liabilities/guarantees exist, since both should be subtracted from NAV (see `scope="detail"` for the original text).
 - Correctly separates the common holding-company case where subsidiary and associate stakes are reported as one combined line item — instead of silently dropping it. REITs are auto-excluded from the "hidden asset" signal since investment property is their core business, not surplus.
+- **States consolidated vs separate** (`scope="detail"`) — note tables now carry which financial statements they came from. Mistaking separate-entity assets for consolidated changes the whole NAV calculation. Warns when one region mixes both, when separate was read although consolidated notes exist, or when the section title and the declaration disagree. **If the filing declares nothing, no basis is invented.**
+- **When a value is missing, it says why and quotes the original** — the old "collateral note not detected (unencumbered or undisclosed)" left readers unable to tell which. It now splits into not disclosed / not here / no table / not found, and quotes the surrounding wording so you can check for yourself.
 - Core design: ratios are **gross, before debt** — use alongside PBR. Whether to net out pledged/contingent haircuts is left to the reading AI's judgment.
 
 ## Ask like this
