@@ -356,6 +356,15 @@ _SIG_EQUITY = re.compile(
 # **종목별 기초금융자산→매입/매도/평가손익→기말금융자산** 롤포워드로만 공시하는 경우가 흔함
 # (삼성바이오로직스·테슬라·엔비디아·팔란티어 등 실명 종목 + KODEX/TIGER/SOXX 등 ETF 혼재).
 # "상장주식의 내역" 소제목 앵커 + 롤포워드 고유 컬럼명(기초금융자산·기말금융자산)으로 지목.
+# 위 배제(`손상차손누계액`)는 **총장부금액이 매출채권 손상충당금 표에도 쓰이기 때문**에 넣은
+# 것인데, 2,400자 창 안 **다른 주석**에 그 낱말이 있으면 진짜 지분증권 명세까지 죽인다
+# (260803 실측: 미탐 20건 중 16건이 이것). 그래서 배제를 **총장부금액만 있을 때로 한정**한
+# 완화판을 둔다. 취득원가·취득가액은 매출채권 표가 쓰지 않는 어휘라 배제할 이유가 없다.
+# 앵커 순서가 바뀌어 기존 구간이 밀리지 않도록 **위에서 못 찾았을 때만** 쓴다.
+_SIG_EQUITY_RELAXED = re.compile(
+    r"(?=.*(?:상장|비상장)\s*(?:주식|지분상품|지분증권))"
+    r"(?=.*(?:공정가치|순자산가액|평가손익))"
+    r"(?:(?=.*(?:취득원가|취득가액|취득금액))|(?=.*총장부금액)(?!.*손상차손누계액))", re.S)
 _SIG_EQUITY_FVPL_ROLL = re.compile(
     r"(?=.*상장주식의\s*내역)(?=.*기초금융자산)(?=.*기말금융자산)(?=.*[\d,]{5,})", re.S)
 # 담보제공 자산(asset_holdings haircut): 담보 맥락 + 자산종류 + 장부금액 인접 숫자. 자유청산 NAV에서 차감.
@@ -412,6 +421,12 @@ def extract_equity_holdings(biz_text: str, full_html: str, stripped: str | None 
         if regions:
             labels.append(label)
             parts.append(f"### {label}\n{regions[0]}")
+    if not parts:
+        regions = _find_regions(txt, ("상장주식", "비상장주식", "상장지분", "비상장지분"),
+                                _SIG_EQUITY_RELAXED, before=180, after=2400, max_regions=1)
+        if regions:
+            labels.append("지분증권_원가vs공정가치")
+            parts.append(f"### 지분증권_원가vs공정가치\n{regions[0]}")
     if not parts:
         return {"status": "NOT_APPLICABLE", "na_reason": "지분증권 원가-vs-시가 명세 미공시(총액·민감도만)",
                 **_absence_verdict(txt, ("상장주식", "비상장주식", "상장지분", "비상장지분"), "지분증권")}
