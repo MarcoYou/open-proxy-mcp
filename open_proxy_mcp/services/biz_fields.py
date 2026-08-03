@@ -741,6 +741,12 @@ _C_SITE_LOCATION_STRONG = re.compile(
     r"소재지|주소|본사|본점|[가-힣A-Za-z0-9()]+\s*공장|"
     r"경기|서울|인천|부산|대구|대전|광주|울산|충청|전라|경상|강원|제주"
 )
+# 회사가 설비를 **소재지가 아니라 장부가 표**로 공시하는 경우. `_C_SITE` 는 소재지·㎡·지역명을
+# 요구해서 이런 표를 통째로 떨어뜨렸다(실측 82건 — 도시가스 공급배관, 유형자산 롤포워드 등).
+# 다만 이 어휘로 `_C_SITE` 자체를 넓히면 자식 헤딩이 더 실한 부모 구간을 밀어내
+# 기존 값이 3,204~10,749자 줄었다(occupied 겹침 배제 + 우선순위 탓). 그래서 **정규 경로가
+# 값을 못 낸 뒤에만** 도는 마지막 단계로 둔다 — 구조상 있는 값을 밀어낼 수 없다.
+_C_SITE_ASSET_TABLE = re.compile(r"기계장치|구축물|건설중인자산|장부(?:가액|금액)|공급배관|정압기")
 _SITE_REFERENCE_HEAD = [r"산업\s*표준"]
 _C_SITE_REFERENCE = re.compile(r"송파\s*및\s*하남\s*사이트")
 _SITE_NA = re.compile(
@@ -952,6 +958,16 @@ def extract_sites(biz_text, html, region_index=None):
         )
     if r.get("extraction_status") == "NOT_COLLECTED":
         r = _signal_paragraph_field(html, _SITE_PROSE_SIGNAL, "signal_paragraph") or r
+    if r.get("status") != "MARKDOWN":
+        # 「제조업체가 아니므로 생산설비는 없으나, 영업활동을 위한 자산의 내역은 아래와 같습니다」
+        # 처럼 부재를 밝히고도 표를 싣는 회사가 많다(회수 82건 중 67건이 그 경우). 원문을
+        # 그대로 돌려주므로 그 문장도 함께 실려, 읽는 쪽이 무엇인지 보고 판단할 수 있다.
+        asset = _field(
+            biz_text, html, _SITE_HEAD, _SITE_NA, content_re=_C_SITE_ASSET_TABLE,
+            region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field="sites",
+        )
+        if asset.get("status") == "MARKDOWN":
+            r = asset
     return r
 
 def extract_rnd(biz_text, html, region_index=None):
