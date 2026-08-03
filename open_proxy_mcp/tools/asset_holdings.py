@@ -94,7 +94,7 @@ def _render(p: dict) -> str:
             fd = d.get(key) or {}
             if fd.get("status") == "MARKDOWN":
                 # 어느 기준의 표인지 **표보다 먼저** 밝힌다 — 연결·별도를 섞어 읽으면
-                # NAV 자체가 달라진다(실측: 기준확정 872건 중 71건이 오독·혼입).
+                # NAV 자체가 달라진다.
                 if fd.get("basis"):
                     L.append(f"_{fd['basis']} 재무제표 주석 기준_")
                 if fd.get("basis_conflict"):

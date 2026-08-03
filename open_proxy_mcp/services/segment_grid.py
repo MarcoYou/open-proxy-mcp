@@ -458,13 +458,13 @@ def _find_geo_anchor_pos(html: str) -> int:
 
 
 # ── 주석 절 목록 (선언 구조 파싱을 주석 층까지) ─────────────────────────────────
-# 주석 본문엔 **AASSOCNOTE 가** 없다(부문 구간 실측 0%) — 그건 챕터 경계까지만 있고
-# 주석 안으로 들어오면 사라진다. **ACODE 는 다르다**: 부문 구간 안에도 86% 있고
-# (`ifrs-full_Revenue` · `dart_OperatingIncomeLoss` · `ifrs-full_InformationAboutMajorCustomers`),
-# `ACONTEXT` 도 86% 붙어 있어 셀마다 기간·연결/별도가 선언돼 있다(260803 캐시 300건 실측).
+# 주석 본문엔 **AASSOCNOTE 가** 없다 — 그건 챕터 경계까지만 있고 주석 안으로 들어오면
+# 사라진다. **ACODE 는 다르다**: 부문 구간 안에도 있고(`ifrs-full_Revenue` ·
+# `dart_OperatingIncomeLoss` · `ifrs-full_InformationAboutMajorCustomers`), `ACONTEXT` 도
+# 붙어 있어 셀마다 기간·연결/별도가 선언돼 있다.
 #   ※ 260802 시점 주석은 이 둘을 묶어 「AASSOCNOTE·ACODE 가 없다」고 적어 두었는데 ACODE 쪽이
 #     사실과 달랐다. 셀 코드로 값을 직접 읽는 경로를 막고 있었으므로 바로잡는다.
-# 아래 `<A name='tocN'>` 은 **viewer HTML 폴백 전용**이다 — 주 경로(document.xml)엔 0%.
+# 아래 `<A name='tocN'>` 은 **viewer HTML 폴백 전용**이다 — 주 경로(document.xml)엔 없다.
 _TOC_ANCHOR_RE = re.compile(r"<A\s+name=['\"]toc(\d+)['\"]\s*>\s*([^<]{2,80}?)\s*</A>", re.I)
 # 주 경로(document.xml)의 주석 절 표지 — XBRL 택소노미 코드.
 #   <TABLE-GROUP ACLASS="{XBRL}NT_C_D871100"><TITLE ATOC="Y">33. 부문별 정보 (연결)</TITLE>

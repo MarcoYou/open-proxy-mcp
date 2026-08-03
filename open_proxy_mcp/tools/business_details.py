@@ -100,8 +100,8 @@ def _origin_lines(node: dict) -> list[str]:
     ss = node.get("section_source") or {}
     heads = [h for h in (ss.get("matched_headings") or []) if h]
     if heads:
-        # 장 이름은 「II.」·「Ⅲ.」로 시작하는 것만 믿는다 — 실측에서 표 안의 문장이
-        # 장 이름 자리에 들어와 「C. 1주당 상환일까지…」 같은 게 그대로 나갔다(260803 pilot).
+        # 장 이름은 「II.」·「Ⅲ.」로 시작하는 것만 믿는다 — 표 안의 문장이 장 이름 자리에
+        # 들어와 「C. 1주당 상환일까지…」 같은 게 그대로 나가는 일이 있다.
         chap = next((c for c in (ss.get("chapters") or [])
                      if c and _CHAP_RE.match(c.strip())), "II. 사업의 내용")
         return [f"_원문 위치: {chap} → {' · '.join(heads[:3])}_"]
@@ -114,8 +114,7 @@ def _absent(node: dict, what: str) -> list[str]:
     `biz_fields` 는 `status` 를 늘 NOT_APPLICABLE 로 두고 진짜 구분은
     `extraction_status` 에 넣는다(NOT_APPLICABLE=원문이 「해당사항 없음」이라 밝힘 /
     NOT_COLLECTED=소절을 못 찾음). 렌더가 `status` 만 읽어 **둘 다 「해당 없음」**으로
-    나갔다 — 실측 722건: 부재로 표시된 896건 중 **696건(78%)이 실은 미탐**이고,
-    고객 94%·가동률 88%가 그랬다. 「없다」고 단정하면 읽는 쪽이 원문 확인을 포기한다.
+    나갔다. 「없다」고 단정하면 읽는 쪽이 원문 확인을 포기한다.
     """
     st = node.get("status")
     reason = (node.get("na_reason") or node.get("note") or "").strip()
@@ -352,9 +351,8 @@ def _render(p: dict) -> str:
             elif fd.get("note"):
                 hint = f" _({fd['note']})_"
             L.append(f"\n### {label} (원문){hint}")
-            # 이 회사 원문의 **어느 소절**에서 가져왔는지. payload 는 99.5%(3,447/3,464)
-            # 들고 있었는데 렌더가 안 썼다 — 회사마다 소절 제목이 달라 이게 없으면
-            # 읽는 쪽이 원문에서 같은 자리를 못 찾는다.
+            # 이 회사 원문의 **어느 소절**에서 가져왔는지. payload 는 들고 있는데 렌더가
+            # 안 쓰면, 회사마다 소절 제목이 달라 읽는 쪽이 원문에서 같은 자리를 못 찾는다.
             L.extend(_origin_lines(fd))
             L.append("> 아래 원문에서 값을 읽으세요. 단위·정의는 회사별 상이(비교 주의).")
             if key == "revenue_mix_form":

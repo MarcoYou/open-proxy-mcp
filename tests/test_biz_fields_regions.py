@@ -712,9 +712,8 @@ def test_broad_title_requires_field_signal_in_section_body() -> None:
 def test_content_gate_failure_does_not_expand_a_nonempty_peer_region() -> None:
     """소재지 없는 설비표는 자산표 단계가 회수하되, **구간은 옆 소절을 삼키지 않는다.**
 
-    260803 이전엔 이 상태가 NOT_COLLECTED 였다 — 회사가 설비를 소재지가 아니라 장부가
-    표로 공시하면 `_C_SITE` 가 떨어뜨렸기 때문이다(실측 82사). 이제 마지막 단계가 회수한다.
-    이 테스트가 지키는 것은 상태가 아니라 **경계**다.
+    회사가 설비를 소재지가 아니라 장부가 표로 공시하면 `_C_SITE` 가 떨어뜨리므로,
+    마지막 단계(자산표 게이트)가 회수한다. 이 테스트가 지키는 것은 상태가 아니라 **경계**다.
     """
     html = _document(
         '<P USERMARK="B">(2) 생산설비 현황</P>'

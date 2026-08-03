@@ -645,12 +645,11 @@ def _prose_anchor_regions(html: str, head_patterns: list[str], content_re,
     """소절 제목이 **문단 안에 녹아 있을 때**의 마지막 회수.
 
     회사가 「…추정됩니다.주요 원재료의 가격변동추이는 다음과 같습니다.」처럼 제목을 문장에
-    넣어 버리면 HTML 헤딩 요소가 없어 `build_region_index` 에 안 잡힌다(260803 실측 19건 —
-    II장엔 XBRL 구조 코드가 0개라 코드로 짚는 길도 없다).
+    넣어 버리면 HTML 헤딩 요소가 없어 `build_region_index` 에 안 잡힌다. II장엔 XBRL 구조
+    코드가 없어 코드로 짚는 길도 없다.
 
-    임베디드 헤딩 lookahead 를 넓히는 방법을 먼저 재봤으나 회수 4에 손실 2(그중 6,981자)라
-    버렸다 — 색인을 건드리면 다른 필드의 구간 경계가 흔들린다. 이 경로는 **정규 경로가
-    아무것도 못 찾았을 때만** 돌아서, 있는 값을 밀어낼 수 없다.
+    임베디드 헤딩 lookahead 를 넓히면 색인이 바뀌어 다른 필드의 구간 경계까지 흔들린다.
+    그래서 이 경로는 **정규 경로가 아무것도 못 찾았을 때만** 돌아, 있는 값을 밀어낼 수 없다.
     """
     fin = _FIN_CHAPTER_POS_RE.search(html or "")
     limit = fin.start() if fin else len(html or "")
@@ -741,11 +740,11 @@ _C_SITE_LOCATION_STRONG = re.compile(
     r"소재지|주소|본사|본점|[가-힣A-Za-z0-9()]+\s*공장|"
     r"경기|서울|인천|부산|대구|대전|광주|울산|충청|전라|경상|강원|제주"
 )
-# 회사가 설비를 **소재지가 아니라 장부가 표**로 공시하는 경우. `_C_SITE` 는 소재지·㎡·지역명을
-# 요구해서 이런 표를 통째로 떨어뜨렸다(실측 82건 — 도시가스 공급배관, 유형자산 롤포워드 등).
-# 다만 이 어휘로 `_C_SITE` 자체를 넓히면 자식 헤딩이 더 실한 부모 구간을 밀어내
-# 기존 값이 3,204~10,749자 줄었다(occupied 겹침 배제 + 우선순위 탓). 그래서 **정규 경로가
-# 값을 못 낸 뒤에만** 도는 마지막 단계로 둔다 — 구조상 있는 값을 밀어낼 수 없다.
+# 회사가 설비를 **소재지가 아니라 장부가 표**로 공시하는 경우(도시가스 공급배관, 유형자산
+# 롤포워드 등). `_C_SITE` 는 소재지·㎡·지역명을 요구해 이런 표를 떨어뜨린다.
+# 다만 이 어휘로 `_C_SITE` 자체를 넓히면 자식 헤딩이 더 실한 부모 구간을 밀어낸다
+# (occupied 겹침 배제 + 패턴 우선순위 탓). 그래서 **정규 경로가 값을 못 낸 뒤에만** 도는
+# 마지막 단계로 둔다 — 구조상 있는 값을 밀어낼 수 없다.
 _C_SITE_ASSET_TABLE = re.compile(r"기계장치|구축물|건설중인자산|장부(?:가액|금액)|공급배관|정압기")
 _SITE_REFERENCE_HEAD = [r"산업\s*표준"]
 _C_SITE_REFERENCE = re.compile(r"송파\s*및\s*하남\s*사이트")
@@ -959,9 +958,9 @@ def extract_sites(biz_text, html, region_index=None):
     if r.get("extraction_status") == "NOT_COLLECTED":
         r = _signal_paragraph_field(html, _SITE_PROSE_SIGNAL, "signal_paragraph") or r
     if r.get("status") != "MARKDOWN":
-        # 「제조업체가 아니므로 생산설비는 없으나, 영업활동을 위한 자산의 내역은 아래와 같습니다」
-        # 처럼 부재를 밝히고도 표를 싣는 회사가 많다(회수 82건 중 67건이 그 경우). 원문을
-        # 그대로 돌려주므로 그 문장도 함께 실려, 읽는 쪽이 무엇인지 보고 판단할 수 있다.
+        # 「제조업체가 아니므로 생산설비는 없으나, 영업활동을 위한 자산의 내역은 아래와
+        # 같습니다」처럼 부재를 밝히고도 표를 싣는 회사가 많다. 원문을 그대로 돌려주므로
+        # 그 문장도 함께 실려, 읽는 쪽이 무엇인지 보고 판단할 수 있다.
         asset = _field(
             biz_text, html, _SITE_HEAD, _SITE_NA, content_re=_C_SITE_ASSET_TABLE,
             region_index=region_index, exclude_chapter_re=_FINANCIAL_CHAPTER_RE, field="sites",
@@ -1076,7 +1075,7 @@ _C_KEY_CONTRACTS = re.compile(
 )
 
 # DART 표 셀은 자간을 벌려 렌더한다 — 「품 목」·「구 분」. 리터럴 `품목` 은 그걸 못 맞춰
-# 실제 원재료 표(품 목 | 제54기 | …)를 통째로 떨어뜨렸다(260803 실측 8건, 손실 0).
+# 실제 원재료 표(품 목 | 제54기 | …)를 통째로 떨어뜨린다.
 _C_RAW_MATERIALS = re.compile(
     r"매입(?:액|처|비중|실적|유형)|구입(?:처|가격)|공급(?:사|처|업체)|구체적\s*용도|"
     r"원\s*(?:재료|자재)\s*가격|수입|품\s*목|평균\s*가|단\s*가"
