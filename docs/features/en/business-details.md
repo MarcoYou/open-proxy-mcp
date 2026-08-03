@@ -1,6 +1,6 @@
 # Business Details
 
-<!-- documentation-contract: business_details fields=revenue_breakdown,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,financial_ops,financial_soundness,investment_property,geo_revenue,key_contracts -->
+<!-- documentation-contract: business_details fields=revenue_breakdown,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,financial_ops,financial_soundness,investment_property,key_contracts -->
 
 **Reads the "Business Overview" section of periodic reports for you.** From segment revenue and profit to production facilities, utilization, R&D, order backlog, key customers, input costs, and product pricing trends — it pulls exactly the subsections you need, verbatim, out of a report section that runs dozens of pages.
 
@@ -15,7 +15,7 @@
 - **Sites & production facilities** (sites), **production output & utilization** (utilization), **R&D** (rnd), **order backlog** (backlog), **key customers** (customers).
 - **Raw materials & input costs** (raw_materials) — original material-composition, purchase, and input-price-trend sections.
 - **Product & service pricing trends** (product_pricing) — original selling-price, ASP, and price-change-rationale sections.
-- **Revenue by region** (geo_revenue) — geographic revenue breakdown. Structured output is returned only when the table passes reconciliation, unit, and external-revenue checks; otherwise the original table markdown is returned with the rejection reason.
+- **Revenue by region** — delivered as `revenue_breakdown.by_region`. Structured output is returned only when the table passes reconciliation, unit, and external-revenue checks; otherwise the original table markdown is returned with the rejection reason. The old name `geo_revenue` still works as an **alias** when passed explicitly in `fields` (it is not part of the default set).
 
 Every field follows the same response contract: structured numbers only when certain, otherwise the original section markdown with a reason, otherwise an explicit absence. Structured responses include a `self_check` note — if a value looks off, re-query the original text via the suggested path.
 - **Dedicated financial/REIT track** — financial firms get operating overview & soundness ratios (K-ICS, net capital ratio) instead of segment tables; REITs/insurers get investment-property detail (occupancy, vacancy). Auto-detected by industry code (KSIC).

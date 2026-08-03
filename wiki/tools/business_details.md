@@ -2,7 +2,7 @@
 type: tool
 title: business_details
 domain: data
-scope: [revenue_breakdown, sites, utilization, rnd, backlog, customers, raw_materials, product_pricing, financial_ops, financial_soundness, investment_property, geo_revenue, key_contracts]
+scope: [revenue_breakdown, sites, utilization, rnd, backlog, customers, raw_materials, product_pricing, financial_ops, financial_soundness, investment_property, key_contracts]
 data_source: [DART get_document (전체보고서 XML 1콜 → II.사업의 내용 + 연결재무제표주석 부문정보 슬라이스), search list.json A001/A002/A003]
 related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: [사업부문, 영업부문, K-IFRS 1108, SOTP, 부문 영업이익, 연구개발비, 수주잔고, 고객집중]
