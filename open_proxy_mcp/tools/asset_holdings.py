@@ -93,9 +93,25 @@ def _render(p: dict) -> str:
                            ("pledged_assets", "담보제공 자산"), ("contingent", "우발부채·지급보증")):
             fd = d.get(key) or {}
             if fd.get("status") == "MARKDOWN":
+                # 어느 기준의 표인지 **표보다 먼저** 밝힌다 — 연결·별도를 섞어 읽으면
+                # NAV 자체가 달라진다(실측: 기준확정 872건 중 71건이 오독·혼입).
+                if fd.get("basis"):
+                    L.append(f"_{fd['basis']} 재무제표 주석 기준_")
+                if fd.get("basis_conflict"):
+                    L.append(f"> {fd['basis_conflict']}")
                 L.append(f"\n{fd['markdown']}")
+                if fd.get("source_excerpt"):
+                    L.append(f"_원문 위치: …{fd['source_excerpt']}…_")
             else:
-                L.append(f"\n**{title}**: 해당없음 — {fd.get('na_reason', '')}")
+                # 「해당없음」 한 갈래로 내보내면 원문에 없는 건지 우리가 못 읽은 건지 알 수 없다.
+                head = {"extraction_failed": "찾지 못함 — 원문에 표가 있습니다",
+                        "narrative_only": "표 없음 — 산문 서술만",
+                        "cross_reference": "여기엔 없음 — 원문이 다른 절을 가리킵니다",
+                        "not_disclosed": "해당 없음"}.get(fd.get("absence_kind"), "해당없음")
+                L.append(f"\n**{title}**: {head} — "
+                         f"{fd.get('absence_note') or fd.get('na_reason', '')}")
+                if fd.get("absence_excerpt"):
+                    L.append(f"_원문 위치: …{fd['absence_excerpt']}…_")
 
     if p.get("warnings"):
         L.append("\n⚠ " + " · ".join(p["warnings"]))

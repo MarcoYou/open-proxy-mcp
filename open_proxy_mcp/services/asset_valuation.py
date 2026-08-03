@@ -80,6 +80,228 @@ def _find_regions(stripped: str, anchors: tuple[str, ...], sig: re.Pattern,
     return cands[:max_regions]
 
 
+# ── 연결/별도 기준: 문서가 셀마다 선언한 것을 읽는다 ──────────────────────────
+# DART document.xml 은 주석 표의 셀마다 XBRL 컨텍스트를 달아 둔다:
+#   ACONTEXT="CFY2025eFY_ifrs-full_ConsolidatedAndSeparateFinancialStatementsAxis
+#             _ifrs-full_ConsolidatedMember_dart_NameOfSecuredCreditorAxis_…"
+# 기간과 **연결/별도**가 기계로 선언돼 있다. 종전엔 주석 전체를 한 텍스트로 뭉쳐 훑느라
+# 이걸 못 봤고, 연결이 있는데 별도 표를 읽고도 그렇다고 말하지 않았다
+# (260803 전수: 연결 있는데 별도 56건 · 한 구간에 둘 섞임 15건 = 기준확정 872건 중 71건, 8%).
+#
+# 추정으로 메우지 않는다 — 텍스트 구역 분할 85.3% · 구간 어휘 88.7%였다. 기준을 11~15%
+# 틀리게 말하는 건 지금 고치려는 결함 그 자체라, **선언이 없으면 기준을 내지 않는다.**
+_ACONTEXT_RE = re.compile(r"""ACONTEXT\s*=\s*["']([^"']{1,400})""", re.I)
+_UNIT_PREFIX_RE = re.compile(r"^\[단위:[^\]]*\]\s*")
+# 주석 절 제목 — 셀 선언과 **독립된 둘째 신호**. 둘이 어긋나면(실측 858건 중 42건, 4.9%)
+# 어느 쪽이 틀린 건지 우리가 알 수 없으니 조용히 고르지 않고 그대로 드러낸다.
+_NOTE_SECTION_RE = re.compile(
+    r"""<TITLE[^>]*>\s*([^<]{0,40}?(?:연결\s*재무제표\s*주석|재무제표\s*주석)[^<]{0,10})""", re.I)
+
+
+def _strip_with_map(html: str) -> tuple[str, list[int]]:
+    """`_strip` 과 같은 문자열을 내되, 각 출력 글자가 온 html 인덱스를 함께 돌려준다.
+
+    결과 region 만으로는 ACONTEXT 를 되찾을 수 없다 — 문구를 html 에서 다시 검색하는
+    방식은 공백 뭉개짐 탓에 40%가 실패했다(260803 실측). 그래서 변환을 글자 단위로
+    따라가며 대응표를 만든다. 비용 문서당 +41ms.
+    """
+    out: list[str] = []
+    pos: list[int] = []
+    last = 0
+    for m in _TAG_RE.finditer(html):
+        for i in range(last, m.start()):
+            out.append(html[i])
+            pos.append(i)
+        out.append(" ")
+        pos.append(m.start())
+        last = m.end()
+    for i in range(last, len(html)):
+        out.append(html[i])
+        pos.append(i)
+    text = "".join(" " if c == "\n" else c for c in out)
+    o2: list[str] = []
+    p2: list[int] = []
+    i = 0
+    for m in _WS_RE.finditer(text):
+        while i < m.start():
+            o2.append(text[i])
+            p2.append(pos[i])
+            i += 1
+        o2.append(" ")
+        p2.append(pos[m.start()])
+        i = m.end()
+    while i < len(text):
+        o2.append(text[i])
+        p2.append(pos[i])
+        i += 1
+    return "".join(o2), p2
+
+
+class BasisIndex:
+    """주석 원문의 셀별 연결/별도 선언을 들고 있다가, 추출 결과에 기준을 붙여 준다."""
+
+    __slots__ = ("stripped", "_pos", "_marks", "_has_cons", "_sections")
+
+    def __init__(self, html: str):
+        self.stripped, self._pos = _strip_with_map(html or "")
+        marks = []
+        for m in _ACONTEXT_RE.finditer(html or ""):
+            ctx = m.group(1)
+            if "ConsolidatedMember" in ctx:
+                marks.append((m.start(), "연결"))
+            elif "SeparateMember" in ctx:
+                marks.append((m.start(), "별도"))
+        self._marks = marks
+        self._has_cons = any(b == "연결" for _, b in marks)
+        self._sections = [(m.start(), "연결" if "연결" in m.group(1) else "별도")
+                          for m in _NOTE_SECTION_RE.finditer(html or "")]
+
+    def _section_at(self, html_pos: int) -> str | None:
+        found = None
+        for p, k in self._sections:
+            if p <= html_pos:
+                found = k
+            else:
+                break
+        return found
+
+    def annotate(self, result: dict) -> dict:
+        """`basis`(그리고 필요하면 `basis_conflict`)를 붙인다(in place). 선언 없으면 안 붙인다.
+
+        구간은 **하나씩 따로** 짚는다. 이어붙인 전체 길이로 범위를 잡으면 서로 떨어져 있는
+        두 구간 사이의 남남인 본문까지 쓸어 담는다 — 260803 대한방직에서 연결 주석의
+        첫 구간에서 출발해 별도 주석 셀 44개를 세고 「별도」라 판정했다.
+        `_find_regions` 가 돌려주는 구간엔 줄바꿈이 없으므로(공백으로 접혀 있다) 한 줄 = 한 구간이다.
+        """
+        if not isinstance(result, dict) or result.get("status") != "MARKDOWN":
+            return result
+        if not self._pos:
+            return result
+        cons = sep = 0
+        sect = None
+        for line in (result.get("markdown") or "").split("\n"):
+            if line.startswith("###") or not line.strip():
+                continue
+            region = _UNIT_PREFIX_RE.sub("", line).strip()
+            if len(region) < 20:
+                continue
+            i = self.stripped.find(region[:60])
+            if i < 0:
+                continue
+            j = min(i + len(region), len(self._pos) - 1)
+            lo, hi = self._pos[i], self._pos[j]
+            if sect is None:
+                sect = self._section_at(lo)
+            seen = [b for p, b in self._marks if lo <= p <= hi]
+            cons += seen.count("연결")
+            sep += seen.count("별도")
+        if cons and sep:
+            result["basis"] = "연결" if cons >= sep else "별도"
+            result["basis_conflict"] = (
+                f"이 구간에 연결 표와 별도 표가 함께 들어 있습니다(연결 {cons} · 별도 {sep} 셀) "
+                "— 값을 섞어 읽지 마세요.")
+        elif cons:
+            result["basis"] = "연결"
+        elif sep:
+            result["basis"] = "별도"
+            if self._has_cons:
+                result["basis_conflict"] = ("별도 재무제표 주석을 읽었습니다 "
+                                            "— 같은 보고서에 연결 주석도 있습니다.")
+        if result.get("basis") and sect and sect != result["basis"]:
+            # 셀 선언과 절 제목이 어긋난다 — 공시 자체의 태깅 불일치일 수 있어 판단하지 않는다.
+            note = (f"이 구간은 「{sect} 재무제표 주석」 절에 있는데 셀 선언은 「{result['basis']}」"
+                    "입니다 — 공시의 표기가 서로 어긋나니 원문을 확인하세요.")
+            result["basis_conflict"] = ((result.get("basis_conflict") or "") + " " + note).strip()
+        return result
+
+
+_NOTE_ABSENT_RE = re.compile(
+    r"(?:없습니다|없음|해당\s*사항\s*(?:이|은)?\s*없|존재하지\s*않|미해당)")
+# 「여기 말고 저기 있다」 — 부재도 미탐도 아닌 셋째 경우(「(주석 5참조)」).
+_NOTE_XREF_RE = re.compile(r"주석\s*\d{1,2}\s*(?:번호?)?\s*참(?:조|고)|참(?:조|고)하[시여]|참(?:조|고)\s*바랍")
+# 표가 뒤따르는지 — DART 표 머리(단위 선언·「다음과 같습니다」)와 홀로 선 숫자 토큰.
+_NOTE_TABLE_RE = re.compile(r"\(\s*단위|단위\s*[::]|다음과\s*같습니다")
+_NOTE_NUM_RE = re.compile(r"(?<=\s)[\d,]+(?:\.\d+)?%?(?=\s)")
+# 실제 금액 — 목차와 본문을 가르는 값. 목차의 숫자는 쪽번호(2~3자리)뿐이다.
+_REAL_FIGURE_RE = re.compile(r"[\d,]{6,}|\(\s*단위")
+
+
+def _body_pos(stripped: str, anchors: tuple[str, ...]) -> int | None:
+    """앵커가 **본문**에 나오는 첫 위치. 목차는 건너뛴다.
+
+    260803 실측: 정기보고서 앞머리 목차에 「우발부채」·「지분증권」이 그대로 실려 있어서
+    `find()` 로 첫 위치를 잡으면 목차를 읽고 판정하게 된다(equity_holdings 미탐 83%가
+    전부 이것이었다). 목차 줄의 숫자는 쪽번호뿐이라, **여섯 자리 금액이나 단위 선언이
+    곁에 있는 위치**만 본문으로 친다.
+    """
+    best = None
+    for a in anchors:
+        for m in re.finditer(re.escape(a), stripped):
+            if not _REAL_FIGURE_RE.search(stripped[m.start():m.start() + 500]):
+                continue
+            if best is None or m.start() < best:
+                best = m.start()
+            break
+    return best
+
+
+def _excerpt_at(stripped: str, pos: int, before: int = 40, after: int = 70) -> str:
+    """원문 위치를 **번호로 추론하지 않고 문구로** 준다.
+
+    주석 번호를 되짚어 뽑아 보았으나(「22. 우발부채와 약정사항」) 실측에서 한 칸 앞 주석이나
+    II장 소제목을 집는 일이 잦았다 — 틀린 번호는 읽는 쪽을 엉뚱한 데로 보내니 없느니만 못하다.
+    대신 그 자리의 원문을 그대로 인용한다. 인용은 추론이 아니라 사실이라 틀릴 수 없다.
+    """
+    return re.sub(r"\s+", " ", stripped[max(0, pos - before):pos + after]).strip()
+
+
+def _excerpt_of_region(stripped: str, region: str) -> str | None:
+    """값을 낸 region 이 원문 어디였는지 — 그 자리 문구를 인용한다.
+    region 앞에 백필된 「[단위: X] 」는 원문에 없으므로 떼고 찾는다."""
+    probe = re.sub(r"^\[단위:[^\]]*\]\s*", "", region)[:60]
+    i = stripped.find(probe)
+    return _excerpt_at(stripped, i) if i >= 0 else None
+
+
+def _absence_verdict(stripped: str, anchors: tuple[str, ...], what: str) -> dict[str, Any]:
+    """값이 없을 때 **왜 없는지**를 가른다 — business_details 와 같은 어휘.
+
+    이 모듈은 앵커(어휘)를 찾고 content-signature 로 검증하는 2단이라, 실패 원인이 코드 안에서
+    이미 갈려 있는데 바깥으로는 전부 NOT_APPLICABLE 한 갈래로만 나갔다("무담보 or 미기재" —
+    읽는 쪽이 어느 쪽인지 알 수 없다). 그 둘을 그대로 꺼낸다.
+      not_disclosed     — 주석에 어휘 자체가 없거나, 있어도 「없습니다」라고 밝혔다
+      cross_reference   — 어휘는 있는데 「(주석 5참조)」처럼 다른 절을 가리킨다
+      narrative_only    — 어휘는 있는데 표 없이 산문(회계정책·시장위험 서술)뿐이다
+      extraction_failed — 어휘와 표가 있는데 못 읽었다(= 개선 지점)
+    """
+    pos = _body_pos(stripped, anchors)
+    if pos is None:
+        return {"absence_kind": "not_disclosed",
+                "absence_note": f"재무제표 주석에 「{anchors[0]}」 관련 기재가 없습니다."}
+    out: dict[str, Any] = {"absence_excerpt": _excerpt_at(stripped, pos)}
+    win = stripped[pos:pos + 250]
+    m = _NOTE_ABSENT_RE.search(win)
+    if m:
+        out["absence_kind"] = "not_disclosed"
+        out["absence_note"] = (f"주석은 있으나 회사가 부재를 밝혔습니다 — "
+                               f"「…{win[max(0, m.start() - 40):m.end() + 5].strip()}…」")
+        return out
+    if _NOTE_TABLE_RE.search(win) or len(_NOTE_NUM_RE.findall(win)) >= 3:
+        out["absence_kind"] = "extraction_failed"
+        out["absence_note"] = (f"원문에 {what} 표가 있으나 검증하지 못했습니다 "
+                               "— 인용 위치를 원문에서 확인하세요.")
+        return out
+    x = _NOTE_XREF_RE.search(win)
+    if x:
+        out["absence_kind"] = "cross_reference"
+        out["absence_note"] = (f"{what} 기재가 다른 절을 가리킵니다 — "
+                               f"「…{win[max(0, x.start() - 40):x.end() + 5].strip()}…」")
+        return out
+    out["absence_kind"] = "narrative_only"
+    out["absence_note"] = f"{what} 언급은 있으나 표 없이 산문 서술뿐이라 수치를 낼 수 없습니다."
+    return out
+
+
 # ── content-signatures (순수 lookahead, re.S — 소비/backtracking 없음) ──
 # 유형자산 토지 명세: 컬럼형(취득원가/장부금액) OR **변동표(기초~기말 롤포워드)** OR **당기말/전기말
 # 단순 스냅샷**(롤포워드 없는 중소형사 표준 스타일) 셋 다 대응.
@@ -149,8 +371,10 @@ def extract_real_estate(biz_text: str, full_html: str, stripped: str | None = No
             parts.append(f"### {label}\n{regions[0]}")
     if not parts:
         return {"status": "NOT_APPLICABLE",
-                "na_reason": "토지/투자부동산 원가-공정가치 명세 미검출(원가법 단일합계만 or 미공시 — 신규규정 시행 전)"}
+                "na_reason": "토지/투자부동산 원가-공정가치 명세 미검출(원가법 단일합계만 or 미공시 — 신규규정 시행 전)",
+                **_absence_verdict(txt, ("투자부동산", "토지"), "토지·투자부동산")}
     return {"status": "MARKDOWN", "found": labels,
+            "source_excerpt": _excerpt_of_region(txt, parts[0].split("\n", 1)[-1]),
             "markdown": ("\n\n".join(parts))[:14000],
             "note": "장부가 vs 공정가치 gap = 저평가 신호. 토지 공정가치는 공시지가 기준(실거래가 50~70%)이라 보수적 하한."}
 
@@ -173,8 +397,10 @@ def extract_equity_holdings(biz_text: str, full_html: str, stripped: str | None 
             labels.append(label)
             parts.append(f"### {label}\n{regions[0]}")
     if not parts:
-        return {"status": "NOT_APPLICABLE", "na_reason": "지분증권 원가-vs-시가 명세 미공시(총액·민감도만)"}
+        return {"status": "NOT_APPLICABLE", "na_reason": "지분증권 원가-vs-시가 명세 미공시(총액·민감도만)",
+                **_absence_verdict(txt, ("상장주식", "비상장주식", "상장지분", "비상장지분"), "지분증권")}
     return {"status": "MARKDOWN", "found": labels,
+            "source_excerpt": _excerpt_of_region(txt, parts[0].split("\n", 1)[-1]),
             "markdown": ("\n\n".join(parts))[:14000],
             "note": "상장=공정가치·비상장=순자산가액/공정가치. 취득원가 대비 gap = 평가손익. "
                     "FVPL 보유명세(종목별)는 원가 비교가 아니라 기초~기말 롤포워드(트레이딩 포트폴리오 시가평가 변동)."}
@@ -189,8 +415,10 @@ def extract_pledged_assets(full_html: str, stripped: str | None = None) -> dict[
                                   "담보로 제공하고 있는 자산", "담보로 제공하고 있는"),
                             _SIG_PLEDGED, before=60, after=1800, max_regions=1, require=("담보",))
     if not regions:
-        return {"status": "NOT_APPLICABLE", "na_reason": "담보제공 자산 주석 미검출(무담보 or 미기재)"}
+        return {"status": "NOT_APPLICABLE", "na_reason": "담보제공 자산 주석 미검출(무담보 or 미기재)",
+                **_absence_verdict(txt, ("담보제공자산", "담보로 제공"), "담보제공 자산")}
     return {"status": "MARKDOWN",
+            "source_excerpt": _excerpt_of_region(txt, regions[0]),
             "markdown": ("### 담보제공 자산(자유청산 제약 — NAV 차감)\n" + regions[0])[:8000],
             "note": "담보 잡힌 자산은 청산·매각 시 채권자 우선변제 대상 → 자유 청산가능 NAV에서 제외/할인."}
 
@@ -203,8 +431,10 @@ def extract_contingent(full_html: str, stripped: str | None = None) -> dict[str,
                             _SIG_CONTINGENT, before=120, after=1800, max_regions=2,
                             require=())
     if not regions:
-        return {"status": "NOT_APPLICABLE", "na_reason": "우발부채·지급보증 주석 미검출(없음 or 미기재)"}
+        return {"status": "NOT_APPLICABLE", "na_reason": "우발부채·지급보증 주석 미검출(없음 or 미기재)",
+                **_absence_verdict(txt, ("우발부채", "지급보증", "우발상황"), "우발부채·지급보증")}
     return {"status": "MARKDOWN",
+            "source_excerpt": _excerpt_of_region(txt, regions[0]),
             "markdown": ("### 우발부채·지급보증·계류소송(부외 조건부부채 — NAV 차감)\n"
                          + "\n\n".join(regions))[:9000],
             "note": "부외 조건부부채는 청산 NAV에서 차감(Graham 보수화). risk_events(사건 트리거)와 달리 상시 잔액 관점."}

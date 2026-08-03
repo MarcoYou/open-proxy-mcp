@@ -337,13 +337,15 @@ async def build_asset_holdings_payload(company: str, scope: str = "summary",
         except DartClientError:
             otr = {}
         sec = await _safe_getdoc(client, rept["rcept_no"])
-        stripped = _av._strip(sec.get("note_html", "") or "")
+        # 셀별 연결/별도 선언을 함께 들고 간다 — 어느 기준의 표를 읽었는지 밝히기 위함.
+        _basis = _av.BasisIndex(sec.get("note_html", "") or "")
+        stripped = _basis.stripped
         doc_text = sec.get("full_text", "") or sec.get("note_html", "") or ""
         mark = await _mark_listed_stakes(client, otr.get("list") or [], doc_text,
                                          datetime.date.today().strftime("%Y%m%d"))
         data["listed_stakes"] = mark
-        pledged = _av.extract_pledged_assets("", stripped=stripped)
-        contingent = _av.extract_contingent("", stripped=stripped)
+        pledged = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
+        contingent = _basis.annotate(_av.extract_contingent("", stripped=stripped))
         data["haircuts"] = {"pledged": pledged.get("status"), "contingent": contingent.get("status")}
         mcap, mcap_meta = await _market_cap(isu)
         data["market_cap_krw"] = mcap
@@ -391,11 +393,13 @@ async def build_asset_holdings_payload(company: str, scope: str = "summary",
     # ── detail: III.주석 원문 markdown ──
     if scope == "detail":
         sec = await _safe_getdoc(client, rept["rcept_no"])
-        stripped = _av._strip(sec.get("note_html", "") or "")
-        data["real_estate"] = _av.extract_real_estate("", "", stripped=stripped)
-        data["equity_holdings"] = _av.extract_equity_holdings("", "", stripped=stripped)
-        data["pledged_assets"] = _av.extract_pledged_assets("", stripped=stripped)
-        data["contingent"] = _av.extract_contingent("", stripped=stripped)
+        _basis = _av.BasisIndex(sec.get("note_html", "") or "")
+        stripped = _basis.stripped
+        data["real_estate"] = _basis.annotate(_av.extract_real_estate("", "", stripped=stripped))
+        data["equity_holdings"] = _basis.annotate(
+            _av.extract_equity_holdings("", "", stripped=stripped))
+        data["pledged_assets"] = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
+        data["contingent"] = _basis.annotate(_av.extract_contingent("", stripped=stripped))
 
     return {"tool": "asset_holdings", "status": "ok", "subject": name,
             "data": data, "warnings": warnings}
