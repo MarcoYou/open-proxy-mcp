@@ -2,7 +2,9 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
-## Since v2.3 (unreleased, 2026-07-22 ~ )
+## v2.4 (2026-08-03)
+
+25 tools. The theme is **saying why an answer could not be produced** and **stating what basis a table was read on**. `business_details` consolidates the revenue axes and adds raw-material and product-price fields; `asset_holdings` now reports consolidated vs separate for note tables. Old field names survive as aliases, so existing calls keep working — the only removal is `getting_started`.
 
 - **`business_details` / `asset_holdings` — "not available" now splits four ways (2026-08-03)** — when a value could not be produced, everything came back as a single "not applicable". That hid the difference between *the filing does not contain it* and *we failed to read it*, so readers stopped checking the original. There are now four outcomes, each **with its evidence** — **not disclosed** (the company said so; the sentence is quoted) · **not here** (the filing points to another section) · **no table** (the subsection exists but is prose only) · **not found** (a table is there and we failed to read it).
 - **`asset_holdings` — states consolidated vs separate** — when reading pledged-asset, contingent-liability, equity-holding and property tables from the notes, the tool never said which financial statements they came from. Mistaking separate-entity assets for consolidated changes the whole liquidation-value (NAV) calculation. It now reads the basis the filing declares on each cell and reports it, warning when (1) one region mixes both, (2) separate was read although consolidated notes also exist, or (3) the section title and the cell declaration disagree. **When nothing is declared, no basis is invented.**

@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-25-orange.svg)](#tool-구조-25개)
-[![Release](https://img.shields.io/badge/release-v2.3-blue.svg)](docs/RELEASE_NOTES.md)
+[![Release](https://img.shields.io/badge/release-v2.4-blue.svg)](docs/RELEASE_NOTES.md)
 
 [English README](README_ENG.md)
 
