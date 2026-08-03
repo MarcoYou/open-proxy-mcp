@@ -371,6 +371,18 @@ _SIG_EQUITY_FVPL_ROLL = re.compile(
 _SIG_PLEDGED = re.compile(
     r"(?=.*담보)(?=.*(?:토지|건물|투자부동산|예금|정기예금|유가증권|주식|사용권))"
     r"(?=.*(?:장부금액|장부가액|담보설정|담보제공))(?=.*[\d,]{6,})", re.S)
+# 담보물 **종류**가 아니라 담보 표의 **열**로 지목한다. `_SIG_PLEDGED` 는 자산종류 화이트리스트
+# (토지·건물·예금·주식…)를 요구하는데, 실제 담보물은 보험·지분증권·출자금·외화예치금·재고자산처럼
+# 회사마다 제각각이라 그 축이 틀렸다(260803: 남은 미탐 16건이 전부 이 원인). 종류는 갈려도
+# 「누가 잡았나(담보권자·담보제공처)·얼마로 잡았나(담보설정금액·채권최고액)」 열은 공통이다.
+_SIG_PLEDGED_COLS = re.compile(
+    r"(?=.*담보)"
+    r"(?=.*(?:담보권자|담보설정금액|담보제공처|채권최고액|설정권자|질권금액))"
+    r"(?=.*(?:장부금액|장부가액|담보설정|담보제공))(?=.*[\d,]{6,})", re.S)
+# 축을 넓히면 「담보제공 내역 - 해당사항 없음」 같은 **부재 선언 문단**까지 들어온다(실측).
+_PLEDGED_NA_RE = re.compile(
+    r"해당\s*사항\s*(?:이|은)?\s*없|해당\s*없|담보는\s*없|제공한\s*담보가?\s*없"
+    r"|담보\s*제공\s*(?:내역|현황)?\s*[-–:]?\s*없")
 # 우발부채·지급보증·계류소송(asset_holdings haircut): 부외 조건부부채. Graham 보수적 NAV.
 _SIG_CONTINGENT = re.compile(
     r"(?=.*(?:지급보증|우발부채|우발상황|계류|피고))(?=.*[\d,]{6,})"
@@ -456,6 +468,15 @@ def extract_pledged_assets(full_html: str, stripped: str | None = None) -> dict[
                   "담보로 제공된 유형자산", "담보로 제공된 자산에 대한 공시",
                   "담보제공 내역", "담보제공 현황"),
             _SIG_PLEDGED, before=60, after=1800, max_regions=1, require=("담보",))
+    if not regions:
+        # 담보물 종류가 사전에 없는 경우(보험·지분증권·출자금·외화예치금…) — 열로 지목한다.
+        cols = _find_regions(
+            txt, ("담보제공자산", "담보로 제공된 자산에 대한 공시", "담보로 제공한 자산",
+                  "담보로 제공된 자산", "담보로 제공하고 있는", "담보제공 내역", "담보제공 현황",
+                  "담보로 제공된"),
+            _SIG_PLEDGED_COLS, before=60, after=1800, max_regions=1, require=("담보",))
+        if cols and not _PLEDGED_NA_RE.search(cols[0][:260]):
+            regions = cols
     if not regions:
         return {"status": "NOT_APPLICABLE", "na_reason": "담보제공 자산 주석 미검출(무담보 or 미기재)",
                 **_absence_verdict(txt, ("담보제공자산", "담보로 제공"), "담보제공 자산")}
