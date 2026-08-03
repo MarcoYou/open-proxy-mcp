@@ -224,6 +224,15 @@ _NOTE_TABLE_RE = re.compile(r"\(\s*단위|단위\s*[::]|다음과\s*같습니다
 _NOTE_NUM_RE = re.compile(r"(?<=\s)[\d,]+(?:\.\d+)?%?(?=\s)")
 # 실제 금액 — 목차와 본문을 가르는 값. 목차의 숫자는 쪽번호(2~3자리)뿐이다.
 _REAL_FIGURE_RE = re.compile(r"[\d,]{6,}|\(\s*단위")
+# 「우리가 못 읽었다」고 말하려면 **그 필드의 명세**여야 한다. 어휘만 스친 다른 표
+# (가격위험 민감도·공정가치 서열·재무상태표 줄·차입금 내역)를 미탐이라 부르면 과잉 주장이다
+# — 260803 표본 판정에서 equity 143건·real_estate 17건이 대부분 그랬다.
+_DETAIL_WINDOW = 600
+_DETAIL_HINTS = {
+    "지분증권": re.compile(r"취득원가|취득가액|총장부금액|취득금액"),          # 원가 vs 시가 축
+    "토지·투자부동산": re.compile(r"공정가치|공시지가|재평가|간주원가"),        # 장부가 vs 공정가치 축
+    "담보제공 자산": re.compile(r"담보권자|담보설정|설정금액|채권최고액|설정권자|담보제공처"),
+}
 
 
 def _body_pos(stripped: str, anchors: tuple[str, ...]) -> int | None:
@@ -287,6 +296,13 @@ def _absence_verdict(stripped: str, anchors: tuple[str, ...], what: str) -> dict
                                f"「…{win[max(0, m.start() - 40):m.end() + 5].strip()}…」")
         return out
     if _NOTE_TABLE_RE.search(win) or len(_NOTE_NUM_RE.findall(win)) >= 3:
+        hint = _DETAIL_HINTS.get(what)
+        if hint and not hint.search(stripped[pos:pos + _DETAIL_WINDOW]):
+            # 어휘는 있으나 우리가 찾는 명세가 아니다 — 미탐이라 부르면 거짓이 된다.
+            out["absence_kind"] = "not_disclosed"
+            out["absence_note"] = (f"{what} 언급은 있으나 우리가 찾는 명세가 아닙니다 "
+                                   "(총액·민감도·공정가치 서열 등 다른 표) — 인용 위치를 확인하세요.")
+            return out
         out["absence_kind"] = "extraction_failed"
         out["absence_note"] = (f"원문에 {what} 표가 있으나 검증하지 못했습니다 "
                                "— 인용 위치를 원문에서 확인하세요.")
