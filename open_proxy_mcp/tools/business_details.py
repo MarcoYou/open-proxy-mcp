@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import re
+
 from open_proxy_mcp.services.business_details import build_business_details_payload
 from open_proxy_mcp.services.contracts import as_pretty_json
 
@@ -80,6 +82,9 @@ _ABSENT_KO = {"NOT_APPLICABLE": "해당 없음", "NOT_COLLECTED": "공시에 미
               "UNSUPPORTED_FORM": "해당 없음"}
 
 
+_CHAP_RE = re.compile(r"[IVXⅠ-Ⅹ]{1,4}\s*[.．]")
+
+
 def _origin_lines(node: dict) -> list[str]:
     """이 표가 **회사별로 원문 어디**에서 나왔는지 한 줄로.
 
@@ -95,15 +100,36 @@ def _origin_lines(node: dict) -> list[str]:
     ss = node.get("section_source") or {}
     heads = [h for h in (ss.get("matched_headings") or []) if h]
     if heads:
-        chap = (ss.get("chapters") or ["II. 사업의 내용"])[0]
+        # 장 이름은 「II.」·「Ⅲ.」로 시작하는 것만 믿는다 — 실측에서 표 안의 문장이
+        # 장 이름 자리에 들어와 「C. 1주당 상환일까지…」 같은 게 그대로 나갔다(260803 pilot).
+        chap = next((c for c in (ss.get("chapters") or [])
+                     if c and _CHAP_RE.match(c.strip())), "II. 사업의 내용")
         return [f"_원문 위치: {chap} → {' · '.join(heads[:3])}_"]
     return []
 
 
 def _absent(node: dict, what: str) -> list[str]:
+    """값이 없을 때 **「원문에 없다」와 「우리가 못 찾았다」를 가른다**.
+
+    `biz_fields` 는 `status` 를 늘 NOT_APPLICABLE 로 두고 진짜 구분은
+    `extraction_status` 에 넣는다(NOT_APPLICABLE=원문이 「해당사항 없음」이라 밝힘 /
+    NOT_COLLECTED=소절을 못 찾음). 렌더가 `status` 만 읽어 **둘 다 「해당 없음」**으로
+    나갔다 — 실측 722건: 부재로 표시된 896건 중 **696건(78%)이 실은 미탐**이고,
+    고객 94%·가동률 88%가 그랬다. 「없다」고 단정하면 읽는 쪽이 원문 확인을 포기한다.
+    """
     st = node.get("status")
     reason = (node.get("na_reason") or node.get("note") or "").strip()
-    return [f"\n{what}: {_ABSENT_KO.get(st, '확인 불가')}" + (f" — {reason}" if reason else "")]
+    kind = node.get("absence_kind")
+    head = {"extraction_failed": "찾지 못함 — 원문에 표가 있습니다",
+            "narrative_only": "표 없음 — 문장 서술만",
+            "cross_reference": "여기엔 없음 — 원문이 다른 절을 가리킵니다",
+            "not_disclosed": "해당 없음"}.get(kind)
+    if not head:
+        # 판정을 붙이지 않은 필드는 종전대로 — 소절을 못 찾은 것을 「해당 없음」이라 하지 않는다.
+        head = ("확인하지 못함" if node.get("extraction_status") == "NOT_COLLECTED"
+                else _ABSENT_KO.get(st, "확인 불가"))
+    tail = node.get("absence_note") or reason
+    return [f"\n{what}: {head}" + (f" — {tail}" if tail else "")]
 
 
 def _seg_lines(seg: dict, h: str) -> list[str]:
@@ -326,6 +352,10 @@ def _render(p: dict) -> str:
             elif fd.get("note"):
                 hint = f" _({fd['note']})_"
             L.append(f"\n### {label} (원문){hint}")
+            # 이 회사 원문의 **어느 소절**에서 가져왔는지. payload 는 99.5%(3,447/3,464)
+            # 들고 있었는데 렌더가 안 썼다 — 회사마다 소절 제목이 달라 이게 없으면
+            # 읽는 쪽이 원문에서 같은 자리를 못 찾는다.
+            L.extend(_origin_lines(fd))
             L.append("> 아래 원문에서 값을 읽으세요. 단위·정의는 회사별 상이(비교 주의).")
             if key == "revenue_mix_form":
                 # 이 표는 감사받은 주석이 아니다. 실측 33%가 연결매출과 안 맞고,
@@ -340,11 +370,8 @@ def _render(p: dict) -> str:
             L.append(f"> {fd.get('note') or '자동 판정을 보류했습니다.'} 원문을 그대로 싣습니다.")
             if fd.get("markdown"):
                 L.append("\n" + fd["markdown"])
-        elif fd.get("extraction_status") == "NOT_COLLECTED":
-            L.append(f"\n**{label}**: 확인하지 못함 — {fd.get('na_reason','해당 소절 미검출')}")
         else:
-            reason = (fd.get("na_reason") or "").strip()
-            L.append(f"\n**{label}**: 해당없음" + (f" — {reason}" if reason else ""))
+            L.extend(_absent(fd, f"**{label}**"))
 
     candidate = d.get("candidate_context")
     if candidate:

@@ -1052,6 +1052,153 @@ def _seg_source_location(sp: "SegmentProfit") -> dict | None:
             "how_to_find": "DART 원문에서 위 절을 찾아 표의 부문명으로 대조하세요."}
 
 
+# ── 「못 찾음」과 「원문에 없음」을 가른다 (260802) ────────────────────────────
+# `biz_fields` 의 NOT_COLLECTED 는 **폴백 체인의 분기 신호**라 손대면 안 된다(5곳에서
+# 조건으로 쓴다 — 바꿨더니 signal_paragraph 회수가 안 돌아 SUCCESS 가 사라졌다).
+# 그래서 체인이 다 끝난 뒤 **읽는 쪽을 위한 별도 키**만 단다.
+#
+# 왜 필요한가: 렌더가 「해당 없음」으로 뭉뚱그려 내보내는데, 실측 719건에서 그 중
+# 896건이 NOT_COLLECTED 였다. 그런데 그 896건의 54%(484건)는 **원문에 그 소절 어휘조차
+# 없다** — 「찾지 못했습니다」라고 하면 없는 걸 찾으러 보낸다. 어휘 유무로 가른다.
+def _absence_probe(field: str):
+    """필드별 헤딩 패턴 — 사전을 새로 만들지 않고 `biz_fields` 것을 그대로 재사용한다
+    (단일 출처라 사전이 어긋날 일이 없다). import 는 지연 — 모듈 순환을 피한다."""
+    from open_proxy_mcp.services import biz_fields as _b
+    return {
+        "sites": _b._SITE_HEAD, "utilization": _b._UTIL_HEAD, "rnd": _b._RND_HEAD,
+        "backlog": _b._BL_HEAD, "customers": _b._CUST_HEAD,
+        # 원재료는 구성·가격 두 소절로 나뉘어 있어 둘 다 본다
+        "raw_materials": list(_b._RAW_MATERIALS_HEAD) + list(_b._RAW_INPUT_PRICE_HEAD),
+        "product_pricing": _b._PRODUCT_PRICING_HEAD,
+    }.get(field) or []
+
+
+# 공시가 **스스로** 부재를 선언하는 문장. 소절 제목 뒤 창에서 이게 나오면
+# 「우리가 못 읽은 것」이 아니라 「회사가 없다고 쓴 것」이다 — 260803 원문 표본에서
+# "해당사항이 없습니다" · "산정하기 어렵습니다" · "제조업체가 아니므로" 세 형태가 지배적이었다.
+_ABSENCE_DECL_RE = re.compile(
+    r"(해당\s*사항\s*(이|은)?\s*없|해당\s*없|해당사항없"
+    r"|산정(하기)?\s*(가|이)?\s*(어렵|불가)|산출(하기)?\s*(가|이)?\s*(어렵|불가)"
+    r"|비교(하기)?\s*어렵|산출이?\s*불가|산출할\s*수\s*없|기재할\s*수\s*없"
+    r"|기재를?\s*생략|작성하지\s*않|제조업(체)?\s*가?\s*아니|영위하지\s*않|존재하지\s*않)")
+# 소절 머리표. DART 서식은 「4. 매출 및 수주상황」 아래 「가. 매출실적」식으로 내려간다.
+#   · 「가」~「하」는 **앞이 한글이면 아니다** — "…없습니다."의 「다.」를 머리표로 세면 안 된다.
+#   · 숫자 머리표는 **뒤에 공백이 와야** 한다 — 그러지 않으면 "8.01" 의 「8.」을 머리표로 센다.
+_SUBHEAD_RE = re.compile(
+    r"(?:(?<![가-힣])[가-하]\s*[.)]\s*\S|\(?\s*\d{1,2}\s*[.)]\s+\S|[①-⑨]\s*\S)")
+# 표가 뒤따르는지. DART 표는 거의 예외 없이 「(단위 :」·「기준일」 머리를 달고,
+# 값은 **홀로 선 숫자 토큰**으로 늘어선다. 문장 속 숫자는 조사·쉼표에 붙어 있어 갈린다
+# (260803 실측: "8.01%, 정제주정 8.80%" 같은 서술을 표로 오인하던 것을 이걸로 갈랐다).
+_TABLE_NUM_RE = re.compile(r"(?<=\s)[\d,]+(?:\.\d+)?%?(?=\s)")
+# 「여기 말고 저기 있다」 — 사용자가 요구한 셋째 경우. 부재도 미탐도 아니다.
+_XREF_RE = re.compile(r"참(?:고|조)(?:하[시여]|\s*바랍|해\s*주)|를?\s*참(?:고|조)하시기")
+# DART 표 머리. 「작성기준일 현재」 같은 **문장 속** 어휘와 갈라야 한다 — 콜론·괄호를 요구한다.
+_TABLE_HEAD_RE = re.compile(r"\(\s*단위|단위\s*[::]|\(\s*기준일|(?<!작성)기준일\s*[::]")
+_ABS_WINDOW = 400
+_PARENT_LOOKAHEAD = 25      # 이 안에 **다른** 소절 머리표가 오면 방금 건 상위 제목이다
+# 서식의 **상위 제목** — 내용이 없어도 늘 찍히므로 「소절이 있다」의 근거가 못 된다.
+# 복합 제목(「A 및 B」)의 뒤쪽만 걸리는 경우를 되짚기 위한 집합.
+_PARENT_HEAD_PATS = {r"매출\s*및\s*수주\s*상황", r"주요계약\s*및\s*연구개발활동"}
+# 부재 probe 에서 **아예 빼는** 앵커. 추출기는 이것들을 상위절 앵커로 일부러 쓰고
+# content-gate 로 거르는 설계다(HL만도·HLB처럼 「생산 및 설비」 절 안에 가동률 표를 넣는 회사).
+# 그러니 이 제목이 있다는 사실은 「가동률 표가 있다」의 근거가 못 된다 — 실측한 6건 모두
+# 그 절엔 유형자산 장부가 표만 있었고, 그걸 「우리가 못 읽었다」고 말하면 과잉 주장이 된다.
+_UPPER_SECTION_PATS = _PARENT_HEAD_PATS | {
+    r"생산\s*설비\s*[,·]?\s*사업장의?\s*현황",
+    r"생산\s*및\s*설비(?:에?\s*관한\s*사항|\s*\(|의?\s*현황)?",
+    r"생산\s*설비에?\s*관한\s*사항",
+}
+
+
+def _absence_hit(field: str, biz_text: str):
+    """부재 사유를 따질 **소절**을 찾는다 — 서식 상위 제목은 소절이 아니다.
+
+    260803 원문 표본이 알려준 함정: DART 서식은 내용이 없어도 「4. 매출 및 수주상황」,
+    「6. 주요계약 및 연구개발활동」 같은 상위 제목을 늘 찍는다. 그걸 소절로 세면 바로 뒤에
+    오는 형제 소절(가. 매출실적 / 경영상의 주요계약)의 표를 보고 「우리가 못 읽었다」고
+    말하게 된다 — 실측 backlog 미탐 128건·rnd 다수가 전부 이것이었다.
+    상위 제목을 사전에서 빼고, 그래도 **직후에 다른 소절 머리표가 오면** 다음 후보로 넘어간다.
+    """
+    for pat in _absence_probe(field):
+        if pat in _UPPER_SECTION_PATS:
+            continue
+        try:
+            it = list(re.finditer(pat, biz_text or ""))
+        except re.error:
+            continue
+        for m in it:
+            # 「주요계약 **및 연구개발활동**」처럼 상위 제목의 뒤쪽만 걸리는 경우 —
+            # 앞을 되짚어 상위 제목인지 본다(실측 rnd 미탐이 대부분 이것이었다).
+            back = biz_text[max(0, m.start() - 20):m.end()]
+            if any(re.search(pp, back) for pp in _PARENT_HEAD_PATS):
+                continue
+            if _SUBHEAD_RE.search(biz_text[m.end():m.end() + _PARENT_LOOKAHEAD]):
+                continue                     # 상위 제목 — 뒤따르는 표는 형제 소절 것이다
+            return m
+    return None
+
+
+def _absence_window(biz_text: str, end: int) -> str:
+    """소절 뒤 창 — **다음 제목에서 끊는다**. 안 끊으면 다음 절의 표를 이 소절 것으로 읽는다
+    (260803: 「가격변동 현황」 뒤 400자가 「3. 원재료 및 생산설비」 표까지 삼켰다)."""
+    win = biz_text[end:end + _ABS_WINDOW]
+    nxt = _SUBHEAD_RE.search(win, 5)
+    return win[:nxt.start()] if nxt else win
+
+
+def _mark_absence_kind(node: dict, field: str, biz_text: str) -> None:
+    """값이 없을 때 **왜 없는지**를 셋으로 가른다(in place).
+
+    사용자 요구: 「없는 건지 · 있는데 다른 데 있는 건지 · 서술만 있는 건지」.
+      not_disclosed    — 소절이 아예 없거나, 있어도 회사가 부재를 밝혔다
+      narrative_only   — 소절은 있는데 표 없이 문장 서술만이다
+      extraction_failed— 소절과 표가 있는데 우리가 못 읽었다(= 개선 지점)
+    판정 근거(어느 소절·어느 문장)를 함께 실어 읽는 쪽이 원문에서 확인할 수 있게 한다.
+    """
+    if not isinstance(node, dict) or node.get("status") == "MARKDOWN":
+        return
+    # 파서가 이미 부재 선언을 읽은 경우에도 **근거는 다시 만든다** — `na_reason` 은
+    # 원문 조각이라 "105.7" · "원재료 및 생산설비 " 처럼 뜻이 안 통하는 값이 섞인다(260803 pilot).
+    declared = node.get("extraction_status") == "NOT_APPLICABLE"
+    hit = _absence_hit(field, biz_text)
+    if declared:
+        node["absence_kind"] = "not_disclosed"
+        if hit:
+            node["absence_section"] = biz_text[hit.start():hit.end()].strip()[:60]
+            win = _absence_window(biz_text, hit.end())
+            d = _ABSENCE_DECL_RE.search(win)
+            node["absence_note"] = (
+                f"원문이 부재를 밝혔습니다 — 「…{win[max(0, d.start() - 30):d.end() + 20].strip()}…」"
+                if d else f"「{node['absence_section']}」 소절에 낼 수 있는 값이 없습니다.")
+        else:
+            node["absence_note"] = "이 보고서 「II. 사업의 내용」에 해당 소절이 없습니다."
+        return
+    if not hit:
+        node["absence_kind"] = "not_disclosed"
+        node["absence_note"] = "이 보고서 「II. 사업의 내용」에 해당 소절이 없습니다."
+        return
+    node["absence_section"] = biz_text[hit.start():hit.end()].strip()[:60]
+    win = _absence_window(biz_text, hit.end())
+    decl = _ABSENCE_DECL_RE.search(win)
+    if decl:
+        node["absence_kind"] = "not_disclosed"
+        node["absence_note"] = ("소절은 있으나 회사가 부재를 밝혔습니다 — "
+                                f"「…{win[max(0, decl.start() - 30):decl.end() + 20].strip()}…」")
+        return
+    if _TABLE_HEAD_RE.search(win) or len(_TABLE_NUM_RE.findall(win)) >= 3:
+        node["absence_kind"] = "extraction_failed"
+        node["absence_note"] = "소절과 표가 원문에 있으나 우리가 읽어내지 못했습니다."
+        return
+    xref = _XREF_RE.search(win)
+    if xref:
+        node["absence_kind"] = "cross_reference"
+        node["absence_note"] = ("소절은 있으나 다른 절을 가리킵니다 — "
+                                f"「…{win[max(0, xref.start() - 60):xref.end() + 10].strip()}…」")
+        return
+    node["absence_kind"] = "narrative_only"
+    node["absence_note"] = "소절은 있으나 표 없이 문장 서술만 있어 수치를 낼 수 없습니다."
+
+
 def _sp_to_dict(sp: "SegmentProfit") -> dict:
     return {"status": sp.status, "source": sp.source, "revenue_metric": sp.revenue_metric,
             "profit_metric": sp.profit_metric, "unit": sp.unit, "na_reason": sp.na_reason,
@@ -1873,6 +2020,12 @@ async def build_business_details_payload(company_query: str, period: str = "late
         data["product_pricing"] = _bf.extract_product_pricing(_biz_t, _full_html, _full_region_index)
     if "revenue_mix_form" in want:
         data["revenue_mix_form"] = _bf.extract_revenue_mix_form(_biz_t, _full_html, _full_region_index, section_chars)
+    # 폴백 체인이 다 끝난 뒤에 부재 사유를 판정한다 — 체인 도중에 상태를 바꾸면
+    # NOT_COLLECTED 를 분기 신호로 쓰는 회수 경로가 죽는다(실측: signal_paragraph 회수 상실).
+    for _k in ("sites", "utilization", "rnd", "backlog", "customers",
+               "raw_materials", "product_pricing"):
+        if _k in data:
+            _mark_absence_kind(data[_k], _k, _biz_t)
     if "key_contracts" in want:
         data["key_contracts"] = _bf.extract_key_contracts(_biz_t, _full_html, _full_region_index, section_chars)
     if mode == "candidate":

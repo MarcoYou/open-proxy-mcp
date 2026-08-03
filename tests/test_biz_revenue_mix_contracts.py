@@ -165,8 +165,8 @@ def test_renderer_omits_dangling_dash_when_na_reason_is_empty():
                    "data": {"report": {},
                             "key_contracts": {"status": "NOT_APPLICABLE",
                                               "extraction_status": "NOT_APPLICABLE"}}})
-    assert "해당없음 —" not in rendered
-    assert "해당없음" in rendered
+    assert "해당 없음 —" not in rendered
+    assert "해당 없음" in rendered
 
 
 def test_text_only_table_counts_as_content_against_a_preceding_na_phrase():
