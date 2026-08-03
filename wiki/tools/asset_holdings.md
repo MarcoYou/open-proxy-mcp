@@ -43,6 +43,20 @@ created: 2026-07-20
 - `is_financial`(KSIC 64/65/66 게이트) · `is_reit`(사명 "리츠"/"REIT" 휴리스틱) — 둘 다 투자부동산이
   본업이라 잉여자산에서 제외하고 라벨링.
 - `market_cap_krw`: 유통주식수 × 최근 거래일 종가.
+- **`scope="detail"` 주석 4필드**(`real_estate`·`equity_holdings`·`pledged_assets`·`contingent`) — 260803 계약 확장:
+  - `basis`: 그 표가 **연결**인지 **별도**인지. DART `document.xml`이 주석 표의 셀마다 다는 XBRL 컨텍스트
+    (`ACONTEXT`)의 선언을 읽는다. **선언이 없으면 내지 않는다** — 별도 자산을 연결로 믿고 NAV를 계산하면
+    스크리닝 결과가 뒤집히므로, 추정으로 메우지 않는 쪽이 맞다.
+  - `basis_conflict`: 경고. ① 한 구간에 연결·별도 표가 섞임 ② 별도를 읽었는데 같은 보고서에 연결 주석도 있음
+    ③ 절 제목(「연결재무제표 주석」)과 셀 선언이 어긋남(공시 자체의 표기 불일치일 수 있어 판단하지 않고 드러낸다).
+  - `source_excerpt` / `absence_excerpt`: 그 자리의 **원문 문구 인용**. 주석 번호를 되짚어 뽑는 방식은
+    한 칸 앞 주석을 집는 일이 잦아 폐기했다 — 틀린 번호는 읽는 쪽을 엉뚱한 데로 보내니 없느니만 못하다.
+    인용은 추론이 아니라 사실이라 틀릴 수 없다.
+  - `absence_kind` / `absence_note`: `business_details`와 같은 어휘로 부재 사유를 가른다
+    (`not_disclosed`·`cross_reference`·`narrative_only`·`extraction_failed`). 종전 `na_reason`은
+    "무담보 or 미기재"처럼 읽는 쪽이 어느 쪽인지 알 수 없는 문장이었다. **미탐이라 부르려면 그 필드를
+    정의하는 축**(지분증권=취득원가 / 토지·투자부동산=공정가치·공시지가 / 담보=담보권자·담보설정금액)이
+    곁에 있어야 한다 — 어휘만 스친 다른 표(민감도·공정가치 서열·재무상태표 줄)는 미탐이 아니다.
 
 ## Data sources
 - **계정**: `fnlttSinglAcntAll`(CFS 우선 → OFS fallback, 소규모기업 013/정정 014 tolerant).

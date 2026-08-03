@@ -80,9 +80,17 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
   - `raw_materials`는 `materials`와 `input_price`를 **각각 구조 경계로 추출해 최대 하나씩** 결합한다. 한 사업부의 기재 생략이 다른 사업부의 실제 매입·가격 표를 `NOT_APPLICABLE`로 덮지 않는다.
   - `product_pricing`은 명시적 가격 추이 기재 생략·산출 곤란만 `NOT_APPLICABLE`로 처리한다. 가격 결정 방식·정성 설명은 원문으로 유지한다.
   - 기존 `status=MARKDOWN|NOT_APPLICABLE`은 호환성을 위해 유지. `extraction_status=SUCCESS|NOT_APPLICABLE|NOT_COLLECTED`가 명시적 기재없음과 앵커 미검출을 구분한다.
-  - markdown 형식에서도 `NOT_COLLECTED`는 `확인하지 못함`, 명시적 부재만 `해당없음`으로 표시한다.
+  - **값이 없을 때 왜 없는지를 넷으로 가른다(`absence_kind`, 260803)** — 읽는 쪽이 「원문에 없다」와 「우리가 못 찾았다」를 구분하지 못하면 원문 확인을 포기하게 된다.
+    | `absence_kind` | 뜻 | md 표시 |
+    |---|---|---|
+    | `not_disclosed` | 소절이 없거나, 있어도 회사가 부재를 밝혔다 | `해당 없음` |
+    | `cross_reference` | 소절은 있으나 다른 절을 가리킨다 | `여기엔 없음 — 원문이 다른 절을 가리킵니다` |
+    | `narrative_only` | 소절은 있으나 표 없이 문장 서술만 | `표 없음 — 문장 서술만` |
+    | `extraction_failed` | 소절과 표가 있는데 읽어내지 못했다 | `찾지 못함 — 원문에 표가 있습니다` |
+    `absence_note`에 판정 근거(어느 소절·회사가 밝힌 문장 인용)를 함께 싣는다. `absence_kind`가 없는 필드는 종전대로 `extraction_status` 기준(`NOT_COLLECTED`=`확인하지 못함`).
   - `status=MARKDOWN` → 해당 소절 원문을 마크다운으로(`markdown`) → **호출측 AI가 읽어 값 추출**(단위·정의 회사별 상이).
-  - `section_source`: 실제 매칭 헤딩·chapter·선택 방식·경계 방식(`peer_heading|section_end|section_end_recovery|top_level_recovery|fixed_window_fallback`)을 기록한다.
+  - `section_source`: 실제 매칭 헤딩·chapter·선택 방식·경계 방식(`peer_heading|section_end|section_end_recovery|top_level_recovery|fixed_window_fallback|paragraph`)을 기록한다. md 렌더에 **`원문 위치: II. 사업의 내용 → 다. 영업용 설비 현황`** 한 줄로 나온다 — 회사마다 소절 제목이 달라 이게 없으면 읽는 쪽이 원문에서 같은 자리를 못 찾는다. 장(章) 이름은 로마숫자로 시작하는 것만 신뢰한다(모르면 적지 않는다).
+  - 소절 제목이 **문단 안에 녹아 있어**(「…주요 원재료의 가격변동추이는 다음과 같습니다」) 헤딩 요소가 아닌 경우, 정규 경로가 아무것도 못 찾았을 때만 문단 단위로 회수한다(`boundary=prose_paragraph`, `raw_materials`·`product_pricing`). 문단이 이끄는 표는 잇달아 오는 것까지 담는다 — DART는 「(단위 : 원)」을 별도 표로 렌더한다.
   - 기존 `pct_hint`·`ratio_to_sales_pct_hint`는 유지하고, 동일 값을 비권위 `hints[]`에도 제공한다. 힌트는 반드시 반환된 markdown에서만 산출한다.
   - **파서가 값 판정 안 함**: 사업장 유형자산 장부가 함정·가동률 단위카오스·수주 flow표 오귀속·rnd 회계처리/보조금·customers 다위치 충돌은 호출측 AI가 원문 읽어 판별(QA패널 BLOCKER 대응).
 - `geo_revenue`(지역별 수익 — 전사 차원 공시, 260724 신설):
