@@ -56,7 +56,9 @@ def _sqlite_connect():
         """
     )
     for col in ("tool TEXT", "latency_ms INTEGER", "is_error INTEGER", "error_kind TEXT",
-                "doc_cache_hit INTEGER", "response_bytes INTEGER"):  # 기존 테이블 마이그레이션
+                "doc_cache_hit INTEGER", "response_bytes INTEGER",
+                "doc_mem_hits INTEGER", "doc_disk_hits INTEGER", "doc_misses INTEGER",
+                "corp_codes TEXT"):  # 기존 테이블 마이그레이션
         try:
             con.execute(f"ALTER TABLE events ADD COLUMN {col}")
         except sqlite3.OperationalError:
@@ -65,9 +67,12 @@ def _sqlite_connect():
 
 
 def _sqlite_write(con, batch):
+    # 컬럼명을 반드시 명시한다 — ADD COLUMN 으로 물리적 순서가 바뀌면 위치 의존 INSERT 는
+    # **조용히 다른 컬럼에 값을 넣는다**(260704 mkt_fund_hist 사고).
     con.executemany(
         "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "doc_cache_hit, response_bytes) VALUES(?,?,?,?,?,?,?,?,?,?)", batch
+        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", batch
     )
     con.commit()
 
@@ -84,21 +89,33 @@ def _pg_connect():
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS latency_ms int")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS is_error boolean")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS error_kind text")
-    # 260802: 캐시를 키울 값어치가 있나 · 어느 tool 이 토큰을 많이 먹나 — 두 질문에
-    # 답하려고 더한다. **회사·인자는 남기지 않는다**(「사용자 조회 결과 저장 안 함」).
+    # 260802: 캐시를 키울 값어치가 있나 · 어느 tool 이 토큰을 많이 먹나 — 두 질문에 답하려고 더했다.
+    # doc_cache_hit 은 **폐기**한다(값이 한 번도 안 들어왔다 — 266,615건 전부 NULL. 하류에서
+    # ContextVar 를 set 해 위에서 읽는 구조였는데 그건 원리상 안 된다). 컬럼은 남겨 두되
+    # 더는 쓰지 않고, 아래 doc_mem_hits/doc_disk_hits/doc_misses 가 대신한다.
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_cache_hit boolean")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS response_bytes int")
+    # 260804: 문서 출처를 **건수로** 나눠 센다. 메모리 예산의 효과를 보려면 디스크 적중과
+    # 섞으면 안 된다(디스크는 예산과 무관하다).
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_mem_hits int")
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_disk_hits int")
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_misses int")
+    # 260804: 이 요청이 해석해 낸 기업(8자리 corp_code, 쉼표 구분). 사용자가 친 원문은
+    # 남기지 않는다 — 정규화된 코드만 남아야 집계가 뜻을 가지고, 자유 텍스트도 안 쌓인다.
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS corp_codes text")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON tool_call_events(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON tool_call_events(ts_ns)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_events_corp ON tool_call_events(corp_codes)")
     con.commit()
     return con
 
 
 def _pg_write(con, batch):
+    # 컬럼명 명시 — 위치 의존 INSERT 는 ADD COLUMN 후 조용히 어긋난다(260704 사고).
     con.cursor().executemany(
         "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "doc_cache_hit, response_bytes) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
+        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
         batch,
     )
     con.commit()
@@ -146,16 +163,22 @@ def _ensure_worker() -> None:
 
 
 def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=None,
-           error_kind=None, doc_cache_hit=None, response_bytes=None) -> None:
+           error_kind=None, response_bytes=None,
+           doc_mem_hits=None, doc_disk_hits=None, doc_misses=None, corp_codes=None) -> None:
     """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
     tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
     is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능),
     error_kind=is_error일 때 예외 분류(timeout/upstream/crash/unknown; tools 래퍼가 붙인
     `[ekind=...]` 태그에서 추출). 에러 메시지 원문은 저장하지 않음.
-    doc_cache_hit=DART 문서를 캐시에서 꺼냈는지(캐시 확대 가치 판단용),
     response_bytes=응답 본문 바이트(호출측이 무는 토큰 비용의 대리 지표 —
     한글 UTF-8 은 글자당 3바이트라 토큰 수와 비례한다).
-    **어느 회사를 조회했는지는 기록하지 않는다** — 「사용자 조회 결과 저장 안 함」."""
+    doc_mem_hits/doc_disk_hits/doc_misses=이 요청이 받은 문서를 출처별로 센 건수.
+    메모리 예산의 효과는 doc_mem_hits 로만 봐야 한다 — 디스크는 예산 밖이다.
+    corp_codes=이 요청이 **해석해 낸** 기업 코드 목록(사용자가 친 원문은 남기지 않는다).
+
+    260804 이전에는 「회사는 기록하지 않는다」였다. 집계로 무엇이 많이 쓰이는지 보려고
+    바꿨다 — 다만 남기는 것은 질의 원문이 아니라 정규화된 8자리 코드뿐이고,
+    key_hash 와 함께 남으므로 **사용자별 조사 이력**이 된다는 점을 알고 켠 것이다."""
     try:
         khash = hashlib.sha256(opendart_key.lower().encode()).hexdigest()
         if khash in SELF_HASHES:
@@ -163,8 +186,10 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
         _ensure_worker()
         ts_ns = time.time_ns()
         ev_id = f"{ts_ns}-{MACHINE}-{next(_counter)}"
+        codes = ",".join(corp_codes) if corp_codes else None
         _q.put_nowait((ev_id, ts_ns, khash, int(status), tool, latency_ms, is_error,
-                       error_kind, doc_cache_hit, response_bytes))
+                       error_kind, response_bytes, doc_mem_hits, doc_disk_hits,
+                       doc_misses, codes))
     except Exception:
         pass
 

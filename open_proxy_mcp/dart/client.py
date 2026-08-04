@@ -33,10 +33,51 @@ load_dotenv()
 
 # ── 요청별 API 키 (URL 쿼리 파라미터 → contextvar) ──
 _ctx_opendart_key: ContextVar[str | None] = ContextVar("opendart_key", default=None)
-# 이 요청에서 DART 문서를 캐시로 해결했나 — 캐시를 키울 값어치가 있는지 판단할 유일한
-# 근거다(텔레메트리엔 회사·인자를 남기지 않으므로 적중률을 달리 셀 방법이 없다).
-# None=문서를 안 받은 요청 / True=캐시 / False=DART 왕복.
-_ctx_doc_cache_hit: ContextVar[bool | None] = ContextVar("doc_cache_hit", default=None)
+
+# ── 요청 장부 (per-request 계측) ──
+# **ContextVar 는 아래로만 흐른다.** 자식 task 는 부모 문맥의 *사본*을 받으므로, 하류에서
+# `.set()` 해도 부모(ASGI 미들웨어)는 영원히 못 본다. 260804 실측: 종전 `_ctx_doc_cache_hit`
+# 이 이 방식이었고 266,615건 **전부 NULL** 이었다 — 같은 줄에서 기록되는 response_bytes 는
+# 정상이었는데(그건 미들웨어가 제 손으로 센 값이다) 이것만 한 번도 안 들어왔다.
+#
+# 그래서 값을 올려보내지 않는다. **미들웨어가 빈 장부를 먼저 만들어 내려보내고**, 하류는
+# 그 장부를 고치기만 한다. 사본이 전달돼도 가리키는 dict 는 하나라 변경이 위에서도 보인다.
+#
+# 겸사겸사 종전 boolean 의 두 결함도 사라진다 —
+#   ① 문서를 10건 받아도 마지막 1건만 남던 것 → 건수로 센다.
+#   ② 디스크 적중을 메모리 적중과 뭉뚱그리던 것 → 나눠 센다(예산은 **메모리** 것이므로
+#      섞으면 캐시 크기 판단이 왜곡된다).
+_ctx_ledger: ContextVar[dict | None] = ContextVar("request_ledger", default=None)
+
+
+def new_request_ledger() -> dict:
+    """요청 시작 시 **미들웨어가** 만든다. 하류는 만들지 않고 고치기만 한다."""
+    ledger: dict = {"doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0, "corp_codes": []}
+    _ctx_ledger.set(ledger)
+    return ledger
+
+
+def _note_doc(kind: str) -> None:
+    """문서 1건의 출처를 장부에 적는다. 장부가 없으면(스크립트·테스트) 조용히 통과."""
+    ledger = _ctx_ledger.get()
+    if ledger is not None:
+        ledger[kind] = ledger.get(kind, 0) + 1
+
+
+def _note_corp(corp_code: str | None) -> None:
+    """이 요청이 **해석해 낸** 기업을 적는다. 사용자가 친 원문이 아니라 8자리 코드다
+    (`삼성전자`·`005930`·`삼전`이 한 값으로 모여야 집계가 뜻을 가진다).
+    한 요청이 여러 기업을 건드리면(비교·스크리너) 순서대로 쌓되 상한을 둔다 —
+    시장 전수 스캔이 장부를 수천 건으로 부풀리는 걸 막는다."""
+    ledger = _ctx_ledger.get()
+    if ledger is None or not corp_code:
+        return
+    codes = ledger["corp_codes"]
+    if corp_code not in codes and len(codes) < _LEDGER_MAX_CORPS:
+        codes.append(corp_code)
+
+
+_LEDGER_MAX_CORPS = 20
 
 
 def set_request_api_key(opendart: str):
@@ -794,6 +835,9 @@ class DartClient:
         resolution = results[0].get("_resolution") or {}
         if resolution.get("inferred") and not resolution.get("auto_selected"):
             return None
+        # **확정된** 것만 적는다 — 후보 목록(lookup_corp_code_all)은 적지 않는다.
+        # 「무엇을 조사했나」는 서버가 그 기업이라고 결론 낸 것이지, 스쳐간 후보가 아니다.
+        _note_corp(results[0].get("corp_code"))
         return results[0]
 
     async def lookup_corp_code_all(self, query: str) -> list[dict]:
@@ -2007,14 +2051,14 @@ class DartClient:
         cache_key = _doc_key(rcept_no)
         cached = self._doc_cache.get(cache_key)
         if cached is not None:
-            _ctx_doc_cache_hit.set(True)
+            _note_doc("doc_mem_hits")
             return cached
         disk_doc = self._load_from_disk(rcept_no)
         if disk_doc:
             self._doc_cache.put(cache_key, disk_doc)
-            _ctx_doc_cache_hit.set(True)
+            _note_doc("doc_disk_hits")         # 메모리 예산과 무관 — 따로 센다
             return disk_doc
-        _ctx_doc_cache_hit.set(False)          # DART 왕복 — fetch 가 병목인 구간
+        _note_doc("doc_misses")                # DART 왕복 — fetch 가 병목인 구간
         doc = await self.get_document(rcept_no)
         self._doc_cache.put(cache_key, doc)
         self._save_to_disk(rcept_no, doc)

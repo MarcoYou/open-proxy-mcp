@@ -70,6 +70,22 @@ def _company_id(corp: dict[str, Any]) -> str:
 
 
 def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisStatus, dict[str, Any] | None, list[dict[str, Any]]]:
+    """이름→코드가 **확정되는 유일한 관문**. 확정된 1건만 요청 장부에 적는다.
+
+    호출부마다 따로 걸지 않는 이유: 상위 진입점이 둘이고(`build_company_payload` 는
+    company tool, `resolve_company_query` 는 나머지 tool) 실측에서 한쪽만 걸었더니
+    company tool 이 통째로 빠졌다. 확정 지점은 여기 하나뿐이라 여기서 적는다.
+    AMBIGUOUS(후보만 있고 못 고름)면 selected 가 None 이라 자연히 안 적힌다 —
+    「무엇을 조사했나」는 서버가 그 기업이라고 결론 낸 것만이다.
+    """
+    status, selected, candidates = _resolve_match_impl(query, matches)
+    if selected:
+        from open_proxy_mcp.dart.client import _note_corp
+        _note_corp(selected.get("corp_code"))
+    return status, selected, candidates
+
+
+def _resolve_match_impl(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisStatus, dict[str, Any] | None, list[dict[str, Any]]]:
     raw = query.strip()
     if not matches:
         return AnalysisStatus.ERROR, None, []

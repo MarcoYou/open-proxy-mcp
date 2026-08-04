@@ -34,15 +34,25 @@ def test_usage_insert_columns_match_placeholders_and_tuple():
     assert tup_n == pg_c == sq_c, f"큐 튜플 {tup_n} ≠ 컬럼 {pg_c}"
 
 
-def test_usage_never_records_which_company_was_queried():
-    """텔레메트리에 회사·인자를 남기지 않는다 — 「사용자 조회 결과 저장 안 함」(CLAUDE.md).
+def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
+    """텔레메트리에 남길 수 있는 조회 대상은 **정규화된 corp_codes 하나뿐**이다.
 
-    캐시 적중률·응답 크기를 재려고 컬럼을 더할 때 조회 대상이 함께 새면 원칙이 깨진다.
+    260802 에는 회사를 아예 안 남겼다. 260804 에 「어떤 기업이 많이 쓰이나」를 보려고
+    `corp_codes` 만 열었다 — 사용자가 친 원문(`삼성전자`/`삼전`/오타)이 아니라 서버가
+    해석해 낸 8자리 코드다. 원문·인자·문서번호는 **여전히 막는다**:
+      · 자유 텍스트는 정규화가 안 돼 집계가 무의미하고, 무엇이 딸려 들어올지 모른다.
+      · rcept_no 는 「어느 문서를 열었나」라 조회 **결과**에 가깝다.
+    이 목록이 늘어난다면 그건 결정이어야지 부주의여선 안 된다.
     """
     import re
 
     src = open("open_proxy_mcp/usage.py", encoding="utf-8").read()
     m = re.search(r"INSERT INTO tool_call_events\((.*?)\)", src, re.S)
     cols = {c.strip() for c in re.sub(r'["\n]', " ", m.group(1)).split(",") if c.strip()}
-    for banned in ("corp", "company", "corp_code", "stock_code", "args", "rcept_no", "query"):
-        assert not any(banned in c for c in cols), f"조회 대상이 새는 컬럼: {banned}"
+
+    assert "corp_codes" in cols, "corp_codes 가 없다 — 기업 집계가 불가능하다"
+    for banned in ("company", "stock_code", "args", "arguments", "rcept_no",
+                   "query", "corp_name", "raw"):
+        assert not any(banned in c for c in cols), f"조회 원문이 새는 컬럼: {banned}"
+    # corp 로 시작하는 컬럼은 corp_codes 하나여야 한다 — corp_name 등이 슬쩍 붙는 걸 막는다.
+    assert {c for c in cols if "corp" in c} == {"corp_codes"}

@@ -154,6 +154,12 @@ def main():
                             more = False
                     tool, is_call = _extract_tool(body)
 
+                    # 장부를 **여기서** 만든다. 하류(캐시·회사해석)는 이 dict 를 고치기만 하고,
+                    # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
+                    # 하류가 값을 올려보내게 하면 안 된다 — ContextVar 는 위로 안 흐른다.
+                    from open_proxy_mcp.dart.client import new_request_ledger
+                    ledger = new_request_ledger()
+
                     idx = 0
                     async def replay():
                         nonlocal idx
@@ -191,16 +197,15 @@ def main():
                                 # 경로)는 "untagged" sentinel → 배포前 NULL과 배포後 분류실패를 구분.
                                 # 성공(not err)은 본문에 우연히 [ekind=]가 있어도 None으로 기록.
                                 ekind = (rec["ekind"] or "untagged") if rec["err"] else None
-                                # 캐시 적중은 요청 컨텍스트에서 읽는다 — 문서를 안 받은
-                                # 요청은 None 이라 분모에서 자연히 빠진다.
-                                try:
-                                    from open_proxy_mcp.dart.client import _ctx_doc_cache_hit
-                                    _hit = _ctx_doc_cache_hit.get()
-                                except Exception:
-                                    _hit = None
+                                # 장부를 읽는다 — 우리가 만들어 내려보낸 그 dict 다.
+                                # 문서를 안 받은 요청은 셋 다 0이라 분모에서 자연히 빠진다.
                                 usage.record(opendart, rec["status"], tool, rec["latency"],
                                              is_error=rec["err"], error_kind=ekind,
-                                             doc_cache_hit=_hit, response_bytes=rec["bytes"])
+                                             response_bytes=rec["bytes"],
+                                             doc_mem_hits=ledger["doc_mem_hits"],
+                                             doc_disk_hits=ledger["doc_disk_hits"],
+                                             doc_misses=ledger["doc_misses"],
+                                             corp_codes=ledger["corp_codes"])
                         await send(message)
                     await self.app(scope, replay, send_wrapper)
                 else:
