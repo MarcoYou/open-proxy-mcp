@@ -27,7 +27,7 @@ primary_region = 'nrt'
   # 1대 항상 가동 — cold start 페널티 (3-6s) 제거.
   # 'suspend' 모드여도 idle 시 Firecracker VM 재시작 + Python boot + memory cache 휘발.
   # min=1이면 corpCode sqlite/memory cache + doc LRU cache 영구 유지 → ms 응답.
-  # 비용: shared-cpu-1x 768MB 월 ~$4/대 (24/7 × 30d). nrt 2대 = ~$8.
+  # 비용: shared-cpu-1x 1GB 월 ~$5.4/대 (24/7 × 30d). nrt 2대 = ~$11.
   # 사용자 대부분 한국 → 도쿄(nrt) 2대로 latency(~40ms) + 머신 redundancy 동시 확보.
   min_machines_running = 2
   processes = ['app']
@@ -42,8 +42,14 @@ primary_region = 'nrt'
     timeout = '5s'
     path = '/health'
 
+# 260804 사고: 768MB 로는 doc 캐시가 찬 상태에서 OOM(exit_code=137)이 나 머신이
+# 재시작 한도를 소진했다. fly 는 머신을 started 로 두는데 8000 포트가 죽어 있어
+# 프록시가 "no known healthy instances" 로 전면 다운. 머신도 1대뿐이라 안전망이 없었다.
+# client.py 의 캐시 메모리 예산 주석이 원래 1GB 를 가정하고 쓰였으므로 거기에 맞춘다.
+# ※ 캐시 자체의 상한 문제(_doc_cache + _viewer_doc_cache 각 200 = 400 엔트리,
+#    _dividend_cache 는 상한·TTL 없음)는 미해결 — 1GB 는 여유일 뿐 근본 해결이 아니다.
 [[vm]]
-  memory = '768mb'
+  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 768
+  memory_mb = 1024
