@@ -9,6 +9,18 @@ from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.dividend import build_dividend_payload
 
 
+# 추세 enum → 한글. producer 는 services/dividend.py `_policy_signals()` 하나뿐이다.
+# 260729 커밋(ec98f31)이 조회(`_TREND_KO.get(...)`)만 넣고 사전을 빠뜨려 md 경로 전체가
+# NameError 로 죽었다 — 렌더러를 한 번도 실행하지 않는 테스트만 있어 전부 통과했다.
+_TREND_KO = {
+    "increasing": "증가",
+    "decreasing": "감소",
+    "stable": "유지",
+    # 「없음」이 아니라 「판단하지 않았다」 — 비교할 확정 연도가 없어 계산 자체를 못 한 상태다
+    "insufficient_data": "판단 불가 (확정된 배당 이력 없음)",
+}
+
+
 def _render_error(payload: dict[str, Any]) -> str:
     lines = [f"# dividend: {payload.get('subject', '')}", "", "배당 데이터를 확정하지 못했다."]
     for warning in payload.get("warnings", []):

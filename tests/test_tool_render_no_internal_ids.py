@@ -114,6 +114,42 @@ def test_every_tool_module_imports_what_it_uses():
             assert "import" in src and "company_id_line" in src.split("def ", 1)[0], p.name
 
 
+def test_no_module_references_an_undefined_global_name():
+    """함수 **안**에서만 쓰이는 이름은 import 해 봐도 안 터진다 — 호출돼야 터진다.
+
+    260804 실측: `dividend` 의 `_TREND_KO` 가 정의된 적이 없어 md 경로가 통째로 NameError.
+    위 import 테스트도, 490개 테스트도 통과했다(렌더러를 호출한 적이 없다). 모든 렌더 분기를
+    실행하는 테스트는 현실적으로 못 쓰니, **정적으로** 미정의 전역 참조를 막는다.
+
+    symtable 은 함수 스코프에서 지역 할당 없이 읽히는 이름을 global 로 표시한다. 그 이름이
+    import 후 모듈에도 builtins 에도 없으면 그 분기는 실행되는 순간 NameError 다.
+    (`from __future__ import annotations` 하에서 어노테이션 전용 이름은 참조로 안 잡히고,
+    그게 없는 모듈이면 def 시점에 평가돼 import 단계에서 이미 걸린다 — 어느 쪽도 오탐 아님.)
+    """
+    import builtins, importlib, symtable
+    from pathlib import Path
+
+    def _globals_read(table, found: set[str]) -> None:
+        for sym in table.get_symbols():
+            if table.get_type() == "function" and sym.is_global() and sym.is_referenced():
+                found.add(sym.get_name())
+        for child in table.get_children():
+            _globals_read(child, found)
+
+    root = Path(__file__).resolve().parent.parent / "open_proxy_mcp"
+    bad = []
+    for p in sorted(list(root.glob("tools/*.py")) + list(root.glob("services/*.py"))):
+        if p.name == "__init__.py":
+            continue
+        names: set[str] = set()
+        for child in symtable.symtable(p.read_text(encoding="utf-8"), str(p), "exec").get_children():
+            _globals_read(child, names)
+        mod = importlib.import_module(f"open_proxy_mcp.{p.parent.name}.{p.stem}")
+        bad += [f"{p.parent.name}/{p.name}: {n}" for n in sorted(names)
+                if not hasattr(mod, n) and not hasattr(builtins, n)]
+    assert not bad, bad
+
+
 def test_independence_dict_covers_director_evaluation_results():
     """sub_factor `result` 는 director_evaluation 이 뱉는다. 25사 스윕엔 미성년·결격 후보가
     없어 안 잡혔고 사전 감사(producer→사전 방향)로만 드러났다(260728).
