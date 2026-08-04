@@ -488,7 +488,13 @@ def render_provisional_financials(payload: dict[str, Any]) -> str:
         lines.append("")
 
     if not pfs.get("consolidated", {}).get("income_statement") and not pfs.get("separate", {}).get("income_statement"):
-        lines.append("잠정 재무제표 추출 실패 — 1호 안건 본문 비표준 형식.")
+        # 원인을 단정하지 않는다 — 실측 34건 중 23건은 원문에 그 절이 아예 없었다.
+        head = {"extraction_failed": "잠정 재무제표: 찾지 못함 — 원문에 실려 있습니다",
+                "not_disclosed": "잠정 재무제표: 해당 없음",
+                "unverified": "잠정 재무제표: 확인하지 못함"}.get(
+                    pfs.get("absence_kind"), "잠정 재무제표를 내지 못했습니다")
+        note = pfs.get("absence_note")
+        lines.append(f"{head}" + (f" — {note}" if note else " — 원문을 확인하세요."))
 
     return "\n".join(lines)
 

@@ -1633,13 +1633,20 @@ async def build_shareholder_meeting_payload(
             data["prov_financials"] = {"consolidated": {}, "separate": {}, "metrics": {"extraction_status": "no_data"}}
         else:
             from open_proxy_mcp.services.provisional_financial_statement import (
-                parse_provisional_financial_statement, extract_metrics
+                classify_provisional_fs_absence,
+                extract_metrics,
+                parse_provisional_financial_statement,
             )
             pfs = parse_provisional_financial_statement(html)
             metrics = extract_metrics(pfs)
             data["prov_financials"] = {**pfs, "metrics": metrics}
+            # 못 냈으면 **왜 못 냈는지** 밝힌다 — 원문에 없는 것과 우리가 못 읽은 것은 다르다.
+            if not ((pfs.get("consolidated") or {}).get("income_statement")
+                    or (pfs.get("separate") or {}).get("income_statement")):
+                data["prov_financials"].update(classify_provisional_fs_absence(html))
             if metrics.get("extraction_status") == "no_data":
-                warnings.append("잠정 재무제표 추출 실패 — 1호 안건 본문 비표준 형식")
+                warnings.append(data["prov_financials"].get("absence_note")
+                                or "잠정 재무제표를 내지 못했습니다 — 원문을 확인하세요.")
     if include_results:
         if meeting_phase == "pre_meeting":
             warnings.append("회의일 전이라 아직 주주총회결과 공시가 나올 시점이 아니다.")

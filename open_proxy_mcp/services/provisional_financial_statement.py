@@ -253,6 +253,57 @@ def parse_provisional_financial_statement(html: str) -> dict[str, Any]:
     return result
 
 
+# DART 소집공고는 절 제목에 **표준 영문명**을 함께 단다 — 회사가 한글 제목을 어떻게 쓰든
+# `<TITLE ENG="□ Approval of separate financial statements">` 는 고정이다(실측 97% 보유).
+# 재무제표를 못 낼 때 이게 있으면 「우리가 못 읽은 것」, 없으면 「원문에 그 절이 없는 것」이다.
+_FS_SECTION_ENG = "Approval of separate financial statements"
+_TITLE_ENG_RE = re.compile(r"""<TITLE[^>]*\bENG\s*=\s*["']([^"']*)""", re.I)
+# 상법 §449의2 — 이사회가 승인하면 주총에선 보고사항이라 승인 안건 자체가 없다.
+_FS_BOARD_APPROVED_RE = re.compile(
+    r"이사회(?:의\s*결의)?로?\s*승인[^.]{0,40}보고\s*안건|보고\s*사항으로\s*전환|449조의2")
+# 임시주총엔 재무제표 승인 안건이 없다(정기주총 안건). 공고 머리의 「(제N기 임시)」로 가른다.
+_EGM_RE = re.compile(r"주주총회\s*소집공고\s*\(?\s*제?\s*\d*\s*기?\s*임시|임시\s*주주총회\s*소집공고")
+# 실제 재무제표 표가 원문에 있는지 — 표 제목 + 기수 + 연도. DART 표는 자간을 벌리므로
+# 「재 무 상 태 표」·「제 12 기」처럼 띄어 쓴다(공백을 허용하지 않으면 통째로 놓친다).
+_FS_REAL_TABLE_RE = re.compile(
+    r"(?:대\s*차\s*대\s*조\s*표|재\s*무\s*상\s*태\s*표|손\s*익\s*계\s*산\s*서)"
+    r"[^가-힣]{0,40}제\s*\d+\s*기[^가-힣]{0,60}\d{4}\s*년")
+
+
+def classify_provisional_fs_absence(html: str) -> dict[str, Any]:
+    """잠정 재무제표를 못 냈을 때 **왜 못 냈는지**를 가른다.
+
+    종전 렌더는 전부 「1호 안건 본문 비표준 형식」이라 단정했는데, 실측에서 그 원인이 아닌
+    경우가 대부분이었다 — 확인하지 않은 원인을 확정형으로 말한 셈이다.
+
+    신호는 **한 방향으로만** 쓴다.
+      · 표준 영문 절 제목(`ENG`)이 **있는데** 값이 없다 → 우리가 못 읽었다. 반례 없음.
+      · 제목이 **없다**고 해서 원문에 없다고 단정하면 안 된다 — DART 는 이 제목을 **안건
+        단위로 누락**시킨다(같은 문서에 다른 □ 제목은 붙어 있는데 이것만 빠진다). 실측에서
+        제목 없이도 실제 표를 실은 공고가 나왔다. 그래서 표가 보이면 미탐으로 잡고,
+        아무 근거도 없으면 **「확인하지 못했다」**까지만 말한다.
+    """
+    has_section = any(_FS_SECTION_ENG in (m.group(1) or "")
+                      for m in _TITLE_ENG_RE.finditer(html or ""))
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or ""))
+    if has_section or _FS_REAL_TABLE_RE.search(text):
+        return {"absence_kind": "extraction_failed",
+                "absence_note": "소집공고에 재무제표가 실려 있으나 표를 읽어내지 못했습니다 "
+                                "— 원문을 직접 확인하세요."}
+    m = _FS_BOARD_APPROVED_RE.search(text)
+    if m:
+        return {"absence_kind": "not_disclosed",
+                "absence_note": "이사회가 재무제표를 승인해 주주총회에서는 보고사항입니다"
+                                "(상법 제449조의2) — "
+                                f"「…{text[max(0, m.start() - 50):m.end() + 30].strip()}…」"}
+    if _EGM_RE.search(text[:4000]):
+        return {"absence_kind": "not_disclosed",
+                "absence_note": "임시주주총회라 재무제표 승인 안건이 없습니다."}
+    # 여기까지 왔으면 근거가 없다 — 「없다」고 단정하지 않는다.
+    return {"absence_kind": "unverified",
+            "absence_note": "이 소집공고에서 재무제표를 확인하지 못했습니다 — 원문을 직접 확인하세요."}
+
+
 def _empty_financial_result() -> dict:
     return {
         "consolidated": {"balance_sheet": None, "income_statement": None},
