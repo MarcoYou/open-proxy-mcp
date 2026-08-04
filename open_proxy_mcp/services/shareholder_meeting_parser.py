@@ -1476,6 +1476,20 @@ def _extract_document_toc(text: str) -> list[str]:
 
 # ── 안건 상세 파싱 (HTML 기반) ──
 
+# 한 줄에 안건이 여러 개 이어 붙는 공고가 있다 —
+#   「사내이사 박성수 선임의 건(3년)제2-2호 의안 : 사내이사 박은경 …제2-3호 의안 : 사외이사 최인혁 …」
+# `AGENDA_DETAIL_RE` 의 `(.+)` 는 DOTALL 이라 뒤 안건까지 통째로 삼키고, 그러면 제목에서
+# 뽑는 `category` 가 **마지막 후보의 직책**으로 잘못 붙는다(실측 후보 105명, 3.7%).
+# 그래서 제목은 **다음 안건 표지 직전에서 자른다.**
+_NEXT_AGENDA_RE = re.compile(r"제\s*\d+\s*(?:-\s*\d+)?\s*(?:-\s*\d+)?\s*호\s*(?:의안|안건)")
+
+
+def _cut_at_next_agenda(title: str) -> str:
+    """안건 제목이 뒤 안건까지 삼킨 경우 그 앞에서 자른다."""
+    m = _NEXT_AGENDA_RE.search(title or "")
+    return (title[:m.start()] if m else (title or "")).strip()
+
+
 AGENDA_DETAIL_RE = re.compile(
     r'[■□●▶(（\[【]?\s*제\s*(\d+)\s*(?:-\s*(\d+))?\s*(?:-\s*(\d+))?\s*호'
     r'\s*(?:의안|안건)?\s*[)）\]】:：]?\s*(.+)',
@@ -1827,7 +1841,7 @@ def _process_text_line(
         l2 = int(agenda_match.group(2)) if agenda_match.group(2) else None
         l3 = int(agenda_match.group(3)) if agenda_match.group(3) else None
         number = _format_number(l1, l2, l3)
-        title = agenda_match.group(4).strip()
+        title = _cut_at_next_agenda(agenda_match.group(4))
 
         current_agenda = {
             "number": number,
