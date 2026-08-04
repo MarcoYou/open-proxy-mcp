@@ -111,7 +111,7 @@ async def _rcept_for(client, corp_code, year):
 
 def _invalidate(client, rcept_no):
     """document 캐시(메모리+디스크) 무효화 → 다음 fetch가 진짜 network cold."""
-    client._doc_cache.pop(rcept_no, None)
+    client.invalidate_document(rcept_no)
     p = os.path.join(tempfile.gettempdir(), "opm_cache", f"{rcept_no}.json")
     try:
         os.remove(p)

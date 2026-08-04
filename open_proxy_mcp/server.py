@@ -25,10 +25,18 @@ def build_mcp() -> FastMCP:
     # fly 는 「VM 이 켜졌다」만 보고 배포를 성공 처리했고 CI 도 초록이었다.
     # **여기 안에 붙여야 한다** — `main()` 이 `build_mcp()` 로 새 인스턴스를 만들므로
     # 모듈 레벨 `mcp` 에 붙인 라우트는 실제 서빙되는 앱에 없다(260729 2차 실측: /health 404).
+    # 260804 사고: fly 머신이 OOM(exit_code=137)으로 죽었다. 캐시 예산을 항목 수로 잡아 둔 게
+    # 원인이었는데, 예산 점유를 밖에서 볼 방법이 없어 「죽고 나서야」 알았다. 이제 캐시 점유율과
+    # evict 횟수를 헬스에 실어 예산이 차오르는 걸 미리 본다.
     @mcp.custom_route("/health", methods=["GET"])
     async def _health(_request):
         from starlette.responses import JSONResponse
-        return JSONResponse({"status": "ok", "tools": len(await mcp.list_tools())})
+        from open_proxy_mcp.dart.client import cache_stats
+        return JSONResponse({
+            "status": "ok",
+            "tools": len(await mcp.list_tools()),
+            "cache": cache_stats(),
+        })
 
     return mcp
 

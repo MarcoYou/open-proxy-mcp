@@ -1,0 +1,178 @@
+# -*- coding: utf-8 -*-
+"""메모리 캐시 예산 — 260804 OOM(exit_code=137, fly 머신 kill) 회귀 방어. network 0콜.
+
+사고의 뿌리는 예산을 **항목 수**로 잡은 것이었다. 「200 entry × ~500KB = ~100MB」라는
+주석이 있었지만 실측하면 사업보고서 한 건이 8.7~29.0MB(중앙값 18.9MB)라 35~58배 어긋났고,
+게다가 같은 상한 200 을 쓰는 캐시가 doc·viewer 둘이라 실제 수용량은 문서화된 값의 두 배였다.
+여기서 지키는 건 「가정이 틀려도 예산은 안 틀린다」 하나다.
+"""
+from __future__ import annotations
+
+import time
+
+import pytest
+
+from open_proxy_mcp.dart.client import (
+    LruByteCache,
+    _cache_entry_bytes,
+    _doc_key,
+    _viewer_key,
+    cache_stats,
+)
+
+
+def _doc(mb: float) -> dict:
+    """대략 mb 메가바이트짜리 문서 페이로드. 한글은 파이썬 str 이 문자당 2바이트를 쓴다."""
+    return {"text": "가" * int(mb * 1024 * 1024 / 2), "html": "", "images": []}
+
+
+# ── 크기 측정 ──
+
+def test_entry_bytes_counts_nested_payload_not_just_the_container():
+    """dict 껍데기만 재면 사업보고서 20MB 를 64바이트로 착각한다 — 그게 사고의 형태였다."""
+    small, big = _doc(0.1), _doc(4.0)
+    assert _cache_entry_bytes(big) > _cache_entry_bytes(small) * 20
+    assert _cache_entry_bytes(big) > 4 * 1024 * 1024
+
+
+def test_entry_bytes_survives_self_reference():
+    payload: dict = {"text": "가" * 100}
+    payload["self"] = payload
+    assert _cache_entry_bytes(payload) > 0   # 무한재귀로 죽지 않는다
+
+
+# ── 예산이 개수가 아니라 바이트로 걸리는가 ──
+
+def test_budget_is_bytes_so_a_few_huge_entries_cannot_blow_past_it():
+    """옛 규칙(개수 200)으로 실제 문서 200건을 통과시키면 828MB 가 쌓였다(실측)."""
+    cache = LruByteCache(max_bytes=50 * 1024 * 1024, ttl_sec=3600, name="t")
+    for i in range(200):
+        cache.put(f"doc:{i}", _doc(18.9))     # 사업보고서 상위 구간
+    assert cache.stats()["bytes"] <= 50 * 1024 * 1024
+    assert len(cache) <= 3, "18.9MB 항목이 50MB 예산에 3건 넘게 들어갈 수 없다"
+
+
+def test_bound_holds_as_distinct_documents_keep_flowing():
+    """사고에서 실제로 깨진 성질 — 서로 다른 문서가 계속 들어와도 평평해야 한다.
+    실측 분포(p50 0.78MB · p90 10.5MB · 최대 62MB)를 섞어 흘린다."""
+    import random
+
+    random.seed(3)
+    cache = LruByteCache(max_bytes=96 * 1024 * 1024, ttl_sec=3600, name="t")
+    for i in range(400):
+        mb = random.choice([0.78] * 5 + [3.78, 10.5, 26.6, 62.0])
+        cache.put(f"doc:{i}", _doc(mb))
+        assert cache.stats()["bytes"] <= 96 * 1024 * 1024, f"{i}번째에서 예산 초과"
+    assert cache.evictions > 0, "예산이 실제로 걸렸어야 한다"
+
+
+def test_budget_holds_for_many_small_entries_too():
+    cache = LruByteCache(max_bytes=8 * 1024 * 1024, ttl_sec=3600, name="t")
+    for i in range(5000):
+        cache.put(f"doc:{i}", _doc(0.034))    # 소집공고 중앙값 34KB
+    assert cache.stats()["bytes"] <= 8 * 1024 * 1024
+    assert len(cache) > 100, "작은 항목은 넉넉히 담겨야 캐시 값어치가 있다"
+
+
+def test_oversized_entry_is_skipped_instead_of_wiping_the_cache():
+    """예산보다 큰 단일 항목을 담으려 하면 캐시를 다 비우고도 못 들어간다 — 담지 않는다."""
+    cache = LruByteCache(max_bytes=4 * 1024 * 1024, ttl_sec=3600, name="t")
+    cache.put("doc:keep", _doc(1.0))
+    cache.put("doc:huge", _doc(29.0))         # 실측 최대 사업보고서
+    assert cache.get("doc:huge") is None
+    assert cache.get("doc:keep") is not None, "거대 항목 하나가 멀쩡한 캐시를 쓸어버리면 안 된다"
+    assert cache.stats()["rejections"] == 1
+
+
+# ── LRU·TTL ──
+
+def test_eviction_order_is_least_recently_used_not_insertion():
+    cache = LruByteCache(max_bytes=3 * 1024 * 1024, ttl_sec=3600, name="t")
+    cache.put("doc:a", _doc(1.0))
+    cache.put("doc:b", _doc(1.0))
+    cache.get("doc:a")                        # a 를 최근 사용으로 끌어올린다
+    cache.put("doc:c", _doc(1.0))             # 예산 초과 → 가장 안 쓰인 b 가 나가야 한다
+    assert cache.get("doc:a") is not None
+    assert cache.get("doc:b") is None
+    assert cache.get("doc:c") is not None
+
+
+def test_expired_entry_is_dropped_and_frees_its_bytes():
+    cache = LruByteCache(max_bytes=8 * 1024 * 1024, ttl_sec=0.05, name="t")
+    cache.put("doc:a", _doc(1.0))
+    assert cache.stats()["bytes"] > 0
+    time.sleep(0.06)
+    assert cache.get("doc:a") is None
+    assert cache.stats()["bytes"] == 0, "만료 항목을 지우면서 바이트 회계도 같이 줄어야 한다"
+
+
+def test_replacing_a_key_does_not_double_count_its_bytes():
+    cache = LruByteCache(max_bytes=8 * 1024 * 1024, ttl_sec=3600, name="t")
+    cache.put("doc:a", _doc(1.0))
+    first = cache.stats()["bytes"]
+    for _ in range(5):
+        cache.put("doc:a", _doc(1.0))
+    assert cache.stats()["bytes"] == pytest.approx(first, rel=0.01)
+    assert len(cache) == 1
+
+
+def test_pop_frees_bytes():
+    cache = LruByteCache(max_bytes=8 * 1024 * 1024, ttl_sec=3600, name="t")
+    cache.put("doc:a", _doc(1.0))
+    assert cache.pop("doc:a") is not None
+    assert cache.stats()["bytes"] == 0
+    assert cache.pop("doc:a", "없음") == "없음"
+
+
+# ── doc 와 viewer 가 예산을 나눠 쓰는가 (사고의 두 번째 축) ──
+
+def test_document_and_viewer_share_one_budget():
+    """예전엔 각자 200개씩 — 문서화된 예산의 두 배를 담을 수 있었다."""
+    cache = LruByteCache(max_bytes=10 * 1024 * 1024, ttl_sec=3600, name="t")
+    for i in range(20):
+        cache.put(_doc_key(f"2026031800{i:04d}"), _doc(1.0))
+        cache.put(_viewer_key(f"2026031800{i:04d}", ("사업의 내용",)), _doc(1.0))
+    assert cache.stats()["bytes"] <= 10 * 1024 * 1024
+
+
+def test_doc_and_viewer_keys_never_collide():
+    rcept = "20260318001423"
+    assert _doc_key(rcept) != _viewer_key(rcept, ())
+    assert _viewer_key(rcept, ("가",)) != _viewer_key(rcept, ("나",))
+
+
+# ── 프로세스 전역 공유 (API 키 수만큼 예산이 곱해지지 않는가) ──
+
+def test_caches_are_shared_across_client_instances(monkeypatch):
+    """`_instances` 는 API 키마다 DartClient 를 만든다. 캐시가 인스턴스 소유면
+    사용자 20명 = 예산 20배가 되어 예산이라는 말이 무의미해진다."""
+    from open_proxy_mcp.dart.client import DartClient
+
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    a, b = DartClient(), DartClient()
+    assert a._doc_cache is b._doc_cache
+    assert a._dividend_cache is b._dividend_cache
+
+
+def test_dividend_cache_is_bounded():
+    """원래 「영구 캐시」라 상한도 TTL 도 없었다 — 프로세스 수명 내내 자랐다."""
+    from open_proxy_mcp.dart.client import _DIVIDEND_CACHE
+
+    assert _DIVIDEND_CACHE._max_bytes > 0
+    assert _DIVIDEND_CACHE._ttl_sec > 0
+
+
+def test_health_cache_stats_expose_budget_fill():
+    stats = cache_stats()
+    for name in ("document", "dividend"):
+        assert stats[name]["max_bytes"] > 0
+        assert 0 <= stats[name]["fill_pct"] <= 100
+        assert stats[name]["bytes"] <= stats[name]["max_bytes"]
+
+
+def test_total_budget_fits_the_1gb_vm():
+    """baseline 172MB(import 87 + corpCode 66 + 인터프리터 20) + 캐시 + 파싱 transient 여유."""
+    from open_proxy_mcp.dart.client import _DIVIDEND_CACHE, _DOC_CACHE
+
+    total_mb = (_DOC_CACHE._max_bytes + _DIVIDEND_CACHE._max_bytes) / 1024 / 1024
+    assert total_mb + 172 + 150 < 1024, f"캐시 예산 {total_mb}MB 는 1GB VM 에서 여유가 없다"

@@ -11,6 +11,7 @@
 import os
 import io
 import re
+import sys
 import json
 import time
 import asyncio
@@ -18,6 +19,7 @@ import collections
 import logging
 import sqlite3
 import tempfile
+import threading
 import zipfile
 import xml.etree.ElementTree as ET
 from contextvars import ContextVar
@@ -100,6 +102,183 @@ class DartClientError(Exception):
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
 _corp_code_cache: list[dict] | None = None
 _corp_code_lock: asyncio.Lock | None = None  # lazy init (asyncio loop 필요)
+
+
+# ── 메모리 캐시 (바이트 예산 LRU) ──
+# 260804 OOM 사고: fly 머신이 exit_code=137(oom_killed)로 죽었다. 원인은 캐시 예산을
+# **항목 수**로 잡아 둔 것이었다. 「200 entry × ~500KB = ~100MB」라는 주석이 있었지만
+# 실측하면 항목 크기가 두 자릿수 배 어긋난다(아래 실측표). 그래서 이제 개수가 아니라
+# **바이트**로 자른다 — 항목 크기 가정이 틀려도 예산은 안 틀린다.
+#
+# 실측 (2026-08-04). 문서 크기는 **디스크 캐시 전수 1,865건**(서버가 실제로 받아 온 것들)
+# 이 표본이다. 처음엔 74건짜리 부분표본으로 쟀는데 소집공고에 치우쳐 tail 을 놓쳤다 —
+# 표본을 키우자 상한이 29MB 에서 62MB 로 뛰었다. 작은 표본으로 예산을 정하면 안 된다.
+#   문서 (n=1,865, mem/disk≈1.54)  p50 0.78MB · p90 10.5MB · p99 26.6MB · 최대 62.0MB
+#                                  평균 3.78MB · 8MB 초과가 17.5%
+#   list.json 검색결과 (n=10, page_count=100)  평균 9.8KB · 최대 16.2KB
+#   alotMatter 배당    (n=10)                  평균 11.2KB
+# 옛 가정(500KB)은 평균의 1/7, p99 의 1/53 이다. **개수 200 을 실제로 채워 보니 828MB**
+# (아래 before/after 참조) — 그게 768MB VM 을 죽인 값이고, 같은 상한을 쓰는 캐시가
+# doc·viewer 둘이라 실제 수용량은 그 두 배였다.
+# 문서 항목의 90%는 원문 `html`(사업보고서 본문 XML 4~13M자)이고, 한글이라 파이썬 str 이
+# 문자당 2바이트를 쓴다. 이 필드는 파서 20여 곳이 직접 읽으므로 뺄 수 없다.
+#
+# before/after (서로 다른 문서 200건을 production 경로로 통과시키며 실측):
+#   옛 동작(개수 200)   캐시 보유 828.3MB — 계속 증가, evict 0회
+#   이번 수정(96MB)     캐시 보유  92.8MB — 평평, evict 179회
+#   MCP 부하(30사·동시 3, phys_footprint)  peak 557 → 428MB · 상시 549 → 262MB
+#
+# 예산 산정 (1GB VM): baseline 172MB(인터프리터 20 + import 87 + corpCode 118,583사 66)
+#   + 문서 96 + 배당 16 + 검색 0.5 ≈ 285MB 상주. 나머지는 파싱 transient 몫으로 남긴다
+#   (html_to_text 가 13M자 문자열에 re.sub 를 7번 돌려 매번 새 사본을 만든다 — 동시 3건에서
+#    이 transient 만으로 footprint 가 230MB 넘게 뛴다. 캐시보다 이쪽이 이제 더 큰 항목이다).
+def _cache_entry_bytes(obj, _seen: set[int] | None = None) -> int:
+    """캐시 항목의 실제 메모리 바이트. 페이로드가 문자열 지배적이라 getsizeof 합이 정확하다."""
+    if _seen is None:
+        _seen = set()
+    oid = id(obj)
+    if oid in _seen:
+        return 0
+    _seen.add(oid)
+    size = sys.getsizeof(obj)
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            size += _cache_entry_bytes(k, _seen) + _cache_entry_bytes(v, _seen)
+    elif isinstance(obj, (list, tuple, set, frozenset)):
+        for item in obj:
+            size += _cache_entry_bytes(item, _seen)
+    return size
+
+
+class LruByteCache:
+    """LRU + TTL 캐시 — 항목 수가 아니라 **총 바이트**로 evict 한다.
+
+    항목 크기가 20KB(소집공고)에서 62MB(대형 사업보고서)까지 3자릿수 배 흩어져 있어서
+    개수 상한은 메모리 상한이 되지 못한다. 예산보다 큰 단일 항목은 아예 담지 않는다
+    (담으면 캐시 전체를 비우고도 못 들어가므로).
+    """
+
+    def __init__(self, max_bytes: int, ttl_sec: float, name: str):
+        # key → (value, expires_at_unix, nbytes). dict 삽입순서 = LRU 순서(오래된 것이 앞).
+        self._entries: dict[str, tuple[object, float, int]] = {}
+        self._total_bytes = 0
+        self._max_bytes = max_bytes
+        self._ttl_sec = ttl_sec
+        self._name = name
+        self._lock = threading.Lock()
+        self.evictions = 0
+        self.rejections = 0   # 단일 항목이 예산보다 커서 안 담긴 횟수
+
+    def get(self, key: str):
+        """LRU + TTL get. 만료면 제거하고 None."""
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is None:
+                return None
+            value, expires_at, nbytes = entry
+            if time.time() >= expires_at:
+                del self._entries[key]
+                self._total_bytes -= nbytes
+                return None
+            # LRU touch — 맨 뒤(최근)로 이동
+            del self._entries[key]
+            self._entries[key] = entry
+            return value
+
+    def put(self, key: str, value) -> None:
+        nbytes = _cache_entry_bytes(value)
+        with self._lock:
+            old = self._entries.pop(key, None)
+            if old is not None:
+                self._total_bytes -= old[2]
+            if nbytes > self._max_bytes:
+                # 예산보다 큰 단일 항목 — 담으면 캐시를 다 비우고도 못 들어간다.
+                self.rejections += 1
+                logger.warning(
+                    f"[CACHE] {self._name}: 항목이 예산보다 큼 — 캐시 생략 "
+                    f"({nbytes/1024/1024:.1f}MB > {self._max_bytes/1024/1024:.0f}MB) key={key}"
+                )
+                return
+            while self._total_bytes + nbytes > self._max_bytes and self._entries:
+                # dict 는 삽입순서를 지키므로 첫 키가 가장 오래 안 쓰인 항목이다.
+                oldest = next(iter(self._entries))
+                self._total_bytes -= self._entries.pop(oldest)[2]
+                self.evictions += 1
+            self._entries[key] = (value, time.time() + self._ttl_sec, nbytes)
+            self._total_bytes += nbytes
+
+    def pop(self, key: str, default=None):
+        with self._lock:
+            entry = self._entries.pop(key, None)
+            if entry is None:
+                return default
+            self._total_bytes -= entry[2]
+            return entry[0]
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+            self._total_bytes = 0
+
+    def stats(self) -> dict:
+        with self._lock:
+            return {
+                "name": self._name,
+                "entries": len(self._entries),
+                "bytes": self._total_bytes,
+                "max_bytes": self._max_bytes,
+                "fill_pct": round(100 * self._total_bytes / self._max_bytes, 1) if self._max_bytes else 0.0,
+                "evictions": self.evictions,
+                "rejections": self.rejections,
+            }
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+
+def _env_mb(name: str, default_mb: int) -> int:
+    """운영 중 예산 조정용 — 잘못된 값이면 기본값으로 되돌린다(부팅 실패보다 낫다)."""
+    try:
+        value = int(os.environ.get(name, default_mb))
+        return value * 1024 * 1024 if value > 0 else default_mb * 1024 * 1024
+    except ValueError:
+        return default_mb * 1024 * 1024
+
+
+_DOC_CACHE_TTL_SEC = 24 * 60 * 60   # 24h — rcept_no 는 immutable 이지만 영구 점유는 막는다.
+
+# 프로세스 전역 — DartClient 인스턴스마다 캐시를 들면 안 된다.
+# `_instances` 는 **API 키마다** DartClient 를 하나씩 만든다. 캐시가 인스턴스 소유면
+# 예산이 키 개수만큼 곱해져 「예산」이라는 말이 무의미해진다(사용자 20명 = 20배).
+# 캐시 내용은 rcept_no·corp_code 로 찍히는 **공개 데이터라 키와 무관**하고, 디스크 캐시
+# (opm_cache)는 이미 인스턴스 간 공유돼 왔다. 전역화는 정책 변경이 아니라 정합성 회복이다.
+# 96MB: 실측 p90(10.5MB) 문서 9건 또는 p50(0.78MB) 문서 120여 건. 메모리에서 밀려나도
+# 디스크 캐시가 받아 주므로 **evict 가 DART 콜을 늘리지 않는다** — 보수적으로 잡아도 되는 이유.
+_DOC_CACHE = LruByteCache(_env_mb("OPM_DOC_CACHE_MB", 96), _DOC_CACHE_TTL_SEC, "document")
+# 과거 연도 배당(alotMatter) — 확정된 과거 연도는 안 변해 원래 「영구 캐시」였다(260607).
+# 영구 = 무제한이라 프로세스 수명 내내 자란다. 항목 11.2KB × (상장 2,700사 × 캐시 대상 연도)
+# 면 상한이 150MB 대다. 16MB(≈1,400건) + 24h TTL 로 문서 캐시와 같은 규율을 준다.
+_DIVIDEND_CACHE = LruByteCache(_env_mb("OPM_DIVIDEND_CACHE_MB", 16), _DOC_CACHE_TTL_SEC, "dividend")
+
+
+# doc(document.xml)과 viewer(HTML 폴백)가 예산을 공유하므로 키 네임스페이스로 가른다.
+def _doc_key(rcept_no: str) -> str:
+    return f"doc:{rcept_no}"
+
+
+def _viewer_key(rcept_no: str, keywords: tuple[str, ...]) -> str:
+    return f"viewer:{rcept_no}|{'|'.join(keywords)}"
+
+
+def cache_stats() -> dict:
+    """캐시 점유 현황 — /health 가 노출한다.
+
+    260804 OOM 은 「죽고 나서야」 보였다. 예산을 정해 놓고 채워지는 걸 못 보면 같은 일이
+    반복되므로, 예산 대비 점유율·evict 횟수를 상시 관측 가능하게 둔다.
+    (검색 캐시는 인스턴스 소유 + 실측 0.5MB 규모라 여기 넣지 않는다.)
+    """
+    return {"document": _DOC_CACHE.stats(), "dividend": _DIVIDEND_CACHE.stats()}
+
 
 # ── sqlite master cache (KIS 참고, iter27 ship) ──
 # corpCode.xml 50MB 영구 cache → cold start 6-15s → ms.
@@ -304,19 +483,19 @@ class DartClient:
         self._api_call_timestamps: collections.deque[float] = collections.deque()
         self._api_rate_lock = asyncio.Lock()
         # Document caching (메모리 + 디스크)
-        # doc cache: rcept_no → (doc_dict, expires_at_unix). LRU + TTL.
-        # 200 entry × ~500KB = ~100MB, fly 1GB 메모리 충분 수용.
-        # TTL 24h: rcept_no 자체는 immutable이지만 메모리 영구 점유 방지.
-        self._doc_cache: dict[str, tuple[dict, float]] = {}
-        self._viewer_doc_cache: dict[str, tuple[dict, float]] = {}
-        self._MAX_CACHE = 200
-        self._DOC_CACHE_TTL_SEC = 24 * 60 * 60   # 24h
+        # 메모리 캐시는 **프로세스 전역**이다(모듈 상단 _DOC_CACHE 주석 참조 — 인스턴스 소유면
+        # API 키 수만큼 예산이 곱해진다). 여기서는 그 전역 캐시를 가리키기만 한다.
+        # doc 과 viewer 는 **하나의 바이트 예산을 공유**한다. 예전엔 200개씩 따로 잡혀
+        # 문서화된 예산의 두 배(400개)를 담을 수 있었다. 키 앞에 네임스페이스를 붙여 구분한다.
+        self._doc_cache = _DOC_CACHE
         self._disk_cache_dir = os.path.join(tempfile.gettempdir(), "opm_cache")
         # Search result caching (세션 기반, TTL 없음)
+        # 실측 평균 9.8KB · 최대 16.2KB(page_count=100) → 50건이면 ~0.5MB. 문서 캐시의
+        # 1/500 수준이라 개수 상한으로 충분하다(260804 OOM 조사에서 확인, 변경 불필요).
         self._search_cache: dict[str, dict] = {}
         self._MAX_SEARCH_CACHE = 50
-        # 과거 연도 배당(alotMatter) 영구 캐시 — 확정된 과거 연도는 안 변함 (260607)
-        self._dividend_cache: dict[str, dict] = {}
+        # 과거 연도 배당(alotMatter) — 전역 바이트 예산 LRU (모듈 상단 _DIVIDEND_CACHE 참조)
+        self._dividend_cache = _DIVIDEND_CACHE
         # 사용량 추적 (각 service가 snapshot으로 차이 계산)
         self._request_counter = 0
         # Persistent HTTP client — connection pool 재사용으로 TLS handshake 중복 제거.
@@ -331,27 +510,10 @@ class DartClient:
             ),
         )
 
-    def _doc_cache_get(self, cache: dict, key: str) -> dict | None:
-        """LRU + TTL get. expired면 제거 + None 반환."""
-        entry = cache.get(key)
-        if entry is None:
-            return None
-        data, expires_at = entry
-        if time.time() >= expires_at:
-            cache.pop(key, None)
-            return None
-        # LRU touch: 최근 사용으로 이동
-        cache.pop(key)
-        cache[key] = entry
-        return data
-
-    def _doc_cache_put(self, cache: dict, key: str, data: dict) -> None:
-        """LRU + TTL put. 200 한계 초과 시 가장 오래된 entry evict."""
-        if key in cache:
-            cache.pop(key)
-        elif len(cache) >= self._MAX_CACHE:
-            cache.pop(next(iter(cache)))
-        cache[key] = (data, time.time() + self._DOC_CACHE_TTL_SEC)
+    def invalidate_document(self, rcept_no: str) -> None:
+        """문서 메모리 캐시 무효화 — cold fetch 를 재현하는 성능 스크립트용.
+        (디스크 캐시는 호출측이 따로 지운다.)"""
+        self._doc_cache.pop(_doc_key(rcept_no))
 
     def api_call_snapshot(self) -> int:
         """현재까지 누적된 DART API 호출 수. service가 시작·종료 시점에 찍어 차이를 계산."""
@@ -978,8 +1140,8 @@ class DartClient:
         API/XML 구조가 깨졌을 때만 2차 경로로 사용한다.
         """
         keywords = tuple(section_keywords or [])
-        cache_key = f"{rcept_no}|{'|'.join(keywords)}"
-        cached = self._doc_cache_get(self._viewer_doc_cache, cache_key)
+        cache_key = _viewer_key(rcept_no, keywords)
+        cached = self._doc_cache.get(cache_key)
         if cached is not None:
             return cached
 
@@ -1022,7 +1184,7 @@ class DartClient:
             ],
             "source": "viewer_html",
         }
-        self._doc_cache_put(self._viewer_doc_cache, cache_key, payload)
+        self._doc_cache.put(cache_key, payload)
         return payload
 
     # NOTE: get_document_pdf (공시 본문 PDF 다운로드)는 2026-07-12 폐기.
@@ -1370,20 +1532,25 @@ class DartClient:
             bsns_year: 사업연도 (예: "2024")
             reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
         """
-        # 과거 연도(2년 전 이전)는 사업보고서 확정 후 안 변하므로 영구 캐시.
+        # 과거 연도(2년 전 이전)는 사업보고서 확정 후 안 변하므로 캐시 대상.
         # 당해/전년은 정정 가능성 있어 캐시 X.
+        # 값이 안 변한다고 **무제한**으로 들고 있을 이유는 없다 — 상장 2,700사 × 캐시 대상
+        # 연도면 상한이 150MB 대다(260804 OOM 조사). 바이트 예산 LRU + TTL 로 문서 캐시와
+        # 같은 규율을 적용한다. evict 돼도 다음 조회 때 alotMatter 1콜이면 복구된다.
         from datetime import date as _date
         cacheable = reprt_code == "11011" and bsns_year.isdigit() and int(bsns_year) <= _date.today().year - 2
         cache_key = f"{corp_code}|{bsns_year}|{reprt_code}"
-        if cacheable and cache_key in self._dividend_cache:
-            return self._dividend_cache[cache_key]
+        if cacheable:
+            cached = self._dividend_cache.get(cache_key)
+            if cached is not None:
+                return cached
         result = await self._request("alotMatter.json", {
             "corp_code": corp_code,
             "bsns_year": bsns_year,
             "reprt_code": reprt_code,
         })
         if cacheable:
-            self._dividend_cache[cache_key] = result
+            self._dividend_cache.put(cache_key, result)
         return result
 
     # ── 재무제표 / 주요지표 / 감사의견 (DS003) ──
@@ -1834,20 +2001,22 @@ class DartClient:
             json.dump(doc, f, ensure_ascii=False)
 
     async def get_document_cached(self, rcept_no: str) -> dict:
-        """get_document 결과를 캐싱 (메모리 LRU 200 + TTL 24h, 디스크는 보조).
-        중복 API 호출 방지."""
-        cached = self._doc_cache_get(self._doc_cache, rcept_no)
+        """get_document 결과를 캐싱 (메모리 바이트예산 LRU + TTL 24h, 디스크는 보조).
+        중복 API 호출 방지. 메모리에서 evict 돼도 디스크가 받아주므로 **DART 왕복은 안 는다**
+        — 예산을 보수적으로 잡아도 되는 이유다."""
+        cache_key = _doc_key(rcept_no)
+        cached = self._doc_cache.get(cache_key)
         if cached is not None:
             _ctx_doc_cache_hit.set(True)
             return cached
         disk_doc = self._load_from_disk(rcept_no)
         if disk_doc:
-            self._doc_cache_put(self._doc_cache, rcept_no, disk_doc)
+            self._doc_cache.put(cache_key, disk_doc)
             _ctx_doc_cache_hit.set(True)
             return disk_doc
         _ctx_doc_cache_hit.set(False)          # DART 왕복 — fetch 가 병목인 구간
         doc = await self.get_document(rcept_no)
-        self._doc_cache_put(self._doc_cache, rcept_no, doc)
+        self._doc_cache.put(cache_key, doc)
         self._save_to_disk(rcept_no, doc)
         # 이미지 기반 공고 감지
         images = doc.get("images", [])
