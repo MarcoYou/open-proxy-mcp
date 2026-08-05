@@ -2,8 +2,8 @@
 type: tool
 title: dividend
 domain: data
-scope: [summary, detail, history, policy_signals, cash_shareholder_return, total_shareholder_return]
-data_source: [DART OpenAPI alotMatter (사업보고서 배당 요약) + 현금ㆍ현물배당결정 합산, treasury_share API (CSR 분자), Naver Finance siseJson (TSR P_start/P_end), KRX Open API (price fallback)]
+scope: [summary, detail, history]
+data_source: [DART OpenAPI alotMatter (사업보고서 배당 요약, 다년 컬럼) + 현금ㆍ현물배당결정 공시 합산 fallback]
 related_disclosures: [현금배당결정, 주식배당결정, 배당기준일결정, 분기배당결정, 감액배당결정, 배당공시유형, 사업보고서, 자기주식취득결정]
 related_concepts: [배당성향, 배당수익률, 시가배당률, 분기배당, 특별배당, 감액배당, 자본준비금, 당기순이익, 주주환원]
 related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, free-paid-분리, cross-domain-체이닝]
@@ -14,20 +14,20 @@ created: 2026-05-01
 # dividend
 
 ## 한 줄 요약
-실지급·확정된 배당 사실 탭. DPS, 총액, 배당성향, 시가배당률, 추이, CSR(한국식 배당+자사주 매입) + TSR(글로벌 주가+배당). 미래 정책·약속 X.
+실지급·확정된 배당 사실 탭. DPS, 총액, 배당성향, 시가배당률, 연도별 추이. 미래 정책·약속은 다루지 않는다(그건 [[value_up]]).
 
 ## 사용법
 ```
 dividend(
     company="KT&G",
-    scope="cash_shareholder_return",
+    scope="summary",
     year=2024,
 )
 ```
 
 자연어 예시:
-- "KT&G 한국식 환원율 2024" → `scope="cash_shareholder_return"` → CSR 92.21%
-- "삼성전자 글로벌 TSR 2024" → `scope="total_shareholder_return"` → TSR -31.35%
+- "KT&G 2024 배당" → `scope="summary"` (DPS·배당성향·시가배당률 + 선배당-후결의·감액배당 신호)
+- "삼성전자 최근 배당 결정들" → `scope="detail"`
 - "메리츠금융지주 최근 3년 배당 추이" → `scope="history"`
 
 ## 입력 인자
@@ -44,9 +44,6 @@ scope:
 - `summary`: 연간 DPS + 배당성향 + 시가배당률 + meta_signals (선배당-후결의, 감액배당) (기본)
 - `detail`: 요약 + 최근 결정 10건
 - `history`: 최근 N년 추이 (DPS / payout / yield / pattern)
-- `policy_signals`: 분기배당·특별배당 패턴
-- `cash_shareholder_return`: CSR (한국식, 배당+자사주 매입 / 지배주주 당기순이익)
-- `total_shareholder_return`: TSR (글로벌, (P_end - P_start + DPS) / P_start)
 
 ## 출력 schema (data dict)
 ```json
@@ -62,19 +59,6 @@ scope:
                      "has_special_dividend": false, "latest_change_pct": -3.2},
   "history": [{"year": 2024, "annual_dps": 1444, "decision_count": 4,
                "payout_ratio": 25.1, "yield_pct": 1.5, "pattern": "..."}],
-  "cash_shareholder_return": {"csr_pct": 92.21, "definition": "...",
-                              "dividend_total_krw": ..., "buyback_total_krw": ...,
-                              "cash_return_total_krw": ..., "net_income_krw": ...,
-                              "ratio_status": "computed",
-                              "components": {...}, "acquisition_rows": [...]},
-  "total_shareholder_return": {"tsr_pct": 25.98, "definition": "...",
-                               "components": {"price_start_krw": 89300,
-                                              "price_end_krw": 107100,
-                                              "dps_total_krw": 5400,
-                                              "price_change_pct": 19.93,
-                                              "dividend_yield_pct": 6.05},
-                               "ratio_status": "computed",
-                               "sources": {"price": "naver", "dps": "alotMatter"}},
   "no_filing": false,
   "filing_count": N,
   "usage": {"dart_api_calls": N, "mcp_tool_calls": 1}
@@ -82,8 +66,6 @@ scope:
 ```
 
 핵심 필드:
-- **CSR vs TSR 분리**: CSR(회사 회계, 분모=지배주주 당기순이익) vs TSR(투자자 1주 수익률, 분모=P_start). 같은 "주주환원" 단어지만 정의 다름.
-- `ratio_status`: `computed` / `denominator_zero_or_unknown` / `negative_net_income` / `missing_price_data`
 - meta_signals: 선배당-후결의 (2024 신법), 감액배당 cross-link (자본준비금 감소)
 
 > **갱신 (2026-06-09)** — 정확도/분류 정밀화:
@@ -92,13 +74,10 @@ scope:
 > - **최신연도 4분류**: 중간배당 확정 / 확정 전(D 명부폐쇄 기준일 매칭) / 미공시(payer인데 결산 미확정) / 무배당(직전도 배당 없음). target연도 매칭으로 단정.
 > - **미확정 시간판정**(260717): "미공시(결산 배당 미확정)"은 해당 사업연도 정기주총 경과(today > 익년 5/31) 시 **"무배당(확정·결산 현금배당 없음)"**으로 정정 — 주총이 끝났는데 결정공시·기준일이 없으면 배당을 안 하기로 확정한 것(메리츠·SK증권=배당→자사주 소각 전환). 배당기준일 설정된 "확정 전"은 실제 배당신호라 유지. 근거: dividend-payout-classification-260717.
 > - 권위 = 사업보고서 alotMatter **다년컬럼**(개별연도 호출 제거). per-decision 시가배당률은 0 억제(연간값 권위).
-> - ⚠️ **CSR/TSR scope 폐기** — 현재 scope = `summary` / `detail` / `history`만. 아래 CSR/TSR 설명은 구버전.
-> - 상세 교훈: 레슨 `lessons/dividend-source-of-truth-260609`.
+> - 상세 교훈은 private storage 에 있다(공개 wiki 에 없음).
 
 ## Data sources
 - **DART API**: `alotMatter` (사업보고서, 1차 source), `현금ㆍ현물배당결정` 공시 합산 (alotMatter 비거나 cash_dps=0일 때 fallback)
-- **treasury_share API**: `tsstkAqDecsn` (CSR 분자, 매입 acquire 시점 — 소각 retire 아님)
-- **Naver Finance**: `siseJson` (TSR P_start/P_end, 7일 비거래일 자동 폴백)
 - **KRX Open API**: 시세 fallback
 - 외부 호출: summary 13회 (배당결정 공시 N건 본문), history 21회 (+ 분기교정)
 
@@ -111,9 +90,7 @@ sequenceDiagram
     participant R as resolve_company_query
     participant DA as DART alotMatter (사업보고서)
     participant DD as DART 배당결정 list
-    participant TS as treasury_share API
-    participant N as Naver siseJson
-    U->>T: company="KT&G", scope="cash_shareholder_return", year=2024
+    U->>T: company="KT&G", scope="summary", year=2024
     T->>R: company_query → corp_code
     par 1단계 병렬
         T->>DA: alotMatter(target_year)
@@ -129,17 +106,11 @@ sequenceDiagram
     par 과거 N년 alotMatter 병렬
         T->>DA: alotMatter(year_list 각 연도)
     end
-    opt scope in {summary, CSR, TSR}
+    opt scope=summary
         T->>DD: 배당기준일 공시 검색 (선배당-후결의 메타)
         T->>DD: 정관변경 검색 (감액배당 메타)
     end
-    opt scope=cash_shareholder_return
-        T->>TS: treasury_share (acquire 쪽 합산 — CSR 분자)
-    end
-    opt scope=total_shareholder_return
-        T->>N: siseJson (P_start, P_end, 7일 비거래일 폴백)
-    end
-    T->>T: history + policy_signals + ratio 계산
+    T->>T: history + policy_signals 계산
     T-->>U: ToolEnvelope (scope별 data + meta_signals)
 ```
 
@@ -163,10 +134,6 @@ sequenceDiagram
 - 검색: 기간(`bgn_de`/`end_de`) + 공시유형 `I001` (서버) → 제목 `"배당결정"` 포함 + `"자회사"` 제외 (클라이언트, DART가 제목 서버검색 미지원).
 - 거른 집합이 곧 "그 기간 모회사 배당결정 공시 전부"라 양이 작다(분기배당사 ~연 4건). **임의 cap 없이 타겟된 공시만 파싱** — 구버전 raw `[:20]` 절단(오래된 연도 통째 누락) 제거.
 
-### CSR 분자 정정 (T22 → T23):
-  - T22: 자사주 소각(retire) 사용 — 잘못 (이중 계산 / 시점 어긋남)
-  - T23: 자사주 매입(acquire) 사용 — 정정 (이사회 결의 시점 현금 유출)
-  - 검증: KT&G 119.23% → 92.21%, 삼성전자 2024 29.18% → 38.10%, 2025 31.98% → 40.71%
 - [기재정정] dedupe (board_date+amount+shares 키)
 - 정책 예측·미래 약속 추가 금지 (그건 `value_up`)
 - regression 0 검증: 200기업 audit `dividend.summary` 75.0% exact (147/196), no_filing 24.0% (47건, KOSDAQ 무배당 정상). 21지표 audit 통과.
@@ -179,7 +146,6 @@ sequenceDiagram
 - [[감액배당결정]] — 자본준비금 감소 → 이익잉여금 전입 → 배당 (cross-link)
 - [[배당공시유형]] — 배당 6종 통합 인덱스
 - [[사업보고서]] — alotMatter 배당 요약
-- [[자기주식취득결정]] — CSR 분자 source (acquire)
 
 ## 관련 개념 (rules/concepts/)
 - [[배당성향]] — 배당금 총액 / 지배주주 귀속 당기순이익
@@ -189,8 +155,8 @@ sequenceDiagram
 - [[특별배당]] — 일회성, 추이 분석 시 정기와 분리
 - [[감액배당]] — 자본준비금 감소 후 이익잉여금 전입
 - [[자본준비금]] — 감액배당 전제 조건
-- [[당기순이익]] — CSR 분모 (반드시 연결 지배주주 귀속)
-- [[주주환원]] — CSR(한국식) vs TSR(글로벌) 정의 분리
+- [[당기순이익]] — 배당성향 분모 (연결 지배주주 귀속)
+- [[주주환원]] — 배당·자사주를 아우르는 상위 개념
 
 ## 관련 결정 (decisions/)
 - [[배당공시유형]] — 배당 9종 + 자사주 5종 + 2026.03 신법 통합 비교
@@ -219,3 +185,7 @@ sequenceDiagram
 - 2026-06-08: 연간 DPS/배당성향/수익률 source를 **alotMatter 다년 컬럼**(`_alot_multiyear_summaries`)으로 전환 — per-year 개별 호출·결정공시 합산 의존 제거. 더해서 ① 자회사(`자회사의 주요경영사항`) 공시 제외 ② 정정/재공시 dedup(`_effective_decisions`) ③ raw `[:20]` 절단 제거(기간·유형·제목 타겟) ④ `주당 현금배당금` 빈 행 overwrite 버그 수정. 검증: KB금융 3,060/3,174/4,367, 삼성전자 1,444/1,446/1,668, 미래에셋 150/250/300, SK하이닉스 1,200/2,204/3,000, 셀트리온 500/750/750, 메리츠 2,360/1,350(2025 미확정) — 사업보고서 권위값·분기합 일치.
 - 2026-06-08: 선배당-후결의 회사 최신연도 `무배당` → `확정 전 (배당기준일 설정·금액 미정)` 표기 + `pending_confirmation` 플래그, 추세는 확정연도만 산정 (메리츠 2025 검증, 에이피알 진짜 무배당 오탐 없음).
 - 2026-06-08: history 정합성 경고 추가 — 분기 breakdown 합(정정 제외) ≠ 사업보고서 연간 DPS 인 해에 warning. 깜깜이배당 해소 전환기(전년 결산 + 올해 Q1 동시 공시, 결산 기준일 이월)에 공시별 fiscal-year 추론이 경계에서 어긋나는 케이스 — 연간값(사업보고서)이 정확함을 명시 (하나금융지주 2023: 분기합 2,800 vs 연간 3,400 검증, KB·삼성·기아 오탐 없음).
+- 2026-08-06: 폐기된 `cash_shareholder_return`·`total_shareholder_return` scope 잔재 제거 — 문서가
+  없는 scope 6종을 안내하고 `summary` 의 `next_actions` 가 그 둘을 호출하라고 내보내고 있었다.
+  코드의 도달 불가 분기(evidence 2종·next_actions 2종·게이트 2곳)와 코드에 없는 `ratio_status`
+  필드 서술도 함께 정리. 현재 scope 는 `summary`/`detail`/`history` 셋이다.

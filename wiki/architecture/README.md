@@ -7,7 +7,7 @@ updated: 2026-06-23
 # 시스템 설계 (architecture)
 
 > OPM이 **어떻게 동작하나** — 데이터 수집 경로·폴백·동시성·의결권 판단·보고서 설계.
-> 도메인 지식은 `rules/`, 도구 사용법은 `tools/`, 작업 회고는 `lessons/`.
+> 도메인 지식은 `rules/`, 도구 사용법은 `tools/`. 작업 회고·레슨런은 public wiki 에 없다(private storage).
 
 ## 무엇이 궁금한가 → 어디로
 
@@ -18,7 +18,6 @@ updated: 2026-06-23
 | **여러 upstream 동시 호출 표준** | [[multi-upstream-pattern]] (concurrency + race fix) |
 | **의결권을 어떻게 판단하나** | [[proxy-voting-decision-tree]] · 의사결정 매트릭스(설계자산 — **구조**: 안건 카테고리 × 판단 차원 그리드 + 패턴 카탈로그로 for/review/against 산출. 산식·패턴 실체는 private, 자동채점 미사용) |
 | **proxy_advise Word 보고서** | [[proxy_advise_word_report_design]] · [[proxy_advise_word_report_spec]] |
-| **파싱 성공률 audit 방법** | parsing_success_rate_audit_spec · parsing_success_rate_audit_checklist |
 | **코드 구조** | [[project_structure]] |
 | **MCP 엔드포인트** (live-opm / pilot-opm — 목적이 다르고 따로 관리, stdio 금지) | [[mcp-endpoints]] |
 | **환경변수·시크릿** (필요한 키 목록·설정 위치, `.env.example` 대체) | [[environment-secrets]] |

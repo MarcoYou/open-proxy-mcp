@@ -57,13 +57,12 @@ OPM은 이 과정을 **AI 에이전트가 여러 분석 도구를 동적으로 �
 | `tools/` | 도구 카탈로그 — 각 도구 사용법·입출력·데이터 출처 | 사람 + AI |
 | `rules/` | 도메인 지식 — 공시 유형, 법령, 개념 정의 | 사람 + AI |
 | `architecture/` | 시스템 설계 상세 + 성능·정확도 audit | AI + 개발자 |
-| `lessons/` | 작업 회고 — 무엇을 배웠고 왜 그렇게 결정했나 | AI + 개발자 |
 | `decisions/` | 정책 결정 (의결권 가이드라인 등) | 사람 + AI |
 | `archive/` | 흡수·대체된 과거 문서 보존 | 참고용 |
 | `wiki_index.md` | AI/개발자용 전체 카탈로그 (wikilink 색인) | AI |
 
 > **요약**: 사람은 `guide/` → `tools/` → `rules/`·`decisions/` 순으로 보면 충분합니다.
-> `architecture/`·`lessons/`·`wiki_index.md`는 더 깊이 보거나 AI 에이전트가 참조하는 영역입니다.
+> `architecture/`·`wiki_index.md`는 더 깊이 보거나 AI 에이전트가 참조하는 영역입니다.
 
 ## 빠른 시작 — 실제로 어떻게 쓰나
 

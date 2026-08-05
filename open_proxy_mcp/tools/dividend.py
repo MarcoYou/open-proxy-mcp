@@ -106,7 +106,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 f"{item.get('record_date', '-') or '-'} | `{item.get('rcept_no', '')}` |"
             )
 
-    if scope in {"summary", "policy_signals"}:
+    if scope == "summary":
         policy = data.get("policy_signals", {})
         lines.extend([
             "",

@@ -842,7 +842,7 @@ async def build_dividend_payload(
     meta_task: asyncio.Task[None] | None = None
     # 선배당-후결의(명부폐쇄) 신호는 메인 I001 검색에 통합됨 (gather 직후 record_notices 재사용).
     # 아래 meta_task는 감액배당 cross-link(shareholder_meeting 의존)만 담당한다.
-    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return"}:
+    if scope == "summary":
         async def run_capital_reserve_detection() -> None:
             nonlocal capital_reserve_reduction, capital_reserve_agendas
             stage_started_at = time.perf_counter()
@@ -886,7 +886,7 @@ async def build_dividend_payload(
     # pre_dividend 통합: 메인 검색에서 같이 필터한 명부폐쇄 notice를 재사용 (별도 검색 제거).
     # 신호 윈도우는 기존과 동일(target_year ~ +1년 4월)로 좁혀 동작 보존. 기준일 본문 파싱은
     # latest_year_classification 블록에서 _record_date_from_notices가 연도매칭으로 수행.
-    if scope in {"summary", "cash_shareholder_return", "total_shareholder_return", "history"}:
+    if scope in {"summary", "history"}:
         _pd_bgn, _pd_end = f"{target_year}0101", f"{target_year + 1}0430"
         record_date_notices = [
             n for n in record_notices_search
@@ -1224,45 +1224,6 @@ async def build_dividend_payload(
             )
         )
 
-    # cash_shareholder_return scope 전용 — 자사주 **취득(매입)** 결정 공시 evidence.
-    if scope == "cash_shareholder_return":
-        csr = data.get("cash_shareholder_return", {}) or {}
-        for row in (csr.get("acquisition_rows") or [])[:3]:
-            if not row.get("rcept_no"):
-                continue
-            evidence_refs.append(
-                EvidenceRef(
-                    evidence_id=f"ev_acquire_{row['rcept_no']}",
-                    source_type=SourceType.DART_API,
-                    rcept_no=row["rcept_no"],
-                    rcept_dt=format_iso_date(row.get("rcept_dt", "")),
-                    report_nm=row.get("report_nm", ""),
-                    section="자기주식취득결정",
-                    note=(
-                        f"{row.get('shares', 0):,}주 / {row.get('amount_krw', 0):,}원 매입"
-                        if row.get("amount_krw") else "API+본문 파싱 실패 — 금액 미확정"
-                    ),
-                )
-            )
-
-    # total_shareholder_return scope 전용 — 주가 시세 evidence (네이버/KRX).
-    if scope == "total_shareholder_return":
-        tsr = data.get("total_shareholder_return", {}) or {}
-        comp = tsr.get("components", {}) or {}
-        if comp.get("price_start_krw") or comp.get("price_end_krw"):
-            evidence_refs.append(
-                EvidenceRef(
-                    evidence_id=f"ev_tsr_price_{selected.get('stock_code', '')}_{target_year}",
-                    source_type=SourceType.DART_API,  # 외부 시세 — 가장 가까운 enum
-                    section="주가 시세 (네이버 금융 → KRX fallback)",
-                    note=(
-                        f"P_start={comp.get('price_start_krw', 0):,}원, "
-                        f"P_end={comp.get('price_end_krw', 0):,}원, "
-                        f"DPS={comp.get('dps_total_krw', 0):,}원"
-                    ),
-                )
-            )
-
     status = status_from_filing_meta(filing_meta)
     if filing_meta["no_filing"]:
         warnings.append(f"조사 구간 ({start_ymd}~{end_ymd}) 내 배당결정 공시 없음 + 사업보고서 배당 요약도 비어 있어 무배당으로 본다 (정상)")
@@ -1276,19 +1237,8 @@ async def build_dividend_payload(
     if scope == "summary":
         next_actions = [
             "history scope로 최근 3년 배당 추이 확인",
-            "cash_shareholder_return scope로 한국식 환원율(배당+자사주 매입)/지배주주 순이익 확인",
-            "total_shareholder_return scope로 글로벌 정의 1주 수익률(주가변동+배당) 확인",
-        ]
-    elif scope == "cash_shareholder_return":
-        next_actions = [
-            "treasury_share(scope=acquisition)로 자사주 매입 결정 본문 확인",
-            "treasury_share(scope=cancelation)로 매입 후 소각 진행 상황 확인",
-            "total_shareholder_return scope로 글로벌 정의 (주가+배당) 비교",
-        ]
-    elif scope == "total_shareholder_return":
-        next_actions = [
-            "cash_shareholder_return scope로 한국식 (배당+자사주 매입)/순이익 비교",
-            "history scope로 DPS 추세 확인",
+            "detail scope로 최근 배당 결정 공시 확인",
+            "treasury_share로 자사주 매입·소각까지 포함한 주주환원 확인",
         ]
     else:
         next_actions = ["ownership_structure와 함께 보면 주주환원 맥락이 더 잘 보인다."]
