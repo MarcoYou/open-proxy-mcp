@@ -28,10 +28,11 @@ from open_proxy_mcp.services.contracts import (
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd
+from open_proxy_mcp.services.corp_gov_form import KEY_LABELS, parse_form_tables
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 
-_SUPPORTED_SCOPES = {"summary", "metrics", "principles", "filings", "timeline"}
+_SUPPORTED_SCOPES = {"summary", "metrics", "principles", "filings", "timeline", "tables"}
 
 # "기업지배구조보고서공시"만 대상. 다음 서식들은 일반 KOSPI 거버넌스 보고서 표가 없어 제외:
 # - "연차보고서": 금융지주/은행/보험/증권 등이 「금융회사의 지배구조에 관한 법률」에 따라 제출.
@@ -40,11 +41,16 @@ _SUPPORTED_SCOPES = {"summary", "metrics", "principles", "filings", "timeline"}
 # - "[첨부정정]"/"[첨부추가]": 본문 014 (파일 없음) 에러 케이스가 다수.
 _GOV_KEYWORDS = ("기업지배구조보고서공시",)
 _EXCLUDE_REPORT_SUBSTR = (
-    "연차보고서",
     "(자율공시)",
     "[첨부정정]",
     "[첨부추가]",
 )
+
+# 금융회사가 「금융회사의 지배구조에 관한 법률」 연차보고서로 갈음한 건. 이름으로 걸러 버리면
+# 금융회사는 해당 연도 공시가 통째로 사라져 몇 해 전 보고서를 최신인 양 가리키게 되므로
+# 목록에는 남기고, 같은 회사에 거래소 서식이 함께 있을 때만 뒤로 미룬다.
+# (실측 금융회사 26사는 전부 연차보고서 단독 제출 — 병행 제출 0사)
+_ANNUAL_REPORT_SUBSTR = "연차보고서"
 
 # 본문에서 금융회사 지배구조 연차보고서 형식임을 식별하는 마커 (suffix 없는 옛 보고서 대응).
 # 이 마커가 본문에 있으면 일반 거버넌스 보고서 형식이 아니라 PDF 첨부 메타에 본문이 있어
@@ -444,8 +450,35 @@ async def _fetch_latest_reports(
             "rcept_dt": it.get("rcept_dt", ""),
             "report_nm": nm,
             "is_correction": nm.startswith("[기재정정]"),
+            "is_annual_report": _ANNUAL_REPORT_SUBSTR in nm,
         })
     return rows, warnings, api_calls
+
+
+def _pick_filing(filings: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """읽을 보고서 하나를 고른다. 목록은 최신순이므로 순서를 지키고 종류만 뒤로 미룬다.
+
+    [기재정정]은 본문이 변경 부분만 담을 수 있어 뒤로 미룬다(KOSPI 의무 + 매년 5월말 제출 +
+    정정 빈번, [[architecture/multi-upstream-pattern]]). 연차보고서는 거래소 서식 표가 없어
+    뒤로 미루되 **같은 해에 거래소 서식이 함께 있을 때만** 미룬다 — 연도를 넘어 미루면
+    금융회사에서 몇 해 전 보고서가 올해 것을 이긴다. 미룬 것뿐이라 하나도 남지 않는 경우는 없다.
+    """
+    exchange_form_years = {
+        (f.get("rcept_dt") or "")[:4] for f in filings if not f.get("is_annual_report")
+    }
+
+    def superseded_by_exchange_form(f: dict[str, Any]) -> bool:
+        return bool(f.get("is_annual_report")) and (f.get("rcept_dt") or "")[:4] in exchange_form_years
+
+    for skip_annual in (True, False):
+        for skip_correction in (True, False):
+            for f in filings:
+                if skip_annual and superseded_by_exchange_form(f):
+                    continue
+                if skip_correction and (f.get("report_nm") or "").startswith("[기재정정]"):
+                    continue
+                return f
+    return None
 
 
 def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]:
@@ -570,17 +603,15 @@ async def build_corp_gov_report_payload(
     target_filing = None
     if year:
         year_str = str(year)
-        for f in filings:
-            dt = f.get("rcept_dt", "")
-            # 보고서 rcept_dt는 제출연도. 공시대상연도는 -1일 수 있으므로 둘 다 체크
-            if dt.startswith(year_str) or dt.startswith(str(year + 1)):
-                target_filing = f
-                break
+        # 보고서 rcept_dt는 제출연도. 공시대상연도는 -1일 수 있으므로 둘 다 체크
+        same_year = [
+            f for f in filings
+            if (f.get("rcept_dt", "").startswith(year_str)
+                or f.get("rcept_dt", "").startswith(str(year + 1)))
+        ]
+        target_filing = _pick_filing(same_year)
     if not target_filing and filings:
-        # [기재정정] 제외 우선 — 정정 본문이 변경 부분만 담을 위험 회피.
-        # KOSPI 의무 + 매년 5월말 제출 + 정정 빈번 ([[architecture/multi-upstream-pattern]]).
-        non_corr = [f for f in filings if not (f.get("report_nm") or "").startswith("[기재정정]")]
-        target_filing = (non_corr or filings)[0]  # 최신
+        target_filing = _pick_filing(filings)
 
     data: dict[str, Any] = {
         "query": company_query,
@@ -593,7 +624,10 @@ async def build_corp_gov_report_payload(
         "market": market_label,
         "mandatory": corp_cls == "Y",  # KOSPI면 의무, KOSDAQ은 자율
         "scope": scope,
-        "filings_count": len(filings),
+        # 검색으로 찾은 보고서 건수. 공용 `filing_count`(build_filing_meta) 는 status 를 매기려고
+        # 「파싱 대상으로 인정한 사건 수」를 담아 뜻이 다르다 — 금융회사 연차보고서 서식이거나
+        # 대상 연도 건이 없으면 그쪽만 0 이 된다(KB금융: 여기 1, 저기 0).
+        "filings_found": len(filings),
         "supported_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
@@ -671,10 +705,11 @@ async def build_corp_gov_report_payload(
 
     text = _extract_text(html) if html else ""
 
-    # 금융회사 지배구조 연차보고서 형식 감지 (KB금융/신한지주/삼성생명 등 18개 금융지주류).
-    # 본문이 PDF 첨부 메타데이터만 포함되어 일반 15-metric 표 파싱이 불가능.
-    # 일반 거버넌스 보고서 형식과는 본질적으로 다른 서식이므로, 일반 보고서 미제출
-    # (NO_FILING)로 분류하고 evidence는 보존.
+    # 금융회사 지배구조 연차보고서 형식 감지 (KB금융·신한지주·삼성생명·미래에셋증권 등).
+    # 「금융회사의 지배구조에 관한 법률」 연차보고서를 기한 내 공시하면 거래소 서식 제출이
+    # 면제되므로, 이들 원문에는 KRX 서식 표지(krx-cg_*)가 아예 없고 본문은 600자 안팎의
+    # 첨부 안내뿐이다(실측 16사 전부 krx-cg 0). 서식이 다른 것이지 미제출이 아니므로
+    # 문구에서 그 구분을 분명히 하고 evidence 는 보존한다.
     is_financial_form = _is_financial_form(text)
     if is_financial_form:
         financial_meta = build_filing_meta(filing_count=0, parsing_failures=0)
@@ -684,14 +719,16 @@ async def build_corp_gov_report_payload(
             "rcept_no": rcept_no,
             "rcept_dt": target_filing.get("rcept_dt", ""),
             "report_nm": target_filing.get("report_nm", ""),
-            "format_note": "금융회사 지배구조 연차보고서 (PDF 첨부 형식, 일반 거버넌스 표 없음)",
+            "format_note": "금융회사 지배구조·보수체계 연차보고서 (내용은 첨부 PDF, 거래소 서식 표 없음)",
         }
         data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
         timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         data["timings_ms"] = timings_ms
         warnings.append(
-            "금융회사 지배구조 연차보고서 형식 (「금융회사의 지배구조에 관한 법률」 제출). "
-            "본문은 PDF 첨부에 있어 일반 15-metric 표 파싱 불가. 원문 첨부 PDF 직접 확인 필요."
+            "**미제출이 아니라 서식이 다릅니다.** 이 회사는 「금융회사의 지배구조에 관한 법률」에 "
+            "따른 지배구조·보수체계 연차보고서를 냈습니다. 이 연차보고서를 기한(5월 31일) 내 "
+            "공시하면 거래소 서식 기업지배구조보고서 제출이 면제되므로, 원문에 15개 핵심지표·"
+            "세부원칙·서식 표가 애초에 없습니다. 내용은 아래 원문 링크의 첨부 PDF에 있습니다."
         )
         return ToolEnvelope(
             tool="corp_gov_report",
@@ -754,6 +791,20 @@ async def build_corp_gov_report_payload(
         data["metrics"] = metrics
     if scope == "principles":
         data["principles"] = principles[:30]  # 최대 30개
+    if scope == "tables":
+        # 이미 받아 둔 원문에서 뽑으므로 DART 콜은 늘지 않는다. 표는 원문 열 이름을 그대로
+        # 쓴다 — 서식 라벨을 우리 이름으로 바꾸면 원문 대조가 끊긴다.
+        tables = parse_form_tables(html) if html else {}
+        data["tables"] = tables
+        missing = [no for no in sorted(KEY_LABELS) if no not in tables]
+        if missing:
+            warnings.append(f"서식 표 미추출: {', '.join('표 ' + n for n in missing)}")
+        unnamed = [no for no, t in sorted(tables.items()) if not t.get("key_labels_verified")]
+        if unnamed:
+            warnings.append(
+                f"{', '.join('표 ' + n for n in unnamed)}: 서식이 이름을 달지 않은 선두 열에 "
+                "회사가 다른 항목을 적어 `키N` 으로 두었습니다 — 값으로 판단하세요."
+            )
     if scope == "timeline":
         # 최근 N개 filings(최대 5개) 각각 원문 파싱 → 연도별 비교
         # 최신 건은 이미 위에서 파싱됐으므로 그대로 재사용, 나머지는 병렬 fetch.
@@ -883,6 +934,7 @@ async def build_corp_gov_report_payload(
         next_actions=[
             "scope=metrics로 15개 지표 상세 확인",
             "scope=principles로 세부원칙 응답 텍스트 확인",
+            "scope=tables로 이사 출석률·겸직·후보 정보제공·안건별 찬반 확인",
             "scope=filings로 연도별 변화 추적",
         ],
     ).to_dict()

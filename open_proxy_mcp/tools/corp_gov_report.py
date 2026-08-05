@@ -9,6 +9,10 @@ from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
 
 
+#: 주총 의결 내용은 한 회사가 60행을 넘기도 한다 — md 는 잘라 싣고 전체는 json 으로 넘긴다.
+_TABLE_ROW_LIMIT = 40
+
+
 def _amt(v) -> str:
     """금액 + 단위. 값이 없으면 단위를 붙이지 않는다 — 「-백만원」은 음수로 읽힌다."""
     if v in (None, "", "-"):
@@ -58,7 +62,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         f"- scope: `{scope}`",
         f"- 최신 보고서: {meta.get('rcept_dt', '-')} / 공시대상기간 ~ {meta.get('reporting_period_end', '-')}",
         f"- 원문: {_link(meta.get('rcept_no', ''))}",
-        f"- 총 {data.get('filings_count', 0)}건 이력",
+        f"- 총 {data.get('filings_found', 0)}건 이력",
         "",
         "## 사용량",
         f"- DART API 호출: {usage.get('dart_api_calls', 0)}회 (분당 한도 {usage.get('dart_daily_limit_per_minute', 1000)})",
@@ -73,6 +77,17 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         for w in payload["warnings"]:
             lines.append(f"- {w}")
         lines.append("")
+
+    # 금융회사 연차보고서는 거래소 서식 표가 애초에 없다 — 「읽지 못했습니다」로 내려가면
+    # 파싱 실패로 읽힌다. 유의사항까지만 싣고 원문으로 보낸다.
+    if data.get("report_format") == "financial_holding_annual":
+        lines.extend([
+            "## 서식",
+            f"- {meta.get('format_note', '금융회사 지배구조·보수체계 연차보고서')}",
+            "- 거래소 서식 기업지배구조보고서가 아니므로 핵심지표·세부원칙·서식 표는 제공하지 않습니다.",
+            f"- 첨부 PDF: {_link(meta.get('rcept_no', ''))}",
+        ])
+        return "\n".join(lines)
 
     if scope == "filings":
         filings = data.get("filings", [])
@@ -162,6 +177,25 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 lines.append(f"\n**{i}. (세부원칙 {num}) {desc[:200]}**")
                 lines.append(f"→ {resp[:300]}")
 
+    if scope == "tables":
+        tables = data.get("tables", {}) or {}
+        if not tables:
+            lines.append("서식 표를 읽지 못했습니다 — 원문을 확인하세요.")
+        for number in sorted(tables, key=lambda n: tuple(int(x) for x in n.split("-"))):
+            table = tables[number]
+            cols = table.get("columns", [])
+            rows = table.get("rows", [])
+            lines.append(f"\n## 표 {number}: {table.get('title', '')} ({len(rows)}행)")
+            if not cols:
+                continue
+            lines.append("| " + " | ".join(c.replace("\n", " ") for c in cols) + " |")
+            lines.append("|" + "|".join("---" for _ in cols) + "|")
+            for row in rows[:_TABLE_ROW_LIMIT]:
+                cells = [str(row.get(c, "") or "-").replace("\n", " ").replace("|", "\\|")[:120] for c in cols]
+                lines.append("| " + " | ".join(cells) + " |")
+            if len(rows) > _TABLE_ROW_LIMIT:
+                lines.append(f"\n_{len(rows)}행 중 {_TABLE_ROW_LIMIT}행만 표시 — 전체는 format=json._")
+
     if scope == "timeline":
         reports = sorted(data.get("timeline", []), key=lambda r: r.get("rcept_dt", ""), reverse=True)
         transitions = data.get("transitions", [])
@@ -214,7 +248,7 @@ def register_tools(mcp):
         """desc: 기업지배구조보고서. 최대주주/지분율 + 15개 핵심지표 O/X + 세부원칙 응답 + 연도별 추이. **2026 제출분부터 KOSPI 전체 의무**, KOSDAQ 자율. 제출 시한 매년 5월말, 연중 정정 빈번.
         when: 거버넌스 종합 평가, 15개 지표 준수 현황, 연도별 변화 추적. B외국계 수준 배경자료.
         rule: DART list.json + 키워드 "기업지배구조보고서공시" + 원문 파싱. 기본 lookback 4년. 15개 표준 지표 라벨 prefix 매칭으로 O/X 당기·직전기 + 비고 추출.
-        scope: `summary` 기업개요+준수율+15지표 / `metrics` 15지표 + 비고 상세 / `principles` 세부원칙 응답 / `filings` 제출 이력 / `timeline` 연도별 추이 + 지표 전환
+        scope: `summary` 기업개요+준수율+15지표 / `metrics` 15지표 + 비고 상세 / `principles` 세부원칙 응답 / `filings` 제출 이력 / `timeline` 연도별 추이 + 지표 전환 / `tables` 서식 표 원본(표 1-2-2 안건별 찬반 주식수 · 4-3-1 이사후보 사전 정보제공기간 · 5-2-1 사외이사 겸직 · 7-2-1 개별이사 3개년 출석률·찬성률)
         year: 사업연도 지정 (0이면 최신).
         ref: ownership_structure, shareholder_meeting_notice, proxy_contest, evidence
         """

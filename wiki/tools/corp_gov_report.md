@@ -2,7 +2,7 @@
 type: tool
 title: corp_gov_report
 domain: data
-scope: [summary, metrics, principles, filings, timeline]
+scope: [summary, metrics, principles, filings, timeline, tables]
 data_source: [DART OpenAPI list.json (I) + 키워드 "기업지배구조보고서공시" + 원문 다운로드/BeautifulSoup 파싱 (15 표준 지표 prefix 매칭)]
 related_disclosures: [기업지배구조보고서]
 related_concepts: [집중투표, 감사위원-의결권-제한, 의결권, 정관변경, 보수한도]
@@ -33,7 +33,7 @@ corp_gov_report(
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 5종 (아래 참조) | "summary" |
+| scope | str | no | 6종 (아래 참조) | "summary" |
 | year | int | no | 사업연도 (예: 2023). 0이면 최신 | 0 |
 | format | str | no | "md" / "json" | "md" |
 
@@ -43,6 +43,15 @@ scope:
 - `principles`: 세부원칙별 응답 텍스트 (최대 30건)
 - `filings`: 제출 이력 (lookback 4년)
 - `timeline`: 연도별 준수율 추이 + 지표 전환 (improved / regressed / changed)
+- `tables`: 서식 표 원본 4종 (표 1-2-2 안건별 찬반 주식수 · 4-3-1 이사후보 사전 정보제공기간 ·
+  5-2-1 사외이사 겸직 · 7-2-1 개별이사 3개년 출석률·찬성률). 이미 받아 둔 원문에서 뽑아 DART 콜 0 증가.
+
+> **`filings_found` ≠ `filing_count`** — 세는 대상이 다르다.
+> `filings_found` 는 검색으로 찾은 보고서 건수, `filing_count`(공용 `build_filing_meta`)는
+> status 를 매기려고 「파싱 대상으로 인정한 사건 수」다. 금융회사 연차보고서 서식이거나 대상
+> 연도 건이 없으면 후자만 0 이 된다(KB금융 summary: `filings_found` 1 / `filing_count` 0).
+> 정상 경로에서만 두 값이 같아 보이므로 중복으로 여겨 한쪽을 지우면 이력 건수가 0 으로 표시된다.
+> (v2.5 이전 이름은 `filings_count` — `filing_count` 와 한 글자 차이라 바꿨다.)
 
 > **주주 4필드 파싱 (260625 fix)**: `company_overview`의 `max_shareholder/pct/minority`는 표 1-0-0을 **td 단위 (label,value)로 파싱**한다 — 이전 텍스트 매칭이 법적 정의문구 '최대주주(그의 상법상 특수관계인을…)'의 `(`를 긁던 **전수 silent 고장** 수정(소액주주 앵커 ~5KB 슬라이스, 50사 regression 0·주주 1→36 채움). 음수재무 △/▲/괄호 정규화.
 > **무결성 시그널 (`warnings`, 260625)**: status=exact인데 `compliance_rate` None / 명시 준수율과 `metrics_compliant/parsed×100` 교차검증 불일치(>0.2) / 주주필드 괄호·빈값 → PARTIAL. 추가 호출 0, 100사 false positive 0.
@@ -53,7 +62,8 @@ scope:
   "company_id": "...",
   "market": "KOSPI",
   "mandatory": true,
-  "filings_count": N,
+  "filings_found": N,          // 검색으로 찾은 보고서 건수
+  "filing_count": N,           // status 산출용 — 파싱 대상으로 인정한 사건 수 (위 주의 참조)
   "report_meta": {"rcept_dt": "...", "rcept_no": "...",
                   "reporting_period_end": "...",
                   "compliance_rate": 86.7,
@@ -72,13 +82,17 @@ scope:
   "metrics": [{"label": "...", "current": "O|X|-",
                "prior": "O|X|-", "note": "..."}],
   "principles": [...],
+  "tables": {"7-2-1": {"title": "최근 3년간 이사 출석률 및 안건 찬성률",
+                       "columns": ["이사", "구분", "이사회 재직기간",
+                                   "출석률 (%) · 최근 3개년 평균", "..."],
+                       "rows": [{"이사": "...", "출석률 (%) · 최근 3개년 평균": "100.0"}],
+                       "key_labels_verified": true}},
   "filings": [...],
   "timeline": [...],
   "transitions": [{"label": "...", "direction": "improved|regressed|changed",
                    "from_dt": "...", "from_val": "...",
                    "to_dt": "...", "to_val": "..."}],
   "no_filing": false,
-  "filing_count": N,
   "report_format": "financial_holding_annual" (금융지주만),
   "usage": {"dart_api_calls": N, "mcp_tool_calls": 1}
 }
@@ -136,15 +150,19 @@ sequenceDiagram
 호출 횟수: summary는 3회 (list + company + document). timeline은 과거 filing 본문 4건 추가로 최대 7회. filings scope는 2회만.
 
 ## 파싱 전략
-- 키워드 엄격화: `"기업지배구조보고서공시"` (금융지주 "연차보고서" 등 다른 서식 제외)
+- 키워드 `"기업지배구조보고서공시"`. **보고서명으로 연차보고서를 걸러내지 않는다** — 금융회사는
+  그해 공시가 통째로 사라져 몇 해 전 보고서를 최신인 양 가리키게 된다. 같은 해에 거래소 서식이
+  함께 있을 때만 뒤로 미룬다(`_pick_filing`).
 - 15개 표준 지표 라벨 prefix(25자) 매칭 → 블록별 O/X 2개(당기·직전) + 비고 텍스트 동적 수집
 - 비고 0개~다수 모두 대응 (삼성: 비고 없음 / SK하이닉스: 일부 비고 / 현대차: 매건 비고)
 - 금융회사 별도 형식 분리 (`_FINANCIAL_FORM_MARKERS`):
   - "금융회사 지배구조 연차보고서" / "지배구조 및 보수체계 연차보고서" 감지 시 → NO_FILING + `report_format = "financial_holding_annual"` 메타
   - PDF 첨부 직접 확인 안내 (next_actions)
-- 알려진 한계:
-  - 세부원칙 파싱 정교화 미완 (현재 원칙명 매칭 단순, 누락 다수).
-  - 2022/2023년 구 서식 일부 미지원.
+- 세부원칙 28개(핵심원칙 10개 하위)를 번호·설명·응답으로 추출. 2026 제출분 기준 99.8%.
+- 서식 표는 표 번호 ↔ KRX 개념 코드(`krx-cg_*`)가 1:1이라 `services/corp_gov_form.py` 레지스트리로 대조한다.
+  선두 키 열은 서식이 이름을 달지 않아 회사가 다른 항목을 적기도 한다 — 모양이 어긋나면 이름을
+  붙이지 않고(`키N`) 그 사실을 warnings 로 알린다.
+- 알려진 한계: 2022/2023년 구 서식 일부 미지원.
 - regression 0 검증: 9/10 15/15 파싱 성공 (KB금융은 의도적 skip). 200기업 audit `corp_gov_report.summary` 48.0% exact (94/196), no_filing 41.8% (KOSDAQ 자율 미제출), partial_failure 9.2% (18건) → 금융지주 fix 후 partial 0.
 
 ## 관련 공시 (rules/disclosures/)
@@ -168,7 +186,8 @@ sequenceDiagram
 - [[260429_0942_fix_corp_gov_report-financial-holding]] — 금융지주 18건 partial → 0 (financial_form 감지, regression 0)
 
 ## 알려진 issue + TODO
-- 세부원칙 파싱 정교화 (TODO).
+- 서식 표 32종 중 4종만 노출 (나머지 28종 TODO — 이사회 구성·위원회·배당·주주제안 등).
+- 지배구조핵심지표 표의 `valuetxt` 준수 플래그 구조화 (TODO).
 - 2022/2023년 구 서식 추가 대응 (TODO).
 - ESG 평가등급 연동 (KCGS, 서스틴베스트 외부 데이터, TODO).
 - 금융회사 PDF 본문 파싱 (OEK PDF parser fallback 검토, TODO).
@@ -188,3 +207,13 @@ sequenceDiagram
   표 포인터 미해소 1.1% · 해소 실패 1.1% → **사유 확보 69.2% → 82.4%**. 남은 1.1%는 보고서
   내부 표를 가리켜 표 파싱이 필요하고, 15.4%는 회사가 사유를 안 적은 것이라 파싱으로 못 푼다.
   소비처는 [[proxy_advise_before_meeting]]의 `governance_non_compliant`.
+- 2026-08-05: `scope=tables` 신설 — 서식 표 4종(표 1-2-2 안건별 찬반 주식수 · 4-3-1 이사후보 사전
+  정보제공기간 · 5-2-1 사외이사 겸직 · 7-2-1 개별이사 3개년 출석률·찬성률)을 원문 열 이름 그대로
+  낸다. 이미 받아 둔 원문에서 뽑아 DART 콜 0 증가. 표 번호·개념 코드 레지스트리는 `services/corp_gov_form.py`.
+- 2026-08-05: **금융회사가 몇 해 전 보고서를 가리키던 것 수정** — 보고서명에 「연차보고서」가 있으면
+  걸러내고 있어, 연차보고서로 갈음하는 금융회사는 그해 공시가 통째로 사라졌다(KB금융 2024-02-29을
+  최신으로 표시 → 2026-03-05). 이름 필터를 걷고 같은 해에 거래소 서식이 함께 있을 때만 미룬다.
+- 2026-08-05: 금융회사 안내 문구 정비 — 「미제출이 아니라 서식이 다르다」와 면제 근거(연차보고서를
+  기한 내 공시하면 거래소 서식 제출 면제)를 밝히고 첨부 PDF로 안내한다. 렌더가 「핵심지표를 읽지
+  못했습니다」로 내려가 파싱 실패로 읽히던 것도 함께 고쳤다.
+- 2026-08-05: `filings_count` → `filings_found` 개명 (`filing_count` 와 혼동 방지).
