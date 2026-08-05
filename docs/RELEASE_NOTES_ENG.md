@@ -2,6 +2,15 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## v2.5.2 (2026-08-05)
+
+Fixes a case where a mistyped or colloquial company name **silently returned a different company's answer**. It affects all 25 tools.
+
+- **"지에스" was resolving to "지에스이"** — a partial name collision matched first and stopped the search, so the transliteration path that reaches "GS" was never taken ("에스케이" → 에스케이바이오팜 was the same fault). An exact name now wins. Compared before and after across 3,967 listed-company names: **only the five items below changed; everything else stayed the same.**
+- **Three names it could not recognise** — `에쓰오일` / `에스오일` (registered as `S-Oil`) and `기아자동차` (the pre-2021 name). All three previously ended in "company not found".
+- **When the name is not an exact match, the answer now says so** — an inferred pick is declared at the top of the response: "resolved 지에스 to 지에스이 — ask again with the ticker or the registered name". Reading a different company's answer as the right one is worse than getting nothing. Exact input (삼성전자, 005930) stays silent.
+- **`corp_gov_report` — meeting-table columns went unnamed for newly listed companies** — when a company writes "미개최(전기)" because no meeting was held in the prior year, that column was emitted without its name.
+
 ## v2.5.1 (2026-08-05)
 
 `scope=tables` grows from 4 tables to **10**. They come from the same fetched document, so DART calls still do not increase.

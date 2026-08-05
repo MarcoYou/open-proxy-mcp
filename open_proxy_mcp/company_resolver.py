@@ -95,6 +95,11 @@ def latinized_variants(value: str) -> set[str]:
     return out
 
 
+def _is_inferred(results: list[dict[str, Any]]) -> bool:
+    """부분일치·유사일치처럼 이름이 정확히 맞지 않아 추정한 결과인가."""
+    return bool(results) and bool((results[0].get("_resolution") or {}).get("inferred"))
+
+
 def _nfkc_casefold(value: str) -> str:
     return unicodedata.normalize("NFKC", value or "").casefold().strip()
 
@@ -335,16 +340,29 @@ class CompanyResolver:
             return []
         if not _latinized:
             found = self._search_one(raw_query)
-            if found:
+            if found and not _is_inferred(found):
                 return found
             # 역음차 재시도 — 「에스케이씨(주)」로 물으면 「SKC」를 찾아야 한다.
             # 색인 쪽에도 같은 변형을 넣어 두어 반대 방향도 성립한다. 조회 체인 전체를
             # 다시 타야 한다: 「JYP Ent.」는 compact 가 'jypent' 라 토큰 경로로만 잡힌다.
+            #
+            # 약한 매칭(부분·유사)이 잡혔더라도 여기를 건너뛰지 않는다 — 「지에스」는
+            # 부분일치로 「지에스이」에 먼저 걸려 「GS」를 영영 못 찾고 있었다.
+            # 강한 매칭이 있으면 그것이 약한 결과를 이긴다(약한 쪽으로 내려가지는 않는다).
             compact_q = normalize_compact(raw_query)
+            weak_alt: list[dict[str, Any]] = []
             for alt in sorted(latinized_variants(compact_q)):
                 hit = self._search_one(alt)
-                if hit:
+                if hit and not _is_inferred(hit):
                     return hit
+                if hit and not weak_alt:
+                    # 역음차가 약하게만 맞는 것도 버리지 않는다 — 「제이와이피」는
+                    # 원문으로는 아무것도 안 걸리고 'jyp' 토큰으로만 JYP Ent. 에 닿는다.
+                    weak_alt = hit
+            if found:
+                return found
+            if weak_alt:
+                return weak_alt
             # 업종어 접미 제거 — 후보가 정확히 하나일 때만 받는다. 여럿이면 어느 쪽인지
             # 확정할 수 없으므로 붙이지 않는다(틀린 회사를 주는 것보다 못 찾는 편이 낫다).
             for base in industry_suffix_variants(compact_q):

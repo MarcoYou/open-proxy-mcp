@@ -152,6 +152,57 @@ class EvidenceRef:
         }
 
 
+def declare_weak_resolution(payload: dict[str, Any]) -> dict[str, Any]:
+    """`ToolEnvelope` 를 쓰지 않고 dict 를 직접 만드는 payload 에 같은 문구를 붙인다.
+
+    서비스 안에 return 이 스무 곳 넘게 흩어져 있어도 **공개 진입 함수 하나만** 감싸면
+    전부 덮인다 — 새 return 이 늘어도 전파가 끊기지 않는다.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    payload["warnings"] = _merge_declared(list(payload.get("warnings") or []))
+    return payload
+
+
+def _merge_declared(existing: list[str]) -> list[str]:
+    """추정 문구를 맨 앞에 두되, 이미 실려 있으면 다시 싣지 않는다.
+
+    tool 이 안쪽 tool 의 응답을 감싸면(`director_board` 는 `[notice] ` 를 붙여 옮긴다)
+    같은 문장이 두 번 나온다 — 접두어가 붙은 사본도 같은 것으로 본다.
+    """
+    declared = _weak_resolution_warnings()
+    if not declared:
+        return existing
+    kept = [w for w in existing if not any(w.endswith(line) for line in declared)]
+    return declared + kept
+
+
+def _weak_resolution_warnings() -> list[str]:
+    """이름이 정확히 맞지 않아 추정으로 고른 기업을 응답 맨 앞에 밝힌다.
+
+    해석기는 `confidence` 를 이미 만들지만 `company` tool 만 그것을 보여 주고 나머지
+    전부가 버리고 있었다. 「지에스」가 「지에스이」로 조용히 바뀌어도 사용자는 알 수 없었다.
+    적는 곳은 해석 확정 관문 하나, 읽는 곳은 여기 하나다.
+    """
+    try:
+        from open_proxy_mcp.dart.client import weak_resolutions
+    except Exception:  # pragma: no cover - import 경로가 없는 환경
+        return []
+    lines: list[str] = []
+    for weak in weak_resolutions():
+        others = weak.get("candidates", 1) - 1
+        tail = f" (다른 후보 {others}곳)" if others > 0 else ""
+        line = (
+            f"「{weak['query']}」를 **{weak['corp_name']}**(으)로 추정했습니다 — 이름이 정확히 "
+            f"일치하지 않습니다{tail}. 다른 회사를 뜻했다면 종목코드나 정식명으로 다시 물어보세요."
+        )
+        # 한 요청이 같은 회사를 여러 이름으로 해석하기도 한다(tool 이 내부에서 재조회).
+        # 같은 문장을 두 번 싣지 않는다.
+        if line not in lines:
+            lines.append(line)
+    return lines
+
+
 @dataclass(slots=True)
 class ToolEnvelope:
     """public tool 공통 응답."""
@@ -175,7 +226,7 @@ class ToolEnvelope:
             "status": getattr(self.status, "value", self.status),
             "subject": self.subject,
             "generated_at": self.generated_at,
-            "warnings": self.warnings,
+            "warnings": _merge_declared(self.warnings),
             "data": self.data,
             "evidence_refs": evidence,
             "next_actions": self.next_actions,

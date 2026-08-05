@@ -27,7 +27,10 @@ from open_proxy_mcp.dart.client import (
 
 def test_ledger_starts_empty():
     led = new_request_ledger()
-    assert led == {"doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0, "corp_codes": []}
+    assert led == {
+        "doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0,
+        "corp_codes": [], "weak_resolutions": [],
+    }
 
 
 def test_note_without_ledger_is_silent():

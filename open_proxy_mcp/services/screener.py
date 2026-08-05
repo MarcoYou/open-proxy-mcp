@@ -16,6 +16,8 @@
 
 from __future__ import annotations
 
+from open_proxy_mcp.services.contracts import declare_weak_resolution
+
 import asyncio
 import math
 import os
@@ -801,7 +803,7 @@ def _resolve_types(types: str) -> tuple[list[str], list[str]]:
     return valid, notices
 
 
-async def build_screener_payload(
+async def _build_screener_payload_impl(
     *,
     types: str = "core",
     period: str = "since_yesterday",
@@ -1009,3 +1011,12 @@ def _finalize_card(h: dict) -> dict:
     card["naver_url"] = _NAVER.format(c=sc) if sc else ""
     card["suggested_tool"] = _SUGGESTED_TOOL.get(h["type"]["code"], "")
     return card
+
+
+async def build_screener_payload(*args, **kwargs):
+    """이름이 정확히 맞지 않아 추정으로 고른 기업을 응답에 밝힌다.
+
+    이 서비스는 `ToolEnvelope` 를 쓰지 않고 dict 를 직접 만들어 return 이 여러 곳에
+    흩어져 있다 — 진입점 하나만 감싸 두면 새 return 이 늘어도 전파가 끊기지 않는다.
+    """
+    return declare_weak_resolution(await _build_screener_payload_impl(*args, **kwargs))

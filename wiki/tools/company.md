@@ -116,6 +116,15 @@ sequenceDiagram
 
 ## 파싱 전략
 - 검색 tier: ticker/corp_code → 공식 한글·영문명 → curated alias → normalized phrase/compact → token AND → substring → 제한적 fuzzy.
+- **강한 매칭이 약한 매칭을 이긴다** — 약한 tier(token/substring/fuzzy)에 먼저 걸려도 거기서
+  멈추지 않고 역음차 경로를 끝까지 본다. 「지에스」는 부분일치로 「지에스이」에 걸려 「GS」를
+  영영 못 찾고 있었다(「에스케이」→에스케이바이오팜도 같은 유형). 역음차가 약하게만 맞으면
+  원래 결과를 유지한다 — 「제이와이피」는 원문으로 아무것도 안 걸리고 'jyp' 토큰으로만 닿는다.
+- **이름이 정확히 맞지 않으면 응답이 그 사실을 밝힌다** — 추정으로 고른 기업은 모든 tool 의
+  `warnings` 맨 앞에 「「지에스」를 **지에스이**(으)로 추정했습니다」가 실린다. 적는 곳은 해석
+  확정 관문 하나(`_resolve_match`), 읽는 곳은 `ToolEnvelope.to_dict()` 하나다. `ToolEnvelope`
+  를 쓰지 않는 서비스(`valuation`·`asset_holdings`·`screener`)는 진입 함수를
+  `declare_weak_resolution` 으로 감싼다. 드리프트는 정적 테스트로 막는다.
 - NFKC·대소문자·공백·구두점·하이픈·법인 접미사를 정규화하고 `&`/`and`/`앤` connector를 같은 토큰으로 취급한다.
 - 공식명 exact는 시총보다 절대 우선한다. `SK`는 SK하이닉스가 아니라 `SK`(034730)다.
 - 부분명은 시총 정보가 있는 최상위 후보를 바로 선택한다. 1·2위 격차가 1.5배 이상이면 `confidence=high`, 그보다 작으면 `low`와 대안을 함께 반환하며 사용자에게 되묻지 않는다.
@@ -174,3 +183,8 @@ sequenceDiagram
 - 2026-04-18: company tool 신설 (corp_identifier 후속, recent_filings + ISIN 보강)
 - 2026-04-29: 200기업 v2 audit 통과 (98.5% exact)
 - 2026-05-01: tool wiki 페이지 작성
+- 2026-08-05: **약한 매칭이 강한 매칭을 가로채던 것 수정 + 추정 사실 전파.** 라이브 25사 스윕에서
+  「에쓰오일」이 error 로 떨어진 것을 계기로 조사, 「지에스」가 경고 없이 「지에스이」로 바뀌던
+  더 나쁜 케이스를 발견했다(해석기는 `confidence: low` 를 이미 만들지만 `company` tool 만
+  보여 주고 나머지 23개 서비스가 전부 버리고 있었다). 상장사 3,967개 질의 A/B: 변화 5건 —
+  지에스→GS · 에스케이→SK · 에쓰오일/에스오일→S-Oil(별칭) · 기아자동차→기아(별칭), 회귀 0.

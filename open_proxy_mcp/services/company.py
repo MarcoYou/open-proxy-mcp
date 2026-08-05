@@ -80,8 +80,16 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
     """
     status, selected, candidates = _resolve_match_impl(query, matches)
     if selected:
-        from open_proxy_mcp.dart.client import _note_corp
+        from open_proxy_mcp.dart.client import _note_corp, note_weak_resolution
         _note_corp(selected.get("corp_code"))
+        meta = selected.get("_resolution") or {}
+        if meta.get("inferred"):
+            note_weak_resolution(
+                query.strip(),
+                selected.get("corp_name", ""),
+                meta.get("match_kind", ""),
+                int(meta.get("candidate_count") or len(candidates) or 1),
+            )
     return status, selected, candidates
 
 

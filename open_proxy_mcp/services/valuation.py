@@ -21,6 +21,7 @@ from open_proxy_mcp.dart.client import get_dart_client, DartClientError
 from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus
+from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.dividend import _annual_summary
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
@@ -747,7 +748,7 @@ async def _shares_outstanding(client, cc: str, year: int) -> dict:
     return out
 
 
-async def build_valuation_payload(company: str, format: str = "md") -> dict[str, Any]:
+async def _build_valuation_payload_impl(company: str, format: str = "md") -> dict[str, Any]:
     client = get_dart_client()
     query = (company or "").strip()
     if not query:
@@ -1058,3 +1059,12 @@ def _render_md(p: dict[str, Any]) -> str:
     lines += ["> 시장·섹터 대비 비교는 scope='market'/'sector' — 스냅샷 배수(총시총 기준)는 본 값과 다를 수 있음. "
               "수치 근거·계산 과정은 scope='explain'."]
     return "\n".join(lines)
+
+
+async def build_valuation_payload(*args, **kwargs):
+    """이름이 정확히 맞지 않아 추정으로 고른 기업을 응답에 밝힌다.
+
+    이 서비스는 `ToolEnvelope` 를 쓰지 않고 dict 를 직접 만들어 return 이 여러 곳에
+    흩어져 있다 — 진입점 하나만 감싸 두면 새 return 이 늘어도 전파가 끊기지 않는다.
+    """
+    return declare_weak_resolution(await _build_valuation_payload_impl(*args, **kwargs))

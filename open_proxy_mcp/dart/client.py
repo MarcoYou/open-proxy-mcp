@@ -52,7 +52,10 @@ _ctx_ledger: ContextVar[dict | None] = ContextVar("request_ledger", default=None
 
 def new_request_ledger() -> dict:
     """요청 시작 시 **미들웨어가** 만든다. 하류는 만들지 않고 고치기만 한다."""
-    ledger: dict = {"doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0, "corp_codes": []}
+    ledger: dict = {
+        "doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0,
+        "corp_codes": [], "weak_resolutions": [],
+    }
     _ctx_ledger.set(ledger)
     return ledger
 
@@ -78,6 +81,28 @@ def _note_corp(corp_code: str | None) -> None:
 
 
 _LEDGER_MAX_CORPS = 20
+_LEDGER_MAX_WEAK = 5
+
+
+def note_weak_resolution(query: str, corp_name: str, kind: str, candidates: int) -> None:
+    """이름이 정확히 맞지 않아 **추정으로 고른** 기업을 적는다.
+
+    `_note_corp` 와 같은 관문에서 적는다 — 확정 지점이 하나이므로 여기서 놓치면 어디서도
+    못 잡는다. 읽는 쪽은 `ToolEnvelope.to_dict()` 하나뿐이라, tool 이 늘어도 전파가 끊기지
+    않는다(23개 서비스가 해석기의 `confidence` 를 전부 버리고 있던 게 이 결함의 원인이었다).
+    """
+    ledger = _ctx_ledger.get()
+    if ledger is None or not query or not corp_name:
+        return
+    weak = ledger.setdefault("weak_resolutions", [])
+    if len(weak) >= _LEDGER_MAX_WEAK or any(w["query"] == query for w in weak):
+        return
+    weak.append({"query": query, "corp_name": corp_name, "kind": kind, "candidates": candidates})
+
+
+def weak_resolutions() -> list[dict]:
+    ledger = _ctx_ledger.get()
+    return list((ledger or {}).get("weak_resolutions") or [])
 
 
 def set_request_api_key(opendart: str):
@@ -370,6 +395,12 @@ _CORP_ALIASES: dict[str, str] = {
     "현차": "현대자동차",
     "현대차": "현대자동차",
     "기아차": "기아",
+    # 옛 사명·한글 음차라 역음차로도 안 닿는다(「에쓰오일」→'s오일'은 'soil'과 다르고,
+    # 「기아자동차」는 2021 사명변경 전 이름이다). 실측 라이브 스윕에서 둘 다 error 였다.
+    "기아자동차": "기아",
+    "에쓰오일": "S-Oil",
+    "에스오일": "S-Oil",
+    "에스-오일": "S-Oil",
     "셀트리온헬스케어": "셀트리온",
     "카뱅": "카카오뱅크",
     "카페": "카카오페이",

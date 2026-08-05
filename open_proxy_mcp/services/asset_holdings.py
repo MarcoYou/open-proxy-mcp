@@ -13,6 +13,8 @@
 """
 from __future__ import annotations
 
+from open_proxy_mcp.services.contracts import declare_weak_resolution
+
 import re
 import sqlite3
 from pathlib import Path
@@ -270,7 +272,7 @@ async def _market_cap(stock_code: str):
     return mk["common_mktcap"], {"shares": mk.get("list_shrs"), "close": mk["price"], "date": mk.get("date")}
 
 
-async def build_asset_holdings_payload(company: str, scope: str = "summary",
+async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary",
                                        format: str = "md") -> dict[str, Any]:
     client = get_dart_client()
     q = (company or "").strip()
@@ -403,3 +405,12 @@ async def build_asset_holdings_payload(company: str, scope: str = "summary",
 
     return {"tool": "asset_holdings", "status": "ok", "subject": name,
             "data": data, "warnings": warnings}
+
+
+async def build_asset_holdings_payload(*args, **kwargs):
+    """이름이 정확히 맞지 않아 추정으로 고른 기업을 응답에 밝힌다.
+
+    이 서비스는 `ToolEnvelope` 를 쓰지 않고 dict 를 직접 만들어 return 이 여러 곳에
+    흩어져 있다 — 진입점 하나만 감싸 두면 새 return 이 늘어도 전파가 끊기지 않는다.
+    """
+    return declare_weak_resolution(await _build_asset_holdings_payload_impl(*args, **kwargs))
