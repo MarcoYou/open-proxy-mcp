@@ -166,7 +166,52 @@ def test_key_columns_go_unnamed_when_the_company_puts_something_else_there() -> 
 
 
 def test_only_tables_with_named_key_columns_are_extracted() -> None:
-    assert set(KEY_LABELS) == {"1-2-2", "4-3-1", "5-2-1", "7-2-1"}
+    assert set(KEY_LABELS) <= set(FORM_TABLES)
     body = '<tr><td>이인</td><td>사내이사</td></tr>'
     doc = _doc("4-1-2", FORM_TABLES["4-1-2"]["aclass"], "<tr><th></th><th>구분</th></tr>", body)
+    assert "4-1-2" not in KEY_LABELS
     assert parse_form_tables(doc) == {}
+
+
+_MEETING = FORM_TABLES["1-1-1"]["aclass"]
+_MEETING_ROWS = """
+    <tr><th colspan="2"></th><td>제27기 정기주주총회</td><td>제26기 정기주주총회</td></tr>
+    <tr><th colspan="2">소집공고일</th><td>2026-02-25</td><td>2025-02-25</td></tr>
+    <tr><th rowspan="2">세부사항</th><th>이사회 구성원 출석 현황</th><td>7/7</td><td>6/7</td></tr>
+    <tr><th>감사 출석 현황</th><td>3/3</td><td>2/3</td></tr>
+"""
+
+
+def test_row_axis_table_is_transposed_to_one_record_per_period() -> None:
+    """항목이 행에 놓인 표는 기수 하나가 한 줄이 된다."""
+    table = parse_form_tables(_doc("1-1-1", _MEETING, "", _MEETING_ROWS), ["1-1-1"])["1-1-1"]
+    assert table["columns"][0] == "주주총회"
+    assert [r["주주총회"] for r in table["rows"]] == ["제27기 정기주주총회", "제26기 정기주주총회"]
+    assert table["rows"][0]["소집공고일"] == "2026-02-25"
+    assert table["rows"][1]["소집공고일"] == "2025-02-25"
+
+
+def test_row_axis_labels_join_a_merged_parent_with_its_child() -> None:
+    """여기서는 rowspan 이 진짜 병합이라 부모 라벨이 아래 행에 없다 — 이어 붙여야 구분된다."""
+    table = parse_form_tables(_doc("1-1-1", _MEETING, "", _MEETING_ROWS), ["1-1-1"])["1-1-1"]
+    assert "세부사항 · 이사회 구성원 출석 현황" in table["columns"]
+    assert "세부사항 · 감사 출석 현황" in table["columns"]
+    assert table["rows"][0]["세부사항 · 감사 출석 현황"] == "3/3"
+
+
+def test_row_axis_key_goes_unnamed_when_the_header_is_not_a_meeting() -> None:
+    rows = """
+    <tr><th colspan="2"></th><td>1</td><td>2</td></tr>
+    <tr><th colspan="2">소집공고일</th><td>2026-02-25</td><td>2025-02-25</td></tr>
+    """
+    table = parse_form_tables(_doc("1-1-1", _MEETING, "", rows), ["1-1-1"])["1-1-1"]
+    assert table["key_labels_verified"] is False
+    assert table["columns"][0] == "키1"
+
+
+def test_row_axis_table_with_a_ragged_row_is_not_emitted() -> None:
+    rows = """
+    <tr><th colspan="2"></th><td>제27기 정기주주총회</td><td>제26기 정기주주총회</td></tr>
+    <tr><th colspan="2">소집공고일</th><td>2026-02-25</td></tr>
+    """
+    assert parse_form_tables(_doc("1-1-1", _MEETING, "", rows), ["1-1-1"]) == {}

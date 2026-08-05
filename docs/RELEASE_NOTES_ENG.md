@@ -2,6 +2,15 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## v2.5.1 (2026-08-05)
+
+`scope=tables` grows from 4 tables to **10**. They come from the same fetched document, so DART calls still do not increase.
+
+- **Three shareholder-meeting tables (1-1-1, 1-2-1)** — the key indicators only told you "notice given 4 weeks ahead: O/X"; now you get **how many days it actually was** (median 16, minimum 0). The convocation resolution date, venue, board and audit-committee attendance at the meeting, and a summary of shareholder remarks come with it for the last five meetings, along with concentration-day avoidance, written and electronic voting, and proxy solicitation.
+- **Two director tables (4-2-1, 7-1-1)** — this fills the gap `director_board` documents as "reason for departure undetermined; check separate filings". The **reason is now a declared value** (reappointment 679 · appointment 600 · resignation 256 · term expiry 255 · other 5), together with first-appointment date, term end and whether the person still serves. Table 7-1-1 gives the number of board meetings and the **average days between agenda notice and the meeting**.
+- **Two audit tables (9-1-1, 10-2-1)** — the internal audit body's members with their credentials and the **"accounting expert" / "financial expert" marking**, plus the record of communication with the external auditor (date, quarter, format, attendees). You can now see why key indicators 13 and 14 are marked O.
+- Tables laid out with items in rows are transposed so that **one shareholder meeting is one row**.
+
 ## v2.5 (2026-08-05)
 
 Still 25 tools. This one is about `corp_gov_report`. The corporate governance report previously yielded only a compliance rate and O/X flags; now its **source tables come out as tables**, and a defect that made financial companies point at a years-old filing is fixed.

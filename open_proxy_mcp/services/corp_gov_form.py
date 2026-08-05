@@ -323,18 +323,27 @@ def form_table(number: str) -> dict[str, Any] | None:
 #: 열 축 표의 선두 몇 칸은 머리글이 비어 있다(이사 이름·주총 회차 등이 놓이는 키 열).
 #: 그 칸에 줄 이름을 여기 적어 둔 표만 추출한다 — 이름 없는 열을 순서로 부르지 않는다.
 KEY_LABELS: dict[str, list[str]] = {
+    "1-1-1": ["주주총회"],
+    "1-2-1": ["주주총회"],
     "1-2-2": ["주주총회", "의안"],
+    "4-2-1": ["이사"],
     "4-3-1": ["주주총회", "후보"],
     "5-2-1": ["사외이사"],
+    "7-1-1": ["구분"],
     "7-2-1": ["이사"],
+    "9-1-1": ["성명"],
+    "10-2-1": ["회차"],
 }
 
 #: 첫 키 열이 주주총회를 가리켜야 하는 표. 서식이 이름을 안 달아 둔 칸이라 회사가 후보
 #: 이름을 대신 적기도 한다 — 그 모양이 아니면 키 이름을 붙이지 않는다.
 #: 「주주총회: 최춘웅」 이 나가는 것보다 이름 없는 열이 낫다.
+_AGM_KEY_RE = re.compile(r"주총|주주총회|총회|정기|임시|\d+\s*기|\d{4}")
 _KEY_SHAPES: dict[str, re.Pattern[str]] = {
-    "1-2-2": re.compile(r"주총|주주총회|총회|정기|임시|\d+\s*기|\d{4}"),
-    "4-3-1": re.compile(r"주총|주주총회|총회|정기|임시|\d+\s*기|\d{4}"),
+    "1-1-1": _AGM_KEY_RE,
+    "1-2-1": _AGM_KEY_RE,
+    "1-2-2": _AGM_KEY_RE,
+    "4-3-1": _AGM_KEY_RE,
 }
 _KEY_SHAPE_MIN = 0.7
 
@@ -427,6 +436,59 @@ def _parse_fact_table(table: Any, number: str) -> dict[str, Any] | None:
     return {"columns": labels, "rows": records, "key_labels_verified": True}
 
 
+def _parse_row_axis_table(table: Any, number: str) -> dict[str, Any] | None:
+    """항목이 행에, 기수가 열에 놓인 표를 한 기수 = 한 줄로 뒤집는다.
+
+    이 표들은 열 축 표와 달리 **rowspan 이 진짜 병합**이라(부모 라벨을 아래 행이 다시 싣지 않는다)
+    라벨 격자에서는 rowspan 을 존중한다. 첫 행의 값이 기수 이름이고 나머지 행의 머리글이 항목이다.
+    """
+    rows = table.findall(".//tr")
+    keys = KEY_LABELS.get(number, [])
+    if len(rows) < 2 or len(keys) != 1:
+        return None
+    grid: dict[tuple[int, int], str] = {}
+    label_width = 0
+    values: list[list[str]] = []
+    for r, tr in enumerate(rows):
+        c = 0
+        row_values: list[str] = []
+        for cell in tr:
+            if cell.tag == "th" and not row_values:
+                while (r, c) in grid:
+                    c += 1
+                cols, span_rows = _span(cell, "colspan"), _span(cell, "rowspan")
+                text = (cell.get("value") or "").strip() or _text(cell)
+                for dr in range(span_rows):
+                    for dc in range(cols):
+                        grid[(r + dr, c + dc)] = text
+                c += cols
+                label_width = max(label_width, c)
+            else:
+                row_values.extend([(cell.get("value") or "").strip() or _text(cell)] * _span(cell, "colspan"))
+        values.append(row_values)
+    periods = values[0]
+    if not periods or any(len(v) != len(periods) for v in values[1:]):
+        return None
+    labels: list[str] = []
+    for r in range(len(rows)):
+        parts: list[str] = []
+        for c in range(label_width):
+            text = grid.get((r, c), "")
+            if text and (not parts or parts[-1] != text):
+                parts.append(text)
+        labels.append(" · ".join(parts))
+    columns = list(keys) + [labels[r] or f"항목{r}" for r in range(1, len(rows))]
+    records = [
+        {keys[0]: periods[i], **{labels[r] or f"항목{r}": values[r][i] for r in range(1, len(rows))}}
+        for i in range(len(periods))
+    ]
+    if not _key_column_holds(records, columns[0], _KEY_SHAPES.get(number)):
+        columns = ["키1"] + columns[1:]
+        records = [dict(zip(columns, rec.values())) for rec in records]
+        return {"columns": columns, "rows": records, "key_labels_verified": False}
+    return {"columns": columns, "rows": records, "key_labels_verified": True}
+
+
 def _key_column_holds(records: list[dict[str, str]], label: str, shape: re.Pattern[str] | None) -> bool:
     if shape is None:
         return True
@@ -470,7 +532,11 @@ def parse_form_tables(html: str, numbers: list[str] | None = None) -> dict[str, 
         table = group.find('.//table[@class="fact-table"]')
         if spec is None or table is None or spec["aclass"] != aclass:
             continue
-        parsed = _parse_fact_table(table, number)
+        parsed = (
+            _parse_row_axis_table(table, number)
+            if spec["axis"] == "row"
+            else _parse_fact_table(table, number)
+        )
         if parsed:
             found[number] = {"title": spec["title_ko"], **parsed}
     return found
