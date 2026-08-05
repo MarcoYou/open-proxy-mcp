@@ -209,6 +209,17 @@ def test_row_axis_key_goes_unnamed_when_the_header_is_not_a_meeting() -> None:
     assert table["columns"][0] == "키1"
 
 
+def test_periods_with_no_meeting_still_count_as_the_meeting_axis() -> None:
+    """신규 상장사는 전기·전전기에 주총이 없어 「미개최(전기)」로 적는다 — 그것도 이 축의 값이다."""
+    rows = """
+    <tr><th colspan="2"></th><td>제1기 정기주주총회</td><td>미개최(전기)</td><td>미개최(전전기)</td></tr>
+    <tr><th colspan="2">전자투표 실시 여부</th><td>O</td><td>X</td><td>X</td></tr>
+    """
+    table = parse_form_tables(_doc("1-2-1", FORM_TABLES["1-2-1"]["aclass"], "", rows), ["1-2-1"])["1-2-1"]
+    assert table["key_labels_verified"] is True
+    assert [r["주주총회"] for r in table["rows"]] == ["제1기 정기주주총회", "미개최(전기)", "미개최(전전기)"]
+
+
 def test_row_axis_table_with_a_ragged_row_is_not_emitted() -> None:
     rows = """
     <tr><th colspan="2"></th><td>제27기 정기주주총회</td><td>제26기 정기주주총회</td></tr>
