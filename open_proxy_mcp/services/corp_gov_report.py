@@ -28,11 +28,18 @@ from open_proxy_mcp.services.contracts import (
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd
-from open_proxy_mcp.services.corp_gov_form import KEY_LABELS, parse_form_tables
+from open_proxy_mcp.services.corp_gov_form import (
+    COMPLIANCE_FLAGS,
+    KEY_LABELS,
+    parse_compliance_flags,
+    parse_form_tables,
+)
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
 
-_SUPPORTED_SCOPES = {"summary", "metrics", "principles", "filings", "timeline", "tables"}
+_SUPPORTED_SCOPES = {
+    "summary", "metrics", "principles", "filings", "timeline", "tables", "flags",
+}
 
 # "기업지배구조보고서공시"만 대상. 다음 서식들은 일반 KOSPI 거버넌스 보고서 표가 없어 제외:
 # - "연차보고서": 금융지주/은행/보험/증권 등이 「금융회사의 지배구조에 관한 법률」에 따라 제출.
@@ -805,6 +812,24 @@ async def build_corp_gov_report_payload(
                 f"{', '.join('표 ' + n for n in unnamed)}: 서식이 이름을 달지 않은 선두 열에 "
                 "회사가 다른 항목을 적어 `키N` 으로 두었습니다 — 값으로 판단하세요."
             )
+    if scope == "flags":
+        # 15개 핵심지표는 문서가 스스로 뽑아 앞에 실은 요약이고, 이쪽이 본문 전체의 답이다.
+        # 78개 중 72개는 핵심지표가 담지 않는 사실이라 미준수 이유가 여기서 갈린다.
+        flags = parse_compliance_flags(html) if html else []
+        data["flags"] = flags
+        data["flags_found"] = len(flags)
+        # 준수율을 내지 않는다. 78개 중 일부는 준수가 아니라 **사실**을 묻고, 방향이 반대인 것도
+        # 있다 — 「불성실공시법인 지정 여부」는 Y 가 제재를 받았다는 뜻이다(캐시 250건 중 14사).
+        # Y 를 준수로 세면 제재받은 회사가 점수를 얻는다. 항목별로 읽어야 하는 데이터다.
+        data["flags_yes"] = sum(1 for f in flags if f["complied"] is True)
+        data["flags_no"] = sum(1 for f in flags if f["complied"] is False)
+        if not flags:
+            warnings.append("세부 준수 플래그를 읽지 못했습니다 — 원문을 확인하세요.")
+        elif len(flags) != len(COMPLIANCE_FLAGS):
+            warnings.append(
+                f"세부 준수 플래그 {len(flags)}개 — 서식 기준 {len(COMPLIANCE_FLAGS)}개와 다릅니다."
+            )
+
     if scope == "timeline":
         # 최근 N개 filings(최대 5개) 각각 원문 파싱 → 연도별 비교
         # 최신 건은 이미 위에서 파싱됐으므로 그대로 재사용, 나머지는 병렬 fetch.

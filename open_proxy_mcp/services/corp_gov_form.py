@@ -543,3 +543,635 @@ def parse_form_tables(html: str, numbers: list[str] | None = None) -> dict[str, 
         if parsed:
             found[number] = {"title": spec["title_ko"], **parsed}
     return found
+
+
+#: 세부 준수 플래그 — 본문 곳곳의 `<table-group>` 이 `valuetxt="Y(O)"/"N(X)"` 로 다는 답이다.
+#: 15개 핵심지표보다 잘게 쪼갠 질문이고 **문서당 정확히 78개**가 250/250 전 문서에 있다.
+#:
+#: 두 가지가 서식 표(`FORM_TABLES`)와 다르다.
+#:   1. `aclass` 에 `krx-cg_` 접두가 **없다**. 접두로 거르면 하나도 안 잡힌다.
+#:   2. 같은 `aclass` 를 두 그룹이 나눠 쓰기도 한다(10종) — 서로 다른 질문이다
+#:      (「재무제표 6주전 제공」 + 「연결재무제표 4주전 제공」). 그래서 키는 개념이 아니라
+#:      **(개념, 문서 내 그 개념의 몇 번째 그룹인가)** 다.
+#:
+#: `same_as_metric` 이 있는 6종은 15개 핵심지표와 같은 사실이다(문서 250건 값 일치율 98%+).
+#: 나머지 72종은 핵심지표가 담지 않는다.
+COMPLIANCE_FLAGS: tuple[dict[str, Any], ...] = (
+    {
+        "concept": 'AccessibilityToExerciseVotingRightsAtTheOrdinaryGeneralMeetingOfShareholdersAbstract',
+        "nth": 1,
+        "label": '의결권기준일 관련 정관개정 여부',
+        "question": '최근 3개 사업연도간 주주총회 집중일 회피 여부를 포함한 주주총회 분산개최 노력, 서면투표, 의결권 대리행사 권유 현황 등',
+        "section": '201200',
+    },
+    {
+        "concept": 'DetailedGuidanceOnProceduresRelatedToShareholderProposalsThroughTheWebsiteEtcAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '주주제안 관련 절차를 홈페이지 등을 통해서 상세히 안내하고 있는지 여부',
+        "section": '201300',
+    },
+    {
+        "concept": 'ProceduresStandardsAndRelatedRegulationsForHandlingProposedBillsByShareholdersAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '주주가 제안한 의안을 처리하는 절차와 기준과 관련된 규정이 마련되어 시행되고 있는지 여부',
+        "section": '201300',
+    },
+    {
+        "concept": 'ShareholderProposalsAndImplementationStatusAbstract',
+        "nth": 1,
+        "label": '주주제안 여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 주주제안 내역 및 이행 상황',
+        "section": '201300',
+    },
+    {
+        "concept": 'ImportantRemarksAboutOpenLettersAndImplementationStatusAbstract',
+        "nth": 1,
+        "label": '공개서한 접수 여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 기업이 접수한 공개서한의 주요 내용 및 처리 현황',
+        "section": '201300',
+    },
+    {
+        "concept": 'EstablishmentOfShareholderReturnPolicyIncludingDividendsAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '배당을 포함한 기업의 주주환원정책 수립 여부',
+        "section": '201400',
+    },
+    {
+        "concept": 'MeansOfGuidanceOnShareholderReturnPolicyForShareholdersAndProvisionOfEnglishMaterialsAbstract',
+        "nth": 1,
+        "label": '연1회 통지 여부',
+        "question": '주주환원정책 및 관련 실시계획을 주주들에게 안내하는 방식 및 주주환원 정책을 영문자료로 제공하는지 여부',
+        "section": '201400',
+    },
+    {
+        "concept": 'MeansOfGuidanceOnShareholderReturnPolicyForShareholdersAndProvisionOfEnglishMaterialsAbstract',
+        "nth": 2,
+        "label": '영문자료 제공 여부',
+        "question": '주주환원정책 및 관련 실시계획을 주주들에게 안내하는 방식 및 주주환원 정책을 영문자료로 제공하는지 여부',
+        "section": '201400',
+    },
+    {
+        "concept": 'ProvidingDividendRelatedPredictabilityToShareholdersAbstract',
+        "nth": 1,
+        "label": '정관반영 여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 현금배당을 실시했다면 배당 기준일 이전에 배당결정을 하여 주주들에게 배당관련 예측가능성을 제공하였는지 여부',
+        "section": '201400',
+    },
+    {
+        "concept": 'ProvidingDividendRelatedPredictabilityToShareholdersAbstract',
+        "nth": 2,
+        "label": '시행 여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 현금배당을 실시했다면 배당 기준일 이전에 배당결정을 하여 주주들에게 배당관련 예측가능성을 제공하였는지 여부',
+        "section": '201400',
+    },
+    {
+        "concept": 'SeparateCommunicationWithMinorityShareholdersAbstract',
+        "nth": 1,
+        "label": '별도행사 개최 여부',
+        "question": '소액 주주들과 따로 소통한 행사가 있다면 그 내용',
+        "section": '202100',
+    },
+    {
+        "concept": 'DetailedGuidanceOnInquiryCounterSuchAsIRDepartmentsPhoneNumberAndEmailEtcAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '회사 홈페이지 등을 통해 IR 담당부서의 전화 번호 및 이메일 주소 공개 등을 통해 문의 창구를 상세히 안내하고 있는지 여부',
+        "section": '202100',
+    },
+    {
+        "concept": 'EnglishWebsiteForForeignShareholdersDisclosureOfContactInformationAvailableInForeignLanguagesAndRecordsOfDisclosuresInEnglishAbstract',
+        "nth": 1,
+        "label": '영문 사이트 운영 여부',
+        "question": '외국인 주주를 위한 영문 사이트 운영, 담당직원 지정 및 외국어로 상담이 가능한 연락처를 공개하는지 여부와 영문 공시 내역',
+        "section": '202100',
+    },
+    {
+        "concept": 'EnglishWebsiteForForeignShareholdersDisclosureOfContactInformationAvailableInForeignLanguagesAndRecordsOfDisclosuresInEnglishAbstract',
+        "nth": 2,
+        "label": '외국인 담당 직원 지정',
+        "question": '외국인 주주를 위한 영문 사이트 운영, 담당직원 지정 및 외국어로 상담이 가능한 연락처를 공개하는지 여부와 영문 공시 내역',
+        "section": '202100',
+    },
+    {
+        "concept": 'RecordsOfSanctionsRelatedToDisclosureSuchAsDesignationOfUnfaithfulDisclosureCorporationsAbstract',
+        "nth": 1,
+        "label": '불성실공시법인 지정여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 불성실공시법인 지정 등 공시 관련 제재 내역',
+        "section": '202100',
+    },
+    {
+        "concept": 'OverallDetailsOfInternalControlSystemForInternalAndSelfDealingsTransactionAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '내부거래 및 자기거래 통제 정책 전반',
+        "section": '202200',
+    },
+    {
+        "concept": 'DescriptionOfMeasuresToProtectShareholdersInCaseOfAnyChangesToTheCorporateOwnershipStructureOrPrincipleBusinessesIncludingMergersBusinessTransfersSpinOffsAndComprehensiveStockExchangeAndTransferAbstract',
+        "nth": 1,
+        "label": '정책마련 여부',
+        "question": '기업의 소유구조 또는 주요 사업에 중대한 변화를 초래하는 합병, 영업양수도, 분할, 주식의 포괄적 교환 및 이전 등에 대한 소액주주 의견 수렴, 반대주주 권리보호 등 주주보호를 위한 회사의 정책을 설명한다',
+        "section": '202300',
+    },
+    {
+        "concept": 'DescriptionOfImplementedMeasuresToProtectShareholdersInCaseOfAnyChangesToTheCorporateOwnershipStructurePrincipleBusinessesIncludingMergersBusinessTransfersSpinOffsAndComprehensiveStockExchangeAndTransferAbstract',
+        "nth": 1,
+        "label": '계획 여부',
+        "question": '공시 대상기간에 기업의 소유구조 또는 주요 사업에 중대한 변화를 초래하는 합병, 영업양수도, 분할, 주식의 포괄적 교환 및 이전 등이 있었거나 구체적인 계획이 있는 경우 소액주주의견 수렴, 반대주주 권리 보호 등 주주보호를 위해 시행한 내용을 설명한다',
+        "section": '202300',
+    },
+    {
+        "concept": 'DescriptionOfCapitalFinancingThatCanBeConvertedIntoStocksAbstract',
+        "nth": 1,
+        "label": '발행 여부',
+        "question": '주식으로 전환될 수 있는 자본조달 사항이 있는 경우 아래의 사항을 포함하여 설명한다',
+        "section": '202300',
+    },
+    {
+        "concept": 'CEOSuccessionPlanEstablishmentAndImplementationAbstract',
+        "nth": 1,
+        "label": '승계정책 수립 여부',
+        "question": '승계정책의 수립 및 운영 주체',
+        "section": '303200',
+        "same_as_metric": '최고경영자 승계정책 마련 및 운영',
+    },
+    {
+        "concept": 'SummaryOfTheCEOSuccessionPlanIncludingCandidateSelectionManagementAndTrainingAbstract',
+        "nth": 1,
+        "label": '후보 선정',
+        "question": '후보(집단)선정, 관리, 교육 등 승계정책의 주요 내용',
+        "section": '303200',
+    },
+    {
+        "concept": 'TrainingProgramForCEOCandidatesAbstract',
+        "nth": 1,
+        "label": '후보 교육',
+        "question": '공시대상기간동안 후보군에 대한 교육 현황',
+        "section": '303200',
+    },
+    {
+        "concept": 'PoliciesAndOperationsThatSystematicallyRecognizeAndManageEnterpriseWideRisksForTheSustainableDevelopmentOfTheCompanyAbstract',
+        "nth": 1,
+        "label": '전사 리스크관리 정책 마련 여부',
+        "question": '회사의 지속가능한 발전을 위해 전사적인 위험을 체계적으로 인식하고 관리하는 정책이 있는지 여부 및 그 운영 현황',
+        "section": '303300',
+    },
+    {
+        "concept": 'CompliancePolicyAndOperationAbstract',
+        "nth": 1,
+        "label": '준법경영 정책 마련 여부',
+        "question": '준법경영 정책 마련 여부 및 그 운영 현황',
+        "section": '303300',
+    },
+    {
+        "concept": 'InternalControlPolicyAndOperationAbstract',
+        "nth": 1,
+        "label": '내부회계관리 정책 마련 여부',
+        "question": '내부회계관리 정책 마련 여부 및 그 운영 현황',
+        "section": '303300',
+    },
+    {
+        "concept": 'DisclosurePolicyAndOperationAbstract',
+        "nth": 1,
+        "label": '공시정보관리 정책 마련 여부',
+        "question": '공시정보 관리 정책 마련 여부 및 그 운영 현황',
+        "section": '303300',
+    },
+    {
+        "concept": 'EstablishmentOfESGCommitteeAbstract',
+        "nth": 1,
+        "label": 'ESG 위원회 설치 여부',
+        "question": '회사의 지속가능경영 관련 이사회내 위원회를 설치하였다면 그 구체적인 기능 및 역할',
+        "section": '304100',
+    },
+    {
+        "concept": 'AppointmentOfTheChairpersonOfTheBoardOfDirectorsAsAnIndependentDirectorAbstract',
+        "nth": 1,
+        "label": '이사회 의장이 사외이사인지 여부',
+        "question": '이사회 의장을 사외이사로 선임하였는지 여부',
+        "section": '304100',
+        "same_as_metric": '사외이사가 이사회 의장인지 여부',
+    },
+    {
+        "concept": 'SeniorIndependentDirectorAndIntroductionOfTheExecutiveOfficerSystemAbstract',
+        "nth": 1,
+        "label": '선임사외이사 제도 시행 여부',
+        "question": '선임 사외이사, 집행임원제도 도입 여부 및 그 제도 도입 배경 이유, 관련 근거, 현황 등',
+        "section": '304100',
+    },
+    {
+        "concept": 'SeniorIndependentDirectorAndIntroductionOfTheExecutiveOfficerSystemAbstract',
+        "nth": 2,
+        "label": '집행임원 제도 시행 여부',
+        "question": '선임 사외이사, 집행임원제도 도입 여부 및 그 제도 도입 배경 이유, 관련 근거, 현황 등',
+        "section": '304100',
+    },
+    {
+        "concept": 'PoliciesToSecureExpertiseAccountabilityAndDiversityOfTheBoardOfDirectorsAbstract',
+        "nth": 1,
+        "label": '이사회 성별구성 특례 적용기업인지 여부',
+        "question": '이사회의 전문성, 책임성 및 다양성을 확보하기 위한 기업의 정책 마련 여부와 현황, 이사회가 모두 동일한 성별로 구성된 경우 그 이유',
+        "section": '304200',
+    },
+    {
+        "concept": 'PoliciesToSecureExpertiseAccountabilityAndDiversityOfTheBoardOfDirectorsAbstract',
+        "nth": 2,
+        "label": '이사회 구성원이 모두 동성(同性)이 아닌지 여부',
+        "question": '이사회의 전문성, 책임성 및 다양성을 확보하기 위한 기업의 정책 마련 여부와 현황, 이사회가 모두 동일한 성별로 구성된 경우 그 이유',
+        "section": '304200',
+        "same_as_metric": '이사회 구성원 모두 단일성(性)이 아님',
+    },
+    {
+        "concept": 'CompositionAndActivitiesOfTheDirectorCandidateNominationCommitteeAbstract',
+        "nth": 1,
+        "label": '이사후보추천위원회 등 설치 여부',
+        "question": '사내ㆍ사외이사 선임을 위한 이사후보추천위원회 등을 설치하고 있는지 여부 및 이사후보추천위원회 등 활동에 관하여 설명한다',
+        "section": '304300',
+    },
+    {
+        "concept": 'DetailsOfReElectedDirectorCandidatesPastBoardActivitiesAbstract',
+        "nth": 1,
+        "label": '재선임 이사 활동내역 제공',
+        "question": '재선임되는 이사 후보의 경우 과거 이사회 활동 내역 공개 여부 및 그 방법과 내용',
+        "section": '304300',
+    },
+    {
+        "concept": 'CumulativeVotingSystemAndEffortsToReflectOpinionsOfMinorityShareholdersAbstract',
+        "nth": 1,
+        "label": '집중 투표제 채택 여부',
+        "question": '집중투표제 채택 여부를 밝히고 이사 후보 선정과 이사 선임 과정에서 소액주주의 의견청취를 위해 어떤 조치 및 노력을 하는지 설명한다',
+        "section": '304300',
+        "same_as_metric": '집중투표제 채택',
+    },
+    {
+        "concept": 'PoliciesToExcludePersonsWhoHaveDamagedCorporateValueOrViolatedShareholderRightsWhenAppointingExecutiveMembersAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '기업가치의 훼손 또는 주주권익 침해에 책임이 있는 자의 임원 선임을 방지하기 위한 회사의 정책 및 그 내용',
+        "section": '304400',
+    },
+    {
+        "concept": 'ProceduresAndRelatedRegulationsToVerifyTheTransactionAboveAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '기업이 위 거래 내역을 확인하는 절차 및 관련 규정이 있는지 여부 및 그 내용',
+        "section": '305100',
+    },
+    {
+        "concept": 'InternalStandardsForConcurrentPositionsOfIndependentDirectorsAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '사외이사의 타기업 겸직 허용 관련 내부기준',
+        "section": '305200',
+    },
+    {
+        "concept": 'EstablishmentAndStatusOfADedicatedStaffForIndependentDirectorsInformationDataRequestAbstract',
+        "nth": 1,
+        "label": '전담인력 배치 여부',
+        "question": '사외이사의 정보(자료)제공 요구에 대응하기 위한 전담인력 현황',
+        "section": '305300',
+    },
+    {
+        "concept": 'ImplementationAndProvisionOfTrainingNecessaryForIndependentDirectorsToPerformTheirDutiesAbstract',
+        "nth": 1,
+        "label": '교육실시 여부',
+        "question": '사외이사의 업무수행에 필요한 교육을 실시하는 지 여부 및 교육 제공현황',
+        "section": '305300',
+    },
+    {
+        "concept": 'MeetingsHeldExclusivelyForIndependentDirectorsFromTheStartOfTheDisclosurePeriodToTheTimeOfSubmissionOfTheReportAbstract',
+        "nth": 1,
+        "label": '사외이사 별도회의 개최 여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 이사회와 별도로 사외이사들만 참여하는 회의가 있다면 그 내용',
+        "section": '305300',
+    },
+    {
+        "concept": 'IndividualEvaluationAndSpecificEvaluationMethodsOfIndependentDirectorAbstract',
+        "nth": 1,
+        "label": '사외이사 개별평가',
+        "question": '사외이사의 개별 평가 실시 여부 및 그 구체적인 방법',
+        "section": '306100',
+    },
+    {
+        "concept": 'ReflectionOfIndependentDirectorEvaluationIntoTheReAppointmentDecisionAbstract',
+        "nth": 1,
+        "label": '재선임 여부 반영',
+        "question": '사외이사 평가를 재선임에 반영하는지 여부',
+        "section": '306100',
+    },
+    {
+        "concept": 'GeneralInformationOnTheRemunerationOfIndependentDirectorsAbstract',
+        "nth": 1,
+        "label": '사외이사 보수 정책 수립',
+        "question": '사외이사의 보수 정책 내용과 그 정책 수립배경, 구체적인 보수의 산정 기준',
+        "section": '306200',
+    },
+    {
+        "concept": 'SpecificInformationIfStockOptionsAreGrantedAbstract',
+        "nth": 1,
+        "label": '스톡옵션 부여 여부',
+        "question": '주식매수선택권을 부여하였다면 그 수량 및 행사조건 관련 구체적인 사항',
+        "section": '306200',
+    },
+    {
+        "concept": 'SpecificInformationIfStockOptionsAreGrantedAbstract',
+        "nth": 2,
+        "label": '성과 연동 여부',
+        "question": '주식매수선택권을 부여하였다면 그 수량 및 행사조건 관련 구체적인 사항',
+        "section": '306200',
+    },
+    {
+        "concept": 'HistoryOfOrdinaryBoardMeetingsAndRegulationsRelatedToTheBoardAbstract',
+        "nth": 1,
+        "label": '정기이사회 개최',
+        "question": '정기이사회 개최 여부 및 이사회 운영 관련 규정 내용',
+        "section": '307100',
+    },
+    {
+        "concept": 'HistoryOfOrdinaryBoardMeetingsAndRegulationsRelatedToTheBoardAbstract',
+        "nth": 2,
+        "label": '이사회 운영 관련 규정 존재 여부',
+        "question": '정기이사회 개최 여부 및 이사회 운영 관련 규정 내용',
+        "section": '307100',
+    },
+    {
+        "concept": 'EstablishmentAndDisclosureOfExecutiveRemunerationPoliciesLinkedWithThePerformanceOfEachExecutiveAbstract',
+        "nth": 1,
+        "label": '임원보수 정책수립 여부',
+        "question": '각 임원의 성과 평가와 연계된 보수 정책의 수립 및 공개 여부',
+        "section": '307100',
+    },
+    {
+        "concept": 'EstablishmentAndDisclosureOfExecutiveRemunerationPoliciesLinkedWithThePerformanceOfEachExecutiveAbstract',
+        "nth": 2,
+        "label": '보수정책의 공개 여부',
+        "question": '각 임원의 성과 평가와 연계된 보수 정책의 수립 및 공개 여부',
+        "section": '307100',
+    },
+    {
+        "concept": 'ExecutiveLiabilityInsuranceAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '임원배상책임보험 가입 여부',
+        "section": '307100',
+    },
+    {
+        "concept": 'ConsiderationForTheStakeholdersInterestsInCompanysPoliciesAsAPartOfTheBoardsRoleAbstract',
+        "nth": 1,
+        "label": '이해관계자 고려 여부',
+        "question": '회사의 지속적인 성장과 중장기적 이익에 영향을 주는 이해관계자들의 이익을 고려하는지 여부',
+        "section": '307100',
+    },
+    {
+        "concept": 'OperationsAndRegulationsForRecordingAndPreservingTheMinutesOfTheBoardOfDirectorsAndTranscriptsAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '이사회 의사록, 녹취록을 상세하게 기록하고 보존하고 있는지 여부 및 관련 규정',
+        "section": '307200',
+    },
+    {
+        "concept": 'RecordingMajorDiscussionsAndResolutionsOfTheBoardByIndividualDirectorsAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '이사회 내에서 주요 토의 내용과 결의 사항을 개별이사별로 기록하고 있는지 여부',
+        "section": '307200',
+    },
+    {
+        "concept": 'DisclosureOfTheActivitiesOfIndividualDirectorsExcludingRegularDisclosureAbstract',
+        "nth": 1,
+        "label": '공개 여부',
+        "question": '정기공시 외 개별이사의 활동 내용공개 여부 및 그 방법',
+        "section": '307200',
+    },
+    {
+        "concept": 'AppointmentOfAMajorityOfIndependentDirectorsOfEachCommitteeUnderTheBoardOfDirectorsAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '각 이사회내 위원회 사외이사 과반수 선임 여부',
+        "section": '308100',
+    },
+    {
+        "concept": 'AppointmentOfAuditCommitteeAndRemunerationCommitteeAsIndependentDirectorsAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '감사위원회 및 보수(보상)위원회를 전원 사외이사로 선임하였는지 여부',
+        "section": '308100',
+    },
+    {
+        "concept": 'ExistenceOfStipulatedRegulationRegardingTheOrganizationOperationAndAuthorityOfTheCommitteesUnderTheBoardOfDirectorsAbstract',
+        "nth": 1,
+        "label": '명문규정 여부',
+        "question": '이사회 내 위원회의 조직, 운영 및 권한과 관련하여 명문규정이 있는지 여부와 그 내용',
+        "section": '308200',
+    },
+    {
+        "concept": 'ReportingOfTheCommitteesResolutionsToTheBoardOfDirectorsAbstract',
+        "nth": 1,
+        "label": '보고 여부',
+        "question": '위원회의 결의 사항이 이사회에 보고되는지 여부',
+        "section": '308200',
+    },
+    {
+        "concept": 'CompositionStatusOfTheInternalAuditTeamAbstract',
+        "nth": 1,
+        "label": '감사위원회 설치 여부',
+        "question": '내부감사기구 구성 현황',
+        "section": '409100',
+    },
+    {
+        "concept": 'PoliciesForSecuringIndependenceAndExpertiseOfInternalAuditTeamsAbstract',
+        "nth": 1,
+        "label": '회계 또는 재무전문가 존재 여부',
+        "question": '내부감사기구의 독립성 및 전문성 확보를 위한 정책',
+        "section": '409100',
+        "same_as_metric": '내부감사기구에 회계 또는 재무 전문가 존재 여부',
+    },
+    {
+        "concept": 'RegulationsThatStipulateTheOperationalGoalsOrganizationAuthorityAndResponsibilitiesOfAnInternalAuditTeamAbstract',
+        "nth": 1,
+        "label": '내부감사기구 규정',
+        "question": '내부감사기구의 운영 목표, 조직, 권한과 책임을 규율하는 규정이 별도로 있는지 여부 및 그 내용',
+        "section": '409100',
+    },
+    {
+        "concept": 'ProvidingEducationNecessaryForThePerformanceOfAuditWorkAbstract',
+        "nth": 1,
+        "label": '감사기구 교육 제공',
+        "question": '감사업무 수행에 필요한 교육 제공 현황',
+        "section": '409100',
+    },
+    {
+        "concept": 'AdvisorySupportFromExternalExpertAbstract',
+        "nth": 1,
+        "label": '외부 자문 지원',
+        "question": '외부 전문가 자문 지원 등을 시행하고 있는지 여부 및 그 내용',
+        "section": '409100',
+    },
+    {
+        "concept": 'RegulationsRelatedToTheInvestigationOfMisconductByTheManagementInformationOnTheInternalAuditTeamOfTheManagementAndMattersRelatedToCostSupportEtcAbstract',
+        "nth": 1,
+        "label": '조사절차 규정 마련',
+        "question": '경영진의 부정행위에 대한 조사 관련 규정 및 경영진의 내부감사기구에 대한 정보, 비용 지원 등에 관한 사항',
+        "section": '409100',
+    },
+    {
+        "concept": 'AccessibilityOfInternalAuditTeamsToInformationRelatedToMattersThatHaveASignificantImpactOnCorporateManagementAbstract',
+        "nth": 1,
+        "label": '내부감사기구의 정보 접근절차 보유 여부',
+        "question": '기업 경영에 중요한 영향을 미칠 수 있는 사항과 관련된 정보에 대한 내부감사기구의 접근성',
+        "section": '409100',
+    },
+    {
+        "concept": 'EstablishmentOfASupportOrganizationForAnInternalAuditTeamAbstract',
+        "nth": 1,
+        "label": '지원조직 설치 여부',
+        "question": '내부감사기구 지원 조직 설치 현황',
+        "section": '409100',
+    },
+    {
+        "concept": 'SecuringTheIndependenceOfTheInternalAuditTeamSupportOrganizationAbstract',
+        "nth": 1,
+        "label": '지원조직의 독립성 확보',
+        "question": '내부감사기구 지원 조직의 독립성 확보 여부',
+        "section": '409100',
+    },
+    {
+        "concept": 'IndependentRemunerationPolicyForAuditCommitteeMembersAndAuditorsAbstract',
+        "nth": 1,
+        "label": '독립적인 보수정책 수립',
+        "question": '감사위원 및 감사에 대한 독립적인 보수 정책 운용 여부',
+        "section": '409100',
+    },
+    {
+        "concept": 'DetailsOfRegularActivitiesMeetingSuchAsAuditActivitiesOfTheInternalAuditTeamProceduresForAppointingExternalAuditorsAndEvaluationOfTheOperationStatusOfTheInternalAccountingManagementSystemAbstract',
+        "nth": 1,
+        "label": '정기회의 개최 여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 내부감사기구의 감사활동, 외부감사인 선임 절차 및 내부회계관리제도 운영 실태 평가 등 정기적인 활동(회의) 내역',
+        "section": '409200',
+    },
+    {
+        "concept": 'RegulationsAndContentsRelatedToMinutesOfAuditMeetingsPreparationAndPreservationOfAuditRecordsAndReportingProceduresAtTheGeneralMeetingOfShareholdersAbstract',
+        "nth": 1,
+        "label": '규정 마련 여부',
+        "question": '감사회의록, 감사 기록의 작성·보존과 주주총회 보고절차 관련된 내부 규정이 있는지 여부와 그 내용',
+        "section": '409200',
+    },
+    {
+        "concept": 'PoliciesForAppointmentOfExternalAuditorsForIndependenceAndProfessionalismAndASituationInWhichTheDamageToIndependenceIsConcernedAbstract',
+        "nth": 1,
+        "label": '정책 마련 여부',
+        "question": '외부감사인의 독립성 및 전문성을 확보하기 위한 선임 관련 정책, 외부감사인 독립성 훼손 우려 상황 유무',
+        "section": '410100',
+    },
+    {
+        "concept": 'PoliciesForAppointmentOfExternalAuditorsForIndependenceAndProfessionalismAndASituationInWhichTheDamageToIndependenceIsConcernedAbstract',
+        "nth": 2,
+        "label": '독립성 훼손우려 상황 유무',
+        "question": '외부감사인의 독립성 및 전문성을 확보하기 위한 선임 관련 정책, 외부감사인 독립성 훼손 우려 상황 유무',
+        "section": '410100',
+    },
+    {
+        "concept": 'DiscussionOnMajorIssuesRelatedToExternalAuditingMoreThanOncePerQuarterWithoutExecutivePresenceAbstract',
+        "nth": 1,
+        "label": '시행 여부',
+        "question": '경영진 참석 없이 내부감사기구와 외부감사인이 분기별 1회 이상 감사 관련 주요 사항을 협의하는지 여부',
+        "section": '410200',
+        "same_as_metric": '내부감사기구가 분기별 1회 이상 경영진 참석 없이 외부감사인과 회의 개최',
+    },
+    {
+        "concept": 'TimePeriodWhenFinancialStatementsWereProvidedToExternalAuditorsAbstract',
+        "nth": 1,
+        "label": '재무제표 정기주총 6주전 제공 여부',
+        "question": '외부감사인에게 재무제표를 제공한 시기',
+        "section": '410200',
+    },
+    {
+        "concept": 'TimePeriodWhenFinancialStatementsWereProvidedToExternalAuditorsAbstract',
+        "nth": 2,
+        "label": '연결재무제표 정기주총 4주전 제공 여부',
+        "question": '외부감사인에게 재무제표를 제공한 시기',
+        "section": '410200',
+    },
+    {
+        "concept": 'HasTheCompanyDisclosedItsCorporateValueupPlanAbstract',
+        "nth": 1,
+        "label": '자율공시 여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 기업가치 제고 계획 공시 여부',
+        "section": '500000',
+    },
+    {
+        "concept": 'CommunicationDetailsWithShareholdersAndMarketParticipantsUtilizingItsCorporateValueupPlanAbstract',
+        "nth": 1,
+        "label": '소통 여부',
+        "question": '공시대상기간 개시시점부터 보고서 제출 시점까지 주주 및 시장참여자와 기업가치 제고 계획을 활용하여 소통한 실적이 있는지 여부 및 내용',
+        "section": '500000',
+    },
+)
+
+#: Y/N 이 아닌 값도 온다 — 배당을 안 한 회사는 예측가능성 항목에 「배당 미실시」를 적는다.
+_FLAG_YES = "Y"
+_FLAG_NO = "N"
+
+
+def parse_compliance_flags(html: str) -> list[dict[str, Any]]:
+    """세부 준수 플래그를 원문 순서대로 뽑는다.
+
+    `complied` 는 Y/N 일 때만 bool 이고, 그 밖의 답(「배당 미실시」)이면 None 이다 —
+    미준수와 해당없음을 같은 False 로 뭉치지 않는다. 원문 값은 `value` 에 그대로 싣는다.
+    """
+    if not html:
+        return []
+    known = {(f["concept"], f["nth"]): f for f in COMPLIANCE_FLAGS}
+    tree = lxml_html.fromstring(html)
+    nth: dict[str, int] = {}
+    found: list[dict[str, Any]] = []
+    for group in tree.iter("table-group"):
+        aclass = group.get("aclass") or ""
+        if not aclass or aclass.startswith("krx-cg_"):
+            continue  # krx-cg_ 는 서식 표다 — 플래그는 접두가 없다
+        cells = [node for node in group.iter() if node.get("valuetxt")]
+        if not cells:
+            continue
+        nth[aclass] = nth.get(aclass, 0) + 1
+        spec = known.get((aclass, nth[aclass]))
+        raw = (cells[0].get("valuetxt") or "").strip()
+        head = raw[:1]
+        label = spec["label"] if spec else _flag_label(group)
+        found.append({
+            # 답 옆에 붙은 라벨은 「시행 여부」·「소통 여부」처럼 무엇의 시행인지 못 말한다.
+            # 무엇을 물었는지는 위쪽 `(N) …` 줄에 있고 그게 서식이 정한 질문이다.
+            "question": spec["question"] if spec else label,
+            "label": label,
+            "concept": aclass,
+            "section": (spec or {}).get("section", ""),
+            "principle": _principle_of((spec or {}).get("section", "")),
+            "value": raw,
+            "complied": True if head == _FLAG_YES else (False if head == _FLAG_NO else None),
+            "same_as_metric": (spec or {}).get("same_as_metric", ""),
+        })
+    return found
+
+
+def _principle_of(section: str) -> str:
+    """플래그가 어느 원칙 아래 있는지 — 세부원칙 > 핵심원칙 > 장 순으로 가장 좁은 것.
+
+    「5. 기타사항」처럼 핵심원칙을 두지 않은 장이 있어 장까지 내려가야 빈 값이 안 나온다.
+    """
+    chapter, principle, sub = section_path(section)
+    return sub or principle or chapter
+
+
+def _flag_label(group: Any) -> str:
+    """레지스트리에 없는 플래그의 라벨 — 바로 앞 문단에서 읽는다."""
+    node = group.getprevious()
+    for _ in range(2):
+        if node is None:
+            break
+        text = _text(node)
+        if text and len(text) < 100:
+            return text[:44]
+        node = node.getprevious()
+    return ""

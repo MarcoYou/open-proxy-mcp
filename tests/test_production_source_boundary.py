@@ -23,6 +23,13 @@ AASSOC = re.compile(r'AASSOCNOTE="')
 ACODE = re.compile(r'\bACODE="')
 
 
+#: 캐시에는 정기공시 말고도 여러 종류가 섞인다. 「사업의 내용」 이라는 문자열은 지배구조보고서
+#: 본문에도 나오므로 보고서 종류를 가리지 못한다 — 문서 첫머리의 보고서명으로 골라야 한다.
+#: 기업지배구조보고서(rcept `80`, 거래소)는 애초에 document.xml 이 없어 viewer HTML 로 오며,
+#: 그쪽엔 AASSOCNOTE 도 toc 앵커도 없다. 아래 계약은 정기공시 사업보고서류에 대한 것이다.
+_REPORT_HEAD = re.compile(r"^\s*(사업|반기|분기)보고서")
+
+
 def _cached_documents(limit: int = 40):
     """`get_document_cached` 가 남긴 디스크 캐시에서 사업보고서류 document.xml 을 읽는다."""
     d = os.path.join(tempfile.gettempdir(), "opm_cache")
@@ -37,7 +44,7 @@ def _cached_documents(limit: int = 40):
         except Exception:
             continue
         html, text = doc.get("html") or "", doc.get("text") or ""
-        if html and "사업의 내용" in text:
+        if html and _REPORT_HEAD.match(text) and "사업의 내용" in text:
             out.append((fn, html))
         if len(out) >= limit:
             break

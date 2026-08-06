@@ -2,7 +2,7 @@
 type: tool
 title: corp_gov_report
 domain: data
-scope: [summary, metrics, principles, filings, timeline, tables]
+scope: [summary, metrics, principles, filings, timeline, tables, flags]
 data_source: [DART OpenAPI list.json (I) + 키워드 "기업지배구조보고서공시" + 원문 다운로드(get_document_cached) → 15 표준 지표·세부원칙은 bs4(lxml) 텍스트, 서식 표 11종은 lxml 트리에서 krx-cg 개념 코드로 대조]
 related_disclosures: [기업지배구조보고서]
 related_concepts: [집중투표, 감사위원-의결권-제한, 의결권, 정관변경, 보수한도]
@@ -36,7 +36,7 @@ corp_gov_report(
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 6종 (아래 참조) | "summary" |
+| scope | str | no | 7종 (아래 참조) | "summary" |
 | year | int | no | 사업연도 (예: 2023). 0이면 최신 | 0 |
 | format | str | no | "md" / "json" | "md" |
 
@@ -56,6 +56,13 @@ scope:
 
 1-1-1·1-2-1 은 항목이 **행에 놓인 표**라 기수 하나를 한 줄로 뒤집어 낸다. 이 둘은 열 축 표와 달리
 `rowspan` 이 진짜 병합이라(부모 라벨을 아래 행이 다시 싣지 않는다) 라벨을 부모·자식으로 이어 붙인다.
+
+- `flags`: 본문 **세부 준수 플래그 78개** Y/N. 표와 마찬가지로 DART 콜 0 증가.
+  15개 핵심지표는 문서가 스스로 뽑아 앞에 실은 요약이고, 이쪽이 본문 전체의 답이다.
+  **78개 중 72개는 15지표가 담지 않는 사실**이다 — 주주제안 절차 안내·공개서한 접수 · 재무제표
+  정기주총 6주전/연결 4주전 제공 · 영문자료·영문 사이트·외국인 담당직원 · 선임사외이사·집행임원
+  제도 · 사외이사 개별평가 · 감사기구 지원조직 설치·독립성 · 외부감사인 독립성 훼손우려 ·
+  기업가치 제고 계획 자율공시·소통 등. 겹치는 6개는 `same_as_metric` 으로 표시한다.
 
 > **`filings_found` ≠ `filing_count`** — 세는 대상이 다르다.
 > `filings_found` 는 검색으로 찾은 보고서 건수, `filing_count`(공용 `build_filing_meta`)는
@@ -215,6 +222,10 @@ sequenceDiagram
 - 금융회사 PDF 본문 파싱 (OEK PDF parser fallback 검토, TODO).
 
 ## 변경 이력
+- 2026-08-06: `scope=flags` 신설 — 본문 세부 준수 플래그 78개(72개는 15지표에 없는 사실).
+  키는 개념 코드가 아니라 **(개념, 문서 내 순번)** 이고, 답 옆 라벨(「시행 여부」)이 아니라
+  서식이 물은 `(N) …` 질문문을 라벨로 쓴다. 자세한 것은 [[기업지배구조보고서]] 「본문 세부 준수
+  플래그」.
 - 2026-08-06: 검증 서사·표본 규모를 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
   표 4-1-2(이사회 구성 현황) 추가 — 10종 → 11종. 「전문 분야」·「주요 경력」은 다른 경로에 없고
   채움률이 높아 이사 후보 적격성 판단에 바로 쓰인다([[director_board]] 의 `main_career` 는
