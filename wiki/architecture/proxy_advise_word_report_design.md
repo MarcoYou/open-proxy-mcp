@@ -4,7 +4,7 @@ title: proxy_advise Word 보고서 양식 설계
 domain: action
 created: 2026-05-12
 updated: 2026-05-13
-related: [proxy_advise_before_meeting, 260510_proxy_advise_audit_통합정리, proxy_advise_word_report_spec]
+related: [proxy_advise_before_meeting, proxy_advise_word_report_spec]
 ---
 
 # proxy_advise Word 보고서 양식 설계

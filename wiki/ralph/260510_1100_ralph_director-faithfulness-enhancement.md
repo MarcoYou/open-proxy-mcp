@@ -9,7 +9,7 @@ ref:
   - open_proxy_mcp/services/proxy_advise.py
 related_decisions: [260510_1130_decision_director-faithfulness]
 related_lessons: [director-faithfulness-260510]
-related_audits: [architecture/audits/data/260510_director_faithfulness/iter1_findings]
+
 ---
 
 ## Invoke

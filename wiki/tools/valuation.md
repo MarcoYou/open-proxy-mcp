@@ -7,7 +7,6 @@ scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
-related_decisions: []
 created: 2026-07-05
 updated: 2026-07-06
 ---

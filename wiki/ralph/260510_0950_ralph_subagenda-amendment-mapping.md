@@ -12,7 +12,6 @@ ref:
   - wiki/rules/laws/law_layer_rules.json
 related_decisions: [260510_0900_decision_d-pattern-body-fallback, 260510_1015_decision_subagenda-mapping]
 related_lessons: [agenda-hierarchy-260510, subagenda-mapping-260510]
-related_audits: [architecture/audits/data/260510_subagenda_mapping/iter1_findings, architecture/audits/data/260510_subagenda_mapping/iter4_findings]
 related_ralph: [260510_0823_ralph_agenda-hierarchy-body-fallback]
 ---
 

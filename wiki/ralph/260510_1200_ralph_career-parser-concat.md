@@ -10,7 +10,7 @@ ref:
 related_decisions: [260510_1130_decision_director-faithfulness, 260510_1230_decision_career-parser-concat]
 related_lessons: [director-faithfulness-260510, career-parser-concat-260510]
 related_ralph: [260510_1100_ralph_director-faithfulness-enhancement]
-related_audits: [architecture/audits/data/260510_career_concat/iter4_findings]
+
 ---
 
 ## Invoke

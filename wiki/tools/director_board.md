@@ -6,7 +6,6 @@ scope: [단일 조회]
 data_source: [exctvSttus(임원현황), drctrAdtAllMendngSttusGmtsckConfmAmount(주총승인 보수한도), drctrAdtAllMendngSttusMendngPymntamtTyCl(유형별 실지급·1인평균), hmvAuditIndvdlBySttus(개인별 5억+), unrstExctvMendngSttus(미등기임원), empSttus(직원현황), outcmpnyDrctrNdChangeSttus(사외이사 변동현황), 사업보고서 원문(출석률 — attendance)]
 related_disclosures: [사업보고서, 기업지배구조보고서, 임원보수-API스펙]
 related_concepts: [이사보수, 보수한도, 소진율, 이사회, 사외이사]
-related_decisions: []
 created: 2026-07-08
 ---
 

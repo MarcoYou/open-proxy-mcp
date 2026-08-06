@@ -11,6 +11,10 @@ wiki_schema Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 �
 - [5] 경로 오링크 — `[[a/b/c]]`처럼 경로를 명시한 wikilink가 실제 위치와 다르면(파일이 archive로
   이동 등) 검출. resolver의 basename 폴백이 조용히 성공해 링크는 "동작"하지만 명시 경로가
   거짓이 되는 drift를 잡는다.
+- [9] 없는 문서 참조 — 문서형 참조([[a/b]]·`yymmdd_...`·frontmatter related_*)가 가리키는 문서가
+  실제로 없으면 검출. [5]가 「경로가 틀렸다」라면 이건 「대상이 아예 없다」다. 개념 링크
+  (`[[PBR]]`)는 앞으로 쓸 자리라 대상이 아니고, archive(낙엽)는 당시 상태 보존이라 면제.
+- [10] 빈 스텁 — 링크만 걷어내고 라벨·불릿만 남은 자리. 링크가 사라져 어떤 축에도 안 걸린다.
 - [8] 규칙 이중장부 방지 (260712 패널 결정) — 규칙 SSOT는 wiki_schema.md. wiki_index.md는
   인벤토리/라우팅만. 명명 규칙·카테고리 정의·frontmatter schema 서술이 index에 재등장하면 실패
   (lint 안 받는 두 번째 사본 = confident-wrong drift 원천 차단).
@@ -380,6 +384,69 @@ def check_path_links(pages) -> list[str]:
     return issues
 
 
+# [9] 문서 참조가 실제로 있나 — 문서를 옮기거나 지우면 남는 죽은 참조·빈 자리를 잡는다.
+#: 「가리키는 문서가 없다」는 [5](경로가 틀렸다)와 다른 결함이다. 260806 이관에서 문서 20개를
+#: 옮겼을 때 죽은 참조 13곳과 링크 뜯긴 빈 자리 7곳이 남았는데 8축 전부 통과했다.
+#: 개념 링크(`[[PBR]]`·`[[이사회]]`)는 앞으로 쓸 자리로 일부러 비워 둔 것이라 대상이 아니다 —
+#: **문서형**(경로가 있거나 `yymmdd_` 로 시작하거나 문서 종류 접미가 붙은 것)만 본다.
+DOCLIKE = re.compile(r"^\d{6}_|_(?:audit|fix|ralph|decision|improvement)|_(?:goal|spec|checklist)$")
+FRONTMATTER_REF_KEYS = ("related_audits", "related_decisions", "related", "depends")
+#: 링크를 걷어내고 라벨만 남은 자리. 다음 줄에 하위 항목·표·인용·이미지가 붙으면 정상 문법이다.
+EMPTY_STUB = re.compile(r"(?m)^([ \t]*)[-*][ \t]+([^\n:]{1,40}):[ \t]*$")
+EMPTY_BULLET = re.compile(r"(?m)^[ \t]*[-*][ \t]*$")
+
+
+def _is_doclike(target: str) -> bool:
+    base = target.split("/")[-1]
+    if target.endswith("/") or "..." in target or " " in base:
+        return False  # 폴더 참조·플레이스홀더·산문
+    return "/" in target or bool(DOCLIKE.search(base))
+
+
+def check_missing_doc_refs(pages) -> list[str]:
+    """문서형 참조가 가리키는 문서가 실제로 있는지. archive(낙엽)는 당시 상태 보존이라 면제."""
+    known = {rel.split("/")[-1] for rel, _ in pages}
+    issues = []
+    for rel, path in pages:
+        if rel.startswith("archive/"):
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        targets = [m.split("#")[0].strip() for m in WIKILINK.findall(text)]
+        head = re.match(r"(?s)^---\n(.*?)\n---", text)
+        if head:
+            for key in FRONTMATTER_REF_KEYS:
+                found = re.search(rf"(?m)^{key}:\s*\[(.*?)\]", head.group(1), re.S)
+                if found:
+                    targets += [x.strip() for x in found.group(1).split(",") if x.strip()]
+        for target in targets:
+            if not target or target.split("/")[-1] in known or not _is_doclike(target):
+                continue
+            issues.append(f"없는 문서 참조: {rel} → {target}")
+    return issues
+
+
+def check_empty_stubs(pages) -> list[str]:
+    """링크만 뜯겨 라벨·불릿만 남은 자리. lint 대상이 사라져 어떤 축에도 안 걸린다."""
+    issues = []
+    for rel, path in pages:
+        if rel.startswith("archive/"):
+            continue  # 낙엽·서식 템플릿은 빈칸이 정상
+        lines = path.read_text(encoding="utf-8", errors="ignore").split("\n")
+        for i, line in enumerate(lines):
+            stub = EMPTY_STUB.match(line)
+            if stub:
+                indent = stub.group(1)
+                # 라벨과 알맹이 사이에 빈 줄이 끼기도 한다 — 다음 «내용 있는» 줄을 본다.
+                nxt = next((x for x in lines[i + 1:i + 4] if x.strip()), "")
+                # 더 깊이 들여쓰였거나 표·코드·인용·이미지면 알맹이가 있는 것
+                if nxt and (nxt.startswith(indent + " ") or nxt.lstrip()[:1] in "|>!`"):
+                    continue
+                issues.append(f"빈 스텁: {rel}:{i + 1} → `{line.strip()}`")
+            elif EMPTY_BULLET.match(line):
+                issues.append(f"빈 불릿: {rel}:{i + 1}")
+    return issues
+
+
 def check_archive_superseded(pages) -> list[str]:
     """[6] archive 페이지의 superseded_by frontmatter 강제 (260709 패널 검수).
 
@@ -551,6 +618,8 @@ def main():
     index_issues = check_index_counts(pages)
     path_issues = check_path_links(pages)
     archive_issues = check_archive_superseded(pages)
+    missing_ref_issues = check_missing_doc_refs(pages)
+    stub_issues = check_empty_stubs(pages)
     law_date_issues = check_law_dates(pages)
     index_rule_leaks = check_index_no_rules()
 
@@ -614,10 +683,22 @@ def main():
         for v in index_rule_leaks[:20]:
             print(f"  ✗ {v}")
 
-        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks):
+        print(f"\n[9] 없는 문서 참조 (문서를 옮기거나 지운 뒤 남은 죽은 링크): {len(missing_ref_issues)} 건")
+        for v in missing_ref_issues[:20]:
+            print(f"  ✗ {v}")
+        if len(missing_ref_issues) > 20:
+            print(f"  ... +{len(missing_ref_issues) - 20} 건")
+
+        print(f"\n[10] 빈 스텁 (링크만 뜯겨 라벨·불릿만 남은 자리): {len(stub_issues)} 건")
+        for v in stub_issues[:20]:
+            print(f"  ✗ {v}")
+        if len(stub_issues) > 20:
+            print(f"  ... +{len(stub_issues) - 20} 건")
+
+        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues):
             print("\n✓ 모든 정책 충족")
 
-    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks):
+    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues):
         sys.exit(1)
 
 

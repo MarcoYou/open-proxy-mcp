@@ -6,7 +6,6 @@ scope: [단일 조회]
 data_source: [value_up(계획), corp_gov_report(준수변화), dividend(실제배당), treasury_share(실제소각), financial_metrics(자기자본), DART stockTotqySttus(유통주식수)]
 related_disclosures: [기업가치제고계획, 기업지배구조보고서, 배당결정, 자기주식결정]
 related_concepts: [자사주, 주주환원, BPS, PBR]
-related_decisions: []
 created: 2026-07-07
 ---
 
