@@ -1,10 +1,45 @@
 """OpenProxy MCP 서버 — FastMCP 진입점"""
 
 import argparse
+import logging
 import os
+import re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.tools import register_all_tools
+
+
+#: 사용자 DART 키는 쿼리스트링(`?opendart=`)으로 들어온다. uvicorn 액세스 로그는 요청 라인을
+#: 통째로 찍으므로 그대로 두면 배포 로그에 유저 키가 평문으로 쌓인다(260806 실측 확인).
+#: 로그 자체는 운영 진단에 쓰이므로 끄지 않고 값만 가린다.
+_API_KEY_IN_URL = re.compile(r"((?:opendart|crtfc_key)=)[^&\s\"']+")
+
+
+class RedactApiKey(logging.Filter):
+    """로그 레코드에서 URL 안의 API 키 값을 가린다. 메시지·인자 양쪽을 본다."""
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        if isinstance(record.msg, str):
+            record.msg = _API_KEY_IN_URL.sub(r"\1***", record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _API_KEY_IN_URL.sub(r"\1***", a) if isinstance(a, str) else a
+                for a in record.args
+            )
+        return True
+
+
+def install_api_key_redaction() -> None:
+    """액세스 로그를 내보내는 로거 전부에 마스킹 필터를 건다.
+
+    uvicorn 은 로거를 자체 설정으로 다시 세우므로 `uvicorn.run` **직전**에 걸어야 한다.
+    필터는 핸들러가 아니라 로거에 달아, 핸들러가 나중에 바뀌어도 살아남게 한다.
+    """
+    redactor = RedactApiKey()
+    for name in ("uvicorn.access", "uvicorn.error", "uvicorn"):
+        logger = logging.getLogger(name)
+        if not any(isinstance(f, RedactApiKey) for f in logger.filters):
+            logger.addFilter(redactor)
 
 
 def build_mcp() -> FastMCP:
@@ -214,6 +249,7 @@ def main():
         app = mcp.streamable_http_app()
         app.add_middleware(ApiKeyMiddleware)
 
+        install_api_key_redaction()
         uvicorn.run(
             app,
             host=mcp.settings.host,
