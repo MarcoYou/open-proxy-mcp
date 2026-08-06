@@ -147,18 +147,6 @@ def count_concurrent_outside_director_positions(candidate):
 - 결격사유 4축 변경 X
 - 후보 평가 framework 전면 개편 X (기존 3축 — 독립성/충실성/결격사유 유지)
 
-## 사용자 결정 필요
-
-1. 사내이사 독립성 용어:
-   - (A) "독립성 평가 비대상 (사내이사)"
-   - (B) "비독립 (사내이사)"
-   - (C) "사내이사 (N/A)"
-   - (D) 다른 안
-
-2. 겸직 임계값:
-   - n >= 1 다른 사외이사 → concerns (본 + 1 = 총 2개)
-   - 또는 n >= 2 다른 사외이사 → concerns (본 + 2 = 총 3개)
-
 ## archive
 
 `wiki/architecture/audits/data/260510_director_faithfulness/`

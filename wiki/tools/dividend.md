@@ -68,11 +68,11 @@ scope:
 핵심 필드:
 - meta_signals: 선배당-후결의 (2024 신법), 감액배당 cross-link (자본준비금 감소)
 
-> **갱신 (2026-06-09)** — 정확도/분류 정밀화:
+> **분류·정확도 규칙**:
 > - **분기별 누적차분** (`quarterly_full`, 최신연도): 분기/반기/사업보고서 누적값을 차분(Q2=반기-Q1…)해
 >   보통+우선 DPS·배당총액 산출. 결정공시 버킷팅(경계 오귀속·예비결산 중복)보다 정확, 무배당 분기 0·특별배당 포착. [[배당공시유형]] §7.
 > - **최신연도 4분류**: 중간배당 확정 / 확정 전(D 명부폐쇄 기준일 매칭) / 미공시(payer인데 결산 미확정) / 무배당(직전도 배당 없음). target연도 매칭으로 단정.
-> - **미확정 시간판정**(260717): "미공시(결산 배당 미확정)"은 해당 사업연도 정기주총 경과(today > 익년 5/31) 시 **"무배당(확정·결산 현금배당 없음)"**으로 정정 — 주총이 끝났는데 결정공시·기준일이 없으면 배당을 안 하기로 확정한 것(메리츠·SK증권=배당→자사주 소각 전환). 배당기준일 설정된 "확정 전"은 실제 배당신호라 유지. 근거: dividend-payout-classification-260717.
+> - **미확정 시간판정**: "미공시(결산 배당 미확정)"은 해당 사업연도 정기주총 경과(today > 익년 5/31) 시 **"무배당(확정·결산 현금배당 없음)"**으로 정정 — 주총이 끝났는데 결정공시·기준일이 없으면 배당을 안 하기로 확정한 것(메리츠·SK증권=배당→자사주 소각 전환). 배당기준일 설정된 "확정 전"은 실제 배당신호라 유지. 근거: dividend-payout-classification-260717.
 > - 권위 = 사업보고서 alotMatter **다년컬럼**(개별연도 호출 제거). per-decision 시가배당률은 0 억제(연간값 권위).
 > - 상세 교훈은 private storage 에 있다(공개 wiki 에 없음).
 
@@ -167,7 +167,7 @@ sequenceDiagram
 ## 관련 audit/fix (architecture/)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] — dividend.summary 75.0% exact
 - [[260429_0216_fix_speed-optimization-9건]] — dividend 3x 속도 향상 (asyncio.gather)
-- — 21개 산술 지표 검증 통과
+- 21개 산술 지표 검증 기록: private storage
 
 ## 알려진 issue + TODO
 - alotMatter와 거래소 공시 수치 충돌 시 `requires_review`.
@@ -177,15 +177,15 @@ sequenceDiagram
 - **선배당-후결의(2024 신법) 회사**(예: 메리츠금융지주): 금액이 든 `현금ㆍ현물배당결정` 거래소공시 없이 `주주명부폐쇄 기준일설정`만 하고 주총/사업보고서로 확정하는 케이스가 있다. 최신 사업연도가 결정공시·alotMatter 모두 비면 → (2026-06-08 개선) `pre_dividend_post_resolution` 신호가 True 일 때 history 패턴을 `무배당` 대신 **`확정 전 (배당기준일 설정·금액 미정)`** 으로 표기하고 `pending_confirmation:true` + warning 부착. 추세(policy_signals)는 확정 연도만으로 계산해 미확정 연도의 DPS=0 이 −100% 로 왜곡하는 것 방지. 진짜 무배당(신규상장 등 기준일 공시 자체가 없음)은 신호 False 라 그대로 `무배당`(에이피알 검증).
 
 ## 변경 이력
-- 2026-04-18: dividend tool 검증 + release_v2 go
-- 2026-04-19: 3개 기업 (삼성전자 / KT&G / 메리츠금융지주) summary 통과
-- 2026-04-29: CSR 분자 정정 (T22 retire → T23 acquire), TSR 신규 scope 추가
-- 2026-04-29: 200기업 audit 75.0% exact (no_filing 분리)
-- 2026-05-01: tool wiki 페이지 작성
-- 2026-06-08: 연간 DPS/배당성향/수익률 source를 **alotMatter 다년 컬럼**(`_alot_multiyear_summaries`)으로 전환 — per-year 개별 호출·결정공시 합산 의존 제거. 더해서 ① 자회사(`자회사의 주요경영사항`) 공시 제외 ② 정정/재공시 dedup(`_effective_decisions`) ③ raw `[:20]` 절단 제거(기간·유형·제목 타겟) ④ `주당 현금배당금` 빈 행 overwrite 버그 수정. 검증: KB금융 3,060/3,174/4,367, 삼성전자 1,444/1,446/1,668, 미래에셋 150/250/300, SK하이닉스 1,200/2,204/3,000, 셀트리온 500/750/750, 메리츠 2,360/1,350(2025 미확정) — 사업보고서 권위값·분기합 일치.
-- 2026-06-08: 선배당-후결의 회사 최신연도 `무배당` → `확정 전 (배당기준일 설정·금액 미정)` 표기 + `pending_confirmation` 플래그, 추세는 확정연도만 산정 (메리츠 2025 검증, 에이피알 진짜 무배당 오탐 없음).
-- 2026-06-08: history 정합성 경고 추가 — 분기 breakdown 합(정정 제외) ≠ 사업보고서 연간 DPS 인 해에 warning. 깜깜이배당 해소 전환기(전년 결산 + 올해 Q1 동시 공시, 결산 기준일 이월)에 공시별 fiscal-year 추론이 경계에서 어긋나는 케이스 — 연간값(사업보고서)이 정확함을 명시 (하나금융지주 2023: 분기합 2,800 vs 연간 3,400 검증, KB·삼성·기아 오탐 없음).
-- 2026-08-06: 폐기된 `cash_shareholder_return`·`total_shareholder_return` scope 잔재 제거 — 문서가
-  없는 scope 6종을 안내하고 `summary` 의 `next_actions` 가 그 둘을 호출하라고 내보내고 있었다.
-  코드의 도달 불가 분기(evidence 2종·next_actions 2종·게이트 2곳)와 코드에 없는 `ratio_status`
-  필드 서술도 함께 정리. 현재 scope 는 `summary`/`detail`/`history` 셋이다.
+- 2026-08-06: 검증 서사를 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
+  폐기된 `cash_shareholder_return`·`total_shareholder_return` scope 잔재 제거 —
+  현재 scope 는 `summary`/`detail`/`history` 셋이다.
+- 2026-07-17: "미공시(결산 배당 미확정)" 의 주총 경과 시간판정 → "무배당(확정)".
+- 2026-06-09: 분기별 누적차분(`quarterly_full`) + 최신연도 4분류.
+- 2026-06-08: 연간 DPS/배당성향/수익률 source 를 **alotMatter 다년 컬럼**
+  (`_alot_multiyear_summaries`)으로 전환 — per-year 개별 호출·결정공시 합산 의존 제거.
+  자회사 공시 제외 · 정정/재공시 dedup · raw `[:20]` 절단 제거 · `주당 현금배당금` 빈 행
+  overwrite 수정 · 선배당-후결의 `확정 전` 표기 + `pending_confirmation` · history 정합성 경고.
+- 2026-05-01: tool wiki 페이지 작성.
+- 2026-04-29: CSR 분자 정정(retire → acquire) · 200기업 audit 75.0% exact.
+- 2026-04-18: tool 검증 + release_v2 go.

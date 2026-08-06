@@ -16,17 +16,17 @@ created: 2026-07-13
 조문 전문 + 관련 정관 변경유형·우회 시나리오·주총 안건신호**. 회사·DART 무관, **API 호출 0**.
 `proxy_advise`가 "이 회사 이 주총 이 안건" 판단이라면, 이건 회사 맥락 없이 **법령 자체를 묻는** 조회기.
 
-## 왜 만들었나 (사용자 260713)
-법령 데이터가 `proxy_advise`의 판단 엔진(`_law_layer`, 40룰) 안에만 묻혀 있어 "이 정관 조항이 무슨
-법이랑 엮여?" / "자본시장법 §147 전문 보여줘" 같은 **범용 법령 질의에 답하는 독립 tool이 없었다**.
-정관↔법령을 두 방향으로, 키워드/두루뭉술 질의로, 1:1·N:1·1:N·N:N 카디널리티로 잇는 조회기가 필요했다.
+## 왜 이 tool 이 따로 있나
+법령 데이터는 `proxy_advise`의 판단 엔진(`_law_layer`, 40룰) 안에 묻혀 있으면 「이 정관 조항이 무슨
+법이랑 엮여?」·「자본시장법 §147 전문 보여줘」 같은 **회사 맥락 없는 법령 질의**에 답할 수 없다.
+이 tool 은 정관↔법령을 양방향으로, 키워드·두루뭉술 질의로, 1:1·N:1·1:N·N:N 카디널리티로 잇는다.
 
 ## 데이터 소스
 - **corpus**: `wiki/rules/laws/corpus/` — legalize-kr(github.com/MarcoYou/legalize-kr) 원문을
   `scripts/sync_law_corpus.py`가 vendored 복사 + 조 단위 인덱스(`law_index.json`) + **조문 전문 형태소
   BM25 인덱스(`law_bm25.json`, Signal C)** + 재현성 manifest.
   v1 범위 = 상법·자본시장법·공정거래법·외부감사법 (각 법률+시행령) **2,725조**(BM25는 삭제 제외 2,599조).
-- **자동 갱신 (260713)**: 원문 소스 legalize-kr은 국가법령정보센터를 **매일** 따라가는 살아있는 창고.
+- **자동 갱신**: 원문 소스 legalize-kr은 국가법령정보센터를 **매일** 따라가는 살아있는 창고.
   OPM corpus는 그 스냅샷이라 자동으로 안 따라감 → `.github/workflows/law-corpus-weekly.yml`이 **매주
   월요일** 재복사 + 색인 재생성. **4법 안의 개정·삭제·신설 조문은 자동 반영**(파서가 삭제/개정 마커
   인식). 새 '법' 추가만 수동(`sync_law_corpus.py`의 `TARGETS` 한 줄). DART 0콜·secrets 0(public repo).
@@ -128,4 +128,4 @@ SSOT(`law_provisions.json`)의 `effective_date`로만 `미시행(시행 YYYY-MM-
 - [[proxy_advise_before_meeting]] — 회사 주총 안건 판단(정관 본문↔안건). law_lookup은 그 하위 법령 지식 조회.
 - [[rules/laws/README]] — 법령 자료 입구(SSOT·bridge·corpus)
 - [[상법-2025-2026-종합]] — 상법 개정 사람 가독 master
-- law-lookup-260713 — 신설·후속 회고(미시행 유보·폴백·자동갱신·결정성 발견) + v2 로드맵
+- 신설·후속 회고와 v2 로드맵: private storage `wiki-private/lessons/`

@@ -159,12 +159,6 @@ Parser audit (260508_parser_audit) 결과 40 파서 중 2개만 보강 필요:
 
 → Phase 2 (parse_aoi_xml fallback)로 직접 진행. iter 2-3 skip.
 
-### iter 2 — raw_content fallback 추가
-(작성 예정)
-
-### iter 3 — 5년 룰 작동 검증
-(작성 예정)
-
 ### iter 4 — aoi amendments 누락 진단 ✅ (1.66% — fallback 불필요)
 
 **진단**: KOSPI 200 전체 audit (concurrency=3).
@@ -206,12 +200,3 @@ Parser audit (260508_parser_audit) 결과 40 파서 중 2개만 보강 필요:
 **audit 문서 update**: parser audit에 1.66% 누락 실측 + source 한계 근거 추가 필요 (별도 commit).
 
 **promise**: `<promise>PARSER_PRECISION_VERIFIED</promise>`
-
-### iter 5 — aoi fallback 패턴 추가
-(작성 예정)
-
-### iter 6 — 280 회사 회귀
-(작성 예정)
-
-### iter 7 — 문서화 + promise
-(작성 예정)

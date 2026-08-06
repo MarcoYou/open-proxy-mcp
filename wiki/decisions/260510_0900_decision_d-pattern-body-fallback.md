@@ -27,7 +27,7 @@ DART 정기주총 소집공고 안건 표기 패턴:
 
 D 패턴 회사 (에코프로비엠 / 에스엠 / 메리츠금융지주 등)는 변경 내용이 amendments[].label/clause/before/after에만 존재 — title 매칭 catch 불가.
 
-## 안전장치 (Ralph 6 회귀 회피)
+## 안전장치
 
 1. **strict 진입 조건**: parent=="" + `_is_charter_top(title)` + `children == 0` + `amendments` 비어있지 않음
 2. **amendment 단위 검사**: 모든 amendments 통합 X — 각 amendment 자체 body만 검사
@@ -42,7 +42,7 @@ A1-1 + A1-7에 body_pattern 추가 — raw 본문이 법령 정합 표현 (적�
 ## 비목표 (제외)
 
 - 카카오게임즈 같은 sub-agenda 있고 sub title 일반 표현 회사 — D 패턴 X, 별도 architect 필요
-- 모든 회사 amendments 통합 매칭 (Ralph 6 회귀 사례)
+- 모든 회사 amendments 통합 매칭 — sub-agenda 가 명확한 회사에서 false positive 가 난다
 - title 매칭 패턴 보강 (회귀 위험)
 
 ## 영향 범위
@@ -54,7 +54,6 @@ A1-1 + A1-7에 body_pattern 추가 — raw 본문이 법령 정합 표현 (적�
 
 - 4 미매치 회사 중 D 패턴 3개 catch (에코프로비엠 A1-1 / 에스엠 A1-5 / 메리츠 A1-7)
 - LG화학 regression 0 (children > 0이라 D 진입 X)
-- 510 회사 spot 회귀 (iter 4): TBD
 
 ## 후속
 

@@ -13,11 +13,11 @@ related_tools: [dilutive_issuance]
 
 ## 문제 요약
 
-발단: "태광산업 최근 주식 희석 리스크" 질의에 `dilutive_issuance`가 **0건(no_filing)** 반환. 그러나 태광산업은 2025년 **자기주식 전량(24.41%) 기초 교환사채(EB) 3,185.8억원**을 발행(후 철회)한 상태였다.
+DART DS005 의 희석성 증권 4 API(`piicDecsn`/`cvbdIsDecsn`/`bdwtIsDecsn`/`crDecsn`)에는 교환사채
+(`exbdIsDecsn`)가 없다. 그 4개만 부르면 자기주식 기초 EB 를 대규모로 발행한 회사도 `no_filing` 으로
+보인다(예: 태광산업 2025년 자기주식 전량 24.41% 기초 EB 3,185.8억원 — 이후 철회).
 
-근본 원인: 툴이 DART DS005 **4 API**(`piicDecsn`/`cvbdIsDecsn`/`bdwtIsDecsn`/`crDecsn`)만 호출 → 교환사채 `exbdIsDecsn`이 스코프에 없음.
-
-추가로 EB는 DART 구조화 응답이 다음 3가지로 불완전하다는 것을 라이브로 확인:
+또 EB 는 DART 구조화 응답이 다음 3가지로 불완전하다:
 
 | 패턴 | 증상 | 대표 |
 |---|---|---|

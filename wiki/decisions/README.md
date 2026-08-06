@@ -73,7 +73,6 @@ updated: 2026-06-01
 - [[open-proxy-guideline]] (master)
 - `open_proxy_mcp/data/asset_managers/policies/open_proxy_v1.json` (코드 master)
 - [[260508_0200_decision_law-layer]] (법령 layer 도입)
-- law-layer-260508 (lesson)
 - [[rules/laws/README]] (법령 자료 입구)
 
 ## 신규 결정 추가 시

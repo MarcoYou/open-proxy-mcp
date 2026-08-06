@@ -28,7 +28,7 @@ related_decisions: [260508_0200_decision_law-layer]
   1. _classify_agenda parent 인지 안 함 → fix 완료 (Ralph 1)
   2. _decide_articles_amendment hardcoded 키워드가 stale → 임시 fix
   3. **vote_style 운용사 정책이 운용사 update 안 하면 stale → 법 정합 케이스 잘못 분류** ← 본 ralph
-- 코붕이 review: "wiki에 학습시킨 상법 내용이 코드에 반영 안 됨 → forward-looking proxy advisory 위해 법령 layer 도입 필요"
+- wiki 에 정리된 상법 내용이 코드에 반영되지 않음 → forward-looking proxy advisory 를 위해 법령 layer 필요
 
 ### 1·2·3차 상법 개정 통합 (web 검증)
 
@@ -255,37 +255,3 @@ related_decisions: [260508_0200_decision_law-layer]
 ## archive 폴더
 
 `wiki/architecture/audits/data/260508_law_layer/`
-
----
-
-## iteration log
-
-### iter 1 — 상법 개정 wiki 통합본
-(작성 예정)
-
-### iter 2 — 정관 우회 시나리오 wiki 보강
-(작성 예정)
-
-### iter 3 — law_layer_rules.json 작성
-(작성 예정)
-
-### iter 4 — _law_layer() 함수 신규
-(작성 예정)
-
-### iter 5 — proxy_advise caller wire
-(작성 예정)
-
-### iter 6 — hardcoded _decide_* 정리
-(작성 예정)
-
-### iter 7 — 자산 2조+ 30 회사 spot
-(작성 예정)
-
-### iter 8 — LG화학 + edge case 회귀
-(작성 예정)
-
-### iter 9 — 운용사 8 표기 통일
-(작성 예정)
-
-### iter 10 — 문서화 + promise
-(작성 예정)

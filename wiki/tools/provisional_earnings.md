@@ -32,14 +32,11 @@ DART **영업(잠정)실적(공정공시 I002)** 에서 분기 **잠정 매출·
 
 ## 파싱전략 (markdown-primary + best-effort headline)
 - **table_markdown이 진실**: 잠정실적은 항상 표라서 정형 positional 파싱보다 **표를 통째 마크다운으로 렌더**(colspan/rowspan 확장 `_table_to_grid`)가 robust. 재무형·비재무형(판매대수·수주) 모두 같은 방식.
-- **headline은 best-effort**: 매출·영업익·순익 당기값+YoY만 구조화(screener 카드/빠른보기). **열은 헤더로 식별**(당기실적=값열, 두 번째 '증감율(%)'=전년동기대비). ⚠ positional backward-search 금물 — 적자전환/음수 YoY에서 '전년동기실적' 절대값을 오채택함(260719 멀티에이전트 24사 검증에서 대한항공·POSCO·신한지주 검출→헤더기반으로 수정). 실패해도 table_markdown이 전부 담음.
+- **headline은 best-effort**: 매출·영업익·순익 당기값+YoY만 구조화(screener 카드/빠른보기). **열은 헤더로 식별**(당기실적=값열, 두 번째 '증감율(%)'=전년동기대비). ⚠ positional backward-search 금물 — 적자전환/음수 YoY 에서 '전년동기실적' 절대값을 오채택한다. 실패해도 table_markdown 이 전부 담는다.
 - **단위 정규화**: 원문 '단위:'(조원×1e12·억원×1e8·백만원×1e6) → value_krw는 원 단위 raw.
 - **비재무형**: 재무표가 전부 '-'면 kind=non_financial. 자동차(판매대수)·조선(수주 백만불) 등 도메인 표가 같은 실적표에 이어져 있어 table_markdown이 그대로 담는다.
 
-## 검증 (260719)
-- 24사 전수 멀티에이전트 검증(캐시대조 DART 0콜 + 극단값 웹 plausibility): value_krw·단위·kind·consolidated·table_markdown 전부 정확. yoy_pct 3사 오류 검출→헤더기반 수정. 극단값(삼성전자 2026 2Q 매출 171조·SK하이닉스 52조) 웹확인=실제 2026 반도체 슈퍼사이클(전년동기 앵커 일치로 열매핑 정확 확인).
-
-## 공시 landscape (KOSPI500 census 260719)
+## 공시 landscape (KOSPI500 census)
 
 영업잠정실적은 **자율 공정공시**(의무 아님) — 규격화된 업종규칙보다 **시총·IR 성숙도**가 지배한다:
 - **공시율 시총 강상관**: top100 **94%** · 100~300위 67% · 300~500위 **32%** (전체 293/499=58%). 대형주는 거의 필수, 중소형은 선택.

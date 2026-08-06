@@ -10,14 +10,8 @@ related_audits: [260503_1847_audit_phase4_final]
 
 OPM action/data tool이 **여러 upstream service를 asyncio.gather로 병렬 호출**할 때 반드시 갖춰야 하는 5 요소.
 
-Phase 4 advise_vote 200×3 검증 (91.4% → 100.0%, regression 0)에서 도출. 같은 패턴 미적용 tool들이 동일 race/timeout 문제를 겪을 것으로 예상되므로 표준화.
-
-## 문제 — 병목은 logic 이 아니라 infra 다
-
-여러 upstream 을 병렬로 부르는 tool 에서 **일치율이 안 오르고 timeout 이 남는다면**, 원인은
-alias·parser·정규식 같은 logic 이 아니라 **네트워크 race + 결과 cache 부재**일 가능성이 크다.
-advise_vote 200×3 batch 가 91.4% → **100.0%(timeout 0)** 로 올라간 것도 logic 수정이 아니라
-corpCode race 제거와 cache 도입이었다. 같은 위치에 같은 함정이 다른 tool 에도 있다.
+이 tool 들에서 결과 일치율이 흔들리고 timeout 이 남는 원인은 alias·parser·정규식 같은 logic 이 아니라
+**corpCode race + 결과 cache 부재**다. 그래서 표준은 logic 이 아니라 아래 5개 infra 요소로 구성된다.
 
 ## 5 요소 표준
 
@@ -143,13 +137,13 @@ for idx, candidate in enumerate(notices[:3]):
 | `ownership_structure` | 3 endpoint 직접 | ⚪ baseline 100% (max 1.8s) — fix 불필요 ([[260503_2345_audit_ownership_baseline]]) | - |
 | `corp_gov_report` | 2 + N doc gather | ❌ 부분 (소량) | 🟢 낮음 |
 
-### 적용 판단 기준 (proxy_contest baseline에서 도출)
+### 적용 판단 기준
 
-upstream 종류로 판단:
+upstream 종류로 판단한다:
 - **다른 service `build_*_payload` 재귀 호출**: 호출당 5-30s → race window 큼 → **패턴 적용**
 - **DART API endpoint 직접 호출**: 호출당 0.5-2s → race window 작음 → **불필요** (baseline 100% 일치)
 
-→ 신규 multi-upstream tool 만들 때 먼저 200×3 baseline 측정 후 결정. fix 적용은 무조건이 아니라 data-driven.
+즉 적용은 무조건이 아니라 baseline 측정 결과에 따른다.
 
 `notices[0]` / `items[0]` / `filings[0]` 패턴 (정정공고 미처리):
 

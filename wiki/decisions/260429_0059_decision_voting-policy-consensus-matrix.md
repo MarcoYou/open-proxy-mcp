@@ -329,7 +329,7 @@ related_ralph: [260503_0002_ralph_proxy-advise-verification]
 - **articles_amendment**: 1 divergence (회사명 변경) + 2 minority + 12 토픽 중 가장 많은 토픽 수
 - **financial_statements**: 3 토픽 중 1 consensus, 2 minority — 외부감사인 감사 외 자문 금지 (Sarbanes-Oxley)와 재무제표 이사회 승인 (상법 §449의2)이 운용사별 입장 분기
 
-### 2.3 한국 특수성 발견
+### 2.3 한국 특수성
 
 본 분석은 한국 자본시장 특유의 거버넌스 이슈에 대한 5 운용사의 공통 대응을 식별했다:
 

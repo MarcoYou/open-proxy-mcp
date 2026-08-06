@@ -26,7 +26,7 @@ related_decisions: [260508_0700_decision_law-layer-precision]
 
 Ralph 3 (260508_0130_ralph_law-layer)에서 36 catalog + _law_layer 도입. promise 발행 후 광범위 검증 (90 회사) 결과:
 
-**hit 분포 (코붕이 노트)**:
+**hit 분포**:
 - A1-5 (독립이사 명칭) 32 / A1-1 (집중투표 배제 삭제) 30 / A1-7 (전자주총) 20 / A1-4 (의결권 제한) 14
 - B1-10 (분리선출 의무 초과) 9 / B1-4 (임기 단축) 2 / A1-2 (집중투표 도입) 5
 - 36 룰 중 7개만 hit, 29개 미발견

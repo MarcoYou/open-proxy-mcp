@@ -4,7 +4,6 @@ title: DartClient에 persistent httpx connection pool 도입
 date: 2026-05-07 23:30
 status: adopted
 related:
-  - wiki/decisions/260506_2330_decision_v1-dead-parsers-archive.md
   - wiki/log.md
 ---
 
@@ -12,11 +11,8 @@ related:
 
 ## 배경
 
-코붕이 review (2026-05-07): "예전에는 잘 됐는데 왜 지금 10초 걸리지?" 분석 흐름에서 다음을 발견:
-
-1. fly logs에 5초 gap 잔존 (notice tool path에서 result_filing search) → fix 완료
-2. tool description 25% trim (LLM context 절약) → 완료
-3. 매 DART API 호출마다 새 `httpx.AsyncClient()` 생성 → **TLS handshake 100-300ms × N회 누적 낭비**
+매 DART API 호출마다 새 `httpx.AsyncClient()`를 만들면 **TLS handshake 100-300ms가 호출 수만큼
+누적**된다. fly(iad) ↔ DART(한국)는 거리가 멀어 이 비용이 특히 크다.
 
 ## 결정
 
@@ -58,17 +54,7 @@ self._http = httpx.AsyncClient(
   - 16개 호출 위치 (`async with httpx.AsyncClient() as http:` 블록): `self._http` 사용 + 들여쓰기 dedent
 - 외부 인터페이스 변화 없음 — 같은 메서드 시그니처
 
-## 검증
-
-로컬 spot (cold/warm 차이 미미 — 로컬에선 latency 작음):
-- LG화학 auto 1st: 1.08s
-- SK하이닉스 2nd: 1.97s
-- 카카오 3rd: 1.80s
-- LG화학 results: 0.73s
-
-기능 회귀 0 — agendas/type/items 모두 정상.
-
-## 예상 효과 (fly iad → DART 한국)
+## 효과 (fly iad → DART 한국)
 
 - TLS handshake 절약: 호출당 200-400ms × N
 - query 1번에 5-10 DART 호출 → **누적 1-3초 단축**

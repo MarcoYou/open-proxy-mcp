@@ -17,7 +17,7 @@ related_decisions: [260505_1700_decision_inside-director-performance-matrix]
 
 ## Context
 
-사용자 (코붕이) 비판 (2026-05-05, 고려아연 케이스):
+사내이사 판단의 status quo 편향:
 - "open_proxy 결과가 회사·현 경영진을 방어하려는 입장"
 - 회사 추천 사내이사 (최윤범) → 자동 FOR
 - 주주제안 후보 (MBK·영풍 연합) → 이해충돌 명목 자동 반대

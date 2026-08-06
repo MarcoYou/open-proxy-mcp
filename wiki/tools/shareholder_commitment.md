@@ -72,17 +72,16 @@ sequenceDiagram
 매입시점 BPS    = total_equity_krw(financial_metrics 그 연도) ÷ shares_total(DART stockTotqySttus)
 ```
 - **대상**: `for_cancelation=true`로 표시된 취득결정에 매칭된 실행결과(`acquisition_result`)만.
-- **배당은 이 계산에서 제외**(방향이 반대 — 배당은 자본만 줄고 주식수는 그대로라 BPS가 오히려
-  내려감. 자사주 소각과 섞으면 부정확, 세션 대화에서 검증·확정).
+- **배당은 이 계산에서 제외**한다 — 방향이 반대다. 배당은 자본만 줄고 주식수는 그대로라 BPS가
+  오히려 내려간다. 자사주 소각과 섞으면 부정확하다.
 - **⚠ 한계**: `total_equity_krw`는 financial_metrics summary가 주는 총자본이라 비지배지분(NCI)이
   섞여있을 수 있음 — `financial_metrics.bps_krw` 필드는 실측 결과 항상 None(미구현, "Phase 2" 주석)
   이라 이 근사치를 씀. 순수 지배지분 분리(`_ctrl_equity`, valuation.py 방식)로 정밀화는 TODO.
 - **sanity 필터**: `actual_amount_krw / decision.amount_krw` 비율이 0.3~3.0 밖이면 그 사이클을 계산에서
-  제외하고 `data_quality_flags`에 남김 — `treasury_share`의 결정↔실행 사이클 매칭(`_link_cycles`)에
-  260707 세션에서 발견한 별개 오탐 버그(POSCO홀딩스·카카오·엘앤에프·포스코퓨처엠, `disposal_result`
-  이벤트에서 확인)가 아직 남아있어 조용히 틀린 값을 내지 않기 위한 방어. **단, 확인된 4건은 전부
-  disposal_result라 이 tool의 acquisition_result 전용 로직으로는 아직 실제로 트리거된 사례가 없음**
-  (안전장치 코드는 검증됐으나 실전 발동 사례 미확보 — 정직하게 기록).
+  제외하고 `data_quality_flags`에 남긴다. `treasury_share`의 결정↔실행 사이클 매칭(`_link_cycles`)에
+  오탐이 남아 있어(관측된 건은 전부 `disposal_result`) 조용히 틀린 값을 내지 않기 위한 방어다.
+  이 tool은 `acquisition_result`만 쓰므로 **실전 발동 사례는 아직 없다** — 안전장치이지 상시 경로가
+  아니다.
 
 ## 주주환원 종합(overall) — 배당 포함
 CSR(현금환원율) 공식은 새로 만들지 않고 `director_performance.py`의 기존 공식을 그대로 재사용:
@@ -93,7 +92,7 @@ CSR% = (배당총액 + 자사주소각금액) ÷ 순이익 × 100
 (treasury_share.summary)이라 서로 다른 기간 기준 — `overall.period_note`에 명시. 엄밀한 다년 합산이
 아닌 참고용 종합.
 
-## 배당수익률 — 연말종가 기준 보완 (260707 추가)
+## 배당수익률 — 연말종가 기준 보완
 `dividend.history`의 `yield_pct`(DART 자체 결의시점 시가배당률)는 **옛 연도일수록 결측이 많음**을
 실측 확인(미래에셋증권·현대차·SKC 전부 2021·2022년 None, 2023년부터만 값 있음 — DART alotMatter의
 과거 공시 특성). `krx_weekly`(연말종가, `valuation.py`의 `_annual_pit_band`와 동일 쿼리 패턴)로
@@ -137,22 +136,18 @@ CSR% = (배당총액 + 자사주소각금액) ÷ 순이익 × 100
 | `financial_metrics` | `summary`(과거연도) | `total_equity_krw` — BPS 분자 |
 | DART `stockTotqySttus` | (client 직접) | 유통주식수 — BPS 분모(`valuation.py`의 `_shares_outstanding` 재사용) |
 
-## 발견·수정한 버그 (260707, 조합형 tool 설계 교훈)
-초기 구현에서 `value_up` 호출 시 조회 구간을 안 넘겨(기본값 = 최근 12개월 rolling) **실제로는 있는
-밸류업 계획을 "없음"으로 오판**했다(미래에셋증권 실측 확인 — 2024-08 최초공시·2025-06 이행현황이
-있는데 기본 구간에 안 걸림). 이후 `lookback_years`를 `value_up` 호출에 명시적으로 전달하도록 수정.
+## upstream 호출 계약
 
-**일반화된 예방책(모든 upstream 호출에 적용)**: `value_up`은 정확히 이 상황을 위한 자체 진단 필드
-(`availability_status: "exists_outside_requested_window"` + `diagnostic_window`)를 이미 갖고 있었는데,
-초기 코드는 upstream의 `warnings`를 **완전히 버리고 있어서**(예외만 잡고 정상 응답의 warnings는 무시)
-이 신호를 놓쳤다. 수정: `_data()` 헬퍼가 예외뿐 아니라 **모든 upstream 응답의 warnings를 그대로
-전파**하도록 변경 + `availability_status` 신호를 명시적으로 체크해 "lookback_years를 늘려서
-재조회 권장" 경고를 추가. 이 패턴(조합형 tool이 upstream warnings를 조용히 버리면 이런 종류의 오판이
-반복될 수 있음)은 향후 다른 Action Tool 설계에도 적용해야 하는 일반 원칙.
+- **조회 구간을 그대로 넘긴다.** `lookback_years`를 `value_up` 호출에 명시적으로 전달한다 — 기본값
+  (최근 12개월 rolling)으로 부르면 2년 전 최초공시된 밸류업 계획이 「없음」으로 나온다.
+- **upstream 의 `warnings` 와 진단 필드를 버리지 않는다.** `_data()` 헬퍼가 예외뿐 아니라 정상 응답의
+  `warnings` 도 그대로 전파하고, `value_up` 의 `availability_status`(`exists_outside_requested_window`
+  + `diagnostic_window`)를 명시적으로 확인해 「lookback_years 를 늘려 재조회」 경고를 붙인다.
+  조합형 tool 이 upstream 신호를 조용히 삼키면 상류가 이미 알려 준 부재 사유가 사라진다.
 
 ## 알려진 issue + TODO
 - `total_equity_krw`가 비지배지분 포함 근사치(정밀 지배지분 분리 TODO).
-- `_link_cycles` 매칭 오탐(별개 이슈, 이 페이지 하단 기록) — sanity 필터로 회피만, 근본수정 아님.
+- `_link_cycles` 매칭 오탐(→ [[treasury_share]]) — sanity 필터로 회피만, 근본수정 아님.
 - overall의 배당·소각 기간 불일치(스냅샷 vs 누적) — 다년 정밀 합산은 TODO.
 - 다중기업 배치·포트폴리오 스캔 미지원(단일기업 조회만).
 

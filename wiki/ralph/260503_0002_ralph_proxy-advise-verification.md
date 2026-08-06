@@ -135,7 +135,7 @@ target: **사실 mismatch 0건 (n=200 회사 × 평균 5 facts = 1000 facts)**
 - 신규 proxy_advise.decisions와 옛 advise_vote.decisions 동일 결과 보장 (rename + scope 추가만, logic 변경 X)
 - 1건이라도 깨지면 promise X
 
-### 진단 vs 산출물 분리 (코붕이 명시 — Phase 3 동일)
+### 진단 vs 산출물 분리
 
 - 진단 단계: PDF / OCR / LLM fact-check 사용 OK (offline study)
 - 최종 산출물: parser only (production runtime OCR 호출 X)

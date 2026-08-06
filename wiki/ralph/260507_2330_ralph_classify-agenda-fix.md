@@ -20,7 +20,7 @@ related_decisions: [260508_0030_decision_classify-agenda-parent-shortcircuit]
 
 ## Context
 
-코붕이 review (2026-05-07): 롯데케미칼 proxy_advise 호출 시 정관변경 sub-안건 ("사외이사 명칭 변경", "감사위원 분리선임 확대") 두 건이 NO_DATA로 떴음.
+정관변경 sub-안건("사외이사 명칭 변경", "감사위원 분리선임 확대" 등)이 NO_DATA 로 떨어진다.
 
 분석:
 - `services/proxy_advise.py:_classify_agenda` 우선순위 — "정관" 키워드 first
@@ -140,25 +140,3 @@ universe 그대로 재사용:
 ## archive 폴더
 
 `wiki/architecture/audits/data/260507_classify_agenda/`
-
----
-
-## iteration log
-
-### iter 1 — Audit script + KOSPI 0-30 batch
-(작성 예정)
-
-### iter 2 — KOSPI 30-200 + KOSDAQ 0-100 batch chain
-(작성 예정)
-
-### iter 3 — 통합 분석 (DART X)
-(작성 예정)
-
-### iter 4 — _classify_agenda fix
-(작성 예정)
-
-### iter 5 — 회귀 spot (80 회사)
-(작성 예정)
-
-### iter 6-7 — 문서화 + promise
-(작성 예정)

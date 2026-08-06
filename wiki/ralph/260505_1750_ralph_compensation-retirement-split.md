@@ -17,7 +17,7 @@ related_decisions: [260505_1900_decision_compensation-retirement-split]
 
 ## Context
 
-코붕이 (2026-05-05): 이사·감사 보수한도 변경 + 퇴직금 안건이 현재 어떻게 처리되는지 확인 → 갭 발견:
+이사·감사 보수한도 변경 + 퇴직금 안건 처리에 다음 갭이 있다:
 
 1. **갭 1 (퇴직금)**: 카테고리 매칭 (proxy_advise.py:155) `"보수" or "보수한도" or "퇴직금" or "퇴임위로금"` → 모두 `director_compensation` → `_decide_compensation` 호출 → 인상률 데이터 없으니 NO_DATA / fm_fallback FOR 떨어짐. 즉 회사 추천 퇴직금 변경 = 사실상 **자동 FOR** (status quo bias의 한 형태). v1 parser `parse_retirement_pay_xml`은 변경전/변경후 raw 추출 가능하나 v2 chain에 wire 안 됨.
 
@@ -173,7 +173,7 @@ N연기금 IV-34는 운용사 mainstream과 결이 다름 (운용사: "과다" �
 - `summary.auditor_count` + `summary.auditor_total_limit_krw` → 1인당 평균 계산 (parser 추가 필요 여부 Step 0에서 확인)
 - `compensation.summary.utilization_rate_pct` (감사 분리 필요 — Step 0에서 확인)
 
-### 3. 퇴직금 — 정관 안에 묶인 case + 단독 case 분리 처리 (코붕이 의견, iter 3 hybrid)
+### 3. 퇴직금 — 정관 안에 묶인 case + 단독 case 분리 처리 (hybrid)
 
 KOSPI 0-30 iter 2 baseline: retirement_pay 카테고리 0건 (모두 정관 안에 묶임). 한국 회사 관행상 퇴직금 변경은 대부분 "정관 일부 변경" 형식.
 

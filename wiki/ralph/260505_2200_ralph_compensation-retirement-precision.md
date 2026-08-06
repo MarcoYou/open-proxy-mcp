@@ -28,11 +28,11 @@ ref:
 | audit_compensation | 39 | 100% ✓ | 100% (1/1) ✓ | trigger case 0 |
 | retirement_pay | 14 | 78.6% ❌ | majority 0 | 지급률 2배수+ (GST) AGAINST 정확 ✓ / REVIEW 8건 정확 |
 
-**남은 진짜 갭** (코붕이 + 분석 결과):
+**남은 진짜 갭**:
 
 1. **yoy<0 trigger 미작동** — `_decide_director_compensation`의 "흑자 + 순익 yoy<0 + 인상 → AGAINST" 코드는 있으나 `fin_metrics`가 `scope="summary"`로 fetch되어 prev year data 미노출 → `_fm_yoy_pct` 항상 None → 트리거 미작동. **"잘 못하는데 인상" case 자동 catch X**.
 
-2. **소진율 단독 분기 부족** — 현재 "소진율<30% AND 인상>0%"만 AGAINST. 코붕이 의견: 소진율<30% + 인상률 미파악 / 동결도 REVIEW로 (남는데 한도 유지).
+2. **소진율 단독 분기 부족** — 현재 "소진율<30% AND 인상>0%"만 AGAINST. 소진율<30% + 인상률 미파악 / 동결도 REVIEW 여야 한다 (한도가 남는데 그대로 유지).
 
 3. **피에스케이 / 피에스케이홀딩스 NO_DATA** — NEW parser도 못 잡음. parser 추가 강화 필요.
 
@@ -186,7 +186,7 @@ def _fm_yoy_pct(fm_payload):
 
 회귀 검증: 자본잠식 case 영향 없는지 + 적자/yoy<0 trigger 활성화 spot.
 
-### iter 3. 소진율 단독 강화 (코붕이 의견)
+### iter 3. 소진율 단독 강화
 
 `_decide_director_compensation` + `_decide_audit_compensation`에 분기 추가:
 

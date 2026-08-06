@@ -5,7 +5,6 @@ date: 2026-05-08 02:00
 status: adopted
 related:
   - wiki/ralph/260508_0130_ralph_law-layer.md
-  - wiki/lessons/law-layer-260508.md
   - wiki/rules/laws/상법-2025-2026-종합.md
   - wiki/rules/laws/law_layer_rules.json
   - wiki/decisions/open-proxy-guideline.md
@@ -16,9 +15,9 @@ related_lessons: [law-layer-precision-260508]
 
 ## 배경
 
-코붕이 review (2026-05-07~08): LG화학 proxy_advise 호출 시 정관 sub 안건 잘못 분류 — 운용사 정책 PDF update 안 되어 stale.
-
-forward-looking proxy advisory 위해 법령 자체를 layer로 정합 필요. 운용사 정책 위에 강행규정 우선 적용.
+운용사 정책은 PDF 기반이라 상법 개정을 뒤늦게 반영한다. 그 정책만 근거로 삼으면 개정 직후 안건을
+stale 한 기준으로 판단하게 된다. forward-looking proxy advisory 를 하려면 법령 자체가 layer 여야
+하고, 운용사 정책 위에 강행규정이 먼저 적용돼야 한다.
 
 ## 결정
 
@@ -62,7 +61,7 @@ forward-looking proxy advisory 위해 법령 자체를 layer로 정합 필요. �
 |---|---|---|---|
 | 1차 | 2025-07-22 | 즉시 / 2026-07-23 / 2027-01-01 | 이사 충실의무, 독립이사, 합산 3% 룰, 전자주총 |
 | 2차 | 2025-09-09 | 2026-07-23 / **2026-09-10** | 자산 2조+ 집중투표 의무화 + 분리선출 2명 |
-| 3차 | 2026-02-25 통과 | 2026-09-10 (당시 예정 — **실제 2026-03-06 공포 즉시 시행**, 260709 정정: [[상법-2025-2026-종합]]) | 자사주 의무소각 + 합병/분할 신주 배정 금지 |
+| 3차 | 2026-02-25 통과 | **2026-03-06 (공포 즉시 시행)** — [[상법-2025-2026-종합]] | 자사주 의무소각 + 합병/분할 신주 배정 금지 |
 
 법무법인 자료 (김·장 / 신·김 / 지평 / 태평양 / 율촌 / Deloitte / 삼일회계법인) + FNguide 보고서로 cross-check.
 
@@ -73,7 +72,7 @@ forward-looking proxy advisory 위해 법령 자체를 layer로 정합 필요. �
 - 이사 정수 축소 → 직접 진입 허들 상승
 - 감사위원회 정원 확대 (3→5) → 분리선출 2명 + 나머지 3명 과반 → 무력화
 
-→ 코붕이 정밀화: 모두 REVIEW (수치 효과 있지만 정당 사유 가능)
+→ 모두 REVIEW (수치 효과는 명확하지만 정당한 사유가 가능하다)
 
 ## 영향 범위
 
@@ -115,7 +114,3 @@ forward-looking proxy advisory 위해 법령 자체를 layer로 정합 필요. �
 - 운용사 정책 자동 update — 운용사 책임 영역
 - 후보 평가 logic (`_decide_director_election` 등) — 별도 ralph
 - 모든 hardcoded `_decide_*` 즉시 정리 — 점진적 (법령 layer 정합 부분만 정리)
-
-## archive 폴더
-
-`wiki/architecture/audits/data/260508_law_layer/` (회귀 spot 결과)

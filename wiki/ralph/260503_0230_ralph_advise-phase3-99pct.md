@@ -78,7 +78,7 @@ max_iterations: 25
 
 **F3c. image_notice 본문 패턴 study (진단 단계만 OCR, 최종 산출물은 parser)**
 
-**원칙 (코붕이 명시)**:
+**원칙**:
 - 진단 단계: PDF 다운로드 + opendataloader + Upstage OCR 사용 OK
 - 최종 산출물: **parser only** (정규식 / HTML / text 매칭). production runtime에 OCR 호출 X.
 
@@ -152,12 +152,12 @@ max_iterations: 25
 - 신규 fix가 alias 매칭/parser/cache 어느 부분에서든 기존 정상 회사를 깨지 말 것
 - regression test script (`/tmp/test_regression_158.py`) 작성 + 통과 확인 후 promise
 
-### 진단 vs 산출물 분리 (코붕이 명시)
+### 진단 vs 산출물 분리
 - **진단 단계 (offline, study 목적)**: PDF 다운로드 / opendataloader / Upstage OCR 사용 OK
 - **최종 산출물**: parser only (.py 코드, OCR runtime 호출 X)
 - image-only PDF 같은 edge case는 OCR로 패턴 study → parser에 코드 흡수 → 또는 정직히 status=no_filing 표기
 
-### 실패 사례 incremental archive (코붕이 명시)
+### 실패 사례 incremental archive
 
 매 iteration 작업 중 실패 case 만날 때마다 **원문 + 분석을 archive**:
 - 위치: `wiki/architecture/audits/data/260503_failure_archive/` (디렉토리)
@@ -174,7 +174,7 @@ max_iterations: 25
 
 **무조건 실패 시 archive 우선** (fix 시도 전이라도). 그 후 fix.
 
-### Soft pattern 우선 / Hard pattern은 끝까지 노력 (코붕이 명시)
+### Soft pattern 우선 / Hard pattern은 끝까지 노력
 
 **원칙**: parser는 **soft pattern** (유연 매칭) 우선. hard pattern이 absolutely needed해도 다층 fallback으로 끝까지.
 

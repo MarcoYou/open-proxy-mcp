@@ -7,21 +7,19 @@ supersedes: none
 related:
   - wiki/ralph/260505_1611_ralph_inside-director-performance-matrix.md
   - wiki/decisions/open-proxy-guideline.md
-  - wiki/lessons/decision-vs-raw-separation.md
 related_lessons:
   - proxy-advise-perf-fact-260614
 ---
 
 # 사내이사 재직 중 성과 매트릭스 (2x3) 도입
 
-## 배경 (2026-05-05 고려아연 케이스)
+## 배경
 
-사용자 (코붕이) `proxy_advise_before_meeting` 결과 비판:
-- 회사·현 경영진 방어 편향. 회사 추천 사내이사 (최윤범) → 자동 FOR. 주주제안 후보 (MBK·영풍 연합) → 이해충돌 명목 자동 반대.
+사내이사 후보를 결격사유만으로 판단하면 **회사·현 경영진 방어 편향**이 생긴다 — 회사 추천 사내이사는
+자동 FOR, 주주제안 후보는 이해충돌 명목으로 반대가 된다. 원인은 셋이다.
 
-근본 원인:
 1. `_decide_director_election` 사내이사 분기는 **결격사유만** 검증 → 자동 FOR.
-2. 사내이사에게 "독립성" 평가 자체 무의미 (CEO/본부장은 당연 회사 사람).
+2. 사내이사에게 "독립성" 평가 자체가 무의미하다 (CEO/본부장은 당연히 회사 사람).
 3. status quo 무검증 → 회사 추천 후보가 무조건 통과.
 
 ## 결정
@@ -102,9 +100,7 @@ target band: good 20-40 / mod 30-50 / weak 15-30 / bad 5-15. 통합 결과 모�
 
 G2 (special rule): 적자 16건 모두 CSR special rule 적용 (avg/trend → weak 또는 moderate). 자본잠식 full 케이스는 KOSPI 100/KOSDAQ 50에서 0건.
 
-G3 (decision branch): bad → AGAINST (예: 한화오션 김희철, 삼성SDI 오재균), weak → REVIEW (예: HD현대중공업 금석호, HD한국조선해양 김형관). 묶음 안건도 사내이사 perf bad/weak 시 동일 분기.
-
-audit data: `wiki/architecture/audits/data/260505_inside_director_performance/`
+G3 (decision branch): 묶음 안건도 사내이사 perf bad/weak 시 개별 후보와 동일하게 분기한다.
 
 ## 영향
 

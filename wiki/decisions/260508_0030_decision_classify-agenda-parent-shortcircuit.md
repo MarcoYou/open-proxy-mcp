@@ -5,14 +5,15 @@ date: 2026-05-08 00:30
 status: adopted
 related:
   - wiki/ralph/260507_2330_ralph_classify-agenda-fix.md
-  - wiki/lessons/agenda-classification-260507.md
 ---
 
 # _classify_agenda parent shortcircuit 결정
 
 ## 배경
 
-코붕이 review (2026-05-07): 롯데케미칼 proxy_advise 호출 시 정관변경 sub-안건 두 건 NO_DATA. ralph 7 iter audit 결과 300 회사에서 mismatch 19.3% (607/3145) — 모두 정관 sub-안건이 다양한 카테고리로 잘못 분류.
+정관변경 sub-안건은 제목만으로는 카테고리를 특정할 수 없다. "사외이사 선임" 같은 표현이 정관 조문
+개정 항목으로 등장해 director_election 등 9종 이상으로 흩어져 분류되고, 그 결과 NO_DATA가 난다.
+부모 안건이 정관변경이라는 사실만이 유일하게 안정적인 신호다.
 
 ## 결정
 
@@ -30,10 +31,9 @@ caller (`proxy_advise._run`)에서 agenda tree → title:parent map 추출 + 전
 
 ## 근거
 
-1. 300 회사 audit에서 정관 sub-안건 100%가 잘못 분류됨
-2. 잘못된 카테고리가 9+ 종류로 흩어짐 — 키워드별 fix는 whack-a-mole
-3. 부모 인지 단일 fix로 해결 가능 (문제는 "정관 sub" 단 하나)
-4. parent_title=""로 default — 기존 caller 호환 (회귀 0)
+1. 잘못된 카테고리가 9종 이상으로 흩어져 키워드별 대응은 끝나지 않는다
+2. 부모가 정관변경인지 하나만 보면 전부 해결된다
+3. `parent_title=""` default — 기존 caller 호환 (회귀 0)
 
 ## Trade-off
 
@@ -63,7 +63,3 @@ caller (`proxy_advise._run`)에서 agenda tree → title:parent map 추출 + 전
 - 다른 분류기 audit (`_classify_value_up_item`, `_classify_filing`, `_is_company_side` 등) — Ralph 2/3로 분리
 - agenda tree 구조 자체 변경
 - decision logic (`_decide_*`) 변경
-
-## archive 폴더
-
-`wiki/architecture/audits/data/260507_classify_agenda/` (post-fix audit JSON 8개 + pre-fix 9개 + phase1_aggregate.json)

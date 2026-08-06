@@ -6,17 +6,18 @@ status: adopted
 related:
   - wiki/ralph/260505_1750_ralph_compensation-retirement-split.md
   - wiki/decisions/open-proxy-guideline.md
-  - wiki/lessons/decision-tree-vs-matrix.md
 ---
 
 # 보수한도 / 퇴직금 안건 분리
 
 ## 배경
 
-코붕이 (2026-05-05): 이사·감사 보수한도 변경 + 퇴직금 안건이 어떻게 처리되는지 확인 → 갭 발견.
+보수한도와 퇴직금을 한 함수(`_decide_compensation`)로 처리하면 두 가지 갭이 생긴다.
 
-1. **퇴직금 자동 FOR**: `_decide_compensation` 한 함수가 퇴직금까지 처리. 인상률 데이터 없으니 NO_DATA / fm_fallback FOR. 회사 추천 퇴직금 변경 = 사실상 자동 FOR.
-2. **이사 vs 감사 분리 안 됨**: parser는 target ("이사" or "감사") 분리하나 결정은 합산 처리. 감사는 독립성이 본질 — 회사가 보수 늘려주면 회사 편들 인센티브.
+1. **퇴직금 자동 FOR**: 퇴직금에는 인상률 데이터가 없어 NO_DATA / fm_fallback FOR로 떨어진다 —
+   회사 추천 퇴직금 변경이 사실상 자동 FOR가 된다.
+2. **이사 vs 감사 미분리**: parser는 target("이사"/"감사")을 나누지만 결정은 합산 처리한다.
+   감사는 독립성이 본질이라, 회사가 보수를 늘려주면 회사 편을 들 인센티브가 생긴다.
 
 ## 결정
 
@@ -113,9 +114,7 @@ Layer 2: 결정 코드 (_decide_*) — 자동 trigger wire + 정성은 facts raw
 
 ---
 
-## 최종 검증 (3 ralph 누적, KOSPI 200 + KOSDAQ 50, n=226)
-
-**precision ralph (260505_2200) 최종 결과**:
+## 검증 (KOSPI 200 + KOSDAQ 50, n=226)
 
 | 카테고리 | n | 분포 | G1 | G3 |
 |---|---|---|---|---|
@@ -128,13 +127,12 @@ Layer 2: 결정 코드 (_decide_*) — 자동 trigger wire + 정성은 facts raw
 - 카카오페이 퇴직금 → 사외이사 퇴직금 신설 (OPM #6)
 - 퓨쳐메디신 보수한도 → 자본잠식 + 인상 (OPM Guideline)
 
-**REVIEW 6건** — KT&G "퇴직연금 제도 도입" → FOR로 정정 (false positive 수정), SK바이오팜/LIG넥스원/에코프로비엠 등 raw 검토 필요 case.
+**REVIEW 6건** — SK바이오팜/LIG넥스원/에코프로비엠 등 raw 검토가 필요한 case. "퇴직연금 제도 도입"처럼
+형식적 변경은 분기 9a로 FOR.
 
-**precision ralph 추가 fix** (commit `782af95` / `8fe8bff` / `db44182`):
-1. `parse_retirement_pay_xml` 강화: anchor 검출 + 표 head 키워드 (현재/개정(안)/개정전후) + 표 본문 "퇴직" broad-match
-2. `financial_metrics` summary scope에 prev_net_income/yoy_pct 노출 → 흑자+yoy<0 trigger 활성화
-3. 소진율 단독 강화: 소진율<30% + 인상률 미파악/동결 → REVIEW (코붕이 의견)
+**정밀화 (현행 동작)**:
+1. `parse_retirement_pay_xml`: anchor 검출 + 표 head 키워드(현재/개정(안)/개정전후) + 표 본문 "퇴직" broad-match
+2. `financial_metrics` summary scope가 prev_net_income/yoy_pct를 노출 → 흑자+yoy<0 trigger 활성
+3. 소진율 단독 분기: 소진율<30% + 인상률 미파악/동결 → REVIEW
 
 **G4 N연기금 정합 100%**: 모든 AGAINST가 N연기금 [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger와 일치.
-
-**Promise 발행**: `COMPENSATION_RETIREMENT_PRECISION_VERIFIED` (260505_2200 ralph)

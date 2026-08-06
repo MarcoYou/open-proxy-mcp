@@ -19,7 +19,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 - `business_details(company, period="latest", fields="", format="md", bsns_year="", reprt_code="", context_mode="strict", context_chars=20000)`
 - `period`: **`latest`(기본, 사업·반기·분기 중 가장 최신 제출분=최신 데이터)** / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). 응답 `report.report_nm`으로 어느 보고서인지 확인. II.사업의내용은 분기/반기도 완전구조라 동일 필드(사업의내용_ksic별양식 참조). `bsns_year`+`reprt_code` 지정 시 무시됨.
 - `fields`: 쉼표구분 선택(`segments,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,revenue_mix_form,key_contracts,financial_ops,financial_soundness,investment_property,geo_revenue`, 미지정 시 전체). **특정 필드만 지정하면 응답이 가벼움**. 연구개발 상세표처럼 실제 소절이 큰 회사는 단일 필드도 수만 자일 수 있다.
-- `bsns_year`+`reprt_code`(260721 추가, **시계열/추이 조회용**): 둘 다 지정 시 특정 과거 시점 1건을 조회(`period` 대신). DART 표준 `reprt_code` — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). 한 번에 여러 분기를 반환하지 않으므로 **추이는 분기마다 반복 호출**해서 호출측이 이어붙임(`ownership_major(ticker, year)` 등 기존 DART 표준 파라미터명과 동일 컨벤션 재사용, 결산월 비표준(3월결산 등)에도 안전 — 분기보고서가 연내 2회 등장하면 `report_nm` 기수라벨의 상대순서로 1분기/3분기 구분, 절대월 하드코딩 없음). 하나만 지정하면 `status=error`.
+- `bsns_year`+`reprt_code`(**시계열/추이 조회용**): 둘 다 지정 시 특정 과거 시점 1건을 조회(`period` 대신). DART 표준 `reprt_code` — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). 한 번에 여러 분기를 반환하지 않으므로 **추이는 분기마다 반복 호출**해서 호출측이 이어붙임(`ownership_major(ticker, year)` 등 기존 DART 표준 파라미터명과 동일 컨벤션 재사용, 결산월 비표준(3월결산 등)에도 안전 — 분기보고서가 연내 2회 등장하면 `report_nm` 기수라벨의 상대순서로 1분기/3분기 구분, 절대월 하드코딩 없음). 하나만 지정하면 `status=error`.
 - 예: `business_details("에코프로비엠", fields="utilization")` · `business_details("HD한국조선해양", fields="backlog")` · `business_details("삼성전자", bsns_year="2025", reprt_code="11014")`(2025 3분기 스냅샷)
 
 ### strict / candidate 문맥
@@ -28,7 +28,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 - `context_chars`: candidate 창의 크기. 기본 20,000자, 최대 60,000자. 호출 AI가 문맥이 부족할 때만 더 큰 값으로 재호출한다. candidate markdown은 인접 소절을 포함할 수 있어 값 확정·hint·자동 비교에 사용하면 안 된다.
 
 ## 알려진 한계 (v1 스코프)
-- **한 번의 호출로 여러 기간을 반환하지 않음** — "지난 1년 부문별 매출 추이" 같은 질문은 `bsns_year`/`reprt_code` 조합으로 분기마다 반복 호출 필요(예: 2Q25/3Q25/4Q25/1Q26 4번). 서버가 자동으로 시계열을 조립해주지 않음(260721 실사용 세션에서 발견 — 최초 설계([[260717_1220_decision_business-content-tool-roadmap]])는 "최신 스냅샷"만 스코프였음).
+- **한 번의 호출로 여러 기간을 반환하지 않음** — "지난 1년 부문별 매출 추이" 같은 질문은 `bsns_year`/`reprt_code` 조합으로 분기마다 반복 호출 필요(예: 2Q25/3Q25/4Q25/1Q26 4번). 서버가 자동으로 시계열을 조립해주지 않음(설계 스코프는 「최신 스냅샷」 — [[260717_1220_decision_business-content-tool-roadmap]]).
 
 ## 필드별 가이드 (직접 테스트용)
 | 필드 | 읽는 소절 | 무엇이 나오나 | 테스트 예시 |
@@ -41,7 +41,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 | **customers** 고객 | 주요 매출처 / 주요 고객 주석 | 주요 고객·매출처·판매경로 원문(익명 다수) | 삼성전자·유한양행 |
 | **raw_materials** 원재료 | 주요 원재료 현황 / 원재료 가격변동추이 | 원재료 구성·매입과 원재료 가격 추이 원문 | LG화학·대한항공 |
 | **product_pricing** 제품가격 | 주요 제품 등의 가격변동추이 | 판매가격·ASP·가격변동 원인 원문 | 삼성전자·HD한국조선해양 |
-| **revenue_breakdown** 매출 분해 | **매출 축 4개의 단일 진입점(260802)** | `by_segment`(III 주석·감사O·**매출+이익**) + `by_product`(II-2-가·감사X·매출만) + `by_region`(III ¶33·**연결**·매출만) + `by_trade`(II-4 매출실적표·**별도**·수출/내수) + `available`/`needs_review` | 현대차(4축 전부)·HD현대일렉트릭(부문 없음→제품 있음) |
+| **revenue_breakdown** 매출 분해 | **매출 축 4개의 단일 진입점** | `by_segment`(III 주석·감사O·**매출+이익**) + `by_product`(II-2-가·감사X·매출만) + `by_region`(III ¶33·**연결**·매출만) + `by_trade`(II-4 매출실적표·**별도**·수출/내수) + `available`/`needs_review` | 현대차(4축 전부)·HD현대일렉트릭(부문 없음→제품 있음) |
 | ~~geo_revenue~~ → `by_region` | 위와 동일 | **옛 이름은 별칭으로 유지** — `fields="geo_revenue"` 로 부르면 종전대로 평평하게 반환(옛 호출 비깨짐). 새 코드는 축 이름을 쓴다 | 기아·LG엔솔(단일부문사) |
 | **revenue_mix_form** 매출구성 | II-2-가 주요 제품 등의 현황 | 제품·품목별 매출액·비중 원문 + `self_check` | HD현대일렉트릭(단일부문인데 제품 3종)·신풍제약 |
 | **key_contracts** 주요계약 | II-6-가 주요계약 | 라이선스·기술도입·장기공급 계약 원문 | 녹십자(라이선스아웃/인)·대원화성 |
@@ -53,8 +53,8 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 > 소스는 동일 III.재무 주석이지만 계정 API(자산 티어)·타법인출자 API(시가마크)·시총 대비 NAV 커버리지까지
 > 결합한 별도 유즈케이스(자산저평가주 스크리닝)라 분리. 시그니처 설계·하드닝 이력은 그쪽 페이지 참조.
 
-> **D-트랙 금융·REIT(260718)**: 마지막 3필드는 금융/증권/보험/지주·REIT용. segments는 금융폼 `UNSUPPORTED_FORM`이므로 `financial_ops`의 영업부문별 재무정보가 대체.
-> **KSIC(업종코드) 게이트**(사용자 제안 260718) — content 마커만이면 카카오(포털)·한화(화약)·아모레퍼시픽(화장품)이 자회사/우발 신호로 오발. → `get_company_info`의 `induty_code`로 **금융권(KSIC 64/65/66)일 때만** financial 필드, **부동산(68)/보험(65)/지주(64)**일 때만 investment_property. 비금융은 아예 시도 안 함(오발 0). **지주회사 64992는 충돌**(신한금융 vs SK)이라 그 안에서만 content-signature로 판별. 응답에 `induty_code` 동봉.
+> **D-트랙 금융·REIT**: 마지막 3필드는 금융/증권/보험/지주·REIT용. segments는 금융폼 `UNSUPPORTED_FORM`이므로 `financial_ops`의 영업부문별 재무정보가 대체.
+> **KSIC(업종코드) 게이트** — content 마커만이면 카카오(포털)·한화(화약)·아모레퍼시픽(화장품)이 자회사/우발 신호로 오발. → `get_company_info`의 `induty_code`로 **금융권(KSIC 64/65/66)일 때만** financial 필드, **부동산(68)/보험(65)/지주(64)**일 때만 investment_property. 비금융은 아예 시도 안 함(오발 0). **지주회사 64992는 충돌**(신한금융 vs SK)이라 그 안에서만 content-signature로 판별. 응답에 `induty_code` 동봉.
 > **헤딩 앵커 + 내용 시그니처 폴백 이중구조** — 금융/REIT는 서식이 덜 표준화돼, 헤딩 키워드가 미스해도 **데이터 시그니처(순이자손익·지급여력비율·임대율 등)로 표를 찾아** 렌더(헤딩 라벨보다 안정적). `source=heading|signature`로 어느 경로인지 표기.
 > **D-트랙은 II.사업의내용 구간만 스캔**(`_biz_html_region`) — 시그니처 폴백이 full html을 훑으면 **III.재무 주석의 회계표**(공정가치 서열체계·투자부동산 장부금액 헤더조각)를 REIT 투자부동산으로 **오발**(NH올원·이리츠코크렙: 1095·398자 회계각주). II→III 경계는 **목차 stub(수십자) skip 후 첫 실질구간(>2000자)**으로 잡는다(max-span 금물 — 한화생명류는 말미에 종속사 사업보고서가 embedded돼 그 span이 본문보다 커 오선택→본문 DP Real Estate·종속REIT 서술 통째 누락). II 제한 후 NH올원·이리츠는 오히려 II 프로즈(reit_prose 7203·2123자)로 정상 회수, 한화생명은 종속 부동산 서술 유지, 은행·증권 financial 필드·정상 REIT 전부 불변.
 > **지주형 REIT 프로즈 폴백**(`source=reit_prose`) — 명목회사(해외리츠 등)는 표준(제조)폼에 부동산을 **서술형**으로 싣는다(제이알글로벌리츠: 파이낸스타워(벨기에)·498 Seventh Avenue를 '2.주요 제품 및 서비스→영업개황'에 임대료·WALE·임차율 프로즈로. 전용 투자부동산 헤딩·표 없음). 전용 헤딩/시그니처가 다 실패할 때만 표준폼 헤딩(주요 제품 및 서비스·영업개황·회사의 현황)을 시도하되 **content-gate 강화**(임대료/임대차/임차 + 부동산/투자대상/WALE 동반)로 보험 영업개황 등 오섹션을 차단. 작동하는 REIT는 전용경로에서 이미 반환돼 영향 없음(신한알파·SK·롯데·ESR 전부 `source=heading` 유지 확인).
@@ -63,7 +63,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
 
 ## 출력 (ToolEnvelope.data)
 - `form_type`: `standard7` / `financial5` / `reit` / `dual` (목차 소절 제목 기반 판별, KSIC 불신)
-- **공통 응답 계약(260724 통일)**: 모든 필드는 같은 사다리를 따른다 —
+- **공통 응답 계약**: 모든 필드는 같은 사다리를 따른다 —
   ① 정형(검산 등 자격 심사 통과분만) → ② 심사 탈락 시 해당 구간 **원문 마크다운 + 탈락 사유** →
   ③ 원문도 없으면 명시적 부재(`NOT_COLLECTED`/`NOT_APPLICABLE` + `na_reason`).
   정형 성공 응답에는 `self_check`(호출 AI용 자가검증 안내 — 의심 신호 체크리스트 + 원문 재조회
@@ -80,7 +80,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
   - `raw_materials`는 `materials`와 `input_price`를 **각각 구조 경계로 추출해 최대 하나씩** 결합한다. 한 사업부의 기재 생략이 다른 사업부의 실제 매입·가격 표를 `NOT_APPLICABLE`로 덮지 않는다.
   - `product_pricing`은 명시적 가격 추이 기재 생략·산출 곤란만 `NOT_APPLICABLE`로 처리한다. 가격 결정 방식·정성 설명은 원문으로 유지한다.
   - 기존 `status=MARKDOWN|NOT_APPLICABLE`은 호환성을 위해 유지. `extraction_status=SUCCESS|NOT_APPLICABLE|NOT_COLLECTED`가 명시적 기재없음과 앵커 미검출을 구분한다.
-  - **값이 없을 때 왜 없는지를 넷으로 가른다(`absence_kind`, 260803)** — 읽는 쪽이 「원문에 없다」와 「우리가 못 찾았다」를 구분하지 못하면 원문 확인을 포기하게 된다.
+  - **값이 없을 때 왜 없는지를 넷으로 가른다(`absence_kind`)** — 읽는 쪽이 「원문에 없다」와 「우리가 못 찾았다」를 구분하지 못하면 원문 확인을 포기하게 된다.
     | `absence_kind` | 뜻 | md 표시 |
     |---|---|---|
     | `not_disclosed` | 소절이 없거나, 있어도 회사가 부재를 밝혔다 | `해당 없음` |
@@ -93,7 +93,7 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
   - 소절 제목이 **문단 안에 녹아 있어**(「…주요 원재료의 가격변동추이는 다음과 같습니다」) 헤딩 요소가 아닌 경우, 정규 경로가 아무것도 못 찾았을 때만 문단 단위로 회수한다(`boundary=prose_paragraph`, `raw_materials`·`product_pricing`). 문단이 이끄는 표는 잇달아 오는 것까지 담는다 — DART는 「(단위 : 원)」을 별도 표로 렌더한다.
   - 기존 `pct_hint`·`ratio_to_sales_pct_hint`는 유지하고, 동일 값을 비권위 `hints[]`에도 제공한다. 힌트는 반드시 반환된 markdown에서만 산출한다.
   - **파서가 값 판정 안 함**: 사업장 유형자산 장부가 함정·가동률 단위카오스·수주 flow표 오귀속·rnd 회계처리/보조금·customers 다위치 충돌은 호출측 AI가 원문 읽어 판별(QA패널 BLOCKER 대응).
-- `geo_revenue`(지역별 수익 — 전사 차원 공시, 260724 신설):
+- `geo_revenue`(지역별 수익 — 전사 차원 공시):
   - `extraction_status=SUCCESS` → `items:[{name, revenue}]` + `unit` + `revenue_metric` +
     `regional_total`(표 자체의 지역 합계 — 연결 매출과의 tie-out 재료) + `reconciliation` +
     `basis_caption`(표 직전 캡션 — 소재지/도착지 등 기준 확인용) + `self_check`.
@@ -103,24 +103,23 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
     (`markdown`) + 탈락 사유(`note` — 예: "내부거래 포함 총액 기준") → 호출 AI가 함정을 알고
     직접 읽는다.
   - `NOT_COLLECTED` → 검산 가능한 지역표 부재. 금융·REIT 폼은 `UNSUPPORTED_FORM`.
-  - **`foreign_share_pct` 해외 매출 비중(260731 신설) — 이 필드를 절대금액보다 앞세운다.**
-    비중은 **단위가 약분**되므로 단위를 잘못 읽어도 맞는다. 실측(층화 47사)에서 격자 매핑이
-    어긋나거나 단위를 놓쳐 절대금액이 10⁶배 틀린 경우에도 비중은 정확했다.
+  - **`foreign_share_pct` 해외 매출 비중 — 이 필드를 절대금액보다 앞세운다.**
+    비중은 **단위가 약분**되므로 단위를 잘못 읽어도 맞는다 — 격자 매핑이 어긋나거나 단위를 놓쳐
+    절대금액이 10⁶배 틀려도 비중은 그대로다.
     함께: `domestic_revenue`/`foreign_revenue`/`share_basis`(국내=본사 소재지 국가·국내·한국).
     지역명에 각주가 붙으면(카카오 「국내(주1)」) 국내로 못 읽어 100%가 나오므로 각주를 뗀다.
     표에 국내 구분 항목이 아예 없으면(대한해운) `share_caveat`로 밝힌다 — 「해외 100%」와
     「국내 항목이 표에 없음」은 다르다.
-  - **`source_location`(260731 신설) — 원문을 직접 찾아보라고 위치를 싣는다.**
+  - **`source_location` — 원문을 직접 찾아보라고 위치를 싣는다.**
     `{chapter: "III. 재무에 관한 사항 — 재무제표 주석", note_section: "37. 부문정보 (연결)",
     table_caption, how_to_find}`. 지역 정보는 **III 주석**에 있고 II가 아니다.
   - `SUCCESS_NO_TOTAL_COLUMN` → 합계 열이 없지만 항목이 **전부 지역명**이라 항목합을 총계로
     쓴 경우(HD현대일렉트릭 「외국 | 본사 소재지 국가」 2칸). 검산은 못 했다고 밝힌다.
   - 알려진 한계(v2): 총액 기준·구성행 표의 합계행 재선택(현재는 안전 강등), 3개월/누적 구분,
     제품·서비스별 분해(`product_revenue` — 오분류 위험으로 이연).
-- `revenue_breakdown`(매출 분해 — 260728 신설, **기본 반환 세트의 단일 진입점**):
-  - 문제: `segments`만 물어본 호출측이 「단일부문 선언」을 보고 "이 회사는 부문 정보가 없다"로 끝냈다.
-    실제로는 II-2-가에 제품별 구성이 있었다(HD현대일렉트릭 전력기기 69.5%). **묻는 곳이 나뉘어 있어
-    놓치는 것**이 원인이라, 묻는 곳을 하나로 합쳤다.
+- `revenue_breakdown`(매출 분해 — **기본 반환 세트의 단일 진입점**):
+  - **묻는 곳을 하나로 합친 필드다.** `segments`만 물으면 「단일부문 선언」을 보고 "이 회사는 부문
+    정보가 없다"로 끝나는데, 실제로는 II-2-가에 제품별 구성이 있다(HD현대일렉트릭 전력기기 69.5%).
   - `{by_segment, by_product, available, needs_review, guidance}`. 각 축에 `source`(출처·감사여부)를
     붙여 **칸막이는 유지**한다 — 평평하게 섞으면 감사받은 주석과 공시서식 기재사항이 구분되지 않고,
     제품+지역을 더해 매출이 두 배가 되는 오독이 열린다.
@@ -128,18 +127,14 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
     (남광토건: 제품별이 시공실적 표라 검토필요인데 available 에 넣으면 안내가 거짓이 된다).
   - 옛 이름 `segments`·`revenue_mix_form`은 `fields`에 직접 주면 종전대로 평평하게 반환(별칭) —
     기존 호출은 깨지지 않는다. 지역별(`geo_revenue`)은 묶지 않고 독립 필드로 둔다.
-  - 부수 수정: `geo_revenue`는 260724 신설 후 **마크다운 렌더가 없어 `format=md`에선 보이지 않았다**
-    (json 에만 존재). 독립 절로 렌더를 추가했다.
   - **출력 문구 원칙**: 렌더 문구에 ⚠️·「~하지 마세요」를 쓰지 않는다. 자료의 성격을 알려주는 것이지
-    읽는 사람이 뭘 잘못한 게 아닌데, 경고 표지와 금지문은 그렇게 읽힌다(260728 사용자 지적).
-    분량도 한 줄로 줄였다 — 「제품별·부문별 매출 구분은 K-IFRS 기준과 다를 수 있습니다」.
-    상세(감사여부·분모·검산)는 축별 `_출처:_`와 `_자가검산:_` 줄이 회사별 실측값으로 말하므로
-    앞머리에서 반복하면 중복이다.
-    회귀 테스트로 고정(`test_output_does_not_scold_the_reader`).
-    같은 이유로 `warnings` 푸터의 「⚠」도 「_처리 메모:_」로 바꿨다 — 담기는 내용이 대개 실패가
-    아니라 처리 경위다(어느 문서를 썼나 · 정형 대신 원문을 냈나). 30사 스윕에서 6사(20%)가
-    「정형 저신뢰」 문구에 경고 표지를 달고 나오고 있었다.
-- `revenue_mix_form`(매출구성 — 기업공시서식 II-2-가, 260728 신설):
+    읽는 사람이 뭘 잘못한 게 아닌데, 경고 표지와 금지문은 그렇게 읽힌다. 앞머리는 한 줄
+    (「제품별·부문별 매출 구분은 K-IFRS 기준과 다를 수 있습니다」)로 두고, 상세(감사여부·분모·검산)는
+    축별 `_출처:_`·`_자가검산:_` 줄이 회사별 실측값으로 말한다 — 앞머리에서 반복하면 중복이다.
+    회귀 테스트로 고정(`test_output_does_not_scold_the_reader`). 같은 이유로 `warnings` 푸터는
+    「⚠」가 아니라 「_처리 메모:_」다 — 담기는 내용이 대개 실패가 아니라 처리 경위다(어느 문서를
+    썼나 · 정형 대신 원문을 냈나).
+- `revenue_mix_form`(매출구성 — 기업공시서식 II-2-가):
   - **`segments`와 다른 자료다.** `segments`는 III 주석의 K-IFRS 1108 영업부문(외부감사 대상),
     `revenue_mix_form`은 II. 사업의 내용의 기재사항이다. **단일 영업부문 회사도 제품별 구성은
     여기 있다** — HD현대일렉트릭은 부문 주석이 「단일부문」인데 II-2-가에는 전력기기 69.5% ·
@@ -157,8 +152,8 @@ DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매�
     `markdown_full_chars`·`truncation_note`(올리는 방법 안내)가 붙고 마크다운에도 렌더된다.
     적용 대상: `revenue_mix_form` · `key_contracts` · `financial_ops` · `financial_soundness` ·
     `investment_property`.
-- `key_contracts`(주요계약 — II-6-가, 260728 신설): 종전엔 같은 소절에서 `rnd`(연구개발)만 나갔다.
-  라이선스·기술도입·기술제휴·장기공급 계약의 상대방·기간·금액 원문. 「해당사항 없음」은 정상적인
+- `key_contracts`(주요계약 — II-6-가): 라이선스·기술도입·기술제휴·장기공급 계약의 상대방·기간·금액
+  원문. 같은 소절을 읽는 `rnd`(연구개발)와 별개 필드다. 「해당사항 없음」은 정상적인
   `NOT_APPLICABLE`이며 실패가 아니다.
 - `candidate_context`(선택): `context_mode="candidate"`이고 공식 `extraction_status=NOT_COLLECTED`일 때만 추가된다. `{status="LOW_CONFIDENCE", field, anchor, selection_method="fixed_window_heading", context_chars, warning, markdown}`이며 공식 필드 상태·`hints[]`·자동 비교와 분리된다. 앵커조차 없으면 `status="NOT_FOUND"`만 반환한다.
 - `timings_ms`(단계별 병목)
@@ -170,7 +165,7 @@ DART **`get_document`(전체 보고서 XML) 1 API콜**([[XML-vs-PDF]]) → text�
 
 ## 파싱전략 (핵심 — [[260717_1220_decision_business-content-tool-roadmap]])
 flatten 이 2D 표를 1D 로 뭉개 행·열 정렬이 깨지는 것이 이 서식의 근본 난제다.
-**설계 결정(260718, 사용자)**: MCP tool 은 이미 호출측 LLM 이 부르므로 **내부 LLM 을 두지 않는다** —
+**설계 결정**: MCP tool 은 이미 호출측 LLM 이 부르므로 **내부 LLM 을 두지 않는다** —
 tool 은 기계적으로 구간을 좁히고 의미 추출은 호출측이 한다.
 - **① 정형(flatten)** — 본문표와 주석표를 **둘 다 파싱해 부문명이 서로 맞는지 교차검증**한다.
   어긋나면 지주사가 본문에 자회사 표를 실은 경우이므로 후보로 강등한다(주석 = K-IFRS 1108 이 권위).
@@ -252,8 +247,6 @@ tool 은 기계적으로 구간을 좁히고 의미 추출은 호출측이 한�
   분·반기에서 부재면 `absence_hint` 가 사업보고서(`reprt_code='11011'`) 재조회를 안내한다.
   다만 지역 정보 자체는 세 보고서 모두에 실리는 것이 보통이고(재무제표 주석이라서다),
   **분기보고서가 두 달 더 신선하다** — 시의성이 필요하면 최신 분·반기를 쓰는 게 맞다.
-- **payload 에 있어도 렌더가 안 쓰면 사용자는 못 본다.** 신설 필드는 마크다운 렌더까지 확인한다
-  (로컬 MCP 라이브 확인 — 정형 검증만으로는 안 보인다).
 - **한계**: ① 필드 제목 자체가 없고 일반 본문에만 값이 있는 경우는 정밀도 우선으로 `NOT_COLLECTED`
   가능 ② 금융지주·REIT 는 segments `UNSUPPORTED_FORM`(D-트랙 별도) ③ customers 고객명 다수 익명
   (주요고객A/B) — 이름 억지생성 안 함 ④ **금융지주·보험은 한 소절이 크다** — 계열사마다 같은 항목
@@ -262,8 +255,20 @@ tool 은 기계적으로 구간을 좁히고 의미 추출은 호출측이 한�
   기말 기준 `NOT_APPLICABLE` 로 낸다 — 사실은 맞으나 정보가 접힌다 ⑥ 총액 기준·구성행 표의 합계행
   재선택, 3개월/누적 구분, 제품·서비스별 분해는 오분류 위험으로 이연.
 
+## 변경 이력
+- 2026-08-06: 발견 경위·census 서술을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
+- 2026-08-03: `absence_kind` 4갈래 신설 · `basis`(연결/별도)를 XBRL 컨텍스트로 판별.
+- 2026-08-02: `revenue_breakdown` 을 매출 4축(`by_segment`/`by_product`/`by_region`/`by_trade`)
+  단일 진입점으로 재편, 옛 이름은 별칭 유지.
+- 2026-07-31: `foreign_share_pct`·`source_location` 신설.
+- 2026-07-28: `revenue_mix_form`(II-2-가)·`key_contracts`(II-6-가) 신설 · 출력 문구 서술문화.
+- 2026-07-24: 공통 응답 계약(정형 → 원문 마크다운 → 명시적 부재) 통일 · `geo_revenue` 신설.
+- 2026-07-21: `bsns_year`+`reprt_code` 시점 조회 추가.
+- 2026-07-20: 자산가치·NAV 유즈케이스를 [[asset_holdings]] 로 분리.
+- 2026-07-18: D-트랙(금융·REIT) 3필드 + KSIC 게이트 · 014 정정폴백.
+
 ## 관련
-- [[asset_holdings]] (자산가치·NAV 스크리닝 — 260720 이 tool에서 분리)
+- [[asset_holdings]] (자산가치·NAV 스크리닝 — 이 tool에서 분리)
 - [[260717_1220_decision_business-content-tool-roadmap]] (설계·실현가능성·스콥·아키텍처)
 - 사업의내용_ksic별양식 (업종별 소절 양식·헤딩 variant 레퍼런스)
 - [[ksic-sector-mapping]] (KSIC 한계 — 폼 판별에 불신)

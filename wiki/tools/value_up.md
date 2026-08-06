@@ -200,7 +200,7 @@ KIND fallback +1, 진단검색 +2, role backfill +1, treasury cross-ref +1.
 
 ## 관련 audit/fix (architecture/)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] — value_up.summary 50.5% exact
-- — KOSPI500 + KOSDAQ150, 계획서 명칭/주요 내용 이행 태그 전수조사
+- 계획서 명칭·주요 내용 이행 태그 전수 검증(KOSPI500 + KOSDAQ150) 기록: private storage
 
 ## 알려진 issue + TODO
 - `_COMMITMENT_KEYWORDS` 튜닝 (LG에너지솔루션 등 매칭 0건 케이스).

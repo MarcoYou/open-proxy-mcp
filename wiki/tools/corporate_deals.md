@@ -177,16 +177,14 @@ sequenceDiagram
 - 단일공급계약 매출 의존도 계산 (financial_metrics tool과 연계, TODO).
 
 ## 변경 이력
-- 2026-07-13: **파싱 버그 2건 교정 (51문서 오프라인 전수검증).** ① `_find_pct_near` leak — 자기자본대비(%)
-  등 % 값이 공란("-")일 때 `[^\d]*`가 개행을 건너뛰어 아래 취득금액의 앞자리를 오취득(CJ 407,725,920,000
-  → "407"%, LIG "187"%, 효성 "8"%). 라벨 뒤 같은 줄 주석까지만 허용·다음 줄까지만 값 취득·콤마/숫자 뒤따르면
-  거부로 교정(leak 3→0, 회귀 0). ② `parsing_failures` 의미 오도 — `_parse_*`가 값 공란이어도 키-있는 dict를
-  반환해 "빈 dict" 검사가 진짜 파싱실패를 못 세고 fetch실패·비대상 row만 잡힘 → `_detail_status`(ok/parse_empty/
-  fetch_error/empty_doc)로 재정의, parse_empty(문서는 받았으나 앵커필드 공란)만 카운트 + `fetch_failures` 분리.
-  근거: financial-metrics-borrowings-260713 검증 절차(opm-tool-validation 스킬).
+- 2026-07-13: `_find_pct_near` 값 누출 교정(라벨 뒤 같은 줄 주석까지만 허용·다음 줄까지만 값 취득·
+  콤마/숫자가 뒤따르면 거부) — % 공란("-")일 때 아래 금액의 앞자리를 %로 오취득하던 것.
+  `parsing_failures` 를 `_detail_status`(ok/parse_empty/fetch_error/empty_doc)로 재정의하고
+  `fetch_failures` 를 분리 — 값이 공란이어도 키가 있는 dict 가 반환돼 「빈 dict」 검사가 진짜 파싱
+  실패를 세지 못했다.
 - 2026-04-21: related_party_transaction tool 신설 (14 → 15번째 tool, Data 10개째)
 - 2026-04-21: 5/5 전수조사 통과
 - 2026-04-29: include_details=True 원문 파싱 보강
 - 2026-04-29: 200기업 audit 67.3% exact
 - 2026-05-01: tool wiki 페이지 작성
-- 2026-06-10: tool명 `related_party_transaction` → `corporate_deals` rename. "SK스퀘어가 인수하거나 매각한 회사" 류 질의가 tool 라우팅에 실패(이름·desc에 인수/매각 어휘 부재 + corporate_restructuring이 M&A 선점) → 이름 포괄형 교정 + desc/when에 인수·매각·출자·회수 어휘 보강 + restructuring과 상호 경계 문구. 기능·scope·파싱 변화 0.
+- 2026-06-10: tool명 `related_party_transaction` → `corporate_deals` rename + desc/when 에 인수·매각·출자·회수 어휘와 `corporate_restructuring` 과의 경계 문구 보강(라우팅 실패 해소). 기능·scope·파싱 변화 0.

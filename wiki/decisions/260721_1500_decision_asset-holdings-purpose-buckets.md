@@ -31,10 +31,10 @@ held_for_sale)로 분류하지만, 이 이름들은 회계 전문용어라 calle
    별도 버킷("우호·제휴 지분")으로 분리.
 3. **inv_prop(투자부동산) 독립 버킷 — 타당**. K-IFRS 1040은 유형자산(1016, 자가사용)과 재무제표상
    이미 별도 표시과목. "본업 무관 임대·시세차익" 서사와 회계 구분이 정확히 일치.
-4. **금융업(은행·증권·보험) 처리 — 구멍 발견·수정**. 기존 코드는 `inv_prop`만 금융업 제외했는데,
-   은행·증권의 트레이딩(FVPL)·FVOCI 자산도 본업 자체(운용자산)라 surplus/지분NAV '숨은가치' 서사
-   자체가 성립 안 함. → 금융업이면 surplus_cov/equity_nav_cov를 **아예 미제공**(N/A)으로 변경,
-   자산표(절대액)만 노출.
+4. **금융업(은행·증권·보험) 처리**. `inv_prop`만 금융업에서 빼는 것으로는 부족하다 — 은행·증권의
+   트레이딩(FVPL)·FVOCI 자산도 본업 자체(운용자산)라 surplus/지분NAV '숨은가치' 서사가 성립하지
+   않는다. → 금융업이면 surplus_cov/equity_nav_cov를 **아예 미제공**(N/A)으로 두고 자산표(절대액)만
+   노출한다.
 
 ## 확정 분류 (6버킷)
 
@@ -73,5 +73,4 @@ held_for_sale)로 분류하지만, 이 이름들은 회계 전문용어라 calle
 
 ## 관련
 - [[asset_holdings]] (구현 tool)
-- asset-holdings-census-260720 — private 이관(open-proxy-storage/wiki-private/lessons, 260720) — 5인
-  패널 전수조사, 이 분류 이전 단계에서 발견·수정한 버그(결합계정 NAV 소실·REIT 오탐)
+- asset-holdings-census-260720 — 전수조사 기록 (private: `open-proxy-storage/wiki-private/lessons`)

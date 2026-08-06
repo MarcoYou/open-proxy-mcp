@@ -5,7 +5,6 @@ date: 2026-05-08 07:00
 status: adopted
 related:
   - wiki/decisions/260508_0200_decision_law-layer.md
-  - wiki/lessons/law-layer-precision-260508.md
   - wiki/ralph/260508_0500_ralph_law-layer-precision.md
   - wiki/rules/laws/law_layer_rules.json
 related_lessons: [law-layer-precision-260508, law-layer-body-260510, agenda-hierarchy-260510]
@@ -16,10 +15,10 @@ related_ralph: [260508_0500_ralph_law-layer-precision, 260510_0823_ralph_agenda-
 
 ## 배경
 
-Ralph 4 (260508_0500_ralph_law-layer-precision) 6 iter 광범위 검증 (KOSPI 200 + KOSDAQ 100 + 분쟁 20 = 280 회사) 결과 룰 정밀화 필요 케이스 식별:
-1. B1-4 false positive (정관변경 vs director_election 의미 혼선)
-2. KT&G 2025 사전 우회 사례 미발견 (안건 title 일반 표현)
-3. B1-7 패턴 협소 (하이브 "정원 상한 축소" 미스)
+KOSPI 200 + KOSDAQ 100 + 분쟁 20 = 280 회사 검증에서 룰 정밀화가 필요한 케이스 3종이 나온다.
+1. B1-4 false positive — 정관변경의 "임기 단축"과 이사 후보의 "임기 1년"이 같은 패턴에 걸린다
+2. 안건 title 이 일반 표현이면 사전 우회(KT&G 2025 유형)를 잡지 못한다
+3. B1-7 패턴이 좁아 "정원 상한 축소" 같은 표현을 놓친다
 
 ## 결정
 
@@ -73,7 +72,7 @@ Ralph 4 (260508_0500_ralph_law-layer-precision) 6 iter 광범위 검증 (KOSPI 2
 
 ### 회귀 안전성
 
-iter 1+6 cumulative reclassification: 209 unique hits 중 변경 3건 / 유지 206건 — 모두 정확 향상.
+재분류: 209 unique hits 중 변경 3건 / 유지 206건 — 모두 정확 향상.
 - 서울보증보험 + 현대엘리베이터: B1-4 → B1-4b
 - 하이브: B1-8b → B1-7 (더 specific reason)
 
@@ -81,8 +80,6 @@ iter 1+6 cumulative reclassification: 209 unique hits 중 변경 3건 / 유지 2
 
 - `open_proxy_mcp/services/proxy_advise.py` — `_agenda_pattern_match()`에 `parent_must_contain` / `parent_excludes` 지원
 - `wiki/rules/laws/law_layer_rules.json` — 36 → **38 룰** (B1-4b + B1-8b 신규)
-- `wiki/lessons/law-layer-precision-260508.md` — 정밀화 발견
-- `wiki/architecture/audits/data/260508_law_layer/` — 광범위 검증 데이터
 
 ## Trade-off
 
@@ -98,7 +95,3 @@ iter 1+6 cumulative reclassification: 209 unique hits 중 변경 3건 / 유지 2
 - aoi_change 본문 매칭 — 큰 구조 변경 (별도 ralph)
 - 시행 전 A2 룰 검증 — 2026-07-23 / 09-10 후 자연 검증
 - 광범위 sample 부족 룰 (B1-1~B1-3, B1-5, B2-*) 추가 — sample 추가 시 진행
-
-## archive
-
-`wiki/architecture/audits/data/260508_law_layer/` (iter 1-5 spot 결과)

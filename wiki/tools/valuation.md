@@ -48,34 +48,36 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계
 | `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=전구간 주간 곡선(`data.series`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
 
-- **260714 FY 라벨 하드코딩 제거(latent look-ahead 버그)**: `mkt_fundamentals.ni_fy/eq_fy`는 `derive_fundamentals`가 `_latest_annual_fy()`로 덮어쓰는 **가변열**인데, 그 값을 담는 `fin[]` 키가 `firm_fin_by_fy`·`market_val_series`에서 `2025`로 하드코딩돼 있었다. FY 넘어가면(2027-04 FY2026 공시 후) 최신 fundamentals가 여전히 2025로 라벨돼 진짜 FY2025(mkt_finstat_y)를 덮어쓰는 오염이 예약돼 있었음 → `_latest_annual_fy()`로 파생. 현재 데이터 무오류(diff 0.0%)·오늘 동작 동일·2026 시뮬 FY2025 보존 확인(무회귀).
-- **260706 테이블 rename + 병합**: `mkt_fund_hist`→`mkt_finstat_y` · `mkt_fund_q`→`mkt_finstat_q` ·
-  `mkt_valuation`→`firm_valuation_snapshot`. `mkt_val_history`+`mkt_sector_val`(구 섹터 전용 테이블)은
-  **단일 `mkt_val_history`로 병합** — `sector` 컬럼에 센티넬 `'_ALL'`(시장전체) vs 실제 섹터코드로 구분
-  (PK: snap_dd·mkt·sector). 스키마 상세는 private 레포(data-storage-registry) 참조.
+- **FY 라벨은 하드코딩하지 않는다**: `mkt_fundamentals.ni_fy/eq_fy`는 `derive_fundamentals`가
+  `_latest_annual_fy()`로 덮어쓰는 **가변열**이다. 이 값을 담는 `fin[]` 키를 연도 리터럴로 박으면
+  FY가 넘어간 뒤 최신 fundamentals 가 옛 FY 라벨을 달고 진짜 그 FY 행(`mkt_finstat_y`)을 덮는다 —
+  오늘은 멀쩡해 보이고 다음 결산 공시 때 터지는 look-ahead 오염이다. 라벨은 `_latest_annual_fy()`로
+  파생한다.
+- **시장·섹터 히스토리는 한 테이블(`mkt_val_history`)**이다 — `sector` 컬럼의 센티넬 `'_ALL'`(시장
+  전체) vs 실제 섹터코드로 구분한다(PK: snap_dd·mkt·sector). 섹터 전용 테이블을 따로 두면 같은 산식이
+  두 곳에 살아 갈라진다. 스키마 상세는 private 레포(data-storage-registry) 참조.
 - 스냅샷은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
   매일 KST 10:17 — 매일 수집(KRX 금요일 지연 게시 커버)→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
 - **market/sector 히스토리는 2020-01~현재, FY0+TTM+MRQ 전부**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
   (1회성, DART 0콜)가 채운 과거 78개 월말 — 시장 156행 + 섹터 11,014행, FY0·TTM·MRQ 세 기준 모두 백필
   완료(260706, 최초엔 FY0만이었으나 분기 백필 완주 후 확장). "2020년부터 코스피 PER/PBR 추이" 응답 가능.
-  주간 cron도 **sector 행에 per_fy0/pbr_fy0를 채운다**(260709 수정 — firm 단위 nf/ef가 이미 로드돼
-  있어 C절 _ALL과 동일 산식으로 D절에서 합산, 신규 수집 0). 과거엔 주간 sector 행이 per_ttm/pbr_mrq만
-  채워 `scope="sector"` 현재주 FY0가 결측이던 갭 해소(최신주 per_fy0 77/97·pbr_fy0 97/97, 나머지는
-  Σ순이익≤0 N/M). ni_ttm·eq도 함께 채워 _ALL 행과 대칭. ※ firm_valuation_snapshot이 최신 2주만
+  주간 cron도 **sector 행에 per_fy0/pbr_fy0·ni_ttm·eq 를 채운다**(firm 단위 nf/ef 가 이미 로드돼 있어
+  `_ALL` 과 같은 산식으로 합산, 신규 수집 0) — `_ALL` 행과 대칭이라야 `scope="sector"` 현재주 FY0 가
+  비지 않는다. Σ순이익≤0 인 섹터는 N/M. ※ firm_valuation_snapshot이 최신 2주만
   보존해 그 이전 주간 sector 행(~3천)은 재백필 불가 — 연말 밴드가 장기 트렌드 커버.
-- **섹터 소속 시계열(260705 신설, sector scope + company 지정 시)**: `company_ctx.sector_history` —
+- **섹터 소속 시계열**(sector scope + company 지정 시): `company_ctx.sector_history` —
   그 기업 소속 섹터의 78개월 전체 시계열(per_fy0·per_ttm·pbr_fy0·pbr_mrq·cap). md 렌더는 연말만
   발췌 표시, 전체는 json의 `data.company.sector_history`. 소규모(`_fold`) 섹터는 fold 버킷 시계열로 폴백.
 - **⚠ 방법론 이중성**: firm = 보통주 주가÷EPS(유통주식). 스냅샷 = **총시총(우선주 귀속)÷지배순이익**
   (시총가중, 지수 표준) — 삼성 PER(TTM) 20.0(firm) vs 21.9(스냅샷)처럼 다를 수 있음. 출력에 명시.
 - **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
   조정 불필요. 주당 가격·EPS 시계열을 노출하게 되면 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수.
-- **비KRW 22사(USD/CNY/JPY) — 260706 근본해결**: 예전엔 저장은 원통화 그대로 두고 조회 시점에
-  최신 통화 라벨 하나를 전 연도에 곱해, 두산밥캣처럼 **연도별로 통화가 바뀌는 회사**의 옛 연도가
-  폭증하는 버그가 있었음(4조→4,826조). 이제 `market_val_series.py`/`market_fund_quarterly.py`
-  fetch 시점에 그 해/분기 응답에서 직접 `statement_currency()`로 통화를 감지해 KRW로 환산 후
-  저장 — **DB의 ni/eq는 항상 KRW**. 라벨도 `currency='KRW'`+`orig_currency=원통화`로 갱신해 하위
-  read-time FX가 자동으로 no-op. 상세: private wiki · project memory `project_fund_currency`.
+- **비KRW 22사(USD/CNY/JPY) — 환산은 저장 시점에 한다**: `market_val_series.py`/
+  `market_fund_quarterly.py` 가 fetch 시점에 그 해/분기 응답에서 `statement_currency()` 로 통화를
+  감지해 KRW 로 환산한 뒤 저장한다 — **DB 의 ni/eq 는 항상 KRW**. 라벨도 `currency='KRW'` +
+  `orig_currency=원통화` 로 남겨 하위 read-time FX 가 no-op 이 된다. 원통화로 저장하고 조회 시점에
+  최신 통화 라벨 하나를 전 연도에 곱하면, **연도별로 기능통화가 바뀌는 회사**(두산밥캣)의 옛 연도가
+  자릿수째 부풀어 오른다. 상세: private wiki.
 
 ## 데이터 계보 (소스 → 아이템 → 연산) — 핵심
 
@@ -102,7 +104,7 @@ PBR(MRQ)     = 주가 ÷ BPS
 ```
 - **지배주주 귀속 일관**: EPS·BPS·PER·PBR 모두 지배지분(`_ctrl_*`). 지주사(NCI 큰) 과대 방지.
   단 **스케일 항등식은 총자본**(지배+비지배, `_gid` Equity) — 지배자본만 쓰면 NCI만큼 상시 오탐.
-- **EPS 대칭화(260705)**: FY0·TTM 모두 공시 기본주당이익 기준(TTM=공시 EPS 조립) — 두 PER 직접
+- **EPS 대칭화**: FY0·TTM 모두 공시 기본주당이익 기준(TTM=공시 EPS 조립) — 두 PER 직접
   비교 가능. 커버리지 99%(100사 스윕), 결측 시 지배NI÷보통주 폴백+경고. 기중 주식수 급변 시
   조립 한계는 sanity 경고. 상세 private wiki.
 
@@ -159,18 +161,18 @@ PBR(MRQ)     = 주가 ÷ BPS
 | KRX (시세) | **serve-time 0** | Supabase `krx_weekly`에서 읽음. 라이브 KRX는 하루 1회 최신 거래일 스냅샷 확보 시만(전종목 2콜, 코스피·코스닥 병렬) → **유저 수 무관 하루 ~수십콜 bounded**. KRX 개인키 일 10,000 한도 보호 |
 | ECOS 환율 | 0~1 | 비KRW사만, 분기말 캐시 히트 시 0 |
 
-**KRX 시세 = Supabase krx_weekly 서빙(260705)**: KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
+**KRX 시세 = Supabase krx_weekly 서빙**: KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
 공유)라 라이브 유저를 직접 서빙하면 키 소진 시 배수 N/M 위험. FX 캐시와 동형 — 매일 최신 거래일
 전종목 스냅샷을 라이브로 확보해 **'그 주(ISO week)' 슬롯에 덮어쓰며 갱신**(전날 종가까지 표시), 주중
 일별은 다음 거래일에 덮여 사라지고 **주 마지막 거래일만 영구 보존**(주당 1스냅샷 ~52/년 = 무료티어
 보호). valuation은 DB 우선 읽기, 서빙 KRX 콜 = 하루 ~2. 축적 주간가격은 v1.1 5년밴드·PIT 재사용.
 price_date로 기준일 투명.
 
-**fetch 병렬화(260705)**: 최상위 await를 의존성 3단계 gather로 — P1(financial_metrics·company·KRX,
-fy 무관) → P2(연간원장·주식수·배당, fy 의존) → P3(1Q당해·전년, fs_used 의존). info·market이 무거운
-financial_metrics 뒤에서 대기하던 것 제거. 실측 개별 조회 ~6.3s→~2.2s, 8종목 배치 50s→20s(회귀 클린).
+**fetch 병렬화**: 최상위 await 를 의존성 3단계 gather 로 묶는다 — P1(financial_metrics·company·KRX,
+fy 무관) → P2(연간원장·주식수·배당, fy 의존) → P3(1Q당해·전년, fs_used 의존). 실측 개별 조회 ~2.2s
+(순차 ~6.3s), 8종목 배치 20s(순차 50s).
 
-→ [[tool_call_budget]]에 실측 반영 완료(260705).
+→ 실측 콜 수는 [[tool_call_budget]]에 반영돼 있다.
 
 ## Flow
 ```mermaid
@@ -195,7 +197,7 @@ sequenceDiagram
     V-->>U: multiples + inputs(근거 투명) + warnings + data_quality
 ```
 
-## 검증 (260705, 등록 전)
+## 검증
 7-에이전트 다각 검증(대형제조·금융·통화환산·지주NCI·부실스케일·엣지식별·독립산식감사) + 웹검증.
 **견고성 blocker 0** — 18개 배수 독립 재계산 전부 일치, 두 자본 구분 SK(NCI 71%) 정확, 통화 ECOS
 정합, 완전자본잠식(이오플로우) N/M 정확, 크래시·오매핑 0. 상세 = private wiki §"등록 전
@@ -209,6 +211,16 @@ sequenceDiagram
 - 리츠 전용 섹터 처리 없음 / 데이터부재(상폐) 종목이 금융으로 오분류(경미).
 - v1.1 백로그: RIM·EV/EBITDA·PSR·FCF·peer 랭킹·자기 5년 밴드·PIT 시계열 · FX 평균환율(flow) ·
   한국은행 ECOS를 야후 폴백 대신 정본 유지 · 우선주 총시총 합산.
+
+## 변경 이력
+- 2026-08-06: 수정 경위 서술을 현재형 설계 근거로 정리(경계 규칙 [[wiki_schema]] 0.0).
+- 2026-07-14: FY 라벨 하드코딩 제거(`_latest_annual_fy()` 파생).
+- 2026-07-09: 주간 cron 이 sector 행의 per_fy0/pbr_fy0·ni_ttm·eq 도 채우도록.
+- 2026-07-06: 시장·섹터 히스토리 테이블 병합(`mkt_val_history` + `'_ALL'` 센티넬) ·
+  테이블 개명(`mkt_finstat_y`/`mkt_finstat_q`/`firm_valuation_snapshot`) ·
+  비KRW 환산을 저장 시점으로 이동 · FY0+TTM+MRQ 78개월 백필 완료.
+- 2026-07-05: tool 등록(`tools/valuation.py`). 공용 리졸버 채택 · EPS 대칭화 · 섹터 소속 시계열 ·
+  KRX 시세를 `krx_weekly` 서빙으로 · fetch 3단계 병렬화.
 
 ## 관련
 - 설계·스케일가드·FX·검증 전체 근거 = private wiki

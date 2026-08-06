@@ -4,7 +4,6 @@ title: shareholder_meeting_notice scope 정리 + provisional_financial_statement
 date: 2026-05-06 00:30
 status: adopted
 related:
-  - wiki/lessons/scope-simplification.md
   - feedback_data_action_tool_layers (data tool = parsing+computation, action tool = + decision evidence)
   - wiki/decisions/260505_1900_decision_compensation-retirement-split.md
 ---
@@ -13,12 +12,10 @@ related:
 
 ## 배경
 
-코붕이 review (2026-05-06):
-1. `shareholder_meeting_notice` scope 6개 중 `full` (병렬 wrapper) / `agenda` (summary와 중복 가능) 폐지 가능 여부 검토
-2. 1호 안건 (재무제표 승인) raw 본문이 사용자 직접 호출에서 노출 안 되는 갭 발견
-3. v1 dead `parse_financials_xml` 부활 + 이름 변경 + 독립 모듈 + 새 scope 노출 의견
-4. retirement 별도 scope 신설 X (정관 안에 묶이는 경우 대부분 → aoi_change에 통합)
-5. result_status / result_reference 사후 정보 — 사전 tool에 노출은 시점 분리 위반
+- `full`은 병렬 wrapper, `agenda`는 `summary`와 겹쳐 scope 6개가 서로를 중복한다.
+- 1호 안건(재무제표 승인) raw 본문을 사용자가 직접 볼 경로가 없다.
+- 퇴직금 변경은 대부분 정관 안에 묶여 나오므로 별도 scope가 아니라 `aoi_change`에 속한다.
+- `result_status` / `result_reference`는 사후 정보라, 사전 tool에 노출하면 시점 분리가 깨진다.
 
 ## 결정
 
@@ -55,7 +52,7 @@ related:
 
 ### 4. data/action tool layer 분리 정합
 
-코붕이 원칙 (2026-05-05):
+layer 원칙:
 - Data tool 파서: parsing + computation (단위 환산, ratios) — 판단 X
 - Action tool 파서: + decision evidence (정책 trigger + 분기 logic)
 - 같은 parser를 두 layer가 공유 OK

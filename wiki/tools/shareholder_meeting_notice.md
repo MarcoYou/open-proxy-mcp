@@ -7,17 +7,15 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 
 # shareholder_meeting_notice
 
-주총 **소집공고** 공시 데이터 (사전 — DART API/XML). 빠르고 안정 (0.5-1.5s). 2026-05-24부터 summary 기본 응답은 경량화하고, stage별 `timings_ms`를 노출한다. 2026-05-25 KOSPI300 재검증에서 정기 소집공고가 현재 DART에 없는 2건을 제외하고 `requires_review` 0을 확인했다.
+주총 **소집공고** 공시 데이터 (사전 — DART API/XML). 빠르고 안정 (0.5-1.5s). summary 기본 응답은 경량이고 stage별 `timings_ms`를 노출한다.
 
-## 분리 배경 (2026-05-04)
+## 왜 notice 와 results 가 갈려 있나
 
-기존 `shareholder_meeting` tool은 DART API + KIND scraping 두 source를 한 데에 묶었음:
-- **notice scopes** (DART, 0.5-1.5s, 안정적): summary/agenda/board/compensation/aoi_change
-- **results scope** (KIND, 4.9s, fragile): 결과 의결 결과
+소스와 안정성이 다르다 — notice 는 DART API/XML(0.5-1.5s, 안정), results 는 KIND scraping(4.9s,
+fragile)이다. 한 tool 에 묶으면 fragile 한 쪽이 안정된 쪽까지 느리게·불안하게 만든다.
+`proxy_advise_before_meeting` / `shareholder_meeting_results` 의 사전·사후 분리와 같은 축이다.
 
-→ proxy_advise_before / proxy_result_after 분리 패턴과 consistency. KIND fragile 부분 격리. Claude.ai 동적 tool loading 부담 감소.
-
-## scope (5, 260506 정리)
+## scope (5종)
 
 | scope | 데이터 | 시간 |
 |---|---|---|
@@ -27,7 +25,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 | `aoi_change` | 정관변경 (변경 전/후/사유) **+ 퇴직금 변경 raw** (260505 통합) | 0.5s |
 | `prov_financials` (NEW 260506) | 잠정 재무제표 4 quadrant raw — consolidated/separate × balance_sheet/income_statement + flat metrics | 0.5s |
 
-### 폐지된 scope (260506)
+### 폐지된 scope
 
 - `agenda` — summary에 hierarchy 통합 (silent fallback to summary)
 - `full` — 병렬 wrapper, 거의 사용 X. 종합 분석은 `proxy_advise_before_meeting` 호출 (silent fallback to summary)
@@ -62,7 +60,7 @@ sequenceDiagram
 - DART XML 본문 (rcept_no → viewer_url)
 - 정정공시 자동 선택 (rcept_no rank — 최신 정정 우선)
 
-## 성능/디버깅 옵션 (2026-05-24)
+## 성능/디버깅 옵션
 
 | 옵션/필드 | 의미 |
 |---|---|
@@ -72,7 +70,7 @@ sequenceDiagram
 | `fiscal_month` | `annual` + `year` 조회에서 OpenDART `company.json.acc_mt` 결산월을 읽어 정기주총 후보 window를 먼저 좁힘. fiscal window에서는 최신 후보 1건만 먼저 열고, 정기 매칭 실패 시 나머지 후보와 full-year 검색으로 fallback. |
 | `data.timings_ms` | `resolve_company`, `fiscal_month_lookup`, `select_notice_candidate`, `select_notice_candidate.search_filings`, `select_notice_candidate.fetch_top_documents`, `select_notice_candidate.parse_top_documents`, `select_notice_candidate.filter_meeting_window`, `select_notice_candidate.build_candidate`, `select_notice_candidate.full_year_fallback`, `coverage_search`, `load_notice_bundle`, `total` 등 stage별 소요 시간(ms). 병목 원인 확인용. |
 
-## 파싱 정확도 / relation metadata (2026-05-25)
+## 파싱 정확도 / relation metadata
 
 - agenda node는 `proposer_type`, `agenda_relation_type`, `agenda_relation_reasons`를 포함한다.
 - `agenda_relation_type`: `normal`, `procedural`, `conditional`, `alternative`, `cumulative_related`.
@@ -95,6 +93,21 @@ sequenceDiagram
   전파하되, **이미 값이 잡힌 안건은 덮지 않는다**. 「주주제안**권**」(권리 설명)·「주주제안 인입
   보고」(보고사항)·「주주제안에 따른 이사회 결의」(해임 사유문구)는 안건의 제안주체가 아니므로
   잡지 않는다 — 여기서 오분류하면 이사회안이 주주제안으로 둔갑한다.
+- **하위안건 번호는 하이픈형까지만 연다** — 「제1-1호 사내이사 선임의 건」처럼 콜론도 '의안'도 없는
+  표기를 받되, 홑번호까지 열면 「제5호에 따라」 같은 본문 참조를 안건으로 오인한다.
+- **`agenda_detail_sections`** — '주주총회 목적사항별 기재사항' 구간을 `{code, kind, heading, text,
+  chars, truncated}` 로 라벨 달아 원문 그대로 반환한다. 안건↔구간을 짝지어 주지 않는 대신 **어느
+  구간도 버리지 않는다** — 표 파싱이 실패하면 통째로 사라지던 주주제안 후보 명단·자기주식 처분계획·
+  퇴직금 지급률이 살아난다. 분량의 대부분은 '재무제표의 승인' 하나이고 그 수치는
+  [[financial_metrics]] 가 정본이므로 머리 2,500자만 남긴다. 합병·분할은 계획서 전문이 판단 근거라
+  20,000자.
+- **구간 코드는 문서가 밝힌 경우만 `declared`**다(「제4호 의안 :」). 없으면 후보이름→제목겹침→
+  유형대응으로 추론하되 `filed_link` 로 추론임을 밝힌다 — **확정 못 하면 붙이지 않는다. 틀린 코드는
+  코드 없는 것보다 나쁘다.**
+- **표결하지 않는 안건(상법 §449조의2)에 🚫 를 붙인다.** 조건부(「충족될 경우」)와 확정(「충족되어」)은
+  **문장 단위**로 가른다 — 한국어는 조건 어미가 문장 전체를 지배해 조각 매칭은 오판한다. 부착은
+  번호가 아니라 **안건의 정체**로 게이트한다(정정공고에서 번호가 재배치되면 문면의 「제1호」가 지금의
+  제1호를 안 가리킨다).
 - **미커버**: ①②·가나다 등 비표준 번호 양식은 안건 0개로 남는다. 소스 자체에 번호 공백이 있는
   공시(번호 점프)는 정상 분류다.
 - `annual` 조회에서 정기 소집공고가 아직 없으면 결산월과 예상 정기주총 window를 warning에 표시한다.
@@ -112,27 +125,9 @@ sequenceDiagram
 ## 변경 이력
 
 - 2026-08-06: 파싱 기법 상세·census·검증 프로토콜을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
-- 2026-07-27: **하위안건 4번째 그물 + 구간 원문 통째 반환 + 상법 §449조의2 표결 유무.**
-  ① 「제1-1호 사내이사 선임의 건」처럼 번호 뒤에 콜론도 '의안'도 없는 표기를 기존 정규식 3종이
-  모두 놓쳐 후보자별 판단이 불가능했다(하림지주 이사·감사위원 후보 5명 소실). 하이픈 번호로
-  한정한다 — 홑번호까지 열면 「제5호에 따라」 같은 본문 참조를 안건으로 오인한다. 캐시 전수
-  416건: 신규 61안건 · 소실 0.
-  ② `agenda_detail_sections` 신설 — '주주총회 목적사항별 기재사항' 구간을 `{code, kind, heading,
-  text, chars, truncated}`로 라벨 달아 원문 그대로 반환한다. 안건↔구간을 짝지어 주지 않는 대신
-  어느 구간도 버리지 않는다(표 파싱이 실패하면 통째로 사라지던 주주제안 후보 명단·자기주식
-  처분계획·퇴직금 규정 지급률이 살아난다). 분량의 85.3%가 '재무제표의 승인' 하나(중앙
-  17,452자·최대 313,847자)이고 그 수치는 `financial_metrics`가 정본이므로 머리 2,500자만 남긴다
-  → 전건 예산 내(중앙 8,936자·최대 21,190자). 합병 12-0·분할 13-0은 계획서 전문이 판단 근거라
-  20,000자.
-  ③ 안건 노드에 `filed_code`/`filed_kind`/`filed_link`/`declared_role`/`resolution_status` 부착.
-  구간 코드는 문서가 「제4호 의안 :」이라 밝힌 경우만 `declared`이고, 없으면 후보이름→제목겹침→
-  유형대응으로 추론하되 `filed_link`로 추론임을 밝힌다(선언을 가린 홀드아웃 93.3%·부착률 98.8%,
-  확정 못 하면 안 붙인다 — 틀린 코드는 코드 없는 것보다 나쁘다).
-  ④ 상법 §449조의2로 재무제표가 이사회 승인으로 갈음돼 표결하지 않는 안건에 🚫 표시. 조건부
-  (「충족될 경우」)와 확정(「충족되어」)을 **문장 단위**로 가른다 — 한국어는 조건 어미가 문장
-  전체를 지배해 조각 매칭은 6건을 오판했다. 부착은 번호가 아니라 안건의 정체로 게이트한다
-  (정정공고에서 번호가 재배치되면 문면의 「제1호」가 지금의 제1호를 안 가리킨다).
-  · 검증: 라이브 200건(기본 100 + scope 5종) 크래시 0 · 구간 원문 100/100 · 하위안건 99/100.
+- 2026-07-27: 하위안건 하이픈 번호 그물 추가 · `agenda_detail_sections`(구간 원문 통째 반환) 신설 ·
+  안건 노드에 `filed_code`/`filed_kind`/`filed_link`/`declared_role`/`resolution_status` 부착 ·
+  상법 §449조의2 표결 유무 표시.
 
 ## ref
 

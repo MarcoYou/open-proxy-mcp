@@ -145,28 +145,3 @@ universe csv 그대로:
 ## archive 폴더
 
 `wiki/architecture/audits/data/260508_classify_high_impact/`
-
----
-
-## iteration log
-
-### iter 1 — value_up audit script + KOSPI 0-50 batch
-(작성 예정)
-
-### iter 2 — KOSPI 50-100 + KOSDAQ 0-50 batch chain
-(작성 예정)
-
-### iter 3 — value_up 패턴 분석 + fix + 회귀
-(작성 예정)
-
-### iter 4 — proxy_contest filer audit (150 회사)
-(작성 예정)
-
-### iter 5 — filer 패턴 분석 + fix + 회귀
-(작성 예정)
-
-### iter 6 — 통합 검증 spot
-(작성 예정)
-
-### iter 7 — 문서화 + promise
-(작성 예정)

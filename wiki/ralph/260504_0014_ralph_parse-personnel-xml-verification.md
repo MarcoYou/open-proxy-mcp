@@ -15,27 +15,11 @@ related_audits: [260504_0724_audit_parse_personnel_iter1-7]
 
 > 모든 ralph 작업 invoke history는 [[invoke-history]] 참조.
 
-## ⚠ Status (2026-05-04, iter 7 완료)
+## Status — career_period 89.0% 가 데이터 한계
 
-**career_period 89.0% 한계 — 95% 도달 불가능 확정**:
-- 7 iter 진행 (iter4 role +11.3%p ✅, iter6 content year +0.3%p)
-- 78 fail 후보 본문 정밀 검증: HTML 본문에도 year 없는 case 다수
-- "(주)포스코엠텍 감사팀장(주)나눔테크 전무이사" 같은 단순 직책+회사명 — 시작 연도 본문에 X
-- parser fix 효과 없음 — **본문 데이터 자체 한계**
-
-**Promise 정직 X 유지** — 추가 iter 진행해도 95% 도달 불가능.
-
-### 사용자 cancel 권고
-```
-/ralph-loop:cancel-ralph
-```
-
-### 또는 acceptance 옵션
-- Option A: career_period target 95% → 90% relax (현재 89.0% 거의 도달)
-- Option B: 별도 ralph (본문 다른 section 보완 — value_up / corp_gov_report 등 cross-source)
-- Option C: 종료 (proxy_advise G2 99.36% 영향 없음)
-
-archive: `wiki/architecture/audits/data/260504_parse_personnel_failure_archive/iter07_data_limit_confirmed.md`
+careerDetails 본문에 시작 연도가 아예 없는 후보가 상당수라(예: "(주)포스코엠텍 감사팀장(주)나눔테크
+전무이사" 처럼 직책+회사명만 적힌 경우) parser 를 고쳐도 95% 는 도달하지 않는다. 표준 서식이 아닌
+자유 텍스트의 구조적 한계다.
 
 # Ralph: parse_personnel_xml 강화 + 전수조사 검증
 

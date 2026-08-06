@@ -38,7 +38,7 @@ wiki/
   rules/                   # 한국 자본시장 사실, 공시 유형, 법령 layer입니다.
   tools/                   # public tool 카탈로그와 개별 tool 문서입니다.
   decisions/               # OPM 정책 결정과 changelog입니다.
-  architecture/            # architecture, audit, fix, goal 문서입니다.
+  architecture/            # 시스템 설계 문서와 fixes/ 하위 폴더입니다.
   ralph/                   # 시간순 작업 plan과 실행 기록입니다.
   archive/                 # 흡수되었거나 대체된 과거 자료입니다.
   wiki_index.md            # 전체 wiki 진입점입니다.
@@ -54,6 +54,6 @@ Tool별 사용법과 schema는 `wiki/tools/`에 둡니다.
 
 공시 유형, 법령, 개념 설명은 `wiki/rules/`에 둡니다.
 
-검증 결과와 성능/회귀 audit은 `wiki/architecture/audits/`에 둡니다.
+버그 fix와 회귀 검증 기록은 `wiki/architecture/fixes/`에 둡니다.
 
 이미 흡수된 설계 초안이나 과거 분석은 삭제하지 않고 `wiki/archive/`에 보관합니다.
