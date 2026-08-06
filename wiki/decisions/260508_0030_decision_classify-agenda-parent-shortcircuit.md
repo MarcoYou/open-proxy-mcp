@@ -4,7 +4,6 @@ title: _classify_agenda에 parent_title 옵션 + 정관 sub-안건 short-circuit
 date: 2026-05-08 00:30
 status: adopted
 related:
-  - wiki/ralph/260507_2330_ralph_classify-agenda-fix.md
 ---
 
 # _classify_agenda parent shortcircuit 결정

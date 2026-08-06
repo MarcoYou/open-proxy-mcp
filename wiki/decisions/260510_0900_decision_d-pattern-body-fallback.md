@@ -3,7 +3,6 @@ type: decision
 title: D 패턴 amendments body fallback — 정관변경 sub-agenda 부재 회사 catch
 date: 2026-05-10
 status: active
-related_ralph: [260510_0823_ralph_agenda-hierarchy-body-fallback, 260510_0950_ralph_subagenda-amendment-mapping]
 related_lessons: [agenda-hierarchy-260510, law-layer-body-260510, subagenda-mapping-260510, 260510_daily-summary]
 
 ---

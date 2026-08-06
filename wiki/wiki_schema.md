@@ -23,7 +23,7 @@ Wiki는 **뿌리에서 잎까지의 트리**. 외부 source가 뿌리, 도메인
    │ ② OPM 정책 결정 (단방향 ↓)
 🌿 큰가지 (decisions/, architecture/core/, tools/)   시스템 형상
    │ ③ 검증/회고 (양방향 ↕)
-🌾 가지 (ralph/, architecture/audits/, fixes/, lessons†)   시점 작업   †lessons는 260720부터 private(open-proxy-storage/wiki-private/lessons)
+🌾 가지 (architecture/fixes/)   시점 작업   †ralph·audits·goals·lessons 는 private(open-proxy-storage/wiki-private/)
    │
 🍃 잎 (각 카테고리 안 개별 페이지)
 🍂 낙엽 (archive/)        흡수/대체된 페이지 보존
@@ -51,7 +51,7 @@ Wiki는 **뿌리에서 잎까지의 트리**. 외부 source가 뿌리, 도메인
 | 🌱 뿌리 | `raw/` | 외부 source 무결성 base | 원본 파일명 (수정 X) |
 | 🪵 줄기 | `rules/` (concepts/disclosures/laws) | 한국 자본시장 사실 | identity (`{name}.md`) |
 | 🌿 큰가지 | `decisions/`, `architecture/core/`, `tools/` | OPM 시스템 형상 (영구) | identity 위주 |
-| 🌾 가지 (잔가지) | `ralph/`, `architecture/audits/`, `architecture/fixes/`, lessons(**private** 이관 260720) | 시점 작업 흔적 | yymmdd_hhmm 위주 |
+| 🌾 가지 (잔가지) | `architecture/fixes/` (public) · ralph·audits·goals·lessons 는 **private 이관** (lessons 260720 · 나머지 260806) | 시점 작업 흔적 | yymmdd_hhmm 위주 |
 | 🍃 잎 | 각 카테고리 안 개별 페이지 | tool / concept / audit 결과 / lesson 등 | 상위 카테고리 따라 |
 | 🍂 낙엽 | `archive/` | 흡수/대체된 페이지 보존 | identity 보존 |
 
@@ -60,7 +60,7 @@ Wiki는 **뿌리에서 잎까지의 트리**. 외부 source가 뿌리, 도메인
 | 구간 | 정책 | 의미 |
 |---|---|---|
 | **뿌리 → 줄기 → 큰가지** | **단방향 (위→아래만)** | 사실은 변하지 않음. 위로 link 금지 (rules가 decisions/tools 알면 안 됨) |
-| **큰가지 ↔ 가지 ↔ 잎** | **양방향 강제** | 시점 작업과 시스템은 서로 인지 (tool ↔ ralph ↔ audit ↔ lesson) |
+| **큰가지 ↔ 가지 ↔ 잎** | **양방향 강제** | 시점 작업과 시스템은 서로 인지 (tool ↔ fix). ralph·audit·lesson 은 private 이라 public 링크 대상이 아니다 |
 | **잎 ↔ 잎 / 잎 ↔ 낙엽** | **자유** | cross-talk 허용 (자사주 ↔ 의결권 등) |
 
 #### 함의
@@ -76,16 +76,13 @@ Wiki는 **뿌리에서 잎까지의 트리**. 외부 source가 뿌리, 도메인
 시점 작업 (yymmdd_hhmm) 페이지는 다음 4축 충족 권장:
 
 ```
-ralph (plan) ↔ audits (검증 결과) ↔ lessons (회고) ↔ decisions/single (단발 결정)
+decisions/single (단발 결정) ↔ tools/·rules/ (형상·사실). 실행 기록(ralph)·검증(audits)·회고(lessons)는 private.
                               모두 양방향 link
 ```
 
 frontmatter `related:` 필드에 4축 모두 명시:
 ```yaml
 related:
-  - wiki/ralph/yymmdd_xxx.md
-  - wiki/architecture/audits/yymmdd_xxx.md
-  - wiki/lessons/xxx-yymmdd.md
   - wiki/decisions/yymmdd_xxx.md
 ```
 
@@ -272,14 +269,14 @@ updated: 2026-05-01
 
 #### 시점 작업 (yymmdd_hhmm) 신규 시 4축 충족
 
-ralph / audit / fix / lesson / decision-single 신규 시 frontmatter `related:`에 4축 모두 포함:
+fix / decision-single 신규 시 frontmatter `related:` 로 서로를 가리킨다. 실행 기록(ralph)·
+검증(audits)·회고(lessons)는 private 이므로 **public 문서에서 파일명으로 참조하지 않는다**:
 
 ```yaml
 related:
-  - wiki/ralph/yymmdd_xxx.md          # trigger ralph
-  - wiki/architecture/audits/yymmdd_xxx.md  # 검증 결과
-  - wiki/lessons/xxx-yymmdd.md        # 회고
   - wiki/decisions/yymmdd_xxx.md      # 단발 결정
+  - wiki/tools/xxx.md                 # 대상 도구
+  - wiki/rules/...                    # 근거 사실
 ```
 
 상대 페이지 frontmatter도 양방향으로 수정.

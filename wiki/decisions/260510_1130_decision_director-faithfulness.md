@@ -3,7 +3,6 @@ type: decision
 title: 사외이사 충실성 강화 — 겸직 카운트 + 사내이사 독립성 표기 정정
 date: 2026-05-10 11:30
 status: active
-related_ralph: [260510_1100_ralph_director-faithfulness-enhancement, 260510_1200_ralph_career-parser-concat]
 related_lessons: [director-faithfulness-260510, career-parser-concat-260510, 260510_daily-summary]
 
 ---

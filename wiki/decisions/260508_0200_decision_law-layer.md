@@ -4,7 +4,6 @@ title: 법령 layer 도입 — vote_style 위에 강행규정 우선 적용
 date: 2026-05-08 02:00
 status: adopted
 related:
-  - wiki/ralph/260508_0130_ralph_law-layer.md
   - wiki/rules/laws/상법-2025-2026-종합.md
   - wiki/rules/laws/law_layer_rules.json
   - wiki/decisions/open-proxy-guideline.md

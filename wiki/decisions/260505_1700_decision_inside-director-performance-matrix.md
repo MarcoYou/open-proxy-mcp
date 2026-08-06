@@ -5,7 +5,6 @@ date: 2026-05-05 17:00
 status: adopted
 supersedes: none
 related:
-  - wiki/ralph/260505_1611_ralph_inside-director-performance-matrix.md
   - wiki/decisions/open-proxy-guideline.md
 related_lessons:
   - proxy-advise-perf-fact-260614

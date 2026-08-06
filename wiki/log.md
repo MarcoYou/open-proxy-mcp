@@ -579,7 +579,7 @@ title: Operation Log
   - OPM 데이터 매핑 가능 범위와 부족 필드 정리
   - 기본 권고안: **1페이지 요약 + 안건별 본문 + 후보/근거 부록**
   - v1(현재 payload 기준 즉시 구현) / v2(추가 파생 필드 포함) 분리
-- `wiki/architecture/audits/README.md`에 위 설계 문서 연결
+- `wiki-private/architecture/audits/README.md`(private)에 위 설계 문서 연결
 - 설계 단계 결론:
   - 같은 세션 안에서는 `proxy_advise_before_meeting` 1회 결과만으로 문서 초안 작성 가능
   - 다만 Claude web + MCP connector + fly.io 배포 경로에서 **재호출 없는 문서화 보장**은 서버 쪽 설계가 필요
@@ -752,16 +752,16 @@ title: Operation Log
 - lint --strict 통과 ✓
 
 **artifacts** (10 commits):
-- `wiki/architecture/audits/260509_wiki_graph_audit.md`
+- `wiki-private/architecture/audits/260509_wiki_graph_audit.md`(private)
 - `wiki/WIKI_SCHEMA.md` (Section 0 트리 정책)
 - `scripts/wiki_lint.py`
 - `.github/workflows/wiki-lint.yml`
-- `wiki/ralph/README.md` / `wiki/architecture/audits/README.md` / `wiki/architecture/audits/data/README.md`
+- 실행 기록·검증 README (모두 private storage 로 이관됨)
 - `wiki/archive/tools/legacy_rules/README.md` (구 *_RULE.md 7개 + 흡수 매핑)
 - CLAUDE.md / wiki/architecture/data-collection.md update
 
 ## [2026-05-08] audit | 파서 정밀화 검증 — 보강 불필요 (Ralph 5)
-- ralph: `wiki/ralph/260508_0207_ralph_parser-precision.md`
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - 발견 (parser audit follow-up):
   - parse_personnel_xml careerDetails 누락 0% (44회사/225후보) — 보강 불필요
   - parse_aoi_xml amendments 누락 1.66% (KOSPI 200 / 3건 모두 source 한계 — 별첨 PDF)
@@ -771,12 +771,12 @@ title: Operation Log
   - 🟢 PDF fallback (3-tier 2단계) 검증
   - 🟢 _classify_director_tenure logic (5년 룰)
 - artifacts:
-  - `wiki/lessons/parser-precision-260508.md`
-  - `wiki/architecture/audits/260508_parser_audit.md` (실측 결과 추가)
+  - `wiki-private/lessons/parser-precision-260508.md`(private)
+  - `wiki-private/architecture/audits/260508_parser_audit.md`(private) (실측 결과 추가)
 - code 변경 X
 
 ## [2026-05-08] feat | 법령 layer 정밀화 — B1-4 분기 + B1-8b 신규 + B1-7 보강 (Ralph 4)
-- ralph: `wiki/ralph/260508_0500_ralph_law-layer-precision.md`
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - 발견 (Ralph 3 follow-up):
   - B1-4 false positive (정관변경 vs director_election 의미 혼선)
   - KT&G 2025 사전 우회 사례 미발견 (안건 title 일반 표현 — 본문에만 "별개의 조" 키워드)
@@ -793,12 +793,12 @@ title: Operation Log
   - B1-4b 8건 폭발 (영풍 6 + 현대엘리베이터 + 효성티앤씨) — 분쟁 시그널 효과
 - artifacts:
   - `wiki/rules/laws/law_layer_rules.json` (38 룰)
-  - `wiki/lessons/law-layer-precision-260508.md`
+  - `wiki-private/lessons/law-layer-precision-260508.md`(private)
   - `wiki/decisions/260508_0700_decision_law-layer-precision.md`
-  - `wiki/architecture/audits/data/260508_law_layer/iter08_*.json` (KOSPI 130-200 / KOSDAQ 0-100 / 분쟁 20)
+  - `wiki-private/architecture/audits/data/260508_law_layer/iter08_*.json`(private) (KOSPI 130-200 / KOSDAQ 0-100 / 분쟁 20)
 
 ## [2026-05-08] feat | 법령 layer 도입 — 1·2·3차 상법 개정 + 36 catalog (Ralph 3)
-- ralph: `wiki/ralph/260508_0130_ralph_law-layer.md`
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - 발견: LG화학 정관 sub 안건 잘못 분류 (운용사 정책 stale + hardcoded 키워드 stale)
 - 1·2·3차 상법 개정 web 검증 (김·장/신·김/지평/태평양/율촌/Deloitte/삼일/FNguide)
   - 1차 (2025-07-22): 이사 충실의무 + 독립이사 + 3% 룰 + 전자주총
@@ -823,12 +823,12 @@ title: Operation Log
   - `wiki/rules/laws/law_layer_rules.json` (머신리더블 36 룰)
   - `services/proxy_advise.py` `_law_layer()` 추가
   - `scripts/spot_law_layer.py` 회귀 spot
-  - `wiki/architecture/audits/data/260508_law_layer/iter05_kospi_top30.json`
+  - `wiki-private/architecture/audits/data/260508_law_layer/iter05_kospi_top30.json`(private)
 - decision: [[260508_0200_decision_law-layer]]
 - lesson: law-layer-260508
 
 ## [2026-05-08] audit | high-impact 분류기 audit 결과 (fix 불필요 확정)
-- ralph: `wiki/ralph/260508_0030_ralph_classify-high-impact.md`
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - 대상: `_classify_value_up_item` (value_up) / `_is_company_side` / `_is_retail_activism_side` (proxy_contest filer)
 - 300 회사 sample (KOSPI 200 + KOSDAQ 100) 통합 audit
 - value_up: 127 items / 19 unique 패턴 / **mismatch 0** — 견고
@@ -838,7 +838,7 @@ title: Operation Log
 - lesson: classify-high-impact-260508
 
 ## [2026-05-08] fix | _classify_agenda 정관 sub-안건 분류 (mismatch 19.3% → 0%)
-- ralph: `wiki/ralph/260507_2330_ralph_classify-agenda-fix.md`
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - 발견: 롯데케미칼 proxy_advise 정관 sub-안건 NO_DATA
 - 300 회사 audit (KOSPI 200 + KOSDAQ 100): mismatch 607/3145 = 19.3% — **모두 정관 sub-안건이 다양한 카테고리로 잘못 분류** (other/director_election/audit_committee_election/treasury_share/retirement_pay/cash_dividend/director_compensation/merger/shareholder_proposal/financial_statements)
 - fix: `_classify_agenda(title, parent_title='')` 시그니처 추가 + parent에 정관 키워드 있으면 sub 안건 short-circuit articles_amendment
@@ -861,7 +861,7 @@ title: Operation Log
 - decision: [[260507_2330_decision_httpx-connection-pool]]
 
 ## [2026-05-06] fix | parser omnibus 검증 + DART 6컬럼 sub-column 처리 (PFS 100%)
-- ralph: parser omnibus 성능 점검 (private 이관)
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - 300 회사 (KOSPI 200 + KOSDAQ 100) 통합 audit — Tier A 9 parser G1 ≥98.7% 모두 충족
 - **핵심 발견**: DART 잠정 재무제표 html 6컬럼 row 패턴 — `account/note/empty/current/empty/prior`
   - 기존 `_build_column_meta` 가 `_period_by_num` 다음 colspan 확장 빈 셀을 "unknown"으로 분류 → row[2]/row[4] (empty)을 current/prior로 인식하여 모든 metric empty 추출
@@ -876,7 +876,7 @@ title: Operation Log
 - v1 dead parser archive 결정 (logical only — code 보존)
 - G4 layer 정합 검증 PASS — data tool 14 services + Tier A 9 parser decision 키워드 0건 / proxy_advise 8 `_decide_*` action layer
 - 17 tool scope inventory — 추가 폐지/신설 결정 없음
-- artifacts: `scripts/spot_parser_omnibus.py` / `scripts/spot_pfs_html_search.py` / `scripts/spot_pfs_sparse_recheck.py` / `scripts/agg_parser_omnibus.py` / `wiki/architecture/audits/data/260505_parser_omnibus/`
+- artifacts: `scripts/spot_parser_omnibus.py` / `scripts/spot_pfs_html_search.py` / `scripts/spot_pfs_sparse_recheck.py` / `scripts/agg_parser_omnibus.py` / `wiki-private/architecture/audits/data/260505_parser_omnibus/`(private)
 - lesson: parser-omnibus-260506
 - decision: `260506_2330_decision_v1-dead-parsers-archive`(private 이관)
 
@@ -909,9 +909,9 @@ title: Operation Log
   - G3 운용사 4+ majority 정합 100% (director 11/11, audit 1/1)
   - G4 N연기금 정책 정합 100% (N연기금 [별표 1] IV-33/34/35 + OPM Open Proxy v1.3 #6/#7/#8 trigger 일치)
 - KT&G false positive 수정: 이전 REVIEW (퇴직연금 키워드 hit) → FOR (퇴직연금 제도 도입 형식적 변경)
-- ralph: [[260505_1750_ralph_compensation-retirement-split]] / [[260505_2030_ralph_compensation-retirement-extend]] / [[260505_2200_ralph_compensation-retirement-precision]]
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - decision: [[260505_1900_decision_compensation-retirement-split]]
-- audit: `wiki/architecture/audits/data/260505_compensation_retirement_*` (3개 폴더)
+- audit: `wiki-private/architecture/audits/data/260505_compensation_retirement_*`(private) (3개 폴더)
 
 ## [2026-05-05] feat | 보수한도 / 퇴직금 안건 분리 (이사·감사 + 정관 hybrid)
 - 갭:
@@ -925,9 +925,9 @@ title: Operation Log
   4. **2 layer 원칙**: 정책 카탈로그 (정성+정량) + 결정 코드 (자동 trigger wire + 정성은 facts raw 노출).
   5. **운용사 majority cache**: 22 records 합산 → director 31 / audit 2 / retirement 1 4+ majority case (모두 FOR). AGAINST outlier: 하이브 (3대1) / 에코프로 (3대0).
   6. 키워드 정밀화: "확정기여형/확정급여형/퇴직연금"은 위험이 아니라 형식적 변경(FOR) — KT&G false positive 회피
-- ralph: [[260505_1750_ralph_compensation-retirement-split]]
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - decision: [[260505_1900_decision_compensation-retirement-split]]
-- audit data: `wiki/architecture/audits/data/260505_compensation_retirement/`
+- audit data: `wiki-private/architecture/audits/data/260505_compensation_retirement/`(private)
 
 ## [2026-05-05] feat | 사내이사 재직 중 성과 매트릭스 (2x3) — status quo bias mitigation
 - 갭: proxy_advise 사내이사 분기가 결격사유만 검증 → 회사 추천 후보 자동 FOR. status quo 무검증.
@@ -942,10 +942,10 @@ title: Operation Log
   - G3 bad→AGAINST (한화오션 김희철, 삼성SDI 오재균), weak→REVIEW (HD현대중공업 금석호) 분기 작동
   - G4 distribution good 29.7 / mod 45.3 / weak 18.0 / bad 7.0 — 모든 target band 충족
 - 추가 변경: Korean label 자연화 (weak_concerns → "약한 우려", concerns → "우려" 등 — `_INDEPENDENCE_LABELS` 등 dict)
-- ralph: [[260505_1611_ralph_inside-director-performance-matrix]]
+- ralph 실행 기록: private storage `wiki-private/ralph/`
 - decision: [[260505_1700_decision_inside-director-performance-matrix]]
 - lesson: distribution-calibrated-thresholds (8번째 lesson — 임계값은 prior가 아니라 audit posterior에서 정함)
-- audit: `wiki/architecture/audits/data/260505_inside_director_performance/` (KOSPI 4 + KOSDAQ 2 batch JSON)
+- audit: `wiki-private/architecture/audits/data/260505_inside_director_performance/`(private) (KOSPI 4 + KOSDAQ 2 batch JSON)
 
 ## [2026-05-05] feat | DART OpenAPI 분당 1000회 hard rule 강제
 - `dart/client.py`에 rolling window rate limiter (60s deque + asyncio.Lock), cap **900/min** (10% buffer + race 방지). 모든 `_request` 자동 throttle.
@@ -1019,7 +1019,7 @@ title: Operation Log
   - 옛 prepare_engagement_case + build_campaign_brief 사전 부분 흡수
 - [[proxy_result_after_meeting]] (2 scope: results/brief)
   - 옛 prepare_vote_brief render 흡수, followup 30일 윈도우 제거 (의도적 단순)
-- [[260503_0002_ralph_proxy-advise-verification]] — 3 gate (일관성/정확도/사실정확성) 검증 ralph
+- `260503_0002_ralph_proxy-advise-verification`(private 이관) — 3 gate (일관성/정확도/사실정확성) 검증 ralph
 - index.md 갱신 (Action 2 tool rename 표기)
 
 ## [2026-05-03] fix | 정정공고 4건 items[0] fallback 적용
