@@ -167,9 +167,9 @@ def test_key_columns_go_unnamed_when_the_company_puts_something_else_there() -> 
 
 def test_only_tables_with_named_key_columns_are_extracted() -> None:
     assert set(KEY_LABELS) <= set(FORM_TABLES)
-    body = '<tr><td>이인</td><td>사내이사</td></tr>'
-    doc = _doc("4-1-2", FORM_TABLES["4-1-2"]["aclass"], "<tr><th></th><th>구분</th></tr>", body)
-    assert "4-1-2" not in KEY_LABELS
+    body = '<tr><td>보통주</td><td>1,000</td></tr>'
+    doc = _doc("2-1-1-2", FORM_TABLES["2-1-1-2"]["aclass"], "<tr><th></th><th>발행주식수(주)</th></tr>", body)
+    assert "2-1-1-2" not in KEY_LABELS
     assert parse_form_tables(doc) == {}
 
 
