@@ -265,47 +265,39 @@ roster diff vs 공식 사외이사 변동집계 168/300 정확히 일치(나머�
 **남은 개선 여지(미구현, TODO)**: 비고에 "행사이익 제외 시 X억"이 있으면 헤드라인 옆 조정치 병기
 (자유텍스트 파싱이라 fragile해 보류, 원문 비고로 이미 답은 노출됨) · 소진율/격차배수 peer 밴드.
 
-## 260709 파싱품질 플래그 + raw_text fallback 설계 (KOSPI60+KOSDAQ60=120사 census 근거)
+## 파싱품질 플래그 + raw_text 폴백 설계
 
-**성능 타이머(코드 상시)**: `build_director_board_payload`가 scope별·전체 소요를 `data["timing"]`
-(`per_scope_ms`·`total_wall_ms`·`scope_sum_ms`)에 기록(`time.perf_counter`, 단조 카운터). 120사 실측:
-wall **평균 3.9초·중앙 3.8초·p90 4.7초**, scope합(순차환산) 평균 17.3초 → **병렬로 wall 77% 단축**.
-느린 scope 순: compensation 3.8초 > pay_agenda 3.5초(소집공고 재사용이라 무거움) > pay_gap 2.9초.
-성능 회귀는 이 필드로 나중에 바로 잰다.
-**pay_criteria 내부 세부 타이머(260714)**: scope 총시간만으론 병목이 원문 fetch(I/O)인지 parse(CPU)인지
-안 보여, `data.pay_criteria.timing_detail`(`status_probe`/`fetch_gather`/`parse`/`reconcile` ms)을 추가.
-실측(8사): fetch_gather(원문 8~14MB, 이미 API와 병렬)가 지배(139~2457ms)·parse 296~773ms 2순위(원문
-캐시히트 시 지배). 슬라이스(`_SECTION_MAXLEN` 900KB)를 300KB로 좁히면 8/8 파싱출력 회귀라 유지 —
-안전한 무회귀 최적화 없음(관측성만 추가). 상세 new-tools-perf-profiling-260714.
+**성능 타이머(코드 상시)**: `build_director_board_payload` 가 scope별·전체 소요를 `data["timing"]`
+(`per_scope_ms`·`total_wall_ms`·`scope_sum_ms`)에 기록한다(`time.perf_counter`, 단조 카운터).
+성능 회귀는 이 필드로 바로 잰다. `pay_criteria` 는 병목이 원문 fetch(I/O)인지 parse(CPU)인지
+가리기 위해 `data.pay_criteria.timing_detail`(`status_probe`/`fetch_gather`/`parse`/`reconcile` ms)
+을 따로 낸다 — 지배하는 쪽은 8~14MB 원문 fetch 이고, 캐시 히트 시에는 parse 다.
 
-**설계 질문 2개에 대한 데이터 기반 결론**:
+**의심 신호는 전역 단일 플래그가 아니라 scope별 `data_quality_flags` 배열이다** — 신호가 이질적이라
+하나로 뭉치면 실제값을 오탐한다:
 
-**(1) 파싱 의심 시 플래그 — YES, 단 전역 단일 플래그가 아니라 스콥별 `data_quality_flags` 배열.**
-120사에서 관측한 의심 신호가 **이질적**이라 하나로 뭉치면 실제값을 오탐한다:
+| kind | severity | 의미 | raw_text |
+|---|---|---|---|
+| `limit_unreliable` | warn | 승인한도가 각주 마커라 금액 미파싱 → 소진율 산출 제외(lookback) | — |
+| `footnote_marker_unresolved` | info | 비고·breakdown 이 각주 마커뿐 | 마커 자체 |
+| `utilization_exceeds_limit` | info | 소진율>100% — **파싱오류 아님**(퇴직금·성과급·스톡옵션) | — |
+| `parse_failed` (pay_agenda) | info/warn | 주총안건 미파싱 | (원문 스콥) |
+| `crosscheck_mismatch` (roster) | warn | 이름 diff 와 공식 집계의 격차가 커 diff 신뢰도 낮음 | — |
 
-| kind | severity | 빈도(120사) | 의미 | raw_text |
-|---|---|---|---|---|
-| `limit_unreliable` | warn | 1사(디앤디) | 승인한도가 각주 마커라 금액 미파싱 → 소진율 산출 제외(lookback) | — |
-| `footnote_marker_unresolved` | info | 9사·31필드 | 비고/breakdown이 각주 마커뿐 | 마커 자체 |
-| `utilization_exceeds_limit` | info | 다수 | 소진율>100% — **파싱오류 아님**(퇴직금·성과급·스톡옵션) | — |
-| `parse_failed` (pay_agenda) | info/warn | 13사(폴백 5) | 주총안건 미파싱 | (원문 스콥) |
-| `crosscheck_mismatch` (roster) | warn | 12사 | 이름diff vs 공식집계 격차≥3 → diff 신뢰도 낮음 | — |
+핵심: **소진율이 1000%를 넘어도 실제값일 수 있다**(회장 보수·스톡옵션 행사이익) — 파싱 플래그로
+잡으면 오탐이라 `info` 로 「파싱오류 아님」만 명시한다. warn(신뢰도 낮춤)과 info(참고)를 갈라야
+소비자가 선택 대응할 수 있다.
 
-핵심: **소진율>1000%(메리츠 1078%·보로노이 2346%)는 2사 전부 실제값**(회장보수·스톡옵션 행사이익)
-이라 파싱플래그로 잡으면 오탐 → `info`로 "파싱오류 아님" 명시만. warn(신뢰도 낮춤)과 info(참고)를
-분리해야 소비자가 선택 대응 가능.
+**`raw_text` 폴백은 원문 파싱 스콥에서만 유효하다.**
+- **정형 API 스콥**(compensation·individual·unregistered 등): 필드 자체가 이미 raw 이고 각주의
+  **본문은 API 응답에 아예 없다**(사업보고서 원문에만 있다) → `raw_text` 가 `"(주1)"` 이라 복구
+  불가. 여기선 `footnote_marker_unresolved` 플래그(마커를 참고로 첨부) + 렌더에서 무의미 마커 라인
+  억제가 정답이다.
+- **원문 파싱 스콥**(pay_agenda notice·attendance): 구조화 파싱이 실패하면 원문 블록을 그대로 실어
+  LLM 이 직접 읽게 하는 것이 맞다. `data_quality_flags` 항목에 `raw_text` 필드를 둔 이유다.
 
-**(2) raw_text="원문텍스트" fallback — 위치가 갈린다.**
-- **정형 API 스콥(comp·individual·unregistered 등)**: 필드 자체가 이미 raw이고, 각주 마커의 **본문은
-  API 응답에 아예 없다**(사업보고서 원문에만) → raw_text=필드값="(주1)"이라 복구 불가. 여기선 raw_text가
-  무용하고 `footnote_marker_unresolved` 플래그(마커를 raw_text로 참고 첨부) + 렌더에서 무의미 마커 라인
-  억제가 정답. 9사 census로 확인.
-- **원문 파싱 스콥(pay_agenda notice, 특히 attendance v2 지배구조보고서 파서)**: 여기서 raw_text 설계가
-  **진짜 유효** — 구조화 파싱이 실패하면 원문 블록을 그대로 실어 LLM이 직접 읽게 하는 게 맞다.
-  `data_quality_flags` 항목에 `raw_text` 필드를 미리 스키마에 넣어둔 이유(attendance v2에서 채움).
-
-**렌더 반영**: 각주 마커뿐인 비고 라인은 억제(무의미 노이즈 제거), 대신 `## 데이터 품질 참고` 섹션에
-warn↑/info↓로 표식. machine-readable `data_quality_flags`는 payload에 항상 포함(에이전트 프로그램 소비).
+**렌더 반영**: 각주 마커뿐인 비고 라인은 억제하고 `## 데이터 품질 참고` 절에 warn↑/info↓로 표시한다.
+machine-readable `data_quality_flags` 는 payload 에 항상 포함된다(에이전트 프로그램 소비).
 
 ### 각주 원문 해소(document.xml 폴백) — 코붕이 제안(260709, url 기반)
 
@@ -323,20 +315,11 @@ DART 공시뷰어 URL의 `rcpNo`(=접수번호)로 `document.xml`(공시서류�
 - **`get_document` 버그 수정**(client.py): 사업보고서 원문 ZIP은 본문(`{rcpNo}.xml`, 8MB)+첨부
   (`{rcpNo}_NNNNN.xml`)인데 `xml_files[0]`이 첨부(575KB)를 읽어 임원보수·각주를 통째 놓쳤다 —
   본문 우선 선택으로 수정(proxy·dividend 등 원문 파서 공통 개선).
-- **정밀도 게이트(300사 footnote_qa 검증 260709)**: 초기 구현은 "뭔가 추출"을 "복구 성공"으로 세어
-  실제 정밀도가 과대평가됐다(resolved 63건 재판정: 정확 62%·오답 22%). 오답은 승인한도 셀 마커인데
-  소송충당부채·특수관계자거래(한국가스공사)·스톡옵션(보로노이·HPSP·차바이오텍) 각주를 긁거나, 표 셀
-  조각(BGF리테일), 다른 사람 각주(SK 이성형)를 "원문 각주"로 자신있게 노출 — 오답 1건이 raw폴백 10건보다
-  해롭다. 5중 게이트로 정밀도 확보(미달 시 raw 강등):
-  1. **유형 게이트**(`_fn_topic_ok`): scope별 BAD/OK 키워드 — 승인한도 슬롯은 소송·충당부채·특수관계·
-     스톡옵션·액면분할·무상증자 각주 거부, 보수/한도/승인/지급/성과만 채택.
-  2. **인물 disambiguation**(individual): 본문에 subject 이름 없고 타 임원(이름+직위) 지칭 시 raw.
-  3. **문장 완결성**: 강한 서술종결(습니다/하였음 등)만 — bare 함/임/됨(명사 '사임'·'위원' 오탐) 제외.
-  4. **표 조각 필터**: `N N N`(공백 숫자 3연속) = 표 행이지 각주 아님.
-  5. **동일 본문 dedup**: 같은 각주 연도·scope 넘어 반복 제거.
-  게이트 후 검증: 오답 회사 전부 교정(정확 각주로) 또는 raw 강등, 정확 모범 유지 —
-  SK하이닉스 "150/200/200억 승인", NAVER RSU, SK바이오팜 이동훈 22,435주 PSU vs 정지영 8,763주 LTI(연도별
-  숫자까지). 성능: 마커 뜬 회사만 +원문 fetch.
+- **정밀도 게이트**: 추출한 문구가 정말 그 표의 각주인지 확인하는 게이트를 통과하지 못하면 원문
+  발췌로 강등한다 — ① 슬롯 유형 적합성(승인한도 자리에 소송충당부채·스톡옵션 각주가 오면 거부)
+  ② 인물 지목(개인별은 본문에 그 사람이 없으면 강등) ③ 문장 완결성 ④ 표 조각 배제 ⑤ 중복 제거.
+  **틀린 각주 하나가 원문 발췌 열보다 해롭다** — 게이트 없이 "뭔가 추출"을 "복구 성공"으로 세면
+  엉뚱한 각주를 자신 있게 노출하고 정밀도는 과대평가된다.
 
 ## 260709 attendance(이사회 출석률) 원문 파서 + 품질 로그
 
@@ -387,19 +370,12 @@ OCR tier 불필요 — 텍스트 파싱으로 됨). exctvSttus의 rcept_no로 �
    부여 + `api_unmatched`(API엔 5억+로 있는데 파서 개인에 대응 없음 = 이름 병합/누락 신호) 반환.
 
 **왜 하이브리드가 필수인가**: 자기일치는 파서가 같은 원문 두 표를 **같은 방식으로 오독하면 통과**한다
-(파서-vs-파서라 문서 오독을 못 잡음). API는 파서 그리드를 안 거친 독립 축이라 이 silent 오독을
-적발한다. 실제로 이 하이브리드가 없었으면 못 잡았을 두 버그 클래스를 260713 검증에서 발견했다
-(상세 pay-criteria-hybrid-validation-260713):
-
-| 버그 | 증상 | 원인 | 수정 |
-|---|---|---|---|
-| ① 직위-병합 (34사, 파싱 253사의 13%) | 자기일치 `0/0`으로 **조용히 빔** — 삼성전자·SK하이닉스·현대차·기아·삼성바이오·신한지주 등 초대형주 대부분 | 산정기준 표가 이름 셀에 직위를 병합(`대표이사한종희`) → (group,merged_name) 키가 공식표와 불일치 | **같은 문서 `indiv_total`(이름/직위 분리)의 실명 집합을 ground truth로** 병합셀에서 실명 부분매칭 복원(`_clean_person_name`) |
-| ② 한글 수사 금액 (삼성생명류) | 금액 **10배 축소** — 이승호 14.6억→2.0억 | `(단위:)` 없이 `6억7백만원`으로 자기서술하는 금액을 숫자만 뽑아(`67`) ×백만 처리 | `_korean_amount` 파서 — 억/조/만/천/백/십 자릿단위 해석, 총액 셀에 한글수사 있으면 표 단위 무시하고 원 단위 직접 해석 |
-
-**검증 결과(KOSPI200+KOSDAQ100+엣지10 유니버스, 네트워크 0콜 재파싱 회귀)**: 자기일치 **99.4%**
-(1377/1386), 대조가능 개인 +259(1127→1386), **회귀 0사**. 표본 7사(삼성생명·삼성전자·DB손보 등)
-하이브리드 API 축 전부 100%. 두 버그 모두 자기일치만으론 통과했을 것(①은 0/0, ②는 미등기라 API에
-없어 self축에서만 드러남) — 그래서 하이브리드 + self 양축이 상보적.
+(파서-vs-파서라 문서 오독을 못 잡음). API 는 파서 그리드를 안 거친 독립 축이라 이 silent 오독을
+적발한다. 실제로 이 축이 아니었으면 못 잡았을 결함이 두 갈래 있었다 — ① 산정기준 표가 이름 셀에
+직위를 병합(`대표이사한종희`)해 공식표와 키가 어긋나던 것(자기일치가 `0/0` 으로 **조용히 비었다**)
+② `(단위:)` 선언 없이 「6억7백만원」처럼 한글 수사로 자기서술한 금액(10배 축소). 둘 다 자기일치
+축만으로는 통과했을 것이라 두 축은 상보적이다. 잔여 불일치는 `total_consistent=False` 로 투명하게
+플래그한다(은폐 안 함).
 
 ### async — 하이브리드 검증의 wall-clock 비용 0
 `get_individual_pay`(API)는 rcept_no가 필요 없어 8MB 원문 `get_document_cached`와 **병렬**로 돌린다

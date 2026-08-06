@@ -413,4 +413,4 @@ archive 안 추가가 필요한 경우:
 | 흡수된 페이지 | `archive/` |
 | **트리 구조 / link 정책** | [[#0. 트리 구조]] / [[#0.2 Link 방향 정책]] |
 | **신규 페이지 추가 4축** | [[#Step 4: link 작성]] |
-| **트리 그래프 audit** | [[architecture/audits/260509_wiki_graph_audit]] |
+| **트리 그래프 audit** | `260509_wiki_graph_audit`(private 이관) |

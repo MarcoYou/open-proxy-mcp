@@ -66,18 +66,15 @@ live에서 깨질 수 있다. 같은 `streamable-http`라 그 층의 차이가 �
 pilot은 코드를 고칠 때마다 `preview_stop` → `preview_start`로 다시 띄운다. 안 그러면 옛 코드를
 붙들고 있다(아래 참조).
 
-## 왜 이름을 나눴나 (260802)
+## 이름이 갈려 있어야 하는 이유 · stdio 금지
 
-종전엔 `~/.claude.json`(로컬 stdio)과 `.mcp.json`(fly)이 **같은 이름 `open-proxy-mcp`**로 겹쳐,
-어느 쪽이 잡히는지 알 수 없었다. 이름이 같으니 도구 이름(`mcp__open-proxy-mcp__*`)만 봐서는
-live인지 local인지 구분이 안 됐다.
+이름이 겹치면 도구 이름(`mcp__*`)만 봐서는 live 를 부른 건지 local 을 부른 건지 구분이 안 된다.
+그래서 두 엔드포인트는 **반드시 다른 이름**(`live-opm` / `pilot-opm`)을 쓰고, 둘 다
+URL(`streamable-http`)로만 등록한다.
 
-더 나쁜 건 stdio 쪽이었다. **stdio MCP는 세션이 뜰 때 프로세스로 뜨고 그 시점 코드를 메모리에
-붙든다.** 코드를 고쳐도 그 세션의 MCP 도구는 계속 옛 결과를 냈고, 이름이 겹쳐서 그 사실조차
-안 보였다. 그래서 로컬 stdio 항목을 제거하고 둘 다 URL(`streamable-http`)로 통일한 뒤
-`live-opm` / `pilot-opm`으로 이름을 갈랐다.
-
-**따라서 stdio로 OPM MCP를 띄우지 않는다.** 로컬 검증은 pilot(HTTP)으로만 한다.
+**stdio 로는 OPM MCP를 띄우지 않는다.** stdio MCP 는 세션이 뜰 때 프로세스로 떠 **그 시점 코드를
+메모리에 붙들기** 때문에, 코드를 고쳐도 그 세션의 도구는 계속 옛 결과를 낸다. 로컬 검증은
+pilot(HTTP)으로만 한다.
 
 ## 둘의 차이를 항상 추적한다
 
@@ -138,4 +135,3 @@ stdio 프로세스가 잡히면 그 부모 세션을 확인한다(`ps -o ppid= -
 
 - [[environment-secrets]] — 어떤 키가 왜 필요한가 · 로컬 `.env` + fly secrets
 - [[project_structure]] — `server.py` 진입점과 transport
-- [[lessons-learned]] — MCP 개발 교훈

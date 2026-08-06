@@ -39,13 +39,13 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 |---|---|
 | **raw/** | 29 binary + 4 md |
 | **tools/** | 25 + README |
-| **architecture/** | 58 |
-| **decisions/** | 32 + README |
+| **architecture/** | 13 + README 2 (audits·goals는 private 이관 260806) |
+| **decisions/** | 25 + README |
 | **rules/** | 88 + README 4 |
 | ~~lessons/~~ | private 이관(260720, open-proxy-storage/wiki-private/lessons) |
-| **archive/** | 74 + README 2 |
+| **archive/** | 71 + README 2 |
 
-총 284 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
+총 264 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
 > **규칙은 여기 두지 않는다.** 각 카테고리의 목적·수정정책·layer 정의, 명명 규칙, frontmatter schema,
 > link 방향 정책은 전부 [[wiki_schema]]가 단일 출처(SSOT). 이 파일은 "무엇이 어디 있나"(인벤토리·라우팅)만
@@ -68,7 +68,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[architecture/proxy-voting-decision-tree]] - 의결권 판단 framework
 - pipeline-architecture - 199 기업 v4 JSON 배치 파이프라인
 - [[architecture/multi-upstream-pattern]] - asyncio.gather tool 표준 5 요소 (corpCode lock/retry/per-call timeout/semaphore/cache)
-- [[architecture/lessons-learned]] - MCP 개발 7가지 교훈
+- [[architecture/mcp-endpoints]] - live-opm / pilot-opm (목적이 다른 별개 대상, stdio 금지)
 
 ### 한국 자본시장 용어 모름
 - [[rules/concepts/]] - 31 개념 (배당성향 / 최대주주 / 동일인 / 집중투표 등)
@@ -79,20 +79,16 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[rules/laws/README]] - 법령 자료 입구 (옛 archive 안내)
 
 ### 최근 audit / fix
-- [[260530_audit_value-up-implementation-tags]] - value_up plan/status/result/meta 분리. KOSPI500 + KOSDAQ150, 562 filing, meta 28건 비교
-- [[260525_1620_audit_agenda-parser-marketwide]] - KOSPI500 + KOSDAQ150 agenda numbering/title/body extraction 전수검증
-- [[260525_0200_audit_agenda-relation-kospi300]] - agenda relation KOSPI300 재실행 exact 298 / no_filing 2
-- [[260517_parsing_success_rate_audit]] - key data tools parsing 성공률 감사. KOSPI 300 + KOSDAQ 150 baseline, 비중복 100개 recheck, value_up/shareholder_meeting_results 보강 및 regression 확인
-- [[260510_data_tools_perf_audit]] - public data tools 성능 감사와 low-risk 개선 후보
-- `260505_inside_director_performance/` — 사내이사 성과 매트릭스 KOSPI 100 + KOSDAQ 50 audit (n=128, G1 100%, dist 29.7/45.3/18.0/7.0 target band 모두 충족, threshold ≥9→≥7 calibration)
+
+> **audit 서술(.md)은 260806 private storage 로 이관** — `open-proxy-storage/wiki-private/architecture/audits/`
+> (raw data 는 260718에 `open-proxy-storage/audits_data/`). 아래는 wiki 에 남은 archive 이력과 fix 뿐이다.
+
 - [[260504_0724_audit_parse_personnel_iter1-7]] - parse_personnel ralph 7 iter — role 88.7→100% + regression 0 (G2 99.36% 유지)
-- [[260510_proxy_advise_audit_통합정리]] - proxy_advise / action audit 통합 정리
 - [[260503_2304_audit_recap_pattern]] - recap_vote 패턴 적용 200×3 100% (multi-upstream-pattern 일반화 검증)
 - [[260503_1847_audit_phase4_final]] - advise_vote 200×3 deterministic 100% + regression 0 (Phase 4)
-- [[260510_parsing_audit_통합정리]] - 2026-05-10 이전 parsing audit 통합 정리
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] - 196 기업 × 11 tool audit 이력
 - [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
-- [[260429_0942_audit_arithmetic-21지표]] - 산술 정확성 audit
+- [[260624_1503_fix_dilutive-exchangeable-bond]] - 교환사채(EB) 5종 확장 + 원문 복원 fix
 - [[260427_1145_fix_ownership-stockknd]] - 보통주 변형 매칭 fix
 - [[260429_0942_fix_corp_gov_report-financial-holding]] - 금융지주 분류 fix
 
@@ -142,67 +138,56 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
 ---
 
-## Architecture (6 + audits 28 + fixes 3 + data archive)
+## Architecture (9 + fixes 4)
 
-### 시간순 인덱스 (READMEs)
-- [[architecture/audits/README]] — Audits 시간순 인덱스 (28 entries)
-- Audit raw data → private repo `open-proxy-storage/audits_data/` (260718 이관, 경쟁자산)
+### 인덱스 (READMEs)
+- [[architecture/README]] — 시스템 설계 입구
+- [[architecture/fixes/README]] — 설계·성능 시점 수정 기록
 - [[ralph/README]] — Ralph plans 시간순 인덱스 (24 plans)
-- Lessons — private 이관(open-proxy-storage/wiki-private/lessons, 260720)
 - [[decisions/README]] — Decisions 인덱스
 - [[tools/README]] — Tools 카탈로그 (사용자 진입점)
+- Lessons — private 이관(open-proxy-storage/wiki-private/lessons, 260720)
+- Audits · Goals — private 이관(open-proxy-storage/wiki-private/architecture/{audits,goals}, 260806).
+  raw data 는 260718에 먼저 `open-proxy-storage/audits_data/`로 이관됨
 
-### 시스템 설계 (6)
-- [[architecture/data-collection]] - OPM 전수 데이터 수집 entry point + 파싱 방법 (DART/KIND/Naver/Upstage/정적 JSON, 14 섹션 639줄)
+### 시스템 설계
+- [[architecture/data-collection]] - OPM 전수 데이터 수집 entry point + 파싱 방법 (DART/KIND/Naver/정적 JSON)
 - [[architecture/3-tier-fallback]] - XML -> PDF -> OCR 3단계 전략 (OPM은 XML 단독; PDF/OCR은 open-proxy-ai 이관 260712)
-- matrix-system - 12 카테고리 매트릭스 (100 dim, 76 빙고 패턴) + 자동 채점 v1.3 (통합 페이지)
+- [[architecture/multi-upstream-pattern]] - 여러 upstream 병렬 호출 5요소 표준 (concurrency + race fix)
 - [[architecture/proxy-voting-decision-tree]] - 3개 소스 통합 의결권 행사 판단 프레임워크
-- pipeline-architecture - 199개 기업 v4 JSON 생성 배치 파이프라인
-- [[architecture/lessons-learned]] - MCP 개발 7가지 핵심 교훈 (v1->v2 회고, 2026-04-19)
+- [[architecture/mcp-endpoints]] - live-opm / pilot-opm — 목적이 다르고 따로 관리, stdio 금지
+- [[architecture/environment-secrets]] - 어떤 키가 왜 필요한가 · 로컬 `.env` + fly secrets
+- [[architecture/project_structure]] - 코드 구조
+- matrix-system · pipeline-architecture · per-pbr-data-points · adjusted-price-timeseries — private storage
 
-### audits/ (10 시점별)
-- [[260411_2023_audit_personnel-벤치마크-v1]] - personnel XML 878명 전수 벤치마크 (SUCCESS 79.4%)
-- [[260421_2308_audit_parsing-10tool-20기업]] - 10 data tool × 20 회사 파싱 건강도 audit
-- [[260422_0005_audit_parsing-14scope-15기업]] - 확장 audit: 14 scope × 15 회사 + 필드 채움률 + corp_gov_report 포함
-- [[260429_0216_audit_parsing-200기업-v1]] - 196 기업 (KOSPI 100 + KOSDAQ 96) × 11 tool 전수 audit (exact 66.9%)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] - audit v2: no_filing 분리 + 진짜 partial 측정 (4-class)
-- [[260429_0942_audit_arithmetic-21지표]] - 산술 정확성 audit (21 지표)
-- [[260429_2053_audit_personnel-878명]] - personnel 파서 SUCCESS 79->95%
-- [[260510_financial_metrics_audit_통합정리]] - financial_metrics audit 통합 정리
-- [[260501_2030_audit_financial_metrics-200기업]] - financial_metrics 전수 audit (KOSPI 100 + KOSDAQ 100, exact 96.9%, 자본잠식 2건 검출, 5분)
-- 260502_2300_audit_advise-recap-vote - action tool 재편 sanity (advise/recap 신규 + 18→17 회귀 0 + 매핑 3-tier 분류)
-
-### fixes/ (3 시점별)
+### fixes/ (4 시점별)
 - [[260427_1145_fix_ownership-stockknd]] - ownership_structure 17건 partial -> 0 fix (stock_knd 변형 positive matching + 3-tier fallback, regression 0)
 - [[260429_0216_fix_speed-optimization-9건]] - 9건 sequential -> asyncio.gather 적용 (proxy_contest 4x, ownership 3x, dividend 3x)
 - [[260429_0942_fix_corp_gov_report-financial-holding]] - corp_gov_report 금융지주 18건 partial -> 0 fix (financial_form 감지)
+- [[260624_1503_fix_dilutive-exchangeable-bond]] - dilutive_issuance 교환사채(EB) 5종 확장 + 정정/철회/누락 원문 복원
 
 ---
 
-## Decisions (30) - `decisions/`
+## Decisions (25) - `decisions/`
 
 ### 정책 + 매트릭스
 - [[open-proxy-guideline]] - OPM 자체 의결권 행사 정책 v1.2 (12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting)
 - [[260429_0059_decision_voting-policy-consensus-matrix]] - 7 운용사 의결권 정책 합의/이견 매트릭스 (79 토픽, 12 카테고리)
-- [[260429_0216_improvement_turnkey-11agent]] - 11 agent 병렬 작업 통합 (G1-G4 + 7 페르소나 + 모더레이터)
 - [[260505_1700_decision_inside-director-performance-matrix]] - 사내이사 재직 중 성과 매트릭스 2x3 도입 (status quo bias mitigation, KOSPI 100 + KOSDAQ 50 검증)
 - [[260505_1900_decision_compensation-retirement-split]] - 보수한도/퇴직금 분리 (이사 13 / 감사 11 / 퇴직금 12 분기 + 정관 hybrid + 3 ralph 검증 G1 모두 99%+/G3 100%/G4 100% — KOSPI 200+KOSDAQ 50 n=226)
 - [[260506_0030_decision_notice-scope-cleanup-prov-financials]] - shareholder_meeting_notice scope 정리 (6→5) + provisional_financial_statement 독립 모듈 + prov_financials scope 신설 (data/action layer 정합)
-- [[260506_2330_decision_v1-dead-parsers-archive]] - v1 dead 3 parser (treasury_share / capital_reserve / financials) logical archive (코드 보존, decision-only)
 
 ### Tool 정책 + 변경 이력
 - [[tool-changelog]] - Tool 제거/통합/리네임 이력 (41->32->17개, 이유 포함)
 - [[tool-추가-검증-정책]] - release_v2 신규 tool 추가 시 action/data별 검증 매뉴얼 + 화이트리스트 체크
-- [[cross-domain-체이닝]] - AGM/OWN/DIV 도메인 간 tool 연결 맵 + 시나리오
 - [[free-paid-분리]] - MCP(public) + Pipeline(private) 2-repo 구조
 
 ### 파서 + 데이터 소스 결정
-- [[XML-vs-PDF]] - XML 1차 + PDF 보강이 최적, PDF-only는 역효과
+- [[XML-vs-PDF]] - 왜 XML 단독인가 (문서가 선언한 구조를 PDF는 잃는다; PDF/OCR tier는 260712 폐기)
 - [[BeautifulSoup-파서-선택]] - lxml 채택 (30% 빠름, 결과 동일)
 - [[LLM-fallback-설계]] - 정규식 -> zone 추출 -> LLM 하이브리드 전략
 - [[pblntf-ty-필터링]] - DART 검색 시 pblntf_ty 필수 지정, 전체 순회 금지 (D/E/I 코드표)
 - [[DART-KIND-매핑-화이트리스트-2026-04]] - KIND 병행 허용 공시 화이트리스트 + false match 사례
-- [[파서-성능-추이]] - 2026-03-20부터 04-06까지 8개 파서 개선 이력
 
 ---
 
@@ -260,7 +245,7 @@ DART/KIND 공시 유형. 공시명 = 페이지명.
 
 ---
 
-## Archive (74)
+## Archive (71)
 
 흡수된 페이지 (역사 보존, 신규 사용자 안 봐도 OK).
 
@@ -272,8 +257,8 @@ release_v2 검증 예시 + 설계 문서. 현재 17 public tools/* 페이지와 
 - [[stkrt-vs-ctr_stkrt]] · [[회사측-vs-주주측-위임장]] · [[배당-자사주-공시-종합]]
 
 ### archive/decisions/ (2)
-matrix-system.md 통합으로 흡수.
-decision-matrix-design · matrix-auto-scoring-2026-04-29
+현행 코드와 어긋나지만 현재 페이지들이 아직 가리키는 v1 결정 (260806 이동, `superseded_by` 명시).
+[[archive/decisions/cross-domain-체이닝]] · [[archive/decisions/260721_1600_decision_getting-started-tool-vs-resource]]
 
 ### archive/entities/ (8)
 DART/KIND/Upstage 등 외부 entity 페이지. CLAUDE.md path만 archive 보존.

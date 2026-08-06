@@ -6,7 +6,7 @@ scope: [exact, ambiguous, error]
 data_source: [DART OpenAPI corpCode.xml + company.json + list.json, Naver profile (보조)]
 related_disclosures: []
 related_concepts: []
-related_decisions: [pblntf-ty-필터링, free-paid-분리, lessons-learned]
+related_decisions: [pblntf-ty-필터링, free-paid-분리]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
 created: 2026-05-01
 ---
@@ -143,7 +143,6 @@ sequenceDiagram
 ## 관련 결정 (decisions/)
 - [[pblntf-ty-필터링]] — recent_filings 조회 시 pblntf_ty 필수
 - [[free-paid-분리]] — MCP(public) + Pipeline(private) 2-repo 구조에서 식별자 일관성
-- [[lessons-learned]] — 회사 식별 우선 + ambiguous 처리
 
 ## 관련 audit/fix (architecture/)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] — `company.summary` 98.5% exact (193/196 KOSPI 100 + KOSDAQ 96)

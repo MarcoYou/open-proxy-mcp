@@ -3,9 +3,13 @@ type: decision
 title: capability 질문 응답 메커니즘 — tool vs resource vs 무대응 (4인 전문가 패널)
 generated: 2026-07-21
 status: superseded (260722 tool 제거 — 아래 후기)
+superseded_by: tools/README
 ---
 
 # capability 질문 응답 메커니즘 — tool vs resource vs 무대응
+
+> 🍂 **낙엽(archive).** 여기서 채택한 `getting_started` tool은 260722 제거됐다. 현행 25 tool 카탈로그와
+> capability 안내 방식은 [[tools/README]]가 기준이다. 이 페이지는 설계 경위 보존용.
 
 ## 배경
 "OPM으로 뭐 할 수 있어?" 같은 포괄적 질문에 서버가 잘 답하게 하려면 무엇을 추가해야 하는가.

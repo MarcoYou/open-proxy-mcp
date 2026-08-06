@@ -59,13 +59,11 @@ exact/bridge가 corpus 위에 랭크(정밀도 보존). **anchor 게이트**(두
 또는 희소 형태소(df≤rare) 1개일 때만 C emit — 단일 흔한 단어('이사'·'회사')는 `requires_review`.
 difflib 없음. 삭제 조문 보존+경고, 조문번호 법령 중복 → `ambiguous`.
 
-**Signal C 진화 (260714)**: 폐쇄어휘 133개 overlap → 형태소 BM25 → **구어→법률 질의확장**. 자유질의는
-자연어 패러프레이즈가 어휘 밖이라 토큰이 ∅이 돼 recall@10 24%였으나 ① kiwipiepy 형태소 + 전문 BM25로
-39%→79%, ② 구어↔법률 zero-overlap(번 돈≠이익·쪼개다≠분할·일감몰아주기≠부당지원)을 닫는 **질의확장층**
-(`law_lookup_synonyms.json`의 `bm25_query_expansions` — 구어 trigger → 정답 조문 본문 실제 법률형태소
-append, anchor 게이트 前 적용)으로 **합계 242개 실사용셋 recall@10 90%**(자본시장법 93·외감 97·상법 90).
-근거·회귀게이트: law-recall-harness-260714 · `scripts/law_recall_harness.py`(242 baked) ·
-`scripts/spot_law_lookup.py`(하드게이트: vague·guard·collision·bridge 100% 무회귀).
+**Signal C 의 질의확장층**: 자유질의는 자연어 패러프레이즈가 법률 어휘와 겹치지 않아(번 돈≠이익 ·
+쪼개다≠분할 · 일감몰아주기≠부당지원) 형태소가 통째로 비는 일이 잦다. 그래서 형태소 BM25 앞에
+**질의확장층**을 둔다 — `law_lookup_synonyms.json` 의 `bm25_query_expansions`(구어 trigger → 법률
+형태소)를 anchor 게이트 **전에** 적용한다. 회귀 게이트는 `scripts/law_recall_harness.py` ·
+`scripts/spot_law_lookup.py`(vague·guard·collision·bridge 무회귀 하드게이트).
 
 **미시행 유보 (260713 수정)**: corpus의 `enforcement`는 법 **전문(공포본)** 시행일자라 개별 조문의
 현행 여부로 쓰면 안 된다 — 미래 시행 개정본을 vendored하면 그 법 **모든 조문**이 거짓 '미시행'으로
@@ -110,14 +108,14 @@ SSOT(`law_provisions.json`)의 `effective_date`로만 `미시행(시행 YYYY-MM-
 `unknown_law_filter`(지원 안 되는 `law=`)는 결과 유무와 무관하게 항상 별도 경고.
 
 ## 검증
-`scripts/spot_law_lookup.py` — 원문 정합(2,725조 0오류)·recall(bridge 방향B 18/18·방향A 16/16)·
-collision·두루뭉술 차단·false-friend guard·**삭제 조문 탐지(126건)**·**법률>시행령 tier**·**미시행 유보
-(자본시장법 599 오탐 회귀)**·**폴백 6유형 분류**·proxy_advise 공유자산 회귀. 전 축 PASS(260713).
+`scripts/spot_law_lookup.py` 가 하드게이트로 검사한다 — 원문 정합 · bridge recall(양방향) ·
+조문번호 collision · 두루뭉술 차단 · false-friend guard · 삭제 조문 탐지 · 법률>시행령 tier ·
+미시행 유보 회귀 · 폴백 유형 분류 · `proxy_advise` 공유자산 회귀.
 
-**멀티에이전트 적대적 검증(260713)으로 적발·수정**: ① 삭제 조문 탐지 0/2725 회귀(corpus 포맷
-`삭제 <날짜>` 미인식) → 수정 후 126건 탐지. ② false-friend 복합어 누출(감사보고서→감사) → 통합
-longest-first 마스킹으로 차단. ③ 조사 분리 복합어 recall(이사의 보수→§388) → de-particle 매칭.
-④ 법률 vs 시행령 미구분 → law_tier tie-break. (파싱정합 + 도메인 relevance + 엣지케이스 3관점 병렬)
+**적대적 검증에서 드러난 함정 4종**(전부 수정 완료): ① corpus 포맷의 삭제 마커를 못 읽으면 삭제
+조문 탐지가 통째로 0 이 된다 ② false-friend 마스킹이 복합어에서 누출된다(감사보고서→감사) ③ 조사가
+붙은 복합어는 그대로는 매칭되지 않는다(이사의 보수→§388) ④ 법률과 시행령을 구분하지 않으면 시행령이
+법률 위로 올라온다. 검증 실측치 상세는 private storage.
 
 ## 알려진 한계 / TODO (v1)
 - **terse-title 조문 recall**: 제목이 일반어인 핵심 조문(예 상법 §385 "해임", 보수'한도' vs 조문의

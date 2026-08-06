@@ -35,11 +35,9 @@ updated: 2026-06-01
 | 파일 | 내용 |
 |---|---|
 | [[260429_0059_decision_voting-policy-consensus-matrix]] | 8 운용사 합의 매트릭스 |
-| [[260429_0216_improvement_turnkey-11agent]] | 11 agent 통합 |
 | [[260505_1700_decision_inside-director-performance-matrix]] | 사내이사 성과 매트릭스 2x3 |
 | [[260505_1900_decision_compensation-retirement-split]] | 보수/퇴직금 분리 |
 | [[260506_0030_decision_notice-scope-cleanup-prov-financials]] | shareholder_meeting_notice scope 정리 |
-| [[260506_2330_decision_v1-dead-parsers-archive]] | v1 dead parser archive 결정 |
 | [[260507_2330_decision_httpx-connection-pool]] | httpx connection pool |
 | [[260508_0030_decision_classify-agenda-parent-shortcircuit]] | _classify_agenda parent 인지 |
 | **[[260508_0200_decision_law-layer]]** | **법령 layer 도입 (Ralph 3 결과)** |
@@ -49,9 +47,8 @@ updated: 2026-06-01
 | [[260510_1130_decision_director-faithfulness]] | 사외이사 겸직/충실성 fact 강화 |
 | [[260510_1230_decision_career-parser-concat]] | careerDetails concat/boundary 처리 |
 | [[260702_1520_decision_usage-is-error-tracking]] | 사용통계 is_error 기록 — 툴 내부 오류 기준 정의 |
-| **[[260717_1220_decision_business-content-tool-roadmap]]** | **business_details tool — "II.사업의 내용" 자동추출 설계·실현가능성 로드맵 (156사 census, A+B 착수·D 보류, 스콥 정의)** |
+| **[[260717_1220_decision_business-content-tool-roadmap]]** | **business_details tool — "II.사업의 내용" 자동추출 스코프·계약(IN/OUT 폼·필드, strict/candidate 문맥 계약)** |
 | [[260721_1500_decision_asset-holdings-purpose-buckets]] | asset_holdings 보유자산 목적버킷 6분류(회계사 검토) — 재테크형/부동산 자산주형/지주사 할인형/우호지분형 서사 근거 |
-| [[260721_1600_decision_getting-started-tool-vs-resource]] | capability 질문 응답 메커니즘(4인 전문가 패널) — tool 채택·resource 기각, 런타임 introspection 설계. **260722 tool 제거로 superseded**(후기 참조) |
 
 ## 정체성 문서 (시점 prefix 없음)
 
@@ -59,10 +56,17 @@ updated: 2026-06-01
 |---|---|
 | [[open-proxy-guideline]] | OPM 자체 정책 master |
 | [[tool-changelog]] | tool 변경 이력 |
-| [[cross-domain-체이닝]] · [[free-paid-분리]] | tool 간 연결과 repo 운영 정책 |
+| [[free-paid-분리]] | repo 운영 정책(public MCP / private pipeline) |
 | [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[LLM-fallback-설계]] | 파서/데이터 소스 결정 |
 | [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
-| [[tool-추가-검증-정책]] · [[파서-성능-추이]] | tool 추가/성능 이력 |
+| [[tool-추가-검증-정책]] | 신규 tool 추가 시 소스·검증 정책 |
+
+## 여기 없는 것 (260806 이관)
+
+| 옮긴 것 | 어디로 | 왜 |
+|---|---|---|
+| `260429_0216_improvement_turnkey-11agent` · `260506_2330_decision_v1-dead-parsers-archive` · `파서-성능-추이` | private storage `wiki-private/decisions/` | 등장하는 tool·파서·PDF/OCR tier 가 현행 코드에 없다(v1 유물) |
+| [[archive/decisions/cross-domain-체이닝]] · [[archive/decisions/260721_1600_decision_getting-started-tool-vs-resource]] | `wiki/archive/decisions/` (🍂 낙엽) | 현행 tool 이름/구성과 어긋나지만 현재 페이지들이 아직 가리켜 링크는 살려 둠 |
 
 ## 관련 페이지
 

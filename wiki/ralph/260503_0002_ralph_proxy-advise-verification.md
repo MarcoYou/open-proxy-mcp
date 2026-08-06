@@ -4,7 +4,7 @@ title: proxy_advise_before_meeting 정확도 + 일관성 + 사실 정확성 검�
 created: 2026-05-04 00:02
 completion_promise: PROXY_ADVISE_VERIFIED
 max_iterations: 30
-related_audits: [260510_proxy_advise_audit_통합정리, 260504_0028_audit_proxy_advise_rename_regression]
+related_audits: [260504_0028_audit_proxy_advise_rename_regression]
 ---
 
 ## Invoke (복붙해서 실행)

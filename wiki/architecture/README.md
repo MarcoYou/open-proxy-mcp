@@ -22,10 +22,12 @@ updated: 2026-06-23
 | **MCP 엔드포인트** (live-opm / pilot-opm — 목적이 다르고 따로 관리, stdio 금지) | [[mcp-endpoints]] |
 | **환경변수·시크릿** (필요한 키 목록·설정 위치, `.env.example` 대체) | [[environment-secrets]] |
 | **PER·PBR 데이터 포인트 전수조사** (보통주·우선주 실측 인벤토리, EPS 조립 경로) | per-pbr-data-points |
-| **MCP 개발 교훈** | [[lessons-learned]] |
 | **수정주가 타임시리즈** (기준가 리셋 실측 파이프라인 + 핸드오프) | adjusted-price-timeseries |
 
 ## 하위 폴더
-- `audits/` — 데이터·파서 전수조사 기록 ([[audits/README]])
-- `fixes/` — 설계·성능 시점 수정 기록 ([[fixes/README]])
-- `goals/` — audit 목표·기준 정의 ([[goals/README]])
+- `fixes/` — 설계·성능 시점 수정 기록 ([[architecture/fixes/README]])
+
+> `audits/`(전수조사 기록)·`goals/`(audit 목표 정의)·`lessons-learned`(MCP 개발 회고)는 260806
+> private storage 로 이관했다 — `open-proxy-storage/wiki-private/architecture/{audits,goals}/` ·
+> `wiki-private/lessons/mcp-development-260419.md`. 시점 작업 기록은 storage, 현재형 사실만 여기
+> ([[wiki_schema]] §0.0).

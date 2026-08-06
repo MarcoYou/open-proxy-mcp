@@ -148,42 +148,19 @@ KIND나 다른 외부 HTML을 쓰려면 먼저 기존 화이트리스트를 확�
 
 ### 6. 신규 화이트리스트 후보 검증
 
-화이트리스트에 없는 공시를 KIND와 연결하려면 아래를 반드시 수행한다.
-
-1. 해당 공시 유형으로 `회사 3개` 1차 샘플 선정
-2. 각 샘플에서
-   - DART 검색 성공 여부
-   - `document.xml` 확보 여부
-   - KIND 매핑 규칙 존재 여부
-   - 제목/회사명/날짜 일치 여부
-   - false match 여부
-3. 1차 샘플이 안정적이면
-4. `추가 10개 샘플` 재검증
-5. 하나라도 false match가 나오면 화이트리스트 승인 보류
-
-정리:
+화이트리스트에 없는 공시를 KIND와 연결하려면 **표본 검증을 통과해야만** 승인한다. 판정선은 둘뿐이다.
 
 - `미매칭`은 `DART-only` fallback으로 처리 가능
-- `false match`는 허용하지 않는다
+- `false match`는 **하나라도 나오면 승인 보류** — 허용하지 않는다
 
 ### 7. 샘플 검증 기준
 
-새 data tool은 최소한 아래 샘플 검증을 남긴다.
+새 data tool 은 공시 유형별로 표본 검증 로그를 남긴다. 표본에는 **정정공시가 최소 1건** 포함돼야 하고,
+로그는 `회사 · 공시명 · 공시일 · rcept_no · primary/secondary 소스 결과 · 판정`을 담는다.
+판정은 `exact / partial / conflict / requires_review` 4분류다.
 
-- 공시 유형별 회사 3개
-- 가능하면 대형주/금융/이슈 기업 혼합
-- 최근 케이스 위주
-- 정정공시가 있으면 1개 이상 포함
-
-검증 로그에는 최소한 아래를 남긴다.
-
-- 회사명
-- 공시명
-- 공시일
-- rcept_no
-- primary source 결과
-- secondary source 결과
-- 판정: `exact / partial / conflict / requires_review`
+> 표본 단계(3→10)·건별 판정 항목 등 검증 프로토콜 상세는 storage
+> (`wiki-private/architecture/이관_260806_arch-decisions.md`).
 
 ### 8. evidence 설계
 

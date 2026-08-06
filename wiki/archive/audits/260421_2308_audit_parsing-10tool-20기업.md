@@ -115,4 +115,4 @@ Partial은 두 가지 의미:
 
 ## 관련
 
-[[OpenProxy-MCP]] [[파서-판정-등급]] [[lessons-learned]]
+[[OpenProxy-MCP]] [[파서-판정-등급]] `lessons-learned`(private 이관)

@@ -4,9 +4,14 @@ title: Cross-domain Tool 체이닝
 tags: [architecture, tool-chaining, agm, own, div]
 related: [OpenProxy-MCP, agm-tool-rule, own-tool-rule, div-tool-rule]
 sources: [agm-tool-rule, own-tool-rule, div-tool-rule]
+superseded_by: tools/README
 ---
 
 # Cross-domain Tool 체이닝
+
+> 🍂 **낙엽(archive).** 이 페이지의 tool 이름(`agm_result`·`own_block`·`div_detail` 등)은 v1 것으로
+> **현행 25 tool 에 없다.** 지금의 tool 목록과 체이닝 가능한 조합은 [[tools/README]]가 기준이다.
+> 남겨둔 이유는 "도메인을 넘나드는 분석이 거버넌스의 핵심"이라는 설계 의도의 출처이기 때문.
 
 ## 개요
 

@@ -7,7 +7,7 @@ data_source: [DART OpenAPI alotMatter (사업보고서 배당 요약, 다년 컬
 related_disclosures: [현금배당결정, 주식배당결정, 배당기준일결정, 분기배당결정, 감액배당결정, 배당공시유형, 사업보고서, 자기주식취득결정]
 related_concepts: [배당성향, 배당수익률, 시가배당률, 분기배당, 특별배당, 감액배당, 자본준비금, 당기순이익, 주주환원]
 related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, free-paid-분리, cross-domain-체이닝]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260429_0216_fix_speed-optimization-9건, 260429_0942_audit_arithmetic-21지표]
+related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260429_0216_fix_speed-optimization-9건]
 created: 2026-05-01
 ---
 
@@ -167,7 +167,7 @@ sequenceDiagram
 ## 관련 audit/fix (architecture/)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] — dividend.summary 75.0% exact
 - [[260429_0216_fix_speed-optimization-9건]] — dividend 3x 속도 향상 (asyncio.gather)
-- [[260429_0942_audit_arithmetic-21지표]] — 21개 산술 지표 검증 통과
+- — 21개 산술 지표 검증 통과
 
 ## 알려진 issue + TODO
 - alotMatter와 거래소 공시 수치 충돌 시 `requires_review`.

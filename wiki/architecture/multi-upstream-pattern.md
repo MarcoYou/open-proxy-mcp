@@ -12,17 +12,12 @@ OPM action/data tool이 **여러 upstream service를 asyncio.gather로 병렬 �
 
 Phase 4 advise_vote 200×3 검증 (91.4% → 100.0%, regression 0)에서 도출. 같은 패턴 미적용 tool들이 동일 race/timeout 문제를 겪을 것으로 예상되므로 표준화.
 
-## 문제 — Phase 2/3에서 발견
+## 문제 — 병목은 logic 이 아니라 infra 다
 
-advise_vote 200 회사 × 3 run batch:
-
-| Phase | 일치율 | timeout | root cause 가설 | 결과 |
-|---|---|---|---|---|
-| 2 | 91.4% | 3건 | retry 1회 부족 | retry 3회 적용 → 거의 변화 X |
-| 3 | 91.9% | 15건 ⚠ | alias / parser 문제 | F0/F2/F3 모두 fix해도 91.9% 그대로 |
-| 4 | **100.0%** | **0건** | **infra (corpCode race + cache 없음)** | F6-F11 단번에 100% |
-
-logic (alias / parser / 정규식)을 의심했으나 진짜 병목은 **네트워크 race + 결과 cache 부재**였다. 같은 위치에 같은 함정이 다른 tool에도 존재.
+여러 upstream 을 병렬로 부르는 tool 에서 **일치율이 안 오르고 timeout 이 남는다면**, 원인은
+alias·parser·정규식 같은 logic 이 아니라 **네트워크 race + 결과 cache 부재**일 가능성이 크다.
+advise_vote 200×3 batch 가 91.4% → **100.0%(timeout 0)** 로 올라간 것도 logic 수정이 아니라
+corpCode race 제거와 cache 도입이었다. 같은 위치에 같은 함정이 다른 tool 에도 있다.
 
 ## 5 요소 표준
 

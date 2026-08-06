@@ -1,38 +1,34 @@
 ---
 type: decision
-title: XML vs PDF 비교 분석
+title: XML vs PDF — 왜 XML 단독인가
 tags: [parser, architecture, comparison]
 sources: [git history, wiki/archive/sources/devlog]
-related: [3-tier-fallback, opendataloader]
+related: [3-tier-fallback]
 ---
 
-# XML vs PDF 비교 분석
+# XML vs PDF — 왜 XML 단독인가
 
-## 결론
+## 결론 (현행)
 
-**XML 1차 + PDF 보강이 최적 전략.** PDF-only 전환은 financials/agenda에서 역효과. [[3-tier-fallback]] 아키텍처의 핵심 근거.
+**OPM 은 `document.xml` 단독으로 파싱한다.** PDF·OCR 폴백은 2026-07-12 OPM 에서 폐기하고 고급
+프로덕트 `open-proxy-ai` 로 이관했다. XML 이 불완전하면 원문을 호출측 AI 에 노출해 보정(soft-fail)하고,
+조작된 값을 만들어 내지 않는다. 아키텍처는 [[3-tier-fallback]].
 
-## 비교 데이터 (KOSPI 200, 198개)
+## 왜 XML 이 기본인가
 
-### XML이 우세한 영역
-- **financials**: XML의 HTML 테이블 구조가 bs4로 깔끔하게 파싱됨. PDF는 opendataloader 변환 시 테이블 구조 손실 위험.
-- **agenda**: XML의 섹션 태그(`<section-1>`)가 정확한 경계 제공. PDF는 텍스트 기반이라 경계 판별 어려움.
+- **financials**: XML 의 HTML 테이블 구조가 그대로 살아 있어 표를 격자로 복원할 수 있다. PDF 변환은
+  테이블 구조를 잃을 위험이 있다.
+- **agenda**: XML 의 섹션 태그(`<section-1>`)가 안건 경계를 **정확히** 준다. PDF 는 텍스트 기반이라
+  경계를 추정해야 한다.
 
-### PDF가 우세한 영역
-- **personnel 경력**: XML에서 병합된 경력이 PDF에서는 개별 줄로 분리됨 (미래에셋증권: 245자 1줄 -> 17건)
-- **compensation**: XML에서 비표준 구조인 기업(기업은행 등)도 PDF에서 정상 파싱
+즉 XML 은 **문서가 스스로 선언한 구조**를 읽을 수 있고 PDF 는 그것을 잃는다. 이것이 XML 을 기본으로
+두는 이유이며, PDF 로 전면 전환하면 XML 이 잘 되던 영역이 오히려 나빠진다.
 
-### 파서별 PDF 성능 추이 (v1 -> 최종)
+## PDF 가 낫던 영역 (참고 — 현재 OPM 경로 아님)
 
-| 파서 | v1 | 최종 | 개선폭 |
-|------|-----|------|--------|
-| compensation | 88.9% | 97.5% | +8.6% |
-| personnel | 89.9% | 93.9% | +4.0% |
-| financials BS | 82.3% | 96.0% | +13.7% |
-| financials IS | 12.6% | 93.9% | +81.3% |
-| aoi | 76.3% | 97.0% | +20.7% |
-| agenda | 80.3% | 97.5% | +17.2% |
+`personnel` 경력(XML 에서 한 줄로 병합된 경력이 PDF 에선 줄 단위로 분리)과 비표준 구조의
+`compensation` 은 PDF 가 유리했다. 그래서 이 문제들은 PDF 폴백이 아니라 **XML 쪽 파서 보강**으로
+해결해야 한다.
 
-## 아키텍처 결정
-
-XML을 기본으로 사용하되, XML SOFT_FAIL/HARD_FAIL 시 PDF로 보강 ([[파서-판정-등급]] 기준). PDF-only로 전환하면 XML이 잘 되는 영역에서 오히려 성능 하락. PDF tier는 [[opendataloader]]로 변환.
+> PDF 파서 전수 census(KOSPI 200 198사, 파서별 v1→최종 성능표)와 「XML 1차 + PDF 보강」 시절 전략은
+> storage (`wiki-private/architecture/이관_260806_arch-decisions.md`).

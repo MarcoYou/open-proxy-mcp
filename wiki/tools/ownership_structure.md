@@ -6,7 +6,7 @@ scope: [summary, major_holders, blocks, treasury, control_map, timeline, changes
 data_source: [DART OpenAPI 사업보고서 (대주주/지분/자사주) + majorstock + document.xml (5% 보유목적), KIND HTML (changes scope 원문)]
 related_disclosures: [대량보유상황보고서, 임원·주요주주특정증권등소유상황보고서, 사업보고서, 최대주주등소유주식변동신고서]
 related_concepts: [최대주주, 특수관계인, 대주주, 동일인, 5%-대량보유, 자사주, 소액주주, 지분구조]
-related_decisions: [stkrt-vs-ctr_stkrt, free-paid-분리, cross-domain-체이닝, lessons-learned]
+related_decisions: [stkrt-vs-ctr_stkrt, free-paid-분리, cross-domain-체이닝]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260427_1145_fix_ownership-stockknd, 260429_0216_fix_speed-optimization-9건, 260503_2345_audit_ownership_baseline]
 created: 2026-05-01
 ---
@@ -159,7 +159,6 @@ sequenceDiagram
 - [[stkrt-vs-ctr_stkrt]] — DART 대량보유 API: stkrt(합산) vs ctr_stkrt(주요계약) 차이
 - [[free-paid-분리]] — MCP / Pipeline 분리에서 지분구조 수치 일관성
 - [[cross-domain-체이닝]] — OWN → AGM/PRX 체이닝
-- [[lessons-learned]] — control_map 3대 카테고리 분리 lesson
 
 ## 관련 audit/fix (architecture/)
 - [[260429_0912_audit_parsing-200기업-v2-no_filing]] — ownership_structure 90.8% exact
