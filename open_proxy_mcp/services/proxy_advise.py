@@ -1178,6 +1178,43 @@ _CROSS_CHECK_MIN_ABS = 100_000_000_000        # 1,000억
 _CROSS_CHECK_LOW, _CROSS_CHECK_HIGH = 0.7, 1.4
 
 
+#: 순이익이 매출을 넘는 일은 거의 없다. 대규모 처분이익 같은 예외가 있으므로 **동률 근처는 넘긴다** —
+#: 파싱 사고는 배 단위로 벌어지지 자릿수 안에서 아슬아슬하지 않다(영풍 실측 1.24배는 넘고, 실제 사고는
+#: 116배였다). 1.2배를 문턱으로 둔다.
+_NET_OVER_REVENUE = 1.2
+
+
+def _internal_consistency(fy_raw: dict[str, Any] | None) -> list[str]:
+    """본문 안에서 숫자끼리 맞는지 — API 대조가 못 보는 자리.
+
+    API 검산은 매출·영업이익만 맞댄다. **순이익을 API 와 맞대지 않는 것은 의도된 것**이다 —
+    본문은 총 순이익, API 는 지배주주 귀속이라 개념이 달라 비율이 -0.75~22.69배까지 정상적으로
+    벌어진다. 그래서 순이익은 검산 그물을 통째로 빠져나갔고, 영풍 2026 회차는 본문 당기 순이익이
+    3조 6,027억(실제 309억, 116배)인데 「본문 파싱 정상」이라고 선언됐다.
+
+    **본문 안에서의 정합성은 그 개념 차이의 영향을 받지 않는다.** 같은 표에서 뽑은 숫자끼리
+    비교하기 때문이다. 값을 고치지는 않는다 — 어긋난다고 말할 뿐이다.
+    """
+    if not fy_raw:
+        return []
+    issues: list[str] = []
+    for period, label in (("current", "당기"), ("prior", "전기")):
+        net = fy_raw.get(f"fy_{period}_net_income_krw")
+        rev = fy_raw.get(f"fy_{period}_revenue_krw")
+        if net and rev and rev > 0 and net > rev * _NET_OVER_REVENUE:
+            issues.append(f"{label} 순이익({net / 1e12:.2f}조)이 매출({rev / 1e12:.2f}조)보다 큽니다")
+    assets = fy_raw.get("fy_current_total_assets_krw")
+    debt = fy_raw.get("fy_current_total_liabilities_krw")
+    equity = fy_raw.get("fy_current_total_equity_krw")
+    if assets and debt is not None and equity is not None:
+        gap = abs(assets - (debt + equity))
+        if gap > abs(assets) * 0.01:   # 1% — 반올림·표시단위 차이는 넘긴다
+            issues.append(
+                f"당기 자산({assets / 1e12:.2f}조)이 부채+자본({(debt + equity) / 1e12:.2f}조)과 맞지 않습니다"
+            )
+    return issues
+
+
 def _cross_check_provisional_revenue(fy_raw: dict[str, Any] | None,
                                      fin_summary: dict[str, Any] | None) -> str | None:
     """소집공고 본문 잠정 재무제표를 DART API 확정치로 검산한다.
@@ -1212,11 +1249,17 @@ def _cross_check_provisional_revenue(fy_raw: dict[str, Any] | None,
             checked.append(label)
         else:
             bad.append(f"{label} {prior / 1e12:.2f}조 vs 확정 {api_cur / 1e12:.2f}조({ratio:.2f}배)")
-    if bad:
-        return ("본문 전기 " + " · ".join(bad)
-                + " — 본문 파싱을 신뢰하지 마시고 원문을 확인하세요")
+    internal = _internal_consistency(fy_raw)
+    if bad or internal:
+        parts = []
+        if bad:
+            parts.append("본문 전기 " + " · ".join(bad))
+        parts.extend(internal)
+        return " · ".join(parts) + " — 본문 파싱을 신뢰하지 마시고 원문을 확인하세요"
     if checked:
-        return f"본문 전기 {'·'.join(checked)}이 확정 재무제표와 일치 — 본문 파싱 정상"
+        # 「정상」이라고 단정하지 않는다 — **확인한 범위만** 말한다. 예전에는 매출만 맞으면
+        # 「본문 파싱 정상」이라고 했고, 그 사이 순이익이 116배 틀려 있었다(영풍).
+        return f"본문 전기 {'·'.join(checked)}이 확정 재무제표와 일치 (대조 항목: {'·'.join(checked)})"
     return None
 
 

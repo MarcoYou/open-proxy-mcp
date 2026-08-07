@@ -375,11 +375,18 @@ def _render(payload: dict[str, Any]) -> str:
                                       for k, v in facts.items())
                 lines.append(f"- 사실: {fact_str}")
             else:
-                lines.append("- 사실: 이 안건 유형에는 정량 수치가 없습니다")
+                # 「이 안건 유형에는 수치가 없다」는 **유형 단위 단정**이었다. 합병 안건이 그 문장을
+                # 달고 나갔는데, 바로 윗줄 사유는 「합병비율의 산정근거와 외부평가기관 의견을
+                # 확인하라」고 지시한다 — 있다고 말하면서 없다고 쓴 셈이고, 읽는 사람은 원문을 열
+                # 이유를 잃는다(SK이노베이션 SK E&S 흡수합병 실측). **못 뽑았다고 말한다.**
+                lines.append("- 사실: 이 안건에서 정량 수치를 추출하지 못했습니다 — 원문을 확인하세요")
             if risks:
                 lines.append(f"- 위험 신호: {', '.join(risks)}")
             else:
-                lines.append("- 위험 신호: 없음")
+                # 「없음」은 검사해서 없다는 뜻이다. 판정이 서지 않은 안건에서는 검사한 적이 없다.
+                lines.append("- 위험 신호: 확인된 항목 없음"
+                             if ag.get("decision") in ("FOR", "AGAINST")
+                             else "- 위험 신호: 이 경로에서는 위험 신호를 판정하지 않았습니다")
             lines.append(f"- 정책 인용: {citation}")
             lines.append(f"- 적용 정책: {policy_basis}")
             if rcept_no:
