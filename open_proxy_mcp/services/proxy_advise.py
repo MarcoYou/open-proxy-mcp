@@ -1430,26 +1430,199 @@ def _decide_retirement_pay(
     return "FOR", "퇴직금 단순 정정 (amendments 0건)"
 
 
-def _decide_financial_statements(fm_payload: dict[str, Any] | None) -> tuple[str, str]:
-    """재무제표 승인 → 감사의견 적정이면 FOR, 한정/부적정이면 AGAINST.
+#: 나쁜 순. 같은 결산일에 서로 다른 의견이 오면 **가장 나쁜 것**을 택한다 — `_build_audit_opinion_data`
+#: 의 정렬 키가 결산일 하나뿐이라 그냥 첫 행을 쓰면 DART 응답 순서가 판정을 정한다(셀리버리 2022
+#: 사업연도 실측 = 의견거절/적정/해당사항없음 3행이 모두 결산일 2022-12-31). 순서가 바뀌면 반대가
+#: 조용히 사라지므로, 우연이 아니라 규칙으로 고른다. 「해당사항없음」은 의견이 아니라 빈칸이다.
+_OPINION_SEVERITY = ("의견거절", "부적정", "한정", "적정")
 
-    데이터 없음 (cap_status / audit 둘 다 None) 시 NO_DATA (잘못된 자동 FOR 방지).
+
+def _worst_audit_opinion(rows: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, bool]:
+    """의견 행들 중 가장 나쁜 것 + 서로 다른 의견이 섞여 있었는지."""
+    ranked = [
+        (rank, row)
+        for row in rows
+        for rank, kw in enumerate(_OPINION_SEVERITY)
+        if kw in (row.get("adt_opinion") or "")
+    ]
+    if not ranked:
+        return None, False
+    ranked.sort(key=lambda pair: pair[0])
+    return ranked[0][1], len({rank for rank, _ in ranked}) > 1
+
+
+def _audit_opinion_at_meeting(
+    audit_payload: dict[str, Any] | None,
+    meeting_date_iso: str,
+) -> dict[str, Any]:
+    """**주총일에 공시돼 있던** 감사의견만 판정 근거로 쓴다.
+
+    DART 는 재무제표가 재작성되면 **재작성본만** 돌려준다 — 비덴트 2022사업연도를 조회하면
+    2024-12-31 접수본의 「적정」이 나오지만, 2023-03 주총 당시 의견은 의견거절이었다. 그대로 쓰면
+    그때 알 수 없던 정보로 그때의 판단을 채점하게 된다(작업 원칙 5). 접수번호 앞 8자리가 접수일이라
+    주총일과 비교하면 갈린다.
+
+    값을 지우지는 않는다 — 「적정」이라는 사실 자체는 정보이므로 사유에 밝히고 **판정 근거에서만** 뺀다.
+    """
+    out: dict[str, Any] = {"opinion": None, "status": "unavailable", "row": None, "conflict": False}
+    if not audit_payload:
+        return out
+    block = (audit_payload.get("data") or {}).get("audit_opinion") or {}
+    rows = block.get("opinions") or []
+    if not rows:
+        # 조회는 됐는데 행이 없다 = 그 사업연도 사업보고서가 아직 없다(회사 사유)
+        out["status"] = "not_filed" if audit_payload.get("data") is not None else "unavailable"
+        return out
+    # 조회한 사업연도의 행만 본다. 전기·전전기는 이번 안건의 승인 대상이 아니다.
+    current = [r for r in rows if r.get("period_tag") == "current"] or rows[:1]
+    row, conflict = _worst_audit_opinion(current)
+    if row is None:
+        # 행은 왔는데 의견 칸이 비어 있다(현대차 2025사업연도 실측). 「제출을 못 찾았다」와 다르다 —
+        # 문서는 있으니 볼 곳도 다르다. 그 문서를 그대로 가리켜 준다.
+        blank = current[0] if current else None
+        out["status"] = "blank" if blank else "not_filed"
+        out["row"] = blank
+        return out
+    out["row"], out["conflict"] = row, conflict
+    filed_on = (row.get("rcept_no") or "")[:8]
+    meeting_ymd = (meeting_date_iso or "").replace("-", "")[:8]
+    if filed_on and meeting_ymd and filed_on > meeting_ymd:
+        # 주총 뒤에 접수된 **사업보고서**다. 그렇다고 그때 감사의견이 없었다는 뜻은 아니다 —
+        # 감사보고서는 외감법 §23① 로 주총 1주 전까지 별도 공시되고, 이 API 는 그 별도 문서가
+        # 아니라 사업보고서만 읽는다. 「사업보고서가 늦었다」를 「감사의견이 없었다」로 바꿔 말하면
+        # 확인하지 않은 부재를 단정하는 것이고, 실측 현대차·KB금융이 그 오탐에 걸렸다.
+        # 갈리는 지점은 **의견이 그 사이 바뀌었는가**이고, 그 표지가 강조사항의 「재작성」이다.
+        if "재작성" in (row.get("emphs_matter") or ""):
+            out["status"] = "restated_after_meeting"
+            return out
+        out["opinion"], out["status"] = row.get("adt_opinion"), "available_late"
+        return out
+    out["opinion"], out["status"] = row.get("adt_opinion"), "available"
+    return out
+
+
+def _fy_label(row: dict[str, Any] | None) -> str:
+    """「2022사업연도」 — 연도 없는 문장은 독자가 승인 대상 연도의 값으로 읽는다."""
+    stlm = (row or {}).get("stlm_dt") or ""
+    return f"{stlm[:4]}사업연도" if stlm[:4].isdigit() else ""
+
+
+def _capital_clause(summary: dict[str, Any], fy: str) -> tuple[str, str]:
+    """자본잠식 절 — 있는 그대로 쓴다. 「부분」을 「없음」이라 쓰지 않는다."""
+    status = summary.get("capital_impairment_status")
+    pct = summary.get("capital_impairment_ratio_pct")
+    suffix = f"({fy})" if fy else ""
+    if status == "full":
+        return "full", f"완전 자본잠식 — 자본총계 0 이하{suffix}"
+    if status == "partial_50plus":
+        return "partial_50plus", f"자본잠식률 {pct}%{suffix} — 관리종목 지정 기준(50%) 초과"
+    if status == "partial":
+        return "partial", f"부분 자본잠식 {pct}%{suffix}"
+    if status == "normal":
+        return "normal", f"자본잠식 없음{suffix}"
+    return "unknown", "자본잠식 상태 미확인"
+
+
+def _rcept_date(raw: str, rcept_no: str) -> str:
+    """접수일 `YYYY-MM-DD`. upstream 서식이 제각각이라 접수번호 앞 8자리로 통일한다."""
+    digits = "".join(ch for ch in (raw or "") if ch.isdigit())
+    if len(digits) < 8:
+        digits = (rcept_no or "")[:8]
+    return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}" if len(digits) >= 8 else "-"
+
+
+def _disclosure_name(ref: dict[str, Any], label: str) -> str:
+    """공시명 — 사람이 읽는 이름만 쓴다.
+
+    일부 upstream 은 `report_nm` 에 `disposal_result` 같은 **내부 식별자**를 싣는다. 산출물은 사람이
+    읽는 문서라 엔진 내부 이름이 나가면 안 된다(표기 규칙) — 한글이 없으면 용도 라벨로 대체한다.
+    """
+    name = (ref.get("report_nm") or "").replace("\n", " ").strip()
+    if name and any("가" <= ch <= "힣" for ch in name):
+        return name
+    section = (ref.get("section") or "").replace("\n", " ").strip()
+    if section and any("가" <= ch <= "힣" for ch in section):
+        return section
+    return label
+
+
+def _decide_financial_statements(
+    fm_payload: dict[str, Any] | None,
+    audit_payload: dict[str, Any] | None = None,
+    meeting_date_iso: str = "",
+    approval_year: int | None = None,
+) -> tuple[str, str]:
+    """재무제표 승인 판정.
+
+    **두 축을 한 문장에 뭉치지 않는다.** 예전에는 `if latest_op or cap_status is not None` 하나로
+    「감사의견 적정 + 자본잠식 없음」을 냈는데, 그 결과 ① 감사의견을 한 번도 조회하지 않고 「적정」이라
+    단정했고(호출부가 `scope="summary"` 로만 불러 `audit_opinion` 이 늘 비어 있었다) ② 부분 자본잠식도
+    「없음」으로 나갔다(`full` 만 검사). 절을 갈라 쓰면 한쪽 근거로 다른 쪽을 참으로 만드는 코드 자체가
+    성립하지 않는다.
     """
     if not fm_payload:
         return "NO_DATA", "재무 데이터 없음 — 사업보고서 본문 검토 필요"
-    data = fm_payload.get("data", {})
-    audit = data.get("audit_opinion", {}) or {}
-    summary = data.get("summary", {}) or {}
-    latest_op = audit.get("summary", {}).get("latest_opinion") if "summary" in audit else None
-    cap_status = summary.get("capital_impairment_status")
+    summary = (fm_payload.get("data") or {}).get("summary") or {}
+    audit = _audit_opinion_at_meeting(audit_payload, meeting_date_iso)
+    row, opinion = audit["row"], audit["opinion"]
+    fy_audit = _fy_label(row) or (f"{approval_year}사업연도" if approval_year else "")
+    cap_status, cap_clause = _capital_clause(summary, _fy_label(row))
 
+    auditor = (row or {}).get("adtor") or ""
+    stamp = f"({fy_audit}, {auditor})" if fy_audit and auditor else (f"({fy_audit})" if fy_audit else "")
+    conflict_note = " — 같은 기간에 서로 다른 의견이 조회되어 가장 보수적인 값을 택했습니다" if audit["conflict"] else ""
+
+    # 1. 비적정 의견 — 이 안건이 확정하려는 숫자를 외부감사인이 보증하지 않았다.
+    if opinion and "적정" not in opinion:
+        return "AGAINST", f"감사의견 {opinion}{stamp}{conflict_note} / {cap_clause}"
+    # 2. 완전 자본잠식 — 감사의견을 기다릴 이유가 없다. 자본총계가 음수라는 사실은 그 자체로 확정이다.
     if cap_status == "full":
-        return "AGAINST", "완전 자본잠식 (KOSDAQ 상장폐지 사유)"
-    if latest_op and "적정" not in latest_op:
-        return "AGAINST", f"감사의견 {latest_op}"
-    if latest_op or cap_status is not None:
-        return "FOR", "감사의견 적정 + 자본잠식 없음"
-    return "NO_DATA", "재무 fact (감사의견 / 자본잠식 status) 미확인 — 사업보고서 본문 검토 필요"
+        return "AGAINST", f"{cap_clause} / " + (
+            f"감사의견 {opinion}{stamp}" if opinion else "감사의견은 판정 근거로 쓰지 않았습니다"
+        )
+    # 3. 승인 대상 연도의 감사의견을 찾지 못했다. **없다고 말하지 않는다** — 우리가 읽는 것은
+    #    사업보고서이고, 감사보고서는 외감법 §23① 로 주총 1주 전까지 별도 공시되므로 그쪽에
+    #    있을 수 있다. 확인한 범위만 밝히고 어디를 보라고 알려준다.
+    if audit["status"] == "blank":
+        rcept = (row or {}).get("rcept_no") or ""
+        where = f"사업보고서({rcept})" if rcept else "사업보고서"
+        return "REVIEW", (
+            f"승인 대상 {fy_audit or '해당 사업연도'} {where}의 감사의견 항목이 비어 있습니다 — "
+            f"원문 「회계감사인의 감사의견」을 직접 확인하십시오 / {cap_clause}"
+        )
+    if audit["status"] == "not_filed":
+        when = f"주주총회일({meeting_date_iso})" if meeting_date_iso else "주주총회일"
+        return "REVIEW", (
+            f"승인 대상 {fy_audit or '해당 사업연도'} 감사의견을 사업보고서에서 확인하지 못했습니다"
+            f"({when} 기준) — 별도 제출된 감사보고서 원문을 확인하십시오 / {cap_clause}"
+        )
+    # 4. 조회된 의견이 주총 이후 재작성본이다 — 값은 밝히되 판정 근거로 쓰지 않는다.
+    if audit["status"] == "restated_after_meeting":
+        return "REVIEW", (
+            f"감사의견 시점 불일치 — 조회된 의견({opinion or row.get('adt_opinion')})은 주주총회 이후 "
+            f"접수된 사업보고서 기준이라 당시 판단의 근거로 쓰지 않았습니다 / {cap_clause}"
+        )
+    # 5. 조회는 됐는데 그 값이 주총 이후 접수된 사업보고서에서 나왔다 — **적정을 확정할 수 없다.**
+    #    감사보고서는 외감법 §23① 로 주총 1주 전까지 별도 공시되므로 그때 이미 같은 의견이 공개돼
+    #    있었을 가능성이 크지만, 그건 추정이다. 실측이 그 추정을 두 번 배신했다 — 오스템 2021사업연도
+    #    감사보고서는 주총(2022-03-16) 뒤인 2022-04-01 제출이었고, 국일제지 2022사업연도는 주총 당시
+    #    의견거절이었는데 조회되는 「적정」은 2024-02 재감사분이다. **확인 못 한 것을 찬성으로 내지
+    #    않는다** — 값은 밝히고 대조 경로를 준다. (비적정은 위 1번에서 이미 갈렸다.)
+    if audit["status"] == "available_late":
+        return "REVIEW", (
+            f"감사의견 {opinion}{stamp}으로 조회되나 주주총회 이후 접수된 사업보고서 기준입니다 — "
+            f"주주총회 전 별도 제출된 감사보고서 원문으로 대조하십시오 / {cap_clause}"
+        )
+    # 6. 우리가 못 읽었다 — 회사 사유가 아니다. 섞어 쓰면 실무자가 없는 문제를 찾으러 간다.
+    if audit["status"] == "unavailable":
+        return "NO_DATA", f"감사의견을 조회하지 못했습니다(조회 오류) — 판정 근거 없음 / {cap_clause}"
+    # 6~7. 감사의견은 적정. 이제 자본 쪽만 남았다.
+    if cap_status == "partial_50plus":
+        return "REVIEW", f"{cap_clause} / 감사의견 적정{stamp}"
+    if cap_status == "unknown":
+        return "REVIEW", f"감사의견 적정{stamp} / 자본잠식 상태 미확인 — 자본금·자본총계 확인 필요"
+    # 8. 찬성. 잠식률이 있으면 숫자를 남긴다 — 「없음」으로 뭉개지 않는다.
+    return "FOR", f"감사의견 적정{stamp}{conflict_note} / {cap_clause}"
 
 
 def _decide_articles_amendment(
@@ -2366,16 +2539,34 @@ async def build_proxy_advise_payload(
     #   - 회차 선별(공시 검색 + 후보 필터)이 4→1회로 감소 — 콜 수 자체 절감(throttle 하한과 무관하게 이득).
     #   - advise = full에서 results만 제외한 scope: agenda/compensation/aoi_change 데이터 + comp/aoi viewer 보정은
     #     모두 포함하되, proxy_advise가 안 쓰는 results는 fetch 안 함(회의 후 회사의 results fetch=네트워크 wall-clock 손해 회피).
-    meeting_full, ownership, gov_report, fin_metrics, director_eval = await asyncio.gather(
+    # 감사의견은 `scope="summary"` 에 실리지 않는다(`scope="audit_opinion"` 전용). 그래서 예전에는
+    # 재무제표 판정이 감사의견을 **한 번도 조회하지 않고** 「적정」이라 단정했다. 연도도 다르다 —
+    # reference 는 FY(N-2)지만 이 안건이 승인하려는 건 **FY(N-1)** 이라 그쪽을 물어야 한다
+    # (한 번 부르면 당기·전기·전전기 3년치가 함께 온다).
+    audit_year = target_year - 1
+    meeting_full, ownership, gov_report, fin_metrics, director_eval, audit_opinion = await asyncio.gather(
         _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.advise", scope="advise", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_ownership_structure_payload, company_query, timing_label="ownership_structure.control_map", scope="control_map"),
         _safe_throttled(build_corp_gov_report_payload, company_query, timing_label="corp_gov_report.summary", scope="summary"),
         _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.summary", scope="summary", year=fin_year),
         _safe_throttled(build_director_evaluation_payload, company_query, timing_label="director_evaluation", year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
+        _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.audit_opinion", scope="audit_opinion", year=audit_year),
     )
     # full payload가 summary/agenda/compensation/aoi_change 데이터를 모두 포함 — 다운스트림 4개 참조에 동일 객체 할당
     meeting_summary = meeting_agenda = meeting_comp = meeting_aoi = meeting_full
     _mark("upstreams_total", stage_started_at)
+
+    # 이 메모를 만들며 실제로 읽은 공시를 전부 모은다. upstream 마다 근거를 2건까지만 싣고 잘라내던
+    # 탓에 지분·감사의견·배당처럼 판정에 쓰인 문서가 목록에서 빠져 있었다 — 무엇을 근거로 이 판정이
+    # 나왔는지 사용자가 되짚을 수 없으면 판정도 못 쓴다.
+    read_payloads: list[tuple[Any, str]] = [
+        (meeting_summary, "주주총회 소집공고"),
+        (director_eval, "이사·감사 후보 평가"),
+        (fin_metrics, "재무지표"),
+        (audit_opinion, "감사의견"),
+        (gov_report, "기업지배구조보고서"),
+        (ownership, "지분 구조"),
+    ]
 
     # 1번 안건 (재무제표 승인) 잠정 FS 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
     # 260505 ralph 17:50: 같은 doc에서 퇴직금 amendments도 파싱 (extra DART 호출 없이)
@@ -2565,6 +2756,12 @@ async def build_proxy_advise_payload(
             _safe_throttled(build_order_contracts_payload, company_query, timing_label="order_contracts", max_documents=10),
         )
         _mark("inside_director_performance_upstreams", stage_started_at)
+        read_payloads.extend([
+            (perf_div, "배당 이력"),
+            (perf_treas, "자기주식"),
+            (perf_fin, "재무지표 (연도별)"),
+            (perf_order, "수주·계약"),
+        ])
         # 수주 시그널 — 회사 단위 별도 fact. 성과 매트릭스(ROE/부채/CSR) 점수에는 반영하지 않는다
         # (적자 디폴트 코스닥 바이오 등에서 수주 부재를 성과 저조로 오판하지 않도록). 정보로만 노출.
         order_signal = (perf_order.get("data") or {}).get("signal_summary") if isinstance(perf_order, dict) else None
@@ -3131,7 +3328,9 @@ async def build_proxy_advise_payload(
             # ralph 260505 17:50: 퇴직금 별도 분기 (N연기금 IV-35 + OPM #6/#7)
             decision, reason = _decide_retirement_pay(retirement_payload, fin_metrics)
         elif category == "financial_statements":
-            decision, reason = _decide_financial_statements(fin_metrics)
+            decision, reason = _decide_financial_statements(
+                fin_metrics, audit_opinion, law_gate_iso, audit_year
+            )
             # 재무제표 승인 안건에 배당이 함께 실린 경우(실측 68건 중 재무제표 안건의 71.7%)
             # 배당 적정성 판단도 함께 돌린다 — 한 안건에 두 판단이 묶여 있어 종전엔
             # 배당 로직이 아예 호출되지 않았다. 두 판단 중 **보수적인 쪽을 채택**한다.
@@ -3454,22 +3653,45 @@ async def build_proxy_advise_payload(
         })
     _mark("decision_engine", stage_started_at)
 
-    # 통합 evidence_refs
+    # 통합 evidence_refs + 읽은 공시 목록
     evidence: list[EvidenceRef] = []
-    for upstream_payload, label in [
-        (meeting_summary, "주주총회소집공고"),
-        (director_eval, "후보 평가"),
-        (fin_metrics, "재무지표"),
-        (gov_report, "거버넌스 보고서"),
-    ]:
-        for ref in (upstream_payload.get("evidence_refs") or [])[:2]:
+    disclosures: list[dict[str, Any]] = []
+    _by_rcept: dict[str, dict[str, Any]] = {}
+    for upstream_payload, label in read_payloads:
+        for ref in ((upstream_payload or {}).get("evidence_refs") or []):
             evidence.append(EvidenceRef(
                 evidence_id=ref.get("evidence_id", ""),
                 source_type=ref.get("source_type", SourceType.DART_API),
                 rcept_no=ref.get("rcept_no", ""),
+                rcept_dt=ref.get("rcept_dt", ""),
+                report_nm=ref.get("report_nm", ""),
                 section=ref.get("section", label),
                 note=ref.get("note", ""),
             ))
+            # 같은 문서를 여러 upstream 이 읽는다(소집공고 하나로 안건·후보·보수를 다 본다) — 접수번호로
+            # 묶고 용도를 모은다. 같은 링크를 세 줄로 늘어놓으면 목록이 아니라 소음이 된다.
+            rcept = (ref.get("rcept_no") or "").strip()
+            if not rcept:
+                continue
+            entry = _by_rcept.get(rcept)
+            if entry is None:
+                entry = {
+                    "rcept_no": rcept,
+                    # 접수일은 upstream 마다 서식이 다르고(`20250311` vs `2025-03-11`) 비는 곳도 있다.
+                    # 접수번호 앞 8자리가 곧 접수일이라 그걸로 통일한다.
+                    "rcept_dt": _rcept_date(ref.get("rcept_dt", ""), rcept),
+                    "report_nm": _disclosure_name(ref, label),
+                    "used_for": [],
+                    "notes": [],
+                    "viewer_url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept}",
+                }
+                _by_rcept[rcept] = entry
+                disclosures.append(entry)
+            if label not in entry["used_for"]:
+                entry["used_for"].append(label)
+            note = (ref.get("note") or "").strip()
+            if note and note not in entry["notes"]:
+                entry["notes"].append(note)
 
     # filing meta
     # 260710: parsing_failures를 하드코딩 0 → 실제 NO_DATA(구조화 파싱 실패로 권고 불가) 안건
@@ -3549,6 +3771,8 @@ async def build_proxy_advise_payload(
             if isinstance(it, dict) and (it.get("current") or "").strip().upper() == "X"
         ] or None,
         "financial_summary": (fin_metrics.get("data") or {}).get("summary"),
+        # 이 메모를 만들며 읽은 공시 전부. 판정을 되짚으려면 무엇을 봤는지 알아야 한다.
+        "disclosures_read": disclosures,
         **filing_meta,
         "usage": build_usage(client.api_call_snapshot() - calls_start),
     }

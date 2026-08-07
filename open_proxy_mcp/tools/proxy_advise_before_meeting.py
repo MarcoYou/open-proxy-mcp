@@ -746,13 +746,24 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"- {_imp.get(_st, _st or '-')}")
         lines.append("")
 
-    # Evidence
-    refs = payload.get("evidence_refs", []) or []
-    if refs:
-        lines.append("## Evidence (근거)")
-        for r in refs[:5]:
-            url = r.get("viewer_url") or "-"
-            lines.append(f"- {r.get('section', '-')}: [{r.get('rcept_no', '-')}]({url}) — {r.get('note', '')}")
+    # 읽은 공시 — 이 메모가 무엇을 보고 나왔는지. 예전에는 upstream 당 2건 + 표시 5건으로 두 번
+    # 잘려서, 판정에 실제로 쓰인 지분·감사의견·배당 공시가 목록에 없었다.
+    read = data.get("disclosures_read") or []
+    if read:
+        lines.append(f"## 읽은 공시 ({len(read)}건)")
+        lines.append("| 공시 | 접수일 | 무엇에 썼나 | 비고 |")
+        lines.append("|------|--------|------------|------|")
+        for d in read:
+            rcept = d.get("rcept_no", "-")
+            url = d.get("viewer_url") or "-"
+            name = (d.get("report_nm") or "-").replace("\n", " ").strip()
+            dt = d.get("rcept_dt") or "-"
+            used = " · ".join(d.get("used_for") or [])
+            # 원문 note 에 줄바꿈·파이프가 섞이면 표가 무너진다.
+            note = " / ".join(d.get("notes") or []).replace("\n", " ").replace("|", "／")
+            lines.append(f"| [{name}]({url}) | {dt} | {used} | {note[:120]} |")
+        lines.append("")
+        lines.append(f"_접수번호로 직접 확인: {' · '.join(d.get('rcept_no', '') for d in read)}_")
         lines.append("")
 
     # 추가 분석 영역 — 짧게. 사용자가 자연스럽게 후속 질문 유도 (도구는 Claude가 알아서 매칭)

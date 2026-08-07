@@ -79,6 +79,7 @@ proxy_advise_before_meeting(
 
 | 필드 | 의미 |
 |---|---|
+| `data.disclosures_read` | **이 메모를 만들며 실제로 읽은 공시 전부** — `rcept_no`·`rcept_dt`·`report_nm`·`used_for`(용도 목록)·`notes`·`viewer_url`. 같은 문서를 여러 upstream 이 읽으므로 접수번호로 묶고 용도를 모은다. 예전에는 upstream 당 2건 + 표시 5건으로 두 번 잘려 지분·감사의견·배당처럼 판정에 쓰인 문서가 목록에서 빠졌다 — 무엇을 근거로 나온 판정인지 되짚을 수 없으면 판정도 못 쓴다. 공시명에 내부 식별자(`disposal_result` 등)가 오면 용도 라벨로 대체하고, 접수일은 접수번호 앞 8자리로 통일한다. |
 | `data.timings_ms` | `resolve_company`, `prewarm_corp_codes`, `upstreams_total`, `upstream.*`, `notice_doc_reuse`, `decision_engine`, `total` 등 stage별 소요 시간(ms). timeout/지연 병목 확인용. |
 | `warnings` (무결성 시그널) | 추가 호출 0으로 `expected × 결과None/0`의 AND 자동감지 — corp_gov(compliance None·준수율 교차검증 불일치·주주필드 PARTIAL), financial(금융업/지주 revenue None=`sector_na` 정당 vs `core_field_null` 진짜 실패), director(인사안건>0인데 후보0=zero-candidate, silent empty 방지), ownership(`control_map.blocks_present`). 데이터 신뢰성·'정당 N/A vs 진짜 실패' 구분용. |
 
@@ -345,7 +346,26 @@ OPM 자체 함수들 + vote_style 정책 wire:
     전원에 같은 값을 채우는 **형식적 boilerplate**라 승격 금지 — 친족/최대주주 실관계만 weak_concerns
     승격, 그 외는 provenance만 기록.
   - **겸직 과다**(`concurrent_outside_directors=strong_concerns_concurrent`, 타사 사외이사 3곳+)→**REVIEW**(overboarding). **최대주주 관계 약한 신호**(`weak_concerns`)는 calibration상 결정은 FOR 유지하되 reason을 정직화("모두 clean" 거짓 금지, 발행회사/계열 관계 표기 명시). 개별 이사/감사위원 sub-안건이 "사내이사 김이태"처럼 "선임" 키워드 없이 와도 **부모 카테고리 상속**으로 올바른 검증 경로에 들어간다(auto-FOR 우회 차단). 후보 이름 영문 병기(`도진명 (Jim Myong Doh)`)도 core-name 매칭으로 eval 연결.
-- `_decide_financial_statements` (완전 자본잠식→AGAINST / 비적정 감사의견→AGAINST / 적정+정상→FOR).
+- `_decide_financial_statements` — **감사의견 축과 자본잠식 축을 한 문장에 뭉치지 않는다.** 뭉쳐 있던
+  동안 ① 감사의견을 한 번도 조회하지 않고 「적정」이라 단정했고(호출부가 `scope="summary"` 로만 불러
+  `data["audit_opinion"]` 이 늘 비었다 — `scope="audit_opinion"` 전용 필드다) ② 부분 자본잠식도 「없음」으로
+  나갔다(`full` 만 검사). 절을 갈라 쓰면 한쪽 근거로 다른 쪽을 참으로 만드는 코드가 성립하지 않는다.
+  발화 순서 — 비적정 의견→AGAINST / 완전 자본잠식→AGAINST / 감사의견 미확인·의견칸 공란·주총 이후
+  접수분·재작성분→REVIEW / 조회 실패→NO_DATA / 잠식률 50%+·잠식 미확인→REVIEW / 그 외 FOR.
+  - **감사의견은 승인 대상 연도(FY N-1)를 묻는다** — 분석 reference `fin_year`(N-2)와 다르다. 이 안건이
+    확정하려는 건 N-1 재무제표다. 한 번 부르면 당기·전기·전전기 3년치가 함께 온다.
+  - **주총일에 공시돼 있던 값만 판정 근거로 쓴다**(접수번호 앞 8자리 = 접수일). DART 는 재작성되면
+    **재작성본만** 돌려주므로(비덴트 2022사업연도 = 2024-12-31 접수본의 「적정」, 주총 당시는 의견거절)
+    그대로 쓰면 look-ahead 다. 값은 지우지 않고 사유에 밝힌 뒤 **판정 근거에서만** 뺀다.
+  - **「사업보고서가 늦었다」를 「감사의견이 없었다」로 바꿔 말하지 않는다.** 감사보고서는 외감법
+    §23① 로 주총 1주 전까지 **별도** 공시되고 이 API 는 사업보고서만 읽는다. 확인 못 한 부재를 단정하면
+    우량주가 오탐된다(실측 현대차·KB금융). 반대로 「그때도 같은 의견이었겠지」로 넘기면 오스템
+    2021사업연도(감사보고서가 주총 뒤 2022-04-01 제출)·국일제지 2022사업연도(조회되는 「적정」이
+    2024-02 재감사분)가 찬성으로 샌다 → **주총 이후 접수분은 값을 밝히고 REVIEW**.
+  - **같은 결산일에 서로 다른 의견이 오면 가장 나쁜 것을 택한다.** `_build_audit_opinion_data` 의 정렬
+    키가 결산일 하나뿐이라 첫 행을 쓰면 DART 응답 순서가 판정을 정한다(셀리버리 2022사업연도 실측 =
+    의견거절/적정/해당사항없음 3행이 모두 결산일 2022-12-31). 순서가 바뀌면 반대가 조용히 사라진다.
+  - 「완전 자본잠식 (KOSDAQ 상장폐지 사유)」처럼 **시장을 확인하지 않고 시장 규정을 인용하지 않는다.**
   **상법 §449조의2로 재무제표가 이사회 결의로 갈음되면 `NO_VOTE`** — 주총은 보고만 받으므로 FOR/AGAINST를
   내지 않고 정책 인용도 §449조의2로 간다.
 - `_decide_director_compensation` (이사 보수한도 13 분기 — 자본잠식·소진율<30·적자/yoy<0+인상·50%+ 인상 등 → **전부 REVIEW/FOR, AGAINST 없음**)
@@ -427,6 +447,11 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## 변경 이력
 
+- 2026-08-07: **재무제표 판정에 감사의견을 실제로 조회**(`scope="audit_opinion"`, 승인 대상 FY N-1) +
+  주총일 기준 시점 필터 + 자본잠식 4단계 반영 + 두 축 분리 문구. 그 전까지 자동 반대 3경로 중 「비적정
+  감사의견」이 **도달 불가능한 죽은 코드**였다(호출부가 감사의견을 안 실어 `latest_op` 이 항상 None).
+  실측 14사에서 판정 전부 찬성 → 찬성 6·검토 8·**반대 2**(셀리버리 의견거절, 엔케이젠 완전 자본잠식).
+  함께: `data.disclosures_read`(읽은 공시 전부) 신설 — evidence 2건/5건 이중 절단 해소.
 - 2026-08-06: 파싱 기법 상세·census·검증 프로토콜을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-08-02: 추천사유를 한 구간 안에서도 후보별로 귀속(선언 구조 파싱).
 - 2026-07-31: `career_split_doubt` 3신호 + 원문 두 칸 병기 · `career_company_groups` 폐기 ·

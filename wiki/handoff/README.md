@@ -18,7 +18,8 @@
 세션이 뭐가 진짜 남았는지 헷갈리게 만드는 원인).
 
 ## 색인
-_(비어 있음 — 미해결 핸드오프 없음)_
+- [[260807_proxy-advise-persona-validation]] — proxy_advise 3자 페르소나 검증. 결함 4가족 확인,
+  **코드 미수정**. 수정 착수는 사용자 지시 대기.
 
 _(과거: 260705_valuation-timeseries 해결 완료, durable 지식은 data-storage-registry(private 이관)·
 aggregate-denominator-pairing-260706·`project_fund_currency` 메모리로 이관 후 260706 삭제 /
