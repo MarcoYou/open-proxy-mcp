@@ -1669,7 +1669,10 @@ async def _build_audit_opinion_data(
                 "latest_emphs_matter": latest.get("emphs_matter") if latest else None,
                 "latest_kam": latest.get("core_adt_matter") if latest else None,
                 "all_clean": all_clean,
-                "history_years": len(deduped),
+                # **행 수가 아니라 사업연도 수다.** 같은 결산일에 서로 다른 의견이 여러 행으로
+                # 오는 회사가 있어(셀리버리 2022-12-31 = 의견거절/적정/해당사항없음 3행) 행을 세면
+                # 「3개 사업연도를 추적했다」고 말하게 된다 — 1개 연도인데.
+                "history_years": len({p.get("stlm_dt") for p in deduped if p.get("stlm_dt")}),
             },
         },
         warnings,

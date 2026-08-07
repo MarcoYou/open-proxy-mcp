@@ -2117,7 +2117,12 @@ def _extract_facts(
         facts["audit_opinion"] = latest_op
         facts["fy_prior_net_income_krw_dart"] = fin_summary.get("net_income_krw")  # DART API (확정치)
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
-        facts["capital_impairment_ratio_pct"] = fin_summary.get("capital_impairment_ratio_pct")
+        # 잠식률은 `(자본금 - 자본총계) / 자본금` 이라 **잠식이 없으면 음수**다. 그 값은 잠식률이
+        # 아니라 자본 여유폭인데 라벨은 「자본잠식률(%)」이라, 정상 회사에 「-44,711.79」 같은
+        # 읽을 수 없는 숫자가 나갔다. 잠식이 실제로 있을 때만 싣는다 — 상태는 위 필드가 말한다.
+        _cap_ratio = fin_summary.get("capital_impairment_ratio_pct")
+        if _cap_ratio is not None and _cap_ratio > 0:
+            facts["capital_impairment_ratio_pct"] = _cap_ratio
         facts["cfo_to_op_ratio"] = fin_summary.get("cfo_to_op_ratio")
         facts["accruals_gap_pct"] = fin_summary.get("accruals_gap_pct")
         facts["interest_coverage_ratio"] = fin_summary.get("interest_coverage_ratio")

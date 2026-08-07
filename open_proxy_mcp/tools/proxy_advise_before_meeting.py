@@ -116,18 +116,18 @@ def _five_y_label(code: str) -> str:
 _FACT_LABEL: dict[str, str] = {
     # 재무제표 승인
     "audit_opinion": "감사의견", "capital_impairment_status": "자본잠식",
-    "capital_impairment_ratio_pct": "자본잠식률(%)", "net_income_krw": "당기순이익",
+    "capital_impairment_ratio_pct": "자본잠식률(%)", "net_income_krw": "당기순이익(지배주주 귀속)",
     "net_income_yoy_pct": "순이익 증감률(%)", "accruals_gap_pct": "발생액 괴리(%)",
     "cfo_to_op_ratio": "영업현금흐름/영업이익", "interest_coverage_ratio": "이자보상배율",
     "fcf_krw": "잉여현금흐름", "dividend_to_fcf_pct": "배당/잉여현금흐름(%)",
-    "fy_current_net_income_krw": "당기 순이익", "fy_prior_net_income_krw": "전기 순이익",
+    "fy_current_net_income_krw": "당기 순이익(총액)", "fy_prior_net_income_krw": "전기 순이익(총액)",
     "fy_current_revenue_krw": "당기 매출액", "fy_prior_revenue_krw": "전기 매출액",
     "fy_current_operating_profit_krw": "당기 영업이익",
     "fy_prior_operating_profit_krw": "전기 영업이익",
     "fy_current_total_assets_krw": "당기 자산총계",
     "fy_current_total_liabilities_krw": "당기 부채총계",
     "fy_current_total_equity_krw": "당기 자본총계",
-    "fy_prior_net_income_krw_dart": "전기 순이익(DART 기준)",
+    "fy_prior_net_income_krw_dart": "전기 순이익(지배주주 귀속)",
     "fy_raw_extraction_status": "본문 추출 상태", "fy_raw_scope": "본문 추출 범위",
     "fy_raw_cross_check": "본문↔확정 재무제표 검산",
     # 배당
