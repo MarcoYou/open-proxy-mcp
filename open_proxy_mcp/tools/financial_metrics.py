@@ -155,8 +155,8 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
     lines.append(f"- 회전일수 (분모 기준: {_tb}): DSO {_ratio(s.get('days_sales_outstanding'))}일 / DIO {_ratio(s.get('days_inventory_outstanding'))}일 / DPO {_ratio(s.get('days_payable_outstanding'))}일")
     lines.append(f"- 현금전환주기(DSO+DIO-DPO): {_ratio(s.get('cash_conversion_cycle_days'))}일")
     lines.append("")
-    lines.append("## 회계 risk 지표 (분식 신호)")
-    lines.append(f"- 영업이익 vs 영업CF 괴리: {_pct(s.get('accruals_gap_pct'))} (절대값 30%+ red flag)")
+    lines.append("## 회계 위험 지표 (분식 신호)")
+    lines.append(f"- 영업이익 vs 영업CF 괴리: {_pct(s.get('accruals_gap_pct'))} (절대값 30%+ red 신호)")
     lines.append(f"- 매출채권/매출 비율: {_pct(s.get('ar_to_revenue_pct'))} (push sales 신호)")
     lines.append(f"- 재고자산/매출 비율: {_pct(s.get('inv_to_revenue_pct'))} (재고 누적 신호)")
     lines.append("")
@@ -269,7 +269,7 @@ def _render_yoy(data: dict[str, Any]) -> list[str]:
     for label, key, fmt in metric_pairs:
         lines.append(f"| {label} | {fmt(curr.get(key))} | {fmt(prev.get(key))} |")
 
-    lines.extend(["", "## Alerts (자동 detect)"])
+    lines.extend(["", "## Alerts (자동 감지)"])
     if alerts:
         for a in alerts:
             lines.append(f"- ⚠ `{a}`")
@@ -335,7 +335,7 @@ def _render_audit(data: dict[str, Any]) -> list[str]:
         return lines + ["_감사의견 공시 없음_"]
     lines.append(f"- 최신 의견: **{summary.get('latest_opinion') or '-'}**")
     lines.append(f"- 최신 감사인: {summary.get('latest_auditor') or '-'}")
-    lines.append(f"- 모두 적정 (clean): {'예' if summary.get('all_clean') else '아니오'}")
+    lines.append(f"- 감사의견 모두 적정: {'예' if summary.get('all_clean') else '아니오'}")
     lines.append(f"- 추적 사업연도 수: {summary.get('history_years')}")
     lines.append("")
     lines.append("| 결산일 | 감사인 | 의견 | 강조사항 | 핵심감사사항(KAM) |")
@@ -353,7 +353,11 @@ def _render_audit(data: dict[str, Any]) -> list[str]:
 def _render(payload: dict[str, Any]) -> str:
     data = payload.get("data", {}) or {}
     scope = data.get("scope", "summary")
-    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 재무지표 — {scope}"]
+    _SCOPE_KO = {
+        "summary": "요약", "yearly": "연간 추이", "quarterly": "분기 추이",
+        "yoy": "전년 대비", "qoq": "전분기 대비", "audit_opinion": "감사의견", "detail": "상세",
+    }
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 재무지표 — {_SCOPE_KO.get(scope, scope)}"]
     lines.append("")
     _tk = (data.get("identifiers") or {}).get("ticker") or ""
     if _tk:

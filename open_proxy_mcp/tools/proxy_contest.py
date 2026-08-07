@@ -79,7 +79,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if lit_dedup:
             lines.append(
                 f"- 소송/분쟁 공시: {lit_dedup.get('primary_count', 0)}건 원본 "
-                f"(정정 {lit_dedup.get('correction_excluded', 0)} 제외 / raw {lit_dedup.get('raw_count', 0)})"
+                f"(정정 {lit_dedup.get('correction_excluded', 0)} 제외 / 원문 {lit_dedup.get('raw_count', 0)})"
             )
             inf_m = lit_dedup.get("unspecified_inferred_mgmt", 0)
             inf_c = lit_dedup.get("unspecified_inferred_commercial", 0)

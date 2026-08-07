@@ -595,11 +595,11 @@ async def _load_notice_bundle_with_fallback(
     if scope in {"board", "compensation", "aoi_change", "full", "advise"}:
         section_keywords.extend(["목적사항별 기재사항", "주주총회 목적사항별 기재사항"])
 
-    warnings.append(f"API/XML 파싱이 약해 DART viewer HTML crawl fallback을 시도했다. ({', '.join(reasons)})")
+    warnings.append(f"API/XML 파싱이 약해 DART viewer HTML 수집 fallback을 시도했다. ({', '.join(reasons)})")
     try:
         viewer_doc = await client.get_viewer_document(rcept_no, section_keywords=section_keywords)
     except Exception as exc:
-        warnings.append(f"DART viewer HTML crawl fallback도 실패했다: {exc}")
+        warnings.append(f"DART viewer HTML 수집 fallback도 실패했다: {exc}")
         return parsed, warnings, source_used
 
     viewer_parsed = _parse_notice_bundle(
@@ -639,7 +639,7 @@ async def _load_notice_bundle_with_fallback(
         xml_text = (parsed.get("text") or "").strip()
         if len(viewer_text) > len(xml_text):
             parsed["text"] = viewer_text
-            warnings.append("DART viewer HTML crawl 결과의 원문 텍스트가 XML 텍스트보다 풍부해 raw text fallback 소스로 교체했다.")
+            warnings.append("DART viewer HTML 수집 결과의 원문 텍스트가 XML 텍스트보다 풍부해 원문 text 대체 소스로 교체했다.")
         else:
             warnings.append("DART viewer HTML crawl을 재시도했지만 구조화 결과는 기존 API/XML보다 개선되지 않았다.")
     return parsed, warnings, source_used
@@ -1174,11 +1174,11 @@ async def _meeting_result_data(
     # 2차 fallback: DART에서 본문 빈 응답 또는 파싱 실패 시 KIND scraping.
     if not items:
         if not kind_acptno:
-            return None, "DART API 본문에서 안건 결과를 찾지 못했고, KIND fallback 변환 번호가 없다."
+            return None, "DART API 본문에서 안건 결과를 찾지 못했고, KIND 대체 변환 번호가 없다."
         try:
             html = await client.kind_fetch_document(kind_acptno)
         except DartClientError as exc:
-            return None, f"DART API + KIND fallback 모두 실패: {exc.status}"
+            return None, f"DART API + KIND 대체 모두 실패: {exc.status}"
         except Exception as exc:
             # KIND는 외부 사이트 스크래핑이라 네트워크·SSL·타임아웃이 비-DartClientError로
             # 올라온다. 결과는 보조 정보 — 여기서 크래시하면 이미 파싱된 안건·보수까지 날아간다.

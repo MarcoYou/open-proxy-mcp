@@ -68,7 +68,7 @@ def _render(payload: dict[str, Any]) -> str:
         f"- 유효 계약 **{s.get('order_count', 0)}건** (외부 {s.get('external_count', 0)} / 내부·계열 {s.get('internal_count', 0)})",
         f"- 외부 수주 총액 **{_won(s.get('external_total_amount_won'))}**",
         f"- 최근 매출액 대비 — 단일 최대 **{_pct(s.get('max_revenue_ratio_pct'))}%** / 합계 {_pct(s.get('sum_revenue_ratio_pct'))}%",
-        f"- 기재정정 {s.get('correction_count', 0)}건 (변경계약 — 아래 diff)",
+        f"- 기재정정 {s.get('correction_count', 0)}건 (변경계약 — 아래 비교)",
     ]
     if s.get("terminated_count"):
         lines.append(

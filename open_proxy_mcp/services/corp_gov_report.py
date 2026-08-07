@@ -946,7 +946,7 @@ async def build_corp_gov_report_payload(
             warnings.append(f"compliance 교차검증 불일치: 명시 {_stated_cr} vs 계산 {_calc_cr:.1f} — 파싱 의심")
     _msh = (_ov.get("max_shareholder") or "").strip()
     if status == AnalysisStatus.EXACT and (_msh in ("(", "") or len(_msh) < 2):
-        warnings.append("company_overview 주주 필드 파싱 실패(괄호/빈값) → PARTIAL")
+        warnings.append("company_overview 주주 필드 파싱 실패(괄호/빈값) → 부분")
         status = AnalysisStatus.PARTIAL
 
     return ToolEnvelope(

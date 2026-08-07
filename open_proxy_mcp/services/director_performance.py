@@ -238,7 +238,7 @@ def compute_performance(
     Returns: 매트릭스 + 점수 + classification dict
     """
     if not tenure_years:
-        return {"classification": "n/a", "classification_ko": "평가불가", "rationale": "재직 기간 없음 (신임 또는 detect fail)"}
+        return {"classification": "n/a", "classification_ko": "평가불가", "rationale": "재직 기간 없음 (신임 또는 감지 fail)"}
 
     tenure_years_sorted = sorted(tenure_years)
 

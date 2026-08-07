@@ -189,7 +189,7 @@ async def _fetch_major_with_fallback(
             }
             if source_meta["fallback_used"]:
                 warnings.append(
-                    f"최대주주: bsns_year={try_year} reprt_code={try_code} fallback 사용"
+                    f"최대주주: bsns_year={try_year} reprt_code={try_code} 대체 사용"
                 )
             return rows, source_meta, warnings
 
@@ -224,7 +224,7 @@ async def _fetch_largest_shareholder_from_blocks(
         data = await client.get_block_holders(corp_code)
     except DartClientError as exc:
         if exc.status != "013":
-            warnings.append(f"5% 대량보유 fallback 실패: {exc.status}")
+            warnings.append(f"5% 대량보유 대체 실패: {exc.status}")
         return [], warnings
 
     latest_by_reporter: dict[str, dict[str, Any]] = {}
@@ -1077,7 +1077,7 @@ async def build_ownership_structure_payload(
     if filing_meta["no_filing"]:
         warnings.append(f"조사 구간 ({start_ymd}~{end_ymd}) 내 정기보고서/5% 대량보유 공시 없음 (정상)")
     elif filing_meta["parsing_failures"] > 0 and not major_rows:
-        warnings.append("최대주주 구조를 충분히 읽지 못해 partial 상태로 표시한다.")
+        warnings.append("최대주주 구조를 충분히 읽지 못해 부분 상태로 표시한다.")
 
     # 시그널 부여(audit w0qo5hfse): control_map의 5% 블록 데이터 유무를 명시(다운스트림 사각지대 차단).
     # 정상 빈(보유자 없음)이 많아 PARTIAL 강등은 보수적으로 안 하고, blocks_present 플래그 + 안내만.

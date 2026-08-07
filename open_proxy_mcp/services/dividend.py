@@ -915,7 +915,7 @@ async def build_dividend_payload(
         fallback = _decisions_summary_for_year(details, target_year)
         if fallback and fallback.get("cash_dps", 0) > 0:
             latest_summary = fallback
-            warnings.append(f"{target_year}년 사업보고서 배당 요약이 비어 있어 해당 연도 배당결정 공시 {fallback.get('decision_count', 0)}건을 합산해 summary를 구성했다.")
+            warnings.append(f"{target_year}년 사업보고서 배당 요약이 비어 있어 해당 연도 배당결정 공시 {fallback.get('decision_count', 0)}건을 합산해 요약을 구성했습니다.")
     start_ymd = format_yyyymmdd(window_start)
     end_ymd = format_yyyymmdd(window_end)
     details = [
@@ -1172,7 +1172,7 @@ async def build_dividend_payload(
             year_eff = _effective_decisions([d for d in details if _bucket_fiscal_year(d) == target_year])
             decisions_dps = sum(int(d.get("dps_common") or 0) for d in year_eff)
             if alot_dps and decisions_dps and abs(alot_dps - decisions_dps) > max(1, alot_dps * 0.05):
-                warnings.append(f"⚠ {target_year}년 사업보고서 alotMatter DPS({alot_dps:,}원)와 배당결정 공시 합산 DPS({decisions_dps:,}원) 불일치 — 정정 또는 신규 결정 누락 가능성, latest_decisions raw 검토 권장.")
+                warnings.append(f"⚠ {target_year}년 사업보고서 alotMatter DPS({alot_dps:,}원)와 배당결정 공시 합산 DPS({decisions_dps:,}원) 불일치 — 정정 또는 신규 결정 누락 가능성, latest_decisions 원문 검토 권장.")
 
     evidence_refs: list[EvidenceRef] = []
     if latest_summary:

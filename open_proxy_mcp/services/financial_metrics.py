@@ -1421,7 +1421,7 @@ async def _fetch_year_metrics(
         if not rows_curr:
             return {}, [fb_err or f"{year}년 데이터 미공시"], 0
         if used_rc != _REPRT_BUSINESS:
-            warnings.append(f"{year}년 사업보고서 미공시 — reprt_code={used_rc}로 fallback (반기/분기)")
+            warnings.append(f"{year}년 사업보고서 미공시 — reprt_code={used_rc}로 대체 (반기/분기)")
     else:
         rows_curr, err_curr = await _safe_fetch_acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
         if err_curr == "no_filing":
@@ -1491,7 +1491,7 @@ async def _fetch_year_metrics(
         if None not in (fy_map.get("cogs"), ytd_cogs_c, ytd_cogs_p):
             ttm_cogs = fy_map["cogs"] + ytd_cogs_c - ytd_cogs_p
         if ttm_revenue is None:
-            warnings.append(f"{year}년 TTM 회전일수 분모 계산 실패(직전 FY 미조회) — 분기 기간일치로 fallback.")
+            warnings.append(f"{year}년 TTM 회전일수 분모 계산 실패(직전 FY 미조회) — 분기 기간일치로 대체.")
 
     pm_cum = _period_months(used_rc, cumulative=True)
     metrics = _compute_metrics(

@@ -134,7 +134,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         # 결정 detail card — iter10 추가 normalize 필드 노출 (보통/우선주, 위탁사, 사외이사, 보유예상기간)
         decisions = [e for e in events_to_show if e.get("phase") == "decision"]
         if decisions:
-            lines.append("## 결정 detail")
+            lines.append("## 결정 상세")
             for ev in decisions[:20]:
                 ev_type = _EVENT_LABELS.get(ev.get("event", ""), ev.get("event", ""))
                 lines.append(f"### {ev_type} — {ev.get('rcept_dt','-')} (`{ev.get('rcept_no','')}`)")
@@ -180,7 +180,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         results_split = [e for e in events_to_show
                          if e.get("phase") == "execution" and e.get("amount_preferred_krw")]
         if results_split:
-            lines.append("## 결과 detail (종류별 집행)")
+            lines.append("## 결과 상세 (종류별 집행)")
             lines.append("> 종류주식 = 우선주·기타주식·RCPS 등 비보통주 통합.")
             for ev in results_split[:20]:
                 ev_type = _EVENT_LABELS.get(ev.get("event", ""), ev.get("event", ""))

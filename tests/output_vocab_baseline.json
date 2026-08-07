@@ -1,0 +1,23 @@
+{
+  "services/biz_fields.py": 1,
+  "services/corp_gov_report.py": 2,
+  "services/corporate_deals.py": 1,
+  "services/corporate_restructuring.py": 1,
+  "services/dilutive_issuance.py": 1,
+  "services/director_board.py": 4,
+  "services/director_evaluation.py": 1,
+  "services/dividend.py": 1,
+  "services/financial_metrics.py": 2,
+  "services/ownership_structure.py": 1,
+  "services/proxy_contest.py": 1,
+  "services/risk_events.py": 1,
+  "services/screener.py": 2,
+  "services/segment_grid.py": 1,
+  "services/shareholder_meeting.py": 3,
+  "services/treasury_share.py": 1,
+  "services/valuation.py": 4,
+  "services/value_up.py": 1,
+  "tools/director_board.py": 1,
+  "tools/law_lookup.py": 1,
+  "tools/shareholder_meeting_notice.py": 2
+}

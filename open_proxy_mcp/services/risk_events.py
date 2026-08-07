@@ -295,7 +295,7 @@ def _aggregate_casualties(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "deaths": deaths,
         "injuries": injuries,
         "parsed_rows": len(accident_latest),
-        "note": "include_details=True로 파싱된 중대재해 발생 공시만 합산 — 같은 사건의 정정·지주/사업회사 이중 공시는 최신 공시로 대체",
+        "비고": "include_details=True로 파싱된 중대재해 발생 공시만 합산 — 같은 사건의 정정·지주/사업회사 이중 공시는 최신 공시로 대체",
     }
 
 

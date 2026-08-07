@@ -31,7 +31,8 @@ def _render_status(payload: dict[str, Any]) -> str:
 def _render(payload: dict[str, Any]) -> str:
     d = payload["data"]
     scope = d.get("scope")
-    lines = [f"# {d.get('canonical_name')} 이사회 프로필 — {scope} (기준연도 {d.get('year')})", ""]
+    _SCOPE_KO = {"summary": "요약", "detail": "상세", "compensation": "보수", "changes": "변동"}
+    lines = [f"# {d.get('canonical_name')} 이사회 프로필 — {_SCOPE_KO.get(scope, scope)} (기준연도 {d.get('year')})", ""]
 
     comp = d.get("compensation")
     if comp:
@@ -98,14 +99,14 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append("")
         changes = roster.get("changes_vs_prev_year") or []
         if changes:
-            lines.append("### 전년 대비 이사회 변동 (등기이사·감사 · 이름/생년월 diff 추론)")
+            lines.append("### 전년 대비 이사회 변동 (등기이사·감사 · 이름/생년월 비교 추론)")
             for c in changes:
                 yr = c.get("since_year") or c.get("until_year")
                 dt = c.get("director_type")
                 lines.append(f"- **{c.get('name')}** ({c.get('position')}{f' · {dt}' if dt else ''}) — {c.get('change')} [{yr}]")
             lines.append("")
         else:
-            lines.append("- 전년 대비 이사회 구성 변동 없음(또는 diff 미산출)")
+            lines.append("- 전년 대비 이사회 구성 변동 없음(또는 비교 미산출)")
             lines.append("")
         # 사업보고서끼리 비교하면 기중(예: 6월) 사임이 다음 사업보고서까지 안 보인다.
         # 분기·반기 명단을 직전 사업보고서와 대조해 그 사이 변동을 따로 보여준다.

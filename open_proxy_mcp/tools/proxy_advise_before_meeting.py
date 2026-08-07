@@ -10,9 +10,9 @@ from open_proxy_mcp.services.contracts import as_pretty_json
 
 # 사용자에게 노출되는 internal code → 한국어 자연어 라벨
 _INDEPENDENCE_LABELS = {
-    "independent": "독립적 (모든 sub-factor 충족)",
-    "weak_concerns": "약한 우려 (1개 sub-factor 위반)",
-    "concerns": "우려 (다수 sub-factor 위반)",
+    "independent": "독립적 (세부 항목 모두 충족)",
+    "weak_concerns": "약한 우려 (세부 항목 1개 위반)",
+    "concerns": "우려 (세부 항목 다수 위반)",
     "long_tenure_concerns": "장기연임 우려 (5년 룰 위반)",
     "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
     "no_data": "데이터 부족",
@@ -29,8 +29,8 @@ _DISQUALIFICATION_LABELS = {
 
 _AUDIT_HISTORY_LABELS = {
     "not_checked": "미검증 (옵션 비활성)",
-    "no_red_flags": "이력 clean",
-    "red_flag": "과거 회사 회계 risk 발견",
+    "no_red_flags": "해당 이력 없음",
+    "red_flag": "과거 회사 회계 위험 발견",
     "-": "-",
 }
 
@@ -149,7 +149,7 @@ _FACT_LABEL: dict[str, str] = {
     "disqualification": "결격사유", "independence": "독립성",
     "concurrent_outside_positions": "겸직 수", "concurrent_summary": "겸직 요약",
     "candidate_summary": "후보 요약", "candidate_review_profile": "후보 상세",
-    "audit_history_check": "회계 risk 이력 확인", "composition": "이사회 구성",
+    "audit_history_check": "회계 위험 이력 확인", "composition": "이사회 구성",
     # 정관변경·기타
     "amendments_count": "변경 조항 수", "amendments_sample": "변경 조항 예시",
     "agenda_action": "안건 성격", "cumulative_voting_threshold": "집중투표 기준",
@@ -292,7 +292,7 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"> ⚠ **{data['scope_all_warning']}**")
         lines.append("")
     fin_ref = data.get("fin_reference_year")
-    fin_ref_note = f" (재무 reference: FY{fin_ref})" if fin_ref else ""
+    fin_ref_note = f" · 재무 분석 기준: {fin_ref}사업연도" if fin_ref else ""
     _mt = data.get("selected_meeting_type") or data.get("meeting_type")
     _mt_ko = {"annual": "정기", "extraordinary": "임시"}.get(_mt, _mt)
     # 값이 없으면 「None주총」이 찍힌다 — 모르면 종류를 말하지 않는다.
@@ -408,7 +408,7 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("")
         lines.append("> **판단 framework** — 신임: ① 과거 다른 회사에서의 행적 ② 결격사유 ③ 전문성 ④ 독립성·충실성. 연임: ① 재직 기간 ② 재직 중 회사 운영 성과 (이 회사 데이터 활용).")
         lines.append("")
-        lines.append("| 후보 | 직책 | 선임유형 | 임기 | 독립성 | 결격사유 | 이사 회계 risk 이력 | 비고 |")
+        lines.append("| 후보 | 직책 | 선임유형 | 임기 | 독립성 | 결격사유 | 이사 회계 위험 이력 | 비고 |")
         lines.append("|------|------|---------|------|--------|---------|-------|------|")
         for c in cands:
             indep_code = c.get("independence", {}).get("summary", "-")
@@ -434,7 +434,7 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("")
 
         # 후보별 detail — 전문성 / 경력 / 과거 회사 행적 raw (framework 적용용)
-        lines.append("### 후보별 raw (전문성·경력·추천 사유)")
+        lines.append("### 후보별 원문 (전문성·경력·추천 사유)")
         lines.append("")
         for c in cands:
             name = c.get("name", "?")
@@ -521,7 +521,7 @@ def _render(payload: dict[str, Any]) -> str:
             # 독립성 4 sub_factor 결과 + 근거(경력 raw 등) — 사외이사/감사위원
             lines.extend(_indep_evidence_lines(c))
             if ah_red:
-                lines.append(f"- 과거 회사 회계 risk 이력 (raw): {len(ah_red)}건 발견 — 본문 raw 메모 검토")
+                lines.append(f"- 과거 회사 회계 위험 이력: {len(ah_red)}건 발견 — 본문 메모 원문 검토")
             # 사내이사 재직 중 성과 (ralph 260505) — 사내이사 + renewed에만 부착됨
             perf = c.get("performance") or {}
             if perf.get("classification") == "not_evaluated":
@@ -691,10 +691,10 @@ def _render(payload: dict[str, Any]) -> str:
             for rf in rfs:
                 audit_history_detail.append((c.get("name", "?"), rf))
         if audit_history_detail:
-            lines.append("### 이사 회계 risk 이력 검증 — 과거 회사 회계 risk overlap (raw)")
+            lines.append("### 이사 회계 위험 이력 — 과거 재직 회사에서 겹치는 회계 위험 (원문)")
             lines.append("> 사외이사 충실의무 단정 X — 사용자 판단 위임. 본 시점에 후보가 그 회사에 재직 중이었음을 의미.")
             lines.append("")
-            lines.append("| 후보 | 과거 회사 | 재직 기간 | risk 유형 | 시점 | detail |")
+            lines.append("| 후보 | 과거 회사 | 재직 기간 | 위험 유형 | 시점 | 상세 |")
             lines.append("|------|----------|----------|----------|------|--------|")
             for cand_name, rf in audit_history_detail:
                 co = rf.get("company", "?")

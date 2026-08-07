@@ -166,7 +166,7 @@ async def fetch_appointments(
             "skipped_for_type_sample": skipped_for_type[:3],
         }
         if skipped_for_type and meeting_type != "auto":
-            return [], rcept_no, [{"info": f"{year} {meeting_type} 매칭 공고 없음 (본문 detect 기준)", **base_info}]
+            return [], rcept_no, [{"info": f"{year} {meeting_type} 매칭 공고 없음 (본문 감지 기준)", **base_info}]
         return [], rcept_no, [{"error": "본문 비어 있음", **base_info}]
 
     return appointments, rcept_no, [{
@@ -989,7 +989,7 @@ def detect_appointment_type(
         if is_inside and main_job:
             return {
                 "type": "renewed",
-                "reason": f"사내이사 + main_job 있음 (한글-영문/약칭 mismatch 가능) — 사내이사 default renewed: {main_job[:60]}",
+                "reason": f"사내이사 + main_job 있음 (한글-영문/약칭 불일치 가능) — 사내이사 default renewed: {main_job[:60]}",
                 "matched_entries": [],
                 "earliest_start": fallback_earliest,  # career fallback (없으면 None)
                 "match_source": "inside_director_default",
@@ -1312,7 +1312,7 @@ def apply_roster_prior(ev: dict[str, Any], candidate: dict[str, Any], roster_ind
         "tenure": m0.get("tenure"),
         "major_shareholder_relation": m0.get("major_shareholder_relation"),  # H2 rescue
     }
-    apt["reason"] = ((apt.get("reason") or "") + " | roster(임원현황) 재직 확인 → 연임 재분류(힌트)").strip(" |")
+    apt["reason"] = ((apt.get("reason") or "") + " | 임원현황(임원현황) 재직 확인 → 연임 재분류(힌트)").strip(" |")
 
 
 # ── 260729: 등기 재직기간의 SSOT를 소집공고 경력 → 사업보고서 임원현황으로 ──
@@ -1756,7 +1756,7 @@ def apply_roster_tenure_long_tenure(ev: dict[str, Any], appointment_type: dict[s
     if years is None or years < _LONG_TENURE_YEARS:
         return
     fyr["result"] = "potential_long_tenure"
-    fyr["basis"] = f"임원현황 재직기간 {years}년+ (roster hffc 하한, 실제 이상)"
+    fyr["basis"] = f"임원현황 재직기간 {years}년+ (임원현황 hffc 하한, 실제 이상)"
     fyr["source"] = "roster_tenure"
     fyr["years"] = years  # floor — 6년 경계 tiering은 '이상'으로 안전측
     indep["summary"] = "long_tenure_concerns"

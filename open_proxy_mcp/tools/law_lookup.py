@@ -82,7 +82,7 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(f"    - {ho.get('no')}. {ho.get('text', '')[:120]}")
         if r.get("full_text"):
             lines.append("")
-            lines.append("<details><summary>원문 전문</summary>")
+            lines.append("<details><요약>원문 전문</요약>")
             lines.append("")
             lines.append("```")
             lines.append(r["full_text"][:4000])

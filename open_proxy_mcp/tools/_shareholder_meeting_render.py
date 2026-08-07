@@ -371,7 +371,7 @@ def render_aoi(payload: dict[str, Any]) -> str:
     retire_amendments = aoi.get("retirement_amendments", []) or []
     summary = aoi.get("summary", {}) or {}
 
-    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 정관변경 + 퇴직금 변경 raw", ""]
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 정관변경 + 퇴직금 변경 원문", ""]
     _mt2 = data.get("meeting_type", "")
     lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt2, _mt2)}")
     lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
@@ -410,7 +410,7 @@ def render_aoi(payload: dict[str, Any]) -> str:
 
     # 260505 ralph: 퇴직금 변경 raw 통합 (data tool 원칙 — raw 노출만, 판단 X)
     if retire_amendments:
-        lines.append("## 퇴직금 변경 raw")
+        lines.append("## 퇴직금 변경 원문")
         for i, a in enumerate(retire_amendments, 1):
             clause = (a.get("clause") or "").strip() or f"항목 {i}"
             lines.append(f"### {clause}")

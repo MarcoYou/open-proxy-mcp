@@ -5204,9 +5204,9 @@ def _build_compensation_summary(items: list[dict]) -> dict:
         side = "당기" if cur_lim else "전기"
         warnings.append(f"보수한도 {side}만 파싱됨 — 전년 대비 증감(방향) 판정 불가, 단일 한도값만 신뢰")
     if has_foreign:
-        warnings.append("보수한도가 외화(달러 등)로 표기됨 — 원화 환산 불가, raw 한도 문자열 참조")
+        warnings.append("보수한도가 외화(달러 등)로 표기됨 — 원화 환산 불가, 원문 한도 문자열 참조")
     if has_unit_unknown:
-        warnings.append("보수한도 금액 단위 표기가 공시에 없어 추정 환산 — 절대금액 부정확 가능, raw 참조")
+        warnings.append("보수한도 금액 단위 표기가 공시에 없어 추정 환산 — 절대금액 부정확 가능, 원문 참조")
 
     return {
         "totalItems": len(items),

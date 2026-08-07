@@ -1766,7 +1766,7 @@ async def build_business_details_payload(company_query: str, period: str = "late
     mode = (context_mode or "strict").strip().lower()
     if mode not in {"strict", "candidate"}:
         return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,
-                            warnings=["context_mode는 strict 또는 candidate여야 합니다"]).to_dict()
+                            warnings=["context_mode는 엄격 또는 candidate여야 합니다"]).to_dict()
     if not isinstance(section_chars, int) or isinstance(section_chars, bool) \
             or not 2_000 <= section_chars <= SECTION_CHARS_MAX:
         return ToolEnvelope(tool="business_details", status=AnalysisStatus.ERROR, subject=company_query,

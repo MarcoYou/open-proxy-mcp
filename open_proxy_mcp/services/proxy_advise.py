@@ -192,11 +192,11 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
     if not default_str or default_str == "case_by_case":
         return fallback_decision, fallback_reason
     if default_str == "for":
-        return "FOR", "운용사 정책상 default=FOR (case별 reverse 룰은 별도)"
+        return "FOR", "적용 정책의 기본 입장이 찬성 (사안별 예외 규칙은 별도)"
     if default_str == "against":
-        return "REVIEW", "운용사 정책상 default=AGAINST이나 법령 hard trigger가 아니므로 REVIEW"
+        return "REVIEW", "적용 정책의 기본 입장은 반대이나, 법령상 강행규정이 아니므로 검토 필요로 둡니다"
     if default_str == "review":
-        return "REVIEW", "운용사 정책상 default=REVIEW (case별 검토)"
+        return "REVIEW", "적용 정책의 기본 입장이 사안별 검토"
     return fallback_decision, fallback_reason
 
 
@@ -213,7 +213,7 @@ def _public_policy_basis(
     law_layer_hit: tuple[str, str, str] | None,
 ) -> str:
     if law_layer_hit is not None:
-        return f"법령 layer (1·2·3차 상법 개정) — {law_layer_hit[2]}"
+        return f"법령 판단 (1·2·3차 상법 개정) — {law_layer_hit[2]}"
 
     base = "Open Proxy guideline" if vote_style == "open_proxy" else "Internal policy variant"
     if policy_default and policy_default != "case_by_case":
@@ -900,7 +900,7 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     if disq == "red_flag":
         return "AGAINST", f"결격사유 발견 (eligibility 또는 미성년)"
     if audit_history == "red_flag":
-        return "REVIEW", "이사 회계 risk 이력 검증 — 과거 재직 회사 회계 risk 발생 (raw 메모 참조 후 판단)"
+        return "REVIEW", "이사 회계 위험 이력 — 과거 재직 회사에서 회계 위험이 발생했습니다 (원문 메모 참조 후 판단)"
     if is_outside:
         _role = "감사" if (is_audit or eval_match.get("_audit_force_strict")) else "사외이사"
         # 장기연임 — 법률 정정(260710 lawyer): "5년 룰 위반"은 법적 부정확(위반할 성문 규정 없음).
@@ -945,8 +945,8 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         if indep == "weak_concerns":
             return "FOR", f"{_role} 결격 없음 — 단 최대주주 관계 약한 신호 있음(발행회사/계열 관계 표기), 원문 확인 권고"
         if is_audit or eval_match.get("_audit_force_strict"):
-            return "FOR", f"감사 독립성/결격사유 모두 clean ({role_type})"
-        return "FOR", f"사외이사 독립성/결격사유 모두 clean ({role_type})"
+            return "FOR", f"감사 독립성·결격사유 모두 해당 없음 ({role_type})"
+        return "FOR", f"사외이사 독립성·결격사유 모두 해당 없음 ({role_type})"
     # 사내이사: 결격사유 외에 재직 중 회사 운영 성과 평가 (status quo 편향 mitigation, ralph 260505)
     perf = (eval_match.get("performance") or {}).get("classification")
     if perf == "bad":
@@ -1266,7 +1266,7 @@ def _decide_audit_compensation(
         return "REVIEW", f"감사 한도 +{audit_inc:.0f}% + 1인당 평균 {audit_per_person/1e8:.2f}억 (>{threshold_high_per_person/1e8:.1f}억) — 급증/과다 여부 검토"
     # 분기 5: 인상률 +30~+50% (s_legacy 보수)
     if audit_inc is not None and 30 <= audit_inc < 50:
-        return "REVIEW", f"감사 한도 +{audit_inc:.0f}% 인상 — strict 내부 감사보수 패턴 검토"
+        return "REVIEW", f"감사 한도 +{audit_inc:.0f}% 인상 — 감사보수 엄격 기준으로 검토"
     # 분기 6: 1인당 평균 경계
     if audit_per_person is not None and threshold_low_per_person <= audit_per_person < threshold_high_per_person:
         return "REVIEW", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (경계 — {threshold_low_per_person/1e8:.1f}~{threshold_high_per_person/1e8:.1f}억) — 사용자 노출"
@@ -1327,7 +1327,7 @@ def _decide_retirement_pay(
     - mainstream FOR (records 표본 80% FOR)
     """
     if not retirement_payload:
-        return "NO_DATA", "퇴직금 변경 raw 추출 데이터 없음 — 본문 검토 필요"
+        return "NO_DATA", "퇴직금 변경 조항을 원문에서 추출하지 못했습니다 — 본문 검토 필요"
     data = retirement_payload.get("data") or retirement_payload  # 직접 dict 들어올 수도
     amendments = data.get("amendments") or []
     fm_summary = ((fin_metrics_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -1366,7 +1366,7 @@ def _decide_retirement_pay(
     # 분기 1: 황금낙하산
     if risk_against:
         kws = ", ".join(sorted({h["kw"] for h in risk_against}))
-        return "REVIEW", f"퇴직금 위험 trigger ({kws}) 신설 — 황금낙하산/경영권 변동 보상 가능성 검토"
+        return "REVIEW", f"퇴직금 위험 문구 ({kws}) 신설 — 황금낙하산/경영권 변동 보상 가능성 검토"
     # 분기 2: 사외이사 퇴직금 신설
     if risk_outside_dir:
         return "REVIEW", "사외이사 퇴직금 신설 — 독립성 훼손 가능성 검토"
@@ -1422,10 +1422,10 @@ def _decide_retirement_pay(
     # 분기 8: 위험 키워드 hit
     if risk_review:
         kws = ", ".join(sorted({h["kw"] for h in risk_review})[:3])
-        return "REVIEW", f"퇴직금 변경 {len(amendments)}건, 위험 키워드 hit {len(risk_review)}건 ({kws}) — 사용자 검토"
+        return "REVIEW", f"퇴직금 변경 {len(amendments)}건, 위험 키워드 {len(risk_review)}건 ({kws}) — 사용자 검토"
     # 분기 10: amendments ≥1, 위험 hit 0
     if amendments:
-        return "REVIEW", f"퇴직금 변경 {len(amendments)}건 — 변경 raw 검토 권장"
+        return "REVIEW", f"퇴직금 변경 {len(amendments)}건 — 변경 조항 원문 검토 권장"
     # 분기 11: amendments 0
     return "FOR", "퇴직금 단순 정정 (amendments 0건)"
 
@@ -1702,7 +1702,7 @@ def _decide_articles_amendment(
     #
     # REVIEW signals (소수주주 보호 후퇴) — 법령 layer A2 직접 hit이 아니면 자동 반대 금지
     if "집중투표" in t and "배제" in t:
-        return "REVIEW", "집중투표 배제 — 소수주주 보호 후퇴 가능성, 법령 A2 직접 hit 아님"
+        return "REVIEW", "집중투표 배제 — 소수주주 보호 후퇴 가능성. 강행규정 직접 적용 대상은 아닙니다"
     if "초다수결의제" in t or ("의결권" in t and "제한" in t):
         return "REVIEW", "초다수결의제 또는 의결권 제한 — 적대적 인수 방어 가능성 검토"
     # iter23+24 검증: "통지기한 단축" records 표본 0건 → over-fit fix 제거
@@ -1753,7 +1753,7 @@ def _decide_articles_amendment(
     }
     if ret_amends and t_compact in generic_articles_titles:
         ret_decision, ret_reason = _decide_retirement_pay(retirement_payload, fin_metrics_payload)
-        return ret_decision, f"정관변경 (본문 퇴직금 raw {len(ret_amends)}건 detect) — {ret_reason}"
+        return ret_decision, f"정관변경 (본문에서 퇴직금 변경 {len(ret_amends)}건 확인) — {ret_reason}"
     # 제목에 안 걸렸으면 조문 본문을 읽는다. 회사는 제목을 완곡하게 쓴다 — 여기까지 와서야
     # 이사 정원 축소·수권주식 증가·전자주총 배제가 드러난다.
     body_risks = _articles_body_risks(amendment)
@@ -1778,21 +1778,24 @@ def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
     return "NO_DATA", "자사주 안건 세부 (소각/처분/취득) 미식별 — 본문 검토 필요"
 
 
+#: 판정 enum(FOR/REVIEW/AGAINST)은 산출물 표기가 한글(✅ 찬성·⚠️ 검토 필요·❌ 반대)인데
+#: 정책 인용문에만 영문이 남아 있었다 — 같은 문서에서 같은 것을 두 이름으로 부르면 읽는 사람이
+#: 다른 것으로 읽는다.
 _POLICY_CITATIONS = {
-    "financial_statements": "OPM Guideline §재무제표 — 감사의견 적정 + 자본잠식 없음 시 FOR",
-    "cash_dividend": "OPM Guideline §배당 — 흑자 + 배당성향 적정 시 FOR (200% 초과 시 REVIEW)",
+    "financial_statements": "OPM Guideline §재무제표 — 감사의견 적정 + 자본잠식 없음이면 찬성",
+    "cash_dividend": "OPM Guideline §배당 — 흑자 + 배당성향 적정이면 찬성 (200% 초과 시 검토 필요)",
     "director_election": "OPM Guideline §이사선임 — 사내이사: 결격만 검증 / 사외이사: 독립성 + 결격",
-    "audit_committee_election": "OPM Guideline §감사위원 — strict 검증 (장기연임 5년+ 소프트/6년+ 상법 시행령 §34조5항7호 + 독립성)",
-    "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 / 적자+인상 / 50% 이상 인상은 REVIEW",
-    "audit_compensation": "참조 감사보수 규칙 + strict 내부 패턴 — 1인당 평균 과소 / 50% 이상 인상 + 1인당 평균 과다는 REVIEW",
-    "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 / 사외이사 퇴직금 / 지급률 2배수 이상 인상은 REVIEW",
-    "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 없으면 FOR",
-    "treasury_share": "OPM Guideline §자사주 — 소각 FOR / 처분 REVIEW",
-    "capital_reduction": "OPM Guideline §자본감소 — 원칙 반대·예외 찬성(회생/구조조정 불가피·상장폐지 회피·주주가치 미훼손 유상감자·자사주 소각). 엔진은 유형 확정 불가 시 REVIEW(원문 판단 위임)",
-    "stock_option_grant": "OPM Guideline §주식매수선택권 — 희석률 한도·행사가격·부여대상 검토 필수, 엔진은 REVIEW(원문 판단 위임)",
+    "audit_committee_election": "OPM Guideline §감사위원 — 엄격 검증 (장기연임 5년+ 소프트/6년+ 상법 시행령 §34조5항7호 + 독립성)",
+    "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 / 적자+인상 / 50% 이상 인상은 검토 필요",
+    "audit_compensation": "참조 감사보수 규칙 — 1인당 평균 과소 / 50% 이상 인상 + 1인당 평균 과다는 검토 필요",
+    "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 / 사외이사 퇴직금 / 지급률 2배수 이상 인상은 검토 필요",
+    "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 정원 축소 / 수권주식 증가 없으면 찬성",
+    "treasury_share": "OPM Guideline §자사주 — 소각은 찬성 / 처분은 검토 필요",
+    "capital_reduction": "OPM Guideline §자본감소 — 원칙 반대·예외 찬성(회생/구조조정 불가피·상장폐지 회피·주주가치 미훼손 유상감자·자사주 소각). 유형을 확정하지 못하면 검토 필요로 두고 원문 판단에 맡깁니다",
+    "stock_option_grant": "OPM Guideline §주식매수선택권 — 희석률 한도·행사가격·부여대상 검토 필수. 검토 필요로 두고 원문 판단에 맡깁니다",
     "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
     "shareholder_proposal": "OPM Guideline §주주제안 — 본문 검토",
-    "other": "OPM Guideline §기타 — 위험 키워드 (감자/적대적/포이즌/CB) 없으면 mainstream FOR",
+    "other": "OPM Guideline §기타 — 위험 키워드 (감자/적대적/포이즌/CB) 없으면 일반 안건으로 보고 찬성",
 }
 
 
@@ -2258,7 +2261,7 @@ def _extract_risks(
         elif indep == "long_tenure_concerns":
             risks.append("장기연임 (5년+ 소프트 경보 / 6년+ 상법 시행령 §34조5항7호 결격 가능)")
         if ah == "red_flag":
-            risks.append("이사 회계 risk 이력 발견 (raw 메모 검토)")
+            risks.append("이사 회계 위험 이력 발견 (원문 메모 검토)")
 
     if category == "director_compensation":
         comp_values = _comp_target_values(comp_payload, "이사")
@@ -2291,7 +2294,7 @@ def _extract_risks(
     if category == "retirement_pay":
         amends = ((retirement_payload or {}).get("data") or {}).get("amendments") or []
         if amends:
-            risks.append(f"퇴직금 변경 {len(amends)}건 — 변경 raw 검토 권장")
+            risks.append(f"퇴직금 변경 {len(amends)}건 — 변경 조항 원문 검토 권장")
         multiplier_evidence = _retirement_multiplier_evidence(amends)
         if any(item.get("strong_review_signal") for item in multiplier_evidence):
             risks.append("퇴직금 지급률 2배 이상 증가 또는 3배수 이상 신설")
@@ -2493,7 +2496,7 @@ async def build_proxy_advise_payload(
                 "basis": (
                     f"최신 {_MEETING_TYPE_KO.get(pre_resolved['meeting_type'], pre_resolved['meeting_type'])}주총 "
                     f"소집공고({pre_resolved.get('notice_date', '?')} 공시) 기준 자동 선택 — "
-                    f"회의일 {(_md.isoformat() if _md else '파싱 실패 (공시연도 fallback)')}"
+                    f"회의일 {(_md.isoformat() if _md else '파싱 실패 (공시 연도로 추정)')}"
                 ),
                 "resolved_meeting_type": pre_resolved["meeting_type"],
                 "notice_rcept_no": pre_resolved.get("notice_rcept_no"),
@@ -2504,7 +2507,7 @@ async def build_proxy_advise_payload(
             year_resolution = {
                 "mode": "resolve_error",
                 "basis": (
-                    f"최신 소집공고 조회 실패({resolve_error}) — 달력 전년({target_year})으로 임시 fallback. "
+                    f"최신 소집공고 조회 실패({resolve_error}) — 달력 전년({target_year})으로 임시 대체했습니다. "
                     f"일시 장애일 수 있으니 재시도하거나 year를 직접 지정해 재조회 권장"
                 ),
             }
@@ -2514,7 +2517,7 @@ async def build_proxy_advise_payload(
                 "mode": "fallback_prev_year",
                 "basis": (
                     f"최근 12개월(+예정분) 내 {_MEETING_TYPE_KO.get(meeting_type, meeting_type)}주총 소집공고를 "
-                    f"찾지 못해 달력 전년({target_year})으로 fallback — year를 직접 지정해 재조회 가능"
+                    f"찾지 못해 달력 전년({target_year})으로 대체했습니다 — 연도를 직접 지정해 다시 조회하실 수 있습니다"
                 ),
             }
     # 재무 fiscal year 매핑.
@@ -2529,8 +2532,8 @@ async def build_proxy_advise_payload(
     scope_all_warning: str | None = None
     if scope == "all":
         scope_all_warning = (
-            "scope='all'은 8 upstream 동시 호출로 timeout 위험이 커 자동으로 'decisions'로 전환됨. "
-            "특정 영역 detail이 필요하면 scope을 individually 호출 (proxy_battle / engagement / policy_basis 등)."
+            "요청하신 범위는 동시 조회량이 많아 응답이 지연될 수 있어, 의결권 판단 결과만 "
+            "돌려드립니다. 지분·행동주의·정책 비교 등 개별 영역은 따로 요청하시면 자세히 분석합니다."
         )
         scope = "decisions"
 
@@ -3341,7 +3344,7 @@ async def build_proxy_advise_payload(
                     bad_names = [ev.get("name", "?") for ev in inside_evals if (ev.get("performance") or {}).get("classification") == "bad"]
                     decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 저조 ({', '.join(bad_names[:3])}) — 사용자 검토"
                 elif audit_history_red:
-                    decision, reason = "REVIEW", f"묶음 안건 — 이사 회계 risk 이력 검증 red_flag (raw 메모 검토)"
+                    decision, reason = "REVIEW", f"묶음 안건 — 이사 회계 위험 이력에 결격 신호 (원문 메모 검토)"
                 elif inside_perf_weak:
                     weak_names = [ev.get("name", "?") for ev in inside_evals if (ev.get("performance") or {}).get("classification") == "weak"]
                     decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 부진 ({', '.join(weak_names[:3])}) — 사용자 검토"
@@ -3353,7 +3356,7 @@ async def build_proxy_advise_payload(
                 # 이전 mainstream default FOR 로직 폐기 — 정직 fallback 우선.
                 if matched_eval is None and not name_to_eval:
                     decision = "NO_DATA"
-                    reason = "후보 평가 데이터 없음 (본문 parse 실패) — 본문 검토 필요"
+                    reason = "후보 평가 데이터 없음 (본문을 읽지 못했습니다) — 본문 검토 필요"
                 else:
                     # iter21: audit_committee_election은 role_type 무관 strict 검증.
                     # 상근감사 같은 case에서 role_type 빈 string → 사내이사 fallback (자동 FOR) 위험.

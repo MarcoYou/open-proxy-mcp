@@ -576,7 +576,7 @@ async def _roster_scope(
             c["since_year" if "이탈" not in c["change"] else "until_year"] = (
                 latest if "이탈" not in c["change"] else prev_year)
     else:
-        warnings.append(f"{prev_year}년 임원현황이 없어 재직/사퇴 diff 미산출.")
+        warnings.append(f"{prev_year}년 임원현황이 없어 재직/사퇴 비교 미산출.")
 
     # 직전 사업보고서 이후의 **기중 변동**(260730 사용자 지적).
     # 사업보고서끼리 비교하면 6월에 사임한 이사가 안 보인다 — 다음 사업보고서가 나와야 드러난다.
@@ -618,7 +618,7 @@ async def _roster_scope(
         diff_cross_check = {
             "our_outside_director_new_appointments": our_outside_new,
             "official_outside_director_appointed": official_appointed,
-            "note": "둘 다 '사외이사 신규선임' 건수로 맞춰 비교(같은 정의여도 재선임(연임)을 우리 diff는"
+            "비고": "둘 다 '사외이사 신규선임' 건수로 맞춰 비교(같은 정의여도 재선임(연임)을 우리 diff는"
                     " '변동 없음'으로, 공식값은 다르게 셀 수 있어 완전 일치는 아닐 수 있음 — 크게 어긋나면"
                     " roster diff 추론을 의심할 신호로만 사용, 공식값이 항상 우선).",
         }
@@ -689,7 +689,7 @@ async def _individual_scope(
     if not any(y["people"] for y in per_year):
         warnings.append("개인별 5억+ 보수 공개 대상이 없음(전원 5억 미만이거나 미공시).")
     return {
-        "note": "5억원 이상만 법정 개별공개 — 그 미만은 비공개(범주 평균은 compensation scope).",
+        "비고": "5억원 이상만 법정 개별공개 — 그 미만은 비공개(범주 평균은 compensation scope).",
         "per_year": per_year,
     }
 
@@ -1326,8 +1326,8 @@ def _collect_data_quality_flags(data: dict[str, Any]) -> list[dict[str, Any]]:
         official = cc.get("official_outside_director_appointed") or 0
         if abs(ours - official) >= 3:
             flags.append({"scope": "roster", "kind": "crosscheck_mismatch", "severity": "warn",
-                          "detail": f"이름기반 사외이사 신규선임 diff({ours})와 DART 공식 집계({official})가 "
-                                    f"{abs(ours - official)} 차이 — 재선임/정의차 가능하나 roster diff 신뢰도 낮음(공식값 우선)."})
+                          "상세": f"이름기반 사외이사 신규선임 비교({ours})와 DART 공식 집계({official})가 "
+                                    f"{abs(ours - official)} 차이 — 재선임/정의차 가능하나 임원현황 비교 신뢰도 낮음(공식값 우선)."})
 
     att = data.get("attendance") or {}
     for d in att.get("low_attendance", []):
@@ -1392,6 +1392,6 @@ def _summary_assessment(data: dict[str, Any]) -> dict[str, Any]:
         "latest_per_capita_krw": pc_now,
         "per_capita_change_yoy": per_capita_change,
         "departures_detected": departures,
-        "note": "소진율·인당보수는 기계적 사실. '적절성'은 동종업계·규모 대비 판단이 필요해 "
+        "비고": "소진율·인당보수는 기계적 사실. '적절성'은 동종업계·규모 대비 판단이 필요해 "
                 "이 tool은 수치와 변동·flag만 제공(가치판단 안 함).",
     }

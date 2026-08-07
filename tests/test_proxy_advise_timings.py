@@ -548,7 +548,8 @@ def test_policy_against_default_is_review_without_law_trigger():
     decision, reason = pa._apply_policy_default("against", "FOR", "fallback")
 
     assert decision == "REVIEW"
-    assert "법령 hard trigger가 아니므로 REVIEW" in reason
+    # 문장 전체가 아니라 **뜻**을 고정한다 — 문구를 다듬을 때마다 깨지면 테스트가 개선을 막는다.
+    assert "강행규정" in reason and "반대" in reason
 
 
 def test_policy_judgment_against_cases_are_review():
@@ -617,7 +618,7 @@ def test_retirement_dividend_and_articles_policy_concerns_are_review():
     articles_decision, articles_reason = pa._decide_articles_amendment("집중투표 배제 조항 신설의 건")
 
     assert articles_decision == "REVIEW"
-    assert "법령 A2 직접 hit 아님" in articles_reason
+    assert "집중투표 배제" in articles_reason and "강행규정" in articles_reason
 
 
 def test_candidate_review_profile_expands_individual_candidate_evidence():
