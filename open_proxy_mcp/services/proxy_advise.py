@@ -3452,7 +3452,12 @@ async def build_proxy_advise_payload(
 
         # 1.55. agenda relation metadata — 절차/대안형 안건은 후보평가 자동 FOR 금지.
         # 법령 layer hit은 더 강한 근거이므로 우선한다.
-        if law_layer_hit is None and agenda_relation_type in {"procedural", "alternative", "conditional"}:
+        # 회사가 이미 내려놓은 안건 — 표결 대상이 아니다. 찬반을 내면 실행 불가능한 지시가 되고,
+        # 목록에서 지우면 소집공고와 대조가 안 된다. 남기되 표결 대상이 아니라고 말한다.
+        if agenda_relation_type == "withdrawn":
+            decision = "NO_VOTE"
+            reason = "폐기·철회된 안건 — 표결 대상이 아닙니다(공고 원문에 폐기/사퇴 사실이 기재됨)"
+        elif law_layer_hit is None and agenda_relation_type in {"procedural", "alternative", "conditional"}:
             cumulative_threshold = _cumulative_voting_threshold(title)
             if agenda_relation_type == "procedural":
                 decision = "REVIEW"
@@ -3525,7 +3530,7 @@ async def build_proxy_advise_payload(
         # 단 법령 layer hit 시는 vote_style 무시 (강행규정 일관성).
         policy_default = _policy_default(policy, category)
         original_decision, original_reason = decision, reason
-        if law_layer_hit is None and agenda_relation_type not in {"procedural", "alternative", "conditional"}:
+        if law_layer_hit is None and agenda_relation_type not in {"procedural", "alternative", "conditional", "withdrawn"}:
             decision, reason = _apply_policy_default(policy_default, decision, reason)
 
         # 3. 정책 근거 명시 (공개 surface에서는 내부 운용사/NPS 식별자 비노출)
@@ -3582,6 +3587,9 @@ async def build_proxy_advise_payload(
                 f"{_board_gender.get('as_of')} 기준) — 자산 2조원 이상 상장사는 이사회를 특정 성의 "
                 "이사로만 구성할 수 없습니다(자본시장법 §165조의20)"]
         policy_citation = _policy_citation(category)
+        if agenda_relation_type == "withdrawn":
+            # 카테고리별 정책을 인용하면 「이 안건을 이 기준으로 판단했다」로 읽힌다 — 판단한 적이 없다.
+            policy_citation = "OPM Guideline §표결 — 상정이 철회된 안건에는 찬반을 내지 않습니다"
         # 260724 L-코드 진단 부수(감사의 선임 L0-0-2-5-0): 상법상 감사(상근·비상근)는
         # 감사위원회 위원과 별개 기구 — 결정 경로(3%룰·후보검증)는 공유하되 인용 라벨만 구분.
         if category == "audit_committee_election" and _is_statutory_auditor_agenda(title):

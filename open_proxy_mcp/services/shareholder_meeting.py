@@ -116,8 +116,28 @@ _AGENDA_CONDITIONAL_PATTERNS = (
     "부결될 경우",
     "통과 시",
     "통과시",
+    # 「가결 되는 경우」처럼 어간을 띄어 쓰는 서식이 있어 「가결될 경우」만으로는 놓친다
+    # (BNK금융지주 실측 — 조건절이 조건부로 안 잡혀 미분류 자동 찬성으로 샜다).
+    "되는 경우",
     "경우에만",
     "선행",
+)
+#: 회사가 **이미 내려놓은** 안건. 후보가 사퇴했거나 선행 안건 결과로 자동 폐기되는 자리다.
+#: 표결 대상이 아닌데 찬성이 나가면 그 자체로 못 쓰는 지시서가 된다 — 실측 고려아연 30·39
+#: 「사외이사 오영 선임의 건→ 오영 후보자 일신상의 사유로 자진 사퇴함에 따라 안건 폐기」에
+#: ✅ 찬성, BNK금융지주 24 「이사 보수 한도 승인의 건은 자동 폐기」에 ✅ 찬성이 나갔다.
+#: 목록에서 지우지는 않는다 — 지우면 소집공고와 대조가 안 된다.
+_AGENDA_WITHDRAWN_PATTERNS = (
+    "안건 폐기",
+    "안건폐기",
+    "자동 폐기",
+    "자동폐기",
+    "자진 사퇴",
+    "자진사퇴",
+    "안건 철회",
+    "안건철회",
+    "상정 철회",
+    "상정철회",
 )
 _AGENDA_ALTERNATIVE_PATTERNS = (
     "대안",
@@ -153,7 +173,12 @@ def _agenda_relation(title: str, conditional: str | None = None) -> tuple[str, l
         reasons.append("conditional_title")
     if any(pattern in text for pattern in _AGENDA_ALTERNATIVE_PATTERNS):
         reasons.append("alternative_title")
+    if any(pattern in text for pattern in _AGENDA_WITHDRAWN_PATTERNS):
+        reasons.append("withdrawn_title")
 
+    # 폐기가 먼저다. 이미 내려간 안건에는 조건부·대안 판정을 얹을 이유가 없다.
+    if "withdrawn_title" in reasons:
+        return "withdrawn", reasons
     if "procedural_title" in reasons:
         return "procedural", reasons
     if "alternative_title" in reasons:
@@ -176,7 +201,19 @@ _AGENDA_CATEGORY_KO = {
 }
 
 
-def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[dict[str, Any]]:
+#: 부모에서 자식으로 내려가는 관계. 부모가 「5인 선임」·「6인 선임」처럼 **서로 택일**인 묶음이면
+#: 그 아래 후보 하나하나도 택일 구조 안에 있는데, 관계를 자식 제목만으로 다시 계산하면 자식은
+#: 전부 `normal` 이 되어 개별 후보 평가로 자동 찬성이 나간다. 실측 고려아연 — 부모 24(5인)·33(6인)은
+#: ⚠️ 로 잡혔는데 자식 16명 전원이 ✅ 찬성이라, 최대 6석에 16표를 던지는 지시서가 됐다.
+#: `procedural` 은 내리지 않는다(「선임할 이사의 수」가 그 아래 후보를 절차성으로 만들지 않는다).
+_AGENDA_RELATION_INHERITED = ("withdrawn", "alternative", "conditional")
+
+
+def _agenda_nodes(
+    items: list[dict[str, Any]],
+    parent_title: str = "",
+    parent_relation: str = "",
+) -> list[dict[str, Any]]:
     # 안건 카테고리 분류 — proxy_advise의 300사 검증 분류기를 agenda scope에도 적용(category None 해소).
     # 순환 import 회피를 위해 함수 내 지역 import.
     from open_proxy_mcp.services.proxy_advise import _classify_agenda
@@ -187,6 +224,10 @@ def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[d
         title = item.get("title", "")
         conditional = item.get("conditional")
         relation_type, relation_reasons = _agenda_relation(title, conditional)
+        # 자식이 스스로 더 강한 신호를 냈으면 덮지 않는다 — 상속은 빈자리만 채운다.
+        if relation_type == "normal" and parent_relation in _AGENDA_RELATION_INHERITED:
+            relation_type = parent_relation
+            relation_reasons = [*relation_reasons, f"inherited_from_parent:{parent_relation}"]
         category = _classify_agenda(title, parent_title=parent_title)
         node = {
             "agenda_id": agenda_id,
@@ -199,7 +240,9 @@ def _agenda_nodes(items: list[dict[str, Any]], parent_title: str = "") -> list[d
             "conditional": conditional,
             "agenda_relation_type": relation_type,
             "agenda_relation_reasons": relation_reasons,
-            "children": _agenda_nodes(item.get("children", []), parent_title=title),
+            "children": _agenda_nodes(
+                item.get("children", []), parent_title=title, parent_relation=relation_type
+            ),
         }
         # 파서가 붙인 진단 필드를 통과시킨다. 화이트리스트로 새 dict를 만드는 구조라
         # 여기 적지 않으면 조용히 사라진다 — 실제로 filed_*·resolution_* 이 그렇게 유실됐다.

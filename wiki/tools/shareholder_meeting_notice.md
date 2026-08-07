@@ -73,7 +73,23 @@ sequenceDiagram
 ## 파싱 정확도 / relation metadata
 
 - agenda node는 `proposer_type`, `agenda_relation_type`, `agenda_relation_reasons`를 포함한다.
-- `agenda_relation_type`: `normal`, `procedural`, `conditional`, `alternative`, `cumulative_related`.
+- `agenda_relation_type`: `normal`, `procedural`, `conditional`, `alternative`, `cumulative_related`, **`withdrawn`**.
+  - **`withdrawn`** = 회사가 이미 내려놓은 안건(후보 사퇴·선행 안건 결과로 자동 폐기). 표결 대상이
+    아니므로 [[proxy_advise_before_meeting]] 에서 `NO_VOTE` 로 간다. **목록에서 지우지는 않는다** —
+    지우면 소집공고와 대조가 안 된다. 실측 고려아연 30·39(「자진 사퇴함에 따라 안건 폐기」)·
+    BNK금융지주 23·24(「자동 폐기」)에 찬성이 나가고 있었다. 다른 관계보다 먼저 발화한다.
+  - **부모 → 자식 상속**(`withdrawn`·`alternative`·`conditional`): 관계를 자식 제목만으로 다시
+    계산하면 자식이 전부 `normal` 이 되어 개별 평가로 자동 찬성이 나간다. 실측 고려아연 —
+    부모 24(5인 선임)·33(6인 선임)은 `alternative` 로 잡혔는데 자식 16명이 전원 찬성이라 **최대
+    6석에 16표**를 던지는 지시서가 됐다. 상속은 **자식이 `normal` 일 때만**(자식이 스스로 낸 신호는
+    덮지 않는다). `procedural` 은 내리지 않는다 — 「선임할 이사의 수」가 그 아래 후보를 절차성으로
+    만들지는 않는다.
+- **직위·기구 이름은 후보로 만들지 않는다.** 안건 제목 꼬리를 이름으로 읽으면 실재하지 않는 후보가
+  생기고 그 유령에 독립성·결격 평가까지 붙는다 — 실측 코웨이 「사외이사 **이사회 의장** 선임의 건」이
+  후보 「이사회 의장」을, 덴티움 「감사위원회위원 전원 사외이사 **구성**」이 후보 「구성」을 만들어
+  후보 수가 각각 1명씩 부풀었다. 기구·직위어(이사회·위원회·대표이사·사외이사…)는 **부분 일치**로,
+  이름에도 쓰이는 글자(구성·선임·해임·의장…)는 **이름 전체와 같을 때만** 막는다 — 부분 일치로 막으면
+  「박구성」 같은 실재 후보가 조용히 사라진다.
 - **정기/임시 판별**(`detect_meeting_type`)은 본문의 `주주총회 소집공고` 표기에 붙은 종류표기
   (`(제N기 정기|임시)` · `(YYYY년 정기|임시)` · `(정기|임시주주총회)`)를 앵커로 읽는다. **제목과
   본문에 정기/임시를 다르게 적은 모순 공시가 실제로 있다** — `detect_meeting_type_conflict(text)`

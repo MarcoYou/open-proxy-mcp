@@ -394,7 +394,8 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 1. `shareholder_meeting_notice`에서 full agenda tree와 relation metadata를 받는다.
 2. 법령 강행규정/위험규칙에 해당하면 law layer가 먼저 판단한다.
-3. law layer hit가 없고 안건이 `procedural`, `conditional`, `alternative`이면 자동 FOR/AGAINST 대신 REVIEW로 둔다.
+2.5. 안건이 `withdrawn`(회사가 이미 내려놓음)이면 **법령 layer보다 먼저** `NO_VOTE`로 간다 — 표결 대상이 아닌 자리에 찬반을 내면 실행 불가능한 지시가 된다. 목록에서 지우지는 않는다(소집공고와 대조가 안 됨). 상세·실측은 [[shareholder_meeting_notice]].
+3. law layer hit가 없고 안건이 `procedural`, `conditional`, `alternative`이면 자동 FOR/AGAINST 대신 REVIEW로 둔다. 이 관계는 **부모에서 자식으로 상속**된다 — 안 그러면 상호배타 슬레이트의 후보들이 개별 평가로 전원 찬성이 된다.
 4. 일반 안건은 기존 decision path로 간다.
    - 재무제표/배당: 재무·배당 decision
    - 이사/감사위원 선임: 후보 평가 decision
@@ -447,6 +448,10 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## 변경 이력
 
+- 2026-08-07: **안건이 아닌 것에 표를 던지던 4건 차단** — 폐기·철회 안건(`withdrawn`→`NO_VOTE`) ·
+  조건절 「가결 되는 경우」 띄어쓰기 변형 · 상호배타 관계의 부모→자식 상속 · 직위어를 후보로 만드는
+  유령 후보(코웨이 9→8명, 덴티움 3→2명). 실측 고려아연은 최대 6석에 16표를 던지고 있었다.
+  회귀 가드 `tests/test_agenda_not_votable.py`(8건).
 - 2026-08-07: **재무제표 판정에 감사의견을 실제로 조회**(`scope="audit_opinion"`, 승인 대상 FY N-1) +
   주총일 기준 시점 필터 + 자본잠식 4단계 반영 + 두 축 분리 문구. 그 전까지 자동 반대 3경로 중 「비적정
   감사의견」이 **도달 불가능한 죽은 코드**였다(호출부가 감사의견을 안 실어 `latest_op` 이 항상 None).
