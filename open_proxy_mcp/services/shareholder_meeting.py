@@ -173,11 +173,14 @@ def _agenda_relation(title: str, conditional: str | None = None) -> tuple[str, l
         reasons.append("conditional_title")
     if any(pattern in text for pattern in _AGENDA_ALTERNATIVE_PATTERNS):
         reasons.append("alternative_title")
-    if any(pattern in text for pattern in _AGENDA_WITHDRAWN_PATTERNS):
+    # **조건절 안의 「자동 폐기」는 아직 폐기가 아니다.** 「제3호 의안은 제2-6호 의안이 부결되는
+    # 경우 자동 폐기」는 제2-6호가 가결되면 표결되는 안건이고, 「(제2-7호 부결되는 경우) 이사
+    # 선임의 건」도 마찬가지다. 문자열만 보고 폐기로 확정하면 **던져야 할 표를 지시서에서 지운다**
+    # — 표결 대상 아닌 안건에 찬성을 내는 것과 같은 크기의 사고다(실측 KT&G 4건·코웨이 13건).
+    # 완료된 사실(「자진 사퇴함에 따라 안건 폐기」)에만 withdrawn 을 준다.
+    if (any(pattern in text for pattern in _AGENDA_WITHDRAWN_PATTERNS)
+            and "conditional_title" not in reasons and "conditional_field" not in reasons):
         reasons.append("withdrawn_title")
-
-    # 폐기가 먼저다. 이미 내려간 안건에는 조건부·대안 판정을 얹을 이유가 없다.
-    if "withdrawn_title" in reasons:
         return "withdrawn", reasons
     if "procedural_title" in reasons:
         return "procedural", reasons

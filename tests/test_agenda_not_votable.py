@@ -18,15 +18,30 @@ def test_a_withdrawn_agenda_is_not_up_for_a_vote() -> None:
     assert _agenda_relation("이사 보수 한도 승인의 건은 자동 폐기")[0] == "withdrawn"
 
 
-def test_withdrawal_outranks_the_conditional_clause_it_came_with() -> None:
-    """「~은 자동 폐기 -본 안건 가결 되는 경우」 — 이미 내려간 안건에 조건부를 얹을 이유가 없다."""
-    title = "양도제한조건부 주식 부여의 건은 자동 폐기 -본 안건 가결 되는 경우"
-    assert _agenda_relation(title)[0] == "withdrawn"
-
-
 def test_a_spaced_conditional_still_reads_as_conditional() -> None:
     """「가결 되는 경우」를 놓쳐 조건절이 미분류 자동 찬성으로 샜다(BNK금융지주)."""
     assert _agenda_relation("이사 보수 한도 승인의 건 -본 안건 부결 되는 경우")[0] == "conditional"
+
+
+def test_a_conditional_scrapping_has_not_happened_yet() -> None:
+    """조건절 안의 「자동 폐기」는 아직 폐기가 아니다.
+
+    「제2-6호가 부결되는 경우 자동 폐기」는 제2-6호가 가결되면 **표결되는** 안건이다. 문자열만
+    보고 폐기로 확정하면 던져야 할 표를 지시서에서 지운다 — 표결 대상 아닌 안건에 찬성을 내는
+    것과 같은 크기의 사고다. 실측 KT&G 4건·코웨이 13건이 이렇게 사라졌다.
+    """
+    for title, conditional in [
+        ("제3호 의안", "제3호 의안은 제2-6호 의안이 부결되는 경우 자동 폐기"),
+        ("(제2-7호 부결되는 경우) 이사 선임의 건(5명)", "제5호 의안은 제2-7호 의안이 가결되는 경우 자동 폐기"),
+        ("제2-7호 의안", "상법 일부개정법률안이 주총 개최일 전에 시행되지 않는 경우 자동 폐기"),
+    ]:
+        assert _agenda_relation(title, conditional)[0] == "conditional", title
+
+
+def test_a_completed_withdrawal_still_reads_as_one() -> None:
+    """조건 어미가 없는 완료형은 그대로 폐기다 — 위 가드가 진짜 폐기까지 풀어버리면 안 된다."""
+    assert _agenda_relation(_WITHDRAWN)[0] == "withdrawn"
+    assert _agenda_relation("이사 보수 한도 승인의 건은 자동 폐기")[0] == "withdrawn"
 
 
 def test_children_of_a_mutually_exclusive_slate_inherit_it() -> None:

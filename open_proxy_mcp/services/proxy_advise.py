@@ -1625,13 +1625,70 @@ def _decide_financial_statements(
     return "FOR", f"감사의견 적정{stamp}{conflict_note} / {cap_clause}"
 
 
+#: 「3인 이상 11인 이하」 · 「삼(3)인 이상 십일(11)인 이하」 · 「칠인(7)인 이하」 — 서식이 제각각이라
+#: 괄호 안 아라비아 숫자를 기준으로 읽는다.
+#: 상한 표기는 「이하」와 「이내」 둘 다 쓴다 — 한진칼은 「11인 이내 → 9인 이내」라 「이하」만
+#: 보면 정원 축소를 통째로 놓친다.
+_DIRECTOR_CAP = re.compile(r"(\d+)\s*\)?\s*인\s*(?:이하|이내)")
+_AUTHORIZED_SHARES = re.compile(r"발행할\s*주식의\s*총수[^\d]{0,30}([\d,]{4,})")
+
+
+def _articles_body_risks(amendment: dict[str, Any] | None) -> list[str]:
+    """정관 **조문 본문**에서 위험 신호를 읽는다.
+
+    회사는 제목을 완곡하게 쓴다 — 「이사 수 상한 설정의 건」·「이사회 규모 정상화」·「이사회 운영의
+    효율성 제고의 건」·「상법 개정에 따른 변경」. 제목만 보면 넷 다 위험 신호 0인데, 조문 본문은
+    각각 이사 정원 상한 신설(태광산업)·11인→9인(한진칼)·11인→7인(카카오)·전자주주총회 배제
+    조항 신설(가비아)이다. **그 본문은 이미 fetch 해서 산출물에 첨부까지 하고 있었다** — 판정에만
+    안 쓰였을 뿐이다. 사유 문구는 「이사 축소 … 없음」이라고 적극적으로 안심시키기까지 했다.
+    """
+    if not amendment:
+        return []
+    before = (amendment.get("before") or "")
+    after = (amendment.get("after") or "")
+    if not (before or after):
+        return []
+    risks: list[str] = []
+
+    # 이사 정원 — 상한이 낮아졌거나, 없던 상한이 새로 생겼거나.
+    caps_before = [int(m) for m in _DIRECTOR_CAP.findall(before)]
+    caps_after = [int(m) for m in _DIRECTOR_CAP.findall(after)]
+    if "이사" in before or "이사" in after:
+        if caps_before and caps_after and max(caps_after) < max(caps_before):
+            risks.append(f"이사 정원 상한 축소 ({max(caps_before)}인 → {max(caps_after)}인)")
+        elif not caps_before and caps_after and "이사" in after:
+            risks.append(f"이사 정원 상한 신설 ({max(caps_after)}인)")
+
+    # 수권주식 — 늘면 향후 희석 여지다.
+    sb = _AUTHORIZED_SHARES.search(before)
+    sa = _AUTHORIZED_SHARES.search(after)
+    if sb and sa:
+        n_before = int(sb.group(1).replace(",", ""))
+        n_after = int(sa.group(1).replace(",", ""))
+        if n_after > n_before:
+            risks.append(f"수권주식 증가 ({n_before:,}주 → {n_after:,}주)")
+
+    # 집중투표 배제 — 신설된 경우만(원래 있던 조항은 이번 안건의 변경 사항이 아니다).
+    if ("집중투표" in after and any(k in after for k in ("적용하지 아니", "배제", "적용하지 않"))
+            and "집중투표" not in before):
+        risks.append("집중투표 배제 조항 신설")
+
+    # 전자주주총회 배제 — 상법 §542조의14 의 반대 방향인데 「상법 개정에 따른 변경」이라는 제목을
+    # 달고 온다(가비아·솔루엠). 「~방식으로만 개최한다」가 대면 전용을 못 박는 문구다.
+    if "방식으로만" in after.replace(" ", "") or "직접출석하는방식으로만" in after.replace(" ", ""):
+        risks.append("전자주주총회 배제 — 대면 개최로 한정하는 조항")
+
+    return risks
+
+
 def _decide_articles_amendment(
     agenda_title: str,
     retirement_payload: dict[str, Any] | None = None,
     comp_payload: dict[str, Any] | None = None,
     fin_metrics_payload: dict[str, Any] | None = None,
+    amendment: dict[str, Any] | None = None,
 ) -> tuple[str, str]:
-    """정관변경 안건 → 세부 키워드 기반.
+    """정관변경 안건 → 제목 키워드 + **조문 본문**.
 
     ralph iter6 강화: 위험 신호 (집중투표 배제 / 이사 정원 축소 / 권한 강화) 없는
     일반 정관변경은 mainstream FOR (50/50, 71/71 운용사 표본). conservative REVIEW는
@@ -1697,8 +1754,18 @@ def _decide_articles_amendment(
     if ret_amends and t_compact in generic_articles_titles:
         ret_decision, ret_reason = _decide_retirement_pay(retirement_payload, fin_metrics_payload)
         return ret_decision, f"정관변경 (본문 퇴직금 raw {len(ret_amends)}건 detect) — {ret_reason}"
-    # default FOR (위험 신호 없는 일반 정관변경 — mainstream 패턴)
-    return "FOR", "정관변경 — 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 축소 / 수권주식 증가 / 퇴직금 / 보수한도) 없음"
+    # 제목에 안 걸렸으면 조문 본문을 읽는다. 회사는 제목을 완곡하게 쓴다 — 여기까지 와서야
+    # 이사 정원 축소·수권주식 증가·전자주총 배제가 드러난다.
+    body_risks = _articles_body_risks(amendment)
+    if body_risks:
+        return "REVIEW", "정관변경 — 조문 본문 위험 신호: " + " · ".join(body_risks) + " (원문 확인 권장)"
+    # default FOR. **검사한 범위만 말한다** — 예전에는 조문을 보지도 않고 「이사 축소 … 없음」이라고
+    # 적극적으로 안심시켰다(미탐지보다 나쁘다).
+    checked = "제목과 조문 본문" if amendment else "제목"
+    return "FOR", (
+        f"정관변경 — {checked}에서 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 정원 축소 / "
+        f"수권주식 증가 / 전자주총 배제 / 퇴직금 / 보수한도) 없음"
+    )
 
 
 def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
@@ -3356,6 +3423,7 @@ async def build_proxy_advise_payload(
                 retirement_payload=retirement_payload,
                 comp_payload=meeting_comp,
                 fin_metrics_payload=fin_metrics,
+                amendment=_find_amendment_for_title(title),
             )
         elif category == "treasury_share":
             decision, reason = _decide_treasury_share(title)
