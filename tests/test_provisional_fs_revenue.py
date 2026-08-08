@@ -201,3 +201,25 @@ def test_the_source_gate_reads_the_same_form_the_matcher_did() -> None:
         assert ok.match(strip(numbered.replace(" ", ""))), numbered
     # 마커를 떼도 금융상품 계정은 여전히 걸러진다
     assert not ok.match(strip("2. 당기손익-공정가치측정금융상품관련이익".replace(" ", "")))
+
+
+def test_foreign_currency_is_refused_not_silently_read_as_won() -> None:
+    """외화 표시 재무제표를 원으로 읽으면 자릿수가 통째로 틀린다.
+
+    실측 두산밥캣(「USD천」) — 매출이 618만원으로 나갔다(실제 6,181,806 USD천 ≈ 9조원).
+    조용히 계수 1을 쓰면 검산도 통과한다(외화끼리는 자산=부채+자본이 맞고 순이익<매출도 성립).
+    **환산 근거가 본문에 없으면 값을 내지 않는다.**
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
+    for foreign in ("USD", "USD천", "단위: USD", "달러", "JPY백만", "EUR", "(단위:$)"):
+        assert _scale_factor(foreign) is None, foreign
+
+
+def test_billion_won_is_not_read_as_hundred_million() -> None:
+    """「십억원」이 「억원」에 걸리면 1/10 로 환산된다 — 더 긴 단위부터 본다."""
+    from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
+    assert _scale_factor("십억원") == 1_000_000_000
+    assert _scale_factor("억원") == 100_000_000
+    assert _scale_factor("백만원") == 1_000_000
+    assert _scale_factor("천원") == 1_000
+    assert _scale_factor("단위 : 원") == 1

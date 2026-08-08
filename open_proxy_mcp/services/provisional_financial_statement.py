@@ -603,11 +603,26 @@ def _parse_amount(text: str) -> int | None:
     return -v if is_negative else v
 
 
-def _scale_factor(unit: str | None) -> int:
-    """unit 문자열 → krw 환산 계수."""
+#: 외화 표시 재무제표. 원 환산에는 환율과 기준일이 필요한데 본문에 그 정보가 없다.
+#: 실측 코오롱티슈진(「USD」)·두산밥캣(「USD천」) — 예전에는 계수 1이 나가 **USD 숫자가 그대로
+#: 원화 필드에 들어갔다**(티슈진 당기순손실 1억 vs 실제 135,413,281 USD ≈ 1,880억원).
+_FOREIGN_UNIT = re.compile(r"USD|JPY|EUR|CNY|GBP|HKD|달러|엔화|유로|위안|외화|\$|￥|€|£")
+
+
+def _scale_factor(unit: str | None) -> int | None:
+    """unit 문자열 → 원 환산 계수. **외화면 `None`** — 환산할 수 없으면 값을 내지 않는다.
+
+    조용히 1을 돌려주면 통화가 다른 숫자가 원화 필드에 들어가고, 자릿수가 그럴듯해
+    검산도 통과한다(외화끼리는 자산=부채+자본이 맞고 순이익<매출도 성립). 틀린 값이 빈 값보다 나쁘다.
+    """
     if not unit:
         return 1
     u = unit.replace(" ", "")
+    if _FOREIGN_UNIT.search(u):
+        return None
+    # 「십억원」이 「억원」에 걸리면 1/10 로 환산된다 — 더 긴 것부터 본다.
+    if "십억원" in u:
+        return 1_000_000_000
     if "백만원" in u:
         return 1_000_000
     if "천원" in u:
@@ -660,6 +675,10 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
 
             unit = table.get("unit") or ""
             scale = _scale_factor(unit)
+            if scale is None:
+                # 외화 표시 — 환산 근거가 본문에 없다. 값을 내지 않고 그 사실을 남긴다.
+                out.setdefault("skipped_units", []).append(unit)
+                continue
             cols = table.get("columns") or []
             try:
                 acc_idx = cols.index("account")
