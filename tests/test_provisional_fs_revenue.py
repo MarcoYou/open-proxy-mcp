@@ -186,3 +186,18 @@ def test_the_source_gate_is_the_backstop_not_the_keyword_list() -> None:
         assert ok.match(good), good
     for bad in ("기타포괄손익", "당기손익", "매출총이익", "영업이익"):
         assert not ok.match(bad), bad
+
+
+def test_the_source_gate_reads_the_same_form_the_matcher_did() -> None:
+    """게이트가 항목번호를 떼지 않으면 매칭을 통과한 정당한 값을 도로 지운다.
+
+    실측 48사 중 24건(영풍·POSCO홀딩스·HD현대·삼성물산·롯데케미칼 등)의 순이익이 「Ⅶ.당기순손실」·
+    「XI. 당기순이익」처럼 항목번호가 붙었다는 이유로 사라졌다.
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _NET_INCOME_ACCOUNT_OK as ok, _strip_item_marker as strip,
+    )
+    for numbered in ("Ⅶ.당기순손실", "XI. 당기순이익", "Ⅵ. 당기순이익(손실)", "VIII. 당기순이익"):
+        assert ok.match(strip(numbered.replace(" ", ""))), numbered
+    # 마커를 떼도 금융상품 계정은 여전히 걸러진다
+    assert not ok.match(strip("2. 당기손익-공정가치측정금융상품관련이익".replace(" ", "")))

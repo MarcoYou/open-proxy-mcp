@@ -706,8 +706,12 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
         # 키워드 사전은 새 계정명이 나올 때마다 구멍이 생기고, 그 구멍으로 엉뚱한 행이 들어온다
         # (영풍=재무상태표 자본, 금융사=FVPL 금융상품). **틀린 값이 빈 값보다 훨씬 나쁘므로**
         # 순이익 계열이 아니면 버린다 — 값이 없으면 검산·판정이 「확인 못 했다」로 정직하게 간다.
+        # **매칭과 같은 형태로 본다** — 매칭은 `_strip_item_marker` 로 「Ⅶ.」·「XI. 」를 떼고 보는데
+        # 게이트만 원본을 보면 「Ⅶ.당기순손실」이 통과했다가 여기서 삭제된다. 실측 48사 중 24건
+        # (영풍·POSCO홀딩스·HD현대·삼성물산·롯데케미칼 등)의 **정당한 순이익이 사라졌다**.
         _src = (out.get("source_accounts") or {}).get("net_income_krw")
-        if _src and not _NET_INCOME_ACCOUNT_OK.match(_src.get("account", "").replace(" ", "")):
+        _acc = _strip_item_marker((_src or {}).get("account", "").replace(" ", "")) if _src else ""
+        if _src and not _NET_INCOME_ACCOUNT_OK.match(_acc):
             for k in ("fy_current_net_income_krw", "fy_prior_net_income_krw"):
                 out.pop(k, None)
             out.setdefault("rejected_accounts", {})["net_income_krw"] = _src.get("account")
