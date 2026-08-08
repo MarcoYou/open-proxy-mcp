@@ -133,6 +133,13 @@ _FACT_LABEL: dict[str, str] = {
     "fy_raw_scope_mixed": "본문 수치 출처가 섞임(비율 계산 주의)",
     "fy_raw_rejected_accounts": "순이익 계정 불일치로 폐기",
     "fy_raw_cross_check": "본문↔확정 재무제표 검산",
+    # 승인 대상 연도의 확정치 — 주총 시점에 사업보고서가 이미 나온 경우에만 붙는다.
+    "fy_current_confirmed_year": "확정(A) 사업연도",
+    "fy_current_revenue_krw_confirmed": "매출 (확정 A)",
+    "fy_current_operating_profit_krw_confirmed": "영업이익 (확정 A)",
+    "fy_current_net_income_krw_confirmed": "당기순이익 (확정 A, 지배주주 귀속)",
+    "fy_current_total_equity_krw_confirmed": "자본총계 (확정 A)",
+    "fy_provisional_vs_confirmed": "잠정(P) ↔ 확정(A) 대조",
     # 배당
     "payout_ratio_pct": "배당성향(%)", "payout_ratio_band": "배당성향 구간",
     # 보수한도

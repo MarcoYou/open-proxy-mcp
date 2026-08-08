@@ -2173,6 +2173,8 @@ def _extract_facts(
     fy_raw_from_agenda: dict[str, Any] | None = None,
     retirement_payload: dict[str, Any] | None = None,
     ownership_payload: dict[str, Any] | None = None,
+    confirmed_payload: dict[str, Any] | None = None,
+    confirmed_year: int | None = None,
 ) -> dict[str, Any]:
     """카테고리별 검증 가능한 정량 fact dict (None 값은 제외)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -2221,14 +2223,51 @@ def _extract_facts(
                 if v is not None:
                     facts[k] = v
             facts["fy_raw_extraction_status"] = fy_raw_from_agenda.get("extraction_status")
-            facts["fy_raw_scope"] = fy_raw_from_agenda.get("scope_used")
-            # 본문의 **전기**와 DART API 의 **당기**는 같은 해다(소집공고가 사업보고서보다
-            # 먼저 나오므로 한 해 어긋난다 — 실측 88곳 중 78곳). 그래서 서로 검산이 된다.
-            # 260729: 파서가 「Ⅳ. 기타영업수익」을 매출로 잡았을 때 이 비율이 0.03 이었다.
-            # 실측 20사에서 정상 케이스는 14곳이 비율 1.00, 오탐 0건.
-            _chk = _cross_check_provisional_revenue(fy_raw_from_agenda, fin_summary)
-            if _chk:
-                facts["fy_raw_cross_check"] = _chk
+
+        # 승인 대상 연도의 **확정치**. 공고 잠정치 추출 성공 여부와 **무관하게** 싣는다 —
+        # 오히려 공고를 못 읽었을 때 이것만이 승인 대상 연도의 유일한 숫자가 된다.
+        # (한때 잠정 블록 안에 넣었다가 삼성전자처럼 공고 파싱이 안 되는 회사에서 통째로 사라졌다.)
+        _conf_outer = ((confirmed_payload or {}).get("data") or {}).get("summary") or {}
+        if _conf_outer:
+            facts["fy_current_confirmed_year"] = confirmed_year
+            for _src, _dst in (
+                ("revenue_krw", "fy_current_revenue_krw_confirmed"),
+                ("operating_profit_krw", "fy_current_operating_profit_krw_confirmed"),
+                ("net_income_krw", "fy_current_net_income_krw_confirmed"),
+                ("total_equity_krw", "fy_current_total_equity_krw_confirmed"),
+            ):
+                if _conf_outer.get(_src) is not None:
+                    facts[_dst] = _conf_outer.get(_src)
+
+            # 잠정(P) ↔ 확정(A) 대조. **같은 것끼리만 뺀다** — 순이익은 공고가 연결 총액
+            # (「Ⅶ.당기순손실」)을 싣고 확정치는 지배주주 귀속이라 개념이 다르다. 실측 영풍
+            # FY2025: 총액 +366억 vs 귀속 -83억으로 449억이 벌어지는데 전부 비지배지분 몫이다.
+            # 이 둘을 빼서 「감사 과정에서 흑자가 적자로 뒤집혔다」고 쓰면 없는 사건을 만들어낸다.
+            # 대조에서 빼되 뺐다는 사실을 밝힌다 — 말없이 「일치」라고만 하면 그 자체로 오해다.
+            _p_src = fy_raw_from_agenda or {}
+            _moved, _checked = [], []
+            for _label, _prov, _src in (
+                ("매출", "fy_current_revenue_krw", "revenue_krw"),
+                ("영업이익", "fy_current_operating_profit_krw", "operating_profit_krw"),
+                ("자본총계", "fy_current_total_equity_krw", "total_equity_krw"),
+            ):
+                _p, _c = _p_src.get(_prov), _conf_outer.get(_src)
+                if _p is None or _c is None:
+                    continue
+                _checked.append(_label)
+                if _p != _c:
+                    # 두 값을 나란히 쓰면 반올림에 먹혀 「4.02조원 → 4.02조원」이 된다.
+                    # 움직인 크기를 쓴다 — 그게 곧 감사 조정분이다.
+                    _moved.append(f"{_label} {_won(_c - _p)}")
+            if _checked:
+                _fy = confirmed_year
+                facts["fy_provisional_vs_confirmed"] = (
+                    (f"FY{_fy}P(공고 잠정) → FY{_fy}A(확정) 조정 — {' · '.join(_moved)}"
+                     if _moved else f"FY{_fy}P(공고 잠정)와 FY{_fy}A(확정)가 일치")
+                    + f" · 대조 {'·'.join(_checked)}"
+                    + " · 순이익은 공고가 연결 총액, 확정치가 지배주주 귀속이라 개념이 달라 제외"
+                )
+
     elif category == "cash_dividend":
         facts["payout_ratio_pct"] = fin_summary.get("payout_ratio_pct")
         facts["payout_ratio_band"] = _payout_ratio_band(fin_summary.get("payout_ratio_pct"))
@@ -2685,15 +2724,19 @@ async def build_proxy_advise_payload(
     # 예전과 같은 답(N-2)이 나온다. look-ahead 도 정의상 막힌다.
     # 비용은 list.json 1콜. 회의일을 모르면(사용자가 year 를 직접 준 경우) 종전값으로 물러난다.
     #
-    # **정기주총에는 아직 적용하지 않는다.** 실측(60사): 회의일 기준으로 재면 정기주총 54사 중
-    # 50사(93%)가 FY(N-1)로 옮겨간다 — 사업보고서가 공고(3/5)와 주총(3/25) 사이(3/17)에 끼기
-    # 때문이다. 그렇게 되면 승인 대상 연도와 분석 기준 연도가 같아져 **비교할 직전 확정치가
-    # 사라진다.** 정기주총은 「안건으로 올라온 재무제표」와 「직전 정기보고서」를 나란히 봐야 하므로
-    # 기준연도 하나로는 표현이 안 되고, 그 구조는 따로 만든다. 여기서는 임시주총만 고친다.
+    # 정기주총에서는 이 값을 **비교 기준**으로 남긴다(= 직전 확정 FY(N-2)). 승인 대상 FY(N-1)은
+    # 공고의 잠정 재무제표로 이미 싣고 있으므로, 기준연도를 FY(N-1)로 올려버리면 비교 상대가
+    # 사라진다. 대신 아래 `confirmed_year` 로 **주총 시점에 이미 나와 있던 FY(N-1) 확정치**를
+    # 따로 가져온다 — 시장 전수(12월 결산 2,731사) 기준 사업보고서는 소집공고 +7일(중앙값)에
+    # 나오고, 상법 §363(주총 2주 전 통지)과 겹치면 최소 81.7%가 주총 전에 확정된다.
+    # 즉 표를 던지는 시점에는 잠정과 확정이 **둘 다** 있다. 소집공고 시점에서 멈추면 안 된다.
     fin_year = target_year - 2
     fin_year_basis = f"주총 연도({target_year}) 기준 직전 확정 사업연도로 추정"
+    confirmed_year: int | None = None          # 주총 시점에 확정돼 있던 FY(N-1)
+    confirmed_ref: dict[str, Any] | None = None
     _meeting_iso = (pre_resolved or {}).get("meeting_date")
-    if _meeting_iso is not None and (pre_resolved or {}).get("meeting_type") == "extraordinary":
+    _is_egm = (pre_resolved or {}).get("meeting_type") == "extraordinary"
+    if _meeting_iso is not None:
         stage_started_at = time.perf_counter()
         try:
             _annual_ref = await latest_annual_report_before(
@@ -2702,13 +2745,17 @@ async def build_proxy_advise_payload(
             _annual_ref = None
         _mark("latest_annual_report", stage_started_at)
         _ref_fy = (_annual_ref or {}).get("fiscal_year")
-        # 뒤로 가지 않는다 — 조회가 불완전할 때 예전보다 오래된 해를 쓰게 되면 손해다.
-        if _ref_fy and _ref_fy > fin_year:
+        if _ref_fy and _is_egm and _ref_fy > fin_year:
+            # 임시주총은 승인 대상이 따로 없다 — 그 시점 최신 확정치가 곧 분석 기준이다.
             fin_year = _ref_fy
             fin_year_basis = (
                 f"주총일({_meeting_iso.isoformat()}) 시점 최신 사업보고서"
                 f"({_annual_ref.get('report_nm', '')}, {_annual_ref.get('rcept_dt', '')} 제출) 기준"
             )
+        elif _ref_fy and not _is_egm and _ref_fy > fin_year:
+            # 정기주총 — 기준연도는 FY(N-2)로 두고, 확정 FY(N-1)을 **추가로** 확보한다.
+            confirmed_year = _ref_fy
+            confirmed_ref = _annual_ref
 
     # scope="all" auto fallback to "decisions" — 8 upstream 동시 호출은 Claude.ai timeout 60s 자주 초과.
     # 사용자 효용 거의 동일 (decisions에 핵심 정보 모두 포함). warning은 data dict에 명시.
@@ -2797,13 +2844,26 @@ async def build_proxy_advise_payload(
     # reference 는 FY(N-2)지만 이 안건이 승인하려는 건 **FY(N-1)** 이라 그쪽을 물어야 한다
     # (한 번 부르면 당기·전기·전전기 3년치가 함께 온다).
     audit_year = target_year - 1
-    meeting_full, ownership, gov_report, fin_metrics, director_eval, audit_opinion = await asyncio.gather(
+    # 정기주총에서 FY(N-1) 사업보고서가 주총 전에 이미 나온 경우(시장 전수 기준 최소 81.7%),
+    # 승인 대상 연도의 **확정치**를 함께 가져온다. 공고의 잠정치와 나란히 놓으면 감사 과정에서
+    # 무엇이 바뀌었는지 보이고, 안 가져오면 「잠정만 있는 회사」와 구분이 안 된다.
+    # 없으면 이 upstream 은 건너뛴다 — 없는 해를 물어 빈 응답을 받느니 부르지 않는다.
+    async def _confirmed_metrics():
+        if confirmed_year is None:
+            return None
+        return await _safe_throttled(
+            build_financial_metrics_payload, company_query,
+            timing_label="financial_metrics.confirmed", scope="summary", year=confirmed_year)
+
+    (meeting_full, ownership, gov_report, fin_metrics, director_eval, audit_opinion,
+     fin_confirmed) = await asyncio.gather(
         _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.advise", scope="advise", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_ownership_structure_payload, company_query, timing_label="ownership_structure.control_map", scope="control_map"),
         _safe_throttled(build_corp_gov_report_payload, company_query, timing_label="corp_gov_report.summary", scope="summary"),
         _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.summary", scope="summary", year=fin_year),
         _safe_throttled(build_director_evaluation_payload, company_query, timing_label="director_evaluation", year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
         _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.audit_opinion", scope="audit_opinion", year=audit_year),
+        _confirmed_metrics(),
     )
     # full payload가 summary/agenda/compensation/aoi_change 데이터를 모두 포함 — 다운스트림 4개 참조에 동일 객체 할당
     meeting_summary = meeting_agenda = meeting_comp = meeting_aoi = meeting_full
@@ -3805,6 +3865,8 @@ async def build_proxy_advise_payload(
             facts_all_evals,
             retirement_payload=retirement_payload,
             fy_raw_from_agenda=fy_raw_from_agenda,
+            confirmed_payload=fin_confirmed,
+            confirmed_year=confirmed_year,
             ownership_payload=ownership,
         )
         # 조항 대장(SSOT) 상세를 구조화 필드로도 노출 (근거 심화 — 260709)
