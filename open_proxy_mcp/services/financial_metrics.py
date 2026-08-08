@@ -201,10 +201,35 @@ def normalize_pct(raw: Any) -> float | None:
         return None
 
 
-def _match_account(account_nm: str, patterns: tuple[str, ...]) -> bool:
+#: 부분문자열 매칭이라 **다른 계정에 올라타는 조합**이 있다. 지금 이것들이 안 터지는 유일한
+#: 이유는 DART 가 표준 순서(유동→비유동, 자본총계→부채및자본총계)로 행을 주고 첫 매칭이
+#: 이기기 때문이다. 순서가 달라지면 조용히 뒤바뀐다 — 「유동자산」은 「비유동자산」의
+#: 부분문자열이라, 비유동이 먼저 오면 유동자산 자리에 그 값이 들어가고 비유동자산은 빈 채로
+#: 남는다. 「자본총계」가 「부채및자본총계」에 걸리면 자기자본 자리에 **자산총계**가 들어간다.
+#: 순서에 기대지 않도록 계정별로 명시적으로 막는다.
+_BS_ACCOUNT_EXCLUDE: dict[str, tuple[str, ...]] = {
+    "current_assets": ("비유동자산",),
+    "current_liabilities": ("비유동부채",),
+    "total_equity": ("부채및자본총계", "부채와자본총계", "자본과부채총계"),
+    # 우선주·보통주 자본금은 자본금의 **일부**다. 단독으로 쓰면 자본금이 과소 계상되고
+    # 자본잠식률은 그만큼 과대해진다. 부모 행이 없으면 아래에서 합산한다.
+    "capital_stock": ("우선주자본금", "보통주자본금"),
+}
+
+#: 부모 「자본금」 행이 없고 종류주 행만 있는 표를 위한 합산 대상.
+#: 실측(소집공고): 삼성전자는 「Ⅰ.자본금 897,514 = 우선주 119,467 + 보통주 778,047」로 부모가
+#: 있지만, 부모 없이 종류별로만 적는 표가 존재한다. 그때 하나만 집으면 값이 반쪽이 된다.
+_CAPITAL_STOCK_PARTS = ("우선주자본금", "보통주자본금")
+
+
+def _match_account(account_nm: str, patterns: tuple[str, ...],
+                   exclude: tuple[str, ...] = ()) -> bool:
     if not account_nm:
         return False
     nm = account_nm.strip().replace(" ", "")
+    for x in exclude:
+        if x.replace(" ", "") in nm:
+            return False
     for p in patterns:
         if p.replace(" ", "") in nm:
             return True
@@ -251,12 +276,18 @@ def _build_account_map(
     보고서에서 손익을 '당기 3개월'이 아닌 '누적'으로 읽기 위함. BS는 잔액이라 기간 무관.
     """
     out: dict[str, int | None] = {k: None for k in {**bs_patterns, **is_patterns}}
+    capital_parts: list[int] = []
     for row in rows:
         sj_div = _strip(row.get("sj_div"))
         account_nm = _strip(row.get("account_nm"))
         if sj_div == "BS":
+            if _match_account(account_nm, _CAPITAL_STOCK_PARTS):
+                part = _extract_period_amount(row, period)
+                if part is not None:
+                    capital_parts.append(part)
             for key, patterns in bs_patterns.items():
-                if out[key] is None and _match_account(account_nm, patterns):
+                if out[key] is None and _match_account(
+                        account_nm, patterns, _BS_ACCOUNT_EXCLUDE.get(key, ())):
                     out[key] = _extract_period_amount(row, period)  # BS는 항상 잔액
                     break
         elif sj_div == "IS":
@@ -264,6 +295,10 @@ def _build_account_map(
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = _extract_cumulative_is(row) if cumulative_is else _extract_period_amount(row, period)
                     break
+    # 부모 「자본금」 행이 없고 종류주 행만 있는 표 — 합쳐야 자본금이다. 하나만 집으면 반쪽이고,
+    # 자본금은 자본잠식률의 **분모**라 반쪽이면 잠식률이 두 배로 부풀어 판정이 뒤집힌다.
+    if out.get("capital_stock") is None and capital_parts:
+        out["capital_stock"] = sum(capital_parts)
     return out
 
 
@@ -532,6 +567,7 @@ def _build_account_map_all(
     out.update({k: None for k in _IS_ACCOUNT_PATTERNS})
     out.update({k: None for k in _IS_DETAIL_PATTERNS})
     out.update({k: None for k in _CF_ACCOUNT_PATTERNS})
+    capital_parts: list[int] = []
 
     for row in rows:
         sj_div = _strip(row.get("sj_div"))
@@ -547,8 +583,11 @@ def _build_account_map_all(
                     "EquityAttributableToOwnersOfParent" in account_id:
                 out["controlling_equity"] = amount
                 continue
+            if _match_account(account_nm, _CAPITAL_STOCK_PARTS) and amount is not None:
+                capital_parts.append(amount)
             for key, patterns in _BS_ACCOUNT_PATTERNS.items():
-                if out[key] is None and _match_account(account_nm, patterns):
+                if out[key] is None and _match_account(
+                        account_nm, patterns, _BS_ACCOUNT_EXCLUDE.get(key, ())):
                     out[key] = amount
                     break
             for key, patterns in _IS_DETAIL_PATTERNS.items():
@@ -615,6 +654,9 @@ def _build_account_map_all(
     out["short_term_debt"] = borrow["short_term_debt"]
     out["long_term_debt"] = borrow["long_term_debt"]
     out["borrowings_generic"] = borrow["other_borrowings_krw"]
+    # 부모 「자본금」 행이 없고 종류주 행만 있는 표 — 합쳐야 자본금이다(위 _build_account_map 과 동일).
+    if out.get("capital_stock") is None and capital_parts:
+        out["capital_stock"] = sum(capital_parts)
     return out
 
 
