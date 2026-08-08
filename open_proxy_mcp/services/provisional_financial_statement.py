@@ -542,6 +542,46 @@ _METRIC_KEYWORDS = {
     "total_assets_krw": ("자산총계", "자산 총계"),
     "total_liabilities_krw": ("부채총계", "부채 총계"),
     "total_equity_krw": ("자본총계", "자본 총계"),
+    # 자본잠식률 = (자본금 − 지배주주지분) / 자본금. 세 계정이 다 있어야 잰다.
+    # **자본금은 액면총액이다**(상법 §451①). 주식발행초과금·자본잉여금·기타불입자본을 더한
+    # 「납입자본」으로 잡으면 분모가 부풀어 잠식률이 과소 산정된다 — 실측 신라젠은 자본금
+    # 690억 기준 잠식 없음(-59%)인데 납입자본(+주발초 5,100억) 기준으로는 81%가 된다.
+    # 연결 재무상태표 81건 중 48건(59%)이 자본금과 주식발행초과금을 나란히 적으므로
+    # 마주칠 확률이 절반을 넘는다. 접두 매칭이라 「자본잉여금」·「자본조정」은 안 걸린다.
+    "capital_stock_krw": ("자본금",),
+    # 표기 15종 실측(연결 BS 81건). 2종만 넣으면 47%밖에 못 잡는다.
+    "controlling_equity_krw": (
+        "지배기업소유주지분", "지배기업의소유주지분", "지배기업의소유주에게귀속되는자본",
+        "지배기업의소유주에귀속되는자본", "지배기업소유주에게귀속되는자본",
+        "지배기업소유주에귀속되는자본", "지배기업소유주에게귀속되는지분",
+        "지배기업의소유주에게귀속되는지분", "지배기업의소유지분", "지배기업지분",
+        "지배기업주주지분", "지배회사소유주지분", "지배주주지분", "지배지분",
+    ),
+    # 지배지분 소계가 아예 없는 표가 있다(실측 고려아연·비덴트·미래에셋증권). 그때는
+    # 자본총계에서 이걸 빼서 만든다 — 자본총계로 물러나면 비지배 몫만큼 잠식이 과소 산정된다.
+    "nci_krw": ("비지배지분", "비지배주주지분"),
+}
+
+#: 재무상태표에서만 인정하는 metric. 같은 계정명이 표에 따라 다른 것을 뜻하기 때문이다 —
+#: 「지배기업 소유주지분」은 손익계산서에서 **당기순이익 귀속**이고 재무상태표에서 **지배주주
+#: 자본**이다(영풍 실측: 재무상태표 값 3.6조가 순이익으로 들어갔다). 계정명 단위 게이트
+#: (`_INCOME_STATEMENT_ONLY`)로는 못 가른다 — 같은 이름이 metric 별로 반대 방향이라서다.
+_BALANCE_SHEET_ONLY_METRICS = frozenset(
+    {"capital_stock_krw", "controlling_equity_krw", "nci_krw"}
+)
+
+#: metric 별 배제. 접두 매칭이라도 올라타는 것들이 있다.
+_METRIC_EXCLUDE: dict[str, tuple[str, ...]] = {
+    # 「자본금및자본잉여금」 같은 합계·주석 제목, 감자 안건표의 「자본금(B)」·「감자전자본금」
+    "capital_stock_krw": ("자본금및", "자본금(B", "자본금(C", "자본금변동", "자본금의",
+                          "당기말자본금", "설립자본금", "자본금(원"),
+    # 「지배기업귀속 주당이익」(EPS)·순손익 귀속 행이 재무상태표 칸에 섞여 들어온다
+    "controlling_equity_krw": ("지배기업귀속주당", "지배지분순이익", "지배주주순이익"),
+    # **부채 계정이 자본 계정보다 먼저 나온다** — 실측 KT&G 연결 BS 는 부채 섹션의
+    # 「비지배지분부채 6,469」가 자본 섹션의 「비지배지분 56,609」보다 앞이라, 접두 매칭이면
+    # 8.7배 틀린 값을 집는다. 비율·장부금액·현금흐름 항목도 같은 이유로 막는다.
+    "nci_krw": ("비지배지분부채", "비지배지분율", "비지배지분의장부금액", "비지배지분에",
+                "비지배지분으로", "비지배지분의증감", "비지배주주지분(부채", "비지배주주지분(자본"),
 }
 
 # 잠정 재무제표에 잘못 끼는 비-FS 테이블 거부 패턴 (셀트리온 등).
@@ -579,19 +619,44 @@ def _account_matches(account_clean: str, keywords, metric_key: str,
                      stmt_type: str | None = None) -> bool:
     if metric_key == "revenue_krw" and account_clean.startswith(_REVENUE_EXCLUDE):
         return False
+    if metric_key in _BALANCE_SHEET_ONLY_METRICS and stmt_type != "balance_sheet":
+        return False
+    _ex = _METRIC_EXCLUDE.get(metric_key)
+    if _ex and account_clean.startswith(_ex):
+        return False
     for kw in keywords:
         kw_clean = kw.replace(" ", "")
         if not account_clean.startswith(kw_clean):
             continue
-        if kw_clean in _INCOME_STATEMENT_ONLY and stmt_type != "income_statement":
+        # 계정명 단위 게이트는 **손익 계열 metric 에만** 건다. 「지배기업 소유주지분」은
+        # 손익계산서에서 순이익 귀속이라 순이익 metric 에는 IS 전용이 맞지만, 재무상태표에서는
+        # 바로 그 행이 지배주주 자본이다 — 같은 이름이 metric 별로 반대 방향이라 계정명만으로는
+        # 못 가른다. 이 예외를 안 두면 자본 metric 이 자기 자리에서 거부된다(실측: 원문에
+        # 지배지분 행이 있는 104건 중 37건만 뽑혔다).
+        if (kw_clean in _INCOME_STATEMENT_ONLY
+                and metric_key not in _BALANCE_SHEET_ONLY_METRICS
+                and stmt_type != "income_statement"):
             continue
         return True
     return False
 
 
 def _strip_item_marker(s: str) -> str:
-    """계정명 앞의 항목 번호를 뗀다 — 「Ⅰ.매출」·「1.매출액」·「(1)매출」."""
-    return re.sub(r"^[\(（]?[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩIVXivx0-9]{1,4}[\)）]?\s*[.．:：]?\s*", "", s)
+    """계정명 앞의 항목 번호를 뗀다 — 「Ⅰ.매출」·「1.매출액」·「(1)매출」.
+
+    **로마숫자를 소문자 L 로 타이핑한 표가 있다.** 실측 네이버 연결 재무상태표는
+    `l. 지배기업 소유주지분`(27.6조)·`ll. 비지배지분` 이라, 대문자 I 만 보면 지배지분도
+    비지배지분도 통째로 놓친다 — 그러면 직접 읽기도 차감 폴백도 둘 다 실패한다.
+    티움바이오는 `- 지배기업소유주지분` 처럼 대시를 쓴다.
+    """
+    # **구분자를 필수로 둔다.** 문자만 보고 떼면 「자산총계」에서 「자」가, 「자본금」에서
+    # 「자」가 떨어져 나간다(한글 항목번호 `가.`~`하.` 를 넣자마자 테스트가 잡았다).
+    return re.sub(
+        r"^(?:"
+        r"[\(（][^)）]{1,4}[\)）]"                                  # (1) (가) (Ⅰ)
+        r"|[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩIVXivxl0-9가-힣]{1,4}\s*[.．:：]"          # Ⅰ. 1. l. 가.
+        r"|[\-–—·ㆍ]"                                              # - 지배기업소유주지분
+        r")\s*", "", s)
 
 
 def _parse_amount(text: str) -> int | None:
@@ -705,6 +770,20 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
             if non_fs_hint_count >= 6:
                 continue
 
+            # **칸 이름을 믿지 않는다.** `balance_sheet` 슬롯에 현금흐름표·자본변동표·요약표가
+            # 들어오는 일이 잦다(실측: `separate.balance_sheet` 80개 중 20개가 현금흐름표,
+            # 국일제지는 `consolidated.balance_sheet` 에 손익계산서). 그 상태로 자본 계정을
+            # 읽으면 「지배기업소유주지분 -145억」이 **당기순손실**인데 자기자본으로 들어간다.
+            # 표가 스스로 재무상태표라고 말하는지 — 총계·유동/비유동 계정이 2개 이상 —
+            # 확인한 뒤에만 자본 계정을 인정한다. 기존 6개 metric 은 영향받지 않는다.
+            _anchors = ("자산총계", "부채총계", "자본총계", "유동자산", "비유동자산",
+                        "유동부채", "비유동부채", "자산총액", "부채총액")
+            looks_like_bs = sum(
+                1 for a in account_lines
+                if _strip_item_marker((a or "").replace(" ", "")).startswith(_anchors)
+            ) >= 2
+            capital_parts: dict[str, tuple[int | None, int | None]] = {}
+
             unit = table.get("unit") or ""
             scale = _scale_factor(unit)
             if scale is None:
@@ -728,10 +807,21 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
                 # 「Ⅰ.」·「1.」 같은 항목 번호를 떼고 본다 — 원문은 「Ⅰ. 매출」처럼 쓴다.
                 account_clean = _strip_item_marker(account.replace(" ", ""))
 
+                # 자본금 소계가 없고 종류주 행만 있는 표 대비 — 합산은 소계가 없을 때만.
+                # 실측 삼성전자는 「Ⅰ.자본금 897,514 = 우선주 119,467 + 보통주 778,047」로
+                # 소계가 먼저 오는데, 다 더하면 자본금이 정확히 두 배가 된다.
+                if stmt_type == "balance_sheet" and looks_like_bs:
+                    for _cls in ("우선주자본금", "보통주자본금"):
+                        if account_clean.startswith(_cls):
+                            capital_parts[_cls] = (_parse_amount(row[cur_idx]),
+                                                   _parse_amount(row[prior_idx]))
+
                 for metric_key, keywords in _METRIC_KEYWORDS.items():
                     cur_key = f"fy_current_{metric_key}"
                     prior_key = f"fy_prior_{metric_key}"
                     if cur_key in out:
+                        continue
+                    if metric_key in _BALANCE_SHEET_ONLY_METRICS and not looks_like_bs:
                         continue
                     # **접두** 매칭 — 부분 포함이면 「기타영업수익」이 「영업수익」에 걸린다.
                     # 260729 실측: LG화학 매출이 45.9조 대신 기타영업수익 1.65조로 들어갔다.
@@ -752,6 +842,21 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
                             last_extraction_scope = scope
                         if prior_val is not None:
                             out[prior_key] = prior_val * scale
+
+            # 소계 행이 없었으면(또는 값이 비었으면) 종류주를 합쳐 자본금으로 쓴다.
+            if "fy_current_capital_stock_krw" not in out and capital_parts:
+                _cur = [v[0] for v in capital_parts.values() if v[0] is not None]
+                _pri = [v[1] for v in capital_parts.values() if v[1] is not None]
+                if _cur:
+                    out["fy_current_capital_stock_krw"] = sum(_cur) * scale
+                    out.setdefault("source_accounts", {})["capital_stock_krw"] = {
+                        "account": " + ".join(sorted(capital_parts)),
+                        "statement": stmt_type, "scope": scope, "method": "summed",
+                    }
+                    n_extracted += 1
+                    last_extraction_scope = scope
+                if _pri:
+                    out["fy_prior_capital_stock_krw"] = sum(_pri) * scale
 
         # **출처 게이트** — 순이익은 「순이익 계정에서 왔는가」로 한 번 더 거른다.
         # 키워드 사전은 새 계정명이 나올 때마다 구멍이 생기고, 그 구멍으로 엉뚱한 행이 들어온다
