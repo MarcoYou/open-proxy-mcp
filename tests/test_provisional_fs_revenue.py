@@ -223,3 +223,10 @@ def test_billion_won_is_not_read_as_hundred_million() -> None:
     assert _scale_factor("백만원") == 1_000_000
     assert _scale_factor("천원") == 1_000
     assert _scale_factor("단위 : 원") == 1
+
+
+def test_chinese_issuers_report_in_rmb_not_cny() -> None:
+    """실측 컬러레이는 「RMB」로 쓴다 — 「CNY」만 두면 중국계 상장사가 조용히 원화로 읽힌다."""
+    from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
+    for cn in ("RMB", "RMB천", "CNY", "人民币元", "단위: 元", "위안"):
+        assert _scale_factor(cn) is None, cn

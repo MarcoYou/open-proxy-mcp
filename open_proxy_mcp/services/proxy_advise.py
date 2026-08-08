@@ -2144,6 +2144,16 @@ def _extract_facts(
         facts["cfo_to_op_ratio"] = fin_summary.get("cfo_to_op_ratio")
         facts["accruals_gap_pct"] = fin_summary.get("accruals_gap_pct")
         facts["interest_coverage_ratio"] = fin_summary.get("interest_coverage_ratio")
+        # 본문 수치를 **왜** 못 실었는지 말한다. 외화 표시라 안 쓴 것과 못 읽은 것은 뜻이 다르고,
+        # 아무 말 없이 비면 사용자는 어느 쪽인지 알 수 없다(실측 두산밥캣·컬러레이 등 외국법인).
+        _skipped = (fy_raw_from_agenda or {}).get("skipped_units") or []
+        if _skipped:
+            facts["fy_raw_skipped_currency"] = " · ".join(sorted(set(_skipped)))
+        _rejected = (fy_raw_from_agenda or {}).get("rejected_accounts") or {}
+        if _rejected:
+            facts["fy_raw_rejected_accounts"] = " · ".join(
+                f"{_FY_METRIC_KO.get(k, k)} ← 「{v}」" for k, v in _rejected.items()
+            )
         # 1번 안건 본문 잠정 재무제표 (provisional, 표 raw에서 추출 — 사업보고서 제출 전)
         if fy_raw_from_agenda and fy_raw_from_agenda.get("extraction_status") in ("success", "partial"):
             for k in ("fy_current_net_income_krw", "fy_prior_net_income_krw",

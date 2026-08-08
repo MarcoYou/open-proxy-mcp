@@ -606,7 +606,12 @@ def _parse_amount(text: str) -> int | None:
 #: 외화 표시 재무제표. 원 환산에는 환율과 기준일이 필요한데 본문에 그 정보가 없다.
 #: 실측 코오롱티슈진(「USD」)·두산밥캣(「USD천」) — 예전에는 계수 1이 나가 **USD 숫자가 그대로
 #: 원화 필드에 들어갔다**(티슈진 당기순손실 1억 vs 실제 135,413,281 USD ≈ 1,880억원).
-_FOREIGN_UNIT = re.compile(r"USD|JPY|EUR|CNY|GBP|HKD|달러|엔화|유로|위안|외화|\$|￥|€|£")
+#: 국내 상장 외국법인은 본국 통화로 보고한다 — 미국계(950xxx)는 USD, 중국계(900xxx)는 CNY/RMB/元.
+#: 통화 코드가 빠지면 그 회사만 조용히 원화로 읽힌다.
+_FOREIGN_UNIT = re.compile(
+    r"USD|JPY|EUR|CNY|RMB|GBP|HKD|SGD|AUD|CAD|CHF|VND|TWD|THB|IDR|INR|MYR|PHP"
+    r"|달러|엔화|유로|위안|외화|元|\$|￥|¥|€|£"
+)
 
 
 def _scale_factor(unit: str | None) -> int | None:
