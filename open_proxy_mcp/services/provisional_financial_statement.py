@@ -606,12 +606,24 @@ def _parse_amount(text: str) -> int | None:
 #: 외화 표시 재무제표. 원 환산에는 환율과 기준일이 필요한데 본문에 그 정보가 없다.
 #: 실측 코오롱티슈진(「USD」)·두산밥캣(「USD천」) — 예전에는 계수 1이 나가 **USD 숫자가 그대로
 #: 원화 필드에 들어갔다**(티슈진 당기순손실 1억 vs 실제 135,413,281 USD ≈ 1,880억원).
-#: 국내 상장 외국법인은 본국 통화로 보고한다 — 미국계(950xxx)는 USD, 중국계(900xxx)는 CNY/RMB/元.
-#: 통화 코드가 빠지면 그 회사만 조용히 원화로 읽힌다.
+#: 국내 상장 외국법인은 본국 통화로 보고한다 — 미국계(950xxx)는 USD, 중국계(900xxx)는 RMB/CNY/元.
+#: 통화 코드가 빠지면 그 회사만 조용히 원화로 읽힌다(실측: 「CNY」만 넣었더니 「RMB」를 쓰는
+#: 컬러레이가 새어나갔다). **목록만으로는 계속 샌다** — 아래 `_KRW_UNIT` 화이트리스트가 보루다.
 _FOREIGN_UNIT = re.compile(
-    r"USD|JPY|EUR|CNY|RMB|GBP|HKD|SGD|AUD|CAD|CHF|VND|TWD|THB|IDR|INR|MYR|PHP"
-    r"|달러|엔화|유로|위안|외화|元|\$|￥|¥|€|£"
+    # ISO 4217 — 국내 상장사·해외법인이 실제로 쓰는 범위
+    r"USD|JPY|EUR|CNY|RMB|GBP|HKD|SGD|AUD|NZD|CAD|CHF|SEK|NOK|DKK"
+    r"|VND|TWD|THB|IDR|INR|MYR|PHP|MMK|BDT|PKR|LKR|KHR|LAK|BND|MOP"
+    r"|RUB|KZT|UZS|TRY|PLN|CZK|HUF|BRL|MXN|CLP|COP|ARS|PEN"
+    r"|ZAR|EGP|NGN|AED|SAR|QAR|KWD|ILS"
+    # 한글·한자·기호 표기. 한 글자(「엔」·「동」)는 오탐이 커서 넣지 않는다.
+    r"|미화|외화|외국통화|달러|달라|엔화|일본엔|유로화?|위안화?|파운드|루피|루블|바트|링깃|페소"
+    r"|元|美元|日元|港[币幣]|人民[币幣]"
+    r"|\$|￥|¥|€|£|₫|₹|₽|₱|฿"
 )
+#: **원화 표기는 반드시 「원」을 포함한다** — 캐시 소집공고 실측 전수(원 458·백만원 189·천원 92·
+#: 억원 4·「주, 천원」·「백만원, 주당순이익 : 원」). 「원」이 없는 단위는 우리가 모르는 통화일 수
+#: 있으므로 원화로 단정하지 않는다. 통화 목록에 빠진 것이 나와도 여기서 막힌다.
+_KRW_UNIT = re.compile(r"원")
 
 
 def _scale_factor(unit: str | None) -> int | None:
@@ -621,9 +633,12 @@ def _scale_factor(unit: str | None) -> int | None:
     검산도 통과한다(외화끼리는 자산=부채+자본이 맞고 순이익<매출도 성립). 틀린 값이 빈 값보다 나쁘다.
     """
     if not unit:
-        return 1
+        return 1          # 표기가 없으면 DART 기본인 원
     u = unit.replace(" ", "")
     if _FOREIGN_UNIT.search(u):
+        return None
+    if not _KRW_UNIT.search(u):
+        # 「원」이 없다 — 우리가 모르는 통화일 수 있다. 원화로 단정하지 않는다.
         return None
     # 「십억원」이 「억원」에 걸리면 1/10 로 환산된다 — 더 긴 것부터 본다.
     if "십억원" in u:

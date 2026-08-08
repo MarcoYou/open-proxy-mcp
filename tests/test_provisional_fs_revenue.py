@@ -230,3 +230,17 @@ def test_chinese_issuers_report_in_rmb_not_cny() -> None:
     from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
     for cn in ("RMB", "RMB천", "CNY", "人民币元", "단위: 元", "위안"):
         assert _scale_factor(cn) is None, cn
+
+
+def test_an_unrecognised_unit_is_not_assumed_to_be_won() -> None:
+    """통화 목록만으로는 계속 샌다 — 「원」이 없으면 원화로 단정하지 않는다.
+
+    캐시 소집공고 실측상 원화 표기는 전부 「원」을 포함한다(원·천원·백만원·억원·「주, 천원」…).
+    목록에 없는 통화(MNT·GEL 등)가 나와도 여기서 막힌다.
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
+    for unknown in ("MNT", "GEL", "in millions", "THOUSANDS", "units"):
+        assert _scale_factor(unknown) is None, unknown
+    # 원화 표기는 형태가 섞여 있어도 통과한다
+    for won in ("원", "천원", "백만원", "억원", "십억원", "주, 천원", "백만원, 주당순이익 : 원"):
+        assert _scale_factor(won) is not None, won
