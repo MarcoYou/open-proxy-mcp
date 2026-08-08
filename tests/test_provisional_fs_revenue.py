@@ -156,3 +156,33 @@ def test_the_same_account_name_means_different_things_in_two_statements() -> Non
     ni = _METRIC_KEYWORDS["net_income_krw"]
     assert _account_matches("지배기업소유주지분", ni, "net_income_krw", "income_statement")
     assert not _account_matches("지배기업소유주지분", ni, "net_income_krw", "balance_sheet")
+
+
+def test_fvpl_financial_instruments_are_not_net_income() -> None:
+    """「당기손익-공정가치측정 금융자산」은 K-IFRS 1109호의 **금융상품 분류 명칭**이다.
+
+    접두 매칭이라 「당기손익」을 키워드에 두면 이것들이 전부 순이익으로 잡힌다. 금융사는 이 계정이
+    당기순이익 행보다 위에 와서 먼저 매칭되고, 값의 자릿수가 그럴듯해 사람도 못 잡는다.
+    캐시 소집공고 197건 실측: 482행이 이렇게 걸리고 있었다.
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _METRIC_KEYWORDS, _NET_INCOME_ACCOUNT_OK, _account_matches,
+    )
+    ni = _METRIC_KEYWORDS["net_income_krw"]
+    for bad in ("당기손익-공정가치측정금융자산", "당기손익-공정가치측정금융부채",
+                "당기손익공정가치측정금융상품관련이익", "당기손익으로재분류되지않는항목"):
+        assert not _account_matches(bad, ni, "net_income_krw", "income_statement"), bad
+        assert not _NET_INCOME_ACCOUNT_OK.match(bad), bad
+
+
+def test_the_source_gate_is_the_backstop_not_the_keyword_list() -> None:
+    """사전은 새 계정명이 나올 때마다 구멍이 생긴다 — 출처로 한 번 더 거른다.
+
+    **틀린 값이 빈 값보다 나쁘다.** 순이익 계열이 아니면 버리고 「확인 못 했다」로 간다.
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import _NET_INCOME_ACCOUNT_OK as ok
+    for good in ("당기순이익", "당기순손실", "당기순이익(손실)", "연결당기순이익",
+                 "지배기업소유주지분", "지배지분순이익"):
+        assert ok.match(good), good
+    for bad in ("기타포괄손익", "당기손익", "매출총이익", "영업이익"):
+        assert not ok.match(bad), bad
