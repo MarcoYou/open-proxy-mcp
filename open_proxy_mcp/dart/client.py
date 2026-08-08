@@ -748,6 +748,35 @@ class DartClient:
             return None
 
     @staticmethod
+    def lookup_former_name(name: str) -> dict | None:
+        """옛 사명으로 물었을 때 지금 회사를 찾아준다 — 없으면 None.
+
+        corpCode.xml 스냅샷 이력(`corp_name_history`)에서 이 이름을 쓴 적이 있는 법인을 찾고,
+        그 법인의 **현재** 사명이 다를 때만 「바뀐 것」으로 본다. 같으면 그냥 현재 이름이다.
+
+        한계 — 이력은 우리가 스냅샷을 남기기 시작한 뒤의 변경만 담는다. 그 전에 이미 바뀐
+        사명(예: 영풍정밀 → 케이젯정밀)은 DART 어디에도 남아 있지 않아 복구할 수 없다.
+        """
+        if not name or not _MASTER_DB_PATH.exists():
+            return None
+        try:
+            conn = sqlite3.connect(_MASTER_DB_PATH)
+            row = conn.execute(
+                "SELECT h.corp_code, c.corp_name, c.stock_code, h.last_seen"
+                "  FROM corp_name_history h JOIN corp_codes c ON c.corp_code = h.corp_code"
+                " WHERE h.corp_name = ? AND c.corp_name <> h.corp_name"
+                " ORDER BY h.last_seen DESC LIMIT 1",
+                (name.strip(),),
+            ).fetchone()
+            conn.close()
+        except sqlite3.Error:
+            return None
+        if not row:
+            return None
+        return {"corp_code": row[0], "current_name": row[1],
+                "stock_code": row[2] or "", "last_seen_as": row[3]}
+
+    @staticmethod
     def _master_db_save(corps: list[dict]) -> None:
         """sqlite master.db에 corp_codes 저장 + _meta.last_updated 갱신."""
         try:
@@ -761,6 +790,30 @@ class DartClient:
             cur.execute("CREATE INDEX IF NOT EXISTS idx_stock_code ON corp_codes(stock_code) WHERE stock_code != ''")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_corp_name ON corp_codes(corp_name)")
             cur.execute("CREATE TABLE IF NOT EXISTS _meta (key TEXT PRIMARY KEY, value TEXT)")
+
+            # 사명 이력 — DART 는 옛 이름을 **어디에도** 주지 않는다. corpCode.xml 에는 현재
+            # 사명만 있고, 공시 목록(list.json)의 corp_name·flr_nm 조차 과거 공시에까지 현재
+            # 사명을 소급해 채워준다(실측: 2024년 공시가 「KZ정밀」로 나온다. 당시엔 영풍정밀).
+            # 그래서 우리가 스냅샷을 남기지 않으면 「구 사명으로 조회」는 영원히 불가능하다.
+            # 아래 DELETE 가 매 갱신마다 옛 이름을 지우므로, 지우기 전에 적재한다.
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS corp_name_history ("
+                " corp_code TEXT NOT NULL, corp_name TEXT NOT NULL,"
+                " first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,"
+                " PRIMARY KEY (corp_code, corp_name))"
+            )
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_hist_name ON corp_name_history(corp_name)")
+            now = datetime.now().isoformat()
+            # 이번에 본 (코드, 이름) 을 전부 적재한다. PRIMARY KEY 가 중복을 흡수하므로 실제로
+            # 행이 느는 건 사명이 바뀐 회사뿐이다. 「과거 이름」은 나중에 현재 사명과 달라진
+            # 행으로 정의된다 — 변경 시점을 따로 판정할 필요가 없다.
+            cur.executemany(
+                "INSERT INTO corp_name_history (corp_code, corp_name, first_seen, last_seen)"
+                " VALUES (?, ?, ?, ?)"
+                " ON CONFLICT(corp_code, corp_name) DO UPDATE SET last_seen = excluded.last_seen",
+                [(c["corp_code"], c["corp_name"], now, now) for c in corps if c.get("corp_name")],
+            )
+
             cur.execute("DELETE FROM corp_codes")  # 전체 reload
             cur.executemany(
                 "INSERT INTO corp_codes (corp_code, corp_name, corp_eng_name, stock_code, modify_date) VALUES (?, ?, ?, ?, ?)",

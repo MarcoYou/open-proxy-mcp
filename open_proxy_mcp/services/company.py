@@ -502,6 +502,18 @@ def company_not_found_warning(query: str, *, listed_only: bool = False) -> str:
     종목코드는 사명이 바뀌어도 유지되니 그것을 탈출구로 안내한다.
     """
     subject = "상장사" if listed_only else "회사"
+
+    # 사명 이력에 있으면 「없다」가 아니라 **어디로 갔는지**를 말한다.
+    from open_proxy_mcp.dart.client import DartClient
+
+    renamed = DartClient.lookup_former_name(query)
+    if renamed:
+        ticker = f"(종목코드 {renamed['stock_code']}) " if renamed.get("stock_code") else ""
+        return (
+            f"'{query}'는 사명이 바뀌었다 — 현재 '{renamed['current_name']}' {ticker}다. "
+            f"그 이름으로 다시 조회한다."
+        )
+
     return (
         f"'{query}'에 해당하는 {subject}를 찾지 못했다. "
         "사명이 바뀐 회사는 옛 이름으로 조회되지 않는다(회사 목록에 현재 사명만 있다) — "
