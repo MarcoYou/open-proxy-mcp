@@ -1568,6 +1568,18 @@ def _fy_label(row: dict[str, Any] | None) -> str:
     return f"{stlm[:4]}사업연도" if stlm[:4].isdigit() else ""
 
 
+def _won(v: int | float | None) -> str:
+    """금액을 읽을 수 있게 — 「-252,140,554,081원」은 사람이 자릿수를 못 센다."""
+    if v is None:
+        return "-"
+    a = abs(v)
+    if a >= 1e12:
+        return f"{v / 1e12:,.2f}조원"
+    if a >= 1e8:
+        return f"{v / 1e8:,.0f}억원"
+    return f"{v:,.0f}원"
+
+
 def _capital_clause(summary: dict[str, Any], fy: str) -> tuple[str, str]:
     """자본잠식 절 — 있는 그대로 쓴다. 「부분」을 「없음」이라 쓰지 않는다."""
     status = summary.get("capital_impairment_status")
@@ -1576,7 +1588,13 @@ def _capital_clause(summary: dict[str, Any], fy: str) -> tuple[str, str]:
     if status == "full":
         return "full", f"완전 자본잠식 — 자본총계 0 이하{suffix}"
     if status == "partial_50plus":
-        return "partial_50plus", f"자본잠식률 {pct}%{suffix} — 관리종목 지정 기준(50%) 초과"
+        # 단년도 50%는 관리종목, **2년 연속**이면 상장폐지다. 한 해 수치만 보고 「기준 초과」라고
+        # 쓰면 그 결정적 조건이 빠진다. 시장(유가·코스닥)에 따라 조문·후속 효과도 다르므로
+        # 시장을 확인하지 않은 상태에서는 규정명을 인용하지 않는다.
+        return "partial_50plus", (
+            f"자본잠식률 {pct}%{suffix} — 자본금의 50% 이상이 잠식됐습니다"
+            f"(단년도 기준. 2개 사업연도 연속이면 상장폐지 사유로 이어집니다)"
+        )
     if status == "partial":
         return "partial", f"부분 자본잠식 {pct}%{suffix}"
     if status == "normal":
@@ -1612,6 +1630,7 @@ def _decide_financial_statements(
     audit_payload: dict[str, Any] | None = None,
     meeting_date_iso: str = "",
     approval_year: int | None = None,
+    fin_reference_year: int | None = None,
 ) -> tuple[str, str]:
     """재무제표 승인 판정.
 
@@ -1627,7 +1646,9 @@ def _decide_financial_statements(
     audit = _audit_opinion_at_meeting(audit_payload, meeting_date_iso)
     row, opinion = audit["row"], audit["opinion"]
     fy_audit = _fy_label(row) or (f"{approval_year}사업연도" if approval_year else "")
-    cap_status, cap_clause = _capital_clause(summary, _fy_label(row))
+    cap_status, cap_clause = _capital_clause(
+        summary, f"{fin_reference_year}사업연도" if fin_reference_year else ""
+    )
 
     auditor = (row or {}).get("adtor") or ""
     stamp = f"({fy_audit}, {auditor})" if fy_audit and auditor else (f"({fy_audit})" if fy_audit else "")
@@ -2458,7 +2479,28 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
     if any(kw in agenda_title for kw in procedural_kws):
         return "FOR", "배당 절차·회계 안건 — 재무와 무관(원칙적 찬성)"
     if ni is not None and ni < 0:
-        return "REVIEW", f"적자 회사 (순이익 {ni:,}원) — 배당 재원 적정성 검토 필요"
+        # **당기 순손익은 배당 재원이 아니다.** 상법 제462조제1항의 배당가능이익은 순자산에서
+        # 자본금·준비금·미실현이익을 뺀 값이고, 산정 기준은 **별도(개별) 재무제표**다. 누적
+        # 이익잉여금이 두터우면 당기 적자라도 배당이 적법하고(경기 하강기 제조업에 흔하다),
+        # 반대로 당기 흑자여도 미처리결손금이 크면 배당할 수 없다. 부호 하나로 재원을 대신하면
+        # 양방향으로 오판한다. 여기서 보는 값은 연결이라 그 사실도 함께 밝힌다.
+        retained = summary.get("retained_earnings_krw")
+        base = f"당기 순손실 {_won(ni)}"
+        if retained is not None and retained > 0:
+            return "REVIEW", (
+                f"{base} — 다만 이익잉여금 {_won(retained)}이 남아 있어 재원 자체는 있을 수 있습니다. "
+                f"배당가능이익은 상법 제462조제1항에 따라 별도 재무제표 기준으로 산정되므로 "
+                f"별도 이익잉여금으로 확인 필요"
+            )
+        if retained is not None and retained <= 0:
+            return "REVIEW", (
+                f"{base} · 이익잉여금 {_won(retained)} — 누적 결손입니다. "
+                f"배당가능이익(상법 제462조제1항, 별도 재무제표 기준) 존부를 확인해야 합니다"
+            )
+        return "REVIEW", (
+            f"{base} — 배당가능이익은 상법 제462조제1항에 따라 별도 재무제표 기준으로 산정됩니다. "
+            f"별도 이익잉여금으로 재원을 확인하십시오"
+        )
     # 배당성향 200%+ 명백 과도 (이전엔 150%였으나 150-200%도 mainstream FOR)
     if payout is not None and payout > 200:
         return "REVIEW", f"배당성향 {payout}% (>200%) — 명백한 과도 배당"
@@ -3475,7 +3517,8 @@ async def build_proxy_advise_payload(
             decision, reason = _decide_retirement_pay(retirement_payload, fin_metrics)
         elif category == "financial_statements":
             decision, reason = _decide_financial_statements(
-                fin_metrics, audit_opinion, law_gate_iso, audit_year
+                fin_metrics, audit_opinion, law_gate_iso, audit_year,
+                fin_reference_year=fin_year,
             )
             # 재무제표 승인 안건에 배당이 함께 실린 경우(실측 68건 중 재무제표 안건의 71.7%)
             # 배당 적정성 판단도 함께 돌린다 — 한 안건에 두 판단이 묶여 있어 종전엔

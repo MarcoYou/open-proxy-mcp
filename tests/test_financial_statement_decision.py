@@ -56,7 +56,9 @@ def test_fifty_percent_impairment_is_held_for_review() -> None:
         _fm("partial_50plus"), _audit("적정"), "2023-03-31", 2022
     )
     assert decision == "REVIEW"
-    assert "관리종목" in reason
+    # 문구가 아니라 뜻을 고정한다. 단년도 50%와 2년 연속(상장폐지)은 구분해서 말해야 한다.
+    assert "50%" in reason and "잠식" in reason
+    assert "연속" in reason
 
 
 def test_full_impairment_does_not_cite_a_market_it_never_checked() -> None:
@@ -125,3 +127,44 @@ def test_a_failed_lookup_is_not_blamed_on_the_company() -> None:
     decision, reason = _decide_financial_statements(_fm("normal"), None, "2023-03-31", 2022)
     assert decision == "NO_DATA"
     assert "조회" in reason
+
+
+def test_the_capital_impairment_year_matches_the_numbers() -> None:
+    """자본잠식 값은 분석 기준연도(FY N-2) 것인데 라벨은 감사의견 연도(FY N-1)를 달고 있었다.
+
+    자본잠식은 적자 누적으로 1년 사이 급변하는 항목이라 1년 어긋난 표기가 위험하다.
+    """
+    _, reason = _decide_financial_statements(
+        _fm("normal"), _audit("적정"), "2026-03-26", 2025, fin_reference_year=2024,
+    )
+    assert "2024사업연도" in reason and "2025사업연도" not in reason.split("/")[-1]
+
+
+def test_a_loss_year_is_not_the_same_as_having_no_dividend_capacity() -> None:
+    """배당가능이익은 상법 §462① 로 **별도 재무제표** 기준이고, 당기 순손익이 아니다.
+
+    누적 이익잉여금이 두터우면 당기 적자라도 배당은 적법하다(경기 하강기 제조업에 흔하다).
+    실측 영풍: 당기 순손실 -2,521억이지만 이익잉여금 3.54조.
+    """
+    from open_proxy_mcp.services.proxy_advise import _decide_dividend
+
+    def fm(ni, retained):
+        return {"data": {"summary": {
+            "net_income_krw": ni, "retained_earnings_krw": retained,
+            "capital_impairment_status": "normal", "payout_ratio_pct": None}}}
+
+    d, r = _decide_dividend("현금배당 승인의 건", fm(-252_140_554_081, 3_540_000_000_000), "테스트")
+    assert d == "REVIEW"
+    assert "이익잉여금" in r and "재원 자체는 있을 수 있습니다" in r
+    assert "제462조제1항" in r and "별도" in r
+
+    d2, r2 = _decide_dividend("현금배당 승인의 건", fm(-252_140_554_081, -800_000_000_000), "테스트")
+    assert d2 == "REVIEW" and "누적 결손" in r2
+
+
+def test_amounts_are_readable() -> None:
+    """「-252,140,554,081원」은 사람이 자릿수를 못 센다."""
+    from open_proxy_mcp.services.proxy_advise import _won
+    assert _won(-252_140_554_081) == "-2,521억원"
+    assert _won(3_602_707_444_005) == "3.60조원"
+    assert _won(None) == "-"
