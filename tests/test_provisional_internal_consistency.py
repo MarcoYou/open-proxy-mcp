@@ -82,3 +82,19 @@ def test_internal_problem_surfaces_even_when_revenue_matches() -> None:
         {"revenue_krw": 2_790_000_000_000},
     )
     assert msg and "신뢰하지 마시고" in msg and "순이익" in msg
+
+
+def test_the_mismatch_says_where_the_number_came_from() -> None:
+    """값만 주면 무엇을 잘못 집었는지 알 수 없다 — 영풍은 순이익이 재무상태표 자본에서 왔다."""
+    msg = _cross_check_provisional_revenue(
+        {"fy_prior_revenue_krw": 2_787_414_358_375,
+         "fy_current_revenue_krw": 2_908_974_321_148,
+         "fy_current_net_income_krw": 3_602_707_444_005,
+         "source_accounts": {
+             "net_income_krw": {"account": "I. 지배기업 소유주지분",
+                                "statement": "balance_sheet", "scope": "consolidated"},
+         }},
+        {"revenue_krw": 2_787_414_358_375},
+    )
+    assert "추출 위치" in msg
+    assert "지배기업 소유주지분" in msg and "재무상태표" in msg

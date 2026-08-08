@@ -1184,6 +1184,13 @@ _CROSS_CHECK_LOW, _CROSS_CHECK_HIGH = 0.7, 1.4
 _NET_OVER_REVENUE = 1.2
 
 
+#: 추출 위치를 사람 말로 — 엔진 필드명은 산출물에 나오지 않는다(산출물 표기 규칙).
+_FY_METRIC_KO = {
+    "revenue_krw": "매출", "operating_profit_krw": "영업이익", "net_income_krw": "순이익",
+    "total_assets_krw": "자산총계", "total_liabilities_krw": "부채총계", "total_equity_krw": "자본총계",
+}
+
+
 def _internal_consistency(fy_raw: dict[str, Any] | None) -> list[str]:
     """본문 안에서 숫자끼리 맞는지 — API 대조가 못 보는 자리.
 
@@ -1255,6 +1262,17 @@ def _cross_check_provisional_revenue(fy_raw: dict[str, Any] | None,
         if bad:
             parts.append("본문 전기 " + " · ".join(bad))
         parts.extend(internal)
+        # 어긋났을 때는 **어느 계정에서 뽑았는지**를 함께 보여준다. 값만 주면 사용자가 무엇을
+        # 잘못 집었는지 알 수 없다 — 영풍이면 「순이익 ← 지배기업 소유주지분(재무상태표)」이
+        # 그 자리에서 드러난다.
+        src = (fy_raw or {}).get("source_accounts") or {}
+        if src:
+            trail = " · ".join(
+                f"{_FY_METRIC_KO.get(k, k)} ← 「{v.get('account')}」"
+                + ("(재무상태표)" if v.get("statement") == "balance_sheet" else "")
+                for k, v in src.items()
+            )
+            parts.append(f"추출 위치: {trail}")
         return " · ".join(parts) + " — 본문 파싱을 신뢰하지 마시고 원문을 확인하세요"
     if checked:
         # 「정상」이라고 단정하지 않는다 — **확인한 범위만** 말한다. 예전에는 매출만 맞으면

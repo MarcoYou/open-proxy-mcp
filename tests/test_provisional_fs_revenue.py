@@ -131,3 +131,28 @@ def test_cross_check_assumes_fin_year_is_two_years_back():
         "fin_year 선택이 바뀌었다 — _cross_check_provisional_revenue 의 "
         "「본문 전기 = API 당기」 전제가 깨졌는지 확인하라"
     )
+
+
+def test_a_loss_making_company_is_not_skipped() -> None:
+    """적자 회사는 본문이 「당기순손실」·「영업손실」이라 쓴다.
+
+    이익형 키워드만 두면 손익계산서 행을 통째로 놓치고, 재무상태표의 「지배기업 소유주지분」
+    (자본)이 대신 걸린다 — 영풍 2026 실측: 순이익이 366억 대신 3조 6,027억으로 들어갔다.
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _METRIC_KEYWORDS, _account_matches,
+    )
+    ni = _METRIC_KEYWORDS["net_income_krw"]
+    op = _METRIC_KEYWORDS["operating_profit_krw"]
+    assert _account_matches("당기순손실", ni, "net_income_krw", "income_statement")
+    assert _account_matches("영업손실", op, "operating_profit_krw", "income_statement")
+
+
+def test_the_same_account_name_means_different_things_in_two_statements() -> None:
+    """「지배기업 소유주지분」 — 손익계산서면 순이익 귀속, 재무상태표면 지배주주 자본이다."""
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _METRIC_KEYWORDS, _account_matches,
+    )
+    ni = _METRIC_KEYWORDS["net_income_krw"]
+    assert _account_matches("지배기업소유주지분", ni, "net_income_krw", "income_statement")
+    assert not _account_matches("지배기업소유주지분", ni, "net_income_krw", "balance_sheet")

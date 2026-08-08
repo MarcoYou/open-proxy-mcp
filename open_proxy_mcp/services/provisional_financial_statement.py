@@ -330,7 +330,10 @@ def _infer_statement_type(table_el) -> str | None:
             keywords.append(re.sub(r'\s+', '', c.get_text()))
     text = ''.join(keywords)
     is_balance_indicators = sum(1 for kw in ['자산', '유동자산', '비유동자산', '부채', '자본총계'] if kw in text)
-    is_income_indicators = sum(1 for kw in ['매출', '영업이익', '당기순이익', '판매비', '관리비'] if kw in text)
+    # 적자 회사는 「영업손실」·「당기순손실」이라 쓴다 — 이익형만 세면 손실 낸 회사의 손익계산서를
+    # 손익계산서로 못 알아본다.
+    is_income_indicators = sum(1 for kw in ['매출', '영업이익', '영업손실', '당기순이익',
+                                            '당기순손실', '판매비', '관리비'] if kw in text)
     if is_income_indicators >= 2:
         return 'income_statement'
     if is_balance_indicators >= 2:
@@ -504,8 +507,13 @@ def _extract_period_labels(header_cells: list[str]) -> dict:
 _METRIC_KEYWORDS = {
     # 분리 보고 (현대차 등): IS 요약 라인 비어있고 sub-row에만 값.
     # "지배기업소유주지분" 매칭으로 controlling-interest net income 추출.
+    # **적자 회사는 「당기순손실」이라 쓴다.** 「당기순이익」만 두면 손실 낸 회사를 통째로 놓친다 —
+    # 영풍 2026 소집공고 실측: 본문에 「당기순손실」 9회, 「당기순이익」 1회. 그래서 손익계산서
+    # 행을 못 잡고 재무상태표의 「지배기업 소유주지분」(자본)이 대신 걸려 순이익이 3조 6,027억으로
+    # 들어갔다(실제 당기순손실 366억).
     "net_income_krw": (
-        "당기순이익(손실)", "당기순이익", "당기 순이익", "당기손익",
+        "당기순이익(손실)", "당기순손실(이익)", "당기순이익", "당기순손실",
+        "당기 순이익", "당기 순손실", "당기순손익", "당기손익",
         "지배기업소유주지분", "지배기업 소유주지분", "지배기업의 소유주지분", "지배지분 순이익",
     ),
     # 「Ⅰ. 매출」(액 없음) 474건 · 「매출액」1001건 — 둘 다 받는다.
@@ -516,7 +524,8 @@ _METRIC_KEYWORDS = {
     # (260729 회귀 검증: 흥국화재·코리안리가 소실됐다. 삼성생명의 「기타영업수익」은 정상 배제).
     "revenue_krw": ("매출액", "매출", "수익(매출액)", "영업수익", "수익 (매출액)",
                     "보험영업수익", "영업수익(매출액)"),
-    "operating_profit_krw": ("영업이익(손실)", "영업이익", "영업손익"),
+    # 같은 이유로 「영업손실」도 받는다 — 영풍은 「Ⅳ.영업손실」이라 영업이익이 아예 추출되지 않았다.
+    "operating_profit_krw": ("영업이익(손실)", "영업손실(이익)", "영업이익", "영업손실", "영업손익"),
     "total_assets_krw": ("자산총계", "자산 총계"),
     "total_liabilities_krw": ("부채총계", "부채 총계"),
     "total_equity_krw": ("자본총계", "자본 총계"),
@@ -534,10 +543,27 @@ _REVENUE_EXCLUDE = ("매출원가", "매출총이익", "매출채권", "매출�
                     "영업수익원가", "보험영업비용")
 
 
-def _account_matches(account_clean: str, keywords, metric_key: str) -> bool:
+#: **같은 계정명이 두 표에서 다른 것을 뜻한다.** 「지배기업 소유주지분」은 손익계산서에서는
+#: 당기순이익 귀속(현대차식 분리 보고)이지만, 재무상태표 자본 섹션에서는 **지배주주 귀속 자본**이다.
+#: 영풍 실측 — 재무상태표 「I. 지배기업 소유주지분 3,602,707,444,005」가 순이익으로 들어갔다.
+#: 표 종류를 이미 알고 있으니 손익계산서에서만 인정한다.
+_INCOME_STATEMENT_ONLY = (
+    "지배기업소유주지분", "지배기업의소유주지분", "지배지분순이익", "비지배지분",
+)
+
+
+def _account_matches(account_clean: str, keywords, metric_key: str,
+                     stmt_type: str | None = None) -> bool:
     if metric_key == "revenue_krw" and account_clean.startswith(_REVENUE_EXCLUDE):
         return False
-    return any(account_clean.startswith(kw.replace(" ", "")) for kw in keywords)
+    for kw in keywords:
+        kw_clean = kw.replace(" ", "")
+        if not account_clean.startswith(kw_clean):
+            continue
+        if kw_clean in _INCOME_STATEMENT_ONLY and stmt_type != "income_statement":
+            continue
+        return True
+    return False
 
 
 def _strip_item_marker(s: str) -> str:
@@ -609,7 +635,7 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
 
         n_extracted = 0
 
-        for table in (income, balance):
+        for table, stmt_type in ((income, "income_statement"), (balance, "balance_sheet")):
             if not table or not table.get("rows"):
                 continue
             # 종속회사 목록 등 비-FS 테이블 거부 (account 영문 사명 ≥6 줄)
@@ -648,11 +674,18 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
                     # **접두** 매칭 — 부분 포함이면 「기타영업수익」이 「영업수익」에 걸린다.
                     # 260729 실측: LG화학 매출이 45.9조 대신 기타영업수익 1.65조로 들어갔다.
                     # 캐시 소집공고 479건에 「기타수익」541·「기타매출」97·「기타영업수익」10건.
-                    if _account_matches(account_clean, keywords, metric_key):
+                    if _account_matches(account_clean, keywords, metric_key, stmt_type):
                         cur_val = _parse_amount(row[cur_idx])
                         prior_val = _parse_amount(row[prior_idx])
                         if cur_val is not None:
                             out[cur_key] = cur_val * scale
+                            # **어느 계정에서 뽑았는지** 남긴다. 값만 있으면 틀렸을 때 어디서
+                            # 왔는지 알 수 없다 — 영풍은 순이익이 재무상태표 「지배기업 소유주지분」
+                            # (자본)에서 왔는데, 3조 6,027억이라는 숫자만 보고는 알 방법이 없었다.
+                            # 표를 통째로 싣는 것보다 작고 정확하다.
+                            out.setdefault("source_accounts", {})[metric_key] = {
+                                "account": account, "statement": stmt_type, "scope": scope,
+                            }
                             n_extracted += 1
                             last_extraction_scope = scope
                         if prior_val is not None:
