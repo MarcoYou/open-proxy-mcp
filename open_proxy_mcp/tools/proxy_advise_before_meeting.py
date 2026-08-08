@@ -795,7 +795,7 @@ def register_tools(mcp):
     async def proxy_advise_before_meeting(
         company: str,
         year: int = 0,
-        meeting_type: str = "annual",
+        meeting_type: str = "auto",
         vote_style: str = "open_proxy",
         check_audit_history: bool = False,
         segment_context_chars: int = 8000,
@@ -807,8 +807,8 @@ def register_tools(mcp):
         rule: 운용사 의결권 행사 보고서 스타일. hard-fail(형사 처벌/사적 관계/동명이인) 자동 검증 가능 항목만 표기. soft-fail(후보 약력/정관 본문) raw 노출 — LLM 판단.
         vote_style: `open_proxy` (default — OPM 자체 가이드라인). 다른 옵션은 internal cross-reference용
         check_audit_history: True 시 후보 과거 회사 × 회계 risk overlap cross-check (+30s)
-        meeting_type: `annual`(default) / `extraordinary` / `auto`
-        year: 미지정(0) 시 최신 소집공고(12개월 lookback) 기준 회차 자동 선택 — 응답의 회차 선택 근거·정기/임시 확인. 이미 종료된 회차면 임시주총 확인 힌트 동봉. 특정 연도 분석은 year 명시.
+        meeting_type: `auto`(default — 정기/임시 중 지금 표를 던져야 하는 회차) / `annual` 정기만 / `extraordinary` 임시만. 임시주총을 보려고 따로 지정할 필요 없다.
+        year: 미지정(0) 시 회의일이 과거 12개월~앞으로 90일 안인 회차를 자동 선택 — **아직 열리지 않은 예정 주총도 포함**되므로 다가오는 임시주총을 보려고 year를 따로 넣을 필요는 없다. 응답의 회차 선택 근거·정기/임시로 어느 회차인지 확인. 특정 과거 연도 분석에만 year 명시.
         segment_context_chars: 부문장 출신 사내이사의 담당부문 매핑 실패·정형 추출 저신뢰 시 첨부되는 부문표 원문 발췌 길이(기본 8000, 최대 30000). 응답에 '앞부분만 발췌' 표시가 뜨면 이 값을 늘려 재호출하거나 — 더 싸게는 business_details(fields="segments", bsns_year, reprt_code)로 전체를 직접 조회.
         ref: shareholder_meeting_notice, financial_metrics, corp_gov_report, ownership_structure, proxy_contest, value_up, shareholder_meeting_results
         """

@@ -783,15 +783,6 @@ def _meeting_presence_flag(has_annual: bool, has_extraordinary: bool) -> str:
     return "none"
 
 
-def _auto_window_end(target_year: int | None) -> date:
-    today = date.today()
-    if not target_year:
-        return today
-    if target_year < today.year:
-        return date(target_year, 12, 31)
-    return today
-
-
 def _selection_window(
     target_year: int | None,
     *,
@@ -808,12 +799,21 @@ def _selection_window(
         )
     if target_year:
         return date(target_year, 1, 1), date(target_year, 12, 31), []
-    return resolve_date_window(
+
+    # 후보 필터는 회의일 기준이다(_candidate_notices_in_meeting_window). 구간 끝을 오늘로 자르면
+    # **아직 열리지 않은 주총만 골라서** 탈락한다 — 소집공고는 회의 前에 나오고 의결권도 회의 前에
+    # 행사하니, 하필 지금 표를 던져야 하는 회차가 사라지고 이미 끝난 회차만 남는다.
+    # 실측 애경케미칼: 2026-07-30 임시주총 소집공고 / 회의일 08-14 → 08-08에 조회하면 공고를
+    # 받아온 뒤 버리고 3월 정기주총을 「후보가 1개」라며 내놓았다.
+    # 구간 시작점에는 이미 같은 이유의 lead buffer가 있다. 끝점도 대칭으로 열어둔다.
+    # lookback 기준점은 오늘 그대로라 과거 구간은 줄지 않는다(12개월 유지, 앞으로만 넓어짐).
+    start, end, warnings = resolve_date_window(
         start_date="",
         end_date="",
         default_end=date.today(),
         lookback_months=lookback_months,
     )
+    return start, end + timedelta(days=_NOTICE_LEAD_BUFFER_DAYS), warnings
 
 
 def _auto_selection_basis(candidate: dict[str, Any], scope: str, candidates: list[dict[str, Any]]) -> str:

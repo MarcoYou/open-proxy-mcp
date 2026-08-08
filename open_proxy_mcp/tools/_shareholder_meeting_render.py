@@ -162,8 +162,12 @@ def render_summary(payload: dict[str, Any]) -> str:
     lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
     # 260505 ralph: result_status 제거 (사후 정보, 시점 분리 위반)
     if requested_window:
+        # 「조회 구간」이라 쓰면 공시를 언제부터 언제까지 검색했나로 읽히는데, 실제로 이 구간에
+        # 걸리는 값은 **회의일**이다. 접수일은 미래일 수 없으니 끝날짜가 오늘 이후로 보이면
+        # 읽는 쪽이 곧장 오해한다 — 무엇을 재는 구간인지 라벨에 밝힌다.
         lines.append(
-            f"- 조회 구간: {requested_window.get('start_date', '')} ~ {requested_window.get('end_date', '')}"
+            f"- 회의일 기준 구간: {requested_window.get('start_date', '')}"
+            f" ~ {requested_window.get('end_date', '')}"
         )
     lines.append("")
     lines.extend(warning_block(payload))

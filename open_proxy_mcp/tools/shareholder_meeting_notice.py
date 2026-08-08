@@ -39,6 +39,7 @@ def register_tools(mcp):
         when: 주총 일정·안건·후보·보수·정관 확인. 결과는 `shareholder_meeting_results`, 종합 분석은 `proxy_advise_before_meeting`.
         rule: 회사 식별 exact만 자동 선택. 정정공시 있으면 최신 정정본 자동 선택.
         meeting_type: `auto`(정기/임시 최신 회차 자동) / `annual` / `extraordinary`
+        year: 미지정(0) 시 회의일이 과거 12개월~앞으로 90일 안인 회차를 자동 선택 — **아직 열리지 않은 예정 주총도 포함**되므로 다가오는 임시주총을 보려고 year를 따로 넣을 필요는 없다. 특정 과거 연도를 볼 때만 명시.
         scope: `summary` 메타+안건+1호 메타 / `board` 이사·감사 후보 / `compensation` 보수한도 / `aoi_change` 정관+퇴직금 변경 raw / `prov_financials` 잠정 재무제표 4 quadrant
         include_coverage: true면 조회 구간 내 정기/임시 주총 존재 여부를 추가 계산(느려질 수 있음). 기본 false.
         rcept_no: 이미 소집공고 접수번호를 알면 회사/후보 검색을 건너뛰고 직접 파싱.
