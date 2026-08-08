@@ -722,17 +722,28 @@ def _compute_metrics(
     capital_stock = bs_is.get("capital_stock")  # 자본금 (액면가 × 발행주식수)
 
     # ── 자본잠식 (Capital Impairment) ──
-    # 잠식률 = (자본금 - 자본총계) / 자본금
-    # - 0% 미만: 정상 (자본총계 > 자본금)
-    # - 0~50%: 부분 자본잠식
-    # - 50%↑: KOSDAQ 관리종목 사유 / KOSPI 사업보고서 미공시 등 trigger
-    # - 100%↑ (자본총계 ≤ 0): 완전 자본잠식 = 상장폐지 사유
+    # 잠식률 = (자본금 − **자기자본**) / 자본금 × 100
+    #   — 코스닥시장 공시·상장관리 해설서 「자본잠식률[(자본금-자기자본)/자본금*100]이 50% 이상」
+    #
+    # **자기자본에서 비지배지분을 뺀다.** 같은 해설서 「적용기준 ① 연결재무제표 작성대상법인의
+    # 경우에는 연결재무제표를 기준으로 하되 **자기자본에서 비지배지분을 제외**」.
+    # 규정마다 다르다는 점이 중요하다 — 바로 옆 「법인세비용차감전계속사업손실」 기준은
+    # 「연결 기준, **비지배지분 포함**」이다. 일부러 갈라놓은 것이라 한쪽 관행을 다른 쪽에 쓰면 안 된다.
+    # 비지배지분을 포함하면 자회사 소수주주 몫만큼 자기자본이 부풀어 **잠식률이 과소 산정**된다.
+    #
+    # - 0% 미만: 정상 / 0~50%: 부분 / 50%↑: 관리종목(2년 연속이면 상장폐지) / 자기자본 ≤ 0: 완전
+    _ctrl_equity = detail.get("controlling_equity")
+    if _ctrl_equity is None:
+        _ctrl_equity = bs_is.get("controlling_equity")
+    # 지배지분을 못 구하면 자본총계로 물러나되, 어느 기준을 썼는지 남긴다(별도재무제표는 원래 같다).
+    impairment_equity = _ctrl_equity if _ctrl_equity is not None else total_equity
+    capital_impairment_basis = "controlling" if _ctrl_equity is not None else "total"
     capital_impairment_ratio_pct = None  # 잠식률 (% — 양수 = 잠식 진행, 음수 = 정상)
     capital_impairment_status = None  # "normal" / "partial" / "partial_50plus" / "full"
-    if capital_stock is not None and capital_stock > 0 and total_equity is not None:
-        ratio = (capital_stock - total_equity) / capital_stock * 100
+    if capital_stock is not None and capital_stock > 0 and impairment_equity is not None:
+        ratio = (capital_stock - impairment_equity) / capital_stock * 100
         capital_impairment_ratio_pct = round(ratio, 2)
-        if total_equity <= 0:
+        if impairment_equity <= 0:
             capital_impairment_status = "full"
         elif ratio >= 50:
             capital_impairment_status = "partial_50plus"
@@ -1093,6 +1104,8 @@ def _compute_metrics(
         # ── 자본잠식 (KOSDAQ 관리/폐지 사유 detect) ──
         "capital_impairment_ratio_pct": capital_impairment_ratio_pct,
         "capital_impairment_status": capital_impairment_status,
+        # 어느 자기자본으로 쟀는지 — 규정은 비지배지분 제외이고, 못 구하면 자본총계로 물러난다.
+        "capital_impairment_basis": capital_impairment_basis,
         # ── 지배구조 cross-check ──
         "subsidiary_count": subsidiary_count,  # Phase 2 — 사업보고서 본문 파싱 필요
         # ── DART 산출 지표 (보조) ──
