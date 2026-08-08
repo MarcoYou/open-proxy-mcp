@@ -2186,6 +2186,12 @@ def _extract_facts(
         latest_op = audit.get("summary", {}).get("latest_opinion") if "summary" in audit else None
         facts["audit_opinion"] = latest_op
         facts["fy_prior_net_income_krw_dart"] = fin_summary.get("net_income_krw")  # DART API (확정치)
+        # 자본잠식은 **판정에 쓴 것과 같은 연도**로 싣는다. 판정은 FY(N-1)A(있으면)로 하는데
+        # 사실란만 FY(N-2)A 를 보여주면, 「자기자본 0 이하」와 「자본총계 +71억」이 한 메모에
+        # 나란히 실린다(실측 엔케이젠바이오텍). 판정과 근거는 같은 해를 가리켜야 한다.
+        _state = (((confirmed_payload or {}).get("data") or {}).get("summary")
+                  if confirmed_year else None) or fin_summary
+        fin_summary = _state
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
         # 잠식률은 `(자본금 - 자본총계) / 자본금` 이라 **잠식이 없으면 음수**다. 그 값은 잠식률이
         # 아니라 자본 여유폭인데 라벨은 「자본잠식률(%)」이라, 정상 회사에 「-44,711.79」 같은
@@ -2867,6 +2873,13 @@ async def build_proxy_advise_payload(
     )
     # full payload가 summary/agenda/compensation/aoi_change 데이터를 모두 포함 — 다운스트림 4개 참조에 동일 객체 할당
     meeting_summary = meeting_agenda = meeting_comp = meeting_aoi = meeting_full
+
+    # **회사의 현재 상태를 말하는 것은 전부 이 하나를 본다.** 자본잠식·적자·배당재원은 「승인
+    # 대상 연도」의 사실이지 2년 전 사실이 아니다. 판정·위험신호·배당판단이 서로 다른 해를 보면
+    # 한 문장 안에서 충돌한다 — 실측 지엔코: 「자본잠식 없음(2025사업연도) · 유의: 부분
+    # 자본잠식」. 주총일 기준으로 FY(N-1)A 가 이미 나와 있으면 그것, 아니면 종전 FY(N-2)A.
+    state_metrics = fin_confirmed if confirmed_year else fin_metrics
+    state_year = confirmed_year or fin_year
     _mark("upstreams_total", stage_started_at)
 
     # 이 메모를 만들며 실제로 읽은 공시를 전부 모은다. upstream 마다 근거를 2건까지만 싣고 잘라내던
@@ -3641,16 +3654,24 @@ async def build_proxy_advise_payload(
             # ralph 260505 17:50: 퇴직금 별도 분기 (N연기금 IV-35 + OPM #6/#7)
             decision, reason = _decide_retirement_pay(retirement_payload, fin_metrics)
         elif category == "financial_statements":
+            # **상태 판정은 승인 대상 연도로 한다.** 비교용 FY(N-2)A 로 자본잠식을 판정하면,
+            # 그 사이 감자·증자로 잠식이 해소된 회사에 **이미 없어진 사유로 반대표를 권하게**
+            # 된다. 실측 엔케이젠바이오텍: FY2024A 자본총계 -250억(완전잠식 158.48%) vs
+            # FY2025A +71억(부분 1.39%) — 무상감자 427억→72억 + 증자로 해소됐는데 메모는
+            # 「자기자본 0 이하」로 AGAINST 를 냈고, 같은 메모 안에 FY2025A +71억이 실려 있었다.
+            # 기준일이 **주총일**이라 look-ahead 도 아니다 — 그 회사는 공고 3/16, FY2025A 제출
+            # 3/24, 주총 3/31로, 표를 던지는 시점에는 확정치를 실제로 볼 수 있었다.
             decision, reason = _decide_financial_statements(
-                fin_metrics, audit_opinion, law_gate_iso, audit_year,
-                fin_reference_year=fin_year,
+                state_metrics, audit_opinion, law_gate_iso, audit_year,
+                fin_reference_year=state_year,
             )
             # 재무제표 승인 안건에 배당이 함께 실린 경우(실측 68건 중 재무제표 안건의 71.7%)
             # 배당 적정성 판단도 함께 돌린다 — 한 안건에 두 판단이 묶여 있어 종전엔
             # 배당 로직이 아예 호출되지 않았다. 두 판단 중 **보수적인 쪽을 채택**한다.
             _div = agenda_row.get("dividend") if isinstance(agenda_row, dict) else None
             if _div and _div.get("mentioned") and not _div.get("none_declared"):
-                d_dec, d_reason = _decide_dividend(title, fin_metrics,
+                # 배당 재원도 승인 대상 연도다 — 2년 전 잉여금으로 이번 배당을 판단하지 않는다.
+                d_dec, d_reason = _decide_dividend(title, state_metrics,
                                                   selected.get("corp_name") or "")
                 _amt = _div.get("per_share_krw")
                 _detail = (f"주당 {_amt:,}원" if _amt is not None else "금액은 본문 확인")
@@ -3885,7 +3906,10 @@ async def build_proxy_advise_payload(
         risk_factors = _extract_risks(
             category,
             matched_eval,
-            fin_metrics,
+            # 판정과 **같은 payload** 를 본다. 여기만 FY(N-2)A 로 두면 「자본잠식 없음(2025)」과
+            # 「유의: 부분 자본잠식」이 한 문장에 같이 나간다(실측 지엔코). 위험 신호는 회사의
+            # 현재 상태를 말하는 것이라, 승인 대상 연도와 어긋나면 신호가 아니라 소음이 된다.
+            state_metrics,
             meeting_comp,
             title,
             retirement_payload=retirement_payload,
