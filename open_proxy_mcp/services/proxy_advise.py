@@ -1580,10 +1580,29 @@ def _won(v: int | float | None) -> str:
     return f"{v:,.0f}원"
 
 
+def _impairment_equity_label(summary: dict[str, Any]) -> tuple[str, str]:
+    """자본잠식을 **어느 자기자본으로 쟀는지** — 판정과 문장이 어긋나면 안 된다.
+
+    규정 기준은 지배주주 귀속 자기자본(비지배지분 제외)이다. 그런데 그 값을 못 구하면
+    자본총계로 물러나면서도(`capital_impairment_basis="total"`) 문장은 계속 「지배주주 귀속
+    자기자본」이라고 말하고 있었다. 별도재무제표에서는 우연히 참이지만(비지배지분이라는 것이
+    아예 없다), **연결에서 폴백한 경우에는 재지 않은 것을 쟀다고 쓰는 것**이다.
+
+    두 경우는 읽는 사람에게 뜻이 정반대다 — 별도는 정상이고 더 볼 것이 없지만, 연결 폴백은
+    「이 숫자는 규정 기준이 아닐 수 있다」는 신호다. `fs_div`(실제 사용된 기준)로 갈라 쓴다.
+    """
+    if summary.get("capital_impairment_basis") == "controlling":
+        return "지배주주 귀속 자기자본", ""
+    if (summary.get("fs_div") or "").upper() == "OFS":
+        return "자기자본", " · 별도재무제표라 비지배지분이 없어 자본총계와 같습니다"
+    return "자기자본", " · 지배주주 지분을 따로 확인하지 못해 자본총계로 계산했습니다"
+
+
 def _capital_clause(summary: dict[str, Any], fy: str) -> tuple[str, str]:
     """자본잠식 절 — 있는 그대로 쓴다. 「부분」을 「없음」이라 쓰지 않는다."""
     status = summary.get("capital_impairment_status")
     pct = summary.get("capital_impairment_ratio_pct")
+    equity_label, basis_note = _impairment_equity_label(summary)
     # 판정은 규정대로 지배지분 기준이지만, **비지배 포함 값도 같이 말한다** — 두 값의 간격이
     # 그 회사의 자회사 구조를 말해주고, 다른 자료(연결 자본총계 기준)와 대조할 때 필요하다.
     pct_total = summary.get("capital_impairment_ratio_total_pct")
@@ -1593,17 +1612,17 @@ def _capital_clause(summary: dict[str, Any], fy: str) -> tuple[str, str]:
         both = f" · 비지배지분 포함 기준으로는 {pct_total}%"
     suffix = f"({fy})" if fy else ""
     if status == "full":
-        return "full", f"완전 자본잠식 — 지배주주 귀속 자기자본 0 이하{suffix}{both}"
+        return "full", f"완전 자본잠식 — {equity_label} 0 이하{suffix}{both}{basis_note}"
     if status == "partial_50plus":
         # 단년도 50%는 관리종목, **2년 연속**이면 상장폐지다. 한 해 수치만 보고 「기준 초과」라고
         # 쓰면 그 결정적 조건이 빠진다. 시장(유가·코스닥)에 따라 조문·후속 효과도 다르므로
         # 시장을 확인하지 않은 상태에서는 규정명을 인용하지 않는다.
         return "partial_50plus", (
             f"자본잠식률 {pct}%{suffix} — 자본금의 50% 이상이 잠식됐습니다"
-            f"(단년도 기준. 2개 사업연도 연속이면 상장폐지 사유로 이어집니다){both}"
+            f"(단년도 기준. 2개 사업연도 연속이면 상장폐지 사유로 이어집니다){both}{basis_note}"
         )
     if status == "partial":
-        return "partial", f"부분 자본잠식 {pct}%{suffix}{both}"
+        return "partial", f"부분 자본잠식 {pct}%{suffix}{both}{basis_note}"
     if status == "normal":
         return "normal", f"자본잠식 없음{suffix}"
     return "unknown", "자본잠식 상태 미확인"

@@ -88,3 +88,42 @@ def test_the_total_equity_figure_is_mentioned_too() -> None:
         "capital_impairment_ratio_total_pct": -600.0,
     }, "2024사업연도")
     assert "비지배지분 포함" not in normal
+
+
+def test_the_sentence_names_the_equity_it_actually_measured() -> None:
+    """지배주주 지분을 못 구해 자본총계로 물러났으면, 그렇다고 써야 한다.
+
+    예전에는 basis 를 한 번도 읽지 않고 늘 「지배주주 귀속 자기자본」이라 썼다. 별도재무제표
+    에서는 우연히 참이지만(비지배지분이 없다), **연결에서 폴백한 경우엔 재지 않은 것을 쟀다고
+    말하는 것**이다. 두 경우는 읽는 쪽에 뜻이 정반대라 — 별도는 정상, 연결 폴백은 「규정 기준이
+    아닐 수 있다」는 신호 — 하나로 뭉치면 안 된다.
+    """
+    from open_proxy_mcp.services.proxy_advise import _capital_clause
+
+    base = {"capital_impairment_status": "full", "capital_impairment_ratio_pct": 120.0}
+
+    # ① 지배지분을 실제로 읽음 — 현행 문구 그대로
+    _, ctrl = _capital_clause({**base, "capital_impairment_basis": "controlling"}, "")
+    assert "지배주주 귀속 자기자본" in ctrl
+    assert "확인하지 못해" not in ctrl
+
+    # ② 별도재무제표 — 자본총계가 곧 지배지분이다. 결함이 아니라 정의다
+    _, sep = _capital_clause(
+        {**base, "capital_impairment_basis": "total", "fs_div": "OFS"}, "")
+    assert "지배주주 귀속" not in sep
+    assert "별도재무제표" in sep
+
+    # ③ 연결인데 지배지분을 못 구함 — 여기가 예전에 거짓을 쓰던 자리
+    _, fallback = _capital_clause(
+        {**base, "capital_impairment_basis": "total", "fs_div": "CFS"}, "")
+    assert "지배주주 귀속 자기자본 0 이하" not in fallback
+    assert "확인하지 못해" in fallback
+
+    # 잠식률 갈래에도 같은 단서가 붙는다 — 비율만 보고 규정 기준이라 오해하면 안 된다
+    _, partial = _capital_clause({
+        "capital_impairment_status": "partial_50plus",
+        "capital_impairment_ratio_pct": 63.0,
+        "capital_impairment_basis": "total",
+        "fs_div": "CFS",
+    }, "")
+    assert "확인하지 못해" in partial
