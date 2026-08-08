@@ -90,6 +90,44 @@ def test_the_total_equity_figure_is_mentioned_too() -> None:
     assert "비지배지분 포함" not in normal
 
 
+def test_it_derives_the_controlling_share_instead_of_falling_back() -> None:
+    """지배지분 소계를 아예 안 적는 표가 있다 — 자본총계로 물러나면 규정이 금지한 과소 산정이다.
+
+    실측 고려아연·비덴트·미래에셋증권은 자본 섹션을 「자본금·자본잉여금·…·비지배지분·자본총계」로
+    평면 나열해 지배지분 행이 없다. 그때 자본총계를 쓰면 비지배 몫만큼 자기자본이 부풀어
+    잠식률이 실제보다 작아 보인다. 비지배지분이 있으면 빼서 만든다.
+    """
+    from open_proxy_mcp.services.financial_metrics import compute_capital_impairment
+
+    got = compute_capital_impairment(
+        capital_stock=100_000_000_000,
+        controlling_equity=None,          # 소계 행이 없다
+        total_equity=70_000_000_000,
+        nci=30_000_000_000,
+    )
+    assert got["basis"] == "derived"
+    assert got["equity_used"] == 40_000_000_000
+    assert got["ratio_pct"] == 60.0                 # 자본총계로 쟀으면 30% — 50% 선을 못 넘는다
+    assert got["status"] == "partial_50plus"
+
+    # 비지배지분조차 없으면 만들어내지 않고 자본총계로 물러나되 그 사실을 남긴다
+    fallback = compute_capital_impairment(
+        capital_stock=100_000_000_000, controlling_equity=None,
+        total_equity=70_000_000_000, nci=None)
+    assert fallback["basis"] == "total"
+    assert fallback["ratio_pct"] == 30.0
+
+
+def test_no_ratio_is_produced_without_a_denominator() -> None:
+    """자본금이 없거나 0 이하면 나눗셈 자체가 성립하지 않는다 — 값을 만들지 않는다."""
+    from open_proxy_mcp.services.financial_metrics import compute_capital_impairment
+
+    for cap in (None, 0, -1):
+        got = compute_capital_impairment(capital_stock=cap, controlling_equity=10,
+                                         total_equity=10, nci=None)
+        assert got["ratio_pct"] is None and got["status"] is None
+
+
 def test_the_sentence_names_the_equity_it_actually_measured() -> None:
     """지배주주 지분을 못 구해 자본총계로 물러났으면, 그렇다고 써야 한다.
 

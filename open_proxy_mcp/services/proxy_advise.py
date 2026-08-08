@@ -1594,8 +1594,14 @@ def _impairment_equity_label(summary: dict[str, Any]) -> tuple[str, str]:
     두 경우는 읽는 사람에게 뜻이 정반대다 — 별도는 정상이고 더 볼 것이 없지만, 연결 폴백은
     「이 숫자는 규정 기준이 아닐 수 있다」는 신호다. `fs_div`(실제 사용된 기준)로 갈라 쓴다.
     """
-    if summary.get("capital_impairment_basis") == "controlling":
+    basis = summary.get("capital_impairment_basis")
+    if basis == "controlling":
         return "지배주주 귀속 자기자본", ""
+    if basis == "derived":
+        # 규정 기준(비지배지분 제외)으로 잰 것이 맞다 — 다만 계정을 직접 읽은 게 아니라
+        # 자본총계에서 빼서 만들었다. 결함이 아니라 산출 방법이므로 그대로 밝힌다.
+        return ("지배주주 귀속 자기자본",
+                " · 공시에 지배주주 지분 소계가 없어 자본총계에서 비지배지분을 빼 산출했습니다")
     if (summary.get("fs_div") or "").upper() == "OFS":
         return "자기자본", " · 별도재무제표라 비지배지분이 없어 자본총계와 같습니다"
     return "자기자본", " · 지배주주 지분을 따로 확인하지 못해 자본총계로 계산했습니다"

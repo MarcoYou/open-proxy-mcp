@@ -58,6 +58,9 @@ _BS_ACCOUNT_PATTERNS = {
     # 지배주주 귀속 자본 — ROE 분모(평균 지배자본)용. 주요계정엔 없고 fnlttSinglAcntAll BS에만 존재
     # (account_nm "지배기업 소유주지분" = ifrs-full_EquityAttributableToOwnersOfParent).
     "controlling_equity": ("지배기업 소유주지분", "지배기업소유주지분"),
+    # 한글 매칭은 폴백일 뿐이다 — 위 루프가 account_id(`ifrs-full_NoncontrollingInterests`)로
+    # 먼저 잡는다. 부분문자열이라 「비지배지분부채」·「비지배지분율」이 걸리므로 아래에서 막는다.
+    "nci": ("비지배지분", "비지배주주지분"),
 }
 
 _IS_ACCOUNT_PATTERNS = {
@@ -214,12 +217,81 @@ _BS_ACCOUNT_EXCLUDE: dict[str, tuple[str, ...]] = {
     # 우선주·보통주 자본금은 자본금의 **일부**다. 단독으로 쓰면 자본금이 과소 계상되고
     # 자본잠식률은 그만큼 과대해진다. 부모 행이 없으면 아래에서 합산한다.
     "capital_stock": ("우선주자본금", "보통주자본금"),
+    # **부채 계정이 자본 계정보다 먼저 나온다** — 실측 KT&G 연결 BS 는 부채 섹션의
+    # 「비지배지분부채」가 자본 섹션의 「비지배지분」보다 앞이라, 막지 않으면 8.7배 틀린 값을
+    # 집는다. 그 값으로 지배지분을 차감 산출하면 자기자본이 부풀어 잠식이 과소 판정된다.
+    "nci": ("비지배지분부채", "비지배지분율", "비지배지분의장부금액", "비지배지분에",
+            "비지배지분으로", "비지배지분의증감", "비지배주주지분(부채", "비지배주주지분(자본"),
 }
 
 #: 부모 「자본금」 행이 없고 종류주 행만 있는 표를 위한 합산 대상.
 #: 실측(소집공고): 삼성전자는 「Ⅰ.자본금 897,514 = 우선주 119,467 + 보통주 778,047」로 부모가
 #: 있지만, 부모 없이 종류별로만 적는 표가 존재한다. 그때 하나만 집으면 값이 반쪽이 된다.
 _CAPITAL_STOCK_PARTS = ("우선주자본금", "보통주자본금")
+
+
+def compute_capital_impairment(
+    *,
+    capital_stock: int | float | None,
+    controlling_equity: int | float | None,
+    total_equity: int | float | None,
+    nci: int | float | None = None,
+) -> dict[str, Any]:
+    """자본잠식 판정 — **계산식이 사는 유일한 자리.**
+
+    잠식률 = (자본금 − 자기자본) / 자본금 × 100
+      — 코스닥시장 공시·상장관리 해설서 「자본잠식률[(자본금-자기자본)/자본금*100]이 50% 이상」
+
+    **자기자본에서 비지배지분을 뺀다.** 같은 해설서 「적용기준 ① 연결재무제표 작성대상법인의
+    경우에는 연결재무제표를 기준으로 하되 **자기자본에서 비지배지분을 제외**」. 규정마다 다르다는
+    점이 중요하다 — 바로 옆 「법인세비용차감전계속사업손실」 기준은 「연결 기준, **비지배지분
+    포함**」이다. 일부러 갈라놓은 것이라 한쪽 관행을 다른 쪽에 쓰면 안 된다. 비지배지분을
+    포함하면 자회사 소수주주 몫만큼 자기자본이 부풀어 **잠식률이 과소 산정**된다.
+
+    자기자본을 구하는 순서(`basis` 로 남긴다):
+      `controlling`  지배지분 계정을 직접 읽음
+      `derived`      자본총계 − 비지배지분 — 지배지분 소계를 아예 안 적는 표가 있다(실측
+                     고려아연·비덴트·미래에셋증권). 여기서 자본총계로 물러나면 비지배 몫만큼
+                     자기자본이 부풀어 **규정이 금지한 바로 그 과소 산정**이 된다.
+      `total`        둘 다 없음 — 별도재무제표(비지배지분 개념이 없어 자본총계 = 지배지분)이거나
+                     연결인데 구분 표시가 없는 경우. 문장은 이 값을 읽어 갈라 써야 한다.
+
+    상태: 자기자본 ≤ 0 완전 / 50%↑ 관리종목(2년 연속이면 상장폐지) / 0~50% 부분 / 그 외 정상.
+    """
+    equity = controlling_equity
+    basis = "controlling"
+    if equity is None:
+        if total_equity is not None and nci is not None:
+            equity, basis = total_equity - nci, "derived"
+        else:
+            equity, basis = total_equity, "total"
+
+    out: dict[str, Any] = {
+        "equity_used": equity, "basis": basis,
+        "ratio_pct": None, "status": None, "ratio_total_pct": None,
+    }
+    if capital_stock is None or capital_stock <= 0:
+        return out
+
+    # 비지배지분을 **포함한** 값도 함께 남긴다 — 판정 기준은 아니지만, 두 값의 간격이 그 회사의
+    # 자회사 구조를 말해주고(간격이 크면 소수주주 몫이 크다), 다른 자료와 대조할 때 필요하다.
+    if total_equity is not None:
+        out["ratio_total_pct"] = round(
+            (capital_stock - total_equity) / capital_stock * 100, 2)
+    if equity is None:
+        return out
+
+    ratio = (capital_stock - equity) / capital_stock * 100
+    out["ratio_pct"] = round(ratio, 2)
+    if equity <= 0:
+        out["status"] = "full"
+    elif ratio >= 50:
+        out["status"] = "partial_50plus"
+    elif ratio > 0:
+        out["status"] = "partial"
+    else:
+        out["status"] = "normal"
+    return out
 
 
 def _match_account(account_nm: str, patterns: tuple[str, ...],
@@ -583,6 +655,13 @@ def _build_account_map_all(
                     "EquityAttributableToOwnersOfParent" in account_id:
                 out["controlling_equity"] = amount
                 continue
+            # 비지배지분 — 지배지분 계정을 아예 안 적는 회사가 있어(실측 고려아연·비덴트·
+            # 미래에셋증권) 자본총계에서 이걸 빼야 지배지분이 나온다. 자본총계로 물러나면
+            # 비지배 몫만큼 자기자본이 부풀어 자본잠식이 과소 판정된다.
+            # account_id 는 **정확 매칭** — 접두로 보면 다른 개념에 올라탄다(260704 사고).
+            if out.get("nci") is None and account_id == "ifrs-full_NoncontrollingInterests":
+                out["nci"] = amount
+                continue
             if _match_account(account_nm, _CAPITAL_STOCK_PARTS) and amount is not None:
                 capital_parts.append(amount)
             for key, patterns in _BS_ACCOUNT_PATTERNS.items():
@@ -778,29 +857,17 @@ def _compute_metrics(
     _ctrl_equity = detail.get("controlling_equity")
     if _ctrl_equity is None:
         _ctrl_equity = bs_is.get("controlling_equity")
-    # 지배지분을 못 구하면 자본총계로 물러나되, 어느 기준을 썼는지 남긴다(별도재무제표는 원래 같다).
-    impairment_equity = _ctrl_equity if _ctrl_equity is not None else total_equity
-    capital_impairment_basis = "controlling" if _ctrl_equity is not None else "total"
-    capital_impairment_ratio_pct = None  # 잠식률 (% — 양수 = 잠식 진행, 음수 = 정상)
-    capital_impairment_status = None  # "normal" / "partial" / "partial_50plus" / "full"
-    # 비지배지분을 **포함한** 값도 함께 남긴다 — 판정 기준은 아니지만, 두 값의 간격이 그 회사의
-    # 자회사 구조를 말해주고(간격이 크면 소수주주 몫이 크다), 다른 자료와 대조할 때 필요하다.
-    capital_impairment_ratio_total_pct = None
-    if capital_stock is not None and capital_stock > 0 and total_equity is not None:
-        capital_impairment_ratio_total_pct = round(
-            (capital_stock - total_equity) / capital_stock * 100, 2
-        )
-    if capital_stock is not None and capital_stock > 0 and impairment_equity is not None:
-        ratio = (capital_stock - impairment_equity) / capital_stock * 100
-        capital_impairment_ratio_pct = round(ratio, 2)
-        if impairment_equity <= 0:
-            capital_impairment_status = "full"
-        elif ratio >= 50:
-            capital_impairment_status = "partial_50plus"
-        elif ratio > 0:
-            capital_impairment_status = "partial"
-        else:
-            capital_impairment_status = "normal"
+    _imp = compute_capital_impairment(
+        capital_stock=capital_stock,
+        controlling_equity=_ctrl_equity,
+        total_equity=total_equity,
+        nci=detail.get("nci") if isinstance(detail, dict) else None,
+    )
+    impairment_equity = _imp["equity_used"]
+    capital_impairment_basis = _imp["basis"]
+    capital_impairment_ratio_pct = _imp["ratio_pct"]
+    capital_impairment_status = _imp["status"]
+    capital_impairment_ratio_total_pct = _imp["ratio_total_pct"]
 
     # 평균값 (BS 전기 데이터 있으면)
     avg_assets = _avg(total_assets, (bs_is_prev or {}).get("total_assets")) if bs_is_prev else total_assets
