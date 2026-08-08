@@ -16,6 +16,7 @@ from datetime import date, timedelta
 
 from open_proxy_mcp.services.shareholder_meeting import (
     _NOTICE_LEAD_BUFFER_DAYS,
+    _round_year,
     _selection_window,
 )
 
@@ -49,6 +50,29 @@ def test_explicit_dates_are_left_alone() -> None:
     """사용자가 구간을 직접 지정했으면 늘리는 것이 곧 지시 위반이다."""
     start, end, _ = _selection_window(None, start_date="20250101", end_date="20250630")
     assert (start, end) == (date(2025, 1, 1), date(2025, 6, 30))
+
+
+def test_the_round_year_comes_from_the_meeting_not_the_window() -> None:
+    """「2026년 임시주총」의 연도는 회의가 열리는 해다 — 구간이 어디서 끝나는지가 아니다.
+
+    구간 끝을 오늘+90일로 연 뒤 새로 생긴 위험: 10월 3일부터 구간이 다음 해로 넘어가므로,
+    구간 끝의 연도를 쓰면 **2026년 12월 주총이 2027년 회차로** 찍힌다. 회의일을 보면 안 생긴다.
+    """
+    assert _round_year(None, date(2026, 12, 18), "20261201000111") == 2026
+
+    # 반대 방향 — 12개월 lookback 으로 작년 회의를 고른 경우. 오늘의 연도를 쓰면 올해로 찍힌다.
+    assert _round_year(None, date(2025, 12, 20), "20251205000222") == 2025
+
+
+def test_an_explicit_year_still_wins() -> None:
+    """사용자가 연도를 지정했으면 그게 곧 회차 지정이다."""
+    assert _round_year(2024, date(2024, 3, 29), "20240311000333") == 2024
+
+
+def test_it_falls_back_to_the_filing_year_not_today() -> None:
+    """회의일을 못 읽어도 공고 접수연도가 오늘보다 회의에 가깝다 — 공고는 회의 몇 주 前이다."""
+    assert _round_year(None, None, "20251205000222") == 2025
+    assert _round_year(None, None, "") == date.today().year
 
 
 def test_proxy_advise_does_not_default_to_annual_only() -> None:

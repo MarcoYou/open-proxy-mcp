@@ -783,6 +783,24 @@ def _meeting_presence_flag(has_annual: bool, has_extraordinary: bool) -> str:
     return "none"
 
 
+def _round_year(target_year: int | None, meeting_date: date | None, notice_rcept_no: str) -> int:
+    """회차의 연도 — **회의가 열리는 해**다.
+
+    조회 구간의 끝에서 뽑던 값이라 두 방향으로 틀렸다:
+      - 구간 끝이 오늘+90일이라 연말엔 다음 해로 넘어가, 올해 주총이 내년 회차로 찍힌다.
+      - 12개월 lookback 으로 작년 회의를 골랐을 땐 반대로 올해 회차로 찍힌다.
+    회의일을 기준으로 삼으면 둘 다 생기지 않는다.
+    """
+    if target_year:
+        return target_year
+    if meeting_date:
+        return meeting_date.year
+    # 회의일을 못 읽은 경우 — 공고 접수연도가 오늘보다 회의에 가깝다(공고는 회의 前 몇 주).
+    if len(notice_rcept_no) >= 4 and notice_rcept_no[:4].isdigit():
+        return int(notice_rcept_no[:4])
+    return date.today().year
+
+
 def _selection_window(
     target_year: int | None,
     *,
@@ -1022,7 +1040,9 @@ async def _select_notice_candidate(
         stage_started_at = time.perf_counter()
         candidates = await asyncio.gather(*[
             _build_candidate(
-                corp_code, meeting_type, target_year or window_end.year, notice,
+                # window_end 는 이제 미래(오늘+90일)라 연말엔 .year 가 **다음 해**다.
+                # 회의일을 못 읽었을 때의 결과검색 연도로 그걸 쓰면 엉뚱한 해를 뒤진다.
+                corp_code, meeting_type, target_year or date.today().year, notice,
                 fetch_result_filing=fetch_result,
             )
             for meeting_type, notice in latest_by_type
@@ -1075,7 +1095,7 @@ async def _select_notice_candidate(
     fetch_result = scope in {"results", "full"}
     stage_started_at = time.perf_counter()
     selected = await _build_candidate(
-        corp_code, requested_meeting_type, target_year or window_end.year, latest_notice,
+        corp_code, requested_meeting_type, target_year or date.today().year, latest_notice,
         fetch_result_filing=fetch_result,
     )
     _mark_timing(timings_ms, "select_notice_candidate.build_candidate", stage_started_at)
@@ -1469,7 +1489,8 @@ async def build_shareholder_meeting_payload(
                 "company_id": _company_id(selected),
                 "requested_meeting_type": meeting_type,
                 "scope": scope,
-                "year": target_year or requested_window_end.year,
+                # 소집공고를 못 찾은 갈래라 회차가 없다 — 구간 끝(미래)이 아니라 오늘 기준.
+                "year": target_year or date.today().year,
                 "fiscal_month": fiscal_month,
                 "requested_window": {
                     "start_date": requested_window_start.isoformat(),
@@ -1575,6 +1596,14 @@ async def build_shareholder_meeting_payload(
         parsing_failures=parse_failure_count,
     )
 
+    # 지역변수 selected_meeting_date 가 아니라 딕셔너리를 읽는다 —
+    # rcept_no 직접 지정 갈래가 selected_candidate 쪽만 갱신하기 때문이다.
+    round_year = _round_year(
+        target_year,
+        selected_candidate.get("meeting_date"),
+        latest_notice.get("rcept_no", ""),
+    )
+
     data: dict[str, Any] = {
         "query": company_query,
         "company_id": _company_id(selected),
@@ -1587,7 +1616,7 @@ async def build_shareholder_meeting_payload(
         "meeting_type": selected_meeting_type,
         "selection_basis": selection_basis,
         "fiscal_month": fiscal_month,
-        "year": target_year or requested_window_end.year,
+        "year": round_year,
         "requested_window": {
             "start_date": requested_window_start.isoformat(),
             "end_date": requested_window_end.isoformat(),
