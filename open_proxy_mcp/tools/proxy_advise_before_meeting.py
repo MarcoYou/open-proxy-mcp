@@ -130,6 +130,7 @@ _FACT_LABEL: dict[str, str] = {
     "fy_prior_net_income_krw_dart": "전기 순이익(지배주주 귀속)",
     "fy_raw_extraction_status": "본문 추출 상태", "fy_raw_scope": "본문 추출 범위",
     "fy_raw_skipped_currency": "본문 수치 미사용 사유(외화 표시)",
+    "fy_raw_scope_mixed": "본문 수치 출처가 섞임(비율 계산 주의)",
     "fy_raw_rejected_accounts": "순이익 계정 불일치로 폐기",
     "fy_raw_cross_check": "본문↔확정 재무제표 검산",
     # 배당

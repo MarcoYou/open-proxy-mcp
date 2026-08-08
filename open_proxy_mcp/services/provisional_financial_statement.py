@@ -771,6 +771,14 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
         # scope_used: 실제로 metric을 추출한 마지막 scope (현재 pass 또는 이전 pass)
         if last_extraction_scope:
             out["scope_used"] = last_extraction_scope
+        # **연결과 별도가 섞였는지 밝힌다.** `scope_used` 는 마지막 하나만 담아서, 매출은 연결
+        # 손익계산서에서 오고 자산·부채는 별도 재무상태표에서 온 경우에도 한쪽으로만 보고됐다
+        # (실측 삼성화재·NH투자증권). 그 상태로 부채비율·ROA 를 계산하면 분자·분모가 다른 회사
+        # 것이 된다. metric 별 출처는 `source_accounts` 에 이미 있으니 그것으로 판정한다.
+        _scopes = {v.get("scope") for v in (out.get("source_accounts") or {}).values()}
+        _scopes.discard(None)
+        if len(_scopes) > 1:
+            out["scope_mixed"] = sorted(_scopes)
 
         if n_extracted >= 3:
             out["extraction_status"] = "success"

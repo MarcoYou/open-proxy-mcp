@@ -2177,6 +2177,12 @@ def _extract_facts(
         _skipped = (fy_raw_from_agenda or {}).get("skipped_units") or []
         if _skipped:
             facts["fy_raw_skipped_currency"] = " · ".join(sorted(set(_skipped)))
+        _mixed = (fy_raw_from_agenda or {}).get("scope_mixed") or []
+        if _mixed:
+            # 손익은 연결에서, 재무상태는 별도에서 온 경우다(실측 2건). 두 표를 섞어 비율을 내면
+            # 분자·분모가 다른 회사 것이 된다 — 값을 버리지는 않되 그 사실을 밝힌다.
+            _ko = {"consolidated": "연결", "separate": "별도"}
+            facts["fy_raw_scope_mixed"] = " + ".join(_ko.get(s, s) for s in _mixed)
         _rejected = (fy_raw_from_agenda or {}).get("rejected_accounts") or {}
         if _rejected:
             facts["fy_raw_rejected_accounts"] = " · ".join(

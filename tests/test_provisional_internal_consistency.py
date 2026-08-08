@@ -98,3 +98,40 @@ def test_the_mismatch_says_where_the_number_came_from() -> None:
     )
     assert "추출 위치" in msg
     assert "지배기업 소유주지분" in msg and "재무상태표" in msg
+
+
+def test_mixing_consolidated_and_separate_is_disclosed() -> None:
+    """손익은 연결, 재무상태는 별도에서 오는 경우가 있다 — 그대로 비율을 내면 안 된다.
+
+    `scope_used` 는 마지막 하나만 담아 한쪽으로만 보고됐다. metric 별 출처가 `source_accounts` 에
+    있으니 그것으로 판정한다. 실측 2건(삼성화재·NH투자증권형).
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import extract_metrics
+
+    parsed = {
+        "consolidated": {"income_statement": {
+            "unit": "원", "columns": ["account", "current", "prior"],
+            "rows": [["Ⅰ.매출액", "1,000,000,000,000", "900,000,000,000"],
+                     ["Ⅶ.당기순이익", "50,000,000,000", "40,000,000,000"]]}, "balance_sheet": None},
+        "separate": {"income_statement": None, "balance_sheet": {
+            "unit": "원", "columns": ["account", "current", "prior"],
+            "rows": [["자산총계", "3,000,000,000,000", "2,800,000,000,000"],
+                     ["부채총계", "1,000,000,000,000", "900,000,000,000"],
+                     ["자본총계", "2,000,000,000,000", "1,900,000,000,000"]]}},
+    }
+    m = extract_metrics(parsed)
+    assert m.get("scope_mixed") == ["consolidated", "separate"]
+
+
+def test_a_single_scope_is_not_flagged() -> None:
+    from open_proxy_mcp.services.provisional_financial_statement import extract_metrics
+
+    parsed = {
+        "consolidated": {"income_statement": {
+            "unit": "원", "columns": ["account", "current", "prior"],
+            "rows": [["Ⅰ.매출액", "1,000,000,000,000", "900,000,000,000"],
+                     ["Ⅶ.당기순이익", "50,000,000,000", "40,000,000,000"],
+                     ["자산총계", "3,000,000,000,000", "2,800,000,000,000"]]}, "balance_sheet": None},
+        "separate": {"income_statement": None, "balance_sheet": None},
+    }
+    assert extract_metrics(parsed).get("scope_mixed") is None
