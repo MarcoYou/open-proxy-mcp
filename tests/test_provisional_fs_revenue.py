@@ -263,3 +263,34 @@ def test_the_nearest_unit_declaration_wins_not_the_farthest() -> None:
         "html.parser",
     )
     assert _extract_unit_from_siblings(soup.find(id="t2")) == "원"
+
+
+def test_ifrs17_insurance_revenue_is_recognised() -> None:
+    """보험사 top line 은 IFRS 1117호(2023 시행) 전후로 이름이 다르다.
+
+    구 1104호는 「보험영업수익」, 1117호는 「보험서비스수익」·「보험수익」. 구 명칭만 두면
+    전환한 회사의 매출이 통째로 빈다 — 삼성생명 「I. 보험서비스수익 9조 8,904억」 실측.
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _METRIC_KEYWORDS, _account_matches,
+    )
+    rv = _METRIC_KEYWORDS["revenue_krw"]
+    for good in ("보험서비스수익", "보험수익", "보험영업수익", "공사매출", "분양수익"):
+        assert _account_matches(good, rv, "revenue_krw", "income_statement"), good
+    # 비용·출재·부문 소계는 매출이 아니다 — 접두가 달라 자동으로 걸러진다
+    for bad in ("보험서비스비용", "출재보험서비스수익", "일반보험서비스수익", "재보험수익"):
+        assert not _account_matches(bad, rv, "revenue_krw", "income_statement"), bad
+
+
+def test_the_exclude_list_needs_the_loss_forms_too() -> None:
+    """「매출총이익」만 배제하면 적자 회사의 「매출총손실」이 매출로 걸린다.
+
+    영풍 손익계산서가 실제로 「Ⅲ.매출총손실」이다 — 이익형만 적는 습관이 순이익 쪽에서
+    3조 6,027억 사고를 냈고 여기에도 같은 구멍이 남아 있었다.
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _METRIC_KEYWORDS, _account_matches,
+    )
+    rv = _METRIC_KEYWORDS["revenue_krw"]
+    for bad in ("매출총손실", "매출총손익", "매출총이익", "매출원가", "매출환입"):
+        assert not _account_matches(bad, rv, "revenue_krw", "income_statement"), bad
