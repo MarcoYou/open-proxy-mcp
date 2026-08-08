@@ -3847,7 +3847,12 @@ async def build_proxy_advise_payload(
             "policy_basis": policy_basis,
             "policy_default": policy_default,
             "opm_fallback_decision": original_decision if (policy_default and policy_default != "case_by_case") else None,
-            "evidence_rcept_no": (meeting_summary.get("data") or {}).get("rcept_no") or director_data.get("rcept_no"),
+            # **이 안건을 실제로 읽은 공고**를 가리켜야 한다. 예전에는 `data.rcept_no` 를 찾았는데
+            # 접수번호는 `data.notice.rcept_no` 에 있어 항상 None 이었고, 그래서 **다른 도구(후보
+            # 평가)가 고른 공고로 폴백**했다. 주총이 잦은 회사(리츠 등)는 그게 아예 다른 회차다 —
+            # 실측 SK리츠: 안건은 20260602000425 에서 왔는데 근거는 20260304001363(3월 회차)을
+            # 가리켰다. 사용자가 그 링크를 열면 이 안건이 없다.
+            "evidence_rcept_no": agm_rcept or (meeting_summary.get("data") or {}).get("rcept_no"),
             # provenance 1단계: 이 안건을 원문 어디서 볼지 — 자식 안건은 부모 섹션 상속
             "source_section": agenda_source_map.get(title)
             or agenda_source_map.get(title_to_parent.get(title) or ""),
