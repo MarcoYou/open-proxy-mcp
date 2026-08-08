@@ -351,10 +351,12 @@ def _extract_unit_from_siblings(table_el) -> str:
         if sum(len(p) for p in parts) > 600:
             break
     prev_text = "".join(reversed(parts))
-    m = _FS_UNIT.search(prev_text)
-    if m:
-        return m.group(1).strip()
-    return ""
+    # **가장 가까운 선언을 쓴다.** `parts` 를 문서 순서로 되돌린 뒤 `search()` 로 첫 매칭을 잡으면
+    # 표에서 **가장 먼** 단위를 집는다 — 앞쪽 표의 단위가 뒤쪽 표에 붙는다. 실측 BNK금융지주:
+    # 자산총계가 161,095**조**로 나왔다(실제 약 161조, 1,000배). 창(600자) 안에 서로 다른 단위가
+    # 둘 이상인 표가 흔해, 지금까지는 우연히 같은 단위라 안 터졌을 뿐이다.
+    matches = list(_FS_UNIT.finditer(prev_text))
+    return matches[-1].group(1).strip() if matches else ""
 
 
 def _build_column_meta(header_cells: list[str]) -> list[str]:

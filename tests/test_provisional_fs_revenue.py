@@ -244,3 +244,22 @@ def test_an_unrecognised_unit_is_not_assumed_to_be_won() -> None:
     # 원화 표기는 형태가 섞여 있어도 통과한다
     for won in ("원", "천원", "백만원", "억원", "십억원", "주, 천원", "백만원, 주당순이익 : 원"):
         assert _scale_factor(won) is not None, won
+
+
+def test_the_nearest_unit_declaration_wins_not_the_farthest() -> None:
+    """표 바로 앞의 단위를 써야 한다 — 앞쪽 표의 단위가 뒤쪽 표에 붙으면 자릿수가 통째로 틀린다.
+
+    실측 BNK금융지주: 자산총계가 161,095**조**로 나갔다(실제 약 161조, 1,000배).
+    창(600자) 안에 서로 다른 단위가 둘 이상인 표가 흔해, 지금까지 우연히 같은 단위라 안 터졌을 뿐이다.
+    """
+    from bs4 import BeautifulSoup
+
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _extract_unit_from_siblings,
+    )
+    soup = BeautifulSoup(
+        "<div><p>(단위: 천원)</p><table><tr><td>앞표</td></tr></table>"
+        "<p>(단위: 원)</p><table id='t2'><tr><td>뒤표</td></tr></table></div>",
+        "html.parser",
+    )
+    assert _extract_unit_from_siblings(soup.find(id="t2")) == "원"
