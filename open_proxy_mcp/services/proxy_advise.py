@@ -47,7 +47,10 @@ from open_proxy_mcp.services.contracts import (
 )
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
 from open_proxy_mcp.services.director_evaluation import build_director_evaluation_payload
-from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
+from open_proxy_mcp.services.financial_metrics import (
+    build_financial_metrics_payload,
+    latest_annual_report_before,
+)
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
 from open_proxy_mcp.services.shareholder_meeting import (
     build_shareholder_meeting_payload,
@@ -2670,12 +2673,42 @@ async def build_proxy_advise_payload(
                     f"찾지 못해 달력 전년({target_year})으로 대체했습니다 — 연도를 직접 지정해 다시 조회하실 수 있습니다"
                 ),
             }
-    # 재무 fiscal year 매핑.
-    # 주총 N년 안건 = "FY(N-1) 재무제표 승인의 건" (소집공고에서 그대로 추출).
-    # 단, FY(N-1) 사업보고서는 주총 직전 막 공시된 신선한 데이터 — 분석 reference로 부적합.
-    # 직전 fully-audited 안정 데이터 = FY(N-2) 사업보고서 (작년 주총에서 이미 승인 완료).
-    # ex) 2026 주총 → 안건은 FY25 재무제표 승인 / 분석 reference는 FY24 지표.
+    # 재무 fiscal year 매핑 — 기준은 하나다: **주총일 시점에 이미 제출된 가장 최근 사업보고서.**
+    #
+    # 종전에는 `target_year - 2` 로 못박았다. 그 값이 맞는 이유는 3월 정기주총 일정에 있다 —
+    # 그때는 FY(N-1) 사업보고서가 아직 안 나왔으니 마지막 확정치가 FY(N-2)다. 그런데 그건
+    # 정기주총 일정에서 나온 어림이지 규칙이 아니어서, 연중에 열리는 임시주총에서는 한 해
+    # 과하게 보수적이었다. 8월 임시주총은 그해 3월 제출된 FY(N-1) 사업보고서를 이미 볼 수 있는데
+    # 2년 전 숫자로 자본잠식·배당을 판단하고 있었다.
+    #
+    # 「그 시점에 제출돼 있었나」로 되돌리면 특례 분기가 필요 없고, 3월 정기주총은 자동으로
+    # 예전과 같은 답(N-2)이 나온다. look-ahead 도 정의상 막힌다.
+    # 비용은 list.json 1콜. 회의일을 모르면(사용자가 year 를 직접 준 경우) 종전값으로 물러난다.
+    #
+    # **정기주총에는 아직 적용하지 않는다.** 실측(60사): 회의일 기준으로 재면 정기주총 54사 중
+    # 50사(93%)가 FY(N-1)로 옮겨간다 — 사업보고서가 공고(3/5)와 주총(3/25) 사이(3/17)에 끼기
+    # 때문이다. 그렇게 되면 승인 대상 연도와 분석 기준 연도가 같아져 **비교할 직전 확정치가
+    # 사라진다.** 정기주총은 「안건으로 올라온 재무제표」와 「직전 정기보고서」를 나란히 봐야 하므로
+    # 기준연도 하나로는 표현이 안 되고, 그 구조는 따로 만든다. 여기서는 임시주총만 고친다.
     fin_year = target_year - 2
+    fin_year_basis = f"주총 연도({target_year}) 기준 직전 확정 사업연도로 추정"
+    _meeting_iso = (pre_resolved or {}).get("meeting_date")
+    if _meeting_iso is not None and (pre_resolved or {}).get("meeting_type") == "extraordinary":
+        stage_started_at = time.perf_counter()
+        try:
+            _annual_ref = await latest_annual_report_before(
+                selected["corp_code"], _meeting_iso.strftime("%Y%m%d"))
+        except Exception:      # 조회 실패는 「없음」이 아니다 — 종전 기준연도로 물러난다
+            _annual_ref = None
+        _mark("latest_annual_report", stage_started_at)
+        _ref_fy = (_annual_ref or {}).get("fiscal_year")
+        # 뒤로 가지 않는다 — 조회가 불완전할 때 예전보다 오래된 해를 쓰게 되면 손해다.
+        if _ref_fy and _ref_fy > fin_year:
+            fin_year = _ref_fy
+            fin_year_basis = (
+                f"주총일({_meeting_iso.isoformat()}) 시점 최신 사업보고서"
+                f"({_annual_ref.get('report_nm', '')}, {_annual_ref.get('rcept_dt', '')} 제출) 기준"
+            )
 
     # scope="all" auto fallback to "decisions" — 8 upstream 동시 호출은 Claude.ai timeout 60s 자주 초과.
     # 사용자 효용 거의 동일 (decisions에 핵심 정보 모두 포함). warning은 data dict에 명시.
@@ -3974,6 +4007,7 @@ async def build_proxy_advise_payload(
         "meeting_phase": _meeting_phase,
         "meeting_closed_hint": meeting_closed_hint,
         "fin_reference_year": fin_year,
+        "fin_reference_basis": fin_year_basis,
         "meeting_type": meeting_type,
         "vote_style": _public_vote_style_label(vote_style),
         "vote_style_policy_id": _public_vote_style_label(vote_style),

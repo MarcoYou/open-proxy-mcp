@@ -1336,6 +1336,48 @@ def _actual_fs_div(rows: list[dict[str, Any]]) -> str | None:
 # reprt_code → 정기보고서명 키워드 (list.json report_nm 매칭용)
 _REPRT_NAME_KW = {"11011": "사업보고서", "11012": "반기보고서", "11013": "분기보고서", "11014": "분기보고서"}
 
+#: 「사업보고서 (2025.12)」 — 괄호 안은 **결산기 말**이지 사업연도 번호가 아니다.
+_ANNUAL_PERIOD = re.compile(r"\((\d{4})\.(\d{2})\)")
+
+
+async def latest_annual_report_before(corp_code: str, as_of: str) -> dict[str, Any] | None:
+    """`as_of`(YYYYMMDD) 시점에 **이미 제출돼 있던** 가장 최근 사업보고서.
+
+    주총에서 볼 수 있는 확정 재무제표는 그때까지 제출된 것뿐이다. 「주총 N년이면 FY(N-2)」는
+    3월 정기주총 일정에서 나온 어림이라 — 그때는 FY(N-1) 사업보고서가 아직 안 나왔다 — 연중에
+    열리는 임시주총에서는 한 해 과하게 보수적이다. 8월 임시주총은 그해 3월에 제출된 FY(N-1)
+    사업보고서를 이미 볼 수 있다.
+
+    `fiscal_year` 는 **12월 결산일 때만** 채운다. 결산기가 다른 법인은 사업보고서가 3~6개월마다
+    나오고(실측 SK리츠 2025.03·06·09·12 / 신한알파리츠 2024.03·09) 라벨의 연도가 사업연도
+    번호와 같다는 보장이 없다. 모르는 것을 추측하느니 비워서 호출측이 물러나게 한다.
+    """
+    if not corp_code or len(as_of) != 8 or not as_of.isdigit():
+        return None
+    try:
+        data = await get_dart_client().search_filings(
+            corp_code=corp_code, bgn_de=f"{int(as_of[:4]) - 2}0101", end_de=as_of, pblntf_ty="A",
+        )
+    except Exception:
+        return None                                   # 조회 실패는 「없음」이 아니다 — 호출측이 물러난다
+    rows = [
+        r for r in (data.get("list") or [])
+        if "사업보고서" in (r.get("report_nm") or "") and (r.get("rcept_dt") or "").strip() <= as_of
+    ]
+    if not rows:
+        return None
+    rows.sort(key=lambda r: (r.get("rcept_dt") or ""), reverse=True)
+    top = rows[0]
+    report_nm = (top.get("report_nm") or "").strip()
+    period = _ANNUAL_PERIOD.search(report_nm)
+    fiscal_year = int(period.group(1)) if period and period.group(2) == "12" else None
+    return {
+        "rcept_no": top.get("rcept_no", ""),
+        "rcept_dt": (top.get("rcept_dt") or "").strip(),
+        "report_nm": report_nm,
+        "fiscal_year": fiscal_year,
+    }
+
 
 async def _periodic_filing_ref(corp_code: str, year: int, reprt_code: str | None = None) -> dict[str, str] | None:
     """해당 연도 정기보고서(정기공시)의 rcept 메타 — evidence 원문 링크용.
