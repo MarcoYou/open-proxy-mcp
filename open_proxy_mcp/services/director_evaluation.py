@@ -30,6 +30,7 @@ from open_proxy_mcp.services.contracts import (
     build_usage,
 )
 from open_proxy_mcp.services.shareholder_meeting_parser import parse_personnel_xml
+from open_proxy_mcp.services.company import company_not_found_warning
 
 
 # ── 후보 데이터 fetch (success/soft-fail 분류) ──
@@ -1818,7 +1819,7 @@ async def build_director_evaluation_payload(
             tool="director_evaluation",
             status=AnalysisStatus.ERROR,
             subject=company_query,
-            warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
+            warnings=[company_not_found_warning(company_query)],
             data={"query": company_query, "usage": build_usage(client.api_call_snapshot() - calls_start)},
         ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:

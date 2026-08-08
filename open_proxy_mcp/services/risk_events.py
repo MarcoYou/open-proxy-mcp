@@ -27,6 +27,7 @@ from bs4 import BeautifulSoup
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
+from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -492,7 +493,7 @@ async def build_risk_events_payload(
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[
-                f"'{company_query}'에 해당하는 회사를 찾지 못했다.",
+                company_not_found_warning(company_query),
                 "비상장 자회사(예: 포스코이앤씨)의 리스크 공시는 상장 모회사가 '(종속/자회사의 주요경영사항)'으로 공시한다 — 상장 모회사명으로 조회할 것.",
             ],
             data={"query": company_query},

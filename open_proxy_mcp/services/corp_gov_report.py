@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
+from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -530,7 +531,7 @@ async def build_corp_gov_report_payload(
             tool="corp_gov_report",
             status=AnalysisStatus.ERROR,
             subject=company_query,
-            warnings=[f"'{company_query}'에 해당하는 회사를 찾지 못했다."],
+            warnings=[company_not_found_warning(company_query)],
             data={
                 "query": company_query,
                 "scope": scope,

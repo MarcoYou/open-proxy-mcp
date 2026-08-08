@@ -360,7 +360,12 @@ async def build_company_payload(
             ]
         except Exception:
             _near = []
-        warnings = [f"No listed company matched '{query}'." if english else f"'{query}'에 해당하는 회사를 찾지 못했다."]
+        warnings = [
+            (f"No listed company matched '{query}'. A company that has been renamed will not match "
+             "its former name — the registry carries current names only. Retry with the 6-digit "
+             "ticker, which survives a rename.")
+            if english else company_not_found_warning(query)
+        ]
         if unlisted_only:
             warnings.append("The matching entity is unlisted and outside OPM's listed-company universe." if english else "입력에 일치하는 법인은 비상장이어서 OPM 분석 대상(상장사)에서 제외했다. 정확한 상장사 종목명/종목코드로 다시 조회한다.")
         envelope = ToolEnvelope(
@@ -484,6 +489,24 @@ async def build_company_payload(
         ],
     )
     return envelope.to_dict()
+
+
+def company_not_found_warning(query: str, *, listed_only: bool = False) -> str:
+    """회사를 못 찾았을 때의 안내 — 「없다」로 끝내지 않는다.
+
+    DART 회사 목록에는 **현재 사명만** 있다. 그래서 사명을 바꾼 회사는 옛 이름으로 조회하면
+    한 건도 안 나오는데, 이때 「찾지 못했다」만 돌려주면 회사가 없는 것인지 이름이 바뀐 것인지
+    구분할 수가 없다. 하필 사명 변경은 지배구조 분쟁 직후에 잦아서, 의결권 분석이 가장 필요한
+    국면과 겹친다(실측: 영풍정밀 → 케이젯정밀, 종목코드 036560 그대로).
+
+    종목코드는 사명이 바뀌어도 유지되니 그것을 탈출구로 안내한다.
+    """
+    subject = "상장사" if listed_only else "회사"
+    return (
+        f"'{query}'에 해당하는 {subject}를 찾지 못했다. "
+        "사명이 바뀐 회사는 옛 이름으로 조회되지 않는다(회사 목록에 현재 사명만 있다) — "
+        "종목코드 6자리로 다시 조회하면 사명이 바뀌어도 찾을 수 있다."
+    )
 
 
 async def resolve_company_query(query: str) -> CompanyResolution:
