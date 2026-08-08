@@ -49,6 +49,7 @@ from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payloa
 from open_proxy_mcp.services.director_evaluation import build_director_evaluation_payload
 from open_proxy_mcp.services.financial_metrics import (
     build_financial_metrics_payload,
+    compute_capital_impairment,
     latest_annual_report_before,
 )
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
@@ -1583,6 +1584,48 @@ def _won(v: int | float | None) -> str:
     return f"{v:,.0f}원"
 
 
+def _provisional_state_payload(raw: dict[str, Any] | None) -> dict[str, Any] | None:
+    """공고의 잠정 재무제표(FY(N-1)P)를 `financial_metrics` 와 같은 모양으로 싸서 돌려준다.
+
+    사업보고서가 주총 뒤에 나오는 구간(시장 전수 기준 18%)에서는 확정치가 없다. 그때 2년 전
+    확정치로 자본잠식을 판단하느니, **승인 대상 연도의 잠정치**로 보는 것이 가깝다 — 주주가
+    승인하려는 대상이 바로 그 숫자다.
+
+    **검산을 통과해야만 값을 낸다.** 소집공고에는 XBRL 계정 코드가 없어 한글 라벨로만 찾으므로
+    (실측 소집공고 62건 중 코드 0건) 잘못 집을 여지가 확정치보다 크다. 지배지분 + 비지배지분 =
+    자본총계 가 어긋나면 라벨을 잘못 집은 것이니 값을 내지 않는다(실측 121건 중 검산 가능한
+    78건 전부 성립 — 어긋나는 쪽이 비정상이다).
+
+    **순이익은 싣지 않는다.** 공고는 연결 총액을 적고 확정치는 지배주주 귀속이라 개념이 다르다.
+    배당성향 분모로 총액을 쓰면 성향이 낮게 나와 과도 배당을 정상으로 보이게 한다 — 안전한
+    방향이 아니다. 없는 채로 두면 배당 판단이 「확인 필요」로 정직하게 간다.
+    """
+    if not raw or raw.get("extraction_status") not in ("success", "partial"):
+        return None
+    cap = raw.get("fy_current_capital_stock_krw")
+    ctrl = raw.get("fy_current_controlling_equity_krw")
+    total = raw.get("fy_current_total_equity_krw")
+    nci = raw.get("fy_current_nci_krw")
+    if cap is None or (ctrl is None and total is None):
+        return None
+    if ctrl is not None and nci is not None and total is not None:
+        if abs((ctrl + nci) - total) > max(abs(total) * 1e-6, 1):
+            return None
+    imp = compute_capital_impairment(capital_stock=cap, controlling_equity=ctrl,
+                                     total_equity=total, nci=nci)
+    if imp["status"] is None:
+        return None
+    return {"data": {"summary": {
+        "capital_stock_krw": cap,
+        "total_equity_krw": total,
+        "capital_impairment_status": imp["status"],
+        "capital_impairment_ratio_pct": imp["ratio_pct"],
+        "capital_impairment_ratio_total_pct": imp["ratio_total_pct"],
+        "capital_impairment_basis": imp["basis"],
+        "is_provisional": True,
+    }}}
+
+
 def _impairment_equity_label(summary: dict[str, Any]) -> tuple[str, str]:
     """자본잠식을 **어느 자기자본으로 쟀는지** — 판정과 문장이 어긋나면 안 된다.
 
@@ -1594,17 +1637,25 @@ def _impairment_equity_label(summary: dict[str, Any]) -> tuple[str, str]:
     두 경우는 읽는 사람에게 뜻이 정반대다 — 별도는 정상이고 더 볼 것이 없지만, 연결 폴백은
     「이 숫자는 규정 기준이 아닐 수 있다」는 신호다. `fs_div`(실제 사용된 기준)로 갈라 쓴다.
     """
+    # 잠정치로 잰 것은 **규정 판정이 아니다.** 코스닥 해설서 자본잠식 적용기준 ②는
+    # 「감사보고서상 감사의견이 적정인 재무제표 기준 적용」이라, 감사 전 잠정치는 규정이
+    # 명시적으로 배제한다. 그래서 여기서 얻는 건 「더 이른 시점의 추정치」이지 관리종목 판정이
+    # 아니다 — 그 구분을 문장에 남기지 않으면 읽는 쪽이 규정 판정으로 받아들인다.
+    _prov = " · 주주총회 소집공고의 감사 전 재무제표에서 읽은 값이라, 외부감사인의 감사 결과와" \
+            " 주주총회 승인 과정에서 달라질 수 있습니다(관리종목 판정은 감사 후 재무제표 기준)" \
+            if summary.get("is_provisional") else ""
     basis = summary.get("capital_impairment_basis")
     if basis == "controlling":
-        return "지배주주 귀속 자기자본", ""
+        return "지배주주 귀속 자기자본", _prov
     if basis == "derived":
         # 규정 기준(비지배지분 제외)으로 잰 것이 맞다 — 다만 계정을 직접 읽은 게 아니라
         # 자본총계에서 빼서 만들었다. 결함이 아니라 산출 방법이므로 그대로 밝힌다.
         return ("지배주주 귀속 자기자본",
-                " · 공시에 지배주주 지분 소계가 없어 자본총계에서 비지배지분을 빼 산출했습니다")
+                " · 공시에 지배주주 지분 소계가 없어 자본총계에서 비지배지분을 빼 산출했습니다"
+                + _prov)
     if (summary.get("fs_div") or "").upper() == "OFS":
-        return "자기자본", " · 별도재무제표라 비지배지분이 없어 자본총계와 같습니다"
-    return "자기자본", " · 지배주주 지분을 따로 확인하지 못해 자본총계로 계산했습니다"
+        return "자기자본", " · 별도재무제표라 비지배지분이 없어 자본총계와 같습니다" + _prov
+    return "자기자본", " · 지배주주 지분을 따로 확인하지 못해 자본총계로 계산했습니다" + _prov
 
 
 def _capital_clause(summary: dict[str, Any], fy: str) -> tuple[str, str]:
@@ -2195,9 +2246,8 @@ def _extract_facts(
         # 자본잠식은 **판정에 쓴 것과 같은 연도**로 싣는다. 판정은 FY(N-1)A(있으면)로 하는데
         # 사실란만 FY(N-2)A 를 보여주면, 「자기자본 0 이하」와 「자본총계 +71억」이 한 메모에
         # 나란히 실린다(실측 엔케이젠바이오텍). 판정과 근거는 같은 해를 가리켜야 한다.
-        _state = (((confirmed_payload or {}).get("data") or {}).get("summary")
-                  if confirmed_year else None) or fin_summary
-        fin_summary = _state
+        # 호출부가 이미 판정과 같은 payload(`state_metrics`)를 넘긴다 — 여기서 다시 고르면
+        # 두 곳이 어긋날 여지가 생긴다. 실제로 그렇게 어긋나 있었다.
         facts["capital_impairment_status"] = fin_summary.get("capital_impairment_status")
         # 잠식률은 `(자본금 - 자본총계) / 자본금` 이라 **잠식이 없으면 음수**다. 그 값은 잠식률이
         # 아니라 자본 여유폭인데 라벨은 「자본잠식률(%)」이라, 정상 회사에 「-44,711.79」 같은
@@ -2943,6 +2993,17 @@ async def build_proxy_advise_payload(
         except Exception:
             _mark("notice_doc_reuse", stage_started_at)
             fy_raw_from_agenda = {"extraction_status": "error"}
+
+    # FY(N-1)A 가 아직 없는 구간 — 사업보고서가 주총 뒤에 나오는 18% — 에서는 공고의 잠정치로
+    # 판단한다. 2년 전 확정치보다 **승인 대상 연도의 잠정치**가 가깝다. 주주가 승인하려는 대상이
+    # 바로 그 숫자이기도 하다. 검산을 통과할 때만 쓰므로 못 쓰면 종전대로 FY(N-2)A 로 남는다.
+    state_is_provisional = False
+    if confirmed_year is None and not _is_egm:
+        _prov_state = _provisional_state_payload(fy_raw_from_agenda)
+        if _prov_state:
+            state_metrics = _prov_state
+            state_year = target_year - 1
+            state_is_provisional = True
 
     # 안건 리스트 추출 (success 매핑) — 260507: parent_title 함께 추출 (정관 sub-안건 분류용)
     agenda_data = (meeting_agenda.get("data") or {})
@@ -3887,7 +3948,10 @@ async def build_proxy_advise_payload(
             category,
             title,
             matched_eval,
-            fin_metrics,
+            # **판정과 같은 payload**. 여기만 FY(N-2)A 로 두면 사유는 「자본잠식률 60.08%」인데
+            # 근거란은 「16.4%」를 보여준다(실측 웰바이오텍). 지엔코 때 위험신호에서 고친 것과
+            # 같은 결함이 이 경로에 남아 있었다 — 판정·근거·위험신호는 한 해를 가리켜야 한다.
+            state_metrics,
             meeting_comp,
             facts_all_evals,
             retirement_payload=retirement_payload,
