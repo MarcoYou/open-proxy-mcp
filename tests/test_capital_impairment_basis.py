@@ -56,3 +56,35 @@ def test_the_fifty_percent_line_uses_controlling_equity() -> None:
                  total_equity=70_000_000_000,      # 자본총계 기준 30%
                  controlling=40_000_000_000)       # 지배지분 기준 60%
     assert m["capital_impairment_status"] == "partial_50plus"
+
+
+def test_the_total_equity_figure_is_mentioned_too() -> None:
+    """판정은 규정대로 지배지분 기준이지만, 비지배 포함 값도 함께 말한다.
+
+    두 값의 간격이 그 회사의 자회사 구조를 말해주고(간격이 크면 소수주주 몫이 크다),
+    다른 자료(연결 자본총계 기준)와 대조할 때 필요하다. 실측 아시아나항공 13.02% vs 2.61%.
+    """
+    from open_proxy_mcp.services.proxy_advise import _capital_clause
+
+    _, both = _capital_clause({
+        "capital_impairment_status": "partial",
+        "capital_impairment_ratio_pct": 13.02,
+        "capital_impairment_ratio_total_pct": 2.61,
+    }, "2024사업연도")
+    assert "13.02%" in both and "비지배지분 포함" in both and "2.61%" in both
+
+    # 간격이 작으면 군더더기다 — 언급하지 않는다
+    _, close = _capital_clause({
+        "capital_impairment_status": "partial",
+        "capital_impairment_ratio_pct": 13.02,
+        "capital_impairment_ratio_total_pct": 12.80,
+    }, "2024사업연도")
+    assert "비지배지분 포함" not in close
+
+    # 정상(음수)일 때도 군더더기다
+    _, normal = _capital_clause({
+        "capital_impairment_status": "normal",
+        "capital_impairment_ratio_pct": -500.0,
+        "capital_impairment_ratio_total_pct": -600.0,
+    }, "2024사업연도")
+    assert "비지배지분 포함" not in normal

@@ -740,6 +740,13 @@ def _compute_metrics(
     capital_impairment_basis = "controlling" if _ctrl_equity is not None else "total"
     capital_impairment_ratio_pct = None  # 잠식률 (% — 양수 = 잠식 진행, 음수 = 정상)
     capital_impairment_status = None  # "normal" / "partial" / "partial_50plus" / "full"
+    # 비지배지분을 **포함한** 값도 함께 남긴다 — 판정 기준은 아니지만, 두 값의 간격이 그 회사의
+    # 자회사 구조를 말해주고(간격이 크면 소수주주 몫이 크다), 다른 자료와 대조할 때 필요하다.
+    capital_impairment_ratio_total_pct = None
+    if capital_stock is not None and capital_stock > 0 and total_equity is not None:
+        capital_impairment_ratio_total_pct = round(
+            (capital_stock - total_equity) / capital_stock * 100, 2
+        )
     if capital_stock is not None and capital_stock > 0 and impairment_equity is not None:
         ratio = (capital_stock - impairment_equity) / capital_stock * 100
         capital_impairment_ratio_pct = round(ratio, 2)
@@ -1106,6 +1113,7 @@ def _compute_metrics(
         "capital_impairment_status": capital_impairment_status,
         # 어느 자기자본으로 쟀는지 — 규정은 비지배지분 제외이고, 못 구하면 자본총계로 물러난다.
         "capital_impairment_basis": capital_impairment_basis,
+        "capital_impairment_ratio_total_pct": capital_impairment_ratio_total_pct,
         # ── 지배구조 cross-check ──
         "subsidiary_count": subsidiary_count,  # Phase 2 — 사업보고서 본문 파싱 필요
         # ── DART 산출 지표 (보조) ──
