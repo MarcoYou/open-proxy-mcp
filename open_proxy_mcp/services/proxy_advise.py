@@ -2232,6 +2232,7 @@ def _extract_facts(
     ownership_payload: dict[str, Any] | None = None,
     confirmed_payload: dict[str, Any] | None = None,
     confirmed_year: int | None = None,
+    crosscheck_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """카테고리별 검증 가능한 정량 fact dict (None 값은 제외)."""
     fin_summary = ((fin_payload or {}).get("data") or {}).get("summary", {}) or {}
@@ -2285,6 +2286,14 @@ def _extract_facts(
                 if v is not None:
                     facts[k] = v
             facts["fy_raw_extraction_status"] = fy_raw_from_agenda.get("extraction_status")
+            # 본문 파싱이 맞는지 확정치로 검산한다. **반드시 FY(N-2)A 와 맞댄다** — 등식이
+            # 「본문의 전기 = FY(N-2)A 의 당기」라서다. 판정용 payload 는 이제 FY(N-1) 일 수
+            # 있으므로 그걸로 검산하면 한 해 어긋난 값을 비교해 없는 불일치를 만든다.
+            _chk = _cross_check_provisional_revenue(
+                fy_raw_from_agenda,
+                ((crosscheck_payload or {}).get("data") or {}).get("summary") or {})
+            if _chk:
+                facts["fy_raw_cross_check"] = _chk
 
         # 승인 대상 연도의 **확정치**. 공고 잠정치 추출 성공 여부와 **무관하게** 싣는다 —
         # 오히려 공고를 못 읽었을 때 이것만이 승인 대상 연도의 유일한 숫자가 된다.
@@ -3958,6 +3967,7 @@ async def build_proxy_advise_payload(
             fy_raw_from_agenda=fy_raw_from_agenda,
             confirmed_payload=fin_confirmed,
             confirmed_year=confirmed_year,
+            crosscheck_payload=fin_metrics,   # 검산은 FY(N-2)A 고정 — 판정 payload 와 다르다
             ownership_payload=ownership,
         )
         # 조항 대장(SSOT) 상세를 구조화 필드로도 노출 (근거 심화 — 260709)

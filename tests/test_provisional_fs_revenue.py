@@ -116,21 +116,33 @@ def test_cross_check_tolerates_audit_adjustment():
         assert "일치" in out, (r, out)
 
 
-def test_cross_check_assumes_fin_year_is_two_years_back():
-    """검산의 성립 조건 — API 쪽 회계연도가 `target_year - 2` 여야 「본문 전기 = API 당기」다.
+def test_the_cross_check_actually_runs_and_uses_the_right_year():
+    """검산이 **실제로 돌고**, 그때 맞대는 상대가 FY(N-2)A 인지 본다.
 
-    260729 사용자 지적: 「주총공고 시점에도 두 데이터가 다 있느냐」.
-    확인 결과 소집공고 시점에 API 는 FY(N-2) 를 갖고 있다(1년 전 제출분). 그리고 도구가
-    의도적으로 FY(N-2) 를 고르므로 사업보고서가 나온 뒤에 돌려도 값이 안 바뀐다.
-    이 선택이 「최신 사업보고서」로 바뀌면 검산이 조용히 무너지므로 소스로 계약을 잡는다.
+    종전 이 테스트는 `build_proxy_advise_payload` 소스에 `fin_year = target_year - 2` 문자열이
+    있는지만 봤다. 그래서 260808 에 **검산 호출 자체가 삭제됐는데도 통과했다**(죽은 블록을
+    정리하다 호출까지 같이 지웠고, 함수는 정의만 남아 아무도 부르지 않았다).
+    문자열이 아니라 **동작**을 재야 이런 삭제가 잡힌다.
+
+    등식은 「본문의 전기 = FY(N-2)A 의 당기」다. 판정용 payload 는 이제 FY(N-1) 일 수 있으므로
+    (주총일 기준 확정치가 나와 있으면 그쪽을 쓴다) 검산에 그걸 넘기면 한 해 어긋난 값을 비교해
+    **없는 불일치**를 만들어낸다. 그래서 검산 상대는 따로 받는다.
     """
-    import inspect
-    from open_proxy_mcp.services import proxy_advise as pa
-    src = inspect.getsource(pa.build_proxy_advise_payload)
-    assert "fin_year = target_year - 2" in src, (
-        "fin_year 선택이 바뀌었다 — _cross_check_provisional_revenue 의 "
-        "「본문 전기 = API 당기」 전제가 깨졌는지 확인하라"
+    from open_proxy_mcp.services.proxy_advise import _extract_facts
+
+    prior_rev = 2_787_414_358_375          # 본문의 전기 매출 (영풍 실측)
+    facts = _extract_facts(
+        category="financial_statements", title="재무제표 승인의 건",
+        eval_match=None,
+        # 판정용 payload 는 **다른 해**를 담고 있다 — 검산이 이걸 쓰면 안 된다
+        fin_payload={"data": {"summary": {"revenue_krw": 9_999_999_999_999}}},
+        comp_payload=None,
+        fy_raw_from_agenda={"extraction_status": "success",
+                            "fy_prior_revenue_krw": prior_rev},
+        crosscheck_payload={"data": {"summary": {"revenue_krw": prior_rev}}},
     )
+    assert "fy_raw_cross_check" in facts, "검산이 호출되지 않았다"
+    assert "일치" in facts["fy_raw_cross_check"]
 
 
 def test_a_loss_making_company_is_not_skipped() -> None:
