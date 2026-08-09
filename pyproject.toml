@@ -6,7 +6,7 @@ requires-python = ">=3.10"
 dependencies = [
     # 2026-07-28 mcp 2.0.0 정식 릴리즈에서 `mcp.server.fastmcp` 가 제거됐다.
     # 상한이 없어 도커 빌드가 2.0.0 을 집어 서버가 부팅 즉시 죽었다(운영 중단).
-    "mcp[cli]>=1.6.0,<2",
+    "mcp[cli]>=1.29.0,<2",
     "httpx>=0.28.1",
     "python-dotenv>=1.0.0",
     "beautifulsoup4>=4.12.0",
