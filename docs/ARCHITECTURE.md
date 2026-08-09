@@ -7,7 +7,7 @@
 
 ```mermaid
 flowchart TB
-    U["User or AI client"] -->|MCP| S["FastMCP server"]
+    U["User or AI client"] -->|MCP| S["MCPServer (mcp SDK 2.x)"]
     S --> T["tools/ — input and rendering facades"]
     T --> V["services/ — domain analysis and parsing"]
     V --> D1["DART OpenAPI"]
@@ -27,7 +27,7 @@ flowchart TB
 
 ```text
 open_proxy_mcp/
-  server.py                     # FastMCP entrypoint and HTTP middleware
+  server.py                     # MCPServer entrypoint, build_app(), HTTP middleware
   tools/                        # public MCP facades and renderers
     __init__.py                 # auto-discovery and shared exception boundary
   services/                     # domain analysis, orchestration, and parsers

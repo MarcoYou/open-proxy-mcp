@@ -46,7 +46,7 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 재무·사�
 ## 프로젝트 구조
 ```
 open_proxy_mcp/
-  server.py            # FastMCP 진입점
+  server.py            # MCPServer 진입점 (build_app() = 프로덕션 서빙 앱)
   tools/               # public MCP tool facades
   services/            # 도메인 분석 로직 (tool과 분리)
   dart/client.py       # DART API + KIND + 네이버 시세
@@ -56,6 +56,7 @@ open_proxy_mcp/
   data/ksic/           # 산업분류 코드→업종명
 scripts/               # wiki_lint.py(link 검증) · spot_*.py(회귀) · verify_law_against_corpus.py(SSOT↔legalize-kr 원문대조)
                        #   live_pilot_diff.py(live↔pilot 코드 시점 차이 추적)
+                       #   check_branch_against_live.py(배포해도 되나 — 워킹트리를 live 와 대조)
 wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
 .github/workflows/     # wiki-lint.yml · deploy.yml(fly.io)
 ```
@@ -76,7 +77,6 @@ wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
 - **웹 스크래핑(dart.fss.or.kr 원문·KIND)은 위 한도와 별개다.** 공표된 수치도, 공개된 차단 기준도
   없다 — 「한도가 없다」가 아니라 **「한도를 모른다」**이므로 수치가 아니라 예의로 다룬다:
   최소 2초 간격(`_MIN_INTERVAL_WEB`), 배치 금지, 병렬 금지.
-- **웹 스크래핑**: 최소 2초 간격, 배치 금지.
 - **문서 본문은 `document.xml`/XML 우선** (OPM): AGM·이사보팅·proxy_advise 핵심 경로는
   `get_document_cached`를 사용한다. 일부 service가 명시적으로 둔 DART viewer HTML fallback은 허용하되,
   상위 소스에서 해결되면 호출하지 않는다. XML 불완전 시 원문을 AI에 노출해 보정(soft-fail)하고, 조작된 FOR는 내지 않는다. **PDF 다운로드·

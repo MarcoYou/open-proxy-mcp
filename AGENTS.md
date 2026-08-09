@@ -43,7 +43,7 @@ python3 scripts/wiki_lint.py --strict
 
 ```text
 open_proxy_mcp/
-  server.py            # FastMCP 진입점·HTTP middleware
+  server.py            # MCPServer 진입점·build_app()·HTTP middleware
   tools/               # public MCP tool facades
   services/            # 도메인 분석·파싱 로직
   dart/client.py       # DART/KIND 접근·throttle·cache·회사 식별
