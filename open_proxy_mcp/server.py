@@ -304,6 +304,12 @@ def build_app(server=None):
         json_response=True,
         transport_security=transport_security(),
         host=bind_host(),
+        # 기본값과 같은 값이지만 **명시한다** — 위 넷에 적용한 「SDK 기본값을 믿지 않는다」가
+        # 여기에도 그대로 걸린다. 1.29 도 같은 4 MiB 였으므로 이관에 따른 변화는 없다(실측).
+        # 주의: 이 상한은 우리를 못 지킨다 — ApiKeyMiddleware 가 라우터 **밖**에 있어
+        # 본문을 통째로 버퍼링한 뒤에야 413 이 난다(32 MiB 로 실측, 1.29·2.0 동일).
+        # 그 구멍은 이 이관과 무관한 기존 구조이고 따로 다뤄야 한다.
+        max_request_body_size=4 * 1024 * 1024,
     )
     app.add_middleware(ApiKeyMiddleware)
     return app
