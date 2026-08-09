@@ -57,7 +57,7 @@ updated: 2026-06-01
 | [[open-proxy-guideline]] | OPM 자체 정책 master |
 | [[tool-changelog]] | tool 변경 이력 |
 | [[free-paid-분리]] | repo 운영 정책(public MCP / private pipeline) |
-| [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[LLM-fallback-설계]] | 파서/데이터 소스 결정 |
+| [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[LLM-fallback-설계]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
 | [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
 | [[tool-추가-검증-정책]] | 신규 tool 추가 시 소스·검증 정책 |
 
