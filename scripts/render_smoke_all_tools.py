@@ -1,4 +1,4 @@
-"""16 tool render smoke — FastMCP call_tool 경로로 build+render 전체 검증.
+"""16 tool render smoke — MCPServer call_tool 경로로 build+render 전체 검증.
 
 payload audit은 데이터만 봤다 — LLM이 실제로 받는 건 render된 markdown.
 각 tool을 등록된 MCP 경로 그대로 호출해 (1) 예외 없음 (2) 비어있지 않음
@@ -13,7 +13,7 @@ import json
 import sys
 import time
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from open_proxy_mcp.tools import register_all_tools
 
@@ -41,7 +41,7 @@ BAD_MARKERS = ("Traceback", "Exception", "NoneType", "KeyError")
 
 
 async def main() -> None:
-    mcp = FastMCP("smoke")
+    mcp = MCPServer("smoke")
     register_all_tools(mcp)
     tools = {t.name for t in await mcp.list_tools()}
     missing = set(CASES) - tools
@@ -57,14 +57,18 @@ async def main() -> None:
             t0 = time.perf_counter()
             try:
                 result = await mcp.call_tool(name, args)
-                # FastMCP call_tool → list[TextContent] 또는 (content, meta)
-                texts = []
-                content = result[0] if isinstance(result, tuple) else result
-                for item in content:
-                    texts.append(getattr(item, "text", str(item)))
+                # mcp 2.0: call_tool → CallToolResult(pydantic 모델).
+                # **모델을 그대로 순회하면 (필드명, 값) 쌍이 나와** 내용이 비어도 글자수가
+                # 잡히고 status 가 OK 로 뜬다 — 체크 셋 중 둘이 장식이 된다(260810 실측).
+                content = getattr(result, "content", None)
+                if content is None:                       # 1.x 호환: list 또는 (content, meta)
+                    content = result[0] if isinstance(result, tuple) else result
+                texts = [getattr(item, "text", str(item)) for item in content]
                 out = "\n".join(texts)
                 dt = (time.perf_counter() - t0) * 1000
                 bad = [m for m in BAD_MARKERS if m in out]
+                if getattr(result, "is_error", False):
+                    bad = bad or ["is_error"]
                 status = "OK" if out.strip() and not bad else f"BAD:{bad or 'empty'}"
                 rows.append({"case": label, "ms": round(dt), "chars": len(out), "status": status})
                 print(f"  {'✓' if status=='OK' else '⚠'} {label:60s} {dt:6.0f}ms {len(out):6d}자 {status if status!='OK' else ''}")

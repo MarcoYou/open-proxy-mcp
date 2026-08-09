@@ -1,10 +1,10 @@
-"""OpenProxy MCP 서버 — FastMCP 진입점"""
+"""OpenProxy MCP 서버 — MCPServer 진입점"""
 
 import argparse
 import logging
 import os
 import re
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.tools import register_all_tools
@@ -43,13 +43,26 @@ def install_api_key_redaction() -> None:
             logger.addFilter(redactor)
 
 
-def build_mcp() -> FastMCP:
+def _opm_version() -> str:
+    """pyproject 의 프로젝트 버전. 못 읽으면 빈 문자열(서버는 계속 뜬다)."""
+    try:
+        from importlib.metadata import version
+        return version("open-proxy-mcp")
+    except Exception:
+        return ""
+
+
+def build_mcp() -> MCPServer:
     """Build the single supported MCP tool surface."""
     # 이 이름이 클라이언트 커넥터 목록에 뜨고, MCP 양식(prompt)의 슬래시 명령
     # `/mcp__<서버이름>__<양식이름>` 가운데 자리에도 들어간다 — 짧을수록 부르기 쉽다.
     # fly 앱 이름(=URL `open-proxy-mcp.fly.dev`)과 레포명은 그대로 둔다.
-    mcp = FastMCP(
+    mcp = MCPServer(
         "openproxy",
+        # 2.0 은 SDK 버전을 자동으로 안 채운다(기본값 ""). 빈 값보다는 **OPM 자신의 버전**이
+        # 유용하다 — 클라이언트가 「어느 OPM 이 답했나」를 알 수 있다. 종전 1.x 는 여기에
+        # SDK 버전(1.26.0 등)을 넣었는데, 그건 우리 릴리스와 무관한 값이었다.
+        version=_opm_version(),
         # 여기엔 **도구를 가로지르는 규칙만** 둔다. 도구 하나로 표현되는 것은 그 도구의
         # description 에 있어야 한다(설명 총 23,673자가 이미 컨텍스트에 있다).
         # 실측값(후보 수·회사명·종목코드)은 절대 넣지 않는다 — 등록부가 바뀌면 조용히 썩는다.
@@ -251,15 +264,23 @@ def allowed_hosts() -> list[str]:
     return hosts
 
 
-def apply_transport_settings(server) -> None:
-    """sse·streamable-http 공통 — 바인딩 주소와 호스트 보호.
+def bind_host() -> str:
+    return os.environ.get("FASTMCP_HOST", "0.0.0.0")
 
-    호스트 보호를 **명시적으로** 건다. 기본값에 맡기면 SDK 버전에 따라 켜지기도 꺼지기도
-    하고, 꺼진 쪽은 아무 에러도 안 낸다(사용자는 멀쩡히 쓰고 방어만 사라진다).
+
+def bind_port() -> int:
+    return int(os.environ.get("FASTMCP_PORT", "8000"))
+
+
+def transport_security() -> TransportSecuritySettings:
+    """호스트 보호를 **명시적으로** 만든다.
+
+    mcp 2.0 은 이 값을 안 넘기면 host 가 localhost 계열일 때만 보호를 켠다
+    (`lowlevel/server.py`). OPM 의 bind host 는 0.0.0.0 이라 그 조건에 안 걸려
+    **보호가 조용히 꺼진다** — 사용자는 멀쩡히 쓰고 방어만 사라지며 아무 에러도 안 난다.
+    그래서 기본값에 맡기지 않고 항상 만들어 넘긴다.
     """
-    server.settings.host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
-    server.settings.port = int(os.environ.get("FASTMCP_PORT", "8000"))
-    server.settings.transport_security = TransportSecuritySettings(
+    return TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=allowed_hosts(),
     )
@@ -273,10 +294,15 @@ def build_app(server=None):
     세션 유지 불필요. 2머신 유지하면서 세션 어피니티 문제 해결. (2026-06)
     """
     server = server or build_mcp()
-    apply_transport_settings(server)
-    server.settings.stateless_http = True
-    server.settings.json_response = True
-    app = server.streamable_http_app()
+    # 2.0 에서 이 다섯은 `settings` 를 떠나 여기 인자가 됐고, **기본값이 전부 우리와 반대**다.
+    # 하나라도 빠뜨리면 조용히 다른 서버가 된다 — 특히 transport_security 는 없으면
+    # 보호가 꺼진 채로 정상 서빙된다.
+    app = server.streamable_http_app(
+        stateless_http=True,
+        json_response=True,
+        transport_security=transport_security(),
+        host=bind_host(),
+    )
     app.add_middleware(ApiKeyMiddleware)
     return app
 
@@ -302,10 +328,11 @@ def main():
         import uvicorn
         app = build_app(server)          # 서빙 결정은 전부 build_app 안에 있다
         install_api_key_redaction()
-        uvicorn.run(app, host=server.settings.host, port=server.settings.port)
+        uvicorn.run(app, host=bind_host(), port=bind_port())
     elif args.transport == "sse":
-        apply_transport_settings(server)  # sse 도 호스트 보호를 받아야 한다
-        server.run(transport="sse")
+        # 2.0 의 run() 은 settings 를 안 읽는다 — 안 넘기면 127.0.0.1 에 보호 꺼짐으로 뜬다.
+        server.run(transport="sse", host=bind_host(), port=bind_port(),
+                   transport_security=transport_security())
     else:
         server.run(transport="stdio")
 

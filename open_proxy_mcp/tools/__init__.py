@@ -6,7 +6,7 @@ import importlib
 import pkgutil
 
 import httpx
-from mcp.server.fastmcp.exceptions import ToolError
+from mcp.server.mcpserver.exceptions import ToolError
 
 from open_proxy_mcp.dart.client import DartClientError
 from open_proxy_mcp.services.dart_safety import DART_EXTERNAL_ERRORS, degrade_response

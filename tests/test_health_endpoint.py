@@ -13,6 +13,8 @@ from starlette.testclient import TestClient
 
 from open_proxy_mcp.server import mcp
 
+import pytest
+
 
 def test_health_returns_200_without_auth():
     client = TestClient(mcp.streamable_http_app())
@@ -29,11 +31,19 @@ def test_health_is_registered_on_the_http_app():
     assert "/health" in paths and "/mcp" in paths, paths
 
 
-def test_server_imports_the_module_that_actually_disappeared():
-    """`mcp.server.fastmcp` 는 2.0.0 에서 사라졌다 — import 자체를 테스트가 붙잡는다."""
+def test_server_imports_the_module_that_actually_exists():
+    """서버가 얹혀 있는 모듈을 테스트가 직접 붙잡는다.
+
+    260729: `mcp.server.fastmcp` 가 2.0.0 에서 사라져 서버가 부팅 즉시 죽었다. 그때 이
+    테스트가 「fastmcp 가 있어야 한다」로 세워졌고, 2.0 이관(260810)으로 방향이 뒤집혔다.
+    **지우지 않고 뒤집는다** — 사고가 사서 얻은 가드레일이다. 양방향으로 잰다:
+    새 경로가 있어야 하고, 옛 경로는 **없어야** 한다(조용한 1.x 다운그레이드도 잡는다).
+    """
     import importlib
-    m = importlib.import_module("mcp.server.fastmcp")
-    assert hasattr(m, "FastMCP")
+    m = importlib.import_module("mcp.server.mcpserver")
+    assert hasattr(m, "MCPServer")
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("mcp.server.fastmcp")
 
 
 def test_dependency_has_an_upper_bound_on_mcp():
@@ -41,7 +51,7 @@ def test_dependency_has_an_upper_bound_on_mcp():
     import pathlib
     txt = (pathlib.Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
     line = next(l for l in txt.splitlines() if l.strip().startswith('"mcp['))
-    assert "<2" in line, line
+    assert "<3" in line, line
 
 
 def test_health_exists_on_a_freshly_built_instance():
