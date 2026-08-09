@@ -18,6 +18,8 @@
 세션이 뭐가 진짜 남았는지 헷갈리게 만드는 원인).
 
 ## 색인
+- [[260809_mcp-prompts-resources]] — MCP Prompts·Resources 실측. 양식은 데스크톱에서 안 뜨고
+  AI 도 못 본다(결론 부정). Resources 는 AI 가 읽지만 근거 하나뿐이라 **미착수**.
 - [[260807_proxy-advise-persona-validation]] — proxy_advise 3자 페르소나 검증. 결함 4가족 확인,
   **코드 미수정**. 수정 착수는 사용자 지시 대기.
 
