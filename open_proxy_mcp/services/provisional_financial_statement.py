@@ -851,6 +851,9 @@ def extract_metrics(parsed: dict[str, Any], prefer: str = "consolidated") -> dic
                             # 표를 통째로 싣는 것보다 작고 정확하다.
                             out.setdefault("source_accounts", {})[metric_key] = {
                                 "account": account, "statement": stmt_type, "scope": scope,
+                                # 표가 「백만원」이면 값은 백만 단위로 반올림돼 있다. 확정치와
+                                # 맞댈 때 이 크기 안의 차이는 **조정이 아니라 반올림 나머지**다.
+                                "scale": scale,
                             }
                             n_extracted += 1
                             last_extraction_scope = scope

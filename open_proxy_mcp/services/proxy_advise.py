@@ -1584,7 +1584,8 @@ def _won(v: int | float | None) -> str:
     return f"{v:,.0f}원"
 
 
-def _provisional_state_payload(raw: dict[str, Any] | None) -> dict[str, Any] | None:
+def _provisional_state_payload(raw: dict[str, Any] | None,
+                               base: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """공고의 잠정 재무제표(FY(N-1)P)를 `financial_metrics` 와 같은 모양으로 싸서 돌려준다.
 
     사업보고서가 주총 뒤에 나오는 구간(시장 전수 기준 18%)에서는 확정치가 없다. 그때 2년 전
@@ -1615,7 +1616,11 @@ def _provisional_state_payload(raw: dict[str, Any] | None) -> dict[str, Any] | N
                                      total_equity=total, nci=nci)
     if imp["status"] is None:
         return None
-    return {"data": {"summary": {
+    # 직전 확정치를 바탕에 깔고 **자본 항목만** 잠정치로 덮는다. 통째로 갈아치우면 공고에
+    # 없는 신호(현금흐름 품질·이자보상배율·감사의견·전기 순이익)가 전부 사라져, 「완전 자본잠식」
+    # 판정 옆에 위험신호가 하나도 없는 메모가 나간다.
+    _base = dict(((base or {}).get("data") or {}).get("summary") or {})
+    _base.update({
         "capital_stock_krw": cap,
         "total_equity_krw": total,
         "capital_impairment_status": imp["status"],
@@ -1623,7 +1628,21 @@ def _provisional_state_payload(raw: dict[str, Any] | None) -> dict[str, Any] | N
         "capital_impairment_ratio_total_pct": imp["ratio_total_pct"],
         "capital_impairment_basis": imp["basis"],
         "is_provisional": True,
-    }}}
+        # 어느 필드가 잠정인지 남긴다 — 나머지는 직전 확정치라 연도가 다르다.
+        "provisional_fields": list(_PROVISIONAL_FIELDS),
+    })
+    return {"data": {"summary": _base}}
+
+
+#: 공고 잠정치가 덮는 필드. 나머지는 직전 확정치(FY(N-2)A)를 그대로 둔다 —
+#: 공고에는 현금흐름표가 없어 `cfo_to_op_ratio`·`interest_coverage_ratio` 같은 신호를
+#: FY(N-1) 로는 **만들 수가 없다**. 통째로 비우면 「완전 자본잠식」 판정 옆에 위험신호가
+#: 하나도 없는 메모가 나간다(실측: 위험신호 4개 → 1개). 지우느니 직전 값이라도 보여준다.
+_PROVISIONAL_FIELDS = (
+    "capital_stock_krw", "total_equity_krw", "capital_impairment_status",
+    "capital_impairment_ratio_pct", "capital_impairment_ratio_total_pct",
+    "capital_impairment_basis",
+)
 
 
 def _impairment_equity_label(summary: dict[str, Any]) -> tuple[str, str]:
@@ -2316,6 +2335,10 @@ def _extract_facts(
             # 이 둘을 빼서 「감사 과정에서 흑자가 적자로 뒤집혔다」고 쓰면 없는 사건을 만들어낸다.
             # 대조에서 빼되 뺐다는 사실을 밝힌다 — 말없이 「일치」라고만 하면 그 자체로 오해다.
             _p_src = fy_raw_from_agenda or {}
+            # 본문 표의 단위(원/천원/백만원) — 그만큼은 반올림 오차이지 조정이 아니다.
+            _tol = max((v.get("scale") or 1)
+                       for v in ((_p_src.get("source_accounts") or {}).values() or [{}])) \
+                if (_p_src.get("source_accounts") or {}) else 1
             _moved, _checked = [], []
             for _label, _prov, _src in (
                 ("매출", "fy_current_revenue_krw", "revenue_krw"),
@@ -2326,7 +2349,11 @@ def _extract_facts(
                 if _p is None or _c is None:
                     continue
                 _checked.append(_label)
-                if _p != _c:
+                # **표의 단위만큼은 조정이 아니다.** 공고 표의 28%가 백만원·천원 단위라(캐시
+                # 479개 표 실측) 잠정치는 그 단위로 반올림돼 있고 확정치는 원 단위로 정확하다.
+                # 그대로 빼면 **아무것도 안 움직였는데 매번 「조정」이 나간다** — 반올림 나머지를
+                # 감사 조정분이라고 사용자에게 보고하는 셈이다. 허용오차를 단위 크기로 둔다.
+                if abs(_c - _p) >= max(_tol, 1):
                     # 두 값을 나란히 쓰면 반올림에 먹혀 「4.02조원 → 4.02조원」이 된다.
                     # 움직인 크기를 쓴다 — 그게 곧 감사 조정분이다.
                     _moved.append(f"{_label} {_won(_c - _p)}")
@@ -2943,8 +2970,13 @@ async def build_proxy_advise_payload(
     # 대상 연도」의 사실이지 2년 전 사실이 아니다. 판정·위험신호·배당판단이 서로 다른 해를 보면
     # 한 문장 안에서 충돌한다 — 실측 지엔코: 「자본잠식 없음(2025사업연도) · 유의: 부분
     # 자본잠식」. 주총일 기준으로 FY(N-1)A 가 이미 나와 있으면 그것, 아니면 종전 FY(N-2)A.
-    state_metrics = fin_confirmed if confirmed_year else fin_metrics
-    state_year = confirmed_year or fin_year
+    # **확정치를 실제로 받았을 때만** 그걸 쓴다. `_safe` 는 재시도 뒤에도 실패하면 `data` 없는
+    # 에러 dict 를 돌려주는데, `confirmed_year` 는 공시목록 조회로 정해지므로 「연도는 있는데
+    # 재무 조회는 실패」가 성립한다. 그대로 넘기면 확실한 AGAINST 가 「자본잠식 미확인」으로
+    # 조용히 내려앉는다 — upstream 한 번 흔들린 것이 판정을 지우면 안 된다.
+    _conf_ok = bool((((fin_confirmed or {}).get("data") or {}).get("summary")))
+    state_metrics = fin_confirmed if (confirmed_year and _conf_ok) else fin_metrics
+    state_year = confirmed_year if (confirmed_year and _conf_ok) else fin_year
     _mark("upstreams_total", stage_started_at)
 
     # 이 메모를 만들며 실제로 읽은 공시를 전부 모은다. upstream 마다 근거를 2건까지만 싣고 잘라내던
@@ -3006,13 +3038,12 @@ async def build_proxy_advise_payload(
     # FY(N-1)A 가 아직 없는 구간 — 사업보고서가 주총 뒤에 나오는 18% — 에서는 공고의 잠정치로
     # 판단한다. 2년 전 확정치보다 **승인 대상 연도의 잠정치**가 가깝다. 주주가 승인하려는 대상이
     # 바로 그 숫자이기도 하다. 검산을 통과할 때만 쓰므로 못 쓰면 종전대로 FY(N-2)A 로 남는다.
-    state_is_provisional = False
-    if confirmed_year is None and not _is_egm:
-        _prov_state = _provisional_state_payload(fy_raw_from_agenda)
+    # 확정치 조회가 실패한 경우도 잠정치가 구제한다 — 「연도는 있는데 값이 없다」가 그 자리다.
+    if not _is_egm and not (confirmed_year and _conf_ok):
+        _prov_state = _provisional_state_payload(fy_raw_from_agenda, fin_metrics)
         if _prov_state:
             state_metrics = _prov_state
             state_year = target_year - 1
-            state_is_provisional = True
 
     # 안건 리스트 추출 (success 매핑) — 260507: parent_title 함께 추출 (정관 sub-안건 분류용)
     agenda_data = (meeting_agenda.get("data") or {})
@@ -3722,13 +3753,13 @@ async def build_proxy_advise_payload(
                                   f"「□ 이사의 선임」 구간 원문으로 직접 확인 필요. "
                                   f"(원래 판정: {reason})")
         elif category == "director_compensation":
-            decision, reason = _decide_director_compensation(meeting_comp, fin_metrics)
+            decision, reason = _decide_director_compensation(meeting_comp, state_metrics)
         elif category == "audit_compensation":
             # ralph 260505 17:50: 감사 보수한도 별도 분기 (N연기금 IV-34)
-            decision, reason = _decide_audit_compensation(meeting_comp, fin_metrics)
+            decision, reason = _decide_audit_compensation(meeting_comp, state_metrics)
         elif category == "retirement_pay":
             # ralph 260505 17:50: 퇴직금 별도 분기 (N연기금 IV-35 + OPM #6/#7)
-            decision, reason = _decide_retirement_pay(retirement_payload, fin_metrics)
+            decision, reason = _decide_retirement_pay(retirement_payload, state_metrics)
         elif category == "financial_statements":
             # **상태 판정은 승인 대상 연도로 한다.** 비교용 FY(N-2)A 로 자본잠식을 판정하면,
             # 그 사이 감자·증자로 잠식이 해소된 회사에 **이미 없어진 사유로 반대표를 권하게**
@@ -3760,13 +3791,13 @@ async def build_proxy_advise_payload(
                     decision = d_dec
                 reason = f"{reason} / 배당 병합({_detail}) — {d_reason}"
         elif category == "cash_dividend":
-            decision, reason = _decide_dividend(title, fin_metrics, selected.get("corp_name") or "")
+            decision, reason = _decide_dividend(title, state_metrics, selected.get("corp_name") or "")
         elif category == "articles_amendment":
             decision, reason = _decide_articles_amendment(
                 title,
                 retirement_payload=retirement_payload,
                 comp_payload=meeting_comp,
-                fin_metrics_payload=fin_metrics,
+                fin_metrics_payload=state_metrics,
                 amendment=_find_amendment_for_title(title),
             )
         elif category == "treasury_share":
