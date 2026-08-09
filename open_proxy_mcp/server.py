@@ -6,6 +6,7 @@ import os
 import re
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.tools import register_all_tools
 
 
@@ -44,8 +45,11 @@ def install_api_key_redaction() -> None:
 
 def build_mcp() -> FastMCP:
     """Build the single supported MCP tool surface."""
+    # 이 이름이 클라이언트 커넥터 목록에 뜨고, MCP 양식(prompt)의 슬래시 명령
+    # `/mcp__<서버이름>__<양식이름>` 가운데 자리에도 들어간다 — 짧을수록 부르기 쉽다.
+    # fly 앱 이름(=URL `open-proxy-mcp.fly.dev`)과 레포명은 그대로 둔다.
     mcp = FastMCP(
-        "open-proxy-mcp",
+        "openproxy",
         # 여기엔 **도구를 가로지르는 규칙만** 둔다. 도구 하나로 표현되는 것은 그 도구의
         # description 에 있어야 한다(설명 총 23,673자가 이미 컨텍스트에 있다).
         # 실측값(후보 수·회사명·종목코드)은 절대 넣지 않는다 — 등록부가 바뀌면 조용히 썩는다.
@@ -65,6 +69,7 @@ def build_mcp() -> FastMCP:
         ),
     )
     register_all_tools(mcp)
+    register_all_prompts(mcp)
 
     # 헬스 엔드포인트 — 인증 없이 200 을 내는 유일한 경로.
     # 260729 사고: mcp 2.0.0 이 fastmcp 를 제거해 서버가 부팅 즉시 죽었는데, 헬스체크가 없어
