@@ -95,6 +95,187 @@ def build_mcp() -> FastMCP:
 mcp = build_mcp()
 
 
+# ── 서빙 설정과 미들웨어 ──────────────────────────────────────────────────────
+# 이 아래는 전부 `main()` 안에 있었다. 그래서 **테스트가 프로덕션이 실제로 서빙하는 객체에
+# 닿을 수 없었다** — 260729 2차 사고(모듈 레벨 인스턴스에 라우트를 붙였는데 서빙되는 건
+# `main()` 이 만든 다른 인스턴스라 /health 가 404)와 같은 결함이다. 밖으로 꺼내
+# `build_app()` 하나가 서빙 결정을 전부 들게 하고, `main()` 은 그걸 uvicorn 에 넘기기만 한다.
+
+
+def _extract_tool(body: bytes):
+    """JSON-RPC 본문에서 호출 대상 추출 → (이름, tools/call 여부).
+    tools/call이면 tool명, 아니면 method명."""
+    try:
+        import json
+        d = json.loads(body)
+        method = d.get("method", "")
+        if method == "tools/call":
+            return d.get("params", {}).get("name") or "tools/call", True
+        return method or None, False
+    except Exception:
+        return None, False
+
+
+#: 응답 본문에서 「이 호출이 실패했나」를 읽는 패턴. **테스트는 이 상수를 import 해서
+#: 실제 wire 바이트와 대조한다** — 테스트가 리터럴을 복사해 가지면, 서버가 눈이 먼 뒤에도
+#: 테스트는 영원히 통과한다(매칭이 0건인 것과 「오류가 없었다」는 구분되지 않는다).
+_ERR_PATTERNS = (b'"isError":true', b'"isError": true',
+                 b'"error":{"code"', b'"error": {"code"')
+_EKIND_RE = re.compile(rb"\[ekind=(\w+)\]")  # tool 래퍼가 붙인 error_kind 태그
+
+
+class ApiKeyMiddleware:
+    """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        from open_proxy_mcp import usage
+        from open_proxy_mcp.dart.client import set_request_api_key
+
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        from urllib.parse import parse_qs
+        qs = parse_qs(scope.get("query_string", b"").decode())
+        opendart = qs.get("opendart", [None])[0]
+        if opendart:
+            set_request_api_key(opendart)
+        elif scope.get("path", "").startswith("/mcp"):
+            # 키 없는 서빙 요청 거절(260705) — fly secrets에 서버용 OPENDART 키(배치·DB
+            # 갱신 내부용)가 있으므로, 거절하지 않으면 env 폴백으로 서버 키가 조용히
+            # 소모된다. 서빙은 반드시 유저 키(?opendart=)로.
+            import json as _json
+            body = _json.dumps({"error": "opendart API key required",
+                                "hint": "connect with ?opendart=<your DART key>"}).encode()
+            await send({"type": "http.response.start", "status": 401,
+                        "headers": [(b"content-type", b"application/json")]})
+            await send({"type": "http.response.body", "body": body})
+            return
+
+        # 사용 통계 기록 (요청 1건 = 이벤트 1건). 기록은 비동기 큐라 지연 0.
+        # 요청 본문(JSON-RPC)을 버퍼링해 tool명 추출 후 그대로 앱에 재생(replay).
+        if opendart and scope.get("path", "").startswith("/mcp"):
+            import time as _t
+            start = _t.monotonic()
+            buffered = []
+            body = b""
+            more = True
+            while more:
+                msg = await receive()
+                buffered.append(msg)
+                if msg["type"] == "http.request":
+                    body += msg.get("body", b"")
+                    more = msg.get("more_body", False)
+                else:
+                    more = False
+            tool, is_call = _extract_tool(body)
+
+            # 장부를 **여기서** 만든다. 하류(캐시·회사해석)는 이 dict 를 고치기만 하고,
+            # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
+            # 하류가 값을 올려보내게 하면 안 된다 — ContextVar 는 위로 안 흐른다.
+            from open_proxy_mcp.dart.client import new_request_ledger
+            ledger = new_request_ledger()
+
+            idx = 0
+
+            async def replay():
+                nonlocal idx
+                if idx < len(buffered):
+                    m = buffered[idx]; idx += 1; return m
+                return await receive()
+
+            # tools/call은 응답 본문(SSE/JSON)에서 isError를 스캔한 뒤 본문 종료 시 기록.
+            # (툴 내부 실패는 HTTP 200에 실려 오므로 status만으론 못 잡음)
+            # 그 외(핸드셰이크 등)는 기존대로 응답 시작 시 기록.
+            rec = {"status": 0, "latency": None, "err": False, "tail": b"",
+                   "done": False, "ekind": None, "bytes": 0}
+
+            async def send_wrapper(message):
+                if message["type"] == "http.response.start":
+                    rec["latency"] = int((_t.monotonic() - start) * 1000)
+                    rec["status"] = message.get("status", 0)
+                    if not is_call:
+                        usage.record(opendart, rec["status"], tool, rec["latency"])
+                elif message["type"] == "http.response.body" and is_call and not rec["done"]:
+                    chunk = message.get("body", b"") or b""
+                    rec["bytes"] += len(chunk)     # 호출측이 무는 토큰 비용의 대리 지표
+                    if chunk and (not rec["err"] or rec["ekind"] is None):
+                        hay = rec["tail"] + chunk
+                        if not rec["err"]:
+                            rec["err"] = any(p in hay for p in _ERR_PATTERNS)
+                        if rec["ekind"] is None:
+                            m = _EKIND_RE.search(hay)
+                            if m:
+                                rec["ekind"] = m.group(1).decode()
+                        rec["tail"] = hay[-64:]  # 태그(~16B)가 청크 경계에 안 잘리게
+                    if not message.get("more_body", False):
+                        rec["done"] = True
+                        # 오류일 때만 error_kind 기록. 태그 없는 오류(인자검증·프로토콜·비래핑
+                        # 경로)는 "untagged" sentinel → 배포前 NULL과 배포後 분류실패를 구분.
+                        # 성공(not err)은 본문에 우연히 [ekind=]가 있어도 None으로 기록.
+                        ekind = (rec["ekind"] or "untagged") if rec["err"] else None
+                        # 장부를 읽는다 — 우리가 만들어 내려보낸 그 dict 다.
+                        # 문서를 안 받은 요청은 셋 다 0이라 분모에서 자연히 빠진다.
+                        usage.record(opendart, rec["status"], tool, rec["latency"],
+                                     is_error=rec["err"], error_kind=ekind,
+                                     response_bytes=rec["bytes"],
+                                     doc_mem_hits=ledger["doc_mem_hits"],
+                                     doc_disk_hits=ledger["doc_disk_hits"],
+                                     doc_misses=ledger["doc_misses"],
+                                     corp_codes=ledger["corp_codes"])
+                await send(message)
+            await self.app(scope, replay, send_wrapper)
+        else:
+            await self.app(scope, receive, send)
+
+
+def allowed_hosts() -> list[str]:
+    """DNS 리바인딩 방어의 허용 목록. `FASTMCP_ALLOWED_HOSTS` 로 덧붙일 수 있다
+    (로컬에서 8000 이 아닌 포트로 띄울 때 필요)."""
+    hosts = [
+        "open-proxy-mcp.fly.dev",
+        "localhost:8000",
+        "127.0.0.1:8000",
+        "0.0.0.0:8000",
+    ]
+    extra = os.environ.get("FASTMCP_ALLOWED_HOSTS", "").strip()
+    if extra:
+        hosts.extend([h.strip() for h in extra.split(",") if h.strip()])
+    return hosts
+
+
+def apply_transport_settings(server) -> None:
+    """sse·streamable-http 공통 — 바인딩 주소와 호스트 보호.
+
+    호스트 보호를 **명시적으로** 건다. 기본값에 맡기면 SDK 버전에 따라 켜지기도 꺼지기도
+    하고, 꺼진 쪽은 아무 에러도 안 낸다(사용자는 멀쩡히 쓰고 방어만 사라진다).
+    """
+    server.settings.host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
+    server.settings.port = int(os.environ.get("FASTMCP_PORT", "8000"))
+    server.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=allowed_hosts(),
+    )
+
+
+def build_app(server=None):
+    """**프로덕션이 실제로 서빙하는 ASGI 앱.** 테스트는 이 함수를 부른다.
+
+    무상태 HTTP: 각 요청이 독립(세션 in-memory 미보관) → fly 다중 머신에서 라우팅이
+    갈려도 "Session not found" 없음. OPM tool은 무상태(요청마다 키·파라미터 자급)라
+    세션 유지 불필요. 2머신 유지하면서 세션 어피니티 문제 해결. (2026-06)
+    """
+    server = server or build_mcp()
+    apply_transport_settings(server)
+    server.settings.stateless_http = True
+    server.settings.json_response = True
+    app = server.streamable_http_app()
+    app.add_middleware(ApiKeyMiddleware)
+    return app
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -110,169 +291,18 @@ def main():
     args = parser.parse_args()
     if args.sse:
         args.transport = "sse"
-    mcp = build_mcp()
-
-    if args.transport in ("sse", "streamable-http"):
-        mcp.settings.host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
-        mcp.settings.port = int(os.environ.get("FASTMCP_PORT", "8000"))
-        allowed_hosts = [
-            "open-proxy-mcp.fly.dev",
-            "localhost:8000",
-            "127.0.0.1:8000",
-            "0.0.0.0:8000",
-        ]
-        extra_hosts = os.environ.get("FASTMCP_ALLOWED_HOSTS", "").strip()
-        if extra_hosts:
-            allowed_hosts.extend([h.strip() for h in extra_hosts.split(",") if h.strip()])
-        mcp.settings.transport_security = TransportSecuritySettings(
-            enable_dns_rebinding_protection=True,
-            allowed_hosts=allowed_hosts,
-        )
+    server = build_mcp()
 
     if args.transport == "streamable-http":
-        # 무상태 HTTP: 각 요청이 독립(세션 in-memory 미보관) → fly 다중 머신에서 라우팅이
-        # 갈려도 "Session not found" 없음. OPM tool은 무상태(요청마다 키·파라미터 자급)라
-        # 세션 유지 불필요. 2머신 유지하면서 세션 어피니티 문제 해결. (2026-06)
-        mcp.settings.stateless_http = True
-        mcp.settings.json_response = True
-
         import uvicorn
-        from starlette.middleware import Middleware
-        from starlette.types import ASGIApp, Receive, Scope, Send
-        from open_proxy_mcp.dart.client import set_request_api_key
-        from open_proxy_mcp import usage
-
-        def _extract_tool(body: bytes):
-            """JSON-RPC 본문에서 호출 대상 추출 → (이름, tools/call 여부).
-            tools/call이면 tool명, 아니면 method명."""
-            try:
-                import json
-                d = json.loads(body)
-                method = d.get("method", "")
-                if method == "tools/call":
-                    return d.get("params", {}).get("name") or "tools/call", True
-                return method or None, False
-            except Exception:
-                return None, False
-
-        _ERR_PATTERNS = (b'"isError":true', b'"isError": true',
-                         b'"error":{"code"', b'"error": {"code"')
-        import re as _re
-        _EKIND_RE = _re.compile(rb"\[ekind=(\w+)\]")  # tool 래퍼가 붙인 error_kind 태그
-
-        class ApiKeyMiddleware:
-            """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""
-
-            def __init__(self, app: ASGIApp):
-                self.app = app
-
-            async def __call__(self, scope: Scope, receive: Receive, send: Send):
-                if scope["type"] != "http":
-                    await self.app(scope, receive, send)
-                    return
-                from urllib.parse import parse_qs
-                qs = parse_qs(scope.get("query_string", b"").decode())
-                opendart = qs.get("opendart", [None])[0]
-                if opendart:
-                    set_request_api_key(opendart)
-                elif scope.get("path", "").startswith("/mcp"):
-                    # 키 없는 서빙 요청 거절(260705) — fly secrets에 서버용 OPENDART 키(배치·DB
-                    # 갱신 내부용)가 있으므로, 거절하지 않으면 env 폴백으로 서버 키가 조용히
-                    # 소모된다. 서빙은 반드시 유저 키(?opendart=)로.
-                    import json as _json
-                    body = _json.dumps({"error": "opendart API key required",
-                                        "hint": "connect with ?opendart=<your DART key>"}).encode()
-                    await send({"type": "http.response.start", "status": 401,
-                                "headers": [(b"content-type", b"application/json")]})
-                    await send({"type": "http.response.body", "body": body})
-                    return
-
-                # 사용 통계 기록 (요청 1건 = 이벤트 1건). 기록은 비동기 큐라 지연 0.
-                # 요청 본문(JSON-RPC)을 버퍼링해 tool명 추출 후 그대로 앱에 재생(replay).
-                if opendart and scope.get("path", "").startswith("/mcp"):
-                    import time as _t
-                    start = _t.monotonic()
-                    buffered = []
-                    body = b""
-                    more = True
-                    while more:
-                        msg = await receive()
-                        buffered.append(msg)
-                        if msg["type"] == "http.request":
-                            body += msg.get("body", b"")
-                            more = msg.get("more_body", False)
-                        else:
-                            more = False
-                    tool, is_call = _extract_tool(body)
-
-                    # 장부를 **여기서** 만든다. 하류(캐시·회사해석)는 이 dict 를 고치기만 하고,
-                    # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
-                    # 하류가 값을 올려보내게 하면 안 된다 — ContextVar 는 위로 안 흐른다.
-                    from open_proxy_mcp.dart.client import new_request_ledger
-                    ledger = new_request_ledger()
-
-                    idx = 0
-                    async def replay():
-                        nonlocal idx
-                        if idx < len(buffered):
-                            m = buffered[idx]; idx += 1; return m
-                        return await receive()
-
-                    # tools/call은 응답 본문(SSE/JSON)에서 isError를 스캔한 뒤 본문 종료 시 기록.
-                    # (툴 내부 실패는 HTTP 200에 실려 오므로 status만으론 못 잡음)
-                    # 그 외(핸드셰이크 등)는 기존대로 응답 시작 시 기록.
-                    rec = {"status": 0, "latency": None, "err": False, "tail": b"",
-                           "done": False, "ekind": None, "bytes": 0}
-
-                    async def send_wrapper(message):
-                        if message["type"] == "http.response.start":
-                            rec["latency"] = int((_t.monotonic() - start) * 1000)
-                            rec["status"] = message.get("status", 0)
-                            if not is_call:
-                                usage.record(opendart, rec["status"], tool, rec["latency"])
-                        elif message["type"] == "http.response.body" and is_call and not rec["done"]:
-                            chunk = message.get("body", b"") or b""
-                            rec["bytes"] += len(chunk)     # 호출측이 무는 토큰 비용의 대리 지표
-                            if chunk and (not rec["err"] or rec["ekind"] is None):
-                                hay = rec["tail"] + chunk
-                                if not rec["err"]:
-                                    rec["err"] = any(p in hay for p in _ERR_PATTERNS)
-                                if rec["ekind"] is None:
-                                    m = _EKIND_RE.search(hay)
-                                    if m:
-                                        rec["ekind"] = m.group(1).decode()
-                                rec["tail"] = hay[-64:]  # 태그(~16B)가 청크 경계에 안 잘리게
-                            if not message.get("more_body", False):
-                                rec["done"] = True
-                                # 오류일 때만 error_kind 기록. 태그 없는 오류(인자검증·프로토콜·비래핑
-                                # 경로)는 "untagged" sentinel → 배포前 NULL과 배포後 분류실패를 구분.
-                                # 성공(not err)은 본문에 우연히 [ekind=]가 있어도 None으로 기록.
-                                ekind = (rec["ekind"] or "untagged") if rec["err"] else None
-                                # 장부를 읽는다 — 우리가 만들어 내려보낸 그 dict 다.
-                                # 문서를 안 받은 요청은 셋 다 0이라 분모에서 자연히 빠진다.
-                                usage.record(opendart, rec["status"], tool, rec["latency"],
-                                             is_error=rec["err"], error_kind=ekind,
-                                             response_bytes=rec["bytes"],
-                                             doc_mem_hits=ledger["doc_mem_hits"],
-                                             doc_disk_hits=ledger["doc_disk_hits"],
-                                             doc_misses=ledger["doc_misses"],
-                                             corp_codes=ledger["corp_codes"])
-                        await send(message)
-                    await self.app(scope, replay, send_wrapper)
-                else:
-                    await self.app(scope, receive, send)
-
-        app = mcp.streamable_http_app()
-        app.add_middleware(ApiKeyMiddleware)
-
+        app = build_app(server)          # 서빙 결정은 전부 build_app 안에 있다
         install_api_key_redaction()
-        uvicorn.run(
-            app,
-            host=mcp.settings.host,
-            port=mcp.settings.port,
-        )
+        uvicorn.run(app, host=server.settings.host, port=server.settings.port)
+    elif args.transport == "sse":
+        apply_transport_settings(server)  # sse 도 호스트 보호를 받아야 한다
+        server.run(transport="sse")
     else:
-        mcp.run(transport=args.transport)
+        server.run(transport="stdio")
 
 
 if __name__ == "__main__":
