@@ -412,6 +412,10 @@ _L0_ANCHOR = re.compile(
 # 대안을 열거하지 않고 **조합형**으로 잡는다 — 종류어 + 주당 표기 + 금액을 각각 인식한다.
 _DIV_PRESENT = re.compile(r"배\s*당|이익\s*잉여금\s*처분")
 _DIV_NONE = re.compile(r"무\s*배\s*당|배\s*당\s*(?:을)?\s*하지|배\s*당\s*없")
+# 「이익잉여금처분계산서 제외/미포함」 — 배당이 이 안건에 **안 묶였다**는 선언.
+# 글자('처분계산서')만 보고 병합으로 읽으면, 배당을 별도 안건으로 올린 회사에서
+# 같은 배당이 두 번 판정된다(실측 고려아연·현대모비스 — 둘 다 별도 배당 안건 보유).
+_DIV_EXCLUDED = re.compile(r"(?:처\s*분\s*계\s*산\s*서|배\s*당)[\s()（）안]{0,6}(?:제\s*외|미\s*포함)")
 _DIV_PER_SHARE = re.compile(
     r"(?:1\s*)?주당[^\d%]{0,12}([\d,]+)\s*원|([\d,]+)\s*원\s*(?:을)?\s*(?:현금)?\s*배당")
 _DIV_YIELD = re.compile(r"(?:시가)?배당률[^\d]{0,6}([\d.]+)\s*%")
@@ -428,6 +432,10 @@ def extract_dividend_from_title(title: str) -> dict | None:
     """
     t = title or ""
     if not _DIV_PRESENT.search(t):
+        return None
+    # 「제외/미포함」이면 배당은 여기 없다. 단 **명시 금액이 함께 있으면 그 값을 믿는다** —
+    # 부정어를 이유로 실제로 적힌 수치를 지우지는 않는다.
+    if _DIV_EXCLUDED.search(t) and not (_DIV_PER_SHARE.search(t) or _DIV_CLASS.search(t)):
         return None
     out: dict = {"mentioned": True, "none_declared": bool(_DIV_NONE.search(t))}
     km = _DIV_KIND.search(t)
@@ -1351,8 +1359,27 @@ def _format_number(l1: int, l2: int | None, l3: int | None) -> str:
         return f"제{l1}호"
 
 
+# 안건 목록이 끝나고 **소집공고 본문의 번호 항목**이 공백 없이 이어붙는 원문이 있다.
+# 실측 현대글로비스: 「…제5-2호 : 이사 보수한도 승인의 건4. 제25기 이익배당 예정내용 -
+# 1주당 배당금 : 현금 5,800원 5. 전자투표…」 — 「4.」는 안건 번호가 아니라 공고의 4번 항목이다.
+# 안 자르면 보수한도 안건이 배당 안건으로 분류돼 엉뚱한 판정을 받는다(안건 아닌 것에 표를 던짐).
+# **섹션 표제로 확인될 때만** 자른다 — 인라인 하위안건('3-1 …의 건')까지 잘라내면 후보를 잃는다.
+_NOTICE_TAIL_MARKER = re.compile(r"(의\s*건)\s*(\d+)\s*\.\s*(.{0,24})", re.S)
+_NOTICE_SECTION_WORDS = re.compile(
+    r"이익\s*배당|배당\s*예정|전자\s*투표|전자\s*위임장|경영\s*참고|기타\s*사항|"
+    r"의결권\s*(?:대리)?\s*행사|주주총회\s*참석")
+
+
+def _strip_notice_section_tail(title: str) -> str:
+    for m in _NOTICE_TAIL_MARKER.finditer(title or ""):
+        if _NOTICE_SECTION_WORDS.search(m.group(3)):
+            return title[:m.end(1)].strip()
+    return title
+
+
 def _clean_title(title: str) -> str:
     """제목 정리: 후행 기호, 번호, 특수문자 제거"""
+    title = _strip_notice_section_tail(title)
     title = title.strip()
     title = re.sub(r'\s{2,}', ' ', title)  # 연속 공백 정리
     title = re.sub(r'^[:：]\s*', '', title)  # 선행 콜론 제거

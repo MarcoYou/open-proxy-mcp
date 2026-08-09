@@ -70,6 +70,53 @@ def test_classify_reserve_reduction_stays_mainstream():
     assert _classify_agenda("이익준비금 감액의 건") == "other"
 
 
+def test_classify_treasury_cancellation_funded_by_dividend_profit():
+    """「배당가능이익을 재원으로 한 자기주식 소각」은 자사주 안건이지 배당 안건이 아니다.
+
+    배당은 **재원의 이름**으로만 등장한다. 종전에는 '배당' 글자가 먼저 걸려 cash_dividend 로
+    가서, 자사주 소각에 배당성향·잉여금 기준을 들이대는 엉뚱한 판정이 나왔다
+    (실측 태광산업 — 권고적 주주제안).
+    """
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda(
+        "배당가능이익을 재원으로 한 보유 자기주식 소각의 건 (권고적 주주제안)") == "treasury_share"
+    assert _classify_agenda("배당가능이익으로 자사주 취득의 건") == "treasury_share"
+
+
+def test_agenda_title_drops_trailing_notice_section():
+    """안건 목록 뒤에 소집공고 본문 섹션이 붙어 들어오는 것을 잘라낸다.
+
+    실측 현대글로비스 — 원문이 「제5-2호 : 이사 보수한도 승인의 건4. 제25기 이익배당 예정내용
+    - 1주당 배당금 : 현금 5,800원」으로 공백 없이 이어진다. 「4.」는 안건 번호가 아니라 공고의
+    4번 항목이다. 안 자르면 보수한도 안건이 **배당 안건으로 분류돼 배당 판정을 받는다**.
+    """
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    from open_proxy_mcp.services.shareholder_meeting_parser import _clean_title
+    got = _clean_title("이사 보수한도 승인의 건4. 제25기 이익배당 예정내용 - 1주당 배당금 : 현금 5,800원")
+    assert got == "이사 보수한도 승인의 건", got
+    assert _classify_agenda(got) == "director_compensation"
+    assert _clean_title("이사 선임의 건 5. 전자투표 및 전자위임장 권유에 관한 사항") == "이사 선임의 건"
+
+
+def test_agenda_title_keeps_inline_subagendas():
+    """반대 어형 회귀 — 뒤에 붙은 게 공고 섹션이 아니면 자르지 않는다.
+
+    인라인 하위안건은 `_split_inline_subagendas` 소관이라 여기서 잘라내면 후보를 잃는다.
+    """
+    from open_proxy_mcp.services.shareholder_meeting_parser import _clean_title
+    t = "이사 선임의 건 3-1 사내이사 허남 선임의 건 3-2 기타비상무이사 정문주 선임의 건"
+    assert _clean_title(t) == t
+    assert _clean_title("정관 일부 변경의 건") == "정관 일부 변경의 건"
+
+
+def test_classify_real_dividend_agendas_unchanged():
+    """반대 어형 회귀 — 진짜 배당 안건은 종전대로 cash_dividend."""
+    from open_proxy_mcp.services.proxy_advise import _classify_agenda
+    assert _classify_agenda("제52기 이익배당 승인의 건(보통주 현금배당 주당 20,000원)") == "cash_dividend"
+    assert _classify_agenda("제14기 현금배당 결의의 건") == "cash_dividend"
+    assert _classify_agenda("이익잉여금 처분계산서 승인의 건") == "cash_dividend"
+
+
 def test_classify_statutory_auditor_election_path_kept():
     """감사(상근) 선임은 감사위원과 동일 결정 경로 유지 (인용 라벨만 citation에서 구분)."""
     from open_proxy_mcp.services.proxy_advise import _classify_agenda, _is_statutory_auditor_agenda

@@ -58,6 +58,35 @@ def test_none_declared_flagged():
     assert got and got["none_declared"] is True
 
 
+# ── 「처분계산서 제외」는 배당이 이 안건에 묶여 있지 않다는 뜻 ──────────────
+@pytest.mark.parametrize("title", [
+    # 실측 — 둘 다 배당을 별도 안건으로 따로 올린 회사다.
+    "제52기 연결 및 별도 재무제표(이익잉여금처분계산서 제외) 승인의 건",
+    "제49기 재무제표(이익잉여금처분계산서 제외)승인의 건 (2025년 1월 1일 ~ 2025년 12월 31일)",
+    "제30기 재무제표 승인의 건(이익잉여금처분계산서(안) 미포함)",
+])
+def test_appropriation_excluded_is_not_merged_dividend(title):
+    """제목이 「제외」라고 밝히면 배당 병합으로 보지 않는다.
+
+    종전에는 '처분계산서'라는 글자만 보고 mentioned=True 를 냈다. 그 결과 재무제표 안건에
+    배당 적정성 판정이 얹히고, 배당은 별도 안건에도 있어 **같은 배당이 두 번 판정**됐다.
+    """
+    assert extract_dividend_from_title(title) is None
+
+
+def test_appropriation_included_still_merged():
+    """반대 어형 회귀 — 「포함」은 종전대로 병합이어야 한다."""
+    got = extract_dividend_from_title("제65기 재무제표 [이익잉여금처분계산서(안)포함] 승인의 건")
+    assert got and got["mentioned"] is True
+
+
+def test_excluded_but_amount_present_keeps_amount():
+    """「제외」와 명시 금액이 동시에 있으면 금액을 믿는다 — 부정어로 실제 값을 지우지 않는다."""
+    got = extract_dividend_from_title(
+        "제49기 재무제표(이익잉여금처분계산서 제외) 승인의 건 - 1주당 배당금 500원")
+    assert got and got.get("per_share_krw") == 500
+
+
 # ── 안건 구간 코드 ────────────────────────────────────────────────────
 # 구간 본문이 「제N호 의안 :」으로 어느 안건의 상세인지 스스로 밝히는 실측 서식.
 _NOTICE = (

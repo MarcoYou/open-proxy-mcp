@@ -785,6 +785,14 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     # 문면에 '이익잉여금'이 들어간 순간 달성되지 않던 순서 결함.
     if _RESERVE_RECLASS.search(t) and "배당" not in t:
         return "other"
+    # 「배당가능이익을 재원으로 한 자기주식 소각」에서 배당은 **재원의 이름**으로만 등장한다.
+    # 아래 '배당' 단축경로가 먼저 걸리면 자사주 소각에 배당성향·잉여금 기준을 들이대는
+    # 엉뚱한 판정이 나온다(실측 태광산업 — 권고적 주주제안). 위 준비금 감액과 같은 순서 결함.
+    # '처분'은 「이익잉여금처분계산서」와 겹치므로 제외한다.
+    if ("자기주식" in t or "자사주" in t) and (
+        "소각" in t or "취득" in t or ("처분" in t and "처분계산서" not in t)
+    ):
+        return "treasury_share"
     if "배당" in t or "이익잉여금" in t:
         return "cash_dividend"
     if "사외이사" in t or ("이사" in t and "선임" in t and "감사위원" not in t):
