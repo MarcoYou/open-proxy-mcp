@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 
 import pytest
 from starlette.testclient import TestClient
@@ -128,3 +129,94 @@ def test_success_bytes_do_not_match_the_scanner(client):
     r = _post(client, {"jsonrpc": "2.0", "id": 6, "method": "tools/list", "params": {}})
     assert r.status_code == 200
     assert not any(p in r.content for p in _ERR_PATTERNS), r.content[:160]
+
+
+# ── main() 이 실제로 무엇을 서빙하나 ────────────────────────────────────────
+def test_main_serves_exactly_what_build_app_returns(monkeypatch):
+    """**가장 큰 구멍이었다.** 위 게이트는 `build_app()` 을 재는데 프로덕션은 `main()` 이
+    서빙한다. `main()` 이 `build_app` 을 우회하면 미들웨어·호스트보호·무상태·JSON 이
+    한꺼번에 사라지는데 계약 게이트가 **전부 초록**이다(적대적 감사 실측).
+    260729 결함(라우트를 서빙되지 않는 인스턴스에 붙임)이 한 층 위로 옮겨간 모양이다.
+
+    이 이관에서 특히 위험하다 — 다섯 설정이 `streamable_http_app()` 인자로 옮겨가는데,
+    인자를 쓰기 가장 자연스러운 자리가 `uvicorn.run` 옆, 즉 `main()` 안이다.
+
+    스텁이 아니라 **스파이**로 감싼다. 스텁으로 갈아치우면 진짜 앱이 안 만들어져
+    host·port 가 SDK 기본값으로 보이고, 그게 바로 이 테스트가 잡으려는 결함이다.
+    """
+    import re as _re
+    import sys
+    import uvicorn
+    import open_proxy_mcp.server as S
+
+    seen = {}
+    real_build_app = S.build_app
+
+    def spy(server=None):
+        app = real_build_app(server)
+        seen["built"] = app
+        return app
+
+    monkeypatch.delenv("FASTMCP_HOST", raising=False)   # fly [env] 에 없다 → 기본값이 프로덕션 값
+    monkeypatch.delenv("FASTMCP_PORT", raising=False)
+    monkeypatch.setattr(sys, "argv", ["open_proxy_mcp.server", "--transport", "streamable-http"])
+    monkeypatch.setattr(S, "build_app", spy)
+    monkeypatch.setattr(S, "install_api_key_redaction", lambda: seen.update(redacted=True))
+    monkeypatch.setattr(uvicorn, "run", lambda app, host, port: seen.update(app=app, host=host, port=port))
+    S.main()
+
+    assert "built" in seen, "main() 이 build_app() 을 아예 부르지 않는다"
+    assert seen.get("app") is seen["built"], "main() 이 build_app() 이 만든 앱이 아닌 다른 것을 서빙한다"
+    assert seen.get("redacted"), "액세스 로그 마스킹이 안 걸렸다 — 유저 DART 키가 평문으로 쌓인다"
+
+    fly = (pathlib.Path(__file__).resolve().parent.parent / "fly.toml").read_text(encoding="utf-8")
+    internal_port = int(_re.search(r"internal_port\s*=\s*(\d+)", fly).group(1))
+    assert seen["port"] == internal_port, f"바인딩 포트 {seen['port']} != fly internal_port {internal_port}"
+    assert seen["host"] == "0.0.0.0", (
+        f"VM 밖에서 못 닿는 주소에 바인딩한다: {seen['host']}. SDK 기본값은 127.0.0.1 이라 "
+        "설정이 안 걸리면 fly 프록시가 못 닿고 전면 장애가 난다.")
+
+
+@pytest.mark.parametrize("q", ["", "%20", "%20%20", "%09"])
+def test_blank_key_never_passes_the_gate(client, q):
+    """공백만 든 키는 없는 것으로 쳐야 한다. 파이썬에서 " " 는 참이라 종전에는 통과했고,
+    하류 폴백도 참이라 **공백이 그대로 DART 키로** 쓰였다(실측 200)."""
+    r = client.post(f"/mcp?opendart={q}", json=_INIT,
+                    headers={**_HDRS, "Host": PROD_HOST})
+    assert r.status_code == 401, f"공백 키가 통과했다: {q!r} → {r.status_code}"
+
+
+@pytest.mark.parametrize("host", [
+    "evil.example.com",
+    "evil-open-proxy-mcp.fly.dev",       # 접미 일치 매처로 바뀌면 통과한다
+    "open-proxy-mcp.fly.dev.evil.com",   # 접두 일치 매처로 바뀌면 통과한다
+])
+def test_lookalike_hosts_are_rejected(client, host):
+    """기존 게이트는 목록과 아무 관계 없는 이름 하나만 던진다 — 매처가 부분 일치로 바뀌어도
+    초록이다. **닮은 이름**으로 재야 「목록에 없다」가 아니라 「보호가 산다」를 잰다."""
+    assert _post(client, _INIT, host=host).status_code == 421, f"{host} 가 통과했다"
+
+
+def test_tool_count_matches_the_documented_catalog(client):
+    """`>= 20` 은 25개 중 5개가 조용히 사라져도 통과한다(실측). 문서화된 카탈로그와 맞춘다 —
+    숫자를 여기 박으면 이중장부가 되므로 `wiki/tools/` 를 단일 출처로 쓴다."""
+    r = _post(client, {"jsonrpc": "2.0", "id": 8, "method": "tools/list", "params": {}})
+    wire = {t["name"] for t in r.json()["result"]["tools"]}
+    # 제외 목록을 여기 복사하지 않는다 — 이중장부가 된다. 카탈로그 검사기의 상수를 그대로 쓴다.
+    import sys
+    root = pathlib.Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(root / "scripts"))
+    from check_tool_catalog import CATALOG_DIR, SUPPORT_PAGES
+    docs = {p.stem for p in CATALOG_DIR.glob("*.md") if p.stem not in SUPPORT_PAGES}
+    missing = docs - wire
+    assert not missing, f"문서에는 있는데 wire 에 없는 도구: {sorted(missing)}"
+
+
+def test_initialize_actually_succeeds(client):
+    """HTTP 200 은 JSON-RPC 성공이 아니다 — 깨진 핸드셰이크도 200 에 error 를 실어 온다.
+    본문을 읽어야 「응답했다」가 아니라 「제대로 응답했다」를 잰다."""
+    d = _post(client, _INIT).json()
+    assert "error" not in d, d.get("error")
+    res = d["result"]
+    assert res["protocolVersion"] and res["serverInfo"]["name"] == "openproxy", res
+    assert res["instructions"], "instructions 가 비었다 — 도구 횡단 규칙이 클라이언트에 안 간다"

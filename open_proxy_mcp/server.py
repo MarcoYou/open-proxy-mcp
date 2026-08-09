@@ -139,7 +139,12 @@ class ApiKeyMiddleware:
             return
         from urllib.parse import parse_qs
         qs = parse_qs(scope.get("query_string", b"").decode())
-        opendart = qs.get("opendart", [None])[0]
+        # 공백만 든 키는 **없는 것으로 친다.** 파이썬에서 " " 는 참이라 종전에는 게이트를
+        # 통과했고(실측 `?opendart=%20` → 200), 하류의 `키 or os.getenv(...)` 폴백도 참이라
+        # 서버 키로 넘어가지도 않은 채 **공백이 그대로 DART 키로 쓰였다**. 사용자는 401 힌트
+        # 대신 원인 모를 상류 인증 실패를 받고, 통계엔 유령 사용자 해시가 잡히며,
+        # 키로 캐싱되는 클라이언트 인스턴스가 하나씩 늘어난다.
+        opendart = (qs.get("opendart", [None])[0] or "").strip() or None
         if opendart:
             set_request_api_key(opendart)
         elif scope.get("path", "").startswith("/mcp"):
