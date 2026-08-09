@@ -243,10 +243,13 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     L += ["", "## 신뢰도",
           f"- 스케일가드: {dq.get('scale_tier', '-')} (재무 단위오류 검사 — 항등식·시장최댓값 기준)",
           f"- 자본잠식 상태: {i.get('capital_impairment_status', '-')}"]
-    if p.get("data", {}).get("warnings") or p.get("warnings"):
-        L += ["", "## 유의(원문 경고)"]
-        for w in (d.get("warnings") or p.get("warnings") or []):
-            L.append(f"- {w}")
+    # 조건은 둘 다 보면서 출력은 `or` 로 하나만 봤다 — 데이터 경고가 있으면 봉투 경고
+    # (「이 회사가 맞나」 추정 고지)가 통째로 사라졌다. 봉투를 앞에 두고 둘 다 싣는다.
+    _seen: set[str] = set()
+    _warns = [w for w in list(p.get("warnings") or []) + list(d.get("warnings") or [])
+              if not (w in _seen or _seen.add(w))]
+    if _warns:
+        L += ["", "## 유의(원문 경고)"] + [f"- {w}" for w in _warns]
     L += ["", "> 방법론·기준 전문: `valuation(scope=\"explain\")` (company 없이)."]
     return "\n".join(L)
 

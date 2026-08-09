@@ -1051,8 +1051,15 @@ def _render_md(p: dict[str, Any]) -> str:
         f"- 지배순이익 {g(i['net_income_fy0_krw'],'','{:,}')}(FY0)/{g(i['net_income_ttm_krw'],'','{:,}')}(TTM) · 지배자본 {g(i['controlling_equity_krw'],'','{:,}')} · 유통주식 보통 {g(i['shares_common'],'','{:,}')}/합계 {g(i['shares_total'],'','{:,}')}",
         f"- 보통주 시총 {g(i['common_market_cap_krw'],'','{:,}')} (업종구분: {'금융·지주' if d['sector_class']=='financial' else '일반(비금융)'})",
     ]
-    if d["warnings"]:
-        lines += ["", "## 주의"] + [f"- {w}" for w in d["warnings"]]
+    # 봉투(payload["warnings"])와 데이터(data["warnings"])를 **둘 다** 싣는다.
+    # 「이 회사가 맞나」를 묻는 추정 경고는 declare_weak_resolution 이 봉투에 다는데,
+    # 종전에는 데이터 쪽만 읽어 통째로 버렸다 — 「현대」를 물으면 28곳 중 하나를 고른 사실이
+    # 아무 표시 없이 완결된 밸류에이션으로 나갔다. 봉투를 앞에 둔다(분석 전체의 전제라서).
+    _seen: set[str] = set()
+    _warns = [w for w in list(p.get("warnings") or []) + list(d.get("warnings") or [])
+              if not (w in _seen or _seen.add(w))]
+    if _warns:
+        lines += ["", "## 주의"] + [f"- {w}" for w in _warns]
     # note(방법론 고지)를 md에도 렌더 — json에만 있으면 기본(md) 사용자가 핵심 고지를 못 봄(재무 QA HIGH)
     if d.get("note"):
         lines += ["", f"> {d['note']}"]
@@ -1067,4 +1074,10 @@ async def build_valuation_payload(*args, **kwargs):
     이 서비스는 `ToolEnvelope` 를 쓰지 않고 dict 를 직접 만들어 return 이 여러 곳에
     흩어져 있다 — 진입점 하나만 감싸 두면 새 return 이 늘어도 전파가 끊기지 않는다.
     """
-    return declare_weak_resolution(await _build_valuation_payload_impl(*args, **kwargs))
+    payload = declare_weak_resolution(await _build_valuation_payload_impl(*args, **kwargs))
+    # **순서 결함 방어.** impl 은 md 를 자기 안에서 먼저 찍고(`payload["markdown"] = _render_md(...)`),
+    # 추정 고지는 그 바깥에서 붙는다. 그래서 md 사용자만 「이 회사가 맞나」를 못 봤다 —
+    # json 사용자는 봉투에서 봤다. 경고를 붙인 뒤 firm md 만 다시 찍는다.
+    if isinstance(payload, dict) and payload.get("markdown") and "multiples" in (payload.get("data") or {}):
+        payload["markdown"] = _render_md(payload)
+    return payload
