@@ -46,11 +46,22 @@ def build_mcp() -> FastMCP:
     """Build the single supported MCP tool surface."""
     mcp = FastMCP(
         "open-proxy-mcp",
+        # 여기엔 **도구를 가로지르는 규칙만** 둔다. 도구 하나로 표현되는 것은 그 도구의
+        # description 에 있어야 한다(설명 총 23,673자가 이미 컨텍스트에 있다).
+        # 실측값(후보 수·회사명·종목코드)은 절대 넣지 않는다 — 등록부가 바뀌면 조용히 썩는다.
         instructions=(
-            "Korean-listed company disclosure (DART) analysis server. Covers financials, "
-            "valuation, ownership structure, AGM proxy voting, and asset-holdings screening. "
-            "Start with the `company` tool to resolve a company name or ticker. Natural-language "
-            "questions work fine — you don't need to know tool names."
+            "Korean-listed company disclosure (DART) analysis. Natural-language questions "
+            "work — you don't need tool names. Answer in the user's language.\n\n"
+            "Resolve a company once with `company` and pass the returned name, ticker, and "
+            "corp_code downstream; otherwise every tool re-resolves the name.\n\n"
+            "Read `status` and `warnings` before answering — they carry resolution confidence, "
+            "missing filings, and basis fallbacks. State only figures that trace to a value in "
+            "the response; you may compute from them if you say so. A value you did not get is "
+            "\"not found in the filings read\" — never fill it from prior knowledge, never turn "
+            "\"not found\" into \"there is none\".\n\n"
+            "Figures carry their own basis (unit, currency, consolidated/separate, period, "
+            "confirmed/provisional/restated). Keep it attached, and never place figures from "
+            "different tools or periods side by side without saying the bases differ."
         ),
     )
     register_all_tools(mcp)
