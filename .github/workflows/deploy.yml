@@ -72,9 +72,10 @@ jobs:
       - name: Smoke - health + mcp reachability
         run: |
           set -e
+          # curl -w 는 실패 시에도 000 을 찍으므로 `|| echo 000` 을 덧붙이면 000000 이 된다.
           for i in $(seq 1 10); do
             code=$(curl -s -o /tmp/h.json -w '%{http_code}' --max-time 10 \
-                   https://open-proxy-mcp.fly.dev/health || echo 000)
+                   https://open-proxy-mcp.fly.dev/health)
             [ "$code" = "200" ] && break
             echo "health attempt $i -> $code"; sleep 10
           done
@@ -90,12 +91,19 @@ jobs:
           assert isinstance(n, int) and n > 0, f"tools={n!r} - server booted with no tools"
           print(f"tools={n}")
           PY
-          # /mcp 도달성 — 키 없이 401 이어야 한다(URL 에 키를 넣지 않으므로 로그에 남을 게 없다)
-          mcode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST \
-                  -H 'Content-Type: application/json' \
-                  -H 'Accept: application/json, text/event-stream' \
-                  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
-                  https://open-proxy-mcp.fly.dev/mcp || echo 000)
+          # /mcp 도달성 — 키 없이 401 이어야 한다(URL 에 키를 넣지 않으므로 로그에 남을 게 없다).
+          # **재시도가 필요하다**: 이 스텝은 이미 배포가 끝난 뒤에 돈다. 롤링 교체 중 fly 프록시가
+          # 재시작 중인 머신으로 한 번 보내면 502 가 스치고, 그 한 방으로 멀쩡한 배포가
+          # `state=failure` 로 기록된다(live_pilot_diff 가 그 값을 읽는다).
+          for i in $(seq 1 3); do
+            mcode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST \
+                    -H 'Content-Type: application/json' \
+                    -H 'Accept: application/json, text/event-stream' \
+                    -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
+                    https://open-proxy-mcp.fly.dev/mcp)
+            [ "$mcode" = "401" ] && break
+            echo "mcp attempt $i -> $mcode"; sleep 5
+          done
           echo "mcp (no key) -> $mcode"
           [ "$mcode" = "401" ] || { echo "::error::/mcp returned $mcode, expected 401 - endpoint is not serving"; exit 1; }
 
