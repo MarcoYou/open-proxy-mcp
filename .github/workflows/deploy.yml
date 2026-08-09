@@ -9,6 +9,13 @@ permissions:
   contents: read
   deployments: write
 
+# 배포는 한 번에 하나만. `needs: test` 로 배포 시작이 1~3분 늦어져, 연달아 푸시하면 두
+# 배포가 겹쳐 **오래된 커밋이 나중에 올라가는** 창이 생긴다. 취소하지 않고 줄을 세운다
+# (취소하면 중간 커밋이 영영 배포되지 않는다).
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # 배포는 테스트를 **기다린다**. 종전에는 test.yml 과 deploy.yml 이 같은 push 에서 나란히 돌아,
   # 테스트가 빨개도 배포가 그대로 나갔다 — 700개가 초록이어도 배포를 못 막으면 장식이다.
@@ -16,6 +23,7 @@ jobs:
   # 아예 안 돈다. 그러면 배포가 영원히 대기한다. 그래서 여기서 직접 돌린다.
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # 스위트는 10초대 — 멈추면 배포를 6시간(기본값) 붙들지 않게
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7

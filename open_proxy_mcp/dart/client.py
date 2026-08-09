@@ -1,11 +1,14 @@
 """OpenDART API 클라이언트 — API 호출을 한 곳에서 관리
 
-⚠️ DART 접근 시 주의사항 (API + 웹 공통):
-  - OpenDART API: 분당 1,000회 초과 시 24시간 IP 차단. 일일 20,000회 한도.
-  - DART 웹 스크래핑: 공식 API가 아니므로 더 보수적으로 접근.
-    과도한 요청은 DDoS로 오해받을 수 있음.
-  - 모든 요청에 최소 간격(API: 0.1초, 웹: 2초) 강제 적용.
-  - 배치 작업 시 CLAUDE.md의 "DART API 호출 규칙" 반드시 참조.
+⚠️ DART 접근 시 주의사항 — **한도는 API 와 웹이 다르다**:
+  - OpenDART API: 한도가 **키마다** 걸린다. 분당 1,000회를 넘기면 그 키가 막힌다
+    (실측 2~3시간). 일일 한도는 키당 4만회이지만, 먼저 닿는 건 거의 언제나 분당 쪽이다.
+    사용자 키는 요청마다 다르므로 한 사용자가 다른 사용자를 막지는 않는다 —
+    위험한 건 **우리 자신의 키**(배치·스크립트)다.
+  - DART 웹 스크래핑(원문·KIND): 위 한도와 **별개**이고 공표된 수치도 차단 기준도 없다.
+    「한도가 없다」가 아니라 **「한도를 모른다」**이므로 수치가 아니라 예의로 다룬다.
+  - 최소 간격 강제: API 0.066초(=분당 910), 웹 2초.
+  - 배치 작업 시 CLAUDE.md의 "OpenDART API 한도" 절 반드시 참조.
 """
 
 import os
@@ -125,7 +128,7 @@ DART_WEB_BASE_URL = "https://dart.fss.or.kr"
 # 무력화 = 과보수. race는 _api_rate_lock이 직렬화로 보장하므로 간격과 무관.)
 _MIN_INTERVAL_API = 0.066
 _MIN_INTERVAL_WEB = 2.0     # 웹: 최소 2초 간격 (DDoS 오해 방지)
-# DART OpenAPI 분당 한도 1000회 — 초과 시 24h IP 차단 정책.
+# DART OpenAPI 분당 한도 1000회 — 초과 시 **그 키**가 막힌다(실측 2~3시간).
 # 실제 cap을 910으로 둠 (9% buffer, batch 동시 호출 race도 cover).
 _API_RATE_LIMIT_PER_MINUTE = 910
 
@@ -536,7 +539,7 @@ class DartClient:
                 self._api_keys.append(primary)
             # OPENDART_API_KEY_2, _3, _4, ... 순번 있는 만큼 전부 로드(260705, 키 2개 초과 지원).
             # 분당 스로틀(_api_call_timestamps)은 인스턴스 하나가 전 키 공유 — 키를 늘려도 IP레벨
-            # 분당한도(910)는 그대로 지켜짐, 늘어나는 건 하루 총 쿼터(키당 2만)뿐.
+            # 분당한도(910)는 그대로 지켜짐, 늘어나는 건 하루 총 쿼터(키당 4만)뿐.
             i = 2
             while True:
                 k = os.getenv(f"OPENDART_API_KEY_{i}")
@@ -1153,7 +1156,7 @@ class DartClient:
     async def _throttle_api(self):
         """API 요청 분당 한도 hard guard (rolling window 60s).
 
-        DART OpenAPI 분당 1000회 초과 시 24시간 IP 차단 정책. 실제 cap을 _API_RATE_LIMIT_PER_MINUTE
+        DART OpenAPI 분당 1000회 초과 시 그 키가 막힌다(실측 2~3시간). 실제 cap을 _API_RATE_LIMIT_PER_MINUTE
         (default 900)로 두어 10% buffer + batch 동시 호출 race 모두 cover.
 
         구조:
