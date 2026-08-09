@@ -60,15 +60,15 @@ async def main() -> None:
                 # mcp 2.0: call_tool → CallToolResult(pydantic 모델).
                 # **모델을 그대로 순회하면 (필드명, 값) 쌍이 나와** 내용이 비어도 글자수가
                 # 잡히고 status 가 OK 로 뜬다 — 체크 셋 중 둘이 장식이 된다(260810 실측).
-                content = getattr(result, "content", None)
-                if content is None:                       # 1.x 호환: list 또는 (content, meta)
-                    content = result[0] if isinstance(result, tuple) else result
-                texts = [getattr(item, "text", str(item)) for item in content]
+                # mcp 2.0: call_tool → CallToolResult(pydantic 모델).
+                # **모델을 그대로 순회하면 (필드명, 값) 쌍이 나와** 내용이 비어도 글자수가
+                # 잡히고 status 가 OK 로 뜬다 — 체크 셋 중 둘이 장식이 된다(260810 실측).
+                # 도구 실패는 여기로 안 온다 — call_tool 이 ToolError 를 **던져서** 아래
+                # except 의 EXC: 행으로 간다(tools/base.py). is_error 를 볼 자리가 없다.
+                texts = [getattr(item, "text", str(item)) for item in result.content]
                 out = "\n".join(texts)
                 dt = (time.perf_counter() - t0) * 1000
                 bad = [m for m in BAD_MARKERS if m in out]
-                if getattr(result, "is_error", False):
-                    bad = bad or ["is_error"]
                 status = "OK" if out.strip() and not bad else f"BAD:{bad or 'empty'}"
                 rows.append({"case": label, "ms": round(dt), "chars": len(out), "status": status})
                 print(f"  {'✓' if status=='OK' else '⚠'} {label:60s} {dt:6.0f}ms {len(out):6d}자 {status if status!='OK' else ''}")

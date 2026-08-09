@@ -44,7 +44,7 @@ def install_api_key_redaction() -> None:
 
 
 def _opm_version() -> str:
-    """pyproject 의 프로젝트 버전. 못 읽으면 빈 문자열(서버는 계속 뜬다)."""
+    """**설치된 배포판**의 버전(pyproject 파일이 아니라 메타데이터). 못 읽으면 빈 문자열."""
     try:
         from importlib.metadata import version
         return version("open-proxy-mcp")
@@ -294,9 +294,11 @@ def build_app(server=None):
     세션 유지 불필요. 2머신 유지하면서 세션 어피니티 문제 해결. (2026-06)
     """
     server = server or build_mcp()
-    # 2.0 에서 이 다섯은 `settings` 를 떠나 여기 인자가 됐고, **기본값이 전부 우리와 반대**다.
-    # 하나라도 빠뜨리면 조용히 다른 서버가 된다 — 특히 transport_security 는 없으면
-    # 보호가 꺼진 채로 정상 서빙된다.
+    # 2.0 에서 이 **넷**은 `settings` 를 떠나 여기 인자가 됐고, **기본값이 전부 우리와 반대**다
+    # (다섯 번째인 port 는 앱이 아니라 uvicorn.run()/run() 이 받는다).
+    # 대입은 다섯 다 ValueError 로 시끄럽게 터지므로 안전하다 — 위험한 건 **인자를 빠뜨리는 것**
+    # 이고, 그건 다섯 다 조용하다. 그중 transport_security 만 결과가 보안이다:
+    # 없으면 보호가 꺼진 채로 정상 서빙된다(사용자도 지표도 눈치 못 챈다).
     app = server.streamable_http_app(
         stateless_http=True,
         json_response=True,

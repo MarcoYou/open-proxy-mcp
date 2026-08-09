@@ -220,3 +220,18 @@ def test_initialize_actually_succeeds(client):
     res = d["result"]
     assert res["protocolVersion"] and res["serverInfo"]["name"] == "openproxy", res
     assert res["instructions"], "instructions 가 비었다 — 도구 횡단 규칙이 클라이언트에 안 간다"
+def test_server_version_is_reported(client):
+    """`serverInfo.version` 이 비어 있지 않고 pyproject 와 같아야 한다.
+
+    2.0 은 이 값을 자동으로 안 채운다(기본 ""). `_opm_version()` 이 조용히 실패하면
+    (빌드 백엔드 변경·`--no-install-project`·배포명 변경) 빈 문자열이 나가는데,
+    **읽는 곳이 없어서 아무도 모른다** — 이 브랜치가 막으려는 실패 모양 그대로다.
+    """
+    import pathlib as _p
+    r = _post(client, _INIT)
+    ver = r.json()["result"]["serverInfo"]["version"]
+    assert ver, "serverInfo.version 이 비어 있다 — _opm_version() 이 조용히 실패했다"
+    txt = (_p.Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+    declared = next(l.split("=")[1].strip().strip('"')
+                    for l in txt.splitlines() if l.strip().startswith("version ="))
+    assert ver == declared, f"wire={ver} vs pyproject={declared}"
