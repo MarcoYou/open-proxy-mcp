@@ -160,3 +160,4 @@ wiki/architecture/audits/data/
 # 로컬 개발 전용 (조회 스냅샷·개인 경로 포함 launch 설정 — 커밋 금지)
 scratchpad_*.json
 .claude/launch.json
+.claude/skills/opm-manual
