@@ -10,7 +10,24 @@ permissions:
   deployments: write
 
 jobs:
+  # 배포는 테스트를 **기다린다**. 종전에는 test.yml 과 deploy.yml 이 같은 push 에서 나란히 돌아,
+  # 테스트가 빨개도 배포가 그대로 나갔다 — 700개가 초록이어도 배포를 못 막으면 장식이다.
+  # test.yml 을 workflow_run 으로 묶지 않는 이유: 그쪽은 paths 필터가 있어 문서만 고친 push 에서는
+  # 아예 안 돈다. 그러면 배포가 영원히 대기한다. 그래서 여기서 직접 돌린다.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Check tool catalog
+        run: uv run python scripts/check_tool_catalog.py
+      - name: Run unit and regression tests
+        run: uv run pytest -q
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -37,20 +54,42 @@ jobs:
 
       # 배포 성공 != 서비스 정상. 260729 사고에서 flyctl 은 성공을 냈지만 앱은 죽어 있었다.
       # 실제로 엔드포인트가 200 을 내는지 확인하고, 아니면 이 job 을 실패시킨다.
-      - name: Smoke - /health check
+      # 종전 스모크는 `grep -q 'ok'` 만 봤다 — 도구가 0개여도, /mcp 가 전부 거부돼도 통과한다.
+      # 260729 사고(앱 사망·배포 성공·CI 초록)가 그래서 안 걸렸다. 두 가지를 더 본다:
+      #   ① /health 의 tools 수가 실제 카탈로그와 같은가 (빈 서버 검출)
+      #   ② /mcp 가 응답하는가 — 키 없이 치면 401 이어야 한다. 그 앞단(호스트 검사·라우팅)이
+      #      깨지면 401 이 아닌 것이 온다(421·404·502). 키가 없어도 여기까지는 잴 수 있다.
+      # 한계(의도적): ApiKeyMiddleware 가 transport security 보다 먼저라, 키 없는 프로브로는
+      # 「호스트 보호가 켜져 있는가」를 구분할 수 없다. 그건 프로토콜 계약 테스트가 맡는다.
+      - name: Smoke - health + mcp reachability
         run: |
+          set -e
           for i in $(seq 1 10); do
             code=$(curl -s -o /tmp/h.json -w '%{http_code}' --max-time 10 \
                    https://open-proxy-mcp.fly.dev/health || echo 000)
-            if [ "$code" = "200" ]; then
-              echo "healthy: $(cat /tmp/h.json)"
-              grep -q 'ok' /tmp/h.json || { echo "body not ok"; exit 1; }
-              exit 0
-            fi
-            echo "attempt $i -> $code"; sleep 10
+            [ "$code" = "200" ] && break
+            echo "health attempt $i -> $code"; sleep 10
           done
-          echo "::error::deployed but /health is not 200 - service is down"
-          exit 1
+          [ "$code" = "200" ] || { echo "::error::/health is not 200 - service is down"; exit 1; }
+          echo "health: $(cat /tmp/h.json)"
+          # 정확한 개수는 test job 의 check_tool_catalog.py 가 wiki 카탈로그와 대조한다.
+          # 여기서는 「0개로 떴는가」만 본다 — 부팅은 됐는데 tool 이 하나도 안 붙은 경우.
+          python3 - <<'PY'
+          import json
+          d = json.load(open("/tmp/h.json"))
+          assert d.get("status") == "ok", f"status={d.get('status')}"
+          n = d.get("tools")
+          assert isinstance(n, int) and n > 0, f"tools={n!r} - server booted with no tools"
+          print(f"tools={n}")
+          PY
+          # /mcp 도달성 — 키 없이 401 이어야 한다(URL 에 키를 넣지 않으므로 로그에 남을 게 없다)
+          mcode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST \
+                  -H 'Content-Type: application/json' \
+                  -H 'Accept: application/json, text/event-stream' \
+                  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}' \
+                  https://open-proxy-mcp.fly.dev/mcp || echo 000)
+          echo "mcp (no key) -> $mcode"
+          [ "$mcode" = "401" ] || { echo "::error::/mcp returned $mcode, expected 401 - endpoint is not serving"; exit 1; }
 
       # 2) 배포 결과(성공/실패)를 Deployment 상태로 기록 — 성공 시 이전 기록 자동 inactive
       - name: Finish deployment
