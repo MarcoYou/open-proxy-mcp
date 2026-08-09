@@ -122,6 +122,28 @@ lsof -nP -iTCP:8000 -sTCP:LISTEN
 stdio 프로세스가 잡히면 그 부모 세션을 확인한다(`ps -o ppid= -p <PID>`). 설정을 고치기 전에 뜬
 세션이 잔여 프로세스를 붙들고 있는 경우가 있고, 그건 설정 문제가 아니라 그 세션만의 문제다.
 
+## 배포를 되돌리는 법
+
+`flyctl` 에 `rollback` 서브커맨드는 **없다**. 되돌리기는 **직전 이미지를 그대로 재배포**하는 것이고,
+빌드가 없어 초 단위로 끝난다. 소스를 revert 해서 다시 빌드하는 길(5~10분)보다 훨씬 빠르므로,
+장애 중에는 **앞으로 고치지 말고 먼저 되돌린다**.
+
+```bash
+FLY=~/.fly/bin/flyctl
+
+# ① 직전 릴리스의 이미지 태그를 읽는다 (배포할 때마다 바뀌므로 그때그때 다시 읽는다)
+"$FLY" releases --app open-proxy-mcp --json | head -40
+
+# ② 그 이미지로 되돌린다
+"$FLY" deploy --app open-proxy-mcp --image registry.fly.io/open-proxy-mcp:deployment-<태그>
+```
+
+- 이미지에 **`GH_SHA` 라벨**이 박혀 있어 어느 커밋인지 확인하고 고를 수 있다 —
+  `"$FLY" image show --app open-proxy-mcp`.
+- 인증이 안 돼 있으면 `releases` 가 `no access token available` 을 낸다. **인증되지 않은 상태는
+  롤백 수단이 없는 상태**다 — SDK·의존성 교체처럼 되돌릴 일이 있는 배포 전에는 먼저
+  `"$FLY" auth login` 으로 확인한다.
+
 ## 키 취급
 
 두 URL 모두 `?opendart=<키>` 형태로 키가 **URL 안에** 들어간다. 그래서:
