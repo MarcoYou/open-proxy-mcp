@@ -598,6 +598,7 @@ def paths_report(days: int = 7):
     """
     if not using_pg():
         raise SystemExit("--paths 는 Postgres 백엔드에서만 (DATABASE_URL 필요)")
+    from open_proxy_mcp.dart.client import _WEB_INTERVAL_RANGE as _WEB_RANGE
     con = _pg_conn()
     have = {r[0] for r in con.execute(
         "SELECT column_name FROM information_schema.columns "
@@ -620,11 +621,13 @@ def paths_report(days: int = 7):
         print("  원문을 받은 요청이 없다 — 기간을 늘리거나 계기 배포 시점을 확인할 것")
         con.close()
         return
-    for label, n in (("주 경로 document.xml", api), ("viewer 폴백 (2초 간격)", viewer),
-                     ("KIND 폴백 (1~3초 랜덤)", kind)):
+    # 라벨에 숫자를 박지 않는다 — 간격이 바뀌면 표가 조용히 거짓말을 한다(260810 통일).
+    for label, n in (("주 경로 document.xml", api), ("viewer 폴백 (DART 웹)", viewer),
+                     ("KIND 폴백", kind)):
         print(f"  {label:<26} {n:>7,}건   {100 * n / total:>5.1f}%")
     print(f"\n  폴백을 탄 요청   {fb_reqs:,} / {reqs:,}  ({100 * fb_reqs / max(1, reqs):.2f}%)")
-    print(f"  간격 때문에 잔 시간 총 {wait_ms / 1000:,.1f}초"
+    lo, hi = _WEB_RANGE
+    print(f"  간격({lo:g}~{hi:g}초 랜덤·시계 공유) 때문에 잔 시간 총 {wait_ms / 1000:,.1f}초"
           + (f" · 폴백 요청당 평균 {wait_ms / fb_reqs / 1000:.1f}초" if fb_reqs else ""))
 
     rows = con.execute(
