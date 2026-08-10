@@ -331,3 +331,92 @@ def test_recording_still_works_when_the_gate_is_open(monkeypatch):
     monkeypatch.setattr(usage, "_ensure_worker", lambda: None)
     usage.record("some-test-key", 200, "law_lookup", 5)
     assert sink.qsize() == 1, "게이트를 열었는데도 기록이 안 된다 — 통계가 죽는다"
+
+
+# ── 상류 실패가 「성공」으로 잡히지 않는가 (260810) ────────────────────────
+def _degrade_body(kind_status: str):
+    """실제 degrade 응답 바이트를 만든다 — 리터럴을 복사하지 않는다.
+    복사하면 dart_safety 가 표지를 빼도 이 테스트는 영원히 통과한다."""
+    from open_proxy_mcp.dart.client import DartClientError
+    from open_proxy_mcp.services.dart_safety import degrade_response
+    return degrade_response("dividend", "md", DartClientError(kind_status, "x")).encode()
+
+
+def test_upstream_degrade_is_not_counted_as_success(client, monkeypatch):
+    """**이게 이번 수정의 전부다.**
+
+    degrade 는 설계상 정상 응답(`# tool\\n\\n안내문`)이라 `isError` 가 없다. 표지가 없으면
+    스캐너는 성공과 구분하지 못한다 — 오늘 넣은 3상태로도 못 잡는다(스캐너가 눈이 먼 게
+    아니라 응답이 진짜 성공 모양이라서). 실측: 306,670행 중 오류 28건뿐이었던 원인.
+    """
+    import open_proxy_mcp.server as S
+
+    body = _degrade_body("020")                     # 분당 한도 초과 = 답을 못 줌
+    assert S._DEGRADED_RE.search(body), "degrade 응답에 표지가 없다 — 통계가 성공으로 적는다"
+    assert not any(p in body for p in S._ERR_PATTERNS), (
+        "degrade 가 isError 를 달고 있다면 이 테스트의 전제가 틀린 것이다")
+    kind = S._DEGRADED_RE.search(body).group(1).decode()
+    assert kind == "rate_limited", kind
+
+
+def test_no_data_is_not_counted_as_failure(client):
+    """「조회된 자료가 없다」(013)·「회사를 못 찾았다」(404)는 **답이다.** 실패로 세면
+    오류율이 부풀고, 진짜 고장이 그 안에 묻힌다. 다만 빈도는 알아야 하므로 표시는 남긴다."""
+    import open_proxy_mcp.server as S
+
+    for status, expect in (("013", "no_data"), ("404", "not_found")):
+        body = _degrade_body(status)
+        assert not S._DEGRADED_RE.search(body), f"{status} 가 실패로 표시됐다"
+        m = S._NODATA_RE.search(body)
+        assert m and m.group(1).decode() == expect, f"{status}: {body[-40:]!r}"
+
+
+def test_degrade_marker_rides_json_format_too(client):
+    """기본은 md 지만 format='json' 도 있다. 한쪽만 표시하면 포맷에 따라 통계가 갈린다."""
+    from open_proxy_mcp.dart.client import DartClientError
+    from open_proxy_mcp.services.dart_safety import degrade_response
+    import open_proxy_mcp.server as S
+
+    body = degrade_response("dividend", "json", DartClientError("020", "x")).encode()
+    assert S._DEGRADED_RE.search(body), "json degrade 에 표지가 없다"
+
+
+def test_middleware_records_upstream_degrade_as_error(client, monkeypatch):
+    """표지를 다는 것과 **통계에 그렇게 적히는 것**은 별개다 — 미들웨어까지 태운다.
+
+    실제 tool 을 DART 실패로 밀어 degrade 를 타게 하고, `usage.record` 가 받은 값을 본다.
+    `up_` 접두는 **우리 크래시와 상류 실패를 가르기 위한 것**이다(대응이 다르다:
+    전자는 우리가 고치고, 후자는 사용자에게 조정 안내가 나가야 한다).
+    """
+    import open_proxy_mcp.tools.law_lookup as T
+    from open_proxy_mcp.dart.client import DartClientError
+
+    def _boom(*a, **k):
+        raise DartClientError("020", "rate limited")
+
+    monkeypatch.setattr(T, "build_law_lookup_payload", _boom)
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 9, "method": "tools/call",
+                           "params": {"name": "law_lookup",
+                                      "arguments": {"query": "상법 제363조"}}}, monkeypatch)
+    assert rows, "기록이 아예 없다"
+    kw = rows[-1][1]
+    assert kw.get("is_error") is True, (
+        f"상류 실패가 성공으로 적혔다 — degrade 표지가 미들웨어에 안 닿는다: {kw}")
+    assert kw.get("error_kind") == "up_rate_limited", kw
+
+
+def test_middleware_records_no_data_as_success(client, monkeypatch):
+    """「자료 없음」은 실패가 아니다. 실패로 세면 진짜 고장이 그 안에 묻힌다."""
+    import open_proxy_mcp.tools.law_lookup as T
+    from open_proxy_mcp.dart.client import DartClientError
+
+    def _empty(*a, **k):
+        raise DartClientError("013", "no data")
+
+    monkeypatch.setattr(T, "build_law_lookup_payload", _empty)
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 10, "method": "tools/call",
+                           "params": {"name": "law_lookup",
+                                      "arguments": {"query": "상법 제363조"}}}, monkeypatch)
+    kw = rows[-1][1]
+    assert kw.get("is_error") is False, f"「자료 없음」이 실패로 적혔다: {kw}"
+    assert kw.get("error_kind") == "no_data", kw

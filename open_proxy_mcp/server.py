@@ -142,6 +142,14 @@ _ERR_PATTERNS = (b'"isError":true', b'"isError": true',
 #: 그 수가 늘면 에러율이 0으로 수렴하는 대신 「모르겠다」가 쌓여 눈에 띈다.
 _ERR_FIELD = (b'"isError"', b'"is_error"', b'"error"')
 _EKIND_RE = re.compile(rb"\[ekind=(\w+)\]")  # tool 래퍼가 붙인 error_kind 태그
+#: **degrade 표지** — 상류(DART) 실패를 크래시 대신 정상 응답으로 낮춰 보낸 것(dart_safety).
+#: 그 응답은 설계상 `# tool\n\n안내문` 이라 `isError` 가 없어, 이 표지가 없으면 스캐너가
+#: **성공과 구분하지 못한다.** 260810 실측: 306,670행 중 오류로 적힌 것이 28건뿐이었는데
+#: 진짜 오류가 28건이어서가 아니라 DART 실패가 전부 성공으로 세어졌기 때문이었다.
+#: 오늘 넣은 3상태(unclassifiable)로도 못 잡힌다 — 스캐너가 눈이 먼 게 아니라 응답이
+#: **진짜로 성공 모양**이라서다. 구멍이 스캐너보다 위에 있었다.
+_DEGRADED_RE = re.compile(rb"\[degraded=(\w+)\]")   # 답을 못 줬다 → 실패로 센다
+_NODATA_RE = re.compile(rb"\[nodata=(\w+)\]")       # 「자료 없음」은 답이다 → 성공, 다만 표시
 
 #: 요청 본문에서 **도구 이름을 꺼낼 만큼만** 읽는다. JSON-RPC 는 method·params.name 이 앞에
 #: 오므로 정상 요청은 수백 바이트면 충분하다(OPM 인자는 회사명·코드·연도다).
@@ -225,7 +233,8 @@ class ApiKeyMiddleware:
             # (툴 내부 실패는 HTTP 200에 실려 오므로 status만으론 못 잡음)
             # 그 외(핸드셰이크 등)는 기존대로 응답 시작 시 기록.
             rec = {"status": 0, "latency": None, "err": False, "tail": b"",
-                   "done": False, "ekind": None, "bytes": 0, "field_seen": False}
+                   "done": False, "ekind": None, "bytes": 0, "field_seen": False,
+                   "degraded": None, "nodata": None}
 
             async def send_wrapper(message):
                 if message["type"] == "http.response.start":
@@ -247,6 +256,14 @@ class ApiKeyMiddleware:
                             m = _EKIND_RE.search(hay)
                             if m:
                                 rec["ekind"] = m.group(1).decode()
+                        if rec["degraded"] is None:
+                            m = _DEGRADED_RE.search(hay)
+                            if m:
+                                rec["degraded"] = m.group(1).decode()
+                        if rec["nodata"] is None:
+                            m = _NODATA_RE.search(hay)
+                            if m:
+                                rec["nodata"] = m.group(1).decode()
                         rec["tail"] = hay[-64:]  # 태그(~16B)가 청크 경계에 안 잘리게
                     if not message.get("more_body", False):
                         rec["done"] = True
@@ -258,8 +275,15 @@ class ApiKeyMiddleware:
                         # 셋째가 핵심이다. 종전엔 이것도 False 로 적혀서 **스캐너가 눈이 멀면
                         # 에러율이 조용히 0** 이 됐다. 이제 「모르겠다」가 쌓여 눈에 띈다
                         # (nullable 이라 WHERE is_error=true 집계의 분모에서도 빠진다).
-                        if rec["err"]:
+                        #   상류실패 degrade 표지 → is_error=True + `up_` 접두
+                        #           (우리 크래시와 구분한다 — 대응이 다르다)
+                        #   자료없음 nodata 표지        → is_error=False + kind 만 남김
+                        if rec["degraded"]:
+                            is_err, ekind = True, f"up_{rec['degraded']}"
+                        elif rec["err"]:
                             is_err, ekind = True, (rec["ekind"] or "untagged")
+                        elif rec["nodata"]:
+                            is_err, ekind = False, rec["nodata"]
                         elif rec["field_seen"]:
                             is_err, ekind = False, None
                         else:

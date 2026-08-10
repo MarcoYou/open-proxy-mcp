@@ -87,12 +87,34 @@ def classify_degrade(exc: BaseException) -> tuple[str, str]:
     return ("transient", "DART 조회가 일시적으로 실패했습니다. 잠시 후 다시 시도하세요.")
 
 
+def degrade_marker(kind: str) -> str:
+    """degrade 응답에 실을 **분류 표지**. 미들웨어가 본문 바이트에서 이것만 뽑아 통계에 적는다.
+
+    260810: 이 표지가 없어서 **상류 실패가 통계에 전부 「성공」으로 잡히고 있었다.**
+    degrade 는 설계상 정상 응답 모양(`# tool\n\n안내문`)이라 `isError` 가 없고, 그래서
+    응답을 훑는 스캐너 입장에서 성공과 구분이 안 된다 — 306,670행 중 오류로 적힌 것이
+    28건뿐이었던 이유다(진짜 오류가 28건인 게 아니라 DART 실패가 전부 성공으로 세어졌다).
+    크래시 경로는 이미 `[ekind=...]` 를 싣고 있었다(tools/__init__). 같은 방식을 여기에도 준다.
+
+    표지를 둘로 가르는 기준은 **`_RETRYABLE`** — 이미 「재시도가 의미 있나」로 쓰던 구분이고,
+    그게 곧 「사용자가 답을 못 얻었나」와 같다.
+      · `[degraded=…]` 상류·부하 문제로 **답을 못 줬다** → 통계에서 실패로 센다
+      · `[nodata=…]`  조회 결과가 없거나(013) 회사를 못 찾은 것(404) — **이건 답이다**.
+                      실패로 세면 안 되지만, 얼마나 자주 나오는지는 알아야 하므로 표시는 남긴다
+    """
+    return f"[degraded={kind}]" if kind in _RETRYABLE else f"[nodata={kind}]"
+
+
 def degrade_response(tool_name: str, fmt: str, exc: BaseException) -> str:
     """외부오류를 크래시 대신 정상 응답(문자열)으로. 원인별로 다른 안내를 실어
     사용자가 (필요할 때만) 호출 방식을 바꾸도록 유도한다. format="json"이면 최소 JSON,
-    아니면 마크다운. 에러 메시지 원문은 싣지 않는다(개인정보 — 예외 클래스명만)."""
+    아니면 마크다운. 에러 메시지 원문은 싣지 않는다(개인정보 — 예외 클래스명만).
+
+    안내문과 별개로 `degrade_marker()` 표지를 **두 포맷 모두**에 싣는다 — 안 실으면
+    이 응답이 통계에서 성공으로 잡힌다(위 함수 주석)."""
     reason = type(exc).__name__
     kind, msg = classify_degrade(exc)
+    marker = degrade_marker(kind)
     if (fmt or "md").lower() == "json":
         return json.dumps(
             {
@@ -100,9 +122,9 @@ def degrade_response(tool_name: str, fmt: str, exc: BaseException) -> str:
                 "status": "error",
                 "warnings": [msg],
                 "data": {"error_class": reason, "error_kind": kind,
-                         "retry": kind in _RETRYABLE},
+                         "retry": kind in _RETRYABLE, "marker": marker},
             },
             ensure_ascii=False,
             indent=2,
         )
-    return f"# {tool_name}\n\n{msg}"
+    return f"# {tool_name}\n\n{msg}\n\n{marker}"
