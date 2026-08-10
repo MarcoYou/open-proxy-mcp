@@ -275,11 +275,14 @@ class ApiKeyMiddleware:
                         # 셋째가 핵심이다. 종전엔 이것도 False 로 적혀서 **스캐너가 눈이 멀면
                         # 에러율이 조용히 0** 이 됐다. 이제 「모르겠다」가 쌓여 눈에 띈다
                         # (nullable 이라 WHERE is_error=true 집계의 분모에서도 빠진다).
-                        #   상류실패 degrade 표지 → is_error=True + `up_` 접두
-                        #           (우리 크래시와 구분한다 — 대응이 다르다)
+                        #   상류실패 degrade 표지 → is_error=True + `dart_` 접두
+                        #           (우리 크래시와 구분한다 — 대응이 다르다). 접두가 필요한 건
+                        #           이름이 겹치기 때문이다 — `timeout` 은 우리 크래시 분류에도
+                        #           degrade 분류에도 있다. 줄임말(`up_`)을 안 쓰는 이유는
+                        #           **리포트에서 이 값을 읽는 사람이 물어보지 않아야** 해서다.
                         #   자료없음 nodata 표지        → is_error=False + kind 만 남김
                         if rec["degraded"]:
-                            is_err, ekind = True, f"up_{rec['degraded']}"
+                            is_err, ekind = True, f"dart_{rec['degraded']}"
                         elif rec["err"]:
                             is_err, ekind = True, (rec["ekind"] or "untagged")
                         elif rec["nodata"]:

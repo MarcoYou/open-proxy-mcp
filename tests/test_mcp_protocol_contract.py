@@ -385,7 +385,7 @@ def test_middleware_records_upstream_degrade_as_error(client, monkeypatch):
     """표지를 다는 것과 **통계에 그렇게 적히는 것**은 별개다 — 미들웨어까지 태운다.
 
     실제 tool 을 DART 실패로 밀어 degrade 를 타게 하고, `usage.record` 가 받은 값을 본다.
-    `up_` 접두는 **우리 크래시와 상류 실패를 가르기 위한 것**이다(대응이 다르다:
+    `dart_` 접두는 **우리 크래시와 상류 실패를 가르기 위한 것**이다(대응이 다르다:
     전자는 우리가 고치고, 후자는 사용자에게 조정 안내가 나가야 한다).
     """
     import open_proxy_mcp.tools.law_lookup as T
@@ -402,7 +402,7 @@ def test_middleware_records_upstream_degrade_as_error(client, monkeypatch):
     kw = rows[-1][1]
     assert kw.get("is_error") is True, (
         f"상류 실패가 성공으로 적혔다 — degrade 표지가 미들웨어에 안 닿는다: {kw}")
-    assert kw.get("error_kind") == "up_rate_limited", kw
+    assert kw.get("error_kind") == "dart_rate_limited", kw
 
 
 def test_middleware_records_no_data_as_success(client, monkeypatch):
