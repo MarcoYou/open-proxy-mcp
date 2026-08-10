@@ -329,6 +329,108 @@ _DOC_CACHE = LruByteCache(_env_mb("OPM_DOC_CACHE_MB", 96), _DOC_CACHE_TTL_SEC, "
 # 면 상한이 150MB 대다. 16MB(≈1,400건) + 24h TTL 로 문서 캐시와 같은 규율을 준다.
 _DIVIDEND_CACHE = LruByteCache(_env_mb("OPM_DIVIDEND_CACHE_MB", 16), _DOC_CACHE_TTL_SEC, "dividend")
 
+#: 디스크 캐시 — 메모리에서 밀려난 것과 **프로세스가 다시 뜬 뒤**를 받는 자리.
+#: 종전엔 `/tmp/opm_cache` 였고, 그건 컨테이너 이미지 안이라 **배포마다 통째로 사라졌다.**
+#: 받침의 존재 이유는 본체가 죽었을 때 살아 있는 것인데 같이 죽으면 받침이 아니다
+#: (260810 실측: 배포 직후 적중률 0%, 24h 평균 36%, 디스크 적중은 24h 13건뿐).
+#: 그래서 운영은 볼륨을 가리킨다 — `OPM_DOC_CACHE_DIR=/data/opm_cache`(fly.toml).
+#:
+#: **경로 이동과 예산·청소는 한 몸이다.** `/tmp` 는 상한이 필요 없었다(배포가 비워줬다).
+#: 볼륨엔 그 자동 청소가 없고, 같은 볼륨에 master.db(회사코드 원장 14MB)가 산다 —
+#: 캐시가 볼륨을 채우면 **원장 쓰기가 실패한다.** 실측 볼륨 974MB / 여유 894MB 라
+#: 256MB 는 메모리 예산(96MB)의 2.7배 backstop 이면서 원장 자리를 넉넉히 남긴다.
+#:
+#: **청소는 경로를 명시한 곳에서만 한다.** 예산의 목적은 볼륨을 지키는 것이고, 볼륨이
+#: 아니면 지킬 것이 없다. 로컬 기본 경로(`/tmp/opm_cache`)는 그냥 캐시가 아니라
+#: **회귀 재생의 유일한 소재**다(CLAUDE.md: 회귀 캐시는 DART 응답 경계에서만 만든다).
+#: 거기에 예산을 집행하면 그 소재를 우리 손으로 지운다 — 260810 실측 로컬 1.35GB/2,350건.
+_DISK_CACHE_DIR = (os.environ.get("OPM_DOC_CACHE_DIR")
+                   or os.path.join(tempfile.gettempdir(), "opm_cache"))
+_DISK_CACHE_MANAGED = bool(os.environ.get("OPM_DOC_CACHE_DIR"))
+_DISK_CACHE_MAX_BYTES = _env_mb("OPM_DOC_DISK_CACHE_MB", 256)
+_DISK_SWEEP_EVERY = 32          # 매 write 마다 디렉터리를 훑지 않는다
+_disk_writes_since_sweep = _DISK_SWEEP_EVERY   # 첫 write 에서 한 번 — 부팅 시 초과분 정리
+_disk_evictions = 0
+
+
+def _sweep_disk_cache(force: bool = False) -> int:
+    """예산 초과분을 **오래된 것부터** 지운다. 반환 = 지운 바이트.
+
+    실패는 전부 삼킨다 — 캐시 청소가 사용자 요청을 깨뜨리면 본말전도다.
+    `force=False` 면 `_DISK_SWEEP_EVERY` 번에 한 번만 실제로 훑는다."""
+    global _disk_writes_since_sweep, _disk_evictions
+    if not force:
+        if not _DISK_CACHE_MANAGED:
+            return 0            # 경로를 안 정해준 곳 = 지킬 볼륨이 없다 (위 주석)
+        _disk_writes_since_sweep += 1
+        if _disk_writes_since_sweep < _DISK_SWEEP_EVERY:
+            return 0
+    _disk_writes_since_sweep = 0
+    entries = []
+    try:
+        with os.scandir(_DISK_CACHE_DIR) as it:
+            for e in it:
+                if not e.name.endswith(".json"):
+                    continue
+                try:
+                    st = e.stat()
+                except OSError:
+                    continue
+                entries.append((st.st_mtime, st.st_size, e.path))
+    except OSError:
+        return 0
+    total = sum(size for _, size, _ in entries)
+    if total <= _DISK_CACHE_MAX_BYTES:
+        return 0
+    # key= 를 명시한다. 튜플 전체비교면 mtime 동률일 때 경로까지 비교하게 된다.
+    entries.sort(key=lambda t: t[0])            # 오래된 것부터
+    freed = 0
+    for _, size, path in entries:
+        if total - freed <= _DISK_CACHE_MAX_BYTES:
+            break
+        try:
+            os.remove(path)
+        except OSError:
+            continue
+        freed += size
+        _disk_evictions += 1
+    if freed:
+        logger.info(f"disk cache swept: {freed / 1024 / 1024:.1f}MB freed "
+                    f"({total / 1024 / 1024:.1f}MB → {(total - freed) / 1024 / 1024:.1f}MB)")
+    return freed
+
+
+def _disk_cache_stats() -> dict:
+    """디스크는 **메모리 예산 밖**이라 따로 센다.
+
+    `persistent` 는 「이 캐시가 배포를 견디는가」다 — 종전 사고가 정확히 그 지점이라
+    숫자보다 먼저 보이게 둔다."""
+    entries = 0
+    nbytes = 0
+    try:
+        with os.scandir(_DISK_CACHE_DIR) as it:
+            for e in it:
+                if not e.name.endswith(".json"):
+                    continue
+                try:
+                    nbytes += e.stat().st_size
+                except OSError:
+                    continue
+                entries += 1
+    except OSError:
+        pass
+    return {
+        "name": "document_disk",
+        "dir": _DISK_CACHE_DIR,
+        "persistent": not _DISK_CACHE_DIR.startswith(tempfile.gettempdir()),
+        "swept": _DISK_CACHE_MANAGED,     # 예산이 집행되는 곳인가 (로컬 회귀 소재는 안 건드림)
+        "entries": entries,
+        "bytes": nbytes,
+        "max_bytes": _DISK_CACHE_MAX_BYTES,
+        "fill_pct": round(100 * nbytes / _DISK_CACHE_MAX_BYTES, 1) if _DISK_CACHE_MAX_BYTES else 0.0,
+        "evictions": _disk_evictions,
+    }
+
 
 # doc(document.xml)과 viewer(HTML 폴백)가 예산을 공유하므로 키 네임스페이스로 가른다.
 def _doc_key(rcept_no: str) -> str:
@@ -346,7 +448,8 @@ def cache_stats() -> dict:
     반복되므로, 예산 대비 점유율·evict 횟수를 상시 관측 가능하게 둔다.
     (검색 캐시는 인스턴스 소유 + 실측 0.5MB 규모라 여기 넣지 않는다.)
     """
-    return {"document": _DOC_CACHE.stats(), "dividend": _DIVIDEND_CACHE.stats()}
+    return {"document": _DOC_CACHE.stats(), "dividend": _DIVIDEND_CACHE.stats(),
+            "document_disk": _disk_cache_stats()}
 
 
 # ── sqlite master cache (KIS 참고, iter27 ship) ──
@@ -563,7 +666,7 @@ class DartClient:
         # doc 과 viewer 는 **하나의 바이트 예산을 공유**한다. 예전엔 200개씩 따로 잡혀
         # 문서화된 예산의 두 배(400개)를 담을 수 있었다. 키 앞에 네임스페이스를 붙여 구분한다.
         self._doc_cache = _DOC_CACHE
-        self._disk_cache_dir = os.path.join(tempfile.gettempdir(), "opm_cache")
+        self._disk_cache_dir = _DISK_CACHE_DIR      # 전역 (모듈 상단 주석 참조)
         # Search result caching (세션 기반, TTL 없음)
         # 실측 평균 9.8KB · 최대 16.2KB(page_count=100) → 50건이면 ~0.5MB. 문서 캐시의
         # 1/500 수준이라 개수 상한으로 충분하다(260804 OOM 조사에서 확인, 변경 불필요).
@@ -2119,17 +2222,37 @@ class DartClient:
         return os.path.join(self._disk_cache_dir, f"{rcept_no}.json")
 
     def _load_from_disk(self, rcept_no: str) -> dict | None:
+        """깨진 파일은 **지우고 miss 로 취급**한다.
+
+        `/tmp` 시절엔 부분 파일이 배포 때 사라져 저절로 나았다. 볼륨에서는 안 낫는다 —
+        한 번 잘린 json 이 그 rcept_no 를 **영구히** 못 읽게 만든다."""
         path = self._disk_cache_path(rcept_no)
-        if os.path.exists(path):
+        try:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        return None
+        except FileNotFoundError:
+            return None
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
+            logger.warning(f"disk cache 손상 — 삭제하고 다시 받는다: {rcept_no} ({e})")
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            return None
 
     def _save_to_disk(self, rcept_no: str, doc: dict):
-        os.makedirs(self._disk_cache_dir, exist_ok=True)
-        path = self._disk_cache_path(rcept_no)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(doc, f, ensure_ascii=False)
+        """임시 파일에 쓰고 rename 한다 — 쓰다 죽어도 **부분 파일이 캐시로 읽히지 않게**."""
+        try:
+            os.makedirs(self._disk_cache_dir, exist_ok=True)
+            path = self._disk_cache_path(rcept_no)
+            tmp = f"{path}.{os.getpid()}.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(doc, f, ensure_ascii=False)
+            os.replace(tmp, path)               # 같은 파일시스템 내 원자적 교체
+        except OSError as e:
+            logger.warning(f"disk cache 쓰기 실패(무시): {rcept_no} ({e})")
+            return
+        _sweep_disk_cache()
 
     async def get_document_cached(self, rcept_no: str) -> dict:
         """get_document 결과를 캐싱 (메모리 바이트예산 LRU + TTL 24h, 디스크는 보조).

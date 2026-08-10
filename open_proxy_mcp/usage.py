@@ -1,5 +1,8 @@
 """사용 통계 기록기 — inbound MCP 요청을 누적(요청 1건 = 이벤트 1건).
 
+기록 조건: **fly 머신에서만**(`FLY_MACHINE_ID`). 로컬은 `OPM_USAGE_LOCAL=1` 로만 연다
+— 근거는 `_RECORDING` 주석.
+
 백엔드 2가지(환경변수로 자동 선택):
   - **DATABASE_URL 설정됨 → Postgres**(Supabase). 머신 바깥 중앙 DB → 무손실·합산 불필요.
   - 미설정 → sqlite(`OPM_USAGE_DB_PATH`, 로컬 개발/폴백).
@@ -34,6 +37,15 @@ _USE_PG = bool(DATABASE_URL)
 SELF_HASHES = {
     "6f02e8598b1bdcda660c970ca9c07c1ffba1d4d8ec193157991f7dc2a9173c30",
 }
+
+#: **기록은 fly 머신에서만 한다.** dart/client.py 가 import 시 `load_dotenv()` 를 돌려
+#: 로컬에서도 DATABASE_URL 이 채워지므로, 막지 않으면 **로컬 pytest·pilot·스크립트가
+#: 운영 Postgres 에 그대로 쓴다**(260810 실측: 게이트 전용 이름 `no_such_tool_xyz` 20건과
+#: 호스트거부 58건이 운영 통계에 섞여 있었고, 그 키해시는 테스트 리터럴 `"k"` 였다).
+#: 키 목록(SELF_HASHES)으로는 못 막는다 — 테스트마다 리터럴이 바뀌므로 쫓아다니게 된다.
+#: 막을 자리는 「누가 불렀나」가 아니라 **「여기가 운영인가」**다.
+#: 기록 경로 자체를 로컬에서 시험해야 하면 `OPM_USAGE_LOCAL=1` 로 연다.
+_RECORDING = MACHINE != "local" or os.environ.get("OPM_USAGE_LOCAL") == "1"
 
 _q: "queue.Queue[tuple]" = queue.Queue(maxsize=10000)
 _counter = itertools.count()
@@ -179,6 +191,8 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
     260804 이전에는 「회사는 기록하지 않는다」였다. 집계로 무엇이 많이 쓰이는지 보려고
     바꿨다 — 다만 남기는 것은 질의 원문이 아니라 정규화된 8자리 코드뿐이고,
     key_hash 와 함께 남으므로 **사용자별 조사 이력**이 된다는 점을 알고 켠 것이다."""
+    if not _RECORDING:
+        return  # 로컬(pytest·pilot·스크립트)은 운영 통계를 오염시키지 않는다
     try:
         khash = hashlib.sha256(opendart_key.lower().encode()).hexdigest()
         if khash in SELF_HASHES:

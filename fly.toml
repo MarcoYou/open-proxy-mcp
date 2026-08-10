@@ -11,6 +11,10 @@ primary_region = 'nrt'
 [env]
   # sqlite master cache (corpCode 영구화) — fly volume mount 위치
   OPM_MASTER_DB_PATH = '/data/master.db'
+  # 문서 디스크 캐시도 볼륨으로. 종전 기본값 /tmp/opm_cache 는 컨테이너 이미지 안이라
+  # **배포마다 통째로 사라졌다** — 메모리 캐시가 죽는 그 순간 받침도 같이 죽었다.
+  # 260810 실측: 배포 직후 적중률 0%, 디스크 적중 24h 13건. 예산·청소는 client.py 참조.
+  OPM_DOC_CACHE_DIR = '/data/opm_cache'
 
 [mounts]
   source = 'opm_data'
@@ -46,8 +50,10 @@ primary_region = 'nrt'
 # 재시작 한도를 소진했다. fly 는 머신을 started 로 두는데 8000 포트가 죽어 있어
 # 프록시가 "no known healthy instances" 로 전면 다운. 머신도 1대뿐이라 안전망이 없었다.
 # client.py 의 캐시 메모리 예산 주석이 원래 1GB 를 가정하고 쓰였으므로 거기에 맞춘다.
-# ※ 캐시 자체의 상한 문제(_doc_cache + _viewer_doc_cache 각 200 = 400 엔트리,
-#    _dividend_cache 는 상한·TTL 없음)는 미해결 — 1GB 는 여유일 뿐 근본 해결이 아니다.
+# ※ 캐시 상한은 그 뒤 전부 붙었다 — 문서 96MB / 배당 16MB(+TTL 24h) / 디스크 256MB.
+#    (이 주석은 260810 까지 「_viewer_doc_cache 각 200 엔트리, _dividend_cache 는 상한 없음」
+#     이라고 적혀 있었는데 둘 다 이미 사실이 아니었다. 낡은 주석이 미해결을 가리키면
+#     고칠 것이 남은 줄 알고 같은 조사를 반복하게 된다.)
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'

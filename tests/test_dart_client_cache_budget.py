@@ -176,3 +176,129 @@ def test_total_budget_fits_the_1gb_vm():
 
     total_mb = (_DOC_CACHE._max_bytes + _DIVIDEND_CACHE._max_bytes) / 1024 / 1024
     assert total_mb + 172 + 150 < 1024, f"캐시 예산 {total_mb}MB 는 1GB VM 에서 여유가 없다"
+
+
+# ── 디스크 캐시: 배포를 견디는가 · 예산을 지키는가 ────────────────────────
+def test_fly_points_the_disk_cache_at_the_volume():
+    """**이 테스트가 A 수정의 전부다.**
+
+    코드가 경로를 env 로 읽게 만들어도 fly 가 안 넘겨주면 아무것도 안 바뀐다.
+    종전 기본값 `/tmp/opm_cache` 는 컨테이너 이미지 안이라 배포마다 사라졌고,
+    메모리 캐시가 죽는 그 순간 받침도 같이 죽었다(260810 실측: 배포 직후 적중률 0%).
+    """
+    import pathlib
+    import re
+
+    txt = (pathlib.Path(__file__).resolve().parent.parent / "fly.toml").read_text(encoding="utf-8")
+    mount = re.search(r"destination\s*=\s*'([^']+)'", txt)
+    cache = re.search(r"OPM_DOC_CACHE_DIR\s*=\s*'([^']+)'", txt)
+    assert mount, "fly.toml 에 볼륨 마운트가 없다"
+    assert cache, "fly.toml 이 OPM_DOC_CACHE_DIR 를 안 넘긴다 — 캐시가 /tmp 로 되돌아간다"
+    assert cache.group(1).startswith(mount.group(1).rstrip("/") + "/"), (
+        f"디스크 캐시 {cache.group(1)} 가 볼륨 {mount.group(1)} 밖이다 — 배포를 못 견딘다")
+
+
+def test_disk_cache_sweep_evicts_oldest_first_until_under_budget(tmp_path, monkeypatch):
+    """볼륨엔 배포가 청소해 주던 자동 정리가 없다. 같은 볼륨에 master.db(원장)가 살아서
+    캐시가 볼륨을 채우면 **원장 쓰기가 실패한다** — 그래서 예산은 선택이 아니다."""
+    import os
+
+    import open_proxy_mcp.dart.client as C
+
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 300)
+    for i in range(5):
+        p = tmp_path / f"doc{i}.json"
+        p.write_text("x" * 100, encoding="utf-8")
+        os.utime(p, (1000 + i, 1000 + i))          # 오래된 것 = 작은 i
+
+    freed = C._sweep_disk_cache(force=True)
+
+    assert freed == 200, f"예산 300 에 500 이 있었는데 {freed} 만 지웠다"
+    left = sorted(p.name for p in tmp_path.glob("*.json"))
+    assert left == ["doc2.json", "doc3.json", "doc4.json"], f"오래된 순으로 안 지웠다: {left}"
+    assert C._sweep_disk_cache(force=True) == 0, "예산 이하인데 또 지웠다"
+
+
+def test_corrupt_disk_entry_is_a_miss_not_a_crash(tmp_path, monkeypatch):
+    """`/tmp` 시절엔 잘린 파일이 배포 때 사라져 저절로 나았다. 볼륨에서는 안 낫는다 —
+    한 번 잘린 json 이 그 rcept_no 를 영구히 못 읽게 만든다."""
+    from open_proxy_mcp.dart.client import DartClient
+
+    c = DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+    (tmp_path / "20260101000001.json").write_text('{"body": "잘린', encoding="utf-8")
+
+    assert c._load_from_disk("20260101000001") is None, "깨진 파일에서 예외가 났거나 값을 냈다"
+    assert not (tmp_path / "20260101000001.json").exists(), "깨진 파일이 안 지워졌다 — 영구 miss"
+
+
+def test_disk_write_is_atomic_and_leaves_no_tmp(tmp_path, monkeypatch):
+    """쓰다 죽어도 부분 파일이 캐시로 읽히면 안 된다 — 임시 파일에 쓰고 rename 한다."""
+    from open_proxy_mcp.dart.client import DartClient
+
+    c = DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+    c._save_to_disk("20260101000002", {"rcept_no": "20260101000002", "body": "본문"})
+
+    assert c._load_from_disk("20260101000002")["body"] == "본문"
+    assert not list(tmp_path.glob("*.tmp")), "임시 파일이 남았다"
+
+
+def test_disk_cache_stats_say_whether_it_survives_deploys(monkeypatch):
+    """`persistent` 가 /health 에 보여야 한다 — 종전 사고가 정확히 그 지점이었고,
+    숫자만 보면 「캐시가 있다」와 「배포를 견딘다」를 구분할 수 없다."""
+    import tempfile
+
+    import open_proxy_mcp.dart.client as C
+
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", tempfile.gettempdir() + "/opm_cache")
+    assert C._disk_cache_stats()["persistent"] is False
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", "/data/opm_cache")
+    assert C._disk_cache_stats()["persistent"] is True
+    assert C.cache_stats()["document_disk"]["max_bytes"] > 0
+
+
+def test_writing_documents_keeps_the_volume_under_budget(tmp_path, monkeypatch):
+    """앞 테스트들은 청소 **함수**를 본다. 이건 쓰기 경로가 그 함수를 실제로 부르는지를
+    본다 — 함수만 맞고 안 불리면 볼륨은 그대로 찬다(가장 조용한 실패 모양)."""
+    import open_proxy_mcp.dart.client as C
+    from open_proxy_mcp.dart.client import DartClient
+
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MANAGED", True)
+    monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 4096)
+    monkeypatch.setattr(C, "_DISK_SWEEP_EVERY", 1)
+    monkeypatch.setattr(C, "_disk_writes_since_sweep", 0)
+    c = DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+
+    for i in range(12):
+        c._save_to_disk(f"2026010100{i:04d}", {"body": "가" * 400})
+
+    used = sum(p.stat().st_size for p in tmp_path.glob("*.json"))
+    assert used <= 4096, f"예산 4096B 인데 {used}B 가 남았다 — 쓰기가 청소를 안 부른다"
+    assert list(tmp_path.glob("*.json")), "전부 지워졌다 — 방금 쓴 것까지 날렸다"
+
+
+def test_the_local_regression_corpus_is_never_swept(tmp_path, monkeypatch):
+    """`/tmp/opm_cache` 는 그냥 캐시가 아니라 **회귀 재생의 유일한 소재**다
+    (CLAUDE.md: 회귀 캐시는 DART 응답 경계에서만 만든다). 경로를 명시하지 않은 곳에
+    예산을 집행하면 그 소재를 우리 손으로 지운다 — 260810 실측 로컬 1.35GB/2,350건이
+    파일럿 한 번에 256MB 로 깎일 뻔했다."""
+    import open_proxy_mcp.dart.client as C
+    from open_proxy_mcp.dart.client import DartClient
+
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MANAGED", False)     # 로컬 기본값
+    monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 100)     # 일부러 턱없이 작게
+    monkeypatch.setattr(C, "_DISK_SWEEP_EVERY", 1)
+    monkeypatch.setattr(C, "_disk_writes_since_sweep", 0)
+    c = DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+
+    for i in range(5):
+        c._save_to_disk(f"2026010100{i:04d}", {"body": "가" * 400})
+
+    assert len(list(tmp_path.glob("*.json"))) == 5, "로컬 회귀 소재가 청소됐다"
+    assert C._disk_cache_stats()["swept"] is False

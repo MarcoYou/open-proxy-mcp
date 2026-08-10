@@ -299,3 +299,35 @@ def test_request_body_is_not_buffered_without_bound(client, monkeypatch):
                            "params": {"name": "law_lookup", "arguments": {"query": big}}},
                   monkeypatch)
     assert rows, "큰 요청에서 기록이 아예 안 남았다"
+
+
+# ── 로컬 실행이 운영 통계를 오염시키지 않는가 ──────────────────────────────
+def test_local_runs_never_write_to_production_stats():
+    """**이 파일을 돌리는 것 자체가 운영 통계에 쓰이고 있었다.**
+
+    dart/client.py 가 import 시 load_dotenv() 를 돌려 로컬에서도 DATABASE_URL 이
+    채워지므로, 막지 않으면 pytest·pilot·스크립트가 전부 운영 Postgres 에 적힌다.
+    260810 실측: 이 파일에만 있는 이름 `no_such_tool_xyz` 20건과 호스트거부 58건이
+    운영 통계에 있었고, 키해시는 아래 `_drive` 가 쓰는 리터럴 `"k"` 였다.
+    """
+    import open_proxy_mcp.usage as usage
+    assert usage.MACHINE == "local", (
+        "FLY_MACHINE_ID 가 세팅된 채로 테스트가 돈다 — 이 실행은 운영으로 취급된다")
+    assert usage._RECORDING is False, "로컬인데 기록이 열려 있다"
+    before = usage._q.qsize()
+    usage.record("some-test-key", 200, "law_lookup", 5)
+    assert usage._q.qsize() == before, "로컬 호출이 큐에 쌓였다 — 운영 DB 로 흘러간다"
+
+
+def test_recording_still_works_when_the_gate_is_open(monkeypatch):
+    """짝 테스트. 위가 「안 쌓인다」만 보면 record() 가 통째로 죽어도 통과한다 —
+    게이트를 열었을 때 **쌓이는지**까지 봐야 둘이 서로를 판별한다.
+    큐·워커는 갈아끼워 이 테스트가 DB 를 건드리지 않게 한다."""
+    import queue as _queue
+    import open_proxy_mcp.usage as usage
+    sink = _queue.Queue()
+    monkeypatch.setattr(usage, "_RECORDING", True)
+    monkeypatch.setattr(usage, "_q", sink)
+    monkeypatch.setattr(usage, "_ensure_worker", lambda: None)
+    usage.record("some-test-key", 200, "law_lookup", 5)
+    assert sink.qsize() == 1, "게이트를 열었는데도 기록이 안 된다 — 통계가 죽는다"
