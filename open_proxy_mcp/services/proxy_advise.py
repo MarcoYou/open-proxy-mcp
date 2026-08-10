@@ -885,6 +885,73 @@ def _raw_excerpt(full_text: str, title: str, *, limit: int = 1800) -> str | None
     return (prefix + excerpt) if excerpt else None
 
 
+def _seat_count(title: str) -> int | None:
+    """제목에서 **선임할 이사 수**를 읽는다(「이사 5인」·「5명」·「5인 이내」).
+
+    못 읽으면 None — 그때는 예산 검사를 아예 안 한다. **모르면서 막으면 던져야 할 표를
+    지우는 쪽으로 넘어간다**(코드 곳곳의 경고와 같은 종류의 사고).
+    """
+    m = re.search(r"(\d+)\s*(?:인|명)", title or "")
+    if not m:
+        return None
+    n = int(m.group(1))
+    return n if 1 <= n <= 30 else None      # 연도·금액이 섞여 들어오는 것을 막는다
+
+
+#: 좌석 예산을 **따로** 쓰는 선거. 이사 선임과 감사위원 분리선임(상법 §542-12②)은 별개
+#: 선거라 표를 합치면 안 된다 — 합치면 정상 주총을 구조 오류로 오판한다.
+_SEAT_BUDGET_GROUPS = ("director_election", "audit_committee_election")
+
+
+def _enforce_seat_budget(agenda_decisions: list[dict[str, Any]],
+                         title_to_parent: dict[str, str]) -> list[str]:
+    """**찬성 수가 좌석 수를 넘으면 그 선거의 개별 권고를 전부 보류한다.**
+
+    이 산출물은 의견이 아니라 **지시서**다(자본시장법 §152③ — 위임장 용지는 목적사항
+    항목별 찬반을 명기한다). 항목 수를 넘는 찬성은 의견이 아니라 **산술 오류**다.
+
+    특히 집중투표(상법 §382-2③④: 1주당 선임예정 이사 수만큼의 의결권, 최다득표자부터
+    순차 선임)에서는 중립도 아니다 — **6석에 16명을 찬성하면 표가 흩어져 아무도 당선시키지
+    못한다. 찬성 남발이 반대와 같은 효과를 낸다.** 260807 실측 고려아연이 그 모양이었다:
+    5인안·6인안 두 시나리오가 각각 자식 후보로 쪼개졌는데 양쪽 전원에 찬성이 나갔다.
+
+    좌석 수는 **그 선거의 최대 시나리오** 하나로 잡는다 — 상호배타 시나리오는 하나만
+    표결되므로 max 가 상한이다. 5인안·6인안이면 6이 상한이고 찬성 16은 그걸 넘는다.
+
+    막을 때는 **개별 권고를 전부 보류**한다(전문가 기준: 구조가 불확실하면 안건군 전체
+    보류). 한쪽만 남기면 우리가 시나리오를 고른 셈이 되는데 그건 도구가 할 판단이 아니다.
+    보류의 비용은 검토 시간이고, 틀린 표의 비용은 주총 종결로 **되돌릴 수 없다**.
+
+    좌석 수를 못 읽으면 아무것도 안 한다 — 모르면서 막으면 던져야 할 표를 지운다.
+    반환: 적용된 구조 오류 사유 목록(호출측이 warnings 로 올린다).
+    """
+    notes: list[str] = []
+    for group in _SEAT_BUDGET_GROUPS:
+        rows = [r for r in agenda_decisions if r.get("agenda_category") == group]
+        if not rows:
+            continue
+        # 좌석 수 후보 = 이 선거에 걸린 부모 제목들에서 읽어낸 값. 상호배타 시나리오는
+        # 하나만 표결되므로 그중 최대가 상한이다.
+        seats = [n for n in
+                 (_seat_count(title_to_parent.get(r["agenda_title"]) or r["agenda_title"])
+                  for r in rows) if n]
+        if not seats:
+            continue
+        cap = max(seats)
+        fors = [r for r in rows if r.get("decision") == "FOR"]
+        if len(fors) <= cap:
+            continue
+        note = (f"표결 구조 오류 — {_CATEGORY_KO.get(group, group)}에서 "
+                f"찬성 {len(fors)}건이 선임 예정 인원({cap}인)을 초과했습니다. "
+                f"상호배타 시나리오가 함께 잡혔을 수 있어 개별 권고를 보류합니다.")
+        for r in rows:
+            r["decision"] = "NO_VOTE"
+            r["reason"] = note + " 원문에서 어느 안건이 실제 표결 대상인지 확인하세요."
+            r.setdefault("risk_factors", []).append("표결 구조 미확정 (좌석 수 초과)")
+        notes.append(note)
+    return notes
+
+
 def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, str]:
     """이사/감사위원 선임 안건 → (decision, reason).
 
@@ -4126,6 +4193,11 @@ async def build_proxy_advise_payload(
         })
     _mark("decision_engine", stage_started_at)
 
+    # 1.9. **좌석 예산 하드 블록** — 개별 판정이 다 끝난 뒤 결과를 한 번 더 본다.
+    # 앞의 분류·판정이 못 잡은 경우까지 **산출물에서** 막는 안전망이다(정확도를 올리는 일과,
+    # 틀렸을 때 표가 안 나가게 하는 일은 다르다). 상세는 `_enforce_seat_budget` 주석.
+    seat_budget_notes = _enforce_seat_budget(agenda_decisions, title_to_parent)
+
     # 통합 evidence_refs + 읽은 공시 목록
     evidence: list[EvidenceRef] = []
     disclosures: list[dict[str, Any]] = []
@@ -4265,6 +4337,9 @@ async def build_proxy_advise_payload(
         envelope_warnings.append(year_resolution["basis"])
     if meeting_closed_hint:
         envelope_warnings.append(meeting_closed_hint)
+    # 좌석 예산 초과는 **경고로 반드시 올라가야 한다** — 개별 안건의 NO_VOTE 만 보면
+    # 사용자는 「이 안건들만 보류」로 읽고, 표결 구조 자체가 미확정이라는 걸 놓친다.
+    envelope_warnings.extend(seat_budget_notes)
 
     return ToolEnvelope(
         tool="proxy_advise_before_meeting",
