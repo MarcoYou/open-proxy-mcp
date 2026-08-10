@@ -78,6 +78,16 @@ def fetch_rows():
     return con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall()
 
 
+#: **프로토콜(핸드셰이크) 요청인가** — MCP 클라이언트가 *사람이 시키지 않아도* 보내는 것.
+#: `initialize`·`ping`·`tools/list`·`notifications/*` 가 전체의 81.8% 이고, `ping` 27,609건은
+#: **키 2개**에서 나온다(260810 실측). 이걸 실제 도구 호출과 한 표에 세우면 지표가 통째로
+#: 오염된다 — 「평균 응답 1,522ms」는 near-0 인 핸드셰이크가 눌러 놓은 값이었다.
+#: tool 이 None 인 것(본문 파싱 실패: 배치 요청·GET/DELETE)도 도구 호출이 아니므로 여기 넣는다.
+#: **이 함수가 정의의 SSOT** — `startup_metrics.is_sub` 가 이걸 재사용한다(정의가 둘이면 갈라진다).
+def is_protocol(tool) -> bool:
+    return (not tool) or ("/" in tool) or tool in {"initialize", "ping"}
+
+
 def fetch_tool_latency():
     """(tool, key_hash, latency_ms, is_error) 리스트. 옛 스키마(열 없음)면 is_error=None 패딩.
     PG(tool_call_events)와 sqlite(events)는 테이블명이 달라(260706 PG측 rename) 쿼리 분리."""
@@ -329,36 +339,95 @@ def fetch_error_rows():
         return []
 
 
-def fetch_error_kinds():
-    """{error_kind: count} — is_error=true 인 이벤트의 예외 분류 집계(외부 사용자만).
-    error_kind 컬럼 자체가 없는 구스키마/구서버면 {} (컬럼 생기기 전 구간은 집계 생략).
-    컬럼이 있으면: 태그(timeout/upstream/crash) + "untagged"(배포後 분류실패=커버리지갭) +
-    NULL→"unknown"(배포前, 소급 분류 불가)."""
-    counts = defaultdict(int)
+def classify_outcome(is_error, error_kind) -> tuple[str, str | None]:
+    """한 행의 결말 → (갈래, 분류태그). DB 없이 시험할 수 있게 순수 함수로 뺐다.
+
+    **판정불가와 미기록을 섞으면 안 된다** — 하나는 경보, 하나는 역사다.
+      kind='unclassifiable' = 스캐너가 **응답을 못 읽었다**(늘면 응답 형식이 바뀐 것)
+      kind=NULL             = `is_error` 컬럼이 생기기 전(260802) 행. 소급 불가.
+    처음 짤 때 둘 다 「판정불가」로 세었더니 3,528건이 잡혀 경보처럼 보였는데,
+    실제로는 **전부 구스키마였고 진짜 판정불가는 0건**이었다.
+
+    `dart_` 접두는 상류(DART)가 못 준 것 — 우리 크래시와 대응이 다르다(전자는 사용자
+    안내, 후자는 우리가 고칠 것). 013/404 는 실패가 아니라 **답**이라 정상 쪽에 두되
+    빈도는 따로 센다.
+    """
+    if is_error is None:
+        return ("판정불가", "unclassifiable") if error_kind == "unclassifiable" \
+            else ("미기록(구스키마)", None)
+    if is_error:
+        k = error_kind or "untagged"
+        return ("상류(DART)" if k.startswith("dart_") else "우리오류"), k
+    if error_kind in ("no_data", "not_found"):
+        return "자료없음", error_kind
+    return "정상", None
+
+
+def outcome_breakdown():
+    """도구 호출의 **결말**을 네 갈래로 나눈다. 종전엔 `WHERE is_error=true` 하나만 봤다.
+
+    그 하나로는 세 가지가 안 보였다 —
+      · **상류 실패**: DART 가 못 준 것을 크래시 대신 안내로 낮춰 보내(degrade) 예전엔
+        아예 성공으로 세어졌다. 260810 에 `dart_*` 표지를 달아 이제 잡힌다.
+      · **자료 없음**: 013/404 는 실패가 아니라 **답**이다. 실패로 세면 오류율이 부풀고
+        진짜 고장이 그 안에 묻힌다. 그래서 따로 센다.
+      · **판정불가**: 응답을 못 읽어 `is_error=NULL` 로 남긴 것(260810 셋째 상태).
+        `WHERE is_error=true` 는 이걸 영원히 못 본다 — 스캐너가 멀어도 오류율이 0으로 수렴한다.
+
+    프로토콜(핸드셰이크)은 결말이랄 게 없어 분모에서 뺀다.
+    반환 {'우리오류':n, '상류(DART)':n, '자료없음':n, '판정불가':n, '정상':n, 'kinds':{...}}
+    """
     if using_pg():
         con = _pg_conn()
         try:
-            try:
-                rows = con.execute(
-                    "SELECT key_hash, error_kind FROM tool_call_events WHERE is_error=true"
-                ).fetchall()
-            except Exception:  # error_kind 미생성 구서버
-                con.rollback()
-                return {}
+            rows = con.execute(
+                "SELECT key_hash, tool, is_error, error_kind FROM tool_call_events").fetchall()
+        except Exception:
+            con.rollback(); return {}
         finally:
             con.close()
     else:
         try:
-            rows = db().execute(
-                "SELECT key_hash, error_kind FROM events WHERE is_error=1"
-            ).fetchall()
+            rows = db().execute("SELECT key_hash, tool, is_error, error_kind FROM events").fetchall()
         except Exception:
             return {}
-    for h, kind in rows:
-        if h in SELF_HASHES:
+    out = defaultdict(int)
+    kinds = defaultdict(int)
+    for h, tool, err, kind in rows:
+        if h in SELF_HASHES or is_protocol(tool):
             continue
-        counts[kind or "unknown"] += 1
-    return dict(counts)
+        bucket, tag = classify_outcome(err, kind)
+        out[bucket] += 1
+        if tag:
+            kinds[tag] += 1
+    out["kinds"] = dict(kinds)
+    return dict(out)
+
+
+def print_outcomes():
+    """`--report`·`--stats` 공용 — 결말 분해를 한 블록으로 찍는다."""
+    o = outcome_breakdown()
+    if not o:
+        return
+    total = sum(v for k, v in o.items() if k != "kinds")
+    if not total:
+        return
+    print(f"\n[도구 호출 결말] 총 {total:,}건 (핸드셰이크 제외)")
+    # 다섯 갈래는 **0이어도 찍는다** — 0이 곧 신호다(상류 실패 0건 = DART 가 안 죽었다,
+    # 판정불가 0건 = 스캐너가 응답을 읽고 있다). 안 찍으면 「없음」과 「안 봄」이 같아 보인다.
+    for k in ("정상", "자료없음", "상류(DART)", "우리오류", "판정불가", "미기록(구스키마)"):
+        n = o.get(k, 0)
+        if k == "미기록(구스키마)" and not n:
+            continue                              # 이건 역사라 0이면 굳이 안 보여도 된다
+        print(f"  {k:<14} {n:>8,}  {100 * n / total:>5.2f}%")
+    kinds = {k: v for k, v in o.get("kinds", {}).items() if v}
+    if kinds:
+        parts = ", ".join(f"{k} {v}" for k, v in sorted(kinds.items(), key=lambda kv: -kv[1])[:8])
+        print(f"  └ 분류: {parts}")
+    if o.get("판정불가"):
+        print("  ⚠ 판정불가 = 스캐너가 응답을 못 읽었다. 늘면 응답 형식이 바뀐 것이다")
+    if o.get("미기록(구스키마)"):
+        print("  · 미기록은 is_error 컬럼이 생기기 전(260802) 행 — 소급 불가, 경보 아님")
 
 
 def daily_errors(err_rows):
@@ -422,27 +491,36 @@ def _external(all_rows):
 
 
 def tool_stats(tl_rows):
-    """[(tool, requests, unique_users, errors, err_known)] 요청수 내림차순 + 평균 latency(ms).
-    errors=is_error=True 건수, err_known=is_error가 기록된 건수(구버전 행은 NULL)."""
+    """[(tool, requests, unique_users, errors, err_known)] 요청수 내림차순 + latency(평균·p50·p95).
+
+    **latency 는 실제 도구 호출만 잰다.** 260810 이전에는 `if tool:` 밖에서 모아 핸드셰이크
+    (near-0, 전체의 81.8%)까지 평균에 들어갔다 — 「평균 응답 1,522ms」가 그렇게 나온 값이고,
+    그 숫자로 인프라를 판단하면 안 된다.
+    평균만 내지 않는 이유: 문서 파싱은 꼬리가 길어(사업보고서 수십MB) 평균이 중앙값을
+    한참 웃돈다. p50/p95 를 같이 내야 「보통 얼마나 걸리나」와 「최악이 얼마나 되나」가 갈린다.
+    """
     by_tool = defaultdict(lambda: [0, set(), 0, 0])
     lat = []
     for tool, h, latency, is_err in tl_rows:
-        if h in SELF_HASHES:
+        if h in SELF_HASHES or is_protocol(tool):
             continue
         if latency is not None:
             lat.append(latency)
-        if tool:
-            rec = by_tool[tool]
-            rec[0] += 1
-            rec[1].add(h)
-            if is_err is not None:
-                rec[3] += 1
-                if is_err:
-                    rec[2] += 1
+        rec = by_tool[tool]
+        rec[0] += 1
+        rec[1].add(h)
+        if is_err is not None:
+            rec[3] += 1
+            if is_err:
+                rec[2] += 1
     ranked = sorted(((t, n, len(u), e, k) for t, (n, u, e, k) in by_tool.items()),
                     key=lambda x: x[1], reverse=True)
-    avg_lat = round(sum(lat) / len(lat)) if lat else None
-    return ranked, avg_lat
+    lat.sort()
+
+    def _p(q):
+        return lat[min(len(lat) - 1, int(len(lat) * q))] if lat else None
+
+    return ranked, (round(sum(lat) / len(lat)) if lat else None), _p(0.5), _p(0.95)
 
 
 def report(all_rows):
@@ -455,6 +533,14 @@ def report(all_rows):
     print(f"[source: {'Postgres(Supabase)' if using_pg() else 'local sqlite'}]")
     print(f"고유 사용자(외부): {len(users)}   [전체 {total_all} − 본인 {total_all - len(users)}]")
     print(f"총 요청(외부): {len(rows)}{rng}")
+    # 요청 수만 보면 81.8% 가 핸드셰이크라 「사용량」이 아니라 「연결 횟수」가 된다.
+    _r, _avg, _p50, _p95 = tool_stats(fetch_tool_latency())
+    _sub = sum(n for _, n, *_ in _r)
+    print(f"  그중 도구 호출: {_sub:,} ({100 * _sub / max(1, len(rows)):.1f}%) "
+          f"— 나머지는 클라이언트가 자동으로 보내는 연결·점검 통신")
+    if _avg is not None:
+        print(f"  도구 호출 응답: 평균 {_avg} ms · p50 {_p50} · p95 {_p95}")
+    print_outcomes()
 
 
 def stats(all_rows):
@@ -502,26 +588,18 @@ def stats(all_rows):
     print(f"[집중도] 상위 {top_n_for_90}명({top_n_for_90 / len(users) * 100:.1f}%)이 "
           f"전체 요청의 90%를 차지")
 
-    # 오류종류: is_error=true 를 예외 분류로 분해 (배포 이후 이벤트만 태그됨 — 이전은 unknown)
-    ekinds = fetch_error_kinds()
-    if ekinds:
-        _KIND_LABEL = {"crash": "코드버그", "timeout": "시간초과",
-                       "upstream": "DART/KIND장애",
-                       "untagged": "분류실패(커버리지갭)", "unknown": "미분류(배포前)"}
-        total_err = sum(ekinds.values())
-        parts = ", ".join(
-            f"{_KIND_LABEL.get(k, k)} {c}({c/total_err*100:.0f}%)"
-            for k, c in sorted(ekinds.items(), key=lambda kv: -kv[1]))
-        print(f"[오류종류] 총 {total_err}건 — {parts}")
+    # 결말 분해 — 종전 [오류종류]는 `WHERE is_error=true` 만 봐서 상류실패·자료없음·
+    # 판정불가를 전부 놓쳤다. outcome_breakdown 주석 참조.
+    print_outcomes()
 
     print("\n[사용자 Top 15]  요청  활성일  기간(일)  세션  총사용(분)   최초 ~ 최종")
     for h, v in list(users.items())[:15]:
         print(f"  {h[:10]}  {v['requests']:>5} {v['active_days']:>6} {v['span_days']:>8} "
               f"{v['sessions']:>5} {v['total_minutes']:>9}   {v['first']} ~ {v['last']}")
 
-    ranked, avg_lat = tool_stats(fetch_tool_latency())
+    ranked, avg_lat, p50, p95 = tool_stats(fetch_tool_latency())
     if avg_lat is not None:
-        print(f"\n[성능] 평균 응답 {avg_lat} ms")
+        print(f"\n[성능] 도구 호출만 — 평균 {avg_lat} ms · p50 {p50} ms · p95 {p95} ms")
     if ranked:
         print("\n[기능(tool) Top 15]  요청  사용자  오류(측정분)")
         for t, n, u, e, k in ranked[:15]:
@@ -552,7 +630,7 @@ def export(all_rows, outdir: str):
         cols = ["requests", "active_days", "first", "last", "span_days", "sessions", "total_minutes"]
         w = csv.writer(f); w.writerow(["user_hash"] + cols)
         for h, v in users.items(): w.writerow([h] + [v[c] for c in cols])
-    ranked, avg_lat = tool_stats(fetch_tool_latency())
+    ranked, avg_lat, lat_p50, lat_p95 = tool_stats(fetch_tool_latency())
     with open(d / "tools.csv", "w", newline="") as f:
         w = csv.writer(f); w.writerow(["tool", "requests", "unique_users", "errors", "err_known"])
         for t, n, u, e, k in ranked: w.writerow([t, n, u, e, k])
@@ -561,7 +639,8 @@ def export(all_rows, outdir: str):
         "total_requests_external": len(rows),
         "returning_users_2day": sum(1 for v in users.values() if v["active_days"] >= 2),
         "avg_minutes_per_user": round(sum(v["total_minutes"] for v in users.values()) / max(len(users), 1), 1),
-        "avg_latency_ms": avg_lat,
+        "avg_latency_ms": avg_lat,          # 도구 호출만 (핸드셰이크 제외, 260810)
+        "latency_p50_ms": lat_p50, "latency_p95_ms": lat_p95,
         "top_tools": [{"tool": t, "requests": n, "users": u, "errors": e, "err_known": k}
                       for t, n, u, e, k in ranked[:20]],
         "daily": daily,
