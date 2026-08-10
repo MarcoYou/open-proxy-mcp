@@ -70,7 +70,9 @@ def _sqlite_connect():
     for col in ("tool TEXT", "latency_ms INTEGER", "is_error INTEGER", "error_kind TEXT",
                 "doc_cache_hit INTEGER", "response_bytes INTEGER",
                 "doc_mem_hits INTEGER", "doc_disk_hits INTEGER", "doc_misses INTEGER",
-                "corp_codes TEXT"):  # 기존 테이블 마이그레이션
+                "corp_codes TEXT",
+                "fetch_viewer INTEGER", "fetch_kind INTEGER",
+                "web_wait_ms INTEGER"):  # 기존 테이블 마이그레이션
         try:
             con.execute(f"ALTER TABLE events ADD COLUMN {col}")
         except sqlite3.OperationalError:
@@ -83,8 +85,9 @@ def _sqlite_write(con, batch):
     # **조용히 다른 컬럼에 값을 넣는다**(260704 mkt_fund_hist 사고).
     con.executemany(
         "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", batch
+        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
+        "fetch_viewer, fetch_kind, web_wait_ms) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", batch
     )
     con.commit()
 
@@ -115,6 +118,13 @@ def _pg_connect():
     # 260804: 이 요청이 해석해 낸 기업(8자리 corp_code, 쉼표 구분). 사용자가 친 원문은
     # 남기지 않는다 — 정규화된 코드만 남아야 집계가 뜻을 가지고, 자유 텍스트도 안 쌓인다.
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS corp_codes text")
+    # 260810: 원문을 **어느 경로로** 받았나. 주 경로(document.xml API)는 doc_misses 가 이미
+    # 세므로 여기엔 폴백만 둔다 — viewer HTML(고정 2초 간격)·KIND(1~3초 랜덤).
+    # web_wait_ms 는 그 간격 때문에 **실제로 잠든** 시간이다. 「2초가 비싼가」는 빈도만으론
+    # 못 정한다: 폴백이 드물면 2초는 공짜고, 잦으면 간격이 아니라 주 경로를 고쳐야 한다.
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS fetch_viewer int")
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS fetch_kind int")
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS web_wait_ms int")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON tool_call_events(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON tool_call_events(ts_ns)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_corp ON tool_call_events(corp_codes)")
@@ -126,8 +136,9 @@ def _pg_write(con, batch):
     # 컬럼명 명시 — 위치 의존 INSERT 는 ADD COLUMN 후 조용히 어긋난다(260704 사고).
     con.cursor().executemany(
         "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
+        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
+        "fetch_viewer, fetch_kind, web_wait_ms) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
         batch,
     )
     con.commit()
@@ -176,7 +187,8 @@ def _ensure_worker() -> None:
 
 def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=None,
            error_kind=None, response_bytes=None,
-           doc_mem_hits=None, doc_disk_hits=None, doc_misses=None, corp_codes=None) -> None:
+           doc_mem_hits=None, doc_disk_hits=None, doc_misses=None, corp_codes=None,
+           fetch_viewer=None, fetch_kind=None, web_wait_ms=None) -> None:
     """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
     tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
     is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능),
@@ -186,6 +198,8 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
     한글 UTF-8 은 글자당 3바이트라 토큰 수와 비례한다).
     doc_mem_hits/doc_disk_hits/doc_misses=이 요청이 받은 문서를 출처별로 센 건수.
     메모리 예산의 효과는 doc_mem_hits 로만 봐야 한다 — 디스크는 예산 밖이다.
+    fetch_viewer/fetch_kind=폴백 경로로 나간 웹 요청 수(주 경로는 doc_misses 가 센다),
+    web_wait_ms=그 폴백의 예의 간격 때문에 실제로 잠든 시간(ms).
     corp_codes=이 요청이 **해석해 낸** 기업 코드 목록(사용자가 친 원문은 남기지 않는다).
 
     260804 이전에는 「회사는 기록하지 않는다」였다. 집계로 무엇이 많이 쓰이는지 보려고
@@ -203,7 +217,7 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
         codes = ",".join(corp_codes) if corp_codes else None
         _q.put_nowait((ev_id, ts_ns, khash, int(status), tool, latency_ms, is_error,
                        error_kind, response_bytes, doc_mem_hits, doc_disk_hits,
-                       doc_misses, codes))
+                       doc_misses, codes, fetch_viewer, fetch_kind, web_wait_ms))
     except Exception:
         pass
 

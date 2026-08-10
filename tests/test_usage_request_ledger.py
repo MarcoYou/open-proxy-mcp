@@ -43,6 +43,7 @@ def test_ledger_starts_empty():
     led = new_request_ledger()
     assert led == {
         "doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0,
+        "fetch_viewer": 0, "fetch_kind": 0, "web_wait_ms": 0,
         "corp_codes": [], "weak_resolutions": [],
     }
 
@@ -140,18 +141,22 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
     usage = importlib.reload(importlib.import_module("open_proxy_mcp.usage"))
     assert usage._RECORDING, "테스트가 기록 게이트를 못 열었다 — 아래 단언이 무의미해진다"
 
+    # **값을 전부 서로 다르게** 준다. 같은 값이 섞여 있으면 컬럼이 어긋나도 통과한다 —
+    # 위치 의존 INSERT 가 조용히 다른 컬럼에 넣는 사고(260704)를 잡으려면 이게 조건이다.
     usage.record("some-other-users-key", 200, "dividend", 1234,
                  is_error=False, error_kind=None, response_bytes=3001,
                  doc_mem_hits=3, doc_disk_hits=2, doc_misses=1,
-                 corp_codes=["00126380", "00164779"])
+                 corp_codes=["00126380", "00164779"],
+                 fetch_viewer=7, fetch_kind=11, web_wait_ms=4200)
 
     for _ in range(100):                      # 워커가 비동기라 잠깐 기다린다
         if db.exists():
             con = sqlite3.connect(db)
             try:
                 row = con.execute(
-                    "SELECT tool, response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, "
-                    "corp_codes FROM events").fetchone()
+                    "SELECT tool, latency_ms, response_bytes, doc_mem_hits, doc_disk_hits, "
+                    "doc_misses, corp_codes, fetch_viewer, fetch_kind, web_wait_ms "
+                    "FROM events").fetchone()
             except sqlite3.OperationalError:
                 row = None
             con.close()
@@ -161,7 +166,7 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
         _t.sleep(0.05)
 
     assert row is not None, "이벤트가 기록되지 않았다"
-    assert row == ("dividend", 3001, 3, 2, 1, "00126380,00164779")
+    assert row == ("dividend", 1234, 3001, 3, 2, 1, "00126380,00164779", 7, 11, 4200)
 
 
 def test_record_still_skips_operator_key(tmp_path, monkeypatch):
@@ -189,3 +194,60 @@ def test_record_still_skips_operator_key(tmp_path, monkeypatch):
     _t.sleep(0.3)
     assert not db.exists() or not sqlite3.connect(db).execute(
         "SELECT count(*) FROM events").fetchone()[0]
+
+
+# ── 폴백 경로 계기 (260810) ────────────────────────────────────────────────
+def test_web_throttle_counts_the_fallback_and_the_time_it_cost(monkeypatch):
+    """**「2초 간격이 비싼가」를 재려고 붙인 계기다.**
+
+    빈도만으론 답이 안 나온다 — 폴백이 드물면 2초는 아무 비용도 아니고, 잦으면 간격이
+    아니라 주 경로(document.xml)가 자주 실패한다는 뜻이다. 그래서 「몇 번 갔나」와
+    「그래서 얼마나 기다렸나」를 함께 센다.
+
+    계기는 스로틀 **안**에 둔다 — viewer/KIND 요청은 전부 그 함수를 지나므로 호출측이
+    빠뜨릴 수 없다. 호출측에 두면 새 fetch 함수가 늘 때마다 조용히 누락된다.
+    """
+    import open_proxy_mcp.dart.client as C
+    from open_proxy_mcp.dart.client import DartClient
+
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    led = new_request_ledger()
+    c = DartClient()
+    c._last_web_request = 0.0                      # 직전 요청이 아주 오래됨 → 대기 없음
+
+    asyncio.run(c._throttle_web())
+    assert led["fetch_viewer"] == 1, "viewer 폴백이 안 세어졌다"
+    assert led["web_wait_ms"] == 0, "대기가 없었는데 시간이 잡혔다"
+
+    asyncio.run(c._throttle_web())                 # 바로 이어서 → 2초 가까이 잔다
+    assert led["fetch_viewer"] == 2
+    assert led["web_wait_ms"] > 1000, f"2초 간격이 시간으로 안 잡혔다: {led['web_wait_ms']}ms"
+
+
+def test_kind_throttle_is_counted_separately(monkeypatch):
+    """KIND 는 DART 웹과 **규칙이 다르다**(1~3초 랜덤 vs 고정 2초). 한 칸에 섞어 세면
+    어느 규칙이 무엇을 물리는지 알 수 없다."""
+    import open_proxy_mcp.dart.client as C
+    from open_proxy_mcp.dart.client import DartClient
+
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    led = new_request_ledger()
+    c = DartClient()
+    c._last_web_request = 0.0
+
+    asyncio.run(c._throttle_kind())
+    assert led["fetch_kind"] == 1
+    assert led["fetch_viewer"] == 0, "KIND 요청이 viewer 로 세어졌다"
+
+
+def test_instrumentation_is_silent_without_a_ledger(monkeypatch):
+    """스크립트·테스트처럼 미들웨어를 안 거친 경로에서 절대 터지면 안 된다 —
+    계기가 사용자 요청을 깨뜨리면 본말전도다."""
+    from open_proxy_mcp.dart.client import DartClient, _ctx_ledger
+
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    _ctx_ledger.set(None)
+    c = DartClient()
+    c._last_web_request = 0.0
+    asyncio.run(c._throttle_web())      # 예외가 안 나면 통과
+    asyncio.run(c._throttle_kind())

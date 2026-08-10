@@ -57,6 +57,9 @@ def new_request_ledger() -> dict:
     """요청 시작 시 **미들웨어가** 만든다. 하류는 만들지 않고 고치기만 한다."""
     ledger: dict = {
         "doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0,
+        # 폴백 경로를 따로 센다. 주 경로(document.xml API)는 doc_misses 가 이미 세므로
+        # 여기 없는 것이 정상이다. web_wait_ms 는 웹 스로틀에서 **실제로 잠든** 시간(ms).
+        "fetch_viewer": 0, "fetch_kind": 0, "web_wait_ms": 0,
         "corp_codes": [], "weak_resolutions": [],
     }
     _ctx_ledger.set(ledger)
@@ -68,6 +71,17 @@ def _note_doc(kind: str) -> None:
     ledger = _ctx_ledger.get()
     if ledger is not None:
         ledger[kind] = ledger.get(kind, 0) + 1
+
+
+def _note_web_wait(seconds: float) -> None:
+    """웹 스로틀에서 **실제로 잠든** 시간을 누적한다(ms).
+
+    「2초 간격이 비싼가」는 빈도만으론 답이 안 나온다 — 폴백이 드물면 2초는 아무 비용도
+    아니고, 잦으면 그건 간격이 아니라 **주 경로가 자주 실패한다**는 뜻이다. 둘을 가르려면
+    「몇 번 갔나」와 「그래서 얼마나 기다렸나」를 같이 봐야 한다."""
+    ledger = _ctx_ledger.get()
+    if ledger is not None:
+        ledger["web_wait_ms"] = ledger.get("web_wait_ms", 0) + int(seconds * 1000)
 
 
 def _note_corp(corp_code: str | None) -> None:
@@ -1327,12 +1341,20 @@ class DartClient:
         ⚠️ DART 웹사이트는 공식 API가 아닙니다.
         과도한 요청은 IP 차단 또는 법적 문제를 야기할 수 있으므로
         반드시 보수적인 간격을 유지합니다.
+
+        **API 한도와 격리 수준이 다르다** — API 는 키마다라 한 사용자가 넘겨도 그 사람만
+        막히지만, 웹 차단은 IP 기준이라 **우리 서버 하나가 막히면 전원이 막힌다.**
+        그래서 수치가 아니라 예의로 다룬다(공표된 한도가 없다 = 한도를 모른다).
+
+        계기는 여기 둔다 — viewer 요청은 **전부** 이 함수를 지나므로 호출측이 빠뜨릴 수 없다.
         """
+        _note_doc("fetch_viewer")
         elapsed = time.monotonic() - self._last_web_request
         if elapsed < _MIN_INTERVAL_WEB:
             wait = _MIN_INTERVAL_WEB - elapsed
             logger.debug(f"[DART 웹] {wait:.1f}초 대기 (rate limit)")
             await asyncio.sleep(wait)
+            _note_web_wait(wait)
         self._last_web_request = time.monotonic()
 
     # ── DART 웹 스크래핑 (viewer HTML 폴백용) ──
@@ -2072,12 +2094,18 @@ class DartClient:
     # ── KRX KIND 크롤링 ──
 
     async def _throttle_kind(self):
-        """KIND 웹 요청 간격 강제 (1-3초 랜덤)"""
+        """KIND 웹 요청 간격 강제 (1-3초 랜덤).
+
+        DART 웹(고정 2초)과 규칙이 다르다 — 랜덤이라 **2초보다 짧을 때도 있다.**
+        같은 「모르는 한도」를 두 규칙이 다르게 다루는 것이라 의도 확인이 필요하다(260810).
+        계기는 여기 둔다 — KIND 요청은 전부 이 함수를 지난다."""
         import random
+        _note_doc("fetch_kind")
         elapsed = time.monotonic() - self._last_web_request
         wait = random.uniform(1.0, 3.0)
         if elapsed < wait:
             await asyncio.sleep(wait - elapsed)
+            _note_web_wait(wait - elapsed)
         self._last_web_request = time.monotonic()
 
     async def kind_fetch_document(self, acptno: str) -> str:

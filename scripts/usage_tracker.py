@@ -10,6 +10,7 @@
   python3 scripts/usage_tracker.py --stats        # 일/주/사용자/세션 상세 통계
   python3 scripts/usage_tracker.py --export DIR    # daily.csv·weekly.csv·users.csv·summary.json
   python3 scripts/usage_tracker.py --report       # 요약만
+  python3 scripts/usage_tracker.py --paths [일수] # 원문 경로(주/viewer/KIND) + 폴백이 문 시간
   python3 scripts/usage_tracker.py --migrate-local # 로컬 sqlite events → Postgres 1회 이전(시드)
 
 legacy(로컬 sqlite 수집 — Postgres 전환 전 과거 데이터 확보용):
@@ -584,6 +585,60 @@ def collect(con):
     print(f"[{stamp}] 이벤트 수거 {len(rows)} · 신규 {new}")
 
 
+
+def paths_report(days: int = 7):
+    """원문을 **어느 경로로** 받았나 + 폴백의 예의 간격이 실제로 얼마나 물었나.
+
+    「DART 웹 2초 간격이 필요한가」를 감이 아니라 숫자로 정하려고 붙인 계기(260810)를 읽는다.
+    답은 폴백 **비율**에서 갈린다 —
+      · 드물다  → 2초는 아무 비용도 아니다. 건드릴 이유가 없다
+      · 잦다    → 간격이 아니라 **주 경로(document.xml)가 자주 실패한다**는 뜻이다.
+                  낮출 게 아니라 주 경로를 고쳐야 한다
+    어느 쪽이든 「2초를 낮춘다」가 답이 되는 경우는 거의 없다. 그걸 확인하는 표다.
+    """
+    if not using_pg():
+        raise SystemExit("--paths 는 Postgres 백엔드에서만 (DATABASE_URL 필요)")
+    con = _pg_conn()
+    have = {r[0] for r in con.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name = 'tool_call_events'").fetchall()}
+    missing = {"fetch_viewer", "fetch_kind", "web_wait_ms"} - have
+    if missing:
+        con.close()
+        raise SystemExit(
+            f"계기 컬럼이 아직 없다: {', '.join(sorted(missing))}\n"
+            "  컬럼은 운영 머신의 usage 워커가 붙을 때 생긴다 — 배포 후 첫 요청이 지나면 만들어진다.")
+    where = f"ts_ns > (extract(epoch from now()) - {days} * 86400) * 1e9"
+    api, viewer, kind, wait_ms, reqs, fb_reqs = con.execute(
+        "SELECT coalesce(sum(doc_misses),0), coalesce(sum(fetch_viewer),0), "
+        "coalesce(sum(fetch_kind),0), coalesce(sum(web_wait_ms),0), count(*), "
+        "count(*) FILTER (WHERE coalesce(fetch_viewer,0) + coalesce(fetch_kind,0) > 0) "
+        f"FROM tool_call_events WHERE {where}").fetchone()
+    total = api + viewer + kind
+    print(f"\n=== 원문 경로 (최근 {days}일 · 요청 {reqs:,}건) ===")
+    if not total:
+        print("  원문을 받은 요청이 없다 — 기간을 늘리거나 계기 배포 시점을 확인할 것")
+        con.close()
+        return
+    for label, n in (("주 경로 document.xml", api), ("viewer 폴백 (2초 간격)", viewer),
+                     ("KIND 폴백 (1~3초 랜덤)", kind)):
+        print(f"  {label:<26} {n:>7,}건   {100 * n / total:>5.1f}%")
+    print(f"\n  폴백을 탄 요청   {fb_reqs:,} / {reqs:,}  ({100 * fb_reqs / max(1, reqs):.2f}%)")
+    print(f"  간격 때문에 잔 시간 총 {wait_ms / 1000:,.1f}초"
+          + (f" · 폴백 요청당 평균 {wait_ms / fb_reqs / 1000:.1f}초" if fb_reqs else ""))
+
+    rows = con.execute(
+        "SELECT tool, count(*), coalesce(sum(fetch_viewer),0), coalesce(sum(fetch_kind),0), "
+        "coalesce(sum(web_wait_ms),0) FROM tool_call_events "
+        f"WHERE {where} AND coalesce(fetch_viewer,0) + coalesce(fetch_kind,0) > 0 "
+        "GROUP BY 1 ORDER BY 5 DESC LIMIT 10").fetchall()
+    if rows:
+        print("\n  폴백을 가장 많이 타는 tool")
+        for tool, n, v, k, w in rows:
+            print(f"    {str(tool):<26} 요청 {n:>5,}  viewer {v:>5,}  kind {k:>4,}  {w / 1000:>7.1f}초")
+    con.close()
+
+
 def main():
     args = sys.argv[1:]
     # 읽기 명령 — 백엔드(Postgres/sqlite) 자동 선택
@@ -592,6 +647,11 @@ def main():
         return
     if "--stats" in args:
         stats(fetch_rows())
+        return
+    if "--paths" in args:
+        i = args.index("--paths")
+        days = int(args[i + 1]) if i + 1 < len(args) and args[i + 1].isdigit() else 7
+        paths_report(days)
         return
     if "--export" in args:
         i = args.index("--export")

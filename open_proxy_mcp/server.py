@@ -272,7 +272,10 @@ class ApiKeyMiddleware:
                                      doc_mem_hits=ledger["doc_mem_hits"],
                                      doc_disk_hits=ledger["doc_disk_hits"],
                                      doc_misses=ledger["doc_misses"],
-                                     corp_codes=ledger["corp_codes"])
+                                     corp_codes=ledger["corp_codes"],
+                                     fetch_viewer=ledger["fetch_viewer"],
+                                     fetch_kind=ledger["fetch_kind"],
+                                     web_wait_ms=ledger["web_wait_ms"])
                 await send(message)
             await self.app(scope, replay, send_wrapper)
         else:
