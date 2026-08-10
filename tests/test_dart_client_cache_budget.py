@@ -225,6 +225,7 @@ def test_corrupt_disk_entry_is_a_miss_not_a_crash(tmp_path, monkeypatch):
     한 번 잘린 json 이 그 rcept_no 를 영구히 못 읽게 만든다."""
     from open_proxy_mcp.dart.client import DartClient
 
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)   # CI 엔 .env 가 없다
     c = DartClient()
     monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
     (tmp_path / "20260101000001.json").write_text('{"body": "잘린', encoding="utf-8")
@@ -237,6 +238,7 @@ def test_disk_write_is_atomic_and_leaves_no_tmp(tmp_path, monkeypatch):
     """쓰다 죽어도 부분 파일이 캐시로 읽히면 안 된다 — 임시 파일에 쓰고 rename 한다."""
     from open_proxy_mcp.dart.client import DartClient
 
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)   # CI 엔 .env 가 없다
     c = DartClient()
     monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
     c._save_to_disk("20260101000002", {"rcept_no": "20260101000002", "body": "본문"})
@@ -270,6 +272,7 @@ def test_writing_documents_keeps_the_volume_under_budget(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 4096)
     monkeypatch.setattr(C, "_DISK_SWEEP_EVERY", 1)
     monkeypatch.setattr(C, "_disk_writes_since_sweep", 0)
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)   # CI 엔 .env 가 없다
     c = DartClient()
     monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
 
@@ -294,6 +297,7 @@ def test_the_local_regression_corpus_is_never_swept(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 100)     # 일부러 턱없이 작게
     monkeypatch.setattr(C, "_DISK_SWEEP_EVERY", 1)
     monkeypatch.setattr(C, "_disk_writes_since_sweep", 0)
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)   # CI 엔 .env 가 없다
     c = DartClient()
     monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
 
