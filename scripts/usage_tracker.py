@@ -377,30 +377,45 @@ def outcome_breakdown():
     프로토콜(핸드셰이크)은 결말이랄 게 없어 분모에서 뺀다.
     반환 {'우리오류':n, '상류(DART)':n, '자료없음':n, '판정불가':n, '정상':n, 'kinds':{...}}
     """
+    cols = "key_hash, tool, is_error, error_kind, weak_kinds"
     if using_pg():
         con = _pg_conn()
         try:
-            rows = con.execute(
-                "SELECT key_hash, tool, is_error, error_kind FROM tool_call_events").fetchall()
-        except Exception:
-            con.rollback(); return {}
+            rows = con.execute(f"SELECT {cols} FROM tool_call_events").fetchall()
+        except Exception:      # weak_kinds 미생성 구서버 — 그 컬럼만 빼고 재시도
+            con.rollback()
+            try:
+                rows = [(*r, None) for r in con.execute(
+                    "SELECT key_hash, tool, is_error, error_kind FROM tool_call_events").fetchall()]
+            except Exception:
+                con.rollback(); return {}
         finally:
             con.close()
     else:
         try:
-            rows = db().execute("SELECT key_hash, tool, is_error, error_kind FROM events").fetchall()
+            rows = db().execute(f"SELECT {cols} FROM events").fetchall()
         except Exception:
-            return {}
+            try:
+                rows = [(*r, None) for r in db().execute(
+                    "SELECT key_hash, tool, is_error, error_kind FROM events").fetchall()]
+            except Exception:
+                return {}
     out = defaultdict(int)
     kinds = defaultdict(int)
-    for h, tool, err, kind in rows:
+    weak = defaultdict(int)
+    for h, tool, err, kind, weak_kinds in rows:
         if h in SELF_HASHES or is_protocol(tool):
             continue
         bucket, tag = classify_outcome(err, kind)
         out[bucket] += 1
         if tag:
             kinds[tag] += 1
+        if weak_kinds:
+            out["추정해석"] += 1
+            for wk in weak_kinds.split(","):
+                weak[wk or "unknown"] += 1
     out["kinds"] = dict(kinds)
+    out["weak"] = dict(weak)
     return dict(out)
 
 
@@ -409,13 +424,16 @@ def print_outcomes():
     o = outcome_breakdown()
     if not o:
         return
-    total = sum(v for k, v in o.items() if k != "kinds")
+    # 갈래는 이 다섯뿐이다. 「추정해석」은 가로지르는 성질이라 분모에 넣으면 합이 100%를
+    # 넘고, `kinds`/`weak` 는 dict 라 더하면 터진다(실제로 터뜨렸다).
+    _BUCKETS = ("정상", "자료없음", "상류(DART)", "우리오류", "판정불가", "미기록(구스키마)")
+    total = sum(o.get(k, 0) for k in _BUCKETS)
     if not total:
         return
     print(f"\n[도구 호출 결말] 총 {total:,}건 (핸드셰이크 제외)")
     # 다섯 갈래는 **0이어도 찍는다** — 0이 곧 신호다(상류 실패 0건 = DART 가 안 죽었다,
     # 판정불가 0건 = 스캐너가 응답을 읽고 있다). 안 찍으면 「없음」과 「안 봄」이 같아 보인다.
-    for k in ("정상", "자료없음", "상류(DART)", "우리오류", "판정불가", "미기록(구스키마)"):
+    for k in _BUCKETS:
         n = o.get(k, 0)
         if k == "미기록(구스키마)" and not n:
             continue                              # 이건 역사라 0이면 굳이 안 보여도 된다
@@ -424,6 +442,14 @@ def print_outcomes():
     if kinds:
         parts = ", ".join(f"{k} {v}" for k, v in sorted(kinds.items(), key=lambda kv: -kv[1])[:8])
         print(f"  └ 분류: {parts}")
+    # 「추정해석」은 결말 갈래가 아니라 **가로지르는 성질**이다 — 정상 응답이면서
+    # 동시에 「이름이 정확히 안 맞아 찍었다」일 수 있다. 그래서 위 백분율에 안 섞고 따로 낸다.
+    if o.get("추정해석"):
+        w = o.get("weak", {})
+        parts = ", ".join(f"{k} {v}" for k, v in sorted(w.items(), key=lambda kv: -kv[1]))
+        print(f"  · 회사명 추정해석 {o['추정해석']:,}건 ({100 * o['추정해석'] / total:.2f}%)"
+              f" — {parts}")
+        print("    (사용자에게는 warning 으로 이미 나간다. 원문은 저장하지 않고 방식만 센다)")
     if o.get("판정불가"):
         print("  ⚠ 판정불가 = 스캐너가 응답을 못 읽었다. 늘면 응답 형식이 바뀐 것이다")
     if o.get("미기록(구스키마)"):

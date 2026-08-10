@@ -302,7 +302,14 @@ class ApiKeyMiddleware:
                                      corp_codes=ledger["corp_codes"],
                                      fetch_viewer=ledger["fetch_viewer"],
                                      fetch_kind=ledger["fetch_kind"],
-                                     web_wait_ms=ledger["web_wait_ms"])
+                                     web_wait_ms=ledger["web_wait_ms"],
+                                     # **방식만** 넘긴다 — 장부의 `query`(사용자 원문)와
+                                     # `corp_name` 은 싣지 않는다. 원문을 넣는 순간
+                                     # 「질의 원문 미보관」 정책이 깨진다. 고른 회사는
+                                     # 이미 corp_codes 에 정규화된 코드로 들어간다.
+                                     weak_kinds=(",".join(
+                                         w.get("kind") or "unknown"
+                                         for w in ledger["weak_resolutions"]) or None))
                 await send(message)
             await self.app(scope, replay, send_wrapper)
         else:

@@ -72,7 +72,7 @@ def _sqlite_connect():
                 "doc_mem_hits INTEGER", "doc_disk_hits INTEGER", "doc_misses INTEGER",
                 "corp_codes TEXT",
                 "fetch_viewer INTEGER", "fetch_kind INTEGER",
-                "web_wait_ms INTEGER"):  # 기존 테이블 마이그레이션
+                "web_wait_ms INTEGER", "weak_kinds TEXT"):  # 기존 테이블 마이그레이션
         try:
             con.execute(f"ALTER TABLE events ADD COLUMN {col}")
         except sqlite3.OperationalError:
@@ -86,8 +86,8 @@ def _sqlite_write(con, batch):
     con.executemany(
         "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
         "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
-        "fetch_viewer, fetch_kind, web_wait_ms) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", batch
+        "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", batch
     )
     con.commit()
 
@@ -125,6 +125,11 @@ def _pg_connect():
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS fetch_viewer int")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS fetch_kind int")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS web_wait_ms int")
+    # 260810: 이름이 정확히 안 맞아 **추정으로 고른** 해석의 방식(normalized·token·substring·
+    # fuzzy). 이미 계산해 사용자에게 warning 으로 보여주면서 기록만 안 하고 있었다.
+    # **사용자가 친 원문(`query`)은 절대 싣지 않는다** — 여기 넣으면 「질의 원문 미보관」
+    # 정책이 그 자리에서 깨진다. 방식 이름만 남겨도 「우리가 얼마나 자주 찍었나」는 답한다.
+    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS weak_kinds text")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON tool_call_events(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON tool_call_events(ts_ns)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_corp ON tool_call_events(corp_codes)")
@@ -137,8 +142,8 @@ def _pg_write(con, batch):
     con.cursor().executemany(
         "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
         "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
-        "fetch_viewer, fetch_kind, web_wait_ms) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
+        "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
         batch,
     )
     con.commit()
@@ -188,7 +193,7 @@ def _ensure_worker() -> None:
 def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=None,
            error_kind=None, response_bytes=None,
            doc_mem_hits=None, doc_disk_hits=None, doc_misses=None, corp_codes=None,
-           fetch_viewer=None, fetch_kind=None, web_wait_ms=None) -> None:
+           fetch_viewer=None, fetch_kind=None, web_wait_ms=None, weak_kinds=None) -> None:
     """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
     tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
     is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능),
@@ -199,7 +204,8 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
     doc_mem_hits/doc_disk_hits/doc_misses=이 요청이 받은 문서를 출처별로 센 건수.
     메모리 예산의 효과는 doc_mem_hits 로만 봐야 한다 — 디스크는 예산 밖이다.
     fetch_viewer/fetch_kind=폴백 경로로 나간 웹 요청 수(주 경로는 doc_misses 가 센다),
-    web_wait_ms=그 폴백의 예의 간격 때문에 실제로 잠든 시간(ms).
+    web_wait_ms=그 폴백의 예의 간격 때문에 실제로 잠든 시간(ms),
+    weak_kinds=이름이 정확히 안 맞아 추정으로 고른 해석의 **방식**만(원문 미보관).
     corp_codes=이 요청이 **해석해 낸** 기업 코드 목록(사용자가 친 원문은 남기지 않는다).
 
     260804 이전에는 「회사는 기록하지 않는다」였다. 집계로 무엇이 많이 쓰이는지 보려고
@@ -217,7 +223,8 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
         codes = ",".join(corp_codes) if corp_codes else None
         _q.put_nowait((ev_id, ts_ns, khash, int(status), tool, latency_ms, is_error,
                        error_kind, response_bytes, doc_mem_hits, doc_disk_hits,
-                       doc_misses, codes, fetch_viewer, fetch_kind, web_wait_ms))
+                       doc_misses, codes, fetch_viewer, fetch_kind, web_wait_ms,
+                       weak_kinds))
     except Exception:
         pass
 

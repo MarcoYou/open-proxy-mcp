@@ -420,3 +420,47 @@ def test_middleware_records_no_data_as_success(client, monkeypatch):
     kw = rows[-1][1]
     assert kw.get("is_error") is False, f"「자료 없음」이 실패로 적혔다: {kw}"
     assert kw.get("error_kind") == "no_data", kw
+
+
+# ── 추정 해석이 통계까지 도달하는가 (260810) ──────────────────────────────
+def test_weak_resolution_reaches_usage_and_carries_no_raw_query(client, monkeypatch):
+    """**계산해놓고 버리던 값이다.** 이름이 정확히 안 맞아 추정으로 고르면 장부에 적히고
+    사용자에게 warning 으로도 나가는데, `usage.record` 로는 안 넘어가고 있었다.
+
+    같이 지키는 것: **사용자가 친 원문은 안 싣는다.** 장부 항목엔 `query`·`corp_name` 이
+    들어 있어서 그대로 넘기면 「질의 원문 미보관」 정책이 그 자리에서 깨진다 —
+    방식(normalized·token·substring·fuzzy)만 넘긴다.
+    """
+    import open_proxy_mcp.tools.law_lookup as T
+    from open_proxy_mcp.dart.client import note_weak_resolution
+
+    SECRET = "사용자가_친_원문_회사명"
+
+    def _weak(*a, **k):
+        note_weak_resolution(SECRET, "삼성전자", "fuzzy", 3)
+        note_weak_resolution(SECRET + "2", "현대차", "token", 2)
+        return {"status": "ok", "data": {}, "warnings": []}
+
+    monkeypatch.setattr(T, "build_law_lookup_payload", _weak)
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 11, "method": "tools/call",
+                           "params": {"name": "law_lookup",
+                                      "arguments": {"query": "상법 제363조"}}}, monkeypatch)
+    kw = rows[-1][1]
+    got = kw.get("weak_kinds")
+    assert got, f"추정 해석이 통계로 안 넘어갔다: {kw}"
+    assert set(got.split(",")) == {"fuzzy", "token"}, got
+    assert SECRET not in str(kw), "사용자 원문이 통계로 새어 나갔다"
+    assert "삼성전자" not in str(kw), "해석된 회사명이 통계로 새어 나갔다"
+
+
+def test_no_weak_resolution_records_nothing(client, monkeypatch):
+    """정확히 맞은 해석은 아무것도 안 남긴다 — 빈 문자열이 아니라 NULL 이어야
+    「추정 0건」과 「기록 안 됨」이 집계에서 갈린다."""
+    import open_proxy_mcp.tools.law_lookup as T
+
+    monkeypatch.setattr(T, "build_law_lookup_payload",
+                        lambda *a, **k: {"status": "ok", "data": {}, "warnings": []})
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 12, "method": "tools/call",
+                           "params": {"name": "law_lookup",
+                                      "arguments": {"query": "상법 제363조"}}}, monkeypatch)
+    assert rows[-1][1].get("weak_kinds") is None
