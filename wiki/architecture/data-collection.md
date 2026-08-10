@@ -111,7 +111,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 - 파라미터: `rcept_no`
 - 응답: ZIP (PK 시그니처) → XML 추출 → HTML/텍스트 변환
 - 호출 위치: `DartClient.get_document()`, 캐싱 wrapper `get_document_cached()`
-- 캐시: 메모리 LRU 30개 + 디스크 캐시 `tmp/opm_cache/{rcept_no}.json`
+- 캐시: 메모리 LRU(바이트 예산 96MB, 전역) + 디스크 캐시 `/data/opm_cache/{rcept_no}.json`(볼륨, 256MB) → [[#11-2-캐시-정책]]
 - 텍스트 변환: `_html_to_text()` (br/p/tr 등을 줄바꿈 처리, 이미지 파일명은 본문에서 제거)
 - 이미지 감지: 파일명에 "소집/통지/주총/공고" 키워드 포함 시 `[IMAGE_NOTICE]` 경고 로그 발생
 - 인코딩 fallback: utf-8 → euc-kr → cp949
@@ -123,7 +123,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 - 동작: main.do HTML에서 `treeData.push(node1)` 블록 정규식 추출 → 섹션별 `report/viewer.do` 호출 → HTML 결합
 - 사용 시점: `document.xml`이 빈 본문/구조 깨졌을 때 fallback
 - Rate limit: `_throttle_web()` (최소 2초)
-- 캐시: `_viewer_doc_cache` 30개 LRU (rcept_no + keywords 키)
+- 캐시: `_DOC_CACHE` 를 `viewer:` 네임스페이스로 공유 (rcept_no + keywords 키) — doc 과 하나의 바이트 예산
 
 ## 1.5 DS001~DS005 그룹 endpoint
 
@@ -458,7 +458,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - Results scope: `list.json` (pblntf_ty=I, "주주총회결과") + KIND `disclsviewer.do` (80→00 변환)
 - Fallback: `viewer.do` HTML (XML 깨질 때)
 - Scope: summary, agenda, board, compensation, aoi_change, results, full
-- 캐시: get_document_cached LRU 30 + 디스크
+- 캐시: get_document_cached — 메모리 바이트 예산 LRU + 볼륨 디스크
 - KIND 호출: 주총결과 본문 보강 (KOSPI 200 100% 매핑)
 
 ## 9.3 ownership_structure
@@ -581,13 +581,39 @@ OPM 운영(2026-07-12~ XML 단독):
 
 ## 11.2 캐시 정책
 
-| 캐시 | 저장소 | 한도 | 키 |
+한도는 **개수가 아니라 바이트**다. 260804 OOM 의 뿌리가 개수 예산이었다 — 사업보고서 한
+건이 8.7~29.0MB 라 「200건 = 100MB」 가정이 35~58배 어긋났다.
+
+| 캐시 | 저장소 | 예산 | 키 |
 |---|---|---|---|
-| corpCode.xml | 모듈 글로벌 (`_corp_code_cache`) | unlimited | 프로세스 단위 |
-| document.xml | 메모리 LRU + 디스크 | 30 / unlimited | rcept_no |
-| viewer 본문 | 메모리 LRU | 30 | rcept_no + section keywords |
-| list.json (검색) | 메모리 LRU | 50 | corp_code+bgn+end+pblntf_ty (단일 corp + page1 + count100만) |
-| 디스크 캐시 경로 | `tempfile.gettempdir()/opm_cache/{rcept_no}.json` | 영구 | 단일 파일 per rcept_no |
+| corpCode.xml | 모듈 글로벌 (`_corp_code_cache`) + sqlite(`/data/master.db`) | unlimited | 프로세스 단위 |
+| document.xml + viewer 본문 | 메모리 LRU (`_DOC_CACHE`, 전역) | **96MB** + TTL 24h | `doc:` / `viewer:` 네임스페이스 |
+| 과거 배당(alotMatter) | 메모리 LRU (`_DIVIDEND_CACHE`, 전역) | **16MB** + TTL 24h | corp_code + 연도 |
+| list.json (검색) | 인스턴스 dict | 50건 (실측 ~0.5MB) | corp_code+bgn+end+pblntf_ty (단일 corp + page1 + count100만) |
+| 문서 디스크 캐시 | **볼륨** `/data/opm_cache/{rcept_no}.json` | **256MB**, 오래된 것부터 청소 | 단일 파일 per rcept_no |
+
+### 디스크 캐시가 볼륨에 있는 이유 (260810)
+
+경로 기본값은 `tempfile.gettempdir()/opm_cache` 이고, 운영은 `OPM_DOC_CACHE_DIR=/data/opm_cache`
+(fly.toml)로 덮는다. `/tmp` 는 **컨테이너 이미지 안**이라 배포마다 통째로 갈린다 — 메모리
+캐시가 죽는 그 순간 받침도 같이 죽었다(실측: 배포 직후 적중률 0%, 24h 평균 36%, 디스크
+적중은 24h 통틀어 13건, 두 머신 중 하나는 디렉터리조차 없었다).
+
+**경로 이동과 예산·안전장치는 한 몸이다** — `/tmp` 가 공짜로 해주던 일이 볼륨엔 없다.
+
+| 딸려온 것 | 없으면 |
+|---|---|
+| 예산 256MB + 오래된 것부터 청소 | 볼륨에 `master.db`(원장 14MB)가 같이 산다. 캐시가 채우면 **원장 쓰기가 실패** |
+| 원자적 쓰기 (tmp→`os.replace`) | 잘린 json 이 `/tmp` 에선 배포 때 사라졌지만 볼륨에선 그 rcept_no 를 **영구히** 못 읽게 만든다 |
+| 손상 파일 삭제 후 miss 처리 | 같은 이유 |
+
+**청소는 `OPM_DOC_CACHE_DIR` 를 명시한 곳에서만 한다.** 예산은 볼륨을 지키려 있고, 볼륨이
+아니면 지킬 것이 없다. 로컬 기본 경로는 그냥 캐시가 아니라 **회귀 재생의 유일한 소재**이므로
+(CLAUDE.md) 예산을 집행하면 그 소재를 우리 손으로 지운다 — 실측 로컬 1.35GB/2,350건.
+
+`/health` 의 `cache.document_disk` 가 `persistent`(배포를 견디나)·`swept`(예산이 집행되나)를
+같이 낸다. 숫자만으로는 그 둘을 구분할 수 없어서다. 볼륨은 **머신마다 따로**이므로 두 머신이
+캐시를 공유하지는 않는다 — 볼륨 이전으로 얻는 것은 「배포를 견딘다」 하나다.
 
 서버 측 회사·기간 단위 캐싱은 없음 (실시간 조회 원칙). open-proxy-ai 파이프라인이 별도 KOSPI 200 v4 JSON 199개를 사전 생성해 보관.
 
