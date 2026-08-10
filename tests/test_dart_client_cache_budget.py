@@ -270,8 +270,8 @@ def test_writing_documents_keeps_the_volume_under_budget(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
     monkeypatch.setattr(C, "_DISK_CACHE_MANAGED", True)
     monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 4096)
-    monkeypatch.setattr(C, "_DISK_SWEEP_EVERY", 1)
-    monkeypatch.setattr(C, "_disk_writes_since_sweep", 0)
+    monkeypatch.setattr(C, "_DISK_SWEEP_BYTES", 1)
+    monkeypatch.setattr(C, "_disk_bytes_since_sweep", 0)
     monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)   # CI 엔 .env 가 없다
     c = DartClient()
     monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
@@ -295,8 +295,8 @@ def test_the_local_regression_corpus_is_never_swept(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
     monkeypatch.setattr(C, "_DISK_CACHE_MANAGED", False)     # 로컬 기본값
     monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 100)     # 일부러 턱없이 작게
-    monkeypatch.setattr(C, "_DISK_SWEEP_EVERY", 1)
-    monkeypatch.setattr(C, "_disk_writes_since_sweep", 0)
+    monkeypatch.setattr(C, "_DISK_SWEEP_BYTES", 1)
+    monkeypatch.setattr(C, "_disk_bytes_since_sweep", 0)
     monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)   # CI 엔 .env 가 없다
     c = DartClient()
     monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
@@ -306,3 +306,75 @@ def test_the_local_regression_corpus_is_never_swept(tmp_path, monkeypatch):
 
     assert len(list(tmp_path.glob("*.json"))) == 5, "로컬 회귀 소재가 청소됐다"
     assert C._disk_cache_stats()["swept"] is False
+
+
+def test_sweep_is_triggered_by_bytes_not_file_count(tmp_path, monkeypatch):
+    """**개수로 세면 크기를 못 본다** — 260804 OOM 과 같은 실수의 디스크판이다.
+
+    실측 문서는 20KB~42MB 로 2,000배 흩어져 있다. 「N건마다 청소」면 큰 것만 연달아
+    올 때 청소 전에 N×42MB 가 쌓여 예산이 무의미해진다(N=32 이면 1.3GB).
+    바이트로 세면 초과분이 크기 분포와 무관하게 묶인다."""
+    import open_proxy_mcp.dart.client as C
+    from open_proxy_mcp.dart.client import DartClient
+
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MANAGED", True)
+    monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 20_000)
+    monkeypatch.setattr(C, "_DISK_SWEEP_BYTES", 30_000)
+    monkeypatch.setattr(C, "_disk_bytes_since_sweep", 0)
+    c = DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+
+    # 작은 것 3건 — 아직 트리거 미만이라 안 훑는다(빈번한 스캔 방지가 목적)
+    for i in range(3):
+        c._save_to_disk(f"2026010100{i:04d}", {"body": "가" * 100})
+    assert len(list(tmp_path.glob("*.json"))) == 3, "작은 쓰기에 조기 청소가 돌았다"
+
+    # 큰 것 1건 — **건수는 1인데** 트리거를 넘겨 청소가 돌아야 한다
+    c._save_to_disk("20260101009999", {"body": "가" * 20_000})
+    used = sum(p.stat().st_size for p in tmp_path.glob("*.json"))
+    assert used <= 20_000, f"큰 문서 한 건이 트리거를 못 넘겼다 — {used}B 남음"
+
+
+def test_disk_budget_leaves_room_for_the_ledger_on_the_volume():
+    """볼륨 974MB 에 master.db(원장)가 같이 산다. 청소는 트리거를 넘은 뒤에 도는 만큼
+    **한 주기치 초과분**을 예산 위에 얹어도 볼륨이 남아야 한다."""
+    from open_proxy_mcp.dart.client import _DISK_CACHE_MAX_BYTES, _DISK_SWEEP_BYTES
+
+    mb = 1024 * 1024
+    worst = (_DISK_CACHE_MAX_BYTES + _DISK_SWEEP_BYTES + 64 * mb) / mb   # +최대 문서 여유
+    assert worst + 14 < 900, f"최악 점유 {worst:.0f}MB + 원장 14MB 가 볼륨 여유(894MB)를 넘는다"
+
+
+def test_disk_eviction_is_lru_not_fifo(tmp_path, monkeypatch):
+    """**적중한 문서는 오래됐다고 나가면 안 된다.**
+
+    디스크 퇴출은 mtime 순인데, 적중 때 mtime 을 안 올리면 그 값은 「처음 쓴 때」로
+    굳어 청소가 FIFO 가 된다. 그러면 매일 읽히는 문서도 나이 때문에 나가고 나가자마자
+    DART 왕복으로 다시 받는다. 메모리는 이미 LRU 라 두 층의 규칙이 어긋나기도 한다."""
+    import os
+
+    import open_proxy_mcp.dart.client as C
+    from open_proxy_mcp.dart.client import DartClient
+
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 250)
+    c = DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+
+    for i in range(3):                       # 100B 3건 → 예산 250B 라 하나는 나가야 한다
+        p = tmp_path / f"2026010100000{i}.json"
+        p.write_text("x" * 100, encoding="utf-8")
+        os.utime(p, (1000 + i, 1000 + i))    # 0번이 가장 오래됨
+
+    assert c._load_from_disk("202601010000000") is None or True   # 손상 무관, 적중만 본다
+    (tmp_path / "202601010000000.json").write_text('{"body":"가"}', encoding="utf-8")
+    os.utime(tmp_path / "202601010000000.json", (1000, 1000))
+    c._load_from_disk("202601010000000")     # ← 가장 오래된 것을 **읽는다**
+    C._sweep_disk_cache(force=True)
+
+    left = sorted(p.name for p in tmp_path.glob("*.json"))
+    assert "202601010000000.json" in left, (
+        f"방금 적중한 문서가 나이 때문에 퇴출됐다 — FIFO 다: {left}")

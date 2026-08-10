@@ -177,6 +177,10 @@ FLY=~/.fly/bin/flyctl
   롤백 수단이 없는 상태**다 — SDK·의존성 교체처럼 되돌릴 일이 있는 배포 전에는 먼저
   `"$FLY" auth login` 으로 확인한다.
 
+> 머신·볼륨 구성, 배포가 무엇을 갈아치우고 무엇을 남기는지, 시크릿 현황, 사고 이력은
+> **private** `open-proxy-storage/wiki-private/architecture/fly-machine-operations.md` 에 있다
+> (머신/볼륨 ID 가 붙어 public 에 못 둔다).
+
 ## 키 취급
 
 두 URL 모두 `?opendart=<키>` 형태로 키가 **URL 안에** 들어간다. 그래서:

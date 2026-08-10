@@ -33,6 +33,7 @@ DART 공시를 MCP로 제공하는 Python 서버. 한국 상장사 재무·사�
 | 의결권 정책·판단 구조 | `decisions/open-proxy-guideline` · `architecture/proxy-voting-decision-tree` |
 | 설계·기술 결정 (왜 이렇게 만들었나) | `decisions/` (BeautifulSoup·XML/PDF·free-paid·LLM-fallback 등) |
 | 작업 이유·회고 | **private** `open-proxy-storage/wiki-private/lessons/` (260720 이관 — 새 lesson도 여기에) |
+| **인프라 운영** (머신·볼륨·배포·롤백·시크릿·사고 이력) | **private** `open-proxy-storage/wiki-private/architecture/fly-machine-operations.md` — 머신/볼륨 ID 가 붙어 public 에 못 둔다 |
 | **작업·데이터 검증 방법** (전수·표본·측정 함정·프로토콜) | private lessons README ④ 검증 방법론 (대표 `agenda-parser-validation-260621`: 측정 함정 5패턴 + 체크리스트) |
 | 전체 색인 / 트리·명명·link 정책 | `wiki/wiki_index.md` / `wiki/wiki_schema.md` |
 

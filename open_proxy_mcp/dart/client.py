@@ -337,8 +337,26 @@ _DIVIDEND_CACHE = LruByteCache(_env_mb("OPM_DIVIDEND_CACHE_MB", 16), _DOC_CACHE_
 #:
 #: **경로 이동과 예산·청소는 한 몸이다.** `/tmp` 는 상한이 필요 없었다(배포가 비워줬다).
 #: 볼륨엔 그 자동 청소가 없고, 같은 볼륨에 master.db(회사코드 원장 14MB)가 산다 —
-#: 캐시가 볼륨을 채우면 **원장 쓰기가 실패한다.** 실측 볼륨 974MB / 여유 894MB 라
-#: 256MB 는 메모리 예산(96MB)의 2.7배 backstop 이면서 원장 자리를 넉넉히 남긴다.
+#: 캐시가 볼륨을 채우면 **원장 쓰기가 실패한다.**
+#:
+#: 예산 640MB — 실측 볼륨 974MB, master.db 14MB, 문서 평균 0.58MB 라 약 1,100건이
+#: 들어가고 320MB 가 남는다. **볼륨은 머신마다 따로다** — 2대라고 2GB 가 아니라
+#: 「974MB 짜리 두 벌」이고, A 에 받아둔 문서는 B 에겐 없다. 그래서 예산은 대당으로 잡는다.
+#: 디스크는 RAM 을 안 먹으므로 260804 OOM 과는 무관하다(메모리 예산 96MB 는 그대로).
+#:
+#: 청소 트리거는 **바이트**다. 종전 「32건마다」는 크기를 못 봤다 — 실측 문서가
+#: 20KB~42MB 로 2,000배 흩어져 있어, 큰 것만 연달아 오면 청소 전에 32×42MB=1.3GB 가
+#: 쌓여 예산이 무의미해진다(개수 예산으로 터졌던 260804 OOM 과 똑같은 실수다).
+#: 32MB 마다 훑으면 초과분은 크기 분포와 무관하게 **32MB + 문서 한 건**으로 묶인다.
+#:
+#: 퇴출 순서는 **LRU**(가장 오래 안 쓴 것부터)다 — `_load_from_disk` 가 적중마다 mtime 을
+#: 올려 「마지막 사용 시각」으로 쓴다. 빈도(LFU)로 안 가는 이유는 둘이다.
+#:   ① 디스크는 **메모리 뒤에 있다.** 뜨거운 문서는 메모리에서 끝나 디스크까지 안 온다 —
+#:      디스크가 보는 건 이미 걸러진 차가운 꼬리라 빈도 신호 자체가 약하다.
+#:   ② LFU 는 횟수를 파일마다 들고 있어야 해서 사이드카 인덱스가 필요하고(정합성·손상
+#:      위험), 한때 인기였던 항목이 영영 안 나가는 문제가 있다. LRU 는 그게 없다.
+#: 볼륨 이전 전의 디스크 적중은 24h 13건뿐이라 분포를 논할 표본이 아니었다.
+#: **먼저 LRU 로 두고 적중 분포를 재본 뒤** 필요하면 그때 빈도를 얹는다.
 #:
 #: **청소는 경로를 명시한 곳에서만 한다.** 예산의 목적은 볼륨을 지키는 것이고, 볼륨이
 #: 아니면 지킬 것이 없다. 로컬 기본 경로(`/tmp/opm_cache`)는 그냥 캐시가 아니라
@@ -347,25 +365,26 @@ _DIVIDEND_CACHE = LruByteCache(_env_mb("OPM_DIVIDEND_CACHE_MB", 16), _DOC_CACHE_
 _DISK_CACHE_DIR = (os.environ.get("OPM_DOC_CACHE_DIR")
                    or os.path.join(tempfile.gettempdir(), "opm_cache"))
 _DISK_CACHE_MANAGED = bool(os.environ.get("OPM_DOC_CACHE_DIR"))
-_DISK_CACHE_MAX_BYTES = _env_mb("OPM_DOC_DISK_CACHE_MB", 256)
-_DISK_SWEEP_EVERY = 32          # 매 write 마다 디렉터리를 훑지 않는다
-_disk_writes_since_sweep = _DISK_SWEEP_EVERY   # 첫 write 에서 한 번 — 부팅 시 초과분 정리
+_DISK_CACHE_MAX_BYTES = _env_mb("OPM_DOC_DISK_CACHE_MB", 640)
+_DISK_SWEEP_BYTES = _env_mb("OPM_DOC_DISK_SWEEP_MB", 32)   # 이만큼 쓰면 한 번 훑는다
+_disk_bytes_since_sweep = _DISK_SWEEP_BYTES    # 첫 write 에서 한 번 — 부팅 시 초과분 정리
 _disk_evictions = 0
 
 
-def _sweep_disk_cache(force: bool = False) -> int:
+def _sweep_disk_cache(written: int = 0, force: bool = False) -> int:
     """예산 초과분을 **오래된 것부터** 지운다. 반환 = 지운 바이트.
 
     실패는 전부 삼킨다 — 캐시 청소가 사용자 요청을 깨뜨리면 본말전도다.
-    `force=False` 면 `_DISK_SWEEP_EVERY` 번에 한 번만 실제로 훑는다."""
-    global _disk_writes_since_sweep, _disk_evictions
+    `force=False` 면 마지막 청소 이후 쓴 바이트가 `_DISK_SWEEP_BYTES` 를 넘을 때만
+    실제로 훑는다 — **개수가 아니라 바이트**로 세는 이유는 위 주석 참조."""
+    global _disk_bytes_since_sweep, _disk_evictions
     if not force:
         if not _DISK_CACHE_MANAGED:
             return 0            # 경로를 안 정해준 곳 = 지킬 볼륨이 없다 (위 주석)
-        _disk_writes_since_sweep += 1
-        if _disk_writes_since_sweep < _DISK_SWEEP_EVERY:
+        _disk_bytes_since_sweep += written
+        if _disk_bytes_since_sweep < _DISK_SWEEP_BYTES:
             return 0
-    _disk_writes_since_sweep = 0
+    _disk_bytes_since_sweep = 0
     entries = []
     try:
         with os.scandir(_DISK_CACHE_DIR) as it:
@@ -383,7 +402,9 @@ def _sweep_disk_cache(force: bool = False) -> int:
     if total <= _DISK_CACHE_MAX_BYTES:
         return 0
     # key= 를 명시한다. 튜플 전체비교면 mtime 동률일 때 경로까지 비교하게 된다.
-    entries.sort(key=lambda t: t[0])            # 오래된 것부터
+    # mtime 은 `_load_from_disk` 가 적중마다 갱신하므로 **마지막 사용 시각**이다 —
+    # 즉 이 정렬은 FIFO 가 아니라 LRU 다. 빈도(LFU)로 안 가는 이유는 위 주석 참조.
+    entries.sort(key=lambda t: t[0])            # 가장 오래 안 쓴 것부터
     freed = 0
     for _, size, path in entries:
         if total - freed <= _DISK_CACHE_MAX_BYTES:
@@ -636,13 +657,22 @@ class DartClient:
         self._api_keys = []
         if api_keys:
             self._api_keys = list(api_keys)
+        elif (ctx_key := _ctx_opendart_key.get()):
+            # **사용자 요청은 그 사용자의 키 하나만 쓴다.** 예비키를 뒤에 붙이면 사용자 키가
+            # 한도에 걸렸을 때 `_rotate_key()` 가 조용히 **우리 키**로 넘어간다. 그러면
+            #   ① 한 사용자의 과다 호출이 우리 키를 태우고, 우리 키가 막히면 **다른 사용자와
+            #      배치 작업이 전부 함께 멈춘다**(CLAUDE.md: 한도는 키마다다).
+            #   ② 사용자는 자기 키가 한도에 걸린 걸 모른 채 계속 쓴다 — 알려야 할 것을 덮는다.
+            # 풀이 1개면 `_rotate_key()` 가 False 를 내므로 회전 자체가 일어나지 않는다.
+            self._api_keys.append(ctx_key)
         else:
-            primary = _ctx_opendart_key.get() or os.getenv("OPENDART_API_KEY")
-            if primary:
-                self._api_keys.append(primary)
+            # 사용자 키가 없는 경로(로컬 스크립트·배치·부팅 시 corpCode 적재)만 env 키를 쓴다.
             # OPENDART_API_KEY_2, _3, _4, ... 순번 있는 만큼 전부 로드(260705, 키 2개 초과 지원).
             # 분당 스로틀(_api_call_timestamps)은 인스턴스 하나가 전 키 공유 — 키를 늘려도 IP레벨
             # 분당한도(910)는 그대로 지켜짐, 늘어나는 건 하루 총 쿼터(키당 4만)뿐.
+            primary = os.getenv("OPENDART_API_KEY")
+            if primary:
+                self._api_keys.append(primary)
             i = 2
             while True:
                 k = os.getenv(f"OPENDART_API_KEY_{i}")
@@ -2222,14 +2252,25 @@ class DartClient:
         return os.path.join(self._disk_cache_dir, f"{rcept_no}.json")
 
     def _load_from_disk(self, rcept_no: str) -> dict | None:
-        """깨진 파일은 **지우고 miss 로 취급**한다.
+        """적중하면 **mtime 을 지금으로 올린다** — 청소가 LRU 로 돌게 하는 장치다.
 
-        `/tmp` 시절엔 부분 파일이 배포 때 사라져 저절로 나았다. 볼륨에서는 안 낫는다 —
-        한 번 잘린 json 이 그 rcept_no 를 **영구히** 못 읽게 만든다."""
+        안 올리면 mtime 은 「처음 쓴 때」로 굳어 청소가 FIFO 가 된다. 그러면 매일 읽히는
+        문서도 오래됐다는 이유로 나가고, 나가자마자 DART 왕복으로 다시 받아 온다.
+        메모리 캐시는 이미 LRU 인데(`get()` 이 맨 뒤로 옮긴다) 디스크만 FIFO 면
+        두 층의 규칙이 어긋난다.
+
+        깨진 파일은 **지우고 miss 로 취급**한다. `/tmp` 시절엔 부분 파일이 배포 때
+        사라져 저절로 나았지만 볼륨에서는 안 낫는다 — 한 번 잘린 json 이 그 rcept_no 를
+        **영구히** 못 읽게 만든다."""
         path = self._disk_cache_path(rcept_no)
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                doc = json.load(f)
+            try:
+                os.utime(path, None)        # 적중 = 최근 사용. 실패해도 캐시는 유효하다
+            except OSError:
+                pass
+            return doc
         except FileNotFoundError:
             return None
         except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
@@ -2249,10 +2290,11 @@ class DartClient:
             with open(tmp, "w", encoding="utf-8") as f:
                 json.dump(doc, f, ensure_ascii=False)
             os.replace(tmp, path)               # 같은 파일시스템 내 원자적 교체
+            written = os.path.getsize(path)
         except OSError as e:
             logger.warning(f"disk cache 쓰기 실패(무시): {rcept_no} ({e})")
             return
-        _sweep_disk_cache()
+        _sweep_disk_cache(written)
 
     async def get_document_cached(self, rcept_no: str) -> dict:
         """get_document 결과를 캐싱 (메모리 바이트예산 LRU + TTL 24h, 디스크는 보조).
