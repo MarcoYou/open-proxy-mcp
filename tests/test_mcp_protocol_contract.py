@@ -235,3 +235,67 @@ def test_server_version_is_reported(client):
     declared = next(l.split("=")[1].strip().strip('"')
                     for l in txt.splitlines() if l.strip().startswith("version ="))
     assert ver == declared, f"wire={ver} vs pyproject={declared}"
+
+
+# ── 통계가 「모르겠다」를 말할 수 있는가 ────────────────────────────────────
+def _drive(client, body, monkeypatch):
+    """미들웨어가 **실제로 무엇을 적었는지** 본다. 응답 바이트만 보면 스캐너가 아예 안
+    돌아도 통과한다 — 적힌 값을 봐야 「기록이 살아있나」를 잰다."""
+    import open_proxy_mcp.usage as usage
+    rows = []
+    monkeypatch.setattr(usage, "record", lambda *a, **k: rows.append((a, k)))
+    client.post("/mcp?opendart=k", json=body, headers={**_HDRS, "Host": PROD_HOST})
+    return rows
+
+
+def test_failure_is_recorded_as_error(client, monkeypatch):
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                           "params": {"name": "no_such_tool_xyz", "arguments": {}}}, monkeypatch)
+    assert rows, "usage 이벤트가 없다 — 통계가 죽었다"
+    kw = rows[-1][1]
+    assert kw.get("is_error") is True, f"실패가 오류로 안 잡혔다: {kw}"
+    assert kw.get("error_kind"), f"error_kind 가 비었다: {kw}"
+
+
+def test_success_is_recorded_as_not_error(client, monkeypatch):
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                           "params": {"name": "law_lookup",
+                                      "arguments": {"query": "상법 제363조"}}}, monkeypatch)
+    kw = rows[-1][1]
+    assert kw.get("is_error") is False, f"성공이 오류로 잡혔다 — 에러율이 부풀려진다: {kw}"
+    assert kw.get("error_kind") is None, kw
+
+
+def test_unreadable_response_is_unclassifiable_not_success(client, monkeypatch):
+    """**이 테스트가 이번 수정의 전부다.** 스캐너가 응답을 못 읽으면 「성공」이 아니라
+    「모르겠다」로 적혀야 한다. 종전엔 둘 다 is_error=False 라, 필드명이 바뀌면
+    **에러율이 영원히 0** 이 되고 아무 신호도 안 났다.
+    """
+    import open_proxy_mcp.server as S
+    # 쉼표 없이 `(b"x")` 로 쓰면 튜플이 아니라 바이트열이고, 순회하면 정수가 나와
+    # 엉뚱하게 매칭된다(이 테스트를 처음 쓸 때 실제로 그렇게 틀렸다).
+    monkeypatch.setattr(S, "_ERR_PATTERNS", (b'"__nope__":true',))   # 스캐너를 눈멀게 한다
+    monkeypatch.setattr(S, "_ERR_FIELD", (b'"__nope__"',))
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                           "params": {"name": "no_such_tool_xyz", "arguments": {}}}, monkeypatch)
+    kw = rows[-1][1]
+    assert kw.get("is_error") is None, (
+        f"못 읽은 응답이 is_error={kw.get('is_error')!r} 로 적혔다 — "
+        "「모르겠다」가 「성공」으로 둔갑하면 에러율이 조용히 0이 된다")
+    assert kw.get("error_kind") == "unclassifiable", kw
+
+
+def test_request_body_is_not_buffered_without_bound(client, monkeypatch):
+    """미들웨어가 본문을 **끝까지** 모으면 안 된다.
+
+    라우터 밖에 있어 SDK 의 4 MiB 상한보다 먼저 도는데, 종전에는 32 MiB 를 통째로 담은
+    뒤에야 413 이 났다(실측). 1 GB VM 에 OOM 이력(260804)이 있다. 도구 이름은 앞부분에
+    있으므로 상한까지만 읽고 나머지는 흘려보낸다.
+    """
+    import open_proxy_mcp.server as S
+    assert S._MAX_SNIFF_BYTES <= 1 << 20, f"sniff 상한이 너무 크다: {S._MAX_SNIFF_BYTES}"
+    big = "가" * (S._MAX_SNIFF_BYTES // 2)     # UTF-8 3B/자 → 상한을 확실히 넘긴다
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 4, "method": "tools/call",
+                           "params": {"name": "law_lookup", "arguments": {"query": big}}},
+                  monkeypatch)
+    assert rows, "큰 요청에서 기록이 아예 안 남았다"

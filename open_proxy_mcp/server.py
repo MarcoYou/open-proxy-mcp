@@ -134,7 +134,22 @@ def _extract_tool(body: bytes):
 #: 테스트는 영원히 통과한다(매칭이 0건인 것과 「오류가 없었다」는 구분되지 않는다).
 _ERR_PATTERNS = (b'"isError":true', b'"isError": true',
                  b'"error":{"code"', b'"error": {"code"')
+#: **값이 아니라 필드가 보였나**를 따로 본다. 패턴이 하나도 안 맞는 것은 두 가지 뜻이다 —
+#: 「오류가 없었다」와 「우리가 못 읽었다」. 종전에는 둘 다 is_error=False 로 적혀서,
+#: 필드명이 바뀌면 **에러율이 영원히 0** 이 되고 아무 신호도 안 났다(260810 실측: 2.0 의
+#: 파이썬 필드가 is_error 로 바뀐 걸 보고 wire 도 바뀐 줄 알고 스캐너를 고칠 뻔했다).
+#: 이제 셋째 상태를 남긴다 — is_error=None + error_kind="unclassifiable".
+#: 그 수가 늘면 에러율이 0으로 수렴하는 대신 「모르겠다」가 쌓여 눈에 띈다.
+_ERR_FIELD = (b'"isError"', b'"is_error"', b'"error"')
 _EKIND_RE = re.compile(rb"\[ekind=(\w+)\]")  # tool 래퍼가 붙인 error_kind 태그
+
+#: 요청 본문에서 **도구 이름을 꺼낼 만큼만** 읽는다. JSON-RPC 는 method·params.name 이 앞에
+#: 오므로 정상 요청은 수백 바이트면 충분하다(OPM 인자는 회사명·코드·연도다).
+#: 종전에는 끝까지 다 모았고, 미들웨어가 라우터 **밖**에 있어 SDK 의 4 MiB 상한보다 먼저
+#: 돌기 때문에 **32 MiB 를 통째로 메모리에 담은 뒤에야 413** 이 났다(실측, 1.29·2.0 동일).
+#: 1 GB VM 에 OOM 이력(260804)이 있어 상한 없는 누적은 그대로 둘 수 없다.
+#: 여기서 멈춰도 replay 가 나머지를 receive() 로 흘려보내므로 하류는 온전한 본문을 받는다.
+_MAX_SNIFF_BYTES = 64 * 1024
 
 
 class ApiKeyMiddleware:
@@ -186,6 +201,8 @@ class ApiKeyMiddleware:
                 if msg["type"] == "http.request":
                     body += msg.get("body", b"")
                     more = msg.get("more_body", False)
+                    if len(body) >= _MAX_SNIFF_BYTES:
+                        break     # 나머지는 replay 가 receive() 로 그대로 흘려보낸다
                 else:
                     more = False
             tool, is_call = _extract_tool(body)
@@ -208,7 +225,7 @@ class ApiKeyMiddleware:
             # (툴 내부 실패는 HTTP 200에 실려 오므로 status만으론 못 잡음)
             # 그 외(핸드셰이크 등)는 기존대로 응답 시작 시 기록.
             rec = {"status": 0, "latency": None, "err": False, "tail": b"",
-                   "done": False, "ekind": None, "bytes": 0}
+                   "done": False, "ekind": None, "bytes": 0, "field_seen": False}
 
             async def send_wrapper(message):
                 if message["type"] == "http.response.start":
@@ -219,10 +236,13 @@ class ApiKeyMiddleware:
                 elif message["type"] == "http.response.body" and is_call and not rec["done"]:
                     chunk = message.get("body", b"") or b""
                     rec["bytes"] += len(chunk)     # 호출측이 무는 토큰 비용의 대리 지표
-                    if chunk and (not rec["err"] or rec["ekind"] is None):
+                    if chunk and (not rec["err"] or rec["ekind"] is None or not rec["field_seen"]):
                         hay = rec["tail"] + chunk
                         if not rec["err"]:
                             rec["err"] = any(p in hay for p in _ERR_PATTERNS)
+                        if not rec["field_seen"]:
+                            # 값이 아니라 **필드가 있었나**. 없으면 우리가 못 읽은 것이다.
+                            rec["field_seen"] = any(p in hay for p in _ERR_FIELD)
                         if rec["ekind"] is None:
                             m = _EKIND_RE.search(hay)
                             if m:
@@ -230,14 +250,24 @@ class ApiKeyMiddleware:
                         rec["tail"] = hay[-64:]  # 태그(~16B)가 청크 경계에 안 잘리게
                     if not message.get("more_body", False):
                         rec["done"] = True
-                        # 오류일 때만 error_kind 기록. 태그 없는 오류(인자검증·프로토콜·비래핑
-                        # 경로)는 "untagged" sentinel → 배포前 NULL과 배포後 분류실패를 구분.
-                        # 성공(not err)은 본문에 우연히 [ekind=]가 있어도 None으로 기록.
-                        ekind = (rec["ekind"] or "untagged") if rec["err"] else None
+                        # 세 상태로 적는다 — 「실패」·「성공」·**「모르겠다」**.
+                        #   실패    err=True                → is_error=True. 태그 없는 오류
+                        #           (인자검증·프로토콜·비래핑)는 "untagged" sentinel
+                        #   성공    필드는 봤는데 값이 false → is_error=False
+                        #   모르겠다 필드 자체를 못 봤다      → is_error=None + "unclassifiable"
+                        # 셋째가 핵심이다. 종전엔 이것도 False 로 적혀서 **스캐너가 눈이 멀면
+                        # 에러율이 조용히 0** 이 됐다. 이제 「모르겠다」가 쌓여 눈에 띈다
+                        # (nullable 이라 WHERE is_error=true 집계의 분모에서도 빠진다).
+                        if rec["err"]:
+                            is_err, ekind = True, (rec["ekind"] or "untagged")
+                        elif rec["field_seen"]:
+                            is_err, ekind = False, None
+                        else:
+                            is_err, ekind = None, "unclassifiable"
                         # 장부를 읽는다 — 우리가 만들어 내려보낸 그 dict 다.
                         # 문서를 안 받은 요청은 셋 다 0이라 분모에서 자연히 빠진다.
                         usage.record(opendart, rec["status"], tool, rec["latency"],
-                                     is_error=rec["err"], error_kind=ekind,
+                                     is_error=is_err, error_kind=ekind,
                                      response_bytes=rec["bytes"],
                                      doc_mem_hits=ledger["doc_mem_hits"],
                                      doc_disk_hits=ledger["doc_disk_hits"],
