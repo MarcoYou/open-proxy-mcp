@@ -753,6 +753,7 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     300 회사 audit (KOSPI 200 + KOSDAQ 100)에서 mismatch 607건 (19.3%) 모두 이 패턴.
     """
     t = (agenda_title or "").strip()
+    t_flat = t.replace(" ", "")          # 공고 표기가 띄어쓰기로 갈린다 — 키워드는 붙여서 본다
     parent = (parent_title or "").strip()
     # 260507 단일 fix: parent가 정관변경이면 sub 안건도 articles_amendment.
     # title 자체에 "정관" 없어도 (사외이사 명칭/감사위원 분리선임/위원회 명칭/배당절차 개선 등)
@@ -825,7 +826,13 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     # 희석률·행사가·부여대상 검토가 mainstream 필수라 전용 카테고리(REVIEW).
     if "주식매수선택권" in t or "스톡옵션" in t:
         return "stock_option_grant"
-    if any(k in t for k in ("합병", "분할", "주식교환", "주식이전", "영업양도", "영업양수", "영업 양도", "영업 양수")):
+    # **표기를 공백 없이 맞춘다.** 상법이 쓰는 정식 명칭은 「주식의 **포괄적** 교환/이전」
+    # (§360-2·§360-15)인데 종전 키워드는 붙임표기 「주식교환」뿐이었다 — 회사가 법문대로
+    # 쓰면 안 걸리고 `other` 로 떨어져 **자동 FOR** 가 났다(260811 실측). 「합병」은 잡히고
+    # 같은 급의 포괄적 교환은 안 잡히는 상태였다.
+    if any(k.replace(" ", "") in t_flat for k in (
+            "합병", "분할", "주식교환", "주식이전", "포괄적 교환", "포괄적 이전",
+            "영업양도", "영업양수", "영업 양도", "영업 양수", "자산양수", "자산 양수")):
         return "merger_or_restructuring"
     if "주주제안" in t:
         return "shareholder_proposal"
@@ -3922,12 +3929,19 @@ async def build_proxy_advise_payload(
             # iter12 정밀화: "자본준비금 감액"(회계 평탄화) ≠ "자본금 감액/감자"(주주가치 영향)
             t = (title or "")
             # 260724 스튜어드십 리뷰: '해임'은 분쟁·부정행위 국면 안건 — 자동 FOR 방어 불가
-            risk_keywords = ["적대적", "방어", "포이즌", "전환사채발행", "해임"]
+            # 공백 없이 맞춘다 — 종전 `"전환사채발행"` 은 실제 공고 표기 「전환사채 **발행**의 건」에
+            # 안 걸려 **사문**이었고, 그 안건이 `other` 로 떨어져 자동 FOR 가 났다(260811 실측).
+            # 희석·지분 이동을 일으키는 발행 안건은 전부 검토 대상이다 — 제3자배정은 상법 §418②
+            # 의 「경영상 목적」 요건이 걸리고, 그 판단은 도구가 대신할 수 없다.
+            t_flat = t.replace(" ", "")
+            risk_keywords = ["적대적", "방어", "포이즌", "해임",
+                             "전환사채", "신주인수권부사채", "교환사채",
+                             "제3자배정", "제삼자배정", "유상증자"]
             # "감자" 또는 "자본금 감액" (자본준비금 감액 제외 — mainstream FOR)
             if "감자" in t or ("자본금" in t and "감액" in t):
                 decision = "REVIEW"
                 reason = "자본금 감액·감자 관련 — 본문 확인이 필요합니다"
-            elif any(kw in t for kw in risk_keywords):
+            elif any(kw.replace(" ", "") in t_flat for kw in risk_keywords):
                 decision = "REVIEW"
                 reason = "분류되지 않은 안건 — 위험 요소가 보입니다. 본문 확인이 필요합니다"
             else:
