@@ -464,3 +464,52 @@ def test_no_weak_resolution_records_nothing(client, monkeypatch):
                            "params": {"name": "law_lookup",
                                       "arguments": {"query": "상법 제363조"}}}, monkeypatch)
     assert rows[-1][1].get("weak_kinds") is None
+
+
+# ── DART 상태코드 안내가 거짓말을 안 하는가 (260810) ──────────────────────
+def test_dart_status_guide_covers_the_official_table():
+    """공식 개발가이드 표(opendart.fss.or.kr/guide, 260810 대조) 전체를 덮어야 한다.
+
+    종전엔 7개만 덮어 나머지가 전부 「일시적으로 실패했습니다. 잠시 후 다시 시도하세요」로
+    떨어졌다 — **키가 만료된 사람이 영원히 재시도하게 되는 안내**다.
+    """
+    from open_proxy_mcp.services.dart_safety import _DART_STATUS_GUIDE
+
+    official = {"010", "011", "012", "013", "014", "020", "021",
+                "100", "101", "800", "900", "901"}
+    missing = official - set(_DART_STATUS_GUIDE)
+    assert not missing, f"공식 코드인데 안내가 없다(전부 '잠시 후 재시도'로 떨어진다): {sorted(missing)}"
+
+
+def test_key_problems_never_tell_the_user_to_retry():
+    """**재시도해도 절대 안 되는 것에 재시도를 시키면 안 된다.**
+    010·011·901 은 키 문제고, 012 는 IP 문제다 — 넷 다 기다린다고 풀리지 않는다."""
+    from open_proxy_mcp.services.dart_safety import _DART_STATUS_GUIDE, _RETRYABLE
+
+    for code in ("010", "011", "901", "012"):
+        kind, msg = _DART_STATUS_GUIDE[code]
+        assert kind not in _RETRYABLE, f"{code}({kind}) 를 재시도 대상으로 뒀다"
+        assert "잠시" not in msg and "다시 시도" not in msg, f"{code}: 재시도 안내가 남아 있다 — {msg}"
+
+
+def test_rate_advice_only_where_frequency_is_the_cause():
+    """011·012 는 종전에 「과호출 누적」·「조회 빈도를 낮추라」고 안내했는데 **둘 다 빈도와
+    무관**하다(사용할 수 없는 키 / 접근할 수 없는 IP). 안 몰았는데 많이 했다고 오탐하면
+    사용자는 엉뚱한 데를 고치게 된다."""
+    from open_proxy_mcp.services.dart_safety import _DART_STATUS_GUIDE
+
+    for code, (_, msg) in _DART_STATUS_GUIDE.items():
+        if "빈도" in msg or "나눠서" in msg or "간격" in msg:
+            assert code in ("020", "021"), f"{code} 에 호출 방식 안내가 붙었다 — {msg}"
+
+
+def test_failure_axis_is_separate_from_retry_axis():
+    """**두 축은 다르다.** `bad_key` 는 명백한 실패지만 재시도는 무의미하고,
+    `no_data` 는 실패가 아니면서 역시 재시도가 무의미하다. 한 축으로 판정하면
+    「키가 틀렸다」가 조용히 성공으로 잡힌다(260810 초안이 그랬다)."""
+    from open_proxy_mcp.services.dart_safety import _NOT_A_FAILURE, _RETRYABLE, degrade_marker
+
+    assert "bad_key" not in _RETRYABLE and "bad_key" not in _NOT_A_FAILURE
+    assert degrade_marker("bad_key").startswith("[degraded="), "키 오류가 성공으로 잡힌다"
+    assert degrade_marker("no_data").startswith("[nodata="), "자료없음이 실패로 잡힌다"
+    assert degrade_marker("no_document").startswith("[nodata=")
