@@ -11,6 +11,7 @@
   python3 scripts/usage_tracker.py --export DIR    # daily.csv·weekly.csv·users.csv·summary.json
   python3 scripts/usage_tracker.py --report       # 요약만
   python3 scripts/usage_tracker.py --paths [일수] # 원문 경로(주/viewer/KIND) + 폴백이 문 시간
+  python3 scripts/usage_tracker.py --corps [일수] # 조회된 기업 순위(사용자와 분리된 집계)
   python3 scripts/usage_tracker.py --migrate-local # 로컬 sqlite events → Postgres 1회 이전(시드)
 
 legacy(로컬 sqlite 수집 — Postgres 전환 전 과거 데이터 확보용):
@@ -747,6 +748,45 @@ def paths_report(days: int = 7):
     con.close()
 
 
+def corp_report(top: int = 15, days: int | None = None):
+    """어느 기업이 많이 조회되나 — **사용자와 떼어낸** 집계(`corp_daily`)에서 읽는다.
+
+    260810 이전에는 이벤트 행에 `corp_codes` 가 `key_hash`·`ts_ns` 와 나란히 있었다.
+    셋이 붙으면 「이 사용자가 언제 어느 기업을 조사했는지」가 되고, 그건 조사 이력이다.
+    원하는 답은 누가 봤는지를 몰라도 나오므로 쓰는 시점에 사용자를 뗐다.
+    그래서 여기서는 **「몇 명이 봤나」를 낼 수 없다** — 의도한 한계다.
+    """
+    if not using_pg():
+        raise SystemExit("--corps 는 Postgres 백엔드에서만 (DATABASE_URL 필요)")
+    con = _pg_conn()
+    where = f"WHERE day > current_date - {int(days)}" if days else ""
+    rows = con.execute(
+        f"SELECT corp_code, sum(requests) n FROM corp_daily {where} "
+        f"GROUP BY 1 ORDER BY 2 DESC LIMIT {int(top)}").fetchall()
+    total, corps, lo, hi = con.execute(
+        f"SELECT coalesce(sum(requests),0), count(DISTINCT corp_code), min(day), max(day) "
+        f"FROM corp_daily {where}").fetchone()
+    con.close()
+    if not total:
+        print("집계 없음 — corp_daily 가 비어 있다.")
+        return
+    span = f"{lo} ~ {hi}" if lo else ""
+    print(f"\n=== 조회된 기업 (총 {total:,}건 · {corps:,}개사 · {span}) ===")
+    names = {}
+    try:                                    # 코드→이름은 있으면 붙이고, 없으면 코드만 낸다
+        from open_proxy_mcp.dart.client import _MASTER_DB_PATH
+        import sqlite3 as _s
+        if _MASTER_DB_PATH.exists():
+            con2 = _s.connect(_MASTER_DB_PATH)
+            names = dict(con2.execute("SELECT corp_code, corp_name FROM corp_codes").fetchall())
+            con2.close()
+    except Exception:
+        pass
+    for code, n in rows:
+        print(f"  {names.get(code, code):<24} {n:>6,}  {100 * n / total:>5.1f}%")
+    print("  (사용자와 분리된 집계 — 「몇 명이 봤나」는 의도적으로 낼 수 없다)")
+
+
 def main():
     args = sys.argv[1:]
     # 읽기 명령 — 백엔드(Postgres/sqlite) 자동 선택
@@ -755,6 +795,11 @@ def main():
         return
     if "--stats" in args:
         stats(fetch_rows())
+        return
+    if "--corps" in args:
+        i = args.index("--corps")
+        days = int(args[i + 1]) if i + 1 < len(args) and args[i + 1].isdigit() else None
+        corp_report(days=days)
         return
     if "--paths" in args:
         i = args.index("--paths")

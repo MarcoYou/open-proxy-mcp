@@ -155,7 +155,7 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
             try:
                 row = con.execute(
                     "SELECT tool, latency_ms, response_bytes, doc_mem_hits, doc_disk_hits, "
-                    "doc_misses, corp_codes, fetch_viewer, fetch_kind, web_wait_ms "
+                    "doc_misses, fetch_viewer, fetch_kind, web_wait_ms "
                     "FROM events").fetchone()
             except sqlite3.OperationalError:
                 row = None
@@ -166,7 +166,18 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
         _t.sleep(0.05)
 
     assert row is not None, "이벤트가 기록되지 않았다"
-    assert row == ("dividend", 1234, 3001, 3, 2, 1, "00126380,00164779", 7, 11, 4200)
+    assert row == ("dividend", 1234, 3001, 3, 2, 1, 7, 11, 4200)
+
+    # **기업은 이벤트 행에 안 적힌다.** 같은 행에 key_hash·ts_ns 가 있어 셋이 붙으면
+    # 「이 사용자가 언제 어느 기업을 조사했는지」가 된다 — 조사 이력이다.
+    con = sqlite3.connect(db)
+    val = con.execute("SELECT corp_codes FROM events").fetchone()[0]
+    assert val is None, f"기업이 사용자와 같은 행에 적혔다 — 조사 이력이 쌓인다: {val!r}"
+    # 대신 사용자를 뗀 (날짜, 기업) 카운터로 올라간다 — 원하는 답은 그대로 나온다.
+    agg = dict(((c, n) for _, c, n in con.execute(
+        "SELECT day, corp_code, requests FROM corp_daily").fetchall()))
+    con.close()
+    assert agg == {"00126380": 1, "00164779": 1}, agg
 
 
 def test_record_still_skips_operator_key(tmp_path, monkeypatch):
@@ -285,3 +296,40 @@ def test_instrumentation_is_silent_without_a_ledger(monkeypatch):
     c._last_web_request = 0.0
     asyncio.run(c._throttle_web())      # 예외가 안 나면 통과
     asyncio.run(c._throttle_kind())
+
+
+# ── 기업 조회를 사용자와 떼어 두는가 (260810) ─────────────────────────────
+def test_corp_counts_never_carries_the_user():
+    """**여기가 연결을 끊는 자리다.** 이 함수가 key_hash 를 들고 나오기 시작하면
+    「이 사용자가 언제 어느 기업을 조사했는지」가 되살아난다 — 조사 이력이다.
+
+    회사 이름·티커 자체는 공개 정보라 문제가 아니다. 문제는 **연결**이다:
+    key_hash 는 익명이 아니라 가명이고(같은 사람인지는 안다), DART 키는 실명 등록에 묶인다.
+    """
+    import open_proxy_mcp.usage as usage
+
+    batch = [
+        ("e1", 1_754_000_000_000_000_000, "HASH_SECRET", 200, "dividend", 1, False, None,
+         0, 0, 0, 0, "00126380,00164779", 0, 0, 0, None),
+        ("e2", 1_754_000_000_000_000_000, "HASH_SECRET2", 200, "dividend", 1, False, None,
+         0, 0, 0, 0, "00126380", 0, 0, 0, None),
+    ]
+    agg = usage._corp_counts(batch)
+    assert all(len(k) == 2 and isinstance(k[1], str) for k in agg), agg
+    assert "HASH_SECRET" not in str(agg), "집계가 사용자를 들고 나왔다"
+    assert sorted((c, n) for (_, c), n in agg.items()) == [("00126380", 2), ("00164779", 1)]
+
+
+def test_event_insert_does_not_carry_corp_codes():
+    """이벤트 행에는 기업을 안 적는다 — 같은 행에 key_hash·ts_ns 가 있기 때문이다.
+    집계(`corp_daily`)로만 올라간다."""
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "usage.py"
+    text = src.read_text(encoding="utf-8")
+    for stmt in ("INSERT OR IGNORE INTO events(", "INSERT INTO tool_call_events("):
+        i = text.index(stmt)
+        head = text[i:i + 600]
+        cols = head[:head.index("VALUES")]
+        assert "corp_codes" not in cols, f"이벤트 INSERT 가 아직 기업을 적는다: {stmt}"
+    assert "corp_daily" in text, "집계 테이블로 올리는 경로가 없다"

@@ -17,6 +17,7 @@ CLI:  python -m open_proxy_mcp.usage dump   # (sqlite 백엔드용) events를 JS
 """
 from __future__ import annotations
 
+import datetime as _dt
 import hashlib
 import itertools
 import json
@@ -53,6 +54,36 @@ _worker_started = False
 _lock = threading.Lock()
 
 
+_KST = _dt.timezone(_dt.timedelta(hours=9))
+#: corp_codes 는 이벤트 행에 **안 적는다.** 같은 행에 `key_hash`·`ts_ns` 가 있어서, 셋이
+#: 붙으면 「이 사용자가 언제 어느 기업을 조사했는지」가 한 줄 쿼리로 나온다 — 재무분석가·
+#: 기관투자자에게 **무엇을 언제 조사했는가는 그 자체가 정보**다. 회사 이름이 공개라는 것과
+#: 무관하다(공시 전에 어떤 회사를 며칠 들여다봤는지가 드러나는 문제). key_hash 는 익명이
+#: 아니라 **가명**이라 같은 사람인지는 알 수 있고, DART 키는 실명 등록에 묶여 있다.
+#:
+#: 그런데 우리가 원한 답(「어느 기업이 많이 조회되나」)은 **누가 봤는지를 몰라도 된다.**
+#: 그래서 쓰는 시점에 사용자를 떼고 `(날짜, 기업)` 카운터로만 올린다 —
+#: 값어치는 그대로 남고 부채만 사라진다. 260810 실측 1,041개 기업·상위 100건대.
+def _corp_counts(batch):
+    """배치 → {(날짜, corp_code): 건수}. **key_hash 를 들고 나오지 않는다** — 여기가 연결을
+    끊는 자리다. 이 함수가 해시를 반환하기 시작하면 부채가 되살아난다."""
+    from collections import defaultdict
+    agg = defaultdict(int)
+    for r in batch:
+        codes = r[_CORP_IDX]
+        if not codes:
+            continue
+        day = _dt.datetime.fromtimestamp(r[1] / 1e9, _KST).date()
+        for c in codes.split(","):
+            if c:
+                agg[(day, c)] += 1
+    return agg
+
+
+#: 큐 튜플에서 corp_codes 의 자리. 이벤트 INSERT 에서는 이 자리를 **빼고** 넣는다.
+_CORP_IDX = 12
+
+
 # ── 백엔드: sqlite ─────────────────────────────────────────────────────────
 def _sqlite_connect():
     con = sqlite3.connect(DB_PATH, timeout=10)
@@ -65,6 +96,9 @@ def _sqlite_connect():
             key_hash TEXT NOT NULL, status INTEGER);
         CREATE INDEX IF NOT EXISTS idx_events_hash ON events(key_hash);
         CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns);
+        CREATE TABLE IF NOT EXISTS corp_daily(
+            day TEXT NOT NULL, corp_code TEXT NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (day, corp_code));
         """
     )
     for col in ("tool TEXT", "latency_ms INTEGER", "is_error INTEGER", "error_kind TEXT",
@@ -85,10 +119,17 @@ def _sqlite_write(con, batch):
     # **조용히 다른 컬럼에 값을 넣는다**(260704 mkt_fund_hist 사고).
     con.executemany(
         "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
+        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, "
         "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", batch
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        [r[:_CORP_IDX] + r[_CORP_IDX + 1:] for r in batch]
     )
+    rows = [(str(d), c, n) for (d, c), n in _corp_counts(batch).items()]
+    if rows:
+        con.executemany(
+            "INSERT INTO corp_daily(day, corp_code, requests) VALUES(?,?,?) "
+            "ON CONFLICT(day, corp_code) DO UPDATE SET requests = requests + excluded.requests",
+            rows)
     con.commit()
 
 
@@ -132,7 +173,11 @@ def _pg_connect():
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS weak_kinds text")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON tool_call_events(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON tool_call_events(ts_ns)")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_events_corp ON tool_call_events(corp_codes)")
+    # corp_codes 컬럼은 **더 쓰지 않는다**(위 _corp_counts 주석). 260810 이전 값은 백필
+    # 스크립트가 corp_daily 로 옮긴 뒤 비운다. 컬럼과 인덱스는 남겨 두되 기록하지 않는다.
+    con.execute("CREATE TABLE IF NOT EXISTS corp_daily("
+                "day date NOT NULL, corp_code text NOT NULL, "
+                "requests int NOT NULL DEFAULT 0, PRIMARY KEY (day, corp_code))")
     con.commit()
     return con
 
@@ -141,11 +186,17 @@ def _pg_write(con, batch):
     # 컬럼명 명시 — 위치 의존 INSERT 는 ADD COLUMN 후 조용히 어긋난다(260704 사고).
     con.cursor().executemany(
         "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
+        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, "
         "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
-        batch,
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
+        [r[:_CORP_IDX] + r[_CORP_IDX + 1:] for r in batch],
     )
+    rows = [(d, c, n) for (d, c), n in _corp_counts(batch).items()]
+    if rows:
+        con.cursor().executemany(
+            "INSERT INTO corp_daily(day, corp_code, requests) VALUES(%s,%s,%s) "
+            "ON CONFLICT (day, corp_code) DO UPDATE SET "
+            "requests = corp_daily.requests + EXCLUDED.requests", rows)
     con.commit()
 
 
