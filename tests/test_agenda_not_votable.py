@@ -45,11 +45,21 @@ def test_a_completed_withdrawal_still_reads_as_one() -> None:
 
 
 def test_children_of_a_mutually_exclusive_slate_inherit_it() -> None:
-    """부모 24(5인)·33(6인)은 ⚠️ 로 잡혔는데 자식 16명이 전원 찬성이었다."""
-    nodes = _agenda_nodes([{
-        "number": "제3-2호", "title": "이사 5인 선임의 건",
-        "children": [{"number": "제3-2-1호", "title": "사외이사 김철수 선임의 건", "children": []}],
-    }])
+    """부모 24(5인)·33(6인)은 ⚠️ 로 잡혔는데 자식 16명이 전원 찬성이었다.
+
+    260810: **형제를 함께 세워야 하는 테스트다.** 종전에는 5인안 하나만 두고 상호배타라고
+    단언했는데, 그건 `_AGENDA_ALTERNATIVE_PATTERNS` 에 박혀 있던 `"5인 선임"` 리터럴 덕에
+    통과하던 것이다 — 리터럴은 고려아연 한 회사만 맞히고 4인/7인이면 뚫린다.
+    안건 하나만으로는 그게 시나리오인지 그냥 선거인지 알 수 없고, **옆에 6인안이 있어야**
+    택일 구조다. 그래서 실제 사고 모양(둘)을 그대로 세운다.
+    """
+    nodes = _agenda_nodes([
+        {"number": "제3-2호", "title": "집중투표의 방법으로 이사 5인 선임의 건",
+         "children": [{"number": "제3-2-1호", "title": "사외이사 김철수 선임의 건",
+                       "children": []}]},
+        {"number": "제3-3호", "title": "집중투표의 방법으로 이사 6인 선임의 건",
+         "children": []},
+    ])
     assert nodes[0]["agenda_relation_type"] == "alternative"
     child = nodes[0]["children"][0]
     assert child["agenda_relation_type"] == "alternative"

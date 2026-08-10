@@ -140,13 +140,15 @@ _AGENDA_WITHDRAWN_PATTERNS = (
     "상정 철회",
     "상정철회",
 )
+#: 제목이 **스스로** 상호배타라고 말하는 경우. 여기에 「5인 선임」·「6인 선임」 같은
+#: 인원 리터럴을 넣지 말 것 — 260525 에 그렇게 넣었다가 **고려아연 하나만 비켜간** 상태가
+#: 됐다(4인/7인 시나리오면 그대로 뚫린다). 인원으로 갈리는 시나리오는 제목 하나로는 알 수
+#: 없고 **형제를 봐야** 안다 → `_mark_exclusive_scenarios`.
 _AGENDA_ALTERNATIVE_PATTERNS = (
     "대안",
     "택일",
     "둘 중",
     "상호배타",
-    "5인 선임",
-    "6인 선임",
 )
 
 
@@ -255,7 +257,101 @@ def _agenda_nodes(
             if item.get(key) is not None:
                 node[key] = item[key]
         nodes.append(node)
+    # 형제를 다 만든 **뒤에야** 시나리오 판정이 가능하다(제목 하나로는 못 본다).
+    _mark_exclusive_scenarios(nodes)
     return nodes
+
+
+#: 역할이 다르면 **함께 뽑는** 안건이지 택일이 아니다 — 「사내이사 2인」과 「사외이사 3인」은
+#: 상호배타가 아니라 상보적이다. 역할 수식어가 갈리면 시나리오 판정을 하지 않는다.
+_ROLE_WORDS = ("사내이사", "사외이사", "기타비상무이사", "감사위원", "감사")
+
+
+def _role_scope(title: str) -> str:
+    t = (title or "").replace(" ", "")
+    for w in _ROLE_WORDS:
+        if w.replace(" ", "") in t:
+            return w
+    return ""
+
+
+def _mark_exclusive_scenarios(nodes: list[dict[str, Any]]) -> None:
+    """같은 층 형제 중 **집중투표 + 선임 인원**이 인원만 다르게 둘 이상이면 상호배타로 본다.
+
+    왜 형제를 봐야 하나: 「집중투표의 방법으로 이사 5인을 선임하는 건」이라는 제목 하나만
+    보면 그게 시나리오인지 그냥 선거인지 알 수 없다. **옆에 6인안이 같이 올라와 있어야**
+    비로소 택일 구조다. 종전에는 이걸 제목 리터럴(`"5인 선임"`·`"6인 선임"`)로 때웠는데,
+    그건 고려아연 한 회사만 맞히고 4인/7인이면 그대로 뚫리는 임시방편이었다.
+
+    좁게 잡는다 — **틀리게 묶으면 던져야 할 표를 지운다**:
+      · 집중투표/누적투표 언급이 있어야 한다(시나리오를 만드는 것이 집중투표 청구다)
+      · 선임 인원을 읽을 수 있어야 하고, 그 인원이 서로 달라야 한다
+      · 역할이 갈리면(사내/사외/감사위원) 제외 — 그건 함께 뽑는 상보적 안건이다
+    묶은 뒤에는 자식(후보 행)까지 상속시킨다. 자식이 스스로 더 강한 신호를 냈으면 덮지 않는다.
+    """
+    # ── 신호 ②: **선행 트리거 안건** ──────────────────────────────────────
+    # 「집중투표에 의하여 선임할 이사의 수 결정의 건」이 형제로 있으면, 인원이 박힌 선거는
+    # 그 결과에 걸린다 — 몇 석인지가 아직 안 정해졌는데 후보에 찬성부터 낼 수는 없다.
+    # 고려아연 구조가 정확히 이것이었다(제2-7호 가결 여부에 5인안/6인안이 갈렸다).
+    # 시나리오가 하나만 올라온 경우엔 형제 비교(신호 ①)로는 안 잡히므로 이 신호가 받는다.
+    has_seat_trigger = any(
+        (n.get("agenda_relation_type") == "procedural")
+        and any(k in (n.get("title") or "") for k in ("이사의 수", "이사 수"))
+        for n in nodes
+    )
+    if has_seat_trigger:
+        for node in nodes:
+            title = node.get("title") or ""
+            if "선임" not in title or _seat_count_in_title(title) is None:
+                continue
+            if node.get("agenda_relation_type") in ("normal", "cumulative_related"):
+                node["agenda_relation_type"] = "conditional"
+                node["agenda_relation_reasons"] = [
+                    *(node.get("agenda_relation_reasons") or []), "seat_count_trigger_sibling"]
+            _propagate_relation(node.get("children") or [], node["agenda_relation_type"])
+
+    # ── 신호 ①: 형제 시나리오 (인원만 다른 집중투표 선거가 둘 이상) ──────
+    cands = []
+    for node in nodes:
+        title = node.get("title") or ""
+        if "집중투표" not in title and "누적투표" not in title:
+            continue
+        seats = _seat_count_in_title(title)
+        if seats is None or "선임" not in title:
+            continue
+        cands.append((node, seats, _role_scope(title)))
+    by_role: dict[str, list] = {}
+    for node, seats, role in cands:
+        by_role.setdefault(role, []).append((node, seats))
+    for role, group in by_role.items():
+        if len({s for _, s in group}) < 2:      # 인원이 다 같으면 시나리오가 아니다
+            continue
+        for node, _ in group:
+            if node.get("agenda_relation_type") in ("normal", "cumulative_related"):
+                node["agenda_relation_type"] = "alternative"
+                node["agenda_relation_reasons"] = [
+                    *(node.get("agenda_relation_reasons") or []), "sibling_seat_scenario"]
+            _propagate_relation(node.get("children") or [], node["agenda_relation_type"])
+
+
+def _propagate_relation(children: list[dict[str, Any]], relation: str) -> None:
+    """부모가 뒤늦게 시나리오로 판명됐을 때 자식에게 물려준다.
+    자식이 스스로 더 강한 신호를 냈으면 덮지 않는다 — 상속은 빈자리만 채운다."""
+    for child in children:
+        if child.get("agenda_relation_type") in ("normal", "cumulative_related"):
+            child["agenda_relation_type"] = relation
+            child["agenda_relation_reasons"] = [
+                *(child.get("agenda_relation_reasons") or []), f"inherited_from_parent:{relation}"]
+        _propagate_relation(child.get("children") or [], relation)
+
+
+def _seat_count_in_title(title: str) -> int | None:
+    """제목에서 선임 인원. 연도·금액이 섞여 들어오지 않게 상한을 둔다."""
+    m = re.search(r"(\d+)\s*(?:인|명)", title or "")
+    if not m:
+        return None
+    n = int(m.group(1))
+    return n if 1 <= n <= 30 else None
 
 
 def _compact_meeting_info(info: dict[str, Any], scope: str) -> dict[str, Any]:
