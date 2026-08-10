@@ -200,7 +200,7 @@ def test_record_still_skips_operator_key(tmp_path, monkeypatch):
 def test_web_throttle_counts_the_fallback_and_the_time_it_cost(monkeypatch):
     """**「2초 간격이 비싼가」를 재려고 붙인 계기다.**
 
-    빈도만으론 답이 안 나온다 — 폴백이 드물면 2초는 아무 비용도 아니고, 잦으면 간격이
+    빈도만으론 답이 안 나온다 — 폴백이 드물면 간격은 아무 비용도 아니고, 잦으면 간격이
     아니라 주 경로(document.xml)가 자주 실패한다는 뜻이다. 그래서 「몇 번 갔나」와
     「그래서 얼마나 기다렸나」를 함께 센다.
 
@@ -211,6 +211,7 @@ def test_web_throttle_counts_the_fallback_and_the_time_it_cost(monkeypatch):
     from open_proxy_mcp.dart.client import DartClient
 
     monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    monkeypatch.setattr(C, "_WEB_INTERVAL_RANGE", (0.05, 0.05))   # 테스트를 빠르게·결정적으로
     led = new_request_ledger()
     c = DartClient()
     c._last_web_request = 0.0                      # 직전 요청이 아주 오래됨 → 대기 없음
@@ -219,9 +220,42 @@ def test_web_throttle_counts_the_fallback_and_the_time_it_cost(monkeypatch):
     assert led["fetch_viewer"] == 1, "viewer 폴백이 안 세어졌다"
     assert led["web_wait_ms"] == 0, "대기가 없었는데 시간이 잡혔다"
 
-    asyncio.run(c._throttle_web())                 # 바로 이어서 → 2초 가까이 잔다
+    asyncio.run(c._throttle_web())                 # 바로 이어서 → 간격만큼 잔다
     assert led["fetch_viewer"] == 2
-    assert led["web_wait_ms"] > 1000, f"2초 간격이 시간으로 안 잡혔다: {led['web_wait_ms']}ms"
+    assert led["web_wait_ms"] > 0, "간격이 시간으로 안 잡혔다"
+
+
+def test_web_and_kind_share_one_rule_and_one_clock(monkeypatch):
+    """260810 통일 — 종전엔 DART 웹 2.0 고정 / KIND 1~3 랜덤이었는데, 둘은 이미
+    `_last_web_request` 라는 **같은 시계**를 쓰고 있었다. 두 정책이 아니라 한 흐름의
+    간격만 호출 경로에 따라 달랐던 것이라 하나로 합쳤다.
+
+    지켜야 할 셋(숫자가 아니라 이쪽이 규칙이다) — 하한 1.0초 · 시계 공유 · 배치/병렬 금지.
+    """
+    import open_proxy_mcp.dart.client as C
+    from open_proxy_mcp.dart.client import DartClient
+
+    lo, hi = C._WEB_INTERVAL_RANGE
+    assert lo >= 1.0, f"하한이 1.0초 아래로 내려갔다: {lo}"
+    assert lo < hi, "고정값이면 요청 간격이 정확히 규칙적이라 기계 티가 난다 — 지터를 둔다"
+    assert not hasattr(C, "_MIN_INTERVAL_WEB"), "옛 고정 상수가 남아 규칙이 둘로 보인다"
+
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    monkeypatch.setattr(C, "_WEB_INTERVAL_RANGE", (0.08, 0.08))
+    new_request_ledger()
+    c = DartClient()
+    c._last_web_request = 0.0
+
+    asyncio.run(c._throttle_kind())          # 시계가 오래됐으니 대기 없이 통과 + 시계를 민다
+    led = new_request_ledger()               # 장부를 새로 — 이 다음 대기만 잰다
+    asyncio.run(c._throttle_web())           # KIND 가 민 시계 때문에 **잠들어야** 한다
+
+    # `_last_web_request` 가 커졌는지만 보면 판별이 안 된다 — DART 쪽이 자기 값을 쓰기만 해도
+    # 커지기 때문이다(실제로 그렇게 썼다가 「KIND 가 시계를 안 민다」 변이를 놓쳤다).
+    # **다음 요청이 실제로 기다렸는가**를 봐야 시계가 이어져 있다는 증거가 된다.
+    assert led["web_wait_ms"] > 0, (
+        "KIND 직후의 DART 웹 요청이 안 기다렸다 — 시계가 갈라졌다. "
+        "갈라지면 호스트마다 따로 세므로 우리 총 요청률이 2배가 된다")
 
 
 def test_kind_throttle_is_counted_separately(monkeypatch):

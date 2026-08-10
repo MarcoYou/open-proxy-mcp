@@ -141,7 +141,21 @@ DART_WEB_BASE_URL = "https://dart.fss.or.kr"
 # 도달 가능하면서 초당 ~15로 burst 평활. (이전 0.1초는 분당 600 상한이라 window cap을
 # 무력화 = 과보수. race는 _api_rate_lock이 직렬화로 보장하므로 간격과 무관.)
 _MIN_INTERVAL_API = 0.066
-_MIN_INTERVAL_WEB = 2.0     # 웹: 최소 2초 간격 (DDoS 오해 방지)
+#: 웹 스크래핑(DART 웹 원문 viewer · KIND) 요청 간격 — **한 규칙, 한 시계**(260810 통일).
+#: 종전엔 DART 웹 2.0 고정 / KIND 1~3 랜덤으로 갈려 있었는데, 둘은 이미 `_last_web_request`
+#: 라는 **같은 시계**를 공유하고 있었다. 즉 두 정책이 아니라 한 흐름의 간격만 호출 경로에
+#: 따라 달랐던 것 — 근거 없는 불일치라 하나로 합쳤다.
+#:
+#: 랜덤인 이유: 고정 간격은 요청이 정확히 규칙적으로 나가 기계 티가 그대로 난다. 지터는
+#: 예의 스크래핑의 표준 관행이다.
+#: 하한 1.0초는 **새로 만든 값이 아니라** KIND 가 이미 쓰던 하한이다(사고 없이 운영 중).
+#: 이 구간(0.5→0.67 req/s)은 차단 판정이 갈리는 자리가 아니다 — 차단은 지속 볼륨·병렬·
+#: 정체불명 UA 같은 **패턴**이 좌우한다. 그래서 여기 붙은 규칙은 숫자가 아니라 이 셋이다:
+#:   ① 하한 1.0초 아래로 내리지 않는다  ② 시계는 계속 공유한다(총 요청률을 묶는다)
+#:   ③ 배치·병렬 금지
+#: 공표된 한도가 없으므로 이 값들은 「측정된 안전선」이 아니라 「예의」다. 폴백 빈도가
+#: 급증하면 다시 본다 — 그때 볼 계기가 `fetch_viewer`/`fetch_kind`/`web_wait_ms` 다.
+_WEB_INTERVAL_RANGE = (1.0, 2.0)
 # DART OpenAPI 분당 한도 1000회 — 초과 시 **그 키**가 막힌다(실측 2~3시간).
 # 실제 cap을 910으로 둠 (9% buffer, batch 동시 호출 race도 cover).
 _API_RATE_LIMIT_PER_MINUTE = 910
@@ -1335,27 +1349,32 @@ class DartClient:
             self._api_call_timestamps.append(now)
             self._last_api_request = now
 
-    async def _throttle_web(self):
-        """웹 스크래핑 요청 간격 강제 (최소 _MIN_INTERVAL_WEB 초)
+    async def _throttle_scrape(self, counter: str):
+        """웹 스크래핑 공통 간격 — DART 웹과 KIND 가 **한 규칙, 한 시계**를 쓴다.
 
-        ⚠️ DART 웹사이트는 공식 API가 아닙니다.
-        과도한 요청은 IP 차단 또는 법적 문제를 야기할 수 있으므로
-        반드시 보수적인 간격을 유지합니다.
+        ⚠️ 둘 다 공식 API가 아니다. 과도한 요청은 IP 차단이나 법적 문제로 이어질 수 있다.
 
         **API 한도와 격리 수준이 다르다** — API 는 키마다라 한 사용자가 넘겨도 그 사람만
         막히지만, 웹 차단은 IP 기준이라 **우리 서버 하나가 막히면 전원이 막힌다.**
         그래서 수치가 아니라 예의로 다룬다(공표된 한도가 없다 = 한도를 모른다).
+        간격의 근거와 지켜야 할 셋은 `_WEB_INTERVAL_RANGE` 주석 참조.
 
-        계기는 여기 둔다 — viewer 요청은 **전부** 이 함수를 지나므로 호출측이 빠뜨릴 수 없다.
+        계기는 여기 둔다 — 웹 요청은 **전부** 이 함수를 지나므로 호출측이 빠뜨릴 수 없다.
         """
-        _note_doc("fetch_viewer")
+        import random
+        _note_doc(counter)
+        wait = random.uniform(*_WEB_INTERVAL_RANGE)
         elapsed = time.monotonic() - self._last_web_request
-        if elapsed < _MIN_INTERVAL_WEB:
-            wait = _MIN_INTERVAL_WEB - elapsed
-            logger.debug(f"[DART 웹] {wait:.1f}초 대기 (rate limit)")
-            await asyncio.sleep(wait)
-            _note_web_wait(wait)
+        if elapsed < wait:
+            sleep_for = wait - elapsed
+            logger.debug(f"[웹 스크래핑] {sleep_for:.1f}초 대기 ({counter})")
+            await asyncio.sleep(sleep_for)
+            _note_web_wait(sleep_for)
         self._last_web_request = time.monotonic()
+
+    async def _throttle_web(self):
+        """DART 웹 원문 viewer 용 — 간격은 `_throttle_scrape` 가 하나로 관리한다."""
+        await self._throttle_scrape("fetch_viewer")
 
     # ── DART 웹 스크래핑 (viewer HTML 폴백용) ──
     # NOTE: _fetch_dcm_no (PDF 다운로드용 dcm_no 추출)는 2026-07-12 폐기 —
@@ -2094,19 +2113,9 @@ class DartClient:
     # ── KRX KIND 크롤링 ──
 
     async def _throttle_kind(self):
-        """KIND 웹 요청 간격 강제 (1-3초 랜덤).
-
-        DART 웹(고정 2초)과 규칙이 다르다 — 랜덤이라 **2초보다 짧을 때도 있다.**
-        같은 「모르는 한도」를 두 규칙이 다르게 다루는 것이라 의도 확인이 필요하다(260810).
-        계기는 여기 둔다 — KIND 요청은 전부 이 함수를 지난다."""
-        import random
-        _note_doc("fetch_kind")
-        elapsed = time.monotonic() - self._last_web_request
-        wait = random.uniform(1.0, 3.0)
-        if elapsed < wait:
-            await asyncio.sleep(wait - elapsed)
-            _note_web_wait(wait - elapsed)
-        self._last_web_request = time.monotonic()
+        """KIND 용 — DART 웹과 **같은 규칙·같은 시계**를 쓴다(260810 통일).
+        종전엔 여기만 1~3초 랜덤이라 DART 웹의 고정 2초와 갈려 있었다."""
+        await self._throttle_scrape("fetch_kind")
 
     async def kind_fetch_document(self, acptno: str) -> str:
         """KIND에서 공시 본문 HTML 가져오기 (3단계 iframe 크롤링)

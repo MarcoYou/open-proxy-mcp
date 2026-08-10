@@ -63,7 +63,7 @@ wiki/                  # public 도메인 지식과 결정 기록
 - batch 전 회사수 × 예상 호출수를 계산한다. 최대 30사 단위로 나누고 batch 사이 sleep. 100사 이상은 별도 운영 환경을 사용한다.
 - 독립 script는 client 생성마다 limiter가 분리될 수 있다. 동시성 1~2, 호출 간 sleep, `ReadError` 즉시 중단을 기본으로 한다.
 - API 키를 늘려도 IP 단위 분당 cap은 늘지 않는다. `OPENDART_API_KEY`, `_2`, `_3`… 다중 fallback은 일일 quota 대응용이다.
-- DART 웹/KIND scraping은 최소 2초 간격이며 배치 scraping은 금지한다.
+- DART 웹/KIND scraping은 **1~2초 랜덤 간격**(`_WEB_INTERVAL_RANGE`)에 시계를 공유하며, 배치·병렬 scraping은 금지한다.
 - API 키가 들어간 URL·쿼리·예외 메시지는 **전체는 물론 prefix도 출력·로그·fixture에 저장하지 않는다.**
 - 공시 검색은 `pblntf_ty` + `pblntf_detail_ty`로 먼저 좁히고 제목을 매칭한다. 전체 순회 금지. 회사 없는 시장검색은 최대 3개월.
 - `rcept_no`: `00`은 소집공고(DART 정기공시), `80`은 주총결과(거래소 수시공시). AGM XML 경로에는 `00`을 사용한다.

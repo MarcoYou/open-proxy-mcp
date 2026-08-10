@@ -122,7 +122,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 - 호출 위치: `DartClient.get_viewer_document(rcept_no, section_keywords=...)`
 - 동작: main.do HTML에서 `treeData.push(node1)` 블록 정규식 추출 → 섹션별 `report/viewer.do` 호출 → HTML 결합
 - 사용 시점: `document.xml`이 빈 본문/구조 깨졌을 때 fallback
-- Rate limit: `_throttle_web()` (최소 2초)
+- Rate limit: `_throttle_web()` → `_throttle_scrape()` (1~2초 랜덤, KIND 와 시계 공유)
 - 캐시: `_DOC_CACHE` 를 `viewer:` 네임스페이스로 공유 (rcept_no + keywords 키) — doc 과 하나의 바이트 예산
 
 ## 1.5 DS001~DS005 그룹 endpoint
@@ -235,7 +235,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 - 호출 위치: `_fetch_dcm_no()`, `_fetch_viewer_main_html()`
 - 정규식: `\['dcmNo'\]\s*=\s*"(\d+)"` (makeToc JS에서 추출)
 - User-Agent: `OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)`
-- Rate limit: 최소 2초 (`_throttle_web` `_MIN_INTERVAL_WEB`)
+- Rate limit: 1~2초 랜덤 (`_throttle_scrape` `_WEB_INTERVAL_RANGE`)
 
 ## 2.2 report/viewer.do — 섹션 HTML
 
@@ -257,31 +257,49 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 
 | 항목 | 값 |
 |---|---|
-| 최소 간격 | 2.0초 (`_MIN_INTERVAL_WEB`) |
+| 간격 | **1.0~2.0초 랜덤** (`_WEB_INTERVAL_RANGE`) · KIND 와 **시계 공유** |
 | 배치 사용 | 금지 (1건씩만) |
 | User-Agent | 프로젝트명·연락처 명시 필수 |
 | 비공식 | 공식 API가 아니므로 보수적 접근 |
 
-2.0초는 **측정해서 나온 값이 아니라 안전한 쪽으로 고른 값**이다. OpenDART 는 공표된 한도가
+1.0~2.0초는 **측정해서 나온 값이 아니라 예의로 고른 값**이다. OpenDART 는 공표된 한도가
 있지만(분당 1,000·일 4만) 웹은 없다 — 「한도가 없다」가 아니라 **「한도를 모른다」**다.
 게다가 격리 수준이 다르다: API 한도는 **키마다**라 한 사용자가 넘겨도 그 사람만 막히지만,
 웹 차단은 **IP 기준**이라 우리 서버 하나가 막히면 **전원의 폴백 경로가 사라진다.**
 
-낮추기 전에 재라 (260810 계기 추가). `_throttle_web`/`_throttle_kind` 안에서 요청 장부에
-`fetch_viewer`·`fetch_kind`(폴백 몇 번 갔나)와 `web_wait_ms`(그래서 얼마나 잤나)를 적고,
-`tool_call_events` 로 흘려보낸다. 조회는 `python3 scripts/usage_tracker.py --paths [일수]`.
+### 260810 통일 — 왜 하나로 합쳤나
+
+종전엔 DART 웹 `2.0초 고정` / KIND `1~3초 랜덤`으로 갈려 있었다. 그런데 둘은 이미
+`_last_web_request` 라는 **같은 시계**를 쓰고 있었다 — KIND 를 긁으면 다음 DART 요청이
+밀리고 그 반대도 마찬가지였다. 즉 **두 정책이 아니라 한 흐름의 간격만 호출 경로에 따라
+달랐던 것**이라, 근거 없는 불일치였다. `_throttle_scrape()` 하나로 합쳤다.
+
+| 정한 것 | 근거 |
+|---|---|
+| 1.0~2.0초 **랜덤** | 고정 간격은 요청이 정확히 규칙적으로 나가 기계 티가 그대로 난다. 지터는 예의 스크래핑의 표준 관행 |
+| 하한 1.0초 | **새로 만든 값이 아니라** KIND 가 이미 쓰던 하한이다(사고 없이 운영 중). 0.5→0.67 req/s 는 차단 판정이 갈리는 구간이 아니다 — 차단은 지속 볼륨·병렬·정체불명 UA 같은 **패턴**이 좌우한다 |
+| 시계 공유 유지 | 호스트별로 나누면 우리 **총** 요청률이 2배가 된다. 둘 다 드문 경로라 나눠서 얻을 게 없다 |
+
+**숫자가 아니라 이 셋이 규칙이다** — ① 하한 1.0초 아래로 안 내림 ② 시계 공유 ③ 배치·병렬 금지.
+「비용이 0이니 느릴수록 좋다」는 끝까지 밀면 10초가 되는 논리라, 어딘가에서 멈춰야 한다.
+
+### 그래도 낮추고 싶으면 먼저 재라 (260810 계기)
+
+`_throttle_scrape` 안에서 요청 장부에 `fetch_viewer`·`fetch_kind`(폴백 몇 번 갔나)와
+`web_wait_ms`(그래서 얼마나 잤나)를 적고 `tool_call_events` 로 흘려보낸다.
+조회는 `python3 scripts/usage_tracker.py --paths [일수]`.
 
 | 읽은 결과 | 뜻 | 할 일 |
 |---|---|---|
-| 폴백이 드물다 | 2초는 아무 비용도 아니다 | 건드리지 않는다 |
+| 폴백이 드물다 | 간격은 아무 비용도 아니다 | 건드리지 않는다 |
 | 폴백이 잦다 | 간격이 아니라 **주 경로(document.xml)가 자주 실패**한다 | 주 경로를 고친다 |
 
-어느 쪽이든 「2초를 낮춘다」가 답이 되는 경우는 거의 없다. 계기를 스로틀 **안**에 둔 이유는
+어느 쪽이든 「간격을 낮춘다」가 답이 되는 경우는 거의 없다. 계기를 스로틀 **안**에 둔 이유는
 viewer/KIND 요청이 전부 그 함수를 지나기 때문이다 — 호출측에 두면 fetch 함수가 늘 때마다
 조용히 누락된다.
 
-> KIND 는 `1~3초 랜덤`(`_throttle_kind`)이라 **2초보다 짧을 때도 있다.** 같은 「모르는 한도」를
-> 두 규칙이 다르게 다루는 것이라 의도 확인이 필요하다(260810 미해결).
+폴백이 도는 조건 자체가 드물다: `_fetch_viewer_sec` 주석대로 **`document.xml` 이 아예 없는
+회사**(KB금융·삼성화재류)에서만 돈다.
 
 ---
 
@@ -593,7 +611,7 @@ OPM 운영(2026-07-12~ XML 단독):
 | Source | 최소 간격 | 한도 | 처리 |
 |---|---|---|---|
 | DART OpenAPI | 0.1초 (`_MIN_INTERVAL_API`) | 1,000/min, 20,000/day | 키 회전 |
-| DART 웹 | 2.0초 (`_MIN_INTERVAL_WEB`) | 비공식 (IP 차단 위험) | User-Agent 명시 |
+| DART 웹·KIND | 1~2초 랜덤 (`_WEB_INTERVAL_RANGE`, 시계 공유) | 비공식 (IP 차단 위험) | User-Agent 명시 |
 | KIND | 1~3초 random (`_throttle_kind`) | 비공식 | 봇 감지 회피 |
 | Naver 뉴스 API | 0.1초 (공유) | 25,000/day, 분당 100 | 키 환경변수 |
 | Naver Finance | 2.0초 (asyncio.sleep) | 비공식 | UA 위장 (Mozilla/5.0) |
