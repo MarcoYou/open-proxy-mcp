@@ -96,7 +96,7 @@ uv sync
 ```
 
 ```bash
-uv run python -m open_proxy_mcp.server --transport stdio
+uv run python -m open_proxy_mcp.server --transport streamable-http
 ```
 
 - Build → Check → Pass. 의미 있는 변경마다 검증하되 commit/push/deploy는 사용자가 명시적으로 요청할 때만 한다.

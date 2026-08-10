@@ -124,9 +124,9 @@ uv sync
   - 둘 다 `streamable-http`(무상태)라 프로토콜 차이가 없다. **남는 차이는 코드 시점 하나.**
   - 그 차이는 **항상 추적한다** — `python3 scripts/live_pilot_diff.py` (배포된 커밋은 GitHub
     Deployments, tool 개수는 양쪽 `/health`). SessionStart 훅이 세션마다 자동으로 띄운다.
-- **`--transport stdio`로 OPM MCP를 띄우지 않는다.** stdio는 세션이 뜰 때 **그 시점 코드를
-  메모리에 붙들어**, 코드를 고쳐도 그 세션의 MCP는 계속 옛 결과를 낸다(260802 확인). 로컬 검증은
-  pilot(HTTP)으로만 한다.
+- **전송 방식은 `streamable-http` 하나뿐이다** (260810, stdio·sse 코드 삭제). 규칙으로 금지하는
+  대신 **선택지 자체를 없앴다** — 금지된 것이 argparse 기본값이라 인자를 빼먹으면 조용히 그리로
+  떴다. 왜 그 둘을 안 쓰는지는 [[mcp-endpoints]]. 로컬 검증은 pilot(HTTP)으로만 한다.
 - **개발 중 검증은 `pilot-opm`, 배포 후 확인은 `live-opm` (260731 이후 표준).**
   `preview_start(name="pilot-opm")` → `POST http://127.0.0.1:8000/mcp?opendart=<키>`
   (키는 `.env`에서 읽고 **출력하지 않는다**). 코드 고치면 `preview_stop` → `preview_start`.

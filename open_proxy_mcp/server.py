@@ -347,32 +347,25 @@ def build_app(server=None):
 
 def main():
     parser = argparse.ArgumentParser()
+    # 전송 방식은 하나뿐이다. 종전에는 stdio·sse 도 받았고 **기본값이 stdio** 였다 —
+    # 금지된 것이 기본값이라, 인자를 빼먹으면 조용히 그리로 떴다.
+    #   stdio : 세션이 뜰 때 그 시점 코드를 메모리에 붙들어, 고쳐도 옛 결과를 낸다(260802).
+    #   sse   : 연결을 붙들어 fly 2머신에서 "Session not found" 가 난다. streamable-http 가
+    #           그 문제를 풀려고 나온 후속 방식이다. 게다가 SDK 가 자기 앱을 따로 만들어
+    #           우리 ApiKeyMiddleware(키 게이트·통계·로그 마스킹)가 안 붙었다.
+    # 인자 자체는 남긴다 — Dockerfile·launch.json 이 명시해서 넘긴다.
     parser.add_argument(
         "--transport",
-        choices=["stdio", "sse", "streamable-http"],
-        default="stdio",
-    )
-    parser.add_argument(
-        "--sse",
-        action="store_true",
-        help="하위호환 옵션: --transport sse 와 동일",
+        choices=["streamable-http"],
+        default="streamable-http",
     )
     args = parser.parse_args()
-    if args.sse:
-        args.transport = "sse"
     server = build_mcp()
 
-    if args.transport == "streamable-http":
-        import uvicorn
-        app = build_app(server)          # 서빙 결정은 전부 build_app 안에 있다
-        install_api_key_redaction()
-        uvicorn.run(app, host=bind_host(), port=bind_port())
-    elif args.transport == "sse":
-        # 2.0 의 run() 은 settings 를 안 읽는다 — 안 넘기면 127.0.0.1 에 보호 꺼짐으로 뜬다.
-        server.run(transport="sse", host=bind_host(), port=bind_port(),
-                   transport_security=transport_security())
-    else:
-        server.run(transport="stdio")
+    import uvicorn
+    app = build_app(server)              # 서빙 결정은 전부 build_app 안에 있다
+    install_api_key_redaction()
+    uvicorn.run(app, host=bind_host(), port=bind_port())
 
 
 if __name__ == "__main__":
