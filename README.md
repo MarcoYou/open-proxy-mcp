@@ -132,18 +132,6 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ---
 
-## Star History
-
-<a href="https://star-history.com/#MarcoYou/open-proxy-mcp&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=MarcoYou/open-proxy-mcp&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=MarcoYou/open-proxy-mcp&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=MarcoYou/open-proxy-mcp&type=Date" />
-  </picture>
-</a>
-
----
-
 ## Disclaimer
 
 OpenProxy는 DART 공시 데이터를 구조화하여 AI에게 제공하는 도구입니다. AI는 할루시네이션을 일으킬 수 있고 부정확한 분석을 제공할 수 있습니다. AI가 제시하는 의견은 개발자 또는 소속 단체의 의견이 아닙니다. 분석 결과는 참고 목적으로만 사용하고, 투자 결정이나 의결권 행사의 최종 판단은 반드시 원문 공시와 전문가 검토를 거쳐야 합니다.
