@@ -130,6 +130,18 @@ Version history → **[docs/RELEASE_NOTES_ENG.md](docs/RELEASE_NOTES_ENG.md)**
 
 ---
 
+## Star History
+
+<a href="https://star-history.com/#MarcoYou/open-proxy-mcp&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=MarcoYou/open-proxy-mcp&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=MarcoYou/open-proxy-mcp&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=MarcoYou/open-proxy-mcp&type=Date" />
+  </picture>
+</a>
+
+---
+
 ## Disclaimer
 
 OpenProxy is a tool that structures DART filing data for AI consumption. AI can hallucinate and may produce inaccurate analysis. Opinions presented by the AI are not those of the developer or any affiliated organization. Use the output for reference only — final investment or voting decisions must go through the original filings and expert review.
