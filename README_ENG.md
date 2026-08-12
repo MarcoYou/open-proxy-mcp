@@ -17,8 +17,10 @@ OpenProxy was born for AGM proxy-voting analysis. But judging a single agenda it
 ![Financial & cash-flow analysis example](screenshot/opx-cashflow.png)
 *Financial analysis grounded in filings (annual & audit reports) — an example conversation with OpenProxy connected*
 
+<!-- on hold (the file stays at screenshot/opx-agm.png — just strip this comment to restore)
 ![AGM agenda analysis example](screenshot/opx-agm.png)
 *And this is where it started — AGM notices, statutes, and governance reports combined into per-item opinions with rationale*
+-->
 
 ## Main Features
 
