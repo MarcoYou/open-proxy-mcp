@@ -88,3 +88,27 @@ def test_blank_check_delegation_is_flagged():
     희석 결정을 이사회에 통째로 넘기는 안건이라 별도 조건으로 막는다."""
     src_i = _SRC.index('elif "이사회" in t_flat and "위임" in t_flat')
     assert src_i > 0, "백지 발행권한 위임 분기가 사라졌다"
+
+
+# ── 주주제안: 부모 상속 ──────────────────────────────────────────────────────
+
+def test_shareholder_proposal_parent_inherits_to_children():
+    """**액티비스트 제안 본체가 자동 찬성으로 흘러가던 자리.**
+
+    실측 LG화학 20260224004273 — 제3호 「주주 제안의 건」은 잡히는데 그 자식
+    (NAV 할인율 공개·경영진 보상 KPI 연계·LGES 지분 유동화)은 other → 자동 FOR 였다.
+    `proposer_type` 은 이 문서에서 None 이라 못 쓴다 — 부모 제목이 유일한 단서다.
+    """
+    p = "주주 제안의 건"
+    assert _classify_agenda(p) == "shareholder_proposal", "띄어쓴 「주주 제안」도 잡혀야 한다"
+    for child in ("기업가치 제고계획에 NAV 할인율을 주요 재무지표로 공개하는 내용의 건",
+                  "기존 경영진 보상 계획에 주식연계보상을 도입하는 건",
+                  "LG에너지솔루션 지분 유동화 규모를 확대하는 내용의 주주 환원 정책"):
+        assert _classify_agenda(child, parent_title=p) == "shareholder_proposal", child[:30]
+
+
+def test_shareholder_proposal_does_not_swallow_unrelated_children():
+    """부모가 주주제안이 아니면 상속하지 않는다."""
+    assert _classify_agenda("NAV 할인율 공개의 건",
+                            parent_title="정관 일부 변경의 건") == "articles_amendment"
+    assert _classify_agenda("기타 안건", parent_title="이사 보수한도 승인의 건") != "shareholder_proposal"

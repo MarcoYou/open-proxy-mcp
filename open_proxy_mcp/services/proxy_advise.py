@@ -866,7 +866,14 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
             "합병", "분할", "주식교환", "주식이전", "포괄적 교환", "포괄적 이전",
             "영업양도", "영업양수", "영업 양도", "영업 양수", "자산양수", "자산 양수")):
         return "merger_or_restructuring"
-    if "주주제안" in t:
+    # 260814: 제목만 봐서 **자식이 샜다.** 실측 LG화학 20260224004273 —
+    #   제3호 「주주 제안의 건」은 잡히는데 그 자식(NAV 할인율 공개·경영진 보상 KPI 연계·
+    #   LGES 지분 유동화)은 other → 자동 FOR 였다. 액티비스트 제안 본체가 통째로 흘러간 셈.
+    #   `proposer_type` 은 이 문서에서 None 이라 못 쓴다 — 부모 제목이 유일한 단서다.
+    #   부모가 주주제안 묶음이면 자식도 주주제안이다.
+    if "주주제안" in t or "주주 제안" in t:
+        return "shareholder_proposal"
+    if parent and ("주주제안" in parent.replace(" ", "")):
         return "shareholder_proposal"
     return "other"
 
