@@ -1,20 +1,37 @@
 ---
 type: readme
 title: rules/laws/ — 한국 자본시장 법령 자료
-updated: 2026-07-09
+updated: 2026-08-14
 ---
 
 # wiki/rules/laws/ — 한국 자본시장 법령 자료
 
 > 한국 상장사 거버넌스 관련 강행규정 + 우회 catalog. proxy_advise의 법령 layer 출처.
 
+## ⚠ 260814 — 규칙 데이터는 여기 없다 (패키지로 이동)
+
+**런타임이 읽는 규칙 4개는 `open_proxy_mcp/data/laws/` 에 있다.** 이 폴더에는
+사람이 읽는 문서와 `corpus/`(법령 원문·인덱스)만 남는다.
+
+| 파일 | 지금 위치 | 왜 |
+|---|---|---|
+| `law_provisions.json` · `law_layer_rules.json` · `law_lookup_synonyms.json` · `llm_misread_patterns.json` | **`open_proxy_mcp/data/laws/`** | 62KB. 코드와 함께 배포돼야 한다 |
+| `corpus/` (법률·시행령 원문 + 인덱스) | `wiki/rules/laws/corpus/` (여기) | 11MB. 휠에 싣지 않고 Dockerfile 이 복사 |
+| `상법-2025-2026-종합.md` · 이 README | `wiki/rules/laws/` (여기) | 사람이 읽는 문서 |
+
+**왜 옮겼나**: 종전에는 `wiki/` 를 **경로로** 찾아갔고, 배포 이미지에 wiki 가 들어가는 것은
+「Dockerfile COPY 한 줄 + 작업 디렉터리 + 실행 방식」 세 우연의 곱이었다. 하나만 어긋나면
+**룰 40개가 조용히 0개**가 되고 강행규정 판정이 통째로 사라지는데 경고도 로그도 없었다.
+이제 `importlib.resources` 로 읽어 작업 디렉터리에 무관하고, 실패하면 로그가 남으며,
+`/health` 의 `data.law_rules` 로 밖에서 개수를 볼 수 있다(0 이면 `status: degraded`).
+
 ## 핵심 master 파일
 
 | 파일 | 종류 | 용도 |
 |---|---|---|
-| **`law_provisions.json`** | 원본(SSOT) | 조항 대장(9개). 조문번호·**시행일·공포일**·유예도래일(obligation_date)·적용대상 티어(scope)·최초주총 적용(first_agm_trigger)의 유일 출처. md 표 자동생성 + 엔진 날짜 검증의 기준 |
+| **`law_provisions.json`** (패키지) | 원본(SSOT) | 조항 대장(9개). 조문번호·**시행일·공포일**·유예도래일(obligation_date)·적용대상 티어(scope)·최초주총 적용(first_agm_trigger)의 유일 출처. md 표 자동생성 + 엔진 날짜 검증의 기준 |
 | **`상법-2025-2026-종합.md`** | 사람 가독 | 1·2·3차 상법 개정 + 정관 우회 시나리오 + catalog. **유일 master**. '시행 타임라인' 표는 원본에서 자동생성(AUTOGEN 마커 — 직접 수정 금지) |
-| **`law_layer_rules.json`** | 머신리더블 | proxy_advise._law_layer 직접 로드. **40 룰** (A1=10 / A2=5 / B1=12 / B2=9 / C=4). 각 룰의 `provision` 필드가 원본 조항을 가리킴 |
+| **`law_layer_rules.json`** (패키지) | 머신리더블 | proxy_advise._law_layer 직접 로드. 실제 개수는 `/health` 의 `data.law_rules` 로 본다 — 여기 숫자를 적으면 손으로 맞춰야 하고, 260814 에 docstring 이 「36 룰」인 채 실물은 40룰로 갈라져 있었다. 각 룰의 `provision` 필드가 원본 조항을 가리킴 |
 
 ## 사용 흐름
 

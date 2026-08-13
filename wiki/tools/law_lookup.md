@@ -3,7 +3,7 @@ type: tool
 title: law_lookup
 domain: reference
 scope: [단일 조회]
-data_source: [legalize-kr 원문(상법·자본시장법·공정거래법·외부감사법 각 법률+시행령), law_layer_rules.json(40룰 bridge), law_provisions.json(상법 개정 조항 SSOT), law_lookup_synonyms.json(큐레이션 어휘·guard)]
+data_source: [legalize-kr 원문(상법·자본시장법·공정거래법·외부감사법 각 법률+시행령), open_proxy_mcp/data/laws/{law_layer_rules,law_provisions,law_lookup_synonyms}.json(260814 패키지로 이동)]
 related_disclosures: [주주총회소집공고]
 related_concepts: [정관변경, 집중투표, 감사위원-의결권-제한, 5%-대량보유]
 created: 2026-07-13
