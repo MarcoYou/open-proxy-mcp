@@ -196,6 +196,16 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
     if not default_str or default_str == "case_by_case":
         return fallback_decision, fallback_reason
     if default_str == "for":
+        # 260814: 조건 없이 FOR 로 덮었다. 「기본값」은 **판단이 서지 않은 자리**를 채우는
+        #   것이지 이미 선 판단을 지우는 것이 아닌데, 셋을 함께 지웠다:
+        #     AGAINST → FOR   완전 자본잠식·감사의견 거절·후보 결격 같은 **확정 사유**가 사라짐
+        #     NO_DATA → FOR   자료를 못 읽었는데 찬성. 없는 근거를 있다고 말하는 것
+        #     NO_VOTE → FOR   **표결 자체가 없는 안건**(철회·보고사항)에 표를 냄
+        #   기본값은 REVIEW(판단 보류)만 덮는다 — 그게 「기본값」의 뜻이다.
+        #   실측: `default=for` 를 가진 정책은 `b_foreign` 하나(7개 유형)이고, 그 밖의
+        #   경로에는 영향이 없다. 기본값 open_proxy 는 for 기본값이 0개다.
+        if fallback_decision in ("AGAINST", "NO_DATA", "NO_VOTE"):
+            return fallback_decision, fallback_reason
         return "FOR", "적용 정책의 기본 입장이 찬성 (사안별 예외 규칙은 별도)"
     if default_str == "against":
         return "REVIEW", "적용 정책의 기본 입장은 반대이나, 법령상 강행규정이 아니므로 검토 필요로 둡니다"
