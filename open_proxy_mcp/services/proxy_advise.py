@@ -210,6 +210,26 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
         #   경로에는 영향이 없다. 기본값 open_proxy 는 for 기본값이 0개다.
         if fallback_decision in ("AGAINST", "NO_DATA", "NO_VOTE"):
             return fallback_decision, fallback_reason
+        # 260814 2차: **REVIEW 도 덮지 않는다.** 아침에 「기본값은 판단이 안 선 자리를
+        #   채운다」로 REVIEW 만 남겨 뒀는데, 그 REVIEW 가 두 뜻을 겸하고 있었다:
+        #     ① 사람이 봐야 한다   자본잠식·감사의견 미확인·자사주 처분 — **사실**이 만든 것
+        #     ② OPM 기준으로 걸었다 소진율 30%·배당성향 200% — 우리 임계가 만든 것
+        #   ②만 덮는 게 옳지만 둘을 가르는 표시를 REVIEW 75곳에 손으로 달면 또 이중장부다.
+        #   그리고 실측상 ①이 대부분이다 — 덮으면 증거가 사라진다.
+        #   **판정은 그대로 두고 정책 입장은 사유에 덧붙여 보여준다.** 사용자가 둘을 보고
+        #   고르는 편이, 우리가 대신 골라 한쪽을 지우는 것보다 낫다.
+        #   `_public_policy_basis` 가 「운용사 정책 기본값: 찬성」을 이미 별도 줄로 싣는다.
+        if fallback_decision == "REVIEW":
+            return fallback_decision, (
+                f"{fallback_reason} · 적용 정책의 기본 입장은 찬성이나, "
+                f"위 검토 사유는 사실 기반이라 판정을 덮지 않습니다"
+            )
+        # 엔진도 FOR 다 — 판정이 같으므로 **근거는 엔진 것을 남긴다.** 종전에는 사유까지
+        # 「적용 정책의 기본 입장이 찬성」으로 덮어써서, 재무제표 안건의 「감사의견 적정 +
+        # 자본잠식 없음」 같은 실제 근거가 화면에서 사라졌다(실측 지역난방 제1호).
+        # 정책 입장은 `_public_policy_basis` 가 「적용 정책」 줄로 따로 싣는다.
+        if fallback_decision == "FOR":
+            return fallback_decision, fallback_reason
         return "FOR", "적용 정책의 기본 입장이 찬성 (사안별 예외 규칙은 별도)"
     if default_str == "against":
         return "REVIEW", "적용 정책의 기본 입장은 반대이나, 법령상 강행규정이 아니므로 검토 필요로 둡니다"
