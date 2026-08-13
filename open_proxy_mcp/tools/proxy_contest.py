@@ -9,6 +9,25 @@ from open_proxy_mcp.tools._shared import company_id_line
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload
 
 
+# 260813: 아래 세 값이 **영문 그대로 사용자 화면에 찍혔다**(실측 고려아연 답변에
+#   `| signal_level | contestable |` 이 표로 나감). 화면에 나가는 모든 값은 한글을 갖는다.
+#   producer 를 읽고 만든 사전이다 — services/proxy_contest.py:690 `_signal_level`,
+#   services/shareholder_meeting.py `_meeting_phase` 가 내는 값 전부.
+_SIGNAL_LEVEL_KO = {
+    "contestable": "표 대결 성립 가능",
+    "watch": "지켜볼 단계",
+    "stable": "안정",
+}
+_RESULT_STATUS_KO = {
+    "available": "결과 공시 확보",
+    "requires_review": "결과 공시 있으나 원문 확인 필요",
+    "not_due_yet": "주총 전 (결과 없음)",
+    "pending_or_missing": "주총 후 · 결과 공시 미확인",
+    "unknown": "주총일 미확정",
+}
+_MEETING_TYPE_KO = {"annual": "정기주총", "extraordinary": "임시주총", "auto": "정기/임시"}
+
+
 
 # 표 셀에 들어가는 분류값은 엔진 내부 enum 이다 — 사람이 읽는 표에 영문 코드를 두지 않는다.
 # 사전은 **producer 를 읽고** 만든다(260728 디버깅 에이전트 지적: 관찰된 값만 보고 손으로 쓰면
@@ -189,11 +208,11 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         interpretation = vote_math.get("interpretation", {})
         meeting_ref = vote_math.get("meeting_reference", {})
 
-        lines.extend(["", "## vote_math 회차"])
-        lines.append(f"- selected_meeting_type: `{meeting_ref.get('meeting_type', '-')}`")
-        lines.append(f"- meeting_date: `{meeting_ref.get('meeting_date') or '-'}`")
-        lines.append(f"- result_rcept_no: `{meeting_ref.get('result_rcept_no') or '-'}`")
-        lines.append(f"- result_status: `{meeting_ref.get('result_status', '-')}`")
+        lines.extend(["", "## 표 계산 기준 회차"])
+        lines.append(f"- 회차 구분: {_MEETING_TYPE_KO.get(meeting_ref.get('meeting_type'), '-')}")
+        lines.append(f"- 주총일: {meeting_ref.get('meeting_date') or '-'}")
+        lines.append(f"- 결과 공시 접수번호: {meeting_ref.get('result_rcept_no') or '-'}")
+        lines.append(f"- 결과 확보 상태: {_RESULT_STATUS_KO.get(meeting_ref.get('result_status'), '-')}")
 
         lines.extend(["", "## 대표 추정참석률"])
         lines.append(f"- 대표 추정참석률: {attendance.get('representative_pct') if attendance.get('representative_pct') is not None else '-'}%")
@@ -217,7 +236,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append(f"- 소송/분쟁 공시 수: {pressure.get('litigation_count', 0)}건")
         lines.append(f"- 고반대율 안건 수(10%+): {len(pressure.get('high_opposition_items', []))}건")
         lines.append(f"- 부결 안건 수: {len(pressure.get('failed_items', []))}건")
-        lines.append(f"- signal_level: `{interpretation.get('signal_level', '-')}`")
+        lines.append(f"- 표 대결 신호: {_SIGNAL_LEVEL_KO.get(interpretation.get('signal_level'), '-')}")
 
         if pressure.get("high_opposition_items"):
             lines.extend(["", "## 고반대율 안건"])

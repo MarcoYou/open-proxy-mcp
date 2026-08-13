@@ -29,9 +29,35 @@ _DISQUALIFICATION_LABELS = {
 
 _AUDIT_HISTORY_LABELS = {
     "not_checked": "미검증 (옵션 비활성)",
-    "no_red_flags": "해당 이력 없음",
+    # 260813: `no_red_flags` 는 **유령 항목**이었다 — 코드 어디서도 만들지 않는 값을
+    #   사전이 번역하고 있었고, 실제로 나오는 `clean`(director_evaluation.py:385·393·821)은
+    #   사전에 없어 **영문 그대로 화면에 찍혔다**. 사전은 producer 를 읽고 만든다.
+    "clean": "해당 이력 없음",
+    "no_red_flags": "해당 이력 없음",   # 옛 이름 — 외부 저장분 호환용으로만 남긴다
     "red_flag": "과거 회사 회계 위험 발견",
     "-": "-",
+}
+
+#: 판정 enum → 화면 표기. **한 응답에서 판정을 두 이름으로 부르지 않기 위해** 모듈 상수다.
+#: 260813: 표는 이 사전을 쓰는데 상세 절(:392)은 `FOR` 를 그대로 찍고 있었다 — 같은 판정이
+#: 한 문서에서 「✅ 찬성」과 `FOR` 두 모습으로 나가면 읽는 쪽이 다른 것으로 읽는다.
+#: payload 의 `decision` 필드는 FOR/AGAINST 그대로라 기계 소비자는 영향 없다(260729 지적).
+_DECISION_KO = {
+    "FOR": "✅ 찬성",
+    "AGAINST": "❌ 반대",
+    "REVIEW": "⚠️ 검토 필요",
+    "NO_DATA": "— 판단 보류(자료 부족)",
+    "NO_VOTE": "🚫 표결없음",          # 상법 §449조의2 보고사항 등 — 표결 자체가 없다
+}
+
+#: 회계 위험 이력의 **유형** 코드 → 한글. `_audit_history` 표의 「유형」 칸에
+#: `non_clean_audit_opinion` 처럼 영문이 그대로 나가던 자리다.
+#: director_evaluation.py:654·662·682·705 가 내는 값 **전부**(4종).
+_AUDIT_RISK_TYPE_KO = {
+    "non_clean_audit_opinion": "감사의견 비적정",
+    "capital_impairment_full": "완전 자본잠식",
+    "loss_continued_worsening": "적자 지속·악화",
+    "leverage_surge_op_worsening": "부채 급증 + 영업이익 악화",
 }
 
 _FIVE_YEAR_LABELS = {
@@ -339,16 +365,7 @@ def _render(payload: dict[str, Any]) -> str:
             # 표 셀에는 한 줄만 — 줄바꿈이 들어가면 그 지점에서 마크다운 표가 무너진다
             # (정관 원문·📋 조항 상세가 셀에 통째로 들어가 있었다). 전문은 아래 근거 절에 그대로 있다.
             reason = _one_line(reason_full, 160)
-            decision_emoji = {
-                # 사람이 읽는 표다 — 영문 enum 을 그대로 두지 않는다(260729 사용자 지적).
-                # payload 의 `decision` 필드는 FOR/AGAINST 그대로라 기계 소비자는 영향 없다.
-                "FOR": "✅ 찬성",
-                "AGAINST": "❌ 반대",
-                "REVIEW": "⚠️ 검토 필요",
-                "NO_DATA": "— 판단 보류(자료 부족)",
-                # 상법 §449조의2로 보고사항이 된 안건 — 표결 자체가 없다
-                "NO_VOTE": "🚫 표결없음",
-            }.get(decision, decision)
+            decision_emoji = _DECISION_KO.get(decision, decision)
             # 법령 layer 정합 시 강한 표시 추가
             # 사유 문자열 파싱이 아니라 필드로 — 사유에서 내부 ID 를 뺐다(260728)
             _ll = ag.get("law_layer_id") or ""
@@ -373,7 +390,9 @@ def _render(payload: dict[str, Any]) -> str:
             policy_basis = ag.get("policy_basis") or "-"
             rcept_no = ag.get("evidence_rcept_no")
             full_reason = ag.get("reason") or ""
-            lines.append(f"**{i}. {title}** — {ag.get('decision','-')}")
+            # 260813: 표에는 「✅ 찬성」이라 써 놓고 여기선 `FOR` 를 다시 찍고 있었다.
+            #   같은 판정을 한 응답에서 두 이름으로 부르면 읽는 쪽이 다른 것으로 읽는다.
+            lines.append(f"**{i}. {title}** — {_DECISION_KO.get(ag.get('decision'), ag.get('decision') or '-')}")
             # reason full (표는 250자 truncate, detail은 full — 정관 본문 raw 포함)
             if full_reason:
                 lines.append(f"- 사유: {full_reason}")
@@ -728,7 +747,7 @@ def _render(payload: dict[str, Any]) -> str:
                         detail = f"순이익 {r.get('ni_from'):,} → {r.get('ni_to'):,}"
                     elif rtype == "leverage_surge_op_worsening":
                         detail = f"부채 +{r.get('debt_growth_pct')}% / 영업이익 {r.get('op_from'):,} → {r.get('op_to'):,}"
-                    lines.append(f"| {cand_name} | {co} | {tenure} | `{rtype}` | {yr} | {detail} |")
+                    lines.append(f"| {cand_name} | {co} | {tenure} | {_AUDIT_RISK_TYPE_KO.get(rtype, rtype)} | {yr} | {detail} |")
             lines.append("")
 
     # 기업지배구조보고서 15개 핵심지표 중 미준수 — 준수율만 보면 어느 지표가 빠졌는지 모른다.

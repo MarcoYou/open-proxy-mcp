@@ -221,7 +221,9 @@ def _public_policy_basis(
 
     base = "Open Proxy guideline" if vote_style == "open_proxy" else "Internal policy variant"
     if policy_default and policy_default != "case_by_case":
-        return f"{base} / 운용사 정책 기본값: {policy_default}"
+        # 260813: `운용사 정책 기본값: against` 처럼 영문 enum 이 그대로 화면에 나갔다.
+        _KO = {"for": "찬성", "against": "반대", "review": "사안별 검토"}
+        return f"{base} / 운용사 정책 기본값: {_KO.get(policy_default, policy_default)}"
     return f"{base} / 운용사 정책은 사안별 판단 — OPM 기준으로 판정"
 
 
