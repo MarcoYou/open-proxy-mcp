@@ -898,11 +898,15 @@ def _seat_count(title: str) -> int | None:
     못 읽으면 None — 그때는 예산 검사를 아예 안 한다. **모르면서 막으면 던져야 할 표를
     지우는 쪽으로 넘어간다**(코드 곳곳의 경고와 같은 종류의 사고).
     """
-    m = re.search(r"(\d+)\s*(?:인|명)", title or "")
-    if not m:
+    # 260813: `re.search`(첫 매치)였다. 「사외이사 1명, 사내이사 1명, 기타비상무이사 1명」
+    #   에서 **1만 읽고 3석을 1석으로 봤고**, 찬성 4건이 좌석 1을 넘는다고 판정해 정상 선거를
+    #   통째로 막았다(실측 20260220000945). 한 제목이 역할별 인원을 나열하면 그 합이 정원이다.
+    nums = [int(x) for x in re.findall(r"(\d+)\s*(?:인|명)", title or "")]
+    nums = [n for n in nums if 1 <= n <= 30]   # 연도·금액이 섞여 들어오는 것을 막는다
+    if not nums:
         return None
-    n = int(m.group(1))
-    return n if 1 <= n <= 30 else None      # 연도·금액이 섞여 들어오는 것을 막는다
+    total = sum(nums)
+    return total if total <= 30 else None
 
 
 #: 좌석 예산을 **따로** 쓰는 선거. 이사 선임과 감사위원 분리선임(상법 §542-12②)은 별개
@@ -939,13 +943,39 @@ def _enforce_seat_budget(agenda_decisions: list[dict[str, Any]],
             continue
         # 좌석 수 후보 = 이 선거에 걸린 부모 제목들에서 읽어낸 값. 상호배타 시나리오는
         # 하나만 표결되므로 그중 최대가 상한이다.
-        seats = [n for n in
-                 (_seat_count(title_to_parent.get(r["agenda_title"]) or r["agenda_title"])
-                  for r in rows) if n]
-        if not seats:
+        # 좌석 상한. **역할이 다르면 별개 선거라 더하고, 같은 역할이면 택일이라 최댓값.**
+        # 260813: 전부 max 였다. 「사내이사 1명」과 「사외이사 2명」을 **함께** 뽑는 정상 주총이
+        #   상한 2로 잡혀 찬성 3이 초과가 됐다(실측 20260220001028·20260303001942).
+        #   집중투표 5인안/6인안 같은 진짜 택일은 이 함수에 오기 전에 이미 alternative 로
+        #   표시돼 REVIEW 로 내려가므로(:4007) 찬성에 세지 않는다 — 그래서 같은 역할 안에서만
+        #   max 로 남겨 두면 충분하다. 역할 판별은 shareholder_meeting._role_scope 를 **호출**한다
+        #   (같은 규칙을 두 벌 두지 않는다).
+        from open_proxy_mcp.services.shareholder_meeting import _role_scope
+        # 「선거 하나」의 단위는 **부모 제목**(없으면 자기 제목)이다. 그 단위마다 정원을 읽는다.
+        sources = {title_to_parent.get(r["agenda_title"]) or r["agenda_title"] for r in rows}
+        by_role: dict[str, list[int]] = {}
+        unknown = False
+        for src in sources:
+            n = _seat_count(src)
+            if n:
+                by_role.setdefault(_role_scope(src), []).append(n)
+            else:
+                unknown = True     # 이 선거의 정원을 못 읽었다
+        # **한 선거라도 정원을 못 읽으면 검사 자체를 포기한다.** 종전에는 읽힌 것만 상한에
+        # 넣고 못 읽은 선거의 후보는 찬성에 세어, 「사내이사(인원 미표기) 2명 + 사외이사 1명」이
+        # 상한 1 대 찬성 3 으로 막혔다(실측 20260303001942). 부분 정보로 막는 것은
+        # 이 함수 docstring 이 금지한 「모르면서 막기」와 같다.
+        if not by_role or unknown:
             continue
-        cap = max(seats)
-        fors = [r for r in rows if r.get("decision") == "FOR"]
+        cap = sum(max(v) for v in by_role.values())
+        # 260813: **묶음 부모 행은 표로 세지 않는다.** 「이사 선임의 건(사내이사 1명)」과
+        #   그 자식 후보 1명이면 좌석 1에 찬성 2가 되어 정상 선거가 구조 오류로 찍혔다
+        #   (실측 20260225004640). 부모는 후보가 아니라 **묶음 제목**이고, 위임장에서
+        #   한 표를 차지하지 않는다. 단 막을 때는 부모도 함께 표결없음으로 내려야 하므로
+        #   제외는 **집계에서만** 한다 — 아래 루프는 rows 전체를 그대로 돈다.
+        bundle_titles = {p for p in title_to_parent.values() if p}
+        fors = [r for r in rows
+                if r.get("decision") == "FOR" and r["agenda_title"] not in bundle_titles]
         if len(fors) <= cap:
             continue
         note = (f"표결 구조 오류 — {_CATEGORY_KO.get(group, group)}에서 "
@@ -2970,7 +3000,11 @@ async def build_proxy_advise_payload(
     async def _safe(fn, *args, timing_label: str | None = None, **kw):
         upstream_started_at = time.perf_counter()
         # F11 cache key (260723: bsns_year 추가 — business_details 연도별 조회 충돌 방지)
-        cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"), kw.get("bsns_year"))
+        # 260813: check_audit_history 추가. 이게 빠져 있어 **옵션을 켜도 안 켜졌다** —
+        #   1회차 False 로 계산해 저장하면 2회차 True 요청이 같은 열쇠라 옛 결과를 받았고,
+        #   회계 이력 교차검증은 실행조차 안 된 채 화면엔 「해당 이력 없음」이 찍혔다.
+        #   켠 적 없는 검사가 통과로 보고되는 형태라, 없는 근거를 있다고 말하는 것과 같다.
+        cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"), kw.get("bsns_year"), kw.get("check_audit_history"))
         cached = _PROXY_ADVISE_CACHE.get(cache_key)
         if cached is not None:
             if timing_label:

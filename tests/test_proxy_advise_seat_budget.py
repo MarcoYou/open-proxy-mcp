@@ -95,3 +95,60 @@ def test_guard_is_wired_into_the_pipeline():
     assert "seat_budget_notes = _enforce_seat_budget(" in src, "가드를 파이프라인에서 안 부른다"
     assert "envelope_warnings.extend(seat_budget_notes)" in src, (
         "구조 오류가 경고로 안 올라간다 — 사용자는 「이 안건만 보류」로 오독한다")
+
+
+# ── 260813 회귀 — 정상 주총을 막던 세 원인 ────────────────────────────────────
+# 캐시 574건 재생 실측: 게이트가 63건(10.9%)에서 발동했는데 대부분 정상 주총이었다.
+# 아래 셋을 고쳐 3건(0.5%)으로 내렸다. 각 케이스는 실측 접수번호를 근거로 둔다.
+
+def test_bundle_parent_row_is_not_counted_as_a_vote():
+    """**묶음 부모는 후보가 아니라 제목이다** — 위임장에서 한 표를 차지하지 않는다.
+
+    실측 20260225004640: 「이사 선임의 건(사내이사 1명)」 + 자식 후보 1명.
+    부모까지 세면 좌석 1 대 찬성 2 가 되어 정상 선거가 구조 오류로 찍혔다.
+    """
+    parent = "이사 선임의 건(사내이사 1명)"
+    rows = [{"agenda_title": parent, "agenda_category": "director_election", "decision": "FOR"},
+            {"agenda_title": "사내이사 김선종 선임의 건",
+             "agenda_category": "director_election", "decision": "FOR"}]
+    notes = _enforce_seat_budget(rows, {"사내이사 김선종 선임의 건": parent})
+    assert notes == [], "부모 행을 표로 세어 정상 선거를 막았다"
+    assert all(r["decision"] == "FOR" for r in rows)
+
+
+def test_multiple_role_counts_in_one_title_are_summed():
+    """실측 20260220000945: 「사외이사 1명, 사내이사 1명, 기타비상무이사 1명」은 3석이다.
+    첫 숫자만 읽으면 1석이 되어 찬성 3이 초과가 된다."""
+    assert _seat_count("이사 선임의 건(사외이사 1명, 사내이사 1명, 기타비상무이사 1명)") == 3
+    assert _seat_count("이사 선임의 건 (사내이사 2명, 사외이사 1명)") == 3
+
+
+def test_separate_role_elections_are_summed_not_maxed():
+    """**역할이 다르면 함께 뽑는 별개 선거**라 상한은 합이다(1+2=3).
+
+    실측 20260220001028: 「사내이사 선임의 건(1명)」과 「사외이사 선임의 건(2명)」.
+    전부 max 로 잡던 종전에는 상한 2 대 찬성 3 으로 막혔다.
+    진짜 택일(집중투표 5인안/6인안)은 같은 역할이라 여전히 max 로 남는다 — 위 테스트가 지킨다.
+    """
+    p1, p2 = "사내이사 선임의 건( 1명)", "사외이사 선임의 건(2명)"
+    rows = [{"agenda_title": t, "agenda_category": "director_election", "decision": "FOR"}
+            for t in ("사내이사 김중기 선임의 건", "사외이사 김용희 선임의 건",
+                      "사외이사 장현욱 선임의 건")]
+    parents = {"사내이사 김중기 선임의 건": p1,
+               "사외이사 김용희 선임의 건": p2, "사외이사 장현욱 선임의 건": p2}
+    assert _enforce_seat_budget(rows, parents) == [], "별개 선거를 max 로 합쳐 정상 주총을 막았다"
+
+
+def test_one_unreadable_election_disables_the_whole_check():
+    """**부분 정보로 막지 않는다.** 한 선거의 정원을 못 읽으면 검사를 포기한다.
+
+    실측 20260303001942: 「사내이사 선임의 건」(인원 미표기) 후보 2명 +
+    「사외이사 1명 선임의 건」 후보 1명. 읽힌 1석만 상한에 넣으면 찬성 3이 초과가 된다 —
+    못 읽은 선거의 후보를 세면서 그 좌석은 안 세는 비대칭이 원인이었다.
+    """
+    p1, p2 = "사내이사 선임의 건", "사외이사 1명 선임의 건"
+    rows = [{"agenda_title": t, "agenda_category": "director_election", "decision": "FOR"}
+            for t in ("김희철 사내이사 선임", "윤주영 사내이사 선임", "박찬국 사외이사 선임")]
+    parents = {"김희철 사내이사 선임": p1, "윤주영 사내이사 선임": p1,
+               "박찬국 사외이사 선임": p2}
+    assert _enforce_seat_budget(rows, parents) == [], "정원을 모르는 선거를 부분 정보로 막았다"
