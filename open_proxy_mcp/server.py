@@ -7,6 +7,7 @@ import re
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.prompts import register_all_prompts
+from open_proxy_mcp.resources import register_all_resources
 from open_proxy_mcp.tools import register_all_tools
 
 
@@ -83,6 +84,7 @@ def build_mcp() -> MCPServer:
     )
     register_all_tools(mcp)
     register_all_prompts(mcp)
+    register_all_resources(mcp)  # [실험] 공시 원문을 주소로 — 파싱이 약할 때 AI 가 직접 읽게
 
     # 헬스 엔드포인트 — 인증 없이 200 을 내는 유일한 경로.
     # 260729 사고: mcp 2.0.0 이 fastmcp 를 제거해 서버가 부팅 즉시 죽었는데, 헬스체크가 없어
