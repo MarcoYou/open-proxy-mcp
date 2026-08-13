@@ -19,8 +19,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SSOT = ROOT / "wiki" / "rules" / "laws" / "law_provisions.json"
 
-# 엔진이 인용하지만 SSOT에 없을 수 있는 거버넌스/시장 핵심 조문(원문 대조 대상 = 보강 후보).
-# (조문, 소속 법령파일, 설명) — 대조로 존재 확인해 SSOT 편입 여부를 판단.
+# 엔진이 인용하지만 SSOT에 **없는 것이 정상인** 조문 — 원문 존재만 확인한다.
+#
+# 260814: 「SSOT 누락 → 편입 검토」라는 출력이 편입 지시로 읽혔다. 아니다.
+#   SSOT(`law_provisions.json`)는 **상법 2025~2026 개정 조항 대장**이고 전 항목이
+#   개정 차수·공포일·시행일을 갖는다. §34⑤7 은 개정 조항이 아니라 기존 시행령이라
+#   그 셋이 없다 — 넣으면 wiki_lint[7]의 시행일 3자 정합 검사가 무의미해진다.
+#   여기서 하려는 것은 「엔진이 실재하지 않는 조문을 인용하고 있지 않은가」 뿐이다.
+# (조문, 소속 법령파일, 설명)
 REFERENCE_PROVISIONS = [
     ("제34조제5항제7호", "시행령", "사외이사 재직기간 결격(동일회사 6년/계열 9년) — proxy_advise 장기연임 인용"),
     ("제542조의8제2항제7호", "법률", "위 시행령의 위임 모법"),
@@ -113,14 +119,14 @@ def main() -> int:
             fails += 1
 
     # 참조 조문(엔진 인용, SSOT 미편입) 존재 확인 → 보강 후보
-    print(f"\n=== 엔진 인용 조문 원문 존재 확인(SSOT 편입 후보) ===")
+    print(f"\n=== 엔진 인용 조문 원문 존재 확인(SSOT 밖이 정상) ===")
     existing_articles = " ".join(p.get("article", "") for p in provs)
     for art, law, desc in REFERENCE_PROVISIONS:
         base_art = _base_article(art)
         text = corpus["시행령"] if law == "시행령" else corpus["법률"]
         in_corpus = base_art in text
         in_ssot = base_art in existing_articles
-        flag = "원문✓ / SSOT " + ("있음" if in_ssot else "**누락 → 편입 검토**")
+        flag = "원문✓ / SSOT " + ("있음" if in_ssot else "밖(정상 — 개정 조항이 아님)")
         print(f"  {'✓' if in_corpus else '✗'} {art} ({law}) — {flag}\n      {desc}")
 
     print(f"\n{'FAIL: 조문 불일치 '+str(fails)+'건' if fails else 'OK: 조문 대조 통과'}")

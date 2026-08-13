@@ -3809,7 +3809,16 @@ async def build_proxy_advise_payload(
                 if not nm:
                     continue
                 # nm in title (기존) + core-name(영문병기 제거) 매칭 (260710 도진명 사고)
-                if nm in title or _core_person_name(nm) in title:
+                # 260814: **제목 쪽 자간 벌림**이 남아 있었다 — 「사외이사 김 도 형 선임의 건」.
+                #   한글 이름은 자간을 벌려도 같은 이름인데 `"김도형" in "김 도 형"` 이 False 라
+                #   개별 평가가 통째로 우회되고 묶음 경로로 떨어졌다. 묶음 경로는 사외이사
+                #   **독립성 검증을 건너뛰므로**, 파싱 실패가 보수적이 아니라 관대한 판정으로
+                #   번역된다. 캐시 583건 실측: 인사 잎 916개 중 이 형태 2건.
+                #   공백만 지우고 비교한다 — 이름 자체를 바꾸지 않으므로 오탐이 늘지 않는다.
+                _t_ns = title.replace(" ", "")
+                if (nm in title or _core_person_name(nm) in title
+                        or nm.replace(" ", "") in _t_ns
+                        or _core_person_name(nm).replace(" ", "") in _t_ns):
                     matched_eval = ev
                     break
             statutory_auditor_agenda = (
