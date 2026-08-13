@@ -3710,6 +3710,9 @@ async def build_proxy_advise_payload(
         decision = "NO_DATA"
         reason = "category 미분류 — 본문 검토 필요"
         matched_eval: dict[str, Any] | None = None
+        # 묶음 안건에서 **이 안건에 속한** 후보만 담는다(없으면 None). 사유·근거가 같은
+        # 모집단을 말하게 하려고 루프 머리에서 초기화한다 — 이전 안건 값이 새면 안 된다.
+        bundle_evals: list[dict[str, Any]] | None = None
         law_layer_hit: tuple[str, str, str, str] | None = None
 
         # 0. 법령 layer 우선 적용 (1·2·3차 상법 개정 + 정관 우회 시나리오)
@@ -3792,8 +3795,22 @@ async def build_proxy_advise_payload(
                 decision = "NO_DATA"
                 reason = "감사 후보 평가 데이터 없음 — 본문 검토 필요"
             elif matched_eval is None and name_to_eval:
-                relevant_evals = list(name_to_eval.values())
-                if category == "audit_committee_election":
+                # 260813: `list(name_to_eval.values())` 였다 — **이 주총의 후보 전원**이라
+                #   선거가 둘 이상이면 항상 틀렸다(실측 582건 중 불일치 177 · 일치 0).
+                #   고려아연은 제2호(4명)·제3호(2명) 둘 다 「후보 6명」으로 나갔다.
+                #   이 안건의 **자식 제목에 이름이 들어간 후보**만 센다. 자식이 없거나
+                #   한 명도 못 맞히면 종전 동작(전체)으로 떨어진다 — 좁히다 0명이 되면
+                #   결격 검사가 통째로 비는 쪽이 더 위험하다.
+                _kids = [t for t, p in title_to_parent.items() if p == title]
+                if _kids:
+                    _scoped = [ev for ev in name_to_eval.values()
+                               if any((ev.get("name") or "") and (ev.get("name") or "") in k
+                                      for k in _kids)]
+                else:
+                    _scoped = []
+                relevant_evals = _scoped or list(name_to_eval.values())
+                bundle_evals = relevant_evals
+                if category == "audit_committee_election" and not _scoped:
                     relevant_evals = [
                         ev for ev in name_to_eval.values()
                         if ("감사" in (ev.get("role_type") or "")) or ("audit" in (ev.get("role_type") or "").lower())
@@ -4107,6 +4124,10 @@ async def build_proxy_advise_payload(
         # 4. 결정 근거 보강 — facts (정량) + risk_factors + policy_citation
         all_director_evals = list(name_to_eval.values()) if category in ("director_election", "audit_committee_election") else None
         facts_all_evals = all_director_evals
+        # 260813: 사유는 「후보 4명」인데 사실은 「후보 수 6」이 나갔다 — 같은 안건이 한 응답에서
+        #   두 숫자를 말했다. 판정에 쓴 것과 **같은 모집단**을 근거란에도 쓴다.
+        if all_director_evals and bundle_evals:
+            facts_all_evals = bundle_evals
         if category == "audit_committee_election" and _is_statutory_auditor_agenda(title) and matched_eval is None:
             facts_all_evals = None
         facts = _extract_facts(
@@ -4139,6 +4160,21 @@ async def build_proxy_advise_payload(
         cumulative_threshold = _cumulative_voting_threshold(title)
         if cumulative_threshold:
             facts["cumulative_voting_threshold"] = cumulative_threshold
+            # 260813: 문턱(1/(m+1))을 계산해 facts 에 넣어 두고도 렌더러가 dict 를
+            #   「집중투표 기준 5항목 (아래 상세 참조)」로 접어 **정작 숫자가 안 보였다**.
+            #   그리고 집중투표에서 후보 전원 찬성은 표를 고르게 쪼개는 것이라 아무도
+            #   밀지 못한다 — 판정은 후보 적격성이지 표 배분 지시가 아니라는 걸 말한다.
+            #   출석률은 이 tool 에 없다(다른 회차 역산값이라 끌어오면 없는 근거가 된다).
+            #   공식만 주고 사용자가 자기 숫자로 계산하게 한다.
+            _m = cumulative_threshold["seats_to_elect"]
+            _th = cumulative_threshold["guaranteed_election_threshold_pct_of_votes_cast"]
+            reason = (
+                f"{reason} · 집중투표 {_m}석 — 보유 의결권 × {_m} 를 후보에게 나눠 던집니다. "
+                f"전원 찬성은 표를 고르게 쪼개는 것이라 특정 후보를 밀지 못합니다. "
+                f"행사 의결권의 {_th}%(=1/({_m}+1))를 한 후보에게 몰면 1석이 보장되고, "
+                f"실제 필요한 보유지분은 「출석률 ÷ {_m + 1}」로 더 낮아집니다. "
+                f"위 판정은 후보 적격성이며 표 배분은 별도 판단입니다."
+            )
         risk_factors = _extract_risks(
             category,
             matched_eval,
