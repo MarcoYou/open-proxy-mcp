@@ -77,16 +77,17 @@ def register_all_resources(mcp: MCPServer) -> None:
         annotations=Annotations(audience=["user", "assistant"], priority=0.7),
     )
     async def guideline() -> str:
-        from pathlib import Path
+        from importlib.resources import files
 
-        # 레포 루트 기준. 패키지 위치에서 두 단계 위가 루트다.
-        path = Path(__file__).resolve().parent.parent / "wiki" / "decisions" / "open-proxy-guideline.md"
-        if not path.exists():
+        # 260814: `wiki/decisions/` 를 경로로 찾아갔는데 배포 이미지에 wiki 가 안 들어가
+        #   fly 에서 「문서를 찾지 못했습니다」가 나왔다. 패키지 데이터로 옮겨 코드와 함께
+        #   배포되게 하고, 작업 디렉터리에 의존하지 않는 importlib.resources 로 읽는다.
+        path = files("open_proxy_mcp.data.guideline") / "open-proxy-guideline.md"
+        if not path.is_file():
             return (
                 "가이드라인 문서를 찾지 못했습니다.\n\n"
                 f"기대 경로: {path}\n"
-                "배포 이미지에 `wiki/decisions/open-proxy-guideline.md` 가 포함되지 않았을 수 있습니다"
-                "(Dockerfile 이 현재 `wiki/rules/laws/` 만 복사합니다).\n"
+                "패키지 데이터가 빠진 빌드일 수 있습니다.\n"
                 "판정 사유에 실리는 요약 인용은 응답의 「정책 인용」 줄에서 확인할 수 있습니다."
             )
         return path.read_text(encoding="utf-8")

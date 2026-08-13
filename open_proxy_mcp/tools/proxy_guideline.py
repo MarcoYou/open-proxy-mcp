@@ -21,9 +21,12 @@ DART 호출 0.
 
 from __future__ import annotations
 
-from pathlib import Path
+from importlib.resources import files
 
-_GUIDELINE = Path(__file__).resolve().parent.parent.parent / "wiki" / "decisions" / "open-proxy-guideline.md"
+#: 260814: `wiki/decisions/` 를 경로로 찾아갔는데 배포 이미지에 wiki 가 안 들어가
+#:   fly 에서 「문서를 찾지 못했습니다」가 나왔다. **패키지 데이터로 옮겨** 코드와 함께
+#:   배포되게 하고, 작업 디렉터리·실행 방식에 의존하지 않는 importlib.resources 로 읽는다
+#:   (운용사 정책 `data/asset_managers/` 가 이미 그 방식이다).
 
 #: Claude.ai/Desktop 의 tool 결과 상한이 약 150,000자다. 문서는 약 26KB 라 여유가 있지만,
 #: 문서가 커지면 여기서 잘린다 — 그때는 `section` 으로 좁혀 부르면 된다.
@@ -63,17 +66,17 @@ def register_tools(mcp) -> None:
                  (예: "재무제표", "이사선임", "정관", "0-A").
         주의: 정책과 엔진은 의도적으로 다르다 — 문서 §0-A 정합표를 함께 읽을 것.
         """
-        if not _GUIDELINE.exists():
+        path = files("open_proxy_mcp.data.guideline") / "open-proxy-guideline.md"
+        if not path.is_file():
             return (
                 "# proxy_guideline\n\n"
                 "가이드라인 문서를 찾지 못했습니다.\n\n"
-                f"- 기대 경로: `{_GUIDELINE}`\n"
-                "- 배포 이미지에 `wiki/decisions/open-proxy-guideline.md` 가 포함되지 "
-                "않았을 수 있습니다(Dockerfile 이 현재 `wiki/rules/laws/` 만 복사).\n"
+                f"- 기대 경로: `{path}`\n"
+                "- 패키지 데이터가 빠진 빌드일 수 있습니다.\n"
                 "- 판정별 요약 인용은 `proxy_advise_before_meeting` 응답의 "
                 "「정책 인용」 줄에서 확인할 수 있습니다."
             )
-        text = _GUIDELINE.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8")
         secs = _sections(text)
 
         if section:
