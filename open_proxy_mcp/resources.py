@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 
 from mcp.server.mcpserver import MCPServer
+from mcp.types import Annotations
 
 #: 응답 상한. 소집공고는 최대 7MB 라 통째로 주면 컨텍스트가 터진다.
 _MAX_CHARS = 120_000
@@ -36,6 +37,14 @@ def register_all_resources(mcp: MCPServer) -> None:
             "이 원문을 직접 읽고 판단하라."
         ),
         mime_type="text/plain",
+        # 스펙(server/resources)은 resource 를 **application-driven** 으로 정의한다 —
+        # 호스트가 ①사용자 선택 UI ②검색 ③자동 포함 중 무엇을 할지 정한다.
+        # 우리가 원하는 건 ③(파싱이 약할 때 모델이 원문을 집어감)이고, 그 판단의 근거로
+        # 클라이언트가 읽는 것이 annotations 다.
+        #   audience  사람도 붙여 볼 수 있고(원문 첨부) 모델도 읽어야 하므로 둘 다.
+        #   priority  1.0 은 「사실상 필수」다. 이건 항상 넣을 자료가 아니라 **필요할 때
+        #             권위 있는 원본**이므로 높되 1.0 은 아니다.
+        annotations=Annotations(audience=["user", "assistant"], priority=0.8),
     )
     async def filing_text(rcept_no: str) -> str:
         if not re.fullmatch(r"\d{14}", rcept_no or ""):
