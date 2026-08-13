@@ -192,8 +192,15 @@ AGENDA_PAREN_RE = re.compile(
 )
 
 # 조건부 의안 ※
+# 260813: 「제N호」 바로 뒤에 「은/는」이 오는 형태만 잡았다. 실측 고려아연 20260811000705 은
+#   ※ '제3-1호' 및 '제3-2호' 의안은 일괄표결 후 … 다득표 의안이 가결된 것으로 함
+#   처럼 ① 번호에 **따옴표**가 붙고 ② 「및」로 **둘을 나열**해서 한 건도 안 잡혔고,
+#   그 결과 한 자리를 겨루는 후보 둘에 양쪽 찬성이 나갔다.
+#   번호와 「은/는」 사이에 따옴표·나열·조사가 끼는 것을 허용한다(40자 이내로 제한해
+#   먼 문장이 딸려오는 것은 막는다).
+_COND_NUM = r"['\"‘’“”]?\s*제\s*\d+(?:\s*-\s*\d+)*\s*호\s*['\"‘’“”]?"
 CONDITIONAL_RE = re.compile(
-    r'※\s*(제\s*\d+(?:\s*-\s*\d+)*\s*호\s*(?:의안\s*)?(?:은|는)\s*.+?)(?=\s*(?:\d+\)\s*제|제\s*\d+|※|\n|$))'
+    r'※\s*(' + _COND_NUM + r'(?:[^\n]{0,40}?)(?:은|는)\s*.+?)(?=\s*(?:\d+\)\s*제|제\s*\d+|※|\n|$))'
 )
 
 # '주주총회 소집공고' 섹션 끝 경계 — 다음 대섹션 시작
@@ -1340,13 +1347,17 @@ def _extract_conditionals(text: str) -> dict[str, str]:
     result = {}
     for m in CONDITIONAL_RE.finditer(text):
         cond_text = m.group(1).strip()
-        num_match = re.search(r'제\s*(\d+)(?:\s*-\s*(\d+))?(?:\s*-\s*(\d+))?\s*호', cond_text)
-        if num_match:
-            l1 = int(num_match.group(1))
-            l2 = int(num_match.group(2)) if num_match.group(2) else None
-            l3 = int(num_match.group(3)) if num_match.group(3) else None
-            number = _format_number(l1, l2, l3)
-            result[number] = cond_text
+        # 260813: 첫 번호 하나에만 붙였다. 「'제3-1호' **및** '제3-2호' 의안은 …」 처럼 조항이
+        #   둘을 함께 지목하면 나머지가 조건절 없이 남아, 한 자리를 겨루는 후보 중 한쪽만
+        #   상호배타로 표시되고 다른 쪽엔 그대로 찬성이 나갔다(실측 고려아연 20260811000705).
+        #   조항 **머리 부분**에 나열된 번호를 전부 매핑한다 — 뒤쪽 본문에 인용된 다른 안건
+        #   번호까지 끌어오지 않도록 「은/는」 앞까지만 본다.
+        head = re.split(r'(?:은|는)\s', cond_text, maxsplit=1)[0]
+        nums = re.findall(r'제\s*(\d+)(?:\s*-\s*(\d+))?(?:\s*-\s*(\d+))?\s*호', head) \
+            or re.findall(r'제\s*(\d+)(?:\s*-\s*(\d+))?(?:\s*-\s*(\d+))?\s*호', cond_text)[:1]
+        for g1, g2, g3 in nums:
+            number = _format_number(int(g1), int(g2) if g2 else None, int(g3) if g3 else None)
+            result.setdefault(number, cond_text)
     return result
 
 

@@ -81,3 +81,31 @@ def test_hardcoded_seat_literals_are_gone():
 
     assert not any(p and p[0].isdigit() for p in _AGENDA_ALTERNATIVE_PATTERNS), (
         f"인원 리터럴이 남아 있다: {_AGENDA_ALTERNATIVE_PATTERNS}")
+
+
+# ── 260813 회귀 — 일괄표결·다득표를 못 읽어 한 자리에 양쪽 찬성이 나갔다 ──────────
+# 실측 고려아연 20260811000705 제3호:
+#   ※ '제3-1호' 및 '제3-2호' 의안은 일괄표결 후 보통결의요건 충족 의안이 복수일 경우
+#     다득표 의안이 가결된 것으로 함
+# 한 자리를 겨루는 후보 둘에 양쪽 찬성은 중립이 아니라 **기권**이다 —
+# 내 표가 두 후보의 격차를 1표도 벌리지 못한다.
+
+def test_conditional_clause_survives_quotes_and_enumeration():
+    """따옴표 + 「및」 나열 형태를 못 읽어 조건절이 한 건도 안 잡혔다."""
+    from open_proxy_mcp.services.shareholder_meeting_parser import _extract_conditionals
+    text = ("※ '제3-1호' 및 '제3-2호' 의안은 일괄표결 후 보통결의요건 충족 의안이 "
+            "복수일 경우 다득표 의안이 가결된 것으로 함\n")
+    got = _extract_conditionals(text)
+    assert "제3-1호" in got, "따옴표가 붙으면 조건절을 못 읽었다"
+    assert "제3-2호" in got, "「및」로 나열된 둘째 안건에 조건절이 안 붙었다"
+
+
+def test_bundled_vote_highest_count_is_alternative():
+    """일괄표결·다득표는 상호배타다 — 형제 전체가 검토로 내려가야 한다."""
+    from open_proxy_mcp.services.shareholder_meeting import _agenda_relation
+    cond = ("'제3-1호' 및 '제3-2호' 의안은 일괄표결 후 보통결의요건 충족 의안이 "
+            "복수일 경우 다득표 의안이 가결된 것으로 함")
+    rel, reasons = _agenda_relation("감사위원회 위원이 되는 독립이사 백인규 선임의 건", cond)
+    assert rel == "alternative", f"상호배타로 안 잡혔다: {rel} {reasons}"
+    for word in ("일괄표결", "다득표", "최다득표", "일괄 표결"):
+        assert _agenda_relation(f"의안 {word} 관련의 건")[0] == "alternative", word
