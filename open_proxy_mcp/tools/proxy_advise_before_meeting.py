@@ -192,6 +192,7 @@ _FACT_LABEL: dict[str, str] = {
     "treasury_pct": "자기주식 비율(%)", "treasury_pct_band": "자기주식 구간",
     "related_total_pct": "특수관계인 합계(%)", "active_signal_count": "행동주의 신호 수",
     "parsing_quality": "파싱 품질", "raw_text_fallback": "원문 폴백 사용",
+    "name_match_failed_raw": "후보 이름 매칭 실패 — 원문 발췌",
     "law_detail": "조항 상세", "appointment_breakdown": "선임 유형 내역",
     "utilization_rate_pct": "한도 소진율(%)", "utilization_rate_band": "소진율 구간",
 }

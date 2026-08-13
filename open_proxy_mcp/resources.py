@@ -58,3 +58,35 @@ def register_all_resources(mcp: MCPServer) -> None:
         if len(text) > _MAX_CHARS:
             return text[:_MAX_CHARS] + f"\n\n…(이후 {len(text) - _MAX_CHARS:,}자 생략)"
         return text
+
+    #: 의결권 판단 기준 문서. **판정 사유에 「OPM Guideline §재무제표 …」로 인용되는 그 문서다.**
+    #: 260813: 인용문은 `_POLICY_CITATIONS`(proxy_advise.py) 에 손으로 적어둔 14줄이고,
+    #:   이 문서와 코드가 연결돼 있지 않다 — 셋(문서·라벨·판정 함수)이 수기 동기화 상태다.
+    #:   최소한 **문서 자체를 열람 가능하게** 해서, 「왜 찬성이냐」에 원문으로 답할 수 있게 한다.
+    #: ⚠ 배포 주의: Dockerfile 이 `wiki/rules/laws/` 만 복사하므로 fly 이미지에 이 파일이 없다.
+    #:   없으면 그 사실을 그대로 말한다(조용히 빈 값을 주지 않는다 — 무표시 열화 금지).
+    @mcp.resource(
+        "opm://guideline",
+        name="Open Proxy Guideline",
+        description=(
+            "OPM 의결권 행사 정책 원문. proxy_advise_before_meeting 의 판정 사유에 "
+            "「OPM Guideline §…」로 인용되는 기준 문서다. 특정 판정의 근거를 확인하거나 "
+            "정책 전문이 필요할 때 읽는다."
+        ),
+        mime_type="text/markdown",
+        annotations=Annotations(audience=["user", "assistant"], priority=0.7),
+    )
+    async def guideline() -> str:
+        from pathlib import Path
+
+        # 레포 루트 기준. 패키지 위치에서 두 단계 위가 루트다.
+        path = Path(__file__).resolve().parent.parent / "wiki" / "decisions" / "open-proxy-guideline.md"
+        if not path.exists():
+            return (
+                "가이드라인 문서를 찾지 못했습니다.\n\n"
+                f"기대 경로: {path}\n"
+                "배포 이미지에 `wiki/decisions/open-proxy-guideline.md` 가 포함되지 않았을 수 있습니다"
+                "(Dockerfile 이 현재 `wiki/rules/laws/` 만 복사합니다).\n"
+                "판정 사유에 실리는 요약 인용은 응답의 「정책 인용」 줄에서 확인할 수 있습니다."
+            )
+        return path.read_text(encoding="utf-8")

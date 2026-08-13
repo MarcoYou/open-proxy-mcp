@@ -866,6 +866,42 @@ def _core_person_name(name: str | None) -> str:
     return core or name.strip()
 
 
+#: 매칭 실패 안건에 붙이는 원문 창. **틀린 지점을 기준으로 앞뒤 비대칭**이다 —
+#: 안건 제목 뒤에 후보표·경력·독립성 기재가 오므로 뒤를 길게 잡는다. 앞 1천 자는
+#: 「이 안건이 어느 묶음 아래인지」를 보여주는 최소 문맥이다.
+#: **필요하면 이 두 숫자만 바꾸면 된다** — 늘리면 AI 가 더 볼 수 있고 응답이 커진다.
+#: Claude.ai/Desktop 의 tool 결과 상한이 약 150,000자라 그 안에서 조정할 것.
+_MATCH_FAIL_BEFORE = 1_000
+_MATCH_FAIL_AFTER = 19_000
+
+
+def _raw_window(full_text: str, title: str, *,
+                before: int = _MATCH_FAIL_BEFORE,
+                after: int = _MATCH_FAIL_AFTER) -> str | None:
+    """안건 제목을 원문에서 찾아 **앞 before / 뒤 after** 자를 뜬다.
+
+    `_raw_excerpt` 와 달리 창이 비대칭이고 넓다. 이름 매칭이 실패한 안건 —
+    즉 우리가 구조를 잘못 읽었을 가능성이 큰 자리 — 에 붙여 AI 가 원문으로
+    직접 판단하게 하려는 용도다. 못 찾으면 원문 앞부분을 준다.
+    """
+    if not full_text:
+        return None
+    needle = (title or "").strip()
+    idx = full_text.find(needle) if needle else -1
+    if idx < 0 and needle:
+        token = re.split(r"[ (（]", needle, maxsplit=1)[0].strip()
+        if len(token) >= 2:
+            idx = full_text.find(token)
+    if idx < 0:
+        body = full_text[: before + after]
+        prefix = "[원문 앞부분 — 안건 위치 미확인] "
+    else:
+        body = full_text[max(0, idx - before): idx + after]
+        prefix = "[원문 발췌 — 후보 이름 매칭 실패 지점] "
+    body = re.sub(r"[ \t]+", " ", body).strip()
+    return (prefix + body) if body else None
+
+
 def _raw_excerpt(full_text: str, title: str, *, limit: int = 1800) -> str | None:
     """파싱 실패 안건용 소집공고 원문 발췌.
 
@@ -3713,6 +3749,7 @@ async def build_proxy_advise_payload(
         # 묶음 안건에서 **이 안건에 속한** 후보만 담는다(없으면 None). 사유·근거가 같은
         # 모집단을 말하게 하려고 루프 머리에서 초기화한다 — 이전 안건 값이 새면 안 된다.
         bundle_evals: list[dict[str, Any]] | None = None
+        name_match_raw: str | None = None   # 이름 매칭 실패 잎 안건의 원문 창
         law_layer_hit: tuple[str, str, str, str] | None = None
 
         # 0. 법령 layer 우선 적용 (1·2·3차 상법 개정 + 정관 우회 시나리오)
@@ -3810,6 +3847,17 @@ async def build_proxy_advise_payload(
                     _scoped = []
                 relevant_evals = _scoped or list(name_to_eval.values())
                 bundle_evals = relevant_evals
+                # 260813: **자식이 없는데 매칭이 실패한 안건**은 진짜 묶음이 아니라
+                #   「개별 후보 안건인데 이름을 못 찾은」 것이다. 그런데 묶음 경로는
+                #   사외이사 독립성 검증을 의도적으로 건너뛰므로(아래 주석), 파싱이
+                #   약해질수록 판정이 **보수적이 아니라 관대해진다** — 실측 사고 2건
+                #   (도진명 영문병기·삼성카드)이 전부 이 형태였다.
+                #   구조를 잘못 읽었을 가능성이 큰 자리이므로 원문을 넓게 실어
+                #   AI 가 직접 판단하게 한다(판정 자체는 바꾸지 않는다 — 전수 diff 전).
+                if not _kids:
+                    _w = _raw_window(notice_full_text, title)
+                    if _w:
+                        name_match_raw = _w
                 if category == "audit_committee_election" and not _scoped:
                     relevant_evals = [
                         ev for ev in name_to_eval.values()
@@ -4157,6 +4205,9 @@ async def build_proxy_advise_payload(
             if _raw:
                 facts["raw_text_fallback"] = _raw
                 facts["parsing_quality"] = "low_fallback_to_raw"
+        if name_match_raw:
+            facts["name_match_failed_raw"] = name_match_raw
+            facts["parsing_quality"] = "name_match_failed_see_raw"
         cumulative_threshold = _cumulative_voting_threshold(title)
         if cumulative_threshold:
             facts["cumulative_voting_threshold"] = cumulative_threshold
