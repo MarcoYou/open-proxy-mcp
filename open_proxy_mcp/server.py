@@ -98,9 +98,24 @@ def build_mcp() -> MCPServer:
     async def _health(_request):
         from starlette.responses import JSONResponse
         from open_proxy_mcp.dart.client import cache_stats
+        # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
+        #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
+        #   여기 실어 배포 직후 눈으로 확인할 수 있게 한다. 0 이면 status 를 degraded 로 낮춘다.
+        _data: dict[str, int] = {}
+        try:
+            from open_proxy_mcp.services.proxy_advise import (
+                _load_law_layer_rules, _load_law_provisions,
+            )
+            from open_proxy_mcp.services.law_lookup import load_index
+            _data["law_rules"] = len(_load_law_layer_rules())
+            _data["law_provisions"] = len(_load_law_provisions())
+            _data["law_corpus_articles"] = (load_index().get("meta") or {}).get("n_articles", 0)
+        except Exception as exc:      # 헬스체크가 이것 때문에 죽으면 안 된다
+            _data["error"] = str(exc)[:120]
         return JSONResponse({
-            "status": "ok",
+            "status": "ok" if all(v for k, v in _data.items() if k != "error") else "degraded",
             "tools": len(await mcp.list_tools()),
+            "data": _data,
             "cache": cache_stats(),
         })
 

@@ -27,6 +27,8 @@ import unicodedata
 import time
 from collections import Counter
 from datetime import date, datetime, timezone
+import logging
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -44,12 +46,22 @@ from open_proxy_mcp.services.proxy_advise import (
     _law_provision_detail,
 )
 
+logger = logging.getLogger(__name__)
+
 # ── 경로 ────────────────────────────────────────────────────────────────
+# 260814: 두 부류를 다르게 다룬다.
+#   · 작은 규칙 데이터(사전 13KB)  → **패키지 데이터**. 코드와 함께 배포되고 cwd 에 무관하다.
+#   · corpus(11MB 원문·인덱스)     → repo 경로 유지. 휠에 11MB 를 싣지 않는다.
+#     대신 없으면 **소리를 낸다**(아래 로더) — 종전에는 조용히 빈 결과였다.
 _LAWS_DIR = Path(__file__).resolve().parent.parent.parent / "wiki" / "rules" / "laws"
 _CORPUS_DIR = _LAWS_DIR / "corpus"
 _INDEX_PATH = _CORPUS_DIR / "law_index.json"
 _BM25_PATH = _CORPUS_DIR / "law_bm25.json"
-_SYNONYMS_PATH = _LAWS_DIR / "law_lookup_synonyms.json"
+
+
+def _synonyms_path():
+    """법령 동의어 사전 — 패키지 데이터."""
+    return files("open_proxy_mcp.data.laws") / "law_lookup_synonyms.json"
 
 # ── 원형숫자 → 항 int (①-⑳ 연속 U+2460-2473, ㉑-㉟ U+3251-325F, ㊱-㊿ U+32B1-32BF) ──
 _CIRCLED: dict[str, int] = {}
@@ -109,7 +121,7 @@ def load_synonyms() -> dict[str, Any]:
     if _SYNONYMS_CACHE is not None:
         return _SYNONYMS_CACHE
     try:
-        raw = json.loads(_SYNONYMS_PATH.read_text(encoding="utf-8"))
+        raw = json.loads(_synonyms_path().read_text(encoding="utf-8"))
     except Exception:
         raw = {}
     vocab = set(raw.get("vocabulary") or [])
@@ -247,6 +259,11 @@ def load_index() -> dict[str, Any]:
     try:
         idx = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
     except Exception:
+        # 260814: 조용히 빈 인덱스를 돌려줬다 — law_lookup 이 「조문을 못 찾음」을 정상 응답으로
+        #   내보내 **없는 것과 못 읽은 것이 구분되지 않았다.** corpus 는 11MB 라 패키지에
+        #   싣지 않고 repo 경로를 유지하되, 실패는 로그와 헬스체크로 밖에서 보이게 한다.
+        logger.exception("법령 corpus 인덱스 로드 실패 — law_lookup 이 조문을 못 찾게 된다: %s",
+                         _INDEX_PATH)
         idx = {"meta": {"df": {}, "idf": {}, "anchor_df_max": 0,
                         "n_articles": 0, "laws": []}, "articles": []}
     by_key: dict[tuple[str, str], dict[str, Any]] = {}

@@ -7,9 +7,15 @@ WORKDIR /app
 # 무관하게 배포만 깨진다(260729 실측: mcp 2.0.0 이 fastmcp 제거 → 운영 중단).
 COPY pyproject.toml uv.lock ./
 COPY open_proxy_mcp/ open_proxy_mcp/
-# wiki/rules/laws/ — proxy_advise가 dynamic load: _load_law_layer_rules(40 룰) +
-# _load_llm_misread_patterns(guard) + _load_law_provisions(조항 대장 SSOT — 근거 심화). production 필수.
-COPY wiki/rules/laws/ wiki/rules/laws/
+# 260814: 규칙 데이터(룰 40 · 조항 대장 SSOT · 동의어 사전 · misread guard, 합 62KB)는
+#   `open_proxy_mcp/data/laws/` 로 옮겨 **코드와 함께** 배포된다 — 여기서 챙길 필요가 없다.
+#   종전에는 이 COPY 한 줄이 빠지면 룰 40개가 조용히 0이 되고 강행규정 판정이 통째로
+#   사라졌다(경고·로그·헬스체크 전무). 이제 로더가 로그를 남기고 /health 가 개수를 싣는다.
+#
+# 아래는 **corpus 만** 남긴다 — 법령 원문+인덱스 11MB 라 휠에 싣지 않는다.
+#   law_lookup 이 조문 전문을 돌려줄 때 쓴다. 없으면 조문 검색이 빈 결과가 되므로
+#   production 필수이고, 빠지면 /health 의 law_corpus_articles 가 0으로 보인다.
+COPY wiki/rules/laws/corpus/ wiki/rules/laws/corpus/
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /usr/local/bin/uv
 # --locked: lock 과 pyproject 가 어긋나면 **빌드를 실패시킨다**(조용히 다른 버전 설치 금지)

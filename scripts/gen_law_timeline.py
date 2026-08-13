@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """상법 개정 '시행 타임라인' 표를 원본에서 자동생성한다.
 
-원본  : wiki/rules/laws/law_provisions.json  (시행일 SSOT)
+원본  : open_proxy_mcp/data/laws/law_provisions.json  (시행일 SSOT · 260814 패키지로 이동)
 대상  : wiki/rules/laws/상법-2025-2026-종합.md  의 AUTOGEN:law-timeline 마커 사이 표
 
 원본을 고친 뒤 이 스크립트를 돌리면 md 표가 원본과 일치하게 다시 써진다.
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-REGISTRY = REPO / "wiki" / "rules" / "laws" / "law_provisions.json"
+REGISTRY = REPO / "open_proxy_mcp" / "data" / "laws" / "law_provisions.json"
 DOC = REPO / "wiki" / "rules" / "laws" / "상법-2025-2026-종합.md"
 
 START = "<!-- AUTOGEN:law-timeline START"

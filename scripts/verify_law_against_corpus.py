@@ -17,7 +17,7 @@ import argparse, json, os, re, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SSOT = ROOT / "wiki" / "rules" / "laws" / "law_provisions.json"
+SSOT = ROOT / "open_proxy_mcp" / "data" / "laws" / "law_provisions.json"
 
 # 엔진이 인용하지만 SSOT에 **없는 것이 정상인** 조문 — 원문 존재만 확인한다.
 #

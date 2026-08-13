@@ -504,8 +504,10 @@ def check_law_dates(pages) -> list[str]:
     import subprocess
 
     issues: list[str] = []
-    reg_path = WIKI / "rules" / "laws" / "law_provisions.json"
-    eng_path = WIKI / "rules" / "laws" / "law_layer_rules.json"
+    # 260814: 런타임이 읽는 규칙 데이터는 패키지로 옮겼다(경로 의존 제거). lint 도 그쪽을 본다.
+    _DATA = WIKI.parent / "open_proxy_mcp" / "data" / "laws"
+    reg_path = _DATA / "law_provisions.json"
+    eng_path = _DATA / "law_layer_rules.json"
     gen_path = ROOT / "scripts" / "gen_law_timeline.py"
 
     if not reg_path.exists():

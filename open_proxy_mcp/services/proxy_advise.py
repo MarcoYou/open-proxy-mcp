@@ -27,6 +27,7 @@ import json
 import re
 import time
 from datetime import date
+import logging
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -63,6 +64,9 @@ from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 from open_proxy_mcp.services.order_contracts import build_order_contracts_payload
 # Removed dead imports (archived at wiki/archive/services/):
 #   (구 백엔드 3종 — private archive)
+
+
+logger = logging.getLogger(__name__)
 
 
 # ── F11 (Phase 4): process-level result cache ──
@@ -243,18 +247,24 @@ _LAW_LAYER_RULES_CACHE: list[dict[str, Any]] | None = None
 
 
 def _load_law_layer_rules() -> list[dict[str, Any]]:
-    """wiki/rules/laws/law_layer_rules.json 로드 (모듈 캐시).
+    """`open_proxy_mcp/data/laws/law_layer_rules.json` 로드 (모듈 캐시).
 
-    36 룰 (A1=8 / A2=5 / B1=10 / B2=9 / C=4). priority 오름차순.
+    priority 오름차순. **개수를 여기 적지 않는다** — 종전 docstring 은 「36 룰
+    (A1=8/A2=5/B1=10/B2=9/C=4)」이라 적혀 있었는데 실제로는 40룰이었다(260814 확인).
+    설명과 실물이 갈라져도 알려주는 장치가 없었다. 실제 개수는 `/health` 의
+    `data.law_rules` 로 본다.
     """
     global _LAW_LAYER_RULES_CACHE
     if _LAW_LAYER_RULES_CACHE is not None:
         return _LAW_LAYER_RULES_CACHE
     try:
-        # wiki는 repo 루트에 있어 상대 경로로 접근
-        repo_root = Path(__file__).resolve().parent.parent.parent
-        path = repo_root / "wiki" / "rules" / "laws" / "law_layer_rules.json"
-        if not path.exists():
+        # 260814: `wiki/rules/laws/` 를 경로로 찾아갔다. 배포 이미지에 wiki 가 들어가는 것은
+        #   Dockerfile 의 COPY 한 줄 + 작업 디렉터리 + 실행 방식, 세 우연의 곱이었고
+        #   하나만 어긋나면 **룰 40개가 조용히 0개**가 된다(경고도 로그도 없이 판정만 사라짐).
+        #   패키지 데이터로 옮겨 코드와 함께 배포되게 하고 importlib.resources 로 읽는다.
+        path = files("open_proxy_mcp.data.laws") / "law_layer_rules.json"
+        if not path.is_file():
+            logger.error("법령 layer 룰 파일 없음 — 강행규정 판정이 전부 비활성화된다: %s", path)
             _LAW_LAYER_RULES_CACHE = []
             return []
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -263,6 +273,7 @@ def _load_law_layer_rules() -> list[dict[str, Any]]:
         _LAW_LAYER_RULES_CACHE = rules
         return rules
     except Exception:
+        logger.exception("법령 layer 룰 로드 실패 — 강행규정 판정이 전부 비활성화된다")
         _LAW_LAYER_RULES_CACHE = []
         return []
 
@@ -271,7 +282,7 @@ _LAW_PROVISIONS_CACHE: dict[str, dict[str, Any]] | None = None
 
 
 def _load_law_provisions() -> dict[str, dict[str, Any]]:
-    """wiki/rules/laws/law_provisions.json(상법 개정 조항 대장 SSOT) 로드 (모듈 캐시).
+    """`open_proxy_mcp/data/laws/law_provisions.json`(상법 개정 조항 대장 SSOT) 로드 (모듈 캐시).
 
     {provision_id: provision} 매핑. 엔진 룰의 provision 필드가 이 키를 가리킨다.
     law-layer hit 시 근거에 조문·유예도래일·적용대상·시행령 임계를 붙이는 데 쓴다(260709).
@@ -280,9 +291,9 @@ def _load_law_provisions() -> dict[str, dict[str, Any]]:
     if _LAW_PROVISIONS_CACHE is not None:
         return _LAW_PROVISIONS_CACHE
     try:
-        repo_root = Path(__file__).resolve().parent.parent.parent
-        path = repo_root / "wiki" / "rules" / "laws" / "law_provisions.json"
-        if not path.exists():
+        path = files("open_proxy_mcp.data.laws") / "law_provisions.json"
+        if not path.is_file():
+            logger.error("상법 조항 대장(SSOT) 없음 — 판정 근거의 조문·시행일이 비게 된다: %s", path)
             _LAW_PROVISIONS_CACHE = {}
             return {}
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -291,6 +302,7 @@ def _load_law_provisions() -> dict[str, dict[str, Any]]:
         }
         return _LAW_PROVISIONS_CACHE
     except Exception:
+        logger.exception("상법 조항 대장(SSOT) 로드 실패")
         _LAW_PROVISIONS_CACHE = {}
         return {}
 
