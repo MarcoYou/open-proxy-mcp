@@ -298,6 +298,71 @@ def _load_law_layer_rules() -> list[dict[str, Any]]:
         return []
 
 
+_GUIDELINE_THRESHOLDS_CACHE: dict[str, dict[str, float]] | None = None
+
+#: 파일을 못 읽었을 때 쓰는 값. **판정이 조용히 달라지는 것을 막기 위한 것**이지
+#: 이중장부가 아니다 — 아래 로더가 파일과 이 표를 대조해 다르면 로그를 남긴다.
+#: 법령 40룰이 파일 없으면 0개가 되던 것과 달리, 임계값은 0으로 떨어지면 판정이
+#: 통째로 뒤집히므로(예: `util_rate < 0` 은 영원히 거짓) 폴백이 있어야 한다.
+_THRESHOLD_FALLBACK: dict[str, dict[str, float]] = {
+    "director_compensation": {
+        "utilization_low_pct": 30, "utilization_full_pct": 100,
+        "increase_flat_band_pct": 10, "increase_moderate_pct": 30,
+        "increase_high_pct": 50, "net_income_growth_ok_pct": 5,
+    },
+    "audit_compensation": {
+        "increase_flat_band_pct": 10, "increase_moderate_pct": 30, "increase_high_pct": 50,
+    },
+    "cash_dividend": {"payout_ratio_high_pct": 200},
+    "director_election": {"long_tenure_years": 6},
+    "retirement_pay": {"multiplier_review": 2, "multiplier_high": 3},
+}
+
+
+def _thresholds() -> dict[str, dict[str, float]]:
+    """가이드라인 수치 임계값 (모듈 캐시).
+
+    260814 신설. 종전에는 `_decide_*` 함수 8개에 매직넘버로 박혀 있었고, 정책 문서가
+    같은 숫자를 산문으로 따로 서술해 **손으로 동기화**했다 — 문서를 20%로 고쳐도 코드는
+    30으로 돌았다. 법령 40룰은 이미 데이터인데 자체 가이드라인만 코드에 있던 비대칭이다.
+
+    파일이 이상하면 `_THRESHOLD_FALLBACK` 으로 돌아가되 **반드시 로그를 남긴다** —
+    임계값이 조용히 달라지면 판정이 통째로 바뀌는데 응답은 평소와 같은 모양이다.
+    """
+    global _GUIDELINE_THRESHOLDS_CACHE
+    if _GUIDELINE_THRESHOLDS_CACHE is not None:
+        return _GUIDELINE_THRESHOLDS_CACHE
+    out = {k: dict(v) for k, v in _THRESHOLD_FALLBACK.items()}
+    try:
+        path = files("open_proxy_mcp.data.guideline") / "guideline_thresholds.json"
+        if not path.is_file():
+            logger.error("가이드라인 임계값 파일 없음 — 폴백으로 진행한다: %s", path)
+        else:
+            data = json.loads(path.read_text(encoding="utf-8")).get("thresholds") or {}
+            for cat, keys in _THRESHOLD_FALLBACK.items():
+                block = data.get(cat) or {}
+                for key, expected in keys.items():
+                    entry = block.get(key)
+                    val = entry.get("value") if isinstance(entry, dict) else entry
+                    if val is None:
+                        logger.error("임계값 누락 — %s.%s, 폴백 %s 사용", cat, key, expected)
+                        continue
+                    if val != expected:
+                        # 파일이 이겨야 한다(그게 SSOT 다). 다만 **조용히 바뀌면 안 된다**.
+                        logger.warning("임계값 변경 감지 — %s.%s: 코드 폴백 %s → 파일 %s",
+                                       cat, key, expected, val)
+                    out[cat][key] = val
+    except Exception:
+        logger.exception("가이드라인 임계값 로드 실패 — 폴백으로 진행한다")
+    _GUIDELINE_THRESHOLDS_CACHE = out
+    return out
+
+
+def _th(category: str, key: str) -> float:
+    """임계값 하나. 판정 코드는 이 함수만 부른다."""
+    return _thresholds()[category][key]
+
+
 _LAW_PROVISIONS_CACHE: dict[str, dict[str, Any]] | None = None
 
 
@@ -1148,7 +1213,7 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
             if _fyr.get("source") in ("tenure_years", "roster_tenure"):
                 _basis = _fyr.get("basis") or "재직기간 확인"
                 _years = _fyr.get("years")
-                if isinstance(_years, int) and _years >= 6:
+                if isinstance(_years, int) and _years >= _th("director_election", "long_tenure_years"):
                     return "REVIEW", (f"{_who} 장기연임 ({_basis}) — {_law6}{_audit_note}. "
                                       f"계열 합산(9년)·재직기간 과소계상 여부 원문 확인 권고")
                 return "REVIEW", (f"{_who} 장기연임 소프트 경보 ({_basis}) — 재직 5년 이상. "
@@ -1336,12 +1401,12 @@ def _decide_director_compensation(
         return "REVIEW", f"완전 자본잠식 + 한도 인상 ({inc:+.0f}%) — 보수 결정 부적절 가능성, 법정 금지는 아니므로 검토"
     # 분기 2: 소진율 < 30% — 단독 강화 (코붕이 의견 260505 ralph precision iter 3)
     # "오바해서 올리거나 사용 안하면서 늘리거나"는 인상 외에도 "남는데 한도 유지" 도 검토 대상
-    if util_rate is not None and util_rate < 30:
+    if util_rate is not None and util_rate < _th("director_compensation", "utilization_low_pct"):
         if inc is not None and inc > 0:
             return "REVIEW", f"소진율 {util_rate:.0f}%인데 한도 인상 ({inc:+.0f}%) — 한도 적정성 검토"
         if inc is None:
             return "REVIEW", f"소진율 {util_rate:.0f}% (낮음) + 인상률 미파악 — 한도 적정성 검토"
-        if inc == 0 or (-10 < inc < 0):
+        if inc == 0 or (-_th("director_compensation", "increase_flat_band_pct") < inc < 0):
             return "REVIEW", f"소진율 {util_rate:.0f}%인데 한도 동결/소폭 변경 ({inc:+.0f}%) — 한도 적정성 검토"
         # inc <= -10 (감액)은 분기 8에서 처리 — 한도 줄이는 건 OK
     # 분기 3: 적자 OR 순익 감소 + 인상 (OPM #2 strict)
@@ -1350,25 +1415,25 @@ def _decide_director_compensation(
             ni_label = "적자" if (ni is not None and ni < 0) else f"순익 yoy {yoy:+.0f}%"
             return "REVIEW", f"{ni_label} + 한도 인상 ({inc:+.0f}%) — 경영성과 대비 보수 적정성 검토"
     # 분기 5: 50%+ 인상 (#8)
-    if inc is not None and inc >= 50:
+    if inc is not None and inc >= _th("director_compensation", "increase_high_pct"):
         return "REVIEW", f"보수한도 대폭 인상 ({inc:+.0f}%) — OPM #8 (50%+ 인상, 일회성 사유 외)"
     # 분기 4: +10~+30% + 순익 yoy 둔화 (N연기금 IV-33② 보수)
-    if inc is not None and 10 < inc < 30 and yoy is not None and yoy < 5:
+    if inc is not None and _th("director_compensation", "increase_flat_band_pct") < inc < _th("director_compensation", "increase_moderate_pct") and yoy is not None and yoy < _th("director_compensation", "net_income_growth_ok_pct"):
         return "REVIEW", f"한도 +{inc:.0f}% + 순익 yoy {yoy:+.0f}% (둔화) — 참조 보수 규칙 (보수적)"
     # 분기 6: +30~+50% 외 (#3-4 미해당)
-    if inc is not None and 30 <= inc < 50:
+    if inc is not None and _th("director_compensation", "increase_moderate_pct") <= inc < _th("director_compensation", "increase_high_pct"):
         return "REVIEW", f"한도 +{inc:.0f}% 인상 — 적정성 검토"
     # 분기 7: 소진율 ≥100% + 인상 (한도 부족 정당화)
-    if util_rate is not None and util_rate >= 100 and inc is not None and inc > 0:
+    if util_rate is not None and util_rate >= _th("director_compensation", "utilization_full_pct") and inc is not None and inc > 0:
         return "FOR", f"소진율 {util_rate:.0f}% (한도 초과 사용) + 인상 ({inc:+.0f}%) — 한도 부족 정당화"
     # 분기 8: 한도 감액
-    if inc is not None and inc < -10:
+    if inc is not None and inc < -_th("director_compensation", "increase_flat_band_pct"):
         return "FOR", f"한도 감액 ({inc:+.0f}%) — 주주가치 우호"
     # 분기 9: -10 ~ +10 (동결)
-    if inc is not None and -10 <= inc <= 10:
+    if inc is not None and -_th("director_compensation", "increase_flat_band_pct") <= inc <= _th("director_compensation", "increase_flat_band_pct"):
         return "FOR", f"보수한도 소폭 변경 ({inc:+.0f}%) — 참조 보수 규칙 (원칙적 찬성)"
     # 분기 10: +10~+30 + 순익 양호
-    if inc is not None and 10 < inc < 30 and (yoy is None or yoy >= 5):
+    if inc is not None and _th("director_compensation", "increase_flat_band_pct") < inc < _th("director_compensation", "increase_moderate_pct") and (yoy is None or yoy >= _th("director_compensation", "net_income_growth_ok_pct")):
         return "FOR", f"한도 +{inc:.0f}% + 경영성과 양호 — 참조 보수 규칙"
     # 분기 11/13: 인상률 None (compensation parsed but increase_rate missing)
     if inc is None:
@@ -1546,19 +1611,19 @@ def _decide_audit_compensation(
     if audit_per_person is not None and audit_per_person < threshold_low_per_person:
         return "REVIEW", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (< {threshold_low_per_person/1e8:.1f}억) — 과소 보수 여부 검토"
     # 분기 4: 인상률 ≥+50% + 1인당 평균 > threshold_high (s_legacy 패턴)
-    if audit_inc is not None and audit_inc >= 50 and audit_per_person is not None and audit_per_person > threshold_high_per_person:
+    if audit_inc is not None and audit_inc >= _th("audit_compensation", "increase_high_pct") and audit_per_person is not None and audit_per_person > threshold_high_per_person:
         return "REVIEW", f"감사 한도 +{audit_inc:.0f}% + 1인당 평균 {audit_per_person/1e8:.2f}억 (>{threshold_high_per_person/1e8:.1f}억) — 급증/과다 여부 검토"
     # 분기 5: 인상률 +30~+50% (s_legacy 보수)
-    if audit_inc is not None and 30 <= audit_inc < 50:
+    if audit_inc is not None and _th("audit_compensation", "increase_moderate_pct") <= audit_inc < _th("audit_compensation", "increase_high_pct"):
         return "REVIEW", f"감사 한도 +{audit_inc:.0f}% 인상 — 감사보수 엄격 기준으로 검토"
     # 분기 6: 1인당 평균 경계
     if audit_per_person is not None and threshold_low_per_person <= audit_per_person < threshold_high_per_person:
         return "REVIEW", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (경계 — {threshold_low_per_person/1e8:.1f}~{threshold_high_per_person/1e8:.1f}억) — 사용자 노출"
     # 분기 7: ±10% (동결)
-    if audit_inc is not None and -10 <= audit_inc <= 10:
+    if audit_inc is not None and -_th("audit_compensation", "increase_flat_band_pct") <= audit_inc <= _th("audit_compensation", "increase_flat_band_pct"):
         return "FOR", f"감사 한도 소폭 변경 ({audit_inc:+.0f}%) — 참조 감사보수 규칙(원칙적 찬성)"
     # 분기 8: 1인당 평균 ≥ threshold_high + +10~+30% 인상
-    if audit_per_person is not None and audit_per_person >= threshold_high_per_person and audit_inc is not None and 10 < audit_inc < 30:
+    if audit_per_person is not None and audit_per_person >= threshold_high_per_person and audit_inc is not None and _th("audit_compensation", "increase_flat_band_pct") < audit_inc < _th("audit_compensation", "increase_moderate_pct"):
         return "FOR", f"감사 1인당 평균 {audit_per_person/1e8:.2f}억 (≥{threshold_high_per_person/1e8:.1f}억) + 한도 +{audit_inc:.0f}% — 참조 감사보수 규칙(원칙적 찬성)"
     # 분기 9/10: 데이터 부족 fallback
     if audit_inc is None and audit_per_person is None:
@@ -1667,10 +1732,10 @@ def _decide_retirement_pay(
         if cur_multipliers and prev_multipliers:
             max_cur = max(cur_multipliers)
             max_prev = max(prev_multipliers)
-            if max_prev > 0 and max_cur / max_prev >= 2:
+            if max_prev > 0 and max_cur / max_prev >= _th("retirement_pay", "multiplier_review"):
                 payment_multiplier_signal = True
                 break
-        elif cur_multipliers and not prev_multipliers and max(cur_multipliers) >= 3:
+        elif cur_multipliers and not prev_multipliers and max(cur_multipliers) >= _th("retirement_pay", "multiplier_high"):
             # 신설 시 ≥3배수
             payment_multiplier_signal = True
             break
@@ -2774,7 +2839,7 @@ def _extract_risks(
                 risks.append(f"감사 1인당 보수한도 {audit_per_person/1e8:.2f}억원 — 경계 구간")
             elif band == "high_over_300m":
                 risks.append(f"감사 1인당 보수한도 {audit_per_person/1e8:.2f}억원 — 고액 구간")
-        if audit_inc is not None and audit_inc >= 50:
+        if audit_inc is not None and audit_inc >= _th("audit_compensation", "increase_high_pct"):
             risks.append(f"감사 보수한도 강한 급증 {audit_inc:+.0f}%")
         elif audit_inc is not None and audit_inc >= 30:
             risks.append(f"감사 보수한도 급증 {audit_inc:+.0f}%")
@@ -2806,7 +2871,7 @@ def _extract_risks(
 
     if category == "cash_dividend":
         payout = fin_summary.get("payout_ratio_pct")
-        if payout is not None and payout > 200:
+        if payout is not None and payout > _th("cash_dividend", "payout_ratio_high_pct"):
             risks.append(f"배당성향 {payout}% (>200%)")
         fcf = fin_summary.get("fcf_krw")
         if fcf is not None and fcf < 0:
@@ -2893,7 +2958,7 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
             f"별도 이익잉여금으로 재원을 확인하십시오"
         )
     # 배당성향 200%+ 명백 과도 (이전엔 150%였으나 150-200%도 mainstream FOR)
-    if payout is not None and payout > 200:
+    if payout is not None and payout > _th("cash_dividend", "payout_ratio_high_pct"):
         return "REVIEW", f"배당성향 {payout}% (>200%) — 명백한 과도 배당"
     if ni is not None and ni > 0 and cap_status != "partial":
         return "FOR", f"흑자 + 자본 양호 (배당성향 {payout if payout is not None else '?'}%)"

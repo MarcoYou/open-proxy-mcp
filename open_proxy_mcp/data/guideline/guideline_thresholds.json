@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "description": "OPM 자체 의결권 가이드라인의 **수치 임계값** SSOT. 260814 신설 — 종전에는 _decide_* 함수 8개에 매직넘버로 박혀 있었고, 정책 문서(open-proxy-guideline.md)가 같은 숫자를 산문으로 따로 서술해 손으로 동기화했다. 법령 40룰(data/laws/law_layer_rules.json)은 이미 데이터인데 자체 가이드라인만 코드에 있던 비대칭을 해소한다.",
+  "scope": {
+    "포함": "정책이 정한 임계값 — 바꾸면 판정이 바뀌고, 다른 운용사면 다를 수 있는 값",
+    "제외": "부호 판정(순이익<0=적자, 잔여이익<=0)과 분기 구조. 이건 정책이 아니라 산수·로직이라 코드에 둔다"
+  },
+  "thresholds": {
+    "director_compensation": {
+      "_doc": "가이드라인 §2.6 이사 보수 — 인상률(%)·소진율(%) 기준",
+      "utilization_low_pct": {
+        "value": 30,
+        "meaning": "전기 소진율이 이 값 미만인데 한도를 인상하면 검토",
+        "used_as": "util_rate < value"
+      },
+      "utilization_full_pct": {
+        "value": 100,
+        "meaning": "소진율이 이 값 이상이면 인상에 근거가 있다고 본다",
+        "used_as": "util_rate >= value"
+      },
+      "increase_flat_band_pct": {
+        "value": 10,
+        "meaning": "±이 값 이내는 동결·소폭으로 본다",
+        "used_as": "-value <= inc <= value"
+      },
+      "increase_moderate_pct": {
+        "value": 30,
+        "meaning": "이 값 미만 인상은 순익 증가가 뒷받침되면 수용",
+        "used_as": "increase_flat_band_pct < inc < value"
+      },
+      "increase_high_pct": {
+        "value": 50,
+        "meaning": "이 값 이상 인상은 실적과 무관하게 검토",
+        "used_as": "inc >= value"
+      },
+      "net_income_growth_ok_pct": {
+        "value": 5,
+        "meaning": "순이익 증감률이 이 값 이상이면 중폭 인상의 근거로 인정",
+        "used_as": "yoy >= value"
+      }
+    },
+    "audit_compensation": {
+      "_doc": "가이드라인 §감사보수 — 이사 보수와 같은 구간을 쓰되 판정 문구가 다르다",
+      "increase_flat_band_pct": {"value": 10, "meaning": "±이 값 이내는 동결·소폭", "used_as": "-value <= audit_inc <= value"},
+      "increase_moderate_pct": {"value": 30, "meaning": "이 값 미만 인상은 흑자면 수용", "used_as": "increase_flat_band_pct < audit_inc < value"},
+      "increase_high_pct": {"value": 50, "meaning": "이 값 이상 인상은 검토", "used_as": "audit_inc >= value"}
+    },
+    "cash_dividend": {
+      "_doc": "가이드라인 §2.2 현금배당",
+      "payout_ratio_high_pct": {
+        "value": 200,
+        "meaning": "배당성향이 이 값을 넘으면 재원 초과 배당 가능성 — 검토",
+        "used_as": "payout > value"
+      }
+    },
+    "director_election": {
+      "_doc": "가이드라인 §2.4 이사 선임 — 상법 시행령 §34⑤7 과 연동",
+      "long_tenure_years": {
+        "value": 6,
+        "meaning": "동일 상장회사 이 년수 초과 재직이면 사외이사 법정 결격(상법 시행령 §34조5항7호)",
+        "used_as": "_years >= value",
+        "law_ref": "상법 시행령 제34조제5항제7호"
+      }
+    },
+    "retirement_pay": {
+      "_doc": "가이드라인 §퇴직금 — 지급배수",
+      "multiplier_review": {
+        "value": 2,
+        "meaning": "종전 배수가 이 값 이상이면 인상 시 검토",
+        "used_as": "max_prev >= value"
+      },
+      "multiplier_high": {
+        "value": 3,
+        "meaning": "이 값 이상 배수는 그 자체로 검토",
+        "used_as": "max(cur_multipliers) >= value"
+      }
+    }
+  }
+}
