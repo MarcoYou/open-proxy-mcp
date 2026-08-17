@@ -342,3 +342,31 @@ def test_event_insert_carries_corp_codes_and_keeps_the_aggregate():
         assert cols.count(",") + 1 == ph.count("%s") + ph.count("?"), \
             f"컬럼 수와 값 자리 수가 다르다: {stmt}"
     assert "corp_daily" in text, "집계 테이블로 올리는 경로가 없다"
+
+
+def test_dead_column_doc_cache_hit_stays_dead():
+    """260817: `doc_cache_hit` 은 스키마에서 **지운다**.
+
+    260804 에 「폐기하되 컬럼은 남긴다」로 뒀던 것이 문제였다. 남은 컬럼은 값이 0건인데도
+    스키마·백업 CSV·드레인 산출물에 계속 실려 다니고, **읽는 사람에게는 지표처럼 보인다.**
+    백업 358,205행 전수 확인에서 값이 들어온 적이 한 번도 없었다.
+    안 쓰는 컬럼을 남기는 비용은 용량이 아니라 **오해**다.
+
+    되살리려면 그건 결정이어야 한다 — 그때는 이 테스트를 지우면서 이유를 남겨야 한다.
+    """
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "usage.py"
+    text = src.read_text(encoding="utf-8")
+    code = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+
+    assert "ADD COLUMN IF NOT EXISTS doc_cache_hit" not in code, \
+        "Postgres 스키마가 죽은 컬럼을 다시 만든다"
+    assert "DROP COLUMN IF EXISTS doc_cache_hit" in code, \
+        "이미 컬럼이 있는 운영 DB 에서 지우는 경로가 사라졌다"
+    assert '"doc_cache_hit INTEGER"' not in code, \
+        "sqlite 마이그레이션 목록에 죽은 컬럼이 남아 있다"
+
+    # 세 대체 지표는 살아 있어야 한다 — 이걸 안 보면 「지웠더니 아무것도 안 남았다」가 된다.
+    for alive in ("doc_mem_hits", "doc_disk_hits", "doc_misses"):
+        assert alive in code, f"대체 지표가 없다: {alive}"

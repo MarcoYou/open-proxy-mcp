@@ -117,8 +117,11 @@ def _sqlite_connect():
             PRIMARY KEY (day, corp_code));
         """
     )
+    # sqlite 는 폐기 컬럼을 되살리지 않는다 — 목록에서 뺀다(260817, doc_cache_hit).
+    # 이미 그 컬럼이 있는 로컬 파일은 그냥 둔다: sqlite DROP COLUMN 은 버전을 타고,
+    # 로컬은 운영 통계가 아니라 폴백이라 지울 값어치가 없다.
     for col in ("tool TEXT", "latency_ms INTEGER", "is_error INTEGER", "error_kind TEXT",
-                "doc_cache_hit INTEGER", "response_bytes INTEGER",
+                "response_bytes INTEGER",
                 "doc_mem_hits INTEGER", "doc_disk_hits INTEGER", "doc_misses INTEGER",
                 "corp_codes TEXT",
                 "fetch_viewer INTEGER", "fetch_kind INTEGER",
@@ -162,10 +165,12 @@ def _pg_connect():
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS is_error boolean")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS error_kind text")
     # 260802: 캐시를 키울 값어치가 있나 · 어느 tool 이 토큰을 많이 먹나 — 두 질문에 답하려고 더했다.
-    # doc_cache_hit 은 **폐기**한다(값이 한 번도 안 들어왔다 — 266,615건 전부 NULL. 하류에서
-    # ContextVar 를 set 해 위에서 읽는 구조였는데 그건 원리상 안 된다). 컬럼은 남겨 두되
-    # 더는 쓰지 않고, 아래 doc_mem_hits/doc_disk_hits/doc_misses 가 대신한다.
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_cache_hit boolean")
+    # 260817: `doc_cache_hit` 컬럼을 **지운다.** 260804 에 「폐기하되 컬럼은 남긴다」로 뒀는데,
+    #   남긴 컬럼은 스키마·백업 CSV·드레인에 계속 실려 다니면서 **읽는 사람에게는 지표처럼 보인다.**
+    #   백업 358,205행 전수 확인 결과 값이 들어온 적이 한 번도 없다(0건). 대신 doc_mem_hits/
+    #   doc_disk_hits/doc_misses 셋이 답한다. 안 쓰는 컬럼을 남기는 비용은 용량이 아니라 **오해**다.
+    #   (원래 실패 원인: 하류가 ContextVar 를 set 하고 상위 미들웨어가 get 하는 구조 — 원리상 안 된다.)
+    con.execute("ALTER TABLE tool_call_events DROP COLUMN IF EXISTS doc_cache_hit")
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS response_bytes int")
     # 260804: 문서 출처를 **건수로** 나눠 센다. 메모리 예산의 효과를 보려면 디스크 적중과
     # 섞으면 안 된다(디스크는 예산과 무관하다).
