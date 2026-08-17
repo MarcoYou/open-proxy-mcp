@@ -68,15 +68,141 @@ def _pg_conn():
     return psycopg.connect(DATABASE_URL, connect_timeout=15)
 
 
+# ── 드레인된 과거 주 합류 (260817) ──────────────────────────────────────────
+#: `events_drain.py` 가 완결 주를 CSV 로 내보내고 DB 에서 지운다. **DB 만 읽으면 지운 만큼
+#: 과거가 통째로 사라진다** — 260817 실측: 7주를 드레인하자 362,994행이 5,511행이 되면서
+#: 오래 쓴 사용자가 전부 「신규」로 재라벨됐다. 백업은 있는데 되읽을 길이 없었다.
+#: 드레인은 앞으로도 계속 돌아야 하므로(무료티어 압박 + 사용자-기업 연결의 수명 상한)
+#: 이 합류 지점이 없으면 통계는 영구히 「진행 중인 주」만 보게 된다.
+#:
+#: **경로는 `events_drain` 의 것을 그대로 쓴다** — 여기 사본을 두면 이중장부가 되고,
+#: 한쪽만 바뀌면 조용히 다른 폴더를 보게 된다(260817 SELF_HASHES 사본 사고와 같은 모양).
+try:
+    from events_drain import OUT_DIR as DRAINED_DIR
+except ImportError:                      # `import scripts.usage_tracker` 로 들어온 경우
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from events_drain import OUT_DIR as DRAINED_DIR
+
+#: `*_user_log.csv` 만 읽는다. 같은 폴더의 `260810_test-pollution_purged.csv` 는
+#: **일부러 걷어낸 테스트 오염**이라 되살리면 안 되고, `user_registry.csv` 는 이벤트가 아니다.
+DRAINED_GLOB = "*_user_log.csv"
+_INT_COLS = {"ts_ns", "status", "latency_ms", "response_bytes", "doc_mem_hits",
+             "doc_disk_hits", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms"}
+_BOOL_COLS = {"is_error"}
+
+#: 각 조회 함수의 SELECT 순서. **쿼리와 여기가 어긋나면 값이 조용히 다른 자리로 들어간다**
+#: (260704 mkt_fund_hist 사고와 같은 실패 모드) — 테스트가 둘을 대조한다.
+_TL_COLS = ("tool", "key_hash", "latency_ms", "is_error")
+_ERR_COLS = ("ts_ns", "key_hash", "is_error")
+_OUT_COLS = ("key_hash", "tool", "is_error", "error_kind", "weak_kinds")
+_PATH_COLS = ("ts_ns", "tool", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms")
+
+
+def _db_event_ids() -> set:
+    """DB 에 지금 있는 event_id. 드레인은 내보낸 뒤 지우므로 원래 안 겹치지만,
+    중단·재실행이 있었다면 겹친다 — **겹침을 가정하지 않는 쪽이 위험하다**(이중 계상)."""
+    tbl = "tool_call_events" if using_pg() else "events"
+    try:
+        if using_pg():
+            con = _pg_conn()
+            try:
+                return {r[0] for r in con.execute(f"SELECT event_id FROM {tbl}").fetchall()}
+            finally:
+                con.close()
+        return {r[0] for r in db().execute(f"SELECT event_id FROM {tbl}").fetchall()}
+    except Exception:
+        return set()
+
+
+_drained_cache: dict | None = None
+
+
+def drained_columns() -> dict:
+    """드레인 CSV → {컬럼명: [값, ...]} (열 지향 — 투영이 공짜고 메모리가 싸다).
+
+    문자열이 반복되는 열(key_hash 346개·tool 30여 개)은 **interning** 한다 —
+    안 하면 35만 행이 수백 MB 가 된다.
+    폴더·파일이 없으면 **조용히 넘어가지 않는다.** 그 침묵이 이 사고의 원인이었다.
+    """
+    global _drained_cache
+    if _drained_cache is not None:
+        return _drained_cache
+    import csv as _csv
+
+    if not DRAINED_DIR.is_dir() or not sorted(DRAINED_DIR.glob(DRAINED_GLOB)):
+        print(f"⚠️  드레인 백업이 없다({DRAINED_DIR}/{DRAINED_GLOB}) — DB 구간만 집계한다.\n"
+              f"    OPM_STORAGE_REPO 가 맞는지 확인. 과거 지표는 실제보다 작게 나온다.",
+              file=sys.stderr)
+        _drained_cache = {}
+        return _drained_cache
+
+    have = _db_event_ids()
+    files = sorted(DRAINED_DIR.glob(DRAINED_GLOB))
+    # **헤더를 먼저 합집합으로 잡는다.** 컬럼은 260802·260804·260810·260817 로 계속 늘었고
+    # 백업은 스키마 파생이라 **주마다 헤더가 다르다**. 읽어 가면서 열을 추가하면 늦게 등장한
+    # 열만 짧아져 행이 밀린다 — 실제로 `weak_kinds`(260810 신설)에서 그렇게 깨졌다.
+    cols: dict[str, list] = {}
+    for f in files:
+        with open(f, newline="", encoding="utf-8") as fh:
+            for name in (_csv.DictReader(fh).fieldnames or []):
+                cols.setdefault(name, [])
+    pool: dict = {}
+    n = dup = 0
+    for f in files:
+        with open(f, newline="", encoding="utf-8") as fh:
+            rd = _csv.DictReader(fh)
+            for r in rd:
+                if r["event_id"] in have:
+                    dup += 1
+                    continue
+                for k, lst in cols.items():
+                    v = r.get(k) or ""
+                    if not v:
+                        lst.append(None)
+                    elif k in _INT_COLS:
+                        lst.append(int(v))
+                    elif k in _BOOL_COLS:
+                        lst.append(v == "True")
+                    else:
+                        lst.append(pool.setdefault(v, v))    # interning
+                n += 1
+    # 열 길이가 하나라도 다르면 그 뒤 모든 투영이 밀린다 — 조용히 틀리느니 여기서 멈춘다.
+    bad = {k: len(v) for k, v in cols.items() if len(v) != n}
+    if bad:
+        raise SystemExit(f"드레인 백업의 열 길이가 어긋난다(기대 {n:,}): {bad}")
+    print(f"  · 드레인 백업 {n:,}건 합류"
+          f"{f' (DB 와 겹쳐 제외 {dup:,})' if dup else ''}", file=sys.stderr)
+    _drained_cache = cols
+    return cols
+
+
+def merge_drained(rows, cols: tuple):
+    """DB 행 + 드레인 행. `cols` 는 **DB 쿼리가 고른 컬럼명을 그 순서대로** 준 것이다.
+
+    CSV 에 없는 컬럼(옛 백업에 아직 안 생겼던 열)은 None 으로 채운다 — 컬럼이 늘어난
+    시점보다 오래된 주는 그 값을 가진 적이 없으므로, 0 이 아니라 「없음」이 맞다.
+    """
+    d = drained_columns()
+    if not d:
+        return list(rows)
+    n = len(next(iter(d.values())))
+    blank = [None] * n
+    src = [d.get(c, blank) for c in cols]
+    return list(rows) + [tuple(col[i] for col in src) for i in range(n)]
+
+
 def fetch_rows():
     """모든 (ts_ns, key_hash) 정렬 반환 (self 포함). 백엔드 자동 선택."""
     if using_pg():
         con = _pg_conn()
         rows = con.execute("SELECT ts_ns, key_hash FROM tool_call_events ORDER BY ts_ns").fetchall()
         con.close()
-        return [(int(t), h) for t, h in rows]
-    con = db()
-    return con.execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns").fetchall()
+        rows = [(int(t), h) for t, h in rows]
+    else:
+        rows = list(db().execute("SELECT ts_ns, key_hash FROM events ORDER BY ts_ns"))
+    rows = merge_drained(rows, ("ts_ns", "key_hash"))
+    rows.sort(key=lambda r: r[0])     # 합류하면 순서가 깨진다. key= 명시(튜플 전체비교 금지)
+    return rows
 
 
 #: **프로토콜(핸드셰이크) 요청인가** — MCP 클라이언트가 *사람이 시키지 않아도* 보내는 것.
@@ -104,16 +230,16 @@ def fetch_tool_latency():
                 rows = [(*r, None) for r in con.execute(old).fetchall()]
         finally:
             con.close()
-        return rows
+        return merge_drained(rows, _TL_COLS)
     sql = "SELECT tool, key_hash, latency_ms, is_error FROM events"
     old = "SELECT tool, key_hash, latency_ms FROM events"
     try:
-        return db().execute(sql).fetchall()
+        return merge_drained(db().execute(sql).fetchall(), _TL_COLS)
     except sqlite3.OperationalError:
         try:
-            return [(*r, None) for r in db().execute(old).fetchall()]
+            return merge_drained([(*r, None) for r in db().execute(old).fetchall()], _TL_COLS)
         except sqlite3.OperationalError:
-            return []
+            return merge_drained([], _TL_COLS)
 
 
 def migrate_local_to_pg():
@@ -330,15 +456,15 @@ def fetch_error_rows():
                 rows = con.execute("SELECT ts_ns, key_hash, is_error FROM tool_call_events").fetchall()
             except Exception:  # is_error 미생성 구서버
                 con.rollback()
-                return []
+                rows = []
         finally:
             con.close()
-        return [(int(t), h, e) for t, h, e in rows]
+        return merge_drained([(int(t), h, e) for t, h, e in rows], _ERR_COLS)
     try:
-        return [(int(t), h, e)
-                for t, h, e in db().execute("SELECT ts_ns, key_hash, is_error FROM events").fetchall()]
+        return merge_drained([(int(t), h, e) for t, h, e in
+                              db().execute("SELECT ts_ns, key_hash, is_error FROM events")], _ERR_COLS)
     except Exception:
-        return []
+        return merge_drained([], _ERR_COLS)
 
 
 def classify_outcome(is_error, error_kind) -> tuple[str, str | None]:
@@ -402,6 +528,7 @@ def outcome_breakdown():
                     "SELECT key_hash, tool, is_error, error_kind FROM events").fetchall()]
             except Exception:
                 return {}
+    rows = merge_drained(rows, _OUT_COLS)
     out = defaultdict(int)
     kinds = defaultdict(int)
     weak = defaultdict(int)
@@ -716,12 +843,20 @@ def paths_report(days: int = 7):
         raise SystemExit(
             f"계기 컬럼이 아직 없다: {', '.join(sorted(missing))}\n"
             "  컬럼은 운영 머신의 usage 워커가 붙을 때 생긴다 — 배포 후 첫 요청이 지나면 만들어진다.")
-    where = f"ts_ns > (extract(epoch from now()) - {days} * 86400) * 1e9"
-    api, viewer, kind, wait_ms, reqs, fb_reqs = con.execute(
-        "SELECT coalesce(sum(doc_misses),0), coalesce(sum(fetch_viewer),0), "
-        "coalesce(sum(fetch_kind),0), coalesce(sum(web_wait_ms),0), count(*), "
-        "count(*) FILTER (WHERE coalesce(fetch_viewer,0) + coalesce(fetch_kind,0) > 0) "
-        f"FROM tool_call_events WHERE {where}").fetchone()
+    # 집계를 SQL 이 아니라 파이썬에서 한다 — **드레인된 과거가 DB 에 없기 때문**이다(260817).
+    # SQL 로 하면 창 안의 대부분이 조용히 빠지고, 표는 아무 경고 없이 「최근 7일」이라고 말한다.
+    db_rows = con.execute(
+        "SELECT ts_ns, tool, doc_misses, fetch_viewer, fetch_kind, web_wait_ms "
+        "FROM tool_call_events").fetchall()
+    cut = (time.time() - days * 86400) * 1e9
+    rows = [r for r in merge_drained(db_rows, _PATH_COLS) if r[0] and int(r[0]) > cut]
+    z = lambda v: int(v or 0)
+    api = sum(z(r[2]) for r in rows)
+    viewer = sum(z(r[3]) for r in rows)
+    kind = sum(z(r[4]) for r in rows)
+    wait_ms = sum(z(r[5]) for r in rows)
+    reqs = len(rows)
+    fb_reqs = sum(1 for r in rows if z(r[3]) + z(r[4]) > 0)
     total = api + viewer + kind
     print(f"\n=== 원문 경로 (최근 {days}일 · 요청 {reqs:,}건) ===")
     if not total:
@@ -737,14 +872,16 @@ def paths_report(days: int = 7):
     print(f"  간격({lo:g}~{hi:g}초 랜덤·시계 공유) 때문에 잔 시간 총 {wait_ms / 1000:,.1f}초"
           + (f" · 폴백 요청당 평균 {wait_ms / fb_reqs / 1000:.1f}초" if fb_reqs else ""))
 
-    rows = con.execute(
-        "SELECT tool, count(*), coalesce(sum(fetch_viewer),0), coalesce(sum(fetch_kind),0), "
-        "coalesce(sum(web_wait_ms),0) FROM tool_call_events "
-        f"WHERE {where} AND coalesce(fetch_viewer,0) + coalesce(fetch_kind,0) > 0 "
-        "GROUP BY 1 ORDER BY 5 DESC LIMIT 10").fetchall()
-    if rows:
+    by_tool: dict = defaultdict(lambda: [0, 0, 0, 0])   # [요청, viewer, kind, wait_ms]
+    for r in rows:
+        if z(r[3]) + z(r[4]) == 0:
+            continue
+        a = by_tool[r[1]]
+        a[0] += 1; a[1] += z(r[3]); a[2] += z(r[4]); a[3] += z(r[5])
+    top_tools = sorted(by_tool.items(), key=lambda kv: kv[1][3], reverse=True)[:10]
+    if top_tools:
         print("\n  폴백을 가장 많이 타는 tool")
-        for tool, n, v, k, w in rows:
+        for tool, (n, v, k, w) in top_tools:
             print(f"    {str(tool):<26} 요청 {n:>5,}  viewer {v:>5,}  kind {k:>4,}  {w / 1000:>7.1f}초")
     con.close()
 

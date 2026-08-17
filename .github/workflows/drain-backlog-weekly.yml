@@ -1,0 +1,41 @@
+# 드레인 밀림 주간 감시 — scripts/drain_backlog_check.py (cron)
+#
+# 배경(260817): events 드레인은 260810 에 한 번 돌고 잊혔다. 완결 주 7주·357,734건이 밀린 채
+# 무료티어 71% 까지 찼고, 아무도 몰랐다. **수동 절차의 유일한 고장 모드는 잊히는 것**이라,
+# 절차를 문서에만 적어두면 다음에도 똑같이 잊힌다.
+#
+# 이 배치는 **읽기만 한다** — 밀린 완결 주와 용량을 세고, 넘치면 실패해서 알린다.
+# 삭제까지 자동화하지 않는 이유 둘:
+#   · 산출 CSV 가 **private 레포**에 들어간다. 여기서 거기 쓰려면 교차 레포 쓰기 토큰을
+#     public 레포 시크릿으로 둬야 한다 — 그건 결정이어야지 부수효과여선 안 된다.
+#   · `--apply` 는 되돌릴 수 없는 삭제다. 백업 커밋을 **사람이 확인한 뒤** 도는 게 맞다.
+#
+# 필요 secrets: DATABASE_URL (market-val-weekly.yml 과 같은 것)
+
+name: drain-backlog-weekly
+
+on:
+  schedule:
+    # 매주 월요일 00:10 UTC = KST 09:10. 주가 막 바뀐 직후 = 밀린 주가 하나 늘어난 시점.
+    - cron: "10 0 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read     # 읽기만 한다 — 커밋백 없음
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: 밀린 완결 주 · 용량 확인
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        # 한 주만 밀려도 알린다. 「두 주쯤은 괜찮다」로 두면 그 관용이 7주가 됐다.
+        run: uv run python scripts/drain_backlog_check.py --max-weeks 1 --warn-pct 70
