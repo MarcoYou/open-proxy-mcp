@@ -40,13 +40,28 @@ jobs:
         #   배치는 초록불이라는 형태다. 살아있는 원본을 직접 본다.
         run: git clone --depth 1 https://github.com/legalize-kr/legalize-kr.git /tmp/legalize-kr
 
-      - name: 원본 최신성 확인 (상류가 멈추면 알아채야 한다)
+      - name: 원본 최신성 확인 — **커밋 날짜가 아니라 법령 공포일로 본다**
+        # 260814: 처음엔 `git log -1 --format=%cs` 로 쟀는데 **신호가 반대로 나왔다.**
+        #   legalize-kr 원본은 히스토리를 다시 쓰는 방식이라 최신 커밋일이 2026-02-10 인데
+        #   내용은 8-04 공포분까지 들어 있고, 멈춰 있던 포크는 커밋일이 7-02 로 더 최신인데
+        #   내용은 5-12 공포분에서 멎어 있었다. **커밋 날짜는 내용 최신성의 대리 지표가 못 된다.**
+        #   우리가 실제로 쓰는 4법의 `공포일자` 를 직접 읽는다.
         run: |
-          SRC_DATE=$(git -C /tmp/legalize-kr log -1 --format=%cs)
-          AGE=$(( ( $(date +%s) - $(date -d "$SRC_DATE" +%s) ) / 86400 ))
-          echo "원문 소스 최신 커밋: $SRC_DATE (${AGE}일 전)"
-          if [ "$AGE" -gt 30 ]; then
-            echo "::warning::legalize-kr 원본이 ${AGE}일째 갱신 없음 — 소스가 멈췄는지 확인"
+          DATES=""
+          for L in 상법 자본시장과금융투자업에관한법률 독점규제및공정거래에관한법률 주식회사등의외부감사에관한법률; do
+            D=$(sed -n 's/^공포일자:[[:space:]]*\([0-9-]*\).*/\1/p' "/tmp/legalize-kr/kr/$L/법률.md" | head -1)
+            echo "  $L 공포일자: ${D:-읽기실패}"
+            [ -n "$D" ] && DATES="$DATES$D\n"
+          done
+          NEWEST=$(printf "$DATES" | sort -r | head -1)
+          if [ -z "$NEWEST" ]; then
+            echo "::error::4법의 공포일자를 하나도 못 읽었다 — 소스 구조가 바뀌었는지 확인"
+            exit 1
+          fi
+          AGE=$(( ( $(date +%s) - $(date -d "$NEWEST" +%s) ) / 86400 ))
+          echo "원문 소스의 최신 공포일: $NEWEST (${AGE}일 전)"
+          if [ "$AGE" -gt 120 ]; then
+            echo "::warning::4법 중 가장 최근 공포가 ${AGE}일 전($NEWEST) — 소스가 멈췄는지 확인"
           fi
 
       - name: Re-sync law corpus (DART 0콜)
