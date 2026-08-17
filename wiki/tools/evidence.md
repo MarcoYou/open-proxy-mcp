@@ -1,7 +1,7 @@
 ---
 type: tool
 title: evidence
-domain: data
+domain: reference
 scope: [exact, requires_review]
 data_source: [없음 — rcept_no 문자열 가공 (DART 뷰어 URL 유도). API 호출 0회.]
 related_disclosures: []

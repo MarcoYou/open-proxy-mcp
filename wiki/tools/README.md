@@ -84,7 +84,7 @@ updated: 2026-07-22
 ---
 type: tool
 title: <tool_name>
-domain: discovery | data | policy_matrix | action
+domain: data | action | reference   # 실제 쓰이는 값은 이 셋뿐 (260817 정리 — 아래 통계표가 SSOT)
 scope: [...]                 # 지원 scope list
 data_source: [...]           # DART API / KIND / Naver / 정적 JSON
 related_disclosures: [...]   # rules/disclosures/ link
@@ -105,13 +105,21 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 
 ## 카테고리별 통계
 
-| 도메인 | tool 수 | 호출 패턴 |
+각 tool 페이지의 `domain:` 프론트매터가 근거다(합 26 = 런타임 tool 수). **표를 손으로 세지 말 것** —
+`scripts/check_tool_catalog.py` 가 이 합과 런타임을 대조한다.
+
+| 도메인 | tool 수 | 무엇이 다른가 |
 |--------|---------|---------|
-| Company | 1 | corpCode/company/list 기반 식별 |
-| Meeting | 2 | DART list/document 중심, 결과는 KIND fallback |
-| Data | 13 | DART API 1-14회 병렬, 일부 KIND fallback |
-| Evidence | 2 | rcept_no URL 생성(evidence) · 법령 corpus 조회(law_lookup) — 둘 다 **DART 무관** |
-| Action | 3 | upstream data tool 병렬 호출 후 판단/요약 (shareholder_commitment은 신규 계산 1개 추가). **screener**는 전체시장 **market-scan**(전체 list.json 1회 스캔 ~수콜)+details=hit당 유형별 파서 디스패치로 디제스트/루틴을 구동하는 변형 |
+| data | 20 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
+| action | 3 | **upstream data tool 을 불러 판단·요약**한다. `proxy_advise_before_meeting`(안건별 찬반) · `shareholder_commitment`(약속↔이행 대조, 신규 계산 1개 추가) · `screener`(전체시장 market-scan + hit 별 파서 디스패치) |
+| reference | 3 | **회사·DART 무관 · API 0회.** `evidence`(접수번호→뷰어 URL) · `law_lookup`(법령 원문) · `proxy_guideline`(OPM 의결권 정책 원문) |
+
+> 260817 정리: 이 표가 합 21 로 굳어 런타임 26 과 5 만큼 어긋나 있었다. 분류명(Company/Meeting/
+> Data/Evidence/Action)이 프론트매터 `domain:` 과 별개 어휘라 어느 쪽도 갱신되지 않았다.
+> **어휘를 `domain:` 하나로 합치고**, 미기재였던 3개(`order_contracts`·`shareholder_meeting_notice`·
+> `shareholder_meeting_results`)를 `data` 로 채웠다. `evidence` 는 `data` 로 선언돼 있었지만
+> **API 0회 · DART 무관**이라 `law_lookup` 과 같은 `reference` 로 옮겼다 — 옛 표도 이미 그 둘을
+> 한 칸에 묶어두고 있었으니, 선언 쪽이 표를 못 따라간 것이었다.
 
 ## 진단 필드
 
