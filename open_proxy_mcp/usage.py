@@ -34,9 +34,13 @@ MACHINE = os.environ.get("FLY_MACHINE_ID", "local")
 _USE_PG = bool(DATABASE_URL)
 
 # 본인(운영자) 키 — 아예 기록하지 않음. 평문 미보관, SHA-256 해시로만 비교.
-#   6f02e8… = 운영자 opendart 키의 SHA-256 (평문 프리픽스는 주석에도 남기지 않음)
+#   6f02e8… = 운영자 opendart 키 1번 · fa30e2… = 2번 (평문·프리픽스는 주석에도 남기지 않음)
+# 여기 넣으면 **두 방향 모두** 처리된다: 앞으로는 기록을 스킵하고(아래 record 경로),
+# 이미 쌓인 이벤트도 startup_metrics.load()가 SELF_HASHES를 걸러 통계·덱에서 빠진다.
+# 260817: 2번 키가 1,034건 쌓여 사용자 1명·호출로 집계되고 있었다.
 SELF_HASHES = {
     "6f02e8598b1bdcda660c970ca9c07c1ffba1d4d8ec193157991f7dc2a9173c30",
+    "fa30e25e593c8d4676cf7e548c1911c7ef44f14c8b7aebad47cfe05eecd61421",
 }
 
 #: **기록은 fly 머신에서만 한다.** dart/client.py 가 import 시 `load_dotenv()` 를 돌려

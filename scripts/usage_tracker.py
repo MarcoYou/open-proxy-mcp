@@ -133,10 +133,11 @@ def migrate_local_to_pg():
     print(f"로컬 {len(src)}건 → Postgres 이전 완료 (PG 총 {total}건)")
 
 # 본인(운영자) 키 — 외부 사용자 통계에서 제외. 평문 미보관, SHA-256 해시로만.
-#   6f02e8… = 운영자 opendart 키의 SHA-256 (평문 프리픽스는 주석에도 남기지 않음)
-SELF_HASHES = {
-    "6f02e8598b1bdcda660c970ca9c07c1ffba1d4d8ec193157991f7dc2a9173c30",
-}
+# **정본은 `open_proxy_mcp/usage.py`의 SELF_HASHES 하나뿐이다.** 여기에 사본을 두었더니
+# 이중장부가 됐다 — 260817에 2번 키를 기록 게이트에만 넣었고, 통계는 이 사본을 읽어
+# 1,034건이 그대로 집계됐다(덱 숫자가 안 움직여서야 발견). 키를 늘릴 땐 정본만 고친다.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from open_proxy_mcp.usage import SELF_HASHES  # noqa: E402
 
 
 # ── 인프라 ────────────────────────────────────────────────────────────────
