@@ -41,6 +41,7 @@ jobs:
         run: git clone --depth 1 https://github.com/legalize-kr/legalize-kr.git /tmp/legalize-kr
 
       - name: 원본 최신성 확인 — **커밋 날짜가 아니라 법령 공포일로 본다**
+        id: freshness
         # 260814: 처음엔 `git log -1 --format=%cs` 로 쟀는데 **신호가 반대로 나왔다.**
         #   legalize-kr 원본은 히스토리를 다시 쓰는 방식이라 최신 커밋일이 2026-02-10 인데
         #   내용은 8-04 공포분까지 들어 있고, 멈춰 있던 포크는 커밋일이 7-02 로 더 최신인데
@@ -60,6 +61,7 @@ jobs:
           fi
           AGE=$(( ( $(date +%s) - $(date -d "$NEWEST" +%s) ) / 86400 ))
           echo "원문 소스의 최신 공포일: $NEWEST (${AGE}일 전)"
+          echo "newest=$NEWEST" >> "$GITHUB_OUTPUT"
           if [ "$AGE" -gt 120 ]; then
             echo "::warning::4법 중 가장 최근 공포가 ${AGE}일 전($NEWEST) — 소스가 멈췄는지 확인"
           fi
@@ -83,14 +85,16 @@ jobs:
           # synced_at 타임스탬프만 바뀐 _manifest.json은 무시 — 조문(.md)·색인(law_index.json) 변경만 트리거
           CHANGED=$(git status --porcelain wiki/rules/laws/corpus/ | grep -v '_manifest.json' || true)
           if [ -n "$CHANGED" ]; then
-            SRC_DATE=$(git -C /tmp/legalize-kr log -1 --format=%cs)
+            # 커밋 날짜(%cs)를 쓰면 안 된다 — 원본이 히스토리를 다시 써서 6개월 전으로
+            # 찍힌다. 앞 단계가 4법 헤더에서 읽은 **공포일**을 그대로 받는다.
+            SRC_DATE="${{ steps.freshness.outputs.newest }}"
             git add wiki/rules/laws/corpus/
             git commit \
-              -m "chore(law_corpus): 주간 자동 재복사 — legalize-kr ${SRC_DATE} 기준 반영" \
+              -m "chore(law_corpus): 주간 자동 재복사 — legalize-kr 공포일 ${SRC_DATE} 기준 반영" \
               -m "개정·삭제·신설 조문 자동 반영. scripts/sync_law_corpus.py (DART 0콜)." \
               -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
             git push
-            echo "✅ 커밋·푸시 완료 (원문 ${SRC_DATE} 기준)"
+            echo "✅ 커밋·푸시 완료 (원문 공포일 ${SRC_DATE} 기준)"
           else
             # synced_at만 바뀐 manifest는 되돌려 불필요 커밋 방지
             git checkout -- wiki/rules/laws/corpus/_manifest.json 2>/dev/null || true
