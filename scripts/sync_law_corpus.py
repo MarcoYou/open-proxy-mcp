@@ -323,9 +323,17 @@ def main() -> int:
     print(f"  BM25: {bm_n}조 · 어휘 {len(bm_df)} · avgdl {bm_avgdl} · "
           f"anchor≤{bm_anchor} rare≤{bm_rare} · {bm_mb:.2f}MB")
 
+    # 260817: source_repo 가 죽은 포크(MarcoYou/legalize-kr, 7-02 에 멈춤)를 가리키고
+    #   있었다. 주간 배치도 같은 포크를 clone 해 6주간 초록불로 헛돌았다(7aa883c3).
+    #   source_promulgated_date 는 **커밋일이 아닌 공포일** — 런타임이 자료 기준일로
+    #   쓴다. 커밋일을 남겨두되 그건 재현용 좌표일 뿐 최신성 지표가 아니다.
+    promulgated = max(
+        (f["frontmatter"].get("공포일자", "")[:10] for f in manifest_files
+         if f.get("frontmatter", {}).get("공포일자")), default="")
     manifest = {
-        "source_repo": "github.com/MarcoYou/legalize-kr",
+        "source_repo": "github.com/legalize-kr/legalize-kr",
         "source_commit_sha": commit_sha, "source_committed_date": commit_dt,
+        "source_promulgated_date": promulgated,
         "synced_at": now, "n_articles": N, "files": manifest_files,
     }
     (CORPUS_DIR / "_manifest.json").write_text(

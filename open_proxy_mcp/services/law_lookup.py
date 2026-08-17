@@ -372,10 +372,37 @@ def load_manifest() -> dict[str, Any]:
     return _MANIFEST_CACHE
 
 
+def _promulgation_asof(m: dict[str, Any]) -> str:
+    """corpus 가 반영한 **가장 최근 공포일**. 8개 파일 frontmatter 의 `공포일자` 중 최대.
+
+    260817: 종전에는 `source_committed_date`(원문 레포의 커밋 날짜)를 자료 기준일로
+    보여줬는데 **그 값이 내용을 대변하지 못한다.** legalize-kr 은 히스토리를 다시 쓰는
+    방식이라, 8-04 공포분까지 담은 스냅샷의 커밋일이 2026-02-10 으로 찍혔다. 반대로
+    5-12 에서 멎은 포크는 커밋일이 7-02 로 더 최신이었다. 커밋일로 재면 낡은 쪽이
+    최신으로 보인다 — 사용자에게 「188일 전 자료」라고 거짓 경고하거나, 낡은 자료를
+    최신이라 안심시킨다. 공포일은 내용에서 직접 온다.
+
+    sync 가 이미 계산해 둔 값을 쓴다(독자 재계산 금지). 옛 manifest 는 그 필드가 없어
+    files[] 를 훑는 폴백을 남긴다 — 둘 다 같은 frontmatter 에서 나오므로 어긋날 수 없다.
+    """
+    top = (m.get("source_promulgated_date") or "")[:10]
+    if top:
+        return top
+    dates = [
+        (f.get("frontmatter") or {}).get("공포일자", "")[:10]
+        for f in (m.get("files") or [])
+    ]
+    return max((d for d in dates if d), default="")
+
+
 def corpus_freshness(as_of_iso: str | None = None) -> dict[str, Any]:
-    """법령 자료가 얼마나 최신인지 → {asof(원문 기준일), synced(복사시점), age_days, stale}."""
+    """법령 자료가 얼마나 최신인지 → {asof(원문 기준일), synced(복사시점), age_days, stale}.
+
+    `asof` 는 **공포일** 기준이다(위 `_promulgation_asof` 참조). manifest 가 옛 형식이라
+    공포일을 못 구하면 커밋일로 물러선다 — 없는 것보다는 낫다.
+    """
     m = load_manifest()
-    src = (m.get("source_committed_date") or "")[:10]
+    src = _promulgation_asof(m) or (m.get("source_committed_date") or "")[:10]
     synced = (m.get("synced_at") or "")[:10]
     age = None
     stale = False
@@ -985,7 +1012,7 @@ def build_law_lookup_payload(
     if fresh["stale"]:
         warnings.append(
             f"법령 자료가 {fresh['asof']} 기준({fresh['age_days']}일 전)이에요 — 그 뒤 개정은 아직 안 담겼을 수 있어요. "
-            f"(자동 재복사가 멈췄는지 확인 필요)")
+            f"(원문 소스가 갱신을 멈췄거나, 온전성 게이트가 결함 스냅샷을 막고 있을 수 있어요)")
 
     data = {
         "query": q, "direction": resolved_dir, "as_of": as_of_iso,
