@@ -59,15 +59,26 @@ _lock = threading.Lock()
 
 
 _KST = _dt.timezone(_dt.timedelta(hours=9))
-#: corp_codes 는 이벤트 행에 **안 적는다.** 같은 행에 `key_hash`·`ts_ns` 가 있어서, 셋이
-#: 붙으면 「이 사용자가 언제 어느 기업을 조사했는지」가 한 줄 쿼리로 나온다 — 재무분석가·
-#: 기관투자자에게 **무엇을 언제 조사했는가는 그 자체가 정보**다. 회사 이름이 공개라는 것과
-#: 무관하다(공시 전에 어떤 회사를 며칠 들여다봤는지가 드러나는 문제). key_hash 는 익명이
-#: 아니라 **가명**이라 같은 사람인지는 알 수 있고, DART 키는 실명 등록에 묶여 있다.
+#: corp_codes 는 이벤트 행에 **적는다** — 260817 결정. 260810~260817 사이에만 안 적혔다.
 #:
-#: 그런데 우리가 원한 답(「어느 기업이 많이 조회되나」)은 **누가 봤는지를 몰라도 된다.**
-#: 그래서 쓰는 시점에 사용자를 떼고 `(날짜, 기업)` 카운터로만 올린다 —
-#: 값어치는 그대로 남고 부채만 사라진다. 260810 실측 1,041개 기업·상위 100건대.
+#: 260810 에 뺐던 이유는 지금도 그대로 유효하다: 같은 행에 `key_hash`·`ts_ns` 가 있어서
+#: 셋이 붙으면 「이 사용자가 언제 어느 기업을 조사했는지」가 한 줄 쿼리로 나온다. 재무분석가·
+#: 기관투자자에게 **무엇을 언제 조사했는가는 그 자체가 정보**다(회사 이름이 공개인 것과 무관 —
+#: 공시 전에 어떤 회사를 며칠 들여다봤는지가 드러나는 문제다). key_hash 는 익명이 아니라
+#: **가명**이라 같은 사람인지는 알 수 있고, DART 키는 실명 등록에 묶여 있다.
+#:
+#: 그래도 되돌리는 이유는 **`corp_daily` 로는 답할 수 없는 질문이 남아서**다. 집계는
+#: 「어느 기업이 많이 조회되나」까지만 답한다. 사용자별 세션·재방문·워크플로(한 사람이
+#: 한 기업을 며칠에 걸쳐 어떤 순서로 파는가)는 연결이 있어야 보이고, 그건 제품 판단에 쓴다.
+#:
+#: **그래서 이건 「부채가 없어졌다」가 아니라 「부채를 알고 진다」이다.** 260810 의 판단이
+#: 틀렸던 게 아니라, 그때는 안 쓰던 값어치를 이제 쓰기로 한 것이다. 지는 쪽인 이상 조건이 붙는다:
+#:   · `corp_daily` 는 **그대로 둔다**(이중 기록). 연결이 필요 없는 질문은 계속 그쪽으로 답한다 —
+#:     드레인으로 이벤트가 빠져나가도 기업 순위는 남아야 하고, 실제로 그게 유일한 장기 계열이다.
+#:   · 남기는 것은 **정규화된 8자리 코드뿐**이다. 사용자가 친 질의 원문은 여전히 안 남긴다.
+#:   · 드레인(`scripts/events_drain.py`)이 이 부채의 **수명 상한**이다 — 완결 주가 DB 를 떠나면
+#:     연결도 함께 떠난다. 드레인이 멈추면 부채만 무한히 쌓이므로 운영 루틴으로 묶는다.
+#: 운영 절차·근거: private `wiki-private/architecture/usage-telemetry-operations.md`.
 def _corp_counts(batch):
     """배치 → {(날짜, corp_code): 건수}. **key_hash 를 들고 나오지 않는다** — 여기가 연결을
     끊는 자리다. 이 함수가 해시를 반환하기 시작하면 부채가 되살아난다."""
@@ -84,7 +95,8 @@ def _corp_counts(batch):
     return agg
 
 
-#: 큐 튜플에서 corp_codes 의 자리. 이벤트 INSERT 에서는 이 자리를 **빼고** 넣는다.
+#: 큐 튜플에서 corp_codes 의 자리. 이벤트 INSERT 는 이 자리를 **그대로 싣고**(260817),
+#: `_corp_counts` 는 같은 자리를 읽어 사용자를 뗀 집계도 함께 올린다 — 둘 다 간다.
 _CORP_IDX = 12
 
 
@@ -123,10 +135,10 @@ def _sqlite_write(con, batch):
     # **조용히 다른 컬럼에 값을 넣는다**(260704 mkt_fund_hist 사고).
     con.executemany(
         "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, "
+        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
         "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        [r[:_CORP_IDX] + r[_CORP_IDX + 1:] for r in batch]
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        batch
     )
     rows = [(str(d), c, n) for (d, c), n in _corp_counts(batch).items()]
     if rows:
@@ -177,8 +189,9 @@ def _pg_connect():
     con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS weak_kinds text")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON tool_call_events(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON tool_call_events(ts_ns)")
-    # corp_codes 컬럼은 **더 쓰지 않는다**(위 _corp_counts 주석). 260810 이전 값은 백필
-    # 스크립트가 corp_daily 로 옮긴 뒤 비운다. 컬럼과 인덱스는 남겨 두되 기록하지 않는다.
+    # corp_daily 는 corp_codes 를 되돌린 뒤에도 **계속 쓴다**(260817, 위 모듈 주석).
+    # 이벤트는 드레인으로 주 단위로 DB 를 떠나지만 이 집계는 남는다 — 기업 조회 순위의
+    # **유일한 장기 계열**이라, 이게 없으면 드레인이 지표를 지우는 일이 된다.
     con.execute("CREATE TABLE IF NOT EXISTS corp_daily("
                 "day date NOT NULL, corp_code text NOT NULL, "
                 "requests int NOT NULL DEFAULT 0, PRIMARY KEY (day, corp_code))")
@@ -190,10 +203,10 @@ def _pg_write(con, batch):
     # 컬럼명 명시 — 위치 의존 INSERT 는 ADD COLUMN 후 조용히 어긋난다(260704 사고).
     con.cursor().executemany(
         "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, "
+        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
         "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
-        [r[:_CORP_IDX] + r[_CORP_IDX + 1:] for r in batch],
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
+        batch,
     )
     rows = [(d, c, n) for (d, c), n in _corp_counts(batch).items()]
     if rows:
@@ -265,7 +278,8 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
 
     260804 이전에는 「회사는 기록하지 않는다」였다. 집계로 무엇이 많이 쓰이는지 보려고
     바꿨다 — 다만 남기는 것은 질의 원문이 아니라 정규화된 8자리 코드뿐이고,
-    key_hash 와 함께 남으므로 **사용자별 조사 이력**이 된다는 점을 알고 켠 것이다."""
+    key_hash 와 함께 남으므로 **사용자별 조사 이력**이 된다는 점을 알고 켠 것이다.
+    260810 에 그 연결을 끊었다가 260817 에 되돌렸다(모듈 상단 주석에 조건 셋)."""
     if not _RECORDING:
         return  # 로컬(pytest·pilot·스크립트)은 운영 통계를 오염시키지 않는다
     try:

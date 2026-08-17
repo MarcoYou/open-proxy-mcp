@@ -168,15 +168,15 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
     assert row is not None, "이벤트가 기록되지 않았다"
     assert row == ("dividend", 1234, 3001, 3, 2, 1, 7, 11, 4200)
 
-    # **기업은 이벤트 행에 안 적힌다.** 같은 행에 key_hash·ts_ns 가 있어 셋이 붙으면
-    # 「이 사용자가 언제 어느 기업을 조사했는지」가 된다 — 조사 이력이다.
+    # **둘 다 간다** (260817). 이벤트 행에 기업이 적히고(세션·재방문 분석용),
+    # 사용자를 뗀 (날짜, 기업) 집계도 함께 올라간다(드레인 뒤에도 남는 장기 계열).
     con = sqlite3.connect(db)
     val = con.execute("SELECT corp_codes FROM events").fetchone()[0]
-    assert val is None, f"기업이 사용자와 같은 행에 적혔다 — 조사 이력이 쌓인다: {val!r}"
-    # 대신 사용자를 뗀 (날짜, 기업) 카운터로 올라간다 — 원하는 답은 그대로 나온다.
+    assert val == "00126380,00164779", f"이벤트 행에 기업이 안 실렸다: {val!r}"
     agg = dict(((c, n) for _, c, n in con.execute(
         "SELECT day, corp_code, requests FROM corp_daily").fetchall()))
     con.close()
+    # 이벤트를 되살렸다고 집계를 끄면 안 된다 — 드레인이 이벤트를 가져가면 순위가 사라진다.
     assert agg == {"00126380": 1, "00164779": 1}, agg
 
 
@@ -320,9 +320,12 @@ def test_corp_counts_never_carries_the_user():
     assert sorted((c, n) for (_, c), n in agg.items()) == [("00126380", 2), ("00164779", 1)]
 
 
-def test_event_insert_does_not_carry_corp_codes():
-    """이벤트 행에는 기업을 안 적는다 — 같은 행에 key_hash·ts_ns 가 있기 때문이다.
-    집계(`corp_daily`)로만 올라간다."""
+def test_event_insert_carries_corp_codes_and_keeps_the_aggregate():
+    """260817: 이벤트 행에 기업을 **적는다**. 다만 집계(`corp_daily`)를 끄지 않는다.
+
+    이 테스트가 지키는 건 「적는다」가 아니라 **둘 다 간다**는 쪽이다. 이벤트만 남기면
+    드레인이 완결 주를 가져갈 때 기업 조회 순위가 통째로 사라진다 — 드레인은 부채의
+    수명 상한이라 멈출 수 없고, 그러면 장기 계열이 없어진다."""
     from pathlib import Path
 
     src = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "usage.py"
@@ -331,5 +334,11 @@ def test_event_insert_does_not_carry_corp_codes():
         i = text.index(stmt)
         head = text[i:i + 600]
         cols = head[:head.index("VALUES")]
-        assert "corp_codes" not in cols, f"이벤트 INSERT 가 아직 기업을 적는다: {stmt}"
+        assert "corp_codes" in cols, f"이벤트 INSERT 가 기업을 안 싣는다: {stmt}"
+        # 컬럼 수 = 플레이스홀더 수. 하나라도 어긋나면 **조용히 밀려 다른 컬럼에 들어간다**
+        # (260704 mkt_fund_hist 사고와 같은 실패 모드).
+        ph = head[head.index("VALUES"):]
+        ph = ph[:ph.index(")") + 1]
+        assert cols.count(",") + 1 == ph.count("%s") + ph.count("?"), \
+            f"컬럼 수와 값 자리 수가 다르다: {stmt}"
     assert "corp_daily" in text, "집계 테이블로 올리는 경로가 없다"
