@@ -939,6 +939,11 @@ async def _fetch_decisions(
             res = await coro
             return res.get("list", []) or [], None
         except DartClientError as exc:
+            # 013 = 해당 조건 공시 없음(정상 빈 결과)이지 실패가 아니다 — 신탁계약 미체결
+            # 회사가 대부분이라 013을 실패로 흘리면 거의 모든 조회에 허위 경고가 뜬다.
+            # dart_safety(013=no_data '이건 답이다')·corporate_restructuring·dilutive_issuance 관례.
+            if exc.status == "013":
+                return [], None
             return [], f"{label} 조회 실패: {exc.status}"
 
     acq_task = safe(client.get_treasury_acquisition(corp_code, bgn_de, end_de), "취득결정")
@@ -1610,6 +1615,11 @@ async def fetch_treasury_signal_summary(
             res = await coro
             return res.get("list", []) or [], None
         except DartClientError as exc:
+            # 013 = 해당 조건 공시 없음(정상 빈 결과)이지 실패가 아니다 — 신탁계약 미체결
+            # 회사가 대부분이라 013을 실패로 흘리면 거의 모든 조회에 허위 경고가 뜬다.
+            # dart_safety(013=no_data '이건 답이다')·corporate_restructuring·dilutive_issuance 관례.
+            if exc.status == "013":
+                return [], None
             return [], f"{label} 조회 실패: {exc.status}"
 
     acq_task = safe(client.get_treasury_acquisition(corp_code, bgn_de, end_de), "취득결정")
