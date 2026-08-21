@@ -17,7 +17,7 @@ import httpx
 
 import calendar
 
-from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+from open_proxy_mcp.dart.client import get_dart_client, DartClientError, LruByteCache, _env_mb
 from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus
@@ -60,7 +60,9 @@ def _price_dates() -> list[str]:
 #    → 서빙엔 전날 종가까지 표시, 주중 일별은 덮여 사라지고 주 마지막 거래일만 남음(연 ~52스냅샷 bounded)
 #  · 이 daily-refresh가 krx_weekly의 주기 갱신자 역할도 겸함(수정주가 파이프라인 신선도 유지).
 # price_date로 기준일 투명 노출(며칠 전 종가여도 날짜 명시 → 사용자 판단).
-_KRX_CACHE: dict[str, dict[str, dict]] = {}  # basDd → 전종목 (프로세스 인메모리, 라이브 fetch용)
+# 260821 OOM 수습: 무상한 dict → 바이트 상한 LRU. 날짜별 전종목(~2,766)+:split 중복 저장이
+# 무제한 누적하던 것을 32MB(≈수일치)로 캡. 초과 시 오래된 날짜부터 evict.
+_KRX_CACHE = LruByteCache(_env_mb("OPM_KRX_CACHE_MB", 32), 48 * 60 * 60, "krx")
 _KRX_STATE: dict[str, str] = {}              # {"day": 오늘, "latest_dd": 서빙할 최신 bas_dd}
 
 
@@ -138,8 +140,9 @@ def _krx_db_upsert(bas_dd: str, kospi: list, kosdaq: list) -> None:
 async def _krx_market_live(basDd: str) -> dict[str, dict]:
     """KRX 전종목(코스피+코스닥) 라이브 fetch → {단축코드: row}. 2시장 병렬 + basDd 인메모리 캐시.
     ⚠ 개인키 한도 때문에 서빙은 krx_daily(DB) 우선 — 이 경로는 하루 1회 스냅샷 확보·DB미스 fallback만."""
-    if basDd in _KRX_CACHE:
-        return _KRX_CACHE[basDd]
+    _cached = _KRX_CACHE.get(basDd)
+    if _cached is not None:
+        return _cached
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
     if not key:
         return {}
@@ -160,8 +163,8 @@ async def _krx_market_live(basDd: str) -> dict[str, dict]:
         for row in rows:
             out[row.get("ISU_CD")] = row  # bydd_trd ISU_CD = 단축코드
     if out:
-        _KRX_CACHE[basDd] = out
-        _KRX_CACHE[basDd + ":split"] = {"KOSPI": kospi, "KOSDAQ": kosdaq}  # 시장별(krx_weekly 태깅용)
+        _KRX_CACHE.put(basDd, out)
+        _KRX_CACHE.put(basDd + ":split", {"KOSPI": kospi, "KOSDAQ": kosdaq})  # 시장별(krx_weekly 태깅용)
     return out
 
 

@@ -32,7 +32,7 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from open_proxy_mcp.dart.client import get_dart_client
+from open_proxy_mcp.dart.client import get_dart_client, LruByteCache, _env_mb
 from open_proxy_mcp.services.provisional_financial_statement import (
     parse_provisional_financial_statement,
     extract_metrics as _extract_provisional_fs_metrics,
@@ -73,7 +73,10 @@ logger = logging.getLogger(__name__)
 # 같은 process 내 같은 (corp_code, tool, scope, year, meeting_type) 호출 시 결과 reuse.
 # 200×3 batch에서 같은 회사 run1/run2/run3 일관성 보장 + 호출 비용 절감.
 # 단, status="error" 결과는 cache에 저장 X (재시도 기회 유지).
-_PROXY_ADVISE_CACHE: dict[tuple, dict] = {}
+# 260821 OOM 수습: 프로덕션에서 clear()가 테스트 전용이라 영영 안 비워지던 무상한 캐시.
+# 회사·scope마다 5~6개 대용량 upstream payload를 무제한 누적 → 하루 트래픽에 수백MB.
+# 128MB 바이트 상한 + 1h TTL LRU 로 캡(초과 시 오래된 것부터 evict).
+_PROXY_ADVISE_CACHE = LruByteCache(_env_mb("OPM_PROXY_ADVISE_CACHE_MB", 128), 3600, "proxy_advise")
 
 # 회차 pre-resolution 표기용 (shareholder_meeting._MEETING_TYPE_MAP과 동일 한글 라벨)
 _MEETING_TYPE_KO = {"annual": "정기", "extraordinary": "임시", "auto": "정기/임시"}
@@ -3177,7 +3180,7 @@ async def build_proxy_advise_payload(
         #   회계 이력 교차검증은 실행조차 안 된 채 화면엔 「해당 이력 없음」이 찍혔다.
         #   켠 적 없는 검사가 통과로 보고되는 형태라, 없는 근거를 있다고 말하는 것과 같다.
         cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"), kw.get("bsns_year"), kw.get("check_audit_history"))
-        cached = _PROXY_ADVISE_CACHE.get(cache_key)
+        cached = _PROXY_ADVISE_CACHE.get(str(cache_key))
         if cached is not None:
             if timing_label:
                 _mark(f"upstream.{timing_label}", upstream_started_at)
@@ -3188,7 +3191,7 @@ async def build_proxy_advise_payload(
             try:
                 # F8: 단일 upstream 60s cap (전체 wait_for 120s 안에서 6 worker 각자 60s)
                 result = await asyncio.wait_for(fn(*args, **kw), timeout=60.0)
-                _PROXY_ADVISE_CACHE[cache_key] = result
+                _PROXY_ADVISE_CACHE.put(str(cache_key), result)
                 if timing_label:
                     _mark(f"upstream.{timing_label}", upstream_started_at)
                 return result
