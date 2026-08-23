@@ -262,7 +262,8 @@ _MULTI_TABLE_LIMIT = 3
 #:    메리츠증권 상각후원가는 「영업부문별 재무정보」를 물었다. 전부 계정과목 이름이 그 안에
 #:    등장하기 때문이다. 유형별 구성·사용제한 판단에는 쓸 수 없으니 제목이 맞아도 물리지 않는다.
 _OFF_TOPIC = ("특수관계자", "신용위험", "기대신용손실", "최대노출", "부문별", "집중",
-              "익스포져", "공정가치체계", "수준별", "민감도", "위험 집중")
+              "익스포져", "공정가치체계", "수준별", "민감도", "위험 집중",
+              "등급별", "서열체계", "가치평가기법")
 
 
 def is_off_topic(caption: str) -> bool:
@@ -297,15 +298,17 @@ _TYPE_AXIS = ("국공채", "국채", "공채", "회사채", "금융채", "특수
 def axis_of(parsed: dict[str, Any]) -> str | None:
     """이 표의 축이 「범주별」인가 「유형별」인가. 못 가리면 None.
 
-    표 전체가 아니라 **머리글과 첫 열**만 본다 — 축은 거기서 정해진다.
+    🔴 **머리글 몇 줄만 보면 XBRL 표를 놓친다.** 260823 실측 — NH투자증권·미래에셋증권·
+       키움증권의 FVOCI·상각후원가는 유형별인데 「판별 못함」으로 나왔다. 태그 표는 머리글이
+       4~6단으로 겹쳐 있어 앞 몇 행에 유형 이름이 안 들어온다.
+       → **숫자가 아닌 칸(이름 칸)을 표 전체에서 모은다.**
     """
     labels = list(parsed.get("header") or [])
-    for row in parsed["rows"][:12]:
-        if row:
-            labels.append(row[0]["text"])
-            labels.append(row[-1]["text"] if len(row) > 1 else "")
-    for row in parsed["rows"][:4]:
-        labels += [c["text"] for c in row]
+    for row in parsed["rows"]:
+        for cell in row:
+            text = cell["text"]
+            if text and not _NUMISH.match(text):
+                labels.append(text)
     blob = " ".join(labels)
     cat = sum(1 for k in _CATEGORY_AXIS if k in blob)
     typ = sum(1 for k in _TYPE_AXIS if k in blob)
@@ -341,7 +344,9 @@ def title_only(caption: str) -> str:
 #: 보고기간말 현재 상각후원가측정유가증권의 내역」(574,337)이다. 둘 다 제목 대조는 통과한다.
 _HEADING_TAIL = re.compile(r"\d+\s*[.\-]\s*$")
 #: 제목이 맞아도 **우리가 찾는 내역이 아닌** 표. 원문이 붙인 말로만 판별한다.
-_WEAK_TITLE = ("장부금액과 공정가치", "증감내역", "대손충당금", "평가 및 처분", "손익")
+_WEAK_TITLE = ("장부금액과 공정가치", "증감내역", "변동내역", "대손충당금", "평가 및 처분",
+               "손익", "등급별", "서열체계", "신용위험", "최대노출", "범주별", "수준별",
+               "총장부가액")
 
 
 def is_note_heading(caption: str, kws: list[str] | tuple[str, ...]) -> bool:
@@ -424,7 +429,11 @@ def title_matches(caption: str, kws: tuple[str, ...] | list[str] | str) -> bool:
     """
     if isinstance(kws, str):
         kws = [kws]
-    cap = _WS.sub(" ", caption)
+    # 🔴 **caption 전체로 대조하면 앞 표 잔해가 오탐을 만든다.** 260823 실측 —
+    #    부산은행 FVOCI 는 앞 표 잔해(「Grade 1 1등급~5등급 AAA, AA…」)에 앵커가 섞여
+    #    들어와 「신용위험 등급별」 표가 ✅ 를 받았다. 5차엔 🔴 로 걸러지던 자리다.
+    #    **제목에서만 대조한다.**
+    cap = title_only(caption)
     for kw in kws:
         i = 0
         while True:
@@ -539,7 +548,11 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                              # 사람에게 보일 제목 — 앞 표의 숫자 잔해를 뗀 것
                              "title": title_only(parsed["caption"]),
                              # 이 금액이 붙어 있는 재무상태표 계정(뺄셈의 대상)
-                             "account": account_of(parsed["caption"]),
+                             # 🔴 뺄 계정은 **사용제한·담보제공에만** 뜻이 있다. 260823
+                             #    시험자 지적 — 부산은행 FVOCI(신용등급별 표)에도 붙어
+                             #    「이 계정에서 뺀다」로 읽혔는데 뺄 대상이 아니다.
+                             "account": (account_of(parsed["caption"])
+                                         if kind in ("restricted", "pledged") else None),
                              # 표 단위 연결/별도. XBRL 은 값마다 basis 가 따로 붙는다.
                              "table_basis": basis_at(pos, sep),
                              "heading": is_note_heading(parsed["caption"], kin_kws),

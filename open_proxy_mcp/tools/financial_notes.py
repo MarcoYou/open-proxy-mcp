@@ -51,8 +51,15 @@ def _render(payload: dict) -> str:
             kind = {"restricted": "사용제한", "pledged": "담보제공"}.get(t["kind"], t["kind"])
             # 🔴 **제목 대조 성공을 명시한다.** 성공과 미대조가 똑같이 무표시면 읽는 쪽은
             #    「경고 없음 = 맞음」으로 읽고, 그러면 틀린다(260823 T보고).
-            mark = "✅ 제목 확인됨" if t.get("title_matched") else "🔴 제목 대조 실패"
             axis = t.get("axis")
+            # 🔴 **✅ 와 「범주별」이 한 표에 같이 붙으면 모순이다.** 260823 시험자 지적 —
+            #    제목은 맞아도 범주별이면 헤어컷을 못 매기니 ✅ 를 주면 안 된다.
+            if not t.get("title_matched"):
+                mark = "🔴 제목 대조 실패"
+            elif axis == "범주별":
+                mark = "⚠️ 제목은 맞지만 **범주별**"
+            else:
+                mark = "✅ 제목 확인됨"
             basis = t.get("table_basis")
             L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind}"
                      + (f" · **기준** {basis}" if basis else " · **기준** 판별 못함")
