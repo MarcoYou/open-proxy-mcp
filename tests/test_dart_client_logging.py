@@ -69,4 +69,4 @@ def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
     agg = re.search(r"INSERT INTO ops_corp_daily\((.*?)\)", src, re.S)
     assert agg, "ops_corp_daily INSERT 를 못 찾았다"
     agg_cols = {c.strip() for c in agg.group(1).split(",") if c.strip()}
-    assert agg_cols == {"day", "corp_code", "requests"}, agg_cols
+    assert agg_cols == {"log_dd", "corp_code", "requests"}, agg_cols

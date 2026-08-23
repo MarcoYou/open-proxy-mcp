@@ -147,7 +147,7 @@ def _sqlite_write(con, batch):
     if rows:
         con.executemany(
             "INSERT INTO ops_corp_daily(log_dd, corp_code, requests) VALUES(?,?,?) "
-            "ON CONFLICT(day, corp_code) DO UPDATE SET requests = requests + excluded.requests",
+            "ON CONFLICT(log_dd, corp_code) DO UPDATE SET requests = requests + excluded.requests",
             rows)
     con.commit()
 
@@ -217,7 +217,7 @@ def _pg_write(con, batch):
     if rows:
         con.cursor().executemany(
             "INSERT INTO ops_corp_daily(log_dd, corp_code, requests) VALUES(%s,%s,%s) "
-            "ON CONFLICT (day, corp_code) DO UPDATE SET "
+            "ON CONFLICT (log_dd, corp_code) DO UPDATE SET "
             "requests = ops_corp_daily.requests + EXCLUDED.requests", rows)
     con.commit()
 

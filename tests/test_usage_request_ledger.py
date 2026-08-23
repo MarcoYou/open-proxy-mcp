@@ -174,7 +174,7 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
     val = con.execute("SELECT corp_codes FROM events").fetchone()[0]
     assert val == "00126380,00164779", f"이벤트 행에 기업이 안 실렸다: {val!r}"
     agg = dict(((c, n) for _, c, n in con.execute(
-        "SELECT day, corp_code, requests FROM ops_corp_daily").fetchall()))
+        "SELECT log_dd, corp_code, requests FROM ops_corp_daily").fetchall()))
     con.close()
     # 이벤트를 되살렸다고 집계를 끄면 안 된다 — 드레인이 이벤트를 가져가면 순위가 사라진다.
     assert agg == {"00126380": 1, "00164779": 1}, agg

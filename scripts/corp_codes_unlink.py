@@ -70,7 +70,7 @@ def main(apply: bool) -> None:
 
     con.cursor().executemany(
         "INSERT INTO ops_corp_daily(log_dd, corp_code, requests) VALUES(%s,%s,%s) "
-        "ON CONFLICT (day, corp_code) DO UPDATE SET "
+        "ON CONFLICT (log_dd, corp_code) DO UPDATE SET "
         "requests = ops_corp_daily.requests + EXCLUDED.requests",
         [(d, c, n) for (d, c), n in agg.items()])
 
