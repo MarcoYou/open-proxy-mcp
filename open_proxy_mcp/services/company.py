@@ -338,12 +338,30 @@ async def build_company_payload(
     numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
     unlisted_only = False
     if not numeric_query and matches:
-        listed = [m for m in matches if (m.get("stock_code") or "").strip()]
-        if listed:
-            matches = listed
+        # 🔴 260824: 여기에 **상장사 필터가 두 벌** 있었다. `resolve_company_query` 는 명부
+        #    기반으로 고쳐졌는데(260823) `company` tool 이 직접 타는 이 경로는 여전히
+        #    `stock_code` 로만 걸러, **리졸버는 찾는데 tool 이 버렸다**
+        #    (실측: 농협금융지주·교보생명보험이 「비상장이어서 제외」로 막혔다).
+        #    같은 판정을 두 곳에 두면 한쪽만 고쳐진다 — 규칙을 하나로 맞춘다.
+        filers = await client.periodic_filers()
+        if filers:
+            from open_proxy_mcp.company_resolver import is_financial_name
+            active = [m for m in matches
+                      if m.get("corp_code") in filers
+                      and ((m.get("stock_code") or "").strip()
+                           or is_financial_name(m.get("corp_name", "")))]
         else:
-            unlisted_only = True
-            matches = []
+            active = []
+        if active:
+            matches = active
+        else:
+            # 명부가 없거나(부팅 직후) 명부에도 없으면 예전 규칙 — 상장사만.
+            listed = [m for m in matches if (m.get("stock_code") or "").strip()]
+            if listed:
+                matches = listed
+            else:
+                unlisted_only = True
+                matches = []
 
     status, selected, candidates = _resolve_match(query, matches)
 

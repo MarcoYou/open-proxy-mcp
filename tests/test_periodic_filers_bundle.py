@@ -62,3 +62,21 @@ def test_bundle_covers_unlisted_financials_the_list_exists_for():
     assert len(filers) >= 3_000, f"{len(filers)}사 — 너무 적다"
     # 접수일이 최근인가(400일 창이 제대로 돌았나)
     assert max(filers.values()) >= "20260101"
+
+
+def test_company_tool_path_uses_the_same_filers_rule_as_the_resolver():
+    """🔴 **판정이 두 곳에 있으면 한쪽만 고쳐진다.**
+
+    260823 에 `resolve_company_query` 를 명부 기반으로 고쳤는데, `company` tool 이 직접
+    타는 경로는 여전히 `stock_code` 로만 걸렀다. 그래서 **리졸버는 찾는데 tool 이 버렸다** —
+    농협금융지주·교보생명보험이 「비상장이어서 제외」로 막혔다(명부·금융명 판정은 둘 다 통과했는데도).
+    """
+    import inspect
+
+    import open_proxy_mcp.services.company as CO
+
+    src = inspect.getsource(CO)
+    i_tool = src.index("unlisted_only = False")
+    tool_path = src[i_tool:i_tool + 1400]
+    assert "periodic_filers()" in tool_path, "tool 경로가 명부를 안 본다"
+    assert "is_financial_name" in tool_path, "tool 경로가 금융업 판정을 안 한다"
