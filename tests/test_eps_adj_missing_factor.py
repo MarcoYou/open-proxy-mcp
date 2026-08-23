@@ -1,50 +1,59 @@
 # -*- coding: utf-8 -*-
-"""수정계수가 없을 때 **조용히 틀린 PER 을 내지 않는다**. network 0콜.
+"""배수는 **시총 기반**이라 액면분할·병합에 흔들리지 않는다. network 0콜.
 
-260823: 수정계수 파이프라인은 cron 없이 수동이라(private wiki 「이벤트/수동」) 7주 밀려 있었고,
-그 사이 상장주식수가 크게 바뀐 종목 146개(2배 이상 62개)의 계수가 통째로 비었다.
+260823 오전: `주가 ÷ EPS` 였다. 공시 EPS 조각(FY0 · 당해 분기누적 · 전년동기누적)을 수정계수로
+현재 주식수 기준에 정렬해 조립하는데, **계수가 없으면 옛 분모와 새 분모가 섞였다**
+(메이슨캐피탈 021880, 10:1 액면병합 — TTM 지배순이익 -70억인데 EPS(TTM) +39원, PER 32.31 이
+live 로 나갔다). 계수 파이프라인은 cron 없이 수동이라 7주 밀려 있었고, 실측 4.1%(116/2,797)가
+그 영향권이었다.
 
-계수가 없으면 `_eps_adj_factor` 가 1.0 을 돌려주고, 공시 EPS 조각
-(FY0 · 당해 분기누적 · 전년동기누적)이 **옛 분모와 새 분모로 섞인 채** 조립된다.
-메이슨캐피탈(021880, 10:1 액면병합) 실측 — TTM 지배순이익 **-70억**인데
-EPS(TTM) **+39원**, PER(TTM) **32.31** 이 live 로 나갔다. 부호부터 뒤집혔다.
+260823 오후: 계수를 지키는 대신 **분모에서 주식수를 뺐다.** PER = 보통주 시총 ÷ 지배순이익.
+주식수가 분자·분모에서 상쇄돼 조정성 이벤트에 불변이고, scope=market/sector/firm_history
+스냅샷과 정의가 같아졌다(종전에는 같은 `per_ttm` 이름으로 서로 다른 지표가 나갔다).
 
-기존 sanity 가드는 이 경우 「DART 파싱오류 의심」이라고 **원인을 오진**하면서
-PBR 만 무효화하고 PER 은 통과시켰다.
-
-이제 불변식으로 잡는다 — 조정성 이벤트는 주가·EPS 와 주식수가 상쇄하므로 **계수 × 주식수배율 ≈ 1**.
+EPS·BPS 는 회사 공시 공식값이라 인풋으로 계속 노출하되 배수 산출에는 쓰지 않는다.
 """
 from __future__ import annotations
 
 import inspect
 
 import open_proxy_mcp.services.valuation as V
+import open_proxy_mcp.tools.valuation as T
 
 
-def test_invariant_band_admits_rights_issue_but_catches_merge():
-    """유상증자(계수 대상 아님)는 통과, 액면병합은 잡힌다 — 밴드가 그 사이에 있어야 한다."""
-    lo, hi = V._ADJ_INVARIANT_LO, V._ADJ_INVARIANT_HI
-    assert lo <= 1.0 <= hi, "이벤트 없는 정상 종목(f=1, r=1)이 걸리면 안 된다"
-    assert lo <= 1.0 * 1.3 <= hi, "30% 유상증자(r=1.3)는 계수 대상이 아니라 통과해야 한다"
-    assert not (lo <= 1.0 * 0.1 <= hi), "10:1 병합(r=0.1)에 계수가 없으면 반드시 걸려야 한다"
-    assert lo <= 10.0 * 0.1 <= hi, "계수(10)가 있으면 같은 병합도 통과해야 한다"
-
-
-def test_per_is_invalidated_when_factor_missing():
-    """탐지되면 PER 이 N/M 이 된다 — 값이 나가면 안 된다."""
+def test_multiples_are_cap_based_not_per_share():
+    """배수 분모에 주식수가 들어가면 안 된다 — 그게 분할·병합에 깨지던 원인이었다."""
     src = inspect.getsource(V._build_valuation_payload_impl)
-    assert "eps_ok = not shares_unadjusted" in src
-    assert "eps_fy > 0 and eps_ok" in src, "PER(FY0)이 계수 누락을 무시한다"
-    assert "eps_ttm > 0 and eps_ok" in src, "PER(TTM)이 계수 누락을 무시한다"
+    assert "per_ttm = nm(_div(cap, ni_ttm)" in src, "PER(TTM)이 시총 기반이 아니다"
+    assert "per_fy = nm(_div(cap, ni_fy)" in src, "PER(FY0)이 시총 기반이 아니다"
+    assert "pbr = nm(_div(cap, ctrl_equity)" in src, "PBR 이 시총 기반이 아니다"
+    assert "_div(price, eps_ttm)" not in src, "주가÷EPS 로 되돌아갔다"
+    assert "_div(price, bps)" not in src, "주가÷BPS 로 되돌아갔다"
 
 
-def test_warning_no_longer_misdiagnoses_as_parsing_error():
-    """계수 누락을 「DART 파싱오류」라고 안내하던 오진을 고쳤다."""
+def test_basis_is_declared_in_payload():
+    """기계 소비자가 정의를 알 수 있어야 한다 — 이름만으로는 두 정의가 구분되지 않는다."""
     src = inspect.getsource(V._build_valuation_payload_impl)
+    assert '"multiples_basis": "common_mktcap_over_controlling_income"' in src
+
+
+def test_basis_is_visible_to_the_reader():
+    """사람이 보는 계산식에도 기준이 그대로 나와야 한다(사용자 요구)."""
+    src = inspect.getsource(T._render_explain_firm)
+    assert "보통주 시총 ÷ 지배순이익(TTM)" in src
+    assert "보통주 시총 ÷ 지배자본(MRQ)" in src
+    assert "우선주 편향" in src, "대가(우선주 편향)를 밝히지 않는다"
+    assert "가중평균이 아닙니다" in src, "대가(가중평균 아님)를 밝히지 않는다"
+
+
+def test_share_change_still_warns_about_eps_input():
+    """배수는 안전해졌지만 EPS 인풋은 여전히 섞일 수 있다 — 그 사실은 계속 알린다."""
+    src = inspect.getsource(V._build_valuation_payload_impl)
+    assert "shares_unadjusted" in src
     i_unadj = src.index("if shares_unadjusted:")
     i_bad = src.index("elif shares_bad:")
-    assert i_unadj < i_bad, "계수 누락 분기가 먼저 와야 파싱오류로 오진하지 않는다"
-    assert "수정계수가 없습니다" in src
+    assert i_unadj < i_bad, "계수 누락을 「DART 파싱오류」로 오진하던 순서로 되돌아갔다"
+    assert "주당 비교에는 쓰지 마세요" in src
 
 
 def test_shares_ratio_reads_krx_weekly_not_dart():

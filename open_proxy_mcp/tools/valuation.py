@@ -156,8 +156,8 @@ _METHODOLOGY = """# valuation 방법론·기준·출처 (수치 근거)
 | EPS(FY0) | DART **공시 기본주당이익** (가중평균 주식수·우선주 배분 반영) | 계속+중단영업 분리 공시는 합산, 결측 시 지배순이익÷보통주 폴백 |
 | EPS(TTM) | **공시 EPS 조립** = FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS | FY0과 같은 공시 기준(대칭). 기중 액면분할·무상증자·주식배당은 수정계수(krx_adj_factor_v3)로 각 조각을 현재 기준 정렬 |
 | BPS | 지배자본(최근분기 MRQ, 부재 시 FY말) ÷ 합계 유통주식수(보통+우선, 자기주식 제외) | 지배주주 귀속 |
-| PER | 보통주 종가 ÷ EPS | FY0·TTM 각각 (⚠ 분모 기준이 달라 직접 비교 주의) |
-| PBR | 보통주 종가 ÷ BPS | MRQ |
+| PER | **보통주 시총 ÷ 지배순이익** | FY0·TTM 각각 |
+| PBR | **보통주 시총 ÷ 지배자본** | MRQ (부재 시 FY말) |
 | 배당수익률 | 주당 현금배당(DPS) ÷ 종가 × 100 | 보통주 결의 기준 |
 
 ## 산식 (market/sector/firm_history — 주간 스냅샷)
@@ -166,16 +166,21 @@ _METHODOLOGY = """# valuation 방법론·기준·출처 (수치 근거)
   크게 높아짐. PBR 병행 해석 권장. trailing(과거 실적) 기준 — 컨센서스 선행 PER와 다름
 - **우선주 시총은 배수에서 제외**(cap_pref로 별도 노출) — 분모의 이익·자본엔 우선주 몫이 포함되어
   배수는 소폭 하향 편향(클래스별 이익·자본 분리는 공시 부재로 불가, KRX 공표 PER도 동일 관행)
-- firm(보통주 주가÷공시 EPS)과는 분모 기준(전체 지배이익 vs 주당 가중평균)이 달라 값이 다를 수 있음
+- **firm 과 같은 정의다(260823~)** — 종전에는 firm 이 주가÷EPS 라 같은 `per_ttm` 이름으로 서로
+  다른 지표가 나갔다. 이제 개별종목과 시장·섹터를 직접 비교해도 된다(집계는 시총가중 조화평균이라
+  개별 배수의 단순평균과는 여전히 다르다 — 큰 종목이 더 무겁다)
 - 섹터 분류 = KSIC 하이브리드(자체 매핑) · 소규모(5사 미만) 섹터는 '기타(소규모)'로 합산
 
 ## 판단 기준 (게이팅)
-- **N/M**: EPS·BPS 분모≤0(적자·자본잠식) 또는 완전자본잠식 → 배수 미산출(음수 PER 금지)
+- **N/M**: 지배순이익·지배자본 ≤0(적자·자본잠식) 또는 완전자본잠식 → 배수 미산출(음수 PER 금지)
 - **지배주주 귀속**: 순이익·자본 모두 지배지분 기준(비지배 NCI 제외) — 지주사 과대평가 방지
 - **비KRW 기능통화**(두산밥캣 USD 등 22사): 회계기말 환율(한국은행 ECOS 매매기준율)로 KRW 환산
 - **스케일가드**: 재무 단위오류(예: 100만배) 의심 시 개별조회는 값 유지+강한 경고, 시장 집계는 제외
-- **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자에 불변(계수 불요). 유증·소각·
-  분할의 시총 점프는 실제 이벤트라 보존
+- **수정주가**: PER/PBR/시총은 **전 스코프가 시총 기반**이라 액면분할·병합·무상증자에 불변(계수 불요).
+  유증·소각·분할의 시총 점프는 실제 이벤트라 보존. 260823 전환 이전 firm 은 주가÷EPS 라 계수가
+  필요했고, 계수 파이프라인이 밀리면 배수가 틀렸다(실측 4.1%가 그 영향권이었다)
+- **EPS·BPS 는 인풋으로만 노출**: 회사 공시 공식값(가중평균 반영)이라 대조에 쓴다. 배수 산출에는
+  안 쓴다 — 주식수가 들어가 조정성 이벤트에 흔들리기 때문
 
 ## 데이터 출처·갱신 주기
 | 데이터 | 출처 | 갱신 |
@@ -234,9 +239,12 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     if i.get("controlling_equity_krw") is not None and i.get("shares_total"):
         L.append(f"- BPS = 지배자본(MRQ) ÷ 합계주식수 = {i['controlling_equity_krw']:,} ÷ "
                  f"{i['shares_total']:,} = **{i.get('bps_krw') and format(i['bps_krw'], ',')}원**")
-    _calc("PER(FY0)", "주가 ÷ EPS(FY0)", price, i.get("eps_fy0_krw"), m.get("per_fy0"))
-    _calc("PER(TTM)", "주가 ÷ EPS(TTM)", price, i.get("eps_ttm_krw"), m.get("per_ttm"))
-    _calc("PBR(MRQ)", "주가 ÷ BPS", price, i.get("bps_krw"), m.get("pbr_mrq"))
+    # 260823: 배수는 **시총 기반**(주가÷EPS 에서 전환) — 주식수가 분자·분모에서 상쇄돼
+    #   액면분할·병합에 불변이고, 스냅샷 스코프와 정의가 같아진다. 기준을 계산식에 그대로 쓴다.
+    cap = i.get("common_market_cap_krw")
+    _calc("PER(FY0)", "보통주 시총 ÷ 지배순이익(FY0)", cap, i.get("net_income_fy0_krw"), m.get("per_fy0"))
+    _calc("PER(TTM)", "보통주 시총 ÷ 지배순이익(TTM)", cap, i.get("net_income_ttm_krw"), m.get("per_ttm"))
+    _calc("PBR(MRQ)", "보통주 시총 ÷ 지배자본(MRQ)", cap, i.get("controlling_equity_krw"), m.get("pbr_mrq"))
     if i.get("dps_krw") and price:
         L.append(f"- 배당수익률 = DPS ÷ 주가 = {i['dps_krw']:,} ÷ {price:,} = **{m.get('dividend_yield_pct')}%**")
     dq = d.get("data_quality") or {}
@@ -250,7 +258,16 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
               if not (w in _seen or _seen.add(w))]
     if _warns:
         L += ["", "## 유의(원문 경고)"] + [f"- {w}" for w in _warns]
-    L += ["", "> 방법론·기준 전문: `valuation(scope=\"explain\")` (company 없이)."]
+    L += ["",
+          "> **배수 기준(260823~)**: PER·PBR 은 **보통주 시총 ÷ 지배주주 귀속 이익·자본**입니다. "
+          "주가÷EPS 가 아니라서 액면분할·병합에 흔들리지 않고, `scope=market/sector/firm_history` 와 "
+          "같은 정의입니다(종전에는 같은 이름으로 다른 정의가 나갔습니다). "
+          "대가 둘 — ① 가중평균이 아닙니다(공시 EPS 는 기중 주식수 변동을 가중평균으로 반영하지만 "
+          "시총은 오늘 주식수만 봅니다. 연중 유상증자한 회사는 벌어집니다) "
+          "② 우선주 편향(분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 낮게 나옵니다). "
+          "위 EPS·BPS 는 회사 공식 공시값이라 대조용으로 함께 싣습니다.",
+          "",
+          "> 방법론·기준 전문: `valuation(scope=\"explain\")` (company 없이)."]
     return "\n".join(L)
 
 
@@ -260,7 +277,7 @@ def register_tools(mcp):
     async def valuation(company: str = "", scope: str = "firm", format: str = "md") -> str:
         """desc: 상대가치 밸류에이션 — 기업 심층(PER·PBR·배당수익률) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 한국 표준(연결, 지배주주 귀속). 비KRW 기능통화 자동 KRW 환산(ECOS), 스케일가드, N/M 게이팅.
         when: "PER/PBR 얼마"·"싼가 비싼가"(scope=firm) / "코스피·코스닥 전체 밸류"(market) / "업종별 PER·PBR"·"섹터 대비 어디"(sector, company 지정 시 소속 섹터 비교) / "밸류 추이"(firm_history) / **"이 수치 근거·계산 과정이 뭐야?"(explain — company 지정 시 실제 값 대입 계산, 미지정 시 방법론·기준·출처 전문)**. 재무 펀더멘탈 자체는 financial_metrics, 배당 상세는 dividend.
-        rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — EPS(FY0)=공시 기본주당이익(가중평균, 없으면 지배순이익÷보통주 폴백), EPS(TTM)=TTM 지배순이익÷보통주, BPS=지배자본(MRQ)÷합계주식수, 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(mkt_val_history·mkt_val_history·firm_valuation_snapshot, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct).
+        rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — **PER=보통주 시총÷지배순이익 · PBR=보통주 시총÷지배자본(MRQ)** (260823 전환: 주가÷EPS 는 액면분할·병합 때 옛 주식수 기준 EPS 와 새 주가가 섞여 틀렸다). 주식수가 상쇄돼 조정성 이벤트에 불변이고 **스냅샷 스코프와 정의가 같다**. EPS(공시 기본주당이익)·BPS 는 회사 공식값이라 인풋으로 함께 싣되 배수 산출엔 안 쓴다. 대가 — 가중평균이 아니고(연중 유상증자 시 공시 EPS 와 벌어짐), 분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 하향 편향. 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(mkt_val_history·mkt_val_history·firm_valuation_snapshot, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct).
         status: ok / invalid / not_found(우선주는 보통주 코드로) / unlisted / no_financials / no_data(배치 미실행).
         note: lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT·주당 수정주가 시계열은 v1.1.
         ref: financial_metrics, dividend, corp_gov_report, evidence

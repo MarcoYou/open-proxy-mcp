@@ -956,12 +956,27 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     impaired_full = cap_status == "full"
     def nm(x, denom_ok):  # 분모≤0 or 완전자본잠식 → N/M
         return round(x, 2) if (x is not None and denom_ok and not impaired_full) else None
-    # 계수 누락(shares_unadjusted)이면 공시 EPS 가 옛/새 분모로 섞여 있다 → PER 무효.
-    # EPS 값 자체는 인풋으로 남긴다(진단용) — 경고가 왜 무효인지 설명한다.
-    eps_ok = not shares_unadjusted
-    per_fy = nm(_div(price, eps_fy), eps_fy is not None and eps_fy > 0 and eps_ok)
-    per_ttm = nm(_div(price, eps_ttm), eps_ttm is not None and eps_ttm > 0 and eps_ok)
-    pbr = nm(_div(price, bps), bps is not None and bps > 0)
+    # ── 배수는 **시총 기반**이다 (260823 전환) ─────────────────────────────────
+    # 종전: PER = 주가 ÷ EPS · PBR = 주가 ÷ BPS — 둘 다 분모에 주식수가 들어간다.
+    #   그래서 액면분할·병합이 나면 옛 주식수 기준 EPS 와 새 주가가 섞여 배수가 통째로 틀렸고
+    #   (메이슨캐피탈 실측: 적자인데 PER 32.31), 이를 막으려면 수정계수 파이프라인이
+    #   상시 최신이어야 했다. 실측 4.1%(116/2,797)가 계수 부재로 N/M 이 되고 있었다.
+    #
+    # 이제: PER = 보통주 시총 ÷ 지배순이익 · PBR = 보통주 시총 ÷ 지배자본.
+    #   분자·분모에서 주식수가 상쇄되므로 **조정성 이벤트에 불변**이다 — 계수가 필요 없다.
+    #   덤으로 scope=market/sector/firm_history 스냅샷과 **방법론이 같아진다**(종전에는
+    #   같은 `per_ttm` 이름으로 서로 다른 정의가 나갔다).
+    #
+    # 대가 두 가지 — 출력에 명시한다:
+    #   ① 가중평균이 아니다. 공시 EPS 는 기중 주식수 변동을 가중평균으로 반영한 회사 공식값인데,
+    #      시총은 오늘 주식수만 본다. 연중 유상증자한 회사는 두 값이 벌어진다.
+    #   ② 우선주 편향. 분자는 보통주 시총인데 분모(지배순이익·지배자본)에는 우선주 몫이 포함돼
+    #      배수가 소폭 낮게 나온다. 클래스별 이익·자본 분리는 공시 부재로 불가.
+    # EPS·BPS 는 인풋으로 계속 노출한다 — 회사 공식값이라 대조에 쓴다.
+    cap = mk.get("common_mktcap")
+    per_fy = nm(_div(cap, ni_fy), cap and ni_fy is not None and ni_fy > 0)
+    per_ttm = nm(_div(cap, ni_ttm), cap and ni_ttm is not None and ni_ttm > 0)
+    pbr = nm(_div(cap, ctrl_equity), cap and ctrl_equity is not None and ctrl_equity > 0)
     div_yield = round(_div(dps, price) * 100, 2) if (dps and price and not impaired_full) else None
 
     warnings = []
@@ -975,10 +990,12 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append("적자(FY0 EPS≤0) — PER N/M.")
     if shares_unadjusted:
         r = shares_unadjusted["shares_ratio"]
+        # 260823: 배수가 시총 기반으로 바뀌어 **PER·PBR 은 이 영향을 받지 않는다.**
+        #   다만 아래 EPS 는 공시 조각 조립이라 여전히 섞여 있으므로 인풋으로만 읽어야 한다.
         warnings.append(
-            f"⚠️ 상장주식수가 결산기준일 이후 {r}배로 바뀌었는데 수정계수가 없습니다"
-            "(액면분할·병합·무상증자 추정) — 공시 EPS 조각이 옛 분모와 새 분모로 섞여 PER 무효화. "
-            "수정계수 파이프라인(krx_adj_factor_v3) 갱신이 필요합니다.")
+            f"상장주식수가 결산기준일 이후 {r}배로 바뀌었습니다(액면분할·병합 추정) — "
+            "PER·PBR 은 시총 기반이라 영향 없지만, 아래 **EPS는 옛 분모와 새 분모가 섞여 있어** "
+            "주당 비교에는 쓰지 마세요.")
     elif shares_bad:
         # 260823: 종전에는 이 문구가 계수 누락 케이스까지 덮어 **원인을 오진**했다
         # (액면병합인데 「DART 파싱오류」라고 안내). 위 분기가 그 경우를 먼저 가져간다.
@@ -1046,6 +1063,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             "multiples": {
                 "per_fy0": per_fy, "per_ttm": per_ttm,
                 "pbr_mrq": pbr, "pbr_basis": equity_basis,
+                # 260823: 주가÷EPS 에서 전환. 스냅샷(market/sector/firm_history)과 같은 정의.
+                "multiples_basis": "common_mktcap_over_controlling_income",
                 "dividend_yield_pct": div_yield,
             },
             "inputs": {
