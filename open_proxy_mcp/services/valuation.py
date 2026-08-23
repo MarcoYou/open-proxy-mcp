@@ -1,11 +1,13 @@
-"""밸류에이션 (lean v1) — DART(공시)+KRX(공식시세) 상대가치 배수.
+"""밸류에이션 — DART(공시)+KRX(공식시세) 가격 배수.
 
 설계 스펙·검증 근거: private wiki.
 지표: PER(FY0+TTM) · PBR(MRQ, 미공시시 FY0) · 배당수익률(alotMatter 보통주 DPS).
-가드: 섹터 N/A(금융사 EV/PSR/FCF 차단) · N/M(분모≤0) · 자본잠식→N/M+상폐/관리종목 경고.
+가드: N/M(분모≤0) · 자본잠식→N/M+상폐/관리종목 경고.
 시계열 기준: FY0=최근 사업연도, TTM=FY+1Q차분(flow), MRQ=최근 분기말 잔액(stock).
 측정: 가격·시총=KRX(공식) / 순이익·EPS·자본=지배귀속 account_id / BPS=지배자본÷유통주식수.
-드랍(v1.1): RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT 시계열.
+산출 범위는 이 셋뿐이다 — 260823 에 RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT 시계열의
+「v1.1 예정」 표기를 걷어냈다. 한 번도 만들지 않은 로드맵이 코드·설명·경고에 남아
+**없는 지표를 있는 것처럼 안내**하고 있었다(금융사 경고가 대표적).
 """
 from __future__ import annotations
 
@@ -216,7 +218,7 @@ async def _ensure_krx_fresh() -> str | None:
 
 async def _market_for(stock_code: str) -> dict:
     """보통주 종가·시총·상장주식수 — krx_weekly(DB, 검증 자산) 우선, 라이브 KRX fallback.
-    price_date로 기준일 노출. 우선주 총시총 합산은 v1.1 — v1은 배수에 시총 미사용, 보통주 시총만 정보성."""
+    price_date로 기준일 노출. 배수 분자는 보통주 시총(우선주 시총은 cap_pref 로 별도)."""
     latest_dd = await _ensure_krx_fresh()
     if latest_dd:
         row = await asyncio.to_thread(_krx_db_get, latest_dd, stock_code)
@@ -833,7 +835,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     cap_status = s.get("capital_impairment_status")
     # 금융사 판별: KSIC 업종코드(induty) 대분류 K = 64(은행·금융지주)·65(보험)·66(증권).
     # 260704 실측: 매출=None 휴리스틱은 인터넷은행(카카오뱅크 영업수익 3조 신고)을 놓쳐 오분류 →
-    # induty를 1차 신호로, 매출=None을 2차 폴백으로. (EV/PSR/FCF·순차입 게이팅 = 범주 부적합 차단)
+    # induty를 1차 신호로, 매출=None을 2차 폴백으로. 결과는 sector_class 와 해석 경고에 쓴다.
     induty = str(info.get("induty_code") or "")
     is_financial = induty[:2] in ("64", "65", "66") or revenue_fy is None
 
@@ -1007,7 +1009,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     if (pbr and pbr > 100) or (per_fy and per_fy > 500) or (per_ttm and per_ttm > 500):
         warnings.append("⚠️ 배수 비정상 고값 — 재무 단위/스케일 오류 가능(예: 지배자본 과소). 원문 확인 요망.")
     if is_financial:
-        warnings.append("금융·지주 업종 — EV/EBITDA·PSR·FCF·순차입은 범주 부적합으로 산출 제외(N/A). PBR·PER·배당·ROE 중심 해석. (금융·지주도 매출/영업수익은 있음 — 배수 부적합일 뿐)")
+        # 260823: 종전 문구가 EV/EBITDA·PSR·FCF 를 「산출 제외」라 안내했는데 **애초에 만들지
+        #   않는 지표**였다. 없는 것을 뺐다고 말하면 있는 줄 안다. 해석 주의만 남긴다.
+        warnings.append("금융·지주 업종 — 자산·부채 구조가 달라 PER 보다 PBR 이 비교에 낫습니다. 레버리지가 사업모델이라 부채비율도 일반 업종과 같은 잣대로 보면 안 됩니다.")
     if ecos_fx_rate != 1.0:
         warnings.append(f"기능통화 {stmt_cur} — 재무를 {fy}회계기말 환율 {ecos_fx_rate:,.1f}원/{stmt_cur}로 KRW 환산(순이익은 원칙상 평균환율, v1은 기말환율 근사 → 수% 오차). KRW 시총과 통화 정합.")
     elif stmt_cur != "KRW":
@@ -1090,8 +1094,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "scale_flags": scale_verdict["hard_hit"] + scale_verdict["soft_hit"],
                 "values_masked": False,  # 개별조회는 값 무효화 안 함(집계 tool과 반대) — 판단은 사용자
             },
-            "note": "lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT·희석EPS는 v1.1. "
-                    "EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준(TTM=공시 EPS 조립: FY0+분기누적−전년동기누적 "
+            "note": "EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준(TTM=공시 EPS 조립: FY0+분기누적−전년동기누적 "
                     "— 가중평균 주식수·우선주 배분 반영, 두 PER 직접비교 가능. 클래스별 EPS 미공시사(삼성전자 등)는 "
                     "보·우 합산 가중평균 = 네이버금융·FnGuide 관행과 동일). 공시 EPS 결측 시에만 "
                     "지배순이익÷보통주 폴백(경고 부착). "
@@ -1109,7 +1112,7 @@ def _render_md(p: dict[str, Any]) -> str:
     def g(x, suf="", fmt="{}"):
         return (fmt.format(x) + suf) if x is not None else "N/M"
     lines = [
-        f"# {p['subject']} 밸류에이션 (lean v1 · {d['fiscal_year']} 재무 · 주가 {g(d['price_krw'],'원','{:,}')})",
+        f"# {p['subject']} 밸류에이션 ({d['fiscal_year']} 재무 · 주가 {g(d['price_krw'],'원','{:,}')})",
         "",
         "## 배수",
         f"- PER {g(m['per_fy0'])}(FY0) / {g(m['per_ttm'])}(TTM) · PBR {g(m['pbr_mrq'])}({m['pbr_basis']}) · 배당수익률 {g(m['dividend_yield_pct'],'%')}",
