@@ -341,6 +341,9 @@ def allowed_hosts() -> list[str]:
         "localhost:8000",
         "127.0.0.1:8000",
         "0.0.0.0:8000",
+        # Agent T의 BPM 시험 서버는 8010에서 로컬로만 연다.
+        "localhost:8010",
+        "127.0.0.1:8010",
     ]
     extra = os.environ.get("FASTMCP_ALLOWED_HOSTS", "").strip()
     if extra:
