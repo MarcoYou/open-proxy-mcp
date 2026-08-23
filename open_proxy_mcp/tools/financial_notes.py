@@ -41,6 +41,12 @@ def _render(payload: dict) -> str:
             if n > 1:
                 label = {"restricted": "사용제한", "pledged": "담보제공"}.get(k, k)
                 bases = [t.get("table_basis") for t in res["tables"] if t["kind"] == k]
+                periods = [t.get("period") for t in res["tables"] if t["kind"] == k]
+                n_prev = sum(1 for x in periods if x == "전기")
+                if n_prev:
+                    L += ["", f"> 🔴 **{ {'restricted':'사용제한','pledged':'담보제공'}.get(k,k) }"
+                              f" 표 {n}개 중 {n_prev}개가 **전기 전용 표**다** — 당기와 더하면 "
+                              f"이중계상이다. 각 표의 `시점` 을 볼 것.", ""]
                 if all(bases) and len(set(bases)) > 1:
                     hint = ("**연결과 별도가 섞여 있다**(각 표의 `기준` 참조) — "
                             "같은 기준끼리만 더할 것. 섞어 더하면 이중계상이다.")
@@ -70,6 +76,7 @@ def _render(payload: dict) -> str:
             basis = t.get("table_basis")
             L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind}"
                      + (f" · **기준** {basis}" if basis else " · **기준** 판별 못함")
+                     + (f" · 🔴 **시점** {t['period']}만" if t.get("period") else "")
                      + f" · {mark}"
                      + (f" · **축** {axis}" if axis else " · **축** 판별 못함")
                      + f" · **문서위치** {t['pos']:,} · **형식** "
@@ -80,7 +87,12 @@ def _render(payload: dict) -> str:
             # 🔴 caption 이 아니라 title 이다 — caption 꼬리에는 **앞 표의 숫자 잔해**가
             #    붙어 오고, 그걸 이 표의 값으로 읽으면 틀린다(260823 실측).
             if t.get("title"):
-                L.append(f"> 📄 원문 제목: {t['title'][:150]}")
+                from open_proxy_mcp.services.financial_notes import looks_like_debris
+                if looks_like_debris(t["title"]):
+                    L.append("> 📄 원문 제목: **원문에 제목 문장이 없다** — 표 앞이 값이나 "
+                             "설명문이다. 무슨 표인지는 열 이름으로 판단할 것.")
+                else:
+                    L.append(f"> 📄 원문 제목: {t['title'][:150]}")
             if t.get("account"):
                 tot = t.get("account_total")
                 if tot:

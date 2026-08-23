@@ -576,6 +576,44 @@ def lookup_account(bs: dict[str, Any] | None, account: str) -> dict[str, Any] | 
     return {"values": vals, "unit": bs["unit"]}
 
 
+
+#: 🔴 **같은 주석 안에 당기표와 전기표가 따로 실리는 회사가 있다.** 260823 실측 —
+#:    우리은행 별도 「사용이 제한된 현금및현금성자산」이 제193(당)기 20,466,725 와
+#:    제192(전)기 23,293,045 로 **표가 둘**이다. 표시가 없으면 더해서 이중계상이 난다.
+_PERIOD_RE = re.compile(r"제\s*\d+\s*[\(（]?\s*([당전])\s*[\)）]?\s*기")
+_PERIOD_WORDS = (("당", ("당반기말", "당분기말", "당기말", "당반기", "당분기")),
+                 ("전", ("전반기말", "전분기말", "전기말", "전반기")))
+
+
+def period_of(parsed: dict[str, Any]) -> str | None:
+    """이 표가 **당기**인가 **전기**인가. 둘 다/못 가리면 None(= 한 표에 함께 있다)."""
+    labels = " ".join(c["text"] for row in parsed["rows"][:4] for c in row)
+    labels += " " + " ".join(parsed.get("header") or [])
+    marks = set(_PERIOD_RE.findall(labels))
+    for tag, words in _PERIOD_WORDS:
+        if any(w in labels for w in words):
+            marks.add(tag)
+    if marks == {"당"}:
+        return "당기"
+    if marks == {"전"}:
+        return "전기"
+    return None
+
+
+#: 제목 폴백이 앞 표 잔해를 물었는지. 260823 실측 — 우리은행 별도 전기표의 제목 자리에
+#: 앞 표가 통째로 들어왔다. 표지는 **문장이 끝난 뒤에도 글이 이어지는 것**이다
+#: (「…다음과 같습니다.」 뒤에 표 머리글과 값이 붙는다). 숫자 개수로는 안 잡힌다.
+_SENT_END = re.compile(r"(?:다음과 같습니다|같습니다|합니다)\s*[.。]?")
+_DIGIT_GROUP = re.compile(r"[\d,]{3,}")
+
+
+def looks_like_debris(title: str) -> bool:
+    ends = [m.end() for m in _SENT_END.finditer(title)]
+    if ends and len(title) - ends[0] > 30:
+        return True
+    return len(_DIGIT_GROUP.findall(title)) >= 6
+
+
 def is_wrong_direction(caption: str) -> bool:
     """이 표가 **받은 담보**·특수관계자 표인가. 우리가 찾는 것은 회사가 **제공한** 담보다."""
     tail = _WS.sub(" ", caption)[-_DIRECTION_TAIL:]
@@ -713,6 +751,7 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                         entry = {"anchor": kw, "kind": kind, "pos": pos,
                                  "axis": axis_of(parsed),
                                  "title": title_only(parsed["caption"]),
+                                 "period": period_of(parsed),
                                  "account": (account_of(parsed["caption"])
                                              if kind in ("restricted", "pledged") else None),
                                  "table_basis": basis,
