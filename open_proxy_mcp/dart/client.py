@@ -526,7 +526,26 @@ _MASTER_DB_TTL_HOURS = 168   # 7d (corpCode 변경 빈도 낮음, 24h이었지�
 _FILERS_TTL_HOURS = 168      # 7d — 정기보고서는 분기마다 몰려 나오므로 주 1회면 충분
 _FILERS_LOOKBACK_DAYS = 400  # 사업보고서 1주기(1년) + 여유
 _FILERS_WINDOW_DAYS = 85     # corp_code 없는 조회는 **3개월까지만** 허용된다(DART status 100)
-_FILERS_MIN_EXPECTED = 2_000  # 이보다 적으면 수집이 덜 된 것으로 보고 명부를 쓰지 않는다
+_FILERS_MIN_EXPECTED = 2_000
+
+
+def _filers_bundled_load() -> "frozenset[str] | None":
+    """패키지에 동봉된 명부. 없거나 덜 차 있으면 None(= 없던 것으로 취급).
+
+    ★ 경로가 아니라 **패키지 데이터**로 읽는다 — 260814 교훈: `wiki/` 경로 의존은
+      「Dockerfile COPY + cwd + 실행 방식」 세 우연의 곱이라 하나만 어긋나면 조용히 0이 된다.
+    """
+    try:
+        from importlib.resources import files
+        raw = (files("open_proxy_mcp.data.dart") / "periodic_filers.json").read_text(encoding="utf-8")
+        codes = json.loads(raw).get("filers") or {}
+    except Exception as exc:
+        logger.info(f"periodic_filers 동봉본 없음({type(exc).__name__}) — sqlite/수집으로 진행")
+        return None
+    if len(codes) < _FILERS_MIN_EXPECTED:
+        logger.warning(f"periodic_filers 동봉본 {len(codes)}건뿐 — 덜 찬 것으로 보고 쓰지 않는다")
+        return None
+    return frozenset(codes)  # 이보다 적으면 수집이 덜 된 것으로 보고 명부를 쓰지 않는다
 
 _periodic_filers_cache: frozenset[str] | None = None
 _periodic_filers_lock: "asyncio.Lock | None" = None
@@ -1163,6 +1182,17 @@ class DartClient:
                 logger.info(f"periodic_filers loaded from sqlite ({len(cached)} corps)")
                 _periodic_filers_cache = cached
                 return cached
+            # 260823: sqlite 도 비었으면 **패키지 동봉본**을 쓴다. 배포 직후엔 볼륨에
+            #   명부가 없어 여기로 온다 — 동봉본이 없으면 그동안 비상장 금융사가 안 열리고
+            #   동명 법인이 AMBIGUOUS 로 남는 창이 생긴다(수집이 3분 걸리므로).
+            #   동봉본은 월 1회 cron 이 갱신한다(scripts/refresh_periodic_filers.py).
+            bundled = _filers_bundled_load()
+            if bundled is not None:
+                logger.info(f"periodic_filers loaded from bundle ({len(bundled)} corps)")
+                _periodic_filers_cache = bundled
+                # 동봉본은 최대 한 달 낡을 수 있다 — 뒤에서 최신본을 만들어 덮는다.
+                self._start_filers_build()
+                return bundled
         # 🔴 **요청 경로에서 명부를 만들면 안 된다.** 260823 프로덕션 실측 — 첫 조회가
         #    183 API콜(약 3분)을 동기로 돌다 프록시 타임아웃에 걸려 502 가 났고, 저장을
         #    못 하니 **다음 요청도 같은 3분을 다시 돌아 영구히 낫지 않았다.**

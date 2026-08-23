@@ -119,6 +119,7 @@ def test_registry_build_never_blocks_a_request() -> None:
 
     result = asyncio.run(_run())
 
-    assert result == frozenset()             # 즉시 빈 집합 — 기다리지 않는다
+    # 동봉본이 있으면 그것, 없으면 빈 집합. 어느 쪽이든 **수집을 기다리지 않는다**.
+    assert isinstance(result, frozenset)
     mod._periodic_filers_cache = None
     mod._filers_build_task = None
