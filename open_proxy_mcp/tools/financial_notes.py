@@ -31,10 +31,7 @@ def _render(payload: dict) -> str:
             continue
         if res.get("note"):
             L += ["", f"> {res['note']}", ""]
-        if res.get("see_field"):
-            L += ["", f"> ↪️ **요청하신 {field} 유형별 내역은 이 회사가 "
-                      f"`{res['see_field']}` 주석에 함께 실었다.** 아래 표가 아니라 "
-                      f"`{res['see_field']}` 필드 결과를 볼 것.", ""]
+
         # 🔴 사용제한은 한 표에 다 있지 않다(우리은행: 현금및현금성자산 + 예치금 두 군데).
         #    여러 표를 모아 내되, **연결과 별도가 섞여 있을 수 있으니** 합산 전에 알린다.
         by_kind: dict[str, int] = {}
@@ -58,12 +55,18 @@ def _render(payload: dict) -> str:
             axis = t.get("axis")
             # 🔴 **✅ 와 「범주별」이 한 표에 같이 붙으면 모순이다.** 260823 시험자 지적 —
             #    제목은 맞아도 범주별이면 헤어컷을 못 매기니 ✅ 를 주면 안 된다.
-            if not t.get("title_matched"):
-                mark = "🔴 제목 대조 실패"
-            elif axis == "범주별":
-                mark = "⚠️ 제목은 맞지만 **범주별**"
-            else:
+            # 🔴 **경고를 셋으로 가른다.** 260823 시험자 실측 — 「범주별」 판정은 한 건도
+            #    안 틀렸는데 「제목 대조 실패」는 위양성이 많았다. 그리고 **「축 유형별 +
+            #    제목 실패」는 전부 맞는 표**였다. 다 🔴 로 묶으면 「일단 다 열어봐야 한다」가
+            #    되어 경고가 없는 것과 같아진다.
+            if axis == "범주별":
+                mark = "🔴 **범주별** — 헤어컷을 매길 수 없다"
+            elif t.get("title_matched"):
                 mark = "✅ 제목 확인됨"
+            elif axis == "유형별":
+                mark = "⚠️ 이름은 못 맞췄지만 **축은 유형별**"
+            else:
+                mark = "🔴 제목 대조 실패"
             basis = t.get("table_basis")
             L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind}"
                      + (f" · **기준** {basis}" if basis else " · **기준** 판별 못함")

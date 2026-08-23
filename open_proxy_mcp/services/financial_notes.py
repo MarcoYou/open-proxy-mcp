@@ -455,6 +455,71 @@ def account_total(html: str, table_start: int, account: str) -> list[str] | None
     return None
 
 
+
+# ── 구조 앵커로 구간을 자른다 (business_details 의 _slice_by_aassoc 방식) ──
+# 🔴 **키워드로 위치를 찾으면 계속 막힌다.** 260823 마스터 지시 — 지점을 잘 잡아
+#    구간을 통으로 넘기는 편이 낫다. DART 문서에는 목차 좌표가 태그로 박혀 있다.
+#      D-0-3-2-0  2. 연결재무제표      ← 본표(분모의 출처)
+#      D-0-3-3-0  3. 연결재무제표 주석  ← 연결 주석
+#      D-0-3-4-0  4. 재무제표          ← 별도 본표
+#      D-0-3-5-0  5. 재무제표 주석      ← 별도 주석
+#      D-0-3-6-0  6. 배당에 관한 사항   ← 주석 끝 경계
+#    실측(KB손보) D-0-3-4-0 @1,378,007 — 문자열로 찾던 1,378,097 과 사실상 같지만
+#    **목차·본문 혼동이 구조적으로 없다.** 코드는 서식 개정 시 의미가 이동할 수 있어
+#    business_details 와 같이 **제목 키워드로 이중검증**한다.
+_AASSOC_RE = re.compile(r'<TITLE\b[^>]*\bAASSOCNOTE="(D-0-[0-9-]+)"[^>]*>(.*?)</TITLE>',
+                        re.IGNORECASE | re.DOTALL)
+SEC_CONN_FS = "D-0-3-2-0"
+SEC_CONN_NOTE = "D-0-3-3-0"
+SEC_SEP_FS = "D-0-3-4-0"
+SEC_SEP_NOTE = "D-0-3-5-0"
+_SEC_EXPECT = {
+    SEC_CONN_FS: re.compile(r"연결\s*재무제표"),
+    SEC_CONN_NOTE: re.compile(r"연결\s*재무제표\s*주석"),
+    SEC_SEP_FS: re.compile(r"재무제표"),
+    SEC_SEP_NOTE: re.compile(r"재무제표\s*주석"),
+}
+
+
+def sections(html: str) -> dict[str, tuple[int, int]]:
+    """구조 앵커 → {코드: (시작, 끝)}. 앵커가 없거나 제목이 안 맞으면 그 구간은 없다."""
+    pos: dict[str, int] = {}
+    bad: set[str] = set()
+    starts: list[int] = []
+    for m in _AASSOC_RE.finditer(html):
+        code = m.group(1)
+        starts.append(m.start())
+        if code in pos:                      # 중복 출현 — 믿을 수 없다
+            bad.add(code)
+            continue
+        pos[code] = m.start()
+        expect = _SEC_EXPECT.get(code)
+        if expect is not None:
+            title = _WS.sub(" ", _TAG.sub("", m.group(2))).strip()
+            if not expect.search(title):
+                bad.add(code)
+    starts.sort()
+    out: dict[str, tuple[int, int]] = {}
+    for code, start in pos.items():
+        if code in bad or code not in _SEC_EXPECT:
+            continue
+        after = [x for x in starts if x > start]
+        if after:
+            out[code] = (start, after[0])
+    return out
+
+
+def note_regions(html: str) -> list[tuple[str, int, int]]:
+    """주석 구간 목록 — [(기준, 시작, 끝)]. 구조 앵커가 없으면 빈 목록."""
+    sec = sections(html)
+    out = []
+    if SEC_CONN_NOTE in sec:
+        out.append(("연결", *sec[SEC_CONN_NOTE]))
+    if SEC_SEP_NOTE in sec:
+        out.append(("별도", *sec[SEC_SEP_NOTE]))
+    return out
+
+
 def is_wrong_direction(caption: str) -> bool:
     """이 표가 **받은 담보**·특수관계자 표인가. 우리가 찾는 것은 회사가 **제공한** 담보다."""
     tail = _WS.sub(" ", caption)[-_DIRECTION_TAIL:]
@@ -531,113 +596,93 @@ def _table_for(html: str, p: int) -> tuple[str, dict[str, Any]] | None:
 
 
 def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
-    """문서 HTML → 요청한 표들. 문서는 호출자가 넘긴다(캐시 재사용)."""
+    """문서 HTML → 요청한 표들. 문서는 호출자가 넘긴다(캐시 재사용).
+
+    🔴 **구조 앵커로 구간을 자르고 그 안에서만 찾는다.** 260823 마스터 지시 —
+       키워드로 위치를 잡으면 계속 막힌다. `<TITLE AASSOCNOTE="D-0-3-3-0">`(연결 주석)과
+       `D-0-3-5-0`(별도 주석)이 문서에 박혀 있고, 6사 실측에서 전부 정확히 갈렸다.
+       구간을 쓰면 ①목차·본문 혼동이 없고 ②연결/별도가 위치 계산 없이 확정되며
+       ③재무제표 본표가 애초에 안 들어온다.
+       앵커가 없는 문서(구형 서식)는 예전 방식으로 폴백한다.
+    """
     want = [f for f in (fields or FIELDS) if f in ANCHORS]
-    off = notes_offset(html)
-    sep = separate_offset(html, off)
+    regions = note_regions(html)
+    if not regions:
+        off = notes_offset(html)
+        sep = separate_offset(html, off)
+        regions = ([("연결", off, sep), ("별도", sep, len(html))] if sep
+                   else [(None, off, len(html))])
     out: dict[str, Any] = {}
     for field in want:
         found: list[dict[str, Any]] = []
         skipped_statement = 0
         skipped_direction = 0
-        #: 이 필드에서 이미 내보낸 표(본문 기준) — 성격이 달라도 같은 표면 한 번만 낸다
         emitted_bodies: dict[str, dict[str, Any]] = {}
-        # 🔴 **앵커 하나에서 멈추면 안 된다.** 같은 성격이라도 연결 주석과 별도 주석이
-        #    서로 다른 말을 쓰는 일이 있다(「사용이 제한되어」 / 「사용제한 예치금」).
-        #    성격별로 그 성격의 **앵커를 전부** 훑어 모은다.
-        for kind in dict.fromkeys(kd for _, kd in ANCHORS[field]):
-            # 제목에 쓰인 이름이 앵커와 다를 수 있어 같은 성격의 앵커 전부로 대조한다
-            kin_kws = [k for k, kd in ANCHORS[field] if kd == kind]
-            hits: list[dict[str, Any]] = []         # 제목이 맞은 표들
-            fallback: dict[str, Any] | None = None  # 제목 대조 실패 — 최후 수단
-            seen_tables: set[str] = set()
-            for kw in kin_kws:
-                if len(hits) >= _MULTI_TABLE_LIMIT:
-                    break
-                start, scanned = off, 0
-                while scanned < _MAX_SCAN and len(hits) < _MULTI_TABLE_LIMIT:
-                    pos = html.find(kw, start)
-                    if pos < 0:
+        for basis, r0, r1 in regions:
+            for kind in dict.fromkeys(kd for _, kd in ANCHORS[field]):
+                kin_kws = [k for k, kd in ANCHORS[field] if kd == kind]
+                hits: list[dict[str, Any]] = []
+                fallback: dict[str, Any] | None = None
+                seen_tables: set[str] = set()
+                for kw in kin_kws:
+                    if len(hits) >= _MULTI_TABLE_LIMIT:
                         break
-                    start = pos + len(kw)
-                    scanned += 1
-                    hit = _table_for(html, pos)
-                    if not hit:
-                        continue
-                    _, parsed = hit
-                    if is_statement_table(parsed):
-                        skipped_statement += 1     # 본표다 — 다음 출현으로 계속 간다
-                        continue
-                    # 🔴 **표 앞 문장으로 중복을 걸러선 안 된다.** 연결·별도가 같은 제목을
-                    #    쓰기 때문이다(신한은행 「사용제한 예치금」 두 번). 값이 다르면 둘 다
-                    #    담아야 하고, 값까지 같으면 진짜 중복이다 — **본문으로 판별한다.**
-                    body = "|".join(c["text"] for r_ in parsed["rows"] for c in r_)
-                    if body in seen_tables:
-                        continue
-                    seen_tables.add(body)
-                    # 🔴 **다른 성격으로 이미 나간 표면 다시 내지 않는다.** 260823 실측 —
-                    #    메리츠증권은 주석 제목이 「31. 사용이 제한된 예치금 **및**
-                    #    담보제공자산 등」 하나인데 같은 표가 두 성격에 각각 잡혔다
-                    #    (위치 14바이트 차이, 본문 동일). 성격별로 더하면 정확히 두 배다.
-                    if body in emitted_bodies:
-                        emitted_bodies[body].setdefault("also_kinds", []).append(kind)
-                        continue
-                    if is_wrong_direction(parsed["caption"]):
-                        skipped_direction += 1     # 받은 담보·특수관계자 — 부호가 거꾸로다
-                        continue
-                    entry = {"anchor": kw, "kind": kind, "pos": pos,
-                             "axis": axis_of(parsed),
-                             # 사람에게 보일 제목 — 앞 표의 숫자 잔해를 뗀 것
-                             "title": title_only(parsed["caption"]),
-                             # 이 금액이 붙어 있는 재무상태표 계정(뺄셈의 대상)
-                             # 🔴 뺄 계정은 **사용제한·담보제공에만** 뜻이 있다. 260823
-                             #    시험자 지적 — 부산은행 FVOCI(신용등급별 표)에도 붙어
-                             #    「이 계정에서 뺀다」로 읽혔는데 뺄 대상이 아니다.
-                             "account": (account_of(parsed["caption"])
-                                         if kind in ("restricted", "pledged") else None),
-                             "span_start": _table_for_start(html, pos),
-                             # 표 단위 연결/별도. XBRL 은 값마다 basis 가 따로 붙는다.
-                             "table_basis": basis_at(pos, sep),
-                             "heading": is_note_heading(parsed["caption"], kin_kws),
-                             "weak": title_weakness(parsed["caption"]),
-                             "body": body, **parsed}
-                    # 🔴 **제목이 맞아도 주제가 다르면 버린다.** 5차엔 caption 꼬리 오염
-                    #    때문에 이 검사를 제목 대조 뒤로 못 뒀는데, 이제 **제목에서만**
-                    #    보므로 안전하다. 부산은행 FVOCI 가 「신용위험 등급별」 표로
-                    #    ✅ 를 받던 자리다.
-                    # ⚠️ 분모(계정 총액)는 아직 붙이지 않는다. 260823 실측에서 KB손보
-                    #    별도가 자기 표의 합계를 잡았다 — **틀린 분모는 없는 것보다 나쁘다.**
-                    if title_matches(parsed["caption"], kin_kws) and not is_off_topic(entry["title"]):
-                        # 🔴 **원문이 스스로 「내역이 아니다」라고 말한 표는 ✅ 를 주지 않는다.**
-                        #    「대손충당금 변동내역」·「장부금액과 공정가치」 같은 제목이다.
-                        #    값은 내되 🔴 로 낮춘다 — 시험자 우선순위는
-                        #    「🔴 + 맞는 표」 > 「✅ + 틀린 표」다.
-                        entry["title_matched"] = entry["weak"] == 0
-                        hits.append(entry)
-                        continue                   # 🔴 나뉘어 있을 수 있다 — 계속 모은다
-                    # 🔴 제목을 못 맞춘 표만 주제를 따진다. 앞 표의 문장이 caption 꼬리에
-                    #    섞여 들어와서, 제목이 맞은 표를 주제어로 되물리면 안 된다.
-                    if fallback is None and not is_off_topic(entry["title"]):
-                        fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
-            if field != "사용제한" and len(hits) > 1:
-                # 고르는 순서 — ①원문이 「N. <계정명>」으로 표제를 붙인 표 ②「장부금액과
-                # 공정가치」·「증감내역」처럼 내역이 아님을 알리는 말이 없는 표 ③유형별 축
-                # ④앞에 있는 것. 범주별은 헤어컷을 못 매기므로 맨 뒤로 민다.
-                hits.sort(key=lambda e: (
-                    0 if e.get("heading") else 1,
-                    e.get("weak", 0),
-                    0 if e.get("axis") == "유형별" else (2 if e.get("axis") == "범주별" else 1),
-                    e.get("pos", 0),
-                ))
-                hits = hits[:1]
-            if not hits and fallback is not None:
-                # 제목 대조가 안 됐으면 **그렇다고 말한다.** 위험·수준별 표일 수 있어
-                # 읽는 쪽이 그대로 인용하면 안 된다.
-                fallback["title_matched"] = False
-                hits = [fallback]
-            for h in hits:
-                emitted_bodies[h["body"]] = h
-            found.extend(hits)
+                    start, scanned = r0, 0
+                    while scanned < _MAX_SCAN and len(hits) < _MULTI_TABLE_LIMIT:
+                        pos = html.find(kw, start, r1)
+                        if pos < 0:
+                            break
+                        start = pos + len(kw)
+                        scanned += 1
+                        hit = _table_for(html, pos)
+                        if not hit:
+                            continue
+                        _, parsed = hit
+                        if is_statement_table(parsed):
+                            skipped_statement += 1
+                            continue
+                        # 연결·별도가 같은 제목을 쓰므로 **본문**으로 중복을 판별한다.
+                        body = "|".join(c["text"] for r_ in parsed["rows"] for c in r_)
+                        if body in seen_tables:
+                            continue
+                        seen_tables.add(body)
+                        if body in emitted_bodies:
+                            # 메리츠증권처럼 한 표가 두 성격에 걸리는 경우 — 한 번만 낸다
+                            emitted_bodies[body].setdefault("also_kinds", []).append(kind)
+                            continue
+                        if is_wrong_direction(parsed["caption"]):
+                            skipped_direction += 1
+                            continue
+                        entry = {"anchor": kw, "kind": kind, "pos": pos,
+                                 "axis": axis_of(parsed),
+                                 "title": title_only(parsed["caption"]),
+                                 "account": (account_of(parsed["caption"])
+                                             if kind in ("restricted", "pledged") else None),
+                                 "table_basis": basis,
+                                 "heading": is_note_heading(parsed["caption"], kin_kws),
+                                 "weak": title_weakness(parsed["caption"]),
+                                 "body": body, **parsed}
+                        if (title_matches(parsed["caption"], kin_kws)
+                                and not is_off_topic(entry["title"])):
+                            entry["title_matched"] = entry["weak"] == 0
+                            hits.append(entry)
+                            continue
+                        if fallback is None and not is_off_topic(entry["title"]):
+                            fallback = entry
+                if field != "사용제한" and len(hits) > 1:
+                    hits.sort(key=lambda e: (
+                        0 if e.get("heading") else 1,
+                        e.get("weak", 0),
+                        0 if e.get("axis") == "유형별" else (2 if e.get("axis") == "범주별" else 1),
+                        e.get("pos", 0),
+                    ))
+                    hits = hits[:1]
+                if not hits and fallback is not None:
+                    fallback["title_matched"] = False
+                    hits = [fallback]
+                for h in hits:
+                    emitted_bodies[h["body"]] = h
+                found.extend(hits)
         found.sort(key=lambda e: e["pos"])
         if found:
             out[field] = {"status": OK, "tables": found}
@@ -652,19 +697,11 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
         else:
             out[field] = {"status": NOT_APPLICABLE, "tables": [],
                           "note": ("이 문서에서 해당 주석을 찾지 못했다 — 회사가 다른 이름으로 "
-                                   "공시하거나 그 주석이 없다"
-                                   + (f" (재무제표 본표 {skipped_statement}건은 건너뛰었다)"
-                                      if skipped_statement else ""))}
+                                   "공시하거나 그 주석이 없다")}
     _mark_shared_tables(out)
-    _mark_cross_field(out)
     return out
 
 
-#: 어느 필드의 유형별 내역이 **다른 필드 표 안에** 들어 있는 회사가 있다. 260823 실측 —
-#: 국민은행은 「11. 당기손익-공정가치 측정 금융자산 **및 투자금융자산**」 한 주석에 FVPL·
-#: FVOCI·상각후원가를 다 실어, 상각후원가 필드는 대출채권 표를 물고 끝난다. 신한은행은
-#: 반대로 FVOCI 유형별이 상각후원가 필드 표 안에 있다. 세 필드를 다 열어보기 전에는
-#: 어디에 무엇이 들었는지 알 수 없다 — **어느 필드를 보라고 말해준다.**
 def _mark_cross_field(out: dict[str, Any]) -> None:
     for field, res in out.items():
         tables = res.get("tables") or []
