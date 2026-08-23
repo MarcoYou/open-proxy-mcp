@@ -52,15 +52,8 @@ def main():
          ORDER BY e.ticker, e.event_dd""").fetchall()
     total = con.execute("SELECT count(*) FROM krx_adj_events").fetchone()[0]
     print(f"조정 사건 {total:,}건 중 라벨 미판정 {len(resets):,}건 처리")
-    v2 = con.execute(
-        "SELECT ticker, event_dd, factor, event_type, evidence FROM krx_adj_factor_v2").fetchall()
-    dartev = con.execute(
-        "SELECT ticker, kind, rcept_no, rcept_dt FROM dart_capital_events").fetchall()
 
-    # 인덱스: v2 by ticker → [(date, ...)], dart by ticker
     from collections import defaultdict
-    v2i = defaultdict(list); [v2i[r[0]].append(r) for r in v2]
-    dvi = defaultdict(list); [dvi[r[0]].append(r) for r in dartev]
 
     rows, stats = [], defaultdict(int)
     for isu, dd, f, mkt, pm in resets:   # pm = 리셋일 직전 주간 mkt (위 서브쿼리에서 함께 온다)
@@ -76,31 +69,13 @@ def main():
             stats["excluded_market_transfer"] += 1
             continue
 
-        # ② v2 라벨 승계. v2 factor는 '배율'(주식수 배수) = 가격계수의 역수.
-        #    stock_div는 v2 날짜가 신주상장일(연말 배당락보다 ~3-4개월 뒤)이라 창을 (ed-150d ≤ dd ≤ ed)로.
-        best = None
-        for _, ed, vf, vt, ve in v2i.get(isu, []):
-            gap = (d2dt(ed) - d2dt(dd)).days  # 양수 = 리셋이 v2 날짜보다 이전
-            ok = abs(gap) <= 7 or (vt == "stock_div" and 0 <= gap <= 150)
-            if ok and (best is None or abs(gap) < abs(best[0])):
-                best = (gap, vt, ve, vf)
-        if best:
-            _, etype, evid, vf = best
-            src, conf = "reset+v2", "confirmed"
-            if vf and abs(f * vf - 1) > 0.02:  # 역수 정합: 가격계수 × 배율 ≈ 1
-                note = f"v2배율({vf:.4f})의 역수와 2%+ 괴리 — 실측 우선"
-        else:
-            # ③ dart_capital_events (결정공시 rcept_dt ≤ 리셋일 ≤ +150일, 최근접)
-            bestd = None
-            for _, kind, rno, rdt in dvi.get(isu, []):
-                gap = (d2dt(dd) - d2dt(rdt)).days
-                if 0 <= gap <= 150 and (bestd is None or gap < bestd[0]):
-                    bestd = (gap, kind, rno)
-            if bestd:
-                _, etype, evid = bestd
-                src, conf = "reset+dart", "dart"
-            else:
-                src = "reset"
+        # ② ③ 삭제(260823). v2(라벨 장부)·dart_capital_events(공시 근거) 두 표는 **소진됐다** —
+        #   실측: 미판정 1,998건 중 v2 로 붙일 수 있는 것 0건, dart 로 0건. v2 는 20260630 에서
+        #   멎었고 dart 는 20260702, 둘 다 writer 가 없어 더 자라지 않는다. 이미 붙인 라벨
+        #   (reset+v2 1,599 · reset+dart 35)은 krx_adj_events 에 들어 있어 표를 지워도 남는다.
+        #   백업은 open-proxy-storage/db_backups/20260823/.
+        #   → 남은 라벨 경로는 ①(시장이전 제외)과 ④(액면비율 스냅) 둘이다.
+        src = "reset"
 
         # ④ 액면변경 스냅 (벤더=액면가 비율): split/merge 라벨 or 무라벨 + 비율 근접
         if etype in ("split", "merge") or (etype is None and (f < 0.6 or f > 1.7)):
