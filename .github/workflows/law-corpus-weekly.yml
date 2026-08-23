@@ -78,7 +78,32 @@ jobs:
         #   원문이 아니라 **동기화된 우리 corpus** 를 본다 — 원문 결함과 우리 sync
         #   스크립트 결함을 한 게이트가 함께 잡는다. 실패하면 커밋 단계에 못 가므로
         #   워킹트리 변경은 그대로 버려진다.
-        run: uv run python scripts/check_law_corpus_integrity.py
+        #   260823: 실패가 **왜** 났는지 run 페이지에서 바로 보이게 Summary 에 남긴다.
+        #   원문 결함이면 매주 빨간불이 반복되는데, 그때마다 로그를 파고들어야 하면
+        #   「또 그거겠지」로 굳어 진짜 고장을 놓친다. 종료코드는 그대로 넘긴다(막는 건 유지).
+        run: |
+          set +e
+          uv run python scripts/check_law_corpus_integrity.py 2>&1 | tee /tmp/integrity.out
+          RC=${PIPESTATUS[0]}
+          set -e
+          if [ "$RC" -ne 0 ]; then
+            {
+              echo "## 🔴 온전성 게이트가 막았다 — corpus 는 갱신되지 않았다"
+              echo ""
+              echo "**우리 코드 고장이 아니라 원문(legalize-kr) 결함일 가능성이 높다.**"
+              echo "아래 진단을 먼저 읽고, 원문 문제면 **고칠 것 없이 기다린다** — 원문이 고쳐지면"
+              echo "다음 주 배치가 저절로 통과한다. 그동안 corpus 는 직전 온전본으로 서빙되고,"
+              echo "\`law_lookup\` 응답에는 자료 기준일 경고가 붙는다."
+              echo ""
+              echo "- 원문 소스 최신 공포일: \`${{ steps.freshness.outputs.newest }}\`"
+              echo ""
+              echo '```'
+              cat /tmp/integrity.out
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=원문 결함으로 corpus 갱신 보류::온전성 게이트 차단 — Summary 참조. 원문이 고쳐질 때까지 매주 실패한다."
+          fi
+          exit "$RC"
 
       - name: SSOT 대조 — 손으로 관리하는 40룰·조항대장이 원문과 맞나
         # 260814 신설. corpus 만 갱신하고 규칙은 손으로 관리하므로, 원문이 바뀌었는데

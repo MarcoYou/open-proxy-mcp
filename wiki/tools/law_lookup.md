@@ -22,7 +22,8 @@ created: 2026-07-13
 이 tool 은 정관↔법령을 양방향으로, 키워드·두루뭉술 질의로, 1:1·N:1·1:N·N:N 카디널리티로 잇는다.
 
 ## 데이터 소스
-- **corpus**: `wiki/rules/laws/corpus/` — legalize-kr(github.com/MarcoYou/legalize-kr) 원문을
+- **corpus**: `wiki/rules/laws/corpus/` — legalize-kr(**github.com/legalize-kr/legalize-kr** — 원본.
+  260817 이전에는 포크 `MarcoYou/legalize-kr` 를 봤는데 7-02 에 멈춰 6주간 헛돌았다) 원문을
   `scripts/sync_law_corpus.py`가 vendored 복사 + 조 단위 인덱스(`law_index.json`) + **조문 전문 형태소
   BM25 인덱스(`law_bm25.json`, Signal C)** + 재현성 manifest.
   v1 범위 = 상법·자본시장법·공정거래법·외부감사법 (각 법률+시행령) **2,725조**(BM25는 삭제 제외 2,599조).
@@ -33,6 +34,13 @@ created: 2026-07-13
   **결정성**: 색인은 `synced_at` 미포함 + df 키정렬 + tokenizer 타이브레이크 `(-len, surface)`로
   해시시드 무관 바이트 동일 → 내용 무변화 시 커밋 안 함(가짜 커밋 방지). 자료 기준일은 `corpus_freshness()`
   로 출력에 표시(`data.corpus_asof`), 30일 초과 시 안내 경고.
+- 🔴 **온전성 게이트**(`scripts/check_law_corpus_integrity.py`, 260817 신설): 재복사 뒤 **조문이 온전한가**를
+  묻고 아니면 **커밋을 막는다**. 계기 — 원문이 자본시장법·공정거래법 법률에서 목(가./나./다.)을 통째로
+  잃은 채 갱신됐는데 기존 게이트 셋이 전부 통과시켰다(조문 수 137→137·SSOT 는 번호만 대조·공포일은 최신).
+  **셋 다 「있나」만 물었다.**
+  **부작용을 알고 있어야 한다** — 원문이 불량인 동안 배치는 **매주 빨간불로 실패**하고 corpus 는 낡은 채
+  머문다. 이건 고장이 아니라 **의도된 보류**다. 실패한 run 의 Summary 에 무엇이 왜 막혔는지 찍힌다.
+  원문이 고쳐지면 다음 주 배치가 저절로 통과해 들어온다.
 - **bridge**: `law_layer_rules.json`(40룰) — 정관 변경패턴 ↔ 조문. `_agenda_pattern_match` 재사용.
 - **어휘**: `law_lookup_synonyms.json` — 폐쇄 도메인 어휘·동의어(등가만)·날짜게이트·false-friend guard
   (E/B 신호·폴백 분류·guard 전용. Signal C는 260714부터 이 폐쇄어휘 대신 형태소 BM25를 씀).
