@@ -80,3 +80,22 @@ def test_company_tool_path_uses_the_same_filers_rule_as_the_resolver():
     tool_path = src[i_tool:i_tool + 1400]
     assert "periodic_filers()" in tool_path, "tool 경로가 명부를 안 본다"
     assert "is_financial_name" in tool_path, "tool 경로가 금융업 판정을 안 한다"
+
+
+def test_names_are_not_duplicated_into_the_bundle():
+    """이름은 **corp_codes 원장에만** 둔다.
+
+    원장은 118,744사를 7일마다 갱신하고 이 명부는 월 1회다 — 여기 이름을 또 담으면
+    이쪽이 더 낡아, 사명이 바뀐 회사에 옛 이름을 보여주게 된다. corp_code 로 이으면
+    되는 것을 복사해두면 두 곳이 어긋난다(260823~24 에 반복해서 본 형태:
+    per_ttm 두 정의 · mkt/market 키 불일치 · 각주가 KSIC 로 굳음 · 상장사 필터 두 벌).
+    """
+    b = _bundle()
+    assert "corp_name_at_collection" not in b, "이름을 명부에 복사했다"
+    assert set(b) == {"meta", "filers"}, f"예상 밖 블록: {set(b) - {'meta', 'filers'}}"
+    assert b["meta"].get("names"), "이름을 왜 안 담는지 적혀 있지 않다"
+
+    import inspect
+    src = inspect.getsource(C._fetch_periodic_filers) if hasattr(C, "_fetch_periodic_filers") \
+        else inspect.getsource(C.DartClient._fetch_periodic_filers)
+    assert "corp_name" not in src, "수집기가 이름을 담는다"

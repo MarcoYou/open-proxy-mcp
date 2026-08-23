@@ -63,6 +63,8 @@ async def main() -> int:
             "refreshed_at": date.today().strftime("%Y-%m-%d"),
             "source": "DART list.json pblntf_ty=A (정기공시), 최근 400일",
             "note": "corp_code → 최근 정기보고서 접수일(YYYYMMDD). 런타임은 키만 쓴다.",
+            "names": "담지 않는다 — 이름은 corp_codes 원장(7일 갱신)에 있고 corp_code 로 잇는다. "
+                     "여기 또 담으면 월 1회인 이쪽이 더 낡아 두 곳이 어긋난다.",
         },
         "filers": dict(sorted(filers.items())),
     }

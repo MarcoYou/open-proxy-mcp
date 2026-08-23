@@ -1226,7 +1226,12 @@ class DartClient:
         logger.info(f"periodic_filers 백그라운드 수집 완료 ({len(filers)} corps)")
 
     async def _fetch_periodic_filers(self) -> dict[str, str]:
-        """DART 에서 명부를 만든다. corp_code 없는 조회는 3개월 창이 상한이라 나눠 돈다."""
+        """DART 에서 명부를 만든다. corp_code 없는 조회는 3개월 창이 상한이라 나눠 돈다.
+
+        **회사명은 담지 않는다.** 이름은 corp_codes 원장(118,744사·7일 갱신)에 있고
+        corp_code 로 이으면 된다. 여기 또 담으면 월 1회 갱신인 이쪽이 더 낡아, 같은 사실이
+        두 곳에서 어긋난다(260823~24 에 반복해서 본 형태).
+        """
         today = date.today()
         filers: dict[str, str] = {}
         cur = today - timedelta(days=_FILERS_LOOKBACK_DAYS)
