@@ -1,0 +1,118 @@
+# -*- coding: utf-8 -*-
+"""financial_notes tool — 금융사 재무제표 주석 표 원형 추출.
+
+설계: wiki/decisions/260823_1720_decision_financial-notes-tool.md
+"""
+from __future__ import annotations
+
+import json
+
+from open_proxy_mcp.dart.client import DartClient, DartClientError
+from open_proxy_mcp.services import financial_notes as svc
+from open_proxy_mcp.services.business_details import (
+    _find_report_candidates, _report_period_tag,
+)
+from open_proxy_mcp.services.contracts import ToolEnvelope
+
+
+def _render(payload: dict) -> str:
+    """표를 **그대로** 마크다운으로. 합치거나 나누지 않는다."""
+    L = [f"# {payload['company']} 재무제표 주석",
+         "",
+         f"- 보고서: {payload['report']['report_nm']} (`{payload['report']['rcept_no']}`)",
+         f"- 조회 필드: {', '.join(payload['fields'])}",
+         ""]
+    for field, res in payload["notes"].items():
+        L.append(f"## {field}")
+        if res["status"] != svc.OK:
+            L += ["", f"> {res['status']} — {res.get('note','')}", ""]
+            continue
+        for t in res["tables"]:
+            kind = {"restricted": "사용제한", "pledged": "담보제공"}.get(t["kind"], t["kind"])
+            L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind} · **형식** "
+                     f"{'XBRL 태그' if t['format']=='xbrl_tagged' else 'HTML 표'}"
+                     + (f" · **단위** {t['unit']}" if t.get("unit") else ""))
+            if t["format"] == "xbrl_tagged":
+                L.append("> 값마다 IFRS 코드·문맥이 붙어 있다 — 연결/별도는 `basis` 로 확인한다.")
+            L.append("")
+            for row in t["rows"]:
+                cells = []
+                for c in row:
+                    s = c["text"] or " "
+                    if c.get("basis"):
+                        s += f" ({c['basis']})"
+                    cells.append(s)
+                L.append("| " + " | ".join(cells) + " |")
+            L.append("")
+    L += ["---",
+          "⚠️ 표는 원문 그대로다. **열 이름의 기준 시점을 반드시 확인할 것** — 같은 표에 당기말과 "
+          "전기말이 함께 있고, 회사에 따라 값이 크게 다르다(KB손보 사용제한 합계: 전기말 391,082 → "
+          "당반기말 26,356).",
+          "⚠️ 「사용제한」과 「담보제공」은 **구분해 내보낸다.** 산식에 같이 넣을지는 이용자가 정한다.",
+          "⚠️ unencumbered cash 계산·헤어컷 적용은 이 tool 밖이다."]
+    return "\n".join(L)
+
+
+def register_tools(mcp):
+
+    @mcp.tool()
+    async def financial_notes(
+        company: str,
+        fields: str = "",
+        period: str = "latest",
+        format: str = "md",
+    ) -> str:
+        """desc: **은행·증권·보험**의 연결/별도 **재무제표 주석** 표를 원형 그대로 추출. ①사용제한 예치금·담보제공자산(→unencumbered cash) ②투자자산 유형별 구성 FVPL·FVOCI·상각후원가(→유형별 헤어컷·자산건전성).
+        when: 금융사 유동성(부채상환능력)·자산건전성 평가. 전사 집계는 `financial_metrics`, 「II.사업의 내용」은 `business_details`.
+        rule: **표를 합치거나 나누지 않는다** — 회사마다 표 형태가 다른 것 자체가 정보다. 모든 값에 열 이름(기준 시점)이 붙어 있으니 **당기말/전기말을 반드시 구분**할 것(KB손보 사용제한: 전기말 391,082 → 당반기말 26,356으로 1/15). **단위가 회사마다 다르다**(백만원/천원/원). 「사용제한」과 「담보제공」은 `kind` 로 구분해 내보내며 **합치지 않는다** — 담보 제공은 소유권이 남고 사용제한은 인출이 막힌 것이라 회계상 다르다. unencumbered cash 계산·헤어컷 적용은 이 tool 밖이다.
+        fields: 쉼표구분 — `사용제한,FVPL,FVOCI,상각후원가` (미지정 시 전부). 문서 다운로드는 회사당 1회라 한 번에 부르는 편이 싸다.
+        period: `latest`(기본, 사업·반기·분기 중 최신 제출분) / `annual` / `quarterly`.
+        """
+        want = [f.strip() for f in fields.split(",") if f.strip()] or list(svc.FIELDS)
+        bad = [f for f in want if f not in svc.ANCHORS]
+        if bad:
+            return f"알 수 없는 항목: {bad}. 가능한 값: {list(svc.FIELDS)}"
+
+        c = DartClient()
+        resolved = await c.resolve_company(company)
+        corp_code = resolved["corp_code"] if isinstance(resolved, dict) else resolved
+        name = resolved.get("corp_name", company) if isinstance(resolved, dict) else company
+
+        cands = await _find_report_candidates(c, corp_code, period)
+        if not cands:
+            return json.dumps({"error": "정기보고서를 찾지 못했습니다", "company": company},
+                              ensure_ascii=False)
+
+        # 정정본은 원문(document.xml)이 없을 수 있다(DART 014) — **같은 기수 원본으로 폴백**한다.
+        # 260823 실측: 삼성화재 [첨부정정]사업보고서가 014, 하루 전 원본은 정상 2,675만자.
+        tag0 = _report_period_tag(cands[0])
+        report = None
+        html = ""
+        tried = []
+        for r in cands[:6]:
+            if tag0 and _report_period_tag(r) != tag0:
+                break                       # 다른 기수로 넘어가면 멈춘다(작년 데이터 금지)
+            try:
+                doc = await c.get_document_cached(r["rcept_no"])
+                report, html = r, doc.get("html") or ""
+                break
+            except DartClientError as e:
+                tried.append(f"{r['rcept_no']}({str(e)[:40]})")
+        if not html:
+            env = ToolEnvelope(tool="financial_notes", status="NO_DATA", subject=name,
+                               warnings=[f"원문을 받지 못했습니다 — 시도: {tried}"],
+                               data={"status": svc.NOT_COLLECTED})
+            return json.dumps(env.to_dict(), ensure_ascii=False)
+
+        notes = svc.extract(html, want)
+        payload = {
+            "company": name, "corp_code": corp_code,
+            "report": {"report_nm": report.get("report_nm", "").strip(),
+                       "rcept_no": report["rcept_no"], "rcept_dt": report.get("rcept_dt")},
+            "fields": want, "notes": notes,
+            "doc_chars": len(html),
+        }
+        if format == "json":
+            env = ToolEnvelope(tool="financial_notes", status="OK", subject=name, data=payload)
+            return json.dumps(env.to_dict(), ensure_ascii=False)
+        return _render(payload)
