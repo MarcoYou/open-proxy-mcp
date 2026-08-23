@@ -1270,6 +1270,13 @@ async def _find_report_candidates(client, corp_code: str, period: str) -> list[d
     내용은 분기/반기도 완전구조라 동일 필드 파싱 — [[사업의내용_ksic별양식]]."""
     if period == "annual":
         detail, toks = ["A001"], ["사업보고서"]
+    elif period in ("half", "semiannual", "반기"):
+        # 🔴 260823 추가 — "quarterly" 는 분기와 반기를 함께 잡는다. 최신이 반기면 반기가
+        #    나와서 **분기만 콕 집을 방법이 없었다.** 금융사는 분기마다 사용제한 잔액이
+        #    크게 움직여 기준시점이 판단을 좌우한다 — 둘을 갈라 부를 수 있어야 한다.
+        detail, toks = ["A002"], ["반기보고서"]
+    elif period in ("quarter", "분기"):
+        detail, toks = ["A003"], ["분기보고서"]
     elif period == "quarterly":
         detail, toks = ["A002", "A003"], ["분기보고서", "반기보고서"]
     else:  # "latest"(기본) — 정기보고서 3종 중 가장 최근 제출분

@@ -232,6 +232,36 @@ _STATEMENT_CAPTIONS = ("요약재무정보", "요약연결재무정보", "재무
 #: 8,574(NH) 같은 문서 맨 앞을 가리키는 일이 있다 — 그래서 본표 차단이 더 필요하다.
 
 
+#: 표 제목에 붙는 말. 「무엇의 **내역**」·「무엇의 **공시**」가 그 표가 무엇인지 말한다.
+#: 🔴 260823 실측 — 앵커 첫 출현은 정답이 아니다. 「당기손익-공정가치측정금융자산」은
+#:    주석 안에서 **공정가치 수준별 내역·금리위험 익스포져·비연결구조화기업 위험** 표에도
+#:    똑같이 나온다. KB손보 반기는 공정가치수준별(514,629)을 물었고 정답은 21행짜리
+#:    「7. 당기손익-공정가치측정금융자산 … 내역」(562,267)이 47,000자 뒤에 있었다.
+#:    NH 사업보고서도 「비연결구조화기업 위험」(1,393,631)을 물고 정답(1,449,639)을 지나쳤다.
+#:    → **표 앞 문장에 「<앵커>…내역/공시」가 있는 표**를 고른다. 원문이 스스로 붙인 제목이라
+#:    금지어 목록을 손으로 관리하는 것보다 안전하다.
+_TITLE_MARKS = ("구성내역", "세부내역", "내역", "공시")
+#: 앵커와 표지어 사이에 끼는 말의 길이. 「담보제공자산 보고기간말 현재 담보제공된 자산의 내역」
+#: 처럼 사이가 벌어지는 경우가 있어 넉넉히 둔다.
+_TITLE_GAP = 30
+#: 앵커 출현을 몇 번까지 훑나. 정답이 47,000자 뒤에 있는 일이 있어 첫 건에서 멈추면 안 된다.
+_MAX_SCAN = 80
+
+
+def title_matches(caption: str, kw: str) -> bool:
+    """표 바로 앞 문장이 **이 표가 무엇인지** 말하고 있나 — 「<앵커>…내역/공시」."""
+    cap = _WS.sub(" ", caption)
+    i = 0
+    while True:
+        i = cap.find(kw, i)
+        if i < 0:
+            return False
+        tail = cap[i + len(kw): i + len(kw) + _TITLE_GAP]
+        if any(m in tail for m in _TITLE_MARKS):
+            return True
+        i += len(kw)
+
+
 def is_statement_table(parsed: dict[str, Any]) -> bool:
     """이 표가 재무제표 **본표**(또는 요약재무정보)인가. 주석 표라면 False."""
     cap = parsed.get("caption", "")
@@ -291,12 +321,16 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
         for kw, kind in ANCHORS[field]:
             if kind in seen_kinds:
                 continue                      # 이 성격은 이미 확보했다
-            start = off
-            while True:
+            best: dict[str, Any] | None = None      # 제목이 맞는 표
+            fallback: dict[str, Any] | None = None  # 제목 대조 실패 — 최후 수단
+            start, scanned = off, 0
+            seen_tables: set[str] = set()
+            while scanned < _MAX_SCAN:
                 p = html.find(kw, start)
                 if p < 0:
                     break
                 start = p + len(kw)
+                scanned += 1
                 hit = _table_for(html, p)
                 if not hit:
                     continue
@@ -304,9 +338,22 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 if is_statement_table(parsed):
                     skipped_statement += 1     # 본표다 — 다음 출현으로 계속 간다
                     continue
-                found.append({"anchor": kw, "kind": kind, "pos": p, **parsed})
+                if parsed["caption"] in seen_tables:
+                    continue
+                seen_tables.add(parsed["caption"])
+                entry = {"anchor": kw, "kind": kind, "pos": p, **parsed}
+                if title_matches(parsed["caption"], kw):
+                    best = entry
+                    break                      # 원문이 제목을 붙여준 표 — 더 볼 것 없다
+                if fallback is None:
+                    fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
+            pick = best or fallback
+            if pick is not None:
+                # 🔴 제목 대조가 안 됐으면 **그렇다고 말한다.** 위험·수준별 표일 수 있어
+                #    읽는 쪽이 그대로 인용하면 안 된다.
+                pick["title_matched"] = best is not None
+                found.append(pick)
                 seen_kinds.add(kind)
-                break                          # 이 앵커에서는 첫 표만
         if found:
             out[field] = {"status": OK, "tables": found}
             if skipped_statement:

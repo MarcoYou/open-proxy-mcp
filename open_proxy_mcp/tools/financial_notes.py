@@ -40,6 +40,10 @@ def _render(payload: dict) -> str:
             if t["format"] == "xbrl_tagged":
                 L.append("> 값마다 IFRS 코드가 붙어 있다 — `[acode]` 로 항목을 확인한다. "
                          "**열 위치로 짐작하지 말 것.** 연결/별도는 `basis`.")
+            if t.get("title_matched") is False:
+                L.append("> 🔴 **표 제목을 대조하지 못했다** — 원문이 이 표에 "
+                         f"「{t['anchor']}…내역/공시」라는 제목을 붙이지 않았다. "
+                         "위험·공정가치수준별 같은 **다른 표일 수 있으니 그대로 인용하지 말 것.**")
             if t.get("shared_with"):
                 L.append(f"> ℹ️ 이 표는 **{', '.join(t['shared_with'])} 와 같은 표**다 — "
                          f"회사가 한 표에 함께 공시했다. 중복 반환이 아니다.")
@@ -84,7 +88,7 @@ def register_tools(mcp):
         when: 금융사 유동성(부채상환능력)·자산건전성 평가. 전사 집계는 `financial_metrics`, 「II.사업의 내용」은 `business_details`.
         rule: **표를 합치거나 나누지 않는다** — 회사마다 표 형태가 다른 것 자체가 정보다. 모든 값에 열 이름(기준 시점)이 붙어 있으니 **당기말/전기말을 반드시 구분**할 것(KB손보 사용제한: 전기말 391,082 → 당반기말 26,356으로 1/15). **단위가 회사마다 다르다**(백만원/천원/원). 「사용제한」과 「담보제공」은 `kind` 로 구분해 내보내며 **합치지 않는다** — 담보 제공은 소유권이 남고 사용제한은 인출이 막힌 것이라 회계상 다르다. unencumbered cash 계산·헤어컷 적용은 이 tool 밖이다.
         fields: 쉼표구분 — `사용제한,FVPL,FVOCI,상각후원가` (미지정 시 전부). 문서 다운로드는 회사당 1회라 한 번에 부르는 편이 싸다.
-        period: `latest`(기본, 사업·반기·분기 중 최신 제출분) / `annual` / `quarterly`.
+        period: `latest`(기본, 사업·반기·분기 중 최신 제출분) / `annual`(사업) / `half`(반기) / `quarter`(분기) / `quarterly`(분기+반기 중 최신). **`quarterly` 는 반기를 함께 잡으므로 분기만 보려면 `quarter` 를 쓸 것.**
         """
         want = [f.strip() for f in fields.split(",") if f.strip()] or list(svc.FIELDS)
         bad = [f for f in want if f not in svc.ANCHORS]
