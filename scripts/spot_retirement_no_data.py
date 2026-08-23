@@ -12,7 +12,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path("/Users/marcoyou/Projects/open-proxy-mcp")
+ROOT = Path(__file__).resolve().parents[1]   # 저장소 루트 — 하드코딩하면 남의 클론에서 안 돈다
 sys.path.insert(0, str(ROOT))
 
 from open_proxy_mcp.dart.client import DartClient

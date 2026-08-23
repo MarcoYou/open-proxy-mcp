@@ -271,7 +271,7 @@ def fly_token() -> str:
     tok = os.environ.get("FLY_API_TOKEN")
     if tok:
         return tok.strip()
-    fly = shutil.which("fly") or "/Users/marcoyou/.fly/bin/fly"
+    fly = shutil.which("fly") or "fly"   # PATH 에 맡긴다 — 개인 홈 경로를 박지 않는다
     out = subprocess.run([fly, "auth", "token"], capture_output=True, text=True, timeout=30).stdout
     for line in out.splitlines():
         line = line.strip()
@@ -379,7 +379,7 @@ def _iso_ns(ts):
 
 def pull_from_fly(con: sqlite3.Connection) -> int:
     """각 Fly 머신(볼륨 분리)에서 events를 긁어 로컬 DB에 합산. event_id PK로 dedup."""
-    fly = shutil.which("fly") or "/Users/marcoyou/.fly/bin/fly"
+    fly = shutil.which("fly") or "fly"   # PATH 에 맡긴다 — 개인 홈 경로를 박지 않는다
     out = subprocess.run([fly, "machines", "list", "--json", "-a", APP],
                          capture_output=True, text=True, timeout=60)
     try:

@@ -8,7 +8,7 @@ related: [DART-OpenAPI, Upstage-OCR, 파서-판정-등급, XML-vs-PDF, agm-case-
 # 3-Tier Fallback
 
 > ⚠️ **2026-07-12 변경 — OPM은 XML 단독.** PDF 다운로드·OCR(Upstage)·opendataloader 폴백은
-> OPM에서 폐기하고 고급 프로덕트 **open-proxy-ai**(`/Users/marcoyou/Projects/open-proxy-ai`,
+> OPM에서 폐기하고 고급 프로덕트 **open-proxy-ai**(별도 저장소,
 > `pipeline/pdf_parser.py` + `pipeline/pdf_download.py`)로 이관했다. 아래 3단계 전략은 이제
 > **open-proxy-ai(폴백 전용 프로덕트)의 아키텍처**로만 유효하며, OPM은 `_xml` tier(XML 단독)만
 > 제공한다. OPM에서 XML이 불완전하면 원문을 AI에 노출해 보정(soft-fail)하고, 조작된 FOR는 내지 않는다.

@@ -10,7 +10,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-ROOT = Path("/Users/marcoyou/Projects/open-proxy-mcp")
+ROOT = Path(__file__).resolve().parents[1]   # 저장소 루트 — 하드코딩하면 남의 클론에서 안 돈다
 
 
 def load_summaries(patterns: list[str]) -> tuple[list, dict]:

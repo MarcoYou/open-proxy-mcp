@@ -1,4 +1,6 @@
-# Wiki: 레포 비공개 전환으로 GitHub 추적 재개 (raw 바이너리/대용량 corpora만 하단에서 개별 제외).
+# 🔴 이 레포는 PUBLIC 이다. 무엇을 추가하든 「공개돼도 되는가」를 먼저 묻는다.
+#    (옛 주석은 「비공개 전환으로 추적 재개」라고 적혀 있었으나 사실과 달라 2026-08-23 정정)
+# Wiki 는 추적한다 — raw 바이너리·대용량 corpora 만 하단에서 개별 제외.
 
 # Environment
 .env
@@ -161,3 +163,6 @@ wiki/architecture/audits/data/
 scratchpad_*.json
 .claude/launch.json
 .claude/skills/opm-manual
+
+# Claude Code 로컬 설정 (개인 경로·권한 허용목록 — 커밋 금지)
+.claude/settings.local.json
