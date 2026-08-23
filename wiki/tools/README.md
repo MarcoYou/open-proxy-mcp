@@ -61,6 +61,8 @@ updated: 2026-07-22
 | [corporate_deals](corporate_deals.md) | 회사·지분 인수/매각 (계열사 출자·회수) |
 | [order_contracts](order_contracts.md) | 수주·공급계약 (체결·해지, 매출 대비 규모) |
 | [risk_events](risk_events.md) | 리스크 사건 — 중대재해·횡령배임·생산중단 |
+| [financial_notes](financial_notes.md) | **금융사 재무제표 주석 원형 추출** — 사용제한 예치금·담보제공자산(→unencumbered cash)과 투자자산 유형별 구성 FVPL·FVOCI·상각후원가(→유형별 헤어컷). 연결/별도·시점·축·단위·뺄 계정을 판정해 함께 낸다 |
+| [director_news](director_news.md) | 이사 후보 **부정 뉴스** 점검 — 공시에 안 나오는 횡령·배임·제재를 훑는다. 동명이인은 가르지 못한다 |
 
 ### 🔗 근거 · 참조
 | 도구 | 무엇을 답하나 |
@@ -105,12 +107,12 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 
 ## 카테고리별 통계
 
-각 tool 페이지의 `domain:` 프론트매터가 근거다(합 26 = 런타임 tool 수). **표를 손으로 세지 말 것** —
+각 tool 페이지의 `domain:` 프론트매터가 근거다(합 28 = 런타임 tool 수). **표를 손으로 세지 말 것** —
 `scripts/check_tool_catalog.py` 가 이 합과 런타임을 대조한다.
 
 | 도메인 | tool 수 | 무엇이 다른가 |
 |--------|---------|---------|
-| data | 20 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
+| data | 22 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
 | action | 3 | **upstream data tool 을 불러 판단·요약**한다. `proxy_advise_before_meeting`(안건별 찬반) · `shareholder_commitment`(약속↔이행 대조, 신규 계산 1개 추가) · `screener`(전체시장 market-scan + hit 별 파서 디스패치) |
 | reference | 3 | **회사·DART 무관 · API 0회.** `evidence`(접수번호→뷰어 URL) · `law_lookup`(법령 원문) · `proxy_guideline`(OPM 의결권 정책 원문) |
 
