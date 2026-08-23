@@ -61,6 +61,13 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/adj_factor_v3.py
 
+      - name: 시계열 해석 주의 딱지 갱신 (KRX·DART 0콜)
+        # 260823 신설. `krx_stock_flags` 는 valuation 이 읽어 사용자에게 경고를 붙이는데
+        #   **만드는 코드가 레포에 없어서** 260702 에 박제돼 있었다. 그 뒤 분할·감자한 종목은
+        #   시계열이 끊겼는데도 경고 없이 나갔다.
+        #   원장(krx_shares_ledger)에서 파생되므로 위 스윕 다음에 온다.
+        run: uv run python scripts/krx_stock_flags.py
+
       - name: Run weekly valuation snapshot
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

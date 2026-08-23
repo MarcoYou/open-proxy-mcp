@@ -49,6 +49,10 @@ CREATE TABLE IF NOT EXISTS krx_base_resets (
   PRIMARY KEY (isu_cd, reset_dd));
 CREATE INDEX IF NOT EXISTS idx_base_resets_isu ON krx_base_resets (isu_cd, reset_dd);
 CREATE TABLE IF NOT EXISTS krx_reset_sweep_checkpoint (bas_dd text PRIMARY KEY, n_stocks int);
+CREATE TABLE IF NOT EXISTS krx_shares_ledger (
+  isu_cd text NOT NULL, chg_dd text NOT NULL,
+  prev_shrs bigint, new_shrs bigint, mkt text,
+  PRIMARY KEY (isu_cd, chg_dd));
 """
 
 
@@ -105,6 +109,12 @@ async def sweep(since: date, cap: int):
     done = {r[0] for r in con.execute("SELECT bas_dd FROM krx_reset_sweep_checkpoint").fetchall()}
     # 재개 시 prev_close 시드: ① 마지막 처리일 재조회 ② 부재 종목은 krx_weekly 최근 종가
     prev_close: dict[str, float] = {}
+    # 260823: 주식수 원장(krx_shares_ledger)을 같은 스냅샷에서 함께 적는다 — **KRX 콜 0 추가**.
+    #   원장은 writer 가 없어 20260701 에 멎어 있었는데, `krx_stock_flags`(시계열 해석 주의 딱지)가
+    #   전적으로 이 원장에서 파생된다(실측: unresolved_adjustment 이벤트 125/125 가 원장 날짜).
+    #   원장이 멈추면 딱지도 멈추고, 새로 분할·감자한 종목은 경고 없이 나간다.
+    #   여기 붙이는 이유 — 이 스윕이 이미 전종목 일별 스냅샷(LIST_SHRS 포함)을 받아온다.
+    prev_shrs: dict[str, int] = {}
     last = max(done) if done else None
     async with httpx.AsyncClient(timeout=30, verify=_ssl_ctx()) as h:
         if last:
@@ -117,6 +127,14 @@ async def sweep(since: date, cap: int):
             for isu, c in con.execute("""SELECT DISTINCT ON (isu_cd) isu_cd, close FROM krx_weekly
                                          WHERE bas_dd <= %s ORDER BY isu_cd, bas_dd DESC""", (last,)).fetchall():
                 prev_close.setdefault(isu, float(c) if c else None)
+            # 주식수 원장 시드 — 원장의 마지막 값이 우선, 없으면 krx_weekly 최근 상장주식수
+            for isu, n in con.execute("""SELECT DISTINCT ON (isu_cd) isu_cd, new_shrs FROM krx_shares_ledger
+                                         WHERE chg_dd <= %s ORDER BY isu_cd, chg_dd DESC""", (last,)).fetchall():
+                if n: prev_shrs[isu] = int(n)
+            for isu, n in con.execute("""SELECT DISTINCT ON (isu_cd) isu_cd, list_shrs FROM krx_weekly
+                                         WHERE bas_dd <= %s AND list_shrs > 0 ORDER BY isu_cd, bas_dd DESC""",
+                                      (last,)).fetchall():
+                prev_shrs.setdefault(isu, int(n))
             print(f"재개: 처리일 {len(done)} (마지막 {last}) | 시드 종목 {len(prev_close):,}", flush=True)
 
         days = []
@@ -129,7 +147,7 @@ async def sweep(since: date, cap: int):
         print(f"처리할 평일 {len(days)}일 (CALL_CAP {cap})", flush=True)
 
         t0 = time.time()
-        n_resets = n_days = 0
+        n_resets = n_days = n_shrs = 0
         try:
             for day in days:
                 snaps = []
@@ -150,7 +168,7 @@ async def sweep(since: date, cap: int):
                     con.commit()
                     n_days += 1
                     continue
-                rows, n_st = [], 0
+                rows, srows, n_st = [], [], 0
                 for mkt, snap in snaps:
                     for x in snap:
                         isu = x.get("ISU_CD")
@@ -164,13 +182,26 @@ async def sweep(since: date, cap: int):
                         if pc and abs(base - pc) > max(pc * 0.001, 1.0):
                             rows.append((isu, day, pc, base, close, base / pc, mkt))
                         prev_close[isu] = close
+                        # 주식수 원장 — 변동한 날만 적는다(원장 기존 규약과 동일).
+                        # 첫 등장(prev 없음)은 prev_shrs=NULL 로 기록 — 신규상장 표시.
+                        ns = _num(x.get("LIST_SHRS"))
+                        if ns:
+                            ps = prev_shrs.get(isu)
+                            if ps is None or ps != int(ns):
+                                srows.append((isu, day, ps, int(ns), mkt))
+                            prev_shrs[isu] = int(ns)
                 with con.cursor() as cur:
                     if rows:
                         cur.executemany("""INSERT INTO krx_base_resets VALUES (%s,%s,%s,%s,%s,%s,%s)
                                            ON CONFLICT (isu_cd, reset_dd) DO NOTHING""", rows)
+                    if srows:
+                        cur.executemany("""INSERT INTO krx_shares_ledger
+                                           (isu_cd, chg_dd, prev_shrs, new_shrs, mkt)
+                                           VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""", srows)
                     cur.execute("INSERT INTO krx_reset_sweep_checkpoint VALUES (%s,%s) ON CONFLICT DO NOTHING", (day, n_st))
                 con.commit()
                 n_resets += len(rows)
+                n_shrs += len(srows)
                 n_days += 1
                 if n_days % 100 == 0:
                     print(f"  {n_days}일 | 리셋 {n_resets:,}건 | 콜 {_calls} | {time.time()-t0:.0f}s (마지막 {day})", flush=True)
@@ -179,7 +210,9 @@ async def sweep(since: date, cap: int):
 
     tot = con.execute("SELECT count(*), count(DISTINCT isu_cd) FROM krx_base_resets").fetchone()
     dd = con.execute("SELECT count(*), max(bas_dd) FROM krx_reset_sweep_checkpoint").fetchone()
+    led = con.execute("SELECT count(*), max(chg_dd) FROM krx_shares_ledger").fetchone()
     print(f"\n리셋 테이블: {tot[0]:,}건 / {tot[1]:,}종목 | 처리일 {dd[0]:,} (최신 {dd[1]}) | 이번 콜 {_calls}", flush=True)
+    print(f"주식수 원장: {led[0]:,}건 (최신 {led[1]}) | 이번 추가 {n_shrs:,}", flush=True)
     con.close()
 
 
