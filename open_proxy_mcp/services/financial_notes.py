@@ -281,6 +281,41 @@ _WRONG_DIRECTION = ("제공받", "수취한 담보", "특수관계자")
 _DIRECTION_TAIL = 140
 
 
+
+#: 🔴 **같은 필드에 축이 다른 표가 둘 있다.** 260823 T보고 —
+#:    「범주별」은 **어떤 자산을 어떤 측정범주로 분류했나**(행=예치금·대출채권·유가증권,
+#:    열=당기손익·기타포괄손익·상각후원가)이고, 「유형별」은 **그 안이 무엇인가**
+#:    (국공채·금융채·회사채·수익증권)이다. **헤어컷은 유형별로만 매길 수 있다** —
+#:    범주별은 「FVPL 유가증권 31.5조」 한 칸이라 국채인지 회사채인지 알 수 없다.
+#:    국민은행 상각후원가가 범주별 표를 경고 없이 물었던 자리다.
+_CATEGORY_AXIS = ("당기손익", "기타포괄손익", "상각후원가", "위험회피")
+_TYPE_AXIS = ("국공채", "국채", "공채", "회사채", "금융채", "특수채", "수익증권",
+              "지분증권", "채무증권", "출자금", "자산담보부", "기업어음", "사모사채",
+              "외화유가증권", "주식")
+
+
+def axis_of(parsed: dict[str, Any]) -> str | None:
+    """이 표의 축이 「범주별」인가 「유형별」인가. 못 가리면 None.
+
+    표 전체가 아니라 **머리글과 첫 열**만 본다 — 축은 거기서 정해진다.
+    """
+    labels = list(parsed.get("header") or [])
+    for row in parsed["rows"][:12]:
+        if row:
+            labels.append(row[0]["text"])
+            labels.append(row[-1]["text"] if len(row) > 1 else "")
+    for row in parsed["rows"][:4]:
+        labels += [c["text"] for c in row]
+    blob = " ".join(labels)
+    cat = sum(1 for k in _CATEGORY_AXIS if k in blob)
+    typ = sum(1 for k in _TYPE_AXIS if k in blob)
+    if typ >= 3 and typ > cat:
+        return "유형별"
+    if cat >= 3 and cat > typ:
+        return "범주별"
+    return None
+
+
 def is_wrong_direction(caption: str) -> bool:
     """이 표가 **받은 담보**·특수관계자 표인가. 우리가 찾는 것은 회사가 **제공한** 담보다."""
     tail = _WS.sub(" ", caption)[-_DIRECTION_TAIL:]
@@ -373,7 +408,7 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 continue                      # 이 성격은 이미 확보했다
             # 제목에 쓰인 이름이 앵커와 다를 수 있어 **같은 성격의 앵커를 전부** 대조한다
             kin_kws = [k for k, kd in ANCHORS[field] if kd == kind]
-            limit = _MULTI_TABLE_LIMIT if field == "사용제한" else 1
+            limit = _MULTI_TABLE_LIMIT
             hits: list[dict[str, Any]] = []         # 제목이 맞은 표들
             fallback: dict[str, Any] | None = None  # 제목 대조 실패 — 최후 수단
             start, scanned = off, 0
@@ -401,7 +436,8 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 if is_wrong_direction(parsed["caption"]):
                     skipped_direction += 1     # 받은 담보·특수관계자 — 부호가 거꾸로다
                     continue
-                entry = {"anchor": kw, "kind": kind, "pos": p, **parsed}
+                entry = {"anchor": kw, "kind": kind, "pos": p,
+                         "axis": axis_of(parsed), **parsed}
                 if title_matches(parsed["caption"], kin_kws):
                     entry["title_matched"] = True
                     hits.append(entry)
@@ -410,6 +446,11 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 #    섞여 들어오는 일이 있어, 제목이 맞은 표를 주제어로 되물리면 안 된다.
                 if fallback is None and not is_off_topic(parsed["caption"]):
                     fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
+            if field != "사용제한" and len(hits) > 1:
+                # 🔴 유형별이 있으면 그것을 쓴다. 범주별은 헤어컷을 못 매긴다.
+                hits.sort(key=lambda e: 0 if e.get("axis") == "유형별" else
+                                        (2 if e.get("axis") == "범주별" else 1))
+                hits = hits[:1]
             if not hits and fallback is not None:
                 # 제목 대조가 안 됐으면 **그렇다고 말한다.** 위험·수준별 표일 수 있어
                 # 읽는 쪽이 그대로 인용하면 안 된다.
