@@ -42,13 +42,17 @@ _calls = 0
 _fail_streak = 0
 
 DDL = """
-CREATE TABLE IF NOT EXISTS krx_base_resets (
-  isu_cd text NOT NULL, reset_dd text NOT NULL,
-  prev_close double precision, base_price double precision, close double precision,
-  factor double precision, mkt text,
-  PRIMARY KEY (isu_cd, reset_dd));
-CREATE INDEX IF NOT EXISTS idx_base_resets_isu ON krx_base_resets (isu_cd, reset_dd);
 CREATE TABLE IF NOT EXISTS krx_reset_sweep_checkpoint (bas_dd text PRIMARY KEY, n_stocks int);
+-- 260823: krx_base_resets(측정) + krx_adj_factor_v3(라벨)을 한 표로 통합. 갱신이 2단계였던 탓에
+--   뒤쪽(라벨)이 260705 부터 실행 불가였는데 앞쪽만 돌아 아무도 몰랐다. 한 표면 라벨 칸이
+--   비어 있는 게 바로 보이고, 라벨 작업은 INSERT 가 아니라 그 빈 칸 UPDATE 가 된다.
+CREATE TABLE IF NOT EXISTS krx_adj_events (
+  isu_cd text NOT NULL, event_dd text NOT NULL, mkt text,
+  event_close double precision, prev_close double precision, base_price double precision,
+  adj_factor_raw double precision, adj_factor double precision,
+  event_type text, rcept_no text, label_source text, label_confidence text, note text,
+  PRIMARY KEY (isu_cd, event_dd));
+CREATE INDEX IF NOT EXISTS idx_adj_events_isu ON krx_adj_events (isu_cd, event_dd);
 CREATE TABLE IF NOT EXISTS krx_shares_ledger (
   isu_cd text NOT NULL, chg_dd text NOT NULL,
   prev_shrs bigint, new_shrs bigint, mkt text,
@@ -180,7 +184,7 @@ async def sweep(since: date, cap: int):
                         base = close - chg
                         pc = prev_close.get(isu)
                         if pc and abs(base - pc) > max(pc * 0.001, 1.0):
-                            rows.append((isu, day, pc, base, close, base / pc, mkt))
+                            rows.append((isu, day, mkt, pc, base, close, base / pc, base / pc))
                         prev_close[isu] = close
                         # 주식수 원장 — 변동한 날만 적는다(원장 기존 규약과 동일).
                         # 첫 등장(prev 없음)은 prev_shrs=NULL 로 기록 — 신규상장 표시.
@@ -192,8 +196,13 @@ async def sweep(since: date, cap: int):
                             prev_shrs[isu] = int(ns)
                 with con.cursor() as cur:
                     if rows:
-                        cur.executemany("""INSERT INTO krx_base_resets VALUES (%s,%s,%s,%s,%s,%s,%s)
-                                           ON CONFLICT (isu_cd, reset_dd) DO NOTHING""", rows)
+                        # 라벨 칸은 비워 둔다 — adj_factor_v3.py 가 나중에 UPDATE 로 채운다.
+                        # adj_factor 는 우선 실측과 같게 두고, 액면비율 스냅이 걸리면 그때 덮인다.
+                        cur.executemany("""INSERT INTO krx_adj_events
+                            (isu_cd, event_dd, mkt, prev_close, base_price, event_close,
+                             adj_factor_raw, adj_factor, label_confidence)
+                            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'unlabeled')
+                            ON CONFLICT (isu_cd, event_dd) DO NOTHING""", rows)
                     if srows:
                         cur.executemany("""INSERT INTO krx_shares_ledger
                                            (isu_cd, chg_dd, prev_shrs, new_shrs, mkt)
@@ -208,10 +217,10 @@ async def sweep(since: date, cap: int):
         except RuntimeError as e:
             print(f"\n중단: {e}", flush=True)
 
-    tot = con.execute("SELECT count(*), count(DISTINCT isu_cd) FROM krx_base_resets").fetchone()
+    tot = con.execute("SELECT count(*), count(DISTINCT isu_cd) FROM krx_adj_events").fetchone()
     dd = con.execute("SELECT count(*), max(bas_dd) FROM krx_reset_sweep_checkpoint").fetchone()
     led = con.execute("SELECT count(*), max(chg_dd) FROM krx_shares_ledger").fetchone()
-    print(f"\n리셋 테이블: {tot[0]:,}건 / {tot[1]:,}종목 | 처리일 {dd[0]:,} (최신 {dd[1]}) | 이번 콜 {_calls}", flush=True)
+    print(f"\n조정 사건: {tot[0]:,}건 / {tot[1]:,}종목 | 처리일 {dd[0]:,} (최신 {dd[1]}) | 이번 콜 {_calls}", flush=True)
     print(f"주식수 원장: {led[0]:,}건 (최신 {led[1]}) | 이번 추가 {n_shrs:,}", flush=True)
     con.close()
 

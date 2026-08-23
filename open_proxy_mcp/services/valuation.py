@@ -253,7 +253,7 @@ async def _resolve_listed(query: str) -> tuple[dict | None, dict | None]:
 # ── 시장·산업·종목 히스토리 스코프 — 주간 스냅샷 테이블(DB-first, market_val_weekly.py가 갱신) ──
 # mkt_val_history(시장) · mkt_val_history(KSIC 섹터) · firm_valuation_snapshot(종목별). PER/PBR·시총 시계열은
 # 시총 기반이라 **수정주가 조정에 불변**(시총=주가×주식수, 분할·무상증자에 양쪽이 상쇄) — 조정 불필요.
-# 주당 가격·EPS 시계열을 노출하게 되면 그때 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수(wiki 수정주가).
+# 주당 가격·EPS 시계열을 노출하게 되면 그때 krx_adj_events(기준가 리셋 실측) 적용 필수(wiki 수정주가).
 
 
 def _pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
@@ -721,13 +721,15 @@ def _eps_disclosed(rows: list, *fields: str) -> float | None:
 
 async def _eps_adj_factor(isu_cd: str, after_dd: str) -> float:
     """(after_dd, 오늘] 조정성 이벤트(액면분할·병합·무상증자·주식배당)의 누적 수정계수 —
-    수정주가 파이프라인 krx_adj_factor_v3(기준가 리셋 실측) 재사용.
+    수정주가 파이프라인 krx_adj_events(기준가 리셋 실측 + 라벨) 재사용.
+    260823: krx_base_resets(측정) + krx_adj_factor_v3(라벨) 두 표를 통합했다 — 갱신이 2단계라
+    뒤쪽이 깨져도 앞쪽만 돌면 멀쩡해 보였고, 실제로 260705 부터 라벨 쪽이 실행 불가였다.
     EPS는 가격과 같은 방향으로 조정(주식수 n배 → EPS 1/n = ×factor). 유상증자·감자·미라벨(None)은
     보수적으로 제외 — 잔여는 sanity 경고가 방어."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT factor FROM krx_adj_factor_v3 WHERE isu_cd=%s AND effective_date>%s "
-        "AND event_type IN ('split','merge','bonus','stock_div') AND factor IS NOT NULL "
-        "AND confidence='confirmed'", (isu_cd, after_dd))
+        "SELECT adj_factor FROM krx_adj_events WHERE isu_cd=%s AND event_dd>%s "
+        "AND event_type IN ('split','merge','bonus','stock_div') AND adj_factor IS NOT NULL "
+        "AND label_confidence='confirmed'", (isu_cd, after_dd))
     f = 1.0
     for (x,) in rows or []:
         if x and x > 0:
@@ -871,7 +873,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     eps_fy_disc = _eps_disclosed(fy_rows, "thstrm_amount")
     eps_qc_disc = _eps_disclosed(qc_rows, "thstrm_add_amount", "thstrm_amount")
     eps_qp_disc = _eps_disclosed(qp_rows, "thstrm_add_amount", "thstrm_amount")
-    # 수정계수 보정(krx_adj_factor_v3, 코스닥 스윕 리노공업 실증): 기중 액면분할·무상증자·주식배당
+    # 수정계수 보정(krx_adj_events, 코스닥 스윕 리노공업 실증): 기중 액면분할·무상증자·주식배당
     # 이후의 보고서는 EPS를 새 분모로 내지만 **그 이전에 제출된 분기보고서 EPS는 옛 분모 그대로**
     # (실무상 소급 재발행 없음 — 리노 1:5 분할 실측: 전년1Q 1,933은 분할 전, 연간 2,002는 분할 후).
     # → 각 조각을 '그 보고서 결산기준일 이후 발생한 조정성 이벤트' 누적 계수로 현재 기준에 정렬.

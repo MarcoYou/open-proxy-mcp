@@ -9,96 +9,202 @@
     },
     "base_url": "https://data-dbg.krx.co.kr/svc/apis/sto/{endpoint}",
     "auth": "헤더 AUTH_KEY (키는 .env — 값은 절대 여기 적지 않는다)",
-    "params": {"basDd": "기준일자 YYYYMMDD"},
+    "params": {
+      "basDd": "기준일자 YYYYMMDD"
+    },
     "response_shape": "{\"OutBlock_1\": [ {필드 15개}, ... ]}",
     "limit": "키당 1일 10,000콜 (스크립트 상한 9,000)",
     "verified_on": "20260820 · KOSPI 942종목 · KOSDAQ 1,821종목 · 두 엔드포인트 필드 완전 동일"
   },
-
   "_verification": {
     "why": "공식 명세 페이지(openapi.krx.co.kr)가 JS 렌더링이라 기계로 못 읽는다. 그래서 필드 의미를 **데이터로 검증**했다 — 문서 주장보다 강한 근거다.",
     "results": [
-      {"test": "MKTCAP == TDD_CLSPRC × LIST_SHRS", "result": "942/942 (100%)"},
-      {"test": "FLUC_RT == CMPPREVDD_PRC / (TDD_CLSPRC − CMPPREVDD_PRC) × 100", "result": "942/942 (100%)"},
-      {"test": "TDD_LWPRC ≤ TDD_OPNPRC·TDD_CLSPRC ≤ TDD_HGPRC", "result": "거래량>0 인 905/905 (100%)"},
-      {"test": "ACC_TRDVAL / ACC_TRDVOL 이 저가~고가 구간 안", "result": "거래량>0 인 905/905 (100%)"}
+      {
+        "test": "MKTCAP == TDD_CLSPRC × LIST_SHRS",
+        "result": "942/942 (100%)"
+      },
+      {
+        "test": "FLUC_RT == CMPPREVDD_PRC / (TDD_CLSPRC − CMPPREVDD_PRC) × 100",
+        "result": "942/942 (100%)"
+      },
+      {
+        "test": "TDD_LWPRC ≤ TDD_OPNPRC·TDD_CLSPRC ≤ TDD_HGPRC",
+        "result": "거래량>0 인 905/905 (100%)"
+      },
+      {
+        "test": "ACC_TRDVAL / ACC_TRDVOL 이 저가~고가 구간 안",
+        "result": "거래량>0 인 905/905 (100%)"
+      }
     ]
   },
-
   "raw": {
     "_note": "전부 **문자열**로 온다. 숫자로 쓰려면 콤마 제거 후 캐스팅한다.",
-    "BAS_DD":        {"ko": "기준일자",   "type": "text(8)",  "unit": "YYYYMMDD", "desc": "해당 매매일. 휴장일을 조회하면 배열이 빈다."},
-    "ISU_CD":        {"ko": "종목코드",   "type": "text(6)",  "unit": "-",        "desc": "단축코드 6자리. 우선주·종류주는 보통주와 다른 코드를 갖는다(예: 삼성전자 005930 / 우 005935)."},
-    "ISU_NM":        {"ko": "종목명",     "type": "text",     "unit": "-",        "desc": "한글 종목명. 저장하지 않는다 — 사명 변경 시 과거 행이 낡는다."},
-    "MKT_NM":        {"ko": "시장구분",   "type": "text",     "unit": "-",        "desc": "KOSPI 또는 KOSDAQ. 엔드포인트마다 고정값이라 사실상 상수."},
-    "SECT_TP_NM":    {"ko": "소속부",     "type": "text",     "unit": "-",        "desc": "코스닥 소속부(벤처기업부·우량기업부 등). KOSPI 는 빈 문자열. 저장하지 않는다."},
-    "TDD_CLSPRC":    {"ko": "종가",       "type": "number",   "unit": "원",       "desc": "그날 장 마감 가격. **무거래 종목도 값이 있다**(기준가가 종가로 남는다)."},
-    "CMPPREVDD_PRC": {"ko": "대비",       "type": "number",   "unit": "원",       "desc": "전일 기준가 대비 등락폭. 부호 포함. **기준가 = TDD_CLSPRC − CMPPREVDD_PRC** 로 역산된다(거래소는 기준가 필드를 주지 않는다)."},
-    "FLUC_RT":       {"ko": "등락률",     "type": "number",   "unit": "%",        "desc": "CMPPREVDD_PRC ÷ 기준가 × 100. 실측 942/942 일치."},
-    "TDD_OPNPRC":    {"ko": "시가",       "type": "number",   "unit": "원",       "desc": "그날 첫 체결가. **기준가와 다른 값이다** — 삼성전자 20260820 실측 시가 257,000 vs 기준가 247,500. ⚠️ 무거래면 0."},
-    "TDD_HGPRC":     {"ko": "고가",       "type": "number",   "unit": "원",       "desc": "그날 최고 체결가. ⚠️ 무거래면 0."},
-    "TDD_LWPRC":     {"ko": "저가",       "type": "number",   "unit": "원",       "desc": "그날 최저 체결가. ⚠️ 무거래면 0."},
-    "ACC_TRDVOL":    {"ko": "거래량",     "type": "number",   "unit": "주",       "desc": "누적 체결 수량. 0 이면 그날 거래가 없었다는 뜻이고, 그때 시·고·저가가 전부 0 이 된다."},
-    "ACC_TRDVAL":    {"ko": "거래대금",   "type": "number",   "unit": "원",       "desc": "누적 체결 금액. ACC_TRDVAL ÷ ACC_TRDVOL 이 그날 평균 체결가(실측 905/905 이 저가~고가 안)."},
-    "MKTCAP":        {"ko": "시가총액",   "type": "number",   "unit": "원",       "desc": "TDD_CLSPRC × LIST_SHRS 와 **942/942 완전 일치**. 거래소가 계산해 주는 값이라 우리가 다시 곱할 필요가 없다. 상장주식수 기준이므로 **자기주식을 포함**한다."},
-    "LIST_SHRS":     {"ko": "상장주식수", "type": "number",   "unit": "주",       "desc": "⚠️ **유통주식수가 아니다** — 자기주식 포함. DART `stockTotqySttus` 의 유통주식수(자기주식 제외)와 다르다. 삼성전자 20260818 실측 상장 5,846,278,608 vs DART 유통 5,827,808,935(1,847만주 차이)."}
+    "BAS_DD": {
+      "ko": "기준일자",
+      "type": "text(8)",
+      "unit": "YYYYMMDD",
+      "desc": "해당 매매일. 휴장일을 조회하면 배열이 빈다."
+    },
+    "ISU_CD": {
+      "ko": "종목코드",
+      "type": "text(6)",
+      "unit": "-",
+      "desc": "단축코드 6자리. 우선주·종류주는 보통주와 다른 코드를 갖는다(예: 삼성전자 005930 / 우 005935)."
+    },
+    "ISU_NM": {
+      "ko": "종목명",
+      "type": "text",
+      "unit": "-",
+      "desc": "한글 종목명. 저장하지 않는다 — 사명 변경 시 과거 행이 낡는다."
+    },
+    "MKT_NM": {
+      "ko": "시장구분",
+      "type": "text",
+      "unit": "-",
+      "desc": "KOSPI 또는 KOSDAQ. 엔드포인트마다 고정값이라 사실상 상수."
+    },
+    "SECT_TP_NM": {
+      "ko": "소속부",
+      "type": "text",
+      "unit": "-",
+      "desc": "코스닥 소속부(벤처기업부·우량기업부 등). KOSPI 는 빈 문자열. 저장하지 않는다."
+    },
+    "TDD_CLSPRC": {
+      "ko": "종가",
+      "type": "number",
+      "unit": "원",
+      "desc": "그날 장 마감 가격. **무거래 종목도 값이 있다**(기준가가 종가로 남는다)."
+    },
+    "CMPPREVDD_PRC": {
+      "ko": "대비",
+      "type": "number",
+      "unit": "원",
+      "desc": "전일 기준가 대비 등락폭. 부호 포함. **기준가 = TDD_CLSPRC − CMPPREVDD_PRC** 로 역산된다(거래소는 기준가 필드를 주지 않는다)."
+    },
+    "FLUC_RT": {
+      "ko": "등락률",
+      "type": "number",
+      "unit": "%",
+      "desc": "CMPPREVDD_PRC ÷ 기준가 × 100. 실측 942/942 일치."
+    },
+    "TDD_OPNPRC": {
+      "ko": "시가",
+      "type": "number",
+      "unit": "원",
+      "desc": "그날 첫 체결가. **기준가와 다른 값이다** — 삼성전자 20260820 실측 시가 257,000 vs 기준가 247,500. ⚠️ 무거래면 0."
+    },
+    "TDD_HGPRC": {
+      "ko": "고가",
+      "type": "number",
+      "unit": "원",
+      "desc": "그날 최고 체결가. ⚠️ 무거래면 0."
+    },
+    "TDD_LWPRC": {
+      "ko": "저가",
+      "type": "number",
+      "unit": "원",
+      "desc": "그날 최저 체결가. ⚠️ 무거래면 0."
+    },
+    "ACC_TRDVOL": {
+      "ko": "거래량",
+      "type": "number",
+      "unit": "주",
+      "desc": "누적 체결 수량. 0 이면 그날 거래가 없었다는 뜻이고, 그때 시·고·저가가 전부 0 이 된다."
+    },
+    "ACC_TRDVAL": {
+      "ko": "거래대금",
+      "type": "number",
+      "unit": "원",
+      "desc": "누적 체결 금액. ACC_TRDVAL ÷ ACC_TRDVOL 이 그날 평균 체결가(실측 905/905 이 저가~고가 안)."
+    },
+    "MKTCAP": {
+      "ko": "시가총액",
+      "type": "number",
+      "unit": "원",
+      "desc": "TDD_CLSPRC × LIST_SHRS 와 **942/942 완전 일치**. 거래소가 계산해 주는 값이라 우리가 다시 곱할 필요가 없다. 상장주식수 기준이므로 **자기주식을 포함**한다."
+    },
+    "LIST_SHRS": {
+      "ko": "상장주식수",
+      "type": "number",
+      "unit": "주",
+      "desc": "⚠️ **유통주식수가 아니다** — 자기주식 포함. DART `stockTotqySttus` 의 유통주식수(자기주식 제외)와 다르다. 삼성전자 20260818 실측 상장 5,846,278,608 vs DART 유통 5,827,808,935(1,847만주 차이)."
+    }
   },
-
   "stored": {
     "_note": "15개 중 우리가 실제로 저장하는 것. 나머지 시·고·저·거래량·거래대금·등락률·종목명·소속부는 **버린다** — 필요하면 그때 API 를 다시 친다(임의 날짜 1콜).",
     "krx_weekly": {
-      "bas_dd": "BAS_DD", "isu_cd": "ISU_CD", "mkt": "MKT_NM",
-      "close": "TDD_CLSPRC", "mktcap": "MKTCAP", "list_shrs": "LIST_SHRS"
+      "bas_dd": "BAS_DD",
+      "isu_cd": "ISU_CD",
+      "mkt": "MKT_NM",
+      "close": "TDD_CLSPRC",
+      "mktcap": "MKTCAP",
+      "list_shrs": "LIST_SHRS"
     },
     "krx_shares_ledger": {
-      "isu_cd": "ISU_CD", "chg_dd": "BAS_DD", "mkt": "MKT_NM",
+      "isu_cd": "ISU_CD",
+      "chg_dd": "BAS_DD",
+      "mkt": "MKT_NM",
       "new_shrs": "LIST_SHRS"
     },
     "krx_adj_events": {
-      "isu_cd": "ISU_CD", "event_dd": "BAS_DD", "mkt": "MKT_NM",
+      "isu_cd": "ISU_CD",
+      "event_dd": "BAS_DD",
+      "mkt": "MKT_NM",
       "event_close": "TDD_CLSPRC"
     }
   },
-
   "derived": {
     "_note": "🟡 = 원본들을 시간축으로 이어붙인 것(재스윕하면 복원) · 🔴 = 우리 로직의 판정(로직이 바뀌면 값도 바뀐다).",
     "prev_close": {
-      "layer": "🟡", "table": "krx_adj_events", "ko": "직전 거래일 종가",
+      "layer": "🟡",
+      "table": "krx_adj_events",
+      "ko": "직전 거래일 종가",
       "from": "직전 거래일의 TDD_CLSPRC",
       "desc": "거래소는 「직전 종가」 필드를 주지 않는다. 스윕이 날짜순으로 훑으며 메모리에 들고 있던 값이다."
     },
     "prev_shrs": {
-      "layer": "🟡", "table": "krx_shares_ledger", "ko": "직전 상장주식수",
+      "layer": "🟡",
+      "table": "krx_shares_ledger",
+      "ko": "직전 상장주식수",
       "from": "직전 거래일의 LIST_SHRS",
       "desc": "위와 같은 방식. 첫 등장(신규상장)은 NULL."
     },
     "base_price": {
-      "layer": "🔴", "table": "krx_adj_events", "ko": "기준가",
+      "layer": "🔴",
+      "table": "krx_adj_events",
+      "ko": "기준가",
       "from": "TDD_CLSPRC − CMPPREVDD_PRC",
       "desc": "거래소가 개장 전에 정하는 참조가격(등락률·상하한가의 기준). **거래소가 직접 주지 않아 우리가 역산한다.** 수학적으로는 정확하지만 발표값이 아니라 유도값이고, 수정계수 전체가 이 역산 하나 위에 서 있다. ⚠️ 시가(TDD_OPNPRC)와 다르다."
     },
     "adj_factor_raw": {
-      "layer": "🔴", "table": "krx_adj_events", "ko": "수정계수(실측)",
+      "layer": "🔴",
+      "table": "krx_adj_events",
+      "ko": "수정계수(실측)",
       "from": "base_price ÷ prev_close",
       "desc": "거래소가 기준가를 다시 잡은 크기. 10:1 액면병합이면 10, 1:5 분할이면 0.2. 정상 거래일에는 1 이므로, 1 에서 벗어난 날만 조정 이벤트로 기록한다(허용오차 max(prev_close×0.1%, 1원))."
     },
     "adj_factor": {
-      "layer": "🔴", "table": "krx_adj_events", "ko": "수정계수(적용)",
+      "layer": "🔴",
+      "table": "krx_adj_events",
+      "ko": "수정계수(적용)",
       "from": "adj_factor_raw 를 액면가 비율에 스냅",
-      "desc": "**소비자가 쓰는 값.** 실측이 한국 액면가 조합(100·200·500·1000·2500·5000)의 비율과 ±0.5% 이내로 맞으면 정확한 유리수로 치환한다(529건 스냅, 벤더 Quanti 방식 정렬). 맨 이름이 「기본으로 쓰는 것」을 가리킨다 — 원본이 필요하면 _raw 를 찾는다."
+      "desc": "**소비자가 쓰는 값.** 실측이 한국 액면가 조합(100·200·500·1000·2500·5000)의 비율과 ±0.5% 이내로 맞으면 정확한 유리수로 치환한다(529건 스냅, 벤더 Quanti 방식 정렬). 맨 이름이 「기본으로 쓰는 것」을 가리킨다 — 원본이 필요하면 _raw 를 찾는다. 260823: krx_base_resets(측정)+krx_adj_factor_v3(라벨) 통합 — 라벨 작업이 INSERT 가 아니라 빈 칸 UPDATE 가 됐다."
     },
     "event_type": {
-      "layer": "🔴", "table": "krx_adj_events", "ko": "사건 유형",
+      "layer": "🔴",
+      "table": "krx_adj_events",
+      "ko": "사건 유형",
       "from": "krx_adj_factor_v2 라벨 승계 · dart_capital_events 대조 · 액면비율 추정",
       "desc": "split·merge·bonus·stock_div·reduction·mixed·market_transfer. NULL 이면 미판정(계수 자체는 유효)."
     },
     "label_confidence": {
-      "layer": "🔴", "table": "krx_adj_events", "ko": "라벨 신뢰도",
+      "layer": "🔴",
+      "table": "krx_adj_events",
+      "ko": "라벨 신뢰도",
       "from": "라벨을 어디서 얻었는지",
       "desc": "confirmed(v2 승계) · dart(공시 대조) · unlabeled · excluded_market_transfer. `_eps_adj_factor` 가 confirmed 만 쓴다."
     }
   },
-
   "traps": [
     "**무거래 종목**: ACC_TRDVOL=0 이면 시·고·저가가 전부 0 으로 온다. 종가만 유효(기준가가 남은 것). 실측 942 중 37종목.",
     "**시가 ≠ 기준가**: TDD_OPNPRC 는 첫 체결가, 기준가는 거래소가 정한 참조값. 삼성전자 20260820 에 9,500원 차이. `open_base_price` 같은 이름은 이 둘을 섞는다.",

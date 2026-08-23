@@ -1,4 +1,8 @@
-"""수정계수 v3 생성 — krx_base_resets(거래소 실측) × 공시 라벨.
+"""수정계수 라벨 부착 — `krx_adj_events` 의 빈 라벨 칸을 공시로 채운다.
+
+260823 통합 전에는 `krx_base_resets`(측정)를 읽어 `krx_adj_factor_v3`(라벨)를 **새로 만들었다.**
+갱신이 2단계라 뒤쪽이 깨져도 앞쪽만 돌면 멀쩡해 보였고, 실제로 260705 v2 드랍 때부터
+실행 불가였는데 cron 이 없어 아무도 몰랐다. 이제 한 표의 UPDATE 라 그 상태가 불가능하다.
 
 원칙 (wiki/architecture/adjusted-price-timeseries.md §2.1, FnGuide 회신 260703):
 - 계수 = 거래소 기준가 리셋 실측 그대로. 라벨은 event_type + evidence(rcept_no)만 부여.
@@ -16,14 +20,6 @@ import psycopg
 from datetime import datetime, timedelta
 from fractions import Fraction
 
-DDL = """
-CREATE TABLE IF NOT EXISTS krx_adj_factor_v3 (
-  isu_cd text NOT NULL, effective_date text NOT NULL,
-  factor double precision NOT NULL, raw_factor double precision NOT NULL,
-  event_type text, source text NOT NULL, evidence text,
-  confidence text NOT NULL, note text,
-  PRIMARY KEY (isu_cd, effective_date));
-"""
 
 def d2dt(s): return datetime.strptime(s, "%Y%m%d")
 
@@ -41,27 +37,21 @@ def snap_par_ratio(f):
 
 def main():
     con = psycopg.connect(os.environ["DATABASE_URL"])
-    for stmt in DDL.strip().split(";"):
-        if stmt.strip(): con.execute(stmt)
-    # 260823: 종전에는 `DELETE FROM krx_adj_factor_v3` + commit 으로 전체를 지우고 재생성했다.
-    #   그 직후의 v2 조회가 **드랍된 테이블**(260705 정리)을 참조해 죽었기 때문에, 실행하면
-    #   **테이블만 비우고 중단**됐다 — 3,509건이 통째로 날아간다. 실제로 그렇게 날렸고
-    #   git 이력의 backups_260705/krx_adj_factor_v2.csv 로 복구했다.
-    #   CLAUDE.md 「파이프라인: 전체 재실행 금지, 누락분만 처리」에도 어긋난다. 증분으로 바꾼다.
-    have = {(r[0], r[1]) for r in
-            con.execute("SELECT isu_cd, effective_date FROM krx_adj_factor_v3").fetchall()}
-
-    # prev_mkt 를 리셋마다 개별 조회하면 3,600+ 왕복이라 커넥션이 끊긴다(260823 실측).
-    # 상관 서브쿼리 하나로 DB 에서 끝낸다.
+    # 260823 통합: 표가 하나가 되면서 이 스크립트는 **INSERT 가 아니라 라벨 칸 UPDATE** 가 됐다.
+    #   종전에는 krx_base_resets(측정)와 krx_adj_factor_v3(라벨)이 별개라 갱신이 2단계였고,
+    #   뒤쪽이 260705 부터 실행 불가였는데 앞쪽만 돌아 아무도 몰랐다(v2 드랍 때 「코드참조 0건」
+    #   확인이 틀렸다). 게다가 `DELETE` 후 재생성 방식이라 실행하면 라벨이 통째로 날아갔다.
+    #   이제 지울 것이 없다 — 비어 있는 칸만 채운다.
     resets = con.execute("""
-        SELECT b.isu_cd, b.reset_dd, b.factor, b.mkt,
+        SELECT e.isu_cd, e.event_dd, e.adj_factor_raw, e.mkt,
                (SELECT w.mkt FROM krx_weekly w
-                 WHERE w.isu_cd = b.isu_cd AND w.bas_dd < b.reset_dd
+                 WHERE w.isu_cd = e.isu_cd AND w.bas_dd < e.event_dd
                  ORDER BY w.bas_dd DESC LIMIT 1) AS prev_mkt
-          FROM krx_base_resets b ORDER BY b.isu_cd, b.reset_dd""").fetchall()
-    skipped = sum(1 for r in resets if (r[0], r[1]) in have)
-    resets = [r for r in resets if (r[0], r[1]) not in have]
-    print(f"리셋 {len(resets) + skipped}건 중 신규 {len(resets)}건 처리 (기존 {skipped}건 보존)")
+          FROM krx_adj_events e
+         WHERE e.label_confidence IS NULL OR e.label_confidence = 'unlabeled'
+         ORDER BY e.isu_cd, e.event_dd""").fetchall()
+    total = con.execute("SELECT count(*) FROM krx_adj_events").fetchone()[0]
+    print(f"조정 사건 {total:,}건 중 라벨 미판정 {len(resets):,}건 처리")
     v2 = con.execute(
         "SELECT isu_cd, effective_date, factor, event_type, evidence FROM krx_adj_factor_v2").fetchall()
     dartev = con.execute(
@@ -128,11 +118,16 @@ def main():
         if etype: stats[f"type:{etype}"] += 1
 
     with con.cursor() as cur:
-        cur.executemany(
-            "INSERT INTO krx_adj_factor_v3 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING", rows)
+        cur.executemany("""
+            UPDATE krx_adj_events SET
+              adj_factor = %s, event_type = %s, label_source = %s,
+              rcept_no = %s, label_confidence = %s, note = %s
+            WHERE isu_cd = %s AND event_dd = %s""",
+            [(f, etype, src, evid, conf, note, isu, dd)
+             for (isu, dd, f, _raw, etype, src, evid, conf, note) in rows])
     con.commit()
-    n = con.execute("SELECT COUNT(*) FROM krx_adj_factor_v3").fetchone()[0]
-    print(f"v3 생성: {n}행")
+    n = con.execute("SELECT count(*) FROM krx_adj_events WHERE label_confidence <> 'unlabeled'").fetchone()[0]
+    print(f"라벨 부착 누계: {n:,}행")
     for k in sorted(stats): print(f"  {k}: {stats[k]}")
     con.close()
 

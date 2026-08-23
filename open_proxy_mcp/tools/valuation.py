@@ -154,7 +154,7 @@ _METHODOLOGY = """# valuation 방법론·기준·출처 (수치 근거)
 | 지표 | 산식 | 기준 |
 |---|---|---|
 | EPS(FY0) | DART **공시 기본주당이익** (가중평균 주식수·우선주 배분 반영) | 계속+중단영업 분리 공시는 합산, 결측 시 지배순이익÷보통주 폴백 |
-| EPS(TTM) | **공시 EPS 조립** = FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS | FY0과 같은 공시 기준(대칭). 기중 액면분할·무상증자·주식배당은 수정계수(krx_adj_factor_v3)로 각 조각을 현재 기준 정렬 |
+| EPS(TTM) | **공시 EPS 조립** = FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS | FY0과 같은 공시 기준(대칭). 기중 액면분할·무상증자·주식배당은 수정계수(krx_adj_events)로 각 조각을 현재 기준 정렬 |
 | BPS | 지배자본(최근분기 MRQ, 부재 시 FY말) ÷ 합계 유통주식수(보통+우선, 자기주식 제외) | 지배주주 귀속 |
 | PER | **보통주 시총 ÷ 지배순이익** | FY0·TTM 각각 |
 | PBR | **보통주 시총 ÷ 지배자본** | MRQ (부재 시 FY말) |
@@ -231,7 +231,7 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
             if adj.get("prior_q") != 1.0:
                 parts.append(f"전년동기 EPS ×{adj['prior_q']:g}")
             L.append(f"  - **수정계수 보정 적용**: {' · '.join(parts)} — 기중 액면분할·무상증자·주식배당으로 "
-                     "옛 분모 기준인 공시 EPS를 현재 기준으로 정렬 (krx_adj_factor_v3, 거래소 기준가 리셋 실측)")
+                     "옛 분모 기준인 공시 EPS를 현재 기준으로 정렬 (krx_adj_events, 거래소 기준가 리셋 실측)")
     elif i.get("net_income_ttm_krw") is not None and i.get("shares_common"):
         L.append(f"- EPS(TTM) = 폴백: TTM 지배순이익 ÷ 보통주 = {i['net_income_ttm_krw']:,} ÷ "
                  f"{i['shares_common']:,} = **{i.get('eps_ttm_krw') and format(i['eps_ttm_krw'], ',')}원**"

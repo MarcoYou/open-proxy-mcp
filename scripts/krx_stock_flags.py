@@ -85,8 +85,8 @@ def main() -> int:
                  / NULLIF((SELECT close FROM krx_weekly WHERE isu_cd=l.isu_cd AND bas_dd<l.chg_dd
                    ORDER BY bas_dd DESC LIMIT 1), 0) AS p
           FROM krx_shares_ledger l
-          LEFT JOIN krx_base_resets b
-            ON b.isu_cd = l.isu_cd AND b.reset_dd = l.chg_dd
+          LEFT JOIN krx_adj_events b
+            ON b.isu_cd = l.isu_cd AND b.event_dd = l.chg_dd
           WHERE l.prev_shrs IS NOT NULL AND l.prev_shrs > 0 AND l.new_shrs IS NOT NULL
             AND l.new_shrs::numeric / l.prev_shrs < %s
             AND b.isu_cd IS NULL)
