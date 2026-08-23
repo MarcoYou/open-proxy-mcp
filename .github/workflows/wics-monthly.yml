@@ -1,0 +1,101 @@
+# WICS 업종분류 월간 수집 — scripts/refresh_wics.py (cron)
+#
+# 260823 신설. WiseIndex WICS(대분류 10 / 하위업종 28)는 우리 KSIC 하이브리드와 **다른 축**의
+# 업종분류다. 벤더·리서치가 쓰는 기준이라 섹터 비교에서 KSIC 와 나란히 놓을 값이 있다.
+#
+# ★ 과거는 못 만든다. WiseIndex 는 조회 시점의 구성종목만 주고, 우리는 지금까지 안 모았다.
+#   그래서 **오늘부터 쌓는다** — 소급하면 「현재 분류를 과거에 적용」하는 look-ahead 가 된다
+#   (작년에 IT 가 아니던 회사를 작년 IT 섹터에 넣는 셈). KSIC 는 6.5년, WICS 는 0 에서 시작이고
+#   그 비대칭을 tool 출력에 밝힌다.
+#
+# 월 1회인 이유: 업종분류는 분기·연 단위로 바뀌는 느린 데이터다. 주간으로 모으면 같은 값이
+#   4배로 쌓이기만 한다. 월말 기준으로 12장/년이면 시계열로 충분하다.
+#
+# 콜: WiseIndex 트리 1 + 하위업종 28 ≈ 29콜/월. DART·KRX 0콜.
+
+name: wics-monthly
+
+on:
+  schedule:
+    # 매월 1일 02:30 UTC = KST 11:30. 스크립트 기본값이 「직전 금요일」이라
+    # 1일에 돌리면 전월 마지막 금요일 전후를 잡는다 — 월말 스냅샷이 된다.
+    - cron: "30 2 1 * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "기준일 YYYYMMDD (비우면 직전 금요일)"
+        required: false
+
+permissions:
+  contents: write  # 정적 맵(JSON) 커밋백
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: WICS 수집 — 정적 맵 + wise_sector 적재
+        # 무결성 규칙(스크립트 내장): 대분류 10 미만 / 하위업종 20 미만 / 종목 1,000 미만이거나
+        #   한 종목이 둘 이상 하위업종에 나타나면 **아무것도 쓰지 않고 중단**한다.
+        #   불완전 응답을 절반만 반영하면 섹터 집계가 조용히 틀어지므로 전부-아니면-전무가 맞다.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            uv run python scripts/refresh_wics.py --date "${{ inputs.date }}"
+          else
+            uv run python scripts/refresh_wics.py
+          fi
+
+      - name: 적재 확인 — 시점이 늘었나
+        # 「성공」이 아니라 **산출물 변화**로 확인한다(260823 법령 배치 교훈: 상류가 죽어도 초록불).
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run python - <<'PY'
+          import os, psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
+              rows, snaps, latest = c.execute(
+                  "SELECT count(*), count(DISTINCT snap_dd), max(snap_dd) FROM wise_sector").fetchone()
+              print(f"wise_sector {rows:,}행 / {snaps}개 시점 · 최신 {latest}")
+              n = c.execute("SELECT count(*) FROM wise_sector WHERE snap_dd=%s", (latest,)).fetchone()[0]
+              if n < 1000:
+                  raise SystemExit(f"::error::최신 시점 종목이 {n}개 — 1,000 미만이면 불완전 수집")
+              # krx_weekly 와 조인되는지(섹터 집계가 실제로 되는 상태인가)
+              j = c.execute("""SELECT count(*) FROM wise_sector w
+                               JOIN krx_weekly k ON k.ticker=w.ticker AND k.price_dd=w.snap_dd
+                               WHERE w.snap_dd=%s""", (latest,)).fetchone()[0]
+              print(f"krx_weekly 정확일자 조인: {j:,}/{n:,}")
+              if j == 0:
+                  print("::warning::그 날짜에 krx_weekly 포인트가 없다 — 소비 측은 "
+                        "가장 가까운 price_dd 로 조인해야 한다(주간 수렴이라 금요일이 아닐 수 있음)")
+          PY
+
+      - name: 정적 맵 커밋 (실질 변경 시)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # refreshedAt 만 바뀐 건 무시 — 분류가 실제로 바뀐 경우에만 커밋한다.
+          if git diff --quiet -- open_proxy_mcp/data/wics/wics_map.json; then
+            echo "변경 없음 — 커밋 생략"
+          elif [ "$(git diff -U0 -- open_proxy_mcp/data/wics/wics_map.json | grep -c '^[+-][^+-]')" -le 2 ]; then
+            echo "refreshedAt 만 변경 — 되돌리고 커밋 생략"
+            git checkout -- open_proxy_mcp/data/wics/wics_map.json
+          else
+            AS_OF=$(python3 -c "import json;print(json.load(open('open_proxy_mcp/data/wics/wics_map.json'))['meta']['asOf'])")
+            git add open_proxy_mcp/data/wics/wics_map.json
+            git commit \
+              -m "chore(wics): 월간 업종분류 갱신 — ${AS_OF} 기준" \
+              -m "WiseIndex WICS 대분류 10 / 하위업종 28. DART·KRX 0콜." \
+              -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
+            git push
+            echo "✅ 커밋·푸시 완료 (${AS_OF})"
+          fi
