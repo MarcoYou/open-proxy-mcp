@@ -480,84 +480,79 @@ def _table_for(html: str, p: int) -> tuple[str, dict[str, Any]] | None:
 
 
 def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
-    """문서 HTML → 요청한 표들. 문서는 호출자가 넘긴다(캐시 재사용).
-
-    🔴 **`사용제한` 은 kind 별로 각각 하나씩 모은다.** 전에는 앵커 하나가 걸리면 멈춰서,
-       「사용제한」과 「담보제공」을 구분해 내보낸다는 계약을 지킬 수가 없었다
-       (KB손보 문서에 「담보제공자산」이 6회, NH 에 「담보로 제공된」이 18회 있는데
-       둘 다 restricted 만 나갔다). 이제 kind 별로 첫 표를 각각 담는다.
-    """
+    """문서 HTML → 요청한 표들. 문서는 호출자가 넘긴다(캐시 재사용)."""
     want = [f for f in (fields or FIELDS) if f in ANCHORS]
     off = notes_offset(html)
     sep = separate_offset(html, off)
     out: dict[str, Any] = {}
     for field in want:
         found: list[dict[str, Any]] = []
-        seen_kinds: set[str] = set()
         skipped_statement = 0
         skipped_direction = 0
         #: 이 필드에서 이미 내보낸 표(본문 기준) — 성격이 달라도 같은 표면 한 번만 낸다
         emitted_bodies: dict[str, dict[str, Any]] = {}
-        for kw, kind in ANCHORS[field]:
-            if kind in seen_kinds:
-                continue                      # 이 성격은 이미 확보했다
-            # 제목에 쓰인 이름이 앵커와 다를 수 있어 **같은 성격의 앵커를 전부** 대조한다
+        # 🔴 **앵커 하나에서 멈추면 안 된다.** 같은 성격이라도 연결 주석과 별도 주석이
+        #    서로 다른 말을 쓰는 일이 있다(「사용이 제한되어」 / 「사용제한 예치금」).
+        #    성격별로 그 성격의 **앵커를 전부** 훑어 모은다.
+        for kind in dict.fromkeys(kd for _, kd in ANCHORS[field]):
+            # 제목에 쓰인 이름이 앵커와 다를 수 있어 같은 성격의 앵커 전부로 대조한다
             kin_kws = [k for k, kd in ANCHORS[field] if kd == kind]
-            limit = _MULTI_TABLE_LIMIT
             hits: list[dict[str, Any]] = []         # 제목이 맞은 표들
             fallback: dict[str, Any] | None = None  # 제목 대조 실패 — 최후 수단
-            start, scanned = off, 0
             seen_tables: set[str] = set()
-            while scanned < _MAX_SCAN and len(hits) < limit:
-                p = html.find(kw, start)
-                if p < 0:
+            for kw in kin_kws:
+                if len(hits) >= _MULTI_TABLE_LIMIT:
                     break
-                start = p + len(kw)
-                scanned += 1
-                hit = _table_for(html, p)
-                if not hit:
-                    continue
-                tbl, parsed = hit
-                if is_statement_table(parsed):
-                    skipped_statement += 1     # 본표다 — 다음 출현으로 계속 간다
-                    continue
-                # 🔴 **표 앞 문장으로 중복을 걸러선 안 된다.** 연결·별도가 같은 제목을
-                #    쓰기 때문이다(신한은행 「사용제한 예치금」 두 번). 값이 다르면 둘 다
-                #    담아야 하고, 값까지 같으면 진짜 중복이다 — **본문으로 판별한다.**
-                body = "|".join(c["text"] for r_ in parsed["rows"] for c in r_)
-                if body in seen_tables:
-                    continue
-                seen_tables.add(body)
-                # 🔴 **다른 성격으로 이미 나간 표면 다시 내지 않는다.** 260823 실측 —
-                #    메리츠증권은 주석 제목이 「31. 사용이 제한된 예치금 **및** 담보제공자산
-                #    등」 하나인데, 도구가 사용제한·담보제공 두 성격으로 각각 잡아 **같은 표를
-                #    두 번** 내보냈다(문서위치 14바이트 차이, 본문 동일). 「구분해 내보낸다」를
-                #    믿고 더하면 8,396,466,252 천원이 정확히 두 배가 된다.
-                if body in emitted_bodies:
-                    emitted_bodies[body].setdefault("also_kinds", []).append(kind)
-                    continue
-                if is_wrong_direction(parsed["caption"]):
-                    skipped_direction += 1     # 받은 담보·특수관계자 — 부호가 거꾸로다
-                    continue
-                entry = {"anchor": kw, "kind": kind, "pos": p,
-                         "axis": axis_of(parsed),
-                         # 사람에게 보일 제목 — 앞 표의 숫자 잔해를 뗀 것
-                         "title": title_only(parsed["caption"]),
-                         # 이 금액이 붙어 있는 재무상태표 계정(뺄셈의 대상)
-                         "account": account_of(parsed["caption"]),
-                         # 표 단위 연결/별도. XBRL 은 값마다 basis 가 따로 붙는다.
-                         "table_basis": basis_at(p, sep),
-                         "heading": is_note_heading(parsed["caption"], kin_kws),
-                         "weak": title_weakness(parsed["caption"]),
-                         "body": body, **parsed}
-                if title_matches(parsed["caption"], kin_kws):
-                    entry["title_matched"] = True
-                    hits.append(entry)
-                    continue                   # 🔴 나뉘어 있을 수 있다 — 계속 모은다
-                # 🔴 제목을 못 맞춘 표만 주제를 따진다. 앞 표의 문장이 caption 꼬리에
-                #    섞여 들어오는 일이 있어, 제목이 맞은 표를 주제어로 되물리면 안 된다.
-                if fallback is None and not is_off_topic(parsed["caption"]):
-                    fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
+                start, scanned = off, 0
+                while scanned < _MAX_SCAN and len(hits) < _MULTI_TABLE_LIMIT:
+                    pos = html.find(kw, start)
+                    if pos < 0:
+                        break
+                    start = pos + len(kw)
+                    scanned += 1
+                    hit = _table_for(html, pos)
+                    if not hit:
+                        continue
+                    _, parsed = hit
+                    if is_statement_table(parsed):
+                        skipped_statement += 1     # 본표다 — 다음 출현으로 계속 간다
+                        continue
+                    # 🔴 **표 앞 문장으로 중복을 걸러선 안 된다.** 연결·별도가 같은 제목을
+                    #    쓰기 때문이다(신한은행 「사용제한 예치금」 두 번). 값이 다르면 둘 다
+                    #    담아야 하고, 값까지 같으면 진짜 중복이다 — **본문으로 판별한다.**
+                    body = "|".join(c["text"] for r_ in parsed["rows"] for c in r_)
+                    if body in seen_tables:
+                        continue
+                    seen_tables.add(body)
+                    # 🔴 **다른 성격으로 이미 나간 표면 다시 내지 않는다.** 260823 실측 —
+                    #    메리츠증권은 주석 제목이 「31. 사용이 제한된 예치금 **및**
+                    #    담보제공자산 등」 하나인데 같은 표가 두 성격에 각각 잡혔다
+                    #    (위치 14바이트 차이, 본문 동일). 성격별로 더하면 정확히 두 배다.
+                    if body in emitted_bodies:
+                        emitted_bodies[body].setdefault("also_kinds", []).append(kind)
+                        continue
+                    if is_wrong_direction(parsed["caption"]):
+                        skipped_direction += 1     # 받은 담보·특수관계자 — 부호가 거꾸로다
+                        continue
+                    entry = {"anchor": kw, "kind": kind, "pos": pos,
+                             "axis": axis_of(parsed),
+                             # 사람에게 보일 제목 — 앞 표의 숫자 잔해를 뗀 것
+                             "title": title_only(parsed["caption"]),
+                             # 이 금액이 붙어 있는 재무상태표 계정(뺄셈의 대상)
+                             "account": account_of(parsed["caption"]),
+                             # 표 단위 연결/별도. XBRL 은 값마다 basis 가 따로 붙는다.
+                             "table_basis": basis_at(pos, sep),
+                             "heading": is_note_heading(parsed["caption"], kin_kws),
+                             "weak": title_weakness(parsed["caption"]),
+                             "body": body, **parsed}
+                    if title_matches(parsed["caption"], kin_kws):
+                        entry["title_matched"] = True
+                        hits.append(entry)
+                        continue                   # 🔴 나뉘어 있을 수 있다 — 계속 모은다
+                    # 🔴 제목을 못 맞춘 표만 주제를 따진다. 앞 표의 문장이 caption 꼬리에
+                    #    섞여 들어와서, 제목이 맞은 표를 주제어로 되물리면 안 된다.
+                    if fallback is None and not is_off_topic(parsed["caption"]):
+                        fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
             if field != "사용제한" and len(hits) > 1:
                 # 고르는 순서 — ①원문이 「N. <계정명>」으로 표제를 붙인 표 ②「장부금액과
                 # 공정가치」·「증감내역」처럼 내역이 아님을 알리는 말이 없는 표 ③유형별 축
@@ -574,11 +569,10 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 # 읽는 쪽이 그대로 인용하면 안 된다.
                 fallback["title_matched"] = False
                 hits = [fallback]
-            if hits:
-                for h in hits:
-                    emitted_bodies[h["body"]] = h
-                found.extend(hits)
-                seen_kinds.add(kind)
+            for h in hits:
+                emitted_bodies[h["body"]] = h
+            found.extend(hits)
+        found.sort(key=lambda e: e["pos"])
         if found:
             out[field] = {"status": OK, "tables": found}
             notes = []
