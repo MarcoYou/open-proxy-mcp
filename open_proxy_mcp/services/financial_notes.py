@@ -808,6 +808,7 @@ def extract_regions(
         skipped_statement = 0
         skipped_direction = 0
         emitted_bodies: dict[str, dict[str, Any]] = {}
+        per_kind: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
         for basis, html in regions:
             for kind in dict.fromkeys(kd for _, kd in ANCHORS[field]):
                 kin_kws = [k for k, kd in ANCHORS[field] if kd == kind]
@@ -863,21 +864,32 @@ def extract_regions(
                             continue
                         if fallback is None and not is_off_topic(entry["title"]):
                             fallback = entry
-                if field != "사용제한" and len(hits) > 1:
-                    hits.sort(key=lambda e: (
-                        0 if e.get("heading") else 1,
-                        e.get("weak", 0),
-                        0 if e.get("axis") == "유형별" else (2 if e.get("axis") == "범주별" else 1),
-                        e.get("pos", 0),
-                    ))
-                    hits = hits[:1]
-                if not hits and fallback is not None:
-                    fallback["title_matched"] = False
-                    hits = [fallback]
+                bucket = per_kind.setdefault((kind, basis), [])
+                bucket.extend(hits)
+                # 🔴 등록은 **훑는 중에** 해야 한다. 트림 뒤로 미루면 다음 성격이 같은 표를
+                #    다시 물어 메리츠증권 2배 중복이 되살아난다(시험이 잡았다).
                 for h in hits:
-                    emitted_bodies[h["body"]] = h
-                found.extend(hits)
-        found.sort(key=lambda e: e["pos"])
+                    emitted_bodies.setdefault(h["body"], h)
+                if not bucket and fallback is not None:
+                    fallback["title_matched"] = False
+                    bucket.append(fallback)
+        # 🔴 **자르는 단위는 구간이 아니라 (성격, 기준) 이다.** 260824 실측 — 목차 노드로
+        #    받으면 한 기준이 절 여러 개로 쪼개져 들어오는데, 구간마다 잘랐더니 NH FVPL 이
+        #    2표에서 8표로 늘었다. 문서를 통째로 받던 때와 답이 달라진다.
+        for (_kind, _basis), bucket in per_kind.items():
+            if field != "사용제한" and len(bucket) > 1:
+                bucket.sort(key=lambda e: (
+                    0 if e.get("heading") else 1,
+                    e.get("weak", 0),
+                    0 if e.get("axis") == "유형별" else (2 if e.get("axis") == "범주별" else 1),
+                    e.get("pos", 0),
+                ))
+                bucket = bucket[:1]
+            elif len(bucket) > _MULTI_TABLE_LIMIT:
+                bucket = bucket[:_MULTI_TABLE_LIMIT]
+            found.extend(bucket)
+        _order = {"연결": 0, "별도": 1}
+        found.sort(key=lambda e: (_order.get(e.get("table_basis"), 2), e["pos"]))
         if found:
             out[field] = {"status": OK, "tables": found}
             notes = []
