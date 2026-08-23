@@ -82,8 +82,17 @@ def _render(payload: dict) -> str:
             if t.get("title"):
                 L.append(f"> 📄 원문 제목: {t['title'][:150]}")
             if t.get("account"):
-                L.append(f"> 🏷 이 금액이 붙어 있는 계정: **{t['account']}** — "
-                         f"unencumbered 계산 시 **이 계정에서** 뺀다. 다른 계정에서 빼면 틀린다.")
+                tot = t.get("account_total")
+                if tot:
+                    L.append(f"> 🏷 이 금액이 붙어 있는 계정: **{t['account']}** · "
+                             f"재무상태표({t.get('table_basis') or '?'}) 잔액 "
+                             f"**{' / '.join(tot['values'][:2])}** {tot.get('unit') or ''} — "
+                             f"여기서 위 사용제한액을 뺀다.")
+                else:
+                    L.append(f"> 🏷 이 금액이 붙어 있는 계정: **{t['account']}** · "
+                             f"🔴 **재무상태표에서 같은 이름의 계정을 못 찾았다 — 분모 없음.** "
+                             f"이름이 정확히 맞지 않으면 붙이지 않는다(틀린 분모는 "
+                             f"없는 것보다 나쁘다). 이 회사는 unencumbered 를 계산하지 말 것.")
             if t.get("also_kinds"):
                 names = [{"restricted": "사용제한", "pledged": "담보제공"}.get(k, k)
                          for k in t["also_kinds"]]

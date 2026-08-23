@@ -520,6 +520,62 @@ def note_regions(html: str) -> list[tuple[str, int, int]]:
     return out
 
 
+
+#: 🔴 **뺄셈의 분모는 주석이 아니라 재무상태표에서 가져온다.** 260823 시험자 제안 —
+#:    「바로 앞 표」 규칙은 절반만 맞았다(우리은행은 (1)현금 구성 → (2)사용제한 현금 →
+#:    (3)사용제한 예치금 이라 (3)의 분모가 바로 앞이 아니다). 재무상태표는 계정명과
+#:    금액이 1:1 이고 중복이 없으며, **연결/별도가 구간 단계에서 이미 갈려 있다.**
+#:    실측 — 우리은행 연결 재무상태표 「현금및현금성자산 36,152,124」가 그대로 분모다.
+#:    🔴 **이름이 정확히 안 맞으면 붙이지 않는다.** KB손보 🏷은 「예치금」인데 재무상태표에
+#:    그 계정이 없다. 틀린 분모는 없는 것보다 나쁘다 — 「못 찾음」을 명시한다.
+_BS_MARKS = ("자산", "자산총계", "부채", "자본")
+
+
+def balance_sheet(html: str, basis: str | None) -> dict[str, Any] | None:
+    """그 기준(연결/별도)의 **재무상태표** → {계정명: [값…]} + 단위. 못 찾으면 None."""
+    sec = sections(html)
+    code = SEC_SEP_FS if basis == "별도" else SEC_CONN_FS
+    if code not in sec:
+        return None
+    r0, r1 = sec[code]
+    seg = html[r0:r1]
+    upper = seg.upper()
+    i = 0
+    while True:
+        start = upper.find("<TABLE", i)
+        if start < 0:
+            return None
+        end = upper.find("</TABLE>", start)
+        if end < 0:
+            return None
+        i = end + 8
+        parsed = parse_table(seg[start:end + 8], context=seg[max(0, start - 1500):start])
+        if parsed["n_numeric"] < 10:
+            continue
+        labels = [row[0]["text"] for row in parsed["rows"] if row]
+        if not any(m in labels for m in _BS_MARKS):
+            continue                       # 재무상태표가 아니다(손익·현금흐름 등)
+        accounts: dict[str, list[str]] = {}
+        for row in parsed["rows"]:
+            if len(row) < 2:
+                continue
+            name = row[0]["text"]
+            vals = [c["text"] for c in row[1:] if _NUMISH.match(c["text"])]
+            if name and vals:
+                accounts.setdefault(name, vals)
+        return {"accounts": accounts, "unit": parsed["unit"]}
+
+
+def lookup_account(bs: dict[str, Any] | None, account: str) -> dict[str, Any] | None:
+    """재무상태표에서 **완전일치**하는 계정만 돌려준다. 부분일치는 쓰지 않는다."""
+    if not bs or not account:
+        return None
+    vals = bs["accounts"].get(account)
+    if not vals:
+        return None
+    return {"values": vals, "unit": bs["unit"]}
+
+
 def is_wrong_direction(caption: str) -> bool:
     """이 표가 **받은 담보**·특수관계자 표인가. 우리가 찾는 것은 회사가 **제공한** 담보다."""
     tail = _WS.sub(" ", caption)[-_DIRECTION_TAIL:]
@@ -612,6 +668,7 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
         sep = separate_offset(html, off)
         regions = ([("연결", off, sep), ("별도", sep, len(html))] if sep
                    else [(None, off, len(html))])
+    bs_cache: dict[str | None, dict[str, Any] | None] = {}
     out: dict[str, Any] = {}
     for field in want:
         found: list[dict[str, Any]] = []
@@ -662,6 +719,11 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                                  "heading": is_note_heading(parsed["caption"], kin_kws),
                                  "weak": title_weakness(parsed["caption"]),
                                  "body": body, **parsed}
+                        if entry["account"]:
+                            if basis not in bs_cache:
+                                bs_cache[basis] = balance_sheet(html, basis)
+                            entry["account_total"] = lookup_account(
+                                bs_cache[basis], entry["account"])
                         if (title_matches(parsed["caption"], kin_kws)
                                 and not is_off_topic(entry["title"])):
                             entry["title_matched"] = entry["weak"] == 0
