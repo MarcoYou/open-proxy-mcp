@@ -79,7 +79,9 @@ def _render(payload: dict) -> str:
                      + (f" · 🔴 **시점** {t['period']}만" if t.get("period") else "")
                      + f" · {mark}"
                      + (f" · **축** {axis}" if axis else " · **축** 판별 못함")
-                     + f" · **문서위치** {t['pos']:,} · **형식** "
+                     # 🔴 문서위치는 뺐다 — 목차 노드로 절만 받아오면 조각 기준 오프셋이라
+                     #    「문서 어디쯤」이 아니다. 연결/별도는 이제 `기준` 이 직접 말한다.
+                     + " · **형식** "
                      + ('XBRL 태그' if t['format'] == 'xbrl_tagged' else 'HTML 표')
                      + (f" · **단위** {t['unit']}" if t.get("unit")
                         else " · **단위** 원문에 표기 없음"))
