@@ -43,21 +43,21 @@ def main():
     #   확인이 틀렸다). 게다가 `DELETE` 후 재생성 방식이라 실행하면 라벨이 통째로 날아갔다.
     #   이제 지울 것이 없다 — 비어 있는 칸만 채운다.
     resets = con.execute("""
-        SELECT e.isu_cd, e.event_dd, e.adj_factor_raw, e.mkt,
-               (SELECT w.mkt FROM krx_weekly w
-                 WHERE w.isu_cd = e.isu_cd AND w.bas_dd < e.event_dd
-                 ORDER BY w.bas_dd DESC LIMIT 1) AS prev_mkt
+        SELECT e.ticker, e.event_dd, e.adj_factor_raw, e.market,
+               (SELECT w.market FROM krx_weekly w
+                 WHERE w.ticker = e.ticker AND w.price_dd < e.event_dd
+                 ORDER BY w.price_dd DESC LIMIT 1) AS prev_mkt
           FROM krx_adj_events e
          WHERE e.label_confidence IS NULL OR e.label_confidence = 'unlabeled'
-         ORDER BY e.isu_cd, e.event_dd""").fetchall()
+         ORDER BY e.ticker, e.event_dd""").fetchall()
     total = con.execute("SELECT count(*) FROM krx_adj_events").fetchone()[0]
     print(f"조정 사건 {total:,}건 중 라벨 미판정 {len(resets):,}건 처리")
     v2 = con.execute(
-        "SELECT isu_cd, effective_date, factor, event_type, evidence FROM krx_adj_factor_v2").fetchall()
+        "SELECT ticker, event_dd, factor, event_type, evidence FROM krx_adj_factor_v2").fetchall()
     dartev = con.execute(
-        "SELECT isu_cd, kind, rcept_no, rcept_dt FROM dart_capital_events").fetchall()
+        "SELECT ticker, kind, rcept_no, rcept_dt FROM dart_capital_events").fetchall()
 
-    # 인덱스: v2 by isu_cd → [(date, ...)], dart by isu_cd
+    # 인덱스: v2 by ticker → [(date, ...)], dart by ticker
     from collections import defaultdict
     v2i = defaultdict(list); [v2i[r[0]].append(r) for r in v2]
     dvi = defaultdict(list); [dvi[r[0]].append(r) for r in dartev]
@@ -122,7 +122,7 @@ def main():
             UPDATE krx_adj_events SET
               adj_factor = %s, event_type = %s, label_source = %s,
               rcept_no = %s, label_confidence = %s, note = %s
-            WHERE isu_cd = %s AND event_dd = %s""",
+            WHERE ticker = %s AND event_dd = %s""",
             [(f, etype, src, evid, conf, note, isu, dd)
              for (isu, dd, f, _raw, etype, src, evid, conf, note) in rows])
     con.commit()

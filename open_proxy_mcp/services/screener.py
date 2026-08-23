@@ -8,13 +8,14 @@
   필러를 100/page로 반환(2026-07-14 I001 하루 102건=2페이지). universe는 메모리 사후필터.
 - list.json item 필드 = corp_code / corp_name / stock_code / corp_cls / report_nm / rcept_no
   / flr_nm / rcept_dt / rm. **정정은 report_nm 프리픽스 `[기재정정]`/`[첨부정정]`**(rm은 시장마커 코/유).
-- 시총은 `krx_weekly`(isu_cd=6자리 단축코드, mktcap=원, DART 0콜)에서 배치 파생.
+- 시총은 `krx_weekly`(ticker=6자리 단축코드, mktcap=원, DART 0콜)에서 배치 파생.
 - 유형 판별은 report_nm 키워드(B001은 `주요사항보고서(…)` 괄호 안 사유가 판별자).
 
 게이트는 universe가 아니라 **details**. scan=발견/details=숫자.
 """
 
 from __future__ import annotations
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 
@@ -311,15 +312,15 @@ def _krx_latest_dd() -> str | None:
     try:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
-            r = c.execute("SELECT MAX(bas_dd) FROM krx_weekly").fetchone()
+            r = c.execute("SELECT MAX(price_dd) FROM krx_weekly").fetchone()
             return r[0] if r and r[0] else None
     except Exception:
         return None
 
 
-def _krx_mktcap_map(isu_cds: Iterable[str], bas_dd: str) -> dict[str, int]:
-    """단축코드 집합 → {isu_cd: mktcap(원)}. 한 쿼리로 배치(이름기반 컬럼)."""
-    codes = [c for c in {(c or "").strip() for c in isu_cds} if c]
+def _krx_mktcap_map(tickers: Iterable[str], price_dd: str) -> dict[str, int]:
+    """단축코드 집합 → {ticker: mktcap(원)}. 한 쿼리로 배치(이름기반 컬럼)."""
+    codes = [c for c in {(c or "").strip() for c in tickers} if c]
     if not codes:
         return {}
     url = os.getenv("DATABASE_URL")
@@ -330,8 +331,8 @@ def _krx_mktcap_map(isu_cds: Iterable[str], bas_dd: str) -> dict[str, int]:
         out: dict[str, int] = {}
         with psycopg.connect(url, connect_timeout=10) as c:
             rows = c.execute(
-                "SELECT isu_cd, mktcap FROM krx_weekly WHERE bas_dd=%s AND isu_cd = ANY(%s)",
-                (bas_dd, codes),
+                "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s AND ticker = ANY(%s)",
+                (price_dd, codes),
             ).fetchall()
             for isu, mktcap in rows:
                 if mktcap:
@@ -341,18 +342,18 @@ def _krx_mktcap_map(isu_cds: Iterable[str], bas_dd: str) -> dict[str, int]:
         return {}
 
 
-def _krx_top_mktcap(n: int, bas_dd: str, mkt: str | None = None) -> set[str]:
-    """시총 상위 N 단축코드. mkt(KOSPI/KOSDAQ) 지정 시 그 시장만 — 시장 혼합 방지."""
+def _krx_top_mktcap(n: int, price_dd: str, market: str | None = None) -> set[str]:
+    """시총 상위 N 단축코드. market(KOSPI/KOSDAQ) 지정 시 그 시장만 — 시장 혼합 방지."""
     url = os.getenv("DATABASE_URL")
     if not url:
         return set()
     try:
         import psycopg
-        q = "SELECT isu_cd FROM krx_weekly WHERE bas_dd=%s AND mktcap IS NOT NULL"
-        params: list = [bas_dd]
-        if mkt:
-            q += " AND mkt=%s"
-            params.append(mkt)
+        q = "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND mktcap IS NOT NULL"
+        params: list = [price_dd]
+        if market:
+            q += " AND market=%s"
+            params.append(market)
         q += " ORDER BY mktcap DESC LIMIT %s"
         params.append(n)
         with psycopg.connect(url, connect_timeout=10) as c:
@@ -361,7 +362,7 @@ def _krx_top_mktcap(n: int, bas_dd: str, mkt: str | None = None) -> set[str]:
         return set()
 
 
-def _krx_market_codes(mkt: str, bas_dd: str) -> set[str]:
+def _krx_market_codes(market: str, price_dd: str) -> set[str]:
     """한 시장(KOSPI/KOSDAQ) 전 종목 단축코드."""
     url = os.getenv("DATABASE_URL")
     if not url:
@@ -370,8 +371,8 @@ def _krx_market_codes(mkt: str, bas_dd: str) -> set[str]:
         import psycopg
         with psycopg.connect(url, connect_timeout=10) as c:
             rows = c.execute(
-                "SELECT isu_cd FROM krx_weekly WHERE bas_dd=%s AND mkt=%s AND mktcap IS NOT NULL",
-                (bas_dd, mkt),
+                "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND market=%s AND mktcap IS NOT NULL",
+                (price_dd, market),
             ).fetchall()
             return {r[0] for r in rows}
     except Exception:
@@ -384,7 +385,7 @@ class UniverseFilter:
     resolved: bool
     notice: str = ""
     allowed: set[str] | None = None   # None = 전체시장(필터 없음)
-    bas_dd: str | None = None
+    price_dd: str | None = None
 
     def contains(self, stock_code: str) -> bool:
         if self.allowed is None:
@@ -397,12 +398,12 @@ def _looks_like_code(tok: str) -> bool:
     return bool(re.fullmatch(r"[0-9A-Z]{6}", tok)) and sum(c.isdigit() for c in tok) >= 4
 
 
-async def _resolve_custom_universe(raw: str, bas_dd: str | None) -> UniverseFilter:
+async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFilter:
     """custom:… 토큰을 코드/이름 혼용으로 해석. 코드는 그대로, 이름은 resolve_company_query로 코드화."""
     tokens = [t.strip() for t in re.split(r"[,，]+", raw) if t.strip()]
     if not tokens:
         return UniverseFilter(label="custom", resolved=False,
-                              notice="custom:[…] 종목 파싱 실패 → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
+                              notice="custom:[…] 종목 파싱 실패 → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
     codes: set[str] = set()
     notes: list[str] = []
     name_tokens: list[str] = []
@@ -430,11 +431,11 @@ async def _resolve_custom_universe(raw: str, bas_dd: str | None) -> UniverseFilt
     if not codes:
         notice = ("일부 종목 미해결: " + " · ".join(notes)) if notes else ""
         return UniverseFilter(label="지정종목", resolved=False,
-                              notice=(notice + " → 전체시장으로 대체.").strip(), allowed=None, bas_dd=bas_dd)
+                              notice=(notice + " → 전체시장으로 대체.").strip(), allowed=None, price_dd=price_dd)
     # 부분 해결 시: 해결분으로 진행함을 명시(전체 degrade로 오해 방지)
     notice = (f"해결된 {len(codes)}종목으로 진행 — 미해결: " + " · ".join(notes)) if notes else ""
     return UniverseFilter(label=f"지정 {len(codes)}종목", resolved=True,
-                          notice=notice, allowed=codes, bas_dd=bas_dd)
+                          notice=notice, allowed=codes, price_dd=price_dd)
 
 
 async def resolve_universe(universe: str) -> UniverseFilter:
@@ -445,44 +446,44 @@ async def resolve_universe(universe: str) -> UniverseFilter:
       top_mktcap:N(전체시장 시총상위) · custom:코드|이름,… · sector:…(미구현 degrade)
     """
     spec = (universe or "all").strip()
-    bas_dd = _krx_latest_dd()
+    price_dd = _krx_latest_dd()
 
     if spec in ("", "all"):
-        return UniverseFilter(label="전체시장", resolved=True, allowed=None, bas_dd=bas_dd)
+        return UniverseFilter(label="전체시장", resolved=True, allowed=None, price_dd=price_dd)
 
     low = spec.lower()
 
-    def _rank(n: int, mkt: str | None, label: str) -> UniverseFilter:
-        allowed = _krx_top_mktcap(n, bas_dd, mkt) if bas_dd else set()
+    def _rank(n: int, market: str | None, label: str) -> UniverseFilter:
+        allowed = _krx_top_mktcap(n, price_dd, market) if price_dd else set()
         if not allowed:
             return UniverseFilter(label=label, resolved=False,
-                                  notice="krx_weekly 조회 실패 → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
-        return UniverseFilter(label=label, resolved=True, allowed=allowed, bas_dd=bas_dd)
+                                  notice="krx_weekly 조회 실패 → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
+        return UniverseFilter(label=label, resolved=True, allowed=allowed, price_dd=price_dd)
 
     # 시장 전체(랭킹 없음) — exact 매칭(kospi200/kospi:N 흡수 방지)
     if low in ("market:kospi", "kospi"):
-        codes = _krx_market_codes("KOSPI", bas_dd) if bas_dd else set()
+        codes = _krx_market_codes(MKT_KS, price_dd) if price_dd else set()
         return UniverseFilter(label="KOSPI 전체", resolved=bool(codes),
                               notice="" if codes else "krx_weekly 조회 실패 → 전체시장으로 대체.",
-                              allowed=codes or None, bas_dd=bas_dd)
+                              allowed=codes or None, price_dd=price_dd)
     if low in ("market:kosdaq", "kosdaq"):
-        codes = _krx_market_codes("KOSDAQ", bas_dd) if bas_dd else set()
+        codes = _krx_market_codes(MKT_KQ, price_dd) if price_dd else set()
         return UniverseFilter(label="KOSDAQ 전체", resolved=bool(codes),
                               notice="" if codes else "krx_weekly 조회 실패 → 전체시장으로 대체.",
-                              allowed=codes or None, bas_dd=bas_dd)
+                              allowed=codes or None, price_dd=price_dd)
 
     # 시장별 시총 상위 N
     if low.startswith("kospi:") or low.startswith("kospi_top:"):
         try:
             n = int(spec.split(":", 1)[1])
         except ValueError:
-            return UniverseFilter(label=spec, resolved=False, notice="kospi:N 파싱 실패 → 전체시장.", allowed=None, bas_dd=bas_dd)
+            return UniverseFilter(label=spec, resolved=False, notice="kospi:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
         return _rank(n, "KOSPI", f"KOSPI 시총상위 {n}")
     if low.startswith("kosdaq:") or low.startswith("kosdaq_top:"):
         try:
             n = int(spec.split(":", 1)[1])
         except ValueError:
-            return UniverseFilter(label=spec, resolved=False, notice="kosdaq:N 파싱 실패 → 전체시장.", allowed=None, bas_dd=bas_dd)
+            return UniverseFilter(label=spec, resolved=False, notice="kosdaq:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
         return _rank(n, "KOSDAQ", f"KOSDAQ 시총상위 {n}")
 
     # KOSPI200 → 지수 원장 부재라 KOSPI 시총상위 200으로 대체(시장 분리됨, 안내)
@@ -498,20 +499,20 @@ async def resolve_universe(universe: str) -> UniverseFilter:
             n = int(spec.split(":", 1)[1])
         except ValueError:
             return UniverseFilter(label=spec, resolved=False,
-                                  notice="top_mktcap:N 파싱 실패 → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
+                                  notice="top_mktcap:N 파싱 실패 → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
         return _rank(n, None, f"전체시장 시총상위 {n}")
 
     if low.startswith("custom:"):
-        return await _resolve_custom_universe(spec.split(":", 1)[1], bas_dd)
+        return await _resolve_custom_universe(spec.split(":", 1)[1], price_dd)
 
     if low.startswith("sector"):
         return UniverseFilter(
             label=spec, resolved=False,
             notice="섹터 필터는 미구현(KSIC 조인 TODO) — 전체시장으로 스캔했다.",
-            allowed=None, bas_dd=bas_dd)
+            allowed=None, price_dd=price_dd)
 
     return UniverseFilter(label=spec, resolved=False,
-                          notice=f"알 수 없는 universe={spec!r} → 전체시장으로 대체.", allowed=None, bas_dd=bas_dd)
+                          notice=f"알 수 없는 universe={spec!r} → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -912,8 +913,8 @@ async def _build_screener_payload_impl(
     hits.sort(key=lambda r: r["rcept_no"], reverse=True)  # 최신순
 
     # ── 시총 배치 부착(krx_weekly, DART 0콜) ───────────────────────────
-    if uni.bas_dd:
-        cap_map = _krx_mktcap_map((h["stock_code"] for h in hits), uni.bas_dd)
+    if uni.price_dd:
+        cap_map = _krx_mktcap_map((h["stock_code"] for h in hits), uni.price_dd)
     else:
         cap_map = {}
     for h in hits:

@@ -158,12 +158,12 @@ def _database_market_context() -> MarketContext | None:
         import psycopg
 
         with psycopg.connect(url, connect_timeout=1) as conn:
-            latest = conn.execute("SELECT MAX(bas_dd) FROM krx_weekly").fetchone()
+            latest = conn.execute("SELECT MAX(price_dd) FROM krx_weekly").fetchone()
             as_of_date = str(latest[0]) if latest and latest[0] else ""
             if not as_of_date:
                 return None
             rows = conn.execute(
-                "SELECT isu_cd, mktcap, mkt FROM krx_weekly WHERE bas_dd=%s",
+                "SELECT ticker, mktcap, market FROM krx_weekly WHERE price_dd=%s",
                 (as_of_date,),
             ).fetchall()
         caps = {str(ticker): int(cap or 0) for ticker, cap, _market in rows if ticker}

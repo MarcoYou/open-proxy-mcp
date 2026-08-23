@@ -1,4 +1,4 @@
-"""mkt_finstat_y/mkt_finstat_q 전수 스케일오류 read-only sweep — scale_guard 재사용, DB 변경 없음.
+"""dart_finstat_y/dart_finstat_q 전수 스케일오류 read-only sweep — scale_guard 재사용, DB 변경 없음.
 
 배경(260705): 소프트센(032680) fy2022 오염(ni/eq ×100만)이 가드 신설(260704) 이전에 DB에 들어와
 잔존. 가드는 신규 fetch만 막고 기존 데이터 소급 sweep이 없었음. 사용자 요청으로 잔존 오염 전수 파악.
@@ -27,9 +27,9 @@ def main() -> None:
     con = psycopg.connect(os.environ["DATABASE_URL"]); con.autocommit = True
     print(f"MARKET_MAX_NI_ANCHOR = {MARKET_MAX_NI_ANCHOR:.3e} (삼성전자 앵커)\n")
 
-    print("=== mkt_finstat_y 전수 sweep ===")
+    print("=== dart_finstat_y 전수 sweep ===")
     rows = con.execute(
-        "SELECT isu_cd, fy, ni, eq, ni_restated, eq_restated FROM mkt_finstat_y ORDER BY isu_cd, fy"
+        "SELECT ticker, fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y ORDER BY ticker, fy"
     ).fetchall()
     by_isu: dict[str, list] = {}
     for isu, fy, ni, eq, nir, eqr in rows:
@@ -58,9 +58,9 @@ def main() -> None:
     if len(soft_hist) > 30:
         print(f"  ... 외 {len(soft_hist) - 30}건 생략(전량은 --verbose 필요시 추가)")
 
-    print("\n=== mkt_finstat_q 전수 sweep (ni_cum·eq) ===")
+    print("\n=== dart_finstat_q 전수 sweep (ni_cum·eq) ===")
     qrows = con.execute(
-        "SELECT isu_cd, fy, quarter, ni_cum, eq FROM mkt_finstat_q ORDER BY isu_cd, fy, quarter"
+        "SELECT ticker, fy, quarter, ni_cum, eq FROM dart_finstat_q ORDER BY ticker, fy, quarter"
     ).fetchall()
     by_isu_q: dict[str, list] = {}
     for isu, fy, q, ni, eq in qrows:
@@ -83,8 +83,8 @@ def main() -> None:
         print(f"  {isu} fy{fy}Q{q}: ni_cum={nis} eq={eqs} ni_hit={hit} eq_digit_cap={eq_bad}")
 
     print(f"\n=== 요약 ===")
-    print(f"  mkt_finstat_y: hard {len(hard_hist)}건 · soft {len(soft_hist)}건 (전체 {len(rows)}행)")
-    print(f"  mkt_finstat_q:    hard {len(hard_q)}건 (전체 {len(qrows)}행)")
+    print(f"  dart_finstat_y: hard {len(hard_hist)}건 · soft {len(soft_hist)}건 (전체 {len(rows)}행)")
+    print(f"  dart_finstat_q:    hard {len(hard_q)}건 (전체 {len(qrows)}행)")
     print("  ※ read-only — DB 변경 없음")
     con.close()
 

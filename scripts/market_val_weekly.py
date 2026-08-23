@@ -2,9 +2,9 @@
 
 한 번 실행이 하는 일 (KRX 4콜 + DART 0콜 + ECOS 0콜):
   A. krx_weekly 갱신 — 최신 거래일 전종목 스냅샷, 같은 ISO주 수렴(valuation 공용 로직 재사용)
-  B. firm_valuation_snapshot  — 종목별 PER/PBR 주간 스냅샷 (krx_weekly 시총 × mkt_fundamentals 재무)
-  C. mkt_val_history — 시장 전체(KOSPI/KOSDAQ) 시총가중 aggregate (우선주 시총 보통주 귀속)
-  D. mkt_val_history — 산업별(KSIC 하이브리드, opm_sector_map — 제품용) aggregate
+  B. opm_val_firm  — 종목별 PER/PBR 주간 스냅샷 (krx_weekly 시총 × dart_fundamentals 재무)
+  C. opm_val_market — 시장 전체(KOSPI/KOSDAQ) 시총가중 aggregate (우선주 시총 보통주 귀속)
+  D. opm_val_market — 산업별(KSIC 하이브리드, opm_sector_map — 제품용) aggregate
 
 방법론 (260705 확정 — 보통주 기준):
   PER = Σ**보통주** 시총 ÷ Σ지배순이익(TTM) — KRX 지수 PER 관행. PBR = Σ보통주 시총 ÷ Σ지배자본(MRQ).
@@ -14,7 +14,7 @@
   섹터 분류 = KSIC 하이브리드(opm_sector_map.json). ※ WI26은 내부 분석 전용 — 제품/저장 탑재 금지.
 
 통화(260705 실측 버그 수정): mkt_fundamentals의 비KRW 22사(USD/CNY/JPY)는 재무가 원통화 저장
-  → fx_rate(Supabase 캐시, FY 기말환율)로 KRW 환산 후 합산/배수 산출. 캐시 미스 시 그 종목 제외+경고.
+  → ecos_fx_rate(Supabase 캐시, FY 기말환율)로 KRW 환산 후 합산/배수 산출. 캐시 미스 시 그 종목 제외+경고.
 
 수렴 규칙(무료티어 보호): 모든 스냅샷 테이블은 같은 ISO주의 옛 snap_dd를 지우고 기록
   → 주중 매일 돌려도 주당 1스냅샷, 주 마지막 거래일로 굳음. (fx·krx_weekly와 동일 패턴)
@@ -31,6 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
 from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import httpx, psycopg
@@ -41,26 +42,26 @@ from open_proxy_mcp.services.valuation import _ensure_krx_fresh, _iso_wk_range
 FY = 2025
 FY_END = f"{FY}1231"  # 비KRW 재무 환산 기준(회계기말 환율) — valuation tool과 동일 규칙
 
-DDL_FIRM = """CREATE TABLE IF NOT EXISTS firm_valuation_snapshot(
-  snap_dd text, isu_cd text, mkt text, sector text, cap double precision, cap_pref double precision,
+DDL_FIRM = """CREATE TABLE IF NOT EXISTS opm_val_firm(
+  snap_dd text, ticker text, market text, sector text, cap double precision, cap_pref double precision,
   per_fy0 double precision, per_ttm double precision,
   pbr_fy0 double precision, pbr_mrq double precision,
-  PRIMARY KEY(snap_dd, isu_cd))"""
-# 260706 병합 A: mkt_val_history 하나가 시장전체(sector='_ALL')+섹터별 행을 함께 담음.
+  PRIMARY KEY(snap_dd, ticker))"""
+# 260706 병합 A: opm_val_market 하나가 시장전체(sector='_ALL')+섹터별 행을 함께 담음.
 # sector는 NOT NULL(PK 포함, PG는 PK에 NULL 불가+UNIQUE는 NULL≠NULL이라 중복 누적) — 센티넬 '_ALL'.
-DDL_MKT = """CREATE TABLE IF NOT EXISTS mkt_val_history(
-  snap_dd text, mkt text, sector text NOT NULL DEFAULT '_ALL', label text, n int,
+DDL_MKT = """CREATE TABLE IF NOT EXISTS opm_val_market(
+  snap_dd text, market text, sector text NOT NULL DEFAULT '_ALL', label text, n int,
   per_fy0 double precision, per_ttm double precision,
   pbr_fy0 double precision, pbr_mrq double precision,
   cap double precision, cap_pref double precision, ni_ttm double precision, eq double precision,
-  PRIMARY KEY(snap_dd, mkt, sector))"""
+  PRIMARY KEY(snap_dd, market, sector))"""
 DDL_MIGRATE = (
-    "ALTER TABLE firm_valuation_snapshot ADD COLUMN IF NOT EXISTS cap_pref double precision",
-    "ALTER TABLE mkt_val_history ADD COLUMN IF NOT EXISTS cap_pref double precision",
+    "ALTER TABLE opm_val_firm ADD COLUMN IF NOT EXISTS cap_pref double precision",
+    "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS cap_pref double precision",
     # 섹터 밴드 통일(260705): 과거 연말은 FY0만 산출 가능 → sector 행에도 per_fy0/pbr_fy0 저장해
     # 현재(주간)·과거를 FY0 단일 기준으로 비교. 주간행은 per_ttm/pbr_mrq도 함께 채움.
-    "ALTER TABLE mkt_val_history ADD COLUMN IF NOT EXISTS per_fy0 double precision",
-    "ALTER TABLE mkt_val_history ADD COLUMN IF NOT EXISTS pbr_fy0 double precision",
+    "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS per_fy0 double precision",
+    "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS pbr_fy0 double precision",
 )
 
 # 섹터 버킷 — market_val_sector.py의 KSIC 하이브리드와 동일 규칙
@@ -84,7 +85,7 @@ def label(code: str) -> str:
     return _OVR.get(code) or f"{_ksic.get(code, '?')[:14]}({code})"
 
 
-async def _krx_kinds(bas_dd: str) -> dict[str, str]:
+async def _krx_kinds(price_dd: str) -> dict[str, str]:
     """종목 유형(보통주/우선주) — isu_base_info 2콜. 우선주 시총 귀속용."""
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
     from open_proxy_mcp.dart.krx_meter import bump
@@ -94,7 +95,7 @@ async def _krx_kinds(bas_dd: str) -> dict[str, str]:
             try:
                 bump()
                 r = await h.get(f"https://data-dbg.krx.co.kr/svc/apis/sto/{ep}",
-                                headers={"AUTH_KEY": key}, params={"basDd": bas_dd})
+                                headers={"AUTH_KEY": key}, params={"basDd": price_dd})
                 for row in next(v for v in r.json().values() if isinstance(v, list)):
                     kinds[row["ISU_SRT_CD"]] = row.get("KIND_STKCERT_TP_NM", "")
             except Exception:
@@ -123,7 +124,7 @@ async def run(dry: bool = False) -> None:
 
     # 시세: krx_weekly에서 (전 종목 — 우선주 포함)
     wk = {c: (m or 0) for c, m in con.execute(
-        "SELECT isu_cd, mktcap FROM krx_weekly WHERE bas_dd=%s", (snap_dd,))}
+        "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s", (snap_dd,))}
     kinds = await _krx_kinds(snap_dd)  # KRX 2콜
     if not kinds:  # 양 endpoint 실패 → caps 전부 빈값 → 수렴 DELETE가 기존 스냅샷을 빈 데이터로
         print("⚠ KRX 종목유형(kinds) 확보 실패 — 스냅샷 중단(기존 데이터 보존)")  # 덮는 사고 방지(QA)
@@ -149,13 +150,13 @@ async def run(dry: bool = False) -> None:
     if unk_kind:
         print(f"  (kinds 미수록 {len(unk_kind)}건 — 귀속 제외: {unk_kind[:8]}{'…' if len(unk_kind) > 8 else ''})")
 
-    # 재무: mkt_fundamentals (+비KRW 환산 — fx_rate 캐시라 API 0콜)
-    rows = con.execute("""SELECT isu_cd, mkt, induty, currency, ni_fy, ni_ttm, eq_fy, eq_mrq
-        FROM mkt_fundamentals WHERE fetched='ok'""").fetchall()
+    # 재무: dart_fundamentals (+비KRW 환산 — ecos_fx_rate 캐시라 API 0콜)
+    rows = con.execute("""SELECT ticker, market, induty, currency, ni_fy, ni_ttm, eq_fy, eq_mrq
+        FROM dart_fundamentals WHERE fetched='ok'""").fetchall()
     fx_cache: dict[str, float | None] = {}
     fx_skipped = []
     firms = []
-    for isu, mkt, ind, cur_ccy, nf, nt, ef, em in rows:
+    for isu, market, ind, cur_ccy, nf, nt, ef, em in rows:
         ccy = (cur_ccy or "KRW").upper()
         if ccy not in ("KRW", "NODATA", "?"):
             if ccy not in fx_cache:
@@ -164,35 +165,35 @@ async def run(dry: bool = False) -> None:
             if not r:
                 fx_skipped.append(isu); continue
             nf, nt, ef, em = (x * r if x is not None else None for x in (nf, nt, ef, em))
-        firms.append((isu, mkt, ind or "", nf, nt, ef, em))
+        firms.append((isu, market, ind or "", nf, nt, ef, em))
     if fx_skipped:
         print(f"  ⚠ FX 미확보로 제외: {fx_skipped}")
 
     # B. 종목별 스냅샷
     firm_recs = []
-    for isu, mkt, ind, nf, nt, ef, em in firms:
+    for isu, market, ind, nf, nt, ef, em in firms:
         cap = caps.get(isu)
         if not cap:
             continue
         eq = em if em is not None else ef
         sec = bucket(ind, isu) if ind and ind not in ("none", "err") else None
         firm_recs.append((
-            snap_dd, isu, mkt, sec, cap, prefs.get(isu),
+            snap_dd, isu, market, sec, cap, prefs.get(isu),
             (cap / nf) if nf and nf > 0 else None,      # per_fy0 (적자 → N/M)
             (cap / nt) if nt and nt > 0 else None,      # per_ttm
             (cap / ef) if ef and ef > 0 else None,      # pbr_fy0
             (cap / eq) if eq and eq > 0 else None,      # pbr_mrq
         ))
-    print(f"B. firm_valuation_snapshot {len(firm_recs)}종목 (시총 매칭 기준)")
+    print(f"B. opm_val_firm {len(firm_recs)}종목 (시총 매칭 기준)")
 
     # C. 시장 aggregate (agg와 동일 산식 — 분자·분모 짝 맞춤)
     agg = defaultdict(lambda: dict(cap=0, ni_fy=0, ni_ttm=0, eq=0, eq_fy=0,
                                    cap_ttm=0, cap_eq=0, cap_eqf=0, n=0, cap_pref=0))
-    for isu, mkt, ind, nf, nt, ef, em in firms:
+    for isu, market, ind, nf, nt, ef, em in firms:
         cap = caps.get(isu)
         if not cap:
             continue
-        a = agg[mkt]; eq = em if em is not None else ef
+        a = agg[market]; eq = em if em is not None else ef
         a["cap_pref"] += prefs.get(isu) or 0
         if nf is not None: a["ni_fy"] += nf; a["cap"] += cap; a["n"] += 1
         if nt is not None: a["ni_ttm"] += nt; a["cap_ttm"] += cap
@@ -200,26 +201,26 @@ async def run(dry: bool = False) -> None:
         if ef is not None and ef > 0: a["eq_fy"] += ef; a["cap_eqf"] += cap
     # 260706 병합: mkt_recs도 sector='_ALL'·label=None·n=종목수로 sec_recs와 같은 컬럼 세트에 맞춤.
     mkt_recs = []
-    for mkt in ("KOSPI", "KOSDAQ"):
-        a = agg[mkt]
+    for market in (MKT_KS, MKT_KQ):
+        a = agg[market]
         if not a["n"]:
             continue
         per_f = a["cap"] / a["ni_fy"] if a["ni_fy"] and a["ni_fy"] > 0 else None      # Σni≤0 → N/M
         per_t = a["cap_ttm"] / a["ni_ttm"] if a["ni_ttm"] and a["ni_ttm"] > 0 else None  # (음수 PER 금지, QA)
         pbr_f = a["cap_eqf"] / a["eq_fy"] if a["eq_fy"] else None
         pbr_m = a["cap_eq"] / a["eq"] if a["eq"] else None
-        mkt_recs.append((snap_dd, mkt, "_ALL", None, a["n"], per_f, per_t, pbr_f, pbr_m,
+        mkt_recs.append((snap_dd, market, "_ALL", None, a["n"], per_f, per_t, pbr_f, pbr_m,
                          a["cap"], a["cap_pref"], a["ni_ttm"], a["eq"]))
-        print(f"C. [{mkt}] {a['n']}사 PER {per_f:.2f}/{per_t:.2f} PBR {pbr_f:.2f}/{pbr_m:.2f}")
+        print(f"C. [{market}] {a['n']}사 PER {per_f:.2f}/{per_t:.2f} PBR {pbr_f:.2f}/{pbr_m:.2f}")
 
     # D. 섹터 aggregate (KSIC 하이브리드, 시장별 · MINB 미만은 fold)
     sec_agg = defaultdict(lambda: dict(n=0, ni=0, eq=0, capn=0, cape=0, cap=0, cap_pref=0,
                                        ni_fy=0, eq_fy=0, capnf=0, capef=0))
-    for isu, mkt, ind, nf, nt, ef, em in firms:
+    for isu, market, ind, nf, nt, ef, em in firms:
         cap = caps.get(isu)
         if not cap or not ind or ind in ("none", "err"):
             continue
-        a = sec_agg[(mkt, bucket(ind, isu))]
+        a = sec_agg[(market, bucket(ind, isu))]
         a["n"] += 1; a["cap"] += cap; a["cap_pref"] += prefs.get(isu) or 0
         eq = em if em is not None else ef
         if nt is not None: a["ni"] += nt; a["capn"] += cap
@@ -229,53 +230,53 @@ async def run(dry: bool = False) -> None:
         if nf is not None: a["ni_fy"] += nf; a["capnf"] += cap
         if ef is not None and ef > 0: a["eq_fy"] += ef; a["capef"] += cap
     sec_recs = []
-    for mkt in ("KOSPI", "KOSDAQ"):
+    for market in (MKT_KS, MKT_KQ):
         fold = dict(n=0, ni=0, eq=0, capn=0, cape=0, cap=0, cap_pref=0,
                     ni_fy=0, eq_fy=0, capnf=0, capef=0)
         for (m, sec), a in sec_agg.items():
-            if m != mkt:
+            if m != market:
                 continue
             if a["n"] < MINB:
                 for k in fold: fold[k] += a[k]
                 continue
-            # 컬럼 순서(snap_dd,mkt,sector,label,n,per_fy0,per_ttm,pbr_fy0,pbr_mrq,cap,cap_pref,ni_ttm,eq).
+            # 컬럼 순서(snap_dd,market,sector,label,n,per_fy0,per_ttm,pbr_fy0,pbr_mrq,cap,cap_pref,ni_ttm,eq).
             # per_fy0/pbr_fy0도 섹터 단위로 채움(260709) — C절 _ALL과 동일 산식, firm 합산이라 신규 수집
             # 없음. ni_ttm/eq도 함께 채워 _ALL 행과 대칭(과거엔 None이라 scope="sector" FY0 결측 원인).
-            sec_recs.append((snap_dd, mkt, sec, label(sec), a["n"],
+            sec_recs.append((snap_dd, market, sec, label(sec), a["n"],
                              a["capnf"] / a["ni_fy"] if a["ni_fy"] and a["ni_fy"] > 0 else None,
                              a["capn"] / a["ni"] if a["ni"] and a["ni"] > 0 else None,
                              a["capef"] / a["eq_fy"] if a["eq_fy"] else None,
                              a["cape"] / a["eq"] if a["eq"] else None,
                              a["cap"], a["cap_pref"], a["ni"] or None, a["eq"] or None))
         if fold["n"]:
-            sec_recs.append((snap_dd, mkt, "_fold", _smap["fold_label"], fold["n"],
+            sec_recs.append((snap_dd, market, "_fold", _smap["fold_label"], fold["n"],
                              fold["capnf"] / fold["ni_fy"] if fold["ni_fy"] and fold["ni_fy"] > 0 else None,
                              fold["capn"] / fold["ni"] if fold["ni"] and fold["ni"] > 0 else None,
                              fold["capef"] / fold["eq_fy"] if fold["eq_fy"] else None,
                              fold["cape"] / fold["eq"] if fold["eq"] else None,
                              fold["cap"], fold["cap_pref"], fold["ni"] or None, fold["eq"] or None))
     _sec_fy0 = sum(1 for r in sec_recs if r[5] is not None)  # r[5]=per_fy0
-    print(f"D. mkt_val_history(섹터행) {len(sec_recs)}버킷 · per_fy0 채움 {_sec_fy0}/{len(sec_recs)}")
+    print(f"D. opm_val_market(섹터행) {len(sec_recs)}버킷 · per_fy0 채움 {_sec_fy0}/{len(sec_recs)}")
 
     if dry:
         print("(--dry: 저장 생략)"); con.close(); return
 
     # 저장 — 전부 같은 ISO주 수렴 + 컬럼명 명시 INSERT (위치의존 금지).
-    # 260706 병합: 시장전체(sector='_ALL')와 섹터별 행을 mkt_val_history 하나에 함께 저장.
+    # 260706 병합: 시장전체(sector='_ALL')와 섹터별 행을 opm_val_market 하나에 함께 저장.
     all_mkt_recs = mkt_recs + sec_recs
     with con.cursor() as cur:
-        _wk_converge(cur, "firm_valuation_snapshot", snap_dd)
-        cur.executemany("""INSERT INTO firm_valuation_snapshot
-            (snap_dd, isu_cd, mkt, sector, cap, cap_pref, per_fy0, per_ttm, pbr_fy0, pbr_mrq)
+        _wk_converge(cur, "opm_val_firm", snap_dd)
+        cur.executemany("""INSERT INTO opm_val_firm
+            (snap_dd, ticker, market, sector, cap, cap_pref, per_fy0, per_ttm, pbr_fy0, pbr_mrq)
             VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (snap_dd, isu_cd) DO UPDATE SET mkt=EXCLUDED.mkt, sector=EXCLUDED.sector,
+            ON CONFLICT (snap_dd, ticker) DO UPDATE SET market=EXCLUDED.market, sector=EXCLUDED.sector,
             cap=EXCLUDED.cap, cap_pref=EXCLUDED.cap_pref, per_fy0=EXCLUDED.per_fy0,
             per_ttm=EXCLUDED.per_ttm, pbr_fy0=EXCLUDED.pbr_fy0, pbr_mrq=EXCLUDED.pbr_mrq""", firm_recs)
-        _wk_converge(cur, "mkt_val_history", snap_dd)
-        cur.executemany("""INSERT INTO mkt_val_history
-            (snap_dd, mkt, sector, label, n, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, cap_pref, ni_ttm, eq)
+        _wk_converge(cur, "opm_val_market", snap_dd)
+        cur.executemany("""INSERT INTO opm_val_market
+            (snap_dd, market, sector, label, n, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, cap_pref, ni_ttm, eq)
             VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (snap_dd, mkt, sector) DO UPDATE SET label=EXCLUDED.label, n=EXCLUDED.n,
+            ON CONFLICT (snap_dd, market, sector) DO UPDATE SET label=EXCLUDED.label, n=EXCLUDED.n,
             per_fy0=EXCLUDED.per_fy0, per_ttm=EXCLUDED.per_ttm, pbr_fy0=EXCLUDED.pbr_fy0,
             pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap, cap_pref=EXCLUDED.cap_pref,
             ni_ttm=EXCLUDED.ni_ttm, eq=EXCLUDED.eq""", all_mkt_recs)

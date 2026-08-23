@@ -25,6 +25,7 @@ from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.dividend import _annual_summary
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_label as mkt_label
 
 _KRX_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
 _KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
@@ -56,20 +57,20 @@ def _price_dates() -> list[str]:
 # KRX 시세 = 기존 검증 자산 **krx_weekly**(주별 최종거래일 전종목, 2015-12~, 원장 대조 불일치 0,
 # 수정주가 파이프라인과 공유)에서 서빙 — 별도 테이블 신설 금지(260705 krx_weekly_px 중복 생성 → 폐기).
 # 라이브 KRX는 개인키 1개·일 10,000콜 한도(배치와 공유)라 유저마다 못 씀. FX 캐시와 동형:
-#  · 매일 최신 거래일 스냅샷을 불러와 '그 ISO주' 슬롯에 수렴(같은 주 옛 bas_dd 삭제 후 insert, 트랜잭션)
+#  · 매일 최신 거래일 스냅샷을 불러와 '그 ISO주' 슬롯에 수렴(같은 주 옛 price_dd 삭제 후 insert, 트랜잭션)
 #    → 서빙엔 전날 종가까지 표시, 주중 일별은 덮여 사라지고 주 마지막 거래일만 남음(연 ~52스냅샷 bounded)
 #  · 이 daily-refresh가 krx_weekly의 주기 갱신자 역할도 겸함(수정주가 파이프라인 신선도 유지).
 # price_date로 기준일 투명 노출(며칠 전 종가여도 날짜 명시 → 사용자 판단).
 # 260821 OOM 수습: 무상한 dict → 바이트 상한 LRU. 날짜별 전종목(~2,766)+:split 중복 저장이
 # 무제한 누적하던 것을 32MB(≈수일치)로 캡. 초과 시 오래된 날짜부터 evict.
 _KRX_CACHE = LruByteCache(_env_mb("OPM_KRX_CACHE_MB", 32), 48 * 60 * 60, "krx")
-_KRX_STATE: dict[str, str] = {}              # {"day": 오늘, "latest_dd": 서빙할 최신 bas_dd}
+_KRX_STATE: dict[str, str] = {}              # {"day": 오늘, "latest_dd": 서빙할 최신 price_dd}
 
 
-def _iso_wk_range(bas_dd: str) -> tuple[str, str]:
+def _iso_wk_range(price_dd: str) -> tuple[str, str]:
     """YYYYMMDD가 속한 ISO주의 (월요일, 일요일) YYYYMMDD — 같은 주 옛 스냅샷 수렴 삭제용."""
     from datetime import date, timedelta
-    d = date(int(bas_dd[:4]), int(bas_dd[4:6]), int(bas_dd[6:8]))
+    d = date(int(price_dd[:4]), int(price_dd[4:6]), int(price_dd[6:8]))
     mon = d - timedelta(days=d.isoweekday() - 1)
     return mon.strftime("%Y%m%d"), (mon + timedelta(days=6)).strftime("%Y%m%d")
 
@@ -81,13 +82,13 @@ def _krx_db_latest_dd() -> str | None:
     try:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
-            r = c.execute("SELECT MAX(bas_dd) FROM krx_weekly").fetchone()
+            r = c.execute("SELECT MAX(price_dd) FROM krx_weekly").fetchone()
             return r[0] if r and r[0] else None
     except Exception:
         return None
 
 
-def _krx_db_get(bas_dd: str, isu_cd: str) -> dict:
+def _krx_db_get(price_dd: str, ticker: str) -> dict:
     url = os.getenv("DATABASE_URL")
     if not url:
         return {}
@@ -95,42 +96,42 @@ def _krx_db_get(bas_dd: str, isu_cd: str) -> dict:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
             r = c.execute("SELECT close, mktcap, list_shrs FROM krx_weekly "
-                          "WHERE bas_dd=%s AND isu_cd=%s", (bas_dd, isu_cd)).fetchone()
+                          "WHERE price_dd=%s AND ticker=%s", (price_dd, ticker)).fetchone()
             if r and r[0]:
-                return {"price": r[0], "date": bas_dd, "common_mktcap": r[1], "list_shrs": r[2]}
+                return {"price": r[0], "date": price_dd, "common_mktcap": r[1], "list_shrs": r[2]}
     except Exception:
         return {}
     return {}
 
 
-def _krx_db_upsert(bas_dd: str, kospi: list, kosdaq: list) -> None:
-    """전종목 스냅샷을 krx_weekly에 기록 + 같은 ISO주의 옛 bas_dd 삭제(수렴) — 한 트랜잭션.
+def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> None:
+    """전종목 스냅샷을 krx_weekly에 기록 + 같은 ISO주의 옛 price_dd 삭제(수렴) — 한 트랜잭션.
     → 주중엔 '주 내 최신 거래일' 1개, 주 마감 후엔 '주별 최종거래일'로 굳음(기존 의미 보존).
     mkt는 endpoint 기준 태깅(KOSPI/KOSDAQ — 기존 값 형식과 일치). 컬럼명 명시(위치의존 금지)."""
     url = os.getenv("DATABASE_URL")
     if not url or not (kospi or kosdaq):
         return
     recs = []
-    for mkt, rows in (("KOSPI", kospi), ("KOSDAQ", kosdaq)):
+    for market, rows in ((MKT_KS, kospi), (MKT_KQ, kosdaq)):  # DB 는 KS/KQ (market_codes)
         for row in rows:
             isu = row.get("ISU_CD")
             if not isu:
                 continue
-            recs.append((bas_dd, isu, mkt, _num(row.get("TDD_CLSPRC")),
+            recs.append((price_dd, isu, market, _num(row.get("TDD_CLSPRC")),
                          _num(row.get("MKTCAP")), _num(row.get("LIST_SHRS"))))
     if not recs:
         return
-    wk_start, wk_end = _iso_wk_range(bas_dd)
+    wk_start, wk_end = _iso_wk_range(price_dd)
     try:
         import psycopg
         with psycopg.connect(url, connect_timeout=20) as c:  # 단일 트랜잭션 — 삭제·삽입 원자성
             with c.cursor() as cur:
-                cur.execute("DELETE FROM krx_weekly WHERE bas_dd >= %s AND bas_dd <= %s "
-                            "AND bas_dd != %s", (wk_start, wk_end, bas_dd))
+                cur.execute("DELETE FROM krx_weekly WHERE price_dd >= %s AND price_dd <= %s "
+                            "AND price_dd != %s", (wk_start, wk_end, price_dd))
                 cur.executemany(
-                    "INSERT INTO krx_weekly(bas_dd, isu_cd, mkt, close, mktcap, list_shrs) "
-                    "VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT (bas_dd, isu_cd) DO UPDATE SET "
-                    "mkt=EXCLUDED.mkt, close=EXCLUDED.close, mktcap=EXCLUDED.mktcap, "
+                    "INSERT INTO krx_weekly(price_dd, ticker, market, close, mktcap, list_shrs) "
+                    "VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT (price_dd, ticker) DO UPDATE SET "
+                    "market=EXCLUDED.market, close=EXCLUDED.close, mktcap=EXCLUDED.mktcap, "
                     "list_shrs=EXCLUDED.list_shrs", recs)
             c.commit()
     except Exception:
@@ -178,7 +179,7 @@ async def _fetch_live_snapshot() -> tuple[str | None, dict[str, dict]]:
 
 
 async def _ensure_krx_fresh() -> str | None:
-    """하루 1회(프로세스): 최신 거래일 스냅샷으로 krx_weekly 갱신(같은 ISO주 수렴). 반환 = 서빙할 bas_dd.
+    """하루 1회(프로세스): 최신 거래일 스냅샷으로 krx_weekly 갱신(같은 ISO주 수렴). 반환 = 서빙할 price_dd.
     매일 갱신(전날 종가까지 표시)하되 주중 일별은 덮여 사라지고 주 마지막 거래일만 영구 보존."""
     from datetime import date
     today = date.today().strftime("%Y%m%d")
@@ -251,7 +252,7 @@ async def _resolve_listed(query: str) -> tuple[dict | None, dict | None]:
 
 
 # ── 시장·산업·종목 히스토리 스코프 — 주간 스냅샷 테이블(DB-first, market_val_weekly.py가 갱신) ──
-# mkt_val_history(시장) · mkt_val_history(KSIC 섹터) · firm_valuation_snapshot(종목별). PER/PBR·시총 시계열은
+# opm_val_market(시장) · opm_val_market(KSIC 섹터) · opm_val_firm(종목별). PER/PBR·시총 시계열은
 # 시총 기반이라 **수정주가 조정에 불변**(시총=주가×주식수, 분할·무상증자에 양쪽이 상쇄) — 조정 불필요.
 # 주당 가격·EPS 시계열을 노출하게 되면 그때 krx_adj_events(기준가 리셋 실측) 적용 필수(wiki 수정주가).
 
@@ -275,17 +276,17 @@ _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, �
 
 
 async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
-    """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(mkt_val_history)."""
+    """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(opm_val_market)."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, mkt, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref "
-        "FROM mkt_val_history WHERE sector='_ALL' ORDER BY snap_dd DESC, mkt")
+        "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref "
+        "FROM opm_val_market WHERE sector='_ALL' ORDER BY snap_dd DESC, market")
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": "시장 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "valuation", "status": "no_data", "subject": "시장 밸류에이션",
-                "warnings": ["mkt_val_history 비어있음 — market_val_weekly 배치 미실행."]}
-    hist = [{"snap_dd": r[0], "mkt": r[1],
+                "warnings": ["opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
+    hist = [{"snap_dd": r[0], "market": r[1],
              "per_fy0": r[2] and round(r[2], 2), "per_ttm": r[3] and round(r[3], 2),
              "pbr_fy0": r[4] and round(r[4], 2), "pbr_mrq": r[5] and round(r[5], 2),
              "cap_krw": r[6], "ni_ttm_krw": r[7], "eq_krw": r[8],
@@ -307,20 +308,20 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
 
 
 async def build_sector_val_payload(company: str = "", format: str = "md") -> dict[str, Any]:
-    """산업(KSIC 하이브리드)별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(mkt_val_history).
+    """산업(KSIC 하이브리드)별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(opm_val_market).
     company 지정 시 그 기업의 섹터를 함께 표시."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, mkt, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0 FROM mkt_val_history "
-        "WHERE sector != '_ALL' AND snap_dd=(SELECT MAX(snap_dd) FROM mkt_val_history WHERE sector != '_ALL') "
-        "ORDER BY mkt, cap DESC")
+        "SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0 FROM opm_val_market "
+        "WHERE sector != '_ALL' AND snap_dd=(SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL') "
+        "ORDER BY market, cap DESC")
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": "산업별 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "valuation", "status": "no_data", "subject": "산업별 밸류에이션",
-                "warnings": ["mkt_val_history 비어있음 — market_val_weekly 배치 미실행."]}
+                "warnings": ["opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
     as_of = rows[0][0]
-    sectors = [{"mkt": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
+    sectors = [{"market": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
                 "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2),
                 "per_fy0": r[8] and round(r[8], 2), "pbr_fy0": r[9] and round(r[9], 2)}
                for r in rows]
@@ -339,20 +340,20 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
                                  "전체 섹터 표는 company 없이 scope='sector'."]}
         else:
             fr = await asyncio.to_thread(_pg_rows,
-                "SELECT v.sector, v.mkt, v.per_ttm, v.pbr_mrq, s.label, s.per_ttm, s.pbr_mrq "
-                "FROM firm_valuation_snapshot v LEFT JOIN mkt_val_history s "
-                "ON s.snap_dd=v.snap_dd AND s.mkt=v.mkt AND s.sector=v.sector "
-                "WHERE v.isu_cd=%s AND v.snap_dd=%s", (isu, as_of)) or []
+                "SELECT v.sector, v.market, v.per_ttm, v.pbr_mrq, s.label, s.per_ttm, s.pbr_mrq "
+                "FROM opm_val_firm v LEFT JOIN opm_val_market s "
+                "ON s.snap_dd=v.snap_dd AND s.market=v.market AND s.sector=v.sector "
+                "WHERE v.ticker=%s AND v.snap_dd=%s", (isu, as_of)) or []
             if fr:
-                sec, mkt, pt, pb, lbl, spt, spb = fr[0]
+                sec, market, pt, pb, lbl, spt, spb = fr[0]
                 if lbl is None:  # 소규모 섹터 → mkt_val_history엔 '_fold'로 접혀 raw 코드 JOIN 미스
-                    fold = [s for s in sectors if s["mkt"] == mkt and s["sector"] == "_fold"]
+                    fold = [s for s in sectors if s["market"] == market and s["sector"] == "_fold"]
                     if fold:  # 폴드 버킷과 비교(정직하게 표기) — literal None 렌더 방지(QA 109종목 실측)
                         lbl = f"{fold[0]['label']} (소규모 섹터 {sec} 포함)"
                         spt, spb = fold[0]["per_ttm"], fold[0]["pbr_mrq"]
                     else:
                         lbl = f"KSIC {sec} (섹터 집계 없음)"
-                company_ctx = {"name": corp.get("corp_name"), "isu_cd": isu, "mkt": mkt,
+                company_ctx = {"name": corp.get("corp_name"), "ticker": isu, "market": market,
                                "sector": sec, "sector_label": lbl,
                                "firm_per_ttm": pt and round(pt, 2), "firm_pbr_mrq": pb and round(pb, 2),
                                "sector_per_ttm": spt and round(spt, 2), "sector_pbr_mrq": spb and round(spb, 2)}
@@ -360,8 +361,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
                 # 소규모(_fold) 섹터면 fold 버킷 자체의 히스토리로 폴백(개별 sec 코드는 mkt_val_history에 없음).
                 hist_sector = "_fold" if lbl and "(소규모 섹터" in lbl else sec
                 hrows = await asyncio.to_thread(_pg_rows,
-                    "SELECT snap_dd, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap FROM mkt_val_history "
-                    "WHERE mkt=%s AND sector=%s ORDER BY snap_dd", (mkt, hist_sector)) or []
+                    "SELECT snap_dd, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap FROM opm_val_market "
+                    "WHERE market=%s AND sector=%s ORDER BY snap_dd", (market, hist_sector)) or []
                 if hrows:
                     company_ctx["sector_history"] = [
                         {"snap_dd": h[0], "per_fy0": h[1] and round(h[1], 2), "per_ttm": h[2] and round(h[2], 2),
@@ -378,27 +379,27 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
 def _latest_annual_fy() -> int:
     """지금 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년).
     market_fund_quarterly._latest_annual_fy / market_val_series._latest_annual_fy와 동일 규칙.
-    ⚠ mkt_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 이 FY로 덮어쓰는 **가변열**이라,
+    ⚠ dart_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 이 FY로 덮어쓰는 **가변열**이라,
     그 값을 담을 fin[] 키는 반드시 이 헬퍼로 파생해야 함(하드코딩 금지 — FY 넘어가면 조용히 오라벨)."""
     from datetime import date
     t = date.today()
     return t.year - 1 if t.month >= 4 else t.year - 2
 
 
-def _pit_fy(bas_dd: str) -> int:
+def _pit_fy(price_dd: str) -> int:
     """PIT 근사: 그 시점 최신 확정 FY. 사업보고서 3월 중순 공시 → 4월 이후면 전년 FY, 아니면 전전년
     (look-ahead 방지). market_val_series.py series()와 동일 규칙."""
-    y, m = int(bas_dd[:4]), int(bas_dd[4:6])
+    y, m = int(price_dd[:4]), int(price_dd[4:6])
     return y - 1 if m >= 4 else y - 2
 
 
-async def _firm_fin_by_fy(isu_cd: str, currency: str = "KRW") -> dict[int, tuple]:
-    """종목 FY별 (지배순이익, 지배자본) — KRW 환산 완료. mkt_finstat_y(FY2018~과거, 스케일오류
-    정정치 ni_restated/eq_restated 우선) ∪ mkt_fundamentals(최신 확정 FY=_latest_annual_fy()).
+async def _firm_fin_by_fy(ticker: str, currency: str = "KRW") -> dict[int, tuple]:
+    """종목 FY별 (지배순이익, 지배자본) — KRW 환산 완료. dart_finstat_y(FY2018~과거, 스케일오류
+    정정치 ni_restated/eq_restated 우선) ∪ dart_fundamentals(최신 확정 FY=_latest_annual_fy()).
     비KRW는 FY 기말환율 환산."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT fy, ni, eq, ni_restated, eq_restated FROM mkt_finstat_y WHERE isu_cd=%s "
-        "AND (fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (isu_cd,)) or []
+        "SELECT fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y WHERE ticker=%s "
+        "AND (fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (ticker,)) or []
     fin: dict[int, tuple] = {}
     for fy, ni, eq, ni_r, eq_r in rows:
         ni_f = ni_r if ni_r is not None else ni
@@ -406,7 +407,7 @@ async def _firm_fin_by_fy(isu_cd: str, currency: str = "KRW") -> dict[int, tuple
         fin[int(fy)] = (float(ni_f) if ni_f is not None else None,
                         float(eq_f) if eq_f is not None else None)
     cur = await asyncio.to_thread(_pg_rows,
-        "SELECT ni_fy, eq_fy FROM mkt_fundamentals WHERE isu_cd=%s", (isu_cd,))
+        "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s", (ticker,))
     if cur and cur[0][0] is not None:
         fin[_latest_annual_fy()] = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
     ccy = (currency or "KRW").upper()
@@ -419,10 +420,10 @@ async def _firm_fin_by_fy(isu_cd: str, currency: str = "KRW") -> dict[int, tuple
     return fin
 
 
-def _pit_quarter(bas_dd: str) -> tuple[int, int]:
+def _pit_quarter(price_dd: str) -> tuple[int, int]:
     """그 시점까지 공시된 최신 분기 → (fy, quarter). 공시지연(look-ahead 방지):
     사업보고서(Q4) 익년 3월 · 1Q 5/15 · 반기 8/14 · 3Q 11/14. Q4 경계는 _pit_fy(4월)와 일치."""
-    y, m, d = int(bas_dd[:4]), int(bas_dd[4:6]), int(bas_dd[6:8])
+    y, m, d = int(price_dd[:4]), int(price_dd[4:6]), int(price_dd[6:8])
     md = m * 100 + d
     if md >= 1114:
         return (y, 3)
@@ -435,11 +436,11 @@ def _pit_quarter(bas_dd: str) -> tuple[int, int]:
     return (y - 1, 3)     # 1~3월: 전년 3Q가 최신
 
 
-async def _firm_fin_by_q(isu_cd: str, currency: str = "KRW") -> dict[tuple, tuple]:
-    """종목 (fy,quarter)별 (지배순이익 누적, 지배자본 잔액) — KRW 환산. mkt_finstat_q.
+async def _firm_fin_by_q(ticker: str, currency: str = "KRW") -> dict[tuple, tuple]:
+    """종목 (fy,quarter)별 (지배순이익 누적, 지배자본 잔액) — KRW 환산. dart_finstat_q.
     비KRW는 분기말 환율(Q1 0331·Q2 0630·Q3 0930·Q4 1231)로 환산 — 누적순익은 분기말 근사."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT fy, quarter, ni_cum, eq FROM mkt_finstat_q WHERE isu_cd=%s", (isu_cd,)) or []
+        "SELECT fy, quarter, ni_cum, eq FROM dart_finstat_q WHERE ticker=%s", (ticker,)) or []
     finq: dict[tuple, tuple] = {}
     for fy, q, ni, eq in rows:
         finq[(int(fy), int(q))] = (float(ni) if ni is not None else None,
@@ -478,26 +479,26 @@ def _mrq_eq(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int) ->
     return finq.get((fy, q), (None, None))[1]
 
 
-async def _annual_pit_band(isu_cd: str, currency: str = "KRW",
+async def _annual_pit_band(ticker: str, currency: str = "KRW",
                            fin: dict[int, tuple] | None = None) -> list[dict]:
     """연말 PIT PER/PBR 밴드 — **이미 있는 데이터로 질의 시 계산**(백필 저장 X, compute-on-query).
-    연말 보통주 시총(krx_weekly, isu_cd=보통주 코드) ÷ 그 시점 최신 확정 FY 재무(mkt_finstat_y).
+    연말 보통주 시총(krx_weekly, ticker=보통주 코드) ÷ 그 시점 최신 확정 FY 재무(dart_finstat_y).
     시총 기반이라 수정주가(분할·무상증자) 조정 불변. 비KRW는 그 FY 기말환율로 KRW 환산."""
     caps = await asyncio.to_thread(_pg_rows,
-        "SELECT DISTINCT ON (substring(bas_dd,1,4)) substring(bas_dd,1,4), bas_dd, mktcap "
-        "FROM krx_weekly WHERE isu_cd=%s AND substring(bas_dd,5,2)='12' "
-        "ORDER BY substring(bas_dd,1,4), bas_dd DESC", (isu_cd,)) or []
+        "SELECT DISTINCT ON (substring(price_dd,1,4)) substring(price_dd,1,4), price_dd, mktcap "
+        "FROM krx_weekly WHERE ticker=%s AND substring(price_dd,5,2)='12' "
+        "ORDER BY substring(price_dd,1,4), price_dd DESC", (ticker,)) or []
     if fin is None:
-        fin = await _firm_fin_by_fy(isu_cd, currency)
+        fin = await _firm_fin_by_fy(ticker, currency)
     band = []
-    for yr_s, bas_dd, cap in caps:
-        pit_fy = _pit_fy(bas_dd)
+    for yr_s, price_dd, cap in caps:
+        pit_fy = _pit_fy(price_dd)
         if pit_fy not in fin or not cap:
             continue
         ni_k, eq_k = fin[pit_fy]
         cap = float(cap)
         band.append({
-            "period": yr_s, "asof": bas_dd, "pit_fy": pit_fy, "cap_krw": round(cap),
+            "period": yr_s, "asof": price_dd, "pit_fy": pit_fy, "cap_krw": round(cap),
             "per_fy0": round(cap / ni_k, 2) if ni_k and ni_k > 0 else None,
             "pbr_fy0": round(cap / eq_k, 2) if eq_k and eq_k > 0 else None,
             "source": f"연말(PIT FY{pit_fy})",
@@ -505,31 +506,31 @@ async def _annual_pit_band(isu_cd: str, currency: str = "KRW",
     return band
 
 
-async def _weekly_series(isu_cd: str, currency: str = "KRW",
+async def _weekly_series(ticker: str, currency: str = "KRW",
                          fin: dict[int, tuple] | None = None,
                          finq: dict[tuple, tuple] | None = None) -> list[dict]:
     """차트용 주간 dense 시계열 — 주간 보통주 시총(krx_weekly) × 재무.
-    FY0(연 계단, mkt_finstat_y) + TTM/MRQ(분기 계단, mkt_finstat_q). 분모는 공시시점 계단,
+    FY0(연 계단, dart_finstat_y) + TTM/MRQ(분기 계단, dart_finstat_q). 분모는 공시시점 계단,
     주가는 주간이라 곡선은 촘촘. 시총 기반이라 수정주가 조정 불변. 반환은 asof 오름차순.
     TTM = FY(y-1) + 누적(y,q) − 누적(y-1,q) — 전년 동분기 필요해 사실상 2020~부터 산출."""
     px = await asyncio.to_thread(_pg_rows,
-        "SELECT bas_dd, mktcap FROM krx_weekly WHERE isu_cd=%s ORDER BY bas_dd", (isu_cd,)) or []
+        "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s ORDER BY price_dd", (ticker,)) or []
     if fin is None:
-        fin = await _firm_fin_by_fy(isu_cd, currency)
+        fin = await _firm_fin_by_fy(ticker, currency)
     if finq is None:
-        finq = await _firm_fin_by_q(isu_cd, currency)
+        finq = await _firm_fin_by_q(ticker, currency)
     series = []
-    for bas_dd, cap in px:
-        fy = _pit_fy(bas_dd)
+    for price_dd, cap in px:
+        fy = _pit_fy(price_dd)
         if fy not in fin or not cap:
             continue
         ni_k, eq_k = fin[fy]
         cap = float(cap)
-        aq_fy, aq_q = _pit_quarter(bas_dd)
+        aq_fy, aq_q = _pit_quarter(price_dd)
         ttm = _ttm_ni(fin, finq, aq_fy, aq_q)
         mrq = _mrq_eq(fin, finq, aq_fy, aq_q)
         series.append({
-            "asof": bas_dd, "pit_fy": fy, "pit_q": f"{aq_fy}Q{aq_q}", "cap_krw": round(cap),
+            "asof": price_dd, "pit_fy": fy, "pit_q": f"{aq_fy}Q{aq_q}", "cap_krw": round(cap),
             "per_fy0": round(cap / ni_k, 3) if ni_k and ni_k > 0 else None,
             "pbr": round(cap / eq_k, 3) if eq_k and eq_k > 0 else None,
             "per_ttm": round(cap / ttm, 3) if ttm and ttm > 0 else None,
@@ -557,7 +558,7 @@ def _month_end_summary(series: list[dict], months: int = 12) -> list[dict]:
 
 
 async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
-    """종목별 밸류에이션 주간 히스토리(firm_valuation_snapshot) — PER/PBR/시총 시계열(수정주가 조정 불변)."""
+    """종목별 밸류에이션 주간 히스토리(opm_val_firm) — PER/PBR/시총 시계열(수정주가 조정 불변)."""
     query = (company or "").strip()
     if not query:
         return {"tool": "valuation", "status": "invalid", "subject": company,
@@ -572,7 +573,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
                 "subject": query, "warnings": [f"'{company}' 상장 종목을 찾지 못함."]}
     isu = corp["stock_code"]
     cur_row = await asyncio.to_thread(_pg_rows,
-        "SELECT mkt, induty, currency FROM mkt_fundamentals WHERE isu_cd=%s", (isu,))
+        "SELECT market, induty, currency FROM dart_fundamentals WHERE ticker=%s", (isu,))
     currency = (cur_row[0][2] if cur_row and cur_row[0][2] else "KRW")
     # ① 연말 PIT 밴드 + ③ 차트용 주간 dense series + ④ 최근 12개월 월말 요약 — 이미 있는 데이터
     #    (krx_weekly × mkt_finstat_y연간 × mkt_finstat_q분기)로 질의 시 계산(저장 X). 재무 로더는
@@ -584,14 +585,14 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
     # ② 주간 스냅샷 — 최근/현재 촘촘한 포인트(앞으로 cron이 축적)
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, mkt, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
-        "FROM firm_valuation_snapshot WHERE isu_cd=%s ORDER BY snap_dd", (isu,))
+        "SELECT snap_dd, market, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
+        "FROM opm_val_firm WHERE ticker=%s ORDER BY snap_dd", (isu,))
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": corp.get("corp_name", query),
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not band and not rows:
         return {"tool": "valuation", "status": "no_data", "subject": corp.get("corp_name", query),
-                "warnings": ["시계열 없음 — 과거 시세(krx_weekly)·재무(mkt_finstat_y)·주간 스냅샷 모두 미수집."]}
+                "warnings": ["시계열 없음 — 과거 시세(krx_weekly)·재무(dart_finstat_y)·주간 스냅샷 모두 미수집."]}
     hist = [{"period": b["period"], "asof": b["asof"], "cap_krw": b["cap_krw"],
              "per_fy0": b["per_fy0"], "per_ttm": None, "pbr": b["pbr_fy0"],
              "source": b["source"]} for b in band]
@@ -604,22 +605,22 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     warnings = [f"최신 {latest_dd} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용."]
     # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고).
     flags = await asyncio.to_thread(_pg_rows,
-        "SELECT flag, detail FROM krx_stock_flags WHERE isu_cd=%s", (isu,)) or []
+        "SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (isu,)) or []
     for fl, detail in flags:
         if fl == "spinoff_break":
             warnings.append("⚠ 인적분할 이력(spinoff_break) — 분할 시점 시총 점프 + 직후 배수는 "
                             "재무 반영 지연으로 왜곡 가능. 시계열 비교 주의.")
         elif fl == "unresolved_adjustment":
             warnings.append("⚠ 미해결 주가조정 이력(unresolved_adjustment) — 시계열 해석 주의.")
-    mkt = rows[-1][1] if rows else (cur_row[0][0] if cur_row else None)
+    market = rows[-1][1] if rows else (cur_row[0][0] if cur_row else None)
     sector = rows[-1][2] if rows else (cur_row[0][1] if cur_row else None)
     if not summary and not band:
-        warnings.append("주간 곡선 미산출 — krx_weekly 시세 또는 재무(mkt_finstat_y/mkt_finstat_q) 미수집.")
+        warnings.append("주간 곡선 미산출 — krx_weekly 시세 또는 재무(dart_finstat_y/dart_finstat_q) 미수집.")
     return {"tool": "valuation", "status": "ok", "subject": corp.get("corp_name", query),
-            "data": {"scope": "firm_history", "isu_cd": isu, "mkt": mkt,
+            "data": {"scope": "firm_history", "ticker": isu, "market": market,
                      "sector": sector, "history": hist, "series": series, "summary": summary,
-                     "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 mkt_finstat_y·PIT) · "
-                               "TTM=최근4분기 지배순이익 FY(y-1)+누적(y,q)−누적(y-1,q)(분기 mkt_finstat_q) · "
+                     "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 dart_finstat_y·PIT) · "
+                               "TTM=최근4분기 지배순이익 FY(y-1)+누적(y,q)−누적(y-1,q)(분기 dart_finstat_q) · "
                                "MRQ PBR=최근분기 지배자본. 차트=전구간 주간 곡선(series), 요약=최근 12개월 "
                                "월말(summary). 시총 기반이라 분할·무상증자 등 조정성 이벤트에 불변(유증·자사주 "
                                "소각·인적분할의 실제 시총 점프는 그대로 반영)."},
@@ -719,7 +720,7 @@ def _eps_disclosed(rows: list, *fields: str) -> float | None:
     return None
 
 
-async def _eps_adj_factor(isu_cd: str, after_dd: str) -> float:
+async def _eps_adj_factor(ticker: str, after_dd: str) -> float:
     """(after_dd, 오늘] 조정성 이벤트(액면분할·병합·무상증자·주식배당)의 누적 수정계수 —
     수정주가 파이프라인 krx_adj_events(기준가 리셋 실측 + 라벨) 재사용.
     260823: krx_base_resets(측정) + krx_adj_factor_v3(라벨) 두 표를 통합했다 — 갱신이 2단계라
@@ -727,9 +728,9 @@ async def _eps_adj_factor(isu_cd: str, after_dd: str) -> float:
     EPS는 가격과 같은 방향으로 조정(주식수 n배 → EPS 1/n = ×factor). 유상증자·감자·미라벨(None)은
     보수적으로 제외 — 잔여는 sanity 경고가 방어."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT adj_factor FROM krx_adj_events WHERE isu_cd=%s AND event_dd>%s "
+        "SELECT adj_factor FROM krx_adj_events WHERE ticker=%s AND event_dd>%s "
         "AND event_type IN ('split','merge','bonus','stock_div') AND adj_factor IS NOT NULL "
-        "AND label_confidence='confirmed'", (isu_cd, after_dd))
+        "AND label_confidence='confirmed'", (ticker, after_dd))
     f = 1.0
     for (x,) in rows or []:
         if x and x > 0:
@@ -737,7 +738,7 @@ async def _eps_adj_factor(isu_cd: str, after_dd: str) -> float:
     return f
 
 
-async def _shares_ratio(isu_cd: str, after_dd: str) -> float | None:
+async def _shares_ratio(ticker: str, after_dd: str) -> float | None:
     """(after_dd, 오늘] 상장주식수 변동배율 — krx_weekly 실측. 계수 누락 탐지용.
 
     260823: 수정계수 파이프라인이 **cron 없이 수동**이라(private wiki 「이벤트/수동」) 7주 밀려
@@ -746,11 +747,11 @@ async def _shares_ratio(isu_cd: str, after_dd: str) -> float | None:
     조립된다(메이슨캐피탈 실측: TTM 지배순이익 -70억인데 EPS(TTM) +39원, PER 32.31 이 나갔다).
     """
     first = await asyncio.to_thread(_pg_rows,
-        "SELECT list_shrs FROM krx_weekly WHERE isu_cd=%s AND bas_dd>%s AND list_shrs>0 "
-        "ORDER BY bas_dd ASC LIMIT 1", (isu_cd, after_dd))
+        "SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND price_dd>%s AND list_shrs>0 "
+        "ORDER BY price_dd ASC LIMIT 1", (ticker, after_dd))
     last = await asyncio.to_thread(_pg_rows,
-        "SELECT list_shrs FROM krx_weekly WHERE isu_cd=%s AND list_shrs>0 "
-        "ORDER BY bas_dd DESC LIMIT 1", (isu_cd,))
+        "SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND list_shrs>0 "
+        "ORDER BY price_dd DESC LIMIT 1", (ticker,))
     if not first or not last or not first[0][0] or not last[0][0]:
         return None
     return last[0][0] / first[0][0]
@@ -806,8 +807,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             if cand:  # 시총순 정렬 — 사용자가 의도했을 가능성이 큰 대형사(삼성전자)부터
                 latest = await asyncio.to_thread(_krx_db_latest_dd)
                 caps = {r[0]: r[1] for r in (await asyncio.to_thread(
-                    _pg_rows, "SELECT isu_cd, mktcap FROM krx_weekly WHERE bas_dd=%s "
-                    "AND isu_cd = ANY(%s)", (latest, [c["stock_code"] for c in cand])) or [])} if latest else {}
+                    _pg_rows, "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s "
+                    "AND ticker = ANY(%s)", (latest, [c["stock_code"] for c in cand])) or [])} if latest else {}
                 alts = sorted(cand, key=lambda c: -(caps.get(c["stock_code"]) or 0))[:5]
         alt_txt = ("  혹시 이 상장사를 찾으셨나요? " +
                    ", ".join(f"{c['corp_name']}({c['stock_code']})" for c in alts)) if alts else ""
@@ -853,16 +854,16 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # 통화 환산: 기능통화≠KRW(두산밥캣=USD 등)면 회계기말 환율로 KRW 환산 — KRW 주가/시총과
     # 통화 일치시켜야 배수가 유효(미환산 시 환율배수만큼 왜곡: 두산밥캣 PBR 1,238 오탐). wiki §9.
     stmt_cur = statement_currency(fy_rows)
-    fx_rate = 1.0
+    ecos_fx_rate = 1.0
     if stmt_cur != "KRW":
         acc_mt = str(info.get("acc_mt") or "12").zfill(2)
         last_day = calendar.monthrange(fy, int(acc_mt))[1]
-        fx_rate = await fx_to_krw(stmt_cur, f"{fy}{acc_mt}{last_day:02d}") or 1.0
+        ecos_fx_rate = await fx_to_krw(stmt_cur, f"{fy}{acc_mt}{last_day:02d}") or 1.0
 
     def _fx(x):  # None 보존, 나머지는 KRW 환산(1.0이면 무변화)
-        return round(x * fx_rate) if x is not None else None
+        return round(x * ecos_fx_rate) if x is not None else None
 
-    if fx_rate != 1.0:
+    if ecos_fx_rate != 1.0:
         revenue_fy = _fx(revenue_fy)
         eps_fy = None  # fm의 eps_krw는 실제 USD/주 → 폐기, 아래서 공시 EPS×환율로 대체
 
@@ -941,12 +942,12 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
     # EPS(FY0): 공시값 우선 — fy_rows 직접(비KRW는 ×환율) → fm(eps_krw) → 지배순이익÷보통주 폴백.
     if eps_fy_disc is not None:
-        eps_fy = _fx(eps_fy_disc) if fx_rate != 1.0 else round(eps_fy_disc)
+        eps_fy = _fx(eps_fy_disc) if ecos_fx_rate != 1.0 else round(eps_fy_disc)
     if eps_fy is None and ni_fy is not None and shares_common:
         eps_fy = round(_div(ni_fy, shares_common))
     # EPS(TTM): 공시 EPS 조립(FY0과 같은 기준) 우선 → 조각 결측 시 지배순이익÷보통주 폴백(비대칭).
     if eps_ttm_disc is not None:
-        eps_ttm = _fx(eps_ttm_disc) if fx_rate != 1.0 else round(eps_ttm_disc)
+        eps_ttm = _fx(eps_ttm_disc) if ecos_fx_rate != 1.0 else round(eps_ttm_disc)
         eps_ttm_basis = "disclosed_assembled"
     elif ni_ttm and shares_common:
         eps_ttm = round(_div(ni_ttm, shares_common))
@@ -1007,8 +1008,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append("⚠️ 배수 비정상 고값 — 재무 단위/스케일 오류 가능(예: 지배자본 과소). 원문 확인 요망.")
     if is_financial:
         warnings.append("금융·지주 업종 — EV/EBITDA·PSR·FCF·순차입은 범주 부적합으로 산출 제외(N/A). PBR·PER·배당·ROE 중심 해석. (금융·지주도 매출/영업수익은 있음 — 배수 부적합일 뿐)")
-    if fx_rate != 1.0:
-        warnings.append(f"기능통화 {stmt_cur} — 재무를 {fy}회계기말 환율 {fx_rate:,.1f}원/{stmt_cur}로 KRW 환산(순이익은 원칙상 평균환율, v1은 기말환율 근사 → 수% 오차). KRW 시총과 통화 정합.")
+    if ecos_fx_rate != 1.0:
+        warnings.append(f"기능통화 {stmt_cur} — 재무를 {fy}회계기말 환율 {ecos_fx_rate:,.1f}원/{stmt_cur}로 KRW 환산(순이익은 원칙상 평균환율, v1은 기말환율 근사 → 수% 오차). KRW 시총과 통화 정합.")
     elif stmt_cur != "KRW":
         warnings.append(f"⚠️ 기능통화 {stmt_cur}인데 환율 조회 실패 — 배수 통화 불일치 가능, 원문 확인 요망.")
     if scale_verdict and scale_verdict["tier"] == "hard":
@@ -1046,7 +1047,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # 수정주가 파이프라인 flag — 분할·미해결 조정 종목은 배수 해석 주의(재무 QA: 삼바 분할 실증).
     if stock_code:
         for fl, _detail in (await asyncio.to_thread(
-                _pg_rows, "SELECT flag, detail FROM krx_stock_flags WHERE isu_cd=%s", (stock_code,)) or []):
+                _pg_rows, "SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (stock_code,)) or []):
             if fl == "spinoff_break":
                 warnings.append("⚠️ 인적분할 이력 — 분할 전후 재무·주식수 불연속으로 FY0 배수(특히 공시 "
                                 "EPS의 가중평균 주식수)가 왜곡될 수 있음. TTM·MRQ 중심 해석 권장.")
@@ -1081,7 +1082,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "common_market_cap_krw": mk.get("common_mktcap"),
                 "capital_impairment_status": cap_status,
                 "functional_currency": stmt_cur,
-                "fx_rate_to_krw": fx_rate if fx_rate != 1.0 else None,
+                "fx_rate_to_krw": ecos_fx_rate if ecos_fx_rate != 1.0 else None,
             },
             "warnings": warnings,
             "data_quality": {

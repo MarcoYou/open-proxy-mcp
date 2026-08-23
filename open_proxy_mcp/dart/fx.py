@@ -5,7 +5,7 @@ KRW 주가/시총 ÷ USD 자본으로 배수를 계산하면 환율(≈1,440)배
 감지 후 KRW 환산 필요.
 
 소스 우선순위: ① ECOS(한국은행 매매기준율, 공식·안정) → ② 야후 파이낸스(폴백, 비공식·무키).
-캐시 3층: 인메모리(_MEM) → Supabase fx_rate(영구) → 소스 호출.
+캐시 3층: 인메모리(_MEM) → Supabase ecos_fx_rate(영구) → 소스 호출.
   - 저장 규칙: **과거(확정) 날짜 = 영구 저장**(회계기말=분기말은 값이 안 바뀜, 불변). "오늘/최신"은
     변동값이라 영구 저장 안 함 — _MEM을 조회기준일(오늘)로 키잉해 하루 지나면 자동 미스→재조회.
   - 밸류에이션은 항상 과거 분기말로 조회(재무=회계기말 기준)하므로 실제 저장 대상 = 분기말뿐(연 4개).
@@ -31,8 +31,8 @@ _ECOS_ITEM = {
     "CHF": ("0000014", 1), "AUD": ("0000017", 1), "CAD": ("0000013", 1),
     "SGD": ("0000024", 1), "VND": ("0000035", 100),
 }
-_FX_DDL = ("CREATE TABLE IF NOT EXISTS fx_rate("
-           "base_ccy text, dt text, rate double precision, PRIMARY KEY(base_ccy, dt))")
+_FX_DDL = ("CREATE TABLE IF NOT EXISTS ecos_fx_rate("
+           "base_ccy text, fx_dd text, rate double precision, PRIMARY KEY(base_ccy, fx_dd))")
 _YF = "https://query1.finance.yahoo.com/v8/finance/chart/{pair}"
 
 
@@ -53,7 +53,7 @@ def _db_get(ccy: str, date: str) -> float | None:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
             c.execute(_FX_DDL)
-            r = c.execute("SELECT rate FROM fx_rate WHERE base_ccy=%s AND dt=%s",
+            r = c.execute("SELECT rate FROM ecos_fx_rate WHERE base_ccy=%s AND fx_dd=%s",
                           (ccy, date)).fetchone()
             return r[0] if r else None
     except Exception:
@@ -68,7 +68,7 @@ def _db_put(ccy: str, date: str, rate: float) -> None:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
             c.execute(_FX_DDL)
-            c.execute("INSERT INTO fx_rate(base_ccy, dt, rate) VALUES(%s,%s,%s) "
+            c.execute("INSERT INTO ecos_fx_rate(base_ccy, fx_dd, rate) VALUES(%s,%s,%s) "
                       "ON CONFLICT (base_ccy, dt) DO NOTHING", (ccy, date, rate))
             c.commit()
     except Exception:

@@ -462,7 +462,7 @@ def _ksic_is_financial(induty_code: str | None) -> bool:
 
 
 def _lookup_induty_code(corp_code: str, stock_code: str = "") -> str | None:
-    """mkt_fundamentals(Postgres)에서 induty 조회 — DART 콜 0. 미설정/장애/미수록이면 None."""
+    """dart_fundamentals(Postgres)에서 induty 조회 — DART 콜 0. 미설정/장애/미수록이면 None."""
     url = os.getenv("DATABASE_URL")
     if not url:
         return None
@@ -470,10 +470,10 @@ def _lookup_induty_code(corp_code: str, stock_code: str = "") -> str | None:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
             if stock_code:
-                row = c.execute("SELECT induty FROM mkt_fundamentals WHERE isu_cd=%s", (stock_code,)).fetchone()
+                row = c.execute("SELECT induty FROM dart_fundamentals WHERE ticker=%s", (stock_code,)).fetchone()
                 if row and row[0]:
                     return str(row[0])
-            row = c.execute("SELECT induty FROM mkt_fundamentals WHERE corp_code=%s", (corp_code,)).fetchone()
+            row = c.execute("SELECT induty FROM dart_fundamentals WHERE corp_code=%s", (corp_code,)).fetchone()
             return str(row[0]) if row and row[0] else None
     except Exception as exc:  # noqa: BLE001
         import logging

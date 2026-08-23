@@ -11,6 +11,7 @@ from open_proxy_mcp.services.valuation import (
     build_sector_val_payload,
     build_firm_history_payload,
 )
+from open_proxy_mcp.market_codes import to_label as mkt_label
 
 _STATUS_TITLE = {
     "invalid": "입력 오류",
@@ -50,7 +51,7 @@ def _render_market(p: dict[str, Any]) -> str:
     lines.append("| 시장 | PER(FY0) | PER(TTM) | PBR(FY0) | PBR(MRQ) | Σ시총(보통주) | Σ우선주 |")
     lines.append("|---|---|---|---|---|---|---|")
     for h in d["latest"]:
-        lines.append(f"| {h['mkt']} | {_f(h['per_fy0'])} | {_f(h['per_ttm'])} | "
+        lines.append(f"| {mkt_label(h['market'])} | {_f(h['per_fy0'])} | {_f(h['per_ttm'])} | "
                      f"{_f(h['pbr_fy0'])} | {_f(h['pbr_mrq'])} | {(h['cap_krw'] or 0)/1e12:,.0f}조 "
                      f"| {(h.get('cap_pref_krw') or 0)/1e12:,.1f}조 |")
     hist = d["history"]
@@ -58,7 +59,7 @@ def _render_market(p: dict[str, Any]) -> str:
     if len(dds) > 1:
         lines += ["", "## 주간 히스토리", "", "| 주(기준일) | KOSPI PER/PBR | KOSDAQ PER/PBR |", "|---|---|---|"]
         for dd in reversed(dds):
-            by = {h["mkt"]: h for h in hist if h["snap_dd"] == dd}
+            by = {mkt_label(h["market"]): h for h in hist if h["snap_dd"] == dd}
             k, q = by.get("KOSPI", {}), by.get("KOSDAQ", {})
             lines.append(f"| {dd} | {_f(k.get('per_ttm'))} / {_f(k.get('pbr_mrq'))} "
                          f"| {_f(q.get('per_ttm'))} / {_f(q.get('pbr_mrq'))} |")
@@ -73,7 +74,7 @@ def _render_sector(p: dict[str, Any]) -> str:
     lines = [f"# 산업별 밸류에이션 (기준 {d['as_of']})", ""]
     c = d.get("company")
     if c:
-        lines += [f"**{c['name']}({c['isu_cd']})** → {c['sector_label']} [{c['mkt']}]",
+        lines += [f"**{c['name']}({c['ticker']})** → {c['sector_label']} [{mkt_label(c['market'])}]",
                   f"- 기업 PER(TTM) {_f(c['firm_per_ttm'])} vs 섹터 {_f(c['sector_per_ttm'])} · "
                   f"기업 PBR {_f(c['firm_pbr_mrq'])} vs 섹터 {_f(c['sector_pbr_mrq'])}", ""]
         shist = c.get("sector_history") or []
@@ -91,12 +92,12 @@ def _render_sector(p: dict[str, Any]) -> str:
                          "`data.company.sector_history`(월별 FY0/TTM/MRQ). 위 표는 연말만 발췌.")
             lines.append("")
     for mkt in ("KOSPI", "KOSDAQ"):
-        rows = [s for s in d["sectors"] if s["mkt"] == mkt]
+        rows = [s for s in d["sectors"] if mkt_label(s["market"]) == mkt]
         if not rows:
             continue
         # company 지정 시 소속 시장의 상위 10 + 소속 섹터만 — 전체 100행 덤프 방지(실사용 QA P1)
         if c:
-            if mkt != c["mkt"]:
+            if mkt != mkt_label(c["market"]):
                 continue
             top = rows[:10]
             if not any(s["sector"] == c["sector"] for s in top):
@@ -120,7 +121,7 @@ def _render_firm_history(p: dict[str, Any]) -> str:
     summ = d.get("summary") or []
     band = [h for h in d["history"] if str(h.get("source", "")).startswith("연말")]
     series = d.get("series") or []
-    lines = [f"# {p['subject']} 밸류에이션 히스토리 ({d['mkt']} · 섹터 {d['sector']})", ""]
+    lines = [f"# {p['subject']} 밸류에이션 히스토리 ({mkt_label(d['market'])} · 섹터 {d['sector']})", ""]
     # ── 최근 12개월 월말(텍스트 요약) — 주간 곡선의 월말 다운샘플 + 분기공시 마커 ──
     if summ:
         lines += ["## 최근 12개월 (월말)", "",
@@ -277,7 +278,7 @@ def register_tools(mcp):
     async def valuation(company: str = "", scope: str = "firm", format: str = "md") -> str:
         """desc: 상대가치 밸류에이션 — 기업 심층(PER·PBR·배당수익률) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 한국 표준(연결, 지배주주 귀속). 비KRW 기능통화 자동 KRW 환산(ECOS), 스케일가드, N/M 게이팅.
         when: "PER/PBR 얼마"·"싼가 비싼가"(scope=firm) / "코스피·코스닥 전체 밸류"(market) / "업종별 PER·PBR"·"섹터 대비 어디"(sector, company 지정 시 소속 섹터 비교) / "밸류 추이"(firm_history) / **"이 수치 근거·계산 과정이 뭐야?"(explain — company 지정 시 실제 값 대입 계산, 미지정 시 방법론·기준·출처 전문)**. 재무 펀더멘탈 자체는 financial_metrics, 배당 상세는 dividend.
-        rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — **PER=보통주 시총÷지배순이익 · PBR=보통주 시총÷지배자본(MRQ)** (260823 전환: 주가÷EPS 는 액면분할·병합 때 옛 주식수 기준 EPS 와 새 주가가 섞여 틀렸다). 주식수가 상쇄돼 조정성 이벤트에 불변이고 **스냅샷 스코프와 정의가 같다**. EPS(공시 기본주당이익)·BPS 는 회사 공식값이라 인풋으로 함께 싣되 배수 산출엔 안 쓴다. 대가 — 가중평균이 아니고(연중 유상증자 시 공시 EPS 와 벌어짐), 분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 하향 편향. 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(mkt_val_history·mkt_val_history·firm_valuation_snapshot, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct).
+        rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — **PER=보통주 시총÷지배순이익 · PBR=보통주 시총÷지배자본(MRQ)** (260823 전환: 주가÷EPS 는 액면분할·병합 때 옛 주식수 기준 EPS 와 새 주가가 섞여 틀렸다). 주식수가 상쇄돼 조정성 이벤트에 불변이고 **스냅샷 스코프와 정의가 같다**. EPS(공시 기본주당이익)·BPS 는 회사 공식값이라 인풋으로 함께 싣되 배수 산출엔 안 쓴다. 대가 — 가중평균이 아니고(연중 유상증자 시 공시 EPS 와 벌어짐), 분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 하향 편향. 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(opm_val_market·opm_val_market·opm_val_firm, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct).
         status: ok / invalid / not_found(우선주는 보통주 코드로) / unlisted / no_financials / no_data(배치 미실행).
         note: lean v1 — RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT·주당 수정주가 시계열은 v1.1.
         ref: financial_metrics, dividend, corp_gov_report, evidence

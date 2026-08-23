@@ -59,7 +59,7 @@ def test_report_helpers_exist():
     # 상류실패·자료없음·판정불가를 또 못 보게 된다(죽은 코드가 되살아나는 흔한 경로).
     # 단언은 **실행되는 SQL** 만 겨냥한다 — 산문에서 「종전엔 WHERE is_error=true 만 봤다」고
     # 설명하는 주석까지 잡으면, 왜 바꿨는지 적은 기록을 지워야 테스트가 통과하게 된다.
-    assert "FROM tool_call_events WHERE is_error=true" not in src, (
+    assert "FROM ops_tool_calls WHERE is_error=true" not in src, (
         "옛 is_error=true 전용 질의가 되살아났다")
     assert "fetch_error_kinds" not in src, "대체된 함수가 남아 있다"
 

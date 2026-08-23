@@ -3,16 +3,17 @@
 분류(용도 분리, ksic-sector-mapping.md):
   기본 = WI26 (sample_universe/general_universe.xlsx 리서치터미널 export — 내부 분석용, 제품 탑재 금지)
   --ksic = 자체 KSIC 하이브리드 (opm_sector_map.json — 제품용 보존 자산)
-시총=krx_weekly 최신주, 재무=mkt_fundamentals(TTM/MRQ).
+시총=krx_weekly 최신주, 재무=dart_fundamentals(TTM/MRQ).
 실행: python3 scripts/market_val_sector.py [--ksic]
 
 ⚠ deprecated(260705, QA): 비KRW 22사 FX 미환산 — 제품 저장/서빙 금지(내부 비교 조회만).
   섹터 스냅샷 정본 = scripts/market_val_weekly.py(FX 환산 + mkt_val_history에 sector='_ALL' 아닌
-  섹터행으로 저장, 260706 mkt_val_history+mkt_val_history 병합).
+  섹터행으로 저장, 260706 opm_val_market+opm_val_market 병합).
 """
 import os, json, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
@@ -45,13 +46,13 @@ def main(use_ksic=False):
     wi26 = None if use_ksic else load_wi26()
     con = psycopg.connect(os.environ["DATABASE_URL"])
     wk = {c:(m or 0) for c,m in con.execute(
-        "SELECT isu_cd, mktcap FROM krx_weekly WHERE bas_dd=(SELECT MAX(bas_dd) FROM krx_weekly)")}
-    rows = con.execute("""SELECT isu_cd, mkt, induty, ni_ttm, eq_mrq, eq_fy
-        FROM mkt_fundamentals WHERE fetched='ok' AND induty NOT IN ('none','err')""").fetchall()
-    for MKT in ("KOSPI","KOSDAQ"):
+        "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=(SELECT MAX(price_dd) FROM krx_weekly)")}
+    rows = con.execute("""SELECT ticker, market, induty, ni_ttm, eq_mrq, eq_fy
+        FROM dart_fundamentals WHERE fetched='ok' AND induty NOT IN ('none','err')""").fetchall()
+    for MKT in (MKT_KS,MKT_KQ):
         agg = defaultdict(lambda: dict(n=0,ni=0,eq=0,capn=0,cape=0,cap=0))
-        for isu,mkt,ind,nt,em,ef in rows:
-            if mkt != MKT: continue
+        for isu,market,ind,nt,em,ef in rows:
+            if market != MKT: continue
             cap = wk.get(isu)
             if not cap: continue
             key = (wi26.get(isu, "미분류") if wi26 is not None else bucket(ind, isu))

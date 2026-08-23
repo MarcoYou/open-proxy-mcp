@@ -1,7 +1,7 @@
 """KRX 콜 미터 — 일별 사용량 집계 (키당 일 10,000 한도 대비, KST 자정 리셋).
 
 왜: KRX Open API는 잔여 한도를 헤더·포털 어디서도 안 알려줌(실측 260702) → 우리 장부가 유일한 답.
-Supabase `krx_call_log(day, machine, calls)`에 누적 → 집(Mac)/직장(Windows) 두 PC 사용량 합산 가능.
+Supabase `ops_krx_calls(log_dd, machine, calls)`에 누적 → 집(Mac)/직장(Windows) 두 PC 사용량 합산 가능.
 
 사용:
   from open_proxy_mcp.dart.krx_meter import bump; bump()      # 콜 직후 +1 (배치 flush)
@@ -24,9 +24,9 @@ _FLUSH_AT = 20
 _pending = 0
 _lock = threading.Lock()
 
-_DDL = ("CREATE TABLE IF NOT EXISTS krx_call_log("
-        "day date NOT NULL, machine text NOT NULL, calls int NOT NULL DEFAULT 0, "
-        "PRIMARY KEY(day, machine))")
+_DDL = ("CREATE TABLE IF NOT EXISTS ops_krx_calls("
+        "log_dd date NOT NULL, machine text NOT NULL, calls int NOT NULL DEFAULT 0, "
+        "PRIMARY KEY(log_dd, machine))")
 
 
 def _dburl():
@@ -56,8 +56,8 @@ def _flush_locked() -> None:
         with psycopg.connect(url, connect_timeout=10) as con:
             con.execute(_DDL)
             con.execute(
-                "INSERT INTO krx_call_log(day, machine, calls) VALUES(%s,%s,%s) "
-                "ON CONFLICT(day, machine) DO UPDATE SET calls = krx_call_log.calls + EXCLUDED.calls",
+                "INSERT INTO ops_krx_calls(log_dd, machine, calls) VALUES(%s,%s,%s) "
+                "ON CONFLICT(log_dd, machine) DO UPDATE SET calls = ops_krx_calls.calls + EXCLUDED.calls",
                 (datetime.now(KST).date(), MACHINE, n),
             )
             con.commit()
@@ -97,7 +97,7 @@ def _report() -> None:
         con.execute(_DDL); con.commit()
         today = datetime.now(KST).date()
         rows = con.execute(
-            "SELECT day, machine, calls FROM krx_call_log WHERE day >= %s ORDER BY day DESC, machine",
+            "SELECT log_dd, machine, calls FROM ops_krx_calls WHERE log_dd >= %s ORDER BY log_dd DESC, machine",
             (today - timedelta(days=7),)).fetchall()
         tot_today = sum(c for d, m, c in rows if d == today)
         print(f"오늘({today} KST) KRX 콜: {tot_today:,} / 10,000 (잔여 ~{10000 - tot_today:,})")

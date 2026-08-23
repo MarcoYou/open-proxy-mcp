@@ -52,7 +52,7 @@ def main() -> int:
     con = psycopg.connect(url, connect_timeout=15)
     con.autocommit = True
     try:
-        row = con.execute("SELECT min(ts_ns), max(ts_ns), count(*) FROM tool_call_events").fetchone()
+        row = con.execute("SELECT min(ts_ns), max(ts_ns), count(*) FROM ops_tool_calls").fetchone()
         mn, mx, n = row
         if not n:
             print("events 가 비어 있다 — 밀린 것 없음.")
@@ -63,7 +63,7 @@ def main() -> int:
         while w < now_week:
             end = w + timedelta(days=7)
             c = con.execute(
-                "SELECT count(*) FROM tool_call_events WHERE ts_ns >= %s AND ts_ns < %s",
+                "SELECT count(*) FROM ops_tool_calls WHERE ts_ns >= %s AND ts_ns < %s",
                 (_to_ns(w), _to_ns(end))).fetchone()[0]
             if c:
                 weeks.append((w.date(), (end - timedelta(days=1)).date(), c))
@@ -72,7 +72,7 @@ def main() -> int:
         size_mb = con.execute(
             "SELECT pg_database_size(current_database())/1024.0/1024").fetchone()[0]
         cur_week = con.execute(
-            "SELECT count(*) FROM tool_call_events WHERE ts_ns >= %s", (_to_ns(now_week),)
+            "SELECT count(*) FROM ops_tool_calls WHERE ts_ns >= %s", (_to_ns(now_week),)
         ).fetchone()[0]
     finally:
         con.close()
@@ -103,7 +103,7 @@ def main() -> int:
   1) python3 scripts/events_drain.py                 # dry-run: CSV 만 쓴다
   2) open-proxy-storage 에서 usage/*.csv 커밋·푸시
   3) python3 scripts/events_drain.py --apply         # 검증 후 DELETE
-  4) VACUUM FULL tool_call_events;                   # 여기까지 해야 용량이 실제로 돌아온다
+  4) VACUUM FULL ops_tool_calls;                   # 여기까지 해야 용량이 실제로 돌아온다
 자세히: private wiki-private/architecture/usage-telemetry-operations.md""")
     return 1
 

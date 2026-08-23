@@ -24,7 +24,7 @@ def test_usage_insert_columns_match_placeholders_and_tuple():
         ph = [x for x in re.sub(r'["\n\s]', "", m.group(2)).split(",") if x]
         return len(cols), len(ph)
 
-    pg_c, pg_p = _count(r"INSERT INTO tool_call_events\((.*?)\).*?VALUES\((.*?)\)")
+    pg_c, pg_p = _count(r"INSERT INTO ops_tool_calls\((.*?)\).*?VALUES\((.*?)\)")
     sq_c, sq_p = _count(r"INSERT OR IGNORE INTO events\((.*?)\).*?VALUES\((.*?)\)")
     tup = re.search(r"_q\.put_nowait\(\((.*?)\)\)", src, re.S).group(1)
     tup_n = len([x for x in re.sub(r"\s", "", tup).split(",") if x])
@@ -54,10 +54,10 @@ def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
     import re
 
     src = open("open_proxy_mcp/usage.py", encoding="utf-8").read()
-    m = re.search(r"INSERT INTO tool_call_events\((.*?)\)", src, re.S)
+    m = re.search(r"INSERT INTO ops_tool_calls\((.*?)\)", src, re.S)
     cols = {c.strip() for c in re.sub(r'["\n]', " ", m.group(1)).split(",") if c.strip()}
 
-    assert "corp_daily" in src, "집계 경로가 사라졌다 — 드레인 뒤 기업 신호가 통째로 없어진다"
+    assert "ops_corp_daily" in src, "집계 경로가 사라졌다 — 드레인 뒤 기업 신호가 통째로 없어진다"
     for banned in ("company", "stock_code", "args", "arguments", "rcept_no",
                    "query", "corp_name", "raw"):
         assert not any(banned in c for c in cols), f"조회 원문이 새는 컬럼: {banned}"
@@ -66,7 +66,7 @@ def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
         f"허용되지 않은 corp 계열 컬럼: {sorted(c for c in cols if 'corp' in c)}"
 
     # 집계 쪽도 코드만 받는다 — 이름·해시가 붙으면 뗀 의미가 없다.
-    agg = re.search(r"INSERT INTO corp_daily\((.*?)\)", src, re.S)
-    assert agg, "corp_daily INSERT 를 못 찾았다"
+    agg = re.search(r"INSERT INTO ops_corp_daily\((.*?)\)", src, re.S)
+    assert agg, "ops_corp_daily INSERT 를 못 찾았다"
     agg_cols = {c.strip() for c in agg.group(1).split(",") if c.strip()}
     assert agg_cols == {"day", "corp_code", "requests"}, agg_cols

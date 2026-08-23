@@ -1,7 +1,7 @@
 """시장 밸류에이션 분기 시계열 — PIT(공시 접수 근사) 기준 시장 PER/PBR 추이.
 
 시총: krx_weekly(주간, 2015-12~) 재활용 → KRX 콜 0.
-재무: FY2018~2024 지배순이익·지배자본 배치(mkt_finstat_y). 260705 FY2018-2019 백필 추가
+재무: FY2018~2024 지배순이익·지배자본 배치(dart_finstat_y). 260705 FY2018-2019 백필 추가
       — firm_history 밴드 깊이를 2020년까지 확장(2020 PBR/PER PIT 커버). resume으로 누락분만 수집.
 PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년 FY, 아니면 전전년 FY)
           — 사업보고서 3월 중순 공시 규칙의 연 단위 근사(look-ahead 방지).
@@ -20,6 +20,7 @@ PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년
 import argparse, asyncio, os, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
@@ -36,13 +37,13 @@ def _latest_annual_fy(today: date | None = None) -> int:
 
 # 2018 ~ 최신 확정 FY(자동 확장) — 신규 사업연도 공시 후 재실행하면 resume(done)이 그 FY만 수집.
 YEARS = list(range(2018, _latest_annual_fy() + 1))
-DDL = """CREATE TABLE IF NOT EXISTS mkt_finstat_y(
-  isu_cd text, fy int, fs text, ni double precision, eq double precision,
+DDL = """CREATE TABLE IF NOT EXISTS dart_finstat_y(
+  ticker text, fy int, fs text, ni double precision, eq double precision,
   ni_restated double precision, eq_restated double precision,
-  fetched text, PRIMARY KEY(isu_cd, fy))"""
+  fetched text, PRIMARY KEY(ticker, fy))"""
 DDL_MIGRATE = (
-    "ALTER TABLE mkt_finstat_y ADD COLUMN IF NOT EXISTS ni_restated double precision",
-    "ALTER TABLE mkt_finstat_y ADD COLUMN IF NOT EXISTS eq_restated double precision",
+    "ALTER TABLE dart_finstat_y ADD COLUMN IF NOT EXISTS ni_restated double precision",
+    "ALTER TABLE dart_finstat_y ADD COLUMN IF NOT EXISTS eq_restated double precision",
 )
 
 def num(v):
@@ -70,16 +71,16 @@ def _flush(buf):
                     # 와도 서로의 필드를 덮어쓰지 않음. fetched는 'restate_only'(선행 삽입용 자리표시)
                     # 보다 실제 상태('ok'/'nodata'/'err:*')가 항상 우선.
                     cur.executemany(
-                        "INSERT INTO mkt_finstat_y (isu_cd,fy,fs,ni,eq,ni_restated,eq_restated,fetched) "
+                        "INSERT INTO dart_finstat_y (ticker,fy,fs,ni,eq,ni_restated,eq_restated,fetched) "
                         "VALUES(%s,%s,%s,%s,%s,%s,%s,%s) "
-                        "ON CONFLICT (isu_cd,fy) DO UPDATE SET "
-                        "fs=COALESCE(EXCLUDED.fs, mkt_finstat_y.fs), "
-                        "ni=COALESCE(EXCLUDED.ni, mkt_finstat_y.ni), "
-                        "eq=COALESCE(EXCLUDED.eq, mkt_finstat_y.eq), "
-                        "ni_restated=COALESCE(EXCLUDED.ni_restated, mkt_finstat_y.ni_restated), "
-                        "eq_restated=COALESCE(EXCLUDED.eq_restated, mkt_finstat_y.eq_restated), "
+                        "ON CONFLICT (ticker,fy) DO UPDATE SET "
+                        "fs=COALESCE(EXCLUDED.fs, dart_finstat_y.fs), "
+                        "ni=COALESCE(EXCLUDED.ni, dart_finstat_y.ni), "
+                        "eq=COALESCE(EXCLUDED.eq, dart_finstat_y.eq), "
+                        "ni_restated=COALESCE(EXCLUDED.ni_restated, dart_finstat_y.ni_restated), "
+                        "eq_restated=COALESCE(EXCLUDED.eq_restated, dart_finstat_y.eq_restated), "
                         "fetched=CASE WHEN EXCLUDED.fetched <> 'restate_only' THEN EXCLUDED.fetched "
-                        "             ELSE mkt_finstat_y.fetched END",
+                        "             ELSE dart_finstat_y.fetched END",
                         buf)
                 c.commit()
             buf.clear(); return
@@ -91,9 +92,9 @@ async def fetch():
     sleep_s = float(os.getenv("SERIES_SLEEP", "0.45"))  # 260706: 필요시 조정, 기본값은 검증된 0.45 유지
     con=_pg()
     buf=[]
-    firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
-    done={(r[0],r[1]) for r in con.execute("SELECT isu_cd, fy FROM mkt_finstat_y")}
-    # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — mkt_finstat_y DB값으로 동적
+    firms=[r for r in con.execute("SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' ORDER BY ticker")]
+    done={(r[0],r[1]) for r in con.execute("SELECT ticker, fy FROM dart_finstat_y")}
+    # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — dart_finstat_y DB값으로 동적
     # 확장 금지: 이 테이블엔 이미 소프트센 오염값(1.07×10^16)이 남아있어(구버전 fetch, 가드 신설
     # 전 수집) MAX()로 앵커를 잡으면 오염값이 그대로 앵커가 되어 가드가 무력화되는 자기오염 실측 확인.
     market_max_ni = MARKET_MAX_NI_ANCHOR
@@ -126,12 +127,12 @@ async def fetch():
             # 저장은 항상 KRW 원칙: 하위 소비처(firm_history 등)의 read-time FX를 이걸로 대체 가능.
             stmt_cur = statement_currency(rows)
             if stmt_cur != "KRW":
-                fx_rate = await fx_to_krw(stmt_cur, f"{yr}1231")  # 대부분 12월 결산 근사(라이브 경로와 동일 근사)
-                if fx_rate is None:
+                ecos_fx_rate = await fx_to_krw(stmt_cur, f"{yr}1231")  # 대부분 12월 결산 근사(라이브 경로와 동일 근사)
+                if ecos_fx_rate is None:
                     buf.append((isu,yr,None,None,None,None,None,f"err:fx_{stmt_cur}"))
                     if len(buf)>=25: _flush(buf)
                     continue
-                def _fx(x): return x*fx_rate if x is not None else None
+                def _fx(x): return x*ecos_fx_rate if x is not None else None
                 ni,ni_frmtrm,eq,assets,liab,eq_total = (_fx(v) for v in (ni,ni_frmtrm,eq,assets,liab,eq_total))
             # 실시간 스케일 가드(소프트센 032680 사례, wiki §9) — mktcap은 이 배치엔 없어 ①②③만 적용.
             # 항등식은 총자본(지배+비지배) 기준 — eq(지배자본)와 별도로 조회 필요. (통화환산 후 KRW 기준으로 비교)
@@ -160,12 +161,12 @@ async def backfill_restated():
     3개년 재작성치를 확보(소프트센 032680 실측으로 bfefrmtrm 제공 확인, 260704)."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con=_pg()
-    firms=[r for r in con.execute("SELECT isu_cd, corp_code FROM mkt_fundamentals WHERE fetched='ok' ORDER BY isu_cd")]
-    fs_map={r[0]:r[1] for r in con.execute("SELECT isu_cd, fs FROM mkt_finstat_y WHERE fy=2024")}
+    firms=[r for r in con.execute("SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' ORDER BY ticker")]
+    fs_map={r[0]:r[1] for r in con.execute("SELECT ticker, fs FROM dart_finstat_y WHERE fy=2024")}
     # 이 함수는 fy=2024 보고서를 조회해 fy=2023·2022 행에 재작성치를 쓴다(fy=2024 자체엔 안 씀).
     # 따라서 완료 판정은 2023/2022 중 하나라도 재작성치가 있으면 그 종목은 처리됐다고 본다.
     done={r[0] for r in con.execute(
-        "SELECT isu_cd FROM mkt_finstat_y WHERE fy IN (2022,2023) "
+        "SELECT ticker FROM dart_finstat_y WHERE fy IN (2022,2023) "
         "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)")}
     con.close()
     todo=[(i,c) for i,c in firms if i not in done]
@@ -198,25 +199,25 @@ async def backfill_restated():
 def series():
     con=psycopg.connect(os.environ["DATABASE_URL"])
     # 분기말 후보: krx_weekly에서 각 분기 마지막 주간일
-    qs=con.execute("""SELECT MAX(bas_dd) FROM krx_weekly
-      GROUP BY LEFT(bas_dd,4), CASE WHEN SUBSTRING(bas_dd,5,2)::int<=3 THEN 1
-        WHEN SUBSTRING(bas_dd,5,2)::int<=6 THEN 2 WHEN SUBSTRING(bas_dd,5,2)::int<=9 THEN 3 ELSE 4 END
+    qs=con.execute("""SELECT MAX(price_dd) FROM krx_weekly
+      GROUP BY LEFT(price_dd,4), CASE WHEN SUBSTRING(price_dd,5,2)::int<=3 THEN 1
+        WHEN SUBSTRING(price_dd,5,2)::int<=6 THEN 2 WHEN SUBSTRING(price_dd,5,2)::int<=9 THEN 3 ELSE 4 END
       ORDER BY 1""").fetchall()
     qdates=[r[0] for r in qs if r[0]>="20210601"]
-    # 재무: FY별 (mkt_finstat_y ∪ 최신 확정 FY=_latest_annual_fy()는 mkt_fundamentals)
+    # 재무: FY별 (dart_finstat_y ∪ 최신 확정 FY=_latest_annual_fy()는 dart_fundamentals)
     # restated(다음 해 보고서 전기 비교치)가 있으면 그걸 우선 — 회사가 스스로 재작성한 참값
     # (소프트센 032680 FY2022 사례: 당해 XBRL 100만배 오류를 다음해 보고서가 정상화).
     fin={}
     restated_used=[]
     for isu,fy,ni,eq,ni_r,eq_r in con.execute(
-            "SELECT isu_cd,fy,ni,eq,ni_restated,eq_restated FROM mkt_finstat_y WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL"):
+            "SELECT ticker,fy,ni,eq,ni_restated,eq_restated FROM dart_finstat_y WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL"):
         final_ni = ni_r if ni_r is not None else ni
         final_eq = eq_r if eq_r is not None else eq
         if ni_r is not None and ni is not None and abs(ni_r - ni) > abs(ni) * 0.01:
             restated_used.append((isu, fy, ni, ni_r))
         fin[(isu,fy)]=(final_ni, final_eq)
     _lfy = _latest_annual_fy()
-    for isu,ni,eq in con.execute("SELECT isu_cd,ni_fy,eq_fy FROM mkt_fundamentals WHERE fetched='ok'"):
+    for isu,ni,eq in con.execute("SELECT ticker,ni_fy,eq_fy FROM dart_fundamentals WHERE fetched='ok'"):
         fin[(isu,_lfy)]=(ni,eq)
     if restated_used:
         print(f"[재작성 적용] {len(restated_used)}건 (당해 XBRL 대신 다음해 보고서 전기 비교치 사용)")
@@ -225,7 +226,7 @@ def series():
     # 스케일 오류 가드(재작성으로도 못 잡은 잔여 케이스): KOSDAQ 종목의 ni/eq가 50조 초과면
     # 자릿수 오류로 간주해 무효화(KOSPI 대기업은 실제로 100조 넘으므로 KOSDAQ만 적용).
     kosdaq_isu = {r[0] for r in con.execute(
-        "SELECT isu_cd FROM mkt_fundamentals WHERE mkt='KOSDAQ'")}
+        "SELECT ticker FROM dart_fundamentals WHERE market='KQ'")}
     SCALE_CAP = 50e12
     dropped = []
     for k in list(fin):
@@ -240,24 +241,24 @@ def series():
     for d in qdates:
         y,m=int(d[:4]),int(d[4:6])
         pit_fy = y-1 if m>=4 else y-2
-        caps=con.execute("SELECT isu_cd, mkt, mktcap FROM krx_weekly WHERE bas_dd=%s",(d,)).fetchall()
+        caps=con.execute("SELECT ticker, market, mktcap FROM krx_weekly WHERE price_dd=%s",(d,)).fetchall()
         from collections import defaultdict
         agg=defaultdict(lambda: dict(cap=0,ni=0,eq=0,capn=0,cape=0,tot=0))
-        for isu,mkt,cap in caps:
+        for isu,market,cap in caps:
             if not cap: continue
-            a=agg[mkt]; a["tot"]+=cap
+            a=agg[market]; a["tot"]+=cap
             f=fin.get((isu,pit_fy))
             if not f: continue
             ni,eq=f
             if ni is not None: a["ni"]+=ni; a["capn"]+=cap
             if eq and eq>0: a["eq"]+=eq; a["cape"]+=cap
-        for mkt in ("KOSPI","KOSDAQ"):
-            a=agg.get(mkt)
+        for market in (MKT_KS,MKT_KQ):
+            a=agg.get(market)
             if not a or not a["tot"]: continue
             per=a["capn"]/a["ni"] if a["ni"] and a["ni"]>0 else None
             pbr=a["cape"]/a["eq"] if a["eq"] else None
             cov=a["capn"]/a["tot"]*100
-            print(f"{d:>9} {mkt:>7} {pit_fy:>6} {(f'{per:.1f}' if per else 'N/M'):>7} {(f'{pbr:.2f}' if pbr else '-'):>6} {cov:>6.0f}%")
+            print(f"{d:>9} {market:>7} {pit_fy:>6} {(f'{per:.1f}' if per else 'N/M'):>7} {(f'{pbr:.2f}' if pbr else '-'):>6} {cov:>6.0f}%")
     con.close()
 
 if __name__=="__main__":

@@ -67,13 +67,13 @@ _KST = _dt.timezone(_dt.timedelta(hours=9))
 #: 공시 전에 어떤 회사를 며칠 들여다봤는지가 드러나는 문제다). key_hash 는 익명이 아니라
 #: **가명**이라 같은 사람인지는 알 수 있고, DART 키는 실명 등록에 묶여 있다.
 #:
-#: 그래도 되돌리는 이유는 **`corp_daily` 로는 답할 수 없는 질문이 남아서**다. 집계는
+#: 그래도 되돌리는 이유는 **`ops_corp_daily` 로는 답할 수 없는 질문이 남아서**다. 집계는
 #: 「어느 기업이 많이 조회되나」까지만 답한다. 사용자별 세션·재방문·워크플로(한 사람이
 #: 한 기업을 며칠에 걸쳐 어떤 순서로 파는가)는 연결이 있어야 보이고, 그건 제품 판단에 쓴다.
 #:
 #: **그래서 이건 「부채가 없어졌다」가 아니라 「부채를 알고 진다」이다.** 260810 의 판단이
 #: 틀렸던 게 아니라, 그때는 안 쓰던 값어치를 이제 쓰기로 한 것이다. 지는 쪽인 이상 조건이 붙는다:
-#:   · `corp_daily` 는 **그대로 둔다**(이중 기록). 연결이 필요 없는 질문은 계속 그쪽으로 답한다 —
+#:   · `ops_corp_daily` 는 **그대로 둔다**(이중 기록). 연결이 필요 없는 질문은 계속 그쪽으로 답한다 —
 #:     드레인으로 이벤트가 빠져나가도 기업 순위는 남아야 하고, 실제로 그게 유일한 장기 계열이다.
 #:   · 남기는 것은 **정규화된 8자리 코드뿐**이다. 사용자가 친 질의 원문은 여전히 안 남긴다.
 #:   · 드레인(`scripts/events_drain.py`)이 이 부채의 **수명 상한**이다 — 완결 주가 DB 를 떠나면
@@ -112,9 +112,9 @@ def _sqlite_connect():
             key_hash TEXT NOT NULL, status INTEGER);
         CREATE INDEX IF NOT EXISTS idx_events_hash ON events(key_hash);
         CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_ns);
-        CREATE TABLE IF NOT EXISTS corp_daily(
-            day TEXT NOT NULL, corp_code TEXT NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (day, corp_code));
+        CREATE TABLE IF NOT EXISTS ops_corp_daily(
+            log_dd TEXT NOT NULL, corp_code TEXT NOT NULL, requests INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (log_dd, corp_code));
         """
     )
     # sqlite 는 폐기 컬럼을 되살리지 않는다 — 목록에서 뺀다(260817, doc_cache_hit).
@@ -146,7 +146,7 @@ def _sqlite_write(con, batch):
     rows = [(str(d), c, n) for (d, c), n in _corp_counts(batch).items()]
     if rows:
         con.executemany(
-            "INSERT INTO corp_daily(day, corp_code, requests) VALUES(?,?,?) "
+            "INSERT INTO ops_corp_daily(log_dd, corp_code, requests) VALUES(?,?,?) "
             "ON CONFLICT(day, corp_code) DO UPDATE SET requests = requests + excluded.requests",
             rows)
     con.commit()
@@ -157,49 +157,49 @@ def _pg_connect():
     import psycopg
     con = psycopg.connect(DATABASE_URL, connect_timeout=15, autocommit=False)
     con.execute(
-        "CREATE TABLE IF NOT EXISTS tool_call_events("
+        "CREATE TABLE IF NOT EXISTS ops_tool_calls("
         "event_id text PRIMARY KEY, ts_ns bigint NOT NULL, key_hash text NOT NULL, status int)"
     )
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS tool text")
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS latency_ms int")
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS is_error boolean")
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS error_kind text")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS tool text")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS latency_ms int")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS is_error boolean")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS error_kind text")
     # 260802: 캐시를 키울 값어치가 있나 · 어느 tool 이 토큰을 많이 먹나 — 두 질문에 답하려고 더했다.
     # 260817: `doc_cache_hit` 컬럼을 **지운다.** 260804 에 「폐기하되 컬럼은 남긴다」로 뒀는데,
     #   남긴 컬럼은 스키마·백업 CSV·드레인에 계속 실려 다니면서 **읽는 사람에게는 지표처럼 보인다.**
     #   백업 358,205행 전수 확인 결과 값이 들어온 적이 한 번도 없다(0건). 대신 doc_mem_hits/
     #   doc_disk_hits/doc_misses 셋이 답한다. 안 쓰는 컬럼을 남기는 비용은 용량이 아니라 **오해**다.
     #   (원래 실패 원인: 하류가 ContextVar 를 set 하고 상위 미들웨어가 get 하는 구조 — 원리상 안 된다.)
-    con.execute("ALTER TABLE tool_call_events DROP COLUMN IF EXISTS doc_cache_hit")
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS response_bytes int")
+    con.execute("ALTER TABLE ops_tool_calls DROP COLUMN IF EXISTS doc_cache_hit")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS response_bytes int")
     # 260804: 문서 출처를 **건수로** 나눠 센다. 메모리 예산의 효과를 보려면 디스크 적중과
     # 섞으면 안 된다(디스크는 예산과 무관하다).
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_mem_hits int")
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_disk_hits int")
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS doc_misses int")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS doc_mem_hits int")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS doc_disk_hits int")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS doc_misses int")
     # 260804: 이 요청이 해석해 낸 기업(8자리 corp_code, 쉼표 구분). 사용자가 친 원문은
     # 남기지 않는다 — 정규화된 코드만 남아야 집계가 뜻을 가지고, 자유 텍스트도 안 쌓인다.
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS corp_codes text")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS corp_codes text")
     # 260810: 원문을 **어느 경로로** 받았나. 주 경로(document.xml API)는 doc_misses 가 이미
     # 세므로 여기엔 폴백만 둔다 — viewer HTML(고정 2초 간격)·KIND(1~3초 랜덤).
     # web_wait_ms 는 그 간격 때문에 **실제로 잠든** 시간이다. 「2초가 비싼가」는 빈도만으론
     # 못 정한다: 폴백이 드물면 2초는 공짜고, 잦으면 간격이 아니라 주 경로를 고쳐야 한다.
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS fetch_viewer int")
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS fetch_kind int")
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS web_wait_ms int")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS fetch_viewer int")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS fetch_kind int")
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS web_wait_ms int")
     # 260810: 이름이 정확히 안 맞아 **추정으로 고른** 해석의 방식(normalized·token·substring·
     # fuzzy). 이미 계산해 사용자에게 warning 으로 보여주면서 기록만 안 하고 있었다.
     # **사용자가 친 원문(`query`)은 절대 싣지 않는다** — 여기 넣으면 「질의 원문 미보관」
     # 정책이 그 자리에서 깨진다. 방식 이름만 남겨도 「우리가 얼마나 자주 찍었나」는 답한다.
-    con.execute("ALTER TABLE tool_call_events ADD COLUMN IF NOT EXISTS weak_kinds text")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON tool_call_events(key_hash)")
-    con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON tool_call_events(ts_ns)")
-    # corp_daily 는 corp_codes 를 되돌린 뒤에도 **계속 쓴다**(260817, 위 모듈 주석).
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS weak_kinds text")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON ops_tool_calls(key_hash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON ops_tool_calls(ts_ns)")
+    # ops_corp_daily 는 corp_codes 를 되돌린 뒤에도 **계속 쓴다**(260817, 위 모듈 주석).
     # 이벤트는 드레인으로 주 단위로 DB 를 떠나지만 이 집계는 남는다 — 기업 조회 순위의
     # **유일한 장기 계열**이라, 이게 없으면 드레인이 지표를 지우는 일이 된다.
-    con.execute("CREATE TABLE IF NOT EXISTS corp_daily("
-                "day date NOT NULL, corp_code text NOT NULL, "
-                "requests int NOT NULL DEFAULT 0, PRIMARY KEY (day, corp_code))")
+    con.execute("CREATE TABLE IF NOT EXISTS ops_corp_daily("
+                "log_dd date NOT NULL, corp_code text NOT NULL, "
+                "requests int NOT NULL DEFAULT 0, PRIMARY KEY (log_dd, corp_code))")
     con.commit()
     return con
 
@@ -207,7 +207,7 @@ def _pg_connect():
 def _pg_write(con, batch):
     # 컬럼명 명시 — 위치 의존 INSERT 는 ADD COLUMN 후 조용히 어긋난다(260704 사고).
     con.cursor().executemany(
-        "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
+        "INSERT INTO ops_tool_calls(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
         "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
         "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
         "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
@@ -216,9 +216,9 @@ def _pg_write(con, batch):
     rows = [(d, c, n) for (d, c), n in _corp_counts(batch).items()]
     if rows:
         con.cursor().executemany(
-            "INSERT INTO corp_daily(day, corp_code, requests) VALUES(%s,%s,%s) "
+            "INSERT INTO ops_corp_daily(log_dd, corp_code, requests) VALUES(%s,%s,%s) "
             "ON CONFLICT (day, corp_code) DO UPDATE SET "
-            "requests = corp_daily.requests + EXCLUDED.requests", rows)
+            "requests = ops_corp_daily.requests + EXCLUDED.requests", rows)
     con.commit()
 
 

@@ -2060,8 +2060,8 @@ class DartClient:
                 return None
             data = resp.json()
             for item in data.get("OutBlock_1", []):
-                isu_cd = item.get("ISU_CD", "")
-                if isu_cd == stock_code or stock_code in isu_cd:
+                ticker = item.get("ISU_CD", "")
+                if ticker == stock_code or stock_code in ticker:
                     return {
                         "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
                         "base_date": item.get("BAS_DD", base_date),

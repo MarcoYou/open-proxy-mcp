@@ -173,16 +173,16 @@ def _overall_shareholder_return(
     }
 
 
-async def _fill_yearend_yield(isu_cd: str, div_history: list[dict[str, Any]]) -> None:
+async def _fill_yearend_yield(ticker: str, div_history: list[dict[str, Any]]) -> None:
     """DART 자체 배당수익률(yield_dart, dividend.history의 yield_pct)은 결의 시점 시가 기준이라
     옛 연도일수록 결측이 많다(실측 확인 260707: 미래에셋증권·현대차·SKC 전부 2021·2022년 None,
     2023년부터만 값 있음). krx_weekly(연말종가, valuation.py의 _annual_pit_band와 동일 쿼리 패턴)
     로 DPS÷연말종가를 직접 계산해 공백을 메운다 — 원래 값(yield_pct)은 안 건드리고
     `yield_pct_yearend`로 별도 필드 추가(기준일이 다르므로 값이 다를 수 있음을 명시)."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT DISTINCT ON (substring(bas_dd,1,4)) substring(bas_dd,1,4), close "
-        "FROM krx_weekly WHERE isu_cd=%s AND substring(bas_dd,5,2)='12' "
-        "ORDER BY substring(bas_dd,1,4), bas_dd DESC", (isu_cd,))
+        "SELECT DISTINCT ON (substring(price_dd,1,4)) substring(price_dd,1,4), close "
+        "FROM krx_weekly WHERE ticker=%s AND substring(price_dd,5,2)='12' "
+        "ORDER BY substring(price_dd,1,4), price_dd DESC", (ticker,))
     if not rows:
         return
     close_by_year = {int(yr): float(close) for yr, close in rows if close}
@@ -268,10 +268,10 @@ async def build_shareholder_commitment_payload(
             "— lookback_years를 늘려서 재조회 권장."
         )
 
-    isu_cd = selected.get("stock_code")
+    ticker = selected.get("stock_code")
     div_history_list = div_history_data.get("history") or []
-    if isu_cd and div_history_list:
-        await _fill_yearend_yield(isu_cd, div_history_list)
+    if ticker and div_history_list:
+        await _fill_yearend_yield(ticker, div_history_list)
 
     capital_return_cycles, quality_flags = await _capital_return_impact(canonical_name, corp_code, treasury_data)
     overall = _overall_shareholder_return(

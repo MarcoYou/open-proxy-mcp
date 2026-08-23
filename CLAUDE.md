@@ -86,7 +86,8 @@ wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
   `get_document_cached`를 사용한다. 일부 service가 명시적으로 둔 DART viewer HTML fallback은 허용하되,
   상위 소스에서 해결되면 호출하지 않는다. XML 불완전 시 원문을 AI에 노출해 보정(soft-fail)하고, 조작된 FOR는 내지 않는다. **PDF 다운로드·
   OCR(Upstage)·opendataloader 폴백은 2026-07-12 OPM에서 폐기하고 고급 프로덕트 open-proxy-ai로 이관**
-  (sibling private project `open-proxy-ai` — `pipeline/pdf_parser.py` + `pipeline/pdf_download.py`, 폴백 전용).
+  (sibling private project `open-proxy-ai` — `pipeline/pdf_parser.py` + `pipeline/pdf_download.py`, 폴백 전용.
+  **260822 원격 개편으로 기본 브랜치가 `main`(정적 프론트엔드 전용, 파일 10개)으로 바뀌어 이 경로는 `legacy` 브랜치에 있다** — `git checkout origin/legacy -- pipeline/`).
 - **rcept_no 포맷**: `00`=소집공고(DART 정기) / `80`=주총결과(거래소 수시). agm_*_xml에는 `00` 사용.
 - **공시 검색**: `list.json`에서 `pblntf_ty`+`pblntf_detail_ty`로 범위 먼저 좁히고 제목 매칭(전체 순회
   금지). 코드 매핑은 `rules/disclosures/공시유형코드체계.md`. corp_code 없는 시장검색은 3개월 한도.

@@ -4,7 +4,7 @@
 불일치로 배수가 왜곡된다. valuation.py의 FX 환산은 generic(통화 감지 기반)이라 자동 처리되나,
 "몇 개나 있고 다 정상인가"를 전수로 확인. 종목당 1콜(저장된 fs 재사용, FY2024).
 
-결과: mkt_fundamentals.currency 컬럼에 저장 + 비KRW 종목 출력.
+결과: dart_fundamentals.currency 컬럼에 저장 + 비KRW 종목 출력.
 
 실행: python3 scripts/scan_currency.py
 """
@@ -16,7 +16,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from open_proxy_mcp.dart.fx import statement_currency
 
-DDL_MIGRATE = "ALTER TABLE mkt_fundamentals ADD COLUMN IF NOT EXISTS currency text"
+DDL_MIGRATE = "ALTER TABLE dart_fundamentals ADD COLUMN IF NOT EXISTS currency text"
 
 
 def _flush(buf):
@@ -27,7 +27,7 @@ def _flush(buf):
             with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15) as c:
                 with c.cursor() as cur:
                     cur.executemany(
-                        "UPDATE mkt_fundamentals SET currency=%s WHERE isu_cd=%s", buf)
+                        "UPDATE dart_fundamentals SET currency=%s WHERE ticker=%s", buf)
                 c.commit()
             buf.clear(); return
         except psycopg.OperationalError:
@@ -39,8 +39,8 @@ async def main():
     con = psycopg.connect(os.environ["DATABASE_URL"])
     con.execute(DDL_MIGRATE); con.commit()
     firms = con.execute(
-        "SELECT isu_cd, corp_code, fs FROM mkt_fundamentals "
-        "WHERE fetched='ok' AND currency IS NULL ORDER BY isu_cd").fetchall()
+        "SELECT ticker, corp_code, fs FROM dart_fundamentals "
+        "WHERE fetched='ok' AND currency IS NULL ORDER BY ticker").fetchall()
     con.close()
     print(f"대상 {len(firms)}사 (currency 미확인분)", flush=True)
     c = get_dart_client(); buf = []; k = 0; nonkrw = []

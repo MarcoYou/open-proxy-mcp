@@ -174,7 +174,7 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
     val = con.execute("SELECT corp_codes FROM events").fetchone()[0]
     assert val == "00126380,00164779", f"이벤트 행에 기업이 안 실렸다: {val!r}"
     agg = dict(((c, n) for _, c, n in con.execute(
-        "SELECT day, corp_code, requests FROM corp_daily").fetchall()))
+        "SELECT day, corp_code, requests FROM ops_corp_daily").fetchall()))
     con.close()
     # 이벤트를 되살렸다고 집계를 끄면 안 된다 — 드레인이 이벤트를 가져가면 순위가 사라진다.
     assert agg == {"00126380": 1, "00164779": 1}, agg
@@ -321,7 +321,7 @@ def test_corp_counts_never_carries_the_user():
 
 
 def test_event_insert_carries_corp_codes_and_keeps_the_aggregate():
-    """260817: 이벤트 행에 기업을 **적는다**. 다만 집계(`corp_daily`)를 끄지 않는다.
+    """260817: 이벤트 행에 기업을 **적는다**. 다만 집계(`ops_corp_daily`)를 끄지 않는다.
 
     이 테스트가 지키는 건 「적는다」가 아니라 **둘 다 간다**는 쪽이다. 이벤트만 남기면
     드레인이 완결 주를 가져갈 때 기업 조회 순위가 통째로 사라진다 — 드레인은 부채의
@@ -330,7 +330,7 @@ def test_event_insert_carries_corp_codes_and_keeps_the_aggregate():
 
     src = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "usage.py"
     text = src.read_text(encoding="utf-8")
-    for stmt in ("INSERT OR IGNORE INTO events(", "INSERT INTO tool_call_events("):
+    for stmt in ("INSERT OR IGNORE INTO events(", "INSERT INTO ops_tool_calls("):
         i = text.index(stmt)
         head = text[i:i + 600]
         cols = head[:head.index("VALUES")]
@@ -341,7 +341,7 @@ def test_event_insert_carries_corp_codes_and_keeps_the_aggregate():
         ph = ph[:ph.index(")") + 1]
         assert cols.count(",") + 1 == ph.count("%s") + ph.count("?"), \
             f"컬럼 수와 값 자리 수가 다르다: {stmt}"
-    assert "corp_daily" in text, "집계 테이블로 올리는 경로가 없다"
+    assert "ops_corp_daily" in text, "집계 테이블로 올리는 경로가 없다"
 
 
 def test_dead_column_doc_cache_hit_stays_dead():

@@ -101,7 +101,7 @@ _PATH_COLS = ("ts_ns", "tool", "doc_misses", "fetch_viewer", "fetch_kind", "web_
 def _db_event_ids() -> set:
     """DB 에 지금 있는 event_id. 드레인은 내보낸 뒤 지우므로 원래 안 겹치지만,
     중단·재실행이 있었다면 겹친다 — **겹침을 가정하지 않는 쪽이 위험하다**(이중 계상)."""
-    tbl = "tool_call_events" if using_pg() else "events"
+    tbl = "ops_tool_calls" if using_pg() else "events"
     try:
         if using_pg():
             con = _pg_conn()
@@ -195,7 +195,7 @@ def fetch_rows():
     """모든 (ts_ns, key_hash) 정렬 반환 (self 포함). 백엔드 자동 선택."""
     if using_pg():
         con = _pg_conn()
-        rows = con.execute("SELECT ts_ns, key_hash FROM tool_call_events ORDER BY ts_ns").fetchall()
+        rows = con.execute("SELECT ts_ns, key_hash FROM ops_tool_calls ORDER BY ts_ns").fetchall()
         con.close()
         rows = [(int(t), h) for t, h in rows]
     else:
@@ -217,10 +217,10 @@ def is_protocol(tool) -> bool:
 
 def fetch_tool_latency():
     """(tool, key_hash, latency_ms, is_error) 리스트. 옛 스키마(열 없음)면 is_error=None 패딩.
-    PG(tool_call_events)와 sqlite(events)는 테이블명이 달라(260706 PG측 rename) 쿼리 분리."""
+    PG(ops_tool_calls)와 sqlite(events)는 테이블명이 달라(260706 PG측 rename) 쿼리 분리."""
     if using_pg():
-        sql = "SELECT tool, key_hash, latency_ms, is_error FROM tool_call_events"
-        old = "SELECT tool, key_hash, latency_ms FROM tool_call_events"
+        sql = "SELECT tool, key_hash, latency_ms, is_error FROM ops_tool_calls"
+        old = "SELECT tool, key_hash, latency_ms FROM ops_tool_calls"
         con = _pg_conn()
         try:
             try:
@@ -243,18 +243,18 @@ def fetch_tool_latency():
 
 
 def migrate_local_to_pg():
-    """로컬 sqlite events를 Postgres(tool_call_events)로 1회 이전(ON CONFLICT dedup). 과거 데이터 시드용."""
+    """로컬 sqlite events를 Postgres(ops_tool_calls)로 1회 이전(ON CONFLICT dedup). 과거 데이터 시드용."""
     if not using_pg():
         raise SystemExit("DATABASE_URL이 필요합니다 (.env 또는 환경변수).")
     src = db().execute("SELECT event_id, ts_ns, key_hash, status FROM events").fetchall()
     pg = _pg_conn()
-    pg.execute("CREATE TABLE IF NOT EXISTS tool_call_events(event_id text PRIMARY KEY, "
+    pg.execute("CREATE TABLE IF NOT EXISTS ops_tool_calls(event_id text PRIMARY KEY, "
                "ts_ns bigint NOT NULL, key_hash text NOT NULL, status int)")
     pg.cursor().executemany(
-        "INSERT INTO tool_call_events(event_id, ts_ns, key_hash, status) VALUES(%s,%s,%s,%s) "
+        "INSERT INTO ops_tool_calls(event_id, ts_ns, key_hash, status) VALUES(%s,%s,%s,%s) "
         "ON CONFLICT (event_id) DO NOTHING", src)
     pg.commit()
-    total = pg.execute("SELECT COUNT(*) FROM tool_call_events").fetchone()[0]
+    total = pg.execute("SELECT COUNT(*) FROM ops_tool_calls").fetchone()[0]
     pg.close()
     print(f"로컬 {len(src)}건 → Postgres 이전 완료 (PG 총 {total}건)")
 
@@ -453,7 +453,7 @@ def fetch_error_rows():
         con = _pg_conn()
         try:
             try:
-                rows = con.execute("SELECT ts_ns, key_hash, is_error FROM tool_call_events").fetchall()
+                rows = con.execute("SELECT ts_ns, key_hash, is_error FROM ops_tool_calls").fetchall()
             except Exception:  # is_error 미생성 구서버
                 con.rollback()
                 rows = []
@@ -509,12 +509,12 @@ def outcome_breakdown():
     if using_pg():
         con = _pg_conn()
         try:
-            rows = con.execute(f"SELECT {cols} FROM tool_call_events").fetchall()
+            rows = con.execute(f"SELECT {cols} FROM ops_tool_calls").fetchall()
         except Exception:      # weak_kinds 미생성 구서버 — 그 컬럼만 빼고 재시도
             con.rollback()
             try:
                 rows = [(*r, None) for r in con.execute(
-                    "SELECT key_hash, tool, is_error, error_kind FROM tool_call_events").fetchall()]
+                    "SELECT key_hash, tool, is_error, error_kind FROM ops_tool_calls").fetchall()]
             except Exception:
                 con.rollback(); return {}
         finally:
@@ -836,7 +836,7 @@ def paths_report(days: int = 7):
     con = _pg_conn()
     have = {r[0] for r in con.execute(
         "SELECT column_name FROM information_schema.columns "
-        "WHERE table_name = 'tool_call_events'").fetchall()}
+        "WHERE table_name = 'ops_tool_calls'").fetchall()}
     missing = {"fetch_viewer", "fetch_kind", "web_wait_ms"} - have
     if missing:
         con.close()
@@ -847,7 +847,7 @@ def paths_report(days: int = 7):
     # SQL 로 하면 창 안의 대부분이 조용히 빠지고, 표는 아무 경고 없이 「최근 7일」이라고 말한다.
     db_rows = con.execute(
         "SELECT ts_ns, tool, doc_misses, fetch_viewer, fetch_kind, web_wait_ms "
-        "FROM tool_call_events").fetchall()
+        "FROM ops_tool_calls").fetchall()
     cut = (time.time() - days * 86400) * 1e9
     rows = [r for r in merge_drained(db_rows, _PATH_COLS) if r[0] and int(r[0]) > cut]
     z = lambda v: int(v or 0)
@@ -887,7 +887,7 @@ def paths_report(days: int = 7):
 
 
 def corp_report(top: int = 15, days: int | None = None):
-    """어느 기업이 많이 조회되나 — **사용자와 떼어낸** 집계(`corp_daily`)에서 읽는다.
+    """어느 기업이 많이 조회되나 — **사용자와 떼어낸** 집계(`ops_corp_daily`)에서 읽는다.
 
     260810 이전에는 이벤트 행에 `corp_codes` 가 `key_hash`·`ts_ns` 와 나란히 있었다.
     셋이 붙으면 「이 사용자가 언제 어느 기업을 조사했는지」가 되고, 그건 조사 이력이다.
@@ -897,16 +897,16 @@ def corp_report(top: int = 15, days: int | None = None):
     if not using_pg():
         raise SystemExit("--corps 는 Postgres 백엔드에서만 (DATABASE_URL 필요)")
     con = _pg_conn()
-    where = f"WHERE day > current_date - {int(days)}" if days else ""
+    where = f"WHERE log_dd > current_date - {int(days)}" if days else ""
     rows = con.execute(
-        f"SELECT corp_code, sum(requests) n FROM corp_daily {where} "
+        f"SELECT corp_code, sum(requests) n FROM ops_corp_daily {where} "
         f"GROUP BY 1 ORDER BY 2 DESC LIMIT {int(top)}").fetchall()
     total, corps, lo, hi = con.execute(
-        f"SELECT coalesce(sum(requests),0), count(DISTINCT corp_code), min(day), max(day) "
-        f"FROM corp_daily {where}").fetchone()
+        f"SELECT coalesce(sum(requests),0), count(DISTINCT corp_code), min(log_dd), max(log_dd) "
+        f"FROM ops_corp_daily {where}").fetchone()
     con.close()
     if not total:
-        print("집계 없음 — corp_daily 가 비어 있다.")
+        print("집계 없음 — ops_corp_daily 가 비어 있다.")
         return
     span = f"{lo} ~ {hi}" if lo else ""
     print(f"\n=== 조회된 기업 (총 {total:,}건 · {corps:,}개사 · {span}) ===")

@@ -50,9 +50,9 @@ load_dotenv(ROOT / ".env")
 import psycopg
 
 DDL = """
--- PK 는 (isu_cd) 하나 — **종목당 딱지 하나**가 기존 설계다(실측: 155행 = 115+40, 겹침 0).
+-- PK 는 (ticker) 하나 — **종목당 딱지 하나**가 기존 설계다(실측: 155행 = 115+40, 겹침 0).
 CREATE TABLE IF NOT EXISTS krx_stock_flags (
-  isu_cd text PRIMARY KEY, flag text NOT NULL,
+  ticker text PRIMARY KEY, flag text NOT NULL,
   detail jsonb, updated text);
 """
 
@@ -78,21 +78,21 @@ def main() -> int:
     rows = con.execute(
         """
         WITH e AS (
-          SELECT l.isu_cd, l.chg_dd,
+          SELECT l.ticker, l.event_dd,
                  l.new_shrs::numeric / l.prev_shrs AS r,
-                 (SELECT close FROM krx_weekly WHERE isu_cd=l.isu_cd AND bas_dd>=l.chg_dd
-                   ORDER BY bas_dd LIMIT 1)::numeric
-                 / NULLIF((SELECT close FROM krx_weekly WHERE isu_cd=l.isu_cd AND bas_dd<l.chg_dd
-                   ORDER BY bas_dd DESC LIMIT 1), 0) AS p
+                 (SELECT close FROM krx_weekly WHERE ticker=l.ticker AND price_dd>=l.event_dd
+                   ORDER BY price_dd LIMIT 1)::numeric
+                 / NULLIF((SELECT close FROM krx_weekly WHERE ticker=l.ticker AND price_dd<l.event_dd
+                   ORDER BY price_dd DESC LIMIT 1), 0) AS p
           FROM krx_shares_ledger l
           LEFT JOIN krx_adj_events b
-            ON b.isu_cd = l.isu_cd AND b.event_dd = l.chg_dd
+            ON b.ticker = l.ticker AND b.event_dd = l.event_dd
           WHERE l.prev_shrs IS NOT NULL AND l.prev_shrs > 0 AND l.new_shrs IS NOT NULL
             AND l.new_shrs::numeric / l.prev_shrs < %s
-            AND b.isu_cd IS NULL)
-        SELECT isu_cd, chg_dd, r, p FROM e
+            AND b.ticker IS NULL)
+        SELECT ticker, event_dd, r, p FROM e
         WHERE p IS NOT NULL AND ABS(p * r - 1) > %s
-        ORDER BY isu_cd, chg_dd
+        ORDER BY ticker, event_dd
         """,
         (_MIN_DROP, _MIN_DEV),
     ).fetchall()
@@ -103,10 +103,10 @@ def main() -> int:
             {"dd": dd, "r": round(float(r), 4), "p": round(float(px), 4),
              "why": "시총 불연속·설명불가", "rule": _RULE})
 
-    # ★ 이 테이블은 PK 가 (isu_cd) 하나다 = **종목당 딱지 하나**. spinoff_break 가 붙은 종목에
+    # ★ 이 테이블은 PK 가 (ticker) 하나다 = **종목당 딱지 하나**. spinoff_break 가 붙은 종목에
     #   unresolved 를 쓰면 분할 경고가 덮인다 — 분할 쪽이 더 강한 신호이므로 건너뛴다.
     spin = {r[0] for r in con.execute(
-        "SELECT isu_cd FROM krx_stock_flags WHERE flag='spinoff_break'")}
+        "SELECT ticker FROM krx_stock_flags WHERE flag='spinoff_break'")}
     skipped = len(set(per) & spin)
     for isu in list(per):
         if isu in spin:
@@ -114,7 +114,7 @@ def main() -> int:
 
     # 기존 것과 병합 — 같은 (종목, 날짜)는 기존 판정을 남긴다(원본 규칙이 더 정교했을 수 있다)
     existing = {isu: (d or {}).get("events", []) for isu, d in con.execute(
-        "SELECT isu_cd, detail FROM krx_stock_flags WHERE flag='unresolved_adjustment'").fetchall()}
+        "SELECT ticker, detail FROM krx_stock_flags WHERE flag='unresolved_adjustment'").fetchall()}
     merged: dict[str, list[dict]] = {}
     added = 0
     for isu in set(existing) | set(per):
@@ -144,8 +144,8 @@ def main() -> int:
     with con.cursor() as cur:
         # spinoff_break 는 건드리지 않는다 — 데이터로 재현 불가라 지우면 복구 못 한다.
         cur.executemany(
-            "INSERT INTO krx_stock_flags (isu_cd, flag, detail, updated) VALUES (%s,%s,%s,%s) "
-            "ON CONFLICT (isu_cd) DO UPDATE SET flag=EXCLUDED.flag, "
+            "INSERT INTO krx_stock_flags (ticker, flag, detail, updated) VALUES (%s,%s,%s,%s) "
+            "ON CONFLICT (ticker) DO UPDATE SET flag=EXCLUDED.flag, "
             "detail=EXCLUDED.detail, updated=EXCLUDED.updated",
             [(isu, "unresolved_adjustment", json.dumps({"events": ev}, ensure_ascii=False), today)
              for isu, ev in merged.items()])

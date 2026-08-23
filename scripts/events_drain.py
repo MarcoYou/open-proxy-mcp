@@ -66,7 +66,7 @@ def _table_columns(con) -> list[str]:
     유일하게 안전한 방식이다."""
     return [r[0] for r in con.execute(
         "SELECT column_name FROM information_schema.columns "
-        "WHERE table_name = 'tool_call_events' ORDER BY ordinal_position").fetchall()]
+        "WHERE table_name = 'ops_tool_calls' ORDER BY ordinal_position").fetchall()]
 
 
 def _verify_backup(fpath: Path, cols: list[str], n_rows: int) -> bool:
@@ -94,7 +94,7 @@ def main(apply: bool) -> None:
               f"    .env에 OPM_STORAGE_REPO=<실제 클론 경로> 를 지정하세요. 중단.")
         return
     con = psycopg.connect(os.environ["DATABASE_URL"]); con.autocommit = True
-    row = con.execute("SELECT MIN(ts_ns), MAX(ts_ns) FROM tool_call_events").fetchone()
+    row = con.execute("SELECT MIN(ts_ns), MAX(ts_ns) FROM ops_tool_calls").fetchone()
     if not row or row[0] is None:
         print("events 테이블 비어있음 — 드레인 대상 없음"); con.close(); return
     mn, mx = row
@@ -121,7 +121,7 @@ def main(apply: bool) -> None:
     while w < now_week:
         w_end = w + timedelta(days=7)
         rows = con.execute(
-            sql.SQL("SELECT {} FROM tool_call_events "
+            sql.SQL("SELECT {} FROM ops_tool_calls "
                     "WHERE ts_ns >= %s AND ts_ns < %s ORDER BY ts_ns").format(
                 sql.SQL(", ").join(map(sql.Identifier, cols))),
             (_to_ns(w), _to_ns(w_end))
@@ -142,13 +142,13 @@ def main(apply: bool) -> None:
             return
         if apply:
             ids = [r[0] for r in rows]
-            deleted = con.execute("DELETE FROM tool_call_events WHERE event_id = ANY(%s)", (ids,)).rowcount
+            deleted = con.execute("DELETE FROM ops_tool_calls WHERE event_id = ANY(%s)", (ids,)).rowcount
             print(f"  ✓ DB에서 {deleted}건 삭제")
         drained_total += len(rows)
         w = w_end
 
     remaining_current_week = con.execute(
-        "SELECT COUNT(*) FROM tool_call_events WHERE ts_ns >= %s", (_to_ns(now_week),)).fetchone()[0]
+        "SELECT COUNT(*) FROM ops_tool_calls WHERE ts_ns >= %s", (_to_ns(now_week),)).fetchone()[0]
     print(f"\n총 {'드레인' if apply else '드레인 대상'} {drained_total}건 · "
           f"진행 중 주({now_week.date()}~)는 안 건드림, {remaining_current_week}건 유지")
     if not apply:

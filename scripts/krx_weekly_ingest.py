@@ -29,6 +29,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
 
 from dotenv import load_dotenv
 
@@ -39,22 +40,22 @@ import httpx
 import psycopg
 
 KRX_ENDPOINTS = [
-    ("KOSPI", "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"),
-    ("KOSDAQ", "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"),
+    (MKT_KS, "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"),
+    (MKT_KQ, "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"),
 ]
 THROTTLE_S = 0.35          # 콜 간 간격 (일 10,000 한도 대비 예의상 완충)
 SAFETY_MAX_CALLS = 9_000   # 하루 한도(10,000)의 90%에서 강제 중단
 DDL = """
 CREATE TABLE IF NOT EXISTS krx_weekly (
-  bas_dd    text   NOT NULL,
-  isu_cd    text   NOT NULL,
-  mkt       text,
+  price_dd    text   NOT NULL,
+  ticker    text   NOT NULL,
+  market       text,
   close     bigint,
   mktcap    bigint,
   list_shrs bigint,
-  PRIMARY KEY (bas_dd, isu_cd)
+  PRIMARY KEY (price_dd, ticker)
 );
-CREATE INDEX IF NOT EXISTS idx_krx_weekly_isu ON krx_weekly (isu_cd, bas_dd);
+CREATE INDEX IF NOT EXISTS idx_krx_weekly_isu ON krx_weekly (ticker, price_dd);
 """
 
 _calls = 0
@@ -78,13 +79,13 @@ def _ssl_ctx():
         return True
 
 
-async def _fetch(h: httpx.AsyncClient, url: str, key: str, bas_dd: str) -> list:
+async def _fetch(h: httpx.AsyncClient, url: str, key: str, price_dd: str) -> list:
     global _calls
     if _calls >= SAFETY_MAX_CALLS:
         raise RuntimeError(f"SAFETY_MAX_CALLS({SAFETY_MAX_CALLS}) 도달 — 일 한도 보호를 위해 중단. 내일 재개하세요.")
     _calls += 1
     await asyncio.sleep(THROTTLE_S)
-    r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": bas_dd})
+    r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": price_dd})
     r.raise_for_status()
     return next((v for v in r.json().values() if isinstance(v, list)), [])
 
@@ -109,7 +110,7 @@ async def ingest(since: date, limit_weeks: int | None):
     con = psycopg.connect(dsn, connect_timeout=20)
     con.execute(DDL)
     con.commit()
-    done_days = {r[0] for r in con.execute("SELECT DISTINCT bas_dd FROM krx_weekly").fetchall()}
+    done_days = {r[0] for r in con.execute("SELECT DISTINCT price_dd FROM krx_weekly").fetchall()}
 
     weeks = _week_candidates(since, date.today())
     # 이미 적재된 주(후보일 중 하나라도 DB에 있으면) skip
@@ -128,19 +129,19 @@ async def ingest(since: date, limit_weeks: int | None):
                 if not kospi:
                     continue
                 kosdaq = await _fetch(h, KRX_ENDPOINTS[1][1], key, d)
-                rows_by_mkt, used_day = [("KOSPI", kospi), ("KOSDAQ", kosdaq)], d
+                rows_by_mkt, used_day = [(MKT_KS, kospi), (MKT_KQ, kosdaq)], d
                 break
             if not rows_by_mkt:
                 empty_weeks += 1  # 그 주 전체 휴장(설·추석 등) 또는 API 제공범위 밖
                 continue
 
             recs = [
-                (used_day, r.get("ISU_CD"), mkt, _num(r.get("TDD_CLSPRC")), _num(r.get("MKTCAP")), _num(r.get("LIST_SHRS")))
-                for mkt, rows in rows_by_mkt for r in rows if r.get("ISU_CD")
+                (used_day, r.get("ISU_CD"), market, _num(r.get("TDD_CLSPRC")), _num(r.get("MKTCAP")), _num(r.get("LIST_SHRS")))
+                for market, rows in rows_by_mkt for r in rows if r.get("ISU_CD")
             ]
             with con.cursor() as cur:  # 주 단위 idempotent: 삭제 후 COPY, commit
-                cur.execute("DELETE FROM krx_weekly WHERE bas_dd = %s", (used_day,))
-                with cur.copy("COPY krx_weekly (bas_dd, isu_cd, mkt, close, mktcap, list_shrs) FROM STDIN") as cp:
+                cur.execute("DELETE FROM krx_weekly WHERE price_dd = %s", (used_day,))
+                with cur.copy("COPY krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) FROM STDIN") as cp:
                     for rec in recs:
                         cp.write_row(rec)
             con.commit()
@@ -149,7 +150,7 @@ async def ingest(since: date, limit_weeks: int | None):
                 el = time.time() - t0
                 print(f"  [{saved_weeks}/{len(todo)}] {used_day} {len(recs):,}행 | 콜 {_calls} | {el:.0f}s", flush=True)
 
-    n = con.execute("SELECT count(*), count(DISTINCT bas_dd), min(bas_dd), max(bas_dd) FROM krx_weekly").fetchone()
+    n = con.execute("SELECT count(*), count(DISTINCT price_dd), min(price_dd), max(price_dd) FROM krx_weekly").fetchone()
     print(f"\n완료: 저장 {saved_weeks}주 / 휴장·범위밖 {empty_weeks}주 / 총 콜 {_calls}", flush=True)
     print(f"테이블: {n[0]:,}행, {n[1]}개 주간포인트, {n[2]} ~ {n[3]}", flush=True)
     con.close()

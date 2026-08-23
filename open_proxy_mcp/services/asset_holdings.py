@@ -286,7 +286,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         return {"tool": "asset_holdings", "status": "not_found", "subject": company,
                 "warnings": [f"'{company}' 식별 실패 — 종목코드나 정확한 회사명으로 재시도."]}
     corp = res.selected
-    cc, isu = corp["corp_code"], corp.get("stock_code") or corp.get("isu_cd")
+    cc, isu = corp["corp_code"], corp.get("stock_code") or corp.get("ticker")
     name = corp.get("corp_name") or company
     warnings: list[str] = []
 
@@ -297,7 +297,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
     rept = cands[0]
     year = (_YEAR.search(rept.get("report_nm") or "") or [None, str(datetime.date.today().year - 1)])[1]
 
-    data: dict[str, Any] = {"company": name, "isu_cd": isu, "report_nm": rept.get("report_nm"),
+    data: dict[str, Any] = {"company": name, "ticker": isu, "report_nm": rept.get("report_nm"),
                             "year": year, "scope": scope}
 
     async def _fin_acnt(fs):

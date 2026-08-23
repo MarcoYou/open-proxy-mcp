@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """사용자 레지스트리 — `key_hash` 에 고정 ID 를 붙이고 최초·최근 관측을 남긴다.
 
-`tool_call_events` 는 요청 단위라 「누가 언제부터 쓰는가」를 매번 다시 세야 한다.
+`ops_tool_calls` 는 요청 단위라 「누가 언제부터 쓰는가」를 매번 다시 세야 한다.
 이 스크립트는 그것을 한 줄 = 한 사용자로 굳힌다. **ID 는 한 번 준 것을 바꾸지 않는다** —
 기존 CSV 를 읽어 이미 있는 `key_hash` 의 `user_id` 와 `first_seen` 을 그대로 물려주고,
 새 `key_hash` 에만 다음 번호를 준다(중간 사용자가 사라져도 뒤 번호가 당겨지지 않는다).
@@ -67,7 +67,7 @@ def build(out: pathlib.Path) -> list[dict[str, object]]:
             SELECT key_hash, MIN(ts_ns), MAX(ts_ns), COUNT(*),
                    COUNT(DISTINCT (ts_ns / 86400000000000)),
                    COUNT(DISTINCT tool) FILTER (WHERE tool IS NOT NULL)
-            FROM tool_call_events
+            FROM ops_tool_calls
             GROUP BY key_hash
             ORDER BY MIN(ts_ns), key_hash
             """
