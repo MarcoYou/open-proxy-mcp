@@ -57,3 +57,28 @@ def test_registry_splits_same_named_corps_by_who_still_files() -> None:
     hits = resolver.search("국민은행")
 
     assert [h["corp_code"] for h in hits][0] == "00386937"
+
+
+def test_unlisted_non_financial_filer_stays_closed() -> None:
+    """🔴 **비상장은 금융업만 연다**(260823 마스터 지시).
+
+    명부를 그대로 열면 비상장 451곳이 들어오고, 그 변경이 financial_notes 뿐 아니라
+    **모든 tool 의 회사 조회에 걸린다.** 시험은 금융사로만 했으므로 그만큼만 연다.
+    실측 — 451곳 중 금융 이름 55곳만 통과하고 396곳은 닫힌다.
+    """
+    non_fin = {"corp_code": "00999999", "corp_name": "한국도로공사", "corp_eng_name": "",
+               "stock_code": "", "modify_date": "20260101"}
+    resolver = CompanyResolver([_LISTED, _UNLISTED_FILER, non_fin], {}, None,
+                               frozenset({"00908021", "00999999"}))
+
+    assert [h["corp_code"] for h in resolver.search("농협금융지주")] == ["00908021"]
+    assert resolver.search("한국도로공사") == []
+
+
+def test_listed_companies_are_untouched_by_the_financial_filter() -> None:
+    """상장사는 이 필터와 무관하다 — 종목코드가 있으면 종전대로 열린다."""
+    listed_non_fin = {"corp_code": "00126380", "corp_name": "삼성전자",
+                      "corp_eng_name": "", "stock_code": "005930", "modify_date": "20260101"}
+    resolver = CompanyResolver([listed_non_fin], {}, None, frozenset())
+
+    assert [h["corp_code"] for h in resolver.search("삼성전자")] == ["00126380"]

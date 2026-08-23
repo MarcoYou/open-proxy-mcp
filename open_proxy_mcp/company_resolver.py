@@ -128,6 +128,26 @@ def normalize_compact(value: str) -> str:
     return "".join(name_tokens(value))
 
 
+
+#: 🔴 **비상장은 금융업만 연다.** 260823 마스터 지시 — 정기보고서 제출 법인 명부를
+#:    그대로 열면 비상장 451곳이 들어오고, 그 변경이 `financial_notes` 뿐 아니라
+#:    **모든 tool 의 회사 조회에 걸린다.** 시험은 금융사로만 했으므로 범위를 그만큼만 연다.
+#:    실측 — 비상장 ∩ 정기보고서 제출 451곳 중 **금융 이름 55곳**만 통과, 396곳은 닫힌다.
+#:    통과 표본: 농협금융지주·농협생명보험·NH농협손해보험·엔에이치농협캐피탈·BNK캐피탈·
+#:    교보생명보험·롯데카드·미래에셋자산운용·신한라이프생명보험 …
+#:    (상장사는 이 필터와 무관하다 — 종목코드가 있으면 종전대로 열린다.)
+_FINANCIAL_MARKS = (
+    "은행", "증권", "생명보험", "손해보험", "화재", "보험", "캐피탈", "캐피털",
+    "금융지주", "금융투자", "카드", "저축은행", "자산운용", "신용정보", "파이낸셜",
+    "신탁", "거래소", "예탁결제", "금융",
+)
+
+
+def is_financial_name(name: str) -> bool:
+    """이름에 금융업 표지가 있나. 비상장 법인을 열지 말지 가르는 데만 쓴다."""
+    return any(mark in (name or "") for mark in _FINANCIAL_MARKS)
+
+
 @dataclass(frozen=True, slots=True)
 class MarketContext:
     market_caps: dict[str, int]
@@ -265,7 +285,9 @@ class CompanyResolver:
                 self._listed_ids.add(row_id)
                 self._add(self._ticker, ticker, row_id)
             self._add(self._corp_code, corp_code, row_id)
-            if ticker or corp_code in self.filers:
+            # 상장사는 종전대로. 비상장은 **정기보고서를 내고 + 금융업 이름**일 때만 연다.
+            if ticker or (corp_code in self.filers
+                          and is_financial_name(corp.get("corp_name", ""))):
                 self._searchable_ids.add(row_id)
             else:
                 continue        # 상장도 아니고 정기보고서도 안 내는 법인 — 이름으로 안 찾는다
@@ -310,7 +332,11 @@ class CompanyResolver:
         if active is not None:
             current = [i for i in ids
                        if self.corps[i].get("stock_code") in active
-                       or self.corps[i].get("corp_code") in self.filers]
+                       # 비상장은 정기보고서 제출 + 금융업일 때만 살린다. 상장했다가
+                       # 폐지된 곳을 여기서 되살리면 안 된다(활성 종목 검사가 무의미해진다).
+                       or (not (self.corps[i].get("stock_code") or "").strip()
+                           and self.corps[i].get("corp_code") in self.filers
+                           and is_financial_name(self.corps[i].get("corp_name", "")))]
             if current:
                 return current
             # KRX weekly covers KOSPI/KOSDAQ. Preserve exact KONEX or newly listed

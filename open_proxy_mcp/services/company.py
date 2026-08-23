@@ -543,7 +543,12 @@ async def resolve_company_query(query: str) -> CompanyResolution:
         #    것은 00386937 하나뿐이다(나머지는 2017-06-30 에 멈춘 소멸 법인).
         filers = await client.periodic_filers()
         if filers:
-            active = [m for m in matches if m.get("corp_code") in filers]
+            # 🔴 비상장은 **금융업만** 연다(마스터 지시). 상장사는 종전대로.
+            from open_proxy_mcp.company_resolver import is_financial_name
+            active = [m for m in matches
+                      if m.get("corp_code") in filers
+                      and ((m.get("stock_code") or "").strip()
+                           or is_financial_name(m.get("corp_name", "")))]
             if active:
                 matches = active
                 meta0 = matches[0].get("_resolution") or {}
