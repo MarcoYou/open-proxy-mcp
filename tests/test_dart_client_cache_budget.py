@@ -5,6 +5,10 @@
 주석이 있었지만 실측하면 사업보고서 한 건이 8.7~29.0MB(중앙값 18.9MB)라 35~58배 어긋났고,
 게다가 같은 상한 200 을 쓰는 캐시가 doc·viewer 둘이라 실제 수용량은 문서화된 값의 두 배였다.
 여기서 지키는 건 「가정이 틀려도 예산은 안 틀린다」 하나다.
+
+260823 gzip 전환 — 디스크 캐시를 `.json.gz` 로 쓴다(금융사 정기보고서 20~42MB가
+평문으로 쌓이면 볼륨이 금방 찬다. 실측 42.2MB→2.0MB). 청소·집계는 두 형식을 함께
+세므로 여기 glob 도 `*.json*` 이다. 옛 평문 `.json` 은 전환기 동안 **읽기만** 지원한다.
 """
 from __future__ import annotations
 
@@ -215,7 +219,7 @@ def test_disk_cache_sweep_evicts_oldest_first_until_under_budget(tmp_path, monke
     freed = C._sweep_disk_cache(force=True)
 
     assert freed == 200, f"예산 300 에 500 이 있었는데 {freed} 만 지웠다"
-    left = sorted(p.name for p in tmp_path.glob("*.json"))
+    left = sorted(p.name for p in tmp_path.glob("*.json*"))
     assert left == ["doc2.json", "doc3.json", "doc4.json"], f"오래된 순으로 안 지웠다: {left}"
     assert C._sweep_disk_cache(force=True) == 0, "예산 이하인데 또 지웠다"
 
@@ -279,9 +283,9 @@ def test_writing_documents_keeps_the_volume_under_budget(tmp_path, monkeypatch):
     for i in range(12):
         c._save_to_disk(f"2026010100{i:04d}", {"body": "가" * 400})
 
-    used = sum(p.stat().st_size for p in tmp_path.glob("*.json"))
+    used = sum(p.stat().st_size for p in tmp_path.glob("*.json*"))
     assert used <= 4096, f"예산 4096B 인데 {used}B 가 남았다 — 쓰기가 청소를 안 부른다"
-    assert list(tmp_path.glob("*.json")), "전부 지워졌다 — 방금 쓴 것까지 날렸다"
+    assert list(tmp_path.glob("*.json*")), "전부 지워졌다 — 방금 쓴 것까지 날렸다"
 
 
 def test_the_local_regression_corpus_is_never_swept(tmp_path, monkeypatch):
@@ -304,7 +308,7 @@ def test_the_local_regression_corpus_is_never_swept(tmp_path, monkeypatch):
     for i in range(5):
         c._save_to_disk(f"2026010100{i:04d}", {"body": "가" * 400})
 
-    assert len(list(tmp_path.glob("*.json"))) == 5, "로컬 회귀 소재가 청소됐다"
+    assert len(list(tmp_path.glob("*.json*"))) == 5, "로컬 회귀 소재가 청소됐다"
     assert C._disk_cache_stats()["swept"] is False
 
 
@@ -329,11 +333,11 @@ def test_sweep_is_triggered_by_bytes_not_file_count(tmp_path, monkeypatch):
     # 작은 것 3건 — 아직 트리거 미만이라 안 훑는다(빈번한 스캔 방지가 목적)
     for i in range(3):
         c._save_to_disk(f"2026010100{i:04d}", {"body": "가" * 100})
-    assert len(list(tmp_path.glob("*.json"))) == 3, "작은 쓰기에 조기 청소가 돌았다"
+    assert len(list(tmp_path.glob("*.json*"))) == 3, "작은 쓰기에 조기 청소가 돌았다"
 
     # 큰 것 1건 — **건수는 1인데** 트리거를 넘겨 청소가 돌아야 한다
     c._save_to_disk("20260101009999", {"body": "가" * 20_000})
-    used = sum(p.stat().st_size for p in tmp_path.glob("*.json"))
+    used = sum(p.stat().st_size for p in tmp_path.glob("*.json*"))
     assert used <= 20_000, f"큰 문서 한 건이 트리거를 못 넘겼다 — {used}B 남음"
 
 
@@ -375,6 +379,6 @@ def test_disk_eviction_is_lru_not_fifo(tmp_path, monkeypatch):
     c._load_from_disk("202601010000000")     # ← 가장 오래된 것을 **읽는다**
     C._sweep_disk_cache(force=True)
 
-    left = sorted(p.name for p in tmp_path.glob("*.json"))
+    left = sorted(p.name for p in tmp_path.glob("*.json*"))
     assert "202601010000000.json" in left, (
         f"방금 적중한 문서가 나이 때문에 퇴출됐다 — FIFO 다: {left}")

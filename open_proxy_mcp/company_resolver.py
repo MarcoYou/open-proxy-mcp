@@ -128,6 +128,26 @@ def normalize_compact(value: str) -> str:
     return "".join(name_tokens(value))
 
 
+
+#: 🔴 **비상장은 금융업만 연다.** 260823 마스터 지시 — 정기보고서 제출 법인 명부를
+#:    그대로 열면 비상장 451곳이 들어오고, 그 변경이 `financial_notes` 뿐 아니라
+#:    **모든 tool 의 회사 조회에 걸린다.** 시험은 금융사로만 했으므로 범위를 그만큼만 연다.
+#:    실측 — 비상장 ∩ 정기보고서 제출 451곳 중 **금융 이름 55곳**만 통과, 396곳은 닫힌다.
+#:    통과 표본: 농협금융지주·농협생명보험·NH농협손해보험·엔에이치농협캐피탈·BNK캐피탈·
+#:    교보생명보험·롯데카드·미래에셋자산운용·신한라이프생명보험 …
+#:    (상장사는 이 필터와 무관하다 — 종목코드가 있으면 종전대로 열린다.)
+_FINANCIAL_MARKS = (
+    "은행", "증권", "생명보험", "손해보험", "화재", "보험", "캐피탈", "캐피털",
+    "금융지주", "금융투자", "카드", "저축은행", "자산운용", "신용정보", "파이낸셜",
+    "신탁", "거래소", "예탁결제", "금융",
+)
+
+
+def is_financial_name(name: str) -> bool:
+    """이름에 금융업 표지가 있나. 비상장 법인을 열지 말지 가르는 데만 쓴다."""
+    return any(mark in (name or "") for mark in _FINANCIAL_MARKS)
+
+
 @dataclass(frozen=True, slots=True)
 class MarketContext:
     market_caps: dict[str, int]
@@ -230,10 +250,15 @@ class CompanyResolver:
         corps: list[dict[str, Any]],
         aliases: dict[str, str],
         market: MarketContext | None = None,
+        filers: frozenset[str] | None = None,
     ) -> None:
         self.corps = corps
         self.aliases = aliases
         self.market = market or MarketContext({})
+        # 🔴 **이름 색인에서 비상장을 통째로 빼면 「농협금융지주」가 0건이 된다.** 260823 실측 —
+        #    정기보고서를 내는 비상장 법인(농협금융지주·농협생명보험·NH농협손해보험)은
+        #    종목코드가 없어 색인 자체에 안 들어갔다. 명부에 있는 곳은 색인한다.
+        self.filers = filers or frozenset()
         self._ticker: dict[str, list[int]] = {}
         self._corp_code: dict[str, list[int]] = {}
         self._official: dict[str, list[int]] = {}
@@ -242,6 +267,8 @@ class CompanyResolver:
         self._tokens: dict[str, set[int]] = {}
         self._alias: dict[str, list[int]] = {}
         self._listed_ids: set[int] = set()
+        #: 이름으로 찾을 수 있는 행 — 상장사 + 정기보고서 제출 법인
+        self._searchable_ids: set[int] = set()
         self._build_indexes()
 
     @staticmethod
@@ -258,8 +285,12 @@ class CompanyResolver:
                 self._listed_ids.add(row_id)
                 self._add(self._ticker, ticker, row_id)
             self._add(self._corp_code, corp_code, row_id)
-            if not ticker:
-                continue
+            # 상장사는 종전대로. 비상장은 **정기보고서를 내고 + 금융업 이름**일 때만 연다.
+            if ticker or (corp_code in self.filers
+                          and is_financial_name(corp.get("corp_name", ""))):
+                self._searchable_ids.add(row_id)
+            else:
+                continue        # 상장도 아니고 정기보고서도 안 내는 법인 — 이름으로 안 찾는다
 
             for name in (corp.get("corp_name", ""), corp.get("corp_eng_name", "")):
                 if not name:
@@ -299,14 +330,22 @@ class CompanyResolver:
             return ids
         active = self.market.active_tickers
         if active is not None:
-            current = [i for i in ids if self.corps[i].get("stock_code") in active]
+            current = [i for i in ids
+                       if self.corps[i].get("stock_code") in active
+                       # 비상장은 정기보고서 제출 + 금융업일 때만 살린다. 상장했다가
+                       # 폐지된 곳을 여기서 되살리면 안 된다(활성 종목 검사가 무의미해진다).
+                       or (not (self.corps[i].get("stock_code") or "").strip()
+                           and self.corps[i].get("corp_code") in self.filers
+                           and is_financial_name(self.corps[i].get("corp_name", "")))]
             if current:
                 return current
             # KRX weekly covers KOSPI/KOSDAQ. Preserve exact KONEX or newly listed
             # companies, but never revive inactive companies for inferred searches.
             return ids if kind in self._STRONG_KINDS else []
-        listed = [i for i in ids if i in self._listed_ids]
-        return listed or ids
+        # 「상장사만」이 아니라 「이름으로 찾을 수 있는 곳」으로 좁힌다 — 정기보고서를 내는
+        # 비상장 법인을 여기서 떨어뜨리면 색인해 둔 의미가 없다.
+        searchable = [i for i in ids if i in self._searchable_ids]
+        return searchable or ids
 
     def _rank_key(self, row_id: int) -> tuple[int, int, int]:
         corp = self.corps[row_id]
@@ -491,21 +530,27 @@ class CompanyResolver:
 _resolver: CompanyResolver | None = None
 _resolver_source_id: int | None = None
 _resolver_market_id: int | None = None
+_resolver_filers_id: int | None = None
 _resolver_lock = threading.Lock()
 
 
 async def get_company_resolver(
-    corps: list[dict[str, Any]], aliases: dict[str, str]
+    corps: list[dict[str, Any]], aliases: dict[str, str],
+    filers: frozenset[str] | None = None,
 ) -> CompanyResolver:
-    global _resolver, _resolver_source_id, _resolver_market_id
+    global _resolver, _resolver_source_id, _resolver_market_id, _resolver_filers_id
     source_id = id(corps)
     market = await load_market_context()
     market_id = id(market)
-    if _resolver is not None and _resolver_source_id == source_id and _resolver_market_id == market_id:
+    filers_id = len(filers or ())
+    if (_resolver is not None and _resolver_source_id == source_id
+            and _resolver_market_id == market_id and _resolver_filers_id == filers_id):
         return _resolver
     with _resolver_lock:
-        if _resolver is None or _resolver_source_id != source_id or _resolver_market_id != market_id:
-            _resolver = CompanyResolver(corps, aliases, market)
+        if (_resolver is None or _resolver_source_id != source_id
+                or _resolver_market_id != market_id or _resolver_filers_id != filers_id):
+            _resolver = CompanyResolver(corps, aliases, market, filers)
             _resolver_source_id = source_id
             _resolver_market_id = market_id
+            _resolver_filers_id = filers_id
     return _resolver

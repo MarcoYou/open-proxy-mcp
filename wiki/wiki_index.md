@@ -40,12 +40,12 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 | **raw/** | 29 binary + 4 md |
 | **tools/** | 25 + README |
 | **architecture/** | 13 + README 2 (audits·goals는 private 이관 260806) |
-| **decisions/** | 25 + README |
+| **decisions/** | 27 + README |
 | **rules/** | 88 + README 4 |
 | ~~lessons/~~ | private 이관(260720, open-proxy-storage/wiki-private/lessons) |
 | **archive/** | 71 + README 2 |
 
-총 245 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
+총 246 markdown (git-tracked, raw 제외 — wiki_lint 실측과 동기. gitignore된 로컬 전용 파일은 미포함).
 
 > **규칙은 여기 두지 않는다.** 각 카테고리의 목적·수정정책·layer 정의, 명명 규칙, frontmatter schema,
 > link 방향 정책은 전부 [[wiki_schema]]가 단일 출처(SSOT). 이 파일은 "무엇이 어디 있나"(인벤토리·라우팅)만
@@ -168,7 +168,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 
 ---
 
-## Decisions (26) - `decisions/`
+## Decisions (27) - `decisions/`
 
 ### 정책 + 매트릭스
 - [[open-proxy-guideline]] - OPM 자체 의결권 행사 정책 v1.2 (12 카테고리 116 룰 + 11 novel topics + 2026 신법 7개 + §382의3 cross-cutting)
