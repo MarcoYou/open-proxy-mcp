@@ -316,6 +316,71 @@ def axis_of(parsed: dict[str, Any]) -> str | None:
     return None
 
 
+
+#: 표 앞 문장에서 **이 표의 제목만** 잘라낸다. caption 은 표 앞 2,000자의 꼬리라
+#: 🔴 **앞 표의 숫자 잔해가 그대로 붙어 온다.** 260823 실측 — KB손보 사용제한 caption 이
+#:    「…합계 91,701 450,935 (3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은…」인데
+#:    앞의 91,701 은 **예치금 총액 표**의 합계다(사용제한은 26,356). 시험자도 나도 이걸
+#:    「빠진 사용제한 표」로 읽었다. 잔해는 매칭에만 쓰고 **사람에게는 제목만 보인다.**
+_TITLE_START = re.compile(r"(?:\(\d+\)|\d+\s*[-.]\s*\d*\s*\.?)\s*(?=[가-힣])")
+
+
+def title_only(caption: str) -> str:
+    """caption → 이 표의 제목 문장. 못 가르면 caption 그대로."""
+    cap = _WS.sub(" ", caption).strip()
+    best = None
+    for m in _TITLE_START.finditer(cap):
+        if len(cap) - m.start() >= 12:
+            best = m.start()
+    return cap[best:] if best is not None else cap
+
+
+#: 「N. <계정명>」 — 주석의 **표제**다. 같은 앵커가 걸리는 표가 여럿일 때 이게 가른다.
+#: 260823 실측 — KB손보 상각후원가는 「2) …상각후원가로 측정하는 금융상품의 장부금액과
+#: 공정가치」(507,290)를 물었는데, 정답은 67,000자 뒤의 「**9. 상각후원가측정유가증권**
+#: 보고기간말 현재 상각후원가측정유가증권의 내역」(574,337)이다. 둘 다 제목 대조는 통과한다.
+_HEADING_TAIL = re.compile(r"\d+\s*[.\-]\s*$")
+#: 제목이 맞아도 **우리가 찾는 내역이 아닌** 표. 원문이 붙인 말로만 판별한다.
+_WEAK_TITLE = ("장부금액과 공정가치", "증감내역", "대손충당금", "평가 및 처분", "손익")
+
+
+def is_note_heading(caption: str, kws: list[str] | tuple[str, ...]) -> bool:
+    """표 앞 문장이 「N. <계정명>」으로 시작하는 **주석 표제**인가."""
+    cap = _WS.sub(" ", caption)
+    for kw in kws:
+        i = 0
+        while True:
+            i = cap.find(kw, i)
+            if i < 0:
+                break
+            if _HEADING_TAIL.search(cap[max(0, i - 8):i]):
+                return True
+            i += len(kw)
+    return False
+
+
+def title_weakness(caption: str) -> int:
+    """제목에 「장부금액과 공정가치」·「증감내역」처럼 **내역이 아님**을 알리는 말이 몇 개인가."""
+    tail = title_only(caption)
+    return sum(1 for k in _WEAK_TITLE if k in tail)
+
+
+#: 사용제한 금액이 **재무상태표 어느 계정에서 나온 것인가.** 이게 없으면 뺄셈을 시작할 수
+#: 없다 — 260823 시험자 지적: 「사용제한 26,356 을 현금및현금성자산 1,507,988 에서 빼야
+#: 하는지 예치금에서 빼야 하는지 도구가 말해주지 않는다」. 원문 제목에 대개 적혀 있다.
+_ACCOUNTS = ("현금및현금성자산", "현금및예치금", "예치금", "현금성자산",
+             "대출채권", "유가증권", "기타금융자산", "금융자산", "예금")
+
+
+def account_of(caption: str) -> str | None:
+    """이 표의 금액이 붙어 있는 재무상태표 계정. 제목에서 읽는다."""
+    tail = title_only(caption)
+    for acc in _ACCOUNTS:
+        if acc in tail:
+            return acc
+    return None
+
+
 def is_wrong_direction(caption: str) -> bool:
     """이 표가 **받은 담보**·특수관계자 표인가. 우리가 찾는 것은 회사가 **제공한** 담보다."""
     tail = _WS.sub(" ", caption)[-_DIRECTION_TAIL:]
@@ -403,6 +468,8 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
         seen_kinds: set[str] = set()
         skipped_statement = 0
         skipped_direction = 0
+        #: 이 필드에서 이미 내보낸 표(본문 기준) — 성격이 달라도 같은 표면 한 번만 낸다
+        emitted_bodies: dict[str, dict[str, Any]] = {}
         for kw, kind in ANCHORS[field]:
             if kind in seen_kinds:
                 continue                      # 이 성격은 이미 확보했다
@@ -433,11 +500,26 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 if body in seen_tables:
                     continue
                 seen_tables.add(body)
+                # 🔴 **다른 성격으로 이미 나간 표면 다시 내지 않는다.** 260823 실측 —
+                #    메리츠증권은 주석 제목이 「31. 사용이 제한된 예치금 **및** 담보제공자산
+                #    등」 하나인데, 도구가 사용제한·담보제공 두 성격으로 각각 잡아 **같은 표를
+                #    두 번** 내보냈다(문서위치 14바이트 차이, 본문 동일). 「구분해 내보낸다」를
+                #    믿고 더하면 8,396,466,252 천원이 정확히 두 배가 된다.
+                if body in emitted_bodies:
+                    emitted_bodies[body].setdefault("also_kinds", []).append(kind)
+                    continue
                 if is_wrong_direction(parsed["caption"]):
                     skipped_direction += 1     # 받은 담보·특수관계자 — 부호가 거꾸로다
                     continue
                 entry = {"anchor": kw, "kind": kind, "pos": p,
-                         "axis": axis_of(parsed), **parsed}
+                         "axis": axis_of(parsed),
+                         # 사람에게 보일 제목 — 앞 표의 숫자 잔해를 뗀 것
+                         "title": title_only(parsed["caption"]),
+                         # 이 금액이 붙어 있는 재무상태표 계정(뺄셈의 대상)
+                         "account": account_of(parsed["caption"]),
+                         "heading": is_note_heading(parsed["caption"], kin_kws),
+                         "weak": title_weakness(parsed["caption"]),
+                         "body": body, **parsed}
                 if title_matches(parsed["caption"], kin_kws):
                     entry["title_matched"] = True
                     hits.append(entry)
@@ -447,9 +529,15 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 if fallback is None and not is_off_topic(parsed["caption"]):
                     fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
             if field != "사용제한" and len(hits) > 1:
-                # 🔴 유형별이 있으면 그것을 쓴다. 범주별은 헤어컷을 못 매긴다.
-                hits.sort(key=lambda e: 0 if e.get("axis") == "유형별" else
-                                        (2 if e.get("axis") == "범주별" else 1))
+                # 고르는 순서 — ①원문이 「N. <계정명>」으로 표제를 붙인 표 ②「장부금액과
+                # 공정가치」·「증감내역」처럼 내역이 아님을 알리는 말이 없는 표 ③유형별 축
+                # ④앞에 있는 것. 범주별은 헤어컷을 못 매기므로 맨 뒤로 민다.
+                hits.sort(key=lambda e: (
+                    0 if e.get("heading") else 1,
+                    e.get("weak", 0),
+                    0 if e.get("axis") == "유형별" else (2 if e.get("axis") == "범주별" else 1),
+                    e.get("pos", 0),
+                ))
                 hits = hits[:1]
             if not hits and fallback is not None:
                 # 제목 대조가 안 됐으면 **그렇다고 말한다.** 위험·수준별 표일 수 있어
@@ -457,6 +545,8 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 fallback["title_matched"] = False
                 hits = [fallback]
             if hits:
+                for h in hits:
+                    emitted_bodies[h["body"]] = h
                 found.extend(hits)
                 seen_kinds.add(kind)
         if found:

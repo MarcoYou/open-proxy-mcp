@@ -195,3 +195,74 @@ def test_find_unit_reads_a_bare_won_unit() -> None:
     assert find_unit("", "(단위 : 천원)") == "천원"
     assert find_unit("", "(단위: 백만원)") == "백만원"
     assert find_unit("", "단위 표기가 아예 없는 문장") is None
+
+
+def test_title_only_strips_the_previous_tables_numbers() -> None:
+    """caption 꼬리에 붙어 오는 **앞 표의 숫자**를 떼어낸다.
+
+    260823 실측 — KB손보 caption 이 「…합계 91,701 450,935 (3) 보고기간말 현재 사용이
+    제한되어 있는 예치금 내역은…」인데 91,701 은 **예치금 총액 표**의 합계다
+    (사용제한은 26,356). 시험자도 나도 이걸 「빠진 사용제한 표」로 읽었다.
+    """
+    from open_proxy_mcp.services.financial_notes import title_only
+
+    cap = ("차감 : 대손충당금 (6,578) 합계 91,701 450,935 "
+           "(3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은 다음과 같습니다(단위:백만원).")
+
+    assert title_only(cap).startswith("(3) 보고기간말")
+    assert "91,701" not in title_only(cap)
+
+
+def test_note_heading_beats_a_look_alike_table() -> None:
+    """「N. <계정명>」 표제가 붙은 표를 고른다 — KB손보 상각후원가 실측.
+
+    「2) …상각후원가로 측정하는 금융상품의 장부금액과 공정가치」와
+    「9. 상각후원가측정유가증권 … 내역」이 둘 다 제목 대조를 통과한다.
+    """
+    html = _doc(
+        '<P>2) 보고기간말 현재 상각후원가로 측정하는 금융상품의 장부금액과 공정가치는 '
+        '다음과 같습니다(단위:백만원).</P>'
+        '<TABLE><TR><TD>구분</TD><TD>장부금액</TD></TR>'
+        '<TR><TD>상각후원가측정유가증권</TD><TD>111</TD></TR>'
+        '<TR><TD>합계</TD><TD>222</TD></TR></TABLE>'
+        '<P>9. 상각후원가측정유가증권 보고기간말 현재 상각후원가측정유가증권의 내역은 '
+        '다음과 같습니다(단위:백만원).</P>'
+        '<TABLE><TR><TD>구분</TD><TD>장부금액</TD></TR>'
+        '<TR><TD>특수채</TD><TD>20,000</TD></TR>'
+        '<TR><TD>합계</TD><TD>29,871</TD></TR></TABLE>'
+    )
+
+    table = extract(html, ["상각후원가"])["상각후원가"]["tables"][0]
+
+    assert table["heading"] is True
+    assert table["rows"][1][0]["text"] == "특수채"
+
+
+def test_one_table_holding_both_kinds_is_emitted_once() -> None:
+    """「사용이 제한된 예치금 **및** 담보제공자산 등」 — 한 표를 두 번 내면 두 배가 된다.
+
+    260823 메리츠증권 실측: 문서위치 14바이트 차이로 같은 표가 사용제한·담보제공
+    양쪽에 잡혔고, 합계 8,396,466,252 천원이 성격별로 더해져 두 배가 됐다.
+    """
+    html = _doc(
+        '<P>31. 사용이 제한된 예치금 및 담보제공자산 등 31-1. 보고기간종료일 현재 '
+        '사용이 제한된 예치금의 내역은 다음과 같습니다. (단위: 천원)</P>'
+        '<TABLE><TR><TD>구분</TD><TD>금액</TD></TR>'
+        '<TR><TD>투자자예탁금</TD><TD>3,345,312</TD></TR>'
+        '<TR><TD>합계</TD><TD>8,396,466</TD></TR></TABLE>'
+    )
+
+    tables = extract(html, ["사용제한"])["사용제한"]["tables"]
+
+    assert len(tables) == 1
+    assert tables[0]["also_kinds"] == ["pledged"]
+
+
+def test_restricted_table_carries_the_account_it_sits_in() -> None:
+    """뺄 대상 계정을 붙인다 — 이게 없으면 unencumbered 계산을 시작할 수 없다."""
+    from open_proxy_mcp.services.financial_notes import account_of
+
+    assert account_of("(2) 당반기말 현재 사용이 제한된 현금및현금성자산의 내용은 "
+                      "다음과 같습니다.") == "현금및현금성자산"
+    assert account_of("(3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은 "
+                      "다음과 같습니다.") == "예치금"

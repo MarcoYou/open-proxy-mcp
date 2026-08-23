@@ -56,8 +56,19 @@ def _render(payload: dict) -> str:
                      + (f" · **단위** {t['unit']}" if t.get("unit")
                         else " · **단위** 원문에 표기 없음"))
             # 원문이 이 표에 붙인 문장. 한 줄만 보고 버릴지 쓸지 정할 수 있다.
-            if t.get("caption"):
-                L.append(f"> 📄 원문 제목: …{t['caption'][-110:]}")
+            # 🔴 caption 이 아니라 title 이다 — caption 꼬리에는 **앞 표의 숫자 잔해**가
+            #    붙어 오고, 그걸 이 표의 값으로 읽으면 틀린다(260823 실측).
+            if t.get("title"):
+                L.append(f"> 📄 원문 제목: {t['title'][:150]}")
+            if t.get("account"):
+                L.append(f"> 🏷 이 금액이 붙어 있는 계정: **{t['account']}** — "
+                         f"unencumbered 계산 시 **이 계정에서** 뺀다. 다른 계정에서 빼면 틀린다.")
+            if t.get("also_kinds"):
+                names = [{"restricted": "사용제한", "pledged": "담보제공"}.get(k, k)
+                         for k in t["also_kinds"]]
+                L.append(f"> 🔴 **이 표 하나에 {kind}과 {', '.join(names)}이 함께 있다** — "
+                         f"원문이 「사용이 제한된 예치금 **및** 담보제공자산 등」처럼 한 주석에 "
+                         f"묶어 공시했다. **성격별로 더하면 두 배가 된다.**")
             if axis == "범주별":
                 L.append("> 🔴 **범주별 표다 — 유형별이 아니다.** 「어떤 자산을 어떤 측정범주로 "
                          "분류했나」이지 그 안이 국공채인지 회사채인지는 없다. "
