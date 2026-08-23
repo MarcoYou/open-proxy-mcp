@@ -31,9 +31,21 @@ def _render(payload: dict) -> str:
             continue
         if res.get("note"):
             L += ["", f"> {res['note']}", ""]
+        # 🔴 사용제한은 한 표에 다 있지 않다(우리은행: 현금및현금성자산 + 예치금 두 군데).
+        #    여러 표를 모아 내되, **연결과 별도가 섞여 있을 수 있으니** 합산 전에 알린다.
+        by_kind: dict[str, int] = {}
+        for t in res["tables"]:
+            by_kind[t["kind"]] = by_kind.get(t["kind"], 0) + 1
+        for k, n in by_kind.items():
+            if n > 1:
+                label = {"restricted": "사용제한", "pledged": "담보제공"}.get(k, k)
+                L += ["", f"> 🔴 **{label} 표가 {n}개다** — 원문이 여러 주석에 나눠 실었다"
+                          f"(예: 현금및현금성자산 · 예치금). **합산 전에 연결/별도가 섞였는지 "
+                          f"확인할 것** — 문서 앞쪽이 연결, 뒤쪽이 별도인 경우가 많다. "
+                          f"각 표의 `문서위치` 로 순서를 볼 수 있다.", ""]
         for t in res["tables"]:
             kind = {"restricted": "사용제한", "pledged": "담보제공"}.get(t["kind"], t["kind"])
-            L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind} · **형식** "
+            L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind} · **문서위치** {t['pos']:,} · **형식** "
                      f"{'XBRL 태그' if t['format']=='xbrl_tagged' else 'HTML 표'}"
                      + (f" · **단위** {t['unit']}" if t.get("unit")
                         else " · **단위** 원문에 표기 없음"))

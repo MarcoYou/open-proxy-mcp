@@ -250,6 +250,11 @@ _TITLE_MARKS = ("구성내역", "세부내역", "내역", "공시", "내용", "�
 _TITLE_GAP = 60
 #: 앵커 출현을 몇 번까지 훑나. 정답이 47,000자 뒤에 있는 일이 있어 첫 건에서 멈추면 안 된다.
 _MAX_SCAN = 80
+#: 🔴 **사용제한이 한 표에 다 있지 않다.** 260823 마스터 제보 — 우리은행은 「현금및현금성자산
+#:    (2) 사용이 제한된 현금및현금성자산의 내용」과 「상각후원가측정대출채권및기타금융자산
+#:    (3) 사용이 제한된 예치금의 내용」 **두 군데로 나뉜다.** 첫 표만 담으면 절반이 빠지고,
+#:    unencumbered cash 를 그만큼 크게 잡는다. 사용제한 필드만 여러 표를 모은다.
+_MULTI_TABLE_LIMIT = 3
 
 #: 🔴 **제목이 붙어 있어도 우리가 찾는 표가 아닌 것들.** 260823 census 41건 재검증에서
 #:    걸러낸 자리다 — 국민은행 상각후원가는 316행짜리 「특수관계자와의 주요 채권ㆍ채무」를,
@@ -263,6 +268,23 @@ _OFF_TOPIC = ("특수관계자", "신용위험", "기대신용손실", "최대�
 def is_off_topic(caption: str) -> bool:
     """표 앞 문장이 **다른 주제**를 말하고 있나(위험·특수관계자·부문별 …)."""
     return any(k in caption for k in _OFF_TOPIC)
+
+
+
+#: 🔴 **방향이 반대인 표.** 260823 T보고 — 신한은행 담보제공으로 나온 60행 표가
+#:    「특수관계자로부터 **제공받고** 있는 담보」였다. 제공자 열에 종속기업·주요경영진이
+#:    들어 있다. 은행 자산이 묶인 것이 아니라 **받은 담보**라, 유동성 판단에서는 부호가
+#:    거꾸로다. 제목 대조는 통과하므로(둘 다 「담보」다) 별도로 막아야 한다.
+_WRONG_DIRECTION = ("제공받", "수취한 담보", "특수관계자")
+#: 제목 문장만 본다. caption 은 표 앞 2,000자의 꼬리라 **앞 표의 문장이 섞여 들어온다** —
+#: 넓게 보면 맞는 표까지 함께 버린다.
+_DIRECTION_TAIL = 140
+
+
+def is_wrong_direction(caption: str) -> bool:
+    """이 표가 **받은 담보**·특수관계자 표인가. 우리가 찾는 것은 회사가 **제공한** 담보다."""
+    tail = _WS.sub(" ", caption)[-_DIRECTION_TAIL:]
+    return any(k in tail for k in _WRONG_DIRECTION)
 
 
 def title_matches(caption: str, kws: tuple[str, ...] | list[str] | str) -> bool:
@@ -345,16 +367,18 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
         found: list[dict[str, Any]] = []
         seen_kinds: set[str] = set()
         skipped_statement = 0
+        skipped_direction = 0
         for kw, kind in ANCHORS[field]:
             if kind in seen_kinds:
                 continue                      # 이 성격은 이미 확보했다
             # 제목에 쓰인 이름이 앵커와 다를 수 있어 **같은 성격의 앵커를 전부** 대조한다
             kin_kws = [k for k, kd in ANCHORS[field] if kd == kind]
-            best: dict[str, Any] | None = None      # 제목이 맞는 표
+            limit = _MULTI_TABLE_LIMIT if field == "사용제한" else 1
+            hits: list[dict[str, Any]] = []         # 제목이 맞은 표들
             fallback: dict[str, Any] | None = None  # 제목 대조 실패 — 최후 수단
             start, scanned = off, 0
             seen_tables: set[str] = set()
-            while scanned < _MAX_SCAN:
+            while scanned < _MAX_SCAN and len(hits) < limit:
                 p = html.find(kw, start)
                 if p < 0:
                     break
@@ -367,29 +391,43 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 if is_statement_table(parsed):
                     skipped_statement += 1     # 본표다 — 다음 출현으로 계속 간다
                     continue
-                if parsed["caption"] in seen_tables:
+                # 🔴 **표 앞 문장으로 중복을 걸러선 안 된다.** 연결·별도가 같은 제목을
+                #    쓰기 때문이다(신한은행 「사용제한 예치금」 두 번). 값이 다르면 둘 다
+                #    담아야 하고, 값까지 같으면 진짜 중복이다 — **본문으로 판별한다.**
+                body = "|".join(c["text"] for r_ in parsed["rows"] for c in r_)
+                if body in seen_tables:
                     continue
-                seen_tables.add(parsed["caption"])
+                seen_tables.add(body)
+                if is_wrong_direction(parsed["caption"]):
+                    skipped_direction += 1     # 받은 담보·특수관계자 — 부호가 거꾸로다
+                    continue
                 entry = {"anchor": kw, "kind": kind, "pos": p, **parsed}
                 if title_matches(parsed["caption"], kin_kws):
-                    best = entry
-                    break                      # 원문이 제목을 붙여준 표 — 더 볼 것 없다
+                    entry["title_matched"] = True
+                    hits.append(entry)
+                    continue                   # 🔴 나뉘어 있을 수 있다 — 계속 모은다
                 # 🔴 제목을 못 맞춘 표만 주제를 따진다. 앞 표의 문장이 caption 꼬리에
                 #    섞여 들어오는 일이 있어, 제목이 맞은 표를 주제어로 되물리면 안 된다.
                 if fallback is None and not is_off_topic(parsed["caption"]):
                     fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
-            pick = best or fallback
-            if pick is not None:
-                # 🔴 제목 대조가 안 됐으면 **그렇다고 말한다.** 위험·수준별 표일 수 있어
-                #    읽는 쪽이 그대로 인용하면 안 된다.
-                pick["title_matched"] = best is not None
-                found.append(pick)
+            if not hits and fallback is not None:
+                # 제목 대조가 안 됐으면 **그렇다고 말한다.** 위험·수준별 표일 수 있어
+                # 읽는 쪽이 그대로 인용하면 안 된다.
+                fallback["title_matched"] = False
+                hits = [fallback]
+            if hits:
+                found.extend(hits)
                 seen_kinds.add(kind)
         if found:
             out[field] = {"status": OK, "tables": found}
+            notes = []
             if skipped_statement:
-                out[field]["note"] = (f"재무제표 본표 {skipped_statement}건을 건너뛰고 "
-                                      f"주석 표를 찾았다")
+                notes.append(f"재무제표 본표 {skipped_statement}건을 건너뛰었다")
+            if skipped_direction:
+                notes.append(f"**받은 담보·특수관계자 표 {skipped_direction}건을 버렸다** — "
+                             f"회사가 제공한 담보가 아니라 부호가 거꾸로다")
+            if notes:
+                out[field]["note"] = " / ".join(notes)
         else:
             out[field] = {"status": NOT_APPLICABLE, "tables": [],
                           "note": ("이 문서에서 해당 주석을 찾지 못했다 — 회사가 다른 이름으로 "

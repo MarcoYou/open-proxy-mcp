@@ -1,0 +1,117 @@
+{
+  "_설명": "후보 부정 뉴스 점검(director_news)이 쓰는 키워드. 코드를 고치지 않고 이 파일만 고친다.",
+  "_규칙": {
+    "ambiguous": "true 면 앞 글자가 한글일 때 무시한다. 「심사기구」의 「사기」 같은 오탐 방지(260820 실측).",
+    "severity": "high=사법·회계부정 등 결정적 / mid=제재·분쟁 / low=정황·평판",
+    "with": "이 말들 중 하나가 같은 문장 안에 있어야 인정한다. 비우면 조건 없음."
+  },
+  "categories": {
+    "criminal": {
+      "label": "형사·수사",
+      "keywords": [
+        {"w": "횡령", "severity": "high"},
+        {"w": "배임", "severity": "high"},
+        {"w": "압수수색", "severity": "high"},
+        {"w": "구속", "severity": "high", "ambiguous": true},
+        {"w": "기소", "severity": "high", "ambiguous": true},
+        {"w": "영장", "severity": "high", "ambiguous": true},
+        {"w": "유죄", "severity": "high", "ambiguous": true},
+        {"w": "실형", "severity": "high", "ambiguous": true},
+        {"w": "집행유예", "severity": "high"},
+        {"w": "벌금", "severity": "mid", "ambiguous": true},
+        {"w": "수사", "severity": "mid", "ambiguous": true},
+        {"w": "검찰", "severity": "low", "ambiguous": true},
+        {"w": "경찰", "severity": "low", "ambiguous": true},
+        {"w": "고발", "severity": "mid", "ambiguous": true},
+        {"w": "피소", "severity": "mid", "ambiguous": true},
+        {"w": "사기", "severity": "high", "ambiguous": true, "with": ["혐의", "죄", "사건", "피해", "기소", "고소"]}
+      ]
+    },
+    "economic": {
+      "label": "경제범죄",
+      "keywords": [
+        {"w": "뇌물", "severity": "high", "ambiguous": true},
+        {"w": "배임수재", "severity": "high"},
+        {"w": "탈세", "severity": "high"},
+        {"w": "조세포탈", "severity": "high"},
+        {"w": "담합", "severity": "high", "ambiguous": true},
+        {"w": "시세조종", "severity": "high"},
+        {"w": "주가조작", "severity": "high"},
+        {"w": "미공개정보", "severity": "high"},
+        {"w": "내부자거래", "severity": "high"},
+        {"w": "부당지원", "severity": "mid"},
+        {"w": "일감몰아주기", "severity": "mid"},
+        {"w": "사익편취", "severity": "high"},
+        {"w": "청탁", "severity": "mid", "ambiguous": true}
+      ]
+    },
+    "accounting": {
+      "label": "회계·공시",
+      "keywords": [
+        {"w": "분식회계", "severity": "high"},
+        {"w": "회계부정", "severity": "high"},
+        {"w": "회계처리기준 위반", "severity": "high"},
+        {"w": "감사의견 거절", "severity": "high"},
+        {"w": "의견거절", "severity": "high"},
+        {"w": "한정의견", "severity": "mid"},
+        {"w": "허위기재", "severity": "high"},
+        {"w": "허위사실", "severity": "mid"},
+        {"w": "불성실공시", "severity": "mid"}
+      ]
+    },
+    "regulatory": {
+      "label": "규제·제재",
+      "keywords": [
+        {"w": "과징금", "severity": "high"},
+        {"w": "제재", "severity": "mid", "ambiguous": true},
+        {"w": "징계", "severity": "mid", "ambiguous": true},
+        {"w": "행정처분", "severity": "mid"},
+        {"w": "시정명령", "severity": "mid"},
+        {"w": "영업정지", "severity": "high"},
+        {"w": "직무정지", "severity": "high"},
+        {"w": "자격정지", "severity": "high"},
+        {"w": "금감원", "severity": "low", "ambiguous": true, "with": ["제재", "조사", "검사", "징계", "통보"]},
+        {"w": "공정위", "severity": "low", "ambiguous": true, "with": ["제재", "과징금", "조사", "고발"]}
+      ]
+    },
+    "governance": {
+      "label": "지배구조·직무",
+      "keywords": [
+        {"w": "해임", "severity": "high", "ambiguous": true},
+        {"w": "자진사퇴", "severity": "mid"},
+        {"w": "사퇴", "severity": "mid", "ambiguous": true},
+        {"w": "사임", "severity": "mid", "ambiguous": true},
+        {"w": "이해상충", "severity": "mid"},
+        {"w": "독립성 훼손", "severity": "mid"},
+        {"w": "겸직", "severity": "low", "ambiguous": true, "with": ["과다", "논란", "위반", "제한"]},
+        {"w": "소송", "severity": "mid", "ambiguous": true},
+        {"w": "가처분", "severity": "mid"},
+        {"w": "주주총회 결의 취소", "severity": "high"},
+        {"w": "의결권 제한", "severity": "mid"}
+      ]
+    },
+    "labor_safety": {
+      "label": "노동·안전",
+      "keywords": [
+        {"w": "중대재해", "severity": "high"},
+        {"w": "산업재해", "severity": "high"},
+        {"w": "사망사고", "severity": "high"},
+        {"w": "임금체불", "severity": "mid"},
+        {"w": "부당해고", "severity": "mid"},
+        {"w": "노조탄압", "severity": "mid"}
+      ]
+    },
+    "ethics": {
+      "label": "윤리·평판",
+      "keywords": [
+        {"w": "갑질", "severity": "mid", "ambiguous": true},
+        {"w": "성추행", "severity": "high"},
+        {"w": "성희롱", "severity": "high"},
+        {"w": "폭행", "severity": "high", "ambiguous": true},
+        {"w": "음주운전", "severity": "high"},
+        {"w": "논문표절", "severity": "mid"},
+        {"w": "학력위조", "severity": "high"}
+      ]
+    }
+  }
+}
