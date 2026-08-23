@@ -52,3 +52,11 @@ def test_wics_company_sector_comes_from_wise_sector_with_fallback():
     assert "FROM wise_sector WHERE ticker=%s" in src
     assert "snap_dd <= %s" in src, "폴백 순서(과거 우선)가 없다"
     assert "sector_asof" in src, "소급 여부를 payload 에 안 남긴다"
+
+
+def test_footnote_names_the_actual_scheme_and_discloses_backfill():
+    """각주가 「KSIC 하이브리드」로 굳어 있으면 WICS 로 조회해도 KSIC 라고 말한다 —
+    사용자가 다른 축을 봤다고 믿게 되는 자리다. 소급도 함께 고지한다."""
+    src = inspect.getsource(V.build_sector_val_payload)
+    assert "_SRC[scheme]" in src, "각주가 scheme 을 안 따른다"
+    assert "소급 적용" in src, "WICS 과거 구간이 소급이라는 고지가 없다"
