@@ -381,6 +381,33 @@ def account_of(caption: str) -> str | None:
     return None
 
 
+
+#: 별도재무제표 구간의 시작 표지. DART 정기보고서 「III. 재무에 관한 사항」은
+#: 「2. 연결재무제표 → 3. 연결재무제표 주석 → **4. 재무제표** → 5. 재무제표 주석」 순이다.
+#: 🔴 **HTML 표에는 연결/별도 표시가 없다.** XBRL 은 값마다 ACONTEXT 에 박혀 있는데
+#:    표구조 경로에는 아무것도 없어, 같은 제목의 표가 두 번 나오면 어느 쪽인지 알 수 없었다.
+#:    합산하면 이중계상이 난다 — 260823 시험자 지적. 위치로 가른다.
+#:    실측 경계: KB손보 1,378,097 · 국민은행 1,755,152 · 신한은행 1,847,471 ·
+#:    우리은행 1,885,740. 네 건 모두 연결 표는 앞, 별도 표는 뒤에 정확히 떨어진다.
+_SEPARATE_MARKS = ("4. 재무제표", "4.재무제표")
+
+
+def separate_offset(html: str, notes_start: int = 0) -> int | None:
+    """별도재무제표가 시작하는 위치. 없으면 None(연결만 실린 문서)."""
+    for mark in _SEPARATE_MARKS:
+        i = html.find(mark, notes_start)
+        if i > 0:
+            return i
+    return None
+
+
+def basis_at(pos: int, sep: int | None) -> str | None:
+    """이 표가 연결인가 별도인가. 경계를 못 찾았으면 None."""
+    if sep is None:
+        return None
+    return "별도" if pos >= sep else "연결"
+
+
 def is_wrong_direction(caption: str) -> bool:
     """이 표가 **받은 담보**·특수관계자 표인가. 우리가 찾는 것은 회사가 **제공한** 담보다."""
     tail = _WS.sub(" ", caption)[-_DIRECTION_TAIL:]
@@ -462,6 +489,7 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
     """
     want = [f for f in (fields or FIELDS) if f in ANCHORS]
     off = notes_offset(html)
+    sep = separate_offset(html, off)
     out: dict[str, Any] = {}
     for field in want:
         found: list[dict[str, Any]] = []
@@ -517,6 +545,8 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                          "title": title_only(parsed["caption"]),
                          # 이 금액이 붙어 있는 재무상태표 계정(뺄셈의 대상)
                          "account": account_of(parsed["caption"]),
+                         # 표 단위 연결/별도. XBRL 은 값마다 basis 가 따로 붙는다.
+                         "table_basis": basis_at(p, sep),
                          "heading": is_note_heading(parsed["caption"], kin_kws),
                          "weak": title_weakness(parsed["caption"]),
                          "body": body, **parsed}

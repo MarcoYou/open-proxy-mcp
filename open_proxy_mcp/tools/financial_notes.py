@@ -39,17 +39,24 @@ def _render(payload: dict) -> str:
         for k, n in by_kind.items():
             if n > 1:
                 label = {"restricted": "사용제한", "pledged": "담보제공"}.get(k, k)
-                L += ["", f"> 🔴 **{label} 표가 {n}개다** — 원문이 여러 주석에 나눠 실었다"
-                          f"(예: 현금및현금성자산 · 예치금). **합산 전에 연결/별도가 섞였는지 "
-                          f"확인할 것** — 문서 앞쪽이 연결, 뒤쪽이 별도인 경우가 많다. "
-                          f"각 표의 `문서위치` 로 순서를 볼 수 있다.", ""]
+                bases = [t.get("table_basis") for t in res["tables"] if t["kind"] == k]
+                if all(bases) and len(set(bases)) > 1:
+                    hint = ("**연결과 별도가 섞여 있다**(각 표의 `기준` 참조) — "
+                            "같은 기준끼리만 더할 것. 섞어 더하면 이중계상이다.")
+                else:
+                    hint = ("원문이 여러 주석에 나눠 실었다(예: 현금및현금성자산 · 예치금). "
+                            "`기준` 이 같으면 더해도 되지만, 같은 계정을 두 번 세지 않는지 볼 것.")
+                L += ["", f"> 🔴 **{label} 표가 {n}개다** — {hint}", ""]
         for t in res["tables"]:
             kind = {"restricted": "사용제한", "pledged": "담보제공"}.get(t["kind"], t["kind"])
             # 🔴 **제목 대조 성공을 명시한다.** 성공과 미대조가 똑같이 무표시면 읽는 쪽은
             #    「경고 없음 = 맞음」으로 읽고, 그러면 틀린다(260823 T보고).
             mark = "✅ 제목 확인됨" if t.get("title_matched") else "🔴 제목 대조 실패"
             axis = t.get("axis")
-            L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind} · {mark}"
+            basis = t.get("table_basis")
+            L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind}"
+                     + (f" · **기준** {basis}" if basis else " · **기준** 판별 못함")
+                     + f" · {mark}"
                      + (f" · **축** {axis}" if axis else " · **축** 판별 못함")
                      + f" · **문서위치** {t['pos']:,} · **형식** "
                      + ('XBRL 태그' if t['format'] == 'xbrl_tagged' else 'HTML 표')

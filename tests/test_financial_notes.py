@@ -266,3 +266,37 @@ def test_restricted_table_carries_the_account_it_sits_in() -> None:
                       "다음과 같습니다.") == "현금및현금성자산"
     assert account_of("(3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은 "
                       "다음과 같습니다.") == "예치금"
+
+
+def test_tables_are_labelled_consolidated_or_separate_by_position() -> None:
+    """HTML 표에는 연결/별도 표시가 없다 — 「4. 재무제표」 경계로 가른다.
+
+    260823 시험자 지적: 같은 제목의 표가 두 번 나오는데 어느 쪽인지 몰라 합산하면
+    이중계상이 난다. XBRL 은 값마다 ACONTEXT 에 박혀 있지만 표구조 경로에는 없다.
+    실측 경계 — KB손보 1,378,097 · 국민은행 1,755,152 · 신한 1,847,471 · 우리 1,885,740.
+    """
+    html = _doc(
+        '<P>(3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은 다음과 같습니다.</P>'
+        '<TABLE><TR><TD>구분</TD><TD>당반기말</TD></TR>'
+        '<TR><TD>기타예금</TD><TD>14,963</TD></TR>'
+        '<TR><TD>합계</TD><TD>26,356</TD></TR></TABLE>'
+        '<P>4. 재무제표</P>'
+        '<P>(3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은 다음과 같습니다.</P>'
+        '<TABLE><TR><TD>구분</TD><TD>당반기말</TD></TR>'
+        '<TR><TD>기타예금</TD><TD>14,000</TD></TR>'
+        '<TR><TD>합계</TD><TD>15,007</TD></TR></TABLE>'
+    )
+
+    tables = extract(html, ["사용제한"])["사용제한"]["tables"]
+
+    assert [t["table_basis"] for t in tables] == ["연결", "별도"]
+
+
+def test_basis_is_unknown_when_the_document_has_no_separate_section() -> None:
+    """별도재무제표가 없는 문서는 「판별 못함」이다 — 없는 것을 있다고 하지 않는다."""
+    from open_proxy_mcp.services.financial_notes import basis_at, separate_offset
+
+    html = _doc('<P>연결만 실린 문서</P>')
+
+    assert separate_offset(html) is None
+    assert basis_at(1_000, None) is None
