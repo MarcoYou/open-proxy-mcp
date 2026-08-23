@@ -60,3 +60,22 @@ def test_footnote_names_the_actual_scheme_and_discloses_backfill():
     src = inspect.getsource(V.build_sector_val_payload)
     assert "_SRC[scheme]" in src, "각주가 scheme 을 안 따른다"
     assert "소급 적용" in src, "WICS 과거 구간이 소급이라는 고지가 없다"
+
+
+def test_market_total_is_not_tied_to_a_sector_scheme():
+    """시장 전체(_ALL)는 **섹터 분류와 무관한 값**이다 — 코스피 전체 PER 은 섹터를 어떻게
+    나누든 같다. scheme='ksic' 에 들어 있던 건 역사적 우연이었고, KSIC 집계를 끄면
+    시장 스코프가 통째로 죽는 결합이었다. scheme='market' 으로 떼어냈다."""
+    src = inspect.getsource(V.build_market_val_payload)
+    assert "sector='_ALL' AND scheme='market'" in src
+
+
+def test_daily_batch_writes_scheme_and_stops_ksic_sector_aggregate():
+    """PK 를 (snap_dd, market, scheme, sector)로 넓히면 옛 ON CONFLICT 는 죽는다 —
+    실제로 배치가 InvalidColumnReference 로 멈췄다. 스키마를 바꾸면 쓰는 쪽을 전부 따라간다."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parent.parent
+           / "scripts" / "market_val_weekly.py").read_text(encoding="utf-8")
+    assert "ON CONFLICT (snap_dd, market, scheme, sector)" in src
+    assert "ON CONFLICT (snap_dd, market, sector)" not in src, "옛 PK 로 되돌아갔다"
+    assert "all_mkt_recs = mkt_recs\n" in src, "KSIC 섹터 집계를 다시 저장한다"

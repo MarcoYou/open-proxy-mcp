@@ -60,6 +60,8 @@ ON CONFLICT (snap_dd, market, scheme, sector) DO UPDATE SET
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", default="20200101")
+    ap.add_argument("--include-current", action="store_true",
+                    help="현재월도 포함(일간 배치용). 기본은 제외 — 월말 확정본만 쌓는다")
     a = ap.parse_args()
 
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=30)
@@ -92,8 +94,14 @@ def main() -> int:
         "WHERE price_dd>=%s ORDER BY substring(price_dd,1,6), price_dd DESC", (a.since,))]
     today = date.today()
     cur_ym = f"{today.year}{today.month:02d}"
-    # 현재월은 daily cron 소유 — 여기선 건드리지 않는다(원본 백필과 같은 규칙)
-    months = sorted(d for d in months if d[:6] < cur_ym)
+    # 260823: 종전엔 현재월을 무조건 제외했다(월말 확정본만). 그런데 일간 배치가 이 스크립트를
+    #   부르게 되면서, 제외하면 **사용자가 보는 섹터 배수가 최대 한 달 낡는다**
+    #   (실측: KSIC 8/21 vs WICS 7/31). 일간 배치는 --include-current 로 최신 주까지 채운다.
+    if not a.include_current:
+        months = sorted(d for d in months if d[:6] < cur_ym)
+    else:
+        # 현재월은 「그 달의 최신 거래주」 — krx_weekly 최신 포인트를 쓴다
+        months = sorted(months)
     print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · WICS 스냅샷 {snaps}", flush=True)
 
     n_rows = n_backfilled = 0

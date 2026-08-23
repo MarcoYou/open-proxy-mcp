@@ -4,7 +4,7 @@
   A. krx_weekly 갱신 — 최신 거래일 전종목 스냅샷, 같은 ISO주 수렴(valuation 공용 로직 재사용)
   B. opm_val_firm  — 종목별 PER/PBR 주간 스냅샷 (krx_weekly 시총 × dart_fundamentals 재무)
   C. opm_val_market — 시장 전체(KOSPI/KOSDAQ) 시총가중 aggregate (우선주 시총 보통주 귀속)
-  D. opm_val_market — 산업별(KSIC 하이브리드, opm_sector_map — 제품용) aggregate
+  D. opm_val_market — 시장 전체(scheme='market') 만. 섹터 집계는 WICS 로 이관(260823).
 
 방법론 (260705 확정 — 보통주 기준):
   PER = Σ**보통주** 시총 ÷ Σ지배순이익(TTM) — KRX 지수 PER 관행. PBR = Σ보통주 시총 ÷ Σ지배자본(MRQ).
@@ -209,7 +209,9 @@ async def run(dry: bool = False) -> None:
         per_t = a["cap_ttm"] / a["ni_ttm"] if a["ni_ttm"] and a["ni_ttm"] > 0 else None  # (음수 PER 금지, QA)
         pbr_f = a["cap_eqf"] / a["eq_fy"] if a["eq_fy"] else None
         pbr_m = a["cap_eq"] / a["eq"] if a["eq"] else None
-        mkt_recs.append((snap_dd, market, "_ALL", None, a["n"], per_f, per_t, pbr_f, pbr_m,
+        # 260823: _ALL(시장 전체)은 **섹터 분류와 무관한 값**이다 — 코스피 전체 PER 은 섹터를
+        #   어떻게 나누든 같다. scheme='market' 으로 분류 축에서 떼어낸다.
+        mkt_recs.append((snap_dd, market, "market", "_ALL", None, a["n"], per_f, per_t, pbr_f, pbr_m,
                          a["cap"], a["cap_pref"], a["ni_ttm"], a["eq"]))
         print(f"C. [{market}] {a['n']}사 PER {per_f:.2f}/{per_t:.2f} PBR {pbr_f:.2f}/{pbr_m:.2f}")
 
@@ -263,7 +265,11 @@ async def run(dry: bool = False) -> None:
 
     # 저장 — 전부 같은 ISO주 수렴 + 컬럼명 명시 INSERT (위치의존 금지).
     # 260706 병합: 시장전체(sector='_ALL')와 섹터별 행을 opm_val_market 하나에 함께 저장.
-    all_mkt_recs = mkt_recs + sec_recs
+    # 260823: **KSIC 섹터 집계는 더 이상 저장하지 않는다.** 섹터 배수·시총의 기준 축은
+    #   WICS(wics_val_backfill.py, 같은 배치의 앞 단계)로 옮겼다. KSIC 는 「기업이 어느
+    #   업종인가」를 알려주는 용도로만 남는다 — opm_val_firm.sector 는 그대로 채운다.
+    #   과거 KSIC 집계 11,790행은 지우지 않는다(재생성 가능하지만 이력이라 보존).
+    all_mkt_recs = mkt_recs
     with con.cursor() as cur:
         _wk_converge(cur, "opm_val_firm", snap_dd)
         cur.executemany("""INSERT INTO opm_val_firm
@@ -274,16 +280,16 @@ async def run(dry: bool = False) -> None:
             per_ttm=EXCLUDED.per_ttm, pbr_fy0=EXCLUDED.pbr_fy0, pbr_mrq=EXCLUDED.pbr_mrq""", firm_recs)
         _wk_converge(cur, "opm_val_market", snap_dd)
         cur.executemany("""INSERT INTO opm_val_market
-            (snap_dd, market, sector, label, n, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, cap_pref, ni_ttm, eq)
-            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (snap_dd, market, sector) DO UPDATE SET label=EXCLUDED.label, n=EXCLUDED.n,
+            (snap_dd, market, scheme, sector, label, n, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, cap_pref, ni_ttm, eq)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON CONFLICT (snap_dd, market, scheme, sector) DO UPDATE SET label=EXCLUDED.label, n=EXCLUDED.n,
             per_fy0=EXCLUDED.per_fy0, per_ttm=EXCLUDED.per_ttm, pbr_fy0=EXCLUDED.pbr_fy0,
             pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap, cap_pref=EXCLUDED.cap_pref,
             ni_ttm=EXCLUDED.ni_ttm, eq=EXCLUDED.eq""", all_mkt_recs)
     con.commit()
     if unmapped:
         print(f"(우선주 미매핑 시총 {unmapped/1e12:.1f}조 — 제외)")
-    print(f"저장 완료: snap_dd={snap_dd} · firm {len(firm_recs)} · market {len(mkt_recs)} · sector {len(sec_recs)}")
+    print(f"저장 완료: snap_dd={snap_dd} · firm {len(firm_recs)} · market {len(mkt_recs)} (KSIC 섹터 집계는 중단 — WICS 로 이관)")
     con.close()
 
 

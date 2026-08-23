@@ -68,6 +68,15 @@ jobs:
         #   원장(krx_shares_ledger)에서 파생되므로 위 스윕 다음에 온다.
         run: uv run python scripts/krx_stock_flags.py
 
+      - name: WICS 기준 시장·섹터 집계 (DART·KRX 0콜)
+        # 260823: **분류는 월 1회여도 집계는 매일이어야 한다.** WICS 업종분류는 느린 데이터라
+        #   wics-monthly 가 월 1회 갱신하지만, 시총·재무는 매일 바뀐다. 집계를 월 1회 배치에만
+        #   두면 사용자가 보는 섹터 배수가 최대 한 달 낡는다(실측: KSIC 8/21 vs WICS 7/31).
+        #   스크립트가 현재월을 건너뛰므로 여기선 --since 로 최근만 훑어 비용을 줄인다.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/wics_val_backfill.py --since 20260101 --include-current
+
       - name: Run weekly valuation snapshot
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
