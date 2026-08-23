@@ -92,6 +92,16 @@ wiki/                  # 도메인 지식 (위 'wiki 참조' 표 참조)
 - **공시 검색**: `list.json`에서 `pblntf_ty`+`pblntf_detail_ty`로 범위 먼저 좁히고 제목 매칭(전체 순회
   금지). 코드 매핑은 `rules/disclosures/공시유형코드체계.md`. corp_code 없는 시장검색은 3개월 한도.
 - **파이프라인**: 전체 재실행 금지, 누락분만 처리.
+- **DB 스키마를 바꿀 땐 ① 백업 파일을 열어보고 ② 배포를 먼저 한다.** 260823 사고:
+  드랍하며 「백업 있음」이라고 **확인 없이 단언**해 `dart_capital_events`(813행)를 복구 불가로
+  지웠다 — 백업 목록에 그 표가 없었다. 파괴적 작업 직전엔 기억이 아니라 **그 순간 파일 목록을
+  읽어 대상 표가 있는지 확인**한다. 그리고 **DB 를 코드보다 먼저 바꾸면** 그 창 동안 live 가
+  옛 스키마로 쓰고, `CREATE TABLE IF NOT EXISTS` 가 있으면 조용히 표까지 되살린다(실측 73건).
+- **컬럼·값 이름 치환의 위험은 에러가 아니라 「0건」이다.** `WHERE market='KOSPI'` 는 죽지 않고
+  빈 결과를 낸다. 치환 후 **양쪽으로 세어 본다**(새 값 942건 / 옛 값 0건). 줄 단위로 SQL 을
+  판별하면 **`AND`·`OR`·`JOIN` 으로 이어지는 여러 줄 SQL 의 뒷줄**을 놓치고, 컬럼 이름은
+  `SELECT`/`INSERT` 목록뿐 아니라 **`ON CONFLICT`·`PRIMARY KEY`·인덱스 정의에도** 있다.
+  상세: private lessons `db-rename-and-orphan-cleanup-260823.md`.
 - **사용자 조회 결과 저장 안 함**: 실시간 조회가 원칙. corp-code/document cache, 시장 snapshot, 운영 usage telemetry는 명시적 인프라 예외다.
 - **키 비노출**: API 키가 든 URL·query·예외는 전체뿐 아니라 prefix도 stdout/log/fixture에 남기지 않는다.
 - **public/private 분리**: 이 레포=PUBLIC, `open-proxy-storage`=PRIVATE. 실측 usage 메트릭·LinkedIn용
