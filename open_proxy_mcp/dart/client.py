@@ -248,12 +248,30 @@ def _cache_entry_bytes(obj, _seen: set[int] | None = None) -> int:
     return size
 
 
+#: **캐시 수위 (SSOT — 메모리·디스크가 함께 쓴다).**
+#:
+#: 종전엔 상한에 닿으면 「딱 들어갈 만큼만」 밀어냈다. 그러면 캐시가 100% 에 붙박이고
+#: **삽입마다 evict** 가 난다 — 260824 실측: `document` 가 몇 시간에 3,722건을 밀어냈고
+#: 항목 수는 696→528 로 줄었는데 용량은 82→95MB 로 늘었다(큰 문서가 작은 것들을 계속
+#: 밀어내는 중이었다). 밀려난 문서는 다음 요청에 DART 를 다시 부른다.
+#:
+#: 그래서 **고수위에 닿으면 저수위까지 한 번에 쓸어낸다.** 그 사이 20% 는 evict 없이
+#: 들어가므로 밀어내기가 삽입마다가 아니라 가끔 한 번이 된다.
+#:   0.95 = 한계의 5% 앞에서 발동 · 0.75 = 한 번에 20% 확보
+_CACHE_HIGH_RATIO = float(os.environ.get("OPM_CACHE_HIGH_RATIO", "0.95"))
+_CACHE_LOW_RATIO = float(os.environ.get("OPM_CACHE_LOW_RATIO", "0.75"))
+if not 0 < _CACHE_LOW_RATIO < _CACHE_HIGH_RATIO <= 1.0:   # 뒤집힌 값이면 무한 evict
+    _CACHE_HIGH_RATIO, _CACHE_LOW_RATIO = 0.95, 0.75
+
+
 class LruByteCache:
     """LRU + TTL 캐시 — 항목 수가 아니라 **총 바이트**로 evict 한다.
 
     항목 크기가 20KB(소집공고)에서 62MB(대형 사업보고서)까지 3자릿수 배 흩어져 있어서
     개수 상한은 메모리 상한이 되지 못한다. 예산보다 큰 단일 항목은 아예 담지 않는다
     (담으면 캐시 전체를 비우고도 못 들어가므로).
+
+    evict 는 **고수위/저수위**로 한다 — `_CACHE_HIGH_RATIO` 주석 참조.
     """
 
     def __init__(self, max_bytes: int, ttl_sec: float, name: str):
@@ -264,8 +282,11 @@ class LruByteCache:
         self._ttl_sec = ttl_sec
         self._name = name
         self._lock = threading.Lock()
+        self._high_bytes = int(max_bytes * _CACHE_HIGH_RATIO)
+        self._low_bytes = int(max_bytes * _CACHE_LOW_RATIO)
         self.evictions = 0
         self.rejections = 0   # 단일 항목이 예산보다 커서 안 담긴 횟수
+        self.sweeps = 0       # 고수위에 닿아 저수위까지 쓸어낸 횟수 (evict 와 따로 센다)
 
     def get(self, key: str):
         """LRU + TTL get. 만료면 제거하고 None."""
@@ -297,7 +318,27 @@ class LruByteCache:
                     f"({nbytes/1024/1024:.1f}MB > {self._max_bytes/1024/1024:.0f}MB) key={key}"
                 )
                 return
-            while self._total_bytes + nbytes > self._max_bytes and self._entries:
+            # 넣기 전에 총 바이트가 얼마 아래여야 하나.
+            #   평소  = 상한만 지키면 된다(밀어낼 일 자체가 없다).
+            #   고수위 = 저수위까지 쓸어낸다.
+            #
+            # ★ 이게 **evict 총량을 줄이지는 않는다.** 워킹셋이 예산보다 크면 들어온
+            #   바이트만큼 나가야 하는 산수라 어떤 정책도 그걸 못 바꾼다. 수위가 주는 것은
+            #   **여유 공간**이다 — 종전엔 항상 (상한−항목크기)~상한 사이에 붙어 있었고
+            #   (실측 90~100%), 이제 저수위~고수위 사이에 산다(75~95%). 1GB 머신에서
+            #   그 10MB 가 260804 OOM 여유다. 부수적으로 스윕 **횟수**가 줄어 디스크 쪽
+            #   (스윕마다 디렉터리 전체 stat)에서는 일 자체도 준다.
+            #
+            # ★ `min` 인 이유: 저수위보다 큰 항목이 들어오면 저수위만으로는 상한을 넘긴다.
+            #   그때는 상한 조건이 더 엄해야 한다. 반대로 `low - nbytes` 로 잡으면
+            #   저수위 **아래로** 과하게 파내려가 오히려 evict 가 늘어난다(설계 중 실측).
+            if self._total_bytes + nbytes > self._high_bytes:
+                target = min(self._low_bytes, self._max_bytes - nbytes)
+                self.sweeps += 1
+            else:
+                target = self._max_bytes - nbytes
+            target = max(0, target)
+            while self._total_bytes > target and self._entries:
                 # dict 는 삽입순서를 지키므로 첫 키가 가장 오래 안 쓰인 항목이다.
                 oldest = next(iter(self._entries))
                 self._total_bytes -= self._entries.pop(oldest)[2]
@@ -328,6 +369,9 @@ class LruByteCache:
                 "fill_pct": round(100 * self._total_bytes / self._max_bytes, 1) if self._max_bytes else 0.0,
                 "evictions": self.evictions,
                 "rejections": self.rejections,
+                "sweeps": self.sweeps,
+                "high_pct": round(100 * _CACHE_HIGH_RATIO),
+                "low_pct": round(100 * _CACHE_LOW_RATIO),
             }
 
     def __len__(self) -> int:
@@ -428,15 +472,18 @@ def _sweep_disk_cache(written: int = 0, force: bool = False) -> int:
     except OSError:
         return 0
     total = sum(size for _, size, _ in entries)
-    if total <= _DISK_CACHE_MAX_BYTES:
+    # 메모리 캐시와 **같은 수위**를 쓴다(SSOT `_CACHE_HIGH_RATIO`). 종전엔 상한까지만
+    #   쓸어서 곧바로 다시 찼고, 매번 전체 디렉터리를 stat 하는 스윕이 되풀이됐다.
+    if total <= int(_DISK_CACHE_MAX_BYTES * _CACHE_HIGH_RATIO):
         return 0
+    target = int(_DISK_CACHE_MAX_BYTES * _CACHE_LOW_RATIO)
     # key= 를 명시한다. 튜플 전체비교면 mtime 동률일 때 경로까지 비교하게 된다.
     # mtime 은 `_load_from_disk` 가 적중마다 갱신하므로 **마지막 사용 시각**이다 —
     # 즉 이 정렬은 FIFO 가 아니라 LRU 다. 빈도(LFU)로 안 가는 이유는 위 주석 참조.
     entries.sort(key=lambda t: t[0])            # 가장 오래 안 쓴 것부터
     freed = 0
     for _, size, path in entries:
-        if total - freed <= _DISK_CACHE_MAX_BYTES:
+        if total - freed <= target:
             break
         try:
             os.remove(path)

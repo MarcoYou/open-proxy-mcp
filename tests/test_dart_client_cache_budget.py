@@ -202,15 +202,19 @@ def test_fly_points_the_disk_cache_at_the_volume():
         f"디스크 캐시 {cache.group(1)} 가 볼륨 {mount.group(1)} 밖이다 — 배포를 못 견딘다")
 
 
-def test_disk_cache_sweep_evicts_oldest_first_until_under_budget(tmp_path, monkeypatch):
+def test_disk_cache_sweep_evicts_oldest_first_to_low_watermark(tmp_path, monkeypatch):
     """볼륨엔 배포가 청소해 주던 자동 정리가 없다. 같은 볼륨에 master.db(원장)가 살아서
-    캐시가 볼륨을 채우면 **원장 쓰기가 실패한다** — 그래서 예산은 선택이 아니다."""
+    캐시가 볼륨을 채우면 **원장 쓰기가 실패한다** — 그래서 예산은 선택이 아니다.
+
+    260824: 상한까지만 쓸던 것을 **저수위(75%)까지** 쓸도록 바꿨다. 종전엔 쓸고 나면 곧바로
+    100% 로 되돌아가 스윕이 되풀이됐다(스윕마다 디렉터리 전체 stat).
+    """
     import os
 
     import open_proxy_mcp.dart.client as C
 
     monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
-    monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 300)
+    monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 400)   # 고수위 380 · 저수위 300
     for i in range(5):
         p = tmp_path / f"doc{i}.json"
         p.write_text("x" * 100, encoding="utf-8")
@@ -218,10 +222,26 @@ def test_disk_cache_sweep_evicts_oldest_first_until_under_budget(tmp_path, monke
 
     freed = C._sweep_disk_cache(force=True)
 
-    assert freed == 200, f"예산 300 에 500 이 있었는데 {freed} 만 지웠다"
+    assert freed == 200, f"500 → 저수위 300 이하로 내려야 하는데 {freed} 만 지웠다"
     left = sorted(p.name for p in tmp_path.glob("*.json*"))
     assert left == ["doc2.json", "doc3.json", "doc4.json"], f"오래된 순으로 안 지웠다: {left}"
-    assert C._sweep_disk_cache(force=True) == 0, "예산 이하인데 또 지웠다"
+    assert C._sweep_disk_cache(force=True) == 0, "저수위인데 또 지웠다"
+
+
+def test_disk_cache_does_not_sweep_below_high_watermark(tmp_path, monkeypatch):
+    """고수위(95%) 아래면 **손대지 않는다.** 여기서 쓸어버리면 수위를 둔 뜻이 없다."""
+    import os
+
+    import open_proxy_mcp.dart.client as C
+
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MAX_BYTES", 1000)  # 고수위 950
+    for i in range(9):                                     # 900 바이트 = 90%
+        p = tmp_path / f"doc{i}.json"
+        p.write_text("x" * 100, encoding="utf-8")
+        os.utime(p, (1000 + i, 1000 + i))
+    assert C._sweep_disk_cache(force=True) == 0, "고수위 아래인데 쓸었다"
+    assert len(list(tmp_path.glob("*.json*"))) == 9
 
 
 def test_corrupt_disk_entry_is_a_miss_not_a_crash(tmp_path, monkeypatch):
