@@ -304,3 +304,17 @@ def test_basis_is_unknown_when_the_document_has_no_separate_section() -> None:
 
     assert separate_offset(html) is None
     assert basis_at(1_000, None) is None
+
+
+def test_basis_defaults_to_consolidated_and_halves_the_fetch() -> None:
+    """기본은 **연결** — 두 기준을 다 받으면 받는 양도 호출 수도 두 배다(260824 마스터 지시).
+
+    실측(NH투자증권 사업2025) — FVPL 1필드: 연결만 18,339자 1.4초 / 전체 36,682자 5.1초.
+    """
+    from open_proxy_mcp.tools.financial_notes import _basis_wanted
+
+    assert _basis_wanted("") == {"연결"}          # 기본
+    assert _basis_wanted("연결") == {"연결"}
+    assert _basis_wanted("별도") == {"별도"}
+    assert _basis_wanted("전체") is None          # 제한 없음
+    assert _basis_wanted("둘다") is None
