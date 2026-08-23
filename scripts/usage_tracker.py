@@ -176,6 +176,20 @@ def drained_columns() -> dict:
     return cols
 
 
+#: **tool 개명 대조표.** 이름을 바꾸면 같은 도구의 통계가 두 계열로 갈라진다 — 옛 이름 아래
+#: 쌓인 호출이 어느 날 0 이 되고 새 이름이 0 에서 시작하니, 그래프만 보면 「죽었다 태어났다」로
+#: 읽힌다(실측: `valuation` 586건). 여기서 옛 이름을 새 이름으로 접어 한 계열로 유지한다.
+#: 지우지 말 것 — 지우는 순간 과거가 다시 갈라진다.
+TOOL_ALIASES = {
+    "valuation": "price_multiple_data",   # 260824 개명 (배수 ↔ 거래·규모 분리)
+}
+
+
+def canon_tool(tool):
+    """옛 tool 이름 → 현재 이름. 그 외는 그대로."""
+    return TOOL_ALIASES.get(tool, tool)
+
+
 def merge_drained(rows, cols: tuple):
     """DB 행 + 드레인 행. `cols` 는 **DB 쿼리가 고른 컬럼명을 그 순서대로** 준 것이다.
 
@@ -184,11 +198,19 @@ def merge_drained(rows, cols: tuple):
     """
     d = drained_columns()
     if not d:
-        return list(rows)
-    n = len(next(iter(d.values())))
-    blank = [None] * n
-    src = [d.get(c, blank) for c in cols]
-    return list(rows) + [tuple(col[i] for col in src) for i in range(n)]
+        out = list(rows)
+    else:
+        n = len(next(iter(d.values())))
+        blank = [None] * n
+        src = [d.get(c, blank) for c in cols]
+        out = list(rows) + [tuple(col[i] for col in src) for i in range(n)]
+    # 개명 접기 — DB 행과 드레인 행이 모두 여기를 지나므로 **한 곳**이면 충분하다.
+    #   두 곳에 두면 한쪽만 고쳐진다(이 레포에서 다섯 번 겪은 형태).
+    if "tool" in cols:
+        i = cols.index("tool")
+        out = [r if canon_tool(r[i]) == r[i] else (*r[:i], canon_tool(r[i]), *r[i + 1:])
+               for r in out]
+    return out
 
 
 def fetch_rows():

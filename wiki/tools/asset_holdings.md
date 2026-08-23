@@ -97,14 +97,14 @@ created: 2026-07-20
 ## 관련
 - [[business_details]] (II.사업의내용 — 원래 opt-in 필드였다가 분리된 원본)
 - `asset_valuation.py`(markdown-primary content-signature 엔진, [[markdown-primary-anchor-260719]] 계승)
-- [[valuation]] (전사 밸류에이션 PER/PBR — 시총 시계열은 이쪽, 자산 point-in-time은 asset_holdings)
+- [[price_multiple_data]] (전사 밸류에이션 PER/PBR — 시총 시계열은 이쪽, 자산 point-in-time은 asset_holdings)
 - [[financial_metrics]] (재무비율 — 부채 미차감 gross NAV 배수는 PBR과 병용 권장)
 - [[260721_1500_decision_asset-holdings-purpose-buckets]] (자산 목적버킷 6분류 — 회계사 검토·확정,
   자산 성격 서사(재테크형/부동산 자산주형/지주사 할인형/우호지분형) 근거)
 
 ## 변경 이력
 - 2026-08-06: 파싱 기법 상세·census·검증 프로토콜을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
-- 2026-07-21: **시총은 [[valuation]]의 `_market_for`(KRX 캐시, 상장주식수 기준)를 재사용**한다 —
+- 2026-07-21: **시총은 [[price_multiple_data]]의 `_market_for`(KRX 캐시, 상장주식수 기준)를 재사용**한다 —
   자체계산(DART 유통주식수 × 종가)은 같은 회사에 다른 시총을 내고 DART 콜만 는다(계산 지표 단일 소스
   원칙). **FVPL 종목별 보유명세** 시그니처 추가(「상장주식의 내역」 롤포워드 표 — 원가 비교가 아니라
   기초~기말 시가평가 변동이라 기존 시그니처에 안 걸렸다). **목적버킷 6분류 신설**

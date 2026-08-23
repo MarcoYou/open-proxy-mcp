@@ -19,7 +19,7 @@ OPM tool 28개 카탈로그 -> **[[tools/README]]** (처음 방문 시 여기부
 - **Company (1)**: [[company]]
 - **Screening (1)**: [[screener]] (전체시장 공시 스크리너 / 아침 디제스트 — scan 싸게 + details 필요 건만 파서 재사용, market-scan)
 - **Meeting (2, 시점 분리)**: [[shareholder_meeting_notice]] (사전 — DART, 5 scope: summary/board/compensation/aoi_change/prov_financials) · [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
-- **Data (17)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[director_board]] · [[valuation]] · [[business_details]] · [[provisional_earnings]] · [[asset_holdings]] (자산주·NAV 스크리닝 — 계정 티어+상장지분 시가마크+시총 대비 배수)
+- **Data (18)**: [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]] · [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]] · [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]] · [[director_board]] · [[price_multiple_data]] · [[trading_data]] · [[business_details]] · [[provisional_earnings]] · [[asset_holdings]] (자산주·NAV 스크리닝 — 계정 티어+상장지분 시가마크+시총 대비 배수)
 - **Evidence (2)**: [[evidence]] · [[law_lookup]] (정관↔법령 양방향 조회 — 상법·자본시장법·공정거래법·외부감사법 원문, 회사·DART 무관)
 - **Action (2)**: [[proxy_advise_before_meeting]] (decisions 단일 — facts/risk/citation/근거공고/후보 raw 통합, 사후 결과는 [[shareholder_meeting_results]]) · [[shareholder_commitment]] (밸류업·배당·소각 약속 vs 실제 이행, 연중 스튜어드십 — 자사주소각 장부가손익 신규 계산)
 
@@ -109,7 +109,7 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[shareholder_meeting_notice]] - 주총 소집공고 사전 데이터
 - [[shareholder_meeting_results]] - 주총 의결 결과 사후 데이터
 
-### Data (17)
+### Data (18)
 - [[ownership_structure]] - 최대주주/특수관계인/5%/control_map
 - [[financial_metrics]] - DART 재무 4 endpoint 통합
 - [[corp_gov_report]] - 기업지배구조보고서 15지표
@@ -123,7 +123,8 @@ tool별 현재 상태는 각 [[tools/README]] 페이지가 정본.
 - [[corporate_deals]] - 지분 인수·매각(타법인주식) + 단일공급계약 (구 related_party_transaction)
 - [[order_contracts]] - 단일판매·공급계약
 - [[risk_events]] - 리스크 이벤트 활성 3종 (중대재해/횡령배임/생산중단·영업정지, 파생·회생·해산 mute)
-- [[valuation]] - PER·PBR·배당수익률(기업 심층) + 시장/섹터/종목 히스토리 (260705 신설)
+- [[price_multiple_data]] - PER·PBR·배당수익률(기업 심층) + 시장/섹터/종목 히스토리 (260705 신설 · 260824 `valuation` 에서 개명)
+- [[trading_data]] - 주가·시총·상장주식수 시계열 + 시장·섹터 시총 집계 + 단일시점 시세(OHLC·거래량) (260824 신설)
 - [[business_details]] - "II.사업의 내용" 11필드(segments+사업장·가동률·rnd·수주·고객·원재료·제품가격+D-트랙 금융/REIT) (260718 신설)
 - [[provisional_earnings]] - 영업(잠정)실적 분기 속보(I002 공정공시) + YoY (260719 신설)
 - [[asset_holdings]] - 자산주·NAV 스크리닝 (계정 티어+상장지분 시가마크+시총 대비 배수) (260720 신설)

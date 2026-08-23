@@ -82,3 +82,31 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           KRX_OPEN_API_KEY: ${{ secrets.KRX_OPEN_API_KEY }}
         run: uv run python scripts/market_val_weekly.py
+
+      # 260824 신설 — `trading_data` 의 시장·섹터 시총 시계열이 읽는 표.
+      #   ★ `opm_val_market.cap`(위 스텝들이 만든 것)과 **다른 값**이다. 저쪽은 배수 분모를 가진
+      #     종목만 더한 합이고(실측 KOSPI 5,497조/822사) 이쪽은 상장 전 종목이다(5,713조/942종목).
+      #     둘 다 옳은데 뜻이 달라서 표를 나눴다 — 한 이름이 두 뜻을 가지면 하나는 틀리게 쓰인다.
+      #   맨 뒤에 두는 이유: `krx_weekly` 가 이 워크플로 앞쪽에서 갱신되므로 그 뒤라야 최신 주를 잡는다.
+      - name: 시장·섹터 시총 집계 (DART·KRX 0콜)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/krx_cap_agg.py
+
+      - name: 집계 확인 — 최신 시점이 들어왔나
+        # 「성공」이 아니라 **산출물 변화**로 확인한다(법령 배치 교훈: 상류가 죽어도 초록불).
+        #   스크립트 자체가 「섹터 합 == 시장 합」 항등을 전 시점에서 검사하고 어긋나면 실패한다.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run python - <<'PY'
+          import os, psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
+              agg = c.execute("SELECT max(price_dd) FROM krx_cap_agg").fetchone()[0]
+              wk  = c.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
+              print(f"krx_cap_agg 최신 {agg} / krx_weekly 최신 {wk}")
+              if agg != wk:
+                  raise SystemExit(f"::error::집계가 시세보다 낡음 ({agg} < {wk}) — 재적재 실패")
+              n = c.execute("SELECT count(*) FROM krx_cap_agg WHERE price_dd=%s", (agg,)).fetchone()[0]
+              print(f"최신 시점 {n}행 (시장 2 + WICS 대분류·하위업종 × 2시장)")
+          PY

@@ -1,17 +1,22 @@
 ---
 type: tool
-title: valuation
+title: price_multiple_data
 domain: data
-status: 등록 완료 (260705 — tools/valuation.py)
+status: 등록 완료 (260705 — tools/valuation.py) · 260824 `valuation` 에서 개명
 scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
 created: 2026-07-05
-updated: 2026-07-06
+updated: 2026-08-24
 ---
 
-# valuation
+# price_multiple_data
+
+## 이름 (260824 개명)
+`valuation` → **`price_multiple_data`**. 「밸류에이션」이 배수(PER·PBR)와 규모(주가·시총)를 한 이름
+아래 묶고 있었는데, 실제로는 서로 다른 질문이고 파라미터가 서로 다투었다. 규모·거래 쪽은
+[[trading_data]] 로 갈랐다. 옛 이름의 사용통계는 `usage_tracker.TOOL_ALIASES` 가 접어 한 계열로 잇는다.
 
 ## 한 줄 요약
 DART(공시) + KRX(공식시세) 기반 **상대가치 배수** — PER(FY0·TTM) · PBR(MRQ) · 배당수익률. 지배주주
@@ -20,10 +25,10 @@ DART(공시) + KRX(공식시세) 기반 **상대가치 배수** — PER(FY0·TTM
 
 ## 사용법
 ```
-valuation(company="두산밥캣")                    # firm: 기업 심층 (실시간)
-valuation(scope="market")                        # 시장 전체(KOSPI·KOSDAQ) + 주간 히스토리
-valuation(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교 + 소속 섹터 시계열(연말 요약+전체 월별)
-valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계열 — FY0·TTM·MRQ (주간 곡선 + 월말 요약)
+price_multiple_data(company="두산밥캣")                    # firm: 기업 심층 (실시간)
+price_multiple_data(scope="market")                        # 시장 전체(KOSPI·KOSDAQ) + 주간 히스토리
+price_multiple_data(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교 + 소속 섹터 시계열(연말 요약+전체 월별)
+price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계열 — FY0·TTM·MRQ (주간 곡선 + 월말 요약)
 ```
 자연어 예시:
 - "삼성전자 밸류에이션" → firm: PER 46.9(FY0)/21.6(TTM) · PBR 4.33 · 배당수익률 0.54%

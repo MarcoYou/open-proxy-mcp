@@ -243,7 +243,7 @@ async def _resolve_listed(query: str) -> tuple[dict | None, dict | None]:
     res = await resolve_company_query(query)
     if res.status == AnalysisStatus.AMBIGUOUS:
         return None, {
-            "tool": "valuation", "status": "ambiguous", "subject": query,
+            "tool": "price_multiple_data", "status": "ambiguous", "subject": query,
             "data": {"query": query, "candidates": [
                 {"corp_name": c.get("corp_name"), "stock_code": c.get("stock_code"),
                  "corp_code": c.get("corp_code")} for c in res.candidates[:10]]},
@@ -283,10 +283,10 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
         "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref "
         "FROM opm_val_market WHERE sector='_ALL' AND scheme='market' ORDER BY snap_dd DESC, market")
     if rows is None:
-        return {"tool": "valuation", "status": "db_error", "subject": "시장 밸류에이션",
+        return {"tool": "price_multiple_data", "status": "db_error", "subject": "시장 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
-        return {"tool": "valuation", "status": "no_data", "subject": "시장 밸류에이션",
+        return {"tool": "price_multiple_data", "status": "no_data", "subject": "시장 밸류에이션",
                 "warnings": ["opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
     hist = [{"snap_dd": r[0], "market": r[1],
              "per_fy0": r[2] and round(r[2], 2), "per_ttm": r[3] and round(r[3], 2),
@@ -294,7 +294,7 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
              "cap_krw": r[6], "ni_ttm_krw": r[7], "eq_krw": r[8],
              "cap_pref_krw": r[9] if len(r) > 9 else None} for r in rows]
     latest_dd = hist[0]["snap_dd"]
-    return {"tool": "valuation", "status": "ok", "subject": "시장 밸류에이션(KOSPI·KOSDAQ)",
+    return {"tool": "price_multiple_data", "status": "ok", "subject": "시장 밸류에이션(KOSPI·KOSDAQ)",
             "data": {"scope": "market", "as_of": latest_dd,
                      "latest": [h for h in hist if h["snap_dd"] == latest_dd],
                      "history": hist,
@@ -324,7 +324,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
     company 지정 시 그 기업의 섹터를 함께 표시. scheme 으로 분류 축 선택."""
     scheme = (scheme or "wics_industry").strip().lower()
     if scheme not in _SECTOR_SCHEMES:
-        return {"tool": "valuation", "status": "invalid", "subject": "산업별 밸류에이션",
+        return {"tool": "price_multiple_data", "status": "invalid", "subject": "산업별 밸류에이션",
                 "warnings": [f"scheme '{scheme}' 없음 — {' / '.join(_SECTOR_SCHEMES)} 중 선택."]}
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0 FROM opm_val_market "
@@ -332,10 +332,10 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
         "AND snap_dd=(SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL' AND scheme=%s) "
         "ORDER BY market, cap DESC", (scheme, scheme))
     if rows is None:
-        return {"tool": "valuation", "status": "db_error", "subject": "산업별 밸류에이션",
+        return {"tool": "price_multiple_data", "status": "db_error", "subject": "산업별 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
-        return {"tool": "valuation", "status": "no_data", "subject": "산업별 밸류에이션",
+        return {"tool": "price_multiple_data", "status": "no_data", "subject": "산업별 밸류에이션",
                 "warnings": ["opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
     as_of = rows[0][0]
     sectors = [{"market": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
@@ -361,7 +361,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
             corp = await get_dart_client().lookup_corp_code(company.strip())
         isu = (corp or {}).get("stock_code")
         if not isu:  # 회사 미해결/비상장 — 전체 표 덤프 대신 짧은 에러(실사용 QA P1: 1,600토큰 낭비 방지)
-            return {"tool": "valuation", "status": "not_found", "subject": company,
+            return {"tool": "price_multiple_data", "status": "not_found", "subject": company,
                     "warnings": [f"'{company}' 상장사를 찾지 못함 — 정확한 회사명/종목코드로 재시도. "
                                  "전체 섹터 표는 company 없이 scope='sector'."]}
         else:
@@ -419,7 +419,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                         for h in hrows]
             else:
                 warnings.append(f"'{company}' 종목 스냅샷 없음(비상장·미수집).")
-    return {"tool": "valuation", "status": "ok", "subject": "산업별 밸류에이션",
+    return {"tool": "price_multiple_data", "status": "ok", "subject": "산업별 밸류에이션",
             "data": {"scope": "sector", "as_of": as_of, "scheme": scheme,
                      "scheme_desc": _SECTOR_SCHEMES[scheme], "sectors": sectors,
                      "company": company_ctx},
@@ -611,7 +611,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     """종목별 밸류에이션 주간 히스토리(opm_val_firm) — PER/PBR/시총 시계열(수정주가 조정 불변)."""
     query = (company or "").strip()
     if not query:
-        return {"tool": "valuation", "status": "invalid", "subject": company,
+        return {"tool": "price_multiple_data", "status": "invalid", "subject": company,
                 "warnings": ["회사명 또는 종목코드(6자리)를 입력하세요."]}
     corp, early = await _resolve_listed(query)   # 공용 리졸버 — firm과 동일 진입
     if early:
@@ -619,7 +619,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     if not corp:
         corp = await get_dart_client().lookup_corp_code(query)
     if not corp or not corp.get("stock_code"):
-        return {"tool": "valuation", "status": "not_found" if not corp else "unlisted",
+        return {"tool": "price_multiple_data", "status": "not_found" if not corp else "unlisted",
                 "subject": query, "warnings": [f"'{company}' 상장 종목을 찾지 못함."]}
     isu = corp["stock_code"]
     cur_row = await asyncio.to_thread(_pg_rows,
@@ -638,10 +638,10 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
         "SELECT snap_dd, market, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
         "FROM opm_val_firm WHERE ticker=%s ORDER BY snap_dd", (isu,))
     if rows is None:
-        return {"tool": "valuation", "status": "db_error", "subject": corp.get("corp_name", query),
+        return {"tool": "price_multiple_data", "status": "db_error", "subject": corp.get("corp_name", query),
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not band and not rows:
-        return {"tool": "valuation", "status": "no_data", "subject": corp.get("corp_name", query),
+        return {"tool": "price_multiple_data", "status": "no_data", "subject": corp.get("corp_name", query),
                 "warnings": ["시계열 없음 — 과거 시세(krx_weekly)·재무(dart_finstat_y)·주간 스냅샷 모두 미수집."]}
     hist = [{"period": b["period"], "asof": b["asof"], "cap_krw": b["cap_krw"],
              "per_fy0": b["per_fy0"], "per_ttm": None, "pbr": b["pbr_fy0"],
@@ -666,7 +666,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     sector = rows[-1][2] if rows else (cur_row[0][1] if cur_row else None)
     if not summary and not band:
         warnings.append("주간 곡선 미산출 — krx_weekly 시세 또는 재무(dart_finstat_y/dart_finstat_q) 미수집.")
-    return {"tool": "valuation", "status": "ok", "subject": corp.get("corp_name", query),
+    return {"tool": "price_multiple_data", "status": "ok", "subject": corp.get("corp_name", query),
             "data": {"scope": "firm_history", "ticker": isu, "market": market,
                      "sector": sector, "history": hist, "series": series, "summary": summary,
                      "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 dart_finstat_y·PIT) · "
@@ -834,7 +834,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     client = get_dart_client()
     query = (company or "").strip()
     if not query:
-        return {"tool": "valuation", "status": "invalid", "subject": company,
+        return {"tool": "price_multiple_data", "status": "invalid", "subject": company,
                 "warnings": ["회사명 또는 종목코드(6자리)를 입력하세요."]}
     corp, early = await _resolve_listed(query)   # 공용 리졸버(company 툴 방식) — ambiguous 후보표
     if early:
@@ -842,7 +842,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     if not corp:  # ERROR(비상장만·무매칭) → 기존 세분화 경로(unlisted/not_found + 커스텀 안내)
         corp = await client.lookup_corp_code(query)
     if not corp:
-        return {"tool": "valuation", "status": "not_found", "subject": company,
+        return {"tool": "price_multiple_data", "status": "not_found", "subject": company,
                 "warnings": [f"'{company}' 조회 결과 없음 — 종목코드(6자리)나 정확한 회사명으로 재시도. "
                              "(우선주는 보통주 종목코드로 조회)"]}
     cc, stock_code = corp["corp_code"], corp.get("stock_code")
@@ -862,7 +862,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 alts = sorted(cand, key=lambda c: -(caps.get(c["stock_code"]) or 0))[:5]
         alt_txt = ("  혹시 이 상장사를 찾으셨나요? " +
                    ", ".join(f"{c['corp_name']}({c['stock_code']})" for c in alts)) if alts else ""
-        return {"tool": "valuation", "status": "unlisted", "subject": name,
+        return {"tool": "price_multiple_data", "status": "unlisted", "subject": name,
                 "warnings": [f"'{name}'은(는) 비상장 — 주가가 없어 시장배수(PER·PBR·배당수익률) 산출 불가. "
                              f"재무 펀더멘탈은 financial_metrics 사용.{alt_txt}"]}
 
@@ -877,7 +877,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     s = fm.get("data", {}).get("summary") or {}
     fy = fm.get("data", {}).get("year")
     if fy is None:  # 상장사여도 재무 미확정(신규상장·SPAC 등) → fy+1 크래시 방지, 명확한 상태 반환
-        return {"tool": "valuation", "status": "no_financials", "subject": name,
+        return {"tool": "price_multiple_data", "status": "no_financials", "subject": name,
                 "warnings": [f"'{name}'({stock_code}) 재무 데이터를 확정하지 못함 — 밸류에이션 산출 불가."]}
     eps_fy = s.get("eps_krw"); revenue_fy = s.get("revenue_krw"); roe = s.get("roe_pct")
     cap_status = s.get("capital_impairment_status")
@@ -1109,7 +1109,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
 
     payload = {
-        "tool": "valuation", "status": "ok", "subject": name,
+        "tool": "price_multiple_data", "status": "ok", "subject": name,
         "data": {
             "company_id": _company_id(corp),
             "identifiers": {"ticker": stock_code, "corp_code": cc},

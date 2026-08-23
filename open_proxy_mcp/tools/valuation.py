@@ -1,4 +1,4 @@
-"""valuation public tool — DART(공시)+KRX(공식시세) 상대가치 배수 (기업·시장·산업 + 히스토리)."""
+"""price_multiple_data public tool — DART(공시)+KRX(공식시세) 상대가치 배수 (기업·시장·산업 + 히스토리)."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def _render_status(payload: dict[str, Any]) -> str:
     """ok가 아닌 상태 렌더."""
     status = payload.get("status", "error")
     title = _STATUS_TITLE.get(status, status)
-    lines = [f"# valuation: {payload.get('subject', '')} — {title}", ""]
+    lines = [f"# price_multiple_data: {payload.get('subject', '')} — {title}", ""]
     for w in payload.get("warnings", []):
         lines.append(f"- {w}")
     cands = (payload.get("data") or {}).get("candidates") or []
@@ -149,7 +149,7 @@ def _render_firm_history(p: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-_METHODOLOGY = """# valuation 방법론·기준·출처 (수치 근거)
+_METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거)
 
 ## 산식 (firm — 기업 심층)
 | 지표 | 산식 | 기준 |
@@ -196,7 +196,7 @@ PER · PBR · 배당수익률. RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT 시계�
 | 환율 | 한국은행 ECOS 매매기준율(공식) | 회계기말 고정값 캐시 |
 | 주간 스냅샷(시장·섹터·종목 히스토리) | 위 조합 재계산 | 매일 배치(주간 수렴) |
 
-특정 종목의 실제 대입 계산은 `valuation(company="종목", scope="explain")`."""
+특정 종목의 실제 대입 계산은 `price_multiple_data(company="종목", scope="explain")`."""
 
 
 def _render_explain_firm(p: dict[str, Any]) -> str:
@@ -273,14 +273,14 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
           "② 우선주 편향(분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 낮게 나옵니다). "
           "위 EPS·BPS 는 회사 공식 공시값이라 대조용으로 함께 싣습니다.",
           "",
-          "> 방법론·기준 전문: `valuation(scope=\"explain\")` (company 없이)."]
+          "> 방법론·기준 전문: `price_multiple_data(scope=\"explain\")` (company 없이)."]
     return "\n".join(L)
 
 
 def register_tools(mcp):
 
     @mcp.tool()
-    async def valuation(company: str = "", scope: str = "firm", format: str = "md",
+    async def price_multiple_data(company: str = "", scope: str = "firm", format: str = "md",
                         scheme: str = "wics_industry") -> str:
         """desc: 상대가치 밸류에이션 — 기업 심층(PER·PBR·배당수익률) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 한국 표준(연결, 지배주주 귀속). 비KRW 기능통화 자동 KRW 환산(ECOS), 스케일가드, N/M 게이팅.
         when: "PER/PBR 얼마"·"싼가 비싼가"(scope=firm) / "코스피·코스닥 전체 밸류"(market) / "업종별 PER·PBR"·"섹터 대비 어디"(sector, company 지정 시 소속 섹터 비교) / "밸류 추이"(firm_history) / **"이 수치 근거·계산 과정이 뭐야?"(explain — company 지정 시 실제 값 대입 계산, 미지정 시 방법론·기준·출처 전문)**. 재무 펀더멘탈 자체는 financial_metrics, 배당 상세는 dividend.
@@ -308,7 +308,7 @@ def register_tools(mcp):
         elif sc == "firm":
             payload = await build_valuation_payload(company, format=format)
         else:  # 오타("markets" 등)를 조용히 firm으로 보내면 의도 밖 DART 콜 — 명시 거절(QA)
-            payload = {"tool": "valuation", "status": "invalid", "subject": scope,
+            payload = {"tool": "price_multiple_data", "status": "invalid", "subject": scope,
                        "warnings": [f"scope '{scope}' 없음 — firm / market / sector / firm_history / explain 중 선택."]}
         if format == "json":
             return as_pretty_json(payload)
