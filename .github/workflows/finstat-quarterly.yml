@@ -1,0 +1,108 @@
+# 분기 재무 수집 — scripts/market_fund_quarterly.py --fetch (cron)
+#
+# 260823 신설. **`--fetch` 를 도는 cron 이 없었다.** `market-val-weekly` 는 `--derive`(0콜 파생)만
+# 돌리고 실제 수집은 수동이었다. 그 결과 FY2026 반기(Q2)가 법정기한 8/14 를 넘기고도 **2,540사
+# 전부 미수집**이었고, 8/14 이후 배수의 TTM·MRQ 가 1분기 기준으로 굳어 있었다.
+#
+# 겉으로는 멀쩡해 보였다 — 배수가 계속 나오고 krx_weekly 는 매일 갱신되니까. 오늘 정리한
+# 법령 corpus·수정계수·주식수 원장·해석주의 딱지와 **완전히 같은 형태**다:
+#   돌지 않는 코드는 깨져도 안 보인다.
+#
+# 언제 도나: 분기 공시 마감(1Q 5/15 · 반기 8/14 · 3Q 11/14) 직후부터 한 달간 매일.
+#   전 종목이 마감일에 한꺼번에 내지 않고 며칠에 걸쳐 내므로, 하루만 돌면 늦게 낸 회사를 놓친다.
+#   스크립트가 **이미 있는 분기는 건너뛰고 실패분만 재시도**하므로 매일 돌아도 낭비가 없다
+#   (`done` 집합에서 `err:` 만 제외 → 일일한도에 걸렸던 것도 다음날 자동 복구).
+#   `_disclosed()` 가 미공시 분기를 스스로 거르니 시즌 밖 실행도 안전하다.
+#
+# 콜: 첫날 ~2,600(전 종목 × 1분기). 이후엔 남은 것만이라 급감.
+#   동시성 2 · 0.45s sleep ≈ 133콜/분 (하드룰 910/분의 15%).
+
+name: finstat-quarterly
+
+on:
+  schedule:
+    # 분기 마감 다음날부터 한 달간 매일 20:40 UTC = KST 05:40(장 시작 전).
+    #   5/16~6/15 · 8/15~9/14 · 11/15~12/14
+    - cron: "40 20 16-31 5 *"
+    - cron: "40 20 1-15 6 *"
+    - cron: "40 20 15-31 8 *"
+    - cron: "40 20 1-14 9 *"
+    - cron: "40 20 15-30 11 *"
+    - cron: "40 20 1-14 12 *"
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "콤마구분 연도 (비우면 2019~현재 전체 — 재개라 이미 있는 건 건너뜀)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: 수집 전 구멍 확인
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run python - <<'PY'
+          import os, psycopg
+          from datetime import date
+          DEAD = {1: (5, 15), 2: (8, 14), 3: (11, 14)}
+          fy = date.today().year
+          with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
+              base = c.execute("SELECT count(*) FROM dart_fundamentals WHERE fetched='ok'").fetchone()[0]
+              for q, (mo, dy) in DEAD.items():
+                  if date.today() < date(fy, mo, dy):
+                      continue
+                  n = c.execute("SELECT count(*) FROM dart_finstat_q "
+                                "WHERE fy=%s AND quarter=%s AND fetched='ok'", (fy, q)).fetchone()[0]
+                  print(f"FY{fy} Q{q}: {n:,}/{base:,} ({n/base:.0%})")
+          PY
+
+      - name: 분기 재무 수집 (DART)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+        run: |
+          if [ -n "${{ inputs.years }}" ]; then
+            uv run python scripts/market_fund_quarterly.py --fetch --years "${{ inputs.years }}"
+          else
+            uv run python scripts/market_fund_quarterly.py --fetch
+          fi
+
+      - name: 파생 갱신 + 결과 확인
+        # 「성공」이 아니라 **산출물 변화**로 확인한다. 수집이 0건이어도 스크립트는 정상 종료한다.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run python scripts/market_fund_quarterly.py --derive
+          uv run python - <<'PY'
+          import os, psycopg
+          from datetime import date
+          DEAD = {1: (5, 15), 2: (8, 14), 3: (11, 14)}
+          fy = date.today().year
+          with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
+              base = c.execute("SELECT count(*) FROM dart_fundamentals WHERE fetched='ok'").fetchone()[0]
+              worst = 1.0
+              for q, (mo, dy) in DEAD.items():
+                  if date.today() < date(fy, mo, dy):
+                      continue
+                  n = c.execute("SELECT count(*) FROM dart_finstat_q "
+                                "WHERE fy=%s AND quarter=%s AND fetched='ok'", (fy, q)).fetchone()[0]
+                  print(f"FY{fy} Q{q}: {n:,}/{base:,} ({n/base:.0%})")
+                  worst = min(worst, n / base if base else 0)
+              # 마감 한 달이 지났는데도 절반을 못 채우면 뭔가 막힌 것이다(키 한도·API 장애).
+              if worst < 0.5:
+                  print(f"::warning::공시완료 분기 중 최저 커버리지 {worst:.0%} — 수집이 막혔는지 확인")
+          PY
