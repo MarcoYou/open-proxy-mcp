@@ -145,6 +145,9 @@ def _render(payload: dict) -> str:
                     cells.append(s)
                 L.append("| " + " | ".join(cells) + " |")
             L.append("")
+    if payload.get("basis") not in (None, "전체", "둘다", "all", "both"):
+        L += ["", f"> ℹ️ **{payload.get('basis')} 기준만 받았다.** 다른 기준이 필요하면 "
+                  f"`basis` 를 지정해 다시 부를 것 — 두 기준을 함께 받으면 시간이 두 배다.", ""]
     L += ["---",
           "⚠️ **✅ 제목 확인됨은 「원문이 그 이름으로 제목을 붙였다」까지다.** 표의 내용이 "
           "요청한 것과 같다는 보증이 아니다 — **축**과 **원문 제목**을 함께 볼 것.",
@@ -160,7 +163,20 @@ def _render(payload: dict) -> str:
     return "\n".join(L)
 
 
-async def _fetch_by_nodes(client, rcept_no: str, want: list[str]):
+_BASIS_ALL = ("전체", "둘다", "all", "both")
+
+
+def _basis_wanted(basis: str) -> set[str] | None:
+    """None 이면 전부. 기본은 **연결** — 받는 양과 호출 수가 절반이다."""
+    b = (basis or "").strip()
+    if b in _BASIS_ALL:
+        return None
+    if b in ("별도", "separate"):
+        return {"별도"}
+    return {"연결"}
+
+
+async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "연결"):
     """목차 노드로 **필요한 절만** 받아온다. 못 하면 None → 호출자가 전체 문서로 폴백.
 
     🔴 260824 실측 — NH투자증권 사업보고서 19.5MB 를 통째로 읽으면 RSS 가 155MB 늘고
@@ -177,10 +193,14 @@ async def _fetch_by_nodes(client, rcept_no: str, want: list[str]):
     if not nodes:
         return None
 
-    picked = svc.pick_note_nodes(nodes, want)
+    keep = _basis_wanted(basis)
+    picked = [(b, n) for b, n in svc.pick_note_nodes(nodes, want)
+              if keep is None or b in keep]
     if not picked:
         # 주석 항목 노드가 없는 서식 — 주석 **절**을 통으로 받는다(그래도 전체의 1/4~1/6)
-        picked = svc.pick_chapter_nodes(nodes, ("연결재무제표 주석", "재무제표 주석"))
+        picked = [(b, n) for b, n in
+                  svc.pick_chapter_nodes(nodes, ("연결재무제표 주석", "재무제표 주석"))
+                  if keep is None or b in keep]
     if not picked:
         return None
 
@@ -199,13 +219,13 @@ async def _fetch_by_nodes(client, rcept_no: str, want: list[str]):
     sheets: dict[str | None, dict | None] = {}
     if "사용제한" not in want:
         return regions, sheets
-    for basis, node in svc.pick_chapter_nodes(nodes, ("연결재무제표", "재무제표")):
-        if basis in sheets:
+    for b, node in svc.pick_chapter_nodes(nodes, ("연결재무제표", "재무제표")):
+        if b in sheets or (keep is not None and b not in keep):
             continue
         try:
-            sheets[basis] = svc.balance_sheet_from(await client._fetch_viewer_section_html(node))
+            sheets[b] = svc.balance_sheet_from(await client._fetch_viewer_section_html(node))
         except Exception:
-            sheets[basis] = None
+            sheets[b] = None
     return regions, sheets
 
 
@@ -216,6 +236,7 @@ def register_tools(mcp):
         company: str,
         fields: str = "",
         period: str = "latest",
+        basis: str = "연결",
         format: str = "md",
     ) -> str:
         """desc: **은행·증권·보험**의 연결/별도 **재무제표 주석** 표를 원형 그대로 추출. ①사용제한 예치금·담보제공자산(→unencumbered cash) ②투자자산 유형별 구성 FVPL·FVOCI·상각후원가(→유형별 헤어컷·자산건전성).
@@ -223,6 +244,7 @@ def register_tools(mcp):
         rule: **표를 합치거나 나누지 않는다** — 회사마다 표 형태가 다른 것 자체가 정보다. 모든 값에 열 이름(기준 시점)이 붙어 있으니 **당기말/전기말을 반드시 구분**할 것(KB손보 사용제한: 전기말 391,082 → 당반기말 26,356으로 1/15). **단위가 회사마다 다르고, 같은 회사 안에서도 보고서마다 다르다** — 현대해상은 분기 `원` · 반기 `천원` · 사업 `원` 이라 **분기와 반기를 그대로 이으면 1,000배 어긋난다.** 응답 머리의 `단위` 를 매번 확인할 것. 「사용제한」과 「담보제공」은 `kind` 로 구분해 내보내며 **합치지 않는다** — 담보 제공은 소유권이 남고 사용제한은 인출이 막힌 것이라 회계상 다르다. unencumbered cash 계산·헤어컷 적용은 이 tool 밖이다.
         fields: 쉼표구분 — `사용제한,FVPL,FVOCI,상각후원가` (미지정 시 전부). 문서 다운로드는 회사당 1회라 한 번에 부르는 편이 싸다.
         period: `latest`(기본, 사업·반기·분기 중 최신 제출분) / `annual`(사업) / `half`(반기) / `quarter`(분기) / `quarterly`(분기+반기 중 최신). **`quarterly` 는 반기를 함께 잡으므로 분기만 보려면 `quarter` 를 쓸 것.**
+        basis: `연결`(기본) / `별도` / `전체`. **기본이 연결인 이유는 받는 양과 호출 수가 절반이기 때문이다** — 두 기준을 다 받으면 시간이 두 배다. 별도가 필요하면 명시적으로 부를 것.
         """
         want = [f.strip() for f in fields.split(",") if f.strip()] or list(svc.FIELDS)
         bad = [f for f in want if f not in svc.ANCHORS]
@@ -248,7 +270,7 @@ def register_tools(mcp):
         # 🔴 **먼저 목차 노드로 필요한 절만 받아본다.** 전체 문서는 최후 수단이다.
         node_hit = None
         for r_ in cands[:2]:
-            node_hit = await _fetch_by_nodes(c, r_["rcept_no"], want)
+            node_hit = await _fetch_by_nodes(c, r_["rcept_no"], want, basis)
             if node_hit:
                 report = r_
                 break
@@ -261,7 +283,7 @@ def register_tools(mcp):
                            "rcept_no": report["rcept_no"], "rcept_dt": report.get("rcept_dt")},
                 "fields": want, "notes": notes,
                 "doc_chars": sum(len(h) for _, h in regions),
-                "fetch": "nodes",
+                "fetch": "nodes", "basis": basis,
             }
             if format == "json":
                 env = ToolEnvelope(tool="financial_notes", status="OK", subject=name, data=payload)
