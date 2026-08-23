@@ -72,6 +72,17 @@ valuation(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계
   (시총가중, 지수 표준) — 삼성 PER(TTM) 20.0(firm) vs 21.9(스냅샷)처럼 다를 수 있음. 출력에 명시.
 - **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
   조정 불필요. 주당 가격·EPS 시계열을 노출하게 되면 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수.
+  - **단, firm scope 의 PER 은 EPS 기반이라 계수가 필요하다.** 위 「조정 불필요」는 **스냅샷**
+    (market·sector·firm_history, 시총 기반)에만 해당한다. 260823 이전에는 이 구분이 없어
+    「조정 불필요」가 넓게 읽혔고, 계수 파이프라인에 cron 이 안 걸린 채 7주 방치됐다.
+  - **계수 누락 탐지(260823)**: 조정성 이벤트는 주가·EPS 와 주식수가 상쇄하므로 **계수 f ×
+    상장주식수 배율 r ≈ 1** 이 성립한다. 벗어나면 공시 EPS 조각이 옛 분모와 새 분모로 섞였다는
+    뜻이라 **PER 을 N/M 으로 무효화**하고 이유를 경고에 적는다(EPS 값은 인풋으로 남겨 진단 가능).
+    밴드는 ±50% — 유상증자·감자는 계수 대상이 아니라 r 만 움직이므로 통과시키고 액면분할·병합만
+    잡는다. 실측 계기: 메이슨캐피탈(021880) 10:1 병합에 계수가 없어 TTM 지배순이익 **-70억**인데
+    EPS(TTM) **+39원**, **PER 32.31** 이 live 로 나갔다(부호까지 뒤집힘).
+  - **갱신**: `market-val-weekly` 가 매일 `krx_base_resets.py --update` → `adj_factor_v3.py` 를
+    돌린다(260823 신설, KRX ~4콜/일). 종전엔 cron 이 없어 수동이었다.
 - **비KRW 22사(USD/CNY/JPY) — 환산은 저장 시점에 한다**: `market_val_series.py`/
   `market_fund_quarterly.py` 가 fetch 시점에 그 해/분기 응답에서 `statement_currency()` 로 통화를
   감지해 KRW 로 환산한 뒤 저장한다 — **DB 의 ni/eq 는 항상 KRW**. 라벨도 `currency='KRW'` +

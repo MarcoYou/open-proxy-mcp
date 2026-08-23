@@ -41,6 +41,26 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/market_fund_quarterly.py --derive
 
+      # 260823 신설 — private wiki adjusted-price-timeseries §3 ④「유지 통합」의 미완 항목.
+      #   수정주가 파이프라인은 「이벤트/수동」으로 설계돼 cron 이 없었고, 7/2 이후 7주 방치됐다.
+      #   그 사이 상장주식수가 2배 이상 바뀐 종목이 62개인데 계수가 하나도 안 잡혔다.
+      #   krx_weekly(시세)는 아래 배치가 매일 갱신해서 **겉으로는 멀쩡해 보였다** — 옆 테이블이
+      #   최신이라 아무도 안 알아채는 형태다.
+      #   콜: 리셋 스윕 = 신규 거래일 × 2시장 + 재개 시드 2 ≈ 4콜/일. 계수 생성은 0콜(로컬 조인).
+      #   체크포인트가 --since 보다 우선이라 하루를 걸러도 다음 실행이 이어서 메운다.
+      - name: 수정주가 — 기준가 리셋 증분 스윕 (KRX ~4콜)
+        env:
+          # 레포에 등록된 이름은 KRX_OPEN_API_KEY 하나다(KRX_API_KEY 는 없다).
+          # 스크립트는 둘 다 받는다: os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
+          KRX_OPEN_API_KEY: ${{ secrets.KRX_OPEN_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/krx_base_resets.py --update
+
+      - name: 수정주가 — 계수 재생성 (증분, DART·KRX 0콜)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/adj_factor_v3.py
+
       - name: Run weekly valuation snapshot
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

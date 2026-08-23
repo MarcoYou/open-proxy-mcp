@@ -735,6 +735,32 @@ async def _eps_adj_factor(isu_cd: str, after_dd: str) -> float:
     return f
 
 
+async def _shares_ratio(isu_cd: str, after_dd: str) -> float | None:
+    """(after_dd, 오늘] 상장주식수 변동배율 — krx_weekly 실측. 계수 누락 탐지용.
+
+    260823: 수정계수 파이프라인이 **cron 없이 수동**이라(private wiki 「이벤트/수동」) 7주 밀려
+    있었고, 그 사이 액면병합·분할 62종목의 계수가 통째로 비었다. 계수가 없으면
+    `_eps_adj_factor` 가 조용히 1.0 을 돌려주고 공시 EPS 조각들이 **옛 분모와 새 분모로 섞인 채**
+    조립된다(메이슨캐피탈 실측: TTM 지배순이익 -70억인데 EPS(TTM) +39원, PER 32.31 이 나갔다).
+    """
+    first = await asyncio.to_thread(_pg_rows,
+        "SELECT list_shrs FROM krx_weekly WHERE isu_cd=%s AND bas_dd>%s AND list_shrs>0 "
+        "ORDER BY bas_dd ASC LIMIT 1", (isu_cd, after_dd))
+    last = await asyncio.to_thread(_pg_rows,
+        "SELECT list_shrs FROM krx_weekly WHERE isu_cd=%s AND list_shrs>0 "
+        "ORDER BY bas_dd DESC LIMIT 1", (isu_cd,))
+    if not first or not last or not first[0][0] or not last[0][0]:
+        return None
+    return last[0][0] / first[0][0]
+
+
+# 계수 f 와 주식수 배율 r 의 불변식: 조정성 이벤트는 주가·EPS 와 주식수가 상쇄하므로 f × r ≈ 1.
+# 벗어나면 「주식수는 변했는데 계수가 없다」 = 조립 EPS 가 섞였다는 뜻.
+# 밴드를 ±50% 로 넉넉히 잡는 이유 — 유상증자·감자는 계수 대상이 아니라 정상적으로 r 만 움직인다.
+# 30% 유상증자(r=1.3)는 통과시키고, 10:1 병합(r=0.1)만 잡는다.
+_ADJ_INVARIANT_LO, _ADJ_INVARIANT_HI = 0.67, 1.5
+
+
 async def _shares_outstanding(client, cc: str, year: int) -> dict:
     """유통주식수: total(보통+우선 합계, BPS용) · common(보통주, EPS용). 자기주식 제외(distb)."""
     out = {"total": None, "common": None}
@@ -851,6 +877,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # → 각 조각을 '그 보고서 결산기준일 이후 발생한 조정성 이벤트' 누적 계수로 현재 기준에 정렬.
     #   리노 검산: 2,002 + 532 − 1,933×0.2 = 2,147 (균일분모 2,148과 정합).
     eps_adj = None  # 보정 발동 시 {"current": f, "prior_q": f} — 근거 투명(explain에 표시)
+    shares_unadjusted = None  # 계수 누락 탐지 시 {"shares_ratio": r, "factor": f} — PER 무효화
     if stock_code and any(x is not None for x in (eps_fy_disc, eps_qc_disc, eps_qp_disc)):
         f_cur = await _eps_adj_factor(stock_code, f"{fy + 1}0331")  # 연간·당해1Q 결산기준일 이후
         f_qp = await _eps_adj_factor(stock_code, f"{fy}0331")       # 전년1Q 결산기준일 이후
@@ -862,6 +889,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             eps_qc_disc *= f_cur
         if eps_qp_disc is not None:
             eps_qp_disc *= f_qp
+        # 계수 누락 탐지 — 조용히 틀린 값을 내느니 N/M 을 낸다
+        r_cur = await _shares_ratio(stock_code, f"{fy + 1}0331")
+        if r_cur and not (_ADJ_INVARIANT_LO <= f_cur * r_cur <= _ADJ_INVARIANT_HI):
+            shares_unadjusted = {"shares_ratio": round(r_cur, 4), "factor": round(f_cur, 4)}
     eps_ttm_disc = (eps_fy_disc + eps_qc_disc - eps_qp_disc) \
         if None not in (eps_fy_disc, eps_qc_disc, eps_qp_disc) else None
 
@@ -925,8 +956,11 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     impaired_full = cap_status == "full"
     def nm(x, denom_ok):  # 분모≤0 or 완전자본잠식 → N/M
         return round(x, 2) if (x is not None and denom_ok and not impaired_full) else None
-    per_fy = nm(_div(price, eps_fy), eps_fy is not None and eps_fy > 0)
-    per_ttm = nm(_div(price, eps_ttm), eps_ttm is not None and eps_ttm > 0)
+    # 계수 누락(shares_unadjusted)이면 공시 EPS 가 옛/새 분모로 섞여 있다 → PER 무효.
+    # EPS 값 자체는 인풋으로 남긴다(진단용) — 경고가 왜 무효인지 설명한다.
+    eps_ok = not shares_unadjusted
+    per_fy = nm(_div(price, eps_fy), eps_fy is not None and eps_fy > 0 and eps_ok)
+    per_ttm = nm(_div(price, eps_ttm), eps_ttm is not None and eps_ttm > 0 and eps_ok)
     pbr = nm(_div(price, bps), bps is not None and bps > 0)
     div_yield = round(_div(dps, price) * 100, 2) if (dps and price and not impaired_full) else None
 
@@ -939,7 +973,15 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append("자본잠식 진행 중.")
     if eps_fy is not None and eps_fy <= 0:   # None(파싱실패)을 '적자'로 오표기 금지 (패널 P1)
         warnings.append("적자(FY0 EPS≤0) — PER N/M.")
-    if shares_bad:
+    if shares_unadjusted:
+        r = shares_unadjusted["shares_ratio"]
+        warnings.append(
+            f"⚠️ 상장주식수가 결산기준일 이후 {r}배로 바뀌었는데 수정계수가 없습니다"
+            "(액면분할·병합·무상증자 추정) — 공시 EPS 조각이 옛 분모와 새 분모로 섞여 PER 무효화. "
+            "수정계수 파이프라인(krx_adj_factor_v3) 갱신이 필요합니다.")
+    elif shares_bad:
+        # 260823: 종전에는 이 문구가 계수 누락 케이스까지 덮어 **원인을 오진**했다
+        # (액면병합인데 「DART 파싱오류」라고 안내). 위 분기가 그 경우를 먼저 가져간다.
         warnings.append("⚠️ 유통주식수 이상(상장주식수 초과) — DART 파싱오류 의심, PBR/EPS 무효화. 확인 요망.")
     # 극단 배수 plausibility (두산밥캣류 단위 오독 방어 — 값은 내되 경고)
     if (pbr and pbr > 100) or (per_fy and per_fy > 500) or (per_ttm and per_ttm > 500):
@@ -1009,6 +1051,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             "inputs": {
                 "eps_fy0_krw": eps_fy, "eps_ttm_krw": eps_ttm, "eps_ttm_basis": eps_ttm_basis,
                 "eps_adj_factors": eps_adj,  # 분할·무상증자 수정계수 보정(v3) — 미발동 시 None
+                "shares_unadjusted": shares_unadjusted,  # 계수 누락 탐지 — 있으면 PER 무효(N/M)
                 "bps_krw": bps, "roe_pct": roe,
                 "net_income_fy0_krw": ni_fy, "net_income_ttm_krw": ni_ttm,
                 "controlling_equity_krw": ctrl_equity,

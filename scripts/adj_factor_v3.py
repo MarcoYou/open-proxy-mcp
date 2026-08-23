@@ -43,11 +43,25 @@ def main():
     con = psycopg.connect(os.environ["DATABASE_URL"])
     for stmt in DDL.strip().split(";"):
         if stmt.strip(): con.execute(stmt)
-    con.execute("DELETE FROM krx_adj_factor_v3")  # 재생성 멱등
-    con.commit()
+    # 260823: 종전에는 `DELETE FROM krx_adj_factor_v3` + commit 으로 전체를 지우고 재생성했다.
+    #   그 직후의 v2 조회가 **드랍된 테이블**(260705 정리)을 참조해 죽었기 때문에, 실행하면
+    #   **테이블만 비우고 중단**됐다 — 3,509건이 통째로 날아간다. 실제로 그렇게 날렸고
+    #   git 이력의 backups_260705/krx_adj_factor_v2.csv 로 복구했다.
+    #   CLAUDE.md 「파이프라인: 전체 재실행 금지, 누락분만 처리」에도 어긋난다. 증분으로 바꾼다.
+    have = {(r[0], r[1]) for r in
+            con.execute("SELECT isu_cd, effective_date FROM krx_adj_factor_v3").fetchall()}
 
-    resets = con.execute(
-        "SELECT isu_cd, reset_dd, factor, mkt FROM krx_base_resets ORDER BY isu_cd, reset_dd").fetchall()
+    # prev_mkt 를 리셋마다 개별 조회하면 3,600+ 왕복이라 커넥션이 끊긴다(260823 실측).
+    # 상관 서브쿼리 하나로 DB 에서 끝낸다.
+    resets = con.execute("""
+        SELECT b.isu_cd, b.reset_dd, b.factor, b.mkt,
+               (SELECT w.mkt FROM krx_weekly w
+                 WHERE w.isu_cd = b.isu_cd AND w.bas_dd < b.reset_dd
+                 ORDER BY w.bas_dd DESC LIMIT 1) AS prev_mkt
+          FROM krx_base_resets b ORDER BY b.isu_cd, b.reset_dd""").fetchall()
+    skipped = sum(1 for r in resets if (r[0], r[1]) in have)
+    resets = [r for r in resets if (r[0], r[1]) not in have]
+    print(f"리셋 {len(resets) + skipped}건 중 신규 {len(resets)}건 처리 (기존 {skipped}건 보존)")
     v2 = con.execute(
         "SELECT isu_cd, effective_date, factor, event_type, evidence FROM krx_adj_factor_v2").fetchall()
     dartev = con.execute(
@@ -58,21 +72,13 @@ def main():
     v2i = defaultdict(list); [v2i[r[0]].append(r) for r in v2]
     dvi = defaultdict(list); [dvi[r[0]].append(r) for r in dartev]
 
-    # 시장이전 감지: 리셋일 직전 주간 mkt vs 리셋일 mkt
-    def prev_mkt(isu, dd):
-        r = con.execute(
-            "SELECT mkt FROM krx_weekly WHERE isu_cd=%s AND bas_dd<%s ORDER BY bas_dd DESC LIMIT 1",
-            (isu, dd)).fetchone()
-        return r[0] if r else None
-
     rows, stats = [], defaultdict(int)
-    for isu, dd, f, mkt in resets:
+    for isu, dd, f, mkt, pm in resets:   # pm = 리셋일 직전 주간 mkt (위 서브쿼리에서 함께 온다)
         raw_f = f
         etype = src = evid = note = None
         conf = "unlabeled"
 
         # ① 시장이전 제외 (벤더 미적용)
-        pm = prev_mkt(isu, dd)
         if pm and pm != mkt and abs(f - 1) < 0.35:
             # 시장 바뀜 + 계수가 1 근처(가격 연속) = 이전 이벤트일 가능성. 강한 리셋(분할 등)은 제외 안 함.
             rows.append((isu, dd, f, raw_f, "market_transfer", "reset", None,
