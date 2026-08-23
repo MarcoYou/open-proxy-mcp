@@ -281,7 +281,7 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
     """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(opm_val_market)."""
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref "
-        "FROM opm_val_market WHERE sector='_ALL' ORDER BY snap_dd DESC, market")
+        "FROM opm_val_market WHERE sector='_ALL' AND scheme='ksic' ORDER BY snap_dd DESC, market")
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": "시장 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
@@ -309,13 +309,28 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
             "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — market_val_weekly가 갱신."]}
 
 
-async def build_sector_val_payload(company: str = "", format: str = "md") -> dict[str, Any]:
-    """산업(KSIC 하이브리드)별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(opm_val_market).
-    company 지정 시 그 기업의 섹터를 함께 표시."""
+# 260823: 분류 축이 둘이 됐다. `sector != '_ALL'` 만으로 거르면 KSIC 와 WICS 가 **섞여**
+#   같은 종목이 두 버킷에 잡힌다(섹터 표가 중복된다). 반드시 scheme 을 함께 건다.
+_SECTOR_SCHEMES = {
+    "ksic": "KSIC 하이브리드(자체 매핑) — 62버킷",
+    "wics_sector": "WICS 대분류 10 (WiseIndex)",
+    "wics_industry": "WICS 하위업종 28 (WiseIndex) — KSIC 세분과 비교 가능한 층",
+}
+
+
+async def build_sector_val_payload(company: str = "", format: str = "md",
+                                   scheme: str = "ksic") -> dict[str, Any]:
+    """산업별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(opm_val_market).
+    company 지정 시 그 기업의 섹터를 함께 표시. scheme 으로 분류 축 선택."""
+    scheme = (scheme or "ksic").strip().lower()
+    if scheme not in _SECTOR_SCHEMES:
+        return {"tool": "valuation", "status": "invalid", "subject": "산업별 밸류에이션",
+                "warnings": [f"scheme '{scheme}' 없음 — {' / '.join(_SECTOR_SCHEMES)} 중 선택."]}
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0 FROM opm_val_market "
-        "WHERE sector != '_ALL' AND snap_dd=(SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL') "
-        "ORDER BY market, cap DESC")
+        "WHERE sector != '_ALL' AND scheme=%s "
+        "AND snap_dd=(SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL' AND scheme=%s) "
+        "ORDER BY market, cap DESC", (scheme, scheme))
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": "산업별 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
@@ -342,10 +357,31 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
                                  "전체 섹터 표는 company 없이 scope='sector'."]}
         else:
             fr = await asyncio.to_thread(_pg_rows,
+                # 260823: 기업의 섹터 코드가 scheme 마다 다른 원천에서 온다 —
+                #   ksic 은 opm_val_firm.sector, wics 는 wise_sector(가장 가까운 스냅샷).
                 "SELECT v.sector, v.market, v.per_ttm, v.pbr_mrq, s.label, s.per_ttm, s.pbr_mrq "
                 "FROM opm_val_firm v LEFT JOIN opm_val_market s "
-                "ON s.snap_dd=v.snap_dd AND s.market=v.market AND s.sector=v.sector "
+                "ON s.snap_dd=v.snap_dd AND s.market=v.market AND s.sector=v.sector AND s.scheme='ksic' "
                 "WHERE v.ticker=%s AND v.snap_dd=%s", (isu, as_of)) or []
+            if fr and scheme != "ksic":
+                # WICS 는 종목의 섹터 코드가 wise_sector 에 있다. 스냅샷은 as_of 이하의
+                # 가장 최근 것, 없으면 가장 이른 것(=소급) — 폴백 규칙은 집계 백필과 동일.
+                _, market, pt, pb, *_ = fr[0]
+                col = "sector_code" if scheme == "wics_sector" else "industry_code"
+                nmc = "sector" if scheme == "wics_sector" else "industry"
+                wr = await asyncio.to_thread(_pg_rows,
+                    f"SELECT {col}, {nmc}, snap_dd FROM wise_sector WHERE ticker=%s "
+                    "ORDER BY (snap_dd <= %s) DESC, ABS(snap_dd::bigint - %s::bigint) LIMIT 1",
+                    (isu, as_of, as_of)) or []
+                if wr:
+                    sec, lbl, sector_asof = wr[0][0], wr[0][1], wr[0][2]
+                    sr = [x for x in sectors if x["market"] == market and x["sector"] == sec]
+                    spt = sr[0]["per_ttm"] if sr else None
+                    spb = sr[0]["pbr_mrq"] if sr else None
+                    fr = [(sec, market, pt, pb, lbl, spt, spb)]
+                    _wics_asof = sector_asof
+                else:
+                    fr = []
             if fr:
                 sec, market, pt, pb, lbl, spt, spb = fr[0]
                 if lbl is None:  # 소규모 섹터 → mkt_val_history엔 '_fold'로 접혀 raw 코드 JOIN 미스
@@ -357,6 +393,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
                         lbl = f"KSIC {sec} (섹터 집계 없음)"
                 company_ctx = {"name": corp.get("corp_name"), "ticker": isu, "market": market,
                                "sector": sec, "sector_label": lbl,
+                               "sector_asof": locals().get("_wics_asof"),  # WICS 소급 여부 표시
                                "firm_per_ttm": pt and round(pt, 2), "firm_pbr_mrq": pb and round(pb, 2),
                                "sector_per_ttm": spt and round(spt, 2), "sector_pbr_mrq": spb and round(spb, 2)}
                 # 소속 섹터의 과거 시계열(2020-01~, market_val_history_backfill.py가 채움) — 0콜, 이미 DB에 있음.
@@ -364,7 +401,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
                 hist_sector = "_fold" if lbl and "(소규모 섹터" in lbl else sec
                 hrows = await asyncio.to_thread(_pg_rows,
                     "SELECT snap_dd, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap FROM opm_val_market "
-                    "WHERE market=%s AND sector=%s ORDER BY snap_dd", (market, hist_sector)) or []
+                    "WHERE market=%s AND sector=%s AND scheme=%s ORDER BY snap_dd",
+                    (market, hist_sector, scheme)) or []
                 if hrows:
                     company_ctx["sector_history"] = [
                         {"snap_dd": h[0], "per_fy0": h[1] and round(h[1], 2), "per_ttm": h[2] and round(h[2], 2),
@@ -373,7 +411,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md") -> dic
             else:
                 warnings.append(f"'{company}' 종목 스냅샷 없음(비상장·미수집).")
     return {"tool": "valuation", "status": "ok", "subject": "산업별 밸류에이션",
-            "data": {"scope": "sector", "as_of": as_of, "sectors": sectors,
+            "data": {"scope": "sector", "as_of": as_of, "scheme": scheme,
+                     "scheme_desc": _SECTOR_SCHEMES[scheme], "sectors": sectors,
                      "company": company_ctx},
             "warnings": warnings}
 
