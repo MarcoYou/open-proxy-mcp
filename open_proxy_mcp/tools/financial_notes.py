@@ -158,6 +158,55 @@ def _render(payload: dict) -> str:
     return "\n".join(L)
 
 
+async def _fetch_by_nodes(client, rcept_no: str, want: list[str]):
+    """목차 노드로 **필요한 절만** 받아온다. 못 하면 None → 호출자가 전체 문서로 폴백.
+
+    🔴 260824 실측 — NH투자증권 사업보고서 19.5MB 를 통째로 읽으면 RSS 가 155MB 늘고
+       1GB VM 에서 위험하다. 목차에는 주석 **항목마다** 좌표가 있다
+       (「8. 사용이 제한된 예금 등 (연결)」 34KB). 필요한 것만 받는다.
+    """
+    from open_proxy_mcp.services.business_details import _extract_node_tree, _node_fetchable
+
+    try:
+        nodes = _extract_node_tree(await client._fetch_viewer_main_html(rcept_no))
+    except Exception:                      # 뷰어가 막히면 전체 문서로 간다
+        return None
+    nodes = [n for n in nodes if _node_fetchable(n)]
+    if not nodes:
+        return None
+
+    picked = svc.pick_note_nodes(nodes, want)
+    if not picked:
+        # 주석 항목 노드가 없는 서식 — 주석 **절**을 통으로 받는다(그래도 전체의 1/4~1/6)
+        picked = svc.pick_chapter_nodes(nodes, ("연결재무제표 주석", "재무제표 주석"))
+    if not picked:
+        return None
+
+    regions: list[tuple[str | None, str]] = []
+    for basis, node in picked:
+        try:
+            regions.append((basis, await client._fetch_viewer_section_html(node)))
+        except Exception:
+            continue
+    if not regions:
+        return None
+
+    # 분모 — 재무상태표는 「2. 연결재무제표」·「4. 재무제표」 절에 있다(각 수십~수백 KB).
+    # 🔴 **사용제한을 안 물었으면 받지 않는다.** 뺄 계정이 없으면 분모도 쓸 데가 없고,
+    #    viewer 는 호출마다 간격을 두므로 한 콜이 그대로 시간이다.
+    sheets: dict[str | None, dict | None] = {}
+    if "사용제한" not in want:
+        return regions, sheets
+    for basis, node in svc.pick_chapter_nodes(nodes, ("연결재무제표", "재무제표")):
+        if basis in sheets:
+            continue
+        try:
+            sheets[basis] = svc.balance_sheet_from(await client._fetch_viewer_section_html(node))
+        except Exception:
+            sheets[basis] = None
+    return regions, sheets
+
+
 def register_tools(mcp):
 
     @mcp.tool()
@@ -193,6 +242,29 @@ def register_tools(mcp):
         if not cands:
             return json.dumps({"error": "정기보고서를 찾지 못했습니다", "company": company},
                               ensure_ascii=False)
+
+        # 🔴 **먼저 목차 노드로 필요한 절만 받아본다.** 전체 문서는 최후 수단이다.
+        node_hit = None
+        for r_ in cands[:2]:
+            node_hit = await _fetch_by_nodes(c, r_["rcept_no"], want)
+            if node_hit:
+                report = r_
+                break
+        if node_hit:
+            regions, sheets = node_hit
+            notes = svc.extract_regions(regions, want, sheets)
+            payload = {
+                "company": name, "corp_code": corp_code,
+                "report": {"report_nm": report.get("report_nm", "").strip(),
+                           "rcept_no": report["rcept_no"], "rcept_dt": report.get("rcept_dt")},
+                "fields": want, "notes": notes,
+                "doc_chars": sum(len(h) for _, h in regions),
+                "fetch": "nodes",
+            }
+            if format == "json":
+                env = ToolEnvelope(tool="financial_notes", status="OK", subject=name, data=payload)
+                return json.dumps(env.to_dict(), ensure_ascii=False)
+            return _render(payload)
 
         # 정정본은 원문(document.xml)이 없을 수 있다(DART 014) — **같은 기수 원본으로 폴백**한다.
         # 260823 실측: 삼성화재 [첨부정정]사업보고서가 014, 하루 전 원본은 정상 2,675만자.
