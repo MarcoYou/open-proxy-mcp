@@ -79,6 +79,15 @@ jobs:
                         "가장 가까운 price_dd 로 조인해야 한다(주간 수렴이라 금요일이 아닐 수 있음)")
           PY
 
+      - name: WICS 기준 시장·섹터 집계 (DART·KRX 0콜)
+        # 분류만 모아두면 쓸 수 없다 — krx_weekly × dart_finstat 와 합쳐 배수·시총을 낸다.
+        #   계산은 KSIC 백필과 **같은 함수**(_pit_fy·_ttm_ni·_mrq_eq)를 재사용하고
+        #   갈아끼우는 것은 섹터 버킷 하나뿐이다.
+        #   과거 월말은 소급(현재 분류를 과거에 적용) — 산출물이 sector_asof 로 그 사실을 남긴다.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/wics_val_backfill.py
+
       - name: 정적 맵 커밋 (실질 변경 시)
         run: |
           git config user.name "github-actions[bot]"
