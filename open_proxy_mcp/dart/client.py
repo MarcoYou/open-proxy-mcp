@@ -530,6 +530,8 @@ _FILERS_MIN_EXPECTED = 2_000  # 이보다 적으면 수집이 덜 된 것으로 
 
 _periodic_filers_cache: frozenset[str] | None = None
 _periodic_filers_lock: "asyncio.Lock | None" = None
+#: 백그라운드 수집 태스크 — 요청은 절대 이것을 기다리지 않는다
+_filers_build_task: "asyncio.Task | None" = None
 
 # 법인격 suffix 제거 패턴
 _CORP_SUFFIX_RE = re.compile(
@@ -1161,19 +1163,37 @@ class DartClient:
                 logger.info(f"periodic_filers loaded from sqlite ({len(cached)} corps)")
                 _periodic_filers_cache = cached
                 return cached
-            try:
-                filers = await self._fetch_periodic_filers()
-            except Exception as exc:      # 네트워크·쿼터 — 막지 말고 열어둔다
-                logger.warning(f"periodic_filers 수집 실패({type(exc).__name__}) — 명부 없이 진행")
-                _periodic_filers_cache = frozenset()
-                return _periodic_filers_cache
-            if len(filers) < _FILERS_MIN_EXPECTED:
-                logger.warning(f"periodic_filers {len(filers)}건뿐 — 덜 모인 것으로 보고 쓰지 않는다")
-                _periodic_filers_cache = frozenset()
-                return _periodic_filers_cache
-            self._filers_db_save(filers)
-            _periodic_filers_cache = frozenset(filers)
-            return _periodic_filers_cache
+        # 🔴 **요청 경로에서 명부를 만들면 안 된다.** 260823 프로덕션 실측 — 첫 조회가
+        #    183 API콜(약 3분)을 동기로 돌다 프록시 타임아웃에 걸려 502 가 났고, 저장을
+        #    못 하니 **다음 요청도 같은 3분을 다시 돌아 영구히 낫지 않았다.**
+        #    없으면 **빈 집합으로 즉시 돌려주고**(= 명부 없던 때의 동작) 뒤에서 만든다.
+        self._start_filers_build()
+        return frozenset()
+
+    def _start_filers_build(self) -> None:
+        """명부를 백그라운드에서 만든다. 이미 만드는 중이면 아무것도 하지 않는다."""
+        global _filers_build_task
+        if _filers_build_task is not None and not _filers_build_task.done():
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        _filers_build_task = loop.create_task(self._build_filers())
+
+    async def _build_filers(self) -> None:
+        global _periodic_filers_cache
+        try:
+            filers = await self._fetch_periodic_filers()
+        except Exception as exc:      # 네트워크·쿼터 — 다음 기회에 다시 만든다
+            logger.warning(f"periodic_filers 수집 실패({type(exc).__name__}) — 명부 없이 진행")
+            return
+        if len(filers) < _FILERS_MIN_EXPECTED:
+            logger.warning(f"periodic_filers {len(filers)}건뿐 — 덜 모인 것으로 보고 쓰지 않는다")
+            return
+        self._filers_db_save(filers)
+        _periodic_filers_cache = frozenset(filers)
+        logger.info(f"periodic_filers 백그라운드 수집 완료 ({len(filers)} corps)")
 
     async def _fetch_periodic_filers(self) -> dict[str, str]:
         """DART 에서 명부를 만든다. corp_code 없는 조회는 3개월 창이 상한이라 나눠 돈다."""

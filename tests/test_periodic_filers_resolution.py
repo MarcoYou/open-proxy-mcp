@@ -82,3 +82,43 @@ def test_listed_companies_are_untouched_by_the_financial_filter() -> None:
     resolver = CompanyResolver([listed_non_fin], {}, None, frozenset())
 
     assert [h["corp_code"] for h in resolver.search("삼성전자")] == ["00126380"]
+
+
+def test_registry_build_never_blocks_a_request() -> None:
+    """🔴 **요청 경로에서 명부를 만들면 안 된다.**
+
+    260823 프로덕션 실측 — 첫 조회가 183 API콜(약 3분)을 동기로 돌다 프록시
+    타임아웃에 걸려 502 가 났고, 저장을 못 하니 다음 요청도 같은 3분을 다시 돌아
+    **영구히 낫지 않았다.** 캐시가 없으면 빈 집합으로 즉시 돌려주고 뒤에서 만든다.
+    """
+    import asyncio
+
+    from open_proxy_mcp.dart import client as mod
+
+    calls: list[int] = []
+
+    class _Client(mod.DartClient):
+        def __init__(self) -> None:  # DartClient.__init__ 우회 — 이 시험은 명부 경로만 본다
+            pass
+
+        @staticmethod
+        def _filers_db_load():
+            return None                      # 캐시 없음
+
+        async def _fetch_periodic_filers(self):
+            calls.append(1)
+            await asyncio.sleep(0)
+            return {}
+
+    async def _run():
+        mod._periodic_filers_cache = None
+        mod._periodic_filers_lock = None
+        mod._filers_build_task = None
+        got = await _Client().periodic_filers()
+        return got
+
+    result = asyncio.run(_run())
+
+    assert result == frozenset()             # 즉시 빈 집합 — 기다리지 않는다
+    mod._periodic_filers_cache = None
+    mod._filers_build_task = None
