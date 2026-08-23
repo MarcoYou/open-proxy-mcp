@@ -180,3 +180,18 @@ def test_find_report_candidates_separates_half_year_from_quarter() -> None:
     assert _names("half") == ["반기보고서"]
     assert _names("quarter") == ["분기보고서"]
     assert set(_names("quarterly")) == {"반기보고서", "분기보고서"}
+
+
+def test_find_unit_reads_a_bare_won_unit() -> None:
+    """「(단위 : 원)」 — 「원」 앞에 글자가 없는 표기를 못 잡고 있었다.
+
+    260823 census — 현대해상 사업보고서 5표·미래에셋생명 4표가 이것 때문에
+    「단위 표기 없음」으로 나갔다. 원 단위 회사를 백만원 회사와 나란히 놓으면
+    10**6 이 어긋난다. 현대해상은 같은 회사인데 분기가 원, 반기가 천원이다.
+    """
+    from open_proxy_mcp.services.financial_notes import find_unit
+
+    assert find_unit("", "담보로 제공된 금융자산에 대한 공시 당분기말 (단위 : 원)") == "원"
+    assert find_unit("", "(단위 : 천원)") == "천원"
+    assert find_unit("", "(단위: 백만원)") == "백만원"
+    assert find_unit("", "단위 표기가 아예 없는 문장") is None
