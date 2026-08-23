@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import json
 
-from open_proxy_mcp.dart.client import DartClient, DartClientError
+from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services import financial_notes as svc
 from open_proxy_mcp.services.business_details import (
     _find_report_candidates, _report_period_tag,
 )
+from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import ToolEnvelope
 
 
@@ -73,10 +75,16 @@ def register_tools(mcp):
         if bad:
             return f"알 수 없는 항목: {bad}. 가능한 값: {list(svc.FIELDS)}"
 
-        c = DartClient()
-        resolved = await c.resolve_company(company)
-        corp_code = resolved["corp_code"] if isinstance(resolved, dict) else resolved
-        name = resolved.get("corp_name", company) if isinstance(resolved, dict) else company
+        resolution = await resolve_company_query(company)
+        if resolution.status != AnalysisStatus.EXACT or not resolution.selected:
+            env = ToolEnvelope(tool="financial_notes", status=resolution.status,
+                               subject=company, warnings=["회사를 하나로 식별하지 못했습니다"],
+                               data={"candidates": resolution.candidates})
+            return json.dumps(env.to_dict(), ensure_ascii=False)
+        corp = resolution.selected
+        corp_code = corp["corp_code"]
+        name = corp.get("corp_name", company)
+        c = get_dart_client()
 
         cands = await _find_report_candidates(c, corp_code, period)
         if not cands:
