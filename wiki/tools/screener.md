@@ -127,7 +127,7 @@ sequenceDiagram
 - [[order_contracts]]·[[treasury_share]]·[[dividend]]·[[dilutive_issuance]]·[[shareholder_meeting_notice]]·[[ownership_structure]] — 유형별 심층(details 디스패치 대상)
 - [[risk_events]] — company 미지정 시장 스캔(리스크 3종 전담). screener는 범용·다유형
 - [[tool_call_budget]] — scan(market-scan) vs details(per-firm) 콜 budget
-- [아침 디제스트 루틴 레시피](../../docs/routines/screener-morning-digest.md) — 수주·임시주총 매일 아침 자동 디제스트(`/schedule`용 프롬프트)
+- [아침 디제스트 루틴 레시피](../../docs/routines/screener-morning-digest.md) — 수주·임시주총·정기주총 매일 아침 자동 디제스트(`/schedule`용 프롬프트)
 
 ## 기술 상세
 

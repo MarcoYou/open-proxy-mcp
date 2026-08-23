@@ -9,7 +9,7 @@
 
 | 레시피 | 무엇 | 쓰는 tool |
 |---|---|---|
-| [screener-morning-digest](screener-morning-digest.md) | 매일 아침 시총 상위 200 수주·임시주총 공시 디제스트 (신규/정정 구분 + ⭐ 임팩트) | screener |
+| [screener-morning-digest](screener-morning-digest.md) | 매일 아침 수주·임시주총·정기주총 공시 디제스트 (신규/정정 구분 + ⭐ 임팩트). 범위는 자연어로 지정 | screener |
 
 ## 루틴을 예약하는 법 (셋업)
 
