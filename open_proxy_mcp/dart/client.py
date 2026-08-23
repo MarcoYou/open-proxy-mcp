@@ -27,7 +27,7 @@ import threading
 import zipfile
 import xml.etree.ElementTree as ET
 from contextvars import ContextVar
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from html import unescape
 from pathlib import Path
 import httpx
@@ -508,6 +508,28 @@ def cache_stats() -> dict:
 # TTL 24h — 자동 update.
 _MASTER_DB_PATH = Path(os.environ.get("OPM_MASTER_DB_PATH", "configs/master.db"))
 _MASTER_DB_TTL_HOURS = 168   # 7d (corpCode 변경 빈도 낮음, 24h이었지만 idle 후 첫 호출마다 50MB 재다운로드 발생)
+
+# ── 정기보고서 제출 법인 명부 ──
+# 🔴 **「상장사냐」가 아니라 「공시 의무가 있느냐」로 판별해야 한다.** 260823 실측 —
+#    DART 는 상장폐지돼도 stock_code 를 지우지 않고(신한은행 000010·우리은행 000030·
+#    KB손해보험 002550 전부 미상장인데 코드가 남아 있다), 반대로 농협금융지주·농협생명보험·
+#    NH농협손해보험은 **한 번도 상장된 적 없어 코드가 없는데 정기보고서를 꼬박꼬박 낸다.**
+#    stock_code 로 거르면 앞은 우연히 통과하고 뒤는 영영 막힌다.
+#
+#    같은 명부가 **동명 법인**도 가른다. 국민은행은 원장에 셋인데(00386937·00104467·00104476)
+#    정기보고서를 내는 것은 00386937 하나뿐이다. 하나은행·미래에셋증권도 같다.
+#    DART 가 소멸 법인을 2017-06-30 상태로 남겨두기 때문에 생기는 문제다.
+#
+#    실측(2026-08-23): 400일 · 3개월 창 5구간 · API 183회 · 162초 → **3,424개 법인.**
+#    유동화 SPC·소형 자산운용사는 정기보고서를 안 내므로 자동으로 빠진다 —
+#    이름 규칙(「제○차」·「유동화전문」)을 손으로 관리할 필요가 없다.
+_FILERS_TTL_HOURS = 168      # 7d — 정기보고서는 분기마다 몰려 나오므로 주 1회면 충분
+_FILERS_LOOKBACK_DAYS = 400  # 사업보고서 1주기(1년) + 여유
+_FILERS_WINDOW_DAYS = 85     # corp_code 없는 조회는 **3개월까지만** 허용된다(DART status 100)
+_FILERS_MIN_EXPECTED = 2_000  # 이보다 적으면 수집이 덜 된 것으로 보고 명부를 쓰지 않는다
+
+_periodic_filers_cache: frozenset[str] | None = None
+_periodic_filers_lock: "asyncio.Lock | None" = None
 
 # 법인격 suffix 제거 패턴
 _CORP_SUFFIX_RE = re.compile(
@@ -1066,6 +1088,120 @@ class DartClient:
                 return fallback_corps
             raise DartClientError("CORPCODE_DOWNLOAD_FAILED", f"corpCode.xml 3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}")
 
+
+    # ── 정기보고서 제출 법인 명부 ──
+
+    @staticmethod
+    def _filers_db_load() -> frozenset[str] | None:
+        """sqlite 에서 명부 로드 (TTL 7d). 없거나 상하면 None."""
+        if not _MASTER_DB_PATH.exists():
+            return None
+        try:
+            conn = sqlite3.connect(_MASTER_DB_PATH)
+            cur = conn.cursor()
+            cur.execute("CREATE TABLE IF NOT EXISTS _meta (key TEXT PRIMARY KEY, value TEXT)")
+            cur.execute("SELECT value FROM _meta WHERE key='filers_updated'")
+            row = cur.fetchone()
+            if not row:
+                conn.close()
+                return None
+            try:
+                last = datetime.fromisoformat(row[0])
+            except ValueError:
+                conn.close()
+                return None
+            if datetime.now() - last > timedelta(hours=_FILERS_TTL_HOURS):
+                conn.close()
+                return None
+            cur.execute("CREATE TABLE IF NOT EXISTS periodic_filers ("
+                        " corp_code TEXT PRIMARY KEY, last_rcept_dt TEXT)")
+            codes = {r[0] for r in cur.execute("SELECT corp_code FROM periodic_filers")}
+            conn.close()
+            return frozenset(codes) if len(codes) >= _FILERS_MIN_EXPECTED else None
+        except sqlite3.Error as exc:
+            logger.warning(f"periodic_filers sqlite load 실패: {exc}")
+            return None
+
+    @staticmethod
+    def _filers_db_save(filers: dict[str, str]) -> None:
+        try:
+            _MASTER_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+            conn = sqlite3.connect(_MASTER_DB_PATH)
+            cur = conn.cursor()
+            cur.execute("CREATE TABLE IF NOT EXISTS periodic_filers ("
+                        " corp_code TEXT PRIMARY KEY, last_rcept_dt TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS _meta (key TEXT PRIMARY KEY, value TEXT)")
+            cur.execute("DELETE FROM periodic_filers")
+            cur.executemany("INSERT INTO periodic_filers (corp_code, last_rcept_dt) VALUES (?, ?)",
+                            list(filers.items()))
+            cur.execute("INSERT INTO _meta (key, value) VALUES ('filers_updated', ?)"
+                        " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                        (datetime.now().isoformat(),))
+            conn.commit()
+            conn.close()
+        except sqlite3.Error as exc:
+            logger.warning(f"periodic_filers sqlite save 실패: {exc}")
+
+    async def periodic_filers(self) -> frozenset[str]:
+        """최근 400일 안에 **정기보고서를 낸 법인**의 corp_code 집합.
+
+        못 만들면 **빈 집합**을 돌려준다 — 호출부는 「명부가 없으면 예전대로」로 동작해야
+        한다. 명부를 못 받았다는 이유로 조회를 막으면 안 된다(fail-open).
+        """
+        global _periodic_filers_cache, _periodic_filers_lock
+        if _periodic_filers_cache is not None:
+            return _periodic_filers_cache
+        if _periodic_filers_lock is None:
+            _periodic_filers_lock = asyncio.Lock()
+        async with _periodic_filers_lock:
+            if _periodic_filers_cache is not None:
+                return _periodic_filers_cache
+            cached = self._filers_db_load()
+            if cached is not None:
+                logger.info(f"periodic_filers loaded from sqlite ({len(cached)} corps)")
+                _periodic_filers_cache = cached
+                return cached
+            try:
+                filers = await self._fetch_periodic_filers()
+            except Exception as exc:      # 네트워크·쿼터 — 막지 말고 열어둔다
+                logger.warning(f"periodic_filers 수집 실패({type(exc).__name__}) — 명부 없이 진행")
+                _periodic_filers_cache = frozenset()
+                return _periodic_filers_cache
+            if len(filers) < _FILERS_MIN_EXPECTED:
+                logger.warning(f"periodic_filers {len(filers)}건뿐 — 덜 모인 것으로 보고 쓰지 않는다")
+                _periodic_filers_cache = frozenset()
+                return _periodic_filers_cache
+            self._filers_db_save(filers)
+            _periodic_filers_cache = frozenset(filers)
+            return _periodic_filers_cache
+
+    async def _fetch_periodic_filers(self) -> dict[str, str]:
+        """DART 에서 명부를 만든다. corp_code 없는 조회는 3개월 창이 상한이라 나눠 돈다."""
+        today = date.today()
+        filers: dict[str, str] = {}
+        cur = today - timedelta(days=_FILERS_LOOKBACK_DAYS)
+        while cur < today:
+            end = min(cur + timedelta(days=_FILERS_WINDOW_DAYS), today)
+            page = 1
+            while True:
+                res = await self.search_filings(
+                    bgn_de=cur.strftime("%Y%m%d"), end_de=end.strftime("%Y%m%d"),
+                    pblntf_ty="A", page_no=page, page_count=100,
+                )
+                for item in res.get("list") or []:
+                    code = item.get("corp_code")
+                    if not code:
+                        continue
+                    dt = item.get("rcept_dt", "")
+                    if dt > filers.get(code, ""):
+                        filers[code] = dt
+                total_page = int(res.get("total_page") or 1)
+                if page >= total_page:
+                    break
+                page += 1
+            cur = end + timedelta(days=1)
+        return filers
+
     async def lookup_corp_code(self, query: str) -> dict | None:
         """종목코드/회사명/약칭/영문명으로 corp_code 조회 (단일 결과)
 
@@ -1098,7 +1234,8 @@ class DartClient:
         from open_proxy_mcp.company_resolver import get_company_resolver
 
         corps = await self._load_corp_codes()
-        resolver = await get_company_resolver(corps, _CORP_ALIASES)
+        resolver = await get_company_resolver(corps, _CORP_ALIASES,
+                                              await self.periodic_filers())
         return resolver.search(query)
 
     async def suggest_corp_candidates(self, query: str, limit: int = 5) -> list[dict]:
@@ -1106,7 +1243,8 @@ class DartClient:
         from open_proxy_mcp.company_resolver import get_company_resolver
 
         corps = await self._load_corp_codes()
-        resolver = await get_company_resolver(corps, _CORP_ALIASES)
+        resolver = await get_company_resolver(corps, _CORP_ALIASES,
+                                              await self.periodic_filers())
         return resolver.suggest(query, limit)
 
     async def get_naver_corp_profile(self, stock_code: str) -> dict:

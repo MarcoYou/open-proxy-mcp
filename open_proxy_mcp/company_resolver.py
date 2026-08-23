@@ -230,10 +230,15 @@ class CompanyResolver:
         corps: list[dict[str, Any]],
         aliases: dict[str, str],
         market: MarketContext | None = None,
+        filers: frozenset[str] | None = None,
     ) -> None:
         self.corps = corps
         self.aliases = aliases
         self.market = market or MarketContext({})
+        # 🔴 **이름 색인에서 비상장을 통째로 빼면 「농협금융지주」가 0건이 된다.** 260823 실측 —
+        #    정기보고서를 내는 비상장 법인(농협금융지주·농협생명보험·NH농협손해보험)은
+        #    종목코드가 없어 색인 자체에 안 들어갔다. 명부에 있는 곳은 색인한다.
+        self.filers = filers or frozenset()
         self._ticker: dict[str, list[int]] = {}
         self._corp_code: dict[str, list[int]] = {}
         self._official: dict[str, list[int]] = {}
@@ -242,6 +247,8 @@ class CompanyResolver:
         self._tokens: dict[str, set[int]] = {}
         self._alias: dict[str, list[int]] = {}
         self._listed_ids: set[int] = set()
+        #: 이름으로 찾을 수 있는 행 — 상장사 + 정기보고서 제출 법인
+        self._searchable_ids: set[int] = set()
         self._build_indexes()
 
     @staticmethod
@@ -258,8 +265,10 @@ class CompanyResolver:
                 self._listed_ids.add(row_id)
                 self._add(self._ticker, ticker, row_id)
             self._add(self._corp_code, corp_code, row_id)
-            if not ticker:
-                continue
+            if ticker or corp_code in self.filers:
+                self._searchable_ids.add(row_id)
+            else:
+                continue        # 상장도 아니고 정기보고서도 안 내는 법인 — 이름으로 안 찾는다
 
             for name in (corp.get("corp_name", ""), corp.get("corp_eng_name", "")):
                 if not name:
@@ -299,14 +308,18 @@ class CompanyResolver:
             return ids
         active = self.market.active_tickers
         if active is not None:
-            current = [i for i in ids if self.corps[i].get("stock_code") in active]
+            current = [i for i in ids
+                       if self.corps[i].get("stock_code") in active
+                       or self.corps[i].get("corp_code") in self.filers]
             if current:
                 return current
             # KRX weekly covers KOSPI/KOSDAQ. Preserve exact KONEX or newly listed
             # companies, but never revive inactive companies for inferred searches.
             return ids if kind in self._STRONG_KINDS else []
-        listed = [i for i in ids if i in self._listed_ids]
-        return listed or ids
+        # 「상장사만」이 아니라 「이름으로 찾을 수 있는 곳」으로 좁힌다 — 정기보고서를 내는
+        # 비상장 법인을 여기서 떨어뜨리면 색인해 둔 의미가 없다.
+        searchable = [i for i in ids if i in self._searchable_ids]
+        return searchable or ids
 
     def _rank_key(self, row_id: int) -> tuple[int, int, int]:
         corp = self.corps[row_id]
@@ -491,21 +504,27 @@ class CompanyResolver:
 _resolver: CompanyResolver | None = None
 _resolver_source_id: int | None = None
 _resolver_market_id: int | None = None
+_resolver_filers_id: int | None = None
 _resolver_lock = threading.Lock()
 
 
 async def get_company_resolver(
-    corps: list[dict[str, Any]], aliases: dict[str, str]
+    corps: list[dict[str, Any]], aliases: dict[str, str],
+    filers: frozenset[str] | None = None,
 ) -> CompanyResolver:
-    global _resolver, _resolver_source_id, _resolver_market_id
+    global _resolver, _resolver_source_id, _resolver_market_id, _resolver_filers_id
     source_id = id(corps)
     market = await load_market_context()
     market_id = id(market)
-    if _resolver is not None and _resolver_source_id == source_id and _resolver_market_id == market_id:
+    filers_id = len(filers or ())
+    if (_resolver is not None and _resolver_source_id == source_id
+            and _resolver_market_id == market_id and _resolver_filers_id == filers_id):
         return _resolver
     with _resolver_lock:
-        if _resolver is None or _resolver_source_id != source_id or _resolver_market_id != market_id:
-            _resolver = CompanyResolver(corps, aliases, market)
+        if (_resolver is None or _resolver_source_id != source_id
+                or _resolver_market_id != market_id or _resolver_filers_id != filers_id):
+            _resolver = CompanyResolver(corps, aliases, market, filers)
             _resolver_source_id = source_id
             _resolver_market_id = market_id
+            _resolver_filers_id = filers_id
     return _resolver

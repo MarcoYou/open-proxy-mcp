@@ -534,17 +534,44 @@ async def resolve_company_query(query: str) -> CompanyResolution:
     raw = (query or "").strip()
     numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
     if not numeric_query:
-        listed = [m for m in matches if (m.get("stock_code") or "").strip()]
-        if listed:
-            matches = listed
-        elif matches:
-            # 상장사 후보가 없고 비상장만 남은 경우: OPM 유니버스 밖이므로 error로 유도
-            return CompanyResolution(
-                status=AnalysisStatus.ERROR,
-                query=query,
-                selected=None,
-                candidates=[],
-            )
+        # 🔴 **판별 기준은 「상장사냐」가 아니라 「공시 의무가 있느냐」다.** 260823 실측 —
+        #    DART 는 상장폐지돼도 stock_code 를 지우지 않고(신한은행·우리은행·KB손해보험
+        #    전부 미상장인데 코드가 남아 있다), 농협금융지주·농협생명보험은 한 번도 상장된
+        #    적 없어 코드가 없는데 정기보고서를 낸다. stock_code 로 거르면 앞은 우연히
+        #    통과하고 뒤는 영영 막힌다.
+        #    같은 명부가 **동명 법인**도 가른다 — 국민은행 원장 3건 중 정기보고서를 내는
+        #    것은 00386937 하나뿐이다(나머지는 2017-06-30 에 멈춘 소멸 법인).
+        filers = await client.periodic_filers()
+        if filers:
+            active = [m for m in matches if m.get("corp_code") in filers]
+            if active:
+                matches = active
+                meta0 = matches[0].get("_resolution") or {}
+                if len(matches) == 1 and meta0 and not meta0.get("inferred"):
+                    # 후보가 하나로 좁혀졌다 — 「이름은 같지만 살아 있는 법인은 하나」다.
+                    # 🔴 **정확 일치(official)일 때만이다.** 추론(fuzzy) 매칭까지 확정으로
+                    #    올리면 「농협생명보험」이 「NH농협증권」으로 떨어진다(260823 실측).
+                    meta0["strong_disambiguated"] = True
+            elif matches:
+                # 명부에 하나도 없다 = 정기보고서를 안 내는 법인들이다. 예전 규칙으로.
+                listed = [m for m in matches if (m.get("stock_code") or "").strip()]
+                if listed:
+                    matches = listed
+                else:
+                    return CompanyResolution(status=AnalysisStatus.ERROR, query=query,
+                                             selected=None, candidates=[])
+        else:
+            # 명부를 못 만들었다(네트워크·쿼터) — 막지 말고 예전 규칙으로 계속한다.
+            listed = [m for m in matches if (m.get("stock_code") or "").strip()]
+            if listed:
+                matches = listed
+            elif matches:
+                return CompanyResolution(
+                    status=AnalysisStatus.ERROR,
+                    query=query,
+                    selected=None,
+                    candidates=[],
+                )
 
     status, selected, candidates = _resolve_match(query, matches)
     if status == AnalysisStatus.ERROR and not selected:
