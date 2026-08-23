@@ -29,24 +29,40 @@ def _render(payload: dict) -> str:
         if res["status"] != svc.OK:
             L += ["", f"> {res['status']} — {res.get('note','')}", ""]
             continue
+        if res.get("note"):
+            L += ["", f"> {res['note']}", ""]
         for t in res["tables"]:
             kind = {"restricted": "사용제한", "pledged": "담보제공"}.get(t["kind"], t["kind"])
             L.append(f"\n**앵커** `{t['anchor']}` · **성격** {kind} · **형식** "
                      f"{'XBRL 태그' if t['format']=='xbrl_tagged' else 'HTML 표'}"
-                     + (f" · **단위** {t['unit']}" if t.get("unit") else ""))
+                     + (f" · **단위** {t['unit']}" if t.get("unit")
+                        else " · **단위** 원문에 표기 없음"))
             if t["format"] == "xbrl_tagged":
-                L.append("> 값마다 IFRS 코드·문맥이 붙어 있다 — 연결/별도는 `basis` 로 확인한다.")
+                L.append("> 값마다 IFRS 코드가 붙어 있다 — `[acode]` 로 항목을 확인한다. "
+                         "**열 위치로 짐작하지 말 것.** 연결/별도는 `basis`.")
+            if t.get("shared_with"):
+                L.append(f"> ℹ️ 이 표는 **{', '.join(t['shared_with'])} 와 같은 표**다 — "
+                         f"회사가 한 표에 함께 공시했다. 중복 반환이 아니다.")
+            if t.get("ragged"):
+                L.append(f"> 🔴 **행마다 열 수가 다르다**(열 폭 {t['widths']}). 병합 셀 때문이며 "
+                         f"그대로 읽으면 값이 밀린다. 병합 폭은 각 칸의 `colspan` 에 있다.")
             L.append("")
             for row in t["rows"]:
                 cells = []
                 for c in row:
                     s = c["text"] or " "
+                    if c.get("colspan"):
+                        s += f" <{c['colspan']}칸>"
                     if c.get("basis"):
                         s += f" ({c['basis']})"
+                    if c.get("acode"):
+                        s += f" [{c['acode']}]"
                     cells.append(s)
                 L.append("| " + " | ".join(cells) + " |")
             L.append("")
     L += ["---",
+          "⚠️ **단위를 확인하기 전에는 금액을 쓰지 말 것.** 회사마다 백만원/천원/원이 섞인다. "
+          "「원문에 표기 없음」이면 그 표의 숫자는 규모를 알 수 없는 값이다.",
           "⚠️ 표는 원문 그대로다. **열 이름의 기준 시점을 반드시 확인할 것** — 같은 표에 당기말과 "
           "전기말이 함께 있고, 회사에 따라 값이 크게 다르다(KB손보 사용제한 합계: 전기말 391,082 → "
           "당반기말 26,356).",
