@@ -133,6 +133,12 @@ def table_span(html: str, pos: int) -> tuple[int, int] | None:
     return s, e + 8
 
 
+def _table_for_start(html: str, pos: int) -> int | None:
+    """`pos` 가 가리키는 표의 시작 위치. 분모를 찾으려면 표 경계가 필요하다."""
+    span = table_span(html, pos)
+    return span[0] if span else None
+
+
 def table_at(html: str, pos: int) -> str | None:
     """`pos` 를 품은 `<TABLE>` 를 잘라낸다. 경계가 비정상이면 None."""
     span = table_span(html, pos)
@@ -325,6 +331,8 @@ def axis_of(parsed: dict[str, Any]) -> str | None:
 #:    「…합계 91,701 450,935 (3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은…」인데
 #:    앞의 91,701 은 **예치금 총액 표**의 합계다(사용제한은 26,356). 시험자도 나도 이걸
 #:    「빠진 사용제한 표」로 읽었다. 잔해는 매칭에만 쓰고 **사람에게는 제목만 보인다.**
+#: 마커가 없을 때 제목으로 인정하는 꼬리 길이
+_TITLE_TAIL = 120
 _TITLE_START = re.compile(r"(?:\(\d+\)|\d+\s*[-.]\s*\d*\s*\.?)\s*(?=[가-힣])")
 
 
@@ -335,7 +343,12 @@ def title_only(caption: str) -> str:
     for m in _TITLE_START.finditer(cap):
         if len(cap) - m.start() >= 12:
             best = m.start()
-    return cap[best:] if best is not None else cap
+    if best is not None:
+        return cap[best:]
+    # 🔴 **마커를 못 찾아도 caption 전체를 제목으로 보면 안 된다.** 260823 실측 —
+    #    부산은행 FVOCI 는 표 앞 문단이 신용등급 정의라 제목 문장이 아예 없는데,
+    #    잔해 안에 섞인 앵커로 ✅ 를 받았다. 제목은 표 **바로 앞**에 오므로 꼬리만 본다.
+    return cap[-_TITLE_TAIL:]
 
 
 #: 「N. <계정명>」 — 주석의 **표제**다. 같은 앵커가 걸리는 표가 여럿일 때 이게 가른다.
@@ -411,6 +424,35 @@ def basis_at(pos: int, sep: int | None) -> str | None:
     if sep is None:
         return None
     return "별도" if pos >= sep else "연결"
+
+
+
+#: 🔴 **뺄 계정만 알려주고 총액을 안 주면 뺄셈이 안 된다.** 260823 시험자 실측 —
+#:    「현금및현금성자산 36,152,124 − 사용제한 20,772,820」을 하려는데 앞의 36,152,124 를
+#:    도구가 주지 않는다. 5차에는 제목 꼬리 잔해에서 우연히 얻었는데 꼬리를 정리하면서
+#:    사라졌다. 원문은 대개 **바로 앞 항**에 그 계정의 구성내역을 싣는다
+#:    (우리은행 (1)→(2) · KB손보 (2)→(3) · 국민은행 (1)→(2)). 그 표의 합계를 붙인다.
+_TOTAL_ROW = ("합계", "합 계", "계", "소계")
+
+
+def account_total(html: str, table_start: int, account: str) -> list[str] | None:
+    """사용제한 표 **바로 앞** 표가 같은 계정의 구성내역이면 그 합계 행을 돌려준다."""
+    upper = html.upper()
+    end = upper.rfind("</TABLE>", 0, table_start)
+    if end < 0:
+        return None
+    start = upper.rfind("<TABLE", 0, end)
+    if start < 0 or table_start - end > 4_000:
+        return None                      # 너무 멀면 다른 이야기다
+    prev = parse_table(html[start:end + 8], context=html[max(0, start - 2000):start])
+    title = title_only(prev["caption"])
+    if account not in title or not any(m in title for m in ("구성내역", "내역")):
+        return None
+    for row in reversed(prev["rows"]):
+        label = row[0]["text"] if row else ""
+        if any(label.startswith(m) for m in _TOTAL_ROW):
+            return [c["text"] for c in row[1:] if _NUMISH.match(c["text"])] or None
+    return None
 
 
 def is_wrong_direction(caption: str) -> bool:
@@ -553,18 +595,29 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                              #    「이 계정에서 뺀다」로 읽혔는데 뺄 대상이 아니다.
                              "account": (account_of(parsed["caption"])
                                          if kind in ("restricted", "pledged") else None),
+                             "span_start": _table_for_start(html, pos),
                              # 표 단위 연결/별도. XBRL 은 값마다 basis 가 따로 붙는다.
                              "table_basis": basis_at(pos, sep),
                              "heading": is_note_heading(parsed["caption"], kin_kws),
                              "weak": title_weakness(parsed["caption"]),
                              "body": body, **parsed}
-                    if title_matches(parsed["caption"], kin_kws):
-                        entry["title_matched"] = True
+                    # 🔴 **제목이 맞아도 주제가 다르면 버린다.** 5차엔 caption 꼬리 오염
+                    #    때문에 이 검사를 제목 대조 뒤로 못 뒀는데, 이제 **제목에서만**
+                    #    보므로 안전하다. 부산은행 FVOCI 가 「신용위험 등급별」 표로
+                    #    ✅ 를 받던 자리다.
+                    # ⚠️ 분모(계정 총액)는 아직 붙이지 않는다. 260823 실측에서 KB손보
+                    #    별도가 자기 표의 합계를 잡았다 — **틀린 분모는 없는 것보다 나쁘다.**
+                    if title_matches(parsed["caption"], kin_kws) and not is_off_topic(entry["title"]):
+                        # 🔴 **원문이 스스로 「내역이 아니다」라고 말한 표는 ✅ 를 주지 않는다.**
+                        #    「대손충당금 변동내역」·「장부금액과 공정가치」 같은 제목이다.
+                        #    값은 내되 🔴 로 낮춘다 — 시험자 우선순위는
+                        #    「🔴 + 맞는 표」 > 「✅ + 틀린 표」다.
+                        entry["title_matched"] = entry["weak"] == 0
                         hits.append(entry)
                         continue                   # 🔴 나뉘어 있을 수 있다 — 계속 모은다
                     # 🔴 제목을 못 맞춘 표만 주제를 따진다. 앞 표의 문장이 caption 꼬리에
                     #    섞여 들어와서, 제목이 맞은 표를 주제어로 되물리면 안 된다.
-                    if fallback is None and not is_off_topic(parsed["caption"]):
+                    if fallback is None and not is_off_topic(entry["title"]):
                         fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
             if field != "사용제한" and len(hits) > 1:
                 # 고르는 순서 — ①원문이 「N. <계정명>」으로 표제를 붙인 표 ②「장부금액과
@@ -603,7 +656,33 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                                    + (f" (재무제표 본표 {skipped_statement}건은 건너뛰었다)"
                                       if skipped_statement else ""))}
     _mark_shared_tables(out)
+    _mark_cross_field(out)
     return out
+
+
+#: 어느 필드의 유형별 내역이 **다른 필드 표 안에** 들어 있는 회사가 있다. 260823 실측 —
+#: 국민은행은 「11. 당기손익-공정가치 측정 금융자산 **및 투자금융자산**」 한 주석에 FVPL·
+#: FVOCI·상각후원가를 다 실어, 상각후원가 필드는 대출채권 표를 물고 끝난다. 신한은행은
+#: 반대로 FVOCI 유형별이 상각후원가 필드 표 안에 있다. 세 필드를 다 열어보기 전에는
+#: 어디에 무엇이 들었는지 알 수 없다 — **어느 필드를 보라고 말해준다.**
+def _mark_cross_field(out: dict[str, Any]) -> None:
+    for field, res in out.items():
+        tables = res.get("tables") or []
+        # 이 필드가 제대로 유형별을 물었으면 안내할 것이 없다
+        if any(t.get("axis") == "유형별" and t.get("title_matched") for t in tables):
+            continue
+        kws = [k for k, _ in ANCHORS.get(field, [])]
+        for other, ores in out.items():
+            if other == field:
+                continue
+            for t in ores.get("tables") or []:
+                if t.get("axis") != "유형별":
+                    continue
+                if any(kw in t.get("body", "") for kw in kws):
+                    res["see_field"] = other
+                    break
+            if res.get("see_field"):
+                break
 
 
 def _mark_shared_tables(out: dict[str, Any]) -> None:

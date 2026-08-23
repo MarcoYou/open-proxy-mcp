@@ -31,6 +31,10 @@ def _render(payload: dict) -> str:
             continue
         if res.get("note"):
             L += ["", f"> {res['note']}", ""]
+        if res.get("see_field"):
+            L += ["", f"> ↪️ **요청하신 {field} 유형별 내역은 이 회사가 "
+                      f"`{res['see_field']}` 주석에 함께 실었다.** 아래 표가 아니라 "
+                      f"`{res['see_field']}` 필드 결과를 볼 것.", ""]
         # 🔴 사용제한은 한 표에 다 있지 않다(우리은행: 현금및현금성자산 + 예치금 두 군데).
         #    여러 표를 모아 내되, **연결과 별도가 섞여 있을 수 있으니** 합산 전에 알린다.
         by_kind: dict[str, int] = {}

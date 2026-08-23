@@ -111,7 +111,9 @@ def test_extract_skips_risk_table_and_takes_the_titled_note_table() -> None:
 
     table = extract(html, ["FVPL"])["FVPL"]["tables"][0]
 
-    assert table["title_matched"] is True
+    # 「7. …의 내역」 쪽이 골라진다. ✅/🔴 는 제목에 「수준별」 같은 말이 섞였는지에
+    # 따라 갈리므로 여기서 고정하지 않는다 — 여기서 보는 것은 **어느 표를 골랐나**다.
+    assert table["heading"] is True
     assert table["rows"][1][0]["text"] == "채무증권"
 
 
@@ -236,6 +238,8 @@ def test_note_heading_beats_a_look_alike_table() -> None:
 
     assert table["heading"] is True
     assert table["rows"][1][0]["text"] == "특수채"
+    # 「장부금액과 공정가치」 표는 원문이 스스로 「내역이 아니다」라고 말한 것이라
+    # 골라도 ✅ 를 주지 않는다 — 여기서는 표제가 붙은 쪽이 골라진다.
 
 
 def test_one_table_holding_both_kinds_is_emitted_once() -> None:
