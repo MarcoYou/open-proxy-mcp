@@ -12,6 +12,7 @@
 """
 
 import os
+import gzip
 import io
 import re
 import sys
@@ -417,8 +418,8 @@ def _sweep_disk_cache(written: int = 0, force: bool = False) -> int:
     try:
         with os.scandir(_DISK_CACHE_DIR) as it:
             for e in it:
-                if not e.name.endswith(".json"):
-                    continue
+                if not (e.name.endswith(".json") or e.name.endswith(".json.gz")):
+                    continue    # 260823 압축 전환 — 두 형식이 한동안 섞여 산다
                 try:
                     st = e.stat()
                 except OSError:
@@ -2092,11 +2093,16 @@ class DartClient:
             return []
 
         await self._throttle_api()
-        url = "https://openapi.naver.com/v1/search/news.json"
+        # 260820: 개발자센터 → NAVER API HUB 이관. 도메인·경로·헤더가 **셋 다** 바뀐다.
+        #   openapi.naver.com/v1/search/news.json  →  naverapihub.apigw.ntruss.com/search/v1/news
+        #   X-Naver-Client-Id / -Secret            →  X-NCP-APIGW-API-KEY-ID / -KEY
+        # 구 방식은 2027-06-30 까지만 지원되고, HUB 키로는 구 방식이 아예 401 이다(실측).
+        # 응답 items 필드(title·originallink·link·description·pubDate)는 그대로라 파서는 유지.
+        url = "https://naverapihub.apigw.ntruss.com/search/v1/news"
         params = {"query": query, "display": display, "sort": sort}
         headers = {
-            "X-Naver-Client-Id": client_id,
-            "X-Naver-Client-Secret": client_secret,
+            "X-NCP-APIGW-API-KEY-ID": client_id,
+            "X-NCP-APIGW-API-KEY": client_secret,
         }
 
         try:
@@ -2286,7 +2292,13 @@ class DartClient:
     # ── Document Caching ──
 
     def _disk_cache_path(self, rcept_no: str) -> str:
-        return os.path.join(self._disk_cache_dir, f"{rcept_no}.json")
+        """새로 쓰는 자리 — **gzip**. 옛 평문(.json)은 `_disk_cache_paths` 가 같이 본다."""
+        return os.path.join(self._disk_cache_dir, f"{rcept_no}.json.gz")
+
+    def _disk_cache_paths(self, rcept_no: str) -> tuple[str, str]:
+        """(gzip 경로, 옛 평문 경로). 260823 압축 전환 — 기존 캐시를 버리지 않는다."""
+        base = os.path.join(self._disk_cache_dir, rcept_no)
+        return f"{base}.json.gz", f"{base}.json"
 
     def _load_from_disk(self, rcept_no: str) -> dict | None:
         """적중하면 **mtime 을 지금으로 올린다** — 청소가 LRU 로 돌게 하는 장치다.
@@ -2299,24 +2311,28 @@ class DartClient:
         깨진 파일은 **지우고 miss 로 취급**한다. `/tmp` 시절엔 부분 파일이 배포 때
         사라져 저절로 나았지만 볼륨에서는 안 낫는다 — 한 번 잘린 json 이 그 rcept_no 를
         **영구히** 못 읽게 만든다."""
-        path = self._disk_cache_path(rcept_no)
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                doc = json.load(f)
+        gz_path, legacy_path = self._disk_cache_paths(rcept_no)
+        for path, opener in ((gz_path, lambda p: gzip.open(p, "rt", encoding="utf-8")),
+                             (legacy_path, lambda p: open(p, "r", encoding="utf-8"))):
             try:
-                os.utime(path, None)        # 적중 = 최근 사용. 실패해도 캐시는 유효하다
-            except OSError:
-                pass
-            return doc
-        except FileNotFoundError:
-            return None
-        except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
-            logger.warning(f"disk cache 손상 — 삭제하고 다시 받는다: {rcept_no} ({e})")
-            try:
-                os.remove(path)
-            except OSError:
-                pass
-            return None
+                with opener(path) as f:
+                    doc = json.load(f)
+                try:
+                    os.utime(path, None)    # 적중 = 최근 사용. 실패해도 캐시는 유효하다
+                except OSError:
+                    pass
+                return doc
+            except FileNotFoundError:
+                continue                    # gz 없으면 옛 평문을 본다(전환기)
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError, EOFError) as e:
+                # gzip 은 잘리면 EOFError/BadGzipFile 로 온다 — 평문 때와 같이 지우고 miss 처리
+                logger.warning(f"disk cache 손상 — 삭제하고 다시 받는다: {rcept_no} ({e})")
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                return None
+        return None
 
     def _save_to_disk(self, rcept_no: str, doc: dict):
         """임시 파일에 쓰고 rename 한다 — 쓰다 죽어도 **부분 파일이 캐시로 읽히지 않게**."""
@@ -2324,10 +2340,20 @@ class DartClient:
             os.makedirs(self._disk_cache_dir, exist_ok=True)
             path = self._disk_cache_path(rcept_no)
             tmp = f"{path}.{os.getpid()}.tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
+            # 260823 gzip 전환. 금융사 정기보고서가 20~42MB 라 평문으로 두면 볼륨이 금방 찬다
+            # (실측 42.2MB → 2.0MB, 4%). 푸는 비용은 0.01초라 읽기 경로에 영향이 없다.
+            # level 6(기본) — 9 로 올려도 공시 문서는 1%p 남짓 더 줄고 쓰기만 느려진다.
+            with gzip.open(tmp, "wt", encoding="utf-8", compresslevel=6) as f:
                 json.dump(doc, f, ensure_ascii=False)
             os.replace(tmp, path)               # 같은 파일시스템 내 원자적 교체
             written = os.path.getsize(path)
+            # 옛 평문 사본이 남아 있으면 지운다 — 같은 문서를 두 벌 들고 있을 이유가 없다
+            legacy = self._disk_cache_paths(rcept_no)[1]
+            if os.path.exists(legacy):
+                try:
+                    os.remove(legacy)
+                except OSError:
+                    pass
         except OSError as e:
             logger.warning(f"disk cache 쓰기 실패(무시): {rcept_no} ({e})")
             return
