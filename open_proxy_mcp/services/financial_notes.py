@@ -531,6 +531,35 @@ def note_regions(html: str) -> list[tuple[str, int, int]]:
 _BS_MARKS = ("자산", "자산총계", "부채", "자본")
 
 
+def balance_sheet_from(seg: str) -> dict[str, Any] | None:
+    """**재무제표 절 조각**에서 재무상태표를 읽는다(노드로 받아온 경우)."""
+    upper = seg.upper()
+    i = 0
+    while True:
+        start = upper.find("<TABLE", i)
+        if start < 0:
+            return None
+        end = upper.find("</TABLE>", start)
+        if end < 0:
+            return None
+        i = end + 8
+        parsed = parse_table(seg[start:end + 8], context=seg[max(0, start - 1500):start])
+        if parsed["n_numeric"] < 10:
+            continue
+        labels = [row[0]["text"] for row in parsed["rows"] if row]
+        if not any(m in labels for m in _BS_MARKS):
+            continue
+        accounts: dict[str, list[str]] = {}
+        for row in parsed["rows"]:
+            if len(row) < 2:
+                continue
+            nm = row[0]["text"]
+            vals = [c["text"] for c in row[1:] if _NUMISH.match(c["text"])]
+            if nm and vals:
+                accounts.setdefault(nm, vals)
+        return {"accounts": accounts, "unit": parsed["unit"]}
+
+
 def balance_sheet(html: str, basis: str | None) -> dict[str, Any] | None:
     """그 기준(연결/별도)의 **재무상태표** → {계정명: [값…]} + 단위. 못 찾으면 None."""
     sec = sections(html)
@@ -614,6 +643,52 @@ def looks_like_debris(title: str) -> bool:
     return len(_DIGIT_GROUP.findall(title)) >= 6
 
 
+
+# ── 목차 노드로 필요한 절만 받아온다 ──
+# 🔴 **문서를 통째로 받을 이유가 없다.** 260824 마스터 지시 + 실측.
+#    NH투자증권 사업보고서 19.5MB → 「8. 사용이 제한된 예금 등 (연결)」 노드는 34KB.
+#    `business_details` 가 이미 쓰는 viewer 좌표(rcpNo·dcmNo·eleId·offset·length)를 그대로 쓴다.
+#    회사에 따라 갈린다 — 주석 항목마다 lvl3 노드가 있는 곳(NH·현대해상)과
+#    주석이 lvl2 하나로 통째인 곳(KB손보 935KB·우리은행 1.0MB)이 있다. 둘 다 전체보다 훨씬 싸다.
+_NOTE_PARENT = ("연결재무제표 주석", "재무제표 주석")
+_FS_NODE = {"연결": "연결재무제표", "별도": "재무제표"}
+
+
+def _node_basis(node: dict) -> str:
+    """이 노드가 연결인가 별도인가 — 부모 절 이름으로 가른다."""
+    parent = (node.get("parent_text") or "").strip()
+    text = (node.get("text") or "").strip()
+    if "연결재무제표 주석" in parent or "연결재무제표" == text.split(". ")[-1]:
+        return "연결"
+    return "별도"
+
+
+def pick_note_nodes(nodes: list[dict], fields: list[str]) -> list[tuple[str, dict]]:
+    """필드에 맞는 **주석 항목 노드**를 고른다. 없으면 빈 목록(→ 절 전체로 폴백)."""
+    out: list[tuple[str, dict]] = []
+    for node in nodes:
+        parent = (node.get("parent_text") or "").strip()
+        if not any(p in parent for p in _NOTE_PARENT):
+            continue
+        title = (node.get("text") or "").strip()
+        for field in fields:
+            if any(kw in title for kw, _ in ANCHORS[field]):
+                out.append((_node_basis(node), node))
+                break
+    return out
+
+
+def pick_chapter_nodes(nodes: list[dict], names: tuple[str, ...]) -> list[tuple[str, dict]]:
+    """「3. 연결재무제표 주석」·「5. 재무제표 주석」 같은 **절 노드**를 고른다."""
+    out: list[tuple[str, dict]] = []
+    for node in nodes:
+        title = (node.get("text") or "").strip()
+        if any(title.endswith(n) for n in names):
+            basis = "연결" if title.replace(" ", "").find("연결") >= 0 else "별도"
+            out.append((basis, node))
+    return out
+
+
 def is_wrong_direction(caption: str) -> bool:
     """이 표가 **받은 담보**·특수관계자 표인가. 우리가 찾는 것은 회사가 **제공한** 담보다."""
     tail = _WS.sub(" ", caption)[-_DIRECTION_TAIL:]
@@ -690,7 +765,33 @@ def _table_for(html: str, p: int) -> tuple[str, dict[str, Any]] | None:
 
 
 def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
-    """문서 HTML → 요청한 표들. 문서는 호출자가 넘긴다(캐시 재사용).
+    """문서 HTML 전체 → 요청한 표들. 구간을 스스로 잘라 `extract_regions` 로 넘긴다.
+
+    문서를 통째로 받은 경우의 경로다. 목차 노드로 **필요한 절만** 받아온 경우는
+    호출자가 `extract_regions` 를 직접 부른다(그쪽이 훨씬 싸다).
+    """
+    regions = note_regions(html)
+    if not regions:
+        off = notes_offset(html)
+        sep = separate_offset(html, off)
+        regions = ([("연결", off, sep), ("별도", sep, len(html))] if sep
+                   else [(None, off, len(html))])
+    parts = [(basis, html[r0:r1]) for basis, r0, r1 in regions]
+    sheets = {basis: balance_sheet(html, basis) for basis, _, _ in regions}
+    return extract_regions(parts, fields, sheets)
+
+
+def extract_regions(
+        regions: list[tuple[str | None, str]],
+        fields: list[str] | None = None,
+        sheets: dict[str | None, dict[str, Any] | None] | None = None,
+) -> dict[str, Any]:
+    """**구간별 HTML 조각** → 요청한 표들.
+
+    🔴 **문서를 통째로 받지 않는다.** 260824 실측 — NH투자증권 사업보고서는 19.5MB 라
+       통째로 읽으면 RSS 가 155MB 늘고 프로덕션 1GB VM 에서 위험하다. DART 목차에는
+       주석 **항목마다** 좌표가 있어(「8. 사용이 제한된 예금 등 (연결)」 34KB) 필요한
+       절만 받으면 된다. 이 함수는 그렇게 받은 조각들을 그대로 처리한다.
 
     🔴 **구조 앵커로 구간을 자르고 그 안에서만 찾는다.** 260823 마스터 지시 —
        키워드로 위치를 잡으면 계속 막힌다. `<TITLE AASSOCNOTE="D-0-3-3-0">`(연결 주석)과
@@ -700,20 +801,14 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
        앵커가 없는 문서(구형 서식)는 예전 방식으로 폴백한다.
     """
     want = [f for f in (fields or FIELDS) if f in ANCHORS]
-    regions = note_regions(html)
-    if not regions:
-        off = notes_offset(html)
-        sep = separate_offset(html, off)
-        regions = ([("연결", off, sep), ("별도", sep, len(html))] if sep
-                   else [(None, off, len(html))])
-    bs_cache: dict[str | None, dict[str, Any] | None] = {}
+    bs_cache: dict[str | None, dict[str, Any] | None] = dict(sheets or {})
     out: dict[str, Any] = {}
     for field in want:
         found: list[dict[str, Any]] = []
         skipped_statement = 0
         skipped_direction = 0
         emitted_bodies: dict[str, dict[str, Any]] = {}
-        for basis, r0, r1 in regions:
+        for basis, html in regions:
             for kind in dict.fromkeys(kd for _, kd in ANCHORS[field]):
                 kin_kws = [k for k, kd in ANCHORS[field] if kd == kind]
                 hits: list[dict[str, Any]] = []
@@ -722,9 +817,9 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                 for kw in kin_kws:
                     if len(hits) >= _MULTI_TABLE_LIMIT:
                         break
-                    start, scanned = r0, 0
+                    start, scanned = 0, 0
                     while scanned < _MAX_SCAN and len(hits) < _MULTI_TABLE_LIMIT:
-                        pos = html.find(kw, start, r1)
+                        pos = html.find(kw, start)
                         if pos < 0:
                             break
                         start = pos + len(kw)
@@ -759,10 +854,8 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                                  "weak": title_weakness(parsed["caption"]),
                                  "body": body, **parsed}
                         if entry["account"]:
-                            if basis not in bs_cache:
-                                bs_cache[basis] = balance_sheet(html, basis)
                             entry["account_total"] = lookup_account(
-                                bs_cache[basis], entry["account"])
+                                bs_cache.get(basis), entry["account"])
                         if (title_matches(parsed["caption"], kin_kws)
                                 and not is_off_topic(entry["title"])):
                             entry["title_matched"] = entry["weak"] == 0
