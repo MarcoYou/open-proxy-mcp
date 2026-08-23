@@ -115,18 +115,44 @@ def test_extract_skips_risk_table_and_takes_the_titled_note_table() -> None:
     assert table["rows"][1][0]["text"] == "채무증권"
 
 
-def test_extract_flags_the_table_when_no_title_matched() -> None:
-    """제목을 못 맞췄으면 값을 내되 **그렇다고 말한다.** 조용히 내보내면 인용된다."""
+def test_extract_refuses_an_off_topic_table_instead_of_returning_it() -> None:
+    """제목도 못 맞추고 주제도 다르면 **내보내지 않는다.**
+
+    260823 census 재검증 — 우리은행 FVPL 은 「신용위험의 최대노출액」, 하나은행은
+    「공정가치체계」, 국민은행 상각후원가는 316행 「특수관계자와의 채권ㆍ채무」를 물었다.
+    전부 계정과목 이름이 그 안에 나오기 때문이다. 유형별 구성으로는 쓸 수 없다.
+    """
     html = _doc(
-        '<P>(4) 금융상품의 금리위험 익스포져현황</P>'
-        '<TABLE><TR><TD>구분</TD><TD>1년이내</TD></TR>'
+        '<P>당반기말 및 전기말 현재 신용위험의 최대노출액은 다음과 같습니다(단위:백만원).</P>'
+        '<TABLE><TR><TD>구분</TD><TD>금액</TD></TR>'
         '<TR><TD>당기손익-공정가치측정금융자산</TD><TD>111</TD></TR>'
         '<TR><TD>합계</TD><TD>222</TD></TR></TABLE>'
     )
 
-    table = extract(html, ["FVPL"])["FVPL"]["tables"][0]
+    assert extract(html, ["FVPL"])["FVPL"]["status"] == NOT_APPLICABLE
 
-    assert table["title_matched"] is False
+
+def test_extract_flags_an_untitled_but_on_topic_table() -> None:
+    """제목이 없을 뿐인 표는 값을 내되 **그렇다고 말한다.** 조용히 내보내면 인용된다."""
+    html = _doc(
+        '<P>(4) 금융상품 보유 현황</P>'
+        '<TABLE><TR><TD>구분</TD><TD>장부금액</TD></TR>'
+        '<TR><TD>당기손익-공정가치측정금융자산</TD><TD>111</TD></TR>'
+        '<TR><TD>합계</TD><TD>222</TD></TR></TABLE>'
+    )
+
+    assert extract(html, ["FVPL"])["FVPL"]["tables"][0]["title_matched"] is False
+
+
+def test_title_matches_accepts_a_sibling_anchor_name() -> None:
+    """제목에 쓰인 이름이 앵커와 다를 수 있다 — 삼성증권·삼성화재 실측."""
+    from open_proxy_mcp.services.financial_notes import ANCHORS, title_matches
+
+    kws = [k for k, kind in ANCHORS["상각후원가"] if kind == "amortized"]
+    cap = "8. 상각후원가측정금융자산 (연결) 상각후원가측정금융자산의 내역 당반기말 (단위 : 천원)"
+
+    assert title_matches(cap, "상각후원가측정유가증권") is False
+    assert title_matches(cap, kws) is True
 
 
 def test_find_report_candidates_separates_half_year_from_quarter() -> None:

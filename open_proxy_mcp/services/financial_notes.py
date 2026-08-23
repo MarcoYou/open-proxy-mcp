@@ -240,26 +240,49 @@ _STATEMENT_CAPTIONS = ("요약재무정보", "요약연결재무정보", "재무
 #:    NH 사업보고서도 「비연결구조화기업 위험」(1,393,631)을 물고 정답(1,449,639)을 지나쳤다.
 #:    → **표 앞 문장에 「<앵커>…내역/공시」가 있는 표**를 고른다. 원문이 스스로 붙인 제목이라
 #:    금지어 목록을 손으로 관리하는 것보다 안전하다.
-_TITLE_MARKS = ("구성내역", "세부내역", "내역", "공시")
-#: 앵커와 표지어 사이에 끼는 말의 길이. 「담보제공자산 보고기간말 현재 담보제공된 자산의 내역」
-#: 처럼 사이가 벌어지는 경우가 있어 넉넉히 둔다.
-_TITLE_GAP = 30
+_TITLE_MARKS = ("구성내역", "세부내역", "내역", "공시", "내용", "장부금액")
+#: 앵커와 표지어 사이에 끼는 말의 길이. 「18. 담보제공자산 및 담보로 제공받은 자산(1) 당기말과
+#: 전기말 현재 담보로 제공한 자산의 내역」처럼 45자까지 벌어진다(신한은행).
+_TITLE_GAP = 60
 #: 앵커 출현을 몇 번까지 훑나. 정답이 47,000자 뒤에 있는 일이 있어 첫 건에서 멈추면 안 된다.
 _MAX_SCAN = 80
 
+#: 🔴 **제목이 붙어 있어도 우리가 찾는 표가 아닌 것들.** 260823 census 41건 재검증에서
+#:    걸러낸 자리다 — 국민은행 상각후원가는 316행짜리 「특수관계자와의 주요 채권ㆍ채무」를,
+#:    우리은행 FVPL 은 「신용위험의 최대노출액」을, 하나은행 FVPL 은 「공정가치체계」를,
+#:    메리츠증권 상각후원가는 「영업부문별 재무정보」를 물었다. 전부 계정과목 이름이 그 안에
+#:    등장하기 때문이다. 유형별 구성·사용제한 판단에는 쓸 수 없으니 제목이 맞아도 물리지 않는다.
+_OFF_TOPIC = ("특수관계자", "신용위험", "기대신용손실", "최대노출", "부문별", "집중",
+              "익스포져", "공정가치체계", "수준별", "민감도", "위험 집중")
 
-def title_matches(caption: str, kw: str) -> bool:
-    """표 바로 앞 문장이 **이 표가 무엇인지** 말하고 있나 — 「<앵커>…내역/공시」."""
+
+def is_off_topic(caption: str) -> bool:
+    """표 앞 문장이 **다른 주제**를 말하고 있나(위험·특수관계자·부문별 …)."""
+    return any(k in caption for k in _OFF_TOPIC)
+
+
+def title_matches(caption: str, kws: tuple[str, ...] | list[str] | str) -> bool:
+    """표 바로 앞 문장이 **이 표가 무엇인지** 말하고 있나 — 「<앵커>…내역/공시」.
+
+    🔴 **제목에 쓰인 이름이 앵커와 다를 수 있다.** 삼성증권은 「상각후원가측정유가증권」으로
+    걸리는데 제목은 「상각후원가측정금융자산의 내역」이고, 삼성화재는 「담보로 제공된 금융자산」
+    으로 걸리는데 제목은 「담보제공자산 … 담보로 제공된 자산에 대한 공시」다.
+    → 그 성격(kind)의 **모든 앵커**로 대조한다. 하나만 보면 맞는 표를 놓친다.
+    """
+    if isinstance(kws, str):
+        kws = [kws]
     cap = _WS.sub(" ", caption)
-    i = 0
-    while True:
-        i = cap.find(kw, i)
-        if i < 0:
-            return False
-        tail = cap[i + len(kw): i + len(kw) + _TITLE_GAP]
-        if any(m in tail for m in _TITLE_MARKS):
-            return True
-        i += len(kw)
+    for kw in kws:
+        i = 0
+        while True:
+            i = cap.find(kw, i)
+            if i < 0:
+                break
+            tail = cap[i + len(kw): i + len(kw) + _TITLE_GAP]
+            if any(m in tail for m in _TITLE_MARKS):
+                return True
+            i += len(kw)
+    return False
 
 
 def is_statement_table(parsed: dict[str, Any]) -> bool:
@@ -321,6 +344,8 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
         for kw, kind in ANCHORS[field]:
             if kind in seen_kinds:
                 continue                      # 이 성격은 이미 확보했다
+            # 제목에 쓰인 이름이 앵커와 다를 수 있어 **같은 성격의 앵커를 전부** 대조한다
+            kin_kws = [k for k, kd in ANCHORS[field] if kd == kind]
             best: dict[str, Any] | None = None      # 제목이 맞는 표
             fallback: dict[str, Any] | None = None  # 제목 대조 실패 — 최후 수단
             start, scanned = off, 0
@@ -342,10 +367,12 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
                     continue
                 seen_tables.add(parsed["caption"])
                 entry = {"anchor": kw, "kind": kind, "pos": p, **parsed}
-                if title_matches(parsed["caption"], kw):
+                if title_matches(parsed["caption"], kin_kws):
                     best = entry
                     break                      # 원문이 제목을 붙여준 표 — 더 볼 것 없다
-                if fallback is None:
+                # 🔴 제목을 못 맞춘 표만 주제를 따진다. 앞 표의 문장이 caption 꼬리에
+                #    섞여 들어오는 일이 있어, 제목이 맞은 표를 주제어로 되물리면 안 된다.
+                if fallback is None and not is_off_topic(parsed["caption"]):
                     fallback = entry           # 제목이 없는 문서를 위해 잡아만 둔다
             pick = best or fallback
             if pick is not None:
