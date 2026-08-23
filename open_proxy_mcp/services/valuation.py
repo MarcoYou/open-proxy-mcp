@@ -343,7 +343,16 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 "per_fy0": r[8] and round(r[8], 2), "pbr_fy0": r[9] and round(r[9], 2)}
                for r in rows]
     company_ctx = None
-    warnings = [f"주간 스냅샷 기준(최신 {as_of}) · 분류=KSIC 하이브리드(opm_sector_map)."]
+    # 260823: scheme 을 열었는데 각주가 「KSIC 하이브리드」로 굳어 있었다 — WICS 로 조회해도
+    #   KSIC 라고 말한다. 사용자가 다른 축을 봤다고 믿게 되는 자리다.
+    _SRC = {"ksic": "KSIC 하이브리드(opm_sector_map)",
+            "wics_sector": "WICS 대분류(WiseIndex)",
+            "wics_industry": "WICS 하위업종(WiseIndex)"}
+    warnings = [f"주간 스냅샷 기준(최신 {as_of}) · 분류={_SRC[scheme]}."]
+    if scheme != "ksic":
+        warnings.append(
+            "WICS 는 2026-08 부터 관측을 쌓는다 — 그 이전 시점의 분류는 **현재 분류를 소급 적용**한 "
+            "것이라 당시 실제 소속과 다를 수 있다(관측이 쌓이면 소급 구간이 뒤로 밀린다).")
     if company.strip():
         corp, early = await _resolve_listed(company.strip())  # 공용 리졸버 — ambiguous 후보표
         if early:
