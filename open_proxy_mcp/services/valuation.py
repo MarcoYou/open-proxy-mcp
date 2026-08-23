@@ -281,7 +281,7 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
     """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(opm_val_market)."""
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref "
-        "FROM opm_val_market WHERE sector='_ALL' AND scheme='ksic' ORDER BY snap_dd DESC, market")
+        "FROM opm_val_market WHERE sector='_ALL' AND scheme='market' ORDER BY snap_dd DESC, market")
     if rows is None:
         return {"tool": "valuation", "status": "db_error", "subject": "시장 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
@@ -319,10 +319,10 @@ _SECTOR_SCHEMES = {
 
 
 async def build_sector_val_payload(company: str = "", format: str = "md",
-                                   scheme: str = "ksic") -> dict[str, Any]:
+                                   scheme: str = "wics_industry") -> dict[str, Any]:
     """산업별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(opm_val_market).
     company 지정 시 그 기업의 섹터를 함께 표시. scheme 으로 분류 축 선택."""
-    scheme = (scheme or "ksic").strip().lower()
+    scheme = (scheme or "wics_industry").strip().lower()
     if scheme not in _SECTOR_SCHEMES:
         return {"tool": "valuation", "status": "invalid", "subject": "산업별 밸류에이션",
                 "warnings": [f"scheme '{scheme}' 없음 — {' / '.join(_SECTOR_SCHEMES)} 중 선택."]}
