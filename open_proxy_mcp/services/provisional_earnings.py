@@ -11,6 +11,7 @@ Layer: data tool (파싱, 판단 X). screener가 detail_kind="earnings"로 재�
 from __future__ import annotations
 
 import re
+import asyncio
 from datetime import date, timedelta
 from typing import Any
 
@@ -32,6 +33,12 @@ _METRICS = {
     "지배기업소유주지분에귀속되는순이익": "net_income_controlling",
 }
 _PROV_PAT = re.compile(r"영업\s*\(?잠정\)?\s*실적|영업잠정실적")
+
+
+def _is_structure_change_report(report_nm: str) -> bool:
+    """I001 손익구조 변경 공시 중 실적표 본문인 것만 통과시킨다."""
+    compact = re.sub(r"\s+", "", report_nm or "")
+    return compact.startswith("매출액또는손익구조30%") and "이상변경" in compact
 
 
 def _num(s: str) -> float | None:
@@ -92,6 +99,9 @@ def _headline_from_grid(grid: list[list[str]], factor: float) -> dict[str, Any]:
 def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
     """영업(잠정)실적 원문 → markdown-primary. table_markdown(항상, colspan확장) + headline(best-effort).
     재무형=매출/영업익 표, 비재무형(자동차 판매대수 등)=도메인 표. 둘 다 table_markdown이 통째로 담음."""
+    if _is_structure_change_report(report_nm):
+        return _parse_structure_change(html)
+
     soup = BeautifulSoup(html, "lxml")
     text = soup.get_text(" ", strip=True)
     um = re.search(r"단위\s*[:：]\s*([가-힣]+)\s*,", text)
@@ -99,7 +109,11 @@ def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
     factor = _UNIT.get(unit_label, 1e6)
     consolidated = "연결재무제표기준" in (report_nm or "") or "연결재무제표 기준" in text
     pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
-    period = {"start": pm.group(1), "end": pm.group(2)} if pm else None
+    if pm:
+        period = {"start": pm.group(1), "end": pm.group(2)}
+    else:
+        ym = re.search(r"(\d{4})[.-](\d{2})\s*~\s*(\d{4})[.-](\d{2})", text)
+        period = {"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"} if ym else None
 
     tables = soup.find_all("table")
     fin_table = next((t for t in tables if "당기실적" in t.get_text()
@@ -120,11 +134,69 @@ def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
             "kind": kind, "headline": headline, "table_markdown": table_markdown}
 
 
+def _parse_structure_change(html: str) -> dict[str, Any]:
+    """I001 「매출액 또는 손익구조 30% 이상 변경」 표를 같은 headline 계약으로 변환."""
+    soup = BeautifulSoup(html, "lxml")
+    text = soup.get_text(" ", strip=True)
+    um = re.search(r"단위\s*[:：]\s*([가-힣]+)", text)
+    unit_label = um.group(1) if um else "천원"
+    factor = _UNIT.get(unit_label, 1e3)
+    consolidated = "연결" in text and "별도" not in text[:600]
+    pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
+    if pm:
+        period = {"start": pm.group(1), "end": pm.group(2)}
+    else:
+        ym = re.search(r"(\d{4})[.]?(\d{2})\s*~\s*(\d{4})[.]?(\d{2})", text)
+        if ym:
+            period = {"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"}
+        else:
+            starts = re.findall(r"시작일\s+(\d{4}-\d{2}-\d{2})", text)
+            ends = re.findall(r"종료일\s+(\d{4}-\d{2}-\d{2})", text)
+            period = {"start": starts[0], "end": ends[0]} if starts and ends else None
+
+    table = next((t for t in soup.find_all("table")
+                  if "당해사업연도" in t.get_text() and "영업이익" in t.get_text()), None)
+    grid = _table_to_grid(table) if table is not None else []
+    headline: dict[str, Any] = {}
+    for row in grid:
+        labels = [(i, re.sub(r"^[-\s]+", "", re.sub(r"\s+", "", c or "")))
+                  for i, c in enumerate(row)]
+        hit = next(((i, _METRICS[label]) for i, label in labels if label in _METRICS), None)
+        if not hit:
+            continue
+        idx, key = hit
+        tail = row[idx + 1:]
+        nums = [_num(c) for c in tail]
+        numeric = [n for n in nums if n is not None]
+        if not numeric:
+            continue
+        yoy = numeric[3] if len(numeric) >= 4 else None
+        turn = next((c.strip() for c in tail if c.strip() in ("흑자전환", "적자전환")), None)
+        headline[key] = {"value_krw": numeric[0] * factor,
+                         "prior_value_krw": numeric[1] * factor if len(numeric) > 1 else None,
+                         "change_krw": numeric[2] * factor if len(numeric) > 2 else None,
+                         "yoy_pct": yoy, "turnover": turn}
+
+    table_markdown = _clean_render(table)[:6000] if table is not None else None
+    return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
+            "kind": "financial", "provisional_type": "fiscal_year_change",
+            "headline": headline, "table_markdown": table_markdown}
+
+
 async def _find_latest_provisional(client, corp_code: str, bgn_de: str, end_de: str) -> dict | None:
-    """I002 공정공시에서 '영업(잠정)실적'만 필터 → rcept_dt 최신(정정 포함 = 최신 정정본)."""
-    r = await client.search_filings(bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
-                                    pblntf_ty="I", pblntf_detail_ty="I002", page_count=40)
-    cands = [x for x in (r.get("list") or []) if _PROV_PAT.search(x.get("report_nm", ""))]
+    """I002와 I001 실적공시를 함께 검색하되 제목으로 엄격히 필터링."""
+    results = await asyncio.gather(
+        client.search_filings(bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
+                              pblntf_ty="I", pblntf_detail_ty="I002", page_count=40),
+        client.search_filings(bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
+                              pblntf_ty="I", pblntf_detail_ty="I001", page_count=40),
+    )
+    cands = []
+    for r in results:
+        for item in (r.get("list") or []):
+            nm = item.get("report_nm", "")
+            if _PROV_PAT.search(nm) or _is_structure_change_report(nm):
+                cands.append(item)
     if not cands:
         return None
     cands.sort(key=lambda x: x.get("rcept_dt", ""), reverse=True)

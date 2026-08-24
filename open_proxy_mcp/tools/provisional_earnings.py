@@ -35,7 +35,8 @@ def _render(p: dict) -> str:
         return f"**{subj}** — {'; '.join(p.get('warnings') or ['잠정실적 공시 없음'])}"
     rep = d.get("report", {})
     per = d.get("period") or {}
-    L = [f"## {subj} — 영업(잠정)실적  ({rep.get('report_nm','')}, 공시 {rep.get('rcept_dt','')})"]
+    label = "결산 잠정치" if d.get("provisional_type") == "fiscal_year_change" else "영업(잠정)실적"
+    L = [f"## {subj} — {label}  ({rep.get('report_nm','')}, 공시 {rep.get('rcept_dt','')})"]
     basis = "연결" if d.get("consolidated") else "별도/개별"
     L.append(f"_{basis} · 실적기간 {per.get('start','?')}~{per.get('end','?')} · 단위원문 {d.get('unit_raw','')}_")
 
@@ -47,7 +48,8 @@ def _render(p: dict) -> str:
             m = head.get(key)
             if m and m.get("value_krw") is not None:
                 yoy = f" (YoY {m['yoy_pct']:+.1f}%)" if m.get("yoy_pct") is not None else ""
-                parts.append(f"**{_LABEL[key]}** {_won(m['value_krw'])}{yoy}")
+                turn = f" · {m['turnover']}" if m.get('turnover') else ""
+                parts.append(f"**{_LABEL[key]}** {_won(m['value_krw'])}{yoy}{turn}")
         if parts:
             L.append("\n" + " · ".join(parts))
     elif d.get("kind") == "non_financial":
