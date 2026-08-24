@@ -50,3 +50,19 @@ def test_period_metadata_handles_december_year_end_quarter():
     assert got["fiscal_year"] == 2026
     assert got["fiscal_year_end_month"] == 12
     assert got["fiscal_quarter"] == 1
+
+
+def test_screener_earnings_keeps_fiscal_metadata():
+    from open_proxy_mcp.services.screener import _extract_earnings
+
+    fields = _extract_earnings({"data": {
+        "headline": {"revenue": {"value_krw": 100, "yoy_pct": 2.0}},
+        "kind": "financial", "consolidated": True,
+        "provisional_type": "fiscal_year_change",
+        "period": {"start": "2025-07-01", "end": "2026-06-30"},
+        "fiscal_year": 2026, "period_kind": "annual",
+        "comparison_basis": "직전사업연도 대비",
+    }}, "20260101000000")
+    assert fields["fiscal_year"] == 2026
+    assert fields["period_kind"] == "annual"
+    assert fields["comparison_basis"] == "직전사업연도 대비"
