@@ -64,9 +64,52 @@ def new_request_ledger() -> dict:
         "corp_codes": [], "weak_resolutions": [],
         # 260824: **조용한 대체**. 원래 답을 못 줘서 다른 것으로 바꿔 답한 경우의 종류.
         "degradations": [],
+        # 260824: 이 요청이 도는 동안 **함께 돌던 요청의 최대 수**. 아래 등록부가 채운다.
+        "inflight_max": 0,
     }
     _ctx_ledger.set(ledger)
     return ledger
+
+
+# ── 동시 진행 등록부 ──
+# **왜 필요한가.** 260824 에 business_details 의 178초를 진단하는 데 반나절이 들었다.
+# 장부에는 「178,000ms 걸렸다」밖에 없어서, 그 호출이 스스로 178초를 쓴 것인지 남을
+# 기다린 것인지 구분할 방법이 없었다. 결국 **호출들의 종료시각이 같은 초에 몰린 것**을
+# 보고 거꾸로 짜맞춰야 했다(같은 캐시히트 호출이 한가할 땐 0.7초였다).
+# 그 역산을 다시 하지 않으려고, 두 숫자를 그 자리에서 남긴다 —
+#   `inflight_max` (여기)  … 그때 몇 건이 함께 돌고 있었나
+#   `cpu_ms`     (미들웨어) … 그동안 프로세스가 실제로 CPU 를 얼마나 썼나
+# 둘을 함께 읽으면 갈린다:
+#   cpu≈latency & inflight>1 → **줄에 서 있었다**(피해자)
+#   cpu≈latency & inflight=1 → **이 호출 자신이 무겁다**(원인)
+#   cpu≪latency             → 기다리고 있었다(네트워크)
+# 단일 이벤트루프라 락이 필요 없다. 목록이라 O(n) 이지만 n 은 실측 최대 32 다.
+_ACTIVE_LEDGERS: list[dict] = []
+
+
+def ledger_enter(ledger: dict) -> None:
+    """요청 시작. 지금 도는 모든 장부의 `inflight_max` 를 함께 올린다 —
+    **나중에 들어온 요청도 앞사람의 기록을 갱신해야** 「그 호출이 도는 내내 몇 건이
+    겹쳤나」가 된다. 들어올 때 한 번만 재면 첫 요청은 영원히 1 로 남는다."""
+    _ACTIVE_LEDGERS.append(ledger)
+    n = len(_ACTIVE_LEDGERS)
+    for act in _ACTIVE_LEDGERS:
+        if n > act.get("inflight_max", 0):
+            act["inflight_max"] = n
+
+
+def ledger_exit(ledger: dict) -> None:
+    """요청 종료. **반드시 finally 에서** 부른다 — 빠뜨리면 목록이 자라 이후 모든
+    요청의 동시 수가 부풀고, 그 왜곡은 에러가 아니라 **틀린 숫자**로 나타난다."""
+    try:
+        _ACTIVE_LEDGERS.remove(ledger)
+    except ValueError:
+        pass
+
+
+def inflight_now() -> int:
+    """현재 진행 중인 요청 수(/health 노출용)."""
+    return len(_ACTIVE_LEDGERS)
 
 
 def _note_doc(kind: str) -> None:

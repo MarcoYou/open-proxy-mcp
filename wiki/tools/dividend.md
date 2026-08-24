@@ -9,6 +9,7 @@ related_concepts: [배당성향, 배당수익률, 시가배당률, 분기배당,
 related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, free-paid-분리, cross-domain-체이닝]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260429_0216_fix_speed-optimization-9건]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # dividend

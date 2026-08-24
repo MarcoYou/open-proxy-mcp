@@ -8,7 +8,7 @@
 - Net income/equity are **controlling-interest**, statements **consolidated-first**. Non-KRW functional-currency firms (e.g. USD) are **auto-converted at Bank of Korea (ECOS) rates** (e.g. Doosan Bobcat).
 - When multiples become meaningless (losses, capital impairment), it **shows N/M (not meaningful) instead of forcing a number.**
 - Beyond a single firm, it also answers **market-wide and sector (industry) comparison, a stock's history**, and a plain-language **"how was this PER computed?"** explanation.
-- Source: DART financials, shares outstanding, dividends + KRX prices + ECOS rates. Detail → [valuation](../../../wiki/tools/valuation.md).
+- Source: DART financials, shares outstanding, dividends + KRX prices + ECOS rates. Detail → [price_multiple_data](../../../wiki/tools/price_multiple_data.md).
 
 ## Ask it like this
 

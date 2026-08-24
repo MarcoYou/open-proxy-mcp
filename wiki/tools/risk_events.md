@@ -8,6 +8,7 @@ related_disclosures: [공시유형코드체계]
 related_concepts: []
 related_decisions: [pblntf-ty-필터링]
 created: 2026-06-11
+updated: 2026-08-25
 ---
 
 # risk_events

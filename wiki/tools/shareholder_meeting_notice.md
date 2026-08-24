@@ -2,6 +2,7 @@
 type: tool
 title: shareholder_meeting_notice
 domain: data
+updated: 2026-08-25
 description: 주주총회 소집공고 (사전) — DART API/XML 기반
 related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_structure, proxy_contest, evidence]
 ---

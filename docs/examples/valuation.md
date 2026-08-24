@@ -10,5 +10,5 @@
 ## 무엇이 돌아오나
 종목 PER/PBR/배당수익률 + 섹터·시장 비교 + 시계열.
 
-> 상세·입출력·데이터 출처: [wiki/tools/valuation.md](../../wiki/tools/valuation.md)  
+> 상세·입출력·데이터 출처: [wiki/tools/price_multiple_data.md](../../wiki/tools/price_multiple_data.md)
 > 전체 도구 카탈로그: [tools 카탈로그](../../wiki/tools/README.md)

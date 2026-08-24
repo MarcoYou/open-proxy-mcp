@@ -9,6 +9,7 @@ related_concepts: [지분구조, 동일인]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # corporate_restructuring

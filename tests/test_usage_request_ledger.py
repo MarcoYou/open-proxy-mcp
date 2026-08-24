@@ -45,6 +45,7 @@ def test_ledger_starts_empty():
         "doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0,
         "fetch_viewer": 0, "fetch_kind": 0, "web_wait_ms": 0,
         "corp_codes": [], "weak_resolutions": [], "degradations": [],
+        "inflight_max": 0,
     }
 
 

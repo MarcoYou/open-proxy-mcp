@@ -97,7 +97,7 @@ def build_mcp() -> MCPServer:
     @mcp.custom_route("/health", methods=["GET"])
     async def _health(_request):
         from starlette.responses import JSONResponse
-        from open_proxy_mcp.dart.client import cache_stats
+        from open_proxy_mcp.dart.client import cache_stats, inflight_now
         from open_proxy_mcp.db import pool_stats
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
@@ -121,6 +121,13 @@ def build_mcp() -> MCPServer:
             # 풀이 실제로 서고 있나 · 대기가 쌓이나. 「빠르게 하려고 둔 것」이 조용히
             #   fail-open 으로 꺼져 있으면 숫자로만은 알 수 없어서 함께 낸다.
             "pg_pool": pool_stats(),
+            # 어느 머신이 답했나 · 지금 몇 건이 돌고 있나 (260824).
+            #   머신 ID 자체는 안 낸다 — 인프라 좌표는 private 이다. 짧은 해시로도
+            #   「두 대가 실제로 갈라 받고 있나」는 답한다. 그 질문이 계기였다:
+            #   동시성이 높았던 7월 네 구간 전부 **한 머신이 100%** 를 받고 있었고,
+            #   fly 가 부하를 연결 수로 세는 한 그 편중은 로그로도 잘 안 보인다.
+            "instance": _instance_tag(),
+            "inflight": inflight_now(),
         })
 
     return mcp
@@ -181,6 +188,14 @@ _NODATA_RE = re.compile(rb"\[nodata=(\w+)\]")       # 「자료 없음」은 답
 _MAX_SNIFF_BYTES = 64 * 1024
 
 
+def _instance_tag() -> str:
+    """머신을 **구별만** 할 수 있는 짧은 표식. ID 원문은 내지 않는다."""
+    import hashlib
+    import os
+    mid = os.environ.get("FLY_MACHINE_ID") or "local"
+    return hashlib.sha256(mid.encode()).hexdigest()[:8]
+
+
 class ApiKeyMiddleware:
     """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""
 
@@ -239,8 +254,21 @@ class ApiKeyMiddleware:
             # 장부를 **여기서** 만든다. 하류(캐시·회사해석)는 이 dict 를 고치기만 하고,
             # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
             # 하류가 값을 올려보내게 하면 안 된다 — ContextVar 는 위로 안 흐른다.
-            from open_proxy_mcp.dart.client import new_request_ledger
+            from open_proxy_mcp.dart.client import (
+                new_request_ledger, ledger_enter, ledger_exit)
             ledger = new_request_ledger()
+            # **tools/call 만 센다.** streamable-http 클라이언트는 `GET /mcp` 로 스트림을
+            #   열어 **세션 내내 붙들고 있다.** 그걸 함께 세면 「지금 CPU 를 다투는 요청 수」가
+            #   아니라 「열려 있는 연결 수」가 되어, 64ms 짜리 호출도 inflight=12 로 적힌다.
+            #   실측(260824 첫 배포): 기록 19건 **전부 6 이상**, 1 이 한 번도 안 나왔다.
+            #   핸드셰이크(initialize·ping)도 뺀다 — 비용이 0 에 가까워 줄을 만들지 않는다.
+            if is_call:
+                ledger_enter(ledger)
+            # 이 요청이 도는 동안 **프로세스 전체**가 쓴 CPU 시간. 이 요청 「자신의」 CPU 가
+            # 아니다 — 단일 이벤트루프라 남의 코루틴이 태운 것도 여기 들어온다. 그게 노림수다:
+            # 기다린 시간(네트워크)과 코어가 실제로 일한 시간을 가르는 것이 목적이지, 누가
+            # 태웠는지를 가리는 건 `inflight_max` 가 한다. 둘을 함께 읽는 법은 client.py 참조.
+            cpu0 = _t.process_time()
 
             idx = 0
 
@@ -333,9 +361,19 @@ class ApiKeyMiddleware:
                                          for w in ledger["weak_resolutions"]) or None),
                                      # 조용한 대체의 **종류만**. 이 값이 갑자기 늘면 우리가
                                      #   무언가를 깨뜨린 것이다 — 오류율로는 안 보인다.
-                                     degraded=(",".join(ledger.get("degradations") or []) or None))
+                                     degraded=(",".join(ledger.get("degradations") or []) or None),
+                                     # 260824: 「느리다」의 원인을 그 자리에서 가른다.
+                                     #   여태는 latency 하나뿐이라 **스스로 느린 것**과
+                                     #   **줄에 서 있던 것**이 같은 숫자로 보였다.
+                                     inflight=ledger.get("inflight_max") or None,
+                                     cpu_ms=int((_t.process_time() - cpu0) * 1000))
                 await send(message)
-            await self.app(scope, replay, send_wrapper)
+            try:
+                await self.app(scope, replay, send_wrapper)
+            finally:
+                # 조건 없이 부른다 — 등록 안 된 장부면 no-op 이다. 여기에도 `if is_call`
+                # 을 달면 **한쪽만 고쳐질 자리**가 하나 더 생긴다(이 레포에서 다섯 번 겪었다).
+                ledger_exit(ledger)     # 예외로 빠져나가도 반드시 뺀다
         else:
             await self.app(scope, receive, send)
 

@@ -3,6 +3,15 @@ type: log
 title: Operation Log
 ---
 
+## [2026-08-25] docs | 전체 문서 lint·정본 경계·병합 운영 규칙
+
+- 저장소 전체 tracked Markdown의 상대 링크를 검사하도록 범위를 `wiki/` 밖 README·`docs/`까지 확장했다.
+- runtime 29개와 루트 한·영 README의 tool 목록·개수, 한·영 feature/release 문서 대칭, 구 tool 링크를 검사한다.
+- `valuation` tool 링크를 `price_multiple_data`로 정리하고, `trading_data`를 공개 목록에 추가했다.
+- `provisional_earnings`의 I001 연간 결산 잠정치와 `screener` 회계기간 메타데이터를 문서화했다.
+- 모든 tool 페이지에 `updated:`를 보완하고 수정 시 갱신을 알리는 hook을 추가했다.
+- 현재 문서 정본·legacy 보관·중복 병합 기준은 `docs/DOCUMENTATION_GOVERNANCE.md`에 둔다. 후속 backlog는 GitHub issue #5·#6에서 추적한다.
+
 ## [2026-08-10] chore | mcp SDK 1.26 → 2.0 이관 + 프로토콜 계약 게이트 신설
 
 - **왜 이관이 어려웠나가 SDK 가 아니라 테스트에 있었다.** 2.0 은 `mcp.server.fastmcp` 를 제거해

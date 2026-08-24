@@ -87,7 +87,8 @@ except ImportError:                      # `import scripts.usage_tracker` 로 �
 #: **일부러 걷어낸 테스트 오염**이라 되살리면 안 되고, `user_registry.csv` 는 이벤트가 아니다.
 DRAINED_GLOB = "*_user_log.csv"
 _INT_COLS = {"ts_ns", "status", "latency_ms", "response_bytes", "doc_mem_hits",
-             "doc_disk_hits", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms"}
+             "doc_disk_hits", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms",
+             "inflight", "cpu_ms"}
 _BOOL_COLS = {"is_error"}
 
 #: 각 조회 함수의 SELECT 순서. **쿼리와 여기가 어긋나면 값이 조용히 다른 자리로 들어간다**
@@ -98,6 +99,8 @@ _OUT_COLS = ("key_hash", "tool", "is_error", "error_kind", "weak_kinds")
 #: 조용한 대체 — 「원래 답을 못 줘서 다른 것으로 답한」 경우. 오류율로는 안 보인다.
 _DEG_COLS = ("ts_ns", "key_hash", "tool", "degraded")
 _PATH_COLS = ("ts_ns", "tool", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms")
+#: 느린 이유 — 「스스로 느린 것」과 「줄에 서 있던 것」을 가른다(260824 신설).
+_SLOW_COLS = ("ts_ns", "tool", "latency_ms", "inflight", "cpu_ms")
 
 
 def _db_event_ids() -> set:
@@ -342,6 +345,77 @@ def print_degradations():
         line = " ".join(f"{d}:{sum(n for (dd, _), n in per_day.items() if dd == d)}" for d in days)
         print(f"  └ 최근 날짜별: {line}")
         print("     ※ 배포 직후 튀면 우리가 조용히 깨뜨린 것이다 — 오류율로는 안 보인다.")
+
+
+def fetch_slow(min_ms: int = 10_000):
+    """(ts_ns, tool, latency_ms, inflight, cpu_ms) — 느린 호출만.
+
+    260824 신설. 그 전 기간은 두 컬럼이 없어 빈 목록이 나온다 — 경보가 아니라 「그때는
+    안 쟀다」는 뜻이다.
+    """
+    sql = ("SELECT ts_ns, tool, latency_ms, inflight, cpu_ms FROM {} "
+           "WHERE latency_ms IS NOT NULL AND latency_ms >= %d" % min_ms)
+    if using_pg():
+        con = _pg_conn()
+        try:
+            rows = con.execute(sql.format("ops_tool_calls")).fetchall()
+        except Exception:
+            con.rollback(); rows = []
+        finally:
+            con.close()
+    else:
+        try:
+            rows = db().execute(sql.format("events")).fetchall()
+        except sqlite3.OperationalError:
+            rows = []
+    return merge_drained(rows, _SLOW_COLS)
+
+
+def contention_stats(rows):
+    """느린 호출을 세 갈래로 나눈다 — 줄 / 자신이 무겁다 / 네트워크 대기.
+
+    **판별은 두 숫자를 함께 읽어야 한다.** latency 하나로는 셋이 구별되지 않는다.
+      cpu ≳ latency 의 절반 & inflight > 1 → 줄에 서 있었다 (피해자)
+      cpu ≳ latency 의 절반 & inflight = 1 → 이 호출 자신이 무겁다 (원인)
+      cpu < latency 의 절반               → 기다렸다 (네트워크·스로틀)
+    절반을 경계로 두는 건 임의가 아니라 **한 요청이 CPU 를 절반 넘게 쓰고 있었다면 그
+    시간은 대기가 아니었다**는 뜻이라서다. 경계 근처는 어차피 섞이므로 셋의 비율만 본다.
+    """
+    out = defaultdict(lambda: defaultdict(int))
+    seen = 0
+    for ts, tool, lat, inflight, cpu in rows:
+        if lat is None or cpu is None:
+            continue            # 두 컬럼이 생기기 전(260824 이전) — 0 이 아니라 「없음」
+        seen += 1
+        busy = cpu >= lat * 0.5
+        if not busy:
+            kind = "대기(네트워크)"
+        elif (inflight or 1) > 1:
+            kind = "줄"
+        else:
+            kind = "자신이 무겁다"
+        out[tool][kind] += 1
+    return out, seen
+
+
+def print_contention(min_ms: int = 10_000):
+    """[느린 이유] — 「왜 느렸나」를 tool 별로.
+
+    이게 없던 260824 에 business_details 178초를 진단하느라 종료시각을 겹쳐 역산해야 했다.
+    같은 캐시히트 호출이 한가할 땐 0.7초였다 — 178초는 그 호출이 한 일이 아니라 줄이었다.
+    """
+    rows = fetch_slow(min_ms)
+    per_tool, seen = contention_stats(rows)
+    if not seen:
+        return          # 계측 전 기간 — 경보 아님
+    print(f"\n[느린 이유] {min_ms // 1000}초 초과 {seen:,}건 — 「스스로 느린 것」과 "
+          f"「줄에 서 있던 것」을 가른다")
+    for tool, kinds in sorted(per_tool.items(), key=lambda kv: -sum(kv[1].values()))[:8]:
+        tot = sum(kinds.values())
+        parts = " · ".join(f"{k} {n:,}({n / tot * 100:.0f}%)"
+                           for k, n in sorted(kinds.items(), key=lambda kv: -kv[1]))
+        print(f"  {tool:<28} {tot:>5,}건  {parts}")
+    print("     ※ 「줄」이 많으면 고칠 곳은 그 tool 이 아니라 **동시성**이다.")
 
 
 def migrate_local_to_pg():
@@ -849,6 +923,7 @@ def stats(all_rows):
     # 판정불가를 전부 놓쳤다. outcome_breakdown 주석 참조.
     print_outcomes()
     print_degradations()
+    print_contention()
 
     print("\n[사용자 Top 15]  요청  활성일  기간(일)  세션  총사용(분)   최초 ~ 최종")
     for h, v in list(users.items())[:15]:

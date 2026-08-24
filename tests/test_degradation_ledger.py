@@ -108,7 +108,8 @@ def test_middleware_passes_degraded_column():
 def test_recorder_accepts_and_orders_degraded():
     """컬럼 순서 SSOT 에 들어 있어야 값이 제 칸에 들어간다."""
     from open_proxy_mcp.usage import _EVENT_COLUMNS
-    assert _EVENT_COLUMNS[-1] == "degraded"
+    # 자리(마지막)가 아니라 **있음**을 본다 — 뒤에 컬럼이 더 붙으면 자리는 바뀐다.
+    assert "degraded" in _EVENT_COLUMNS
     assert len(set(_EVENT_COLUMNS)) == len(_EVENT_COLUMNS), "컬럼 이름이 중복이다"
 
 
