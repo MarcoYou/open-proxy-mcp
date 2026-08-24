@@ -19,7 +19,7 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
-from open_proxy_mcp.services.company import _company_id, resolve_company_query
+from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
@@ -1885,7 +1885,8 @@ def _pp_diff(curr: float | None, prev: float | None) -> float | None:
     return round(curr - prev, 2)
 
 
-async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quarters: int = 12) -> tuple[list[dict[str, Any]], list[str]]:
+async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
+                           num_quarters: int = 12, fiscal_month: int | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     """4Q × 3년 = 12분기 standalone 손익. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출.
 
     DART 필드 실측 (SK하이닉스 2025, 2026-06-12):
@@ -1935,9 +1936,15 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             cum9_by_year[year] = _build_account_map(rows, period="thstrm_add")
         if rc != "11011":
             q_standalone_by_year.setdefault(year, {})[label] = bs_is
+        period_end = next((str(r.get("thstrm_dt") or r.get("stlm_dt") or "").replace(".", "-")
+                           for r in rows if r.get("thstrm_dt") or r.get("stlm_dt")), None)
         out.append({
             "year": year,
+            "fiscal_year": (int(period_end[:4]) if period_end and len(period_end) >= 4 else year),
             "quarter": label,
+            "fiscal_quarter": label,
+            "fiscal_year_end_month": fiscal_month or 12,
+            "period_end": period_end,
             "reprt_code": rc,
             "revenue_krw": bs_is.get("revenue"),
             "operating_profit_krw": bs_is.get("operating_profit"),
@@ -2161,6 +2168,12 @@ async def build_financial_metrics_payload(
 
     selected = resolution.selected
     corp_code = selected["corp_code"]
+    company_info, company_info_warning = await _safe_company_info(corp_code)
+    fiscal_month_raw = company_info.get("acc_mt") or ""
+    try:
+        fiscal_month = int(fiscal_month_raw)
+    except (TypeError, ValueError):
+        fiscal_month = None
     # 금융사 판별 2차 신호(KSIC 업종) — mkt_fundamentals에서 DART 콜 없이 조회. 수신 없어(예수부채 無)
     # BS신호가 놓치는 카드·캐피탈·VC(삼성카드·미래에셋벤처투자 등) 보완. DB 미설정/미수록이면 None(무해).
     induty_code = await asyncio.to_thread(_lookup_induty_code, corp_code, selected.get("stock_code", ""))
@@ -2179,6 +2192,8 @@ async def build_financial_metrics_payload(
         target_year = _default_recent_year()
 
     warnings: list[str] = []
+    if company_info_warning:
+        warnings.append(f"회사 결산월 조회 실패 — 분기 라벨은 DART 조회연도 기준: {company_info_warning}")
     evidence_refs: list[EvidenceRef] = []
     data: dict[str, Any] = {
         "query": company_query,
@@ -2192,6 +2207,7 @@ async def build_financial_metrics_payload(
         "year": target_year,
         "fs_div": fs_div,
         "consolidated": consolidated,
+        "fiscal_year_end_month": fiscal_month,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
@@ -2236,7 +2252,7 @@ async def build_financial_metrics_payload(
             ))
 
     elif scope == "quarterly":
-        rows, ws = await _build_quarterly(corp_code, target_year, fs_div)
+        rows, ws = await _build_quarterly(corp_code, target_year, fs_div, fiscal_month=fiscal_month)
         warnings.extend(ws)
         data["quarterly"] = rows
         filing_count = len(rows)
@@ -2292,7 +2308,8 @@ async def build_financial_metrics_payload(
             ))
 
     elif scope == "qoq":
-        rows, ws = await _build_quarterly(corp_code, target_year, fs_div, num_quarters=4)
+        rows, ws = await _build_quarterly(corp_code, target_year, fs_div, num_quarters=4,
+                                           fiscal_month=fiscal_month)
         warnings.extend(ws)
         # 직전 분기 vs 당기 비교
         if len(rows) >= 2:

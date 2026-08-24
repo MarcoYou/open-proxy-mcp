@@ -212,7 +212,7 @@ def _render_quarterly(data: dict[str, Any]) -> list[str]:
         return ["## 분기 추이", "_데이터 없음_"]
     lines = ["## 분기 추이 (최근 12분기, 전 행 standalone 3개월 기준)"]
     lines.append("")
-    lines.append("| 연도-분기 | 매출 | QoQ | YoY | 영업이익 | QoQ | YoY | 순이익 | 영업이익률 |")
+    lines.append("| 사업연도-분기 | 매출 | QoQ | YoY | 영업이익 | QoQ | YoY | 순이익 | 영업이익률 |")
     lines.append("|-----------|------|-----|-----|----------|-----|-----|--------|------------|")
     has_cumulative_q4 = False
     for r in rows:
@@ -223,7 +223,7 @@ def _render_quarterly(data: dict[str, Any]) -> list[str]:
             mark = " ⚠연간"
             has_cumulative_q4 = True
         lines.append(
-            f"| {r.get('year')}-{r.get('quarter')}{mark} | "
+            f"| {r.get('fiscal_year', r.get('year'))}-{r.get('fiscal_quarter', r.get('quarter'))}{mark} | "
             f"{_format_krw_human(r.get('revenue_krw'))} | "
             f"{_chg(qoq.get('revenue'))} | {_chg(yoy.get('revenue'))} | "
             f"{_format_krw_human(r.get('operating_profit_krw'))} | "
