@@ -34,6 +34,16 @@ def fast_web(monkeypatch):
     return _FAST
 
 
+@pytest.fixture(autouse=True)
+def _dummy_key(monkeypatch):
+    """CI 에는 키가 없다. 이 파일의 테스트는 **스로틀만** 보고 네트워크를 안 타므로
+    더미 키로 클라이언트를 세운다 — 키가 없으면 생성자가 ValueError 를 낸다.
+    (260824 배포 실패: 로컬 .env 에 키가 있어 못 보고 지나갔다. unit 은 키·네트워크 0 이 규칙이다.)"""
+    monkeypatch.setenv("OPENDART_API_KEY", "test-dummy-key")
+    import open_proxy_mcp.dart.client as C
+    monkeypatch.setattr(C, "_client_pool", {}, raising=False)
+
+
 def _client():
     from open_proxy_mcp.dart.client import get_dart_client
     cl = get_dart_client()
