@@ -551,3 +551,64 @@ def test_name_column_is_recognised_even_when_its_label_has_spaces() -> None:
 
     (rec,) = row_checksums(column_view(parse_table(html)))
     assert rec["sum"] == "20,772,820" and rec["ok"] is True
+
+
+# ── 260824 T 5회차 병목: 뺄 원본(분모)이 없었다 ────────────────────────────
+
+def test_deposit_breakdown_title_is_recognised_and_lookalikes_are_not() -> None:
+    from open_proxy_mcp.services.financial_notes import is_deposit_breakdown
+
+    assert is_deposit_breakdown("(2) 보고기간말 현재 예치금의 구성내역은 다음과 같습니다")
+    assert is_deposit_breakdown("6. 현금및예치금 보고기간종료일 현재 현금및예치금의 세부 내역은")
+    assert is_deposit_breakdown("(1) 현금 및 예치금의 종류별 내역 당반기말과 전기말 현재")
+    # 제목에 예치금이 있어도 분모가 아닌 표들 — 이걸 안 거르면 신용위험표가 분모로 붙는다
+    assert not is_deposit_breakdown("(6) 예치금의 신용위험 당반기말 현재 예치금의 신용건전성은")
+    assert not is_deposit_breakdown("(3) 당반기 중 예치금에 대한 대손충당금 변동내역은")
+    assert not is_deposit_breakdown("(2) 사용이 제한된 예치금의 구성내역은 다음과 같습니다")
+
+
+def test_restricted_note_ships_the_table_it_must_be_subtracted_from() -> None:
+    # 뺄 금액만 주고 뺄 원본을 안 주면 계산이 안 된다 — 6사 중 5사가 여기서 막혔다.
+    html = _doc(
+        "<P>(2) 보고기간말 현재 예치금의 구성내역은 다음과 같습니다(단위:백만원).</P>"
+        "<TABLE><TR><TH>구분</TH><TH>당반기말</TH></TR>"
+        "<TR><TD>특정예금</TD><TD>44</TD></TR>"
+        "<TR><TD>기타예금</TD><TD>80,308</TD></TR>"
+        "<TR><TD>외화정기예금 등</TD><TD>11,349</TD></TR>"
+        "<TR><TD>합계</TD><TD>91,701</TD></TR></TABLE>"
+        "<P>(3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은 다음과 같습니다(단위:백만원).</P>"
+        "<TABLE><TR><TH>구분</TH><TH>당반기말</TH></TR>"
+        "<TR><TD>특정예금</TD><TD>44</TD></TR>"
+        "<TR><TD>기타예금</TD><TD>14,963</TD></TR>"
+        "<TR><TD>외화정기예금 등</TD><TD>11,349</TD></TR>"
+        "<TR><TD>합계</TD><TD>26,356</TD></TR></TABLE>"
+    )
+
+    tables = extract(html, ["사용제한"])["사용제한"]["tables"]
+
+    den = [t for t in tables if t.get("role") == "분모"]
+    assert len(den) == 1
+    assert "예치금의 구성내역" in den[0]["title"]
+    # 91,701 − 26,356 = 65,345 — 뺄셈의 양변이 같은 주석·같은 단위에서 나온다
+    assert den[0]["unit"] == "백만원"
+
+
+def test_checksum_handles_a_table_that_has_subtotals_as_well_as_a_total() -> None:
+    # 국민은행·신한은행 예치금 구성내역은 원화 소계 · 외화 소계 · 합계 셋이다.
+    # 예전에는 「합계 행이 하나일 때만」이라 이런 표를 통째로 건너뛰었다.
+    from open_proxy_mcp.services.financial_notes import column_view, row_checksums
+
+    html = ("<TABLE><TR><TH>과목</TH><TH>당반기말</TH></TR>"
+            "<TR><TD>한국은행예치금</TD><TD>13,653,862</TD></TR>"
+            "<TR><TD>예금은행예치금</TD><TD>130,173</TD></TR>"
+            "<TR><TD>기타예치금</TD><TD>18,351</TD></TR>"
+            "<TR><TD>소계</TD><TD>13,802,386</TD></TR>"
+            "<TR><TD>외화타점예치금</TD><TD>14,426,853</TD></TR>"
+            "<TR><TD>정기예치금</TD><TD>273,218</TD></TR>"
+            "<TR><TD>기타예치금</TD><TD>1,486,585</TD></TR>"
+            "<TR><TD>소계</TD><TD>16,186,656</TD></TR>"
+            "<TR><TD>합계</TD><TD>29,989,042</TD></TR></TABLE>")
+
+    (rec,) = row_checksums(column_view(parse_table(html)))
+    # 소계를 같이 더했으면 정확히 두 배가 됐다
+    assert rec["n"] == 6 and rec["sum"] == "29,989,042" and rec["ok"] is True

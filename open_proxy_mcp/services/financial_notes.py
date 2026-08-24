@@ -930,6 +930,71 @@ def extract(html: str, fields: list[str] | None = None) -> dict[str, Any]:
     return extract_regions(parts, fields, sheets)
 
 
+# ── 분모표: 「예치금의 구성내역」 ──────────────────────────────────────────
+#
+# 🔴 **260824 T 5회차 — 6사 중 5사가 unencumbered 를 못 냈고 병목이 하나였다.**
+#    뺄 금액(사용제한)은 나오는데 **뺄 원본(예치금 잔액)** 이 없었다. 재무상태표는
+#    은행·증권을 「현금및예치금」으로 묶어 실어서 그대로 쓰면 현금까지 분모에 들어간다.
+#    그런데 **그 분해는 사용제한 주석 바로 앞 항에 거의 항상 있다.** 실측 —
+#      KB손보  (2) 예치금의 구성내역 91,701      → (3) 사용제한 26,356    = 65,345
+#      국민은행 (1) 예치금의 구성내역 29,989,042 → (2) 사용제한 25,282,482 = 4,706,560
+#      신한은행 (1) 현금 및 예치금의 종류별 내역 38,213,613 → (2) 사용제한 18,499,662
+#      메리츠   6. 현금및예치금 세부 내역 10,080,062,941천원 → 31-1 사용제한
+#    국민은행 실측이 재무상태표를 쓰면 안 되는 이유를 그대로 보여준다 —
+#    재무상태표 현금및예치금 32,554,519 vs 주석 예치금 29,989,042, 차이 2,565,477 이 현금.
+#    그대로 썼으면 분모가 2.57조 부풀었다.
+#
+# 🔴 **덤으로 단위 문제가 사라진다.** 메리츠 주석표는 **천원**이고 재무상태표는 **원**이다.
+#    같은 응답 안에서 분자는 천원·분모는 원이라 그냥 빼면 1,000배 어긋났다(T 5회차 최대 함정).
+#    분모를 같은 주석에서 가져오면 단위가 저절로 맞는다.
+
+#: 분모표로 쓸 수 있는 제목 — 「무엇으로 이루어져 있나」를 말하는 표만.
+_DEN_GOOD = ("구성내역", "구성 내역", "세부 내역", "세부내역", "종류별 내역", "종류별내역", "내역")
+#: 제목에 예치금이 있어도 분모가 아닌 표들. 이걸 안 빼면 신용위험표가 분모로 붙는다.
+_DEN_BAD = ("신용위험", "신용건전성", "대손충당금", "변동내역", "현금흐름", "만기",
+            "위험", "공정가치", "사용이 제한", "사용제한", "담보")
+
+
+def is_deposit_breakdown(title: str) -> bool:
+    """이 표가 「예치금이 무엇으로 이루어져 있나」인가 — 사용제한을 뺄 **원본**이다."""
+    head = (title or "").split("(단위")[0]
+    if not head:
+        return False
+    if not any(k in head for k in ("예치금", "현금및예치금", "현금 및 예치금")):
+        return False
+    if any(k in head for k in _DEN_BAD):
+        return False
+    return any(k in head for k in _DEN_GOOD)
+
+
+def find_denominator(html: str, before: int) -> dict[str, Any] | None:
+    """`before` 앞쪽에서 가장 가까운 분모표. 원문이 짝으로 실은 바로 앞 항이다."""
+    best = None
+    upper = html.upper()
+    i = 0
+    while True:
+        start = upper.find("<TABLE", i)
+        if start < 0 or start >= before:
+            break
+        span = table_span(html, start)
+        if not span:
+            i = start + 6
+            continue
+        i = span[1]
+        parsed = parse_table(html[span[0]:span[1]], context=caption_before(html, span[0]))
+        if parsed["n_numeric"] < 3 or is_statement_table(parsed):
+            continue
+        title = title_only(parsed["caption"])
+        if not is_deposit_breakdown(title):
+            continue
+        best = {"anchor": "예치금 구성", "kind": "denominator", "pos": span[0],
+                "title": title, "axis": axis_of(parsed), "role": "분모",
+                "period": period_of(parsed), "account": None,
+                "heading": False, "weak": 0, "title_matched": True,
+                "body": "|".join(c["text"] for r in parsed["rows"] for c in r),
+                **parsed}
+    return best
+
 def extract_regions(
         regions: list[tuple[str | None, str]],
         fields: list[str] | None = None,
@@ -1050,6 +1115,25 @@ def extract_regions(
             elif len(bucket) > _MULTI_TABLE_LIMIT:
                 bucket = bucket[:_MULTI_TABLE_LIMIT]
             found.extend(bucket)
+        # 🔴 **뺄 금액만 주고 뺄 원본을 안 주면 계산이 안 된다.** 260824 T 5회차 —
+        #    6사 중 5사가 여기서 막혔다. 사용제한 표 바로 앞 항의 「예치금 구성내역」을
+        #    같은 주석에서 찾아 짝으로 싣는다. 재무상태표에서 가져오지 않는 이유 둘 —
+        #    ①은행·증권은 「현금및예치금」으로 현금과 묶여 있어 분모가 부푼다
+        #    ②재무상태표와 주석의 **단위가 다를 수 있다**(메리츠: 원 vs 천원).
+        if field == "사용제한" and found:
+            seen_den: set[str] = set()
+            dens = []
+            for basis, html in regions:
+                first = min((e["pos"] for e in found
+                             if e.get("table_basis") == basis), default=None)
+                if first is None:
+                    continue
+                den = find_denominator(html, first)
+                if den and den["body"] not in seen_den:
+                    seen_den.add(den["body"])
+                    den["table_basis"] = basis
+                    dens.append(den)
+            found.extend(dens)
         _order = {"연결": 0, "별도": 1}
         found.sort(key=lambda e: (_order.get(e.get("table_basis"), 2), e["pos"]))
         if found:
@@ -1313,10 +1397,16 @@ def row_checksums(view: dict[str, Any] | None) -> list[dict[str, Any]]:
         return []
     names = view["rows"]
     tot = [i for i, n in enumerate(names) if is_totalish(n)]
-    if len(tot) != 1 or len(names) < 3:
+    if not tot or len(names) < 3:
         return []
-    ti = tot[0]
-    others = [i for i in range(len(names)) if i != ti]
+    # 🔴 **소계가 섞여 있어도 검산은 된다.** 260824 실측 — 국민은행·신한은행 예치금
+    #    구성내역은 원화 소계 · 외화 소계 · 합계 셋이다. 예전에는 「합계 행이 하나일
+    #    때만」이라 이런 표를 통째로 건너뛰었다. **마지막 합계 행을 총계로 보고,
+    #    소계 행은 더하는 쪽에서 뺀다** — 안 그러면 두 번 세어 반드시 어긋난다.
+    ti = tot[-1]
+    others = [i for i in range(len(names)) if i not in set(tot)]
+    if len(others) < 2:
+        return []
     out: list[dict[str, Any]] = []
     for cc in view["columns"]:
         stated = to_number(cc["values"][ti])

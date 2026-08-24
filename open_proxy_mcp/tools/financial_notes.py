@@ -75,7 +75,12 @@ def _checksum_lines(view: dict | None, total_view: dict | None = None,
             return []
         head = ["> 🧮 **검산** — 원문 「{}」 행을 나머지 행의 합과 맞춰 봤다.".format(rc[0]["row"])]
         for r in rc[:_CK_LIMIT]:
-            mark = "✅ 일치" if r["ok"] else "🔴 **불일치 — 표를 그대로 인용하지 말 것**"
+            # 🔴 안 맞는다고 반드시 도구가 틀린 것은 아니다 — 원문이 차감 항목을
+            #    섞어 놓은 표도 있다(신한은행 「현금및예치금 − 사용제한 − 3개월초과」).
+            #    「인용하지 말 것」으로 못 박으면 멀쩡한 표까지 버리게 된다.
+            mark = ("✅ 일치" if r["ok"] else
+                    "🔴 **안 맞는다** — 열이 밀렸거나, 원문이 단순 나열이 아니다"
+                    "(차감 항목이 섞인 표). 원문 제목을 보고 판단할 것")
             head.append(f">  · {r['column']}: {r['n']}행 합 {r['sum']} / 원문 {r['stated']} → {mark}")
         head.append("")
         return head
@@ -121,7 +126,7 @@ def _render(payload: dict) -> str:
         for t in res["tables"]:
             # 🔴 원문의 짝(세부표 ↔ 합계표)은 「표가 여러 개」 경고 대상이 아니다.
             #    그건 우리가 일부러 함께 낸 것이고, 바로 아래에 🧾 로 따로 알린다.
-            if t.get("role") == "합계":
+            if t.get("role") in ("합계", "분모"):
                 continue
             by_kind[t["kind"]] = by_kind.get(t["kind"], 0) + 1
         for k, n in by_kind.items():
@@ -199,7 +204,15 @@ def _render(payload: dict) -> str:
                     L.append(f"> 📄 원문 제목: {t['title'][:150]}")
             if t.get("account"):
                 tot = t.get("account_total")
-                if tot and tot.get("spread"):
+                has_den = any(o.get("role") == "분모"
+                              and o.get("table_basis") == t.get("table_basis")
+                              for o in res["tables"])
+                if has_den:
+                    L.append(f"> 🏷 이 금액이 붙어 있는 계정: **{t['account']}** · "
+                             f"✅ **뺄 원본은 위 「분모표」다** — 같은 주석에 실린 구성내역이라 "
+                             f"**단위와 기준이 이 표와 같다.** 재무상태표 잔액은 계정이 묶여 있어 "
+                             f"쓰지 않는다.")
+                elif tot and tot.get("spread"):
                     L.append(f"> 🏷 이 금액이 붙어 있는 계정: **{t['account']}** · "
                              f"🔴 **재무상태표에 그 이름의 계정이 따로 없다 — 여러 계정에 "
                              f"걸쳐 있다**({' · '.join(tot['spread'])} 등). 어느 것이 분모인지 "
@@ -249,6 +262,15 @@ def _render(payload: dict) -> str:
                          f"「{t['anchor']}…내역/공시」라는 제목을 붙이지 않았다. "
                          "위험·공정가치수준별 같은 **다른 표일 수 있으니 그대로 인용하지 말 것.** "
                          "위 「원문 제목」 한 줄로 무슨 표인지 먼저 확인할 것.")
+            if t.get("role") == "분모":
+                L.append("> 🧮 **분모표 — 위 사용제한액을 여기서 뺀다.** 원문이 사용제한 주석 "
+                         "**바로 앞 항**에 실은 구성내역이다. **재무상태표 대신 이걸 쓴다** — "
+                         "재무상태표는 은행·증권을 「현금및예치금」으로 묶어 실어 분모가 부풀고"
+                         "(국민은행 실측 32,554,519 vs 주석 29,989,042 — 차이 2,565,477 이 현금), "
+                         "**단위도 다를 수 있다**(메리츠: 재무상태표 원 · 주석 천원). "
+                         "🔴 **사용제한 표가 계정별로 나뉘어 있으면 같은 계정 부분만 뺄 것** — "
+                         "메리츠 31-1 은 현금및예치금과 당기손익-공정가치측정금융자산이 함께 있어 "
+                         "합계를 통째로 빼면 과소계상이다.")
             if t.get("role") == "합계":
                 L.append("> 🧾 **원문이 따로 실은 합계표다** — 바로 위 세부표의 짝이다. "
                          "세부표의 잎을 더한 값과 여기 값이 맞아야 정렬이 맞은 것이다. "
