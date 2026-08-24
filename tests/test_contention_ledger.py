@@ -277,3 +277,25 @@ def test_cpu_time_separates_waiting_from_working():
     work_ms = _drive(worked, n=1)[0]["cpu_ms"]
     assert wait_ms < 30, f"기다리기만 했는데 CPU {wait_ms}ms 로 잡혔다"
     assert work_ms > wait_ms, f"태웠는데 안 잡혔다 ({work_ms}ms vs {wait_ms}ms)"
+
+
+def test_health_can_tell_the_machines_apart_without_naming_them():
+    """머신 ID 원문은 public `/health` 에 못 둔다(인프라 좌표는 private). 그런데
+    **두 대가 실제로 갈라 받고 있나**는 물어볼 수 있어야 한다 — 260824 에 동시성이
+    높았던 네 구간 전부 한 머신이 100% 를 받고 있었고 그건 로그로 잘 안 보였다."""
+    import os
+
+    from open_proxy_mcp.server import _instance_tag
+    old = os.environ.get("FLY_MACHINE_ID")
+    try:
+        os.environ["FLY_MACHINE_ID"] = "832e73a7701738"
+        a = _instance_tag()
+        os.environ["FLY_MACHINE_ID"] = "84e667b22d22d8"
+        b = _instance_tag()
+    finally:
+        os.environ.pop("FLY_MACHINE_ID", None)
+        if old is not None:
+            os.environ["FLY_MACHINE_ID"] = old
+    assert a != b, "두 머신이 같은 표식을 낸다 — 구별이 안 된다"
+    assert "832e73a7701738" not in a and "84e667b22d22d8" not in b, "ID 원문이 샌다"
+    assert len(a) == 8

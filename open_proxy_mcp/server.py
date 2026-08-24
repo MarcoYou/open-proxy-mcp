@@ -97,7 +97,7 @@ def build_mcp() -> MCPServer:
     @mcp.custom_route("/health", methods=["GET"])
     async def _health(_request):
         from starlette.responses import JSONResponse
-        from open_proxy_mcp.dart.client import cache_stats
+        from open_proxy_mcp.dart.client import cache_stats, inflight_now
         from open_proxy_mcp.db import pool_stats
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
@@ -121,6 +121,13 @@ def build_mcp() -> MCPServer:
             # 풀이 실제로 서고 있나 · 대기가 쌓이나. 「빠르게 하려고 둔 것」이 조용히
             #   fail-open 으로 꺼져 있으면 숫자로만은 알 수 없어서 함께 낸다.
             "pg_pool": pool_stats(),
+            # 어느 머신이 답했나 · 지금 몇 건이 돌고 있나 (260824).
+            #   머신 ID 자체는 안 낸다 — 인프라 좌표는 private 이다. 짧은 해시로도
+            #   「두 대가 실제로 갈라 받고 있나」는 답한다. 그 질문이 계기였다:
+            #   동시성이 높았던 7월 네 구간 전부 **한 머신이 100%** 를 받고 있었고,
+            #   fly 가 부하를 연결 수로 세는 한 그 편중은 로그로도 잘 안 보인다.
+            "instance": _instance_tag(),
+            "inflight": inflight_now(),
         })
 
     return mcp
@@ -179,6 +186,14 @@ _NODATA_RE = re.compile(rb"\[nodata=(\w+)\]")       # 「자료 없음」은 답
 #: 1 GB VM 에 OOM 이력(260804)이 있어 상한 없는 누적은 그대로 둘 수 없다.
 #: 여기서 멈춰도 replay 가 나머지를 receive() 로 흘려보내므로 하류는 온전한 본문을 받는다.
 _MAX_SNIFF_BYTES = 64 * 1024
+
+
+def _instance_tag() -> str:
+    """머신을 **구별만** 할 수 있는 짧은 표식. ID 원문은 내지 않는다."""
+    import hashlib
+    import os
+    mid = os.environ.get("FLY_MACHINE_ID") or "local"
+    return hashlib.sha256(mid.encode()).hexdigest()[:8]
 
 
 class ApiKeyMiddleware:
