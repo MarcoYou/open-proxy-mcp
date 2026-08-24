@@ -36,18 +36,27 @@ def _render(p: dict) -> str:
     rep = d.get("report", {})
     per = d.get("period") or {}
     label = "결산 잠정치" if d.get("provisional_type") == "fiscal_year_change" else "영업(잠정)실적"
+    if d.get("fiscal_year"):
+        if d.get("period_kind") == "annual":
+            label = f"{d['fiscal_year']} 사업연도 {label}"
+        elif d.get("fiscal_quarter"):
+            label = f"{d['fiscal_year']} 사업연도 {d['fiscal_quarter']}분기 {label}"
     L = [f"## {subj} — {label}  ({rep.get('report_nm','')}, 공시 {rep.get('rcept_dt','')})"]
     basis = "연결" if d.get("consolidated") else "별도/개별"
-    L.append(f"_{basis} · 실적기간 {per.get('start','?')}~{per.get('end','?')} · 단위원문 {d.get('unit_raw','')}_")
+    period_note = ""
+    if d.get("fiscal_year_end_month"):
+        period_note = f" · {d['fiscal_year_end_month']}월 결산"
+    L.append(f"_{basis} · 실적기간 {per.get('start','?')}~{per.get('end','?')}{period_note} · 단위원문 {d.get('unit_raw','')}_")
 
-    # headline(best-effort): 재무형이면 매출·영업익·순익 당기+YoY 한 줄
+    # headline(best-effort): 재무형이면 매출·영업익·순익 당기+기간에 맞는 비교율
     head = d.get("headline") or {}
+    comparison_basis = d.get("comparison_basis") or "전년동기 대비"
     if head:
         parts = []
         for key in ("revenue", "operating_profit", "net_income"):
             m = head.get(key)
             if m and m.get("value_krw") is not None:
-                yoy = f" (YoY {m['yoy_pct']:+.1f}%)" if m.get("yoy_pct") is not None else ""
+                yoy = f" ({comparison_basis} {m['yoy_pct']:+.1f}%)" if m.get("yoy_pct") is not None else ""
                 turn = f" · {m['turnover']}" if m.get('turnover') else ""
                 parts.append(f"**{_LABEL[key]}** {_won(m['value_krw'])}{yoy}{turn}")
         if parts:
@@ -70,7 +79,7 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def provisional_earnings(company: str, format: str = "md") -> str:
-        """desc: DART 영업(잠정)실적(공정공시 I002)에서 분기 **잠정 매출·영업이익·순이익** + YoY/QoQ 추출. 정기보고서 확정치보다 **먼저 나오는 가장 빠른 실적 신호**(분기말 며칠 뒤).
+        """desc: DART 영업(잠정)실적(공정공시 I002)과 결산 잠정치(I001)에서 **잠정 매출·영업이익·순이익**과 회계연도 기준 비교율을 추출. 정기보고서 확정치보다 **먼저 나오는 가장 빠른 실적 신호**.
         when: 최신 분기 실적을 정기보고서(financial_metrics 확정치) 나오기 전에 볼 때. **잠정치**(감사 전)라 확정과 다를 수 있음 — 확정 재무비율은 `financial_metrics`.
         rule: 재무형(매출·영업이익 표)은 구조화 반환. 자동차 판매대수 등 **비재무형**은 raw 마크다운(kind=non_financial). 연결/별도 basis·실적기간·단위 명시. 값은 원문 그대로(원 단위 정규화), 잠정치.
         ref: financial_metrics, screener, valuation

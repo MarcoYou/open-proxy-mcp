@@ -1,4 +1,4 @@
-from open_proxy_mcp.services.provisional_earnings import parse_provisional_earnings
+from open_proxy_mcp.services.provisional_earnings import parse_provisional_earnings, _period_metadata
 
 
 STRUCTURE_CHANGE_HTML = """
@@ -25,6 +25,28 @@ def test_parse_i001_structure_change_table():
     assert parsed["provisional_type"] == "fiscal_year_change"
     assert parsed["unit_raw"] == "천원"
     assert parsed["period"] == {"start": "2025-07-01", "end": "2026-06-30"}
+    assert parsed["fiscal_year"] == 2026
+    assert parsed["fiscal_year_end_month"] == 6
+    assert parsed["period_kind"] == "annual"
+    assert parsed["comparison_basis"] == "직전사업연도 대비"
     assert parsed["headline"]["revenue"]["value_krw"] == 177_803_500_000
     assert parsed["headline"]["operating_profit"]["yoy_pct"] == 26.7
     assert parsed["headline"]["net_income"]["turnover"] == "흑자전환"
+
+
+def test_period_metadata_handles_march_year_end_quarter():
+    got = _period_metadata({"start": "2025-04-01", "end": "2025-06-30"})
+    assert got == {
+        "fiscal_year": 2026,
+        "fiscal_year_end_month": 3,
+        "period_kind": "quarter",
+        "fiscal_quarter": 1,
+        "comparison_basis": "전년동기 대비",
+    }
+
+
+def test_period_metadata_handles_december_year_end_quarter():
+    got = _period_metadata({"start": "2026-01-01", "end": "2026-03-31"})
+    assert got["fiscal_year"] == 2026
+    assert got["fiscal_year_end_month"] == 12
+    assert got["fiscal_quarter"] == 1
