@@ -10,7 +10,7 @@ import json
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services import financial_notes as svc
 from open_proxy_mcp.services.business_details import (
-    _find_report_candidates, _report_period_tag,
+    _find_report_candidates, _find_report_for_bsns_year, _report_period_tag,
 )
 from open_proxy_mcp.services.company import resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus
@@ -433,6 +433,51 @@ async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "
     return regions, sheets
 
 
+#: `year` 를 줬을 때 어떤 보고서를 찾을지. DART 표준 reprt_code —
+#: 11011=사업 · 11012=반기 · 11013=1분기 · 11014=3분기.
+_YEAR_CODES = {
+    "annual": ("11011",), "사업": ("11011",),
+    "half": ("11012",), "semiannual": ("11012",), "반기": ("11012",),
+    "quarter": ("11013", "11014"), "분기": ("11013", "11014"),
+    "1분기": ("11013",), "q1": ("11013",),
+    "3분기": ("11014",), "q3": ("11014",),
+    "quarterly": ("11012", "11013", "11014"),
+    "latest": ("11011", "11012", "11013", "11014"),
+}
+
+
+async def _candidates(client, corp_code: str, period: str, year: str) -> list[dict]:
+    """`year` 가 없으면 종류별 **최신** 한 건, 있으면 **그 사업연도**의 보고서.
+
+    🔴 **260824 시험자 지적 — 과거 시점을 부를 길이 아예 없었다.** `period` 는 종류만
+       고르고 그 종류의 최신 한 건을 쓴다. 표에 당기·전기가 함께 실려 **직전 기까지는**
+       보이지만, 그 이상 과거는 못 봤다. 사업연도로 정확히 집는 조회기는
+       `business_details` 에 이미 있었다(`_find_report_for_bsns_year`) — 그걸 쓴다.
+       분기는 한 해에 두 번(1분기·3분기) 나오므로 `period="1분기"`/`"3분기"` 로
+       콕 집을 수 있게 열어 둔다. 그냥 `quarter` 면 그 해의 **늦은 쪽**이 잡힌다.
+    """
+    y = (year or "").strip()
+    if not y:
+        return await _find_report_candidates(client, corp_code, period)
+    codes = _YEAR_CODES.get((period or "latest").strip().lower()) or _YEAR_CODES["latest"]
+    out: list[dict] = []
+    seen: set[str] = set()
+    for code in codes:
+        # 🔴 **그 해에 그 보고서가 없으면 DART 는 013 을 던진다.** 260824 실측 —
+        #    KB손해보험 `year=2019` 이 `DartClientError [013]` 로 그대로 터졌다.
+        #    「없다」는 예외가 아니라 답이다 — 삼켜서 「찾지 못했습니다」로 내보낸다.
+        try:
+            found = await _find_report_for_bsns_year(client, corp_code, y, code)
+        except DartClientError:
+            continue
+        for r in found:
+            if r["rcept_no"] not in seen:
+                seen.add(r["rcept_no"])
+                out.append(r)
+    out.sort(key=lambda r: r.get("rcept_dt", ""), reverse=True)
+    return out
+
+
 def register_tools(mcp):
 
     @mcp.tool()
@@ -441,6 +486,7 @@ def register_tools(mcp):
         fields: str = "",
         period: str = "latest",
         basis: str = "연결",
+        year: str = "",
         format: str = "md",
     ) -> str:
         """desc: **은행·증권·보험**의 연결/별도 **재무제표 주석** 표를 원형 그대로 추출. ①사용제한 예치금·담보제공자산(→unencumbered cash) ②투자자산 유형별 구성 FVPL·FVOCI·상각후원가(→유형별 헤어컷·자산건전성).
@@ -449,6 +495,7 @@ def register_tools(mcp):
         fields: 쉼표구분 — `사용제한,FVPL,FVOCI,상각후원가` (미지정 시 전부). 문서 다운로드는 회사당 1회라 한 번에 부르는 편이 싸다.
         period: `latest`(기본, 사업·반기·분기 중 최신 제출분) / `annual`(사업) / `half`(반기) / `quarter`(분기) / `quarterly`(분기+반기 중 최신). **`quarterly` 는 반기를 함께 잡으므로 분기만 보려면 `quarter` 를 쓸 것.**
         basis: `연결`(기본) / `별도` / `전체`. **기본이 연결인 이유는 받는 양과 호출 수가 절반이기 때문이다** — 두 기준을 다 받으면 시간이 두 배다. 별도가 필요하면 명시적으로 부를 것.
+        year: 사업연도 `YYYY`. **비우면 그 종류의 최신 보고서 한 건**이고, 주면 그 해의 보고서를 집는다 — 추이를 보려면 해를 바꿔가며 부를 것(2024 → 2025 → 2026). 표에 당기·전기가 함께 실리므로 **직전 기까지는 `year` 없이도 보인다.** 분기는 한 해에 둘(1분기·3분기)이라 `period="1분기"`/`"3분기"` 로 콕 집을 수 있고, 그냥 `quarter` 면 늦은 쪽이 잡힌다. 🔴 **해마다 단위가 달라질 수 있으니**(현대해상: 분기 원 · 반기 천원 · 사업 원) 이을 때 응답 머리의 `단위` 를 매번 볼 것.
         """
         want = [f.strip() for f in fields.split(",") if f.strip()] or list(svc.FIELDS)
         bad = [f for f in want if f not in svc.ANCHORS]
@@ -466,10 +513,12 @@ def register_tools(mcp):
         name = corp.get("corp_name", company)
         c = get_dart_client()
 
-        cands = await _find_report_candidates(c, corp_code, period)
+        cands = await _candidates(c, corp_code, period, year)
         if not cands:
-            return json.dumps({"error": "정기보고서를 찾지 못했습니다", "company": company},
-                              ensure_ascii=False)
+            miss = (f"{year} 사업연도의 {period} 보고서를 찾지 못했습니다"
+                    if (year or "").strip() else "정기보고서를 찾지 못했습니다")
+            return json.dumps({"error": miss, "company": company,
+                               "year": year, "period": period}, ensure_ascii=False)
 
         # 🔴 **먼저 목차 노드로 필요한 절만 받아본다.** 전체 문서는 최후 수단이다.
         node_hit = None

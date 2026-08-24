@@ -660,3 +660,59 @@ def test_hierarchical_table_does_not_double_count_parent_rows_in_the_checksum() 
 
     (rec,) = row_checksums(column_view(parse_table(html)))
     assert rec["sum"] == "160" and rec["ok"] is True
+
+
+# ── 260824 시험자 지적: 과거 시점을 부를 길이 없었다 ────────────────────────
+
+def test_year_maps_period_to_the_right_report_codes() -> None:
+    from open_proxy_mcp.tools.financial_notes import _YEAR_CODES
+
+    assert _YEAR_CODES["annual"] == ("11011",)
+    assert _YEAR_CODES["half"] == ("11012",)
+    # 분기는 한 해에 둘이라 콕 집을 수 있어야 한다
+    assert _YEAR_CODES["1분기"] == ("11013",)
+    assert _YEAR_CODES["3분기"] == ("11014",)
+    assert _YEAR_CODES["quarter"] == ("11013", "11014")
+
+
+def test_candidates_uses_the_latest_path_when_no_year_is_given() -> None:
+    import asyncio
+
+    from open_proxy_mcp.tools import financial_notes as tool
+
+    called: dict[str, object] = {}
+
+    async def fake_latest(client, corp_code, period):
+        called["latest"] = (corp_code, period)
+        return [{"rcept_no": "L", "rcept_dt": "20260814"}]
+
+    async def fake_year(client, corp_code, bsns_year, reprt_code):
+        called.setdefault("year", []).append((bsns_year, reprt_code))
+        return [{"rcept_no": reprt_code, "rcept_dt": "2024081" + reprt_code[-1]}]
+
+    tool._find_report_candidates = fake_latest
+    tool._find_report_for_bsns_year = fake_year
+
+    got = asyncio.run(tool._candidates(None, "C", "half", ""))
+    assert [r["rcept_no"] for r in got] == ["L"]
+    assert "year" not in called
+
+    got = asyncio.run(tool._candidates(None, "quarter", "quarter", "2024"))
+    # 1분기·3분기를 둘 다 찾고 제출일 늦은 쪽이 앞에 온다
+    assert called["year"] == [("2024", "11013"), ("2024", "11014")]
+    assert [r["rcept_no"] for r in got] == ["11014", "11013"]
+
+
+def test_a_year_with_no_filing_is_an_answer_not_an_exception() -> None:
+    # KB손해보험 year=2019 가 DartClientError [013] 로 그대로 터졌다(260824 실측).
+    import asyncio
+
+    from open_proxy_mcp.dart.client import DartClientError
+    from open_proxy_mcp.tools import financial_notes as tool
+
+    async def boom(client, corp_code, bsns_year, reprt_code):
+        raise DartClientError("013", "조회된 데이타가 없습니다.")
+
+    tool._find_report_for_bsns_year = boom
+
+    assert asyncio.run(tool._candidates(None, "C", "half", "2019")) == []

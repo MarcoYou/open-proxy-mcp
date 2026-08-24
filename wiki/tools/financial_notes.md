@@ -20,11 +20,34 @@ created: 2026-08-23
 `business_details` 는 「II. 사업의 내용」 담당이라 문서의 다른 장이다. 이 건은 「III. 재무에 관한 사항」이다.
 
 ## 사용법
-- `financial_notes(company, fields="", period="latest", format="md")`
+- `financial_notes(company, fields="", period="latest", basis="연결", year="", format="md")`
 - `fields` — 쉼표구분 `사용제한,FVPL,FVOCI,상각후원가`(미지정 시 전부). 문서 다운로드는 회사당 1회라
   한 번에 부르는 편이 싸다.
 - `period` — `latest`(기본) / `annual`(사업) / `half`(반기) / `quarter`(분기) /
   `quarterly`(분기+반기 중 최신). **`quarterly` 는 반기를 함께 잡으므로 분기만 보려면 `quarter`.**
+- `year` — 사업연도 `YYYY`. **비우면 그 종류의 최신 한 건**, 주면 그 해의 보고서를 집는다.
+
+### 과거 시점 (`year`)
+
+🔴 **260824 시험자 지적 — 과거를 부를 길이 아예 없었다.** `period` 는 보고서 **종류**만 고르고
+그 종류의 최신 한 건을 쓴다. 표에 당기·전기가 함께 실려 **직전 기까지는 `year` 없이도 보이지만**
+(KB손보 사용제한: 당반기말 26,356 / 전기말 391,082) 그 이상은 못 봤다.
+
+사업연도로 정확히 집는 조회기는 `business_details` 에 이미 있었다(`_find_report_for_bsns_year` —
+report_nm 기수라벨 `(YYYY.MM)` 로 매칭, 3월결산 같은 회사도 안전). `financial_notes` 가 그걸 쓴다.
+
+| period | 잡히는 보고서 (reprt_code) |
+|---|---|
+| `annual` | 사업 11011 |
+| `half` | 반기 11012 |
+| `quarter` | 1분기·3분기 둘 다 찾고 **늦은 쪽** |
+| `1분기` / `3분기` | 11013 / 11014 — 콕 집는다 |
+| `latest`(기본) | 그 해 넷 중 제출일 최신 |
+
+추이를 보려면 해를 바꿔가며 부른다 — `year=2024` → `2025` → `2026`.
+
+🔴 **이을 때 단위를 매번 볼 것.** 같은 회사도 보고서마다 다르다(현대해상: 분기 `원` · 반기 `천원` ·
+사업 `원`). 응답 머리의 `단위` 가 바뀌면 1,000배가 어긋난다.
 
 ## 어떻게 찾나 — 구조 앵커로 구간을 자른다
 DART 문서에는 목차 좌표가 태그로 박혀 있다(`<TITLE AASSOCNOTE="D-0-3-3-0">`).
